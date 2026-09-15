@@ -52,6 +52,9 @@ import { LINH_VUC_OPTIONS } from "../../../../lib/linh-vuc";
 import {
   INPUT,
   LABEL,
+  HANG,
+  HANG_LABEL,
+  HANG_LABEL_HEP,
   BTN,
   BTN_GHOST,
   CARD,
@@ -1083,23 +1086,12 @@ export default function NewPatientForm({
               placeholder="Nguyễn Thị A"
             />
           </div>
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <label className={LABEL + " mb-0"}>
-                {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
-              </label>
-              <label className="flex cursor-pointer items-center gap-1 text-meta text-ink-muted">
-                <input
-                  type="checkbox"
-                  checked={dobYearOnly}
-                  onChange={(e) => setDobYearOnly(e.target.checked)}
-                  className="accent-brand-600"
-                />
-                Chỉ biết năm
-              </label>
-            </div>
+          <div className={HANG}>
+            <label className={HANG_LABEL_HEP}>
+              {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
+            </label>
             {dobYearOnly ? (
-              <div>
+              <div className="min-w-0 flex-1">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -1120,7 +1112,7 @@ export default function NewPatientForm({
                 )}
               </div>
             ) : (
-              <div>
+              <div className="min-w-0 flex-1">
                 <DateField
                   value={dobIso}
                   onChange={setDobIso}
@@ -1133,6 +1125,18 @@ export default function NewPatientForm({
                 )}
               </div>
             )}
+            {/* Ô tích đi CÙNG DÒNG với ô ngày (16/09/2026) — nó đổi chính ô
+                bên cạnh, để tách ra một dòng riêng thì phải dò xem nó đổi cái
+                gì. */}
+            <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-meta text-ink-muted">
+              <input
+                type="checkbox"
+                checked={dobYearOnly}
+                onChange={(e) => setDobYearOnly(e.target.checked)}
+                className="accent-brand-600"
+              />
+              Chỉ biết năm
+            </label>
           </div>
           <div>
             <label className={LABEL}>
@@ -1291,24 +1295,24 @@ export default function NewPatientForm({
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Quốc tịch</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Quốc tịch</label>
             <input
               value={nationality}
               onChange={(e) => setNationality(e.target.value)}
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Nghề nghiệp</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Nghề nghiệp</label>
             <input
               value={occupation}
               onChange={(e) => setOccupation(e.target.value)}
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Đối tượng</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Đối tượng</label>
             <input
               value={objection}
               onChange={(e) => setObjection(e.target.value)}
@@ -1347,8 +1351,8 @@ export default function NewPatientForm({
               ariaLabel="Phường / Xã"
             />
           </div>
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Địa chỉ chi tiết (số nhà, đường)</label>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>Địa chỉ chi tiết</label>
             <input
               value={addressDetail}
               onChange={(e) => setAddressDetail(e.target.value)}
@@ -1357,8 +1361,8 @@ export default function NewPatientForm({
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Vấn đề khiến bệnh nhân đi khám</label>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>Vấn đề đi khám</label>
             <input
               value={vanDe}
               onChange={(e) => setVanDe(e.target.value)}
@@ -1517,8 +1521,8 @@ export default function NewPatientForm({
           hint="Mục có dấu * là bắt buộc (Dịch vụ, Bác sĩ, Ngày, Giờ, Kênh đặt)."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={LABEL}>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>
               Dịch vụ khám <Req />
             </label>
             <select
@@ -1539,6 +1543,29 @@ export default function NewPatientForm({
               ))}
             </select>
           </div>
+          {/* KÊNH ĐẶT ngay dưới Dịch vụ khám (Tuyền 16/09/2026): hai ô này là
+              "khám gì" và "khách tới từ đâu" — trả lời một lượt rồi mới tới
+              chuyện xếp giờ. Ô "Có siêu âm" đã bỏ khỏi biểu mẫu khách mới: siêu
+              âm là một DỊCH VỤ trong ô ngay trên, nên hỏi lại bằng ô tích là
+              mời người nhập tự mâu thuẫn với chính mình. Cột `need_sono` vẫn
+              còn và luồng VÃNG LAI của lễ tân vẫn tích được. */}
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>
+              Kênh đặt {!gheTrucTiep && <Req />}
+            </label>
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              className={INPUT}
+            >
+              <option value="" disabled hidden>— Chọn kênh —</option>
+              {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
           {/* Ô "Tìm bác sĩ" ĐÃ BỎ — bác sĩ chọn bằng cách bấm một ô trong SƠ ĐỒ
               KHUNG GIỜ ngay dưới đây (`onPick` set thẳng `doctorId`).
 
@@ -1555,7 +1582,7 @@ export default function NewPatientForm({
               chỗ và khung giờ đều do backend nói. */}
           <div className="sm:col-span-2 space-y-2">
             <label className={LABEL}>
-              Bác sĩ, ngày &amp; khung giờ <Req />
+              Chọn giờ khám <Req />
             </label>
             <div className="rounded-card border border-hairline p-2">
               <BangBacSiTuan
@@ -1568,7 +1595,6 @@ export default function NewPatientForm({
                     ? { doctorId: oLich.doctorId, date: oLich.date, time: apptTime }
                     : null
                 }
-                locBacSi="all"
                 onChonKhung={(v) => {
                   setOLich({ doctorId: v.doctorId, doctorName: v.doctorName, date: v.date });
                   setApptDate(v.date);
@@ -1598,24 +1624,6 @@ export default function NewPatientForm({
               </p>
             )}
           </div>
-          <div>
-            {/* Khách MỚI ⇒ luôn Khám mới (EPI-01 DEC-E5): bỏ nút Loại khám, giữ NEW. */}
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                marginTop: 6,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={needSono}
-                onChange={(e) => setNeedSono(e.target.checked)}
-              />
-              Có siêu âm
-            </label>
-          </div>
           {/* SƠ ĐỒ CHỖ ĐÃ BỎ KHỎI BIỂU MẪU KHÁCH MỚI (Quang chốt 09/08/2026).
 
               Nó vẽ MỘT HÀNG CHO MỖI BÁC SĨ nhân với mọi khung giờ trong ngày —
@@ -1627,23 +1635,6 @@ export default function NewPatientForm({
               Hai ô Ngày khám / Giờ ở trên vẫn đủ để đặt: thiếu bác sĩ thì lịch
               đi ra với doctor_id rỗng và rơi vào hàng đợi "Chờ xếp bác sĩ". */}
           {/* Số khám: KHÔNG nhập tay — hệ tự cấp khi check-in. */}
-          <div>
-            <label className={LABEL}>
-              Kênh đặt {!gheTrucTiep && <Req />}
-            </label>
-            <select
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              className={INPUT}
-            >
-              <option value="" disabled hidden>— Chọn kênh —</option>
-              {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </section>
       )}

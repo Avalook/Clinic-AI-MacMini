@@ -363,9 +363,6 @@ export default function BookingHub({
   // chọn — và panel bên phải cũng ghi tên nó, nên trông càng giống một lựa chọn
   // có chủ ý.
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  // Ô lọc bác sĩ đã bỏ khỏi hàng lọc 16/09/2026 — điểm neo ở ngay chỗ nó từng
-  // đứng. State giữ lại vì `BangBacSiTuan` vẫn nhận `locBacSi`; nay luôn "all".
-  const [selectedDoctorId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // `?bn=<mã bệnh nhân>` — CSKH bấm "Đặt lịch mới" từ màn Quản lý khách hàng
@@ -1223,18 +1220,17 @@ export default function BookingHub({
                   </select>
                 </div>
 
-                {/* ĐIỂM NEO — hai ô đã bỏ khỏi hàng này (Tuyền 16/09/2026):
-                    *"nút tất cả bác sĩ và nút lịch làm việc đâu còn ý nghĩa gì
-                    ở đây nữa"*.
+                {/* HAI Ô ĐÃ BỎ KHỎI HÀNG NÀY (Tuyền 16/09/2026): *"nút tất cả
+                    bác sĩ và nút lịch làm việc đâu còn ý nghĩa gì ở đây nữa"*.
 
-                      · ô lọc "Tất cả bác sĩ" (`selectedDoctorId`) — bảng Bác sĩ
-                        × tuần ngay dưới đã liệt kê TỪNG bác sĩ thành một hàng,
-                        nên lọc còn một người là giấu đi chính thứ màn này bày
-                        ra. State vẫn giữ nguyên và vẫn đi xuống `locBacSi`, chỉ
-                        đứng ở "all" — muốn trả ô lọc về thì dựng lại `<select>`
-                        đúng chỗ này với `setSelectedDoctorId`.
-                      · nút "📅 Lịch làm việc" (`<Link href="/schedule">`) — lịch
-                        trực đã nằm trong chính bảng tuần.
+                      · ô lọc "Tất cả bác sĩ" — đã ĐI XUỐNG chính cột "Bác sĩ"
+                        của bảng tuần (BangBacSiTuan): bấm tên cột là ra ô tìm
+                        + danh sách tên. Bộ lọc nằm trên đúng cột nó lọc, và
+                        nó ở lại khi đổi khách — chốt một bác sĩ rồi đặt cùng
+                        một khung cho nhiều khách liên tiếp.
+                      · nút "📅 Lịch làm việc" (`<Link href="/schedule">`) —
+                        lịch trực đã nằm trong chính bảng tuần. Muốn trả lại thì
+                        dựng lại ở đúng chỗ này.
 
                     Chỗ hai ô ấy nay là bộ chọn tuần + nút "Hôm nay", trước nằm
                     trên một tấm thẻ trắng riêng bên dưới (đã bỏ luôn tấm thẻ). */}
@@ -1319,7 +1315,6 @@ export default function BookingHub({
                       ? { doctorId: oChon.doctorId, date: oChon.date, time: selectedSlot.time }
                       : null
                   }
-                  locBacSi={selectedDoctorId}
                   onChonKhung={chonKhungTuBang}
                 />
               </div>
@@ -1359,10 +1354,14 @@ export default function BookingHub({
               {/* Patient info box */}
               {activePatient && (
                 <div className="rounded-xl border border-line bg-surface-muted/60 p-3 space-y-2 text-xs">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <User size={15} className="text-ink-muted shrink-0" />
-                      <div>
+                  {/* BA DÒNG, KHÔNG HAI CỘT (Tuyền 16/09/2026): tên — mã —
+                      số điện thoại. Panel rộng 220px, nên tên và số chen một
+                      dòng thì tên dài bị cắt giữa chừng đúng lúc người trực
+                      đang đọc để gọi cho khách. */}
+                  <div>
+                    <div className="flex items-start gap-2">
+                      <User size={15} className="mt-0.5 text-ink-muted shrink-0" />
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-ink">
                             {activePatient.full_name}
@@ -1382,11 +1381,11 @@ export default function BookingHub({
                         <div className="text-label text-ink-muted font-mono">
                           {activePatient.patient_code}
                         </div>
+                        <div className="mt-0.5 flex items-center gap-1 text-ink-muted font-mono">
+                          <Phone size={12} className="shrink-0" />
+                          <span>{activePatient.phone_primary ?? "—"}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-ink-muted font-mono">
-                      <Phone size={12} />
-                      <span>{activePatient.phone_primary ?? "—"}</span>
                     </div>
                   </div>
                   {/* Nút "Đổi khách hàng" đã bỏ (Quang chốt 09/08/2026): nó chỉ

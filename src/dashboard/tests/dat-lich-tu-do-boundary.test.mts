@@ -87,14 +87,31 @@ test("panel Thông tin đặt lịch: tự do thì chỉ ghi 'đặt tự do'", 
   assert.doesNotMatch(hub, /đã đặt · đặt tự do/);
 });
 
-test("hai ô đã bỏ khỏi hàng lọc vẫn còn điểm neo", () => {
-  // Bỏ chú thích trước khi tìm: chính điểm neo nhắc lại tên hai ô ấy.
+test("lọc bác sĩ nằm TRÊN CỘT nó lọc, và sống qua việc đổi khách", () => {
+  // Tuyền 16/09/2026: bỏ ô lọc khỏi hàng lọc, rồi *"khi ấn vào vùng bác sĩ này,
+  // sổ ra loạt tên bác sĩ, trên đầu là thanh tìm kiếm… dụng ý của tôi là có thể
+  // dùng nó để đặt 1 khung giờ cho nhiều bệnh nhân luôn"*.
   const ma = hub.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(ma, /<option value="all">Tất cả bác sĩ/);
   assert.doesNotMatch(ma, /href="\/schedule"/);
-  // Chú thích neo: nói ra cái gì đã bỏ và dựng lại thế nào.
-  assert.match(hub, /ĐIỂM NEO[\s\S]{0,600}?Tất cả bác sĩ/);
-  assert.match(hub, /ĐIỂM NEO[\s\S]{0,900}?Lịch làm việc/);
-  // Bảng Bác sĩ × tuần vẫn nhận `locBacSi` — bỏ ô lọc, không bỏ đường dây.
-  assert.match(hub, /locBacSi=\{selectedDoctorId\}/);
+  // Nút "Lịch làm việc" bỏ hẳn thì phải còn chú thích nói đường quay lại.
+  assert.match(hub, /Lịch làm việc[\s\S]{0,200}?dựng lại/);
+
+  // BỘ LỌC PHẢI Ở TRONG BẢNG. Màn ngoài giữ hộ thì hai màn hiểu khác nhau —
+  // và đổi khách ở BookingHub sẽ kéo theo mất lọc, đúng thứ Tuyền muốn giữ.
+  const bang = readFileSync(
+    new URL("../app/(dashboard)/appointments/BangBacSiTuan.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(bang, /locBacSi/, "lọc bác sĩ không được nhận từ ngoài nữa");
+  assert.match(bang, /const \[loc, setLoc\] = useState<string>\("all"\)/);
+  assert.match(bang, /Tất cả bác sĩ/);
+  assert.match(
+    bang,
+    /if \(moLoc\) oTim\.current\?\.focus\(\)/,
+    "ô tìm phải tự nhận con trỏ — gõ được ngay, không bấm thêm nhát nữa",
+  );
+  assert.match(bang, /unaccentVi\(b\.full_name\)/, "tìm tên phải bỏ dấu");
+  // `chonKhach` của BookingHub không được đụng tới bộ lọc — nó ở màn khác hẳn.
+  assert.doesNotMatch(ma, /setLoc\(/);
 });

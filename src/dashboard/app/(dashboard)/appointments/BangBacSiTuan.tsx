@@ -9,7 +9,7 @@
 // Số chỗ đọc từ backend (cho-trong.ts). Không tính gì ở đây.
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   MAU_NGAY,
   NHAN_NGAY,
@@ -24,6 +24,7 @@ import {
   type TrangThaiNgay,
 } from "./cho-trong";
 import { khoaGiuCho, useGiuCho } from "./dung-giu-cho";
+import { unaccentVi } from "@/lib/validation";
 
 const THU = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 const CHU_THICH: TrangThaiNgay[] = ["CON_CHO", "IT_CHO", "DAY", "NGHI", "TU_DO"];
@@ -48,7 +49,6 @@ export default function BangBacSiTuan({
   homNay,
   bayGioPhut,
   chon,
-  locBacSi,
   onChonKhung,
   doiTuan,
 }: {
@@ -60,8 +60,6 @@ export default function BangBacSiTuan({
   /** Phút trong ngày hiện tại (giờ VN) — khoá khung đã qua của hôm nay. */
   bayGioPhut: number;
   chon: { doctorId: string | null; date: string; time: string } | null;
-  /** "all" = mọi bác sĩ; hoặc id bác sĩ; "none" = chỉ hàng chưa phân. */
-  locBacSi: string;
   onChonKhung: (v: {
     doctorId: string | null;
     doctorName: string;
@@ -109,9 +107,38 @@ export default function BangBacSiTuan({
     return () => ctrl.abort();
   }, [popup, lamMoi]);
 
+  // BỘ LỌC BÁC SĨ — state nằm TRONG bảng, không ở màn gọi (16/09/2026).
+  //
+  // Nó chỉ đổi cách NHÌN cái bảng này, nên để màn ngoài giữ hộ là mời chúng
+  // hiểu khác nhau: BookingHub từng giữ `selectedDoctorId` trong khi form khách
+  // mới truyền cứng "all". Lọc rồi đổi khách thì lọc VẪN NGUYÊN — đó là cả
+  // dụng ý: chốt một bác sĩ, đặt cùng một khung cho nhiều khách liên tiếp.
+  const [loc, setLoc] = useState<string>("all");
+  const [moLoc, setMoLoc] = useState(false);
+  const [timLoc, setTimLoc] = useState("");
+  const oTim = useRef<HTMLInputElement>(null);
+
+  // GÕ ĐƯỢC NGAY, KHÔNG PHẢI BẤM THÊM MỘT NHÁT (Tuyền 16/09/2026: *"người dùng
+  // có thể gõ luôn mà không cần click vào ô này"*). `autoFocus` của React không
+  // đủ: cú bấm mở bảng giữ con trỏ ở chính nút tiêu đề cột — đo trên local, gõ
+  // xong danh sách không lọc gì. Tự gọi focus sau khi bảng hiện ra.
+  useEffect(() => {
+    if (moLoc) oTim.current?.focus();
+  }, [moLoc]);
+
   const hang = (bang?.bac_si ?? []).filter((b) =>
-    locBacSi === "all" ? true : locBacSi === "none" ? b.id === null : b.id === locBacSi,
+    loc === "all" ? true : loc === "none" ? b.id === null : b.id === loc,
   );
+  const tenLoc = (bang?.bac_si ?? []).find((b) => (b.id ?? "none") === loc)?.full_name;
+  const timThay = (bang?.bac_si ?? []).filter((b) =>
+    unaccentVi(b.full_name).includes(unaccentVi(timLoc.trim())),
+  );
+
+  function chonLoc(id: string) {
+    setLoc(id);
+    setMoLoc(false);
+    setTimLoc("");
+  }
 
   function moPopup(
     e: React.MouseEvent<HTMLButtonElement>,
@@ -172,6 +199,66 @@ export default function BangBacSiTuan({
         ))}
       </div>
 
+      {/* BẢNG CHỌN BÁC SĨ — ô tìm ở trên nhận sẵn con trỏ, gõ thẳng là lọc,
+          Enter lấy tên đầu tiên khớp. "Tất cả bác sĩ" luôn đứng đầu: mở ra là
+          thấy ngay đường quay về, không phải nhớ cách bỏ lọc. */}
+      {moLoc && (
+        <>
+          <button
+            type="button"
+            aria-label="Đóng chọn bác sĩ"
+            className="fixed inset-0 z-20 cursor-default"
+            onClick={() => setMoLoc(false)}
+          />
+          <div
+            role="dialog"
+            aria-label="Chọn bác sĩ"
+            className="absolute left-0 top-8 z-30 w-64 rounded-modal border border-hairline bg-surface p-2 shadow-panel"
+          >
+            <input
+              ref={oTim}
+              value={timLoc}
+              onChange={(e) => setTimLoc(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && timThay[0]) chonLoc(timThay[0].id ?? "none");
+                if (e.key === "Escape") setMoLoc(false);
+              }}
+              placeholder="Gõ tên bác sĩ…"
+              className="mb-1 w-full rounded-control border border-line px-2 py-1.5 text-body text-ink outline-none focus:border-brand-600"
+            />
+            <ul className="max-h-64 space-y-0.5 overflow-y-auto">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => chonLoc("all")}
+                  className={`w-full rounded-control px-2 py-1.5 text-left text-body hover:bg-surface-muted ${
+                    loc === "all" ? "bg-surface-selected font-semibold" : ""
+                  }`}
+                >
+                  Tất cả bác sĩ
+                </button>
+              </li>
+              {timThay.map((b) => (
+                <li key={b.id ?? "chua-phan"}>
+                  <button
+                    type="button"
+                    onClick={() => chonLoc(b.id ?? "none")}
+                    className={`w-full truncate rounded-control px-2 py-1.5 text-left text-body hover:bg-surface-muted ${
+                      (b.id ?? "none") === loc ? "bg-surface-selected font-semibold" : ""
+                    }`}
+                  >
+                    {b.full_name}
+                  </button>
+                </li>
+              ))}
+              {timThay.length === 0 && (
+                <li className="px-2 py-2 text-label text-ink-muted">Không có tên nào khớp.</li>
+              )}
+            </ul>
+          </div>
+        </>
+      )}
+
       {loi ? (
         <p className="rounded-card bg-danger-bg px-3 py-2 text-body text-danger">
           Không đọc được lịch còn chỗ của tuần này. Thử tải lại.
@@ -183,8 +270,28 @@ export default function BangBacSiTuan({
           <table className="w-full min-w-130 border-collapse text-body">
             <thead>
               <tr className="bg-surface-muted">
-                <th className="sticky left-0 z-10 bg-surface-muted px-3 py-2 text-left text-label font-semibold uppercase tracking-wide text-ink-muted">
-                  Bác sĩ
+                {/* CỘT "BÁC SĨ" LÀ BỘ LỌC (Tuyền 16/09/2026).
+
+                    Dụng ý: chốt một bác sĩ rồi đặt CÙNG một khung giờ cho nhiều
+                    khách liên tiếp — đổi khách không đụng tới bộ lọc. Ô lọc
+                    từng nằm ở hàng lọc phía trên và đã bỏ sáng nay vì nó đứng
+                    xa bảng; đặt ngay trên cột nó lọc thì không phải giải thích
+                    nó lọc cái gì. */}
+                <th className="sticky left-0 z-10 bg-surface-muted p-0 text-left">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoLoc((v) => !v);
+                      setTimLoc("");
+                    }}
+                    aria-expanded={moLoc}
+                    className="flex w-full items-center gap-1 px-3 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted hover:text-brand-700"
+                  >
+                    <span className="truncate">
+                      {loc === "all" ? "Bác sĩ" : (tenLoc ?? "Bác sĩ")}
+                    </span>
+                    <ChevronDown className="size-3.5 shrink-0" />
+                  </button>
                 </th>
                 {bang.ngay.map((d, i) => (
                   <th
