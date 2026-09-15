@@ -22,7 +22,6 @@ import {
   MapPin,
   Pencil,
 } from "lucide-react";
-import Link from "next/link";
 import {
   fmtTime,
   giuaTruaVn,
@@ -372,7 +371,9 @@ export default function BookingHub({
   // chọn — và panel bên phải cũng ghi tên nó, nên trông càng giống một lựa chọn
   // có chủ ý.
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("all");
+  // Ô lọc bác sĩ đã bỏ khỏi hàng lọc 16/09/2026 — điểm neo ở ngay chỗ nó từng
+  // đứng. State giữ lại vì `BangBacSiTuan` vẫn nhận `locBacSi`; nay luôn "all".
+  const [selectedDoctorId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // `?bn=<mã bệnh nhân>` — CSKH bấm "Đặt lịch mới" từ màn Quản lý khách hàng
@@ -1094,7 +1095,10 @@ export default function BookingHub({
               
               "Chọn khách hàng" không còn là một mốc: nó là điều kiện để lưới giờ
               hiện ra, chứ không phải một chặng của việc đặt lịch. */}
-          <div className="flex items-center justify-center gap-4 rounded-2xl border border-line bg-surface py-2.5 px-4 text-xs font-medium text-ink-muted shadow-card">
+          {/* KHÔNG THẺ TRẮNG quanh ba mốc (Tuyền 16/09/2026): *"xoá bo trắng
+              đằng sau chỉ hiện timeline node ở trên cho đẹp"*. Ba mốc là chỉ
+              dẫn, không phải một khối nội dung cần khung riêng. */}
+          <div className="flex items-center justify-center gap-4 py-1 text-xs font-medium text-ink-muted">
             <MocDatLich
               so={1}
               nhan="Khung giờ"
@@ -1152,7 +1156,7 @@ export default function BookingHub({
                     mode === "grid" ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-surface-muted"
                   }`}
                 >
-                  Khách hàng có sẵn
+                  Khách hàng
                 </button>
                 <button
                   type="button"
@@ -1167,7 +1171,7 @@ export default function BookingHub({
                   }`}
                 >
                   <UserPlus className="size-3.5" />
-                  Khách hàng mới
+                  Thêm
                 </button>
               </div>
 
@@ -1321,44 +1325,22 @@ export default function BookingHub({
                   </select>
                 </div>
 
-                {/* Doctor dropdown — ẩn hẳn khi ngày chưa xếp ca. Một ô lọc
-                    liệt kê tên bác sĩ cho một ngày chưa ai được xếp là mời
-                    người dùng chọn một cái tên không có cơ sở. */}
-                <div className="flex items-center gap-1 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink font-medium">
-                  <User size={14} className="text-ink-muted" />
-                  <select
-                    value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-ink outline-none cursor-pointer"
-                  >
-                    <option value="all">Tất cả bác sĩ</option>
-                    <option value="none">Chưa phân bác sĩ</option>
-                    {doctors.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* ĐIỂM NEO — hai ô đã bỏ khỏi hàng này (Tuyền 16/09/2026):
+                    *"nút tất cả bác sĩ và nút lịch làm việc đâu còn ý nghĩa gì
+                    ở đây nữa"*.
 
-                <Link
-                  href="/schedule"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 ml-auto"
-                  title="Xem lịch làm việc ca trực của bác sĩ & phòng khám"
-                >
-                  📅 Lịch làm việc
-                </Link>
+                      · ô lọc "Tất cả bác sĩ" (`selectedDoctorId`) — bảng Bác sĩ
+                        × tuần ngay dưới đã liệt kê TỪNG bác sĩ thành một hàng,
+                        nên lọc còn một người là giấu đi chính thứ màn này bày
+                        ra. State vẫn giữ nguyên và vẫn đi xuống `locBacSi`, chỉ
+                        đứng ở "all" — muốn trả ô lọc về thì dựng lại `<select>`
+                        đúng chỗ này với `setSelectedDoctorId`.
+                      · nút "📅 Lịch làm việc" (`<Link href="/schedule">`) — lịch
+                        trực đã nằm trong chính bảng tuần.
 
-              </div>
-
-              {/* Date navigator & legend — CĂN GIỮA cả ba hàng.
-                  
-                  Trước đây khối này dùng `justify-between`: nút tuần dạt trái,
-                  dãy ngày dạt phải, chú thích màu dạt trái — ba hàng ba mép
-                  khác nhau trên một tấm thẻ. */}
-              <div className="space-y-2.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <div className="relative flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
+                    Chỗ hai ô ấy nay là bộ chọn tuần + nút "Hôm nay", trước nằm
+                    trên một tấm thẻ trắng riêng bên dưới (đã bỏ luôn tấm thẻ). */}
+                <div className="relative ml-auto flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
                     <button
                       type="button"
                       aria-label="Tuần trước"
@@ -1409,21 +1391,19 @@ export default function BookingHub({
                           />
                         </div>
                       </>
-                    ) : null}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWeekOffset(0);
-                      chonNgay(vnToday());
-                      setMoLichThang(false);
-                    }}
-                    className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
-                  >
-                    Hôm nay
-                  </button>
+                  ) : null}
                 </div>
-
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWeekOffset(0);
+                    chonNgay(vnToday());
+                    setMoLichThang(false);
+                  }}
+                  className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
+                >
+                  Hôm nay
+                </button>
               </div>
 
               {/* 2. BẢNG BÁC SĨ × TUẦN + POPUP (Tuyền duyệt 16/09/2026) — thay
@@ -1605,8 +1585,11 @@ export default function BookingHub({
                 <span className="font-bold text-ink">
                   {!oChon || !thongTinKhung
                     ? "—"
-                    : thongTinKhung.datTuDo
-                      ? `${thongTinKhung.khung?.regular_used ?? 0} đã đặt · đặt tự do`
+                    : // Tuần chưa công bố lịch trực thì KHÔNG có trần nào để
+                      // so — chỉ nói "đặt tự do". Con số "0 đã đặt" đứng trước
+                      // nó đọc như một hạn mức đang đếm dần (Tuyền 16/09/2026).
+                      thongTinKhung.datTuDo
+                      ? "đặt tự do"
                       : thongTinKhung.khung
                         ? `${thongTinKhung.khung.regular_used}/${thongTinKhung.khung.regular_cap} đã đặt · còn ${thongTinKhung.khung.con_lai} chỗ`
                         : "—"}
