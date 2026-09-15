@@ -20,8 +20,10 @@ import {
   taiQuote,
   type BangTuan,
   type QuoteNgay,
+  type ThongTinKhung,
   type TrangThaiNgay,
 } from "./cho-trong";
+import { khoaGiuCho, useGiuCho } from "./dung-giu-cho";
 
 const THU = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 const CHU_THICH: TrangThaiNgay[] = ["CON_CHO", "IT_CHO", "DAY", "NGHI", "TU_DO"];
@@ -65,6 +67,9 @@ export default function BangBacSiTuan({
     doctorName: string;
     date: string;
     time: string;
+    /** Sức chứa của đúng khung vừa bấm — panel phải đọc từ đây (16/09/2026,
+     *  thay ô "3. Khung giờ khả dụng" đã bỏ). */
+    thongTin: ThongTinKhung;
   }) => void;
   /** Có = vẽ nút tuần trước / sau / tuần này ngay trên bảng (form khách mới). */
   doiTuan?: { truoc: () => void; sau: () => void; homNay: () => void };
@@ -80,6 +85,10 @@ export default function BangBacSiTuan({
   } | null>(null);
   const [quote, setQuote] = useState<QuoteNgay | null>(null);
   const khung = useRef<HTMLDivElement>(null);
+  // Chỗ CSKH khác đang giữ, THEO NGÀY CỦA POPUP — không theo ngày đang xem:
+  // popup mở được một ngày khác, và trước 16/09/2026 nó mù hẳn chuyện này.
+  // Popup đóng ⇒ `null` ⇒ hook không hỏi gì.
+  const giuCho = useGiuCho(popup?.date ?? null);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -288,7 +297,12 @@ export default function BangBacSiTuan({
               <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
                 {quote.slots.map((k) => {
                   const daQua = popup.date === homNay && k.minute_of_day + k.slot_minutes <= bayGioPhut;
-                  const c = chuKhung(k, quote.dat_tu_do, daQua);
+                  const c = chuKhung(
+                    k,
+                    quote.dat_tu_do,
+                    daQua,
+                    giuCho.has(khoaGiuCho(popup.doctorId, popup.date, k.time)),
+                  );
                   const dangChon =
                     chon?.date === popup.date &&
                     (chon.doctorId ?? null) === popup.doctorId &&
@@ -305,6 +319,11 @@ export default function BangBacSiTuan({
                             doctorName: popup.doctorName,
                             date: popup.date,
                             time: k.time,
+                            thongTin: {
+                              datTuDo: quote.dat_tu_do,
+                              offDuty: quote.off_duty,
+                              khung: k,
+                            },
                           });
                           setPopup(null);
                         }}

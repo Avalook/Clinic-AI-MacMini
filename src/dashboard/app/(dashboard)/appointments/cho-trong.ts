@@ -54,6 +54,17 @@ export interface QuoteNgay {
   slots: KhungQuote[];
 }
 
+/** Sức chứa của khung ĐANG CHỌN — panel "Thông tin đặt lịch" đọc từ đây.
+ *
+ *  Trước 16/09/2026 nó do ô "3. Khung giờ khả dụng" báo lên. Ô ấy đã bỏ (cùng
+ *  dữ liệu, cùng endpoint với popup — xem BangBacSiTuan), nên nay popup gửi
+ *  kèm lúc người dùng bấm khung. */
+export interface ThongTinKhung {
+  datTuDo: boolean;
+  offDuty: boolean;
+  khung: KhungQuote | null;
+}
+
 export const NHAN_NGAY: Record<TrangThaiNgay, string> = {
   CON_CHO: "Còn chỗ",
   IT_CHO: "Ít chỗ",
@@ -87,13 +98,23 @@ export function chuONgay(o: ONgay): string {
   return NHAN_NGAY[o.trang_thai];
 }
 
-/** Chữ + khoá của một khung giờ trong popup / lưới. */
+/** Chữ + khoá của một khung giờ trong popup / lưới.
+ *
+ *  `dangGiu` = một CSKH khác đang mở form ở khung này (bảng `slot_hold`). Nó
+ *  VÀNG chứ không đỏ, và KHÔNG khoá: giữ chỗ là tư vấn, không phải khoá — chốt
+ *  chặn sức chứa thật nằm ở trigger lúc INSERT. Đỏ dành cho "đã đầy", thứ đặt
+ *  vào là máy chủ từ chối. */
 export function chuKhung(
   k: KhungQuote,
   datTuDo: boolean,
   daQua: boolean,
+  dangGiu = false,
 ): { chu: string; khoa: boolean; mau: string } {
   if (daQua) return { chu: "Đã qua", khoa: true, mau: "bg-surface-muted text-ink-faint" };
+  if (!datTuDo && k.con_lai <= 0)
+    return { chu: "Đã đầy", khoa: true, mau: "bg-danger-bg text-danger" };
+  if (dangGiu)
+    return { chu: "Đang giữ", khoa: false, mau: "bg-warning-bg text-warning" };
   if (datTuDo) {
     return {
       chu: k.regular_used ? `${k.regular_used} đã đặt` : "Đặt tự do",
@@ -101,7 +122,6 @@ export function chuKhung(
       mau: "bg-brand-50 text-brand-700",
     };
   }
-  if (k.con_lai <= 0) return { chu: "Đã đầy", khoa: true, mau: "bg-danger-bg text-danger" };
   return {
     chu: `Còn ${k.con_lai} chỗ`,
     khoa: false,

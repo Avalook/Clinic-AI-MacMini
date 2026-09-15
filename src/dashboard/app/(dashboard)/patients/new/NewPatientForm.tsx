@@ -24,7 +24,6 @@ import { type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
 import BangBacSiTuan from "../../appointments/BangBacSiTuan";
-import KhungGioKhaDung from "../../appointments/KhungGioKhaDung";
 import { phutVn, thuHaiCua } from "../../appointments/cho-trong";
 import {
   buildSlotUsage,
@@ -59,9 +58,6 @@ import {
   CHANNELS,
 } from "../../form-ui";
 import { useKhoangCa } from "../dung-khoang-ca";
-
-/** Form khách mới không cần báo sức chứa lên panel nào. */
-const boQua = () => {};
 
 export type { Option };
 
@@ -1586,18 +1582,16 @@ export default function NewPatientForm({
                 }}
               />
             </div>
+            {/* Ô "3. Khung giờ khả dụng" đã bỏ (Tuyền 16/09/2026) — nó gọi
+                cùng endpoint và in cùng nhãn với popup của bảng. Còn lại một
+                dòng NHẮC LẠI thứ vừa chọn: biểu mẫu dài, và khung giờ là thứ
+                người nhập phải đọc lại trước khi bấm lưu. */}
             {oLich ? (
-              <KhungGioKhaDung
-                doctorId={oLich.doctorId}
-                doctorName={oLich.doctorName}
-                date={oLich.date}
-                time={apptTime}
-                homNay={TODAY}
-                bayGioPhut={phutHienTai}
-                lamMoi={doiCa}
-                onChon={setApptTime}
-                onThongTin={boQua}
-              />
+              <p className="rounded-card border border-hairline bg-surface-muted px-3 py-2 text-label text-ink">
+                <span className="font-semibold">{oLich.doctorName}</span> ·{" "}
+                {oLich.date.split("-").reverse().join("/")}
+                {apptTime ? ` · ${apptTime}` : ""}
+              </p>
             ) : (
               <p className="rounded-card border border-dashed border-line px-3 py-3 text-center text-label text-ink-muted">
                 Bấm một ô trong bảng để chọn bác sĩ, ngày và khung giờ.

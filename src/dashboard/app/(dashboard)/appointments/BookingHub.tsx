@@ -23,7 +23,6 @@ import {
   Pencil,
 } from "lucide-react";
 import {
-  fmtTime,
   giuaTruaVn,
   slotRange,
   VN_OFFSET,
@@ -39,13 +38,13 @@ import LichSapToiCuaKhach, {
 } from "./LichSapToiCuaKhach";
 import BangBacSiTuan from "./BangBacSiTuan";
 import { CHANNELS } from "../form-ui";
-import KhungGioKhaDung, { type ThongTinKhung } from "./KhungGioKhaDung";
+import { useGiuCho } from "./dung-giu-cho";
+import { type ThongTinKhung } from "./cho-trong";
 import NewPatientForm, {
   type Option,
   type ProvinceOpt,
 } from "../patients/new/NewPatientForm";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
-import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -257,13 +256,6 @@ function LichThang({
 
 
 
-/** Một chỗ đang được người khác giữ — trả từ /api/appointments/slot-hold. */
-interface SlotHoldLite {
-  doctor_id: string | null;
-  slot_start: string;
-  held_by_name: string | null;
-}
-
 /** Một mốc trên thanh ba bước của việc đặt lịch. */
 function MocDatLich({
   so,
@@ -447,6 +439,9 @@ export default function BookingHub({
     setSelectedDateIso(iso);
     setSelectedSlot((prev) => ({ ...prev, time: "" }));
     setOChon(null);
+    // Sức chứa đi theo KHUNG, không theo ngày: bỏ ô đang chọn mà giữ lại nó thì
+    // panel phải còn ghi "còn 2 chỗ" của một khung không ai chọn nữa.
+    setThongTinKhung(null);
     setJustBooked(null);
   }
 
@@ -460,7 +455,8 @@ export default function BookingHub({
   } | null>(() =>
     khungSan ? { doctorId: khungSan.bacSi, doctorName: khungSan.ten, date: khungSan.ngay } : null,
   );
-  /** Sức chứa của khung đang chọn, đọc từ CHÍNH quote của lưới khung giờ. */
+  /** Sức chứa của khung đang chọn — popup của bảng tuần gửi kèm lúc bấm khung
+   *  (16/09/2026). Trước đó do ô "3. Khung giờ khả dụng" báo lên, ô ấy đã bỏ. */
   const [thongTinKhung, setThongTinKhung] = useState<ThongTinKhung | null>(null);
 
   function chonKhungTuBang(v: {
@@ -468,10 +464,13 @@ export default function BookingHub({
     doctorName: string;
     date: string;
     time: string;
+    thongTin: ThongTinKhung;
   }) {
     if (v.date !== selectedDateIso) setSelectedDateIso(v.date);
     setOChon({ doctorId: v.doctorId, doctorName: v.doctorName, date: v.date });
     setSelectedSlot({ doctorId: v.doctorId ?? "", doctorName: v.doctorName, time: v.time });
+    // Sức chứa đi kèm cú bấm: popup vừa đọc quote của đúng ngày/bác sĩ ấy.
+    setThongTinKhung(v.thongTin);
     setJustBooked(null);
   }
 
@@ -631,113 +630,12 @@ export default function BookingHub({
   //
   // Trạng thái chết (CANCELLED/NO_SHOW/DOCTOR_DECLINED) không giữ chỗ — cùng
   // danh sách với lib/slot-capacity.ts và DEAD_STATUSES ở booking_service.py.
-  // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ", giống usageByCell.
+  // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ".
   //
-  // Trước đây ô bị dán nhãn "Đang giữ" khi có LỊCH HẸN ở trạng thái
-  // WAITING/CSKH_CONFIRMED — tức là gọi một ghế ĐÃ BÁN là "đang giữ". Hai thứ
-  // đó khác nhau, và gộp lại thì CSKH thứ hai không biết khung nào còn chỗ
-  // thật. Giờ nó đọc từ slot_hold: có người đang mở form ở khung này.
-  const [heldByOthers, setHeldByOthers] = useState<Map<string, string>>(
-    new Map(),
-  );
-
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      fetch(`/api/appointments/slot-hold?date=${selectedDateIso}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { items?: SlotHoldLite[] } | null) => {
-          if (!alive || !d?.items) return;
-          const m = new Map<string, string>();
-          for (const h of d.items) {
-            const dt = new Date(h.slot_start);
-            if (Number.isNaN(dt.getTime())) continue;
-            const isoDate = dt.toLocaleDateString("en-CA", { timeZone: VN_TZ });
-            m.set(
-              `${h.doctor_id ?? ""}|${isoDate}|${fmtTime(dt)}`,
-              h.held_by_name ?? "người khác",
-            );
-          }
-          setHeldByOthers(m);
-        })
-        .catch(() => {
-          // Đọc không được thì giữ bản đồ cũ. Xoá sạch nghĩa là mọi ô đột ngột
-          // hiện "còn trống" — đúng câu khẳng định gây đặt trùng.
-        });
-    const t = setTimeout(load, 0);
-    // NHỊP 5 GIÂY — trước 14/08/2026 là 15s.
-    //
-    // Đo trên staging: máy chủ thấy một chỗ giữ mới sau 27–40ms, nên gần như
-    // TOÀN BỘ độ trễ người bên cạnh cảm nhận chính là nhịp này. 15s nghĩa là
-    // trung bình 8 giây, chậm nhất 16 — trong khi hai CSKH tranh một khung
-    // thường quyết trong vòng vài giây, tức là cảnh báo tới sau khi việc đã rồi.
-    //
-    // Giá phải trả đã ĐO, không ước lượng: một nhịp tốn 4,8ms cả chuỗi (GoTrue
-    // xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — xem scripts/tests/
-    // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
-    // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
-    //
-    // TAB ẨN THÌ BỎ NHỊP (21/08/2026). Bản đồ chỗ giữ chỉ có nghĩa khi có người
-    // nhìn lưới. Một tab ẩn hỏi lại mỗi 5 giây là mỗi 5 giây chiếm một trong
-    // sáu kết nối HTTP/1.1 mà trình duyệt cho phép tới origin này — đúng thứ
-    // đang khan hiếm (xem `lib/nhip-lam-moi`). Quay lại thì đã có tay nghe
-    // `visibilitychange` ngay dưới đây hỏi lại tức thì, nên không mù chỗ nào.
-    const iv = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void load();
-    }, 5000);
-
-    // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
-    //
-    // Trình duyệt bóp nhịp của tab bị ẩn, nên quay lại sau mười phút thì bản đồ
-    // chỗ giữ đang cũ và phải chờ hết một nhịp mới đúng. Ở nhịp 15s chuyện đó
-    // đã khó chịu; nhưng lý do thật để thêm bây giờ là: hạ nhịp chỉ có nghĩa
-    // nếu lúc người ta THỰC SỰ NHÌN màn hình thì dữ liệu là mới.
-    const khiHien = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    document.addEventListener("visibilitychange", khiHien);
-
-    // TIN ĐẨY: AI ĐÓ VỪA GIỮ HOẶC THẢ MỘT CHỖ.
-    //
-    // Tuyền 14/08/2026: *"mỗi vị trí lịch nào mà người này click thì cũng sẽ
-    // hiện realtime trên màn hình của người kia, cả 8 CSKH cùng làm cũng thế"*.
-    //
-    // Nhịp 5 giây cho ra ~2,5 giây trung bình. Với tin đẩy thì còn đúng một
-    // vòng mạng: `slot_hold` có trigger `pg_notify` từ 14/08 (migration
-    // 20260814000001), FastAPI nghe rồi đẩy SSE về đây.
-    //
-    // MÀN NÀY KHÔNG DỰNG LẠI CẢ TRANG, chỉ hỏi lại một endpoint nhẹ (4,8ms cả
-    // chuỗi). `RealtimeRefresher` gọi `router.refresh()` cho mọi tin — dựng lại
-    // toàn bộ cây server component; tám CSKH bấm lướt qua các khung giờ sẽ
-    // thành một trận mưa render trên mọi tab đang mở, cho một thay đổi mà chỉ
-    // màn này quan tâm.
-    //
-    // NHƯNG KHÔNG CÒN TỰ MỞ DÒNG RIÊNG (21/08/2026). Trước đây chỗ này mở
-    // EventSource thứ hai, nên một tab ở màn Đặt lịch nuốt HAI trong sáu kết
-    // nối HTTP/1.1 của trình duyệt thay vì một — phòng khám chạm trần chỉ sau
-    // ba tab, và trần đó là lúc trang không tải nổi nữa (đo 21/08, xem
-    // `lib/nhip-lam-moi`). Nay nghe ké dòng chung do một tab giữ; điều muốn giữ
-    // — tự quyết làm gì với tin, không bị ép dựng lại trang — vẫn nguyên.
-    //
-    // GIỮ NHỊP 5 GIÂY LÀM LƯỚI AN TOÀN. Dòng SSE có thể rớt, và ở đúng màn này
-    // thì im lặng là thứ tệ nhất: người trực tin rằng khung còn trống.
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      // `null` = tin méo hoặc không rõ bảng nào. Cứ hỏi lại — một lượt gọi
-      // 4,8ms rẻ hơn nhiều so với việc bỏ sót một chỗ vừa bị giữ.
-      if (bang === "slot_hold" || bang === null) void load();
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-
-    return () => {
-      alive = false;
-      clearTimeout(t);
-      clearInterval(iv);
-      document.removeEventListener("visibilitychange", khiHien);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [selectedDateIso]);
+  // Khối nhịp/SSE đã chuyển sang `dung-giu-cho.ts` (16/09/2026) để popup khung
+  // giờ của bảng tuần dùng chung: nó mở được một NGÀY KHÁC ngày đang xem, nên
+  // trước đó nó mù hẳn chuyện ai đang giữ chỗ.
+  const heldByOthers = useGiuCho(selectedDateIso);
 
   // RỜI MÀN THÌ THẢ CHỖ ĐANG GIỮ.
   //
@@ -1426,25 +1324,16 @@ export default function BookingHub({
                 />
               </div>
 
-              {oChon ? (
-                <KhungGioKhaDung
-                  doctorId={oChon.doctorId}
-                  doctorName={oChon.doctorName}
-                  date={oChon.date}
-                  time={selectedSlot.time}
-                  homNay={vnToday()}
-                  bayGioPhut={phutVn(bayGio)}
-                  lamMoi={bookingSeq + doiCa}
-                  onChon={(time) =>
-                    setSelectedSlot({
-                      doctorId: oChon.doctorId ?? "",
-                      doctorName: oChon.doctorName,
-                      time,
-                    })
-                  }
-                  onThongTin={setThongTinKhung}
-                />
-              ) : (
+              {/* Ô "3. KHUNG GIỜ KHẢ DỤNG" ĐÃ BỎ (Tuyền 16/09/2026).
+
+                  Nó và popup của bảng tuần gọi CÙNG endpoint `/appointments/
+                  quote?date=&doctor_id=` và in nhãn bằng cùng hàm `chuKhung` —
+                  mỗi lần chọn khung là hai lượt gọi cho cùng một câu trả lời.
+                  Đổi giờ nay bấm lại ô ngày trong bảng (ô đang chọn có viền).
+
+                  Sức chứa của khung đang chọn nay đi kèm cú bấm trong popup
+                  (`onChonKhung(...).thongTin`), không còn ô nào báo lên. */}
+              {!oChon && (
                 <p className="rounded-2xl border border-dashed border-line bg-surface px-4 py-6 text-center text-xs text-ink-muted">
                   Bấm một ô trong bảng để chọn bác sĩ, ngày và khung giờ.
                 </p>

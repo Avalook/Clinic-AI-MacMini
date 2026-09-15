@@ -59,6 +59,27 @@ test("khung giờ tự do bấm được và không đếm chỗ còn lại", ()
   assert.match(chuKhung(khung(1, 1), false, false).chu, /Còn 1 chỗ/);
 });
 
+test("ô có người khác giữ thì VÀNG và vẫn bấm được; đầy mới đỏ và khoá", () => {
+  // Tuyền 16/09/2026: *"ô nào đang có người giữ thì màu vàng còn đầy màu đỏ"*.
+  // Giữ chỗ là TƯ VẤN, không phải khoá — chốt chặn thật nằm ở trigger lúc
+  // INSERT, nên khoá ô ở đây là tự cấm mình đặt vào một chỗ vẫn còn trống.
+  const giu = chuKhung(khung(1, 1), false, false, true);
+  assert.equal(giu.chu, "Đang giữ");
+  assert.match(giu.mau, /warning/);
+  assert.equal(giu.khoa, false);
+
+  // ĐẦY THẮNG ĐANG GIỮ: đặt vào ô đầy là máy chủ từ chối, dù ai đang giữ.
+  const day = chuKhung(khung(2, 0), false, false, true);
+  assert.equal(day.chu, "Đã đầy");
+  assert.match(day.mau, /danger/);
+  assert.equal(day.khoa, true);
+
+  // Tuần tự do cũng phải thấy người bên cạnh đang giữ.
+  assert.equal(chuKhung(khung(0, 0), true, false, true).chu, "Đang giữ");
+  // Khung đã qua thì không còn chuyện tranh chỗ.
+  assert.equal(chuKhung(khung(1, 1), false, true, true).chu, "Đã qua");
+});
+
 test("panel Thông tin đặt lịch: tự do thì chỉ ghi 'đặt tự do'", () => {
   const nhanh = /datTuDo[\s\S]{0,120}?\?\s*("[^"]*"|`[^`]*`)/.exec(hub);
   assert.ok(nhanh, "không tìm thấy nhánh `datTuDo` của dòng Sức chứa");
