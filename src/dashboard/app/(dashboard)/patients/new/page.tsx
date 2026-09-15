@@ -106,6 +106,7 @@ export default async function NewPatientPage({
       )}
       <NewPatientForm
         staffId={(await getCurrentStaff())?.id ?? null}
+        coSoMacDinhId={(await getCurrentStaff())?.primary_location_id ?? null}
         role={role}
         locations={locations}
         services={services}

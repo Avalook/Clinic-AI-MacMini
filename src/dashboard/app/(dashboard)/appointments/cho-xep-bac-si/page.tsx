@@ -9,7 +9,7 @@
 
 import { redirect } from "next/navigation";
 import { getClinicRole } from "../../../../lib/clinic-session";
-import { isOpsAdmin } from "../../../../lib/roles";
+import { canManageAppt } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
 import HangChoView, { type DongCho } from "./HangChoView";
@@ -18,9 +18,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ChoXepBacSiPage() {
   // Trưởng ca xếp được cùng Quản lý: người trực tiếp biết ai đang rảnh thường
-  // là trưởng ca. Backend gác lại bằng chính bảng chuyển tiếp (MANAGE_ROLES).
+  // là trưởng ca. CSKH vào để gọi khách đổi ca (16/09/2026). Backend gác lại
+  // bằng chính bảng chuyển tiếp (MANAGE_ROLES = CSKH, Quản lý, Trưởng ca).
   const role = await getClinicRole();
-  if (!isOpsAdmin(role)) redirect("/home");
+  if (!canManageAppt(role)) redirect("/home");
 
   const [data, doctors] = await Promise.all([
     fetchFromBackend<{ items: DongCho[] }>("/api/v1/appointments/cho-xep-bac-si"),

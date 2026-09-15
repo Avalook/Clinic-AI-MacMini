@@ -16,6 +16,7 @@ import { INPUT, LABEL } from "../form-ui";
 import PatientAdminEditor from "../PatientAdminEditor";
 import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
+import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
 import { resolveServiceCode } from "../../../lib/form-schemas";
 import {
@@ -1539,6 +1540,11 @@ export default function ClinicalRecordForm({
                 placeholder="Tùy chọn, vd: nhịn ăn sáng trước khi xét nghiệm"
               />
             </div>
+            {/* Bác sĩ quyết theo dõi sau thủ thuật — màn CSKH đọc (16/09/2026).
+                Tự ẩn khi lượt không có chỉ định thủ thuật. */}
+            {data?.visit?.visit_id && (
+              <TheoDoiThuThuat visitId={data.visit.visit_id} readOnly={roRest} />
+            )}
           </div>
         </Section>
         )}

@@ -919,17 +919,36 @@ type LichHenRaw = {
     const visitRows = (await goiPromise)?.visits ?? [];
     const visitTheoLich: Record<
       string,
-      { batDau: string | null; ketThuc: string | null }
+      {
+        batDau: string | null;
+        ketThuc: string | null;
+        quayDong: string | null;
+        coThuThuat: boolean;
+        thuThuatXong: string | null;
+        theoDoi: string | null;
+        theoDoiSauNgay: number | null;
+      }
     > = {};
     for (const v of (visitRows ?? []) as {
       appointment_id: string | null;
       checked_in_at: string | null;
       closed_at: string | null;
       finalized_at: string | null;
+      theo_doi_thu_thuat?: string | null;
+      theo_doi_sau_ngay?: number | null;
+      co_thu_thuat?: boolean | null;
+      thu_thuat_xong_luc?: string | null;
     }[]) {
       if (!v.appointment_id) continue;
       visitTheoLich[v.appointment_id] = {
         batDau: v.checked_in_at,
+        // Lễ tân đóng lượt ở quầy — ô "Checkout" ở màn CSKH chỉ đọc mốc này
+        // (Tuyền chốt 16/09/2026: checkout là việc của lễ tân).
+        quayDong: v.closed_at,
+        coThuThuat: Boolean(v.co_thu_thuat),
+        thuThuatXong: v.thu_thuat_xong_luc ?? null,
+        theoDoi: v.theo_doi_thu_thuat ?? null,
+        theoDoiSauNgay: v.theo_doi_sau_ngay ?? null,
         // BA MỐC KẾT THÚC, ưu tiên theo độ chắc chắn: quầy đóng lượt >
         // bác sĩ ký bệnh án > CSKH bấm checkout (ghép ở dưới). Không có mốc
         // nào thì để null và nói ra là "chưa đóng" — đừng bịa giờ.
@@ -1025,6 +1044,11 @@ type LichHenRaw = {
             cancelled_at: a.cancelled_at ?? null,
             bat_dau: v?.batDau ?? null,
             ket_thuc: v?.ketThuc ?? checkout?.xay_ra_luc ?? null,
+            quay_dong_luc: v?.quayDong ?? null,
+            co_thu_thuat: v?.coThuThuat ?? false,
+            thu_thuat_xong_luc: v?.thuThuatXong ?? null,
+            theo_doi_thu_thuat: v?.theoDoi ?? null,
+            theo_doi_sau_ngay: v?.theoDoiSauNgay ?? null,
             buoc: buoc.map((d) => ({
               luc: d.xay_ra_luc,
               huy_luc: d.huy_luc ?? null,

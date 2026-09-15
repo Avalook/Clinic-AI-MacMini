@@ -200,10 +200,26 @@ class ManKhachHangService:
             )
             visits = await conn.fetch(
                 """
-                SELECT appointment_id, checked_in_at, closed_at, finalized_at
-                  FROM visit
-                 WHERE clinic_id = $1::uuid
-                   AND clinic_patient_id = ANY($2::uuid[])
+                SELECT v.appointment_id, v.checked_in_at, v.closed_at,
+                       v.finalized_at,
+                       -- Thủ thuật + quyết định theo dõi của BÁC SĨ (16/09/2026):
+                       -- hai ô khoá ở màn CSKH đọc từ đây, CSKH không tích.
+                       v.theo_doi_thu_thuat, v.theo_doi_sau_ngay,
+                       tt.co_thu_thuat, tt.thu_thuat_xong_luc
+                  FROM visit v
+                  LEFT JOIN LATERAL (
+                      SELECT count(*) > 0 AS co_thu_thuat,
+                             max(w.finished_at) FILTER (
+                                 WHERE w.status = 'COMPLETED'
+                             ) AS thu_thuat_xong_luc
+                        FROM work_item w
+                       WHERE w.clinic_id = v.clinic_id
+                         AND w.visit_id = v.visit_id
+                         AND w.node_code = 'DICHVU-THUTHUAT'
+                         AND w.status <> 'CANCELLED'
+                  ) tt ON TRUE
+                 WHERE v.clinic_id = $1::uuid
+                   AND v.clinic_patient_id = ANY($2::uuid[])
                  LIMIT $3
                 """,
                 clinic_id,

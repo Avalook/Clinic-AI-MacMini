@@ -334,9 +334,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // đang gọi. Thêm vào cho khớp với điều đã hứa.
   "/patient-list": ["RECEPTION", "MANAGEMENT", "CSKH", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
-  // Hàng chờ xếp bác sĩ: việc của người BIẾT AI ĐANG RẢNH — quản lý và trưởng
-  // ca. CSKH không xếp, họ chỉ báo (nút trên màn khách hàng).
-  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA"],
+  // Hàng chờ xếp bác sĩ: quản lý và trưởng ca xếp; CSKH MỞ ĐƯỢC (Tuyền chốt
+  // 16/09/2026) — lịch vượt sức chứa về đây cho CSKH gọi khách đổi ca, và
+  // thông báo gửi CSKH trỏ thẳng vào trang này. Trước đó CSKH bấm thông báo bị
+  // đá về /home. Không bày trên thanh bên của CSKH (xem AN_KHOI_THANH_BEN).
+  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA", "CSKH"],
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
@@ -450,6 +452,9 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
     "/reception/queue",
     "/tasks",
   ],
+  // Thanh bên CSKH giữ 5 mục (Tuyền 16/09/2026): việc vượt sức chứa đến qua
+  // khung báo + thông báo, không thêm mục.
+  CSKH: ["/appointments/cho-xep-bac-si"],
 };
 
 /** Mục này có hiện trên thanh bên của vai ấy không. Dùng CHO GIAO DIỆN;

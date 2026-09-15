@@ -266,6 +266,7 @@ function SectionHeader({
 
 export default function NewPatientForm({
   staffId = null,
+  coSoMacDinhId = null,
   role,
   locations,
   services,
@@ -281,6 +282,9 @@ export default function NewPatientForm({
   staffId?: string | null;
   role?: ClinicRole | null;
   locations: Option[];
+  /** Cơ sở của người đang đặt (staff.primary_location_id qua /api/v1/me).
+   *  Mặc định ô "Cơ sở đăng ký khám" — KHÔNG phải cơ sở đầu danh sách. */
+  coSoMacDinhId?: string | null;
   services: Option[];
   doctors: Option[];
   provinces: ProvinceOpt[];
@@ -332,7 +336,12 @@ export default function NewPatientForm({
   const [phone, setPhone] = useState("");
   const [phone2, setPhone2] = useState("");
   const [cccd, setCccd] = useState("");
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  // Cơ sở CỦA NGƯỜI ĐẶT trước, rồi mới tới đầu danh sách (16/09/2026): danh
+  // sách xếp theo tên nên `locations[0]` là "Kim Ngưu" với mọi người — hồ sơ
+  // khách mới của CSKH ở cơ sở khác rơi sai cơ sở mà không ai để ý.
+  const coSoDau =
+    locations.find((l) => l.id === coSoMacDinhId)?.id ?? locations[0]?.id ?? "";
+  const [locationId, setLocationId] = useState(coSoDau);
   // Hành chính (mục I form khám) — đồng bộ sang hồ sơ lâm sàng.
   const [gender, setGender] = useState("");
   const [ethnicity, setEthnicity] = useState("Kinh");
@@ -698,7 +707,7 @@ export default function NewPatientForm({
   async function bookFor(clinicPatientId: string): Promise<boolean> {
     // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
     // sau, và gửi location_id rỗng thì backend từ chối bằng một câu khó hiểu.
-    const effLocationId = locationId || locations[0]?.id || "";
+    const effLocationId = locationId || coSoDau;
     if (!wantsAppointment) return true;
     if (!policy) {
       setError(
@@ -849,7 +858,7 @@ export default function NewPatientForm({
 
   async function save(force: boolean, lyDoCccd?: string) {
     setError(null);
-    const effLocationId = locationId || locations[0]?.id || "";
+    const effLocationId = locationId || coSoDau;
     if (!effLocationId) {
       setError("Chưa chọn cơ sở khám.");
       return;

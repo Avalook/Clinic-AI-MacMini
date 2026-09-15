@@ -106,8 +106,14 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
     "utf8",
   );
   assert.match(vung, /<Check /); // dấu tích cho bước đã xong
-  assert.match(vung, /onLamViec\(tt\.ma\)/); // node bấm được (nay node = TRẠNG THÁI)
-  assert.match(vung, /Làm lại/); // bước đã xong vẫn làm lại được
+  // 16/09/2026 (Tuyền): bỏ nút "Làm bước này" — VÒNG TRÒN là nút. Ô CSKH bấm
+  // vòng tròn để ghi / bấm lại để hoàn tác; ô của lễ tân, bác sĩ, đối tác KHOÁ.
+  assert.match(vung, /onBam=\{/); // ô CSKH bấm được
+  assert.match(vung, /nguon="lễ tân"/); // ô khoá, nói rõ nguồn
+  assert.doesNotMatch(
+    vung.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""),
+    /Làm bước này/,
+  );
   assert.match(customers, /<AppointmentEditModal/);
   // `QuickBookingModal` đã bị bỏ: nó render một màn DỰNG SẴN (tên giả, khung
   // giờ viết cứng) nên bấm "Đặt lịch hẹn" trong đó không lưu gì cả. Nay nút đi

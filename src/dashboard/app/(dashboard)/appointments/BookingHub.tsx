@@ -74,6 +74,8 @@ export interface ApptLite {
 
 interface Props {
   locations: Option[];
+  /** Cơ sở của người đang đặt — mặc định cho form khách mới. */
+  coSoMacDinhId?: string | null;
   services: Option[];
   doctors: Option[];
   provinces: ProvinceOpt[];
@@ -381,6 +383,7 @@ function MocDatLich({
 
 export default function BookingHub({
   locations,
+  coSoMacDinhId = null,
   services,
   doctors,
   provinces,
@@ -1793,6 +1796,7 @@ export default function BookingHub({
                   <NewPatientForm
                     role="CSKH"
                     locations={locations}
+                    coSoMacDinhId={coSoMacDinhId}
                     services={cleanServices}
                     doctors={doctors}
                     provinces={provinces}

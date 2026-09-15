@@ -232,6 +232,13 @@ export interface LuotKham {
   /** `visit.closed_at` → `finalized_at` → dòng CHECK_OUT của CSKH. null = chưa
    *  đóng, và nói ra như thế đúng hơn là bịa một giờ. */
   ket_thuc: string | null;
+  /** `visit.closed_at` — lễ tân checkout tại quầy. */
+  quay_dong_luc?: string | null;
+  /** Lượt có chỉ định thủ thuật; làm xong lúc nào; bác sĩ quyết theo dõi. */
+  co_thu_thuat?: boolean;
+  thu_thuat_xong_luc?: string | null;
+  theo_doi_thu_thuat?: string | null;
+  theo_doi_sau_ngay?: number | null;
   buoc: BuocCham[];
 }
 
@@ -954,6 +961,11 @@ export default function CustomersView({
         cancellation_reason: luot.cancellation_reason,
         service_type_id: luot.service_type_id,
         service_name: luot.service_name,
+        quay_dong_luc: luot.quay_dong_luc ?? null,
+        co_thu_thuat: luot.co_thu_thuat ?? false,
+        thu_thuat_xong_luc: luot.thu_thuat_xong_luc ?? null,
+        theo_doi_thu_thuat: luot.theo_doi_thu_thuat ?? null,
+        theo_doi_sau_ngay: luot.theo_doi_sau_ngay ?? null,
       };
     }
     if (!selectedAppt) return null;
@@ -1641,6 +1653,7 @@ export default function CustomersView({
             onDatLich={(kieu) => setDatLich(kieu)}
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
             taiKham={taiKhamByPatient[selected.clinic_patient_id] ?? []}
+            tepCuaLuot={tepKetQuaCuaLuot}
             ghiChu={ghiChuChung}
             onGhiChuXong={() => setGhiChuChung("")}
           >
@@ -1781,7 +1794,7 @@ export default function CustomersView({
                         )}
                       {!apptSuaDuoc.doctor_id && (
                         <span className="mt-1 block text-xs font-semibold text-warning">
-                          Bác sĩ: chờ quản lý xác nhận
+                          Chưa phân bác sĩ
                         </span>
                       )}
                       {/* QUẢN LÝ ĐÃ ĐỔI GIỜ SO VỚI GIỜ CSKH HẸN VỚI KHÁCH.

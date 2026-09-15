@@ -9,6 +9,7 @@ import BookingHub, {
 } from "./BookingHub";
 import type { Option, ProvinceOpt } from "../patients/new/NewPatientForm";
 import { listBookableDoctors } from "../../../lib/doctors-server";
+import { getCurrentStaff } from "../../../lib/current-staff";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +104,7 @@ export default async function AppointmentsPage() {
 
       <BookingHub
         locations={locations}
+        coSoMacDinhId={(await getCurrentStaff())?.primary_location_id ?? null}
         services={services}
         doctors={doctors}
         provinces={provinces}

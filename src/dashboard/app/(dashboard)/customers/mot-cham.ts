@@ -25,88 +25,24 @@ export interface MotCham {
 }
 
 export const MOT_CHAM: Record<string, MotCham> = {
-  // Khách đồng ý GIỮ lịch dù khung vượt sức chứa. Đổi ca thì làm ở màn đặt
-  // lịch — lịch dời đi là việc tự hết (20260915000014).
-  VUOT_SUC_CHUA: {
-    loai: "XAC_NHAN_LICH",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi — khách chốt giữ lịch dù khung vượt sức chứa",
-    khachXacNhan: true,
-  },
-  // ── TRƯỚC KHÁM ────────────────────────────────────────────────────────────
-  // Hai mã này trước 10/08/2026 phải đi qua khối bên phải mới ghi được. Nhưng
-  // "đã gọi xác nhận lịch" là TOÀN BỘ nội dung của lần chạm ấy — bắt bấm nút
-  // thứ hai ở một cột khác là hai thao tác cho một sự thật.
+  // CÒN ĐÚNG MỘT MỤC (Tuyền chốt 16/09/2026). Dòng trạng thái mới chỉ còn các ô
+  // CSKH tự làm; "Hẹn gọi lại" / "Không gọi được" ghi thẳng ở VungLamViecKhach
+  // (cùng mã GOI_LAI, khác `ket_qua`). Các mục cũ đã rời bảng:
+  //   · VUOT_SUC_CHUA, NHAC_HEN_MAI, SAU_SINH_1_THANG, SAU_THU_THUAT_1_NGAY — bỏ
+  //     khỏi dòng trạng thái (vượt sức chứa lên khung báo dưới tên khách);
+  //   · CHO_KQ_XN, CHO_BAC_SI, KQ_CHUA_GUI, DA_TRA_KQ, KHONG_FOLLOW_UP — thành ô
+  //     KHOÁ (đối tác / bác sĩ / nút gửi), nên cột phải GIỮ nút ghi của nó.
   //
-  // `loai` phải khớp đúng thứ view dò để ĐÓNG nhánh, nếu không node tích xanh
-  // mà chip bên trái đứng im:
-  //   CHO_XAC_NHAN đóng bằng NOT EXISTS(loai = 'XAC_NHAN_LICH')
-  //   NHAC_HEN_MAI đóng bằng NOT EXISTS(loai = 'NHAC_HEN')
-  // (xem `v_viec_cskh`, migration 20260810000008).
+  // `loai` phải khớp thứ view dò để ĐÓNG nhánh: CHO_XAC_NHAN đóng bằng
+  // NOT EXISTS(loai = 'XAC_NHAN_LICH') — xem `v_viec_cskh`.
   CHO_XAC_NHAN: {
     loai: "XAC_NHAN_LICH",
     ketQua: "DA_LIEN_HE",
     noiDung: "Đã gọi xác nhận lịch",
     khachXacNhan: true,
   },
-  NHAC_HEN_MAI: {
-    loai: "NHAC_HEN",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi nhắc hẹn",
-    khachXacNhan: true,
-  },
-
-  // ── SAU KHÁM ──────────────────────────────────────────────────────────────
-  // DA_CHECKIN KHÔNG còn một chạm: CSKH không check-in (Tuyền chốt 15/09/2026).
-  CHO_KQ_XN: {
-    loai: "CHECK_XN",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã hỏi đơn vị xét nghiệm",
-  },
-  CHO_BAC_SI: {
-    loai: "KHAC",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã hỏi bác sĩ về kết quả",
-  },
-  KQ_CHUA_GUI: {
-    loai: "TRA_KQ",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gửi kết quả cho bệnh nhân",
-  },
-  DA_TRA_KQ: {
-    loai: "TRA_KQ",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi trả kết quả xét nghiệm",
-  },
-
-  // ── BA VIỆC THEO DÕI SAU ──────────────────────────────────────────────────
-  // Cả ba vẫn mang nhãn "tự chọn" ở cột giữa — hệ thống không có nguồn dữ liệu
-  // để tự biết (không có ngày sinh con thật, dịch vụ thủ thuật đang tắt). "Tự
-  // chọn" nói về việc AI QUYẾT, không nói về việc bấm mấy lần.
-  //
-  // `KHONG_FOLLOW_UP` Quang không nhắc tên, nhưng nó nằm cùng hàng với hai cái
-  // kia và cùng bản chất: một quyết định ghi lại để ca sau khỏi gọi. Để một nút
-  // trong hàng hành xử khác hai nút cạnh nó là thứ người dùng sẽ vấp ngay.
-  //
-  // ⚠️ `BO_QUA` BẮT BUỘC đi cùng kênh `KHONG_LIEN_HE` — backend kiểm
-  // (`tuong_tac_cskh_service.ghi`) và database cũng có CHECK
-  // `tuong_tac_bo_qua_thi_khong_lien_he`. Xem `kenhCho()` bên dưới.
-  KHONG_FOLLOW_UP: {
-    loai: "KHAC",
-    ketQua: "BO_QUA",
-    noiDung: "Không cần follow up sau thủ thuật",
-  },
-  SAU_SINH_1_THANG: {
-    loai: "HOI_THAM",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi chúc mừng đầy tháng",
-  },
-  SAU_THU_THUAT_1_NGAY: {
-    loai: "HOI_THAM",
-    ketQua: "DA_LIEN_HE",
-    noiDung: "Đã gọi hỏi thăm sau thủ thuật",
-  },
 };
+
 
 /** Trạng thái này ghi được chỉ bằng MỘT cú bấm ở cột giữa.
  *

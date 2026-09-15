@@ -20,8 +20,10 @@ function khoiMotCham(ma: string): string {
   return motCham.slice(batDau, ketThuc);
 }
 
-test("hai cuộc gọi trước khám ghi rõ khách đã xác nhận", () => {
-  for (const ma of ["CHO_XAC_NHAN", "NHAC_HEN_MAI"]) {
+test("cuộc gọi xác nhận trước khám ghi rõ khách đã xác nhận", () => {
+  // NHAC_HEN_MAI đã bỏ khỏi dòng trạng thái (Tuyền chốt 16/09/2026: "cần nhắc
+  // hẹn không nói tới nghĩa là bỏ"); còn đúng một cuộc gọi xác nhận.
+  for (const ma of ["CHO_XAC_NHAN"]) {
     assert.match(
       khoiMotCham(ma),
       /khachXacNhan:\s*true/,
