@@ -442,6 +442,7 @@ export default function VungLamViecKhach({
   henGoiLai = [],
   taiKham = [],
   tepCuaLuot = [],
+  thanhLuot,
   ghiChu = "",
   onGhiChuXong,
   children,
@@ -476,6 +477,8 @@ export default function VungLamViecKhach({
   taiKham?: MocTaiKham[];
   /** Tệp kết quả CỦA LƯỢT ĐANG XEM — ô "Có kết quả xét nghiệm" đọc từ đây. */
   tepCuaLuot?: TepKetQuaRow[];
+  /** Thanh chọn lượt khám (ThanhLuotKham) — vẽ ở đầu vùng làm việc. */
+  thanhLuot?: React.ReactNode;
   /** Ghi chú người dùng đang gõ ở CỘT PHẢI — đi kèm cú bấm một-chạm ở đây. */
   ghiChu?: string;
   /** Gọi sau khi ghi xong, để cột phải xoá ô gõ. */
@@ -869,15 +872,9 @@ export default function VungLamViecKhach({
               Khách có nhiều lượt thì ba cột phải cùng nói về MỘT lượt, và người
               trực phải đọc được mình đang đứng ở lượt nào — bấm sang lượt khác
               trong ô "Lịch sử các lần khám" bên dưới. */}
-          {lich.slot_start && (
-            <p className="mt-0.5 text-label text-ink-muted">
-              Lượt đang xem:{" "}
-              <span className="font-medium text-ink-soft">
-                {lich.service_name ?? "chưa chọn dịch vụ"} ·{" "}
-                {gio(lich.slot_start)}
-              </span>
-            </p>
-          )}
+          {/* THANH CHỌN LƯỢT — thay dòng "Lượt đang xem" chữ nhỏ và khối
+              "Lịch sử các lần khám" dưới đáy (16/09/2026). */}
+          {thanhLuot}
           {/* Sổ chăm sóc không gắn được vào lượt nào — nói ra thay vì lặng lẽ
               tích xanh bằng dữ liệu của lượt khác. Xem `lichSuLuotNay`. */}
           {loiHoanTac && (
@@ -926,8 +923,7 @@ export default function VungLamViecKhach({
           {khongGanDuocLuot && (
             <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-label font-medium text-warning">
               Khách có {lichSu.length} thao tác chăm sóc nhưng màn chưa gắn được
-              vào lượt khám nào — chọn một lượt ở “Lịch sử các lần khám” bên
-              dưới.
+              vào lượt khám nào — chọn một lượt ở thanh lượt khám phía trên.
             </p>
           )}
         </div>

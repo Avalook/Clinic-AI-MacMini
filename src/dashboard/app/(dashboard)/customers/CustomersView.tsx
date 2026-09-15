@@ -37,9 +37,13 @@ import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach, { type MocLich } from "./VungLamViecKhach";
 import DauUuTien from "./DauUuTien";
+import KhungBao from "./KhungBao";
+import { dungKhungBao } from "./khung-bao";
+import { todayVn } from "@/lib/roster";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
+import ThanhLuotKham from "./ThanhLuotKham";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
@@ -1018,6 +1022,41 @@ export default function CustomersView({
     );
   }, [tepByPatient, selected, luotDangXem]);
 
+  /** KHUNG BÁO DƯỚI TÊN KHÁCH (Tuyền chốt 16/09/2026) — mọi thay đổi ảnh
+   *  hưởng lịch của khách. Chỉ dịch dữ liệu backend đã có thành câu đọc được;
+   *  xem khung-bao.ts. */
+  const khungBao = useMemo(() => {
+    const pid = selected?.clinic_patient_id;
+    if (!pid) return [];
+    const luot = cacLuotCuaKhach.find((l) => l.id === luotDangXem?.id);
+    return dungKhungBao({
+      homNay: todayVn(),
+      nowMs: nowMs(),
+      luot: luotDangXem
+        ? { ...luotDangXem, doctor_name: luot?.doctor_name ?? null }
+        : null,
+      viec: viecCuaLuot,
+      quanLyDoiGio: Boolean(
+        tuongTacByPatient[pid]?.find(
+          (d) =>
+            d.trang_thai_ma === "QUAN_LY_DOI_GIO" &&
+            !d.huy_luc &&
+            (!luotDangXem?.id || d.appointment_id === luotDangXem.id),
+        ),
+      ),
+      henGoiLai: henGoiLaiByPatient[pid] ?? [],
+      taiKham: taiKhamByPatient[pid] ?? [],
+    });
+  }, [
+    selected,
+    cacLuotCuaKhach,
+    luotDangXem,
+    viecCuaLuot,
+    tuongTacByPatient,
+    henGoiLaiByPatient,
+    taiKhamByPatient,
+  ]);
+
   /** Lượt đang xem có còn đổi / huỷ được không. `undefined` = không. */
   const apptSuaDuoc =
     selectedAppt?.appt && selectedAppt.appt.id === luotDangXem?.id
@@ -1654,6 +1693,20 @@ export default function CustomersView({
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
             taiKham={taiKhamByPatient[selected.clinic_patient_id] ?? []}
             tepCuaLuot={tepKetQuaCuaLuot}
+            thanhLuot={
+              <ThanhLuotKham
+                chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
+                luotDangXem={luotDangXem?.id ?? null}
+                luotConViec={
+                  new Set(
+                    (viecMoByPatient[selected.clinic_patient_id] ?? [])
+                      .map((v) => v.appointment_id)
+                      .filter((x): x is string => Boolean(x)),
+                  )
+                }
+                onChonLuot={chonLuot}
+              />
+            }
             ghiChu={ghiChuChung}
             onGhiChuXong={() => setGhiChuChung("")}
           >
@@ -1664,11 +1717,7 @@ export default function CustomersView({
                 VÀ NAY BẤM ĐƯỢC. Đây là chỗ DUY NHẤT trên màn liệt kê đủ mọi
                 lượt của khách, nên nó cũng là chỗ tự nhiên để chọn lượt muốn
                 làm việc — thay vì để server đoán một lượt cho cả khách. */}
-            <LichSuCacLanKham
-              chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
-              luotDangXem={luotDangXem?.id ?? null}
-              onChonLuot={chonLuot}
-            />
+            {/* Lịch sử các lần khám → thanh chọn lượt ở đầu vùng làm việc (16/09/2026). */}
             <PhanHoiKhach
               key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}`}
               clinicPatientId={selected.clinic_patient_id}
@@ -1743,6 +1792,11 @@ export default function CustomersView({
                         <span className="text-label text-ink-faint">· số thêm</span>
                       </p>
                     ))}
+                  <KhungBao
+                    dong={khungBao}
+                    onSuaLich={canManage && apptSuaDuoc ? () => setEditOpen(true) : undefined}
+                    onChonViec={(ma) => setViecDangGhi(ma)}
+                  />
                 </div>
                 <button
                   type="button"
@@ -1797,31 +1851,8 @@ export default function CustomersView({
                           Chưa phân bác sĩ
                         </span>
                       )}
-                      {/* QUẢN LÝ ĐÃ ĐỔI GIỜ SO VỚI GIỜ CSKH HẸN VỚI KHÁCH.
-                          Khách đã được nghe một giờ; nếu người gọi xác nhận
-                          không biết là nó đã đổi thì họ đọc lại đúng giờ cũ. */}
-                      {tuongTacByPatient[selected.clinic_patient_id]?.find(
-                        (d) =>
-                          d.trang_thai_ma === "QUAN_LY_DOI_GIO" && !d.huy_luc,
-                      ) && (
-                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          ⚠ Quản lý đã đổi giờ so với giờ hẹn ban đầu — gọi báo
-                          khách trước khi xác nhận.
-                        </span>
-                      )}
-                      {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT — Ô LỊCH HẸN BẤM ĐƯỢC.
-                          Cảnh báo này đã có ở khối lịch CHỈ-ĐỌC bên dưới, nhưng
-                          khối đó chỉ hiện khi lịch không sửa được nữa. Với một
-                          lịch còn đổi được — tức đúng lúc CSKH có thể làm gì đó
-                          — nó lại không hiện. Vá một khối trong hai, y hệt vụ
-                          ba lưới đặt chỗ sáng nay. */}
-                      {luotDangXem?.mat_bac_si && (
-                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
-                        </span>
-                      )}
+                      {/* Đổi giờ / mất bác sĩ / vượt sức chứa: đã lên KHUNG BÁO
+                          dưới tên khách (16/09/2026) — không nhắc lại ở đây. */}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
                     </span>
                   </button>
@@ -1845,27 +1876,7 @@ export default function CustomersView({
                           ⚠ Đã quá giờ hẹn — khách chưa check-in.
                         </p>
                       )}
-                    {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT.
-                        Tình huống số 9 trong bảng "tình huống phát sinh" của
-                        khách. Trước đây quản lý gỡ một ca trực là lịch của
-                        khách nằm im dưới tên một bác sĩ hôm đó không đi làm, và
-                        đường duy nhất để biết là khách tới quầy rồi mới vỡ lẽ —
-                        thứ khách hàng nhớ rất lâu.
-                        Đặt NGAY DƯỚI giờ hẹn, không nhét vào chuỗi bước: người
-                        trực mở hồ sơ là nhìn thấy, không phải cuộn tìm. */}
-                    {/* ĐỌC TỪ CHÍNH LƯỢT ĐANG XEM.
-                        Bản trước: `selectedAppt?.mat_bac_si && luotDangXem?.id
-                        === selectedAppt.id` — phải khớp id giữa "lịch đại
-                        diện" (apptByPatient) và "lượt đang xem" (lịch sử khám),
-                        hai nguồn dựng riêng. Lệch một cái là cảnh báo im lặng
-                        biến mất, và không có gì báo rằng nó đã biến mất. */}
-                    {luotDangXem?.mat_bac_si && (
-                        <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
-                        </p>
-                      )}
+                    {/* Mất bác sĩ: đã lên KHUNG BÁO dưới tên khách (16/09/2026). */}
                   </div>
                 )}
 
