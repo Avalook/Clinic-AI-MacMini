@@ -23,18 +23,19 @@ import {
 import { type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
+import BangBacSiTuan from "../../appointments/BangBacSiTuan";
+import KhungGioKhaDung from "../../appointments/KhungGioKhaDung";
+import { phutVn, thuHaiCua } from "../../appointments/cho-trong";
 import {
   buildSlotUsage,
   usageAt,
   slotBucketMs,
-  slotMinuteOptions,
   type SlotApptLite,
 } from "../../../../lib/slot-capacity";
 import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
   todayVn,
-  clinicHoursForDate,
   clinicHoursError,
 } from "../../../../lib/roster";
 import {
@@ -57,8 +58,10 @@ import {
   CARD,
   CHANNELS,
 } from "../../form-ui";
-import Time24Input from "../../Time24Input";
 import { useKhoangCa } from "../dung-khoang-ca";
+
+/** Form khách mới không cần báo sức chứa lên panel nào. */
+const boQua = () => {};
 
 export type { Option };
 
@@ -423,6 +426,15 @@ export default function NewPatientForm({
   const [doctorOpen, setDoctorOpen] = useState(false);
   const [apptDate, setApptDate] = useState(initialAppt?.date ?? "");
   const [apptTime, setApptTime] = useState(initialAppt?.time ?? "");
+  // BẢNG BÁC SĨ × TUẦN cho khách mới (16/09/2026) — cùng nguồn "còn chỗ" với
+  // màn Đặt lịch. `oLich` = ô (bác sĩ × ngày) đang mở lưới khung giờ.
+  const [tuanLech, setTuanLech] = useState(0);
+  const [oLich, setOLich] = useState<{
+    doctorId: string | null;
+    doctorName: string;
+    date: string;
+  } | null>(null);
+  const [phutHienTai] = useState(() => phutVn(nowMs()));
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
   // "walkin" = chỗ ĐẾN TRỰC TIẾP — đặt như WALK_IN để vào đúng ghế, không
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
@@ -685,19 +697,6 @@ export default function NewPatientForm({
   // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
   // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
   // + Ngày + Giờ khám + Kênh đặt (mới đủ điều kiện tạo lượt khám). Walk-in giữ nguyên.
-  // Giờ mở cửa PK theo ngày khám đã chọn (T2–T6 17–23h; T7+CN cả ngày).
-  const apptCh =
-    apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
-  const apptMinHour = apptCh ? Number(apptCh.open.slice(0, 2)) : 0;
-  const apptMaxHour = apptCh ? Number(apptCh.close.slice(0, 2)) - 1 : 23;
-  // Giờ mở cửa cắt được hai đầu ngày nhưng KHÔNG nói được nghỉ trưa,
-  // nên ô giờ vẫn mời 13:00 trong khi backend từ chối (21/08/2026).
-  const apptKhung =
-    apptDate && policy
-      ? (policy.khungNhanLich[
-          String(new Date(`${apptDate}T00:00:00`).getDay())
-        ] ?? [])
-      : [];
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
   // không chờ submit + không còn 1 câu lỗi chung gây khó hiểu.
   const phoneErr = phoneError(phone);
@@ -1553,62 +1552,55 @@ export default function NewPatientForm({
               đưa sơ đồ sang là cắt mất đường phân bác sĩ duy nhất của luồng
               này: Quang thử trên staging và thấy biểu mẫu không còn chỗ nào
               chọn bác sĩ. Lỗi của tôi, sinh ra ở đúng lượt sửa trước. */}
-          <div>
+          {/* BÁC SĨ + NGÀY + KHUNG GIỜ — bảng Bác sĩ × tuần + lưới khung giờ
+              (Tuyền duyệt 16/09/2026). Thay sơ đồ "rạp chiếu phim" + hai ô
+              Giờ/Phút: sơ đồ cũ tự đếm chỗ trong trình duyệt theo con số chung
+              của phòng khám (lệch trigger) và ô giờ mời chọn cả 00–06h. Nay số
+              chỗ và khung giờ đều do backend nói. */}
+          <div className="sm:col-span-2 space-y-2">
             <label className={LABEL}>
-              Ngày khám <Req />
+              Bác sĩ, ngày &amp; khung giờ <Req />
             </label>
-            <DateField
-              value={apptDate}
-              onChange={setApptDate}
-              min={TODAY}
-              ariaLabel="Ngày khám"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={LABEL}>
-              Bác sĩ &amp; khung giờ <Req />
-            </label>
-            {apptDate ? (
-              <CinemaSlotPicker
-                date={apptDate}
-                doctors={doctors}
-                dutyDoctorIds={dutyDoctorIds}
-                dutyDuKien={dutyDuKien}
-                shiftWindows={shiftWindows}
-                existingAppts={visibleExistingAppts}
-                selectedDoctorId={doctorId}
-                selectedTime={apptTime}
-                onPick={(docId, t) => {
-                  setApptTime(t);
-                  setDoctorId(docId);
+            <div className="rounded-card border border-hairline p-2">
+              <BangBacSiTuan
+                weekStart={thuHaiCua(TODAY, tuanLech)}
+                lamMoi={doiCa}
+                homNay={TODAY}
+                bayGioPhut={phutHienTai}
+                chon={
+                  oLich
+                    ? { doctorId: oLich.doctorId, date: oLich.date, time: apptTime }
+                    : null
+                }
+                locBacSi="all"
+                onChonKhung={(v) => {
+                  setOLich({ doctorId: v.doctorId, doctorName: v.doctorName, date: v.date });
+                  setApptDate(v.date);
+                  setApptTime(v.time);
+                  setDoctorId(v.doctorId ?? "");
+                }}
+                doiTuan={{
+                  truoc: () => setTuanLech((n) => n - 1),
+                  sau: () => setTuanLech((n) => n + 1),
+                  homNay: () => setTuanLech(0),
                 }}
               />
+            </div>
+            {oLich ? (
+              <KhungGioKhaDung
+                doctorId={oLich.doctorId}
+                doctorName={oLich.doctorName}
+                date={oLich.date}
+                time={apptTime}
+                homNay={TODAY}
+                bayGioPhut={phutHienTai}
+                lamMoi={doiCa}
+                onChon={setApptTime}
+                onThongTin={boQua}
+              />
             ) : (
-              <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
-                Chọn ngày khám để hiện sơ đồ chỗ trống.
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={LABEL}>
-              Giờ <Req />
-            </label>
-            <Time24Input
-            khungPhut={apptKhung}
-              value={apptTime}
-              onChange={setApptTime}
-              minHour={apptMinHour}
-              maxHour={apptMaxHour}
-              minutesOptions={policy ? slotMinuteOptions(policy) : []}
-            />
-            {/* BỎ DÒNG "đến muộn 15 phút mất chỗ" (Quang chốt 09/08/2026).
-                Nó là một lời hứa về luật vận hành mà hệ thống KHÔNG thi hành:
-                không có chỗ nào hạ ưu tiên người đến muộn, và thứ tự gọi do
-                services/queue_order.py quyết theo giờ check-in thật. Một câu
-                doạ không có hiệu lực thì chỉ dạy người đọc bỏ qua chữ đỏ. */}
-            {apptCh && (
-              <p className="mt-1 text-label text-ink-faint">
-                Giờ mở cửa: {apptCh.open}–{apptCh.close}
+              <p className="rounded-card border border-dashed border-line px-3 py-3 text-center text-label text-ink-muted">
+                Bấm một ô trong bảng để chọn bác sĩ, ngày và khung giờ.
               </p>
             )}
           </div>

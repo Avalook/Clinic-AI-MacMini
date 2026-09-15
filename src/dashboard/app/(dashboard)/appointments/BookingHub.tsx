@@ -39,6 +39,7 @@ import LichSapToiCuaKhach, {
   type TrangThaiTra,
 } from "./LichSapToiCuaKhach";
 import BangBacSiTuan from "./BangBacSiTuan";
+import { CHANNELS } from "../form-ui";
 import KhungGioKhaDung, { type ThongTinKhung } from "./KhungGioKhaDung";
 import NewPatientForm, {
   type Option,
@@ -479,6 +480,9 @@ export default function BookingHub({
   }
 
   const [note, setNote] = useState("");
+  /** Kênh khách liên hệ đặt lịch (Tuyền chốt danh sách 16/09/2026). Trước đây
+   *  mọi lịch CSKH đặt đều gán cứng "HOTLINE". */
+  const [kenhDat, setKenhDat] = useState("DIEN_THOAI");
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
   // ĐẶT XONG THÌ PHẢI THẤY NGAY TẠI CHỖ VỪA BẤM.
   //
@@ -874,7 +878,7 @@ export default function BookingHub({
           // ĐẶT TRƯỚC, KHÔNG PHẢI VÃNG LAI. Màn này không gửi trường nào và
           // backend mặc định "WALK_IN", nên mọi lịch CSKH đặt đều ăn vào ô để
           // dành cho khách đến thẳng quầy, còn ô đặt trước thì trống. Nói rõ ra.
-          booking_channel: "HOTLINE",
+          booking_channel: kenhDat,
           notes: note,
         }),
       });
@@ -1119,23 +1123,38 @@ export default function BookingHub({
           >
             {/* COLUMN 1 (LEFT - 280px): New Patient Button + Active Patient Card + Search List */}
             <aside className="space-y-3">
-              {/* Nút đặt lịch cho khách hàng mới (Đặt lên trên cùng của Cột 1) */}
-              <button
-                type="button"
-                onClick={() => {
-                  // BỎ CHỌN KHÁCH CŨ. Bấm "khách mới" mà thẻ "Khách hàng đang
-                  // chọn" vẫn là người trước đó thì cả cột trái lẫn panel phải
-                  // đang nói về một người KHÔNG liên quan tới biểu mẫu đang mở
-                  // — và nút "Đặt lịch hẹn" ở panel ấy vẫn bấm được, ra một
-                  // lịch cho đúng người cũ.
-                  setMode("new_patient");
-                  chonKhach(null);
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 py-2.5 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 transition-all"
-              >
-                <UserPlus className="size-4" />
-                + Đặt lịch hẹn cho khách mới
-              </button>
+              {/* HAI TAB "KHÁCH HÀNG CÓ SẴN / KHÁCH HÀNG MỚI" (ảnh Tuyền 16/09/2026)
+                  thay nút "+ Đặt lịch hẹn cho khách mới". Chuyển sang "Khách
+                  mới" vẫn BỎ CHỌN khách cũ — không thì panel phải còn tên người
+                  trước và nút "Đặt lịch hẹn" ra lịch cho đúng người cũ. */}
+              <div role="tablist" aria-label="Loại khách" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1 shadow-card">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "grid"}
+                  onClick={() => setMode("grid")}
+                  className={`rounded-xl py-2 text-xs font-semibold ${
+                    mode === "grid" ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-surface-muted"
+                  }`}
+                >
+                  Khách hàng có sẵn
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "new_patient"}
+                  onClick={() => {
+                    setMode("new_patient");
+                    chonKhach(null);
+                  }}
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold ${
+                    mode === "new_patient" ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-surface-muted"
+                  }`}
+                >
+                  <UserPlus className="size-3.5" />
+                  Khách hàng mới
+                </button>
+              </div>
 
               {/* 1. KHÁCH HÀNG ĐANG CHỌN — hoặc thẻ "khách mới" khi đang nhập.
                      Ô này không bao giờ được để trống trong lúc người dùng
@@ -1577,6 +1596,25 @@ export default function BookingHub({
                         ? `${thongTinKhung.khung.regular_used}/${thongTinKhung.khung.regular_cap} đã đặt · còn ${thongTinKhung.khung.con_lai} chỗ`
                         : "—"}
                 </span>
+              </div>
+
+              {/* KÊNH ĐẶT — không còn gán cứng HOTLINE (16/09/2026). */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink" htmlFor="kenh-dat">
+                  Kênh đặt
+                </label>
+                <select
+                  id="kenh-dat"
+                  value={kenhDat}
+                  onChange={(e) => setKenhDat(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
+                >
+                  {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Note */}

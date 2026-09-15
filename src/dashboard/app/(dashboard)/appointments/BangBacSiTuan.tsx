@@ -9,7 +9,7 @@
 // Số chỗ đọc từ backend (cho-trong.ts). Không tính gì ở đây.
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   MAU_NGAY,
   NHAN_NGAY,
@@ -48,6 +48,7 @@ export default function BangBacSiTuan({
   chon,
   locBacSi,
   onChonKhung,
+  doiTuan,
 }: {
   /** Thứ Hai của tuần, yyyy-mm-dd. */
   weekStart: string;
@@ -65,6 +66,8 @@ export default function BangBacSiTuan({
     date: string;
     time: string;
   }) => void;
+  /** Có = vẽ nút tuần trước / sau / tuần này ngay trên bảng (form khách mới). */
+  doiTuan?: { truoc: () => void; sau: () => void; homNay: () => void };
 }) {
   const [bang, setBang] = useState<BangTuan | null>(null);
   const [loi, setLoi] = useState(false);
@@ -122,6 +125,36 @@ export default function BangBacSiTuan({
   return (
     <div ref={khung} className="relative">
       <div className="flex flex-wrap items-center justify-end gap-3 px-1 pb-2 text-label text-ink-muted">
+        {doiTuan && (
+          <span className="mr-auto inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={doiTuan.truoc}
+              aria-label="Tuần trước"
+              className="rounded-control p-1 text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="px-1 font-semibold tabular-nums text-ink">
+              Tuần {ddmm(weekStart)}
+            </span>
+            <button
+              type="button"
+              onClick={doiTuan.sau}
+              aria-label="Tuần sau"
+              className="rounded-control p-1 text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={doiTuan.homNay}
+              className="ml-1 rounded-control px-2 py-1 text-ink ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+            >
+              Tuần này
+            </button>
+          </span>
+        )}
         {CHU_THICH.map((t) => (
           <span key={t} className="inline-flex items-center gap-1.5">
             <span className={`size-2.5 rounded-full ${MAU_NGAY[t].split(" ")[0]}`} />

@@ -109,6 +109,26 @@ export function chuKhung(
   };
 }
 
+/** Thứ Hai của tuần chứa `iso` (yyyy-mm-dd, giờ VN), lệch `offset` tuần. */
+export function thuHaiCua(iso: string, offset = 0): string {
+  const d = new Date(`${iso}T12:00:00+07:00`);
+  const thu = (d.getUTCDay() + 6) % 7; // T2 = 0
+  d.setUTCDate(d.getUTCDate() - thu + offset * 7);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Phút trong ngày (giờ VN) của mốc ms — khoá khung đã qua của hôm nay. */
+export function phutVn(ms: number): number {
+  const [h, m] = new Date(ms)
+    .toLocaleTimeString("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    .split(":");
+  return Number(h) * 60 + Number(m);
+}
+
 export async function taiBangTuan(weekStart: string, signal?: AbortSignal): Promise<BangTuan | null> {
   const r = await fetch(`/api/appointments/cho-trong-tuan?week_start=${weekStart}`, { signal }).catch(
     () => null,

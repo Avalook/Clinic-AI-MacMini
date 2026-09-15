@@ -39,11 +39,15 @@ export const TBL_DIV = "divide-y divide-line";
 // Bắt buộc đặt thead className sticky top-0 z-10 để header cố định khi cuộn.
 
 // Booking option lists (single source of truth).
+// Tuyền chốt 16/09/2026: Điện thoại · Hotline · Zalo · Facebook · Website ·
+// Giới thiệu · Trực tiếp. Mã cũ giữ nguyên (lịch đã ghi dùng chúng).
 export const CHANNELS = [
-  { id: "WALK_IN", label: "Khách tới trực tiếp" },
+  { id: "WALK_IN", label: "Trực tiếp" },
+  { id: "DIEN_THOAI", label: "Điện thoại" },
   { id: "HOTLINE", label: "Hotline" },
   { id: "ZALO_PK", label: "Zalo" },
   { id: "FB_DR4WOMEN", label: "Facebook" },
+  { id: "WEBSITE", label: "Website" },
   { id: "REFERRAL", label: "Giới thiệu" },
 ];
 
