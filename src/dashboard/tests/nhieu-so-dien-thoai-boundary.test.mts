@@ -93,8 +93,11 @@ test("số thêm hiện ở Danh sách bệnh nhân và xoá được trong sử
   // Tuyền 15/08 chiều: "vẫn chỉ hiện 1 số… thêm hiển thị, khi sửa hồ sơ cho
   // phép xoá". Ba mắt xích: nạp dữ liệu, vẽ đủ hai loại, và nút xoá đi qua
   // DELETE /api/patients/sdt-them.
-  const page = doc("../app/(dashboard)/patient-list/page.tsx");
-  assert.match(page, /patient_sdt_them \( so_dien_thoai, loai \)/, "query phải embed số thêm");
+  // 16/09/2026: nguồn dữ liệu dọn về backend (danh_sach_benh_nhan_service) —
+  // luật "phải mang số thêm" giữ nguyên, chỉ đổi nhà.
+  const svc = doc("../../clinicai/services/danh_sach_benh_nhan_service.py");
+  assert.match(svc, /FROM patient_sdt_them/, "gói danh sách phải mang số thêm");
+  assert.match(svc, /'so_dien_thoai', t\.so_dien_thoai/, "mỗi số thêm có số + loại");
   const view = doc("../app/(dashboard)/patient-list/PatientListView.tsx");
   assert.ok(
     (view.match(/loai === "CHINH"|loai === "NGUOI_NHA"/g) ?? []).length >= 2,

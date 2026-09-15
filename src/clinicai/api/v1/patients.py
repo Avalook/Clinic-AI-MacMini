@@ -264,6 +264,38 @@ async def get_patient_by_id(
     return patient
 
 
+# Danh sách bệnh nhân (tra cứu) — cùng tập vai với route "/patient-list" ở
+# dashboard (lib/roles.ts). Trưởng ca / dược sĩ / TV không có màn này.
+_DANH_SACH_GUARD = require_role(
+    ClinicRole.RECEPTION,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.CSKH,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+)
+
+
+@router.get("/patients/danh-sach")
+async def danh_sach_benh_nhan(
+    identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hồ sơ + các lượt khám (khách ĐÃ TỚI, bất kể ngày) + số tổng.
+
+    Thay truy vấn Supabase của màn Danh sách bệnh nhân — bản cũ chỉ đếm lượt
+    COMPLETED hoặc CHECKED_IN trong HÔM NAY nên qua nửa đêm mất hết lượt đang mở
+    (16/09/2026). Thư ký y khoa chỉ nhận khách của bác sĩ mình.
+    """
+    from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
+
+    return await DanhSachBenhNhanService(pool).lay(identity=identity)
+
+
 @router.get("/patients", response_model=list[PatientDTO])
 async def get_patients_by_phone(
     phone: str,

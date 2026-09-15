@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
@@ -37,6 +38,7 @@ export interface VisitSummary {
   slot_start: string;
   status: string;
   service_name: string | null;
+  doctor_name?: string | null;
 }
 
 export interface ExaminedRow {
@@ -52,6 +54,8 @@ export interface ExaminedRow {
   /** Ngày lượt gần nhất; `null` = chưa khám lần nào. */
   latest: string | null;
   phan_loai: "Chưa khám" | "Khám lần đầu" | "Tái khám";
+  /** Có lượt CHECKED_IN chưa đóng ở quầy (backend tính, 16/09/2026). */
+  dang_mo?: boolean;
   /** Khối hành chính — LUÔN có, kể cả khi chưa khám lần nào. Trước đây nó đi
    *  kèm lượt hẹn, nên hồ sơ chưa khám thì không có gì để hiện. */
   hoso: PatientFull;
@@ -165,6 +169,7 @@ export default function PatientListView({
   showPreVisitBrief = false,
   showRebook = false,
   enableVisitPager = false,
+  canBook = false,
 }: {
   rows: ExaminedRow[];
   /** Chỉ vai lâm sàng mở phiếu khám thật ở vùng SplitPane. */
@@ -173,6 +178,8 @@ export default function PatientListView({
   showPreVisitBrief?: boolean;
   showRebook?: boolean;
   enableVisitPager?: boolean;
+  /** Vai đặt lịch được: hiện nút "Đặt lịch mới" ở đầu hồ sơ. */
+  canBook?: boolean;
 }) {
   const router = useRouter();
   const [term, setTerm] = useState("");
@@ -360,6 +367,33 @@ export default function PatientListView({
               </div>
               <PatientKind value={selected.phan_loai} />
             </div>
+            {/* THAO TÁC NHANH ở đầu hồ sơ (ảnh Tuyền 16/09/2026). Chỉ những việc
+                có đường thật: đặt lịch (màn Đặt lịch mang mã khách), gọi, và
+                trang hồ sơ đầy đủ. */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canBook && (
+                <Link
+                  href={`/appointments?bn=${encodeURIComponent(selected.patient_code)}`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-control bg-brand-600 px-3 text-body font-semibold text-white hover:bg-brand-700"
+                >
+                  <CalendarDays size={14} /> Đặt lịch mới
+                </Link>
+              )}
+              {selected.phone_primary && (
+                <a
+                  href={`tel:${selected.phone_primary}`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-control bg-surface px-3 text-body font-medium text-ink ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+                >
+                  <Phone size={14} /> Gọi
+                </a>
+              )}
+              <Link
+                href={`/patients/${selected.clinic_patient_id}`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-control bg-surface px-3 text-body font-medium text-ink ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+              >
+                <FileText size={14} /> Xem hồ sơ
+              </Link>
+            </div>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
               <span>{selected.date_of_birth ? `Ngày sinh ${selected.date_of_birth}` : "Chưa có ngày sinh"}</span>
               <span>{selected.gender ?? "Chưa có giới tính"}</span>
@@ -438,6 +472,50 @@ export default function PatientListView({
             </section>
           )}
 
+
+          {/* LỊCH SỬ CÁC LƯỢT KHÁM — bảng ngay trong hồ sơ (ảnh Tuyền 16/09/2026),
+              thay vì phải bấm mở danh sách ở cột phải. Lượt = khách đã tới. */}
+          {selected.visits.length > 0 && (
+            <section className="border-t border-line px-5 py-4">
+              <h3 className="text-sm font-semibold text-ink">
+                Lịch sử các lượt khám ({selected.visits.length})
+              </h3>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full border-collapse text-body">
+                  <thead>
+                    <tr className="text-left text-label font-semibold uppercase tracking-wide text-ink-muted">
+                      <th className="border-b border-hairline py-1.5 pr-2">#</th>
+                      <th className="border-b border-hairline py-1.5 pr-2">Ngày khám</th>
+                      <th className="border-b border-hairline py-1.5 pr-2">Dịch vụ</th>
+                      <th className="border-b border-hairline py-1.5 pr-2">Bác sĩ</th>
+                      <th className="border-b border-hairline py-1.5">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.visits.map((v, i) => (
+                      <tr key={v.id}>
+                        <td className="border-b border-hairline py-1.5 pr-2 tabular-nums text-ink-muted">
+                          {selected.visits.length - i}
+                        </td>
+                        <td className="border-b border-hairline py-1.5 pr-2 tabular-nums">
+                          {fmtDateTimeOrDate(v.slot_start)}
+                        </td>
+                        <td className="border-b border-hairline py-1.5 pr-2">
+                          {v.service_name ?? <span className="text-ink-faint">—</span>}
+                        </td>
+                        <td className="border-b border-hairline py-1.5 pr-2">
+                          {v.doctor_name ?? <span className="text-ink-faint">Chưa phân</span>}
+                        </td>
+                        <td className="border-b border-hairline py-1.5">
+                          <AppointmentStatus status={v.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           {/* Nút mở phiếu khám CHỈ cho vai lâm sàng.
               
