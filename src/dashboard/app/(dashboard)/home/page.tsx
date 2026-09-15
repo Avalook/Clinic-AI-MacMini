@@ -21,13 +21,14 @@
 //    ngược lại: hệ sống, dữ liệu đang tới.
 
 import { Suspense, cache } from "react";
-import StatCard from "../StatCard";
+import StatCard from "@/components/ui/StatCard";
+import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
 import {
   getClinicRole,
   getActiveStaff,
   getClinicStaffId,
 } from "../../../lib/clinic-session";
-import { type ClinicRole, canCheckin, canWriteClinical } from "../../../lib/roles";
+import { type ClinicRole, canCheckin, canSeeNav, canWriteClinical } from "../../../lib/roles";
 import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
@@ -66,7 +67,7 @@ interface GoiTrangChu {
   so_lieu: {
     viec_dang_cho: number;
     khach_moi_hom_nay: number;
-    lich_cho_xac_nhan: number;
+    lich_can_xu_ly: number;
   };
   roster: (RosterRow & { ten_staff?: string | null })[];
   truc_ca: { work_date: string; staff_id: string; staff_name: string | null }[];
@@ -214,6 +215,7 @@ export default async function HomePage({
             weekAppt={weekAppt}
             weekRoster={weekRoster}
             isReception={isReception}
+            role={role}
           />
         </Suspense>
       </header>
@@ -254,16 +256,42 @@ async function BaOSo({
   weekAppt,
   weekRoster,
   isReception,
+  role,
 }: {
   weekAppt: string;
   weekRoster: string;
   isReception: boolean;
+  role: ClinicRole | null;
 }) {
   const goi = await goiTrangChu(weekAppt, weekRoster);
+  // Ô SỐ BẤM ĐƯỢC, CÓ ICON (ảnh Tuyền 16/09/2026). Chỉ gắn đường dẫn khi vai
+  // mở được trang đích — một ô trông bấm được mà dẫn tới 403 tệ hơn ô chữ.
+  const toi = (href: string) => (canSeeNav(role, href) ? href : undefined);
   const cards = [
-    { label: "Việc đang chờ làm", value: goi?.so_lieu.viec_dang_cho ?? 0 },
-    { label: "BN mới đăng ký hôm nay", value: goi?.so_lieu.khach_moi_hom_nay ?? 0 },
-    { label: "Lịch chờ xác nhận", value: goi?.so_lieu.lich_cho_xac_nhan ?? 0 },
+    {
+      label: "Việc đang chờ làm",
+      value: goi?.so_lieu.viec_dang_cho ?? 0,
+      icon: <ClipboardList className="size-5" />,
+      tone: "brand" as const,
+      href: toi("/customers"),
+    },
+    {
+      label: "BN mới đăng ký hôm nay",
+      value: goi?.so_lieu.khach_moi_hom_nay ?? 0,
+      icon: <UserPlus className="size-5" />,
+      tone: "success" as const,
+      href: toi("/patient-list"),
+    },
+    {
+      // Thay "Lịch chờ xác nhận" (luôn 0 từ khi đặt xong là xác nhận): số
+      // khách đang có khung báo — vượt sức chứa, cần xác nhận/nhắc lịch, kết
+      // quả chờ gửi, lịch bị gỡ bác sĩ.
+      label: "Lịch cần xử lý",
+      value: goi?.so_lieu.lich_can_xu_ly ?? 0,
+      icon: <CalendarClock className="size-5" />,
+      tone: "warning" as const,
+      href: toi("/customers"),
+    },
   ];
   return (
     <section
@@ -271,7 +299,14 @@ async function BaOSo({
       className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3"
     >
       {cards.map((c) => (
-        <StatCard key={c.label} label={c.label} value={c.value} />
+        <StatCard
+          key={c.label}
+          label={c.label}
+          value={c.value}
+          icon={c.icon}
+          tone={c.tone}
+          href={c.href}
+        />
       ))}
     </section>
   );

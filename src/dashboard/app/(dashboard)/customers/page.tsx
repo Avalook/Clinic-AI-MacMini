@@ -25,7 +25,7 @@ import {
   VN_TZ,
   ngayVN,
 } from "../../../lib/datetime";
-import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
+import { currentWeekStartVn, shiftWeek, weekStartOf } from "../../../lib/roster";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
@@ -288,6 +288,8 @@ export default async function CustomersPage({
   type GoiManKhachHang = {
     appts: unknown[];
     ca_truc: unknown[];
+    /** Thứ Hai của các tuần đã công bố lịch trực (yyyy-mm-dd). */
+    tuan_cong_bo?: string[];
     trang_thai: unknown[];
     viec_mo: unknown[];
     tep: unknown[];
@@ -452,6 +454,11 @@ type LichHenRaw = {
   // không phải hỏi database lần thứ hai cho cùng một câu hỏi.
   const coCaTruc = new Set<string>();
   let doCaTruc = false;
+  // Tuần ĐÃ CÔNG BỐ lịch trực — chưa công bố thì không có "mất bác sĩ".
+  const tuanCongBo = new Set<string>();
+  /** Ngày này thuộc tuần đã công bố lịch trực chưa. */
+  const daCongBo = (iso: string | null | undefined) =>
+    tuanCongBo.has(weekStartOf(ngayVN(iso)) ?? "");
   if (rows.length) {
     // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
@@ -478,6 +485,7 @@ type LichHenRaw = {
       if (r.staff_id && r.work_date) coCaTruc.add(`${r.staff_id}|${r.work_date}`);
     }
     doCaTruc = coCaTruc.size > 0;
+    for (const w of (await goiPromise)?.tuan_cong_bo ?? []) tuanCongBo.add(w);
     // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
     //
     // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
@@ -598,6 +606,7 @@ type LichHenRaw = {
         // chục khách để nói một chuyện không xảy ra.
         mat_bac_si:
           doCaTruc &&
+          daCongBo(repr.slot_start) &&
           !!repr.doctor_id &&
           !daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status) &&
@@ -1023,6 +1032,7 @@ type LichHenRaw = {
             mat_bac_si:
               !!a.bac_si_da_go_id ||
               (doCaTruc &&
+              daCongBo(a.slot_start) &&
               !!a.doctor_id &&
               !daQua(a.slot_start, nowMs()) &&
               ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&

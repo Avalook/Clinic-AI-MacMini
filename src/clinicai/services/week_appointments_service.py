@@ -114,6 +114,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        (
          t.doctor_id IS NOT NULL
          AND t.slot_start > now()
+         -- Tuần CHƯA công bố lịch trực = đặt tự do (luật 15/09/2026): không có
+         -- ca trong bảng nháp không phải là bác sĩ nghỉ (16/09/2026).
+         AND public.tuan_lich_truc_da_cong_bo($1::uuid, t.slot_start)
          AND t.status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
          AND NOT EXISTS (
            SELECT 1 FROM public.work_roster w
@@ -148,6 +151,14 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
          )
        ) AS bs_go_co_ca_lai,
+       -- Lịch VƯỢT SỨC CHỨA sau khi công bố lịch trực (20260915000014) — trang
+       -- chủ báo cam ngay trên dòng lịch, cùng nguồn với khung báo CSKH.
+       EXISTS (
+         SELECT 1 FROM public.v_viec_cskh vv
+          WHERE vv.clinic_id = $1::uuid
+            AND vv.appointment_id = t.id
+            AND vv.trang_thai = 'VUOT_SUC_CHUA'
+       ) AS vuot_suc_chua,
        CASE
          WHEN p.clinic_patient_id IS NULL THEN ''
          WHEN t.slot_start > s.dau_tien  THEN 'Tái khám'
@@ -246,6 +257,7 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "mat_bac_si": bool(r["mat_bac_si"]),
         "bac_si_da_go": r["bac_si_da_go"],
         "bac_si_da_go_co_ca_lai": bool(r["bs_go_co_ca_lai"]),
+        "vuot_suc_chua": bool(r.get("vuot_suc_chua")),
         # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
         # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
         # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.

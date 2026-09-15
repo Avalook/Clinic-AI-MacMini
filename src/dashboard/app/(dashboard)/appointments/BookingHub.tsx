@@ -320,7 +320,20 @@ export default function BookingHub({
   const slotMinutes = policy?.slotMinutes ?? PROVISIONAL_STEP_MIN;
 
   const [mode, setMode] = useState<"grid" | "new_patient">("grid");
-  const [weekOffset, setWeekOffset] = useState(0);
+  // KHUNG ĐIỀN SẴN từ "Đặt lịch vào đây" ở trang chủ: ?ngay=&gio=&bac_si=
+  // (16/09/2026). Chỉ đọc lúc mở màn; ngày sai định dạng thì bỏ qua.
+  const sp = useSearchParams();
+  const [khungSan] = useState(() => {
+    const ngay = sp.get("ngay") ?? "";
+    const gio = sp.get("gio") ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay) || !/^\d{2}:\d{2}$/.test(gio)) return null;
+    const bacSi = sp.get("bac_si");
+    const ten = bacSi ? (doctors.find((d) => d.id === bacSi)?.label ?? null) : null;
+    return { ngay, gio, bacSi: ten ? bacSi : null, ten: ten ?? "Chưa phân bác sĩ" };
+  });
+  const [weekOffset, setWeekOffset] = useState(() =>
+    khungSan ? tuanLechSoVoiHomNay(khungSan.ngay) : 0,
+  );
   const [moLichThang, setMoLichThang] = useState(false);
 
   // MỐC "BÂY GIỜ" NẰM TRONG STATE, không gọi Date.now() lúc render.
@@ -337,7 +350,7 @@ export default function BookingHub({
     const t = setInterval(() => setBayGio(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
-  const [selectedDateIso, setSelectedDateIso] = useState(vnToday);
+  const [selectedDateIso, setSelectedDateIso] = useState(() => khungSan?.ngay ?? vnToday());
 
   const weekDays = useMemo(() => weekOf(vnToday(), weekOffset), [weekOffset]);
 
@@ -369,7 +382,7 @@ export default function BookingHub({
   //
   // Chỉ đọc MỘT LẦN làm giá trị khởi tạo: sau đó người dùng đổi khách trong
   // màn này là quyền của họ, URL không được kéo ngược lựa chọn về.
-  const bnParam = useSearchParams().get("bn");
+  const bnParam = sp.get("bn");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
     () =>
       (bnParam
@@ -407,9 +420,9 @@ export default function BookingHub({
   }>({
     // CHƯA CHỌN GÌ LÀ CHƯA CHỌN (16/09/2026). Bản cũ mặc định bác sĩ đầu danh
     // sách + 18:00, nên cột phải hiện sẵn một khung người dùng chưa từng bấm.
-    doctorId: "",
-    doctorName: "",
-    time: "",
+    doctorId: khungSan?.bacSi ?? "",
+    doctorName: khungSan?.ten ?? "",
+    time: khungSan?.gio ?? "",
   });
 
   /** ĐỔI NGÀY THÌ BỎ CHỌN KHUNG GIỜ.
@@ -443,7 +456,9 @@ export default function BookingHub({
     doctorId: string | null;
     doctorName: string;
     date: string;
-  } | null>(null);
+  } | null>(() =>
+    khungSan ? { doctorId: khungSan.bacSi, doctorName: khungSan.ten, date: khungSan.ngay } : null,
+  );
   /** Sức chứa của khung đang chọn, đọc từ CHÍNH quote của lưới khung giờ. */
   const [thongTinKhung, setThongTinKhung] = useState<ThongTinKhung | null>(null);
 

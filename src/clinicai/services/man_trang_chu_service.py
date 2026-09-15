@@ -91,16 +91,31 @@ class ManTrangChuService:
                 dau_ngay,
                 cuoi_ngay,
             )
-            so_lich_cho = await conn.fetchval(
+            # LỊCH CẦN XỬ LÝ (Tuyền chốt 16/09/2026) — thay "Lịch chờ xác nhận"
+            # (đếm status SCHEDULED, luôn 0 từ khi đặt xong là CONFIRMED). Đếm
+            # KHÁCH đang có khung báo ở màn Quản lý khách hàng: vượt sức chứa,
+            # cần xác nhận / nhắc lịch, kết quả được phép gửi hoặc về muộn quá
+            # hạn, và lịch sắp tới bị gỡ bác sĩ.
+            so_lich_can_xu_ly = await conn.fetchval(
                 """
-                SELECT count(*) FROM appointment
-                 WHERE clinic_id = $1::uuid
-                   AND status = 'SCHEDULED'
-                   AND slot_start >= $2 AND slot_start < $3
+                SELECT count(DISTINCT x.pid) FROM (
+                    SELECT v.clinic_patient_id AS pid
+                      FROM v_viec_cskh v
+                     WHERE v.clinic_id = $1::uuid
+                       AND (v.trang_thai IN ('VUOT_SUC_CHUA', 'CHO_XAC_NHAN',
+                                             'NHAC_HEN_MAI', 'KQ_CHUA_GUI')
+                            OR (v.trang_thai = 'CHO_KQ_XN' AND v.qua_han))
+                    UNION
+                    SELECT a.clinic_patient_id
+                      FROM appointment a
+                     WHERE a.clinic_id = $1::uuid
+                       AND a.bac_si_da_go_id IS NOT NULL
+                       AND a.slot_start >= $2
+                       AND a.status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                ) x
                 """,
                 clinic_id,
                 dau_ngay,
-                cuoi_ngay,
             )
             # Lịch làm việc tuần — kèm staff.full_name để frontend đồng bộ tên
             # (thay truy vấn `staff` phụ của dongBoTenTrucNhat).
@@ -186,7 +201,7 @@ class ManTrangChuService:
             "so_lieu": {
                 "viec_dang_cho": so_viec,
                 "khach_moi_hom_nay": so_khach_moi,
-                "lich_cho_xac_nhan": so_lich_cho,
+                "lich_can_xu_ly": so_lich_can_xu_ly,
             },
             "roster": [dict(r) for r in roster],
             "truc_ca": [dict(r) for r in truc_ca],

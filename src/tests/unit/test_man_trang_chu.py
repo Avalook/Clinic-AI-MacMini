@@ -190,7 +190,7 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
     assert ra["so_lieu"] == {
         "viec_dang_cho": 7,
         "khach_moi_hom_nay": 7,
-        "lich_cho_xac_nhan": 7,
+        "lich_can_xu_ly": 7,
     }
 
 

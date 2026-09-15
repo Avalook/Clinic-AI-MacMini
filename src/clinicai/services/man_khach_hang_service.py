@@ -47,7 +47,7 @@ class ManKhachHangService:
         *,
         clinic_id: str,
         ids: list[str],
-    ) -> dict[str, list[dict[str, Any]]]:
+    ) -> dict[str, list[Any]]:
         """Mười khối dữ liệu cho các khách đang hiển thị.
 
         `ids` do CHÍNH máy chủ Next đưa sang (kết quả truy vấn patient đã
@@ -78,18 +78,35 @@ class ManKhachHangService:
                 ids,
                 _TRAN_LICH,
             )
-            ca_truc = await conn.fetch(
+            # CA TRỰC + TUẦN ĐÃ CÔNG BỐ trong CÙNG một câu (giữ mười câu / một
+            # kết nối). "Mất bác sĩ" chỉ có nghĩa khi tuần đã công bố lịch trực:
+            # chưa công bố là đặt tự do (luật 15/09), và bảng nháp thiếu ca KHÔNG
+            # phải bác sĩ nghỉ (16/09/2026). Dòng tuần có staff_id NULL.
+            ca_truc_va_tuan = await conn.fetch(
                 """
-                SELECT staff_id, work_date FROM work_roster
+                SELECT staff_id, work_date, NULL::date AS tuan_cong_bo
+                  FROM work_roster
                  WHERE clinic_id = $1::uuid
                    AND station = 'LICH_KHAM'
                    AND staff_id IS NOT NULL
                    AND work_date >=
                        (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1
+                UNION ALL
+                SELECT NULL::uuid, NULL::date, rw.week_start
+                  FROM roster_week rw
+                 WHERE rw.clinic_id = $1::uuid
+                   AND rw.week_start >=
+                       (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 7
                  LIMIT 5000
                 """,
                 clinic_id,
             )
+            ca_truc = [r for r in ca_truc_va_tuan if r["staff_id"] is not None]
+            tuan_cong_bo = [
+                r["tuan_cong_bo"]
+                for r in ca_truc_va_tuan
+                if r["tuan_cong_bo"] is not None
+            ]
             trang_thai = await conn.fetch(
                 """
                 SELECT clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han,
@@ -230,6 +247,7 @@ class ManKhachHangService:
         return {
             "appts": [_lich(r) for r in appts],
             "ca_truc": [dict(r) for r in ca_truc],
+            "tuan_cong_bo": [str(w) for w in tuan_cong_bo],
             "trang_thai": [dict(r) for r in trang_thai],
             "viec_mo": [dict(r) for r in viec_mo],
             "tep": [_kem_nhan_vien(r) for r in tep],
@@ -244,6 +262,7 @@ class ManKhachHangService:
 _CAC_KHOI = (
     "appts",
     "ca_truc",
+    "tuan_cong_bo",
     "trang_thai",
     "viec_mo",
     "tep",

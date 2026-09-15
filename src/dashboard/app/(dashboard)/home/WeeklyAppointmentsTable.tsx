@@ -12,9 +12,10 @@
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import {
   canCheckin,
+  canManageAppt,
   canWriteIntake,
   isNurseRole,
   type ClinicRole,
@@ -57,6 +58,8 @@ export interface WeekApptRow {
   /** Bác sĩ bị gỡ ĐÃ CÓ CA KHÁM TRỞ LẠI hôm đó — đổi câu cảnh báo: đây là
    *  việc nội bộ (gán lại bác sĩ), không phải lý do gọi khách. */
   bac_si_da_go_co_ca_lai?: boolean;
+  /** Lịch vượt sức chứa sau khi công bố lịch trực (backend, 16/09/2026). */
+  vuot_suc_chua?: boolean;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -168,6 +171,9 @@ function buildDayRows(
   now: number,
   canBook: boolean,
   policy: BookingPolicy,
+  /** CSKH/Quản lý: "Đặt lịch vào đây" mở màn Đặt lịch điền sẵn khung — mọi
+   *  ngày chưa qua, số chỗ thật do màn đặt lịch (backend) nói (16/09/2026). */
+  datLichTaiMan = false,
 ): RowDesc[] {
   const isToday = day.date === todayVn();
   // Khung giờ có ít nhất 1 lịch (mọi trạng thái — lịch huỷ vẫn hiện để check).
@@ -227,7 +233,16 @@ function buildDayRows(
       // sau chỉ hiện trạng thái. Nhóm "Chưa phân bác sĩ" không có ô này.
       // CHỈ vai đặt lịch (CSKH/Lễ tân/QL/Trưởng ca) mới thấy hàng này — bác sĩ,
       // điều dưỡng không đặt lịch nên bỏ hẳn cho gọn.
-      if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
+      if (datLichTaiMan && g.id && bucketNotPast) {
+        groupRows.push({
+          key: `${bucketMs}-${g.id}-free`,
+          free: {
+            href: `/appointments?ngay=${day.date}&gio=${encodeURIComponent(
+              bucketHHMM(bucketMs),
+            )}&bac_si=${g.id}`,
+          },
+        });
+      } else if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
         groupRows.push({
           key: `${bucketMs}-${g.id}-free`,
           free: {
@@ -253,6 +268,43 @@ function buildDayRows(
   return out;
 }
 
+/** Menu "…" của một dòng lịch cho CSKH — đúng các thao tác đã có ở Quản lý
+ *  khách hàng (không có check-in: CSKH không check-in, luật 15/09/2026). */
+function MenuLich({ a }: { a: WeekApptRow }) {
+  const pid = a.patient?.clinic_patient_id;
+  if (!pid) return null;
+  const hoSo = `/customers?selected=${pid}&luot=${a.id}`;
+  return (
+    <details className="relative">
+      <summary
+        aria-label="Thao tác với lịch này"
+        className="grid size-7 cursor-pointer list-none place-items-center rounded-control text-ink-muted hover:bg-surface-sunken"
+      >
+        <MoreHorizontal className="size-4" />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-52 rounded-card border border-hairline bg-surface p-1 text-body shadow-panel">
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Mở hồ sơ khách
+        </Link>
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Gọi / ghi chăm sóc
+        </Link>
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Đổi / huỷ lịch (ghi lý do)
+        </Link>
+        {a.patient?.phone_primary && (
+          <a
+            href={`tel:${a.patient.phone_primary}`}
+            className="block rounded-control px-2 py-1.5 hover:bg-surface-muted"
+          >
+            📞 {a.patient.phone_primary}
+          </a>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export default function WeeklyAppointmentsTable({
   days,
   role,
@@ -274,11 +326,19 @@ export default function WeeklyAppointmentsTable({
   // của phòng khám, nên không có bản mặc định ở đây.
   const policy = useBookingPolicy();
 
+  // GẬP / MỞ THEO NGÀY (ảnh Tuyền 16/09/2026): ngày có lịch mở sẵn, ngày trống
+  // gập gọn một dòng. `moTay` giữ lựa chọn tay theo ngày; chưa bấm thì theo
+  // mặc định — đổi tuần không kéo theo trạng thái của tuần cũ.
+  const [moTay, setMoTay] = useState<Record<string, boolean>>({});
+  const dangMo = (d: ApptDay) => moTay[d.date] ?? d.items.length > 0;
+  // Menu "…" cho vai quản lý lịch hẹn không có cột check-in (CSKH).
+  const coMenu = canManageAppt(role) && !canCheckin(role);
+
   const showActions = canCheckin(role);
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
   const isNurse = isNurseRole(role);
   const showActionCol = showActions || isNurse;
-  const nCols = showActionCol ? 6 : 5;
+  const nCols = (showActionCol ? 6 : 5) + (coMenu ? 1 : 0);
 
   async function act(
     id: string,
@@ -330,6 +390,22 @@ export default function WeeklyAppointmentsTable({
           {error}
         </div>
       )}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, true])))}
+          className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+        >
+          Mở tất cả
+        </button>
+        <button
+          type="button"
+          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, false])))}
+          className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+        >
+          Đóng tất cả
+        </button>
+      </div>
       <div className="max-h-[88vh] min-h-45 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead className="sticky top-0 z-10">
@@ -344,6 +420,7 @@ export default function WeeklyAppointmentsTable({
                   {isNurse ? "Sinh hiệu" : "Thao tác Check-in"}
                 </th>
               )}
+              {coMenu && <th className={`${TH} w-12`}>Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -354,31 +431,42 @@ export default function WeeklyAppointmentsTable({
                 now,
                 canWriteIntake(role),
                 policy,
+                canManageAppt(role),
               );
+              const mo = dangMo(day);
               return (
                 <Fragment key={day.date}>
-                  {/* Dòng tiêu đề NGÀY (gộp cả 5 hoặc 6 cột). */}
+                  {/* Dòng tiêu đề NGÀY — bấm để gập / mở. Ngày trống nói
+                      "chưa có lịch hẹn" NGAY trên dòng này, không thêm dòng. */}
                   <tr className="bg-surface-muted">
                     <td
                       colSpan={nCols}
                       className="border-b border-hairline border-l-3 border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                     >
-                      {dayLabel(day.date)} · {fmtDayMonth(day.date)}
-                      <span className={`ml-2 ${chipClass("neutral")}`}>
-                        {day.items.length} lịch
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMoTay((m) => ({ ...m, [day.date]: !mo }))}
+                        aria-expanded={mo}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        {mo ? (
+                          <ChevronDown className="size-4 text-ink-muted" />
+                        ) : (
+                          <ChevronRight className="size-4 text-ink-muted" />
+                        )}
+                        {dayLabel(day.date)} · {fmtDayMonth(day.date)}
+                        <span className={`ml-1 ${chipClass("neutral")}`}>
+                          {day.items.length} lịch
+                        </span>
+                      </button>
+                      {day.items.length === 0 && (
+                        <span className="ml-3 text-label font-normal text-ink-faint">
+                          — Chưa có lịch hẹn —
+                        </span>
+                      )}
                     </td>
                   </tr>
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={nCols}
-                        className="border-b border-hairline px-3 py-2 text-center text-label text-ink-faint"
-                      >
-                        — chưa có lịch —
-                      </td>
-                    </tr>
-                  ) : (
+                  {!mo || rows.length === 0 ? null : (
                     rows.map((r) => {
                       const a = r.appt;
                       return (
@@ -410,22 +498,20 @@ export default function WeeklyAppointmentsTable({
                                     bảng: người đọc quét dọc cột giờ để gọi tên,
                                     nên câu cảnh báo phải nằm ở đúng dòng họ
                                     đang nhìn. */}
-                                {(a.mat_bac_si || a.bac_si_da_go) && (
+                                {/* CẢNH BÁO CAM NGAY TRÊN DÒNG LỊCH — cùng nguồn với khung
+                                    báo ở Quản lý khách hàng (16/09/2026). Gỡ ca KHÔNG
+                                    huỷ lịch (luật 15/09): việc là gọi khách đổi lịch,
+                                    hoặc gán lại bác sĩ khi ca đã xếp lại. */}
+                                {(a.mat_bac_si || a.bac_si_da_go || a.vuot_suc_chua) && (
                                   <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
-                                    {/* HAI TÌNH HUỐNG, HAI VIỆC KHÁC NHAU:
-                                        "đã nghỉ" = gọi KHÁCH đổi lịch; "ca đã
-                                        xếp lại" = việc NỘI BỘ, gán lại bác sĩ
-                                        là xong (chỉ còn xảy ra khi ghế khung
-                                        cũ đã bị chiếm — add_shift 15/08 tự
-                                        gắn lại phần còn ghế). Một câu chung
-                                        thì hoặc khách bị gọi oan, hoặc lịch
-                                        chờ mãi vì tưởng phải chờ khách. */}
                                     ⚠{" "}
-                                    {a.bac_si_da_go
-                                      ? a.bac_si_da_go_co_ca_lai
-                                        ? `Ca của ${a.bac_si_da_go} đã xếp lại — lịch cũ đã huỷ, có thể đặt lại đúng khung nếu còn chỗ`
-                                        : `${a.bac_si_da_go} đã nghỉ — lịch đã huỷ, gọi khách đặt lịch mới`
-                                      : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
+                                    {a.vuot_suc_chua
+                                      ? "Khung đã đủ số lượng khám — gọi khách chốt hoặc đổi lịch"
+                                      : a.bac_si_da_go
+                                        ? a.bac_si_da_go_co_ca_lai
+                                          ? `Ca của ${a.bac_si_da_go} đã xếp lại — gán lại bác sĩ nếu còn chỗ`
+                                          : `${a.bac_si_da_go} không còn ca — gọi khách đổi lịch`
+                                        : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                   </span>
                                 )}
                                 {canWriteClinical ? (
@@ -544,6 +630,11 @@ export default function WeeklyAppointmentsTable({
                                   )}
                                 </td>
                               )}
+                              {coMenu && (
+                                <td className={CELL}>
+                                  <MenuLich a={a} />
+                                </td>
+                              )}
                             </>
                           ) : (
                             <>
@@ -567,6 +658,7 @@ export default function WeeklyAppointmentsTable({
                                 <PhanLoai value="Khám lần đầu" />
                               </td>
                               {showActionCol && <td className={CELL} />}
+                              {coMenu && <td className={CELL} />}
                             </>
                           )}
                         </tr>
