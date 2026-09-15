@@ -37,6 +37,41 @@ lịch sử hội thoại.
 
 ---
 
+## 000. Phiên 16/09/2026 — Làm lại VAI CSKH trên local (đã commit, chưa push)
+
+Tuyền chốt thứ tự: xong nghiệp vụ/giao diện/lỗi trên LOCAL theo từng vai, online
+(VPS/Viettel/file storage) bàn sau. Tuyền gửi 4 ảnh ChatGPT (trang chủ, đặt lịch,
+khách mới, danh sách BN) + chốt hành trình khách → memory
+`cskh-hanh-trinh-khach-1609`, `lo-trinh-hoan-thien-local-theo-vai-1609`.
+Nhánh `lat-1-luot-kham`: `00c23ad` (luật 15/09) rồi 6 commit CSKH:
+
+1. `733d98c` Dòng trạng thái khách: bỏ "Làm bước này", vòng tròn = nút (bấm ghi,
+   bấm lại hoàn tác — sổ giữ dòng); ô KHOÁ đồng bộ từ lễ tân/bác sĩ/đối tác; bỏ
+   Vượt sức chứa/Nhắc hẹn mai/Sau sinh/Sau thủ thuật 1 ngày; màn CSKH KHÔNG còn
+   đóng lượt (CHECK_OUT) — checkout là lễ tân. Migration 20260916000001
+   `visit.theo_doi_thu_thuat` + GET/PUT /visits/{id}/theo-doi-thu-thuat, ô chọn ở
+   mục X hồ sơ khám. CSKH mở được Chờ xếp bác sĩ; cơ sở mặc định form khách mới.
+2. `bc13bcf` Khung báo dưới tên khách (khung-bao.ts thuần + test) + thanh chọn
+   lượt theo đợt ở đầu vùng làm việc.
+3. `57af6e8` Một nguồn "còn chỗ": quote thêm `con_lai`/`dat_tu_do`; GET
+   /appointments/cho-trong-tuan (Bác sĩ × 7 ngày, tóm từ chính quote; ít chỗ ngày
+   = ≤2 chỗ hoặc ≤20%, `clinic.settings.it_cho_toi_da`). Màn Đặt lịch: bảng tuần
+   + popup + "Khung giờ khả dụng"; dọn ~400 dòng lưới tự đếm chỗ.
+4. `4334722` Form khách mới dùng chung bảng tuần; tab Có sẵn/Mới; ô Kênh đặt
+   (Trực tiếp·Điện thoại·Hotline·Zalo·Facebook·Website·Giới thiệu).
+5. `4336fb1` Trang chủ: ô số bấm được (Lịch cần xử lý thay Lịch chờ xác nhận),
+   gập ngày, menu "…", "Đặt lịch vào đây" → /appointments?ngay=&gio=&bac_si=.
+   **Lỗi**: "bác sĩ đã đổi lịch" bật cho tuần CHƯA công bố lịch trực → nay chỉ
+   tính tuần đã công bố (trang chủ + Quản lý khách hàng).
+6. `f9ce522` Danh sách BN về backend GET /patients/danh-sach — qua nửa đêm không
+   mất lượt đang mở (local 21, bản cũ 0); lịch sử lượt trong hồ sơ.
+
+Kiểm mỗi bước: pytest phủ ≥80% (1896, 80.27%) · mypy src · máy kiểm phạm vi 0 ·
+tsc · eslint 0 · test node CI · xem/bấm trên stack local (dev-up.sh). Chưa kiểm
+đủ 3 cỡ 375/768/1280 (mới 1440). **Còn lại CSKH:** lưới vãng lai của lễ tân vẫn
+dùng CinemaSlotPicker (làm ở vai lễ tân); `nutLoiRa`/HanhDongTrangThai còn các
+case VUOT_SUC_CHUA/NHAC_HEN_MAI chỉ vào qua khung báo. Vai tiếp: **Lễ tân**.
+
 ## 00. Phiên 15/09/2026 — Sửa luật hệ đang chạy theo CONTEXT v1.0 (CHƯA COMMIT)
 
 **Quyết định của Tuyền (15/09 chiều):** code thẳng trên Dr4Women, không chờ
