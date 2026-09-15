@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.lab_safety_service import (
     LabSafetyService,
@@ -217,27 +217,41 @@ async def test_finalize_rejects_wrong_patient_or_tenant_without_leaking_row() ->
 
 
 @pytest.mark.asyncio
-async def test_finalize_fails_closed_while_triage_is_pending() -> None:
+async def test_bac_si_duyet_duoc_ca_khi_ai_chua_phan_loai() -> None:
+    """Thay bài cũ `test_finalize_fails_closed_while_triage_is_pending` (Luật 12.5).
+
+    15/09/2026: chỉ định nhập tay luôn sinh PENDING; chặn PENDING nghĩa là không
+    có AI thì không kết quả nào được duyệt. Bác sĩ đánh giá, không phải AI.
+    Vẫn phải có dữ liệu kết quả mới chốt được (bài has_result canh riêng)."""
     pool, conn = _pool()
-    conn.fetchrow.return_value = {
-        "lab_result_id": LAB_RESULT_ID,
-        "clinic_patient_id": PATIENT_ID,
-        "triage_group": "PENDING",
-        "requires_doctor_review": True,
-        "is_finalized": False,
-        "reviewed_by_staff_id": None,
-        "reviewed_at": None,
-        "has_result": True,
-    }
+    conn.fetchrow.side_effect = [
+        {
+            "lab_result_id": LAB_RESULT_ID,
+            "clinic_patient_id": PATIENT_ID,
+            "triage_group": "PENDING",
+            "requires_doctor_review": False,
+            "is_finalized": False,
+            "reviewed_by_staff_id": None,
+            "reviewed_at": None,
+            "has_result": True,
+        },
+        {
+            "lab_result_id": LAB_RESULT_ID,
+            "clinic_patient_id": PATIENT_ID,
+            "triage_group": "PENDING",
+            "requires_doctor_review": False,
+            "is_finalized": True,
+            "reviewed_by_staff_id": uuid4(),
+            "reviewed_at": datetime.now(timezone.utc),
+        },
+    ]
 
-    with pytest.raises(ValidationError, match="phân loại"):
-        await LabSafetyService(pool).finalize_review(
-            lab_result_id=LAB_RESULT_ID,
-            clinic_patient_id=PATIENT_ID,
-            identity=_doctor(),
-        )
-
-    conn.execute.assert_not_awaited()
+    outcome = await LabSafetyService(pool).finalize_review(
+        lab_result_id=LAB_RESULT_ID,
+        clinic_patient_id=PATIENT_ID,
+        identity=_doctor(),
+    )
+    assert outcome.is_finalized is True
 
 
 @pytest.mark.asyncio

@@ -31,6 +31,8 @@ _RECORD_GUARD = require_role(
 
 
 class PrescriptionItem(BaseModel):
+    # Existing rows round-trip prescription.id; new/legacy rows omit it.
+    id: UUID | None = None
     drug_name: str | None = None
     quantity: str | None = None
     dosage: str | None = None
@@ -42,6 +44,8 @@ class ClinicalRecordSaveRequest(BaseModel):
     clinic_patient_id: UUID
     # Nurse/reception mode: vitals and the chief complaint only.
     vitals_only: bool = False
+    expected_revision: int | None = Field(default=None, ge=0, strict=True)
+    approve_prescription_draft: bool = False
     chief_complaint: str | None = Field(default=None, max_length=2000)
     subjective: Any = None
     objective: Any = None
@@ -64,6 +68,8 @@ async def save_clinical_record(
         clinic_patient_id=str(body.clinic_patient_id),
         identity=identity,
         vitals_only=body.vitals_only,
+        expected_revision=body.expected_revision,
+        approve_prescription_draft=body.approve_prescription_draft,
         chief_complaint=body.chief_complaint,
         subjective=body.subjective,
         objective=body.objective,

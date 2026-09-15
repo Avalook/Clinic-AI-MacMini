@@ -28,8 +28,11 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
+from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.audit import record_event
+from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MAX_BYTES_THEO_LOAI,
@@ -51,6 +54,9 @@ MEDIA_MIN_FREE_BYTES = int(
 )
 
 KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
+
+#: Ai được cho phép gửi tệp kết quả cho khách (Tuyền chốt 15/09/2026).
+BAC_SI_CHO_PHEP_GUI = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
 
 
 class TepKetQuaService:
@@ -212,6 +218,16 @@ class TepKetQuaService:
             bytes=len(data),
             by_staff_id=identity.staff_id,
         )
+        # Tệp kết quả (thường của đối tác) vừa lên → báo CSKH + bác sĩ của khách.
+        await bao_ket_qua_ve(
+            self._pool,
+            identity=identity,
+            loai="tep",
+            ref_id=str(row_id),
+            clinic_patient_id=clinic_patient_id,
+            appointment_id=appointment_id,
+            visit_id=None,
+        )
         return {"ok": True, "id": row_id, "loai_tep": loai, "so_byte": len(data)}
 
     async def danh_sach(
@@ -222,11 +238,14 @@ class TepKetQuaService:
             """
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
                    t.tai_len_luc, t.gui_luc, t.gui_kenh,
+                   t.cho_phep_gui_luc,
                    s.full_name AS tai_len_boi,
-                   g.full_name AS gui_boi
+                   g.full_name AS gui_boi,
+                   b.full_name AS cho_phep_gui_boi
               FROM public.tep_ket_qua t
               LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
               LEFT JOIN public.staff g ON g.id = t.gui_boi_staff_id
+              LEFT JOIN public.staff b ON b.id = t.cho_phep_gui_boi_staff_id
              WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid
              ORDER BY t.tai_len_luc DESC
              LIMIT 200
@@ -278,11 +297,27 @@ class TepKetQuaService:
         """
         if kenh not in KENH_GUI_HOP_LE:
             raise ValidationError(f"Kênh gửi không hợp lệ: {kenh!r}.")
+        hien = await self._pool.fetchrow(
+            "SELECT gui_luc, cho_phep_gui_luc FROM public.tep_ket_qua "
+            "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            tep_id,
+            identity.clinic_id,
+        )
+        if hien is None:
+            raise NotFoundError("Không tìm thấy tệp này.")
+        # BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026). Trigger
+        # `tep_ket_qua_gui_phai_duoc_cho_phep` cũng chặn — câu ở đây nói bằng
+        # tiếng người trước khi chạm ràng buộc.
+        if hien["cho_phep_gui_luc"] is None:
+            raise ConflictError(
+                "Bác sĩ chưa cho phép gửi tệp này — chờ bác sĩ xem và cho phép."
+            )
         row = await self._pool.fetchrow(
             """
             UPDATE public.tep_ket_qua
                SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
              WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
+               AND cho_phep_gui_luc IS NOT NULL
             RETURNING id::text
             """,
             identity.staff_id,
@@ -291,5 +326,70 @@ class TepKetQuaService:
             identity.clinic_id,
         )
         if row is None:
-            raise NotFoundError("Không tìm thấy tệp này, hoặc nó đã được gửi rồi.")
+            raise NotFoundError("Tệp này đã được gửi rồi.")
         return {"ok": True}
+
+    async def cho_phep_gui(
+        self, *, identity: StaffIdentity, tep_id: str
+    ) -> dict[str, Any]:
+        """Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách."""
+        if identity.role not in BAC_SI_CHO_PHEP_GUI:
+            raise SafetyGateError("Chỉ bác sĩ mới cho phép gửi kết quả cho khách.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    """
+                    UPDATE public.tep_ket_qua
+                       SET cho_phep_gui_luc = now(),
+                           cho_phep_gui_boi_staff_id = $1::uuid
+                     WHERE id = $2::uuid AND clinic_id = $3::uuid
+                       AND cho_phep_gui_luc IS NULL
+                    RETURNING id::text, clinic_patient_id::text
+                    """,
+                    identity.staff_id,
+                    tep_id,
+                    identity.clinic_id,
+                )
+                if row is None:
+                    ton_tai = await conn.fetchval(
+                        "SELECT 1 FROM public.tep_ket_qua "
+                        "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                        tep_id,
+                        identity.clinic_id,
+                    )
+                    if ton_tai is None:
+                        raise NotFoundError("Không tìm thấy tệp này.")
+                    return {"ok": True, "da_cho_phep_tu_truoc": True}
+                await record_event(
+                    conn,
+                    event_type="tep_ket_qua.cho_phep_gui",
+                    aggregate_type="tep_ket_qua",
+                    aggregate_id=row["id"],
+                    identity=identity,
+                    origin="api:cskh-ket-qua",
+                    payload={"clinic_patient_id": row["clinic_patient_id"]},
+                )
+        return {"ok": True}
+
+    async def cho_bac_si_cho_phep(
+        self, *, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Tệp kết quả đang chờ bác sĩ cho phép gửi — cũ nhất trước."""
+        if identity.role not in BAC_SI_CHO_PHEP_GUI:
+            raise SafetyGateError("Chỉ bác sĩ mới xem hàng chờ cho phép gửi.")
+        rows = await self._pool.fetch(
+            """
+            SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.so_byte, t.tai_len_luc,
+                   t.clinic_patient_id::text, p.full_name AS ten_khach,
+                   p.patient_code, s.full_name AS tai_len_boi
+              FROM public.tep_ket_qua t
+              JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
+              LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
+             WHERE t.clinic_id = $1::uuid
+               AND t.cho_phep_gui_luc IS NULL AND t.gui_luc IS NULL
+             ORDER BY t.tai_len_luc
+             LIMIT 200
+            """,
+            identity.clinic_id,
+        )
+        return [dict(r) for r in rows]

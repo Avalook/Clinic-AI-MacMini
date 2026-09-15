@@ -138,13 +138,21 @@ class CapacityService:
                   -- nhất của màn đặt lịch. Test không bắt được vì dòng giả lập
                   -- là dict do chính bài kiểm dựng, và dict thì có đủ khoá mình
                   -- tự cho vào; asyncpg.Record thì không.
-                  (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings
+                  (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings,
+                  -- Tuần chứa ngày này đã công bố lịch trực chưa. Chưa thì trần
+                  -- không chặn lịch hẹn (20260915000001) — lưới phải nói được
+                  -- "vượt trần nhưng vẫn nhận" thay vì khoá ô.
+                  public.tuan_lich_truc_da_cong_bo(
+                      $1::uuid,
+                      ($2::date + time '12:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
+                  ) AS tuan_da_cong_bo
                 """,
                 clinic_id,
                 day,
                 doctor_id,
             )
             roster_known = bool(duty and duty["roster_known"])
+            tuan_da_cong_bo = bool(duty and duty["tuan_da_cong_bo"])
             shifts: list[str] = list(duty["shifts"]) if duty else []
             # doctor_id = None nghĩa là "lưới chung, không lọc bác sĩ" — không
             # có ai để tra ca trực, và không được coi đó là nghỉ.
@@ -158,6 +166,7 @@ class CapacityService:
                     "closed": True,
                     "off_duty": True,
                     "roster_known": True,
+                    "roster_week_published": tuan_da_cong_bo,
                     "shift_windows": [],
                     "slots": [],
                 }
@@ -252,16 +261,10 @@ class CapacityService:
                        cap.walkin_cap,
                        count(*) FILTER (WHERE b.loai = 'DAT_HEN')::int
                            AS regular_used,
-                       -- "Khung sau giờ hẹn" cho khách đến muộn: nguyên văn
-                       -- phép so của slot_seats_used, chỉ đổi chỗ đứng.
-                       count(*) FILTER (
-                           WHERE b.loai = 'VANG_LAI'
-                              OR (b.loai = 'VANG_LAI_TRE'
-                                  AND b.ts_goc <
-                                      ($2::date + make_interval(
-                                           mins => sl.minute_of_day))
-                                          AT TIME ZONE 'Asia/Ho_Chi_Minh')
-                       )::int AS walkin_used
+                       -- Ghế trực tiếp: chỉ lịch lễ tân đặt tại quầy. Khách
+                       -- hẹn đến muộn không còn chiếm ghế này (20260915000014).
+                       count(*) FILTER (WHERE b.loai = 'VANG_LAI')::int
+                           AS walkin_used
                   FROM slots sl
                   CROSS JOIN LATERAL resolve_effective_cap(
                       $1::uuid, $3::uuid,
@@ -311,6 +314,9 @@ class CapacityService:
             # biết nên đổi NGÀY hay đổi BÁC SĨ.
             "off_duty": False,
             "roster_known": roster_known,
+            # Tuần CHƯA công bố lịch trực ⇒ khung đủ trần vẫn đặt được, đối soát
+            # lúc công bố (CONTEXT v1.0). Lưới dùng cờ này để không khoá ô.
+            "roster_week_published": tuan_da_cong_bo,
             # Ca trực của bác sĩ hôm đó, để màn hình nói được "chỉ trực buổi
             # sáng" thay vì im lặng bỏ bớt nửa lưới.
             "shift_windows": [list(w) for w in windows],

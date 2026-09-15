@@ -36,6 +36,7 @@ import { tieuDeHanhDong, coBoNut } from "./HanhDongTrangThai";
 import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach, { type MocLich } from "./VungLamViecKhach";
+import DauUuTien from "./DauUuTien";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
@@ -81,6 +82,7 @@ const TONE_VIEC: Record<string, StatusTone> = {
   NHAC_HEN_MAI: "assigned",
   MOI_TAI_KHAM: "ready",
   CHO_XAC_NHAN: "ready",
+  VUOT_SUC_CHUA: "assigned",
 };
 
 // Việc phải làm, viết ở thể mệnh lệnh. Nhãn trạng thái nói KHÁCH đang ở đâu;
@@ -97,6 +99,7 @@ const BUOC_TIEP: Record<string, string> = {
   NHAC_HEN_MAI: "Gọi nhắc hẹn ngày mai",
   MOI_TAI_KHAM: "Gọi mời tái khám",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
+  VUOT_SUC_CHUA: "Gọi khách chốt hoặc đổi ca — lịch vượt sức chứa",
 };
 
 const NHAN_LOAI_NGAN: Record<string, string> = {
@@ -167,6 +170,9 @@ export interface CustomerRow {
   created_at: string | null;
   van_de_di_kham: string | null;
   linh_vuc: string | null;
+  /** Dấu khách ưu tiên/VIP + lý do (20260915000016). */
+  uu_tien?: boolean | null;
+  uu_tien_ly_do?: string | null;
   /** Các số gắn THÊM (patient_sdt_them) — hai cột cũ vẫn là số chính thức.
    *  CHINH vẽ dưới "SĐT chính", NGUOI_NHA vẽ dưới "SĐT người nhà". */
   patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
@@ -1703,6 +1709,13 @@ export default function CustomersView({
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
                   <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <DauUuTien
+                    key={selected.clinic_patient_id}
+                    clinicPatientId={selected.clinic_patient_id}
+                    uuTien={Boolean(selected.uu_tien)}
+                    lyDo={selected.uu_tien_ly_do ?? null}
+                    onDoi={() => router.refresh()}
+                  />
                   <p className="mt-1 text-sm text-ink-muted">
                     {selected.phone_primary ?? "Chưa có số điện thoại"}
                   </p>

@@ -54,6 +54,7 @@ class _RecordingConn:
             # khoá này thì bài kiểm xanh trong khi asyncpg.Record ném KeyError
             # lúc chạy — đúng cách lỗi ấy lọt lên staging một lần rồi.
             "settings": None,
+            "tuan_da_cong_bo": False,
         }
 
     async def fetch(self, _query: str, *args: Any) -> list[Any]:

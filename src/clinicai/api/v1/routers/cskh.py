@@ -368,6 +368,8 @@ class TuongTacRequest(BaseModel):
     trang_thai_ma: str | None = Field(default=None, max_length=64)
     khach_xac_nhan: bool | None = None
     noi_dung: str | None = Field(default=None, max_length=2000)
+    #: Bắt buộc với mốc CHECK_IN: xác minh khách bằng cách nào (CACH_XAC_MINH).
+    xac_minh_cach: str | None = Field(default=None, max_length=32)
 
 
 @router.post("/cskh/tuong-tac", status_code=201)
@@ -423,6 +425,7 @@ async def ghi_tuong_tac(
             khach_xac_nhan=body.khach_xac_nhan,
             noi_dung=body.noi_dung,
             trang_thai_ma=body.trang_thai_ma,
+            xac_minh_cach=body.xac_minh_cach,
         )
         await idem.save(pool, dong_moi, status_code=201)
     return dong_moi
@@ -570,6 +573,41 @@ async def tai_len_ket_qua(
     )
 
 
+#: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được
+#: tệp mới cho phép gửi (15/09/2026).
+_KET_QUA_DOC_GUARD = require_role(
+    *INTAKE_ROLES, ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR
+)
+_BAC_SI_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+
+
+@router.get("/cskh/ket-qua/cho-phep-gui")
+async def tep_cho_bac_si_cho_phep(
+    identity: StaffIdentity = Depends(_BAC_SI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tệp kết quả CSKH đã tải lên, đang chờ bác sĩ cho phép gửi khách."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {
+        "items": await TepKetQuaService(pool).cho_bac_si_cho_phep(identity=identity)
+    }
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/cho-phep-gui", status_code=201)
+async def cho_phep_gui_tep(
+    tep_id: UUID,
+    identity: StaffIdentity = Depends(_BAC_SI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).cho_phep_gui(
+        identity=identity, tep_id=str(tep_id)
+    )
+
+
 @router.get("/cskh/ket-qua/{clinic_patient_id}")
 async def danh_sach_ket_qua(
     clinic_patient_id: UUID,
@@ -590,7 +628,7 @@ async def danh_sach_ket_qua(
 async def doc_tep_ket_qua(
     tep_id: UUID,
     request: Request,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.

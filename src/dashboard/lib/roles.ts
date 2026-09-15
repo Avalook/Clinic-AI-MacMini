@@ -266,6 +266,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/doctor/board": [
     "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
   ],
+  // Luồng khám lát 1 — gỡ khỏi menu 15/09/2026 (không chạy song song luồng
+  // thật). Chỉ Quản lý còn mở được bằng đường dẫn để đối chiếu.
+  "/luot-kham": ["MANAGEMENT"],
   "/cashier/board": [
     "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "MANAGEMENT",
   ],
@@ -406,10 +409,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Lưu ý: Notion §CSKH tiêu chí 7 viết "chỉ quản lý hệ thống được thay đổi quy
   // tắc và sức chứa" — mâu thuẫn với quyết định trên. Quyết định trực tiếp của
   // Quang thắng; ghi lại ở đây để lần sau không ai "sửa lại cho khớp Notion".
-  "/settings/booking-policy": ["TRUONG_CA", "MANAGEMENT"],
+  // Chỉ Quản lý đặt số khách online/trực tiếp (Tuyền chốt 15/09/2026).
+  "/settings/booking-policy": ["MANAGEMENT"],
   // Cấu trúc phòng khám (cơ sở/tầng/phòng, ai làm được bước nào) — CHỈ Quản lý.
-  // Khác /settings/booking-policy (Trưởng ca sửa được số chỗ): đổi sơ đồ phòng
-  // là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc thẳng từ đó.
+  // Đổi sơ đồ phòng là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc
+  // thẳng từ đó.
   "/settings/clinic-config": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.

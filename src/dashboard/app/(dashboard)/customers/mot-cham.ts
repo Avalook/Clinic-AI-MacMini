@@ -25,6 +25,14 @@ export interface MotCham {
 }
 
 export const MOT_CHAM: Record<string, MotCham> = {
+  // Khách đồng ý GIỮ lịch dù khung vượt sức chứa. Đổi ca thì làm ở màn đặt
+  // lịch — lịch dời đi là việc tự hết (20260915000014).
+  VUOT_SUC_CHUA: {
+    loai: "XAC_NHAN_LICH",
+    ketQua: "DA_LIEN_HE",
+    noiDung: "Đã gọi — khách chốt giữ lịch dù khung vượt sức chứa",
+    khachXacNhan: true,
+  },
   // ── TRƯỚC KHÁM ────────────────────────────────────────────────────────────
   // Hai mã này trước 10/08/2026 phải đi qua khối bên phải mới ghi được. Nhưng
   // "đã gọi xác nhận lịch" là TOÀN BỘ nội dung của lần chạm ấy — bắt bấm nút
@@ -49,11 +57,7 @@ export const MOT_CHAM: Record<string, MotCham> = {
   },
 
   // ── SAU KHÁM ──────────────────────────────────────────────────────────────
-  DA_CHECKIN: {
-    loai: "CHECK_IN",
-    ketQua: "GHI_NHAN",
-    noiDung: "Khách đã tới quầy",
-  },
+  // DA_CHECKIN KHÔNG còn một chạm: CSKH không check-in (Tuyền chốt 15/09/2026).
   CHO_KQ_XN: {
     loai: "CHECK_XN",
     ketQua: "DA_LIEN_HE",
@@ -153,6 +157,7 @@ export function kenhCho(ketQua: string): string {
  *  chỗ họ đang ở CHÍNH LÀ việc vừa xong. */
 export const NHAN_DA_LAM: Record<string, string> = {
   CHO_XAC_NHAN: "Đã gọi xác nhận lịch",
+  VUOT_SUC_CHUA: "Đã gọi chốt lịch vượt sức chứa",
   NHAC_HEN_MAI: "Đã gọi nhắc hẹn",
   GOI_LAI: "Đã gọi lại",
   HOI_LY_DO_HUY: "Đã hỏi lý do huỷ",

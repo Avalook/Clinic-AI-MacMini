@@ -221,7 +221,15 @@ export default function UltrasoundBoard({
         ))}
       </nav>
 
-      {tab === "queue" && <QueueTab items={queue} />}
+      {tab === "queue" && (
+        <QueueTab
+          items={queue}
+          onSaved={async (msg) => {
+            flash(msg);
+            await reload();
+          }}
+        />
+      )}
       {tab === "dispatch" && <RoomsTab rooms={rooms} queue={queue} />}
       {tab === "results" && (
         <ResultsTab
@@ -265,7 +273,30 @@ function ReadyDot({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-function QueueTab({ items }: { items: SonoQueueItem[] }) {
+function QueueTab({
+  items,
+  onSaved,
+}: {
+  items: SonoQueueItem[];
+  onSaved: (msg: string) => Promise<void>;
+}) {
+  const [loiNhan, setLoiNhan] = useState<string | null>(null);
+  // Ghi BÁC SĨ THỰC HIỆN (15/09/2026): bác sĩ siêu âm bấm nhận ca → thư ký đi
+  // cùng bác sĩ ấy thấy đúng khách để nhập hộ. Ai được nhận do backend quyết.
+  async function nhanCa(workItemId: string) {
+    setLoiNhan(null);
+    const res = await fetch("/api/ultrasound", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "nhan", work_item_id: workItemId }),
+    });
+    const out = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      setLoiNhan(out.error ?? `Lỗi máy chủ (${res.status})`);
+      return;
+    }
+    await onSaved("✓ Đã nhận ca siêu âm");
+  }
   if (items.length === 0) {
     return (
       <div className="card" style={{ padding: 20, textAlign: "center" }}>
@@ -281,6 +312,11 @@ function QueueTab({ items }: { items: SonoQueueItem[] }) {
   }
   return (
     <div style={{ display: "grid", gap: 10 }}>
+      {loiNhan && (
+        <p role="alert" style={{ fontSize: 12, color: "var(--danger)" }}>
+          {loiNhan}
+        </p>
+      )}
       {items.map((p) => (
         <div key={p.work_item_id} className="card" style={{ padding: 14 }}>
           <div
@@ -313,6 +349,23 @@ function QueueTab({ items }: { items: SonoQueueItem[] }) {
                 {p.service_name ?? "Siêu âm"}
                 {p.indication_doctor ? ` · chỉ định: ${p.indication_doctor}` : ""}
                 {p.room_name ? ` · ${roomWithFloor(p.room_name, p.room_floor)}` : ""}
+              </div>
+              <div style={{ fontSize: 12, marginTop: 2 }}>
+                {p.bac_si_thuc_hien ? (
+                  <span>BS thực hiện: <b>{p.bac_si_thuc_hien}</b></span>
+                ) : (
+                  <>
+                    <span style={{ color: "var(--warning)" }}>Chưa bác sĩ nhận</span>{" "}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ padding: "2px 8px", fontSize: 12 }}
+                      onClick={() => void nhanCa(p.work_item_id)}
+                    >
+                      Nhận ca
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             <div style={{ textAlign: "right" }}>

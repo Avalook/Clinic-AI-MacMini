@@ -11,6 +11,7 @@ import { getClinicRole } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
+import { fetchFromBackend } from "../../lib/backend-proxy";
 import { getFeatureMode } from "../../lib/feature-mode";
 
 interface DeclinedRow {
@@ -64,11 +65,20 @@ export default async function DashboardLayout({
   // `getClinicId()` ĐÃ BỎ khỏi khối này (06/08/2026): nó chỉ tồn tại để
   // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
   // token. Một truy vấn ít đi trên MỌI lần dựng trang.
-  const [declinedRows, bookingPolicy, featureMode] = await Promise.all([
+  const [declinedRows, bookingPolicy, featureMode, phamViThuKy] = await Promise.all([
     canWriteIntake(role) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
     getFeatureMode(),
+    // Thư ký chưa được phân bác sĩ nào thì mọi màn đều trống — nói RÕ vì sao,
+    // kẻo trông như "hôm nay không có khách" (Tuyền chốt 15/09/2026).
+    role === "TKYK"
+      ? fetchFromBackend<{ la_thu_ky: boolean; bac_si: { id: string }[] }>(
+          "/api/v1/thu-ky/pham-vi",
+        )
+      : Promise.resolve(null),
   ]);
+  const thuKyChuaPhan =
+    role === "TKYK" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);
 
   // Reception / CSKH / management get a top-right notice of appointments a
   // doctor declined (from today onward), so they can re-assign them.
@@ -83,6 +93,12 @@ export default async function DashboardLayout({
     <NotificationProvider staffId={staffId}>
       <BookingPolicyProvider policy={bookingPolicy}>
         <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={logout}>
+          {thuKyChuaPhan && (
+            <div className="mb-3 rounded-card border border-warning bg-warning-bg px-4 py-3 text-sm text-warning">
+              Bạn chưa được phân đi cùng bác sĩ nào nên chưa thấy khách. Báo quản
+              lý phân trong Cấu hình phòng khám → Thư ký đi cùng bác sĩ.
+            </div>
+          )}
           {children}
           <DeclinedNotice items={declined} />
           <RealtimeRefresher />

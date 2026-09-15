@@ -137,9 +137,18 @@ export function useDispatchAction() {
       const out = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        // Áp tuyến: API bỏ các bước dịch vụ bác sĩ chưa chỉ định (15/09/2026).
+        bo_qua_chua_chi_dinh?: string[];
       };
       const fail = !res.ok || !out.ok;
-      setToast(fail ? `✗ ${out.error ?? `Lỗi máy chủ (${res.status})`}` : okMsg);
+      const boQua = out.bo_qua_chua_chi_dinh?.length ?? 0;
+      setToast(
+        fail
+          ? `✗ ${out.error ?? `Lỗi máy chủ (${res.status})`}`
+          : boQua
+            ? `${okMsg} — bỏ ${boQua} bước bác sĩ chưa chỉ định`
+            : okMsg,
+      );
       setTimeout(() => setToast(null), 3500);
       if (!fail) router.refresh();
       return !fail;

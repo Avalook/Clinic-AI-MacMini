@@ -56,6 +56,10 @@ TENANT_TABLES = {
     "staff_capability", "staff_task", "ultrasound_record", "visit", "work_item",
     "work_item_dependency", "work_item_event", "work_roster", "work_session",
     "work_session_staff",
+    # Luồng khám lát 1 (20260911000001)
+    "encounter_flow", "vital_measurement", "consultation", "consultation_note",
+    "service_order", "review_round", "round_requirement", "queue_entry",
+    "command_receipt",
 }
 
 STATEMENT = re.compile(

@@ -17,9 +17,10 @@ import {
   UserRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import StatusChip from "@/components/ui/StatusChip";
+import { SU_KIEN_BANG } from "@/lib/nhip-lam-moi";
 import { patientLine, type WorklistPatient } from "@/lib/worklist";
 
 export interface CatalogueEntry {
@@ -40,6 +41,27 @@ interface Duplicate {
 }
 
 type Availability = "all" | "orderable" | "unavailable";
+
+/** Chỉ định thư ký nhập, chờ bác sĩ duyệt (GET …/service-orders/draft). */
+interface DraftService {
+  service_code: string;
+  name: string | null;
+  unit_price: number | null;
+  node_code: string | null;
+}
+interface ServiceOrderDraft {
+  id: string;
+  version: number;
+  updated_at: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  services: DraftService[];
+}
+interface DraftState {
+  draft: ServiceOrderDraft | null;
+  /** Vai người đang xem, do backend nói: bác sĩ duyệt/bỏ, thư ký nhập nháp. */
+  vai: "BAC_SI" | "THU_KY";
+}
 
 function money(value: number | null): string {
   return value == null ? "Chưa có giá" : `${value.toLocaleString("vi-VN")} đ`;
@@ -63,6 +85,164 @@ export default function OrderComposer({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [draftState, setDraftState] = useState<DraftState | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const laThuKy = draftState?.vai === "THU_KY";
+  // Dịch vụ ĐÃ TÍCH cho lượt (Tuyền chốt 15/09/2026: chỉ định là danh sách bác
+  // sĩ tích — tích gì làm nấy, bỏ tích là bỏ dịch vụ).
+  const [daTich, setDaTich] = useState<
+    {
+      service_code: string;
+      name: string | null;
+      node_code: string;
+      status: string;
+      lan?: number;
+    }[]
+  >([]);
+  const [dangBo, setDangBo] = useState<string | null>(null);
+  const draft = draftState?.draft ?? null;
+
+  // BẢN NHÁP ĐỌC LẠI THEO THỜI GIAN THỰC. Thư ký nhập ở màn của mình, bác sĩ
+  // thấy ngay ở màn này: dùng chung kênh SSE của phòng khám (RealtimeRefresher
+  // phát SU_KIEN_BANG kèm tên bảng), không mở kết nối riêng cho từng màn.
+  const [draftEpoch, setDraftEpoch] = useState(0);
+  const loadDraft = useCallback(() => setDraftEpoch((n) => n + 1), []);
+
+  useEffect(() => {
+    let on = true;
+    fetch(`/api/visits/${visitId}/service-orders/draft`, { cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<DraftState>) : null))
+      .then((state) => {
+        if (on && state) setDraftState(state);
+      })
+      .catch(() => {
+        // Mất kết nối thì giữ bản đang hiện; lần phát tin kế tiếp sẽ đọc lại.
+      });
+    return () => {
+      on = false;
+    };
+    fetch(`/api/visits/${visitId}/service-orders/current`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { items?: typeof daTich } | null) => {
+        if (on && body?.items) setDaTich(body.items);
+      })
+      .catch(() => {});
+  }, [visitId, draftEpoch]);
+
+  async function boTich(code: string, ten: string) {
+    // Huỷ chỉ định bắt buộc lý do (Tuyền chốt 15/09/2026).
+    const lyDo = window.prompt(`Lý do bỏ "${ten}" khỏi chỉ định của khách?`)?.trim();
+    if (!lyDo) return;
+    setError(null);
+    setDangBo(code);
+    const res = await fetch(`/api/visits/${visitId}/service-orders/remove`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ service_code: code, ly_do: lyDo }),
+    });
+    setDangBo(null);
+    if (!res.ok) {
+      setError(await readError(res, "Không bỏ được dịch vụ."));
+      return;
+    }
+    loadDraft();
+    router.refresh();
+  }
+
+  useEffect(() => {
+    const changed = (ev: Event) => {
+      const table = (ev as CustomEvent<string>).detail;
+      if (table === "service_order_draft" || table === "work_item") loadDraft();
+    };
+    window.addEventListener(SU_KIEN_BANG, changed);
+    window.addEventListener("focus", loadDraft);
+    return () => {
+      window.removeEventListener(SU_KIEN_BANG, changed);
+      window.removeEventListener("focus", loadDraft);
+    };
+  }, [loadDraft]);
+
+  async function readError(res: Response, fallback: string): Promise<string> {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    return body?.error ?? fallback;
+  }
+
+  async function approveDraft() {
+    if (!draft) return;
+    setError(null);
+    setDone(null);
+    setDraftBusy(true);
+    try {
+      const res = await fetch(`/api/visits/${visitId}/service-orders/draft/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Phiên bản ĐANG HIỆN trên màn: thư ký sửa sau đó thì backend từ chối.
+        body: JSON.stringify({ expected_version: draft.version }),
+      });
+      if (!res.ok) {
+        setError(await readError(res, `Không duyệt được chỉ định (HTTP ${res.status})`));
+        return;
+      }
+      const rooms = (await res.json()) as { node_code: string; service_count: number }[];
+      setDone(
+        `Đã duyệt ${draft.services.length} dịch vụ thư ký nhập, gửi tới ${rooms.length} phòng.`,
+      );
+      startTransition(() => router.refresh());
+    } finally {
+      setDraftBusy(false);
+      loadDraft();
+    }
+  }
+
+  async function discardDraft() {
+    if (!draft) return;
+    const reason = laThuKy
+      ? null
+      : window.prompt("Lý do bỏ chỉ định nháp (thư ký sẽ thấy):")?.trim();
+    if (!laThuKy && !reason) return;
+    setError(null);
+    setDone(null);
+    setDraftBusy(true);
+    try {
+      const res = await fetch(`/api/visits/${visitId}/service-orders/draft/discard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected_version: draft.version, reason }),
+      });
+      if (!res.ok) {
+        setError(await readError(res, `Không bỏ được chỉ định nháp (HTTP ${res.status})`));
+        return;
+      }
+      setDone("Đã bỏ chỉ định nháp.");
+    } finally {
+      setDraftBusy(false);
+      loadDraft();
+    }
+  }
+
+  async function removeFromDraft(code: string) {
+    if (!draft) return;
+    setError(null);
+    setDraftBusy(true);
+    try {
+      const res = await fetch(`/api/visits/${visitId}/service-orders/draft`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_codes: draft.services
+            .map((service) => service.service_code)
+            .filter((serviceCode) => serviceCode !== code),
+          expected_version: draft.version,
+        }),
+      });
+      if (!res.ok) {
+        setError(await readError(res, `Không sửa được chỉ định nháp (HTTP ${res.status})`));
+      }
+    } finally {
+      setDraftBusy(false);
+      loadDraft();
+    }
+  }
 
   const allRooms = new Map<string, CatalogueEntry[]>();
   for (const service of catalogue) {
@@ -126,6 +306,24 @@ export default function OrderComposer({
   async function submit() {
     setError(null);
     setDone(null);
+    if (laThuKy) {
+      // Thư ký nhập theo lời bác sĩ đọc: vào bản nháp, bác sĩ duyệt mới gửi phòng.
+      const res = await fetch(`/api/visits/${visitId}/service-orders/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service_codes: [...chosen] }),
+      });
+      if (!res.ok) {
+        setError(await readError(res, `Không lưu được chỉ định nháp (HTTP ${res.status})`));
+        return;
+      }
+      const saved = (await res.json()) as ServiceOrderDraft | null;
+      setDraftState({ draft: saved, vai: "THU_KY" });
+      setDone(`Đã nhập ${chosen.size} dịch vụ vào nháp — chờ bác sĩ duyệt.`);
+      setChosen(new Set());
+      setDupes([]);
+      return;
+    }
     const res = await fetch(`/api/visits/${visitId}/service-orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -439,18 +637,40 @@ export default function OrderComposer({
         >
           <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
             <header className="flex items-center gap-2 border-b border-line bg-surface-muted px-4 py-3">
-              <AlertTriangle className="h-4 w-4 text-ink-muted" aria-hidden="true" />
-              <h2 className="text-sm font-semibold text-ink">Trạng thái gửi</h2>
+              <h2 className="text-sm font-semibold text-ink">Đã chỉ định</h2>
+              <span className="ml-auto text-xs text-ink-muted">{daTich.length} dịch vụ</span>
             </header>
-            <div className="p-4">
-              <p className="text-sm font-medium text-ink-soft">
-                Chưa đủ dữ liệu để xác định trạng thái chặn
-              </p>
-              <p className="mt-2 text-xs leading-5 text-ink-muted">
-                Màn này chưa nhận dữ liệu xác nhận chi phí hoặc điều kiện chặn từ
-                backend. Kiểm tra trùng vẫn chạy khi chọn dịch vụ.
-              </p>
-            </div>
+            <ul className="divide-y divide-line p-2">
+              {daTich.length === 0 && (
+                <li className="px-2 py-2 text-xs text-ink-muted">
+                  Chưa tích dịch vụ nào cho lượt này.
+                </li>
+              )}
+              {daTich.map((d) => {
+                const ten = d.name ?? d.service_code;
+                const boDuoc = !laThuKy && d.status === "PENDING";
+                return (
+                  <li key={`${d.node_code}-${d.lan ?? 1}-${d.service_code}`} className="flex items-center gap-2 px-2 py-1.5">
+                    <input
+                      type="checkbox"
+                      checked
+                      disabled={!boDuoc || dangBo === d.service_code}
+                      onChange={() => void boTich(d.service_code, ten)}
+                      aria-label={`Bỏ tích ${ten}`}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                      {ten}
+                      {(d.lan ?? 1) > 1 ? ` (lần ${d.lan})` : ""}
+                    </span>
+                    {d.status !== "PENDING" && (
+                      <span className="text-label text-ink-muted">
+                        {d.status === "COMPLETED" ? "đã làm" : "đang làm"}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </section>
 
           {dupes.length > 0 ? (
@@ -470,6 +690,84 @@ export default function OrderComposer({
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {draft ? (
+            <section className="rounded-card border border-warning bg-warning-bg shadow-card">
+              <header className="flex items-center justify-between gap-2 border-b border-warning/40 px-4 py-3">
+                <h2 className="text-sm font-semibold text-warning">
+                  Chỉ định chờ bác sĩ duyệt
+                </h2>
+                <span className="rounded-chip bg-surface px-2 py-1 text-xs font-semibold text-warning tabular-nums">
+                  {draft.services.length}
+                </span>
+              </header>
+              <div className="p-4">
+                <p className="text-xs text-warning">
+                  {draft.recorded_by_name ?? "Thư ký"} nhập · bản {draft.version} ·{" "}
+                  {new Date(draft.updated_at).toLocaleTimeString("vi-VN", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+                <ul className="mt-2 space-y-2 text-xs">
+                  {draft.services.map((service) => (
+                    <li key={service.service_code} className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 text-ink">
+                        {service.name ?? service.service_code}
+                      </span>
+                      <span className="shrink-0 text-ink-muted tabular-nums">
+                        {money(service.unit_price)}
+                      </span>
+                      {laThuKy ? (
+                        <button
+                          type="button"
+                          disabled={draftBusy}
+                          onClick={() => void removeFromDraft(service.service_code)}
+                          className="shrink-0 rounded-control px-1.5 text-ink-muted hover:text-danger disabled:opacity-50"
+                          aria-label={`Bỏ ${service.name ?? service.service_code} khỏi nháp`}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs leading-5 text-warning">
+                  Chưa gửi tới phòng thực hiện, trưởng ca hay thu ngân cho tới khi
+                  bác sĩ duyệt.
+                </p>
+                {laThuKy ? (
+                  <button
+                    type="button"
+                    disabled={draftBusy}
+                    onClick={() => void discardDraft()}
+                    className="mt-3 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+                  >
+                    Bỏ cả bản nháp
+                  </button>
+                ) : (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={draftBusy || pending}
+                      onClick={() => void approveDraft()}
+                      className="flex-1 rounded-control bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      {draftBusy ? "Đang duyệt…" : "Duyệt & gửi phòng"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={draftBusy || pending}
+                      onClick={() => void discardDraft()}
+                      className="rounded-control border border-line bg-surface px-3 py-2.5 text-sm font-medium text-ink-soft hover:bg-surface-muted disabled:opacity-50"
+                    >
+                      Bỏ nháp
+                    </button>
+                  </div>
+                )}
+              </div>
             </section>
           ) : null}
 
@@ -539,10 +837,12 @@ export default function OrderComposer({
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />
-                {pending ? "Đang gửi…" : "Gửi chỉ định"}
+                {pending ? "Đang gửi…" : laThuKy ? "Nhập nháp — chờ bác sĩ duyệt" : "Gửi chỉ định"}
               </button>
               <p className="mt-3 text-center text-xs leading-5 text-ink-faint">
-                Gửi chỉ định không tự đóng bước tại Bàn khám.
+                {laThuKy
+                  ? "Bác sĩ thấy ngay trên màn của mình và duyệt mới gửi phòng."
+                  : "Gửi chỉ định không tự đóng bước tại Bàn khám."}
               </p>
             </div>
           </section>

@@ -32,6 +32,8 @@ import {
   waitedMinutes,
   type WorklistItem,
 } from "@/lib/worklist";
+import NutCheckIn from "@/components/ui/NutCheckIn";
+import type { MaXacMinh } from "@/lib/xac-minh";
 
 type QueueTab = "all" | "priority" | "verify";
 type ArrivalFilter = "all" | "appointment" | "walk-in";
@@ -114,7 +116,11 @@ function Row({
             <span className="truncate text-sm font-semibold text-ink">
               {item.patient.full_name ?? "Chưa rõ tên"}
             </span>
-            {item.is_priority_slot ? <PriorityChip priority="P0" /> : null}
+            {item.khach_uu_tien ? (
+              <span title={item.uu_tien_ly_do ?? undefined}>
+                <PriorityChip priority="P0" />
+              </span>
+            ) : null}
           </span>
           <span className="block truncate text-xs text-ink-muted">
             {patientLine(item.patient) || item.patient.patient_code || "Chưa đủ thông tin"}
@@ -153,7 +159,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
     const matching = items.filter((item) => {
       const matchesTab =
         tab === "all" ||
-        (tab === "priority" && item.is_priority_slot) ||
+        (tab === "priority" && item.khach_uu_tien) ||
         (tab === "verify" && item.node_code === "LUOTKHAM-02");
       const matchesArrival =
         arrival === "all" ||
@@ -206,15 +212,9 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
             {(
               [
                 ["all", "Tất cả"],
-                // TAB "ƯU TIÊN" ĐÃ ẨN. Nó lọc theo `is_priority_slot`, mà
-                // KHÔNG đường ghi nào trong dashboard đặt cờ ấy — đo trên prod
-                // 08/08/2026: 0/10 lịch hẹn có cờ. Nên tab luôn rỗng, và một
-                // tab luôn rỗng dạy người dùng rằng "không có ca ưu tiên nào",
-                // chứ không phải "tính năng chưa có".
-                //
-                // Ưu tiên là khái niệm CHƯA XÂY (Quang: "bỏ ưu tiên đi đã").
-                // Giữ nguyên cột và `PriorityChip` làm chỗ nối cho sau này;
-                // chỉ bỏ thứ hứa hẹn với người dùng một việc chưa làm được.
+                // Ưu tiên = cờ trên hồ sơ khách (Tuyền chốt 15/09/2026). Thứ
+                // tự khám đổi bằng kéo thả ở bảng "Thứ tự khám".
+                ["priority", "Khách ưu tiên"],
                 ["verify", "Cần xác minh"],
               ] as const
             ).map(([value, label]) => (
@@ -439,13 +439,17 @@ function CounterPanel({
    * với `action: "checkin"`. Không có đường riêng cho màn này: hai đường
    * check-in là hai luật cấp số thứ tự chờ ngày lệch nhau.
    */
-  async function checkIn() {
+  async function checkIn(xacMinhCach?: MaXacMinh) {
     if (!item.appointment_id) return;
     setError(null);
     const res = await fetch("/api/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.appointment_id, action: "checkin" }),
+      body: JSON.stringify({
+        id: item.appointment_id,
+        action: "checkin",
+        xac_minh_cach: xacMinhCach,
+      }),
     });
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -566,15 +570,15 @@ function CounterPanel({
           Đã check-in lúc {time(item.checked_in_at)}
         </p>
       ) : (
-        <button
-          type="button"
+        <NutCheckIn
+          size="lg"
+          fullWidth
           disabled={!item.appointment_id || pending}
-          onClick={() => checkIn()}
-          className="flex w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-surface px-4 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-sunken disabled:text-ink-faint"
+          onChon={() => checkIn()}
         >
-          <CheckCircle2 size={17} />
+          <CheckCircle2 size={17} className="mr-2" />
           {pending ? "Đang lưu…" : "Check-in — khách đã đến"}
-        </button>
+        </NutCheckIn>
       )}
 
       {/* CHƯA ĐẾN → GỌI NGƯỜI TIẾP THEO, không phải "đánh dấu vắng mặt".

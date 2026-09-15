@@ -12,6 +12,7 @@
 // độc lập để không thể bypass bằng cách gọi API trực tiếp.
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
 import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
 import {
@@ -185,6 +186,17 @@ export default async function PatientListPage() {
           service: one(a.service),
         },
       });
+    }
+  }
+  // THƯ KÝ CHỈ THẤY KHÁCH CỦA BÁC SĨ MÌNH (Tuyền chốt 15/09/2026). Danh sách
+  // mã khách được xem do FastAPI tính; đọc hỏng thì không cho thấy ai (đóng).
+  if (role === "TKYK") {
+    const pv = await fetchFromBackend<{ gioi_han: boolean; ids: string[] }>(
+      "/api/v1/thu-ky/khach-duoc-xem",
+    );
+    const duoc = new Set(pv?.ids ?? []);
+    for (const id of [...map.keys()]) {
+      if (!duoc.has(id)) map.delete(id);
     }
   }
   const rows: ExaminedRow[] = [...map.values()]

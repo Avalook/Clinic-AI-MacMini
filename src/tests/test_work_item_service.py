@@ -298,3 +298,49 @@ async def test_authorized_work_item_with_open_gate_has_no_blockers() -> None:
         )
         == []
     )
+
+
+class TestMienHuyCanLyDoVaBacSi:
+    """Tuyền chốt 15/09/2026: huỷ/miễn một bước phải ghi lý do; dịch vụ không làm
+    được thì BÁC SĨ quyết. Smoke Postgres chạy đủ đường vai; đây khoá hằng số và
+    cửa lý do (chặn trước khi chạm database)."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("command", ["skip", "cancel"])
+    @pytest.mark.parametrize("reason", [None, "", "   "])
+    async def test_thieu_ly_do_bi_chan_truoc_db(
+        self, command: str, reason: str | None
+    ) -> None:
+        from clinicai.api.exceptions import ValidationError
+        from clinicai.api.identity import ClinicRole, StaffIdentity
+        from clinicai.services.work_item_service import WorkItemService
+
+        x = "a0000000-0000-4000-8000-000000000001"
+        identity = StaffIdentity(
+            staff_id=x,
+            auth_user_id=x,
+            full_name="x",
+            department="DOCTOR",
+            role=ClinicRole.DOCTOR,
+            clinic_id=x,
+            location_id=x,
+            location_name="CS",
+        )
+        with pytest.raises(ValidationError, match="lý do"):
+            await WorkItemService(None).issue(
+                work_item_id=x,
+                command=command,  # type: ignore[arg-type]
+                identity=identity,
+                reason=reason,
+            )
+
+    def test_chi_bac_si_quyet_buoc_dich_vu(self) -> None:
+        from clinicai.services.work_item_service import (
+            LENH_CAN_LY_DO,
+            NHOM_BUOC_DICH_VU,
+            VAI_QUYET_DICH_VU,
+        )
+
+        assert LENH_CAN_LY_DO == {"skip", "cancel"}
+        assert NHOM_BUOC_DICH_VU == {"dich_vu", "ket_qua"}
+        assert VAI_QUYET_DICH_VU == {"DOCTOR", "ULTRASOUND_DOCTOR"}

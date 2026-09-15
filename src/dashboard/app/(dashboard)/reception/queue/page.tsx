@@ -16,6 +16,7 @@ import { fetchWorklist } from "@/lib/worklist-server";
 import { isOverdue } from "@/lib/work-item-status";
 
 import QueueBoard from "./QueueBoard";
+import ThuTuKham from "./ThuTuKham";
 import LiveBoardSync from "../../LiveBoardSync";
 
 export const metadata = { title: "Hàng đợi tiếp nhận · ClinicAI" };
@@ -80,6 +81,9 @@ export default async function ReceptionQueuePage() {
               icon={<Hourglass size={23} />}
             />
           </StatRow>
+
+          {/* Thứ tự khám thật (theo giờ check-in, lễ tân kéo tay được). */}
+          <ThuTuKham />
 
           {/* Longest wait first among equal priorities — the desk's real order. */}
           <QueueBoard

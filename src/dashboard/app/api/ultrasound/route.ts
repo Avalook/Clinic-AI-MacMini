@@ -45,6 +45,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!(await requireUser()))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const body = await request.json().catch(() => ({}));
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  // Nhận ca / giao bác sĩ thực hiện siêu âm (15/09/2026).
+  if (body.action === "nhan") {
+    const id = String(body.work_item_id ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return NextResponse.json({ error: "Mã ca siêu âm không hợp lệ" }, { status: 400 });
+    }
+    return proxyJsonToBackend("POST", `/api/v1/ultrasound/queue/${id}/nhan`, {
+      bac_si_id: body.bac_si_id ?? null,
+    });
+  }
   return proxyJsonToBackend("POST", "/api/v1/ultrasound/draft", body);
 }

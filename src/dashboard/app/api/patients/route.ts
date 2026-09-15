@@ -49,6 +49,7 @@ interface Body {
   linh_vuc?: string;
   guardian_name?: string;
   force?: boolean;
+  ly_do_trung_cccd?: string;
 }
 
 /** Trim → null nếu rỗng. */
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
 
   let json: {
     duplicate?: boolean;
+    cccd_trung?: boolean;
     matches?: unknown;
     clinic_patient_id?: string;
     patient_code?: string;
@@ -184,7 +186,11 @@ export async function POST(request: Request) {
   }
 
   if (res.status === 200 && json.duplicate) {
-    return NextResponse.json({ duplicate: true, matches: json.matches ?? [] });
+    return NextResponse.json({
+      duplicate: true,
+      cccd_trung: Boolean(json.cccd_trung),
+      matches: json.matches ?? [],
+    });
   }
   if (!res.ok) {
     const msg =

@@ -71,6 +71,9 @@ export const NAV: NavItem[] = [
     icon: Stethoscope,
     badge: "Mới",
   },
+  // "Luồng khám mới" (lát 1, 11/09) ĐÃ GỠ KHỎI MENU 15/09/2026 — Tuyền: bán
+  // bằng luồng thật, không để hai cách làm cùng một việc song song. Mã giữ lại;
+  // ý hay của nó đưa vào các màn thật khi làm giao diện.
   {
     href: "/cashier/board",
     label: "Bàn thu ngân",

@@ -39,6 +39,12 @@ from clinicai.core.database import get_db_pool
 logger = structlog.get_logger()
 
 SUPABASE_AUDIENCE = "authenticated"
+#: Độ lệch đồng hồ cho phép giữa GoTrue (máy cấp token) và API, tính bằng giây.
+#: 15/09/2026 trên stack local: GoTrue chạy trong máy ảo Docker có đồng hồ nhanh
+#: hơn máy thật vài phần giây → token vừa cấp có `iat` "ở tương lai" và PyJWT
+#: (mặc định lệch 0 giây) trả 401 "The token is not yet valid (iat)" — người vừa
+#: đăng nhập bị đá ra ngẫu nhiên. 5 giây chỉ nới đúng chừng ấy cho iat/exp.
+JWT_CLOCK_LEEWAY_SECONDS = 5
 
 
 class ClinicRole(str, Enum):
@@ -201,6 +207,7 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
                 secret,
                 algorithms=["HS256"],
                 audience=SUPABASE_AUDIENCE,
+                leeway=JWT_CLOCK_LEEWAY_SECONDS,
             )
         signing_key = _jwk_client().get_signing_key_from_jwt(token).key
         return jwt.decode(
@@ -208,6 +215,7 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
             signing_key,
             algorithms=["ES256", "RS256"],
             audience=SUPABASE_AUDIENCE,
+            leeway=JWT_CLOCK_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError as exc:
         logger.info("jwt_verification_failed", error=str(exc))

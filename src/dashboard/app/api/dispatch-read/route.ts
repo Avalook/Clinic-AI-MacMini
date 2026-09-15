@@ -13,6 +13,7 @@ const READS: Record<string, string> = {
   alerts: "/api/v1/dispatch/alerts",
   history: "/api/v1/dispatch/history?limit=200",
   routes: "/api/v1/dispatch/routes",
+  "bac-si": "/api/v1/dispatch/bac-si",
 };
 
 export async function GET(request: Request) {

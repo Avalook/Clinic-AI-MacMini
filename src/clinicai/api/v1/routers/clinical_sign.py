@@ -46,15 +46,23 @@ async def clinical_status(
     )
 
 
+class SignRequest(BaseModel):
+    #: Phiên bản bệnh án bác sĩ đang xem (status.record_revision).
+    expected_revision: int | None = Field(default=None, ge=0)
+
+
 @router.post("/clinical/{visit_id:uuid}/sign", status_code=201)
 async def sign(
     visit_id: UUID,
+    body: SignRequest | None = None,
     identity: StaffIdentity = Depends(_SIGN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Ký bệnh án. Sau bước này nội dung bị khoá (TT13/2011/TT-BYT)."""
     return await ClinicalSignService(pool).sign(
-        identity=identity, visit_id=str(visit_id)
+        identity=identity,
+        visit_id=str(visit_id),
+        expected_revision=body.expected_revision if body else None,
     )
 
 

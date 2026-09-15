@@ -174,19 +174,24 @@ async def test_clinical_record_save_locks_visit_and_record_before_merge() -> Non
             "created_at": datetime.now(timezone.utc),
             "clinic_patient_id": PATIENT_ID,
         },
+        # Khoá thật là `huyet_ap`; lượt fetchval đầu là "có thai?" (luật 15/09).
+        {"soap_objective": {"vitals": {"huyet_ap": "120/80"}}, "revision": 1},
     ]
-    conn.fetchval.return_value = {"vitals": {"bp": "120/80"}}
+    conn.fetchval.side_effect = [False, 2]
 
     await ClinicalRecordService(pool).save(
         appointment_id=APPOINTMENT_ID,
         clinic_patient_id=PATIENT_ID,
         identity=_identity(ClinicRole.DOCTOR),
+        expected_revision=1,
         objective={"vitals": {"pulse": 72}},
         objective_sent=True,
     )
 
     assert "FOR UPDATE" in conn.fetchrow.await_args_list[1].args[0]
-    assert "FOR UPDATE" in conn.fetchval.await_args.args[0]
+    assert "FOR UPDATE" in conn.fetchrow.await_args_list[2].args[0]
+    saved_objective = json.loads(conn.fetchval.await_args.args[4])
+    assert saved_objective["vitals"] == {"huyet_ap": "120/80", "pulse": 72}
 
 
 @pytest.mark.asyncio
@@ -261,6 +266,9 @@ async def test_ultrasound_rejects_existing_record_for_another_patient() -> None:
         {
             "ultrasound_id": "ab000000-0000-4000-8000-000000000001",
             "findings": {},
+            # Phiếu chưa ký (15/09/2026: phiếu đã ký + lần siêu âm mới thì mở
+            # phiếu mới — cột signed_at nay được đọc).
+            "signed_at": None,
             "clinic_patient_id": OTHER_PATIENT_ID,
         },
     ]
@@ -321,7 +329,9 @@ async def test_lab_order_rejects_patient_outside_clinic_without_appointment() ->
 @pytest.mark.asyncio
 async def test_finalized_lab_result_cannot_be_changed() -> None:
     pool, conn, _ = _pool_and_conn()
-    conn.fetchval.return_value = None
+    # fetchrow từ 15/09/2026: câu UPDATE trả thêm bệnh nhân/lượt để báo CSKH +
+    # bác sĩ khi kết quả về lần đầu (bao_ket_qua_ve).
+    conn.fetchrow.return_value = None
 
     with pytest.raises(NotFoundError, match="đã chốt"):
         await LabOrderService(pool).enter_result(
@@ -332,7 +342,7 @@ async def test_finalized_lab_result_cannot_be_changed() -> None:
             identity=_identity(ClinicRole.DOCTOR),
         )
 
-    update_sql = conn.fetchval.await_args.args[0]
+    update_sql = conn.fetchrow.await_args.args[0]
     assert "is_finalized = FALSE" in update_sql
     assert not conn.execute.await_args_list
 
@@ -648,3 +658,26 @@ async def test_void_is_auditable_soft_reversal_not_a_delete() -> None:
     void_payload = json.loads(void_event.args[3])
     assert void_payload["amount"] == 150_000
     assert void_payload["void_reason"] == "Khách đổi phương thức thanh toán"
+
+
+@pytest.mark.asyncio
+async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu() -> None:
+    """Tuyền chốt 15/09/2026: chính thu ngân đã thu tự gạch phiếu bấm nhầm; thu
+    ngân khác không gạch được (trước đây được). Câu UPDATE lọc người thu; không
+    khớp mà phiếu vẫn PAID thì báo rõ, không im lặng trả ok."""
+    from clinicai.core.exceptions import SafetyGateError
+    from clinicai.services.payment_service import PaymentService
+
+    pool, conn, _ = _pool_and_conn()
+    conn.fetchrow.return_value = None
+    conn.fetchval.return_value = True
+    with pytest.raises(SafetyGateError, match="thu ngân đã thu"):
+        await PaymentService(pool).void_payment(
+            visit_id=VISIT_ID,
+            kind="dich_vu",
+            reason="Bấm nhầm số tiền",
+            identity=_identity(ClinicRole.CASHIER),
+        )
+    update_sql, *args = conn.fetchrow.await_args.args
+    assert "paid_by_staff_id = $4::uuid" in update_sql
+    assert args[-1] is False  # không phải Quản lý → phải đúng người thu

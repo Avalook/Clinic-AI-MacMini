@@ -4,6 +4,7 @@
 // Hàng đợi kết quả XN chờ bác sĩ duyệt. Ký duyệt / trả lại chỉnh sửa.
 
 // Nhập các hook useMemo và useState từ React để quản lý state và tối ưu hiệu năng
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 // Nhập hằng số VN_TZ (múi giờ Việt Nam) từ file datetime
 import { VN_TZ } from "../../../lib/datetime";
@@ -17,6 +18,8 @@ interface ReviewPatient {
 // Định nghĩa interface cho một dòng kết quả xét nghiệm cần duyệt
 interface ReviewRow {
   lab_result_id: string; // ID của kết quả xét nghiệm
+  clinic_patient_id: string; // Khách của kết quả — backend kiểm lại khi duyệt
+  external_ref: string | null; // Link phiếu kết quả của đơn vị xét nghiệm
   test_code: string; // Mã xét nghiệm
   test_name: string; // Tên xét nghiệm
   result_value: string | null; // Giá trị kết quả dạng chuỗi, có thể null
@@ -57,6 +60,33 @@ export default function ResultReviewBoard({ results }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // State lưu từ khóa tìm kiếm
   const [search, setSearch] = useState("");
+  const router = useRouter();
+  const [dangDuyet, setDangDuyet] = useState(false);
+  const [thongBao, setThongBao] = useState<{ loi: boolean; cau: string } | null>(null);
+
+  // KÝ DUYỆT THẬT (15/09/2026). Nút này từng là nút giả — bấm không làm gì,
+  // trong khi backend đã có sẵn cổng duyệt bác sĩ (POST lab/results/{id}/review).
+  async function kyDuyet(row: ReviewRow) {
+    setDangDuyet(true);
+    setThongBao(null);
+    try {
+      const res = await fetch(`/api/lab-result/${row.lab_result_id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clinic_patient_id: row.clinic_patient_id }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        setThongBao({ loi: true, cau: body?.error ?? `Không duyệt được (HTTP ${res.status})` });
+        return;
+      }
+      setThongBao({ loi: false, cau: "Đã duyệt — CSKH được báo kết quả cho khách." });
+      setSelectedId(null);
+      router.refresh();
+    } finally {
+      setDangDuyet(false);
+    }
+  }
 
   // Tìm kết quả được chọn theo ID (dùng useMemo để tối ưu hiệu năng)
   const selected = useMemo(
@@ -229,22 +259,33 @@ export default function ResultReviewBoard({ results }: Props) {
               )}
             </div>
 
-            {/* Các nút hành động: ký duyệt / trả lại */}
+            {selected.external_ref ? (
+              <a
+                href={selected.external_ref}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-sm font-medium text-brand-700 underline"
+              >
+                Mở phiếu kết quả của đơn vị xét nghiệm
+              </a>
+            ) : null}
+            {/* Ký duyệt thật. "Trả lại chỉnh sửa" đã gỡ: chưa có đường nào nhận
+                nó, và một nút không làm gì là cách dạy người dùng không tin nút. */}
             <div className="mt-4 flex gap-2">
-              {/* Nút ký duyệt (chưa có chức năng) */}
-              <button className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700">
-                Ký duyệt & cho phép trả kết quả
-              </button>
-              {/* Nút trả lại chỉnh sửa (chưa có chức năng) */}
-              <button className="rounded-control border border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface-muted">
-                Trả lại chỉnh sửa
+              <button
+                type="button"
+                disabled={dangDuyet}
+                onClick={() => void kyDuyet(selected)}
+                className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+              >
+                {dangDuyet ? "Đang duyệt…" : "Ký duyệt & cho phép trả kết quả"}
               </button>
             </div>
-            {/* Ghi chú về việc cần API backend */}
-            <p className="mt-2 text-xs text-ink-faint">
-              Ghi chú: hành động ký duyệt cần API backend (FastAPI service) để
-              cập nhật is_finalized + reviewed_by_staff_id.
-            </p>
+            {thongBao ? (
+              <p className={`mt-2 text-sm ${thongBao.loi ? "text-danger" : "text-success"}`}>
+                {thongBao.cau}
+              </p>
+            ) : null}
           </div>
         ) : (
           // Nếu chưa chọn kết quả nào thì hiển thị thông báo

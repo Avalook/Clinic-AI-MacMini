@@ -62,6 +62,9 @@ WITH lich AS (
        -- $5 rỗng = MỌI trạng thái. Cùng lối viết `coalesce` với dòng trên, để
        -- không có nhánh nào chỉ chạy khi tham số vắng mặt.
        AND a.status = ANY(coalesce($5::text[], ARRAY[a.status]))
+       -- $6 = bác sĩ mà THƯ KÝ được phân (20260915000020); rỗng = không lọc.
+       AND coalesce(a.doctor_id::text, '~')
+           = ANY(coalesce($6::text[], ARRAY[coalesce(a.doctor_id::text, '~')]))
      -- Thứ tự phải XÁC ĐỊNH: nhiều lịch trùng mốc giờ là chuyện thường, và
      -- `ORDER BY slot_start` trần cho phép Postgres đổi thứ tự giữa các lần
      -- chạy. Bảng này là thứ bác sĩ đọc dọc để gọi tên.
@@ -98,7 +101,9 @@ lab AS (
                        nullif(btrim(coalesce(l.result_value, '')), ''),
                        nullif(btrim(coalesce(l.external_ref,  '')), '')
                      ) IS NULL
-           ) AS con_cho
+           ) AS con_cho,
+           -- Lúc kết quả cuối cùng về — mốc quay lại hàng (queue_order).
+           max(l.result_received_at) AS ket_qua_ve_luc
       FROM lab_result l
      WHERE l.clinic_id = $1::uuid
        AND l.appointment_id IN (SELECT id FROM lich)
@@ -111,7 +116,10 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
          ELSE 'Khám lần đầu'
        END AS phan_loai,
        coalesce(lb.da_co > 0 AND lb.con_cho = 0, FALSE) AS b3_ready,
+       lb.ket_qua_ve_luc AS b3_ready_at,
        v.checked_in_at,
+       v.thu_tu_tay_ms,
+       p.uu_tien AS khach_uu_tien,
        p.clinic_patient_id, p.patient_code, p.full_name, p.date_of_birth,
        p.phone_primary, p.phone_secondary, p.gender, p.ethnicity,
        p.nationality, p.occupation, p.patient_objection, p.address,
@@ -143,7 +151,7 @@ SELECT g.id, g.slot_start, g.status, g.queue_number, g.booking_channel,
   -- Một lịch hẹn chỉ có một lượt khám (đã kiểm trên prod: tối đa 1). LATERAL +
   -- LIMIT 1 để một ngày dữ liệu lệch không nhân đôi dòng của cả bảng.
   LEFT JOIN LATERAL (
-      SELECT vi.checked_in_at FROM visit vi
+      SELECT vi.checked_in_at, vi.thu_tu_tay_ms FROM visit vi
        WHERE vi.appointment_id = g.id AND vi.clinic_id = $1::uuid
        ORDER BY vi.checked_in_at NULLS LAST
        LIMIT 1
@@ -174,9 +182,12 @@ class DoctorBoardService:
         end: datetime,
         doctor_id: str | None,
         statuses: list[str] | None = None,
+        chi_bac_si: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SQL, clinic_id, start, end, doctor_id, statuses)
+            rows = await conn.fetch(
+                _SQL, clinic_id, start, end, doctor_id, statuses, chi_bac_si
+            )
 
         logger.info(
             "doctor_board",
@@ -216,6 +227,7 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "call_reason": d.call_reason if d else None,
         "promoted": d.promoted if d else False,
         "promoted_over": d.promoted_over if d else 0,
+        "uu_tien": d.uu_tien if d else False,
         "patient": (
             {
                 "clinic_patient_id": str(r["clinic_patient_id"]),

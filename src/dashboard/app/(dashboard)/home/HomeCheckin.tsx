@@ -10,11 +10,12 @@ import { UserCheck, ChevronDown, Search, FileText } from "lucide-react";
 import { fmtTime, isVnMidnight } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
 import { chipClass, type ChipTone } from "@/components/ui/Chip";
-import Button from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import SplitPane from "../SplitPane";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
+import NutCheckIn from "@/components/ui/NutCheckIn";
+import type { MaXacMinh } from "@/lib/xac-minh";
 
 export interface HomeCheckinRow extends DoctorApptRow {
   queue_number: string | null;
@@ -89,6 +90,7 @@ export default function HomeCheckin({
   async function act(
     id: string,
     action: "cskh_confirm" | "checkin" | "undo_checkin" | "no_show",
+    xacMinhCach?: MaXacMinh,
   ) {
     if (busyId) return; // đang có 1 việc chạy → chặn double-click
     setBusyId(id);
@@ -96,7 +98,7 @@ export default function HomeCheckin({
     const res = await fetch("/api/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ id, action, xac_minh_cach: xacMinhCach }),
     });
     setBusyId(null);
     if (!res.ok) {
@@ -233,13 +235,12 @@ export default function HomeCheckin({
                 ) : canCheckIn ? (
                   // Đã xác nhận/Chưa xác nhận, BN chưa đến → BN tới quầy thì Check-in.
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <Button
-                      variant="primary"
-                      onClick={() => act(r.id, "checkin")}
+                    <NutCheckIn
+                      onChon={() => act(r.id, "checkin")}
                       disabled={busyId === r.id}
                     >
                       {busyId === r.id ? "..." : "Check-in"}
-                    </Button>
+                    </NutCheckIn>
                     <button
                       onClick={() => act(r.id, "no_show")}
                       disabled={busyId === r.id}

@@ -79,7 +79,7 @@ ba cái chênh đúng là ba policy thiếu ở mục 2.
 ```bash
 docker compose --env-file .env.supabase-local -f docker-compose.supabase.yml \
   -p clinicai_db up -d
-./scripts/supabase-local-nap.sh
+SUPABASE_DB_CONTAINER=clinicai_db ./scripts/supabase-local-nap.sh
 ```
 
 Chạy song song, **không đụng prod**: project name riêng, mạng riêng, cổng

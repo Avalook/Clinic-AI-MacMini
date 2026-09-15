@@ -10,15 +10,33 @@ hình đi vào bằng tham số. Cách hỏng dễ nhất là ai đó thêm mộ
 sách vào `call_rank` cho tiện — `test_queue_order.py` có bài canh chặn đúng việc
 đó.
 
-Luật (Model ②, chốt 2026-06-26): SỐ VÉ ĐỊNH DANH NGƯỜI BỆNH, KHÔNG QUYẾT THỨ TỰ
-GỌI. Bốn làn:
+Luật: SỐ VÉ ĐỊNH DANH NGƯỜI BỆNH, KHÔNG QUYẾT THỨ TỰ GỌI.
 
-  -2  ƯT (người quen)                        xếp theo số vé
-  -1  Kết quả XN/SA đã về → vào lại          xếp theo GIỜ ĐẾN
-   0  Có hẹn và đến trong khung của mình     xếp theo GIỜ HẸN
-   1  Vãng lai, hoặc có hẹn nhưng đến muộn   xếp theo GIỜ ĐẾN
+  0  Đã check-in (có hẹn hay đến thẳng)     xếp theo GIỜ CHECK-IN
+  ↩  Quay lại đọc kết quả                   CHÈN SAU mọi người đã chờ lúc kết
+                                            quả về, TRƯỚC người vào hàng sau
+  1  Chưa check-in                          theo giờ hẹn (chỉ để hiển thị)
 
 (Dòng chưa check-in rơi về thứ tự số vé thuần.)
+
+ĐỔI 15/09/2026 theo CONTEXT v1.0 — hai làn tự vượt của Model ② (26/06) bị bỏ:
+
+  · Vé ƯT KHÔNG còn tự lên đầu. [CHỐT-TUYỀN] "VIP/ưu tiên có lý do; … không tự
+    biến thành quyền vượt hàng." Vé ƯT giờ chỉ là NHÃN (`uu_tien` trên
+    QueueDecision) — người đó xếp theo làn của chính họ. Đẩy ai lên phải là
+    thao tác của nhân viên, có lý do, có vết (chưa có — việc riêng).
+  · Kết quả về KHÔNG còn vượt mọi người. [CHỐT-TUYỀN] "Quay lại đọc kết quả xếp
+    sau người đã chờ tại hàng đó và trước người đủ điều kiện vào hàng sau; không
+    tự chen ngang." Mốc "đủ điều kiện" = lúc kết quả cuối cùng về
+    (`b3_ready_at`); việc chèn là của CẢ DANH SÁCH nên nằm ở `explain_queue`,
+    không ở khoá từng dòng.
+
+  · Khách có hẹn KHÔNG còn đứng trước khách đến thẳng. CONTEXT v1.0 §6 từng ghi
+    [CHƯA RÕ] (PM v1.0.0: có hẹn phát số trước khi trùng khung); Tuyền CHỐT
+    15/09/2026: "không phân biệt nữa, cứ ai đến check-in trước thì người đó
+    khám trước". Làn "đúng hẹn theo giờ hẹn" bị bỏ; giờ hẹn và độ dài khung
+    (`grace_ms`) chỉ còn dùng để GỌI TÊN lý do (đúng giờ / đến trễ / vãng lai)
+    trên màn hình, không quyết định chỗ đứng.
 
 CỬA SỔ "ĐẾN ĐÚNG GIỜ" DÀI BẰNG KHUNG GIỜ, KHÔNG PHẢI MỘT HẰNG SỐ. Trước đây nó
 là `LATE_GRACE_MS = 10 phút` viết cứng. Với khung 15 phút, người check-in ở phút
@@ -43,12 +61,14 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
-_UT_RE = re.compile(r"(?:Ư|U)\s*T\s*0*(\d*)", re.IGNORECASE)
 _INT_RE = re.compile(r"[+-]?\d+")
 
 # Lý do một người đứng ở vị trí đó — để màn hình NÓI ĐƯỢC, không chỉ xếp được.
 # Màn tivi phải giải thích cho người ngồi chờ vì sao ai đó vượt lên trước mình.
-REASON_UU_TIEN = "UU_TIEN"  # vé ƯT
+# Vé ƯT. Từ 15/09 KHÔNG còn là một làn — không `_classify` nào trả mã này nữa;
+# giữ hằng số vì màn hình/bài kiểm cũ còn tham chiếu. Nhãn ưu tiên nằm ở
+# `QueueDecision.uu_tien`.
+REASON_UU_TIEN = "UU_TIEN"
 REASON_CHO_DOC_KQ = "CHO_DOC_KQ"  # xét nghiệm/siêu âm đã về, vào lại
 REASON_DAT_TRUOC_DUNG_GIO = "DAT_TRUOC_DUNG_GIO"  # có hẹn, đến trong khung
 REASON_DEN_TRUC_TIEP = "DEN_TRUC_TIEP"  # vãng lai
@@ -74,20 +94,12 @@ def _iso(d: datetime | None) -> str:
     return d.isoformat() if d else ""
 
 
-def _ut_num(queue_number: str | None) -> int | None:
-    """ƯT ticket → its number (0 if bare 'ƯT'); None if not a ƯT ticket."""
-    s = (queue_number or "").strip()
-    m = _UT_RE.match(s)
-    if m:
-        return int(m.group(1)) if m.group(1) else 0
-    return None
-
-
 def queue_rank(queue_number: str | None, slot_iso: str) -> tuple[int, int, str]:
-    """Plain ticket ordering: ƯT first, then numeric tickets, then the rest."""
-    n = _ut_num(queue_number)
-    if n is not None:
-        return (0, n, slot_iso)
+    """Plain ticket ordering: numeric tickets first, then the rest.
+
+    Vé "ƯT…" không còn hạng riêng (Tuyền chốt 15/09/2026: bỏ ghế/vé ưu tiên —
+    ưu tiên là cờ trên hồ sơ khách, lễ tân tự kéo thứ tự).
+    """
     m = _INT_RE.match((queue_number or "").strip())
     if m:
         return (1, int(m.group()), slot_iso)
@@ -111,6 +123,14 @@ class QueueEntry:
     grace_ms: int
     b3_ready: bool = False
     visit_status: str | None = None
+    # Lúc kết quả CUỐI CÙNG về (mọi xét nghiệm của lượt đã có kết quả). Là mốc
+    # "đủ điều kiện quay lại hàng". Thiếu thì dùng giờ check-in — tức là coi như
+    # đã chờ từ lúc đến, không bao giờ đẩy người đó lên trước người đến trước.
+    b3_ready_at: datetime | None = None
+    # Mốc lễ tân KÉO TAY (epoch ms) — thay giờ check-in khi xếp (20260915000016).
+    thu_tu_tay_ms: float | None = None
+    # Cờ ưu tiên/VIP trên HỒ SƠ khách: chỉ là nhãn cho lễ tân, không đổi thứ tự.
+    khach_uu_tien: bool = False
 
 
 @dataclass(frozen=True)
@@ -124,13 +144,18 @@ class QueueDecision:
 
     entry: QueueEntry
     call_order: int  # vị trí trong hàng, 0 là người được gọi tiếp theo
-    call_tier: int  # làn: -2 ƯT · -1 chờ đọc KQ · 0 đúng hẹn · 1 đến sau
+    # Nhóm của dòng: -1 quay lại đọc KQ · 0 đã check-in · 1 chưa đến.
+    # -1 KHÔNG còn nghĩa là "gọi trước" — vị trí thật nằm ở `call_order`.
+    call_tier: int
     call_reason: str  # một trong các REASON_* ở đầu module
     # "Được đẩy lên" = có ít nhất một người ĐẾN TRƯỚC mình mà bị xếp SAU mình.
     # Đây đúng là tình huống cần giải thích trên tivi, và cũng đúng là tình
     # huống duy nhất khiến người đến trước thấy khó hiểu.
     promoted: bool
     promoted_over: int
+    # Khách ưu tiên/VIP (cờ hồ sơ, Tuyền chốt 15/09/2026): nhãn để màn hình hiện,
+    # KHÔNG ảnh hưởng thứ tự. Thay nhãn vé "ƯT…" — không còn ghế/vé ưu tiên.
+    uu_tien: bool = False
 
 
 def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
@@ -142,19 +167,20 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
     """
     slot_iso = _iso(e.slot_start)
 
-    # -1: kết quả xét nghiệm/siêu âm đã về → vào lại trước hàng mới.
-    if e.b3_ready:
-        in_ms = _ms(e.checked_in_at) if e.checked_in_at else _ms(e.slot_start)
-        return (-1, in_ms, _iso(e.checked_in_at) or slot_iso), REASON_CHO_DOC_KQ
+    # Quay lại đọc kết quả: khoá là MỐC ĐỦ ĐIỀU KIỆN. Khoá này chỉ dùng để xếp
+    # những người quay lại VỚI NHAU; chỗ đứng trong cả hàng do `explain_queue`
+    # chèn (sau mọi người đã chờ trước mốc đó).
+    if e.b3_ready and e.checked_in_at is not None:
+        return (-1, float(_du_dieu_kien_ms(e)), _iso(e.checked_in_at)), (
+            REASON_CHO_DOC_KQ
+        )
 
-    # Dòng chưa check-in, chưa có kênh đặt → thứ tự số vé thuần.
+    # Dòng chưa check-in, chưa có kênh đặt → giữ thứ tự số vé, nhưng tất cả
+    # đều ở làn chưa đến.
     if e.booking_channel is None and e.checked_in_at is None:
-        return queue_rank(e.queue_number, slot_iso), REASON_CHUA_DEN
-
-    # -2: ƯT (người quen).
-    n = _ut_num(e.queue_number)
-    if n is not None:
-        return (-2, n, slot_iso), REASON_UU_TIEN
+        ticket_tier, ticket_number, _ = queue_rank(e.queue_number, slot_iso)
+        ticket_order = float(ticket_number) if ticket_tier < 2 else float("inf")
+        return (1, ticket_order, slot_iso), REASON_CHUA_DEN
 
     slot_ms = _ms(e.slot_start)
     # CHỈ 'WALK_IN' mới là khách vãng lai. Mọi giá trị khác — KỂ CẢ TRỐNG — là
@@ -177,18 +203,35 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
     # tới nên giờ hẹn xấp xỉ giờ đến.
     is_booked = (e.booking_channel or "").strip().upper() != "WALK_IN"
 
-    # 0: có hẹn và đến TRONG KHUNG CỦA MÌNH → xếp theo giờ hẹn.
-    if is_booked and e.checked_in_at is not None:
-        in_ms = _ms(e.checked_in_at)
-        if in_ms <= slot_ms + e.grace_ms:
-            return (0, float(slot_ms), _iso(e.checked_in_at)), (
-                REASON_DAT_TRUOC_DUNG_GIO
-            )
+    # 1: chưa check-in → đứng sau mọi người đã có mặt, theo giờ hẹn.
+    if e.checked_in_at is None:
+        return (1, float(slot_ms), slot_iso), REASON_CHUA_DEN
 
-    # 1: vãng lai, hoặc có hẹn nhưng đến sau khung → xếp theo giờ đến.
-    arrive_ms = _ms(e.checked_in_at) if e.checked_in_at else slot_ms
-    key = (1, float(arrive_ms), _iso(e.checked_in_at) or slot_iso)
-    return key, (REASON_DEN_TRE if is_booked else REASON_DEN_TRUC_TIEP)
+    # 0: ĐÃ CHECK-IN → xếp theo GIỜ CHECK-IN, có hẹn hay đến thẳng như nhau
+    # (Tuyền chốt 15/09/2026). Lý do chỉ để màn hình nói đúng người này là ai.
+    # Lễ tân kéo tay thì mốc kéo tay thay giờ check-in (20260915000016).
+    in_ms = _ms(e.checked_in_at)
+    moc = e.thu_tu_tay_ms if e.thu_tu_tay_ms is not None else float(in_ms)
+    key = (0, moc, _iso(e.checked_in_at))
+    if not is_booked:
+        return key, REASON_DEN_TRUC_TIEP
+    if in_ms <= slot_ms + e.grace_ms:
+        return key, REASON_DAT_TRUOC_DUNG_GIO
+    return key, REASON_DEN_TRE
+
+
+def _du_dieu_kien_ms(e: QueueEntry) -> int:
+    """Mốc người này BẮT ĐẦU CHỜ ở hàng hiện tại.
+
+    Người quay lại: lúc kết quả cuối cùng về, nhưng không sớm hơn lúc check-in
+    (dữ liệu lệch giờ không được đẩy ai lên trước người đến trước mình).
+    Người khác: lúc check-in.
+    """
+    assert e.checked_in_at is not None
+    den = _ms(e.checked_in_at)
+    if e.b3_ready and e.b3_ready_at is not None:
+        return max(den, _ms(e.b3_ready_at))
+    return den
 
 
 def call_rank(e: QueueEntry) -> tuple[int, float, str]:
@@ -208,7 +251,7 @@ def explain_queue(entries: list[QueueEntry]) -> list[QueueDecision]:
     người ĐÃ check-in: người chưa đến thì chưa "đến trước" ai cả, và đếm họ vào
     sẽ dán nhãn "được đẩy lên" cho gần như mọi người.
     """
-    ranked = sorted(entries, key=call_rank)
+    ranked = _xep_hang(entries)
 
     out: list[QueueDecision] = []
     for i, e in enumerate(ranked):
@@ -229,14 +272,57 @@ def explain_queue(entries: list[QueueEntry]) -> list[QueueDecision]:
                 call_reason=reason,
                 promoted=over > 0,
                 promoted_over=over,
+                uu_tien=e.khach_uu_tien,
             )
         )
     return out
 
 
+def _xep_hang(entries: list[QueueEntry]) -> list[QueueEntry]:
+    """Xếp cả hàng: người đang chờ theo làn, rồi CHÈN người quay lại.
+
+    Người quay lại đứng ngay sau người CUỐI CÙNG (theo thứ tự hàng) đã bắt đầu
+    chờ không muộn hơn mốc đủ điều kiện của họ. Mọi ai vào hàng sau mốc ấy đứng
+    sau họ. Người quay lại xử lý theo mốc tăng dần, nên hai người quay lại cũng
+    xếp đúng "ai đủ điều kiện trước thì trước".
+    """
+    quay_lai = sorted(
+        (e for e in entries if e.b3_ready and e.checked_in_at is not None),
+        key=call_rank,
+    )
+    ids_quay_lai = {id(e) for e in quay_lai}
+    hang = sorted((e for e in entries if id(e) not in ids_quay_lai), key=call_rank)
+
+    for r in quay_lai:
+        moc = _du_dieu_kien_ms(r)
+        vi_tri = 0
+        for i, e in enumerate(hang):
+            if e.checked_in_at is not None and _du_dieu_kien_ms(e) <= moc:
+                vi_tri = i + 1
+        hang.insert(vi_tri, r)
+    return hang
+
+
 def order_queue(entries: list[QueueEntry]) -> list[QueueEntry]:
-    """Return entries sorted by call order (stable)."""
-    return sorted(entries, key=call_rank)
+    """Return entries in call order (stable)."""
+    return _xep_hang(entries)
+
+
+def b3_ready_times(labs: list[dict[str, object]]) -> dict[str, datetime | None]:
+    """Lượt đã đủ kết quả → lúc kết quả cuối cùng về (``result_received_at``).
+
+    Cùng định nghĩa "đủ" với `b3_ready_appt_ids`; giá trị None khi dòng không
+    mang mốc giờ (người gọi cũ).
+    """
+    ready = b3_ready_appt_ids(labs)
+    moc: dict[str, datetime | None] = {a: None for a in ready}
+    for lab in labs:
+        appt = str(lab.get("appointment_id") or "")
+        t = lab.get("result_received_at")
+        if appt in moc and isinstance(t, datetime):
+            cu = moc[appt]
+            moc[appt] = t if cu is None or t > cu else cu
+    return moc
 
 
 def b3_ready_appt_ids(labs: list[dict[str, object]]) -> set[str]:

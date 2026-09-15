@@ -83,7 +83,13 @@ DECLARE
     -- kích thước, ai tải, hay đã gửi chưa — đúng bốn câu màn CSKH cần hỏi.
     -- 68 → 69 (15/08/2026): patient_sdt_them — số điện thoại gắn thêm cho
     -- hồ sơ có sẵn (khách dùng 2–3 số), mang clinic_id như mọi bảng dữ liệu.
-    expected_tenant_tables constant integer := 69;
+    -- 69 → 78 (11/09/2026): luồng khám lát 1 (20260911000001) — encounter_flow,
+    -- vital_measurement, consultation, consultation_note, service_order,
+    -- review_round, round_requirement, queue_entry, command_receipt.
+    -- 78 → 79 (15/09/2026): service_order_draft (20260915000008) — chỉ định
+    -- thư ký nhập chờ bác sĩ duyệt.
+    -- 79 → 80 (15/09/2026): thu_ky_bac_si (20260915000020).
+    expected_tenant_tables constant integer := 80;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
@@ -209,13 +215,15 @@ BEGIN
       FROM pg_indexes
      WHERE schemaname = 'public'
        AND indexname IN (
-           'idx_patient_clinic_national_id_unique', 'uq_service_price_clinic_code_group',
+           -- idx_patient_clinic_national_id_unique bỏ 15/09/2026
+           -- (20260915000015): CCCD trùng là cảnh báo + lý do, không chặn cứng.
+           'uq_service_price_clinic_code_group',
            'uq_block_budget_key', 'uq_care_episode_live'
        )
        AND indexdef LIKE '%clinic_id%';
 
-    IF scoped <> 4 THEN
-        RAISE EXCEPTION 'expected 4 tenant-scoped unique indexes, found %', scoped;
+    IF scoped <> 3 THEN
+        RAISE EXCEPTION 'expected 3 tenant-scoped unique indexes, found %', scoped;
     END IF;
 END
 $unique_keys$;

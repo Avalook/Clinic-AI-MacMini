@@ -166,7 +166,7 @@ export default function OverridePolicyCard({
         kind: "ok",
         text:
           `Đã lưu: ${who} · ${when} · ${from}–${to} · ` +
-          `${regularCap} đặt trước + ${walkinCap} vãng lai.` +
+          `${regularCap} online + ${walkinCap} trực tiếp.` +
           (cut > 0 ? ` (${cut} luật cũ phủ khung này đã được cắt lại.)` : "") +
           (shadow.length > 0
             ? ` Lưu ý: khung này đang bị một luật có ngày đè lên (đến ${shadow
@@ -216,8 +216,8 @@ export default function OverridePolicyCard({
         <h2 className="text-base font-semibold text-ink">Luật số chỗ theo khung giờ</h2>
         <p className="mt-0.5 text-xs text-ink-muted">
           Một luật là một câu: <b>ai — thứ mấy — khung giờ nào — mấy chỗ — tới bao
-          giờ</b>. VD: BS Thành + BS Hoa, thứ 3, 18:00–18:15, 8 đặt trước + 1 vãng
-          lai, mãi mãi.
+          giờ</b>. VD: BS Thành + BS Hoa, thứ 3, 18:00–18:15, 6 online + 1 trực tiếp,
+          mãi mãi.
         </p>
       </div>
 
@@ -266,7 +266,7 @@ export default function OverridePolicyCard({
             </p>
           </div>
           <div>
-            <label className={LABEL}>Số ca đặt trước / khung</label>
+            <label className={LABEL}>Số khách online / khung</label>
             <input
               type="number"
               min={1}
@@ -277,7 +277,7 @@ export default function OverridePolicyCard({
             />
           </div>
           <div>
-            <label className={LABEL}>Số ca vãng lai / khung</label>
+            <label className={LABEL}>Số khách trực tiếp / khung</label>
             <input
               type="number"
               min={0}
@@ -395,8 +395,8 @@ export default function OverridePolicyCard({
                     <th className="px-3 py-2 text-left">Áp dụng</th>
                     <th className="px-3 py-2 text-left">Bác sĩ</th>
                     <th className="px-3 py-2 text-left">Khung giờ</th>
-                    <th className="px-3 py-2 text-right">Đặt trước</th>
-                    <th className="px-3 py-2 text-right">Vãng lai</th>
+                    <th className="px-3 py-2 text-right">Online</th>
+                    <th className="px-3 py-2 text-right">Trực tiếp</th>
                     <th className="px-3 py-2 text-left">Lý do</th>
                     <th className="px-3 py-2" />
                   </tr>

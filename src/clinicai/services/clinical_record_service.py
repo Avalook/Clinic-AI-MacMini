@@ -35,6 +35,7 @@ no prescriptions, or a record saved and the medical history lost.
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -45,6 +46,20 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit import record_event
+from clinicai.services.clinical_prescription_service import (
+    _locked_prescription_matches,
+    _validated_prescription_items,
+    prepare_prescription_write,
+)
+from clinicai.services.luot_kham_rules import (
+    Vitals,
+    parse_vitals,
+    thieu_sinh_hieu_khi_co_thai,
+)
+from clinicai.services.thu_ky_bac_si import (
+    bac_si_cua_thu_ky,
+    kiem_thu_ky_duoc_lam,
+)
 
 logger = structlog.get_logger()
 
@@ -152,6 +167,43 @@ def merge_objective(
     return merged
 
 
+#: Khoá JSON của hồ sơ khám cũ → trường của `Vitals` (luot_kham_rules).
+KHOA_SINH_HIEU_HO_SO: dict[str, str] = {
+    "mach": "pulse",
+    "nhiet_do": "temperature",
+    "can_nang": "weight_kg",
+    "chieu_cao": "height_cm",
+}
+
+
+def sinh_hieu_tu_ho_so(vitals: dict[str, Any], *, co_thai: bool) -> Vitals:
+    """Sinh hiệu JSON của hồ sơ khám → `Vitals` đã qua CÙNG luật với luồng khám.
+
+    Luật PM (CONTEXT v1.0): 100% đo huyết áp; có thai thêm chiều cao + cân nặng.
+    Huyết áp hồ sơ cũ là chuỗi "120/80": không đoán "120" một mình hay "120-80"
+    — một huyết áp đoán sai còn tệ hơn một câu nhắc ghi lại.
+    """
+    raw: dict[str, Any] = {
+        dich: vitals.get(nguon) for nguon, dich in KHOA_SINH_HIEU_HO_SO.items()
+    }
+    huyet_ap = str(vitals.get("huyet_ap") or "").strip()
+    if huyet_ap:
+        phan = [x.strip() for x in huyet_ap.split("/")]
+        if len(phan) != 2:
+            raise ValidationError(
+                f"Huyết áp {huyet_ap!r} không đúng dạng — "
+                "ghi tâm thu/tâm trương, ví dụ 120/80."
+            )
+        raw["systolic"], raw["diastolic"] = phan
+    parsed, loi = parse_vitals(raw)
+    if parsed is None:
+        raise ValidationError(loi or "Sinh hiệu không hợp lệ.")
+    loi_thai = thieu_sinh_hieu_khi_co_thai(parsed, co_thai=co_thai)
+    if loi_thai:
+        raise ValidationError(loi_thai)
+    return parsed
+
+
 def merge_vitals_only(previous: Any, incoming: Any) -> dict[str, Any]:
     """The nurse path: replace vitals, leave every other section alone.
 
@@ -173,6 +225,8 @@ class ClinicalRecordService:
         clinic_patient_id: str,
         identity: StaffIdentity,
         vitals_only: bool = False,
+        expected_revision: int | None = None,
+        approve_prescription_draft: bool = False,
         chief_complaint: str | None = None,
         subjective: Any = None,
         objective: Any = None,
@@ -265,19 +319,67 @@ class ClinicalRecordService:
                     vitals_only=vitals_only,
                 )
 
-                stored = await conn.fetchval(
-                    "SELECT soap_objective FROM clinical_record "
+                stored = await conn.fetchrow(
+                    "SELECT soap_objective, revision, prescription_draft "
+                    "FROM clinical_record "
                     "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid "
                     "FOR UPDATE",
                     visit_id,
                     identity.clinic_id,
                 )
+                current_revision = stored["revision"] if stored is not None else 0
+                if not vitals_only and (
+                    expected_revision is None or expected_revision != current_revision
+                ):
+                    raise ConflictError(
+                        "Bệnh án đã thay đổi hoặc thiếu phiên bản đang sửa — "
+                        "hãy tải lại và đối chiếu trước khi lưu"
+                    )
+                # Thư ký chỉ ghi bệnh án cho bác sĩ mình được phân (20260915000020).
+                # Kiểm NGAY TRƯỚC lệnh ghi đầu tiên của từng nhánh (sinh hiệu /
+                # bệnh án), sau mọi kiểm tra phiên bản và đơn thuốc.
+                bac_si_lich = (
+                    str(appointment["doctor_id"]) if appointment["doctor_id"] else None
+                )
+                stored_objective = stored["soap_objective"] if stored else None
+                if vitals_only and approve_prescription_draft:
+                    raise SafetyGateError(
+                        "Chỉ lưu bệnh án đầy đủ mới duyệt được đơn thuốc"
+                    )
+
+                # SINH HIỆU LÀ LỊCH SỬ (15/09/2026): lần lưu nào đổi số sinh hiệu
+                # thì kiểm luật PM và thêm một dòng `vital_measurement` — cùng
+                # bảng, cùng luật với màn luồng khám. Đường điều dưỡng THAY bộ
+                # sinh hiệu nên kiểm bộ gửi lên; bác sĩ lưu hồ sơ thì GỘP lên số
+                # cũ nên kiểm bộ sau gộp.
+                vitals_cu = non_empty(as_obj(as_obj(stored_objective).get("vitals")))
+                if vitals_only:
+                    vitals_moi = non_empty(as_obj(as_obj(objective).get("vitals")))
+                else:
+                    vitals_moi = non_empty(
+                        {
+                            **vitals_cu,
+                            **non_empty(as_obj(as_obj(objective).get("vitals"))),
+                        }
+                    )
+                if vitals_only or vitals_moi != vitals_cu:
+                    if identity.role == ClinicRole.TKYK:
+                        kiem_thu_ky_duoc_lam(
+                            await bac_si_cua_thu_ky(conn, identity), bac_si_lich
+                        )
+                    await self._ghi_sinh_hieu(
+                        conn,
+                        identity=identity,
+                        visit_id=visit_id,
+                        clinic_patient_id=clinic_patient_id,
+                        vitals=vitals_moi,
+                    )
 
                 if vitals_only:
-                    await self._save_vitals(
+                    revision = await self._save_vitals(
                         conn,
                         visit_id=visit_id,
-                        stored_objective=stored,
+                        stored_objective=stored_objective,
                         objective=objective,
                         chief_complaint=chief_complaint,
                         clinic_id=identity.clinic_id,
@@ -297,33 +399,59 @@ class ClinicalRecordService:
                             "vitals_only": True,
                         },
                     )
-                    return {"visit_id": str(visit_id), "vitals_only": True}
+                    return {
+                        "visit_id": str(visit_id),
+                        "vitals_only": True,
+                        "revision": revision,
+                    }
 
-                await conn.execute(
-                    """
+                prescription_write = await prepare_prescription_write(
+                    conn,
+                    visit_id=visit_id,
+                    identity=identity,
+                    draft=as_obj(stored.get("prescription_draft")) or None
+                    if stored
+                    else None,
+                    items=prescriptions,
+                    approve=approve_prescription_draft,
+                )
+                if identity.role == ClinicRole.TKYK:
+                    kiem_thu_ky_duoc_lam(
+                        await bac_si_cua_thu_ky(conn, identity), bac_si_lich
+                    )
+                revision = int(
+                    await conn.fetchval(
+                        """
                     INSERT INTO clinical_record (
                         clinic_id, visit_id, chief_complaint_at_visit,
-                        soap_subjective, soap_objective, soap_assessment, soap_plan
+                            soap_subjective, soap_objective, soap_assessment, soap_plan,
+                            prescription_draft
                     )
-                    VALUES ($7::uuid, $1::uuid, $2, $3, $4, $5, $6)
+                        VALUES ($7::uuid, $1::uuid, $2, $3, $4, $5, $6, $8::jsonb)
                     ON CONFLICT (visit_id) DO UPDATE SET
                         chief_complaint_at_visit = EXCLUDED.chief_complaint_at_visit,
                         soap_subjective          = EXCLUDED.soap_subjective,
                         soap_objective           = EXCLUDED.soap_objective,
                         soap_assessment          = EXCLUDED.soap_assessment,
-                        soap_plan                = EXCLUDED.soap_plan
+                            soap_plan                = EXCLUDED.soap_plan,
+                            prescription_draft       = EXCLUDED.prescription_draft
+                    RETURNING revision
                     """,
-                    visit_id,
-                    (chief_complaint or "").strip() or None,
-                    _json_or_none(subjective),
-                    _json_or_none(
-                        merge_objective(
-                            stored, objective, incoming_was_sent=objective_sent
-                        )
-                    ),
-                    _json_or_none(assessment),
-                    _json_or_none(plan),
-                    identity.clinic_id,
+                        visit_id,
+                        (chief_complaint or "").strip() or None,
+                        _json_or_none(subjective),
+                        _json_or_none(
+                            merge_objective(
+                                stored_objective,
+                                objective,
+                                incoming_was_sent=objective_sent,
+                            )
+                        ),
+                        _json_or_none(assessment),
+                        _json_or_none(plan),
+                        identity.clinic_id,
+                        _json_or_none(prescription_write.draft),
+                    )
                 )
 
                 if profile:
@@ -331,13 +459,30 @@ class ClinicalRecordService:
                         conn, clinic_patient_id, profile, identity.clinic_id
                     )
 
-                if prescriptions is not None:
+                if prescription_write.items is not None:
                     await self._replace_prescriptions(
                         conn,
                         visit_id=visit_id,
                         clinic_patient_id=clinic_patient_id,
-                        prescriptions=prescriptions,
+                        prescriptions=prescription_write.items,
                         clinic_id=identity.clinic_id,
+                        created_by=identity.staff_id
+                        if identity.role
+                        in {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+                        else None,
+                    )
+                if approve_prescription_draft:
+                    await record_event(
+                        conn,
+                        event_type="prescription.draft_approved",
+                        aggregate_type="visit",
+                        aggregate_id=str(visit_id),
+                        identity=identity,
+                        origin="api:clinical-record",
+                        payload={
+                            "recorded_by": prescription_write.recorded_by,
+                            "revision": revision,
+                        },
                     )
 
                 # TÊN PHẦN ĐÃ GHI, KHÔNG PHẢI NỘI DUNG. "Ai sửa bệnh án nào,
@@ -378,7 +523,7 @@ class ClinicalRecordService:
             vitals_only=vitals_only,
             by_staff_id=identity.staff_id,
         )
-        return {"visit_id": str(visit_id), "vitals_only": False}
+        return {"visit_id": str(visit_id), "vitals_only": False, "revision": revision}
 
     async def _writable_visit(
         self,
@@ -476,6 +621,47 @@ class ClinicalRecordService:
             raise ConflictError(f"Hồ sơ đã chốt ({again['status']}) — luật cấm sửa.")
         return again["visit_id"]
 
+    async def _ghi_sinh_hieu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        visit_id: str,
+        clinic_patient_id: str,
+        vitals: dict[str, Any],
+    ) -> None:
+        co_thai = bool(
+            await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM pregnancy "
+                "WHERE clinic_id = $1::uuid "
+                "AND clinic_patient_id = $2::uuid "
+                "AND coalesce(outcome, 'ONGOING') = 'ONGOING')",
+                identity.clinic_id,
+                clinic_patient_id,
+            )
+        )
+        so = sinh_hieu_tu_ho_so(vitals, co_thai=co_thai)
+        await conn.execute(
+            """
+            INSERT INTO vital_measurement
+                (clinic_id, visit_id, systolic, diastolic, pulse, temperature,
+                 weight_kg, height_cm, recorded_by)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
+            """,
+            identity.clinic_id,
+            visit_id,
+            so.systolic,
+            so.diastolic,
+            so.pulse,
+            so.temperature,
+            so.weight_kg,
+            so.height_cm,
+            identity.staff_id,
+        )
+        # KHÔNG đổi encounter_flow.vitals_status ở đây: luồng khám mới quyết
+        # tuyến (_decide_route) ngay sau lệnh ghi sinh hiệu của chính nó; đánh
+        # dấu "đã đo" từ màn cũ mà không quyết tuyến thì lượt kẹt không ai gọi.
+
     async def _save_vitals(
         self,
         conn: asyncpg.Connection,
@@ -485,13 +671,13 @@ class ClinicalRecordService:
         objective: Any,
         chief_complaint: str | None,
         clinic_id: str | None,
-    ) -> None:
+    ) -> int:
         merged = merge_vitals_only(stored_objective, objective)
         complaint = (chief_complaint or "").strip()
 
         # The complaint is only written when the nurse typed one; an empty save
         # must not erase what the doctor already recorded.
-        await conn.execute(
+        revision = await conn.fetchval(
             """
             INSERT INTO clinical_record
                 (clinic_id, visit_id, soap_objective, chief_complaint_at_visit)
@@ -502,12 +688,14 @@ class ClinicalRecordService:
                     EXCLUDED.chief_complaint_at_visit,
                     clinical_record.chief_complaint_at_visit
                 )
+            RETURNING revision
             """,
             visit_id,
             json.dumps(merged),
             complaint or None,
             clinic_id,
         )
+        return int(revision)
 
     async def _save_profile(
         self,
@@ -542,17 +730,73 @@ class ClinicalRecordService:
         clinic_patient_id: str,
         prescriptions: list[dict[str, Any]],
         clinic_id: str | None,
+        created_by: str | None = None,
     ) -> None:
-        """The visit's prescription is replaced wholesale, as the route did."""
+        """Lưu đơn thuốc của lượt — KHÔNG xoá dòng nhà thuốc đã đụng tới.
+
+        Bản cũ xoá TOÀN BỘ đơn rồi chèn lại mỗi lần lưu bệnh án. Từ khi có cấp
+        phát một phần (20260807000004), mỗi dòng đơn mang số ĐÃ CẤP và sổ kho
+        trỏ về `prescription.id`. Lưu lại bệnh án sau khi dược sĩ đã cấp là:
+        mất dấu đã cấp, sổ kho trỏ vào dòng không còn tồn tại, và dòng mới về
+        CHUA_CAP — cấp lại được, trừ kho hai lần (phát hiện 15/09/2026).
+
+        Luật:
+          · Dòng ĐÃ KHOÁ = đã cấp (`dispensed_qty > 0`) hoặc đã chốt/từ chối
+            (`closed_at`). Không bao giờ bị xoá. Bản gửi lên phải còn đúng thuốc
+            và số lượng của nó, không thì từ chối bằng câu nói rõ dòng nào —
+            sửa đơn đã cấp là việc của nhà thuốc, không phải của nút Lưu.
+            Liều dùng/lưu ý của dòng khoá được cập nhật tại chỗ theo `id`.
+            Bản cũ thiếu `id` chỉ được ghép khi không có dòng trùng tên/số lượng.
+          · Dòng CHƯA KHOÁ vẫn là bản nháp: thay như cũ.
+          · Dòng mới ghi luôn `quantity_num`/`unit` bằng CHÍNH hàm SQL của
+            migration cấp phát — trước đây không đường ghi nào điền hai cột
+            này, nên chốt "không cấp quá số kê" chưa từng chạy với đơn mới.
+          · `source_ref` duy nhất theo dòng (uuid), không theo vị trí: dòng khoá
+            giữ ref cũ nên đánh số lại từ 0 sẽ đụng UNIQUE.
+        """
+
+        cu = await conn.fetch(
+            """
+            SELECT id, drug_name_raw, quantity, dispensed_qty, closed_at
+              FROM prescription
+             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+             ORDER BY created_at, id
+               FOR UPDATE
+            """,
+            visit_id,
+            clinic_id,
+        )
+        gui_len = _validated_prescription_items(
+            prescriptions, {str(row["id"]) for row in cu}
+        )
+        locked_matches = _locked_prescription_matches(list(cu), gui_len)
+        matched = {id(item) for _, item in locked_matches}
+        con_lai = [item for item in gui_len if id(item) not in matched]
+        for dong, khop in locked_matches:
+            await conn.execute(
+                """
+                UPDATE prescription
+                   SET dosage_instructions = $3, caution = $4, updated_at = now()
+                 WHERE id = $1::uuid AND clinic_id = $2::uuid
+                """,
+                dong["id"],
+                clinic_id,
+                (khop.get("dosage") or "").strip() or None,
+                (khop.get("caution") or "").strip() or None,
+            )
+
         await conn.execute(
-            "DELETE FROM prescription "
-            "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+            """
+            DELETE FROM prescription
+             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+               AND dispensed_qty = 0 AND closed_at IS NULL
+            """,
             visit_id,
             clinic_id,
         )
         rows = [
             (
-                f"dash-rx-{visit_id}-{index}",
+                f"dash-rx-{visit_id}-{uuid.uuid4().hex}",
                 clinic_patient_id,
                 str(visit_id),
                 (item.get("drug_name") or "").strip(),
@@ -560,9 +804,9 @@ class ClinicalRecordService:
                 (item.get("dosage") or "").strip() or None,
                 (item.get("caution") or "").strip() or None,
                 clinic_id,
+                created_by,
             )
-            for index, item in enumerate(prescriptions)
-            if (item.get("drug_name") or "").strip()
+            for item in con_lai
         ]
         if not rows:
             return
@@ -570,9 +814,12 @@ class ClinicalRecordService:
             """
             INSERT INTO prescription (
                 source_ref, clinic_patient_id, visit_id, drug_name_raw,
-                quantity, dosage_instructions, caution, clinic_id
+                quantity, dosage_instructions, caution, clinic_id,
+                quantity_num, unit, created_by
             )
-            VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid)
+            VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid,
+                    public.so_luong_tu_van_ban($5),
+                    public.don_vi_tu_van_ban($5), $9::uuid)
             """,
             rows,
         )

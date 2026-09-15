@@ -32,6 +32,7 @@ ràng buộc Postgres.
 from __future__ import annotations
 
 import json
+import unicodedata
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -62,6 +63,11 @@ def _so(value: Any, *, ten: str) -> Decimal:
     if so <= 0:
         raise ValidationError(f"{ten} phải lớn hơn 0.")
     return so
+
+
+def _don_vi(value: str | None) -> str:
+    """Chỉ chuẩn hoá cách viết; hộp, vỉ, viên luôn là các đơn vị khác nhau."""
+    return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
 
 
 class PharmacyService:
@@ -269,6 +275,11 @@ class PharmacyService:
         Một thao tác, hai sổ, MỘT GIAO DỊCH: trừ kho và cộng vào số đã cấp của
         đơn. Tách ra hai lần gọi sẽ có lúc kho trừ rồi mà đơn chưa ghi — và
         không ai đối soát lại được.
+
+        Đơn có đơn vị chỉ cấp từ lô cùng đơn vị; chưa có quy đổi bao bì đã xác
+        minh nên không đoán số viên/hộp. Đơn cũ thiếu đơn vị giữ hành vi cũ:
+        số lượng cấp được hiểu theo đơn vị lô. Đây là giới hạn dữ liệu cũ,
+        không xác nhận rằng số kê và số tồn đã có cùng đơn vị.
         """
         luong = _so(so_luong, ten="Số lượng cấp")
 
@@ -279,7 +290,7 @@ class PharmacyService:
                 # cùng một `dispensed_qty` và tổng cấp vượt số kê.
                 don = await conn.fetchrow(
                     """
-                    SELECT id, drug_name_raw, quantity_num, dispensed_qty,
+                    SELECT id, drug_name_raw, quantity_num, unit, dispensed_qty,
                            closed_at, refusal_reason
                       FROM public.prescription
                      WHERE id = $1::uuid AND clinic_id = $2::uuid
@@ -306,7 +317,8 @@ class PharmacyService:
 
                 lo = await conn.fetchrow(
                     """
-                    SELECT b.id, b.quantity_on_hand, b.expiry_date, c.name_base
+                    SELECT b.id, b.quantity_on_hand, b.unit, b.expiry_date,
+                           c.name_base
                       FROM public.drug_batch b
                       LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id
                      WHERE b.id = $1::uuid AND b.clinic_id = $2::uuid
@@ -317,6 +329,16 @@ class PharmacyService:
                 )
                 if lo is None:
                     raise NotFoundError("Không tìm thấy lô thuốc này trong kho.")
+
+                don_vi_ke = _don_vi(don.get("unit"))
+                don_vi_lo = _don_vi(lo.get("unit"))
+                if don_vi_ke and don_vi_ke != don_vi_lo:
+                    raise ValidationError(
+                        f"Đơn kê theo đơn vị {don['unit']}, nhưng lô thuốc theo "
+                        f"đơn vị {lo.get('unit') or 'chưa xác định'}. "
+                        "Chọn lô cùng đơn vị hoặc xác nhận lại đơn thuốc; "
+                        "không tự quy đổi hộp, vỉ, viên."
+                    )
 
                 ton = Decimal(str(lo["quantity_on_hand"] or 0))
                 if ton < luong:

@@ -284,28 +284,29 @@ export default function RosterRegisterTable({
       refresh();
       return;
     }
-    // ĐO TRƯỚC KHI CẮT. Gỡ một ca khám có thể HUỶ lịch hẹn của khách — mất
-    // mát không lấy lại được, đúng chỗ xứng đáng một hộp xác nhận (ngược với
-    // hoàn tác rẻ tiền đã bỏ hộp 10/08). Máy chủ chỉ huỷ những lịch rơi RA
-    // NGOÀI phần ca còn lại, nên hộp cũng dạy luôn đường đổi ca an toàn.
+    // ĐO TRƯỚC KHI CẮT. Gỡ một ca khám KHÔNG huỷ lịch hẹn (CONTEXT v1.0),
+    // nhưng những lịch rơi RA NGOÀI phần ca còn lại sẽ mất bác sĩ và vào hàng
+    // "Lịch chờ xếp bác sĩ" — việc cho người khác, nên hỏi lại trước. Hộp
+    // cũng dạy luôn đường đổi ca không sinh việc: thêm ca mới trước.
     const uom = await fetch("/api/roster", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, dry_run: true }),
     });
     const doDac = (await uom.json().catch(() => null)) as {
-      so_lich_huy?: number;
+      so_lich_cho_xep?: number;
       gio?: string[];
     } | null;
-    const soHuy = doDac?.so_lich_huy ?? 0;
-    if (uom.ok && soHuy > 0) {
+    const soChoXep = doDac?.so_lich_cho_xep ?? 0;
+    if (uom.ok && soChoXep > 0) {
       const dsGio = (doDac?.gio ?? []).join(", ");
       const dongY = window.confirm(
-        `Ca này đang gánh ${soHuy} lịch hẹn (${dsGio}).\n` +
-          `Gỡ ca là HUỶ những lịch ấy — CSKH sẽ được báo để gọi khách đặt lại.\n\n` +
+        `Ca này đang gánh ${soChoXep} lịch hẹn (${dsGio}).\n` +
+          `Gỡ ca KHÔNG huỷ lịch — các lịch ấy sẽ mất bác sĩ và chuyển sang ` +
+          `"Lịch chờ xếp bác sĩ" để xếp bác sĩ khác hoặc gọi khách đổi giờ.\n\n` +
           `Nếu chị định ĐỔI ca (vd sáng → cả ngày): bấm Huỷ ở hộp này, THÊM ca mới ` +
-          `trước rồi mới gỡ ca cũ — lịch nằm trong khung còn phủ sẽ được giữ nguyên.\n\n` +
-          `Gỡ ca và huỷ ${soHuy} lịch?`,
+          `trước rồi mới gỡ ca cũ — lịch nằm trong khung còn phủ sẽ giữ nguyên bác sĩ.\n\n` +
+          `Gỡ ca và chuyển ${soChoXep} lịch sang chờ xếp bác sĩ?`,
       );
       if (!dongY) return;
     }

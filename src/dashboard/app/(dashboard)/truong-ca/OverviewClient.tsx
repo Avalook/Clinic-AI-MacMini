@@ -496,6 +496,75 @@ function DetailPanel({
       >
         Áp dụng tuyến
       </button>
+
+      <DoiBacSi visitId={patient.visit_id} reason={reason} onAct={onAct} />
     </aside>
   );
 }
+
+/** Bác sĩ chính nghỉ giữa chừng → chuyển lượt cho bác sĩ khác (Tuyền chốt
+ *  15/09/2026). Dùng chung ô "Lý do điều phối" phía trên — backend bắt buộc. */
+function DoiBacSi({
+  visitId,
+  reason,
+  onAct,
+}: {
+  visitId: string;
+  reason: string;
+  onAct: ActFn;
+}) {
+  const [bacSi, setBacSi] = useState<{ id: string; full_name: string }[] | null>(
+    null,
+  );
+  const [chon, setChon] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function moDanhSach() {
+    if (bacSi !== null) return;
+    const res = await fetch("/api/dispatch-read?what=bac-si", { cache: "no-store" });
+    const json = (await res.json().catch(() => ({}))) as {
+      items?: { id: string; full_name: string }[];
+    };
+    setBacSi(json.items ?? []);
+  }
+
+  return (
+    <>
+      <div style={{ margin: "12px 0 6px", fontSize: 12, fontWeight: 700 }}>
+        Chuyển bác sĩ (bác sĩ chính nghỉ giữa chừng)
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <select
+          value={chon}
+          onFocus={() => void moDanhSach()}
+          onChange={(e) => setChon(e.target.value)}
+          style={{ flex: 1 }}
+        >
+          <option value="">-- Chọn bác sĩ nhận --</option>
+          {(bacSi ?? []).map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.full_name}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn btn-primary"
+          disabled={busy || !chon || !reason.trim()}
+          onClick={async () => {
+            setBusy(true);
+            const ok = await onAct(
+              "doi-bac-si",
+              { visit_id: visitId, bac_si_moi_id: chon, ly_do: reason.trim() },
+              "✓ Đã chuyển bác sĩ — bác sĩ mới mở bệnh án đang dở để khám tiếp",
+            );
+            setBusy(false);
+            if (ok) setChon("");
+          }}
+        >
+          Chuyển
+        </button>
+      </div>
+    </>
+  );
+}
+

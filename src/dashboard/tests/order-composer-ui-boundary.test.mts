@@ -46,7 +46,9 @@ test("missing clinical and commercial data is explicit instead of fabricated", (
   for (const label of [
     "Chưa có dữ liệu từ hồ sơ khám",
     "Chưa cấu hình bộ chỉ định",
-    "Chưa đủ dữ liệu để xác định trạng thái chặn",
+    // "Chưa đủ dữ liệu để xác định trạng thái chặn" bỏ 15/09/2026: ô ấy nay là
+    // danh sách "Đã chỉ định" có dữ liệu thật (bác sĩ tích/bỏ tích).
+    "Chưa tích dịch vụ nào cho lượt này",
     "Chưa có giá",
   ]) {
     assert.match(composer, new RegExp(label));

@@ -87,6 +87,8 @@ class BookingRequest(BaseModel):
     #: "Đặt lịch khám mới" cố ý để trống. Dịch vụ đi kèm đã nằm sẵn ở
     #: `service_type_id`, nên không cần trường riêng cho "tái khám dịch vụ nào".
     lich_truoc_id: UUID | None = None
+    #: TUỲ CHỌN (Tuyền chốt 15/09/2026): vãng lai tự check-in có thể ghi cách xác minh.
+    xac_minh_cach: str | None = Field(default=None, max_length=32)
 
 
 class ActionRequest(BaseModel):
@@ -99,6 +101,8 @@ class ActionRequest(BaseModel):
     doctor_id: UUID | None = None
     slot_start: datetime | None = None
     slot_end: datetime | None = None
+    #: TUỲ CHỌN với action = "checkin" — xem `cach_xac_minh_bat_buoc`.
+    xac_minh_cach: str | None = Field(default=None, max_length=32)
 
 
 @router.get("/appointments/cho-xep-bac-si")
@@ -200,7 +204,45 @@ async def cho_xep_bac_si(
             """,
             identity.clinic_id,
         )
-    return {"items": [dict(r) for r in rows]}
+        # LÝ DO THỨ BA (15/09/2026): LỊCH VƯỢT SỨC CHỨA sau khi công bố lịch trực.
+        # Tuyền: không xoá, không tự huỷ lịch của khách — báo rồi xử lý. Đây là
+        # chỗ lưu những lịch ấy cho quản lý/trưởng ca (đổi bác sĩ hoặc giờ);
+        # CSKH gọi khách qua việc VUOT_SUC_CHUA ở màn khách hàng. Lọc phòng khám
+        # Ở ĐÂY: hàm là SECURITY INVOKER, backend chạy quyền chủ nên RLS không áp.
+        vuot = await conn.fetch(
+            """
+            SELECT a.id::text,
+                   a.slot_start,
+                   a.slot_end,
+                   a.status,
+                   a.notes,
+                   a.clinic_patient_id::text,
+                   p.full_name   AS benh_nhan,
+                   p.patient_code,
+                   p.phone_primary,
+                   st.name       AS dich_vu,
+                   TRUE          AS tuan_da_chot,
+                   'VUOT_SUC_CHUA' AS ly_do,
+                   bs.full_name  AS bac_si_cu,
+                   a.doctor_id::text AS doctor_id,
+                   o.tran,
+                   o.thu_tu
+              FROM public.lich_vuot_suc_chua() o
+              JOIN appointment a ON a.id = o.appointment_id
+              LEFT JOIN patient p ON p.clinic_patient_id = a.clinic_patient_id
+              LEFT JOIN service_type st ON st.id = a.service_type_id
+              LEFT JOIN staff bs ON bs.id = a.doctor_id
+             WHERE o.clinic_id = $1::uuid
+             ORDER BY a.slot_start
+             LIMIT 500
+            """,
+            identity.clinic_id,
+        )
+    da_co = {r["id"] for r in rows}
+    return {
+        "items": [dict(r) for r in rows]
+        + [dict(r) for r in vuot if r["id"] not in da_co]
+    }
 
 
 class BaoXepBacSiRequest(BaseModel):
@@ -293,6 +335,7 @@ async def create_booking(
             sono_min=body.sono_min,
             notes=body.notes,
             lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
+            xac_minh_cach=body.xac_minh_cach,
         )
         payload = {"ok": True, **result}
         await idem.save(pool, payload, status_code=201)
@@ -378,6 +421,7 @@ async def doctor_board(
     những dòng đó mà không một thông báo nào.
     """
     from clinicai.services.doctor_board_service import DoctorBoardService
+    from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
     loc = [s.strip() for s in (statuses or "").split(",") if s.strip()] or None
     items = await DoctorBoardService(pool).board(
@@ -386,6 +430,8 @@ async def doctor_board(
         end=end,
         doctor_id=str(doctor_id) if doctor_id else None,
         statuses=loc,
+        # Thư ký chỉ thấy lịch của bác sĩ mình được phân (Tuyền chốt 15/09/2026).
+        chi_bac_si=await bac_si_cua_thu_ky(pool, identity),
     )
     return {"ok": True, "items": items}
 
@@ -489,6 +535,7 @@ async def apply_appointment_action(
         doctor_id_provided="doctor_id" in body.model_fields_set,
         slot_start=body.slot_start,
         slot_end=body.slot_end,
+        xac_minh_cach=body.xac_minh_cach,
     )
     return {"ok": True, **result}
 

@@ -27,6 +27,9 @@ export interface TepKetQuaRow {
   gui_luc: string | null;
   gui_kenh: string | null;
   gui_boi: string | null;
+  /** Bác sĩ cho phép gửi lúc nào (null = chưa) — CSKH chỉ gửi sau mốc này. */
+  cho_phep_gui_luc: string | null;
+  cho_phep_gui_boi: string | null;
 }
 
 const BIEU_TUONG = {
@@ -264,7 +267,19 @@ export default function TepKetQua({
                   </div>
                 )}
 
-                {!readOnly && !t.gui_luc && (
+                {!t.gui_luc && !t.cho_phep_gui_luc && (
+                  // BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026): chưa cho phép thì không
+                  // có nút xác nhận đã gửi — backend và DB cũng chặn.
+                  <p className="mt-1.5 text-label font-medium text-warning">
+                    Chờ bác sĩ cho phép gửi
+                  </p>
+                )}
+                {!t.gui_luc && t.cho_phep_gui_luc && (
+                  <p className="mt-1 text-label text-success">
+                    {t.cho_phep_gui_boi ?? "Bác sĩ"} đã cho phép gửi {gio(t.cho_phep_gui_luc)}
+                  </p>
+                )}
+                {!readOnly && !t.gui_luc && t.cho_phep_gui_luc && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống
                         chưa tự gửi được (send_zalo.py luôn delivered=False). */}

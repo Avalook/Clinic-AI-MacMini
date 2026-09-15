@@ -91,6 +91,26 @@ async def sono_queue(
     return await UltrasoundBoardService(pool).queue(identity=identity)
 
 
+class NhanCaRequest(BaseModel):
+    #: Trưởng ca / quản lý chọn bác sĩ siêu âm; bác sĩ siêu âm tự nhận thì bỏ trống.
+    bac_si_id: UUID | None = None
+
+
+@router.post("/ultrasound/queue/{work_item_id}/nhan")
+async def nhan_ca_sieu_am(
+    work_item_id: UUID,
+    body: NhanCaRequest,
+    identity: StaffIdentity = Depends(_SONO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi bác sĩ thực hiện siêu âm cho một ca đang chờ (15/09/2026)."""
+    return await UltrasoundBoardService(pool).nhan_ca(
+        identity=identity,
+        work_item_id=str(work_item_id),
+        bac_si_id=str(body.bac_si_id) if body.bac_si_id else None,
+    )
+
+
 @router.get("/ultrasound/rooms")
 async def sono_rooms(
     identity: StaffIdentity = Depends(_SONO_GUARD),

@@ -41,6 +41,7 @@ import { MOT_CHAM, kenhCho, nhanLanChamCuoi } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai } from "./CustomersView";
 import type { MocTaiKham } from "./NhacTaiKham";
+import type { MaXacMinh } from "@/lib/xac-minh";
 
 /** Một trạng thái khách có thể đang ở, kèm việc CSKH phải làm khi ở đó. */
 interface TrangThai {
@@ -54,6 +55,11 @@ interface TrangThai {
 }
 
 const TRUOC_KHAM: TrangThai[] = [
+  {
+    ma: "VUOT_SUC_CHUA",
+    ten: "Lịch vượt sức chứa sau khi có lịch trực",
+    viec: "Gọi khách chốt giữ lịch hoặc đổi sang ca khác",
+  },
   {
     ma: "CHO_XAC_NHAN",
     ten: "Chờ xác nhận lịch trước 7 ngày",
@@ -800,6 +806,8 @@ export default function VungLamViecKhach({
       noiDung: string;
       khoa: string;
       khachXacNhan?: boolean;
+      /** Bắt buộc với CHECK_IN — backend từ chối nếu thiếu (15/09/2026). */
+      xacMinhCach?: MaXacMinh;
     },
   ) {
     // NĂM LOẠI BẮT BUỘC GẮN LỊCH HẸN (CAN_LICH_HEN ở backend). Chặn tại đây
@@ -843,6 +851,7 @@ export default function VungLamViecKhach({
         kenh: kenhCho(v.ketQua),
         ket_qua: v.ketQua,
         khach_xac_nhan: v.khachXacNhan ?? null,
+        xac_minh_cach: v.xacMinhCach ?? null,
         // GHI CHÚ NGƯỜI DÙNG GÕ THẮNG nội dung mặc định. Mặc định chỉ là câu
         // mô tả việc ("Đã gọi xác nhận lịch"); thứ người trực gõ tay bao giờ
         // cũng nói được nhiều hơn ("khách đang họp, gọi lại sau 5h").
@@ -1237,6 +1246,13 @@ export default function VungLamViecKhach({
             {/* MỘT CHẠM LÀ XONG với những bước có trong `MOT_CHAM`: bấm ghi
                 thẳng vào sổ và node tích xanh ngay, không mở khối bên phải.
                 Bước không có trong bảng ấy thì giữ nguyên hành vi cũ. */}
+            {tt.ma === "DA_CHECKIN" && !xong ? (
+              // CSKH KHÔNG check-in (Tuyền chốt 15/09/2026) — lễ tân check-in
+              // tại quầy, bước này tự tích khi lịch sang ĐÃ ĐẾN.
+              <span className="text-label text-ink-muted">
+                Lễ tân check-in tại quầy
+              </span>
+            ) : (
             <button
               type="button"
               disabled={Boolean(motCham && dangGhiLoiRa)}
@@ -1258,6 +1274,7 @@ export default function VungLamViecKhach({
                     ? "Làm lại"
                     : "Làm bước này"}
             </button>
+            )}
 
             {/* LỖI PHẢI HIỆN NGAY TẠI NÚT VỪA BẤM.
                 `Node` chưa từng vẽ `loiGhiLoiRa`, nên một cú ghi hỏng trông y

@@ -7,7 +7,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
     ClinicRole,
@@ -59,7 +59,8 @@ async def create_patient(
 
     * created      → 201, the PatientDTO.
     * phone dup    → 200 ``{"duplicate": true, "matches": [...]}`` (no insert).
-    * CCCD conflict → 409 (raised as ConflictError by the service).
+    * CCCD dup     → 200 ``{"duplicate": true, "cccd_trung": true, ...}``;
+      gửi lại kèm ``ly_do_trung_cccd`` để tạo.
     """
     service = PatientService(pool)
     result = await service.create_patient(data, identity)
@@ -68,6 +69,7 @@ async def create_patient(
             status_code=status.HTTP_200_OK,
             content={
                 "duplicate": True,
+                "cccd_trung": result.cccd_trung,
                 "matches": jsonable_encoder(result.matches),
             },
         )
@@ -285,3 +287,29 @@ async def update_patient(
     """Partially update demographic details for a patient."""
     service = PatientService(pool)
     return await service.update_patient(id, data, identity)
+
+
+class UuTienRequest(BaseModel):
+    uu_tien: bool
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.put("/patients/{id:uuid}/uu-tien")
+async def dat_khach_uu_tien(
+    id: UUID,
+    body: UuTienRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đánh dấu / bỏ dấu khách ưu tiên (VIP) kèm lý do — Tuyền chốt 15/09/2026.
+
+    Chỉ là dấu cho lễ tân; không tự đổi thứ tự khám (lễ tân kéo tay).
+    """
+    from clinicai.services.thu_tu_kham_service import ThuTuKhamService
+
+    return await ThuTuKhamService(pool).dat_uu_tien(
+        identity=identity,
+        clinic_patient_id=str(id),
+        uu_tien=body.uu_tien,
+        ly_do=body.ly_do,
+    )

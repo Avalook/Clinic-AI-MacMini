@@ -16,6 +16,8 @@ const ACTIONS: Record<string, { method: "POST" | "PUT"; path: string }> = {
   "transfer-room": { method: "POST", path: "/api/v1/dispatch/transfer-room" },
   route: { method: "POST", path: "/api/v1/dispatch/route" },
   threshold: { method: "PUT", path: "/api/v1/dispatch/threshold" },
+  // Bác sĩ chính nghỉ giữa chừng → chuyển lượt, bắt buộc lý do (15/09/2026).
+  "doi-bac-si": { method: "POST", path: "/api/v1/dispatch/doi-bac-si" },
 };
 
 export async function POST(

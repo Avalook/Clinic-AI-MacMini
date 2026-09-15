@@ -115,7 +115,7 @@ export default function BookingPolicyCard({
         </div>
         {/* Trường: số chỗ đặt hẹn */}
         <div>
-          <label className={LABEL}>Số chỗ đặt hẹn / khung</label>
+          <label className={LABEL}>Số khách online (đặt trước) / khung</label>
           {/* Input số */}
           <input
             type="number" // Kiểu số
@@ -127,12 +127,12 @@ export default function BookingPolicyCard({
           />
           {/* Ghi chú */}
           <p className="mt-1 text-label text-ink-faint">
-            BN1 + BN2 cho CSKH/Lễ tân đặt trước.
+            Khách CSKH/online đặt trước. Chưa có lịch trực thì không giới hạn.
           </p>
         </div>
         {/* Trường: số chỗ vãng lai */}
         <div>
-          <label className={LABEL}>Số chỗ vãng lai / khung</label>
+          <label className={LABEL}>Số khách trực tiếp (lễ tân) / khung</label>
           {/* Input số */}
           <input
             type="number" // Kiểu số

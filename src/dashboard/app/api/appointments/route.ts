@@ -11,7 +11,6 @@
 // buộc exclusion tên appointment_no_doctor_overlap như dòng cũ ở đây khai;
 // ràng buộc đó không tồn tại trong schema.
 //
-//   PATCH { id, action: "confirm" | "decline" }   (DOCTOR only, own appt)
 //     → { ok: true, status }
 //   Two-step confirmation: CSKH confirms WITH THE PATIENT (cskh_confirm:
 //   SCHEDULED→CSKH_CONFIRMED) but the slot still awaits the doctor. Confirm:
@@ -40,6 +39,7 @@ interface Body {
   slot_start?: string;
   slot_end?: string;
   booking_channel?: string;
+  xac_minh_cach?: string;
   queue_number?: string;
   // Capacity Phase 1 (T-20260629-CAP-01) — CSKH nhập tay (DEC-3).
   patient_kind?: string;
@@ -279,14 +279,14 @@ export async function POST(request: Request) {
       // lời đúng chứ không phải dữ liệu thiếu. Backend còn kiểm lại lịch ấy có
       // đúng của khách này không — xem BookingService.create.
       lich_truoc_id: (body.lich_truoc_id ?? "").trim() || null,
+      // Vãng lai trong ngày tự check-in → backend bắt buộc cách xác minh.
+      xac_minh_cach: (body.xac_minh_cach ?? "").trim() || null,
     },
     idempotencyKey,
   );
 }
 
 type PatchAction =
-  | "confirm"
-  | "decline"
   | "complete"
   | "checkin"
   | "undo_checkin"
@@ -305,11 +305,13 @@ interface PatchBody {
   doctor_id?: string; // "reassign"/"assign_doctor"/"reschedule"; rỗng = bỏ phân
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
+  xac_minh_cach?: string; // BẮT BUỘC khi action = "checkin" — backend canh
 }
 
 // "complete" = bác sĩ chốt KHÁM XONG (lịch → COMPLETED). KHÔNG đụng visit
 // (FINALIZED là khóa pháp lý riêng, không tự quyết ở đây).
-const DOCTOR_ACTIONS = new Set<PatchAction>(["confirm", "decline", "complete"]);
+// Bác sĩ không nhận/từ chối lịch nữa (Tuyền chốt 15/09/2026).
+const DOCTOR_ACTIONS = new Set<PatchAction>(["complete"]);
 // Front-desk (Lễ tân/CSKH/Quản lý) actions.
 const CHECKIN_ACTIONS = new Set<PatchAction>([
   "checkin",
@@ -380,16 +382,17 @@ export async function PATCH(request: Request) {
         { status: 403 },
       );
     }
-  } else if (action === "no_show") {
+  } else if (action === "no_show" || action === "checkin" || action === "undo_checkin") {
+    // Check-in là việc của lễ tân (Tuyền chốt 15/09/2026) — CSKH không.
     if (!canCheckin(role)) {
       return NextResponse.json(
-        { error: "Chỉ Lễ tân / Quản lý mới đánh không đến." },
+        { error: "Chỉ Lễ tân / Quản lý mới check-in hoặc đánh không đến." },
         { status: 403 },
       );
     }
   } else if (!canWriteIntake(role)) {
     return NextResponse.json(
-      { error: "Chỉ Lễ tân / CSKH / Quản lý mới check-in bệnh nhân." },
+      { error: "Chỉ Lễ tân / CSKH / Quản lý mới xác nhận lịch." },
       { status: 403 },
     );
   }
@@ -401,5 +404,6 @@ export async function PATCH(request: Request) {
     ...(body.doctor_id !== undefined ? { doctor_id: body.doctor_id || null } : {}),
     slot_start: body.slot_start ?? null,
     slot_end: body.slot_end ?? null,
+    xac_minh_cach: body.xac_minh_cach ?? null,
   });
 }

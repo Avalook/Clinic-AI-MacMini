@@ -1,6 +1,7 @@
 "use client";
 
-// Màn TV PHÒNG CHỜ — chỉ số thứ tự, không tên, không dịch vụ.
+// Màn TV PHÒNG CHỜ — số thứ tự kèm TÊN ĐẦY ĐỦ, không dịch vụ (Tuyền chốt
+// 15/09/2026: gọi theo thứ tự check-in nên hiện tên đàng hoàng).
 
 import type { DispatchPatient, DispatchRoom } from "./types";
 import { LiveBadge, ReadFailed, useDispatchLive } from "./shared";
@@ -35,8 +36,7 @@ function TvBoard({
       <div
         style={{ fontSize: 12, color: "var(--ink-muted)", marginBottom: 10 }}
       >
-        Màn hình công cộng: chỉ hiện <b>số thứ tự</b>, không hiện tên bệnh nhân
-        hay dịch vụ.
+        Màn hình công cộng: hiện <b>số thứ tự và tên</b>, không hiện dịch vụ.
       </div>
       <div
         style={{
@@ -49,7 +49,7 @@ function TvBoard({
           const queue = patients
             .filter((p) => p.room_code === r.code && p.queue_number)
             .sort((a, b) => b.wait_minutes - a.wait_minutes)
-            .map((p) => p.queue_number);
+            .map((p) => ({ so: p.queue_number, ten: p.patient_name }));
           return (
             <div key={r.id} className="card" style={{ padding: 14 }}>
               <div
@@ -67,8 +67,11 @@ function TvBoard({
                 Đang phục vụ
               </div>
               <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.1 }}>
-                {queue[0] ?? "—"}
+                {queue[0]?.so ?? "—"}
               </div>
+              {queue[0]?.ten && (
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{queue[0].ten}</div>
+              )}
               <div
                 style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 8 }}
               >
@@ -76,8 +79,9 @@ function TvBoard({
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {queue.slice(1, 7).map((n) => (
-                  <span key={n} className="badge badge-neutral">
-                    {n}
+                  <span key={n.so} className="badge badge-neutral">
+                    {n.so}
+                    {n.ten ? ` · ${n.ten}` : ""}
                   </span>
                 ))}
                 {queue.length <= 1 && (

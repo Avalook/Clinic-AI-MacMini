@@ -1,20 +1,18 @@
-"""Bia mộ của cơ chế "xếp lại ca thì lịch tự quay về" — và luật thay nó.
+"""Gỡ ca trực: GIỮ lịch, gỡ bác sĩ, đưa về hàng chờ xếp — và vì sao đảo lại.
 
-SỐNG NỬA NGÀY (15/08/2026). PR #115 dạy `add_shift` tự gắn lại những lịch mà
-`remove()` đã gỡ. Cùng chiều hôm ấy Tuyền gặp mặt còn lại của vấn đề: lịch bị
-gỡ là một lịch CÒN SỐNG không bác sĩ, đứng nguyên ở khung giờ cũ, và
-`_patient_conflict` ("khách đã có lịch giờ này") chặn chính con đường sửa nó —
-đặt lại cùng khung cho cùng khách với bác sĩ khác. Tuyền chốt luật mới: *"khi
-bác sĩ xoá lịch cũ thì… slot đó thực sự bị xoá đi, nút huỷ lịch đó vô hiệu vì
-đã xoá rồi, chỉ có đặt lịch slot mới"* — một sự kiện phải có KẾT THÚC.
+LỊCH SỬ (Luật 12.5: quyết định đảo thì viết lại bài kiểm kèm lý do):
 
-Nên `remove()` nay HUỶ HẲN lịch (CANCELLED, mã BAC_SI_DOI_LICH, giữ vết
-`bac_si_da_go_id` để màn hình nói được "đổi từ ai"), và cơ chế khôi phục bị gỡ
-theo: không còn lịch-sống-chờ-xếp để mà quay về, và làm sống lại một lịch ĐÃ
-HUỶ là viết lại quá khứ — khách có thể đã được gọi báo huỷ rồi.
+  · #103 (14/08/2026) gỡ ca → gỡ bác sĩ, lịch về "Chờ xếp bác sĩ".
+  · #115 dạy `add_shift` tự gắn lại lịch bị gỡ — sống nửa ngày, bỏ vì đụng
+    ghế đã bị lịch khác chiếm.
+  · #117 (15/08) đổi sang HUỶ HẲN: lịch sống không bác sĩ chặn việc ĐẶT LỊCH
+    MỚI cùng khung cho cùng khách (`_patient_conflict`).
+  · CONTEXT v1.0 (12/09, Tuyền chốt): *đổi/gỡ lịch trực không bao giờ huỷ
+    lịch hẹn* — giữ hết, hiện xung đột kèm người xử lý.
 
-Các bài dưới đây khoá luật MỚI, và khoá luôn việc cơ chế cũ không lặng lẽ quay
-lại (Luật 12.5: quyết định đảo thì viết lại bài kiểm kèm lý do, không xoá).
+Cái chặn của #117 có thật, nhưng đường đúng là SỬA CHÍNH LỊCH ĐÓ ở hàng chờ
+(gán bác sĩ khác, đổi giờ) — không tạo lịch thứ hai. Nên luật hiện hành quay
+về cơ chế #103 (giữ khung-giờ của 17/08) và KHÔNG mang lại tự-gắn của #115.
 """
 
 from __future__ import annotations
@@ -24,36 +22,42 @@ import inspect
 from clinicai.services.config_service import RosterService
 
 
-class TestXoaCaThiHuyHanLich:
-    def test_go_bac_si_la_huy_han_kem_ma_ly_do(self) -> None:
-        """Lịch bị gỡ phải KẾT THÚC ngay trong cùng câu UPDATE — không có
-        khoảnh khắc "còn sống mà không bác sĩ" chặn khách đặt lại."""
-        ma = inspect.getsource(RosterService.remove)
-        dau = ma.index("UPDATE public.appointment")
-        # 17/08: câu UPDATE huỷ theo danh sách id (ANY) nên không còn
-        # RETURNING — cắt một cửa sổ đủ rộng quanh câu lệnh thay vì neo vào nó.
-        khoi = ma[dau : dau + 700]
-        assert "status = 'CANCELLED'" in khoi, "gỡ mà không huỷ là bỏ lửng"
-        assert "'BAC_SI_DOI_LICH'" in khoi, "huỷ phải mang mã lý do riêng"
-        assert "cancelled_by_staff_id" in khoi, "huỷ nhầm phải truy được về ai"
-        assert "bac_si_da_go_id = doctor_id" in khoi, (
-            "vết 'đổi từ ai' phải giữ — câu gọi khách cần cái tên"
-        )
+def _cau_update_lich() -> str:
+    ma = inspect.getsource(RosterService.remove)
+    dau = ma.index("UPDATE public.appointment")
+    return ma[dau : ma.index('"""', dau)]
 
-    def test_chi_huy_lich_con_cuu_duoc(self) -> None:
-        """Cùng ba chốt cũ: chưa tới giờ, trạng thái còn sống — không viết
-        lại quá khứ của lịch đã khám/đã đến."""
+
+class TestGoCaGiuLich:
+    def test_go_ca_khong_huy_lich(self) -> None:
+        """Câu UPDATE chỉ gỡ bác sĩ — không một cột huỷ nào được chạm."""
+        khoi = _cau_update_lich()
+        assert "doctor_id = NULL" in khoi
+        for cot in ("status =", "cancelled_at", "ly_do_huy_ma", "cancelled_by"):
+            assert cot not in khoi, f"gỡ ca đang ghi '{cot}' — tức là huỷ lịch"
+        assert "BAC_SI_DOI_LICH" not in inspect.getsource(RosterService.remove)
+
+    def test_giu_vet_doi_tu_ai(self) -> None:
+        """CSKH gọi khách cần nói được "đổi từ bác sĩ nào"."""
+        assert "bac_si_da_go_id = doctor_id" in _cau_update_lich()
+
+    def test_chi_lich_con_song_va_dung_bac_si(self) -> None:
+        """Chưa tới giờ, còn sống — và câu UPDATE tự kiểm lại trạng thái + bác
+        sĩ, để lượt check-in/gán lại chen giữa không bị gỡ nhầm."""
         ma = inspect.getsource(RosterService.remove)
         assert "slot_start > now()" in ma
-        assert "'SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED'" in ma
+        khoi = _cau_update_lich()
+        assert "'SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED'" in khoi
+        assert "AND doctor_id = $3::uuid" in khoi
 
-    def test_co_che_khoi_phuc_da_go_khong_duoc_quay_lai(self) -> None:
-        """`add_shift` không được làm sống lại lịch ĐÃ HUỶ. Muốn "hoàn tác
-        xoá nhầm ca" thì đường đúng là ĐẶT LỊCH MỚI (cùng khung, cùng bác sĩ
-        nếu còn ghế) — không phải lật trạng thái CANCELLED."""
+    def test_go_ca_de_lai_dau_vet(self) -> None:
+        """Dòng ca bị xoá khỏi bảng — event là dấu vết duy nhất còn lại."""
+        assert "'roster.shift_removed'" in inspect.getsource(RosterService.remove)
+
+    def test_co_che_tu_gan_lai_cua_115_khong_quay_lai(self) -> None:
+        """`add_shift` không tự gắn lại bác sĩ và không đụng lịch đã huỷ:
+        gán lại là việc của người trực ở hàng chờ (cờ `bs_go_co_ca_lai`)."""
         ma = inspect.getsource(RosterService)
         assert "_khoi_phuc_lich_bi_go" not in ma
         them_ca = inspect.getsource(RosterService.add_shift)
-        assert "CANCELLED" not in them_ca, (
-            "add_shift mà đụng tới lịch đã huỷ là làm sống lại quá khứ"
-        )
+        assert "CANCELLED" not in them_ca

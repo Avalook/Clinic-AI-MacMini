@@ -35,6 +35,8 @@ import { chipClass } from "@/components/ui/Chip";
 import Button from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
+import NutCheckIn from "@/components/ui/NutCheckIn";
+import type { MaXacMinh } from "@/lib/xac-minh";
 
 export interface WeekApptRow {
   id: string;
@@ -281,6 +283,7 @@ export default function WeeklyAppointmentsTable({
   async function act(
     id: string,
     action: "checkin" | "undo_checkin" | "no_show",
+    xacMinhCach?: MaXacMinh,
   ) {
     if (busyId) return;
     setBusyId(id);
@@ -288,7 +291,7 @@ export default function WeeklyAppointmentsTable({
     const res = await fetch("/api/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ id, action, xac_minh_cach: xacMinhCach }),
     });
     setBusyId(null);
     if (!res.ok) {
@@ -519,14 +522,13 @@ export default function WeeklyAppointmentsTable({
                                       a.status,
                                     ) ? (
                                     <div className="flex items-center gap-2">
-                                      <Button
-                                        variant="primary"
+                                      <NutCheckIn
                                         size="sm"
-                                        onClick={() => act(a.id, "checkin")}
+                                        onChon={() => act(a.id, "checkin")}
                                         disabled={busyId === a.id}
                                       >
                                         {busyId === a.id ? "..." : "Check-in"}
-                                      </Button>
+                                      </NutCheckIn>
                                       <button
                                         onClick={() => act(a.id, "no_show")}
                                         disabled={busyId === a.id}

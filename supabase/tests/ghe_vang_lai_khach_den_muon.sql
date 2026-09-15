@@ -1,21 +1,30 @@
--- Ghế vãng lai tính CẢ khách có hẹn đến muộn (migration 20260807000001).
+-- Khách có hẹn đến muộn KHÔNG chiếm ghế trực tiếp (20260915000014).
 --
--- Dựng đúng ví dụ Quang mô tả, rút gọn còn hai khung:
---   khung A  — một người ĐẶT TRƯỚC, không đến trong khung của mình
---   khung B  — khung kế tiếp, trần vãng lai 1 chỗ
---   người của khung A check-in trong khung B  → chiếm chỗ vãng lai của B
---   → khách vãng lai thật của khung B bị từ chối
+-- LỊCH SỬ: 20260807000001 cho người đặt trước mà check-in trễ sang khung sau
+-- chiếm một ghế vãng lai của khung đó (luật Quang mô tả 07/08). Tuyền chốt
+-- 15/09: sức chứa là số khách ONLINE + số khách TRỰC TIẾP quản lý đặt, chỉ để
+-- giới hạn; thứ tự khám theo giờ check-in thật. Luật cũ đếm một khách hai lần
+-- và làm lễ tân không đặt được khách trực tiếp chỉ vì có người đến trễ — nên
+-- khối ②③ của bài kiểm này ĐẢO lại: người đến muộn không trừ ghế trực tiếp,
+-- khách trực tiếp của khung B vẫn nhận được.
 --
--- Bài kiểm tự dựng toàn bộ dữ liệu: trên lược đồ trần của CI không có bệnh
--- nhân nào, và một bài kiểm chỉ chạy khi sẵn dữ liệu là một bài kiểm không chạy.
---
--- Mọi thứ rollback.
+-- Bài kiểm tự dựng toàn bộ dữ liệu. Mọi thứ rollback.
 
 BEGIN;
 
 CREATE TEMP TABLE _dich ON COMMIT DROP AS
 SELECT (SELECT id FROM public.clinic ORDER BY id LIMIT 1)          AS clinic_id,
        (SELECT id FROM public.clinic_location ORDER BY id LIMIT 1) AS location_id;
+
+-- Từ 20260915000001 trần chỉ CHẶN khi tuần lịch trực đã công bố. Bài này kiểm
+-- trần, nên công bố mọi tuần của các phòng khám thử (trong giao dịch sẽ ROLLBACK).
+INSERT INTO public.roster_week (clinic_id, week_start)
+SELECT c.id, w::date
+  FROM public.clinic c
+ CROSS JOIN generate_series('2020-01-06'::date, '2031-12-29'::date,
+                            interval '7 days') AS w
+ON CONFLICT (clinic_id, week_start) DO NOTHING;
+
 
 DO $$
 DECLARE
@@ -97,9 +106,9 @@ BEGIN
 
     v_dem := public.slot_seats_used(v_clinic, NULL, v_B,
                  v_B + make_interval(mins => v_phut), TRUE, NULL);
-    IF v_dem <> 1 THEN
+    IF v_dem <> 0 THEN
         RAISE EXCEPTION
-            'Khách đến muộn phải chiếm 1 ghế vãng lai của khung B, đếm được %',
+            'Khách đến muộn không được chiếm ghế trực tiếp của khung B, đếm được %',
             v_dem;
     END IF;
 
@@ -109,30 +118,17 @@ BEGIN
         RAISE EXCEPTION 'Ghế đặt hẹn của khung A phải vẫn là 1, đếm được %', v_dem;
     END IF;
 
-    -- ── ③ Khách vãng lai THẬT của khung B bị chặn khi hết trần ─────────────
-    -- `is_walkin` phải khai ĐÚNG cùng lúc: cột boolean ấy có CHECK buộc khớp
-    -- với `booking_channel` (appointment_walkin_channel_agree). Bản đầu của bài
-    -- kiểm này quên nó, và khối dưới "đạt" vì vi phạm CHECK kia — cũng là
-    -- check_violation. Một bài kiểm bắt nhầm ngoại lệ là một bài kiểm luôn xanh.
-    IF v_tran_vl <= 1 THEN
-        BEGIN
-            INSERT INTO public.appointment
-                (clinic_patient_id, location_id, service_type_id,
-                 slot_start, slot_end, booking_channel, is_walkin,
-                 status, clinic_id)
-            VALUES (v_bn_vl, v_loc, v_svc, v_B,
-                    v_B + make_interval(mins => v_phut),
-                    'WALK_IN', TRUE, 'SCHEDULED', v_clinic);
-            RAISE EXCEPTION
-                'Nhận thêm khách vãng lai trong khi ghế đã bị người đến muộn chiếm';
-        EXCEPTION
-            WHEN check_violation THEN
-                -- Phải là CHÍNH trigger sức chứa từ chối, không phải một CHECK
-                -- nào khác tình cờ cùng mã lỗi.
-                IF position('Khung giờ đã đầy' IN SQLERRM) = 0 THEN
-                    RAISE EXCEPTION 'Bị chặn vì lý do khác: %', SQLERRM;
-                END IF;
-        END;
+    -- ── ③ Khách trực tiếp THẬT của khung B vẫn nhận được ──────────────────
+    -- `is_walkin` phải khai cùng lúc với booking_channel (CHECK
+    -- appointment_walkin_channel_agree).
+    IF v_tran_vl >= 1 THEN
+        INSERT INTO public.appointment
+            (clinic_patient_id, location_id, service_type_id,
+             slot_start, slot_end, booking_channel, is_walkin,
+             status, clinic_id)
+        VALUES (v_bn_vl, v_loc, v_svc, v_B,
+                v_B + make_interval(mins => v_phut),
+                'WALK_IN', TRUE, 'SCHEDULED', v_clinic);
     END IF;
 
     -- ── ④ Dòng ĐÃ GIỮ GHẾ vẫn đổi được trạng thái ──────────────────────────

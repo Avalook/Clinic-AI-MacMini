@@ -39,10 +39,14 @@ router = APIRouter()
 # who may schedule somebody else.
 _ROSTER_GUARD = require_role(*ROSTER_ROLES)
 _PRICE_GUARD = require_role(*PRICE_ROLES)
-# Chỉ Trưởng ca + Quản lý được đổi luật đặt lịch (khung giờ / số chỗ) của
-# phòng khám. Bác sĩ/CSKH/Lễ tân thấy luật nhưng không sửa được — sửa luật
-# đang chạy khi đang có lịch đặt là một quyết định vận hành.
-_BOOKING_POLICY_GUARD = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+# Chỉ QUẢN LÝ được đổi luật đặt lịch (khung giờ / số khách online + trực tiếp
+# từng bác sĩ) của phòng khám — Tuyền chốt 15/09/2026: "để luật đó cho quản lý
+# phòng khám họ đặt", cùng nhóm với công bố lịch trực (chỉ Quản lý). Trước đó
+# Trưởng ca cũng sửa được. Người khác thấy luật nhưng không sửa.
+_BOOKING_POLICY_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Trưởng ca vẫn ĐỌC luật (điều phối cần biết mỗi bác sĩ nhận bao nhiêu khách)
+# và vẫn chỉnh cài đặt màn TV như trước.
+_BOOKING_POLICY_READ = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
 
 
 class ShiftRequest(BaseModel):
@@ -393,7 +397,7 @@ async def save_booking_rule(
 
 @router.get("/booking-rules")
 async def list_booking_rules(
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Mọi luật còn hiệu lực, hai tầng gộp làm một danh sách."""
@@ -485,7 +489,7 @@ async def update_feature_mode(
 @router.patch("/display-settings")
 async def update_display_settings(
     body: DisplaySettingsRequest,
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Bật/tắt từng khu trên bảng gọi số, và cách hiện tên người bệnh.
@@ -558,7 +562,7 @@ class CaLamViecRequest(BaseModel):
 
 @router.get("/ca-lam-viec")
 async def doc_ca_lam_viec(
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Giờ từng ca + giờ mở cửa từng thứ, cho màn cấu hình.
@@ -679,7 +683,7 @@ class LuatBacSiRequest(BaseModel):
 
 @router.get("/booking-rules/doctor")
 async def list_doctor_rules(
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Mọi luật bắt buộc bác sĩ của phòng khám."""
@@ -714,7 +718,7 @@ async def preview_doctor_rule(
     service_type_id: UUID,
     cach_tinh: Literal["CHUA_TUNG", "DOT_MOI", "QUA_N_THANG"],
     so_thang: int | None = None,
-    identity: StaffIdentity = Depends(_BOOKING_POLICY_GUARD),
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Cách tính này coi bao nhiêu khách hiện có là "mới"."""

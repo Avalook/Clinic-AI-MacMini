@@ -597,6 +597,10 @@ export default function NewPatientForm({
     ? Number(birthYear) || null
     : Number(dobIso.slice(0, 4)) || null;
   const [dupes, setDupes] = useState<DupMatch[] | null>(null);
+  // CCCD trùng hồ sơ khác: cảnh báo + bắt ghi lý do (Tuyền chốt 15/09/2026 —
+  // trước đó chặn cứng). Backend quyết; ô này chỉ gom lý do để gửi lại.
+  const [cccdTrung, setCccdTrung] = useState(false);
+  const [lyDoTrungCccd, setLyDoTrungCccd] = useState("");
 
   // Cảnh báo SỚM trùng SĐT (feedback #9): nhập đủ 10 số → hỏi backend xem đã có
   // ai dùng chưa. CHỈ cảnh báo, KHÔNG chặn lưu — backend lo chuẩn hoá +84/0.
@@ -843,7 +847,7 @@ export default function NewPatientForm({
   // Không cần thay bằng gì cả: state đã khởi tạo `locations[0]?.id` ngay ở
   // useState, và `save()` vẫn còn lớp đỡ `locationId || locations[0]?.id`.
 
-  async function save(force: boolean) {
+  async function save(force: boolean, lyDoCccd?: string) {
     setError(null);
     const effLocationId = locationId || locations[0]?.id || "";
     if (!effLocationId) {
@@ -977,6 +981,7 @@ export default function NewPatientForm({
         van_de_di_kham: vanDe.trim() || undefined,
         linh_vuc: linhVuc || undefined,
         force,
+        ly_do_trung_cccd: lyDoCccd?.trim() || undefined,
       }),
     });
     const json = await res.json();
@@ -987,6 +992,7 @@ export default function NewPatientForm({
     }
     if (json.duplicate) {
       setSubmitting(false);
+      setCccdTrung(Boolean(json.cccd_trung));
       setDupes(json.matches as DupMatch[]);
       return;
     }
@@ -1651,8 +1657,9 @@ export default function NewPatientForm({
       {dupes && dupes.length > 0 && (
         <div className="space-y-2 rounded-xl border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
           <p className="font-medium">
-            ⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc
-            vẫn tạo mới:
+            {cccdTrung
+              ? "⚠️ CCCD này đã có hồ sơ. Chọn đúng người để đặt lịch, hoặc ghi lý do rồi vẫn tạo mới:"
+              : "⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc vẫn tạo mới:"}
           </p>
           <ul className="space-y-1.5">
             {dupes.map((m) => (
@@ -1681,12 +1688,22 @@ export default function NewPatientForm({
               </li>
             ))}
           </ul>
+          {cccdTrung && (
+            <textarea
+              value={lyDoTrungCccd}
+              onChange={(e) => setLyDoTrungCccd(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="Lý do trùng CCCD (bắt buộc), ví dụ: hồ sơ cũ nhập nhầm số"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+            />
+          )}
           <button
-            onClick={() => save(true)}
-            disabled={submitting}
+            onClick={() => save(true, cccdTrung ? lyDoTrungCccd : undefined)}
+            disabled={submitting || (cccdTrung && !lyDoTrungCccd.trim())}
             className="text-xs font-medium text-danger underline disabled:opacity-50"
           >
-            Vẫn tạo bệnh nhân mới
+            {cccdTrung ? "Vẫn tạo hồ sơ mới (đã ghi lý do)" : "Vẫn tạo bệnh nhân mới"}
           </button>
         </div>
       )}

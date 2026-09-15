@@ -46,6 +46,7 @@ from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
+from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
@@ -55,6 +56,7 @@ from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
+from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.visit_progress import (
@@ -93,8 +95,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
 
-            llm_client = AnthropicClient()
-            stack.push_async_callback(llm_client.close)
+            # AI ĐỨNG SAU CỜ (15/09/2026): có khoá mới dựng client. Không có
+            # khoá thì API vẫn khởi động; endpoint AI trả 503 AI_DISABLED và
+            # orchestrator chạy chế độ rule-based sẵn có (llm_client=None).
+            llm_client: AnthropicClient | None = None
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                llm_client = AnthropicClient()
+                stack.push_async_callback(llm_client.close)
+            else:
+                logger.warning("ai_disabled_no_anthropic_key")
             app.state.llm_client = llm_client
 
             # Voice transcriber (on-prem PhoWhisper). Construction nhẹ — model nạp
@@ -235,12 +244,18 @@ app.include_router(
 app.include_router(
     work_items_router, prefix="/api/v1", tags=["work-items"], dependencies=_GUARDED
 )
+# Luồng khám lát 1 (sinh hiệu → bác sĩ → chỉ định → dịch vụ → đọc lại).
+# Chạy song song với luồng điều phối cũ; xem migration 20260911000001.
+app.include_router(
+    luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
+)
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(brief_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED
 )

@@ -160,6 +160,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        d.full_name AS doctor_name,
        st.name     AS service_name,
        v.checked_in_at,
+       v.thu_tu_tay_ms,
+       p.uu_tien AS khach_uu_tien,
+       p.uu_tien_ly_do,
        cap.slot_minutes
   FROM tuan t
   LEFT JOIN patient p
@@ -174,7 +177,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   -- xuống làn đến-sau và xếp theo giờ hẹn. Nhìn thì giống đang hoạt động, vì
   -- xếp theo giờ hẹn cũng ra một thứ tự hợp lý — chỉ sai khi có người đến muộn.
   LEFT JOIN LATERAL (
-      SELECT vi.checked_in_at FROM visit vi
+      SELECT vi.checked_in_at, vi.thu_tu_tay_ms FROM visit vi
        WHERE vi.appointment_id = t.id AND vi.clinic_id = $1::uuid
        ORDER BY vi.checked_in_at NULLS LAST
        LIMIT 1
@@ -254,6 +257,8 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "call_reason": d.call_reason if d else None,
         "promoted": d.promoted if d else False,
         "promoted_over": d.promoted_over if d else 0,
+        "uu_tien": d.uu_tien if d else False,
+        "uu_tien_ly_do": r.get("uu_tien_ly_do"),
         "patient": (
             {
                 "clinic_patient_id": str(r["clinic_patient_id"]),

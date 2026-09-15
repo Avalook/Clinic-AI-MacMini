@@ -27,6 +27,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.dispatch_service import DispatchService
+from clinicai.services.doi_bac_si_service import DoiBacSiService
 
 router = APIRouter()
 
@@ -96,10 +97,11 @@ async def tv_board(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dữ liệu TV phòng chờ — CHỈ số thứ tự, không tên, không dịch vụ.
+    """Dữ liệu TV phòng chờ — số thứ tự kèm TÊN, không dịch vụ.
 
-    Che ở BACKEND chứ không ở giao diện: một màn hình công cộng mà dữ liệu nhạy
-    cảm vẫn đi qua đường mạng thì chỉ cần mở công cụ nhà phát triển là đọc được.
+    Tên đầy đủ theo Tuyền chốt 15/09/2026 (gọi theo thứ tự check-in, hiện tên
+    đàng hoàng). Dịch vụ vẫn KHÔNG rời backend: một màn hình công cộng mà dữ
+    liệu nhạy cảm đi qua đường mạng thì mở công cụ nhà phát triển là đọc được.
     """
     svc = DispatchService(pool)
     rooms = await svc.stations(
@@ -119,8 +121,9 @@ async def tv_board(
                 "name": r["name"],
                 "serving": r["serving"],
                 "waiting": r["waiting"],
-                # Số thứ tự thôi. `queue_number` do Lễ tân cấp lúc check-in.
+                # `queue_number` do Lễ tân cấp lúc check-in.
                 "queue": [p["queue_number"] for p in here if p["queue_number"]],
+                "names": [p["patient_name"] for p in here if p["queue_number"]],
             }
         )
     return {"ok": True, "rooms": board}
@@ -417,4 +420,40 @@ async def set_threshold(
         room_id=str(body.room_id) if body.room_id else None,
         wait_minutes=body.wait_minutes,
         max_waiting=body.max_waiting,
+    )
+
+
+# ── Bác sĩ chính nghỉ giữa chừng: trưởng ca chuyển lượt (Tuyền chốt 15/09) ──
+
+
+@router.get("/dispatch/bac-si")
+async def danh_sach_bac_si(
+    identity: StaffIdentity = Depends(_DISPATCH_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bác sĩ đang làm ở phòng khám — để trưởng ca chọn người nhận lượt."""
+    return {
+        "ok": True,
+        "items": await DoiBacSiService(pool).bac_si_trong_phong_kham(identity=identity),
+    }
+
+
+class DoiBacSiRequest(BaseModel):
+    visit_id: UUID
+    bac_si_moi_id: UUID
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/dispatch/doi-bac-si")
+async def doi_bac_si(
+    body: DoiBacSiRequest,
+    identity: StaffIdentity = Depends(_DISPATCH_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chuyển lượt đang khám sang bác sĩ khác, bắt buộc lý do."""
+    return await DoiBacSiService(pool).doi(
+        identity=identity,
+        visit_id=str(body.visit_id),
+        bac_si_moi_id=str(body.bac_si_moi_id),
+        ly_do=body.ly_do,
     )

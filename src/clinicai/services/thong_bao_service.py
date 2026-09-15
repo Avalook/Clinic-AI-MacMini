@@ -50,8 +50,14 @@ NGUON: dict[str, tuple[str, str]] = {
     # Quản lý vừa áp lịch trực cả tuần → tuần ấy đã có người, những lịch đang
     # chờ trong tuần xếp được rồi.
     "tuan_lich_truc": ("thong_bao.tuan_lich_truc", "config.roster"),
+    # Công bố tuần mà có khung vượt trần (lịch nhận lúc chưa công bố) → Trưởng
+    # ca xử lý: đổi bác sĩ/giờ với khách. Không lịch nào bị huỷ (CONTEXT v1.0).
+    "xung_dot_suc_chua": ("thong_bao.xung_dot_suc_chua", "config.roster"),
     # CSKH tự hẹn "gọi lại lúc 17:00" → mẩu giấy dán màn hình cho chính vai CSKH.
     "hen_goi_lai": ("thong_bao.hen_goi_lai", "cskh.customers"),
+    # Kết quả xét nghiệm / tệp kết quả của đối tác vừa về (Tuyền chốt 15/09/2026)
+    # → báo CSKH và bác sĩ của khách; bác sĩ cho phép thì CSKH gửi.
+    "ket_qua_ve": ("thong_bao.ket_qua_ve", "api:ket-qua"),
 }
 
 #: Nguồn duy nhất trước 09/08/2026 — giữ tên cũ vì `dispatch.py` gọi theo nó.
@@ -180,6 +186,76 @@ class ThongBaoService:
             by_staff_id=identity.staff_id,
         )
         return {"ok": True, "id": row["id"], "vai_nhan": vai.value}
+
+    async def goi_nguoi(
+        self,
+        *,
+        identity: StaffIdentity,
+        nguoi_nhan_staff_id: str,
+        tieu_de: str,
+        noi_dung: str,
+        nguon: str,
+        nguon_id: str,
+        muc_do: str = "THUONG",
+        duong_dan: str | None = None,
+    ) -> dict[str, Any]:
+        """Báo ĐÍCH DANH một người (vd. bác sĩ của khách). Trùng việc đang mở
+        thì không tạo thêm (uq_thong_bao_dang_mo_nguoi, 20260915000019)."""
+        if muc_do not in MUC_DO_HOP_LE:
+            raise ValidationError(f"Mức độ không hợp lệ: {muc_do!r}.")
+        if nguon not in NGUON:
+            raise ValidationError(f"Nguồn thông báo không hợp lệ: {nguon!r}.")
+        ma_su_kien, duong_ghi = NGUON[nguon]
+        async with self._pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow(
+                """
+                INSERT INTO public.thong_bao
+                    (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung,
+                     nguon, nguon_id, duong_dan, nguoi_goi_staff_id)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
+                ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)
+                    WHERE da_xu_ly_luc IS NULL
+                      AND nguon_id IS NOT NULL
+                      AND vai_nhan IS NULL
+                DO NOTHING
+                RETURNING id::text
+                """,
+                identity.clinic_id,
+                nguoi_nhan_staff_id,
+                muc_do,
+                tieu_de.strip(),
+                noi_dung.strip(),
+                nguon,
+                nguon_id,
+                duong_dan,
+                identity.staff_id,
+            )
+            if row is None:
+                return {"ok": True, "da_goi_tu_truoc": True}
+            await conn.execute(
+                """
+                INSERT INTO public.event_log
+                    (clinic_id, event_type, aggregate_type, aggregate_id,
+                     payload, metadata, source, event_published)
+                VALUES ($1::uuid, $2, 'thong_bao', $3::uuid, $4::jsonb, $5::jsonb,
+                        $6, FALSE)
+                """,
+                identity.clinic_id,
+                ma_su_kien,
+                row["id"],
+                json.dumps(
+                    {"nguoi_nhan_staff_id": nguoi_nhan_staff_id, "nguon_id": nguon_id}
+                ),
+                json.dumps(
+                    {
+                        "actor_auth_user_id": identity.auth_user_id,
+                        "clinic_staff_id": identity.staff_id,
+                        "clinic_role": identity.role.value,
+                    }
+                ),
+                duong_ghi,
+            )
+        return {"ok": True, "id": row["id"]}
 
     async def cua_toi(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Thông báo CHƯA XỬ LÝ dành cho vai của tôi, hoặc đích danh tôi."""

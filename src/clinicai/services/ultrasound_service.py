@@ -33,6 +33,10 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.audit import record_event
+from clinicai.services.ultrasound_board_service import (
+    co_lan_sieu_am_moi,
+    ghi_bac_si_thuc_hien,
+)
 
 logger = structlog.get_logger()
 
@@ -186,7 +190,7 @@ class UltrasoundService:
 
                 record = await conn.fetchrow(
                     """
-                    SELECT ultrasound_id, findings, clinic_patient_id
+                    SELECT ultrasound_id, findings, clinic_patient_id, signed_at
                       FROM ultrasound_record
                      WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
                      ORDER BY created_at DESC
@@ -197,11 +201,29 @@ class UltrasoundService:
                 )
                 if (
                     record is not None
+                    and record["signed_at"] is not None
+                    and await co_lan_sieu_am_moi(
+                        conn, identity.clinic_id, str(visit_id), record["signed_at"]
+                    )
+                ):
+                    # Lần siêu âm mới trong cùng lượt → phiếu mới (20260915000022).
+                    record = None
+                if (
+                    record is not None
                     and str(record["clinic_patient_id"]) != clinic_patient_id
                 ):
                     raise ValidationError(
                         "Phiếu siêu âm không thuộc bệnh nhân của lượt khám này"
                     )
+
+                # Bác sĩ siêu âm đo cho ca → là người thực hiện (nếu chưa ai
+                # nhận) — thư ký của bác sĩ ấy thấy đúng khách (15/09/2026).
+                await ghi_bac_si_thuc_hien(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    visit_id=str(visit_id),
+                    bac_si_id=identity.staff_id,
+                )
 
                 findings = merge_findings(
                     _as_dict(record["findings"]) if record else None,
@@ -240,11 +262,16 @@ class UltrasoundService:
                         """
                         INSERT INTO ultrasound_record (
                             clinic_id, visit_id, clinic_patient_id, performed_by,
-                            ultrasound_type, findings, performed_at
+                            ultrasound_type, findings, performed_at, lan
                         )
                         VALUES ($5::uuid, $1::uuid, $2::uuid, $3::uuid, 'Thai',
-                                $4, now())
-                        ON CONFLICT (clinic_id, visit_id, ultrasound_type)
+                                $4, now(),
+                                (SELECT coalesce(max(x.lan), 0) + 1
+                                   FROM ultrasound_record x
+                                  WHERE x.clinic_id = $5::uuid
+                                    AND x.visit_id = $1::uuid
+                                    AND x.ultrasound_type = 'Thai'))
+                        ON CONFLICT (clinic_id, visit_id, ultrasound_type, lan)
                             WHERE visit_id IS NOT NULL
                         DO UPDATE SET
                             findings     = EXCLUDED.findings,

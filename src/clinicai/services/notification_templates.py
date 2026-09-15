@@ -62,14 +62,16 @@ def doi_lich(payload: dict[str, Any]) -> str:
 
 
 def xoa_ca_bac_si(payload: dict[str, Any]) -> str:
-    """Ca trực bị xoá kéo theo lịch của khách bị huỷ — tin ĐÁNG GỌI nhất.
+    """Ca trực bị gỡ nên lịch của khách mất bác sĩ — tin ĐÁNG GỌI nhất.
 
-    remove() huỷ lịch với vết ``bac_si_da_go_id``; người trực đọc tin này là
-    biết phải gọi ai đặt lại, không cần chờ mở bảng lịch tuần."""
+    remove() GIỮ lịch, chỉ gỡ bác sĩ (vết ``bac_si_da_go_id``) và đưa lịch
+    vào hàng "Lịch chờ xếp bác sĩ". Lịch KHÔNG bị huỷ (CONTEXT v1.0), nên tin
+    phải nói đúng việc cần làm: xếp bác sĩ khác hoặc gọi khách đổi giờ —
+    không phải "đặt lịch mới"."""
     bs = payload.get("bac_si_da_go") or payload.get("ten_bac_si") or "—"
     return (
-        f"⚠️ <b>Xoá ca bác sĩ {bs}</b> · lịch {_gio(payload)} đã huỷ\n"
-        f"{_khach(payload)} — gọi khách đặt lịch mới"
+        f"⚠️ <b>Gỡ ca bác sĩ {bs}</b> · lịch {_gio(payload)} chờ xếp bác sĩ\n"
+        f"{_khach(payload)} — xếp bác sĩ khác hoặc gọi khách đổi giờ"
     )
 
 

@@ -102,7 +102,16 @@ function PatientRow({
             >
               {item.patient.full_name ?? "Chưa rõ tên"}
             </span>
-            {item.is_priority_slot ? <PriorityChip priority="P0" /> : null}
+            {item.khach_uu_tien ? (
+              <span title={item.uu_tien_ly_do ?? undefined}>
+                <PriorityChip priority="P0" />
+              </span>
+            ) : null}
+            {item.co_nhap_chi_dinh ? (
+              <span className="shrink-0 rounded-chip bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
+                Chỉ định chờ duyệt
+              </span>
+            ) : null}
           </span>
           <span className="mt-0.5 block truncate text-xs text-ink-muted">
             {item.patient.patient_code ?? "Chưa có mã BN"}

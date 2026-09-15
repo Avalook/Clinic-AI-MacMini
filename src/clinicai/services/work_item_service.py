@@ -25,9 +25,10 @@ from typing import Literal
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import ConflictError, NotFoundError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
 
@@ -50,6 +51,14 @@ _TRANSITIONS: dict[str, tuple[frozenset[str], str]] = {
     "skip": (frozenset({PENDING, IN_PROGRESS}), SKIPPED),
     "cancel": (frozenset({PENDING, IN_PROGRESS}), CANCELLED),
 }
+
+# HUỶ / MIỄN PHẢI CÓ LÝ DO (Tuyền chốt 15/09/2026). Và với BƯỚC DỊCH VỤ (nhóm
+# dich_vu/ket_qua — việc sinh từ chỉ định) chỉ BÁC SĨ quyết miễn hay huỷ: dịch vụ
+# không làm được thì bác sĩ quyết làm lại hay miễn, không phải người thực hiện
+# tự bỏ. Bước ga (tiếp nhận, sinh hiệu, thu ngân) giữ luật vai của node.
+LENH_CAN_LY_DO: frozenset[str] = frozenset({"skip", "cancel"})
+NHOM_BUOC_DICH_VU: frozenset[str] = frozenset({"dich_vu", "ket_qua"})
+VAI_QUYET_DICH_VU: frozenset[str] = frozenset({"DOCTOR", "ULTRASOUND_DOCTOR"})
 
 # Only start and complete are gated. Skipping and cancelling are how a stuck
 # flow gets unstuck, so a shut gate must never prevent them.
@@ -94,13 +103,15 @@ class WorkItemService:
         version that someone else has already moved past.
         """
         allowed_from, next_status = resolve_transition(command)
+        if command in LENH_CAN_LY_DO and not (reason or "").strip():
+            raise ValidationError("Miễn hoặc huỷ một bước phải ghi lý do.")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 item = await conn.fetchrow(
                     """
                     SELECT w.id, w.status, w.version, w.node_code, w.clinic_id,
-                           n.actor_roles, n.name AS node_name,
+                           n.actor_roles, n.name AS node_name, n.flow_group,
                            m.role AS membership_role
                       FROM work_item w
                       JOIN clinic_membership m
@@ -136,6 +147,18 @@ class WorkItemService:
 
                 actor_roles: list[str] = list(item["actor_roles"] or [])
                 membership_role = str(item["membership_role"])
+                if (
+                    command in LENH_CAN_LY_DO
+                    and item["flow_group"] in NHOM_BUOC_DICH_VU
+                ):
+                    if membership_role not in VAI_QUYET_DICH_VU:
+                        raise SafetyGateError(
+                            "Dịch vụ không làm được thì bác sĩ quyết làm lại "
+                            "hay miễn — báo bác sĩ."
+                        )
+                    # Bác sĩ chính quyết miễn/huỷ cả dịch vụ không thuộc vai
+                    # thực hiện của mình (vd. siêu âm, lấy máu).
+                    actor_roles = [*actor_roles, membership_role]
                 # The catalogue's empty default means "nobody yet", never
                 # "every working role".  Fail closed if configuration is
                 # incomplete or the live node no longer names this role.
@@ -425,7 +448,10 @@ class WorkItemService:
                    a.queue_number,
                    a.slot_start,
                    a.booking_channel,
-                   a.is_priority_slot,
+                   -- Cờ khách ưu tiên trên HỒ SƠ (20260915000016) — thay
+                   -- appointment.is_priority_slot, cờ không đường ghi nào.
+                   p.uu_tien       AS khach_uu_tien,
+                   p.uu_tien_ly_do,
                    -- LOẠI DỊCH VỤ KHÁM. Bàn khám cần biết đây là khám Phụ
                    -- khoa hay Sản khoa để mở đúng biểu mẫu — không có nó thì
                    -- màn hình chỉ biết "đang ở bước nào", không biết "khám gì".
@@ -436,6 +462,9 @@ class WorkItemService:
                    -- nên bàn khám phải hỏi cột này chứ không suy từ tên.
                    st.form_code,
                    v.checked_in_at,
+                   -- Thư ký đã nhập chỉ định chờ bác sĩ duyệt (20260915000008):
+                   -- bảng bác sĩ hiện dấu để bác sĩ biết mà duyệt.
+                   sd.id IS NOT NULL                    AS co_nhap_chi_dinh,
                    (m.role = ANY (n.actor_roles))      AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
@@ -459,6 +488,13 @@ class WorkItemService:
               LEFT JOIN visit v
                 ON v.visit_id = w.visit_id
                AND v.clinic_id = w.clinic_id
+              -- Mỗi lượt tối đa MỘT nháp đang mở (uq_service_order_draft_mo),
+              -- nên LEFT JOIN không nhân đôi dòng.
+              LEFT JOIN service_order_draft sd
+                ON sd.clinic_id = w.clinic_id
+               AND sd.visit_id = w.visit_id
+               AND sd.approved_at IS NULL
+               AND sd.discarded_at IS NULL
               -- Cùng phòng khám mới ghép: `service_type` có clinic_id riêng, và
               -- một FK một cột không chặn được việc trỏ sang danh mục của phòng
               -- khám khác.
@@ -479,6 +515,12 @@ class WorkItemService:
                AND ($6::boolean IS NOT TRUE
                     OR w.assigned_to = $4::uuid
                     OR m.role = ANY (n.actor_roles))
+               -- Thư ký chỉ thấy khách của bác sĩ mình được phân (20260915000020).
+               -- NULL = không giới hạn (không phải thư ký, hoặc chưa được phân).
+               AND coalesce(coalesce(v.attending_doctor_id, a.doctor_id)::text, '~')
+                   = ANY(coalesce($7::text[], ARRAY[
+                         coalesce(coalesce(v.attending_doctor_id, a.doctor_id)::text,
+                                  '~')]))
              ORDER BY w.priority, w.created_at
             """,
             workspace,
@@ -487,6 +529,7 @@ class WorkItemService:
             identity.staff_id,
             identity.role.value,
             mine_only,
+            await bac_si_cua_thu_ky(self._pool, identity),
         )
 
         return [
@@ -522,7 +565,9 @@ class WorkItemService:
                 "queue_number": r["queue_number"],
                 "slot_start": r["slot_start"],
                 "booking_channel": r["booking_channel"],
-                "is_priority_slot": bool(r["is_priority_slot"]),
+                "khach_uu_tien": bool(r["khach_uu_tien"]),
+                "co_nhap_chi_dinh": bool(r["co_nhap_chi_dinh"]),
+                "uu_tien_ly_do": r["uu_tien_ly_do"],
                 "service_code": r["service_code"],
                 "service_name": r["service_name"],
                 "form_code": r["form_code"],

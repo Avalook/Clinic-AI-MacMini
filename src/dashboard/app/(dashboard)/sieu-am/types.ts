@@ -17,6 +17,9 @@ export interface SonoQueueItem {
   service_name: string | null;
   appointment_at: string | null;
   indication_doctor: string | null;
+  /** Bác sĩ siêu âm thực hiện ca (work_item.assigned_to) — 15/09/2026. */
+  bac_si_thuc_hien_id?: string | null;
+  bac_si_thuc_hien?: string | null;
   room_code: string | null;
   room_name: string | null;
   room_floor: string | null;

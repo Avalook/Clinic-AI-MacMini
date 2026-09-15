@@ -6,7 +6,6 @@ import asyncpg
 import pytest
 from dotenv import load_dotenv
 
-from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.schemas.patient import PatientCreateDTO, PatientUpdateDTO
 from clinicai.services.patient_service import PatientService
@@ -187,7 +186,7 @@ async def test_duplicate_phone_triggers_mpi_queue(
 async def test_cannot_duplicate_national_id(
     patient_service: PatientService, location_id: UUID, cleanup_patients: list[str]
 ) -> None:
-    """A second patient with the same CCCD is a hard conflict, not a soft one."""
+    """CCCD trùng: cảnh báo, chỉ tạo khi ghi lý do (Tuyền chốt 15/09/2026)."""
     national_id = "123456789012"
 
     # Insert Patient A
@@ -213,7 +212,10 @@ async def test_cannot_duplicate_national_id(
         is_active=True,
     )
 
-    with pytest.raises(ConflictError) as exc_info:
-        await patient_service.create_patient(data_b, identity)
+    canh_bao = await patient_service.create_patient(data_b, identity)
+    assert canh_bao.patient is None and canh_bao.cccd_trung
 
-    assert "CCCD này đã có hồ sơ" in str(exc_info.value)
+    data_b.ly_do_trung_cccd = "Hồ sơ cũ nhập nhầm số CCCD"
+    patient_b = (await patient_service.create_patient(data_b, identity)).patient
+    assert patient_b is not None
+    cleanup_patients.append(patient_b.patient_code)

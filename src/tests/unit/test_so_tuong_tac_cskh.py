@@ -212,13 +212,13 @@ async def test_check_in_va_check_out_phai_co_lich() -> None:
             )
 
 
-def test_cskh_duoc_check_in_va_dong_luot() -> None:
-    """Quang 08/08: MVP là CSKH thao tác được hết — check-in và check-out phải
-    đi đường THẬT của máy trạng thái, nên vai CSKH phải nằm trong cả hai cửa."""
+def test_cskh_khong_check_in_nhung_van_dong_luot() -> None:
+    """Tuyền chốt 15/09/2026: check-in là việc của lễ tân — CSKH ra khỏi cửa
+    check-in (08/08 Quang cho CSKH thao tác hết thời MVP). Check-out vẫn giữ."""
     from clinicai.api.identity import ClinicRole
     from clinicai.services.booking_service import CHECKIN_ROLES, TRANSITIONS
 
-    assert ClinicRole.CSKH in CHECKIN_ROLES
+    assert ClinicRole.CSKH not in CHECKIN_ROLES
     assert ClinicRole.CSKH in TRANSITIONS["complete"].allowed_roles
 
 
@@ -516,14 +516,20 @@ async def test_check_in_hop_le_di_qua_may_trang_thai(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(booking_service.BookingService, "apply_action", apply_action)
     da_doi = await TuongTacCskhService(pool)._doi_trang_thai_lich(
-        identity=_ai(), appointment_id="ap-1", loai="CHECK_IN"
+        identity=_ai(),
+        appointment_id="ap-1",
+        loai="CHECK_IN",
+        xac_minh_cach="GIAY_TO_CO_ANH",
     )
 
     assert da_doi is True
+    # Cách xác minh đi thẳng xuống máy trạng thái (15/09/2026) — CSKH đánh dấu
+    # khách đã đến cũng phải nói đã xác minh bằng cách nào.
     assert captured == {
         "appointment_id": "ap-1",
         "action": "checkin",
         "identity": _ai(),
+        "xac_minh_cach": "GIAY_TO_CO_ANH",
     }
 
 

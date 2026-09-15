@@ -13,7 +13,6 @@ from typing import Any
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.display_board_service import (
-    CHU_THICH_DAY_LEN,
     _doc_zones,
     _khu_vuc,
     _mot_dong,
@@ -103,9 +102,10 @@ def test_khong_co_chuoi_nao_khac_trong_payload_giong_ten_nguoi() -> None:
 
 
 # ── ② Thứ tự giống hệt bảng của nhân viên ────────────────────────────────────
-def test_tivi_xep_theo_luat_goi_khong_theo_gio_hen() -> None:
-    """Người có hẹn muộn hơn nhưng đến trong khung phải đứng TRƯỚC người vãng
-    lai đã đến từ sớm — đúng thứ tự mà bảng của Lễ tân đưa ra."""
+def test_tivi_xep_theo_gio_check_in_nhu_bang_le_tan() -> None:
+    """Tuyền chốt 15/09/2026: ai check-in trước khám trước. Người vãng lai đến
+    18:00 đứng TRƯỚC người có hẹn 18:05 đến 18:05 — bản cũ (Model ②) xếp ngược
+    lại; bài này thay bài cũ theo Luật 12.5."""
     vang_lai = _hang(
         id="aaaa1111-1111-4111-8111-111111111111",
         queue_number="1",
@@ -122,15 +122,12 @@ def test_tivi_xep_theo_luat_goi_khong_theo_gio_hen() -> None:
     )
 
     qd = thu_tu_goi_theo_ngay([vang_lai, co_hen])
-    assert qd[str(co_hen["id"])].call_order < qd[str(vang_lai["id"])].call_order
+    assert qd[str(vang_lai["id"])].call_order < qd[str(co_hen["id"])].call_order
 
 
-def test_co_chu_thich_thi_phai_co_ly_do_dat_truoc() -> None:
-    """Chỉ dán câu "được ưu tiên vì đã đặt lịch" cho ĐÚNG người đặt lịch.
-
-    Vé ƯT và người quay lại sau khi có kết quả cũng vượt lên — dán nhầm câu này
-    lên họ là nói dối với cả phòng chờ.
-    """
+def test_khong_con_chu_thich_uu_tien_vi_dat_truoc() -> None:
+    """Không ai vượt người check-in trước mình nữa, nên câu "được ưu tiên vì đã
+    đặt lịch trước" không được xuất hiện — dán nó lên màn TV là nói dối."""
     vang_lai = _hang(
         id="aaaa1111-1111-4111-8111-111111111111",
         booking_channel="WALK_IN",
@@ -147,8 +144,8 @@ def test_co_chu_thich_thi_phai_co_ly_do_dat_truoc() -> None:
     dong_co_hen = _mot_dong(co_hen, qd[str(co_hen["id"])], [])
     dong_vang_lai = _mot_dong(vang_lai, qd[str(vang_lai["id"])], [])
 
-    assert dong_co_hen["promoted"] is True
-    assert dong_co_hen["promoted_note"] == CHU_THICH_DAY_LEN
+    assert dong_co_hen["promoted"] is False
+    assert dong_co_hen["promoted_note"] is None
     assert dong_co_hen["call_reason"] == REASON_DAT_TRUOC_DUNG_GIO
 
     assert dong_vang_lai["promoted"] is False

@@ -119,9 +119,12 @@ class ManKhachHangService:
                 SELECT t.id, t.clinic_patient_id, t.appointment_id,
                        t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
                        t.tai_len_luc, t.gui_luc, t.gui_kenh,
+                       t.cho_phep_gui_luc,
+                       bs.full_name AS cho_phep_gui_boi,
                        nv.full_name AS ten_nhan_vien
                   FROM tep_ket_qua t
                   LEFT JOIN staff nv ON nv.id = t.tai_len_boi_staff_id
+                  LEFT JOIN staff bs ON bs.id = t.cho_phep_gui_boi_staff_id
                  WHERE t.clinic_id = $1::uuid
                    AND t.clinic_patient_id = ANY($2::uuid[])
                  ORDER BY t.tai_len_luc DESC

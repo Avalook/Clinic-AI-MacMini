@@ -109,7 +109,7 @@ const SELECT = `
   clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
   phone_primary, phone_secondary, gender, ethnicity, nationality,
   occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc, updated_at,
+  van_de_di_kham, linh_vuc, updated_at, uu_tien, uu_tien_ly_do,
   patient_sdt_them ( so_dien_thoai, loai )
 `;
 
@@ -803,6 +803,8 @@ type LichHenRaw = {
     tai_len_luc: string;
     gui_luc: string | null;
     gui_kenh: string | null;
+    cho_phep_gui_luc: string | null;
+    cho_phep_gui_boi: string | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
   type HenGoiLaiRaw = {
@@ -835,6 +837,8 @@ type LichHenRaw = {
         gui_luc: r.gui_luc,
         gui_kenh: r.gui_kenh,
         gui_boi: null,
+        cho_phep_gui_luc: r.cho_phep_gui_luc ?? null,
+        cho_phep_gui_boi: r.cho_phep_gui_boi ?? null,
       });
     }
     const { data: hgl } = await henGoiLaiPromise;

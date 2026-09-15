@@ -78,9 +78,16 @@ def _token(
     aud: str = "authenticated",
     exp_delta: int = 3600,
     sub: str = "user-123",
+    iat_delta: int | None = None,
 ) -> str:
     now = dt.datetime.now(dt.timezone.utc)
-    payload = {"sub": sub, "aud": aud, "exp": now + dt.timedelta(seconds=exp_delta)}
+    payload: dict[str, object] = {
+        "sub": sub,
+        "aud": aud,
+        "exp": now + dt.timedelta(seconds=exp_delta),
+    }
+    if iat_delta is not None:
+        payload["iat"] = now + dt.timedelta(seconds=iat_delta)
     return jwt.encode(payload, secret, algorithm="HS256")
 
 
@@ -94,6 +101,21 @@ def test_verify_jwt_expired(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
     with pytest.raises(HTTPException) as e:
         verify_supabase_jwt(_token(exp_delta=-10))
+    assert e.value.status_code == 401
+
+
+def test_verify_jwt_chiu_lech_dong_ho_nho(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GoTrue nhanh hơn API 2 giây (máy ảo Docker 15/09/2026) vẫn đăng nhập được."""
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    assert verify_supabase_jwt(_token(iat_delta=2))["sub"] == "user-123"
+
+
+def test_verify_jwt_iat_qua_xa_tuong_lai_van_bi_tu_choi(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    with pytest.raises(HTTPException) as e:
+        verify_supabase_jwt(_token(iat_delta=60))
     assert e.value.status_code == 401
 
 

@@ -279,7 +279,12 @@ class PaymentService:
         reason: object,
         identity: StaffIdentity,
     ) -> None:
-        """Soft-void a payment, retaining the row and an immutable audit event."""
+        """Soft-void a payment, retaining the row and an immutable audit event.
+
+        AI HUỶ ĐƯỢC (Tuyền chốt 15/09/2026): chính THU NGÂN ĐÃ THU phiếu đó tự
+        gạch phiếu bấm nhầm, không cần quản lý duyệt. Thu ngân khác không gạch
+        được phiếu của người khác (trước đây được); Quản lý vẫn gạch được.
+        """
         self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
@@ -298,6 +303,7 @@ class PaymentService:
                        AND kind = $2
                        AND clinic_id = $3::uuid
                        AND status = 'PAID'
+                       AND ($6::boolean OR paid_by_staff_id = $4::uuid)
                     RETURNING id, amount, payment_cycle_id,
                               paid_by_staff_id, paid_at
                     """,
@@ -306,7 +312,18 @@ class PaymentService:
                     identity.clinic_id,
                     identity.staff_id,
                     normalized_reason,
+                    identity.role == ClinicRole.MANAGEMENT,
                 )
+                if payment is None and await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid "
+                    "AND kind = $2 AND clinic_id = $3::uuid AND status = 'PAID')",
+                    visit_id,
+                    kind,
+                    identity.clinic_id,
+                ):
+                    raise SafetyGateError(
+                        "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
+                    )
                 if payment is not None:
                     payment_id = str(payment["id"])
                     payment_cycle_id = str(payment["payment_cycle_id"])

@@ -269,6 +269,9 @@ class TestReadIO:
                     "role": "DOCTOR",
                     "location_name": "Kim Ngưu",
                     "nodes": ["KHAM-SK"],
+                    # Bác sĩ mà thư ký này đi cùng (20260915000020); rỗng với
+                    # người không phải thư ký.
+                    "bac_si": [],
                 }
             ]
         )
@@ -276,6 +279,7 @@ class TestReadIO:
             ClinicConfigService(pool).staff(identity=_who(ClinicRole.MANAGEMENT))
         )
         assert out["items"][0]["nodes"] == ["KHAM-SK"]
+        assert out["items"][0]["bac_si"] == []
 
 
 # ── Phiếu khám theo dịch vụ ────────────────────────────────────────────────

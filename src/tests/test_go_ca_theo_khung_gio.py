@@ -1,4 +1,8 @@
-"""Gỡ ca huỷ theo KHUNG GIỜ, không theo ngày (Tuyền 17/08/2026).
+"""Gỡ ca tính theo KHUNG GIỜ, không theo ngày (Tuyền 17/08/2026).
+
+Từ CONTEXT v1.0 (12/09) gỡ ca KHÔNG huỷ lịch: lịch rơi ra ngoài các ca còn
+lại chỉ bị gỡ bác sĩ và vào hàng "Lịch chờ xếp bác sĩ". Luật khung giờ bên
+dưới giữ nguyên — chỉ đổi hậu quả từ "huỷ" thành "chờ xếp".
 
 "Xoá ca sáng để thêm cả ngày thì sao — về bản chất bác sĩ vẫn khám." Bản cũ
 hỏi thô "còn ca nào trong ngày không" nên sai cả hai chiều: xoá SÁNG còn
@@ -78,7 +82,7 @@ class _Conn:
         # chung là cách làm hỏng ba bài kiểm khác mà không ai ngờ tới.
         self._ung_vien = ung_vien if ung_vien is not None else list(_UNG_VIEN)
         self.da_xoa_ca = False
-        self.ids_huy: list[str] | None = None
+        self.ids_go: list[str] | None = None
         self.so_event = 0
 
     def transaction(self) -> _GiaoDich:
@@ -101,9 +105,12 @@ class _Conn:
         if "DELETE FROM work_roster" in sql:
             self.da_xoa_ca = True
         elif "UPDATE public.appointment" in sql:
+            assert "CANCELLED" not in sql and "ly_do_huy_ma" not in sql, (
+                "gỡ ca không được huỷ lịch (CONTEXT v1.0)"
+            )
             gia_tri = args[1]
             assert isinstance(gia_tri, list)
-            self.ids_huy = [str(x) for x in gia_tri]
+            self.ids_go = [str(x) for x in gia_tri]
         elif "appointment.doctor_removed" in sql:
             self.so_event += 1
 
@@ -133,37 +140,37 @@ def _go(conn: _Conn, *, dry_run: bool = False) -> dict[str, Any]:
     )
 
 
-class TestHuyTheoKhungGio:
-    def test_xoa_sang_con_chieu_thi_chi_lich_sang_bi_huy(self) -> None:
+class TestGoCaTheoKhungGio:
+    def test_xoa_sang_con_chieu_thi_chi_lich_sang_cho_xep(self) -> None:
         """Chiều bác sĩ vẫn ngồi bàn khám — lịch 15:00 phải ở yên."""
         conn = _Conn(con_lai=[_ca_con_lai("CHIEU")])
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 1 and ket["gio"] == ["08:00"]
-        assert conn.ids_huy == ["sang8h"]
+        assert ket["so_lich_cho_xep"] == 1 and ket["gio"] == ["08:00"]
+        assert conn.ids_go == ["sang8h"]
         assert conn.so_event == 1
 
     def test_them_ca_ngay_truoc_roi_xoa_sang_thi_khong_huy_gi(self) -> None:
         """Đường đổi ca an toàn: THÊM cả-ngày trước, xoá sáng sau — mọi giờ
-        vẫn được phủ, không lịch nào chết oan."""
+        vẫn được phủ, không lịch nào phải xếp lại."""
         conn = _Conn(con_lai=[_ca_con_lai("FULL")])
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 0
-        assert conn.ids_huy is None and conn.so_event == 0
+        assert ket["so_lich_cho_xep"] == 0
+        assert conn.ids_go is None and conn.so_event == 0
 
-    def test_het_ca_thi_huy_ca_ngay_nhu_cu(self) -> None:
+    def test_het_ca_thi_ca_ngay_cho_xep(self) -> None:
         conn = _Conn(con_lai=[])
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 2
-        assert conn.ids_huy == ["sang8h", "chieu15h"]
+        assert ket["so_lich_cho_xep"] == 2
+        assert conn.ids_go == ["sang8h", "chieu15h"]
 
     def test_dry_run_do_ma_khong_cat(self) -> None:
         """Hộp xác nhận cần con số TRƯỚC khi xoá — và đo thì không được để
-        lại vết gì: không xoá ca, không huỷ lịch, không event."""
+        lại vết gì: không xoá ca, không gỡ bác sĩ, không event."""
         conn = _Conn(con_lai=[_ca_con_lai("CHIEU")])
         ket = _go(conn, dry_run=True)
-        assert ket == {"so_lich_huy": 1, "gio": ["08:00"]}
+        assert ket == {"so_lich_cho_xep": 1, "gio": ["08:00"]}
         assert conn.da_xoa_ca is False
-        assert conn.ids_huy is None and conn.so_event == 0
+        assert conn.ids_go is None and conn.so_event == 0
 
 
 class TestBaCa:
@@ -176,7 +183,7 @@ class TestBaCa:
     """
 
     def test_con_ca_toi_thi_chi_lich_toi_song(self) -> None:
-        """Gỡ ca sáng, còn ca tối: lịch sáng và chiều chết, lịch tối sống."""
+        """Gỡ ca sáng, còn ca tối: lịch sáng và chiều chờ xếp, lịch tối ở yên."""
         conn = _Conn(
             con_lai=[_ca_con_lai("TOI")],
             ung_vien=[
@@ -186,8 +193,8 @@ class TestBaCa:
             ],
         )
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 2
-        assert conn.ids_huy == ["sang8h", "chieu15h"]
+        assert ket["so_lich_cho_xep"] == 2
+        assert conn.ids_go == ["sang8h", "chieu15h"]
 
     def test_ca_ngay_phu_ca_ba_lich_ke_ca_buoi_toi(self) -> None:
         """FULL = hợp cả ba ca, nên lịch 19:00 cũng được phủ."""
@@ -199,8 +206,8 @@ class TestBaCa:
             ],
         )
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 0
-        assert conn.ids_huy is None
+        assert ket["so_lich_cho_xep"] == 0
+        assert conn.ids_go is None
 
     def test_chuyen_hoa_8h_tu_ca_sang_sang_ca_ngay_khong_mat_lich(self) -> None:
         """CÂU CHUYỆN CỦA TUYỀN, chạy qua chính hàm gỡ ca.
@@ -209,20 +216,21 @@ class TestBaCa:
         đã phủ 08:00 → lịch của Hoa nguyên vẹn.
         """
         conn = _Conn(con_lai=[_ca_con_lai("FULL")])
-        assert _go(conn)["so_lich_huy"] == 0
+        assert _go(conn)["so_lich_cho_xep"] == 0
 
-    def test_lam_nguoc_thu_tu_thi_hoa_mat_lich(self) -> None:
+    def test_lam_nguoc_thu_tu_thi_lich_hoa_phai_xep_lai(self) -> None:
         """Và đây là vì sao thứ tự quan trọng — chiều ngược của bài trên.
 
         Gỡ ca sáng TRƯỚC khi thêm ca mới: khoảnh khắc ấy bác sĩ không còn ca
-        nào phủ 08:00, và lịch 8 giờ của Hoa bị huỷ. Bài kiểm này tồn tại để
-        không ai "sửa cho tiện" thành gỡ-trước-thêm-sau.
+        nào phủ 08:00, và lịch 8 giờ của Hoa mất bác sĩ (vào hàng chờ xếp).
+        Bài kiểm này tồn tại để không ai "sửa cho tiện" thành
+        gỡ-trước-thêm-sau.
         """
         conn = _Conn(con_lai=[])
         ket = _go(conn)
-        assert "08:00" in ket["gio"], "lịch của Hoa nằm trong danh sách bị huỷ"
+        assert "08:00" in ket["gio"], "lịch của Hoa nằm trong danh sách chờ xếp"
 
-    def test_nghi_trua_khong_thuoc_ca_nao_nen_lich_1330_bi_huy(self) -> None:
+    def test_nghi_trua_khong_thuoc_ca_nao_nen_lich_1330_cho_xep(self) -> None:
         """Lịch rơi vào giờ nghỉ trưa thì không ca nào cứu được nó.
 
         Không phải lỗi của bản vá này: một lịch 13:30 lẽ ra không đặt được từ
@@ -235,5 +243,5 @@ class TestBaCa:
             ung_vien=[{"id": "trua1330", "phut": 13 * 60 + 30, "gio": "13:30"}],
         )
         ket = _go(conn)
-        assert ket["so_lich_huy"] == 1
+        assert ket["so_lich_cho_xep"] == 1
         assert ket["gio"] == ["13:30"]

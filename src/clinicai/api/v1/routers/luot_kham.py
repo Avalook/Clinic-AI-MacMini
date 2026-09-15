@@ -1,0 +1,254 @@
+"""Luồng khám lát 1 — màn `/luot-kham` của sáu vai.
+
+Router mỏng: đọc thân, gác vai, chuyển cho ``LuotKhamService``. Mọi luật nằm ở
+service và ``luot_kham_rules``. Service tự gác vai lần nữa — gọi thẳng service
+từ chỗ khác cũng không vượt quyền được.
+"""
+
+from __future__ import annotations
+
+from typing import Annotated, Any, Literal
+from uuid import UUID
+
+import asyncpg
+from fastapi import APIRouter, Depends, Header
+from pydantic import BaseModel, Field
+
+from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.core.database import get_db_pool
+from clinicai.services.luot_kham_service import LuotKhamService
+
+router = APIRouter()
+
+_BANG_GUARD = require_role(
+    ClinicRole.RECEPTION,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.MANAGEMENT,
+)
+_CHECKIN_GUARD = require_role(ClinicRole.RECEPTION, ClinicRole.MANAGEMENT)
+_VITALS_GUARD = require_role(
+    ClinicRole.NURSE_ULTRASOUND, ClinicRole.RECEPTION, ClinicRole.DOCTOR
+)
+_DOCTOR_GUARD = require_role(ClinicRole.DOCTOR)
+_NOTE_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
+_TKYK_GUARD = require_role(ClinicRole.TKYK)
+_DISPATCH_GUARD = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+_PERFORMER_GUARD = require_role(
+    ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
+)
+
+
+class CheckInBody(BaseModel):
+    appointment_id: UUID
+    #: TUỲ CHỌN: lễ tân xác minh khách bằng cách nào (CACH_XAC_MINH).
+    xac_minh_cach: str | None = None
+
+
+class VitalsBody(BaseModel):
+    # Any, không phải số: luật đọc đầu vào người dùng nằm ở parse_vitals và trả
+    # CÂU tiếng Việt. Để Pydantic ép kiểu thì người dùng nhận một mảng lỗi kỹ thuật.
+    systolic: Any = None
+    diastolic: Any = None
+    pulse: Any = None
+    temperature: Any = None
+    weight_kg: Any = None
+    height_cm: Any = None
+
+
+class NoteBody(BaseModel):
+    body: str = Field(max_length=20000)
+
+
+class DraftBody(BaseModel):
+    service_codes: list[str] = Field(min_length=1, max_length=30)
+
+
+class AuthorizeBody(BaseModel):
+    service_codes: list[str] = Field(default_factory=list, max_length=30)
+    draft_order_ids: list[UUID] = Field(default_factory=list, max_length=30)
+    expected_versions: dict[UUID, Annotated[int, Field(strict=True, ge=1)]] = Field(
+        default_factory=dict, max_length=30
+    )
+
+
+class RequirementBody(BaseModel):
+    order_id: UUID
+    need: Literal["PERFORMED", "VALID_RESULT"]
+
+
+class CompleteConsultationBody(BaseModel):
+    outcome: Literal["NO_SERVICES", "SERVICES", "DONE", "MORE_SERVICES"]
+    requirements: list[RequirementBody] = Field(default_factory=list, max_length=30)
+
+
+class DispatchBody(BaseModel):
+    room_id: UUID
+    expected_version: int | None = None
+
+
+class CompleteServiceBody(BaseModel):
+    performed: bool
+    reason: str | None = Field(default=None, max_length=2000)
+    result_note: str | None = Field(default=None, max_length=20000)
+
+
+@router.get("/luot-kham/bang")
+async def bang(
+    identity: StaffIdentity = Depends(_BANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai."""
+    return await LuotKhamService(pool).bang(identity=identity)
+
+
+@router.post("/luot-kham/check-in")
+async def check_in(
+    body: CheckInBody,
+    identity: StaffIdentity = Depends(_CHECKIN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).check_in(
+        appointment_id=str(body.appointment_id),
+        identity=identity,
+        xac_minh_cach=body.xac_minh_cach,
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/vitals")
+async def record_vitals(
+    visit_id: UUID,
+    body: VitalsBody,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).record_vitals(
+        visit_id=str(visit_id),
+        raw=body.model_dump(),
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/start")
+async def start_consultation(
+    consultation_id: UUID,
+    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).start_consultation(
+        consultation_id=str(consultation_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/notes")
+async def save_note(
+    consultation_id: UUID,
+    body: NoteBody,
+    identity: StaffIdentity = Depends(_NOTE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).save_note(
+        consultation_id=str(consultation_id), body=body.body, identity=identity
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/draft-orders")
+async def propose_orders(
+    consultation_id: UUID,
+    body: DraftBody,
+    identity: StaffIdentity = Depends(_TKYK_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).propose_orders(
+        consultation_id=str(consultation_id),
+        service_codes=body.service_codes,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/authorize-orders")
+async def authorize_orders(
+    consultation_id: UUID,
+    body: AuthorizeBody,
+    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).authorize_orders(
+        consultation_id=str(consultation_id),
+        service_codes=body.service_codes,
+        draft_order_ids=[str(d) for d in body.draft_order_ids],
+        expected_versions={str(k): v for k, v in body.expected_versions.items()},
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/complete")
+async def complete_consultation(
+    consultation_id: UUID,
+    body: CompleteConsultationBody,
+    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).complete_consultation(
+        consultation_id=str(consultation_id),
+        outcome=body.outcome,
+        requirements=[
+            {"order_id": str(r.order_id), "need": r.need} for r in body.requirements
+        ],
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/dispatch")
+async def dispatch_order(
+    order_id: UUID,
+    body: DispatchBody,
+    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).dispatch_order(
+        order_id=str(order_id),
+        room_id=str(body.room_id),
+        expected_version=body.expected_version,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/start")
+async def start_service(
+    order_id: UUID,
+    identity: StaffIdentity = Depends(_PERFORMER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).start_service(
+        order_id=str(order_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/complete")
+async def complete_service(
+    order_id: UUID,
+    body: CompleteServiceBody,
+    identity: StaffIdentity = Depends(_PERFORMER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).complete_service(
+        order_id=str(order_id),
+        performed=body.performed,
+        reason=body.reason,
+        result_note=body.result_note,
+        identity=identity,
+    )

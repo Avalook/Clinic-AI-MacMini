@@ -101,7 +101,7 @@ Hai đường, chọn một:
 **A · Postgres trên chính VPS** — dùng ngay, không tốn thêm tiền:
 
 ```bash
-ssh -p <PORT> clinicai@<IP> 'cd ~/clinicai && docker compose --env-file .env.supabase-local -f docker-compose.supabase.yml -p clinicai_db up -d && sleep 25 && ./scripts/supabase-local-nap.sh'
+ssh -p <PORT> clinicai@<IP> 'cd ~/clinicai && docker compose --env-file .env.supabase-local -f docker-compose.supabase.yml -p clinicai_db up -d && sleep 25 && SUPABASE_DB_CONTAINER=clinicai_db ./scripts/supabase-local-nap.sh'
 ```
 
 **B · Postgres ở Viettel IDC** — chỉ dựng ba dịch vụ còn lại, `DATABASE_URL`

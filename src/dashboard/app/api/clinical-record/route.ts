@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getClinicRole } from "../../../lib/clinic-session";
 import {
   canReadClinical,
@@ -18,6 +18,7 @@ import {
 } from "../../../lib/roles";
 
 interface ClinicalRecordRow {
+  revision: number;
   chief_complaint_at_visit: string | null;
   soap_subjective: unknown;
   soap_objective: unknown;
@@ -89,6 +90,19 @@ export async function GET(request: Request) {
   if (!patientId) {
     return NextResponse.json({ error: "Thiếu patientId." }, { status: 400 });
   }
+  // Thư ký chỉ đọc bệnh án khách của bác sĩ mình được phân — FastAPI quyết
+  // (Tuyền chốt 15/09/2026). Không xác nhận được thì không trả hồ sơ.
+  if (role === "TKYK") {
+    const ok = await fetchFromBackend<{ ok: boolean }>(
+      `/api/v1/thu-ky/khach/${encodeURIComponent(patientId)}`,
+    );
+    if (!ok?.ok) {
+      return NextResponse.json(
+        { error: "Khách này của bác sĩ khác — thư ký chỉ xem khách của bác sĩ mình được phân." },
+        { status: 403 },
+      );
+    }
+  }
 
   const [profileRes, pregRes, labRes, visitRes, historyRes] = await Promise.all([
     supabase
@@ -117,7 +131,7 @@ export async function GET(request: Request) {
       ? supabase
           .from("visit")
           .select(
-            "visit_id, status, created_at, clinical_record ( chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
+            "visit_id, status, created_at, clinical_record ( revision, chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
           )
           .eq("visit_id", visitId)
           .eq("clinic_patient_id", patientId)
@@ -126,7 +140,7 @@ export async function GET(request: Request) {
         ? supabase
             .from("visit")
             .select(
-              "visit_id, status, created_at, clinical_record ( chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
+              "visit_id, status, created_at, clinical_record ( revision, chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
             )
             .eq("appointment_id", appointmentId)
             .order("created_at", { ascending: false })
@@ -167,8 +181,20 @@ export async function GET(request: Request) {
       : visit.clinical_record
     : null;
 
+  let prescriptionDraft: unknown = null;
+  if (visit?.visit_id && ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"].includes(role ?? "")) {
+    const draftRes = await supabase.rpc("read_prescription_draft", {
+      p_visit_id: visit.visit_id,
+    });
+    if (draftRes.error) {
+      return NextResponse.json({ error: "Không tải được đơn thuốc nháp." }, { status: 503 });
+    }
+    prescriptionDraft = draftRes.data ?? null;
+  }
+
   // Đơn thuốc đã kê cho lượt khám này (để prefill form kê thuốc của bác sĩ).
   let prescriptions: {
+    id: string;
     drug_name_raw: string | null;
     quantity: string | null;
     dosage_instructions: string | null;
@@ -177,13 +203,19 @@ export async function GET(request: Request) {
   if (visit?.visit_id) {
     const { data: rx } = await supabase
       .from("prescription")
-      .select("drug_name_raw, quantity, dosage_instructions, caution")
+      .select("id, drug_name_raw, quantity, dosage_instructions, caution")
       .eq("visit_id", visit.visit_id)
       .order("created_at", { ascending: true });
     prescriptions = rx ?? [];
   }
 
+  if ("error" in visitRes && visitRes.error) {
+    return NextResponse.json({ error: "Không tải được hồ sơ khám." }, { status: 503 });
+  }
+
   return NextResponse.json({
+    revision: cr?.revision ?? 0,
+    prescription_draft: prescriptionDraft,
     profile: profileRes.data ?? null,
     pregnancy: pregRes.data ?? null,
     labs: labRes.data ?? [],
@@ -201,6 +233,8 @@ export async function GET(request: Request) {
 }
 
 interface PostBody {
+  expectedRevision?: number;
+  approvePrescriptionDraft?: boolean;
   appointmentId?: string;
   clinicPatientId?: string;
   chief_complaint?: string;
@@ -220,6 +254,7 @@ interface PostBody {
   };
   // Đơn thuốc bác sĩ kê (free-text) — thay TOÀN BỘ đơn của lượt khám này.
   prescriptions?: Array<{
+    id?: string;
     drug_name?: string;
     quantity?: string;
     dosage?: string;
@@ -283,6 +318,8 @@ export async function POST(request: Request) {
     appointment_id: appointmentId,
     clinic_patient_id: clinicPatientId,
     vitals_only: vitalsOnly,
+    expected_revision: body.expectedRevision,
+    approve_prescription_draft: body.approvePrescriptionDraft === true,
     chief_complaint: body.chief_complaint ?? null,
     subjective: body.subjective ?? null,
     ...(body.objective !== undefined ? { objective: body.objective } : {}),

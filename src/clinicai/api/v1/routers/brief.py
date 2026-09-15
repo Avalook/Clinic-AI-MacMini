@@ -17,6 +17,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
     PHYSICIAN_ROLES,
     ClinicRole,
@@ -51,6 +52,12 @@ async def _can_generate_brief(
 ) -> bool:
     """Keep direct API callers inside the same patient relationship as the UI."""
     if identity.role is ClinicRole.TKYK:
+        # Thư ký chỉ xem khách của bác sĩ mình được phân (20260915000020).
+        from clinicai.services.thu_ky_bac_si import khach_duoc_xem
+
+        duoc = await khach_duoc_xem(pool, identity)
+        if duoc is not None and str(clinic_patient_id) not in duoc:
+            return False
         return bool(
             await pool.fetchval(
                 """
@@ -90,7 +97,10 @@ async def _can_generate_brief(
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return cast(AnthropicClient, request.app.state.llm_client)
+    client = request.app.state.llm_client
+    if client is None:
+        raise AIDisabledError("Tính năng AI chưa bật trên hệ thống này.")
+    return cast(AnthropicClient, client)
 
 
 class BriefResponse(BaseModel):

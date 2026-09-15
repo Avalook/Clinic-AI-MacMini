@@ -19,6 +19,7 @@ import {
 } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,14 @@ export default async function PatientDetailPage({
       .limit(1)
       .maybeSingle();
     if (!own) redirect("/patient-list");
+  }
+  // Thư ký chỉ mở hồ sơ khách của bác sĩ mình được phân — FastAPI quyết
+  // (Tuyền chốt 15/09/2026). Không trả lời được thì cũng không cho mở.
+  if (role === "TKYK") {
+    const ok = await fetchFromBackend<{ ok: boolean }>(
+      `/api/v1/thu-ky/khach/${encodeURIComponent(id)}`,
+    );
+    if (!ok?.ok) redirect("/patient-list");
   }
 
   // Booking is an intake action (CSKH / Lễ tân / Quản lý). Only those roles see

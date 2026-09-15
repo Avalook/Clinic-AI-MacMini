@@ -67,8 +67,11 @@ def test_xoa_ca_goi_ten_bac_si_bi_go() -> None:
         },
     )
     assert tin is not None
-    assert "Xoá ca bác sĩ Phan Chí Thành" in tin
-    assert "gọi khách đặt lịch mới" in tin
+    assert "Gỡ ca bác sĩ Phan Chí Thành" in tin
+    # CONTEXT v1.0: gỡ ca không huỷ lịch — tin không được bảo "đặt lịch mới"
+    # hay nói lịch "đã huỷ", vì người đọc sẽ tạo lịch thứ hai cho khách.
+    assert "chờ xếp bác sĩ" in tin
+    assert "đã huỷ" not in tin and "đặt lịch mới" not in tin
 
 
 def test_su_kien_ngoai_danh_sach_tra_none() -> None:

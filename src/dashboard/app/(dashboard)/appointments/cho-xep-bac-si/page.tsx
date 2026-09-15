@@ -34,8 +34,9 @@ export default async function ChoXepBacSiPage() {
           Lịch chờ xếp bác sĩ
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Khách đã hẹn giờ nhưng chưa có bác sĩ — thường là lịch đặt trước khi
-          lịch trực tuần đó được công bố.
+          Khách đã hẹn giờ nhưng chưa có bác sĩ (thường đặt trước khi công bố
+          lịch trực), mất bác sĩ vì gỡ ca, hoặc vượt sức chứa sau khi công bố.
+          Không lịch nào bị huỷ — xử lý ở đây, CSKH gọi khách.
         </p>
       </header>
 

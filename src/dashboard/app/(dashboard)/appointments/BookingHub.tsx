@@ -308,6 +308,10 @@ interface QuoteResponse {
    *  xếp ca cho ngày này, nên chưa biết ai khám — khác hẳn "đã xếp và bác sĩ
    *  này nghỉ" (`off_duty`). */
   roster_known?: boolean;
+  /** Tuần chứa ngày này ĐÃ công bố lịch trực chưa. `false` = trần sức chứa
+   *  chưa chặn lịch hẹn (đối soát lúc công bố — CONTEXT v1.0), nên khung đủ
+   *  trần vẫn đặt được. */
+  roster_week_published?: boolean;
   /** Ca trực của bác sĩ hôm đó, theo phút-trong-ngày `[[bắt đầu, kết thúc]]`.
    *  Rỗng = không giới hạn (ngày chưa xếp ca, hoặc lưới không lọc bác sĩ). */
   shift_windows?: [number, number][];
@@ -671,6 +675,12 @@ export default function BookingHub({
   // một bên là "bác sĩ không có mặt giờ này". Thiếu cờ này thì mọi khung ngoài
   // ca trực lại rơi về số mặc định và tiếp tục mời đặt — đúng cái vừa sửa.
   const [capLoaded, setCapLoaded] = useState<Record<string, boolean>>({});
+  // TUẦN CỦA NGÀY NÀY ĐÃ CÔNG BỐ LỊCH TRỰC CHƯA — khoá theo ngày. Chưa công bố
+  // thì khung đủ trần KHÔNG khoá (backend nhận, đối soát lúc công bố). Chưa
+  // biết (undefined) thì giữ cách cũ: coi như đã công bố, khoá ô đầy.
+  const [tuanDaCongBo, setTuanDaCongBo] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // CHỈ HIỆN BÁC SĨ CÓ CA NGÀY ĐANG XEM, và hiện HẾT.
   //
@@ -850,6 +860,9 @@ export default function BookingHub({
       // lấy câu ĐẦU TIÊN đọc được, và bỏ qua nếu cả loạt đều hỏng.
       const daXep = pairs.find(([, d]) => d?.roster_known !== undefined)?.[1]
         ?.roster_known;
+      const congBo = pairs.find(
+        ([, d]) => d?.roster_week_published !== undefined,
+      )?.[1]?.roster_week_published;
       for (const [docId, d] of pairs) {
         // `d === null` = request hỏng ⇒ KHÔNG đánh dấu đã tải, để lưới nói
         // "đang tải" thay vì kết luận cả ngày ngoài ca trực.
@@ -876,6 +889,9 @@ export default function BookingHub({
       setCapLoaded((prev) => ({ ...prev, ...loaded }));
       if (daXep !== undefined) {
         setDaXepCa((prev) => ({ ...prev, [selectedDateIso]: daXep }));
+      }
+      if (congBo !== undefined) {
+        setTuanDaCongBo((prev) => ({ ...prev, [selectedDateIso]: congBo }));
       }
     });
     return () => ctrl.abort();
@@ -1214,7 +1230,9 @@ export default function BookingHub({
         tone: "selected",
         label:
           bookedCount >= maxCap
-            ? "Đã đầy — chọn khung khác"
+            ? tuanDaCongBo[selectedDateIso] === false
+              ? "Vượt trần — sẽ đối soát khi công bố lịch trực"
+              : "Đã đầy — chọn khung khác"
             : `Còn ${maxCap - bookedCount} chỗ`,
         sub: `${bookedCount}/${maxCap}`,
         bookedCount,
@@ -1225,6 +1243,17 @@ export default function BookingHub({
     const holder = heldByOthers.get(`${docId}|${selectedDateIso}|${time}`);
     const isHolding = Boolean(holder);
 
+    // Tuần CHƯA công bố lịch trực: đủ trần vẫn nhận, nói rõ để CSKH biết lịch
+    // này sẽ được đối soát khi quản lý công bố (CONTEXT v1.0).
+    if (bookedCount >= maxCap && tuanDaCongBo[selectedDateIso] === false) {
+      return {
+        tone: "few",
+        label: "Vượt trần — chờ công bố lịch trực",
+        sub: `${bookedCount}/${maxCap}`,
+        bookedCount,
+        maxCap,
+      };
+    }
     if (bookedCount >= maxCap) {
       return {
         tone: "full",
@@ -1287,6 +1316,7 @@ export default function BookingHub({
       capByCell,
       offDuty,
       capLoaded,
+      tuanDaCongBo,
     ],
   );
 
@@ -1514,7 +1544,7 @@ export default function BookingHub({
               giây thay vì im lặng hiển thị số sai".
 
               "Còn chỗ" hiện là dấu gạch, KHÔNG phải quên: sức chứa còn lại phụ
-              thuộc luật 2+1 mỗi khung, lịch trực của từng bác sĩ và cấu hình
+              thuộc số khách online + trực tiếp quản lý đặt cho mỗi khung, lịch trực của từng bác sĩ và cấu hình
               riêng của bác sĩ Thành (18h–18h15 nhận 10 ca, sau đó 4). Tính
               nhẩm ở frontend là ra một con số thứ hai lệch với backend. Thà để
               trống còn hơn nói sai — bảng lưới bên dưới đã hiện đúng từng ô. */}
@@ -1538,7 +1568,7 @@ export default function BookingHub({
                 <p className="text-xs font-medium text-ink-muted">Còn chỗ</p>
                 <p
                   className="text-xl font-bold text-ink-muted"
-                  title="Sức chứa còn lại phụ thuộc luật 2+1, lịch trực và cấu hình riêng từng bác sĩ — xem trực tiếp trên lưới giờ bên dưới."
+                  title="Sức chứa còn lại phụ thuộc số khách quản lý đặt cho từng bác sĩ, lịch trực và cấu hình riêng từng bác sĩ — xem trực tiếp trên lưới giờ bên dưới."
                 >
                   —
                 </p>
@@ -2264,7 +2294,9 @@ export default function BookingHub({
                   {selectedCellStatus.bookedCount}/{selectedCellStatus.maxCap} đã đặt
                   ·{" "}
                   <span className="text-teal-700 font-bold">
-                    còn {selectedCellStatus.maxCap - selectedCellStatus.bookedCount} chỗ
+                    {selectedCellStatus.bookedCount >= selectedCellStatus.maxCap
+                      ? "vượt trần — chờ công bố"
+                      : `còn ${selectedCellStatus.maxCap - selectedCellStatus.bookedCount} chỗ`}
                   </span>
                 </span>
               </div>

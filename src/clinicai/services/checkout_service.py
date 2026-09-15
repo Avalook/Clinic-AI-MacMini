@@ -506,14 +506,41 @@ class CheckoutService:
                 # thiếu nó, nên đóng một lượt khám dở CÒN VIỆC TREO sẽ đổ cả
                 # giao dịch — chưa lộ ra vì lượt duy nhất đóng theo đường ấy
                 # không còn bước nào đang treo.
-                await conn.execute(
+                #
+                # TRỪ VIỆC KẾT QUẢ (15/09/2026). [CHỐT-TUYỀN] "Đóng lượt không
+                # xóa nhiệm vụ trả kết quả muộn." Khách ra về không làm kết quả
+                # xét nghiệm biến mất: việc nhập kết quả (TKYK) và duyệt kết quả
+                # (bác sĩ) vẫn phải có người làm sau đó. Nhận diện bằng
+                # `node_definition.flow_group = 'ket_qua'` — nhóm mà danh mục
+                # node đã khai, không liệt kê mã cứng ở đây. Việc lấy mẫu chưa
+                # làm (flow `dich_vu`) vẫn huỷ: khách về thì mẫu không còn lấy.
+                # Các việc kết quả không tự sinh theo khung lượt khám
+                # (instantiate_visit_workflow chỉ đi chuỗi LUOTKHAM), nên việc
+                # giữ lại luôn là việc có thật, không phải đầu việc rỗng.
+                giu_ket_qua = await conn.fetchval(
                     """
-                    UPDATE public.work_item
-                       SET status = 'CANCELLED',
-                           finished_at = coalesce(finished_at, now()),
-                           updated_at = now()
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND status IN ('PENDING', 'IN_PROGRESS')
+                    WITH huy AS (
+                        UPDATE public.work_item w
+                           SET status = 'CANCELLED',
+                               finished_at = coalesce(w.finished_at, now()),
+                               updated_at = now()
+                         WHERE w.clinic_id = $1::uuid AND w.visit_id = $2::uuid
+                           AND w.status IN ('PENDING', 'IN_PROGRESS')
+                           AND NOT EXISTS (
+                               SELECT 1 FROM public.node_definition n
+                                WHERE n.clinic_id = w.clinic_id
+                                  AND n.code = w.node_code
+                                  AND n.flow_group = 'ket_qua'
+                           )
+                        RETURNING w.id
+                    )
+                    SELECT count(*)::int
+                      FROM public.work_item w
+                      JOIN public.node_definition n
+                        ON n.clinic_id = w.clinic_id AND n.code = w.node_code
+                     WHERE w.clinic_id = $1::uuid AND w.visit_id = $2::uuid
+                       AND w.status IN ('PENDING', 'IN_PROGRESS')
+                       AND n.flow_group = 'ket_qua'
                     """,
                     identity.clinic_id,
                     visit_id,
@@ -557,6 +584,8 @@ class CheckoutService:
                             "blockers": blockers,
                             "override": bool(blockers),
                             "incomplete": incomplete,
+                            # Việc kết quả còn mở được GIỮ lại khi đóng lượt.
+                            "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
                             "incomplete_reason": ly_do_do or None,
                         },
                         ensure_ascii=False,
@@ -584,6 +613,7 @@ class CheckoutService:
             "closed": closed is not None,
             "override": bool(blockers),
             "incomplete": incomplete,
+            "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
         }
 
 

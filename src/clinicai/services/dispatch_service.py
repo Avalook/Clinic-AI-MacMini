@@ -305,6 +305,23 @@ class DispatchService:
                 if tpl is None:
                     raise ValidationError(f"Không có tuyến {template_code}.")
 
+                # Tuyến là THỨ TỰ các việc bác sĩ đã chỉ định (15/09/2026, CONTEXT
+                # v1.0: bác sĩ duyệt chỉ định → trưởng ca điều phối). Mẫu tuyến
+                # liệt kê cả dịch vụ lượt này không có; giữ lại bước dịch vụ nào
+                # đã có việc (chưa huỷ), bỏ phần còn lại và nói rõ đã bỏ gì —
+                # không để tuyến gợi ý một dịch vụ không ai chỉ định.
+                steps, bo_qua = await _buoc_theo_chi_dinh(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    visit_id=visit_id,
+                    steps=list(tpl["steps"]),
+                )
+                if not steps:
+                    raise ValidationError(
+                        f"Tuyến {template_code} chỉ gồm dịch vụ bác sĩ chưa chỉ định "
+                        "cho lượt này — chờ bác sĩ chỉ định rồi mới xếp tuyến."
+                    )
+
                 done = await conn.fetchval(
                     "SELECT coalesce(array_agg(node_code), '{}')"
                     "  FROM public.work_item"
@@ -333,7 +350,7 @@ class DispatchService:
                     identity.clinic_id,
                     visit_id,
                     tpl["id"],
-                    list(tpl["steps"]),
+                    steps,
                     list(done or []),
                     is_exception,
                     reason,
@@ -354,7 +371,8 @@ class DispatchService:
                         {
                             "to_node": None,
                             "template": template_code,
-                            "steps": list(tpl["steps"]),
+                            "steps": steps,
+                            "bo_qua_chua_chi_dinh": bo_qua,
                             "kept_steps": list(done or []),
                             "is_exception": is_exception,
                             "reason": reason,
@@ -380,7 +398,12 @@ class DispatchService:
             template=template_code,
             is_exception=is_exception,
         )
-        return {"ok": True, "route_id": str(route_id)}
+        return {
+            "ok": True,
+            "route_id": str(route_id),
+            "steps": steps,
+            "bo_qua_chua_chi_dinh": bo_qua,
+        }
 
     # ── Cấu hình ───────────────────────────────────────────────────────
 
@@ -631,3 +654,42 @@ def _json(value: dict[str, Any]) -> str:
     import json
 
     return json.dumps(value, ensure_ascii=False)
+
+
+#: Nhóm bước chỉ sinh từ chỉ định của bác sĩ (order_services và chuỗi của nó).
+NHOM_BUOC_DICH_VU: tuple[str, ...] = ("dich_vu", "ket_qua")
+
+
+async def _buoc_theo_chi_dinh(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str, steps: list[str]
+) -> tuple[list[str], list[str]]:
+    """(bước giữ lại, bước dịch vụ bị bỏ vì lượt khám không có chỉ định).
+
+    Cùng luật với `move_visit_to_station` (20260915000013): bước dịch vụ cần
+    việc sinh từ chỉ định; nhà thuốc (THUOC-*) cần đơn thuốc của lượt khám.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT n.code,
+               CASE WHEN n.code LIKE 'THUOC-%' THEN EXISTS (
+                   SELECT 1 FROM public.prescription r
+                    WHERE r.clinic_id = n.clinic_id AND r.visit_id = $2::uuid
+               ) ELSE EXISTS (
+                   SELECT 1 FROM public.work_item w
+                    WHERE w.clinic_id = n.clinic_id AND w.visit_id = $2::uuid
+                      AND w.node_code = n.code AND w.status <> 'CANCELLED'
+               ) END AS co_viec
+          FROM public.node_definition n
+         WHERE n.clinic_id = $1::uuid AND n.code = ANY($3::text[])
+           AND n.flow_group = ANY($4::text[])
+        """,
+        clinic_id,
+        visit_id,
+        steps,
+        list(NHOM_BUOC_DICH_VU),
+    )
+    khong_chi_dinh = {r["code"] for r in rows if not r["co_viec"]}
+    return (
+        [s for s in steps if s not in khong_chi_dinh],
+        [s for s in steps if s in khong_chi_dinh],
+    )

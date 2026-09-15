@@ -151,7 +151,9 @@ async def test_the_window_reaches_the_driver_as_datetimes() -> None:
         end=datetime.datetime(2026, 9, 1, tzinfo=CLINIC_TZ),
         doctor_id=DOCTOR,
     )
-    _clinic, start, end, doctor, statuses = conn.args
+    _clinic, start, end, doctor, statuses, chi_bac_si = conn.args
+    # Không phải thư ký → không lọc theo bác sĩ được phân (20260915000020).
+    assert chi_bac_si is None
     assert isinstance(start, datetime.datetime)
     assert isinstance(end, datetime.datetime)
     assert start.tzinfo is not None and end.tzinfo is not None
