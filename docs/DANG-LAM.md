@@ -37,6 +37,39 @@ lịch sử hội thoại.
 
 ---
 
+## -0009. Màn khám riêng từng loại + một tài khoản thu ngân (16/09/2026 khuya)
+
+**Gỡ "6 giai đoạn"** của mục -0008 (điểm 6): nó chỉ sửa `ServiceFormEngine`, mà
+thành phần ấy nằm TRONG tab 3 của `ClinicalRecordForm` — hai cách chia chồng lên
+nhau. Tuyền phát hiện qua ảnh.
+
+**Màn khám riêng** (Tuyền chốt): `/kham/noi-tiet · phu-khoa · san · hiem-muon ·
+nam-khoa` + "Khám siêu âm" (`/sieu-am` đổi tên). Mỗi màn = Bàn khám bác sĩ lọc
+theo `service_type.form_code`. Danh mục ở `lib/loai-kham.ts`. Bàn khám chung giữ
+lại (tên "Bàn khám (tất cả)") cho dịch vụ không có phiếu.
+
+**Gốc ô vàng "chưa gắn biểu mẫu"**: CẢ 14 loại khám trên final cloud mất
+`form_code` — migration 07/08 gắn đúng rồi dữ liệu bị nạp đè, sổ migration vẫn
+ghi "đã áp". Migration `20260916000010` gắn lại (chạy lại được). Đo sau khi vá:
+19 lượt hôm nay đều có phiếu — PK 13 · SK 2 · NT 2 · HMVS 1 · NK 1.
+
+⚠️ **Dữ liệu `service_type` trên final cloud KHÁC quyết định 07/08 của Quang**:
+14 dịch vụ đang bật (Quang chốt chỉ 5), tên vẫn "Sản 1", "Nội tiết - Tình dục".
+CHƯA sửa — bật tắt dịch vụ đổi thứ khách thấy lúc đặt lịch. Cần hỏi.
+
+**Thanh bên theo vị trí** trỏ vào màn khám riêng. **Sàn chậu chưa có phiếu** →
+tạm Khám phụ khoa (chờ Tuyền). Thủ thuật → bàn khám chung. Hiếm muộn, Nam khoa
+KHÔNG có vị trí nào trong lịch Kim Ngưu trỏ tới.
+
+**Menu dự phòng** (ngày không ca) dùng `canSeeNavGoc` — luật gốc, KHÔNG theo công
+tắc mở quyền. Quyền vào vẫn mở.
+
+**Thu ngân**: `thu-ngan@dr4women.vn` (CASHIER) có `/thu-ngan/dich-vu` +
+`/thu-ngan/thuoc`. `thu-ngan-thuoc`, `thu-ngan-dich-vu` đã NGHỈ (không xoá) qua
+`scripts/gop-tai-khoan-thu-ngan.py` — đã kiểm: /me trả 403.
+
+---
+
 ## -0008. Form lịch = Excel · thanh bên theo vị trí · phiếu bác sĩ theo giai đoạn (16/09/2026 đêm)
 
 Tuyền chốt sáu điều, cả sáu đã lên final cloud:

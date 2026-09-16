@@ -44,15 +44,18 @@ Chia làm bốn nhóm theo MỘT câu hỏi: *người này có đứng ca nào 
 | Điều dưỡng | Kim Tiến | Kim Tiến | `kim-tien@dr4women.vn` | 1 | Xếp thuốc + Giải thích thuốc |
 | Điều dưỡng | Vũ Thu Hà | Hà Vũ | `dd-ha-vu@dr4women.vn` | 1 | Đo chỉ số sức khoẻ |
 
-## ② Tài khoản THEO VỊ TRÍ (không phải một con người) — 5
+## ② Tài khoản THEO VỊ TRÍ (không phải một con người) — 4
+
+> 16/09: hai tài khoản `thu-ngan-thuoc` và `thu-ngan-dich-vu` đã gộp thành MỘT
+> tài khoản `thu-ngan` có cả hai mục *Thu ngân dịch vụ* và *Thu ngân thuốc*.
+> Hai tài khoản cũ cho nghỉ (đăng nhập vào không có quyền gì), không xoá.
 
 Ai vào ca ngồi chỗ nào thì dùng tài khoản của chỗ đó.
 
 | Vai | Đăng nhập |
 |---|---|
 | Màn hình TV | `man-hinh-phong-cho@dr4women.vn` |
-| Thu ngân dịch vụ | `thu-ngan-dich-vu@dr4women.vn` |
-| Thu ngân thuốc | `thu-ngan-thuoc@dr4women.vn` |
+| Thu ngân (cả hai quầy: dịch vụ + thuốc) | `thu-ngan@dr4women.vn` |
 | Trưởng ca | `truong-ca@dr4women.vn` |
 | Đối tác | `doi-tac-pk@dr4women.vn` |
 
