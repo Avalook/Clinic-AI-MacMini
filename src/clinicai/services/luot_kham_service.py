@@ -33,7 +33,12 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import (
+    VAI_LAM_VIEC,
+    ClinicRole,
+    StaffIdentity,
+    mo_quyen_tam_thoi,
+)
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -106,7 +111,33 @@ class LuotKhamValidationError(ValidationError):
         self.error_code = code
 
 
+#: Những tập vai NỚI ĐƯỢC theo công tắc mở quyền tạm thời. Tập nào KHÔNG có ở
+#: đây thì không bao giờ nới: `DOCTOR_ROLES`, `NOTE_ROLES`, `DRAFT_ROLES` là
+#: việc của bác sĩ và thư ký cạnh bác sĩ — Tuyền nói rõ "trừ bác sĩ ra thui".
+#:
+#: `CLINICAL_READ_ROLES` cũng KHÔNG nới: nó quyết định ai đọc được chữ bác sĩ
+#: viết trong bệnh án, và đó là đọc hồ sơ y tế chứ không phải thao tác vận hành.
+_TAP_NOI_DUOC: tuple[frozenset[ClinicRole], ...] = (
+    BOARD_ROLES,
+    CHECKIN_ROLES,
+    VITALS_ROLES,
+    DISPATCH_ROLES,
+    PERFORMER_ROLES,
+)
+
+
 def _require(identity: StaffIdentity, roles: frozenset[ClinicRole], cau: str) -> None:
+    """Chặn theo vai — và đây là cửa THẬT, cửa ở router chỉ là lớp ngoài.
+
+    Luật nghiệp vụ nằm trong hàm dịch vụ (CLAUDE.md), nên nới `require_role` ở
+    router mà quên chỗ này thì vai mới qua được cửa ngoài rồi ăn `SafetyGateError`
+    ở cửa trong — đúng cái đã xảy ra chiều 16/09: CSKH và thu ngân vẫn 403 ở
+    bảng lượt khám sau khi đã nới router, và cửa gác ở router thì trông hoàn
+    toàn đúng.
+    """
+    if mo_quyen_tam_thoi() and roles in _TAP_NOI_DUOC:
+        if identity.role in VAI_LAM_VIEC:
+            return
     if identity.role not in roles:
         raise SafetyGateError(cau)
 

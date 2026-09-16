@@ -145,3 +145,53 @@ async def test_thu_ky_chua_phan_bac_si_van_lam_viec_duoc(
 
     monkeypatch.setenv("MO_QUYEN_TAM_THOI", "1")
     assert await bac_si_cua_thu_ky(KhongDuocHoi(), _danh_tinh(ClinicRole.TKYK)) is None
+
+
+def test_cua_trong_ham_dich_vu_cung_noi_theo_cong_tac(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nới ở router mà quên hàm dịch vụ thì vai mới qua cửa ngoài rồi chết ở trong.
+
+    Đúng cái đã xảy ra chiều 16/09/2026: `_BANG_GUARD` đã nới, nhưng CSKH và thu
+    ngân vẫn 403 ở bảng lượt khám — vì `LuotKhamService.bang()` gọi
+    `_require(identity, BOARD_ROLES, …)` một lần nữa. Nhìn cửa gác ở router thì
+    thấy hoàn toàn đúng.
+
+    Luật nghiệp vụ nằm trong hàm dịch vụ (CLAUDE.md), nên ĐÓ mới là cửa thật.
+    """
+    from clinicai.core.exceptions import SafetyGateError
+    from clinicai.services.luot_kham_service import (
+        BOARD_ROLES,
+        CHECKIN_ROLES,
+        CLINICAL_READ_ROLES,
+        DOCTOR_ROLES,
+        NOTE_ROLES,
+        PERFORMER_ROLES,
+        VITALS_ROLES,
+        _require,
+    )
+
+    monkeypatch.setenv("MO_QUYEN_TAM_THOI", "1")
+
+    # Nới: CSKH và thu ngân — hai vai đã bị chặn trên bản chạy thật.
+    for tap in (BOARD_ROLES, CHECKIN_ROLES, VITALS_ROLES, PERFORMER_ROLES):
+        for vai in (ClinicRole.CSKH, ClinicRole.CASHIER_DV, ClinicRole.PHARMACIST):
+            _require(_danh_tinh(vai), tap, "đáng lẽ phải qua")
+
+    # KHÔNG nới: việc của bác sĩ, và quyền đọc chữ bác sĩ viết trong bệnh án.
+    for tap in (DOCTOR_ROLES, NOTE_ROLES, CLINICAL_READ_ROLES):
+        with pytest.raises(SafetyGateError):
+            _require(_danh_tinh(ClinicRole.CSKH), tap, "phải chặn")
+
+
+def test_cong_tac_tat_thi_ham_dich_vu_ve_luat_goc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from clinicai.core.exceptions import SafetyGateError
+    from clinicai.services.luot_kham_service import BOARD_ROLES, _require
+
+    monkeypatch.setenv("MO_QUYEN_TAM_THOI", "0")
+    with pytest.raises(SafetyGateError):
+        _require(_danh_tinh(ClinicRole.CSKH), BOARD_ROLES, "phải chặn")
+    # Vai vốn có trong tập thì vẫn qua.
+    _require(_danh_tinh(ClinicRole.RECEPTION), BOARD_ROLES, "đáng lẽ phải qua")
