@@ -209,6 +209,12 @@ class Vitals:
     temperature: Decimal | None = None
     weight_kg: Decimal | None = None
     height_cm: Decimal | None = None
+    # Bốn chỉ số thêm 16/09/2026 — trước đó có ô nhập trên màn nhưng không có
+    # cột, nên chúng rơi vào JSONB hồ sơ và không vào lịch sử đo được.
+    respiratory_rate: int | None = None
+    spo2: int | None = None
+    bmi: Decimal | None = None
+    pain_score: int | None = None
 
 
 _RANGES: dict[str, tuple[str, Decimal, Decimal]] = {
@@ -218,7 +224,23 @@ _RANGES: dict[str, tuple[str, Decimal, Decimal]] = {
     "temperature": ("Nhiệt độ", Decimal(34), Decimal(43)),
     "weight_kg": ("Cân nặng", Decimal(1), Decimal(300)),
     "height_cm": ("Chiều cao", Decimal(30), Decimal(230)),
+    # Cùng khoảng với CHECK ở database (20260916000003). Hai nơi phải khớp:
+    # rộng hơn ở đây là để người đo gõ xong mới bị máy chủ từ chối.
+    "respiratory_rate": ("Nhịp thở", Decimal(4), Decimal(80)),
+    "spo2": ("SpO₂", Decimal(50), Decimal(100)),
+    "bmi": ("BMI", Decimal(5), Decimal(100)),
+    "pain_score": ("Mức độ đau", Decimal(0), Decimal(10)),
 }
+
+#: Chỉ số phải là số nguyên — đo bằng máy đếm, không có phần thập phân.
+_NGUYEN: tuple[str, ...] = (
+    "systolic",
+    "diastolic",
+    "pulse",
+    "respiratory_rate",
+    "spo2",
+    "pain_score",
+)
 
 
 def _number(value: Any) -> Decimal | None:
@@ -282,21 +304,29 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
     systolic, diastolic = values["systolic"], values["diastolic"]
     if systolic is None or diastolic is None:
         return None, "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám."
-    for field in ("systolic", "diastolic", "pulse"):
+    for field in _NGUYEN:
         num = values[field]
         if num is not None and num != num.to_integral_value():
             return None, f"{_RANGES[field][0]} phải là số nguyên."
     if systolic <= diastolic:
         return None, "Huyết áp tâm thu phải lớn hơn tâm trương."
-    pulse = values["pulse"]
+
+    def _int(ten: str) -> int | None:
+        num = values[ten]
+        return int(num) if num is not None else None
+
     return (
         Vitals(
             systolic=int(systolic),
             diastolic=int(diastolic),
-            pulse=int(pulse) if pulse is not None else None,
+            pulse=_int("pulse"),
             temperature=values["temperature"],
             weight_kg=values["weight_kg"],
             height_cm=values["height_cm"],
+            respiratory_rate=_int("respiratory_rate"),
+            spo2=_int("spo2"),
+            bmi=values["bmi"],
+            pain_score=_int("pain_score"),
         ),
         None,
     )

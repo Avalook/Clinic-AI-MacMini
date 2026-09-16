@@ -16,6 +16,7 @@ import pytest
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole
+from clinicai.services import luot_kham_rules as rules
 from clinicai.services.clinical_record_service import sinh_hieu_tu_ho_so
 from clinicai.services.luot_kham_rules import Vitals, thieu_sinh_hieu_khi_co_thai
 from tests.services.test_clinical_record_revision import (
@@ -169,3 +170,77 @@ async def test_khach_co_thai_don_kham_thieu_can_nang_bi_chan() -> None:
             objective={"vitals": {"huyet_ap": "110/70", "chieu_cao": "160"}},
         )
     assert _vital_inserts(conn) == []
+
+
+class TestBonChiSoThem:
+    """Nhịp thở, SpO₂, BMI, thang đau — thêm vào bảng thật 16/09/2026.
+
+    Trước đó bốn ô này có trên màn nhập nhưng không có cột, nên chúng rơi vào
+    JSONB của hồ sơ khám: không vào bảng lịch sử chỉ-thêm, không so được giữa
+    các lần đo, và thang đau thì không tồn tại ở đâu cả.
+    """
+
+    def test_bon_chi_so_di_qua_duoc_luat_chung(self) -> None:
+        vitals, loi = rules.parse_vitals(
+            {
+                "systolic": 120,
+                "diastolic": 80,
+                "respiratory_rate": 18,
+                "spo2": 99,
+                "bmi": "20.9",
+                "pain_score": 3,
+            }
+        )
+        assert loi is None
+        assert vitals is not None
+        assert vitals.respiratory_rate == 18
+        assert vitals.spo2 == 99
+        assert str(vitals.bmi) == "20.9"
+        assert vitals.pain_score == 3
+
+    def test_khong_nhap_thi_van_luu_duoc(self) -> None:
+        # Bốn chỉ số này TUỲ CHỌN — ép chúng là ép điều dưỡng gõ số không đo.
+        vitals, loi = rules.parse_vitals({"systolic": 120, "diastolic": 80})
+        assert loi is None
+        assert vitals is not None
+        assert vitals.respiratory_rate is None
+        assert vitals.pain_score is None
+
+    @pytest.mark.parametrize(
+        ("truong", "gia_tri", "chu"),
+        [
+            ("pain_score", 44, "Mức độ đau"),
+            ("spo2", 30, "SpO₂"),
+            ("respiratory_rate", 200, "Nhịp thở"),
+            ("bmi", 300, "BMI"),
+        ],
+    )
+    def test_ngoai_khoang_bi_chan_bang_cau_doc_duoc(
+        self, truong: str, gia_tri: int, chu: str
+    ) -> None:
+        # Khoảng ở đây phải KHỚP CHECK của database (20260916000003); rộng hơn
+        # là để người đo gõ xong mới bị máy chủ từ chối.
+        _, loi = rules.parse_vitals({"systolic": 120, "diastolic": 80, truong: gia_tri})
+        assert loi is not None and chu in loi
+
+    def test_spo2_va_nhip_tho_phai_la_so_nguyen(self) -> None:
+        _, loi = rules.parse_vitals({"systolic": 120, "diastolic": 80, "spo2": 98.5})
+        assert loi is not None and "số nguyên" in loi
+
+    def test_ho_so_kham_cu_cung_mang_duoc_bon_chi_so(self) -> None:
+        # Màn hồ sơ khám gửi khoá tiếng Việt; thiếu ánh xạ thì bốn ô ấy lại rơi
+        # vào JSONB như trước.
+        so = sinh_hieu_tu_ho_so(
+            {
+                "huyet_ap": "118/76",
+                "nhip_tho": 16,
+                "spo2": 98,
+                "bmi": "20.2",
+                "muc_do_dau": 0,
+            },
+            co_thai=False,
+        )
+        assert so.respiratory_rate == 16
+        assert so.spo2 == 98
+        assert str(so.bmi) == "20.2"
+        assert so.pain_score == 0

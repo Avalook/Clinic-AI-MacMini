@@ -222,8 +222,11 @@ export default async function TasksPage() {
   // Điều dưỡng (NURSE_ULTRASOUND): hỗ trợ BS nhập bệnh án (sinh hiệu + lý do khám)
   // → cùng board bác sĩ, GHI được (readOnly=false), thấy MỌI bác sĩ (allDoctors),
   // không siêu âm, không xem tóm tắt trước khám.
-  // Điều dưỡng được điền hồ sơ như bác sĩ (mở quyền 29/6): bỏ vitalsOnly.
-  if (isNurseRole(role)) return DoctorTasks(false, false, true, false, false);
+  // ĐIỀU DƯỠNG CHỈ GHI SINH HIỆU (Tuyền chốt 16/09/2026) — đảo lại quyết định
+  // 29/6 "điền hồ sơ như bác sĩ". Bệnh sử/khám/chẩn đoán là phần chịu trách
+  // nhiệm chuyên môn của bác sĩ; thư ký nhập hộ được nhưng vẫn phải bác sĩ
+  // duyệt. Backend khoá cùng chỗ: `VITALS_ONLY_EXTRA_ROLES`.
+  if (isNurseRole(role)) return DoctorTasks(false, false, true, false, true);
   // Vai vận hành: chỉ xem lịch bác sĩ, không mở popup hồ sơ lâm sàng.
   if (isTasksReadOnly(role)) {
     const isReception = role === "RECEPTION";

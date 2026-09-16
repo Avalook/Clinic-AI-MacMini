@@ -107,14 +107,22 @@ FULL_RECORD_ROLES: frozenset[ClinicRole] = frozenset(
         ClinicRole.DOCTOR,
         ClinicRole.ULTRASOUND_DOCTOR,
         ClinicRole.TKYK,
-        ClinicRole.NURSE_ULTRASOUND,
     }
 )
-VITALS_ONLY_EXTRA_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.RECEPTION})
+# ĐIỀU DƯỠNG CHỈ GHI SINH HIỆU (Tuyền chốt 16/09/2026).
+#
+# Từ 29/6 vai này được mở ghi trọn hồ sơ "như bác sĩ". Sau khi đối chiếu tài
+# liệu bàn giao chuyên môn: điều dưỡng đo sinh hiệu, còn bệnh sử — tiền sử —
+# khám — chẩn đoán là việc bác sĩ, thư ký nhập hộ thì bác sĩ vẫn phải duyệt.
+# Mở rộng hơn thế là để một người không chịu trách nhiệm chuyên môn ghi vào
+# phần chịu trách nhiệm chuyên môn.
+VITALS_ONLY_EXTRA_ROLES: frozenset[ClinicRole] = frozenset(
+    {ClinicRole.RECEPTION, ClinicRole.NURSE_ULTRASOUND}
+)
 # Roles that enter on behalf of a doctor, so the ownership check does not apply.
 ON_BEHALF_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND}
-)
+)  # ĐD vẫn ở đây: đo sinh hiệu cho khách của bác sĩ khác là việc bình thường.
 
 
 def may_write(role: ClinicRole, *, vitals_only: bool) -> bool:
@@ -173,6 +181,13 @@ KHOA_SINH_HIEU_HO_SO: dict[str, str] = {
     "nhiet_do": "temperature",
     "can_nang": "weight_kg",
     "chieu_cao": "height_cm",
+    # Bốn khoá thêm 16/09/2026. Trước đó chúng có ô nhập trên màn nhưng không
+    # được map, nên chỉ nằm lại trong JSONB của hồ sơ: không vào bảng lịch sử
+    # chỉ-thêm, không so được giữa các lần đo.
+    "nhip_tho": "respiratory_rate",
+    "spo2": "spo2",
+    "bmi": "bmi",
+    "muc_do_dau": "pain_score",
 }
 
 
@@ -645,8 +660,10 @@ class ClinicalRecordService:
             """
             INSERT INTO vital_measurement
                 (clinic_id, visit_id, systolic, diastolic, pulse, temperature,
-                 weight_kg, height_cm, recorded_by)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
+                 weight_kg, height_cm, respiratory_rate, spo2, bmi,
+                 pain_score, recorded_by)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                    $12, $13::uuid)
             """,
             identity.clinic_id,
             visit_id,
@@ -656,6 +673,10 @@ class ClinicalRecordService:
             so.temperature,
             so.weight_kg,
             so.height_cm,
+            so.respiratory_rate,
+            so.spo2,
+            so.bmi,
+            so.pain_score,
             identity.staff_id,
         )
         # KHÔNG đổi encounter_flow.vitals_status ở đây: luồng khám mới quyết

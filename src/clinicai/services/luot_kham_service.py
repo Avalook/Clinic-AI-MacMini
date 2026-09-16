@@ -1035,8 +1035,10 @@ class LuotKhamService:
                 """
                 INSERT INTO vital_measurement
                     (clinic_id, visit_id, systolic, diastolic, pulse, temperature,
-                     weight_kg, height_cm, recorded_by)
-                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
+                     weight_kg, height_cm, respiratory_rate, spo2, bmi,
+                     pain_score, recorded_by)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10,
+                        $11, $12, $13::uuid)
                 """,
                 identity.clinic_id,
                 vid,
@@ -1046,6 +1048,10 @@ class LuotKhamService:
                 vitals.temperature,
                 vitals.weight_kg,
                 vitals.height_cm,
+                vitals.respiratory_rate,
+                vitals.spo2,
+                vitals.bmi,
+                vitals.pain_score,
                 identity.staff_id,
             )
             await conn.execute(

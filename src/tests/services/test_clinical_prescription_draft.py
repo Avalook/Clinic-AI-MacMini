@@ -240,14 +240,21 @@ async def test_nurse_full_save_cannot_mutate_or_clear_live_rx(
 
 
 @pytest.mark.asyncio
-async def test_nurse_full_chart_only_save_remains_allowed() -> None:
+async def test_dieu_duong_khong_con_ghi_duoc_phan_chuyen_mon() -> None:
+    """Điều dưỡng ghi chẩn đoán → bị chặn (Tuyền chốt 16/09/2026).
+
+    Trước đó vai này lưu được trọn hồ sơ; bài kiểm cũ canh đúng điều ấy. Nay
+    điều dưỡng chỉ đo sinh hiệu, nên một lần lưu mang theo `assessment` phải
+    dừng NGAY ở cổng quyền — trước khi chạm tới đơn thuốc hay bản sửa đổi.
+    """
     service, conn = setup_service(2)
-    result = await save(
-        service,
-        identity=identity(ClinicRole.NURSE_ULTRASOUND),
-        expected_revision=2,
-        prescriptions=None,
-        assessment={"diagnosis": "Chart correction"},
-    )
-    assert result["revision"] == 3
+    with pytest.raises(SafetyGateError):
+        await save(
+            service,
+            identity=identity(ClinicRole.NURSE_ULTRASOUND),
+            expected_revision=2,
+            prescriptions=None,
+            assessment={"diagnosis": "Chart correction"},
+        )
+    conn.fetchval.assert_not_awaited()
     service._replace_prescriptions.assert_not_awaited()

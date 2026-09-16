@@ -108,7 +108,9 @@ def test_request_rejects_invalid_expected_revision(revision: Any) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "role", [ClinicRole.DOCTOR, ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND]
+    # Điều dưỡng rời danh sách 16/09/2026 — nay chỉ ghi sinh hiệu.
+    "role",
+    [ClinicRole.DOCTOR, ClinicRole.TKYK],
 )
 @pytest.mark.parametrize("expected", [None, 0, 1, 3])
 async def test_missing_or_stale_revision_rejects_before_related_writes(
