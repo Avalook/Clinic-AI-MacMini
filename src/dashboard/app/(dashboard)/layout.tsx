@@ -32,6 +32,11 @@ export default async function DashboardLayout({
   // từ chối vai này ở mọi endpoint (get_current_identity), nên vào đây cũng chỉ
   // thấy một trang lỗi — đưa thẳng ra bảng gọi số là câu trả lời đúng.
   if (role === "DISPLAY") redirect("/display");
+  // Và người NGOÀI phòng khám cũng vậy, vì cùng một lý do. Khác một điểm: vai
+  // này KHÔNG bị chặn ở /api/v1/me (dashboard cần /me để biết mình là ai), nên
+  // thiếu dòng này thì đối tác vào được khung bảng điều khiển — thanh bên trống
+  // trơn, trang chủ hỏng vặt — thay vì ra thẳng chỗ gửi kết quả.
+  if (role === "PARTNER") redirect("/doi-tac");
 
   // Identity comes from the staff row linked to the authenticated user.
   //
