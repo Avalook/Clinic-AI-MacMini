@@ -37,6 +37,48 @@ lịch sử hội thoại.
 
 ---
 
+## -0007. MỞ QUYỀN TẠM THỜI + hai lỗi ngủ đông (16/09/2026 tối)
+
+Tuyền: *"mở quyền giúp tôi, tất cả các tài khoản đều có thể thao tác đã, đừng
+bị phụ thuộc lịch khám nữa, trừ bác sĩ ra thui, tại giờ đang rối"*.
+
+**Công tắc `MO_QUYEN_TAM_THOI` — mặc định BẬT**
+
+- Tắt backend: `MO_QUYEN_TAM_THOI=0` trong `.env.prod`, khởi động lại container.
+- Tắt frontend: `NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0` — **phải DỰNG LẠI ảnh**, vì
+  Next nhét biến `NEXT_PUBLIC_*` vào mã trình duyệt lúc build. Tắt một nửa là
+  quyền lệch nhau giữa hai tầng.
+- Bộ kiểm chạy ở chế độ SIẾT (conftest + mọi lệnh `test:*`), nên 1932 bài
+  backend + 288 bài frontend vẫn canh nguyên luật gốc.
+
+**KHÔNG nới, có chủ ý:** cửa của bác sĩ (`DOCTOR_ROLES`, `NOTE_ROLES`,
+`DRAFT_ROLES`), quyền đọc bệnh án (`CLINICAL_READ_ROLES`), vai DISPLAY, vai
+PARTNER, và các màn quản trị trên thanh bên (`/portal` `/settings` `/reports`
+`/ops`).
+
+**BÀI HỌC: cửa ở router KHÔNG phải cửa thật.** Nới `_BANG_GUARD` xong mà CSKH
+và thu ngân vẫn 403 — vì `LuotKhamService.bang()` gọi `_require(...)` lần nữa.
+Luật nghiệp vụ nằm trong hàm dịch vụ (CLAUDE.md), nên đó mới là cửa. Nhìn cửa
+ở router thì thấy hoàn toàn đúng.
+
+**Hai lỗi ngủ đông mà việc mở quyền lôi ra**
+
+1. `/cskh/man-khach-hang` trả **500 cho MỌI vai**. Kiểu trả về khai
+   `dict[str, list[dict]]`, nhưng khối `tuan_cong_bo` là danh sách CHUỖI.
+   Rỗng thì hợp lệ với mọi kiểu — nên lỗi ngủ cho tới đúng hôm có tuần lịch
+   trực được công bố. Trên màn chỉ hiện "Không đọc được dữ liệu chăm sóc".
+2. `_DANH_SACH_GUARD` thiếu `TRUONG_CA`, trong khi có đủ mười vai còn lại và
+   trưởng ca vẫn tạo/sửa được hồ sơ qua hai cửa ngay trên nó. Sót, không phải luật.
+
+**Đã đo lại trên final cloud sau khi vá:** 7/7 vai thấy đủ 19 lượt · điều dưỡng
+bất kỳ ghi được sinh hiệu (200) · 4 vai đọc được màn Quản lý khách hàng, kèm
+đúng khối `tuan_cong_bo` từng làm nổ 500.
+
+⚠️ Công tắc này là TẠM. Máy chủ kêu `mo_quyen_tam_thoi_dang_bat` mức WARNING
+mỗi lần khởi động — đừng hạ mức, đó là thứ duy nhất giữ nó khỏi thành vĩnh viễn.
+
+---
+
 ## -0006. Lịch Kim Ngưu: dữ liệu thật đã vào, FORM thì CHƯA (16/09/2026 chiều)
 
 Tuyền gửi `[Dr4women] PK Kim Ngưu - Lịch làm việc nhân sự theo tuần.xlsx` + trang
