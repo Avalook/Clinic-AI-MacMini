@@ -140,9 +140,21 @@ async def kiem_khach(
 
 async def pham_vi(pool: asyncpg.Pool, identity: StaffIdentity) -> dict[str, Any]:
     """Cho màn hình: người gọi có phải thư ký không, đi cùng bác sĩ nào."""
-    bac_si = await bac_si_cua_thu_ky(pool, identity)
-    if bac_si is None:
+    # ĐỌC PHÂN CÔNG THẬT, KHÔNG QUA CÔNG TẮC MỞ QUYỀN (17/09/2026). Công tắc
+    # làm `bac_si_cua_thu_ky` trả None ("không lọc"), và màn hình đọc None thành
+    # "chưa được phân bác sĩ nào" — thư ký đã gắn BS Thành vẫn bị báo lỗi.
+    # Công tắc chỉ nới QUYỀN; câu trả lời "đi cùng bác sĩ nào" vẫn là dữ liệu.
+    if not identity.co_vai({ClinicRole.TKYK}):
         return {"la_thu_ky": False, "bac_si": []}
+    bac_si = (
+        await pool.fetchval(
+            "SELECT array_agg(bac_si_staff_id::text) FROM public.thu_ky_bac_si"
+            " WHERE clinic_id = $1::uuid AND thu_ky_staff_id = $2::uuid",
+            identity.clinic_id,
+            identity.staff_id,
+        )
+        or []
+    )
     rows = await pool.fetch(
         "SELECT s.id::text AS id, s.full_name FROM public.staff s"
         "  JOIN public.clinic_membership m"
