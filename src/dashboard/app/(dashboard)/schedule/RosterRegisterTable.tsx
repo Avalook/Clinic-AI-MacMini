@@ -1,9 +1,10 @@
 "use client";
 
-// "Đăng ký / xếp ca" — bảng MA TRẬN tương tác (ngày × trạm, gom theo tầng, mỗi
-// ngày HAI HÀNG CON), CÙNG layout với hai bảng chỉ-đọc ở trên. Khác ở chỗ:
-//   - Click 1 ô → popup: quản lý CHỌN NGƯỜI + chọn ca rồi xếp vào đúng trạm +
-//     đúng ngày; nhân viên (nếu về sau mở lại) chỉ tự đăng ký ca của mình.
+// "Đăng ký / xếp ca" — bảng MA TRẬN tương tác, CÙNG form với hai bảng chỉ-đọc:
+// form Excel của PK Kim Ngưu, hàng = Tầng → Phòng → Vị trí, cột = ngày × ca.
+// Khác ở chỗ:
+//   - Click 1 ô → popup: quản lý CHỌN NGƯỜI rồi xếp vào đúng vị trí, đúng
+//     ngày, và đúng CA CỦA CỘT vừa bấm (chọn lại ca khác được trong popup).
 //   - Ô trống có dấu "+"; ô đã có người hiện tên + ca.
 // Ghi qua /api/roster (POST xếp, DELETE gỡ) rồi router.refresh().
 
@@ -14,13 +15,18 @@ import {
   STATION_LABEL,
   SHIFTS,
   SHIFT_LABEL,
-  chiaHaiHang,
+  cotCuaTuan,
   demBacSiTruc,
   dayShort,
   fmtDayMonth,
   type Shift,
 } from "../../../lib/roster";
-import { RosterGridHead, RosterDayRows, O_TREN, O_DUOI } from "../RosterGrid";
+import {
+  RosterGridHead,
+  RosterViTriRows,
+  RosterLichKhamRows,
+  O_TREN,
+} from "../RosterGrid";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 export interface RegisterRow {
@@ -65,7 +71,6 @@ function cellKey(date: string, station: string) {
 
 export default function RosterRegisterTable({
   weekStart,
-  dates,
   rows,
   myStaffId,
   myStaffName,
@@ -90,7 +95,11 @@ export default function RosterRegisterTable({
   const router = useRouter();
   const dialogTitleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<{ date: string; station: string } | null>(null);
+  const [open, setOpen] = useState<{
+    date: string;
+    station: string;
+    shift: Shift;
+  } | null>(null);
   const [shift, setShift] = useState<Shift>("FULL");
   const [pickedId, setPickedId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +176,13 @@ export default function RosterRegisterTable({
     byCell.set(k, list);
   }
 
-  const openCellRows = open ? byCell.get(cellKey(open.date, open.station)) ?? [] : [];
+  // Một ô = vị trí × ngày × CA. Người trực CẢ NGÀY thuộc về mọi ca của ngày
+  // ấy — không tính họ vào thì bảng nói ca Tối trống trong khi có người đứng.
+  const cuaCa = (list: RegisterRow[], ca: Shift) =>
+    list.filter((r) => r.shift === ca || r.shift === "FULL");
+  const openCellRows = open
+    ? cuaCa(byCell.get(cellKey(open.date, open.station)) ?? [], open.shift)
+    : [];
   // "Đã đăng ký" chỉ tính ca ĐANG hiệu lực (Đã xếp) của mình. Ca bị gỡ không
   // tính → cho phép xếp lại ô đó.
   const myHere = openCellRows.find(
@@ -191,11 +206,14 @@ export default function RosterRegisterTable({
       })
     : [];
 
-  function moO(date: string, station: string) {
+  function moO(date: string, station: string, ca: Shift) {
     setError(null);
-    setShift("FULL");
+    // Chọn sẵn ĐÚNG ca của cột vừa bấm. Bản cũ luôn chọn sẵn "Cả ngày" vì bảng
+    // cũ không có cột theo ca — giữ vậy thì bấm vào cột Tối rồi lưu là xếp
+    // người ấy vào cả Sáng lẫn Chiều mà không ai để ý.
+    setShift(ca);
     setPickedId("");
-    setOpen({ date, station });
+    setOpen({ date, station, shift: ca });
   }
 
   /** Quản lý xếp NGƯỜI ĐƯỢC CHỌN; vai khác tự đăng ký chính mình. */
@@ -328,58 +346,67 @@ export default function RosterRegisterTable({
     refresh();
   }
 
+  const cot = cotCuaTuan(weekStart, effRows);
+
+  const oCuaBang = (station: string, date: string, ca: Shift, dauNgay: boolean) => {
+    const list = cuaCa(byCell.get(cellKey(date, station)) ?? [], ca);
+    return (
+      <td className={`${O_TREN} p-0 ${dauNgay ? "border-l border-l-line" : ""}`}>
+        <button
+          type="button"
+          onClick={() => moO(date, station, ca)}
+          aria-label={`${STATION_LABEL[station] ?? station} · ${dayShort(date)} ${fmtDayMonth(date)} · ${SHIFT_LABEL[ca]}`}
+          className="flex h-full min-h-8 w-full flex-col gap-0.5 px-1.5 py-1 text-center transition-colors hover:bg-brand-50"
+        >
+          {list.length === 0 ? (
+            <span className="text-brand-200">+</span>
+          ) : (
+            list.map((r) => {
+              const b = STATUS_BADGE[r.status];
+              return (
+                <span
+                  key={r.id}
+                  className={
+                    "block whitespace-nowrap rounded px-1 leading-snug " +
+                    b.cls +
+                    (r.status === "REJECTED" ? " line-through" : "") +
+                    (r.staff_id === myStaffId ? " ring-1 ring-brand-600/40" : "")
+                  }
+                  title={`${b.label}${r.reject_reason ? " — " + r.reject_reason : ""}${
+                    r.shift === "FULL" ? " · trực cả ngày" : ""
+                  }`}
+                >
+                  {r.staff_name}
+                </span>
+              );
+            })
+          )}
+        </button>
+      </td>
+    );
+  };
+
   return (
     <>
       <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
-          <RosterGridHead minWidth={104} />
+          <RosterGridHead cot={cot} minWidth={112} />
           <tbody>
-            {dates.map((d, ri) => (
-              <RosterDayRows
-                key={d}
-                nhan={`${dayShort(d)} · ${fmtDayMonth(d)}`}
-                soBacSi={demBacSiTruc(
+            <RosterLichKhamRows
+              cot={cot}
+              demBacSi={(c) =>
+                demBacSiTruc(
                   effRows.filter((r) => r.status !== "REJECTED"),
-                  d,
-                )}
-                vach={ri % 2 ? "bg-surface-muted" : "bg-surface"}
-                oCua={(s, hang) => {
-                  const list = chiaHaiHang(byCell.get(cellKey(d, s.key)) ?? [])[hang];
-                  return (
-                    <td className={(hang === 0 ? O_TREN : O_DUOI) + " p-0"}>
-                      <button
-                        type="button"
-                        onClick={() => moO(d, s.key)}
-                        className="flex h-full min-h-[30px] w-full flex-col gap-0.5 px-1.5 py-1 text-center transition-colors hover:bg-brand-50"
-                      >
-                        {list.length === 0 ? (
-                          <span className="text-brand-200">+</span>
-                        ) : (
-                          list.map((r) => {
-                            const b = STATUS_BADGE[r.status];
-                            return (
-                              <span
-                                key={r.id}
-                                className={
-                                  "block whitespace-nowrap rounded px-1 leading-snug " +
-                                  b.cls +
-                                  (r.status === "REJECTED" ? " line-through" : "") +
-                                  (r.staff_id === myStaffId ? " ring-1 ring-brand-600/40" : "")
-                                }
-                                title={`${b.label}${r.reject_reason ? " — " + r.reject_reason : ""}`}
-                              >
-                                {r.staff_name}
-                                {r.shift !== "FULL" ? ` (${SHIFT_LABEL[r.shift]})` : ""}
-                              </span>
-                            );
-                          })
-                        )}
-                      </button>
-                    </td>
-                  );
-                }}
-              />
-            ))}
+                  c.date,
+                  c.shift,
+                )
+              }
+              oCua={(s, c) => oCuaBang(s.key, c.date, c.shift, c.dauNgay)}
+            />
+            <RosterViTriRows
+              cot={cot}
+              oCua={(s, c) => oCuaBang(s.key, c.date, c.shift, c.dauNgay)}
+            />
           </tbody>
         </table>
       </div>

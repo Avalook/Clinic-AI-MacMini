@@ -8,7 +8,10 @@ const read = (path: string): string =>
 const sources = {
   lead: read("../app/(dashboard)/truong-ca/page.tsx"),
   schedule: read("../app/(dashboard)/schedule/page.tsx"),
-  official: read("../app/(dashboard)/schedule/OfficialRosterTable.tsx"),
+  // Bảng lịch chính thức giờ chỉ là một dòng gọi sang bảng trang chủ (16/09/2026,
+  // xem OfficialRosterTable.tsx). Khung cuộn ngang thật nằm ở ĐÓ — đọc tệp vỏ
+  // thì bài kiểm đỏ oan, còn nới bài kiểm thì mất luôn thứ nó canh.
+  official: read("../app/(dashboard)/home/WorkRosterTable.tsx"),
   register: read("../app/(dashboard)/schedule/RosterRegisterTable.tsx"),
   // WeekKanban.tsx và schedule/edit/* đều đã bị xoá (commit 410c989, 09/08/2026:
   // hai màn cùng ghi vào một bảng lịch trực). Đường ghi /api/roster mà `editor`
