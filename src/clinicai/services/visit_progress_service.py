@@ -74,7 +74,11 @@ class VisitProgress:
 _PROGRESS_SQL = """
     SELECT a.id::text                       AS appointment_id,
            v.visit_id::text                 AS visit_id,
-           COALESCE(cr.vitals_recorded, FALSE) AS vitals_recorded,
+           -- Sinh hiệu điều dưỡng đo ở màn Đo sinh hiệu nằm ở encounter_flow /
+           -- vital_measurement, KHÔNG ở bệnh án (17/09/2026: đo xong Trang chủ
+           -- vẫn đòi "Điền sinh hiệu"). Bệnh án là nguồn dự phòng cho lượt cũ.
+           (COALESCE(ef.vitals_status = 'recorded', FALSE)
+            OR COALESCE(cr.vitals_recorded, FALSE)) AS vitals_recorded,
            (cr.visit_id IS NOT NULL)        AS has_clinical_record,
            COALESCE(rx.has_prescription, FALSE) AS has_prescription,
            COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds,
@@ -107,6 +111,8 @@ _PROGRESS_SQL = """
            WHERE r.visit_id = v.visit_id
            GROUP BY r.visit_id
       ) cr ON TRUE
+      LEFT JOIN encounter_flow ef
+        ON ef.visit_id = v.visit_id AND ef.clinic_id = a.clinic_id
       LEFT JOIN LATERAL (
           SELECT min(c.started_at) AS started_at
             FROM consultation c

@@ -33,7 +33,7 @@ import {
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass } from "@/components/ui/Chip";
-import Button from "@/components/ui/Button";
+import { buttonClass } from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 import NutCheckIn from "@/components/ui/NutCheckIn";
@@ -586,13 +586,17 @@ export default function WeeklyAppointmentsTable({
                                       </span>
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <Button
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={() => setSelAppt(a)}
-                                        >
-                                          Điền sinh hiệu
-                                        </Button>
+                                        {/* ĐO Ở MÀN ĐO SINH HIỆU (17/09/2026). Biểu mẫu cũ
+                                            trong bảng này ghi vào bệnh án chứ không vào
+                                            vital_measurement, nên đo ở đây thì hàng chờ bác
+                                            sĩ không mở và cờ "đã đo" không bao giờ bật. */}
+                                        {a.has_vitals ? (
+                                          <span className={chipClass("success")}>Đã đo sinh hiệu</span>
+                                        ) : (
+                                          <Link href="/do-sinh-hieu" className={buttonClass("primary", "sm")}>
+                                            Đo sinh hiệu
+                                          </Link>
+                                        )}
                                         {a.status === "COMPLETED" && (
                                           <NutInPhieu href={`/print/${a.id}`} />
                                         )}
