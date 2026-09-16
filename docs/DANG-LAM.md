@@ -37,6 +37,15 @@ lịch sử hội thoại.
 
 ---
 
+## -0016. Sửa cho demo 17/09 6h — kịch bản trọn vòng 48/48 trên final cloud (04:18)
+
+- Bàn khám gắn form bệnh án cũ (chẩn đoán, lời dặn, ĐƠN THUỐC thư ký nhập → bác sĩ duyệt), tự tải lại realtime; nút bác sĩ "Xác nhận & ký · khám xong". Đồng hồ "tổng từ check-in" + nhãn "Quay lại đọc KQ" (hang_cho trả `checkin_luc`, `vong`).
+- Phòng dịch vụ: ĐD/thư ký đi kèm (`HO_TRO_PHONG`) gọi, Bắt đầu, Xong; bác sĩ bấm Xong được ghi performed_by. `_require` so tập vai bằng `is` (PERFORMER_ROLES trùng khít CLINICAL_READ_ROLES đã làm công tắc mở quyền nới nhầm quyền đọc bệnh án).
+- `_cap_nhat_vi_tri`: luồng mới dời `visit.current_node_code/current_room_id` (trưởng ca, TV, đóng lượt đọc) — trước đó mọi lượt kẹt ở "Đo chỉ số".
+- Bác sĩ ký khám xong hẳn (NO_SERVICES/DONE, không còn chỉ định dở) → appointment COMPLETED + exam_completed_at → quầy thu tiền được.
+- Script: scratchpad `kich-ban-demo.py` (tạo "Khách Demo HHMM", chạy lễ tân→đo→thư ký/BS→thủ thuật→SA→quay lại BS→thu tiền→check-out→CSKH). 5 lượt demo đã đóng (đổi trạng thái, lý do "Dữ liệu chạy thử kịch bản demo 17/09").
+- CÒN: bảng giá 1/39 dịch vụ có giá → màn thu tiền chặn "chưa có giá"; số thứ tự chưa đổi theo kéo thả VIP; Đo sinh hiệu chưa có nút "Gọi vào đo"; chưa bấm thử giao diện trên trình duyệt thật.
+
 ## -0015. Không giới hạn dung lượng tệp + CSKH xem/tải PDF hồ sơ khám (16/09/2026 đêm) — edd6b3c · c82d77b · aff7bcf, ĐÃ LÊN FINAL CLOUD
 
 **Tải tệp không giới hạn (Tuyền chốt):**
