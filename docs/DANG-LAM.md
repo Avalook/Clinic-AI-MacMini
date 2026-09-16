@@ -37,6 +37,33 @@ lịch sử hội thoại.
 
 ---
 
+## -0013. Một đường dữ liệu + màn theo phòng + thanh bên nhóm theo vai (16/09/2026 đêm) — 874ebf9 · ce3cad6 · c9d8e40, ĐÃ LÊN FINAL CLOUD
+
+Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm theo vai · cơ sở Kim Ngưu · lấy mẫu XN tuỳ loại (ĐD hoặc đối tác) · lễ tân kiêm thu ngân + kho thuốc · check-in/out phòng = bác sĩ/thư ký bấm Bắt đầu / Đã khám xong · **thủ thuật do BÁC SĨ làm** · ô tải và ô xem tệp là một · ĐD siêu âm cũng bấm Bắt đầu được.
+
+**Đo trước khi sửa:** 3–4 đường chỉ định song song — payload thẻ việc (0 dòng), `service_log` (0 dòng, nhưng /sono /service-queue và THU NGÂN đọc nó), `lab_result`/`ultrasound_record` (hồ sơ /tasks ghi), `service_order` (8 dòng thật, chỉ màn ẩn ghi). Phòng siêu âm đọc thẻ việc nên không thấy 6 chỉ định SA.
+
+**Máy chủ:**
+- Migration 20260917000001: 12 phòng `KN-*` + phòng `KN-DOITAC` (la_doi_tac); 26 vị trí lịch nối phòng; tắt bộ phòng mẫu cũ; `DICHVU-THUTHUAT` chỉ DOCTOR; `service_price.doi_tac_lay_mau`; `tep_ket_qua.service_order_id`; `service_order.ket_qua_luc/bac_si_danh_gia/duyet_luc/duyet_boi`.
+- Duyệt chỉ định → TỰ xếp phòng (ưu tiên phòng có người trong lịch hôm nay, rồi ít chờ; bỏ qua việc đối tác tự lấy và phòng đối tác).
+- `GET /luot-kham/phong-hom-nay`, `GET /luot-kham/hang-cho?phong=`, `POST consultations/{id}/kham-xong` (tự chọn outcome), `GET /luot-kham/ket-qua-cho-duyet`, `POST orders/{id}/duyet-ket-qua`, `POST /doi-tac/viec/{id}/da-lay-mau`.
+- Thư ký đi kèm bấm Bắt đầu/Kết thúc cho bác sĩ mình (duyệt vẫn chỉ bác sĩ).
+- Thu ngân đọc `service_order` (giá theo mã), hiện khách khi phiên khám chính xong.
+- Lễ tân: vào bảng thu ngân, ghi thanh toán (cả 2 loại), kho thuốc, tra giá (không sửa giá).
+- Danh sách tệp kết quả mở cho mọi vai tải lên được (trước chỉ vai tiếp nhận → bác sĩ tải xong không thấy).
+
+**Giao diện:** `/ban-kham[/KN-…]` (bố cục Bàn khám bác sĩ Tuyền chọn), `/phong/KN-…` (siêu âm/thủ thuật/lấy mẫu), `/duyet-ket-qua`, bàn đối tác 2 trạng thái, ô `KhungTep` (kéo thả + xem ảnh/video/PDF tại chỗ). Thanh bên: nhóm Bác sĩ · Bác sĩ siêu âm · Thư ký · Điều dưỡng · Lễ tân · Trưởng ca. Gỡ thân màn: /doctor/board, /kham/*, /doctor/orders, /sono, /sieu-am, /service-queue, /lab-queue, /result-review, /luot-kham (chỉ còn chuyển hướng).
+
+**Thử thật trên final cloud (API, tài khoản thật):** BS Hằng thấy Trịnh Bảo Ngọc (STT 7) → Bắt đầu → duyệt SA + CFTR → tự vào Phòng siêu âm tầng 1 + Lấy mẫu → Khám xong (SERVICES) → BS SA Giáp Bắt đầu, gửi ảnh, Xong → ĐD Diễm Thuý lấy mẫu → đối tác thấy "Đã lấy mẫu", gửi kết quả → BS Hằng thấy 2 kết quả, phê duyệt → lễ tân Hải Yến mở thu ngân thấy 3 dòng. 20/20 bước 200/201. **Chưa bấm thử trên giao diện** (Claude không đăng nhập app được).
+
+**CÒN LẠI (chưa làm, cố ý):**
+1. Bảng giá gần như trống → dòng thu tiền ra `None`.
+2. Phiếu siêu âm phụ khoa có ô cấu trúc (`sieu-am/KetQuaPhuKhoa.tsx`) chưa nối vào Phòng siêu âm — hiện ô mô tả tự do + tệp.
+3. `/tasks` (Công việc của tôi, 4 màn trong 1), `ClinicalRecordForm` còn nút chỉ định XN đường cũ; `/patient-list` vs `/customers`; `/cskh-tasks` + `/nhac-tai-kham` + `/episodes` — chưa gộp.
+4. Thu tiền dịch vụ và Check-out vẫn 2 mục; Cấp thuốc (/pharmacy) và Thu tiền thuốc 2 mục.
+5. API đường cũ (`/api/sono`, `/api/service-log`) còn nhưng không màn nào gọi.
+6. Danh sách XN nào đối tác tự lấy: chưa có màn cấu hình để quản lý tích (cột đã có).
+
 ## -0012. Tệp kết quả lưu trên Viettel Cloud File Storage (16/09/2026 khuya) — commit a6ef82b
 
 Tuyền: *"mình cần lưu vào viettel file storage"*. Trước đó tệp nằm trên ổ VPS, Viettel chỉ nhận bản sao lưu 02:15.
