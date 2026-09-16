@@ -31,34 +31,30 @@ test("the reception queue keeps the reference design's three working regions", (
   assert.doesNotMatch(maThucThi, /Chưa có: điều phối quầy/);
 });
 
-test("the queue list provides the documented navigation and finding controls", () => {
-  for (const label of [
-    "Tất cả",
-    "Ưu tiên",
-    "Cần xác minh",
-    "Tìm tên, mã BN hoặc số thứ tự",
-    "Bộ lọc",
-    "Sắp xếp",
-  ]) {
-    assert.match(board, new RegExp(label));
+test("danh sách hàng đợi chỉ còn ô tìm — không tab, không bộ lọc", () => {
+  // Tuyền 16/09/2026: bỏ tab "Khách ưu tiên" (dấu sao trên từng dòng đã nói),
+  // bỏ "Cần xác minh" (nó dò một mã bước viết cứng), bỏ hai ô "Bộ lọc" /
+  // "Sắp xếp" — hàng đợi chỉ có MỘT thứ tự đúng là thứ tự gọi khám, cho đổi
+  // cách xếp là tạo ra một cái nhìn không khớp với thứ tự thật.
+  assert.match(board, /Tìm tên, mã BN hoặc số thứ tự/);
+  for (const daBo of ["Khách ưu tiên", "Cần xác minh", "Bộ lọc", "Sắp xếp"]) {
+    assert.doesNotMatch(maThucThi, new RegExp(daBo), `"${daBo}" đáng lẽ đã bỏ`);
   }
+  // Dấu sao ưu tiên PHẢI còn — nó là thứ thay cho cái tab vừa bỏ.
+  assert.match(board, /item\.khach_uu_tien/);
 });
 
-test("trạng thái chỉ còn HAI bước, và cả hai đều có dữ liệu thật", () => {
-  // Bản trước có năm bước, ba trong số đó không bao giờ đổi trạng thái vì
-  // không có dữ liệu đứng sau: "Đã gán quầy — chưa có dữ liệu quầy", "Gọi bệnh
-  // nhân — chưa có mốc gọi số", "Hoàn tất tiếp nhận". Ba vòng tròn xám vĩnh
-  // viễn không kể được điều gì, chỉ dạy người dùng bỏ qua cả thanh trạng thái.
-  assert.match(board, /"Check-in"/);
-  assert.match(board, /"Gọi vào khám"/);
-
-  for (const buocDaBo of ["Đã gán quầy", "Xác nhận có mặt", "Hoàn tất tiếp nhận"]) {
-    assert.doesNotMatch(maThucThi, new RegExp(buocDaBo));
+test("panel bệnh nhân: MỘT mốc giờ, không thanh bước", () => {
+  // Tuyền 16/09/2026: *"check-in đồng nghĩa là thời điểm vào hàng đợi rồi mà"*.
+  // Ba dòng "Thời điểm đến / Vào hàng đợi lúc / Bắt đầu xử lý" kể gần như cùng
+  // một chuyện; mốc bắt đầu khám là thời gian CON trong khoảng check-in →
+  // check-out. Thanh bước hai vòng tròn cũng đi theo: nó chỉ vẽ lại đúng hai
+  // thứ mà dòng "Check-in" và nút "Vào khám" đã nói.
+  assert.match(board, /label="Check-in"/);
+  for (const daBo of ["Thời điểm đến", "Vào hàng đợi lúc", "Trạng thái xử lý", "Stepper"]) {
+    assert.doesNotMatch(maThucThi, new RegExp(daBo), `"${daBo}" đáng lẽ đã bỏ`);
   }
-
-  // Cả hai bước phải đọc từ dữ liệu thật, không phải hằng số.
   assert.match(board, /item\.checked_in_at/);
-  assert.match(board, /item\.status === "IN_PROGRESS"/);
 });
 
 test("hành động ở quầy nói đúng việc Lễ tân thật sự làm", () => {
@@ -77,10 +73,17 @@ test("hành động ở quầy nói đúng việc Lễ tân thật sự làm", (
     assert.doesNotMatch(maThucThi, new RegExp(nhanCu));
   }
 
-  assert.match(board, /Xong tiếp nhận — mời vào khám/);
+  // MỘT NÚT "VÀO KHÁM" thay cho cặp "Bắt đầu xử lý" + "Xong tiếp nhận" (Tuyền
+  // 16/09/2026) — ở quầy hai nút ấy luôn bấm liền nhau. Nhưng vẫn gửi ĐỦ hai
+  // lệnh xuống kernel: bỏ lệnh `complete` là bước tiếp nhận không bao giờ đóng
+  // và khách kẹt ở quầy.
+  assert.match(board, /"Vào khám"/);
+  assert.match(maThucThi, /issue\("start", v\)/);
+  assert.match(maThucThi, /issue\("complete", v\)/);
+  for (const daBo of ["Xong tiếp nhận", "Bắt đầu xử lý"]) {
+    assert.doesNotMatch(maThucThi, new RegExp(daBo));
+  }
   assert.doesNotMatch(maThucThi, /issue\("skip"/);
-  assert.match(board, /tab === "verify" && item\.node_code === "LUOTKHAM-02"/);
-  assert.match(board, /"Bắt đầu xử lý"/);
   assert.match(board, /filtered\.find\(\(item\) => item\.id === selectedId\) \?\?/);
 });
 

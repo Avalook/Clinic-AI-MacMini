@@ -7,16 +7,14 @@
  * this file.
  */
 
-import { Hourglass, ShieldCheck, UsersRound, Activity } from "lucide-react";
+import { Hourglass, UsersRound, Activity } from "lucide-react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { requireNavAccess } from "@/lib/clinic-session";
-import { waitedMinutes } from "@/lib/worklist";
 import { fetchWorklist } from "@/lib/worklist-server";
 import { isOverdue } from "@/lib/work-item-status";
 
 import QueueBoard from "./QueueBoard";
-import ThuTuKham from "./ThuTuKham";
 import LiveBoardSync from "../../LiveBoardSync";
 
 export const metadata = { title: "Hàng đợi tiếp nhận · ClinicAI" };
@@ -69,12 +67,6 @@ export default async function ReceptionQueuePage() {
               icon={<Activity size={23} />}
             />
             <StatCard
-              label="Cần xác minh"
-              value={result.items.filter((i) => i.node_code === "LUOTKHAM-02").length}
-              tone="warning"
-              icon={<ShieldCheck size={23} />}
-            />
-            <StatCard
               label="Quá SLA"
               value={result.items.filter((i) => isOverdue(i)).length}
               tone="danger"
@@ -82,15 +74,10 @@ export default async function ReceptionQueuePage() {
             />
           </StatRow>
 
-          {/* Thứ tự khám thật (theo giờ check-in, lễ tân kéo tay được). */}
-          <ThuTuKham />
-
-          {/* Longest wait first among equal priorities — the desk's real order. */}
-          <QueueBoard
-            items={[...result.items].sort(
-              (a, b) => waitedMinutes(b) - waitedMinutes(a),
-            )}
-          />
+          {/* Thứ tự do QueueBoard tự xếp theo `call_order` của backend — cùng
+              nguồn với bảng gọi số, và chính nó là thứ lễ tân kéo. Xếp sẵn ở
+              đây theo "chờ lâu nhất" chỉ tạo một thứ tự thứ hai. */}
+          <QueueBoard items={result.items} />
         </>
       )}
     </main>

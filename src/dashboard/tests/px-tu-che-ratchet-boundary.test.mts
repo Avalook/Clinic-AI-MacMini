@@ -28,7 +28,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 // ── TRẦN — chỉ được sửa XUỐNG (trừ PR riêng đổi thang theo Kỷ luật điều 3) ──
-const TRAN = 102; // hạ 289→102: Màn 4 quét toàn cục cỡ chữ + vạch 3px (Bước 4)
+const TRAN = 101; // 289→102 (Màn 4: cỡ chữ + vạch 3px) → 101 khi màn hàng đợi bỏ bảng "Thứ tự khám" (16/09/2026)
 
 const GOC = new URL("..", import.meta.url).pathname;
 const MAU_PX = /\[[^\][]*\dpx[^\][]*\]/g;
