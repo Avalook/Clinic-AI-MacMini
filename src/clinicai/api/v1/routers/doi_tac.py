@@ -29,11 +29,12 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, Request
 
 from clinicai.api.identity import StaffIdentity, get_partner_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.nhan_tep_luong import TepDaNhan
 
 router = APIRouter()
 
@@ -71,8 +72,7 @@ async def da_lay_mau(
 
 @router.post("/doi-tac/ket-qua", status_code=201)
 async def gui_ket_qua(
-    chi_dinh_id: UUID = Form(...),
-    file: UploadFile = File(...),
+    request: Request,
     identity: StaffIdentity = Depends(get_partner_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -83,9 +83,26 @@ async def gui_ket_qua(
     họ gửi được tệp cho BẤT KỲ AI — chỉ cần đoán đúng một mã. Ở đây họ chỉ nói
     được "kết quả của việc này", còn việc ấy thuộc về ai là do hệ thống tra ra.
     """
-    from clinicai.api.v1.routers.cskh import _nguon_upload
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    # Thân chảy thẳng vào kho; quyền đối tác đã kiểm trước khi đọc byte nào.
+    truong, tep = await nhan_multipart(request)
+    try:
+        return await _gui_ket_qua(pool, identity, truong, tep)
+    finally:
+        tep.duong.unlink(missing_ok=True)
+
+
+async def _gui_ket_qua(
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    truong: dict[str, str],
+    tep: TepDaNhan,
+) -> dict[str, Any]:
+    from clinicai.services.nhan_tep_luong import uuid_hoac_loi
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
+    chi_dinh_id = uuid_hoac_loi(truong.get("chi_dinh_id"), "Mã chỉ định", bat_buoc=True)
     async with pool.acquire() as conn:
         o = await conn.fetchrow(
             """
@@ -107,12 +124,11 @@ async def gui_ket_qua(
         # — nói rõ hơn là để người ngoài dò xem mã nào tồn tại.
         raise SafetyGateError("Không tìm thấy việc này trong danh sách của bạn.")
 
-    nguon = await _nguon_upload(file)
     return await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=o["clinic_patient_id"],
-        nguon=nguon,
-        ten_hien_thi=file.filename,
+        tep_da_nhan=tep,
+        ten_hien_thi=tep.ten,
         appointment_id=o["appointment_id"],
         service_order_id=str(chi_dinh_id),
     )

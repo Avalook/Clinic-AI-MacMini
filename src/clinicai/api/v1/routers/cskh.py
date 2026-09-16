@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import date, time
-from typing import Any, BinaryIO, Literal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -31,11 +31,6 @@ from clinicai.services.cskh_service import (
     clinic_today,
 )
 from clinicai.services.man_khach_hang_service import ManKhachHangService
-from clinicai.services.media_service import (
-    KET_QUA_VIDEO_UPLOAD_ENABLED,
-    sniff_ket_qua,
-    vuot_tran,
-)
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 from clinicai.services.tuong_tac_cskh_service import (
@@ -71,9 +66,6 @@ _MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
 )
-
-_UPLOAD_SNIFF_BYTES = 512
-_UPLOAD_CHUNK_BYTES = 64 * 1024
 
 
 @router.get("/cskh/man-khach-hang")
@@ -119,33 +111,6 @@ async def man_khach_hang(
     return await ManKhachHangService(pool).goi_du_lieu(
         clinic_id=identity.clinic_id, ids=danh_sach
     )
-
-
-async def _nguon_upload(file: UploadFile) -> BinaryIO:
-    """Kiểm ĐẦU tệp rồi trả luồng đọc — KHÔNG nạp cả tệp vào RAM.
-
-    Tệp kết quả không còn trần dung lượng (Tuyền 16/09/2026). Bản trước gom mọi
-    khúc vào một `bytes` rồi mới ghi: một video 2GB là 2GB RAM trong container
-    API giới hạn 2GB. Starlette đã cất thân multipart ra tệp tạm (TMPDIR), nên ở
-    đây chỉ đọc vài KB đầu để biết kiểu thật, rồi trao luồng cho service ghi dần.
-    """
-    head = await file.read(_UPLOAD_SNIFF_BYTES)
-    if not head:
-        raise ValidationError("Tệp rỗng.")
-    _mime, _ext, loai = sniff_ket_qua(head)
-    if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
-        raise ValidationError(
-            "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
-        )
-    nguon = file.file
-    nguon.seek(0, 2)
-    tran = vuot_tran(loai, nguon.tell())
-    if tran is not None:
-        raise ValidationError(
-            f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
-        )
-    nguon.seek(0)
-    return nguon
 
 
 class CskhActionRequest(BaseModel):
@@ -570,29 +535,42 @@ _TEP_TAI_LEN_GUARD = require_role(
 
 @router.post("/cskh/ket-qua/tep", status_code=201)
 async def tai_len_ket_qua(
-    clinic_patient_id: UUID = Form(...),
-    file: UploadFile = File(...),
-    appointment_id: UUID | None = Form(default=None),
-    service_order_id: UUID | None = Form(default=None),
+    request: Request,
     identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Tải một tệp kết quả lên.
+    """Tải một tệp kết quả lên (multipart: file, clinic_patient_id,
+    [appointment_id], [service_order_id]).
 
+    Thân request chảy THẲNG vào kho (không giới hạn dung lượng — xem
+    `nhan_tep_luong`). Quyền được kiểm trước khi đọc byte nào của thân.
     Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
     Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
     """
+    from clinicai.services.nhan_tep_luong import nhan_multipart, uuid_hoac_loi
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    nguon = await _nguon_upload(file)
-    return await TepKetQuaService(pool).tai_len(
-        identity=identity,
-        clinic_patient_id=str(clinic_patient_id),
-        nguon=nguon,
-        ten_hien_thi=file.filename,
-        appointment_id=str(appointment_id) if appointment_id else None,
-        service_order_id=str(service_order_id) if service_order_id else None,
-    )
+    truong, tep = await nhan_multipart(request)
+    try:
+        return await TepKetQuaService(pool).tai_len(
+            identity=identity,
+            clinic_patient_id=str(
+                uuid_hoac_loi(
+                    truong.get("clinic_patient_id"), "Mã khách", bat_buoc=True
+                )
+            ),
+            tep_da_nhan=tep,
+            ten_hien_thi=tep.ten,
+            appointment_id=uuid_hoac_loi(
+                truong.get("appointment_id"), "Mã lịch hẹn", bat_buoc=False
+            ),
+            service_order_id=uuid_hoac_loi(
+                truong.get("service_order_id"), "Mã chỉ định", bat_buoc=False
+            ),
+        )
+    finally:
+        # Đã đổi tên về chỗ ở thật thì tệp tạm không còn; bị từ chối thì dọn.
+        tep.duong.unlink(missing_ok=True)
 
 
 #: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được

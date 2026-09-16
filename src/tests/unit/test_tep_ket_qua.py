@@ -251,44 +251,209 @@ async def test_khong_upload_them_sau_khi_da_xac_nhan_tra_ket_qua(
     assert not any(path.is_file() for path in tmp_path.rglob("*"))
 
 
-class UploadGia:
-    """UploadFile giả: `read` async cho phần đầu, `file` là luồng Starlette."""
+# ── Nhận multipart theo luồng, ghi thẳng vào kho ──────────────────────────────
 
-    def __init__(self, data: bytes) -> None:
-        import io
 
-        self.file = io.BytesIO(data)
-        self.read_sizes: list[int] = []
+def _than_multipart(
+    truong: dict[str, str], tep: tuple[str, bytes] | None, bd: str = "ranhgioiXYZ"
+) -> bytes:
+    out = b""
+    for k, v in truong.items():
+        out += (
+            f'--{bd}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'
+        ).encode()
+    if tep:
+        ten, data = tep
+        out += (
+            (
+                f'--{bd}\r\nContent-Disposition: form-data; name="file"; '
+                f'filename="{ten}"\r\nContent-Type: application/octet-stream\r\n\r\n'
+            ).encode()
+            + data
+            + b"\r\n"
+        )
+    return out + f"--{bd}--\r\n".encode()
 
-    async def read(self, size: int = -1) -> bytes:
-        self.read_sizes.append(size)
-        return self.file.read(size)
+
+def _request(than: bytes, *, khuc: int = 7777, dut_giua: bool = False) -> Any:
+    from starlette.requests import Request
+
+    phan = [than[i : i + khuc] for i in range(0, len(than), khuc)]
+    if dut_giua:
+        phan = phan[: len(phan) // 2]
+
+    async def receive() -> dict[str, Any]:
+        if phan:
+            return {"type": "http.request", "body": phan.pop(0), "more_body": True}
+        if dut_giua:
+            return {"type": "http.disconnect"}
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "headers": [
+            (b"content-type", b"multipart/form-data; boundary=ranhgioiXYZ"),
+            (b"content-length", str(len(than)).encode()),
+        ],
+    }
+    return Request(scope, receive)
+
+
+@pytest.fixture
+def kho(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    from clinicai.services import nhan_tep_luong as mod
+
+    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
+    monkeypatch.delenv("MEDIA_MARKER", raising=False)
+    return tmp_path
+
+
+def _con_part(kho: Path) -> list[Path]:
+    return [p for p in kho.rglob("*") if p.is_file()]
 
 
 @pytest.mark.asyncio
-async def test_route_khong_nap_ca_tep_vao_ram() -> None:
-    """Route chỉ đọc phần đầu để nhận kiểu; phần còn lại đi thẳng theo luồng."""
-    from clinicai.api.v1.routers.cskh import _nguon_upload
+async def test_nhan_luong_ghi_dung_tung_byte_va_doc_truong(kho: Path) -> None:
+    """Tệp 9MB đi theo khúc lẻ: trên kho khớp từng byte, sha đúng, trường đủ."""
+    import hashlib
 
-    upload = UploadGia(PNG + b"x" * (256 * 1024))
-    nguon = await _nguon_upload(upload)  # type: ignore[arg-type]
+    from clinicai.services.nhan_tep_luong import nhan_multipart
 
-    assert -1 not in upload.read_sizes
-    assert max(upload.read_sizes) <= 64 * 1024
-    assert nguon.tell() == 0  # service đọc lại từ đầu
-    assert nguon.read() == PNG + b"x" * (256 * 1024)
+    data = PNG + bytes(range(256)) * (9 * 1024 * 4)
+    truong, tep = await nhan_multipart(
+        _request(
+            _than_multipart(
+                {"clinic_patient_id": BN, "service_order_id": "x"}, ("a.png", data)
+            )
+        )
+    )
+    assert truong == {"clinic_patient_id": BN, "service_order_id": "x"}
+    assert tep.duong.parent == kho / ".tam"
+    assert tep.duong.read_bytes() == data
+    assert tep.so_byte == len(data)
+    assert tep.sha256 == hashlib.sha256(data).hexdigest()
+    assert tep.dau == data[:8192]
+    assert tep.ten == "a.png"
 
 
 @pytest.mark.asyncio
-async def test_route_bao_qua_lon_khi_env_dat_tran(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_nhan_luong_tep_nho_hon_khuc_dau(kho: Path) -> None:
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    _, tep = await nhan_multipart(_request(_than_multipart({}, ("p.pdf", PDF))))
+    assert tep.duong.read_bytes() == PDF
+    assert tep.dau == PDF
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("truong", "tep", "cau"),
+    [
+        ({}, ("x.exe", b"MZ\x90\x00" + b"\x00" * 20000), "không"),
+        ({"a": "b"}, None, "rỗng"),
+        ({}, ("r.png", b""), "rỗng"),
+    ],
+)
+async def test_nhan_luong_tu_choi_va_khong_de_lai_rac(
+    kho: Path, truong: dict[str, str], tep: tuple[str, bytes] | None, cau: str
 ) -> None:
-    from clinicai.api.v1.routers import cskh as router
-    from clinicai.services.media_service import MAX_BYTES_THEO_LOAI
+    from clinicai.services.nhan_tep_luong import nhan_multipart
 
-    monkeypatch.setitem(MAX_BYTES_THEO_LOAI, "ANH", 600)
+    with pytest.raises(ValidationError):
+        await nhan_multipart(_request(_than_multipart(truong, tep)))
+    assert _con_part(kho) == []
+
+
+@pytest.mark.asyncio
+async def test_nhan_luong_hai_tep_bi_tu_choi(kho: Path) -> None:
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    than = _than_multipart({}, ("a.png", PNG)).replace(b"--ranhgioiXYZ--\r\n", b"")
+    than += _than_multipart({}, ("b.png", PNG))
+    with pytest.raises(ValidationError, match="một tệp"):
+        await nhan_multipart(_request(than))
+    assert _con_part(kho) == []
+
+
+@pytest.mark.asyncio
+async def test_nhan_luong_mat_ket_noi_giua_chung_thi_don(kho: Path) -> None:
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    than = _than_multipart({}, ("v.png", PNG + b"x" * (12 * 1024 * 1024)))
+    with pytest.raises(ValidationError, match="Mất kết nối"):
+        await nhan_multipart(_request(than, khuc=1024 * 1024, dut_giua=True))
+    assert _con_part(kho) == []
+
+
+@pytest.mark.asyncio
+async def test_nhan_luong_tran_dat_qua_env_van_chan(
+    kho: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from clinicai.services.media_service import MAX_BYTES_THEO_LOAI
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    monkeypatch.setitem(MAX_BYTES_THEO_LOAI, "ANH", 5 * 1024 * 1024)
+    than = _than_multipart({}, ("a.png", PNG + b"x" * (9 * 1024 * 1024)))
     with pytest.raises(ValidationError, match="quá lớn"):
-        await router._nguon_upload(UploadGia(PNG + b"x" * 50_000))  # type: ignore[arg-type]
+        await nhan_multipart(_request(than, khuc=512 * 1024))
+    assert _con_part(kho) == []
+
+
+@pytest.mark.asyncio
+async def test_nhan_luong_khong_phai_multipart(kho: Path) -> None:
+    from starlette.requests import Request
+
+    from clinicai.services.nhan_tep_luong import nhan_multipart
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": b"{}", "more_body": False}
+
+    req = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/",
+            "headers": [(b"content-type", b"application/json")],
+        },
+        receive,
+    )
+    with pytest.raises(ValidationError, match="multipart"):
+        await nhan_multipart(req)
+
+
+@pytest.mark.asyncio
+async def test_service_doi_ten_tep_da_nhan_khong_chep_lai(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tệp đã nằm trên kho → service chỉ đổi tên; tệp tạm biến mất."""
+    import hashlib
+
+    from clinicai.services import tep_ket_qua_service as mod
+    from clinicai.services.nhan_tep_luong import TepDaNhan
+
+    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "_chep_luong", lambda *_a: pytest.fail("không được chép"))
+    part = tmp_path / ".tam" / "x.part"
+    part.parent.mkdir()
+    part.write_bytes(PNG)
+    tep = TepDaNhan(
+        duong=part,
+        so_byte=len(PNG),
+        sha256=hashlib.sha256(PNG).hexdigest(),
+        dau=PNG,
+        ten="a.png",
+    )
+    pool = FakePool(1, False, "tep-1")
+    d = await mod.TepKetQuaService(pool).tai_len(
+        identity=_ai(), clinic_patient_id=BN, tep_da_nhan=tep, ten_hien_thi=tep.ten
+    )
+    assert d["so_byte"] == len(PNG)
+    assert not part.exists()
+    tren_dia = [p for p in tmp_path.rglob("*.png")]
+    assert len(tren_dia) == 1 and tren_dia[0].read_bytes() == PNG
 
 
 @pytest.mark.asyncio

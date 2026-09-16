@@ -46,6 +46,7 @@ from clinicai.services.media_service import (
     sniff_ket_qua,
     vuot_tran,
 )
+from clinicai.services.nhan_tep_luong import TepDaNhan
 
 logger = structlog.get_logger()
 
@@ -119,6 +120,7 @@ class TepKetQuaService:
         clinic_patient_id: str,
         data: bytes | None = None,
         nguon: IO[bytes] | None = None,
+        tep_da_nhan: TepDaNhan | None = None,
         ten_hien_thi: str | None = None,
         appointment_id: str | None = None,
         service_order_id: str | None = None,
@@ -129,17 +131,24 @@ class TepKetQuaService:
         nghiệm…). Có nó thì kết quả đi đúng đường duyệt của chỉ định ấy; thiếu
         nó thì tệp chỉ gắn với khách + lượt khám như trước.
         """
-        # Hai cách đưa tệp vào: `nguon` (luồng — đường thật, không nạp RAM) hoặc
-        # `data` (bytes — tiện cho bài kiểm và tệp nhỏ).
-        if nguon is None:
-            nguon = io.BytesIO(data or b"")
-        nguon.seek(0, 2)
-        so_byte_khai = nguon.tell()
-        nguon.seek(0)
+        # Ba cách đưa tệp vào:
+        #   `tep_da_nhan` — đường THẬT của giao diện: thân request đã chảy thẳng
+        #                   vào kho (nhan_tep_luong), ở đây chỉ còn đổi tên;
+        #   `nguon`       — một luồng đọc bất kỳ, chép dần, không nạp RAM;
+        #   `data`        — bytes, tiện cho bài kiểm và tệp nhỏ.
+        if tep_da_nhan is not None:
+            so_byte_khai = tep_da_nhan.so_byte
+            dau = tep_da_nhan.dau
+        else:
+            if nguon is None:
+                nguon = io.BytesIO(data or b"")
+            nguon.seek(0, 2)
+            so_byte_khai = nguon.tell()
+            nguon.seek(0)
+            dau = nguon.read(8192)
+            nguon.seek(0)
         if so_byte_khai == 0:
             raise ValidationError("Tệp rỗng.")
-        dau = nguon.read(8192)
-        nguon.seek(0)
         mime, ext, loai = sniff_ket_qua(dau)
         if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
             raise ValidationError(
@@ -210,7 +219,13 @@ class TepKetQuaService:
         # có. Đuôi `.tmp` cũng là thứ bản sao lưu bỏ qua.
         tmp = path.with_suffix(path.suffix + ".tmp")
         try:
-            so_byte, sha = await asyncio.to_thread(_chep_luong, nguon, tmp)
+            if tep_da_nhan is not None:
+                # Cùng một kho → đổi tên, không chép lại byte nào.
+                await asyncio.to_thread(os.replace, tep_da_nhan.duong, tmp)
+                so_byte, sha = tep_da_nhan.so_byte, tep_da_nhan.sha256
+            else:
+                assert nguon is not None
+                so_byte, sha = await asyncio.to_thread(_chep_luong, nguon, tmp)
         except OSError as loi:
             tmp.unlink(missing_ok=True)
             if loi.errno == errno.ENOSPC:
