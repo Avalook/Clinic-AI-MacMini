@@ -11,6 +11,7 @@ một chỗ cuối, hai lượt khám cho một lần đến, một đơn thuố
     SC-33  bác sĩ + thư ký cùng sửa hồ sơ    → người sau nhận 409, không ghi đè
     SC-34  hai người cùng bắt đầu một dịch vụ→ đúng MỘT người nhận việc
     SC-35  thu ngân bấm thanh toán hai lần   → đúng MỘT khoản thu
+    SC-36  kho bấm cấp thuốc hai lần         → trừ tồn đúng MỘT lần
 
 CHẠY ĐƯỢC Ở CẢ HAI NƠI. Tài khoản đọc từ `TK_<vai>` như `buoi-kham-that.py`.
 
@@ -56,6 +57,8 @@ VAI = {
         ("dieuduong", "dd.sa@dr4women.local"),
         ("truongca", "truongca@dr4women.local"),
         ("quanly", "ql@dr4women.local"),
+        ("thungan", "thungan@dr4women.local"),
+        ("duocsi", "duocsi@dr4women.local"),
     )
 }
 
@@ -80,12 +83,24 @@ def bo(ten: str, ly_do: str) -> None:
 
 
 async def token(http: httpx.AsyncClient, email: str) -> str | None:
-    r = await http.post(
-        f"{SB}/auth/v1/token?grant_type=password",
-        headers={"apikey": ANON, "Content-Type": "application/json"},
-        json={"email": email, "password": PW},
-    )
-    return r.json().get("access_token") if r.status_code == 200 else None
+    """Lấy token, có nhịp nghỉ và một lần thử lại.
+
+    GoTrue giới hạn số lần đăng nhập trong một khoảng ngắn. Script này mở
+    MƯỜI HAI phiên liền nhau, và cái thứ mười hai ăn 429 — rồi phép thử dừng
+    với "thiếu vai cốt lõi", nghe như hệ thống hỏng. Nghỉ một nhịp rồi thử lại
+    là đủ; đây là giới hạn của máy chủ đăng nhập, không phải lỗi của hệ.
+    """
+    for lan in range(2):
+        r = await http.post(
+            f"{SB}/auth/v1/token?grant_type=password",
+            headers={"apikey": ANON, "Content-Type": "application/json"},
+            json={"email": email, "password": PW},
+        )
+        if r.status_code == 200:
+            return str(r.json().get("access_token") or "") or None
+        if lan == 0:
+            await asyncio.sleep(2.0)
+    return None
 
 
 class Phien:
@@ -190,6 +205,7 @@ async def main() -> int:
         c.headers["Authorization"] = f"Bearer {t}"
         c.headers["X-API-Key"] = KHOA_API
         phien[vai] = Phien(c)
+        await asyncio.sleep(0.25)  # nhường nhịp cho máy chủ đăng nhập
     print(f"Đăng nhập: {len(phien)}/{len(VAI)} vai\n")
     if "cskh" not in phien or "letan" not in phien:
         print("Thiếu vai cốt lõi — dừng.", file=sys.stderr)
@@ -413,6 +429,285 @@ async def main() -> int:
             )
     else:
         bo("SC-33 hai người cùng sửa hồ sơ", "thiếu lượt khám hoặc vai bác sĩ")
+
+    # ── Dựng một lượt khám đi tới tận chỉ định, cho SC-34 ──────────────────
+    #
+    # Ba kịch bản còn lại cần bối cảnh sâu hơn hẳn: một lượt khám đã có chỉ định
+    # được xếp phòng (SC-34), một lịch hẹn đã hoàn tất để thu tiền (SC-35), và
+    # một dòng đơn thuốc có tồn kho để cấp (SC-36). Dựng một lần, dùng cho cả ba.
+    order_id = visit2 = appt2 = None
+    kh2 = await tao_khach(phien["cskh"], "SC34", ctx)
+    if kh2:
+        da_tao.append(("patient", kh2))
+        bd3, kt3 = gio_kham(ctx, 2, sau_ngay=0)
+        st, b = await phien["cskh"].goi(
+            "POST",
+            "/api/v1/appointments/bookings",
+            headers=khoa(),
+            json={
+                "clinic_patient_id": kh2,
+                "service_type_id": ctx["service_type_id"],
+                "location_id": ctx["location_id"],
+                "slot_start": bd3,
+                "slot_end": kt3,
+                "doctor_id": ctx["doctor_id"],
+                "booking_channel": "den_truc_tiep",
+            },
+        )
+        appt2 = (b or {}).get("appointment_id")
+        if appt2:
+            da_tao.append(("appointment", appt2))
+            await phien["letan"].goi(
+                "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": appt2}
+            )
+            st, bang = await phien["bacsi"].goi("GET", "/api/v1/luot-kham/bang")
+            luot = next(
+                (
+                    x
+                    for x in (bang or {}).get("luot", [])
+                    if str(x.get("ten", "")).startswith(f"{DAU}{LAN} SC34")
+                ),
+                None,
+            )
+            if luot:
+                visit2 = luot["visit_id"]
+                await phien["dieuduong"].goi(
+                    "POST",
+                    f"/api/v1/luot-kham/visits/{visit2}/vitals",
+                    headers=khoa(),
+                    json={"systolic": 118, "diastolic": 76},
+                ) if "dieuduong" in phien else None
+                st, bang = await phien["bacsi"].goi("GET", "/api/v1/luot-kham/bang")
+                luot = next(
+                    (
+                        x
+                        for x in (bang or {}).get("luot", [])
+                        if x.get("visit_id") == visit2
+                    ),
+                    None,
+                )
+                ph = ((luot or {}).get("phien") or [None])[0]
+                dvu = next(
+                    (
+                        d
+                        for d in (bang or {}).get("dich_vu", [])
+                        if "ULTRASOUND_DOCTOR" in (d.get("vai_lam") or [])
+                    ),
+                    None,
+                )
+                phong = next(
+                    (
+                        r
+                        for r in (bang or {}).get("phong", [])
+                        if dvu and (dvu.get("node") in (r.get("nodes") or []))
+                    ),
+                    None,
+                )
+                if ph and dvu and phong:
+                    cons = ph["id"]
+                    await phien["bacsi"].goi(
+                        "POST", f"/api/v1/luot-kham/consultations/{cons}/start"
+                    )
+                    st, b = await phien["bacsi"].goi(
+                        "POST",
+                        f"/api/v1/luot-kham/consultations/{cons}/authorize-orders",
+                        headers=khoa(),
+                        json={"service_codes": [dvu["ma"]]},
+                    )
+                    ids = (b or {}).get("order_ids") or []
+                    if ids:
+                        order_id = ids[0]
+                        await phien["bacsi"].goi(
+                            "POST",
+                            f"/api/v1/luot-kham/consultations/{cons}/complete",
+                            headers=khoa(),
+                            json={
+                                "outcome": "SERVICES",
+                                "requirements": [
+                                    {"order_id": order_id, "need": "PERFORMED"}
+                                ],
+                            },
+                        )
+                        tc = phien.get("truongca") or phien["quanly"]
+                        await tc.goi(
+                            "POST",
+                            f"/api/v1/luot-kham/orders/{order_id}/dispatch",
+                            headers=khoa(),
+                            json={"room_id": phong["id"]},
+                        )
+
+    # ── SC-34: hai người cùng NHẬN một dịch vụ ──────────────────────────────
+    if order_id and "bacsi_sa" in phien:
+        nguoi2 = phien.get("dieuduong") or phien["bacsi_sa"]
+        r1, r2 = await asyncio.gather(
+            phien["bacsi_sa"].goi("POST", f"/api/v1/luot-kham/orders/{order_id}/start"),
+            nguoi2.goi("POST", f"/api/v1/luot-kham/orders/{order_id}/start"),
+        )
+        ma = sorted([r1[0], r2[0]])
+        ket(
+            "SC-34 hai người cùng nhận một dịch vụ → đúng 1 người",
+            ma.count(200) == 1,
+            f"mã {r1[0]}/{r2[0]}",
+        )
+    else:
+        bo("SC-34 hai người cùng nhận một dịch vụ", "không dựng được chỉ định")
+
+    # ── SC-35: thu ngân bấm thanh toán HAI LẦN ──────────────────────────────
+    #
+    # Hai lần bấm là HAI thao tác độc lập (khoá chống-gửi-trùng khác nhau), chứ
+    # không phải một lần gửi lại. Bất biến: dù cả hai cùng trả 200, lượt khám
+    # chỉ được mang ĐÚNG MỘT khoản thu loại ấy.
+    if visit2 and appt2 and "thungan" in phien:
+        await phien["quanly"].goi(
+            "PATCH", f"/api/v1/appointments/{appt2}", json={"action": "complete"}
+        )
+        tn = phien["thungan"]
+        r1, r2 = await asyncio.gather(
+            tn.goi(
+                "POST",
+                "/api/v1/payments",
+                headers=khoa(),
+                json={"visit_id": visit2, "kind": "dich_vu", "amount": 100000},
+            ),
+            tn.goi(
+                "POST",
+                "/api/v1/payments",
+                headers=khoa(),
+                json={"visit_id": visit2, "kind": "dich_vu", "amount": 100000},
+            ),
+        )
+        if 200 not in (r1[0], r2[0]):
+            print(f"    (thanh toán hỏng: {r1[0]} {str(r1[1])[:150]})")
+        st, phi = await phien["quanly"].goi("GET", f"/api/v1/visits/{visit2}/charges")
+        so_thu = sum(
+            1
+            for x in (phi or {}).get("payments", [])
+            if str(x.get("kind")) == "dich_vu"
+        )
+        ket(
+            "SC-35 bấm thanh toán 2 lần → đúng 1 khoản thu",
+            so_thu == 1,
+            f"mã {r1[0]}/{r2[0]} · database đếm {so_thu} khoản",
+        )
+    else:
+        bo("SC-35 bấm thanh toán 2 lần", "không dựng được lượt khám / thiếu thu ngân")
+
+    # ── SC-36: kho bấm cấp thuốc HAI LẦN ────────────────────────────────────
+    #
+    # Phải tự dựng cả hai đầu: một dòng đơn thuốc (bác sĩ kê) và một lô hàng có
+    # tồn (dược sĩ nhập). Hệ thống mới dựng thì kho rỗng và chưa ai kê đơn, nên
+    # không dựng thì kịch bản này không bao giờ chạy tới.
+    if visit2 and appt2 and "duocsi" in phien and "bacsi" in phien:
+        st, ho_so = await phien["bacsi"].goi(
+            "POST",
+            "/api/v1/clinical-records",
+            json={
+                "appointment_id": appt2,
+                "clinic_patient_id": kh2,
+                "expected_revision": 0,
+                "prescriptions": [
+                    {
+                        "drug_name": "Canxi",
+                        "quantity": "10",
+                        "dosage": "1 viên/ngày",
+                    }
+                ],
+            },
+        )
+        st, dm = await phien["duocsi"].goi("GET", "/api/v1/pharmacy/queue")
+        don = next(
+            (
+                x
+                for x in (dm or {}).get("items", [])
+                if str(x.get("patient_name", "")).startswith(f"{DAU}{LAN}")
+            ),
+            None,
+        )
+        st, kho = await phien["duocsi"].goi("GET", "/api/v1/pharmacy/inventory")
+        thuoc = ((kho or {}).get("items") or [None])[0]
+        if thuoc is None:
+            # Danh mục thuốc KHÔNG có cửa ở FastAPI — giao diện đọc thẳng qua
+            # PostgREST (`app/api/catalog/route.ts`). Script đi đúng đường ấy
+            # thay vì bịa ra một cửa không tồn tại.
+            rc = await phien["duocsi"].http.get(
+                f"{SB}/rest/v1/drug_catalog",
+                params={"select": "id", "is_active": "eq.true", "limit": "1"},
+                headers={"apikey": ANON},
+            )
+            ma_thuoc = None
+            if rc.status_code == 200:
+                ds_thuoc = rc.json() or []
+                ma_thuoc = ds_thuoc[0]["id"] if ds_thuoc else None
+            if ma_thuoc:
+                import datetime as _d
+
+                await phien["duocsi"].goi(
+                    "POST",
+                    "/api/v1/pharmacy/receive",
+                    json={
+                        "drug_catalog_id": ma_thuoc,
+                        "so_luong": 50,
+                        "batch_code": f"{DAU}{LAN}",
+                        "expiry_date": (
+                            _d.date.today() + _d.timedelta(days=365)
+                        ).isoformat(),
+                        "unit": "viên",
+                    },
+                )
+                st, kho = await phien["duocsi"].goi("GET", "/api/v1/pharmacy/inventory")
+                thuoc = ((kho or {}).get("items") or [None])[0]
+        if not (thuoc and don):
+            bo(
+                "SC-36 bấm cấp thuốc 2 lần",
+                f"kho {'có' if thuoc else 'RỖNG'} · đơn {'có' if don else 'CHƯA CÓ'}",
+            )
+        else:
+            lo = thuoc.get("drug_batch_id") or thuoc.get("id")
+            ds = phien["duocsi"]
+            truoc = float(thuoc.get("quantity_on_hand") or thuoc.get("ton") or 0)
+            # MỘT LẦN BẤM = MỘT KHOÁ, gửi đi hai lần.
+            #
+            # Khác hẳn SC-31/32 nơi hai khoá khác nhau giả lập hai NGƯỜI. Ở đây
+            # là MỘT người bấm một cái, trình duyệt gửi hai lần (double-click,
+            # mạng chập rồi thử lại). Và phải như thế, vì "cấp một phần" là hợp
+            # lệ: hai khoá khác nhau nghĩa là cố ý cấp thêm, hệ thống không có
+            # quyền từ chối.
+            mot_khoa = khoa()
+            than_thuoc = {
+                "prescription_id": don.get("prescription_id") or don.get("id"),
+                "drug_batch_id": lo,
+                "so_luong": 1,
+            }
+            r1, r2 = await asyncio.gather(
+                ds.goi(
+                    "POST",
+                    "/api/v1/pharmacy/dispense",
+                    headers=mot_khoa,
+                    json=than_thuoc,
+                ),
+                ds.goi(
+                    "POST",
+                    "/api/v1/pharmacy/dispense",
+                    headers=mot_khoa,
+                    json=than_thuoc,
+                ),
+            )
+            st, kho2 = await ds.goi("GET", "/api/v1/pharmacy/inventory")
+            sau = next(
+                (
+                    float(x.get("quantity_on_hand") or 0)
+                    for x in (kho2 or {}).get("items", [])
+                    if (x.get("drug_batch_id") or x.get("id")) == lo
+                ),
+                -1.0,
+            )
+            ket(
+                "SC-36 bấm cấp thuốc 2 lần → trừ tồn đúng 1 lần",
+                abs((truoc - sau) - 1.0) < 0.001,
+                f"mã {r1[0]}/{r2[0]} · tồn {truoc:g} → {sau:g} (trừ {truoc - sau:g})",
+            )
+    else:
+        bo("SC-36 bấm cấp thuốc 2 lần", "thiếu lượt khám hoặc vai dược sĩ")
 
     print()
     print(f"ĐẠT {dat} · HỎNG {hong} · bỏ qua {bo_qua}")
