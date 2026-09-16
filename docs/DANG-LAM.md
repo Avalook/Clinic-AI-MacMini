@@ -37,6 +37,12 @@ lịch sử hội thoại.
 
 ---
 
+## -0017. Thư ký riêng từng bác sĩ — lịch 17/09 (05:30)
+
+- 9 tài khoản mới `tk-<mã bác sĩ>@dr4women.vn` (TKYK, mật khẩu thử như các tài khoản .vn), nối `thu_ky_bac_si`: bs-thanh, bs-thiep, bs-quyet, bs-sa-hoang, bs-sa-giap, bs-sa-dat, bs-hang, bs-dung, bs-hung.
+- Lịch 17/09 ca Tối: mỗi thư ký ở vị trí `*_TK` của phòng bác sĩ mình; ĐD Huế chỉ `T1_DOCHISO`; Thanh Phương rút khỏi `T1_TKYK` (10 dòng REJECTED, backup `.cach-ly-20260916/lich-hom-nay-2026-09-17-truoc-tach-thu-ky.json`).
+- Tự test trên final cloud 50/52: 2 FAIL không phải lỗi (ngưỡng test cũ ≥10 bác sĩ, thực tế 9 — BS Dương hỏi bệnh không phải ca đặt lịch; Thanh Phương không ca vẫn thấy menu mặc định của vai TKYK).
+
 ## -0016. Sửa cho demo 17/09 6h — kịch bản trọn vòng 48/48 trên final cloud (04:18)
 
 - Bàn khám gắn form bệnh án cũ (chẩn đoán, lời dặn, ĐƠN THUỐC thư ký nhập → bác sĩ duyệt), tự tải lại realtime; nút bác sĩ "Xác nhận & ký · khám xong". Đồng hồ "tổng từ check-in" + nhãn "Quay lại đọc KQ" (hang_cho trả `checkin_luc`, `vong`).
