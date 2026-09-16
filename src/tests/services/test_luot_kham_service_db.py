@@ -1233,3 +1233,84 @@ async def test_khach_chua_co_bac_si_van_hien_o_hang_cho_bac_si(kb: KichBan) -> N
             dong[0]["ref_id"],
         )
     assert bs == kb.bac_si.staff_id, "bác sĩ bấm Bắt đầu khám thì nhận khách"
+
+
+# ---------------------------------------------------------------------------
+# Demo 17/09/2026: người đi kèm ở phòng dịch vụ + con trỏ "khách đang ở đâu"
+# ---------------------------------------------------------------------------
+
+
+async def _vi_tri(kb: KichBan) -> tuple[str | None, str | None]:
+    async with kb.pool.acquire() as conn:
+        r = await conn.fetchrow(
+            "SELECT v.current_node_code, r.code FROM visit v"
+            " LEFT JOIN clinic_room r ON r.id = v.current_room_id"
+            " WHERE v.visit_id = $1::uuid",
+            kb.visit_id,
+        )
+    return r["current_node_code"], r["code"]
+
+
+async def test_dieu_duong_di_kem_checkin_checkout_phong_dich_vu(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    node, _ = await _vi_tri(kb)
+    assert node == "DICHVU-SIEUAM"  # rời bàn khám → đang chờ ở phòng siêu âm
+    async with kb.pool.acquire() as conn:
+        phong = await conn.fetchval(
+            "SELECT room_id::text FROM service_order WHERE id = $1::uuid", sa_id
+        )
+    hc = await kb.svc.hang_cho(identity=kb.dieu_duong, room_id=phong)
+    dong = next(r for r in hc["hang_cho"] if r["ref_id"] == sa_id)
+    await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.thu_ky)
+    await kb.svc.start_service(order_id=sa_id, identity=kb.dieu_duong)
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="bình thường",
+        identity=kb.bs_sieu_am,
+    )
+    async with kb.pool.acquire() as conn:
+        nguoi = await conn.fetchval(
+            "SELECT performed_by::text FROM service_order WHERE id = $1::uuid", sa_id
+        )
+    # Bác sĩ bấm Xong → bác sĩ là người thực hiện, dù điều dưỡng bấm Bắt đầu.
+    assert nguoi == kb.bs_sieu_am.staff_id
+    node, _ = await _vi_tri(kb)
+    async with kb.pool.acquire() as conn:
+        dbg = await conn.fetch(
+            "SELECT q.lane, q.reason, q.status, st.form_code FROM queue_entry q"
+            " JOIN visit v ON v.visit_id = q.visit_id"
+            " LEFT JOIN service_type st ON st.id = v.service_type_id"
+            " WHERE q.visit_id = $1::uuid",
+            kb.visit_id,
+        )
+    assert node != "DICHVU-SIEUAM", [tuple(r) for r in dbg]  # rời phòng SA
+
+
+async def test_kham_xong_khong_chi_dinh_con_tro_ve_dong_luot(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    node, _ = await _vi_tri(kb)
+    assert node == "LUOTKHAM-15"
+
+
+async def test_le_tan_khong_bam_duoc_phong_dich_vu(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    with pytest.raises(SafetyGateError):
+        await kb.svc.start_service(order_id=duyet["order_ids"][0], identity=kb.le_tan)

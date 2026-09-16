@@ -662,6 +662,122 @@ class LuotKhamService:
             )
         return [found[c] for c in wanted]
 
+    async def _cap_nhat_vi_tri(
+        self, conn: asyncpg.Connection, cid: str, vid: str
+    ) -> None:
+        """Đặt con trỏ "khách đang ở đâu" (visit.current_node_code/room) theo
+        hàng chờ của luồng khám mới.
+
+        Bảng điều phối của trưởng ca, TV phòng chờ và bước đóng lượt đều đọc con
+        trỏ này, mà luồng khám mới chưa từng dời nó: demo 17/09/2026 khám xong
+        cả vòng rồi mà trưởng ca vẫn thấy khách "đang ở Đo chỉ số", và quầy
+        không đóng được lượt.
+
+        Đang được phục vụ ở đâu → ở đó; không thì chỗ đang gọi/đang chờ sớm nhất.
+        Chỉ còn chỗ bị chặn (chờ kết quả) → giữ nguyên. Hết mọi chỗ → bước đóng
+        lượt ở quầy tiếp đón.
+        """
+        r = await conn.fetchrow(
+            """
+            SELECT coalesce(
+                       q.room_id,
+                       (SELECT vt.room_id
+                          FROM work_roster w
+                          JOIN vi_tri_lam_viec vt
+                            ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+                         WHERE w.clinic_id = q.clinic_id
+                           AND w.staff_id = coalesce(q.doctor_staff_id,
+                                                     c.doctor_staff_id)
+                           AND w.status <> 'REJECTED'
+                           AND vt.room_id IS NOT NULL
+                           AND w.work_date
+                               = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                         ORDER BY vt.sort
+                         LIMIT 1)
+                   ) AS room_id,
+                   coalesce(
+                       o.node_code,
+                       -- Bàn khám chưa rõ phòng (bác sĩ không có ca xếp phòng):
+                       -- vẫn nói được khách đang ở bước KHÁM loại nào.
+                       CASE WHEN q.reason <> 'SERVICE' THEN
+                           CASE st.form_code
+                               WHEN 'NT' THEN 'KHAM-NOITIET'
+                               WHEN 'PK' THEN 'KHAM-PHUKHOA'
+                               WHEN 'SK' THEN 'KHAM-SANKHOA'
+                               WHEN 'NK' THEN 'KHAM-NAMKHOA'
+                               WHEN 'HMVS' THEN 'KHAM-HIEMMUON-VOSINH'
+                           END
+                       END
+                   ) AS node_code
+              FROM queue_entry q
+              JOIN visit v ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
+              LEFT JOIN service_type st ON st.id = v.service_type_id
+              LEFT JOIN consultation c
+                ON c.id = q.ref_id AND q.reason <> 'SERVICE'
+               AND c.clinic_id = q.clinic_id
+              LEFT JOIN service_order o
+                ON o.id = q.ref_id AND q.reason = 'SERVICE'
+               AND o.clinic_id = q.clinic_id
+             WHERE q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+               AND q.status IN ('serving', 'called', 'waiting')
+             ORDER BY CASE q.status WHEN 'serving' THEN 0 WHEN 'called' THEN 1
+                      ELSE 2 END,
+                      coalesce(q.eligible_at, q.created_at)
+             LIMIT 1
+            """,
+            cid,
+            vid,
+        )
+        if r is not None:
+            room_id = r["room_id"]
+            node = r["node_code"] or (
+                await conn.fetchval(
+                    "SELECT node_code FROM clinic_room WHERE id = $1::uuid",
+                    room_id,
+                )
+                if room_id
+                else None
+            )
+        else:
+            con_mo = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM queue_entry WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid AND status NOT IN ('done', 'left',"
+                " 'cancelled'))",
+                cid,
+                vid,
+            )
+            if con_mo:
+                return
+            node = "LUOTKHAM-15"
+            room_id = await conn.fetchval(
+                "SELECT id FROM clinic_room WHERE clinic_id = $1::uuid"
+                " AND node_code = 'LUOTKHAM-01' AND is_active ORDER BY sort LIMIT 1",
+                cid,
+            )
+        # node rỗng (chưa suy ra được bước) vẫn ghi: để trống còn hơn trỏ vào
+        # phòng khách đã rời — trưởng ca đọc "đang ở Siêu âm" sai thì điều sai.
+        await conn.execute(
+            """
+            UPDATE visit
+               SET previous_node_code = CASE
+                       WHEN current_node_code IS DISTINCT FROM $3
+                       THEN current_node_code ELSE previous_node_code END,
+                   current_node_since = CASE
+                       WHEN current_node_code IS DISTINCT FROM $3
+                         OR current_room_id IS DISTINCT FROM $4::uuid
+                       THEN now() ELSE current_node_since END,
+                   current_node_code = $3,
+                   current_room_id = $4::uuid,
+                   updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND status IN ('OPEN', 'IN_PROGRESS')
+            """,
+            cid,
+            vid,
+            node,
+            room_id,
+        )
+
     async def _thu_ky_cua_bac_si(
         self,
         conn: asyncpg.Connection,
@@ -1396,6 +1512,7 @@ class LuotKhamService:
                 cid,
                 qid,
             )
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, q["visit_id"])
             await record_event(
                 conn,
                 event_type="queue.called",
@@ -1571,6 +1688,7 @@ class LuotKhamService:
                 payload={"visit_id": vid},
             )
             route = await self._decide_route(conn, identity, visit)
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             result = {"ok": True, "visit_id": vid, "route": route}
             await self._receipt_put(
                 conn, identity, "vitals.record", idempotency_key, payload, vid, result
@@ -1668,6 +1786,7 @@ class LuotKhamService:
                 entry["id"],
             )
             await self._block_others(conn, cid, vid, entry["id"])
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await record_event(
                 conn,
                 event_type="consult.started",
@@ -2140,6 +2259,7 @@ class LuotKhamService:
                 )
             await self._release_blocked(conn, cid, vid)
             await self._evaluate_rounds(conn, identity, vid)
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await record_event(
                 conn,
                 event_type="consult.completed",
@@ -2313,6 +2433,7 @@ class LuotKhamService:
             rid,
             identity.staff_id,
         )
+        await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
         await record_event(
             conn,
             event_type="dispatch.assigned",
@@ -2730,6 +2851,7 @@ class LuotKhamService:
             )
             await self._release_blocked(conn, cid, vid)
             await self._evaluate_rounds(conn, identity, vid)
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await record_event(
                 conn,
                 event_type="service.performed",
@@ -2828,6 +2950,7 @@ class LuotKhamService:
                 entry["id"],
             )
             await self._block_others(conn, cid, vid, entry["id"])
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await record_event(
                 conn,
                 event_type="service.started",
@@ -2905,6 +3028,7 @@ class LuotKhamService:
             )
             await self._release_blocked(conn, cid, vid)
             await self._evaluate_rounds(conn, identity, vid)
+            await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await record_event(
                 conn,
                 event_type="service.performed"
