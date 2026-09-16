@@ -34,7 +34,9 @@ test("không màn nào đọc vai TÀI KHOẢN trực tiếp — chỉ qua vai h
 
 test("vai theo vị trí đứng TRƯỚC vai tài khoản — việc hôm nay quyết định màn hình", () => {
   const src = readFileSync(join(goc, "lib/clinic-session.ts"), "utf8");
-  assert.match(src, /return \[\.\.\.them, goc\];/);
+  // Vai vị trí (máy chủ đã xếp Lễ tân → Điều dưỡng → Trưởng ca) đứng trước; vai
+  // tài khoản nối cuối nếu chưa có (17/09/2026).
+  assert.match(src, /return theo\.includes\(goc\) \? theo : \[\.\.\.theo, goc\];/);
   assert.match(src, /export async function getVaiChinh\(/);
 });
 

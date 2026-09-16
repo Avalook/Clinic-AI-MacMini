@@ -640,7 +640,20 @@ VAI_THEO_VI_TRI: dict[str, ClinicRole] = {
     "T4_SAN_DD": ClinicRole.NURSE_ULTRASOUND,
     "T4_BIO_DD": ClinicRole.NURSE_ULTRASOUND,
     "DIEU_PHOI": ClinicRole.TRUONG_CA,
+    # Mã ĐỜI CŨ còn trong lịch 14–27/09/2026 (khớp `MA_VI_TRI_CU` ở nav-items.ts):
+    # lịch quản lý đã xếp thì phải được hiểu, dù ghi theo mẫu cũ.
+    "LE_TAN": ClinicRole.RECEPTION,
+    "LAY_MAU": ClinicRole.NURSE_ULTRASOUND,
+    "PHU_BS_SA": ClinicRole.NURSE_ULTRASOUND,
 }
+
+#: Thứ tự HIỂN THỊ khi một người có nhiều vai vận hành trong ngày: Lễ tân ở trên,
+#: Điều dưỡng ở dưới (Tuyền 17/09/2026). Vai đầu là "vai chính" của trang chủ.
+THU_TU_VAI_VAN_HANH: tuple[ClinicRole, ...] = (
+    ClinicRole.RECEPTION,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.TRUONG_CA,
+)
 
 #: Không vai nào trong tập này được cấp qua lịch, dù bảng trên có ghi gì.
 VAI_KHONG_CAP_QUA_LICH: frozenset[ClinicRole] = frozenset(
@@ -672,14 +685,17 @@ def vai_tu_vi_tri(
 
 
 def vai_theo_thu_tu(vi_tri: list[str], vai_tai_khoan: ClinicRole) -> list[str]:
-    """Như `vai_tu_vi_tri` nhưng GIỮ thứ tự vị trí trong ngày, không lặp."""
-    cap = vai_tu_vi_tri(vi_tri, vai_tai_khoan)
-    ra: list[str] = []
-    for v in vi_tri:
-        vai = VAI_THEO_VI_TRI.get(v)
-        if vai is not None and vai in cap and vai.value not in ra:
-            ra.append(vai.value)
-    return ra
+    """Vai vận hành các vị trí hôm nay mang lại — KỂ CẢ vai trùng vai tài khoản
+    (lễ tân đứng Lễ tân vẫn là "hôm nay làm Lễ tân") — xếp Lễ tân → Điều dưỡng →
+    Trưởng ca. Chỉ để HIỂN THỊ; quyền dùng `vai_tu_vi_tri`."""
+    if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):
+        return []
+    co = {
+        VAI_THEO_VI_TRI[v]
+        for v in vi_tri
+        if v in VAI_THEO_VI_TRI and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
+    }
+    return [v.value for v in THU_TU_VAI_VAN_HANH if v in co]
 
 
 def mo_quyen_tam_thoi() -> bool:

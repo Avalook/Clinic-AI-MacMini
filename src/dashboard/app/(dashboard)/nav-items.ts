@@ -79,9 +79,11 @@ export const NAV: NavItem[] = [
   { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
   // PHÒNG DỊCH VỤ — mã phòng khớp `clinic_room.code` (migration 20260917000001).
   { href: "/phong/KN-LAYMAU", label: "Lấy mẫu xét nghiệm", icon: FlaskConical },
-  { href: "/phong/KN-SA-T1", label: "Phòng siêu âm tầng 1", icon: ScanLine },
-  { href: "/phong/KN-SA1", label: "Phòng siêu âm 1 (tầng 4)", icon: ScanLine },
-  { href: "/phong/KN-SA2", label: "Phòng siêu âm 2 (tầng 4)", icon: ScanLine },
+  // Không ghi tầng (Tuyền 17/09/2026): quản lý đã xếp ai ngồi phòng nào, người
+  // đứng vị trí tự biết chỗ.
+  { href: "/phong/KN-SA-T1", label: "Phòng siêu âm 1", icon: ScanLine },
+  { href: "/phong/KN-SA1", label: "Phòng siêu âm 2", icon: ScanLine },
+  { href: "/phong/KN-SA2", label: "Phòng siêu âm 3", icon: ScanLine },
   { href: "/phong/KN-THUTHUAT", label: "Phòng thủ thuật", icon: Activity },
   { href: "/phong/KN-TTNG", label: "Thủ thuật ngoài giờ", icon: Activity },
   { href: "/phong/KN-SANCHAU", label: "Phòng Sàn chậu (thủ thuật)", icon: Activity },
@@ -314,6 +316,28 @@ export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
 // "hôm nay bạn đứng đâu" (`GET /me/vi-tri-hom-nay`). Mã khít `vi_tri_lam_viec`.
 //
 // Thứ tự màn TRONG một vị trí là thứ tự dùng: màn chính trước.
+/** MÃ VỊ TRÍ ĐỜI CŨ còn trong lịch (mẫu lịch trước Kim Ngưu, 14–27/09/2026):
+ *  đọc như mã mới tương ứng, để thanh bên ĐI THEO ĐÚNG LỊCH quản lý đã xếp (Tuyền
+ *  17/09/2026). Mã cũ không ghi phòng siêu âm cụ thể → mở cả ba phòng. */
+export const MA_VI_TRI_CU: Readonly<Record<string, readonly string[]>> = {
+  LE_TAN: ["T1_LETAN"],
+  LAY_MAU: ["T1_LAYMAU"],
+  TLYK: ["T1_TKYK"],
+  PHU_BS_SA: ["T1_SA_DD", "T4_SA_DD1", "T4_SA_DD2"],
+  MAY_TRONG: ["T1_SA_BS", "T4_SA_BS1", "T4_SA_BS2"],
+  MAY_NGOAI: ["T1_SA_BS", "T4_SA_BS1", "T4_SA_BS2"],
+  PHONG_NGOAI_MOR: ["T1_SA_BS", "T4_SA_BS1", "T4_SA_BS2"],
+};
+
+/** Đổi mã cũ sang mã mới, giữ thứ tự, không lặp. */
+export function chuanHoaViTri(viTri: readonly string[]): string[] {
+  const ra: string[] = [];
+  for (const v of viTri) {
+    for (const m of MA_VI_TRI_CU[v] ?? [v]) if (!ra.includes(m)) ra.push(m);
+  }
+  return ra;
+}
+
 export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   // Không có trong Excel — "bác sĩ trực hôm ấy" không đứng phòng cụ thể.
   LICH_KHAM: ["/ban-kham", "/duyet-ket-qua"],
@@ -414,12 +438,13 @@ export const NHOM_THEO_VI_TRI: Readonly<Record<string, NhomVai>> = {
   DIEU_PHOI: "TRUONG_CA",
 };
 
+// Một người hai vai trong ngày: LỄ TÂN Ở TRÊN, ĐIỀU DƯỠNG Ở DƯỚI (Tuyền 17/09/2026).
 const THU_TU_NHOM: readonly NhomVai[] = [
   "BAC_SI",
   "BS_SIEU_AM",
   "THU_KY",
-  "DIEU_DUONG",
   "LE_TAN",
+  "DIEU_DUONG",
   "TRUONG_CA",
 ];
 
@@ -440,7 +465,7 @@ export function nhomTheoViTri(
   role: ClinicRole | null,
 ): { nhom: NhomVai; hrefs: string[] }[] {
   const theo = new Map<NhomVai, string[]>();
-  for (const v of viTri) {
+  for (const v of chuanHoaViTri(viTri)) {
     const n = nhomCua(v, role);
     if (!n) continue;
     const ds = theo.get(n) ?? [];
@@ -456,7 +481,7 @@ export function nhomTheoViTri(
 /** Màn cần cho các vị trí hôm nay, theo thứ tự vị trí rồi thứ tự dùng, không lặp. */
 export function hrefTheoViTri(viTri: readonly string[]): string[] {
   const ra: string[] = [];
-  for (const v of viTri) {
+  for (const v of chuanHoaViTri(viTri)) {
     for (const h of MAN_THEO_VI_TRI[v] ?? []) if (!ra.includes(h)) ra.push(h);
   }
   return ra;

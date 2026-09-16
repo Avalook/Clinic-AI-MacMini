@@ -37,11 +37,11 @@ export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
   const goc = await getClinicRole();
   if (!goc) return [];
   const d = await getViTriHomNay();
-  const them = (d?.vai ?? []).filter((v) => v !== goc) as ClinicRole[];
-  // VAI THEO VỊ TRÍ ĐỨNG TRƯỚC: việc hôm nay quyết định màn hình. Vai tài
-  // khoản đứng cuối — vẫn còn đó cho mọi quyền nó vốn có (tập quyền chỉ lớn
-  // thêm, không ai mất quyền cũ).
-  return [...them, goc];
+  // VAI THEO VỊ TRÍ ĐỨNG TRƯỚC, theo thứ tự máy chủ xếp (Lễ tân → Điều dưỡng →
+  // Trưởng ca; có thể gồm cả vai trùng vai tài khoản). Vai tài khoản đứng cuối
+  // nếu hôm nay không vị trí nào mang nó — vẫn còn đó cho mọi quyền vốn có.
+  const theo = (d?.vai ?? []) as ClinicRole[];
+  return theo.includes(goc) ? theo : [...theo, goc];
 });
 
 /** VAI CHÍNH HÔM NAY — vai quyết định HIỂN THỊ (trang chủ, nhãn vai, bảng việc).

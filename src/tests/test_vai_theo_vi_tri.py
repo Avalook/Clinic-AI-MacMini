@@ -102,12 +102,20 @@ def test_thay_vai_thi_giu_vai_tai_khoan_de_ghi_nhat_ky() -> None:
     assert ra.vai_tai_khoan is ClinicRole.NURSE_ULTRASOUND
 
 
-def test_vai_theo_thu_tu_giu_thu_tu_vi_tri_trong_ngay() -> None:
+def test_vai_theo_thu_tu_le_tan_tren_dieu_duong_duoi() -> None:
+    """Tuyền 17/09/2026: một người hai vai → Lễ tân ở trên, Điều dưỡng ở dưới —
+    kể cả khi vai Lễ tân trùng vai tài khoản, và khi lịch ghi mã đời cũ."""
     from clinicai.api.identity import vai_theo_thu_tu
 
     assert vai_theo_thu_tu(
         ["T1_LAYMAU", "T1_LETAN", "T1_DOCHISO"], ClinicRole.CSKH
-    ) == ["NURSE_ULTRASOUND", "RECEPTION"]
+    ) == ["RECEPTION", "NURSE_ULTRASOUND"]
+    # Phương Anh 17/09: tài khoản Lễ tân, lịch Lấy mẫu (mã mới) + LE_TAN (mã cũ).
+    assert vai_theo_thu_tu(["T1_LAYMAU", "LE_TAN"], ClinicRole.RECEPTION) == [
+        "RECEPTION",
+        "NURSE_ULTRASOUND",
+    ]
+    assert vai_theo_thu_tu(["LE_TAN"], ClinicRole.PARTNER) == []
 
 
 def test_dieu_duong_dung_le_tan_check_in_duoc_o_tang_nghiep_vu() -> None:
