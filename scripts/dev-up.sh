@@ -38,13 +38,25 @@ cd "$REPO"
 # Mặc định đặt ở bước 1, sau khi đọc cổng từ .env.thu-local.
 PUBLIC_SUPABASE_URL="${PUBLIC_SUPABASE_URL:-}"
 
+# TỰ NẠP LẠI KHI SỬA PYTHON — mặc định BẬT ở local.
+#
+# Hai phiên liên tiếp mất thời gian vì cùng một chuyện: sửa Python xong, gọi API,
+# thấy hành vi CŨ, rồi đi tìm lỗi ở chỗ không có lỗi. Máy chủ chạy bản đã nạp
+# vào bộ nhớ từ trước; không ai bảo nó biết file đã đổi.
+#
+# `--reload` trả tiền bằng một tiến trình theo dõi file và khoảng 1 giây mỗi lần
+# nạp lại — rẻ hơn nhiều so với một lần đuổi theo con ma ấy. Tắt bằng
+# `TU_NAP_LAI= scripts/dev-up.sh` khi cần đo tốc độ cho chuẩn.
+TU_NAP_LAI="${TU_NAP_LAI-"--reload --reload-dir src/clinicai"}"
 API_PORT="${API_PORT:-8100}"
 WEB_PORT="${WEB_PORT:-3100}"
 LOG_DIR="${LOG_DIR:-$REPO/.dev-logs}"
 mkdir -p "$LOG_DIR"
 
 # Mật khẩu chung của mọi tài khoản GIẢ trong supabase/fixtures (@dr4women.local).
-TEST_PW="clinic-test-pw-123"
+# Ghi đè được qua môi trường — giá trị dưới chỉ là mặc định cho stack thử
+# trên 127.0.0.1, không phải bí mật vận hành.
+TEST_PW="${TEST_PW:-clinic-test-pw-123}"
 TAI_KHOAN_THU="letan bs.a cskh dd.sa bs.sa thungan ql thuky truongca"
 
 blue()  { printf '\033[36m%s\033[0m\n' "$*"; }
@@ -328,10 +340,10 @@ SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
 SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
 SUPABASE_JWT_SECRET="$SUPABASE_JWT_SECRET" \
 ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-local-not-real}" \
-BACKEND_API_KEY=staging-local-api-key \
+BACKEND_API_KEY="${BACKEND_API_KEY:-staging-local-api-key}" \
 CHECKPOINTER_BACKEND=memory APP_ENV=staging POS_ADAPTER=none \
     nohup poetry run uvicorn clinicai.main:app \
-        --host 127.0.0.1 --port "$API_PORT" >"$LOG_DIR/api.log" 2>&1 &
+        --host 127.0.0.1 --port "$API_PORT" $TU_NAP_LAI >"$LOG_DIR/api.log" 2>&1 &
 
 wait_for_http "http://127.0.0.1:${API_PORT}/health" "API" \
     && green "  healthy on ${API_PORT}" \
@@ -348,7 +360,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
 SUPABASE_URL="http://127.0.0.1:${SUPABASE_API_PORT}" \
 SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-BACKEND_API_KEY=staging-local-api-key \
+BACKEND_API_KEY="${BACKEND_API_KEY:-staging-local-api-key}" \
     npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
         red "  build failed — see $LOG_DIR/web-build.log"
         grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /'; exit 1; }
@@ -358,7 +370,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
 SUPABASE_URL="http://127.0.0.1:${SUPABASE_API_PORT}" \
 SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
 CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-BACKEND_API_KEY=staging-local-api-key \
+BACKEND_API_KEY="${BACKEND_API_KEY:-staging-local-api-key}" \
     nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
 cd "$REPO"
 

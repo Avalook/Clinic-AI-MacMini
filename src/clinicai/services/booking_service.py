@@ -724,6 +724,7 @@ class BookingService:
                 f"Vai trò của bạn không được phép '{action}' lịch hẹn"
             )
 
+        visit_vua_mo: str | None = None
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 appt = await conn.fetchrow(
@@ -874,7 +875,7 @@ class BookingService:
                 )
 
                 if action == "checkin":
-                    await self._open_visit(
+                    visit_vua_mo = await self._open_visit(
                         conn,
                         appointment_id=appointment_id,
                         clinic_patient_id=str(appt["clinic_patient_id"]),
@@ -941,7 +942,14 @@ class BookingService:
             status=new_status,
             by_staff_id=identity.staff_id,
         )
-        return {"status": new_status}
+        # Kèm mã lượt khám khi hành động vừa mở một lượt — màn hình nhờ đó bỏ
+        # được một vòng nạp lại cả bảng chỉ để tìm ra lượt của chính người vừa
+        # check-in. Các hành động khác không có nó, và đó là chủ ý.
+        return (
+            {"status": new_status, "visit_id": visit_vua_mo}
+            if visit_vua_mo
+            else {"status": new_status}
+        )
 
     @staticmethod
     async def _ghi_xac_minh(
@@ -1988,7 +1996,11 @@ class BookingService:
         clinic_patient_id: str,
         doctor_id: str | None,
         identity: StaffIdentity,
-    ) -> None:
+    ) -> str | None:
+        # TRẢ VỀ MÃ LƯỢT KHÁM. Trước đây trả None, nên `/luot-kham/check-in`
+        # chỉ nói được "ok" và màn hình phải nạp LẠI CẢ BẢNG để biết lượt vừa
+        # mở là lượt nào — một vòng mạng thừa cho mỗi lần lễ tân bấm check-in,
+        # và với bảng ngày đông là vòng đắt nhất trong màn ấy.
         """Open the visit so the patient appears on the board immediately.
 
         ON CONFLICT rather than catching UniqueViolationError. Catching it looks
@@ -2040,7 +2052,7 @@ class BookingService:
             )
 
         if visit_id is None:
-            return
+            return None
 
         created = await conn.fetchval(
             "SELECT public.instantiate_visit_workflow("
@@ -2122,6 +2134,7 @@ class BookingService:
                 visit_id=str(visit_id),
                 clinic_id=identity.clinic_id,
             )
+        return str(visit_id)
 
     async def _cancel_visit_workflow(
         self,
