@@ -57,6 +57,13 @@ class VitalsBody(BaseModel):
     temperature: Any = None
     weight_kg: Any = None
     height_cm: Any = None
+    # Bốn chỉ số thêm 16/09/2026. Thiếu chúng ở ĐÂY là mất dữ liệu trong im
+    # lặng: parse_vitals đọc được, cột trong bảng có, nhưng Pydantic cắt trường
+    # lạ khỏi thân trước khi service kịp nhìn thấy — không ai báo lỗi.
+    respiratory_rate: Any = None
+    spo2: Any = None
+    bmi: Any = None
+    pain_score: Any = None
 
 
 class NoteBody(BaseModel):

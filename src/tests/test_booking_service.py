@@ -1033,3 +1033,61 @@ class TestXoaVetBacSiDaGo:
         duoi = ma[ma.rindex('if patch.get("doctor_id")') :]
         assert 'patch["bac_si_da_go_id"] = None' in duoi
         assert 'patch["bo_bac_si_luc"] = None' in duoi
+
+
+class TestHuyLichThiDongLuot:
+    """Huỷ lịch / hoàn tác check-in phải ĐÓNG LUÔN lượt khám, không chỉ các bước.
+
+    Đo được 16/09/2026 trong buổi chạy thử `scripts/tests/buoi-kham-that.py`:
+    dọn xong, 33 lời gọi huỷ đều trả 200 — mà bảng lượt khám vẫn còn 12 lượt.
+    `cancel_visit_workflow` chỉ chạm `work_item`; `visit.status` ở lại
+    IN_PROGRESS, và bảng lọc đúng theo `status IN ('OPEN','IN_PROGRESS')`. Kết
+    quả là một lượt MA: không bước nào bấm được, không ai đóng được, người trực
+    phải tự đoán khách còn ở đây hay đã về.
+    """
+
+    @staticmethod
+    def _chay(reason: str) -> list[tuple[Any, ...]]:
+        conn = MagicMock()
+        conn.fetchval = AsyncMock(return_value="v0000000-0000-4000-8000-000000000001")
+        conn.execute = AsyncMock(return_value="UPDATE 1")
+        identity = StaffIdentity(
+            auth_user_id="u0000000-0000-4000-8000-000000000001",
+            staff_id="s0000000-0000-4000-8000-000000000001",
+            full_name="Lễ tân A",
+            department="Lễ tân",
+            clinic_id="c0000000-0000-4000-8000-000000000001",
+            role=ClinicRole.RECEPTION,
+            location_id="l0000000-0000-4000-8000-000000000001",
+            location_name="Kim Ngưu",
+        )
+        service = BookingService(MagicMock())
+        asyncio.run(
+            service._cancel_visit_workflow(
+                conn,
+                appointment_id="a0000000-0000-4000-8000-000000000001",
+                identity=identity,
+                reason=reason,
+            )
+        )
+        return [c.args for c in conn.execute.await_args_list]
+
+    @pytest.mark.parametrize("reason", ["cancel", "undo_checkin"])
+    def test_luot_bi_dong_lai(self, reason: str) -> None:
+        goi = self._chay(reason)
+        assert goi, "không có lệnh nào đóng lượt khám"
+        sql = goi[0][0]
+        assert "UPDATE public.visit" in sql
+        assert "status = 'INCOMPLETE'" in sql
+        # Lý do BẮT BUỘC ở Postgres (visit_incomplete_can_ly_do) — để trống là
+        # 500 ngay giữa lúc lễ tân đang huỷ lịch cho khách đứng trước mặt.
+        assert goi[0][3] and goi[0][3].strip()
+
+    def test_ho_so_da_ky_khong_bi_keo_nguoc(self) -> None:
+        """FINALIZED/AMENDED nằm ngoài WHERE.
+
+        Huỷ một lịch hẹn không được phép viết lại kết luận bác sĩ đã ký. Nếu ai
+        nới WHERE này ra cho "dọn cho sạch", bài kiểm đỏ trước.
+        """
+        sql = self._chay("cancel")[0][0]
+        assert "status IN ('OPEN', 'IN_PROGRESS')" in sql

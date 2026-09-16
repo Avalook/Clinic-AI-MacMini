@@ -23,6 +23,10 @@ export interface SinhHieu {
   nhiet_do: number | null;
   can_nang: number | null;
   chieu_cao: number | null;
+  nhip_tho: number | null;
+  spo2: number | null;
+  bmi: number | null;
+  muc_do_dau: number | null;
   luc: string | null;
   nguoi_do: string | null;
 }
@@ -450,6 +454,10 @@ const SINH_HIEU_TRONG = {
   temperature: "",
   weight_kg: "",
   height_cm: "",
+  respiratory_rate: "",
+  spo2: "",
+  bmi: "",
+  pain_score: "",
 };
 const O_SINH_HIEU: [keyof typeof SINH_HIEU_TRONG, string][] = [
   ["systolic", "Tâm thu *"],
@@ -458,6 +466,10 @@ const O_SINH_HIEU: [keyof typeof SINH_HIEU_TRONG, string][] = [
   ["temperature", "Nhiệt độ °C"],
   ["weight_kg", "Cân nặng kg"],
   ["height_cm", "Chiều cao cm"],
+  ["respiratory_rate", "Nhịp thở"],
+  ["spo2", "SpO₂ %"],
+  ["bmi", "BMI"],
+  ["pain_score", "Đau 0–10"],
 ];
 
 function KhoiSinhHieu({ luot, bang, gui, dangGui }: ChungProps & { luot: Luot }) {
@@ -471,6 +483,10 @@ function KhoiSinhHieu({ luot, bang, gui, dangGui }: ChungProps & { luot: Luot })
       s.nhiet_do != null ? `${s.nhiet_do}°C` : null,
       s.can_nang != null ? `${s.can_nang} kg` : null,
       s.chieu_cao != null ? `${s.chieu_cao} cm` : null,
+      s.nhip_tho != null ? `nhịp thở ${s.nhip_tho}` : null,
+      s.spo2 != null ? `SpO₂ ${s.spo2}%` : null,
+      s.bmi != null ? `BMI ${s.bmi}` : null,
+      s.muc_do_dau != null ? `đau ${s.muc_do_dau}/10` : null,
     ].filter(Boolean);
     return (
       <p className="text-body text-ink">
@@ -497,7 +513,7 @@ function KhoiSinhHieu({ luot, bang, gui, dangGui }: ChungProps & { luot: Luot })
       }}
     >
       <p className="text-label uppercase text-ink-muted">Đo sinh hiệu</p>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {O_SINH_HIEU.map(([truong, nhan]) => (
           <label key={truong} className="flex flex-col gap-1 text-meta text-ink-muted">
             {nhan}

@@ -680,6 +680,7 @@ class LuotKhamService:
                     SELECT DISTINCT ON (m.visit_id)
                            m.visit_id::text AS visit_id, m.systolic, m.diastolic,
                            m.pulse, m.temperature, m.weight_kg, m.height_cm,
+                           m.respiratory_rate, m.spo2, m.bmi, m.pain_score,
                            m.created_at, s.full_name AS recorded_by_name
                       FROM vital_measurement m
                       LEFT JOIN staff s ON s.id = m.recorded_by
@@ -850,6 +851,10 @@ class LuotKhamService:
                 "nhiet_do": _num(m["temperature"]),
                 "can_nang": _num(m["weight_kg"]),
                 "chieu_cao": _num(m["height_cm"]),
+                "nhip_tho": m["respiratory_rate"],
+                "spo2": m["spo2"],
+                "bmi": _num(m["bmi"]),
+                "muc_do_dau": m["pain_score"],
                 "luc": _iso(m["created_at"]),
                 "nguoi_do": m["recorded_by_name"],
             }

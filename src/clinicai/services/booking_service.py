@@ -2156,6 +2156,42 @@ class BookingService:
             reason,
         )
 
+        # ĐÓNG LUÔN LƯỢT KHÁM, không chỉ các bước của nó.
+        #
+        # `cancel_visit_workflow` chỉ chạm `work_item`; `visit.status` ở lại
+        # IN_PROGRESS. Bảng lượt khám lọc đúng `status IN ('OPEN','IN_PROGRESS')`
+        # nên một lịch huỷ sau khi đã check-in để lại lượt MA trên màn bác sĩ
+        # tới hết ngày: không bước nào làm được, không ai đóng được, và người
+        # trực phải đoán xem khách còn ở đây hay đã về. Đo được 16/09/2026 —
+        # 12 lượt ma sau một buổi chạy thử.
+        #
+        # INCOMPLETE = "khách về giữa chừng", đúng nghĩa. Bảng cố ý không hiện
+        # nó. Ràng buộc `visit_incomplete_can_ly_do` bắt phải viết lý do, nên lý
+        # do ghi luôn ở đây thay vì để trống cho qua chuyện.
+        #
+        # CHỈ đụng lượt còn mở: FINALIZED/AMENDED là hồ sơ đã ký — huỷ một lịch
+        # hẹn không được phép viết lại kết luận của bác sĩ.
+        await conn.execute(
+            """
+            UPDATE public.visit
+               SET status = 'INCOMPLETE',
+                   incomplete_at = now(),
+                   incomplete_reason = $3,
+                   incomplete_by = $4::uuid,
+                   updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND status IN ('OPEN', 'IN_PROGRESS')
+            """,
+            identity.clinic_id,
+            visit_id,
+            (
+                "Lễ tân hoàn tác check-in"
+                if reason == "undo_checkin"
+                else "Lịch hẹn bị huỷ sau khi khách đã check-in"
+            ),
+            identity.staff_id,
+        )
+
     def _is_today(self, moment: datetime) -> bool:
         local = moment.astimezone(CLINIC_TZ).date()
         return local == datetime.now(CLINIC_TZ).date()
