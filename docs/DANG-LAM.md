@@ -37,6 +37,22 @@ lịch sử hội thoại.
 
 ---
 
+## -0015. Không giới hạn dung lượng tệp + CSKH xem/tải PDF hồ sơ khám (16/09/2026 đêm) — edd6b3c · c82d77b · aff7bcf, ĐÃ LÊN FINAL CLOUD
+
+**Tải tệp không giới hạn (Tuyền chốt):**
+- Trần theo loại = env `MEDIA_MAX_BYTES_<ANH|VIDEO|PDF|TAI_LIEU>`, mặc định 0 = không giới hạn. Hạn mức tổng `MEDIA_CLINIC_QUOTA_BYTES` mặc định 0. Vẫn giữ `MEDIA_MIN_FREE_BYTES` (5GB trống).
+- Đường thật: `services/nhan_tep_luong.py` đọc multipart THEO LUỒNG → `<kho>/.tam/*.part` (cùng kho Viettel) → service chỉ đổi tên. Kiểm quyền TRƯỚC khi đọc byte thân; nhận kiểu ở 8KB đầu. Bỏ `UploadFile` ở 2 cửa tải (CSKH/nhân viên + đối tác).
+- Dashboard: bỏ chặn 82MB; chuyển tiếp bằng `lib/chuyen-tiep-tai-len.ts` (node:http, không thời hạn — undici chờ header 300s); `cluster.cjs` vá `requestTimeout=0` và **tiến trình con phải exec lại cluster.cjs** (bản đầu chỉ vá tiến trình chính → cắt ở giây ~327). Ô tải có % tiến độ.
+- api `TMPDIR=/var/lib/clinicai/media/.tam` (không để tệp lớn rơi vào ổ hệ điều hành chung với database).
+- `backup-db.sh`: kho có `MEDIA_MARKER` (Viettel) → KHÔNG đóng tar media về `~/backups` (vài chục GB sẽ làm đầy ổ database mỗi đêm).
+- Đo trên final cloud: video 2GB 51s (bản chép hai lần: 287s), khớp từng byte; RAM api ~200MB, dashboard ~250MB suốt lúc tải; PDF 120MB 5s; ảnh 30MB nhận.
+- Còn: người KHÔNG có quyền gửi tệp to thì bị cắt kết nối (~6s) thay vì đọc được câu 403 — giao diện chỉ hiện ô tải cho vai có quyền nên chưa gặp thật.
+
+**CSKH xem trước + tải PDF hồ sơ khám:**
+- `GET /api/v1/cskh/ho-so-kham/{appointment_id}` (`ho_so_kham_service.py`, cùng nhóm vai đọc tệp kết quả): lịch + khách, lượt, sinh hiệu, phiên khám, phiếu khám (form_data), chỉ định + kết quả + duyệt, tệp, xét nghiệm, đơn thuốc. Mọi câu khoá theo clinic_id.
+- Giao diện: `_lam-viec/HoSoKham.tsx` — Khách hàng → Lịch sử các lần khám → "Xem hồ sơ khám · tải PDF" (lượt CHECKED_IN/COMPLETED). Nhãn phiếu từ `lib/form-schemas`. PDF = chụp khung (html-to-image) cắt trang A4 (jspdf). Kết quả chưa duyệt mang nhãn "Chờ bác sĩ duyệt"; tệp chưa cho phép gửi mang nhãn.
+- Chưa bấm thử nút Tải PDF trên trình duyệt thật (không đăng nhập hộ được) — cần Tuyền bấm.
+
 ## -0014. QA xoay vai theo lịch trên final cloud (16/09/2026 đêm) — 1d04d90 … sau cùng
 
 Tuyền: *"tài khoản là duy nhất còn vai trò có thể thay đổi… thử thay đổi các vai trò cho mỗi tài khoản, riêng bác sĩ thì không cần… thư ký y khoa y hệt bác sĩ, có gọi khách vào khám rồi bấm bắt đầu khám… check cả upload video, ảnh, pdf, docx"*.
