@@ -1207,3 +1207,29 @@ async def test_thu_ky_chua_phan_bac_si_van_thay_khach_o_ban_kham_cua_toi(
     )
     hc = await kb.svc.hang_cho(identity=kb.thu_ky, room_id=None)
     assert any(r["visit_id"] == kb.visit_id for r in hc["hang_cho"])
+
+
+async def test_khach_chua_co_bac_si_van_hien_o_hang_cho_bac_si(kb: KichBan) -> None:
+    """Lịch hẹn không gắn bác sĩ → lượt khám chính vẫn phải có người thấy."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE visit SET attending_doctor_id = NULL WHERE visit_id = $1::uuid",
+            kb.visit_id,
+        )
+    await kb.svc.record_vitals(
+        visit_id=kb.visit_id,
+        raw={"systolic": 118, "diastolic": 76},
+        identity=kb.dieu_duong,
+    )
+    hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
+    dong = [r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id]
+    assert len(dong) == 1
+    await kb.svc.start_consultation(
+        consultation_id=dong[0]["ref_id"], identity=kb.bac_si
+    )
+    async with kb.pool.acquire() as conn:
+        bs = await conn.fetchval(
+            "SELECT doctor_staff_id::text FROM consultation WHERE id = $1::uuid",
+            dong[0]["ref_id"],
+        )
+    assert bs == kb.bac_si.staff_id, "bác sĩ bấm Bắt đầu khám thì nhận khách"

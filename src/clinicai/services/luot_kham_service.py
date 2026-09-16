@@ -1238,7 +1238,14 @@ class LuotKhamService:
                              AND q.room_id = $2::uuid)
                      OR (q.lane = 'DOCTOR'
                              AND ($4::boolean
-                                  OR q.doctor_staff_id::text = ANY($3::text[])))
+                                  OR q.doctor_staff_id::text = ANY($3::text[])
+                                  -- Khách CHƯA có bác sĩ (lịch hẹn không gắn
+                                  -- bác sĩ): hiện ở mọi hàng chờ khám có bác sĩ,
+                                  -- ai bấm Bắt đầu khám thì nhận. Bản trước khách
+                                  -- này không nằm trong hàng chờ của AI cả (tự
+                                  -- kiểm 16/09/2026).
+                                  OR (q.doctor_staff_id IS NULL
+                                      AND cardinality($3::text[]) > 0)))
                    )
                  ORDER BY
                    CASE q.status WHEN 'serving' THEN 0 WHEN 'called' THEN 1
