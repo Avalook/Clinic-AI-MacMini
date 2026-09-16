@@ -61,7 +61,11 @@ if (N === 1 || !cluster.isPrimary) {
   // Một tiến trình thì chạy thẳng, không đẻ thêm tầng nào.
   require(MAY_CHU);
 } else {
-  cluster.setupPrimary({ exec: MAY_CHU });
+  // Tiến trình con chạy LẠI tệp này (không chạy thẳng server.js): bản vá
+  // `requestTimeout` ở trên phải có mặt trong CHÍNH tiến trình phục vụ request.
+  // Bản đầu trỏ thẳng server.js — vá chỉ nằm ở tiến trình chính, không phục vụ
+  // ai, và tệp gửi chậm vẫn bị cắt ở giây ~327 (đo trên final cloud 16/09/2026).
+  cluster.setupPrimary({ exec: __filename });
 
   // CHỐNG ĐẺ VÔ HẠN. Nếu server.js chết ngay khi khởi động (cấu hình sai,
   // thiếu biến môi trường), vòng hồi sinh sẽ quay tít và đốt CPU mà không ai

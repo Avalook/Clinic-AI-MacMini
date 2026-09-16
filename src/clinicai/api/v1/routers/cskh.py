@@ -581,6 +581,24 @@ _KET_QUA_DOC_GUARD = _TEP_TAI_LEN_GUARD
 _BAC_SI_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 
 
+@router.get("/cskh/ho-so-kham/{appointment_id}")
+async def ho_so_kham(
+    appointment_id: UUID,
+    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hồ sơ một lần khám, bản đọc gộp — để CSKH xem trước và tải PDF.
+
+    Cùng nhóm vai với đọc tệp kết quả: ai đã được mở tệp kết quả của khách thì
+    được xem hồ sơ lần khám chứa tệp ấy.
+    """
+    from clinicai.services.ho_so_kham_service import HoSoKhamService
+
+    return await HoSoKhamService(pool).doc(
+        identity=identity, appointment_id=str(appointment_id)
+    )
+
+
 @router.get("/cskh/ket-qua/cho-phep-gui")
 async def tep_cho_bac_si_cho_phep(
     identity: StaffIdentity = Depends(_BAC_SI_GUARD),
