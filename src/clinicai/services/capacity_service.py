@@ -85,6 +85,90 @@ class CapacityService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def boi_canh_tuan(
+        self, *, clinic_id: str, ngay: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Phần KHÔNG phụ thuộc bác sĩ của truy vấn lịch trực, lấy MỘT lần/ngày.
+
+        Truy vấn `duty` trong `quote()` trả sáu giá trị, và **năm trong số đó chỉ
+        phụ thuộc NGÀY**: giờ mở cửa, giờ đóng, `settings` của phòng khám, tuần
+        đã công bố lịch trực chưa, và có dòng lịch trực đã duyệt nào hôm đó
+        không. Chỉ `shifts` là của riêng từng bác sĩ.
+
+        Lưới tuần gọi `quote()` một lần cho MỖI Ô. Đo trên máy chủ thật
+        16/09/2026: 17 bác sĩ + hàng "chưa phân" = 18 hàng × 7 ngày = **126 lời
+        gọi**, mỗi lời gọi hỏi lại đúng năm giá trị ấy — 18 lần cho cùng một
+        ngày. Màn Đặt lịch mất **660ms**.
+
+        Hàm này hỏi một lần cho cả tuần: năm giá trị chung theo ngày, cộng bảng
+        tra `(ngày, bác sĩ) → ca trực`. KHÔNG đổi luật nào — cùng các câu con,
+        cùng điều kiện; chỉ đổi số lần hỏi.
+        """
+        if not ngay:
+            return {}
+        ds = [_date.fromisoformat(d) for d in ngay]
+        async with self._pool.acquire() as conn:
+            chung = await conn.fetch(
+                """
+                SELECT d::date AS work_date,
+                  EXISTS (
+                    SELECT 1 FROM work_roster
+                     WHERE clinic_id = $1::uuid AND work_date = d::date
+                       AND status = 'APPROVED'
+                       AND EXISTS (
+                         SELECT 1 FROM roster_week rw
+                          WHERE rw.clinic_id = work_roster.clinic_id
+                            AND rw.week_start = work_roster.week_start
+                       )
+                  ) AS roster_known,
+                  (SELECT open_minute FROM clinic_hours_for_date($1::uuid, d::date))
+                    AS open_minute,
+                  (SELECT close_minute FROM clinic_hours_for_date($1::uuid, d::date))
+                    AS close_minute,
+                  (SELECT settings FROM clinic WHERE id = $1::uuid) AS settings,
+                  public.tuan_lich_truc_da_cong_bo(
+                      $1::uuid,
+                      (d::date + time '12:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
+                  ) AS tuan_da_cong_bo
+                  FROM unnest($2::date[]) AS d
+                """,
+                clinic_id,
+                ds,
+            )
+            ca_truc = await conn.fetch(
+                """
+                SELECT work_date, staff_id::text AS staff_id,
+                       array_agg(DISTINCT shift) AS shifts
+                  FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = ANY($2::date[])
+                   AND status = 'APPROVED'
+                   AND EXISTS (
+                     SELECT 1 FROM roster_week rw
+                      WHERE rw.clinic_id = work_roster.clinic_id
+                        AND rw.week_start = work_roster.week_start
+                   )
+                 GROUP BY work_date, staff_id
+                """,
+                clinic_id,
+                ds,
+            )
+        theo_ngay: dict[str, dict[str, Any]] = {
+            r["work_date"].isoformat(): {
+                "roster_known": r["roster_known"],
+                "open_minute": r["open_minute"],
+                "close_minute": r["close_minute"],
+                "settings": r["settings"],
+                "tuan_da_cong_bo": r["tuan_da_cong_bo"],
+                "ca_theo_bac_si": {},
+            }
+            for r in chung
+        }
+        for r in ca_truc:
+            o = theo_ngay.get(r["work_date"].isoformat())
+            if o is not None:
+                o["ca_theo_bac_si"][r["staff_id"]] = list(r["shifts"] or [])
+        return theo_ngay
+
     async def quote(
         self,
         *,
@@ -92,6 +176,7 @@ class CapacityService:
         location_id: str,
         doctor_id: str | None,
         clinic_id: str,
+        boi_canh: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Trả về từng khung của ngày với sức chứa và mức đã dùng.
 
@@ -117,6 +202,22 @@ class CapacityService:
                 f"Ngày không hợp lệ: {date!r}. Định dạng đúng là YYYY-MM-DD."
             ) from exc
 
+        # BỐI CẢNH ĐÃ CÓ SẴN thì không hỏi lại. Lưới tuần lấy một lần cho cả
+        # tuần rồi truyền vào từng ô; gọi lẻ (màn quote, đặt lịch) vẫn tự hỏi
+        # như cũ, nên đường chạy một-ô KHÔNG đổi hành vi.
+        duty_sang: dict[str, Any] | None = None
+        if boi_canh is not None:
+            duty_sang = {
+                "roster_known": boi_canh.get("roster_known"),
+                "open_minute": boi_canh.get("open_minute"),
+                "close_minute": boi_canh.get("close_minute"),
+                "settings": boi_canh.get("settings"),
+                "tuan_da_cong_bo": boi_canh.get("tuan_da_cong_bo"),
+                "shifts": list(
+                    (boi_canh.get("ca_theo_bac_si") or {}).get(doctor_id or "", [])
+                ),
+            }
+
         async with self._pool.acquire() as conn:
             # LỊCH TRỰC LÀ LUẬT CAO NHẤT — cao hơn cả ba tầng sức chứa.
             #
@@ -135,8 +236,10 @@ class CapacityService:
             # KHÔNG lọc theo TRẠM (quyết định của Quang, 2026-08-04): có tên
             # trong lịch trực hôm đó là nhận đặt được, dù trạm ghi là MAY_TRONG
             # hay LICH_KHAM. BSNT. Khánh Linh là ví dụ có thật.
-            duty = await conn.fetchrow(
-                """
+            duty: Any = duty_sang
+            if duty is None:
+                duty = await conn.fetchrow(
+                    """
                 SELECT
                   EXISTS (
                     SELECT 1 FROM work_roster
@@ -178,10 +281,10 @@ class CapacityService:
                       ($2::date + time '12:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
                   ) AS tuan_da_cong_bo
                 """,
-                clinic_id,
-                day,
-                doctor_id,
-            )
+                    clinic_id,
+                    day,
+                    doctor_id,
+                )
             nguong = nguong_it_cho(duty["settings"] if duty else None)
             roster_known = bool(duty and duty["roster_known"])
             tuan_da_cong_bo = bool(duty and duty["tuan_da_cong_bo"])
@@ -467,13 +570,24 @@ async def bang_tuan(
     ]
     hang.append((None, "Chưa phân bác sĩ", None))
 
+    # MỘT LẦN HỎI LỊCH TRỰC CHO CẢ TUẦN, thay vì một lần cho mỗi ô.
+    #
+    # Đo trên máy chủ thật 16/09/2026 trước khi có dòng này: 17 bác sĩ + hàng
+    # "chưa phân" = 18 hàng × 7 ngày = 126 lời gọi `quote()`, mỗi lời gọi hỏi
+    # lại cùng năm giá trị của ngày ấy. Màn Đặt lịch mất 660ms.
+    boi_canh = await svc.boi_canh_tuan(clinic_id=clinic_id, ngay=ngay)
+
     # Giới hạn song song để không chiếm hết pool của cả API.
     chan = asyncio.Semaphore(6)
 
     async def mot_o(bs: str | None, d: str) -> dict[str, Any]:
         async with chan:
             q = await svc.quote(
-                date=d, location_id=location_id, doctor_id=bs, clinic_id=clinic_id
+                date=d,
+                location_id=location_id,
+                doctor_id=bs,
+                clinic_id=clinic_id,
+                boi_canh=boi_canh.get(d),
             )
         return tom_tat_ngay(q, hom_nay=hom_nay)
 
