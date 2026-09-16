@@ -93,8 +93,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
 
-            llm_client = AnthropicClient()
-            stack.push_async_callback(llm_client.close)
+            # THIẾU KHOÁ ANTHROPIC LÀ CHẠY KHÔNG CÓ AI, KHÔNG PHẢI SẬP CẢ APP.
+            #
+            # Đã cắn thật 16/09/2026 khi dựng VPS mới: `.env.prod` để trống
+            # `ANTHROPIC_API_KEY` (AI đang tắt, `ENABLE_AI_ORCHESTRATOR=false`),
+            # và cả FastAPI chết ngay trong lifespan — không đăng nhập được,
+            # không xem được lịch, không làm được gì. Một tính năng phụ đã tắt
+            # kéo sập toàn bộ phòng khám.
+            #
+            # Phần còn lại của hệ thống VỐN ĐÃ chịu được `llm_client=None`:
+            # `OrchestratorService` khai Optional, `build_orchestrator_graph`
+            # rơi về nhánh rule-based, `lab_triage` xếp PENDING kèm
+            # `requires_review=True`. Chỉ mỗi chỗ này ép phải có.
+            #
+            # Cờ `ENABLE_AI_ORCHESTRATOR` gác ở router, nên khoá vắng mặt là
+            # một cấu hình HỢP LỆ — phải nói to một lần lúc khởi động rồi chạy
+            # tiếp, chứ không phải chết.
+            llm_client: AnthropicClient | None
+            try:
+                llm_client = AnthropicClient()
+            except RuntimeError:
+                llm_client = None
+                logger.warning(
+                    "llm_client_disabled",
+                    reason="ANTHROPIC_API_KEY not set",
+                    hau_qua="các đường cần LLM (brief, phân loại xét nghiệm, "
+                    "tóm tắt) sẽ trả 503; phần còn lại chạy bình thường",
+                )
+            else:
+                stack.push_async_callback(llm_client.close)
             app.state.llm_client = llm_client
 
             # Voice transcriber (on-prem PhoWhisper). Construction nhẹ — model nạp

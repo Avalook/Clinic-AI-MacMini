@@ -155,8 +155,21 @@ def get_event_publisher() -> IEventPublisher:
 
 
 def get_llm_client(request: Request) -> AnthropicClient:
-    """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return cast(AnthropicClient, request.app.state.llm_client)
+    """FastAPI dependency: yields the application's AnthropicClient singleton.
+
+    `app.state.llm_client` là None khi máy chủ chạy KHÔNG có ANTHROPIC_API_KEY
+    (một cấu hình hợp lệ — xem lifespan trong main.py). Trả 503 có lời giải
+    thích, thay vì để None đi sâu vào graph rồi nổ thành 500 ở chỗ không ai
+    đoán được nguyên nhân.
+    """
+    client = request.app.state.llm_client
+    if client is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Tính năng cần AI đang tắt trên máy chủ này "
+            "(chưa cấu hình ANTHROPIC_API_KEY).",
+        )
+    return cast(AnthropicClient, client)
 
 
 @router.post("/patient/get-summary", response_model=PatientSummaryOutput)

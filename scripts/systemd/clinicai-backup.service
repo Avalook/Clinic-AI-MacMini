@@ -27,9 +27,20 @@ ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
 # đã tạo xong và còn nguyên; mạng rớt hay Viettel bảo trì là chuyện của bước
 # này, không phải lý do để báo "sao lưu đêm nay thất bại". Lỗi vẫn vào journal.
 #
-# Không có .env.viettel thì bước này tự dừng với một câu rõ ràng — nên bật sẵn
-# ở đây là an toàn, và ngày có thông tin kết nối thì không phải sửa unit nữa.
-ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel.sh
+# ĐI ĐƯỜNG *STORAGE*, KHÔNG ĐI ĐƯỜNG *DATABASE* — đo 16/09/2026.
+#
+# Viettel bán hai thứ và chúng khác nhau về an toàn, không chỉ về hình dạng:
+#
+#   Cloud File Storage (vCFS)  ổ SMB 3.1.1 mount có `seal` → MÃ HOÁ thật.
+#   Database Service (DBaaS)   máy chủ TỪ CHỐI SSL: `server does not support
+#                              SSL`. Dump mang tên, số điện thoại, hồ sơ khám
+#                              của bệnh nhân sẽ đi TRẦN qua Internet công cộng.
+#
+# Nên `day-sao-luu-len-viettel.sh` (đường DBaaS) KHÔNG chạy ở đây. Nó vẫn nằm
+# trong repo và vẫn dùng được cho dữ liệu không nhạy cảm, hoặc cho ngày mình
+# bọc thêm một lớp mã hoá tệp (age/gpg) trước khi đẩy — lúc ấy đường truyền
+# trần không còn quan trọng nữa vì nội dung đã là byte vô nghĩa.
+ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel-storage.sh
 
 # Hỏng thì phải THẤY. Không đặt cái này thì một đêm sao lưu thất bại chỉ nằm im
 # trong nhật ký, và người ta chỉ biết vào đúng buổi sáng cần khôi phục.

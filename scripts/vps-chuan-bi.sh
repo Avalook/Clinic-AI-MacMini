@@ -76,6 +76,22 @@ log "2/4 · tường lửa"
 # ---------------------------------------------------------------------------
 # Mặc định CHẶN HẾT rồi mở ba cổng. Ngược lại — mở hết rồi chặn dần — là cách
 # để quên mất một cổng và không bao giờ biết.
+# CÀI NẾU CHƯA CÓ, KHÔNG CHỈ CẢNH BÁO.
+#
+# Đã cắn thật 16/09/2026 trên VPS Vietnix mới (Ubuntu bản gọn): `ufw` KHÔNG có
+# sẵn. Script chỉ in một dòng cảnh báo rồi đi tiếp sang cài Docker và siết SSH,
+# nên cuối cùng báo "xong · cổng mở: 22 · 80 · 443" trong khi máy KHÔNG có
+# tường lửa nào cả. Dòng tổng kết ấy nói về ý định, không phải về sự thật.
+#
+# Nguy hơn nữa vì bước sau cài Docker: Docker tự chèn luật vào iptables, nên
+# mỗi cổng `publish` là mở thẳng ra Internet. Không tường lửa + có Docker =
+# Kuma, Dozzle, Postgres bày ra ngoài ngay khi dựng stack.
+if ! command -v ufw >/dev/null 2>&1; then
+    canh "chưa có ufw — đang cài"
+    DEBIAN_FRONTEND=noninteractive apt-get update -qq || true
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ufw || true
+fi
+
 if command -v ufw >/dev/null 2>&1; then
     ufw --force reset >/dev/null
     ufw default deny incoming
@@ -140,4 +156,9 @@ fi
 log "xong"
 echo "  người dùng : $NGUOI_DUNG"
 echo "  Docker     : $(docker --version | cut -d, -f1)"
-echo "  cổng mở    : $SSH_PORT (SSH) · 80 · 443"
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | head -1 | grep -q active; then
+    echo "  cổng mở    : $SSH_PORT (SSH) · 80 · 443 (ufw đang bật)"
+else
+    canh "  TƯỜNG LỬA KHÔNG BẬT — máy đang mở mọi cổng ra Internet."
+    canh "  Sửa: apt-get install -y ufw && chạy lại script này."
+fi

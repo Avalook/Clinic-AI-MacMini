@@ -13,6 +13,33 @@ lịch sử hội thoại.
 
 ---
 
+## 00. Phiên 16/09/2026 — DỰNG LẠI TOÀN BỘ TRÊN VPS MỚI ⚠️ ĐỌC TRƯỚC
+
+**Hạ tầng đã đổi hoàn toàn. Mọi địa chỉ trong các mục bên dưới đều đã cũ.**
+
+| | cũ (chết) | mới |
+|---|---|---|
+| VPS | `222.255.215.219` · alias `clinic-vps` | **`222.255.214.133`** · alias **`clinic-vps-moi`** |
+| Web | `http://222.255.215.219` | **`https://dr4women.io.vn`** (Let's Encrypt) |
+| Máy | hay OOM | **4 CPU · 7,8 GB · 48 GB** |
+
+Vietnix **không gia hạn máy cũ** — cấp máy mới trắng trơn. Tuyền chốt: **làm mới
+hoàn toàn**, không nạp lại bệnh nhân cũ (bản sao 12/09 vẫn còn trên Mac).
+
+Hiện: 79 bảng · 69 policy · 119 migration · **43 nhân sự · 0 bệnh nhân**.
+Đăng nhập chạy, RLS + `auth.uid()` thông (đã kiểm bằng token thật).
+Sao lưu đêm 02:15 → Viettel Storage (SMB3 mã hoá) đã chạy, diễn tập khôi phục
+15/16 PASS.
+
+👉 **Chi tiết đầy đủ — địa chỉ, lệnh, 6 cạm bẫy đã cắn, việc còn lại:
+`docs/BAN-GIAO-VPS-MOI-16-09.md`**
+
+Ba việc chặn: (1) tài khoản đăng nhập thật cho 35 nhân sự — cần email + SMTP;
+(2) xoá 8 tài khoản thử `@dr4women.local` trước khi có bệnh nhân thật;
+(3) Viettel DBaaS **không có SSL** nên chưa dùng cho dữ liệu bệnh nhân.
+
+---
+
 ## 0. Phiên 21→22/08/2026 — Chịu tải: Lát 1+2+3 xong, OOM tìm ra, đường ghi đã kiểm
 
 **BỔ SUNG TRƯA 22/08 — Lát 3 + kiểm đường ghi (staging-0822e = `026669b7`):**

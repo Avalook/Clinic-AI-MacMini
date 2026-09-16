@@ -40,8 +40,29 @@ hong() { printf '[%s] LỖI: %s\n' "$(ts)" "$*" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || hong "thiếu $ENV_FILE — xem hướng dẫn ở đầu file này."
 
-URL=$(grep -E '^VIETTEL_DATABASE_URL=' "$ENV_FILE" | head -1 | cut -d= -f2-)
-[ -n "$URL" ] || hong "$ENV_FILE không có VIETTEL_DATABASE_URL"
+# CHẾT CÓ TIẾNG, KHÔNG CHẾT IM LẶNG.
+#
+# Đã cắn thật (25/08→11/09/2026, 17 đêm không ai biết): `.env.viettel` bị tạo
+# rỗng 0 byte. `grep` không thấy dòng nào thì thoát 1; `set -euo pipefail` giết
+# cả script NGAY TẠI dòng gán — trước khi chạm được câu `hong` ở dòng dưới. Đơn
+# vị systemd lại khai `ExecStart=-` nên journal vẫn báo "Deactivated
+# successfully", và `offsite_uploaded` trong backup-status.json chỉ phản ánh R2.
+# Kết quả: không kênh nào biết bản sao ngoài máy đã ngừng từ lâu.
+#
+# Nên: chặn `grep` giết script (`|| true`), rồi tự mình phán xét và hét lên.
+[ -s "$ENV_FILE" ] || hong "$ENV_FILE RỖNG (0 byte) — tạo lại theo mẫu ở đầu file này."
+
+URL=$(grep -E '^VIETTEL_DATABASE_URL=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+[ -n "$URL" ] || hong "$ENV_FILE không có dòng VIETTEL_DATABASE_URL=… (file có $(wc -l < "$ENV_FILE" | tr -d ' ') dòng)"
+
+# QUYỀN TỆP. Chuỗi kết nối này là mật khẩu database phòng khám. 25/08 file được
+# tạo với quyền 664 — mọi người dùng trên máy đọc được.
+QUYEN=$(stat -c '%a' "$ENV_FILE" 2>/dev/null || stat -f '%Lp' "$ENV_FILE" 2>/dev/null || echo "?")
+case "$QUYEN" in
+    600|400) ;;
+    ?) noi "  (không đọc được quyền của $ENV_FILE — bỏ qua bước kiểm quyền)" ;;
+    *) hong "$ENV_FILE đang để quyền $QUYEN — phải là 600. Sửa: chmod 600 '$ENV_FILE'" ;;
+esac
 
 # CHỐT CHỐNG ĐẨY VỀ CHÍNH MÌNH. Một bản sao "ngoài máy" trỏ vào đúng cái máy nó
 # sao lưu là bản sao vô dụng — và nó trông y hệt một bản sao thật trong mọi báo

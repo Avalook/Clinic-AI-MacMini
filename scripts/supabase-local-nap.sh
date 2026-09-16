@@ -82,6 +82,22 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 SQL
 
+# ---------------------------------------------------------------------------
+# 4. Bảo PostgREST nạp lại lược đồ
+# ---------------------------------------------------------------------------
+# PostgREST đọc lược đồ MỘT LẦN lúc khởi động rồi giữ trong bộ nhớ. Dựng stack
+# trước, chạy migration sau — thứ tự tự nhiên, và cũng là thứ tự bắt buộc vì
+# baseline cần `auth.users` do GoTrue tạo — nghĩa là PostgREST luôn đang nhớ
+# một database RỖNG.
+#
+# Triệu chứng (đã cắn thật trên VPS mới 16/09/2026): đăng nhập được, dữ liệu
+# nằm nguyên trong database, nhưng màn Danh sách bệnh nhân và Quản lý khách
+# hàng đỏ một dòng "Could not find a relationship between 'appointment' and
+# 'patient' in the schema cache". Nhìn như hỏng lược đồ, thực ra chỉ là
+# PostgREST chưa biết. Không lỗi nào vào log của database.
+echo "==> bảo PostgREST nạp lại lược đồ"
+psql_ -c "NOTIFY pgrst, 'reload schema'"
+
 echo "==> xong. Kiểm nhanh:"
 psql_ -c "select
     (select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE') as bang,
