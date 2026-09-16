@@ -18,6 +18,7 @@ import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
+import TepCuaLuotKham from "./TepCuaLuotKham";
 import { resolveServiceCode } from "../../../lib/form-schemas";
 import {
   docNhap,
@@ -1558,6 +1559,24 @@ export default function ClinicalRecordForm({
               visitId={data.visit.visit_id}
               serviceCode={serviceCode}
               readOnly={readOnly || locked}
+            />
+          </div>
+        )}
+
+        {/* TỆP KẾT QUẢ — ngay trong hồ sơ, không phải một màn khác.
+            
+            Tuyền 16/09/2026: *"phải có chỗ up file cho bác sĩ, thư ký, điều
+            dưỡng… cả CSKH cũng cần có file để xem và tải xuống"*. Kho tệp đã có
+            từ 09/08 nhưng chỉ mở ở màn CSKH, nên người cầm kết quả trên tay
+            phải nhờ người khác tải hộ.
+            
+            KHÔNG hiện ở chế độ chỉ-sinh-hiệu: điều dưỡng và lễ tân đo xong là
+            xong, tệp kết quả thuộc về phần chuyên môn. */}
+        {tab === 2 && !vitalsOnly && !showAll && p?.clinic_patient_id && (
+          <div className="border-t border-surface-sunken pt-3">
+            <TepCuaLuotKham
+              clinicPatientId={p.clinic_patient_id}
+              appointmentId={appt.id}
             />
           </div>
         )}

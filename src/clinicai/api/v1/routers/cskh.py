@@ -546,9 +546,23 @@ async def cap_nhat_phan_hoi(
 
 # ── Tệp kết quả khám (ảnh / video siêu âm, phiếu xét nghiệm) ────────────────
 #
-# Cùng gác với phần nhập liệu chăm sóc: ai ghi được "đã gọi cho khách" thì tải
-# được kết quả của khách đó lên. KHÔNG mở rộng _SONO_GUARD — đường siêu âm của
-# kỹ thuật viên giữ nguyên vai của nó; đây là đường của CSKH.
+# AI TẢI LÊN ĐƯỢC (Tuyền chốt 16/09/2026: *"phải có chỗ up file cho bác sĩ, thư
+# ký, điều dưỡng… cả CSKH cũng cần có file để xem và tải xuống"*).
+#
+# Trước đó chỉ nhóm nhập liệu chăm sóc (CSKH, Lễ tân, Quản lý, Trưởng ca) tải
+# lên được — tức chính những người KHÔNG cầm kết quả trên tay. Bác sĩ siêu âm
+# chụp xong, kỹ thuật viên có phiếu xét nghiệm, điều dưỡng cầm phim chụp: cả ba
+# đều phải nhờ người khác tải hộ, và bản gốc đi qua Zalo trước khi vào hồ sơ.
+#
+# Giữ nguyên đường siêu âm riêng của kỹ thuật viên (_SONO_GUARD) — nó gắn tệp
+# vào phiếu siêu âm, khác với kho tệp kết quả của lượt khám ở đây.
+_TEP_TAI_LEN_GUARD = require_role(
+    *INTAKE_ROLES,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+)
 
 
 @router.post("/cskh/ket-qua/tep", status_code=201)
@@ -556,7 +570,7 @@ async def tai_len_ket_qua(
     clinic_patient_id: UUID = Form(...),
     file: UploadFile = File(...),
     appointment_id: UUID | None = Form(default=None),
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tải một tệp kết quả lên.
@@ -577,10 +591,10 @@ async def tai_len_ket_qua(
 
 
 #: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được
-#: tệp mới cho phép gửi (15/09/2026).
-_KET_QUA_DOC_GUARD = require_role(
-    *INTAKE_ROLES, ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR
-)
+#: tệp mới cho phép gửi (15/09/2026). Từ 16/09 thêm thư ký và điều dưỡng: ai
+#: tải lên được thì phải mở lại được thứ mình vừa tải, nếu không thì không có
+#: cách nào kiểm tra mình có tải nhầm tệp của người khác hay không.
+_KET_QUA_DOC_GUARD = _TEP_TAI_LEN_GUARD
 _BAC_SI_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 
 

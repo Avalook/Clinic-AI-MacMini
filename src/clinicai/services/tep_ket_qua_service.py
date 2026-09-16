@@ -59,6 +59,16 @@ KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
 BAC_SI_CHO_PHEP_GUI = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
 
 
+#: Vai mà tệp họ tải lên ĐƯỢC PHÉP GỬI NGAY, không chờ ai duyệt lại.
+#:
+#: Luật "bác sĩ cho phép gửi" (15/09/2026) sinh ra cho đường CSKH: người không
+#: đọc được kết quả tải một tệp lên, nên phải có bác sĩ xem trước khi nó tới tay
+#: khách. Khi chính bác sĩ là người tải lên thì bước ấy đã xong rồi — bắt bác sĩ
+#: tự duyệt tệp của mình chỉ tạo ra một hàng chờ giả và dạy người ta bấm cho
+#: xong. Thư ký, điều dưỡng, CSKH, lễ tân tải lên thì VẪN chờ bác sĩ.
+TU_CHO_PHEP_GUI: frozenset[ClinicRole] = BAC_SI_CHO_PHEP_GUI
+
+
 class TepKetQuaService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -194,9 +204,12 @@ class TepKetQuaService:
                 INSERT INTO public.tep_ket_qua
                     (clinic_id, clinic_patient_id, appointment_id, khoa,
                      ten_hien_thi, loai_tep, mime, so_byte, sha256,
-                     tai_len_boi_staff_id)
+                     tai_len_boi_staff_id,
+                     cho_phep_gui_luc, cho_phep_gui_boi_staff_id)
                 VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
-                        $10::uuid)
+                        $10::uuid,
+                        CASE WHEN $11 THEN now() END,
+                        CASE WHEN $11 THEN $10::uuid END)
                 RETURNING id::text
                 """,
                 identity.clinic_id,
@@ -209,6 +222,7 @@ class TepKetQuaService:
                 len(data),
                 hashlib.sha256(data).hexdigest(),
                 identity.staff_id,
+                identity.role in TU_CHO_PHEP_GUI,
             )
 
         logger.info(
