@@ -37,6 +37,16 @@ lịch sử hội thoại.
 
 ---
 
+## -0012. Tệp kết quả lưu trên Viettel Cloud File Storage (16/09/2026 khuya) — commit a6ef82b
+
+Tuyền: *"mình cần lưu vào viettel file storage"*. Trước đó tệp nằm trên ổ VPS, Viettel chỉ nhận bản sao lưu 02:15.
+
+- `.env.prod`: `MEDIA_DIR=/mnt/viettel-cfs/clinicai-media` + `MEDIA_MARKER=.o-viettel-cfs`. api bind `/mnt/viettel-cfs/clinicai-media/production`.
+- **Chốt an toàn**: thiếu tệp `.o-viettel-cfs` (ổ rớt / Docker lên trước ổ mạng khi khởi động lại) → từ chối ghi kèm câu báo, KHÔNG ghi nhầm xuống ổ VPS. Có ổ lại thì `docker compose ... restart api`.
+- 5 tệp cũ đã chép sang (sha256 khớp); bản cũ vẫn để ở `~/clinicai/.media/production` (tệp thử, dọn được).
+- Thử thật sau chuyển: tải PNG/MP4/PDF → 201, đọc Range → 206, tệp mới rơi vào Viettel (ổ VPS đứng yên 5 tệp).
+- ⚠️ **Còn hở**: (1) sao lưu đêm `backup-db.sh` giờ nén tệp TỪ Viettel VÀO Viettel — cùng một nơi, chưa phải bản sao thứ hai; (2) hợp đồng Viettel File Storage hết hạn **16/10/2026**.
+
 ## -0011. Thanh bên tường minh + ảnh/video siêu âm (16/09/2026 khuya) — commit 02c0e94
 
 Tuyền: *"điều dưỡng đang ngồi vào đo sinh hiệu thì phải có node là đo sinh hiệu… siêu âm phải có chỗ up ảnh, video… đối tác cũng phải gửi file vào hệ thống… cứ tường minh ra ở bên sidebar"*.
