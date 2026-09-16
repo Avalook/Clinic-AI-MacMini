@@ -56,6 +56,8 @@ Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm t
 
 **Thử thật trên final cloud (API, tài khoản thật):** BS Hằng thấy Trịnh Bảo Ngọc (STT 7) → Bắt đầu → duyệt SA + CFTR → tự vào Phòng siêu âm tầng 1 + Lấy mẫu → Khám xong (SERVICES) → BS SA Giáp Bắt đầu, gửi ảnh, Xong → ĐD Diễm Thuý lấy mẫu → đối tác thấy "Đã lấy mẫu", gửi kết quả → BS Hằng thấy 2 kết quả, phê duyệt → lễ tân Hải Yến mở thu ngân thấy 3 dòng. 20/20 bước 200/201. **Chưa bấm thử trên giao diện** (Claude không đăng nhập app được).
 
+**Vai theo vị trí hôm nay (072245f, đã lên final cloud):** tài khoản Điều dưỡng Minh Thư đứng Lễ tân + Thu ngân bị 403 ở thu ngân/check-out/đặt lịch/kho thuốc/bảng giá và Tạo bệnh nhân đá về trang chủ. Nay danh tính mang `vai_theo_vi_tri` (Lễ tân/Điều dưỡng/Trưởng ca — KHÔNG BAO GIỜ bác sĩ, BS SA, thư ký, quản lý); cửa gác bị từ chối theo vai tài khoản mà vị trí cho phép thì đi tiếp dưới vai vị trí. Giao diện: `getVaiHomNay`/`vaiLamViec` (lib/clinic-session.ts). Dò lại bằng token Minh Thư: 7/7 cửa 200.
+
 **CÒN LẠI (chưa làm, cố ý):**
 1. Bảng giá gần như trống → dòng thu tiền ra `None`.
 2. Phiếu siêu âm phụ khoa có ô cấu trúc (`sieu-am/KetQuaPhuKhoa.tsx`) chưa nối vào Phòng siêu âm — hiện ô mô tả tự do + tệp.
