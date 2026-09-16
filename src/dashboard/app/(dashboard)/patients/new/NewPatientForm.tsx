@@ -111,6 +111,102 @@ function Req() {
  *  mỗi lượt vẽ, mất chữ đang gõ. Mỗi hồ sơ khớp một bản — bấm ra một ô nhập
  *  NGAY BÊN PHẢI nút, Lưu là POST /api/patients/sdt-them; từ đó tra số nào
  *  cũng ra khách ấy. */
+/** HAI LỐI RA KHI SỐ ĐIỆN THOẠI TRÙNG ĐÚNG MỘT HỒ SƠ (Tuyền 16/09/2026).
+ *
+ *  *"người này đã có trong cơ sở dữ liệu, đặt lịch khám mới? / Người khác (kèm
+ *  ghi chú vào vì có thể người nhà bệnh nhân đến lấy kết quả mà dùng tên của
+ *  bệnh nhân luôn)"*.
+ *
+ *  Trước đó cảnh báo chỉ LIỆT KÊ hồ sơ trùng rồi để người trực tự xoay: muốn
+ *  đặt cho người cũ thì phải nhớ mã, thoát biểu mẫu, sang màn đặt lịch, tìm
+ *  lại. Nay:
+ *    · "Đặt lịch khám mới" → sang thẳng màn đặt lịch với ĐÚNG hồ sơ ấy được
+ *      chọn sẵn. Không cần điền lại gì: mọi thông tin hành chính đã có trong
+ *      hồ sơ, chỉ "vấn đề đi khám" là mỗi lần một khác nên để trống.
+ *    · "Người khác" → mở ô ghi chú và ghi vào SỔ CHĂM SÓC CỦA HỒ SƠ CŨ. Ghi
+ *      vào hồ sơ mới thì lần sau ai mở hồ sơ cũ vẫn không hiểu vì sao số ấy
+ *      xuất hiện ở hai nơi — mà bản chất nó là chuyện của MỘT hồ sơ. */
+function LoiRaKhiTrungSo({ khach }: { khach: PhoneMatch }) {
+  const [mo, setMo] = useState(false);
+  const [ghi, setGhi] = useState("");
+  const [dang, setDang] = useState(false);
+  const [ket, setKet] = useState<{ ok: boolean; cau: string } | null>(null);
+
+  async function luu() {
+    setDang(true);
+    setKet(null);
+    // TRY/CATCH, KHÔNG PHẢI `await` TRẦN. Bản đầu để `fetch` trần: mạng chớp
+    // một cái là lời hứa bị từ chối, `setDang(false)` không bao giờ chạy và nút
+    // đứng nguyên ở "Đang ghi…" — người trực ngồi chờ một việc đã chết. Bắt được
+    // trên local: một lần bấm treo vĩnh viễn trong khi cùng lời gọi ấy chạy tay
+    // vẫn trả 201.
+    try {
+      const res = await fetch("/api/cskh-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "Ghi chú tiếp nhận",
+          description: `Người khác dùng thông tin của hồ sơ này tại quầy${
+            ghi.trim() ? ` — ${ghi.trim()}` : ""
+          }`,
+          patient_code: khach.patient_code,
+        }),
+      });
+      setKet(
+        res.ok
+          ? { ok: true, cau: "Đã ghi vào hồ sơ này." }
+          : { ok: false, cau: "Không ghi được — thử lại." },
+      );
+      if (res.ok) setGhi("");
+    } catch {
+      setKet({ ok: false, cau: "Mất mạng — chưa ghi được, thử lại." });
+    } finally {
+      setDang(false);
+    }
+  }
+
+  return (
+    <span className="ml-1 inline-flex flex-wrap items-center gap-1">
+      <a
+        href={`/appointments?bn=${encodeURIComponent(khach.patient_code)}`}
+        className="rounded-chip border border-warning/40 px-1.5 py-0.5 text-meta font-semibold text-warning hover:bg-warning/10"
+      >
+        Đặt lịch khám mới
+      </a>
+      <button
+        type="button"
+        onClick={() => setMo((v) => !v)}
+        className="rounded-chip border border-warning/40 px-1.5 py-0.5 text-meta font-semibold text-warning hover:bg-warning/10"
+      >
+        Người khác
+      </button>
+      {mo && (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <input
+            value={ghi}
+            onChange={(e) => setGhi(e.target.value)}
+            placeholder="VD: người nhà tới lấy kết quả hộ"
+            className="min-w-48 rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink outline-none focus:border-brand-600"
+          />
+          <button
+            type="button"
+            disabled={dang}
+            onClick={() => void luu()}
+            className="rounded-control bg-brand-600 px-2 py-1 text-meta font-semibold text-white disabled:opacity-50"
+          >
+            {dang ? "Đang ghi…" : "Ghi vào hồ sơ này"}
+          </button>
+          {ket && (
+            <span className={ket.ok ? "text-meta text-success" : "text-meta text-danger"}>
+              {ket.cau}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ThemSdtChoKhach({
   khach,
   goiY,
@@ -1187,6 +1283,7 @@ export default function NewPatientForm({
                       {/* Khách dùng thêm số khác? Gắn ngay vào hồ sơ này —
                           KHÔNG gợi ý số đang gõ: nó đã là của hồ sơ này. */}
                       <ThemSdtChoKhach khach={m} />
+                      <LoiRaKhiTrungSo khach={m} />
                     </li>
                   ))}
                 </ul>
@@ -1196,14 +1293,15 @@ export default function NewPatientForm({
                 </p>
               </div>
             )}
-            {/* TRÙNG TÊN ĐƠN THUẦN — nhẹ hơn, và nói rõ là nhẹ hơn.
-                Trùng tên ở Việt Nam là chuyện thường, nên khối này không dùng
-                màu cảnh báo và không đứng chung với khối trên: gộp lại thì
-                người trực sẽ học cách bỏ qua cả hai. */}
+            {/* TRÙNG TÊN — VÀNG NHẠT (Tuyền 16/09/2026 muốn nó cũng là cảnh
+                báo vàng). Nhưng vẫn PHẢI nhẹ hơn khối trên và không có nút
+                hành động: trùng tên ở Việt Nam là chuyện thường, để hai khối
+                y hệt nhau là dạy người trực bỏ qua cả hai. Nhạt + không nút =
+                vẫn vàng mà vẫn phân biệt được nặng nhẹ. */}
             {trungTen.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-meta text-ink-soft">
-                <p className="font-medium text-ink">
-                  Đã có {trungTen.length} hồ sơ trùng họ tên:
+              <div className="mt-1.5 rounded-lg border border-warning/25 bg-warning-bg/50 px-3 py-2 text-meta text-ink-soft">
+                <p className="font-medium text-warning">
+                  ⚠ Đã có {trungTen.length} hồ sơ trùng họ tên:
                 </p>
                 <ul className="mt-1 space-y-0.5">
                   {trungTen.map((m) => (

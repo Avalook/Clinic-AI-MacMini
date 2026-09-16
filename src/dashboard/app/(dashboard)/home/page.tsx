@@ -34,7 +34,7 @@ import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { doctorName } from "../../../lib/doctor-name";
-import { currentWeekStartVn, weekDates, weekStartOf } from "../../../lib/roster";
+import { currentWeekStartVn, todayVn, weekDates, weekStartOf } from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, {
   type ApptDay,
@@ -269,7 +269,48 @@ async function BaOSo({
   // Ô SỐ BẤM ĐƯỢC, CÓ ICON (ảnh Tuyền 16/09/2026). Chỉ gắn đường dẫn khi vai
   // mở được trang đích — một ô trông bấm được mà dẫn tới 403 tệ hơn ô chữ.
   const toi = (href: string) => (canSeeNav(role, href) ? href : undefined);
-  const cards = [
+  // BA Ô SỐ CỦA LỄ TÂN KHÁC CỦA CSKH (16/09/2026).
+  //
+  // Hai ô "Việc đang chờ làm" và "Lịch cần xử lý" đếm việc CHĂM SÓC KHÁCH và
+  // cùng dẫn tới /customers — màn Tuyền vừa bỏ khỏi thanh bên của quầy vì
+  // thừa. Để nguyên thì quầy nhìn hai con số của bộ phận khác, bấm vào không
+  // đi đâu được. Thay bằng đúng hai câu hỏi của quầy sáng nay: còn ai chưa
+  // đến, và đã đón được bao nhiêu người.
+  //
+  // Đếm trên CHÍNH danh sách lịch tuần mà bảng bên dưới đang vẽ (`tuan_hen`),
+  // không hỏi thêm một lời gọi nữa — và vì cùng một nguồn nên con số trên đầu
+  // không bao giờ cãi nhau với bảng ngay dưới nó.
+  const homNay = todayVn();
+  const henHomNay = (goi?.tuan_hen ?? []).filter(
+    (a) => a.slot_start.slice(0, 10) === homNay,
+  );
+  const cards = isReception
+    ? [
+        {
+          label: "Chờ check-in hôm nay",
+          value: henHomNay.filter((a) =>
+            ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status),
+          ).length,
+          icon: <CalendarClock className="size-5" />,
+          tone: "brand" as const,
+          href: undefined,
+        },
+        {
+          label: "Đã check-in hôm nay",
+          value: henHomNay.filter((a) => a.status === "CHECKED_IN").length,
+          icon: <ClipboardList className="size-5" />,
+          tone: "warning" as const,
+          href: toi("/reception/queue"),
+        },
+        {
+          label: "BN mới đăng ký hôm nay",
+          value: goi?.so_lieu.khach_moi_hom_nay ?? 0,
+          icon: <UserPlus className="size-5" />,
+          tone: "success" as const,
+          href: toi("/patient-list"),
+        },
+      ]
+    : [
     {
       label: "Việc đang chờ làm",
       value: goi?.so_lieu.viec_dang_cho ?? 0,

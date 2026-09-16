@@ -184,7 +184,11 @@ export default function PatientListView({
   const router = useRouter();
   const [term, setTerm] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(rows[0]?.clinic_patient_id ?? null);
+  // MỞ MÀN LÀ BẢNG TRA CỨU, chưa chọn ai (Tuyền 16/09/2026: *"lấy giống của
+  // cskh cái danh sách khách hàng sang là được, để tra cứu thôi mà"*). Trước
+  // đó màn này tự chọn hồ sơ ĐẦU DANH SÁCH rồi mở luôn ba vùng — người vào tra
+  // cứu một cái tên lại phải đọc hồ sơ của một người mình không hỏi.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
   const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
 
@@ -220,10 +224,9 @@ export default function PatientListView({
   }, [filter, rows, term]);
 
   // Đổi bộ lọc không được để panel tiếp tục hiện một BN đã bị lọc ra.
-  const selected =
-    shown.find((item) => item.clinic_patient_id === selectedId) ??
-    shown[0] ??
-    null;
+  const selected = selectedId
+    ? (shown.find((item) => item.clinic_patient_id === selectedId) ?? null)
+    : null;
   /** Khối hành chính của BN đang chọn.
    *
    * Lấy từ CHÍNH hồ sơ, không đi ké lượt hẹn: hồ sơ chưa khám lần nào thì
@@ -253,6 +256,15 @@ export default function PatientListView({
               <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
             </p>
             <p className="mt-1 text-xs text-ink-muted">Tra cứu hồ sơ và lượt khám gần nhất</p>
+            {/* ĐƯỜNG VỀ BẢNG. Bấm một dòng là vào ba vùng; không có nút này thì
+                muốn tra người khác phải tải lại trang. */}
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
+            >
+              ← Về danh sách
+            </button>
           </div>
           <span className="rounded-chip bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">
             {shown.length}
@@ -647,6 +659,112 @@ export default function PatientListView({
           }
         />
       </>
+    );
+  }
+
+  // CHƯA CHỌN AI ⇒ MỘT BẢNG RỘNG, cùng dáng với "Danh sách khách hàng" của
+  // CSKH: tra cứu là đọc NHIỀU người một lúc, mà ba vùng hẹp thì mỗi lúc chỉ
+  // đọc được một. Bấm một dòng mới mở ba vùng như cũ.
+  if (!selected) {
+    return (
+      <section
+        aria-label="Danh sách bệnh nhân"
+        className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
+            </p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {shown.length} hồ sơ · bấm một dòng để xem chi tiết
+            </p>
+          </div>
+          <label className="relative min-w-60 flex-1 md:max-w-80">
+            <Search
+              size={16}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
+            />
+            <input
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder="Tìm tên, mã BN hoặc SĐT"
+              className="h-10 w-full rounded-control border border-line bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-2">
+          {filters.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setFilter(item.key)}
+              aria-pressed={filter === item.key}
+              className={
+                "rounded-chip px-2.5 py-1.5 text-xs font-semibold transition-colors " +
+                (filter === item.key
+                  ? "bg-brand-600 text-white"
+                  : "bg-surface-muted text-ink-soft hover:bg-brand-50 hover:text-brand-800")
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="overflow-x-auto">
+          <div className="min-w-180">
+            <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]">
+              <span>Khách hàng</span>
+              <span>Số điện thoại</span>
+              <span>Mới / cũ</span>
+              <span>Số lượt</span>
+              <span>Lần gần nhất</span>
+              <span>Bác sĩ gần nhất</span>
+            </div>
+            {shown.length === 0 ? (
+              <p className="px-4 py-12 text-center text-sm text-ink-muted">
+                Không tìm thấy bệnh nhân phù hợp.
+              </p>
+            ) : (
+              <div className="divide-y divide-hairline">
+                {shown.map((row) => (
+                  <button
+                    key={row.clinic_patient_id}
+                    type="button"
+                    onClick={() => setSelectedId(row.clinic_patient_id)}
+                    className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-sunken md:grid md:items-center md:gap-2 md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold text-ink">
+                        {row.full_name}
+                      </span>
+                      <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
+                        {row.patient_code}
+                      </span>
+                    </span>
+                    <span className="truncate text-xs text-ink-soft">
+                      {row.phone_primary ?? "—"}
+                    </span>
+                    <span>
+                      <PatientKind value={row.phan_loai} />
+                    </span>
+                    <span className="text-xs tabular-nums text-ink-soft">
+                      {row.visit_count}
+                    </span>
+                    <span className="text-xs tabular-nums text-ink-soft">
+                      {row.latest ? fmtDate(row.latest) : "—"}
+                    </span>
+                    <span className="truncate text-xs text-ink-soft">
+                      {row.visits[0]?.doctor_name ?? "—"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     );
   }
 

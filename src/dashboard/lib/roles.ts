@@ -316,9 +316,13 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/appointments": ["CSKH", "RECEPTION", "MANAGEMENT"],
   // Thông tin khách hàng — CSKH/Lễ tân/QL/Trưởng ca thao tác; Thu ngân chỉ xem
   // để đối chiếu khi thu tiền (canOperateCustomerCare không gồm CASHIER).
+  // LỄ TÂN ĐÃ BỎ KHỎI ĐÂY (Tuyền 16/09/2026: *"bỏ nốt trang công việc của tôi,
+  // quản lý khách hàng luôn vì thừa"*). Quầy không gọi điện chăm sóc khách:
+  // việc của họ là đón, xếp hàng, đóng lượt. Quyền GHI ở backend giữ nguyên
+  // (`cskh_service.INTAKE_ROLES` vẫn có RECEPTION) — bỏ ở đây là bỏ khỏi tầm
+  // mắt, không bỏ khả năng; trả lại chỉ là thêm một dòng.
   "/customers": [
     "CSKH",
-    "RECEPTION",
     "MANAGEMENT",
     "TRUONG_CA",
     "CASHIER",
@@ -355,7 +359,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // (clone giao diện board bác sĩ, khóa mọi nút sửa — xem isTasksReadOnly).
   // TKYK (Thư ký Y khoa): vào hàng đợi khám của MỌI bác sĩ để NHẬP HỘ bệnh án
   // (canWriteClinical đã =true). Routing → DoctorWorkBoard (xem tasks/page.tsx).
-  "/tasks": ["MANAGEMENT", "RECEPTION", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
+  // Lễ tân ĐÃ BỎ (Tuyền 16/09/2026): vai này vào đây ở chế độ CHỈ XEM — thấy
+  // lịch khám của mọi bác sĩ mà không mở được hồ sơ nào, tức một màn nhìn cho
+  // biết. Quầy đã có hàng đợi của chính mình.
+  "/tasks": ["MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // Hàng đợi XN + Dịch vụ: điều dưỡng/KTV thực hiện (+ Quản lý xem).
   "/lab-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
   "/service-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
