@@ -25,10 +25,19 @@ import StatCard from "@/components/ui/StatCard";
 import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
 import {
   getVaiChinh,
+  getViTriHomNay,
   getActiveStaff,
   getClinicStaffId,
 } from "../../../lib/clinic-session";
-import { type ClinicRole, canCheckin, canSeeNav, canWriteClinical } from "../../../lib/roles";
+import {
+  type ClinicRole,
+  canCheckin,
+  canSeeNav,
+  canWriteClinical,
+  isNurseRole,
+} from "../../../lib/roles";
+import Link from "next/link";
+import { NAV, TEN_NHOM, hrefTheoViTri, nhomTheoViTri } from "../nav-items";
 import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
@@ -156,6 +165,21 @@ export default async function HomePage({
   // dưỡng — hôm nay đứng Lễ tân thì trang chủ là trang chủ Lễ tân (check-in),
   // không phải "Điền sinh hiệu". Không có ca thì vai chính = vai tài khoản.
   const role = await getVaiChinh();
+  const viTriHomNay = (await getViTriHomNay())?.vi_tri ?? [];
+  // "Điền sinh hiệu" là việc của vị trí ĐO CHỈ SỐ, không phải của mọi điều
+  // dưỡng: hôm 16/09 Hải Yến đứng Lấy mẫu, Vân Anh đứng ĐD Sàn chậu mà trang chủ
+  // vẫn mời cả hai đo sinh hiệu. Không có ca → theo vai như trước.
+  const choDoSinhHieu =
+    viTriHomNay.length > 0
+      ? hrefTheoViTri(viTriHomNay).includes("/do-sinh-hieu")
+      : isNurseRole(role);
+  const viecHomNay = nhomTheoViTri(viTriHomNay, role).map((g) => ({
+    ten: TEN_NHOM[g.nhom],
+    muc: g.hrefs
+      .map((h) => NAV.find((n) => n.href === h))
+      .filter((n): n is NonNullable<typeof n> => n !== undefined)
+      .map((n) => ({ href: n.href, label: n.label })),
+  }));
   const staff = await getActiveStaff();
   const staffId = await getClinicStaffId();
   // Lễ tân KHÔNG cần ô check-in riêng: bảng "Lịch hẹn khám" (WeeklyAppointmentsTable) ĐÃ có
@@ -229,8 +253,37 @@ export default async function HomePage({
         </Suspense>
       </header>
 
+      {/* VIỆC CỦA BẠN HÔM NAY — đúng các màn của vị trí trong lịch, bấm là vào. */}
+      {viecHomNay.length > 0 ? (
+        <section
+          aria-label="Việc của bạn hôm nay"
+          className="rounded-card border border-line bg-surface px-4 py-3 shadow-card sm:px-5"
+        >
+          <h2 className="text-sm font-semibold text-ink">Việc của bạn hôm nay</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {viecHomNay.map((g) => (
+              <div key={g.ten} className="flex flex-wrap items-center gap-2">
+                <span className="min-w-24 text-label font-semibold uppercase tracking-wider text-brand-700">
+                  {g.ten}
+                </span>
+                {g.muc.map((m) => (
+                  <Link
+                    key={m.href}
+                    href={m.href}
+                    className="inline-flex min-h-10 items-center rounded-control border border-brand-500 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+                  >
+                    {m.label}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <Suspense fallback={<KhungTai isReception={isReception} />}>
         <KhoiDuLieu
+          choDoSinhHieu={choDoSinhHieu}
           role={role}
           staffId={staffId}
           showCheckin={showCheckin}
@@ -369,6 +422,7 @@ async function KhoiDuLieu({
   showCheckin,
   writeClinical,
   isReception,
+  choDoSinhHieu,
   weekAppt,
   weekRoster,
 }: {
@@ -377,6 +431,7 @@ async function KhoiDuLieu({
   showCheckin: boolean;
   writeClinical: boolean;
   isReception: boolean;
+  choDoSinhHieu: boolean;
   weekAppt: string;
   weekRoster: string;
 }) {
@@ -535,6 +590,7 @@ async function KhoiDuLieu({
           staffId={staffId}
           canWriteClinical={writeClinical}
           dutyByDate={dutyByDate}
+          choDoSinhHieu={choDoSinhHieu}
         />
       </section>
 

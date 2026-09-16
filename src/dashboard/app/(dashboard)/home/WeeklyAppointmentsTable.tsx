@@ -311,12 +311,16 @@ export default function WeeklyAppointmentsTable({
   staffId,
   canWriteClinical = false,
   dutyByDate = {},
+  choDoSinhHieu,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
   staffId: string | null;
   canWriteClinical?: boolean;
   dutyByDate?: DutyByDate;
+  /** Hiện cột "Điền sinh hiệu". Trang chủ quyết theo VỊ TRÍ hôm nay (đứng Đo
+   *  chỉ số); không truyền thì theo vai điều dưỡng như trước. */
+  choDoSinhHieu?: boolean;
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -336,7 +340,7 @@ export default function WeeklyAppointmentsTable({
 
   const showActions = canCheckin(role);
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
-  const isNurse = isNurseRole(role);
+  const isNurse = choDoSinhHieu ?? isNurseRole(role);
   const showActionCol = showActions || isNurse;
   const nCols = (showActionCol ? 6 : 5) + (coMenu ? 1 : 0);
 
