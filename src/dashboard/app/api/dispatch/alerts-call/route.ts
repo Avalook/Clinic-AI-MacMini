@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 export async function POST(request: Request) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => r === "TRUONG_CA" || r === "MANAGEMENT");
   if (role !== "TRUONG_CA" && role !== "MANAGEMENT") {
     return NextResponse.json(
       { error: "Chỉ Trưởng ca / Quản lý mới gọi được bộ phận." },

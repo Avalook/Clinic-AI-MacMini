@@ -3,6 +3,8 @@
 // server-side role/staff decision comes from auth.uid() → staff.auth_user_id.
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
+import { fetchFromBackend } from "./backend-proxy";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
@@ -18,6 +20,27 @@ export const STAFF_COOKIE = "clinic_staff_id";
 export async function getClinicRole(): Promise<ClinicRole | null> {
   const staff = await getCurrentStaff();
   return staff ? departmentToRole(staff.clinic_role) : null;
+}
+
+/** VAI LÀM VIỆC HÔM NAY: vai tài khoản + vai vận hành mà vị trí trong lịch hôm
+ *  nay cấp (Tuyền chốt 16/09/2026 — tài khoản Điều dưỡng đứng Lễ tân thì làm
+ *  được việc lễ tân). Máy chủ tính (`GET /me/vi-tri-hom-nay` → `vai`); ở đây
+ *  chỉ ghép, không tự suy vai từ mã vị trí. Không bao giờ chứa vai bác sĩ mà
+ *  tài khoản không có. */
+export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
+  const goc = await getClinicRole();
+  if (!goc) return [];
+  const d = await fetchFromBackend<{ vai?: string[] }>("/api/v1/me/vi-tri-hom-nay");
+  const them = (d?.vai ?? []).filter((v): v is ClinicRole => v !== goc) as ClinicRole[];
+  return [goc, ...them];
+});
+
+/** Vai đầu tiên trong vai làm việc hôm nay thoả `dieuKien`, hoặc vai tài khoản. */
+export async function vaiLamViec(
+  dieuKien: (r: ClinicRole) => boolean,
+): Promise<ClinicRole | null> {
+  const ds = await getVaiHomNay();
+  return ds.find(dieuKien) ?? ds[0] ?? null;
 }
 
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.

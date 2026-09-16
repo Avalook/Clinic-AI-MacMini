@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
@@ -27,7 +27,8 @@ export default async function NewPatientPage({
   // ?date&time&doctor để điền sẵn khung + bác sĩ cho khách vãng lai.
   const { date: qDate, time: qTime, doctor: qDoctor, mode: qMode } =
     await searchParams;
-  const role = await getClinicRole();
+  // Vai LÀM VIỆC hôm nay: điều dưỡng đứng Lễ tân thì mở đúng màn lễ tân.
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) redirect("/home");
   const nurse = isNurseRole(role);
   // Trưởng ca + Quản lý làm được CẢ hai luồng: online (full — như CSKH, chọn ô đỏ

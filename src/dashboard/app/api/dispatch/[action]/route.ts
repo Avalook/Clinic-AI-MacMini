@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 /** Thao tác cho phép → (phương thức, đường backend). */
@@ -32,7 +32,7 @@ export async function POST(
 
   // Backend cũng chặn (require_role TRUONG_CA/MANAGEMENT). Chặn ở đây nữa để
   // người không có quyền nhận một câu tiếng Việt thay vì 403 trần từ API.
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => r === "TRUONG_CA" || r === "MANAGEMENT");
   if (role !== "TRUONG_CA" && role !== "MANAGEMENT") {
     return NextResponse.json(
       { error: "Chỉ Trưởng ca / Quản lý mới được điều phối." },

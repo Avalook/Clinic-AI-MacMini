@@ -21,7 +21,7 @@ Two verification modes (auto-selected):
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from functools import lru_cache
 from time import monotonic
@@ -190,6 +190,13 @@ class StaffIdentity:
     # hai trường trang trí này sẽ làm hỏng cả 41 chỗ để đổi lấy con số không.
     short_name: str = ""
     clinic_name: str = ""
+
+    #: VAI THEO VỊ TRÍ HÔM NAY (Tuyền chốt 16/09/2026). Tài khoản Phùng Thị Minh
+    #: Thư là Điều dưỡng, hôm nay đứng Lễ tân + Thu ngân: menu đã đi theo vị trí
+    #: nhưng mọi cửa thu ngân, check-out, đặt lịch vẫn trả 403 vì chỉ xét vai tài
+    #: khoản. Tập này là các vai VẬN HÀNH mà lịch hôm nay cấp thêm — không bao giờ
+    #: có vai bác sĩ (xem `VAI_THEO_VI_TRI`).
+    vai_theo_vi_tri: frozenset[ClinicRole] = frozenset()
 
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
@@ -360,7 +367,15 @@ async def _resolve_identity(
                s.primary_department,
                m.clinic_id, m.role AS membership_role,
                s.primary_location_id, l.name AS location_name,
-               c.name AS clinic_name
+               c.name AS clinic_name,
+               -- Vị trí trong lịch HÔM NAY: cấp vai vận hành (`vai_tu_vi_tri`).
+               (SELECT array_agg(DISTINCT w.station)
+                  FROM work_roster w
+                 WHERE w.clinic_id = m.clinic_id AND w.staff_id = s.id
+                   AND w.status <> 'REJECTED'
+                   AND w.work_date
+                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               ) AS vi_tri_hom_nay
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
@@ -429,17 +444,21 @@ async def _resolve_identity(
         )
 
     membership_role = row["membership_role"]
+    vai_tai_khoan = role_from_department(membership_role)
     identity = StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
         full_name=row["full_name"],
         department=dept,
-        role=role_from_department(membership_role),
+        role=vai_tai_khoan,
         clinic_id=str(clinic_id),
         location_id=str(location_id),
         location_name=row["location_name"] or "",
         short_name=row["short_name"] or "",
         clinic_name=row["clinic_name"] or "",
+        vai_theo_vi_tri=vai_tu_vi_tri(
+            [str(v) for v in (row.get("vi_tri_hom_nay") or [])], vai_tai_khoan
+        ),
     )
     # Only the success path is cached. A 403 stays uncached so a staff member
     # who has just been granted a membership gets in on their next request
@@ -520,6 +539,19 @@ class RoleGuard:
         identity: StaffIdentity = Depends(get_current_identity),
     ) -> StaffIdentity:
         if identity.role not in self.allowed_roles:
+            # Vai tài khoản không được, nhưng VỊ TRÍ HÔM NAY cho phép: yêu cầu đi
+            # tiếp dưới vai của vị trí. Thay `role` ngay tại cửa (thay vì thêm
+            # một tập vai) để MỌI kiểm tra phía sau — loại thanh toán được thu,
+            # vai được đọc hàng chờ… — tự đúng mà không phải sửa 41 chỗ.
+            for vai in sorted(identity.vai_theo_vi_tri, key=lambda r: r.value):
+                if vai in self.allowed_roles:
+                    logger.info(
+                        "role_theo_vi_tri",
+                        vai_tai_khoan=identity.role.value,
+                        vai_hom_nay=vai.value,
+                        staff_id=identity.staff_id,
+                    )
+                    return replace(identity, role=vai)
             logger.info(
                 "role_forbidden",
                 role=identity.role.value,
@@ -544,6 +576,63 @@ VAI_LAM_VIEC: frozenset[ClinicRole] = frozenset(ClinicRole) - {
     ClinicRole.DISPLAY,
     ClinicRole.PARTNER,
 }
+
+
+#: Vị trí trong lịch → vai VẬN HÀNH mà người đứng đó được dùng hôm nay.
+#:
+#: CHỈ VAI VẬN HÀNH. Lịch cấp quyền lễ tân, điều dưỡng, trưởng ca; KHÔNG cấp
+#: bác sĩ, bác sĩ siêu âm, thư ký hay quản lý — khám, kê đơn, duyệt kết quả là
+#: việc có chứng chỉ hành nghề đứng sau, không thể thành của ai đó chỉ vì bảng
+#: xếp ca ghi nhầm một ô. `test_vai_theo_vi_tri.py` canh điều này.
+#:
+#: Khít với nhóm "Lễ tân" / "Điều dưỡng" / "Trưởng ca" của thanh bên
+#: (`nav-items.ts` NHOM_THEO_VI_TRI).
+VAI_THEO_VI_TRI: dict[str, ClinicRole] = {
+    "T1_LETAN": ClinicRole.RECEPTION,
+    "T1_THUNGAN": ClinicRole.RECEPTION,
+    "T2_XEPTHUOC": ClinicRole.RECEPTION,
+    "T2_TAODON": ClinicRole.RECEPTION,
+    "T1_DOCHISO": ClinicRole.NURSE_ULTRASOUND,
+    "T1_LAYMAU": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TT_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TTNG_DD1": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TTNG_DD2": ClinicRole.NURSE_ULTRASOUND,
+    "T1_SA_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SA_DD1": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SA_DD2": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SANCHAU_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SAN_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_BIO_DD": ClinicRole.NURSE_ULTRASOUND,
+    "DIEU_PHOI": ClinicRole.TRUONG_CA,
+}
+
+#: Không vai nào trong tập này được cấp qua lịch, dù bảng trên có ghi gì.
+VAI_KHONG_CAP_QUA_LICH: frozenset[ClinicRole] = frozenset(
+    {
+        ClinicRole.DOCTOR,
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.TKYK,
+        ClinicRole.MANAGEMENT,
+        ClinicRole.PARTNER,
+        ClinicRole.DISPLAY,
+    }
+)
+
+
+def vai_tu_vi_tri(
+    vi_tri: list[str] | tuple[str, ...], vai_tai_khoan: ClinicRole
+) -> frozenset[ClinicRole]:
+    """Vai vận hành lịch hôm nay cấp thêm. Thuần — test được không cần DB."""
+    # Tài khoản ngoài phòng khám không bao giờ được cấp gì từ lịch.
+    if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):
+        return frozenset()
+    return frozenset(
+        VAI_THEO_VI_TRI[v]
+        for v in vi_tri
+        if v in VAI_THEO_VI_TRI
+        and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
+        and VAI_THEO_VI_TRI[v] != vai_tai_khoan
+    )
 
 
 def mo_quyen_tam_thoi() -> bool:
@@ -593,6 +682,12 @@ class RoleGuardCoTheMo(RoleGuard):
         self,
         identity: StaffIdentity = Depends(get_current_identity),
     ) -> StaffIdentity:
+        # Vai theo vị trí hôm nay đi TRƯỚC công tắc: người đứng Lễ tân thì làm
+        # việc dưới vai Lễ tân, để kiểm tra phía sau đọc đúng vai.
+        if identity.role not in self.allowed_roles and any(
+            v in self.allowed_roles for v in identity.vai_theo_vi_tri
+        ):
+            return await super().__call__(identity)
         if mo_quyen_tam_thoi() and identity.role in VAI_LAM_VIEC:
             return identity
         return await super().__call__(identity)

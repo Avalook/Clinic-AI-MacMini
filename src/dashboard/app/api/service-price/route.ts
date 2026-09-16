@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isCashierRole, isTruongCaRole } from "../../../lib/roles";
 
 type PriceGroup = "thuoc" | "dich_vu";
@@ -26,7 +26,7 @@ async function authorize(): Promise<Auth> {
       res: NextResponse.json({ error: "Unauthorised" }, { status: 401 }),
     };
   }
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isCashierRole(r) || r === "MANAGEMENT" || isTruongCaRole(r));
   if (!isCashierRole(role) && role !== "MANAGEMENT" && !isTruongCaRole(role)) {
     return {
       ok: false,

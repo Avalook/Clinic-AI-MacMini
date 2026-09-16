@@ -21,12 +21,17 @@
 import { VN_OFFSET } from "../../../lib/datetime";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole, getClinicStaffId } from "../../../lib/clinic-session";
+import {
+  getClinicStaffId,
+  getVaiHomNay,
+  vaiLamViec,
+} from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   isDoctorRole,
   canManageAppt,
   canCheckin,
+  type ClinicRole,
 } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { type PatientKind } from "../../../lib/capacity";
@@ -81,7 +86,9 @@ export async function GET(request: Request) {
   // Lịch hẹn là dữ liệu vận hành: những vai nhìn thấy nó trên màn hình là nhóm
   // đặt lịch/tiếp nhận + bàn khám. Cùng ranh giới mà /appointments và /tasks
   // đang dùng, chỉ là ở đây nói thành lời.
-  const role = await getClinicRole();
+  const role = await vaiLamViec(
+    (r) => canWriteIntake(r) || isDoctorRole(r) || canCheckin(r),
+  );
   if (!canWriteIntake(role) && !isDoctorRole(role) && !canCheckin(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -178,7 +185,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -357,7 +364,11 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const role = await getClinicRole();
+  // Vai LÀM VIỆC hôm nay: vai tài khoản trước (luật bác sĩ chỉ xét vai này —
+  // lịch không bao giờ cấp vai bác sĩ), rồi vai vận hành vị trí hôm nay cấp.
+  const vaiHomNay = await getVaiHomNay();
+  const role = vaiHomNay[0] ?? null;
+  const vaiDuoc = (fn: (r: ClinicRole) => boolean) => vaiHomNay.some(fn);
   const staffId = await getClinicStaffId();
 
   // Gate theo nhóm: bác sĩ (own appt) · hủy/phân-lại (CSKH/QL) · không-đến
@@ -376,7 +387,7 @@ export async function PATCH(request: Request) {
       );
     }
   } else if (MANAGE_ACTIONS.has(action)) {
-    if (!canManageAppt(role)) {
+    if (!vaiDuoc(canManageAppt)) {
       return NextResponse.json(
         { error: "Chỉ CSKH / Quản lý mới hủy hoặc phân lại bác sĩ." },
         { status: 403 },
@@ -384,13 +395,13 @@ export async function PATCH(request: Request) {
     }
   } else if (action === "no_show" || action === "checkin" || action === "undo_checkin") {
     // Check-in là việc của lễ tân (Tuyền chốt 15/09/2026) — CSKH không.
-    if (!canCheckin(role)) {
+    if (!vaiDuoc(canCheckin)) {
       return NextResponse.json(
         { error: "Chỉ Lễ tân / Quản lý mới check-in hoặc đánh không đến." },
         { status: 403 },
       );
     }
-  } else if (!canWriteIntake(role)) {
+  } else if (!vaiDuoc(canWriteIntake)) {
     return NextResponse.json(
       { error: "Chỉ Lễ tân / CSKH / Quản lý mới xác nhận lịch." },
       { status: 403 },

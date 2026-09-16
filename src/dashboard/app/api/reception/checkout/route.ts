@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend, fetchFromBackend } from "../../../../lib/backend-proxy";
 
 const ALLOWED = ["RECEPTION", "TRUONG_CA", "MANAGEMENT"];
@@ -17,7 +17,7 @@ async function guard() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return "Chưa đăng nhập";
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => ALLOWED.includes(r));
   if (!role || !ALLOWED.includes(role)) {
     return "Chỉ Lễ tân / Trưởng ca / Quản lý mới đóng được lượt khám.";
   }

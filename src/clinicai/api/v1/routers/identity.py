@@ -25,6 +25,7 @@ from clinicai.api.identity import (
     StaffIdentity,
     get_current_identity,
     get_display_identity,
+    vai_tu_vi_tri,
 )
 from clinicai.core.database import get_db_pool
 
@@ -102,7 +103,11 @@ async def vi_tri_hom_nay(
         identity.clinic_id,
         identity.staff_id,
     )
+    vi_tri = [r["station"] for r in rows]
     return {
-        "vi_tri": [r["station"] for r in rows],
+        "vi_tri": vi_tri,
         "ca": sorted({r["shift"] for r in rows}),
+        # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
+        # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.
+        "vai": sorted(v.value for v in vai_tu_vi_tri(vi_tri, identity.role)),
     }
