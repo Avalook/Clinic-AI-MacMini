@@ -261,71 +261,93 @@ async def main() -> int:
 
     loai_kham = ["PHU_KHOA", "SAN_1", "NOI_TIET_TINH_DUC", "HIEM_MUON", "NAM_KHOA"]
 
+    # CHẠY LẠI CẢ TỆP LÀ DỰNG THÊM MỘT BỘ KHÁCH NỮA, không phải cập nhật bộ cũ:
+    # cùng hai mươi cái tên, hai mươi mã bệnh nhân mới. Nên khi chỉ cần bù một
+    # nhóm (thêm màn mới, hoặc một nhóm hỏng giữa chừng) thì gọi tên nhóm ấy ra:
+    #
+    #     CHI_NHOM=H,I,K,L python scripts/tests/tao-khach-de-thao-tac.py
+    #
+    # Bối cảnh dùng chung (bác sĩ trực hôm nay, dịch vụ để chỉ định) vẫn dựng
+    # đủ dù bỏ nhóm nào — bốn nhóm cuối mượn lại của nhóm D.
+    chi_nhom = {
+        x.strip().upper()
+        for x in (os.environ.get("CHI_NHOM") or "").split(",")
+        if x.strip()
+    }
+
+    def lam(nhom: str) -> bool:
+        return not chi_nhom or nhom in chi_nhom
+
     # ── A. 6 khách chờ check-in HÔM NAY ────────────────────────────────────
-    print("A. Chờ check-in hôm nay (lễ tân tập đón khách)")
-    for i in range(6):
-        kh = await tao(i, TEN[i])
-        if not kh:
-            continue
-        a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
-        da.append((TEN[i], "chờ check-in hôm nay" if a else "chỉ có hồ sơ"))
-        print(f"   {TEN[i]:<24} {'có lịch hôm nay' if a else 'KHÔNG đặt được'}")
+    if lam("A"):
+        print("A. Chờ check-in hôm nay (lễ tân tập đón khách)")
+        for i in range(6):
+            kh = await tao(i, TEN[i])
+            if not kh:
+                continue
+            a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
+            da.append((TEN[i], "chờ check-in hôm nay" if a else "chỉ có hồ sơ"))
+            print(f"   {TEN[i]:<24} {'có lịch hôm nay' if a else 'KHÔNG đặt được'}")
 
     # ── B. 4 khách ĐÃ check-in, chưa đo sinh hiệu ─────────────────────────
-    print("\nB. Đã check-in, CHƯA đo sinh hiệu (điều dưỡng tập đo)")
-    da_checkin: list[tuple[str, str]] = []
-    for i in range(6, 10):
-        kh = await tao(i, TEN[i])
-        if not kh:
-            continue
-        a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
-        if a:
+    if lam("B"):
+        print("\nB. Đã check-in, CHƯA đo sinh hiệu (điều dưỡng tập đo)")
+        da_checkin: list[tuple[str, str]] = []
+        for i in range(6, 10):
+            kh = await tao(i, TEN[i])
+            if not kh:
+                continue
+            a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
+            if a:
+                await phien["letan"].goi(
+                    "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
+                )
+                da_checkin.append((TEN[i], a))
+            da.append((TEN[i], "đã check-in, chờ sinh hiệu"))
+            print(f"   {TEN[i]:<24} {'đã check-in' if a else 'KHÔNG đặt được'}")
+
+    # ── C. 3 khách ĐÃ có sinh hiệu (bác sĩ tập khám) ──────────────────────
+    if lam("C"):
+        print("\nC. Đã đo sinh hiệu, chờ bác sĩ")
+        for i in range(10, 13):
+            kh = await tao(i, TEN[i])
+            if not kh:
+                continue
+            a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
+            if not a:
+                continue
             await phien["letan"].goi(
                 "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
             )
-            da_checkin.append((TEN[i], a))
-        da.append((TEN[i], "đã check-in, chờ sinh hiệu"))
-        print(f"   {TEN[i]:<24} {'đã check-in' if a else 'KHÔNG đặt được'}")
-
-    # ── C. 3 khách ĐÃ có sinh hiệu (bác sĩ tập khám) ──────────────────────
-    print("\nC. Đã đo sinh hiệu, chờ bác sĩ")
-    for i in range(10, 13):
-        kh = await tao(i, TEN[i])
-        if not kh:
-            continue
-        a = await dat(kh, i, 0, loai_kham[i % len(loai_kham)])
-        if not a:
-            continue
-        await phien["letan"].goi(
-            "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
-        )
-        st, bang = await phien["bacsi"].goi("GET", "/api/v1/luot-kham/bang")
-        luot = next(
-            (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]), None
-        )
-        if luot:
-            await phien["dieuduong"].goi(
-                "POST",
-                f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
-                headers=khoa(),
-                json={
-                    "systolic": 110 + i,
-                    "diastolic": 70 + (i % 10),
-                    "pulse": 72 + (i % 8),
-                    "temperature": "36.7",
-                    "weight_kg": f"5{i % 10}.0",
-                    "height_cm": 155 + (i % 10),
-                    "respiratory_rate": 17 + (i % 4),
-                    "spo2": 97 + (i % 3),
-                    "bmi": "21.5",
-                    "pain_score": i % 5,
-                },
+            st, bang = await phien["bacsi"].goi("GET", "/api/v1/luot-kham/bang")
+            luot = next(
+                (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]),
+                None,
             )
-        da.append((TEN[i], "đã có sinh hiệu, chờ bác sĩ"))
-        print(f"   {TEN[i]:<24} sinh hiệu đã ghi")
+            if luot:
+                await phien["dieuduong"].goi(
+                    "POST",
+                    f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
+                    headers=khoa(),
+                    json={
+                        "systolic": 110 + i,
+                        "diastolic": 70 + (i % 10),
+                        "pulse": 72 + (i % 8),
+                        "temperature": "36.7",
+                        "weight_kg": f"5{i % 10}.0",
+                        "height_cm": 155 + (i % 10),
+                        "respiratory_rate": 17 + (i % 4),
+                        "spo2": 97 + (i % 3),
+                        "bmi": "21.5",
+                        "pain_score": i % 5,
+                    },
+                )
+            da.append((TEN[i], "đã có sinh hiệu, chờ bác sĩ"))
+            print(f"   {TEN[i]:<24} sinh hiệu đã ghi")
 
     # ── D. 2 khách ĐANG khám, đã có chỉ định chờ xếp phòng ────────────────
-    print("\nD. Đang khám, có chỉ định chờ trưởng ca xếp phòng")
+    if lam("D"):
+        print("\nD. Đang khám, có chỉ định chờ trưởng ca xếp phòng")
     st, bang = await phien["bacsi"].goi("GET", "/api/v1/luot-kham/bang")
     dvu = next(
         (
@@ -355,105 +377,114 @@ async def main() -> int:
             bs_hom_nay = None
             print("   (không đăng nhập được bác sĩ trực — bỏ nhóm D)")
 
-    for i in range(13, 15):
-        if not bs_hom_nay:
-            break
-        kh = await tao(i, TEN[i])
-        if not kh:
-            continue
-        bd, kt = khung(ctx, 0, i)
-        st, b = await phien["cskh"].goi(
-            "POST",
-            "/api/v1/appointments/bookings",
-            headers=khoa(),
-            json={
-                "clinic_patient_id": kh,
-                "service_type_id": loai["PHU_KHOA"],
-                "location_id": ctx["location_id"],
-                "slot_start": bd,
-                "slot_end": kt,
-                "doctor_id": bs_hom_nay["id"],
-                "booking_channel": "den_truc_tiep",
-            },
-        )
-        a = (b or {}).get("appointment_id")
-        if not a:
-            continue
-        await phien["letan"].goi(
-            "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
-        )
-        st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
-        luot = next(
-            (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]), None
-        )
-        if not luot:
-            continue
-        await phien["dieuduong"].goi(
-            "POST",
-            f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
-            headers=khoa(),
-            json={"systolic": 118, "diastolic": 75, "pulse": 80},
-        )
-        st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
-        luot = next(
-            (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]), None
-        )
-        ph = ((luot or {}).get("phien") or [None])[0]
-        if ph and dvu:
-            await p_bacsi.goi(
-                "POST", f"/api/v1/luot-kham/consultations/{ph['id']}/start"
-            )
-            await p_bacsi.goi(
+    if lam("D"):
+        for i in range(13, 15):
+            if not bs_hom_nay:
+                break
+            kh = await tao(i, TEN[i])
+            if not kh:
+                continue
+            bd, kt = khung(ctx, 0, i)
+            st, b = await phien["cskh"].goi(
                 "POST",
-                f"/api/v1/luot-kham/consultations/{ph['id']}/notes",
-                json={"body": f"Khám {TEN[i]}: bụng mềm, không sốt. Chỉ định siêu âm."},
-            )
-            await p_bacsi.goi(
-                "POST",
-                f"/api/v1/luot-kham/consultations/{ph['id']}/authorize-orders",
+                "/api/v1/appointments/bookings",
                 headers=khoa(),
-                json={"service_codes": [dvu["ma"]]},
-            )
-        da.append((TEN[i], "đang khám, có chỉ định chờ xếp phòng"))
-        print(f"   {TEN[i]:<24} đã chỉ định {dvu['ma'] if dvu else '—'}")
-
-    # ── E. 2 khách CHỈ có hồ sơ (CSKH tập đặt lịch cho khách cũ) ──────────
-    print("\nE. Chỉ có hồ sơ, chưa lịch (CSKH tập đặt cho khách cũ)")
-    for i in range(15, 17):
-        kh = await tao(i, TEN[i])
-        if kh:
-            da.append((TEN[i], "chỉ có hồ sơ, chưa có lịch"))
-            print(f"   {TEN[i]:<24} hồ sơ đã tạo")
-
-    # ── F. 2 khách có lịch NGÀY MAI ───────────────────────────────────────
-    print("\nF. Có lịch ngày mai (tập nhắc hẹn / đổi lịch)")
-    for i in range(17, 19):
-        kh = await tao(i, TEN[i])
-        if not kh:
-            continue
-        a = await dat(kh, i, 1, loai_kham[i % len(loai_kham)])
-        da.append((TEN[i], "có lịch ngày mai"))
-        print(f"   {TEN[i]:<24} {'lịch ngày mai' if a else 'KHÔNG đặt được'}")
-
-    # ── G. 1 khách đã HUỶ lịch ────────────────────────────────────────────
-    print("\nG. Lịch đã huỷ (xem lịch huỷ trông thế nào)")
-    kh = await tao(19, TEN[19])
-    if kh:
-        a = await dat(kh, 19, 2, "PHU_KHOA")
-        if a:
-            await phien["cskh"].goi(
-                "PATCH",
-                f"/api/v1/appointments/{a}",
                 json={
-                    "action": "cancel",
-                    "ly_do_huy_ma": "BAO_KHI_NHAC_HEN",
+                    "clinic_patient_id": kh,
+                    "service_type_id": loai["PHU_KHOA"],
+                    "location_id": ctx["location_id"],
+                    "slot_start": bd,
+                    "slot_end": kt,
+                    "doctor_id": bs_hom_nay["id"],
+                    "booking_channel": "den_truc_tiep",
                 },
             )
-        da.append((TEN[19], "đã huỷ lịch"))
-        print(f"   {TEN[19]:<24} {'đã huỷ lịch' if a else 'KHÔNG đặt được'}")
+            a = (b or {}).get("appointment_id")
+            if not a:
+                continue
+            await phien["letan"].goi(
+                "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
+            )
+            st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
+            luot = next(
+                (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]),
+                None,
+            )
+            if not luot:
+                continue
+            await phien["dieuduong"].goi(
+                "POST",
+                f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
+                headers=khoa(),
+                json={"systolic": 118, "diastolic": 75, "pulse": 80},
+            )
+            st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
+            luot = next(
+                (x for x in (bang or {}).get("luot", []) if x.get("ten") == TEN[i]),
+                None,
+            )
+            ph = ((luot or {}).get("phien") or [None])[0]
+            if ph and dvu:
+                await p_bacsi.goi(
+                    "POST", f"/api/v1/luot-kham/consultations/{ph['id']}/start"
+                )
+                await p_bacsi.goi(
+                    "POST",
+                    f"/api/v1/luot-kham/consultations/{ph['id']}/notes",
+                    json={
+                        "body": f"Khám {TEN[i]}: bụng mềm, không sốt. Chỉ định siêu âm."
+                    },
+                )
+                await p_bacsi.goi(
+                    "POST",
+                    f"/api/v1/luot-kham/consultations/{ph['id']}/authorize-orders",
+                    headers=khoa(),
+                    json={"service_codes": [dvu["ma"]]},
+                )
+            da.append((TEN[i], "đang khám, có chỉ định chờ xếp phòng"))
+            print(f"   {TEN[i]:<24} đã chỉ định {dvu['ma'] if dvu else '—'}")
 
-    # ── Đường chung của bốn nhóm cuối ─────────────────────────────────────
-    #
+    # ── E. 2 khách CHỈ có hồ sơ (CSKH tập đặt lịch cho khách cũ) ──────────
+    if lam("E"):
+        print("\nE. Chỉ có hồ sơ, chưa lịch (CSKH tập đặt cho khách cũ)")
+        for i in range(15, 17):
+            kh = await tao(i, TEN[i])
+            if kh:
+                da.append((TEN[i], "chỉ có hồ sơ, chưa có lịch"))
+                print(f"   {TEN[i]:<24} hồ sơ đã tạo")
+
+    # ── F. 2 khách có lịch NGÀY MAI ───────────────────────────────────────
+    if lam("F"):
+        print("\nF. Có lịch ngày mai (tập nhắc hẹn / đổi lịch)")
+        for i in range(17, 19):
+            kh = await tao(i, TEN[i])
+            if not kh:
+                continue
+            a = await dat(kh, i, 1, loai_kham[i % len(loai_kham)])
+            da.append((TEN[i], "có lịch ngày mai"))
+            print(f"   {TEN[i]:<24} {'lịch ngày mai' if a else 'KHÔNG đặt được'}")
+
+    # ── G. 1 khách đã HUỶ lịch ────────────────────────────────────────────
+    if lam("G"):
+        print("\nG. Lịch đã huỷ (xem lịch huỷ trông thế nào)")
+        kh = await tao(19, TEN[19])
+        if kh:
+            a = await dat(kh, 19, 2, "PHU_KHOA")
+            if a:
+                await phien["cskh"].goi(
+                    "PATCH",
+                    f"/api/v1/appointments/{a}",
+                    json={
+                        "action": "cancel",
+                        "ly_do_huy_ma": "BAO_KHI_NHAC_HEN",
+                    },
+                )
+            da.append((TEN[19], "đã huỷ lịch"))
+            print(f"   {TEN[19]:<24} {'đã huỷ lịch' if a else 'KHÔNG đặt được'}")
+
+        # ── Đường chung của bốn nhóm cuối ─────────────────────────────────────
+        #
+
     # H, I, K, L đều cần MỘT người ngồi trước mặt bác sĩ: có lịch hôm nay, đã
     # check-in, đã đo sinh hiệu, phiên khám đã mở. Viết bốn lần là bốn chỗ để
     # lệch nhau; viết một lần thì bốn nhóm cùng đi qua đúng những cửa ấy.
@@ -532,118 +563,124 @@ async def main() -> int:
     )
 
     # ── H. 2 khách có ĐƠN THUỐC chờ trả tiền ──────────────────────────────
-    print("\nH. Có đơn thuốc, chờ thu ngân thuốc")
-    for i, thuoc in ((20, "Canxi"), (21, "Sắt")):
-        ban = await den_ban_kham(i, TEN[i])
-        if not ban:
-            continue
-        await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
-            json={"body": f"Khám {TEN[i]}: ổn định. Kê {thuoc} uống sau ăn."},
-        )
-        st, _ = await p_bacsi.goi(
-            "POST",
-            "/api/v1/clinical-records",
-            json={
-                "appointment_id": ban["appointment_id"],
-                "clinic_patient_id": ban["clinic_patient_id"],
-                "expected_revision": 0,
-                "prescriptions": [
-                    {"drug_name": thuoc, "quantity": "10", "dosage": "1 viên/ngày"}
-                ],
-            },
-        )
-        ok = st in (200, 201)
-        da.append((TEN[i], "có đơn thuốc, chờ thu ngân thuốc"))
-        noi = f"đơn {thuoc}" if ok else f"KHÔNG kê được ({st})"
-        print(f"   {TEN[i]:<24} {noi}")
+    if lam("H"):
+        print("\nH. Có đơn thuốc, chờ thu ngân thuốc")
+        for i, thuoc in ((20, "Canxi"), (21, "Sắt")):
+            ban = await den_ban_kham(i, TEN[i])
+            if not ban:
+                continue
+            await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+                json={"body": f"Khám {TEN[i]}: ổn định. Kê {thuoc} uống sau ăn."},
+            )
+            st, _ = await p_bacsi.goi(
+                "POST",
+                "/api/v1/clinical-records",
+                json={
+                    "appointment_id": ban["appointment_id"],
+                    "clinic_patient_id": ban["clinic_patient_id"],
+                    "expected_revision": 0,
+                    "prescriptions": [
+                        {"drug_name": thuoc, "quantity": "10", "dosage": "1 viên/ngày"}
+                    ],
+                },
+            )
+            ok = st in (200, 201)
+            da.append((TEN[i], "có đơn thuốc, chờ thu ngân thuốc"))
+            noi = f"đơn {thuoc}" if ok else f"KHÔNG kê được ({st})"
+            print(f"   {TEN[i]:<24} {noi}")
 
     # ── I. 2 khách có DỊCH VỤ chờ trả tiền ────────────────────────────────
-    print("\nI. Có dịch vụ, chờ thu ngân dịch vụ")
-    cho_thu: list[tuple[str, str]] = []
-    for i in (22, 23):
-        ban = await den_ban_kham(i, TEN[i])
-        if not (ban and dvu):
-            continue
-        await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
-            json={"body": f"Khám {TEN[i]}: chỉ định {dvu['ma']}."},
-        )
-        st, _ = await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
-            headers=khoa(),
-            json={"service_codes": [dvu["ma"]]},
-        )
-        ok = st in (200, 201)
-        if ok:
-            cho_thu.append((TEN[i], ban["visit_id"]))
-        da.append((TEN[i], "có dịch vụ, chờ thu ngân dịch vụ"))
-        noi = f"đã chỉ định {dvu['ma']}" if ok else f"KHÔNG chỉ định được ({st})"
-        print(f"   {TEN[i]:<24} {noi}")
+    if lam("I"):
+        print("\nI. Có dịch vụ, chờ thu ngân dịch vụ")
+        cho_thu: list[tuple[str, str]] = []
+        for i in (22, 23):
+            ban = await den_ban_kham(i, TEN[i])
+            if not (ban and dvu):
+                continue
+            await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+                json={"body": f"Khám {TEN[i]}: chỉ định {dvu['ma']}."},
+            )
+            st, _ = await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+                headers=khoa(),
+                json={"service_codes": [dvu["ma"]]},
+            )
+            ok = st in (200, 201)
+            if ok:
+                cho_thu.append((TEN[i], ban["visit_id"]))
+            da.append((TEN[i], "có dịch vụ, chờ thu ngân dịch vụ"))
+            noi = f"đã chỉ định {dvu['ma']}" if ok else f"KHÔNG chỉ định được ({st})"
+            print(f"   {TEN[i]:<24} {noi}")
 
     # ── K. 1 khách ĐÃ trả tiền xong ───────────────────────────────────────
-    print("\nK. Đã trả tiền xong")
-    ban = await den_ban_kham(24, TEN[24]) if tn_dv else None
-    if not tn_dv:
-        print("   (bỏ nhóm: chưa đăng nhập được tài khoản thu ngân dịch vụ)")
-    elif ban and dvu:
-        await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
-            headers=khoa(),
-            json={"service_codes": [dvu["ma"]]},
-        )
-        st, phi = await tn_dv.goi("GET", f"/api/v1/visits/{ban['visit_id']}/charges")
-        # Trả ĐÚNG số tiền hệ thống tính, không bịa một con số tròn: một khoản
-        # thu lệch với bảng giá là thứ người thử sẽ tưởng là lỗi của phần mềm.
-        tien = (phi or {}).get("total") or (phi or {}).get("tong") or 0
-        st, r = await tn_dv.goi(
-            "POST",
-            "/api/v1/payments",
-            headers=khoa(),
-            json={
-                "visit_id": ban["visit_id"],
-                "kind": "dich_vu",
-                "amount": int(float(tien or 0)),
-            },
-        )
-        ok = st in (200, 201)
-        da.append((TEN[24], "đã trả tiền xong"))
-        noi = f"đã thu {tien}" if ok else f"KHÔNG thu được ({st} {str(r)[:80]})"
-        print(f"   {TEN[24]:<24} {noi}")
+    if lam("K"):
+        print("\nK. Đã trả tiền xong")
+        ban = await den_ban_kham(24, TEN[24]) if tn_dv else None
+        if not tn_dv:
+            print("   (bỏ nhóm: chưa đăng nhập được tài khoản thu ngân dịch vụ)")
+        elif ban and dvu:
+            await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+                headers=khoa(),
+                json={"service_codes": [dvu["ma"]]},
+            )
+            st, phi = await tn_dv.goi(
+                "GET", f"/api/v1/visits/{ban['visit_id']}/charges"
+            )
+            # Trả ĐÚNG số tiền hệ thống tính, không bịa một con số tròn: một khoản
+            # thu lệch với bảng giá là thứ người thử sẽ tưởng là lỗi của phần mềm.
+            tien = (phi or {}).get("total") or (phi or {}).get("tong") or 0
+            st, r = await tn_dv.goi(
+                "POST",
+                "/api/v1/payments",
+                headers=khoa(),
+                json={
+                    "visit_id": ban["visit_id"],
+                    "kind": "dich_vu",
+                    "amount": int(float(tien or 0)),
+                },
+            )
+            ok = st in (200, 201)
+            da.append((TEN[24], "đã trả tiền xong"))
+            noi = f"đã thu {tien}" if ok else f"KHÔNG thu được ({st} {str(r)[:80]})"
+            print(f"   {TEN[24]:<24} {noi}")
 
     # ── L. 2 khách có chỉ định GỬI RA NGOÀI ───────────────────────────────
-    #
-    # `node_definition.lam_ben_ngoai` quyết định việc nào hiện ra cho đối tác.
-    # Hai mã dưới đây thuộc hai bước khác nhau (lấy máu / lấy nước tiểu) để màn
-    # của đối tác có hơn một loại việc, chứ không phải hai dòng giống hệt nhau.
-    print("\nL. Chỉ định gửi ra ngoài (đối tác có việc để gửi kết quả)")
-    for i, ma_dv in ((25, "CLS_XET_NGHIEM_MAU"), (26, "CLS_NUOC_TIEU")):
-        ban = await den_ban_kham(i, TEN[i])
-        if not ban:
-            continue
-        await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
-            json={"body": f"Khám {TEN[i]}: gửi mẫu ra ngoài làm {ma_dv}."},
-        )
-        st, r = await p_bacsi.goi(
-            "POST",
-            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
-            headers=khoa(),
-            json={"service_codes": [ma_dv]},
-        )
-        ok = st in (200, 201)
-        da.append((TEN[i], f"chờ kết quả từ đối tác ({ma_dv})"))
-        noi = (
-            f"đã gửi ra ngoài: {ma_dv}"
-            if ok
-            else f"KHÔNG chỉ định được ({st} {str(r)[:80]})"
-        )
-        print(f"   {TEN[i]:<24} {noi}")
+    if lam("L"):
+        #
+        # `node_definition.lam_ben_ngoai` quyết định việc nào hiện ra cho đối tác.
+        # Hai mã dưới đây thuộc hai bước khác nhau (lấy máu / lấy nước tiểu) để màn
+        # của đối tác có hơn một loại việc, chứ không phải hai dòng giống hệt nhau.
+        print("\nL. Chỉ định gửi ra ngoài (đối tác có việc để gửi kết quả)")
+        for i, ma_dv in ((25, "CLS_XET_NGHIEM_MAU"), (26, "CLS_NUOC_TIEU")):
+            ban = await den_ban_kham(i, TEN[i])
+            if not ban:
+                continue
+            await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+                json={"body": f"Khám {TEN[i]}: gửi mẫu ra ngoài làm {ma_dv}."},
+            )
+            st, r = await p_bacsi.goi(
+                "POST",
+                f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+                headers=khoa(),
+                json={"service_codes": [ma_dv]},
+            )
+            ok = st in (200, 201)
+            da.append((TEN[i], f"chờ kết quả từ đối tác ({ma_dv})"))
+            noi = (
+                f"đã gửi ra ngoài: {ma_dv}"
+                if ok
+                else f"KHÔNG chỉ định được ({st} {str(r)[:80]})"
+            )
+            print(f"   {TEN[i]:<24} {noi}")
 
     if tn_dv:
         await tn_dv.http.aclose()
