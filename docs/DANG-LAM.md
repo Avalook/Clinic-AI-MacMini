@@ -44,6 +44,7 @@ lịch sử hội thoại.
 - `_cap_nhat_vi_tri`: luồng mới dời `visit.current_node_code/current_room_id` (trưởng ca, TV, đóng lượt đọc) — trước đó mọi lượt kẹt ở "Đo chỉ số".
 - Bác sĩ ký khám xong hẳn (NO_SERVICES/DONE, không còn chỉ định dở) → appointment COMPLETED + exam_completed_at → quầy thu tiền được.
 - Script: scratchpad `kich-ban-demo.py` (tạo "Khách Demo HHMM", chạy lễ tân→đo→thư ký/BS→thủ thuật→SA→quay lại BS→thu tiền→check-out→CSKH). 5 lượt demo đã đóng (đổi trạng thái, lý do "Dữ liệu chạy thử kịch bản demo 17/09").
+- Sau đó (04:5x): thanh bên hiểu MÃ LỊCH ĐỜI CŨ (`MA_VI_TRI_CU` nav-items ↔ `VAI_THEO_VI_TRI` identity: LE_TAN, LAY_MAU, TLYK, PHU_BS_SA, MAY_*); hai vai → Lễ tân trên, Điều dưỡng dưới (`THU_TU_VAI_VAN_HANH`, trang chủ chọn Lễ tân); phòng/vị trí siêu âm bỏ chữ tầng → "Phòng siêu âm 1/2/3" (migration 20260917000003). Giá: 80/80 thuốc + 38 dịch vụ + 13 loại khám có giá (46 thuốc tra mạng, còn lại GIẢ ĐỊNH, ghi nhãn); kho 80 lô DEMO1709-* × 20 (giả định). PHU_BS_KHAM chưa ánh xạ.
 - CÒN: bảng giá 1/39 dịch vụ có giá → màn thu tiền chặn "chưa có giá"; số thứ tự chưa đổi theo kéo thả VIP; Đo sinh hiệu chưa có nút "Gọi vào đo"; chưa bấm thử giao diện trên trình duyệt thật.
 
 ## -0015. Không giới hạn dung lượng tệp + CSKH xem/tải PDF hồ sơ khám (16/09/2026 đêm) — edd6b3c · c82d77b · aff7bcf, ĐÃ LÊN FINAL CLOUD
