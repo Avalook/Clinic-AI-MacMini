@@ -47,6 +47,8 @@ API = os.environ.get("CLINIC_API_URL", "http://127.0.0.1:8100")
 SB = os.environ.get("SUPABASE_URL", "http://127.0.0.1:54421")
 ANON = os.environ.get("SUPABASE_ANON_KEY", "")
 PW = os.environ.get("TEST_PW", "")
+#: Mật khẩu chung của tài khoản nhân sự thật (xem tao-tai-khoan-nhan-su.py).
+MAT_KHAU_NHAN_SU = os.environ.get("MAT_KHAU_NHAN_SU", "12345678")
 KHOA_API = os.environ.get("BACKEND_API_KEY", "")
 TZ = dt.timezone(dt.timedelta(hours=7))
 
@@ -101,14 +103,30 @@ def khoa() -> dict[str, str]:
 
 
 async def token(http: httpx.AsyncClient, email: str, mk: str | None) -> str | None:
+    """Lấy token, THỬ CẢ HAI KHO MẬT KHẨU.
+
+    Hệ thống có hai lớp tài khoản chồng lên nhau và chúng KHÔNG cùng mật khẩu:
+
+      • năm tài khoản `…@dr4women.local` do `dev-up.sh` dựng, mật khẩu TEST_PW;
+      • gần sáu mươi tài khoản nhân sự thật `…@dr4women.vn`, mật khẩu bàn giao.
+
+    Script này cần cả hai: nó đóng vai lễ tân/điều dưỡng bằng nhóm đầu, nhưng
+    phải đăng nhập bằng CHÍNH bác sĩ đang trực — một người thật — để chỉ định
+    được cho lượt của người ấy. Biết đúng một mật khẩu thì nhóm D và bốn nhóm
+    mượn nó im lặng rỗng, và bản in ra trông y như "hôm nay không có ai trực".
+    """
+    ung_vien = [mk] if mk else [PW, MAT_KHAU_NHAN_SU]
     for lan in range(2):
-        r = await http.post(
-            f"{SB}/auth/v1/token?grant_type=password",
-            headers={"apikey": ANON, "Content-Type": "application/json"},
-            json={"email": email, "password": mk or PW},
-        )
-        if r.status_code == 200:
-            return str(r.json().get("access_token") or "") or None
+        for mat_khau in ung_vien:
+            if not mat_khau:
+                continue
+            r = await http.post(
+                f"{SB}/auth/v1/token?grant_type=password",
+                headers={"apikey": ANON, "Content-Type": "application/json"},
+                json={"email": email, "password": mat_khau},
+            )
+            if r.status_code == 200:
+                return str(r.json().get("access_token") or "") or None
         if lan == 0:
             await asyncio.sleep(2.0)
     return None
