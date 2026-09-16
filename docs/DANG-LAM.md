@@ -86,10 +86,30 @@ thu mỗi loại nên ghi đè là đủ. Cấp thuốc thì **cấp một phầ
 không thể tự phân biệt "bấm nhầm" với "cố ý cấp thêm" — khoá chống-gửi-trùng
 chính là chỗ người gọi nói ra điều đó.
 
-### Còn lại của bộ SC
-Nhóm ngoại lệ chưa chạy: SC-06 (đến lấy kết quả), SC-10 (check-in rồi về),
-SC-11, SC-12 (ra ngoài rồi quay lại), SC-17/18 (kết quả về sau, bản sửa),
-SC-27/28 (đến sớm/muộn), SC-29 (bác sĩ nghỉ đột xuất).
+### Nhóm ngoại lệ — 6/6 xanh ở cả hai nơi (`scripts/tests/ngoai-le.py`)
+
+SC-08 huỷ trước khi đến · SC-09 đánh không đến · SC-10 check-in rồi về ·
+SC-11 đã check-in vẫn đặt được ngày khác · SC-12 quay lại bấm check-in lần hai ·
+SC-28 lịch lùi vào khung đã qua.
+
+SC-10 kiểm CẢ HAI phía: bảng làm việc 1 → 0, **và** truy vấn thẳng database thấy
+lượt còn nguyên ở `INCOMPLETE`. "Rời bảng" khác "bị xoá" — chỉ nhìn bảng thì
+không phân biệt được.
+
+Còn lại chưa chạy: SC-06 (đến lấy kết quả), SC-17/18 (kết quả về sau / có bản
+sửa), SC-27 (đến sớm, đổi sang khám luôn), SC-29 (bác sĩ nghỉ đột xuất) — cả
+bốn cần tính năng hoặc dữ liệu chưa có sẵn để dựng cảnh.
+
+### Danh mục thuốc: 64 → 80
+Thêm 16 dòng theo bảng Tuyền gửi 16/09. **12 dòng trong database không còn
+trong bảng mới** — chưa xoá, chờ Tuyền xác nhận từng cái là BỎ hay ĐỔI TÊN
+(Aspirin ↔ Aspilete, Folic Mum ↔ 5MTHF/ Folic mum trông như đổi tên). Danh sách
+nằm trong `20260916000006_bo_sung_danh_muc_thuoc.sql`.
+
+### Logo tab
+`icon.png` từng là nguyên logo KÈM CHỮ → 16px thành vệt mờ. Nay chỉ còn dấu hiệu
+hai vòng hạt. ⚠️ `.ico` phải nhúng RGBA, không thì `next build` chết — và `tsc`
+KHÔNG bắt được lỗi ấy.
 
 ## -0003. Bản 15–16/09 đã LÊN VPS MỚI và chạy thật (16/09/2026 ~13:10)
 
