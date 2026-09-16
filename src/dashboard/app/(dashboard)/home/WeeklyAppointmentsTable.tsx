@@ -213,6 +213,12 @@ function buildDayRows(
     const bucketRows: RowDesc[] = [];
     for (const g of groups) {
       const mine = inBucket.filter((a) => (a.doctor_id ?? "") === g.id);
+      // BÁC SĨ KHÔNG CÓ LỊCH TRONG KHUNG NÀY THÌ ẨN (Tuyền 17/09/2026: "không
+      // có lịch thì ẩn đi"). Trước đây mọi bác sĩ trực đều chiếm một dòng xanh
+      // "+ Thêm khách hàng" ở MỌI khung — cả bác sĩ siêu âm, thủ thuật vốn không
+      // nhận lịch khám — nên bảng dài gấp mấy lần số lịch thật. Đặt lịch mới
+      // cho bác sĩ chưa có ai vẫn làm ở màn Đặt lịch.
+      if (mine.length === 0) continue;
       // Thứ tự gọi do backend tính sẵn (call_order). Xem ghi chú ở
       // DoctorWorkBoard: luật chỉ còn một bản, ở Python.
       const theoThuTuGoi = (a: WeekApptRow, b: WeekApptRow) =>

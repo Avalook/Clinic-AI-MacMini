@@ -35,6 +35,14 @@ import type { MaXacMinh } from "@/lib/xac-minh";
 type KernelCommand = "start" | "complete";
 
 
+/** SỐ QUẦY = số tiếp đón chung trong ngày (Tuyền 17/09/2026: "số chung, vào
+ *  quầy bác sĩ nào thì lại số riêng sau"). Lịch check-in trước khi có cột này
+ *  mới rơi về số riêng của bác sĩ. */
+function soQuay(item: WorklistItem): string {
+  if (item.so_tiep_don != null) return String(item.so_tiep_don);
+  return item.queue_number ?? "—";
+}
+
 function time(value: string | null): string {
   return value
     ? new Date(value).toLocaleTimeString("vi-VN", {
@@ -122,7 +130,7 @@ function Row({
         {/* SỐ THỨ TỰ: bỏ ô viền (Tuyền 16/09/2026) — nó chiếm ba phía chỉ để
             đóng khung hai chữ số. Màu thương hiệu đọc nhanh hơn viền. */}
         <span className="pt-0.5 text-center text-sm font-bold tabular-nums text-brand-700">
-          {item.queue_number ?? "—"}
+          {soQuay(item)}
         </span>
         <span className="min-w-0">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -184,6 +192,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
         item.patient.full_name,
         item.patient.patient_code,
         item.queue_number,
+        item.so_tiep_don != null ? String(item.so_tiep_don) : null,
       ]
         .filter(Boolean)
         .join(" ")
@@ -399,7 +408,7 @@ function PatientDetail({ item }: { item: WorklistItem }) {
           </div>
         </div>
         <dl className="border-l border-line pl-4 text-xs">
-          <Field label="Mã số" value={item.queue_number ?? "—"} />
+          <Field label="Số tiếp đón" value={soQuay(item)} />
           <Field label="Ngày sinh" value={item.patient.date_of_birth ? new Date(item.patient.date_of_birth).toLocaleDateString("vi-VN") : "—"} />
           <div className="mt-2 flex items-start gap-1.5 text-ink-muted">
             <MapPin size={13} className="mt-0.5 shrink-0" aria-hidden />
@@ -433,7 +442,8 @@ function PatientDetail({ item }: { item: WorklistItem }) {
             khám là thời gian CON nằm trong khoảng check-in → check-out. */}
         <InfoCard title="Thông tin hàng đợi" icon={<UsersRound size={15} />}>
           <Field label="Check-in" value={time(item.checked_in_at)} />
-          <Field label="Số thứ tự" value={item.queue_number ?? "—"} />
+          <Field label="Số tiếp đón" value={soQuay(item)} />
+          <Field label="Số riêng của bác sĩ" value={item.queue_number ?? "—"} />
         </InfoCard>
         <InfoCard title="Bảo hiểm y tế" icon={<ShieldCheck size={15} />}>
           <p className="rounded-control bg-surface-sunken px-2 py-2 text-xs text-ink-muted">
@@ -550,9 +560,9 @@ function CounterPanel({
               <p className="truncate text-2xl font-semibold text-ink">
                 {item.patient.full_name ?? "—"}
               </p>
-              {item.queue_number ? (
+              {soQuay(item) !== "—" ? (
                 <p className="text-label text-ink-muted">
-                  số {item.queue_number}
+                  số {soQuay(item)}
                 </p>
               ) : null}
             </div>

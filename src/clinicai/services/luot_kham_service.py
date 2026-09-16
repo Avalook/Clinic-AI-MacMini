@@ -843,7 +843,8 @@ class LuotKhamService:
                        v.attending_doctor_id::text AS doctor_id,
                        p.full_name, p.patient_code, d.full_name AS doctor_name,
                        f.vitals_status, f.route_decision, f.finished_at,
-                       f.goi_do_luc, g.full_name AS goi_do_boi
+                       f.goi_do_luc, g.full_name AS goi_do_boi,
+                       ap.so_tiep_don
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -852,6 +853,8 @@ class LuotKhamService:
                   LEFT JOIN encounter_flow f
                     ON f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id
                   LEFT JOIN staff g ON g.id = f.goi_do_boi
+                  LEFT JOIN appointment ap
+                    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE v.clinic_id = $1::uuid
                    -- INCOMPLETE cố ý không hiện: khách đã về.
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
@@ -1039,6 +1042,7 @@ class LuotKhamService:
                 "sinh_hieu_trang_thai": v["vitals_status"] or "pending",
                 "goi_do_luc": _iso(v["goi_do_luc"]),
                 "goi_do_boi": v["goi_do_boi"],
+                "so_tiep_don": v["so_tiep_don"],
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
                 "sinh_hieu": None,

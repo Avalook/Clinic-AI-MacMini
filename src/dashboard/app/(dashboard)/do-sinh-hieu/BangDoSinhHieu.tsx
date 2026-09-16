@@ -31,6 +31,8 @@ interface Luot {
   /** Lần gần nhất điều dưỡng bấm "Gọi vào đo". */
   goi_do_luc: string | null;
   goi_do_boi: string | null;
+  /** Số tiếp đón chung của quầy — số điều dưỡng đọc khi gọi. */
+  so_tiep_don: number | null;
   sinh_hieu: SinhHieu | null;
 }
 
@@ -227,7 +229,7 @@ export default function BangDoSinhHieu() {
         }`}
       >
         <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold tabular-nums text-ink">
-          {stt}
+          {l.so_tiep_don ?? stt}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold text-ink">{l.ten}</span>
@@ -289,7 +291,10 @@ export default function BangDoSinhHieu() {
           <>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-              <p className="text-lg font-semibold text-ink">{dangChon.ten}</p>
+              <p className="text-lg font-semibold text-ink">
+                {dangChon.so_tiep_don != null ? `Số ${dangChon.so_tiep_don} · ` : ""}
+                {dangChon.ten}
+              </p>
               <p className="text-meta text-ink-muted">
                 {dangChon.ma_bn} · check-in {gio(dangChon.check_in_luc)}
                 {dangChon.sinh_hieu?.nguoi_do
