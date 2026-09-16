@@ -19,7 +19,7 @@ from clinicai.api.middleware import (
 )
 from clinicai.api.runaway_guard import (
     runaway_guard,
-    runaway_guard_cho_ca_man_hinh,
+    runaway_guard_khong_chan_vai,
 )
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
@@ -189,7 +189,7 @@ app.include_router(
     tags=["identity"],
     # Bộ đếm bản KHÔNG chặn vai DISPLAY: `/api/v1/me` phải trả lời được cho tài
     # khoản màn hình TV, nếu không nó đăng nhập xong bị đá về trang đăng nhập.
-    dependencies=[Depends(runaway_guard_cho_ca_man_hinh)],
+    dependencies=[Depends(runaway_guard_khong_chan_vai)],
 )
 # Dòng sự kiện cho màn hình (thay Supabase Realtime).
 #
@@ -203,8 +203,16 @@ app.include_router(
 # đóng giả người dùng.
 # ĐỐI TÁC — hai đường, và chúng tự gác bằng `get_partner_identity`. Mọi router
 # khác đóng với vai này vì `get_current_identity` từ chối nó (xem identity.py).
+#
+# PHẢI DÙNG BỘ ĐẾM BẢN KHÔNG CHẶN VAI. `_GUARDED` gọi `runaway_guard`, mà hàm ấy
+# nhận danh tính qua `get_current_identity` — chính hàm từ chối vai PARTNER. Gắn
+# `_GUARDED` vào đây thì đối tác ăn 403 ngay tại cửa của chính mình, trong khi
+# mã của endpoint trông hoàn toàn đúng. Đã cắn thật ngày 16/09/2026.
 app.include_router(
-    doi_tac_router, prefix="/api/v1", tags=["doi-tac"], dependencies=_GUARDED
+    doi_tac_router,
+    prefix="/api/v1",
+    tags=["doi-tac"],
+    dependencies=[Depends(runaway_guard_khong_chan_vai)],
 )
 app.include_router(
     events_router, prefix="/api/v1", tags=["events"], dependencies=_GUARDED

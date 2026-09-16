@@ -240,26 +240,31 @@ async def runaway_guard(
     await _guard(request, identity)
 
 
-async def runaway_guard_cho_ca_man_hinh(
+async def runaway_guard_khong_chan_vai(
     request: Request,
     identity: StaffIdentity = Depends(_resolve_identity),
 ) -> None:
-    """Như trên, nhưng KHÔNG chặn vai DISPLAY.
+    """Như trên, nhưng CHỈ ĐẾM — không tự ý từ chối vai nào.
 
     VÌ SAO PHẢI CÓ BẢN THỨ HAI. `runaway_guard` nhận danh tính qua
-    `get_current_identity`, và hàm đó TỪ CHỐI vai DISPLAY (tài khoản màn hình
-    TV). Vì bộ đếm được gắn ở TẦNG ROUTER (`_GUARDED` trong main.py), nó chạy
-    trước mọi endpoint — nên `/api/v1/me` trả 403 cho cái tivi dù chính endpoint
-    đó đã khai `get_display_identity`.
+    `get_current_identity`, và hàm đó TỪ CHỐI hai vai ngoài luồng làm việc:
+    DISPLAY (cái tivi phòng chờ) và PARTNER (đối tác ngoài phòng khám). Vì bộ
+    đếm được gắn ở TẦNG ROUTER (`_GUARDED` trong main.py), nó chạy TRƯỚC mọi
+    endpoint — nên endpoint dù đã khai `get_display_identity` hay
+    `get_partner_identity` vẫn trả 403.
 
     Rất khó lần ra: nhìn vào mã của endpoint không thấy gì sai, thứ từ chối nằm
-    ở tham số mặc định của một dependency khai ở file khác.
+    ở tham số mặc định của một dependency khai ở file khác. Đã cắn HAI LẦN —
+    `/api/v1/me` với vai DISPLAY (09/2026), rồi `/doi-tac/viec` với vai PARTNER
+    (16/09/2026), dù lần hai đã có sẵn chú thích này cảnh báo. Tên hàm cũ
+    (`…_cho_ca_man_hinh`) là một phần lý do: nó nghe như chỉ dành cho cái tivi,
+    nên người thêm router đối tác không nhận ra mình cần chính nó.
 
     Bản này dựng danh tính bằng `_resolve_identity` — đủ để ĐẾM (bộ đếm hỏi "ai
     đang gọi", không hỏi "ai được phép"), và để phần phân quyền cho endpoint tự
-    lo. Vai DISPLAY vẫn bị tính vào hạn mức như mọi tài khoản khác.
+    lo. Cả hai vai vẫn bị tính vào hạn mức như mọi tài khoản khác.
 
-    Chỉ dùng cho router nào có endpoint mở cho màn hình. Đừng đổi
+    DÙNG CHO MỌI ROUTER CÓ ENDPOINT MỞ CHO VAI NGOÀI LUỒNG. Đừng đổi
     `runaway_guard` gốc: hàng chục bài kiểm ghi đè `get_current_identity` và sẽ
     ngừng có tác dụng.
     """
