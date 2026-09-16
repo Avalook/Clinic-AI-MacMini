@@ -71,7 +71,7 @@ async def require_workspace_read_access(
     pool: asyncpg.Pool,
 ) -> None:
     """Fail closed before a workspace query can expose another station's PII."""
-    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+    if identity.co_vai(_WORKSPACE_COORDINATOR_ROLES):
         return
 
     may_read = await pool.fetchval(
@@ -112,7 +112,7 @@ async def require_visit_work_items_read_access(
     for a missing and an unauthorized visit so the endpoint does not become an
     identifier oracle.
     """
-    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+    if identity.co_vai(_WORKSPACE_COORDINATOR_ROLES):
         return
 
     may_read = await pool.fetchval(
@@ -551,7 +551,7 @@ async def get_service_order_draft(
     )
     return {
         "draft": draft,
-        "vai": "THU_KY" if identity.role == ClinicRole.TKYK else "BAC_SI",
+        "vai": "THU_KY" if identity.co_vai({ClinicRole.TKYK}) else "BAC_SI",
     }
 
 

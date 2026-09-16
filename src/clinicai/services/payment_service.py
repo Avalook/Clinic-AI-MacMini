@@ -90,7 +90,8 @@ class PaymentService:
     def _assert_kind_allowed(self, kind: str, identity: StaffIdentity) -> None:
         if kind not in PAYMENT_KINDS:
             raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
-        if kind not in allowed_kinds(identity.role):
+        duoc_thu = {k for v in identity.cac_vai() for k in allowed_kinds(v)}
+        if kind not in duoc_thu:
             logger.info("payment_kind_forbidden", role=identity.role.value, kind=kind)
             raise SafetyGateError("Vai trò của bạn không được thu loại thanh toán này")
 
@@ -314,7 +315,7 @@ class PaymentService:
                     identity.clinic_id,
                     identity.staff_id,
                     normalized_reason,
-                    identity.role == ClinicRole.MANAGEMENT,
+                    identity.co_vai({ClinicRole.MANAGEMENT}),
                 )
                 if payment is None and await conn.fetchval(
                     "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid "

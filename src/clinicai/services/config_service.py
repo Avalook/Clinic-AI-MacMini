@@ -125,7 +125,7 @@ class RosterService:
         if not station:
             raise ValidationError("Thiếu vị trí")
 
-        is_admin = identity.role in ROSTER_ADMIN_ROLES
+        is_admin = identity.co_vai(ROSTER_ADMIN_ROLES)
         # Only management may name somebody else. For everyone else the client's
         # value is ignored entirely rather than checked.
         assigning_other = is_admin and bool(staff_id)
@@ -395,7 +395,7 @@ class RosterService:
         xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
         trước đó không có.
         """
-        if identity.role not in ROSTER_ADMIN_ROLES:
+        if not identity.co_vai(ROSTER_ADMIN_ROLES):
             raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
         tram_ma = (tram_ma or "").strip()
         vai = (vai or "").strip()
@@ -435,7 +435,7 @@ class RosterService:
         identity: StaffIdentity,
     ) -> None:
         """Approve or reject a self-registered shift. Management only."""
-        if identity.role not in ROSTER_ADMIN_ROLES:
+        if not identity.co_vai(ROSTER_ADMIN_ROLES):
             raise SafetyGateError("Chỉ quản lý được duyệt ca")
 
         status = "APPROVED" if decision == "approve" else "REJECTED"
@@ -508,7 +508,7 @@ class RosterService:
                 if row is None:
                     raise NotFoundError("Không tìm thấy ca trực")
 
-                if identity.role not in ROSTER_ADMIN_ROLES and (
+                if not identity.co_vai(ROSTER_ADMIN_ROLES) and (
                     str(row["staff_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")

@@ -87,7 +87,7 @@ class TheoDoiThuThuatService:
         theo_doi: str,
         sau_ngay: int | None,
     ) -> dict[str, Any]:
-        if identity.role not in PHYSICIAN_ROLES:
+        if not identity.co_vai(PHYSICIAN_ROLES):
             raise SafetyGateError("Chỉ bác sĩ quyết theo dõi sau thủ thuật.")
         if theo_doi not in LUA_CHON:
             raise ValidationError("Chọn: cần theo dõi hoặc không cần.")

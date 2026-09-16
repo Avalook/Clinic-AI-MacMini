@@ -252,7 +252,7 @@ class ClinicalRecordService:
         prescriptions: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Write the record. Returns the visit id it was written to."""
-        if not may_write(identity.role, vitals_only=vitals_only):
+        if not any(may_write(v, vitals_only=vitals_only) for v in identity.cac_vai()):
             raise SafetyGateError(
                 "Chỉ bác sĩ / điều dưỡng / lễ tân mới ghi sinh hiệu + lý do khám."
                 if vitals_only
@@ -317,7 +317,7 @@ class ClinicalRecordService:
 
                 if (
                     not vitals_only
-                    and identity.role not in ON_BEHALF_ROLES
+                    and not identity.co_vai(ON_BEHALF_ROLES)
                     and appointment["doctor_id"] is not None
                     and str(appointment["doctor_id"]) != identity.staff_id
                 ):
@@ -378,7 +378,7 @@ class ClinicalRecordService:
                         }
                     )
                 if vitals_only or vitals_moi != vitals_cu:
-                    if identity.role == ClinicRole.TKYK:
+                    if identity.co_vai({ClinicRole.TKYK}):
                         kiem_thu_ky_duoc_lam(
                             await bac_si_cua_thu_ky(conn, identity), bac_si_lich
                         )
@@ -430,7 +430,7 @@ class ClinicalRecordService:
                     items=prescriptions,
                     approve=approve_prescription_draft,
                 )
-                if identity.role == ClinicRole.TKYK:
+                if identity.co_vai({ClinicRole.TKYK}):
                     kiem_thu_ky_duoc_lam(
                         await bac_si_cua_thu_ky(conn, identity), bac_si_lich
                     )
@@ -482,8 +482,9 @@ class ClinicalRecordService:
                         prescriptions=prescription_write.items,
                         clinic_id=identity.clinic_id,
                         created_by=identity.staff_id
-                        if identity.role
-                        in {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+                        if identity.co_vai(
+                            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
+                        )
                         else None,
                     )
                 if approve_prescription_draft:
@@ -588,7 +589,7 @@ class ClinicalRecordService:
         # doctor — the appointment's doctor does.
         attending = (
             appointment_doctor_id
-            if (vitals_only or identity.role in ON_BEHALF_ROLES)
+            if (vitals_only or identity.co_vai(ON_BEHALF_ROLES))
             else identity.staff_id
         )
 

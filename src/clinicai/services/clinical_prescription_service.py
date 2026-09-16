@@ -157,8 +157,8 @@ async def prepare_prescription_write(
     approve: bool,
 ) -> PrescriptionWrite:
     """Choose draft or live write using the locked chart snapshot."""
-    physician = identity.role in {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
-    if not physician and identity.role != ClinicRole.TKYK and items is not None:
+    physician = identity.co_vai({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
+    if not physician and not identity.co_vai({ClinicRole.TKYK}) and items is not None:
         raise SafetyGateError("Chỉ bác sĩ kê thuốc hoặc thư ký nhập đơn thuốc nháp")
     if approve:
         if not physician:
@@ -176,7 +176,7 @@ async def prepare_prescription_write(
                 "Lượt khám này thuộc bác sĩ khác — không thể duyệt đơn"
             )
         return PrescriptionWrite(None, draft["items"], str(draft["recorded_by"]))
-    if identity.role == ClinicRole.TKYK and items is not None:
+    if identity.co_vai({ClinicRole.TKYK}) and items is not None:
         # The mature form sends all displayed rows on every chart save. Merely
         # saving SOAP must not create a new pending prescription when these are
         # still the physician-approved rows. Preserve an existing pending draft.

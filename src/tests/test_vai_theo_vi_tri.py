@@ -108,3 +108,30 @@ def test_vai_theo_thu_tu_giu_thu_tu_vi_tri_trong_ngay() -> None:
     assert vai_theo_thu_tu(
         ["T1_LAYMAU", "T1_LETAN", "T1_DOCHISO"], ClinicRole.CSKH
     ) == ["NURSE_ULTRASOUND", "RECEPTION"]
+
+
+def test_dieu_duong_dung_le_tan_check_in_duoc_o_tang_nghiep_vu() -> None:
+    """Lỗi thật 16/09: cửa gác để tài khoản điều dưỡng đi qua (công tắc mở quyền)
+    nên không đổi vai, rồi booking_service so `identity.role` và từ chối
+    'checkin'. Nghiệp vụ phải hỏi `co_vai`, không so vai tài khoản."""
+    from clinicai.services.booking_service import CHECKIN_ROLES
+
+    minh_thu = _nguoi(ClinicRole.NURSE_ULTRASOUND, frozenset({ClinicRole.RECEPTION}))
+    assert minh_thu.co_vai(CHECKIN_ROLES)
+    assert not _nguoi(ClinicRole.NURSE_ULTRASOUND).co_vai(CHECKIN_ROLES)
+
+
+def test_nghiep_vu_khong_so_vai_tai_khoan_truc_tiep() -> None:
+    """Cấm `identity.role in/==/!=` trong services và routers — dùng `co_vai`."""
+    import re
+    from pathlib import Path
+
+    goc = Path(__file__).resolve().parents[1] / "clinicai"
+    mau = re.compile(r"identity\.role\s+(?:not\s+in|in|==|!=|is\s+not|is)\b")
+    vi_pham = [
+        f"{p.relative_to(goc)}:{i}"
+        for p in [*goc.glob("services/*.py"), *goc.glob("api/v1/routers/*.py")]
+        for i, dong in enumerate(p.read_text().splitlines(), 1)
+        if mau.search(dong)
+    ]
+    assert vi_pham == [], "so vai tài khoản trực tiếp: " + ", ".join(vi_pham)

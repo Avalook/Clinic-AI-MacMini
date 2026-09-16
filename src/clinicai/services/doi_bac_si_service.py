@@ -58,7 +58,7 @@ class DoiBacSiService:
         bac_si_moi_id: str,
         ly_do: str,
     ) -> dict[str, Any]:
-        if identity.role not in VAI_DOI_BAC_SI:
+        if not identity.co_vai(VAI_DOI_BAC_SI):
             raise SafetyGateError("Chỉ trưởng ca / quản lý chuyển bác sĩ giữa lượt.")
         ly_do_sach = (ly_do or "").strip()
         if not ly_do_sach:

@@ -150,7 +150,9 @@ export default function Nav({
 
   return (
     <nav className="space-y-0.5">
-      {!isCollapsed && role ? (
+      {/* Nhãn vai chỉ khi KHÔNG có nhóm hôm nay — có nhóm thì tiêu đề nhóm đã
+          nói vai, in thêm là "LỄ TÂN" hai lần liền nhau (ảnh Tuyền 16/09/2026). */}
+      {!isCollapsed && role && !coHaiPhan ? (
         <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
           {ROLE_LABEL[role]}
         </p>

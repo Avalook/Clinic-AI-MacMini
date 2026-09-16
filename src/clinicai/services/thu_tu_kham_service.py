@@ -91,7 +91,7 @@ class ThuTuKhamService:
         truoc_appointment_id: str | None,
     ) -> dict[str, Any]:
         """Đặt khách vào giữa hai người trong hàng chờ đã check-in."""
-        if identity.role not in VAI_KEO_THU_TU:
+        if not identity.co_vai(VAI_KEO_THU_TU):
             raise SafetyGateError("Chỉ lễ tân / trưởng ca / quản lý đổi thứ tự khám.")
         ids = [appointment_id] + [
             x for x in (sau_appointment_id, truoc_appointment_id) if x
@@ -152,7 +152,7 @@ class ThuTuKhamService:
         ly_do: str | None,
     ) -> dict[str, Any]:
         """Bật/tắt dấu khách ưu tiên. Bật thì bắt buộc lý do."""
-        if identity.role not in VAI_DANH_DAU_UU_TIEN:
+        if not identity.co_vai(VAI_DANH_DAU_UU_TIEN):
             raise SafetyGateError(
                 "Chỉ lễ tân / CSKH / trưởng ca / quản lý đánh dấu khách ưu tiên."
             )

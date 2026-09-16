@@ -41,7 +41,7 @@ async def bac_si_cua_thu_ky(
     # sĩ ấy" trở lại nguyên vẹn, kèm cả câu báo và bài kiểm của nó.
     if mo_quyen_tam_thoi():
         return None
-    if identity.role != ClinicRole.TKYK:
+    if not identity.co_vai({ClinicRole.TKYK}):
         return None
     ids = await conn.fetchval(
         "SELECT array_agg(bac_si_staff_id::text) FROM public.thu_ky_bac_si"
@@ -162,7 +162,7 @@ async def dat_bac_si_cho_thu_ky(
     bac_si_staff_ids: list[str],
 ) -> dict[str, Any]:
     """Quản lý phân thư ký theo những bác sĩ nào (thay cả danh sách)."""
-    if identity.role != ClinicRole.MANAGEMENT:
+    if not identity.co_vai({ClinicRole.MANAGEMENT}):
         raise SafetyGateError("Chỉ quản lý phân thư ký cho bác sĩ.")
     ids = sorted(set(bac_si_staff_ids))
     async with pool.acquire() as conn, conn.transaction():

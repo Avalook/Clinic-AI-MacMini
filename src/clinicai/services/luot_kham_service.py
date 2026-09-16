@@ -143,9 +143,9 @@ def _require(identity: StaffIdentity, roles: frozenset[ClinicRole], cau: str) ->
     toàn đúng.
     """
     if mo_quyen_tam_thoi() and roles in _TAP_NOI_DUOC:
-        if identity.role in VAI_LAM_VIEC:
+        if identity.co_vai(VAI_LAM_VIEC):
             return
-    if identity.role not in roles:
+    if not identity.co_vai(roles):
         raise SafetyGateError(cau)
 
 
@@ -656,7 +656,7 @@ class LuotKhamService:
         doctor_id: str | None,
     ) -> None:
         """Thư ký chỉ bấm được cho khách của bác sĩ mình đi kèm."""
-        if identity.role != ClinicRole.TKYK:
+        if not identity.co_vai({ClinicRole.TKYK}):
             return
         ds = await bac_si_cua_thu_ky(conn, identity)
         if ds is not None and (doctor_id is None or doctor_id not in ds):
@@ -668,9 +668,9 @@ class LuotKhamService:
         self, conn: asyncpg.Connection, identity: StaffIdentity, c: asyncpg.Record
     ) -> bool:
         """Người gọi thuộc ê-kíp của phiên: chính bác sĩ, hoặc thư ký của bác sĩ ấy."""
-        if identity.role == ClinicRole.DOCTOR:
+        if identity.co_vai({ClinicRole.DOCTOR}):
             return bool(c["doctor_id"] == identity.staff_id)
-        if identity.role == ClinicRole.TKYK:
+        if identity.co_vai({ClinicRole.TKYK}):
             ds = await bac_si_cua_thu_ky(conn, identity)
             return ds is None or c["doctor_id"] in ds
         return False
@@ -706,7 +706,7 @@ class LuotKhamService:
     async def bang(self, *, identity: StaffIdentity) -> dict[str, Any]:
         _require(identity, BOARD_ROLES, "Vai của bạn không dùng màn lượt khám.")
         cid = identity.clinic_id
-        doc_noi_dung = identity.role in CLINICAL_READ_ROLES
+        doc_noi_dung = identity.co_vai(CLINICAL_READ_ROLES)
         async with self._pool.acquire() as conn:
             visits = await conn.fetch(
                 """
@@ -812,7 +812,7 @@ class LuotKhamService:
                     """,
                     cid,
                     ids,
-                    identity.role in NOTE_ROLES,
+                    identity.co_vai(NOTE_ROLES),
                 )
                 hang_cho = await conn.fetch(
                     """
@@ -877,7 +877,7 @@ class LuotKhamService:
                 cid,
             )
             lich: list[asyncpg.Record] = []
-            if identity.role in CHECKIN_ROLES:
+            if identity.co_vai(CHECKIN_ROLES):
                 lich = await conn.fetch(
                     """
                     SELECT a.id::text AS id, a.slot_start, a.status,
@@ -1169,9 +1169,9 @@ class LuotKhamService:
                 ds_bac_si = [r["id"] for r in bac_si]
             else:
                 ds_bac_si = []
-            if identity.role == ClinicRole.DOCTOR:
+            if identity.co_vai({ClinicRole.DOCTOR}):
                 ds_bac_si = sorted({*ds_bac_si, identity.staff_id})
-            elif identity.role == ClinicRole.TKYK:
+            elif identity.co_vai({ClinicRole.TKYK}):
                 cua_toi = await bac_si_cua_thu_ky(conn, identity)
                 if cua_toi is not None:
                     ds_bac_si = sorted(cua_toi)
@@ -1530,7 +1530,7 @@ class LuotKhamService:
                 cid,
                 con_id,
                 identity.staff_id,
-                identity.role == ClinicRole.DOCTOR,
+                identity.co_vai({ClinicRole.DOCTOR}),
             )
             await conn.execute(
                 "UPDATE queue_entry SET status = 'serving', serving_at = now(),"
@@ -2456,7 +2456,7 @@ class LuotKhamService:
             mẫu; trước đó ống máu còn chưa có, đối tác chẳng có gì để nhận.
         Có kết quả (tệp đầu tiên) là rời bàn — duyệt và gửi là việc bác sĩ, CSKH.
         """
-        if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
             raise SafetyGateError("Màn này chỉ dành cho đối tác.")
         rows = await self._pool.fetch(
             """
@@ -2528,7 +2528,7 @@ class LuotKhamService:
         self, *, order_id: str, identity: StaffIdentity
     ) -> dict[str, Any]:
         """Đối tác bấm "Đã lấy mẫu" cho xét nghiệm họ tự lấy."""
-        if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
             raise SafetyGateError("Chỉ đối tác bấm được việc này.")
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã việc không hợp lệ.")

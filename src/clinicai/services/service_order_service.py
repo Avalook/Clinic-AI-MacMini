@@ -128,7 +128,7 @@ class ServiceOrderService:
         thành việc ở phòng thực hiện. Router gọi `save_draft` cho vai TKYK;
         chặn ở đây nữa để không đường gọi nào khác lọt qua.
         """
-        if identity.role == ClinicRole.TKYK:
+        if identity.co_vai({ClinicRole.TKYK}):
             raise SafetyGateError(
                 "Thư ký y khoa nhập chỉ định vào bản nháp — bác sĩ duyệt mới gửi phòng"
             )
@@ -263,9 +263,9 @@ class ServiceOrderService:
         self, *, visit_id: str, identity: StaffIdentity
     ) -> dict[str, object] | None:
         """Bản nháp đang chờ duyệt, kèm tên dịch vụ và người nhập."""
-        if identity.role not in PHYSICIAN_ROLES and identity.role != ClinicRole.TKYK:
+        if not identity.co_vai({*PHYSICIAN_ROLES, ClinicRole.TKYK}):
             raise SafetyGateError("Chỉ bác sĩ và thư ký y khoa xem chỉ định chờ duyệt")
-        if identity.role == ClinicRole.TKYK:
+        if identity.co_vai({ClinicRole.TKYK}):
             bac_si_luot = await self._pool.fetchval(
                 "SELECT attending_doctor_id::text FROM visit"
                 " WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
@@ -335,7 +335,7 @@ class ServiceOrderService:
         buộc `expected_version` — hai người cùng sửa thì người sau phải thấy bản
         mới trước. Danh sách rỗng khi replace = bỏ nháp.
         """
-        if identity.role != ClinicRole.TKYK and identity.role not in PHYSICIAN_ROLES:
+        if not identity.co_vai({*PHYSICIAN_ROLES, ClinicRole.TKYK}):
             raise SafetyGateError("Chỉ bác sĩ và thư ký y khoa nhập chỉ định")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -421,7 +421,7 @@ class ServiceOrderService:
         CHÍNH order_services với danh tính bác sĩ, trong cùng giao dịch với việc
         đánh dấu đã duyệt — không có lúc nháp đã duyệt mà phòng chưa có việc.
         """
-        if identity.role not in PHYSICIAN_ROLES:
+        if not identity.co_vai(PHYSICIAN_ROLES):
             raise SafetyGateError("Chỉ bác sĩ mới duyệt chỉ định thư ký đã nhập")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -506,10 +506,10 @@ class ServiceOrderService:
         identity: StaffIdentity,
     ) -> None:
         """Bỏ bản nháp (bác sĩ không duyệt, hoặc thư ký nhập nhầm cả bản)."""
-        if identity.role not in PHYSICIAN_ROLES and identity.role != ClinicRole.TKYK:
+        if not identity.co_vai({*PHYSICIAN_ROLES, ClinicRole.TKYK}):
             raise SafetyGateError("Chỉ bác sĩ và thư ký y khoa bỏ chỉ định nháp")
         ly_do = (reason or "").strip() or None
-        if identity.role in PHYSICIAN_ROLES and not ly_do:
+        if identity.co_vai(PHYSICIAN_ROLES) and not ly_do:
             raise ValidationError(
                 "Bác sĩ bỏ chỉ định nháp thì ghi lý do để thư ký biết"
             )
@@ -585,7 +585,7 @@ class ServiceOrderService:
         LƯỢT (bác sĩ phụ trách) bỏ được — bác sĩ khác không sửa chỉ định của
         đồng nghiệp.
         """
-        if identity.role not in PHYSICIAN_ROLES:
+        if not identity.co_vai(PHYSICIAN_ROLES):
             raise SafetyGateError("Chỉ bác sĩ bỏ dịch vụ khỏi chỉ định")
         ly_do_sach = (ly_do or "").strip()
         if not ly_do_sach:

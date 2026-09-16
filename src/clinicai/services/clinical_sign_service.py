@@ -369,7 +369,7 @@ class ClinicalSignService:
         self, *, identity: StaffIdentity, ultrasound_id: str
     ) -> dict[str, Any]:
         """Bác sĩ siêu âm ký kết quả CỦA MÌNH."""
-        if identity.role not in SIGNING_ROLES:
+        if not identity.co_vai(SIGNING_ROLES):
             raise ValidationError("Chỉ bác sĩ mới ký được kết quả siêu âm.")
 
         async with self._pool.acquire() as conn:
@@ -468,7 +468,7 @@ def _loads(value: Any) -> Any:
 
 
 def _assert_doctor(identity: StaffIdentity) -> None:
-    if identity.role not in SIGNING_ROLES:
+    if not identity.co_vai(SIGNING_ROLES):
         raise ValidationError(
             "Chỉ bác sĩ mới ký được bệnh án. Thư ký Y khoa nhập hộ được, nhưng "
             "người ký phải là bác sĩ chịu trách nhiệm chuyên môn."

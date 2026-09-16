@@ -125,7 +125,7 @@ async def enter_lab_result(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Record what came back. Never finalises — that is a separate gate."""
-    if identity.role == ClinicRole.TKYK:
+    if identity.co_vai({ClinicRole.TKYK}):
         # Thư ký chỉ nhập kết quả cho khách của bác sĩ mình (20260915000020).
         patient_id = await pool.fetchval(
             "SELECT clinic_patient_id::text FROM lab_result"

@@ -250,7 +250,7 @@ class TepKetQuaService:
                 len(data),
                 hashlib.sha256(data).hexdigest(),
                 identity.staff_id,
-                identity.role in TU_CHO_PHEP_GUI,
+                identity.co_vai(TU_CHO_PHEP_GUI),
                 service_order_id,
             )
             if service_order_id:
@@ -387,7 +387,7 @@ class TepKetQuaService:
         self, *, identity: StaffIdentity, tep_id: str
     ) -> dict[str, Any]:
         """Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách."""
-        if identity.role not in BAC_SI_CHO_PHEP_GUI:
+        if not identity.co_vai(BAC_SI_CHO_PHEP_GUI):
             raise SafetyGateError("Chỉ bác sĩ mới cho phép gửi kết quả cho khách.")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -429,7 +429,7 @@ class TepKetQuaService:
         self, *, identity: StaffIdentity
     ) -> list[dict[str, Any]]:
         """Tệp kết quả đang chờ bác sĩ cho phép gửi — cũ nhất trước."""
-        if identity.role not in BAC_SI_CHO_PHEP_GUI:
+        if not identity.co_vai(BAC_SI_CHO_PHEP_GUI):
             raise SafetyGateError("Chỉ bác sĩ mới xem hàng chờ cho phép gửi.")
         rows = await self._pool.fetch(
             """

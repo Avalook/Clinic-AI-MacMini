@@ -44,7 +44,7 @@ CONFIG_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
 
 
 def assert_may_configure(identity: StaffIdentity) -> None:
-    if identity.role not in CONFIG_ROLES:
+    if not identity.co_vai(CONFIG_ROLES):
         raise ValidationError(
             f"Vai {identity.role.value} không sửa được cấu hình phòng khám."
         )

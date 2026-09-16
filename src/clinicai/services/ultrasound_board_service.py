@@ -262,9 +262,9 @@ class UltrasoundBoardService:
         một bác sĩ siêu âm. Nhờ vậy thư ký đi cùng bác sĩ siêu âm thấy đúng khách
         mình phải nhập hộ, kể cả khách do bác sĩ chính chỉ định siêu âm.
         """
-        if identity.role == ClinicRole.ULTRASOUND_DOCTOR:
+        if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR}):
             nguoi = identity.staff_id
-        elif identity.role in (ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT):
+        elif identity.co_vai((ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)):
             if not bac_si_id:
                 raise ValidationError("Chọn bác sĩ siêu âm thực hiện.")
             nguoi = bac_si_id
@@ -360,10 +360,10 @@ class UltrasoundBoardService:
             )
             if row is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
-            if identity.role == ClinicRole.TKYK:
+            if identity.co_vai({ClinicRole.TKYK}):
                 # Thư ký chỉ nhập hộ kết quả cho bác sĩ mình (20260915000020).
                 await kiem_khach(conn, identity, str(row["clinic_patient_id"]))
-            if identity.role == ClinicRole.ULTRASOUND_DOCTOR:
+            if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR}):
                 await ghi_bac_si_thuc_hien(
                     conn,
                     clinic_id=identity.clinic_id,
@@ -441,7 +441,7 @@ class UltrasoundBoardService:
                     # nhận ca; trước đây người lưu đầu tiên thành performed_by và
                     # bác sĩ siêu âm thật bị chặn ký.
                     identity.staff_id
-                    if identity.role == ClinicRole.ULTRASOUND_DOCTOR
+                    if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR})
                     else await conn.fetchval(
                         "SELECT assigned_to FROM public.work_item"
                         " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"

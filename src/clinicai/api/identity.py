@@ -21,6 +21,7 @@ Two verification modes (auto-selected):
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from enum import Enum
 from functools import lru_cache
@@ -201,6 +202,24 @@ class StaffIdentity:
     #: vai tài khoản gốc. Nhật ký thao tác ghi cả hai ("Minh Thư, tài khoản Điều
     #: dưỡng, làm với vai Lễ tân") — không thì mất dấu ai thật sự đã bấm.
     vai_tai_khoan: ClinicRole | None = None
+
+    def cac_vai(self) -> frozenset[ClinicRole]:
+        """MỌI vai người này làm được HÔM NAY: vai đang dùng, vai tài khoản gốc
+        (nếu cửa gác đã thay), và vai vận hành mà vị trí trong lịch cấp."""
+        vai = {self.role, *self.vai_theo_vi_tri}
+        if self.vai_tai_khoan is not None:
+            vai.add(self.vai_tai_khoan)
+        return frozenset(vai)
+
+    def co_vai(self, roles: Iterable[ClinicRole]) -> bool:
+        """Có ÍT NHẤT MỘT vai hôm nay nằm trong `roles`.
+
+        Dùng thay cho `identity.role in roles` ở MỌI kiểm tra nghiệp vụ (Tuyền
+        duyệt 16/09/2026). Vai giấy phép (bác sĩ, thư ký, quản lý) không bao giờ
+        đến từ lịch, nên với chúng kết quả y như so vai tài khoản; chỉ các vai
+        vận hành (lễ tân, điều dưỡng, trưởng ca) mở thêm cho người đứng vị trí.
+        """
+        return not self.cac_vai().isdisjoint(roles)
 
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES

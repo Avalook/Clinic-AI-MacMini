@@ -480,7 +480,7 @@ class BookingService:
         # the slot is today — otherwise a future booking, or one phoned in
         # without a channel, would be checked in for a patient who is not here.
         auto_checkin = raw_channel.upper() == "WALK_IN" and self._is_today(slot_start)
-        if auto_checkin and identity.role not in CHECKIN_ROLES:
+        if auto_checkin and not identity.co_vai(CHECKIN_ROLES):
             # Khách trực tiếp đặt xong là check-in luôn — việc của lễ tân tại
             # quầy (Tuyền chốt 15/09/2026). CSKH đặt trước cho ngày khác được.
             raise SafetyGateError("Khách trực tiếp do lễ tân đặt và check-in tại quầy.")
@@ -719,7 +719,7 @@ class BookingService:
             cach_xac_minh_bat_buoc(xac_minh_cach) if action == "checkin" else None
         )
 
-        if identity.role not in transition.allowed_roles:
+        if not identity.co_vai(transition.allowed_roles):
             raise SafetyGateError(
                 f"Vai trò của bạn không được phép '{action}' lịch hẹn"
             )
@@ -805,7 +805,7 @@ class BookingService:
                 # "Lịch hẹn này không thuộc bác sĩ".
                 if (
                     transition.owner_only
-                    and identity.role in PHYSICIAN_ONLY_OWNER_CHECK
+                    and identity.co_vai(PHYSICIAN_ONLY_OWNER_CHECK)
                     and str(appt["doctor_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")

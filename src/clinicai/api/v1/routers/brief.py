@@ -51,7 +51,7 @@ async def _can_generate_brief(
     identity: StaffIdentity,
 ) -> bool:
     """Keep direct API callers inside the same patient relationship as the UI."""
-    if identity.role is ClinicRole.TKYK:
+    if identity.co_vai({ClinicRole.TKYK}):
         # Thư ký chỉ xem khách của bác sĩ mình được phân (20260915000020).
         from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 

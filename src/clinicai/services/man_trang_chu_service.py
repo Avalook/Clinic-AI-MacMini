@@ -161,7 +161,7 @@ class ManTrangChuService:
                 ngay_tuan_hen,
             )
             trang_thai_kham: list[dict[str, Any]] = []
-            if identity.role == ClinicRole.RECEPTION:
+            if identity.co_vai({ClinicRole.RECEPTION}):
                 # Join thẳng trong SQL — không còn đường lùi hai truy vấn của
                 # bản PostgREST (nó tồn tại vì select join từng lỗi; SQL tay
                 # thì cột nào không có là CI đỏ ngay ở test, không đợi prod).
@@ -197,7 +197,7 @@ class ManTrangChuService:
             clinic_id=clinic_id, week_start=week_appt
         )
         checkin: list[dict[str, Any]] = []
-        if identity.role == ClinicRole.MANAGEMENT:
+        if identity.co_vai({ClinicRole.MANAGEMENT}):
             checkin = await DoctorBoardService(self._pool).board(
                 clinic_id=clinic_id,
                 start=dau_ngay,
