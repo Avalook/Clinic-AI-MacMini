@@ -56,7 +56,10 @@ REQUEST_ID_HEADER = "X-Request-ID"
 # Multipart adds boundaries and the UUID form fields around the actual file.
 # Keep that bounded too; otherwise an attacker can stay below the file cap while
 # filling the request with unlimited field/header overhead.
-CSKH_UPLOAD_MAX_BODY_BYTES = MAX_BYTES_KET_QUA_UPLOAD + 1024 * 1024
+#: 0 = không giới hạn thân yêu cầu (tệp kết quả không có trần — Tuyền 16/09/2026).
+CSKH_UPLOAD_MAX_BODY_BYTES = (
+    MAX_BYTES_KET_QUA_UPLOAD + 1024 * 1024 if MAX_BYTES_KET_QUA_UPLOAD > 0 else 0
+)
 
 
 class CskhUploadSizeLimitMiddleware:
@@ -85,7 +88,7 @@ class CskhUploadSizeLimitMiddleware:
         await response(scope, receive, send)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if not (
+        if self.max_body_bytes <= 0 or not (
             scope["type"] == "http"
             and scope.get("method") == "POST"
             and scope.get("path") == "/api/v1/cskh/ket-qua/tep"

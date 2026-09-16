@@ -83,7 +83,7 @@ async def gui_ket_qua(
     họ gửi được tệp cho BẤT KỲ AI — chỉ cần đoán đúng một mã. Ở đây họ chỉ nói
     được "kết quả của việc này", còn việc ấy thuộc về ai là do hệ thống tra ra.
     """
-    from clinicai.api.v1.routers.cskh import _doc_upload_co_gioi_han
+    from clinicai.api.v1.routers.cskh import _nguon_upload
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
     async with pool.acquire() as conn:
@@ -107,11 +107,11 @@ async def gui_ket_qua(
         # — nói rõ hơn là để người ngoài dò xem mã nào tồn tại.
         raise SafetyGateError("Không tìm thấy việc này trong danh sách của bạn.")
 
-    data = await _doc_upload_co_gioi_han(file)
+    nguon = await _nguon_upload(file)
     return await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=o["clinic_patient_id"],
-        data=data,
+        nguon=nguon,
         ten_hien_thi=file.filename,
         appointment_id=o["appointment_id"],
         service_order_id=str(chi_dinh_id),

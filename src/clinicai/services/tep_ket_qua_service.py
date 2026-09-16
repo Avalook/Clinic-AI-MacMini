@@ -19,11 +19,15 @@ là 240MB tức thời — đủ để tiến trình bị giết giữa giờ kh
 
 from __future__ import annotations
 
+import asyncio
+import errno
 import hashlib
+import io
 import os
 import shutil
+import zipfile
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import asyncpg
 import structlog
@@ -35,21 +39,55 @@ from clinicai.services.audit import record_event
 from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
-    MAX_BYTES_THEO_LOAI,
     MEDIA_ROOT,
     duong_dan_ket_qua,
     ket_qua_patient_lock_key,
     kiem_kho_da_gan,
     sniff_ket_qua,
+    vuot_tran,
 )
 
 logger = structlog.get_logger()
 
 # Trần tích luỹ theo clinic và khoảng trống phải giữ lại cho database/host.
 # Có thể nâng có chủ đích bằng env sau khi kiểm tra backup và dung lượng thật.
-MEDIA_CLINIC_QUOTA_BYTES = int(
-    os.environ.get("MEDIA_CLINIC_QUOTA_BYTES", 5 * 1024 * 1024 * 1024)
-)
+#: 0 = KHÔNG giới hạn tổng dung lượng (Tuyền 16/09/2026). Đặt số dương qua env
+#: nếu sau này cần hạn mức.
+MEDIA_CLINIC_QUOTA_BYTES = int(os.environ.get("MEDIA_CLINIC_QUOTA_BYTES", "0") or 0)
+
+_KHUC_GHI = 4 * 1024 * 1024
+_MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def _chep_luong(nguon: IO[bytes], dich: Path) -> tuple[int, str]:
+    """Chép luồng → tệp theo từng khúc, trả (số byte, sha256). Chạy trong thread."""
+    h = hashlib.sha256()
+    so_byte = 0
+    with dich.open("wb") as ra:
+        while True:
+            khuc = nguon.read(_KHUC_GHI)
+            if not khuc:
+                break
+            ra.write(khuc)
+            h.update(khuc)
+            so_byte += len(khuc)
+    return so_byte, h.hexdigest()
+
+
+def _loai_tai_lieu(duong: Path) -> str | None:
+    """DOCX/XLSX thật (mở ZIP xem thư mục bên trong); None = không phải."""
+    try:
+        with zipfile.ZipFile(duong) as z:
+            ten = z.namelist()
+    except zipfile.BadZipFile:
+        return None
+    if any(t.startswith("word/") for t in ten):
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if any(t.startswith("xl/") for t in ten):
+        return _MIME_XLSX
+    return None
+
+
 MEDIA_MIN_FREE_BYTES = int(
     os.environ.get("MEDIA_MIN_FREE_BYTES", 5 * 1024 * 1024 * 1024)
 )
@@ -79,7 +117,8 @@ class TepKetQuaService:
         *,
         identity: StaffIdentity,
         clinic_patient_id: str,
-        data: bytes,
+        data: bytes | None = None,
+        nguon: IO[bytes] | None = None,
         ten_hien_thi: str | None = None,
         appointment_id: str | None = None,
         service_order_id: str | None = None,
@@ -90,20 +129,30 @@ class TepKetQuaService:
         nghiệm…). Có nó thì kết quả đi đúng đường duyệt của chỉ định ấy; thiếu
         nó thì tệp chỉ gắn với khách + lượt khám như trước.
         """
-        if not data:
+        # Hai cách đưa tệp vào: `nguon` (luồng — đường thật, không nạp RAM) hoặc
+        # `data` (bytes — tiện cho bài kiểm và tệp nhỏ).
+        if nguon is None:
+            nguon = io.BytesIO(data or b"")
+        nguon.seek(0, 2)
+        so_byte_khai = nguon.tell()
+        nguon.seek(0)
+        if so_byte_khai == 0:
             raise ValidationError("Tệp rỗng.")
-        mime, ext, loai = sniff_ket_qua(data)
+        dau = nguon.read(8192)
+        nguon.seek(0)
+        mime, ext, loai = sniff_ket_qua(dau)
         if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
             raise ValidationError(
                 "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
             )
-        tran = MAX_BYTES_THEO_LOAI[loai]
-        if len(data) > tran:
+        tran = vuot_tran(loai, so_byte_khai)
+        if tran is not None:
             raise ValidationError(
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
-
-        async with self._pool.acquire() as conn, conn.transaction():
+        # Quan hệ khách ↔ lịch hẹn ↔ chỉ định không đổi theo thời gian → kiểm
+        # TRƯỚC khi chép (một video vài GB gắn sai khách phải bị chặn ngay).
+        async with self._pool.acquire() as conn:
             ok = await conn.fetchval(
                 "SELECT 1 FROM public.patient "
                 " WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid",
@@ -142,132 +191,166 @@ class TepKetQuaService:
                 if not thuoc_ve:
                     raise ValidationError("Lịch hẹn không phải của khách này.")
 
-            # Serialize against TRA_KQ's evidence-check + insert. Otherwise an
-            # upload can slip in immediately after the user closes the task and
-            # remain pending forever because the current view only sees TRA_KQ.
-            await conn.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                ket_qua_patient_lock_key(
-                    clinic_id=identity.clinic_id,
-                    clinic_patient_id=clinic_patient_id,
-                ),
+        kiem_kho_da_gan()
+        path, key = duong_dan_ket_qua(
+            clinic_id=identity.clinic_id,
+            clinic_patient_id=clinic_patient_id,
+            ext=ext,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if shutil.disk_usage(MEDIA_ROOT).free - so_byte_khai < MEDIA_MIN_FREE_BYTES:
+            raise ValidationError(
+                "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
+                "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
             )
-            da_xac_nhan_tra = await conn.fetchval(
-                """
-                SELECT EXISTS (
-                    SELECT 1
-                      FROM public.tuong_tac_cskh i
-                     WHERE i.clinic_id = $1::uuid
-                       AND i.clinic_patient_id = $2::uuid
-                       AND i.loai = 'TRA_KQ'
-                       AND i.huy_luc IS NULL
-                       AND i.xay_ra_luc >= COALESCE((
-                           SELECT max(COALESCE(
-                               r.reviewed_at, r.result_received_at, r.created_at
-                           ))
-                             FROM public.lab_result r
-                            WHERE r.clinic_id = $1::uuid
-                              AND r.clinic_patient_id = $2::uuid
-                              AND r.result_value IS NOT NULL
-                              AND (NOT r.requires_doctor_review
-                                   OR r.reviewed_at IS NOT NULL)
-                       ), '-infinity'::timestamptz)
-                )
-                """,
-                identity.clinic_id,
-                clinic_patient_id,
-            )
-            if da_xac_nhan_tra:
+        # Chép TRƯỚC khi mở transaction: video vài GB chép mất vài phút, không
+        # được giữ kết nối DB và khoá của khách suốt lúc ấy. Ghi tệp tạm rồi mới
+        # đổi tên trong transaction: lần ghi bị cắt giữa chừng (hết đĩa, mất
+        # điện) để lại tệp tạm, không để lại tệp hỏng mà database vẫn khai là
+        # có. Đuôi `.tmp` cũng là thứ bản sao lưu bỏ qua.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            so_byte, sha = await asyncio.to_thread(_chep_luong, nguon, tmp)
+        except OSError as loi:
+            tmp.unlink(missing_ok=True)
+            if loi.errno == errno.ENOSPC:
                 raise ValidationError(
-                    "Việc này đã xác nhận trả kết quả. Hoàn tác mốc trả kết quả "
-                    "trước khi tải thêm tệp, hoặc ghi nhận kết quả mới trước."
-                )
-
-            # Serialize quota checks for the same clinic. Without this lock,
-            # several concurrent uploads can all observe the same old total and
-            # collectively jump far past the cap.
-            await conn.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-                f"tep-ket-qua:{identity.clinic_id}",
-            )
-            da_dung = int(
-                await conn.fetchval(
-                    "SELECT coalesce(sum(so_byte), 0)::bigint "
-                    "FROM public.tep_ket_qua WHERE clinic_id = $1::uuid",
-                    identity.clinic_id,
-                )
-                or 0
-            )
-            if da_dung + len(data) > MEDIA_CLINIC_QUOTA_BYTES:
+                    "Kho lưu trữ đã đầy giữa chừng — tệp CHƯA được lưu. "
+                    "Báo kỹ thuật mở rộng dung lượng."
+                ) from loi
+            raise
+        if loai == "TAI_LIEU":
+            that = await asyncio.to_thread(_loai_tai_lieu, tmp)
+            if that is None:
+                tmp.unlink(missing_ok=True)
                 raise ValidationError(
-                    "Phòng khám đã chạm hạn mức lưu trữ kết quả. "
-                    "Báo kỹ thuật kiểm tra và mở rộng dung lượng trước khi tải thêm."
+                    "Tệp nén không phải tài liệu Word (.docx) hay Excel (.xlsx)."
                 )
+            mime = that
+            if that == _MIME_XLSX:
+                ext = ".xlsx"
+                path = path.with_suffix(".xlsx")
+                key = key.rsplit(".", 1)[0] + ".xlsx"
 
-            kiem_kho_da_gan()
-            path, key = duong_dan_ket_qua(
-                clinic_id=identity.clinic_id,
-                clinic_patient_id=clinic_patient_id,
-                ext=ext,
-            )
-            path.parent.mkdir(parents=True, exist_ok=True)
-            if shutil.disk_usage(MEDIA_ROOT).free - len(data) < MEDIA_MIN_FREE_BYTES:
-                raise ValidationError(
-                    "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
-                    "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
-                )
-            # Ghi tệp tạm rồi đổi tên: một lần ghi bị cắt giữa chừng (hết đĩa,
-            # mất điện) để lại tệp tạm, không để lại một tệp hỏng mà database
-            # vẫn khai là có. Đuôi `.tmp` cũng là thứ bản sao lưu bỏ qua.
-            tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_bytes(data)
-            tmp.replace(path)
-            path.chmod(0o600)
-
-            row_id = await conn.fetchval(
-                """
-                INSERT INTO public.tep_ket_qua
-                    (clinic_id, clinic_patient_id, appointment_id, khoa,
-                     ten_hien_thi, loai_tep, mime, so_byte, sha256,
-                     tai_len_boi_staff_id,
-                     cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
-                     service_order_id)
-                VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
-                        $10::uuid,
-                        CASE WHEN $11 THEN now() END,
-                        CASE WHEN $11 THEN $10::uuid END,
-                        $12::uuid)
-                RETURNING id::text
-                """,
-                identity.clinic_id,
-                clinic_patient_id,
-                appointment_id,
-                key,
-                (ten_hien_thi or "").strip()[:200] or None,
-                loai,
-                mime,
-                len(data),
-                hashlib.sha256(data).hexdigest(),
-                identity.staff_id,
-                identity.co_vai(TU_CHO_PHEP_GUI),
-                service_order_id,
-            )
-            if service_order_id:
-                # Mốc "đã có kết quả, chờ bác sĩ duyệt" của chỉ định.
+        try:
+            async with self._pool.acquire() as conn, conn.transaction():
+                # Serialize against TRA_KQ's evidence-check + insert. Otherwise an
+                # upload can slip in immediately after the user closes the task and
+                # remain pending forever because the current view only sees TRA_KQ.
                 await conn.execute(
-                    "UPDATE public.service_order"
-                    "   SET ket_qua_luc = coalesce(ket_qua_luc, now()),"
-                    "       updated_at = now()"
-                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
-                    service_order_id,
-                    identity.clinic_id,
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    ket_qua_patient_lock_key(
+                        clinic_id=identity.clinic_id,
+                        clinic_patient_id=clinic_patient_id,
+                    ),
                 )
+                da_xac_nhan_tra = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                          FROM public.tuong_tac_cskh i
+                         WHERE i.clinic_id = $1::uuid
+                           AND i.clinic_patient_id = $2::uuid
+                           AND i.loai = 'TRA_KQ'
+                           AND i.huy_luc IS NULL
+                           AND i.xay_ra_luc >= COALESCE((
+                               SELECT max(COALESCE(
+                                   r.reviewed_at, r.result_received_at, r.created_at
+                               ))
+                                 FROM public.lab_result r
+                                WHERE r.clinic_id = $1::uuid
+                                  AND r.clinic_patient_id = $2::uuid
+                                  AND r.result_value IS NOT NULL
+                                  AND (NOT r.requires_doctor_review
+                                       OR r.reviewed_at IS NOT NULL)
+                           ), '-infinity'::timestamptz)
+                    )
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                )
+                if da_xac_nhan_tra:
+                    raise ValidationError(
+                        "Việc này đã xác nhận trả kết quả. Hoàn tác mốc trả kết quả "
+                        "trước khi tải thêm tệp, hoặc ghi nhận kết quả mới trước."
+                    )
+
+                # Hạn mức tổng CHỈ khi được đặt (mặc định không giới hạn). Khoá theo
+                # phòng khám chỉ cần lúc ấy — không có hạn mức thì đừng bắt mọi tệp
+                # của cả phòng khám xếp hàng sau một video đang chép vài phút.
+                if MEDIA_CLINIC_QUOTA_BYTES > 0:
+                    await conn.execute(
+                        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                        f"tep-ket-qua:{identity.clinic_id}",
+                    )
+                    da_dung = int(
+                        await conn.fetchval(
+                            "SELECT coalesce(sum(so_byte), 0)::bigint "
+                            "FROM public.tep_ket_qua WHERE clinic_id = $1::uuid",
+                            identity.clinic_id,
+                        )
+                        or 0
+                    )
+                    if da_dung + so_byte_khai > MEDIA_CLINIC_QUOTA_BYTES:
+                        raise ValidationError(
+                            "Phòng khám đã chạm hạn mức lưu trữ kết quả. "
+                            "Báo kỹ thuật kiểm tra và mở rộng dung lượng trước khi tải "
+                            "thêm."
+                        )
+
+                tmp.replace(path)
+                path.chmod(0o600)
+
+                row_id = await conn.fetchval(
+                    """
+                    INSERT INTO public.tep_ket_qua
+                        (clinic_id, clinic_patient_id, appointment_id, khoa,
+                         ten_hien_thi, loai_tep, mime, so_byte, sha256,
+                         tai_len_boi_staff_id,
+                         cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
+                         service_order_id)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
+                            $10::uuid,
+                            CASE WHEN $11 THEN now() END,
+                            CASE WHEN $11 THEN $10::uuid END,
+                            $12::uuid)
+                    RETURNING id::text
+                    """,
+                    identity.clinic_id,
+                    clinic_patient_id,
+                    appointment_id,
+                    key,
+                    (ten_hien_thi or "").strip()[:200] or None,
+                    loai,
+                    mime,
+                    so_byte,
+                    sha,
+                    identity.staff_id,
+                    identity.co_vai(TU_CHO_PHEP_GUI),
+                    service_order_id,
+                )
+                if service_order_id:
+                    # Mốc "đã có kết quả, chờ bác sĩ duyệt" của chỉ định.
+                    await conn.execute(
+                        "UPDATE public.service_order"
+                        "   SET ket_qua_luc = coalesce(ket_qua_luc, now()),"
+                        "       updated_at = now()"
+                        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                        service_order_id,
+                        identity.clinic_id,
+                    )
+        except BaseException:
+            # Lỗi sau khi đã chép (khách sai, đã trả kết quả, DB rớt…) → dọn
+            # tệp tạm; nếu đã đổi tên mà transaction lùi thì dọn cả tệp thật.
+            tmp.unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
+            raise
 
         logger.info(
             "tep_ket_qua_tai_len",
             loai=loai,
             mime=mime,
-            bytes=len(data),
+            bytes=so_byte,
             by_staff_id=identity.staff_id,
         )
         # Tệp kết quả (thường của đối tác) vừa lên → báo CSKH + bác sĩ của khách.
@@ -280,7 +363,7 @@ class TepKetQuaService:
             appointment_id=appointment_id,
             visit_id=None,
         )
-        return {"ok": True, "id": row_id, "loai_tep": loai, "so_byte": len(data)}
+        return {"ok": True, "id": row_id, "loai_tep": loai, "so_byte": so_byte}
 
     async def danh_sach(
         self, *, identity: StaffIdentity, clinic_patient_id: str

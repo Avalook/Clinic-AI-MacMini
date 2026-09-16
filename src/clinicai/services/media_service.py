@@ -60,20 +60,39 @@ def kiem_kho_da_gan() -> None:
 #: được một video bị kéo nhầm vào ô ảnh.
 MAX_BYTES = 12 * 1024 * 1024
 
+
 #: Trần theo TỪNG LOẠI, không dùng chung một con số.
 #:
 #: Một con số duy nhất buộc phải lấy theo cái lớn nhất — và khi đó ô "chọn ảnh"
 #: cũng nhận một video 80MB, rồi màn siêu âm cố hiển thị nó như ảnh. Video có
 #: trần riêng và đọc từ môi trường, vì nó là thứ duy nhất ở đây đủ lớn để một
 #: phòng khám cần chỉnh mà không sửa code.
-MAX_BYTES_VIDEO = int(os.environ.get("MEDIA_MAX_BYTES_VIDEO", 80 * 1024 * 1024))
-MAX_BYTES_PDF = 20 * 1024 * 1024
+#: KHÔNG GIỚI HẠN DUNG LƯỢNG TỆP KẾT QUẢ (Tuyền 16/09/2026: *"không giới hạn
+#: dung lượng file đẩy lên nhé"*). Video siêu âm, phim chụp có thể vài GB.
+#:
+#: 0 = không giới hạn. Vẫn đặt lại được từng loại bằng biến môi trường
+#: (MEDIA_MAX_BYTES_ANH / _VIDEO / _PDF / _TAI_LIEU) nếu sau này phòng khám cần.
+#: An toàn còn lại là chốt Ổ ĐĨA SẮP ĐẦY (`MEDIA_MIN_FREE_BYTES`) — đó không phải
+#: trần dung lượng mà là chống làm hỏng máy.
+def _tran(loai: str) -> int:
+    return int(os.environ.get(f"MEDIA_MAX_BYTES_{loai}", "0") or 0)
+
+
+MAX_BYTES_VIDEO = _tran("VIDEO")
+MAX_BYTES_PDF = _tran("PDF")
 MAX_BYTES_THEO_LOAI: dict[str, int] = {
-    "ANH": MAX_BYTES,
+    "ANH": _tran("ANH"),
     "VIDEO": MAX_BYTES_VIDEO,
     "PDF": MAX_BYTES_PDF,
-    "TAI_LIEU": MAX_BYTES_PDF,
+    "TAI_LIEU": _tran("TAI_LIEU"),
 }
+
+
+def vuot_tran(loai: str, so_byte: int) -> int | None:
+    """Trần của loại tệp nếu `so_byte` vượt nó; None = không vượt/không trần."""
+    tran = MAX_BYTES_THEO_LOAI.get(loai, 0)
+    return tran if tran > 0 and so_byte > tran else None
+
 
 # Video kết quả chưa có kho/vòng đời vận hành an toàn (UI cũng đang nói rõ là
 # chưa nhận). Giữ nhận diện để đọc dữ liệu cũ, nhưng đường upload chỉ mở khi
@@ -86,8 +105,11 @@ KET_QUA_UPLOAD_ALLOWED_TYPES = (
     if KET_QUA_VIDEO_UPLOAD_ENABLED
     else frozenset({"ANH", "PDF", "TAI_LIEU"})
 )
-MAX_BYTES_KET_QUA_UPLOAD = max(
-    MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES
+#: 0 = không giới hạn (khi BẤT KỲ loại nào không có trần).
+MAX_BYTES_KET_QUA_UPLOAD = (
+    0
+    if any(MAX_BYTES_THEO_LOAI[loai] <= 0 for loai in KET_QUA_UPLOAD_ALLOWED_TYPES)
+    else max(MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES)
 )
 
 

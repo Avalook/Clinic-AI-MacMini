@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from datetime import date, time
-from typing import Any, Literal
+from typing import Any, BinaryIO, Literal
 from uuid import UUID
 
 import asyncpg
@@ -33,8 +33,8 @@ from clinicai.services.cskh_service import (
 from clinicai.services.man_khach_hang_service import ManKhachHangService
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
-    MAX_BYTES_THEO_LOAI,
     sniff_ket_qua,
+    vuot_tran,
 )
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
@@ -121,44 +121,31 @@ async def man_khach_hang(
     )
 
 
-async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
-    """Read one result file in bounded chunks and stop at its content-type cap.
+async def _nguon_upload(file: UploadFile) -> BinaryIO:
+    """Kiểm ĐẦU tệp rồi trả luồng đọc — KHÔNG nạp cả tệp vào RAM.
 
-    ``UploadFile.read()`` with no size consumes an attacker-controlled body in
-    one call. Read only enough to identify the real type first, then at most the
-    corresponding limit plus one byte. That last byte proves the upload is too
-    large without consuming the rest of it.
+    Tệp kết quả không còn trần dung lượng (Tuyền 16/09/2026). Bản trước gom mọi
+    khúc vào một `bytes` rồi mới ghi: một video 2GB là 2GB RAM trong container
+    API giới hạn 2GB. Starlette đã cất thân multipart ra tệp tạm (TMPDIR), nên ở
+    đây chỉ đọc vài KB đầu để biết kiểu thật, rồi trao luồng cho service ghi dần.
     """
-    prefix = await file.read(_UPLOAD_SNIFF_BYTES)
-    if not prefix:
+    head = await file.read(_UPLOAD_SNIFF_BYTES)
+    if not head:
         raise ValidationError("Tệp rỗng.")
-
-    _mime, _ext, loai = sniff_ket_qua(prefix)
+    _mime, _ext, loai = sniff_ket_qua(head)
     if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
         raise ValidationError(
             "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
         )
-    limit = MAX_BYTES_THEO_LOAI[loai]
-    chunks = [prefix]
-    total = len(prefix)
-    if total > limit:
+    nguon = file.file
+    nguon.seek(0, 2)
+    tran = vuot_tran(loai, nguon.tell())
+    if tran is not None:
         raise ValidationError(
-            f"Tệp quá lớn. Tối đa {limit // 1024 // 1024}MB cho loại này."
+            f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
         )
-
-    while True:
-        # At the exact limit, read one byte: EOF means valid, one byte means too
-        # large. Never ask the upload object for an unbounded read.
-        remaining_with_probe = limit - total + 1
-        chunk = await file.read(min(_UPLOAD_CHUNK_BYTES, remaining_with_probe))
-        if not chunk:
-            return b"".join(chunks)
-        total += len(chunk)
-        if total > limit:
-            raise ValidationError(
-                f"Tệp quá lớn. Tối đa {limit // 1024 // 1024}MB cho loại này."
-            )
-        chunks.append(chunk)
+    nguon.seek(0)
+    return nguon
 
 
 class CskhActionRequest(BaseModel):
@@ -597,11 +584,11 @@ async def tai_len_ket_qua(
     """
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    data = await _doc_upload_co_gioi_han(file)
+    nguon = await _nguon_upload(file)
     return await TepKetQuaService(pool).tai_len(
         identity=identity,
         clinic_patient_id=str(clinic_patient_id),
-        data=data,
+        nguon=nguon,
         ten_hien_thi=file.filename,
         appointment_id=str(appointment_id) if appointment_id else None,
         service_order_id=str(service_order_id) if service_order_id else None,

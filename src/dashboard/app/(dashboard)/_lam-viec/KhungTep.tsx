@@ -12,7 +12,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, UploadCloud, X } from "lucide-react";
-import { nhanLoi } from "@/lib/loi-api";
+import { doCoTep, guiTepCoTienDo } from "@/lib/gui-tep-co-tien-do";
+import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 
 interface Tep {
   id: string;
@@ -25,10 +26,7 @@ interface Tep {
   service_order_id: string | null;
 }
 
-function coChu(byte: number): string {
-  if (byte < 1024 * 1024) return `${Math.max(1, Math.round(byte / 1024))} KB`;
-  return `${(byte / 1024 / 1024).toFixed(1)} MB`;
-}
+const coChu = doCoTep;
 
 function gio(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {
@@ -161,17 +159,23 @@ export default function KhungTep({
       if (ds.length === 0) return;
       setLoi(null);
       for (const [i, f] of ds.entries()) {
-        setDangTai(`Đang gửi ${i + 1}/${ds.length}: ${f.name}`);
+        const nhan = `Đang gửi ${i + 1}/${ds.length}: ${f.name} (${doCoTep(f.size)})`;
+        setDangTai(nhan);
         const fd = new FormData();
         fd.append("clinic_patient_id", clinicPatientId);
         fd.append("service_order_id", serviceOrderId);
         fd.append("file", f);
         try {
-          const r = await fetch("/api/cskh/ket-qua", { method: "POST", body: fd });
+          const r = await guiTepCoTienDo("/api/cskh/ket-qua", fd, (pt) =>
+            setDangTai(
+              pt >= 100
+                ? `Đang cất vào kho ${i + 1}/${ds.length}: ${f.name} — đừng đóng trang`
+                : `${nhan} — ${pt}%`,
+            ),
+          );
           if (!r.ok) {
-            const d = await r.json().catch(() => null);
             // Nói rõ TỆP NÀO hỏng — tệp trước nó đã lưu xong rồi.
-            setLoi(`${f.name}: ${nhanLoi(d, "không gửi được.")}`);
+            setLoi(`${f.name}: ${nhanLoi(r.data as ThanLoi | null, "không gửi được.")}`);
             break;
           }
         } catch {

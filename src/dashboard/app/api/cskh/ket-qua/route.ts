@@ -9,6 +9,7 @@
 // chảy theo luồng và hiểu HTTP Range để video xem được.
 
 import { NextResponse } from "next/server";
+import { chuyenTiepTaiLen } from "@/lib/chuyen-tiep-tai-len";
 import {
   fetchFromBackend,
   getCallerAuthHeaders,
@@ -68,43 +69,28 @@ export async function POST(request: Request) {
   const ctIn = request.headers.get("content-type");
   if (ctIn) headers["Content-Type"] = ctIn;
   const clIn = request.headers.get("content-length");
-  // Quá trần của MỌI loại tệp (video 80MB + phần bọc multipart) thì báo ngay,
-  // không đẩy sang máy chủ: máy chủ đóng kết nối giữa chừng và người dùng chỉ
-  // nhận "không kết nối được" thay vì "tệp quá lớn" (tự kiểm 16/09/2026).
-  if (clIn && Number(clIn) > 82 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "Tệp quá lớn — tối đa 80MB cho video, 20MB cho PDF/Word, 12MB cho ảnh." },
-      { status: 413 },
-    );
-  }
+  // KHÔNG chặn theo dung lượng (Tuyền chốt 16/09/2026: không giới hạn).
   if (clIn) headers["Content-Length"] = clIn;
 
-  let res: Response;
+  let res: { status: number; text: string };
   try {
-    res = await fetch(`${API_BASE}/api/v1/cskh/ket-qua/tep`, {
-      method: "POST",
-      headers,
-      body: request.body,
-      // @ts-expect-error — `duplex` là bắt buộc của undici khi body là luồng;
-      // kiểu của Next chưa khai nó.
-      duplex: "half",
-      cache: "no-store",
-    });
+    res = await chuyenTiepTaiLen(`${API_BASE}/api/v1/cskh/ket-qua/tep`, request, headers);
   } catch {
     return NextResponse.json(
-      { error: "Không kết nối được máy chủ xử lý" },
+      { error: "Mất kết nối giữa chừng — tệp CHƯA được lưu, hãy tải lại." },
       { status: 502 },
     );
   }
 
-  const text = await res.text();
+  const text = res.text;
+  const ok = res.status >= 200 && res.status < 300;
   let payload: unknown = {};
   try {
     payload = text ? JSON.parse(text) : {};
   } catch {
     payload = { error: text || "Lỗi máy chủ" };
   }
-  if (!res.ok && payload && typeof payload === "object" && "message" in payload) {
+  if (!ok && payload && typeof payload === "object" && "message" in payload) {
     const msg = (payload as { message?: string }).message;
     return NextResponse.json({ error: msg ?? "Lỗi xử lý" }, { status: res.status });
   }

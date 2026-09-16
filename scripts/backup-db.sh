@@ -344,7 +344,16 @@ trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH" "$TEMP_MEDIA"; release_lo
 MEDIA_COUNT=0
 MEDIA_SHA256=""
 MEDIA_BYTES=0
-if [ -d "$MEDIA_DIR_FOR_ENV" ]; then
+# KHO MEDIA NGOÀI MÁY THÌ KHÔNG ĐÓNG TAR (16/09/2026). Từ khi media nằm thẳng
+# trên Viettel File Storage và KHÔNG giới hạn dung lượng tải lên, đóng tar cả
+# kho mỗi đêm vào ~/backups là chép vài chục GB từ ổ mạng về Ổ HỆ ĐIỀU HÀNH —
+# chính ổ database đang chạy — rồi lại đẩy ngược lên Viettel. Một đêm như thế
+# đủ làm đầy đĩa và đánh sập Postgres. Kho có tệp đánh dấu MEDIA_MARKER (chỉ có
+# trên kho Viettel thật) = bản gốc đã ở ngoài máy → bỏ qua, ghi rõ vào log.
+MEDIA_MARKER_NAME=$(grep -E '^MEDIA_MARKER=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+if [ -n "$MEDIA_MARKER_NAME" ] && [ -f "${MEDIA_DIR_FOR_ENV}/${MEDIA_MARKER_NAME}" ]; then
+    log "NOTICE: media nằm trên kho ngoài máy (${MEDIA_DIR_FOR_ENV}, có ${MEDIA_MARKER_NAME}) — không đóng tar media"
+elif [ -d "$MEDIA_DIR_FOR_ENV" ]; then
     MEDIA_COUNT=$(find "$MEDIA_DIR_FOR_ENV" -type f ! -name '*.tmp' | wc -l | tr -d ' ')
 fi
 if [ "$MEDIA_COUNT" -gt 0 ]; then
@@ -355,7 +364,7 @@ if [ "$MEDIA_COUNT" -gt 0 ]; then
     log "Archiving ${MEDIA_COUNT} media file(s) from ${MEDIA_DIR_FOR_ENV}..."
     # Bỏ `.tmp`: đó là những lần ghi đang dở (media_service ghi tệp tạm rồi đổi
     # tên). Đưa chúng vào bản sao lưu là cất lại một tệp hỏng.
-    if tar -C "$MEDIA_DIR_FOR_ENV" --exclude='*.tmp' -czf "$TEMP_MEDIA" . 2>> "$LOG"; then
+    if tar -C "$MEDIA_DIR_FOR_ENV" --exclude='*.tmp' --exclude='./.tam' -czf "$TEMP_MEDIA" . 2>> "$LOG"; then
         :
     else
         rc=$?

@@ -8,6 +8,7 @@
 // một việc: chứng minh người gọi đã đăng nhập, rồi chuyển tiếp.
 
 import { NextResponse } from "next/server";
+import { chuyenTiepTaiLen } from "@/lib/chuyen-tiep-tai-len";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { fetchFromBackend, getCallerAuthHeaders } from "../../../lib/backend-proxy";
 
@@ -57,35 +58,20 @@ export async function POST(request: Request) {
   const ctIn = request.headers.get("content-type");
   if (ctIn) headers["Content-Type"] = ctIn;
   const clIn = request.headers.get("content-length");
-  // Quá trần của MỌI loại tệp (video 80MB + phần bọc multipart) thì báo ngay,
-  // không đẩy sang máy chủ: máy chủ đóng kết nối giữa chừng và người dùng chỉ
-  // nhận "không kết nối được" thay vì "tệp quá lớn" (tự kiểm 16/09/2026).
-  if (clIn && Number(clIn) > 82 * 1024 * 1024) {
-    return NextResponse.json(
-      { error: "Tệp quá lớn — tối đa 80MB cho video, 20MB cho PDF/Word, 12MB cho ảnh." },
-      { status: 413 },
-    );
-  }
+  // KHÔNG chặn theo dung lượng (Tuyền chốt 16/09/2026: không giới hạn).
   if (clIn) headers["Content-Length"] = clIn;
 
-  let res: Response;
+  let res: { status: number; text: string };
   try {
-    res = await fetch(`${API_BASE}/api/v1/doi-tac/ket-qua`, {
-      method: "POST",
-      headers,
-      body: request.body,
-      // @ts-expect-error — `duplex` là bắt buộc của undici khi body là luồng.
-      duplex: "half",
-      cache: "no-store",
-    });
+    res = await chuyenTiepTaiLen(`${API_BASE}/api/v1/doi-tac/ket-qua`, request, headers);
   } catch {
     return NextResponse.json(
-      { error: "Không kết nối được máy chủ xử lý" },
+      { error: "Mất kết nối giữa chừng — tệp CHƯA được lưu, hãy tải lại." },
       { status: 502 },
     );
   }
 
-  const text = await res.text();
+  const text = res.text;
   let payload: unknown = {};
   try {
     payload = text ? JSON.parse(text) : {};

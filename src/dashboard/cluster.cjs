@@ -28,6 +28,21 @@ const path = require("node:path");
 
 const MAY_CHU = path.join(__dirname, "server.js");
 
+// KHÔNG GIỚI HẠN THỜI GIAN MỘT REQUEST (Tuyền chốt 16/09/2026: không giới hạn
+// dung lượng tệp tải lên). Node mặc định `server.requestTimeout = 300000` — cả
+// thân request phải tới trong 5 phút, quá là cắt. Video vài GB qua mạng phòng
+// khám lâu hơn thế. Next dựng máy chủ bằng `http.createServer` bên trong
+// server.js và không cho cấu hình, nên vá ngay tại chỗ tạo — TRƯỚC khi nạp
+// server.js. Chống request treo vẫn còn: `headersTimeout` (60s cho phần header)
+// và `keepAliveTimeout` giữ nguyên.
+const http = require("node:http");
+const taoGoc = http.createServer;
+http.createServer = function taoKhongHan(...thamSo) {
+  const mayChu = taoGoc.apply(this, thamSo);
+  mayChu.requestTimeout = 0;
+  return mayChu;
+};
+
 // Mặc định: dùng hết số nhân, trần 4. Đặt NEXT_WORKERS=1 để về hành vi cũ —
 // staging và máy dev không cần chia, và giữ đường lui một biến môi trường.
 function soTienTrinh() {

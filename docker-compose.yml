@@ -138,7 +138,9 @@ services:
     user: "0:0"
     # Kho là ổ mạng Viettel (CIFS, gắn sẵn uid=1000) thì chown bị từ chối — nên
     # chỉ trao quyền khi chủ CHƯA phải 1000, không thì bước này làm api không lên.
-    entrypoint: ["sh", "-c", "d=/var/lib/clinicai/media; [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }"]
+    # `.tam`: chỗ api ghi tạm tệp đang nhận (xem TMPDIR của api). Tạo sẵn ở đây vì
+    # thư mục TMPDIR không tồn tại thì Python lặng lẽ quay về /tmp.
+    entrypoint: ["sh", "-c", "d=/var/lib/clinicai/media; [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }; mkdir -p $$d/.tam; [ \"$$(stat -c %u $$d/.tam)\" = 1000 ] || chown 1000:1000 $$d/.tam"]
     restart: "no"
     network_mode: none
     volumes:
@@ -161,6 +163,12 @@ services:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
       MEDIA_ROOT: /var/lib/clinicai/media
+      # TỆP ĐANG NHẬN GHI TẠM VÀO KHO MEDIA, KHÔNG VÀO /tmp (16/09/2026). Starlette
+      # ghi thân multipart quá 1MB ra thư mục tạm. /tmp của container nằm trên Ổ
+      # HỆ ĐIỀU HÀNH — cùng ổ với database — và không giới hạn dung lượng nghĩa
+      # là một video 20GB đang tải có thể làm đầy nó. Kho media (Viettel, 1TB)
+      # thì chịu được; tệp tạm tự xoá khi request kết thúc.
+      TMPDIR: /var/lib/clinicai/media/.tam
     depends_on:
       media-quyen:
         condition: service_completed_successfully

@@ -200,7 +200,17 @@ test("uploading a result file forwards the multipart boundary", () => {
   assert.match(route, /headers\["Content-Type"\] = ctIn/);
   // Và thân phải là LUỒNG: đọc cả tệp vào RAM của tiến trình Next là 80MB mỗi
   // lượt tải video, trên cùng cái máy đang chạy database.
-  assert.match(route, /body: request\.body/);
+  // Chuyển qua `chuyenTiepTaiLen` (node:http, không thời hạn — fetch/undici cắt
+  // sau 5 phút chờ, mà tệp không giới hạn dung lượng thì chép lâu hơn thế).
+  assert.match(route, /chuyenTiepTaiLen\(`\$\{API_BASE\}[^`]*`, request, headers\)/);
+  const chuyen = readFileSync(
+    new URL("../lib/chuyen-tiep-tai-len.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(chuyen, /Readable\.fromWeb\(/);
+  assert.match(chuyen, /\.pipe\(req\)/);
+  assert.match(chuyen, /timeout: 0/);
+  assert.doesNotMatch(route, /82 \* 1024 \* 1024/);
   assert.doesNotMatch(route, /await request\.formData\(\)/);
 
   // Đường ĐỌC phải chuyển tiếp Range, nếu không video không tua được.

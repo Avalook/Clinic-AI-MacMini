@@ -79,11 +79,19 @@ def test_tu_choi_thu_khong_phai_ket_qua(rac: bytes) -> None:
         sniff_ket_qua(rac)
 
 
-def test_tran_video_rong_hon_tran_anh() -> None:
-    """Gộp một trần chung là mở cửa cho video 80MB vào ô chọn ảnh."""
-    assert MAX_BYTES_THEO_LOAI["VIDEO"] > MAX_BYTES_THEO_LOAI["ANH"]
-    assert MAX_BYTES_THEO_LOAI["ANH"] == 12 * 1024 * 1024
+def test_mac_dinh_khong_gioi_han_dung_luong(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tuyền chốt 16/09/2026: không giới hạn dung lượng tệp tải lên.
+
+    Trần vẫn đặt được qua env (MEDIA_MAX_BYTES_<LOẠI>) nếu sau này cần; 0 = không.
+    """
+    from clinicai.services.media_service import vuot_tran
+
     assert set(MAX_BYTES_THEO_LOAI) == {"ANH", "VIDEO", "PDF", "TAI_LIEU"}
+    assert all(v == 0 for v in MAX_BYTES_THEO_LOAI.values())
+    assert vuot_tran("VIDEO", 50 * 1024**3) is None
+    monkeypatch.setitem(MAX_BYTES_THEO_LOAI, "ANH", 100)
+    assert vuot_tran("ANH", 101) == 100
+    assert vuot_tran("ANH", 100) is None
 
 
 def test_khoa_tep_luon_bat_dau_bang_clinic_id() -> None:
@@ -198,7 +206,7 @@ async def test_quota_clinic_chan_upload_lap_lai_truoc_khi_ghi_tep(
             identity=_ai(), clinic_patient_id=BN, data=PNG
         )
 
-    assert list(tmp_path.rglob("*")) == []
+    assert not any(path.is_file() for path in tmp_path.rglob("*"))
 
 
 @pytest.mark.asyncio
@@ -243,52 +251,44 @@ async def test_khong_upload_them_sau_khi_da_xac_nhan_tra_ket_qua(
     assert not any(path.is_file() for path in tmp_path.rglob("*"))
 
 
-class UploadTheoDoi:
-    """Upload giả ghi lại số byte route yêu cầu và thực sự đã đọc."""
+class UploadGia:
+    """UploadFile giả: `read` async cho phần đầu, `file` là luồng Starlette."""
 
     def __init__(self, data: bytes) -> None:
-        self.data = data
-        self.offset = 0
+        import io
+
+        self.file = io.BytesIO(data)
         self.read_sizes: list[int] = []
 
     async def read(self, size: int = -1) -> bytes:
         self.read_sizes.append(size)
-        if size < 0:
-            chunk = self.data[self.offset :]
-            self.offset = len(self.data)
-            return chunk
-        chunk = self.data[self.offset : self.offset + size]
-        self.offset += len(chunk)
-        return chunk
+        return self.file.read(size)
 
 
 @pytest.mark.asyncio
-async def test_route_doc_upload_theo_chunk_khong_read_vo_han() -> None:
-    from clinicai.api.v1.routers.cskh import _doc_upload_co_gioi_han
+async def test_route_khong_nap_ca_tep_vao_ram() -> None:
+    """Route chỉ đọc phần đầu để nhận kiểu; phần còn lại đi thẳng theo luồng."""
+    from clinicai.api.v1.routers.cskh import _nguon_upload
 
-    upload = UploadTheoDoi(PNG + b"x" * (256 * 1024))
-    data = await _doc_upload_co_gioi_han(upload)  # type: ignore[arg-type]
+    upload = UploadGia(PNG + b"x" * (256 * 1024))
+    nguon = await _nguon_upload(upload)  # type: ignore[arg-type]
 
-    assert data == upload.data
     assert -1 not in upload.read_sizes
     assert max(upload.read_sizes) <= 64 * 1024
+    assert nguon.tell() == 0  # service đọc lại từ đầu
+    assert nguon.read() == PNG + b"x" * (256 * 1024)
 
 
 @pytest.mark.asyncio
-async def test_route_dung_doc_ngay_khi_upload_vuot_tran(
+async def test_route_bao_qua_lon_khi_env_dat_tran(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from clinicai.api.v1.routers import cskh as router
     from clinicai.services.media_service import MAX_BYTES_THEO_LOAI
 
     monkeypatch.setitem(MAX_BYTES_THEO_LOAI, "ANH", 600)
-    upload = UploadTheoDoi(PNG + b"x" * 50_000)
-
     with pytest.raises(ValidationError, match="quá lớn"):
-        await router._doc_upload_co_gioi_han(upload)  # type: ignore[arg-type]
-
-    # Chỉ đọc tới trần + 1 để chứng minh quá cỡ, không nuốt hết request 50KB.
-    assert upload.offset == 601
+        await router._nguon_upload(UploadGia(PNG + b"x" * 50_000))  # type: ignore[arg-type]
 
 
 @pytest.mark.asyncio
@@ -323,12 +323,15 @@ async def test_response_tep_phi_luon_no_store(
 
 
 @pytest.mark.asyncio
-async def test_tep_rong_va_tep_qua_lon_bi_tu_choi() -> None:
+async def test_tep_rong_va_tep_qua_lon_bi_tu_choi(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     with pytest.raises(ValidationError):
         await TepKetQuaService(FakePool()).tai_len(
             identity=_ai(), clinic_patient_id=BN, data=b""
         )
-    qua_lon = JPG + b"\x00" * (MAX_BYTES_THEO_LOAI["ANH"] + 1)
+    monkeypatch.setitem(MAX_BYTES_THEO_LOAI, "ANH", 1024)
+    qua_lon = JPG + b"\x00" * 1025
     with pytest.raises(ValidationError) as e:
         await TepKetQuaService(FakePool()).tai_len(
             identity=_ai(), clinic_patient_id=BN, data=qua_lon
@@ -437,8 +440,9 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
             patch("clinicai.services.media_service.MEDIA_ROOT", Path(thu_muc)),
             patch("clinicai.services.tep_ket_qua_service.MEDIA_ROOT", Path(thu_muc)),
         ):
-            # patient → chưa TRA_KQ → quota đã dùng → id mới
-            pool = FakePool(1, False, 0, "tep-1")
+            # patient → chưa TRA_KQ → id mới (không hạn mức = không
+            # đếm tổng dung lượng)
+            pool = FakePool(1, False, "tep-1")
             d = await TepKetQuaService(pool).tai_len(
                 identity=_ai(),
                 clinic_patient_id=BN,
@@ -448,7 +452,7 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
             assert d["loai_tep"] == "ANH"
             assert d["so_byte"] == len(PNG)
 
-            sql, args = pool.calls[5]
+            sql, args = pool.calls[3]
             assert "INSERT INTO public.tep_ket_qua" in sql
             assert "s1" in args  # người tải = phiên đăng nhập
             assert "image/png" in args
