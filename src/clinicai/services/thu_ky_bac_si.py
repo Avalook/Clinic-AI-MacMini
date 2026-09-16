@@ -18,7 +18,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity, mo_quyen_tam_thoi
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit import record_event
 
@@ -29,7 +29,18 @@ KHAC_BAC_SI = "Khách này của bác sĩ khác — thư ký chỉ làm cho bác
 async def bac_si_cua_thu_ky(
     conn: asyncpg.Connection | asyncpg.Pool, identity: StaffIdentity
 ) -> list[str] | None:
-    """Bác sĩ mà thư ký được phân (có thể RỖNG); None = người gọi không phải TKYK."""
+    """Bác sĩ mà thư ký được phân (có thể RỖNG); None = KHÔNG lọc theo luật này."""
+    # CÔNG TẮC MỞ QUYỀN TẠM THỜI (Tuyền 16/09/2026). Trả `None` là "không lọc",
+    # nên thư ký thấy cả phòng khám như mọi vai khác.
+    #
+    # Đo được trên bản chạy thật trước khi nới: thư ký thấy ĐÚNG 0 lượt trong
+    # khi điều dưỡng và lễ tân thấy 19 — vì chưa ai phân bác sĩ cho họ. Đó
+    # chính là cái "đang rối" mà Tuyền nói.
+    #
+    # Luật gốc KHÔNG bị xoá, chỉ bị tắt: tắt công tắc là "thư ký nào theo bác
+    # sĩ ấy" trở lại nguyên vẹn, kèm cả câu báo và bài kiểm của nó.
+    if mo_quyen_tam_thoi():
+        return None
     if identity.role != ClinicRole.TKYK:
         return None
     ids = await conn.fetchval(

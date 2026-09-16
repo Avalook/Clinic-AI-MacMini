@@ -503,8 +503,54 @@ export function hienTrenThanhBen(
   return !(AN_KHOI_THANH_BEN[role] ?? []).includes(href);
 }
 
+// ── MỞ QUYỀN TẠM THỜI (Tuyền chốt 16/09/2026) ──────────────────────────────
+//
+// *"tất cả các tài khoản đều có thể thao tác đã, đừng bị phụ thuộc lịch khám
+// nữa, trừ bác sĩ ra thui, tại giờ đang rối, trước mắt giải quyết vậy đã"*.
+//
+// Backend đã nới ở `identity.mo_quyen_tam_thoi`. Nới một mình backend thì chưa
+// đủ: thanh bên vẫn ẩn màn, và người dùng không có đường nào bấm tới cái cửa
+// vừa mở.
+//
+// ⚠️ ĐÂY LÀ BIẾN LÚC DỰNG ẢNH, không phải lúc chạy. Next nhét thẳng giá trị
+// `NEXT_PUBLIC_*` vào mã trình duyệt khi build, nên đổi nó phải DỰNG LẠI ảnh
+// dashboard — khác với backend, chỉ cần khởi động lại container. Khác biệt ấy
+// đáng nhớ: tắt một nửa là quyền lệch nhau giữa hai tầng.
+const MO_QUYEN_TAM_THOI =
+  (process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI ?? "1").toLowerCase() !== "0";
+
+//: Màn KHÔNG mở theo công tắc. Không phải vì bí mật — backend vẫn gác chúng —
+//: mà vì chúng không phải "thao tác" của ai cả: cổng quản trị, cấu hình hệ
+//: thống, báo cáo, vận hành. Mở ra thì thanh bên của điều dưỡng dài 35 mục và
+//: bốn mục họ thật sự cần bị đẩy xuống dưới, tức là dựng một bức tường khác.
+const KHONG_MO_THEO_CONG_TAC = [
+  "/portal",
+  "/console",
+  "/ops",
+  "/settings",
+  "/reports",
+  "/admin",
+  // Hai màn của người NGOÀI phòng khám. Chúng đóng theo thiết kế, và công tắc
+  // "mở tạm" không được phép chạm vào — xem `test_mo_quyen_tam_thoi.py`.
+  "/doi-tac",
+  "/display",
+];
+
+function moTheoCongTac(href: string): boolean {
+  if (!MO_QUYEN_TAM_THOI) return false;
+  return !KHONG_MO_THEO_CONG_TAC.some(
+    (p) => href === p || href.startsWith(`${p}/`),
+  );
+}
+
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
   const rule = NAV_ROLES[href];
   if (!rule || rule === "all") return true;
-  return role !== null && rule.includes(role);
+  if (role === null) return false;
+  // Vai ngoài phòng khám KHÔNG bao giờ được nới: cái tivi và đối tác chỉ có
+  // đúng màn của mình, và đó là chốt chặn chứ không phải cách sắp xếp menu.
+  if (role !== "DISPLAY" && role !== "PARTNER" && moTheoCongTac(href)) {
+    return true;
+  }
+  return rule.includes(role);
 }

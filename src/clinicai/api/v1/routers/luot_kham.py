@@ -14,13 +14,22 @@ import asyncpg
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    require_role,
+    require_role_co_the_mo,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.luot_kham_service import LuotKhamService
 
 router = APIRouter()
 
-_BANG_GUARD = require_role(
+# NĂM CỬA DƯỚI ĐÂY MỞ THEO CÔNG TẮC (Tuyền 16/09/2026: "tất cả các tài khoản
+# đều có thể thao tác đã… trừ bác sĩ ra thui"). Khi `MO_QUYEN_TAM_THOI` bật,
+# chúng nhận MỌI vai làm việc trong phòng khám; tắt đi là về đúng danh sách
+# đang viết ở đây. Xem `identity.mo_quyen_tam_thoi`.
+_BANG_GUARD = require_role_co_the_mo(
     ClinicRole.RECEPTION,
     ClinicRole.NURSE_ULTRASOUND,
     ClinicRole.DOCTOR,
@@ -29,17 +38,21 @@ _BANG_GUARD = require_role(
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
-_CHECKIN_GUARD = require_role(ClinicRole.RECEPTION, ClinicRole.MANAGEMENT)
-_VITALS_GUARD = require_role(
+_CHECKIN_GUARD = require_role_co_the_mo(ClinicRole.RECEPTION, ClinicRole.MANAGEMENT)
+_VITALS_GUARD = require_role_co_the_mo(
     ClinicRole.NURSE_ULTRASOUND, ClinicRole.RECEPTION, ClinicRole.DOCTOR
 )
+_DISPATCH_GUARD = require_role_co_the_mo(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+_PERFORMER_GUARD = require_role_co_the_mo(
+    ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
+)
+
+# BA CỬA NÀY KHÔNG MỞ, kể cả khi công tắc bật. Khám, ghi bệnh án, duyệt chỉ
+# định là việc của bác sĩ — ranh giới ấy có luật hành nghề đứng sau, không
+# phải một quy ước nội bộ để nới cho tiện.
 _DOCTOR_GUARD = require_role(ClinicRole.DOCTOR)
 _NOTE_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
 _TKYK_GUARD = require_role(ClinicRole.TKYK)
-_DISPATCH_GUARD = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
-_PERFORMER_GUARD = require_role(
-    ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
-)
 
 
 class CheckInBody(BaseModel):

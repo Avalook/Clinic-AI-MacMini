@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
+from clinicai.api.identity import mo_quyen_tam_thoi
 from clinicai.api.middleware import (
     CskhUploadSizeLimitMiddleware,
     DbErrorMiddleware,
@@ -89,6 +90,18 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
+    # KÊU TO KHI QUYỀN ĐANG MỞ. Chế độ này nới quyền của mọi vai không phải bác
+    # sĩ, và nó mặc định BẬT — nên thứ duy nhất giữ cho nó không thành vĩnh viễn
+    # là một dòng log mỗi lần khởi động. Đừng hạ mức xuống info.
+    if mo_quyen_tam_thoi():
+        logger.warning(
+            "mo_quyen_tam_thoi_dang_bat",
+            ghi_chu=(
+                "Mọi vai làm việc đang mở với các cửa không phải của bác sĩ, và "
+                "luật 'thư ký theo bác sĩ' đang tắt. Tuyền chốt 16/09/2026 là "
+                "TẠM THỜI. Tắt bằng MO_QUYEN_TAM_THOI=0 rồi dựng lại container."
+            ),
+        )
     app.state.db_pool = await create_pool()
     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi
     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó

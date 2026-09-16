@@ -535,3 +535,74 @@ class RoleGuard:
 def require_role(*allowed: ClinicRole) -> RoleGuard:
     """Dependency factory: 403 unless the caller's role is in ``allowed``."""
     return RoleGuard(frozenset(allowed))
+
+
+#: Mọi vai LÀM VIỆC TRONG phòng khám. Không có DISPLAY (cái tivi) và không có
+#: PARTNER (người ngoài phòng khám) — hai vai ấy đóng theo thiết kế, và nới
+#: chúng ra là một quyết định về bảo mật chứ không phải một bước dọn dẹp.
+VAI_LAM_VIEC: frozenset[ClinicRole] = frozenset(ClinicRole) - {
+    ClinicRole.DISPLAY,
+    ClinicRole.PARTNER,
+}
+
+
+def mo_quyen_tam_thoi() -> bool:
+    """Đang bật chế độ MỞ QUYỀN TẠM THỜI?
+
+    Tuyền chốt 16/09/2026: *"giờ này mở quyền giúp tôi, tất cả các tài khoản
+    đều có thể thao tác đã, đừng bị phụ thuộc lịch khám nữa, trừ bác sĩ ra
+    thui, tại giờ đang rối, trước mắt giải quyết vậy đã"*.
+
+    LÀ CÔNG TẮC, KHÔNG PHẢI XOÁ LUẬT. Những luật bị nới ở đây đều từng được
+    chốt có lý do — đặc biệt luật "thư ký nào theo bác sĩ ấy" (Tuyền, 15/09).
+    Xoá chúng đi thì lúc phòng khám hết rối, dựng lại là dựng lại từ đầu, và
+    lý do đằng sau từng luật đã mất. Để sau một công tắc thì tắt là về như cũ.
+
+    Mặc định BẬT, và đó là một lựa chọn khó chịu có chủ ý: mặc định tắt nghĩa
+    là chỉ cần một biến môi trường rơi rụng lúc chuyển máy là quyền tự siết
+    lại trong im lặng, và triệu chứng sẽ là "tự nhiên thư ký không thấy khách
+    nào" — thứ mất nửa ngày để lần ra. Bù lại, máy chủ KÊU TO lúc khởi động
+    (xem `main.py`) nên không ai quên được là nó đang bật.
+
+    Tắt: đặt `MO_QUYEN_TAM_THOI=0` trong `.env.prod` rồi dựng lại container.
+    """
+    return os.environ.get("MO_QUYEN_TAM_THOI", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "",
+    )
+
+
+class RoleGuardCoTheMo(RoleGuard):
+    """Cửa gác nới ra khi công tắc mở quyền tạm thời đang bật.
+
+    ĐỌC CÔNG TẮC LÚC GỌI, KHÔNG PHẢI LÚC DỰNG. Bản đầu quyết định tập vai ngay
+    trong hàm dựng — mà hàm dựng chạy lúc *import module*, tức trước khi bất kỳ
+    ai kịp đặt biến môi trường. Hệ quả: đặt `MO_QUYEN_TAM_THOI=0` rồi mà quyền
+    vẫn mở, và không có gì trên màn hình mâu thuẫn với điều đó. Đọc lúc gọi tốn
+    thêm một lần tra `os.environ` mỗi yêu cầu — không đo được, và đổi lại là
+    công tắc thật sự bật tắt được.
+
+    `allowed_roles` vẫn giữ tập GỐC, cố ý: máy kiểm phạm vi và các bài kiểm đối
+    chiếu với `roles.ts` phải đọc được Ý ĐỊNH của cửa này, chứ không phải trạng
+    thái tạm thời của một biến môi trường.
+    """
+
+    async def __call__(
+        self,
+        identity: StaffIdentity = Depends(get_current_identity),
+    ) -> StaffIdentity:
+        if mo_quyen_tam_thoi() and identity.role in VAI_LAM_VIEC:
+            return identity
+        return await super().__call__(identity)
+
+
+def require_role_co_the_mo(*allowed: ClinicRole) -> RoleGuard:
+    """Như `require_role`, nhưng NHẬN MỌI VAI LÀM VIỆC khi công tắc đang bật.
+
+    CHỈ DÙNG CHO CỬA KHÔNG PHẢI VIỆC CỦA BÁC SĨ. Khám, kê đơn, chẩn đoán, duyệt
+    chỉ định vẫn `require_role(DOCTOR)` — Tuyền nói rõ "trừ bác sĩ ra thui", và
+    đó là ranh giới có luật hành nghề đứng sau, không phải một quy ước nội bộ.
+    """
+    return RoleGuardCoTheMo(frozenset(allowed))

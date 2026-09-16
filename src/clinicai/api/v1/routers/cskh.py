@@ -74,8 +74,19 @@ async def man_khach_hang(
     ids: str,
     identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, list[dict[str, object]]]:
+) -> dict[str, list[Any]]:
     """Mười khối dữ liệu làm giàu của màn Quản lý khách hàng, MỘT vòng.
+
+    KIỂU TRẢ VỀ LÀ `list[Any]`, KHÔNG PHẢI `list[dict]`. FastAPI kiểm kiểu trả
+    về theo chú thích này, và khối `tuan_cong_bo` là danh sách CHUỖI (mã tuần
+    đã công bố) chứ không phải danh sách bản ghi.
+
+    Lỗi ấy ngủ suốt: khi chưa tuần lịch trực nào được công bố thì danh sách
+    rỗng, và một danh sách rỗng thì hợp lệ với mọi kiểu phần tử. Đúng ngày
+    16/09/2026 dựng lịch trực thật cho phòng khám, cả màn Quản lý khách hàng
+    trả 500 cho MỌI vai — CSKH lẫn trưởng ca — và màn chỉ hiện "Không đọc được
+    dữ liệu chăm sóc". Nhìn vào đó không ai đoán ra thủ phạm là một chú thích
+    kiểu.
 
     Lát 2 lộ trình chịu tải (22/08/2026): thay mười vòng PostgREST — mỗi vòng
     một giao dịch riêng — bằng một lời gọi; mười câu SQL chạy tuần tự trên MỘT
