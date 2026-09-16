@@ -24,6 +24,7 @@ nguyên từng byte. Đổi hình ở đây là đổi cả màn; có test canh 
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -222,7 +223,12 @@ class ManKhachHangService:
                        -- Thủ thuật + quyết định theo dõi của BÁC SĨ (16/09/2026):
                        -- hai ô khoá ở màn CSKH đọc từ đây, CSKH không tích.
                        v.theo_doi_thu_thuat, v.theo_doi_sau_ngay,
-                       tt.co_thu_thuat, tt.thu_thuat_xong_luc
+                       tt.co_thu_thuat, tt.thu_thuat_xong_luc,
+                       -- VIỆC GỬI ĐỐI TÁC của lượt (17/09/2026): ô "Có kết quả
+                       -- xét nghiệm" ở màn CSKH đọc trạng thái đối tác bấm —
+                       -- chờ lấy mẫu / đã lấy mẫu / chờ tài liệu / đã gửi.
+                       -- Cùng thứ bậc với luot_kham_service.trang_thai_doi_tac.
+                       dt.doi_tac
                   FROM visit v
                   LEFT JOIN LATERAL (
                       SELECT count(*) > 0 AS co_thu_thuat,
@@ -235,6 +241,29 @@ class ManKhachHangService:
                          AND w.node_code = 'DICHVU-THUTHUAT'
                          AND w.status <> 'CANCELLED'
                   ) tt ON TRUE
+                  LEFT JOIN LATERAL (
+                      SELECT json_agg(json_build_object(
+                                 'ten', coalesce(o.service_name, o.service_code),
+                                 'trang_thai', CASE
+                                     WHEN o.ket_qua_luc IS NOT NULL
+                                         THEN 'DA_GUI_KET_QUA'
+                                     WHEN o.doi_tac_cho_tai_lieu_luc IS NOT NULL
+                                         THEN 'CHO_TAI_LIEU'
+                                     WHEN o.exec_status = 'performed' THEN 'DA_LAY_MAU'
+                                     ELSE 'CHO_LAY_MAU' END,
+                                 'luc', coalesce(o.ket_qua_luc,
+                                                 o.doi_tac_cho_tai_lieu_luc,
+                                                 o.finished_at, o.created_at)
+                             ) ORDER BY o.created_at) AS doi_tac
+                        FROM service_order o
+                        JOIN node_definition n
+                          ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+                         AND n.lam_ben_ngoai
+                       WHERE o.clinic_id = v.clinic_id
+                         AND o.visit_id = v.visit_id
+                         AND o.exec_status NOT IN ('draft', 'cancelled',
+                                                   'not_performed')
+                  ) dt ON TRUE
                  WHERE v.clinic_id = $1::uuid
                    AND v.clinic_patient_id = ANY($2::uuid[])
                  LIMIT $3
@@ -255,7 +284,10 @@ class ManKhachHangService:
             "hen_goi_lai": [_kem_nhan_vien(r) for r in hen_goi_lai],
             "tuong_tac": [_kem_nhan_vien(r) for r in tuong_tac],
             "cskh": [dict(r) for r in cskh],
-            "visits": [dict(r) for r in visits],
+            "visits": [
+                {**dict(r), "doi_tac": json.loads(r["doi_tac"]) if r["doi_tac"] else []}
+                for r in visits
+            ],
         }
 
 

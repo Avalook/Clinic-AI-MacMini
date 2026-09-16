@@ -19,6 +19,7 @@ const UUID_RE =
 const THAO_TAC: Record<string, (id: string) => string> = {
   "check-in": () => "/api/v1/luot-kham/check-in",
   "sinh-hieu": (id) => `/api/v1/luot-kham/visits/${id}/vitals`,
+  "goi-do": (id) => `/api/v1/luot-kham/visits/${id}/goi-do`,
   "nhan-kham": (id) => `/api/v1/luot-kham/consultations/${id}/start`,
   "ghi-chu": (id) => `/api/v1/luot-kham/consultations/${id}/notes`,
   "nhap-chi-dinh": (id) =>

@@ -842,7 +842,8 @@ class LuotKhamService:
                 SELECT v.visit_id::text AS visit_id, v.checked_in_at,
                        v.attending_doctor_id::text AS doctor_id,
                        p.full_name, p.patient_code, d.full_name AS doctor_name,
-                       f.vitals_status, f.route_decision, f.finished_at
+                       f.vitals_status, f.route_decision, f.finished_at,
+                       f.goi_do_luc, g.full_name AS goi_do_boi
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -850,6 +851,7 @@ class LuotKhamService:
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN encounter_flow f
                     ON f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id
+                  LEFT JOIN staff g ON g.id = f.goi_do_boi
                  WHERE v.clinic_id = $1::uuid
                    -- INCOMPLETE cố ý không hiện: khách đã về.
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
@@ -1035,6 +1037,8 @@ class LuotKhamService:
                 "bac_si": v["doctor_name"],
                 "check_in_luc": _iso(v["checked_in_at"]),
                 "sinh_hieu_trang_thai": v["vitals_status"] or "pending",
+                "goi_do_luc": _iso(v["goi_do_luc"]),
+                "goi_do_boi": v["goi_do_boi"],
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
                 "sinh_hieu": None,
@@ -1603,6 +1607,49 @@ class LuotKhamService:
     # ------------------------------------------------------------------
     # C2 — ghi sinh hiệu
     # ------------------------------------------------------------------
+
+    async def goi_do_sinh_hieu(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Điều dưỡng GỌI khách vào đo sinh hiệu (Tuyền 17/09/2026: *"điều
+        dưỡng gọi và đo sinh hiệu"*). Gọi lại thì cập nhật giờ gọi."""
+        _require(identity, VITALS_ROLES, "Vai của bạn không gọi đo sinh hiệu được.")
+        cid = identity.clinic_id
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await self._lock_visit(conn, cid, vid)
+            flow = await self._lock_flow(conn, cid, vid)
+            if flow["vitals_status"] == "recorded":
+                raise LuotKhamConflictError(
+                    "VITALS_DONE", "Khách này đã đo sinh hiệu rồi."
+                )
+            lan_goi_lai = await conn.fetchval(
+                "SELECT goi_do_luc IS NOT NULL FROM encounter_flow"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+                cid,
+                vid,
+            )
+            await conn.execute(
+                """
+                UPDATE encounter_flow
+                   SET goi_do_luc = now(), goi_do_boi = $3::uuid,
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                """,
+                cid,
+                vid,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="vitals.called",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid},
+            )
+        return {"ok": True, "lan_goi_lai": bool(lan_goi_lai)}
 
     async def record_vitals(
         self,
@@ -2435,6 +2482,25 @@ class LuotKhamService:
                 "ROOM_NOT_SERVING", "Phòng đã chọn không làm dịch vụ này."
             )
         if o["exec_status"] == "assigned":
+            dang_goi = await conn.fetchval(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM queue_entry
+                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                       AND ref_id = $3::uuid AND reason = 'SERVICE'
+                       AND status IN ('called', 'serving'))
+                """,
+                cid,
+                vid,
+                oid,
+            )
+            if dang_goi:
+                # Phòng cũ đã gọi/đang làm: đổi phòng lúc này là khách đứng
+                # giữa hai phòng cùng gọi tên mình.
+                raise LuotKhamConflictError(
+                    "ROOM_ALREADY_CALLED",
+                    "Phòng hiện tại đã gọi khách vào — không chuyển phòng được nữa.",
+                )
             await conn.execute(
                 """
                 UPDATE queue_entry
@@ -2755,7 +2821,8 @@ class LuotKhamService:
                    p.full_name AS ten_khach, p.patient_code AS ma_khach,
                    p.clinic_patient_id::text AS clinic_patient_id,
                    v.appointment_id::text AS appointment_id,
-                   o.created_at, o.finished_at
+                   o.created_at, o.finished_at, o.ket_qua_luc,
+                   o.doi_tac_cho_tai_lieu_luc
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p
@@ -2770,15 +2837,21 @@ class LuotKhamService:
                       AND s.service_code = o.service_code AND s.active
                     ORDER BY (s."group" = 'dich_vu') DESC LIMIT 1) sp ON true
              WHERE o.clinic_id = $1::uuid
-               AND o.ket_qua_luc IS NULL
+               -- Đã gửi kết quả HÔM NAY vẫn ở lại bàn (mục "Đã gửi") để đối
+               -- tác thấy mình vừa gửi gì và gửi thêm tài liệu nếu còn thiếu.
+               AND (o.ket_qua_luc IS NULL
+                    OR (o.ket_qua_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
                AND o.created_at > now() - interval '60 days'
                AND (
                     o.exec_status = 'performed'
                  OR (coalesce(sp.doi_tac_lay_mau, false)
                      AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
                )
-             ORDER BY o.created_at, o.id
-             LIMIT 200
+             -- Việc CHƯA gửi trước, mới nhất trước: trần 300 dòng không bao giờ
+             -- được cắt mất một chỉ định vừa gửi sang chỉ vì còn tồn việc cũ.
+             ORDER BY (o.ket_qua_luc IS NOT NULL), o.created_at DESC, o.id
+             LIMIT 300
             """,
             identity.clinic_id,
         )
@@ -2803,15 +2876,83 @@ class LuotKhamService:
                     "ten_dich_vu": r["ten_dich_vu"],
                     "appointment_id": r["appointment_id"],
                     "chi_dinh_luc": luc,
-                    "trang_thai": (
-                        "DA_LAY_MAU"
-                        if r["exec_status"] == "performed"
-                        else "CHO_LAY_MAU"
+                    "trang_thai": trang_thai_doi_tac(
+                        exec_status=r["exec_status"],
+                        cho_tai_lieu=r["doi_tac_cho_tai_lieu_luc"] is not None,
+                        co_ket_qua=r["ket_qua_luc"] is not None,
                     ),
                     "lay_mau_luc": _iso(r["finished_at"]),
+                    "cho_tai_lieu_luc": _iso(r["doi_tac_cho_tai_lieu_luc"]),
+                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
                 }
             )
-        return {"khach": list(khach.values()), "so_viec": len(rows)}
+        con_viec = sum(1 for r in rows if r["ket_qua_luc"] is None)
+        # Người đến trước lên trước — truy vấn đã lấy mới nhất trước cho trần.
+        ds = sorted(khach.values(), key=lambda k: k["cho_tu"] or "")
+        for k in ds:
+            k["viec"].sort(key=lambda v: v["chi_dinh_luc"] or "")
+        return {"khach": ds, "so_viec": con_viec}
+
+    async def doi_tac_cho_tai_lieu(
+        self, *, order_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Đối tác bấm "Chờ tài liệu": đã nhận mẫu, đang làm, sẽ gửi tài liệu.
+
+        Tuyền 17/09/2026: *"phải có nút cho họ là chờ tài liệu, up tài liệu… như
+        vậy trạng thái mới đồng bộ về cho cskh"*. Chỉ bấm được khi mẫu đã có
+        (performed); bấm lại không đổi mốc đầu tiên.
+        """
+        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
+            raise SafetyGateError("Chỉ đối tác bấm được việc này.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã việc không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            o = await conn.fetchrow(
+                """
+                SELECT o.visit_id::text AS visit_id, o.exec_status,
+                       o.doi_tac_cho_tai_lieu_luc, o.ket_qua_luc
+                  FROM service_order o
+                  JOIN node_definition n
+                    ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+                   AND n.lam_ben_ngoai
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                   FOR UPDATE OF o
+                """,
+                cid,
+                oid,
+            )
+            if o is None:
+                raise SafetyGateError(
+                    "Không tìm thấy việc này trong danh sách của bạn."
+                )
+            if o["ket_qua_luc"] is not None or o["doi_tac_cho_tai_lieu_luc"]:
+                return {"ok": True, "already": True}
+            if o["exec_status"] != "performed":
+                raise LuotKhamConflictError(
+                    "SAMPLE_NOT_READY", "Chưa có mẫu — bấm “Đã lấy mẫu” trước."
+                )
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET doi_tac_cho_tai_lieu_luc = now(),
+                       doi_tac_cho_tai_lieu_boi = $3::uuid,
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                cid,
+                oid,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="partner.awaiting_documents",
+                aggregate_type="visit",
+                aggregate_id=o["visit_id"],
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": o["visit_id"], "order_id": oid},
+            )
+        return {"ok": True, "already": False}
 
     async def doi_tac_da_lay_mau(
         self, *, order_id: str, identity: StaffIdentity
@@ -3081,3 +3222,19 @@ class LuotKhamService:
                 payload={"visit_id": vid, "order_id": oid},
             )
         return {"ok": True, "order_id": oid}
+
+
+def trang_thai_doi_tac(
+    *, exec_status: str, cho_tai_lieu: bool, co_ket_qua: bool
+) -> str:
+    """Trạng thái một việc trên bàn đối tác — một chỗ tính cho cả đối tác lẫn CSKH.
+
+    DA_GUI_KET_QUA > CHO_TAI_LIEU > DA_LAY_MAU > CHO_LAY_MAU.
+    """
+    if co_ket_qua:
+        return "DA_GUI_KET_QUA"
+    if cho_tai_lieu:
+        return "CHO_TAI_LIEU"
+    if exec_status == "performed":
+        return "DA_LAY_MAU"
+    return "CHO_LAY_MAU"

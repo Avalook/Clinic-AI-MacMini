@@ -179,6 +179,8 @@ EVENT_LABELS: dict[str, str] = {
     "service.not_performed": "Không làm được dịch vụ",
     "result.approved": "Bác sĩ duyệt kết quả, cho phép gửi khách",
     "queue.called": "Gọi khách vào phòng",
+    "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
+    "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
 }

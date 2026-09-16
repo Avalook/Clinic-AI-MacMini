@@ -70,6 +70,20 @@ async def da_lay_mau(
     )
 
 
+@router.post("/doi-tac/viec/{chi_dinh_id}/cho-tai-lieu")
+async def cho_tai_lieu(
+    chi_dinh_id: UUID,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đối tác nhận việc: mẫu đã có, đang làm, sẽ gửi tài liệu kết quả."""
+    from clinicai.services.luot_kham_service import LuotKhamService
+
+    return await LuotKhamService(pool).doi_tac_cho_tai_lieu(
+        order_id=str(chi_dinh_id), identity=identity
+    )
+
+
 @router.post("/doi-tac/ket-qua", status_code=201)
 async def gui_ket_qua(
     request: Request,

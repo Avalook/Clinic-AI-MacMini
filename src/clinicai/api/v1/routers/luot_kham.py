@@ -157,6 +157,18 @@ async def record_vitals(
     )
 
 
+@router.post("/luot-kham/visits/{visit_id}/goi-do")
+async def goi_do_sinh_hieu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Điều dưỡng gọi khách vào đo sinh hiệu."""
+    return await LuotKhamService(pool).goi_do_sinh_hieu(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
 @router.get("/luot-kham/phong-hom-nay")
 async def phong_hom_nay(
     identity: StaffIdentity = Depends(_BANG_GUARD),

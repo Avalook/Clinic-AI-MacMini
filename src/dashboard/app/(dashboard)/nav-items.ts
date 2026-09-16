@@ -171,7 +171,7 @@ export const NAV: NavItem[] = [
   // ĐỐI TÁC chỉ có đúng mục này, và đây là toàn bộ thanh bên của họ.
   {
     href: "/doi-tac",
-    label: "Gửi kết quả",
+    label: "Việc của đối tác",
     icon: FlaskConical,
   },
   {

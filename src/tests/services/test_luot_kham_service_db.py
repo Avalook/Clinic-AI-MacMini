@@ -1061,6 +1061,16 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
         assert viec is not None and viec["trang_thai"] == "DA_LAY_MAU"
 
+        # Đối tác nhận mẫu → "chờ tài liệu"; bấm lại không đổi mốc đầu.
+        await kb.svc.doi_tac_cho_tai_lieu(order_id=mau_id, identity=doi_tac)
+        viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+        assert viec is not None and viec["trang_thai"] == "CHO_TAI_LIEU"
+        moc = viec["cho_tai_lieu_luc"]
+        lai = await kb.svc.doi_tac_cho_tai_lieu(order_id=mau_id, identity=doi_tac)
+        assert lai["already"] is True
+        viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+        assert viec is not None and viec["cho_tai_lieu_luc"] == moc
+
         async with kb.pool.acquire() as conn:
             khach = await conn.fetchval(
                 "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
@@ -1078,8 +1088,10 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
             ten_hien_thi="kq.png",
             service_order_id=mau_id,
         )
-        # Có kết quả → rời bàn đối tác, sang hàng chờ bác sĩ duyệt.
-        assert _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id) is None
+        # Có kết quả → sang mục "Đã gửi hôm nay" của đối tác (không còn là việc
+        # cần làm), và sang hàng chờ bác sĩ duyệt.
+        viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+        assert viec is not None and viec["trang_thai"] == "DA_GUI_KET_QUA"
         cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
         dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
         assert [t["id"] for t in dong["tep"]] == [tep["id"]]

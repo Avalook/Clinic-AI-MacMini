@@ -28,6 +28,9 @@ interface Luot {
   bac_si: string | null;
   check_in_luc: string | null;
   sinh_hieu_trang_thai: string;
+  /** Lần gần nhất điều dưỡng bấm "Gọi vào đo". */
+  goi_do_luc: string | null;
+  goi_do_boi: string | null;
   sinh_hieu: SinhHieu | null;
 }
 
@@ -85,6 +88,7 @@ export default function BangDoSinhHieu() {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
+  const [dangGoi, setDangGoi] = useState(false);
 
   const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {
     if ("loi" in kq) {
@@ -137,6 +141,33 @@ export default function BangDoSinhHieu() {
       cu[o.gui] = v === null || v === undefined ? "" : String(v);
     }
     setGia(cu);
+  };
+
+  // GỌI VÀO ĐO (Tuyền 17/09/2026): khách ngồi ngoài cần biết tới lượt mình.
+  // Gọi lại thì máy chủ cập nhật giờ gọi — không có trạng thái nào bị khoá.
+  const goi = async () => {
+    if (!dangChon) return;
+    setDangGoi(true);
+    setLoi(null);
+    setXong(null);
+    try {
+      const r = await fetch("/api/luot-kham", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": khoaGuiLai() },
+        body: JSON.stringify({ thao_tac: "goi-do", id: dangChon.visit_id, du_lieu: {} }),
+      });
+      const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+      if (!r.ok) {
+        setLoi(d?.message ?? d?.error ?? "Không gọi được khách.");
+        return;
+      }
+      setXong(`Đã gọi ${dangChon.ten} vào đo sinh hiệu.`);
+      nhan(await docBang());
+    } catch {
+      setLoi("Mất kết nối — CHƯA gọi được khách.");
+    } finally {
+      setDangGoi(false);
+    }
   };
 
   const luu = async () => {
@@ -209,6 +240,10 @@ export default function BangDoSinhHieu() {
           <span className="shrink-0 rounded-chip bg-success-bg px-2 py-0.5 text-meta text-success">
             Đã đo
           </span>
+        ) : l.goi_do_luc ? (
+          <span className="shrink-0 rounded-chip bg-brand-50 px-2 py-0.5 text-meta text-brand-700">
+            Đã gọi {gio(l.goi_do_luc)}
+          </span>
         ) : (
           <span className="shrink-0 rounded-chip bg-warning-bg px-2 py-0.5 text-meta text-warning">
             Chờ đo
@@ -252,14 +287,29 @@ export default function BangDoSinhHieu() {
           </p>
         ) : (
           <>
-            <div className="mb-3">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
               <p className="text-lg font-semibold text-ink">{dangChon.ten}</p>
               <p className="text-meta text-ink-muted">
                 {dangChon.ma_bn} · check-in {gio(dangChon.check_in_luc)}
                 {dangChon.sinh_hieu?.nguoi_do
                   ? ` · lần đo trước: ${dangChon.sinh_hieu.nguoi_do} lúc ${gio(dangChon.sinh_hieu.luc)}`
                   : ""}
+                {dangChon.goi_do_luc && !dangChon.sinh_hieu
+                  ? ` · đã gọi lúc ${gio(dangChon.goi_do_luc)}${dangChon.goi_do_boi ? ` (${dangChon.goi_do_boi})` : ""}`
+                  : ""}
               </p>
+              </div>
+              {!dangChon.sinh_hieu ? (
+                <button
+                  type="button"
+                  onClick={goi}
+                  disabled={dangGoi}
+                  className="inline-flex min-h-10 shrink-0 items-center rounded-control border border-brand-500 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                >
+                  {dangGoi ? "Đang gọi…" : dangChon.goi_do_luc ? "Gọi lại" : "Gọi vào đo"}
+                </button>
+              ) : null}
             </div>
             {loi ? (
               <p role="alert" className="mb-3 rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">

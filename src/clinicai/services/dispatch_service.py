@@ -15,6 +15,7 @@ cái mà chính danh sách cảnh báo của khách hàng liệt kê là bất t
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -110,13 +111,13 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
        -- ĐANG PHỤC VỤ vs ĐANG CHỜ. Bước đã bắt đầu (IN_PROGRESS) là đang phục
        -- vụ; PENDING là đang chờ tới lượt. Gộp hai số này lại thì Trưởng ca
        -- không biết phòng đang kẹt hay đang rảnh.
-       count(v.visit_id) FILTER (WHERE v.status = 'IN_PROGRESS'
-                                   AND w.status = 'IN_PROGRESS') AS serving,
-       count(v.visit_id) FILTER (WHERE w.status = 'PENDING')      AS waiting,
-       coalesce(max(EXTRACT(EPOCH FROM (now() - v.current_node_since)) / 60)
-                FILTER (WHERE w.status = 'PENDING'), 0)::int      AS max_wait,
-       coalesce(avg(EXTRACT(EPOCH FROM (now() - v.current_node_since)) / 60)
-                FILTER (WHERE w.status = 'PENDING'), 0)::int      AS avg_wait
+       -- ĐẾM THEO HÀNG CHỜ THẬT (queue_entry) — 17/09/2026. Bản cũ đếm
+       -- work_item của luồng chỉ định cũ, nên khách trên luồng mới không bao
+       -- giờ làm phòng "đông": trưởng ca nhìn SA1 có 5 người chờ vẫn thấy 0.
+       coalesce(qq.serving, 0)  AS serving,
+       coalesce(qq.waiting, 0)  AS waiting,
+       coalesce(qq.max_wait, 0) AS max_wait,
+       coalesce(qq.avg_wait, 0) AS avg_wait
   FROM public.clinic_room r
   LEFT JOIN public.node_definition n
          ON n.code = r.node_code AND n.clinic_id = r.clinic_id
@@ -124,11 +125,24 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
          ON t.room_id = r.id AND t.clinic_id = r.clinic_id
   LEFT JOIN public.dispatch_threshold d
          ON d.room_id IS NULL AND d.clinic_id = r.clinic_id
-  LEFT JOIN public.visit v
-         ON v.current_room_id = r.id AND v.status = ANY($2::text[])
-  LEFT JOIN public.work_item w
-         ON w.visit_id = v.visit_id AND w.node_code = r.node_code
-        AND w.status IN ('PENDING', 'IN_PROGRESS')
+  LEFT JOIN LATERAL (
+      SELECT count(*) FILTER (WHERE q.status IN ('called', 'serving')) AS serving,
+             count(*) FILTER (WHERE q.status = 'waiting')             AS waiting,
+             max(EXTRACT(EPOCH FROM (
+                     now() - coalesce(q.eligible_at, q.created_at))) / 60)
+                 FILTER (WHERE q.status = 'waiting')::int              AS max_wait,
+             avg(EXTRACT(EPOCH FROM (
+                     now() - coalesce(q.eligible_at, q.created_at))) / 60)
+                 FILTER (WHERE q.status = 'waiting')::int              AS avg_wait
+        FROM public.queue_entry q
+        JOIN public.visit v
+          ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
+         AND v.status = ANY($2::text[])
+       WHERE q.clinic_id = r.clinic_id
+         AND q.status IN ('waiting', 'called', 'serving')
+         -- Hàng DOCTOR không mang phòng: tính vào phòng khách đang đứng.
+         AND coalesce(q.room_id, v.current_room_id) = r.id
+  ) qq ON TRUE
  WHERE r.clinic_id = $1::uuid AND r.is_active
    -- CHỈ PHÒNG CỦA CƠ SỞ ĐANG ĐỨNG. Không lọc thì khi Hào Nam mở, nhân sự ở đó
    -- thấy nguyên danh sách phòng của Kim Ngưu và bấm chuyển bệnh nhân sang một
@@ -141,7 +155,8 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
    AND r.location_id = coalesce($3::uuid, r.location_id)
  GROUP BY r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
           r.show_on_tv, r.floor, n.name, t.wait_minutes, d.wait_minutes,
-          t.max_waiting, d.max_waiting
+          t.max_waiting, d.max_waiting, qq.serving, qq.waiting, qq.max_wait,
+          qq.avg_wait
  ORDER BY r.sort, r.code
 """
 
@@ -179,6 +194,8 @@ class DispatchService:
         return [
             {
                 **dict(r),
+                # json_agg về tay asyncpg là chuỗi — giải ra danh sách.
+                "phong_lam_duoc": json.loads(r["phong_lam_duoc"] or "[]"),
                 "xong": r["exec_status"] in _CHI_DINH_XONG,
             }
             for r in rows
@@ -724,30 +741,56 @@ _CHI_DINH_XONG: tuple[str, ...] = ("performed", "not_performed", "cancelled")
 
 _CHI_DINH_SQL = """
 SELECT o.id::text,
-       o.service_code, o.service_name, o.node_code, o.exec_status,
+       o.service_code, o.service_name, o.node_code, o.exec_status, o.version,
        n.name AS node_name,
-       r.name AS room_name, r.floor AS room_floor,
-       w.status AS work_status,
-       -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG LÀM BƯỚC NÀY. Đây là câu trưởng ca thật sự
-       -- hỏi khi nhìn một chỉ định: "chỗ ấy có tắc không?" — chứ không phải
-       -- "quy trình mẫu nói đi đâu tiếp".
-       (SELECT count(*)
-          FROM public.visit v2
-          JOIN public.work_item w2
-            ON w2.visit_id = v2.visit_id AND w2.node_code = o.node_code
-           AND w2.status = 'PENDING'
-         WHERE v2.clinic_id = o.clinic_id AND v2.status = ANY($3::text[])
-       ) AS dang_cho_buoc
+       o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,
+       q.status AS work_status,
+       -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG ĐANG XẾP — câu trưởng ca thật sự hỏi khi
+       -- nhìn một chỉ định: "chỗ ấy có tắc không?". Đếm theo hàng chờ thật.
+       (SELECT count(*) FROM public.queue_entry q2
+          JOIN public.visit v2
+            ON v2.visit_id = q2.visit_id AND v2.clinic_id = q2.clinic_id
+           AND v2.status = ANY($3::text[])
+         WHERE q2.clinic_id = o.clinic_id AND q2.room_id = o.room_id
+           AND q2.status = 'waiting') AS dang_cho_buoc,
+       -- CÁC PHÒNG LÀM ĐƯỢC BƯỚC NÀY + tải + ngưỡng "đầy", để chuyển khách
+       -- sang phòng vắng hơn ngay tại đây (Tuyền 17/09: "siêu âm có 4 khách
+       -- chờ là đầy rồi nên khách 5 được trưởng ca điều hướng sang SA2").
+       (SELECT coalesce(json_agg(json_build_object(
+                   'id', r3.id, 'name', r3.name, 'floor', r3.floor,
+                   'waiting', (SELECT count(*) FROM public.queue_entry q3
+                                 JOIN public.visit v3
+                                   ON v3.visit_id = q3.visit_id
+                                  AND v3.clinic_id = q3.clinic_id
+                                  AND v3.status = ANY($3::text[])
+                                WHERE q3.clinic_id = r3.clinic_id
+                                  AND q3.room_id = r3.id AND q3.status = 'waiting'),
+                   'threshold_waiting', coalesce(t3.max_waiting, d3.max_waiting, 8)
+               ) ORDER BY r3.sort, r3.code), '[]'::json)
+          FROM public.clinic_room r3
+          JOIN public.clinic_room_node rn3
+            ON rn3.room_id = r3.id AND rn3.clinic_id = r3.clinic_id
+           AND rn3.node_code = o.node_code
+          LEFT JOIN public.dispatch_threshold t3
+                 ON t3.room_id = r3.id AND t3.clinic_id = r3.clinic_id
+          LEFT JOIN public.dispatch_threshold d3
+                 ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
+         WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
+           AND NOT r3.la_doi_tac
+       ) AS phong_lam_duoc
   FROM public.service_order o
+  JOIN public.visit v
+    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+   AND v.status = ANY($3::text[])
   LEFT JOIN public.node_definition n
          ON n.code = o.node_code AND n.clinic_id = o.clinic_id
   LEFT JOIN public.clinic_room r ON r.id = o.room_id
   LEFT JOIN LATERAL (
-      SELECT w1.status FROM public.work_item w1
-       WHERE w1.clinic_id = o.clinic_id AND w1.visit_id = o.visit_id
-         AND w1.node_code = o.node_code AND w1.status <> 'CANCELLED'
-       ORDER BY w1.created_at DESC LIMIT 1
-  ) w ON TRUE
+      SELECT q1.status FROM public.queue_entry q1
+       WHERE q1.clinic_id = o.clinic_id AND q1.visit_id = o.visit_id
+         AND q1.ref_id = o.id AND q1.reason = 'SERVICE'
+       ORDER BY q1.created_at DESC LIMIT 1
+  ) q ON TRUE
  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
  ORDER BY o.created_at
 """

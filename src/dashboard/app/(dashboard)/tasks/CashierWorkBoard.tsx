@@ -12,7 +12,6 @@ import {
   ClipboardList,
   CreditCard,
   Pill,
-  QrCode,
   ReceiptText,
   RotateCcw,
   Search,
@@ -103,7 +102,6 @@ export default function CashierWorkBoard({
   const [mode, setMode] = useState<CashierMode>(modes[0] ?? "dich_vu");
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [payOpen, setPayOpen] = useState<string | null>(null);
   const [paid, setPaid] = useState<Set<string>>(
     () => new Set(paidInit.map((payment) => `${payment.kind}:${payment.visit_id}`)),
   );
@@ -185,7 +183,6 @@ export default function CashierWorkBoard({
         else next.add(paymentKey);
         return next;
       });
-      setPayOpen(null);
       setVoidOpen(null);
       setVoidReason("");
       router.refresh();
@@ -199,7 +196,6 @@ export default function CashierWorkBoard({
   const selectedFacts = selected ? paymentFacts(mode, selected) : null;
   const selectedKey = selected ? key(selected.visit_id) : null;
   const selectedPaid = selectedKey ? paid.has(selectedKey) : false;
-  const selectedPayOpen = selectedKey === payOpen;
   const selectedHasItems = selected ? hasModeItems(mode, selected) : false;
 
   return (
@@ -207,8 +203,7 @@ export default function CashierWorkBoard({
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">{meta.label}</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Đối chiếu khoản thu theo lượt khám. Trạng thái thanh toán được lưu qua hệ
-          thống hiện có; mã QR chỉ là khung chờ tích hợp cổng thanh toán.
+          Đối chiếu khoản thu theo lượt khám. Nhận tiền xong bấm “Đã thanh toán”.
         </p>
       </header>
       <WorkspaceMetricRow>
@@ -252,7 +247,6 @@ export default function CashierWorkBoard({
               key={candidate}
               onClick={() => {
                 setMode(candidate);
-                setPayOpen(null);
                 setVoidOpen(null);
                 setVoidReason("");
               }}
@@ -481,35 +475,18 @@ export default function CashierWorkBoard({
                 </section>
               ) : (
                 <section className="space-y-3">
+                  {/* Bỏ mã QR demo (Tuyền 17/09/2026): chưa nối cổng thanh toán
+                      thì một ô QR giả chỉ làm người thu hỏi "quét cái gì". Thu
+                      tiền mặt/chuyển khoản xong là bấm một nút. */}
                   <button
                     type="button"
-                    onClick={() => setPayOpen(selectedPayOpen ? null : selectedKey)}
-                    disabled={selectedFacts.missing || selectedFacts.sum <= 0}
+                    onClick={() => togglePaid(selected)}
+                    disabled={busy === selectedKey || selectedFacts.missing || selectedFacts.sum <= 0}
                     title={selectedFacts.missing ? "Cần bổ sung đủ giá và số lượng trước khi thu" : undefined}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <QrCode className="size-4" /> {selectedPayOpen ? "Ẩn mã QR" : "Thanh toán"}
+                    <Check className="size-4" /> {busy === selectedKey ? "Đang lưu…" : "Đã thanh toán"}
                   </button>
-                  {selectedPayOpen ? (
-                    <div className="space-y-3 rounded-control border border-brand-100 bg-brand-50 p-3">
-                      <div className="flex gap-3">
-                        <div className="grid size-20 shrink-0 place-items-center rounded-control border border-line bg-surface text-brand-700">
-                          <QrCode className="size-9" aria-hidden="true" />
-                        </div>
-                        <p className="text-xs leading-5 text-ink-muted">
-                          Mã QR là khung chờ tích hợp cổng thanh toán. Sau khi xác nhận giao dịch, bấm nút bên dưới để lưu trạng thái thanh toán.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => togglePaid(selected)}
-                        disabled={busy === selectedKey || selectedFacts.missing || selectedFacts.sum <= 0}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-control border border-success bg-surface px-3 py-2.5 text-sm font-semibold text-success hover:bg-success-bg disabled:opacity-50"
-                      >
-                        <Check className="size-4" /> {busy === selectedKey ? "Đang lưu…" : "Đã thanh toán"}
-                      </button>
-                    </div>
-                  ) : null}
                 </section>
               )}
             </div>

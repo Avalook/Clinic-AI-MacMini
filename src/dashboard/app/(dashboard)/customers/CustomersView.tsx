@@ -243,7 +243,16 @@ export interface LuotKham {
   thu_thuat_xong_luc?: string | null;
   theo_doi_thu_thuat?: string | null;
   theo_doi_sau_ngay?: number | null;
+  /** Việc gửi đối tác của lượt + trạng thái đối tác bấm (17/09/2026). */
+  doi_tac?: ViecDoiTac[];
   buoc: BuocCham[];
+}
+
+/** Một việc gửi đối tác, trạng thái tính ở backend (man_khach_hang_service). */
+export interface ViecDoiTac {
+  ten: string;
+  trang_thai: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+  luc: string | null;
 }
 
 /** Một ĐỢT: các lượt nối nhau bằng `lich_truoc_id`, sớm trước. */
@@ -970,6 +979,7 @@ export default function CustomersView({
         thu_thuat_xong_luc: luot.thu_thuat_xong_luc ?? null,
         theo_doi_thu_thuat: luot.theo_doi_thu_thuat ?? null,
         theo_doi_sau_ngay: luot.theo_doi_sau_ngay ?? null,
+        doi_tac: luot.doi_tac ?? [],
       };
     }
     if (!selectedAppt) return null;

@@ -40,7 +40,7 @@ import { Check, Phone, CircleDashed, Undo2, Lock } from "lucide-react";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { MOT_CHAM, kenhCho, nhanLanChamCuoi } from "./mot-cham";
 import type { DongLichSu } from "./so-tuong-tac";
-import type { HenGoiLai } from "./CustomersView";
+import type { HenGoiLai, ViecDoiTac } from "./CustomersView";
 import type { MocTaiKham } from "./NhacTaiKham";
 import type { MaXacMinh } from "@/lib/xac-minh";
 import type { TepKetQuaRow } from "./TepKetQua";
@@ -428,7 +428,17 @@ export interface MocLich {
   thu_thuat_xong_luc?: string | null;
   theo_doi_thu_thuat?: string | null;
   theo_doi_sau_ngay?: number | null;
+  /** Việc gửi đối tác + trạng thái đối tác bấm — chỉ đọc (17/09/2026). */
+  doi_tac?: ViecDoiTac[];
 }
+
+/** Câu CSKH đọc cho từng trạng thái đối tác. */
+const NHAN_DOI_TAC: Record<ViecDoiTac["trang_thai"], string> = {
+  CHO_LAY_MAU: "chờ lấy mẫu",
+  DA_LAY_MAU: "đã lấy mẫu, chờ đối tác nhận",
+  CHO_TAI_LIEU: "đối tác đang làm, chờ tài liệu",
+  DA_GUI_KET_QUA: "đối tác đã gửi tài liệu",
+};
 
 export default function VungLamViecKhach({
   tenKhach,
@@ -845,7 +855,12 @@ export default function VungLamViecKhach({
   const kqChoPhep =
     tepCuaLuot.some((t) => t.cho_phep_gui_luc) || coViec("KQ_CHUA_GUI");
   const kqDaVe = tepCuaLuot.length > 0 || coViec("CHO_BAC_SI") || kqChoPhep;
-  const kqChoDoiTac = coViec("CHO_KQ_XN");
+  const viecDoiTac = lich.doi_tac ?? [];
+  const doiTacChuaGui = viecDoiTac.filter((d) => d.trang_thai !== "DA_GUI_KET_QUA");
+  const kqChoDoiTac = coViec("CHO_KQ_XN") || doiTacChuaGui.length > 0;
+  const cauDoiTac = viecDoiTac
+    .map((d) => `${d.ten}: ${NHAN_DOI_TAC[d.trang_thai]}${d.luc ? ` (${ngayGio(new Date(d.luc))})` : ""}`)
+    .join(" · ");
   const daTraKq =
     cacLan("TRA_KQ").some((d) => d.ket_qua === "DA_LIEN_HE") ||
     (tepCuaLuot.length > 0 && tepCuaLuot.every((t) => t.gui_luc));
@@ -1133,7 +1148,7 @@ export default function VungLamViecKhach({
                     : kqDaVe
                       ? "Kết quả đã về — chờ bác sĩ xem và cho phép gửi"
                       : kqChoDoiTac
-                        ? "Đang chờ đơn vị xét nghiệm gửi kết quả"
+                        ? cauDoiTac || "Đang chờ đơn vị xét nghiệm gửi kết quả"
                         : "Chưa có kết quả nào cho lượt này"
                 }
                 nguon="đối tác + bác sĩ"

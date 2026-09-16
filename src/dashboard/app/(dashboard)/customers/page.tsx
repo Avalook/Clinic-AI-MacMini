@@ -30,6 +30,7 @@ import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
 import type { MocTaiKham } from "./NhacTaiKham";
+import type { ViecDoiTac } from "./CustomersView";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -935,6 +936,7 @@ type LichHenRaw = {
         quayDong: string | null;
         coThuThuat: boolean;
         thuThuatXong: string | null;
+        doiTac: ViecDoiTac[];
         theoDoi: string | null;
         theoDoiSauNgay: number | null;
       }
@@ -948,6 +950,7 @@ type LichHenRaw = {
       theo_doi_sau_ngay?: number | null;
       co_thu_thuat?: boolean | null;
       thu_thuat_xong_luc?: string | null;
+      doi_tac?: ViecDoiTac[] | null;
     }[]) {
       if (!v.appointment_id) continue;
       visitTheoLich[v.appointment_id] = {
@@ -957,6 +960,7 @@ type LichHenRaw = {
         quayDong: v.closed_at,
         coThuThuat: Boolean(v.co_thu_thuat),
         thuThuatXong: v.thu_thuat_xong_luc ?? null,
+        doiTac: v.doi_tac ?? [],
         theoDoi: v.theo_doi_thu_thuat ?? null,
         theoDoiSauNgay: v.theo_doi_sau_ngay ?? null,
         // BA MỐC KẾT THÚC, ưu tiên theo độ chắc chắn: quầy đóng lượt >
@@ -1058,6 +1062,7 @@ type LichHenRaw = {
             quay_dong_luc: v?.quayDong ?? null,
             co_thu_thuat: v?.coThuThuat ?? false,
             thu_thuat_xong_luc: v?.thuThuatXong ?? null,
+            doi_tac: v?.doiTac ?? [],
             theo_doi_thu_thuat: v?.theoDoi ?? null,
             theo_doi_sau_ngay: v?.theoDoiSauNgay ?? null,
             buoc: buoc.map((d) => ({
