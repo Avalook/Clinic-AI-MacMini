@@ -37,6 +37,65 @@ lịch sử hội thoại.
 
 ---
 
+## -0006. Lịch Kim Ngưu: dữ liệu thật đã vào, FORM thì CHƯA (16/09/2026 chiều)
+
+Tuyền gửi `[Dr4women] PK Kim Ngưu - Lịch làm việc nhân sự theo tuần.xlsx` + trang
+Notion *Kế hoạch v1.0.0*. Đối chiếu đầy đủ: **`docs/DOI-CHIEU-LICH-KIM-NGUU-16-09-2026.md`**.
+
+**Ba phát hiện đổi cách nghĩ**
+
+1. **Không ai làm một vai.** Hải Yến hai tuần đứng 8 vị trí ở 3 tầng. Chỉ Thanh
+   Phương gần như chuyên một chỗ (7/7 ca Thư ký y khoa). Hệ thống đang gán MỘT
+   vai cố định cho một người và mở/đóng màn theo vai ấy.
+2. **"Thư ký y khoa" là chỗ ngồi, không phải nghề.** Danh sách nhân sự chỉ có 4
+   nhóm bác sĩ + 21 điều dưỡng. Tính năng điền song song GIỮ NGUYÊN (Tuyền:
+   "không được xoá nhé"); cái sai là giả định có một lớp nhân viên riêng.
+3. **T2–T6 chỉ chạy ca Tối**; T7/CN có Sáng·Chiều·Tối. Khớp luật Notion: mọi mốc
+   sức chứa đều 18h00/18h15/18h30/18h45.
+
+**Đã làm**
+
+- Migration `20260916000008`: `vi_tri_lam_viec` (27 vị trí Tầng→Phòng) +
+  `staff_vi_tri`. **CHƯA nối vào quyền** — Tuyền chốt "từ đã để tính tiếp".
+- `scripts/nhan-su-kim-nguu.py`: đọc Excel → nạp. Đã chạy trên final cloud:
+  **90 dòng vị trí · 15 hồ sơ sang tên đầy đủ · 5 người mới · tất cả về cơ sở
+  Kim Ngưu**. So tên theo TẬP CHỮ (≥2 chữ), có ba chốt chống gán nhầm.
+- Ba màn theo góp ý Tuyền: đối tác gom theo KHÁCH · thu ngân bỏ đối soát · trưởng
+  ca có lối sang Quản lý khách hàng.
+
+**CÒN DỞ — việc lớn nhất**
+
+`src/dashboard/lib/roster.ts` vẫn giữ `STATIONS` **của file Hào Nam đời cũ**
+("Máy trong E10", "Phòng ngoài + Monitoring", "HSS + Thủ thuật"). Không một vị
+trí nào trong đó tồn tại ở Kim Ngưu. Ba bảng lịch (trang chủ, lịch chính thức,
+bảng xếp ca) đều đọc hằng ấy.
+
+Và form phải **đổi chiều**: Excel là *hàng = vị trí, cột = ngày×ca*; bảng hiện
+tại là *hàng = ngày, cột = trạm*. Với 27 vị trí thì chiều cũ thành 27 cột.
+
+⚠️ `LICH_KHAM` KHÔNG phải một vị trí trong Excel — nó là "bác sĩ nào trực ngày
+ấy" và `lib/roster.ts:110` dùng nó để dựng lưới đặt lịch. **Giữ lại**, đừng gộp
+vào danh mục vị trí.
+
+⚠️ Lịch trực tuần này trên final cloud đang dùng MÃ CŨ (`LE_TAN`, `PHU_BS_SA`…).
+Đổi `STATIONS` mà không dựng lại lịch thì các cột hiện ra trống.
+
+**Hai việc chờ Tuyền chốt**
+
+- `BS Hằng` mơ hồ: trùng cả `BS Hằng` lẫn `ĐD Hằng` → khai vào `PHAN_XU`.
+- Hai người suýt bị tạo trùng, script đã chặn: `Lê Huyền Trang` (= `ĐD Trang Lê`?)
+  và `Vũ Hoàng Vân Anh` (= `TL Vân Anh`? — hay là người thứ hai, vì lịch có cả
+  `N. Vân Anh` lẫn `V. Vân Anh`).
+- 5 ô trong Sheet3 ghi "1-2 người" bị Excel đổi thành ngày `2026-02-01`.
+
+**CHẶN QUẦY THU NGÂN, không phải lỗi code**
+
+Bảng giá có **1/39 dịch vụ** và **0/80 thuốc** có giá. Quầy hiện đủ người mà
+`còn phải trả = 0`. Notion đã ghi đây là việc phía khách ("Cần khách cấp data
+chi phí dịch vụ khám…" và "…danh sách thuốc + tiền tương ứng").
+
+---
+
 ## -0004. Nhóm đua tranh đã chạy — trên cả hai nơi (16/09/2026 ~14:00)
 
 `scripts/tests/dua-tranh.py` — ba kịch bản mà **không ai bấm tay thử được**:
