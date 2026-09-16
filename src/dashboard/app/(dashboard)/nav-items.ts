@@ -151,6 +151,12 @@ export const NAV: NavItem[] = [
     label: "Toàn cảnh điều phối",
     icon: LayoutDashboard,
   },
+  // ĐỐI TÁC chỉ có đúng mục này, và đây là toàn bộ thanh bên của họ.
+  {
+    href: "/doi-tac",
+    label: "Gửi kết quả",
+    icon: FlaskConical,
+  },
   {
     href: "/truong-ca/hang-doi",
     label: "Hàng đợi theo trạm",

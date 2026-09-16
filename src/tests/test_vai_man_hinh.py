@@ -49,7 +49,23 @@ def test_man_hinh_bi_tu_choi_o_cua_chung() -> None:
     assert e.value.status_code == 403
 
 
-@pytest.mark.parametrize("role", [r for r in ClinicRole if r is not ClinicRole.DISPLAY])
+#: HAI vai bị cửa chung từ chối, vì cùng một lý do: chúng không phải NHÂN VIÊN
+#: PHÒNG KHÁM. `DISPLAY` là cái tivi treo tường; `PARTNER` là người ngoài gửi
+#: kết quả vào. Cả hai chỉ đi qua đúng một cửa riêng của mình.
+BI_TU_CHOI_O_CUA_CHUNG = (ClinicRole.DISPLAY, ClinicRole.PARTNER)
+
+
+@pytest.mark.parametrize("role", list(BI_TU_CHOI_O_CUA_CHUNG))
+def test_vai_ngoai_phong_kham_bi_chan_o_cua_chung(role: ClinicRole) -> None:
+    """Chặn ở cửa chung = chặn ở khắp nơi mà không phải liệt kê chỗ nào."""
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(get_current_identity(_ai_do(role)))
+    assert e.value.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "role", [r for r in ClinicRole if r not in BI_TU_CHOI_O_CUA_CHUNG]
+)
 def test_moi_vai_cua_nguoi_deu_qua_duoc_cua_chung(role: ClinicRole) -> None:
     """Chống xanh giả: nếu cửa chung từ chối tất cả thì bài trên vẫn xanh."""
     assert asyncio.run(get_current_identity(_ai_do(role))).role is role

@@ -93,6 +93,8 @@ const GREET_LABEL: Record<ClinicRole, string> = {
   PHARMACIST: "dược sĩ",
   // Không bao giờ chào ai: layout đưa vai này thẳng ra /display.
   DISPLAY: "màn hình",
+  // Cũng không bao giờ chào: đối tác bị đẩy thẳng ra /doi-tac.
+  PARTNER: "đối tác",
 };
 
 // LỜI CHÀO KHÔNG ĐƯỢC LẶP CHỨC DANH.

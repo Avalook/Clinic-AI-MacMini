@@ -20,7 +20,12 @@ export type ClinicRole =
   // Màn hình TV phòng chờ — KHÔNG phải người, là cái máy treo tường.
   // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
   // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
-  | "DISPLAY";
+  | "DISPLAY"
+  // NGƯỜI NGOÀI PHÒNG KHÁM — lab, phòng chụp. Vào để gửi kết quả họ vừa làm.
+  // Backend từ chối vai này ở MỌI endpoint trừ hai đường của riêng nó
+  // (identity.py: `get_current_identity` chặn, `get_partner_identity` mở), nên
+  // ở đây nó chỉ cần đúng một mục trên thanh bên và không có gì khác.
+  | "PARTNER";
 
 export const ALL_ROLES: ClinicRole[] = [
   "DOCTOR",
@@ -36,6 +41,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "TRUONG_CA",
   "PHARMACIST",
   "DISPLAY",
+  "PARTNER",
 ];
 
 // Convert a trusted role value into the closed application enum. Unknown data
@@ -201,6 +207,8 @@ export function isTasksReadOnly(role: ClinicRole | null): boolean {
 
 /** Landing path after a role is picked. */
 export function roleLanding(role: ClinicRole | null): string {
+  // Đối tác không có trang chủ để mà xem — họ vào đúng việc của mình.
+  if (role === "PARTNER") return "/doi-tac";
   if (isDoctorRole(role)) return "/tasks";
   // Trưởng ca có màn làm việc riêng (board "Theo dõi buổi") như bác sĩ vào /tasks.
   if (isTruongCaRole(role)) return "/truong-ca";
@@ -221,6 +229,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   TRUONG_CA: "Trưởng ca",
   PHARMACIST: "Dược sĩ",
   DISPLAY: "Màn hình phòng chờ",
+  PARTNER: "Đối tác",
 };
 
 // Which roles may see each sidebar destination. Anything not listed = everyone.
@@ -336,6 +345,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
   // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
   // người dùng về /home mà không báo gì.
+  // ĐỐI TÁC: đúng MỘT màn, và không vai nào khác cần nó. Quản lý có mặt để xem
+  // được đối tác đang nhìn thấy gì — không có đường ấy thì không ai kiểm được
+  // lời hứa "họ chỉ thấy việc của họ" ngoài cách mượn tài khoản đối tác.
+  "/doi-tac": ["PARTNER", "MANAGEMENT"],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/hang-doi": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],

@@ -41,6 +41,7 @@ from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
+from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.home import router as home_router
@@ -200,6 +201,11 @@ app.include_router(
 # ĐÃ CÂN NHẮC VÀ BỎ: cho token đi qua query string. Làm thế là ghi token vào
 # log truy cập của mọi proxy trên đường — một thứ đọc được, sống lâu, và đủ để
 # đóng giả người dùng.
+# ĐỐI TÁC — hai đường, và chúng tự gác bằng `get_partner_identity`. Mọi router
+# khác đóng với vai này vì `get_current_identity` từ chối nó (xem identity.py).
+app.include_router(
+    doi_tac_router, prefix="/api/v1", tags=["doi-tac"], dependencies=_GUARDED
+)
 app.include_router(
     events_router, prefix="/api/v1", tags=["events"], dependencies=_GUARDED
 )

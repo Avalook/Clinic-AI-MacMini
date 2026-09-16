@@ -75,6 +75,19 @@ class ClinicRole(str, Enum):
     # đó. Thêm endpoint mới sau này cũng tự động loại vai này ra, không phải
     # nhớ gì cả.
     DISPLAY = "DISPLAY"
+    # NGƯỜI NGOÀI PHÒNG KHÁM — lab, phòng chụp, nơi làm dịch vụ gửi ra ngoài.
+    #
+    # Vào để làm đúng MỘT việc: gửi kết quả họ vừa làm. Tuyền yêu cầu tài khoản
+    # này 16/09/2026; tôi đã nêu lo ngại rằng một mật khẩu thường trực nằm ngoài
+    # tầm quản lý của phòng khám là một cánh cửa mở mãi, và Tuyền chốt vẫn làm.
+    #
+    # Nên nó được chặn theo CÙNG cách vai DISPLAY bị chặn, và vì cùng một lý do:
+    # `get_current_identity` từ chối thẳng, nên MỌI endpoint đang có và MỌI
+    # endpoint viết sau này đều đóng với vai này mà không ai phải nhớ gì. Chỉ
+    # `get_partner_identity` mở ra, và hôm nay đúng hai đường dùng nó.
+    #
+    # Danh sách cho phép thì bỏ sót; danh sách từ chối thì không.
+    PARTNER = "PARTNER"
 
 
 _VALID_ROLES = {r.value for r in ClinicRole}
@@ -451,6 +464,11 @@ async def get_current_identity(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản màn hình chỉ được xem bảng gọi số",
         )
+    if identity.role is ClinicRole.PARTNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản đối tác chỉ được gửi kết quả",
+        )
     return identity
 
 
@@ -463,6 +481,26 @@ async def get_display_identity(
     Trước khi gắn dependency này vào một đường mới, hãy đọc lại ràng buộc ① ở
     đầu ``display_board_service``.
     """
+    return identity
+
+
+async def get_partner_identity(
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> StaffIdentity:
+    """Danh tính cho hai đường của ĐỐI TÁC — và chỉ hai đường ấy.
+
+    Nhận đúng vai PARTNER, cộng MANAGEMENT để quản lý xem được đối tác đang
+    nhìn thấy gì (không có đường ấy thì không ai kiểm được lời hứa "họ chỉ thấy
+    việc của họ" ngoài cách tự đăng nhập bằng tài khoản đối tác).
+
+    Mọi vai khác bị từ chối ở đây, và vai PARTNER bị từ chối ở mọi nơi khác —
+    hai chiều khoá lẫn nhau.
+    """
+    if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Đường này dành cho tài khoản đối tác",
+        )
     return identity
 
 

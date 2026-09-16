@@ -133,6 +133,8 @@ const ROLE_DESC: Record<ClinicRole, string> = {
   PHARMACIST: "Dược sĩ, cấp phát thuốc", // Dược sĩ  // Không hiện ở cổng chọn vai — đây là tài khoản của cái tivi, không
   // phải của một người.
   DISPLAY: "Bảng gọi số phòng chờ",
+  // Cũng không hiện ở cổng chọn vai — tài khoản của bên ngoài phòng khám.
+  PARTNER: "Gửi kết quả từ bên ngoài",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

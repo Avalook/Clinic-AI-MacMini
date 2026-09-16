@@ -62,6 +62,25 @@ THEM_MOI: list[tuple[str, str, str]] = [
     ("Hà Nguyễn", "MANAGEMENT", "qlht-ha-nguyen"),
     ("Thắng Trịnh", "MANAGEMENT", "qlht-thang-trinh"),
     ("Thu Hiền", "MANAGEMENT", "qlht-thu-hien"),
+    # ── Năm vai có MÀN HÌNH nhưng chưa có một ai đăng nhập được vào (16/09) ──
+    #
+    # Đây là tài khoản THEO VỊ TRÍ, không theo người: ai vào ca ngồi chỗ nào thì
+    # dùng tài khoản của chỗ đó. Khác hẳn mười hai dòng ở trên, vốn là tài khoản
+    # của một con người cụ thể.
+    #
+    # Biết trước cái giá của lựa chọn ấy: `event_log` sẽ ghi "thu ngân thuốc đã
+    # thu 300.000đ", không ghi được AI thu. Truy ngược một lần thu sai sẽ phải
+    # tra lịch trực để đoán, mà lịch trực thì sửa được. Chấp nhận được lúc này
+    # vì phòng khám chưa chốt ai ngồi quầy nào; khi chốt rồi thì tách ra thành
+    # tài khoản từng người, và bản ghi cũ vẫn giữ nguyên.
+    ("Trưởng ca", "TRUONG_CA", "truong-ca"),
+    ("Thu ngân thuốc", "CASHIER_THUOC", "thu-ngan-thuoc"),
+    ("Thu ngân dịch vụ", "CASHIER_DV", "thu-ngan-dich-vu"),
+    # Tuyền đặt tên tài khoản này 16/09, giữ ĐÚNG chữ Tuyền viết.
+    ("Đối tác phòng khám", "PARTNER", "doi-tac-pk"),
+    # Cái tivi ở phòng chờ. Nó phải đăng nhập như mọi vai khác, và vai này bị
+    # `get_current_identity` từ chối ở mọi đường ghi — xem identity.py.
+    ("Màn hình phòng chờ", "DISPLAY", "man-hinh-phong-cho"),
 ]
 
 
