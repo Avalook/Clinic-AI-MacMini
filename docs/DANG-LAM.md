@@ -37,6 +37,59 @@ lịch sử hội thoại.
 
 ---
 
+## -0002. Ba câu hỏi lớn — đã kiểm bằng số, 16/09/2026 14:20
+
+### A. Database prod nằm ở đâu → CÙNG VPS. Tôi đã cảnh báo sai.
+
+Tôi từng nói "coi chừng app ở Vietnix mà database ở Viettel thì mỗi truy vấn trả
+tiền đường giữa hai nhà cung cấp". Kiểm lại: `docker-compose.supabase.yml` dựng
+`db`, `auth`, `rest`, `realtime`, `gateway` NGAY TRÊN VPS; `docker-compose.yml`
+dựng caddy/dashboard/api/worker/rabbitmq cùng chỗ. Viettel chỉ là kho sao lưu.
+Tuyền nói đúng, tôi cảnh báo theo giả định chứ không theo mã. Cảnh báo ấy CHỈ
+còn giá trị như một luật giữ chỗ: **đừng bao giờ tách database sang nhà cung cấp
+khác với API**.
+⚠️ `.env.prod.example` dòng 27 vẫn ghi `...pooler.supabase.com` — tàn dư của đời
+Supabase cloud, dễ dẫn người sau đi sai. Nên sửa.
+
+### B. Bỏ luồng chỉ định cũ → KHÔNG ĐỔI BÂY GIỜ. Quyết định của tôi.
+
+Bức tranh thật khác hẳn mô tả trong chốt 16/09 (và khác cả điều tôi nói sáng nay):
+
+| | Đường ĐANG CHẠY THẬT | Đường "mới" |
+|---|---|---|
+| Ghi vào | `work_item` (qua hàm SQL `order_services()`) + `service_order_draft` | `service_order` + `queue_entry` |
+| Ai ghi | `ServiceOrderService` | CHỈ `luot_kham_service` |
+| Màn | `/doctor/orders` (bác sĩ), `/service-queue`, `/sieu-am`, `/lab-queue`, bảng trưởng ca | `/luot-kham` — **chỉ Quản lý vào được** |
+| Dữ liệu | nuôi 4 màn thực hiện | 37 dòng, toàn dữ liệu thử |
+
+Nghĩa là `service_order` mới phủ phần **RA CHỈ ĐỊNH**, còn phần **THỰC HIỆN**
+(hàng đợi phòng, siêu âm, xét nghiệm, điều phối) vẫn chạy trọn trên `work_item`.
+"Bỏ luồng cũ" vì thế không phải đổi một nút — là viết lại phần thực hiện của cả
+hệ, kéo theo 4 màn và bảng điều phối.
+
+**Quyết: giữ `work_item` làm đường thực hiện** (nó là cái đang chở bệnh nhân
+thật, và nó có kernel workflow). Thứ luồng mới có mà cũ thiếu — vòng
+*nháp → bác sĩ duyệt* — thì ĐÃ có sẵn trên đường cũ dưới tên `service_order_draft`.
+Nên việc đúng là **gộp**, không phải thay: đóng băng `/luot-kham` (không đầu tư
+thêm), và nếu sau này muốn vòng đời draft→authorized→assigned đầy đủ thì thêm
+cột trạng thái vào đường cũ chứ không dựng đường thứ hai.
+Việc này cần một phiên riêng, KHÔNG làm chen giữa ngày khám.
+
+### C. "Chậm vô lý" → đo rồi, KHÔNG có chỗ nào chậm vô lý.
+
+Một lần mở `/reception/queue` = 4 lời gọi backend:
+`/me` 0.6ms · `/appointments/policy` 4.5ms · `/thong-bao` 3.9ms · `/work-items` 34ms.
+Tổng ~43ms; cả trang 20–40ms. p50 toàn hệ 11.8ms, p95 123ms, p99 151ms, 0 lời
+gọi vượt 1s.
+
+Nên nói thẳng: **cache lúc này không chữa bệnh gì cả** — nó là chuẩn bị cho tải
+gấp 10. Thứ tự đáng làm khi cần:
+1. `appointments/policy` (đổi rất hiếm, gọi MỖI lần render) → cache trong tiến
+   trình TTL 60s. Lãi ~4.5ms/trang.
+2. `/me` **KHÔNG cache** — cache một quyết định phân quyền là mở cửa cho lỗi phân
+   quyền.
+3. Tệp **không đi qua FastAPI** khi lên kho Viettel: dùng URL ký sẵn.
+
 ## -0001. Buổi khám thật chạy được trọn vòng trên local (16/09/2026, 12:00)
 
 `scripts/tests/buoi-kham-that.py` giờ có KỊCH BẢN GHI, không chỉ đọc màn:
