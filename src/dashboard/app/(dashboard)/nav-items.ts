@@ -295,6 +295,11 @@ export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
   if (item.href === "/patients/new" && role === "CSKH") {
     return "Nhập thông tin khách hàng mới";
   }
+  // Lễ tân: "Thêm khách hàng" (Tuyền 16/09/2026). Vai này không còn nhánh
+  // "vãng lai" riêng — thêm khách xong là đặt lịch ngay trên cùng một màn.
+  if (item.href === "/patients/new" && role === "RECEPTION") {
+    return "Thêm khách hàng";
+  }
   return item.label;
 }
 
@@ -345,7 +350,7 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.
   ULTRASOUND_DOCTOR: ["/home", "/doctor/board", "/sieu-am", "/patient-list"],
   // Tiếp nhận: hàng đợi, check-out, và tạo bệnh nhân — ba việc ở quầy.
-  RECEPTION: ["/home", "/reception/queue", "/reception/checkout", "/patients/new"],
+  RECEPTION: ["/home", "/reception/queue", "/appointments", "/patients/new"],
   // Dược sĩ: đơn chờ cấp → kho → tư vấn. "Lịch sử bàn giao" là màn tra cứu,
   // để trong Menu.
   PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],

@@ -20,7 +20,7 @@ import {
   moTaLuc,
   xoaNhap,
 } from "../../../../lib/luu-nhap";
-import { type ClinicRole } from "../../../../lib/roles";
+import { canCheckin, type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
 import BangBacSiTuan from "../../appointments/BangBacSiTuan";
@@ -1559,7 +1559,12 @@ export default function NewPatientForm({
               className={INPUT}
             >
               <option value="" disabled hidden>— Chọn kênh —</option>
-              {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
+              {/* "Trực tiếp" chỉ hiện với vai được check-in (Lễ tân, Quản lý):
+                  kênh ấy kéo theo tự check-in, và backend từ chối thẳng nếu
+                  người đặt không được check-in (luật Tuyền 15/09/2026). */}
+              {CHANNELS.filter(
+                (c) => c.id !== "WALK_IN" || canCheckin(role ?? null),
+              ).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>

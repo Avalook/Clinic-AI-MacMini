@@ -173,9 +173,11 @@ export default async function HomePage({
     (rawWeekRoster ? weekStartOf(rawWeekRoster) : null) ?? currentWeekStartVn();
 
   const homeTitle = isReception ? "Tổng quan tiếp nhận" : greet(role, staff);
-  const homeSubtitle = isReception
-    ? "Theo dõi lịch hẹn, tình trạng buổi khám và lịch trực trong cùng một không gian."
-    : `Hôm nay · ${fmtDate(new Date())}`;
+  // Phụ đề của Lễ tân từng là một câu mô tả màn hình ("Theo dõi lịch hẹn, tình
+  // trạng buổi khám và lịch trực trong cùng một không gian") — Tuyền bỏ
+  // 16/09/2026. Nó tả lại thứ người ta đang nhìn thấy, trong khi NGÀY HÔM NAY
+  // mới là thứ quầy cần đọc ngay.
+  const homeSubtitle = `Hôm nay · ${fmtDate(new Date())}`;
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">

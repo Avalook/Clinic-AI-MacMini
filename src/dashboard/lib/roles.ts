@@ -303,7 +303,17 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // tức danh sách "còn thiếu lịch", còn /customers xoay quanh lịch ĐÃ CÓ. Gỡ
   // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
   "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
-  "/appointments": ["CSKH", "MANAGEMENT"],
+  // LỄ TÂN ĐƯỢC VÀO MÀN ĐẶT LỊCH (Tuyền 16/09/2026).
+  //
+  // Trước đó vai này KHÔNG có lối vào nào, trong khi hai nút "Đặt lịch mới" ở
+  // Danh sách bệnh nhân và Quản lý khách hàng vẫn trỏ thẳng vào đây — Lễ tân
+  // bấm là bị đá về /home, không một dòng báo.
+  //
+  // Và nay nó là đường CHÍNH: "khách vãng lai" bỏ đi, chỉ còn "đến trực tiếp" —
+  // chưa có hồ sơ thì tạo ở tab "Thêm", có rồi thì chọn tên và đặt, kênh đặt
+  // ghi "Trực tiếp". Backend đã sẵn luật ấy từ 15/09: kênh Trực tiếp + hôm nay
+  // + người đặt thuộc CHECKIN_ROLES ⇒ tự check-in và mở lượt khám.
+  "/appointments": ["CSKH", "RECEPTION", "MANAGEMENT"],
   // Thông tin khách hàng — CSKH/Lễ tân/QL/Trưởng ca thao tác; Thu ngân chỉ xem
   // để đối chiếu khi thu tiền (canOperateCustomerCare không gồm CASHIER).
   "/customers": [

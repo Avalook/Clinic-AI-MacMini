@@ -431,7 +431,11 @@ export default function WeeklyAppointmentsTable({
                 now,
                 canWriteIntake(role),
                 policy,
-                canManageAppt(role),
+                // LỄ TÂN ĐI CHUNG ĐƯỜNG VỚI CSKH (Tuyền 16/09/2026): ô trống mở
+                // màn đặt lịch, không còn rẽ sang biểu mẫu vãng lai của riêng
+                // quầy. "Vãng lai" nay chỉ là một KÊNH ĐẶT, không phải một
+                // luồng — nên ngày mai, ngày kia cũng bấm được, không chỉ hôm nay.
+                canManageAppt(role) || canCheckin(role),
               );
               const mo = dangMo(day);
               return (
@@ -592,16 +596,23 @@ export default function WeeklyAppointmentsTable({
                                       <NutInPhieu href={`/print/${a.id}`} />
                                     </div>
                                   ) : a.status === "CHECKED_IN" ? (
-                                    <div className="flex flex-col items-start gap-0.5">
+                                    /* "Hoàn tác" ĐỨNG CẠNH chip, không xuống
+                                       dòng dưới (Tuyền 16/09/2026): chữ "Hoàn
+                                       tác check-in" nằm một mình một dòng dưới
+                                       mỗi khách làm cột này cao gấp đôi, mà
+                                       ngay bên trái đã có chữ "Đang chờ khám"
+                                       nói rõ đang hoàn tác cái gì. */
+                                    <div className="flex items-center gap-1.5">
                                       <span className={chipClass("success")}>
                                         Đang chờ khám
                                       </span>
                                       <button
                                         onClick={() => act(a.id, "undo_checkin")}
                                         disabled={busyId === a.id}
-                                        className="text-label text-ink-faint hover:text-ink-muted font-medium disabled:opacity-50"
+                                        title="Hoàn tác check-in"
+                                        className="rounded-chip border border-line px-2 py-0.5 text-label font-medium text-ink-muted hover:border-ink-muted hover:text-ink disabled:opacity-50"
                                       >
-                                        Hoàn tác check-in
+                                        Hoàn tác
                                       </button>
                                     </div>
                                   ) : ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(
@@ -615,10 +626,14 @@ export default function WeeklyAppointmentsTable({
                                       >
                                         {busyId === a.id ? "..." : "Check-in"}
                                       </NutCheckIn>
+                                      {/* Viền bo quanh "Không đến" — cùng lý
+                                          do với "Hoàn tác": chữ trần cạnh một
+                                          nút có nền trông như dòng chú thích,
+                                          không như thứ bấm được. */}
                                       <button
                                         onClick={() => act(a.id, "no_show")}
                                         disabled={busyId === a.id}
-                                        className="text-label text-ink-faint hover:text-danger font-medium disabled:opacity-50"
+                                        className="rounded-chip border border-line px-2 py-0.5 text-label font-medium text-ink-muted hover:border-danger hover:text-danger disabled:opacity-50"
                                       >
                                         Không đến
                                       </button>
@@ -644,7 +659,9 @@ export default function WeeklyAppointmentsTable({
                                     href={r.free.href}
                                     className="inline-block rounded bg-success-bg px-2 py-1 text-label font-semibold text-success hover:bg-success-bg"
                                   >
-                                    ＋ Đặt lịch vào đây
+                                    {canCheckin(role)
+                                      ? "＋ Thêm khách hàng"
+                                      : "＋ Đặt lịch vào đây"}
                                   </Link>
                                 ) : (
                                   <span className="inline-block rounded bg-success-bg px-2 py-1 text-label font-medium text-success/70">

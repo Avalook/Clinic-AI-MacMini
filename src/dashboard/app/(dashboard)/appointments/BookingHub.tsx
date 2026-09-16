@@ -38,6 +38,7 @@ import LichSapToiCuaKhach, {
 } from "./LichSapToiCuaKhach";
 import BangBacSiTuan from "./BangBacSiTuan";
 import { CHANNELS } from "../form-ui";
+import { canCheckin, type ClinicRole } from "../../../lib/roles";
 import { useGiuCho } from "./dung-giu-cho";
 import { type ThongTinKhung } from "./cho-trong";
 import NewPatientForm, {
@@ -77,6 +78,8 @@ interface Props {
   provinces: ProvinceOpt[];
   patients: PatientLite[];
   appts: ApptLite[];
+  /** Vai của người đang mở màn — quyết định kênh đặt nào hiện ra. */
+  vai?: ClinicRole | null;
   /** Khách này đã khám mấy lần, và có đang trong chuỗi tái khám không.
    *  Khoá = clinic_patient_id. Thiếu khoá = chưa khám lần nào. */
   lanKham?: Record<string, { soLanKham: number; laTaiKham: boolean }>;
@@ -304,6 +307,7 @@ export default function BookingHub({
   patients,
   appts,
   lanKham,
+  vai = null,
 }: Props) {
   const router = useRouter();
   const policy = useBookingPolicy();
@@ -1188,7 +1192,7 @@ export default function BookingHub({
                       trang này đã có thanh ba bước của nó ở trên đầu, hai thanh
                       chồng nhau thì không thanh nào đáng tin. */}
                   <NewPatientForm
-                    role="CSKH"
+                    role={vai ?? "CSKH"}
                     locations={locations}
                     coSoMacDinhId={coSoMacDinhId}
                     services={cleanServices}
@@ -1495,7 +1499,9 @@ export default function BookingHub({
                   onChange={(e) => setKenhDat(e.target.value)}
                   className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
                 >
-                  {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
+                  {CHANNELS.filter(
+                    (c) => c.id !== "WALK_IN" || canCheckin(vai),
+                  ).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.label}
                     </option>
