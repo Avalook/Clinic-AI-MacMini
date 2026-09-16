@@ -10,6 +10,9 @@
 //
 // Chuỗi dựng sẵn ở page.tsx (ChuoiKham); ở đây chỉ vẽ.
 
+import { useState } from "react";
+import { FileText } from "lucide-react";
+import HoSoKhamModal from "../_lam-viec/HoSoKham";
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
 const NHAN_TRANG_THAI: Record<string, string> = {
@@ -32,7 +35,9 @@ function ngay(iso: string): string {
 }
 
 function dangMo(l: LuotKham): boolean {
-  return ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"].includes(l.status);
+  return ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"].includes(
+    l.status,
+  );
 }
 
 export default function ThanhLuotKham({
@@ -47,63 +52,94 @@ export default function ThanhLuotKham({
   luotConViec: ReadonlySet<string>;
   onChonLuot: (id: string) => void;
 }) {
+  const [xemHoSo, setXemHoSo] = useState(false);
+  const luotChon = chuoi
+    .flatMap((c) => c.luot)
+    .find((l) => l.id === luotDangXem);
+  // Hồ sơ khám chỉ có từ lúc khách đã vào khám (check-in trở đi).
+  const coHoSo =
+    luotChon?.status === "CHECKED_IN" || luotChon?.status === "COMPLETED";
   if (chuoi.length === 0) {
-    return <p className="mt-1 text-label text-ink-muted">Khách chưa có lượt khám nào.</p>;
+    return (
+      <p className="mt-1 text-label text-ink-muted">
+        Khách chưa có lượt khám nào.
+      </p>
+    );
   }
   return (
-    <div
-      role="tablist"
-      aria-label="Các lượt khám của khách"
-      className="mt-2 flex gap-3 overflow-x-auto pb-1"
-    >
-      {chuoi.map((c, i) => {
-        const dau = c.luot[0]!;
-        const moDot = c.luot.some(dangMo);
-        return (
-          <div key={dau.id} className="shrink-0">
-            <p className="mb-1 text-label font-semibold text-ink-muted">
-              {dau.service_name ?? "Chưa chọn dịch vụ"}
-              <span className="font-normal text-ink-faint">
-                {moDot ? " · đợt đang mở" : " · đã xong"}
-              </span>
-            </p>
-            <div className="flex gap-1.5">
-              {c.luot.map((l, j) => {
-                const chon = l.id === luotDangXem;
-                return (
-                  <button
-                    key={l.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={chon}
-                    onClick={() => onChonLuot(l.id)}
-                    className={`relative rounded-control px-2.5 py-1.5 text-left text-label ring-1 ring-inset ${
-                      chon
-                        ? "bg-brand-600 font-semibold text-white ring-brand-600"
-                        : dangMo(l)
-                          ? "bg-surface text-ink ring-brand-300 hover:bg-brand-50"
-                          : "bg-surface-muted text-ink-soft ring-line hover:bg-surface-sunken"
-                    }`}
-                  >
-                    {luotConViec.has(l.id) && (
-                      <span
-                        aria-label="còn việc chưa xong"
-                        className="absolute -right-1 -top-1 size-2.5 rounded-full bg-danger ring-2 ring-surface"
-                      />
-                    )}
-                    <span className="block tabular-nums">{ngay(l.slot_start)}</span>
-                    <span className="block">
-                      {j === 0 ? "Lần đầu" : `Tái khám ${j}`} ·{" "}
-                      {NHAN_TRANG_THAI[l.status] ?? l.status}
-                    </span>
-                  </button>
-                );
-              })}
+    <>
+      <div
+        role="tablist"
+        aria-label="Các lượt khám của khách"
+        className="mt-2 flex gap-3 overflow-x-auto pb-1"
+      >
+        {chuoi.map((c, i) => {
+          const dau = c.luot[0]!;
+          const moDot = c.luot.some(dangMo);
+          return (
+            <div key={dau.id} className="shrink-0">
+              <p className="mb-1 text-label font-semibold text-ink-muted">
+                {dau.service_name ?? "Chưa chọn dịch vụ"}
+                <span className="font-normal text-ink-faint">
+                  {moDot ? " · đợt đang mở" : " · đã xong"}
+                </span>
+              </p>
+              <div className="flex gap-1.5">
+                {c.luot.map((l, j) => {
+                  const chon = l.id === luotDangXem;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={chon}
+                      onClick={() => onChonLuot(l.id)}
+                      className={`relative rounded-control px-2.5 py-1.5 text-left text-label ring-1 ring-inset ${
+                        chon
+                          ? "bg-brand-600 font-semibold text-white ring-brand-600"
+                          : dangMo(l)
+                            ? "bg-surface text-ink ring-brand-300 hover:bg-brand-50"
+                            : "bg-surface-muted text-ink-soft ring-line hover:bg-surface-sunken"
+                      }`}
+                    >
+                      {luotConViec.has(l.id) && (
+                        <span
+                          aria-label="còn việc chưa xong"
+                          className="absolute -right-1 -top-1 size-2.5 rounded-full bg-danger ring-2 ring-surface"
+                        />
+                      )}
+                      <span className="block tabular-nums">
+                        {ngay(l.slot_start)}
+                      </span>
+                      <span className="block">
+                        {j === 0 ? "Lần đầu" : `Tái khám ${j}`} ·{" "}
+                        {NHAN_TRANG_THAI[l.status] ?? l.status}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {i < chuoi.length - 1 && <span className="sr-only">,</span>}
             </div>
-            {i < chuoi.length - 1 && <span className="sr-only">,</span>}
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {luotChon && coHoSo && (
+        <button
+          type="button"
+          onClick={() => setXemHoSo(true)}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-control bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-100"
+        >
+          <FileText className="size-4" aria-hidden="true" />
+          Xem hồ sơ khám lượt {ngay(luotChon.slot_start)} · tải PDF
+        </button>
+      )}
+      {xemHoSo && luotChon && (
+        <HoSoKhamModal
+          appointmentId={luotChon.id}
+          onDong={() => setXemHoSo(false)}
+        />
+      )}
+    </>
   );
 }
