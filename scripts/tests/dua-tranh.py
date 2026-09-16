@@ -62,6 +62,11 @@ VAI = {
     )
 }
 
+#: Mật khẩu riêng từng vai. Trên máy chủ thật, người thật dùng một mật khẩu còn
+#: vài tài khoản thử cũ (thu ngân, dược sĩ) vẫn giữ mật khẩu cũ — thiếu chỗ này
+#: thì hai kịch bản cuối im lặng bị bỏ qua và nhìn như "hệ chưa có tính năng".
+MAT_KHAU_VAI = {v: os.environ.get(f"MK_{v}", "") for v in VAI}
+
 dat = hong = 0
 bo_qua = 0
 
@@ -82,7 +87,9 @@ def bo(ten: str, ly_do: str) -> None:
     print(f"  – {ten:<52} bỏ qua: {ly_do}")
 
 
-async def token(http: httpx.AsyncClient, email: str) -> str | None:
+async def token(
+    http: httpx.AsyncClient, email: str, mat_khau: str | None = None
+) -> str | None:
     """Lấy token, có nhịp nghỉ và một lần thử lại.
 
     GoTrue giới hạn số lần đăng nhập trong một khoảng ngắn. Script này mở
@@ -94,7 +101,7 @@ async def token(http: httpx.AsyncClient, email: str) -> str | None:
         r = await http.post(
             f"{SB}/auth/v1/token?grant_type=password",
             headers={"apikey": ANON, "Content-Type": "application/json"},
-            json={"email": email, "password": PW},
+            json={"email": email, "password": mat_khau or PW},
         )
         if r.status_code == 200:
             return str(r.json().get("access_token") or "") or None
@@ -197,7 +204,7 @@ async def main() -> int:
     http = httpx.AsyncClient(timeout=40.0)
     phien: dict[str, Phien] = {}
     for vai, email in VAI.items():
-        t = await token(http, email)
+        t = await token(http, email, MAT_KHAU_VAI.get(vai) or None)
         if not t:
             print(f"Không đăng nhập được {vai} ({email})", file=sys.stderr)
             continue
@@ -744,7 +751,7 @@ async def rollback() -> int:
         print("Không có dấu vết để dọn.")
         return 0
     http = httpx.AsyncClient(timeout=40.0)
-    t = await token(http, VAI["quanly"])
+    t = await token(http, VAI["quanly"], MAT_KHAU_VAI.get("quanly") or None)
     if not t:
         print("Không đăng nhập được vai quản lý.", file=sys.stderr)
         return 1
