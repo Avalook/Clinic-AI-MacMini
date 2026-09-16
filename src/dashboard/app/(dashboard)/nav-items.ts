@@ -382,6 +382,16 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   T4_BIO_DD: ["/phong/KN-SAN-BIO"],
 
   DIEU_PHOI: ["/truong-ca", "/truong-ca/hang-doi", "/customers"],
+
+  // Thư ký đi kèm từng bác sĩ (17/09/2026).
+  T1_TT_TK: ["/phong/KN-THUTHUAT"],
+  T1_SA_TK: ["/phong/KN-SA-T1"],
+  T1_TTNG_TK: ["/phong/KN-TTNG"],
+  T4_SANCHAU_TK: ["/ban-kham/KN-SANCHAU", "/phong/KN-SANCHAU"],
+  T4_SANCHAU_TKTT: ["/phong/KN-SANCHAU"],
+  T4_SAN_TK: ["/ban-kham/KN-SAN-BIO", "/phong/KN-SAN-BIO"],
+  T4_SA_TK1: ["/phong/KN-SA1"],
+  T4_SA_TK2: ["/phong/KN-SA2"],
 };
 
 // ── NHÓM VAI TRÊN THANH BÊN (Tuyền chốt 16/09/2026) ─────────────────────────
@@ -436,6 +446,14 @@ export const NHOM_THEO_VI_TRI: Readonly<Record<string, NhomVai>> = {
   T4_SA_BS1: "BS_SIEU_AM",
   T4_SA_BS2: "BS_SIEU_AM",
   DIEU_PHOI: "TRUONG_CA",
+  T1_TT_TK: "THU_KY",
+  T1_SA_TK: "THU_KY",
+  T1_TTNG_TK: "THU_KY",
+  T4_SANCHAU_TK: "THU_KY",
+  T4_SANCHAU_TKTT: "THU_KY",
+  T4_SAN_TK: "THU_KY",
+  T4_SA_TK1: "THU_KY",
+  T4_SA_TK2: "THU_KY",
 };
 
 // Một người hai vai trong ngày: LỄ TÂN Ở TRÊN, ĐIỀU DƯỠNG Ở DƯỚI (Tuyền 17/09/2026).

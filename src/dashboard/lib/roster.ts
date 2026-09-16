@@ -54,29 +54,37 @@ export const STATIONS: Station[] = [
 
   { key: "T1_TT_BS", label: "BS thủ thuật", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "BAC_SI" },
   { key: "T1_TT_DD", label: "Điều dưỡng thủ thuật", short: "Điều dưỡng", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "DIEU_DUONG" },
+  { key: "T1_TT_TK", label: "Thư ký thủ thuật", short: "Thư ký", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "DIEU_DUONG" },
 
   { key: "T1_SA_BS", label: "BS siêu âm (tầng 1)", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "BAC_SI" },
   { key: "T1_SA_DD", label: "Điều dưỡng siêu âm (tầng 1)", short: "Điều dưỡng", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T1_SA_TK", label: "Thư ký siêu âm 1", short: "Thư ký", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "DIEU_DUONG" },
 
   { key: "T1_TTNG_BS", label: "BS thủ thuật ngoài giờ", short: "BS", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "BAC_SI" },
   { key: "T1_TTNG_DD1", label: "Điều dưỡng ngoài giờ 1", short: "Điều dưỡng 1", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
   { key: "T1_TTNG_DD2", label: "Điều dưỡng ngoài giờ 2", short: "Điều dưỡng 2", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
+  { key: "T1_TTNG_TK", label: "Thư ký thủ thuật ngoài giờ", short: "Thư ký", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
 
   { key: "T2_XEPTHUOC", label: "Xếp thuốc + Giải thích thuốc", short: "Xếp thuốc + Giải thích thuốc", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
   { key: "T2_TAODON", label: "Tạo đơn thuốc + Thu ngân", short: "Tạo đơn thuốc + Thu ngân", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
 
   { key: "T4_SANCHAU_BS", label: "BS Sàn chậu", short: "BS Sàn chậu", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
+  { key: "T4_SANCHAU_TK", label: "Thư ký Sàn chậu", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
   { key: "T4_SANCHAU_BSTT", label: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách)", short: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách bao quy đầu âm vật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
+  { key: "T4_SANCHAU_TKTT", label: "Thư ký thủ thuật Sàn chậu", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
   { key: "T4_SANCHAU_DD", label: "Điều dưỡng Sàn chậu (phụ khám, ghế Starformer, thủ thuật)", short: "Điều dưỡng Sàn chậu (Phụ khám Sàn chậu, Ghế Starformer, Thủ thuật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
 
   { key: "T4_SAN_BS", label: "BS Sản", short: "BS Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "BAC_SI" },
+  { key: "T4_SAN_TK", label: "Thư ký Sản", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
   { key: "T4_SAN_DD", label: "Điều dưỡng Sản", short: "Điều dưỡng Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
   { key: "T4_BIO_DD", label: "Điều dưỡng Bio", short: "Điều dưỡng Bio", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
 
   { key: "T4_SA_BS1", label: "BS siêu âm 1", short: "BS 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "BAC_SI" },
   { key: "T4_SA_DD1", label: "Điều dưỡng siêu âm 1", short: "Điều dưỡng 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T4_SA_TK1", label: "Thư ký siêu âm 2", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
   { key: "T4_SA_BS2", label: "BS siêu âm 2", short: "BS 2", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "BAC_SI" },
   { key: "T4_SA_DD2", label: "Điều dưỡng siêu âm 2", short: "Điều dưỡng 2", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T4_SA_TK2", label: "Thư ký siêu âm 3", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
 
   // Sheet3 đòi MỌI loại buổi khám đều có: "Trưởng ca · Điều phối · 0-1 người".
   { key: "DIEU_PHOI", label: "Trưởng ca (điều phối)", short: "Trưởng ca", group: "Điều phối", floor: "Điều phối", phong: "—", nhom: "DIEU_DUONG" },
