@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { INPUT, LABEL } from "../form-ui";
 import { getFormSchema } from "../../../lib/form-schemas";
+import { chiaGiaiDoan } from "../../../lib/form-schemas/giai-doan";
 import AndrologyReview from "./AndrologyReview";
 import type {
   FormData,
@@ -125,6 +126,11 @@ export default function ServiceFormEngine({
   }
 
   const sections = schema.sections;
+  const giaiDoan = chiaGiaiDoan(sections);
+  // Mã giai đoạn thành id neo, kèm service_code: một bàn khám có thể mở HAI
+  // phiếu cùng lúc (Hiếm muộn gồm cả vợ lẫn chồng), trùng id là bấm "3. Khám"
+  // của phiếu dưới lại nhảy lên phiếu trên.
+  const idGiaiDoan = (ma: string) => `phieu-${schema.service_code}-${ma}`;
 
   /** Mục Cận lâm sàng: dài, và chỉ cần khi đã có kết quả trong tay. */
   const laCanLamSang = (title: string) =>
@@ -170,80 +176,126 @@ export default function ServiceFormEngine({
         <p className="text-sm text-ink-faint">Đang tải phiếu…</p>
       ) : (
         <>
-          {/* HAI CỘT XẾP GẠCH, CUỘN DỌC MỘT MẠCH.
-              Bản trước là thanh tab + "Mục trước / Mục sau": mỗi lần chỉ thấy
-              MỘT mục, nên đi hết phiếu Phụ khoa phải bấm 11 lần, phiếu Hiếm
-              muộn 20 lần — và không bao giờ nhìn được lý do khám cùng lúc với
-              chẩn đoán.
+          {/* THEO GIAI ĐOẠN LÂM SÀNG (Tuyền 16/09/2026: "form điền của bác sĩ
+              chưa khoa học lắm, tách ra cho dễ nhìn đã").
 
-              Dùng `columns` chứ không phải grid hai cột: các mục lệch nhau rất
-              xa (mục "Lý do khám" 1 trường nằm cạnh "Khám lâm sàng" 15 trường),
-              nên chia cứng sẽ để lại khoảng trắng so le. Xếp gạch thì thẻ tự
-              rơi vào cột nào còn chỗ. */}
-          <div className="[column-gap:0.75rem] lg:[columns:2]">
-            {sections.map((sec, i) => {
-              const cls = laCanLamSang(sec.title);
-              const mo = moThem[sec.title] ?? !cls;
-              const xong = sectionFilled(sec, values);
+              Bản trước đổ cả phiếu vào hai cột XẾP GẠCH — mục tự rơi vào cột
+              nào còn chỗ, nên thứ tự mắt đọc nhảy: mục 1 trên cùng bên trái,
+              mục 7 lại nằm trên cùng bên phải. Phiếu Hiếm muộn 21 mục đọc như
+              một trang báo bị cắt dán.
+
+              Nay: thanh giai đoạn ở đầu để nhảy nhanh, rồi từng giai đoạn là
+              một khối riêng, mục trong khối xếp MỘT CỘT từ trên xuống — đúng
+              trình tự bác sĩ suy luận: lý do → tiền sử → khám → cận lâm sàng →
+              chẩn đoán & xử trí → theo dõi. Chia nhóm ở lib/form-schemas/
+              giai-doan.ts, có bài kiểm chạy trên cả năm phiếu thật.
+
+              Thẩm mỹ để sau — Tuyền dặn rõ. Đây chỉ là cấu trúc. */}
+          <nav
+            aria-label="Các giai đoạn của phiếu"
+            className="mb-3 flex flex-wrap gap-1.5"
+          >
+            {giaiDoan.map((g, gi) => {
+              const daDien = g.muc.filter((m) => sectionFilled(m, values)).length;
               return (
-                <section
-                  key={sec.title}
-                  className="mb-3 break-inside-avoid rounded-card border border-line bg-surface p-3"
+                <a
+                  key={g.ma}
+                  href={`#${idGiaiDoan(g.ma)}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-ink-soft hover:bg-brand-50"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="grid size-5 shrink-0 place-items-center rounded-control bg-brand-50 text-label font-bold tabular-nums text-brand-700">
-                      {i + 1}
-                    </span>
-                    <h5 className="min-w-0 flex-1 text-sm font-semibold text-ink">
-                      {sec.title}
-                      {xong && <span className="ml-1.5 text-brand-600">✓</span>}
-                    </h5>
-                    {cls && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMoThem((m) => ({ ...m, [sec.title]: !mo }))
-                        }
-                        className="shrink-0 rounded-control px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted"
-                      >
-                        {mo ? "thu gọn" : `mở · ${sec.fields.length} trường`}
-                      </button>
-                    )}
-                  </div>
-
-                  {mo && (
-                    <>
-                      {!readOnly && coBinhThuong(sec) && (
-                        <div className="mt-2 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => datBinhThuong(sec)}
-                            className="rounded-lg border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-100"
-                          >
-                            Tất cả bình thường
-                          </button>
-                        </div>
-                      )}
-                      <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                        {sec.fields
-                          .filter((f) => isVisible(f, values))
-                          .map((f) => (
-                            <Field
-                              key={f.key}
-                              field={f}
-                              value={values[f.key]}
-                              disabled={readOnly}
-                              onChange={(v) => set(f.key, v)}
-                              onToggleGroup={(opt) => toggleGroup(f.key, opt)}
-                            />
-                          ))}
-                      </div>
-                    </>
-                  )}
-                </section>
+                  <span className="font-semibold tabular-nums text-brand-700">
+                    {gi + 1}
+                  </span>
+                  {g.ten}
+                  <span className="tabular-nums text-ink-faint">
+                    {daDien}/{g.muc.length}
+                  </span>
+                </a>
               );
             })}
-          </div>
+          </nav>
+
+          {giaiDoan.map((g, gi) => (
+            <section
+              key={g.ma}
+              id={idGiaiDoan(g.ma)}
+              aria-labelledby={`${idGiaiDoan(g.ma)}-ten`}
+              className="mb-4 scroll-mt-4"
+            >
+              <h5
+                id={`${idGiaiDoan(g.ma)}-ten`}
+                className="mb-2 flex items-baseline gap-2 border-b border-line pb-1 text-sm font-semibold text-ink"
+              >
+                <span className="tabular-nums text-brand-700">{gi + 1}.</span>
+                {g.ten}
+              </h5>
+              <div className="space-y-3">
+                {g.muc.map((sec) => {
+                  const soMuc = sections.indexOf(sec) + 1;
+                  const cls = laCanLamSang(sec.title);
+                  const mo = moThem[sec.title] ?? !cls;
+                  const xong = sectionFilled(sec, values);
+                  return (
+                    <div
+                      key={sec.title}
+                      className="rounded-card border border-line bg-surface p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-5 shrink-0 place-items-center rounded-control bg-brand-50 text-label font-bold tabular-nums text-brand-700">
+                          {soMuc}
+                        </span>
+                        <h6 className="min-w-0 flex-1 text-sm font-semibold text-ink">
+                          {sec.title}
+                          {xong && <span className="ml-1.5 text-brand-600">✓</span>}
+                        </h6>
+                        {cls && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMoThem((m) => ({ ...m, [sec.title]: !mo }))
+                            }
+                            className="shrink-0 rounded-control px-2 py-1 text-xs text-ink-muted hover:bg-surface-muted"
+                          >
+                            {mo ? "thu gọn" : `mở · ${sec.fields.length} trường`}
+                          </button>
+                        )}
+                      </div>
+
+                      {mo && (
+                        <>
+                          {!readOnly && coBinhThuong(sec) && (
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => datBinhThuong(sec)}
+                                className="rounded-lg border border-brand-100 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-800 transition-colors hover:bg-brand-100"
+                              >
+                                Tất cả bình thường
+                              </button>
+                            </div>
+                          )}
+                          <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                            {sec.fields
+                              .filter((f) => isVisible(f, values))
+                              .map((f) => (
+                                <Field
+                                  key={f.key}
+                                  field={f}
+                                  value={values[f.key]}
+                                  disabled={readOnly}
+                                  onChange={(v) => set(f.key, v)}
+                                  onToggleGroup={(opt) => toggleGroup(f.key, opt)}
+                                />
+                              ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
 
           {/* Chỉ phiếu Nam khoa mới có bảng đối chiếu ngưỡng. Đặt ở đây chứ
               không trong Field: nó đọc CẢ phiếu (tinh dịch đồ + khám bìu + nội
