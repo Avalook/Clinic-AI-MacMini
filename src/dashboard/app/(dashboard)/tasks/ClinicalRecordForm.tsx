@@ -93,7 +93,7 @@ interface Data {
 const EMPTY = {
   ly_do: "", benh_su: "", chan_doan: "", loi_dan: "",
   mach: "", nhiet_do: "", huyet_ap: "", nhip_tho: "", spo2: "",
-  can_nang: "", chieu_cao: "", bmi: "",
+  can_nang: "", chieu_cao: "", bmi: "", muc_do_dau: "",
   tuoi_thai: "", du_kien_sinh: "", chieu_cao_tc: "", nhip_tim_thai: "",
 };
 type Fields = typeof EMPTY;
@@ -216,6 +216,7 @@ function readDraft(d: Data["draft"]): Fields {
     mach: str(v.mach), nhiet_do: str(v.nhiet_do), huyet_ap: str(v.huyet_ap),
     nhip_tho: str(v.nhip_tho), spo2: str(v.spo2), can_nang: str(v.can_nang),
     chieu_cao: str(v.chieu_cao), bmi: str(v.bmi),
+    muc_do_dau: str(v.muc_do_dau),
     tuoi_thai: str(k.tuoi_thai), du_kien_sinh: str(k.du_kien_sinh),
     chieu_cao_tc: str(k.chieu_cao_tc), nhip_tim_thai: str(k.nhip_tim_thai),
   };
@@ -555,6 +556,7 @@ export default function ClinicalRecordForm({
     huyet_ap: f.huyet_ap,
     nhip_tho: f.nhip_tho,
     spo2: f.spo2,
+    muc_do_dau: f.muc_do_dau,
     can_nang: f.can_nang,
     chieu_cao: f.chieu_cao,
     bmi: f.bmi,
@@ -735,7 +737,7 @@ export default function ClinicalRecordForm({
           vitals: {
             mach: f.mach, nhiet_do: f.nhiet_do, huyet_ap: f.huyet_ap,
             nhip_tho: f.nhip_tho, spo2: f.spo2, can_nang: f.can_nang,
-            chieu_cao: f.chieu_cao, bmi: f.bmi,
+            chieu_cao: f.chieu_cao, bmi: f.bmi, muc_do_dau: f.muc_do_dau,
           },
           kham_thai: {
             tuoi_thai: f.tuoi_thai, du_kien_sinh: f.du_kien_sinh,
@@ -884,7 +886,7 @@ export default function ClinicalRecordForm({
       case 0:
         return [pm.allergies, pm.blood_type, pm.chronic, pm.surgical, pm.medications, pm.family, pm.notes].some(ne);
       case 1:
-        return [f.ly_do, f.benh_su, f.mach, f.nhiet_do, f.huyet_ap, f.nhip_tho, f.spo2, f.can_nang, f.chieu_cao, f.bmi, f.tuoi_thai, f.du_kien_sinh, f.chieu_cao_tc, f.nhip_tim_thai].some(ne);
+        return [f.ly_do, f.benh_su, f.mach, f.nhiet_do, f.huyet_ap, f.nhip_tho, f.spo2, f.can_nang, f.chieu_cao, f.bmi, f.muc_do_dau, f.tuoi_thai, f.du_kien_sinh, f.chieu_cao_tc, f.nhip_tim_thai].some(ne);
       case 2:
         return (data?.labs?.length ?? 0) > 0;
       case 3:
@@ -1174,6 +1176,9 @@ export default function ClinicalRecordForm({
               ["can_nang", "Cân nặng (kg)", "number", "0.1", 1, 300],
               ["chieu_cao", "Chiều cao (cm)", "number", "0.1", 20, 250],
               ["bmi", "BMI", "number", "0.1", 5, 80],
+              // Thang đau 0–10 — có trong phiếu giấy và trong bảng sinh hiệu
+              // từ 16/09/2026, nhưng thiếu ô nhập thì cột ấy vĩnh viễn rỗng.
+              ["muc_do_dau", "Mức độ đau (0–10)", "number", "1", 0, 10],
             ] as [keyof Fields, string, string, string | undefined, number, number][]).map(
               ([k, lbl, ty, st, lo, hi]) => {
                 // Cảnh báo: ô số → ngoài ngưỡng; Huyết áp → sai định dạng/bất thường.
