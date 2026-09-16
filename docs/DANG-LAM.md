@@ -47,7 +47,9 @@ Tuyền: *"điều dưỡng đang ngồi vào đo sinh hiệu thì phải có no
 - **Phòng siêu âm**: khối "Ảnh & video siêu âm" theo đúng lượt khám (record trả thêm `appointment_id`), ô xem nhanh + khung xem lớn phát video. Đối tác chọn được video.
 - 5 mục `/kham/*` GIỮ (chưa gộp theo phòng — chờ ma trận phòng → phiếu).
 
-**CHƯA LÀM TRÊN FINAL CLOUD**: code đã merge vào `~/clinicai` (02c0e94) nhưng **chưa dựng lại** api + dashboard, và **chưa bật** `KET_QUA_VIDEO_UPLOAD_ENABLED=true` trong `.env.prod` (lệnh bị chặn quyền, chờ Tuyền duyệt). Chưa dựng lại thì màn cũ vẫn chạy; chưa bật cờ thì tải video bị từ chối kèm lý do.
+**ĐÃ LÊN FINAL CLOUD** (Tuyền cho quyền): dựng lại api + dashboard, bật `KET_QUA_VIDEO_UPLOAD_ENABLED=true` trong `.env.prod`.
+
+**LỖI NGỦ ĐÔNG bắt được khi thử thật**: thư mục `.media/production` do Docker tự tạo với chủ `root`, api chạy uid 1000 → MỌI lần tải tệp đều 503 "Permission denied" từ ngày dựng máy (0 tệp từng được tải). Sửa bền ở 69889e3: service một-lần `media-quyen` trong compose chown thư mục trước khi api chạy. Thử lại: BS SA Giáp tải PNG/MP4/PDF → 201, đọc lại có Range → 206; `doi-tac-pk` gửi video → 201. Còn 4 tệp thử nằm trên máy (tên `thu-*`).
 
 ## -0010. Bảng lịch Y HỆT Excel + lịch 4 tuần tháng 9 (16/09/2026 khuya)
 
