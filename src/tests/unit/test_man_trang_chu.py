@@ -31,7 +31,10 @@ class TestKhoaPhongKham:
     def test_moi_cau_sql_rieng_deu_khoa_clinic_id(self) -> None:
         nguon = inspect.getsource(ManTrangChuService.goi_du_lieu)
         cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
-        assert len(cau) == 6, f"phải đúng 6 câu riêng, thấy {len(cau)}"
+        # 7 = 6 cũ + ô đen/NGHỈ của bảng lịch (16/09/2026). Con số ghim có chủ ý:
+        # câu thứ tám phải là một quyết định có ghi lại, không phải một dòng lén
+        # thêm vào đường chạy của MỌI lần mở trang chủ.
+        assert len(cau) == 7, f"phải đúng 7 câu riêng, thấy {len(cau)}"
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá:\n{c[:90]}"
 
@@ -169,8 +172,8 @@ async def test_o_checkin_chi_do_cho_quan_ly() -> None:
 @pytest.mark.asyncio
 async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     _, conn = await _goi(ClinicRole.RECEPTION)
-    # 3 đếm + roster + trực ca + bảng trạng thái = 6, cùng một _Conn.
-    assert len(conn.cac_cau) == 6
+    # 3 đếm + roster + ô đen/NGHỈ + trực ca + bảng trạng thái = 7, cùng một _Conn.
+    assert len(conn.cac_cau) == 7
 
 
 @pytest.mark.asyncio
@@ -180,6 +183,7 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         [
             "so_lieu",
             "roster",
+            "dong_ca",
             "truc_ca",
             "trang_thai_kham",
             "tuan_hen",
