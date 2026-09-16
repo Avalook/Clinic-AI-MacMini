@@ -15,6 +15,8 @@ from pydantic import ValidationError
 
 from clinicai.schemas.ops import (
     BackupStatus,
+    DeploySnapshot,
+    DeployStatus,
     LiveProbe,
     OpsHostSnapshot,
     OpsStatusResponse,
@@ -61,6 +63,8 @@ class OpsStatusService:
         # vào snapshot của host: diễn tập chạy tay, hiếm khi, và không nên phụ
         # thuộc vào nhịp của cỗ máy sinh snapshot.
         self._drill_file = self._status_file.with_name("restore-drill-status.json")
+        self._deploy_file = self._status_file.with_name("deploy-status.json")
+        self._deploy_history = self._status_file.with_name("deploy-history.jsonl")
 
     async def collect(self, *, now: datetime | None = None) -> OpsStatusResponse:
         observed_at = now or datetime.now(UTC)
@@ -68,6 +72,7 @@ class OpsStatusService:
         database = await self._probe_database()
 
         backup = self._backup_status(snapshot, observed_at, self._read_drill())
+        deploy = self._deploy_status(observed_at)
         security = self._security_findings(snapshot)
         overall = self._overall(snapshot, snapshot_state, database, backup, security)
 
@@ -81,6 +86,7 @@ class OpsStatusService:
             services=list(snapshot.services) if snapshot else [],
             host=snapshot.host if snapshot else None,
             backup=backup,
+            deploy=deploy,
             security=security,
             log_counts=snapshot.log_counts if snapshot else None,
         )
@@ -194,6 +200,52 @@ class OpsStatusService:
             drill_age_days=drill_age_days,
             drill_checks_passed=dat,
             drill_checks_failed=hong,
+        )
+
+    def _deploy_status(self, now: datetime) -> DeployStatus:
+        """Phiên bản đang chạy + lịch sử ngắn. Thiếu mốc → trả về rỗng, không nổ.
+
+        Thiếu mốc là chuyện BÌNH THƯỜNG ở một máy vừa dựng hoặc một bản deploy
+        chạy tay từ trước bản này — màn hình phải nói "chưa rõ" chứ không được
+        trắng hay 500.
+        """
+        moi_nhat: DeploySnapshot | None = None
+        try:
+            raw = self._deploy_file.read_text(encoding="utf-8")[:4096]
+            moi_nhat = DeploySnapshot.model_validate(json.loads(raw))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValidationError):
+            moi_nhat = None
+
+        gan_day: list[DeploySnapshot] = []
+        try:
+            # Mỗi dòng một JSON. Dòng hỏng thì BỎ DÒNG ẤY chứ không bỏ cả tệp:
+            # một lần ghi bị cắt giữa chừng không được xoá sạch lịch sử.
+            for dong in reversed(
+                self._deploy_history.read_text(encoding="utf-8")[-16384:]
+                .strip()
+                .splitlines()[-20:]
+            ):
+                try:
+                    gan_day.append(DeploySnapshot.model_validate(json.loads(dong)))
+                except (json.JSONDecodeError, ValidationError):
+                    continue
+        except (OSError, UnicodeDecodeError):
+            pass
+
+        if moi_nhat is None:
+            return DeployStatus(recent=gan_day)
+        luc = moi_nhat.deployed_at
+        if luc.tzinfo is None:
+            luc = luc.replace(tzinfo=UTC)
+        return DeployStatus(
+            deployed_at=luc,
+            age_hours=round(
+                max(0.0, (now - luc.astimezone(UTC)).total_seconds() / 3600), 1
+            ),
+            sha_short=moi_nhat.sha[:12] or None,
+            image_tag=moi_nhat.image_tag or None,
+            subject=moi_nhat.subject or None,
+            recent=gan_day,
         )
 
     @staticmethod

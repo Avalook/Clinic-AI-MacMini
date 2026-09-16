@@ -66,6 +66,33 @@ class RestoreDrillSnapshot(StrictModel):
     archive: str = Field(default="", max_length=200)
 
 
+class DeploySnapshot(StrictModel):
+    """Lần deploy gần nhất (scripts/deploy-backend.sh ghi ra)."""
+
+    format_version: Literal[1] = 1
+    deployed_at: datetime
+    sha: str = Field(default="", max_length=64)
+    environment: str = Field(default="", max_length=32)
+    image_tag: str = Field(default="", max_length=64)
+    subject: str = Field(default="", max_length=200)
+
+
+class DeployStatus(StrictModel):
+    """Phiên bản đang chạy + vài lần deploy gần đây.
+
+    Câu hỏi ĐẦU TIÊN khi có sự cố là "vừa có ai đổi gì không". Không có khối
+    này thì người trực phải ssh vào máy rồi `git log` — đúng lúc đang vội.
+    """
+
+    deployed_at: datetime | None = None
+    age_hours: float | None = Field(default=None, ge=0)
+    sha_short: str | None = Field(default=None, max_length=12)
+    image_tag: str | None = Field(default=None, max_length=64)
+    subject: str | None = Field(default=None, max_length=200)
+    #: Mới nhất trước. Rỗng khi chưa deploy lần nào qua script có ghi mốc.
+    recent: list[DeploySnapshot] = Field(default_factory=list, max_length=20)
+
+
 class LogCountsSnapshot(StrictModel):
     window_minutes: int = Field(ge=1, le=1_440)
     warnings: int = Field(ge=0)
@@ -126,5 +153,6 @@ class OpsStatusResponse(StrictModel):
     services: list[HostServiceSnapshot]
     host: HostMetricsSnapshot | None
     backup: BackupStatus
+    deploy: DeployStatus | None = None
     security: list[SecurityFinding]
     log_counts: LogCountsSnapshot | None

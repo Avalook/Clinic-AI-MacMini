@@ -221,6 +221,42 @@ export default function OpsCenter() {
       </div>
 
       <section>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><FileClock size={17} /> Vừa có ai đổi gì không</h2>
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-control border border-line bg-surface p-3">
+            <p className="text-xs text-ink-muted">Phiên bản đang chạy</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{summary.deploy.shaShort ?? "chưa rõ"}</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {summary.deploy.ageHours === null
+                ? "Chưa có mốc deploy nào — bản này deploy trước khi script ghi mốc, hoặc máy vừa dựng."
+                : `deploy ${fmtNumber(summary.deploy.ageHours)} giờ trước${summary.deploy.imageTag ? ` · ${summary.deploy.imageTag}` : ""}`}
+            </p>
+            {summary.deploy.subject ? (
+              <p className="mt-1 text-xs text-ink">{summary.deploy.subject}</p>
+            ) : null}
+          </div>
+          <div className="rounded-control border border-line bg-surface p-3 md:col-span-2">
+            <p className="text-xs text-ink-muted">Vài lần deploy gần đây</p>
+            {summary.deploy.recent.length === 0 ? (
+              <p className="mt-1 text-xs text-ink-muted">Chưa có lịch sử.</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {summary.deploy.recent.slice(0, 5).map((d) => (
+                  <li key={`${d.sha}-${d.deployedAt}`} className="flex gap-2 text-xs">
+                    <span className="shrink-0 text-ink-muted">
+                      {d.deployedAt ? new Date(d.deployedAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </span>
+                    <span className="shrink-0 font-mono text-ink-muted">{d.sha.slice(0, 7)}</span>
+                    <span className="truncate text-ink">{d.subject}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText size={17} /> Công cụ chuyên sâu</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <ToolLink href={links.logs} title="Log realtime · Dozzle" detail="Mở ở tab riêng, không đưa log bệnh nhân vào dashboard." icon={<ScrollText size={18} />} />

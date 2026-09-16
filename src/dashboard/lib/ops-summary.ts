@@ -35,6 +35,17 @@ export interface OpsSummary {
     drillChecksPassed: number | null;
     drillChecksFailed: number | null;
   };
+  // PHIÊN BẢN ĐANG CHẠY + vài lần deploy gần đây. Câu hỏi đầu tiên khi có sự cố
+  // là "vừa có ai đổi gì không"; không có khối này thì phải ssh vào máy rồi
+  // `git log` — đúng lúc đang vội.
+  deploy: {
+    deployedAt: string | null;
+    ageHours: number | null;
+    shaShort: string | null;
+    imageTag: string | null;
+    subject: string | null;
+    recent: Array<{ deployedAt: string | null; sha: string; subject: string }>;
+  };
   security: Array<{
     id: string;
     label: string;
@@ -137,6 +148,14 @@ export function emptyOpsSummary(): OpsSummary {
       drillChecksPassed: null,
       drillChecksFailed: null,
     },
+    deploy: {
+      deployedAt: null,
+      ageHours: null,
+      shaShort: null,
+      imageTag: null,
+      subject: null,
+      recent: [],
+    },
     security: [],
     logCounts: null,
   };
@@ -225,6 +244,28 @@ export function normalizeOpsPayload(payload: unknown): OpsSummary {
     ),
   };
 
+  const deployRaw = record(root.deploy);
+  const deploy = {
+    deployedAt: text(deployRaw?.deployed_at ?? deployRaw?.deployedAt),
+    ageHours: finiteNumber(deployRaw?.age_hours ?? deployRaw?.ageHours),
+    shaShort: text(deployRaw?.sha_short ?? deployRaw?.shaShort),
+    imageTag: text(deployRaw?.image_tag ?? deployRaw?.imageTag),
+    subject: text(deployRaw?.subject),
+    recent: Array.isArray(deployRaw?.recent)
+      ? deployRaw.recent.flatMap((v) => {
+          const r = record(v);
+          if (!r) return [];
+          return [
+            {
+              deployedAt: text(r.deployed_at ?? r.deployedAt),
+              sha: String(r.sha ?? "").slice(0, 12),
+              subject: String(r.subject ?? "").slice(0, 200),
+            },
+          ];
+        })
+      : [],
+  };
+
   const security = Array.isArray(root.security)
     ? root.security.flatMap((value) => {
         const item = record(value);
@@ -258,6 +299,7 @@ export function normalizeOpsPayload(payload: unknown): OpsSummary {
     services,
     host: diskUsedPercent === null ? null : { diskUsedPercent },
     backup,
+    deploy,
     security,
     logCounts:
       windowMinutes === null || warnings === null || errors === null
