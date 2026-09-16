@@ -20,6 +20,14 @@ Hai mươi khách, chia theo việc người thử cần làm:
     E. 2 khách CHỈ CÓ HỒ SƠ, chưa lịch    → CSKH tập đặt lịch cho khách cũ
     F. 2 khách CÓ LỊCH NGÀY MAI           → tập nhắc hẹn, đổi lịch, huỷ
     G. 1 khách ĐÃ HUỶ LỊCH                → xem lịch huỷ trông thế nào
+    H. 2 khách CÓ ĐƠN THUỐC chờ trả tiền  → thu ngân thuốc + dược sĩ
+    I. 2 khách CÓ DỊCH VỤ chờ trả tiền    → thu ngân dịch vụ
+    K. 1 khách ĐÃ TRẢ TIỀN xong           → quầy thu ngân trông ra sao khi xong
+    L. 2 khách CÓ CHỈ ĐỊNH GỬI RA NGOÀI   → đối tác có việc để gửi kết quả
+
+Bốn nhóm cuối thêm 16/09/2026, sau khi Tuyền chỉ ra hai màn chưa ai dựng được
+cảnh để bấm: quầy thu ngân và cửa gửi kết quả của đối tác. Một màn không có dữ
+liệu thì không phân biệt được "chạy đúng mà hôm nay rỗng" với "hỏng".
 """
 
 from __future__ import annotations
@@ -77,6 +85,14 @@ TEN = [
     "Hồ Ngọc Diệp",
     "Chu Thị Hạnh",
     "Lương Thị Kiều Oanh",
+    # Bảy tên cho bốn nhóm thêm sau (H, I, K, L).
+    "Đinh Thị Thanh Nga",
+    "Võ Thị Kim Phượng",
+    "Huỳnh Ngọc Trâm",
+    "Nguyễn Thị Bích Ngọc",
+    "Trương Mỹ Hạnh",
+    "Đoàn Thị Thu Thuỷ",
+    "Lâm Thị Cẩm Tú",
 ]
 
 
@@ -435,6 +451,202 @@ async def main() -> int:
             )
         da.append((TEN[19], "đã huỷ lịch"))
         print(f"   {TEN[19]:<24} {'đã huỷ lịch' if a else 'KHÔNG đặt được'}")
+
+    # ── Đường chung của bốn nhóm cuối ─────────────────────────────────────
+    #
+    # H, I, K, L đều cần MỘT người ngồi trước mặt bác sĩ: có lịch hôm nay, đã
+    # check-in, đã đo sinh hiệu, phiên khám đã mở. Viết bốn lần là bốn chỗ để
+    # lệch nhau; viết một lần thì bốn nhóm cùng đi qua đúng những cửa ấy.
+    async def den_ban_kham(i: int, ten: str) -> dict[str, Any] | None:
+        """Dựng một khách tới tận bàn khám. Trả visit_id + phiên khám đang mở."""
+        if not bs_hom_nay:
+            return None
+        kh = await tao(i, ten)
+        if not kh:
+            return None
+        bd, kt = khung(ctx, 0, i)
+        st, b = await phien["cskh"].goi(
+            "POST",
+            "/api/v1/appointments/bookings",
+            headers=khoa(),
+            json={
+                "clinic_patient_id": kh,
+                "service_type_id": loai["PHU_KHOA"],
+                "location_id": ctx["location_id"],
+                "slot_start": bd,
+                "slot_end": kt,
+                "doctor_id": bs_hom_nay["id"],
+                "booking_channel": "den_truc_tiep",
+            },
+        )
+        a = (b or {}).get("appointment_id")
+        if not a:
+            print(f"    {ten}: không đặt được lịch ({st})")
+            return None
+        await phien["letan"].goi(
+            "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
+        )
+        st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
+        luot = next(
+            (x for x in (bang or {}).get("luot", []) if x.get("ten") == ten), None
+        )
+        if not luot:
+            print(f"    {ten}: không thấy trong bảng lượt khám")
+            return None
+        await phien["dieuduong"].goi(
+            "POST",
+            f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
+            headers=khoa(),
+            json={"systolic": 116, "diastolic": 74, "pulse": 78},
+        )
+        st, bang = await p_bacsi.goi("GET", "/api/v1/luot-kham/bang")
+        luot = next(
+            (x for x in (bang or {}).get("luot", []) if x.get("ten") == ten), None
+        )
+        ph = ((luot or {}).get("phien") or [None])[0]
+        if not ph:
+            print(f"    {ten}: chưa mở được phiên khám")
+            return None
+        await p_bacsi.goi("POST", f"/api/v1/luot-kham/consultations/{ph['id']}/start")
+        return {
+            "clinic_patient_id": kh,
+            "appointment_id": a,
+            "visit_id": luot["visit_id"],
+            "phien_id": ph["id"],
+        }
+
+    # Hai quầy thu ngân là tài khoản THEO VỊ TRÍ, mới có từ 16/09 — máy nào chưa
+    # có thì bỏ nhóm ấy và NÓI RA, đừng để script chết giữa chừng và bỏ dở cả
+    # những nhóm sau nó.
+    async def phien_phu(email: str) -> Phien | None:
+        t = await token(http, email, None)
+        if not t:
+            return None
+        c = httpx.AsyncClient(timeout=60.0)
+        c.headers["Authorization"] = f"Bearer {t}"
+        c.headers["X-API-Key"] = KHOA_API
+        return Phien(c)
+
+    tn_dv = await phien_phu(
+        os.environ.get("TK_thungan_dv", "thu-ngan-dich-vu@dr4women.vn")
+    )
+
+    # ── H. 2 khách có ĐƠN THUỐC chờ trả tiền ──────────────────────────────
+    print("\nH. Có đơn thuốc, chờ thu ngân thuốc")
+    for i, thuoc in ((20, "Canxi"), (21, "Sắt")):
+        ban = await den_ban_kham(i, TEN[i])
+        if not ban:
+            continue
+        await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+            json={"body": f"Khám {TEN[i]}: ổn định. Kê {thuoc} uống sau ăn."},
+        )
+        st, _ = await p_bacsi.goi(
+            "POST",
+            "/api/v1/clinical-records",
+            json={
+                "appointment_id": ban["appointment_id"],
+                "clinic_patient_id": ban["clinic_patient_id"],
+                "expected_revision": 0,
+                "prescriptions": [
+                    {"drug_name": thuoc, "quantity": "10", "dosage": "1 viên/ngày"}
+                ],
+            },
+        )
+        ok = st in (200, 201)
+        da.append((TEN[i], "có đơn thuốc, chờ thu ngân thuốc"))
+        noi = f"đơn {thuoc}" if ok else f"KHÔNG kê được ({st})"
+        print(f"   {TEN[i]:<24} {noi}")
+
+    # ── I. 2 khách có DỊCH VỤ chờ trả tiền ────────────────────────────────
+    print("\nI. Có dịch vụ, chờ thu ngân dịch vụ")
+    cho_thu: list[tuple[str, str]] = []
+    for i in (22, 23):
+        ban = await den_ban_kham(i, TEN[i])
+        if not (ban and dvu):
+            continue
+        await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+            json={"body": f"Khám {TEN[i]}: chỉ định {dvu['ma']}."},
+        )
+        st, _ = await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+            headers=khoa(),
+            json={"service_codes": [dvu["ma"]]},
+        )
+        ok = st in (200, 201)
+        if ok:
+            cho_thu.append((TEN[i], ban["visit_id"]))
+        da.append((TEN[i], "có dịch vụ, chờ thu ngân dịch vụ"))
+        noi = f"đã chỉ định {dvu['ma']}" if ok else f"KHÔNG chỉ định được ({st})"
+        print(f"   {TEN[i]:<24} {noi}")
+
+    # ── K. 1 khách ĐÃ trả tiền xong ───────────────────────────────────────
+    print("\nK. Đã trả tiền xong")
+    ban = await den_ban_kham(24, TEN[24]) if tn_dv else None
+    if not tn_dv:
+        print("   (bỏ nhóm: chưa đăng nhập được tài khoản thu ngân dịch vụ)")
+    elif ban and dvu:
+        await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+            headers=khoa(),
+            json={"service_codes": [dvu["ma"]]},
+        )
+        st, phi = await tn_dv.goi("GET", f"/api/v1/visits/{ban['visit_id']}/charges")
+        # Trả ĐÚNG số tiền hệ thống tính, không bịa một con số tròn: một khoản
+        # thu lệch với bảng giá là thứ người thử sẽ tưởng là lỗi của phần mềm.
+        tien = (phi or {}).get("total") or (phi or {}).get("tong") or 0
+        st, r = await tn_dv.goi(
+            "POST",
+            "/api/v1/payments",
+            headers=khoa(),
+            json={
+                "visit_id": ban["visit_id"],
+                "kind": "dich_vu",
+                "amount": int(float(tien or 0)),
+            },
+        )
+        ok = st in (200, 201)
+        da.append((TEN[24], "đã trả tiền xong"))
+        noi = f"đã thu {tien}" if ok else f"KHÔNG thu được ({st} {str(r)[:80]})"
+        print(f"   {TEN[24]:<24} {noi}")
+
+    # ── L. 2 khách có chỉ định GỬI RA NGOÀI ───────────────────────────────
+    #
+    # `node_definition.lam_ben_ngoai` quyết định việc nào hiện ra cho đối tác.
+    # Hai mã dưới đây thuộc hai bước khác nhau (lấy máu / lấy nước tiểu) để màn
+    # của đối tác có hơn một loại việc, chứ không phải hai dòng giống hệt nhau.
+    print("\nL. Chỉ định gửi ra ngoài (đối tác có việc để gửi kết quả)")
+    for i, ma_dv in ((25, "CLS_XET_NGHIEM_MAU"), (26, "CLS_NUOC_TIEU")):
+        ban = await den_ban_kham(i, TEN[i])
+        if not ban:
+            continue
+        await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/notes",
+            json={"body": f"Khám {TEN[i]}: gửi mẫu ra ngoài làm {ma_dv}."},
+        )
+        st, r = await p_bacsi.goi(
+            "POST",
+            f"/api/v1/luot-kham/consultations/{ban['phien_id']}/authorize-orders",
+            headers=khoa(),
+            json={"service_codes": [ma_dv]},
+        )
+        ok = st in (200, 201)
+        da.append((TEN[i], f"chờ kết quả từ đối tác ({ma_dv})"))
+        noi = (
+            f"đã gửi ra ngoài: {ma_dv}"
+            if ok
+            else f"KHÔNG chỉ định được ({st} {str(r)[:80]})"
+        )
+        print(f"   {TEN[i]:<24} {noi}")
+
+    if tn_dv:
+        await tn_dv.http.aclose()
 
     print(f"\n=== Đã dựng {len(da)} khách ===")
     for ten, tt in da:
