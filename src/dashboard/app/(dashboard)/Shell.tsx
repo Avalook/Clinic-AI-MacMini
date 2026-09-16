@@ -12,6 +12,8 @@ interface ShellProps {
   role: ClinicRole;
   identity: string;
   featureMode?: string;
+  /** Mã vị trí người này đứng hôm nay (GET /me/vi-tri-hom-nay). */
+  viTriHomNay?: readonly string[];
   leaveAction: () => void | Promise<void>;
   children: React.ReactNode;
 }
@@ -22,6 +24,7 @@ export default function Shell({
   role,
   identity,
   featureMode = "FULL_CLINIC",
+  viTriHomNay = [],
   leaveAction,
   children,
 }: ShellProps) {
@@ -149,6 +152,7 @@ export default function Shell({
             onNavigate={isMobile ? closeDrawer : undefined}
             isCollapsed={collapsed}
             featureMode={featureMode}
+            viTriHomNay={viTriHomNay}
           />
         </div>
 
@@ -233,7 +237,12 @@ export default function Shell({
       {/* Mobile bottom tab bar (<md). `featureMode` PHẢI truyền xuống: thiếu nó
           thì thanh dưới lọc khác thanh bên và điện thoại hiện lối vào những màn
           mà máy tính đã giấu. */}
-      <BottomNav role={role} onMenu={openDrawer} featureMode={featureMode} />
+      <BottomNav
+        role={role}
+        onMenu={openDrawer}
+        featureMode={featureMode}
+        viTriHomNay={viTriHomNay}
+      />
     </div>
   );
 }

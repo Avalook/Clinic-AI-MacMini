@@ -70,7 +70,7 @@ export default async function DashboardLayout({
   // `getClinicId()` ĐÃ BỎ khỏi khối này (06/08/2026): nó chỉ tồn tại để
   // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
   // token. Một truy vấn ít đi trên MỌI lần dựng trang.
-  const [declinedRows, bookingPolicy, featureMode, phamViThuKy] = await Promise.all([
+  const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri] = await Promise.all([
     canWriteIntake(role) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
     getFeatureMode(),
@@ -81,7 +81,13 @@ export default async function DashboardLayout({
           "/api/v1/thu-ky/pham-vi",
         )
       : Promise.resolve(null),
+    // Thanh bên theo VỊ TRÍ hôm nay (Tuyền 16/09/2026). Đi CÙNG vòng với ba lời
+    // gọi kia — layout chạy lại ở mọi lần chuyển trang, nên thêm một vòng nối
+    // đuôi là thêm độ trễ cho MỌI màn. `null` (backend im) thì rơi về menu
+    // theo vai, không làm hỏng trang.
+    fetchFromBackend<{ vi_tri: string[] }>("/api/v1/me/vi-tri-hom-nay"),
   ]);
+  const viTriHomNay = viTri?.vi_tri ?? [];
   const thuKyChuaPhan =
     role === "TKYK" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);
 
@@ -97,7 +103,13 @@ export default async function DashboardLayout({
   return (
     <NotificationProvider staffId={staffId}>
       <BookingPolicyProvider policy={bookingPolicy}>
-        <Shell role={role} identity={identity} featureMode={featureMode} leaveAction={logout}>
+        <Shell
+          role={role}
+          identity={identity}
+          featureMode={featureMode}
+          viTriHomNay={viTriHomNay}
+          leaveAction={logout}
+        >
           {thuKyChuaPhan && (
             <div className="mb-3 rounded-card border border-warning bg-warning-bg px-4 py-3 text-sm text-warning">
               Bạn chưa được phân đi cùng bác sĩ nào nên chưa thấy khách. Báo quản

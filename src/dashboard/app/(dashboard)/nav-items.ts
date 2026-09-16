@@ -309,17 +309,96 @@ export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
 // bên bỏ các màn lâm sàng khi phòng khám chạy chế độ CSKH_ONLY, thanh dưới thì
 // không — nên trên điện thoại vẫn hiện lối vào những màn mà máy tính đã giấu.
 // Gộp về đây để hai chỗ không thể khác nhau nữa.
+// ── THANH BÊN THEO VỊ TRÍ (Tuyền chốt 16/09/2026) ─────────────────────────
+//
+// *"các node bên sidebar phải là theo vị trí chứ không ấn định"*.
+//
+// Hai tuần lịch Kim Ngưu: một điều dưỡng đứng tới TÁM vị trí ở ba tầng. Thanh
+// bên theo VAI cố định thì hôm cô ấy đứng quầy thuốc, menu vẫn mời vào màn siêu
+// âm, còn màn quầy thuốc thì phải đi tìm.
+//
+// Bảng dưới là thứ DUY NHẤT trả lời "đứng chỗ này thì cần màn nào". Nó là
+// chuyện trình bày nên nằm ở đây, không ở backend — backend chỉ trả dữ kiện
+// "hôm nay bạn đứng đâu" (`GET /me/vi-tri-hom-nay`). Mã khít `vi_tri_lam_viec`.
+//
+// Thứ tự màn TRONG một vị trí là thứ tự dùng: màn chính trước.
+export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
+  // Không có trong Excel — "bác sĩ trực hôm ấy".
+  LICH_KHAM: ["/doctor/board", "/appointments"],
+
+  T1_LETAN: ["/reception/queue", "/appointments", "/patients/new", "/reception/checkout"],
+  T1_THUNGAN: ["/cashier/board"],
+  // Sinh hiệu nhập ở hàng đợi tiếp nhận — `/luot-kham` đã gỡ khỏi menu 15/09.
+  T1_DOCHISO: ["/reception/queue"],
+  T1_LAYMAU: ["/lab-queue"],
+
+  T1_BS_NOITIET: ["/doctor/board", "/result-review"],
+  T1_HOIBENH: ["/doctor/board"],
+  T1_TKYK: ["/doctor/board"],
+
+  T1_TT_BS: ["/doctor/board"],
+  T1_TT_DD: ["/service-queue"],
+  T1_SA_BS: ["/sieu-am"],
+  T1_SA_DD: ["/sono"],
+  T1_TTNG_BS: ["/doctor/board"],
+  T1_TTNG_DD1: ["/service-queue"],
+  T1_TTNG_DD2: ["/service-queue"],
+
+  T2_XEPTHUOC: ["/pharmacy", "/pharmacy/consult"],
+  T2_TAODON: ["/cashier/board", "/pharmacy"],
+
+  T4_SANCHAU_BS: ["/doctor/board"],
+  T4_SANCHAU_BSTT: ["/doctor/board"],
+  T4_SANCHAU_DD: ["/service-queue"],
+  T4_SAN_BS: ["/doctor/board"],
+  T4_SAN_DD: ["/service-queue"],
+  T4_BIO_DD: ["/service-queue"],
+  T4_SA_BS1: ["/sieu-am"],
+  T4_SA_DD1: ["/sono"],
+  T4_SA_BS2: ["/sieu-am"],
+  T4_SA_DD2: ["/sono"],
+
+  DIEU_PHOI: ["/truong-ca", "/truong-ca/hang-doi", "/customers"],
+};
+
+/** Màn cần cho các vị trí hôm nay, theo thứ tự vị trí rồi thứ tự dùng, không lặp. */
+export function hrefTheoViTri(viTri: readonly string[]): string[] {
+  const ra: string[] = [];
+  for (const v of viTri) {
+    for (const h of MAN_THEO_VI_TRI[v] ?? []) if (!ra.includes(h)) ra.push(h);
+  }
+  return ra;
+}
+
 export function mucHienRa(
   role: ClinicRole | null,
   hienTrenThanhBen: (r: ClinicRole | null, href: string) => boolean,
   featureMode: string,
   clinicalHrefs: ReadonlySet<string>,
+  /** Mã vị trí người này đứng HÔM NAY. Rỗng = không có ca → menu theo vai. */
+  viTriHomNay: readonly string[] = [],
 ): NavItem[] {
-  return NAV.filter((item) => {
-    if (!hienTrenThanhBen(role, item.href)) return false;
-    if (featureMode === "CSKH_ONLY" && clinicalHrefs.has(item.href)) return false;
-    return true;
-  });
+  const conLai = (item: NavItem) =>
+    !(featureMode === "CSKH_ONLY" && clinicalHrefs.has(item.href));
+
+  // CÓ CA HÔM NAY → thanh bên là việc của hôm nay: Trang chủ, màn của từng vị
+  // trí, rồi Lịch làm việc để xem mai đứng đâu.
+  //
+  // QUẢN LÝ KHÔNG ÁP DỤNG. Quản lý không đứng vị trí; menu của họ là báo cáo,
+  // cấu hình, nhân sự — thu về theo vị trí là giấu mất đúng những màn ấy trong
+  // ngày họ lỡ được xếp một ca.
+  //
+  // RỖNG → rơi về menu theo vai như trước, chứ không để thanh bên trống trơn:
+  // người không có ca hôm nay vẫn phải vào được hệ thống để làm việc gì đó.
+  const theoViTri = role !== "MANAGEMENT" ? hrefTheoViTri(viTriHomNay) : [];
+  if (theoViTri.length > 0) {
+    const thuTu = ["/home", ...theoViTri, "/schedule"];
+    return thuTu
+      .map((h) => NAV.find((item) => item.href === h))
+      .filter((item): item is NavItem => item !== undefined && conLai(item));
+  }
+
+  return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));
 }
 
 // THANH DƯỚI TRÊN ĐIỆN THOẠI — bốn nút cho mỗi vai, chọn theo VIỆC CỦA VAI ẤY.

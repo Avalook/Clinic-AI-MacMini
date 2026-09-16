@@ -19,10 +19,12 @@ export default function BottomNav({
   role,
   onMenu,
   featureMode = "FULL_CLINIC",
+  viTriHomNay = [],
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
   featureMode?: string;
+  viTriHomNay?: readonly string[];
 }) {
   const pathname = usePathname();
   // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.
@@ -30,9 +32,20 @@ export default function BottomNav({
   // Bản trước gọi thẳng `NAV.filter(hienTrenThanhBen)` và bỏ qua featureMode,
   // nên khi phòng khám chạy chế độ CSKH_ONLY thì máy tính giấu các màn lâm sàng
   // còn điện thoại vẫn hiện lối vào. Hai thanh phải nói cùng một chuyện.
-  const visible = mucHienRa(role, hienTrenThanhBen, featureMode, CLINICAL_HREFS);
+  const visible = mucHienRa(
+    role,
+    hienTrenThanhBen,
+    featureMode,
+    CLINICAL_HREFS,
+    viTriHomNay,
+  );
   const allHrefs = visible.map((v) => v.href);
-  const tabs = mucThanhDuoi(role, visible, MAX_TABS);
+  // Có ca hôm nay thì `visible` ĐÃ xếp theo việc của hôm nay — lấy đầu danh sách
+  // là đúng. Bảng `THANH_DUOI` theo vai chỉ dành cho ngày không có ca.
+  const tabs =
+    viTriHomNay.length > 0 && role !== "MANAGEMENT"
+      ? visible.slice(0, MAX_TABS)
+      : mucThanhDuoi(role, visible, MAX_TABS);
 
   const tabClass = (active: boolean) =>
     [

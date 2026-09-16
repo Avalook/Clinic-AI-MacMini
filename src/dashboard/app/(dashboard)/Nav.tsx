@@ -20,8 +20,11 @@ export default function Nav({
   onNavigate,
   isCollapsed = false,
   featureMode = "FULL_CLINIC",
+  viTriHomNay = [],
 }: {
   role: ClinicRole | null;
+  /** Mã vị trí hôm nay — thanh bên đi theo việc thật (xem `mucHienRa`). */
+  viTriHomNay?: readonly string[];
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;
@@ -34,7 +37,13 @@ export default function Nav({
   const blinkHome = unread > 0 && pathname !== "/home";
   // Cùng hàm với thanh dưới (BottomNav) — xem `mucHienRa`. Trước đây mỗi bên
   // tự lọc và hai bên đã lệch nhau ở chế độ CSKH_ONLY.
-  const visible = mucHienRa(role, hienTrenThanhBen, featureMode, CLINICAL_HREFS);
+  const visible = mucHienRa(
+    role,
+    hienTrenThanhBen,
+    featureMode,
+    CLINICAL_HREFS,
+    viTriHomNay,
+  );
   const hrefs = visible.map((v) => v.href);
 
   // PHẢN HỒI TỨC THÌ KHI BẤM, KHÔNG PHẢI TỰ VẼ TRẠNG THÁI ĐANG-ĐẾN.
