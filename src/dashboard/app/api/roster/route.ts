@@ -10,6 +10,7 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
+import { MA_CA_KHAM_BAC_SI } from "@/lib/ca-kham-bac-si";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
@@ -154,22 +155,11 @@ export async function GET(request: Request) {
     .eq("week_start", tuan)
     .maybeSingle();
 
-  // CA KHÁM = mã `LICH_KHAM` hoặc MỌI vị trí bác sĩ của lịch mới (BS Nội tiết,
-  // BS Sản, BS siêu âm…) — cùng câu trả lời với hàm `la_ca_kham_bac_si` ở DB.
-  const { data: viTriBs } = await caller
-    .from("vi_tri_lam_viec")
-    .select("code")
-    .eq("nhom_nghe", "BAC_SI")
-    .eq("is_active", true);
-  const maCaKham = [
-    "LICH_KHAM",
-    ...((viTriBs as { code: string }[] | null) ?? []).map((r) => r.code),
-  ];
   const { data, error } = await caller
     .from("work_roster")
     .select("staff_id, staff_name")
     .eq("work_date", date)
-    .in("station", maCaKham)
+    .in("station", [...MA_CA_KHAM_BAC_SI])
     .eq("status", "APPROVED")
     .not("staff_id", "is", null);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
