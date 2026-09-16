@@ -37,6 +37,59 @@ lịch sử hội thoại.
 
 ---
 
+## 0000. Phiên 16/09/2026 (chiều) — Lễ tân · Trưởng ca · chốt lâm sàng
+
+Nối tiếp mục 000. **13 commit**, từ `6dedcc3` tới `f81cc9b`. Chưa push.
+
+### Đã xong
+· **CSKH (nốt)**: cột danh sách hẹp chỉ còn tên + mới/cũ; màn Đặt lịch bỏ hàng
+  lọc thừa, bỏ ô "Khung giờ khả dụng" (trùng popup), popup báo chỗ người khác
+  đang giữ (VÀNG, vẫn bấm được — giữ chỗ là tư vấn); lọc bác sĩ chuyển vào
+  chính cột "Bác sĩ" của bảng tuần và SỐNG QUA việc đổi khách.
+· **Lễ tân**: bỏ hẳn luồng "vãng lai" — nay chỉ là KÊNH ĐẶT "Trực tiếp"; mở
+  `/appointments` cho quầy (trước đó hai nút "Đặt lịch mới" đá về /home);
+  hàng đợi gộp một hàng chung kéo-thả tại chỗ, bỏ bảng "Thứ tự khám" riêng;
+  hai nút quy trình gộp thành "Vào khám"; bỏ 2 mục thanh bên thừa.
+· **Trưởng ca**: bốn ô số · "Điều phối nhanh" (dùng lại dữ liệu cảnh báo vốn
+  tải rồi vứt đi) · "Sơ đồ phòng đang dùng" theo tầng; BỎ "tuyến điều phối"
+  cứng, thay bằng **"Bác sĩ chỉ định gì"** kèm số người đang chờ ở từng bước;
+  thanh bên bỏ 5 mục (trưởng ca không làm thay người khác).
+· **Lâm sàng** (5 quyết định Tuyền chốt sau khi đối chiếu tài liệu bàn giao 618
+  dòng + phiếu chỉ định giấy + 14 ảnh thiết kế):
+  1. Điều dưỡng **chỉ ghi sinh hiệu** (đảo quyết định 29/6), khoá cả hai phía.
+  2. **Bật phiếu Nam khoa** qua đúng cổng duyệt `activate_clinical_form`.
+  3. **Nhịp thở · SpO₂ · BMI · thang đau** vào `vital_measurement` thật.
+  4. **Tệp kết quả**: bác sĩ / thư ký / điều dưỡng tải lên được, ngay trong hồ
+     sơ khám; tệp do bác sĩ tải thì được gửi ngay, người khác tải vẫn chờ duyệt.
+  5. **Kết quả siêu âm phụ khoa có ô cấu trúc** (tử cung, nội mạc, buồng trứng
+     ± AFC, phần phụ, dịch) — ô trống KHÁC số 0.
+· **Fixture**: `so_do_tang_demo.sql` (3 tầng, 14 phòng, khai `clinic_room_node`
+  còn thiếu bước "Khám") và `ngay_dieu_phoi_demo.sql` (đóng rác ngày cũ, dựng
+  18 lượt hôm nay, xếp phòng, 6 chỉ định đủ trạng thái). Chạy lại được.
+
+### Còn nợ — việc LỚN nhất trước mắt
+· **Bỏ luồng chỉ định cũ, giữ `service_order`** (Tuyền đã chốt, CHƯA làm). Ba
+  bước: mở luồng mới cho bác sĩ + thư ký → chạy đối chiếu một lượt khám thật →
+  gỡ luồng cũ (`order_services()` + OrderComposer). Câu phải hỏi khi tới bước
+  ba: chỉ định cũ trong database có cần chuyển sang bảng mới không.
+· Điều dưỡng gọi bệnh nhân ở hàng chờ dịch vụ (Tuyền chốt) — chưa dựng màn.
+· **Không** chặn "thanh toán trước khi thực hiện" (Tuyền: xong xuôi mới thu).
+· Kết quả xét nghiệm dạng bảng chỉ số + khoảng tham chiếu — CHƯA chốt; hiện đi
+  đường ô chữ + đính kèm tệp.
+· ~25 mã dịch vụ trong ảnh chưa có trong danh mục 39 mã; chưa có mã ICD-10.
+· Chưa kiểm 3 cỡ màn 375/768/1280 cho các màn mới.
+
+### Bẫy gặp trong phiên
+· `demo_clinic_day.sql` KHÔNG chạy lại được: mở đầu bằng `DELETE FROM visit` mà
+  `visit` là bảng chỉ-ghi-thêm.
+· Năm ràng buộc database bắt fixture viết đúng luật: `finished_at` khi việc về
+  trạng thái cuối · lượt INCOMPLETE phải có lý do · `consultation` cần
+  `round_no` + `kind` khớp nhau · huỷ lịch mã KHAC phải viết rõ lý do · trần
+  vãng lai 1 chỗ/khung.
+· Bài kiểm "gương hai chiều" bắt đúng chỗ bỏ sót: gỡ màn khỏi thanh bên mà quên
+  gỡ ở guard API.
+· `node --test` không nạp `.tsx` — hàm thuần phải nằm ở file `.ts` riêng.
+
 ## 000. Phiên 16/09/2026 — Làm lại VAI CSKH trên local (đã commit, chưa push)
 
 Tuyền chốt thứ tự: xong nghiệp vụ/giao diện/lỗi trên LOCAL theo từng vai, online
