@@ -37,6 +37,18 @@ lịch sử hội thoại.
 
 ---
 
+## -0011. Thanh bên tường minh + ảnh/video siêu âm (16/09/2026 khuya) — commit 02c0e94
+
+Tuyền: *"điều dưỡng đang ngồi vào đo sinh hiệu thì phải có node là đo sinh hiệu… siêu âm phải có chỗ up ảnh, video… đối tác cũng phải gửi file vào hệ thống… cứ tường minh ra ở bên sidebar"*.
+
+- **Màn mới `/do-sinh-hieu`**: khách hôm nay theo giờ check-in, hai nhóm Chờ đo / Đã đo, bấm là điền 10 chỉ số, lưu xong tự nhảy người kế. Vị trí `T1_DOCHISO` mở màn này.
+- **Đổi tên mục theo việc**: Tiếp đón khách · Đo sinh hiệu · Lấy mẫu xét nghiệm · Làm thủ thuật & dịch vụ · Điều dưỡng siêu âm · Khám siêu âm · Cấp thuốc · Điều phối ca · Khám bệnh (mọi loại). Tiêu đề trang đổi theo.
+- **Thanh bên có ca**: phần **Hôm nay** (việc của vị trí) + **Việc khác** (gập sẵn, tự mở khi đang đứng trong một màn của nó). Không ca / Quản lý: danh sách phẳng như cũ. Thanh dưới điện thoại không đổi.
+- **Phòng siêu âm**: khối "Ảnh & video siêu âm" theo đúng lượt khám (record trả thêm `appointment_id`), ô xem nhanh + khung xem lớn phát video. Đối tác chọn được video.
+- 5 mục `/kham/*` GIỮ (chưa gộp theo phòng — chờ ma trận phòng → phiếu).
+
+**CHƯA LÀM TRÊN FINAL CLOUD**: code đã merge vào `~/clinicai` (02c0e94) nhưng **chưa dựng lại** api + dashboard, và **chưa bật** `KET_QUA_VIDEO_UPLOAD_ENABLED=true` trong `.env.prod` (lệnh bị chặn quyền, chờ Tuyền duyệt). Chưa dựng lại thì màn cũ vẫn chạy; chưa bật cờ thì tải video bị từ chối kèm lý do.
+
 ## -0010. Bảng lịch Y HỆT Excel + lịch 4 tuần tháng 9 (16/09/2026 khuya)
 
 Tuyền gửi ảnh hai tuần Excel: "bảng nó phải dạng y hệt như này".
