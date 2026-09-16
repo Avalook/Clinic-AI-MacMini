@@ -308,12 +308,42 @@ async def main() -> int:
             nho, lon = (a, b) if len(a) < len(b) else (b, a)
             return len(nho) >= 2 and nho <= lon
 
+        # NHÓM NGHỀ LÀ MỘT PHẦN CỦA DANH TÍNH, không phải thuộc tính phụ.
+        #
+        # Luật "tập chữ, ít nhất hai chữ" vẫn để lọt hai ca thật, và cả hai đều
+        # là CSKH bị kéo sang thành điều dưỡng:
+        #
+        #   {phương, thuý} ⊂ {đỗ, thuý, phương, anh}
+        #       → CSKH Phương Thúy Nguyễn thành điều dưỡng Đỗ Thuý Phương Anh
+        #   bỏ dấu thì "Giàu" = "Giầu"
+        #       → CSKH Nguyễn Thị Ngọc Giàu thành điều dưỡng Nguyễn Thị Ngọc Giầu
+        #
+        # Hai người ấy nhận luôn ca trực của người khác. Danh sách nhân sự Kim
+        # Ngưu chỉ có BÁC SĨ và ĐIỀU DƯỠNG — không có CSKH, không có quản lý —
+        # nên một tên trong lịch không bao giờ được trỏ vào hồ sơ CSKH hay quản
+        # lý, dù chữ có trùng đến đâu.
+        vai_dieu_duong = {
+            "NURSE_ULTRASOUND",
+            "RECEPTION",
+            "TKYK",
+            "CASHIER",
+            "CASHIER_THUOC",
+            "CASHIER_DV",
+            "PHARMACIST",
+            "TRUONG_CA",
+        }
+        vai_bac_si = {"DOCTOR", "ULTRASOUND_DOCTOR"}
+
+        def hop_nhom(ten_lich: str, vai_db: str) -> bool:
+            la_bac_si = bool(re.match(r"^\s*(bs|dr)\b", ten_lich.strip(), flags=re.I))
+            return vai_db in (vai_bac_si if la_bac_si else vai_dieu_duong)
+
         db_chu = [(chu(r["full_name"]), dict(r)) for r in hien_co]
         ex_chu = [(chu(n["ten_day_du"]), n) for n in ds]
 
         def do_db(ten: str) -> list[dict[str, Any]]:
             c = chu(ten)
-            return [h for k, h in db_chu if trung(c, k)]
+            return [h for k, h in db_chu if trung(c, k) and hop_nhom(ten, h["role"])]
 
         def do_excel(ten: str) -> list[dict[str, Any]]:
             c = chu(ten)
