@@ -513,24 +513,39 @@ async def main() -> int:
         kh = await tao(i, ten)
         if not kh:
             return None
-        bd, kt = khung(ctx, 0, i)
-        st, b = await phien["cskh"].goi(
-            "POST",
-            "/api/v1/appointments/bookings",
-            headers=khoa(),
-            json={
-                "clinic_patient_id": kh,
-                "service_type_id": loai["PHU_KHOA"],
-                "location_id": ctx["location_id"],
-                "slot_start": bd,
-                "slot_end": kt,
-                "doctor_id": bs_hom_nay["id"],
-                "booking_channel": "den_truc_tiep",
-            },
-        )
-        a = (b or {}).get("appointment_id")
+        # TỰ DÒ KHUNG GIỜ, đừng suy ra từ số thứ tự khách.
+        #
+        # `khung(ctx, 0, n)` đẩy giờ hẹn ra xa dần theo n. Khách thứ 23 trở đi
+        # rơi ra ngoài giờ đóng cửa, và khi ấy hàm lặng lẽ trả về khung đầu buổi
+        # sáng — một giờ đã qua — nên máy chủ trả 422. Bốn khách cuối mất sạch
+        # vì một con số đếm, không vì luật nào cả.
+        #
+        # Nên ở đây hỏi thẳng: khung nào còn nhận thì lấy khung ấy. 409 nghĩa là
+        # khung đó đã đầy, đi tiếp; 422 nghĩa là khung không hợp lệ, cũng đi
+        # tiếp. Chỉ khi hết cả ngày mới chịu thua, và nói ra mã cuối cùng.
+        a = None
+        st = 0
+        for tt in range(30):
+            bd, kt = khung(ctx, 0, tt)
+            st, b = await phien["cskh"].goi(
+                "POST",
+                "/api/v1/appointments/bookings",
+                headers=khoa(),
+                json={
+                    "clinic_patient_id": kh,
+                    "service_type_id": loai["PHU_KHOA"],
+                    "location_id": ctx["location_id"],
+                    "slot_start": bd,
+                    "slot_end": kt,
+                    "doctor_id": bs_hom_nay["id"],
+                    "booking_channel": "den_truc_tiep",
+                },
+            )
+            a = (b or {}).get("appointment_id")
+            if a:
+                break
         if not a:
-            print(f"    {ten}: không đặt được lịch ({st})")
+            print(f"    {ten}: không còn khung nào nhận được lịch ({st})")
             return None
         await phien["letan"].goi(
             "POST", "/api/v1/luot-kham/check-in", json={"appointment_id": a}
