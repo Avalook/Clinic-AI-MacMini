@@ -2257,6 +2257,46 @@ class LuotKhamService:
                     cid,
                     vid,
                 )
+            if outcome in ("NO_SERVICES", "DONE"):
+                # BÁC SĨ KÝ KHÁM XONG HẲN = lịch hẹn COMPLETED (demo 17/09/2026).
+                # Quầy thu tiền và bước đóng lượt đều đợi mốc này; luồng khám mới
+                # chưa từng đặt nó nên lễ tân nhận "Bác sĩ chưa khám xong lượt
+                # này" dù bác sĩ đã ký. Chỉ khi không còn chỉ định đang dở.
+                hen = await conn.fetchval(
+                    """
+                    UPDATE appointment a
+                       SET status = 'COMPLETED', updated_at = now()
+                      FROM visit v
+                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                       AND a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                       AND a.status = 'CHECKED_IN'
+                       AND NOT EXISTS (
+                           SELECT 1 FROM service_order o
+                            WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+                              AND o.exec_status IN ('authorized', 'assigned',
+                                 'in_progress'))
+                    RETURNING a.id::text
+                    """,
+                    cid,
+                    vid,
+                )
+                if hen:
+                    await conn.execute(
+                        "UPDATE visit SET exam_completed_at = coalesce("
+                        "exam_completed_at, now()), updated_at = now()"
+                        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+                        cid,
+                        vid,
+                    )
+                    await record_event(
+                        conn,
+                        event_type="appointment.completed",
+                        aggregate_type="appointment",
+                        aggregate_id=hen,
+                        identity=identity,
+                        origin=ORIGIN,
+                        payload={"visit_id": vid, "boi": "luot_kham.kham_xong"},
+                    )
             await self._release_blocked(conn, cid, vid)
             await self._evaluate_rounds(conn, identity, vid)
             await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)

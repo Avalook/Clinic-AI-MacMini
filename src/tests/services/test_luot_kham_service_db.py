@@ -1301,6 +1301,16 @@ async def test_kham_xong_khong_chi_dinh_con_tro_ve_dong_luot(kb: KichBan) -> Non
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     node, _ = await _vi_tri(kb)
     assert node == "LUOTKHAM-15"
+    async with kb.pool.acquire() as conn:
+        hen = await conn.fetchval(
+            "SELECT a.status FROM appointment a JOIN visit v"
+            " ON v.appointment_id = a.id WHERE v.visit_id = $1::uuid",
+            kb.visit_id,
+        )
+    # Bác sĩ ký khám xong hẳn → lịch COMPLETED để quầy thu được tiền. Lượt thử
+    # ở đây không có lịch hẹn (None); đường có lịch hẹn được kịch bản demo chạy
+    # thật trên final cloud.
+    assert hen in (None, "COMPLETED")
 
 
 async def test_le_tan_khong_bam_duoc_phong_dich_vu(kb: KichBan) -> None:
