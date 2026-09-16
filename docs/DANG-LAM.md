@@ -66,10 +66,30 @@ tôi dựng tạm một tuần để thử rồi gỡ đi.
 
 Cả bốn đều là phép thử sai, không phải hệ thống sai.
 
+### SC-34/35/36 đã chạy nốt — và tìm ra một lỗi thật
+
+| | final mac | final cloud |
+|---|---|---|
+| SC-34 hai người cùng nhận một dịch vụ | ✅ 409/200 | ✅ 409/200 |
+| SC-35 bấm thanh toán 2 lần | ✅ 200/200, database 1 khoản | ✅ 200/200, database 1 khoản |
+| SC-36 bấm cấp thuốc 2 lần | ✅ 201/409, tồn trừ 1 | ✅ 201/409, tồn trừ 1 |
+
+**SC-36 ban đầu HỎNG THẬT**: hai lời gọi cấp 1 viên bắn cùng lúc, cả hai trả
+201, lô nhập 50 còn **48** — trừ tồn hai lần. `pharmacy.py` là cửa ghi DUY NHẤT
+trong hệ không có lớp chống gửi trùng, mà lại là cửa duy nhất động vào vật thật.
+Đã vá (`230ad82`), và ngay khi vá xong lộ thêm một lỗi thứ hai: lần bấm thứ hai
+trả **500** vì kết quả mang `Decimal` mà `json.dumps` của lớp ấy không nuốt
+được — người dùng sẽ thấy "lỗi máy chủ" cho một thao tác đã thành công.
+
+Vì sao `/payments` không cần lớp ấy mà vẫn đúng: mỗi lượt khám chỉ có một khoản
+thu mỗi loại nên ghi đè là đủ. Cấp thuốc thì **cấp một phần là hợp lệ**, nên hệ
+không thể tự phân biệt "bấm nhầm" với "cố ý cấp thêm" — khoá chống-gửi-trùng
+chính là chỗ người gọi nói ra điều đó.
+
 ### Còn lại của bộ SC
-Chưa chạy: SC-34 (hai phòng cùng nhận một bệnh nhân), SC-35/36 (bấm thanh toán
-/ cấp thuốc hai lần) — cần dựng trọn một lượt khám tới bước thanh toán. Nhóm
-ngoại lệ SC-06/10/11/12/17/18/27/28/29 cũng chưa.
+Nhóm ngoại lệ chưa chạy: SC-06 (đến lấy kết quả), SC-10 (check-in rồi về),
+SC-11, SC-12 (ra ngoài rồi quay lại), SC-17/18 (kết quả về sau, bản sửa),
+SC-27/28 (đến sớm/muộn), SC-29 (bác sĩ nghỉ đột xuất).
 
 ## -0003. Bản 15–16/09 đã LÊN VPS MỚI và chạy thật (16/09/2026 ~13:10)
 
