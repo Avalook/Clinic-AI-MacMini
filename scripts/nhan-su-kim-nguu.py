@@ -59,6 +59,31 @@ TEN_CO_SO = os.environ.get("CO_SO", "Kim Ngưu")
 #: Để trống nghĩa là chưa ai chốt, và script sẽ bỏ qua tên ấy chứ không đoán.
 PHAN_XU: dict[str, str] = {}
 
+#: 13 TÊN LUÔN ĐỂ TRỐNG — Tuyền chốt 16/09/2026: "13 tên kia để trống".
+#:
+#: Không dựa vào việc bộ ghép "tình cờ không khớp" chúng. `Phương Thúy` là bằng
+#: chứng: bộ ghép tự gán nó cho điều dưỡng `Đỗ Thuý Phương Anh` vì
+#: {phương, thuý} ⊂ {đỗ, thuý, phương, anh} — đúng cái tên đã bị gộp nhầm một
+#: lần trước đó. Lời hứa "để trống" phải là một danh sách, không phải hệ quả.
+#: So bằng `khoa_goi`, nên mọi cách viết (dấu chấm, khoảng trắng thừa) đều dính.
+DE_TRONG: frozenset[str] = frozenset(
+    {
+        "Thanh Huyền",
+        "Ngọc Giầu",
+        "BS Linh",
+        "Anh Vũ",
+        "Hồng Thơm",
+        "Ngát",
+        "Phương Liên",
+        "BS Thùy Linh",
+        "Trang A",
+        "Hiền",
+        "Xuân Anh",
+        "Ngát - CSKH",
+        "Phương Thúy",
+    }
+)
+
 #: Nhóm trong trang "Điện thoại nhân sự" → vai trong hệ thống.
 #: `BS.YHDP` = y học dự phòng; trong lịch người này đứng "Hỏi bệnh ban đầu".
 NHOM_SANG_VAI = {
@@ -359,6 +384,9 @@ async def nap_lich(
     trung_lap = 0
     for o in o_lich:
         ngay = tuan_dau + dt.timedelta(days=7 * int(o["tuan"]) + int(o["lech_ngay"]))
+        if khoa_goi(o["ten"]) in {khoa_goi(t) for t in DE_TRONG}:
+            trong[o["ten"].strip()] += 1
+            continue
         ten = PHAN_XU.get(o["ten"], o["ten"])
         ai = list({h["staff_id"]: h for h in do_db(ten)}.values())
         if len(ai) != 1:
