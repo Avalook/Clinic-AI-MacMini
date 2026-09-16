@@ -82,8 +82,14 @@ class TepKetQuaService:
         data: bytes,
         ten_hien_thi: str | None = None,
         appointment_id: str | None = None,
+        service_order_id: str | None = None,
     ) -> dict[str, Any]:
-        """Nhận một tệp kết quả và cất nó lên đĩa."""
+        """Nhận một tệp kết quả và cất nó lên đĩa.
+
+        `service_order_id`: tệp là kết quả của CHỈ ĐỊNH nào (siêu âm, xét
+        nghiệm…). Có nó thì kết quả đi đúng đường duyệt của chỉ định ấy; thiếu
+        nó thì tệp chỉ gắn với khách + lượt khám như trước.
+        """
         if not data:
             raise ValidationError("Tệp rỗng.")
         mime, ext, loai = sniff_ket_qua(data)
@@ -107,6 +113,24 @@ class TepKetQuaService:
             )
             if not ok:
                 raise NotFoundError("Không tìm thấy khách hàng này.")
+            if service_order_id:
+                cua_chi_dinh = await conn.fetchrow(
+                    "SELECT v.clinic_patient_id::text AS clinic_patient_id,"
+                    "       v.appointment_id::text AS appointment_id"
+                    "  FROM public.service_order o"
+                    "  JOIN public.visit v"
+                    "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
+                    " WHERE o.id = $1::uuid AND o.clinic_id = $2::uuid"
+                    "   AND o.exec_status NOT IN ('draft', 'cancelled')",
+                    service_order_id,
+                    identity.clinic_id,
+                )
+                if (
+                    cua_chi_dinh is None
+                    or cua_chi_dinh["clinic_patient_id"] != clinic_patient_id
+                ):
+                    raise ValidationError("Chỉ định này không phải của khách này.")
+                appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
             if appointment_id:
                 thuoc_ve = await conn.fetchval(
                     "SELECT 1 FROM public.appointment"
@@ -207,11 +231,13 @@ class TepKetQuaService:
                     (clinic_id, clinic_patient_id, appointment_id, khoa,
                      ten_hien_thi, loai_tep, mime, so_byte, sha256,
                      tai_len_boi_staff_id,
-                     cho_phep_gui_luc, cho_phep_gui_boi_staff_id)
+                     cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
+                     service_order_id)
                 VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                         $10::uuid,
                         CASE WHEN $11 THEN now() END,
-                        CASE WHEN $11 THEN $10::uuid END)
+                        CASE WHEN $11 THEN $10::uuid END,
+                        $12::uuid)
                 RETURNING id::text
                 """,
                 identity.clinic_id,
@@ -225,7 +251,18 @@ class TepKetQuaService:
                 hashlib.sha256(data).hexdigest(),
                 identity.staff_id,
                 identity.role in TU_CHO_PHEP_GUI,
+                service_order_id,
             )
+            if service_order_id:
+                # Mốc "đã có kết quả, chờ bác sĩ duyệt" của chỉ định.
+                await conn.execute(
+                    "UPDATE public.service_order"
+                    "   SET ket_qua_luc = coalesce(ket_qua_luc, now()),"
+                    "       updated_at = now()"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    service_order_id,
+                    identity.clinic_id,
+                )
 
         logger.info(
             "tep_ket_qua_tai_len",
@@ -254,7 +291,8 @@ class TepKetQuaService:
             """
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
                    t.tai_len_luc, t.gui_luc, t.gui_kenh,
-                   t.cho_phep_gui_luc,
+                   t.cho_phep_gui_luc, t.appointment_id::text,
+                   t.service_order_id::text,
                    s.full_name AS tai_len_boi,
                    g.full_name AS gui_boi,
                    b.full_name AS cho_phep_gui_boi

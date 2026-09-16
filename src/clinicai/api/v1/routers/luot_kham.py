@@ -178,6 +178,35 @@ async def hang_cho(
     )
 
 
+class DuyetKetQuaBody(BaseModel):
+    danh_gia: str | None = Field(default=None, max_length=5000)
+
+
+#: Duyệt kết quả là quyết định chuyên môn — không mở theo công tắc.
+_REVIEW_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+
+
+@router.get("/luot-kham/ket-qua-cho-duyet")
+async def ket_qua_cho_duyet(
+    identity: StaffIdentity = Depends(_REVIEW_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỉ định đã có kết quả, chờ bác sĩ đánh giá và cho phép gửi."""
+    return await LuotKhamService(pool).ket_qua_cho_duyet(identity=identity)
+
+
+@router.post("/luot-kham/orders/{order_id}/duyet-ket-qua")
+async def duyet_ket_qua(
+    order_id: UUID,
+    body: DuyetKetQuaBody,
+    identity: StaffIdentity = Depends(_REVIEW_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).duyet_ket_qua(
+        order_id=str(order_id), danh_gia=body.danh_gia, identity=identity
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/kham-xong")
 async def kham_xong(
     consultation_id: UUID,

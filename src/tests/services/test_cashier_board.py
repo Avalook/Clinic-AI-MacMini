@@ -57,8 +57,7 @@ def _raw(**over: object) -> dict[str, Any]:
                 "exam_service_name": "Khám phụ khoa",
             }
         ],
-        "labs": [],
-        "services": [],
+        "orders": [],
         "drugs": [],
         "prices": [
             {"name": "Khám phụ khoa", "group": "dich_vu", "unit_price": 300000},
@@ -91,11 +90,12 @@ class TestBuildingTheBill:
     def test_prices_match_through_the_link_noise(self) -> None:
         """Đúng cái làm giá biến mất trên màn thật."""
         raw = _raw(
-            services=[
+            orders=[
                 {
                     "id": "s1",
-                    "clinic_patient_id": "p1",
+                    "visit_id": "v1",
                     "name": "Siêu âm (https://notion.so/x)",
+                    "unit_price": None,
                 }
             ]
         )
@@ -132,37 +132,40 @@ class TestBuildingTheBill:
 
     def test_a_nameless_line_is_dropped_not_shown_blank(self) -> None:
         """Một dòng trống trên hoá đơn là thu ngân phải đoán nó là gì."""
-        raw = _raw(services=[{"id": "s1", "clinic_patient_id": "p1", "name": "  "}])
+        raw = _raw(orders=[{"id": "s1", "visit_id": "v1", "name": "  "}])
         assert (
             len(build_rows(raw, want_svc=True, want_rx=True)["items"][0]["services"])
             == 1
         )  # chỉ còn tiền khám
 
 
-class TestLabResultsFinallyReachTheBill:
-    """LỖI TIỀN BẠC CÓ SẴN, tìm ra ngày 04/08/2026.
+class TestOrdersAreTheOnlySourceOfServiceLines:
+    """Một nguồn chỉ định (16/09/2026): mọi dòng dịch vụ đến từ `service_order`.
 
-    Truy vấn cũ hỏi PostgREST `lab_result?select=id,...`, nhưng cột khoá tên là
-    `lab_result_id`. PostgREST trả lỗi 42703 và TSX nuốt bằng `?? []` — nên XÉT
-    NGHIỆM CHƯA BAO GIỜ vào hoá đơn thu ngân. Màn hình vẫn hiện tiền khám và
-    thuốc nên trông hoàn toàn bình thường; chỉ có tiền là thiếu.
+    Bài học 04/08 vẫn đúng: xét nghiệm từng không bao giờ vào hoá đơn vì truy
+    vấn đọc sai cột và TSX nuốt lỗi. Nay xét nghiệm, siêu âm, thủ thuật đều là
+    chỉ định — nên chỉ cần một nguồn đúng.
     """
 
-    def test_lab_results_appear_as_billable_lines(self) -> None:
-        raw = _raw(labs=[{"id": "l1", "appointment_id": "a1", "test_name": "Siêu âm"}])
-        names = [
-            s["name"]
+    def test_an_order_is_a_billable_line_priced_by_code(self) -> None:
+        raw = _raw(
+            orders=[
+                {"id": "o1", "visit_id": "v1", "name": "Siêu âm", "unit_price": 480000}
+            ]
+        )
+        dong = [
+            s
             for s in build_rows(raw, want_svc=True, want_rx=True)["items"][0][
                 "services"
             ]
+            if s["name"] == "Siêu âm"
         ]
-        assert "Siêu âm" in names
+        # Giá theo mã dịch vụ thắng giá tra theo tên (550000 trong bảng tên).
+        assert dong and dong[0]["price"] == 480000
 
-    def test_a_lab_result_of_another_appointment_does_not_leak_in(self) -> None:
-        """Ghép sai lịch hẹn là tính tiền của người này cho người khác."""
-        raw = _raw(
-            labs=[{"id": "l1", "appointment_id": "a-khac", "test_name": "Siêu âm"}]
-        )
+    def test_an_order_of_another_visit_does_not_leak_in(self) -> None:
+        """Ghép sai lượt khám là tính tiền của người này cho người khác."""
+        raw = _raw(orders=[{"id": "o1", "visit_id": "v-khac", "name": "Siêu âm"}])
         names = [
             s["name"]
             for s in build_rows(raw, want_svc=True, want_rx=True)["items"][0][
@@ -170,6 +173,12 @@ class TestLabResultsFinallyReachTheBill:
             ]
         ]
         assert "Siêu âm" not in names
+
+    def test_old_rails_are_not_read_any_more(self) -> None:
+        from clinicai.services import cashier_board_service as m
+
+        assert "service_log" not in m._SQL
+        assert "lab_result" not in m._SQL
 
 
 class TestWhatCountsAsAlreadyPaid:

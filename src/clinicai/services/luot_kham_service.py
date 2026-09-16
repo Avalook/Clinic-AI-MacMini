@@ -71,6 +71,9 @@ CONSULT_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.TKYK})
 NOTE_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.TKYK})
 DRAFT_ROLES = frozenset({ClinicRole.TKYK})
 DISPATCH_ROLES = frozenset({ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT})
+#: Duyệt kết quả + cho phép gửi (Notion v1.0.0: bác sĩ chính & bác sĩ siêu âm/xét
+#: nghiệm). Không nới theo công tắc — đây là quyết định chuyên môn.
+REVIEW_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
 PERFORMER_ROLES = frozenset(
     {ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR}
 )
@@ -2223,9 +2226,16 @@ class LuotKhamService:
             SELECT id::text AS id, exec_status, source,
                    authorized_by::text AS authorized_by, hold_until_round,
                    node_code, version
-              FROM service_order
+              FROM service_order o
              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                AND exec_status = 'authorized'
+               -- Đối tác tự lấy mẫu thì khách không xếp hàng ở phòng nào của
+               -- phòng khám — việc ấy nằm trên bàn đối tác.
+               AND NOT EXISTS (
+                   SELECT 1 FROM service_price sp
+                    WHERE sp.clinic_id = o.clinic_id
+                      AND sp.service_code = o.service_code
+                      AND sp.doi_tac_lay_mau)
              ORDER BY created_at, id
                FOR UPDATE
             """,
@@ -2252,7 +2262,7 @@ class LuotKhamService:
                   JOIN clinic_room_node rn
                     ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND rn.node_code = $2
-                   AND r.is_active AND r.accepting
+                   AND r.is_active AND r.accepting AND NOT r.la_doi_tac
                  ORDER BY
                    EXISTS (
                        SELECT 1 FROM work_roster w
@@ -2278,6 +2288,330 @@ class LuotKhamService:
             await self._gan_phong(conn, identity, vid=vid, oid=o["id"], rid=rid, o=o)
             da_xep.append(o["id"])
         return da_xep
+
+    # ------------------------------------------------------------------
+    # Kết quả: bác sĩ duyệt theo TỪNG chỉ định
+    # ------------------------------------------------------------------
+
+    async def ket_qua_cho_duyet(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Chỉ định đã có kết quả (tệp hoặc nội dung) mà bác sĩ chưa duyệt."""
+        _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT o.id::text AS id, o.service_name, o.node_code,
+                       o.result_note, o.ket_qua_luc, o.exec_status,
+                       o.visit_id::text AS visit_id,
+                       v.appointment_id::text AS appointment_id,
+                       p.clinic_patient_id::text AS clinic_patient_id,
+                       p.full_name, p.patient_code,
+                       d.full_name AS bac_si, v.attending_doctor_id::text AS bac_si_id,
+                       pf.full_name AS nguoi_lam
+                  FROM service_order o
+                  JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+                  JOIN patient p
+                    ON p.clinic_patient_id = v.clinic_patient_id
+                   AND p.clinic_id = v.clinic_id
+                  LEFT JOIN staff d ON d.id = v.attending_doctor_id
+                  LEFT JOIN staff pf ON pf.id = o.performed_by
+                 WHERE o.clinic_id = $1::uuid
+                   AND o.ket_qua_luc IS NOT NULL AND o.duyet_luc IS NULL
+                   AND o.exec_status NOT IN ('draft', 'cancelled')
+                   AND o.created_at > now() - interval '60 days'
+                 ORDER BY (v.attending_doctor_id = $2::uuid) DESC NULLS LAST,
+                          o.ket_qua_luc, o.id
+                 LIMIT 200
+                """,
+                cid,
+                identity.staff_id,
+            )
+            teps = await conn.fetch(
+                """
+                SELECT t.id::text AS id, t.service_order_id::text AS order_id,
+                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc
+                  FROM tep_ket_qua t
+                 WHERE t.clinic_id = $1::uuid
+                   AND t.service_order_id = ANY($2::uuid[])
+                 ORDER BY t.tai_len_luc
+                """,
+                cid,
+                [r["id"] for r in rows],
+            )
+        theo: dict[str, list[dict[str, Any]]] = {}
+        for t in teps:
+            theo.setdefault(t["order_id"], []).append(
+                {
+                    "id": t["id"],
+                    "ten": t["ten_hien_thi"],
+                    "loai_tep": t["loai_tep"],
+                    "mime": t["mime"],
+                    "so_byte": int(t["so_byte"]),
+                    "tai_len_luc": _iso(t["tai_len_luc"]),
+                }
+            )
+        return {
+            "ket_qua": [
+                {
+                    "id": r["id"],
+                    "dich_vu": r["service_name"],
+                    "node_code": r["node_code"],
+                    "noi_dung": r["result_note"],
+                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                    "visit_id": r["visit_id"],
+                    "appointment_id": r["appointment_id"],
+                    "clinic_patient_id": r["clinic_patient_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "bac_si": r["bac_si"],
+                    "cua_toi": r["bac_si_id"] == identity.staff_id,
+                    "nguoi_lam": r["nguoi_lam"],
+                    "tep": theo.get(r["id"], []),
+                }
+                for r in rows
+            ]
+        }
+
+    async def duyet_ket_qua(
+        self,
+        *,
+        order_id: str,
+        danh_gia: str | None,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Bác sĩ đánh giá + PHÊ DUYỆT CHO GỬI kết quả của một chỉ định.
+
+        Notion v1.0.0: *"Dưới kết quả xét nghiệm sẽ có nút Phê duyệt cho gửi và
+        chỗ ghi Đánh giá của bác sĩ"*. Duyệt xong thì mọi tệp của chỉ định ấy
+        được phép gửi — CSKH thấy "Đã có kết quả".
+        """
+        _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        ghi = (danh_gia or "").strip() if isinstance(danh_gia, str) else ""
+        if len(ghi) > 5000:
+            raise ValidationError("Đánh giá quá dài.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            vid = await self._visit_of(conn, "service_order", cid, oid)
+            await self._lock_visit(conn, cid, vid)
+            o = await conn.fetchrow(
+                "SELECT exec_status, ket_qua_luc, duyet_luc FROM service_order"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                cid,
+                oid,
+            )
+            assert o is not None
+            if o["duyet_luc"] is not None:
+                return {"ok": True, "order_id": oid, "already": True}
+            if o["ket_qua_luc"] is None:
+                raise LuotKhamConflictError(
+                    "NO_RESULT_YET", "Chỉ định này chưa có kết quả để duyệt."
+                )
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET duyet_luc = now(), duyet_boi = $3::uuid,
+                       bac_si_danh_gia = nullif($4, ''),
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                cid,
+                oid,
+                identity.staff_id,
+                ghi,
+            )
+            await conn.execute(
+                """
+                UPDATE tep_ket_qua
+                   SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = $3::uuid
+                 WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                   AND cho_phep_gui_luc IS NULL
+                """,
+                cid,
+                oid,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="result.approved",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid, "order_id": oid},
+            )
+        return {"ok": True, "order_id": oid}
+
+    # ------------------------------------------------------------------
+    # Đối tác: hai trạng thái "Chờ lấy mẫu" → "Đã lấy mẫu" → (tải kết quả)
+    # ------------------------------------------------------------------
+
+    async def viec_doi_tac(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Việc trên bàn đối tác, gom theo khách.
+
+        Hai loại xét nghiệm (Tuyền 16/09/2026: *"cả 2, tuỳ loại xét nghiệm"*):
+          * ĐỐI TÁC TỰ LẤY MẪU (`service_price.doi_tac_lay_mau`) — hiện ngay từ
+            lúc bác sĩ duyệt, trạng thái "Chờ lấy mẫu", đối tác bấm "Đã lấy mẫu".
+          * ĐIỀU DƯỠNG LẤY — chỉ hiện SAU khi điều dưỡng bấm xong ở phòng Lấy
+            mẫu; trước đó ống máu còn chưa có, đối tác chẳng có gì để nhận.
+        Có kết quả (tệp đầu tiên) là rời bàn — duyệt và gửi là việc bác sĩ, CSKH.
+        """
+        if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+            raise SafetyGateError("Màn này chỉ dành cho đối tác.")
+        rows = await self._pool.fetch(
+            """
+            SELECT o.id::text AS chi_dinh_id, o.service_code, o.exec_status,
+                   coalesce(sp.name, o.service_name) AS ten_dich_vu,
+                   coalesce(sp.doi_tac_lay_mau, false) AS doi_tac_lay_mau,
+                   p.full_name AS ten_khach, p.patient_code AS ma_khach,
+                   p.clinic_patient_id::text AS clinic_patient_id,
+                   v.appointment_id::text AS appointment_id,
+                   o.created_at, o.finished_at
+              FROM service_order o
+              JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              JOIN patient p
+                ON p.clinic_patient_id = v.clinic_patient_id
+               AND p.clinic_id = v.clinic_id
+              JOIN node_definition n
+                ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+               AND n.lam_ben_ngoai
+              LEFT JOIN LATERAL (
+                   SELECT s.name, s.doi_tac_lay_mau FROM service_price s
+                    WHERE s.clinic_id = o.clinic_id
+                      AND s.service_code = o.service_code AND s.active
+                    ORDER BY (s."group" = 'dich_vu') DESC LIMIT 1) sp ON true
+             WHERE o.clinic_id = $1::uuid
+               AND o.ket_qua_luc IS NULL
+               AND o.created_at > now() - interval '60 days'
+               AND (
+                    o.exec_status = 'performed'
+                 OR (coalesce(sp.doi_tac_lay_mau, false)
+                     AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
+               )
+             ORDER BY o.created_at, o.id
+             LIMIT 200
+            """,
+            identity.clinic_id,
+        )
+        khach: dict[str, dict[str, Any]] = {}
+        for r in rows:
+            k = khach.setdefault(
+                r["clinic_patient_id"],
+                {
+                    "clinic_patient_id": r["clinic_patient_id"],
+                    "ten_khach": r["ten_khach"],
+                    "ma_khach": r["ma_khach"],
+                    "cho_tu": None,
+                    "viec": [],
+                },
+            )
+            luc = _iso(r["created_at"])
+            if luc and (k["cho_tu"] is None or luc < k["cho_tu"]):
+                k["cho_tu"] = luc
+            k["viec"].append(
+                {
+                    "chi_dinh_id": r["chi_dinh_id"],
+                    "ten_dich_vu": r["ten_dich_vu"],
+                    "appointment_id": r["appointment_id"],
+                    "chi_dinh_luc": luc,
+                    "trang_thai": (
+                        "DA_LAY_MAU"
+                        if r["exec_status"] == "performed"
+                        else "CHO_LAY_MAU"
+                    ),
+                    "lay_mau_luc": _iso(r["finished_at"]),
+                }
+            )
+        return {"khach": list(khach.values()), "so_viec": len(rows)}
+
+    async def doi_tac_da_lay_mau(
+        self, *, order_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Đối tác bấm "Đã lấy mẫu" cho xét nghiệm họ tự lấy."""
+        if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+            raise SafetyGateError("Chỉ đối tác bấm được việc này.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã việc không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            vid = await conn.fetchval(
+                """
+                SELECT o.visit_id::text
+                  FROM service_order o
+                  JOIN node_definition n
+                    ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+                   AND n.lam_ben_ngoai
+                  JOIN service_price sp
+                    ON sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+                   AND sp.doi_tac_lay_mau
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                """,
+                cid,
+                oid,
+            )
+            if vid is None:
+                # Một câu cho cả "không có" lẫn "không phải việc đối tác tự lấy".
+                raise SafetyGateError(
+                    "Không tìm thấy việc này trong danh sách của bạn."
+                )
+            await self._lock_visit(conn, cid, vid)
+            trang_thai = await conn.fetchval(
+                "SELECT exec_status FROM service_order"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                cid,
+                oid,
+            )
+            if trang_thai == "performed":
+                return {"ok": True, "already": True}
+            if trang_thai not in ("authorized", "assigned", "in_progress"):
+                raise LuotKhamConflictError(
+                    "ORDER_NOT_OPEN", "Việc này không còn chờ lấy mẫu."
+                )
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET exec_status = 'performed', performed_by = $3::uuid,
+                       room_id = coalesce(room_id, (
+                           SELECT r.id FROM clinic_room r
+                             JOIN clinic_room_node rn
+                               ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
+                            WHERE r.clinic_id = $1::uuid AND r.la_doi_tac
+                              AND r.is_active AND rn.node_code = service_order.node_code
+                            ORDER BY r.sort LIMIT 1)),
+                       assigned_by = coalesce(assigned_by, $3::uuid),
+                       assigned_at = coalesce(assigned_at, now()),
+                       started_at = coalesce(started_at, now()), finished_at = now(),
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                cid,
+                oid,
+                identity.staff_id,
+            )
+            await conn.execute(
+                """
+                UPDATE queue_entry
+                   SET status = 'done', done_at = now(), version = version + 1,
+                       updated_at = now()
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                   AND ref_id = $3::uuid AND reason = 'SERVICE'
+                   AND status NOT IN ('done', 'left', 'cancelled')
+                """,
+                cid,
+                vid,
+                oid,
+            )
+            await self._release_blocked(conn, cid, vid)
+            await self._evaluate_rounds(conn, identity, vid)
+            await record_event(
+                conn,
+                event_type="service.performed",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid, "order_id": oid, "doi_tac_lay_mau": True},
+            )
+        return {"ok": True, "order_id": oid}
 
     # ------------------------------------------------------------------
     # C8 / C9 — người thực hiện bắt đầu và kết thúc dịch vụ
@@ -2407,6 +2741,9 @@ class LuotKhamService:
                 UPDATE service_order
                    SET exec_status = $3, finished_at = now(),
                        result_note = nullif($4, ''),
+                       ket_qua_luc = CASE WHEN nullif($4, '') IS NOT NULL
+                                          THEN coalesce(ket_qua_luc, now())
+                                          ELSE ket_qua_luc END,
                           not_performed_reason = nullif($5, ''),
                        version = version + 1, updated_at = now()
                  WHERE clinic_id = $1::uuid AND id = $2::uuid

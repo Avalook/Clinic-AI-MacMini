@@ -50,75 +50,23 @@ async def viec_cua_doi_tac(
     nay — và để nó nằm trong danh sách chỉ làm danh sách dài ra rồi không ai
     đọc.
     """
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT o.id::text        AS chi_dinh_id,
-                   o.service_code,
-                   coalesce(sp.name, o.service_code) AS ten_dich_vu,
-                   p.full_name       AS ten_khach,
-                   p.patient_code    AS ma_khach,
-                   p.clinic_patient_id::text AS clinic_patient_id,
-                   v.appointment_id::text    AS appointment_id,
-                   o.created_at
-              FROM public.service_order o
-              JOIN public.visit v
-                ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
-              JOIN public.patient p
-                ON p.clinic_patient_id = v.clinic_patient_id
-               AND p.clinic_id = v.clinic_id
-              JOIN public.node_definition n
-                ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-               AND n.lam_ben_ngoai
-              LEFT JOIN public.service_price sp
-                ON sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
-             WHERE o.clinic_id = $1::uuid
-               AND o.exec_status <> 'performed'
-               AND o.created_at > now() - interval '60 days'
-               -- Đã có tệp kết quả cho lượt này thì coi như xong phần của đối
-               -- tác: việc duyệt và gửi cho khách là của bác sĩ và CSKH.
-               AND NOT EXISTS (
-                   SELECT 1 FROM public.tep_ket_qua t
-                    WHERE t.clinic_id = o.clinic_id
-                      AND t.appointment_id = v.appointment_id
-               )
-             ORDER BY o.created_at
-             LIMIT 200
-            """,
-            identity.clinic_id,
-        )
-    # GOM THEO KHÁCH, không trả về một danh sách chỉ định phẳng.
-    #
-    # Bàn của đối tác đón NGƯỜI, không đón việc: một khách tới lấy máu có thể
-    # mang hai ba chỉ định cùng lúc. Danh sách phẳng thì cùng một người hiện ba
-    # dòng cách xa nhau, và người ngồi bàn phải tự ghép lại trong đầu — đúng lúc
-    # họ đang cầm ống nghiệm và cần biết "người này còn gì nữa không".
-    #
-    # Thứ tự khách theo chỉ định SỚM NHẤT của họ: ai chờ lâu nhất đứng trên.
-    khach: dict[str, dict[str, Any]] = {}
-    for r in rows:
-        k = khach.setdefault(
-            r["clinic_patient_id"],
-            {
-                "clinic_patient_id": r["clinic_patient_id"],
-                "ten_khach": r["ten_khach"],
-                "ma_khach": r["ma_khach"],
-                "cho_tu": None,
-                "viec": [],
-            },
-        )
-        luc = r["created_at"].isoformat() if r["created_at"] else None
-        if luc and (k["cho_tu"] is None or luc < k["cho_tu"]):
-            k["cho_tu"] = luc
-        k["viec"].append(
-            {
-                "chi_dinh_id": r["chi_dinh_id"],
-                "ten_dich_vu": r["ten_dich_vu"],
-                "appointment_id": r["appointment_id"],
-                "chi_dinh_luc": luc,
-            }
-        )
-    return {"khach": list(khach.values()), "so_viec": len(rows)}
+    from clinicai.services.luot_kham_service import LuotKhamService
+
+    return await LuotKhamService(pool).viec_doi_tac(identity=identity)
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/da-lay-mau")
+async def da_lay_mau(
+    chi_dinh_id: UUID,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đối tác xác nhận đã lấy mẫu cho xét nghiệm họ tự lấy."""
+    from clinicai.services.luot_kham_service import LuotKhamService
+
+    return await LuotKhamService(pool).doi_tac_da_lay_mau(
+        order_id=str(chi_dinh_id), identity=identity
+    )
 
 
 @router.post("/doi-tac/ket-qua", status_code=201)
@@ -166,4 +114,5 @@ async def gui_ket_qua(
         data=data,
         ten_hien_thi=file.filename,
         appointment_id=o["appointment_id"],
+        service_order_id=str(chi_dinh_id),
     )

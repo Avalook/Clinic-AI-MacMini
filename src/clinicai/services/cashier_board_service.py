@@ -18,9 +18,9 @@ LUẬT ĐI THEO, KHÔNG Ở LẠI.
 Ba luật vốn nằm trong TSX được chuyển xuống cùng, đúng nguyên tắc của dự án
 (logic ở backend, TSX chỉ vẽ):
 
-  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG (appointment.status =
-     'COMPLETED'). Lọc theo appointment chứ không theo visit.status, vì
-     dashboard không tự đặt visit.FINALIZED.
+  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG: lịch hẹn 'COMPLETED' (đường
+     cũ) HOẶC phiên khám chính đã kết thúc (luồng lượt khám — nút "Đã khám
+     xong" không đụng tới trạng thái lịch hẹn).
   2. Tên dịch vụ/thuốc phải CHUẨN HOÁ trước khi tra bảng giá — bỏ đường link
      dính trong tên, gộp khoảng trắng, bỏ ngoặc. Không chuẩn hoá thì "Siêu âm
      (https://...)" không khớp dòng giá nào và thu ngân thấy giá trống.
@@ -94,33 +94,39 @@ WITH v AS (
      WHERE vi.clinic_id = $1::uuid
        AND vi.created_at >= $2 AND vi.created_at < $3
        -- Luật 1: chỉ khi bác sĩ đã khám xong.
-       AND a.status = 'COMPLETED'
+       AND (a.status = 'COMPLETED'
+            OR EXISTS (SELECT 1 FROM public.consultation c
+                        WHERE c.clinic_id = vi.clinic_id
+                          AND c.visit_id = vi.visit_id
+                          AND c.kind = 'PRIMARY' AND c.status = 'completed'))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
 SELECT json_build_object(
   'visits', (SELECT coalesce(json_agg(row_to_json(v)), '[]'::json) FROM v),
-  -- CỘT KHOÁ CỦA lab_result LÀ `lab_result_id`, KHÔNG PHẢI `id`.
+  -- MỘT NGUỒN CHỈ ĐỊNH (Tuyền 16/09/2026): `service_order`. Trước đây hoá đơn
+  -- ghép từ bảng kết quả xét nghiệm + nhật ký dịch vụ — hai đường cũ; đo trên
+  -- final cloud nhật ký dịch vụ có 0 dòng trong khi 8 chỉ định thật nằm ở đây,
+  -- tức thu ngân sẽ thu THIẾU mọi dịch vụ bác sĩ chỉ định.
   --
-  -- Trang cũ hỏi PostgREST `select=id,appointment_id,test_name` → lỗi 42703
-  -- "column lab_result.id does not exist", rồi TSX nuốt lỗi bằng `?? []`. Nghĩa
-  -- là XÉT NGHIỆM CHƯA BAO GIỜ vào hoá đơn thu ngân, và không ai thấy gì bất
-  -- thường vì màn hình vẫn hiện đủ các mục khác. Thu ngân thu thiếu tiền.
-  'labs', (
+  -- Giá tra theo MÃ dịch vụ, không theo tên: chỉ định mang sẵn service_code.
+  -- Nháp, đã huỷ, không làm được → không tính tiền.
+  'orders', (
      SELECT coalesce(json_agg(json_build_object(
-              'id', l.lab_result_id, 'appointment_id', l.appointment_id,
-              'test_name', l.test_name)), '[]'::json)
-       FROM public.lab_result l
-      WHERE l.appointment_id IN (SELECT appointment_id FROM v
-                                  WHERE appointment_id IS NOT NULL)),
-  'services', (
-     SELECT coalesce(json_agg(json_build_object(
-              'id', s.id, 'clinic_patient_id', s.clinic_patient_id,
-              'name', coalesce(t.name, s.service_name_raw))), '[]'::json)
-       FROM public.service_log s
-       LEFT JOIN public.service_type t ON t.id = s.service_type_id
-      WHERE s.clinic_patient_id IN (SELECT clinic_patient_id FROM v)
-        AND s.ordered_at >= $2 AND s.ordered_at < $3),
+              'id', o.id, 'visit_id', o.visit_id, 'name', o.service_name,
+              'service_code', o.service_code, 'exec_status', o.exec_status,
+              'unit_price', gia.unit_price)
+              ORDER BY o.created_at, o.id), '[]'::json)
+       FROM public.service_order o
+       LEFT JOIN LATERAL (
+            SELECT pr.unit_price FROM public.service_price pr
+             WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+               AND pr.active
+             ORDER BY (pr."group" = 'dich_vu') DESC
+             LIMIT 1) gia ON true
+      WHERE o.clinic_id = $1::uuid
+        AND o.visit_id IN (SELECT visit_id FROM v)
+        AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')),
   'drugs', (
      SELECT coalesce(json_agg(json_build_object(
               'id', d.id, 'visit_id', d.visit_id, 'name', d.drug_name_raw,
@@ -176,19 +182,20 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
         target = price_thuoc if p.get("group") == "thuoc" else price_dv
         target[norm_name(p.get("name"))] = float(p["unit_price"])
 
-    labs_by_appt: dict[str, list[dict[str, Any]]] = {}
-    for lab in raw.get("labs") or []:
-        appt = lab.get("appointment_id")
-        if appt:
-            labs_by_appt.setdefault(appt, []).append(lab)
-
-    svc_by_patient: dict[str, list[dict[str, Any]]] = {}
-    for s in raw.get("services") or []:
-        name = clean_name(s.get("name"))
+    orders_by_visit: dict[str, list[dict[str, Any]]] = {}
+    for o in raw.get("orders") or []:
+        name = clean_name(o.get("name"))
         if not name:
             continue
-        svc_by_patient.setdefault(s["clinic_patient_id"], []).append(
-            {"id": s["id"], "name": name, "price": price_dv.get(norm_name(name))}
+        gia = o.get("unit_price")
+        orders_by_visit.setdefault(o["visit_id"], []).append(
+            {
+                "id": o["id"],
+                "name": name,
+                "price": float(gia)
+                if gia is not None
+                else price_dv.get(norm_name(name)),
+            }
         )
 
     rx_by_visit: dict[str, list[dict[str, Any]]] = {}
@@ -220,17 +227,7 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                         "price": price_dv.get(norm_name(exam)),
                     }
                 )
-            for lab in labs_by_appt.get(v.get("appointment_id") or "", []):
-                nm = clean_name(lab.get("test_name"))
-                if nm:
-                    services.append(
-                        {
-                            "id": lab["id"],
-                            "name": nm,
-                            "price": price_dv.get(norm_name(nm)),
-                        }
-                    )
-            services.extend(svc_by_patient.get(v["clinic_patient_id"], []))
+            services.extend(orders_by_visit.get(v["visit_id"], []))
 
         items.append(
             {

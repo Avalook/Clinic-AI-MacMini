@@ -588,6 +588,7 @@ async def tai_len_ket_qua(
     clinic_patient_id: UUID = Form(...),
     file: UploadFile = File(...),
     appointment_id: UUID | None = Form(default=None),
+    service_order_id: UUID | None = Form(default=None),
     identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -605,6 +606,7 @@ async def tai_len_ket_qua(
         data=data,
         ten_hien_thi=file.filename,
         appointment_id=str(appointment_id) if appointment_id else None,
+        service_order_id=str(service_order_id) if service_order_id else None,
     )
 
 

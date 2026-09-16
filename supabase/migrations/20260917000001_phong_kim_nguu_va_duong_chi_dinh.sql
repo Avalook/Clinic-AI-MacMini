@@ -77,6 +77,40 @@ SELECT d.clinic_id, d.id, n.node
                 WHERE nd.clinic_id = d.clinic_id AND nd.code = n.node)
 ON CONFLICT (room_id, node_code) DO NOTHING;
 
+-- Bàn của ĐỐI TÁC bên ngoài. Không phải phòng của phòng khám, nhưng xét
+-- nghiệm đối tác tự lấy mẫu vẫn cần "làm ở đâu" (ràng buộc
+-- service_order_room_when_assigned). Cờ `la_doi_tac` giữ nó ngoài việc tự xếp
+-- phòng — không thì mẫu điều dưỡng lấy bị xếp nhầm sang bàn đối tác.
+ALTER TABLE public.clinic_room
+    ADD COLUMN IF NOT EXISTS la_doi_tac boolean NOT NULL DEFAULT false;
+
+WITH dt AS (
+    INSERT INTO
+        public.clinic_room
+        (clinic_id, location_id, code, name, node_code, floor, sort, show_on_tv,
+         la_doi_tac)
+    SELECT c.id,
+           (SELECT l.id FROM public.clinic_location l
+             WHERE l.clinic_id = c.id AND l.is_active
+             ORDER BY l.created_at, l.id LIMIT 1),
+           'KN-DOITAC', 'Đối tác bên ngoài', 'DICHVU-LAYMAU-MAU', NULL, 900,
+           false, true
+      FROM public.clinic c
+     WHERE c.id = 'a0000000-0000-4000-8000-000000000001'
+       AND EXISTS (SELECT 1 FROM public.clinic_location l
+                    WHERE l.clinic_id = c.id AND l.is_active)
+    ON CONFLICT (clinic_id, code) DO UPDATE
+        SET la_doi_tac = true, is_active = true, accepting = true,
+            show_on_tv = false, updated_at = now()
+    RETURNING id, clinic_id
+)
+INSERT INTO
+    public.clinic_room_node (clinic_id, room_id, node_code)
+SELECT dt.clinic_id, dt.id, n.code
+  FROM dt
+  JOIN public.node_definition n ON n.clinic_id = dt.clinic_id AND n.lam_ben_ngoai
+ON CONFLICT (room_id, node_code) DO NOTHING;
+
 -- Bộ phòng mẫu cũ: TẮT, không xoá — lịch sử điều phối vẫn trỏ về chúng.
 UPDATE public.clinic_room
    SET is_active = false, accepting = false, updated_at = now()

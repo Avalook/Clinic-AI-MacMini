@@ -990,3 +990,176 @@ async def test_thu_thuat_chi_bac_si_lam(kb: KichBan) -> None:
             CLINIC,
         )
     assert list(vai) == ["DOCTOR"]
+
+
+# ---------------------------------------------------------------------------
+# Kết quả theo chỉ định: đối tác 2 trạng thái · tệp gắn chỉ định · bác sĩ duyệt
+# ---------------------------------------------------------------------------
+
+
+async def _dat_doi_tac_lay_mau(kb: KichBan, bat: bool) -> None:
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE service_price SET doi_tac_lay_mau = $3"
+            " WHERE clinic_id = $1::uuid AND service_code = $2",
+            CLINIC,
+            kb.ma_mau,
+            bat,
+        )
+
+
+async def _doi_tac(kb: KichBan) -> StaffIdentity:
+    async with kb.pool.acquire() as conn:
+        loc = await conn.fetchval(
+            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"
+            " AND is_active ORDER BY created_at, id LIMIT 1",
+            CLINIC,
+        )
+        return await _nguoi(conn, loc, "PARTNER")
+
+
+def _viec(ds: dict[str, Any], order_id: str) -> dict[str, Any] | None:
+    for k in ds["khach"]:
+        for v in k["viec"]:
+            if v["chi_dinh_id"] == order_id:
+                return dict(v)
+    return None
+
+
+async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
+    kb: KichBan, tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+    monkeypatch.delenv("MEDIA_MARKER", raising=False)
+    doi_tac = await _doi_tac(kb)
+    await _dat_doi_tac_lay_mau(kb, True)
+    try:
+        phien = await _vao_kham(kb)
+        duyet = await kb.svc.authorize_orders(
+            consultation_id=phien,
+            service_codes=[kb.ma_mau],
+            draft_order_ids=None,
+            identity=kb.bac_si,
+        )
+        mau_id = duyet["order_ids"][0]
+        async with kb.pool.acquire() as conn:
+            trang_thai = await conn.fetchval(
+                "SELECT exec_status FROM service_order WHERE id = $1::uuid", mau_id
+            )
+        # Đối tác tự lấy → không xếp vào phòng Lấy mẫu của điều dưỡng.
+        assert trang_thai == "authorized"
+        await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+
+        viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+        assert viec is not None and viec["trang_thai"] == "CHO_LAY_MAU"
+        await kb.svc.doi_tac_da_lay_mau(order_id=mau_id, identity=doi_tac)
+        viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+        assert viec is not None and viec["trang_thai"] == "DA_LAY_MAU"
+
+        async with kb.pool.acquire() as conn:
+            khach = await conn.fetchval(
+                "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
+                kb.visit_id,
+            )
+        png = bytes.fromhex(
+            "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+            "890000000d49444154789c63f8cfc0f01f0005000201a5e5a4a40000000049454e"
+            "44ae426082"
+        )
+        tep = await TepKetQuaService(kb.pool).tai_len(
+            identity=doi_tac,
+            clinic_patient_id=khach,
+            data=png,
+            ten_hien_thi="kq.png",
+            service_order_id=mau_id,
+        )
+        # Có kết quả → rời bàn đối tác, sang hàng chờ bác sĩ duyệt.
+        assert _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id) is None
+        cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
+        dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
+        assert [t["id"] for t in dong["tep"]] == [tep["id"]]
+
+        await kb.svc.duyet_ket_qua(
+            order_id=mau_id, danh_gia="Chỉ số bình thường.", identity=kb.bac_si
+        )
+        cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
+        assert all(r["id"] != mau_id for r in cho["ket_qua"])
+        async with kb.pool.acquire() as conn:
+            o = await conn.fetchrow(
+                "SELECT duyet_luc, bac_si_danh_gia FROM service_order"
+                " WHERE id = $1::uuid",
+                mau_id,
+            )
+            cho_phep = await conn.fetchval(
+                "SELECT cho_phep_gui_luc FROM tep_ket_qua WHERE id = $1::uuid",
+                tep["id"],
+            )
+        assert o["duyet_luc"] is not None
+        assert o["bac_si_danh_gia"] == "Chỉ số bình thường."
+        assert cho_phep is not None, "duyệt chỉ định phải cho phép gửi tệp của nó"
+    finally:
+        await _dat_doi_tac_lay_mau(kb, False)
+
+
+async def test_dieu_duong_lay_mau_thi_doi_tac_chi_thay_sau_khi_lay(
+    kb: KichBan,
+) -> None:
+    doi_tac = await _doi_tac(kb)
+    await _dat_doi_tac_lay_mau(kb, False)
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_mau],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    mau_id = duyet["order_ids"][0]
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    assert _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id) is None
+
+    await kb.svc.start_service(order_id=mau_id, identity=kb.dieu_duong)
+    await kb.svc.complete_service(
+        order_id=mau_id,
+        performed=True,
+        reason=None,
+        result_note=None,
+        identity=kb.dieu_duong,
+    )
+    viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
+    assert viec is not None and viec["trang_thai"] == "DA_LAY_MAU"
+
+
+async def test_doi_tac_khong_bam_lay_mau_cho_viec_dieu_duong_lay(kb: KichBan) -> None:
+    doi_tac = await _doi_tac(kb)
+    await _dat_doi_tac_lay_mau(kb, False)
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_mau],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    with pytest.raises(SafetyGateError):
+        await kb.svc.doi_tac_da_lay_mau(
+            order_id=duyet["order_ids"][0], identity=doi_tac
+        )
+
+
+async def test_chua_co_ket_qua_thi_khong_duyet_duoc(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    with pytest.raises(LuotKhamConflictError) as e:
+        await kb.svc.duyet_ket_qua(
+            order_id=duyet["order_ids"][0], danh_gia=None, identity=kb.bac_si
+        )
+    assert e.value.error_code == "NO_RESULT_YET"
