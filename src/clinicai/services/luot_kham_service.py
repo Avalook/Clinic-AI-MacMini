@@ -75,8 +75,18 @@ DISPATCH_ROLES = frozenset({ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT})
 #: nghiệm). Không nới theo công tắc — đây là quyết định chuyên môn.
 REVIEW_ROLES = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
 PERFORMER_ROLES = frozenset(
-    {ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR}
+    {
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.NURSE_ULTRASOUND,
+        ClinicRole.DOCTOR,
+        ClinicRole.TKYK,
+    }
 )
+#: NGƯỜI ĐI KÈM Ở PHÒNG DỊCH VỤ (Tuyền 17/09/2026): điều dưỡng hoặc thư ký đi
+#: cùng bác sĩ thủ thuật / siêu âm GỌI khách, CHECK-IN (Bắt đầu) và CHECK-OUT
+#: (Xong) — y như ở bàn khám bác sĩ chính. Chuyên môn vẫn là của bác sĩ: node
+#: giữ actor_roles = DOCTOR, và bác sĩ bấm Xong thì được ghi là người thực hiện.
+HO_TRO_PHONG = frozenset({ClinicRole.NURSE_ULTRASOUND, ClinicRole.TKYK})
 # Ai đọc được nội dung khám (ghi chú, kết quả). Lễ tân và trưởng ca làm việc
 # với trạng thái, không cần đọc chữ bác sĩ viết.
 CLINICAL_READ_ROLES = frozenset(
@@ -142,7 +152,10 @@ def _require(identity: StaffIdentity, roles: frozenset[ClinicRole], cau: str) ->
     bảng lượt khám sau khi đã nới router, và cửa gác ở router thì trông hoàn
     toàn đúng.
     """
-    if mo_quyen_tam_thoi() and roles in _TAP_NOI_DUOC:
+    # So theo ĐÚNG TẬP (is), không theo giá trị: hai tập khác nghĩa có thể trùng
+    # thành phần — PERFORMER_ROLES từ 17/09 trùng khít CLINICAL_READ_ROLES, và so
+    # bằng `in` đã nới nhầm quyền đọc bệnh án.
+    if mo_quyen_tam_thoi() and any(roles is t for t in _TAP_NOI_DUOC):
         if identity.co_vai(VAI_LAM_VIEC):
             return
     if not identity.co_vai(roles):
@@ -1354,7 +1367,9 @@ class LuotKhamService:
                 raise NotFoundError("Không tìm thấy khách trong hàng chờ.")
             await self._lock_visit(conn, cid, q["visit_id"])
             if q["reason"] == "SERVICE":
-                if not set(identity.ds_vai()) & set(q["actor_roles"] or []):
+                if not set(identity.ds_vai()) & (
+                    set(q["actor_roles"] or []) | {v.value for v in HO_TRO_PHONG}
+                ):
                     raise SafetyGateError("Vai của bạn không làm bước này.")
             else:
                 _require(
@@ -2747,7 +2762,8 @@ class LuotKhamService:
             oid,
         )
         assert o is not None
-        if identity.role.value not in list(o["actor_roles"] or []):
+        duoc = set(o["actor_roles"] or []) | {v.value for v in HO_TRO_PHONG}
+        if not set(identity.ds_vai()) & duoc:
             raise SafetyGateError("Vai của bạn không thực hiện được dịch vụ này.")
         return o
 
@@ -2853,6 +2869,10 @@ class LuotKhamService:
                 """
                 UPDATE service_order
                    SET exec_status = $3, finished_at = now(),
+                       -- Bác sĩ bấm Xong ⇒ bác sĩ là người thực hiện, kể cả khi
+                       -- điều dưỡng đi kèm đã bấm Bắt đầu.
+                       performed_by = CASE WHEN $6 THEN $7::uuid
+                                           ELSE performed_by END,
                        result_note = nullif($4, ''),
                        ket_qua_luc = CASE WHEN nullif($4, '') IS NOT NULL
                                           THEN coalesce(ket_qua_luc, now())
@@ -2866,6 +2886,8 @@ class LuotKhamService:
                 "performed" if performed else "not_performed",
                 ghi,
                 ly_do,
+                bool(set(identity.ds_vai()) & set(o["actor_roles"] or [])),
+                identity.staff_id,
             )
             await conn.execute(
                 """
