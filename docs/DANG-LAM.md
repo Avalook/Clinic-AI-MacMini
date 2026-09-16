@@ -41,7 +41,7 @@ lịch sử hội thoại.
 
 - Mới: ĐD **Gọi vào đo** (`encounter_flow.goi_do_luc/boi`); trưởng ca **chuyển phòng từng chỉ định** trong panel "Bác sĩ chỉ định gì" (số chờ + ngưỡng đầy, chặn khi phòng cũ đã gọi); tải phòng ở bảng điều phối đếm theo `queue_entry` (bản cũ đếm work_item → luồng mới luôn 0); đối tác thêm bước **Nhận mẫu · chờ tài liệu** (`service_order.doi_tac_cho_tai_lieu_luc`), việc đã gửi ở lại mục "Đã gửi hôm nay"; CSKH thấy trạng thái đối tác ở ô "Có kết quả xét nghiệm"; màn đối tác dùng khung Shell chung; thu ngân (CashierWorkBoard) bỏ QR demo → một nút "Đã thanh toán".
 - Migration 000007 (cột mới), 000008 (chụp chiếu ngoài `doi_tac_lay_mau = true` — trước đó không bao giờ lên bàn đối tác). Ngưỡng đầy 4 khách cho 3 phòng siêu âm (dispatch_threshold, đặt qua API).
-- **CHỜ TUYỀN:** dọn khách + lịch (TRUNCATE, bị chốt an toàn chặn khi tôi tự chạy) — script `scratchpad/don-khach-lich-17-09.sql`, rồi `sinh-20-lich.py` (14 online qua API CSKH + 6 WALK_IN chưa check-in).
+- 06:33 đã dọn sạch khách/lịch/lượt (TRUNCATE một giao dịch, sao lưu `~/truoc-don-khach-17-09.dump` trên VPS) và sinh 20 lịch ca Tối (14 online qua API CSKH + 6 WALK_IN chưa check-in; BS Thành 8, Hằng 5, Hùng 4, Dũng 3). Lễ tân check-in ở Trang chủ (nút "Đã đến") — "Tiếp đón khách" chỉ hiện khách ĐÃ check-in.
 
 ## -0017. Thư ký riêng từng bác sĩ — lịch 17/09 (05:30)
 
