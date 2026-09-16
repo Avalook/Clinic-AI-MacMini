@@ -39,6 +39,9 @@ ANON = os.environ.get("SUPABASE_ANON_KEY", "")
 PW = os.environ.get("TEST_PW", "")
 KHOA_API = os.environ.get("BACKEND_API_KEY", "")
 DAU = "[đua]"
+#: Mỗi lần chạy một dấu riêng. Không có nó thì lần chạy sau đếm cả khách của
+#: lần trước và báo "2 lượt khám" cho một phép thử vốn đúng — tôi đã tự vấp.
+LAN = uuid.uuid4().hex[:6]
 
 VAI = {
     v: os.environ.get(f"TK_{v}", m)
@@ -152,7 +155,7 @@ async def tao_khach(p: Phien, ten: str, ctx: dict[str, Any]) -> str | None:
         "POST",
         "/api/v1/patients",
         json={
-            "full_name": f"{DAU} {ten}",
+            "full_name": f"{DAU}{LAN} {ten}",
             "date_of_birth": "1995-05-05",
             "phone_primary": f"097{ma}",
             "location_id": ctx["location_id"],
@@ -263,7 +266,7 @@ async def main() -> int:
         so_luot = sum(
             1
             for x in (bang or {}).get("luot", [])
-            if str(x.get("ten", "")).startswith(f"{DAU} SC32")
+            if str(x.get("ten", "")).startswith(f"{DAU}{LAN} SC32")
         )
         ket(
             "SC-32 hai lễ tân cùng check-in → đúng 1 lượt khám",
@@ -287,7 +290,9 @@ async def main() -> int:
     #     số lịch được nhận  ==  số lời gọi trả 201   (không ai bị mất lịch)
     #     số lịch được nhận  <=  trần của khung       (không ai chen lọt)
     so_lao_vao = 8
-    bd2, kt2 = gio_kham(ctx, 1, sau_ngay=3)
+    # Khung RIÊNG cho mỗi lần chạy: lần trước đã lấp đầy khung của nó, và dùng
+    # lại đúng khung ấy thì phép thử đo lại dữ liệu cũ chứ không đo cuộc đua.
+    bd2, kt2 = gio_kham(ctx, 1 + int(LAN[:2], 16) % 6, sau_ngay=3)
     khach: list[str] = []
     for i_k in range(so_lao_vao):
         k = await tao_khach(phien["cskh"], f"SC31-{i_k}", ctx)
@@ -415,9 +420,19 @@ async def main() -> int:
         import json
         import pathlib
 
+        # NỐI THÊM, KHÔNG GHI ĐÈ. Chạy hai lần mà quên dọn giữa chừng thì bản
+        # ghi đè xoá mất đường dọn của lần trước, và những bản ghi ấy nằm lại
+        # trong database mãi mãi — tôi đã tự vấp đúng một lần trên máy chủ.
         f = pathlib.Path(os.environ.get("VET_FILE_DUA", ".dev-logs/dua-tranh-vet.json"))
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(json.dumps(da_tao, ensure_ascii=False, indent=1))
+        cu = []
+        if f.exists():
+            try:
+                cu = json.loads(f.read_text())
+            except Exception:
+                cu = []
+        f.write_text(json.dumps(cu + da_tao, ensure_ascii=False, indent=1))
+        da_tao = cu + da_tao
         print(f"Dấu vết ({len(da_tao)} bản ghi) → {f}; chạy --rollback để dọn.")
     for p in phien.values():
         await p.http.aclose()
