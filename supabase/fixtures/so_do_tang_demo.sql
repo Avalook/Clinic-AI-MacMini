@@ -50,6 +50,22 @@ ON CONFLICT (clinic_id, code) DO UPDATE
        show_on_tv = EXCLUDED.show_on_tv,
        is_active = true;
 
+-- BƯỚC NÀO PHÒNG NÀY LÀM ĐƯỢC. Hai phòng mới chưa có dòng nào trong
+-- `clinic_room_node`, nên điều phối không xếp được ai vào; và bốn phòng khám
+-- chỉ khai năm chuyên khoa mà thiếu chính bước "Khám" của lượt khám
+-- (LUOTKHAM-05) — lượt nào tới bước ấy cũng không tìm ra phòng.
+INSERT INTO clinic_room_node (clinic_id, room_id, node_code)
+SELECT r.clinic_id, r.id, v.node_code
+  FROM clinic_room r
+  JOIN (VALUES
+      ('KB01', 'LUOTKHAM-05'), ('KB02', 'LUOTKHAM-05'),
+      ('KB03', 'LUOTKHAM-05'), ('KB04', 'LUOTKHAM-05'),
+      ('THUTHUAT1', 'DICHVU-THUTHUAT'),
+      ('TUVAN1', 'LUOTKHAM-13')
+  ) AS v(code, node_code) ON v.code = r.code
+ WHERE r.is_active
+ON CONFLICT DO NOTHING;
+
 -- Sức chứa cho khớp đời thật: bàn khám 1 người, phòng lấy mẫu và tiếp đón 2.
 UPDATE clinic_room SET capacity = 2 WHERE code IN ('TIEPNHAN', 'SINHHIEU', 'XETNGHIEM', 'THUNGAN');
 

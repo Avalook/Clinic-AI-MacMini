@@ -48,13 +48,16 @@ _RECALL_GUARD = require_role(
     ClinicRole.TRUONG_CA,
 )
 
-# Bảy vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
+# SÁU vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
+# Lễ tân đã rời danh sách 16/09/2026 (Tuyền: *"quản lý khách hàng… vì thừa"*) —
+# quầy không gọi điện chăm sóc khách. Quyền GHI vùng CSKH giữ nguyên
+# (`cskh_service.INTAKE_ROLES` vẫn có RECEPTION) để Quản lý/Trưởng ca thao tác
+# hộ được; bỏ ở đây chỉ là đóng cửa MÀN.
 # Hai danh sách này phải khớp nhau: lệch là một vai thấy được màn nhưng màn
 # trống dữ liệu (API chặn), hoặc ngược lại. Có test canh ở
 # test_man_khach_hang.py; đổi bên nào thì đổi cả hai + test.
 _MAN_KHACH_HANG_GUARD = require_role(
     ClinicRole.CSKH,
-    ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
     ClinicRole.CASHIER,

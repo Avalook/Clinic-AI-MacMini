@@ -4,12 +4,7 @@
 
 import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
-import type {
-  DispatchAlert,
-  DispatchPatient,
-  DispatchRoom,
-  RouteTemplate,
-} from "./types";
+import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
 import { humanMinutes, nodeLabel } from "./types";
 import {
   type ActFn,
@@ -22,10 +17,10 @@ import {
   useDispatchLive,
 } from "./shared";
 import { BonOSo, DieuPhoiNhanh, SoDoPhong } from "./SoDoTang";
+import ChiDinhCuaBacSi from "./ChiDinhCuaBacSi";
 
 export default function OverviewClient({
   initial,
-  routes,
 }: {
   initial: {
     patients: DispatchPatient[];
@@ -33,7 +28,6 @@ export default function OverviewClient({
     alerts: DispatchAlert[];
     ok: boolean;
   };
-  routes: RouteTemplate[];
 }) {
   // CẢNH BÁO ĐÃ TẢI THÌ PHẢI ĐƯỢC DÙNG. Màn này vẫn gọi `/dispatch/alerts` 30
   // giây một lần (cả lúc dựng ở server) nhưng vứt đi bằng `alerts: []`, trong
@@ -52,7 +46,7 @@ export default function OverviewClient({
       <div className="mb-4">
         <BonOSo patients={live.patients} rooms={live.rooms} />
       </div>
-      <Board live={live} routes={routes} selected={selected} onSelect={setSelected} onAct={act} />
+      <Board live={live} selected={selected} onSelect={setSelected} onAct={act} />
       <Toast text={toast} />
     </div>
   );
@@ -60,13 +54,11 @@ export default function OverviewClient({
 
 function Board({
   live,
-  routes,
   selected,
   onSelect,
   onAct,
 }: {
   live: LiveData;
-  routes: RouteTemplate[];
   selected: DispatchPatient | null;
   onSelect: (p: DispatchPatient | null) => void;
   onAct: ActFn;
@@ -239,7 +231,6 @@ function Board({
             live.patients.find((p) => p.visit_id === selected.visit_id) ?? selected
           }
           rooms={live.rooms}
-          routes={routes}
           onClose={() => onSelect(null)}
           onAct={onAct}
         />
@@ -259,20 +250,16 @@ function Board({
 function DetailPanel({
   patient,
   rooms,
-  routes,
   onClose,
   onAct,
 }: {
   patient: DispatchPatient;
   rooms: DispatchRoom[];
-  routes: RouteTemplate[];
   onClose: () => void;
   onAct: ActFn;
 }) {
   const [reason, setReason] = useState("");
   const [targetRoom, setTargetRoom] = useState("");
-  const [routeCode, setRouteCode] = useState("");
-  const [isException, setIsException] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Chỉ những phòng phục vụ ĐÚNG bước hiện tại mới chuyển sang được — backend
@@ -313,23 +300,6 @@ function DetailPanel({
     }
   }
 
-  async function applyRoute() {
-    if (!routeCode) return;
-    if (isException && !reason.trim()) return;
-    setBusy(true);
-    const ok = await onAct(
-      "route",
-      {
-        visit_id: patient.visit_id,
-        template_code: routeCode,
-        is_exception: isException,
-        reason: reason.trim() || null,
-      },
-      "✓ Đã áp dụng tuyến điều phối",
-    );
-    setBusy(false);
-    if (ok) setReason("");
-  }
 
   return (
     <aside
@@ -420,52 +390,11 @@ function DetailPanel({
         </>
       )}
 
-      <div style={{ margin: "12px 0 6px", fontSize: 12, fontWeight: 700 }}>
-        Tuyến điều phối
-      </div>
-      <select
-        value={routeCode}
-        onChange={(e) => setRouteCode(e.target.value)}
-        style={{ width: "100%" }}
-      >
-        <option value="">-- Chọn tuyến --</option>
-        {routes.map((r) => (
-          <option key={r.code} value={r.code}>
-            {r.name}
-          </option>
-        ))}
-      </select>
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          fontSize: 12,
-          margin: "8px 0",
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={isException}
-          onChange={() => setIsException(!isException)}
-        />
-        Đổi tuyến giữa chừng (bắt buộc ghi lý do)
-      </label>
-      {/* Bước đã hoàn tất không bị đụng tới — backend giữ chúng trong
-          `kept_steps`. Nói ra để người bấm biết mình không làm mất gì. */}
-      {patient.done_steps.length > 0 && (
-        <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 8 }}>
-          Giữ nguyên bước đã xong: {patient.done_steps.map(nodeLabel).join(", ")}
-        </div>
-      )}
-      <button
-        className="btn btn-primary"
-        style={{ width: "100%" }}
-        disabled={busy || !routeCode || (isException && !reason.trim())}
-        onClick={applyRoute}
-      >
-        Áp dụng tuyến
-      </button>
+      {/* KHỐI "TUYẾN ĐIỀU PHỐI" ĐÃ BỎ (Tuyền 16/09/2026) — xem
+          ChiDinhCuaBacSi.tsx. Nó áp một quy trình MẪU lên cả lượt khám, buộc
+          trưởng ca nghĩ thay bác sĩ; việc thật đã nằm trong chỉ định. Dịch vụ
+          `apply_route` ở backend giữ nguyên, chỉ không còn nút gọi. */}
+      <ChiDinhCuaBacSi key={patient.visit_id} visitId={patient.visit_id} />
 
       <DoiBacSi visitId={patient.visit_id} reason={reason} onAct={onAct} />
     </aside>

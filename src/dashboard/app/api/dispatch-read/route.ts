@@ -16,6 +16,10 @@ const READS: Record<string, string> = {
   "bac-si": "/api/v1/dispatch/bac-si",
 };
 
+/** Đường đọc có THAM SỐ — tách khỏi bảng trên vì nó ghép id vào đường dẫn, và
+ *  id phải được kiểm hình dạng trước khi nối chuỗi. */
+const UUID = /^[0-9a-f-]{36}$/i;
+
 export async function GET(request: Request) {
   const supabase = await getSupabaseServer();
   const {
@@ -23,7 +27,19 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const what = new URL(request.url).searchParams.get("what") ?? "overview";
+  const sp = new URL(request.url).searchParams;
+  const what = sp.get("what") ?? "overview";
+  // Chỉ định của MỘT lượt khám — mở panel một bệnh nhân mới hỏi.
+  if (what === "chi-dinh") {
+    const visit = sp.get("visit_id") ?? "";
+    if (!UUID.test(visit)) {
+      return NextResponse.json({ error: "Mã lượt khám không hợp lệ" }, { status: 400 });
+    }
+    const data = await fetchFromBackend<Record<string, unknown>>(
+      `/api/v1/dispatch/chi-dinh/${visit}`,
+    );
+    return NextResponse.json(data ?? { ok: false });
+  }
   const path = READS[what];
   if (!path) {
     return NextResponse.json({ error: `Không có "${what}"` }, { status: 400 });

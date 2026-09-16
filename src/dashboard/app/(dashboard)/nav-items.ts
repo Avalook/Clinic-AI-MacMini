@@ -21,7 +21,6 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   Rows3,
-  AlertTriangle,
   History,
   Tv,
   ListOrdered,
@@ -156,11 +155,6 @@ export const NAV: NavItem[] = [
     href: "/truong-ca/hang-doi",
     label: "Hàng đợi theo trạm",
     icon: Rows3,
-  },
-  {
-    href: "/truong-ca/canh-bao",
-    label: "Cảnh báo & ngưỡng",
-    icon: AlertTriangle,
   },
   {
     href: "/truong-ca/lich-su",
@@ -344,7 +338,7 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   MANAGEMENT: ["/home", "/lich-do-ve", "/reports", "/truong-ca"],
   // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi cảnh báo — đúng thứ tự họ
   // nhìn khi phòng chờ đông.
-  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/truong-ca/canh-bao"],
+  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/truong-ca/tv"],
   // Điều dưỡng siêu âm: trạm của họ là /sono.
   NURSE_ULTRASOUND: ["/home", "/sono", "/service-queue", "/tasks"],
   // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.

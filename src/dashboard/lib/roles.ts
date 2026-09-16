@@ -259,7 +259,10 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // không được mở board đối soát vì nó còn chứa hàng thanh toán/đối soát.
   // Trưởng ca và quản lý xem được tất cả để điều phối.
   // Check-out lượt khám — Lễ tân là người bấm; Trưởng ca/Quản lý bấm hộ được.
-  "/reception/checkout": ["RECEPTION", "TRUONG_CA", "MANAGEMENT"],
+  // TRƯỞNG CA BỎ (Tuyền 16/09/2026): *"không cần check-out hộ lễ tân… trưởng ca
+  // chỉ cần nhìn toàn cảnh và điều phối chứ không thay những người khác làm
+  // việc"*. Quyền backend giữ nguyên để Quản lý vẫn bấm hộ được khi cần.
+  "/reception/checkout": ["RECEPTION", "MANAGEMENT"],
   "/reception/queue": [
     "RECEPTION", "NURSE_ULTRASOUND", "MANAGEMENT",
   ],
@@ -302,7 +305,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // trùng /customers — nó liệt người bác sĩ đã hẹn quay lại mà CHƯA có lịch,
   // tức danh sách "còn thiếu lịch", còn /customers xoay quanh lịch ĐÃ CÓ. Gỡ
   // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
-  "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
+  // Trưởng ca bỏ (16/09/2026) — gọi nhắc tái khám là việc CSKH.
+  "/nhac-tai-kham": ["MANAGEMENT"],
   // LỄ TÂN ĐƯỢC VÀO MÀN ĐẶT LỊCH (Tuyền 16/09/2026).
   //
   // Trước đó vai này KHÔNG có lối vào nào, trong khi hai nút "Đặt lịch mới" ở
@@ -334,7 +338,6 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // người dùng về /home mà không báo gì.
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/hang-doi": ["TRUONG_CA", "MANAGEMENT"],
-  "/truong-ca/canh-bao": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
   // Danh sách bệnh nhân ĐÃ KHÁM (lần đầu / tái khám) — CSKH/Lễ tân/QL + BÁC SĨ.
@@ -352,7 +355,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // 16/09/2026) — lịch vượt sức chứa về đây cho CSKH gọi khách đổi ca, và
   // thông báo gửi CSKH trỏ thẳng vào trang này. Trước đó CSKH bấm thông báo bị
   // đá về /home. Không bày trên thanh bên của CSKH (xem AN_KHOI_THANH_BEN).
-  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA", "CSKH"],
+  // Trưởng ca bỏ (16/09/2026) — xếp bác sĩ cho lịch chờ là việc Quản lý/CSKH;
+  // trưởng ca đổi bác sĩ ĐANG KHÁM ngay trong màn điều phối.
+  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "CSKH"],
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
   // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
   // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
@@ -373,11 +378,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // quả, tra cứu phiếu đã ký. Danh sách vai phải khớp ULTRASOUND_ROLES ở
   // ultrasound_board_service.py; lệch nhau thì có người thấy nút mà bấm vào bị
   // 403, hoặc tệ hơn: vào được màn mà backend mới là nơi từ chối.
+  // Trưởng ca bỏ (Tuyền 16/09/2026) — bộ phận siêu âm tự chạy màn của mình.
   "/sieu-am": [
     "ULTRASOUND_DOCTOR",
     "NURSE_ULTRASOUND",
     "TKYK",
-    "TRUONG_CA",
     "MANAGEMENT",
   ],
   // Bảng số thứ tự GỌI KHÁM (ưu tiên người có hẹn). Gọi theo tên — xem chung như /tasks.

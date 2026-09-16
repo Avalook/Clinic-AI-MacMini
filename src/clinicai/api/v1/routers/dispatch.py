@@ -423,6 +423,26 @@ async def set_threshold(
     )
 
 
+@router.get("/dispatch/chi-dinh/{visit_id}")
+async def chi_dinh_cua_luot(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_DISPATCH_WRITE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tóm tắt chỉ định của bác sĩ cho một lượt khám (Tuyền chốt 16/09/2026).
+
+    Đọc THEO YÊU CẦU chứ không nhét vào `overview`: bảng toàn cảnh có tới 400
+    dòng, kèm chỉ định của từng người vào đó là nhân số truy vấn lên cho một
+    khối chỉ hiện khi mở panel một bệnh nhân.
+    """
+    return {
+        "ok": True,
+        "items": await DispatchService(pool).chi_dinh(
+            clinic_id=identity.clinic_id, visit_id=str(visit_id)
+        ),
+    }
+
+
 # ── Bác sĩ chính nghỉ giữa chừng: trưởng ca chuyển lượt (Tuyền chốt 15/09) ──
 
 

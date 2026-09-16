@@ -160,6 +160,30 @@ class DispatchService:
             rows = await conn.fetch(_OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES))
         return [_overview_row(r) for r in rows]
 
+    async def chi_dinh(self, *, clinic_id: str, visit_id: str) -> list[dict[str, Any]]:
+        """BÁC SĨ ĐÃ CHỈ ĐỊNH GÌ cho lượt khám này — Tuyền chốt 16/09/2026.
+
+        Thay khối "tuyến điều phối" (áp một quy trình mẫu lên cả lượt khám):
+        *"cái tuyến lúc ấn vào hiện tại nó quá cứng, cần mềm để linh hoạt"*.
+
+        Trưởng ca không tự nghĩ ra việc cho bệnh nhân — việc đã có sẵn trong chỉ
+        định của bác sĩ. Thứ ông ấy cần biết là: còn những việc nào chưa làm, và
+        chỗ làm việc ấy có đang tắc không. Cột `dang_cho_buoc` trả lời vế sau,
+        nên quyết định "đổi phòng hay đổi bác sĩ" dựa trên số thật chứ không
+        dựa vào cảm giác.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                _CHI_DINH_SQL, clinic_id, visit_id, list(LIVE_VISIT_STATUSES)
+            )
+        return [
+            {
+                **dict(r),
+                "xong": r["exec_status"] in _CHI_DINH_XONG,
+            }
+            for r in rows
+        ]
+
     async def stations(
         self, *, clinic_id: str, location_id: str | None = None
     ) -> list[dict[str, Any]]:
@@ -693,3 +717,37 @@ async def _buoc_theo_chi_dinh(
         [s for s in steps if s not in khong_chi_dinh],
         [s for s in steps if s in khong_chi_dinh],
     )
+
+
+#: Trạng thái chỉ định đã XONG — không còn là việc phải xếp phòng nữa.
+_CHI_DINH_XONG: tuple[str, ...] = ("performed", "not_performed", "cancelled")
+
+_CHI_DINH_SQL = """
+SELECT o.id::text,
+       o.service_code, o.service_name, o.node_code, o.exec_status,
+       n.name AS node_name,
+       r.name AS room_name, r.floor AS room_floor,
+       w.status AS work_status,
+       -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG LÀM BƯỚC NÀY. Đây là câu trưởng ca thật sự
+       -- hỏi khi nhìn một chỉ định: "chỗ ấy có tắc không?" — chứ không phải
+       -- "quy trình mẫu nói đi đâu tiếp".
+       (SELECT count(*)
+          FROM public.visit v2
+          JOIN public.work_item w2
+            ON w2.visit_id = v2.visit_id AND w2.node_code = o.node_code
+           AND w2.status = 'PENDING'
+         WHERE v2.clinic_id = o.clinic_id AND v2.status = ANY($3::text[])
+       ) AS dang_cho_buoc
+  FROM public.service_order o
+  LEFT JOIN public.node_definition n
+         ON n.code = o.node_code AND n.clinic_id = o.clinic_id
+  LEFT JOIN public.clinic_room r ON r.id = o.room_id
+  LEFT JOIN LATERAL (
+      SELECT w1.status FROM public.work_item w1
+       WHERE w1.clinic_id = o.clinic_id AND w1.visit_id = o.visit_id
+         AND w1.node_code = o.node_code AND w1.status <> 'CANCELLED'
+       ORDER BY w1.created_at DESC LIMIT 1
+  ) w ON TRUE
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+ ORDER BY o.created_at
+"""
