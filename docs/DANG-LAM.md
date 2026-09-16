@@ -60,6 +60,7 @@ Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm t
 
 **Hai tầng vai (30b8497 + trang chủ theo vị trí, đã lên final cloud):** giấy phép = vai tài khoản (bác sĩ, BS SA, thư ký, quản lý, CSKH — lịch không vượt qua được); việc hôm nay = vị trí trong lịch (lễ tân, điều dưỡng, trưởng ca). `lib/clinic-session.ts`: `getVaiHomNay` (vị trí trước, tài khoản cuối), `getVaiChinh` (HIỂN THỊ), `vaiLamViec` (QUYỀN, xét mọi vai). 38 trang/route thôi đọc vai tài khoản; bài kiểm `vai-hom-nay-boundary` cấm tái phát. Nhật ký ghi `vai_tai_khoan`. Trang chủ: khối "Việc của bạn hôm nay"; "Điền sinh hiệu" chỉ cho người đứng Đo chỉ số.
 Tự kiểm theo lịch 16/09 bằng cookie phiên thật (script scratchpad `tu-kiem-lich.py`, cookie `clinicai-auth`, base64- + chia 3180): 12/12 tài khoản mở đủ trang + API; Minh Thư → Tổng quan tiếp nhận + nhóm Lễ tân.
+**co_vai (lỗi check-in Minh Thư):** đổi vai ở cửa gác CHỈ xảy ra khi cửa gác từ chối vai tài khoản; công tắc mở quyền để điều dưỡng qua nên booking_service vẫn so identity.role → "không được phép checkin". Nay mọi kiểm tra nghiệp vụ dùng `identity.co_vai(...)`; bài kiểm cấm `identity.role in/==` trong services/routers. Thử thật: Minh Thư check-in Trần Thu Hà → CHECKED_IN → hoàn tác → CONFIRMED.
 **Chưa tắt công tắc MO_QUYEN_TAM_THOI** (cố ý): 4 người hôm nay chỉ có mã lịch cũ (LE_TAN, PHU_BS_SA, MAY_TRONG, TLYK) — tắt thì họ bị siết về vai tài khoản. Xếp lại lịch trước, rồi tắt.
 
 **CÒN LẠI (chưa làm, cố ý):**
