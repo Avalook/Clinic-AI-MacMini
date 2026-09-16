@@ -41,7 +41,7 @@ import WeeklyAppointmentsTable, {
   type WeekApptRow,
   type DutyByDate,
 } from "./WeeklyAppointmentsTable";
-import WorkRosterTable, { type RosterRow } from "./WorkRosterTable";
+import WorkRosterTable, { type DongCaRow, type RosterRow } from "./WorkRosterTable";
 import VisitStatusBoard, { type VisitStatusRow } from "./VisitStatusBoard";
 import VisitStatusRealtime from "./VisitStatusRealtime";
 
@@ -70,6 +70,8 @@ interface GoiTrangChu {
     lich_can_xu_ly: number;
   };
   roster: (RosterRow & { ten_staff?: string | null })[];
+  /** Ô đen / khối NGHỈ của tuần lịch (bảng `vi_tri_dong_ca`). */
+  dong_ca?: DongCaRow[];
   truc_ca: { work_date: string; staff_id: string; staff_name: string | null }[];
   trang_thai_kham: VisitStatusRow[];
   tuan_hen: WeekApptRow[];
@@ -544,7 +546,11 @@ async function KhoiDuLieu({
             others={{ weekAppt }}
           />
         </div>
-        <WorkRosterTable dates={rosterDates} rows={rosterRows} />
+        <WorkRosterTable
+          dates={rosterDates}
+          rows={rosterRows}
+          dong={goi?.dong_ca ?? []}
+        />
       </section>
 
       {/*

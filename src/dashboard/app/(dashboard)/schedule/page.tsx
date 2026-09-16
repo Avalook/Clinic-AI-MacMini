@@ -25,6 +25,7 @@ import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
 } from "./RosterRegisterTable";
+import type { DongCaRow } from "../home/WorkRosterTable";
 import { doctorName } from "../../../lib/doctor-name";
 import { dongBoTenTrucNhat } from "../../../lib/roster-names";
 import { getClinicStaffId } from "../../../lib/clinic-session";
@@ -62,7 +63,7 @@ export default async function SchedulePage({
   // `sort` rồi `id`: thứ tự trong ô LÀ thứ tự hai hàng con của ngày. Mọi dòng
   // nạp từ Excel đều sort = 0, nên không có chốt thứ hai thì người thứ nhất và
   // thứ hai đổi chỗ cho nhau giữa hai lần tải trang.
-  const [{ data }, staffRes, tramRes] = await Promise.all([
+  const [{ data }, staffRes, tramRes, dongRes] = await Promise.all([
     supabase
       .from("work_roster")
       .select(
@@ -87,7 +88,14 @@ export default async function SchedulePage({
           .select("vai, tram_ma")
           .eq("is_active", true)
       : Promise.resolve({ data: [] }),
+    // Ô đen / khối NGHỈ của tuần — để bảng y hệt file Excel.
+    supabase
+      .from("vi_tri_dong_ca")
+      .select("work_date, shift, station, ly_do")
+      .gte("work_date", dates[0])
+      .lte("work_date", dates[dates.length - 1]),
   ]);
+  const dong = (dongRes.data as DongCaRow[] | null) ?? [];
   const rows = (data as RosterRowWithId[] | null) ?? [];
 
   // Nhân viên xếp được: bỏ dòng có `primary_department` không phải chức danh
@@ -186,7 +194,7 @@ export default async function SchedulePage({
       {/* BẢNG 1 — Lịch làm việc chính thức (chỉ ca ĐÃ DUYỆT). */}
       <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
         <h2 className="font-semibold text-ink">Lịch làm việc chính thức</h2>
-        <OfficialRosterTable dates={dates} rows={approvedRows} />
+        <OfficialRosterTable dates={dates} rows={approvedRows} dong={dong} />
       </section>
 
       {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO QUẢN LÝ (Quang 09/08/2026).
@@ -203,15 +211,16 @@ export default async function SchedulePage({
           <div>
             <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
             <p className="mt-0.5 text-sm text-ink-muted">
-              Mỗi ngày có <b>hai hàng</b> — mỗi hàng một người. Bấm dấu <b>+</b>{" "}
-              trong ô để chọn người và chọn ca (cả ngày · sáng · chiều). Ca xếp
-              ở đây vào thẳng lịch chính thức của tuần.
+              Form y hệt file Excel: hàng là vị trí, cột là ngày và ca. Bấm dấu{" "}
+              <b>+</b> trong ô để chọn người. Ô đen là vị trí không làm ca ấy.
+              Ca xếp ở đây vào thẳng lịch chính thức của tuần.
             </p>
           </div>
           <RosterRegisterTable
             weekStart={week}
             dates={dates}
             rows={rowsDongBo as RegisterRow[]}
+            dong={dong}
             myStaffId={await getClinicStaffId()}
             staff={staffOptions}
             tramTheoVai={tramTheoVai}

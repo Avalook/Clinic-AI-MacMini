@@ -264,69 +264,100 @@ THU_SANG_LECH = {
 CA_EXCEL = {"sang": "SANG", "chieu": "CHIEU", "toi": "TOI"}
 
 
-def doc_o_lich(duong_dan: str) -> list[dict[str, Any]]:
-    """Từng Ô có người của file Excel: tuần thứ mấy, lệch mấy ngày, ca, vị trí, tên.
+def doc_o_lich(duong_dan: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Đọc lịch Excel THEO ĐÚNG HÌNH: (các ô có người, các ô đóng).
 
-    Tách khỏi `doc_excel` vì hai hàm trả lời hai câu khác: hàm kia hỏi "người
-    này từng đứng những đâu" (để gán vị trí), hàm này hỏi "ô này hôm ấy ai
-    đứng" (để dựng lại đúng cái lịch).
+    BA THỨ bản đầu bỏ sót, và cả ba đều làm bảng khác file:
 
-    Ô "Thứ Bảy" và "Chủ nhật" GỘP qua ba cột (Sáng · Chiều · Tối) trong Excel,
-    nên chỉ cột đầu có chữ; hai cột sau phải mang theo thứ của cột trước.
+    1. Ô GỘP. Excel gộp dọc "Lễ tân + Thu ngân" (20 lần), "Xếp thuốc + Tạo đơn"
+       (18), "Đo chỉ số + Lấy mẫu" (8), "Hỏi bệnh + Thư ký" (1). Chữ chỉ nằm ở ô
+       trên cùng; đọc ô từng cái thì Thu ngân, Tạo đơn… trống trơn, và người đứng
+       ô gộp "Hỏi bệnh + Thư ký" bị gán mỗi Hỏi bệnh — đúng lý do ma trận vai từ
+       chối Thủy Tiên. Nay: ô gộp phủ những hàng nào thì người ấy đứng tất cả.
+    2. Ô ĐEN (`FF000000`) = vị trí không làm ca ấy. Khác ô trống.
+    3. Khối NGHỈ (`FF666666`, chữ "NGHỈ") = cả ca phòng khám nghỉ.
+
+    Màu đọc bằng openpyxl ở chế độ CÓ định dạng — `data_only=True` vẫn giữ màu,
+    nhưng ô gộp chỉ ô góc trên-trái mang màu và chữ, nên phải tự trải ra.
     """
     import openpyxl
 
-    wb = openpyxl.load_workbook(duong_dan, data_only=True)
+    wb = openpyxl.load_workbook(duong_dan)
     ws = wb["Xếp lịch làm việc"]
+
+    # Trải ô gộp: mọi ô trong vùng mang chữ + màu của ô góc trên-trái.
+    goc: dict[tuple[int, int], tuple[int, int]] = {}
+    for rg in ws.merged_cells.ranges:
+        for r in range(rg.min_row, rg.max_row + 1):
+            for c in range(rg.min_col, rg.max_col + 1):
+                goc[(r, c)] = (rg.min_row, rg.min_col)
+
+    def o(r: int, c: int) -> Any:
+        return ws.cell(*goc.get((r, c), (r, c)))
+
+    def mau(r: int, c: int) -> str:
+        f = o(r, c).fill
+        if f is None or f.fill_type is None or f.fgColor.type != "rgb":
+            return ""
+        return str(f.fgColor.rgb or "").upper()
+
     dau = [
         r
         for r in range(1, ws.max_row + 1)
         if str(ws.cell(r, 1).value).strip() == "Tầng"
     ]
-    ra: list[dict[str, Any]] = []
+    nguoi: list[dict[str, Any]] = []
+    dong: list[dict[str, Any]] = []
     for k, r0 in enumerate(dau):
         thu_cot: dict[int, int] = {}
-        hien = None
         for c in range(4, 15):
-            v = ws.cell(r0, c).value
-            if v:
-                hien = THU_SANG_LECH.get(bo_dau(str(v)))
-            if hien is not None:
-                thu_cot[c] = hien
+            v = o(r0, c).value
+            if v is not None and bo_dau(str(v)) in THU_SANG_LECH:
+                thu_cot[c] = THU_SANG_LECH[bo_dau(str(v))]
         ca_cot = {
-            c: CA_EXCEL.get(bo_dau(str(ws.cell(r0 + 2, c).value or "")))
-            for c in range(4, 15)
+            c: CA_EXCEL.get(bo_dau(str(o(r0 + 2, c).value or ""))) for c in range(4, 15)
         }
         het = dau[k + 1] if k + 1 < len(dau) else ws.max_row
         phong = None
         for r in range(r0 + 3, het):
             if str(ws.cell(r, 1).value).strip() == "Tầng":
                 break
-            if ws.cell(r, 2).value:
-                phong = str(ws.cell(r, 2).value).strip()
+            if o(r, 2).value:
+                phong = str(o(r, 2).value).strip()
             o_vt = ws.cell(r, 3).value
             if not o_vt:
                 continue
-            ma = O_SANG_MA.get((phong or "", str(o_vt).split("(")[0].strip()))
+            ten_vt = str(o_vt).split("(")[0].strip()
+            # "Đo chỉ số" và "Lấy mẫu" không thuộc phòng nào trong Excel.
+            ma = O_SANG_MA.get((phong or "", ten_vt)) or O_SANG_MA.get(
+                ("Quầy tiếp đón", ten_vt)
+            )
             if not ma:
                 continue
             for c in range(4, 15):
-                o = ws.cell(r, c).value
-                if not o or c not in thu_cot or not ca_cot.get(c):
+                if c not in thu_cot or not ca_cot.get(c):
                     continue
-                for t in re.split(r"[\n,+]+", str(o)):
+                vi_tri = {
+                    "tuan": k,
+                    "lech_ngay": thu_cot[c],
+                    "ca": ca_cot[c],
+                    "ma": ma,
+                }
+                m = mau(r, c)
+                gia_tri = o(r, c).value
+                if m == "FF666666" or bo_dau(str(gia_tri or "")) == "nghi":
+                    dong.append({**vi_tri, "ly_do": "NGHI"})
+                    continue
+                if m == "FF000000":
+                    dong.append({**vi_tri, "ly_do": "DONG"})
+                    continue
+                if not gia_tri:
+                    continue
+                for t in re.split(r"[\n,+]+", str(gia_tri)):
                     t = t.strip()
                     if t and bo_dau(t) not in KHONG_PHAI_NGUOI:
-                        ra.append(
-                            {
-                                "tuan": k,
-                                "lech_ngay": thu_cot[c],
-                                "ca": ca_cot[c],
-                                "ma": ma,
-                                "ten": t,
-                            }
-                        )
-    return ra
+                        nguoi.append({**vi_tri, "ten": t})
+    return nguoi, dong
 
 
 async def nap_lich(
@@ -334,35 +365,37 @@ async def nap_lich(
     conn: asyncpg.Connection,
     clinic_id: str,
     o_lich: list[dict[str, Any]],
+    o_dong: list[dict[str, Any]],
     do_db: Any,
     that: bool,
 ) -> int:
-    """Dựng lại lịch Excel vào tuần chỉ định, ĐI QUA API XẾP CA THẬT.
+    """Dựng lại lịch Excel vào các tuần chỉ định, ĐI QUA API XẾP CA THẬT.
 
-        python scripts/nhan-su-kim-nguu.py nhan-su.json --nap-lich 2026-09-14
-        python scripts/nhan-su-kim-nguu.py nhan-su.json --nap-lich 2026-09-14 --that
+        python scripts/nhan-su-kim-nguu.py nhan-su.json \\
+            --nap-lich 2026-09-07:2,2026-09-14:1,2026-09-21:2,2026-09-28:1 --that
 
-    Tuần 1 của Excel → tuần bắt đầu từ ngày khai; tuần 2 → bảy ngày sau.
+    Mỗi cặp `ngày-thứ-hai:tuần-excel` (tuần Excel đếm từ 1). Khai tường minh thay
+    vì đoán, vì cùng một file có thể đổ vào bất kỳ tuần nào.
 
-    QUA API, KHÔNG NHÉT DATABASE. Cửa `POST /roster/shifts` kiểm ma trận vai↔vị
-    trí (`vai_duoc_vao_tram`). Nhét thẳng thì lịch dựng được, nhưng không ai
-    biết ma trận mới có cho lưu thật không — và người đầu tiên biết sẽ là quản lý
-    bấm lưu ca đầu tiên.
+    NGƯỜI: qua `POST /roster/shifts` — cửa ấy kiểm ma trận vai↔vị trí, nên nạp
+    xong là biết ma trận có cho lưu thật không.
+    Ô ĐEN / NGHỈ: ghi thẳng `vi_tri_dong_ca` (chưa có API cho bảng này).
 
-    TÊN CHƯA RÕ LÀ AI → Ô TRỐNG (Tuyền chốt 16/09). Dùng đúng bộ ghép tên của
-    phần nạp nhân sự, không viết bộ thứ hai — bộ ấy đã sửa hai lần vì gộp nhầm
-    người, và một bản chép lại sẽ không mang theo hai lần sửa đó.
-
-    KHÔNG ĐỤNG `LICH_KHAM`: Excel không có hàng ấy. Nó là "bác sĩ nào trực hôm
-    ấy", lưới đặt lịch và các lịch hẹn đã đặt đang đứng trên nó.
+    TÊN CHƯA RÕ → Ô TRỐNG (Tuyền chốt). `LICH_KHAM` KHÔNG đụng.
+    Chạy lại được: bỏ qua ô đã có.
     """
     import datetime as dt
 
-    tuan_dau = dt.date.fromisoformat(sys.argv[sys.argv.index("--nap-lich") + 1])
-    if tuan_dau.weekday() != 0:
-        print(f"✗ {tuan_dau} không phải Thứ Hai. Dừng.")
-        return 2
+    cap: list[tuple[dt.date, int]] = []
+    for manh in sys.argv[sys.argv.index("--nap-lich") + 1].split(","):
+        ngay, _, tuan = manh.partition(":")
+        d = dt.date.fromisoformat(ngay.strip())
+        if d.weekday() != 0:
+            print(f"✗ {d} không phải Thứ Hai. Dừng.")
+            return 2
+        cap.append((d, int(tuan or "1") - 1))
 
+    dau_min = min(d for d, _ in cap)
     da_co = {
         (str(r["work_date"]), r["station"], r["shift"], r["staff_id"])
         for r in await conn.fetch(
@@ -374,53 +407,80 @@ async def nap_lich(
                AND status <> 'REJECTED'
             """,
             clinic_id,
-            tuan_dau,
-            tuan_dau + dt.timedelta(days=13),
+            dau_min,
+            max(d for d, _ in cap) + dt.timedelta(days=6),
         )
     }
+    de_trong = {khoa_goi(t) for t in DE_TRONG}
 
     se_xep: list[dict[str, Any]] = []
+    se_dong: list[tuple[dt.date, str, str, str]] = []
     trong: Counter = Counter()
     trung_lap = 0
-    for o in o_lich:
-        ngay = tuan_dau + dt.timedelta(days=7 * int(o["tuan"]) + int(o["lech_ngay"]))
-        if khoa_goi(o["ten"]) in {khoa_goi(t) for t in DE_TRONG}:
-            trong[o["ten"].strip()] += 1
-            continue
-        ten = PHAN_XU.get(o["ten"], o["ten"])
-        ai = list({h["staff_id"]: h for h in do_db(ten)}.values())
-        if len(ai) != 1:
-            trong[o["ten"]] += 1
-            continue
-        khoa = (ngay.isoformat(), o["ma"], o["ca"], ai[0]["staff_id"])
-        if khoa in da_co:
-            trung_lap += 1
-            continue
-        da_co.add(khoa)
-        se_xep.append(
-            {
-                "work_date": ngay.isoformat(),
-                "station": o["ma"],
-                "shift": o["ca"],
-                "staff_id": ai[0]["staff_id"],
-                "_ten": ai[0]["full_name"],
-            }
-        )
+    for tuan_dau, tuan_excel in cap:
+        for o in o_dong:
+            if int(o["tuan"]) != tuan_excel:
+                continue
+            ngay = tuan_dau + dt.timedelta(days=int(o["lech_ngay"]))
+            se_dong.append((ngay, o["ca"], o["ma"], o["ly_do"]))
+        for o in o_lich:
+            if int(o["tuan"]) != tuan_excel:
+                continue
+            ngay = tuan_dau + dt.timedelta(days=int(o["lech_ngay"]))
+            if khoa_goi(o["ten"]) in de_trong:
+                trong[o["ten"].strip()] += 1
+                continue
+            ten = PHAN_XU.get(o["ten"], o["ten"])
+            ai = list({h["staff_id"]: h for h in do_db(ten)}.values())
+            if len(ai) != 1:
+                trong[o["ten"].strip()] += 1
+                continue
+            khoa = (ngay.isoformat(), o["ma"], o["ca"], ai[0]["staff_id"])
+            if khoa in da_co:
+                trung_lap += 1
+                continue
+            da_co.add(khoa)
+            se_xep.append(
+                {
+                    "work_date": ngay.isoformat(),
+                    "station": o["ma"],
+                    "shift": o["ca"],
+                    "staff_id": ai[0]["staff_id"],
+                }
+            )
 
     print(
-        f"Lịch Excel → {tuan_dau} và {tuan_dau + dt.timedelta(days=7)}\n"
-        f"  {len(o_lich)} ô có tên · sẽ xếp {len(se_xep)} · "
-        f"đã có sẵn {trung_lap} · ĐỂ TRỐNG {sum(trong.values())}"
+        "Tuần: " + ", ".join(f"{d} ← Excel tuần {t + 1}" for d, t in cap) + "\n"
+        f"  sẽ xếp {len(se_xep)} ô · đã có sẵn {trung_lap} · "
+        f"ĐỂ TRỐNG {sum(trong.values())} · ô đen/NGHỈ {len(se_dong)}"
     )
     if trong:
-        print("\n  Để trống vì chưa rõ là ai:")
-        for ten, so in trong.most_common():
-            print(f"    {ten!r:<22} {so} ô")
-
+        print(
+            "  Để trống vì chưa rõ là ai: "
+            + ", ".join(f"{t} ({n})" for t, n in trong.most_common())
+        )
     if not that:
         print("\nĐây là THỬ KHÔ. Thêm --that để xếp thật.")
         return 0
 
+    # ── Ô đen / NGHỈ ──
+    dong_moi = 0
+    for ngay, ca, ma, ly_do in se_dong:
+        ket = await conn.execute(
+            """
+            INSERT INTO vi_tri_dong_ca (clinic_id, work_date, shift, station, ly_do)
+            VALUES ($1::uuid, $2, $3, $4, $5)
+            ON CONFLICT (clinic_id, work_date, shift, station) DO NOTHING
+            """,
+            clinic_id,
+            ngay,
+            ca,
+            ma,
+            ly_do,
+        )
+        dong_moi += int(ket.split()[-1])
+
+    # ── Người, qua API ──
     sb = os.environ["SUPABASE_URL"].rstrip("/")
     anon = os.environ["SUPABASE_ANON_KEY"]
     api = os.environ.get("CLINIC_API_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -443,13 +503,12 @@ async def nap_lich(
         ok = 0
         loi: Counter = Counter()
         for x in se_xep:
-            body = {k: v for k, v in x.items() if not k.startswith("_")}
-            rr = await http.post(f"{api}/api/v1/roster/shifts", headers=h, json=body)
+            rr = await http.post(f"{api}/api/v1/roster/shifts", headers=h, json=x)
             if rr.status_code in (200, 201):
                 ok += 1
             else:
                 loi[f"{rr.status_code} {rr.text[:110]}"] += 1
-    print(f"\nĐã xếp {ok}/{len(se_xep)} ô.")
+    print(f"\nĐã xếp {ok}/{len(se_xep)} ô người · thêm {dong_moi} ô đen/NGHỈ.")
     for thong_bao, so in loi.most_common():
         print(f"  ✗ {so}× {thong_bao}")
     return 0 if not loi else 1
@@ -463,14 +522,16 @@ async def main() -> int:
     that = "--that" in sys.argv
 
     o_lich: list[dict[str, Any]] = []
+    o_dong: list[dict[str, Any]] = []
     if duong_dan.endswith(".json"):
         goi = json.loads(pathlib.Path(duong_dan).read_text())
         ds = goi["nhan_su"]
         vi_tri = {k: Counter(v) for k, v in goi["vi_tri"].items()}
         o_lich = goi.get("o_lich", [])
+        o_dong = goi.get("o_dong", [])
     else:
         ds, vi_tri = doc_excel(duong_dan)
-        o_lich = doc_o_lich(duong_dan)
+        o_lich, o_dong = doc_o_lich(duong_dan)
 
     if "--xuat" in sys.argv:
         ra = pathlib.Path(sys.argv[sys.argv.index("--xuat") + 1])
@@ -480,6 +541,7 @@ async def main() -> int:
                     "nhan_su": ds,
                     "vi_tri": {k: dict(v) for k, v in vi_tri.items()},
                     "o_lich": o_lich,
+                    "o_dong": o_dong,
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -487,7 +549,7 @@ async def main() -> int:
         )
         print(
             f"Đã ghi {ra} — {len(ds)} nhân sự · {len(vi_tri)} tên gọi · "
-            f"{len(o_lich)} ô lịch."
+            f"{len(o_lich)} ô có người · {len(o_dong)} ô đóng."
         )
         return 0
 
@@ -593,6 +655,7 @@ async def main() -> int:
                 conn=conn,
                 clinic_id=str(clinic_id),
                 o_lich=o_lich,
+                o_dong=o_dong,
                 do_db=do_db,
                 that=that,
             )

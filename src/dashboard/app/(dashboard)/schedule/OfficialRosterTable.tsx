@@ -8,16 +8,18 @@
 // Lật bảng sang form Excel (16/09/2026) là lúc phải chép lần thứ ba. Thay vì
 // thế, dùng lại. Còn đúng một thân bảng để sửa, và không còn chỗ nào để lệch.
 
-import WorkRosterTable, { type RosterRow } from "../home/WorkRosterTable";
+import WorkRosterTable, { type DongCaRow, type RosterRow } from "../home/WorkRosterTable";
 
 export type OfficialRosterRow = RosterRow;
 
 export default function OfficialRosterTable({
   dates,
   rows,
+  dong = [],
 }: {
   dates: string[];
   rows: OfficialRosterRow[];
+  dong?: DongCaRow[];
 }) {
-  return <WorkRosterTable dates={dates} rows={rows} />;
+  return <WorkRosterTable dates={dates} rows={rows} dong={dong} />;
 }

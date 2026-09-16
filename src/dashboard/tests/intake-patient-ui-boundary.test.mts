@@ -159,5 +159,8 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
   assert.doesNotMatch(sources, /rgba\(/i);
   assert.match(formUi, /shadow-card/);
   assert.match(booking, /ui\.className/);
-  assert.match(rosterGrid, /FLOOR_BORDER/);
+  // Bảng lịch lấy màu qua MAU_PHONG — token `--color-lich-*` mang đúng mã màu
+  // file Excel (16/09/2026). Trước đó là viền tầng FLOOR_BORDER. Thứ canh vẫn
+  // là một: màu đi qua bảng token dùng chung, không có mã hex nằm trong TSX.
+  assert.match(rosterGrid, /MAU_PHONG/);
 });

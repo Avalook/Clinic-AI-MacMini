@@ -1,55 +1,64 @@
 // Khung chung của BA bảng "Lịch làm việc": trang chủ (chỉ đọc), lịch chính thức
 // (chỉ đọc), và bảng xếp ca của quản lý.
 //
-// ĐÃ LẬT CHIỀU 16/09/2026, theo đúng file Excel của PK Kim Ngưu:
+// Y HỆT FILE EXCEL xếp lịch của PK Kim Ngưu (Tuyền 16/09/2026: "bảng nó phải
+// dạng y hệt như này"):
 //
-//        TRƯỚC                          NAY (= Excel)
-//   hàng = ngày                    hàng = Tầng → Phòng → Vị trí
-//   cột  = trạm                    cột  = ngày × ca
+//   • ba cột trái  Tầng · Phòng · Vị trí nhân sự
+//   • ba hàng đầu  Thứ · ngày · ca     (T2→T6 một ca Tối; T7, CN ba ca)
+//   • nền theo PHÒNG, đúng mã màu Excel
+//   • vạch xanh đậm ngăn giữa các tầng
+//   • ô ĐEN      = vị trí không làm ca ấy   (khác ô trống = cần người, chưa xếp)
+//   • khối NGHỈ  = cả ca phòng khám nghỉ
+//   • ô GỘP DỌC  = một người đứng hai vị trí liền nhau (Lễ tân + Thu ngân…)
 //
-// Vì sao phải lật, chứ không chỉ đổi danh sách trạm: Kim Ngưu có 27 vị trí.
-// Giữ chiều cũ là một bảng 27 cột — cuộn ngang ba màn hình mới đọc hết một
-// ngày. Còn chiều mới ra đúng 11 cột (T2→T6 mỗi ngày một ca Tối; T7, CN mỗi
-// ngày ba ca), và người xếp lịch nhìn thấy đúng cái bảng họ vẫn dùng hằng tuần.
-//
-// VÌ SAO DÙNG CHUNG. Trước đây mỗi bảng tự chép lại phần header, và ba bản đã
-// lệch nhau: hai bảng vẽ viền tầng màu thương hiệu, bảng thứ ba dùng tên tầng
-// viết tắt nên khớp sai. Ba bảng phải "cùng một bảng ở ba chỗ" thì mới có lý do
-// bắt người dùng đọc cùng một cách.
+// GỘP DỌC SUY RA TỪ DỮ LIỆU, không khai tay. Đọc file Excel thì ô gộp dọc chỉ
+// xảy ra ở bốn cặp — Lễ tân+Thu ngân, Xếp thuốc+Tạo đơn, Đo chỉ số+Lấy mẫu, Hỏi
+// bệnh+Thư ký — và nghĩa của nó luôn là "cùng một người đứng cả hai". Nên luật
+// là: hai vị trí LIỀN NHAU trong CÙNG tầng có CÙNG người → một ô. Không cần danh
+// sách cặp; ngày phòng khám gộp một cặp mới, bảng tự gộp theo.
 
 import { Fragment, type ReactNode } from "react";
 import {
-  STATIONS,
-  STATION_SEGMENTS,
-  FLOOR_BORDER,
+  MAU_PHONG,
   SHIFT_LABEL,
+  STATION_SEGMENTS,
   dayShort,
   fmtDayMonth,
   type CotLich,
   type Station,
 } from "../../lib/roster";
 
-// KẺ DỌC Ở ĐÂY LÀ CHỦ Ý, không phải sót lại sau đại tu: bảng này là MA TRẬN
-// TOẠ ĐỘ (vị trí × ca) — người đọc dò một hàng vị trí suốt cả tuần, và vách dọc
-// là thứ giữ mắt khỏi trượt cột, cùng lý do lưới đặt chỗ rạp phim được giữ
-// (DESIGN.md §6). Mực dùng màu trung tính, không dùng mực thương hiệu.
 export const O_TREN = "border-b border-r border-hairline";
-export const O_DUOI = "border-b border-r border-b-line border-r-hairline";
 
-const TH_BASE =
-  "border-b border-r border-hairline px-2 py-2 text-center align-middle font-semibold text-ink";
-/** Ba cột đầu dính trái: Tầng · Phòng · Vị trí — đúng ba cột đầu của Excel. */
-const DINH = "sticky z-10 bg-surface";
-const CO_DINH = [
-  { left: "left-0", w: "w-16 min-w-16" },
-  { left: "left-16", w: "w-36 min-w-36" },
-  { left: "left-52", w: "w-44 min-w-44" },
+const THU_DAY_DU: Record<string, string> = {
+  T2: "Thứ Hai",
+  T3: "Thứ Ba",
+  T4: "Thứ Tư",
+  T5: "Thứ Năm",
+  T6: "Thứ Sáu",
+  T7: "Thứ Bảy",
+  CN: "Chủ nhật",
+};
+
+/** Ba cột trái dính khi cuộn ngang. */
+const COT_TRAI = [
+  "sticky left-0 z-10 w-16 min-w-16",
+  "sticky left-16 z-10 w-40 min-w-40",
+  "sticky left-56 z-10 w-56 min-w-56",
 ];
+const KE = "border border-line-strong";
 
-/** Vị trí "Lịch khám" đứng riêng: nó KHÔNG có trong Excel. Xem lib/roster.ts. */
-export const VI_TRI_LICH_KHAM = STATIONS.find((s) => s.key === "LICH_KHAM")!;
+export type TrangThaiO = "DONG" | "NGHI" | null;
 
-/** Hai hàng header: ngày (gộp cột theo số ca) rồi tên ca. */
+export interface ThongTinO {
+  /** Ô đen / khối nghỉ / bình thường. */
+  dong: TrangThaiO;
+  /** Khoá so sánh để gộp dọc: cùng khoá (khác rỗng) = cùng người. */
+  khoa: string;
+}
+
+/** Ba hàng tiêu đề: Thứ (gộp theo số ca) · ngày (gộp) · ca. */
 export function RosterGridHead({
   cot,
   minWidth = 104,
@@ -63,8 +72,8 @@ export function RosterGridHead({
         {["Tầng", "Phòng", "Vị trí nhân sự"].map((t, i) => (
           <th
             key={t}
-            rowSpan={2}
-            className={`${DINH} ${CO_DINH[i].left} ${CO_DINH[i].w} z-20 border-b border-r border-hairline bg-surface-muted px-2 py-2 text-left font-semibold text-ink`}
+            rowSpan={3}
+            className={`${COT_TRAI[i]} z-20 ${KE} bg-surface-muted px-2 py-2 text-center align-middle font-semibold text-ink`}
           >
             {t}
           </th>
@@ -72,15 +81,24 @@ export function RosterGridHead({
         {cot.map((c) =>
           c.dauNgay ? (
             <th
+              key={`${c.date}-thu`}
+              colSpan={c.soCotNgay}
+              className={`${KE} px-2 py-1 text-center font-semibold text-ink`}
+            >
+              {THU_DAY_DU[dayShort(c.date)] ?? dayShort(c.date)}
+            </th>
+          ) : null,
+        )}
+      </tr>
+      <tr className="bg-surface-muted">
+        {cot.map((c) =>
+          c.dauNgay ? (
+            <th
               key={`${c.date}-ngay`}
               colSpan={c.soCotNgay}
-              className={`${TH_BASE} border-l border-l-line`}
-              style={{ minWidth: minWidth * c.soCotNgay }}
+              className={`${KE} px-2 py-1 text-center font-normal text-ink`}
             >
-              <span className="block">{dayShort(c.date)}</span>
-              <span className="block text-meta font-normal text-ink-muted">
-                {fmtDayMonth(c.date)}
-              </span>
+              {fmtDayMonth(c.date)}/{c.date.slice(0, 4)}
             </th>
           ) : null,
         )}
@@ -89,9 +107,7 @@ export function RosterGridHead({
         {cot.map((c) => (
           <th
             key={`${c.date}-${c.shift}`}
-            className={`border-b border-r border-hairline px-2 py-1.5 text-center font-medium text-ink-muted ${
-              c.dauNgay ? "border-l border-l-line" : ""
-            }`}
+            className={`${KE} px-2 py-1 text-center font-normal text-ink`}
             style={{ minWidth }}
           >
             {SHIFT_LABEL[c.shift]}
@@ -102,39 +118,77 @@ export function RosterGridHead({
   );
 }
 
-/** Một hàng cho MỖI vị trí, gộp ô theo Tầng rồi Phòng — đúng hình Excel.
+/** Thân bảng: mỗi vị trí một hàng, gộp Tầng/Phòng, vạch tầng, ô đen, NGHỈ, gộp dọc.
  *
- *  `oCua(vị trí, cột)` trả về đúng một `<td>`. */
+ *  `thongTin(vị trí, cột)` nói ô ấy đóng hay mở và ai đứng (khoá để gộp).
+ *  `veO(vị trí, cột, rowSpan)` vẽ nội dung một ô MỞ — trả về đúng một `<td>`. */
 export function RosterViTriRows({
   cot,
-  oCua,
+  thongTin,
+  veO,
 }: {
   cot: CotLich[];
-  oCua: (station: Station, c: CotLich) => ReactNode;
+  thongTin: (station: Station, c: CotLich) => ThongTinO;
+  veO: (station: Station, c: CotLich, rowSpan: number) => ReactNode;
 }) {
+  const tongCot = 3 + cot.length;
   return (
     <>
-      {STATION_SEGMENTS.map((tang) => {
+      {STATION_SEGMENTS.map((tang, ti) => {
+        const viTri = tang.phongs.flatMap((p) => p.stations);
+
+        // ── Tính trước, theo từng cột: ô nào bị gộp vào ô trên, ô nào dài bao nhiêu.
+        // `span[i][ci]` = rowSpan của ô ở hàng i (0 = ô này đã bị gộp, không vẽ).
+        const span: number[][] = viTri.map(() => cot.map(() => 1));
+        const nghiCaTang: boolean[] = cot.map(
+          (c) => viTri.length > 0 && viTri.every((s) => thongTin(s, c).dong === "NGHI"),
+        );
+        cot.forEach((c, ci) => {
+          if (nghiCaTang[ci]) {
+            span[0][ci] = viTri.length;
+            for (let i = 1; i < viTri.length; i++) span[i][ci] = 0;
+            return;
+          }
+          let dau = 0;
+          for (let i = 1; i < viTri.length; i++) {
+            const tren = thongTin(viTri[dau], c);
+            const duoi = thongTin(viTri[i], c);
+            const gop =
+              tren.dong === null &&
+              duoi.dong === null &&
+              tren.khoa !== "" &&
+              tren.khoa === duoi.khoa;
+            if (gop) {
+              span[dau][ci] += 1;
+              span[i][ci] = 0;
+            } else {
+              dau = i;
+            }
+          }
+        });
+
         let daInTang = false;
+        let chiSo = -1;
         return (
           <Fragment key={tang.floor}>
             {tang.phongs.map((phong) => {
               let daInPhong = false;
+              const mau = MAU_PHONG[phong.phong] ?? "bg-surface";
               return (
-                <Fragment key={`${tang.floor}-${phong.phong}`}>
+                <Fragment key={`${tang.floor}-${phong.phong}-${phong.stations[0].key}`}>
                   {phong.stations.map((s) => {
+                    chiSo += 1;
+                    const i = chiSo;
                     const inTang = !daInTang;
                     const inPhong = !daInPhong;
                     daInTang = true;
                     daInPhong = true;
                     return (
-                      <tr key={s.key} className="align-top">
+                      <tr key={s.key} className="align-middle">
                         {inTang ? (
                           <td
                             rowSpan={tang.soViTri}
-                            className={`${DINH} ${CO_DINH[0].left} ${CO_DINH[0].w} border-b border-r border-hairline border-t-2 px-2 py-2 align-top font-semibold text-ink ${
-                              FLOOR_BORDER[tang.floor] ?? "border-t-brand-600"
-                            }`}
+                            className={`${COT_TRAI[0]} ${KE} bg-surface px-2 py-2 align-top font-semibold text-ink`}
                           >
                             {tang.floor}
                           </td>
@@ -142,28 +196,57 @@ export function RosterViTriRows({
                         {inPhong ? (
                           <td
                             rowSpan={phong.stations.length}
-                            className={`${DINH} ${CO_DINH[1].left} ${CO_DINH[1].w} border-b border-r border-line px-2 py-2 align-top font-medium text-ink`}
+                            className={`${COT_TRAI[1]} ${KE} ${mau} px-2 py-2 font-semibold text-ink`}
                           >
                             {phong.phong}
                           </td>
                         ) : null}
                         <td
-                          className={`${DINH} ${CO_DINH[2].left} ${CO_DINH[2].w} border-b border-r border-hairline px-2 py-2 text-ink-soft`}
+                          className={`${COT_TRAI[2]} ${KE} ${mau} px-2 py-1 text-ink`}
                           title={s.label}
                         >
                           {s.short}
                         </td>
-                        {cot.map((c) => (
-                          <Fragment key={`${s.key}-${c.date}-${c.shift}`}>
-                            {oCua(s, c)}
-                          </Fragment>
-                        ))}
+                        {cot.map((c, ci) => {
+                          const rs = span[i][ci];
+                          if (rs === 0) return null;
+                          const k = `${s.key}-${c.date}-${c.shift}`;
+                          if (nghiCaTang[ci]) {
+                            return (
+                              <td
+                                key={k}
+                                rowSpan={rs}
+                                className={`${KE} bg-lich-nghi text-center align-middle text-2xl font-bold text-warning-bg`}
+                              >
+                                NGHỈ
+                              </td>
+                            );
+                          }
+                          const tt = thongTin(s, c);
+                          if (tt.dong) {
+                            return (
+                              <td
+                                key={k}
+                                rowSpan={rs}
+                                className={`${KE} ${tt.dong === "NGHI" ? "bg-lich-nghi" : "bg-lich-dong"}`}
+                                aria-label="Không làm ca này"
+                              />
+                            );
+                          }
+                          return <Fragment key={k}>{veO(s, c, rs)}</Fragment>;
+                        })}
                       </tr>
                     );
                   })}
                 </Fragment>
               );
             })}
+            {/* Vạch xanh đậm ngăn tầng — đúng hàng kẻ màu `073763` trong Excel. */}
+            {ti < STATION_SEGMENTS.length - 1 ? (
+              <tr aria-hidden="true">
+                <td colSpan={tongCot} className="h-3 bg-lich-vach-tang p-0" />
+              </tr>
+            ) : null}
           </Fragment>
         );
       })}
@@ -171,60 +254,7 @@ export function RosterViTriRows({
   );
 }
 
-/** Hàng "Lịch khám" + hàng "Số BS", đứng TRÊN lưới vị trí và tách khỏi nó.
- *
- *  Tách vì chúng trả lời câu khác: lưới dưới nói "chỗ này ai đứng", hai hàng
- *  này nói "hôm nay phòng khám nhận lịch cho những bác sĩ nào". Gộp vào là mời
- *  người ta xếp một bác sĩ vào "Lịch khám" như xếp vào một cái ghế. */
-export function RosterLichKhamRows({
-  cot,
-  oCua,
-  demBacSi,
-}: {
-  cot: CotLich[];
-  oCua: (station: Station, c: CotLich) => ReactNode;
-  demBacSi: (c: CotLich) => number;
-}) {
-  return (
-    <>
-      <tr className="align-top bg-surface-muted/40">
-        <td
-          colSpan={2}
-          className={`${DINH} ${CO_DINH[0].left} border-b border-r border-hairline px-2 py-2 font-semibold text-ink`}
-        >
-          Lịch khám
-        </td>
-        <td
-          className={`${DINH} ${CO_DINH[2].left} ${CO_DINH[2].w} border-b border-r border-hairline px-2 py-2 text-ink-soft`}
-          title={VI_TRI_LICH_KHAM.label}
-        >
-          Bác sĩ trực
-        </td>
-        {cot.map((c) => (
-          <Fragment key={`lk-${c.date}-${c.shift}`}>
-            {oCua(VI_TRI_LICH_KHAM, c)}
-          </Fragment>
-        ))}
-      </tr>
-      <tr className="bg-surface-muted/40">
-        <td
-          colSpan={3}
-          className={`${DINH} ${CO_DINH[0].left} border-b border-r border-b-line border-hairline px-2 py-1.5 text-meta text-ink-muted`}
-        >
-          Số bác sĩ trực
-        </td>
-        {cot.map((c) => {
-          const n = demBacSi(c);
-          return (
-            <td
-              key={`sobs-${c.date}-${c.shift}`}
-              className={`${O_DUOI} px-2 py-1.5 text-center font-semibold text-brand-700`}
-            >
-              {n > 0 ? n : <span className="text-ink-faint">—</span>}
-            </td>
-          );
-        })}
-      </tr>
-    </>
-  );
+/** Nền của một ô MỞ: màu phòng của vị trí ấy, như Excel. */
+export function nenO(station: Station): string {
+  return MAU_PHONG[station.phong] ?? "bg-surface";
 }

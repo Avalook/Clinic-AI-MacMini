@@ -8,15 +8,18 @@
 //   - Ô trống có dấu "+"; ô đã có người hiện tên + ca.
 // Ghi qua /api/roster (POST xếp, DELETE gỡ) rồi router.refresh().
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, Trash2 } from "lucide-react";
 import {
   STATION_LABEL,
   SHIFTS,
   SHIFT_LABEL,
+  STATIONS,
   cotCuaTuan,
   demBacSiTruc,
+  type CotLich,
+  type Station,
   dayShort,
   fmtDayMonth,
   type Shift,
@@ -24,9 +27,10 @@ import {
 import {
   RosterGridHead,
   RosterViTriRows,
-  RosterLichKhamRows,
-  O_TREN,
+  nenO,
+  type ThongTinO,
 } from "../RosterGrid";
+import type { DongCaRow } from "../home/WorkRosterTable";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 export interface RegisterRow {
@@ -69,9 +73,12 @@ function cellKey(date: string, station: string) {
   return `${date}|${station}`;
 }
 
+const VI_TRI_LICH_KHAM = STATIONS.find((x) => x.key === "LICH_KHAM")!;
+
 export default function RosterRegisterTable({
   weekStart,
   rows,
+  dong = [],
   myStaffId,
   myStaffName,
   staff = [],
@@ -81,6 +88,8 @@ export default function RosterRegisterTable({
   weekStart: string;
   dates: string[];
   rows: RegisterRow[];
+  /** Ô đen / khối NGHỈ của tuần (bảng `vi_tri_dong_ca`). */
+  dong?: DongCaRow[];
   /** staff_id người đang đăng nhập; null = chưa chọn danh tính (không đăng ký được). */
   myStaffId: string | null;
   /** Tên người đăng nhập — hiện ngay cho ca vừa đăng ký (optimistic). */
@@ -348,10 +357,25 @@ export default function RosterRegisterTable({
 
   const cot = cotCuaTuan(weekStart, effRows);
 
-  const oCuaBang = (station: string, date: string, ca: Shift, dauNgay: boolean) => {
+  const dongO = new Map(
+    dong.map((d) => [`${d.station}|${d.work_date}|${d.shift}`, d.ly_do] as const),
+  );
+  const thongTin = (st: Station, c: CotLich): ThongTinO => ({
+    dong: dongO.get(`${st.key}|${c.date}|${c.shift}`) ?? null,
+    // Gộp dọc CHỈ theo người đang có hiệu lực — một ca đã gỡ không được làm hai
+    // ô dính nhau vì còn lưu tên cũ.
+    khoa: cuaCa(byCell.get(cellKey(c.date, st.key)) ?? [], c.shift)
+      .filter((r) => r.status !== "REJECTED")
+      .map((r) => r.staff_id ?? r.staff_name)
+      .sort()
+      .join("|"),
+  });
+
+  const oCuaBang = (st: Station, date: string, ca: Shift, rowSpan = 1) => {
+    const station = st.key;
     const list = cuaCa(byCell.get(cellKey(date, station)) ?? [], ca);
     return (
-      <td className={`${O_TREN} p-0 ${dauNgay ? "border-l border-l-line" : ""}`}>
+      <td rowSpan={rowSpan} className={`border border-line-strong ${nenO(st)} p-0`}>
         <button
           type="button"
           onClick={() => moO(date, station, ca)}
@@ -392,21 +416,63 @@ export default function RosterRegisterTable({
         <table className="w-full min-w-max border-collapse text-xs">
           <RosterGridHead cot={cot} minWidth={112} />
           <tbody>
-            <RosterLichKhamRows
+            <RosterViTriRows
               cot={cot}
-              demBacSi={(c) =>
-                demBacSiTruc(
+              thongTin={thongTin}
+              veO={(st, c, rs) => oCuaBang(st, c.date, c.shift, rs)}
+            />
+          </tbody>
+        </table>
+      </div>
+
+      {/* BÁC SĨ NHẬN LỊCH KHÁM — đứng NGOÀI bảng Excel, có chủ ý.
+          File Excel không có dòng này, và bảng trên phải y hệt file. Nhưng lưới
+          đặt lịch cần biết hôm nào nhận lịch cho bác sĩ nào, và đây là chỗ duy
+          nhất quản lý khai điều đó. */}
+      <div className="mt-4 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
+        <table className="w-full min-w-max border-collapse text-xs">
+          <RosterGridHead cot={cot} minWidth={112} />
+          <tbody>
+            <tr className="align-middle">
+              <td
+                colSpan={3}
+                className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-2 font-semibold text-ink"
+                title={STATION_LABEL.LICH_KHAM}
+              >
+                Bác sĩ nhận lịch khám
+                <span className="block text-meta font-normal text-ink-muted">
+                  Không có trong Excel · lưới đặt lịch đọc dòng này
+                </span>
+              </td>
+              {cot.map((c) => (
+                <Fragment key={`lk-${c.date}-${c.shift}`}>
+                  {oCuaBang(VI_TRI_LICH_KHAM, c.date, c.shift)}
+                </Fragment>
+              ))}
+            </tr>
+            <tr>
+              <td
+                colSpan={3}
+                className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-1 text-meta text-ink-muted"
+              >
+                Số bác sĩ nhận lịch
+              </td>
+              {cot.map((c) => {
+                const n = demBacSiTruc(
                   effRows.filter((r) => r.status !== "REJECTED"),
                   c.date,
                   c.shift,
-                )
-              }
-              oCua={(s, c) => oCuaBang(s.key, c.date, c.shift, c.dauNgay)}
-            />
-            <RosterViTriRows
-              cot={cot}
-              oCua={(s, c) => oCuaBang(s.key, c.date, c.shift, c.dauNgay)}
-            />
+                );
+                return (
+                  <td
+                    key={`sobs-${c.date}-${c.shift}`}
+                    className="border border-line-strong px-2 py-1 text-center font-semibold text-brand-700"
+                  >
+                    {n > 0 ? n : <span className="text-ink-faint">—</span>}
+                  </td>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
       </div>

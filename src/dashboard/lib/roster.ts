@@ -44,11 +44,11 @@ export const STATIONS: Station[] = [
 
   { key: "T1_LETAN", label: "Lễ tân", short: "Lễ tân", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DIEU_DUONG" },
   { key: "T1_THUNGAN", label: "Thu ngân", short: "Thu ngân", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DIEU_DUONG" },
-  { key: "T1_DOCHISO", label: "Đo chỉ số sức khoẻ (HA, MĐX, test nước tiểu)", short: "Đo chỉ số", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DIEU_DUONG" },
-  { key: "T1_LAYMAU", label: "Lấy mẫu (máu)", short: "Lấy mẫu", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DOI_TAC" },
+  { key: "T1_DOCHISO", label: "Đo chỉ số sức khoẻ (HA, MĐX, test nước tiểu)", short: "Đo chỉ số sức khoẻ (HA, MĐX, test nước tiểu), dịch cơ thể", group: "Tầng 1", floor: "Tầng 1", phong: "", nhom: "DIEU_DUONG" },
+  { key: "T1_LAYMAU", label: "Lấy mẫu (máu)", short: "Lấy mẫu (máu)", group: "Tầng 1", floor: "Tầng 1", phong: "", nhom: "DOI_TAC" },
 
   { key: "T1_BS_NOITIET", label: "BS Nội tiết", short: "BS Nội tiết", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
-  { key: "T1_HOIBENH", label: "Hỏi bệnh ban đầu", short: "Hỏi bệnh", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
+  { key: "T1_HOIBENH", label: "Hỏi bệnh ban đầu", short: "Hỏi bệnh ban đầu", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
   { key: "T1_TKYK", label: "Thư ký y khoa", short: "Thư ký y khoa", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "DIEU_DUONG" },
 
   { key: "T1_TT_BS", label: "BS thủ thuật", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "BAC_SI" },
@@ -61,16 +61,16 @@ export const STATIONS: Station[] = [
   { key: "T1_TTNG_DD1", label: "Điều dưỡng ngoài giờ 1", short: "Điều dưỡng 1", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
   { key: "T1_TTNG_DD2", label: "Điều dưỡng ngoài giờ 2", short: "Điều dưỡng 2", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
 
-  { key: "T2_XEPTHUOC", label: "Xếp thuốc + Giải thích thuốc", short: "Xếp thuốc", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
-  { key: "T2_TAODON", label: "Tạo đơn thuốc + Thu ngân", short: "Tạo đơn + Thu ngân", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
+  { key: "T2_XEPTHUOC", label: "Xếp thuốc + Giải thích thuốc", short: "Xếp thuốc + Giải thích thuốc", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
+  { key: "T2_TAODON", label: "Tạo đơn thuốc + Thu ngân", short: "Tạo đơn thuốc + Thu ngân", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
 
   { key: "T4_SANCHAU_BS", label: "BS Sàn chậu", short: "BS Sàn chậu", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
-  { key: "T4_SANCHAU_BSTT", label: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách)", short: "BS Thủ thuật", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
-  { key: "T4_SANCHAU_DD", label: "Điều dưỡng Sàn chậu (phụ khám, ghế Starformer, thủ thuật)", short: "Điều dưỡng", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
+  { key: "T4_SANCHAU_BSTT", label: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách)", short: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách bao quy đầu âm vật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
+  { key: "T4_SANCHAU_DD", label: "Điều dưỡng Sàn chậu (phụ khám, ghế Starformer, thủ thuật)", short: "Điều dưỡng Sàn chậu (Phụ khám Sàn chậu, Ghế Starformer, Thủ thuật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
 
   { key: "T4_SAN_BS", label: "BS Sản", short: "BS Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "BAC_SI" },
-  { key: "T4_SAN_DD", label: "Điều dưỡng Sản", short: "ĐD Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
-  { key: "T4_BIO_DD", label: "Điều dưỡng Bio", short: "ĐD Bio", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
+  { key: "T4_SAN_DD", label: "Điều dưỡng Sản", short: "Điều dưỡng Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
+  { key: "T4_BIO_DD", label: "Điều dưỡng Bio", short: "Điều dưỡng Bio", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
 
   { key: "T4_SA_BS1", label: "BS siêu âm 1", short: "BS 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "BAC_SI" },
   { key: "T4_SA_DD1", label: "Điều dưỡng siêu âm 1", short: "Điều dưỡng 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
@@ -92,8 +92,12 @@ export interface FloorSegment {
   /** Tổng số vị trí trong tầng — dùng cho rowSpan của ô "Tầng". */
   soViTri: number;
 }
-export const STATION_SEGMENTS: FloorSegment[] = STATIONS.filter(
-  (s) => s.floor !== "",
+// CHỈ các tầng CÓ TRONG EXCEL. "Lịch khám" (bác sĩ nhận lịch) và "Trưởng ca
+// (điều phối)" vẫn là vị trí trong hệ thống — thanh bên và đặt lịch dùng chúng —
+// nhưng file Excel không có hai dòng ấy, và bảng phải y hệt file.
+export const TANG_EXCEL = new Set(["Tầng 1", "Tầng 2", "Tầng 4"]);
+export const STATION_SEGMENTS: FloorSegment[] = STATIONS.filter((s) =>
+  TANG_EXCEL.has(s.floor),
 ).reduce<FloorSegment[]>((segs, s) => {
   let tang = segs[segs.length - 1];
   if (!tang || tang.floor !== s.floor) {
@@ -106,6 +110,19 @@ export const STATION_SEGMENTS: FloorSegment[] = STATIONS.filter(
   tang.soViTri += 1;
   return segs;
 }, []);
+
+/** Màu nền theo PHÒNG — đúng mã màu cột "Phòng" của file Excel (xem token
+ *  `--color-lich-*` trong globals.css). Phòng không có ở đây thì nền trắng, như
+ *  Quầy thuốc và Phòng Sản - Biofeedback trong Excel. */
+export const MAU_PHONG: Record<string, string> = {
+  "Quầy tiếp đón": "bg-lich-tiep-don",
+  "Phòng Nội tiết": "bg-lich-noi-tiet",
+  "Phòng thủ thuật": "bg-lich-thu-thuat",
+  "Phòng Siêu âm": "bg-lich-sieu-am",
+  "Thủ thuật ngoài giờ": "bg-lich-ngoai-gio",
+  "Phòng Sàn chậu": "bg-lich-san-chau",
+  "Phòng siêu âm": "bg-lich-sieu-am",
+};
 
 // Màu nhấn theo TẦNG. Khoá phải là chuỗi `floor` THẬT ở trên — bản trước viết
 // tắt nên hai tầng không bao giờ khớp và rơi về màu mặc định: một bảng màu

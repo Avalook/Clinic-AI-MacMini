@@ -1,21 +1,19 @@
-// Bảng "Lịch làm việc" trên trang chủ — chỉ đọc.
+// Bảng "Lịch làm việc" chỉ-đọc — y hệt file Excel của PK Kim Ngưu.
 //
-// Form Y HỆT file Excel của PK Kim Ngưu: hàng = Tầng → Phòng → Vị trí, cột =
-// ngày × ca (T2→T6 một ca Tối; T7, CN ba ca). Ô = người đứng chỗ ấy ca ấy.
-// Dữ liệu thật từ `work_roster` (server fetch ở home/page.tsx). Khung dùng
-// chung với hai bảng kia: ../RosterGrid.
+// Khung ở ../RosterGrid. Tệp này chỉ trả lời cho từng ô: đóng hay mở, ai đứng.
+// Dữ liệu thật từ `work_roster` (người) và `vi_tri_dong_ca` (ô đen, khối NGHỈ).
 
 import {
   cotCuaTuan,
-  demBacSiTruc,
   weekStartOf,
-  type Shift,
+  type CotLich,
+  type Station,
 } from "../../../lib/roster";
 import {
   RosterGridHead,
   RosterViTriRows,
-  RosterLichKhamRows,
-  O_TREN,
+  nenO,
+  type ThongTinO,
 } from "../RosterGrid";
 
 export interface RosterRow {
@@ -26,57 +24,60 @@ export interface RosterRow {
   shift: string;
 }
 
-/** Khoá một ô: vị trí + ngày + ca. */
-function khoaO(station: string, date: string, shift: string): string {
-  return `${station}|${date}|${shift}`;
+export interface DongCaRow {
+  work_date: string;
+  shift: string;
+  station: string;
+  ly_do: "DONG" | "NGHI";
 }
 
-export default function WorkRosterTable({
-  dates,
-  rows,
-}: {
-  dates: string[];
-  rows: RosterRow[];
-}) {
-  const weekStart = weekStartOf(dates[0] ?? "") ?? dates[0] ?? "";
-  const cot = cotCuaTuan(weekStart, rows);
+const khoaO = (station: string, date: string, shift: string) =>
+  `${station}|${date}|${shift}`;
 
-  // Một ô có thể có nhiều người — Excel cũng viết hai tên chung một ô khi hôm
-  // ấy cần hai người. Gom hết, không cắt bớt: cắt là bảng nói dối về ai trực.
+/** Ai đứng ô nào. Người trực CẢ NGÀY hiện ở mọi ca của ngày ấy — không thì họ
+ *  biến khỏi bảng chỉ vì bảng có cột theo ca còn họ không khai ca nào. */
+export function gomNguoi(rows: RosterRow[], cot: CotLich[]) {
   const o = new Map<string, string[]>();
   for (const r of rows) {
     if (!r.staff_name) continue;
-    // Người trực CẢ NGÀY hiện ở mọi ca của ngày ấy, nếu không họ biến mất khỏi
-    // bảng chỉ vì bảng có cột theo ca còn họ thì không khai ca nào.
-    const cas: string[] =
+    const cas =
       r.shift === "FULL"
         ? cot.filter((c) => c.date === r.work_date).map((c) => c.shift)
         : [r.shift];
     for (const ca of cas) {
       const k = khoaO(r.station, r.work_date, ca);
-      o.set(k, [...(o.get(k) ?? []), r.staff_name]);
+      const ds = o.get(k) ?? [];
+      if (!ds.includes(r.staff_name)) ds.push(r.staff_name);
+      o.set(k, ds);
     }
   }
+  return o;
+}
 
-  const veO = (stationKey: string, date: string, shift: Shift, dauNgay: boolean) => {
-    const ten = o.get(khoaO(stationKey, date, shift)) ?? [];
-    return (
-      <td
-        className={`${O_TREN} px-2 py-1.5 text-center text-ink ${
-          dauNgay ? "border-l border-l-line" : ""
-        }`}
-      >
-        {ten.length === 0 ? (
-          <span className="text-ink-faint">—</span>
-        ) : (
-          ten.map((n, i) => (
-            <span key={i} className="block whitespace-nowrap leading-snug">
-              {n}
-            </span>
-          ))
-        )}
-      </td>
-    );
+export function gomDong(dong: DongCaRow[]) {
+  return new Map(dong.map((d) => [khoaO(d.station, d.work_date, d.shift), d.ly_do]));
+}
+
+export default function WorkRosterTable({
+  dates,
+  rows,
+  dong = [],
+}: {
+  dates: string[];
+  rows: RosterRow[];
+  dong?: DongCaRow[];
+}) {
+  const weekStart = weekStartOf(dates[0] ?? "") ?? dates[0] ?? "";
+  const cot = cotCuaTuan(weekStart, rows);
+  const nguoi = gomNguoi(rows, cot);
+  const dongO = gomDong(dong);
+
+  const thongTin = (s: Station, c: CotLich): ThongTinO => {
+    const k = khoaO(s.key, c.date, c.shift);
+    return {
+      dong: dongO.get(k) ?? null,
+      khoa: [...(nguoi.get(k) ?? [])].sort().join("|"),
+    };
   };
 
   return (
@@ -84,14 +85,24 @@ export default function WorkRosterTable({
       <table className="w-full min-w-max border-collapse text-xs">
         <RosterGridHead cot={cot} minWidth={104} />
         <tbody>
-          <RosterLichKhamRows
-            cot={cot}
-            demBacSi={(c) => demBacSiTruc(rows, c.date, c.shift)}
-            oCua={(s, c) => veO(s.key, c.date, c.shift, c.dauNgay)}
-          />
           <RosterViTriRows
             cot={cot}
-            oCua={(s, c) => veO(s.key, c.date, c.shift, c.dauNgay)}
+            thongTin={thongTin}
+            veO={(s, c, rs) => {
+              const ten = nguoi.get(khoaO(s.key, c.date, c.shift)) ?? [];
+              return (
+                <td
+                  rowSpan={rs}
+                  className={`border border-line-strong ${nenO(s)} px-2 py-1 text-center align-middle text-ink`}
+                >
+                  {ten.map((n, i) => (
+                    <span key={i} className="block whitespace-nowrap leading-snug">
+                      {n}
+                    </span>
+                  ))}
+                </td>
+              );
+            }}
           />
         </tbody>
       </table>
