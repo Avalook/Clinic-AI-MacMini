@@ -143,8 +143,7 @@ async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
     total = len(prefix)
     if total > limit:
         raise ValidationError(
-            f"Tệp quá lớn ({total // 1024 // 1024}MB). "
-            f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+            f"Tệp quá lớn. Tối đa {limit // 1024 // 1024}MB cho loại này."
         )
 
     while True:
@@ -157,8 +156,7 @@ async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
         total += len(chunk)
         if total > limit:
             raise ValidationError(
-                f"Tệp quá lớn ({total // 1024 // 1024}MB). "
-                f"Tối đa {limit // 1024 // 1024}MB cho loại này."
+                f"Tệp quá lớn. Tối đa {limit // 1024 // 1024}MB cho loại này."
             )
         chunks.append(chunk)
 

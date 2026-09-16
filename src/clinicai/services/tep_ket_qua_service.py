@@ -100,8 +100,7 @@ class TepKetQuaService:
         tran = MAX_BYTES_THEO_LOAI[loai]
         if len(data) > tran:
             raise ValidationError(
-                f"Tệp quá lớn ({len(data) // 1024 // 1024}MB). "
-                f"Tối đa {tran // 1024 // 1024}MB cho loại này."
+                f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
 
         async with self._pool.acquire() as conn, conn.transaction():
