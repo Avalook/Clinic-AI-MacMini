@@ -19,7 +19,8 @@ export interface Station {
   /** Phòng — nhóm con trong tầng, đúng cột "Phòng" của Excel. */
   phong: string;
   /** Ai đứng được chỗ này. Khớp `vi_tri_lam_viec.nhom_nghe` trong database. */
-  nhom: "BAC_SI" | "DIEU_DUONG" | "DOI_TAC";
+  /** CHUNG = bác sĩ hay điều dưỡng đều đứng được (xem migration 20260916000012). */
+  nhom: "BAC_SI" | "DIEU_DUONG" | "DOI_TAC" | "CHUNG";
 }
 
 // ── 27 VỊ TRÍ THẬT CỦA PK KIM NGƯU ─────────────────────────────────────────
@@ -48,7 +49,7 @@ export const STATIONS: Station[] = [
   { key: "T1_LAYMAU", label: "Lấy mẫu (máu)", short: "Lấy mẫu (máu)", group: "Tầng 1", floor: "Tầng 1", phong: "", nhom: "DOI_TAC" },
 
   { key: "T1_BS_NOITIET", label: "BS Nội tiết", short: "BS Nội tiết", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
-  { key: "T1_HOIBENH", label: "Hỏi bệnh ban đầu", short: "Hỏi bệnh ban đầu", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
+  { key: "T1_HOIBENH", label: "Hỏi bệnh ban đầu", short: "Hỏi bệnh ban đầu", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "CHUNG" },
   { key: "T1_TKYK", label: "Thư ký y khoa", short: "Thư ký y khoa", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "DIEU_DUONG" },
 
   { key: "T1_TT_BS", label: "BS thủ thuật", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "BAC_SI" },
