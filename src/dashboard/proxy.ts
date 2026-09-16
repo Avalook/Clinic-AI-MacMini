@@ -96,6 +96,12 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Skip Next internals + static assets. Everything else passes through.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // HAI ĐƯỜNG TẢI TỆP ĐI THẲNG, KHÔNG QUA proxy (tự kiểm 16/09/2026).
+    // Proxy chép thân yêu cầu vào RAM và CẮT ở 10MB — mọi video siêu âm, phiếu
+    // PDF lớn tải lên đều hỏng với câu "không kết nối được máy chủ". Nâng trần
+    // `proxyClientMaxBodySize` thì vài video 80MB cùng lúc là tràn bộ nhớ
+    // dashboard. Hai route này tự xác thực người gọi (getCallerAuthHeaders);
+    // với /api proxy chỉ làm mới cookie, không gác cửa.
+    "/((?!_next/static|_next/image|favicon.ico|api/cskh/ket-qua$|api/doi-tac$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

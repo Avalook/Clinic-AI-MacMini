@@ -68,6 +68,15 @@ export async function POST(request: Request) {
   const ctIn = request.headers.get("content-type");
   if (ctIn) headers["Content-Type"] = ctIn;
   const clIn = request.headers.get("content-length");
+  // Quá trần của MỌI loại tệp (video 80MB + phần bọc multipart) thì báo ngay,
+  // không đẩy sang máy chủ: máy chủ đóng kết nối giữa chừng và người dùng chỉ
+  // nhận "không kết nối được" thay vì "tệp quá lớn" (tự kiểm 16/09/2026).
+  if (clIn && Number(clIn) > 82 * 1024 * 1024) {
+    return NextResponse.json(
+      { error: "Tệp quá lớn — tối đa 80MB cho video, 20MB cho PDF/Word, 12MB cho ảnh." },
+      { status: 413 },
+    );
+  }
   if (clIn) headers["Content-Length"] = clIn;
 
   let res: Response;
