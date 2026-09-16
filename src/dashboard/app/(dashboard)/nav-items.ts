@@ -342,9 +342,14 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // Quản lý không đứng quầy. Trên điện thoại họ xem SỐ và xem PHÒNG KHÁM ĐANG
   // CHẠY RA SAO, không thao tác bàn khám hay thu ngân.
   MANAGEMENT: ["/home", "/lich-do-ve", "/reports", "/truong-ca"],
-  // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi cảnh báo — đúng thứ tự họ
+  // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi khách hàng — đúng thứ tự họ
   // nhìn khi phòng chờ đông.
-  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/truong-ca/tv"],
+  //
+  // "/truong-ca/tv" nhường chỗ cho "/customers" (Tuyền 16/09): màn TV là thứ
+  // treo trên tường chứ không phải thứ trưởng ca mở trên điện thoại, còn
+  // quản lý khách hàng là nửa còn lại của toàn cảnh — hàng đợi nói ai đang ở
+  // trong phòng khám, màn kia nói ai đáng lẽ phải có mặt mà chưa tới.
+  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/customers"],
   // Điều dưỡng siêu âm: trạm của họ là /sono.
   NURSE_ULTRASOUND: ["/home", "/sono", "/service-queue", "/tasks"],
   // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.

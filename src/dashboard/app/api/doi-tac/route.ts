@@ -20,12 +20,14 @@ export async function GET() {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
-  const d = await fetchFromBackend<{ items: unknown[] }>("/api/v1/doi-tac/viec");
+  const d = await fetchFromBackend<{ khach: unknown[]; so_viec: number }>(
+    "/api/v1/doi-tac/viec",
+  );
   if (d === null) {
     // null = không với tới backend. Trả mảng rỗng ở đây thì màn nói dối "không
-    // có việc nào", và đối tác đóng tab đi về trong khi kết quả vẫn đang chờ.
+    // có khách nào", và đối tác đóng tab đi về trong khi kết quả vẫn đang chờ.
     return NextResponse.json(
-      { error: "Không đọc được danh sách việc" },
+      { error: "Không đọc được danh sách khách" },
       { status: 502 },
     );
   }

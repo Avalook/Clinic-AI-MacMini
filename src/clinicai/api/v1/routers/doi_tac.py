@@ -43,7 +43,7 @@ async def viec_cua_doi_tac(
     identity: StaffIdentity = Depends(get_partner_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Những chỉ định gửi ra ngoài CHƯA có kết quả.
+    """Khách đang chờ bàn đối tác, kèm những việc của từng người.
 
     Giới hạn 60 ngày gần đây: một chỉ định từ nửa năm trước mà chưa có kết quả
     thì đó là việc của phòng khám đi đòi, không phải việc để đối tác gửi hôm
@@ -87,22 +87,38 @@ async def viec_cua_doi_tac(
             """,
             identity.clinic_id,
         )
-    return {
-        "items": [
+    # GOM THEO KHÁCH, không trả về một danh sách chỉ định phẳng.
+    #
+    # Bàn của đối tác đón NGƯỜI, không đón việc: một khách tới lấy máu có thể
+    # mang hai ba chỉ định cùng lúc. Danh sách phẳng thì cùng một người hiện ba
+    # dòng cách xa nhau, và người ngồi bàn phải tự ghép lại trong đầu — đúng lúc
+    # họ đang cầm ống nghiệm và cần biết "người này còn gì nữa không".
+    #
+    # Thứ tự khách theo chỉ định SỚM NHẤT của họ: ai chờ lâu nhất đứng trên.
+    khach: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        k = khach.setdefault(
+            r["clinic_patient_id"],
+            {
+                "clinic_patient_id": r["clinic_patient_id"],
+                "ten_khach": r["ten_khach"],
+                "ma_khach": r["ma_khach"],
+                "cho_tu": None,
+                "viec": [],
+            },
+        )
+        luc = r["created_at"].isoformat() if r["created_at"] else None
+        if luc and (k["cho_tu"] is None or luc < k["cho_tu"]):
+            k["cho_tu"] = luc
+        k["viec"].append(
             {
                 "chi_dinh_id": r["chi_dinh_id"],
                 "ten_dich_vu": r["ten_dich_vu"],
-                "ten_khach": r["ten_khach"],
-                "ma_khach": r["ma_khach"],
-                "clinic_patient_id": r["clinic_patient_id"],
                 "appointment_id": r["appointment_id"],
-                "chi_dinh_luc": (
-                    r["created_at"].isoformat() if r["created_at"] else None
-                ),
+                "chi_dinh_luc": luc,
             }
-            for r in rows
-        ]
-    }
+        )
+    return {"khach": list(khach.values()), "so_viec": len(rows)}
 
 
 @router.post("/doi-tac/ket-qua", status_code=201)

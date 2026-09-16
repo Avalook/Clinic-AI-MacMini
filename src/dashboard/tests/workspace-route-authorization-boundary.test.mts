@@ -17,7 +17,11 @@ test("every role-scoped workspace has a server-side navigation guard", () => {
     const source = page(path);
     assert.match(
       source,
-      /import \{ requireNavAccess \} from "@\/lib\/clinic-session"/,
+      // CHO PHÉP NHẬP KÈM TÊN KHÁC. Bất biến là "trang có gọi cửa gác
+      // requireNavAccess", không phải "trang chỉ nhập đúng một tên từ tệp ấy".
+      // Quầy thu ngân nhập thêm `getClinicRole` để biết mình là quầy thuốc hay
+      // quầy dịch vụ — bài kiểm cũ đỏ vì dấu phẩy, trong khi cửa gác vẫn nguyên.
+      /import \{[^}]*\brequireNavAccess\b[^}]*\} from "@\/lib\/clinic-session"/,
       `${path} must import the server-side guard`,
     );
     assert.match(
