@@ -30,6 +30,20 @@ import type {
   SonoRecord,
   SonoRoom,
 } from "./types";
+import KetQuaPhuKhoa, {
+  dungFindings,
+  doVaoO,
+  type OChu,
+  type PhuKhoaFindings,
+} from "./KetQuaPhuKhoa";
+
+/** Ca siêu âm THAI — nhận ra bằng tên loại, vì `ultrasound_type` là chữ tự do
+ *  chứ không phải danh mục. Sai sót ở đây chỉ làm hiện thừa/thiếu một khối ô,
+ *  không làm mất dữ liệu: `mo_ta` và `findings` vẫn lưu như nhau. */
+function laThai(loai: string | null): boolean {
+  const t = (loai ?? "").toLowerCase();
+  return t.includes("thai") || t.includes("sản");
+}
 
 type Tab = "queue" | "dispatch" | "results" | "signed";
 
@@ -498,6 +512,9 @@ function ResultsTab({
   const [openId, setOpenId] = useState<string | null>(null);
   const [mota, setMota] = useState("");
   const [ketLuan, setKetLuan] = useState("");
+  // Ô CÓ CẤU TRÚC cho siêu âm phụ khoa (Tuyền chốt 16/09/2026) — xem
+  // KetQuaPhuKhoa.tsx. Giữ chung một state phẳng cho dễ nạp/lưu.
+  const [oPk, setOPk] = useState<OChu>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -525,10 +542,15 @@ function ResultsTab({
       body: JSON.stringify({
         visit_id: rec.visit_id,
         ultrasound_type: rec.ultrasound_type,
-        // `findings` là jsonb có cấu trúc. Ô nhập một dòng mô tả nên nó vào
-        // khoá `mo_ta`; khi có mẫu theo từng loại siêu âm thì thêm khoá, không
-        // phải đổi kiểu.
-        findings: mota.trim() ? { mo_ta: mota.trim() } : null,
+        // `findings` là jsonb có cấu trúc — nay được dùng đúng như thế: tử
+        // cung, nội mạc, buồng trứng hai bên kèm AFC, phần phụ, dịch ổ bụng.
+        // `mo_ta` vẫn còn cho phần quan sát không rơi vào ô nào, và cho những
+        // bản ghi cũ đã lưu theo kiểu một dòng.
+        findings: laThai(rec.ultrasound_type)
+          ? mota.trim()
+            ? { mo_ta: mota.trim() }
+            : null
+          : dungFindings(oPk, mota),
         impression: ketLuan.trim() || null,
       }),
     });
@@ -582,8 +604,9 @@ function ResultsTab({
                 onClick={() => {
                   setOpenId(open ? null : d.ultrasound_id);
                   setErr(null);
-                  const f = d.findings as { mo_ta?: string } | null;
+                  const f = d.findings as PhuKhoaFindings | null;
                   setMota(f?.mo_ta ?? "");
+                  setOPk(doVaoO(f));
                   setKetLuan(d.impression ?? "");
                 }}
               >
@@ -595,11 +618,20 @@ function ResultsTab({
 
             {open && (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                {/* Siêu âm THAI có bộ chỉ số riêng (CRL/BPD/AC/FL…) nhập ở hồ
+                    sơ khám, nên ở đây chỉ hiện ô mô tả — không bày ô tử cung,
+                    buồng trứng cho một ca khám thai. */}
+                {!laThai(d.ultrasound_type) && (
+                  <KetQuaPhuKhoa
+                    gia_tri={oPk}
+                    onDoi={(k, v) => setOPk((cu) => ({ ...cu, [k]: v }))}
+                  />
+                )}
                 <textarea
                   value={mota}
                   onChange={(e) => setMota(e.target.value)}
                   rows={3}
-                  placeholder="Mô tả hình ảnh…"
+                  placeholder="Mô tả thêm (phần không rơi vào ô nào ở trên)…"
                 />
                 <textarea
                   value={ketLuan}
