@@ -116,8 +116,19 @@ async def main() -> int:
                     "staff_id": r["staff_id"],
                 }
             )
+        vai_hien_co = {r["full_name"]: r["role"] for r in hien_co}
+        lech_vai: list[str] = []
         for ten, vai, tk in THEM_MOI:
             if ten in ten_hien_co:
+                # ĐÃ CÓ HỒ SƠ — dùng bản trong database, KHÔNG tạo người thứ
+                # hai. Nhưng nếu vai trong bảng bàn giao khác vai đang lưu thì
+                # phải NÓI RA: vai quyết định người ấy xem được hồ sơ nào. Bỏ
+                # qua trong im lặng là để một khác biệt về quyền trôi đi.
+                if vai_hien_co.get(ten) != vai:
+                    lech_vai.append(
+                        f"{ten}: bảng bàn giao ghi {vai}, "
+                        f"database đang là {vai_hien_co.get(ten)}"
+                    )
                 continue
             ke_hoach.append(
                 {"viec": "thêm mới", "ten": ten, "vai": vai, "tk": tk, "staff_id": None}
@@ -138,6 +149,11 @@ async def main() -> int:
             print(
                 f"  {k['viec']:<14} {k['vai']:<18} {k['ten']:<24} {k['tk']}@{TEN_MIEN}"
             )
+
+        if lech_vai:
+            print("\n⚠ LỆCH VAI — dùng vai trong database, cần Tuyền xác nhận:")
+            for d in lech_vai:
+                print(f"    {d}")
 
         if va_cham:
             print("\n✗ TRÙNG TÊN TÀI KHOẢN — dừng, không đoán:")
