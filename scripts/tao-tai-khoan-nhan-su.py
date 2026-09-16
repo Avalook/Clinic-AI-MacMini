@@ -203,13 +203,19 @@ async def main() -> int:
                     if staff_id is None:
                         staff_id = await conn.fetchval(
                             """
+                            -- `staff` KHÔNG có cột clinic_id hay clinic_role:
+                            -- phòng khám đến từ `clinic_membership`, còn vai
+                            -- đọc từ `primary_department` (departmentToRole).
+                            -- Bản đầu của script đoán theo tên cột mình mong
+                            -- muốn và chết giữa chừng, để lại một tài khoản
+                            -- đăng nhập không gắn hồ sơ nào.
                             INSERT INTO staff
-                                (full_name, clinic_id, is_active, auth_user_id,
-                                 clinic_role, primary_location_id)
-                            VALUES ($1, $2::uuid, TRUE, $3::uuid, $4,
-                                    (SELECT id FROM clinic_location
-                                      WHERE clinic_id = $2::uuid AND is_active
-                                      ORDER BY created_at LIMIT 1))
+                                (full_name, is_active, auth_user_id,
+                                 primary_department, primary_location_id)
+                            VALUES ($1, TRUE, $3::uuid, $4,
+                                    (SELECT l.id FROM clinic_location l
+                                      WHERE l.clinic_id = $2::uuid AND l.is_active
+                                      ORDER BY l.created_at LIMIT 1))
                             RETURNING id::text
                             """,
                             k["ten"],

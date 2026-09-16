@@ -52,16 +52,30 @@ PW = os.environ.get("TEST_PW", "")
 # gắn vào mọi lời gọi, script cũng phải làm đúng thế.
 KHOA_API = os.environ.get("BACKEND_API_KEY", "")
 
+# Tài khoản dùng để đóng vai. Mặc định là tám tài khoản thử của stack LOCAL;
+# trên máy chủ thật thì tên khác hẳn (người thật, đuôi @dr4women.vn), nên mỗi
+# vai đọc được từ môi trường.
+#
+#   TK_letan=dd-thuy-tien@dr4women.vn TK_MAT_KHAU=... scripts/tests/buoi-kham-that.py
+#
+# VÌ SAO KHÔNG VIẾT CỨNG THÊM MỘT BẢNG THỨ HAI: hai bảng tên tài khoản là hai
+# thứ sẽ lệch nhau, và lần lệch ấy chỉ lộ ra dưới dạng "vai này đăng nhập hỏng"
+# giữa lúc đang đo.
 VAI = {
-    "letan": "letan@dr4women.local",
-    "cskh": "cskh@dr4women.local",
-    "bacsi": "bs.a@dr4women.local",
-    "bacsi_sa": "bs.sa@dr4women.local",
-    "dieuduong": "dd.sa@dr4women.local",
-    "truongca": "truongca@dr4women.local",
-    "thuky": "thuky@dr4women.local",
-    "quanly": "ql@dr4women.local",
+    v: os.environ.get(f"TK_{v}", m)
+    for v, m in (
+        ("letan", "letan@dr4women.local"),
+        ("cskh", "cskh@dr4women.local"),
+        ("bacsi", "bs.a@dr4women.local"),
+        ("bacsi_sa", "bs.sa@dr4women.local"),
+        ("dieuduong", "dd.sa@dr4women.local"),
+        ("truongca", "truongca@dr4women.local"),
+        ("thuky", "thuky@dr4women.local"),
+        ("quanly", "ql@dr4women.local"),
+    )
 }
+#: Mật khẩu riêng cho từng vai khi chúng không dùng chung một mật khẩu.
+MAT_KHAU_VAI = {v: os.environ.get(f"MK_{v}", "") for v in VAI}
 
 
 def thu_hai(iso: str) -> str:
@@ -95,12 +109,14 @@ class KetQua:
         )
 
 
-async def dang_nhap(http: httpx.AsyncClient, email: str) -> str | None:
+async def dang_nhap(
+    http: httpx.AsyncClient, email: str, mat_khau: str | None = None
+) -> str | None:
     """Token thật qua GoTrue — đúng đường màn hình đi, kể cả chặng đắt."""
     r = await http.post(
         f"{SB}/auth/v1/token?grant_type=password",
         headers={"apikey": ANON, "Content-Type": "application/json"},
-        json={"email": email, "password": PW},
+        json={"email": email, "password": mat_khau or PW},
     )
     if r.status_code != 200:
         return None
@@ -138,7 +154,7 @@ class Phien:
 async def mo_phien(vai: str) -> Phien | None:
     """Đăng nhập rồi đổi token thành cookie phiên của Next — y như trình duyệt."""
     http = httpx.AsyncClient(timeout=30.0, follow_redirects=True)
-    token = await dang_nhap(http, VAI[vai])
+    token = await dang_nhap(http, VAI[vai], MAT_KHAU_VAI.get(vai) or None)
     if not token:
         await http.aclose()
         return None
@@ -472,9 +488,35 @@ async def kich_ban_ghi(kq: KetQua, phien: dict[str, Phien], so_khach: int) -> No
                 break
         if phong_kham:
             break
-    bac_si = next(
-        (x.get("bac_si_id") for x in bang.get("luot", []) if x.get("bac_si_id")), None
-    )
+    # BÁC SĨ PHẢI LÀ CHÍNH NGƯỜI ĐANG ĐÓNG VAI "bacsi".
+    #
+    # Bản trước lấy bác sĩ bất kỳ từ lưới rồi đăng nhập bằng một tài khoản bác
+    # sĩ khác — và ăn 403 "Chỉ bác sĩ đang phụ trách…". Đó là hệ thống ĐÚNG:
+    # bác sĩ không chỉ định hộ lượt khám của đồng nghiệp. Phép thử phải đóng
+    # vai cho đúng, chứ không phải nới luật ra cho phép thử chạy được.
+    bac_si: str | None = None
+    if "bacsi" in phien:
+        st, toi = await phien["bacsi"].goi(kq, "bác sĩ: tôi là ai", "GET", "/api/v1/me")
+        bac_si = (toi or {}).get("staff_id") or (toi or {}).get("id")
+
+    # Không đóng được vai bác sĩ thì mới tìm người khác.
+    # HỆ THỐNG MỚI TINH KHÔNG CÓ LƯỢT NÀO — và đó chính là lúc cần chạy phép thử
+    # nhất. Rơi về danh sách bác sĩ của lưới đặt lịch, thứ luôn có người.
+    if bac_si is None:
+        bac_si = next(
+            (x.get("bac_si_id") for x in bang.get("luot", []) if x.get("bac_si_id")),
+            None,
+        )
+    if bac_si is None:
+        st, luoi = await p.goi(
+            kq,
+            "đọc lưới bác sĩ",
+            "GET",
+            f"/api/v1/appointments/cho-trong-tuan?week_start={thu_hai(time.strftime('%Y-%m-%d'))}",
+        )
+        bac_si = next(
+            (b.get("id") for b in (luoi or {}).get("bac_si", []) if b.get("id")), None
+        )
     # Dịch vụ chỉ định: phải là dịch vụ CÓ NGƯỜI TRONG NHÀ làm được. Chỉ định
     # một dịch vụ "gửi ra ngoài" (CLS_CHUP_MRI_VU…) thì bước 9 không ai bấm
     # được, và cái 403 sinh ra là lỗi của phép thử chứ không phải của hệ thống.
