@@ -39,6 +39,7 @@ from clinicai.services.media_service import (
     MEDIA_ROOT,
     duong_dan_ket_qua,
     ket_qua_patient_lock_key,
+    kiem_kho_da_gan,
     sniff_ket_qua,
 )
 
@@ -180,6 +181,7 @@ class TepKetQuaService:
                     "Báo kỹ thuật kiểm tra và mở rộng dung lượng trước khi tải thêm."
                 )
 
+            kiem_kho_da_gan()
             path, key = duong_dan_ket_qua(
                 clinic_id=identity.clinic_id,
                 clinic_patient_id=clinic_patient_id,

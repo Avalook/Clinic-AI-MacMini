@@ -37,6 +37,25 @@ logger = structlog.get_logger()
 #: Trong container: /var/lib/clinicai/media (ổ bind từ ./.media trên máy).
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", "./.media/production"))
 
+
+#: KHO GẮN NGOÀI PHẢI THẬT SỰ ĐANG GẮN (Tuyền 16/09/2026: lưu tệp vào Viettel
+#: Cloud File Storage, không lưu trên ổ VPS).
+#:
+#: Kho ấy là một ổ mạng gắn vào máy chủ. Ổ rớt kết nối, hay máy khởi động lại mà
+#: Docker lên TRƯỚC ổ mạng, thì thư mục bind trỏ vào ổ VPS bên dưới — ghi vẫn
+#: thành công, và ảnh bệnh nhân nằm sai chỗ mà không ai biết. Nên khi cấu hình
+#: `MEDIA_MARKER`, tệp đánh dấu ấy (chỉ có trên kho thật) phải có mặt thì mới ghi.
+#: Đọc biến lúc gọi, không lúc import: đổi cấu hình chỉ cần khởi động lại.
+def kiem_kho_da_gan() -> None:
+    dau = os.environ.get("MEDIA_MARKER", "").strip()
+    if dau and not (MEDIA_ROOT / dau).is_file():
+        logger.error("kho_media_chua_gan", media_root=str(MEDIA_ROOT), marker=dau)
+        raise ValidationError(
+            "Kho lưu tệp (Viettel File Storage) đang không kết nối — tệp CHƯA "
+            "được lưu. Báo kỹ thuật kiểm tra ổ lưu trữ rồi tải lại."
+        )
+
+
 #: 12MB. Máy siêu âm xuất ảnh khoảng 200KB–2MB; 12MB là rộng rãi mà vẫn chặn
 #: được một video bị kéo nhầm vào ô ảnh.
 MAX_BYTES = 12 * 1024 * 1024
@@ -237,6 +256,7 @@ class MediaService:
                     "Kết quả đã ký — không thêm ảnh được. Phải qua đường đính chính."
                 )
 
+            kiem_kho_da_gan()
             path, key = safe_path(
                 clinic_id=identity.clinic_id, ultrasound_id=ultrasound_id, ext=ext
             )

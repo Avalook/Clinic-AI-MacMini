@@ -136,7 +136,9 @@ services:
   media-quyen:
     image: clinicai-api:${IMAGE_TAG:-latest}
     user: "0:0"
-    entrypoint: ["sh", "-c", "chown 1000:1000 /var/lib/clinicai/media && chmod 750 /var/lib/clinicai/media"]
+    # Kho là ổ mạng Viettel (CIFS, gắn sẵn uid=1000) thì chown bị từ chối — nên
+    # chỉ trao quyền khi chủ CHƯA phải 1000, không thì bước này làm api không lên.
+    entrypoint: ["sh", "-c", "d=/var/lib/clinicai/media; [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }"]
     restart: "no"
     network_mode: none
     volumes:
