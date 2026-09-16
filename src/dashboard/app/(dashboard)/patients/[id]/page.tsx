@@ -75,7 +75,7 @@ export default async function PatientDetailPage({
     const supabase = await getSupabaseServer();
     const [locRes, svcRes, docRes] = await Promise.all([
       supabase.from("clinic_location").select("id, name").order("name"),
-      supabase.from("service_type").select("id, name").order("name"),
+      supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
       listBookableDoctors(),
     ]);
     locations = (locRes.data ?? []).map((r) => ({

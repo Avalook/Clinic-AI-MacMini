@@ -55,7 +55,7 @@ export default async function NewPatientPage({
   const supabase = await getSupabaseServer();
   const [locRes, svcRes, docRes, provRes] = await Promise.all([
     supabase.from("clinic_location").select("id, name").order("name"),
-    supabase.from("service_type").select("id, name").order("name"),
+    supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
     listBookableDoctors(),
     // 34 tỉnh/thành sau sáp nhập — phường/xã load runtime theo tỉnh (/api/wards).
     // Trước đây phải đọc bằng service-role vì province bật RLS mà không có policy

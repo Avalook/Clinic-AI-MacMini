@@ -32,7 +32,9 @@ export async function layCoSo(): Promise<MucDanhMuc[]> {
   });
 }
 
-/** Dịch vụ khám của phòng khám đang đăng nhập, sắp theo tên. */
+/** Dịch vụ khám ĐANG BẬT của phòng khám đang đăng nhập, sắp theo tên.
+ *  Chỉ có năm loại khám (migration 20260807000007); thiếu lọc này màn đặt lịch
+ *  CSKH hiện đủ 14 dịch vụ cũ (FREE, Sản 2/3, Tiền hôn nhân…). */
 export async function layDichVu(): Promise<MucDanhMuc[]> {
   const clinicId = await getClinicId();
   return nhoTheoPhongKham("dich-vu", clinicId ?? "", async () => {
@@ -40,6 +42,7 @@ export async function layDichVu(): Promise<MucDanhMuc[]> {
     const { data, error } = await supabase
       .from("service_type")
       .select("id, name")
+      .eq("is_active", true)
       .order("name");
     if (error) return [];
     return (data ?? []) as MucDanhMuc[];
