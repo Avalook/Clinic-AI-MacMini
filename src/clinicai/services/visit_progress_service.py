@@ -78,7 +78,11 @@ _PROGRESS_SQL = """
            (cr.visit_id IS NOT NULL)        AS has_clinical_record,
            COALESCE(rx.has_prescription, FALSE) AS has_prescription,
            COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds,
-           cr.exam_started_at,
+           -- BẮT ĐẦU KHÁM = lúc bác sĩ/thư ký bấm "Bắt đầu khám" (consultation).
+           -- Luồng mới mở visit IN_PROGRESS ngay lúc check-in, nên không thể
+           -- suy "đang khám" từ visit.status (17/09/2026: vừa check-in đã hiện
+           -- "Đang khám"). Bệnh án mở là mốc dự phòng cho lượt cũ.
+           COALESCE(cs.started_at, cr.exam_started_at) AS exam_started_at,
            pay.paid_at
       FROM appointment a
       LEFT JOIN LATERAL (
@@ -103,6 +107,11 @@ _PROGRESS_SQL = """
            WHERE r.visit_id = v.visit_id
            GROUP BY r.visit_id
       ) cr ON TRUE
+      LEFT JOIN LATERAL (
+          SELECT min(c.started_at) AS started_at
+            FROM consultation c
+           WHERE c.visit_id = v.visit_id AND c.clinic_id = a.clinic_id
+      ) cs ON TRUE
       LEFT JOIN LATERAL (
           SELECT TRUE AS has_prescription
             FROM prescription p

@@ -53,6 +53,8 @@ export function reachedCount(
   apptStatus: string | null,
   paid: boolean,
   checkedIn = true,
+  /** Đã bấm "Bắt đầu khám" chưa. `undefined` = không biết (giữ cách cũ). */
+  examStarted?: boolean,
 ): number {
   const done =
     apptStatus === "COMPLETED" ||
@@ -65,6 +67,10 @@ export function reachedCount(
   // Không có nhánh này thì INCOMPLETE rơi xuống `return 0` và thanh tiến trình
   // lùi về "mới check-in" cho một người đã đi được nửa buổi — trông như hệ
   // thống quên mất họ.
+  //
+  // Luồng mới mở lượt IN_PROGRESS NGAY lúc check-in (17/09/2026), nên
+  // IN_PROGRESS một mình không còn nghĩa là "đang khám": phải có mốc bắt đầu.
+  if (visitStatus === "IN_PROGRESS" && examStarted === false) return checkedIn ? 1 : 0;
   if (visitStatus === "IN_PROGRESS" || visitStatus === "INCOMPLETE") return 2;
   // `checkedIn` mặc định true: mọi dòng trên board đều đã có lượt khám, mà lượt
   // khám chỉ mở khi check-in. Cờ này để một dòng THIẾU mốc check-in không lặng
@@ -101,6 +107,7 @@ export function ProgressStepper({
     apptStatus,
     paid,
     times ? times.checkedInAt !== null : true,
+    times ? times.examStartedAt !== null : undefined,
   );
   const moc = [
     times?.checkedInAt ?? null,

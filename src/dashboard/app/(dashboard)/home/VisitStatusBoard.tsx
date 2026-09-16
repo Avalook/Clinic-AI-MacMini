@@ -14,6 +14,8 @@ function displayStatus(
   visitStatus: string,
   apptStatus: string | null,
   paid: boolean,
+  /** Đã bấm "Bắt đầu khám" chưa — luồng mới mở lượt IN_PROGRESS ngay lúc check-in. */
+  examStarted = true,
 ): { label: string; style: string } {
   if (paid)
     return { label: "Đã thanh toán", style: "bg-success-bg text-success" };
@@ -28,7 +30,7 @@ function displayStatus(
     return { label: "Đã chốt hồ sơ", style: "bg-success-bg text-success" };
   if (apptStatus === "COMPLETED")
     return { label: "Đã khám xong — chờ thu", style: "bg-warning-bg text-warning" };
-  if (visitStatus === "IN_PROGRESS")
+  if (visitStatus === "IN_PROGRESS" && examStarted)
     return { label: "Đang khám", style: "bg-warning-bg text-warning" };
   return {
     label: "Chờ khám",
@@ -121,7 +123,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
             rows.map((r) => {
               const apptStatus = r.appointment?.status ?? null;
               const paid = r.paid ?? false;
-              const disp = displayStatus(r.status, apptStatus, paid);
+              const disp = displayStatus(r.status, apptStatus, paid, Boolean(r.exam_started_at));
               const examMin = examMinutes(r.checked_in_at, r.finalized_at);
               return (
                 <tr key={r.visit_id} className="hover:bg-surface-muted">
