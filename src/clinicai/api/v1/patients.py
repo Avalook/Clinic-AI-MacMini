@@ -13,7 +13,7 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
+    require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
@@ -28,13 +28,15 @@ from clinicai.services.patient_service import PatientService
 
 router = APIRouter()
 
-_INTAKE_GUARD = require_role(
+# Tạo và sửa hồ sơ hành chính là thao tác VẬN HÀNH, không phải việc lâm sàng —
+# nên hai cửa này nới được theo công tắc mở quyền tạm thời.
+_INTAKE_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
-_PATIENT_EDIT_GUARD = require_role(
+_PATIENT_EDIT_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
@@ -266,10 +268,15 @@ async def get_patient_by_id(
 
 # Danh sách bệnh nhân (tra cứu) — cùng tập vai với route "/patient-list" ở
 # dashboard (lib/roles.ts). Trưởng ca / dược sĩ / TV không có màn này.
-_DANH_SACH_GUARD = require_role(
+# TRƯỞNG CA thiếu ở đây là SÓT, không phải luật: danh sách này có đủ mười vai
+# làm việc còn lại, và trưởng ca thì đã được tạo lẫn sửa hồ sơ bệnh nhân qua hai
+# cửa ngay phía trên. Hệ quả đo được 16/09/2026: bấm "Quản lý khách hàng" từ màn
+# Toàn cảnh điều phối thì màn báo "Không đọc được dữ liệu chăm sóc".
+_DANH_SACH_GUARD = require_role_co_the_mo(
     ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
     ClinicRole.CSKH,
+    ClinicRole.TRUONG_CA,
     ClinicRole.CASHIER,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
