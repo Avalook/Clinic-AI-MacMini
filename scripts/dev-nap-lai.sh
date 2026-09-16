@@ -59,8 +59,16 @@ cho_len() {
 
 nap_api() {
     echo "→ FastAPI"
-    pkill -f "uvicorn clinicai.main.*--port ${API_PORT}" 2>/dev/null || true
-    sleep 1
+    # `--reload` đẻ RA HAI tiến trình: một cái theo dõi tệp, một cái phục vụ.
+    # Mẫu cũ chỉ khớp dòng lệnh có `--port`, nên tiến trình con sống sót và giữ
+    # cổng — lần khởi động sau chết với "Address already in use", rồi người gõ
+    # lệnh tưởng mã của mình hỏng. Diệt theo tên module, rồi CHỜ cổng thật sự
+    # rảnh chứ không ngủ một giây lấy may.
+    pkill -f "uvicorn clinicai.main" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1 || break
+        sleep 0.5
+    done
     PYTHONPATH=src \
     SUPABASE_URL="$SB_URL" DATABASE_URL="$DB_URL" \
     SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \

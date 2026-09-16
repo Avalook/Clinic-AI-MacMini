@@ -99,11 +99,31 @@ def test_nguong_it_cho_doc_cau_hinh_khong_bao_gio_nem(raw: object, ra: int) -> N
 class _SvcGia:
     def __init__(self) -> None:
         self.goi: list[tuple[str, str | None]] = []
+        #: Số lần lưới hỏi lịch trực. Từ 16/09/2026 phải là ĐÚNG MỘT — trước đó
+        #: mỗi ô tự hỏi lại, và trên máy chủ thật (17 bác sĩ × 7 ngày) thành 126
+        #: lời gọi cho một lần mở màn.
+        self.lan_hoi_boi_canh = 0
+
+    async def boi_canh_tuan(
+        self, *, clinic_id: str, ngay: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        self.lan_hoi_boi_canh += 1
+        return {d: {"ca_theo_bac_si": {}} for d in ngay}
 
     async def quote(
-        self, *, date: str, location_id: str, doctor_id: str | None, clinic_id: str
+        self,
+        *,
+        date: str,
+        location_id: str,
+        doctor_id: str | None,
+        clinic_id: str,
+        boi_canh: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         self.goi.append((date, doctor_id))
+        assert boi_canh is not None, (
+            "lưới tuần phải truyền bối cảnh đã lấy sẵn xuống từng ô — "
+            "thiếu nó là mỗi ô lại tự hỏi lịch trực một lần"
+        )
         return _q(date=date, dat_tu_do=doctor_id is None)
 
 
@@ -126,6 +146,8 @@ async def test_bang_tuan_moi_bac_si_7_ngay_them_hang_chua_phan() -> None:
     )
     assert out["week_start"] == "2026-09-14" and len(out["ngay"]) == 7
     assert [b["full_name"] for b in out["bac_si"]] == ["BS A", "Chưa phân bác sĩ"]
+    # MỘT lần hỏi lịch trực cho cả tuần, dù lưới có bao nhiêu ô.
+    assert svc.lan_hoi_boi_canh == 1
     assert len(svc.goi) == 14
     assert out["bac_si"][1]["o"][3]["trang_thai"] == "TU_DO"
     assert out["bac_si"][0]["o"][0]["trang_thai"] == "DA_QUA"
