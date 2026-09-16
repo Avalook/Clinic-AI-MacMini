@@ -127,6 +127,23 @@ services:
       start_period: 40s
     networks: [internal, supabase]
 
+  # ---- Quyền ổ tệp kết quả (chạy một lần rồi thoát) ------------------------
+  # Thư mục nguồn của ổ bind chưa có thì Docker TỰ TẠO với chủ là root, còn api
+  # chạy bằng uid 1000 (Dockerfile.api). Kết quả đo trên final cloud 16/09/2026:
+  # mọi lần tải ảnh/video/PDF đều 503 "Permission denied" — và vì chưa ai từng
+  # tải lên nên lỗi nằm im từ ngày dựng máy. Bước này trao thư mục cho uid 1000
+  # trước khi api chạy, nên máy mới hay thư mục bị tạo lại đều tự đúng.
+  media-quyen:
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    user: "0:0"
+    entrypoint: ["sh", "-c", "chown 1000:1000 /var/lib/clinicai/media && chmod 750 /var/lib/clinicai/media"]
+    restart: "no"
+    network_mode: none
+    volumes:
+      - type: bind
+        source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media
+
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
     <<: *clinic-service-defaults
@@ -142,6 +159,9 @@ services:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
       MEDIA_ROOT: /var/lib/clinicai/media
+    depends_on:
+      media-quyen:
+        condition: service_completed_successfully
     volumes:
       # The default must exist on any host, not just this Mac (ADR-0013): a
       # hard-coded /Users/... path made `up` fail or silently mount an empty
