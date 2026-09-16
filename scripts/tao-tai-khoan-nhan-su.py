@@ -74,8 +74,13 @@ THEM_MOI: list[tuple[str, str, str]] = [
     # vì phòng khám chưa chốt ai ngồi quầy nào; khi chốt rồi thì tách ra thành
     # tài khoản từng người, và bản ghi cũ vẫn giữ nguyên.
     ("Trưởng ca", "TRUONG_CA", "truong-ca"),
-    ("Thu ngân thuốc", "CASHIER_THUOC", "thu-ngan-thuoc"),
-    ("Thu ngân dịch vụ", "CASHIER_DV", "thu-ngan-dich-vu"),
+    # MỘT tài khoản thu ngân cho CẢ HAI quầy (Tuyền 16/09/2026: "cho thành 1 tài
+    # khoản tên là thu-ngan thôi để nó có cả node thu ngân dịch vụ và thu ngân
+    # thuốc cùng 1 chỗ"). Vai CASHIER vốn đã xem được cả hai quầy.
+    #
+    # Hai tài khoản tách quầy trước đó (`thu-ngan-thuoc`, `thu-ngan-dich-vu`)
+    # đã cho NGHỈ chứ không xoá — xem scripts/gop-tai-khoan-thu-ngan.py.
+    ("Thu ngân", "CASHIER", "thu-ngan"),
     # Tuyền đặt tên tài khoản này 16/09, giữ ĐÚNG chữ Tuyền viết.
     ("Đối tác phòng khám", "PARTNER", "doi-tac-pk"),
     # Cái tivi ở phòng chờ. Nó phải đăng nhập như mọi vai khác, và vai này bị

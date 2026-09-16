@@ -64,21 +64,29 @@ export const NAV: NavItem[] = [
     label: "Hàng đợi tiếp nhận",
     icon: Users,
   },
+  // CÁC MÀN KHÁM RIÊNG (Tuyền 16/09/2026): mỗi loại khám một mục, và thanh
+  // bên theo vị trí sẽ mở đúng mục của người được phân hôm ấy. Tên và mã phiếu
+  // lấy từ lib/loai-kham.ts — sửa ở đó, không sửa ở đây.
+  { href: "/kham/noi-tiet", label: "Khám nội tiết", icon: Stethoscope },
+  { href: "/kham/phu-khoa", label: "Khám phụ khoa", icon: Stethoscope },
+  { href: "/kham/san", label: "Khám sản", icon: Stethoscope },
+  { href: "/kham/hiem-muon", label: "Khám hiếm muộn", icon: Stethoscope },
+  { href: "/kham/nam-khoa", label: "Khám nam khoa", icon: Stethoscope },
+  // Bàn khám CHUNG vẫn giữ: dịch vụ chưa gắn phiếu nào (thủ thuật, tư vấn…)
+  // không thuộc màn khám riêng nào, và phải có một chỗ để thấy chúng.
   {
     href: "/doctor/board",
-    label: "Bàn khám",
+    label: "Bàn khám (tất cả)",
     icon: Stethoscope,
-    badge: "Mới",
   },
   // "Luồng khám mới" (lát 1, 11/09) ĐÃ GỠ KHỎI MENU 15/09/2026 — Tuyền: bán
   // bằng luồng thật, không để hai cách làm cùng một việc song song. Mã giữ lại;
   // ý hay của nó đưa vào các màn thật khi làm giao diện.
-  {
-    href: "/cashier/board",
-    label: "Bàn thu ngân",
-    icon: Receipt,
-    badge: "Mới",
-  },
+  // HAI QUẦY, MỘT TÀI KHOẢN (Tuyền 16/09/2026: "thu ngân hiện tại cho thành 1
+  // tài khoản tên là thu-ngan thôi để nó có cả node thu ngân dịch vụ và thu
+  // ngân thuốc cùng 1 chỗ"). Màn gộp /cashier/board vẫn chạy bằng đường dẫn.
+  { href: "/thu-ngan/dich-vu", label: "Thu ngân dịch vụ", icon: Receipt },
+  { href: "/thu-ngan/thuoc", label: "Thu ngân thuốc", icon: Receipt },
   {
     href: "/reception/checkout",
     label: "Check-out lượt khám",
@@ -213,7 +221,8 @@ export const NAV: NavItem[] = [
   { href: "/sono", label: "ĐD siêu âm", icon: ScanLine },
   {
     href: "/sieu-am",
-    label: "Bộ phận Siêu âm",
+    // "Khám siêu âm" — Tuyền 16/09: "siêu âm cũng ghi rõ là khám siêu âm".
+    label: "Khám siêu âm",
     icon: ScanLine,
   },
   { href: "/schedule", label: "Lịch làm việc", icon: Calendar },
@@ -324,18 +333,21 @@ export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
 // Thứ tự màn TRONG một vị trí là thứ tự dùng: màn chính trước.
 export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   // Không có trong Excel — "bác sĩ trực hôm ấy".
+  // Bác sĩ trực hôm ấy mà không đứng một vị trí khám cụ thể: bàn khám chung.
   LICH_KHAM: ["/doctor/board", "/appointments"],
 
   T1_LETAN: ["/reception/queue", "/appointments", "/patients/new", "/reception/checkout"],
-  T1_THUNGAN: ["/cashier/board"],
+  T1_THUNGAN: ["/thu-ngan/dich-vu"],
   // Sinh hiệu nhập ở hàng đợi tiếp nhận — `/luot-kham` đã gỡ khỏi menu 15/09.
   T1_DOCHISO: ["/reception/queue"],
   T1_LAYMAU: ["/lab-queue"],
 
-  T1_BS_NOITIET: ["/doctor/board", "/result-review"],
-  T1_HOIBENH: ["/doctor/board"],
-  T1_TKYK: ["/doctor/board"],
+  T1_BS_NOITIET: ["/kham/noi-tiet", "/result-review"],
+  // Hỏi bệnh ban đầu và thư ký y khoa đều ngồi Phòng Nội tiết.
+  T1_HOIBENH: ["/kham/noi-tiet"],
+  T1_TKYK: ["/kham/noi-tiet"],
 
+  // Thủ thuật KHÔNG có phiếu khám riêng trong năm phiếu — bàn khám chung.
   T1_TT_BS: ["/doctor/board"],
   T1_TT_DD: ["/service-queue"],
   T1_SA_BS: ["/sieu-am"],
@@ -345,12 +357,15 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   T1_TTNG_DD2: ["/service-queue"],
 
   T2_XEPTHUOC: ["/pharmacy", "/pharmacy/consult"],
-  T2_TAODON: ["/cashier/board", "/pharmacy"],
+  T2_TAODON: ["/thu-ngan/thuoc", "/pharmacy"],
 
-  T4_SANCHAU_BS: ["/doctor/board"],
-  T4_SANCHAU_BSTT: ["/doctor/board"],
+  // SÀN CHẬU CHƯA CÓ PHIẾU RIÊNG — năm phiếu trong tài liệu là Phụ khoa, Sản,
+  // Nội tiết, Hiếm muộn, Nam khoa. Việc của phòng này (soi âm hộ/CTC, nong,
+  // tách) là thủ thuật phụ khoa, nên tạm mở Khám phụ khoa. Chờ Tuyền chốt.
+  T4_SANCHAU_BS: ["/kham/phu-khoa"],
+  T4_SANCHAU_BSTT: ["/kham/phu-khoa"],
   T4_SANCHAU_DD: ["/service-queue"],
-  T4_SAN_BS: ["/doctor/board"],
+  T4_SAN_BS: ["/kham/san"],
   T4_SAN_DD: ["/service-queue"],
   T4_BIO_DD: ["/service-queue"],
   T4_SA_BS1: ["/sieu-am"],
@@ -431,6 +446,13 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/customers"],
   // Điều dưỡng siêu âm: trạm của họ là /sono.
   NURSE_ULTRASOUND: ["/home", "/sono", "/service-queue", "/tasks"],
+  // Bác sĩ và thư ký y khoa, NGÀY KHÔNG CÓ CA: năm màn khám riêng làm hai vai
+  // này vượt tám màn, nên phải khai — không thì thanh dưới lấy bốn mục đầu và
+  // ra đúng bốn màn khám đầu tiên trong danh sách, bất kể người ấy khám gì.
+  // Bàn khám chung đứng đầu vì nó gồm MỌI loại khám. Ngày có ca, thanh dưới đi
+  // theo vị trí và bảng này không được dùng tới.
+  DOCTOR: ["/home", "/doctor/board", "/tasks", "/patient-list"],
+  TKYK: ["/home", "/doctor/board", "/tasks", "/patient-list"],
   // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.
   ULTRASOUND_DOCTOR: ["/home", "/doctor/board", "/sieu-am", "/patient-list"],
   // Tiếp nhận: hàng đợi, check-out, và tạo bệnh nhân — ba việc ở quầy.
@@ -439,9 +461,10 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // để trong Menu.
   PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],
   // Thu ngân: bàn thu ngân là màn chính; bảng giá là thứ tra khi khách hỏi.
-  CASHIER: ["/home", "/cashier/board", "/cashier/dich-vu", "/cashier/thuoc"],
-  CASHIER_THUOC: ["/home", "/cashier/board", "/cashier/thuoc", "/customers"],
-  CASHIER_DV: ["/home", "/cashier/board", "/cashier/dich-vu", "/customers"],
+  // Hai quầy đứng đầu: tài khoản thu-ngan dùng cả hai (Tuyền 16/09/2026).
+  CASHIER: ["/home", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/cashier/dich-vu"],
+  CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/cashier/thuoc", "/customers"],
+  CASHIER_DV: ["/home", "/thu-ngan/dich-vu", "/cashier/dich-vu", "/customers"],
 };
 
 /** Bốn nút của thanh dưới cho vai này, luôn là TẬP CON của thanh bên. */

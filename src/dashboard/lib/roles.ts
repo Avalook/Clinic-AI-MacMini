@@ -278,12 +278,22 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/doctor/board": [
     "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
   ],
+  // Năm màn khám riêng — CÙNG vai với Bàn khám chung, vì chúng là chính màn ấy
+  // lọc theo một loại khám. Lệch vai giữa chúng là để một người vào được bàn
+  // chung mà không vào được màn riêng của chính loại mình đang khám.
+  "/kham/noi-tiet": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  "/kham/phu-khoa": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  "/kham/san": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  "/kham/hiem-muon": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  "/kham/nam-khoa": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
   // Luồng khám lát 1 — gỡ khỏi menu 15/09/2026 (không chạy song song luồng
   // thật). Chỉ Quản lý còn mở được bằng đường dẫn để đối chiếu.
   "/luot-kham": ["MANAGEMENT"],
   "/cashier/board": [
     "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "MANAGEMENT",
   ],
+  "/thu-ngan/dich-vu": ["CASHIER", "CASHIER_DV", "MANAGEMENT"],
+  "/thu-ngan/thuoc": ["CASHIER", "CASHIER_THUOC", "MANAGEMENT"],
   // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
   // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
   "/ops/telemetry": ["MANAGEMENT"],
@@ -498,7 +508,17 @@ export function hienTrenThanhBen(
   role: ClinicRole | null,
   href: string,
 ): boolean {
-  if (!canSeeNav(role, href)) return false;
+  // MENU theo LUẬT GỐC, không theo công tắc mở quyền.
+  //
+  // Hai câu hỏi khác nhau: "được VÀO màn này không" (canSeeNav — đang mở tạm
+  // cho mọi vai) và "màn này có nên NẰM trong menu của vai này không". Dùng
+  // chung một hàm thì từ ngày mở quyền, thanh bên của một điều dưỡng không có
+  // ca hôm nay dài gần bốn mươi mục — năm màn khám, hai quầy thu ngân, kho
+  // thuốc… — và bốn mục cô ấy thật sự cần chìm ở giữa. Mở quyền là để không bị
+  // CHẶN, không phải để bị CHÔN.
+  //
+  // Ngày có ca, thanh bên đi theo vị trí (mucHienRa) và không qua hàm này.
+  if (!canSeeNavGoc(role, href)) return false;
   if (!role) return true;
   return !(AN_KHOI_THANH_BEN[role] ?? []).includes(href);
 }
@@ -541,6 +561,13 @@ function moTheoCongTac(href: string): boolean {
   return !KHONG_MO_THEO_CONG_TAC.some(
     (p) => href === p || href.startsWith(`${p}/`),
   );
+}
+
+/** Luật gốc của NAV_ROLES, bỏ qua công tắc mở quyền. Chỉ dùng cho MENU. */
+export function canSeeNavGoc(role: ClinicRole | null, href: string): boolean {
+  const rule = NAV_ROLES[href];
+  if (!rule || rule === "all") return true;
+  return role !== null && rule.includes(role);
 }
 
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
