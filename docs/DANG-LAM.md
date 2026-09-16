@@ -37,6 +37,27 @@ lịch sử hội thoại.
 
 ---
 
+## -0014. QA xoay vai theo lịch trên final cloud (16/09/2026 đêm) — 1d04d90 … sau cùng
+
+Tuyền: *"tài khoản là duy nhất còn vai trò có thể thay đổi… thử thay đổi các vai trò cho mỗi tài khoản, riêng bác sĩ thì không cần… thư ký y khoa y hệt bác sĩ, có gọi khách vào khám rồi bấm bắt đầu khám… check cả upload video, ảnh, pdf, docx"*.
+
+Lịch chụp trước QA: `~/qa-16-09/work_roster_truoc_qa_20260916.json` trên VPS (+ scratchpad). Sau QA so lại: 739/739 dòng, mất 0 · thừa 0 · lệch 0.
+Bộ thử: scratchpad `qa-xoay-vai.py` (xếp lịch → đợi 32s bộ nhớ danh tính → cookie phiên thật → trang/API/thao tác → khôi phục lịch ở finally), `tep-lon.py`.
+
+**Lỗi tìm ra và đã sửa:**
+1. Kiểm vai nằm trong SQL (bảng việc Tiếp đón, đọc thẻ việc, thông báo theo vai) chỉ nhận 1 vai → truyền tập vai hôm nay; tư cách thành viên so `vai_goc`.
+2. `_order_for_performer` so `identity.role.value` → tập vai.
+3. Chưa có "Gọi vào khám" → `POST /luot-kham/hang-cho/{id}/goi` + nút ở Bàn khám, phòng dịch vụ.
+4. Thư ký chưa phân bác sĩ (mở quyền) mở "Khách của tôi" không thấy ai → thấy mọi lượt khám chính.
+5. Khách check-in mà lịch hẹn không gắn bác sĩ → không nằm trong hàng chờ của ai → nay hiện ở hàng chờ bác sĩ, ai bấm Bắt đầu thì nhận.
+6. Ảnh HEIC/AVIF iPhone bị cất thành VIDEO MP4 → từ chối kèm hướng dẫn. Nhận thêm WEBP, GIF, DOCX, XLSX (loại TAI_LIEU, migration 20260917000002); Word xem ngay trong ô (mammoth, iframe sandbox). ZIP, AVI, BMP, exe đổi đuôi, tệp rỗng bị từ chối.
+7. **Proxy Next cắt thân yêu cầu ở 10MB** → mọi video siêu âm thật tải qua giao diện hỏng ("không kết nối được máy chủ"). Proxy matcher bỏ qua `api/cskh/ket-qua`, `api/doi-tac`; route từ chối >82MB bằng 413 câu rõ. Thử: video 50MB/79MB tải 3s, tải về khớp byte, tua cuối 206; RAM dashboard 207MB.
+8. `/api/cashier` đổi 403 thành 502 "Không đọc được danh sách chờ thu" → giữ 403 kèm câu "không có quyền".
+
+**Kết quả lần chạy cuối:** 89/90 bước đạt (bước còn lại = lỗi 7, đã sửa và thử riêng đạt 5/5 + so byte + tua).
+
+**Còn để lại (dữ liệu thử):** ~145MB tệp thử trong kho Viettel (`thu-*`, `video-50MB`, `video-79MB`…); 2 khách thử đã đi hết vòng (check-in → khám → SA → XN → duyệt). 9 phiên khám "đang khám" cũ của BS Hằng từ lát 1 vẫn treo.
+
 ## -0013. Một đường dữ liệu + màn theo phòng + thanh bên nhóm theo vai (16/09/2026 đêm) — 874ebf9 · ce3cad6 · c9d8e40, ĐÃ LÊN FINAL CLOUD
 
 Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm theo vai · cơ sở Kim Ngưu · lấy mẫu XN tuỳ loại (ĐD hoặc đối tác) · lễ tân kiêm thu ngân + kho thuốc · check-in/out phòng = bác sĩ/thư ký bấm Bắt đầu / Đã khám xong · **thủ thuật do BÁC SĨ làm** · ô tải và ô xem tệp là một · ĐD siêu âm cũng bấm Bắt đầu được.
