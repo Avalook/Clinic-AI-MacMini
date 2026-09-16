@@ -37,6 +37,46 @@ lịch sử hội thoại.
 
 ---
 
+## -0001. Buổi khám thật chạy được trọn vòng trên local (16/09/2026, 12:00)
+
+`scripts/tests/buoi-kham-that.py` giờ có KỊCH BẢN GHI, không chỉ đọc màn:
+
+```bash
+set -a && . ./.env.thu-local && set +a
+PYTHONPATH=src poetry run python scripts/tests/buoi-kham-that.py --ghi 5
+PYTHONPATH=src poetry run python scripts/tests/buoi-kham-that.py --rollback
+```
+
+Năm khách cùng lúc đi hết vòng: CSKH mở hồ sơ + đặt lịch → lễ tân check-in →
+điều dưỡng đo mười ô sinh hiệu → bác sĩ vào khám, ghi chú, chỉ định → trưởng ca
+xếp phòng → người thực hiện làm xong. Mỗi bước do ĐÚNG VAI gọi nên nó cũng là
+phép thử quyền. `--rollback` huỷ lịch + tắt hồ sơ (không xoá cứng) rồi ĐỌC LẠI
+bảng để tự kiểm; dấu vết nằm ở `.dev-logs/buoi-kham-that-dau-vet.json`.
+
+**Hai lỗi thật tìm được, đã vá (d7ee31a):**
+1. `VitalsBody` thiếu bốn chỉ số mới → nhịp thở/SpO₂/BMI/thang đau bị Pydantic
+   cắt trước khi tới service, ghi NULL trong im lặng.
+2. Huỷ lịch / hoàn tác check-in chỉ huỷ `work_item`, để lượt ở IN_PROGRESS →
+   lượt ma nằm trên bảng bác sĩ cả ngày. Nay đóng thành INCOMPLETE kèm lý do.
+
+**Hai cái bẫy ĐO, không phải lỗi sản phẩm** — ghi lại để đừng mất công lần nữa:
+- Quét route bằng `fetch` trong trình duyệt: mặc định lấy từ **bộ nhớ đệm HTTP**.
+  Đo lại phiên vai khác mà quên `cache:"no-store"` là đọc lại HTML của vai trước.
+- HTML trả về CÓ tiêu đề trang bị chặn (vd "Quản lý nhân sự" khi đang là lễ tân)
+  — tiêu đề ấy do `GlobalHeader.tsx` dựng theo đường dẫn và được đẩy đi TRƯỚC khi
+  `requireNavAccess` kịp chặn. Gác cửa **vẫn đúng**: điều hướng thật bị đá về
+  /home. Muốn kiểm thì tìm nội dung riêng của trang, đừng tìm tiêu đề.
+- Trang chủ đo được 3–16 GIÂY vài lần — hoá ra do TÔI dùng chung một cookie phiên
+  ở hai nơi (curl + trình duyệt), làm khoá làm mới xoay vòng đá nhau. Một phiên
+  một máy thì 45–119ms sau 45s nghỉ. ⚠️ Nhưng nó gợi ra một câu hỏi thật: **một
+  tài khoản mở trên hai máy** sẽ gặp đúng cảnh ấy.
+
+**Số đo (local, 46 hồ sơ · 14 phòng):** 8 vai đăng nhập song song 108ms · 10 màn
+chính gọi đồng thời trung vị 12–23ms · 5 khách đi trọn vòng 79 lời gọi, hỏng 0 ·
+40 route của Quản lý qua lớp Next trung vị 21ms, không route nào 5xx.
+Số đo đầu tiên sau khi khởi động lại máy chủ (trung vị 117ms) là số của bộ nhớ
+đệm lạnh — đừng lấy nó làm chuẩn.
+
 ## 0000. Phiên 16/09/2026 (chiều) — Lễ tân · Trưởng ca · chốt lâm sàng
 
 Nối tiếp mục 000. **13 commit**, từ `6dedcc3` tới `f81cc9b`. Chưa push.
