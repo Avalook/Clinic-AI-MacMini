@@ -50,7 +50,9 @@ def allowed_kinds(role: ClinicRole) -> frozenset[str]:
         return frozenset({"thuoc"})
     if role is ClinicRole.CASHIER_DV:
         return frozenset({"dich_vu"})
-    if role in (ClinicRole.CASHIER, ClinicRole.MANAGEMENT):
+    # LỄ TÂN KIÊM THU NGÂN ở Kim Ngưu (Tuyền 16/09/2026): quầy tiếp đón thu tiền
+    # dịch vụ, quầy thuốc thu tiền thuốc — cùng một vai đứng cả hai quầy.
+    if role in (ClinicRole.CASHIER, ClinicRole.MANAGEMENT, ClinicRole.RECEPTION):
         return PAYMENT_KINDS
     return frozenset()
 

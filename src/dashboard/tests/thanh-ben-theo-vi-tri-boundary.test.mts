@@ -60,3 +60,16 @@ test("không có ca hôm nay thì rơi về menu theo vai, không trống trơn"
   const than = nav.slice(i, i + 2600);
   assert.match(than, /return NAV\.filter\(\(item\) => hienTrenThanhBen\(role, item\.href\)/);
 });
+
+test("MỌI vị trí trong lịch đều thuộc một NHÓM VAI trên thanh bên", () => {
+  // Tuyền 16/09/2026: "điều dưỡng rồi các node điều dưỡng, dưới là lễ tân rồi
+  // các node của lễ tân". Vị trí không có nhóm thì mục của nó rơi mất khỏi thanh
+  // bên đúng ngày người ấy đứng đó.
+  const khoi = nav.slice(
+    nav.indexOf("export const NHOM_THEO_VI_TRI"),
+    nav.indexOf("const THU_TU_NHOM"),
+  );
+  const coNhom = new Set([...khoi.matchAll(/^\s+([A-Z0-9_]+):\s*"/gm)].map((m) => m[1]));
+  const thieu = STATIONS.map((s) => s.key).filter((k) => !coNhom.has(k));
+  assert.deepEqual(thieu, [], `vị trí chưa có nhóm: ${thieu.join(", ")}`);
+});

@@ -9,7 +9,7 @@
 // danh sách là `GET /luot-kham/bang`, ghi là `POST …/vitals`, đúng hai đường mà
 // mọi màn khác đang dùng. Luật bắt buộc chỉ số nào nằm ở backend (parse_vitals).
 
-import { requireNavAccess } from "../../../lib/clinic-session";
+import { requireNavAccess } from "@/lib/clinic-session";
 import BangDoSinhHieu from "./BangDoSinhHieu";
 
 export const dynamic = "force-dynamic";

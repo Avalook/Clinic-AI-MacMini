@@ -2,58 +2,65 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-import { LOAI_KHAM } from "../lib/loai-kham.ts";
-
-// Các màn khám RIÊNG và hai quầy thu ngân (Tuyền chốt 16/09/2026).
+// MỘT BÀN KHÁM THEO PHÒNG + PHÒNG DỊCH VỤ (Tuyền chốt 16/09/2026).
 //
-// Một loại khám cần có mặt ở BỐN chỗ: danh mục (lib/loai-kham.ts), một mục ở
-// thanh bên, một luật vai, và một phiếu thật. Thiếu một chỗ thì hỏng một kiểu
-// khác nhau — mục không hiện, hoặc hiện mà bấm vào bị đá về trang chủ, hoặc mở
-// ra một màn không có phiếu. Bài này canh cả bốn cùng lúc.
+// Thay cho năm màn /kham/* (đặt tên theo PHIẾU) và bốn màn /sono, /sieu-am,
+// /service-queue, /lab-queue (bốn nguồn dữ liệu cho cùng một việc). Bài này canh
+// để các màn trùng không sống lại: đường cũ chỉ còn chuyển hướng, và mọi mục
+// thanh bên mới đều có luật vai.
 
 const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 const nav = doc("../app/(dashboard)/nav-items.ts");
 const roles = doc("../lib/roles.ts");
-const trangKham = doc("../app/(dashboard)/kham/[loai]/page.tsx");
 
-test("mỗi loại khám có mục thanh bên, luật vai, và phiếu thật", () => {
-  const PHIEU: Record<string, string> = {
-    PK: "pk",
-    SK: "sk",
-    NT: "nt",
-    HMVS: "hmvs",
-    NK: "nk",
-  };
-  for (const l of LOAI_KHAM) {
-    const href = `/kham/${l.slug}`;
-    assert.match(nav, new RegExp(`href: "${href}"`), `${href} thiếu mục thanh bên`);
-    assert.match(roles, new RegExp(`"${href}": \\[`), `${href} thiếu luật vai`);
-    assert.ok(PHIEU[l.formCode], `${l.ten}: mã phiếu ${l.formCode} không có trong năm phiếu`);
-    assert.ok(
-      existsSync(new URL(`../lib/form-schemas/${PHIEU[l.formCode]}.ts`, import.meta.url)),
-      `${l.ten}: thiếu tệp phiếu`,
-    );
+test("đường cũ chỉ còn chuyển hướng, không còn thân màn", () => {
+  for (const [trang, dich] of [
+    ["../app/(dashboard)/doctor/board/page.tsx", "/ban-kham"],
+    ["../app/(dashboard)/kham/[loai]/page.tsx", "/ban-kham"],
+    ["../app/(dashboard)/doctor/orders/[visitId]/page.tsx", "/ban-kham"],
+    ["../app/(dashboard)/sono/page.tsx", "/phong/KN-SA-T1"],
+    ["../app/(dashboard)/sieu-am/page.tsx", "/phong/KN-SA-T1"],
+    ["../app/(dashboard)/service-queue/page.tsx", "/phong/KN-THUTHUAT"],
+    ["../app/(dashboard)/lab-queue/page.tsx", "/phong/KN-LAYMAU"],
+    ["../app/(dashboard)/result-review/page.tsx", "/duyet-ket-qua"],
+    ["../app/(dashboard)/luot-kham/page.tsx", "/ban-kham"],
+  ] as const) {
+    const src = doc(trang);
+    assert.match(src, new RegExp(`redirect\\("${dich.replace(/\//g, "\\/")}"\\)`), trang);
+    assert.doesNotMatch(src, /<[A-Z][A-Za-z]+/, `${trang} còn vẽ một màn`);
+  }
+  for (const cu of [
+    "../app/(dashboard)/doctor/board/DoctorBoard.tsx",
+    "../app/(dashboard)/sono/SonoView.tsx",
+    "../app/(dashboard)/service-queue/ServiceQueueView.tsx",
+    "../app/(dashboard)/lab-queue/LabQueueView.tsx",
+    "../app/(dashboard)/sieu-am/UltrasoundBoard.tsx",
+    "../app/(dashboard)/luot-kham/LuotKhamBoard.tsx",
+  ]) {
+    assert.equal(existsSync(new URL(cu, import.meta.url)), false, `${cu} phải đã gỡ`);
   }
 });
 
-test("năm loại khám dùng năm phiếu KHÁC NHAU, không trùng", () => {
-  const ma = LOAI_KHAM.map((l) => l.formCode);
-  assert.equal(new Set(ma).size, ma.length);
+test("thanh bên không còn mục của màn cũ", () => {
+  for (const cu of ["/doctor/board", "/kham/", "/sono", "/sieu-am", "/service-queue", "/lab-queue", "/result-review"]) {
+    assert.doesNotMatch(nav, new RegExp(`href: "${cu.replace(/\//g, "\\/")}`), cu);
+  }
 });
 
-test("màn khám lọc khách theo MÃ PHIẾU, không dò chữ trong tên dịch vụ", () => {
-  // Dò theo tên là con đường đã cho "Sản 1" hai câu trả lời ở hai màn.
-  assert.match(trangKham, /i\.form_code === loai\.formCode/);
-  assert.doesNotMatch(trangKham, /service_name/);
-  assert.doesNotMatch(trangKham, /resolveServiceCode/);
+test("mọi mục bàn khám / phòng / duyệt kết quả đều có luật vai", () => {
+  const moi = [...nav.matchAll(/href: "(\/(?:ban-kham|phong|duyet-ket-qua)[^"]*)"/g)].map(
+    (m) => m[1],
+  );
+  assert.ok(moi.length >= 13, `chỉ thấy ${moi.length} mục mới`);
+  for (const href of moi) {
+    assert.match(roles, new RegExp(`"${href}": \\[`), `${href} thiếu luật vai`);
+  }
 });
 
-test("màn khám dùng lại Bàn khám bác sĩ, không có thân màn thứ hai", () => {
-  assert.match(trangKham, /import DoctorBoard from "\.\.\/\.\.\/doctor\/board\/DoctorBoard"/);
-});
-
-test("siêu âm ghi rõ là 'Khám siêu âm'", () => {
-  assert.match(nav, /href: "\/sieu-am",[\s\S]{0,120}label: "Khám siêu âm"/);
+test("bàn khám mở phiếu theo MÃ PHIẾU của dịch vụ, không dò chữ trong tên", () => {
+  const ban = doc("../app/(dashboard)/ban-kham/BanKham.tsx");
+  assert.match(ban, /serviceCode=\{dong\.form_code\}/);
+  assert.doesNotMatch(ban, /resolveServiceCode/);
 });
 
 test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một thân quầy", () => {
@@ -69,8 +76,6 @@ test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một th
 });
 
 test("menu dự phòng theo LUẬT GỐC, không theo công tắc mở quyền", () => {
-  // Không có dòng này thì ngày không có ca, thanh bên của một điều dưỡng dài
-  // gần bốn mươi mục vì công tắc mở quyền đang bật.
   const i = roles.indexOf("export function hienTrenThanhBen");
   assert.match(roles.slice(i, i + 1400), /canSeeNavGoc\(role, href\)/);
 });

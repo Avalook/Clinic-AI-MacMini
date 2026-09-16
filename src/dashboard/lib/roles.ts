@@ -277,25 +277,22 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   ],
   // Đo sinh hiệu — khớp VITALS_ROLES ở luot_kham_service.py (+ Quản lý xem).
   "/do-sinh-hieu": ["NURSE_ULTRASOUND", "RECEPTION", "DOCTOR", "MANAGEMENT"],
-  "/doctor/board": [
-    "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
-  ],
-  // Năm màn khám riêng — CÙNG vai với Bàn khám chung, vì chúng là chính màn ấy
-  // lọc theo một loại khám. Lệch vai giữa chúng là để một người vào được bàn
-  // chung mà không vào được màn riêng của chính loại mình đang khám.
-  "/kham/noi-tiet": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
-  "/kham/phu-khoa": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
-  "/kham/san": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
-  "/kham/hiem-muon": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
-  "/kham/nam-khoa": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
-  // Luồng khám lát 1 — gỡ khỏi menu 15/09/2026 (không chạy song song luồng
-  // thật). Chỉ Quản lý còn mở được bằng đường dẫn để đối chiếu.
+  // BÀN KHÁM theo phòng (Tuyền chốt 16/09/2026) — thay /doctor/board và năm
+  // màn /kham/*. Bác sĩ khám, thư ký đi kèm nhập hộ + bấm Bắt đầu/Khám xong.
+  "/ban-kham": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-NOITIET": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-SANCHAU": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-SAN-BIO": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  // Màn lát 1 cũ — nay chỉ chuyển hướng. Giữ luật để đường dẫn vẫn có chủ.
   "/luot-kham": ["MANAGEMENT"],
   "/cashier/board": [
     "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "MANAGEMENT",
   ],
-  "/thu-ngan/dich-vu": ["CASHIER", "CASHIER_DV", "MANAGEMENT"],
-  "/thu-ngan/thuoc": ["CASHIER", "CASHIER_THUOC", "MANAGEMENT"],
+  // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC ở Kim Ngưu (Tuyền 16/09/2026: "trong màn
+  // của họ chưa có thu ngân, nên tích hợp thu ngân vào lễ tân luôn, kho thuốc
+  // cũng ở lễ tân luôn") — vai RECEPTION vào được quầy thu, quầy thuốc, kho.
+  "/thu-ngan/dich-vu": ["RECEPTION", "CASHIER", "CASHIER_DV", "MANAGEMENT"],
+  "/thu-ngan/thuoc": ["RECEPTION", "CASHIER", "CASHIER_THUOC", "MANAGEMENT"],
   // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
   // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
   "/ops/telemetry": ["MANAGEMENT"],
@@ -393,23 +390,17 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // lịch khám của mọi bác sĩ mà không mở được hồ sơ nào, tức một màn nhìn cho
   // biết. Quầy đã có hàng đợi của chính mình.
   "/tasks": ["MANAGEMENT", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
-  // Hàng đợi XN + Dịch vụ: điều dưỡng/KTV thực hiện (+ Quản lý xem).
-  "/lab-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  "/service-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  // ĐD siêu âm: hàng đợi BN sắp khám SA + hàng đợi XN 3 trạng thái + in phiếu.
-  "/sono": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  // Bộ phận Siêu âm (4 màn). Khác /sono: đó là hàng đợi điều dưỡng chạy trên
-  // service_log; đây là màn của cả bộ phận — hàng chờ, phòng SA1–SA3, soạn kết
-  // quả, tra cứu phiếu đã ký. Danh sách vai phải khớp ULTRASOUND_ROLES ở
-  // ultrasound_board_service.py; lệch nhau thì có người thấy nút mà bấm vào bị
-  // 403, hoặc tệ hơn: vào được màn mà backend mới là nơi từ chối.
-  // Trưởng ca bỏ (Tuyền 16/09/2026) — bộ phận siêu âm tự chạy màn của mình.
-  "/sieu-am": [
-    "ULTRASOUND_DOCTOR",
-    "NURSE_ULTRASOUND",
-    "TKYK",
-    "MANAGEMENT",
-  ],
+  // PHÒNG DỊCH VỤ (Tuyền chốt 16/09/2026) — thay /lab-queue, /service-queue,
+  // /sono, /sieu-am. Ai BẤM được là do bước của chỉ định quyết ở máy chủ
+  // (thủ thuật: chỉ bác sĩ); danh sách dưới đây là ai VÀO được phòng.
+  "/phong/KN-LAYMAU": ["NURSE_ULTRASOUND", "RECEPTION", "MANAGEMENT"],
+  "/phong/KN-SA-T1": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SA1": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SA2": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-THUTHUAT": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-TTNG": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SANCHAU": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SAN-BIO": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
   // Bảng số thứ tự GỌI KHÁM (ưu tiên người có hẹn). Gọi theo tên — xem chung như /tasks.
   // TẠM ẨN (Quang 2026-07-03): [] = không vai nào thấy sidebar + gõ URL bị redirect
   // /home (requireNavAccess). Mở lại: khôi phục danh sách vai dưới đây.
@@ -420,13 +411,13 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Thu ngân: bảng giá tách 2 trang (thuốc / dịch vụ), gate theo VAI tách (mỗi
   // vai chỉ thấy màn của mình). CASHIER = superset (thấy cả hai), Quản lý xem/sửa cả hai.
   // ("Công việc của tôi" thu ngân nằm ở /tasks, gate bằng entry /tasks bên dưới.)
-  "/cashier/thuoc": ["CASHIER_THUOC", "CASHIER", "MANAGEMENT"],
-  "/cashier/dich-vu": ["CASHIER_DV", "CASHIER", "MANAGEMENT"],
+  "/cashier/thuoc": ["RECEPTION", "CASHIER_THUOC", "CASHIER", "MANAGEMENT"],
+  "/cashier/dich-vu": ["RECEPTION", "CASHIER_DV", "CASHIER", "MANAGEMENT"],
   // Nhà thuốc — Dược sĩ (PHARMACIST) + Quản lý/Trưởng ca xem.
-  "/pharmacy": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
-  "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy/inventory": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
   // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
   // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
   // /api/roster).
@@ -443,8 +434,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
   "/audit-log": ["CSKH", "MANAGEMENT"],
-  // Duyệt kết quả — Bác sĩ + TKYK + Quản lý/Trưởng ca xem.
-  "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
+  // quyết định chuyên môn; thư ký không có nút Duyệt — Notion v1.0.0).
+  "/duyet-ket-qua": ["DOCTOR", "ULTRASOUND_DOCTOR", "MANAGEMENT"],
   "/ops": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
@@ -499,6 +491,23 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
     "/reception/queue",
     "/tasks",
   ],
+  // PHÒNG CỤ THỂ không bày ra ngày KHÔNG có ca (Tuyền 16/09/2026). Ngày có ca,
+  // thanh bên mở đúng phòng người ấy đứng; ngày không có ca, bày cả chín phòng
+  // là chôn mất màn chính. Vẫn VÀO được bằng "Việc khác" hay đường dẫn.
+  DOCTOR: [
+    "/ban-kham/KN-NOITIET", "/ban-kham/KN-SANCHAU", "/ban-kham/KN-SAN-BIO",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  TKYK: [
+    "/ban-kham/KN-NOITIET", "/ban-kham/KN-SANCHAU", "/ban-kham/KN-SAN-BIO",
+    "/phong/KN-SA-T1", "/phong/KN-SA1", "/phong/KN-SA2",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  NURSE_ULTRASOUND: [
+    "/phong/KN-SA1", "/phong/KN-SA2",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  RECEPTION: ["/phong/KN-LAYMAU"],
   // Thanh bên CSKH giữ 5 mục (Tuyền 16/09/2026): việc vượt sức chứa đến qua
   // khung báo + thông báo, không thêm mục.
   CSKH: ["/appointments/cho-xep-bac-si"],

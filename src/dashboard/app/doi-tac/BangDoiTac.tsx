@@ -18,6 +18,9 @@ interface Viec {
   chi_dinh_id: string;
   ten_dich_vu: string;
   chi_dinh_luc: string | null;
+  /** CHO_LAY_MAU = đối tác tự lấy, chưa lấy · DA_LAY_MAU = mẫu đã có, chờ kết quả. */
+  trang_thai: "CHO_LAY_MAU" | "DA_LAY_MAU";
+  lay_mau_luc: string | null;
 }
 
 interface Khach {
@@ -103,6 +106,35 @@ export default function BangDoiTac() {
     };
   }, [nhan]);
 
+  const layMau = useCallback(
+    async (v: Viec, k: Khach) => {
+      setDangGui(v.chi_dinh_id);
+      setLoi(null);
+      setXong(null);
+      try {
+        const r = await fetch("/api/doi-tac/da-lay-mau", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chi_dinh_id: v.chi_dinh_id }),
+        });
+        const d = (await r.json().catch(() => null)) as
+          | { error?: string; message?: string }
+          | null;
+        if (!r.ok) {
+          setLoi(d?.message ?? d?.error ?? "Không ghi được.");
+          return;
+        }
+        setXong(`Đã ghi lấy mẫu ${v.ten_dich_vu} của ${k.ten_khach}.`);
+        await tai();
+      } catch {
+        setLoi("Mất kết nối — CHƯA ghi được lấy mẫu.");
+      } finally {
+        setDangGui(null);
+      }
+    },
+    [tai],
+  );
+
   const gui = useCallback(
     async (v: Viec, k: Khach, tep: File) => {
       setDangGui(v.chi_dinh_id);
@@ -181,6 +213,7 @@ export default function BangDoiTac() {
             khach={k}
             dangGui={dangGui}
             onGui={(v, tep) => gui(v, k, tep)}
+            onLayMau={(v) => layMau(v, k)}
           />
         ))
       )}
@@ -192,10 +225,12 @@ function MotKhach({
   khach,
   dangGui,
   onGui,
+  onLayMau,
 }: {
   khach: Khach;
   dangGui: string | null;
   onGui: (viec: Viec, tep: File) => void;
+  onLayMau: (viec: Viec) => void;
 }) {
   return (
     <article className="rounded-card border border-line bg-surface shadow-card">
@@ -216,6 +251,7 @@ function MotKhach({
             viec={v}
             dangGui={dangGui === v.chi_dinh_id}
             onGui={(tep) => onGui(v, tep)}
+            onLayMau={() => onLayMau(v)}
           />
         ))}
       </ul>
@@ -227,11 +263,14 @@ function MotViec({
   viec,
   dangGui,
   onGui,
+  onLayMau,
 }: {
   viec: Viec;
   dangGui: boolean;
   onGui: (tep: File) => void;
+  onLayMau: () => void;
 }) {
+  const choLayMau = viec.trang_thai === "CHO_LAY_MAU";
   const oTep = useRef<HTMLInputElement>(null);
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -240,8 +279,27 @@ function MotViec({
         <p className="text-meta text-ink-muted">
           Phòng khám gửi lúc {gioVn(viec.chi_dinh_luc)}
         </p>
+        <p
+          className={`mt-1 inline-block rounded-chip px-2 py-0.5 text-label font-semibold ${
+            choLayMau ? "bg-warning-bg text-warning" : "bg-brand-50 text-brand-700"
+          }`}
+        >
+          {choLayMau
+            ? "Chờ lấy mẫu"
+            : `Đã lấy mẫu${viec.lay_mau_luc ? ` lúc ${gioVn(viec.lay_mau_luc)}` : ""} · chờ kết quả`}
+        </p>
       </div>
       <div className="flex items-center gap-2">
+        {choLayMau ? (
+          <button
+            type="button"
+            disabled={dangGui}
+            onClick={onLayMau}
+            className="inline-flex min-h-10 items-center rounded-control border border-brand-500 px-4 text-sm font-semibold text-brand-700 disabled:opacity-50"
+          >
+            {dangGui ? "Đang ghi…" : "Đã lấy mẫu"}
+          </button>
+        ) : null}
         <input
           ref={oTep}
           type="file"
@@ -257,7 +315,9 @@ function MotViec({
         />
         <button
           type="button"
-          disabled={dangGui}
+          // Chưa lấy mẫu thì chưa có gì để trả kết quả.
+          disabled={dangGui || choLayMau}
+          title={choLayMau ? "Bấm “Đã lấy mẫu” trước" : undefined}
           onClick={() => oTep.current?.click()}
           className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
         >

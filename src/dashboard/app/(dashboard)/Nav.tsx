@@ -38,17 +38,17 @@ export default function Nav({
   const blinkHome = unread > 0 && pathname !== "/home";
   // Cùng hàm với thanh dưới (BottomNav) — xem `mucHienRa`. Trước đây mỗi bên
   // tự lọc và hai bên đã lệch nhau ở chế độ CSKH_ONLY.
-  // Hai phần "Hôm nay" + "Việc khác" — `nhomThanhBen` lọc qua chính `mucHienRa`.
-  const { homNay, khac } = nhomThanhBen(
+  // Nhóm theo VAI hôm nay + "Việc khác" — `nhomThanhBen` lọc qua `mucHienRa`.
+  const { dau, nhom, khac } = nhomThanhBen(
     role,
     hienTrenThanhBen,
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,
   );
-  const visible = [...homNay, ...khac];
+  const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);
-  const coHaiPhan = homNay.length > 0;
+  const coHaiPhan = nhom.length > 0;
   // "Việc khác" gập sẵn — nhưng đang đứng ở một màn trong đó thì phải mở, không
   // thì mục đang mở bị giấu và người dùng không biết mình đang ở đâu.
   const [moKhac, setMoKhac] = useState(false);
@@ -155,12 +155,21 @@ export default function Nav({
           {ROLE_LABEL[role]}
         </p>
       ) : null}
-      {coHaiPhan && !isCollapsed ? (
-        <p className="px-3 pb-1 pt-1 text-label font-semibold uppercase tracking-wider text-brand-700">
-          Hôm nay
-        </p>
-      ) : null}
-      {homNay.map(veMuc)}
+      {dau.map(veMuc)}
+      {/* MỖI VAI MỘT NHÓM, có tiêu đề (Tuyền 16/09/2026): "điều dưỡng rồi các
+          node điều dưỡng, dưới là lễ tân rồi các node của lễ tân". */}
+      {nhom.map((g) => (
+        <div key={g.nhom} className="pt-2">
+          {isCollapsed ? (
+            <div className="mx-3 mb-1 border-t border-line" aria-hidden />
+          ) : (
+            <p className="px-3 pb-1 text-label font-semibold uppercase tracking-wider text-brand-700">
+              {g.ten}
+            </p>
+          )}
+          {g.muc.map(veMuc)}
+        </div>
+      ))}
       {coHaiPhan ? (
         isCollapsed ? (
           <div className="mx-3 my-2 border-t border-line" aria-hidden />

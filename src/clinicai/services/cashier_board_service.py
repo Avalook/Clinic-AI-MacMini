@@ -44,6 +44,8 @@ logger = structlog.get_logger()
 
 CASHIER_ROLES: frozenset[ClinicRole] = frozenset(
     {
+        # Lễ tân kiêm thu ngân ở Kim Ngưu (Tuyền 16/09/2026).
+        ClinicRole.RECEPTION,
         ClinicRole.CASHIER,
         ClinicRole.CASHIER_THUOC,
         ClinicRole.CASHIER_DV,

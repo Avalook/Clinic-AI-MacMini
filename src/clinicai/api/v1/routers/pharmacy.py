@@ -31,13 +31,15 @@ router = APIRouter()
 # ĐỌC mở rộng hơn GHI. Thu ngân thuốc cần thấy đơn để thu tiền, Trưởng ca và
 # Quản lý cần thấy tồn để biết sắp hết gì — nhưng chỉ Dược sĩ (và Quản lý, cho
 # lúc dược sĩ nghỉ) mới được chạm vào kho.
+# Lễ tân kiêm quầy thuốc + kho thuốc ở Kim Ngưu (Tuyền 16/09/2026).
 _DOC = require_role(
+    ClinicRole.RECEPTION,
     ClinicRole.PHARMACIST,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
-_GHI = require_role(ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT)
+_GHI = require_role(ClinicRole.RECEPTION, ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT)
 
 
 @router.get("/pharmacy/queue")

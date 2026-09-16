@@ -68,29 +68,32 @@ export const NAV: NavItem[] = [
   // thì phải có node là đo sinh hiệu, có danh sách khách theo thứ tự và cứ ấn
   // vào mà điền"*. Trước đó sinh hiệu nhập lẫn trong hàng đợi tiếp nhận.
   { href: "/do-sinh-hieu", label: "Đo sinh hiệu", icon: Activity },
-  // CÁC MÀN KHÁM RIÊNG (Tuyền 16/09/2026): mỗi loại khám một mục, và thanh
-  // bên theo vị trí sẽ mở đúng mục của người được phân hôm ấy. Tên và mã phiếu
-  // lấy từ lib/loai-kham.ts — sửa ở đó, không sửa ở đây.
-  { href: "/kham/noi-tiet", label: "Khám nội tiết", icon: Stethoscope },
-  { href: "/kham/phu-khoa", label: "Khám phụ khoa", icon: Stethoscope },
-  { href: "/kham/san", label: "Khám sản", icon: Stethoscope },
-  { href: "/kham/hiem-muon", label: "Khám hiếm muộn", icon: Stethoscope },
-  { href: "/kham/nam-khoa", label: "Khám nam khoa", icon: Stethoscope },
-  // Bàn khám CHUNG vẫn giữ: dịch vụ chưa gắn phiếu nào (thủ thuật, tư vấn…)
-  // không thuộc màn khám riêng nào, và phải có một chỗ để thấy chúng.
-  {
-    href: "/doctor/board",
-    label: "Khám bệnh (mọi loại)",
-    icon: Stethoscope,
-  },
+  // BÀN KHÁM THEO PHÒNG (Tuyền chốt 16/09/2026). Thay "Khám bệnh (mọi loại)" và
+  // năm màn Khám nội tiết / phụ khoa / sản / hiếm muộn / nam khoa: năm màn ấy
+  // đặt tên theo PHIẾU, còn thanh bên đặt tên theo NƠI LÀM VIỆC. Phiếu tự mở
+  // theo dịch vụ khách đặt, không do mục thanh bên quyết.
+  { href: "/ban-kham", label: "Bàn khám (khách của tôi)", icon: Stethoscope },
+  { href: "/ban-kham/KN-NOITIET", label: "Bàn khám · Phòng Nội tiết", icon: Stethoscope },
+  { href: "/ban-kham/KN-SANCHAU", label: "Bàn khám · Phòng Sàn chậu", icon: Stethoscope },
+  { href: "/ban-kham/KN-SAN-BIO", label: "Bàn khám · Phòng Sản - Biofeedback", icon: Stethoscope },
+  { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
+  // PHÒNG DỊCH VỤ — mã phòng khớp `clinic_room.code` (migration 20260917000001).
+  { href: "/phong/KN-LAYMAU", label: "Lấy mẫu xét nghiệm", icon: FlaskConical },
+  { href: "/phong/KN-SA-T1", label: "Phòng siêu âm tầng 1", icon: ScanLine },
+  { href: "/phong/KN-SA1", label: "Phòng siêu âm 1 (tầng 4)", icon: ScanLine },
+  { href: "/phong/KN-SA2", label: "Phòng siêu âm 2 (tầng 4)", icon: ScanLine },
+  { href: "/phong/KN-THUTHUAT", label: "Phòng thủ thuật", icon: Activity },
+  { href: "/phong/KN-TTNG", label: "Thủ thuật ngoài giờ", icon: Activity },
+  { href: "/phong/KN-SANCHAU", label: "Phòng Sàn chậu (thủ thuật)", icon: Activity },
+  { href: "/phong/KN-SAN-BIO", label: "Phòng Sản - Biofeedback (dịch vụ)", icon: Activity },
   // "Luồng khám mới" (lát 1, 11/09) ĐÃ GỠ KHỎI MENU 15/09/2026 — Tuyền: bán
   // bằng luồng thật, không để hai cách làm cùng một việc song song. Mã giữ lại;
   // ý hay của nó đưa vào các màn thật khi làm giao diện.
   // HAI QUẦY, MỘT TÀI KHOẢN (Tuyền 16/09/2026: "thu ngân hiện tại cho thành 1
   // tài khoản tên là thu-ngan thôi để nó có cả node thu ngân dịch vụ và thu
   // ngân thuốc cùng 1 chỗ"). Màn gộp /cashier/board vẫn chạy bằng đường dẫn.
-  { href: "/thu-ngan/dich-vu", label: "Thu ngân dịch vụ", icon: Receipt },
-  { href: "/thu-ngan/thuoc", label: "Thu ngân thuốc", icon: Receipt },
+  { href: "/thu-ngan/dich-vu", label: "Thu tiền dịch vụ", icon: Receipt },
+  { href: "/thu-ngan/thuoc", label: "Thu tiền thuốc", icon: Receipt },
   {
     href: "/reception/checkout",
     label: "Check-out lượt khám",
@@ -192,13 +195,11 @@ export const NAV: NavItem[] = [
     href: "/pharmacy",
     label: "Cấp thuốc",
     icon: Pill,
-    badge: "Mới",
   },
   {
     href: "/pharmacy/inventory",
-    label: "Kho & tồn kho",
+    label: "Kho thuốc",
     icon: ClipboardList,
-    badge: "Mới",
   },
   {
     href: "/pharmacy/history",
@@ -212,23 +213,7 @@ export const NAV: NavItem[] = [
     icon: CheckCheck,
     badge: "Mới",
   },
-  {
-    href: "/lab-queue",
-    label: "Lấy mẫu xét nghiệm",
-    icon: FlaskConical,
-  },
-  {
-    href: "/service-queue",
-    label: "Làm thủ thuật & dịch vụ",
-    icon: Activity,
-  },
-  { href: "/sono", label: "Điều dưỡng siêu âm", icon: ScanLine },
-  {
-    href: "/sieu-am",
-    // "Khám siêu âm" — Tuyền 16/09: "siêu âm cũng ghi rõ là khám siêu âm".
-    label: "Khám siêu âm",
-    icon: ScanLine,
-  },
+
   { href: "/schedule", label: "Lịch làm việc", icon: Calendar },
   // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
   // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
@@ -256,12 +241,6 @@ export const NAV: NavItem[] = [
     // Mười badge còn lại vẫn giữ: chúng đánh dấu những màn ĐANG chạy song song
     // với bản cũ (xem ghi chú đầu danh sách), và bỏ chúng là mất đúng thông tin
     // mà nhân viên cần để biết mình đang ở bản nào.
-  },
-  {
-    href: "/result-review",
-    label: "Duyệt kết quả",
-    icon: CheckCheck,
-    badge: "Mới",
   },
   {
     href: "/ops/telemetry",
@@ -336,48 +315,143 @@ export function navLabelFor(item: NavItem, role: ClinicRole | null): string {
 //
 // Thứ tự màn TRONG một vị trí là thứ tự dùng: màn chính trước.
 export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
-  // Không có trong Excel — "bác sĩ trực hôm ấy".
-  // Bác sĩ trực hôm ấy mà không đứng một vị trí khám cụ thể: bàn khám chung.
-  LICH_KHAM: ["/doctor/board", "/appointments"],
+  // Không có trong Excel — "bác sĩ trực hôm ấy" không đứng phòng cụ thể.
+  LICH_KHAM: ["/ban-kham", "/duyet-ket-qua"],
 
-  T1_LETAN: ["/reception/queue", "/appointments", "/patients/new", "/reception/checkout"],
-  T1_THUNGAN: ["/thu-ngan/dich-vu"],
+  // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC (Tuyền 16/09/2026). Bốn vị trí ở quầy tiếp
+  // đón và quầy thuốc đều mở trọn bộ việc quầy: người đứng quầy thuốc chiều nay
+  // có thể là người đứng tiếp đón sáng nay.
+  T1_LETAN: ["/reception/queue", "/thu-ngan/dich-vu", "/reception/checkout", "/patients/new", "/appointments"],
+  T1_THUNGAN: ["/thu-ngan/dich-vu", "/reception/checkout"],
+  T2_XEPTHUOC: ["/pharmacy", "/thu-ngan/thuoc", "/pharmacy/inventory"],
+  T2_TAODON: ["/thu-ngan/thuoc", "/pharmacy", "/pharmacy/inventory"],
+
   T1_DOCHISO: ["/do-sinh-hieu"],
-  T1_LAYMAU: ["/lab-queue"],
+  T1_LAYMAU: ["/phong/KN-LAYMAU"],
 
-  T1_BS_NOITIET: ["/kham/noi-tiet", "/result-review"],
-  // Hỏi bệnh ban đầu và thư ký y khoa đều ngồi Phòng Nội tiết.
-  T1_HOIBENH: ["/kham/noi-tiet"],
-  T1_TKYK: ["/kham/noi-tiet"],
+  // Phòng Nội tiết: bác sĩ khám; hỏi bệnh ban đầu và thư ký ngồi cùng phòng.
+  T1_BS_NOITIET: ["/ban-kham/KN-NOITIET", "/duyet-ket-qua"],
+  T1_HOIBENH: ["/ban-kham/KN-NOITIET"],
+  T1_TKYK: ["/ban-kham/KN-NOITIET"],
 
-  // Thủ thuật KHÔNG có phiếu khám riêng trong năm phiếu — bàn khám chung.
-  T1_TT_BS: ["/doctor/board"],
-  T1_TT_DD: ["/service-queue"],
-  T1_SA_BS: ["/sieu-am"],
-  T1_SA_DD: ["/sono"],
-  T1_TTNG_BS: ["/doctor/board"],
-  T1_TTNG_DD1: ["/service-queue"],
-  T1_TTNG_DD2: ["/service-queue"],
+  // THỦ THUẬT DO BÁC SĨ LÀM (Tuyền 16/09/2026); điều dưỡng cùng phòng hỗ trợ.
+  T1_TT_BS: ["/phong/KN-THUTHUAT"],
+  T1_TT_DD: ["/phong/KN-THUTHUAT"],
+  T1_TTNG_BS: ["/phong/KN-TTNG"],
+  T1_TTNG_DD1: ["/phong/KN-TTNG"],
+  T1_TTNG_DD2: ["/phong/KN-TTNG"],
 
-  T2_XEPTHUOC: ["/pharmacy", "/pharmacy/consult"],
-  T2_TAODON: ["/thu-ngan/thuoc", "/pharmacy"],
+  // Siêu âm: bác sĩ và điều dưỡng cùng một phòng, cùng bấm Bắt đầu được.
+  T1_SA_BS: ["/phong/KN-SA-T1", "/duyet-ket-qua"],
+  T1_SA_DD: ["/phong/KN-SA-T1"],
+  T4_SA_BS1: ["/phong/KN-SA1", "/duyet-ket-qua"],
+  T4_SA_DD1: ["/phong/KN-SA1"],
+  T4_SA_BS2: ["/phong/KN-SA2", "/duyet-ket-qua"],
+  T4_SA_DD2: ["/phong/KN-SA2"],
 
-  // SÀN CHẬU CHƯA CÓ PHIẾU RIÊNG — năm phiếu trong tài liệu là Phụ khoa, Sản,
-  // Nội tiết, Hiếm muộn, Nam khoa. Việc của phòng này (soi âm hộ/CTC, nong,
-  // tách) là thủ thuật phụ khoa, nên tạm mở Khám phụ khoa. Chờ Tuyền chốt.
-  T4_SANCHAU_BS: ["/kham/phu-khoa"],
-  T4_SANCHAU_BSTT: ["/kham/phu-khoa"],
-  T4_SANCHAU_DD: ["/service-queue"],
-  T4_SAN_BS: ["/kham/san"],
-  T4_SAN_DD: ["/service-queue"],
-  T4_BIO_DD: ["/service-queue"],
-  T4_SA_BS1: ["/sieu-am"],
-  T4_SA_DD1: ["/sono"],
-  T4_SA_BS2: ["/sieu-am"],
-  T4_SA_DD2: ["/sono"],
+  // Tầng 4: bác sĩ phòng vừa KHÁM (bàn khám) vừa LÀM thủ thuật/dịch vụ (phòng).
+  T4_SANCHAU_BS: ["/ban-kham/KN-SANCHAU", "/phong/KN-SANCHAU", "/duyet-ket-qua"],
+  T4_SANCHAU_BSTT: ["/phong/KN-SANCHAU"],
+  T4_SANCHAU_DD: ["/phong/KN-SANCHAU"],
+  T4_SAN_BS: ["/ban-kham/KN-SAN-BIO", "/phong/KN-SAN-BIO", "/duyet-ket-qua"],
+  T4_SAN_DD: ["/phong/KN-SAN-BIO"],
+  T4_BIO_DD: ["/phong/KN-SAN-BIO"],
 
   DIEU_PHOI: ["/truong-ca", "/truong-ca/hang-doi", "/customers"],
 };
+
+// ── NHÓM VAI TRÊN THANH BÊN (Tuyền chốt 16/09/2026) ─────────────────────────
+//
+// *"sidebar sẽ là: điều dưỡng rồi các node điều dưỡng, dưới là lễ tân rồi các
+// node của lễ tân"*. Người đứng hai vai trong ngày thấy hai nhóm, mỗi nhóm một
+// tiêu đề — nhìn là biết mục nào là việc của vai nào.
+export type NhomVai =
+  | "LE_TAN"
+  | "DIEU_DUONG"
+  | "BAC_SI"
+  | "THU_KY"
+  | "BS_SIEU_AM"
+  | "TRUONG_CA";
+
+export const TEN_NHOM: Record<NhomVai, string> = {
+  LE_TAN: "Lễ tân",
+  DIEU_DUONG: "Điều dưỡng",
+  BAC_SI: "Bác sĩ",
+  THU_KY: "Thư ký y khoa",
+  BS_SIEU_AM: "Bác sĩ siêu âm",
+  TRUONG_CA: "Trưởng ca",
+};
+
+/** Vị trí thuộc nhóm nào. Hỏi bệnh ban đầu: bác sĩ đứng thì là việc bác sĩ. */
+export const NHOM_THEO_VI_TRI: Readonly<Record<string, NhomVai>> = {
+  LICH_KHAM: "BAC_SI",
+  T1_LETAN: "LE_TAN",
+  T1_THUNGAN: "LE_TAN",
+  T2_XEPTHUOC: "LE_TAN",
+  T2_TAODON: "LE_TAN",
+  T1_DOCHISO: "DIEU_DUONG",
+  T1_LAYMAU: "DIEU_DUONG",
+  T1_TT_DD: "DIEU_DUONG",
+  T1_TTNG_DD1: "DIEU_DUONG",
+  T1_TTNG_DD2: "DIEU_DUONG",
+  T1_SA_DD: "DIEU_DUONG",
+  T4_SA_DD1: "DIEU_DUONG",
+  T4_SA_DD2: "DIEU_DUONG",
+  T4_SANCHAU_DD: "DIEU_DUONG",
+  T4_SAN_DD: "DIEU_DUONG",
+  T4_BIO_DD: "DIEU_DUONG",
+  T1_BS_NOITIET: "BAC_SI",
+  T1_TT_BS: "BAC_SI",
+  T1_TTNG_BS: "BAC_SI",
+  T4_SANCHAU_BS: "BAC_SI",
+  T4_SANCHAU_BSTT: "BAC_SI",
+  T4_SAN_BS: "BAC_SI",
+  T1_HOIBENH: "THU_KY",
+  T1_TKYK: "THU_KY",
+  T1_SA_BS: "BS_SIEU_AM",
+  T4_SA_BS1: "BS_SIEU_AM",
+  T4_SA_BS2: "BS_SIEU_AM",
+  DIEU_PHOI: "TRUONG_CA",
+};
+
+const THU_TU_NHOM: readonly NhomVai[] = [
+  "BAC_SI",
+  "BS_SIEU_AM",
+  "THU_KY",
+  "DIEU_DUONG",
+  "LE_TAN",
+  "TRUONG_CA",
+];
+
+function nhomCua(viTri: string, role: ClinicRole | null): NhomVai | null {
+  if (viTri === "T1_HOIBENH" && role === "DOCTOR") return "BAC_SI";
+  return NHOM_THEO_VI_TRI[viTri] ?? null;
+}
+
+export interface NhomThanhBen {
+  nhom: NhomVai;
+  ten: string;
+  muc: NavItem[];
+}
+
+/** Các nhóm hôm nay, mỗi nhóm các màn theo thứ tự vị trí rồi thứ tự dùng. */
+export function nhomTheoViTri(
+  viTri: readonly string[],
+  role: ClinicRole | null,
+): { nhom: NhomVai; hrefs: string[] }[] {
+  const theo = new Map<NhomVai, string[]>();
+  for (const v of viTri) {
+    const n = nhomCua(v, role);
+    if (!n) continue;
+    const ds = theo.get(n) ?? [];
+    for (const h of MAN_THEO_VI_TRI[v] ?? []) if (!ds.includes(h)) ds.push(h);
+    theo.set(n, ds);
+  }
+  return THU_TU_NHOM.filter((n) => theo.has(n)).map((n) => ({
+    nhom: n,
+    hrefs: theo.get(n)!,
+  }));
+}
 
 /** Màn cần cho các vị trí hôm nay, theo thứ tự vị trí rồi thứ tự dùng, không lặp. */
 export function hrefTheoViTri(viTri: readonly string[]): string[] {
@@ -419,17 +493,13 @@ export function mucHienRa(
   return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));
 }
 
-// HAI PHẦN CỦA THANH BÊN (Tuyền 16/09/2026: *"cứ tường minh ra ở bên sidebar
-// cho dễ nhìn"*).
-//
-//   • "Hôm nay"   — đúng việc của các vị trí người này đứng hôm nay.
-//   • "Việc khác" — các màn còn lại của vai, GẬP SẴN.
+// THANH BÊN: các NHÓM VAI hôm nay + "Việc khác" (gập sẵn).
 //
 // Chỉ ẩn thì hỏng đúng chuyện thường ngày trong lịch Kim Ngưu: đứng thay nhau
 // giữa ca. Người đứng Đo sinh hiệu được gọi sang lấy mẫu vẫn phải có lối vào,
 // chỉ là không bày ra chen với việc chính.
 //
-// Không có ca (hoặc là Quản lý) → `homNay` rỗng, `khac` là menu theo vai, và
+// Không có ca (hoặc là Quản lý) → `nhom` rỗng, `khac` là menu theo vai, và
 // thanh bên vẽ một danh sách phẳng như trước.
 export function nhomThanhBen(
   role: ClinicRole | null,
@@ -437,22 +507,33 @@ export function nhomThanhBen(
   featureMode: string,
   clinicalHrefs: ReadonlySet<string>,
   viTriHomNay: readonly string[] = [],
-): { homNay: NavItem[]; khac: NavItem[] } {
+): { dau: NavItem[]; nhom: NhomThanhBen[]; khac: NavItem[] } {
+  // Cùng một phép lọc với thanh dưới — `mucHienRa` — để hai thanh không lệch.
   const theoVai = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, []);
-  const homNay = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, viTriHomNay)
-    // "/schedule" đứng cuối danh sách theo vị trí để xem mai đứng đâu — nó là
-    // tra cứu, không phải việc hôm nay, nên về phần "Việc khác".
-    .filter((i) => i.href !== "/schedule");
-  if (homNay.length === theoVai.length && homNay.every((i, k) => i === theoVai[k])) {
-    return { homNay: [], khac: theoVai };
+  const homNay = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, viTriHomNay);
+  const coCa = role !== "MANAGEMENT" && hrefTheoViTri(viTriHomNay).length > 0;
+  if (!coCa) {
+    return { dau: [], nhom: [], khac: theoVai };
   }
-  const daCo = new Set(homNay.map((i) => i.href));
+  const choPhep = new Map(homNay.map((i) => [i.href, i]));
+  const nhom: NhomThanhBen[] = nhomTheoViTri(viTriHomNay, role)
+    .map((g) => ({
+      nhom: g.nhom,
+      ten: TEN_NHOM[g.nhom],
+      muc: g.hrefs
+        .map((h) => choPhep.get(h))
+        .filter((i): i is NavItem => i !== undefined),
+    }))
+    .filter((g) => g.muc.length > 0);
+  const daCo = new Set(nhom.flatMap((g) => g.muc.map((i) => i.href)));
+  const dau = homNay.filter((i) => i.href === "/home");
+  daCo.add("/home");
   const khac = theoVai.filter((i) => !daCo.has(i.href));
   if (!khac.some((i) => i.href === "/schedule")) {
     const lich = NAV.find((i) => i.href === "/schedule");
     if (lich) khac.push(lich);
   }
-  return { homNay, khac };
+  return { dau, nhom, khac };
 }
 
 // THANH DƯỚI TRÊN ĐIỆN THOẠI — bốn nút cho mỗi vai, chọn theo VIỆC CỦA VAI ẤY.
@@ -477,30 +558,18 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   MANAGEMENT: ["/home", "/lich-do-ve", "/reports", "/truong-ca"],
   // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi khách hàng — đúng thứ tự họ
   // nhìn khi phòng chờ đông.
-  //
-  // "/truong-ca/tv" nhường chỗ cho "/customers" (Tuyền 16/09): màn TV là thứ
-  // treo trên tường chứ không phải thứ trưởng ca mở trên điện thoại, còn
-  // quản lý khách hàng là nửa còn lại của toàn cảnh — hàng đợi nói ai đang ở
-  // trong phòng khám, màn kia nói ai đáng lẽ phải có mặt mà chưa tới.
   TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/customers"],
-  // Điều dưỡng siêu âm: trạm của họ là /sono.
-  NURSE_ULTRASOUND: ["/home", "/sono", "/service-queue", "/tasks"],
-  // Bác sĩ và thư ký y khoa, NGÀY KHÔNG CÓ CA: năm màn khám riêng làm hai vai
-  // này vượt tám màn, nên phải khai — không thì thanh dưới lấy bốn mục đầu và
-  // ra đúng bốn màn khám đầu tiên trong danh sách, bất kể người ấy khám gì.
-  // Bàn khám chung đứng đầu vì nó gồm MỌI loại khám. Ngày có ca, thanh dưới đi
-  // theo vị trí và bảng này không được dùng tới.
-  DOCTOR: ["/home", "/doctor/board", "/tasks", "/patient-list"],
-  TKYK: ["/home", "/doctor/board", "/tasks", "/patient-list"],
-  // Bác sĩ siêu âm: bàn khám + bộ phận siêu âm.
-  ULTRASOUND_DOCTOR: ["/home", "/doctor/board", "/sieu-am", "/patient-list"],
-  // Tiếp nhận: hàng đợi, check-out, và tạo bệnh nhân — ba việc ở quầy.
-  RECEPTION: ["/home", "/reception/queue", "/appointments", "/patients/new"],
-  // Dược sĩ: đơn chờ cấp → kho → tư vấn. "Lịch sử bàn giao" là màn tra cứu,
-  // để trong Menu.
+  // Điều dưỡng, ngày không có ca: ba việc hay đứng nhất.
+  NURSE_ULTRASOUND: ["/home", "/do-sinh-hieu", "/phong/KN-LAYMAU", "/phong/KN-SA-T1"],
+  // Bác sĩ và thư ký: bàn khám là màn chính. Ngày có ca, thanh dưới đi theo
+  // vị trí và bảng này không được dùng tới.
+  DOCTOR: ["/home", "/ban-kham", "/duyet-ket-qua", "/patient-list"],
+  TKYK: ["/home", "/ban-kham", "/tasks", "/patient-list"],
+  ULTRASOUND_DOCTOR: ["/home", "/phong/KN-SA-T1", "/duyet-ket-qua", "/patient-list"],
+  // Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
+  RECEPTION: ["/home", "/reception/queue", "/thu-ngan/dich-vu", "/appointments"],
+  // Dược sĩ: đơn chờ cấp → kho → tư vấn.
   PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],
-  // Thu ngân: bàn thu ngân là màn chính; bảng giá là thứ tra khi khách hỏi.
-  // Hai quầy đứng đầu: tài khoản thu-ngan dùng cả hai (Tuyền 16/09/2026).
   CASHIER: ["/home", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/cashier/dich-vu"],
   CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/cashier/thuoc", "/customers"],
   CASHIER_DV: ["/home", "/thu-ngan/dich-vu", "/cashier/dich-vu", "/customers"],

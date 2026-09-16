@@ -27,6 +27,8 @@ router = APIRouter()
 
 # Roles allowed to touch payments at all; the finer kind↔role rule is in the service.
 _CASHIER_GUARD = require_role(
+    # Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
+    ClinicRole.RECEPTION,
     ClinicRole.CASHIER,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,

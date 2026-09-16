@@ -29,7 +29,26 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "xep-phong": (id) => `/api/v1/luot-kham/orders/${id}/dispatch`,
   "bat-dau-dich-vu": (id) => `/api/v1/luot-kham/orders/${id}/start`,
   "xong-dich-vu": (id) => `/api/v1/luot-kham/orders/${id}/complete`,
+  // Nút "Đã khám xong" — máy chủ tự chọn kết quả phiên theo chỉ định còn lại.
+  "kham-xong": (id) => `/api/v1/luot-kham/consultations/${id}/kham-xong`,
+  "duyet-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/duyet-ket-qua`,
 };
+
+/** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
+function duongDoc(url: URL): string | null {
+  const xem = url.searchParams.get("xem");
+  if (!xem) return "/api/v1/luot-kham/bang";
+  if (xem === "phong-hom-nay") return "/api/v1/luot-kham/phong-hom-nay";
+  if (xem === "ket-qua-cho-duyet") return "/api/v1/luot-kham/ket-qua-cho-duyet";
+  if (xem === "hang-cho") {
+    const phong = url.searchParams.get("phong") ?? "";
+    if (phong && !UUID_RE.test(phong)) return null;
+    return phong
+      ? `/api/v1/luot-kham/hang-cho?phong=${encodeURIComponent(phong)}`
+      : "/api/v1/luot-kham/hang-cho";
+  }
+  return null;
+}
 
 /** Thao tác không gắn với một dòng cụ thể trên đường dẫn. */
 const KHONG_CAN_ID = new Set(["check-in"]);
@@ -42,11 +61,18 @@ async function coPhien(): Promise<boolean> {
   return Boolean(user);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await coPhien())) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
-  return proxyJsonToBackend("GET", "/api/v1/luot-kham/bang", undefined);
+  const duong = duongDoc(new URL(request.url));
+  if (!duong) {
+    return NextResponse.json(
+      { error: "BAD_REQUEST", message: "Bảng cần đọc không hợp lệ." },
+      { status: 400 },
+    );
+  }
+  return proxyJsonToBackend("GET", duong, undefined);
 }
 
 export async function POST(request: Request) {

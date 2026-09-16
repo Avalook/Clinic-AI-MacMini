@@ -39,6 +39,8 @@ router = APIRouter()
 # who may schedule somebody else.
 _ROSTER_GUARD = require_role(*ROSTER_ROLES)
 _PRICE_GUARD = require_role(*PRICE_ROLES)
+# Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
+_PRICE_READ_GUARD = require_role(*PRICE_ROLES, ClinicRole.RECEPTION)
 # Chỉ QUẢN LÝ được đổi luật đặt lịch (khung giờ / số khách online + trực tiếp
 # từng bác sĩ) của phòng khám — Tuyền chốt 15/09/2026: "để luật đó cho quản lý
 # phòng khám họ đặt", cùng nhóm với công bố lịch trực (chỉ Quản lý). Trước đó
@@ -255,7 +257,7 @@ class PriceRow(BaseModel):
 @router.get("/service-prices", response_model=list[PriceRow])
 async def list_prices(
     group: PriceGroup = Query(..., description="thuoc | dich_vu"),
-    identity: StaffIdentity = Depends(_PRICE_GUARD),
+    identity: StaffIdentity = Depends(_PRICE_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[PriceRow]:
     """Bảng giá thuốc hoặc dịch vụ.

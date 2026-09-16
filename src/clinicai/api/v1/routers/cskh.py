@@ -648,7 +648,9 @@ async def cho_phep_gui_tep(
 @router.get("/cskh/ket-qua/{clinic_patient_id}")
 async def danh_sach_ket_qua(
     clinic_patient_id: UUID,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    # Ai tải lên được thì phải XEM LẠI được danh sách — bản trước chỉ mở cho
+    # vai tiếp nhận, nên bác sĩ, điều dưỡng tải xong không thấy tệp mình vừa gửi.
+    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tệp kết quả của một khách, kèm đã gửi hay chưa."""
