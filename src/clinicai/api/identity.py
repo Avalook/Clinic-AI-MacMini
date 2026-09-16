@@ -211,6 +211,15 @@ class StaffIdentity:
             vai.add(self.vai_tai_khoan)
         return frozenset(vai)
 
+    @property
+    def vai_goc(self) -> ClinicRole:
+        """Vai TÀI KHOẢN — khớp `clinic_membership.role` trong database."""
+        return self.vai_tai_khoan or self.role
+
+    def ds_vai(self) -> list[str]:
+        """`cac_vai()` dạng chuỗi, để truyền vào truy vấn (`$n::text[]`)."""
+        return sorted(v.value for v in self.cac_vai())
+
     def co_vai(self, roles: Iterable[ClinicRole]) -> bool:
         """Có ÍT NHẤT MỘT vai hôm nay nằm trong `roles`.
 

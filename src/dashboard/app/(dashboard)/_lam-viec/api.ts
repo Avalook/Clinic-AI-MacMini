@@ -41,6 +41,8 @@ export interface DongHangCho {
   bac_si: string | null;
   phong: string | null;
   vao_hang_luc: string | null;
+  /** Lần gọi vào gần nhất (null = chưa gọi). */
+  goi_luc: string | null;
   bat_dau_luc: string | null;
   xong_luc: string | null;
   ket_qua_luc: string | null;

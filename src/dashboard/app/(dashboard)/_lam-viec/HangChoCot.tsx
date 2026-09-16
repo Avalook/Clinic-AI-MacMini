@@ -95,6 +95,11 @@ export default function HangChoCot({
                       </span>
                       <span className="shrink-0 text-right text-label text-ink-muted">
                         {d.trang_thai === "done" ? gioVn(d.xong_luc) : phut}
+                        {d.trang_thai === "called" ? (
+                          <span className="block font-semibold text-brand-700">
+                            Đã gọi {gioVn(d.goi_luc)}
+                          </span>
+                        ) : null}
                       </span>
                     </button>
                   </li>

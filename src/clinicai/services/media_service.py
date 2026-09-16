@@ -72,6 +72,7 @@ MAX_BYTES_THEO_LOAI: dict[str, int] = {
     "ANH": MAX_BYTES,
     "VIDEO": MAX_BYTES_VIDEO,
     "PDF": MAX_BYTES_PDF,
+    "TAI_LIEU": MAX_BYTES_PDF,
 }
 
 # Video kết quả chưa có kho/vòng đời vận hành an toàn (UI cũng đang nói rõ là
@@ -81,9 +82,9 @@ KET_QUA_VIDEO_UPLOAD_ENABLED = os.environ.get(
     "KET_QUA_VIDEO_UPLOAD_ENABLED", "false"
 ).lower() in {"1", "true", "yes"}
 KET_QUA_UPLOAD_ALLOWED_TYPES = (
-    frozenset({"ANH", "PDF", "VIDEO"})
+    frozenset({"ANH", "PDF", "VIDEO", "TAI_LIEU"})
     if KET_QUA_VIDEO_UPLOAD_ENABLED
-    else frozenset({"ANH", "PDF"})
+    else frozenset({"ANH", "PDF", "TAI_LIEU"})
 )
 MAX_BYTES_KET_QUA_UPLOAD = max(
     MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES
@@ -114,7 +115,34 @@ _MAGIC_KET_QUA: tuple[tuple[bytes, str, str, str], ...] = (
     (b"\x89PNG\r\n\x1a\n", "image/png", ".png", "ANH"),
     (b"%PDF-", "application/pdf", ".pdf", "PDF"),
     (b"\x1a\x45\xdf\xa3", "video/webm", ".webm", "VIDEO"),
+    (b"GIF87a", "image/gif", ".gif", "ANH"),
+    (b"GIF89a", "image/gif", ".gif", "ANH"),
 )
+
+#: Ảnh iPhone (HEIC) và AVIF cũng mở đầu bằng khối `ftyp` như MP4. Bản trước
+#: không phân biệt nên một ảnh HEIC được cất thành VIDEO MP4 — lưu được mà không
+#: xem được (tự kiểm 16/09/2026). Trình duyệt trên máy tính phòng khám không hiển
+#: thị HEIC, nên TỪ CHỐI kèm câu nói rõ cách xử lý.
+_FTYP_ANH_KHONG_XEM_DUOC = frozenset(
+    {
+        b"heic",
+        b"heix",
+        b"hevc",
+        b"heim",
+        b"heis",
+        b"hevm",
+        b"hevs",
+        b"mif1",
+        b"msf1",
+        b"avif",
+        b"avis",
+    }
+)
+
+#: Tài liệu Office (DOCX/XLSX) là tệp ZIP. Word/Excel đặt `[Content_Types].xml`
+#: ngay đầu tệp; phân biệt DOCX/XLSX bằng thư mục `word/` hay `xl/` bên trong.
+_MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+_MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 #: Nhãn con của khối `ftyp` → kiểu thật. `qt  ` là MOV (máy siêu âm Mỹ hay xuất
 #: kiểu này), phần còn lại coi là MP4.
@@ -130,16 +158,39 @@ def sniff_ket_qua(data: bytes) -> tuple[str, str, str]:
     for magic, mime, ext, loai in _MAGIC_KET_QUA:
         if data.startswith(magic):
             return mime, ext, loai
+    # WEBP: "RIFF" + 4 byte độ dài + "WEBP". (AVI cũng "RIFF" — không nhận.)
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp", ".webp", "ANH"
+    if data.startswith(b"PK\x03\x04"):
+        if b"word/" in data:
+            return _MIME_DOCX, ".docx", "TAI_LIEU"
+        if b"xl/" in data:
+            return _MIME_XLSX, ".xlsx", "TAI_LIEU"
+        # Chỉ có đoạn đầu tệp (lúc đọc thử để biết trần dung lượng): đủ biết là
+        # tài liệu Office; loại cụ thể quyết khi có trọn tệp.
+        if b"[Content_Types].xml" in data[:4096] and len(data) <= 8192:
+            return _MIME_DOCX, ".docx", "TAI_LIEU"
+        raise ValidationError(
+            "Tệp nén (ZIP) không nhận. Tài liệu chỉ nhận Word (.docx) hoặc Excel "
+            "(.xlsx)."
+        )
     # DICOM: chữ ký nằm ở byte 128.
     if len(data) > 132 and data[128:132] == b"DICM":
         return "application/dicom", ".dcm", "ANH"
     # MP4/MOV: `ftyp` ở byte 4, nhãn con ở byte 8.
     if len(data) > 12 and data[4:8] == b"ftyp":
+        if data[8:12] in _FTYP_ANH_KHONG_XEM_DUOC:
+            raise ValidationError(
+                "Ảnh HEIC/AVIF (thường từ iPhone) chưa xem được trên máy tính phòng "
+                "khám. Trên iPhone chọn Cài đặt → Camera → Định dạng → Tương thích "
+                "nhất, hoặc gửi ảnh chụp màn hình (JPG/PNG)."
+            )
         if data[8:12] in _FTYP_MOV:
             return "video/quicktime", ".mov", "VIDEO"
         return "video/mp4", ".mp4", "VIDEO"
     raise ValidationError(
-        "Chỉ nhận ảnh (JPG/PNG/DICOM), video (MP4/MOV/WebM) hoặc phiếu PDF."
+        "Chỉ nhận ảnh (JPG/PNG/WEBP/GIF/DICOM), video (MP4/MOV/WebM), phiếu PDF, "
+        "tài liệu Word (.docx) hoặc Excel (.xlsx)."
     )
 
 

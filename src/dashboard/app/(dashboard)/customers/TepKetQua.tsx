@@ -174,7 +174,7 @@ export default function TepKetQua({
               type="file"
               multiple
               disabled={dangTai || !appointmentId}
-              accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
+              accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
               className="hidden"
               onChange={(e) => {
                 void taiLen(e.target.files);

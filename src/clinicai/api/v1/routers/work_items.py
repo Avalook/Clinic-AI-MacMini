@@ -83,12 +83,12 @@ async def require_workspace_read_access(
                AND n.workspace = $2
                -- ``{}`` is deliberately "nobody yet" in the catalogue, so
                -- neither an empty nor a NULL actor list may grant a read.
-               AND $3 = ANY(n.actor_roles)
+               AND n.actor_roles && $3::text[]
         )
         """,
         identity.clinic_id,
         workspace,
-        identity.role.value,
+        identity.ds_vai(),
     )
     if not may_read:
         raise HTTPException(
@@ -140,12 +140,12 @@ async def require_visit_work_items_read_access(
                         )
                     )
                )
-               AND $3 = ANY(n.actor_roles)
+               AND n.actor_roles && $3::text[]
         )
         """,
         visit_id,
         identity.clinic_id,
-        identity.role.value,
+        identity.ds_vai(),
     )
     if not may_read:
         raise HTTPException(

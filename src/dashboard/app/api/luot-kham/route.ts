@@ -32,6 +32,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Nút "Đã khám xong" — máy chủ tự chọn kết quả phiên theo chỉ định còn lại.
   "kham-xong": (id) => `/api/v1/luot-kham/consultations/${id}/kham-xong`,
   "duyet-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/duyet-ket-qua`,
+  // Gọi khách vào phòng — id là CHỖ CHỜ (queue entry), không phải phiên/chỉ định.
+  "goi-khach": (id) => `/api/v1/luot-kham/hang-cho/${id}/goi`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

@@ -303,7 +303,7 @@ function MotViec({
         <input
           ref={oTep}
           type="file"
-          accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
+          accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
           className="hidden"
           onChange={(e) => {
             const t = e.target.files?.[0];

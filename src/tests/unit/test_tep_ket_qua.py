@@ -68,7 +68,9 @@ def test_dicom_van_nhan_duoc() -> None:
     "rac",
     [
         b"<html><script>alert(1)</script></html>",
-        b"GIF89a" + b"\x00" * 32,  # GIF: không nhận, và phải nói ra
+        # GIF nay NHẬN (16/09/2026 — ảnh hợp lệ, trình duyệt hiển thị được).
+        # BMP vẫn không: nặng, máy siêu âm không xuất, nói ra cho người dùng.
+        b"BM" + b"\x00" * 32,
         b"",
     ],
 )
@@ -81,7 +83,7 @@ def test_tran_video_rong_hon_tran_anh() -> None:
     """Gộp một trần chung là mở cửa cho video 80MB vào ô chọn ảnh."""
     assert MAX_BYTES_THEO_LOAI["VIDEO"] > MAX_BYTES_THEO_LOAI["ANH"]
     assert MAX_BYTES_THEO_LOAI["ANH"] == 12 * 1024 * 1024
-    assert set(MAX_BYTES_THEO_LOAI) == {"ANH", "VIDEO", "PDF"}
+    assert set(MAX_BYTES_THEO_LOAI) == {"ANH", "VIDEO", "PDF", "TAI_LIEU"}
 
 
 def test_khoa_tep_luon_bat_dau_bang_clinic_id() -> None:
@@ -519,3 +521,52 @@ async def test_tep_bien_mat_khoi_dia_thi_noi_ro() -> None:
     )
     with pytest.raises(NotFoundError):
         await TepKetQuaService(pool).duong_dan_de_doc(identity=_ai(), tep_id="t1")
+
+
+# ---------------------------------------------------------------------------
+# Tự kiểm 16/09/2026: đủ loại tệp người dùng thật sẽ kéo vào ô
+# ---------------------------------------------------------------------------
+
+
+def _zip_office(ten_ben_trong: bytes) -> bytes:
+    # Đầu tệp ZIP thật: chữ ký + tiêu đề cục bộ + tên mục đầu tiên.
+    return (
+        b"PK\x03\x04"
+        + b"\x00" * 26
+        + b"[Content_Types].xml"
+        + b"\x00" * 64
+        + ten_ben_trong
+        + b"\x00" * 64
+    )
+
+
+def test_heic_iphone_bi_tu_choi_ro_rang_khong_thanh_video() -> None:
+    heic = b"\x00\x00\x00\x18ftypheic" + b"\x00" * 40
+    with pytest.raises(ValidationError, match="HEIC"):
+        sniff_ket_qua(heic)
+
+
+def test_webp_gif_la_anh() -> None:
+    assert sniff_ket_qua(b"RIFF\x10\x00\x00\x00WEBPVP8 " + b"\x00" * 20)[2] == "ANH"
+    assert sniff_ket_qua(b"GIF89a" + b"\x00" * 20)[0] == "image/gif"
+
+
+def test_avi_khong_nhan() -> None:
+    with pytest.raises(ValidationError):
+        sniff_ket_qua(b"RIFF\x10\x00\x00\x00AVI LIST" + b"\x00" * 20)
+
+
+def test_docx_xlsx_la_tai_lieu() -> None:
+    assert sniff_ket_qua(_zip_office(b"word/document.xml"))[1:] == (".docx", "TAI_LIEU")
+    assert sniff_ket_qua(_zip_office(b"xl/workbook.xml"))[1:] == (".xlsx", "TAI_LIEU")
+
+
+def test_zip_thuong_khong_nhan() -> None:
+    zip_rac = b"PK\x03\x04" + b"\x00" * 26 + b"virus.exe" + b"\x00" * 9000
+    with pytest.raises(ValidationError, match="ZIP"):
+        sniff_ket_qua(zip_rac)
+
+
+def test_exe_doi_duoi_jpg_van_bi_tu_choi() -> None:
+    with pytest.raises(ValidationError):
+        sniff_ket_qua(b"MZ\x90\x00" + b"\x00" * 100)

@@ -119,6 +119,7 @@ class WorkItemService:
                        AND m.staff_id = $2::uuid
                        AND m.is_active
                        AND m.clinic_id = $3::uuid
+                       -- Tư cách thành viên còn hiệu lực: so VAI TÀI KHOẢN.
                        AND m.role = $4
                       LEFT JOIN node_definition n
                         ON n.clinic_id = w.clinic_id
@@ -130,7 +131,7 @@ class WorkItemService:
                     work_item_id,
                     identity.staff_id,
                     identity.clinic_id,
-                    identity.role.value,
+                    identity.vai_goc.value,
                 )
                 # Both halves of the identity are re-checked against the same
                 # active membership. A membership in some other clinic (or a
@@ -151,18 +152,19 @@ class WorkItemService:
                     command in LENH_CAN_LY_DO
                     and item["flow_group"] in NHOM_BUOC_DICH_VU
                 ):
-                    if membership_role not in VAI_QUYET_DICH_VU:
+                    if not set(identity.ds_vai()) & set(VAI_QUYET_DICH_VU):
                         raise SafetyGateError(
                             "Dịch vụ không làm được thì bác sĩ quyết làm lại "
                             "hay miễn — báo bác sĩ."
                         )
                     # Bác sĩ chính quyết miễn/huỷ cả dịch vụ không thuộc vai
                     # thực hiện của mình (vd. siêu âm, lấy máu).
-                    actor_roles = [*actor_roles, membership_role]
+                    actor_roles = [*actor_roles, *identity.ds_vai()]
                 # The catalogue's empty default means "nobody yet", never
                 # "every working role".  Fail closed if configuration is
                 # incomplete or the live node no longer names this role.
-                if not actor_roles or membership_role not in actor_roles:
+                # Vai theo vị trí hôm nay cũng tính (Tuyền 16/09/2026).
+                if not actor_roles or not set(identity.ds_vai()) & set(actor_roles):
                     logger.info(
                         "work_item_role_forbidden",
                         node_code=item["node_code"],
@@ -324,7 +326,7 @@ class WorkItemService:
                    p.phone_primary,
                    -- Mine to act on? An empty actor list means "nobody yet"
                    -- in the catalogue, so it must never light up a command.
-                   (m.role = ANY (n.actor_roles))     AS actionable_by_me,
+                   (n.actor_roles && $5::text[])     AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
                    )                                   AS blocked
@@ -350,14 +352,15 @@ class WorkItemService:
                -- or cashier's work (or its patient data) on the same visit.
                -- Management and shift leads are the deliberate read-only
                -- cross-station exception.
-               AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')
-                    OR m.role = ANY(n.actor_roles))
+               AND ($5::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']
+                    OR n.actor_roles && $5::text[])
              ORDER BY f.level NULLS LAST, w.node_code
             """,
             visit_id,
             identity.clinic_id,
             identity.staff_id,
-            identity.role.value,
+            identity.vai_goc.value,
+            identity.ds_vai(),
         )
 
         return [
@@ -465,7 +468,7 @@ class WorkItemService:
                    -- Thư ký đã nhập chỉ định chờ bác sĩ duyệt (20260915000008):
                    -- bảng bác sĩ hiện dấu để bác sĩ biết mà duyệt.
                    sd.id IS NOT NULL                    AS co_nhap_chi_dinh,
-                   (m.role = ANY (n.actor_roles))      AS actionable_by_me,
+                   (n.actor_roles && $8::text[])      AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
                    )                                    AS blocked
@@ -508,13 +511,13 @@ class WorkItemService:
                -- must not turn into read access to every other station's
                -- financial or clinical rows.  Coordinators are deliberately
                -- the only cross-node exception.
-               AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')
-                    OR m.role = ANY(n.actor_roles))
+               AND ($8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']
+                    OR n.actor_roles && $8::text[])
                AND ($2::date IS NULL
                     OR (w.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2)
                AND ($6::boolean IS NOT TRUE
                     OR w.assigned_to = $4::uuid
-                    OR m.role = ANY (n.actor_roles))
+                    OR n.actor_roles && $8::text[])
                -- Thư ký chỉ thấy khách của bác sĩ mình được phân (20260915000020).
                -- NULL = không giới hạn (không phải thư ký, hoặc chưa được phân).
                AND coalesce(coalesce(v.attending_doctor_id, a.doctor_id)::text, '~')
@@ -527,9 +530,10 @@ class WorkItemService:
             day,
             identity.clinic_id,
             identity.staff_id,
-            identity.role.value,
+            identity.vai_goc.value,
             mine_only,
             await bac_si_cua_thu_ky(self._pool, identity),
+            identity.ds_vai(),
         )
 
         return [
@@ -604,7 +608,7 @@ class WorkItemService:
             phase,
             identity.clinic_id,
             identity.staff_id,
-            identity.role.value,
+            identity.vai_goc.value,
         )
         if not rows:
             # Cross-clinic and nonexistent identifiers are deliberately

@@ -175,7 +175,11 @@ function KhachTrongPhong({
   const bam = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
     setDangGui(true);
     setLoi(null);
-    const kq = await guiThaoTac(thaoTac, dong.ref_id, duLieu);
+    const kq = await guiThaoTac(
+      thaoTac,
+      thaoTac === "goi-khach" ? dong.id : dong.ref_id,
+      duLieu,
+    );
     setDangGui(false);
     if (!kq.ok) setLoi(kq.loi);
     else onDaBam();
@@ -211,6 +215,18 @@ function KhachTrongPhong({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {dangCho ? (
+            <button
+              type="button"
+              disabled={dangGui}
+              onClick={() => void bam("goi-khach")}
+              className="inline-flex min-h-11 items-center rounded-control border border-brand-600 px-5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+            >
+              {dong.trang_thai === "called"
+                ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
+                : "Gọi vào"}
+            </button>
+          ) : null}
           {dangCho ? (
             <button
               type="button"

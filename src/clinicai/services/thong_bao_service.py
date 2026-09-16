@@ -274,12 +274,13 @@ class ThongBaoService:
                   LEFT JOIN public.staff s ON s.id = t.nguoi_goi_staff_id
                  WHERE t.clinic_id = $1::uuid
                    AND t.da_xu_ly_luc IS NULL
-                   AND (t.vai_nhan = $2 OR t.nguoi_nhan_staff_id = $3::uuid)
+                   AND (t.vai_nhan = ANY($2::text[])
+                        OR t.nguoi_nhan_staff_id = $3::uuid)
                  ORDER BY (t.muc_do = 'KHAN') DESC, t.tao_luc DESC
                  LIMIT 50
                 """,
                 identity.clinic_id,
-                identity.role.value,
+                identity.ds_vai(),
                 identity.staff_id,
             )
         return [dict(r) for r in rows]
@@ -304,11 +305,11 @@ class ThongBaoService:
                  WHERE clinic_id = $1::uuid
                    AND da_xu_ly_luc IS NULL
                    AND da_doc_luc IS NULL
-                   AND (vai_nhan = $2 OR nguoi_nhan_staff_id = $3::uuid)
+                   AND (vai_nhan = ANY($2::text[]) OR nguoi_nhan_staff_id = $3::uuid)
                 RETURNING 1
                 """,
                 identity.clinic_id,
-                identity.role.value,
+                identity.ds_vai(),
                 identity.staff_id,
             )
         logger.info(

@@ -1163,3 +1163,47 @@ async def test_chua_co_ket_qua_thi_khong_duyet_duoc(kb: KichBan) -> None:
             order_id=duyet["order_ids"][0], danh_gia=None, identity=kb.bac_si
         )
     assert e.value.error_code == "NO_RESULT_YET"
+
+
+# ---------------------------------------------------------------------------
+# Gọi khách vào phòng (Tuyền 16/09/2026: gọi vào khám rồi mới bắt đầu khám)
+# ---------------------------------------------------------------------------
+
+
+async def test_goi_vao_kham_roi_bat_dau(kb: KichBan) -> None:
+    await kb.svc.record_vitals(
+        visit_id=kb.visit_id,
+        raw={"systolic": 118, "diastolic": 76},
+        identity=kb.dieu_duong,
+    )
+    hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
+    dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
+    # Điều dưỡng không gọi khách vào phòng khám bác sĩ.
+    with pytest.raises(SafetyGateError):
+        await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.dieu_duong)
+    ra = await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.bac_si)
+    assert ra["lan_goi_lai"] is False
+    hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
+    dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
+    assert dong["trang_thai"] == "called" and dong["goi_luc"]
+    lai = await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.bac_si)
+    assert lai["lan_goi_lai"] is True
+    # Đã gọi rồi vẫn bấm Bắt đầu khám được.
+    await kb.svc.start_consultation(consultation_id=dong["ref_id"], identity=kb.bac_si)
+    with pytest.raises(LuotKhamConflictError):
+        await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.bac_si)
+
+
+async def test_thu_ky_chua_phan_bac_si_van_thay_khach_o_ban_kham_cua_toi(
+    kb: KichBan, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Chế độ mở quyền: thư ký chưa được phân bác sĩ mở 'Khách của tôi' phải thấy
+    lượt khám chính (bản trước trả rỗng)."""
+    monkeypatch.setenv("MO_QUYEN_TAM_THOI", "1")
+    await kb.svc.record_vitals(
+        visit_id=kb.visit_id,
+        raw={"systolic": 118, "diastolic": 76},
+        identity=kb.dieu_duong,
+    )
+    hc = await kb.svc.hang_cho(identity=kb.thu_ky, room_id=None)
+    assert any(r["visit_id"] == kb.visit_id for r in hc["hang_cho"])

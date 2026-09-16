@@ -95,8 +95,9 @@ function tone(d: DongHangCho): { tone: StatusTone; nhan: string } {
   switch (d.trang_thai) {
     case "serving":
       return { tone: "in_progress", nhan: "Đang khám" };
-    case "waiting":
     case "called":
+      return { tone: "called", nhan: "Đã gọi vào" };
+    case "waiting":
       return { tone: "ready", nhan: "Chờ khám" };
     case "blocked":
       return { tone: "blocked", nhan: "Đang ở bước khác" };
@@ -403,7 +404,7 @@ function HoSo({
     );
   }
 
-  const bam = async (thaoTac: "nhan-kham" | "kham-xong") => {
+  const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "goi-khach") => {
     if (
       thaoTac === "kham-xong" &&
       !window.confirm(
@@ -414,7 +415,11 @@ function HoSo({
     }
     setDangGui(true);
     setLoi(null);
-    const kq = await guiThaoTac(thaoTac, dong.ref_id);
+    // Gọi khách: theo CHỖ CHỜ; bắt đầu/khám xong: theo PHIÊN KHÁM.
+    const kq = await guiThaoTac(
+      thaoTac,
+      thaoTac === "goi-khach" ? dong.id : dong.ref_id,
+    );
     setDangGui(false);
     if (!kq.ok) setLoi({ id: dong.id, cau: kq.loi });
     else onDaBam();
@@ -459,6 +464,18 @@ function HoSo({
         {/* CHECK-IN / CHECK-OUT PHÒNG. */}
         {choBam ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {dong.trang_thai === "waiting" || dong.trang_thai === "called" ? (
+              <button
+                type="button"
+                disabled={dangGui}
+                onClick={() => void bam("goi-khach")}
+                className="inline-flex min-h-11 items-center gap-2 rounded-control border border-brand-600 px-5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              >
+                {dong.trang_thai === "called"
+                  ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
+                  : "Gọi vào khám"}
+              </button>
+            ) : null}
             {dong.trang_thai === "waiting" || dong.trang_thai === "called" ? (
               <button
                 type="button"

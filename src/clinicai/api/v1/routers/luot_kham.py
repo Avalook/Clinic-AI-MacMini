@@ -207,6 +207,18 @@ async def duyet_ket_qua(
     )
 
 
+@router.post("/luot-kham/hang-cho/{queue_entry_id}/goi")
+async def goi_khach(
+    queue_entry_id: UUID,
+    identity: StaffIdentity = Depends(_BANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gọi khách vào phòng. Ai được gọi là do bước của chỗ chờ quyết."""
+    return await LuotKhamService(pool).goi_khach(
+        queue_entry_id=str(queue_entry_id), identity=identity
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/kham-xong")
 async def kham_xong(
     consultation_id: UUID,

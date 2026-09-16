@@ -154,8 +154,9 @@ async def test_normal_roles_only_receive_their_own_visit_nodes() -> None:
     )
 
     sql, *_ = pool.fetch.call_args.args
-    assert "AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')" in sql
-    assert "OR m.role = ANY(n.actor_roles))" in sql
+    # Vai hôm nay (tài khoản + vị trí) — Tuyền 16/09/2026.
+    assert "AND ($5::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']" in sql
+    assert "OR n.actor_roles && $5::text[])" in sql
     assert "cardinality(n.actor_roles) = 0" not in sql
     assert "n.actor_roles IS NULL" not in sql
 

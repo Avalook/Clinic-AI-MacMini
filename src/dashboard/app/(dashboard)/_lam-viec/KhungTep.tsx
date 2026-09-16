@@ -42,6 +42,67 @@ function gio(iso: string): string {
 
 const duongXem = (id: string) => `/api/cskh/ket-qua/${id}/noi-dung`;
 
+const MIME_DOCX =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/** XEM WORD NGAY TRONG MÀN: đổi DOCX → HTML ngay trên trình duyệt (mammoth),
+ *  hiện trong khung CÁCH LY (`sandbox` rỗng: không chạy mã, không đi đâu). Không
+ *  thêm dịch vụ chuyển đổi nào trên máy chủ. Excel chưa xem trực tiếp được — mở
+ *  bằng máy. */
+function XemTaiLieu({ tep }: { tep: Tep }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const laWord = tep.mime === MIME_DOCX;
+  useEffect(() => {
+    if (!laWord) return;
+    let huy = false;
+    void (async () => {
+      try {
+        const r = await fetch(duongXem(tep.id), { cache: "no-store" });
+        if (!r.ok) throw new Error(String(r.status));
+        const buf = await r.arrayBuffer();
+        const mammoth = await import("mammoth/mammoth.browser");
+        const ra = await mammoth.convertToHtml({ arrayBuffer: buf });
+        if (!huy) setHtml(ra.value || "<p>(Tài liệu trống)</p>");
+      } catch {
+        if (!huy) setLoi("Không đọc được tài liệu Word này — mở bằng máy để xem.");
+      }
+    })();
+    return () => {
+      huy = true;
+    };
+  }, [laWord, tep.id]);
+
+  if (!laWord) {
+    return (
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-surface p-3 text-center text-ink-soft">
+        <FileText className="size-10" aria-hidden />
+        <span className="text-label">Bảng tính Excel chưa xem trực tiếp được.</span>
+        <a
+          href={duongXem(tep.id)}
+          className="text-label font-semibold text-brand-700 underline"
+        >
+          Mở bằng máy
+        </a>
+      </div>
+    );
+  }
+  if (loi) {
+    return <p className="p-3 text-label text-danger">{loi}</p>;
+  }
+  if (html === null) {
+    return <p className="p-3 text-label text-ink-muted">Đang mở tài liệu…</p>;
+  }
+  return (
+    <iframe
+      title={tep.ten_hien_thi ?? "Tài liệu"}
+      sandbox=""
+      srcDoc={`<meta charset="utf-8"><style>body{font:14px/1.5 system-ui,sans-serif;margin:12px}img{max-width:100%}table{border-collapse:collapse}td,th{border:1px solid silver;padding:4px}</style>${html}`}
+      className="h-72 w-full bg-surface"
+    />
+  );
+}
+
 export default function KhungTep({
   clinicPatientId,
   serviceOrderId,
@@ -159,7 +220,7 @@ export default function KhungTep({
             ref={oChon}
             type="file"
             multiple
-            accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
+            accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files ? Array.from(e.target.files) : [];
@@ -178,12 +239,12 @@ export default function KhungTep({
           >
             <UploadCloud className={coTep ? "size-5" : "size-9"} aria-hidden />
             <span className="text-sm font-semibold text-ink">
-              {dangTai ?? "Gửi ảnh, video, phiếu PDF vào đây"}
+              {dangTai ?? "Gửi ảnh, video, PDF, Word vào đây"}
             </span>
             {dangTai === null ? (
               <span className="text-label text-ink-muted">
-                Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/DICOM, video
-                MP4/MOV/WebM, PDF
+                Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/WEBP/GIF/DICOM,
+                video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)
               </span>
             ) : null}
           </button>
@@ -227,6 +288,8 @@ export default function KhungTep({
                     className="aspect-video w-full bg-black object-contain"
                   />
                 </button>
+              ) : t.loai_tep === "TAI_LIEU" ? (
+                <XemTaiLieu tep={t} />
               ) : t.loai_tep === "VIDEO" ? (
                 <video
                   src={duongXem(t.id)}
