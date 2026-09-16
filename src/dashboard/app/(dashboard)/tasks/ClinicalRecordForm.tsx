@@ -487,7 +487,7 @@ export default function ClinicalRecordForm({
     };
     const changed = (ev: Event) => {
       const table = (ev as CustomEvent<string>).detail;
-      if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit"].includes(table)) reload();
+      if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) reload();
     };
     window.addEventListener(SU_KIEN_BANG, changed);
     window.addEventListener("focus", reload);
@@ -608,6 +608,8 @@ export default function ClinicalRecordForm({
   // Chỉ giữ khi ĐANG GHI ĐƯỢC: xem lượt khám cũ hay lễ tân mở chỉ-đọc thì không
   // có gì để mất, mà lưu lại chỉ tổ để dữ liệu bệnh nhân nằm trên máy vô ích.
   const khoaGoDo = khoaNhap(staffId, "phieu-kham", appt.id);
+  // Effect tự lưu gọi bản `save` MỚI NHẤT (state mới nhất), không bắt bản cũ.
+  const saveRef = useRef<((a?: boolean, b?: boolean) => Promise<void>) | null>(null);
   const ghiDuoc = !readOnly && !viewingPast && !vitalsOnly && !loading && !!data;
 
   // Bản gõ dở đọc NGAY lúc dựng component, không qua effect: đọc kho của trình
@@ -638,6 +640,10 @@ export default function ClinicalRecordForm({
     const t = setTimeout(() => {
       ghiNhap(window.localStorage, khoaGoDo, { f, pm, tk, rx }, Date.now());
       setCoGoDoChuaLuu(true);
+      // TỰ LƯU LÊN MÁY CHỦ (Tuyền 17/09/2026): gõ xong ~1 giây là ghi thật, để màn
+      // bác sĩ / thư ký bên kia thấy ngay và chuyển màn không mất gì. Bản trên máy
+      // trạm vẫn giữ làm lưới hứng khi mất mạng.
+      void saveRef.current?.(false, true);
     }, 1000);
     return () => clearTimeout(t);
   }, [ghiDuoc, khoaGoDo, f, pm, tk, rx]);
@@ -669,7 +675,7 @@ export default function ClinicalRecordForm({
     setGoDoCu(null);
   }
 
-  async function save(approvePrescriptionDraft = false) {
+  async function save(approvePrescriptionDraft = false, tuDong = false) {
     if (readOnly) return; // Lễ tân chỉ-đọc: chặn ghi ngay tầng UI (server cũng chặn).
     if (viewingPast) return; // Đang xem lượt khám cũ qua pager: tuyệt đối không ghi.
     if (vitalsOnly) return saveVitals();
@@ -689,6 +695,9 @@ export default function ClinicalRecordForm({
         return;
       }
     }
+    // Tự lưu: im lặng bỏ qua khi chưa lưu được (đang lưu, đang tải, có bản mới
+    // từ bên kia) — lần gõ sau sẽ thử lại; không nhảy tab, không bật lỗi.
+    if (tuDong && (saving || loading || !data || remoteChanged || arrivalPending)) return;
     if (remoteChanged) {
       setMsg("Hồ sơ đã có thay đổi. Tải và đối chiếu bản mới trước khi lưu.");
       return;
@@ -704,6 +713,7 @@ export default function ClinicalRecordForm({
     // C — Sinh hiệu bắt buộc cũng áp cho luồng bác sĩ: thiếu → nhảy tab "Khám"
     // + bật viền đỏ (ô ở tab khác nên không thì sẽ "im lặng").
     const missingReq = [...requiredVitals].filter((k) => f[k].trim() === "");
+    if (missingReq.length && tuDong) return;
     if (missingReq.length) {
       setVitalsTried(true);
       setTab(1);
@@ -773,6 +783,19 @@ export default function ClinicalRecordForm({
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
     mocDaLuuRef.current = JSON.stringify({ f, pm, tk, rx });
     setCoGoDoChuaLuu(false);
+    if (tuDong) {
+      // Không nạp lại cả form (người đang gõ tiếp sẽ mất chữ); chỉ nhận số phiên
+      // bản mới để lần lưu sau không bị coi là ghi đè.
+      const ra = (await res.json().catch(() => null)) as { revision?: number } | null;
+      if (ra?.revision !== undefined) {
+        setData((d) => (d ? { ...d, revision: ra.revision as number } : d));
+      }
+      setSaving(false);
+      setMsg(
+        `Đã tự lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}.`,
+      );
+      return;
+    }
     setLoading(true);
     setReloadEpoch((n) => n + 1);
     setSaving(false);
@@ -783,6 +806,10 @@ export default function ClinicalRecordForm({
         : "Đã lưu nháp. Đơn thuốc cần bác sĩ duyệt trước khi nhà thuốc tiếp nhận.");
     router.refresh();
   }
+
+  useEffect(() => {
+    saveRef.current = save;
+  });
 
   async function completeExam() {
     if (!canSign || readOnly || vitalsOnly || viewingPast || appt.status !== "CHECKED_IN") return;

@@ -16,6 +16,11 @@ import { vaiLamViec } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import {
+  COT_SINH_HIEU,
+  sinhHieuTheoKhoaPhieu,
+  type DongSinhHieu,
+} from "@/lib/sinh-hieu-dong-bo";
 
 // GET: đọc qua RLS (caller). Không cần quyền ghi.
 export async function GET(request: Request) {
@@ -39,8 +44,30 @@ export async function GET(request: Request) {
     .eq("service_code", serviceCode.toUpperCase())
     .maybeSingle();
 
+  // Ô sinh hiệu của phiếu còn TRỐNG thì điền từ số đo mới nhất của điều dưỡng —
+  // chỉ những khoá phiếu này thật sự có, và không đè thứ bác sĩ/thư ký đã ghi.
+  const formData = { ...((data?.form_data as Record<string, unknown> | null) ?? {}) };
+  const schema = getFormSchema(serviceCode);
+  const khoaPhieu = new Set(
+    (schema?.sections ?? []).flatMap((s) => s.fields.map((f) => f.key)),
+  );
+  const { data: do_ } = await caller
+    .from("vital_measurement")
+    .select(COT_SINH_HIEU)
+    .eq("visit_id", visitId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  for (const [k0, v] of Object.entries(sinhHieuTheoKhoaPhieu((do_ as DongSinhHieu | null) ?? null))) {
+    // Phiếu Nam khoa đặt tiền tố `kls_` (khám lâm sàng) cho cùng các ô.
+    for (const k of [k0, `kls_${k0}`]) {
+      const cu = formData[k];
+      if (khoaPhieu.has(k) && (cu === undefined || cu === null || cu === "")) formData[k] = v;
+    }
+  }
+
   return NextResponse.json({
-    form_data: (data?.form_data as Record<string, unknown> | null) ?? {},
+    form_data: formData,
     updated_at: (data?.updated_at as string | null) ?? null,
   });
 }

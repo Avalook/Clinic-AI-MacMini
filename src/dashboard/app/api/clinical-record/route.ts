@@ -7,6 +7,11 @@
 // FINALIZED → 409 (luật cấm sửa, phải đính chính). KHÔNG bao giờ tự set FINALIZED.
 
 import { NextResponse } from "next/server";
+import {
+  COT_SINH_HIEU,
+  sinhHieuTheoKhoaPhieu,
+  type DongSinhHieu,
+} from "@/lib/sinh-hieu-dong-bo";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { vaiLamViec } from "../../../lib/clinic-session";
@@ -213,6 +218,28 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Không tải được hồ sơ khám." }, { status: 503 });
   }
 
+  // Sinh hiệu MỚI NHẤT điều dưỡng (hoặc bác sĩ) đo cho lượt này — luồng khám
+  // mới ghi vào `vital_measurement`, không vào bệnh án. Có số đo thì số đo thắng
+  // ô trong bản nháp: lưu bệnh án cũng ghi thêm một dòng đo, nên dòng mới nhất
+  // luôn là bản đúng nhất.
+  let objective = (cr?.soap_objective ?? null) as Record<string, unknown> | null;
+  if (visit?.visit_id) {
+    const { data: do_ } = await supabase
+      .from("vital_measurement")
+      .select(COT_SINH_HIEU)
+      .eq("visit_id", visit.visit_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const tuDo = sinhHieuTheoKhoaPhieu((do_ as DongSinhHieu | null) ?? null);
+    if (Object.keys(tuDo).length > 0) {
+      const cu = (objective ?? {}) as Record<string, unknown>;
+      const vitalsCu =
+        cu.vitals && typeof cu.vitals === "object" ? (cu.vitals as Record<string, unknown>) : {};
+      objective = { ...cu, vitals: { ...vitalsCu, ...tuDo } };
+    }
+  }
+
   return NextResponse.json({
     revision: cr?.revision ?? 0,
     prescription_draft: prescriptionDraft,
@@ -225,7 +252,7 @@ export async function GET(request: Request) {
     draft: {
       chief_complaint: cr?.chief_complaint_at_visit ?? "",
       subjective: cr?.soap_subjective ?? null,
-      objective: cr?.soap_objective ?? null,
+      objective,
       assessment: cr?.soap_assessment ?? null,
       plan: cr?.soap_plan ?? null,
     },

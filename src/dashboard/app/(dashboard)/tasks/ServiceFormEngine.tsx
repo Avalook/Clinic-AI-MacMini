@@ -4,7 +4,7 @@
 // (KHÔNG hard-code từng form). Đọc/ghi form_data JSONB qua /api/clinical-form.
 // READ-ONLY khi readOnly=true (vd visit FINALIZED) — route cũng chặn ghi (409).
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT, LABEL } from "../form-ui";
 import { getFormSchema } from "../../../lib/form-schemas";
 import AndrologyReview from "./AndrologyReview";
@@ -69,6 +69,8 @@ export default function ServiceFormEngine({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  /** Bản phiếu đã khớp máy chủ (chuỗi JSON) — mốc để biết màn này có chữ chưa lưu. */
+  const daLuuRef = useRef<string>("");
   // Mục Cận lâm sàng THU GỌN MẶC ĐỊNH (Quang chốt 07/08). Chúng là phần dài
   // nhất của mọi phiếu — riêng Hiếm muộn có ba mục Cận lâm sàng cộng lại 32
   // trường — và thường bác sĩ chỉ mở khi đã có kết quả trong tay.
@@ -81,13 +83,52 @@ export default function ServiceFormEngine({
     fetch(`/api/clinical-form?visitId=${visitId}&serviceCode=${schema.service_code}`)
       .then((r) => r.json())
       .then((d: { form_data?: FormData }) => {
-        if (on) setValues(d.form_data ?? {});
+        if (!on) return;
+        daLuuRef.current = JSON.stringify(d.form_data ?? {});
+        setValues(d.form_data ?? {});
       })
       .catch(() => on && setValues({}))
       .finally(() => on && setLoading(false));
     return () => {
       on = false;
     };
+  }, [schema, visitId]);
+
+  // TỰ LƯU (Tuyền 17/09/2026): ngừng gõ ~1,2 giây là ghi lên máy chủ — thư ký
+  // nhập thì màn bác sĩ thấy, chuyển màn không mất chữ.
+  useEffect(() => {
+    if (readOnly || loading || !schema || !visitId) return;
+    if (JSON.stringify(values) === daLuuRef.current) return;
+    const t = setTimeout(() => void luu(values, true), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `luu` đọc đúng values truyền vào
+  }, [values, readOnly, loading, schema, visitId]);
+
+  // ĐỌC LẠI MỖI 4 GIÂY khi màn này KHÔNG có chữ chưa lưu: bác sĩ ngồi xem thấy
+  // thư ký nhập, thư ký thấy bác sĩ sửa, và sinh hiệu điều dưỡng vừa đo hiện vào.
+  useEffect(() => {
+    if (!schema || !visitId) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void fetch(`/api/clinical-form?visitId=${visitId}&serviceCode=${schema.service_code}`, {
+        cache: "no-store",
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { form_data?: FormData } | null) => {
+          if (!d) return;
+          const moi = d.form_data ?? {};
+          const chuoiMoi = JSON.stringify(moi);
+          setValues((cur) => {
+            // Đang có chữ chưa lưu ở màn này → giữ nguyên, lần tự lưu sẽ gửi đi.
+            if (JSON.stringify(cur) !== daLuuRef.current) return cur;
+            if (chuoiMoi === daLuuRef.current) return cur;
+            daLuuRef.current = chuoiMoi;
+            return moi;
+          });
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(id);
   }, [schema, visitId]);
 
   // Engine chỉ render khi có config + có visit. Không có → ẩn (không vỡ layout).
@@ -103,26 +144,37 @@ export default function ServiceFormEngine({
       };
     });
 
-  async function save() {
-    if (readOnly) return;
+  async function luu(guiDi: FormData, tuDong: boolean) {
+    if (readOnly || !schema || !visitId) return;
+    const chuoi = JSON.stringify(guiDi);
     setSaving(true);
-    setMsg(null);
+    if (!tuDong) setMsg(null);
     const res = await fetch("/api/clinical-form", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         visitId,
-        serviceCode: schema!.service_code,
-        form_data: values,
+        serviceCode: schema.service_code,
+        form_data: guiDi,
       }),
-    });
+    }).catch(() => null);
     setSaving(false);
+    if (res?.ok) {
+      daLuuRef.current = chuoi;
+      setMsg(
+        tuDong
+          ? `Đã tự lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}.`
+          : "Đã lưu phiếu khám.",
+      );
+      return;
+    }
     setMsg(
-      res.ok
-        ? "Đã lưu phiếu khám."
-        : (await res.json().catch(() => ({}))).error ?? "Lỗi lưu phiếu.",
+      res
+        ? ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Lỗi lưu phiếu."
+        : "Mất kết nối — phiếu CHƯA được lưu, sẽ thử lại khi bạn gõ tiếp.",
     );
   }
+  const save = () => luu(values, false);
 
   const sections = schema.sections;
 
