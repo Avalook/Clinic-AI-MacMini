@@ -37,6 +37,40 @@ lịch sử hội thoại.
 
 ---
 
+## -0004. Nhóm đua tranh đã chạy — trên cả hai nơi (16/09/2026 ~14:00)
+
+`scripts/tests/dua-tranh.py` — ba kịch bản mà **không ai bấm tay thử được**:
+
+| | final mac | final cloud |
+|---|---|---|
+| SC-31  8 lịch bắn cùng lúc vào MỘT khung | ✅ đúng 2 lọt, trần 2 | ✅ đúng 2 lọt, trần 2 |
+| SC-32  hai lễ tân cùng check-in một lịch | ✅ 200/409, đúng 1 lượt | ✅ 200/409, đúng 1 lượt |
+| SC-33  bác sĩ + thư ký cùng sửa hồ sơ | ✅ 200/409 | ✅ 200/409 |
+
+**Trần sức chứa giữ được dưới cuộc đua thật** — đây là bất biến đắt nhất của hệ:
+tám lời gọi đồng thời, database vẫn đếm đúng 2. Ép ở Postgres (trigger), không
+ở Python, nên không lối gọi nào vòng qua được.
+
+⚠️ **Trần CHỈ chặn khi tuần đã công bố lịch trực** (luật Tuyền chốt 15/09).
+Chưa công bố thì nhận thoải mái — đúng ý, nhưng nghĩa là **phải công bố lịch
+trực thì trần mới có tác dụng**. Cả hai nơi hiện đang KHÔNG có tuần nào công bố;
+tôi dựng tạm một tuần để thử rồi gỡ đi.
+
+### Bốn lần phép thử sai trước khi đúng — ghi lại vì sẽ lặp
+1. Lấy "cơ sở active đầu tiên" → rơi vào nơi bác sĩ không làm. Lấy từ `/me`.
+2. Bịa giờ "bây giờ + 20 phút" → rơi vào giờ nghỉ trưa. Đọc `/appointments/policy`.
+3. Kết luận "cho chen lọt" khi 8/8 lọt — trong khi tuần chưa công bố lịch trực
+   nên KHÔNG có trần. Phép thử nay hỏi `roster_week_published` rồi mới kết luận.
+4. Tệp dấu vết bị GHI ĐÈ mỗi lần chạy → lần trước mất đường dọn, và lần sau đếm
+   cả dữ liệu cũ rồi báo đỏ nhầm. Nay nối thêm, và mỗi lần chạy mang dấu riêng.
+
+Cả bốn đều là phép thử sai, không phải hệ thống sai.
+
+### Còn lại của bộ SC
+Chưa chạy: SC-34 (hai phòng cùng nhận một bệnh nhân), SC-35/36 (bấm thanh toán
+/ cấp thuốc hai lần) — cần dựng trọn một lượt khám tới bước thanh toán. Nhóm
+ngoại lệ SC-06/10/11/12/17/18/27/28/29 cũng chưa.
+
 ## -0003. Bản 15–16/09 đã LÊN VPS MỚI và chạy thật (16/09/2026 ~13:10)
 
 `https://dr4women.io.vn` nay chạy nhánh `lat-1-luot-kham` (`8e74805`), không còn
