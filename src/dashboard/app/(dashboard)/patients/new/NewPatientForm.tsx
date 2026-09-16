@@ -20,6 +20,7 @@ import {
   moTaLuc,
   xoaNhap,
 } from "../../../../lib/luu-nhap";
+import { maTab } from "../../../../lib/ma-tab";
 import { canCheckin, type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
@@ -464,7 +465,10 @@ export default function NewPatientForm({
   // chúng thường tới từ URL ("đặt vào đây") và một khung giờ cũ khôi phục lại
   // có thể đã bị người khác giữ mất — bịa lại lựa chọn thời gian là sai hơn
   // bắt chọn lại. ──
-  const khoaNhapKhach = khoaNhap(staffId, "khach-moi", "form");
+  // KHOÁ THEO TAB, không phải chữ "form" cố định. Hai tab cùng nhập khách mới
+  // thì tab gõ sau từng ghi đè bản nháp của tab gõ trước — người kia F5 là nhận
+  // về thông tin của khách khác. Xem lib/ma-tab.ts.
+  const khoaNhapKhach = khoaNhap(staffId, "khach-moi", maTab() || "form");
   const [nhapDo, setNhapDo] = useState<{
     moTa: string;
     giaTri: Record<string, string | boolean>;
