@@ -3,8 +3,13 @@
 // Màn TOÀN CẢNH — mỗi bệnh nhân một dòng, kèm panel chi tiết bên phải.
 
 import { useMemo, useState } from "react";
-import { Clock, Search, Users, X } from "lucide-react";
-import type { DispatchPatient, DispatchRoom, RouteTemplate } from "./types";
+import { Search, X } from "lucide-react";
+import type {
+  DispatchAlert,
+  DispatchPatient,
+  DispatchRoom,
+  RouteTemplate,
+} from "./types";
 import { humanMinutes, nodeLabel } from "./types";
 import {
   type ActFn,
@@ -16,15 +21,25 @@ import {
   useDispatchAction,
   useDispatchLive,
 } from "./shared";
+import { BonOSo, DieuPhoiNhanh, SoDoPhong } from "./SoDoTang";
 
 export default function OverviewClient({
   initial,
   routes,
 }: {
-  initial: { patients: DispatchPatient[]; rooms: DispatchRoom[]; ok: boolean };
+  initial: {
+    patients: DispatchPatient[];
+    rooms: DispatchRoom[];
+    alerts: DispatchAlert[];
+    ok: boolean;
+  };
   routes: RouteTemplate[];
 }) {
-  const live = useDispatchLive({ ...initial, alerts: [] });
+  // CẢNH BÁO ĐÃ TẢI THÌ PHẢI ĐƯỢC DÙNG. Màn này vẫn gọi `/dispatch/alerts` 30
+  // giây một lần (cả lúc dựng ở server) nhưng vứt đi bằng `alerts: []`, trong
+  // khi mỗi lời gọi ấy chạy lại TOÀN BỘ truy vấn điều phối ở backend. Khối
+  // "Điều phối nhanh" nay vẽ đúng dữ liệu ấy.
+  const live = useDispatchLive(initial);
   const { act, toast } = useDispatchAction();
   const [selected, setSelected] = useState<DispatchPatient | null>(null);
 
@@ -34,6 +49,9 @@ export default function OverviewClient({
         <LiveBadge seconds={live.staleSeconds} ok={live.ok} />
       </div>
       <ReadFailed ok={live.ok} />
+      <div className="mb-4">
+        <BonOSo patients={live.patients} rooms={live.rooms} />
+      </div>
       <Board live={live} routes={routes} selected={selected} onSelect={setSelected} onAct={act} />
       <Toast text={toast} />
     </div>
@@ -81,8 +99,6 @@ function Board({
   return (
     <div style={{ display: "flex", gap: 16 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <StationCards rooms={live.rooms} />
-
         <div
           style={{
             display: "flex",
@@ -217,7 +233,7 @@ function Board({
         </div>
       </div>
 
-      {selected && (
+      {selected ? (
         <DetailPanel
           patient={
             live.patients.find((p) => p.visit_id === selected.visit_id) ?? selected
@@ -227,61 +243,15 @@ function Board({
           onClose={() => onSelect(null)}
           onAct={onAct}
         />
+      ) : (
+        /* CHƯA CHỌN AI thì cột phải là bàn điều phối: việc cần xử lý ngay, và
+           phòng nào đang kẹt. Chọn một người thì chỗ ấy thành panel thao tác —
+           một cột, hai nhiệm vụ, không phải hai cột tranh chỗ. */
+        <div className="w-80 shrink-0 space-y-3">
+          <DieuPhoiNhanh alerts={live.alerts} />
+          <SoDoPhong rooms={live.rooms} />
+        </div>
       )}
-    </div>
-  );
-}
-
-function StationCards({ rooms }: { rooms: DispatchRoom[] }) {
-  const tone = {
-    ok: { bg: "var(--success-bg)", fg: "var(--success)", label: "Trong mức" },
-    warning: { bg: "var(--warning-bg)", fg: "var(--warning)", label: "Cần chú ý" },
-    critical: { bg: "var(--danger-bg)", fg: "var(--danger)", label: "Quá tải" },
-  };
-  return (
-    <div
-      className="fade-in"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-        gap: 10,
-      }}
-    >
-      {rooms.map((r) => {
-        const t = tone[r.state];
-        return (
-          <div key={r.id} className="card" style={{ padding: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{r.name}</span>
-              <span
-                className="badge"
-                style={{ background: t.bg, color: t.fg }}
-              >
-                {t.label}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
-              <span>
-                <Users size={12} /> đang khám <b>{r.serving}</b>
-              </span>
-              <span>
-                <Clock size={12} /> chờ <b>{r.waiting}</b>
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 6 }}>
-              lâu nhất {r.max_wait}′ · TB {r.avg_wait}′ · ngưỡng{" "}
-              {r.threshold_minutes}′/{r.threshold_waiting} người
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
