@@ -37,6 +37,56 @@ lịch sử hội thoại.
 
 ---
 
+## -0003. Bản 15–16/09 đã LÊN VPS MỚI và chạy thật (16/09/2026 ~13:10)
+
+`https://dr4women.io.vn` nay chạy nhánh `lat-1-luot-kham` (`8e74805`), không còn
+là bản 22/08.
+
+**Đường đưa mã lên:** VPS KHÔNG có khoá GitHub (repo private), nên đẩy thẳng qua
+SSH — `git remote add vps clinic-vps-moi:clinicai`. Nhánh đang được checkout
+trên VPS thì không nhận push; đẩy vào nhánh phụ `dua-len` rồi
+`git merge --ff-only` là xong. **Đừng chép tay bằng `scp` nữa** — 7 tệp sửa tay
+của phiên trước đã kéo về git (`b4e24e6`), giờ cây trên VPS sạch.
+
+**Đã làm, theo đúng thứ tự an toàn:**
+1. Sao lưu trước (130K, mã thoát 0).
+2. **25 migration** áp bằng `apply-pending-migrations.sh --apply` → 79→90 bảng,
+   119→144 migration, 69→92 policy.
+3. `NOTIFY pgrst, 'reload schema'` (cạm bẫy #4 của phiên trước).
+4. Dựng lại api + dashboard → cả hai `healthy`.
+5. Quét 16 màn chính bằng 8 tài khoản thật: **15 × 200, 1 × 403** — cái 403 là
+   thu ngân bị chặn khỏi bảng lượt khám, ĐÚNG luật.
+
+⚠️ Tài khoản thử trên VPS là `letan bs.a bs.sa dd.sa cskh thungan duocsi ql`,
+**không có `truongca` và `thuky`** — hai vai ấy chưa thử được trên máy chủ.
+
+### Caddy đỏ 377 lần mà web vẫn chạy — đèn báo nói dối
+Healthcheck gõ `http://localhost:80/health`; từ ngày bật HTTPS, Caddy chuyển nó
+sang TLS với tên `localhost` (không có chứng chỉ) → `SSL alert number 80`. Đã
+thêm khối `http://localhost` riêng trong Caddyfile (`4fefcb3`); nay `healthy`,
+hỏng liên tiếp về 0. Một đèn đỏ giả nguy hiểm ngang một đèn xanh giả.
+
+### Hiệu năng: tôi đoán sai chỗ, và số liệu chỉ ra chỗ đúng
+Màn Đặt lịch mất **762ms** trên máy chủ. Giả thiết của tôi: truy vấn lịch trực
+chạy 126 lần (18 hàng × 7 ngày). Đã gộp nó về 1 lần/tuần (`8e74805`), đối chiếu
+**252 ô trên dữ liệu thật, lệch 0** — nhưng **tốc độ không đổi** (742ms).
+
+`pg_stat_statements` trên prod nói thẳng:
+
+| Truy vấn | Số lần | TB | Tổng |
+|---|---:|---:|---:|
+| **sức chứa** (`WITH hours … clinic_hours_for_date`) | 630 | **22,56ms** | **14,2s** |
+| lịch trực (cái tôi vừa gộp) | 378 | 0,70ms | 0,27s |
+
+Tức **98% thời gian database nằm ở truy vấn sức chứa**, và nó chạy đủ 126 lần
+mỗi lần mở màn (không ô nào thoát sớm vì các tuần này chưa công bố lịch trực).
+Bản gộp vẫn giữ — nó bỏ được 750 lời gọi vô ích và đã chứng minh không đổi kết
+quả — nhưng **việc đáng làm tiếp là gộp chính truy vấn sức chứa** theo
+(danh sách bác sĩ × khoảng ngày). Bộ đối chiếu ô-với-ô đã có sẵn, dùng lại được.
+
+**Bài học ghi lại:** tôi đã suýt báo "đã tối ưu" chỉ vì mã gọn hơn. Số đo
+trước/sau là thứ duy nhất phân biệt tối ưu thật với tối ưu tưởng tượng.
+
 ## -0002. Ba câu hỏi lớn — đã kiểm bằng số, 16/09/2026 14:20
 
 ### A. Database prod nằm ở đâu → CÙNG VPS. Tôi đã cảnh báo sai.
