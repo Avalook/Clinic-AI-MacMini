@@ -18,6 +18,7 @@ from clinicai.schemas.ops import (
     LiveProbe,
     OpsHostSnapshot,
     OpsStatusResponse,
+    RestoreDrillSnapshot,
     SecurityFinding,
     SnapshotState,
 )
@@ -25,12 +26,19 @@ from clinicai.schemas.ops import (
 OverallState = Literal["healthy", "degraded", "critical"]
 BackupState = Literal["fresh", "stale", "critical", "unknown"]
 FindingState = Literal["good", "warning", "critical", "unknown"]
+DrillState = Literal["fresh", "stale", "failed", "never"]
 
 _MAX_SNAPSHOT_BYTES = 256 * 1024
 _SNAPSHOT_STALE_SECONDS = 180
 _SNAPSHOT_EXPIRED_SECONDS = 600
 _BACKUP_STALE_HOURS = 26
 _BACKUP_CRITICAL_HOURS = 48
+# DIỄN TẬP PHỤC HỒI: 30 ngày.
+#
+# Không phải con số thiêng liêng — nó là "một tháng", khoảng thời gian đủ để
+# lược đồ đổi vài lần mà một bản dump cũ không còn nạp lại được. Diễn tập hằng
+# đêm là lãng phí; diễn tập mỗi quý thì lúc phát hiện đã muộn ba tháng.
+_DRILL_STALE_DAYS = 30
 
 
 class OpsStatusService:
@@ -49,13 +57,17 @@ class OpsStatusService:
             else os.environ.get("OPS_STATUS_FILE") or "/run/clinicai-ops/status.json"
         )
         self._status_file = Path(resolved_status_file)
+        # Nằm CẠNH status.json, do restore-drill.sh ghi. Tách tệp chứ không nhét
+        # vào snapshot của host: diễn tập chạy tay, hiếm khi, và không nên phụ
+        # thuộc vào nhịp của cỗ máy sinh snapshot.
+        self._drill_file = self._status_file.with_name("restore-drill-status.json")
 
     async def collect(self, *, now: datetime | None = None) -> OpsStatusResponse:
         observed_at = now or datetime.now(UTC)
         snapshot, snapshot_state, snapshot_age = await self._read_snapshot(observed_at)
         database = await self._probe_database()
 
-        backup = self._backup_status(snapshot, observed_at)
+        backup = self._backup_status(snapshot, observed_at, self._read_drill())
         security = self._security_findings(snapshot)
         overall = self._overall(snapshot, snapshot_state, database, backup, security)
 
@@ -112,10 +124,50 @@ class OpsStatusService:
         latency = round((time.perf_counter() - started) * 1000, 2)
         return LiveProbe(state="healthy", latency_ms=latency)
 
+    def _read_drill(self) -> RestoreDrillSnapshot | None:
+        """Mốc diễn tập. Thiếu tệp hoặc tệp hỏng → coi như CHƯA từng diễn tập."""
+        try:
+            raw = self._drill_file.read_text(encoding="utf-8")[:4096]
+            return RestoreDrillSnapshot.model_validate(json.loads(raw))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValidationError):
+            return None
+
     @staticmethod
-    def _backup_status(snapshot: OpsHostSnapshot | None, now: datetime) -> BackupStatus:
+    def _backup_status(
+        snapshot: OpsHostSnapshot | None,
+        now: datetime,
+        drill: RestoreDrillSnapshot | None = None,
+    ) -> BackupStatus:
+        # Mốc diễn tập ĐỘC LẬP với snapshot của host: không có backup nào cả
+        # cũng vẫn phải nói được "lần cuối thử phục hồi là bao giờ".
+        drill_state: DrillState = "never"
+        drill_ran_at: datetime | None = None
+        drill_age_days: float | None = None
+        if drill is not None:
+            ran = drill.ran_at
+            if ran.tzinfo is None:
+                ran = ran.replace(tzinfo=UTC)
+            drill_ran_at = ran
+            drill_age_days = round(
+                max(0.0, (now - ran.astimezone(UTC)).total_seconds() / 86400), 1
+            )
+            if not drill.passed:
+                drill_state = "failed"
+            elif drill_age_days > _DRILL_STALE_DAYS:
+                drill_state = "stale"
+            else:
+                drill_state = "fresh"
+        dat = drill.checks_passed if drill else None
+        hong = drill.checks_failed if drill else None
         if snapshot is None or snapshot.backup is None:
-            return BackupStatus(state="unknown")
+            return BackupStatus(
+                state="unknown",
+                drill_state=drill_state,
+                drill_ran_at=drill_ran_at,
+                drill_age_days=drill_age_days,
+                drill_checks_passed=dat,
+                drill_checks_failed=hong,
+            )
         item = snapshot.backup
         completed_at = item.completed_at
         if completed_at.tzinfo is None:
@@ -137,6 +189,11 @@ class OpsStatusService:
             archive_bytes=item.archive_bytes,
             offsite_uploaded=item.offsite_uploaded,
             scope=item.scope,
+            drill_state=drill_state,
+            drill_ran_at=drill_ran_at,
+            drill_age_days=drill_age_days,
+            drill_checks_passed=dat,
+            drill_checks_failed=hong,
         )
 
     @staticmethod

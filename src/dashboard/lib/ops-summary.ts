@@ -27,6 +27,13 @@ export interface OpsSummary {
     archiveBytes: number | null;
     offsiteUploaded: boolean | null;
     scope: "public-schema-only" | null;
+    // DIỄN TẬP PHỤC HỒI — khác `verified`. `verified` nói TỆP còn nguyên; cái
+    // này nói đã NẠP THỬ vào một database rỗng và phòng khám về đủ.
+    drillState: "fresh" | "stale" | "failed" | "never" | null;
+    drillRanAt: string | null;
+    drillAgeDays: number | null;
+    drillChecksPassed: number | null;
+    drillChecksFailed: number | null;
   };
   security: Array<{
     id: string;
@@ -124,6 +131,11 @@ export function emptyOpsSummary(): OpsSummary {
       archiveBytes: null,
       offsiteUploaded: null,
       scope: null,
+      drillState: null,
+      drillRanAt: null,
+      drillAgeDays: null,
+      drillChecksPassed: null,
+      drillChecksFailed: null,
     },
     security: [],
     logCounts: null,
@@ -194,6 +206,23 @@ export function normalizeOpsPayload(payload: unknown): OpsSummary {
       backupRaw?.scope === "public-schema-only"
         ? ("public-schema-only" as const)
         : null,
+    drillState: ["fresh", "stale", "failed", "never"].includes(
+      String(backupRaw?.drill_state ?? backupRaw?.drillState),
+    )
+      ? ((backupRaw?.drill_state ?? backupRaw?.drillState) as
+          | "fresh"
+          | "stale"
+          | "failed"
+          | "never")
+      : null,
+    drillRanAt: text(backupRaw?.drill_ran_at ?? backupRaw?.drillRanAt),
+    drillAgeDays: finiteNumber(backupRaw?.drill_age_days ?? backupRaw?.drillAgeDays),
+    drillChecksPassed: finiteNumber(
+      backupRaw?.drill_checks_passed ?? backupRaw?.drillChecksPassed,
+    ),
+    drillChecksFailed: finiteNumber(
+      backupRaw?.drill_checks_failed ?? backupRaw?.drillChecksFailed,
+    ),
   };
 
   const security = Array.isArray(root.security)

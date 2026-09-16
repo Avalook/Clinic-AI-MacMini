@@ -293,4 +293,31 @@ echo "        platform configuration are still outside this backup — GoTrue"
 echo "        rebuilds the first, the platform's own PITR covers the last."
 echo
 echo "=== $pass passed, $fail failed ==="
+
+# GHI LẠI MỐC DIỄN TẬP cho Ops Center đọc.
+#
+# `/ops` từ trước tới nay hiện `verified: true` cho bản backup — nhưng "verified"
+# chỉ có nghĩa là TỆP còn nguyên vẹn. Câu duy nhất đáng hỏi buổi sáng máy chết là
+# "nạp vào một database rỗng thì phòng khám có về không", và không màn nào trả lời
+# được vì không ai ghi lại lần diễn tập. Nay mỗi lần chạy để lại một mốc; màn Ops
+# đọc mốc ấy và kêu khi nó quá cũ.
+#
+# Ghi CẢ khi hỏng: một lần diễn tập thất bại là tin quan trọng hơn cả một lần
+# thành công, và giấu nó đi thì màn hình lại nói dối lần nữa.
+OPS_STATUS_ROOT="${OPS_STATUS_DIR:-/run/clinicai-ops}"
+OPS_STATUS_ENV_DIR="${OPS_STATUS_ROOT}/${APP_ENV:-production}"
+if mkdir -p "$OPS_STATUS_ENV_DIR" 2>/dev/null; then
+    printf '%s\n' \
+      '{' \
+      '  "format_version": 1,' \
+      "  \"ran_at\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"," \
+      "  \"passed\": $([ "$fail" -eq 0 ] && echo true || echo false)," \
+      "  \"checks_passed\": ${pass}," \
+      "  \"checks_failed\": ${fail}," \
+      "  \"archive\": \"$(basename "$BACKUP_FILE")\"" \
+      '}' > "${OPS_STATUS_ENV_DIR}/restore-drill-status.json" 2>/dev/null \
+      && chmod 600 "${OPS_STATUS_ENV_DIR}/restore-drill-status.json" 2>/dev/null \
+      && echo "    (mốc diễn tập ghi vào ${OPS_STATUS_ENV_DIR}/restore-drill-status.json)"
+fi
+
 [ "$fail" -eq 0 ]
