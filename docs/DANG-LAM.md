@@ -37,6 +37,36 @@ lịch sử hội thoại.
 
 ---
 
+## -0010. Bảng lịch Y HỆT Excel + lịch 4 tuần tháng 9 (16/09/2026 khuya)
+
+Tuyền gửi ảnh hai tuần Excel: "bảng nó phải dạng y hệt như này".
+
+**Khung bảng** (`RosterGrid.tsx`): ba hàng tiêu đề Thứ·ngày·ca · nền theo phòng
+(token `--color-lich-*`, mã màu đọc bằng openpyxl) · vạch tầng `073763` · ô ĐEN
+= vị trí không làm ca ấy · khối NGHỈ · gộp dọc khi hai vị trí liền nhau cùng
+người. Hàng "Lịch khám / Số bác sĩ" ra khỏi bảng Excel, xuống bảng nhỏ riêng
+chỉ ở màn xếp ca của quản lý (đặt lịch vẫn đọc nó).
+
+**Bảng mới `vi_tri_dong_ca`** (migration 000011) — RIÊNG, không nhét vào
+work_roster. Đọc qua PostgREST (màn lịch) và gói trang chủ (backend, câu SQL
+thứ 7).
+
+**Bộ đọc Excel trải ô gộp** — bản đầu chỉ đọc ô trên cùng nên Thu ngân, Tạo đơn
+trống trơn và Thủy Tiên (ô gộp Hỏi bệnh + Thư ký) bị gán mỗi Hỏi bệnh.
+
+**Hỏi bệnh ban đầu → nhóm CHUNG** (migration 000012): Excel có điều dưỡng đứng.
+
+**Lịch đã nạp**: 07/09 ← Excel tuần 2 · 14/09 ← tuần 1 · 21/09 ← tuần 2 · 28/09 ←
+tuần 1. 588 ô người · 296 ô đen/NGHỈ · 104 ô trống (13 tên). 0 ô bị từ chối.
+
+⚠️ Chưa có: nút tô đen / bỏ tô đen một ô trong màn xếp ca (ô đen hôm nay chỉ nạp
+được từ Excel). Chữ đỏ/xanh của tên bác sĩ trong Excel chưa làm — chưa rõ nghĩa.
+
+⚠️ Deploy commit 43ace54 đi lên khi 3 bài kiểm backend đỏ (`pytest | tail -1`
+nuốt mã lỗi). Đã sửa ở ed38e77; mã chạy không sai. Xem memory ong-tail-nuot-ma-loi.
+
+---
+
 ## -0009. Màn khám riêng từng loại + một tài khoản thu ngân (16/09/2026 khuya)
 
 **Gỡ "6 giai đoạn"** của mục -0008 (điểm 6): nó chỉ sửa `ServiceFormEngine`, mà
