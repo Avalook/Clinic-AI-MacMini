@@ -1,6 +1,6 @@
 /** Bàn khám của MỘT phòng: /ban-kham/KN-NOITIET. Xem ../page.tsx. */
 
-import { requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
+import { getClinicStaffId, requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../../LiveBoardSync";
 import BanKham from "../BanKham";
@@ -21,7 +21,7 @@ export default async function BanKhamPhongPage({
     <>
       <LiveBoardSync />
       <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
-        <BanKham phongMa={decodeURIComponent(phong)} vai={vai} />
+        <BanKham phongMa={decodeURIComponent(phong)} vai={vai} staffId={await getClinicStaffId()} />
       </main>
     </>
   );

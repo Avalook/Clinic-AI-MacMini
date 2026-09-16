@@ -1208,6 +1208,7 @@ class LuotKhamService:
                        p.clinic_patient_id::text AS clinic_patient_id,
                        p.full_name, p.patient_code, p.uu_tien, p.uu_tien_ly_do,
                        v.appointment_id::text AS appointment_id,
+                       v.checked_in_at,
                        st.name AS dich_vu_kham, st.form_code,
                        d.full_name AS bac_si,
                        coalesce(o.service_name, st.name) AS viec,
@@ -1282,6 +1283,10 @@ class LuotKhamService:
                 "bac_si": r["bac_si"],
                 "phong": r["phong"],
                 "vao_hang_luc": _iso(r["eligible_at"] or r["created_at"]),
+                # Mốc check-in của CẢ lượt: khách quay lại bác sĩ chính đọc kết
+                # quả thì đồng hồ tổng vẫn chạy từ lúc vào phòng khám.
+                "checkin_luc": _iso(r["checked_in_at"]),
+                "vong": r["phien_kind"],
                 "goi_luc": _iso(r["called_at"]),
                 "bat_dau_luc": _iso(r["serving_at"]),
                 "xong_luc": _iso(r["done_at"]),

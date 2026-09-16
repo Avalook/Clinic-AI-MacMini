@@ -7,7 +7,7 @@
  * hiếm muộn / nam khoa — năm màn ấy đặt tên theo phiếu, không theo nơi làm việc.
  */
 
-import { requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
+import { getClinicStaffId, requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../LiveBoardSync";
 import BanKham from "./BanKham";
@@ -23,7 +23,7 @@ export default async function BanKhamPage() {
     <>
       <LiveBoardSync />
       <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
-        <BanKham phongMa={null} vai={vai} />
+        <BanKham phongMa={null} vai={vai} staffId={await getClinicStaffId()} />
       </main>
     </>
   );

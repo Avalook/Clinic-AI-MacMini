@@ -25,6 +25,8 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 
 import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
+import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
+import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
 import {
   docBang,
   guiThaoTac,
@@ -118,10 +120,12 @@ const TEN_TRANG_THAI_CHI_DINH: Record<string, string> = {
 export default function BanKham({
   phongMa,
   vai,
+  staffId = null,
 }: {
   /** Mã phòng trên đường dẫn (/ban-kham/KN-NOITIET). Rỗng = khách của tôi. */
   phongMa: string | null;
   vai: string | null;
+  staffId?: string | null;
 }) {
   const laBacSi = vai === "DOCTOR";
   const laThuKy = vai === "TKYK";
@@ -281,6 +285,8 @@ export default function BanKham({
           dong={chon}
           luot={luot}
           choBam={laBacSi || laThuKy}
+          laBacSi={laBacSi}
+          staffId={staffId}
           onDaBam={napLai}
         />
 
@@ -359,6 +365,8 @@ function Nhom({
                       : d.trang_thai === "serving"
                         ? ` · đã khám ${soPhutTu(d.bat_dau_luc)}`
                         : ` · chờ ${soPhutTu(d.vao_hang_luc)}`}
+                    {d.checkin_luc ? ` · tổng ${soPhutTu(d.checkin_luc)}` : ""}
+                    {d.vong === "REVIEW" ? " · quay lại đọc KQ" : ""}
                   </span>
                 </span>
                 <StatusChip tone={t.tone} label={t.nhan} />
@@ -375,11 +383,15 @@ function HoSo({
   dong,
   luot,
   choBam,
+  laBacSi,
+  staffId,
   onDaBam,
 }: {
   dong: DongHangCho | null;
   luot: Luot | null;
   choBam: boolean;
+  laBacSi: boolean;
+  staffId: string | null;
   onDaBam: () => void;
 }) {
   const [xemLai, setXemLai] = useState<{ id: string; luot: LuotTruoc } | null>(null);
@@ -442,12 +454,15 @@ function HoSo({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
+              {dong.vong === "REVIEW" ? (
+                <StatusChip tone="blocked" label="Quay lại đọc kết quả" size="md" />
+              ) : null}
             </div>
             <p className="text-xs text-ink-muted">
               {dong.ma_bn} · {dong.bac_si ?? "Chưa có bác sĩ"}
             </p>
           </div>
-          <dl className="grid grid-cols-3 divide-x divide-line text-xs">
+          <dl className="grid grid-cols-4 divide-x divide-line text-xs">
             <Truong nhan="Số thứ tự" gia={String(dong.so_thu_tu)} />
             <Truong
               nhan={dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}
@@ -456,6 +471,10 @@ function HoSo({
                   ? soPhutTu(dong.bat_dau_luc) || "—"
                   : soPhutTu(dong.vao_hang_luc) || "—"
               }
+            />
+            <Truong
+              nhan="Từ lúc check-in"
+              gia={soPhutTu(dong.checkin_luc) || "—"}
             />
             <Truong nhan="Loại khám" gia={dong.dich_vu_kham ?? "Chưa gán dịch vụ"} />
           </dl>
@@ -494,7 +513,11 @@ function HoSo({
                 onClick={() => void bam("kham-xong")}
                 className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {dangGui ? "Đang ghi…" : "Đã khám xong"}
+                {dangGui
+                  ? "Đang ghi…"
+                  : laBacSi
+                    ? "Xác nhận & ký · khám xong"
+                    : "Đã khám xong"}
               </button>
             ) : null}
             {dong.trang_thai === "blocked" ? (
@@ -564,6 +587,50 @@ function HoSo({
             readOnly={!choBam || dong.trang_thai === "done"}
           />
         )}
+        {/* BỆNH ÁN · CHẨN ĐOÁN · ĐƠN THUỐC (demo 17/09/2026). Thư ký nhập, màn
+            bác sĩ tự tải lại khi bên kia lưu (sự kiện realtime), bác sĩ duyệt
+            đơn và ký. Khám xong vẫn bấm ở nút trên — trạng thái truyền vào là
+            COMPLETED để form KHÔNG bày nút "Kết thúc khám" của đường cũ. */}
+        {dong.loai === "KHAM" && dong.appointment_id && !dangXem ? (
+          <details open className="mt-3 rounded-card border border-line">
+            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink">
+              Bệnh án · Chẩn đoán · Đơn thuốc · Lời dặn
+            </summary>
+            <ClinicalRecordForm
+              key={dong.appointment_id}
+              appt={
+                {
+                  id: dong.appointment_id,
+                  slot_start: dong.checkin_luc ?? dong.vao_hang_luc ?? "",
+                  status: "COMPLETED",
+                  queue_number: String(dong.so_thu_tu),
+                  patient: {
+                    clinic_patient_id: dong.clinic_patient_id,
+                    patient_code: dong.ma_bn,
+                    full_name: dong.ten,
+                    date_of_birth: null,
+                    phone_primary: null,
+                    phone_secondary: null,
+                    gender: null,
+                    ethnicity: null,
+                    nationality: null,
+                    occupation: null,
+                    patient_objection: null,
+                    address: null,
+                    guardian_name: null,
+                  },
+                  service: dong.dich_vu_kham
+                    ? { name: dong.dich_vu_kham, form_code: dong.form_code }
+                    : null,
+                } as unknown as DoctorApptRow
+              }
+              staffId={staffId}
+              onClose={() => {}}
+              canSign={laBacSi}
+              readOnly={!choBam || dong.trang_thai === "done"}
+            />
+          </details>
+        ) : null}
       </div>
     </section>
   );

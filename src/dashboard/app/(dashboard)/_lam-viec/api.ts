@@ -41,6 +41,10 @@ export interface DongHangCho {
   bac_si: string | null;
   phong: string | null;
   vao_hang_luc: string | null;
+  /** Mốc check-in của cả lượt — đồng hồ tổng không đếm lại khi quay về bác sĩ. */
+  checkin_luc: string | null;
+  /** PRIMARY = khám lần đầu trong lượt · REVIEW = quay lại đọc kết quả. */
+  vong: string | null;
   /** Lần gọi vào gần nhất (null = chưa gọi). */
   goi_luc: string | null;
   bat_dau_luc: string | null;
