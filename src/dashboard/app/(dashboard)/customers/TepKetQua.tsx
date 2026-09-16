@@ -65,6 +65,7 @@ export default function TepKetQua({
   appointmentId,
   items,
   readOnly = false,
+  onDaThayDoi,
 }: {
   clinicPatientId: string;
   appointmentId: string | null;
@@ -72,12 +73,20 @@ export default function TepKetQua({
   items: TepKetQuaRow[];
   /** Chỉ xem nội dung; không dựng control tải lên hoặc xác nhận đã gửi. */
   readOnly?: boolean;
+  /** Nơi nạp danh sách PHÍA TRÌNH DUYỆT truyền hàm nạp lại vào đây.
+   *
+   *  `router.refresh()` chỉ dựng lại phần server. Khối nào nạp danh sách trong
+   *  effect (TepCuaLuotKham — hồ sơ khám, phòng siêu âm) thì refresh KHÔNG chạy
+   *  lại effect ấy, nên tệp vừa tải lên thành công mà không hiện ra — người dùng
+   *  tưởng hỏng rồi tải lên lần nữa. */
+  onDaThayDoi?: () => void;
 }) {
   const router = useRouter();
   const [dangTai, setDangTai] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xem, setXem] = useState<string | null>(null);
   const [dangGui, setDangGui] = useState<string | null>(null);
+  const [phongTo, setPhongTo] = useState<TepKetQuaRow | null>(null);
 
   async function taiLen(files: FileList | null) {
     if (!appointmentId) {
@@ -105,7 +114,8 @@ export default function TepKetQua({
       }
     }
     setDangTai(false);
-    router.refresh();
+    if (onDaThayDoi) onDaThayDoi();
+    else router.refresh();
   }
 
   async function danhDauDaGui(id: string, kenh: string) {
@@ -124,7 +134,8 @@ export default function TepKetQua({
       setLoi(nhanLoi(d, "Không đánh dấu được."));
       return;
     }
-    router.refresh();
+    if (onDaThayDoi) onDaThayDoi();
+    else router.refresh();
   }
 
   const chuaGui = items.filter((t) => !t.gui_luc).length;
@@ -144,8 +155,13 @@ export default function TepKetQua({
 
       {!readOnly && (
         <>
-          {/* VIDEO TREO LẠI — chưa nhận tải lên (Quang chốt 09/08/2026).
-              Ảnh và phiếu PDF vẫn nhận bình thường. */}
+          {/* VIDEO ĐÃ MỞ (Tuyền 16/09/2026: "có chỗ up ảnh siêu âm, video siêu
+              âm ngay trong giao diện để xem lại được"). Quang treo video ngày
+              09/08 vì hai lý do, và cả hai đã có lời đáp: bản sao lưu hằng đêm
+              nay chép cả thư mục tệp (backup-db.sh), và service từ chối ghi khi
+              ổ đĩa xuống dưới ngưỡng an toàn. Backend vẫn giữ công tắc
+              KET_QUA_VIDEO_UPLOAD_ENABLED — tắt nó là video bị từ chối kèm câu
+              nói rõ lý do, không cần sửa giao diện. */}
           <label
             className={`mt-2 inline-flex items-center gap-1.5 rounded-control border border-dashed border-line px-3 py-1.5 text-label font-semibold text-ink-soft ${
               appointmentId
@@ -153,12 +169,12 @@ export default function TepKetQua({
                 : "cursor-not-allowed opacity-60"
             }`}
           >
-            {dangTai ? "Đang tải lên…" : "+ Tải ảnh / phiếu"}
+            {dangTai ? "Đang tải lên…" : "+ Tải ảnh / video / phiếu"}
             <input
               type="file"
               multiple
               disabled={dangTai || !appointmentId}
-              accept="image/*,application/pdf"
+              accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf"
               className="hidden"
               onChange={(e) => {
                 void taiLen(e.target.files);
@@ -175,13 +191,93 @@ export default function TepKetQua({
           )}
 
           <p className="mt-1 text-label leading-snug text-ink-faint">
-            Video siêu âm: <b>đang xây dựng</b> — chưa tải lên được. Đang chờ
-            chốt chỗ lưu riêng cho video để không ăn hết ổ đĩa của máy chủ.
+            Nhận ảnh JPG/PNG/DICOM, video MP4/MOV/WebM, phiếu PDF.
           </p>
         </>
       )}
 
       {loi && <p className="mt-1.5 text-label text-danger">{loi}</p>}
+
+      {/* XEM LẠI NGAY TRONG MÀN. Ảnh hiện thành ô xem nhanh; video hiện thành ô
+          có biểu tượng — không tải trước nội dung video, chỉ khi bấm mở. Bấm vào
+          là mở khung xem lớn ngay trên màn, không mở tab mới. */}
+      {items.some((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO") && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {items
+            .filter((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO")
+            .map((t) => {
+              const url = `/api/cskh/ket-qua/${t.id}/noi-dung`;
+              return (
+                <button
+                  key={`nhanh-${t.id}`}
+                  type="button"
+                  onClick={() => setPhongTo(t)}
+                  title={t.ten_hien_thi ?? "Xem"}
+                  className="relative size-24 overflow-hidden rounded-lg border border-line bg-surface-sunken"
+                >
+                  {t.loai_tep === "ANH" ? (
+                    /* eslint-disable-next-line @next/next/no-img-element --
+                       ảnh đi qua route XÁC THỰC, không qua bộ tối ưu ảnh dùng
+                       chung (không mang cookie phiên → 401). */
+                    <img
+                      src={url}
+                      alt={t.ten_hien_thi ?? "Ảnh"}
+                      loading="lazy"
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid size-full place-items-center bg-ink text-white">
+                      <FileVideo className="size-8" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
+      {phongTo && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={phongTo.ten_hien_thi ?? "Xem tệp"}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4"
+          onClick={() => setPhongTo(null)}
+        >
+          <div
+            className="flex max-h-full w-full max-w-4xl flex-col gap-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 text-white">
+              <p className="min-w-0 truncate text-sm font-semibold">
+                {phongTo.ten_hien_thi ?? "(không tên)"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPhongTo(null)}
+                className="rounded-control bg-surface px-3 py-1 text-sm font-semibold text-ink"
+              >
+                Đóng
+              </button>
+            </div>
+            {phongTo.loai_tep === "VIDEO" ? (
+              <video
+                src={`/api/cskh/ket-qua/${phongTo.id}/noi-dung`}
+                controls
+                autoPlay
+                className="max-h-[80vh] w-full rounded-lg bg-black"
+              />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={`/api/cskh/ket-qua/${phongTo.id}/noi-dung`}
+                alt={phongTo.ten_hien_thi ?? "Ảnh"}
+                className="max-h-[80vh] w-full rounded-lg object-contain"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <p className="mt-2 text-label text-ink-faint">

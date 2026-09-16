@@ -278,6 +278,7 @@ async def test_phieu_sieu_am_thu_ky_chi_thay_khach_bac_si_minh() -> None:
     phieu = {
         "ultrasound_id": "u-1",
         "visit_id": VISIT,
+        "appointment_id": None,
         "clinic_patient_id": KHACH,
         "patient_name": "K",
         "patient_code": "BN",

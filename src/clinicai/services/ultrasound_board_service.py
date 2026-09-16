@@ -152,6 +152,10 @@ SELECT r.id, r.code, r.name, r.floor, r.capacity, r.accepting, r.sort,
 _RECORDS_SQL = """
 SELECT u.ultrasound_id,
        u.visit_id,
+       -- Mã lịch hẹn: khối "Ảnh & video siêu âm" gắn tệp vào kho tệp kết quả
+       -- THEO LỊCH HẸN (bảng tep_ket_qua), để CSKH và bác sĩ chính thấy đúng
+       -- tệp của đúng lượt ấy.
+       v.appointment_id,
        u.clinic_patient_id,
        u.ultrasound_type,
        u.findings,
@@ -525,6 +529,7 @@ def _record_row(r: asyncpg.Record) -> dict[str, Any]:
     return {
         "ultrasound_id": str(r["ultrasound_id"]),
         "visit_id": str(r["visit_id"]) if r["visit_id"] else None,
+        "appointment_id": (str(r["appointment_id"]) if r["appointment_id"] else None),
         "clinic_patient_id": (
             str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
         ),

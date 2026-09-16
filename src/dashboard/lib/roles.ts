@@ -275,6 +275,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/reception/queue": [
     "RECEPTION", "NURSE_ULTRASOUND", "MANAGEMENT",
   ],
+  // Đo sinh hiệu — khớp VITALS_ROLES ở luot_kham_service.py (+ Quản lý xem).
+  "/do-sinh-hieu": ["NURSE_ULTRASOUND", "RECEPTION", "DOCTOR", "MANAGEMENT"],
   "/doctor/board": [
     "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
   ],

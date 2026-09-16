@@ -41,7 +41,7 @@ export default async function LabQueuePage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Hàng đợi xét nghiệm
+          Lấy mẫu xét nghiệm
         </h1>
         <p className="text-sm text-ink-muted">
           Bác sĩ chỉ định → đính tóm tắt + link phiếu (PDF/Drive) + nhà cung cấp

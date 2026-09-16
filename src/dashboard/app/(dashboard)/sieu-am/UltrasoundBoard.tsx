@@ -12,6 +12,7 @@
 // ảnh, và một bộ thẻ (.card/.badge/.btn) thay vì hai bộ lệch nhau.
 
 import { useCallback, useEffect, useState } from "react";
+import TepCuaLuotKham from "../tasks/TepCuaLuotKham";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -615,6 +616,20 @@ function ResultsTab({
             </div>
 
             <AnhSieuAm rec={d} onSaved={onSaved} />
+
+            {/* ẢNH & VIDEO SIÊU ÂM NGAY TRONG MÀN (Tuyền 16/09/2026). Khối tải ảnh
+                cũ phía trên chỉ nhận ảnh và mở ảnh ra tab mới; khối này dùng kho
+                tệp kết quả — nhận cả video, xem lớn ngay trên màn, và CSKH lẫn
+                bác sĩ chính cùng thấy đúng tệp của lượt ấy. */}
+            {d.clinic_patient_id ? (
+              <div style={{ marginTop: 10 }}>
+                <TepCuaLuotKham
+                  clinicPatientId={d.clinic_patient_id}
+                  appointmentId={d.appointment_id ?? null}
+                  tieuDe="Ảnh & video siêu âm"
+                />
+              </div>
+            ) : null}
 
             {open && (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>

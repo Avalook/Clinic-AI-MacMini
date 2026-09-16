@@ -151,7 +151,8 @@ test("hai thanh dùng CHUNG một phép lọc, không mỗi bên một bản", (
     ["Nav", nav],
     ["BottomNav", duoi],
   ] as const) {
-    assert.match(ma, /mucHienRa\(/, `${ten} phải lọc qua mucHienRa`);
+    // Nav gọi `nhomThanhBen`, hàm ấy lọc qua chính `mucHienRa` (nav-items.ts).
+    assert.match(ma, /(mucHienRa|nhomThanhBen)\(/, `${ten} phải lọc qua mucHienRa`);
     assert.doesNotMatch(
       ma.replace(/\/\/.*$/gm, ""),
       /NAV\.filter\(/,

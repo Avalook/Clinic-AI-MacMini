@@ -43,7 +43,7 @@ export default async function SonoPage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Điều phối siêu âm &amp; xét nghiệm
+          Điều dưỡng siêu âm
         </h1>
         <p className="text-sm text-ink-muted">
           Theo dõi hàng đợi siêu âm và các mốc xét nghiệm hiện có. Chức năng phân

@@ -49,6 +49,8 @@ export interface SonoRoom {
 export interface SonoRecord {
   ultrasound_id: string;
   visit_id: string | null;
+  /** Lịch hẹn của lượt — để gắn ảnh/video vào kho tệp kết quả đúng lượt. */
+  appointment_id?: string | null;
   clinic_patient_id: string | null;
   patient_name: string | null;
   patient_code: string | null;

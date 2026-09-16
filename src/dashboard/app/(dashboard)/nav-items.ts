@@ -61,9 +61,13 @@ export const NAV: NavItem[] = [
   // staff_task được gỡ.
   {
     href: "/reception/queue",
-    label: "Hàng đợi tiếp nhận",
+    label: "Tiếp đón khách",
     icon: Users,
   },
+  // ĐO SINH HIỆU (Tuyền 16/09/2026): *"điều dưỡng đang ngồi vào đo sinh hiệu
+  // thì phải có node là đo sinh hiệu, có danh sách khách theo thứ tự và cứ ấn
+  // vào mà điền"*. Trước đó sinh hiệu nhập lẫn trong hàng đợi tiếp nhận.
+  { href: "/do-sinh-hieu", label: "Đo sinh hiệu", icon: Activity },
   // CÁC MÀN KHÁM RIÊNG (Tuyền 16/09/2026): mỗi loại khám một mục, và thanh
   // bên theo vị trí sẽ mở đúng mục của người được phân hôm ấy. Tên và mã phiếu
   // lấy từ lib/loai-kham.ts — sửa ở đó, không sửa ở đây.
@@ -76,7 +80,7 @@ export const NAV: NavItem[] = [
   // không thuộc màn khám riêng nào, và phải có một chỗ để thấy chúng.
   {
     href: "/doctor/board",
-    label: "Bàn khám (tất cả)",
+    label: "Khám bệnh (mọi loại)",
     icon: Stethoscope,
   },
   // "Luồng khám mới" (lát 1, 11/09) ĐÃ GỠ KHỎI MENU 15/09/2026 — Tuyền: bán
@@ -156,7 +160,7 @@ export const NAV: NavItem[] = [
   // link được, nút Quay lại chạy đúng.
   {
     href: "/truong-ca",
-    label: "Toàn cảnh điều phối",
+    label: "Điều phối ca",
     icon: LayoutDashboard,
   },
   // ĐỐI TÁC chỉ có đúng mục này, và đây là toàn bộ thanh bên của họ.
@@ -186,7 +190,7 @@ export const NAV: NavItem[] = [
   // Nhà thuốc — Dược sĩ (PHARMACIST). Đơn chờ cấp + Chuẩn bị + Kho.
   {
     href: "/pharmacy",
-    label: "Đơn thuốc chờ cấp",
+    label: "Cấp thuốc",
     icon: Pill,
     badge: "Mới",
   },
@@ -210,15 +214,15 @@ export const NAV: NavItem[] = [
   },
   {
     href: "/lab-queue",
-    label: "Hàng đợi xét nghiệm",
+    label: "Lấy mẫu xét nghiệm",
     icon: FlaskConical,
   },
   {
     href: "/service-queue",
-    label: "Hàng đợi dịch vụ",
+    label: "Làm thủ thuật & dịch vụ",
     icon: Activity,
   },
-  { href: "/sono", label: "ĐD siêu âm", icon: ScanLine },
+  { href: "/sono", label: "Điều dưỡng siêu âm", icon: ScanLine },
   {
     href: "/sieu-am",
     // "Khám siêu âm" — Tuyền 16/09: "siêu âm cũng ghi rõ là khám siêu âm".
@@ -338,8 +342,7 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
 
   T1_LETAN: ["/reception/queue", "/appointments", "/patients/new", "/reception/checkout"],
   T1_THUNGAN: ["/thu-ngan/dich-vu"],
-  // Sinh hiệu nhập ở hàng đợi tiếp nhận — `/luot-kham` đã gỡ khỏi menu 15/09.
-  T1_DOCHISO: ["/reception/queue"],
+  T1_DOCHISO: ["/do-sinh-hieu"],
   T1_LAYMAU: ["/lab-queue"],
 
   T1_BS_NOITIET: ["/kham/noi-tiet", "/result-review"],
@@ -414,6 +417,42 @@ export function mucHienRa(
   }
 
   return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));
+}
+
+// HAI PHẦN CỦA THANH BÊN (Tuyền 16/09/2026: *"cứ tường minh ra ở bên sidebar
+// cho dễ nhìn"*).
+//
+//   • "Hôm nay"   — đúng việc của các vị trí người này đứng hôm nay.
+//   • "Việc khác" — các màn còn lại của vai, GẬP SẴN.
+//
+// Chỉ ẩn thì hỏng đúng chuyện thường ngày trong lịch Kim Ngưu: đứng thay nhau
+// giữa ca. Người đứng Đo sinh hiệu được gọi sang lấy mẫu vẫn phải có lối vào,
+// chỉ là không bày ra chen với việc chính.
+//
+// Không có ca (hoặc là Quản lý) → `homNay` rỗng, `khac` là menu theo vai, và
+// thanh bên vẽ một danh sách phẳng như trước.
+export function nhomThanhBen(
+  role: ClinicRole | null,
+  hienTrenThanhBen: (r: ClinicRole | null, href: string) => boolean,
+  featureMode: string,
+  clinicalHrefs: ReadonlySet<string>,
+  viTriHomNay: readonly string[] = [],
+): { homNay: NavItem[]; khac: NavItem[] } {
+  const theoVai = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, []);
+  const homNay = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, viTriHomNay)
+    // "/schedule" đứng cuối danh sách theo vị trí để xem mai đứng đâu — nó là
+    // tra cứu, không phải việc hôm nay, nên về phần "Việc khác".
+    .filter((i) => i.href !== "/schedule");
+  if (homNay.length === theoVai.length && homNay.every((i, k) => i === theoVai[k])) {
+    return { homNay: [], khac: theoVai };
+  }
+  const daCo = new Set(homNay.map((i) => i.href));
+  const khac = theoVai.filter((i) => !daCo.has(i.href));
+  if (!khac.some((i) => i.href === "/schedule")) {
+    const lich = NAV.find((i) => i.href === "/schedule");
+    if (lich) khac.push(lich);
+  }
+  return { homNay, khac };
 }
 
 // THANH DƯỚI TRÊN ĐIỆN THOẠI — bốn nút cho mỗi vai, chọn theo VIỆC CỦA VAI ẤY.

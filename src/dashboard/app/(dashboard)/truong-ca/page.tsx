@@ -30,7 +30,7 @@ export default async function Page() {
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Toàn cảnh điều phối</h1>
+          <h1 className="text-xl font-semibold text-ink lg:text-2xl">Điều phối ca</h1>
           <p className="mt-1 text-sm text-ink-muted">Ai đang ở đâu, chờ bao lâu, và đi đâu tiếp.</p>
         </div>
         {/* NỬA CÒN LẠI CỦA TOÀN CẢNH. Màn này chỉ thấy người ĐÃ vào phòng

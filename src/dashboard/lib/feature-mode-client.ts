@@ -5,6 +5,7 @@
 /** Nav hrefs to HIDE when in CSKH_ONLY mode (clinical workflow screens). */
 export const CLINICAL_HREFS = new Set([
   "/reception/queue",
+  "/do-sinh-hieu",
   "/doctor/board",
   "/cashier/board",
   "/sono",

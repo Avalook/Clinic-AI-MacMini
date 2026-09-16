@@ -19,12 +19,17 @@ import TepKetQua, { type TepKetQuaRow } from "../customers/TepKetQua";
 export default function TepCuaLuotKham({
   clinicPatientId,
   appointmentId,
+  tieuDe = "Tệp kết quả của lượt khám",
 }: {
   clinicPatientId: string;
   appointmentId: string | null;
+  tieuDe?: string;
 }) {
   const [items, setItems] = useState<TepKetQuaRow[] | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
+  // Đổi số này là nạp lại. Khối con tải lên xong gọi `onDaThayDoi` → tăng số →
+  // effect chạy lại. Không có nó, tệp vừa tải lên thành công mà không hiện ra.
+  const [lanNap, setLanNap] = useState(0);
 
   useEffect(() => {
     let song = true;
@@ -38,20 +43,26 @@ export default function TepCuaLuotKham({
         // "Không đọc được" KHÁC "chưa có tệp nào" — hiện nhầm cái thứ nhất
         // thành cái thứ hai là mời người ta tải lên lần thứ hai.
         if (json === null) setLoi("Không đọc được danh sách tệp kết quả.");
-        else setItems(json.items ?? []);
+        else {
+          setLoi(null);
+          // Chỉ tệp CỦA LƯỢT NÀY khi biết lượt — khách tái khám nhiều lần thì
+          // ảnh siêu âm lần trước không được lẫn vào phiếu lần này.
+          const ds = json.items ?? [];
+          setItems(appointmentId ? ds.filter((t) => t.appointment_id === appointmentId) : ds);
+        }
       })
       .catch(() => song && setLoi("Không đọc được danh sách tệp kết quả."));
     return () => {
       song = false;
     };
-  }, [clinicPatientId]);
+  }, [clinicPatientId, appointmentId, lanNap]);
 
   return (
     <section className="rounded-card border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink">Tệp kết quả của lượt khám</h3>
+        <h3 className="text-sm font-semibold text-ink">{tieuDe}</h3>
         <p className="text-label text-ink-muted">
-          Ảnh siêu âm · phiếu xét nghiệm · phim chụp
+          Ảnh · video · phiếu xét nghiệm · phim chụp
         </p>
       </div>
       {loi ? (
@@ -64,6 +75,7 @@ export default function TepCuaLuotKham({
             clinicPatientId={clinicPatientId}
             appointmentId={appointmentId}
             items={items}
+            onDaThayDoi={() => setLanNap((n) => n + 1)}
           />
         </div>
       )}

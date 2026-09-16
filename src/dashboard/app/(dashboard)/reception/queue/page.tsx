@@ -1,5 +1,5 @@
 /**
- * Hàng đợi tiếp nhận.
+ * Tiếp đón khách (trước 16/09/2026 tên "Hàng đợi tiếp nhận").
  *
  * The first screen to read the workflow kernel instead of staff_task. The board
  * is whatever the node catalogue puts in the `bang_dieu_phoi` workspace, so a
@@ -17,7 +17,7 @@ import { isOverdue } from "@/lib/work-item-status";
 import QueueBoard from "./QueueBoard";
 import LiveBoardSync from "../../LiveBoardSync";
 
-export const metadata = { title: "Hàng đợi tiếp nhận · ClinicAI" };
+export const metadata = { title: "Tiếp đón khách · ClinicAI" };
 
 // The queue is the page. Caching it would show the desk a stale room.
 export const dynamic = "force-dynamic";

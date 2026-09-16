@@ -40,7 +40,7 @@ export default async function ServiceQueuePage() {
     <div className="space-y-4">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
-          Hàng đợi dịch vụ / thủ thuật
+          Làm thủ thuật & dịch vụ
         </h1>
         <p className="text-sm text-ink-muted">
           Tạo việc → Bắt đầu (ghi giờ) → Hoàn tất (ghi giờ + kết quả).

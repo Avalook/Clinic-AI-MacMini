@@ -220,6 +220,9 @@ export default function GlobalHeader({
     if (pathname.startsWith("/audit-log")) {
       return { title: "Lịch sử thao tác", subtitle: "Tra cứu ai đã thực hiện thay đổi, vào thời điểm nào và dữ liệu nào bị ảnh hưởng" };
     }
+    if (pathname.startsWith("/do-sinh-hieu")) {
+      return { title: "Đo sinh hiệu", subtitle: "Khách theo thứ tự đến — bấm vào một người để nhập chỉ số đo được" };
+    }
     if (pathname.startsWith("/reception/checkout")) {
       return {
         title: "Check-out lượt khám",
@@ -228,7 +231,7 @@ export default function GlobalHeader({
       };
     }
     if (pathname.startsWith("/reception")) {
-      return { title: "Hàng đợi tiếp nhận", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
+      return { title: "Tiếp đón khách", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
     }
     if (pathname.startsWith("/doctor")) {
       return { title: "Bàn khám bác sĩ", subtitle: "Khám bệnh, kê đơn và chỉ định cận lâm sàng" };

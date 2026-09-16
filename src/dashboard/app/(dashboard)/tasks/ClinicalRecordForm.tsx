@@ -864,7 +864,7 @@ export default function ClinicalRecordForm({
         : d,
     );
     setLabOrder("");
-    setMsg("Đã chỉ định XN — điều dưỡng nhập kết quả ở Hàng đợi xét nghiệm.");
+    setMsg("Đã chỉ định XN — điều dưỡng nhập kết quả ở mục Lấy mẫu xét nghiệm.");
   }
 
   const preg = data?.pregnancy;
