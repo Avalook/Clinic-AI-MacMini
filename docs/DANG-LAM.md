@@ -37,6 +37,42 @@ lịch sử hội thoại.
 
 ---
 
+## -0008. Form lịch = Excel · thanh bên theo vị trí · phiếu bác sĩ theo giai đoạn (16/09/2026 đêm)
+
+Tuyền chốt sáu điều, cả sáu đã lên final cloud:
+
+1. **Form lịch = đúng hình Excel.** Ba bảng lịch lật chiều: hàng Tầng→Phòng→Vị
+   trí, cột ngày×ca (T2→T6 một ca Tối; T7, CN ba ca = 11 cột). `LICH_KHAM` tách
+   thành hàng riêng trên lưới + hàng "Số bác sĩ trực". `OfficialRosterTable` thôi
+   có thân riêng, dùng lại bảng trang chủ.
+2. **13 tên để trống** — khoá cứng trong `DE_TRONG` (scripts/nhan-su-kim-nguu.py).
+3. Tài khoản theo vị trí giữ nguyên.
+4. **Thanh bên theo vị trí hôm nay**: `GET /me/vi-tri-hom-nay` (dữ kiện) +
+   `MAN_THEO_VI_TRI` trong nav-items.ts (trình bày). Không ca → menu theo vai.
+   Quản lý không áp dụng.
+5. Mở quyền: xem mục -0007.
+6. **Phiếu bác sĩ theo 6 giai đoạn lâm sàng** (lib/form-schemas/giai-doan.ts),
+   thay xếp gạch 2 cột. Chưa động thẩm mỹ.
+
+**Migration 20260916000009** — ma trận `vai_duoc_vao_tram` nạp lại theo vị trí
+mới. Không có nó MỌI lần lưu ca đều bị từ chối. Đã thử trong ROLLBACK trên final
+cloud trước khi áp — và nhờ thế bắt được bản nháp tắt nhầm quyền `LICH_KHAM`.
+
+**Lịch thật đã nạp** tuần 14/09 + 21/09 qua `POST /roster/shifts`: 259/260 ô, 41
+ô trống. Ô bị từ chối: `Nguyễn Thuỷ Tiên` (điều dưỡng) đứng *Hỏi bệnh ban đầu*
+20/08 — vị trí ấy đang xếp nhóm bác sĩ. **Chờ Tuyền: hỏi bệnh ban đầu có phải
+việc riêng của bác sĩ không?**
+
+⚠️ Lịch trực mã CŨ (`LE_TAN`, `LAY_MAU`…) vẫn nằm trong `work_roster` — vô hại
+(không mã nào khớp bảng mới, không ảnh hưởng đặt lịch) nhưng chưa dọn.
+
+**Bộ ghép tên đã gộp nhầm hai CSKH thành điều dưỡng** (Phương Thúy Nguyễn → Đỗ
+Thuý Phương Anh; Nguyễn Thị Ngọc Giàu → …Giầu). Đã trả tên, gỡ 5 dòng vị trí,
+và vá: nhóm nghề là một phần danh tính — tên trong lịch không bao giờ trỏ vào
+hồ sơ CSKH/quản lý.
+
+---
+
 ## -0007. MỞ QUYỀN TẠM THỜI + hai lỗi ngủ đông (16/09/2026 tối)
 
 Tuyền: *"mở quyền giúp tôi, tất cả các tài khoản đều có thể thao tác đã, đừng
