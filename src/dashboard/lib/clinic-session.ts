@@ -27,13 +27,30 @@ export async function getClinicRole(): Promise<ClinicRole | null> {
  *  được việc lễ tân). Máy chủ tính (`GET /me/vi-tri-hom-nay` → `vai`); ở đây
  *  chỉ ghép, không tự suy vai từ mã vị trí. Không bao giờ chứa vai bác sĩ mà
  *  tài khoản không có. */
+export const getViTriHomNay = cache(() =>
+  fetchFromBackend<{ vi_tri: string[]; ca: string[]; vai?: string[] }>(
+    "/api/v1/me/vi-tri-hom-nay",
+  ),
+);
+
 export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
   const goc = await getClinicRole();
   if (!goc) return [];
-  const d = await fetchFromBackend<{ vai?: string[] }>("/api/v1/me/vi-tri-hom-nay");
-  const them = (d?.vai ?? []).filter((v): v is ClinicRole => v !== goc) as ClinicRole[];
-  return [goc, ...them];
+  const d = await getViTriHomNay();
+  const them = (d?.vai ?? []).filter((v) => v !== goc) as ClinicRole[];
+  // VAI THEO VỊ TRÍ ĐỨNG TRƯỚC: việc hôm nay quyết định màn hình. Vai tài
+  // khoản đứng cuối — vẫn còn đó cho mọi quyền nó vốn có (tập quyền chỉ lớn
+  // thêm, không ai mất quyền cũ).
+  return [...them, goc];
 });
+
+/** VAI CHÍNH HÔM NAY — vai quyết định HIỂN THỊ (trang chủ, nhãn vai, bảng việc).
+ *  Có ca: vai của vị trí đầu tiên trong ngày. Không ca: vai tài khoản.
+ *  Dùng cho quyết định "vẽ màn nào"; quyết định "được làm không" dùng
+ *  `vaiLamViec` (xét MỌI vai hôm nay). */
+export async function getVaiChinh(): Promise<ClinicRole | null> {
+  return (await getVaiHomNay())[0] ?? null;
+}
 
 /** Vai đầu tiên trong vai làm việc hôm nay thoả `dieuKien`, hoặc vai tài khoản. */
 export async function vaiLamViec(
@@ -47,8 +64,14 @@ export async function vaiLamViec(
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ
  *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn role để chặn cả truy cập trực tiếp. */
 export async function requireNavAccess(href: string): Promise<void> {
-  const role = await getClinicRole();
-  if (!canSeeNav(role, href)) redirect("/home");
+  // Vào được nếu MỘT trong các vai hôm nay vào được — vai tài khoản vẫn nằm
+  // trong tập này, nên không ai mất lối vào cũ.
+  const vai = await getVaiHomNay();
+  if (vai.length === 0) {
+    if (!canSeeNav(null, href)) redirect("/home");
+    return;
+  }
+  if (!vai.some((r) => canSeeNav(r, href))) redirect("/home");
 }
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền

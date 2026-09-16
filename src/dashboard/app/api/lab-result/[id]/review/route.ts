@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
-import { getClinicRole } from "../../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../../lib/clinic-session";
 import { isPhysicianRole } from "../../../../../lib/roles";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
 
@@ -23,7 +23,7 @@ export async function POST(
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isPhysicianRole(r));
   // Mirrors lab.py _REVIEW_GUARD (physicians only — signing off is a licensed act).
   if (!isPhysicianRole(role)) {
     return NextResponse.json(

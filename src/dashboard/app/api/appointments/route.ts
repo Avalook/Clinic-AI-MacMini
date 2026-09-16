@@ -367,14 +367,13 @@ export async function PATCH(request: Request) {
   // Vai LÀM VIỆC hôm nay: vai tài khoản trước (luật bác sĩ chỉ xét vai này —
   // lịch không bao giờ cấp vai bác sĩ), rồi vai vận hành vị trí hôm nay cấp.
   const vaiHomNay = await getVaiHomNay();
-  const role = vaiHomNay[0] ?? null;
   const vaiDuoc = (fn: (r: ClinicRole) => boolean) => vaiHomNay.some(fn);
   const staffId = await getClinicStaffId();
 
   // Gate theo nhóm: bác sĩ (own appt) · hủy/phân-lại (CSKH/QL) · không-đến
   // (front-desk) · check-in/cskh_confirm (intake).
   if (DOCTOR_ACTIONS.has(action)) {
-    if (!isDoctorRole(role)) {
+    if (!vaiDuoc(isDoctorRole)) {
       return NextResponse.json(
         { error: "Chỉ bác sĩ mới xác nhận/từ chối/khám-xong lịch hẹn." },
         { status: 403 },

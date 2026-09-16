@@ -25,7 +25,7 @@ from clinicai.api.identity import (
     StaffIdentity,
     get_current_identity,
     get_display_identity,
-    vai_tu_vi_tri,
+    vai_theo_thu_tu,
 )
 from clinicai.core.database import get_db_pool
 
@@ -92,22 +92,27 @@ async def vi_tri_hom_nay(
     """
     rows = await pool.fetch(
         """
-        SELECT DISTINCT station, shift
-          FROM public.work_roster
-         WHERE clinic_id = $1::uuid
-           AND staff_id = $2::uuid
-           AND work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-           AND status <> 'REJECTED'
-         ORDER BY station
+        SELECT w.station, w.shift
+          FROM public.work_roster w
+          LEFT JOIN public.vi_tri_lam_viec v
+            ON v.clinic_id = w.clinic_id AND v.code = w.station
+         WHERE w.clinic_id = $1::uuid
+           AND w.staff_id = $2::uuid
+           AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           AND w.status <> 'REJECTED'
+         -- Thứ tự trong NGÀY: ca sớm trước, rồi thứ tự vị trí trong lịch. Vai
+         -- đầu tiên là "vai chính" quyết định màn hình (lib/clinic-session.ts).
+         ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift),
+                  v.sort NULLS LAST, w.station
         """,
         identity.clinic_id,
         identity.staff_id,
     )
-    vi_tri = [r["station"] for r in rows]
+    vi_tri = list(dict.fromkeys(r["station"] for r in rows))
     return {
         "vi_tri": vi_tri,
         "ca": sorted({r["shift"] for r in rows}),
         # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
         # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.
-        "vai": sorted(v.value for v in vai_tu_vi_tri(vi_tri, identity.role)),
+        "vai": vai_theo_thu_tu(vi_tri, identity.role),
     }

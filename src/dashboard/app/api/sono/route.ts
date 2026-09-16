@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 
 async function guard() {
   const caller = await getSupabaseServer();
@@ -20,7 +20,7 @@ async function guard() {
   if (!user) {
     return { res: NextResponse.json({ error: "Unauthorised" }, { status: 401 }) };
   }
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => r === "NURSE_ULTRASOUND" || r === "MANAGEMENT");
   if (role !== "NURSE_ULTRASOUND" && role !== "MANAGEMENT") {
     return {
       res: NextResponse.json(

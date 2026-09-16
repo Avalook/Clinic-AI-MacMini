@@ -4,8 +4,8 @@
 
 // Nhập hàm redirect từ Next.js để chuyển hướng
 import { redirect } from "next/navigation";
-// Nhập hàm getClinicRole để lấy vai trò phòng khám
-import { getClinicRole } from "../../../../lib/clinic-session";
+// Vai làm việc hôm nay (xét mọi vai, gồm vai tài khoản)
+import { vaiLamViec } from "../../../../lib/clinic-session";
 // Nhập hàm isOpsAdmin để kiểm tra quyền quản trị vận hành
 import { isOpsAdmin } from "../../../../lib/roles";
 // Nhập các hàm lấy luật đặt lịch và danh sách luật
@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 // Component chính của trang luật đặt lịch (server component)
 export default async function BookingPolicyPage() {
   // Lấy vai trò phòng khám của người dùng
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isOpsAdmin);
   // Nếu không phải Trưởng ca hoặc Quản lý thì chuyển hướng về trang chủ
   if (!isOpsAdmin(role)) redirect("/home");
 

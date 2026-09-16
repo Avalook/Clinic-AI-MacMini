@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
@@ -19,7 +19,7 @@ export async function PATCH(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isOpsAdmin(r));
   if (!isOpsAdmin(role)) {
     return NextResponse.json({ error: "Chỉ Trưởng ca / Quản lý mới được sửa luật đặt lịch." }, { status: 403 });
   }

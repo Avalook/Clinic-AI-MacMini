@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isPhysicianRole, canWriteClinical } from "../../../lib/roles";
 import { toHref } from "../../../lib/url";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isPhysicianRole(r));
   // isPhysicianRole, not isDoctorRole: lab.py's _ORDER_GUARD excludes TKYK, and
   // a screen that offers a button the server will refuse is worse than no button.
   if (!isPhysicianRole(role)) {
@@ -71,7 +71,7 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => canWriteClinical(r));
   // KQ xét nghiệm = LÂM SÀNG → chỉ Bác sĩ / Điều dưỡng / Thư ký Y khoa.
   // Lễ tân / Quản lý KHÔNG nhập (recap 17/6).
   if (!canWriteClinical(role)) {

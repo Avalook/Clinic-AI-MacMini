@@ -1,6 +1,6 @@
 /** Bàn khám của MỘT phòng: /ban-kham/KN-NOITIET. Xem ../page.tsx. */
 
-import { getClinicRole, requireNavAccess } from "@/lib/clinic-session";
+import { requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../../LiveBoardSync";
 import BanKham from "../BanKham";
@@ -15,7 +15,8 @@ export default async function BanKhamPhongPage({
 }) {
   const { phong } = await params;
   await requireNavAccess(`/ban-kham/${phong}`);
-  const vai = await getClinicRole();
+  // Nút bấm theo GIẤY PHÉP bác sĩ / thư ký nếu tài khoản có.
+  const vai = await vaiLamViec((r) => r === "DOCTOR" || r === "TKYK");
   return (
     <>
       <LiveBoardSync />

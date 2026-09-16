@@ -12,7 +12,7 @@
  * tổng hợp và quản lý thấy cả hai. FastAPI gác lần nữa ở `/cashier/board`.
  */
 
-import { getClinicRole, requireNavAccess } from "@/lib/clinic-session";
+import { requireNavAccess, getVaiChinh } from "@/lib/clinic-session";
 
 import QuayThuNgan, { type Quay } from "./QuayThuNgan";
 
@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default async function CashierBoardPage() {
   await requireNavAccess("/cashier/board");
-  const role = await getClinicRole();
+  const role = await getVaiChinh();
   const quay: Quay =
     role === "CASHIER_THUOC" ? "thuoc" : role === "CASHIER_DV" ? "dich_vu" : "ca_hai";
   const ten =

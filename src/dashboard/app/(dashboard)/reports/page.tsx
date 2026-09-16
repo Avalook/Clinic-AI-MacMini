@@ -9,7 +9,7 @@ import StatCard from "../StatCard";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { Fragment } from "react";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import { vnTodayRangeUtc, fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
@@ -46,7 +46,7 @@ function pct(n: number, total: number): string {
 export default async function ReportsPage() {
   // Defense-in-depth: server-side gate even though Nav only renders the
   // link for admins.
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isOpsAdmin);
   if (!isOpsAdmin(role)) redirect("/home");
 
   const supabase = await getSupabaseServer();

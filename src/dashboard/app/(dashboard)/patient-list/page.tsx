@@ -14,7 +14,7 @@
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
-import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
+import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
 import {
   canEditPatient,
   canManageAppt,
@@ -54,10 +54,11 @@ interface DanhSachApi {
 
 export default async function PatientListPage() {
   await requireNavAccess("/patient-list");
-  const role = await getClinicRole();
-  const enablePopup = canReadClinical(role);
-  const showRebook = enablePopup && canWriteIntake(role);
-  const showPager = isDoctorRole(role);
+  const vaiHomNay = await getVaiHomNay();
+  const role = await getVaiChinh();
+  const enablePopup = vaiHomNay.some(canReadClinical);
+  const showRebook = enablePopup && vaiHomNay.some(canWriteIntake);
+  const showPager = vaiHomNay.some(isDoctorRole);
 
   const goi = await fetchFromBackend<DanhSachApi>("/api/v1/patients/danh-sach");
 

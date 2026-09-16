@@ -24,7 +24,7 @@ import { Suspense, cache } from "react";
 import StatCard from "@/components/ui/StatCard";
 import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
 import {
-  getClinicRole,
+  getVaiChinh,
   getActiveStaff,
   getClinicStaffId,
 } from "../../../lib/clinic-session";
@@ -152,7 +152,10 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ weekAppt?: string; weekRoster?: string }>;
 }) {
-  const role = await getClinicRole();
+  // TRANG CHỦ THEO VIỆC HÔM NAY (Tuyền 16/09/2026): Minh Thư — tài khoản Điều
+  // dưỡng — hôm nay đứng Lễ tân thì trang chủ là trang chủ Lễ tân (check-in),
+  // không phải "Điền sinh hiệu". Không có ca thì vai chính = vai tài khoản.
+  const role = await getVaiChinh();
   const staff = await getActiveStaff();
   const staffId = await getClinicStaffId();
   // Lễ tân KHÔNG cần ô check-in riêng: bảng "Lịch hẹn khám" (WeeklyAppointmentsTable) ĐÃ có

@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
@@ -59,7 +59,7 @@ async function write(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => canWriteClinical(r));
   if (!canWriteClinical(role)) {
     return NextResponse.json(
       { error: "Bạn không có quyền điền phiếu khám chuyên khoa." },

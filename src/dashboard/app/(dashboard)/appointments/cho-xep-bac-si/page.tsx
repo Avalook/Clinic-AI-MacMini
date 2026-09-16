@@ -8,7 +8,7 @@
 // thứ chín sẽ rơi im lặng qua mọi bộ lọc.
 
 import { redirect } from "next/navigation";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { canManageAppt } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
@@ -20,7 +20,7 @@ export default async function ChoXepBacSiPage() {
   // Trưởng ca xếp được cùng Quản lý: người trực tiếp biết ai đang rảnh thường
   // là trưởng ca. CSKH vào để gọi khách đổi ca (16/09/2026). Backend gác lại
   // bằng chính bảng chuyển tiếp (MANAGE_ROLES = CSKH, Quản lý, Trưởng ca).
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canManageAppt);
   if (!canManageAppt(role)) redirect("/home");
 
   const [data, doctors] = await Promise.all([

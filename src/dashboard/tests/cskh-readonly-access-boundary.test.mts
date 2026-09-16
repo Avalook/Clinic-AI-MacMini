@@ -36,7 +36,7 @@ test("trưởng ca có cùng đường vào customers với backend", () => {
 });
 
 test("customers dựng vùng ghi chỉ khi có capability và giữ vùng chỉ đọc", () => {
-  assert.match(page, /const canOperateCskh = canOperateCustomerCare\(role\)/);
+  assert.match(page, /const canOperateCskh = vaiHomNay\.some\(canOperateCustomerCare\)/);
   assert.match(page, /canOperateCskh=\{canOperateCskh\}/);
   assert.match(
     view,

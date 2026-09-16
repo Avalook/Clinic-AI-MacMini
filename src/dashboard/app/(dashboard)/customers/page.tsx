@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
+import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   canManageAppt,
@@ -130,10 +130,11 @@ export default async function CustomersPage({
   }>;
 }) {
   await requireNavAccess("/customers");
-  const role = await getClinicRole();
+  const vaiHomNay = await getVaiHomNay();
+  const role = await getVaiChinh();
   // CSKH / Lễ tân / Quản lý: được SỬA thông tin hành chính ngay trong panel.
-  const canEdit = canWriteIntake(role);
-  const canOperateCskh = canOperateCustomerCare(role);
+  const canEdit = vaiHomNay.some(canWriteIntake);
+  const canOperateCskh = vaiHomNay.some(canOperateCustomerCare);
   // CSKH / Quản lý / Trưởng ca: được ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới").
   const canManage = canManageAppt(role);
   const sp = await searchParams;

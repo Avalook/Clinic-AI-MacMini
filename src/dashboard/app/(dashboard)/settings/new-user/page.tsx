@@ -9,7 +9,7 @@ import {
   hasServiceRoleKey,
   SERVICE_ROLE_ENV,
 } from "../../../../lib/supabase-service";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { isAdminRole, ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
 import NewUserForm from "./NewUserForm";
 
@@ -30,7 +30,7 @@ interface UnlinkedStaff {
 // chép tay là một bảng nhãn sẽ thiếu vai tiếp theo.
 
 export default async function NewUserPage() {
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isAdminRole);
   if (!isAdminRole(role)) redirect("/home");
 
   const supabase = await getSupabaseServer();

@@ -91,3 +91,20 @@ def test_cua_co_the_mo_cung_uu_tien_vai_theo_vi_tri() -> None:
         guard(_nguoi(ClinicRole.NURSE_ULTRASOUND, frozenset({ClinicRole.RECEPTION})))
     )
     assert ra.role is ClinicRole.RECEPTION
+
+
+def test_thay_vai_thi_giu_vai_tai_khoan_de_ghi_nhat_ky() -> None:
+    guard = require_role(ClinicRole.RECEPTION)
+    ra = asyncio.run(
+        guard(_nguoi(ClinicRole.NURSE_ULTRASOUND, frozenset({ClinicRole.RECEPTION})))
+    )
+    assert ra.role is ClinicRole.RECEPTION
+    assert ra.vai_tai_khoan is ClinicRole.NURSE_ULTRASOUND
+
+
+def test_vai_theo_thu_tu_giu_thu_tu_vi_tri_trong_ngay() -> None:
+    from clinicai.api.identity import vai_theo_thu_tu
+
+    assert vai_theo_thu_tu(
+        ["T1_LAYMAU", "T1_LETAN", "T1_DOCHISO"], ClinicRole.CSKH
+    ) == ["NURSE_ULTRASOUND", "RECEPTION"]

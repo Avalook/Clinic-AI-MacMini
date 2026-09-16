@@ -18,7 +18,7 @@ import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import { currentWeekStartVn, shiftWeek, weekStartOf, fmtDayMonth, dayLabel } from "../../../lib/roster";
 import { thongKeTheoKhungGio, tongKet, khungGioVN, type LichDeDem } from "../../../lib/thong-ke-khung-gio";
@@ -44,7 +44,7 @@ export default async function LichDoVePage({
 }: {
   searchParams: Promise<{ week?: string }>;
 }) {
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isOpsAdmin);
   // Cùng cửa với màn Báo cáo. Đây là số liệu so sánh cả phòng khám.
   if (!isOpsAdmin(role)) redirect("/home");
 

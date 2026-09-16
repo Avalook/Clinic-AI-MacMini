@@ -7,7 +7,7 @@ import RealtimeRefresher from "./RealtimeRefresher";
 import { logout } from "../(auth)/login/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getCurrentStaff } from "../../lib/current-staff";
-import { getClinicRole } from "../../lib/clinic-session";
+import { getVaiHomNay, getViTriHomNay } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
@@ -26,17 +26,21 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const role = await getClinicRole();
-  if (!role) redirect("/login");
+  // Vai hôm nay: vai theo vị trí trong lịch đứng trước, vai tài khoản đứng cuối.
+  const vaiHomNay = await getVaiHomNay();
+  const vaiTaiKhoan = vaiHomNay[vaiHomNay.length - 1] ?? null;
+  // Vai CHÍNH quyết định nhãn vai + thanh bên dự phòng + mọi thứ "vẽ màn nào".
+  const role = vaiHomNay[0] ?? null;
+  if (!role || !vaiTaiKhoan) redirect("/login");
   // Tài khoản của cái tivi không có việc gì trong bảng điều khiển. Backend đã
   // từ chối vai này ở mọi endpoint (get_current_identity), nên vào đây cũng chỉ
   // thấy một trang lỗi — đưa thẳng ra bảng gọi số là câu trả lời đúng.
-  if (role === "DISPLAY") redirect("/display");
+  if (vaiTaiKhoan === "DISPLAY") redirect("/display");
   // Và người NGOÀI phòng khám cũng vậy, vì cùng một lý do. Khác một điểm: vai
   // này KHÔNG bị chặn ở /api/v1/me (dashboard cần /me để biết mình là ai), nên
   // thiếu dòng này thì đối tác vào được khung bảng điều khiển — thanh bên trống
   // trơn, trang chủ hỏng vặt — thay vì ra thẳng chỗ gửi kết quả.
-  if (role === "PARTNER") redirect("/doi-tac");
+  if (vaiTaiKhoan === "PARTNER") redirect("/doi-tac");
 
   // Identity comes from the staff row linked to the authenticated user.
   //
@@ -55,7 +59,11 @@ export default async function DashboardLayout({
   const place = [staff?.clinic_name, staff?.location_name]
     .filter(Boolean)
     .join(" · ");
-  const identity = [ROLE_LABEL[role], who, place]
+  // Đứng vị trí khác vai tài khoản → ghi rõ là vai HÔM NAY, kẻo người dùng
+  // tưởng tài khoản mình bị đổi vai.
+  const nhanVai =
+    role === vaiTaiKhoan ? ROLE_LABEL[role] : `${ROLE_LABEL[role]} (hôm nay)`;
+  const identity = [nhanVai, who, place]
     .filter(Boolean)
     .join(" · ");
 
@@ -71,12 +79,12 @@ export default async function DashboardLayout({
   // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
   // token. Một truy vấn ít đi trên MỌI lần dựng trang.
   const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri] = await Promise.all([
-    canWriteIntake(role) ? loadDeclined() : Promise.resolve([]),
+    vaiHomNay.some(canWriteIntake) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
     getFeatureMode(),
     // Thư ký chưa được phân bác sĩ nào thì mọi màn đều trống — nói RÕ vì sao,
     // kẻo trông như "hôm nay không có khách" (Tuyền chốt 15/09/2026).
-    role === "TKYK"
+    vaiTaiKhoan === "TKYK"
       ? fetchFromBackend<{ la_thu_ky: boolean; bac_si: { id: string }[] }>(
           "/api/v1/thu-ky/pham-vi",
         )
@@ -85,11 +93,12 @@ export default async function DashboardLayout({
     // gọi kia — layout chạy lại ở mọi lần chuyển trang, nên thêm một vòng nối
     // đuôi là thêm độ trễ cho MỌI màn. `null` (backend im) thì rơi về menu
     // theo vai, không làm hỏng trang.
-    fetchFromBackend<{ vi_tri: string[] }>("/api/v1/me/vi-tri-hom-nay"),
+    // Cùng một lời gọi `getVaiHomNay` đã dùng (cache theo lượt render).
+    getViTriHomNay(),
   ]);
   const viTriHomNay = viTri?.vi_tri ?? [];
   const thuKyChuaPhan =
-    role === "TKYK" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);
+    vaiTaiKhoan === "TKYK" && role === "TKYK" && (phamViThuKy === null || phamViThuKy.bac_si.length === 0);
 
   // Reception / CSKH / management get a top-right notice of appointments a
   // doctor declined (from today onward), so they can re-assign them.

@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import {
   canReadClinical,
   isDoctorRole,
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
   // Role authority is auth.uid() → staff.auth_user_id → clinic_membership.role.
   // This gate must precede every medical-profile/SOAP/lab/prescription query:
   // authenticated operational users are not clinical readers.
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => canReadClinical(r));
   if (!canReadClinical(role)) {
     return NextResponse.json(
       { error: "Bạn không có quyền xem hồ sơ lâm sàng." },
@@ -280,7 +280,13 @@ export async function POST(request: Request) {
   }
   const vitalsOnly = body.vitalsOnly === true;
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec(
+    (r) =>
+      isDoctorRole(r) ||
+      isThuKyRole(r) ||
+      isNurseRole(r) ||
+      (vitalsOnly && r === "RECEPTION"),
+  );
   // GHI LÂM SÀNG = Bác sĩ + Thư ký Y khoa (nhập hộ) ghi FULL hồ sơ; ĐIỀU DƯỠNG
   // (vitalsOnly) chỉ ghi Sinh hiệu + lý do khám. Lễ tân/Quản lý KHÔNG ghi lâm sàng
   // (check-in/hành chính tách riêng ở /api/appointments — vẫn canCheckin).

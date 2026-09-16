@@ -11,7 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole, getClinicStaffId } from "../../../../lib/clinic-session";
+import { getClinicStaffId, vaiLamViec } from "../../../../lib/clinic-session";
 import { isDoctorRole } from "../../../../lib/roles";
 
 // FastAPI base URL. Server-only (không phải NEXT_PUBLIC) vì lời gọi đi từ server.
@@ -44,7 +44,7 @@ export async function POST(
   }
 
   // 2) Tóm tắt trước khám là dành cho BÁC SĨ.
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isDoctorRole(r));
   if (!isDoctorRole(role)) {
     return NextResponse.json(
       { error: "Chỉ bác sĩ mới xem được tóm tắt trước khám." },

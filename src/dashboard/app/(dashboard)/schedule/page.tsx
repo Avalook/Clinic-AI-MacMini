@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isAdminRole, departmentToRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
@@ -50,7 +50,7 @@ export default async function SchedulePage({
   const week = (rawWeek ? weekStartOf(rawWeek) : null) ?? currentWeekStartVn();
   const dates = weekDates(week);
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isAdminRole);
   // CHỈ QUẢN LÝ. Trước đây chỗ này dùng isOpsAdmin (gồm cả Trưởng ca) trong khi
   // đường ghi ở API chỉ nhận Quản lý — nên Trưởng ca bấm "Sửa lịch", xếp cho
   // người khác, và dòng ghi rơi vào PENDING cho CHÍNH họ, không hiện lại, KHÔNG

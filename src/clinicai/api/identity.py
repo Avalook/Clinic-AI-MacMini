@@ -197,6 +197,10 @@ class StaffIdentity:
     #: khoản. Tập này là các vai VẬN HÀNH mà lịch hôm nay cấp thêm — không bao giờ
     #: có vai bác sĩ (xem `VAI_THEO_VI_TRI`).
     vai_theo_vi_tri: frozenset[ClinicRole] = frozenset()
+    #: Có giá trị khi cửa gác đã THAY `role` bằng vai của vị trí hôm nay: đây là
+    #: vai tài khoản gốc. Nhật ký thao tác ghi cả hai ("Minh Thư, tài khoản Điều
+    #: dưỡng, làm với vai Lễ tân") — không thì mất dấu ai thật sự đã bấm.
+    vai_tai_khoan: ClinicRole | None = None
 
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
@@ -551,7 +555,11 @@ class RoleGuard:
                         vai_hom_nay=vai.value,
                         staff_id=identity.staff_id,
                     )
-                    return replace(identity, role=vai)
+                    return replace(
+                        identity,
+                        role=vai,
+                        vai_tai_khoan=identity.vai_tai_khoan or identity.role,
+                    )
             logger.info(
                 "role_forbidden",
                 role=identity.role.value,
@@ -633,6 +641,17 @@ def vai_tu_vi_tri(
         and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
         and VAI_THEO_VI_TRI[v] != vai_tai_khoan
     )
+
+
+def vai_theo_thu_tu(vi_tri: list[str], vai_tai_khoan: ClinicRole) -> list[str]:
+    """Như `vai_tu_vi_tri` nhưng GIỮ thứ tự vị trí trong ngày, không lặp."""
+    cap = vai_tu_vi_tri(vi_tri, vai_tai_khoan)
+    ra: list[str] = []
+    for v in vi_tri:
+        vai = VAI_THEO_VI_TRI.get(v)
+        if vai is not None and vai in cap and vai.value not in ra:
+            ra.append(vai.value)
+    return ra
 
 
 def mo_quyen_tam_thoi() -> bool:

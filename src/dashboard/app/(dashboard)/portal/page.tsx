@@ -4,7 +4,7 @@
 
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { VN_TZ } from "../../../lib/datetime";
-import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
+import { requireNavAccess, vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import PortalBoard from "./PortalBoard";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PortalPage() {
   await requireNavAccess("/portal");
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isOpsAdmin);
   if (!role || !isOpsAdmin(role)) {
     // requireNavAccess đã redirect, nhưng giữ guard phòng hờ.
     return null;

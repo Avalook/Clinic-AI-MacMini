@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import {
   isAdminRole,
   ROLE_LABEL,
@@ -35,7 +35,7 @@ const TH = "px-4 py-2.5 font-medium";
 const TD = "px-4 py-2.5";
 
 export default async function ThietLapTaiKhoanPage() {
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isAdminRole);
   if (!isAdminRole(role)) redirect("/home");
 
   const supabase = await getSupabaseServer();

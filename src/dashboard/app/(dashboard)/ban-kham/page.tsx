@@ -7,7 +7,7 @@
  * hiếm muộn / nam khoa — năm màn ấy đặt tên theo phiếu, không theo nơi làm việc.
  */
 
-import { getClinicRole, requireNavAccess } from "@/lib/clinic-session";
+import { requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../LiveBoardSync";
 import BanKham from "./BanKham";
@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 
 export default async function BanKhamPage() {
   await requireNavAccess("/ban-kham");
-  const vai = await getClinicRole();
+  // Nút bấm theo GIẤY PHÉP bác sĩ / thư ký nếu tài khoản có.
+  const vai = await vaiLamViec((r) => r === "DOCTOR" || r === "TKYK");
   return (
     <>
       <LiveBoardSync />

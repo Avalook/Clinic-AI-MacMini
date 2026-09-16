@@ -11,11 +11,7 @@ import {
   vnMonthStartUtc,
 } from "../../../lib/datetime";
 import { currentWeekStartVn } from "../../../lib/roster";
-import {
-  getClinicRole,
-  getClinicStaffId,
-  requireNavAccess,
-} from "../../../lib/clinic-session";
+import { getClinicStaffId, requireNavAccess, getVaiChinh } from "../../../lib/clinic-session";
 import {
   isDoctorRole,
   canManageAppt,
@@ -206,7 +202,8 @@ export default async function TasksPage() {
   // bộ lịch + nhật ký CSKH).
   await requireNavAccess("/tasks");
   // Bác sĩ thấy board lâm sàng riêng; CSKH/Quản lý thấy board lịch hẹn cũ.
-  const role = await getClinicRole();
+  // Bảng nào hiện ra là chuyện HIỂN THỊ → vai chính hôm nay.
+  const role = await getVaiChinh();
   // Thu ngân (CASHIER + 2 vai tách CASHIER_THUOC/CASHIER_DV): màn LÀM VIỆC thu ngân
   // riêng (2 mode thuốc/dịch vụ) — KHÔNG dùng board bác sĩ. Đặt TRƯỚC isTasksReadOnly
   // để mọi vai thu ngân không rơi vào nhánh read-only board (tránh lộ lịch/BN của BS).

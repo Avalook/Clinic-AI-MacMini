@@ -21,7 +21,8 @@ const weeklyAppointmentsSource = read(
 );
 
 test("clinical-record GET authorizes the membership role before sensitive reads", () => {
-  const resolveRoleAt = getSource.indexOf("await getClinicRole()");
+  // Vai LÀM VIỆC hôm nay (16/09/2026) — vai tài khoản vẫn nằm trong tập ấy.
+  const resolveRoleAt = getSource.indexOf("await vaiLamViec(");
   const clinicalGateAt = getSource.indexOf("canReadClinical(role)");
   const firstSensitiveReadAt = getSource.indexOf(
     '.from("patient_medical_profile")',
@@ -65,7 +66,7 @@ test("the clinical role authority comes from clinic_membership, not department o
 test("operational roles cannot open a clinical-record popup", () => {
   assert.match(
     patientListSource,
-    /const enablePopup = canReadClinical\(role\)/,
+    /const enablePopup = vaiHomNay\.some\(canReadClinical\)/,
   );
   assert.match(
     doctorBoardSource,

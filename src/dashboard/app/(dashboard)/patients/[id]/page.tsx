@@ -9,7 +9,7 @@ import PatientHistory from "./PatientHistory";
 import PatientBooking from "./PatientBooking";
 import PatientCskhLog from "./PatientCskhLog";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole, getClinicStaffId } from "../../../../lib/clinic-session";
+import { getClinicStaffId, vaiLamViec } from "../../../../lib/clinic-session";
 import {
   canReadClinical,
   canWriteIntake,
@@ -33,7 +33,9 @@ export default async function PatientDetailPage({
   const { id } = await params;
   const { new: isNew, code } = await searchParams;
 
-  const role = await getClinicRole();
+  // Luật "bác sĩ chỉ mở BN của mình" là luật GIẤY PHÉP: lấy vai bác sĩ/thư ký
+  // nếu tài khoản có, không để vị trí hôm nay che mất.
+  const role = await vaiLamViec((r) => isDoctorRole(r));
 
   // Bác sĩ chỉ được mở hồ sơ BN CỦA MÌNH (có lịch hẹn với bác sĩ này). Chặn cả
   // truy cập trực tiếp bằng URL, không chỉ ẩn ở danh sách.

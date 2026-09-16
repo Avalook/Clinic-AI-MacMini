@@ -13,9 +13,9 @@ import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
-  getClinicRole,
   getClinicStaffId,
   getActiveStaff,
+  getVaiHomNay,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
 // MỘT HÀM, KHÔNG PHẢI HAI. Chỗ này từng có bản `weekStartOf` riêng, đã được vá
@@ -46,7 +46,7 @@ async function authorize(): Promise<Auth> {
   }
   // Quyền "duyệt + tự duyệt + xếp cho người khác" CHỈ thuộc Quản lý hệ thống
   // (MANAGEMENT). Trưởng ca dưới quản lý → đăng ký ca như nhân viên (PENDING).
-  const isAdmin = isAdminRole(await getClinicRole());
+  const isAdmin = (await getVaiHomNay()).some((r) => isAdminRole(r));
   const staffId = await getClinicStaffId();
   const staff = await getActiveStaff();
   const staffName = staff?.full_name ?? staff?.short_name ?? "";

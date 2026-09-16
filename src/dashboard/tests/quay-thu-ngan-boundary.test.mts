@@ -40,7 +40,8 @@ test("quầy nào hiện ô nào là theo VAI, không theo URL", () => {
     new URL("../app/(dashboard)/cashier/board/page.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(trang, /getClinicRole/);
+  // Theo VAI CHÍNH hôm nay (16/09/2026), vẫn không theo URL.
+  assert.match(trang, /getVaiChinh/);
   assert.match(trang, /CASHIER_THUOC/);
   assert.match(trang, /CASHIER_DV/);
   // Không đọc quầy từ query string — gõ URL là đổi được quầy thì cái gác vô nghĩa.
