@@ -53,6 +53,9 @@ _PERFORMER_GUARD = require_role_co_the_mo(
 _DOCTOR_GUARD = require_role(ClinicRole.DOCTOR)
 _NOTE_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
 _TKYK_GUARD = require_role(ClinicRole.TKYK)
+#: Bắt đầu / kết thúc phiên khám: bác sĩ hoặc thư ký đi kèm (Tuyền 16/09/2026).
+#: Cũng KHÔNG mở theo công tắc — vẫn là cửa của ê-kíp bác sĩ.
+_CONSULT_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
 
 
 class CheckInBody(BaseModel):
@@ -154,10 +157,46 @@ async def record_vitals(
     )
 
 
+@router.get("/luot-kham/phong-hom-nay")
+async def phong_hom_nay(
+    identity: StaffIdentity = Depends(_BANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phòng người gọi đứng hôm nay (theo lịch) + danh sách mọi phòng."""
+    return await LuotKhamService(pool).phong_hom_nay(identity=identity)
+
+
+@router.get("/luot-kham/hang-cho")
+async def hang_cho(
+    phong: UUID | None = None,
+    identity: StaffIdentity = Depends(_BANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hàng chờ một phòng: đang chờ · đang trong phòng · đã xong hôm nay."""
+    return await LuotKhamService(pool).hang_cho(
+        identity=identity, room_id=str(phong) if phong else None
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/kham-xong")
+async def kham_xong(
+    consultation_id: UUID,
+    identity: StaffIdentity = Depends(_CONSULT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Nút "Đã khám xong": máy chủ tự chọn kết quả phiên theo chỉ định còn lại."""
+    return await LuotKhamService(pool).kham_xong(
+        consultation_id=str(consultation_id),
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/start")
 async def start_consultation(
     consultation_id: UUID,
-    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    identity: StaffIdentity = Depends(_CONSULT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     return await LuotKhamService(pool).start_consultation(
@@ -215,7 +254,7 @@ async def authorize_orders(
 async def complete_consultation(
     consultation_id: UUID,
     body: CompleteConsultationBody,
-    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    identity: StaffIdentity = Depends(_CONSULT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:

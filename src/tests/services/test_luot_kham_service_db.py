@@ -146,14 +146,15 @@ async def kb(pool: asyncpg.Pool) -> KichBan:
                 "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON"
                 " rn.room_id = r.id"
                 " WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-SIEUAM'"
-                " ORDER BY r.sort LIMIT 1",
+                " AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
                 CLINIC,
             ),
             phong_mau=await conn.fetchval(
                 "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON"
                 " rn.room_id = r.id"
                 " WHERE r.clinic_id = $1::uuid AND rn.node_code ="
-                " 'DICHVU-LAYMAU-MAU' ORDER BY r.sort LIMIT 1",
+                " 'DICHVU-LAYMAU-MAU' AND r.is_active AND r.accepting"
+                " ORDER BY r.sort LIMIT 1",
                 CLINIC,
             ),
             ma_sa=await conn.fetchval(
@@ -233,7 +234,9 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     luot = _cua(await svc.bang(identity=kb.bac_si), kb.visit_id)
     # T-C2: duyệt chỉ định không kết thúc phiên khám.
     assert luot["phien"][0]["trang_thai"] == "in_progress"
-    assert {o["trang_thai"] for o in luot["chi_dinh"]} == {"authorized"}
+    # Duyệt xong là TỰ vào hàng chờ phòng (Notion v1.0.0, vai Trưởng ca) — chỗ
+    # chờ bị khoá vì khách còn đang khám.
+    assert {o["trang_thai"] for o in luot["chi_dinh"]} == {"assigned"}
 
     # Trưởng ca xếp phòng SA khi bác sĩ còn khám → chỗ chờ SA bị khoá.
     await svc.dispatch_order(
@@ -345,7 +348,9 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
         ["consult.started"],
         ["consult.note_saved"],
         ["orders.drafted"],
-        ["orders.authorized"],
+        # Duyệt = tự xếp phòng cho cả hai chỉ định trong cùng lệnh.
+        ["dispatch.assigned", "dispatch.assigned", "orders.authorized"],
+        # Trưởng ca đổi phòng siêu âm bằng tay.
         ["dispatch.assigned"],
         ["consult.completed"],
         ["service.started"],
@@ -731,17 +736,21 @@ async def test_hai_truong_ca_dieu_phoi_cung_luc(kb: KichBan) -> None:
         identity=kb.bac_si,
     )
     sa_id = duyet["order_ids"][0]
+    # Tự xếp phòng lúc duyệt đã tăng phiên bản — hai trưởng ca cùng cầm bản ấy.
+    ban = await kb.svc._pool.fetchval(
+        "SELECT version FROM service_order WHERE id = $1::uuid", sa_id
+    )
     kq = await asyncio.gather(
         kb.svc.dispatch_order(
             order_id=sa_id,
             room_id=kb.phong_sa,
-            expected_version=1,
+            expected_version=ban,
             identity=kb.truong_ca,
         ),
         kb.svc.dispatch_order(
             order_id=sa_id,
             room_id=kb.phong_sa,
-            expected_version=1,
+            expected_version=ban,
             identity=kb.truong_ca,
         ),
         return_exceptions=True,
@@ -837,3 +846,147 @@ async def test_luot_kham_cua_phong_kham_khac_khong_thay(kb: KichBan) -> None:
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": 120, "diastolic": 80}, identity=la
         )
+
+
+# ---------------------------------------------------------------------------
+# Hàng chờ theo phòng · thư ký bấm thay bác sĩ · "Đã khám xong" (16/09/2026)
+# ---------------------------------------------------------------------------
+
+
+async def test_thu_ky_bam_bat_dau_bac_si_van_duyet_duoc(kb: KichBan) -> None:
+    await kb.svc.record_vitals(
+        visit_id=kb.visit_id,
+        raw={"systolic": 118, "diastolic": 76},
+        identity=kb.dieu_duong,
+    )
+    phien = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)["phien"][0]
+    # Chưa được phân đi kèm bác sĩ này → không bấm được.
+    with pytest.raises(SafetyGateError):
+        await kb.svc.start_consultation(consultation_id=phien["id"], identity=kb.thu_ky)
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid) ON CONFLICT DO NOTHING",
+            CLINIC,
+            kb.thu_ky.staff_id,
+            kb.bac_si.staff_id,
+        )
+    await kb.svc.start_consultation(consultation_id=phien["id"], identity=kb.thu_ky)
+    # Bác sĩ bấm lại cùng phiên: không bị báo "bác sĩ khác đang khám".
+    lai = await kb.svc.start_consultation(
+        consultation_id=phien["id"], identity=kb.bac_si
+    )
+    assert lai.get("already") is True
+    async with kb.pool.acquire() as conn:
+        bs = await conn.fetchval(
+            "SELECT doctor_staff_id::text FROM consultation WHERE id = $1::uuid",
+            phien["id"],
+        )
+    assert bs == kb.bac_si.staff_id, "thư ký bấm không được thành bác sĩ của phiên"
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien["id"],
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    assert len(duyet["order_ids"]) == 1
+
+
+async def test_kham_xong_tu_chon_ket_qua_theo_chi_dinh_con_lai(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    async with kb.pool.acquire() as conn:
+        c = await conn.fetchrow(
+            "SELECT status, outcome FROM consultation WHERE id = $1::uuid", phien
+        )
+        o = await conn.fetchrow(
+            "SELECT exec_status, room_id::text AS room_id FROM service_order"
+            " WHERE id = $1::uuid",
+            sa_id,
+        )
+        q = await conn.fetchval(
+            "SELECT status FROM queue_entry WHERE ref_id = $1::uuid"
+            " AND reason = 'SERVICE'",
+            sa_id,
+        )
+    assert (c["status"], c["outcome"]) == ("completed", "SERVICES")
+    assert o["exec_status"] == "assigned" and o["room_id"] is not None
+    # Khám xong → khách được thả khỏi phòng khám, chỗ chờ siêu âm mở.
+    assert q == "waiting"
+
+
+async def test_kham_xong_khong_chi_dinh_thi_khep_luot(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    async with kb.pool.acquire() as conn:
+        outcome = await conn.fetchval(
+            "SELECT outcome FROM consultation WHERE id = $1::uuid", phien
+        )
+    assert outcome == "NO_SERVICES"
+
+
+async def test_hang_cho_phong_cho_dang_lam_da_xong(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    async with kb.pool.acquire() as conn:
+        phong = await conn.fetchval(
+            "SELECT room_id::text FROM service_order WHERE id = $1::uuid", sa_id
+        )
+
+    def _cua_toi(hc: dict[str, Any]) -> dict[str, Any]:
+        return next(r for r in hc["hang_cho"] if r["ref_id"] == sa_id)
+
+    hc = await kb.svc.hang_cho(identity=kb.bs_sieu_am, room_id=phong)
+    dong = _cua_toi(hc)
+    assert dong["trang_thai"] == "waiting" and dong["loai"] == "DICH_VU"
+    assert dong["so_thu_tu"] >= 1 and dong["ten"]
+
+    await kb.svc.start_service(order_id=sa_id, identity=kb.dieu_duong)
+    dong = _cua_toi(await kb.svc.hang_cho(identity=kb.bs_sieu_am, room_id=phong))
+    assert dong["trang_thai"] == "serving" and dong["bat_dau_luc"]
+
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="Tử cung bình thường.",
+        identity=kb.bs_sieu_am,
+    )
+    dong = _cua_toi(await kb.svc.hang_cho(identity=kb.bs_sieu_am, room_id=phong))
+    assert dong["trang_thai"] == "done" and dong["xong_luc"]
+
+
+async def test_hang_cho_bac_si_thay_luot_kham_chinh_cua_minh(kb: KichBan) -> None:
+    await kb.svc.record_vitals(
+        visit_id=kb.visit_id,
+        raw={"systolic": 118, "diastolic": 76},
+        identity=kb.dieu_duong,
+    )
+    hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
+    dong = [r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id]
+    assert len(dong) == 1 and dong[0]["loai"] == "KHAM"
+    assert dong[0]["trang_thai"] == "waiting"
+
+
+async def test_thu_thuat_chi_bac_si_lam(kb: KichBan) -> None:
+    async with kb.pool.acquire() as conn:
+        vai = await conn.fetchval(
+            "SELECT actor_roles FROM node_definition WHERE clinic_id = $1::uuid"
+            " AND code = 'DICHVU-THUTHUAT'",
+            CLINIC,
+        )
+    assert list(vai) == ["DOCTOR"]
