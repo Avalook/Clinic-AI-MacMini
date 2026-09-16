@@ -18,7 +18,12 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    require_role,
+    require_role_co_the_mo,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
@@ -56,7 +61,9 @@ _RECALL_GUARD = require_role(
 # Hai danh sách này phải khớp nhau: lệch là một vai thấy được màn nhưng màn
 # trống dữ liệu (API chặn), hoặc ngược lại. Có test canh ở
 # test_man_khach_hang.py; đổi bên nào thì đổi cả hai + test.
-_MAN_KHACH_HANG_GUARD = require_role(
+# Dữ liệu chăm sóc khách là thông tin VẬN HÀNH — lịch hẹn, trạng thái, sổ gọi
+# điện — không phải bệnh án. Nới theo công tắc mở quyền tạm thời.
+_MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
