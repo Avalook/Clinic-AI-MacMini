@@ -389,6 +389,21 @@ class CapacityService:
                           ($2::date + make_interval(mins => h.close_minute))
                               AT TIME ZONE 'Asia/Ho_Chi_Minh',
                           NULL, $4::uuid) b
+                ),
+                -- SỨC CHỨA CHO CẢ NGÀY TRONG MỘT LỜI GỌI.
+                --
+                -- Bản trước gọi resolve_effective_cap trong LATERAL của từng
+                -- khung. Đo trên máy chủ thật 16/09/2026: 60 lời gọi × 0,256ms
+                -- = 15,4ms, tức 68% thời gian của truy vấn này — và 0,256ms ấy
+                -- không phải tiền tra bảng (hai bảng ngoại lệ đang rỗng) mà là
+                -- tiền gọi một hàm SECURITY DEFINER có SET search_path, thứ
+                -- Postgres không bao giờ inline được.
+                caps AS (
+                    SELECT c.minute_of_day, c.regular_cap, c.walkin_cap
+                      FROM (SELECT array_agg(sl2.minute_of_day) AS ms
+                              FROM slots sl2) a
+                      CROSS JOIN LATERAL resolve_effective_caps(
+                          $1::uuid, $3::uuid, $2::date, a.ms) c
                 )
                 SELECT sl.minute_of_day,
                        sl.slot_minutes,
@@ -401,10 +416,7 @@ class CapacityService:
                        count(*) FILTER (WHERE b.loai = 'VANG_LAI')::int
                            AS walkin_used
                   FROM slots sl
-                  CROSS JOIN LATERAL resolve_effective_cap(
-                      $1::uuid, $3::uuid,
-                      ($2::date + make_interval(mins => sl.minute_of_day))
-                          AT TIME ZONE 'Asia/Ho_Chi_Minh') cap
+                  JOIN caps cap ON cap.minute_of_day = sl.minute_of_day
                   LEFT JOIN ban b
                     ON b.phut >= sl.minute_of_day
                    AND b.phut <  sl.minute_of_day + sl.slot_minutes
