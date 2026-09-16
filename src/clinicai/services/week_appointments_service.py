@@ -122,7 +122,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
            SELECT 1 FROM public.work_roster w
             WHERE w.clinic_id = $1::uuid
               AND w.staff_id  = t.doctor_id
-              AND w.station   = 'LICH_KHAM'
+              AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
               AND w.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
          )
@@ -146,7 +146,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
            SELECT 1 FROM public.work_roster wg
             WHERE wg.clinic_id = $1::uuid
               AND wg.staff_id  = t.bac_si_da_go_id
-              AND wg.station   = 'LICH_KHAM'
+              AND public.la_ca_kham_bac_si(wg.clinic_id, wg.station)
               AND wg.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
          )

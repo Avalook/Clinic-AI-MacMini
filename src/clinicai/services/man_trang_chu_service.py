@@ -153,7 +153,7 @@ class ManTrangChuService:
                 SELECT work_date, staff_id, staff_name FROM work_roster
                  WHERE clinic_id = $1::uuid
                    AND work_date = ANY($2::date[])
-                   AND station = 'LICH_KHAM'
+                   AND public.la_ca_kham_bac_si(clinic_id, station)
                    AND status = 'APPROVED'
                    AND staff_id IS NOT NULL
                 """,

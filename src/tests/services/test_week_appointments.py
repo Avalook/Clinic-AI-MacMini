@@ -204,7 +204,7 @@ def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
     assert "AS mat_bac_si" in _SQL, "truy vấn phải trả cờ mất bác sĩ"
     dau = _SQL.index("AS mat_bac_si")
     khoi = _SQL[max(0, dau - 900) : dau]
-    assert "'LICH_KHAM'" in khoi, (
+    assert "la_ca_kham_bac_si" in khoi, (
         "phải hỏi ca KHÁM, không phải mọi trạm: một bác sĩ còn ca thủ thuật "
         "ngoài giờ vẫn là mất bác sĩ đối với lịch hẹn khám"
     )
@@ -247,7 +247,7 @@ def test_hai_tinh_huong_mat_bac_si_duoc_phan_biet() -> None:
     dau = _SQL.index("AS bs_go_co_ca_lai")
     khoi = _SQL[max(0, dau - 700) : dau]
     assert "t.bac_si_da_go_id" in khoi, "cờ phải hỏi về CHÍNH bác sĩ bị gỡ"
-    assert "'LICH_KHAM'" in khoi, (
+    assert "la_ca_kham_bac_si" in khoi, (
         "phải hỏi ca KHÁM: có ca thủ thuật trở lại không có nghĩa là ngồi "
         "bàn khám trở lại"
     )

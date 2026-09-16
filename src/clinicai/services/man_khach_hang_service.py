@@ -87,7 +87,7 @@ class ManKhachHangService:
                 SELECT staff_id, work_date, NULL::date AS tuan_cong_bo
                   FROM work_roster
                  WHERE clinic_id = $1::uuid
-                   AND station = 'LICH_KHAM'
+                   AND public.la_ca_kham_bac_si(clinic_id, station)
                    AND staff_id IS NOT NULL
                    AND work_date >=
                        (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1

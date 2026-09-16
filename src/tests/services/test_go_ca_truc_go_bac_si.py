@@ -33,7 +33,7 @@ def test_go_trong_cung_giao_dich_voi_viec_xoa_ca() -> None:
 def test_chi_ca_kham_moi_dung_toi_lich_hen() -> None:
     """Gỡ ca thủ thuật ngoài giờ KHÔNG đụng lịch hẹn khám — hai việc khác nhau."""
     src = _nguon()
-    assert 'row["station"] != "LICH_KHAM"' in src
+    assert 'row["station"] not in MA_CA_KHAM_BAC_SI' in src
 
 
 def test_huy_theo_khung_phu_con_lai_khong_theo_ngay() -> None:
@@ -61,3 +61,22 @@ def test_chi_go_lich_con_cuu_duoc_va_nho_nguoi_bi_go() -> None:
         "hẹn với một người cụ thể và CSKH sắp phải gọi giải thích"
     )
     assert "appointment.doctor_removed" in src, "phải ghi vào sổ sự kiện"
+
+
+def test_ma_ca_kham_python_khop_vi_tri_bac_si_cua_lich_moi() -> None:
+    """Bản Python = LICH_KHAM + các vị trí BÁC SĨ của lịch Kim Ngưu (khớp hàm DB
+    `la_ca_kham_bac_si`). Hỏi bệnh ban đầu là CHUNG (20260916000012) nên không có."""
+    from clinicai.services.config_service import MA_CA_KHAM_BAC_SI
+
+    assert MA_CA_KHAM_BAC_SI == {
+        "LICH_KHAM",
+        "T1_BS_NOITIET",
+        "T1_TT_BS",
+        "T1_TTNG_BS",
+        "T1_SA_BS",
+        "T4_SA_BS1",
+        "T4_SA_BS2",
+        "T4_SANCHAU_BS",
+        "T4_SANCHAU_BSTT",
+        "T4_SAN_BS",
+    }

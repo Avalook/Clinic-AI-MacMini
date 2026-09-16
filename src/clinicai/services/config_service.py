@@ -46,6 +46,24 @@ from clinicai.core.shifts import (
 
 logger = structlog.get_logger()
 
+#: Mã vị trí là CA KHÁM của bác sĩ — `LICH_KHAM` (mẫu cũ) và mọi vị trí bác sĩ của
+#: lịch Kim Ngưu. Bản Python của hàm DB `public.la_ca_kham_bac_si` (migration
+#: 20260917000004), dùng ở chỗ đã có sẵn dòng lịch trong tay.
+MA_CA_KHAM_BAC_SI: frozenset[str] = frozenset(
+    {
+        "LICH_KHAM",
+        "T1_BS_NOITIET",
+        "T1_TT_BS",
+        "T1_TTNG_BS",
+        "T1_SA_BS",
+        "T4_SA_BS1",
+        "T4_SA_BS2",
+        "T4_SANCHAU_BS",
+        "T4_SANCHAU_BSTT",
+        "T4_SAN_BS",
+    }
+)
+
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
 
@@ -191,7 +209,7 @@ class RosterService:
             # tự tươi qua realtime, nhưng màn chỉ nói với người ĐANG NHÌN —
             # tin Telegram mới gọi được người đang làm việc khác quay lại xếp.
             # Chỉ ca ĐÃ DUYỆT: đăng ký PENDING chưa phải ca trực.
-            if station == "LICH_KHAM" and is_admin:
+            if station in MA_CA_KHAM_BAC_SI and is_admin:
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=str(row_id),
@@ -549,7 +567,7 @@ class RosterService:
                         ),
                     )
 
-                if row["station"] != "LICH_KHAM" or row["staff_id"] is None:
+                if row["station"] not in MA_CA_KHAM_BAC_SI or row["staff_id"] is None:
                     return {"so_lich_cho_xep": 0, "gio": []}
 
                 # HỢP CÁC CA CÒN LẠI của bác sĩ hôm đó — loại trừ chính ca đang
@@ -570,7 +588,8 @@ class RosterService:
                              WHERE id = $1::uuid) AS settings
                       FROM public.work_roster w
                      WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
-                       AND w.work_date = $3 AND w.station = 'LICH_KHAM'
+                       AND w.work_date = $3
+                       AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
                        AND w.id <> $4::uuid
                        AND coalesce(w.status, 'APPROVED') = 'APPROVED'
                     """,
