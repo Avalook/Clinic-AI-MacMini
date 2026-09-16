@@ -579,6 +579,23 @@ async def main() -> int:
             "phien_id": ph["id"],
         }
 
+    async def kham_xong(appointment_id: str) -> bool:
+        """Đóng lượt khám. KHÔNG có bước này thì quầy thu ngân rỗng.
+
+        Luật 1 của quầy (cashier_board_service): chỉ hiện bệnh nhân khi bác sĩ
+        đã khám xong — `appointment.status = 'COMPLETED'`. Luật ấy đúng: thu
+        tiền một lượt còn đang khám là thu trước khi biết hết phải thu những gì.
+
+        Nhưng nó có nghĩa là khách dựng ra ở trạng thái "đang khám" thì KHÔNG ai
+        thấy ở quầy, và màn thu ngân trông y hệt như đang hỏng.
+        """
+        st, _ = await phien["quanly"].goi(
+            "PATCH",
+            f"/api/v1/appointments/{appointment_id}",
+            json={"action": "complete"},
+        )
+        return st in (200, 201)
+
     # Hai quầy thu ngân là tài khoản THEO VỊ TRÍ, mới có từ 16/09 — máy nào chưa
     # có thì bỏ nhóm ấy và NÓI RA, đừng để script chết giữa chừng và bỏ dở cả
     # những nhóm sau nó.
@@ -619,9 +636,9 @@ async def main() -> int:
                     ],
                 },
             )
-            ok = st in (200, 201)
+            ok = st in (200, 201) and await kham_xong(ban["appointment_id"])
             da.append((TEN[i], "có đơn thuốc, chờ thu ngân thuốc"))
-            noi = f"đơn {thuoc}" if ok else f"KHÔNG kê được ({st})"
+            noi = f"đơn {thuoc}, đã khám xong" if ok else f"KHÔNG kê được ({st})"
             print(f"   {TEN[i]:<24} {noi}")
 
     # ── I. 2 khách có DỊCH VỤ chờ trả tiền ────────────────────────────────
@@ -643,7 +660,7 @@ async def main() -> int:
                 headers=khoa(),
                 json={"service_codes": [dvu["ma"]]},
             )
-            ok = st in (200, 201)
+            ok = st in (200, 201) and await kham_xong(ban["appointment_id"])
             if ok:
                 cho_thu.append((TEN[i], ban["visit_id"]))
             da.append((TEN[i], "có dịch vụ, chờ thu ngân dịch vụ"))
@@ -663,12 +680,17 @@ async def main() -> int:
                 headers=khoa(),
                 json={"service_codes": [dvu["ma"]]},
             )
+            await kham_xong(ban["appointment_id"])
             st, phi = await tn_dv.goi(
                 "GET", f"/api/v1/visits/{ban['visit_id']}/charges"
             )
             # Trả ĐÚNG số tiền hệ thống tính, không bịa một con số tròn: một khoản
             # thu lệch với bảng giá là thứ người thử sẽ tưởng là lỗi của phần mềm.
-            tien = (phi or {}).get("total") or (phi or {}).get("tong") or 0
+            #
+            # `outstanding` = còn phải trả, KHÔNG phải `subtotal`. Hai số ấy chỉ
+            # bằng nhau khi chưa ai thu đồng nào; lấy nhầm là thu chồng lên phần
+            # đã thu, và quầy thu ngân hiện ra số âm.
+            tien = (phi or {}).get("outstanding") or 0
             st, r = await tn_dv.goi(
                 "POST",
                 "/api/v1/payments",
@@ -681,7 +703,7 @@ async def main() -> int:
             )
             ok = st in (200, 201)
             da.append((TEN[24], "đã trả tiền xong"))
-            noi = f"đã thu {tien}" if ok else f"KHÔNG thu được ({st} {str(r)[:80]})"
+            noi = f"đã thu {tien}đ" if ok else f"KHÔNG thu được ({st} {str(r)[:90]})"
             print(f"   {TEN[24]:<24} {noi}")
 
     # ── L. 2 khách có chỉ định GỬI RA NGOÀI ───────────────────────────────
