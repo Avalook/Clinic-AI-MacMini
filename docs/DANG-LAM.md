@@ -58,6 +58,10 @@ Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm t
 
 **Vai theo vị trí hôm nay (072245f, đã lên final cloud):** tài khoản Điều dưỡng Minh Thư đứng Lễ tân + Thu ngân bị 403 ở thu ngân/check-out/đặt lịch/kho thuốc/bảng giá và Tạo bệnh nhân đá về trang chủ. Nay danh tính mang `vai_theo_vi_tri` (Lễ tân/Điều dưỡng/Trưởng ca — KHÔNG BAO GIỜ bác sĩ, BS SA, thư ký, quản lý); cửa gác bị từ chối theo vai tài khoản mà vị trí cho phép thì đi tiếp dưới vai vị trí. Giao diện: `getVaiHomNay`/`vaiLamViec` (lib/clinic-session.ts). Dò lại bằng token Minh Thư: 7/7 cửa 200.
 
+**Hai tầng vai (30b8497 + trang chủ theo vị trí, đã lên final cloud):** giấy phép = vai tài khoản (bác sĩ, BS SA, thư ký, quản lý, CSKH — lịch không vượt qua được); việc hôm nay = vị trí trong lịch (lễ tân, điều dưỡng, trưởng ca). `lib/clinic-session.ts`: `getVaiHomNay` (vị trí trước, tài khoản cuối), `getVaiChinh` (HIỂN THỊ), `vaiLamViec` (QUYỀN, xét mọi vai). 38 trang/route thôi đọc vai tài khoản; bài kiểm `vai-hom-nay-boundary` cấm tái phát. Nhật ký ghi `vai_tai_khoan`. Trang chủ: khối "Việc của bạn hôm nay"; "Điền sinh hiệu" chỉ cho người đứng Đo chỉ số.
+Tự kiểm theo lịch 16/09 bằng cookie phiên thật (script scratchpad `tu-kiem-lich.py`, cookie `clinicai-auth`, base64- + chia 3180): 12/12 tài khoản mở đủ trang + API; Minh Thư → Tổng quan tiếp nhận + nhóm Lễ tân.
+**Chưa tắt công tắc MO_QUYEN_TAM_THOI** (cố ý): 4 người hôm nay chỉ có mã lịch cũ (LE_TAN, PHU_BS_SA, MAY_TRONG, TLYK) — tắt thì họ bị siết về vai tài khoản. Xếp lại lịch trước, rồi tắt.
+
 **CÒN LẠI (chưa làm, cố ý):**
 1. Bảng giá gần như trống → dòng thu tiền ra `None`.
 2. Phiếu siêu âm phụ khoa có ô cấu trúc (`sieu-am/KetQuaPhuKhoa.tsx`) chưa nối vào Phòng siêu âm — hiện ô mô tả tự do + tệp.
