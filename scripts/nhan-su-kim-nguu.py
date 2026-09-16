@@ -122,6 +122,30 @@ def slug(ten: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", bo_dau(ten)).strip("-")
 
 
+def khoa_goi(s: str) -> str:
+    """Khoá gộp các cách viết CỦA CÙNG MỘT TÊN, và chỉ của cùng một tên.
+
+    Giữ nguyên tiền tố chức danh — `BS Hằng` và `ĐD Hằng` là HAI NGƯỜI, gộp
+    chúng lại là gán ca của bác sĩ cho điều dưỡng. Chỉ gộp thứ vốn là một:
+    khoảng trắng thừa (`"Hải Yến "` ↔ `"Hải Yến"`), dấu chấm (`BS.` ↔ `BS`),
+    và `BS SA` ↔ `BS` vì lịch viết cả hai cho cùng người.
+    """
+    t = bo_dau(s).replace(".", " ")
+    t = re.sub(r"^bs\s+sa\s+", "bs ", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
+#: Ô không phải MỘT NHÂN SỰ của phòng khám. Ba loại, ba lý do khác nhau:
+#:   • "(Nam khoa)" là chuyên khoa của bác sĩ ở ô trên, "HSS" là một đầu việc —
+#:     ghi chú lọt vào ô tên.
+#:   • "NGHỈ" là trạng thái, không phải người.
+#:   • "Green Lab" LÀ một bên có thật, nhưng là ĐỐI TÁC ngoài phòng khám, không
+#:     phải nhân sự — họ đã có tài khoản `doi-tac-pk`, và vị trí `T1_LAYMAU`
+#:     khai `nhom_nghe = DOI_TAC` chính vì ô này.
+#: Không lọc thì script đi tạo hồ sơ nhân sự cho cả bốn.
+KHONG_PHAI_NGUOI = {"(nam khoa)", "hss", "nghi", "green lab"}
+
+
 def doc_excel(duong_dan: str) -> tuple[list[dict[str, Any]], dict[str, Counter]]:
     """Trả (danh sách nhân sự, {tên gọi trong lịch: Counter(mã vị trí)})."""
     import openpyxl  # chỉ cần khi đọc .xlsx — máy chủ không có, và không cần
@@ -184,6 +208,21 @@ def doc_excel(duong_dan: str) -> tuple[list[dict[str, Any]], dict[str, Counter]]
                     t = t.strip()
                     if t and t.upper() != "NGHỈ":
                         vi_tri[t][ma] += 1
+    # Gộp các cách viết của cùng một tên. Làm ở đây, TRƯỚC khi dò hồ sơ: để sót
+    # thì một người ra hai dòng `khop`, và dòng sau ghi đè số ca của dòng trước
+    # bằng con số nhỏ hơn — bảng vị trí nói sai mà không có lỗi nào để thấy.
+    gop: dict[str, Counter] = defaultdict(Counter)
+    ten_dep: dict[str, str] = {}
+    for ten, dem in vi_tri.items():
+        if bo_dau(ten) in KHONG_PHAI_NGUOI:
+            continue
+        k = khoa_goi(ten)
+        gop[k].update(dem)
+        # Giữ cách viết ĐẦY ĐỦ nhất làm tên hiển thị: "BS. Hoàng" thắng "BS Hoàng"
+        # chỉ khi nó dài hơn, nên "Ngọc Giầu" thắng "Giầu".
+        if len(ten.strip()) > len(ten_dep.get(k, "")):
+            ten_dep[k] = ten.strip()
+    vi_tri = {ten_dep[k]: v for k, v in gop.items()}
     return ds, vi_tri
 
 
@@ -237,31 +276,85 @@ async def main() -> int:
             """,
             clinic_id,
         )
-        # Tra hồ sơ theo TÊN GỌI: database lưu "BS SA Tiến", lịch ghi "BS. Tiến".
-        theo_goi: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for r in hien_co:
-            theo_goi[goi_gon(r["full_name"])].append(dict(r))
 
-        # Danh sách Excel cũng tra theo tên gọi = hai chữ cuối của tên đầy đủ.
-        excel_theo_goi: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for n in ds:
-            w = bo_dau(n["ten_day_du"]).split()
-            excel_theo_goi[" ".join(w[-2:]) if len(w) >= 2 else " ".join(w)].append(n)
+        # SO THEO TẬP CHỮ TRONG TÊN, không so chuỗi.
+        #
+        # Người xếp lịch viết tên theo thứ tự nào tiện: "Phạm Hà" và "Hà Phạm"
+        # và "Phạm Thị Hà" là MỘT người; "Trang Lê" và "Huyền Trang" cũng vậy
+        # (Lê Huyền Trang). So chuỗi thì ba cách viết ra ba người, và phòng
+        # khám có ba hồ sơ cho một điều dưỡng.
+        #
+        # Luật: tập chữ của tên gọi phải là TẬP CON của tập chữ tên đầy đủ.
+        # "ha pham" ⊂ {pham, thi, ha} ✓ · "huyen trang" ⊂ {le, huyen, trang} ✓
+        # "van anh" ⊂ {nguyen, van, anh} ✓ — và cũng ⊂ {vu, hoang, van, anh},
+        # nên nó ra HAI người và rơi vào nhóm mơ hồ, đúng như phải thế.
+        def chu(s: str) -> frozenset[str]:
+            return frozenset(goi_gon(s).split())
+
+        def trung(a: frozenset[str], b: frozenset[str]) -> bool:
+            """Hai cách viết CÓ THỂ là một người không.
+
+            MỘT CHỮ TRÙNG KHÔNG PHẢI BẰNG CHỨNG. Bản trước chỉ đòi tập con, nên
+            {thành} ⊂ {thanh, huyền} và điều dưỡng **Thanh Huyền** bị gán thành
+            **BS Thành** — tám ca đo chỉ số và lấy máu chui vào hồ sơ của người
+            gánh 27 ca khám. Một dòng sai đủ để đọc sai cả tải của phòng khám.
+
+            Nên: bằng nhau thì nhận; là tập con thì phải có ÍT NHẤT HAI chữ.
+            """
+            if not a or not b:
+                return False
+            if a == b:
+                return True
+            nho, lon = (a, b) if len(a) < len(b) else (b, a)
+            return len(nho) >= 2 and nho <= lon
+
+        db_chu = [(chu(r["full_name"]), dict(r)) for r in hien_co]
+        ex_chu = [(chu(n["ten_day_du"]), n) for n in ds]
+
+        def do_db(ten: str) -> list[dict[str, Any]]:
+            c = chu(ten)
+            return [h for k, h in db_chu if trung(c, k)]
+
+        def do_excel(ten: str) -> list[dict[str, Any]]:
+            c = chu(ten)
+            return [n for k, n in ex_chu if trung(c, k)]
 
         khop: list[tuple[str, dict[str, Any], Counter]] = []
         mo_ho: list[tuple[str, int, list[str]]] = []
         chua_co: list[tuple[str, Counter]] = []
         for ten_lich, dem in sorted(vi_tri.items(), key=lambda x: -sum(x[1].values())):
-            goi = goi_gon(PHAN_XU.get(ten_lich, ten_lich))
-            ho_so = theo_goi.get(goi, [])
+            ten_tra = PHAN_XU.get(ten_lich, ten_lich)
+            ho_so = do_db(ten_tra)
+            # Cùng một hồ sơ dò ra nhiều lần thì vẫn là một người.
+            ho_so = list({h["staff_id"]: h for h in ho_so}.values())
             if len(ho_so) > 1:
-                ten_ai = [h["full_name"] for h in ho_so]
-                mo_ho.append((ten_lich, sum(dem.values()), ten_ai))
+                mo_ho.append(
+                    (ten_lich, sum(dem.values()), [h["full_name"] for h in ho_so])
+                )
                 continue
             if len(ho_so) == 1:
                 khop.append((ten_lich, ho_so[0], dem))
                 continue
             chua_co.append((ten_lich, dem))
+
+        # HAI TÊN GỌI CÙNG TRỎ VỀ MỘT NGƯỜI. Xảy ra khi lịch viết "Trang Lê" chỗ
+        # này và "Huyền Trang" chỗ kia. Gộp số ca lại, giữ cách viết nhiều ca
+        # hơn, và NÓI RA — vì đây là suy đoán, dù là suy đoán có căn cứ.
+        gop_nguoi: dict[str, list[tuple[str, Counter]]] = defaultdict(list)
+        for ten_lich, h, dem in khop:
+            gop_nguoi[h["staff_id"]].append((ten_lich, dem))
+        da_gop: list[tuple[str, list[str]]] = []
+        khop_gon: list[tuple[str, dict[str, Any], Counter]] = []
+        theo_id = {h["staff_id"]: h for _, h, _ in khop}
+        for sid, cac in gop_nguoi.items():
+            tong: Counter = Counter()
+            for _, dem in cac:
+                tong.update(dem)
+            chinh = max(cac, key=lambda x: sum(x[1].values()))[0]
+            if len(cac) > 1:
+                da_gop.append((theo_id[sid]["full_name"], [t for t, _ in cac]))
+            khop_gon.append((chinh, theo_id[sid], tong))
+        khop = sorted(khop_gon, key=lambda x: -sum(x[2].values()))
 
         print(f"── KHỚP {len(khop)} người ──")
         for ten_lich, h, dem in khop:
@@ -276,10 +369,15 @@ async def main() -> int:
             for ten_lich, so_ca, ai in mo_ho:
                 print(f"    {ten_lich!r} ({so_ca} ca) ← {' / '.join(ai)}")
 
+        if da_gop:
+            print(f"\n≡ HAI CÁCH VIẾT, MỘT NGƯỜI — đã gộp ({len(da_gop)}):")
+            for ten, cac in da_gop:
+                print(f"    {ten:<24} ← {' + '.join(cac)}")
+
         if chua_co:
             print(f"\n+ CHƯA CÓ HỒ SƠ {len(chua_co)} tên:")
             for ten_lich, dem in chua_co:
-                trong_excel = excel_theo_goi.get(goi_gon(ten_lich), [])
+                trong_excel = do_excel(ten_lich)
                 nguon = (
                     trong_excel[0]["ten_day_du"]
                     if trong_excel
@@ -320,7 +418,7 @@ async def main() -> int:
                 # Tên đầy đủ + số điện thoại, nếu danh sách có. Tên gọi cũ giữ
                 # lại ở `short_name`: bảng xếp lịch và màn TV đang hiện tên ấy,
                 # và người trong phòng khám gọi nhau bằng tên ấy.
-                trong_excel = excel_theo_goi.get(goi_gon(ten_lich), [])
+                trong_excel = do_excel(ten_lich)
                 if len(trong_excel) == 1:
                     n = trong_excel[0]
                     await conn.execute(
@@ -352,10 +450,25 @@ async def main() -> int:
             # Người có trong Excel mà chưa có hồ sơ nào.
             them = 0
             for ten_lich, dem in chua_co:
-                trong_excel = excel_theo_goi.get(goi_gon(ten_lich), [])
+                trong_excel = do_excel(ten_lich)
                 if len(trong_excel) != 1:
                     continue  # không có trong danh sách nhân sự → không đoán vai
                 n = trong_excel[0]
+                # CHỐT CUỐI: tên đầy đủ có trỏ về một hồ sơ ĐÃ CÓ không?
+                #
+                # Lịch ghi "Trang Lê" chỗ này và "Huyền Trang" chỗ kia. Cách viết
+                # đầu khớp hồ sơ `ĐD Trang Lê`; cách viết sau không khớp gì, nên
+                # rơi xuống đây — và nếu cứ thế tạo thì phòng khám có hai hồ sơ
+                # cho một điều dưỡng, hai dòng trong mọi ô chọn người, KPI chia
+                # đôi. Dò lại bằng TÊN ĐẦY ĐỦ trước khi tạo.
+                da_co = do_db(n["ten_day_du"])
+                if da_co:
+                    ten_cu = " / ".join(h["full_name"] for h in da_co)
+                    print(
+                        f"  ≡ {ten_lich:<16} {n['ten_day_du']} trùng hồ sơ đã có "
+                        f"({ten_cu}) — KHÔNG tạo, cần Tuyền xác nhận"
+                    )
+                    continue
                 tk = slug(n["ten_day_du"])
                 email = f"{tk}@{TEN_MIEN}"
                 r = await http.post(
