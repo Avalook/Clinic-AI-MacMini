@@ -41,15 +41,10 @@ lịch sử hội thoại.
 
 Đã sửa + lên final cloud trong lúc thao tác: số tiếp đón chung của quầy (`appointment.so_tiep_don`, số riêng bác sĩ giữ); Trang chủ ẩn bác sĩ không có lịch; Trang chủ lễ tân không còn báo "Đang khám" ngay sau check-in; Trang chủ điều dưỡng đọc cờ đã đo từ Đo sinh hiệu + nút dẫn sang màn đo; thư ký đã phân không còn báo "chưa được phân" khi công tắc mở quyền bật; check-in mang loại khám sang lượt (hết "Chưa gán dịch vụ"); phiếu khám lưu theo ô (hai người gõ hai ô cùng lúc không đè nhau).
 
-**CÒN PHẢI SỬA (Tuyền: "nhớ sửa sau")**
-1. Nút "Ký bệnh án" báo thiếu lý do khám/chẩn đoán dù phiếu Nội tiết đã điền — bệnh án (SOAP) và phiếu chuyên khoa là hai bản riêng.
-2. Chỉ định đối tác (chụp vú ép) hiện "Đã duyệt — chờ xếp phòng" → nên "Đã gửi đối tác".
-3. Điều phối ca: "Tầng Tầng 1"; cột Kế tiếp "Chưa có tuyến" + cảnh báo "chưa được chọn tuyến điều phối" (tuyến đã bỏ); cột số hiện số riêng bác sĩ, chưa phải số tiếp đón chung.
-4. CSKH: chip vẫn "Đã check-in — đang chờ khám" khi khách đã qua các phòng; ô "Có kết quả xét nghiệm" báo "Bác sĩ đã cho phép gửi" ngay khi có tệp siêu âm/thủ thuật (đè mất trạng thái đối tác); ô "Đã làm thủ thuật" nói "Lượt này không có thủ thuật" (đọc work_item luồng cũ).
-5. Thanh bên đối tác có "Lịch làm việc" (thừa).
-6. Bệnh án: bấm "Thêm thuốc" rồi gõ, bản tự lưu chạy giữa chừng làm MẤT dòng thuốc đang gõ.
-7. Check-out lượt khám: danh sách việc vẫn liệt kê bước luồng cũ "Chưa làm" (Thanh toán, Sinh hiệu "Đang làm"…) dù đã thu đủ; visit.status vẫn IN_PROGRESS sau khi đóng (closed_at có).
-8. Nhỏ: Đo sinh hiệu không tự tính BMI; thông báo "Đã gọi" đẩy ô nhập xuống; Bàn khám không hiện ghi chú thực hiện thủ thuật ở cột kết quả; nhập cùng một ô cùng lúc thì người lưu sau thắng (Tuyền: chưa cần sửa).
+**ĐÃ SỬA 07:30–08:00 (kiểm lại 83/83 trên final cloud):** ký bệnh án tính phiếu chuyên khoa + sinh hiệu + ô lý do khám; việc đối tác hiện trạng thái đối tác (Bàn khám, trưởng ca); điều phối: "Tầng Tầng", số tiếp đón chung, bước kế theo chỉ định, bỏ cảnh báo tuyến; CSKH: chip "Đang ở: <phòng>" / "chờ đo sinh hiệu", ô kết quả XN chỉ tính tệp XN/đối tác, ô thủ thuật đọc service_order; đối tác bỏ "Lịch làm việc"; check-out đọc bước luồng mới; dòng thuốc gõ dở không mất; BMI tự tính (backend); thông báo đo sinh hiệu nằm dưới ô nhập.
+visit.status vẫn IN_PROGRESS sau đóng lượt là CHỦ Ý (mốc đóng = closed_at; FINALIZED dành cho ký bệnh án).
+
+**CÒN:** CSKH xem trước + tải PDF hồ sơ chưa bấm trên trình duyệt; ghi chú thủ thuật (Biofeedback) của Mai Anh lưu rỗng — chưa tái hiện được bằng API (API lưu đúng); 4 khách TEST- do bài kiểm tạo còn trên prod (chờ Tuyền cho xoá).
 
 ## -0018. Luồng demo đủ vai 17/09 (06:15) — 72/72 trên final cloud
 
