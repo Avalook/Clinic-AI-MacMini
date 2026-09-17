@@ -44,7 +44,9 @@ lịch sử hội thoại.
 **ĐÃ SỬA 07:30–08:00 (kiểm lại 83/83 trên final cloud):** ký bệnh án tính phiếu chuyên khoa + sinh hiệu + ô lý do khám; việc đối tác hiện trạng thái đối tác (Bàn khám, trưởng ca); điều phối: "Tầng Tầng", số tiếp đón chung, bước kế theo chỉ định, bỏ cảnh báo tuyến; CSKH: chip "Đang ở: <phòng>" / "chờ đo sinh hiệu", ô kết quả XN chỉ tính tệp XN/đối tác, ô thủ thuật đọc service_order; đối tác bỏ "Lịch làm việc"; check-out đọc bước luồng mới; dòng thuốc gõ dở không mất; BMI tự tính (backend); thông báo đo sinh hiệu nằm dưới ô nhập.
 visit.status vẫn IN_PROGRESS sau đóng lượt là CHỦ Ý (mốc đóng = closed_at; FINALIZED dành cho ký bệnh án).
 
-**CÒN:** CSKH xem trước + tải PDF hồ sơ chưa bấm trên trình duyệt; ghi chú thủ thuật (Biofeedback) của Mai Anh lưu rỗng — chưa tái hiện được bằng API (API lưu đúng); 4 khách TEST- do bài kiểm tạo còn trên prod (chờ Tuyền cho xoá).
+Thêm 08:00–08:20: CSKH ô "Có kết quả xét nghiệm" tin tệp của lượt (cờ la_ket_qua_xet_nghiem chuyển xuống màn); lưu bệnh án không ghi thêm lần đo sinh hiệu trùng (INSERT … WHERE NOT EXISTS, ô không gửi không tính là đổi). CSKH xem trước + tạo PDF (application/pdf ~330KB) đã bấm thật trên trình duyệt. Bài kiểm trọn luồng API: 84/84.
+
+**CÒN:** ghi chú thủ thuật (Biofeedback) của Mai Anh lưu rỗng khi bấm trên trình duyệt — API lưu đúng, chưa tái hiện; 8 khách TEST- do bài kiểm tạo còn trên prod (chờ Tuyền cho xoá).
 
 ## -0018. Luồng demo đủ vai 17/09 (06:15) — 72/72 trên final cloud
 
