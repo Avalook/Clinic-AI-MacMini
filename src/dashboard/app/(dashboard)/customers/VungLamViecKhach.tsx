@@ -855,9 +855,16 @@ export default function VungLamViecKhach({
   // Chỉ tệp XÉT NGHIỆM / đối tác mới bật ô này — tệp siêu âm, thủ thuật thì
   // không (17/09/2026: vừa có video siêu âm đã báo "Bác sĩ đã cho phép gửi").
   const tepXetNghiem = tepCuaLuot.filter((t) => t.la_ket_qua_xet_nghiem !== false);
-  const kqChoPhep =
-    tepXetNghiem.some((t) => t.cho_phep_gui_luc) || coViec("KQ_CHUA_GUI");
-  const kqDaVe = tepXetNghiem.length > 0 || coViec("CHO_BAC_SI") || kqChoPhep;
+  // Lượt ĐÃ có tệp trong tay → tin tệp (đã lọc riêng XN). Việc CSKH từ máy chủ
+  // (KQ_CHUA_GUI / CHO_BAC_SI) đếm MỌI tệp, kể cả video siêu âm, nên chỉ dùng
+  // làm dự phòng khi màn chưa nạp tệp của lượt này.
+  const coTep = tepCuaLuot.length > 0;
+  const kqChoPhep = coTep
+    ? tepXetNghiem.some((t) => t.cho_phep_gui_luc)
+    : coViec("KQ_CHUA_GUI");
+  const kqDaVe = coTep
+    ? tepXetNghiem.length > 0
+    : coViec("CHO_BAC_SI") || kqChoPhep;
   const viecDoiTac = lich.doi_tac ?? [];
   const doiTacChuaGui = viecDoiTac.filter((d) => d.trang_thai !== "DA_GUI_KET_QUA");
   const kqChoDoiTac = coViec("CHO_KQ_XN") || doiTacChuaGui.length > 0;
