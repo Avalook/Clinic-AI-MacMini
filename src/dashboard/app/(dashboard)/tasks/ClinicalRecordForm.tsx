@@ -451,7 +451,20 @@ export default function ClinicalRecordForm({
         setF(nextF);
         setTk(nextTk);
         setPm(nextPm);
-        setRx(nextRx);
+        // Giữ dòng thuốc MỚI chưa lên máy chủ (chưa có id, chưa trùng tên dòng nào
+        // vừa nạp) — không thì bản nạp lại xoá dòng người dùng đang gõ dở.
+        setRx((cur) => [
+          ...nextRx,
+          ...(isCurrent
+            ? cur.filter(
+                (r) =>
+                  !r.id &&
+                  !nextRx.some(
+                    (n) => n.drug_name.trim() !== "" && n.drug_name.trim() === r.drug_name.trim(),
+                  ),
+              )
+            : []),
+        ]);
         // Dựng danh sách lượt khám 1 lần: [lượt này] + lịch sử (mới → cũ).
         if (isCurrent && pagesRef.current.length === 0) {
           const built: PageRef[] = [
@@ -698,6 +711,16 @@ export default function ClinicalRecordForm({
     // Tự lưu: im lặng bỏ qua khi chưa lưu được (đang lưu, đang tải, có bản mới
     // từ bên kia) — lần gõ sau sẽ thử lại; không nhảy tab, không bật lỗi.
     if (tuDong && (saving || loading || !data || remoteChanged || arrivalPending)) return;
+    // DÒNG THUỐC ĐANG GÕ DỞ (17/09/2026): bấm "Thêm thuốc" rồi gõ, bản tự lưu chạy
+    // giữa chừng gửi một dòng thiếu tên/số lượng/cách dùng; máy chủ bỏ dòng ấy, lần
+    // nạp lại xoá luôn dòng người dùng đang gõ. Chưa đủ ba ô thì chưa tự lưu.
+    if (
+      tuDong &&
+      !(canSign && data?.prescription_draft) &&
+      rx.some((r) => !r.drug_name.trim() || !r.quantity.trim() || !r.dosage.trim())
+    ) {
+      return;
+    }
     if (remoteChanged) {
       setMsg("Hồ sơ đã có thay đổi. Tải và đối chiếu bản mới trước khi lưu.");
       return;
