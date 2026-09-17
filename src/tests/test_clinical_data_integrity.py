@@ -179,7 +179,10 @@ async def test_clinical_record_save_locks_visit_and_record_before_merge() -> Non
     ]
     conn.fetchval.side_effect = [False, 2]
 
-    await ClinicalRecordService(pool).save(
+    service = ClinicalRecordService(pool)
+    # Đẩy lượt khám sang luồng mới có bài kiểm riêng — ở đây chỉ kiểm thứ tự khoá.
+    service._dong_bo_luong_kham = AsyncMock()  # type: ignore[method-assign]
+    await service.save(
         appointment_id=APPOINTMENT_ID,
         clinic_patient_id=PATIENT_ID,
         identity=_identity(ClinicRole.DOCTOR),

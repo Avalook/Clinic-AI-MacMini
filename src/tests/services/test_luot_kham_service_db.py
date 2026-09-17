@@ -198,6 +198,36 @@ async def _vao_kham(kb: KichBan) -> str:
 # ---------------------------------------------------------------------------
 
 
+async def test_sinh_hieu_luu_qua_benh_an_van_vao_hang_cho_bac_si(kb: KichBan) -> None:
+    """17/09/2026: ĐD lưu sinh hiệu qua biểu mẫu bệnh án (đường cũ) — khách
+    phải vào hàng chờ bác sĩ y như đo ở màn Đo sinh hiệu, không kẹt lại."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO vital_measurement (clinic_id, visit_id, systolic, diastolic,"
+            " recorded_by) VALUES ($1::uuid, $2::uuid, 120, 80, $3::uuid)",
+            kb.dieu_duong.clinic_id,
+            kb.visit_id,
+            kb.dieu_duong.staff_id,
+        )
+        async with conn.transaction():
+            route = await kb.svc.dong_bo_sinh_hieu_tu_ho_so(
+                conn, kb.dieu_duong, kb.visit_id
+            )
+        assert route == "PRIMARY"
+        # Gọi lại không mở thêm gì.
+        async with conn.transaction():
+            assert (
+                await kb.svc.dong_bo_sinh_hieu_tu_ho_so(
+                    conn, kb.dieu_duong, kb.visit_id
+                )
+                == "PRIMARY"
+            )
+    board = await kb.svc.bang(identity=kb.bac_si)
+    luot = _cua(board, kb.visit_id)
+    assert luot["sinh_hieu_trang_thai"] == "recorded"
+    assert [q["hang"] for q in luot["hang_cho"]] == ["DOCTOR"]
+
+
 async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     svc = kb.svc
     r = await svc.record_vitals(

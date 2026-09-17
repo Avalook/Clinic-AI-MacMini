@@ -66,6 +66,7 @@ def setup_service(revision: int) -> tuple[Any, AsyncMock]:
     service._writable_visit = AsyncMock(return_value=VISIT)  # type: ignore[method-assign]
     service._save_profile = AsyncMock()  # type: ignore[method-assign]
     service._replace_prescriptions = AsyncMock()  # type: ignore[method-assign]
+    service._dong_bo_luong_kham = AsyncMock()  # type: ignore[method-assign]
     return service, conn
 
 

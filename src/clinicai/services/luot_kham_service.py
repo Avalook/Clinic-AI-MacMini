@@ -1671,6 +1671,59 @@ class LuotKhamService:
             )
         return {"ok": True, "lan_goi_lai": bool(lan_goi_lai)}
 
+    async def dong_bo_sinh_hieu_tu_ho_so(
+        self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str
+    ) -> str | None:
+        """Sinh hiệu lưu qua BIỂU MẪU BỆNH ÁN (đường cũ) cũng đẩy khách vào luồng.
+
+        17/09/2026: ĐD Huế lưu sinh hiệu cho khách "Khám Hôm Na" qua biểu mẫu
+        bệnh án (bấm tên khách ở Trang chủ) — `vital_measurement` có dòng nhưng
+        `encounter_flow` không biết "đã đo", không quyết tuyến, không mở phiên
+        khám, nên bác sĩ và thư ký KHÔNG BAO GIỜ thấy khách trong hàng chờ.
+        Chạy trong CÙNG giao dịch của lệnh lưu. Chưa có huyết áp thì chưa đủ
+        điều kiện (luật I8) — để nguyên như màn Đo sinh hiệu.
+        """
+        cid = identity.clinic_id
+        co_huyet_ap = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM vital_measurement
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                   AND systolic IS NOT NULL AND diastolic IS NOT NULL)
+            """,
+            cid,
+            visit_id,
+        )
+        if not co_huyet_ap:
+            return None
+        visit = await self._lock_visit(conn, cid, visit_id)
+        flow = await self._lock_flow(conn, cid, visit_id)
+        if flow["vitals_status"] == "recorded":
+            return str(flow["route_decision"]) if flow["route_decision"] else None
+        await conn.execute(
+            """
+            UPDATE encounter_flow
+               SET vitals_status = 'recorded',
+                   content_revision = content_revision + 1,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+            """,
+            cid,
+            visit_id,
+        )
+        await record_event(
+            conn,
+            event_type="vitals.recorded",
+            aggregate_type="visit",
+            aggregate_id=visit_id,
+            identity=identity,
+            origin=ORIGIN,
+            payload={"visit_id": visit_id, "qua": "ho_so_benh_an"},
+        )
+        route = await self._decide_route(conn, identity, visit)
+        await self._cap_nhat_vi_tri(conn, cid, visit_id)
+        return route
+
     async def record_vitals(
         self,
         *,

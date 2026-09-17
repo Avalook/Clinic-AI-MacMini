@@ -389,6 +389,10 @@ class ClinicalRecordService:
                         clinic_patient_id=clinic_patient_id,
                         vitals=vitals_moi,
                     )
+                    # Đường cũ cũng phải đẩy khách vào hàng chờ bác sĩ/thư ký
+                    # như màn Đo sinh hiệu (17/09/2026) — xem
+                    # LuotKhamService.dong_bo_sinh_hieu_tu_ho_so.
+                    await self._dong_bo_luong_kham(conn, identity, str(visit_id))
 
                 if vitals_only:
                     revision = await self._save_vitals(
@@ -636,6 +640,16 @@ class ClinicalRecordService:
         if again["status"] not in WRITABLE_VISIT_STATUSES:
             raise ConflictError(f"Hồ sơ đã chốt ({again['status']}) — luật cấm sửa.")
         return again["visit_id"]
+
+    async def _dong_bo_luong_kham(
+        self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str
+    ) -> None:
+        """Đẩy lượt khám sang bước kế tiếp sau khi sinh hiệu lưu qua bệnh án."""
+        from clinicai.services.luot_kham_service import LuotKhamService
+
+        await LuotKhamService(self._pool).dong_bo_sinh_hieu_tu_ho_so(
+            conn, identity, visit_id
+        )
 
     async def _ghi_sinh_hieu(
         self,
