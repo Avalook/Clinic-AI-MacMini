@@ -852,9 +852,12 @@ export default function VungLamViecKhach({
 
   // ── Kết quả xét nghiệm của lượt: đối tác gửi → bác sĩ cho phép → CSKH gửi ──
   const coViec = (ma: string) => viecCuaLuot.some((v) => v.trang_thai === ma);
+  // Chỉ tệp XÉT NGHIỆM / đối tác mới bật ô này — tệp siêu âm, thủ thuật thì
+  // không (17/09/2026: vừa có video siêu âm đã báo "Bác sĩ đã cho phép gửi").
+  const tepXetNghiem = tepCuaLuot.filter((t) => t.la_ket_qua_xet_nghiem !== false);
   const kqChoPhep =
-    tepCuaLuot.some((t) => t.cho_phep_gui_luc) || coViec("KQ_CHUA_GUI");
-  const kqDaVe = tepCuaLuot.length > 0 || coViec("CHO_BAC_SI") || kqChoPhep;
+    tepXetNghiem.some((t) => t.cho_phep_gui_luc) || coViec("KQ_CHUA_GUI");
+  const kqDaVe = tepXetNghiem.length > 0 || coViec("CHO_BAC_SI") || kqChoPhep;
   const viecDoiTac = lich.doi_tac ?? [];
   const doiTacChuaGui = viecDoiTac.filter((d) => d.trang_thai !== "DA_GUI_KET_QUA");
   const kqChoDoiTac = coViec("CHO_KQ_XN") || doiTacChuaGui.length > 0;
@@ -863,7 +866,7 @@ export default function VungLamViecKhach({
     .join(" · ");
   const daTraKq =
     cacLan("TRA_KQ").some((d) => d.ket_qua === "DA_LIEN_HE") ||
-    (tepCuaLuot.length > 0 && tepCuaLuot.every((t) => t.gui_luc));
+    (tepXetNghiem.length > 0 && tepXetNghiem.every((t) => t.gui_luc));
 
   // ── Thủ thuật + theo dõi sau: bác sĩ quyết ──────────────────────────────────
   const hanTheoDoi =

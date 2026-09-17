@@ -136,9 +136,11 @@ class TestAlerts:
         alerts = build_alerts([_patient(current_node_code=None, room_code=None)], [])
         assert any(a["type"] == "missing_next_step" for a in alerts)
 
-    def test_a_patient_with_no_route_is_flagged(self) -> None:
+    def test_khong_con_bao_chua_chon_tuyen(self) -> None:
+        """Tuyến điều phối đã bỏ (16/09/2026) — cảnh báo "chưa được chọn tuyến"
+        báo nhầm cho mọi khách nên đã gỡ (17/09/2026)."""
         alerts = build_alerts([_patient(route_steps=None, next_step=None)], [_room()])
-        assert any(a["type"] == "no_route" for a in alerts)
+        assert not any(a["type"] == "no_route" for a in alerts)
 
     def test_the_message_is_a_sentence_not_a_code(self) -> None:
         """*"Lý do bệnh nhân bị chặn phải hiển thị bằng câu dễ hiểu… không hiển

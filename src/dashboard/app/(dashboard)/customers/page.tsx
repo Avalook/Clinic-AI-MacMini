@@ -937,6 +937,8 @@ type LichHenRaw = {
         coThuThuat: boolean;
         thuThuatXong: string | null;
         doiTac: ViecDoiTac[];
+        viTri: string | null;
+        daDo: boolean;
         theoDoi: string | null;
         theoDoiSauNgay: number | null;
       }
@@ -951,6 +953,8 @@ type LichHenRaw = {
       co_thu_thuat?: boolean | null;
       thu_thuat_xong_luc?: string | null;
       doi_tac?: ViecDoiTac[] | null;
+      vi_tri_hien_tai?: string | null;
+      da_do_sinh_hieu?: boolean | null;
     }[]) {
       if (!v.appointment_id) continue;
       visitTheoLich[v.appointment_id] = {
@@ -961,6 +965,8 @@ type LichHenRaw = {
         coThuThuat: Boolean(v.co_thu_thuat),
         thuThuatXong: v.thu_thuat_xong_luc ?? null,
         doiTac: v.doi_tac ?? [],
+        viTri: v.vi_tri_hien_tai ?? null,
+        daDo: Boolean(v.da_do_sinh_hieu),
         theoDoi: v.theo_doi_thu_thuat ?? null,
         theoDoiSauNgay: v.theo_doi_sau_ngay ?? null,
         // BA MỐC KẾT THÚC, ưu tiên theo độ chắc chắn: quầy đóng lượt >
@@ -978,6 +984,8 @@ type LichHenRaw = {
     for (const ap of Object.values(apptByPatient)) {
       if (ap.id && ap.status === "CHECKED_IN") {
         ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+        ap.vi_tri_hien_tai = visitTheoLich[ap.id]?.viTri ?? null;
+        ap.da_do_sinh_hieu = visitTheoLich[ap.id]?.daDo ?? false;
       }
     }
 
@@ -988,6 +996,8 @@ type LichHenRaw = {
     for (const ap of Object.values(apptByPatient)) {
       if (ap.id && ap.status === "CHECKED_IN") {
         ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+        ap.vi_tri_hien_tai = visitTheoLich[ap.id]?.viTri ?? null;
+        ap.da_do_sinh_hieu = visitTheoLich[ap.id]?.daDo ?? false;
       }
     }
 

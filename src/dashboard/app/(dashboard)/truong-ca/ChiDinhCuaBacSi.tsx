@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { tenTang } from "./shared";
+
 interface PhongLamDuoc {
   id: string;
   name: string;
@@ -31,6 +33,8 @@ interface ChiDinh {
   node_code: string;
   node_name: string | null;
   exec_status: string;
+  /** Việc đối tác làm — không xếp phòng của phòng khám. */
+  doi_tac?: boolean;
   version: number;
   room_id: string | null;
   room_name: string | null;
@@ -169,7 +173,9 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                   {x.service_name}
                 </span>
                 <span className="shrink-0 text-label text-ink-muted">
-                  {NHAN_TRANG_THAI[x.exec_status] ?? x.exec_status}
+                  {x.doi_tac && (x.exec_status === "authorized" || x.exec_status === "assigned")
+                    ? "Đã gửi đối tác"
+                    : NHAN_TRANG_THAI[x.exec_status] ?? x.exec_status}
                 </span>
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-label text-ink-muted">
@@ -177,7 +183,7 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                 {x.room_name && (
                   <span className="truncate">
                     · {x.room_name}
-                    {x.room_floor ? ` (tầng ${x.room_floor})` : ""}
+                    {x.room_floor ? ` (${tenTang(x.room_floor)})` : ""}
                   </span>
                 )}
                 {!x.xong && x.room_id && (
@@ -190,7 +196,7 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                   </span>
                 )}
               </div>
-              {!x.xong && chuyenDuoc(x) && x.phong_lam_duoc.length > 1 && (
+              {!x.xong && !x.doi_tac && chuyenDuoc(x) && x.phong_lam_duoc.length > 1 && (
                 <div className="mt-1.5 flex gap-1.5">
                   <select
                     id={`chuyen-phong-${x.id}`}

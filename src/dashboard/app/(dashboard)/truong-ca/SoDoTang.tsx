@@ -12,6 +12,7 @@ import { useState } from "react";
 import { Activity, DoorOpen, Hourglass, Users } from "lucide-react";
 
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
+import { tenTang } from "./shared";
 
 /** Phòng đang có người: đang khám hoặc đang có người chờ. */
 function dangDung(r: DispatchRoom): boolean {
@@ -177,7 +178,7 @@ export function SoDoPhong({ rooms }: { rooms: DispatchRoom[] }) {
                 : "bg-surface-muted text-ink-soft hover:bg-brand-50"
             }`}
           >
-            {t ? `Tầng ${t}` : "Chưa khai tầng"}
+            {t ? tenTang(t) : "Chưa khai tầng"}
           </button>
         ))}
       </div>

@@ -271,3 +271,18 @@ def test_sinh_hieu_rac_tra_cau_loi_khong_nem(raw: object) -> None:
     v, loi = rules.parse_vitals(raw)
     assert v is None
     assert isinstance(loi, str) and loi
+
+
+def test_bmi_tu_tinh_khi_co_can_nang_va_chieu_cao() -> None:
+    v, loi = rules.parse_vitals(
+        {"systolic": 118, "diastolic": 76, "weight_kg": 54, "height_cm": 160}
+    )
+    assert loi is None and v is not None
+    assert v.bmi == Decimal("21.1")
+
+
+def test_bmi_do_tay_duoc_giu_nguyen() -> None:
+    v, _ = rules.parse_vitals(
+        {"systolic": 118, "diastolic": 76, "weight_kg": 54, "height_cm": 160, "bmi": 22}
+    )
+    assert v is not None and v.bmi == Decimal("22")

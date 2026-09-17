@@ -58,6 +58,7 @@ SELECT v.visit_id,
        p.full_name                                AS patient_name,
        p.patient_code,
        a.queue_number,
+       a.so_tiep_don,
        a.status                                   AS appointment_status,
        st.name                                    AS specialty,
        d.full_name                                AS doctor_name,
@@ -71,10 +72,24 @@ SELECT v.visit_id,
                                                   AS total_minutes,
        ng.wait_minutes                            AS threshold_minutes,
        -- Bước đã xong: đọc từ timeline, theo đúng thứ tự đã đi.
-       (SELECT array_agg(w2.node_code ORDER BY w2.finished_at)
-          FROM public.work_item w2
-         WHERE w2.visit_id = v.visit_id AND w2.status = 'COMPLETED')
+       -- Luồng mới: bước đã xong = chỉ định đã làm; luồng cũ: work_item.
+       coalesce(
+           (SELECT array_agg(o2.node_code ORDER BY o2.finished_at)
+              FROM public.service_order o2
+             WHERE o2.visit_id = v.visit_id AND o2.clinic_id = v.clinic_id
+               AND o2.exec_status = 'performed'),
+           (SELECT array_agg(w2.node_code ORDER BY w2.finished_at)
+              FROM public.work_item w2
+             WHERE w2.visit_id = v.visit_id AND w2.status = 'COMPLETED'))
                                                   AS done_steps,
+       -- BƯỚC KẾ TIẾP theo chỉ định còn mở (tuyến điều phối đã bỏ 16/09).
+       (SELECT o3.node_code
+          FROM public.service_order o3
+         WHERE o3.visit_id = v.visit_id AND o3.clinic_id = v.clinic_id
+           AND o3.exec_status IN ('authorized', 'assigned')
+           AND o3.node_code IS DISTINCT FROM v.current_node_code
+         ORDER BY o3.created_at
+         LIMIT 1)                                 AS buoc_chi_dinh_ke,
        vr.steps                                   AS route_steps,
        vr.id                                      AS route_id
   FROM public.visit v
@@ -625,18 +640,8 @@ def build_alerts(
                     ],
                 }
             )
-        elif not p["next_step"] and not p["route_steps"]:
-            out.append(
-                {
-                    "type": "no_route",
-                    "severity": "warning",
-                    "message": (f"{p['patient_name']} chưa được chọn tuyến điều phối"),
-                    "room_code": p["room_code"],
-                    "patients": [
-                        {"name": p["patient_name"], "code": p["patient_code"]}
-                    ],
-                }
-            )
+        # Cảnh báo "chưa được chọn tuyến điều phối" ĐÃ BỎ (17/09/2026): tuyến
+        # điều phối không còn nút chọn từ 16/09, nên câu này báo mọi khách.
 
     rank = {"critical": 0, "warning": 1}
     out.sort(key=lambda a: (rank.get(a["severity"], 9), a["message"]))
@@ -671,6 +676,7 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
             str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
         ),
         "queue_number": r["queue_number"],
+        "so_tiep_don": r.get("so_tiep_don"),
         "specialty": r["specialty"],
         "doctor_name": r["doctor_name"],
         "current_node_code": r["current_node_code"],
@@ -684,7 +690,8 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
         "threshold_minutes": r["threshold_minutes"] or 20,
         "done_steps": done,
         "route_steps": route,
-        "next_step": next_step_of(route, done, r["current_node_code"]),
+        "next_step": next_step_of(route, done, r["current_node_code"])
+        or r.get("buoc_chi_dinh_ke"),
         "checked_in_at": (
             r["checked_in_at"].isoformat() if r["checked_in_at"] else None
         ),
@@ -743,6 +750,7 @@ _CHI_DINH_SQL = """
 SELECT o.id::text,
        o.service_code, o.service_name, o.node_code, o.exec_status, o.version,
        n.name AS node_name,
+       coalesce(n.lam_ben_ngoai, false) AS doi_tac,
        o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,
        q.status AS work_status,
        -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG ĐANG XẾP — câu trưởng ca thật sự hỏi khi

@@ -83,6 +83,29 @@ class TestRequiredFieldsBeforeSigning:
     def test_each_required_field_is_checked(self, field: str, label: str) -> None:
         assert missing_fields(_row(**{field: None})) == [label]
 
+    def test_phieu_chuyen_khoa_va_sinh_hieu_bu_cho_muc_trong(self) -> None:
+        """17/09/2026: thư ký điền Lý do khám ở phiếu Nội tiết, điều dưỡng đo sinh
+        hiệu ở màn riêng — nút ký không được báo thiếu những thứ đã có."""
+        row = _row(
+            soap_subjective=None,
+            soap_objective=None,
+            soap_assessment=None,
+            soap_plan=None,
+            phieu_chuyen_khoa=json.dumps(
+                {
+                    "ly_do": "Kinh nguyệt không đều",
+                    "chan_doan": "PCOS",
+                    "loi_dan": "Giảm cân",
+                }
+            ),
+            co_sinh_hieu=True,
+        )
+        assert missing_fields(row) == []
+
+    def test_phieu_rong_khong_bu_duoc(self) -> None:
+        row = _row(soap_subjective=None, phieu_chuyen_khoa=json.dumps({"ly_do": " "}))
+        assert missing_fields(row) == [REQUIRED_SOAP["soap_subjective"]]
+
     def test_an_empty_json_object_counts_as_missing(self) -> None:
         """CÁC CỘT SOAP LÀ `jsonb`, KHÔNG PHẢI TEXT — và đây là cái bẫy.
 

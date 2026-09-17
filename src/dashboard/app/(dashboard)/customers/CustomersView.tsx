@@ -410,6 +410,9 @@ export interface ApptInfo {
    *  Chip danh sách cần mốc này để "Đã check-in" thắng được lần chạm cuối
    *  của sổ chăm sóc trong cùng phép so thời gian với huỷ/đặt lịch. */
   checked_in_at?: string | null;
+  /** Khách đang ở phòng/bước nào (visit.current_room/node) — chỉ khi CHECKED_IN. */
+  vi_tri_hien_tai?: string | null;
+  da_do_sinh_hieu?: boolean;
   /** Lịch có bác sĩ, nhưng bác sĩ ấy không còn ca trực vào ngày khám. */
   mat_bac_si?: boolean;
   count: number;
@@ -1219,6 +1222,13 @@ export default function CustomersView({
       denLuc &&
       (!chamCuoiRow || mocMs(denLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
     ) {
+      // Nói khách ĐANG Ở ĐÂU thay vì đứng yên "chờ khám" (17/09/2026).
+      if (!apptRow?.da_do_sinh_hieu) {
+        return { label: "Đã check-in — chờ đo sinh hiệu", tone: "assigned" };
+      }
+      if (apptRow.vi_tri_hien_tai) {
+        return { label: `Đang ở: ${apptRow.vi_tri_hien_tai}`, tone: "assigned" };
+      }
       return { label: "Đã check-in — đang chờ khám", tone: "assigned" };
     }
 

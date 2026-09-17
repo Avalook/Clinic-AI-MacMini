@@ -65,6 +65,9 @@ interface ChiDinh {
   nguoi_ghi: string | null;
   ket_qua: string | null;
   ly_do_khong_lam: string | null;
+  /** Việc gửi đối tác làm — không có phòng nào của phòng khám để xếp. */
+  doi_tac?: boolean;
+  trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA" | null;
 }
 interface Luot {
   visit_id: string;
@@ -115,6 +118,14 @@ const TEN_TRANG_THAI_CHI_DINH: Record<string, string> = {
   in_progress: "Đang làm",
   performed: "Đã làm",
   not_performed: "Không làm được",
+};
+
+/** Việc đối tác: nói trạng thái bên đối tác, không nói "chờ xếp phòng". */
+const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
+  CHO_LAY_MAU: "Đã gửi đối tác",
+  DA_LAY_MAU: "Đối tác đã lấy mẫu",
+  CHO_TAI_LIEU: "Đối tác đang làm",
+  DA_GUI_KET_QUA: "Đối tác đã gửi kết quả",
 };
 
 export default function BanKham({
@@ -734,7 +745,9 @@ function ChiDinhPanel({
                         : "bg-brand-50 text-brand-700"
                   }`}
                 >
-                  {TEN_TRANG_THAI_CHI_DINH[c.trang_thai] ?? c.trang_thai}
+                  {c.doi_tac && c.trang_thai !== "draft" && c.trang_thai_doi_tac
+                    ? TEN_TRANG_THAI_DOI_TAC[c.trang_thai_doi_tac]
+                    : TEN_TRANG_THAI_CHI_DINH[c.trang_thai] ?? c.trang_thai}
                 </span>
               </div>
               <p className="mt-0.5 text-label text-ink-muted">

@@ -3,7 +3,7 @@
 // Màn HÀNG ĐỢI THEO TRẠM — ai đang chờ ở phòng nào, chờ bao lâu.
 
 import type { DispatchPatient, DispatchRoom } from "./types";
-import { LiveBadge, ReadFailed, useDispatchLive } from "./shared";
+import { LiveBadge, ReadFailed, tenTang, useDispatchLive } from "./shared";
 
 export default function QueuesClient({
   initial,
@@ -46,7 +46,7 @@ function Queues({
             <div style={{ fontWeight: 700, marginBottom: 8 }}>
               {r.name}{" "}
               <span style={{ fontWeight: 400, color: "var(--ink-muted)" }}>
-                {r.floor ? `· tầng ${r.floor} ` : ""}· {here.length} người
+                {r.floor ? `· ${tenTang(r.floor)} ` : ""}· {here.length} người
               </span>
               {/* Chưa khai tầng thì NÓI RA, đừng im. Im lặng làm người ta tưởng
                   phòng này cùng tầng với phòng đang đứng. */}
@@ -79,7 +79,7 @@ function Queues({
                   }}
                 >
                   <span>
-                    {p.queue_number ? `${p.queue_number} · ` : ""}
+                    {(p.so_tiep_don ?? p.queue_number) ? `${p.so_tiep_don ?? p.queue_number} · ` : ""}
                     {p.patient_name}
                   </span>
                   <span

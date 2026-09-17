@@ -70,7 +70,19 @@ class ClinicalSignService:
                 SELECT st.*, cr.soap_subjective, cr.soap_objective,
                        cr.soap_assessment, cr.soap_plan,
                        cr.revision AS record_revision,
-                       p.full_name AS patient_name, p.patient_code
+                       p.full_name AS patient_name, p.patient_code,
+                       -- PHIẾU CHUYÊN KHOA + SINH HIỆU ĐÃ ĐO cũng là nội dung bệnh
+                       -- án (17/09/2026): thư ký điền "Lý do khám" ở phiếu Nội
+                       -- tiết, điều dưỡng đo ở màn Đo sinh hiệu — nút ký không được
+                       -- báo thiếu những thứ đã có.
+                       (SELECT jsonb_object_agg(k, v)
+                          FROM public.clinical_form_response f,
+                               jsonb_each(f.form_data) AS e(k, v)
+                         WHERE f.visit_id = st.visit_id
+                           AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
+                       EXISTS (SELECT 1 FROM public.vital_measurement m
+                                WHERE m.visit_id = st.visit_id
+                                  AND m.clinic_id = st.clinic_id) AS co_sinh_hieu
                   FROM public.v_clinical_status st
                   LEFT JOIN public.clinical_record cr
                          ON cr.visit_id = st.visit_id
@@ -437,8 +449,27 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
     ``{}`` là ĐÃ ĐIỀN, vì chuỗi "{}" không rỗng. Nghĩa là một hồ sơ trống rỗng
     vẫn ký được, và cái chốt chặn duy nhất trước chữ ký sẽ luôn nói "đủ rồi".
     """
+    phieu = _loads(row.get("phieu_chuyen_khoa")) or {}
+    if not isinstance(phieu, dict):
+        phieu = {}
+
+    def phieu_co(*khoa: str, tien_to: tuple[str, ...] = ()) -> bool:
+        for k, v in phieu.items():
+            if (k in khoa or k.startswith(tien_to)) and not _blank_json(v):
+                return True
+        return False
+
+    thay_the = {
+        "soap_subjective": phieu_co("ly_do", "ly_do_khac", "benh_su"),
+        "soap_objective": bool(row.get("co_sinh_hieu"))
+        or phieu_co(tien_to=("kls_", "kham_")),
+        "soap_assessment": phieu_co("chan_doan"),
+        "soap_plan": phieu_co("dieu_tri", "pp_dieu_tri", "loi_dan", "huong_xu_tri"),
+    }
     return [
-        label for field, label in REQUIRED_SOAP.items() if _blank_json(row.get(field))
+        label
+        for field, label in REQUIRED_SOAP.items()
+        if _blank_json(row.get(field)) and not thay_the.get(field, False)
     ]
 
 

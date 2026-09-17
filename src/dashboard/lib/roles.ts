@@ -429,7 +429,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Viết ra từng vai thay vì "all" — thiếu một dòng ở đây là vai đó mất màn
   // hình mà không báo gì, nên danh sách này phải là ALL_ROLES trừ đúng CSKH,
   // tính bằng code chứ không chép tay.
-  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH"),
+  // Đối tác (người NGOÀI phòng khám) và màn TV cũng không có lịch làm việc
+  // (17/09/2026: thanh bên đối tác hiện "Lịch làm việc").
+  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH" && r !== "PARTNER" && r !== "DISPLAY"),
   "/work-sessions": ["MANAGEMENT"],
   "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.

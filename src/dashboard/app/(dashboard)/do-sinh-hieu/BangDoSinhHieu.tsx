@@ -316,16 +316,6 @@ export default function BangDoSinhHieu() {
                 </button>
               ) : null}
             </div>
-            {loi ? (
-              <p role="alert" className="mb-3 rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
-                {loi}
-              </p>
-            ) : null}
-            {xong ? (
-              <p className="mb-3 rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success">
-                {xong}
-              </p>
-            ) : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {O.map((o) => (
                 <label key={o.gui} className="block">
@@ -343,7 +333,18 @@ export default function BangDoSinhHieu() {
                 </label>
               ))}
             </div>
-            <div className="mt-4 flex justify-end">
+            {/* Thông báo nằm DƯỚI ô nhập, cạnh nút Lưu (17/09/2026): đặt trên đầu
+                thì bấm "Gọi vào đo" xong cả khối ô nhập tụt xuống, bấm lệch ô. */}
+            <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+              {loi ? (
+                <p role="alert" className="mr-auto rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
+                  {loi}
+                </p>
+              ) : xong ? (
+                <p role="status" className="mr-auto rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success">
+                  {xong}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={luu}

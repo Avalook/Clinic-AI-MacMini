@@ -240,5 +240,12 @@ export function roomWithFloor(
   floor: string | null,
 ): string {
   if (!name) return "—";
-  return floor ? `Tầng ${floor} · ${name}` : name;
+  return floor ? `${tenTang(floor)} · ${name}` : name;
+}
+
+/** "Tầng 1" — dữ liệu phòng có nơi khai "1", có nơi khai sẵn "Tầng 1". Ghép
+ *  thẳng "Tầng " + floor ra "Tầng Tầng 1" (17/09/2026). */
+export function tenTang(floor: string): string {
+  const t = floor.trim();
+  return /^tầng\b/i.test(t) ? t.charAt(0).toUpperCase() + t.slice(1) : `Tầng ${t}`;
 }

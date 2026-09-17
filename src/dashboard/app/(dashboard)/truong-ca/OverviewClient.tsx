@@ -180,7 +180,7 @@ function Board({
                       <div style={{ fontWeight: 600 }}>{p.patient_name ?? "—"}</div>
                       <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
                         {p.patient_code ?? ""}
-                        {p.queue_number ? ` · số ${p.queue_number}` : ""}
+                        {(p.so_tiep_don ?? p.queue_number) ? ` · số ${p.so_tiep_don ?? p.queue_number}` : ""}
                       </div>
                     </td>
                     <td>{p.specialty ?? "—"}</td>
@@ -211,11 +211,9 @@ function Board({
                         : "—"}
                     </td>
                     <td>
-                      {p.next_step ? (
-                        nodeLabel(p.next_step)
-                      ) : (
-                        <span className="badge badge-warning">Chưa có tuyến</span>
-                      )}
+                      {/* Tuyến điều phối đã bỏ (16/09): bước kế tiếp đọc từ chỉ
+                          định còn mở; không còn gì thì là "—", không báo lỗi. */}
+                      {p.next_step ? nodeLabel(p.next_step) : "—"}
                     </td>
                   </tr>
                 );

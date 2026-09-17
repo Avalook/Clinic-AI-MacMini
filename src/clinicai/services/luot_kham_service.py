@@ -933,8 +933,12 @@ class LuotKhamService:
                            o.not_performed_reason,
                            rec.full_name AS recorded_by_name,
                            au.full_name AS authorized_by_name,
-                           pf.full_name AS performed_by_name
+                           pf.full_name AS performed_by_name,
+                           coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
+                           o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc
                       FROM service_order o
+                      LEFT JOIN node_definition nd
+                        ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                       LEFT JOIN clinic_room r
                         ON r.id = o.room_id AND r.clinic_id = o.clinic_id
                       LEFT JOIN staff rec ON rec.id = o.recorded_by
@@ -1106,6 +1110,18 @@ class LuotKhamService:
                     "nguoi_lam": o["performed_by_name"],
                     "ket_qua": o["result_note"] if doc_noi_dung else None,
                     "ly_do_khong_lam": o["not_performed_reason"],
+                    # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
+                    # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".
+                    "doi_tac": o["doi_tac"],
+                    "trang_thai_doi_tac": (
+                        trang_thai_doi_tac(
+                            exec_status=o["exec_status"],
+                            cho_tai_lieu=o["doi_tac_cho_tai_lieu_luc"] is not None,
+                            co_ket_qua=o["ket_qua_luc"] is not None,
+                        )
+                        if o["doi_tac"]
+                        else None
+                    ),
                 }
             )
         views = [

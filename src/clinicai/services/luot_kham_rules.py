@@ -315,6 +315,15 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
         num = values[ten]
         return int(num) if num is not None else None
 
+    # BMI TỰ TÍNH khi có cân nặng + chiều cao mà người đo để trống (17/09/2026).
+    # Số đo tay (nếu có) được giữ nguyên.
+    bmi = values["bmi"]
+    can, cao = values["weight_kg"], values["height_cm"]
+    if bmi is None and can is not None and cao is not None and cao > 0:
+        tinh = (can / ((cao / 100) ** 2)).quantize(Decimal("0.1"))
+        if Decimal(5) <= tinh <= Decimal(100):
+            bmi = tinh
+
     return (
         Vitals(
             systolic=int(systolic),
@@ -325,7 +334,7 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
             height_cm=values["height_cm"],
             respiratory_rate=_int("respiratory_rate"),
             spo2=_int("spo2"),
-            bmi=values["bmi"],
+            bmi=bmi,
             pain_score=_int("pain_score"),
         ),
         None,

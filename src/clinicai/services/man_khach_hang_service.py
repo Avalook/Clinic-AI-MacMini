@@ -139,8 +139,22 @@ class ManKhachHangService:
                        t.tai_len_luc, t.gui_luc, t.gui_kenh,
                        t.cho_phep_gui_luc,
                        bs.full_name AS cho_phep_gui_boi,
-                       nv.full_name AS ten_nhan_vien
+                       nv.full_name AS ten_nhan_vien,
+                       -- TỆP NÀY CÓ PHẢI KẾT QUẢ XÉT NGHIỆM không (17/09/2026):
+                       -- tệp siêu âm / thủ thuật không được bật ô "Có kết quả
+                       -- xét nghiệm" ở màn CSKH. Tệp không gắn chỉ định (CSKH tải
+                       -- tay) vẫn tính như trước.
+                       (t.service_order_id IS NULL
+                        OR coalesce(nd.lam_ben_ngoai, false)
+                        OR so.node_code LIKE 'DICHVU-LAYMAU%'
+                        OR so.node_code LIKE 'DICHVU-XETNGHIEM%'
+                        OR so.node_code LIKE 'DICHVU-SANGLOC%')
+                           AS la_ket_qua_xet_nghiem
                   FROM tep_ket_qua t
+                  LEFT JOIN service_order so
+                    ON so.id = t.service_order_id AND so.clinic_id = t.clinic_id
+                  LEFT JOIN node_definition nd
+                    ON nd.code = so.node_code AND nd.clinic_id = so.clinic_id
                   LEFT JOIN staff nv ON nv.id = t.tai_len_boi_staff_id
                   LEFT JOIN staff bs ON bs.id = t.cho_phep_gui_boi_staff_id
                  WHERE t.clinic_id = $1::uuid
@@ -228,18 +242,42 @@ class ManKhachHangService:
                        -- xét nghiệm" ở màn CSKH đọc trạng thái đối tác bấm —
                        -- chờ lấy mẫu / đã lấy mẫu / chờ tài liệu / đã gửi.
                        -- Cùng thứ bậc với luot_kham_service.trang_thai_doi_tac.
-                       dt.doi_tac
+                       dt.doi_tac,
+                       -- KHÁCH ĐANG Ở ĐÂU (17/09/2026): chip CSKH đứng yên ở
+                       -- "đang chờ khám" suốt lúc khách đi siêu âm, thủ thuật.
+                       coalesce(vr.name, vn.name) AS vi_tri_hien_tai,
+                       EXISTS (SELECT 1 FROM encounter_flow ef
+                                WHERE ef.visit_id = v.visit_id
+                                  AND ef.vitals_status = 'recorded')
+                           AS da_do_sinh_hieu
                   FROM visit v
+                  LEFT JOIN clinic_room vr
+                    ON vr.id = v.current_room_id AND vr.clinic_id = v.clinic_id
+                  LEFT JOIN node_definition vn
+                    ON vn.code = v.current_node_code AND vn.clinic_id = v.clinic_id
                   LEFT JOIN LATERAL (
+                      -- Thủ thuật của LƯỢT: luồng mới ghi ở service_order, luồng
+                      -- cũ ở work_item — đọc cả hai (17/09/2026: ô "Đã làm thủ
+                      -- thuật" nói "không có" dù vừa làm xong).
                       SELECT count(*) > 0 AS co_thu_thuat,
-                             max(w.finished_at) FILTER (
-                                 WHERE w.status = 'COMPLETED'
-                             ) AS thu_thuat_xong_luc
-                        FROM work_item w
-                       WHERE w.clinic_id = v.clinic_id
-                         AND w.visit_id = v.visit_id
-                         AND w.node_code = 'DICHVU-THUTHUAT'
-                         AND w.status <> 'CANCELLED'
+                             max(x.xong_luc) AS thu_thuat_xong_luc
+                        FROM (
+                            SELECT CASE WHEN w.status = 'COMPLETED'
+                                        THEN w.finished_at END AS xong_luc
+                              FROM work_item w
+                             WHERE w.clinic_id = v.clinic_id
+                               AND w.visit_id = v.visit_id
+                               AND w.node_code = 'DICHVU-THUTHUAT'
+                               AND w.status <> 'CANCELLED'
+                            UNION ALL
+                            SELECT CASE WHEN o.exec_status = 'performed'
+                                        THEN o.finished_at END
+                              FROM service_order o
+                             WHERE o.clinic_id = v.clinic_id
+                               AND o.visit_id = v.visit_id
+                               AND o.node_code = 'DICHVU-THUTHUAT'
+                               AND o.exec_status NOT IN ('draft', 'cancelled')
+                        ) x
                   ) tt ON TRUE
                   LEFT JOIN LATERAL (
                       SELECT json_agg(json_build_object(
