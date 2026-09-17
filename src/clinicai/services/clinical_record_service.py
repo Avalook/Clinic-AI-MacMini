@@ -663,8 +663,26 @@ class ClinicalRecordService:
                 (clinic_id, visit_id, systolic, diastolic, pulse, temperature,
                  weight_kg, height_cm, respiratory_rate, spo2, bmi,
                  pain_score, recorded_by)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-                    $12, $13::uuid)
+            SELECT $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                   $12, $13::uuid
+            -- SỐ KHÔNG ĐỔI SO VỚI LẦN ĐO GẦN NHẤT THÌ KHÔNG GHI THÊM (17/09/2026):
+            -- form bệnh án hiện sẵn số điều dưỡng đo; lưu bệnh án mà không sửa
+            -- số vẫn thêm một "lần đo" đứng tên bác sĩ, và hồ sơ in "Đo lúc
+            -- 07:27 · BS Thành" cho số ĐD Huế đo lúc 06:50.
+             WHERE NOT EXISTS (
+                SELECT 1 FROM (
+                    SELECT * FROM vital_measurement g
+                     WHERE g.clinic_id = $1::uuid AND g.visit_id = $2::uuid
+                     ORDER BY g.created_at DESC LIMIT 1) g
+                 WHERE g.systolic IS NOT DISTINCT FROM $3
+                   AND g.diastolic IS NOT DISTINCT FROM $4
+                   AND g.pulse IS NOT DISTINCT FROM $5
+                   AND g.temperature IS NOT DISTINCT FROM $6
+                   AND g.weight_kg IS NOT DISTINCT FROM $7
+                   AND g.height_cm IS NOT DISTINCT FROM $8
+                   AND g.respiratory_rate IS NOT DISTINCT FROM $9
+                   AND g.spo2 IS NOT DISTINCT FROM $10
+                   AND g.pain_score IS NOT DISTINCT FROM $12)
             """,
             identity.clinic_id,
             visit_id,
