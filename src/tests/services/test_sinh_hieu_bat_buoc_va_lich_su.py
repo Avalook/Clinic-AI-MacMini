@@ -111,9 +111,9 @@ async def test_don_kham_khong_huyet_ap_bi_chan_truoc_moi_lenh_ghi() -> None:
     with pytest.raises(ValidationError, match="huyết áp"):
         await _save(
             service,
-            identity=identity(ClinicRole.NURSE_ULTRASOUND),
-            vitals_only=True,
+            expected_revision=2,
             objective={"vitals": {"mach": "80"}},
+            objective_sent=True,
         )
     conn.execute.assert_not_awaited()
 
@@ -123,9 +123,9 @@ async def test_moi_lan_do_them_mot_dong_lich_su() -> None:
     service, conn = _service(co_thai=False, stored_vitals={"huyet_ap": "120/80"})
     await _save(
         service,
-        identity=identity(ClinicRole.NURSE_ULTRASOUND),
-        vitals_only=True,
+        expected_revision=2,
         objective={"vitals": {"huyet_ap": "135/85", "mach": "90"}},
+        objective_sent=True,
     )
     (args,) = _vital_inserts(conn)
     assert args[2] == VISIT
@@ -165,9 +165,9 @@ async def test_khach_co_thai_don_kham_thieu_can_nang_bi_chan() -> None:
     with pytest.raises(ValidationError, match="có thai"):
         await _save(
             service,
-            identity=identity(ClinicRole.NURSE_ULTRASOUND),
-            vitals_only=True,
+            expected_revision=2,
             objective={"vitals": {"huyet_ap": "110/70", "chieu_cao": "160"}},
+            objective_sent=True,
         )
     assert _vital_inserts(conn) == []
 
@@ -244,3 +244,18 @@ class TestBonChiSoThem:
         assert so.spo2 == 98
         assert str(so.bmi) == "20.2"
         assert so.pain_score == 0
+
+
+@pytest.mark.asyncio
+async def test_duong_don_kham_cu_bi_tu_choi() -> None:
+    """17/09/2026 (Tuyền: "cái nào cũ thì bỏ"): lưu sinh hiệu qua biểu mẫu bệnh
+    án kiểu đón-khám từng làm khách kẹt ngoài hàng chờ bác sĩ — nay từ chối."""
+    service, conn = _service(co_thai=False, stored_vitals=None)
+    with pytest.raises(ValidationError, match="màn Đo sinh hiệu"):
+        await _save(
+            service,
+            identity=identity(ClinicRole.NURSE_ULTRASOUND),
+            vitals_only=True,
+            objective={"vitals": {"huyet_ap": "120/80"}},
+        )
+    conn.execute.assert_not_awaited()

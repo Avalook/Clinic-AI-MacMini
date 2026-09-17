@@ -351,7 +351,7 @@ export default function ClinicalRecordForm({
   const [closing, setClosing] = useState(false);
   const [completedExplicit, setCompletedExplicit] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  // D26 — đã bấm Lưu sinh hiệu mà thiếu trường bắt buộc → bật viền đỏ inline.
+  // D26 — đã bấm lưu mà thiếu trường sinh hiệu bắt buộc → bật viền đỏ inline.
   const [vitalsTried, setVitalsTried] = useState(false);
   // Tab đang chọn (gom 4 mục). Đón-khám (vitalsOnly) mặc định mở tab "Khám" (1)
   // để điều dưỡng thấy Sinh hiệu ngay; còn lại mặc định tab "Hành chính" (0).
@@ -562,54 +562,7 @@ export default function ClinicalRecordForm({
   // Saving a chart never finishes the visit. The physician may still order
   // services and return to read results; completion is a separate command.
 
-  // Sinh hiệu (Sinh hiệu) gói riêng để dùng cho cả 2 luồng lưu.
-  const vitalsPayload = () => ({
-    mach: f.mach,
-    nhiet_do: f.nhiet_do,
-    huyet_ap: f.huyet_ap,
-    nhip_tho: f.nhip_tho,
-    spo2: f.spo2,
-    muc_do_dau: f.muc_do_dau,
-    can_nang: f.can_nang,
-    chieu_cao: f.chieu_cao,
-    bmi: f.bmi,
-  });
 
-  // Điều dưỡng (đón-khám): ghi Sinh hiệu + (D25) "Lý do khám bệnh" mà BS đưa ra.
-  // KHÔNG đụng mục khác. Sinh hiệu bắt buộc: xem vitalsBatBuoc.
-  async function saveVitals() {
-    if (arrivalPending) {
-      setMsg("Chờ lễ tân check-in bệnh nhân (đã đến) trước khi điền sinh hiệu.");
-      return;
-    }
-    const missingReq = [...requiredVitals].filter((k) => f[k].trim() === "");
-    if (missingReq.length) {
-      setVitalsTried(true);
-      setTab(1); // C — nhảy sang tab "Khám" (chứa Sinh hiệu) để thấy ô đỏ dù đang ở tab khác.
-      setMsg(requiredVitalsMsg);
-      return;
-    }
-    setSaving(true);
-    setMsg(null);
-    const res = await fetch("/api/clinical-record", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        appointmentId: appt.id,
-        clinicPatientId: p?.clinic_patient_id,
-        vitalsOnly: true,
-        chief_complaint: f.ly_do,
-        objective: { vitals: vitalsPayload() },
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      setMsg((await res.json()).error ?? "Lỗi lưu sinh hiệu.");
-      return;
-    }
-    setMsg("Đã lưu sinh hiệu.");
-    router.refresh();
-  }
 
   // ---- Giữ lại thứ đang gõ dở khi trang bị tải lại / máy mất điện -----------
   //
@@ -691,7 +644,7 @@ export default function ClinicalRecordForm({
   async function save(approvePrescriptionDraft = false, tuDong = false) {
     if (readOnly) return; // Lễ tân chỉ-đọc: chặn ghi ngay tầng UI (server cũng chặn).
     if (viewingPast) return; // Đang xem lượt khám cũ qua pager: tuyệt đối không ghi.
-    if (vitalsOnly) return saveVitals();
+    if (vitalsOnly) return; // Sinh hiệu chỉ đo ở màn Đo sinh hiệu (17/09/2026).
     // Chưa tải xong / tải LỖI (data=null) → KHÔNG lưu: form còn rỗng sẽ ghi đè
     // xoá đơn thuốc + tiền sử + chẩn đoán cũ của lượt khám (backend thay toàn bộ).
     if (approvePrescriptionDraft && data?.prescription_draft) {
@@ -923,7 +876,11 @@ export default function ClinicalRecordForm({
   // / đang tải prefill (chưa tải xong mà sửa+lưu sẽ ghi đè rỗng — xem guard save())
   // / đang XEM LƯỢT KHÁM CŨ qua pager (viewingPast — chỉ đọc, không ghi đè lượt cũ).
   const ro = readOnly || locked || saving || arrivalPending || loading || viewingPast;
-  const vitalsRo = (readOnly && !vitalsOnly) || locked || saving || arrivalPending || loading || viewingPast;
+  // SINH HIỆU CHỈ ĐO Ở MÀN "ĐO SINH HIỆU" (Tuyền chốt 17/09/2026: "cái nào cũ
+  // thì bỏ"). Luồng đón-khám cũ (vitalsOnly) chỉ còn XEM số đã đo — lưu ở đây
+  // không báo "đã đo" cho luồng khám, khách kẹt ngoài hàng chờ bác sĩ.
+  const vitalsRo =
+    vitalsOnly || (readOnly && !vitalsOnly) || locked || saving || arrivalPending || loading || viewingPast;
   const rxReadOnly = ro || vitalsOnly || (canSign && data?.prescription_draft != null);
   const roRest = ro || vitalsOnly; // đón-khám (vitalsOnly): mọi mục khác chỉ xem
   // "YYYY-MM-DD" theo giờ máy người dùng — min cho ô Ngày tái khám (mục X).
@@ -1010,7 +967,7 @@ export default function ClinicalRecordForm({
             <span>Phiếu khám bệnh</span>
             {vitalsOnly && (
               <span className="rounded bg-warning-bg px-1.5 py-0.5 text-label font-medium normal-case text-warning">
-                Chỉ ghi Sinh hiệu
+                Chỉ xem — đo ở màn Đo sinh hiệu
               </span>
             )}
           </h3>
@@ -1691,17 +1648,21 @@ export default function ClinicalRecordForm({
         </span>
         <div className="flex gap-2">
           {/* Lễ tân chỉ-đọc / đang xem lượt cũ: ẨN nút Lưu hoàn toàn (không chỉ disable). */}
-          {((!readOnly || vitalsOnly) && !viewingPast) && (
+          {vitalsOnly && !viewingPast ? (
+            <a
+              href="/do-sinh-hieu"
+              className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Đo sinh hiệu
+            </a>
+          ) : null}
+          {!readOnly && !vitalsOnly && !viewingPast && (
             <button
               onClick={() => void save()}
-              disabled={vitalsOnly ? vitalsRo : ro}
+              disabled={ro}
               className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
-              {saving
-                ? "Đang lưu…"
-                : vitalsOnly
-                  ? "Lưu sinh hiệu"
-                  : "Lưu hồ sơ"}
+              {saving ? "Đang lưu…" : "Lưu hồ sơ"}
             </button>
           )}
           {canSign && !readOnly && !vitalsOnly && !viewingPast && appt.status === "CHECKED_IN" && (

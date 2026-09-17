@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError as ModelValidationError
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.clinical_records import ClinicalRecordSaveRequest
 from clinicai.services.clinical_record_service import ClinicalRecordService
@@ -150,10 +150,11 @@ async def test_matching_snapshot_returns_new_database_revision(revision: int) ->
 
 
 @pytest.mark.asyncio
-async def test_vitals_only_without_revision_returns_new_database_revision() -> None:
+async def test_vitals_only_duong_cu_bi_tu_choi() -> None:
+    """17/09/2026: đường đón-khám cũ đã bỏ — sinh hiệu chỉ đo ở màn Đo sinh hiệu."""
     service, conn = setup_service(5)
-    result = await save(
-        service, vitals_only=True, objective={"vitals": {"huyet_ap": "125/80"}}
-    )
-    assert result["revision"] == 6
-    assert "RETURNING revision" in conn.fetchval.await_args.args[0]
+    with pytest.raises(ValidationError, match="màn Đo sinh hiệu"):
+        await save(
+            service, vitals_only=True, objective={"vitals": {"huyet_ap": "125/80"}}
+        )
+    conn.execute.assert_not_awaited()

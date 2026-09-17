@@ -252,6 +252,14 @@ class ClinicalRecordService:
         prescriptions: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Write the record. Returns the visit id it was written to."""
+        # ĐƯỜNG ĐÓN-KHÁM CŨ ĐÃ BỎ (Tuyền chốt 17/09/2026: "cái nào cũ thì bỏ").
+        # Sinh hiệu chỉ đo ở màn Đo sinh hiệu (POST /luot-kham/visits/{id}/vitals):
+        # lưu qua đây từng làm khách kẹt ngoài hàng chờ bác sĩ. Bác sĩ/thư ký bổ
+        # sung sinh hiệu trong bệnh án đầy đủ vẫn được (đồng bộ luồng khám).
+        if vitals_only:
+            raise ValidationError(
+                "Sinh hiệu đo ở màn Đo sinh hiệu — mở menu Điều dưỡng → Đo sinh hiệu."
+            )
         if not any(may_write(v, vitals_only=vitals_only) for v in identity.cac_vai()):
             raise SafetyGateError(
                 "Chỉ bác sĩ / điều dưỡng / lễ tân mới ghi sinh hiệu + lý do khám."
