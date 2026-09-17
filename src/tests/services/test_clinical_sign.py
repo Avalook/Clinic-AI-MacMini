@@ -102,6 +102,12 @@ class TestRequiredFieldsBeforeSigning:
         )
         assert missing_fields(row) == []
 
+    def test_ly_do_kham_o_benh_an_tinh_cho_muc_trieu_chung(self) -> None:
+        row = _row(
+            soap_subjective=None, chief_complaint_at_visit="Rối loạn kinh nguyệt"
+        )
+        assert missing_fields(row) == []
+
     def test_phieu_rong_khong_bu_duoc(self) -> None:
         row = _row(soap_subjective=None, phieu_chuyen_khoa=json.dumps({"ly_do": " "}))
         assert missing_fields(row) == [REQUIRED_SOAP["soap_subjective"]]

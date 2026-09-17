@@ -70,6 +70,7 @@ class ClinicalSignService:
                 SELECT st.*, cr.soap_subjective, cr.soap_objective,
                        cr.soap_assessment, cr.soap_plan,
                        cr.revision AS record_revision,
+                       cr.chief_complaint_at_visit,
                        p.full_name AS patient_name, p.patient_code,
                        -- PHIẾU CHUYÊN KHOA + SINH HIỆU ĐÃ ĐO cũng là nội dung bệnh
                        -- án (17/09/2026): thư ký điền "Lý do khám" ở phiếu Nội
@@ -460,7 +461,8 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
         return False
 
     thay_the = {
-        "soap_subjective": phieu_co("ly_do", "ly_do_khac", "benh_su"),
+        "soap_subjective": phieu_co("ly_do", "ly_do_khac", "benh_su")
+        or not _blank_json(row.get("chief_complaint_at_visit")),
         "soap_objective": bool(row.get("co_sinh_hieu"))
         or phieu_co(tien_to=("kls_", "kham_")),
         "soap_assessment": phieu_co("chan_doan"),
