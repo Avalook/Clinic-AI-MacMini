@@ -665,7 +665,8 @@ class ClinicalRecordService:
                  pain_score, recorded_by)
             SELECT $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
                    $12, $13::uuid
-            -- SỐ KHÔNG ĐỔI SO VỚI LẦN ĐO GẦN NHẤT THÌ KHÔNG GHI THÊM (17/09/2026):
+            -- SỐ KHÔNG ĐỔI SO VỚI LẦN ĐO GẦN NHẤT THÌ KHÔNG GHI THÊM (17/09/2026).
+            -- Ô không gửi (NULL) không tính là đổi:
             -- form bệnh án hiện sẵn số điều dưỡng đo; lưu bệnh án mà không sửa
             -- số vẫn thêm một "lần đo" đứng tên bác sĩ, và hồ sơ in "Đo lúc
             -- 07:27 · BS Thành" cho số ĐD Huế đo lúc 06:50.
@@ -674,15 +675,15 @@ class ClinicalRecordService:
                     SELECT * FROM vital_measurement g
                      WHERE g.clinic_id = $1::uuid AND g.visit_id = $2::uuid
                      ORDER BY g.created_at DESC LIMIT 1) g
-                 WHERE g.systolic IS NOT DISTINCT FROM $3
-                   AND g.diastolic IS NOT DISTINCT FROM $4
-                   AND g.pulse IS NOT DISTINCT FROM $5
-                   AND g.temperature IS NOT DISTINCT FROM $6
-                   AND g.weight_kg IS NOT DISTINCT FROM $7
-                   AND g.height_cm IS NOT DISTINCT FROM $8
-                   AND g.respiratory_rate IS NOT DISTINCT FROM $9
-                   AND g.spo2 IS NOT DISTINCT FROM $10
-                   AND g.pain_score IS NOT DISTINCT FROM $12)
+                 WHERE ($3::smallint IS NULL OR g.systolic = $3::smallint)
+                   AND ($4::smallint IS NULL OR g.diastolic = $4::smallint)
+                   AND ($5::smallint IS NULL OR g.pulse = $5::smallint)
+                   AND ($6::numeric IS NULL OR g.temperature = $6::numeric)
+                   AND ($7::numeric IS NULL OR g.weight_kg = $7::numeric)
+                   AND ($8::numeric IS NULL OR g.height_cm = $8::numeric)
+                   AND ($9::integer IS NULL OR g.respiratory_rate = $9::integer)
+                   AND ($10::integer IS NULL OR g.spo2 = $10::integer)
+                   AND ($12::integer IS NULL OR g.pain_score = $12::integer))
             """,
             identity.clinic_id,
             visit_id,
