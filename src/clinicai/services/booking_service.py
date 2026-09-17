@@ -2027,9 +2027,15 @@ class BookingService:
             """
             INSERT INTO visit (
                 clinic_id, clinic_patient_id, appointment_id,
-                attending_doctor_id, status, checked_in_at, checked_in_by
+                attending_doctor_id, status, checked_in_at, checked_in_by,
+                service_type_id
             )
-            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now(), $5::uuid)
+            -- LOẠI KHÁM ĐI THEO LỊCH (17/09/2026). Thiếu cột này thì bàn khám
+            -- báo "Chưa gán dịch vụ" và không mở được đúng phiếu khám cho một
+            -- lịch đã đặt Nội tiết.
+            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now(), $5::uuid,
+                    (SELECT a.service_type_id FROM appointment a
+                      WHERE a.id = $3 AND a.clinic_id = $1::uuid))
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
             DO NOTHING
             RETURNING visit_id
