@@ -28,6 +28,11 @@ class ClinicalFormSaveRequest(BaseModel):
     visit_id: UUID
     service_code: str = Field(min_length=1, max_length=64)
     form_data: dict[str, Any] = Field(default_factory=dict)
+    #: GHI THEO Ô (17/09/2026). `True` = `form_data` chỉ chứa những ô vừa đổi,
+    #: máy chủ GHÉP vào bản đang lưu; `bo_truong` = ô bị xoá trắng. Thư ký và
+    #: bác sĩ gõ cùng lúc hai ô khác nhau thì không ai đè chữ của ai.
+    ghep: bool = False
+    bo_truong: list[str] = Field(default_factory=list, max_length=500)
 
 
 @router.get("/clinical-forms")
@@ -69,6 +74,8 @@ async def save_clinical_form(
         service_code=body.service_code,
         form_data=body.form_data,
         identity=identity,
+        ghep=body.ghep,
+        bo_truong=body.bo_truong,
     )
     return {"ok": True}
 

@@ -154,8 +154,16 @@ class ClinicalFormService:
         service_code: str,
         form_data: Any,
         identity: StaffIdentity,
+        ghep: bool = False,
+        bo_truong: list[str] | None = None,
     ) -> None:
-        """Upsert one form for one visit. Refuses once the visit is finalised."""
+        """Upsert one form for one visit. Refuses once the visit is finalised.
+
+        `ghep=True`: `form_data` là CÁC Ô VỪA ĐỔI, ghép vào bản đang lưu (jsonb
+        `||`) và bỏ các khoá trong `bo_truong`. Ghi cả phiếu (mặc định) là
+        người lưu sau đè sạch người lưu trước — đo được 17/09/2026: thư ký gõ
+        PARA cùng lúc bác sĩ gõ Dị ứng thuốc, chữ của thư ký mất.
+        """
         code = (service_code or "").strip().upper()
         if not code:
             raise ValidationError("Thiếu service_code")
@@ -200,7 +208,11 @@ class ClinicalFormService:
                     VALUES ($5::uuid, $1::uuid, $2, $3, $4, $4)
                     ON CONFLICT ON CONSTRAINT uq_clinical_form_visit_service
                     DO UPDATE SET
-                        form_data  = EXCLUDED.form_data,
+                        form_data  = CASE WHEN $6::boolean
+                            THEN (coalesce(clinical_form_response.form_data,
+                                           '{}'::jsonb)
+                                  || EXCLUDED.form_data) - $7::text[]
+                            ELSE EXCLUDED.form_data END,
                         updated_by = EXCLUDED.updated_by,
                         updated_at = now()
                     """,
@@ -209,6 +221,8 @@ class ClinicalFormService:
                     json.dumps(payload),
                     actor,
                     identity.clinic_id,
+                    ghep,
+                    list(bo_truong or []),
                 )
 
                 # Phiếu khám là ghi chép lâm sàng. Lưu MÃ phiếu và các nhóm

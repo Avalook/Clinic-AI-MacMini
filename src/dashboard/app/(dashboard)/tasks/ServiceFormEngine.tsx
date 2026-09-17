@@ -147,6 +147,24 @@ export default function ServiceFormEngine({
   async function luu(guiDi: FormData, tuDong: boolean) {
     if (readOnly || !schema || !visitId) return;
     const chuoi = JSON.stringify(guiDi);
+    // GỬI ĐÚNG CÁC Ô VỪA ĐỔI so với bản đã khớp máy chủ (17/09/2026). Gửi cả
+    // phiếu thì hai người gõ cùng lúc hai ô khác nhau, người lưu sau xoá chữ
+    // của người lưu trước — đã thấy thật khi thư ký và bác sĩ cùng mở phiếu.
+    let goc: FormData = {};
+    try {
+      goc = daLuuRef.current ? (JSON.parse(daLuuRef.current) as FormData) : {};
+    } catch {
+      goc = {};
+    }
+    const thayDoi: FormData = {};
+    for (const [k, v] of Object.entries(guiDi)) {
+      if (JSON.stringify(v) !== JSON.stringify(goc[k])) thayDoi[k] = v;
+    }
+    const boTruong = Object.keys(goc).filter((k) => !(k in guiDi));
+    if (Object.keys(thayDoi).length === 0 && boTruong.length === 0) {
+      daLuuRef.current = chuoi;
+      return;
+    }
     setSaving(true);
     if (!tuDong) setMsg(null);
     const res = await fetch("/api/clinical-form", {
@@ -155,7 +173,9 @@ export default function ServiceFormEngine({
       body: JSON.stringify({
         visitId,
         serviceCode: schema.service_code,
-        form_data: guiDi,
+        form_data: thayDoi,
+        ghep: true,
+        bo_truong: boTruong,
       }),
     }).catch(() => null);
     setSaving(false);

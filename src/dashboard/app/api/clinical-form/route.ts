@@ -76,6 +76,9 @@ interface WriteBody {
   visitId?: string;
   serviceCode?: string;
   form_data?: unknown;
+  /** Chỉ gửi ô vừa đổi — máy chủ ghép vào bản đang lưu. */
+  ghep?: boolean;
+  bo_truong?: unknown;
 }
 
 async function write(request: Request) {
@@ -124,6 +127,10 @@ async function write(request: Request) {
     visit_id: visitId,
     service_code: serviceCode,
     form_data: formData,
+    ghep: body.ghep === true,
+    bo_truong: Array.isArray(body.bo_truong)
+      ? body.bo_truong.filter((k): k is string => typeof k === "string").slice(0, 500)
+      : [],
   });
 }
 
