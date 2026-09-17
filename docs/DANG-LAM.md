@@ -37,6 +37,20 @@ lịch sử hội thoại.
 
 ---
 
+## -0019. Thao tác thật trên trình duyệt 17/09 (07:30) — luồng khách Mai Anh chạy trọn
+
+Đã sửa + lên final cloud trong lúc thao tác: số tiếp đón chung của quầy (`appointment.so_tiep_don`, số riêng bác sĩ giữ); Trang chủ ẩn bác sĩ không có lịch; Trang chủ lễ tân không còn báo "Đang khám" ngay sau check-in; Trang chủ điều dưỡng đọc cờ đã đo từ Đo sinh hiệu + nút dẫn sang màn đo; thư ký đã phân không còn báo "chưa được phân" khi công tắc mở quyền bật; check-in mang loại khám sang lượt (hết "Chưa gán dịch vụ"); phiếu khám lưu theo ô (hai người gõ hai ô cùng lúc không đè nhau).
+
+**CÒN PHẢI SỬA (Tuyền: "nhớ sửa sau")**
+1. Nút "Ký bệnh án" báo thiếu lý do khám/chẩn đoán dù phiếu Nội tiết đã điền — bệnh án (SOAP) và phiếu chuyên khoa là hai bản riêng.
+2. Chỉ định đối tác (chụp vú ép) hiện "Đã duyệt — chờ xếp phòng" → nên "Đã gửi đối tác".
+3. Điều phối ca: "Tầng Tầng 1"; cột Kế tiếp "Chưa có tuyến" + cảnh báo "chưa được chọn tuyến điều phối" (tuyến đã bỏ); cột số hiện số riêng bác sĩ, chưa phải số tiếp đón chung.
+4. CSKH: chip vẫn "Đã check-in — đang chờ khám" khi khách đã qua các phòng; ô "Có kết quả xét nghiệm" báo "Bác sĩ đã cho phép gửi" ngay khi có tệp siêu âm/thủ thuật (đè mất trạng thái đối tác); ô "Đã làm thủ thuật" nói "Lượt này không có thủ thuật" (đọc work_item luồng cũ).
+5. Thanh bên đối tác có "Lịch làm việc" (thừa).
+6. Bệnh án: bấm "Thêm thuốc" rồi gõ, bản tự lưu chạy giữa chừng làm MẤT dòng thuốc đang gõ.
+7. Check-out lượt khám: danh sách việc vẫn liệt kê bước luồng cũ "Chưa làm" (Thanh toán, Sinh hiệu "Đang làm"…) dù đã thu đủ; visit.status vẫn IN_PROGRESS sau khi đóng (closed_at có).
+8. Nhỏ: Đo sinh hiệu không tự tính BMI; thông báo "Đã gọi" đẩy ô nhập xuống; Bàn khám không hiện ghi chú thực hiện thủ thuật ở cột kết quả; nhập cùng một ô cùng lúc thì người lưu sau thắng (Tuyền: chưa cần sửa).
+
 ## -0018. Luồng demo đủ vai 17/09 (06:15) — 72/72 trên final cloud
 
 - Mới: ĐD **Gọi vào đo** (`encounter_flow.goi_do_luc/boi`); trưởng ca **chuyển phòng từng chỉ định** trong panel "Bác sĩ chỉ định gì" (số chờ + ngưỡng đầy, chặn khi phòng cũ đã gọi); tải phòng ở bảng điều phối đếm theo `queue_entry` (bản cũ đếm work_item → luồng mới luôn 0); đối tác thêm bước **Nhận mẫu · chờ tài liệu** (`service_order.doi_tac_cho_tai_lieu_luc`), việc đã gửi ở lại mục "Đã gửi hôm nay"; CSKH thấy trạng thái đối tác ở ô "Có kết quả xét nghiệm"; màn đối tác dùng khung Shell chung; thu ngân (CashierWorkBoard) bỏ QR demo → một nút "Đã thanh toán".
