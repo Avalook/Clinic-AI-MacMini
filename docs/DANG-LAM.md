@@ -37,6 +37,12 @@ lịch sử hội thoại.
 
 ---
 
+## -0020. Khách kẹt sau đo sinh hiệu (17/09 09:53) — BỎ đường đón-khám cũ
+
+- Nguyên nhân: ĐD Huế lưu sinh hiệu qua biểu mẫu bệnh án cũ (bấm tên khách ở Trang chủ, `ClinicalRecordForm vitalsOnly`) → có `vital_measurement` nhưng `encounter_flow` không "đã đo", không quyết tuyến → không vào hàng chờ bác sĩ/thư ký. Sáng 06:56 chỉ đổi nút "Điền sinh hiệu", sót lối bấm tên.
+- Chốt (Tuyền: "cái nào cũ thì bỏ"): sinh hiệu CHỈ đo ở /do-sinh-hieu. Biểu mẫu vitalsOnly chỉ xem + nút "Đo sinh hiệu"; `ClinicalRecordService.save(vitals_only=True)` trả 422. Bác sĩ/thư ký sửa sinh hiệu trong bệnh án đầy đủ vẫn được và gọi `LuotKhamService.dong_bo_sinh_hieu_tu_ho_so` (đẩy vào luồng).
+- Kiểm trên final cloud: đường cũ 422, không thêm dòng đo; trọn luồng 84/84; khách "Khám Hôm Na" đã được gỡ và Tuyền chạy tiếp tới thu tiền.
+
 ## -0019. Thao tác thật trên trình duyệt 17/09 (07:30) — luồng khách Mai Anh chạy trọn
 
 Đã sửa + lên final cloud trong lúc thao tác: số tiếp đón chung của quầy (`appointment.so_tiep_don`, số riêng bác sĩ giữ); Trang chủ ẩn bác sĩ không có lịch; Trang chủ lễ tân không còn báo "Đang khám" ngay sau check-in; Trang chủ điều dưỡng đọc cờ đã đo từ Đo sinh hiệu + nút dẫn sang màn đo; thư ký đã phân không còn báo "chưa được phân" khi công tắc mở quyền bật; check-in mang loại khám sang lượt (hết "Chưa gán dịch vụ"); phiếu khám lưu theo ô (hai người gõ hai ô cùng lúc không đè nhau).
