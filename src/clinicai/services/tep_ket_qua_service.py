@@ -371,11 +371,21 @@ class TepKetQuaService:
         if service_order_id:
             # Kết quả gắn đúng chỉ định → rail mới chạy lại vòng đọc: yêu cầu
             # "cần kết quả" của chỉ định này có thể vừa đạt (Slice 1).
+            # Tệp ĐÃ lưu và đã commit: lỗi ở bước này không được biến lần tải
+            # thành 500 (người gửi sẽ gửi lại → hai tệp). Ghi log lỗi to: vòng
+            # đọc chỉ đúng lại khi có lệnh khác của lượt chạy lại D2 (xong
+            # dịch vụ, bác sĩ quyết, tải tệp tiếp).
             from clinicai.services.luot_kham_service import LuotKhamService
 
-            await LuotKhamService(self._pool).sau_khi_co_ket_qua(
-                order_id=service_order_id, identity=identity
-            )
+            try:
+                await LuotKhamService(self._pool).sau_khi_co_ket_qua(
+                    order_id=service_order_id, identity=identity
+                )
+            except Exception:
+                logger.exception(
+                    "tep_ket_qua_danh_gia_lai_vong_doc_loi",
+                    service_order_id=service_order_id,
+                )
         # Tệp kết quả (thường của đối tác) vừa lên → báo CSKH + bác sĩ của khách.
         await bao_ket_qua_ve(
             self._pool,
