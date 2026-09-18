@@ -35,8 +35,9 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.audit import record_event
+from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
 
 logger = structlog.get_logger()
 
@@ -173,9 +174,14 @@ class ClinicalFormService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Bác sĩ của lượt: CÙNG nguồn với bệnh án SOAP (bác sĩ của lịch
+                # hẹn), lùi về bác sĩ phụ trách lượt khi lượt không có lịch.
                 visit = await conn.fetchrow(
-                    "SELECT visit_id, status FROM visit "
-                    "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+                    "SELECT v.visit_id, v.status,"
+                    " coalesce(a.doctor_id, v.attending_doctor_id)::text AS bac_si"
+                    " FROM visit v LEFT JOIN appointment a"
+                    " ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+                    " WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid",
                     visit_id,
                     identity.clinic_id,
                 )
@@ -185,6 +191,14 @@ class ClinicalFormService:
                     raise ConflictError(
                         "Hồ sơ không còn ở trạng thái cho phép sửa — luật cấm sửa. "
                         "Phải đính chính qua luồng AMENDED."
+                    )
+                # S0-4 (18/09/2026): thư ký chỉ ghi phiếu cho bác sĩ mình được
+                # phân — y hệt bệnh án SOAP. Trước bản này phiếu chuyên khoa bỏ
+                # qua bước kiểm này. (Công tắc mở quyền tạm BẬT thì hàm tự bỏ
+                # qua — xem thu_ky_bac_si.bac_si_cua_thu_ky.)
+                if identity.co_vai({ClinicRole.TKYK}):
+                    kiem_thu_ky_duoc_lam(
+                        await bac_si_cua_thu_ky(conn, identity), visit["bac_si"]
                     )
 
                 known_code = await conn.fetchval(
