@@ -143,7 +143,18 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             <HangChoCot
               dong={ds}
               chon={chon?.id ?? null}
-              onChon={setChonId}
+              onChon={(id) => {
+                setChonId(id);
+                // Màn hẹp: khung khách nằm DƯỚI danh sách — tự cuộn tới (smoke
+                // 18/09, 375).
+                if (window.innerWidth < 1024) {
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById("khung-khach-trong-phong")
+                      ?.scrollIntoView({ block: "start" }),
+                  );
+                }
+              }}
               trong="Chưa có khách nào được chỉ định vào phòng này."
             />
           )}
@@ -194,6 +205,7 @@ function KhachTrongPhong({
 
   return (
     <section
+      id="khung-khach-trong-phong"
       aria-label={`Khách ${dong.ten}`}
       className="min-w-0 space-y-4 rounded-card bg-surface p-4 shadow-card"
     >

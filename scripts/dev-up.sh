@@ -57,7 +57,7 @@ mkdir -p "$LOG_DIR"
 # Ghi đè được qua môi trường — giá trị dưới chỉ là mặc định cho stack thử
 # trên 127.0.0.1, không phải bí mật vận hành.
 TEST_PW="${TEST_PW:-clinic-test-pw-123}"
-TAI_KHOAN_THU="letan bs.a cskh dd.sa bs.sa thungan ql thuky truongca"
+TAI_KHOAN_THU="letan bs.a cskh dd.sa bs.sa thungan ql thuky truongca doitac danang"
 
 blue()  { printf '\033[36m%s\033[0m\n' "$*"; }
 green() { printf '\033[32m%s\033[0m\n' "$*"; }
@@ -267,7 +267,7 @@ fi
 # KHÔNG nuốt lỗi, KHÔNG bỏ qua file thiếu: fixture hỏng hay vắng thì màn hình rỗng
 # trông y hệt "chưa có dữ liệu". luot_kham_demo.sql phải đứng SAU staff_logins.sql:
 # nó gắn lịch vào bs.a.
-for f in staff_logins.sql luot_kham_demo.sql local_data.sql; do
+for f in staff_logins.sql tai_khoan_da_vai_hom_nay.sql gan_phong_dich_vu_thieu_local.sql gia_thu_local.sql luot_kham_demo.sql local_data.sql; do
     [ -f "$REPO/supabase/fixtures/$f" ] || { red "  thiếu fixture $f — dừng"; exit 1; }
     psql_db <"$REPO/supabase/fixtures/$f" >"$LOG_DIR/fixture-$f.log" 2>&1 || {
         red "  fixture $f hỏng — xem $LOG_DIR/fixture-$f.log"; tail -5 "$LOG_DIR/fixture-$f.log"; exit 1; }
@@ -424,6 +424,8 @@ $(sed '1d' "$LOG_DIR/phien-ban.txt")
     thuky@dr4women.local     Thư ký y khoa → Bệnh án, nháp chỉ định của BÁC SĨ MÌNH
                              (chưa phân = không thấy gì: ql phân ở Cấu hình → Thư ký)
     truongca@dr4women.local  Trưởng ca   → Điều phối, cảnh báo, chuyển bác sĩ
+    doitac@dr4women.local    Đối tác     → Tải kết quả xét nghiệm (bản thử local)
+    danang@dr4women.local    Đa vai hôm nay → Tiếp đón + Thu ngân + Đo sinh hiệu (lịch trực thử)
 
   ${so_lk} khách LK-DEMO hẹn từ 18:00 hôm nay với BS A, chờ lễ tân check-in.
   (Màn /luot-kham chỉ quản lý mở — đã ẩn khỏi menu, 15/09/2026.)

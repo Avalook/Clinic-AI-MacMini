@@ -142,6 +142,13 @@ export default function BangDoSinhHieu() {
 
   const moKhach = (l: Luot) => {
     setChon(l.visit_id);
+    // Màn hẹp: khung nhập nằm DƯỚI danh sách chờ (có thể vài chục khách) —
+    // chọn xong phải cuộn tay rất xa mới tới ô nhập (smoke 18/09, 375/768).
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      requestAnimationFrame(() =>
+        document.getElementById("khung-do-sinh-hieu")?.scrollIntoView({ block: "start" }),
+      );
+    }
     setXong(null);
     setLoi(null);
     const cu: Record<string, string> = {};
@@ -301,7 +308,10 @@ export default function BangDoSinhHieu() {
         ) : null}
       </section>
 
-      <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+      <section
+        id="khung-do-sinh-hieu"
+        className="rounded-card border border-line bg-surface p-4 shadow-card"
+      >
         {!dangChon ? (
           <p className="py-10 text-center text-body text-ink-muted">
             Chọn một khách bên trái để điền sinh hiệu.

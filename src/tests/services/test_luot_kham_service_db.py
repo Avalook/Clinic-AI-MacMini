@@ -1217,6 +1217,51 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         assert o["duyet_luc"] is not None
         assert o["bac_si_danh_gia"] == "Chỉ số bình thường."
         assert cho_phep is not None, "duyệt chỉ định phải cho phép gửi tệp của nó"
+
+        # Bản tệp MỚI gửi sau lần duyệt: không thừa hưởng quyền gửi, và phải
+        # quay lại hàng duyệt (trước đây nằm im mãi — smoke 18/09).
+        tep2 = await TepKetQuaService(kb.pool).tai_len(
+            identity=doi_tac,
+            clinic_patient_id=khach,
+            data=png,
+            ten_hien_thi="kq-ban-dieu-chinh.png",
+            service_order_id=mau_id,
+        )
+        async with kb.pool.acquire() as conn:
+            assert (
+                await conn.fetchval(
+                    "SELECT cho_phep_gui_luc FROM tep_ket_qua WHERE id = $1::uuid",
+                    tep2["id"],
+                )
+                is None
+            )
+        cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
+        dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
+        assert dong["duyet_lan_truoc"] is not None
+        assert {t["id"]: t["da_cho_gui"] for t in dong["tep"]} == {
+            tep["id"]: True,
+            tep2["id"]: False,
+        }
+        lai = await kb.svc.duyet_ket_qua(
+            order_id=mau_id, danh_gia=None, identity=kb.bac_si
+        )
+        assert lai["tep_moi"] == 1
+        cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
+        assert all(r["id"] != mau_id for r in cho["ket_qua"])
+        async with kb.pool.acquire() as conn:
+            assert await conn.fetchval(
+                "SELECT cho_phep_gui_luc IS NOT NULL FROM tep_ket_qua"
+                " WHERE id = $1::uuid",
+                tep2["id"],
+            )
+            # Không ghi đánh giá mới → giữ đánh giá cũ.
+            assert (
+                await conn.fetchval(
+                    "SELECT bac_si_danh_gia FROM service_order WHERE id = $1::uuid",
+                    mau_id,
+                )
+                == "Chỉ số bình thường."
+            )
     finally:
         await _dat_doi_tac_lay_mau(kb, False)
 

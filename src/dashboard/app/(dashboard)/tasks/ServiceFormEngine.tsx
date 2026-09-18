@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT, LABEL } from "../form-ui";
 import { getFormSchema } from "../../../lib/form-schemas";
 import AndrologyReview from "./AndrologyReview";
+import { baoBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
 import type { ONhanSinhHieu } from "../../../lib/sinh-hieu-dong-bo";
 import type {
   FormData,
@@ -193,6 +194,7 @@ export default function ServiceFormEngine({
     setSaving(false);
     if (res?.ok) {
       daLuuRef.current = chuoi;
+      baoBenhAnDaLuu(visitId);
       setMsg(
         tuDong
           ? `Đã tự lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}.`

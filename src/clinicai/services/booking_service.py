@@ -51,7 +51,12 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import DOCTOR_DESK_ROLES, ClinicRole, StaffIdentity
+from clinicai.api.identity import (
+    DOCTOR_DESK_ROLES,
+    ClinicRole,
+    StaffIdentity,
+    dung_vai,
+)
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.shifts import (
@@ -723,6 +728,9 @@ class BookingService:
             raise SafetyGateError(
                 f"Vai trò của bạn không được phép '{action}' lịch hẹn"
             )
+        # Làm dưới vai thực sự cho phép thao tác (vd. vị trí Lễ tân hôm nay của
+        # một tài khoản Điều dưỡng) — nhật ký ghi đúng ngữ cảnh.
+        identity = dung_vai(identity, transition.allowed_roles)
 
         visit_vua_mo: str | None = None
         async with self._pool.acquire() as conn:
@@ -2251,6 +2259,8 @@ async def _log(
         json.dumps(
             {
                 "clinic_role": identity.role.value,
+                # Vai tài khoản gốc (vai dùng có thể khác).
+                "vai_tai_khoan": identity.vai_goc.value,
                 "clinic_staff_id": identity.staff_id,
                 "actor_auth_user_id": identity.auth_user_id,
                 "origin": origin,

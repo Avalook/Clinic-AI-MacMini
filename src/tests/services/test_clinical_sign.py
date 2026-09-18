@@ -168,6 +168,22 @@ class TestRequiredFieldsBeforeSigning:
         thieu = missing_fields(row)
         assert len(thieu) == 1 and "kế hoạch tiếp theo" in thieu[0]
 
+    @pytest.mark.parametrize(
+        "xu_tri",
+        [
+            {"mht_quyet_dinh": "chong_chi_dinh"},
+            {"mht_phac_do": "tibolon"},
+            {"dieu_tri_ho_tro": ["canxi_vitd"]},
+        ],
+    )
+    def test_noi_tiet_mht_hay_dieu_tri_ho_tro_la_huong_xu_tri(
+        self, xu_tri: dict[str, object]
+    ) -> None:
+        row = self._chi_phieu(
+            {"ly_do": "Bốc hoả", "chan_doan": "Hội chứng mãn kinh", **xu_tri}
+        )
+        assert missing_fields(row) == []
+
     def test_hmvs_chi_tien_luong_hay_phan_loai_khong_phai_chan_doan(self) -> None:
         row = self._chi_phieu(
             {

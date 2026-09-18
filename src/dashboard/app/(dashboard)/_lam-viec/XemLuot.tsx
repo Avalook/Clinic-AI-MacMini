@@ -91,6 +91,12 @@ const TRANG_THAI_DV: Record<string, string> = {
   not_performed: "Không làm được",
   cancelled: "Đã huỷ",
 };
+const THANH_TOAN: Record<string, string> = { PAID: "Đã thu", VOIDED: "Đã huỷ" };
+const THEO_DOI: Record<string, string> = {
+  OPEN: "đang theo dõi",
+  DONE: "đã xong",
+  CANCELLED: "đã huỷ",
+};
 const YEU_CAU: Record<string, string> = {
   open: "đang chờ",
   satisfied: "đạt",
@@ -319,7 +325,7 @@ export default function XemLuot({
                     {ls.theo_doi.map((t, i) => (
                       <li key={i}>
                         Theo dõi{t.dich_vu ? ` ${t.dich_vu}` : ""}: {t.ly_do} · {t.chu ?? "—"} · hạn{" "}
-                        {ngayGio(t.han)} · {t.trang_thai}
+                        {ngayGio(t.han)} · {THEO_DOI[t.trang_thai] ?? t.trang_thai}
                       </li>
                     ))}
                   </ul>
@@ -387,7 +393,7 @@ export default function XemLuot({
                     {dl.tai_chinh.map((t) => (
                       <li key={t.id}>
                         <b className="text-ink">{t.loai === "thuoc" ? "Thuốc" : "Dịch vụ"}</b> · {tien(t.so_tien)} ·{" "}
-                        {t.trang_thai} · {t.nguoi_thu ?? "—"}, {ngayGio(t.luc)}
+                        {THANH_TOAN[t.trang_thai] ?? t.trang_thai} · {t.nguoi_thu ?? "—"}, {ngayGio(t.luc)}
                         {t.huy_luc
                           ? ` · ĐÃ HUỶ ${ngayGio(t.huy_luc)} — ${t.nguoi_huy ?? ""}: ${t.ly_do_huy ?? ""}`
                           : ""}

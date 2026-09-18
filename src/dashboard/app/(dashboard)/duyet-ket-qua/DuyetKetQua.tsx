@@ -24,7 +24,8 @@ interface KetQua {
   bac_si: string | null;
   cua_toi: boolean;
   nguoi_lam: string | null;
-  tep: { id: string }[];
+  tep: { id: string; ten: string; da_cho_gui: boolean }[];
+  duyet_lan_truoc: string | null;
 }
 
 export default function DuyetKetQua() {
@@ -111,6 +112,18 @@ function TheKetQua({ k, onXong }: { k: KetQua; onXong: () => void }) {
           {k.nguoi_lam ? ` · ${k.nguoi_lam}` : ""}
         </p>
       </header>
+      {k.duyet_lan_truoc ? (
+        <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-sm text-ink">
+          Đã duyệt lúc {gioVn(k.duyet_lan_truoc)}, nay có tệp mới chưa được cho gửi:{" "}
+          <span className="font-medium">
+            {k.tep
+              .filter((t) => !t.da_cho_gui)
+              .map((t) => t.ten)
+              .join(", ")}
+          </span>
+          . Bản mới không thừa hưởng lần duyệt cũ — xem rồi duyệt lại.
+        </p>
+      ) : null}
       {k.noi_dung ? (
         <p className="whitespace-pre-line rounded-control bg-surface-muted px-3 py-2 text-sm text-ink">
           {k.noi_dung}

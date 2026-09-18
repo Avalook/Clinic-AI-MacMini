@@ -40,7 +40,7 @@ const NHOM: { ma: ChiDinh["nhom"]; nhan: string }[] = [
   { ma: "da_hoan_tat", nhan: "Đã hoàn tất" },
 ];
 const VONG: Record<string, string> = {
-  collecting: "chờ đủ kết quả",
+  collecting: "vòng đọc: chờ làm xong / có kết quả",
   ready: "khách chờ bác sĩ đọc",
   in_review: "bác sĩ đang đọc",
   closed: "đã quay lại bác sĩ",

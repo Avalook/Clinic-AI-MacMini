@@ -182,7 +182,11 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
     );
   }
 
-  const dvXong = d.dich_vu.filter((x) => x.status === "COMPLETED").length;
+  // Không làm được cũng là đã giải quyết (bác sĩ đã quyết) — đếm vào "hoàn tất"
+  // nhưng hiện chữ riêng, không đánh dấu ✓ như đã làm.
+  const dvXong = d.dich_vu.filter(
+    (x) => x.status === "COMPLETED" || x.status === "NOT_PERFORMED",
+  ).length;
   const tienDaThu = d.tai_chinh.filter((x) => !x.da_huy && x.status === "PAID");
   const tdXong = d.theo_doi.filter((x) => x.status !== "OPEN").length;
 
@@ -210,12 +214,18 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
                   </span>
                   <span
                     className={`w-24 shrink-0 text-right text-xs font-medium ${
-                      x.status === "COMPLETED" ? "text-success" : "text-warning"
+                      x.status === "COMPLETED"
+                        ? "text-success"
+                        : x.status === "NOT_PERFORMED"
+                          ? "text-ink-muted"
+                          : "text-warning"
                     }`}
                   >
                     {x.status === "COMPLETED"
                       ? `Xong ${gio(x.xong_luc)}`
-                      : x.status === "IN_PROGRESS"
+                      : x.status === "NOT_PERFORMED"
+                        ? "Không làm"
+                        : x.status === "IN_PROGRESS"
                         ? "Đang làm"
                         : "Chưa làm"}
                   </span>

@@ -172,6 +172,8 @@ class ThongBaoService:
                             "actor_auth_user_id": identity.auth_user_id,
                             "clinic_staff_id": identity.staff_id,
                             "clinic_role": identity.role.value,
+                            # Vai tài khoản gốc (vai dùng có thể khác).
+                            "vai_tai_khoan": identity.vai_goc.value,
                         }
                     ),
                     ma_su_kien,
@@ -251,6 +253,8 @@ class ThongBaoService:
                         "actor_auth_user_id": identity.auth_user_id,
                         "clinic_staff_id": identity.staff_id,
                         "clinic_role": identity.role.value,
+                        # Vai tài khoản gốc (vai dùng có thể khác).
+                        "vai_tai_khoan": identity.vai_goc.value,
                     }
                 ),
                 duong_ghi,

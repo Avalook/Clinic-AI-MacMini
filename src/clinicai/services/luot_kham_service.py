@@ -3433,7 +3433,12 @@ class LuotKhamService:
     # ------------------------------------------------------------------
 
     async def ket_qua_cho_duyet(self, *, identity: StaffIdentity) -> dict[str, Any]:
-        """Chỉ định đã có kết quả (tệp hoặc nội dung) mà bác sĩ chưa duyệt."""
+        """Chỉ định đã có kết quả (tệp hoặc nội dung) mà bác sĩ chưa duyệt.
+
+        Cả chỉ định ĐÃ duyệt mà có tệp mới tải lên sau đó (đối tác gửi bản điều
+        chỉnh): tệp mới không thừa hưởng lần duyệt cũ, nên phải quay lại đây —
+        nếu không nó nằm im mãi, CSKH không bao giờ thấy (smoke 18/09).
+        """
         _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
@@ -3446,7 +3451,7 @@ class LuotKhamService:
                        p.clinic_patient_id::text AS clinic_patient_id,
                        p.full_name, p.patient_code,
                        d.full_name AS bac_si, v.attending_doctor_id::text AS bac_si_id,
-                       pf.full_name AS nguoi_lam
+                       pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
                   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
                   JOIN patient p
@@ -3455,7 +3460,12 @@ class LuotKhamService:
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                  WHERE o.clinic_id = $1::uuid
-                   AND o.ket_qua_luc IS NOT NULL AND o.duyet_luc IS NULL
+                   AND o.ket_qua_luc IS NOT NULL
+                   AND (o.duyet_luc IS NULL
+                        OR EXISTS (SELECT 1 FROM tep_ket_qua t
+                                    WHERE t.clinic_id = o.clinic_id
+                                      AND t.service_order_id = o.id
+                                      AND t.cho_phep_gui_luc IS NULL))
                    AND o.exec_status NOT IN ('draft', 'cancelled')
                    AND o.created_at > now() - interval '60 days'
                  ORDER BY (v.attending_doctor_id = $2::uuid) DESC NULLS LAST,
@@ -3468,7 +3478,8 @@ class LuotKhamService:
             teps = await conn.fetch(
                 """
                 SELECT t.id::text AS id, t.service_order_id::text AS order_id,
-                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc
+                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc,
+                       t.cho_phep_gui_luc IS NOT NULL AS da_cho_gui
                   FROM tep_ket_qua t
                  WHERE t.clinic_id = $1::uuid
                    AND t.service_order_id = ANY($2::uuid[])
@@ -3487,6 +3498,7 @@ class LuotKhamService:
                     "mime": t["mime"],
                     "so_byte": int(t["so_byte"]),
                     "tai_len_luc": _iso(t["tai_len_luc"]),
+                    "da_cho_gui": t["da_cho_gui"],
                 }
             )
         return {
@@ -3506,6 +3518,8 @@ class LuotKhamService:
                     "cua_toi": r["bac_si_id"] == identity.staff_id,
                     "nguoi_lam": r["nguoi_lam"],
                     "tep": theo.get(r["id"], []),
+                    # Đã duyệt một lần — thẻ này có mặt vì có tệp mới chưa duyệt.
+                    "duyet_lan_truoc": _iso(r["duyet_luc"]),
                 }
                 for r in rows
             ]
@@ -3549,7 +3563,50 @@ class LuotKhamService:
             )
             assert o is not None
             if o["duyet_luc"] is not None:
-                return {"ok": True, "order_id": oid, "already": True}
+                # Đã duyệt trước đó. Tệp mới gửi SAU lần duyệt không thừa hưởng
+                # quyền gửi — bác sĩ bấm duyệt lần nữa thì chỉ mở các tệp ấy,
+                # giữ nguyên đánh giá cũ trừ khi ghi đánh giá mới.
+                moi = await conn.fetch(
+                    """
+                    UPDATE tep_ket_qua
+                       SET cho_phep_gui_luc = now(),
+                           cho_phep_gui_boi_staff_id = $3::uuid
+                     WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                       AND cho_phep_gui_luc IS NULL
+                    RETURNING id::text
+                    """,
+                    cid,
+                    oid,
+                    identity.staff_id,
+                )
+                if not moi:
+                    return {"ok": True, "order_id": oid, "already": True}
+                if ghi:
+                    await conn.execute(
+                        """
+                        UPDATE service_order
+                           SET bac_si_danh_gia = $3,
+                               version = version + 1, updated_at = now()
+                         WHERE clinic_id = $1::uuid AND id = $2::uuid
+                        """,
+                        cid,
+                        oid,
+                        ghi,
+                    )
+                await record_event(
+                    conn,
+                    event_type="result.approved",
+                    aggregate_type="visit",
+                    aggregate_id=vid,
+                    identity=identity,
+                    origin=ORIGIN,
+                    payload={
+                        "visit_id": vid,
+                        "order_id": oid,
+                        "tep_moi": [r["id"] for r in moi],
+                    },
+                )
+                return {"ok": True, "order_id": oid, "tep_moi": len(moi)}
             if o["ket_qua_luc"] is None:
                 raise LuotKhamConflictError(
                     "NO_RESULT_YET", "Chỉ định này chưa có kết quả để duyệt."

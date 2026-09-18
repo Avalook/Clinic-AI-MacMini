@@ -386,6 +386,21 @@ async def test_checkout_doc_rail_moi(kb: KichBan) -> None:
     assert so_theo_doi == 1
 
 
+async def test_checkout_chi_tiet_khong_lam_duoc_khong_hien_la_xong(
+    kb: KichBan,
+) -> None:
+    """Smoke 18/09: dịch vụ KHÔNG làm được hiện "✓ Xong" ở màn check-out."""
+    from clinicai.services.checkout_service import CheckoutService
+
+    await _khong_lam_duoc(kb)
+    ct = await CheckoutService(kb.pool).chi_tiet(
+        identity=kb.le_tan, visit_id=kb.visit_id
+    )
+    trang_thai = sorted(d["status"] for d in ct["dich_vu"] if d["ten"] != "Khám")
+    assert "NOT_PERFORMED" in trang_thai
+    assert trang_thai.count("NOT_PERFORMED") == 1
+
+
 # ── CSKH kết quả muộn đọc rail mới ─────────────────────────────────────────
 
 

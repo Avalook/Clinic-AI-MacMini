@@ -152,3 +152,39 @@ async def test_thu_ngan_xem_giao_dich_ca_dong_da_huy(kb: KichBan) -> None:
     [gd] = [g for g in kq["giao_dich"] if g["visit_id"] == kb.visit_id]
     assert gd["so_tien"] == 150000 and gd["ly_do_huy"] == "Thu nhầm"
     assert gd["phuong_thuc"] is None
+
+
+async def test_lich_tiep_theo_khong_tinh_lich_da_check_in(kb: KichBan) -> None:
+    """Smoke 18/09: lịch hôm nay vừa check-in hiện thành "lịch tiếp theo"."""
+    r = await kb.pool.fetchrow(
+        "SELECT clinic_patient_id, location_id FROM patient WHERE clinic_patient_id ="
+        " (SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid)",
+        kb.visit_id,
+    )
+    assert r is not None
+    st = await kb.pool.fetchval(
+        "SELECT id FROM service_type WHERE clinic_id = $1::uuid LIMIT 1",
+        kb.bac_si.clinic_id,
+    )
+
+    async def hen(gio: int, trang_thai: str) -> None:
+        await kb.pool.execute(
+            "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+            " service_type_id, slot_start, slot_end, status, booking_channel)"
+            " VALUES ($1::uuid, $2, $3, $4, now() + make_interval(hours => $5),"
+            " now() + make_interval(hours => $5, mins => 15), $6, 'PHONE')",
+            kb.bac_si.clinic_id,
+            r["clinic_patient_id"],
+            r["location_id"],
+            st,
+            gio,
+            trang_thai,
+        )
+
+    await hen(1, "CHECKED_IN")
+    svc = XemLuotService(kb.pool)
+    kq = await svc.doc(visit_id=kb.visit_id, identity=kb.le_tan)
+    assert kq["hanh_chinh"]["lich_tiep_theo"] is None
+    await hen(48, "CONFIRMED")
+    kq = await svc.doc(visit_id=kb.visit_id, identity=kb.le_tan)
+    assert kq["hanh_chinh"]["lich_tiep_theo"] is not None

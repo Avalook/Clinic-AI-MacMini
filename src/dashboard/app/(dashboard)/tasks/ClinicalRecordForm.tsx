@@ -18,6 +18,7 @@ import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
+import { baoBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
 import TepCuaLuotKham from "./TepCuaLuotKham";
 import { resolveServiceCode } from "../../../lib/form-schemas";
 import {
@@ -746,6 +747,7 @@ export default function ClinicalRecordForm({
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
     mocDaLuuRef.current = JSON.stringify({ f, pm, tk, rx });
     setCoGoDoChuaLuu(false);
+    if (data?.visit?.visit_id) baoBenhAnDaLuu(data.visit.visit_id);
     if (tuDong) {
       // Không nạp lại cả form (người đang gõ tiếp sẽ mất chữ); chỉ nhận số phiên
       // bản mới để lần lưu sau không bị coi là ghi đè.

@@ -143,7 +143,7 @@ export default function ThaiKy({
             <dt className="text-ink-faint">Nguồn</dt>
             <dd className="font-medium text-ink">
               {ht.nguon_du_kien_sinh_nhan ?? "chưa ghi"}
-              {ht.bac_si_xac_nhan ? ` · BS ${ht.bac_si_xac_nhan}` : ""}
+              {ht.bac_si_xac_nhan ? ` · xác nhận: ${ht.bac_si_xac_nhan}` : ""}
             </dd>
           </div>
           <div>

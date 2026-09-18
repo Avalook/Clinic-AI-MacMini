@@ -50,7 +50,14 @@ BEGIN
             ('dd.sa@dr4women.local',    'DD SA local',   'DD SA', 'NURSE_ULTRASOUND'),
             ('thungan@dr4women.local',  'Thu ngan local','TN',    'CASHIER'),
             ('duocsi@dr4women.local',   'Duoc si local', 'DS',    'PHARMACIST'),
-            ('ql@dr4women.local',       'Quan ly local', 'QL',    'MANAGEMENT')
+            ('ql@dr4women.local',       'Quan ly local', 'QL',    'MANAGEMENT'),
+            -- Batch pilot 18/09: ĐỐI TÁC là actor thật (lab/phòng chụp ngoài) —
+            -- acceptance cuối phải dùng tài khoản đối tác, không dùng quản lý.
+            ('doitac@dr4women.local',   'Doi tac local', 'DT',    'PARTNER'),
+            -- MỘT NGƯỜI, MỘT TÀI KHOẢN, NHIỀU PHÂN CÔNG CÙNG NGÀY: tài khoản điều
+            -- dưỡng; vai lễ tân + thu ngân đến từ LỊCH hôm nay (fixture
+            -- tai_khoan_da_vai_hom_nay.sql), không từ membership thứ hai.
+            ('danang@dr4women.local',   'Da nang local', 'DN',    'NURSE_ULTRASOUND')
         ) AS t(email, full_name, short_name, department)
     LOOP
         -- crypt() lives in the extensions schema on Supabase; auth.users is

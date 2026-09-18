@@ -203,7 +203,11 @@ class XemLuotService:
               (SELECT min(a.slot_start) FROM appointment a
                 WHERE a.clinic_id = $1::uuid AND a.clinic_patient_id = $3::uuid
                   AND a.slot_start > now()
-                  AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED'))
+                  -- Lịch đã check-in / đã khám xong không phải "lịch tiếp
+                  -- theo" (smoke 18/09: lịch 18:00 hôm nay vừa check-in hiện
+                  -- thành lịch tiếp theo của chính lượt ấy).
+                  AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                       'CHECKED_IN', 'COMPLETED'))
                                                                     AS lich_tiep
             """,
             cid,

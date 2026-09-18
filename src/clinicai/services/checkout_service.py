@@ -159,7 +159,9 @@ SELECT * FROM (
        AND c.status <> 'cancelled'
     UNION ALL
     SELECT o.node_code, CASE o.exec_status WHEN 'performed' THEN 'COMPLETED'
-                                           WHEN 'not_performed' THEN 'COMPLETED'
+                                           -- Không làm được ≠ đã làm (smoke 18/09:
+                                           -- Lan hiện "✓ Xong" siêu âm bị miễn).
+                                           WHEN 'not_performed' THEN 'NOT_PERFORMED'
                                            WHEN 'in_progress' THEN 'IN_PROGRESS'
                                            ELSE 'PENDING' END,
            o.started_at, o.finished_at, coalesce(o.service_name, o.service_code),
@@ -673,6 +675,8 @@ class CheckoutService:
                             "actor_auth_user_id": identity.auth_user_id,
                             "clinic_staff_id": identity.staff_id,
                             "clinic_role": identity.role.value,
+                            # Vai tài khoản gốc (vai dùng có thể khác).
+                            "vai_tai_khoan": identity.vai_goc.value,
                         }
                     ),
                     "visit.closed_incomplete" if incomplete else "dispatch.checkout",
