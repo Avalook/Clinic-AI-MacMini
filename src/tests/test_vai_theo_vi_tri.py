@@ -159,19 +159,46 @@ from clinicai.api.identity import (  # noqa: E402
 
 _9H, _13H, _14H30, _20H = 9 * 60, 13 * 60, 14 * 60 + 30, 20 * 60
 
+#: Luật theo ca BẬT. Mặc định TẮT (HOLD_FOR_PROD 18/09/2026): lịch prod ngày
+#: thường chỉ có ca tối trong khi phòng khám mở 07–22, chưa đủ chắc để bật.
+_BAT = {"vai_lich_theo_ca": True}
+
+
+def test_mac_dinh_tat_giu_nguyen_hanh_vi_cu() -> None:
+    """Tắt: mọi dòng trừ REJECTED cấp vai CẢ NGÀY — y như trước S0-7."""
+    dong = [
+        ("T1_LETAN", "SANG", "APPROVED"),
+        ("T1_THUNGAN", "TOI", "PENDING"),
+        ("DIEU_PHOI", "CHIEU", "REJECTED"),
+    ]
+    for settings in (None, {}, {"vai_lich_theo_ca": False}):
+        assert vi_tri_dang_trong_ca(dong, _20H, settings) == [
+            ("T1_LETAN", "SANG"),
+            ("T1_THUNGAN", "TOI"),
+        ]
+
+
+@pytest.mark.parametrize("rac", ["true", 1, "1", None, [True]])
+def test_cong_tac_chi_bat_khi_dung_true(rac: object) -> None:
+    dong = [("T1_LETAN", "SANG", "APPROVED")]
+    assert vi_tri_dang_trong_ca(dong, _20H, {"vai_lich_theo_ca": rac}) == [
+        ("T1_LETAN", "SANG")
+    ]
+    assert vi_tri_dang_trong_ca(dong, _20H, '{"vai_lich_theo_ca": true}') == []
+
 
 def test_chi_dong_da_duyet_moi_cap_vi_tri() -> None:
     dong = [("T1_LETAN", "SANG", "PENDING"), ("T1_THUNGAN", "SANG", "APPROVED")]
-    assert vi_tri_dang_trong_ca(dong, _9H, None) == [("T1_THUNGAN", "SANG")]
+    assert vi_tri_dang_trong_ca(dong, _9H, _BAT) == [("T1_THUNGAN", "SANG")]
 
 
 def test_het_ca_la_het_vai() -> None:
     dong = [("T1_LETAN", "SANG", "APPROVED")]
-    assert vi_tri_dang_trong_ca(dong, _9H, None) == [("T1_LETAN", "SANG")]
-    assert vi_tri_dang_trong_ca(dong, _14H30, None) == []
-    assert vi_tri_dang_trong_ca(dong, _20H, None) == []
+    assert vi_tri_dang_trong_ca(dong, _9H, _BAT) == [("T1_LETAN", "SANG")]
+    assert vi_tri_dang_trong_ca(dong, _14H30, _BAT) == []
+    assert vi_tri_dang_trong_ca(dong, _20H, _BAT) == []
     # Nửa mở [lo, hi): đúng 13:00 là đã hết ca sáng — ân hạn mặc định 0.
-    assert vi_tri_dang_trong_ca(dong, _13H, None) == []
+    assert vi_tri_dang_trong_ca(dong, _13H, _BAT) == []
 
 
 def test_nhieu_ca_trong_ngay_chi_ca_dang_dien_ra() -> None:
@@ -180,14 +207,14 @@ def test_nhieu_ca_trong_ngay_chi_ca_dang_dien_ra() -> None:
         ("T4_SAN_DD", "CHIEU", "APPROVED"),
         ("DIEU_PHOI", "FULL", "APPROVED"),
     ]
-    assert vi_tri_dang_trong_ca(dong, _14H30, None) == [
+    assert vi_tri_dang_trong_ca(dong, _14H30, _BAT) == [
         ("T4_SAN_DD", "CHIEU"),
         ("DIEU_PHOI", "FULL"),
     ]
 
 
 def test_an_han_cau_hinh_duoc_hai_dau_ca() -> None:
-    settings = {"vai_lich_an_han_phut": 15}
+    settings = {**_BAT, "vai_lich_an_han_phut": 15}
     dong = [("T1_LETAN", "SANG", "APPROVED")]
     assert vi_tri_dang_trong_ca(dong, _13H + 10, settings) == [("T1_LETAN", "SANG")]
     assert vi_tri_dang_trong_ca(dong, _13H + 15, settings) == []
@@ -195,7 +222,10 @@ def test_an_han_cau_hinh_duoc_hai_dau_ca() -> None:
 
 
 def test_gio_ca_theo_cau_hinh_phong_kham() -> None:
-    settings = {"ca_lam_viec": {"SANG": {"bat_dau": "07:00", "ket_thuc": "12:00"}}}
+    settings = {
+        **_BAT,
+        "ca_lam_viec": {"SANG": {"bat_dau": "07:00", "ket_thuc": "12:00"}},
+    }
     dong = [("T1_LETAN", "SANG", "APPROVED")]
     assert vi_tri_dang_trong_ca(dong, 7 * 60 + 5, settings) == [("T1_LETAN", "SANG")]
     assert vi_tri_dang_trong_ca(dong, 12 * 60 + 30, settings) == []
@@ -228,7 +258,7 @@ def test_doc_vi_tri_hien_hanh_loc_trong_sql_va_theo_gio() -> None:
 
     from tests.services.fake_pool import FakePool
 
-    settings = {"vai_lich_an_han_phut": 0}
+    settings = {**_BAT, "vai_lich_an_han_phut": 0}
     pool = FakePool(
         [
             {
@@ -250,7 +280,7 @@ def test_doc_vi_tri_hien_hanh_loc_trong_sql_va_theo_gio() -> None:
     )
     assert ket == [("T1_LETAN", "SANG")]
     sql = pool.queries("fetch")[0]
-    assert "w.status = 'APPROVED'" in sql and "w.clinic_id = $1::uuid" in sql
+    assert "w.status <> 'REJECTED'" in sql and "w.clinic_id = $1::uuid" in sql
 
 
 def test_cua_gac_va_thanh_ben_dung_chung_mot_bo_loc() -> None:

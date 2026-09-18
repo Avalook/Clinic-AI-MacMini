@@ -690,21 +690,34 @@ KHOA_AN_HAN_CA = "vai_lich_an_han_phut"
 AN_HAN_CA_TOI_DA = 120
 
 
+#: Công tắc luật "vai theo ca" trong ``clinic.settings``. CHỈ đúng ``true`` mới
+#: bật; mặc định TẮT (HOLD_FOR_PROD, 18/09/2026): lịch prod ngày thường chỉ có
+#: ca tối trong khi phòng khám mở 07–22 — chưa đủ chắc để bật cho người thật.
+KHOA_BAT_LUAT_CA = "vai_lich_theo_ca"
+
+
+def _settings_dict(raw: object) -> dict[str, Any]:
+    doc: Any = raw
+    if isinstance(doc, (str, bytes)):
+        try:
+            doc = json.loads(doc)
+        except (ValueError, TypeError):
+            return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def luat_ca_dang_bat(raw: object) -> bool:
+    """Luật S0-7 có bật cho phòng khám này không. Rác → tắt, không ném."""
+    return _settings_dict(raw).get(KHOA_BAT_LUAT_CA) is True
+
+
 def an_han_ca_tu_settings(raw: object) -> int:
     """``clinic.settings`` → số phút ân hạn quanh ca. Rác → 0, không ném.
 
     Ngoài 0–120 cũng là rác: ân hạn 1000 phút là cấp vai cả ngày trá hình, đúng
     thứ luật này sinh ra để chặn.
     """
-    doc: Any = raw
-    if isinstance(doc, (str, bytes)):
-        try:
-            doc = json.loads(doc)
-        except (ValueError, TypeError):
-            return 0
-    if not isinstance(doc, dict):
-        return 0
-    v = doc.get(KHOA_AN_HAN_CA)
+    v = _settings_dict(raw).get(KHOA_AN_HAN_CA)
     if isinstance(v, bool) or not isinstance(v, int):
         return 0
     return v if 0 <= v <= AN_HAN_CA_TOI_DA else 0
@@ -719,7 +732,16 @@ def vi_tri_dang_trong_ca(
     Thuần — cửa gác và thanh bên cùng gọi qua `doc_vi_tri_hien_hanh`. Giờ ca đọc
     ``clinic.settings.ca_lam_viec`` qua `core.shifts`, cùng nguồn với đặt lịch.
     Ca FULL là HAI khoảng (nghỉ trưa ở giữa), nên giờ nghỉ trưa không cấp vai.
+
+    Công tắc `luat_ca_dang_bat` TẮT (mặc định) → hành vi TRƯỚC S0-7: mọi dòng
+    trừ REJECTED cấp vai cả ngày.
     """
+    if not luat_ca_dang_bat(settings):
+        cu: list[tuple[str, str]] = []
+        for tram, ma_ca, trang_thai in dong:
+            if trang_thai != "REJECTED" and (tram, ma_ca) not in cu:
+                cu.append((tram, ma_ca))
+        return cu
     ca = ca_tu_settings(settings)
     an_han = an_han_ca_tu_settings(settings)
     ket: list[tuple[str, str]] = []
@@ -761,7 +783,8 @@ async def doc_vi_tri_hien_hanh(
          WHERE w.clinic_id = $1::uuid
            AND w.staff_id = $2::uuid
            AND w.work_date = $3::date
-           AND w.status = 'APPROVED'
+           -- Lọc APPROVED/giờ ca nằm ở `vi_tri_dang_trong_ca` (theo công tắc).
+           AND w.status <> 'REJECTED'
          ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift),
                   v.sort NULLS LAST, w.station
         """,
