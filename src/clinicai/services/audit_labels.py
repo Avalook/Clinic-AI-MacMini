@@ -182,6 +182,11 @@ EVENT_LABELS: dict[str, str] = {
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
     "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
+    # Slice 1 (18/09/2026): kết quả / theo dõi trên rail mới.
+    "review.skipped": "Không cần đọc lại (bác sĩ đã miễn hoặc chuyển theo dõi hết)",
+    "requirement.waived": "Bác sĩ miễn một yêu cầu trước khi đọc kết quả",
+    "requirement.follow_up": "Bác sĩ chuyển kết quả sang theo dõi, khách về trước",
+    "follow_up.opened": "Mở việc theo dõi kết quả",
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
 }
 

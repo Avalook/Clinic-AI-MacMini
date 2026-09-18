@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **22/08/2026 trưa**, sau Lát 3 + bộ kiểm đường ghi (mục 0 là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **18/09/2026**, sau CI-01 + Slice 1 (mục -0022 là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -36,6 +36,58 @@ lịch sử hội thoại.
   dữ liệu thật, và chưa đưa worktree này lên VPS hay màn demo quản lý.
 
 ---
+
+## -0022. CI-01 + Slice 1 (18/09/2026) — rail mới là nguồn duy nhất cho kết quả / đọc lại / theo dõi / đóng lượt
+
+Nhánh `claude/ci-01-slice-1-handoff-339fee`, một PR. **Chưa deploy.** Hai
+migration mới (`20260918000001`, `20260918000002`) — áp bằng `supabase db push`
+TRƯỚC khi deploy code, bước riêng có người xem.
+
+- **CI-01:** test `-m db` chạy trong CI trên Postgres dùng một lần
+  (`scripts/tests/dung-db-kiem.sh`, cổng 55433). Độ phủ đo cả bộ: 84%.
+  11 test stale đã sửa. **CI-DEBT-1:** `src/tests/integration/` (REST đời cũ,
+  fixture `clean_db` xoá TOÀN BẢNG staff/patient/appointment; 13 test
+  scheduling 401 vì không có danh tính) bị loại khỏi CI — Đợt D viết lại
+  hoặc xoá cùng endpoint work-sessions.
+- **Bốn contract:** PERFORMED (làm xong là đạt) · VALID_RESULT (performed +
+  `service_order.ket_qua_luc`; tệp gắn chỉ định chạy lại vòng đọc) · FOLLOW_UP
+  (không thành yêu cầu vòng đọc; `follow_up_case` có owner/hạn/visit/chỉ định;
+  duyệt kết quả thì DONE) · NOT_PERFORMED (không tự đạt; vòng vẫn sẵn sàng để
+  khách về bác sĩ, không đóng được khi chưa quyết).
+- **Bác sĩ quyết:** `POST /luot-kham/yeu-cau/{id}/quyet` (WAIVE | FOLLOW_UP, lý
+  do bắt buộc, chỉ bác sĩ phụ trách). Khung "Chờ bác sĩ quyết" ở Bàn khám.
+  "Đổi kế hoạch" = miễn + chỉ định thêm trong phiên đọc kết quả.
+- **Khép lượt một chỗ:** `_ket_thuc_neu_xong` (hết kẹt khi DONE còn chỉ định dở,
+  hoặc chỉ còn theo dõi).
+- **Checkout** đọc `service_order`/`review_round`/`round_requirement`; **CSKH**
+  `v_viec_cskh` thêm CHO_KQ_XN/CHO_BAC_SI trên `service_order`. Ba nhánh
+  `lab_result` GIỮ song song cho dữ liệu cũ còn dở — xoá ở Đợt D sau khi đếm
+  prod.
+- **Theo dõi không mồ côi:** chỉ chuyển theo dõi khi đang chờ kết quả (dịch vụ
+  không làm được → miễn + hẹn tái khám); chỉ định không làm được thì việc theo
+  dõi của nó CANCELLED; yêu cầu đã đạt không quyết lại.
+- **Rail cũ đã nghỉ (410 + log người gọi):** 13 lối ghi `service_log`,
+  `lab_result` (tạo/nhập), `service_order_draft`, `order_services`. Ô "Chỉ định
+  CLS" trong bệnh án đã gỡ. Chuyển cả lượt (`move_visit_to_station`) từ chối
+  lượt luồng mới; đặt vào trạm lúc check-in GIỮ (cùng giao dịch đã có
+  `appointment.checked_in` ghi đủ vai).
+- **SEC-01 (có từ trước, cần làm sớm):** `v_viec_cskh` mất
+  `security_invoker = true` từ một lần CREATE OR REPLACE trước Slice 1, trong
+  khi dashboard đọc thẳng view (GRANT authenticated) → RLS bảng nền bị bỏ qua.
+  Một phòng khám thì chưa lộ chéo; phải xử lý trước phòng khám thứ hai. Không
+  lật trong Slice 1 vì đổi những gì màn CSKH thấy.
+- **Còn nợ (không chặn Slice 2):** `hold_until_round` chưa ai ghi; khi làm
+  tính năng giữ chỉ định phải chặn trường hợp vòng sau không được tạo (kế
+  hoạch toàn FOLLOW_UP). Kết quả dạng ghi chú đã duyệt chưa sinh việc CSKH
+  "gửi kết quả" (chỉ tệp mới sinh) — cần Tuyền chốt có cần không. TV/hàng chờ lễ tân tính "kết quả đã về" từ
+  `lab_result` (`display_board_service`, `routers/queue.py`) — với luồng mới
+  luôn "chưa về" → Đợt C (queue). `booking_service` còn tạo work_item
+  DICHVU-SIEUAM lúc check-in lịch bác sĩ siêu âm → Đợt C (thống nhất SA). Mục
+  VI "Cận lâm sàng" của bệnh án và lịch sử bệnh nhân vẫn đọc `lab_result` (chỉ
+  hiển thị) → Đợt D. Code service rail cũ (service_log/lab_order/
+  service_order_draft) còn nằm đó sau 410 → Đợt D xoá. Chưa bấm thật giao diện
+  mới (cần người đăng nhập): khung Chờ bác sĩ quyết, ô CLS đã gỡ, khối chuyển
+  phòng ẩn.
 
 ## -0021. Bản đồ màn hình + gộp màn cũ (18/09/2026)
 

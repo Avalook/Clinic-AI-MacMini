@@ -356,7 +356,15 @@ function DetailPanel({
         style={{ width: "100%" }}
       />
 
-      {sameStepRooms.length > 0 && (
+      {patient.luong_moi && (
+        // Slice 1 (18/09/2026): lượt đi luồng mới không chuyển cả lượt bằng
+        // move_visit_to_station — máy chủ cũng từ chối. Chuyển từng chỉ định ở
+        // khung ngay dưới.
+        <p className="mt-3 text-xs text-ink-muted">
+          Chuyển phòng từng chỉ định ở mục “Bác sĩ chỉ định gì” bên dưới.
+        </p>
+      )}
+      {!patient.luong_moi && sameStepRooms.length > 0 && (
         <>
           <div style={{ margin: "12px 0 6px", fontSize: 12, fontWeight: 700 }}>
             Chuyển phòng

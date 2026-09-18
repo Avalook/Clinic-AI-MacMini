@@ -19,8 +19,10 @@ tới ``visit.status``. Bác sĩ vẫn ký bệnh án theo đường của mình
 
 ĐỐI SOÁT TRƯỚC KHI ĐÓNG — bốn thứ Notion §2 liệt kê, cộng một thứ nữa:
 
-  1. dịch vụ đã chỉ định mà chưa thực hiện xong;
-  2. kết quả xét nghiệm đang chờ;
+  1. dịch vụ đã chỉ định (bác sĩ đã duyệt) mà chưa thực hiện xong;
+  2. kết quả bác sĩ còn chờ để đọc trong lượt, hoặc bác sĩ chưa khám/đọc xong
+     — cả hai đọc RAIL MỚI (service_order, review_round, round_requirement);
+     kết quả đã chuyển theo dõi (follow_up_case) không giữ lượt;
   3. khoản chưa thu (dịch vụ luôn phải thu; thuốc chỉ khi có đơn);
   4. bệnh nhân vẫn đang đứng ở một phòng — *"Không cho đóng lượt khi bệnh nhân
      vẫn đang được xử lý tại một phòng"*.
@@ -62,20 +64,36 @@ SELECT
     EXISTS (SELECT 1 FROM public.work_item w
              WHERE w.visit_id = v.visit_id AND w.node_code = $2
                AND w.status = 'COMPLETED')                     AS already_closed,
-    -- ① Dịch vụ đã chỉ định mà chưa xong. `status` rỗng nghĩa là chưa ai đụng
-    --    tới, nên tính là chưa xong — im lặng bỏ qua sẽ cho đóng lượt còn dở.
-    coalesce((SELECT count(*) FROM public.service_log s
-               WHERE s.clinic_id = v.clinic_id
-                 AND s.visit_link_raw = v.visit_id::text
-                 AND coalesce(s.status, '') NOT IN ('DONE', 'COMPLETED',
-                                                    'CANCELLED')), 0) AS svc_open,
-    -- ② Kết quả xét nghiệm chưa về.
-    coalesce((SELECT count(*) FROM public.lab_result l
-               WHERE l.clinic_id = v.clinic_id
-                 AND l.appointment_id = v.appointment_id
-                 AND nullif(btrim(coalesce(l.result_value, '')), '') IS NULL
-                 AND nullif(btrim(coalesce(l.external_ref,  '')), '') IS NULL), 0)
-                                                               AS lab_pending,
+    -- ①–② ĐỌC RAIL MỚI (Slice 1, 18/09/2026). Bản trước đếm `service_log` và
+    --    `lab_result` — hai bảng mà luồng khám mới không ghi nữa, nên quầy
+    --    không bao giờ thấy chỉ định còn dở hay kết quả bác sĩ còn chờ đọc.
+    --
+    -- ① Chỉ định bác sĩ đã duyệt mà chưa làm (nháp của thư ký không tính).
+    coalesce((SELECT count(*) FROM public.service_order o
+               WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
+                 AND o.exec_status IN ('authorized', 'assigned', 'in_progress')),
+             0)                                                AS svc_open,
+    -- ② Kết quả bác sĩ còn chờ để đọc lại trong lượt: yêu cầu "cần kết quả"
+    --    chưa đạt của vòng đọc chưa đóng. Kết quả đã CHUYỂN THEO DÕI không
+    --    tính — nó không giữ lượt (follow_up_case lo tiếp).
+    coalesce((SELECT count(*) FROM public.round_requirement q
+                JOIN public.review_round r
+                  ON r.id = q.round_id AND r.clinic_id = q.clinic_id
+               WHERE r.clinic_id = v.clinic_id AND r.visit_id = v.visit_id
+                 AND r.status <> 'closed' AND q.need = 'VALID_RESULT'
+                 AND q.status = 'open'), 0)                    AS lab_pending,
+    -- ②b Bác sĩ chưa khám/đọc xong: còn phiên khám đang chờ hoặc đang khám,
+    --     hoặc vòng đọc kết quả chưa đóng.
+    (EXISTS (SELECT 1 FROM public.consultation c
+              WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
+                AND c.status IN ('queued', 'in_progress'))
+     OR EXISTS (SELECT 1 FROM public.review_round r
+                 WHERE r.clinic_id = v.clinic_id AND r.visit_id = v.visit_id
+                   AND r.status <> 'closed'))                   AS exam_open,
+    -- Việc theo dõi lượt này bàn giao (không chặn, chỉ để quầy biết).
+    coalesce((SELECT count(*) FROM public.follow_up_case f
+               WHERE f.clinic_id = v.clinic_id AND f.visit_id = v.visit_id
+                 AND f.status = 'OPEN'), 0)                    AS follow_up_open,
     -- ③ Khoản đã thu, theo nhóm. Bỏ giao dịch đã huỷ.
     EXISTS (SELECT 1 FROM public.payment pm
              WHERE pm.visit_id = v.visit_id AND pm.kind = 'dich_vu'
@@ -186,6 +204,7 @@ class CheckoutService:
             "paid_service": row["paid_service"],
             "paid_drug": row["paid_drug"],
             "has_drug": row["has_drug"],
+            "so_theo_doi": int(row["follow_up_open"] or 0),
             "blockers": blockers,
             "can_close": not blockers and not row["already_closed"],
         }
@@ -225,6 +244,7 @@ class CheckoutService:
                     "checked_in_at": (
                         r["checked_in_at"].isoformat() if r["checked_in_at"] else None
                     ),
+                    "so_theo_doi": int(r["follow_up_open"] or 0),
                     "blockers": blockers,
                     "can_close": not blockers and not r["already_closed"],
                 }
@@ -301,18 +321,16 @@ class CheckoutService:
                 visit_id,
             )
 
-            # `follow_up_case` KHÔNG có `visit_id` — nó gắn với BỆNH NHÂN và
-            # với BƯỚC sinh ra nó (`origin_work_item_id`). Nối qua work_item của
-            # chính lượt này là cách duy nhất hỏi đúng câu "lượt khám hôm nay đẻ
-            # ra việc theo dõi nào".
+            # Việc theo dõi lượt này sinh ra — `follow_up_case.visit_id` (Slice
+            # 1). Trước đó phải nối qua work_item của rail cũ, và rail mới không
+            # đẻ work_item nên mục này luôn rỗng.
             theo_doi = await conn.fetch(
                 """
                 SELECT f.id, f.status, f.due_at, f.reason, f.owner_role,
                        s.full_name AS chu_so_huu
                   FROM public.follow_up_case f
-                  JOIN public.work_item w ON w.id = f.origin_work_item_id
                   LEFT JOIN public.staff s ON s.id = f.owner_staff_id
-                 WHERE w.visit_id = $2::uuid AND f.clinic_id = $1::uuid
+                 WHERE f.visit_id = $2::uuid AND f.clinic_id = $1::uuid
                  ORDER BY f.due_at NULLS LAST
                 """,
                 identity.clinic_id,
@@ -711,7 +729,17 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
         out.append(
             {
                 "type": "lab_pending",
-                "message": f"Còn {row['lab_pending']} kết quả xét nghiệm chưa về",
+                "message": (
+                    f"Còn {row['lab_pending']} kết quả bác sĩ đang chờ để đọc"
+                    " (chưa về hoặc chưa chuyển theo dõi)"
+                ),
+            }
+        )
+    if row.get("exam_open") and not row.get("lab_pending"):
+        out.append(
+            {
+                "type": "exam_open",
+                "message": "Bác sĩ chưa khám hoặc chưa đọc kết quả xong",
             }
         )
     if not row.get("paid_service"):

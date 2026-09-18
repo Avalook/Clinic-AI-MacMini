@@ -106,6 +106,14 @@ async def test_nurse_and_reception_do_not_see_drafts(kb: KichBan) -> None:
     for identity in [kb.dieu_duong, kb.le_tan, kb.truong_ca, kb.bs_sieu_am]:
         visit = _cua(await kb.svc.bang(identity=identity), kb.visit_id)
         assert visit["chi_dinh"] == []
+    # Thư ký chỉ thấy lượt của bác sĩ mình phụ trách (luật 15/09).
+    await kb.pool.execute(
+        "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid) ON CONFLICT DO NOTHING",
+        kb.bac_si.clinic_id,
+        kb.thu_ky.staff_id,
+        kb.bac_si.staff_id,
+    )
     assert (
         len(_cua(await kb.svc.bang(identity=kb.thu_ky), kb.visit_id)["chi_dinh"]) == 1
     )
@@ -117,7 +125,8 @@ async def test_nurse_and_reception_do_not_see_drafts(kb: KichBan) -> None:
         identity=kb.bac_si,
     )
     nurse = _cua(await kb.svc.bang(identity=kb.dieu_duong), kb.visit_id)
-    assert nurse["chi_dinh"][0]["trang_thai"] == "authorized"
+    # Duyệt xong điều phối tự xếp phòng nên có thể đã là "assigned".
+    assert nurse["chi_dinh"][0]["trang_thai"] in {"authorized", "assigned"}
 
 
 async def test_inactive_doctor_cannot_authorize(kb: KichBan) -> None:

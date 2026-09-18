@@ -39,12 +39,13 @@ async def conn() -> Any:
           CREATE TEMP TABLE service_type (id uuid, name text);
           CREATE TEMP TABLE visit (
             appointment_id uuid, clinic_id uuid, checked_in_at timestamptz,
-            status text, current_room_id uuid);
+            status text, current_room_id uuid, thu_tu_tay_ms bigint);
           CREATE TEMP TABLE lab_result (
             lab_result_id uuid, appointment_id uuid, clinic_id uuid,
             result_value text, external_ref text, lab_provider text,
             result_received_at timestamptz, updated_at timestamptz,
-            is_finalized boolean DEFAULT false);
+            is_finalized boolean DEFAULT false,
+            clinic_patient_id uuid, visit_id uuid);
           CREATE TEMP TABLE event_log (
             clinic_id uuid, event_type text, aggregate_type text,
             aggregate_id text, payload jsonb, metadata jsonb,

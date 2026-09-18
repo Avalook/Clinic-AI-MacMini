@@ -37,6 +37,7 @@ import {
   type PhongHomNay,
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
+import ChoBacSiQuyet from "./ChoBacSiQuyet";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -255,6 +256,10 @@ export default function BanKham({
           </p>
         ) : null}
       </div>
+
+      {laBacSi || laThuKy ? (
+        <ChoBacSiQuyet lanNap={lanNap} onDaQuyet={napLai} />
+      ) : null}
 
       <StatRow>
         <StatCard label="Chờ khám" value={choKham.length} tone="brand" />

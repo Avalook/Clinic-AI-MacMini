@@ -144,7 +144,6 @@ interface GoDo {
 
 // Danh mục dùng chung cho picker (đọc runtime từ /api/catalog — KHÔNG hardcode).
 interface DrugOpt { name_raw: string; variant: string | null; needs_review: boolean }
-interface ClsOpt { service_code: string; name: string; category: string | null }
 
 // Mục X — Theo dõi & Tái khám (theo biểu mẫu giấy: "Ngày tái khám + XN cần kiểm
 // tra lại"). Lưu vào soap_plan.tai_kham — HỢP ĐỒNG với màn CSKH nhắc tái khám:
@@ -335,11 +334,8 @@ export default function ClinicalRecordForm({
   const [pm, setPm] = useState<PmFields>(EMPTY_PM);
   const [tk, setTk] = useState<TkFields>(EMPTY_TK);
   const [rx, setRx] = useState<RxRow[]>([]);
-  // Danh mục picker dùng chung (thuốc + CLS) — đọc 1 lần từ /api/catalog.
+  // Danh mục thuốc cho picker — đọc 1 lần từ /api/catalog.
   const [drugOpts, setDrugOpts] = useState<DrugOpt[]>([]);
-  const [clsOpts, setClsOpts] = useState<ClsOpt[]>([]);
-  const [labOrder, setLabOrder] = useState("");
-  const [labBusy, setLabBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [closing, setClosing] = useState(false);
   const [completedExplicit, setCompletedExplicit] = useState(false);
@@ -507,15 +503,14 @@ export default function ClinicalRecordForm({
     };
   }, [pageIdx]);
 
-  // Tải danh mục thuốc + CLS cho picker (dùng chung mọi loại form khám).
+  // Tải danh mục thuốc cho picker (dùng chung mọi loại form khám).
   useEffect(() => {
     let on = true;
     fetch("/api/catalog")
-      .then((r) => (r.ok ? r.json() : { drugs: [], cls: [] }))
-      .then((d: { drugs?: DrugOpt[]; cls?: ClsOpt[] }) => {
+      .then((r) => (r.ok ? r.json() : { drugs: [] }))
+      .then((d: { drugs?: DrugOpt[] }) => {
         if (!on) return;
         setDrugOpts(d.drugs ?? []);
-        setClsOpts(d.cls ?? []);
       })
       .catch(() => {});
     return () => { on = false; };
@@ -822,48 +817,6 @@ export default function ClinicalRecordForm({
     }
   }
 
-  // Bác sĩ chỉ định 1 XN mới (PENDING) → ĐD nhập kết quả ở "Hàng đợi xét nghiệm".
-  async function orderLab() {
-    const name = labOrder.trim();
-    if (!name) return;
-    setLabBusy(true);
-    const res = await fetch("/api/lab-result", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clinicPatientId: p?.clinic_patient_id,
-        appointmentId: appt.id,
-        test_name: name,
-      }),
-    });
-    setLabBusy(false);
-    if (!res.ok) {
-      setMsg((await res.json()).error ?? "Lỗi chỉ định XN.");
-      return;
-    }
-    // Hiện ngay trong mục VI (đang chờ kết quả).
-    setData((d) =>
-      d
-        ? {
-            ...d,
-            labs: [
-              {
-                test_name: name,
-                result_value: null,
-                result_numeric: null,
-                result_unit: null,
-                flag: null,
-                external_ref: null,
-              },
-              ...d.labs,
-            ],
-          }
-        : d,
-    );
-    setLabOrder("");
-    setMsg("Đã chỉ định XN — điều dưỡng nhập kết quả ở mục Lấy mẫu xét nghiệm.");
-  }
-
   const preg = data?.pregnancy;
   const labs = data?.labs ?? [];
   // khoá khi: LỄ TÂN chỉ-đọc / hồ sơ đã chốt / đang lưu / (bác sĩ) BN chưa check-in
@@ -912,13 +865,6 @@ export default function ClinicalRecordForm({
         {drugOpts.map((d) => (
           <option key={d.name_raw} value={d.name_raw}>
             {d.needs_review ? "⚠ cần dược xác nhận" : d.variant ? `biến thể: ${d.variant}` : ""}
-          </option>
-        ))}
-      </datalist>
-      <datalist id="cls-catalog-list">
-        {clsOpts.map((c) => (
-          <option key={c.service_code} value={c.name}>
-            {c.category ?? ""}
           </option>
         ))}
       </datalist>
@@ -1389,29 +1335,14 @@ export default function ClinicalRecordForm({
             </ul>
           )}
           {!vitalsOnly && !readOnly && canSign && (
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                className={INPUT}
-                value={labOrder}
-                list="cls-catalog-list"
-                disabled={roRest}
-                onChange={(e) => setLabOrder(e.target.value)}
-                placeholder="Chỉ định CLS (chọn từ danh mục hoặc gõ tự do)…"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    orderLab();
-                  }
-                }}
-              />
-              <button
-                onClick={orderLab}
-                disabled={roRest || labBusy || !labOrder.trim()}
-                className="shrink-0 rounded-lg border border-brand-100 px-3 py-2 text-sm font-medium text-brand-800 hover:bg-brand-50 disabled:opacity-50"
-              >
-                {labBusy ? "..." : "Chỉ định"}
-              </button>
-            </div>
+            // Slice 1 (18/09/2026): ô "Chỉ định CLS" gõ tự do ở đây từng ghi vào
+            // `lab_result` — rail cũ, không vào hàng chờ phòng, không ai nhập
+            // được kết quả. Chỉ định giờ chỉ đi một đường: khung Chỉ định của
+            // Bàn khám (service_order), kết quả gắn vào đúng chỉ định.
+            <p className="mt-2 text-sm text-ink-muted">
+              Chỉ định cận lâm sàng ở khung “Chỉ định” của Bàn khám — kết quả sẽ gắn
+              vào đúng chỉ định.
+            </p>
           )}
         </Section>
         )}
