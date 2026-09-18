@@ -12,23 +12,18 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     StaffIdentity,
     require_role,
 )
+from clinicai.api.nghi_huu import CHI_DINH_MOI, LAM_O_PHONG, bao_da_nghi
 from clinicai.core.database import get_db_pool
 from clinicai.services.service_log_service import (
-    MILESTONE_COLUMN,
-    QUEUE_WAITING,
     SONO_ROLES,
     Milestone,
     QueueAction,
-    ServiceLogService,
     TaskAction,
-    queue_patch,
-    task_patch,
 )
 
 router = APIRouter()
@@ -72,14 +67,12 @@ async def create_service_item(
     identity: StaffIdentity = Depends(_SERVICE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Add a service or procedure to the worklist."""
-    row_id = await ServiceLogService(pool).create(
-        service_name=body.service_name,
-        patient_code=body.patient_code,
-        performer=body.performer,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /service-log",
         identity=identity,
+        thay_bang=CHI_DINH_MOI,
     )
-    return {"ok": True, "id": row_id}
 
 
 @router.patch("/service-log/{row_id}")
@@ -89,16 +82,13 @@ async def progress_service_item(
     identity: StaffIdentity = Depends(_SERVICE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Start or finish a worklist item."""
-    await ServiceLogService(pool).apply_patch(
-        row_id=str(row_id),
-        patch=task_patch(body.action, body.result_text),
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="PATCH /service-log/{id}",
         identity=identity,
-        event_type=f"service_log.{'started' if body.action == 'start' else 'finished'}",
-        origin=f"api:service-{body.action}",
-        payload={"id": str(row_id), "action": body.action},
+        thay_bang=LAM_O_PHONG,
+        row_id=row_id,
     )
-    return {"ok": True}
 
 
 @router.post("/sono/queue", status_code=201)
@@ -107,17 +97,12 @@ async def create_sono_row(
     identity: StaffIdentity = Depends(_SONO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Add a row to the ultrasound nurse's queue."""
-    row_id = await ServiceLogService(pool).create(
-        service_name=body.service_name,
-        patient_code=body.patient_code,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /sono/queue",
         identity=identity,
-        kind=body.kind,
-        status=QUEUE_WAITING,
-        ref_prefix="api-sono",
-        origin="api:sono-create",
+        thay_bang=CHI_DINH_MOI,
     )
-    return {"ok": True, "id": row_id}
 
 
 @router.patch("/sono/queue/{row_id}")
@@ -127,27 +112,13 @@ async def progress_sono_row(
     identity: StaffIdentity = Depends(_SONO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Move an ultrasound row along, or toggle one of a lab row's milestones."""
-    if body.action is not None:
-        patch = queue_patch(body.action)
-        event = f"service_log.sono_{body.action}"
-    elif body.milestone is not None:
-        # A milestone is a timestamp that can be set and unset — a nurse who
-        # ticks "sent to lab" by mistake has to be able to untick it.
-        patch = {MILESTONE_COLUMN[body.milestone]: "now" if body.value else None}
-        event = f"service_log.milestone_{body.milestone}"
-    else:
-        raise ValidationError("Cần action (SA) hoặc milestone (XN)")
-
-    await ServiceLogService(pool).apply_patch(
-        row_id=str(row_id),
-        patch=patch,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="PATCH /sono/queue/{id}",
         identity=identity,
-        event_type=event,
-        origin="api:sono-progress",
-        payload={"id": str(row_id), "action": body.action, "milestone": body.milestone},
+        thay_bang=LAM_O_PHONG,
+        row_id=row_id,
     )
-    return {"ok": True}
 
 
 @router.delete("/sono/queue/{row_id}")
@@ -156,6 +127,10 @@ async def remove_sono_row(
     identity: StaffIdentity = Depends(_SONO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Drop a row from the queue. service_log is not append-only."""
-    await ServiceLogService(pool).remove(row_id=str(row_id), identity=identity)
-    return {"ok": True}
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="DELETE /sono/queue/{id}",
+        identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        row_id=row_id,
+    )

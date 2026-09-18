@@ -384,3 +384,41 @@ async def test_checkout_doc_rail_moi(kb: KichBan) -> None:
     loai, so_theo_doi = await vuong()
     assert not loai & {"service_open", "lab_pending", "exam_open"}
     assert so_theo_doi == 1
+
+
+# ── CSKH kết quả muộn đọc rail mới ─────────────────────────────────────────
+
+
+async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
+    async def viec() -> list[tuple[str, str]]:
+        rows = await kb.pool.fetch(
+            "SELECT trang_thai, han_xu_ly::text AS han FROM v_viec_cskh v"
+            " JOIN visit vi ON vi.clinic_patient_id = v.clinic_patient_id"
+            " WHERE vi.visit_id = $1::uuid"
+            " AND trang_thai IN ('CHO_KQ_XN', 'CHO_BAC_SI')",
+            kb.visit_id,
+        )
+        return sorted((r["trang_thai"], r["han"]) for r in rows)
+
+    phien = await _vao_kham(kb)
+    [mau] = await _chi_dinh(kb, phien, kb.ma_mau)
+    await kb.svc.kham_xong(
+        consultation_id=phien,
+        identity=kb.bac_si,
+        ke_hoach={mau: "FOLLOW_UP"},
+    )
+    assert await viec() == []  # chưa lấy mẫu thì chưa có gì để chờ
+    await _lam(kb, mau)
+    han = await kb.pool.fetchval(
+        "SELECT (due_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::text"
+        " FROM follow_up_case WHERE service_order_id = $1::uuid",
+        mau,
+    )
+    assert await viec() == [("CHO_KQ_XN", han)]
+    # Kết quả (dạng nội dung) về: hết "muộn", sang "chờ bác sĩ duyệt".
+    await kb.pool.execute(
+        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", mau
+    )
+    assert [t for t, _ in await viec()] == ["CHO_BAC_SI"]
+    await kb.svc.duyet_ket_qua(order_id=mau, danh_gia=None, identity=kb.bac_si)
+    assert await viec() == []

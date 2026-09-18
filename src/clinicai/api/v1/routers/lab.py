@@ -32,15 +32,15 @@ from clinicai.api.identity import (
     StaffIdentity,
     require_role,
 )
+from clinicai.api.nghi_huu import CHI_DINH_MOI, KET_QUA_MOI, bao_da_nghi
 from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
-from clinicai.services.lab_order_service import LabOrderService
 from clinicai.services.lab_safety_service import LabReviewOutcome, LabSafetyService
-from clinicai.services.thu_ky_bac_si import khach_duoc_xem, kiem_khach
+from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
 logger = structlog.get_logger(__name__)
 
@@ -107,14 +107,12 @@ async def order_lab_test(
     identity: StaffIdentity = Depends(_ORDER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Create a PENDING lab_result — the doctor has asked for a test."""
-    lab_result_id = await LabOrderService(pool).order_test(
-        clinic_patient_id=str(body.clinic_patient_id),
-        test_name=body.test_name,
-        appointment_id=str(body.appointment_id) if body.appointment_id else None,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /lab/orders",
         identity=identity,
+        thay_bang=CHI_DINH_MOI,
     )
-    return {"ok": True, "lab_result_id": lab_result_id}
 
 
 @router.patch("/results/{lab_result_id}")
@@ -124,25 +122,13 @@ async def enter_lab_result(
     identity: StaffIdentity = Depends(_RESULT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Record what came back. Never finalises — that is a separate gate."""
-    if identity.co_vai({ClinicRole.TKYK}):
-        # Thư ký chỉ nhập kết quả cho khách của bác sĩ mình (20260915000020).
-        patient_id = await pool.fetchval(
-            "SELECT clinic_patient_id::text FROM lab_result"
-            " WHERE lab_result_id = $1::uuid AND clinic_id = $2::uuid",
-            str(lab_result_id),
-            identity.clinic_id,
-        )
-        if patient_id:
-            await kiem_khach(pool, identity, patient_id)
-    await LabOrderService(pool).enter_result(
-        lab_result_id=str(lab_result_id),
-        result_value=body.result_value,
-        result_link=body.result_link,
-        lab_provider=body.lab_provider,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="PATCH /lab/results/{id}",
         identity=identity,
+        thay_bang=KET_QUA_MOI,
+        lab_result_id=lab_result_id,
     )
-    return {"ok": True}
 
 
 @router.get("/results/cho-duyet")

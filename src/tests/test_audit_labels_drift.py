@@ -173,8 +173,9 @@ class TestKhongLech:
         assert len(ma) >= 20, f"chỉ tìm thấy {len(ma)} mã — biểu thức có vấn đề"
         assert "appointment.created" in ma
         assert "slot_hold.created" in ma
-        # Mã ghép lúc chạy — chốt cho nhánh `_FSTRING`.
-        assert "service_log.started" in ma
+        # Mã ghép lúc chạy — chốt cho nhánh `_FSTRING` (luot_kham_service
+        # quyet_yeu_cau; mã service_log.* cũ đã nghỉ cùng rail cũ, Slice 1).
+        assert "requirement.follow_up" in ma
 
     def test_lenh_workflow_khop_dung_rang_buoc_check(self) -> None:
         """Hai chiều, vì bảng nhãn cũ sai cả hai.

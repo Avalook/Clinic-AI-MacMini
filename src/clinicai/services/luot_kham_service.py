@@ -2843,7 +2843,8 @@ class LuotKhamService:
                     "REQUIREMENT_DECIDED", "Yêu cầu này bác sĩ đã quyết rồi."
                 )
             fid: str | None = None
-            if hanh_dong == "WAIVE":
+            mien = hanh_dong == "WAIVE"
+            if mien:
                 await conn.execute(
                     """
                     UPDATE round_requirement
@@ -2886,9 +2887,9 @@ class LuotKhamService:
                 )
             await record_event(
                 conn,
-                event_type="requirement.waived"
-                if hanh_dong == "WAIVE"
-                else "requirement.follow_up",
+                # f-string có chủ ý: bài canh nhãn (test_audit_labels_drift)
+                # đọc được cả hai nhánh mã.
+                event_type=f"requirement.{'waived' if mien else 'follow_up'}",
                 aggregate_type="visit",
                 aggregate_id=vid,
                 identity=identity,

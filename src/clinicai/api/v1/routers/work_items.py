@@ -27,6 +27,7 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.services.service_order_service import ServiceOrderService
@@ -455,14 +456,13 @@ async def order_services(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[OrderedRoom]:
-    """Order services on a visit; work appears in the room that performs each.
-
-    Does not complete LUOTKHAM-05 — see ServiceOrderService for why.
-    """
-    rows = await ServiceOrderService(pool).create(
-        visit_id=str(visit_id), codes=body.service_codes, identity=identity
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /visits/{id}/service-orders",
+        identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
-    return [OrderedRoom(**r) for r in rows]  # type: ignore[arg-type]
 
 
 # ── Chỉ định là danh sách tích của bác sĩ (Tuyền chốt 15/09/2026) ───────────
@@ -494,12 +494,12 @@ async def remove_service_order(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Bác sĩ bỏ tích một dịch vụ (phòng chưa bắt đầu làm)."""
-    return await ServiceOrderService(pool).bo_chi_dinh(
-        visit_id=str(visit_id),
-        service_code=body.service_code,
-        ly_do=body.ly_do,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /visits/{id}/service-orders/remove",
         identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
 
 
@@ -565,9 +565,12 @@ async def add_to_service_order_draft(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object] | None:
-    """Thư ký thêm dịch vụ vào bản nháp của lượt (gộp, không trùng)."""
-    return await ServiceOrderService(pool).save_draft(
-        visit_id=str(visit_id), codes=body.service_codes, identity=identity
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /visits/{id}/service-orders/draft",
+        identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
 
 
@@ -581,13 +584,12 @@ async def replace_service_order_draft(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object] | None:
-    """Sửa cả danh sách nháp (bỏ bớt dịch vụ). Rỗng = bỏ nháp."""
-    return await ServiceOrderService(pool).save_draft(
-        visit_id=str(visit_id),
-        codes=body.service_codes,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="PUT /visits/{id}/service-orders/draft",
         identity=identity,
-        replace=True,
-        expected_version=body.expected_version,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
 
 
@@ -601,13 +603,13 @@ async def approve_service_order_draft(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[OrderedRoom]:
-    """Bác sĩ duyệt đúng phiên bản nháp đang xem → việc về phòng thực hiện."""
-    rows = await ServiceOrderService(pool).approve_draft(
-        visit_id=str(visit_id),
-        expected_version=body.expected_version,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /visits/{id}/service-orders/draft/approve",
         identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
-    return [OrderedRoom(**r) for r in rows]  # type: ignore[arg-type]
 
 
 @router.post("/visits/{visit_id}/service-orders/draft/discard")
@@ -617,14 +619,13 @@ async def discard_service_order_draft(
     identity: StaffIdentity = Depends(_ORDERING_ROLES),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, bool]:
-    """Bỏ bản nháp. Bác sĩ bỏ phải ghi lý do."""
-    await ServiceOrderService(pool).discard_draft(
-        visit_id=str(visit_id),
-        expected_version=body.expected_version,
-        reason=body.reason,
+    """ĐÃ NGHỈ (Slice 1, 18/09/2026) — rail cũ, trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /visits/{id}/service-orders/draft/discard",
         identity=identity,
+        thay_bang=CHI_DINH_MOI,
+        visit_id=visit_id,
     )
-    return {"ok": True}
 
 
 @router.post(

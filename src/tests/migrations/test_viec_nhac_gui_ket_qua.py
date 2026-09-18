@@ -90,13 +90,25 @@ def test_viec_nhac_gui_chi_tinh_tep_chua_gui() -> None:
     # Neo vào ĐÚNG mệnh đề `FROM tep_ket_qua`, không phải lần nhắc tên bảng đầu
     # tiên: `tuong_tac_cskh` cũng có cột tên `gui_luc`, nên một cửa sổ đặt lệch
     # chỗ có thể bắt trúng bộ lọc của nhánh khác và báo XANH nhầm.
-    khop = re.search(r"FROM\s+(?:public\.)?tep_ket_qua\b", than, re.IGNORECASE)
-    assert khop is not None, (
+    #
+    # Có THỂ có nhiều mệnh đề FROM tep_ket_qua (Slice 1 thêm một `NOT EXISTS`
+    # đọc bảng ấy ở nhánh CHO_BAC_SI của service_order) — chỉ cần một nhánh
+    # đọc tệp có lọc `gui_luc IS NULL`.
+    cac_khop = list(
+        re.finditer(r"FROM\s+(?:public\.)?tep_ket_qua\b", than, re.IGNORECASE)
+    )
+    assert cac_khop, (
         f"`v_viec_cskh` ({duong_dan.name}) nhắc tên `tep_ket_qua` nhưng không "
         "có mệnh đề FROM nào đọc bảng ấy."
     )
-    doan = than[khop.end() : khop.end() + 600]
-    assert re.search(r"gui_luc\s+IS\s+NULL", doan, re.IGNORECASE), (
+    assert any(
+        re.search(
+            r"gui_luc\s+IS\s+NULL",
+            than[k.end() : k.end() + 600],
+            re.IGNORECASE,
+        )
+        for k in cac_khop
+    ), (
         f"Nhánh `tep_ket_qua` trong `v_viec_cskh` ({duong_dan.name}) không lọc "
         "`gui_luc IS NULL`. Thiếu nó thì việc nhắc gửi vẫn hiện SAU KHI đã gửi, "
         "và một danh sách việc không bao giờ vơi là danh sách người ta ngừng đọc."
