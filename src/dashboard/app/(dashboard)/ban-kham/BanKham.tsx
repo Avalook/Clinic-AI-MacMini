@@ -38,6 +38,7 @@ import {
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
+import ThaiKy from "./ThaiKy";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -572,6 +573,12 @@ function HoSo({
             <span>Chưa có sinh hiệu.</span>
           )}
         </div>
+        {dong.da_ky ? (
+          <p className="mt-2 text-xs font-medium text-ink-soft">
+            Bệnh án đã ký{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
+            {dong.ky_luc ? ` · ${gioVn(dong.ky_luc)}` : ""} — phiếu chỉ xem.
+          </p>
+        ) : null}
       </header>
 
       <div className="p-3 pt-0">
@@ -596,12 +603,22 @@ function HoSo({
             Vào Cấu trúc phòng khám để gán, hoặc chọn đúng loại khám khi đặt lịch.
           </p>
         ) : (
-          <ServiceFormEngine
-            key={dong.visit_id}
-            visitId={dong.visit_id}
-            serviceCode={dong.form_code}
-            readOnly={!choBam || dong.trang_thai === "done"}
-          />
+          <>
+            <ServiceFormEngine
+              key={dong.visit_id}
+              visitId={dong.visit_id}
+              serviceCode={dong.form_code}
+              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
+            />
+            {/* Sản khoa: thai kỳ CHÍNH THỨC (bảng `pregnancy`) — chỉ bác sĩ ghi. */}
+            {dong.form_code === "SK" ? (
+              <ThaiKy
+                key={`tk-${dong.clinic_patient_id}`}
+                clinicPatientId={dong.clinic_patient_id}
+                visitId={dong.visit_id}
+              />
+            ) : null}
+          </>
         )}
         {/* BỆNH ÁN · CHẨN ĐOÁN · ĐƠN THUỐC (demo 17/09/2026). Thư ký nhập, màn
             bác sĩ tự tải lại khi bên kia lưu (sự kiện realtime), bác sĩ duyệt
@@ -643,7 +660,7 @@ function HoSo({
               staffId={staffId}
               onClose={() => {}}
               canSign={laBacSi}
-              readOnly={!choBam || dong.trang_thai === "done"}
+              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
             />
           </details>
         ) : null}

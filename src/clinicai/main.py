@@ -58,6 +58,7 @@ from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
+from clinicai.api.v1.routers.thai_ky import router as thai_ky_router
 from clinicai.api.v1.routers.theo_doi_thu_thuat import (
     router as theo_doi_thu_thuat_router,
 )
@@ -286,6 +287,7 @@ app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED

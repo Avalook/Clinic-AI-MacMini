@@ -501,13 +501,12 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
     ]
     # Đang đánh giá mà chưa có kế hoạch: nói đúng cái còn thiếu, không chỉ
     # "Chẩn đoán" — bác sĩ đã chọn đúng trạng thái, cái thiếu là kế hoạch.
+    #
+    # Và KHÔNG lách được bằng chữ ở ô chẩn đoán (rà 18/09): "đang đánh giá" mà
+    # có `cd_phan_biet` vẫn phải có kế hoạch tiếp theo mới ký.
     if dang_danh_gia and not dang_danh_gia_co_ke_hoach:
-        thieu = [
-            THIEU_KE_HOACH_KHI_DANG_DANH_GIA
-            if label == REQUIRED_SOAP["soap_assessment"]
-            else label
-            for label in thieu
-        ]
+        thieu = [label for label in thieu if label != REQUIRED_SOAP["soap_assessment"]]
+        thieu.append(THIEU_KE_HOACH_KHI_DANG_DANH_GIA)
     return thieu
 
 

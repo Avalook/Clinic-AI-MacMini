@@ -153,6 +153,21 @@ class TestRequiredFieldsBeforeSigning:
         thieu = missing_fields(row)
         assert len(thieu) == 1 and "kế hoạch tiếp theo" in thieu[0]
 
+    @pytest.mark.parametrize(
+        "loi_ban",
+        [{"cd_phan_biet": "Theo dõi PCOS"}, {"cd_nguyen_nhan_vo": "Chưa rõ"}],
+    )
+    def test_hmvs_dang_danh_gia_khong_lach_bang_o_chan_doan(
+        self, loi_ban: dict[str, str]
+    ) -> None:
+        """Rà 18/09: có chữ ở ô chẩn đoán KHÔNG thay được kế hoạch tiếp theo khi
+        bác sĩ đã chọn "đang tiếp tục đánh giá"."""
+        row = self._chi_phieu(
+            {"cd_trang_thai": "DANG_DANH_GIA", "pp_dieu_tri": ["OI"], **loi_ban}
+        )
+        thieu = missing_fields(row)
+        assert len(thieu) == 1 and "kế hoạch tiếp theo" in thieu[0]
+
     def test_hmvs_chi_tien_luong_hay_phan_loai_khong_phai_chan_doan(self) -> None:
         row = self._chi_phieu(
             {

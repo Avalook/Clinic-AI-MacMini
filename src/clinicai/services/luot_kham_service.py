@@ -1556,6 +1556,7 @@ class LuotKhamService:
         """
         _require(identity, BOARD_ROLES, "Vai của bạn không dùng hàng chờ phòng.")
         cid = identity.clinic_id
+        doc_noi_dung = identity.co_vai(CLINICAL_READ_ROLES)
         rid = _uuid(room_id, "Mã phòng không hợp lệ.") if room_id else None
         async with self._pool.acquire() as conn:
             phong = None
@@ -1641,6 +1642,9 @@ class LuotKhamService:
                        coalesce(o.service_name, st.name) AS viec,
                        o.service_code, o.node_code, o.exec_status,
                        o.result_note, o.ket_qua_luc, o.duyet_luc,
+                       o.not_performed_reason, pf.full_name AS nguoi_lam,
+                       v.status AS visit_status, v.finalized_at,
+                       fb.full_name AS nguoi_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
                        r.name AS phong
                   FROM queue_entry q
@@ -1659,6 +1663,8 @@ class LuotKhamService:
                     ON c.id = q.ref_id AND q.reason <> 'SERVICE'
                    AND c.clinic_id = q.clinic_id
                   LEFT JOIN clinic_room r ON r.id = q.room_id
+                  LEFT JOIN staff pf ON pf.id = o.performed_by
+                  LEFT JOIN staff fb ON fb.id = v.finalized_by
                  WHERE q.clinic_id = $1::uuid
                    AND q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
                    AND (
@@ -1718,6 +1724,16 @@ class LuotKhamService:
                 "xong_luc": _iso(r["done_at"]),
                 "ket_qua_luc": _iso(r["ket_qua_luc"]),
                 "duyet_luc": _iso(r["duyet_luc"]),
+                # Bệnh án đã ký (FINALIZED/AMENDED): màn khoá phiếu theo mốc
+                # NÀY, không theo trạng thái hàng chờ — khách còn "đang khám"
+                # mà bác sĩ đã ký thì phiếu tự lưu sẽ ăn 409 (rà 18/09).
+                "da_ky": r["visit_status"] in ("FINALIZED", "AMENDED"),
+                "ky_luc": _iso(r["finalized_at"]),
+                "nguoi_ky": r["nguoi_ky"],
+                "nguoi_lam": r["nguoi_lam"],
+                # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
+                "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,
+                "ly_do_khong_lam": r["not_performed_reason"],
             }
             for r in _theo_luat_xep_hang(rows)
             # Người đã xong chỉ giữ của hôm nay.

@@ -28,7 +28,7 @@ export const skSchema: FormSchema = {
     {
       title: "Hành chính bổ sung",
       // docx: "Phần hành chính thêm mục Dự kiến sinh".
-      fields: [{ key: "du_kien_sinh", label: "Dự kiến sinh", type: "date" }],
+      fields: [{ key: "du_kien_sinh", label: "Dự kiến sinh (ghi ở phiếu lượt này — bản chính thức: khung Thai kỳ)", type: "date" }],
     },
     {
       title: "Lý do khám",

@@ -187,6 +187,9 @@ EVENT_LABELS: dict[str, str] = {
     "requirement.waived": "Bác sĩ miễn một yêu cầu trước khi đọc kết quả",
     "requirement.follow_up": "Bác sĩ chuyển kết quả sang theo dõi, khách về trước",
     "follow_up.opened": "Mở việc theo dõi kết quả",
+    "pregnancy.created": "Bác sĩ tạo thai kỳ",
+    "pregnancy.updated": "Bác sĩ cập nhật thai kỳ",
+    "pregnancy.outcome_set": "Bác sĩ ghi kết cục thai kỳ",
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
 }
 
@@ -237,6 +240,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
+    "api:thai-ky": "Bàn khám — Thai kỳ",
 }
 
 #: Khớp theo TIỀN TỐ khi không có mục khớp đúng — và đây mới là phần quan trọng.
@@ -279,6 +283,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    "pregnancy": "Thai kỳ",
     "episode": "Đợt điều trị",
     "work_item": "Bước trong quy trình",
     "cskh_action": "Việc chăm sóc",
