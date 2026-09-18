@@ -35,6 +35,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "duyet-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/duyet-ket-qua`,
   // Gọi khách vào phòng — id là CHỖ CHỜ (queue entry), không phải phiên/chỉ định.
   "goi-khach": (id) => `/api/v1/luot-kham/hang-cho/${id}/goi`,
+  // Bác sĩ miễn / chuyển theo dõi một yêu cầu của vòng đọc (Slice 1) — id là
+  // YÊU CẦU (round_requirement).
+  "quyet-yeu-cau": (id) => `/api/v1/luot-kham/yeu-cau/${id}/quyet`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -43,6 +46,7 @@ function duongDoc(url: URL): string | null {
   if (!xem) return "/api/v1/luot-kham/bang";
   if (xem === "phong-hom-nay") return "/api/v1/luot-kham/phong-hom-nay";
   if (xem === "ket-qua-cho-duyet") return "/api/v1/luot-kham/ket-qua-cho-duyet";
+  if (xem === "cho-quyet") return "/api/v1/luot-kham/cho-quyet";
   if (xem === "hang-cho") {
     const phong = url.searchParams.get("phong") ?? "";
     if (phong && !UUID_RE.test(phong)) return null;

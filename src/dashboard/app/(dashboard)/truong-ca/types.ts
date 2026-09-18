@@ -30,6 +30,8 @@ export interface DispatchPatient {
   total_minutes: number;
   threshold_minutes: number;
   done_steps: string[];
+  /** Lượt đi luồng khám mới: chuyển phòng TỪNG CHỈ ĐỊNH, không chuyển cả lượt. */
+  luong_moi?: boolean;
   route_steps: string[] | null;
   next_step: string | null;
   checked_in_at: string | null;

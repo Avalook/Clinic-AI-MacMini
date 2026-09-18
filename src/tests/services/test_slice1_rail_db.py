@@ -422,3 +422,36 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
     assert [t for t, _ in await viec()] == ["CHO_BAC_SI"]
     await kb.svc.duyet_ket_qua(order_id=mau, danh_gia=None, identity=kb.bac_si)
     assert await viec() == []
+
+
+# ── bác sĩ thấy việc chờ mình quyết ───────────────────────────────────────
+
+
+async def test_bac_si_thay_viec_cho_ket_qua_va_can_quyet(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    mau, sa = await _chi_dinh(kb, phien, kb.ma_mau, kb.ma_sa)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+
+    async def cua(ai: Any) -> list[tuple[str, str]]:
+        kq = await kb.svc.cho_quyet(identity=ai)
+        return sorted(
+            (v["dich_vu"], v["trang_thai"])
+            for v in kq["viec"]
+            if v["visit_id"] == kb.visit_id
+        )
+
+    assert await cua(kb.bac_si) == []  # chưa làm gì: việc của phòng dịch vụ
+    await _lam(kb, mau)
+    await _lam(kb, sa, sa=True, performed=False, reason="Máy siêu âm hỏng")
+    ten_mau, ten_sa = [
+        await kb.pool.fetchval(
+            "SELECT service_name FROM service_order WHERE id = $1::uuid", o
+        )
+        for o in (mau, sa)
+    ]
+    assert await cua(kb.bac_si) == sorted(
+        [(ten_mau, "cho_ket_qua"), (ten_sa, "can_quyet")]
+    )
+    assert await cua(kb.bac_si_2) == []  # khách của bác sĩ khác
+    kq = await kb.svc.cho_quyet(identity=kb.bac_si)
+    assert kq["duoc_quyet"] is True

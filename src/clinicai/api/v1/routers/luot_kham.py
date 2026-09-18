@@ -267,6 +267,15 @@ async def kham_xong(
     )
 
 
+@router.get("/luot-kham/cho-quyet")
+async def cho_quyet(
+    identity: StaffIdentity = Depends(_CONSULT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Kết quả chưa về / dịch vụ không làm được đang chờ bác sĩ quyết."""
+    return await LuotKhamService(pool).cho_quyet(identity=identity)
+
+
 @router.post("/luot-kham/yeu-cau/{requirement_id}/quyet")
 async def quyet_yeu_cau(
     requirement_id: UUID,

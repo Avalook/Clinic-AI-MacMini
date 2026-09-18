@@ -2923,6 +2923,83 @@ class LuotKhamService:
             )
         return result
 
+    async def cho_quyet(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Yêu cầu của vòng đọc đang CHỜ bác sĩ: kết quả chưa về, hoặc dịch vụ
+        không làm được cần bác sĩ quyết.
+
+        Khách đang chờ kết quả không nằm trong hàng chờ khám nào (vòng đọc chưa
+        sẵn sàng), nên trước Slice 1 bác sĩ không thấy họ ở đâu cả — và không có
+        chỗ nào để nói "cho khách về, báo kết quả sau". Bác sĩ thấy khách của
+        mình; thư ký thấy khách của bác sĩ mình đi kèm (chỉ xem — quyết là việc
+        của bác sĩ).
+        """
+        _require(identity, CONSULT_ROLES, "Chỉ bác sĩ hoặc thư ký xem việc chờ quyết.")
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn:
+            if identity.co_vai(DOCTOR_ROLES):
+                bac_si: list[str] | None = [identity.staff_id]
+            else:
+                bac_si = await bac_si_cua_thu_ky(conn, identity)
+            rows = await conn.fetch(
+                """
+                SELECT q.id::text AS id, q.need, q.status,
+                       q.service_order_id::text AS order_id,
+                       o.exec_status, o.ket_qua_luc IS NOT NULL AS co_ket_qua,
+                       o.service_name, o.not_performed_reason,
+                       r.round_no, r.status AS vong_status,
+                       v.visit_id::text AS visit_id, p.full_name, p.patient_code
+                  FROM round_requirement q
+                  JOIN review_round r
+                    ON r.id = q.round_id AND r.clinic_id = q.clinic_id
+                  JOIN service_order o
+                    ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
+                  JOIN visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  JOIN patient p
+                    ON p.clinic_patient_id = v.clinic_patient_id
+                   AND p.clinic_id = v.clinic_id
+                 WHERE q.clinic_id = $1::uuid
+                   AND r.status <> 'closed' AND q.status = 'open'
+                   AND v.status IN ('OPEN', 'IN_PROGRESS')
+                   AND ($2::text[] IS NULL
+                        OR v.attending_doctor_id::text = ANY($2::text[])
+                        OR EXISTS (SELECT 1 FROM consultation c
+                                    WHERE c.clinic_id = v.clinic_id
+                                      AND c.visit_id = v.visit_id
+                                      AND c.doctor_staff_id::text = ANY($2::text[])))
+                 ORDER BY r.created_at, q.created_at
+                 LIMIT 200
+                """,
+                cid,
+                bac_si,
+            )
+        viec = []
+        for q in rows:
+            trang_thai = rules.requirement_state(self._view(q))
+            # Đã đạt rồi (chờ vòng tự cập nhật) hay chỉ cần "đã làm" mà chưa
+            # làm tới — đó là việc của phòng dịch vụ, không phải của bác sĩ.
+            if trang_thai == "satisfied":
+                continue
+            if trang_thai == "open" and (
+                q["need"] != "VALID_RESULT" or q["exec_status"] != "performed"
+            ):
+                continue
+            viec.append(
+                {
+                    "id": q["id"],
+                    "visit_id": q["visit_id"],
+                    "ten": q["full_name"],
+                    "ma_bn": q["patient_code"],
+                    "dich_vu": q["service_name"],
+                    "can": q["need"],
+                    "trang_thai": (
+                        "can_quyet" if trang_thai == "needs_decision" else "cho_ket_qua"
+                    ),
+                    "ly_do_khong_lam": q["not_performed_reason"],
+                    "vong": q["round_no"],
+                }
+            )
+        return {"viec": viec, "duoc_quyet": identity.co_vai(DOCTOR_ROLES)}
+
     async def sau_khi_co_ket_qua(
         self, *, order_id: str, identity: StaffIdentity
     ) -> None:

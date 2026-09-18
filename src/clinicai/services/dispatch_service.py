@@ -90,6 +90,13 @@ SELECT v.visit_id,
            AND o3.node_code IS DISTINCT FROM v.current_node_code
          ORDER BY o3.created_at
          LIMIT 1)                                 AS buoc_chi_dinh_ke,
+       -- Luồng mới (Slice 1): trưởng ca chuyển phòng TỪNG CHỈ ĐỊNH, không
+       -- chuyển cả lượt bằng move_visit_to_station.
+       (EXISTS (SELECT 1 FROM public.encounter_flow f
+                 WHERE f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id)
+        OR EXISTS (SELECT 1 FROM public.consultation c
+                    WHERE c.visit_id = v.visit_id AND c.clinic_id = v.clinic_id))
+                                                  AS luong_moi,
        vr.steps                                   AS route_steps,
        vr.id                                      AS route_id
   FROM public.visit v
@@ -288,6 +295,17 @@ class DispatchService:
         """Chuyển bệnh nhân sang bước/phòng khác. Một lời gọi, một giao dịch."""
         overridden: dict[str, Any] | None = None
         async with self._pool.acquire() as conn, conn.transaction():
+            # LƯỢT ĐI LUỒNG KHÁM MỚI không chuyển bằng đường này (Slice 1,
+            # 18/09/2026). `move_visit_to_station` là rail cũ: ghi work_item và
+            # con trỏ vị trí, ghi nhật ký thiếu vai — trong khi luồng mới tự đặt
+            # vị trí theo hàng chờ (`_cap_nhat_vi_tri`) và có chuyển phòng TỪNG
+            # CHỈ ĐỊNH (`LuotKhamService.dispatch_order`, nhật ký đủ vai). Hai
+            # người cùng ghi một con trỏ là cách khách "đang ở" sai phòng.
+            if await la_luong_moi(conn, identity.clinic_id, visit_id):
+                raise ValidationError(
+                    "Lượt khám này đi luồng mới — chuyển phòng từng chỉ định ở mục"
+                    " “Bác sĩ chỉ định gì”."
+                )
             # LUẬT THỨ TỰ BẮT BUỘC chạy TRƯỚC, trong cùng transaction. Chạy sau
             # thì bệnh nhân đã bị chuyển rồi mới báo "không được" — và không có
             # nút hoàn tác nào cho một người đang đi bộ sang phòng khác.
@@ -648,6 +666,20 @@ def build_alerts(
     return out
 
 
+async def la_luong_moi(conn: asyncpg.Connection, clinic_id: str, visit_id: str) -> bool:
+    """Lượt khám này đã vào luồng khám mới (đã đo sinh hiệu / có phiên khám)."""
+    return bool(
+        await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM public.encounter_flow f"
+            " WHERE f.clinic_id = $1::uuid AND f.visit_id = $2::uuid)"
+            " OR EXISTS (SELECT 1 FROM public.consultation c"
+            " WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid)",
+            clinic_id,
+            visit_id,
+        )
+    )
+
+
 def next_step_of(
     route_steps: list[str] | None, done_steps: list[str] | None, current: str | None
 ) -> str | None:
@@ -689,6 +721,7 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
         "total_minutes": r["total_minutes"],
         "threshold_minutes": r["threshold_minutes"] or 20,
         "done_steps": done,
+        "luong_moi": bool(r.get("luong_moi")),
         "route_steps": route,
         "next_step": next_step_of(route, done, r["current_node_code"])
         or r.get("buoc_chi_dinh_ke"),
