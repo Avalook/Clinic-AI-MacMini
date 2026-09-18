@@ -58,6 +58,7 @@ from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
+from clinicai.api.v1.routers.thai_ky import router as thai_ky_router
 from clinicai.api.v1.routers.theo_doi_thu_thuat import (
     router as theo_doi_thu_thuat_router,
 )
@@ -69,6 +70,7 @@ from clinicai.api.v1.routers.visit_progress import (
 )
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
+from clinicai.api.v1.routers.xem_luot import router as xem_luot_router
 from clinicai.core.change_broker import ChangeBroker
 from clinicai.core.database import close_pool, create_pool
 from clinicai.core.exceptions import ClinicAIBaseException
@@ -286,6 +288,8 @@ app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(xem_luot_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED

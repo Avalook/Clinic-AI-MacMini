@@ -111,6 +111,8 @@ class ClinicSettingsService:
                     json.dumps(
                         {
                             "clinic_role": identity.role.value,
+                            # Vai tài khoản gốc (vai dùng có thể khác).
+                            "vai_tai_khoan": identity.vai_goc.value,
                             "clinic_staff_id": identity.staff_id,
                             "actor_auth_user_id": identity.auth_user_id,
                             "origin": "api:clinic-settings",
@@ -195,6 +197,8 @@ class ClinicSettingsService:
                     json.dumps(
                         {
                             "clinic_role": identity.role.value,
+                            # Vai tài khoản gốc (vai dùng có thể khác).
+                            "vai_tai_khoan": identity.vai_goc.value,
                             "clinic_staff_id": identity.staff_id,
                             "actor_auth_user_id": identity.auth_user_id,
                             "origin": "api:clinic-settings",

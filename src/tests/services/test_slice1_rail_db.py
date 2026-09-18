@@ -386,6 +386,69 @@ async def test_checkout_doc_rail_moi(kb: KichBan) -> None:
     assert so_theo_doi == 1
 
 
+async def test_checkout_chi_tiet_khong_lam_duoc_khong_hien_la_xong(
+    kb: KichBan,
+) -> None:
+    """Smoke 18/09: dịch vụ KHÔNG làm được hiện "✓ Xong" ở màn check-out."""
+    from clinicai.services.checkout_service import CheckoutService
+
+    await _khong_lam_duoc(kb)
+    ct = await CheckoutService(kb.pool).chi_tiet(
+        identity=kb.le_tan, visit_id=kb.visit_id
+    )
+    trang_thai = sorted(d["status"] for d in ct["dich_vu"] if d["ten"] != "Khám")
+    assert "NOT_PERFORMED" in trang_thai
+    assert trang_thai.count("NOT_PERFORMED") == 1
+
+
+async def test_checkout_chi_tiet_moc_that_va_tep_that(kb: KichBan) -> None:
+    """Smoke 18/09: dòng thời gian check-out hiện bước DỰ KIẾN (work_item tạo
+    lúc check-in) như việc đã làm, và mục hồ sơ báo "chưa có kho lưu tệp" dù
+    tệp kết quả đã có."""
+    from clinicai.services.checkout_service import CheckoutService
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    phien = await _vao_kham(kb)
+    [sa] = await _chi_dinh(kb, phien, kb.ma_sa)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    await _lam(kb, sa, sa=True, result_note="Bình thường")
+    khach = await kb.pool.fetchval(
+        "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    await TepKetQuaService(kb.pool).tai_len(
+        identity=kb.bs_sieu_am,
+        clinic_patient_id=khach,
+        data=b"%PDF-1.4\n%%EOF\n",
+        ten_hien_thi="phieu-sa.pdf",
+        service_order_id=sa,
+    )
+    ct = await CheckoutService(kb.pool).chi_tiet(
+        identity=kb.le_tan, visit_id=kb.visit_id
+    )
+    da_ghi = {
+        r["event_type"]
+        for r in await kb.pool.fetch(
+            "SELECT event_type FROM event_log WHERE aggregate_id = $1::uuid",
+            kb.visit_id,
+        )
+    }
+    assert ct["moc_thoi_gian"], "phải có mốc thật"
+    # Mọi mốc là một sự kiện đã ghi — không có bước "create" dự kiến.
+    assert {m["lenh"] for m in ct["moc_thoi_gian"]} <= da_ghi | {
+        r["event_type"]
+        for r in await kb.pool.fetch(
+            "SELECT e.event_type FROM event_log e JOIN visit v"
+            " ON e.aggregate_id = v.appointment_id WHERE v.visit_id = $1::uuid",
+            kb.visit_id,
+        )
+    }
+    assert "service.performed" in {m["lenh"] for m in ct["moc_thoi_gian"]}
+    [tep] = ct["ho_so_tra"]["muc"]
+    assert tep["ten"] == "phieu-sa.pdf"
+    assert tep["trang_thai"] in {"CHO_BAC_SI", "DUOC_GUI"}
+
+
 # ── CSKH kết quả muộn đọc rail mới ─────────────────────────────────────────
 
 

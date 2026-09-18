@@ -9,6 +9,12 @@ import PharmacyBoard from "./PharmacyBoard";
 
 export const dynamic = "force-dynamic";
 
+/** Nửa đêm hôm nay giờ Việt Nam, dạng ISO có múi giờ (+07:00). */
+function nuaDemHomNayVn(): string {
+  const ngay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+  return `${ngay}T00:00:00+07:00`;
+}
+
 export default async function PharmacyPage() {
   await requireNavAccess("/pharmacy");
   const supabase = await getSupabaseServer();
@@ -29,7 +35,10 @@ export default async function PharmacyPage() {
     // KHÔNG lọc theo NGÀY. Bản trước chỉ lấy đơn tạo hôm nay, nên một đơn kê
     // chiều qua mà khách sáng nay mới tới lấy thì biến mất khỏi hàng đợi —
     // dược sĩ không có đường nào cấp nốt. Lọc theo VIỆC CÒN LẠI: chưa chốt.
-    .is("closed_at", null)
+    //
+    // Batch pilot 18/09: thêm đơn ĐÃ CHỐT HÔM NAY cho tab "Đã cấp" — dược sĩ
+    // xem lại được cái vừa cấp mà không phải sang trang lịch sử.
+    .or(`closed_at.is.null,closed_at.gte.${nuaDemHomNayVn()}`)
     .order("created_at", { ascending: false })
     .limit(200);
 

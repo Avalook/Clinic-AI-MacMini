@@ -24,6 +24,8 @@ import {
 } from "../../_lam-viec/api";
 import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
+import XemLuot from "../../_lam-viec/XemLuot";
+import Button from "@/components/ui/Button";
 
 type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "KHAC";
 
@@ -141,7 +143,18 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             <HangChoCot
               dong={ds}
               chon={chon?.id ?? null}
-              onChon={setChonId}
+              onChon={(id) => {
+                setChonId(id);
+                // Màn hẹp: khung khách nằm DƯỚI danh sách — tự cuộn tới (smoke
+                // 18/09, 375).
+                if (window.innerWidth < 1024) {
+                  requestAnimationFrame(() =>
+                    document
+                      .getElementById("khung-khach-trong-phong")
+                      ?.scrollIntoView({ block: "start" }),
+                  );
+                }
+              }}
               trong="Chưa có khách nào được chỉ định vào phòng này."
             />
           )}
@@ -171,6 +184,7 @@ function KhachTrongPhong({
   const [moKhongLam, setMoKhongLam] = useState(false);
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [xemLuot, setXemLuot] = useState(false);
 
   const bam = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
     setDangGui(true);
@@ -191,6 +205,7 @@ function KhachTrongPhong({
 
   return (
     <section
+      id="khung-khach-trong-phong"
       aria-label={`Khách ${dong.ten}`}
       className="min-w-0 space-y-4 rounded-card bg-surface p-4 shadow-card"
     >
@@ -244,6 +259,27 @@ function KhachTrongPhong({
         <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
           {loi}
         </p>
+      ) : null}
+
+      {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09) — người làm, kết
+          quả đã ghi (chỉ vai lâm sàng nhận được chữ), lý do không làm. */}
+      {daXong ? (
+        <div className="rounded-control bg-surface-muted px-3 py-2 text-sm">
+          <p className="text-ink">
+            {dong.exec_status === "not_performed" ? "Không làm được" : "Đã làm"}
+            {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
+          </p>
+          {dong.ly_do_khong_lam ? (
+            <p className="text-xs text-warning">Lý do: {dong.ly_do_khong_lam}</p>
+          ) : null}
+          {dong.ket_qua_ghi ? (
+            <p className="mt-1 whitespace-pre-line text-xs text-ink-soft">Kết quả đã ghi: {dong.ket_qua_ghi}</p>
+          ) : null}
+          <Button size="sm" variant="ghost" className="mt-1 -ml-3" onClick={() => setXemLuot(true)}>
+            Xem lại cả lượt
+          </Button>
+          {xemLuot ? <XemLuot visitId={dong.visit_id} onDong={() => setXemLuot(false)} /> : null}
+        </div>
       ) : null}
 
       {/* Ô TỆP: có ngay từ lúc khách đang làm, để gửi ảnh/video ngay khi chụp. */}

@@ -18,6 +18,7 @@ import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
+import { baoBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
 import TepCuaLuotKham from "./TepCuaLuotKham";
 import { resolveServiceCode } from "../../../lib/form-schemas";
 import {
@@ -676,13 +677,11 @@ export default function ClinicalRecordForm({
     }
     // C — Sinh hiệu bắt buộc cũng áp cho luồng bác sĩ: thiếu → nhảy tab "Khám"
     // + bật viền đỏ (ô ở tab khác nên không thì sẽ "im lặng").
+    // Sinh hiệu chỉ xem ở đây (đo ở màn Đo sinh hiệu) nên thiếu thì NHẮC, không
+    // chặn lưu bệnh án — bác sĩ không có ô nào để tự bù.
     const missingReq = [...requiredVitals].filter((k) => f[k].trim() === "");
-    if (missingReq.length && tuDong) return;
-    if (missingReq.length) {
+    if (missingReq.length && !tuDong) {
       setVitalsTried(true);
-      setTab(1);
-      setMsg(requiredVitalsMsg);
-      return;
     }
     setSaving(true);
     setMsg(null);
@@ -748,6 +747,7 @@ export default function ClinicalRecordForm({
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
     mocDaLuuRef.current = JSON.stringify({ f, pm, tk, rx });
     setCoGoDoChuaLuu(false);
+    if (data?.visit?.visit_id) baoBenhAnDaLuu(data.visit.visit_id);
     if (tuDong) {
       // Không nạp lại cả form (người đang gõ tiếp sẽ mất chữ); chỉ nhận số phiên
       // bản mới để lần lưu sau không bị coi là ghi đè.
@@ -826,8 +826,10 @@ export default function ClinicalRecordForm({
   // SINH HIỆU CHỈ ĐO Ở MÀN "ĐO SINH HIỆU" (Tuyền chốt 17/09/2026: "cái nào cũ
   // thì bỏ"). Luồng đón-khám cũ (vitalsOnly) chỉ còn XEM số đã đo — lưu ở đây
   // không báo "đã đo" cho luồng khám, khách kẹt ngoài hàng chờ bác sĩ.
-  const vitalsRo =
-    vitalsOnly || (readOnly && !vitalsOnly) || locked || saving || arrivalPending || loading || viewingPast;
+  //
+  // Batch pilot 18/09: KHÔNG còn nhập trùng ở bệnh án, kể cả vai bác sĩ/thư ký
+  // — ô sinh hiệu ở đây luôn chỉ xem số đo từ `vital_measurement`.
+  const vitalsRo = true;
   const rxReadOnly = ro || vitalsOnly || (canSign && data?.prescription_draft != null);
   const roRest = ro || vitalsOnly; // đón-khám (vitalsOnly): mọi mục khác chỉ xem
   // "YYYY-MM-DD" theo giờ máy người dùng — min cho ô Ngày tái khám (mục X).
@@ -1118,7 +1120,7 @@ export default function ClinicalRecordForm({
         )}
 
         {(tab === 1 || showAll) && (
-        <Section no="" title="Sinh hiệu" editorLabel="lễ tân/điều dưỡng điền">
+        <Section no="" title="Sinh hiệu" editorLabel="đo ở màn Đo sinh hiệu — chỉ xem">
           <div className="grid grid-cols-2 gap-2">
             {/* Ô SỐ bắt buộc số + NGƯỠNG hợp lý (tránh gõ thừa số: 37→377). Huyết
                 áp là CHỮ vì dạng "120/80". [key, nhãn, type, step, min, max] */}
@@ -1176,6 +1178,12 @@ export default function ClinicalRecordForm({
                 );
               },
             )}
+            {vitalsTried &&
+            [...requiredVitals].some((k) => f[k].trim() === "") ? (
+              <p className="col-span-2 text-xs text-warning">
+                {requiredVitalsMsg} — nhờ điều dưỡng đo ở màn Đo sinh hiệu.
+              </p>
+            ) : null}
             {/* BMI KHÔNG có ô nhập (S0-3, 18/09/2026 — thay chốt 15/09 "gợi ý,
                 sửa được"): máy chủ tự tính từ cân nặng/chiều cao khi lưu. */}
             <div>

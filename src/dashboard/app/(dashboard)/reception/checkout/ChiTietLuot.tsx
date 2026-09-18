@@ -2,13 +2,10 @@
 
 // Cột giữa + cột phải của màn Check-out: toàn cảnh MỘT lượt khám.
 //
-// Bốn mục theo bản thiết kế Quang gửi 06/08. Ba mục có dữ liệu thật đứng sau;
-// mục "Hồ sơ trả bệnh nhân" thì CHƯA — hệ chưa sinh tệp kết quả/đơn thuốc nào
-// và chưa có kho lưu tệp.
-//
-// Bản thiết kế vẽ bốn dòng "Sẵn sàng" ở mục đó. Vẽ theo sẽ là bốn lời hứa không
-// có gì đứng sau, và Lễ tân bấm "In bộ hồ sơ" sẽ không ra gì — tệ hơn hẳn một
-// dòng nói thẳng là chưa làm.
+// Bốn mục theo bản thiết kế Quang gửi 06/08, đều đọc dữ liệu thật. Mục "Hồ sơ
+// trả bệnh nhân" liệt kê tệp kết quả của lượt và trạng thái từng tệp (bản
+// 06/08 báo "chưa có kho lưu tệp" — đúng hồi đó, sai từ khi tệp lưu thật;
+// smoke 18/09). Không vẽ nút "In bộ hồ sơ": chưa có gì đứng sau nó.
 
 import { useEffect, useState } from "react";
 
@@ -43,6 +40,20 @@ interface TheoDoi {
   han: string | null;
 }
 
+interface TepTra {
+  ten: string | null;
+  loai_tep: string;
+  trang_thai: "CHO_BAC_SI" | "DUOC_GUI" | "DA_GUI";
+  gui_kenh: string | null;
+  tai_len_luc: string;
+}
+
+const TRANG_THAI_TEP: Record<TepTra["trang_thai"], string> = {
+  CHO_BAC_SI: "Chờ bác sĩ cho phép gửi",
+  DUOC_GUI: "Bác sĩ đã cho gửi · CSKH chưa gửi",
+  DA_GUI: "Đã gửi khách",
+};
+
 interface MocThoiGian {
   luc: string;
   ten: string;
@@ -64,7 +75,7 @@ export interface ChiTiet {
   can_close: boolean;
   dich_vu: DichVu[];
   tai_chinh: KhoanTien[];
-  ho_so_tra: { muc: string[]; vi_sao_rong: string };
+  ho_so_tra: { muc: TepTra[]; vi_sao_rong: string };
   theo_doi: TheoDoi[];
   moc_thoi_gian: MocThoiGian[];
 }
@@ -182,7 +193,11 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
     );
   }
 
-  const dvXong = d.dich_vu.filter((x) => x.status === "COMPLETED").length;
+  // Không làm được cũng là đã giải quyết (bác sĩ đã quyết) — đếm vào "hoàn tất"
+  // nhưng hiện chữ riêng, không đánh dấu ✓ như đã làm.
+  const dvXong = d.dich_vu.filter(
+    (x) => x.status === "COMPLETED" || x.status === "NOT_PERFORMED",
+  ).length;
   const tienDaThu = d.tai_chinh.filter((x) => !x.da_huy && x.status === "PAID");
   const tdXong = d.theo_doi.filter((x) => x.status !== "OPEN").length;
 
@@ -210,12 +225,18 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
                   </span>
                   <span
                     className={`w-24 shrink-0 text-right text-xs font-medium ${
-                      x.status === "COMPLETED" ? "text-success" : "text-warning"
+                      x.status === "COMPLETED"
+                        ? "text-success"
+                        : x.status === "NOT_PERFORMED"
+                          ? "text-ink-muted"
+                          : "text-warning"
                     }`}
                   >
                     {x.status === "COMPLETED"
                       ? `Xong ${gio(x.xong_luc)}`
-                      : x.status === "IN_PROGRESS"
+                      : x.status === "NOT_PERFORMED"
+                        ? "Không làm"
+                        : x.status === "IN_PROGRESS"
                         ? "Đang làm"
                         : "Chưa làm"}
                   </span>
@@ -267,15 +288,31 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
           <DauMuc
             so={3}
             ten="Hồ sơ trả bệnh nhân"
-            xong={d.ho_so_tra.muc.length}
+            xong={d.ho_so_tra.muc.filter((t) => t.trang_thai !== "CHO_BAC_SI").length}
             tong={d.ho_so_tra.muc.length}
           />
-          {/* CHƯA LÀM, và nói thẳng. Bản thiết kế vẽ bốn dòng "Sẵn sàng"; vẽ
-              theo sẽ là bốn lời hứa không có gì đứng sau, và nút "In bộ hồ sơ"
-              sẽ không ra gì. */}
-          <p className="px-4 py-4 text-sm text-ink-muted">
-            {d.ho_so_tra.vi_sao_rong}
-          </p>
+          {/* Tệp kết quả THẬT của lượt, kèm trạng thái từng tệp. Gửi khách là
+              việc của CSKH sau khi bác sĩ cho phép — không chặn đóng lượt. */}
+          {d.ho_so_tra.muc.length === 0 ? (
+            <p className="px-4 py-4 text-sm text-ink-muted">{d.ho_so_tra.vi_sao_rong}</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {d.ho_so_tra.muc.map((t, i) => (
+                <li key={`${t.ten}-${i}`} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <Dau xong={t.trang_thai !== "CHO_BAC_SI"} />
+                  <span className="min-w-0 flex-1 truncate text-ink">{t.ten ?? "(không tên)"}</span>
+                  <span
+                    className={`shrink-0 text-right text-xs font-medium ${
+                      t.trang_thai === "CHO_BAC_SI" ? "text-warning" : "text-success"
+                    }`}
+                  >
+                    {TRANG_THAI_TEP[t.trang_thai]}
+                    {t.trang_thai === "DA_GUI" && t.gui_kenh ? ` (${t.gui_kenh})` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
@@ -357,8 +394,8 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
 
         <section className="rounded-card border border-line bg-surface p-4 shadow-card">
           <h3 className="text-sm font-semibold text-ink">Dòng thời gian</h3>
-          {/* Mốc THẬT, do người thật bấm (`work_item_event`) — không phải giờ
-              suy ra từ trạng thái hiện tại. */}
+          {/* CHỈ việc đã xảy ra (nhật ký sự kiện) — không có bước dự kiến tạo
+              sẵn lúc check-in; bước còn chờ nằm ở mục "1. Dịch vụ". */}
           {d.moc_thoi_gian.length === 0 ? (
             <p className="mt-2 text-sm text-ink-muted">Chưa có mốc nào.</p>
           ) : (

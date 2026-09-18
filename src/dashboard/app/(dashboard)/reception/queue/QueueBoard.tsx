@@ -17,6 +17,8 @@ import { useMemo, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+
+import NutXemLuot from "../../_lam-viec/NutXemLuot";
 import {
   STATUS_PRESENTATION,
   minutesPastDue,
@@ -405,6 +407,9 @@ function PatientDetail({ item }: { item: WorklistItem }) {
             <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-soft">
               <IdCard size={13} aria-hidden /> Mã BN: {item.patient.patient_code ?? "—"}
             </p>
+            {/* Hành trình hành chính của lượt (batch pilot 18/09): check-in, đo,
+                đang ở đâu, dịch vụ, thanh toán, lịch tiếp — không có chữ khám. */}
+            {item.visit_id ? <NutXemLuot visitId={item.visit_id} /> : null}
           </div>
         </div>
         <dl className="border-l border-line pl-4 text-xs">

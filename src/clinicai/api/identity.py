@@ -600,6 +600,30 @@ class RoleGuard:
         return identity
 
 
+def dung_vai(identity: StaffIdentity, allowed: Iterable[ClinicRole]) -> StaffIdentity:
+    """Danh tính đi dưới ĐÚNG vai mà thao tác cần.
+
+    Cửa gác router chỉ thay `role` khi vai tài khoản KHÔNG qua được cửa. Có cửa
+    rộng hơn thao tác (bảng chuyển trạng thái lịch hẹn quyết sau), nên người
+    tài khoản Điều dưỡng đứng Lễ tân hôm nay check-in được nhờ vai theo lịch,
+    nhưng nhật ký vẫn ghi "Điều dưỡng" (smoke 18/09, tài khoản đa vai). Gọi hàm
+    này ngay sau khi kiểm quyền của thao tác: vai tài khoản đủ thì giữ nguyên;
+    chỉ vị trí hôm nay cho phép thì đi dưới vai vị trí, giữ vai tài khoản gốc ở
+    `vai_tai_khoan` — `record_event` ghi cả hai.
+    """
+    duoc = frozenset(allowed)
+    if identity.role in duoc:
+        return identity
+    for vai in sorted(identity.vai_theo_vi_tri, key=lambda r: r.value):
+        if vai in duoc:
+            return replace(
+                identity,
+                role=vai,
+                vai_tai_khoan=identity.vai_tai_khoan or identity.role,
+            )
+    return identity
+
+
 def require_role(*allowed: ClinicRole) -> RoleGuard:
     """Dependency factory: 403 unless the caller's role is in ``allowed``."""
     return RoleGuard(frozenset(allowed))

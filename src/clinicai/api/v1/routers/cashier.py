@@ -39,3 +39,14 @@ async def cashier_board(
     """
     wanted = [m.strip() for m in modes.split(",") if m.strip()]
     return await CashierBoardService(pool).board(identity=identity, modes=wanted)
+
+
+@router.get("/cashier/giao-dich")
+async def cashier_giao_dich(
+    tu: str | None = Query(None, description="YYYY-MM-DD; rỗng = hôm nay"),
+    den: str | None = Query(None, description="YYYY-MM-DD; rỗng = hôm nay"),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Giao dịch đã ghi trong khoảng ngày (kể cả đã huỷ) — chỉ đọc."""
+    return await CashierBoardService(pool).giao_dich(identity=identity, tu=tu, den=den)

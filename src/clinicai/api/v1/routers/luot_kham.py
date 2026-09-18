@@ -267,6 +267,15 @@ async def kham_xong(
     )
 
 
+@router.get("/luot-kham/chi-dinh-hom-nay")
+async def chi_dinh_hom_nay(
+    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỉ định hôm nay chia bốn nhóm điều phối (trưởng ca)."""
+    return await LuotKhamService(pool).chi_dinh_hom_nay(identity=identity)
+
+
 @router.get("/luot-kham/cho-quyet")
 async def cho_quyet(
     identity: StaffIdentity = Depends(_CONSULT_GUARD),

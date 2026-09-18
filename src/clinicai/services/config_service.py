@@ -301,6 +301,8 @@ class RosterService:
                 json.dumps(
                     {
                         "clinic_role": identity.role.value,
+                        # Vai tài khoản gốc (vai dùng có thể khác).
+                        "vai_tai_khoan": identity.vai_goc.value,
                         "clinic_staff_id": identity.staff_id,
                         "origin": "api:roster",
                     }
@@ -561,6 +563,8 @@ class RosterService:
                         json.dumps(
                             {
                                 "clinic_role": identity.role.value,
+                                # Vai tài khoản gốc (vai dùng có thể khác).
+                                "vai_tai_khoan": identity.vai_goc.value,
                                 "clinic_staff_id": identity.staff_id,
                                 "origin": "api:roster",
                             }
@@ -686,6 +690,8 @@ class RosterService:
                         json.dumps(
                             {
                                 "clinic_role": identity.role.value,
+                                # Vai tài khoản gốc (vai dùng có thể khác).
+                                "vai_tai_khoan": identity.vai_goc.value,
                                 "clinic_staff_id": identity.staff_id,
                                 "origin": "api:roster",
                             }

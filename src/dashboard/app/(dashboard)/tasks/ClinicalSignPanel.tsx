@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileSignature, Send } from "lucide-react";
 
+import { ngheBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
+
 interface Status {
   state: "DRAFT" | "SIGNED" | "RELEASED" | "AMENDED";
   version: number;
@@ -103,6 +105,25 @@ export default function ClinicalSignPanel({
       clearTimeout(t);
     };
   }, [load]);
+
+  // UI-01 (smoke 18/09): phiếu chuyên khoa và bệnh án TỰ LƯU ở component khác,
+  // nên danh sách "còn thiếu" ở đây đứng yên và nút Ký bị khoá dù máy chủ đã
+  // đủ điều kiện — bác sĩ phải tải lại trang mới ký được.
+  //  · Lưu ở CHÍNH trang này → chuông `baoBenhAnDaLuu` → đọc lại ngay.
+  //  · Người khác sửa ở máy khác (thư ký) → hỏi lại thưa (15 giây, tab đang mở),
+  //    chỉ khi còn là bản nháp chưa ký được; dừng ngay khi ký được hoặc đã ký.
+  const choKy = st?.state === "DRAFT" && !st.can_sign;
+  useEffect(() => {
+    if (!visitId) return;
+    return ngheBenhAnDaLuu(visitId, () => void load());
+  }, [visitId, load]);
+  useEffect(() => {
+    if (!choKy) return;
+    const t = setInterval(() => {
+      if (document.visibilityState !== "hidden") void load();
+    }, 15000);
+    return () => clearInterval(t);
+  }, [choKy, load]);
 
   async function act(path: string, body?: unknown, ok?: string) {
     setBusy(true);

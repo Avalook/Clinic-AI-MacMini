@@ -492,7 +492,19 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
         "soap_objective": bool(row.get("co_sinh_hieu"))
         or phieu_co(tien_to=("kls_", "kham_")),
         "soap_assessment": phieu_co(*KHOA_CHAN_DOAN_PHIEU) or dang_danh_gia_co_ke_hoach,
-        "soap_plan": phieu_co("dieu_tri", "pp_dieu_tri", "loi_dan", "huong_xu_tri"),
+        # Nội tiết (batch pilot 18/09): hướng xử trí của phiếu là quyết định /
+        # phác đồ MHT và điều trị hỗ trợ — bản trước không biết các ô này nên
+        # phiếu NT đã ghi đủ xử trí vẫn bị báo thiếu "Hướng xử trí".
+        "soap_plan": phieu_co(
+            "dieu_tri",
+            "pp_dieu_tri",
+            "loi_dan",
+            "huong_xu_tri",
+            "mht_quyet_dinh",
+            "mht_phac_do",
+            "dieu_tri_ho_tro",
+            "dieu_tri_ho_tro_chi_tiet",
+        ),
     }
     thieu = [
         label
@@ -501,13 +513,12 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
     ]
     # Đang đánh giá mà chưa có kế hoạch: nói đúng cái còn thiếu, không chỉ
     # "Chẩn đoán" — bác sĩ đã chọn đúng trạng thái, cái thiếu là kế hoạch.
+    #
+    # Và KHÔNG lách được bằng chữ ở ô chẩn đoán (rà 18/09): "đang đánh giá" mà
+    # có `cd_phan_biet` vẫn phải có kế hoạch tiếp theo mới ký.
     if dang_danh_gia and not dang_danh_gia_co_ke_hoach:
-        thieu = [
-            THIEU_KE_HOACH_KHI_DANG_DANH_GIA
-            if label == REQUIRED_SOAP["soap_assessment"]
-            else label
-            for label in thieu
-        ]
+        thieu = [label for label in thieu if label != REQUIRED_SOAP["soap_assessment"]]
+        thieu.append(THIEU_KE_HOACH_KHI_DANG_DANH_GIA)
     return thieu
 
 
@@ -639,6 +650,8 @@ async def _log(
                 "actor_auth_user_id": identity.auth_user_id,
                 "clinic_staff_id": identity.staff_id,
                 "clinic_role": identity.role.value,
+                # Vai tài khoản gốc (vai dùng có thể khác).
+                "vai_tai_khoan": identity.vai_goc.value,
             }
         ),
     )

@@ -10,6 +10,7 @@ import Link from "next/link";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { loadLive } from "./load";
 import OverviewClient from "./OverviewClient";
+import ChiDinhHomNay from "./ChiDinhHomNay";
 import "./dispatch.css";
 import LiveBoardSync from "../LiveBoardSync";
 
@@ -46,6 +47,7 @@ export default async function Page() {
         </Link>
       </header>
       <OverviewClient initial={live} />
+      <ChiDinhHomNay />
     </main>
     </>
   );

@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -157,6 +157,62 @@ SELECT json_build_object(
 
 
 class CashierBoardService:
+    async def giao_dich(
+        self, *, identity: StaffIdentity, tu: Any, den: Any
+    ) -> dict[str, Any]:
+        """Giao dịch đã ghi trong khoảng ngày — CHỈ ĐỌC, kể cả dòng đã huỷ.
+
+        Batch pilot 18/09: "đã thanh toán hôm nay" và "lịch sử giao dịch". Không
+        ghi đè lịch sử: dòng huỷ vẫn hiện, kèm ai huỷ, lúc nào, vì sao. Phương
+        thức thanh toán CHƯA có cột trong `payment` — trả null, không đoán.
+        """
+        a, b = doc_khoang_ngay(tu, den)
+        rows = await self._pool.fetch(
+            """
+            SELECT pm.id::text AS id, pm.visit_id::text AS visit_id, pm.kind,
+                   pm.status, pm.amount, pm.paid_at, pm.voided_at, pm.void_reason,
+                   p.full_name, p.patient_code,
+                   s.full_name AS nguoi_thu, pm.paid_by_text,
+                   vb.full_name AS nguoi_huy
+              FROM payment pm
+              LEFT JOIN patient p
+                ON p.clinic_patient_id = pm.clinic_patient_id
+               AND p.clinic_id = pm.clinic_id
+              LEFT JOIN staff s ON s.id = pm.paid_by_staff_id
+              LEFT JOIN staff vb ON vb.id = pm.voided_by_staff_id
+             WHERE pm.clinic_id = $1::uuid
+               AND (coalesce(pm.paid_at, pm.created_at) AT TIME ZONE
+                    'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+             ORDER BY coalesce(pm.paid_at, pm.created_at) DESC
+             LIMIT 1000
+            """,
+            identity.clinic_id,
+            a,
+            b,
+        )
+        return {
+            "tu": a.isoformat(),
+            "den": b.isoformat(),
+            "giao_dich": [
+                {
+                    "id": r["id"],
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "loai": r["kind"],
+                    "trang_thai": r["status"],
+                    "so_tien": float(r["amount"]) if r["amount"] is not None else None,
+                    "luc": r["paid_at"].isoformat() if r["paid_at"] else None,
+                    "nguoi_thu": r["nguoi_thu"] or r["paid_by_text"],
+                    "phuong_thuc": None,
+                    "huy_luc": r["voided_at"].isoformat() if r["voided_at"] else None,
+                    "nguoi_huy": r["nguoi_huy"],
+                    "ly_do_huy": r["void_reason"],
+                }
+                for r in rows
+            ],
+        }
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
@@ -172,6 +228,30 @@ class CashierBoardService:
         raw = json.loads(row) if isinstance(row, str) else row
 
         return build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+
+
+def doc_khoang_ngay(tu: Any, den: Any, *, mac_dinh_ngay: int = 0) -> tuple[date, date]:
+    """Khoảng ngày xem giao dịch (giờ VN). Rác/rỗng → mặc định, không ném.
+
+    Mặc định HÔM NAY; ``den`` trước ``tu`` thì đổi chỗ; tối đa 92 ngày.
+    """
+    hom_nay = datetime.now(CLINIC_TZ).date()
+
+    def _d(v: Any) -> date | None:
+        if not isinstance(v, str) or not v.strip():
+            return None
+        try:
+            return date.fromisoformat(v.strip()[:10])
+        except ValueError:
+            return None
+
+    a = _d(tu) or hom_nay - timedelta(days=mac_dinh_ngay)
+    b = _d(den) or hom_nay
+    if b < a:
+        a, b = b, a
+    if (b - a).days > 92:
+        a = b - timedelta(days=92)
+    return a, b
 
 
 def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[str, Any]:

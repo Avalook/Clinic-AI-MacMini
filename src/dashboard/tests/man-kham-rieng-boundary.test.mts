@@ -69,7 +69,13 @@ test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một th
     ["thuoc", "thuoc"],
   ] as const) {
     const trang = doc(`../app/(dashboard)/thu-ngan/${duong}/page.tsx`);
-    assert.match(trang, new RegExp(`<QuayThuNgan quay="${quay}" />`));
+    // Batch pilot 18/09: trang ghim quầy vào TabThuNgan (thêm hai tab chỉ
+    // đọc), và TabThuNgan chuyển NGUYÊN quầy ấy xuống đúng một QuayThuNgan.
+    assert.match(trang, new RegExp(`<TabThuNgan quay="${quay}" />`));
+    assert.match(
+      readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
+      /<QuayThuNgan quay=\{quay\} \/>/,
+    );
     assert.match(trang, new RegExp(`requireNavAccess\\("/thu-ngan/${duong}"\\)`));
     assert.match(nav, new RegExp(`href: "/thu-ngan/${duong}"`));
   }

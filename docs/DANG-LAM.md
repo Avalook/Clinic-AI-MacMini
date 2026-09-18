@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **18/09/2026**, sau CI-01 + Slice 1 (mục -0022 là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **18/09/2026 tối**, sau batch hoàn thiện pilot (mục -0023 là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -36,6 +36,44 @@ lịch sử hội thoại.
   dữ liệu thật, và chưa đưa worktree này lên VPS hay màn demo quản lý.
 
 ---
+
+## -0023. Batch hoàn thiện pilot (18/09/2026) — nhánh `claude/pilot-batch`, CHƯA deploy
+
+Bốn checkpoint: CP1 phiếu chuyên khoa (khoá sau ký, sinh hiệu chỉ xem, MHT tách
+nghĩa, thai kỳ chỉ bác sĩ, HMVS hết lách) · CP2 xem lại lượt theo vai
+(`/xem-luot/{visit}`, máy chủ cắt nội dung) · CP3 dịch vụ/thủ thuật trên rail
+mới · CP4 bấm thật trên trình duyệt, đủ vai, và sửa lỗi bắt được.
+
+Tài khoản thử mới (chỉ local, `supabase/fixtures/`):
+- `doitac@` (PARTNER) — dùng để nghiệm thu đối tác, KHÔNG dùng Quản lý thay.
+- `danang@` (NURSE_ULTRASOUND) + lịch trực hôm nay T1_LETAN, T1_THUNGAN,
+  T1_DOCHISO (`tai_khoan_da_vai_hom_nay.sql`) — một người, ba nhóm việc.
+- `gan_phong_dich_vu_thieu_local.sql`: DXA → KN-DOCHISO, Tinh dịch đồ / DFI →
+  KN-LAYMAU. **Chỉ local** — phòng thật do Dr4Women chọn.
+- `gia_thu_local.sql`: mọi dịch vụ 100.000đ + 5 dòng giá khám. **Không phải
+  giá thật**; local trước đó 0/39 dòng có giá nên không thu được tiền.
+
+Sửa trong CP4 (bắt được khi bấm thật):
+- Audit đa vai: `dung_vai()` + mọi event ghi thêm `vai_tai_khoan` → check-in
+  / thu tiền của `danang` ghi RECEPTION kèm tài khoản NURSE_ULTRASOUND.
+- Tệp mới gửi SAU khi bác sĩ đã duyệt: trước đây không bao giờ quay lại hàng
+  "Duyệt kết quả" (lọc `duyet_luc IS NULL`) → kẹt im lặng. Nay quay lại, có
+  dải báo "bản mới", duyệt lại chỉ mở tệp mới.
+- Check-out hiện dịch vụ KHÔNG làm được là "✓ Xong" → nay "Không làm".
+- Khung Ký đứng yên sau khi phiếu tự lưu: chuông `lib/su-kien-benh-an.ts` +
+  hỏi lại thưa 15 giây (bản đầu hỏi 4 giây, tốn request — đã bỏ).
+- Hướng xử trí NT (MHT / điều trị hỗ trợ) được tính là "kế hoạch" khi ký.
+- Lịch tiếp theo trong viewer không tính lịch đã check-in / đã xong.
+- Tải nhiều tệp: một tệp hỏng không chặn các tệp sau.
+- Màn hẹp: chọn khách ở Đo sinh hiệu / phòng dịch vụ tự cuộn tới khung làm.
+
+Chạy local có video: `KET_QUA_VIDEO_UPLOAD_ENABLED=true ./scripts/dev-up.sh`
+(mặc định tắt). Tự động hoá trình duyệt: `window.confirm` trả false trong khung
+tự động — phải ghi đè trước khi bấm "khám xong".
+
+Câu hỏi mở cho Dr4Women: xem báo cáo cuối batch (thu tiền trước hay sau khi
+bác sĩ đọc kết quả; CSKH có được XEM tệp chưa duyệt; BS siêu âm tự cho phép
+gửi tệp của mình; …).
 
 ## -0022. CI-01 + Slice 1 (18/09/2026) — rail mới là nguồn duy nhất cho kết quả / đọc lại / theo dõi / đóng lượt
 

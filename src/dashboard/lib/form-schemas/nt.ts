@@ -130,19 +130,43 @@ export const ntSchema: FormSchema = {
       title: "Chẩn đoán",
       fields: [{ key: "chan_doan", label: "Chẩn đoán", type: "textarea", fullWidth: true }],
     },
+    // MHT — TÁCH BA LOẠI THÔNG TIN (batch pilot 18/09/2026):
+    //   1. yếu tố ghi nhận: chỉ định / chống chỉ định / cần thận trọng là các
+    //      SỰ KIỆN ĐỘC LẬP — một khách có thể có cả ba cùng lúc. Bản cũ gộp
+    //      chúng vào MỘT radio loại trừ nhau, nên ghi "có chống chỉ định" là
+    //      mất luôn "có chỉ định".
+    //   2. quyết định của bác sĩ: trường riêng. GIỮ KEY `mht_quyet_dinh` và
+    //      giá trị cũ (dữ liệu cũ đọc đúng nghĩa): chi_dinh → dùng,
+    //      chong_chi_dinh → không dùng, can_nhac → chưa quyết.
+    //   3. kế hoạch: phác đồ / tên thuốc / đường dùng / liều tách ô.
+    // Danh mục yếu tố có cấu trúc và mọi luật "chống chỉ định thì chặn" là
+    // HOLD — chờ nguồn Dr4Women, không tự dựng guideline.
     {
-      title: "Hướng xử trí — Liệu pháp hormone mãn kinh (MHT)",
+      title: "MHT — Yếu tố ghi nhận (độc lập, ghi được cả ba)",
+      fields: [
+        { key: "mht_yeu_to_chi_dinh", label: "Yếu tố gợi ý chỉ định", type: "textarea", fullWidth: true },
+        { key: "mht_yeu_to_chong_chi_dinh", label: "Yếu tố chống chỉ định", type: "textarea", fullWidth: true },
+        { key: "mht_yeu_to_than_trong", label: "Yếu tố cần thận trọng", type: "textarea", fullWidth: true },
+      ],
+    },
+    {
+      title: "MHT — Quyết định của bác sĩ",
       fields: [
         {
           key: "mht_quyet_dinh",
           label: "Quyết định MHT",
           type: "radio",
           options: [
-            { value: "chi_dinh", label: "Chỉ định MHT" },
-            { value: "chong_chi_dinh", label: "Chống chỉ định MHT" },
-            { value: "can_nhac", label: "Cần cân nhắc (relative CI)" },
+            { value: "chi_dinh", label: "Dùng MHT" },
+            { value: "chong_chi_dinh", label: "Không dùng MHT" },
+            { value: "can_nhac", label: "Chưa quyết — đánh giá thêm" },
           ],
         },
+      ],
+    },
+    {
+      title: "MHT — Kế hoạch dùng thuốc",
+      fields: [
         // docx liệt kê các phác đồ dạng bullet sau "Phác đồ:" — //TODO docx mơ hồ:
         // có thể chọn nhiều hay 1? Hiện để radio (phác đồ thường chọn 1). //TODO-BS-REVIEW.
         {
@@ -157,7 +181,8 @@ export const ntSchema: FormSchema = {
             { value: "phytoestrogen", label: "Phythoestrogen" },
           ],
         },
-        { key: "mht_ten_thuoc", label: "Tên thuốc / dạng dùng", type: "text", fullWidth: true },
+        { key: "mht_ten_thuoc", label: "Tên thuốc (dạng dùng)", type: "text", fullWidth: true },
+        { key: "mht_duong_dung", label: "Đường dùng", type: "text" },
         { key: "mht_lieu", label: "Liều lượng / cách dùng", type: "text", fullWidth: true },
       ],
     },

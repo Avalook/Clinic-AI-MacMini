@@ -294,3 +294,28 @@ def test_cua_gac_va_thanh_ben_dung_chung_mot_bo_loc() -> None:
     assert "doc_vi_tri_hien_hanh(" in inspect.getsource(router_mod.vi_tri_hom_nay)
     assert "work_roster" not in inspect.getsource(router_mod.vi_tri_hom_nay)
     assert "work_roster" not in inspect.getsource(id_mod._resolve_identity)
+
+
+def test_dung_vai_theo_vi_tri_khi_vai_tai_khoan_khong_du() -> None:
+    """Smoke 18/09: tài khoản Điều dưỡng đứng Lễ tân check-in — nhật ký phải
+    ghi vai Lễ tân (vai dùng) + Điều dưỡng (vai tài khoản)."""
+    from clinicai.api.identity import ClinicRole, StaffIdentity, dung_vai
+
+    ai = StaffIdentity(
+        staff_id="s",
+        auth_user_id="a",
+        full_name="Đa năng",
+        department="NURSE_ULTRASOUND",
+        role=ClinicRole.NURSE_ULTRASOUND,
+        clinic_id="c",
+        location_id="l",
+        location_name="x",
+        vai_theo_vi_tri=frozenset({ClinicRole.RECEPTION}),
+    )
+    le_tan = dung_vai(ai, {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT})
+    assert le_tan.role is ClinicRole.RECEPTION
+    assert le_tan.vai_tai_khoan is ClinicRole.NURSE_ULTRASOUND
+    # Vai tài khoản đủ thì giữ nguyên, không đổi.
+    assert dung_vai(ai, {ClinicRole.NURSE_ULTRASOUND}) is ai
+    # Không vai nào đủ: trả nguyên (việc chặn là của bước kiểm quyền).
+    assert dung_vai(ai, {ClinicRole.DOCTOR}) is ai

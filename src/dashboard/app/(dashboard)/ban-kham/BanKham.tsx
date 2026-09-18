@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import ThanhTab from "@/components/ui/ThanhTab";
 
 import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
@@ -37,7 +38,10 @@ import {
   type PhongHomNay,
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
+import XemLuot from "../_lam-viec/XemLuot";
+import Button from "@/components/ui/Button";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
+import ThaiKy from "./ThaiKy";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -129,6 +133,8 @@ const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
   DA_GUI_KET_QUA: "Đối tác đã gửi kết quả",
 };
 
+type Khung = "benh-an" | "chi-dinh";
+
 export default function BanKham({
   phongMa,
   vai,
@@ -213,14 +219,61 @@ export default function BanKham({
   }, [hang, query]);
 
   const dangKham = hienRa.filter((d) => d.trang_thai === "serving");
-  const choKham = hienRa.filter(
+  const dangCho = hienRa.filter(
     (d) => d.trang_thai === "waiting" || d.trang_thai === "called",
   );
+  // "Kết quả cần đọc" = khách quay lại đọc kết quả (vòng REVIEW) — tách khỏi
+  // hàng khám lần đầu để bác sĩ thấy ngay ai đã có kết quả (batch pilot 18/09).
+  const canDoc = dangCho.filter((d) => d.vong === "REVIEW");
+  const choKham = dangCho.filter((d) => d.vong !== "REVIEW");
   const buocKhac = hienRa.filter((d) => d.trang_thai === "blocked");
-  const daXong = hienRa.filter((d) => d.trang_thai === "done");
-  const macDinh = dangKham[0] ?? choKham[0] ?? buocKhac[0] ?? null;
+  // Hàng chờ trả MỖI PHIÊN KHÁM một dòng: khách có kết quả mới có một dòng
+  // phiên đầu (đã xong) VÀ một dòng phiên đọc kết quả. Lượt còn phiên mở thì
+  // chưa "khám xong" — không xếp vào nhóm đó; dòng đọc kết quả ghi giờ khám
+  // phiên đầu (smoke 18/09: Thu hiện ở cả hai nhóm).
+  const luotConMo = new Set(
+    hienRa.filter((d) => d.trang_thai !== "done").map((d) => d.visit_id),
+  );
+  const daKhamLuc: Record<string, string | null> = {};
+  for (const d of hienRa) {
+    if (d.trang_thai === "done" && d.vong !== "REVIEW") daKhamLuc[d.visit_id] = d.xong_luc;
+  }
+  // Lượt đã đọc kết quả xong có HAI dòng "xong" (phiên đầu + phiên đọc):
+  // chỉ giữ dòng xong muộn nhất cho mỗi lượt.
+  const cuoiCung: Record<string, DongHangCho> = {};
+  for (const d of hienRa) {
+    if (d.trang_thai !== "done" || luotConMo.has(d.visit_id)) continue;
+    const cu = cuoiCung[d.visit_id];
+    if (!cu || (d.xong_luc ?? "") > (cu.xong_luc ?? "")) cuoiCung[d.visit_id] = d;
+  }
+  const daXong = hienRa.filter((d) => cuoiCung[d.visit_id] === d);
+  // Thư ký: phân "chờ bác sĩ ký" với "đã ký" — thấy ngay lượt nào mình đã nhập
+  // mà bác sĩ chưa xác nhận.
+  const choKy = daXong.filter((d) => !d.da_ky);
+  const daKy = daXong.filter((d) => d.da_ky);
+  const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
   const chon = hienRa.find((d) => d.id === chonId) ?? macDinh;
   const luot = bang?.luot.find((l) => l.visit_id === chon?.visit_id) ?? null;
+
+  // VÙNG LÀM VIỆC khi không đủ chỗ cho 3 cột (< 1536px): Bệnh án và Chỉ định &
+  // kết quả thành hai tab. Ba cột tối thiểu 220 + 480 + 320 = 1052px, trong khi
+  // laptop 1280 cạnh thanh bên chỉ còn ~925px → trước đây cả trang kéo ngang
+  // (smoke 18/09). Khách quay lại đọc kết quả thì mở sẵn tab kết quả; bác sĩ
+  // đổi tab thì giữ lựa chọn cho tới khi chọn khách khác. Cả hai khung vẫn
+  // nằm trong cây (chỉ ẩn) — chữ đang gõ trong bệnh án không mất khi đổi tab.
+  const [khungChon, setKhungChon] = useState<{ id: string; khung: Khung } | null>(null);
+  const khungMacDinh: Khung =
+    chon?.vong === "REVIEW" && chon.trang_thai !== "done" ? "chi-dinh" : "benh-an";
+  const khung = khungChon && khungChon.id === chon?.id ? khungChon.khung : khungMacDinh;
+  const chonKhach = useCallback((id: string) => {
+    setChonId(id);
+    // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
+    if (window.innerWidth < 1280) {
+      requestAnimationFrame(() =>
+        document.getElementById("vung-lam-viec")?.scrollIntoView({ block: "start" }),
+      );
+    }
+  }, []);
 
   return (
     <div className="grid gap-4">
@@ -263,15 +316,16 @@ export default function BanKham({
 
       <StatRow>
         <StatCard label="Chờ khám" value={choKham.length} tone="brand" />
+        <StatCard label="Kết quả cần đọc" value={canDoc.length} tone="warning" />
         <StatCard label="Đang khám" value={dangKham.length} tone="neutral" />
         <StatCard label="Đang ở bước khác" value={buocKhac.length} tone="warning" />
         <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
       </StatRow>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
+      <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
         <aside
           aria-label="Hàng chờ khám"
-          className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+          className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:w-auto"
         >
           <div className="px-3 py-3">
             <label className="flex items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-ink-muted">
@@ -289,31 +343,57 @@ export default function BanKham({
             <p className="px-3 pb-3 text-xs text-ink-muted">Đang tải hàng chờ…</p>
           ) : (
             <div className="max-h-[720px] overflow-y-auto">
-              <Nhom ten="Đang khám" ds={dangKham} chon={chon?.id ?? null} onChon={setChonId} trong="Chưa có ai đang khám." />
-              <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={setChonId} trong="Không có khách đang chờ." />
-              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={setChonId} />
-              <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={setChonId} />
+              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang khám." />
+              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} daKhamLuc={daKhamLuc} />
+              <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." />
+              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
+              {laThuKy ? (
+                <>
+                  <Nhom ten="Chờ bác sĩ ký" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Đã ký hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                </>
+              ) : (
+                <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+              )}
             </div>
           )}
         </aside>
 
-        <HoSo
-          dong={chon}
-          luot={luot}
-          choBam={laBacSi || laThuKy}
-          laBacSi={laBacSi}
-          staffId={staffId}
-          onDaBam={napLai}
-        />
-
-        <ChiDinhPanel
-          dong={chon}
-          luot={luot}
-          dichVu={bang?.dich_vu ?? []}
-          laBacSi={laBacSi}
-          laThuKy={laThuKy}
-          onDaGui={napLai}
-        />
+        {/* ≥ 1536: `contents` → Bệnh án và Chỉ định & kết quả là cột 2 và 3.
+            Dưới đó: một cột, chọn bằng tab. */}
+        <div id="vung-lam-viec" className="grid min-w-0 scroll-mt-4 gap-3 2xl:contents">
+          <ThanhTab
+            nhan="Vùng làm việc"
+            className="2xl:hidden"
+            muc={[
+              { ma: "benh-an", nhan: "Bệnh án" },
+              { ma: "chi-dinh", nhan: "Chỉ định & kết quả", nhac: khungMacDinh === "chi-dinh" },
+            ]}
+            chon={khung}
+            onChon={(k) => chon && setKhungChon({ id: chon.id, khung: k })}
+          />
+          <div className={`min-w-0 ${khung === "benh-an" ? "" : "hidden"} 2xl:block`}>
+            <HoSo
+              dong={chon}
+              daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
+              luot={luot}
+              choBam={laBacSi || laThuKy}
+              laBacSi={laBacSi}
+              staffId={staffId}
+              onDaBam={napLai}
+            />
+          </div>
+          <div className={`min-w-0 ${khung === "chi-dinh" ? "" : "hidden"} 2xl:block`}>
+            <ChiDinhPanel
+              dong={chon}
+              luot={luot}
+              dichVu={bang?.dich_vu ?? []}
+              laBacSi={laBacSi}
+              laThuKy={laThuKy}
+              onDaGui={napLai}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -325,12 +405,15 @@ function Nhom({
   chon,
   onChon,
   trong,
+  daKhamLuc,
 }: {
   ten: string;
   ds: DongHangCho[];
   chon: string | null;
   onChon: (id: string) => void;
   trong?: string;
+  /** visit_id → giờ xong phiên khám đầu (chỉ nhóm "Kết quả cần đọc"). */
+  daKhamLuc?: Record<string, string | null>;
 }) {
   if (ds.length === 0 && !trong) return null;
   return (
@@ -382,7 +465,11 @@ function Nhom({
                         ? ` · đã khám ${soPhutTu(d.bat_dau_luc)}`
                         : ` · chờ ${soPhutTu(d.vao_hang_luc)}`}
                     {d.checkin_luc ? ` · tổng ${soPhutTu(d.checkin_luc)}` : ""}
-                    {d.vong === "REVIEW" ? " · quay lại đọc KQ" : ""}
+                    {d.vong === "REVIEW"
+                      ? d.trang_thai === "done"
+                        ? " · đã đọc kết quả"
+                        : ` · đã khám${daKhamLuc?.[d.visit_id] ? ` ${gioVn(daKhamLuc[d.visit_id])}` : ""} · có kết quả mới cần đọc`
+                      : ""}
                   </span>
                 </span>
                 <StatusChip tone={t.tone} label={t.nhan} />
@@ -397,6 +484,7 @@ function Nhom({
 
 function HoSo({
   dong,
+  daKhamLuc,
   luot,
   choBam,
   laBacSi,
@@ -404,6 +492,7 @@ function HoSo({
   onDaBam,
 }: {
   dong: DongHangCho | null;
+  daKhamLuc: string | null;
   luot: Luot | null;
   choBam: boolean;
   laBacSi: boolean;
@@ -414,6 +503,7 @@ function HoSo({
   const dangXem = xemLai && xemLai.id === dong?.id ? xemLai.luot : null;
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<{ id: string; cau: string } | null>(null);
+  const [xemLuot, setXemLuot] = useState<string | null>(null);
 
   if (!dong) {
     return (
@@ -470,13 +560,26 @@ function HoSo({
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
-              {dong.vong === "REVIEW" ? (
-                <StatusChip tone="blocked" label="Quay lại đọc kết quả" size="md" />
+              {dong.vong === "REVIEW" && dong.trang_thai !== "done" ? (
+                <StatusChip
+                  tone="blocked"
+                  label={`Đã khám${daKhamLuc ? ` ${gioVn(daKhamLuc)}` : ""} · có kết quả mới cần đọc`}
+                  size="md"
+                />
               ) : null}
             </div>
             <p className="text-xs text-ink-muted">
               {dong.ma_bn} · {dong.bac_si ?? "Chưa có bác sĩ"}
             </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-1 -ml-3"
+              onClick={() => setXemLuot(dong.visit_id)}
+            >
+              Xem lại cả lượt
+            </Button>
+            {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
           </div>
           <dl className="grid grid-cols-4 divide-x divide-line text-xs">
             <Truong nhan="Số thứ tự" gia={String(dong.so_thu_tu)} />
@@ -529,12 +632,16 @@ function HoSo({
                 onClick={() => void bam("kham-xong")}
                 className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {dangGui
-                  ? "Đang ghi…"
-                  : laBacSi
-                    ? "Xác nhận & ký · khám xong"
-                    : "Đã khám xong"}
+                {dangGui ? "Đang ghi…" : laBacSi ? "Khám xong" : "Đã khám xong"}
               </button>
+            ) : null}
+            {/* Nút trên CHỈ đóng phiên khám (khách sang bước tiếp) — trước đây
+                ghi "Xác nhận & ký" nhưng không ký gì (smoke 18/09). Ký bệnh án
+                là nút riêng ở khung "Ký bệnh án". */}
+            {dong.trang_thai === "serving" && laBacSi && !dong.da_ky ? (
+              <p className="text-xs text-ink-muted">
+                Nút này không ký bệnh án — ký ở khung “Ký bệnh án”.
+              </p>
             ) : null}
             {dong.trang_thai === "blocked" ? (
               <p className="text-xs text-warning">
@@ -572,6 +679,12 @@ function HoSo({
             <span>Chưa có sinh hiệu.</span>
           )}
         </div>
+        {dong.da_ky ? (
+          <p className="mt-2 text-xs font-medium text-ink-soft">
+            Bệnh án đã ký{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
+            {dong.ky_luc ? ` · ${gioVn(dong.ky_luc)}` : ""} — phiếu chỉ xem.
+          </p>
+        ) : null}
       </header>
 
       <div className="p-3 pt-0">
@@ -596,12 +709,22 @@ function HoSo({
             Vào Cấu trúc phòng khám để gán, hoặc chọn đúng loại khám khi đặt lịch.
           </p>
         ) : (
-          <ServiceFormEngine
-            key={dong.visit_id}
-            visitId={dong.visit_id}
-            serviceCode={dong.form_code}
-            readOnly={!choBam || dong.trang_thai === "done"}
-          />
+          <>
+            <ServiceFormEngine
+              key={dong.visit_id}
+              visitId={dong.visit_id}
+              serviceCode={dong.form_code}
+              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
+            />
+            {/* Sản khoa: thai kỳ CHÍNH THỨC (bảng `pregnancy`) — chỉ bác sĩ ghi. */}
+            {dong.form_code === "SK" ? (
+              <ThaiKy
+                key={`tk-${dong.clinic_patient_id}`}
+                clinicPatientId={dong.clinic_patient_id}
+                visitId={dong.visit_id}
+              />
+            ) : null}
+          </>
         )}
         {/* BỆNH ÁN · CHẨN ĐOÁN · ĐƠN THUỐC (demo 17/09/2026). Thư ký nhập, màn
             bác sĩ tự tải lại khi bên kia lưu (sự kiện realtime), bác sĩ duyệt
@@ -643,7 +766,7 @@ function HoSo({
               staffId={staffId}
               onClose={() => {}}
               canSign={laBacSi}
-              readOnly={!choBam || dong.trang_thai === "done"}
+              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
             />
           </details>
         ) : null}

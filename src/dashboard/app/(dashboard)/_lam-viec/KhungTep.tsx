@@ -158,6 +158,10 @@ export default function KhungTep({
       const ds = Array.from(files ?? []);
       if (ds.length === 0) return;
       setLoi(null);
+      // Tệp lỗi KHÔNG chặn các tệp sau (smoke 18/09): trước đây một video bị
+      // từ chối làm dừng cả loạt, PDF/Word chọn cùng lúc không bao giờ được gửi
+      // và người dùng không biết. Gom lỗi từng tệp, báo một lần ở cuối.
+      const loiTung: string[] = [];
       for (const [i, f] of ds.entries()) {
         const nhan = `Đang gửi ${i + 1}/${ds.length}: ${f.name} (${doCoTep(f.size)})`;
         setDangTai(nhan);
@@ -174,15 +178,14 @@ export default function KhungTep({
             ),
           );
           if (!r.ok) {
-            // Nói rõ TỆP NÀO hỏng — tệp trước nó đã lưu xong rồi.
-            setLoi(`${f.name}: ${nhanLoi(r.data as ThanLoi | null, "không gửi được.")}`);
-            break;
+            // Nói rõ TỆP NÀO hỏng — các tệp khác vẫn gửi tiếp.
+            loiTung.push(`${f.name}: ${nhanLoi(r.data as ThanLoi | null, "không gửi được.")}`);
           }
         } catch {
-          setLoi(`${f.name}: mất kết nối — tệp này CHƯA được lưu.`);
-          break;
+          loiTung.push(`${f.name}: mất kết nối — tệp này CHƯA được lưu.`);
         }
       }
+      setLoi(loiTung.length > 0 ? loiTung.join(" · ") : null);
       setDangTai(null);
       setLanNap((n) => n + 1);
       onDaTaiLen?.();

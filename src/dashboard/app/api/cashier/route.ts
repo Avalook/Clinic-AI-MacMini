@@ -7,8 +7,20 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function GET(request: Request) {
-  const modes = new URL(request.url).searchParams.get("modes") ?? "dich_vu,thuoc";
+  const url = new URL(request.url);
+  // Giao dịch đã ghi (xem lại, kể cả dòng đã huỷ) — batch pilot 18/09.
+  if (url.searchParams.get("xem") === "giao-dich") {
+    const q = new URLSearchParams();
+    for (const k of ["tu", "den"]) {
+      const v = url.searchParams.get(k) ?? "";
+      if (NGAY_RE.test(v)) q.set(k, v);
+    }
+    return proxyJsonToBackend("GET", `/api/v1/cashier/giao-dich?${q.toString()}`, undefined);
+  }
+  const modes = url.searchParams.get("modes") ?? "dich_vu,thuoc";
   // Giữ NGUYÊN mã và câu của máy chủ: bị chặn quyền (403) phải nói là bị chặn,
   // không được thành "Không đọc được danh sách" như mất kết nối (tự kiểm
   // 16/09/2026 — người dùng thấy câu ấy khi vai hôm nay không có quyền thu).

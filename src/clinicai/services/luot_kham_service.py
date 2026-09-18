@@ -1556,6 +1556,7 @@ class LuotKhamService:
         """
         _require(identity, BOARD_ROLES, "Vai của bạn không dùng hàng chờ phòng.")
         cid = identity.clinic_id
+        doc_noi_dung = identity.co_vai(CLINICAL_READ_ROLES)
         rid = _uuid(room_id, "Mã phòng không hợp lệ.") if room_id else None
         async with self._pool.acquire() as conn:
             phong = None
@@ -1641,6 +1642,9 @@ class LuotKhamService:
                        coalesce(o.service_name, st.name) AS viec,
                        o.service_code, o.node_code, o.exec_status,
                        o.result_note, o.ket_qua_luc, o.duyet_luc,
+                       o.not_performed_reason, pf.full_name AS nguoi_lam,
+                       v.status AS visit_status, v.finalized_at,
+                       fb.full_name AS nguoi_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
                        r.name AS phong
                   FROM queue_entry q
@@ -1659,6 +1663,8 @@ class LuotKhamService:
                     ON c.id = q.ref_id AND q.reason <> 'SERVICE'
                    AND c.clinic_id = q.clinic_id
                   LEFT JOIN clinic_room r ON r.id = q.room_id
+                  LEFT JOIN staff pf ON pf.id = o.performed_by
+                  LEFT JOIN staff fb ON fb.id = v.finalized_by
                  WHERE q.clinic_id = $1::uuid
                    AND q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
                    AND (
@@ -1718,6 +1724,16 @@ class LuotKhamService:
                 "xong_luc": _iso(r["done_at"]),
                 "ket_qua_luc": _iso(r["ket_qua_luc"]),
                 "duyet_luc": _iso(r["duyet_luc"]),
+                # Bệnh án đã ký (FINALIZED/AMENDED): màn khoá phiếu theo mốc
+                # NÀY, không theo trạng thái hàng chờ — khách còn "đang khám"
+                # mà bác sĩ đã ký thì phiếu tự lưu sẽ ăn 409 (rà 18/09).
+                "da_ky": r["visit_status"] in ("FINALIZED", "AMENDED"),
+                "ky_luc": _iso(r["finalized_at"]),
+                "nguoi_ky": r["nguoi_ky"],
+                "nguoi_lam": r["nguoi_lam"],
+                # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
+                "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,
+                "ly_do_khong_lam": r["not_performed_reason"],
             }
             for r in _theo_luat_xep_hang(rows)
             # Người đã xong chỉ giữ của hôm nay.
@@ -3036,6 +3052,90 @@ class LuotKhamService:
             )
         return {"viec": viec, "duoc_quyet": identity.co_vai(DOCTOR_ROLES)}
 
+    async def chi_dinh_hom_nay(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Mọi chỉ định bác sĩ đã duyệt hôm nay, chia bốn nhóm cho trưởng ca.
+
+        Cần điều phối (chưa có phòng) · Đã điều phối (có phòng, chưa làm) ·
+        Đang thực hiện · Đã hoàn tất (đã làm / không làm được). Trưởng ca chỉ
+        XẾP PHÒNG từng chỉ định — không tạo chỉ định, không bấm xong thay phòng.
+        Kèm các mốc để dựng dòng thời gian, và vòng đọc kết quả (khách đã quay
+        lại bác sĩ chưa).
+        """
+        _require(identity, DISPATCH_ROLES, "Chỉ trưởng ca hoặc quản lý xem điều phối.")
+        rows = await self._pool.fetch(
+            """
+            SELECT o.id::text AS id, o.visit_id::text AS visit_id,
+                   o.service_name, o.exec_status, o.created_at, o.authorized_at,
+                   o.assigned_at, o.started_at, o.finished_at, o.ket_qua_luc,
+                   rm.name AS phong, pb.full_name AS nguoi_lam,
+                   p.full_name, p.patient_code,
+                   (SELECT r.status FROM round_requirement q
+                      JOIN review_round r
+                        ON r.id = q.round_id AND r.clinic_id = q.clinic_id
+                     WHERE q.clinic_id = o.clinic_id AND q.service_order_id = o.id
+                     ORDER BY r.round_no DESC LIMIT 1)          AS vong_doc,
+                   (SELECT q.need FROM round_requirement q
+                     WHERE q.clinic_id = o.clinic_id AND q.service_order_id = o.id
+                     ORDER BY q.created_at DESC LIMIT 1)        AS can,
+                   -- Không phòng nào (kể cả phòng đối tác) làm bước này: chỉ
+                   -- định sẽ kẹt "chờ xếp phòng" mãi — cấu hình, không phải
+                   -- việc trưởng ca tự xoay được.
+                   NOT EXISTS (
+                       SELECT 1 FROM clinic_room_node rn
+                         JOIN clinic_room r2
+                           ON r2.id = rn.room_id AND r2.clinic_id = rn.clinic_id
+                        WHERE rn.clinic_id = o.clinic_id
+                          AND rn.node_code = o.node_code
+                          AND r2.is_active)                     AS khong_co_phong
+              FROM service_order o
+              JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              JOIN patient p
+                ON p.clinic_patient_id = v.clinic_patient_id
+               AND p.clinic_id = v.clinic_id
+              LEFT JOIN clinic_room rm
+                ON rm.id = o.room_id AND rm.clinic_id = o.clinic_id
+              LEFT JOIN staff pb ON pb.id = o.performed_by
+             WHERE o.clinic_id = $1::uuid
+               AND o.exec_status NOT IN ('draft', 'cancelled')
+               AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+             ORDER BY o.created_at, o.id
+             LIMIT 500
+            """,
+            identity.clinic_id,
+        )
+        nhom = {
+            "authorized": "can_dieu_phoi",
+            "assigned": "da_dieu_phoi",
+            "in_progress": "dang_thuc_hien",
+            "performed": "da_hoan_tat",
+            "not_performed": "da_hoan_tat",
+        }
+        return {
+            "chi_dinh": [
+                {
+                    "id": r["id"],
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "dich_vu": r["service_name"],
+                    "trang_thai": r["exec_status"],
+                    "nhom": nhom.get(r["exec_status"], "can_dieu_phoi"),
+                    "phong": r["phong"],
+                    "nguoi_lam": r["nguoi_lam"],
+                    "can": r["can"],
+                    "vong_doc": r["vong_doc"],
+                    "khong_co_phong": bool(r["khong_co_phong"]),
+                    "chi_dinh_luc": _iso(r["authorized_at"] or r["created_at"]),
+                    "xep_phong_luc": _iso(r["assigned_at"]),
+                    "bat_dau_luc": _iso(r["started_at"]),
+                    "xong_luc": _iso(r["finished_at"]),
+                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                }
+                for r in rows
+            ]
+        }
+
     async def sau_khi_co_ket_qua(
         self, *, order_id: str, identity: StaffIdentity
     ) -> None:
@@ -3333,7 +3433,12 @@ class LuotKhamService:
     # ------------------------------------------------------------------
 
     async def ket_qua_cho_duyet(self, *, identity: StaffIdentity) -> dict[str, Any]:
-        """Chỉ định đã có kết quả (tệp hoặc nội dung) mà bác sĩ chưa duyệt."""
+        """Chỉ định đã có kết quả (tệp hoặc nội dung) mà bác sĩ chưa duyệt.
+
+        Cả chỉ định ĐÃ duyệt mà có tệp mới tải lên sau đó (đối tác gửi bản điều
+        chỉnh): tệp mới không thừa hưởng lần duyệt cũ, nên phải quay lại đây —
+        nếu không nó nằm im mãi, CSKH không bao giờ thấy (smoke 18/09).
+        """
         _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
@@ -3346,7 +3451,7 @@ class LuotKhamService:
                        p.clinic_patient_id::text AS clinic_patient_id,
                        p.full_name, p.patient_code,
                        d.full_name AS bac_si, v.attending_doctor_id::text AS bac_si_id,
-                       pf.full_name AS nguoi_lam
+                       pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
                   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
                   JOIN patient p
@@ -3355,7 +3460,12 @@ class LuotKhamService:
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                  WHERE o.clinic_id = $1::uuid
-                   AND o.ket_qua_luc IS NOT NULL AND o.duyet_luc IS NULL
+                   AND o.ket_qua_luc IS NOT NULL
+                   AND (o.duyet_luc IS NULL
+                        OR EXISTS (SELECT 1 FROM tep_ket_qua t
+                                    WHERE t.clinic_id = o.clinic_id
+                                      AND t.service_order_id = o.id
+                                      AND t.cho_phep_gui_luc IS NULL))
                    AND o.exec_status NOT IN ('draft', 'cancelled')
                    AND o.created_at > now() - interval '60 days'
                  ORDER BY (v.attending_doctor_id = $2::uuid) DESC NULLS LAST,
@@ -3368,7 +3478,8 @@ class LuotKhamService:
             teps = await conn.fetch(
                 """
                 SELECT t.id::text AS id, t.service_order_id::text AS order_id,
-                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc
+                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc,
+                       t.cho_phep_gui_luc IS NOT NULL AS da_cho_gui
                   FROM tep_ket_qua t
                  WHERE t.clinic_id = $1::uuid
                    AND t.service_order_id = ANY($2::uuid[])
@@ -3387,6 +3498,7 @@ class LuotKhamService:
                     "mime": t["mime"],
                     "so_byte": int(t["so_byte"]),
                     "tai_len_luc": _iso(t["tai_len_luc"]),
+                    "da_cho_gui": t["da_cho_gui"],
                 }
             )
         return {
@@ -3406,6 +3518,8 @@ class LuotKhamService:
                     "cua_toi": r["bac_si_id"] == identity.staff_id,
                     "nguoi_lam": r["nguoi_lam"],
                     "tep": theo.get(r["id"], []),
+                    # Đã duyệt một lần — thẻ này có mặt vì có tệp mới chưa duyệt.
+                    "duyet_lan_truoc": _iso(r["duyet_luc"]),
                 }
                 for r in rows
             ]
@@ -3449,7 +3563,50 @@ class LuotKhamService:
             )
             assert o is not None
             if o["duyet_luc"] is not None:
-                return {"ok": True, "order_id": oid, "already": True}
+                # Đã duyệt trước đó. Tệp mới gửi SAU lần duyệt không thừa hưởng
+                # quyền gửi — bác sĩ bấm duyệt lần nữa thì chỉ mở các tệp ấy,
+                # giữ nguyên đánh giá cũ trừ khi ghi đánh giá mới.
+                moi = await conn.fetch(
+                    """
+                    UPDATE tep_ket_qua
+                       SET cho_phep_gui_luc = now(),
+                           cho_phep_gui_boi_staff_id = $3::uuid
+                     WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                       AND cho_phep_gui_luc IS NULL
+                    RETURNING id::text
+                    """,
+                    cid,
+                    oid,
+                    identity.staff_id,
+                )
+                if not moi:
+                    return {"ok": True, "order_id": oid, "already": True}
+                if ghi:
+                    await conn.execute(
+                        """
+                        UPDATE service_order
+                           SET bac_si_danh_gia = $3,
+                               version = version + 1, updated_at = now()
+                         WHERE clinic_id = $1::uuid AND id = $2::uuid
+                        """,
+                        cid,
+                        oid,
+                        ghi,
+                    )
+                await record_event(
+                    conn,
+                    event_type="result.approved",
+                    aggregate_type="visit",
+                    aggregate_id=vid,
+                    identity=identity,
+                    origin=ORIGIN,
+                    payload={
+                        "visit_id": vid,
+                        "order_id": oid,
+                        "tep_moi": [r["id"] for r in moi],
+                    },
+                )
+                return {"ok": True, "order_id": oid, "tep_moi": len(moi)}
             if o["ket_qua_luc"] is None:
                 raise LuotKhamConflictError(
                     "NO_RESULT_YET", "Chỉ định này chưa có kết quả để duyệt."

@@ -47,6 +47,12 @@ function duongDoc(url: URL): string | null {
   if (xem === "phong-hom-nay") return "/api/v1/luot-kham/phong-hom-nay";
   if (xem === "ket-qua-cho-duyet") return "/api/v1/luot-kham/ket-qua-cho-duyet";
   if (xem === "cho-quyet") return "/api/v1/luot-kham/cho-quyet";
+  // Xem lại một lượt (chỉ đọc, backend cắt theo vai) — batch pilot 18/09.
+  if (xem === "xem-luot") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/xem-luot/${luot}` : null;
+  }
+  if (xem === "chi-dinh-hom-nay") return "/api/v1/luot-kham/chi-dinh-hom-nay";
   if (xem === "hang-cho") {
     const phong = url.searchParams.get("phong") ?? "";
     if (phong && !UUID_RE.test(phong)) return null;
