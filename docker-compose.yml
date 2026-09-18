@@ -134,8 +134,16 @@ services:
   # tải lên nên lỗi nằm im từ ngày dựng máy. Bước này trao thư mục cho uid 1000
   # trước khi api chạy, nên máy mới hay thư mục bị tạo lại đều tự đúng.
   media-quyen:
+    # Cùng lớp an toàn chung như mọi service (log có trần, no-new-privileges,
+    # init). Bài kiểm infra-safety đòi điều này cho MỌI service; service này
+    # thêm ngày 16/09 mà thiếu — bắt được khi CI chạy lại 18/09/2026.
+    # no-new-privileges không cản chown: container chạy root sẵn, chỉ chặn leo
+    # quyền qua tệp setuid.
+    <<: *clinic-service-defaults
     image: clinicai-api:${IMAGE_TAG:-latest}
     user: "0:0"
+    mem_limit: 32m
+    pids_limit: 16
     # Kho là ổ mạng Viettel (CIFS, gắn sẵn uid=1000) thì chown bị từ chối — nên
     # chỉ trao quyền khi chủ CHƯA phải 1000, không thì bước này làm api không lên.
     # `.tam`: chỗ api ghi tạm tệp đang nhận (xem TMPDIR của api). Tạo sẵn ở đây vì
