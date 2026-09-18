@@ -56,6 +56,10 @@ lịch sử hội thoại.
   - Hậu quả: `/` luôn về `/home`, và mọi đường cũ (kể cả của 16/09) đều về
     `/login`.
   - Sửa bằng `force-dynamic` ở `app/page.tsx` và ở `(dashboard)/layout.tsx`.
+  - **Check-in → hoàn tác → check-in lại** để lượt khám nằm im INCOMPLETE:
+    khách có trong hàng đợi lễ tân nhưng không bao giờ tới bác sĩ. Sửa ở
+    `_open_visit` (mở lại lượt INCOMPLETE). Test DB mới
+    `test_check_in_lai_sau_hoan_tac_db.py` đã thử: gỡ bản sửa thì test đỏ.
 - **Canh bằng test:** `tests/man-da-gop-boundary.test.mts`. Ratchet px 85 → 64.
 - **Chưa làm:** 20 route `/api/*` không màn nào gọi (danh sách lấy bằng grep —
   phải kiểm tay trước khi xoá). Đo lại số `<button>`. Làm lại thanh bên theo

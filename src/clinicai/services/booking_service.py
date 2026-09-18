@@ -2037,7 +2037,19 @@ class BookingService:
                     (SELECT a.service_type_id FROM appointment a
                       WHERE a.id = $3 AND a.clinic_id = $1::uuid))
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
-            DO NOTHING
+            -- CHECK-IN LẠI SAU KHI HOÀN TÁC (bắt được khi bấm thật 18/09/2026).
+            -- Hoàn tác đưa lượt về INCOMPLETE (xem _close_visit_workflow); nếu
+            -- ở đây DO NOTHING thì lượt cũ nằm im INCOMPLETE — khách đứng trong
+            -- hàng đợi lễ tân mà màn bác sĩ (lọc OPEN/IN_PROGRESS) không bao giờ
+            -- thấy. Mở lại đúng lượt ấy. Lượt đang mở hay đã ký thì không chạm.
+            DO UPDATE SET status = 'OPEN',
+                          checked_in_at = now(),
+                          checked_in_by = EXCLUDED.checked_in_by,
+                          incomplete_at = NULL,
+                          incomplete_reason = NULL,
+                          incomplete_by = NULL,
+                          updated_at = now()
+                    WHERE visit.status = 'INCOMPLETE'
             RETURNING visit_id
             """,
             identity.clinic_id,
