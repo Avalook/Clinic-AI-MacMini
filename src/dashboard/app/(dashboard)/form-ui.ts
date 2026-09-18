@@ -7,7 +7,11 @@ export const INPUT =
   "w-full min-h-11 rounded-lg border border-line bg-surface px-3 py-2.5 " +
   "text-base text-ink shadow-card outline-none " +
   "transition-colors placeholder:text-ink-faint focus:border-brand-600 " +
-  "focus:ring-2 focus:ring-brand-600/15 sm:min-h-0 sm:py-2 sm:text-sm";
+  "focus:ring-2 focus:ring-brand-600/15 sm:min-h-0 sm:py-2 sm:text-sm " +
+  // Ô KHOÁ PHẢI TRÔNG KHOÁ (18/09/2026, DESIGN.md §5): trước đây ô disabled
+  // trắng y ô gõ được — bệnh án chỉ xem ở Trang chủ trông như sửa được.
+  "disabled:cursor-not-allowed disabled:bg-surface-sunken " +
+  "disabled:text-ink-soft disabled:shadow-none";
 
 export const LABEL = "mb-1 block text-[13px] font-medium text-ink-soft";
 

@@ -984,11 +984,19 @@ export default function ClinicalRecordForm({
       </div>
 
       {/* Banner cảnh báo = vùng TRÊN cố định (không cuộn cùng nội dung). */}
-      {!viewingPast && ((readOnly && !vitalsOnly) || locked || (arrivalPending && !readOnly)) && (
+      {!viewingPast && (readOnly || locked || (arrivalPending && !readOnly)) && (
         <div className="space-y-1.5 border-b border-line px-4 py-2">
           {readOnly && !vitalsOnly && (
             <p className="rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800">
               👁 Hồ sơ lâm sàng chỉ xem (Lễ tân/CSKH có thể sửa thông tin Hành chính ở tab tương ứng).
+            </p>
+          )}
+          {/* Bảng lịch ở Trang chủ mở phiếu CHỈ XEM (Tuyền chốt 18/09/2026).
+              Nhãn "Chỉ xem — đo ở màn Đo sinh hiệu" chỉ nói về sinh hiệu, nên
+              người mở tưởng phần còn lại gõ được. Nói thẳng chỗ sửa. */}
+          {readOnly && vitalsOnly && (
+            <p className="rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800">
+              👁 Chỉ xem — sửa bệnh án ở Bàn khám, đo sinh hiệu ở màn Đo sinh hiệu.
             </p>
           )}
           {locked && (
