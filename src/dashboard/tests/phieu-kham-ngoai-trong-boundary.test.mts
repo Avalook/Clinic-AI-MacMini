@@ -27,3 +27,15 @@ test("Phụ khoa: Khám ngoài = cơ quan sinh dục ngoài, Khám trong = âm �
   assert.ok(pk.indexOf("Khám chuyên khoa — Khám ngoài") < pk.indexOf("Khám chuyên khoa — Khám trong"));
   assert.doesNotMatch(pk, /HOÁN ĐỔI/);
 });
+
+test("HMVS có ô 'Đang tiếp tục đánh giá' khớp đúng giá trị máy chủ đọc (S0-8)", () => {
+  const hmvs = read("../lib/form-schemas/hmvs.ts");
+  const py = read("../../clinicai/services/clinical_sign_service.py");
+  assert.match(hmvs, /key: "cd_trang_thai"/);
+  assert.match(hmvs, /value: "DANG_DANH_GIA"/);
+  assert.match(py, /phieu\.get\("cd_trang_thai"\) == "DANG_DANH_GIA"/);
+  for (const k of ["tai_kham_ngay", "chu_ky_dieu_tri_tiep", "tai_kham_xn"]) {
+    assert.ok(hmvs.includes(`key: "${k}"`), `kế hoạch tiếp theo cần ô ${k} trong phiếu`);
+    assert.ok(py.includes(`"${k}"`), `máy chủ phải đọc ô ${k}`);
+  }
+});
