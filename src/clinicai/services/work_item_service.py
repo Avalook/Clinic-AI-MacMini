@@ -19,6 +19,7 @@ transaction, so history cannot disagree with state.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import date
 from typing import Literal
 
@@ -78,6 +79,21 @@ def resolve_transition(command: str) -> tuple[frozenset[str], str]:
 
 def is_terminal(status: str) -> bool:
     return status in TERMINAL
+
+
+def vai_da_dung(identity: StaffIdentity, vai_mo_cua: Iterable[str]) -> str:
+    """Vai THỰC SỰ đã dùng để qua cửa một lệnh — thứ nhật ký phải ghi (S0-5).
+
+    18/09/2026: ``work_item_event.actor_role`` từng ghi vai TÀI KHOẢN. Một điều
+    dưỡng hôm nay đứng Lễ tân bấm bước tiếp nhận thì nhật ký ghi "điều dưỡng",
+    trong khi cửa mở cho cô ấy vì vai Lễ tân của vị trí. Ưu tiên vai đang dùng
+    (``identity.role``) nếu nó mở được cửa; không thì vai hôm nay đầu tiên (theo
+    thứ tự chữ cái, để lặp lại được) nằm trong tập vai được phép.
+    """
+    giao = set(identity.ds_vai()) & set(vai_mo_cua)
+    if identity.role.value in giao:
+        return identity.role.value
+    return sorted(giao)[0] if giao else identity.role.value
 
 
 class WorkItemService:
@@ -148,6 +164,8 @@ class WorkItemService:
 
                 actor_roles: list[str] = list(item["actor_roles"] or [])
                 membership_role = str(item["membership_role"])
+                # Vai nào đã mở cửa lần này — ghi vào nhật ký (S0-5).
+                vai_mo_cua: list[str] = list(actor_roles)
                 if (
                     command in LENH_CAN_LY_DO
                     and item["flow_group"] in NHOM_BUOC_DICH_VU
@@ -160,6 +178,7 @@ class WorkItemService:
                     # Bác sĩ chính quyết miễn/huỷ cả dịch vụ không thuộc vai
                     # thực hiện của mình (vd. siêu âm, lấy máu).
                     actor_roles = [*actor_roles, *identity.ds_vai()]
+                    vai_mo_cua = list(VAI_QUYET_DICH_VU)
                 # The catalogue's empty default means "nobody yet", never
                 # "every working role".  Fail closed if configuration is
                 # incomplete or the live node no longer names this role.
@@ -233,9 +252,14 @@ class WorkItemService:
                     current,
                     next_status,
                     identity.staff_id,
-                    membership_role,
+                    vai_da_dung(identity, vai_mo_cua),
                     reason,
-                    json.dumps({"node_code": item["node_code"]}),
+                    json.dumps(
+                        {
+                            "node_code": item["node_code"],
+                            "vai_tai_khoan": membership_role,
+                        }
+                    ),
                 )
 
         logger.info(
@@ -246,7 +270,8 @@ class WorkItemService:
             from_status=current,
             to_status=next_status,
             by_staff_id=identity.staff_id,
-            by_role=membership_role,
+            by_role=vai_da_dung(identity, vai_mo_cua),
+            vai_tai_khoan=membership_role,
         )
         return {
             "id": work_item_id,
