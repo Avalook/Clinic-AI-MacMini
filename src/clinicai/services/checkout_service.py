@@ -44,6 +44,7 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
 
@@ -263,13 +264,15 @@ class CheckoutService:
 
           ① Dịch vụ — từng bước trong luồng khám, ai làm, xong chưa (`work_item`).
           ② Tài chính — từng khoản đã thu (`payment`), và còn nợ gì.
-          ③ Hồ sơ trả bệnh nhân — CHƯA CÓ. Hệ chưa sinh tệp PDF nào và chưa có
-            kho lưu, nên trả về danh sách rỗng kèm lý do thay vì bốn dòng
-            "Sẵn sàng" không dựa trên gì.
-          ④ Theo dõi sau khám — `follow_up_case`, hôm nay 0 dòng.
+          ③ Hồ sơ trả bệnh nhân — tệp kết quả THẬT của lượt (`tep_ket_qua`),
+            kèm trạng thái từng tệp: chờ bác sĩ cho phép / được gửi / đã gửi.
+            (Bản 06/08 luôn báo "chưa có kho lưu tệp" — đúng hồi đó, sai từ
+            khi tệp kết quả lưu thật.)
+          ④ Theo dõi sau khám — `follow_up_case`.
 
-        Cộng một dòng thời gian dựng từ `work_item_event` — mốc thật, do người
-        thật bấm, không phải giờ suy ra.
+        Cộng một dòng thời gian dựng từ `event_log` — CHỈ việc đã xảy ra. Bản cũ
+        đọc `work_item_event`, nơi luồng mới chỉ có các bước DỰ KIẾN tạo sẵn lúc
+        check-in, nên hiện "Thanh toán — Lễ tân 15:36" như thể đã làm.
         """
         async with self._pool.acquire() as conn:
             chung = await conn.fetchrow(
@@ -306,21 +309,32 @@ class CheckoutService:
                 visit_id,
             )
 
-            moc = await conn.fetch(
+            appt = await conn.fetchval(
+                "SELECT appointment_id FROM public.visit"
+                " WHERE visit_id = $2::uuid AND clinic_id = $1::uuid",
+                identity.clinic_id,
+                visit_id,
+            )
+            moc = await doc_su_kien_luot(conn, identity.clinic_id, visit_id, appt)
+
+            # Tệp kết quả của lượt: theo chỉ định của lượt, hoặc gắn thẳng
+            # vào lịch hẹn của lượt (tệp tải từ màn CSKH / đời trước).
+            tep = await conn.fetch(
                 """
-                SELECT e.occurred_at, e.command, e.to_status,
-                       coalesce(nd.name, w.node_code) AS ten_buoc,
-                       s.full_name                    AS nguoi_lam
-                  FROM public.work_item_event e
-                  JOIN public.work_item w ON w.id = e.work_item_id
-                  LEFT JOIN public.node_definition nd
-                         ON nd.code = w.node_code AND nd.clinic_id = w.clinic_id
-                  LEFT JOIN public.staff s ON s.id = e.actor_staff_id
-                 WHERE w.visit_id = $2::uuid AND e.clinic_id = $1::uuid
-                 ORDER BY e.occurred_at
+                SELECT t.ten_hien_thi, t.loai_tep, t.tai_len_luc,
+                       t.cho_phep_gui_luc, t.gui_luc, t.gui_kenh
+                  FROM public.tep_ket_qua t
+                 WHERE t.clinic_id = $1::uuid
+                   AND (t.service_order_id IN (
+                            SELECT o.id FROM public.service_order o
+                             WHERE o.visit_id = $2::uuid
+                               AND o.clinic_id = $1::uuid)
+                        OR ($3::uuid IS NOT NULL AND t.appointment_id = $3::uuid))
+                 ORDER BY t.tai_len_luc
                 """,
                 identity.clinic_id,
                 visit_id,
+                appt,
             )
 
             # Việc theo dõi lượt này sinh ra — `follow_up_case.visit_id` (Slice
@@ -375,13 +389,24 @@ class CheckoutService:
                 }
                 for r in tien
             ],
-            # Chưa có hệ sinh tệp và chưa có kho lưu — trả rỗng kèm lý do, thay
-            # vì bốn dòng "Sẵn sàng" không dựa trên gì.
             "ho_so_tra": {
-                "muc": [],
-                "vi_sao_rong": (
-                    "Hệ chưa sinh tệp kết quả/đơn thuốc và chưa có kho lưu tệp."
-                ),
+                "muc": [
+                    {
+                        "ten": r["ten_hien_thi"],
+                        "loai_tep": r["loai_tep"],
+                        "trang_thai": (
+                            "DA_GUI"
+                            if r["gui_luc"]
+                            else "DUOC_GUI"
+                            if r["cho_phep_gui_luc"]
+                            else "CHO_BAC_SI"
+                        ),
+                        "gui_kenh": r["gui_kenh"],
+                        "tai_len_luc": r["tai_len_luc"].isoformat(),
+                    }
+                    for r in tep
+                ],
+                "vi_sao_rong": "Lượt này chưa có tệp kết quả nào.",
             },
             "theo_doi": [
                 {
@@ -395,13 +420,13 @@ class CheckoutService:
             ],
             "moc_thoi_gian": [
                 {
-                    "luc": r["occurred_at"].isoformat(),
-                    "ten": r["ten_buoc"],
-                    "lenh": r["command"],
-                    "den_trang_thai": r["to_status"],
-                    "nguoi_lam": r["nguoi_lam"],
+                    "luc": m["luc"],
+                    "ten": m["viec"],
+                    "lenh": m["ma"],
+                    "den_trang_thai": None,
+                    "nguoi_lam": m["ai"],
                 }
-                for r in moc
+                for m in moc
             ],
         }
 

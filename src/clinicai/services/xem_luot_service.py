@@ -85,6 +85,43 @@ def _json(v: Any) -> Any:
     return v
 
 
+async def doc_su_kien_luot(
+    conn: asyncpg.Connection, cid: str, visit_id: str, appointment_id: Any
+) -> list[dict[str, Any]]:
+    """Việc ĐÃ xảy ra trong một lượt, theo nhật ký sự kiện (`event_log`).
+
+    Dùng chung cho màn xem lại lượt và màn check-out — chỉ ghi nhận việc thật,
+    không phải các bước dự kiến tạo sẵn lúc check-in.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT e.event_type, e.occurred_at, s.full_name AS ai,
+               e.metadata ->> 'clinic_role' AS vai
+          FROM event_log e
+          LEFT JOIN staff s
+            ON s.id::text = e.metadata ->> 'clinic_staff_id'
+         WHERE e.clinic_id = $1::uuid
+           AND (e.aggregate_id = $2::uuid
+                OR ($3::uuid IS NOT NULL AND e.aggregate_id = $3::uuid))
+         ORDER BY e.occurred_at, e.event_id
+         LIMIT 300
+        """,
+        cid,
+        visit_id,
+        appointment_id,
+    )
+    return [
+        {
+            "viec": action_label(r["event_type"]),
+            "ma": r["event_type"],
+            "luc": _iso(r["occurred_at"]),
+            "ai": r["ai"],
+            "vai": r["vai"],
+        }
+        for r in rows
+    ]
+
+
 def _moc_dich_vu(r: Any) -> list[dict[str, Any]]:
     """Dòng thời gian một chỉ định: BS chỉ định → xếp phòng → phòng gọi → bắt
     đầu → xong / không làm được → có kết quả → bác sĩ duyệt. Mốc chưa có bỏ."""
@@ -292,33 +329,9 @@ class XemLuotService:
     async def _su_kien(
         conn: asyncpg.Connection, cid: str, v: asyncpg.Record
     ) -> list[dict[str, Any]]:
-        rows = await conn.fetch(
-            """
-            SELECT e.event_type, e.occurred_at, s.full_name AS ai,
-                   e.metadata ->> 'clinic_role' AS vai
-              FROM event_log e
-              LEFT JOIN staff s
-                ON s.id::text = e.metadata ->> 'clinic_staff_id'
-             WHERE e.clinic_id = $1::uuid
-               AND (e.aggregate_id = $2::uuid
-                    OR ($3::uuid IS NOT NULL AND e.aggregate_id = $3::uuid))
-             ORDER BY e.occurred_at, e.event_id
-             LIMIT 300
-            """,
-            cid,
-            v["visit_id"],
-            v["appointment_id"],
+        return await doc_su_kien_luot(
+            conn, cid, str(v["visit_id"]), v["appointment_id"]
         )
-        return [
-            {
-                "viec": action_label(r["event_type"]),
-                "ma": r["event_type"],
-                "luc": _iso(r["occurred_at"]),
-                "ai": r["ai"],
-                "vai": r["vai"],
-            }
-            for r in rows
-        ]
 
     @staticmethod
     async def _lich_su(
