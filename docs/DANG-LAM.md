@@ -50,6 +50,12 @@ lịch sử hội thoại.
   - `/portal` và `/ops/telemetry` thành tab của `/ops`.
   - Backend gỡ khối `checkin` của trang chủ. Thông báo kết quả trỏ
     `/duyet-ket-qua`.
+- **Lỗi có sẵn, bắt được khi kiểm thật trên prod:**
+  - Trang `/` và 14 trang chỉ-chuyển-hướng bị `next build` dựng tĩnh lúc không
+    có phiên.
+  - Hậu quả: `/` luôn về `/home`, và mọi đường cũ (kể cả của 16/09) đều về
+    `/login`.
+  - Sửa bằng `force-dynamic` ở `app/page.tsx` và ở `(dashboard)/layout.tsx`.
 - **Canh bằng test:** `tests/man-da-gop-boundary.test.mts`. Ratchet px 85 → 64.
 - **Chưa làm:** 20 route `/api/*` không màn nào gọi (danh sách lấy bằng grep —
   phải kiểm tay trước khi xoá). Đo lại số `<button>`. Làm lại thanh bên theo

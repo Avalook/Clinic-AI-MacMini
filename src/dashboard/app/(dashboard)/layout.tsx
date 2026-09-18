@@ -21,6 +21,15 @@ interface DeclinedRow {
   doctor: { full_name: string } | null;
 }
 
+// MỌI TRANG TRONG NHÓM NÀY PHỤ THUỘC PHIÊN ⇒ KHÔNG trang nào được dựng tĩnh.
+//
+// Đo trên prod 18/09/2026: các trang chỉ-chuyển-hướng (/sono, /lab-queue,
+// /result-review, /queue, /portal…) bị `next build` dựng sẵn lúc KHÔNG có phiên
+// — layout này chạy, thấy chưa đăng nhập, redirect("/login") — và lệnh ấy bị
+// đông cứng vào trang. Người ĐÃ đăng nhập bấm một đường cũ (kể cả link thông
+// báo) là bị đá về trang đăng nhập. Khai ở layout một lần thay cho từng trang.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

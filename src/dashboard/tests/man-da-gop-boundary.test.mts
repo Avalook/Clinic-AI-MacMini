@@ -53,6 +53,9 @@ test("/tasks đưa từng vai về màn chuẩn của vai ấy", () => {
 });
 
 test("đăng nhập xong không ai bị đưa về màn cũ", () => {
+  // Trang gốc chuyển theo vai ⇒ phải động (bản build 18/09 báo ○ Static:
+  // mọi người mở "/" đều về /home).
+  assert.match(read("../app/page.tsx"), /export const dynamic = "force-dynamic"/);
   assert.equal(roleLanding("DOCTOR"), "/ban-kham");
   assert.equal(roleLanding("TKYK"), "/ban-kham");
   assert.equal(roleLanding("ULTRASOUND_DOCTOR"), "/phong/KN-SA-T1");
@@ -76,4 +79,13 @@ test("check-in chỉ ở Tiếp đón khách — Trang chủ không bật cột 
   assert.match(quay, /choCheckIn/);
   const bang = read("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
   assert.match(bang, /const showActions = choCheckIn && canCheckin\(role\)/);
+});
+
+test("nhóm màn đăng nhập không được dựng tĩnh — đường chuyển hướng không được đông cứng về /login", () => {
+  // Đo trên prod 18/09/2026: thiếu dòng này thì mọi trang chỉ-chuyển-hướng bị
+  // dựng lúc không có phiên, và người đã đăng nhập bấm vào là về /login.
+  assert.match(
+    read("../app/(dashboard)/layout.tsx"),
+    /export const dynamic = "force-dynamic"/,
+  );
 });
