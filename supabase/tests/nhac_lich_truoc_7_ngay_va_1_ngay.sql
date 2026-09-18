@@ -81,28 +81,33 @@ BEGIN
         RAISE EXCEPTION 'Đã gọi xác nhận mà việc vẫn mở';
     END IF;
 
-    -- Kết quả xét nghiệm KHÔNG AI: chưa chốt → chờ bác sĩ, KHÔNG giục CSKH gửi;
-    -- bác sĩ chốt → mới có việc gửi kết quả.
+    -- Kết quả: chưa được bác sĩ cho phép gửi → chờ bác sĩ, KHÔNG giục CSKH gửi;
+    -- bác sĩ cho phép → mới có việc gửi kết quả.
+    --
+    -- Slice 1 (18/09/2026): kiểm trên RAIL MỚI — tệp kết quả (`tep_ket_qua`).
+    -- Bản trước kiểm nhánh `lab_result`, nhánh ấy đã rời `v_viec_cskh`
+    -- (20260918000002) vì luồng khám mới không ghi `lab_result` nữa.
     DECLARE
-        lr uuid;
+        tk uuid;
         kh uuid;
     BEGIN
         SELECT clinic_patient_id INTO kh FROM public.appointment WHERE id = mai;
-        INSERT INTO public.lab_result (clinic_id, clinic_patient_id, test_code, test_name,
-            triage_group, result_value, requires_doctor_review)
-        VALUES (pk, kh, 'MANUAL', 'Công thức máu', 'PENDING', 'Bình thường', false)
-        RETURNING lab_result_id INTO lr;
+        INSERT INTO public.tep_ket_qua (clinic_id, clinic_patient_id, khoa, loai_tep,
+            mime, so_byte, sha256, tai_len_boi_staff_id)
+        VALUES (pk, kh, 'test/nhac-7-1.pdf', 'PDF', 'application/pdf', 10,
+                repeat('0', 64), nv)
+        RETURNING id INTO tk;
         IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
                         WHERE clinic_patient_id = kh AND trang_thai = 'CHO_BAC_SI') THEN
-            RAISE EXCEPTION 'Kết quả chưa chốt phải là việc chờ bác sĩ';
+            RAISE EXCEPTION 'Kết quả chưa được cho phép gửi phải là việc chờ bác sĩ';
         END IF;
         IF EXISTS (SELECT 1 FROM public.v_viec_cskh
                     WHERE clinic_patient_id = kh AND trang_thai = 'KQ_CHUA_GUI') THEN
             RAISE EXCEPTION 'Bác sĩ chưa duyệt mà CSKH đã bị giục gửi kết quả';
         END IF;
-        UPDATE public.lab_result
-           SET is_finalized = true, reviewed_by_staff_id = nv, reviewed_at = now()
-         WHERE lab_result_id = lr;
+        UPDATE public.tep_ket_qua
+           SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = nv
+         WHERE id = tk;
         IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
                         WHERE clinic_patient_id = kh AND trang_thai = 'KQ_CHUA_GUI') THEN
             RAISE EXCEPTION 'Bác sĩ đã duyệt thì CSKH phải có việc gửi kết quả';
