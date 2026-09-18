@@ -108,6 +108,61 @@ class TestRequiredFieldsBeforeSigning:
         )
         assert missing_fields(row) == []
 
+    # ── S0-8 (18/09/2026): phiếu Sản và HMVS không dùng khoá `chan_doan` ──────
+
+    @staticmethod
+    def _chi_phieu(phieu: dict[str, Any]) -> dict[str, Any]:
+        return _row(
+            soap_assessment=None, soap_plan=None, phieu_chuyen_khoa=json.dumps(phieu)
+        )
+
+    def test_san_khoa_ket_luan_va_loi_dan_du_de_ky(self) -> None:
+        row = self._chi_phieu(
+            {"ket_luan": "Thai 12 tuần ổn định", "loi_dan": "Tái khám"}
+        )
+        assert missing_fields(row) == []
+
+    @pytest.mark.parametrize(
+        "khoa",
+        [
+            "cd_nguyen_nhan_vo",
+            "cd_nguyen_nhan_chong",
+            "cd_nguyen_nhan_phoi_hop",
+            "cd_phan_biet",
+        ],
+    )
+    def test_hmvs_co_nguyen_nhan_la_du_chan_doan(self, khoa: str) -> None:
+        row = self._chi_phieu({khoa: "Tắc vòi trứng hai bên", "pp_dieu_tri": ["IVF"]})
+        assert missing_fields(row) == []
+
+    def test_hmvs_dang_danh_gia_co_ke_hoach_tiep_theo_thi_ky_duoc(self) -> None:
+        """Nguồn HMVS cho phép hồ sơ còn đang đánh giá — không ép phải có nguyên
+        nhân, nhưng phải có kế hoạch tiếp theo (Target Contract 18/09)."""
+        for ke_hoach in (
+            {"tai_kham_ngay": "2026-10-01"},
+            {"chu_ky_dieu_tri_tiep": "Chu kỳ sau làm HSG"},
+            {"tai_kham_xn": ["AMH"]},
+        ):
+            row = self._chi_phieu(
+                {"cd_trang_thai": "DANG_DANH_GIA", "pp_dieu_tri": ["OI"], **ke_hoach}
+            )
+            assert missing_fields(row) == [], ke_hoach
+
+    def test_hmvs_dang_danh_gia_khong_ke_hoach_thi_bao_thieu_ro_rang(self) -> None:
+        row = self._chi_phieu({"cd_trang_thai": "DANG_DANH_GIA", "pp_dieu_tri": ["OI"]})
+        thieu = missing_fields(row)
+        assert len(thieu) == 1 and "kế hoạch tiếp theo" in thieu[0]
+
+    def test_hmvs_chi_tien_luong_hay_phan_loai_khong_phai_chan_doan(self) -> None:
+        row = self._chi_phieu(
+            {
+                "cd_tien_luong": "Tốt",
+                "cd_phan_loai": "Nguyên phát",
+                "pp_dieu_tri": ["OI"],
+            }
+        )
+        assert missing_fields(row) == [REQUIRED_SOAP["soap_assessment"]]
+
     def test_phieu_rong_khong_bu_duoc(self) -> None:
         row = _row(soap_subjective=None, phieu_chuyen_khoa=json.dumps({"ly_do": " "}))
         assert missing_fields(row) == [REQUIRED_SOAP["soap_subjective"]]

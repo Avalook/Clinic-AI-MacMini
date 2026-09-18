@@ -186,7 +186,7 @@ KHOA_SINH_HIEU_HO_SO: dict[str, str] = {
     # chỉ-thêm, không so được giữa các lần đo.
     "nhip_tho": "respiratory_rate",
     "spo2": "spo2",
-    "bmi": "bmi",
+    # "bmi" không map (S0-3, 18/09/2026): BMI chỉ tính từ cân nặng/chiều cao.
     "muc_do_dau": "pain_score",
 }
 

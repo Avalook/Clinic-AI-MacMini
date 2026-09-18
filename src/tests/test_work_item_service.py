@@ -345,3 +345,71 @@ class TestMienHuyCanLyDoVaBacSi:
         assert LENH_CAN_LY_DO == {"skip", "cancel"}
         assert NHOM_BUOC_DICH_VU == {"dich_vu", "ket_qua"}
         assert VAI_QUYET_DICH_VU == {"DOCTOR", "ULTRASOUND_DOCTOR"}
+
+
+# ── S0-5 (18/09/2026): nhật ký ghi VAI ĐÃ DÙNG để qua cửa, không phải vai
+# tài khoản. Một người, tài khoản Điều dưỡng, hôm nay đứng thêm Lễ tân: bước
+# Lễ tân phải ghi RECEPTION, bước Điều dưỡng ghi NURSE_ULTRASOUND; vai tài
+# khoản vẫn giữ trong metadata để không mất dấu ai thật sự đã bấm.
+def _pool_mot_buoc(actor_roles: list[str]) -> tuple[MagicMock, AsyncMock]:
+    pool = MagicMock()
+    conn = AsyncMock()
+    acquire = AsyncMock()
+    acquire.__aenter__.return_value = conn
+    pool.acquire.return_value = acquire
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=None)
+    conn.transaction = MagicMock(return_value=transaction)
+    conn.fetchrow.side_effect = [
+        {
+            "id": "10000000-0000-4000-8000-000000000001",
+            "status": PENDING,
+            "version": 1,
+            "node_code": "CHECK_IN",
+            "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            "actor_roles": actor_roles,
+            "membership_role": "NURSE_ULTRASOUND",
+            "node_name": "Bước thử",
+            "flow_group": None,
+        },
+        {"version": 2},
+    ]
+    conn.fetch.return_value = []
+    return pool, conn
+
+
+def _dieu_duong_dung_le_tan() -> StaffIdentity:
+    return StaffIdentity(
+        staff_id="20000000-0000-4000-8000-000000000001",
+        auth_user_id="30000000-0000-4000-8000-000000000001",
+        full_name="Minh Thư",
+        department="NURSE_ULTRASOUND",
+        role=ClinicRole.NURSE_ULTRASOUND,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
+        vai_theo_vi_tri=frozenset({ClinicRole.RECEPTION}),
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "actor_roles,vai_ghi",
+    [(["RECEPTION"], "RECEPTION"), (["NURSE_ULTRASOUND"], "NURSE_ULTRASOUND")],
+)
+async def test_nhat_ky_ghi_vai_da_dung_de_qua_cua(
+    actor_roles: list[str], vai_ghi: str
+) -> None:
+    import json
+
+    pool, conn = _pool_mot_buoc(actor_roles)
+    await WorkItemService(pool).issue(
+        work_item_id="10000000-0000-4000-8000-000000000001",
+        command="start",
+        identity=_dieu_duong_dung_le_tan(),
+        expected_version=1,
+    )
+    event_args = conn.execute.await_args.args
+    assert event_args[7] == vai_ghi
+    assert json.loads(event_args[9])["vai_tai_khoan"] == "NURSE_ULTRASOUND"

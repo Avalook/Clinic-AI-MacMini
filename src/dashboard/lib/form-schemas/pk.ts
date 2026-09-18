@@ -69,23 +69,20 @@ export const pkSchema: FormSchema = {
     {
       title: "Khám lâm sàng tổng quát",
       fields: [
-        { key: "nhip_tim", label: "Nhịp tim", type: "number", unit: "l/p" },
-        { key: "nhiet_do", label: "Nhiệt độ", type: "number", unit: "°C" },
-        { key: "huyet_ap", label: "Huyết áp", type: "text", unit: "mmHg", placeholder: "vd 120/80" },
-        { key: "nhip_tho", label: "Nhịp thở", type: "number", unit: "l/p" },
-        { key: "can_nang", label: "Cân nặng", type: "number", unit: "kg" },
-        // docx ghi "BMT" — nhiều khả năng là BMI. //TODO-BS-REVIEW: xác nhận BMT≡BMI.
-        { key: "bmt", label: "BMT", type: "text" },
+        // Sinh hiệu (mạch, nhiệt độ, huyết áp, nhịp thở, cân nặng, BMI) KHÔNG còn
+        // ô nhập ở phiếu (S0-3, 18/09/2026): đo ở màn Đo sinh hiệu, phiếu hiện
+        // khối chỉ xem. Key cũ trong form_data đã lưu giữ nguyên, không migration.
         { key: "da_niem_mac", label: "Da niêm mạc", type: "text" },
         { key: "tuyen_giap", label: "Tuyến giáp", type: "text" },
         { key: "vu", label: "Vú", type: "text" },
       ],
     },
     {
-      // docx: dưới "Khám chuyên khoa" liệt kê "Khám trong" → dấu hiệu sinh dục thứ phát
-      // (môi lớn/bé/âm vật/âm hộ/màng trinh/TSM) rồi "Khám ngoài" → âm đạo/CTC/tử cung…
-      // //TODO docx mơ hồ: nhãn trong/ngoài có vẻ HOÁN ĐỔI so với lâm sàng — GIỮ NGUYÊN theo docx.
-      title: "Khám chuyên khoa — Khám trong (dấu hiệu sinh dục thứ phát)",
+      // NHÃN THEO LÂM SÀNG (Tuyền chốt 18/09/2026 — S0-2). docx gốc ghi đảo:
+      // "Khám trong" cho môi lớn/bé/âm hộ… và "Khám ngoài" cho âm đạo/CTC. Sửa
+      // NHÃN và THỨ TỰ (ngoài trước, trong sau — khớp phiếu HMVS); KEY Ô GIỮ
+      // NGUYÊN nên dữ liệu đã lưu vẫn vào đúng ô, không cần migration.
+      title: "Khám chuyên khoa — Khám ngoài (cơ quan sinh dục ngoài)",
       fields: [
         { key: "moi_lon", label: "Môi lớn", type: "text" },
         { key: "moi_be", label: "Môi bé", type: "text" },
@@ -96,7 +93,7 @@ export const pkSchema: FormSchema = {
       ],
     },
     {
-      title: "Khám chuyên khoa — Khám ngoài",
+      title: "Khám chuyên khoa — Khám trong",
       fields: [
         { key: "am_dao", label: "Âm đạo", type: "text" },
         { key: "co_tu_cung", label: "Cổ tử cung", type: "text" },

@@ -44,7 +44,14 @@ interface Review {
  *  nhấp nháy và máy chủ nhận vài chục lượt cho một ô số. */
 const CHO_MS = 600;
 
-export default function AndrologyReview({ values }: { values: FormData }) {
+export default function AndrologyReview({
+  values,
+  visitId,
+}: {
+  values: FormData;
+  /** BMI đọc từ số đo sinh hiệu của lượt này (S0-3). */
+  visitId: string;
+}) {
   const [review, setReview] = useState<Review | null>(null);
   const [loi, setLoi] = useState(false);
 
@@ -55,7 +62,7 @@ export default function AndrologyReview({ values }: { values: FormData }) {
         const res = await fetch("/api/clinical-form/andrology-review", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ form_data: values }),
+          body: JSON.stringify({ form_data: values, visit_id: visitId }),
         });
         if (!con_song) return;
         if (!res.ok) {
@@ -72,7 +79,7 @@ export default function AndrologyReview({ values }: { values: FormData }) {
       con_song = false;
       clearTimeout(hen);
     };
-  }, [values]);
+  }, [values, visitId]);
 
   if (loi) {
     return (

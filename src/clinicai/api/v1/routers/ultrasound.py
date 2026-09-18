@@ -11,7 +11,16 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+import structlog
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
@@ -24,6 +33,7 @@ from clinicai.services.ultrasound_board_service import (
 )
 from clinicai.services.ultrasound_service import UltrasoundService
 
+logger = structlog.get_logger()
 router = APIRouter()
 
 _SONOGRAPHER_GUARD = require_role(ClinicRole.ULTRASOUND_DOCTOR)
@@ -103,11 +113,28 @@ async def nhan_ca_sieu_am(
     identity: StaffIdentity = Depends(_SONO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Ghi bác sĩ thực hiện siêu âm cho một ca đang chờ (15/09/2026)."""
-    return await UltrasoundBoardService(pool).nhan_ca(
-        identity=identity,
+    """ĐÃ NGHỈ (S0-6, 18/09/2026) — trả 410, không ghi gì.
+
+    Endpoint rail cũ này ghi đè người đã nhận ca (người sau thắng, không 409).
+    Không màn nào còn gọi: Phòng siêu âm dùng rail mới
+    ``LuotKhamService.start_service`` (khoá dòng, người thứ hai nhận 409).
+    Target Contract 18/09: không sửa logic cũ, chưa xoá cứng — ghi log người gọi
+    để biết còn ai dùng; xoá hẳn khi một thời gian không còn lượt gọi nào.
+    """
+    logger.warning(
+        "endpoint_retired_called",
+        endpoint="POST /ultrasound/queue/{id}/nhan",
+        staff_id=identity.staff_id,
+        role=identity.role.value,
         work_item_id=str(work_item_id),
-        bac_si_id=str(body.bac_si_id) if body.bac_si_id else None,
+    )
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "error": "ENDPOINT_RETIRED",
+            "message": "Nhận ca siêu âm kiểu cũ đã ngừng — dùng màn Phòng siêu âm "
+            "(nút Bắt đầu).",
+        },
     )
 
 

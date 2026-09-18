@@ -228,7 +228,6 @@ _RANGES: dict[str, tuple[str, Decimal, Decimal]] = {
     # rộng hơn ở đây là để người đo gõ xong mới bị máy chủ từ chối.
     "respiratory_rate": ("Nhịp thở", Decimal(4), Decimal(80)),
     "spo2": ("SpO₂", Decimal(50), Decimal(100)),
-    "bmi": ("BMI", Decimal(5), Decimal(100)),
     "pain_score": ("Mức độ đau", Decimal(0), Decimal(10)),
 }
 
@@ -315,11 +314,12 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
         num = values[ten]
         return int(num) if num is not None else None
 
-    # BMI TỰ TÍNH khi có cân nặng + chiều cao mà người đo để trống (17/09/2026).
-    # Số đo tay (nếu có) được giữ nguyên.
-    bmi = values["bmi"]
+    # BMI CHỈ TÍNH RA, không nhận từ client (S0-3, 18/09/2026). Trước đó màn đo
+    # cho gõ tay BMI và số gõ tay thắng số tính — BMI 99 với 54 kg/160 cm vẫn
+    # vào hồ sơ. Khoảng 5–100 khớp CHECK ở database (20260916000003).
+    bmi: Decimal | None = None
     can, cao = values["weight_kg"], values["height_cm"]
-    if bmi is None and can is not None and cao is not None and cao > 0:
+    if can is not None and cao is not None and cao > 0:
         tinh = (can / ((cao / 100) ** 2)).quantize(Decimal("0.1"))
         if Decimal(5) <= tinh <= Decimal(100):
             bmi = tinh

@@ -46,6 +46,25 @@ SIGNING_ROLES = (ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 # Trường bắt buộc trước khi ký. Notion §6: *"hệ thống kiểm tra các trường bắt
 # buộc và liệt kê nội dung còn thiếu"* — liệt kê, không phải chặn với một câu
 # chung chung rồi để bác sĩ tự đi tìm.
+#: Ô của phiếu chuyên khoa được tính là CHẨN ĐOÁN khi ký (S0-8, 18/09/2026).
+#: Phiếu Sản dùng `ket_luan`; phiếu HMVS tách nguyên nhân vợ/chồng/phối hợp.
+#: KHÔNG gồm `cd_phan_loai`, `cd_tien_luong`: đó là ô chọn, không phải chẩn đoán.
+KHOA_CHAN_DOAN_PHIEU = (
+    "chan_doan",
+    "ket_luan",
+    "cd_nguyen_nhan_vo",
+    "cd_nguyen_nhan_chong",
+    "cd_nguyen_nhan_phoi_hop",
+    "cd_phan_biet",
+    "cd_benh_kem",
+)
+#: "Kế hoạch tiếp theo" của HMVS khi còn đang đánh giá.
+KHOA_KE_HOACH_TIEP_THEO = ("tai_kham_ngay", "chu_ky_dieu_tri_tiep", "tai_kham_xn")
+THIEU_KE_HOACH_KHI_DANG_DANH_GIA = (
+    "Chẩn đoán — đang tiếp tục đánh giá: cần kế hoạch tiếp theo "
+    "(ngày tái khám, chu kỳ điều trị tiếp theo hoặc xét nghiệm kiểm lại)"
+)
+
 REQUIRED_SOAP = {
     "soap_subjective": "Lý do khám / triệu chứng",
     "soap_objective": "Khám lâm sàng",
@@ -460,19 +479,36 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
                 return True
         return False
 
+    # HMVS "ĐANG TIẾP TỤC ĐÁNH GIÁ" (S0-8, Target Contract 18/09/2026): nguồn
+    # HMVS cho phép hồ sơ chưa kết luận nguyên nhân; ký được khi bác sĩ chọn rõ
+    # trạng thái ấy VÀ có kế hoạch tiếp theo. Không nhận "đang đánh giá" viết
+    # lách vào ô chẩn đoán phân biệt.
+    dang_danh_gia = phieu.get("cd_trang_thai") == "DANG_DANH_GIA"
+    dang_danh_gia_co_ke_hoach = dang_danh_gia and phieu_co(*KHOA_KE_HOACH_TIEP_THEO)
+
     thay_the = {
         "soap_subjective": phieu_co("ly_do", "ly_do_khac", "benh_su")
         or not _blank_json(row.get("chief_complaint_at_visit")),
         "soap_objective": bool(row.get("co_sinh_hieu"))
         or phieu_co(tien_to=("kls_", "kham_")),
-        "soap_assessment": phieu_co("chan_doan"),
+        "soap_assessment": phieu_co(*KHOA_CHAN_DOAN_PHIEU) or dang_danh_gia_co_ke_hoach,
         "soap_plan": phieu_co("dieu_tri", "pp_dieu_tri", "loi_dan", "huong_xu_tri"),
     }
-    return [
+    thieu = [
         label
         for field, label in REQUIRED_SOAP.items()
         if _blank_json(row.get(field)) and not thay_the.get(field, False)
     ]
+    # Đang đánh giá mà chưa có kế hoạch: nói đúng cái còn thiếu, không chỉ
+    # "Chẩn đoán" — bác sĩ đã chọn đúng trạng thái, cái thiếu là kế hoạch.
+    if dang_danh_gia and not dang_danh_gia_co_ke_hoach:
+        thieu = [
+            THIEU_KE_HOACH_KHI_DANG_DANH_GIA
+            if label == REQUIRED_SOAP["soap_assessment"]
+            else label
+            for label in thieu
+        ]
+    return thieu
 
 
 def _blank_json(value: Any) -> bool:

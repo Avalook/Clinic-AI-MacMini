@@ -328,13 +328,6 @@ export default function ClinicalRecordForm({
   const [loading, setLoading] = useState(true);
   const [f, setF] = useState<Fields>(EMPTY);
   const requiredVitals = vitalsBatBuoc(data?.pregnancy);
-  // BMI gợi ý = cân nặng (kg) / chiều cao (m)². Chỉ là số gợi ý hiển thị.
-  const bmiGoiY = (() => {
-    const kg = Number(f.can_nang);
-    const m = Number(f.chieu_cao) / 100;
-    if (!f.can_nang.trim() || !f.chieu_cao.trim() || !(kg > 0) || !(m > 0)) return null;
-    return (kg / (m * m)).toFixed(1);
-  })();
   const requiredVitalsMsg =
     requiredVitals.size > 1
       ? "Khách đang có thai — bắt buộc nhập Huyết áp, Cân nặng, Chiều cao."
@@ -723,7 +716,8 @@ export default function ClinicalRecordForm({
           vitals: {
             mach: f.mach, nhiet_do: f.nhiet_do, huyet_ap: f.huyet_ap,
             nhip_tho: f.nhip_tho, spo2: f.spo2, can_nang: f.can_nang,
-            chieu_cao: f.chieu_cao, bmi: f.bmi, muc_do_dau: f.muc_do_dau,
+            // Không gửi BMI: máy chủ tự tính từ cân nặng/chiều cao (S0-3).
+            chieu_cao: f.chieu_cao, muc_do_dau: f.muc_do_dau,
           },
           kham_thai: {
             tuoi_thai: f.tuoi_thai, du_kien_sinh: f.du_kien_sinh,
@@ -1190,7 +1184,6 @@ export default function ClinicalRecordForm({
               ["spo2", "SpO2 (%)", "number", "1", 50, 100],
               ["can_nang", "Cân nặng (kg)", "number", "0.1", 1, 300],
               ["chieu_cao", "Chiều cao (cm)", "number", "0.1", 20, 250],
-              ["bmi", "BMI", "number", "0.1", 5, 80],
               // Thang đau 0–10 — có trong phiếu giấy và trong bảng sinh hiệu
               // từ 16/09/2026, nhưng thiếu ô nhập thì cột ấy vĩnh viễn rỗng.
               ["muc_do_dau", "Mức độ đau (0–10)", "number", "1", 0, 10],
@@ -1233,21 +1226,16 @@ export default function ClinicalRecordForm({
                         {missing ? "Bắt buộc" : warn}
                       </p>
                     )}
-                    {k === "bmi" && bmiGoiY && bmiGoiY !== v && !vitalsRo && (
-                      // BMI là GỢI Ý từ cân nặng/chiều cao, sửa được (Tuyền chốt
-                      // 15/09/2026) — bấm để điền, không tự ghi đè số đã nhập.
-                      <button
-                        type="button"
-                        onClick={() => set("bmi", bmiGoiY)}
-                        className="mt-0.5 text-label text-brand-700 underline"
-                      >
-                        Gợi ý {bmiGoiY} — bấm để điền
-                      </button>
-                    )}
                   </div>
                 );
               },
             )}
+            {/* BMI KHÔNG có ô nhập (S0-3, 18/09/2026 — thay chốt 15/09 "gợi ý,
+                sửa được"): máy chủ tự tính từ cân nặng/chiều cao khi lưu. */}
+            <div>
+              <label className={LABEL} htmlFor="bmi-tu-tinh">BMI (tự tính khi lưu)</label>
+              <input id="bmi-tu-tinh" className={INPUT} value={f.bmi || "—"} disabled readOnly />
+            </div>
           </div>
         </Section>
         )}

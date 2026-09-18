@@ -191,6 +191,27 @@ def _hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _theo_luat_xep_hang(rows: list[Any]) -> list[Any]:
+    """Hàng chờ theo phòng xếp bằng ĐÚNG MỘT luật: ``rules.order_queue``.
+
+    S0-1 (18/09/2026): ``hang_cho`` từng tự viết ORDER BY riêng có chèn
+    ``p.uu_tien DESC`` — khách VIP tự nhảy lên đầu, trái luật 15/09 "ưu tiên chỉ
+    là nhãn, không tự đổi thứ tự" (COMMENT cột ``patient.uu_tien``). Bảng điều
+    phối đã dùng ``order_queue``; nay hàng chờ theo phòng dùng chung, để không
+    còn hai bản của một luật. Người đã xong (không thuộc hàng sống) đứng cuối,
+    giữ thứ tự SQL như trước.
+    """
+    views = [
+        rules.QueueView(r["id"], r["status"], r["eligible_at"], r["created_at"])
+        for r in rows
+    ]
+    hang = {e.id: i for i, e in enumerate(rules.order_queue(views))}
+    return sorted(
+        rows,
+        key=lambda r: (0, hang[r["id"]]) if r["id"] in hang else (1, 0),
+    )
+
+
 class LuotKhamService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -1404,7 +1425,6 @@ class LuotKhamService:
                  ORDER BY
                    CASE q.status WHEN 'serving' THEN 0 WHEN 'called' THEN 1
                         WHEN 'waiting' THEN 2 WHEN 'blocked' THEN 3 ELSE 4 END,
-                   p.uu_tien DESC NULLS LAST,
                    coalesce(q.eligible_at, q.created_at), q.id
                 """,
                 cid,
@@ -1446,7 +1466,7 @@ class LuotKhamService:
                 "ket_qua_luc": _iso(r["ket_qua_luc"]),
                 "duyet_luc": _iso(r["duyet_luc"]),
             }
-            for r in rows
+            for r in _theo_luat_xep_hang(rows)
             # Người đã xong chỉ giữ của hôm nay.
             if r["status"] != "done"
             or (r["done_at"] is not None and _cung_ngay_vn(r["done_at"]))

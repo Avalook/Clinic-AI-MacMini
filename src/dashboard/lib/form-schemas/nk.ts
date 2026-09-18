@@ -373,13 +373,9 @@ export const nkSchema: FormSchema = {
     {
       title: "Khám toàn thân",
       fields: [
-        { key: "kls_chieu_cao", label: "Chiều cao", type: "number", unit: "cm" },
-        { key: "kls_can_nang", label: "Cân nặng", type: "number", unit: "kg" },
-        // BMI KHÔNG có ô nhập: backend tính từ chiều cao/cân nặng
-        // (`andrology_service.compute_bmi`). Một ô nhập tay là một ô sẽ lệch với
-        // hai số ngay bên cạnh nó.
-        { key: "kls_huyet_ap", label: "Huyết áp", type: "text" },
-        { key: "kls_mach", label: "Mạch", type: "number", unit: "lần/phút" },
+        // Sinh hiệu (mạch, nhiệt độ, huyết áp, nhịp thở, cân nặng, BMI) KHÔNG còn
+        // ô nhập ở phiếu (S0-3, 18/09/2026): đo ở màn Đo sinh hiệu, phiếu hiện
+        // khối chỉ xem. Key cũ trong form_data đã lưu giữ nguyên, không migration.
         {
           key: "kls_nam_hoa",
           label: "Phát triển sinh dục thứ phát / nam hoá",

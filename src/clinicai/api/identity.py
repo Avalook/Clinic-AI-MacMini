@@ -20,9 +20,11 @@ Two verification modes (auto-selected):
 
 from __future__ import annotations
 
+import json
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
+from datetime import date
 from enum import Enum
 from functools import lru_cache
 from time import monotonic
@@ -35,7 +37,9 @@ import structlog
 from fastapi import Depends, HTTPException, Request, status
 from jwt import PyJWKClient
 
+from clinicai.core.clock import now_vn
 from clinicai.core.database import get_db_pool
+from clinicai.core.shifts import ca_tu_settings, covers, shift_windows
 
 logger = structlog.get_logger()
 
@@ -399,15 +403,7 @@ async def _resolve_identity(
                s.primary_department,
                m.clinic_id, m.role AS membership_role,
                s.primary_location_id, l.name AS location_name,
-               c.name AS clinic_name,
-               -- Vị trí trong lịch HÔM NAY: cấp vai vận hành (`vai_tu_vi_tri`).
-               (SELECT array_agg(DISTINCT w.station)
-                  FROM work_roster w
-                 WHERE w.clinic_id = m.clinic_id AND w.staff_id = s.id
-                   AND w.status <> 'REJECTED'
-                   AND w.work_date
-                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-               ) AS vi_tri_hom_nay
+               c.name AS clinic_name
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
@@ -477,6 +473,10 @@ async def _resolve_identity(
 
     membership_role = row["membership_role"]
     vai_tai_khoan = role_from_department(membership_role)
+    # Vị trí ĐANG TRONG CA ĐÃ DUYỆT cấp vai vận hành (S0-7) — cùng bộ lọc với
+    # thanh bên (`/me/vi-tri-hom-nay`). Cache 30 giây ở dưới nghĩa là vai đổi
+    # chậm tối đa 30 giây sau giờ đổi ca.
+    vi_tri_hien_hanh = await doc_vi_tri_hien_hanh(pool, str(clinic_id), str(row["id"]))
     identity = StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
@@ -489,7 +489,7 @@ async def _resolve_identity(
         short_name=row["short_name"] or "",
         clinic_name=row["clinic_name"] or "",
         vai_theo_vi_tri=vai_tu_vi_tri(
-            [str(v) for v in (row.get("vi_tri_hom_nay") or [])], vai_tai_khoan
+            [tram for tram, _ca in vi_tri_hien_hanh], vai_tai_khoan
         ),
     )
     # Only the success path is cached. A 403 stays uncached so a staff member
@@ -681,6 +681,123 @@ def vai_tu_vi_tri(
         if v in VAI_THEO_VI_TRI
         and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
         and VAI_THEO_VI_TRI[v] != vai_tai_khoan
+    )
+
+
+#: Khoá ân hạn trong ``clinic.settings``: số phút vai theo lịch còn giữ trước giờ
+#: vào ca và sau giờ hết ca. Mặc định 0 (Target Contract 18/09/2026, C2).
+KHOA_AN_HAN_CA = "vai_lich_an_han_phut"
+AN_HAN_CA_TOI_DA = 120
+
+
+#: Công tắc luật "vai theo ca" trong ``clinic.settings``. CHỈ đúng ``true`` mới
+#: bật; mặc định TẮT (HOLD_FOR_PROD, 18/09/2026): lịch prod ngày thường chỉ có
+#: ca tối trong khi phòng khám mở 07–22 — chưa đủ chắc để bật cho người thật.
+KHOA_BAT_LUAT_CA = "vai_lich_theo_ca"
+
+
+def _settings_dict(raw: object) -> dict[str, Any]:
+    doc: Any = raw
+    if isinstance(doc, (str, bytes)):
+        try:
+            doc = json.loads(doc)
+        except (ValueError, TypeError):
+            return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def luat_ca_dang_bat(raw: object) -> bool:
+    """Luật S0-7 có bật cho phòng khám này không. Rác → tắt, không ném."""
+    return _settings_dict(raw).get(KHOA_BAT_LUAT_CA) is True
+
+
+def an_han_ca_tu_settings(raw: object) -> int:
+    """``clinic.settings`` → số phút ân hạn quanh ca. Rác → 0, không ném.
+
+    Ngoài 0–120 cũng là rác: ân hạn 1000 phút là cấp vai cả ngày trá hình, đúng
+    thứ luật này sinh ra để chặn.
+    """
+    v = _settings_dict(raw).get(KHOA_AN_HAN_CA)
+    if isinstance(v, bool) or not isinstance(v, int):
+        return 0
+    return v if 0 <= v <= AN_HAN_CA_TOI_DA else 0
+
+
+def vi_tri_dang_trong_ca(
+    dong: Sequence[tuple[str, str, str]], phut: int, settings: object
+) -> list[tuple[str, str]]:
+    """Dòng lịch hôm nay ``(trạm, ca, trạng thái)`` → những ``(trạm, ca)`` đang
+    cấp vai: ĐÃ DUYỆT và moc ``phut`` nằm trong giờ ca (± ân hạn).
+
+    Thuần — cửa gác và thanh bên cùng gọi qua `doc_vi_tri_hien_hanh`. Giờ ca đọc
+    ``clinic.settings.ca_lam_viec`` qua `core.shifts`, cùng nguồn với đặt lịch.
+    Ca FULL là HAI khoảng (nghỉ trưa ở giữa), nên giờ nghỉ trưa không cấp vai.
+
+    Công tắc `luat_ca_dang_bat` TẮT (mặc định) → hành vi TRƯỚC S0-7: mọi dòng
+    trừ REJECTED cấp vai cả ngày.
+    """
+    if not luat_ca_dang_bat(settings):
+        cu: list[tuple[str, str]] = []
+        for tram, ma_ca, trang_thai in dong:
+            if trang_thai != "REJECTED" and (tram, ma_ca) not in cu:
+                cu.append((tram, ma_ca))
+        return cu
+    ca = ca_tu_settings(settings)
+    an_han = an_han_ca_tu_settings(settings)
+    ket: list[tuple[str, str]] = []
+    for tram, ma_ca, trang_thai in dong:
+        if trang_thai != "APPROVED":
+            continue
+        khoang = [
+            (lo - an_han, hi + an_han)
+            for lo, hi in shift_windows(ma_ca, 0, 24 * 60, ca)
+        ]
+        if covers(khoang, phut) and (tram, ma_ca) not in ket:
+            ket.append((tram, ma_ca))
+    return ket
+
+
+async def doc_vi_tri_hien_hanh(
+    pool: asyncpg.Pool,
+    clinic_id: str,
+    staff_id: str,
+    *,
+    hom_nay: date | None = None,
+    phut: int | None = None,
+) -> list[tuple[str, str]]:
+    """Vị trí người này ĐANG đứng — bộ lọc DUY NHẤT cho vai theo lịch (S0-7).
+
+    Thứ tự: ca sớm trước, rồi thứ tự vị trí trong lịch; vai đầu là "vai chính"
+    quyết định màn hình (lib/clinic-session.ts).
+    """
+    bay_gio = now_vn()
+    ngay = hom_nay or bay_gio.date()
+    moc = phut if phut is not None else bay_gio.hour * 60 + bay_gio.minute
+    rows = await pool.fetch(
+        """
+        SELECT w.station, w.shift, w.status, c.settings
+          FROM public.work_roster w
+          JOIN public.clinic c ON c.id = w.clinic_id
+          LEFT JOIN public.vi_tri_lam_viec v
+            ON v.clinic_id = w.clinic_id AND v.code = w.station
+         WHERE w.clinic_id = $1::uuid
+           AND w.staff_id = $2::uuid
+           AND w.work_date = $3::date
+           -- Lọc APPROVED/giờ ca nằm ở `vi_tri_dang_trong_ca` (theo công tắc).
+           AND w.status <> 'REJECTED'
+         ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift),
+                  v.sort NULLS LAST, w.station
+        """,
+        clinic_id,
+        staff_id,
+        ngay,
+    )
+    if not rows:
+        return []
+    return vi_tri_dang_trong_ca(
+        [(str(r["station"]), str(r["shift"]), str(r["status"])) for r in rows],
+        moc,
+        rows[0]["settings"],
     )
 
 

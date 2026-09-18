@@ -52,7 +52,6 @@ const O: readonly {
   { gui: "spo2", nhan: "SpO₂", don_vi: "%", doc: "spo2" },
   { gui: "weight_kg", nhan: "Cân nặng", don_vi: "kg", doc: "can_nang" },
   { gui: "height_cm", nhan: "Chiều cao", don_vi: "cm", doc: "chieu_cao" },
-  { gui: "bmi", nhan: "BMI", don_vi: "", doc: "bmi" },
   { gui: "pain_score", nhan: "Mức độ đau", don_vi: "0–10", doc: "muc_do_dau" },
 ];
 
@@ -332,6 +331,17 @@ export default function BangDoSinhHieu() {
                   />
                 </label>
               ))}
+              {/* BMI KHÔNG có ô nhập (S0-3, 18/09/2026): máy chủ tự tính từ cân
+                  nặng và chiều cao khi lưu, số gõ tay trước đây từng thắng số
+                  tính. Ở đây chỉ hiện lại con số đã lưu. */}
+              <div className="block">
+                <span className="mb-1 block text-sm font-medium text-ink">
+                  BMI <span className="ml-1 text-meta text-ink-muted">(tự tính từ cân nặng, chiều cao khi lưu)</span>
+                </span>
+                <p className="flex min-h-10 items-center rounded-control border border-line bg-surface-sunken px-3 text-body text-ink-soft">
+                  {dangChon.sinh_hieu?.bmi ?? "—"}
+                </p>
+              </div>
             </div>
             {/* Thông báo nằm DƯỚI ô nhập, cạnh nút Lưu (17/09/2026): đặt trên đầu
                 thì bấm "Gọi vào đo" xong cả khối ô nhập tụt xuống, bấm lệch ô. */}

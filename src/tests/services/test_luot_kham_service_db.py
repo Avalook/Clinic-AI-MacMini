@@ -1012,6 +1012,94 @@ async def test_hang_cho_bac_si_thay_luot_kham_chinh_cua_minh(kb: KichBan) -> Non
     assert dong[0]["trang_thai"] == "waiting"
 
 
+async def test_hang_cho_vip_khong_tu_chen_truoc_nguoi_vao_hang_som_hon(
+    kb: KichBan,
+) -> None:
+    # S0-1 (18/09/2026). Luật 15/09: cờ ưu tiên/VIP chỉ là NHÃN cho lễ tân,
+    # không tự đổi thứ tự (COMMENT cột patient.uu_tien, migration
+    # 20260915000016). hang_cho từng chèn `p.uu_tien DESC` trước eligible_at.
+    async with kb.pool.acquire() as conn:
+        a = await _luot(conn, kb.location_id, kb.bac_si.staff_id)
+        b = await _luot(conn, kb.location_id, kb.bac_si.staff_id)
+    for v in (a, b):  # A đủ điều kiện TRƯỚC B
+        await kb.svc.record_vitals(
+            visit_id=v, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
+        )
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE patient SET uu_tien = true, uu_tien_ly_do = 'VIP thử'"
+            " WHERE clinic_patient_id ="
+            " (SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid)",
+            b,
+        )
+    hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
+    thu_tu = [r["visit_id"] for r in hc["hang_cho"] if r["visit_id"] in (a, b)]
+    assert thu_tu == [a, b], "VIP vào hàng sau không được chen lên trước"
+    assert [r["uu_tien"] for r in hc["hang_cho"] if r["visit_id"] == b] == [True]
+
+
+async def test_hai_nguoi_cung_bat_dau_mot_chi_dinh_chi_mot_nguoi_duoc(
+    kb: KichBan, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # S0-6 (18/09/2026): nhận việc phải ATOMIC — người thứ hai nhận 409, không
+    # ghi đè. start_service khoá LƯỢT KHÁM (_lock_visit) rồi mới đọc chỉ định.
+    #
+    # ÉP TRANH CHẤP THẬT: asyncio.gather trần chạy gần như tuần tự — đã thử bỏ
+    # khoá mà test vẫn xanh. Chốt chờ dưới đây giữ người đọc trước lại tới khi
+    # người kia cũng đọc xong (hoặc hết 0,5 giây). Có khoá: người thứ hai kẹt ở
+    # khoá, người đầu hết giờ chờ rồi ghi, người thứ hai thấy đã có người → 409.
+    # Không khoá: cả hai cùng đọc "chưa ai nhận" và cùng ghi → test ĐỎ.
+    goc = kb.svc._order_for_performer
+    da_doc = 0
+    ca_hai_da_doc = asyncio.Event()
+
+    async def doc_roi_cho(*args: Any, **kwargs: Any) -> Any:
+        nonlocal da_doc
+        kq = await goc(*args, **kwargs)
+        da_doc += 1
+        if da_doc >= 2:
+            ca_hai_da_doc.set()
+        try:
+            await asyncio.wait_for(ca_hai_da_doc.wait(), 0.5)
+        except TimeoutError:
+            pass
+        return kq
+
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_mau],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    oid = duyet["order_ids"][0]
+    await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="SERVICES",
+        requirements=[{"order_id": oid, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    await kb.svc.dispatch_order(
+        order_id=oid, room_id=kb.phong_mau, expected_version=None, identity=kb.truong_ca
+    )
+    async with kb.pool.acquire() as conn:
+        dd2 = await _nguoi(conn, kb.location_id, "NURSE_ULTRASOUND")
+    monkeypatch.setattr(kb.svc, "_order_for_performer", doc_roi_cho)
+    kq = await asyncio.gather(
+        kb.svc.start_service(order_id=oid, identity=kb.dieu_duong),
+        kb.svc.start_service(order_id=oid, identity=dd2),
+        return_exceptions=True,
+    )
+    loi = [r for r in kq if isinstance(r, BaseException)]
+    assert len(loi) == 1, kq
+    assert isinstance(loi[0], LuotKhamConflictError)
+    async with kb.pool.acquire() as conn:
+        nguoi = await conn.fetchval(
+            "SELECT performed_by::text FROM service_order WHERE id = $1::uuid", oid
+        )
+    assert nguoi in (kb.dieu_duong.staff_id, dd2.staff_id)
+
+
 async def test_thu_thuat_chi_bac_si_lam(kb: KichBan) -> None:
     async with kb.pool.acquire() as conn:
         vai = await conn.fetchval(
