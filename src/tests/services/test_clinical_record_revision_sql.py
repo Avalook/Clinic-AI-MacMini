@@ -15,7 +15,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinical_record_service import ClinicalRecordService
@@ -160,8 +160,17 @@ async def save(conn: asyncpg.Connection, **kwargs: Any) -> dict[str, Any]:
         location_id=CLINIC,
         location_name="Test location",
     )
-    with patch(
-        "clinicai.services.clinical_record_service.record_event", new=AsyncMock()
+    # Phạm vi thư ký theo bác sĩ (luật 15/09) có test riêng ở test_luat_1509_*;
+    # ở đây chỉ kiểm cơ chế revision/bản nháp nên để phạm vi mở (None).
+    with (
+        patch(
+            "clinicai.services.clinical_record_service.record_event",
+            new=AsyncMock(),
+        ),
+        patch(
+            "clinicai.services.clinical_record_service.bac_si_cua_thu_ky",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         return await service(conn).save(
             appointment_id=APPOINTMENT,
@@ -219,25 +228,33 @@ async def test_stale_full_save_cannot_overwrite_chart_or_profile(
     assert second["revision"] == 2
 
 
-async def test_nurse_vitals_bump_revision_and_block_preexisting_doctor_snapshot(
+async def test_objective_edit_bumps_revision_and_blocks_preexisting_snapshot(
     chart_conn: asyncpg.Connection,
 ) -> None:
+    # Đường "điều dưỡng lưu sinh hiệu qua bệnh án" (vitals_only) đã nghỉ 17/09
+    # — sinh hiệu đo ở màn Đo sinh hiệu (vital_measurement, có test riêng). Sửa
+    # phần khám thực thể vẫn phải tăng revision và chặn bản chụp cũ.
     await save(chart_conn, expected_revision=0, assessment={"diagnosis": "First"})
+    with pytest.raises(ValidationError):
+        await save(chart_conn, vitals_only=True, objective={"vitals": {"bp": "1"}})
     vitals = await save(
-        chart_conn, vitals_only=True, objective={"vitals": {"bp": "120/80"}}
+        chart_conn,
+        expected_revision=1,
+        objective={"findings": "Bụng mềm"},
+        objective_sent=True,
     )
     assert vitals["revision"] == 2
     with pytest.raises(ConflictError):
         await save(
             chart_conn,
             expected_revision=1,
-            objective={"vitals": {"bp": "Stale"}},
+            objective={"findings": "Stale"},
             objective_sent=True,
         )
     objective = json.loads(
         await chart_conn.fetchval("SELECT soap_objective FROM clinical_record")
     )
-    assert objective["vitals"]["bp"] == "120/80"
+    assert objective["findings"] == "Bụng mềm"
 
 
 async def test_chart_and_profile_triggers_emit_only_table_and_clinic(

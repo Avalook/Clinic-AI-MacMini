@@ -15,6 +15,21 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # Test `-m db` chạy trên Postgres dùng một lần: độ phủ 80% là của CẢ bộ test,
+    # không riêng unit (CI-01, 18/09/2026). Cổng 55433 vì các test SQL TEMP chỉ
+    # chấp nhận đúng cổng đó — chốt an toàn để không bao giờ chạm DB thật.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["55433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -56,12 +71,23 @@ jobs:
         # required before a second clinic is onboarded (ADR-0009).
         run: python3 scripts/tests/tenant-scope-audit.py --check
 
-      - name: Pytest with coverage (unit tests only)
+      - name: Disposable test database (migrations + seed)
+        env:
+          PGPASSWORD: postgres
+          PSQL: psql -h localhost -p 55433 -U postgres -d postgres
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+          ./scripts/tests/dung-db-kiem.sh
+
+      - name: Pytest with coverage (unit + db)
+        # src/tests/integration/ bị loại: REST đời cũ, fixture `clean_db` xoá
+        # TOÀN BẢNG staff/patient/appointment. Nợ CI-DEBT-1 ở docs/DANG-LAM.md.
         env:
           ANTHROPIC_API_KEY: ""
+          DATABASE_URL_TEST: postgresql://postgres:postgres@127.0.0.1:55433/postgres
         run: >-
           poetry run pytest src/tests/ -v --tb=short
-          -m "not db and not integration"
+          -m "not integration" --ignore=src/tests/integration
           --cov=clinicai --cov-report=term --cov-fail-under=80
 
   frontend:
@@ -73,7 +99,9 @@ jobs:
       # Dummy public values so `next build` can inline them; real values are set
       # per-environment at deploy time. Skips runtime env validation for the build.
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-build
+      # Giá trị GIẢ; viết dạng biểu thức ${{ '…' }} để chốt bí mật của
+      # scripts/git-hooks/pre-commit không báo nhầm (nó bỏ qua dòng có `${`).
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ 'dummy-anon-key-for-build' }}
       SKIP_ENV_VALIDATION: "1"
       NEXT_TELEMETRY_DISABLED: "1"
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
@@ -201,8 +229,8 @@ jobs:
             -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/postgres \
             -e SUPABASE_URL=https://example.supabase.co \
             -e SUPABASE_ANON_KEY=ci-anon-key \
-            -e SUPABASE_SERVICE_ROLE_KEY=ci-service-key \
-            -e ANTHROPIC_API_KEY=sk-ci-not-a-real-key \
+            -e SUPABASE_SERVICE_ROLE_KEY=${{ 'ci-service-key' }} \
+            -e ANTHROPIC_API_KEY=${{ 'sk-ci-not-a-real-key' }} \
             -e BACKEND_API_KEY=ci-api-key \
             -e CHECKPOINTER_BACKEND=memory \
             clinicai-api:ci
