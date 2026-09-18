@@ -19,7 +19,9 @@ from clinicai.api.identity import (
     verify_supabase_jwt,
 )
 
-SECRET = "test-jwt-secret-at-least-32-bytes"
+# Khoá GIẢ chỉ để ký JWT trong test (≥ 32 byte cho HS256). Viết dạng lặp ký tự
+# cho hiển nhiên là đồ giả — chốt pre-commit bắt mọi chuỗi dài gán cho *SECRET.
+SECRET = "x" * 40
 
 
 # --------------------------- role mapping --------------------------- #
@@ -146,6 +148,10 @@ class _FakePool:
         self.args: tuple[object, ...] = ()
 
     async def fetch(self, query: str, *args: object) -> list[object]:
+        if "work_roster" in query:
+            # Vị trí theo lịch (S0-7) là truy vấn riêng; các test ở đây hỏi vai
+            # tài khoản nên lịch hôm nay rỗng.
+            return []
         self.query = query
         self.args = args
         requested_clinic = args[1] if len(args) > 1 else None

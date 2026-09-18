@@ -143,3 +143,124 @@ def test_nghiep_vu_khong_so_vai_tai_khoan_truc_tiep() -> None:
         if mau.search(dong)
     ]
     assert vi_pham == [], "so vai tài khoản trực tiếp: " + ", ".join(vi_pham)
+
+
+# ── S0-7 (18/09/2026): vai theo lịch chỉ khi ca ĐÃ DUYỆT và ĐANG TRONG GIỜ CA ──
+#
+# Trước đó mọi dòng lịch hôm nay trừ REJECTED đều cấp vai, CẢ NGÀY: điều dưỡng
+# xếp ca SÁNG ở Lễ tân vẫn cầm vai lễ tân lúc 20:00, và một dòng PENDING chưa ai
+# duyệt cũng cấp quyền. Cửa gác và thanh bên phải dùng CHUNG một bộ lọc.
+
+from clinicai.api.identity import (  # noqa: E402
+    an_han_ca_tu_settings,
+    doc_vi_tri_hien_hanh,
+    vi_tri_dang_trong_ca,
+)
+
+_9H, _13H, _14H30, _20H = 9 * 60, 13 * 60, 14 * 60 + 30, 20 * 60
+
+
+def test_chi_dong_da_duyet_moi_cap_vi_tri() -> None:
+    dong = [("T1_LETAN", "SANG", "PENDING"), ("T1_THUNGAN", "SANG", "APPROVED")]
+    assert vi_tri_dang_trong_ca(dong, _9H, None) == [("T1_THUNGAN", "SANG")]
+
+
+def test_het_ca_la_het_vai() -> None:
+    dong = [("T1_LETAN", "SANG", "APPROVED")]
+    assert vi_tri_dang_trong_ca(dong, _9H, None) == [("T1_LETAN", "SANG")]
+    assert vi_tri_dang_trong_ca(dong, _14H30, None) == []
+    assert vi_tri_dang_trong_ca(dong, _20H, None) == []
+    # Nửa mở [lo, hi): đúng 13:00 là đã hết ca sáng — ân hạn mặc định 0.
+    assert vi_tri_dang_trong_ca(dong, _13H, None) == []
+
+
+def test_nhieu_ca_trong_ngay_chi_ca_dang_dien_ra() -> None:
+    dong = [
+        ("T1_LETAN", "SANG", "APPROVED"),
+        ("T4_SAN_DD", "CHIEU", "APPROVED"),
+        ("DIEU_PHOI", "FULL", "APPROVED"),
+    ]
+    assert vi_tri_dang_trong_ca(dong, _14H30, None) == [
+        ("T4_SAN_DD", "CHIEU"),
+        ("DIEU_PHOI", "FULL"),
+    ]
+
+
+def test_an_han_cau_hinh_duoc_hai_dau_ca() -> None:
+    settings = {"vai_lich_an_han_phut": 15}
+    dong = [("T1_LETAN", "SANG", "APPROVED")]
+    assert vi_tri_dang_trong_ca(dong, _13H + 10, settings) == [("T1_LETAN", "SANG")]
+    assert vi_tri_dang_trong_ca(dong, _13H + 15, settings) == []
+    assert vi_tri_dang_trong_ca(dong, 8 * 60 - 10, settings) == [("T1_LETAN", "SANG")]
+
+
+def test_gio_ca_theo_cau_hinh_phong_kham() -> None:
+    settings = {"ca_lam_viec": {"SANG": {"bat_dau": "07:00", "ket_thuc": "12:00"}}}
+    dong = [("T1_LETAN", "SANG", "APPROVED")]
+    assert vi_tri_dang_trong_ca(dong, 7 * 60 + 5, settings) == [("T1_LETAN", "SANG")]
+    assert vi_tri_dang_trong_ca(dong, 12 * 60 + 30, settings) == []
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        None,
+        "",
+        "abc",
+        {},
+        {"vai_lich_an_han_phut": "x"},
+        {"vai_lich_an_han_phut": -5},
+        {"vai_lich_an_han_phut": 1000},
+        {"vai_lich_an_han_phut": True},
+        '{"hong"',
+    ],
+)
+def test_an_han_rac_ve_0_khong_nem(raw: object) -> None:
+    assert an_han_ca_tu_settings(raw) == 0
+
+
+def test_an_han_doc_duoc_ca_chuoi_json() -> None:
+    assert an_han_ca_tu_settings('{"vai_lich_an_han_phut": 10}') == 10
+
+
+def test_doc_vi_tri_hien_hanh_loc_trong_sql_va_theo_gio() -> None:
+    from datetime import date
+
+    from tests.services.fake_pool import FakePool
+
+    settings = {"vai_lich_an_han_phut": 0}
+    pool = FakePool(
+        [
+            {
+                "station": "T1_LETAN",
+                "shift": "SANG",
+                "status": "APPROVED",
+                "settings": settings,
+            },
+            {
+                "station": "T4_SAN_DD",
+                "shift": "CHIEU",
+                "status": "APPROVED",
+                "settings": settings,
+            },
+        ]
+    )
+    ket = asyncio.run(
+        doc_vi_tri_hien_hanh(pool, "c1", "s1", hom_nay=date(2026, 9, 18), phut=_9H)
+    )
+    assert ket == [("T1_LETAN", "SANG")]
+    sql = pool.queries("fetch")[0]
+    assert "w.status = 'APPROVED'" in sql and "w.clinic_id = $1::uuid" in sql
+
+
+def test_cua_gac_va_thanh_ben_dung_chung_mot_bo_loc() -> None:
+    """Hai bản lọc là hai cơ hội lệch nhau: thanh bên mời vào màn mà cửa gác 403."""
+    import inspect
+
+    from clinicai.api import identity as id_mod
+    from clinicai.api.v1.routers import identity as router_mod
+
+    assert "doc_vi_tri_hien_hanh(" in inspect.getsource(id_mod._resolve_identity)
+    assert "doc_vi_tri_hien_hanh(" in inspect.getsource(router_mod.vi_tri_hom_nay)
+    assert "work_roster" not in inspect.getsource(router_mod.vi_tri_hom_nay)
+    assert "work_roster" not in inspect.getsource(id_mod._resolve_identity)

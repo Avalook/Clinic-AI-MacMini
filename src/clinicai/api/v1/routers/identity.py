@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends
 
 from clinicai.api.identity import (
     StaffIdentity,
+    doc_vi_tri_hien_hanh,
     get_current_identity,
     get_display_identity,
     vai_theo_thu_tu,
@@ -90,28 +91,13 @@ async def vi_tri_hom_nay(
     `identity.mo_quyen_tam_thoi`). Rỗng — không có ca hôm nay — thì thanh bên
     rơi về menu theo vai như trước, chứ không trống trơn.
     """
-    rows = await pool.fetch(
-        """
-        SELECT w.station, w.shift
-          FROM public.work_roster w
-          LEFT JOIN public.vi_tri_lam_viec v
-            ON v.clinic_id = w.clinic_id AND v.code = w.station
-         WHERE w.clinic_id = $1::uuid
-           AND w.staff_id = $2::uuid
-           AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-           AND w.status <> 'REJECTED'
-         -- Thứ tự trong NGÀY: ca sớm trước, rồi thứ tự vị trí trong lịch. Vai
-         -- đầu tiên là "vai chính" quyết định màn hình (lib/clinic-session.ts).
-         ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift),
-                  v.sort NULLS LAST, w.station
-        """,
-        identity.clinic_id,
-        identity.staff_id,
-    )
-    vi_tri = list(dict.fromkeys(r["station"] for r in rows))
+    # CÙNG BỘ LỌC VỚI CỬA GÁC (S0-7, 18/09/2026): chỉ ca ĐÃ DUYỆT và ĐANG
+    # TRONG GIỜ CA. Trước đó thanh bên lấy cả ngày và cả dòng chưa duyệt.
+    hien_hanh = await doc_vi_tri_hien_hanh(pool, identity.clinic_id, identity.staff_id)
+    vi_tri = list(dict.fromkeys(tram for tram, _ca in hien_hanh))
     return {
         "vi_tri": vi_tri,
-        "ca": sorted({r["shift"] for r in rows}),
+        "ca": sorted({ca for _tram, ca in hien_hanh}),
         # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
         # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.
         "vai": vai_theo_thu_tu(vi_tri, identity.role),
