@@ -11,7 +11,7 @@
 
 import { requireNavAccess } from "@/lib/clinic-session";
 
-import QuayThuNgan from "../QuayThuNgan";
+import TabThuNgan from "../TabThuNgan";
 
 export const metadata = { title: "Thu ngân dịch vụ · ClinicAI" };
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function TrangThuNgan() {
           Khách đã khám xong, chờ trả tiền dịch vụ. Bấm “Đã nhận đủ” là ghi sổ.
         </p>
       </header>
-      <QuayThuNgan quay="dich_vu" />
+      <TabThuNgan quay="dich_vu" />
     </main>
   );
 }

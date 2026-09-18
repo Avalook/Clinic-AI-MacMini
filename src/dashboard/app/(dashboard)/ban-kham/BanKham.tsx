@@ -37,6 +37,8 @@ import {
   type PhongHomNay,
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
+import XemLuot from "../_lam-viec/XemLuot";
+import Button from "@/components/ui/Button";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 
@@ -214,12 +216,20 @@ export default function BanKham({
   }, [hang, query]);
 
   const dangKham = hienRa.filter((d) => d.trang_thai === "serving");
-  const choKham = hienRa.filter(
+  const dangCho = hienRa.filter(
     (d) => d.trang_thai === "waiting" || d.trang_thai === "called",
   );
+  // "Kết quả cần đọc" = khách quay lại đọc kết quả (vòng REVIEW) — tách khỏi
+  // hàng khám lần đầu để bác sĩ thấy ngay ai đã có kết quả (batch pilot 18/09).
+  const canDoc = dangCho.filter((d) => d.vong === "REVIEW");
+  const choKham = dangCho.filter((d) => d.vong !== "REVIEW");
   const buocKhac = hienRa.filter((d) => d.trang_thai === "blocked");
   const daXong = hienRa.filter((d) => d.trang_thai === "done");
-  const macDinh = dangKham[0] ?? choKham[0] ?? buocKhac[0] ?? null;
+  // Thư ký: phân "chờ bác sĩ ký" với "đã ký" — thấy ngay lượt nào mình đã nhập
+  // mà bác sĩ chưa xác nhận.
+  const choKy = daXong.filter((d) => !d.da_ky);
+  const daKy = daXong.filter((d) => d.da_ky);
+  const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
   const chon = hienRa.find((d) => d.id === chonId) ?? macDinh;
   const luot = bang?.luot.find((l) => l.visit_id === chon?.visit_id) ?? null;
 
@@ -264,6 +274,7 @@ export default function BanKham({
 
       <StatRow>
         <StatCard label="Chờ khám" value={choKham.length} tone="brand" />
+        <StatCard label="Kết quả cần đọc" value={canDoc.length} tone="warning" />
         <StatCard label="Đang khám" value={dangKham.length} tone="neutral" />
         <StatCard label="Đang ở bước khác" value={buocKhac.length} tone="warning" />
         <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
@@ -290,10 +301,18 @@ export default function BanKham({
             <p className="px-3 pb-3 text-xs text-ink-muted">Đang tải hàng chờ…</p>
           ) : (
             <div className="max-h-[720px] overflow-y-auto">
-              <Nhom ten="Đang khám" ds={dangKham} chon={chon?.id ?? null} onChon={setChonId} trong="Chưa có ai đang khám." />
+              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} ds={dangKham} chon={chon?.id ?? null} onChon={setChonId} trong="Chưa có ai đang khám." />
+              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={setChonId} />
               <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={setChonId} trong="Không có khách đang chờ." />
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={setChonId} />
-              <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={setChonId} />
+              {laThuKy ? (
+                <>
+                  <Nhom ten="Chờ bác sĩ ký" ds={choKy} chon={chon?.id ?? null} onChon={setChonId} />
+                  <Nhom ten="Đã ký hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={setChonId} />
+                </>
+              ) : (
+                <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={setChonId} />
+              )}
             </div>
           )}
         </aside>
@@ -415,6 +434,7 @@ function HoSo({
   const dangXem = xemLai && xemLai.id === dong?.id ? xemLai.luot : null;
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<{ id: string; cau: string } | null>(null);
+  const [xemLuot, setXemLuot] = useState<string | null>(null);
 
   if (!dong) {
     return (
@@ -478,6 +498,15 @@ function HoSo({
             <p className="text-xs text-ink-muted">
               {dong.ma_bn} · {dong.bac_si ?? "Chưa có bác sĩ"}
             </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-1 -ml-3"
+              onClick={() => setXemLuot(dong.visit_id)}
+            >
+              Xem lại cả lượt
+            </Button>
+            {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
           </div>
           <dl className="grid grid-cols-4 divide-x divide-line text-xs">
             <Truong nhan="Số thứ tự" gia={String(dong.so_thu_tu)} />

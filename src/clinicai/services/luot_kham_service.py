@@ -3052,6 +3052,79 @@ class LuotKhamService:
             )
         return {"viec": viec, "duoc_quyet": identity.co_vai(DOCTOR_ROLES)}
 
+    async def chi_dinh_hom_nay(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Mọi chỉ định bác sĩ đã duyệt hôm nay, chia bốn nhóm cho trưởng ca.
+
+        Cần điều phối (chưa có phòng) · Đã điều phối (có phòng, chưa làm) ·
+        Đang thực hiện · Đã hoàn tất (đã làm / không làm được). Trưởng ca chỉ
+        XẾP PHÒNG từng chỉ định — không tạo chỉ định, không bấm xong thay phòng.
+        Kèm các mốc để dựng dòng thời gian, và vòng đọc kết quả (khách đã quay
+        lại bác sĩ chưa).
+        """
+        _require(identity, DISPATCH_ROLES, "Chỉ trưởng ca hoặc quản lý xem điều phối.")
+        rows = await self._pool.fetch(
+            """
+            SELECT o.id::text AS id, o.visit_id::text AS visit_id,
+                   o.service_name, o.exec_status, o.created_at, o.authorized_at,
+                   o.assigned_at, o.started_at, o.finished_at, o.ket_qua_luc,
+                   rm.name AS phong, pb.full_name AS nguoi_lam,
+                   p.full_name, p.patient_code,
+                   (SELECT r.status FROM round_requirement q
+                      JOIN review_round r
+                        ON r.id = q.round_id AND r.clinic_id = q.clinic_id
+                     WHERE q.clinic_id = o.clinic_id AND q.service_order_id = o.id
+                     ORDER BY r.round_no DESC LIMIT 1)          AS vong_doc,
+                   (SELECT q.need FROM round_requirement q
+                     WHERE q.clinic_id = o.clinic_id AND q.service_order_id = o.id
+                     ORDER BY q.created_at DESC LIMIT 1)        AS can
+              FROM service_order o
+              JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              JOIN patient p
+                ON p.clinic_patient_id = v.clinic_patient_id
+               AND p.clinic_id = v.clinic_id
+              LEFT JOIN clinic_room rm
+                ON rm.id = o.room_id AND rm.clinic_id = o.clinic_id
+              LEFT JOIN staff pb ON pb.id = o.performed_by
+             WHERE o.clinic_id = $1::uuid
+               AND o.exec_status NOT IN ('draft', 'cancelled')
+               AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+             ORDER BY o.created_at, o.id
+             LIMIT 500
+            """,
+            identity.clinic_id,
+        )
+        nhom = {
+            "authorized": "can_dieu_phoi",
+            "assigned": "da_dieu_phoi",
+            "in_progress": "dang_thuc_hien",
+            "performed": "da_hoan_tat",
+            "not_performed": "da_hoan_tat",
+        }
+        return {
+            "chi_dinh": [
+                {
+                    "id": r["id"],
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "dich_vu": r["service_name"],
+                    "trang_thai": r["exec_status"],
+                    "nhom": nhom.get(r["exec_status"], "can_dieu_phoi"),
+                    "phong": r["phong"],
+                    "nguoi_lam": r["nguoi_lam"],
+                    "can": r["can"],
+                    "vong_doc": r["vong_doc"],
+                    "chi_dinh_luc": _iso(r["authorized_at"] or r["created_at"]),
+                    "xep_phong_luc": _iso(r["assigned_at"]),
+                    "bat_dau_luc": _iso(r["started_at"]),
+                    "xong_luc": _iso(r["finished_at"]),
+                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                }
+                for r in rows
+            ]
+        }
+
     async def sau_khi_co_ket_qua(
         self, *, order_id: str, identity: StaffIdentity
     ) -> None:

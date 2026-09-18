@@ -6,6 +6,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import Button from "@/components/ui/Button";
+
+import XemLuot from "../_lam-viec/XemLuot";
+
 interface SinhHieu {
   tam_thu: number | null;
   tam_truong: number | null;
@@ -85,6 +89,7 @@ async function docBang(): Promise<{ luot: Luot[] } | { loi: string }> {
 export default function BangDoSinhHieu() {
   const [luot, setLuot] = useState<Luot[] | null>(null);
   const [chon, setChon] = useState<string | null>(null);
+  const [xemLuot, setXemLuot] = useState<string | null>(null);
   const [gia, setGia] = useState<Record<string, string>>({});
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
@@ -120,12 +125,15 @@ export default function BangDoSinhHieu() {
 
   // THỨ TỰ = GIỜ CHECK-IN, người đến trước lên trước (Tuyền 15/09: "hàng chờ =
   // giờ check-in"). Chưa đo đứng trên, đã đo xuống dưới.
-  const { choDo, daDo } = useMemo(() => {
+  const { choDo, dangDo, daDo } = useMemo(() => {
     const ds = [...(luot ?? [])].sort((a, b) =>
       (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""),
     );
+    // "Đang đo" = đã gọi vào mà chưa lưu số (batch pilot 18/09): tách khỏi
+    // hàng chờ để người đo thấy mình đang dở với ai.
     return {
-      choDo: ds.filter((l) => !l.sinh_hieu),
+      choDo: ds.filter((l) => !l.sinh_hieu && !l.goi_do_luc),
+      dangDo: ds.filter((l) => !l.sinh_hieu && l.goi_do_luc),
       daDo: ds.filter((l) => l.sinh_hieu),
     };
   }, [luot]);
@@ -257,7 +265,19 @@ export default function BangDoSinhHieu() {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
       <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
-        <p className="border-b border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
+        {dangDo.length > 0 ? (
+          <>
+            <p className="border-b border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
+              Đang đo ({dangDo.length})
+            </p>
+            <ul>
+              {dangDo.map((l, i) => (
+                <MotDong key={l.visit_id} l={l} stt={i + 1} />
+              ))}
+            </ul>
+          </>
+        ) : null}
+        <p className="border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
           Chờ đo ({choDo.length})
         </p>
         <ul>
@@ -270,7 +290,7 @@ export default function BangDoSinhHieu() {
         {daDo.length > 0 ? (
           <>
             <p className="border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
-              Đã đo ({daDo.length})
+              Đã đo hôm nay ({daDo.length})
             </p>
             <ul>
               {daDo.map((l, i) => (
@@ -303,6 +323,18 @@ export default function BangDoSinhHieu() {
                   ? ` · đã gọi lúc ${gio(dangChon.goi_do_luc)}${dangChon.goi_do_boi ? ` (${dangChon.goi_do_boi})` : ""}`
                   : ""}
               </p>
+              {/* Đã đo: xem lại mọi lần đo (người đo, giờ) và lượt trước. */}
+              {dangChon.sinh_hieu ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-1 -ml-3"
+                  onClick={() => setXemLuot(dangChon.visit_id)}
+                >
+                  Xem các lần đo &amp; lượt trước
+                </Button>
+              ) : null}
+              {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
               </div>
               {!dangChon.sinh_hieu ? (
                 <button

@@ -7,6 +7,8 @@
 import { useMemo, useState } from "react";
 import { VN_TZ } from "../../../lib/datetime";
 import ThaoTacCapPhat, { type LoThuoc } from "./ThaoTacCapPhat";
+import XemLuot from "../_lam-viec/XemLuot";
+import Button from "@/components/ui/Button";
 
 interface RxPatient {
   full_name: string | null;
@@ -92,16 +94,27 @@ export default function PharmacyBoard({ prescriptions, inventory }: Props) {
     [prescriptions, selectedId],
   );
 
+  // Ba nhóm theo trạng thái cấp (batch pilot 18/09): chờ cấp / cấp một phần /
+  // đã cấp (đơn đã chốt hôm nay). Chỉ đọc cột sẵn có — không đổi luật cấp.
+  const [tab, setTab] = useState<"cho" | "mot_phan" | "da_cap">("cho");
+  const [xemLuot, setXemLuot] = useState<string | null>(null);
+  const nhomCua = (p: RxRow): "cho" | "mot_phan" | "da_cap" =>
+    p.closed_at ? "da_cap" : (p.dispensed_qty ?? 0) > 0 ? "mot_phan" : "cho";
+  const theoTab = useMemo(
+    () => prescriptions.filter((p) => nhomCua(p) === tab),
+    [prescriptions, tab],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return prescriptions;
-    return prescriptions.filter(
+    if (!q) return theoTab;
+    return theoTab.filter(
       (p) =>
         p.patient?.full_name?.toLowerCase().includes(q) ||
         p.drug_name_raw?.toLowerCase().includes(q) ||
         p.source_ref?.toLowerCase().includes(q),
     );
-  }, [prescriptions, search]);
+  }, [theoTab, search]);
 
   // Tồn kho theo tên thuốc (gộp lô)
   const stockByDrug = useMemo(() => {
@@ -117,11 +130,33 @@ export default function PharmacyBoard({ prescriptions, inventory }: Props) {
   }, [inventory]);
 
   return (
-    <div className="grid h-full grid-cols-[minmax(320px,380px)_1fr] gap-4 p-4">
+    <div className="grid h-full grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
       {/* ---- Cột trái: danh sách đơn thuốc ---- */}
       <section className="flex flex-col rounded-control border border-line bg-surface">
         <div className="border-b border-line p-3">
           <h2 className="text-sm font-semibold text-ink">Đơn thuốc hôm nay</h2>
+          <div role="tablist" aria-label="Trạng thái cấp" className="mt-2 flex flex-wrap gap-1">
+            {(
+              [
+                ["cho", "Chờ cấp"],
+                ["mot_phan", "Cấp một phần"],
+                ["da_cap", "Đã cấp"],
+              ] as const
+            ).map(([ma, nhan]) => (
+              <button
+                key={ma}
+                type="button"
+                role="tab"
+                aria-selected={tab === ma}
+                onClick={() => setTab(ma)}
+                className={`min-h-9 rounded-control px-2.5 text-xs font-medium ${
+                  tab === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+                }`}
+              >
+                {nhan} ({prescriptions.filter((p) => nhomCua(p) === ma).length})
+              </button>
+            ))}
+          </div>
           <p className="mt-0.5 text-xs text-ink-muted">
             {prescriptions.length} đơn · {filtered.length} hiển thị
           </p>
@@ -184,6 +219,17 @@ export default function PharmacyBoard({ prescriptions, inventory }: Props) {
                 {fmtDate(selected.created_at)}
               </span>
             </div>
+            {selected.visit?.visit_id ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mt-1 -ml-3"
+                onClick={() => setXemLuot(selected.visit?.visit_id ?? null)}
+              >
+                Xem chi tiết lượt &amp; lịch sử cấp
+              </Button>
+            ) : null}
+            {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
 
             <div className="mt-4 rounded-control border border-line bg-surface-muted p-3">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">

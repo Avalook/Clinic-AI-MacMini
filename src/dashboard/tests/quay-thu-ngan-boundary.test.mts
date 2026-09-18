@@ -50,7 +50,13 @@ test("mỗi quầy là một trang có cửa gác riêng, quầy ghim cứng tro
       "utf8",
     );
     assert.match(trang, new RegExp(`await requireNavAccess\\("/thu-ngan/${duong}"\\)`));
-    assert.match(trang, new RegExp(`<QuayThuNgan quay="${quayCua}" />`));
+    // Batch pilot 18/09: trang ghim quầy vào TabThuNgan (thêm hai tab chỉ
+    // đọc), và TabThuNgan chuyển NGUYÊN quầy ấy xuống đúng một QuayThuNgan.
+    assert.match(trang, new RegExp(`<TabThuNgan quay="${quayCua}" />`));
+    assert.match(
+      readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
+      /<QuayThuNgan quay=\{quay\} \/>/,
+    );
     assert.doesNotMatch(trang, /searchParams/);
   }
 });

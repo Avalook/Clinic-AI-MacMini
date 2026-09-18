@@ -151,6 +151,9 @@ chuyển hướng.
 | **Tệp kết quả** (`/api/cskh/ket-qua`) | `customers/TepKetQua.tsx` · `_lam-viec/KhungTep.tsx` · `tasks/TepCuaLuotKham.tsx` | |
 | **Chỉ định dịch vụ / cận lâm sàng** (`service_order`) | `ban-kham/BanKham.tsx` → `ChiDinhPanel` (thư ký ghi nháp, bác sĩ duyệt) | **chỉ ở đây.** Ô "Chỉ định CLS" gõ tự do trong bệnh án (ghi `lab_result`) đã gỡ 18/09 — Slice 1 |
 | **Bác sĩ quyết kết quả chờ / dịch vụ không làm được** (`/luot-kham/cho-quyet`, `quyet-yeu-cau`) | `ban-kham/ChoBacSiQuyet.tsx` | bác sĩ quyết; thư ký chỉ xem — Slice 1 |
+| **Xem lại một lượt khám** (`/xem-luot/{visit}`, chỉ đọc, máy chủ cắt theo vai) | `_lam-viec/XemLuot.tsx` (+ `NutXemLuot.tsx`) mở từ: `ban-kham/BanKham.tsx` · `do-sinh-hieu/BangDoSinhHieu.tsx` · `phong/[ma]/PhongDichVu.tsx` · `truong-ca/ChiDinhHomNay.tsx` · `reception/queue/QueueBoard.tsx` · `thu-ngan/GiaoDich.tsx` · `pharmacy/PharmacyBoard.tsx` | batch pilot 18/09 |
+| **Thai kỳ** (`/api/thai-ky`) | `ban-kham/ThaiKy.tsx` (cạnh phiếu Sản) | bác sĩ ghi; vai lâm sàng khác chỉ xem |
+| **Giao dịch thu ngân đã ghi** (`/api/cashier?xem=giao-dich`) | `thu-ngan/TabThuNgan.tsx` → `GiaoDich.tsx` (tab Đã thanh toán hôm nay · Lịch sử) | chỉ đọc |
 | **Chuyển phòng** | `truong-ca/ChiDinhCuaBacSi.tsx` (từng chỉ định — luồng mới) · `truong-ca/OverviewClient.tsx` (cả lượt — chỉ lượt đời cũ; lượt luồng mới bị ẩn + máy chủ từ chối) | Slice 1 |
 
 ---
