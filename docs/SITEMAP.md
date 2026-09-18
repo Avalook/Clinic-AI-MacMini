@@ -100,7 +100,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | |
 | `/settings/tai-khoan` | QL | Thiết lập tài khoản cho nhân viên | GIỮ | |
 | `/settings/new-user` | QL | (không có mục; mở từ `/settings/tai-khoan`) | GIỮ | |
-| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`). |
+| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |
 | `/console` | | | DEV | `notFound()` khi `APP_ENV=production`. |
 | `/design-system` | | | DEV | `notFound()` khi không phải `development`. |
 | `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | |

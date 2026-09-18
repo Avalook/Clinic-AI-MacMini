@@ -24,3 +24,8 @@ test("trang không có tiêu đề riêng lấy đúng tên nút ở thanh bên"
   assert.match(h, /import \{ NAV, navLabelFor \} from "\.\/nav-items"/);
   assert.match(h, /title: navLabelFor\(muc, role\)/);
 });
+
+test("tab Toàn cảnh không mang tên thứ hai 'Command Center'", () => {
+  const src = read("../app/(dashboard)/ops/PortalBoard.tsx").replace(/\/\/.*$/gm, "");
+  assert.doesNotMatch(src, /Command Center/);
+});

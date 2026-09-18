@@ -1,6 +1,7 @@
 "use client";
 
-// Command Center — Cổng trung tâm điều khiển toàn hệ thống.
+// Tab "Toàn cảnh" của Vận hành hệ thống (trước 18/09/2026 là màn "Command
+// Center" ở /portal) — cổng tổng quan toàn hệ thống.
 // Tổng hợp mọi thứ: trạng thái hệ thống, vai trò, màn hình, hạ tầng, nhân viên.
 
 // Nhập component Link từ Next.js để tạo liên kết nội bộ
@@ -463,7 +464,7 @@ export default function PortalBoard({
           <div className="flex items-center gap-2">
             <Zap size={22} className="text-brand-600" />
             <h1 className="text-xl font-semibold text-ink lg:text-2xl">
-              Command Center
+              Toàn cảnh
             </h1>
           </div>
           {/* Mô tả trang */}
