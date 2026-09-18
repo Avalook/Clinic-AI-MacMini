@@ -11,7 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { canWriteIntake } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json(EMPTY, { status: 401 });
 
   // Chỉ vai được tạo hồ sơ mới thấy danh sách này — nó là dữ liệu bệnh nhân.
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) return NextResponse.json(EMPTY, { status: 403 });
 
   const sp = new URL(request.url).searchParams;

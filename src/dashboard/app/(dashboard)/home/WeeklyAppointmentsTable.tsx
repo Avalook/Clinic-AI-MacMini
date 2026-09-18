@@ -12,9 +12,11 @@
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import {
   canCheckin,
+  canSeeNavGoc,
+  canManageAppt,
   canWriteIntake,
   isNurseRole,
   type ClinicRole,
@@ -32,9 +34,11 @@ import {
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass } from "@/components/ui/Chip";
-import Button from "@/components/ui/Button";
+import { buttonClass } from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
+import NutCheckIn from "@/components/ui/NutCheckIn";
+import type { MaXacMinh } from "@/lib/xac-minh";
 
 export interface WeekApptRow {
   id: string;
@@ -55,6 +59,8 @@ export interface WeekApptRow {
   /** Bác sĩ bị gỡ ĐÃ CÓ CA KHÁM TRỞ LẠI hôm đó — đổi câu cảnh báo: đây là
    *  việc nội bộ (gán lại bác sĩ), không phải lý do gọi khách. */
   bac_si_da_go_co_ca_lai?: boolean;
+  /** Lịch vượt sức chứa sau khi công bố lịch trực (backend, 16/09/2026). */
+  vuot_suc_chua?: boolean;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -166,6 +172,9 @@ function buildDayRows(
   now: number,
   canBook: boolean,
   policy: BookingPolicy,
+  /** CSKH/Quản lý: "Đặt lịch vào đây" mở màn Đặt lịch điền sẵn khung — mọi
+   *  ngày chưa qua, số chỗ thật do màn đặt lịch (backend) nói (16/09/2026). */
+  datLichTaiMan = false,
 ): RowDesc[] {
   const isToday = day.date === todayVn();
   // Khung giờ có ít nhất 1 lịch (mọi trạng thái — lịch huỷ vẫn hiện để check).
@@ -205,8 +214,14 @@ function buildDayRows(
     const bucketRows: RowDesc[] = [];
     for (const g of groups) {
       const mine = inBucket.filter((a) => (a.doctor_id ?? "") === g.id);
-      // Thứ tự gọi do backend tính sẵn (call_order). Xem ghi chú ở
-      // DoctorWorkBoard: luật chỉ còn một bản, ở Python.
+      // BÁC SĨ KHÔNG CÓ LỊCH TRONG KHUNG NÀY THÌ ẨN (Tuyền 17/09/2026: "không
+      // có lịch thì ẩn đi"). Trước đây mọi bác sĩ trực đều chiếm một dòng xanh
+      // "+ Thêm khách hàng" ở MỌI khung — cả bác sĩ siêu âm, thủ thuật vốn không
+      // nhận lịch khám — nên bảng dài gấp mấy lần số lịch thật. Đặt lịch mới
+      // cho bác sĩ chưa có ai vẫn làm ở màn Đặt lịch.
+      if (mine.length === 0) continue;
+      // Thứ tự gọi do backend tính sẵn (call_order) — luật chỉ còn một bản,
+      // ở Python.
       const theoThuTuGoi = (a: WeekApptRow, b: WeekApptRow) =>
         (a.call_order ?? 0) - (b.call_order ?? 0);
       const regular = mine
@@ -225,7 +240,16 @@ function buildDayRows(
       // sau chỉ hiện trạng thái. Nhóm "Chưa phân bác sĩ" không có ô này.
       // CHỈ vai đặt lịch (CSKH/Lễ tân/QL/Trưởng ca) mới thấy hàng này — bác sĩ,
       // điều dưỡng không đặt lịch nên bỏ hẳn cho gọn.
-      if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
+      if (datLichTaiMan && g.id && bucketNotPast) {
+        groupRows.push({
+          key: `${bucketMs}-${g.id}-free`,
+          free: {
+            href: `/appointments?ngay=${day.date}&gio=${encodeURIComponent(
+              bucketHHMM(bucketMs),
+            )}&bac_si=${g.id}`,
+          },
+        });
+      } else if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
         groupRows.push({
           key: `${bucketMs}-${g.id}-free`,
           free: {
@@ -251,18 +275,64 @@ function buildDayRows(
   return out;
 }
 
+/** Menu "…" của một dòng lịch cho CSKH — đúng các thao tác đã có ở Quản lý
+ *  khách hàng (không có check-in: CSKH không check-in, luật 15/09/2026). */
+function MenuLich({ a }: { a: WeekApptRow }) {
+  const pid = a.patient?.clinic_patient_id;
+  if (!pid) return null;
+  const hoSo = `/customers?selected=${pid}&luot=${a.id}`;
+  return (
+    <details className="relative">
+      <summary
+        aria-label="Thao tác với lịch này"
+        className="grid size-7 cursor-pointer list-none place-items-center rounded-control text-ink-muted hover:bg-surface-sunken"
+      >
+        <MoreHorizontal className="size-4" />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-52 rounded-card border border-hairline bg-surface p-1 text-body shadow-panel">
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Mở hồ sơ khách
+        </Link>
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Gọi / ghi chăm sóc
+        </Link>
+        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+          Đổi / huỷ lịch (ghi lý do)
+        </Link>
+        {a.patient?.phone_primary && (
+          <a
+            href={`tel:${a.patient.phone_primary}`}
+            className="block rounded-control px-2 py-1.5 hover:bg-surface-muted"
+          >
+            📞 {a.patient.phone_primary}
+          </a>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export default function WeeklyAppointmentsTable({
   days,
   role,
   staffId,
   canWriteClinical = false,
   dutyByDate = {},
+  choDoSinhHieu,
+  choCheckIn = false,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
   staffId: string | null;
   canWriteClinical?: boolean;
   dutyByDate?: DutyByDate;
+  /** Hiện cột "Điền sinh hiệu". Trang chủ quyết theo VỊ TRÍ hôm nay (đứng Đo
+   *  chỉ số); không truyền thì theo vai điều dưỡng như trước. */
+  choDoSinhHieu?: boolean;
+  /** Hiện cột Check-in / Không đến / Hoàn tác. CHỈ màn Tiếp đón khách bật
+   *  (Tuyền chốt 18/09/2026: check-in bỏ khỏi Trang chủ — một việc, một chỗ).
+   *  Trang chủ không truyền → bảng chỉ để xem. */
+  choCheckIn?: boolean;
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -272,15 +342,24 @@ export default function WeeklyAppointmentsTable({
   // của phòng khám, nên không có bản mặc định ở đây.
   const policy = useBookingPolicy();
 
-  const showActions = canCheckin(role);
+  // GẬP / MỞ THEO NGÀY (ảnh Tuyền 16/09/2026): ngày có lịch mở sẵn, ngày trống
+  // gập gọn một dòng. `moTay` giữ lựa chọn tay theo ngày; chưa bấm thì theo
+  // mặc định — đổi tuần không kéo theo trạng thái của tuần cũ.
+  const [moTay, setMoTay] = useState<Record<string, boolean>>({});
+  const dangMo = (d: ApptDay) => moTay[d.date] ?? d.items.length > 0;
+  // Menu "…" cho vai quản lý lịch hẹn không có cột check-in (CSKH).
+  const showActions = choCheckIn && canCheckin(role);
+  const coMenu = canManageAppt(role) && !showActions;
+
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
-  const isNurse = isNurseRole(role);
+  const isNurse = choDoSinhHieu ?? isNurseRole(role);
   const showActionCol = showActions || isNurse;
-  const nCols = showActionCol ? 6 : 5;
+  const nCols = (showActionCol ? 6 : 5) + (coMenu ? 1 : 0);
 
   async function act(
     id: string,
     action: "checkin" | "undo_checkin" | "no_show",
+    xacMinhCach?: MaXacMinh,
   ) {
     if (busyId) return;
     setBusyId(id);
@@ -288,7 +367,7 @@ export default function WeeklyAppointmentsTable({
     const res = await fetch("/api/appointments", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ id, action, xac_minh_cach: xacMinhCach }),
     });
     setBusyId(null);
     if (!res.ok) {
@@ -327,6 +406,22 @@ export default function WeeklyAppointmentsTable({
           {error}
         </div>
       )}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, true])))}
+          className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+        >
+          Mở tất cả
+        </button>
+        <button
+          type="button"
+          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, false])))}
+          className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
+        >
+          Đóng tất cả
+        </button>
+      </div>
       <div className="max-h-[88vh] min-h-45 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <thead className="sticky top-0 z-10">
@@ -341,6 +436,7 @@ export default function WeeklyAppointmentsTable({
                   {isNurse ? "Sinh hiệu" : "Thao tác Check-in"}
                 </th>
               )}
+              {coMenu && <th className={`${TH} w-12`}>Thao tác</th>}
             </tr>
           </thead>
           <tbody>
@@ -351,31 +447,46 @@ export default function WeeklyAppointmentsTable({
                 now,
                 canWriteIntake(role),
                 policy,
+                // LỄ TÂN ĐI CHUNG ĐƯỜNG VỚI CSKH (Tuyền 16/09/2026): ô trống mở
+                // màn đặt lịch, không còn rẽ sang biểu mẫu vãng lai của riêng
+                // quầy. "Vãng lai" nay chỉ là một KÊNH ĐẶT, không phải một
+                // luồng — nên ngày mai, ngày kia cũng bấm được, không chỉ hôm nay.
+                canManageAppt(role) || canCheckin(role),
               );
+              const mo = dangMo(day);
               return (
                 <Fragment key={day.date}>
-                  {/* Dòng tiêu đề NGÀY (gộp cả 5 hoặc 6 cột). */}
+                  {/* Dòng tiêu đề NGÀY — bấm để gập / mở. Ngày trống nói
+                      "chưa có lịch hẹn" NGAY trên dòng này, không thêm dòng. */}
                   <tr className="bg-surface-muted">
                     <td
                       colSpan={nCols}
                       className="border-b border-hairline border-l-3 border-l-brand-600 px-3 py-1.5 text-sm font-semibold text-ink"
                     >
-                      {dayLabel(day.date)} · {fmtDayMonth(day.date)}
-                      <span className={`ml-2 ${chipClass("neutral")}`}>
-                        {day.items.length} lịch
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMoTay((m) => ({ ...m, [day.date]: !mo }))}
+                        aria-expanded={mo}
+                        className="inline-flex items-center gap-1.5"
+                      >
+                        {mo ? (
+                          <ChevronDown className="size-4 text-ink-muted" />
+                        ) : (
+                          <ChevronRight className="size-4 text-ink-muted" />
+                        )}
+                        {dayLabel(day.date)} · {fmtDayMonth(day.date)}
+                        <span className={`ml-1 ${chipClass("neutral")}`}>
+                          {day.items.length} lịch
+                        </span>
+                      </button>
+                      {day.items.length === 0 && (
+                        <span className="ml-3 text-label font-normal text-ink-faint">
+                          — Chưa có lịch hẹn —
+                        </span>
+                      )}
                     </td>
                   </tr>
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={nCols}
-                        className="border-b border-hairline px-3 py-2 text-center text-label text-ink-faint"
-                      >
-                        — chưa có lịch —
-                      </td>
-                    </tr>
-                  ) : (
+                  {!mo || rows.length === 0 ? null : (
                     rows.map((r) => {
                       const a = r.appt;
                       return (
@@ -407,22 +518,20 @@ export default function WeeklyAppointmentsTable({
                                     bảng: người đọc quét dọc cột giờ để gọi tên,
                                     nên câu cảnh báo phải nằm ở đúng dòng họ
                                     đang nhìn. */}
-                                {(a.mat_bac_si || a.bac_si_da_go) && (
+                                {/* CẢNH BÁO CAM NGAY TRÊN DÒNG LỊCH — cùng nguồn với khung
+                                    báo ở Quản lý khách hàng (16/09/2026). Gỡ ca KHÔNG
+                                    huỷ lịch (luật 15/09): việc là gọi khách đổi lịch,
+                                    hoặc gán lại bác sĩ khi ca đã xếp lại. */}
+                                {(a.mat_bac_si || a.bac_si_da_go || a.vuot_suc_chua) && (
                                   <span className="mb-1 block rounded bg-warning-bg px-1.5 py-0.5 text-label font-semibold text-warning">
-                                    {/* HAI TÌNH HUỐNG, HAI VIỆC KHÁC NHAU:
-                                        "đã nghỉ" = gọi KHÁCH đổi lịch; "ca đã
-                                        xếp lại" = việc NỘI BỘ, gán lại bác sĩ
-                                        là xong (chỉ còn xảy ra khi ghế khung
-                                        cũ đã bị chiếm — add_shift 15/08 tự
-                                        gắn lại phần còn ghế). Một câu chung
-                                        thì hoặc khách bị gọi oan, hoặc lịch
-                                        chờ mãi vì tưởng phải chờ khách. */}
                                     ⚠{" "}
-                                    {a.bac_si_da_go
-                                      ? a.bac_si_da_go_co_ca_lai
-                                        ? `Ca của ${a.bac_si_da_go} đã xếp lại — lịch cũ đã huỷ, có thể đặt lại đúng khung nếu còn chỗ`
-                                        : `${a.bac_si_da_go} đã nghỉ — lịch đã huỷ, gọi khách đặt lịch mới`
-                                      : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
+                                    {a.vuot_suc_chua
+                                      ? "Khung đã đủ số lượng khám — gọi khách chốt hoặc đổi lịch"
+                                      : a.bac_si_da_go
+                                        ? a.bac_si_da_go_co_ca_lai
+                                          ? `Ca của ${a.bac_si_da_go} đã xếp lại — gán lại bác sĩ nếu còn chỗ`
+                                          : `${a.bac_si_da_go} không còn ca — gọi khách đổi lịch`
+                                        : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                   </span>
                                 )}
                                 {canWriteClinical ? (
@@ -483,13 +592,17 @@ export default function WeeklyAppointmentsTable({
                                       </span>
                                     ) : (
                                       <div className="flex items-center gap-1.5">
-                                        <Button
-                                          variant="primary"
-                                          size="sm"
-                                          onClick={() => setSelAppt(a)}
-                                        >
-                                          Điền sinh hiệu
-                                        </Button>
+                                        {/* ĐO Ở MÀN ĐO SINH HIỆU (17/09/2026). Biểu mẫu cũ
+                                            trong bảng này ghi vào bệnh án chứ không vào
+                                            vital_measurement, nên đo ở đây thì hàng chờ bác
+                                            sĩ không mở và cờ "đã đo" không bao giờ bật. */}
+                                        {a.has_vitals ? (
+                                          <span className={chipClass("success")}>Đã đo sinh hiệu</span>
+                                        ) : (
+                                          <Link href="/do-sinh-hieu" className={buttonClass("primary", "sm")}>
+                                            Đo sinh hiệu
+                                          </Link>
+                                        )}
                                         {a.status === "COMPLETED" && (
                                           <NutInPhieu href={`/print/${a.id}`} />
                                         )}
@@ -503,34 +616,44 @@ export default function WeeklyAppointmentsTable({
                                       <NutInPhieu href={`/print/${a.id}`} />
                                     </div>
                                   ) : a.status === "CHECKED_IN" ? (
-                                    <div className="flex flex-col items-start gap-0.5">
+                                    /* "Hoàn tác" ĐỨNG CẠNH chip, không xuống
+                                       dòng dưới (Tuyền 16/09/2026): chữ "Hoàn
+                                       tác check-in" nằm một mình một dòng dưới
+                                       mỗi khách làm cột này cao gấp đôi, mà
+                                       ngay bên trái đã có chữ "Đang chờ khám"
+                                       nói rõ đang hoàn tác cái gì. */
+                                    <div className="flex items-center gap-1.5">
                                       <span className={chipClass("success")}>
                                         Đang chờ khám
                                       </span>
                                       <button
                                         onClick={() => act(a.id, "undo_checkin")}
                                         disabled={busyId === a.id}
-                                        className="text-label text-ink-faint hover:text-ink-muted font-medium disabled:opacity-50"
+                                        title="Hoàn tác check-in"
+                                        className="rounded-chip border border-line px-2 py-0.5 text-label font-medium text-ink-muted hover:border-ink-muted hover:text-ink disabled:opacity-50"
                                       >
-                                        Hoàn tác check-in
+                                        Hoàn tác
                                       </button>
                                     </div>
                                   ) : ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(
                                       a.status,
                                     ) ? (
                                     <div className="flex items-center gap-2">
-                                      <Button
-                                        variant="primary"
+                                      <NutCheckIn
                                         size="sm"
-                                        onClick={() => act(a.id, "checkin")}
+                                        onChon={() => act(a.id, "checkin")}
                                         disabled={busyId === a.id}
                                       >
                                         {busyId === a.id ? "..." : "Check-in"}
-                                      </Button>
+                                      </NutCheckIn>
+                                      {/* Viền bo quanh "Không đến" — cùng lý
+                                          do với "Hoàn tác": chữ trần cạnh một
+                                          nút có nền trông như dòng chú thích,
+                                          không như thứ bấm được. */}
                                       <button
                                         onClick={() => act(a.id, "no_show")}
                                         disabled={busyId === a.id}
-                                        className="text-label text-ink-faint hover:text-danger font-medium disabled:opacity-50"
+                                        className="rounded-chip border border-line px-2 py-0.5 text-label font-medium text-ink-muted hover:border-danger hover:text-danger disabled:opacity-50"
                                       >
                                         Không đến
                                       </button>
@@ -542,6 +665,11 @@ export default function WeeklyAppointmentsTable({
                                   )}
                                 </td>
                               )}
+                              {coMenu && (
+                                <td className={CELL}>
+                                  <MenuLich a={a} />
+                                </td>
+                              )}
                             </>
                           ) : (
                             <>
@@ -551,7 +679,9 @@ export default function WeeklyAppointmentsTable({
                                     href={r.free.href}
                                     className="inline-block rounded bg-success-bg px-2 py-1 text-label font-semibold text-success hover:bg-success-bg"
                                   >
-                                    ＋ Đặt lịch vào đây
+                                    {canCheckin(role)
+                                      ? "＋ Thêm khách hàng"
+                                      : "＋ Đặt lịch vào đây"}
                                   </Link>
                                 ) : (
                                   <span className="inline-block rounded bg-success-bg px-2 py-1 text-label font-medium text-success/70">
@@ -565,6 +695,7 @@ export default function WeeklyAppointmentsTable({
                                 <PhanLoai value="Khám lần đầu" />
                               </td>
                               {showActionCol && <td className={CELL} />}
+                              {coMenu && <td className={CELL} />}
                             </>
                           )}
                         </tr>
@@ -583,16 +714,25 @@ export default function WeeklyAppointmentsTable({
           <div className="flex h-full w-full max-w-lg flex-col border-l border-hairline bg-surface p-4 shadow-panel" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between border-b border-hairline pb-2">
               <h3 className="text-base font-semibold text-brand-800">Hành chính & Sinh hiệu bệnh nhân</h3>
-              <button onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {canSeeNavGoc(role, "/ban-kham") && (
+                  <Link href="/ban-kham" className={buttonClass("secondary", "sm")}>
+                    Mở ở Bàn khám
+                  </Link>
+                )}
+                <button type="button" aria-label="Đóng" onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
+              {/* CHỈ XEM (Tuyền chốt 18/09/2026): bệnh án sửa ở Bàn khám, sinh
+                  hiệu đo ở màn Đo sinh hiệu — bảng lịch không là lối ghi thứ ba. */}
               <ClinicalRecordForm
                 appt={selAppt}
                 staffId={staffId}
                 vitalsOnly
-                readOnly={!canWriteClinical}
+                readOnly
                 fill
                 onClose={() => setSelAppt(null)}
               />

@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError
@@ -145,13 +144,27 @@ def test_create_patient_phone_duplicate_returns_200(
 
 
 @patch("clinicai.api.v1.patients.PatientService")
-def test_create_patient_cccd_conflict_returns_409(
+def test_create_patient_cccd_trung_tra_canh_bao(
     mock_service_class: MagicMock, client: TestClient
 ) -> None:
-    """Duplicate CCCD raises ConflictError → 409 with friendly message."""
+    """CCCD trùng → 200 duplicate + cccd_trung (Tuyền chốt 15/09/2026: cảnh báo
+    + lý do, thay 409 cứng)."""
+    from clinicai.schemas.patient import DuplicateMatch, PatientCreateResult
+
+    existing_id = uuid.uuid4()
     mock_service = mock_service_class.return_value
     mock_service.create_patient = AsyncMock(
-        side_effect=ConflictError("CCCD này đã có hồ sơ (BN-2026-000001 · Lan).")
+        return_value=PatientCreateResult(
+            duplicate=True,
+            cccd_trung=True,
+            matches=[
+                DuplicateMatch(
+                    clinic_patient_id=existing_id,
+                    patient_code="BN-2026-000001",
+                    full_name="Lan",
+                )
+            ],
+        )
     )
 
     payload = {
@@ -160,11 +173,10 @@ def test_create_patient_cccd_conflict_returns_409(
         "location_id": str(uuid.uuid4()),
     }
     response = client.post("/api/v1/patients", json=payload)
-    assert response.status_code == 409
-
+    assert response.status_code == 200
     data = response.json()
-    assert data["error"] == "CONFLICT_ERROR"
-    assert "CCCD" in data["message"]
+    assert data["duplicate"] is True and data["cccd_trung"] is True
+    assert data["matches"][0]["patient_code"] == "BN-2026-000001"
 
 
 @patch("clinicai.api.v1.patients.PatientService")

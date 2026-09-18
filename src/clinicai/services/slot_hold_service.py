@@ -45,7 +45,7 @@ HOLD_ROLES: frozenset[ClinicRole] = frozenset(
 
 
 def _assert_may_hold(identity: StaffIdentity) -> None:
-    if identity.role not in HOLD_ROLES:
+    if not identity.co_vai(HOLD_ROLES):
         raise ValidationError(
             f"Vai trò {identity.role.value} không giữ chỗ đặt lịch được."
         )

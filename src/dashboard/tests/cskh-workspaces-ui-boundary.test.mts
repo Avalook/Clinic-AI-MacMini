@@ -5,7 +5,11 @@
 //                                   → không file nào import; /appointments dùng
 //                                     BookingHub. Xoá 04/08/2026.
 //
-// Tám màn còn lại trong file này vẫn được canh nguyên: customers, episodes,
+//   episodes/EpisodesBoard          → /episodes chuyển hướng về /customers
+//                                     (0 đợt PENDING_CLOSE trên prod, không
+//                                     code nào còn tạo ra). Xoá 18/09/2026.
+//
+// Các màn còn lại trong file này vẫn được canh nguyên: customers,
 // AppointmentsRealtime, AppointmentEditModal, StatCard.
 //
 // Bỏ một bài kiểm an ninh phải là quyết định có chủ ý. Ở đây nó canh MỘT MÀN
@@ -25,8 +29,6 @@ const appointmentsPage = read("../app/(dashboard)/appointments/page.tsx");
 const realtime = read("../app/(dashboard)/appointments/AppointmentsRealtime.tsx");
 const appointmentEdit = read("../app/(dashboard)/customers/AppointmentEditModal.tsx");
 const statCard = read("../components/ui/StatCard.tsx");
-const episodesPage = read("../app/(dashboard)/episodes/page.tsx");
-const episodes = read("../app/(dashboard)/episodes/EpisodesBoard.tsx");
 
 test("CSKH customer directory uses the catalogue-style table and a real detail panel", () => {
   for (const label of [
@@ -106,8 +108,14 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
     "utf8",
   );
   assert.match(vung, /<Check /); // dấu tích cho bước đã xong
-  assert.match(vung, /onLamViec\(tt\.ma\)/); // node bấm được (nay node = TRẠNG THÁI)
-  assert.match(vung, /Làm lại/); // bước đã xong vẫn làm lại được
+  // 16/09/2026 (Tuyền): bỏ nút "Làm bước này" — VÒNG TRÒN là nút. Ô CSKH bấm
+  // vòng tròn để ghi / bấm lại để hoàn tác; ô của lễ tân, bác sĩ, đối tác KHOÁ.
+  assert.match(vung, /onBam=\{/); // ô CSKH bấm được
+  assert.match(vung, /nguon="lễ tân"/); // ô khoá, nói rõ nguồn
+  assert.doesNotMatch(
+    vung.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, ""),
+    /Làm bước này/,
+  );
   assert.match(customers, /<AppointmentEditModal/);
   // `QuickBookingModal` đã bị bỏ: nó render một màn DỰNG SẴN (tên giả, khung
   // giờ viết cứng) nên bấm "Đặt lịch hẹn" trong đó không lưu gì cả. Nay nút đi
@@ -116,23 +124,27 @@ test("CSKH customer directory uses the catalogue-style table and a real detail p
   assert.match(customersPage, /requireNavAccess\("\/customers"\)/);
 });
 
-test("episode confirmation retains its actual close and reopen contract in a three-region workspace", () => {
-  for (const label of [
-    "Danh sách đợt chờ xác nhận",
-    "Chi tiết đợt khám",
-    "Quyết định CSKH",
-    "Tìm bệnh nhân hoặc mã hồ sơ",
-    "Xác nhận đóng",
-    "Còn theo dõi",
-  ]) {
-    assert.match(episodes, new RegExp(label));
-  }
+test("cột danh sách hẹp chỉ nói AI, trạng thái nằm ở vùng làm việc", () => {
+  // Tuyền 16/09/2026: *"chỗ trạng thái đã check-in đang chờ khám nên được cho
+  // vào bên dưới dòng trạng thái khách hàng… bị thừa dòng mất tiêu rồi bị xấu"*.
+  //
+  // Đo được: khi đã chọn một khách, cột danh sách còn ~210px, còn chip
+  // "Đã check-in — đang chờ khám" rộng 191px — nó rơi xuống một dòng riêng dưới
+  // TỪNG tên, danh sách 46 khách thành một cột chữ vỡ.
+  //
+  // Tính chất phải giữ (không canh pixel): ở cột HẸP chỉ có nhãn mới/cũ, chip
+  // trạng thái đi sang vùng "Trạng thái khách hàng — <tên>".
   assert.match(
-    episodes,
-    /xl:grid-cols-\[minmax\(240px,0\.82fr\)_minmax\(360px,1\.25fr\)_minmax\(250px,0\.86fr\)\]/,
+    customers,
+    /\{selected \? \([\s\S]{0,400}?<Chip[\s\S]{0,300}?moiCu\.dong1[\s\S]{0,200}?\) : \([\s\S]{0,120}?<StatusChip/,
+    "cột danh sách hẹp phải là nhãn mới/cũ, không phải chip trạng thái dài",
   );
-  assert.match(episodes, /fetch\("\/api\/episodes"/);
-  assert.match(episodesPage, /requireNavAccess\("\/episodes"\)/);
+  assert.match(customers, /chipTrangThai=\{/);
+  const vung = read("../app/(dashboard)/customers/VungLamViecKhach.tsx");
+  assert.match(vung, /\{chipTrangThai\}/);
+  // Và chỉ MỘT chỗ dựng chip ấy — hai chỗ là hẹn ngày chúng kể hai chuyện khác
+  // nhau về cùng một khách.
+  assert.equal((customers.match(/<StatusChip /g) ?? []).length, 2);
 });
 
 test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette", () => {
@@ -145,8 +157,6 @@ test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette"
     appointmentsPage,
     realtime,
     appointmentEdit,
-    episodesPage,
-    episodes,
   ]) {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}/iu);
     assert.doesNotMatch(source, /pink|rose|fuchsia/iu);
@@ -171,7 +181,17 @@ test("uploading a result file forwards the multipart boundary", () => {
   assert.match(route, /headers\["Content-Type"\] = ctIn/);
   // Và thân phải là LUỒNG: đọc cả tệp vào RAM của tiến trình Next là 80MB mỗi
   // lượt tải video, trên cùng cái máy đang chạy database.
-  assert.match(route, /body: request\.body/);
+  // Chuyển qua `chuyenTiepTaiLen` (node:http, không thời hạn — fetch/undici cắt
+  // sau 5 phút chờ, mà tệp không giới hạn dung lượng thì chép lâu hơn thế).
+  assert.match(route, /chuyenTiepTaiLen\(`\$\{API_BASE\}[^`]*`, request, headers\)/);
+  const chuyen = readFileSync(
+    new URL("../lib/chuyen-tiep-tai-len.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(chuyen, /Readable\.fromWeb\(/);
+  assert.match(chuyen, /\.pipe\(req\)/);
+  assert.match(chuyen, /timeout: 0/);
+  assert.doesNotMatch(route, /82 \* 1024 \* 1024/);
   assert.doesNotMatch(route, /await request\.formData\(\)/);
 
   // Đường ĐỌC phải chuyển tiếp Range, nếu không video không tua được.

@@ -9,6 +9,9 @@ import BookingHub, {
 } from "./BookingHub";
 import type { Option, ProvinceOpt } from "../patients/new/NewPatientForm";
 import { listBookableDoctors } from "../../../lib/doctors-server";
+import { getCurrentStaff } from "../../../lib/current-staff";
+import { vaiLamViec } from "../../../lib/clinic-session";
+import { canWriteIntake } from "../../../lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -103,12 +106,19 @@ export default async function AppointmentsPage() {
 
       <BookingHub
         locations={locations}
+        coSoMacDinhId={(await getCurrentStaff())?.primary_location_id ?? null}
         services={services}
         doctors={doctors}
         provinces={provinces}
         patients={patients}
         appts={appts}
         lanKham={lanKham}
+        // VAI THẬT của người đang mở màn — màn này nay dùng chung cho CSKH và
+        // Lễ tân, và hai vai không đặt được cùng một kênh: kênh "Trực tiếp" kéo
+        // theo tự check-in, mà CSKH không được check-in (luật Tuyền 15/09).
+        // Truyền vai xuống thay vì một cờ suy sẵn — biểu mẫu khách mới bên
+        // trong cũng cần biết nó đang phục vụ ai.
+        vai={await vaiLamViec(canWriteIntake)}
       />
     </div>
   );

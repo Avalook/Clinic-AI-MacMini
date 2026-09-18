@@ -24,9 +24,13 @@ export interface DongCho {
   dich_vu: string | null;
   tuan_da_chot: boolean;
   /** Vì sao dòng này nằm ở hàng chờ. Xem ghi chú ở khối vẽ nhãn bên dưới. */
-  ly_do?: "CHUA_XEP" | "MAT_BAC_SI";
-  /** Bác sĩ vừa rời khỏi lịch — chỉ có với `MAT_BAC_SI`. */
+  ly_do?: "CHUA_XEP" | "MAT_BAC_SI" | "VUOT_SUC_CHUA";
+  /** Bác sĩ vừa rời khỏi lịch (`MAT_BAC_SI`) / bác sĩ đang giữ lịch (`VUOT_SUC_CHUA`). */
   bac_si_cu?: string | null;
+  /** Chỉ có với `VUOT_SUC_CHUA`: bác sĩ hiện tại, trần online và thứ tự đặt. */
+  doctor_id?: string | null;
+  tran?: number | null;
+  thu_tu?: number | null;
 }
 
 export interface BacSi {
@@ -51,7 +55,7 @@ export default function HangChoView({
 
   async function xep(r: DongCho) {
     const id = r.id;
-    const bacSi = chon[id];
+    const bacSi = chon[id] ?? r.doctor_id ?? "";
     if (!bacSi) {
       setLoi((c) => ({ ...c, [id]: "Chọn bác sĩ trước." }));
       return;
@@ -63,17 +67,21 @@ export default function HangChoView({
     // tự bịa ra một độ dài khác với luật phòng khám.
     const gioMoi = gio[id] ?? "";
     const doiGio = Boolean(gioMoi) && gioMoi !== gioCuaLich(r);
-    const body: Record<string, unknown> = doiGio
+    // Lịch vượt sức chứa ĐÃ có bác sĩ — `assign_doctor` chỉ nhận lịch trống, nên
+    // đổi bác sĩ/giờ đi qua `reschedule` (giữ giờ nếu quản lý không đổi).
+    const quaReschedule = doiGio || r.ly_do === "VUOT_SUC_CHUA";
+    const gioGui = doiGio ? gioMoi : gioCuaLich(r);
+    const body: Record<string, unknown> = quaReschedule
       ? {
           id,
           // MỘT lời gọi cho cả hai việc: `reschedule` nhận luôn doctor_id, nên
           // không có khoảnh khắc lịch đã đổi giờ mà chưa có bác sĩ.
           action: "reschedule",
           doctor_id: bacSi,
-          slot_start: ghepGio(r.slot_start, gioMoi),
+          slot_start: ghepGio(r.slot_start, gioGui),
           slot_end: ghepGio(
             r.slot_start,
-            gioMoi,
+            gioGui,
             new Date(r.slot_end).getTime() - new Date(r.slot_start).getTime(),
           ),
         }
@@ -150,7 +158,7 @@ export default function HangChoView({
   if (rows.length === 0) {
     return (
       <p className="rounded-card bg-success-bg px-4 py-3 text-sm text-success">
-        Không còn lịch nào chờ xếp bác sĩ.
+        Không còn lịch nào chờ xếp bác sĩ hay vượt sức chứa.
       </p>
     );
   }
@@ -188,6 +196,14 @@ export default function HangChoView({
                     lý biết còn ai khác cùng cảnh.
                   Thêm 11/08/2026: trước đó màn này chỉ hỏi `doctor_id IS NULL`
                   nên loại thứ hai vô hình hoàn toàn. */}
+              {r.ly_do === "VUOT_SUC_CHUA" && (
+                <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-warning-bg px-2 py-0.5 text-label font-medium text-warning">
+                  <TriangleAlert className="size-3" aria-hidden="true" />
+                  Vượt sức chứa: đặt thứ {r.thu_tu} / {r.tran} khách online
+                  {r.bac_si_cu ? ` của ${r.bac_si_cu}` : ""} — đổi bác sĩ/giờ, hoặc
+                  CSKH gọi khách chốt giữ lịch
+                </p>
+              )}
               {r.ly_do === "MAT_BAC_SI" && (
                 <p className="mt-1 inline-flex items-center gap-1 rounded-chip bg-danger-bg px-2 py-0.5 text-label font-medium text-danger">
                   <TriangleAlert className="size-3" aria-hidden="true" />
@@ -210,7 +226,7 @@ export default function HangChoView({
             </div>
 
             <select
-              value={chon[r.id] ?? ""}
+              value={chon[r.id] ?? r.doctor_id ?? ""}
               onChange={(e) => setChon((c) => ({ ...c, [r.id]: e.target.value }))}
               className="h-9 w-full rounded-control border border-line bg-surface px-2 text-sm text-ink outline-none focus:border-brand-600"
             >
@@ -249,7 +265,11 @@ export default function HangChoView({
                 className="inline-flex items-center gap-1.5 rounded-control bg-brand-600 px-3 py-2 text-sm font-medium text-surface transition-colors hover:bg-brand-700 disabled:opacity-50"
               >
                 <UserPlus className="size-4" aria-hidden="true" />
-                {dangXep === r.id ? "Đang xếp…" : "Xếp bác sĩ"}
+                {dangXep === r.id
+                  ? "Đang xếp…"
+                  : r.ly_do === "VUOT_SUC_CHUA"
+                    ? "Đổi bác sĩ/giờ"
+                    : "Xếp bác sĩ"}
               </button>
               {xongRoi[r.id] !== undefined && (
                 <Link

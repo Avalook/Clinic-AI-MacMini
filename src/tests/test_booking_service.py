@@ -18,12 +18,14 @@ import pytest
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.booking_service import (
+    CACH_XAC_MINH,
     DEAD_STATUSES,
     DOCTOR_OVERLAP_CAP,
     KEEP_STATUS,
     TRANSITIONS,
     Action,
     BookingService,
+    cach_xac_minh_bat_buoc,
     is_dead,
     is_walkin,
     resolve_action,
@@ -39,9 +41,9 @@ _MAI = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
 
 class TestTransitions:
     def test_every_action_is_covered(self) -> None:
+        # "confirm"/"decline" của bác sĩ bỏ 15/09/2026 (Tuyền chốt: bác sĩ không
+        # nhận/từ chối lịch — quản lý xếp lịch trực là phải làm).
         assert set(TRANSITIONS) == {
-            "confirm",
-            "decline",
             "complete",
             "checkin",
             "undo_checkin",
@@ -75,7 +77,6 @@ class TestTransitions:
         "nhận" thêm lần nữa chỉ đẻ ra một event không nói thêm gì.
         """
         assert "CONFIRMED" not in TRANSITIONS["cskh_confirm"].from_statuses
-        assert "CONFIRMED" not in TRANSITIONS["confirm"].from_statuses
 
     def test_the_old_confirm_path_still_works_for_old_appointments(self) -> None:
         """23 lịch SCHEDULED trên prod đặt từ trước luật này.
@@ -84,21 +85,17 @@ class TestTransitions:
         chúng vẫn phải khám được, đổi được, huỷ được.
         """
         assert TRANSITIONS["cskh_confirm"].from_statuses == frozenset({"SCHEDULED"})
-        assert TRANSITIONS["confirm"].from_statuses == frozenset(
-            {"SCHEDULED", "CSKH_CONFIRMED"}
-        )
         for act in ("checkin", "cancel", "reschedule"):
             assert "SCHEDULED" in TRANSITIONS[act].from_statuses
 
-    def test_a_doctor_may_still_decline_an_already_confirmed_appointment(
-        self,
-    ) -> None:
-        """Bỏ vòng xác nhận KHÔNG có nghĩa là bác sĩ hết quyền từ chối.
-
-        Lịch mới sinh ra đã CONFIRMED; nếu decline không nhận CONFIRMED thì kể
-        từ hôm nay không bác sĩ nào từ chối được lịch nào nữa.
-        """
-        assert "CONFIRMED" in TRANSITIONS["decline"].from_statuses
+    def test_bac_si_khong_con_nhan_hay_tu_choi_lich(self) -> None:
+        """Tuyền chốt 15/09/2026: quản lý xếp lịch trực là bác sĩ phải làm; nghỉ
+        đột xuất thì báo CSKH/lễ tân/trưởng ca. Trước đó (04/08) bác sĩ vẫn từ
+        chối được cả lịch đã CONFIRMED — nay hai hành động ấy không còn."""
+        for act in ("confirm", "decline"):
+            assert act not in TRANSITIONS
+            with pytest.raises(ValidationError):
+                resolve_action(act)
 
     def test_check_in_does_not_wait_for_the_doctor(self) -> None:
         # D21: reception checks in from any live appointment. Requiring CONFIRMED
@@ -128,10 +125,6 @@ class TestTransitions:
         """
         assert TRANSITIONS["reassign"].to_status == "CONFIRMED"
 
-    def test_a_declined_appointment_is_not_cancelled(self) -> None:
-        # It keeps its doctor_id for history and surfaces to CSKH to reassign.
-        assert TRANSITIONS["decline"].to_status == "DOCTOR_DECLINED"
-
     @pytest.mark.parametrize("action", ["", "CONFIRM", "finish", "delete", "reopen"])
     def test_unknown_actions_are_refused(self, action: str) -> None:
         with pytest.raises(ValidationError):
@@ -139,15 +132,6 @@ class TestTransitions:
 
 
 class TestRoleGates:
-    @pytest.mark.parametrize("action", ["confirm", "decline"])
-    def test_only_the_doctor_side_accepts_or_declines(self, action: str) -> None:
-        transition = TRANSITIONS[action]
-        assert transition.allowed_roles == frozenset(
-            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
-        )
-        # And on their OWN list — TKYK is the exception, entering on behalf.
-        assert transition.owner_only
-
     def test_complete_is_doctors_plus_ops(self) -> None:
         """`complete` KHÔNG còn thuần bác sĩ (Quang 08/08/2026).
 
@@ -187,12 +171,11 @@ class TestRoleGates:
                 assert cashier not in transition.allowed_roles
 
     @pytest.mark.parametrize("action", ["checkin", "undo_checkin", "no_show"])
-    def test_front_desk_and_cskh_check_patients_in_or_out(self, action: str) -> None:
-        # + CSKH (Quang 08/08/2026): *"sản phẩm MVP này là cskh thao tác được
-        # hết mà"* — và đi ĐÚNG đường thật, để khách CSKH check-in hiện ở hàng
-        # đợi tiếp nhận y như khách lễ tân check-in.
+    def test_front_desk_checks_patients_in_or_out(self, action: str) -> None:
+        # CSKH ra khỏi cửa này 15/09/2026 (Tuyền chốt: check-in là việc của lễ
+        # tân). Từ 08/08 tới 15/09 CSKH check-in được — quyết định MVP của Quang.
         assert TRANSITIONS[action].allowed_roles == frozenset(
-            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT, ClinicRole.CSKH}
+            {ClinicRole.RECEPTION, ClinicRole.MANAGEMENT}
         )
 
     def test_owner_check_chi_ap_cho_bac_si_that(self) -> None:
@@ -216,7 +199,7 @@ class TestRoleGates:
 
     def test_only_the_doctor_actions_are_owner_scoped(self) -> None:
         owner_only = {a for a, t in TRANSITIONS.items() if t.owner_only}
-        assert owner_only == {"confirm", "decline", "complete"}
+        assert owner_only == {"complete"}
 
 
 class TestSeatRule:
@@ -364,6 +347,49 @@ def _identity() -> StaffIdentity:
     )
 
 
+class TestCheckInXacMinh:
+    """Cách xác minh khi check-in: TUỲ CHỌN (Tuyền chốt lại 15/09/2026 tối).
+
+    Sáng 15/09 bắt buộc chọn; tối cùng ngày Tuyền bỏ bắt buộc — lễ tân nhìn mặt
+    và số điện thoại, ai check-in lúc nào đã có log. Không gửi thì không ghi (và
+    KHÔNG điền sẵn một cách); mã lạ vẫn bị từ chối."""
+
+    def test_khong_gui_cach_xac_minh_thi_khong_ghi_gi(self) -> None:
+        assert cach_xac_minh_bat_buoc(None) is None
+        assert cach_xac_minh_bat_buoc("  ") is None
+
+    def test_cach_ngoai_danh_muc_bi_tu_choi(self) -> None:
+        with pytest.raises(ValidationError):
+            cach_xac_minh_bat_buoc("NHIN_MAT_QUEN")
+
+    @pytest.mark.parametrize(
+        "cach", ["THONG_TIN_CA_NHAN", "GIAY_TO_CO_ANH", "NGUOI_NHA_XAC_NHAN"]
+    )
+    def test_ba_cach_da_chot(self, cach: str) -> None:
+        assert cach_xac_minh_bat_buoc(cach.lower()) == cach
+
+    def test_danh_muc_khop_rang_buoc_database(self) -> None:
+        import pathlib
+        import re
+
+        sql = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "supabase/migrations/20260915000009_checkin_xac_minh.sql"
+        ).read_text(encoding="utf-8")
+        khoi = re.search(r"xac_minh_cach IN\s*\((.*?)\)", sql, re.S)
+        assert khoi is not None
+        assert set(re.findall(r"'(\w+)'", khoi.group(1))) == set(CACH_XAC_MINH)
+
+    def test_danh_muc_khop_giao_dien(self) -> None:
+        import pathlib
+
+        ts = (
+            pathlib.Path(__file__).resolve().parents[1] / "dashboard/lib/xac-minh.ts"
+        ).read_text(encoding="utf-8")
+        for ma in CACH_XAC_MINH:
+            assert f'"{ma}"' in ts, f"lib/xac-minh.ts thiếu {ma}"
+
+
 class TestSeatMessages:
     """The wording is the feature: a receptionist has to know what to do next."""
 
@@ -384,7 +410,8 @@ class TestSeatMessages:
 
     def test_a_full_booked_slot_says_the_third_seat_is_for_walk_ins(self) -> None:
         service = BookingService(MagicMock())
-        conn = _Conn(self._seats(DEFAULT_POLICY.regular_cap, 0))
+        # True = tuần đã công bố lịch trực (lượt hỏi đầu tiên của _slot_full).
+        conn = _Conn(True, self._seats(DEFAULT_POLICY.regular_cap, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -432,6 +459,43 @@ class TestSeatMessages:
         )
         assert message is not None and "khung 15 phút kế tiếp" in message
 
+    def test_tuan_chua_cong_bo_thi_lich_hen_khong_bi_chan(self) -> None:
+        """CONTEXT v1.0: đặt trước khi công bố lịch trực thì nhận — đối soát
+        lúc công bố. Khung đã đủ trần mà tuần chưa công bố vẫn không có câu
+        từ chối, và không tốn thêm lượt đếm ghế."""
+        service = BookingService(MagicMock())
+        conn = _Conn(False, self._seats(DEFAULT_POLICY.regular_cap, 0))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                "d1",
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "HOTLINE",
+                _identity(),
+                DEFAULT_POLICY,
+            )
+        )
+        assert message is None
+        assert "tuan_lich_truc_da_cong_bo" in conn.executed[0]
+        assert len(conn.executed) == 1
+
+    def test_vang_lai_van_bi_tran_du_tuan_chua_cong_bo(self) -> None:
+        """Khách đang đứng ở quầy — walkin_cap không phụ thuộc lịch trực."""
+        service = BookingService(MagicMock())
+        conn = _Conn(self._seats(0, DEFAULT_POLICY.walkin_cap))
+        message = asyncio.run(
+            service._slot_full(
+                conn,
+                None,
+                datetime(2026, 7, 30, 9, 20, tzinfo=timezone.utc),
+                "WALK_IN",
+                _identity(),
+                DEFAULT_POLICY,
+            )
+        )
+        assert message is not None
+        assert not any("tuan_lich_truc_da_cong_bo" in q for q in conn.executed)
+
     # "Lịch đã huỷ trả lại ghế" ĐÃ CHUYỂN SANG SQL.
     #
     # Bài kiểm cũ ở đây nạp một danh sách dòng toàn trạng thái chết rồi khẳng
@@ -446,7 +510,7 @@ class TestSeatMessages:
         # khung không tồn tại trên lưới của họ.
         service = BookingService(MagicMock())
         policy = ClinicPolicy(slot_minutes=30, regular_cap=4, walkin_cap=1)
-        conn = _Conn(self._seats(4, 0))
+        conn = _Conn(True, self._seats(4, 0))
         message = asyncio.run(
             service._slot_full(
                 conn,
@@ -969,3 +1033,61 @@ class TestXoaVetBacSiDaGo:
         duoi = ma[ma.rindex('if patch.get("doctor_id")') :]
         assert 'patch["bac_si_da_go_id"] = None' in duoi
         assert 'patch["bo_bac_si_luc"] = None' in duoi
+
+
+class TestHuyLichThiDongLuot:
+    """Huỷ lịch / hoàn tác check-in phải ĐÓNG LUÔN lượt khám, không chỉ các bước.
+
+    Đo được 16/09/2026 trong buổi chạy thử `scripts/tests/buoi-kham-that.py`:
+    dọn xong, 33 lời gọi huỷ đều trả 200 — mà bảng lượt khám vẫn còn 12 lượt.
+    `cancel_visit_workflow` chỉ chạm `work_item`; `visit.status` ở lại
+    IN_PROGRESS, và bảng lọc đúng theo `status IN ('OPEN','IN_PROGRESS')`. Kết
+    quả là một lượt MA: không bước nào bấm được, không ai đóng được, người trực
+    phải tự đoán khách còn ở đây hay đã về.
+    """
+
+    @staticmethod
+    def _chay(reason: str) -> list[tuple[Any, ...]]:
+        conn = MagicMock()
+        conn.fetchval = AsyncMock(return_value="v0000000-0000-4000-8000-000000000001")
+        conn.execute = AsyncMock(return_value="UPDATE 1")
+        identity = StaffIdentity(
+            auth_user_id="u0000000-0000-4000-8000-000000000001",
+            staff_id="s0000000-0000-4000-8000-000000000001",
+            full_name="Lễ tân A",
+            department="Lễ tân",
+            clinic_id="c0000000-0000-4000-8000-000000000001",
+            role=ClinicRole.RECEPTION,
+            location_id="l0000000-0000-4000-8000-000000000001",
+            location_name="Kim Ngưu",
+        )
+        service = BookingService(MagicMock())
+        asyncio.run(
+            service._cancel_visit_workflow(
+                conn,
+                appointment_id="a0000000-0000-4000-8000-000000000001",
+                identity=identity,
+                reason=reason,
+            )
+        )
+        return [c.args for c in conn.execute.await_args_list]
+
+    @pytest.mark.parametrize("reason", ["cancel", "undo_checkin"])
+    def test_luot_bi_dong_lai(self, reason: str) -> None:
+        goi = self._chay(reason)
+        assert goi, "không có lệnh nào đóng lượt khám"
+        sql = goi[0][0]
+        assert "UPDATE public.visit" in sql
+        assert "status = 'INCOMPLETE'" in sql
+        # Lý do BẮT BUỘC ở Postgres (visit_incomplete_can_ly_do) — để trống là
+        # 500 ngay giữa lúc lễ tân đang huỷ lịch cho khách đứng trước mặt.
+        assert goi[0][3] and goi[0][3].strip()
+
+    def test_ho_so_da_ky_khong_bi_keo_nguoc(self) -> None:
+        """FINALIZED/AMENDED nằm ngoài WHERE.
+
+        Huỷ một lịch hẹn không được phép viết lại kết luận bác sĩ đã ký. Nếu ai
+        nới WHERE này ra cho "dọn cho sạch", bài kiểm đỏ trước.
+        """
+        sql = self._chay("cancel")[0][0]
+        assert "status IN ('OPEN', 'IN_PROGRESS')" in sql

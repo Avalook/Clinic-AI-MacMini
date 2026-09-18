@@ -1,0 +1,325 @@
+"use client";
+
+// MỘT PHÒNG DỊCH VỤ: siêu âm, thủ thuật, lấy mẫu (Tuyền chốt 16/09/2026).
+//
+// Trái: hàng chờ của phòng. Phải: khách đang chọn —
+//   Bắt đầu  → khách vào phòng (giờ vào)
+//   ghi kết quả + gửi ảnh/video/PDF vào ô (xem ngay tại chỗ)
+//   Xong     → khách ra phòng (giờ ra), sang bước tiếp theo
+//
+// Ai bấm được là do MÁY CHỦ quyết theo bước của chỉ định: siêu âm — bác sĩ hoặc
+// điều dưỡng siêu âm; thủ thuật — CHỈ bác sĩ (điều dưỡng, thư ký hỗ trợ); lấy
+// mẫu — điều dưỡng. Màn này không tự đoán, chỉ hiện câu từ chối của máy chủ.
+
+import { useCallback, useEffect, useState } from "react";
+
+import {
+  docBang,
+  guiThaoTac,
+  gioVn,
+  soPhutTu,
+  type DongHangCho,
+  type Phong,
+  type PhongHomNay,
+} from "../../_lam-viec/api";
+import HangChoCot from "../../_lam-viec/HangChoCot";
+import KhungTep from "../../_lam-viec/KhungTep";
+
+type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "KHAC";
+
+function loaiCua(node: string | null): LoaiPhong {
+  if (!node) return "KHAC";
+  if (node === "DICHVU-SIEUAM") return "SIEU_AM";
+  if (node.startsWith("DICHVU-LAYMAU")) return "LAY_MAU";
+  if (node === "DICHVU-THUTHUAT" || node === "DICHVU-SANGLOC-COTUCUNG") {
+    return "THU_THUAT";
+  }
+  return "KHAC";
+}
+
+const NHAN_KET_QUA: Record<LoaiPhong, string> = {
+  SIEU_AM: "Kết quả siêu âm (mô tả, kết luận)",
+  THU_THUAT: "Ghi thực hiện thủ thuật",
+  LAY_MAU: "Ghi chú lấy mẫu (nếu có)",
+  KHAC: "Ghi kết quả",
+};
+
+const NUT_XONG: Record<LoaiPhong, string> = {
+  SIEU_AM: "Siêu âm xong",
+  THU_THUAT: "Làm thủ thuật xong",
+  LAY_MAU: "Đã lấy mẫu",
+  KHAC: "Làm xong",
+};
+
+export default function PhongDichVu({ ma }: { ma: string }) {
+  const [phong, setPhong] = useState<Phong | null>(null);
+  const [khongCo, setKhongCo] = useState(false);
+  const [hang, setHang] = useState<DongHangCho[] | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [chonId, setChonId] = useState<string | null>(null);
+  const [lanNap, setLanNap] = useState(0);
+
+  useEffect(() => {
+    let huy = false;
+    void docBang<PhongHomNay>("phong-hom-nay").then((kq) => {
+      if (huy) return;
+      if (!kq.ok) {
+        setLoi(kq.loi);
+        return;
+      }
+      const p = kq.data.tat_ca_phong.find((x) => x.code === ma) ?? null;
+      setPhong(p);
+      setKhongCo(p === null);
+    });
+    return () => {
+      huy = true;
+    };
+  }, [ma]);
+
+  useEffect(() => {
+    if (!phong) return;
+    let huy = false;
+    const nap = async () => {
+      const kq = await docBang<{ hang_cho: DongHangCho[] }>("hang-cho", {
+        phong: phong.id,
+      });
+      if (huy) return;
+      if (kq.ok) {
+        setLoi(null);
+        setHang(kq.data.hang_cho.filter((d) => d.loai === "DICH_VU"));
+      } else setLoi(kq.loi);
+    };
+    void nap();
+    const t = setInterval(() => void nap(), 15000);
+    return () => {
+      huy = true;
+      clearInterval(t);
+    };
+  }, [phong, lanNap]);
+
+  const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+
+  if (khongCo) {
+    return (
+      <p className="rounded-card border border-danger bg-danger-bg p-4 text-sm text-danger">
+        Không có phòng “{ma}”, hoặc phòng đã tắt.
+      </p>
+    );
+  }
+
+  const ds = hang ?? [];
+  const macDinh =
+    ds.find((d) => d.trang_thai === "serving") ??
+    ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
+    null;
+  const chon = ds.find((d) => d.id === chonId) ?? macDinh;
+
+  return (
+    <div className="grid gap-4">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-xl font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
+        {phong?.tang ? <p className="text-sm text-ink-muted">{phong.tang}</p> : null}
+        {hang ? (
+          <p className="text-sm text-ink-muted">
+            {ds.filter((d) => d.trang_thai === "waiting" || d.trang_thai === "called").length}{" "}
+            đang chờ · {ds.filter((d) => d.trang_thai === "serving").length} đang làm ·{" "}
+            {ds.filter((d) => d.trang_thai === "done").length} đã xong
+          </p>
+        ) : null}
+        {loi ? (
+          <p role="alert" className="text-sm text-danger">
+            {loi}
+          </p>
+        ) : null}
+      </header>
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
+        <aside aria-label="Hàng chờ phòng">
+          {hang === null ? (
+            <p className="text-sm text-ink-muted">Đang tải hàng chờ…</p>
+          ) : (
+            <HangChoCot
+              dong={ds}
+              chon={chon?.id ?? null}
+              onChon={setChonId}
+              trong="Chưa có khách nào được chỉ định vào phòng này."
+            />
+          )}
+        </aside>
+        {chon ? (
+          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} />
+        ) : (
+          <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-sm text-ink-muted shadow-card">
+            Chọn một khách trong hàng chờ.
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KhachTrongPhong({
+  dong,
+  onDaBam,
+}: {
+  dong: DongHangCho;
+  onDaBam: () => void;
+}) {
+  const loai = loaiCua(dong.node_code);
+  const [ketQua, setKetQua] = useState("");
+  const [lyDo, setLyDo] = useState("");
+  const [moKhongLam, setMoKhongLam] = useState(false);
+  const [dangGui, setDangGui] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  const bam = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiThaoTac(
+      thaoTac,
+      thaoTac === "goi-khach" ? dong.id : dong.ref_id,
+      duLieu,
+    );
+    setDangGui(false);
+    if (!kq.ok) setLoi(kq.loi);
+    else onDaBam();
+  };
+
+  const dangLam = dong.trang_thai === "serving";
+  const dangCho = dong.trang_thai === "waiting" || dong.trang_thai === "called";
+  const daXong = dong.trang_thai === "done";
+
+  return (
+    <section
+      aria-label={`Khách ${dong.ten}`}
+      className="min-w-0 space-y-4 rounded-card bg-surface p-4 shadow-card"
+    >
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+            Số {dong.so_thu_tu}
+          </p>
+          <h2 className="text-lg font-semibold text-ink">{dong.ten}</h2>
+          <p className="text-sm text-ink-muted">
+            {dong.ma_bn} · {dong.viec ?? "—"}
+            {dong.bac_si ? ` · BS chỉ định: ${dong.bac_si}` : ""}
+          </p>
+          <p className="mt-1 text-label text-ink-muted">
+            {daXong
+              ? `Xong lúc ${gioVn(dong.xong_luc)}`
+              : dangLam
+                ? `Bắt đầu ${gioVn(dong.bat_dau_luc)} · đã làm ${soPhutTu(dong.bat_dau_luc)}`
+                : dong.trang_thai === "blocked"
+                  ? "Khách đang ở một bước khác — chưa gọi vào được."
+                  : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {dangCho ? (
+            <button
+              type="button"
+              disabled={dangGui}
+              onClick={() => void bam("goi-khach")}
+              className="inline-flex min-h-11 items-center rounded-control border border-brand-600 px-5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+            >
+              {dong.trang_thai === "called"
+                ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
+                : "Gọi vào"}
+            </button>
+          ) : null}
+          {dangCho ? (
+            <button
+              type="button"
+              disabled={dangGui}
+              onClick={() => void bam("bat-dau-dich-vu")}
+              className="inline-flex min-h-11 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+            >
+              {dangGui ? "Đang ghi…" : "Bắt đầu"}
+            </button>
+          ) : null}
+        </div>
+      </header>
+
+      {loi ? (
+        <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+          {loi}
+        </p>
+      ) : null}
+
+      {/* Ô TỆP: có ngay từ lúc khách đang làm, để gửi ảnh/video ngay khi chụp. */}
+      {(dangLam || daXong) && loai !== "LAY_MAU" ? (
+        <KhungTep
+          clinicPatientId={dong.clinic_patient_id}
+          serviceOrderId={dong.ref_id}
+          tieuDe={loai === "SIEU_AM" ? "Ảnh & video siêu âm" : "Ảnh · video · phiếu"}
+        />
+      ) : null}
+
+      {dangLam ? (
+        <div className="space-y-3">
+          <label className="block">
+            <span className="text-sm font-semibold text-ink">{NHAN_KET_QUA[loai]}</span>
+            <textarea
+              value={ketQua}
+              onChange={(e) => setKetQua(e.target.value)}
+              rows={loai === "LAY_MAU" ? 2 : 6}
+              className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink"
+              placeholder={
+                loai === "SIEU_AM"
+                  ? "Tử cung, nội mạc, buồng trứng P/T, kết luận…"
+                  : loai === "THU_THUAT"
+                    ? "Thủ thuật đã làm, diễn biến, dặn dò…"
+                    : ""
+              }
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={dangGui}
+              onClick={() =>
+                void bam("xong-dich-vu", { performed: true, result_note: ketQua })
+              }
+              className="inline-flex min-h-11 items-center rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMoKhongLam((v) => !v)}
+              className="inline-flex min-h-11 items-center rounded-control border border-line px-4 text-sm text-ink-soft hover:bg-surface-muted"
+            >
+              Không làm được…
+            </button>
+          </div>
+          {moKhongLam ? (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="min-w-60 flex-1">
+                <span className="text-xs font-semibold text-ink">Lý do không làm được</span>
+                <input
+                  value={lyDo}
+                  onChange={(e) => setLyDo(e.target.value)}
+                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={dangGui || !lyDo.trim()}
+                onClick={() =>
+                  void bam("xong-dich-vu", {
+                    performed: false,
+                    reason: lyDo,
+                    result_note: ketQua,
+                  })
+                }
+                className="inline-flex min-h-10 items-center rounded-control border border-danger px-4 text-sm font-semibold text-danger disabled:opacity-50"
+              >
+                Ghi không làm được
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}

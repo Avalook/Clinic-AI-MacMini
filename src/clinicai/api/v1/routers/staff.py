@@ -1,9 +1,11 @@
 """FastAPI endpoints for Staff management."""
 
+from typing import Literal
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, status
+from pydantic import BaseModel
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import (
@@ -113,3 +115,44 @@ async def delete_staff(
         await service.deactivate(id)
     except CoreResourceNotFoundError as exc:
         raise NotFoundError(exc.message) from exc
+
+
+class NhatKyTaiKhoanRequest(BaseModel):
+    hanh_dong: Literal["tao", "doi_mat_khau", "doi_ten_dang_nhap", "thu_hoi"]
+
+
+@router.post("/staff/{id}/nhat-ky-tai-khoan", status_code=201)
+async def ghi_nhat_ky_tai_khoan(
+    id: UUID,
+    body: NhatKyTaiKhoanRequest,
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Ghi nhật ký thao tác TÀI KHOẢN ĐĂNG NHẬP của nhân sự (15/09/2026).
+
+    Tạo/đổi mật khẩu/đổi tên đăng nhập/thu hồi chạy ở route Next bằng khoá quản
+    trị GoTrue (backend chưa giữ khoá ấy) và trước đây KHÔNG để lại dấu vết nào.
+    Route gọi đây sau mỗi thao tác thành công. Không bao giờ nhận mật khẩu.
+    """
+    from clinicai.services.audit import record_event
+
+    async with pool.acquire() as conn, conn.transaction():
+        ten = await conn.fetchval(
+            "SELECT s.full_name FROM staff s JOIN clinic_membership m"
+            "  ON m.staff_id = s.id AND m.clinic_id = $2::uuid"
+            " WHERE s.id = $1::uuid",
+            str(id),
+            identity.clinic_id,
+        )
+        if ten is None:
+            raise NotFoundError("Không tìm thấy nhân sự này.")
+        await record_event(
+            conn,
+            event_type=f"staff.account_{body.hanh_dong}",
+            aggregate_type="staff",
+            aggregate_id=str(id),
+            identity=identity,
+            origin="api:staff-account",
+            payload={"staff_id": str(id), "hanh_dong": body.hanh_dong},
+        )
+    return {"ok": True}

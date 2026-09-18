@@ -18,9 +18,16 @@ time.
 
 from __future__ import annotations
 
+import asyncpg
 from fastapi import APIRouter, Depends
 
-from clinicai.api.identity import StaffIdentity, get_display_identity
+from clinicai.api.identity import (
+    StaffIdentity,
+    get_current_identity,
+    get_display_identity,
+    vai_theo_thu_tu,
+)
+from clinicai.core.database import get_db_pool
 
 router = APIRouter()
 
@@ -57,4 +64,55 @@ async def me(
         "can_write_clinical": identity.can_write_clinical(),
         "is_doctor": identity.is_doctor(),
         "is_cashier": identity.is_cashier(),
+    }
+
+
+@router.get("/me/vi-tri-hom-nay")
+async def vi_tri_hom_nay(
+    # CỬA THƯỜNG, KHÔNG PHẢI `get_display_identity`. Cửa kia cố tình dễ dãi nên
+    # phải hiếm (`test_chi_dung_mot_duong_mo_cho_man_hinh`), và ở đây không cần:
+    # tài khoản TV và đối tác bị layout đẩy sang màn riêng TRƯỚC khi thanh bên
+    # kịp hỏi đường này.
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Hôm nay người gọi đứng những VỊ TRÍ nào — để thanh bên đi theo việc thật.
+
+    Tuyền chốt 16/09/2026: *"các node bên sidebar phải là theo vị trí chứ không
+    ấn định"*. Hai tuần lịch Kim Ngưu cho thấy một điều dưỡng đứng tới tám vị
+    trí ở ba tầng; thanh bên theo VAI cố định thì hôm cô ấy đứng quầy thuốc,
+    menu vẫn mời cô ấy vào màn siêu âm.
+
+    CHỈ TRẢ MÃ VỊ TRÍ, KHÔNG TRẢ MÀN HÌNH. Vị trí nào mở màn nào là chuyện trình
+    bày, nằm ở `nav-items.ts`. Đây là dữ kiện: "hôm nay bạn đứng đâu".
+
+    KHÔNG PHẢI CỬA KHOÁ. Quyền vẫn ở chỗ cũ (và đang mở tạm, xem
+    `identity.mo_quyen_tam_thoi`). Rỗng — không có ca hôm nay — thì thanh bên
+    rơi về menu theo vai như trước, chứ không trống trơn.
+    """
+    rows = await pool.fetch(
+        """
+        SELECT w.station, w.shift
+          FROM public.work_roster w
+          LEFT JOIN public.vi_tri_lam_viec v
+            ON v.clinic_id = w.clinic_id AND v.code = w.station
+         WHERE w.clinic_id = $1::uuid
+           AND w.staff_id = $2::uuid
+           AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           AND w.status <> 'REJECTED'
+         -- Thứ tự trong NGÀY: ca sớm trước, rồi thứ tự vị trí trong lịch. Vai
+         -- đầu tiên là "vai chính" quyết định màn hình (lib/clinic-session.ts).
+         ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift),
+                  v.sort NULLS LAST, w.station
+        """,
+        identity.clinic_id,
+        identity.staff_id,
+    )
+    vi_tri = list(dict.fromkeys(r["station"] for r in rows))
+    return {
+        "vi_tri": vi_tri,
+        "ca": sorted({r["shift"] for r in rows}),
+        # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
+        # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.
+        "vai": vai_theo_thu_tu(vi_tri, identity.role),
     }

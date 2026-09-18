@@ -9,7 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { canWriteIntake } from "../../../../lib/roles";
 
 const EMPTY = { exists: false, matches: [] as unknown[] };
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   // 2) Chỉ vai ghi tiếp nhận (CSKH/Lễ tân/QL/ĐD) — đúng vai dùng màn tạo BN.
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

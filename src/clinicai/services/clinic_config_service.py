@@ -34,6 +34,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -43,7 +44,7 @@ CONFIG_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
 
 
 def assert_may_configure(identity: StaffIdentity) -> None:
-    if identity.role not in CONFIG_ROLES:
+    if not identity.co_vai(CONFIG_ROLES):
         raise ValidationError(
             f"Vai {identity.role.value} không sửa được cấu hình phòng khám."
         )
@@ -74,7 +75,10 @@ _STAFF_SQL = """
 SELECT s.id, s.full_name, s.short_name, s.is_active, m.role,
        l.name AS location_name,
        (SELECT coalesce(array_agg(sn.node_code ORDER BY sn.node_code), '{}')
-          FROM public.staff_node sn WHERE sn.staff_id = s.id) AS nodes
+          FROM public.staff_node sn WHERE sn.staff_id = s.id) AS nodes,
+       (SELECT coalesce(array_agg(tb.bac_si_staff_id::text), '{}')
+          FROM public.thu_ky_bac_si tb
+         WHERE tb.clinic_id = $1::uuid AND tb.thu_ky_staff_id = s.id) AS bac_si
   FROM public.staff s
   JOIN public.clinic_membership m
     ON m.staff_id = s.id AND m.clinic_id = $1::uuid AND m.is_active
@@ -87,6 +91,27 @@ SELECT s.id, s.full_name, s.short_name, s.is_active, m.role,
 class ClinicConfigService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+
+    async def _ghi_nhat_ky(
+        self,
+        identity: StaffIdentity,
+        *,
+        loai: str,
+        doi_tuong_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """NHẬT KÝ CẤU HÌNH (15/09/2026): quản lý tự khai phòng/bước/người, nên
+        phải biết ai đổi gì, lúc nào. Ghi sau khi lệnh cấu hình đã xong."""
+        async with self._pool.acquire() as conn:
+            await record_event(
+                conn,
+                event_type=f"clinic_config.{loai}",
+                aggregate_type="clinic",
+                aggregate_id=identity.clinic_id,
+                identity=identity,
+                origin="api:clinic-config",
+                payload={"doi_tuong_id": doi_tuong_id, **payload},
+            )
 
     async def overview(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Sơ đồ phòng khám: cơ sở → tầng → phòng, kèm bước mỗi phòng phục vụ."""
@@ -182,6 +207,12 @@ class ClinicConfigService:
         if name is None:
             raise ValidationError("Không tìm thấy dịch vụ này.")
         logger.info("service_form_set", service=name, form=nu, form_nam=nam)
+        await self._ghi_nhat_ky(
+            identity,
+            loai="service_form",
+            doi_tuong_id=service_type_id,
+            payload={"form_code": nu, "form_code_nam": nam},
+        )
         return {"ok": True, "name": name, "form_code": nu, "form_code_nam": nam}
 
     async def staff(self, *, identity: StaffIdentity) -> dict[str, Any]:
@@ -195,6 +226,7 @@ class ClinicConfigService:
                     "short_name": r["short_name"],
                     "role": r["role"],
                     "location_name": r["location_name"],
+                    "bac_si": list(r["bac_si"] or []),
                     "nodes": list(r["nodes"] or []),
                 }
                 for r in rows
@@ -220,6 +252,9 @@ class ClinicConfigService:
         if updated is None:
             raise ValidationError("Không tìm thấy phòng này.")
         logger.info("room_floor_set", room=updated, floor=clean)
+        await self._ghi_nhat_ky(
+            identity, loai="room_floor", doi_tuong_id=room_id, payload={"floor": clean}
+        )
         return {"ok": True, "room_code": updated, "floor": clean}
 
     async def set_room_nodes(
@@ -261,6 +296,12 @@ class ClinicConfigService:
                     [(identity.clinic_id, room_id, c) for c in node_codes],
                 )
         logger.info("room_nodes_set", room=room["code"], n=len(node_codes))
+        await self._ghi_nhat_ky(
+            identity,
+            loai="room_nodes",
+            doi_tuong_id=room_id,
+            payload={"nodes": sorted(node_codes)},
+        )
         return {"ok": True, "room_code": room["code"], "nodes": node_codes}
 
     async def set_staff_nodes(
@@ -297,6 +338,12 @@ class ClinicConfigService:
                     [(identity.clinic_id, staff_id, c) for c in node_codes],
                 )
         logger.info("staff_nodes_set", staff=name, n=len(node_codes))
+        await self._ghi_nhat_ky(
+            identity,
+            loai="staff_nodes",
+            doi_tuong_id=staff_id,
+            payload={"nodes": sorted(node_codes)},
+        )
         return {"ok": True, "full_name": name, "nodes": node_codes}
 
 

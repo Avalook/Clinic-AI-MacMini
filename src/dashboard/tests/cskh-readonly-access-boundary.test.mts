@@ -36,7 +36,7 @@ test("trưởng ca có cùng đường vào customers với backend", () => {
 });
 
 test("customers dựng vùng ghi chỉ khi có capability và giữ vùng chỉ đọc", () => {
-  assert.match(page, /const canOperateCskh = canOperateCustomerCare\(role\)/);
+  assert.match(page, /const canOperateCskh = vaiHomNay\.some\(canOperateCustomerCare\)/);
   assert.match(page, /canOperateCskh=\{canOperateCskh\}/);
   assert.match(
     view,
@@ -112,7 +112,7 @@ test("feedback và tệp chỉ hiển thị dữ liệu khi readOnly", () => {
   assert.match(tep, /readOnly = false/);
   assert.match(
     tep,
-    /!readOnly && \([\s\S]{0,700}\+ Tải ảnh \/ phiếu/,
+    /!readOnly && \([\s\S]{0,1500}\+ Tải ảnh \/ video \/ phiếu/,
     "upload control không được render ở chế độ chỉ đọc",
   );
   assert.match(

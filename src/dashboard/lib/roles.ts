@@ -20,7 +20,12 @@ export type ClinicRole =
   // Màn hình TV phòng chờ — KHÔNG phải người, là cái máy treo tường.
   // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
   // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
-  | "DISPLAY";
+  | "DISPLAY"
+  // NGƯỜI NGOÀI PHÒNG KHÁM — lab, phòng chụp. Vào để gửi kết quả họ vừa làm.
+  // Backend từ chối vai này ở MỌI endpoint trừ hai đường của riêng nó
+  // (identity.py: `get_current_identity` chặn, `get_partner_identity` mở), nên
+  // ở đây nó chỉ cần đúng một mục trên thanh bên và không có gì khác.
+  | "PARTNER";
 
 export const ALL_ROLES: ClinicRole[] = [
   "DOCTOR",
@@ -36,6 +41,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "TRUONG_CA",
   "PHARMACIST",
   "DISPLAY",
+  "PARTNER",
 ];
 
 // Convert a trusted role value into the closed application enum. Unknown data
@@ -190,18 +196,14 @@ export function isCashierRole(role: ClinicRole | null): boolean {
   return role === "CASHIER" || role === "CASHIER_THUOC" || role === "CASHIER_DV";
 }
 
-/** Lễ tân xem "Công việc của tôi" (board bác sĩ) nhưng CHỈ ĐỌC — mọi nút
- *  Nhận/Từ chối/Lưu hồ sơ/Chỉ định XN đều bị khóa. Dùng để clone giao diện
- *  bác sĩ cho front desk mà không cấp quyền ghi. */
-export function isTasksReadOnly(role: ClinicRole | null): boolean {
-  // Lễ tân + Thu ngân (cả 2 vai tách): xem board "Công việc của tôi" để nắm tình
-  // trạng buổi khám, nhưng CHỈ ĐỌC — tránh rơi xuống ConfirmBoard (quản lý lịch).
-  return role === "RECEPTION" || isCashierRole(role);
-}
-
 /** Landing path after a role is picked. */
 export function roleLanding(role: ClinicRole | null): string {
-  if (isDoctorRole(role)) return "/tasks";
+  // Đối tác không có trang chủ để mà xem — họ vào đúng việc của mình.
+  if (role === "PARTNER") return "/doi-tac";
+  // Không còn "/tasks" (màn cũ, gộp 18/09/2026 — docs/SITEMAP.md mục C).
+  // Bác sĩ siêu âm đứng phòng siêu âm; bác sĩ và thư ký vào bàn khám.
+  if (isUltrasoundDoctorRole(role)) return "/phong/KN-SA-T1";
+  if (isDoctorRole(role)) return "/ban-kham";
   // Trưởng ca có màn làm việc riêng (board "Theo dõi buổi") như bác sĩ vào /tasks.
   if (isTruongCaRole(role)) return "/truong-ca";
   return "/home";
@@ -221,6 +223,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   TRUONG_CA: "Trưởng ca",
   PHARMACIST: "Dược sĩ",
   DISPLAY: "Màn hình phòng chờ",
+  PARTNER: "Đối tác",
 };
 
 // Which roles may see each sidebar destination. Anything not listed = everyone.
@@ -259,37 +262,38 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // không được mở board đối soát vì nó còn chứa hàng thanh toán/đối soát.
   // Trưởng ca và quản lý xem được tất cả để điều phối.
   // Check-out lượt khám — Lễ tân là người bấm; Trưởng ca/Quản lý bấm hộ được.
-  "/reception/checkout": ["RECEPTION", "TRUONG_CA", "MANAGEMENT"],
+  // TRƯỞNG CA BỎ (Tuyền 16/09/2026): *"không cần check-out hộ lễ tân… trưởng ca
+  // chỉ cần nhìn toàn cảnh và điều phối chứ không thay những người khác làm
+  // việc"*. Quyền backend giữ nguyên để Quản lý vẫn bấm hộ được khi cần.
+  "/reception/checkout": ["RECEPTION", "MANAGEMENT"],
   "/reception/queue": [
     "RECEPTION", "NURSE_ULTRASOUND", "MANAGEMENT",
   ],
-  "/doctor/board": [
-    "DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT",
-  ],
-  "/cashier/board": [
-    "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "MANAGEMENT",
-  ],
-  // Số liệu vận hành: cùng ràng buộc như /ops — endpoint phía sau chỉ cho
-  // MANAGEMENT, nên hiện mục này cho vai khác chỉ dẫn tới một trang 403.
-  "/ops/telemetry": ["MANAGEMENT"],
+  // Đo sinh hiệu — khớp VITALS_ROLES ở luot_kham_service.py (+ Quản lý xem).
+  "/do-sinh-hieu": ["NURSE_ULTRASOUND", "RECEPTION", "DOCTOR", "MANAGEMENT"],
+  // BÀN KHÁM theo phòng (Tuyền chốt 16/09/2026) — thay /doctor/board và năm
+  // màn /kham/*. Bác sĩ khám, thư ký đi kèm nhập hộ + bấm Bắt đầu/Khám xong.
+  "/ban-kham": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-NOITIET": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-SANCHAU": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  "/ban-kham/KN-SAN-BIO": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC ở Kim Ngưu (Tuyền 16/09/2026: "trong màn
+  // của họ chưa có thu ngân, nên tích hợp thu ngân vào lễ tân luôn, kho thuốc
+  // cũng ở lễ tân luôn") — vai RECEPTION vào được quầy thu, quầy thuốc, kho.
+  "/thu-ngan/dich-vu": ["RECEPTION", "CASHIER", "CASHIER_DV", "MANAGEMENT"],
+  "/thu-ngan/thuoc": ["RECEPTION", "CASHIER", "CASHIER_THUOC", "MANAGEMENT"],
   // Hồ sơ nhân sự — cùng ràng buộc với backend: routers/staff.py gác mọi thao
   // tác ghi bằng require_role(MANAGEMENT), nên mở mục này cho vai khác chỉ dẫn
   // tới một trang lưu gì cũng 403.
   "/nhan-su": ["MANAGEMENT"],
 
   "/home": "all",
-  // BA MỤC ĐÃ RỜI THANH BÊN CỦA CSKH (Quang chốt 09/08/2026).
-  //
-  // "Mọi thao tác mình đang cố xây cho CSKH thì nó đều nằm ở Quản lý khách hàng
-  // rồi" — đúng với /cskh-tasks: màn đó đọc bảng `cskh_action` đang rỗng, còn
-  // vùng làm việc thật (chuỗi 9 bước, ghi tương tác, phản hồi khách, tệp kết
-  // quả) nằm trong /customers.
-  //
-  // GỠ KHỎI THANH BÊN, KHÔNG GỠ TÍNH NĂNG. Route và API giữ nguyên: Quản lý vẫn
-  // vào được, và gõ thẳng URL vẫn chạy. Xoá hẳn là mất đường lùi ngay tuần bàn
-  // giao — trong khi thứ Quang muốn chỉ là thanh bên của CSKH gọn lại.
+  // GỘP 18/09/2026 (Tuyền: "gộp hết" — docs/SITEMAP.md): /cskh-tasks,
+  // /episodes, /work-sessions, /tasks, /queue, /cashier/board, /portal,
+  // /ops/telemetry chỉ còn chuyển hướng sang màn chuẩn, nên không còn dòng nào
+  // ở bảng này. Đo trên prod trước khi gộp: cskh_action 0 dòng, work_session 0
+  // dòng, care_episode PENDING_CLOSE 0 dòng và không code nào còn tạo ra nó.
   "/lich-do-ve": ["MANAGEMENT"],
-  "/cskh-tasks": ["MANAGEMENT"],
   // Nhắc tái khám — cùng ràng buộc với backend: GET /api/v1/cskh/recalls gác
   // bằng require_role(CSKH, MANAGEMENT, TRUONG_CA), nên mở mục này cho vai khác
   // chỉ dẫn tới một trang trống vì 403. Ghi cuộc gọi đi qua canWriteIntake, đã
@@ -299,13 +303,28 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // trùng /customers — nó liệt người bác sĩ đã hẹn quay lại mà CHƯA có lịch,
   // tức danh sách "còn thiếu lịch", còn /customers xoay quanh lịch ĐÃ CÓ. Gỡ
   // mục này là CSKH không còn đường vào danh sách ấy từ thanh bên.
-  "/nhac-tai-kham": ["MANAGEMENT", "TRUONG_CA"],
-  "/appointments": ["CSKH", "MANAGEMENT"],
+  // Trưởng ca bỏ (16/09/2026) — gọi nhắc tái khám là việc CSKH.
+  "/nhac-tai-kham": ["MANAGEMENT"],
+  // LỄ TÂN ĐƯỢC VÀO MÀN ĐẶT LỊCH (Tuyền 16/09/2026).
+  //
+  // Trước đó vai này KHÔNG có lối vào nào, trong khi hai nút "Đặt lịch mới" ở
+  // Danh sách bệnh nhân và Quản lý khách hàng vẫn trỏ thẳng vào đây — Lễ tân
+  // bấm là bị đá về /home, không một dòng báo.
+  //
+  // Và nay nó là đường CHÍNH: "khách vãng lai" bỏ đi, chỉ còn "đến trực tiếp" —
+  // chưa có hồ sơ thì tạo ở tab "Thêm", có rồi thì chọn tên và đặt, kênh đặt
+  // ghi "Trực tiếp". Backend đã sẵn luật ấy từ 15/09: kênh Trực tiếp + hôm nay
+  // + người đặt thuộc CHECKIN_ROLES ⇒ tự check-in và mở lượt khám.
+  "/appointments": ["CSKH", "RECEPTION", "MANAGEMENT"],
   // Thông tin khách hàng — CSKH/Lễ tân/QL/Trưởng ca thao tác; Thu ngân chỉ xem
   // để đối chiếu khi thu tiền (canOperateCustomerCare không gồm CASHIER).
+  // LỄ TÂN ĐÃ BỎ KHỎI ĐÂY (Tuyền 16/09/2026: *"bỏ nốt trang công việc của tôi,
+  // quản lý khách hàng luôn vì thừa"*). Quầy không gọi điện chăm sóc khách:
+  // việc của họ là đón, xếp hàng, đóng lượt. Quyền GHI ở backend giữ nguyên
+  // (`cskh_service.INTAKE_ROLES` vẫn có RECEPTION) — bỏ ở đây là bỏ khỏi tầm
+  // mắt, không bỏ khả năng; trả lại chỉ là thêm một dòng.
   "/customers": [
     "CSKH",
-    "RECEPTION",
     "MANAGEMENT",
     "TRUONG_CA",
     "CASHIER",
@@ -315,9 +334,12 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // TRƯỞNG CA — năm màn điều phối. Phải liệt kê TỪNG đường: requireNavAccess()
   // tra chính xác href, không so tiền tố, nên thiếu một dòng ở đây là màn đó đá
   // người dùng về /home mà không báo gì.
+  // ĐỐI TÁC: đúng MỘT màn, và không vai nào khác cần nó. Quản lý có mặt để xem
+  // được đối tác đang nhìn thấy gì — không có đường ấy thì không ai kiểm được
+  // lời hứa "họ chỉ thấy việc của họ" ngoài cách mượn tài khoản đối tác.
+  "/doi-tac": ["PARTNER", "MANAGEMENT"],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/hang-doi": ["TRUONG_CA", "MANAGEMENT"],
-  "/truong-ca/canh-bao": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
   // Danh sách bệnh nhân ĐÃ KHÁM (lần đầu / tái khám) — CSKH/Lễ tân/QL + BÁC SĨ.
@@ -331,50 +353,34 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // đang gọi. Thêm vào cho khớp với điều đã hứa.
   "/patient-list": ["RECEPTION", "MANAGEMENT", "CSKH", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
   // ĐIỀU DƯỠNG ĐÃ BỎ (feedback PM 23/6: ĐD không tạo BN).
-  // Hàng chờ xếp bác sĩ: việc của người BIẾT AI ĐANG RẢNH — quản lý và trưởng
-  // ca. CSKH không xếp, họ chỉ báo (nút trên màn khách hàng).
-  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "TRUONG_CA"],
+  // Hàng chờ xếp bác sĩ: quản lý và trưởng ca xếp; CSKH MỞ ĐƯỢC (Tuyền chốt
+  // 16/09/2026) — lịch vượt sức chứa về đây cho CSKH gọi khách đổi ca, và
+  // thông báo gửi CSKH trỏ thẳng vào trang này. Trước đó CSKH bấm thông báo bị
+  // đá về /home. Không bày trên thanh bên của CSKH (xem AN_KHOI_THANH_BEN).
+  // Trưởng ca bỏ (16/09/2026) — xếp bác sĩ cho lịch chờ là việc Quản lý/CSKH;
+  // trưởng ca đổi bác sĩ ĐANG KHÁM ngay trong màn điều phối.
+  "/appointments/cho-xep-bac-si": ["MANAGEMENT", "CSKH"],
   "/patients/new": ["RECEPTION", "MANAGEMENT"],
-  // /checkin đã chuyển hẳn lên Trang chủ (HomeCheckin) — route cũ đã xóa.
-  // Lễ tân được THÊM vào: thấy "Công việc của tôi" nhưng ở chế độ CHỈ XEM
-  // (clone giao diện board bác sĩ, khóa mọi nút sửa — xem isTasksReadOnly).
-  // TKYK (Thư ký Y khoa): vào hàng đợi khám của MỌI bác sĩ để NHẬP HỘ bệnh án
-  // (canWriteClinical đã =true). Routing → DoctorWorkBoard (xem tasks/page.tsx).
-  "/tasks": ["MANAGEMENT", "RECEPTION", "CASHIER", "CASHIER_THUOC", "CASHIER_DV", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST],
-  // Hàng đợi XN + Dịch vụ: điều dưỡng/KTV thực hiện (+ Quản lý xem).
-  "/lab-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  "/service-queue": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  // ĐD siêu âm: hàng đợi BN sắp khám SA + hàng đợi XN 3 trạng thái + in phiếu.
-  "/sono": ["NURSE_ULTRASOUND", "MANAGEMENT"],
-  // Bộ phận Siêu âm (4 màn). Khác /sono: đó là hàng đợi điều dưỡng chạy trên
-  // service_log; đây là màn của cả bộ phận — hàng chờ, phòng SA1–SA3, soạn kết
-  // quả, tra cứu phiếu đã ký. Danh sách vai phải khớp ULTRASOUND_ROLES ở
-  // ultrasound_board_service.py; lệch nhau thì có người thấy nút mà bấm vào bị
-  // 403, hoặc tệ hơn: vào được màn mà backend mới là nơi từ chối.
-  "/sieu-am": [
-    "ULTRASOUND_DOCTOR",
-    "NURSE_ULTRASOUND",
-    "TKYK",
-    "TRUONG_CA",
-    "MANAGEMENT",
-  ],
-  // Bảng số thứ tự GỌI KHÁM (ưu tiên người có hẹn). Gọi theo tên — xem chung như /tasks.
-  // TẠM ẨN (Quang 2026-07-03): [] = không vai nào thấy sidebar + gõ URL bị redirect
-  // /home (requireNavAccess). Mở lại: khôi phục danh sách vai dưới đây.
-  // ["CSKH", "MANAGEMENT", "RECEPTION", "TRUONG_CA", "TKYK", "NURSE_ULTRASOUND", ...DOCTOR_ROLES_LIST]
-  "/queue": [],
-  // Đóng "đợt khám" chờ xác nhận (BS khám xong không hẹn lần sau) — việc CSKH/vận hành.
-  "/episodes": ["MANAGEMENT"],
+  // PHÒNG DỊCH VỤ (Tuyền chốt 16/09/2026) — thay /lab-queue, /service-queue,
+  // /sono, /sieu-am. Ai BẤM được là do bước của chỉ định quyết ở máy chủ
+  // (thủ thuật: chỉ bác sĩ); danh sách dưới đây là ai VÀO được phòng.
+  "/phong/KN-LAYMAU": ["NURSE_ULTRASOUND", "RECEPTION", "MANAGEMENT"],
+  "/phong/KN-SA-T1": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SA1": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SA2": ["ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-THUTHUAT": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-TTNG": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SANCHAU": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
+  "/phong/KN-SAN-BIO": ["DOCTOR", "NURSE_ULTRASOUND", "TKYK", "MANAGEMENT"],
   // Thu ngân: bảng giá tách 2 trang (thuốc / dịch vụ), gate theo VAI tách (mỗi
   // vai chỉ thấy màn của mình). CASHIER = superset (thấy cả hai), Quản lý xem/sửa cả hai.
-  // ("Công việc của tôi" thu ngân nằm ở /tasks, gate bằng entry /tasks bên dưới.)
-  "/cashier/thuoc": ["CASHIER_THUOC", "CASHIER", "MANAGEMENT"],
-  "/cashier/dich-vu": ["CASHIER_DV", "CASHIER", "MANAGEMENT"],
+  "/cashier/thuoc": ["RECEPTION", "CASHIER_THUOC", "CASHIER", "MANAGEMENT"],
+  "/cashier/dich-vu": ["RECEPTION", "CASHIER_DV", "CASHIER", "MANAGEMENT"],
   // Nhà thuốc — Dược sĩ (PHARMACIST) + Quản lý/Trưởng ca xem.
-  "/pharmacy": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
-  "/pharmacy/inventory": ["PHARMACIST", "MANAGEMENT"],
+  "/pharmacy/inventory": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
   // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
   // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
   // /api/roster).
@@ -386,13 +392,15 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Viết ra từng vai thay vì "all" — thiếu một dòng ở đây là vai đó mất màn
   // hình mà không báo gì, nên danh sách này phải là ALL_ROLES trừ đúng CSKH,
   // tính bằng code chứ không chép tay.
-  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH"),
-  "/work-sessions": ["MANAGEMENT"],
+  // Đối tác (người NGOÀI phòng khám) và màn TV cũng không có lịch làm việc
+  // (17/09/2026: thanh bên đối tác hiện "Lịch làm việc").
+  "/schedule": ALL_ROLES.filter((r) => r !== "CSKH" && r !== "PARTNER" && r !== "DISPLAY"),
   "/reports": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
   "/audit-log": ["CSKH", "MANAGEMENT"],
-  // Duyệt kết quả — Bác sĩ + TKYK + Quản lý/Trưởng ca xem.
-  "/result-review": ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "MANAGEMENT"],
+  // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
+  // quyết định chuyên môn; thư ký không có nút Duyệt — Notion v1.0.0).
+  "/duyet-ket-qua": ["DOCTOR", "ULTRASOUND_DOCTOR", "MANAGEMENT"],
   "/ops": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.
@@ -406,18 +414,16 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Lưu ý: Notion §CSKH tiêu chí 7 viết "chỉ quản lý hệ thống được thay đổi quy
   // tắc và sức chứa" — mâu thuẫn với quyết định trên. Quyết định trực tiếp của
   // Quang thắng; ghi lại ở đây để lần sau không ai "sửa lại cho khớp Notion".
-  "/settings/booking-policy": ["TRUONG_CA", "MANAGEMENT"],
+  // Chỉ Quản lý đặt số khách online/trực tiếp (Tuyền chốt 15/09/2026).
+  "/settings/booking-policy": ["MANAGEMENT"],
   // Cấu trúc phòng khám (cơ sở/tầng/phòng, ai làm được bước nào) — CHỈ Quản lý.
-  // Khác /settings/booking-policy (Trưởng ca sửa được số chỗ): đổi sơ đồ phòng
-  // là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc thẳng từ đó.
+  // Đổi sơ đồ phòng là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc
+  // thẳng từ đó.
   "/settings/clinic-config": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
   "/settings/tai-khoan": ["MANAGEMENT"],
-  // Command Center — Cổng trung tâm điều khiển toàn hệ thống.
-  // Chỉ Quản lý + Trưởng ca (isOpsAdmin) mới được vào.
-  "/portal": ["MANAGEMENT"],
 };
 
 /** ẨN KHỎI THANH BÊN — NHƯNG KHÔNG CHẶN ĐƯỜNG VÀO.
@@ -444,8 +450,27 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
     "/nhac-tai-kham",
     "/reception/checkout",
     "/reception/queue",
-    "/tasks",
   ],
+  // PHÒNG CỤ THỂ không bày ra ngày KHÔNG có ca (Tuyền 16/09/2026). Ngày có ca,
+  // thanh bên mở đúng phòng người ấy đứng; ngày không có ca, bày cả chín phòng
+  // là chôn mất màn chính. Vẫn VÀO được bằng "Việc khác" hay đường dẫn.
+  DOCTOR: [
+    "/ban-kham/KN-NOITIET", "/ban-kham/KN-SANCHAU", "/ban-kham/KN-SAN-BIO",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  TKYK: [
+    "/ban-kham/KN-NOITIET", "/ban-kham/KN-SANCHAU", "/ban-kham/KN-SAN-BIO",
+    "/phong/KN-SA-T1", "/phong/KN-SA1", "/phong/KN-SA2",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  NURSE_ULTRASOUND: [
+    "/phong/KN-SA1", "/phong/KN-SA2",
+    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
+  ],
+  RECEPTION: ["/phong/KN-LAYMAU"],
+  // Thanh bên CSKH giữ 5 mục (Tuyền 16/09/2026): việc vượt sức chứa đến qua
+  // khung báo + thông báo, không thêm mục.
+  CSKH: ["/appointments/cho-xep-bac-si"],
 };
 
 /** Mục này có hiện trên thanh bên của vai ấy không. Dùng CHO GIAO DIỆN;
@@ -454,13 +479,75 @@ export function hienTrenThanhBen(
   role: ClinicRole | null,
   href: string,
 ): boolean {
-  if (!canSeeNav(role, href)) return false;
+  // MENU theo LUẬT GỐC, không theo công tắc mở quyền.
+  //
+  // Hai câu hỏi khác nhau: "được VÀO màn này không" (canSeeNav — đang mở tạm
+  // cho mọi vai) và "màn này có nên NẰM trong menu của vai này không". Dùng
+  // chung một hàm thì từ ngày mở quyền, thanh bên của một điều dưỡng không có
+  // ca hôm nay dài gần bốn mươi mục — năm màn khám, hai quầy thu ngân, kho
+  // thuốc… — và bốn mục cô ấy thật sự cần chìm ở giữa. Mở quyền là để không bị
+  // CHẶN, không phải để bị CHÔN.
+  //
+  // Ngày có ca, thanh bên đi theo vị trí (mucHienRa) và không qua hàm này.
+  if (!canSeeNavGoc(role, href)) return false;
   if (!role) return true;
   return !(AN_KHOI_THANH_BEN[role] ?? []).includes(href);
+}
+
+// ── MỞ QUYỀN TẠM THỜI (Tuyền chốt 16/09/2026) ──────────────────────────────
+//
+// *"tất cả các tài khoản đều có thể thao tác đã, đừng bị phụ thuộc lịch khám
+// nữa, trừ bác sĩ ra thui, tại giờ đang rối, trước mắt giải quyết vậy đã"*.
+//
+// Backend đã nới ở `identity.mo_quyen_tam_thoi`. Nới một mình backend thì chưa
+// đủ: thanh bên vẫn ẩn màn, và người dùng không có đường nào bấm tới cái cửa
+// vừa mở.
+//
+// ⚠️ ĐÂY LÀ BIẾN LÚC DỰNG ẢNH, không phải lúc chạy. Next nhét thẳng giá trị
+// `NEXT_PUBLIC_*` vào mã trình duyệt khi build, nên đổi nó phải DỰNG LẠI ảnh
+// dashboard — khác với backend, chỉ cần khởi động lại container. Khác biệt ấy
+// đáng nhớ: tắt một nửa là quyền lệch nhau giữa hai tầng.
+const MO_QUYEN_TAM_THOI =
+  (process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI ?? "1").toLowerCase() !== "0";
+
+//: Màn KHÔNG mở theo công tắc. Không phải vì bí mật — backend vẫn gác chúng —
+//: mà vì chúng không phải "thao tác" của ai cả: cổng quản trị, cấu hình hệ
+//: thống, báo cáo, vận hành. Mở ra thì thanh bên của điều dưỡng dài 35 mục và
+//: bốn mục họ thật sự cần bị đẩy xuống dưới, tức là dựng một bức tường khác.
+const KHONG_MO_THEO_CONG_TAC = [
+  "/console",
+  "/ops",
+  "/settings",
+  "/reports",
+  "/admin",
+  // Hai màn của người NGOÀI phòng khám. Chúng đóng theo thiết kế, và công tắc
+  // "mở tạm" không được phép chạm vào — xem `test_mo_quyen_tam_thoi.py`.
+  "/doi-tac",
+  "/display",
+];
+
+function moTheoCongTac(href: string): boolean {
+  if (!MO_QUYEN_TAM_THOI) return false;
+  return !KHONG_MO_THEO_CONG_TAC.some(
+    (p) => href === p || href.startsWith(`${p}/`),
+  );
+}
+
+/** Luật gốc của NAV_ROLES, bỏ qua công tắc mở quyền. Chỉ dùng cho MENU. */
+export function canSeeNavGoc(role: ClinicRole | null, href: string): boolean {
+  const rule = NAV_ROLES[href];
+  if (!rule || rule === "all") return true;
+  return role !== null && rule.includes(role);
 }
 
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
   const rule = NAV_ROLES[href];
   if (!rule || rule === "all") return true;
-  return role !== null && rule.includes(role);
+  if (role === null) return false;
+  // Vai ngoài phòng khám KHÔNG bao giờ được nới: cái tivi và đối tác chỉ có
+  // đúng màn của mình, và đó là chốt chặn chứ không phải cách sắp xếp menu.
+  if (role !== "DISPLAY" && role !== "PARTNER" && moTheoCongTac(href)) {
+    return true;
+  }
+  return rule.includes(role);
 }

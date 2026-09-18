@@ -24,9 +24,11 @@ import structlog
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     PHYSICIAN_ROLES,
+    ClinicRole,
     StaffIdentity,
     require_role,
 )
@@ -38,6 +40,7 @@ from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.services.lab_order_service import LabOrderService
 from clinicai.services.lab_safety_service import LabReviewOutcome, LabSafetyService
+from clinicai.services.thu_ky_bac_si import khach_duoc_xem, kiem_khach
 
 logger = structlog.get_logger(__name__)
 
@@ -49,6 +52,13 @@ _ORDER_GUARD = require_role(*PHYSICIAN_ROLES)
 # Reception and management are deliberately excluded.
 _RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
 _TRIAGE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+# Màn Duyệt kết quả: bác sĩ + thư ký + quản lý (khớp NAV /duyet-ket-qua).
+_REVIEW_READ_GUARD = require_role(
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.MANAGEMENT,
+)
 LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
     scope="lab-triage",
     limit=30,
@@ -115,6 +125,16 @@ async def enter_lab_result(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Record what came back. Never finalises — that is a separate gate."""
+    if identity.co_vai({ClinicRole.TKYK}):
+        # Thư ký chỉ nhập kết quả cho khách của bác sĩ mình (20260915000020).
+        patient_id = await pool.fetchval(
+            "SELECT clinic_patient_id::text FROM lab_result"
+            " WHERE lab_result_id = $1::uuid AND clinic_id = $2::uuid",
+            str(lab_result_id),
+            identity.clinic_id,
+        )
+        if patient_id:
+            await kiem_khach(pool, identity, patient_id)
     await LabOrderService(pool).enter_result(
         lab_result_id=str(lab_result_id),
         result_value=body.result_value,
@@ -123,6 +143,52 @@ async def enter_lab_result(
         identity=identity,
     )
     return {"ok": True}
+
+
+@router.get("/results/cho-duyet")
+async def ket_qua_cho_duyet(
+    identity: StaffIdentity = Depends(_REVIEW_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Kết quả đã về, chưa chốt — hàng chờ màn Duyệt kết quả.
+
+    Chuyển từ đọc thẳng Supabase ở trang (15/09/2026) để lọc được theo thư ký:
+    thư ký chỉ thấy kết quả khách của bác sĩ mình được phân.
+    """
+    duoc = await khach_duoc_xem(pool, identity)
+    rows = await pool.fetch(
+        """
+        SELECT r.lab_result_id::text, r.clinic_patient_id::text, r.test_code,
+               r.test_name, r.result_value, r.result_numeric, r.result_unit,
+               r.reference_range_low, r.reference_range_high, r.flag,
+               r.triage_group, r.requires_doctor_review, r.is_finalized,
+               r.result_received_at, r.external_ref,
+               p.full_name, p.phone_primary
+          FROM lab_result r
+          LEFT JOIN patient p
+            ON p.clinic_patient_id = r.clinic_patient_id
+           AND p.clinic_id = r.clinic_id
+         WHERE r.clinic_id = $1::uuid
+           AND NOT r.is_finalized
+           AND coalesce(nullif(btrim(coalesce(r.result_value, '')), ''),
+                        nullif(btrim(coalesce(r.external_ref, '')), '')) IS NOT NULL
+           AND r.clinic_patient_id::text
+               = ANY(coalesce($2::text[], ARRAY[r.clinic_patient_id::text]))
+         ORDER BY r.result_received_at DESC
+         LIMIT 100
+        """,
+        identity.clinic_id,
+        duoc,
+    )
+    items = []
+    for r in rows:
+        d = dict(r)
+        d["patient"] = {
+            "full_name": d.pop("full_name"),
+            "phone_primary": d.pop("phone_primary"),
+        }
+        items.append(d)
+    return {"items": items}
 
 
 @router.post(
@@ -154,7 +220,10 @@ async def review_and_finalize_lab_result(
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return cast(AnthropicClient, request.app.state.llm_client)
+    client = request.app.state.llm_client
+    if client is None:
+        raise AIDisabledError("Tính năng AI chưa bật trên hệ thống này.")
+    return cast(AnthropicClient, client)
 
 
 class LabTriageResponse(BaseModel):
@@ -221,10 +290,14 @@ async def triage_lab_result(
 
 
 # ─── Lab release decision (Phase 4, cluster #4) ──────────────────────────────
-# Ported from src/dashboard/lib/lab-release.ts. Patient notification is a
-# clinical safety boundary, not presentation logic. Only a finalized GROUP_A
-# result may cross it; every unknown value fails closed per
-# docs/lab_triage_spec_v1.md.
+# Patient notification is a clinical safety boundary, not presentation logic.
+#
+# ĐỔI 15/09/2026 — BÁC SĨ QUYẾT, KHÔNG PHẢI NHÓM AI. Bản cũ chỉ cho báo khi
+# `triage_group = GROUP_A` VÀ đã chốt. Nhóm do AI phân; không có AI (hoặc AI xếp
+# B/C) thì một kết quả bác sĩ ĐÃ duyệt và chốt vẫn không bao giờ được báo khách.
+# CONTEXT v1.0: "Upload → kiểm đúng khách/chỉ định → bác sĩ đánh giá/cho phép
+# gửi → gửi và ghi kết quả". Nay: đã chốt (ràng buộc DB bắt buộc có người duyệt
+# + thời điểm duyệt) là được báo; nhóm AI chỉ còn là nhãn gợi ý.
 
 
 class LabReleaseDecision(BaseModel):
@@ -245,7 +318,7 @@ async def lab_release_decision(
 ) -> LabReleaseDecision:
     """Can this lab result be told to the patient?
 
-    Only GROUP_A + finalized → allowed=True. Everything else fails closed.
+    Finalized by a doctor → allowed=True. Everything else fails closed.
     """
     row = await pool.fetchrow(
         """
@@ -265,12 +338,11 @@ async def lab_release_decision(
     triage = row["triage_group"]
     finalized = bool(row["is_finalized"])
 
-    if triage == "GROUP_A" and finalized:
-        return LabReleaseDecision(allowed=True, label="Được báo BN")
-    if triage == "GROUP_C":
-        return LabReleaseDecision(allowed=False, label="Khẩn cấp — KHÔNG báo BN")
-    if triage == "GROUP_B":
-        return LabReleaseDecision(allowed=False, label="Chờ BS duyệt — KHÔNG báo BN")
-    if triage == "GROUP_A":
-        return LabReleaseDecision(allowed=False, label="Chưa hoàn tất — KHÔNG báo BN")
-    return LabReleaseDecision(allowed=False, label="Chưa phân loại — KHÔNG báo BN")
+    if finalized:
+        if triage == "GROUP_C":
+            return LabReleaseDecision(
+                allowed=True,
+                label="Bác sĩ đã duyệt — được báo BN (bất thường: báo trực tiếp)",
+            )
+        return LabReleaseDecision(allowed=True, label="Bác sĩ đã duyệt — được báo BN")
+    return LabReleaseDecision(allowed=False, label="Chờ bác sĩ duyệt — KHÔNG báo BN")

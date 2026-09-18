@@ -81,6 +81,12 @@ async def record_event(
         json.dumps(
             {
                 "clinic_role": identity.role.value,
+                # Vai tài khoản gốc khi yêu cầu đi dưới vai của vị trí hôm nay.
+                **(
+                    {"vai_tai_khoan": identity.vai_tai_khoan.value}
+                    if identity.vai_tai_khoan is not None
+                    else {}
+                ),
                 "clinic_staff_id": identity.staff_id,
                 "actor_auth_user_id": identity.auth_user_id,
                 "origin": origin,

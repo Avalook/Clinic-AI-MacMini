@@ -82,7 +82,8 @@ def _subscribed_tables() -> set[str]:
 @pytest.mark.skipif(not _CLIENT.exists(), reason="dashboard sources not present")
 def test_every_subscribed_table_is_published() -> None:
     """A subscription to an unpublished table is silent, permanent nothing."""
-    missing = _subscribed_tables() - _published_tables()
+    sources = _published_tables() | _tables_with_notify_trigger()
+    missing = _subscribed_tables() - sources
     assert not missing, (
         "RealtimeRefresher subscribes to tables that no migration publishes: "
         f"{sorted(missing)}. Those subscriptions will never fire and the UI "
@@ -113,10 +114,19 @@ def _tables_with_notify_trigger() -> set[str]:
         text = path.read_text(encoding="utf-8")
         if "notify_row_change" not in text:
             continue
-        for block in re.finditer(
-            r"bang\s+text\[\]\s*:=\s*ARRAY\s*\[(.*?)\]", text, re.DOTALL
+        for pattern in (
+            r"bang\s+text\[\]\s*:=\s*ARRAY\s*\[(.*?)\]",
+            r"FOREACH\s+table_name\s+IN\s+ARRAY\s+ARRAY\s*\[(.*?)\]",
         ):
-            ra.update(re.findall(r"'(\w+)'", block.group(1)))
+            for block in re.finditer(pattern, text, re.DOTALL):
+                ra.update(re.findall(r"'(\w+)'", block.group(1)))
+        ra.update(
+            re.findall(
+                r"CREATE\s+TRIGGER\s+trg_notify_(\w+)\s+AFTER",
+                text,
+                re.IGNORECASE,
+            )
+        )
     return ra
 
 

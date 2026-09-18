@@ -11,28 +11,26 @@ import {
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
-const doctor = read("../app/(dashboard)/tasks/DoctorWorkBoard.tsx");
-const cashier = read("../app/(dashboard)/tasks/CashierWorkBoard.tsx");
-const cskhActions = read("../app/(dashboard)/tasks/CskhActionBoard.tsx");
+// /tasks (DoctorWorkBoard, CashierWorkBoard, CskhActionBoard, ConfirmBoard,
+// TasksRealtime) đã gộp 18/09/2026 — màn thu tiền thật là QuayThuNgan.
+const cashier = read("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
 const clinicalForm = read("../app/(dashboard)/tasks/ClinicalRecordForm.tsx");
-const confirmation = read("../app/(dashboard)/tasks/ConfirmBoard.tsx");
 const serviceForm = read("../app/(dashboard)/tasks/ServiceFormEngine.tsx");
 const biometry = read("../app/(dashboard)/tasks/SonoBiometry.tsx");
-const tasksRealtime = read("../app/(dashboard)/tasks/TasksRealtime.tsx");
-const lab = read("../app/(dashboard)/lab-queue/LabQueueView.tsx");
-const service = read("../app/(dashboard)/service-queue/ServiceQueueView.tsx");
-const sono = read("../app/(dashboard)/sono/SonoView.tsx");
-const cashierPage = read("../app/(dashboard)/tasks/page.tsx");
+// Ba màn Lấy mẫu / Thủ thuật / Điều dưỡng siêu âm đã gộp thành MỘT màn phòng
+// dịch vụ đọc hàng chờ theo chỉ định (Tuyền chốt 16/09/2026).
+const phong = read("../app/(dashboard)/phong/[ma]/PhongDichVu.tsx");
+const banKham = read("../app/(dashboard)/ban-kham/BanKham.tsx");
+const khungTep = read("../app/(dashboard)/_lam-viec/KhungTep.tsx");
+const hangCho = read("../app/(dashboard)/_lam-viec/HangChoCot.tsx");
+const lamViecApi = read("../app/(dashboard)/_lam-viec/api.ts");
 const statCard = read("../app/(dashboard)/StatCard.tsx");
 const workspaceCss = read("../app/(dashboard)/tasks/WorkspacePrimitives.module.css");
 
 test("clinical workspaces expose their reference-style working regions", () => {
   for (const [source, regions] of [
-    [doctor, ["Hàng đợi khám bệnh", "Lịch khám và hồ sơ", "Điều phối lượt khám"]],
-    [cashier, ["Danh sách khoản thu", "Chi tiết khoản thu", "Trạng thái thanh toán"]],
-    [lab, ["Danh sách xét nghiệm", "Nhập kết quả xét nghiệm", "Kết quả đã trả"]],
-    [service, ["Danh sách dịch vụ", "Thực hiện dịch vụ", "Dịch vụ đã hoàn tất"]],
-    [sono, ["Điều phối yêu cầu siêu âm", "Hàng đợi siêu âm", "Chi tiết yêu cầu siêu âm"]],
+    [phong, ["Hàng chờ phòng"]],
+    [banKham, ["Hàng chờ khám", "Hồ sơ khám bệnh", "Chỉ định và kết quả"]],
   ] as const) {
     for (const label of regions) {
       assert.match(source, new RegExp(`aria-label="${label}"`));
@@ -42,19 +40,15 @@ test("clinical workspaces expose their reference-style working regions", () => {
 
 test("the refreshed clinical and ultrasound screens use only shared visual tokens", () => {
   for (const source of [
-    doctor,
     cashier,
-    cskhActions,
     clinicalForm,
-    confirmation,
     serviceForm,
     biometry,
-    tasksRealtime,
-    cashierPage,
     statCard,
-    lab,
-    service,
-    sono,
+    phong,
+    banKham,
+    khungTep,
+    hangCho,
   ]) {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}/iu);
     assert.doesNotMatch(source, /pink|rose|fuchsia/iu);
@@ -64,24 +58,21 @@ test("the refreshed clinical and ultrasound screens use only shared visual token
 });
 
 test("redesigning does not replace the established mutation contracts", () => {
-  assert.match(doctor, /<ClinicalRecordForm/);
+  assert.match(banKham, /<ClinicalRecordForm/);
   assert.match(cashier, /fetch\("\/api\/payment"/);
-  assert.match(lab, /fetch\("\/api\/lab-result"/);
-  assert.match(service, /fetch\("\/api\/service-log"/);
-  assert.match(sono, /fetch\("\/api\/sono"/);
+  // Màn phòng và bàn khám ghi qua ĐÚNG MỘT đường: /api/luot-kham.
+  assert.match(lamViecApi, /fetch\("\/api\/luot-kham"/);
+  for (const src of [phong, banKham]) {
+    assert.doesNotMatch(src, /\/api\/(sono|service-log|lab-result|work-items)/);
+  }
 });
 
-test("ultrasound keeps its real SA and laboratory workflow boundaries", () => {
-  for (const label of ["Bắt đầu", "Hoàn tất", "Hủy", "Lấy mẫu", "Gửi lab", "Có KQ"]) {
-    assert.match(sono, new RegExp(label));
-  }
-  assert.match(sono, /onAction\("start"\)/);
-  assert.match(sono, /onAction\("finish"\)/);
-  assert.match(sono, /send\("PATCH", \{ id: selected\.id, action \}\)/);
-  assert.match(sono, /onToggle\("sample", value\)/);
-  assert.match(sono, /onToggle\("sendlab", value\)/);
-  assert.match(sono, /onToggle\("result", value\)/);
-  assert.match(sono, /send\("PATCH", \{ id: selected\.id, milestone, value \}\)/);
+test("phòng dịch vụ: Bắt đầu → ghi kết quả + tệp → Xong / Không làm được", () => {
+  assert.match(phong, /guiThaoTac|bam\("bat-dau-dich-vu"\)/);
+  assert.match(phong, /"bat-dau-dich-vu"/);
+  assert.match(phong, /"xong-dich-vu", \{ performed: true/);
+  assert.match(phong, /performed: false,\s*reason: lyDo/);
+  assert.match(phong, /<KhungTep/);
 });
 
 test("financial, patient, and ultrasound status fallbacks remain fail-safe", () => {
@@ -106,45 +97,18 @@ test("financial, patient, and ultrasound status fallbacks remain fail-safe", () 
   assert.equal(canFinishService("2026-08-01T08:00:00Z"), true);
 });
 
-test("the workspaces use the fail-safe policies and defer three columns until there is room", () => {
-  for (const source of [doctor, cashier, lab, service, sono]) {
-    assert.match(source, /workspaceStyles\.workspace/);
-    assert.match(source, /workspaceStyles\.threeColumn/);
-    assert.doesNotMatch(source, /2xl:grid-cols-/);
-  }
+test("the shared workspace grid still defers three columns until there is room", () => {
   assert.match(workspaceCss, /container-type: inline-size/);
   assert.match(workspaceCss, /@container \(min-width: 960px\)/);
-  // LUẬT "ĐÃ THU" ĐÃ CHUYỂN XUỐNG BACKEND (04/08/2026).
-  //
-  // Ba dòng cũ đòi thấy đúng `paidCashierPaymentSeeds` + câu PostgREST đọc bảng
-  // payment ngay trong trang. Nay trang gọi /api/v1/cashier/board và toàn bộ
-  // việc ghép hoá đơn nằm ở cashier_board_service.py — kèm hai chốt mà bản cũ
-  // KHÔNG có: chỉ nhận kind 'thuoc'/'dich_vu', và bỏ phiếu thu đã huỷ
-  // (voided_at). Cả hai có test Python riêng.
-  //
-  // Điều bài kiểm này canh — trang thu ngân không tự bịa trạng thái đã thu —
-  // vẫn đúng, và giờ được canh ở nơi thật sự quyết định.
-  assert.match(cashierPage, /cashier\/board/);
-  assert.doesNotMatch(cashierPage, /\.from\(["']payment["']\)/);
-  assert.match(cashier, /cashierAmountState/);
-  assert.match(cashier, /amountState === "incomplete"/);
-  assert.match(service, /canFinishService/);
-  assert.match(service, /\{canFinish \? \(/);
-  assert.match(sono, /resolveSaWorkflowStatus/);
-  assert.match(sono, /sonoPatientDisplayName/);
-  assert.match(sono, /status !== null && !done/);
-  assert.match(sono, /const selectedUnknownSaStatus =/);
-  assert.match(sono, /disabled=\{busy \|\| selectedUnknownSaStatus\}/);
+  // Trang thu ngân không tự bịa trạng thái đã thu: nó hỏi máy chủ
+  // (/api/cashier → cashier_board_service.py), không đọc bảng payment.
+  assert.match(cashier, /\/api\/cashier\?modes=/);
+  assert.doesNotMatch(cashier, /\.from\(["']payment["']\)/);
 });
 
 test("clinical editor mutations recover from network failures", () => {
-  assert.match(lab, /catch \{/);
-  assert.match(lab, /finally \{\s*setBusy\(false\);/);
-  assert.equal(
-    service.match(/finally \{\s*setBusy\(false\);/g)?.length,
-    2,
-    "service action and creation must both release their busy state",
-  );
-  assert.match(sono, /catch \{/);
-  assert.match(sono, /finally \{\s*setBusy\(false\);/);
+  // Mất mạng giữa chừng không được để nút kẹt "Đang ghi…" và phải nói rõ
+  // thao tác CHƯA được ghi.
+  assert.match(lamViecApi, /catch \{\s*return \{ ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi\." \}/);
+  assert.match(khungTep, /CHƯA được lưu/);
 });

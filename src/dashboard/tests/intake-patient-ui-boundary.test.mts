@@ -18,14 +18,6 @@ const profile = readFileSync(
   new URL("../app/(dashboard)/patients/[id]/PatientDetail.tsx", import.meta.url),
   "utf8",
 );
-const queuePage = readFileSync(
-  new URL("../app/(dashboard)/queue/page.tsx", import.meta.url),
-  "utf8",
-);
-const queue = readFileSync(
-  new URL("../app/(dashboard)/queue/QueueBoard.tsx", import.meta.url),
-  "utf8",
-);
 const formUi = readFileSync(
   new URL("../app/(dashboard)/form-ui.ts", import.meta.url),
   "utf8",
@@ -36,10 +28,6 @@ const visitProgress = readFileSync(
 );
 const visitStatus = readFileSync(
   new URL("../app/(dashboard)/home/VisitStatusBoard.tsx", import.meta.url),
-  "utf8",
-);
-const homeCheckin = readFileSync(
-  new URL("../app/(dashboard)/home/HomeCheckin.tsx", import.meta.url),
   "utf8",
 );
 const weeklyAppointments = readFileSync(
@@ -130,19 +118,14 @@ test("the patient profile keeps administrative and appointment data distinct", (
   assert.doesNotMatch(profile.replace(/\/\/.*$/gm, ""), /national_id_number/);
 });
 
-test("the internal queue remains gated and does not pretend to be a public calling display", () => {
-  assert.match(queuePage, /requireNavAccess\("\/queue"\)/);
-  assert.match(queue, /aria-label="Bảng điều phối hàng đợi nội bộ"/);
-  assert.match(queue, /router\.refresh\(\)/);
-  assert.doesNotMatch(queue, /Gọi số|ĐANG GỌI/);
-});
+// "Số thứ tự gọi khám" (/queue, ẩn từ 03/07) gộp vào Tiếp đón khách
+// 18/09/2026 — bài kiểm "trang chỉ còn chuyển hướng" ở man-da-gop-boundary.
 
 test("reception and patient surfaces use the shared color and shadow tokens", () => {
   const sources = [
     formUi,
     visitProgress,
     visitStatus,
-    homeCheckin,
     weeklyAppointments,
     workRoster,
     cinemaSlots,
@@ -159,5 +142,8 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
   assert.doesNotMatch(sources, /rgba\(/i);
   assert.match(formUi, /shadow-card/);
   assert.match(booking, /ui\.className/);
-  assert.match(rosterGrid, /FLOOR_BORDER/);
+  // Bảng lịch lấy màu qua MAU_PHONG — token `--color-lich-*` mang đúng mã màu
+  // file Excel (16/09/2026). Trước đó là viền tầng FLOOR_BORDER. Thứ canh vẫn
+  // là một: màu đi qua bảng token dùng chung, không có mã hex nằm trong TSX.
+  assert.match(rosterGrid, /MAU_PHONG/);
 });

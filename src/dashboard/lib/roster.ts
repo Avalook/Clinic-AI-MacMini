@@ -8,59 +8,139 @@ export const ROSTER_STAFF_COOKIE = "roster_staff_id";
 
 export interface Station {
   key: string;
-  label: string; // tên đầy đủ (tooltip / editor)
-  short: string; // nhãn cột ngắn trên bảng
-  group: string; // nhóm MÀU (giữ cho schedule kanban + chip trang chủ)
-  floor: string; // nhãn TẦNG để gom header bảng "Lịch làm việc" (đúng file Excel)
+  /** Tên đầy đủ, đúng chữ trong file Excel (tooltip / ô chọn). */
+  label: string;
+  /** Nhãn ngắn in ở đầu hàng. */
+  short: string;
+  /** Nhóm MÀU. */
+  group: string;
+  /** Tầng — dùng để gộp hàng, đúng như cột "Tầng" của Excel. */
+  floor: string;
+  /** Phòng — nhóm con trong tầng, đúng cột "Phòng" của Excel. */
+  phong: string;
+  /** Ai đứng được chỗ này. Khớp `vi_tri_lam_viec.nhom_nghe` trong database. */
+  /** CHUNG = bác sĩ hay điều dưỡng đều đứng được (xem migration 20260916000012). */
+  nhom: "BAC_SI" | "DIEU_DUONG" | "DOI_TAC" | "CHUNG";
 }
 
-// Thứ tự cột = thứ tự cột trong file "BẢNG LÀM VIỆC" (sheet LLV): Lịch khám →
-// Thủ thuật ngoài giờ → HSS → Tầng 1 → Tầng 2 → Tầng 4 → Tầng 4 phòng trong.
-// `floor` rỗng = cột đứng riêng (Lịch khám), không thuộc tầng nào.
+// ── 27 VỊ TRÍ THẬT CỦA PK KIM NGƯU ─────────────────────────────────────────
+//
+// Nguồn: "[Dr4women] PK Kim Ngưu - Lịch làm việc nhân sự theo tuần.xlsx"
+// (Tuyền gửi 16/09/2026). Mã trùng KHÍT `vi_tri_lam_viec.code` ở database
+// (migration 20260916000008) — lệch một mã là ô ấy mất người mà không báo gì.
+//
+// THỨ TỰ LÀ THỨ TỰ DÒNG TRONG EXCEL, có chủ ý: người xếp lịch đọc bảng này
+// hằng tuần, và đổi thứ tự là bắt họ học lại một thứ họ đã thuộc.
+//
+// DANH SÁCH CŨ ĐÃ BỎ, và nó đáng được ghi lại vì sao: nó chép từ MỘT FILE
+// KHÁC — bảng làm việc đời Hào Nam, với "Máy trong E10", "Phòng ngoài +
+// Monitoring", "HSS + Thủ thuật trong giờ", "Trợ lý y khoa". Không một vị trí
+// nào trong đó tồn tại ở Kim Ngưu, nên màn xếp lịch suốt thời gian qua mời
+// người dùng điền vào những cột của một phòng khám khác.
 export const STATIONS: Station[] = [
-  { key: "LICH_KHAM", label: "Lịch khám (Bác sĩ)", short: "Lịch khám", group: "Bác sĩ", floor: "" },
-  { key: "SB_CHIEU", label: "SB - Chiều", short: "SB - Chiều", group: "Ngoài giờ", floor: "Thủ thuật ngoài giờ" },
-  { key: "THU_THUAT_NGOAI_GIO", label: "Thủ thuật ngoài giờ", short: "Thủ thuật NG", group: "Ngoài giờ", floor: "Thủ thuật ngoài giờ" },
-  { key: "HSS_THU_THUAT", label: "HSS + Thủ thuật trong giờ", short: "HSS / Thủ thuật", group: "Ngoài giờ", floor: "HSS + Thủ thuật trong giờ" },
-  { key: "LE_TAN", label: "Lễ tân (Tiếp đón + thu ngân)", short: "Lễ tân", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
-  { key: "LAY_MAU", label: "Lấy máu", short: "Lấy máu", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
-  { key: "PHU_BS_KHAM", label: "Phụ BS (khám + thuốc) / Chạy ngoài", short: "Phụ BS / Chạy ngoài", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
-  { key: "TLYK", label: "Trợ lý y khoa (Đánh máy + Phụ khám)", short: "Trợ lý y khoa", group: "Tầng 1", floor: "Tầng 1 (không Siêu âm)" },
-  { key: "PHU_BS_SA", label: "Phụ BS (khám + thuốc) + đánh SÂ", short: "Phụ BS + đánh SÂ", group: "Tầng 2", floor: "Tầng 2 · Khám Sản E10 + Monitoring" },
-  { key: "PHONG_NGOAI_MOR", label: "Phòng ngoài + Phòng Monitoring (MÁY 730)", short: "Phòng ngoài + Monitoring", group: "Tầng 2", floor: "Tầng 4" },
-  { key: "MAY_TRONG", label: "Máy trong E10 + VLTL/thủ thuật", short: "Máy trong E10", group: "Tầng 4", floor: "Tầng 4 phòng trong" },
-  { key: "MAY_NGOAI", label: "Máy ngoài (N/A)", short: "Máy ngoài", group: "Tầng 4", floor: "Tầng 4 phòng trong" },
+  // Cột riêng, KHÔNG thuộc tầng nào và KHÔNG có trong Excel: "bác sĩ nào trực
+  // hôm ấy". Lưới đặt lịch (`week_appointments_service`) đọc đúng mã này để
+  // biết hôm đó nhận lịch cho ai — gộp nó vào danh mục vị trí là hỏng đặt lịch.
+  { key: "LICH_KHAM", label: "Lịch khám (bác sĩ trực)", short: "Lịch khám", group: "Bác sĩ", floor: "", phong: "", nhom: "BAC_SI" },
+
+  { key: "T1_LETAN", label: "Lễ tân", short: "Lễ tân", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DIEU_DUONG" },
+  { key: "T1_THUNGAN", label: "Thu ngân", short: "Thu ngân", group: "Tầng 1", floor: "Tầng 1", phong: "Quầy tiếp đón", nhom: "DIEU_DUONG" },
+  { key: "T1_DOCHISO", label: "Đo chỉ số sức khoẻ (HA, MĐX, test nước tiểu)", short: "Đo chỉ số sức khoẻ (HA, MĐX, test nước tiểu), dịch cơ thể", group: "Tầng 1", floor: "Tầng 1", phong: "", nhom: "DIEU_DUONG" },
+  { key: "T1_LAYMAU", label: "Lấy mẫu (máu)", short: "Lấy mẫu (máu)", group: "Tầng 1", floor: "Tầng 1", phong: "", nhom: "DOI_TAC" },
+
+  { key: "T1_BS_NOITIET", label: "BS Nội tiết", short: "BS Nội tiết", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "BAC_SI" },
+  { key: "T1_HOIBENH", label: "Hỏi bệnh ban đầu", short: "Hỏi bệnh ban đầu", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "CHUNG" },
+  { key: "T1_TKYK", label: "Thư ký y khoa", short: "Thư ký y khoa", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Nội tiết", nhom: "DIEU_DUONG" },
+
+  { key: "T1_TT_BS", label: "BS thủ thuật", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "BAC_SI" },
+  { key: "T1_TT_DD", label: "Điều dưỡng thủ thuật", short: "Điều dưỡng", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "DIEU_DUONG" },
+  { key: "T1_TT_TK", label: "Thư ký thủ thuật", short: "Thư ký", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng thủ thuật", nhom: "DIEU_DUONG" },
+
+  { key: "T1_SA_BS", label: "BS siêu âm (tầng 1)", short: "BS", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "BAC_SI" },
+  { key: "T1_SA_DD", label: "Điều dưỡng siêu âm (tầng 1)", short: "Điều dưỡng", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T1_SA_TK", label: "Thư ký siêu âm 1", short: "Thư ký", group: "Tầng 1", floor: "Tầng 1", phong: "Phòng Siêu âm", nhom: "DIEU_DUONG" },
+
+  { key: "T1_TTNG_BS", label: "BS thủ thuật ngoài giờ", short: "BS", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "BAC_SI" },
+  { key: "T1_TTNG_DD1", label: "Điều dưỡng ngoài giờ 1", short: "Điều dưỡng 1", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
+  { key: "T1_TTNG_DD2", label: "Điều dưỡng ngoài giờ 2", short: "Điều dưỡng 2", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
+  { key: "T1_TTNG_TK", label: "Thư ký thủ thuật ngoài giờ", short: "Thư ký", group: "Ngoài giờ", floor: "Tầng 1", phong: "Thủ thuật ngoài giờ", nhom: "DIEU_DUONG" },
+
+  { key: "T2_XEPTHUOC", label: "Xếp thuốc + Giải thích thuốc", short: "Xếp thuốc + Giải thích thuốc", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
+  { key: "T2_TAODON", label: "Tạo đơn thuốc + Thu ngân", short: "Tạo đơn thuốc + Thu ngân", group: "Tầng 2", floor: "Tầng 2", phong: "Quầy thuốc", nhom: "DIEU_DUONG" },
+
+  { key: "T4_SANCHAU_BS", label: "BS Sàn chậu", short: "BS Sàn chậu", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
+  { key: "T4_SANCHAU_TK", label: "Thư ký Sàn chậu", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
+  { key: "T4_SANCHAU_BSTT", label: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách)", short: "BS Thủ thuật (soi âm hộ/âm vật/CTC, nong/tách bao quy đầu âm vật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "BAC_SI" },
+  { key: "T4_SANCHAU_TKTT", label: "Thư ký thủ thuật Sàn chậu", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
+  { key: "T4_SANCHAU_DD", label: "Điều dưỡng Sàn chậu (phụ khám, ghế Starformer, thủ thuật)", short: "Điều dưỡng Sàn chậu (Phụ khám Sàn chậu, Ghế Starformer, Thủ thuật)", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sàn chậu", nhom: "DIEU_DUONG" },
+
+  { key: "T4_SAN_BS", label: "BS Sản", short: "BS Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "BAC_SI" },
+  { key: "T4_SAN_TK", label: "Thư ký Sản", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
+  { key: "T4_SAN_DD", label: "Điều dưỡng Sản", short: "Điều dưỡng Sản", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
+  { key: "T4_BIO_DD", label: "Điều dưỡng Bio", short: "Điều dưỡng Bio", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng Sản - Biofeedback", nhom: "DIEU_DUONG" },
+
+  { key: "T4_SA_BS1", label: "BS siêu âm 1", short: "BS 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "BAC_SI" },
+  { key: "T4_SA_DD1", label: "Điều dưỡng siêu âm 1", short: "Điều dưỡng 1", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T4_SA_TK1", label: "Thư ký siêu âm 2", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T4_SA_BS2", label: "BS siêu âm 2", short: "BS 2", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "BAC_SI" },
+  { key: "T4_SA_DD2", label: "Điều dưỡng siêu âm 2", short: "Điều dưỡng 2", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+  { key: "T4_SA_TK2", label: "Thư ký siêu âm 3", short: "Thư ký", group: "Tầng 4", floor: "Tầng 4", phong: "Phòng siêu âm", nhom: "DIEU_DUONG" },
+
+  // Sheet3 đòi MỌI loại buổi khám đều có: "Trưởng ca · Điều phối · 0-1 người".
+  { key: "DIEU_PHOI", label: "Trưởng ca (điều phối)", short: "Trưởng ca", group: "Điều phối", floor: "Điều phối", phong: "—", nhom: "DIEU_DUONG" },
 ];
 
-// Gom STATIONS thành các đoạn cùng TẦNG (giữ thứ tự) để dựng header 2 hàng:
-// hàng trên = tên tầng (gộp cột), hàng dưới = tên trạm.
-export interface FloorSegment {
-  floor: string;
+/** Vị trí gom theo TẦNG rồi PHÒNG — đúng ba cột đầu của file Excel. */
+export interface NhomPhong {
+  phong: string;
   stations: Station[];
 }
-export const STATION_SEGMENTS: FloorSegment[] = STATIONS.reduce<FloorSegment[]>(
-  (segs, s) => {
-    const last = segs[segs.length - 1];
-    if (last && last.floor === s.floor) last.stations.push(s);
-    else segs.push({ floor: s.floor, stations: [s] });
-    return segs;
-  },
-  [],
-);
+export interface FloorSegment {
+  floor: string;
+  phongs: NhomPhong[];
+  /** Tổng số vị trí trong tầng — dùng cho rowSpan của ô "Tầng". */
+  soViTri: number;
+}
+// CHỈ các tầng CÓ TRONG EXCEL. "Lịch khám" (bác sĩ nhận lịch) và "Trưởng ca
+// (điều phối)" vẫn là vị trí trong hệ thống — thanh bên và đặt lịch dùng chúng —
+// nhưng file Excel không có hai dòng ấy, và bảng phải y hệt file.
+export const TANG_EXCEL = new Set(["Tầng 1", "Tầng 2", "Tầng 4"]);
+export const STATION_SEGMENTS: FloorSegment[] = STATIONS.filter((s) =>
+  TANG_EXCEL.has(s.floor),
+).reduce<FloorSegment[]>((segs, s) => {
+  let tang = segs[segs.length - 1];
+  if (!tang || tang.floor !== s.floor) {
+    tang = { floor: s.floor, phongs: [], soViTri: 0 };
+    segs.push(tang);
+  }
+  const cuoi = tang.phongs[tang.phongs.length - 1];
+  if (cuoi && cuoi.phong === s.phong) cuoi.stations.push(s);
+  else tang.phongs.push({ phong: s.phong, stations: [s] });
+  tang.soViTri += 1;
+  return segs;
+}, []);
 
-// Màu nhấn theo TẦNG (viền trên header tầng cho dễ phân biệt khối).
-//
-// KHOÁ PHẢI LÀ CHUỖI `floor` THẬT trong STATIONS ở trên. Bản trước viết tắt
-// ("Tầng 1 (ko SÂ)", "Tầng 2 · Khám Sản E10 + Mor") nên hai tầng ấy không bao
-// giờ khớp và rơi về màu mặc định — một bảng màu hỏng một nửa mà không ai thấy,
-// vì không có lỗi nào để thấy.
+/** Màu nền theo PHÒNG — đúng mã màu cột "Phòng" của file Excel (xem token
+ *  `--color-lich-*` trong globals.css). Phòng không có ở đây thì nền trắng, như
+ *  Quầy thuốc và Phòng Sản - Biofeedback trong Excel. */
+export const MAU_PHONG: Record<string, string> = {
+  "Quầy tiếp đón": "bg-lich-tiep-don",
+  "Phòng Nội tiết": "bg-lich-noi-tiet",
+  "Phòng thủ thuật": "bg-lich-thu-thuat",
+  "Phòng Siêu âm": "bg-lich-sieu-am",
+  "Thủ thuật ngoài giờ": "bg-lich-ngoai-gio",
+  "Phòng Sàn chậu": "bg-lich-san-chau",
+  "Phòng siêu âm": "bg-lich-sieu-am",
+};
+
+// Màu nhấn theo TẦNG. Khoá phải là chuỗi `floor` THẬT ở trên — bản trước viết
+// tắt nên hai tầng không bao giờ khớp và rơi về màu mặc định: một bảng màu
+// hỏng một nửa mà không có lỗi nào để thấy.
 export const FLOOR_BORDER: Record<string, string> = {
-  "Thủ thuật ngoài giờ": "border-t-specialty-andro",
-  "HSS + Thủ thuật trong giờ": "border-t-specialty-andro",
-  "Tầng 1 (không Siêu âm)": "border-t-specialty-service",
-  "Tầng 2 · Khám Sản E10 + Monitoring": "border-t-success",
+  "Tầng 1": "border-t-specialty-service",
+  "Tầng 2": "border-t-success",
   "Tầng 4": "border-t-warning",
-  "Tầng 4 phòng trong": "border-t-brand-600",
+  "Điều phối": "border-t-brand-600",
 };
 
 export const STATION_LABEL: Record<string, string> = Object.fromEntries(
@@ -82,6 +162,60 @@ export const STATION_LABEL: Record<string, string> = Object.fromEntries(
 // hai CA thì một bác sĩ trực cả ngày phải nằm ở cả hai hàng, và cột "số bác sĩ
 // trực" luôn đếm gấp đôi.
 
+// ── CỘT CỦA BẢNG: NGÀY × CA ────────────────────────────────────────────────
+//
+// Kim Ngưu chạy BUỔI TỐI trong tuần, cả ngày cuối tuần — đọc ra từ chính hai
+// tuần lịch thật: T2→T6 chỉ có ô ở cột "Tối"; T7 và CN có Sáng · Chiều · Tối.
+// Mười một cột, đúng bằng file Excel.
+//
+// KHÔNG VIẾT CỨNG HẲN. Đây là nếp thường, không phải luật: hôm nào phòng khám
+// mở thêm ca sáng giữa tuần thì cột ấy phải hiện ra, chứ không được nuốt mất
+// người đã xếp. Nên cột = (nếp thường) ∪ (mọi ca THẬT SỰ có dòng trong tuần).
+const CA_THEO_THU: Record<number, Shift[]> = {
+  0: ["SANG", "CHIEU", "TOI"], // Chủ nhật
+  1: ["TOI"],
+  2: ["TOI"],
+  3: ["TOI"],
+  4: ["TOI"],
+  5: ["TOI"],
+  6: ["SANG", "CHIEU", "TOI"], // Thứ Bảy
+};
+
+export interface CotLich {
+  date: string;
+  shift: Shift;
+  /** Cột đầu tiên của ngày — dùng để kẻ vạch ngăn ngày. */
+  dauNgay: boolean;
+  /** Số cột của ngày này, đặt ở cột đầu để gộp ô tiêu đề ngày. */
+  soCotNgay: number;
+}
+
+/** Cột của một tuần: nếp thường, cộng mọi ca thật sự đã có người. */
+export function cotCuaTuan(
+  weekStart: string,
+  rows: { work_date: string; shift?: string | null }[] = [],
+): CotLich[] {
+  const theoNgay = new Map<string, Set<Shift>>();
+  for (const d of weekDates(weekStart)) {
+    const thu = new Date(`${d}T00:00:00Z`).getUTCDay();
+    theoNgay.set(d, new Set(CA_THEO_THU[thu] ?? ["TOI"]));
+  }
+  for (const r of rows) {
+    const co = theoNgay.get(r.work_date);
+    // `FULL` vẫn được xếp ở nơi khác; hiện nó thành một cột riêng thay vì
+    // giấu đi — giấu là để một người đã xếp biến mất khỏi bảng.
+    if (co && r.shift && SHIFTS.includes(r.shift as Shift)) co.add(r.shift as Shift);
+  }
+  const ra: CotLich[] = [];
+  for (const d of weekDates(weekStart)) {
+    const cas = SHIFTS.filter((c) => theoNgay.get(d)?.has(c));
+    cas.forEach((c, i) =>
+      ra.push({ date: d, shift: c, dauNgay: i === 0, soCotNgay: cas.length }),
+    );
+  }
+  return ra;
+}
+
 /** Chia phân công của một ô thành ĐÚNG hai hàng con: người đầu ở hàng trên,
  *  phần còn lại dồn xuống hàng dưới.
  *
@@ -100,14 +234,19 @@ export function demBacSiTruc(
   rows: {
     work_date: string;
     station: string;
+    shift?: string | null;
     staff_id?: string | null;
     staff_name?: string | null;
   }[],
   date: string,
+  /** Bỏ trống = đếm cả ngày. Có ca = chỉ đếm người trực ca ấy (hoặc cả ngày). */
+  shift?: Shift,
 ): number {
   const nguoi = new Set<string>();
   for (const r of rows) {
     if (r.work_date !== date || r.station !== "LICH_KHAM") continue;
+    // `FULL` luôn được tính: người trực cả ngày thì có mặt ở mọi ca.
+    if (shift && r.shift && r.shift !== "FULL" && r.shift !== shift) continue;
     const khoa = r.staff_id ?? r.staff_name;
     if (khoa) nguoi.add(khoa);
   }

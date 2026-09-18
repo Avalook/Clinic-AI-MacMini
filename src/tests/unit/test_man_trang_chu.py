@@ -31,7 +31,10 @@ class TestKhoaPhongKham:
     def test_moi_cau_sql_rieng_deu_khoa_clinic_id(self) -> None:
         nguon = inspect.getsource(ManTrangChuService.goi_du_lieu)
         cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
-        assert len(cau) == 6, f"phải đúng 6 câu riêng, thấy {len(cau)}"
+        # 7 = 6 cũ + ô đen/NGHỈ của bảng lịch (16/09/2026). Con số ghim có chủ ý:
+        # câu thứ tám phải là một quyết định có ghi lại, không phải một dòng lén
+        # thêm vào đường chạy của MỌI lần mở trang chủ.
+        assert len(cau) == 7, f"phải đúng 7 câu riêng, thấy {len(cau)}"
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá:\n{c[:90]}"
 
@@ -84,17 +87,6 @@ class _WeekGia:
         return [{"id": "a1", "slot_start": "s", "phan_loai": "Tái khám"}]
 
 
-class _BoardGia:
-    goi: list[dict[str, object]] = []
-
-    def __init__(self, pool: object) -> None:
-        pass
-
-    async def board(self, **kw: object) -> list[dict[str, Any]]:
-        _BoardGia.goi.append(dict(kw))
-        return [{"id": "a1"}]
-
-
 class _ProgressGia:
     def __init__(self, pool: object) -> None:
         pass
@@ -122,9 +114,7 @@ def _ai(role: ClinicRole) -> StaffIdentity:
 @pytest.fixture(autouse=True)
 def _thay_service_con(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mtc, "WeekAppointmentsService", _WeekGia)
-    monkeypatch.setattr(mtc, "DoctorBoardService", _BoardGia)
     monkeypatch.setattr(mtc, "VisitProgressService", _ProgressGia)
-    _BoardGia.goi = []
 
 
 async def _goi(role: ClinicRole) -> tuple[dict[str, Any], _Conn]:
@@ -151,26 +141,10 @@ async def test_le_tan_co_bang_trang_thai_vai_khac_khong() -> None:
 
 
 @pytest.mark.asyncio
-async def test_o_checkin_chi_do_cho_quan_ly() -> None:
-    """Gương với page.tsx: showCheckin = canCheckin && !RECEPTION = MANAGEMENT.
-
-    Lễ tân check-in qua cột trong bảng lịch tuần; ô riêng chỉ gây trùng."""
-    ra_ql, _ = await _goi(ClinicRole.MANAGEMENT)
-    assert ra_ql["checkin"] == [{"id": "a1"}]
-    assert len(_BoardGia.goi) == 1
-
-    ra_lt, _ = await _goi(ClinicRole.RECEPTION)
-    assert ra_lt["checkin"] == []
-    ra_cskh, _ = await _goi(ClinicRole.CSKH)
-    assert ra_cskh["checkin"] == []
-    assert len(_BoardGia.goi) == 1, "vai khác Quản lý thì đừng gọi cả board"
-
-
-@pytest.mark.asyncio
 async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     _, conn = await _goi(ClinicRole.RECEPTION)
-    # 3 đếm + roster + trực ca + bảng trạng thái = 6, cùng một _Conn.
-    assert len(conn.cac_cau) == 6
+    # 3 đếm + roster + ô đen/NGHỈ + trực ca + bảng trạng thái = 7, cùng một _Conn.
+    assert len(conn.cac_cau) == 7
 
 
 @pytest.mark.asyncio
@@ -180,17 +154,17 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         [
             "so_lieu",
             "roster",
+            "dong_ca",
             "truc_ca",
             "trang_thai_kham",
             "tuan_hen",
-            "checkin",
             "tien_trinh",
         ]
     )
     assert ra["so_lieu"] == {
         "viec_dang_cho": 7,
         "khach_moi_hom_nay": 7,
-        "lich_cho_xac_nhan": 7,
+        "lich_can_xu_ly": 7,
     }
 
 

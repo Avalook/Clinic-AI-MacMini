@@ -37,13 +37,24 @@ const lichSuKham = read("../app/(dashboard)/customers/LichSuCacLanKham.tsx");
 const customersView = read("../app/(dashboard)/customers/CustomersView.tsx");
 const motCham = read("../app/(dashboard)/customers/mot-cham.ts");
 
-/** Mọi `ma: "XXX"` trong cột giữa = một node người dùng bấm được. */
+/** Mã trạng thái mà cột giữa MỞ khối hành động bên phải cho nó.
+ *
+ *  16/09/2026: dòng trạng thái viết lại thành ô tường minh. Ô CSKH ghi thẳng
+ *  bằng vòng tròn; chỉ những ô bấm TÊN (`onLamViec("…")`) mới đổi cột phải —
+ *  và chính những mã ấy phải có bộ nút ở HanhDongTrangThai. */
 function maNodeCotGiua(): string[] {
   const ra = new Set<string>();
-  for (const m of vungLamViec.matchAll(/\bma:\s*"([A-Z0-9_]+)"/g)) ra.add(m[1]!);
-  // Hai hàng gộp truyền mã qua prop `ma="..."` chứ không qua object literal.
-  for (const m of vungLamViec.matchAll(/\bma="([A-Z0-9_]+)"/g)) ra.add(m[1]!);
+  for (const m of vungLamViec.matchAll(/onLamViec\("([A-Z0-9_]+)"/g)) ra.add(m[1]!);
+  for (const m of vungLamViec.matchAll(/onLamViec\(\s*kqChoPhep \? "([A-Z0-9_]+)" : "([A-Z0-9_]+)"/g)) {
+    ra.add(m[1]!);
+    ra.add(m[2]!);
+  }
   return [...ra];
+}
+
+/** Mã ô CSKH ghi bằng vòng tròn (`ghiMotCham("…"`). */
+function maGhiBangVongTron(): string[] {
+  return [...new Set([...vungLamViec.matchAll(/ghiMotCham\("([A-Z0-9_]+)"/g)].map((m) => m[1]!))];
 }
 
 /** Khoá của `HANH_DONG` + `HANH_DONG_THEM` — tập mã có bộ nút ở cột phải. */
@@ -61,7 +72,7 @@ function maCoBoNut(): string[] {
 test("mỗi node ở cột giữa đều có một bộ nút ở cột phải", () => {
   const node = maNodeCotGiua();
   const coNut = new Set(maCoBoNut());
-  assert.ok(node.length >= 12, `đếm được ${node.length} node, quá ít — regex hỏng?`);
+  assert.ok(node.length >= 3, `đếm được ${node.length} node, quá ít — regex hỏng?`);
 
   const thieu = node.filter((ma) => !coNut.has(ma));
   assert.deepEqual(
@@ -150,9 +161,9 @@ test("mọi trạng thái một-chạm đều có node để bấm ở cột gi�
   assert.ok(i > 0, "không tìm thấy bảng MOT_CHAM — bài kiểm này đã lạc hậu");
   const than = motCham.slice(i, motCham.indexOf("\n};", i));
   const ma = [...than.matchAll(/^ {2}([A-Z0-9_]+):\s*\{/gm)].map((m) => m[1]!);
-  assert.ok(ma.length >= 9, `đếm được ${ma.length} mã một-chạm, quá ít`);
+  assert.ok(ma.length >= 1, `đếm được ${ma.length} mã một-chạm, quá ít`);
 
-  const node = new Set(maNodeCotGiua());
+  const node = new Set(maGhiBangVongTron());
   const thieu = ma.filter((x) => !node.has(x));
   assert.deepEqual(
     thieu,
@@ -176,29 +187,23 @@ test("cột phải không dựng lại nút ghi cho trạng thái đã một-ch�
   }
 });
 
-test("cả ba nút Kết thúc lượt khám đều đi qua đường đóng lượt", () => {
-  // Quang 10/08/2026: *"ấn tái khám hay checkout hay đặt lịch mới thì bản chất
-  // chúng nó đều là khám xong rồi"*.
+test("màn CSKH không đóng lượt khám — checkout là việc của lễ tân", () => {
+  // ĐẢO LUẬT 10/08/2026 (Tuyền chốt 16/09/2026): *"checkout là việc của lễ tân
+  // thôi, cái nút ở đây cũng tích đồng bộ trạng thái thôi, còn nút tái khám với
+  // đặt lịch mới thì vẫn thao tác được như cũ"*.
   //
-  // Trước đó chỉ nút Checkout đóng lượt; hai nút kia mở thẳng form đặt lịch và
-  // để lượt cũ treo mãi ở CHECKED_IN — khách "đã khám xong" theo lời người trực
-  // mà hệ thống vẫn coi là đang khám.
-  assert.match(
+  // Trước đó cả ba nút ở cuối vùng làm việc đều ghi CHECK_OUT (đóng lượt thật,
+  // lịch sang COMPLETED) — tức CSKH đóng lượt thay quầy mà không qua đối soát.
+  assert.doesNotMatch(
     vungLamViec,
-    /ketThucRoiDatLich\("tai-kham"\)/,
-    "nút Tái khám phải đi qua `ketThucRoiDatLich`, không gọi thẳng `onDatLich`",
+    /loai:\s*"CHECK_OUT"/,
+    "vùng làm việc CSKH không được ghi CHECK_OUT (đóng lượt)",
   );
-  assert.match(
-    vungLamViec,
-    /ketThucRoiDatLich\("kham-moi"\)/,
-    "nút Đặt lịch khám mới phải đi qua `ketThucRoiDatLich`",
-  );
-  // Và đường ấy phải THẬT SỰ đóng lượt, không chỉ đổi tên hàm.
-  assert.match(
-    vungLamViec,
-    /async function ketThucRoiDatLich[\s\S]{0,400}ghiCheckout\(\)/,
-    "`ketThucRoiDatLich` phải gọi `ghiCheckout` trước khi mở form đặt lịch",
-  );
+  assert.doesNotMatch(vungLamViec, /ghiCheckout|ketThucRoiDatLich/);
+  assert.match(vungLamViec, /onDatLich\?\.\("tai-kham"\)/);
+  assert.match(vungLamViec, /onDatLich\?\.\("kham-moi"\)/);
+  // Ô "Checkout" vẫn có, nhưng KHOÁ — đọc mốc lễ tân đóng lượt.
+  assert.match(vungLamViec, /ten="Checkout"[\s\S]{0,300}nguon="lễ tân"/);
 });
 
 test("chip danh sách kể việc VỪA BẤM trước việc còn phải làm", () => {

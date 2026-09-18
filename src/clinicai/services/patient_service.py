@@ -23,6 +23,7 @@ from clinicai.schemas.patient import (
     PatientDTO,
     PatientUpdateDTO,
 )
+from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
@@ -103,7 +104,8 @@ class PatientService:
 
         Order (mirrors the dashboard intake guard it replaces):
           0. Cơ sở phải CÓ THẬT và ĐANG HOẠT ĐỘNG.
-          1. CCCD hard pre-check — UNIQUE, ``force`` does NOT override → 409.
+          1. CCCD soft block — trùng thì trả ``cccd_trung`` kèm hồ sơ trùng; gửi
+             lại có ``ly_do_trung_cccd`` mới tạo (``force`` KHÔNG nới được).
           2. Phone soft block — same phone_primary already on file and not
              ``force`` → return ``duplicate`` WITHOUT inserting (operator decides).
           3. Insert all demographic fields with a generated patient_code.
@@ -140,20 +142,29 @@ class PatientService:
                         f"Cơ sở {co_so['name']} đã ngừng hoạt động — chọn cơ sở khác."
                     )
 
-            # 1) CCCD hard conflict (cannot be forced — column is UNIQUE).
+            # 1) CCCD trùng: CẢNH BÁO + LÝ DO (Tuyền chốt 15/09/2026; trước đó
+            # chặn cứng bằng UNIQUE). Nhập nhầm, người nhà dùng giấy tờ, hồ sơ
+            # cũ sai số… quầy vẫn phải tạo được — nhưng phải nói vì sao (lý do
+            # vào event_log). MPI chưa chấm điểm CCCD nên KHÔNG tự xếp cặp này
+            # vào hàng gộp hồ sơ.
+            ly_do_trung = (data.ly_do_trung_cccd or "").strip()
             if data.national_id_number:
-                existing = await conn.fetchrow(
-                    "SELECT patient_code, full_name FROM patient "
-                    "WHERE national_id_number = $1 AND clinic_id = "
-                    "$2::uuid LIMIT 1;",
+                trung = await conn.fetch(
+                    "SELECT clinic_patient_id, patient_code, full_name, "
+                    "date_of_birth FROM patient "
+                    "WHERE national_id_number = $1 AND clinic_id = $2::uuid "
+                    "LIMIT 5;",
                     data.national_id_number,
                     clinic_id,
                 )
-                if existing:
-                    raise ConflictError(
-                        f"CCCD này đã có hồ sơ "
-                        f"({existing['patient_code']} · {existing['full_name']})."
+                if trung and not ly_do_trung:
+                    return PatientCreateResult(
+                        duplicate=True,
+                        cccd_trung=True,
+                        matches=[DuplicateMatch(**dict(r)) for r in trung],
                     )
+                if not trung:
+                    ly_do_trung = ""
 
             # 2) Phone soft block — warn, let the operator force (feedback #9).
             if data.phone_primary and not data.force:
@@ -202,6 +213,7 @@ class PatientService:
                         "phone_primary": data.phone_primary,
                         "phone_secondary": data.phone_secondary,
                         "national_id_number": data.national_id_number,
+                        "ly_do_trung_cccd": ly_do_trung or None,
                         "location_id": (
                             str(data.location_id) if data.location_id else None
                         ),
@@ -257,7 +269,7 @@ class PatientService:
             except asyncpg.UniqueViolationError as exc:
                 constraint = (exc.constraint_name or "") + " " + str(exc)
                 if "national_id" in constraint.lower():
-                    # Race after the pre-check — report clearly, don't retry.
+                    # Chỉ còn trên DB chưa áp 20260915000015 (bỏ UNIQUE).
                     raise ConflictError(
                         "CCCD này vừa được tạo cho hồ sơ khác."
                     ) from exc
@@ -477,8 +489,20 @@ class PatientService:
             "RETURNING *;"
         )
 
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow(query, *values)
+            if row is not None and identity is not None:
+                # NHẬT KÝ SỬA HỒ SƠ (15/09/2026): trước đây chỉ có log máy chủ.
+                # Chỉ TÊN trường, không giá trị — nội dung hồ sơ không vào sổ.
+                await record_event(
+                    conn,
+                    event_type="patient.updated",
+                    aggregate_type="patient",
+                    aggregate_id=str(clinic_patient_id),
+                    identity=identity,
+                    origin="api:patient-edit",
+                    payload={"fields": sorted(updates.keys())},
+                )
 
             if row is None and sua_luc is not None:
                 # KHÔNG khớp 0 hàng vì hai lý do rất khác nhau: hồ sơ không tồn

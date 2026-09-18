@@ -146,6 +146,37 @@ export default function ClinicConfigBoard({
     });
   }
 
+  function toggleThuKyBacSi(thuKyId: string, bacSiId: string) {
+    const truoc = staff;
+    const tk = staff.find((s) => s.staff_id === thuKyId);
+    if (!tk) return;
+    const hienTai = tk.bac_si ?? [];
+    const next = hienTai.includes(bacSiId)
+      ? hienTai.filter((x) => x !== bacSiId)
+      : [...hienTai, bacSiId];
+    setStaff(
+      staff.map((s) => (s.staff_id === thuKyId ? { ...s, bac_si: next } : s)),
+    );
+    setErr(null);
+    startTransition(async () => {
+      try {
+        await send("thu-ky-bac-si", {
+          thu_ky_staff_id: thuKyId,
+          bac_si_staff_ids: next,
+        });
+        setSaved(thuKyId);
+      } catch (e) {
+        setStaff(truoc);
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  const thuKy = staff.filter((s) => s.role === "TKYK");
+  const bacSi = staff.filter(
+    (s) => s.role === "DOCTOR" || s.role === "ULTRASOUND_DOCTOR",
+  );
+
   if (!ok) {
     return (
       <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">
@@ -425,6 +456,60 @@ export default function ClinicConfigBoard({
           {staff.length === 0 && (
             <li className="px-4 py-6 text-center text-sm text-ink-muted">
               Chưa có nhân sự đang hoạt động.
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {/* ── Thư ký đi cùng bác sĩ nào (Tuyền chốt 15/09/2026) ──────────── */}
+      <section className="rounded-card border border-line bg-surface shadow-card">
+        <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+          <Users size={18} className="shrink-0 text-brand-600" />
+          <h2 className="text-base font-semibold text-ink">
+            Thư ký đi cùng bác sĩ
+          </h2>
+          <span className="ml-auto text-xs text-ink-muted">
+            {thuKy.length} thư ký
+          </span>
+        </header>
+        <p className="border-b border-line px-4 py-2 text-xs text-ink-muted">
+          Thư ký chỉ thấy và làm việc cho khách của bác sĩ được đánh dấu. Chưa
+          đánh dấu ai thì thư ký không thấy khách nào.
+        </p>
+        <ul className="divide-y divide-brand-100">
+          {thuKy.map((s) => (
+            <li key={s.staff_id} className="px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-ink">{s.full_name}</span>
+                {saved === s.staff_id && !isPending && (
+                  <Check size={14} className="text-success" />
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {bacSi.map((b) => {
+                  const on = (s.bac_si ?? []).includes(b.staff_id);
+                  return (
+                    <button
+                      key={b.staff_id}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => toggleThuKyBacSi(s.staff_id, b.staff_id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition-colors duration-150 disabled:opacity-60 ${
+                        on
+                          ? "border-brand-400 bg-brand-100 text-brand-800"
+                          : "border-line bg-surface text-ink-muted hover:bg-brand-50"
+                      }`}
+                    >
+                      {b.full_name}
+                    </button>
+                  );
+                })}
+              </div>
+            </li>
+          ))}
+          {thuKy.length === 0 && (
+            <li className="px-4 py-6 text-center text-sm text-ink-muted">
+              Chưa có thư ký y khoa đang hoạt động.
             </li>
           )}
         </ul>

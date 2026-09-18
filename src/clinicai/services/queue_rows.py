@@ -27,8 +27,9 @@ def entry_from_row(row: Mapping[str, Any], *, id_key: str = "id") -> QueueEntry:
     """Một hàng SQL → một dòng hàng chờ.
 
     Các khoá phải có: ``slot_start``, ``queue_number``, ``booking_channel``,
-    ``checked_in_at``, ``slot_minutes``. ``doctor_id`` và ``b3_ready`` là tuỳ —
-    thiếu thì coi như chưa xếp bác sĩ và chưa có kết quả về.
+    ``checked_in_at``, ``slot_minutes``. ``doctor_id``, ``b3_ready`` và
+    ``b3_ready_at`` là tuỳ — thiếu thì coi như chưa xếp bác sĩ, chưa có kết quả
+    về (và nếu có mà thiếu mốc thì coi như đã chờ từ lúc check-in).
     """
     doctor_id = row.get("doctor_id")
     return QueueEntry(
@@ -41,6 +42,9 @@ def entry_from_row(row: Mapping[str, Any], *, id_key: str = "id") -> QueueEntry:
         grace_ms=grace_ms_from_slot_minutes(row.get("slot_minutes")),
         b3_ready=bool(row.get("b3_ready")),
         visit_status=row.get("visit_status"),
+        b3_ready_at=row.get("b3_ready_at"),
+        thu_tu_tay_ms=row.get("thu_tu_tay_ms"),
+        khach_uu_tien=bool(row.get("khach_uu_tien")),
     )
 
 

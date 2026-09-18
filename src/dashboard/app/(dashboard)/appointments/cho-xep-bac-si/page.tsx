@@ -8,8 +8,8 @@
 // thứ chín sẽ rơi im lặng qua mọi bộ lọc.
 
 import { redirect } from "next/navigation";
-import { getClinicRole } from "../../../../lib/clinic-session";
-import { isOpsAdmin } from "../../../../lib/roles";
+import { vaiLamViec } from "../../../../lib/clinic-session";
+import { canManageAppt } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
 import HangChoView, { type DongCho } from "./HangChoView";
@@ -18,9 +18,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ChoXepBacSiPage() {
   // Trưởng ca xếp được cùng Quản lý: người trực tiếp biết ai đang rảnh thường
-  // là trưởng ca. Backend gác lại bằng chính bảng chuyển tiếp (MANAGE_ROLES).
-  const role = await getClinicRole();
-  if (!isOpsAdmin(role)) redirect("/home");
+  // là trưởng ca. CSKH vào để gọi khách đổi ca (16/09/2026). Backend gác lại
+  // bằng chính bảng chuyển tiếp (MANAGE_ROLES = CSKH, Quản lý, Trưởng ca).
+  const role = await vaiLamViec(canManageAppt);
+  if (!canManageAppt(role)) redirect("/home");
 
   const [data, doctors] = await Promise.all([
     fetchFromBackend<{ items: DongCho[] }>("/api/v1/appointments/cho-xep-bac-si"),
@@ -34,8 +35,9 @@ export default async function ChoXepBacSiPage() {
           Lịch chờ xếp bác sĩ
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Khách đã hẹn giờ nhưng chưa có bác sĩ — thường là lịch đặt trước khi
-          lịch trực tuần đó được công bố.
+          Khách đã hẹn giờ nhưng chưa có bác sĩ (thường đặt trước khi công bố
+          lịch trực), mất bác sĩ vì gỡ ca, hoặc vượt sức chứa sau khi công bố.
+          Không lịch nào bị huỷ — xử lý ở đây, CSKH gọi khách.
         </p>
       </header>
 

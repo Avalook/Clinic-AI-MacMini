@@ -42,6 +42,7 @@ EVENT_LABELS: dict[str, str] = {
     "patient.phone_added": "Thêm số điện thoại cho khách",
     "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
+    "roster.shift_removed": "Gỡ ca trực",
     "roster.shift_added_cho_xep": "Ca mới có lịch đang chờ xếp bác sĩ",
     "appointment.doctor_restored": "Gắn lại bác sĩ (ca trực xếp lại)",
     "appointment.cancelled": "Huỷ lịch hẹn",
@@ -86,6 +87,8 @@ EVENT_LABELS: dict[str, str] = {
     # bắt buộc; sửa bảng `NGUON` thì sửa cả chỗ này.
     "thong_bao.bac_si_da_xep": "Báo CSKH lịch đã có bác sĩ",
     "thong_bao.tuan_lich_truc": "Báo CSKH tuần đã chốt lịch trực",
+    "thong_bao.xung_dot_suc_chua": "Báo Trưởng ca khung vượt trần khi công bố",
+    "thong_bao.ket_qua_ve": "Báo CSKH và bác sĩ kết quả vừa về",
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
@@ -95,11 +98,32 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.discarded": "Huỷ thuốc",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
+    "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",
+    "patient.updated": "Sửa hồ sơ khách",
+    "clinic_config.service_form": "Quản lý đổi phiếu khám của dịch vụ",
+    "clinic_config.room_floor": "Quản lý đổi tầng phòng",
+    "clinic_config.room_nodes": "Quản lý đổi bước phòng phục vụ",
+    "clinic_config.staff_nodes": "Quản lý đổi bước nhân sự làm được",
+    "clinic_config.thu_ky_bac_si": "Quản lý phân thư ký theo bác sĩ",
+    "queue.reordered": "Lễ tân đổi thứ tự khám",
+    "visit.doctor_reassigned": "Trưởng ca chuyển bác sĩ giữa lượt",
+    "visit.theo_doi_thu_thuat": "Bác sĩ quyết theo dõi sau thủ thuật",
+    "service_order.removed": "Bác sĩ bỏ tích dịch vụ khỏi chỉ định",
+    "ultrasound.assigned": "Giao bác sĩ thực hiện siêu âm",
+    "staff.account_tao": "Tạo tài khoản đăng nhập nhân sự",
+    "staff.account_doi_mat_khau": "Đặt lại mật khẩu nhân sự",
+    "staff.account_doi_ten_dang_nhap": "Đổi tên đăng nhập nhân sự",
+    "staff.account_thu_hoi": "Thu hồi tài khoản đăng nhập nhân sự",
     "patient_link.created": "Liên kết hai bệnh nhân",
     "clinical_data_consent.granted": "Đồng ý chia sẻ hồ sơ",
     "clinical_data_consent.revoked": "Thu hồi đồng ý chia sẻ",
     # ── Khám & bệnh án ──────────────────────────────────────────────────────
     "clinical_record.saved": "Lưu bệnh án",
+    "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
+    "service_order.draft_saved": "Thư ký nhập chỉ định nháp",
+    "service_order.draft_approved": "Bác sĩ duyệt chỉ định thư ký nhập",
+    "service_order.draft_discarded": "Bỏ chỉ định nháp",
+    "tep_ket_qua.cho_phep_gui": "Bác sĩ cho phép gửi tệp kết quả",
     "clinical_record.vitals_saved": "Ghi sinh hiệu",
     "clinical_form.saved": "Lưu phiếu khám chuyên khoa",
     "clinical.signed": "Ký bệnh án",
@@ -141,6 +165,24 @@ EVENT_LABELS: dict[str, str] = {
     "staff.created": "Tạo nhân sự",
     "staff.updated": "Sửa thông tin nhân sự",
     "staff.deactivated": "Ngưng hoạt động nhân sự",
+    # ── Luồng khám lát 1 (20260911000001) ────────────────────────────────
+    "vitals.recorded": "Đo sinh hiệu trước khám",
+    "visit.routed": "Xác định bước tiếp theo của lượt khám",
+    "consult.started": "Bác sĩ nhận khách vào phiên khám",
+    "consult.note_saved": "Ghi chú phiên khám",
+    "orders.drafted": "Thư ký ghi nháp chỉ định",
+    "orders.authorized": "Bác sĩ duyệt chỉ định",
+    "consult.completed": "Kết thúc phiên khám",
+    "dispatch.assigned": "Xếp phòng cho chỉ định",
+    "service.started": "Người thực hiện nhận khách làm dịch vụ",
+    "service.performed": "Làm xong dịch vụ",
+    "service.not_performed": "Không làm được dịch vụ",
+    "result.approved": "Bác sĩ duyệt kết quả, cho phép gửi khách",
+    "queue.called": "Gọi khách vào phòng",
+    "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
+    "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
+    "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
+    "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
 }
 
 #: Lệnh của workflow kernel (bảng `work_item_event`), gộp chung vào một dòng
@@ -178,11 +220,18 @@ SOURCE_LABELS: dict[str, str] = {
     "dashboard": "Màn hình quản trị",
     "system": "Hệ thống",
     "api:dispatch": "Điều phối trong ngày",
+    "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
+    "api:theo-doi-thu-thuat": "Bác sĩ — theo dõi sau thủ thuật",
+    "api:ket-qua": "Kết quả xét nghiệm về",
+    "api:staff-account": "Quản lý tài khoản nhân sự",
+    "api:clinic-config": "Cấu hình phòng khám",
+    "api:patient-edit": "Sửa hồ sơ khách",
     "api:reception": "Quầy tiếp nhận",
     "api:pharmacy": "Nhà thuốc",
     "api:staff": "Quản lý nhân sự",
     "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
+    "api:luot-kham": "Màn lượt khám",
 }
 
 #: Khớp theo TIỀN TỐ khi không có mục khớp đúng — và đây mới là phần quan trọng.
@@ -218,6 +267,7 @@ SOURCE_PREFIXES: tuple[tuple[str, str], ...] = (
 #: Loại đối tượng (`aggregate_type`) → tên tiếng Việt. Cái chip ở đầu ô chi tiết
 #: đang in tên BẢNG trong database: "roster tuần" hiện ra là "roster_week".
 AGGREGATE_LABELS: dict[str, str] = {
+    "tep_ket_qua": "Tệp kết quả",
     "appointment": "Lịch hẹn",
     "patient": "Khách hàng",
     "clinic_patient": "Khách hàng",

@@ -55,6 +55,44 @@ class BackupSnapshot(StrictModel):
     scope: Literal["public-schema-only"]
 
 
+class RestoreDrillSnapshot(StrictModel):
+    """Lần diễn tập phục hồi gần nhất (scripts/restore-drill.sh ghi ra)."""
+
+    format_version: Literal[1] = 1
+    ran_at: datetime
+    passed: bool
+    checks_passed: int = Field(default=0, ge=0)
+    checks_failed: int = Field(default=0, ge=0)
+    archive: str = Field(default="", max_length=200)
+
+
+class DeploySnapshot(StrictModel):
+    """Lần deploy gần nhất (scripts/deploy-backend.sh ghi ra)."""
+
+    format_version: Literal[1] = 1
+    deployed_at: datetime
+    sha: str = Field(default="", max_length=64)
+    environment: str = Field(default="", max_length=32)
+    image_tag: str = Field(default="", max_length=64)
+    subject: str = Field(default="", max_length=200)
+
+
+class DeployStatus(StrictModel):
+    """Phiên bản đang chạy + vài lần deploy gần đây.
+
+    Câu hỏi ĐẦU TIÊN khi có sự cố là "vừa có ai đổi gì không". Không có khối
+    này thì người trực phải ssh vào máy rồi `git log` — đúng lúc đang vội.
+    """
+
+    deployed_at: datetime | None = None
+    age_hours: float | None = Field(default=None, ge=0)
+    sha_short: str | None = Field(default=None, max_length=12)
+    image_tag: str | None = Field(default=None, max_length=64)
+    subject: str | None = Field(default=None, max_length=200)
+    #: Mới nhất trước. Rỗng khi chưa deploy lần nào qua script có ghi mốc.
+    recent: list[DeploySnapshot] = Field(default_factory=list, max_length=20)
+
+
 class LogCountsSnapshot(StrictModel):
     window_minutes: int = Field(ge=1, le=1_440)
     warnings: int = Field(ge=0)
@@ -85,6 +123,17 @@ class BackupStatus(StrictModel):
     archive_bytes: int | None = Field(default=None, ge=0)
     offsite_uploaded: bool | None = None
     scope: Literal["public-schema-only"] | None = None
+    # DIỄN TẬP PHỤC HỒI — khác hẳn `verified`.
+    #
+    # `verified` chỉ nói TỆP còn nguyên: gzip đọc được, sha256 khớp, có đủ dấu
+    # kết thúc. Một bản dump đứt nửa chừng vẫn qua được cả ba. Câu duy nhất đáng
+    # hỏi buổi sáng máy chủ chết là "nạp vào database rỗng thì phòng khám có về
+    # không", và chỉ có `restore-drill.sh` trả lời được.
+    drill_state: Literal["fresh", "stale", "failed", "never"] | None = None
+    drill_ran_at: datetime | None = None
+    drill_age_days: float | None = Field(default=None, ge=0)
+    drill_checks_passed: int | None = Field(default=None, ge=0)
+    drill_checks_failed: int | None = Field(default=None, ge=0)
 
 
 class SecurityFinding(StrictModel):
@@ -104,5 +153,6 @@ class OpsStatusResponse(StrictModel):
     services: list[HostServiceSnapshot]
     host: HostMetricsSnapshot | None
     backup: BackupStatus
+    deploy: DeployStatus | None = None
     security: list[SecurityFinding]
     log_counts: LogCountsSnapshot | None

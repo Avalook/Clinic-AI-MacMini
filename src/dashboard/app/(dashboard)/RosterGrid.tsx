@@ -1,85 +1,116 @@
 // Khung chung của BA bảng "Lịch làm việc": trang chủ (chỉ đọc), lịch chính thức
 // (chỉ đọc), và bảng xếp ca của quản lý.
 //
-// Form lấy từ file Excel "BẢNG LÀM VIỆC" (sheet LLV):
-//   - cột gom theo TẦNG ở hàng header trên,
-//   - cột "Số BS" ngay sau Lịch khám,
-//   - MỖI NGÀY HAI HÀNG CON, mỗi hàng một người (xem chiaHaiHang trong
-//     lib/roster.ts để biết vì sao không phải sáng/chiều).
+// Y HỆT FILE EXCEL xếp lịch của PK Kim Ngưu (Tuyền 16/09/2026: "bảng nó phải
+// dạng y hệt như này"):
 //
-// VÌ SAO DÙNG CHUNG. Trước đây mỗi bảng tự chép lại phần header, và ba bản đã
-// lệch nhau: hai bảng vẽ viền tầng màu xanh thương hiệu, bảng thứ ba vẽ theo
-// tầng nhưng dùng tên tầng viết tắt nên khớp sai. Ba bảng phải "cùng một bảng ở
-// ba chỗ" thì mới có lý do bắt người dùng đọc cùng một cách.
+//   • ba cột trái  Tầng · Phòng · Vị trí nhân sự
+//   • ba hàng đầu  Thứ · ngày · ca     (T2→T6 một ca Tối; T7, CN ba ca)
+//   • nền theo PHÒNG, đúng mã màu Excel
+//   • vạch xanh đậm ngăn giữa các tầng
+//   • ô ĐEN      = vị trí không làm ca ấy   (khác ô trống = cần người, chưa xếp)
+//   • khối NGHỈ  = cả ca phòng khám nghỉ
+//   • ô GỘP DỌC  = một người đứng hai vị trí liền nhau (Lễ tân + Thu ngân…)
+//
+// GỘP DỌC SUY RA TỪ DỮ LIỆU, không khai tay. Đọc file Excel thì ô gộp dọc chỉ
+// xảy ra ở bốn cặp — Lễ tân+Thu ngân, Xếp thuốc+Tạo đơn, Đo chỉ số+Lấy mẫu, Hỏi
+// bệnh+Thư ký — và nghĩa của nó luôn là "cùng một người đứng cả hai". Nên luật
+// là: hai vị trí LIỀN NHAU trong CÙNG tầng có CÙNG người → một ô. Không cần danh
+// sách cặp; ngày phòng khám gộp một cặp mới, bảng tự gộp theo.
 
 import { Fragment, type ReactNode } from "react";
-import { STATIONS, STATION_SEGMENTS, FLOOR_BORDER, type Station } from "../../lib/roster";
+import {
+  MAU_PHONG,
+  SHIFT_LABEL,
+  STATION_SEGMENTS,
+  dayShort,
+  fmtDayMonth,
+  type CotLich,
+  type Station,
+} from "../../lib/roster";
 
-// KẺ DỌC Ở ĐÂY LÀ CHỦ Ý, không phải sót lại sau đại tu: bảng này là MA TRẬN
-// TOẠ ĐỘ (ngày × trạm) — người đọc dò một cột trạm suốt cả tuần, và vách dọc
-// là thứ giữ mắt khỏi trượt cột, cùng lý do lưới đặt chỗ rạp phim được giữ
-// (DESIGN.md §6). Cái làm nó "nhìn như Google Sheets" là MỰC MÀU THƯƠNG HIỆU
-// kẻ cả hai chiều — nên mực đổi về trung tính, còn hai ĐỘ ĐẬM giữ nguyên vai:
-// hairline giữa hai hàng con của một ngày, line đậm hơn đóng một ngày lại.
-const TH_BASE =
-  "border-b border-r border-hairline px-2 py-2 text-center align-middle font-semibold text-ink";
-
-/** Viền dưới của hàng con TRÊN — nhạt, để hai hàng của một ngày đọc như một khối. */
 export const O_TREN = "border-b border-r border-hairline";
-/** Viền dưới của hàng con DƯỚI — đậm, đóng lại một ngày. */
-export const O_DUOI = "border-b border-r border-b-line border-r-hairline";
 
-/** Hai hàng header: tầng (gộp cột) rồi tên trạm. Cột "Ngày" và "Số BS" gộp dọc. */
-export function RosterGridHead({ minWidth = 92 }: { minWidth?: number }) {
+const THU_DAY_DU: Record<string, string> = {
+  T2: "Thứ Hai",
+  T3: "Thứ Ba",
+  T4: "Thứ Tư",
+  T5: "Thứ Năm",
+  T6: "Thứ Sáu",
+  T7: "Thứ Bảy",
+  CN: "Chủ nhật",
+};
+
+/** Ba cột trái dính khi cuộn ngang. */
+const COT_TRAI = [
+  "sticky left-0 z-10 w-16 min-w-16",
+  "sticky left-16 z-10 w-40 min-w-40",
+  "sticky left-56 z-10 w-56 min-w-56",
+];
+const KE = "border border-line-strong";
+
+export type TrangThaiO = "DONG" | "NGHI" | null;
+
+export interface ThongTinO {
+  /** Ô đen / khối nghỉ / bình thường. */
+  dong: TrangThaiO;
+  /** Khoá so sánh để gộp dọc: cùng khoá (khác rỗng) = cùng người. */
+  khoa: string;
+}
+
+/** Ba hàng tiêu đề: Thứ (gộp theo số ca) · ngày (gộp) · ca. */
+export function RosterGridHead({
+  cot,
+  minWidth = 104,
+}: {
+  cot: CotLich[];
+  minWidth?: number;
+}) {
   return (
     <thead>
       <tr className="bg-surface-muted">
-        <th
-          rowSpan={2}
-          className="sticky left-0 z-20 border-b border-r border-hairline bg-surface-muted px-2 py-2 text-left font-semibold text-ink"
-        >
-          Ngày
-        </th>
-        {STATION_SEGMENTS.map((seg) =>
-          seg.floor === "" ? (
-            <Fragment key="khong-tang">
-              {seg.stations.map((s) => (
-                <th
-                  key={s.key}
-                  rowSpan={2}
-                  className={TH_BASE}
-                  style={{ minWidth: minWidth + 18 }}
-                >
-                  {s.short}
-                </th>
-              ))}
-              <th
-                rowSpan={2}
-                className={`min-w-13 ${TH_BASE}`}
-                title="Số bác sĩ trực trong ngày — tính từ cột Lịch khám"
-              >
-                Số BS
-              </th>
-            </Fragment>
-          ) : (
+        {["Tầng", "Phòng", "Vị trí nhân sự"].map((t, i) => (
+          <th
+            key={t}
+            rowSpan={3}
+            className={`${COT_TRAI[i]} z-20 ${KE} bg-surface-muted px-2 py-2 text-center align-middle font-semibold text-ink`}
+          >
+            {t}
+          </th>
+        ))}
+        {cot.map((c) =>
+          c.dauNgay ? (
             <th
-              key={seg.floor}
-              colSpan={seg.stations.length}
-              className={`${TH_BASE} border-t-2 ${FLOOR_BORDER[seg.floor] ?? "border-t-brand-600"}`}
+              key={`${c.date}-thu`}
+              colSpan={c.soCotNgay}
+              className={`${KE} px-2 py-1 text-center font-semibold text-ink`}
             >
-              {seg.floor}
+              {THU_DAY_DU[dayShort(c.date)] ?? dayShort(c.date)}
             </th>
-          ),
+          ) : null,
         )}
       </tr>
       <tr className="bg-surface-muted">
-        {STATIONS.filter((s) => s.floor !== "").map((s) => (
+        {cot.map((c) =>
+          c.dauNgay ? (
+            <th
+              key={`${c.date}-ngay`}
+              colSpan={c.soCotNgay}
+              className={`${KE} px-2 py-1 text-center font-normal text-ink`}
+            >
+              {fmtDayMonth(c.date)}/{c.date.slice(0, 4)}
+            </th>
+          ) : null,
+        )}
+      </tr>
+      <tr className="bg-surface-muted">
+        {cot.map((c) => (
           <th
-            key={s.key}
-            className="border-b border-r border-hairline px-2 py-1.5 text-center font-medium text-ink-muted"
+            key={`${c.date}-${c.shift}`}
+            className={`${KE} px-2 py-1 text-center font-normal text-ink`}
             style={{ minWidth }}
           >
-            {s.short}
+            {SHIFT_LABEL[c.shift]}
           </th>
         ))}
       </tr>
@@ -87,48 +118,143 @@ export function RosterGridHead({ minWidth = 92 }: { minWidth?: number }) {
   );
 }
 
-/** Hai hàng <tr> của MỘT ngày. `oCua(trạm, hàng)` trả về đúng một <td>. */
-export function RosterDayRows({
-  nhan,
-  soBacSi,
-  vach,
-  oCua,
+/** Thân bảng: mỗi vị trí một hàng, gộp Tầng/Phòng, vạch tầng, ô đen, NGHỈ, gộp dọc.
+ *
+ *  `thongTin(vị trí, cột)` nói ô ấy đóng hay mở và ai đứng (khoá để gộp).
+ *  `veO(vị trí, cột, rowSpan)` vẽ nội dung một ô MỞ — trả về đúng một `<td>`. */
+export function RosterViTriRows({
+  cot,
+  thongTin,
+  veO,
 }: {
-  /** Nhãn cột đầu, vd "T2 · 03/08". */
-  nhan: string;
-  soBacSi: number;
-  /** Class nền so le của ngày này. */
-  vach: string;
-  oCua: (station: Station, hang: 0 | 1) => ReactNode;
+  cot: CotLich[];
+  thongTin: (station: Station, c: CotLich) => ThongTinO;
+  veO: (station: Station, c: CotLich, rowSpan: number) => ReactNode;
 }) {
+  const tongCot = 3 + cot.length;
   return (
     <>
-      <tr className={"align-top " + vach}>
-        <td
-          rowSpan={2}
-          className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-hairline bg-inherit px-2 py-2 font-medium text-ink"
-        >
-          {nhan}
-        </td>
-        {STATIONS.map((s) => (
-          <Fragment key={s.key}>
-            {oCua(s, 0)}
-            {s.key === "LICH_KHAM" && (
-              <td
-                rowSpan={2}
-                className={`${O_DUOI} px-2 py-2 text-center font-semibold text-brand-700`}
-              >
-                {soBacSi > 0 ? soBacSi : <span className="text-ink-faint">—</span>}
-              </td>
-            )}
+      {STATION_SEGMENTS.map((tang, ti) => {
+        const viTri = tang.phongs.flatMap((p) => p.stations);
+
+        // ── Tính trước, theo từng cột: ô nào bị gộp vào ô trên, ô nào dài bao nhiêu.
+        // `span[i][ci]` = rowSpan của ô ở hàng i (0 = ô này đã bị gộp, không vẽ).
+        const span: number[][] = viTri.map(() => cot.map(() => 1));
+        const nghiCaTang: boolean[] = cot.map(
+          (c) => viTri.length > 0 && viTri.every((s) => thongTin(s, c).dong === "NGHI"),
+        );
+        cot.forEach((c, ci) => {
+          if (nghiCaTang[ci]) {
+            span[0][ci] = viTri.length;
+            for (let i = 1; i < viTri.length; i++) span[i][ci] = 0;
+            return;
+          }
+          let dau = 0;
+          for (let i = 1; i < viTri.length; i++) {
+            const tren = thongTin(viTri[dau], c);
+            const duoi = thongTin(viTri[i], c);
+            const gop =
+              tren.dong === null &&
+              duoi.dong === null &&
+              tren.khoa !== "" &&
+              tren.khoa === duoi.khoa;
+            if (gop) {
+              span[dau][ci] += 1;
+              span[i][ci] = 0;
+            } else {
+              dau = i;
+            }
+          }
+        });
+
+        let daInTang = false;
+        let chiSo = -1;
+        return (
+          <Fragment key={tang.floor}>
+            {tang.phongs.map((phong) => {
+              let daInPhong = false;
+              const mau = MAU_PHONG[phong.phong] ?? "bg-surface";
+              return (
+                <Fragment key={`${tang.floor}-${phong.phong}-${phong.stations[0].key}`}>
+                  {phong.stations.map((s) => {
+                    chiSo += 1;
+                    const i = chiSo;
+                    const inTang = !daInTang;
+                    const inPhong = !daInPhong;
+                    daInTang = true;
+                    daInPhong = true;
+                    return (
+                      <tr key={s.key} className="align-middle">
+                        {inTang ? (
+                          <td
+                            rowSpan={tang.soViTri}
+                            className={`${COT_TRAI[0]} ${KE} bg-surface px-2 py-2 align-top font-semibold text-ink`}
+                          >
+                            {tang.floor}
+                          </td>
+                        ) : null}
+                        {inPhong ? (
+                          <td
+                            rowSpan={phong.stations.length}
+                            className={`${COT_TRAI[1]} ${KE} ${mau} px-2 py-2 font-semibold text-ink`}
+                          >
+                            {phong.phong}
+                          </td>
+                        ) : null}
+                        <td
+                          className={`${COT_TRAI[2]} ${KE} ${mau} px-2 py-1 text-ink`}
+                          title={s.label}
+                        >
+                          {s.short}
+                        </td>
+                        {cot.map((c, ci) => {
+                          const rs = span[i][ci];
+                          if (rs === 0) return null;
+                          const k = `${s.key}-${c.date}-${c.shift}`;
+                          if (nghiCaTang[ci]) {
+                            return (
+                              <td
+                                key={k}
+                                rowSpan={rs}
+                                className={`${KE} bg-lich-nghi text-center align-middle text-2xl font-bold text-warning-bg`}
+                              >
+                                NGHỈ
+                              </td>
+                            );
+                          }
+                          const tt = thongTin(s, c);
+                          if (tt.dong) {
+                            return (
+                              <td
+                                key={k}
+                                rowSpan={rs}
+                                className={`${KE} ${tt.dong === "NGHI" ? "bg-lich-nghi" : "bg-lich-dong"}`}
+                                aria-label="Không làm ca này"
+                              />
+                            );
+                          }
+                          return <Fragment key={k}>{veO(s, c, rs)}</Fragment>;
+                        })}
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+            {/* Vạch xanh đậm ngăn tầng — đúng hàng kẻ màu `073763` trong Excel. */}
+            {ti < STATION_SEGMENTS.length - 1 ? (
+              <tr aria-hidden="true">
+                <td colSpan={tongCot} className="h-3 bg-lich-vach-tang p-0" />
+              </tr>
+            ) : null}
           </Fragment>
-        ))}
-      </tr>
-      <tr className={"align-top " + vach}>
-        {STATIONS.map((s) => (
-          <Fragment key={s.key}>{oCua(s, 1)}</Fragment>
-        ))}
-      </tr>
+        );
+      })}
     </>
   );
+}
+
+/** Nền của một ô MỞ: màu phòng của vị trí ấy, như Excel. */
+export function nenO(station: Station): string {
+  return MAU_PHONG[station.phong] ?? "bg-surface";
 }

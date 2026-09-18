@@ -6,7 +6,7 @@ import re
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from clinicai.core.phone import normalize_vn_phone
 
@@ -58,6 +58,9 @@ class PatientCreateDTO(BaseModel):
     is_active: bool = True
     # Cho phép tạo dù trùng SĐT (nhân viên đã xác nhận). KHÔNG nới CCCD.
     force: bool = False
+    # CCCD trùng hồ sơ khác: cảnh báo, tạo được khi ghi LÝ DO (Tuyền chốt
+    # 15/09/2026 — trước đó chặn cứng). Lý do vào event_log patient.created.
+    ly_do_trung_cccd: str | None = Field(default=None, max_length=500)
 
     @field_validator(
         "date_of_birth",
@@ -255,9 +258,11 @@ class PatientCreateResult(BaseModel):
 
     ``patient is None and duplicate is True`` → phone already on file (no insert
     happened; caller may retry with force). Otherwise ``patient`` holds the row.
-    A hard CCCD conflict does NOT return here — it raises ConflictError (409).
+    ``cccd_trung`` → CCCD already on file and no reason given (no insert).
     """
 
     duplicate: bool = False
+    #: Trùng CCCD (khác trùng SĐT): gửi lại kèm `ly_do_trung_cccd` mới tạo được.
+    cccd_trung: bool = False
     matches: list[DuplicateMatch] = []
     patient: PatientDTO | None = None

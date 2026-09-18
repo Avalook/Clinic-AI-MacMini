@@ -33,10 +33,14 @@ from clinicai.api.v1.routers.config import (
 
 class TestLopGac:
     def test_ca_hai_diem_cuoi_deu_gac_bang_luat_dat_lich(self) -> None:
-        """Cùng gác với luật đặt lịch: Trưởng ca + Quản lý, không ai khác."""
-        for ham in (router_config.doc_ca_lam_viec, router_config.sua_ca_lam_viec):
-            nguon = inspect.getsource(ham)
-            assert "_BOOKING_POLICY_GUARD" in nguon, ham.__name__
+        """Sửa giờ ca: chỉ Quản lý; đọc: Trưởng ca + Quản lý (Tuyền chốt 15/09/2026
+        — luật đặt lịch để quản lý đặt; trước đó Trưởng ca sửa được)."""
+        assert "_BOOKING_POLICY_GUARD" in inspect.getsource(
+            router_config.sua_ca_lam_viec
+        )
+        assert "_BOOKING_POLICY_READ" in inspect.getsource(
+            router_config.doc_ca_lam_viec
+        )
 
     def test_gac_khong_gom_le_tan_hay_cskh(self) -> None:
         nguon = inspect.getsource(router_config)
@@ -44,8 +48,7 @@ class TestLopGac:
             d for d in nguon.splitlines() if d.startswith("_BOOKING_POLICY_GUARD =")
         )
         assert ClinicRole.MANAGEMENT.name in dong
-        assert ClinicRole.TRUONG_CA.name in dong
-        for cam in ("RECEPTION", "CSKH", "DOCTOR"):
+        for cam in ("TRUONG_CA", "RECEPTION", "CSKH", "DOCTOR"):
             assert cam not in dong, f"{cam} không được sửa giờ ca của phòng khám"
 
 

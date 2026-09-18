@@ -37,9 +37,29 @@ logger = structlog.get_logger()
 #: Trong container: /var/lib/clinicai/media (ổ bind từ ./.media trên máy).
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", "./.media/production"))
 
+
+#: KHO GẮN NGOÀI PHẢI THẬT SỰ ĐANG GẮN (Tuyền 16/09/2026: lưu tệp vào Viettel
+#: Cloud File Storage, không lưu trên ổ VPS).
+#:
+#: Kho ấy là một ổ mạng gắn vào máy chủ. Ổ rớt kết nối, hay máy khởi động lại mà
+#: Docker lên TRƯỚC ổ mạng, thì thư mục bind trỏ vào ổ VPS bên dưới — ghi vẫn
+#: thành công, và ảnh bệnh nhân nằm sai chỗ mà không ai biết. Nên khi cấu hình
+#: `MEDIA_MARKER`, tệp đánh dấu ấy (chỉ có trên kho thật) phải có mặt thì mới ghi.
+#: Đọc biến lúc gọi, không lúc import: đổi cấu hình chỉ cần khởi động lại.
+def kiem_kho_da_gan() -> None:
+    dau = os.environ.get("MEDIA_MARKER", "").strip()
+    if dau and not (MEDIA_ROOT / dau).is_file():
+        logger.error("kho_media_chua_gan", media_root=str(MEDIA_ROOT), marker=dau)
+        raise ValidationError(
+            "Kho lưu tệp (Viettel File Storage) đang không kết nối — tệp CHƯA "
+            "được lưu. Báo kỹ thuật kiểm tra ổ lưu trữ rồi tải lại."
+        )
+
+
 #: 12MB. Máy siêu âm xuất ảnh khoảng 200KB–2MB; 12MB là rộng rãi mà vẫn chặn
 #: được một video bị kéo nhầm vào ô ảnh.
 MAX_BYTES = 12 * 1024 * 1024
+
 
 #: Trần theo TỪNG LOẠI, không dùng chung một con số.
 #:
@@ -47,13 +67,32 @@ MAX_BYTES = 12 * 1024 * 1024
 #: cũng nhận một video 80MB, rồi màn siêu âm cố hiển thị nó như ảnh. Video có
 #: trần riêng và đọc từ môi trường, vì nó là thứ duy nhất ở đây đủ lớn để một
 #: phòng khám cần chỉnh mà không sửa code.
-MAX_BYTES_VIDEO = int(os.environ.get("MEDIA_MAX_BYTES_VIDEO", 80 * 1024 * 1024))
-MAX_BYTES_PDF = 20 * 1024 * 1024
+#: KHÔNG GIỚI HẠN DUNG LƯỢNG TỆP KẾT QUẢ (Tuyền 16/09/2026: *"không giới hạn
+#: dung lượng file đẩy lên nhé"*). Video siêu âm, phim chụp có thể vài GB.
+#:
+#: 0 = không giới hạn. Vẫn đặt lại được từng loại bằng biến môi trường
+#: (MEDIA_MAX_BYTES_ANH / _VIDEO / _PDF / _TAI_LIEU) nếu sau này phòng khám cần.
+#: An toàn còn lại là chốt Ổ ĐĨA SẮP ĐẦY (`MEDIA_MIN_FREE_BYTES`) — đó không phải
+#: trần dung lượng mà là chống làm hỏng máy.
+def _tran(loai: str) -> int:
+    return int(os.environ.get(f"MEDIA_MAX_BYTES_{loai}", "0") or 0)
+
+
+MAX_BYTES_VIDEO = _tran("VIDEO")
+MAX_BYTES_PDF = _tran("PDF")
 MAX_BYTES_THEO_LOAI: dict[str, int] = {
-    "ANH": MAX_BYTES,
+    "ANH": _tran("ANH"),
     "VIDEO": MAX_BYTES_VIDEO,
     "PDF": MAX_BYTES_PDF,
+    "TAI_LIEU": _tran("TAI_LIEU"),
 }
+
+
+def vuot_tran(loai: str, so_byte: int) -> int | None:
+    """Trần của loại tệp nếu `so_byte` vượt nó; None = không vượt/không trần."""
+    tran = MAX_BYTES_THEO_LOAI.get(loai, 0)
+    return tran if tran > 0 and so_byte > tran else None
+
 
 # Video kết quả chưa có kho/vòng đời vận hành an toàn (UI cũng đang nói rõ là
 # chưa nhận). Giữ nhận diện để đọc dữ liệu cũ, nhưng đường upload chỉ mở khi
@@ -62,12 +101,15 @@ KET_QUA_VIDEO_UPLOAD_ENABLED = os.environ.get(
     "KET_QUA_VIDEO_UPLOAD_ENABLED", "false"
 ).lower() in {"1", "true", "yes"}
 KET_QUA_UPLOAD_ALLOWED_TYPES = (
-    frozenset({"ANH", "PDF", "VIDEO"})
+    frozenset({"ANH", "PDF", "VIDEO", "TAI_LIEU"})
     if KET_QUA_VIDEO_UPLOAD_ENABLED
-    else frozenset({"ANH", "PDF"})
+    else frozenset({"ANH", "PDF", "TAI_LIEU"})
 )
-MAX_BYTES_KET_QUA_UPLOAD = max(
-    MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES
+#: 0 = không giới hạn (khi BẤT KỲ loại nào không có trần).
+MAX_BYTES_KET_QUA_UPLOAD = (
+    0
+    if any(MAX_BYTES_THEO_LOAI[loai] <= 0 for loai in KET_QUA_UPLOAD_ALLOWED_TYPES)
+    else max(MAX_BYTES_THEO_LOAI[loai] for loai in KET_QUA_UPLOAD_ALLOWED_TYPES)
 )
 
 
@@ -95,7 +137,34 @@ _MAGIC_KET_QUA: tuple[tuple[bytes, str, str, str], ...] = (
     (b"\x89PNG\r\n\x1a\n", "image/png", ".png", "ANH"),
     (b"%PDF-", "application/pdf", ".pdf", "PDF"),
     (b"\x1a\x45\xdf\xa3", "video/webm", ".webm", "VIDEO"),
+    (b"GIF87a", "image/gif", ".gif", "ANH"),
+    (b"GIF89a", "image/gif", ".gif", "ANH"),
 )
+
+#: Ảnh iPhone (HEIC) và AVIF cũng mở đầu bằng khối `ftyp` như MP4. Bản trước
+#: không phân biệt nên một ảnh HEIC được cất thành VIDEO MP4 — lưu được mà không
+#: xem được (tự kiểm 16/09/2026). Trình duyệt trên máy tính phòng khám không hiển
+#: thị HEIC, nên TỪ CHỐI kèm câu nói rõ cách xử lý.
+_FTYP_ANH_KHONG_XEM_DUOC = frozenset(
+    {
+        b"heic",
+        b"heix",
+        b"hevc",
+        b"heim",
+        b"heis",
+        b"hevm",
+        b"hevs",
+        b"mif1",
+        b"msf1",
+        b"avif",
+        b"avis",
+    }
+)
+
+#: Tài liệu Office (DOCX/XLSX) là tệp ZIP. Word/Excel đặt `[Content_Types].xml`
+#: ngay đầu tệp; phân biệt DOCX/XLSX bằng thư mục `word/` hay `xl/` bên trong.
+_MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+_MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 #: Nhãn con của khối `ftyp` → kiểu thật. `qt  ` là MOV (máy siêu âm Mỹ hay xuất
 #: kiểu này), phần còn lại coi là MP4.
@@ -111,16 +180,39 @@ def sniff_ket_qua(data: bytes) -> tuple[str, str, str]:
     for magic, mime, ext, loai in _MAGIC_KET_QUA:
         if data.startswith(magic):
             return mime, ext, loai
+    # WEBP: "RIFF" + 4 byte độ dài + "WEBP". (AVI cũng "RIFF" — không nhận.)
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp", ".webp", "ANH"
+    if data.startswith(b"PK\x03\x04"):
+        if b"word/" in data:
+            return _MIME_DOCX, ".docx", "TAI_LIEU"
+        if b"xl/" in data:
+            return _MIME_XLSX, ".xlsx", "TAI_LIEU"
+        # Chỉ có đoạn đầu tệp (lúc đọc thử để biết trần dung lượng): đủ biết là
+        # tài liệu Office; loại cụ thể quyết khi có trọn tệp.
+        if b"[Content_Types].xml" in data[:4096] and len(data) <= 8192:
+            return _MIME_DOCX, ".docx", "TAI_LIEU"
+        raise ValidationError(
+            "Tệp nén (ZIP) không nhận. Tài liệu chỉ nhận Word (.docx) hoặc Excel "
+            "(.xlsx)."
+        )
     # DICOM: chữ ký nằm ở byte 128.
     if len(data) > 132 and data[128:132] == b"DICM":
         return "application/dicom", ".dcm", "ANH"
     # MP4/MOV: `ftyp` ở byte 4, nhãn con ở byte 8.
     if len(data) > 12 and data[4:8] == b"ftyp":
+        if data[8:12] in _FTYP_ANH_KHONG_XEM_DUOC:
+            raise ValidationError(
+                "Ảnh HEIC/AVIF (thường từ iPhone) chưa xem được trên máy tính phòng "
+                "khám. Trên iPhone chọn Cài đặt → Camera → Định dạng → Tương thích "
+                "nhất, hoặc gửi ảnh chụp màn hình (JPG/PNG)."
+            )
         if data[8:12] in _FTYP_MOV:
             return "video/quicktime", ".mov", "VIDEO"
         return "video/mp4", ".mp4", "VIDEO"
     raise ValidationError(
-        "Chỉ nhận ảnh (JPG/PNG/DICOM), video (MP4/MOV/WebM) hoặc phiếu PDF."
+        "Chỉ nhận ảnh (JPG/PNG/WEBP/GIF/DICOM), video (MP4/MOV/WebM), phiếu PDF, "
+        "tài liệu Word (.docx) hoặc Excel (.xlsx)."
     )
 
 
@@ -237,6 +329,7 @@ class MediaService:
                     "Kết quả đã ký — không thêm ảnh được. Phải qua đường đính chính."
                 )
 
+            kiem_kho_da_gan()
             path, key = safe_path(
                 clinic_id=identity.clinic_id, ultrasound_id=ultrasound_id, ext=ext
             )

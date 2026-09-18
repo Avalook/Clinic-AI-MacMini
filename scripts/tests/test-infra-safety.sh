@@ -175,6 +175,29 @@ test_backup_rejects_failed_dump() {
   fi
 }
 
+test_backup_bo_qua_media_tren_kho_ngoai_may() {
+  # Kho media trên Viettel (có MEDIA_MARKER) + không giới hạn dung lượng: đóng
+  # tar cả kho về ổ hệ điều hành mỗi đêm là làm đầy ổ database (16/09/2026).
+  make_pg_dump ok
+  local media_root="$TMP_ROOT/media-viettel"
+  mkdir -p "$media_root/test/clinic-1"
+  printf 'x' > "$media_root/test/.o-viettel-cfs"
+  printf 'VIDEO-GIA' > "$media_root/test/clinic-1/v.mp4"
+  local media_env="$TMP_ROOT/media-viettel.env"
+  { cat "$TEST_ENV"; echo "MEDIA_DIR=$media_root"; echo "MEDIA_MARKER=.o-viettel-cfs"; } > "$media_env"
+
+  rm -rf "$TEST_HOME/backups/clinicai"
+  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_ENV_FILE="$media_env" CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-media-viettel.lock" "$ROOT/scripts/backup-db.sh" || fail "backup failed with off-machine media"
+
+  local archive
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
+  [ -n "$archive" ] || fail "backup did not create an archive"
+  if [ -f "${archive%.sql.gz}_media.tar.gz" ]; then
+    fail "backup tarred off-machine media onto the OS disk"
+  fi
+  grep -qx 'media_artifact=none' "${archive}.manifest" || fail "manifest should say media_artifact=none"
+}
+
 test_backup_includes_media_files() {
   # ẢNH SIÊU ÂM KHÔNG NẰM TRONG pg_dump, và cho tới 08/08/2026 chúng không nằm
   # trong bản sao lưu nào cả — `grep media` trong cả bốn script đều rỗng. Khôi
@@ -524,9 +547,9 @@ IMAGE_TAG=prod
 SITE_ADDRESS=:80
 SUPABASE_URL=https://prod.example.test
 SUPABASE_ANON_KEY=anon-test
-SUPABASE_SERVICE_ROLE_KEY=service-test
+SUPABASE_SERVICE_ROLE_KEY=svc-test
 DATABASE_URL=postgresql://test:test@db.example.test:5432/test
-BACKEND_API_KEY=backend-test
+BACKEND_API_KEY=be-test
 COMPOSE_PROFILES=
 ENV
   cp "$deploy_secrets/.env.prod" "$previous_env"
@@ -622,9 +645,9 @@ IMAGE_TAG=prod
 SITE_ADDRESS=:80
 SUPABASE_URL=https://prod.example.test
 SUPABASE_ANON_KEY=anon-test
-SUPABASE_SERVICE_ROLE_KEY=service-test
+SUPABASE_SERVICE_ROLE_KEY=svc-test
 DATABASE_URL=postgresql://test:test@db.example.test:5432/test
-BACKEND_API_KEY=backend-test
+BACKEND_API_KEY=be-test
 ENV
   cat > "$FAKE_BIN/docker" <<'DOCKER'
 #!/bin/bash
@@ -646,8 +669,13 @@ exit 0
 DOCKER
   chmod +x "$FAKE_BIN/docker"
 
+  # Repo giả mang ĐÚNG .gitignore của repo thật. Từ 16/09/2026 deploy ghi mốc
+  # vào thư mục ops (mặc định ./.ops-status, bên trong repo). Trên VPS thư mục
+  # ấy được .gitignore che nên cây vẫn sạch; thiếu tệp này thì lần deploy thứ
+  # hai trong bài kiểm bị chặn ở "dirty worktree" trước khi tới phép kiểm ref.
+  cp "$ROOT/.gitignore" "$deploy_repo/.gitignore"
   git -C "$deploy_repo" init -q
-  git -C "$deploy_repo" add scripts/deploy-backend.sh
+  git -C "$deploy_repo" add .gitignore scripts/deploy-backend.sh
   git -C "$deploy_repo" -c user.name=Test -c user.email=test@example.test commit -qm init
   local sha
   sha="$(git -C "$deploy_repo" rev-parse HEAD)"
@@ -767,7 +795,7 @@ test_compose_renders_every_profile_safely() {
     return
   fi
 
-  RABBITMQ_PASSWORD= RABBITMQ_URL= CLINIC_ENV_FILE=.env.prod.example \
+  RABBITMQ_URL= RABBITMQ_PASSWORD="" CLINIC_ENV_FILE=.env.prod.example \
     docker compose --env-file "$ROOT/.env.prod.example" \
       -f "$ROOT/docker-compose.yml" -p clinicai_infra_test config --quiet
 
@@ -781,7 +809,7 @@ import sys
 
 services = json.load(sys.stdin)["services"]
 expected = {
-    "api", "caddy", "cloudflared", "dashboard", "dozzle",
+    "api", "caddy", "cloudflared", "dashboard", "dozzle", "media-quyen",
     "notification-relay", "pos-relay", "rabbitmq", "uptime-kuma", "worker",
 }
 assert set(services) == expected, set(services)
@@ -860,4 +888,5 @@ test_runbook_installs_the_real_launchdaemon_template
 # tệp hỏng còn sót lại là chúng kiểm nhầm bản sao lưu — và báo một lỗi nói về
 # chuyện khác hẳn.
 test_backup_includes_media_files
+test_backup_bo_qua_media_tren_kho_ngoai_may
 echo "infra safety smoke tests: PASS"

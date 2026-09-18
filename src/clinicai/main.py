@@ -11,6 +11,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
+from clinicai.api.identity import mo_quyen_tam_thoi
 from clinicai.api.middleware import (
     CskhUploadSizeLimitMiddleware,
     DbErrorMiddleware,
@@ -19,7 +20,7 @@ from clinicai.api.middleware import (
 )
 from clinicai.api.runaway_guard import (
     runaway_guard,
-    runaway_guard_cho_ca_man_hinh,
+    runaway_guard_khong_chan_vai,
 )
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
@@ -41,11 +42,13 @@ from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
+from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
+from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
@@ -55,6 +58,10 @@ from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.api.v1.routers.service_log import router as service_log_router
 from clinicai.api.v1.routers.staff import router as staff_router
+from clinicai.api.v1.routers.theo_doi_thu_thuat import (
+    router as theo_doi_thu_thuat_router,
+)
+from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.visit_progress import (
@@ -83,6 +90,18 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
+    # KÊU TO KHI QUYỀN ĐANG MỞ. Chế độ này nới quyền của mọi vai không phải bác
+    # sĩ, và nó mặc định BẬT — nên thứ duy nhất giữ cho nó không thành vĩnh viễn
+    # là một dòng log mỗi lần khởi động. Đừng hạ mức xuống info.
+    if mo_quyen_tam_thoi():
+        logger.warning(
+            "mo_quyen_tam_thoi_dang_bat",
+            ghi_chu=(
+                "Mọi vai làm việc đang mở với các cửa không phải của bác sĩ, và "
+                "luật 'thư ký theo bác sĩ' đang tắt. Tuyền chốt 16/09/2026 là "
+                "TẠM THỜI. Tắt bằng MO_QUYEN_TAM_THOI=0 rồi dựng lại container."
+            ),
+        )
     app.state.db_pool = await create_pool()
     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi
     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó
@@ -93,8 +112,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
 
-            llm_client = AnthropicClient()
-            stack.push_async_callback(llm_client.close)
+            # AI ĐỨNG SAU CỜ (15/09/2026): có khoá mới dựng client. Không có
+            # khoá thì API vẫn khởi động; endpoint AI trả 503 AI_DISABLED và
+            # orchestrator chạy chế độ rule-based sẵn có (llm_client=None).
+            llm_client: AnthropicClient | None = None
+            if os.environ.get("ANTHROPIC_API_KEY"):
+                llm_client = AnthropicClient()
+                stack.push_async_callback(llm_client.close)
+            else:
+                logger.warning("ai_disabled_no_anthropic_key")
             app.state.llm_client = llm_client
 
             # Voice transcriber (on-prem PhoWhisper). Construction nhẹ — model nạp
@@ -176,7 +202,7 @@ app.include_router(
     tags=["identity"],
     # Bộ đếm bản KHÔNG chặn vai DISPLAY: `/api/v1/me` phải trả lời được cho tài
     # khoản màn hình TV, nếu không nó đăng nhập xong bị đá về trang đăng nhập.
-    dependencies=[Depends(runaway_guard_cho_ca_man_hinh)],
+    dependencies=[Depends(runaway_guard_khong_chan_vai)],
 )
 # Dòng sự kiện cho màn hình (thay Supabase Realtime).
 #
@@ -188,6 +214,19 @@ app.include_router(
 # ĐÃ CÂN NHẮC VÀ BỎ: cho token đi qua query string. Làm thế là ghi token vào
 # log truy cập của mọi proxy trên đường — một thứ đọc được, sống lâu, và đủ để
 # đóng giả người dùng.
+# ĐỐI TÁC — hai đường, và chúng tự gác bằng `get_partner_identity`. Mọi router
+# khác đóng với vai này vì `get_current_identity` từ chối nó (xem identity.py).
+#
+# PHẢI DÙNG BỘ ĐẾM BẢN KHÔNG CHẶN VAI. `_GUARDED` gọi `runaway_guard`, mà hàm ấy
+# nhận danh tính qua `get_current_identity` — chính hàm từ chối vai PARTNER. Gắn
+# `_GUARDED` vào đây thì đối tác ăn 403 ngay tại cửa của chính mình, trong khi
+# mã của endpoint trông hoàn toàn đúng. Đã cắn thật ngày 16/09/2026.
+app.include_router(
+    doi_tac_router,
+    prefix="/api/v1",
+    tags=["doi-tac"],
+    dependencies=[Depends(runaway_guard_khong_chan_vai)],
+)
 app.include_router(
     events_router, prefix="/api/v1", tags=["events"], dependencies=_GUARDED
 )
@@ -235,12 +274,19 @@ app.include_router(
 app.include_router(
     work_items_router, prefix="/api/v1", tags=["work-items"], dependencies=_GUARDED
 )
+# Luồng khám lát 1 (sinh hiệu → bác sĩ → chỉ định → dịch vụ → đọc lại).
+# Chạy song song với luồng điều phối cũ; xem migration 20260911000001.
+app.include_router(
+    luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
+)
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(brief_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED
 )

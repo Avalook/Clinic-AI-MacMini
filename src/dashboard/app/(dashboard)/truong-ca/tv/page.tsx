@@ -19,7 +19,7 @@ export default async function Page() {
     <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
       <header>
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">TV phòng chờ</h1>
-        <p className="mt-1 text-sm text-ink-muted">Màn hình công cộng — chỉ số thứ tự, không tên bệnh nhân.</p>
+        <p className="mt-1 text-sm text-ink-muted">Màn hình công cộng — số thứ tự và tên khách, theo thứ tự check-in.</p>
       </header>
       <TvClient initial={live} />
     </main>

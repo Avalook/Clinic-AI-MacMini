@@ -121,8 +121,16 @@ BEGIN
     -- do hệ thống sinh, và client tự ghi được nghĩa là tự khai được một khoá.
     -- 44 → 45 ngày 15/08/2026: patient_sdt_them (20260815000002) — số điện
     -- thoại gắn thêm cho hồ sơ có sẵn, đọc theo đúng luật phòng-khám-của-mình.
-    IF scoped_count <> 45 THEN
-        RAISE EXCEPTION 'expected 45 tenant-scoped read policies, found %', scoped_count;
+    -- 45 → 53 ngày 11/09/2026: tám bảng luồng khám lát 1 (20260911000001). Bảng
+    -- thứ chín, command_receipt, có policy riêng `_select_own`: biên nhận chỉ
+    -- người gửi đọc được, nên không mang hậu tố `_select_own_clinic`.
+    -- Bảng service_order_draft (20260915000008) có policy riêng theo vai bác
+    -- sĩ/thư ký nên không làm đổi con số này.
+    -- 53 → 54 ngày 15/09/2026: thu_ky_bac_si (20260915000020).
+    -- 54 → 55 (16/09/2026, cập nhật bài kiểm 18/09): vi_tri_dong_ca_select_own_clinic
+    -- (20260916000011) — qual `clinic_id IN (current_clinic_ids())`, đúng khuôn.
+    IF scoped_count <> 55 THEN
+        RAISE EXCEPTION 'expected 55 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

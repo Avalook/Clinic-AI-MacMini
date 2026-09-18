@@ -31,6 +31,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.clinic_config_service import ClinicConfigService
+from clinicai.services.thu_ky_bac_si import dat_bac_si_cho_thu_ky
 
 router = APIRouter()
 
@@ -144,4 +145,24 @@ async def set_staff_nodes(
     """Người này làm được những bước nào — khám 5 chuyên khoa, hay chỉ siêu âm."""
     return await ClinicConfigService(pool).set_staff_nodes(
         identity=identity, staff_id=str(body.staff_id), node_codes=body.node_codes
+    )
+
+
+class ThuKyBacSiRequest(BaseModel):
+    thu_ky_staff_id: UUID
+    bac_si_staff_ids: list[UUID] = Field(default_factory=list, max_length=50)
+
+
+@router.put("/clinic-config/thu-ky-bac-si")
+async def set_thu_ky_bac_si(
+    body: ThuKyBacSiRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thư ký này đi cùng những bác sĩ nào (Tuyền chốt 15/09/2026)."""
+    return await dat_bac_si_cho_thu_ky(
+        pool,
+        identity=identity,
+        thu_ky_staff_id=str(body.thu_ky_staff_id),
+        bac_si_staff_ids=[str(x) for x in body.bac_si_staff_ids],
     )

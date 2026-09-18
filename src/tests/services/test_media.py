@@ -233,3 +233,35 @@ class TestReadIO:
         )
         assert data == PNG
         assert mime == "image/png"
+
+
+class TestKhoGanNgoai:
+    """Kho Viettel rớt thì KHÔNG ghi nhầm xuống ổ VPS (16/09/2026)."""
+
+    def test_khong_cau_hinh_thi_khong_chan(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from clinicai.services.media_service import kiem_kho_da_gan
+
+        monkeypatch.delenv("MEDIA_MARKER", raising=False)
+        kiem_kho_da_gan()
+
+    def test_thieu_tep_danh_dau_thi_tu_choi(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        import clinicai.services.media_service as m
+
+        monkeypatch.setattr(m, "MEDIA_ROOT", tmp_path)
+        monkeypatch.setenv("MEDIA_MARKER", ".o-viettel-cfs")
+        with pytest.raises(ValidationError, match="Viettel"):
+            m.kiem_kho_da_gan()
+
+    def test_co_tep_danh_dau_thi_cho_ghi(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        import clinicai.services.media_service as m
+
+        (tmp_path / ".o-viettel-cfs").write_text("kho that\n")
+        monkeypatch.setattr(m, "MEDIA_ROOT", tmp_path)
+        monkeypatch.setenv("MEDIA_MARKER", ".o-viettel-cfs")
+        m.kiem_kho_da_gan()

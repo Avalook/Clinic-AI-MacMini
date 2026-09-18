@@ -13,6 +13,1026 @@ lịch sử hội thoại.
 
 ---
 
+## 15/09 — Bổ sung khi tiếp quản worktree Claude (chưa commit/deploy)
+
+- Giữ giao diện Dr4Women hiện có. Phiếu bệnh án bác sĩ và thư ký cập nhật qua
+  một SSE dùng chung; khi người đang gõ thì giữ nội dung và báo xung đột, tải
+  lại có chủ ý. Lưu bệnh án cần đúng `revision` hiện hành.
+- Thư ký nhập đơn thuốc thành bản chờ duyệt, không đổi dòng thuốc sống. Nếu
+  chỉ sửa bệnh án mà đơn đang hiện y hệt đơn bác sĩ đã duyệt, không mở thêm
+  bản chờ duyệt. Bác sĩ chỉ duyệt đúng bản nháp đang xem, với quyền và phiên
+  bản phù hợp. Lưu bệnh án không tự đóng lượt; bác sĩ có nút kết thúc khám
+  riêng sau khi đã lưu chẩn đoán, lời dặn và duyệt đơn còn chờ. Endpoint cũ
+  vẫn chỉ chặn theo vai, bác sĩ sở hữu và trạng thái đã check-in; kiểm đủ mọi
+  dịch vụ chỉ định ở backend còn cần nối vào workflow thống nhất.
+- Cột đơn thuốc chờ duyệt bị chặn với truy vấn trực tiếp của `authenticated`;
+  chỉ vai bác sĩ/thư ký đúng phòng khám đọc qua RPC. Nút chỉ định XN ở phiếu cũ
+  chỉ hiện cho bác sĩ vì endpoint cũng chặn thư ký.
+- Kiểm trong DB tách biệt `clinicai_privacy_qa`: toàn bộ migration áp được;
+  27 ca unit + DB bệnh án/đơn thuốc vừa xanh. Browser headless hai vai kiểm đồng bộ,
+  xung đột, duyệt và điều hướng lịch sử đã xanh; frontend lint/type xanh.
+- **Chưa nối hai hệ lượt khám:** `/luot-kham` dùng bảng workflow lát 1 riêng;
+  màn cũ dùng appointment/visit cũ. Chưa gọi đây là journey end-to-end trên
+  dữ liệu thật, và chưa đưa worktree này lên VPS hay màn demo quản lý.
+
+---
+
+## -0021. Bản đồ màn hình + gộp màn cũ (18/09/2026)
+
+- **Luật mới:** sửa giao diện phải tra `docs/SITEMAP.md` trước (quy trình 6 bước
+  trong `CLAUDE.md`).
+- **Tuyền chốt "1 ok, 2 bỏ ở home, 3 chỉ xem, 4 gộp hết":**
+  - `/tasks` chuyển theo vai. Đã gỡ 5 component cũ và `HomeCheckin`.
+  - Check-in **chỉ ở** `/reception/queue` (bảng "Lịch hẹn hôm nay").
+  - Bệnh án mở từ Trang chủ và Danh sách bệnh nhân chỉ xem.
+  - `/queue`, `/cashier/board`, `/cskh-tasks`, `/episodes`, `/work-sessions`
+    chuyển hướng.
+  - `/portal` và `/ops/telemetry` thành tab của `/ops`.
+  - Backend gỡ khối `checkin` của trang chủ. Thông báo kết quả trỏ
+    `/duyet-ket-qua`.
+- **Lỗi có sẵn, bắt được khi kiểm thật trên prod:**
+  - Trang `/` và 14 trang chỉ-chuyển-hướng bị `next build` dựng tĩnh lúc không
+    có phiên.
+  - Hậu quả: `/` luôn về `/home`, và mọi đường cũ (kể cả của 16/09) đều về
+    `/login`.
+  - Sửa bằng `force-dynamic` ở `app/page.tsx` và ở `(dashboard)/layout.tsx`.
+  - **Check-in → hoàn tác → check-in lại** để lượt khám nằm im INCOMPLETE:
+    khách có trong hàng đợi lễ tân nhưng không bao giờ tới bác sĩ. Sửa ở
+    `_open_visit` (mở lại lượt INCOMPLETE). Test DB mới
+    `test_check_in_lai_sau_hoan_tac_db.py` đã thử: gỡ bản sửa thì test đỏ.
+- **Canh bằng test:** `tests/man-da-gop-boundary.test.mts`. Ratchet px 85 → 64.
+- **Chưa làm:** 20 route `/api/*` không màn nào gọi (danh sách lấy bằng grep —
+  phải kiểm tay trước khi xoá). Đo lại số `<button>`. Làm lại thanh bên theo
+  việc.
+
+## -0020. Khách kẹt sau đo sinh hiệu (17/09 09:53) — BỎ đường đón-khám cũ
+
+- Nguyên nhân: ĐD Huế lưu sinh hiệu qua biểu mẫu bệnh án cũ (bấm tên khách ở Trang chủ, `ClinicalRecordForm vitalsOnly`) → có `vital_measurement` nhưng `encounter_flow` không "đã đo", không quyết tuyến → không vào hàng chờ bác sĩ/thư ký. Sáng 06:56 chỉ đổi nút "Điền sinh hiệu", sót lối bấm tên.
+- Chốt (Tuyền: "cái nào cũ thì bỏ"): sinh hiệu CHỈ đo ở /do-sinh-hieu. Biểu mẫu vitalsOnly chỉ xem + nút "Đo sinh hiệu"; `ClinicalRecordService.save(vitals_only=True)` trả 422. Bác sĩ/thư ký sửa sinh hiệu trong bệnh án đầy đủ vẫn được và gọi `LuotKhamService.dong_bo_sinh_hieu_tu_ho_so` (đẩy vào luồng).
+- Kiểm trên final cloud: đường cũ 422, không thêm dòng đo; trọn luồng 84/84; khách "Khám Hôm Na" đã được gỡ và Tuyền chạy tiếp tới thu tiền.
+
+## -0019. Thao tác thật trên trình duyệt 17/09 (07:30) — luồng khách Mai Anh chạy trọn
+
+Đã sửa + lên final cloud trong lúc thao tác: số tiếp đón chung của quầy (`appointment.so_tiep_don`, số riêng bác sĩ giữ); Trang chủ ẩn bác sĩ không có lịch; Trang chủ lễ tân không còn báo "Đang khám" ngay sau check-in; Trang chủ điều dưỡng đọc cờ đã đo từ Đo sinh hiệu + nút dẫn sang màn đo; thư ký đã phân không còn báo "chưa được phân" khi công tắc mở quyền bật; check-in mang loại khám sang lượt (hết "Chưa gán dịch vụ"); phiếu khám lưu theo ô (hai người gõ hai ô cùng lúc không đè nhau).
+
+**ĐÃ SỬA 07:30–08:00 (kiểm lại 83/83 trên final cloud):** ký bệnh án tính phiếu chuyên khoa + sinh hiệu + ô lý do khám; việc đối tác hiện trạng thái đối tác (Bàn khám, trưởng ca); điều phối: "Tầng Tầng", số tiếp đón chung, bước kế theo chỉ định, bỏ cảnh báo tuyến; CSKH: chip "Đang ở: <phòng>" / "chờ đo sinh hiệu", ô kết quả XN chỉ tính tệp XN/đối tác, ô thủ thuật đọc service_order; đối tác bỏ "Lịch làm việc"; check-out đọc bước luồng mới; dòng thuốc gõ dở không mất; BMI tự tính (backend); thông báo đo sinh hiệu nằm dưới ô nhập.
+visit.status vẫn IN_PROGRESS sau đóng lượt là CHỦ Ý (mốc đóng = closed_at; FINALIZED dành cho ký bệnh án).
+
+Thêm 08:00–08:20: CSKH ô "Có kết quả xét nghiệm" tin tệp của lượt (cờ la_ket_qua_xet_nghiem chuyển xuống màn); lưu bệnh án không ghi thêm lần đo sinh hiệu trùng (INSERT … WHERE NOT EXISTS, ô không gửi không tính là đổi). CSKH xem trước + tạo PDF (application/pdf ~330KB) đã bấm thật trên trình duyệt. Bài kiểm trọn luồng API: 84/84.
+
+**CÒN:** ghi chú thủ thuật (Biofeedback) của Mai Anh lưu rỗng khi bấm trên trình duyệt — API lưu đúng, chưa tái hiện; 8 khách TEST- do bài kiểm tạo còn trên prod (chờ Tuyền cho xoá).
+
+## -0018. Luồng demo đủ vai 17/09 (06:15) — 72/72 trên final cloud
+
+- Mới: ĐD **Gọi vào đo** (`encounter_flow.goi_do_luc/boi`); trưởng ca **chuyển phòng từng chỉ định** trong panel "Bác sĩ chỉ định gì" (số chờ + ngưỡng đầy, chặn khi phòng cũ đã gọi); tải phòng ở bảng điều phối đếm theo `queue_entry` (bản cũ đếm work_item → luồng mới luôn 0); đối tác thêm bước **Nhận mẫu · chờ tài liệu** (`service_order.doi_tac_cho_tai_lieu_luc`), việc đã gửi ở lại mục "Đã gửi hôm nay"; CSKH thấy trạng thái đối tác ở ô "Có kết quả xét nghiệm"; màn đối tác dùng khung Shell chung; thu ngân (CashierWorkBoard) bỏ QR demo → một nút "Đã thanh toán".
+- Migration 000007 (cột mới), 000008 (chụp chiếu ngoài `doi_tac_lay_mau = true` — trước đó không bao giờ lên bàn đối tác). Ngưỡng đầy 4 khách cho 3 phòng siêu âm (dispatch_threshold, đặt qua API).
+- 06:33 đã dọn sạch khách/lịch/lượt (TRUNCATE một giao dịch, sao lưu `~/truoc-don-khach-17-09.dump` trên VPS) và sinh 20 lịch ca Tối (14 online qua API CSKH + 6 WALK_IN chưa check-in; BS Thành 8, Hằng 5, Hùng 4, Dũng 3). Lễ tân check-in ở Trang chủ (nút "Đã đến") — "Tiếp đón khách" chỉ hiện khách ĐÃ check-in.
+
+## -0017. Thư ký riêng từng bác sĩ — lịch 17/09 (05:30)
+
+- 9 tài khoản mới `tk-<mã bác sĩ>@dr4women.vn` (TKYK, mật khẩu thử như các tài khoản .vn), nối `thu_ky_bac_si`: bs-thanh, bs-thiep, bs-quyet, bs-sa-hoang, bs-sa-giap, bs-sa-dat, bs-hang, bs-dung, bs-hung.
+- Lịch 17/09 ca Tối: mỗi thư ký ở vị trí `*_TK` của phòng bác sĩ mình; ĐD Huế chỉ `T1_DOCHISO`; Thanh Phương rút khỏi `T1_TKYK` (10 dòng REJECTED, backup `.cach-ly-20260916/lich-hom-nay-2026-09-17-truoc-tach-thu-ky.json`).
+- Tự test trên final cloud 50/52: 2 FAIL không phải lỗi (ngưỡng test cũ ≥10 bác sĩ, thực tế 9 — BS Dương hỏi bệnh không phải ca đặt lịch; Thanh Phương không ca vẫn thấy menu mặc định của vai TKYK).
+
+## -0016. Sửa cho demo 17/09 6h — kịch bản trọn vòng 48/48 trên final cloud (04:18)
+
+- Bàn khám gắn form bệnh án cũ (chẩn đoán, lời dặn, ĐƠN THUỐC thư ký nhập → bác sĩ duyệt), tự tải lại realtime; nút bác sĩ "Xác nhận & ký · khám xong". Đồng hồ "tổng từ check-in" + nhãn "Quay lại đọc KQ" (hang_cho trả `checkin_luc`, `vong`).
+- Phòng dịch vụ: ĐD/thư ký đi kèm (`HO_TRO_PHONG`) gọi, Bắt đầu, Xong; bác sĩ bấm Xong được ghi performed_by. `_require` so tập vai bằng `is` (PERFORMER_ROLES trùng khít CLINICAL_READ_ROLES đã làm công tắc mở quyền nới nhầm quyền đọc bệnh án).
+- `_cap_nhat_vi_tri`: luồng mới dời `visit.current_node_code/current_room_id` (trưởng ca, TV, đóng lượt đọc) — trước đó mọi lượt kẹt ở "Đo chỉ số".
+- Bác sĩ ký khám xong hẳn (NO_SERVICES/DONE, không còn chỉ định dở) → appointment COMPLETED + exam_completed_at → quầy thu tiền được.
+- Script: scratchpad `kich-ban-demo.py` (tạo "Khách Demo HHMM", chạy lễ tân→đo→thư ký/BS→thủ thuật→SA→quay lại BS→thu tiền→check-out→CSKH). 5 lượt demo đã đóng (đổi trạng thái, lý do "Dữ liệu chạy thử kịch bản demo 17/09").
+- Sau đó (04:5x): thanh bên hiểu MÃ LỊCH ĐỜI CŨ (`MA_VI_TRI_CU` nav-items ↔ `VAI_THEO_VI_TRI` identity: LE_TAN, LAY_MAU, TLYK, PHU_BS_SA, MAY_*); hai vai → Lễ tân trên, Điều dưỡng dưới (`THU_TU_VAI_VAN_HANH`, trang chủ chọn Lễ tân); phòng/vị trí siêu âm bỏ chữ tầng → "Phòng siêu âm 1/2/3" (migration 20260917000003). Giá: 80/80 thuốc + 38 dịch vụ + 13 loại khám có giá (46 thuốc tra mạng, còn lại GIẢ ĐỊNH, ghi nhãn); kho 80 lô DEMO1709-* × 20 (giả định). PHU_BS_KHAM chưa ánh xạ.
+- Sinh hiệu ĐD (`vital_measurement`) nay hiện vào bệnh án (GET /api/clinical-record ghép số đo mới nhất vào objective.vitals) và phiếu chuyên khoa (điền ô trống, cả tiền tố `kls_`) — `lib/sinh-hieu-dong-bo.ts`. Bệnh án tự lưu 1s (không nạp lại form, nhận revision mới), phiếu chuyên khoa tự lưu 1,2s + đọc lại 4s khi không có chữ chưa lưu. Chưa bấm thử giao diện thật; hai người cùng gõ một bệnh án sẽ ra dải "có bản mới".
+- CÒN: bảng giá 1/39 dịch vụ có giá → màn thu tiền chặn "chưa có giá"; số thứ tự chưa đổi theo kéo thả VIP; Đo sinh hiệu chưa có nút "Gọi vào đo"; chưa bấm thử giao diện trên trình duyệt thật.
+
+## -0015. Không giới hạn dung lượng tệp + CSKH xem/tải PDF hồ sơ khám (16/09/2026 đêm) — edd6b3c · c82d77b · aff7bcf, ĐÃ LÊN FINAL CLOUD
+
+**Tải tệp không giới hạn (Tuyền chốt):**
+- Trần theo loại = env `MEDIA_MAX_BYTES_<ANH|VIDEO|PDF|TAI_LIEU>`, mặc định 0 = không giới hạn. Hạn mức tổng `MEDIA_CLINIC_QUOTA_BYTES` mặc định 0. Vẫn giữ `MEDIA_MIN_FREE_BYTES` (5GB trống).
+- Đường thật: `services/nhan_tep_luong.py` đọc multipart THEO LUỒNG → `<kho>/.tam/*.part` (cùng kho Viettel) → service chỉ đổi tên. Kiểm quyền TRƯỚC khi đọc byte thân; nhận kiểu ở 8KB đầu. Bỏ `UploadFile` ở 2 cửa tải (CSKH/nhân viên + đối tác).
+- Dashboard: bỏ chặn 82MB; chuyển tiếp bằng `lib/chuyen-tiep-tai-len.ts` (node:http, không thời hạn — undici chờ header 300s); `cluster.cjs` vá `requestTimeout=0` và **tiến trình con phải exec lại cluster.cjs** (bản đầu chỉ vá tiến trình chính → cắt ở giây ~327). Ô tải có % tiến độ.
+- api `TMPDIR=/var/lib/clinicai/media/.tam` (không để tệp lớn rơi vào ổ hệ điều hành chung với database).
+- `backup-db.sh`: kho có `MEDIA_MARKER` (Viettel) → KHÔNG đóng tar media về `~/backups` (vài chục GB sẽ làm đầy ổ database mỗi đêm).
+- Đo trên final cloud: video 2GB 51s (bản chép hai lần: 287s), khớp từng byte; RAM api ~200MB, dashboard ~250MB suốt lúc tải; PDF 120MB 5s; ảnh 30MB nhận.
+- Còn: người KHÔNG có quyền gửi tệp to thì bị cắt kết nối (~6s) thay vì đọc được câu 403 — giao diện chỉ hiện ô tải cho vai có quyền nên chưa gặp thật.
+
+**CSKH xem trước + tải PDF hồ sơ khám:**
+- `GET /api/v1/cskh/ho-so-kham/{appointment_id}` (`ho_so_kham_service.py`, cùng nhóm vai đọc tệp kết quả): lịch + khách, lượt, sinh hiệu, phiên khám, phiếu khám (form_data), chỉ định + kết quả + duyệt, tệp, xét nghiệm, đơn thuốc. Mọi câu khoá theo clinic_id.
+- Giao diện: `_lam-viec/HoSoKham.tsx` — Khách hàng → Lịch sử các lần khám → "Xem hồ sơ khám · tải PDF" (lượt CHECKED_IN/COMPLETED). Nhãn phiếu từ `lib/form-schemas`. PDF = chụp khung (html-to-image) cắt trang A4 (jspdf). Kết quả chưa duyệt mang nhãn "Chờ bác sĩ duyệt"; tệp chưa cho phép gửi mang nhãn.
+- Chưa bấm thử nút Tải PDF trên trình duyệt thật (không đăng nhập hộ được) — cần Tuyền bấm.
+
+## -0014. QA xoay vai theo lịch trên final cloud (16/09/2026 đêm) — 1d04d90 … sau cùng
+
+Tuyền: *"tài khoản là duy nhất còn vai trò có thể thay đổi… thử thay đổi các vai trò cho mỗi tài khoản, riêng bác sĩ thì không cần… thư ký y khoa y hệt bác sĩ, có gọi khách vào khám rồi bấm bắt đầu khám… check cả upload video, ảnh, pdf, docx"*.
+
+Lịch chụp trước QA: `~/qa-16-09/work_roster_truoc_qa_20260916.json` trên VPS (+ scratchpad). Sau QA so lại: 739/739 dòng, mất 0 · thừa 0 · lệch 0.
+Bộ thử: scratchpad `qa-xoay-vai.py` (xếp lịch → đợi 32s bộ nhớ danh tính → cookie phiên thật → trang/API/thao tác → khôi phục lịch ở finally), `tep-lon.py`.
+
+**Lỗi tìm ra và đã sửa:**
+1. Kiểm vai nằm trong SQL (bảng việc Tiếp đón, đọc thẻ việc, thông báo theo vai) chỉ nhận 1 vai → truyền tập vai hôm nay; tư cách thành viên so `vai_goc`.
+2. `_order_for_performer` so `identity.role.value` → tập vai.
+3. Chưa có "Gọi vào khám" → `POST /luot-kham/hang-cho/{id}/goi` + nút ở Bàn khám, phòng dịch vụ.
+4. Thư ký chưa phân bác sĩ (mở quyền) mở "Khách của tôi" không thấy ai → thấy mọi lượt khám chính.
+5. Khách check-in mà lịch hẹn không gắn bác sĩ → không nằm trong hàng chờ của ai → nay hiện ở hàng chờ bác sĩ, ai bấm Bắt đầu thì nhận.
+6. Ảnh HEIC/AVIF iPhone bị cất thành VIDEO MP4 → từ chối kèm hướng dẫn. Nhận thêm WEBP, GIF, DOCX, XLSX (loại TAI_LIEU, migration 20260917000002); Word xem ngay trong ô (mammoth, iframe sandbox). ZIP, AVI, BMP, exe đổi đuôi, tệp rỗng bị từ chối.
+7. **Proxy Next cắt thân yêu cầu ở 10MB** → mọi video siêu âm thật tải qua giao diện hỏng ("không kết nối được máy chủ"). Proxy matcher bỏ qua `api/cskh/ket-qua`, `api/doi-tac`; route từ chối >82MB bằng 413 câu rõ. Thử: video 50MB/79MB tải 3s, tải về khớp byte, tua cuối 206; RAM dashboard 207MB.
+8. `/api/cashier` đổi 403 thành 502 "Không đọc được danh sách chờ thu" → giữ 403 kèm câu "không có quyền".
+
+**Kết quả lần chạy cuối:** 89/90 bước đạt (bước còn lại = lỗi 7, đã sửa và thử riêng đạt 5/5 + so byte + tua).
+
+**Còn để lại (dữ liệu thử):** ~145MB tệp thử trong kho Viettel (`thu-*`, `video-50MB`, `video-79MB`…); 2 khách thử đã đi hết vòng (check-in → khám → SA → XN → duyệt). 9 phiên khám "đang khám" cũ của BS Hằng từ lát 1 vẫn treo.
+
+## -0013. Một đường dữ liệu + màn theo phòng + thanh bên nhóm theo vai (16/09/2026 đêm) — 874ebf9 · ce3cad6 · c9d8e40, ĐÃ LÊN FINAL CLOUD
+
+Tuyền chốt (sau khi đọc Notion "Kế hoạch v1.0.0"): thanh bên nhóm theo vai · cơ sở Kim Ngưu · lấy mẫu XN tuỳ loại (ĐD hoặc đối tác) · lễ tân kiêm thu ngân + kho thuốc · check-in/out phòng = bác sĩ/thư ký bấm Bắt đầu / Đã khám xong · **thủ thuật do BÁC SĨ làm** · ô tải và ô xem tệp là một · ĐD siêu âm cũng bấm Bắt đầu được.
+
+**Đo trước khi sửa:** 3–4 đường chỉ định song song — payload thẻ việc (0 dòng), `service_log` (0 dòng, nhưng /sono /service-queue và THU NGÂN đọc nó), `lab_result`/`ultrasound_record` (hồ sơ /tasks ghi), `service_order` (8 dòng thật, chỉ màn ẩn ghi). Phòng siêu âm đọc thẻ việc nên không thấy 6 chỉ định SA.
+
+**Máy chủ:**
+- Migration 20260917000001: 12 phòng `KN-*` + phòng `KN-DOITAC` (la_doi_tac); 26 vị trí lịch nối phòng; tắt bộ phòng mẫu cũ; `DICHVU-THUTHUAT` chỉ DOCTOR; `service_price.doi_tac_lay_mau`; `tep_ket_qua.service_order_id`; `service_order.ket_qua_luc/bac_si_danh_gia/duyet_luc/duyet_boi`.
+- Duyệt chỉ định → TỰ xếp phòng (ưu tiên phòng có người trong lịch hôm nay, rồi ít chờ; bỏ qua việc đối tác tự lấy và phòng đối tác).
+- `GET /luot-kham/phong-hom-nay`, `GET /luot-kham/hang-cho?phong=`, `POST consultations/{id}/kham-xong` (tự chọn outcome), `GET /luot-kham/ket-qua-cho-duyet`, `POST orders/{id}/duyet-ket-qua`, `POST /doi-tac/viec/{id}/da-lay-mau`.
+- Thư ký đi kèm bấm Bắt đầu/Kết thúc cho bác sĩ mình (duyệt vẫn chỉ bác sĩ).
+- Thu ngân đọc `service_order` (giá theo mã), hiện khách khi phiên khám chính xong.
+- Lễ tân: vào bảng thu ngân, ghi thanh toán (cả 2 loại), kho thuốc, tra giá (không sửa giá).
+- Danh sách tệp kết quả mở cho mọi vai tải lên được (trước chỉ vai tiếp nhận → bác sĩ tải xong không thấy).
+
+**Giao diện:** `/ban-kham[/KN-…]` (bố cục Bàn khám bác sĩ Tuyền chọn), `/phong/KN-…` (siêu âm/thủ thuật/lấy mẫu), `/duyet-ket-qua`, bàn đối tác 2 trạng thái, ô `KhungTep` (kéo thả + xem ảnh/video/PDF tại chỗ). Thanh bên: nhóm Bác sĩ · Bác sĩ siêu âm · Thư ký · Điều dưỡng · Lễ tân · Trưởng ca. Gỡ thân màn: /doctor/board, /kham/*, /doctor/orders, /sono, /sieu-am, /service-queue, /lab-queue, /result-review, /luot-kham (chỉ còn chuyển hướng).
+
+**Thử thật trên final cloud (API, tài khoản thật):** BS Hằng thấy Trịnh Bảo Ngọc (STT 7) → Bắt đầu → duyệt SA + CFTR → tự vào Phòng siêu âm tầng 1 + Lấy mẫu → Khám xong (SERVICES) → BS SA Giáp Bắt đầu, gửi ảnh, Xong → ĐD Diễm Thuý lấy mẫu → đối tác thấy "Đã lấy mẫu", gửi kết quả → BS Hằng thấy 2 kết quả, phê duyệt → lễ tân Hải Yến mở thu ngân thấy 3 dòng. 20/20 bước 200/201. **Chưa bấm thử trên giao diện** (Claude không đăng nhập app được).
+
+**Vai theo vị trí hôm nay (072245f, đã lên final cloud):** tài khoản Điều dưỡng Minh Thư đứng Lễ tân + Thu ngân bị 403 ở thu ngân/check-out/đặt lịch/kho thuốc/bảng giá và Tạo bệnh nhân đá về trang chủ. Nay danh tính mang `vai_theo_vi_tri` (Lễ tân/Điều dưỡng/Trưởng ca — KHÔNG BAO GIỜ bác sĩ, BS SA, thư ký, quản lý); cửa gác bị từ chối theo vai tài khoản mà vị trí cho phép thì đi tiếp dưới vai vị trí. Giao diện: `getVaiHomNay`/`vaiLamViec` (lib/clinic-session.ts). Dò lại bằng token Minh Thư: 7/7 cửa 200.
+
+**Hai tầng vai (30b8497 + trang chủ theo vị trí, đã lên final cloud):** giấy phép = vai tài khoản (bác sĩ, BS SA, thư ký, quản lý, CSKH — lịch không vượt qua được); việc hôm nay = vị trí trong lịch (lễ tân, điều dưỡng, trưởng ca). `lib/clinic-session.ts`: `getVaiHomNay` (vị trí trước, tài khoản cuối), `getVaiChinh` (HIỂN THỊ), `vaiLamViec` (QUYỀN, xét mọi vai). 38 trang/route thôi đọc vai tài khoản; bài kiểm `vai-hom-nay-boundary` cấm tái phát. Nhật ký ghi `vai_tai_khoan`. Trang chủ: khối "Việc của bạn hôm nay"; "Điền sinh hiệu" chỉ cho người đứng Đo chỉ số.
+Tự kiểm theo lịch 16/09 bằng cookie phiên thật (script scratchpad `tu-kiem-lich.py`, cookie `clinicai-auth`, base64- + chia 3180): 12/12 tài khoản mở đủ trang + API; Minh Thư → Tổng quan tiếp nhận + nhóm Lễ tân.
+**co_vai (lỗi check-in Minh Thư):** đổi vai ở cửa gác CHỈ xảy ra khi cửa gác từ chối vai tài khoản; công tắc mở quyền để điều dưỡng qua nên booking_service vẫn so identity.role → "không được phép checkin". Nay mọi kiểm tra nghiệp vụ dùng `identity.co_vai(...)`; bài kiểm cấm `identity.role in/==` trong services/routers. Thử thật: Minh Thư check-in Trần Thu Hà → CHECKED_IN → hoàn tác → CONFIRMED.
+**Chưa tắt công tắc MO_QUYEN_TAM_THOI** (cố ý): 4 người hôm nay chỉ có mã lịch cũ (LE_TAN, PHU_BS_SA, MAY_TRONG, TLYK) — tắt thì họ bị siết về vai tài khoản. Xếp lại lịch trước, rồi tắt.
+
+**CÒN LẠI (chưa làm, cố ý):**
+1. Bảng giá gần như trống → dòng thu tiền ra `None`.
+2. Phiếu siêu âm phụ khoa có ô cấu trúc (`sieu-am/KetQuaPhuKhoa.tsx`) chưa nối vào Phòng siêu âm — hiện ô mô tả tự do + tệp.
+3. `/tasks` (Công việc của tôi, 4 màn trong 1), `ClinicalRecordForm` còn nút chỉ định XN đường cũ; `/patient-list` vs `/customers`; `/cskh-tasks` + `/nhac-tai-kham` + `/episodes` — chưa gộp.
+4. Thu tiền dịch vụ và Check-out vẫn 2 mục; Cấp thuốc (/pharmacy) và Thu tiền thuốc 2 mục.
+5. API đường cũ (`/api/sono`, `/api/service-log`) còn nhưng không màn nào gọi.
+6. Danh sách XN nào đối tác tự lấy: chưa có màn cấu hình để quản lý tích (cột đã có).
+
+## -0012. Tệp kết quả lưu trên Viettel Cloud File Storage (16/09/2026 khuya) — commit a6ef82b
+
+Tuyền: *"mình cần lưu vào viettel file storage"*. Trước đó tệp nằm trên ổ VPS, Viettel chỉ nhận bản sao lưu 02:15.
+
+- `.env.prod`: `MEDIA_DIR=/mnt/viettel-cfs/clinicai-media` + `MEDIA_MARKER=.o-viettel-cfs`. api bind `/mnt/viettel-cfs/clinicai-media/production`.
+- **Chốt an toàn**: thiếu tệp `.o-viettel-cfs` (ổ rớt / Docker lên trước ổ mạng khi khởi động lại) → từ chối ghi kèm câu báo, KHÔNG ghi nhầm xuống ổ VPS. Có ổ lại thì `docker compose ... restart api`.
+- 5 tệp cũ đã chép sang (sha256 khớp); bản cũ vẫn để ở `~/clinicai/.media/production` (tệp thử, dọn được).
+- Thử thật sau chuyển: tải PNG/MP4/PDF → 201, đọc Range → 206, tệp mới rơi vào Viettel (ổ VPS đứng yên 5 tệp).
+- ⚠️ **Còn hở**: (1) sao lưu đêm `backup-db.sh` giờ nén tệp TỪ Viettel VÀO Viettel — cùng một nơi, chưa phải bản sao thứ hai; (2) hợp đồng Viettel File Storage hết hạn **16/10/2026**.
+
+## -0011. Thanh bên tường minh + ảnh/video siêu âm (16/09/2026 khuya) — commit 02c0e94
+
+Tuyền: *"điều dưỡng đang ngồi vào đo sinh hiệu thì phải có node là đo sinh hiệu… siêu âm phải có chỗ up ảnh, video… đối tác cũng phải gửi file vào hệ thống… cứ tường minh ra ở bên sidebar"*.
+
+- **Màn mới `/do-sinh-hieu`**: khách hôm nay theo giờ check-in, hai nhóm Chờ đo / Đã đo, bấm là điền 10 chỉ số, lưu xong tự nhảy người kế. Vị trí `T1_DOCHISO` mở màn này.
+- **Đổi tên mục theo việc**: Tiếp đón khách · Đo sinh hiệu · Lấy mẫu xét nghiệm · Làm thủ thuật & dịch vụ · Điều dưỡng siêu âm · Khám siêu âm · Cấp thuốc · Điều phối ca · Khám bệnh (mọi loại). Tiêu đề trang đổi theo.
+- **Thanh bên có ca**: phần **Hôm nay** (việc của vị trí) + **Việc khác** (gập sẵn, tự mở khi đang đứng trong một màn của nó). Không ca / Quản lý: danh sách phẳng như cũ. Thanh dưới điện thoại không đổi.
+- **Phòng siêu âm**: khối "Ảnh & video siêu âm" theo đúng lượt khám (record trả thêm `appointment_id`), ô xem nhanh + khung xem lớn phát video. Đối tác chọn được video.
+- 5 mục `/kham/*` GIỮ (chưa gộp theo phòng — chờ ma trận phòng → phiếu).
+
+**ĐÃ LÊN FINAL CLOUD** (Tuyền cho quyền): dựng lại api + dashboard, bật `KET_QUA_VIDEO_UPLOAD_ENABLED=true` trong `.env.prod`.
+
+**LỖI NGỦ ĐÔNG bắt được khi thử thật**: thư mục `.media/production` do Docker tự tạo với chủ `root`, api chạy uid 1000 → MỌI lần tải tệp đều 503 "Permission denied" từ ngày dựng máy (0 tệp từng được tải). Sửa bền ở 69889e3: service một-lần `media-quyen` trong compose chown thư mục trước khi api chạy. Thử lại: BS SA Giáp tải PNG/MP4/PDF → 201, đọc lại có Range → 206; `doi-tac-pk` gửi video → 201. Còn 4 tệp thử nằm trên máy (tên `thu-*`).
+
+## -0010. Bảng lịch Y HỆT Excel + lịch 4 tuần tháng 9 (16/09/2026 khuya)
+
+Tuyền gửi ảnh hai tuần Excel: "bảng nó phải dạng y hệt như này".
+
+**Khung bảng** (`RosterGrid.tsx`): ba hàng tiêu đề Thứ·ngày·ca · nền theo phòng
+(token `--color-lich-*`, mã màu đọc bằng openpyxl) · vạch tầng `073763` · ô ĐEN
+= vị trí không làm ca ấy · khối NGHỈ · gộp dọc khi hai vị trí liền nhau cùng
+người. Hàng "Lịch khám / Số bác sĩ" ra khỏi bảng Excel, xuống bảng nhỏ riêng
+chỉ ở màn xếp ca của quản lý (đặt lịch vẫn đọc nó).
+
+**Bảng mới `vi_tri_dong_ca`** (migration 000011) — RIÊNG, không nhét vào
+work_roster. Đọc qua PostgREST (màn lịch) và gói trang chủ (backend, câu SQL
+thứ 7).
+
+**Bộ đọc Excel trải ô gộp** — bản đầu chỉ đọc ô trên cùng nên Thu ngân, Tạo đơn
+trống trơn và Thủy Tiên (ô gộp Hỏi bệnh + Thư ký) bị gán mỗi Hỏi bệnh.
+
+**Hỏi bệnh ban đầu → nhóm CHUNG** (migration 000012): Excel có điều dưỡng đứng.
+
+**Lịch đã nạp**: 07/09 ← Excel tuần 2 · 14/09 ← tuần 1 · 21/09 ← tuần 2 · 28/09 ←
+tuần 1. 588 ô người · 296 ô đen/NGHỈ · 104 ô trống (13 tên). 0 ô bị từ chối.
+
+⚠️ Chưa có: nút tô đen / bỏ tô đen một ô trong màn xếp ca (ô đen hôm nay chỉ nạp
+được từ Excel). Chữ đỏ/xanh của tên bác sĩ trong Excel chưa làm — chưa rõ nghĩa.
+
+⚠️ Deploy commit 43ace54 đi lên khi 3 bài kiểm backend đỏ (`pytest | tail -1`
+nuốt mã lỗi). Đã sửa ở ed38e77; mã chạy không sai. Xem memory ong-tail-nuot-ma-loi.
+
+---
+
+## -0009. Màn khám riêng từng loại + một tài khoản thu ngân (16/09/2026 khuya)
+
+**Gỡ "6 giai đoạn"** của mục -0008 (điểm 6): nó chỉ sửa `ServiceFormEngine`, mà
+thành phần ấy nằm TRONG tab 3 của `ClinicalRecordForm` — hai cách chia chồng lên
+nhau. Tuyền phát hiện qua ảnh.
+
+**Màn khám riêng** (Tuyền chốt): `/kham/noi-tiet · phu-khoa · san · hiem-muon ·
+nam-khoa` + "Khám siêu âm" (`/sieu-am` đổi tên). Mỗi màn = Bàn khám bác sĩ lọc
+theo `service_type.form_code`. Danh mục ở `lib/loai-kham.ts`. Bàn khám chung giữ
+lại (tên "Bàn khám (tất cả)") cho dịch vụ không có phiếu.
+
+**Gốc ô vàng "chưa gắn biểu mẫu"**: CẢ 14 loại khám trên final cloud mất
+`form_code` — migration 07/08 gắn đúng rồi dữ liệu bị nạp đè, sổ migration vẫn
+ghi "đã áp". Migration `20260916000010` gắn lại (chạy lại được). Đo sau khi vá:
+19 lượt hôm nay đều có phiếu — PK 13 · SK 2 · NT 2 · HMVS 1 · NK 1.
+
+⚠️ **Dữ liệu `service_type` trên final cloud KHÁC quyết định 07/08 của Quang**:
+14 dịch vụ đang bật (Quang chốt chỉ 5), tên vẫn "Sản 1", "Nội tiết - Tình dục".
+CHƯA sửa — bật tắt dịch vụ đổi thứ khách thấy lúc đặt lịch. Cần hỏi.
+
+**Thanh bên theo vị trí** trỏ vào màn khám riêng. **Sàn chậu chưa có phiếu** →
+tạm Khám phụ khoa (chờ Tuyền). Thủ thuật → bàn khám chung. Hiếm muộn, Nam khoa
+KHÔNG có vị trí nào trong lịch Kim Ngưu trỏ tới.
+
+**Menu dự phòng** (ngày không ca) dùng `canSeeNavGoc` — luật gốc, KHÔNG theo công
+tắc mở quyền. Quyền vào vẫn mở.
+
+**Thu ngân**: `thu-ngan@dr4women.vn` (CASHIER) có `/thu-ngan/dich-vu` +
+`/thu-ngan/thuoc`. `thu-ngan-thuoc`, `thu-ngan-dich-vu` đã NGHỈ (không xoá) qua
+`scripts/gop-tai-khoan-thu-ngan.py` — đã kiểm: /me trả 403.
+
+---
+
+## -0008. Form lịch = Excel · thanh bên theo vị trí · phiếu bác sĩ theo giai đoạn (16/09/2026 đêm)
+
+Tuyền chốt sáu điều, cả sáu đã lên final cloud:
+
+1. **Form lịch = đúng hình Excel.** Ba bảng lịch lật chiều: hàng Tầng→Phòng→Vị
+   trí, cột ngày×ca (T2→T6 một ca Tối; T7, CN ba ca = 11 cột). `LICH_KHAM` tách
+   thành hàng riêng trên lưới + hàng "Số bác sĩ trực". `OfficialRosterTable` thôi
+   có thân riêng, dùng lại bảng trang chủ.
+2. **13 tên để trống** — khoá cứng trong `DE_TRONG` (scripts/nhan-su-kim-nguu.py).
+3. Tài khoản theo vị trí giữ nguyên.
+4. **Thanh bên theo vị trí hôm nay**: `GET /me/vi-tri-hom-nay` (dữ kiện) +
+   `MAN_THEO_VI_TRI` trong nav-items.ts (trình bày). Không ca → menu theo vai.
+   Quản lý không áp dụng.
+5. Mở quyền: xem mục -0007.
+6. **Phiếu bác sĩ theo 6 giai đoạn lâm sàng** (lib/form-schemas/giai-doan.ts),
+   thay xếp gạch 2 cột. Chưa động thẩm mỹ.
+
+**Migration 20260916000009** — ma trận `vai_duoc_vao_tram` nạp lại theo vị trí
+mới. Không có nó MỌI lần lưu ca đều bị từ chối. Đã thử trong ROLLBACK trên final
+cloud trước khi áp — và nhờ thế bắt được bản nháp tắt nhầm quyền `LICH_KHAM`.
+
+**Lịch thật đã nạp** tuần 14/09 + 21/09 qua `POST /roster/shifts`: 259/260 ô, 41
+ô trống. Ô bị từ chối: `Nguyễn Thuỷ Tiên` (điều dưỡng) đứng *Hỏi bệnh ban đầu*
+20/08 — vị trí ấy đang xếp nhóm bác sĩ. **Chờ Tuyền: hỏi bệnh ban đầu có phải
+việc riêng của bác sĩ không?**
+
+⚠️ Lịch trực mã CŨ (`LE_TAN`, `LAY_MAU`…) vẫn nằm trong `work_roster` — vô hại
+(không mã nào khớp bảng mới, không ảnh hưởng đặt lịch) nhưng chưa dọn.
+
+**Bộ ghép tên đã gộp nhầm hai CSKH thành điều dưỡng** (Phương Thúy Nguyễn → Đỗ
+Thuý Phương Anh; Nguyễn Thị Ngọc Giàu → …Giầu). Đã trả tên, gỡ 5 dòng vị trí,
+và vá: nhóm nghề là một phần danh tính — tên trong lịch không bao giờ trỏ vào
+hồ sơ CSKH/quản lý.
+
+---
+
+## -0007. MỞ QUYỀN TẠM THỜI + hai lỗi ngủ đông (16/09/2026 tối)
+
+Tuyền: *"mở quyền giúp tôi, tất cả các tài khoản đều có thể thao tác đã, đừng
+bị phụ thuộc lịch khám nữa, trừ bác sĩ ra thui, tại giờ đang rối"*.
+
+**Công tắc `MO_QUYEN_TAM_THOI` — mặc định BẬT**
+
+- Tắt backend: `MO_QUYEN_TAM_THOI=0` trong `.env.prod`, khởi động lại container.
+- Tắt frontend: `NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0` — **phải DỰNG LẠI ảnh**, vì
+  Next nhét biến `NEXT_PUBLIC_*` vào mã trình duyệt lúc build. Tắt một nửa là
+  quyền lệch nhau giữa hai tầng.
+- Bộ kiểm chạy ở chế độ SIẾT (conftest + mọi lệnh `test:*`), nên 1932 bài
+  backend + 288 bài frontend vẫn canh nguyên luật gốc.
+
+**KHÔNG nới, có chủ ý:** cửa của bác sĩ (`DOCTOR_ROLES`, `NOTE_ROLES`,
+`DRAFT_ROLES`), quyền đọc bệnh án (`CLINICAL_READ_ROLES`), vai DISPLAY, vai
+PARTNER, và các màn quản trị trên thanh bên (`/portal` `/settings` `/reports`
+`/ops`).
+
+**BÀI HỌC: cửa ở router KHÔNG phải cửa thật.** Nới `_BANG_GUARD` xong mà CSKH
+và thu ngân vẫn 403 — vì `LuotKhamService.bang()` gọi `_require(...)` lần nữa.
+Luật nghiệp vụ nằm trong hàm dịch vụ (CLAUDE.md), nên đó mới là cửa. Nhìn cửa
+ở router thì thấy hoàn toàn đúng.
+
+**Hai lỗi ngủ đông mà việc mở quyền lôi ra**
+
+1. `/cskh/man-khach-hang` trả **500 cho MỌI vai**. Kiểu trả về khai
+   `dict[str, list[dict]]`, nhưng khối `tuan_cong_bo` là danh sách CHUỖI.
+   Rỗng thì hợp lệ với mọi kiểu — nên lỗi ngủ cho tới đúng hôm có tuần lịch
+   trực được công bố. Trên màn chỉ hiện "Không đọc được dữ liệu chăm sóc".
+2. `_DANH_SACH_GUARD` thiếu `TRUONG_CA`, trong khi có đủ mười vai còn lại và
+   trưởng ca vẫn tạo/sửa được hồ sơ qua hai cửa ngay trên nó. Sót, không phải luật.
+
+**Đã đo lại trên final cloud sau khi vá:** 7/7 vai thấy đủ 19 lượt · điều dưỡng
+bất kỳ ghi được sinh hiệu (200) · 4 vai đọc được màn Quản lý khách hàng, kèm
+đúng khối `tuan_cong_bo` từng làm nổ 500.
+
+⚠️ Công tắc này là TẠM. Máy chủ kêu `mo_quyen_tam_thoi_dang_bat` mức WARNING
+mỗi lần khởi động — đừng hạ mức, đó là thứ duy nhất giữ nó khỏi thành vĩnh viễn.
+
+---
+
+## -0006. Lịch Kim Ngưu: dữ liệu thật đã vào, FORM thì CHƯA (16/09/2026 chiều)
+
+Tuyền gửi `[Dr4women] PK Kim Ngưu - Lịch làm việc nhân sự theo tuần.xlsx` + trang
+Notion *Kế hoạch v1.0.0*. Đối chiếu đầy đủ: **`docs/DOI-CHIEU-LICH-KIM-NGUU-16-09-2026.md`**.
+
+**Ba phát hiện đổi cách nghĩ**
+
+1. **Không ai làm một vai.** Hải Yến hai tuần đứng 8 vị trí ở 3 tầng. Chỉ Thanh
+   Phương gần như chuyên một chỗ (7/7 ca Thư ký y khoa). Hệ thống đang gán MỘT
+   vai cố định cho một người và mở/đóng màn theo vai ấy.
+2. **"Thư ký y khoa" là chỗ ngồi, không phải nghề.** Danh sách nhân sự chỉ có 4
+   nhóm bác sĩ + 21 điều dưỡng. Tính năng điền song song GIỮ NGUYÊN (Tuyền:
+   "không được xoá nhé"); cái sai là giả định có một lớp nhân viên riêng.
+3. **T2–T6 chỉ chạy ca Tối**; T7/CN có Sáng·Chiều·Tối. Khớp luật Notion: mọi mốc
+   sức chứa đều 18h00/18h15/18h30/18h45.
+
+**Đã làm**
+
+- Migration `20260916000008`: `vi_tri_lam_viec` (27 vị trí Tầng→Phòng) +
+  `staff_vi_tri`. **CHƯA nối vào quyền** — Tuyền chốt "từ đã để tính tiếp".
+- `scripts/nhan-su-kim-nguu.py`: đọc Excel → nạp. Đã chạy trên final cloud:
+  **90 dòng vị trí · 15 hồ sơ sang tên đầy đủ · 5 người mới · tất cả về cơ sở
+  Kim Ngưu**. So tên theo TẬP CHỮ (≥2 chữ), có ba chốt chống gán nhầm.
+- Ba màn theo góp ý Tuyền: đối tác gom theo KHÁCH · thu ngân bỏ đối soát · trưởng
+  ca có lối sang Quản lý khách hàng.
+
+**CÒN DỞ — việc lớn nhất**
+
+`src/dashboard/lib/roster.ts` vẫn giữ `STATIONS` **của file Hào Nam đời cũ**
+("Máy trong E10", "Phòng ngoài + Monitoring", "HSS + Thủ thuật"). Không một vị
+trí nào trong đó tồn tại ở Kim Ngưu. Ba bảng lịch (trang chủ, lịch chính thức,
+bảng xếp ca) đều đọc hằng ấy.
+
+Và form phải **đổi chiều**: Excel là *hàng = vị trí, cột = ngày×ca*; bảng hiện
+tại là *hàng = ngày, cột = trạm*. Với 27 vị trí thì chiều cũ thành 27 cột.
+
+⚠️ `LICH_KHAM` KHÔNG phải một vị trí trong Excel — nó là "bác sĩ nào trực ngày
+ấy" và `lib/roster.ts:110` dùng nó để dựng lưới đặt lịch. **Giữ lại**, đừng gộp
+vào danh mục vị trí.
+
+⚠️ Lịch trực tuần này trên final cloud đang dùng MÃ CŨ (`LE_TAN`, `PHU_BS_SA`…).
+Đổi `STATIONS` mà không dựng lại lịch thì các cột hiện ra trống.
+
+**Hai việc chờ Tuyền chốt**
+
+- `BS Hằng` mơ hồ: trùng cả `BS Hằng` lẫn `ĐD Hằng` → khai vào `PHAN_XU`.
+- Hai người suýt bị tạo trùng, script đã chặn: `Lê Huyền Trang` (= `ĐD Trang Lê`?)
+  và `Vũ Hoàng Vân Anh` (= `TL Vân Anh`? — hay là người thứ hai, vì lịch có cả
+  `N. Vân Anh` lẫn `V. Vân Anh`).
+- 5 ô trong Sheet3 ghi "1-2 người" bị Excel đổi thành ngày `2026-02-01`.
+
+**CHẶN QUẦY THU NGÂN, không phải lỗi code**
+
+Bảng giá có **1/39 dịch vụ** và **0/80 thuốc** có giá. Quầy hiện đủ người mà
+`còn phải trả = 0`. Notion đã ghi đây là việc phía khách ("Cần khách cấp data
+chi phí dịch vụ khám…" và "…danh sách thuốc + tiền tương ứng").
+
+---
+
+## -0004. Nhóm đua tranh đã chạy — trên cả hai nơi (16/09/2026 ~14:00)
+
+`scripts/tests/dua-tranh.py` — ba kịch bản mà **không ai bấm tay thử được**:
+
+| | final mac | final cloud |
+|---|---|---|
+| SC-31  8 lịch bắn cùng lúc vào MỘT khung | ✅ đúng 2 lọt, trần 2 | ✅ đúng 2 lọt, trần 2 |
+| SC-32  hai lễ tân cùng check-in một lịch | ✅ 200/409, đúng 1 lượt | ✅ 200/409, đúng 1 lượt |
+| SC-33  bác sĩ + thư ký cùng sửa hồ sơ | ✅ 200/409 | ✅ 200/409 |
+
+**Trần sức chứa giữ được dưới cuộc đua thật** — đây là bất biến đắt nhất của hệ:
+tám lời gọi đồng thời, database vẫn đếm đúng 2. Ép ở Postgres (trigger), không
+ở Python, nên không lối gọi nào vòng qua được.
+
+⚠️ **Trần CHỈ chặn khi tuần đã công bố lịch trực** (luật Tuyền chốt 15/09).
+Chưa công bố thì nhận thoải mái — đúng ý, nhưng nghĩa là **phải công bố lịch
+trực thì trần mới có tác dụng**. Cả hai nơi hiện đang KHÔNG có tuần nào công bố;
+tôi dựng tạm một tuần để thử rồi gỡ đi.
+
+### Bốn lần phép thử sai trước khi đúng — ghi lại vì sẽ lặp
+1. Lấy "cơ sở active đầu tiên" → rơi vào nơi bác sĩ không làm. Lấy từ `/me`.
+2. Bịa giờ "bây giờ + 20 phút" → rơi vào giờ nghỉ trưa. Đọc `/appointments/policy`.
+3. Kết luận "cho chen lọt" khi 8/8 lọt — trong khi tuần chưa công bố lịch trực
+   nên KHÔNG có trần. Phép thử nay hỏi `roster_week_published` rồi mới kết luận.
+4. Tệp dấu vết bị GHI ĐÈ mỗi lần chạy → lần trước mất đường dọn, và lần sau đếm
+   cả dữ liệu cũ rồi báo đỏ nhầm. Nay nối thêm, và mỗi lần chạy mang dấu riêng.
+
+Cả bốn đều là phép thử sai, không phải hệ thống sai.
+
+### SC-34/35/36 đã chạy nốt — và tìm ra một lỗi thật
+
+| | final mac | final cloud |
+|---|---|---|
+| SC-34 hai người cùng nhận một dịch vụ | ✅ 409/200 | ✅ 409/200 |
+| SC-35 bấm thanh toán 2 lần | ✅ 200/200, database 1 khoản | ✅ 200/200, database 1 khoản |
+| SC-36 bấm cấp thuốc 2 lần | ✅ 201/409, tồn trừ 1 | ✅ 201/409, tồn trừ 1 |
+
+**SC-36 ban đầu HỎNG THẬT**: hai lời gọi cấp 1 viên bắn cùng lúc, cả hai trả
+201, lô nhập 50 còn **48** — trừ tồn hai lần. `pharmacy.py` là cửa ghi DUY NHẤT
+trong hệ không có lớp chống gửi trùng, mà lại là cửa duy nhất động vào vật thật.
+Đã vá (`230ad82`), và ngay khi vá xong lộ thêm một lỗi thứ hai: lần bấm thứ hai
+trả **500** vì kết quả mang `Decimal` mà `json.dumps` của lớp ấy không nuốt
+được — người dùng sẽ thấy "lỗi máy chủ" cho một thao tác đã thành công.
+
+Vì sao `/payments` không cần lớp ấy mà vẫn đúng: mỗi lượt khám chỉ có một khoản
+thu mỗi loại nên ghi đè là đủ. Cấp thuốc thì **cấp một phần là hợp lệ**, nên hệ
+không thể tự phân biệt "bấm nhầm" với "cố ý cấp thêm" — khoá chống-gửi-trùng
+chính là chỗ người gọi nói ra điều đó.
+
+### Nhóm ngoại lệ — 6/6 xanh ở cả hai nơi (`scripts/tests/ngoai-le.py`)
+
+SC-08 huỷ trước khi đến · SC-09 đánh không đến · SC-10 check-in rồi về ·
+SC-11 đã check-in vẫn đặt được ngày khác · SC-12 quay lại bấm check-in lần hai ·
+SC-28 lịch lùi vào khung đã qua.
+
+SC-10 kiểm CẢ HAI phía: bảng làm việc 1 → 0, **và** truy vấn thẳng database thấy
+lượt còn nguyên ở `INCOMPLETE`. "Rời bảng" khác "bị xoá" — chỉ nhìn bảng thì
+không phân biệt được.
+
+Còn lại chưa chạy: SC-06 (đến lấy kết quả), SC-17/18 (kết quả về sau / có bản
+sửa), SC-27 (đến sớm, đổi sang khám luôn), SC-29 (bác sĩ nghỉ đột xuất) — cả
+bốn cần tính năng hoặc dữ liệu chưa có sẵn để dựng cảnh.
+
+### Danh mục thuốc: 64 → 80
+Thêm 16 dòng theo bảng Tuyền gửi 16/09. **12 dòng trong database không còn
+trong bảng mới** — chưa xoá, chờ Tuyền xác nhận từng cái là BỎ hay ĐỔI TÊN
+(Aspirin ↔ Aspilete, Folic Mum ↔ 5MTHF/ Folic mum trông như đổi tên). Danh sách
+nằm trong `20260916000006_bo_sung_danh_muc_thuoc.sql`.
+
+### Logo tab
+`icon.png` từng là nguyên logo KÈM CHỮ → 16px thành vệt mờ. Nay chỉ còn dấu hiệu
+hai vòng hạt. ⚠️ `.ico` phải nhúng RGBA, không thì `next build` chết — và `tsc`
+KHÔNG bắt được lỗi ấy.
+
+## -0003. Bản 15–16/09 đã LÊN VPS MỚI và chạy thật (16/09/2026 ~13:10)
+
+`https://dr4women.io.vn` nay chạy nhánh `lat-1-luot-kham` (`8e74805`), không còn
+là bản 22/08.
+
+**Đường đưa mã lên:** VPS KHÔNG có khoá GitHub (repo private), nên đẩy thẳng qua
+SSH — `git remote add vps clinic-vps-moi:clinicai`. Nhánh đang được checkout
+trên VPS thì không nhận push; đẩy vào nhánh phụ `dua-len` rồi
+`git merge --ff-only` là xong. **Đừng chép tay bằng `scp` nữa** — 7 tệp sửa tay
+của phiên trước đã kéo về git (`b4e24e6`), giờ cây trên VPS sạch.
+
+**Đã làm, theo đúng thứ tự an toàn:**
+1. Sao lưu trước (130K, mã thoát 0).
+2. **25 migration** áp bằng `apply-pending-migrations.sh --apply` → 79→90 bảng,
+   119→144 migration, 69→92 policy.
+3. `NOTIFY pgrst, 'reload schema'` (cạm bẫy #4 của phiên trước).
+4. Dựng lại api + dashboard → cả hai `healthy`.
+5. Quét 16 màn chính bằng 8 tài khoản thật: **15 × 200, 1 × 403** — cái 403 là
+   thu ngân bị chặn khỏi bảng lượt khám, ĐÚNG luật.
+
+⚠️ Tài khoản thử trên VPS là `letan bs.a bs.sa dd.sa cskh thungan duocsi ql`,
+**không có `truongca` và `thuky`** — hai vai ấy chưa thử được trên máy chủ.
+
+### Caddy đỏ 377 lần mà web vẫn chạy — đèn báo nói dối
+Healthcheck gõ `http://localhost:80/health`; từ ngày bật HTTPS, Caddy chuyển nó
+sang TLS với tên `localhost` (không có chứng chỉ) → `SSL alert number 80`. Đã
+thêm khối `http://localhost` riêng trong Caddyfile (`4fefcb3`); nay `healthy`,
+hỏng liên tiếp về 0. Một đèn đỏ giả nguy hiểm ngang một đèn xanh giả.
+
+### Hiệu năng: tôi đoán sai chỗ, và số liệu chỉ ra chỗ đúng
+Màn Đặt lịch mất **762ms** trên máy chủ. Giả thiết của tôi: truy vấn lịch trực
+chạy 126 lần (18 hàng × 7 ngày). Đã gộp nó về 1 lần/tuần (`8e74805`), đối chiếu
+**252 ô trên dữ liệu thật, lệch 0** — nhưng **tốc độ không đổi** (742ms).
+
+`pg_stat_statements` trên prod nói thẳng:
+
+| Truy vấn | Số lần | TB | Tổng |
+|---|---:|---:|---:|
+| **sức chứa** (`WITH hours … clinic_hours_for_date`) | 630 | **22,56ms** | **14,2s** |
+| lịch trực (cái tôi vừa gộp) | 378 | 0,70ms | 0,27s |
+
+Tức **98% thời gian database nằm ở truy vấn sức chứa**, và nó chạy đủ 126 lần
+mỗi lần mở màn (không ô nào thoát sớm vì các tuần này chưa công bố lịch trực).
+Bản gộp vẫn giữ — nó bỏ được 750 lời gọi vô ích và đã chứng minh không đổi kết
+quả — nhưng **việc đáng làm tiếp là gộp chính truy vấn sức chứa** theo
+(danh sách bác sĩ × khoảng ngày). Bộ đối chiếu ô-với-ô đã có sẵn, dùng lại được.
+
+**Bài học ghi lại:** tôi đã suýt báo "đã tối ưu" chỉ vì mã gọn hơn. Số đo
+trước/sau là thứ duy nhất phân biệt tối ưu thật với tối ưu tưởng tượng.
+
+## -0002. Ba câu hỏi lớn — đã kiểm bằng số, 16/09/2026 14:20
+
+### A. Database prod nằm ở đâu → CÙNG VPS. Tôi đã cảnh báo sai.
+
+Tôi từng nói "coi chừng app ở Vietnix mà database ở Viettel thì mỗi truy vấn trả
+tiền đường giữa hai nhà cung cấp". Kiểm lại: `docker-compose.supabase.yml` dựng
+`db`, `auth`, `rest`, `realtime`, `gateway` NGAY TRÊN VPS; `docker-compose.yml`
+dựng caddy/dashboard/api/worker/rabbitmq cùng chỗ. Viettel chỉ là kho sao lưu.
+Tuyền nói đúng, tôi cảnh báo theo giả định chứ không theo mã. Cảnh báo ấy CHỈ
+còn giá trị như một luật giữ chỗ: **đừng bao giờ tách database sang nhà cung cấp
+khác với API**.
+⚠️ `.env.prod.example` dòng 27 vẫn ghi `...pooler.supabase.com` — tàn dư của đời
+Supabase cloud, dễ dẫn người sau đi sai. Nên sửa.
+
+### B. Bỏ luồng chỉ định cũ → KHÔNG ĐỔI BÂY GIỜ. Quyết định của tôi.
+
+Bức tranh thật khác hẳn mô tả trong chốt 16/09 (và khác cả điều tôi nói sáng nay):
+
+| | Đường ĐANG CHẠY THẬT | Đường "mới" |
+|---|---|---|
+| Ghi vào | `work_item` (qua hàm SQL `order_services()`) + `service_order_draft` | `service_order` + `queue_entry` |
+| Ai ghi | `ServiceOrderService` | CHỈ `luot_kham_service` |
+| Màn | `/doctor/orders` (bác sĩ), `/service-queue`, `/sieu-am`, `/lab-queue`, bảng trưởng ca | `/luot-kham` — **chỉ Quản lý vào được** |
+| Dữ liệu | nuôi 4 màn thực hiện | 37 dòng, toàn dữ liệu thử |
+
+Nghĩa là `service_order` mới phủ phần **RA CHỈ ĐỊNH**, còn phần **THỰC HIỆN**
+(hàng đợi phòng, siêu âm, xét nghiệm, điều phối) vẫn chạy trọn trên `work_item`.
+"Bỏ luồng cũ" vì thế không phải đổi một nút — là viết lại phần thực hiện của cả
+hệ, kéo theo 4 màn và bảng điều phối.
+
+**Quyết: giữ `work_item` làm đường thực hiện** (nó là cái đang chở bệnh nhân
+thật, và nó có kernel workflow). Thứ luồng mới có mà cũ thiếu — vòng
+*nháp → bác sĩ duyệt* — thì ĐÃ có sẵn trên đường cũ dưới tên `service_order_draft`.
+Nên việc đúng là **gộp**, không phải thay: đóng băng `/luot-kham` (không đầu tư
+thêm), và nếu sau này muốn vòng đời draft→authorized→assigned đầy đủ thì thêm
+cột trạng thái vào đường cũ chứ không dựng đường thứ hai.
+Việc này cần một phiên riêng, KHÔNG làm chen giữa ngày khám.
+
+### C. "Chậm vô lý" → đo rồi, KHÔNG có chỗ nào chậm vô lý.
+
+Một lần mở `/reception/queue` = 4 lời gọi backend:
+`/me` 0.6ms · `/appointments/policy` 4.5ms · `/thong-bao` 3.9ms · `/work-items` 34ms.
+Tổng ~43ms; cả trang 20–40ms. p50 toàn hệ 11.8ms, p95 123ms, p99 151ms, 0 lời
+gọi vượt 1s.
+
+Nên nói thẳng: **cache lúc này không chữa bệnh gì cả** — nó là chuẩn bị cho tải
+gấp 10. Thứ tự đáng làm khi cần:
+1. `appointments/policy` (đổi rất hiếm, gọi MỖI lần render) → cache trong tiến
+   trình TTL 60s. Lãi ~4.5ms/trang.
+2. `/me` **KHÔNG cache** — cache một quyết định phân quyền là mở cửa cho lỗi phân
+   quyền.
+3. Tệp **không đi qua FastAPI** khi lên kho Viettel: dùng URL ký sẵn.
+
+## -0001. Buổi khám thật chạy được trọn vòng trên local (16/09/2026, 12:00)
+
+`scripts/tests/buoi-kham-that.py` giờ có KỊCH BẢN GHI, không chỉ đọc màn:
+
+```bash
+set -a && . ./.env.thu-local && set +a
+PYTHONPATH=src poetry run python scripts/tests/buoi-kham-that.py --ghi 5
+PYTHONPATH=src poetry run python scripts/tests/buoi-kham-that.py --rollback
+```
+
+Năm khách cùng lúc đi hết vòng: CSKH mở hồ sơ + đặt lịch → lễ tân check-in →
+điều dưỡng đo mười ô sinh hiệu → bác sĩ vào khám, ghi chú, chỉ định → trưởng ca
+xếp phòng → người thực hiện làm xong. Mỗi bước do ĐÚNG VAI gọi nên nó cũng là
+phép thử quyền. `--rollback` huỷ lịch + tắt hồ sơ (không xoá cứng) rồi ĐỌC LẠI
+bảng để tự kiểm; dấu vết nằm ở `.dev-logs/buoi-kham-that-dau-vet.json`.
+
+**Hai lỗi thật tìm được, đã vá (d7ee31a):**
+1. `VitalsBody` thiếu bốn chỉ số mới → nhịp thở/SpO₂/BMI/thang đau bị Pydantic
+   cắt trước khi tới service, ghi NULL trong im lặng.
+2. Huỷ lịch / hoàn tác check-in chỉ huỷ `work_item`, để lượt ở IN_PROGRESS →
+   lượt ma nằm trên bảng bác sĩ cả ngày. Nay đóng thành INCOMPLETE kèm lý do.
+
+**Hai cái bẫy ĐO, không phải lỗi sản phẩm** — ghi lại để đừng mất công lần nữa:
+- Quét route bằng `fetch` trong trình duyệt: mặc định lấy từ **bộ nhớ đệm HTTP**.
+  Đo lại phiên vai khác mà quên `cache:"no-store"` là đọc lại HTML của vai trước.
+- HTML trả về CÓ tiêu đề trang bị chặn (vd "Quản lý nhân sự" khi đang là lễ tân)
+  — tiêu đề ấy do `GlobalHeader.tsx` dựng theo đường dẫn và được đẩy đi TRƯỚC khi
+  `requireNavAccess` kịp chặn. Gác cửa **vẫn đúng**: điều hướng thật bị đá về
+  /home. Muốn kiểm thì tìm nội dung riêng của trang, đừng tìm tiêu đề.
+- Trang chủ đo được 3–16 GIÂY vài lần — hoá ra do TÔI dùng chung một cookie phiên
+  ở hai nơi (curl + trình duyệt), làm khoá làm mới xoay vòng đá nhau. Một phiên
+  một máy thì 45–119ms sau 45s nghỉ. ⚠️ Nhưng nó gợi ra một câu hỏi thật: **một
+  tài khoản mở trên hai máy** sẽ gặp đúng cảnh ấy.
+
+**Số đo (local, 46 hồ sơ · 14 phòng):** 8 vai đăng nhập song song 108ms · 10 màn
+chính gọi đồng thời trung vị 12–23ms · 5 khách đi trọn vòng 79 lời gọi, hỏng 0 ·
+40 route của Quản lý qua lớp Next trung vị 21ms, không route nào 5xx.
+Số đo đầu tiên sau khi khởi động lại máy chủ (trung vị 117ms) là số của bộ nhớ
+đệm lạnh — đừng lấy nó làm chuẩn.
+
+## 0000. Phiên 16/09/2026 (chiều) — Lễ tân · Trưởng ca · chốt lâm sàng
+
+Nối tiếp mục 000. **13 commit**, từ `6dedcc3` tới `f81cc9b`. Chưa push.
+
+### Đã xong
+· **CSKH (nốt)**: cột danh sách hẹp chỉ còn tên + mới/cũ; màn Đặt lịch bỏ hàng
+  lọc thừa, bỏ ô "Khung giờ khả dụng" (trùng popup), popup báo chỗ người khác
+  đang giữ (VÀNG, vẫn bấm được — giữ chỗ là tư vấn); lọc bác sĩ chuyển vào
+  chính cột "Bác sĩ" của bảng tuần và SỐNG QUA việc đổi khách.
+· **Lễ tân**: bỏ hẳn luồng "vãng lai" — nay chỉ là KÊNH ĐẶT "Trực tiếp"; mở
+  `/appointments` cho quầy (trước đó hai nút "Đặt lịch mới" đá về /home);
+  hàng đợi gộp một hàng chung kéo-thả tại chỗ, bỏ bảng "Thứ tự khám" riêng;
+  hai nút quy trình gộp thành "Vào khám"; bỏ 2 mục thanh bên thừa.
+· **Trưởng ca**: bốn ô số · "Điều phối nhanh" (dùng lại dữ liệu cảnh báo vốn
+  tải rồi vứt đi) · "Sơ đồ phòng đang dùng" theo tầng; BỎ "tuyến điều phối"
+  cứng, thay bằng **"Bác sĩ chỉ định gì"** kèm số người đang chờ ở từng bước;
+  thanh bên bỏ 5 mục (trưởng ca không làm thay người khác).
+· **Lâm sàng** (5 quyết định Tuyền chốt sau khi đối chiếu tài liệu bàn giao 618
+  dòng + phiếu chỉ định giấy + 14 ảnh thiết kế):
+  1. Điều dưỡng **chỉ ghi sinh hiệu** (đảo quyết định 29/6), khoá cả hai phía.
+  2. **Bật phiếu Nam khoa** qua đúng cổng duyệt `activate_clinical_form`.
+  3. **Nhịp thở · SpO₂ · BMI · thang đau** vào `vital_measurement` thật.
+  4. **Tệp kết quả**: bác sĩ / thư ký / điều dưỡng tải lên được, ngay trong hồ
+     sơ khám; tệp do bác sĩ tải thì được gửi ngay, người khác tải vẫn chờ duyệt.
+  5. **Kết quả siêu âm phụ khoa có ô cấu trúc** (tử cung, nội mạc, buồng trứng
+     ± AFC, phần phụ, dịch) — ô trống KHÁC số 0.
+· **Fixture**: `so_do_tang_demo.sql` (3 tầng, 14 phòng, khai `clinic_room_node`
+  còn thiếu bước "Khám") và `ngay_dieu_phoi_demo.sql` (đóng rác ngày cũ, dựng
+  18 lượt hôm nay, xếp phòng, 6 chỉ định đủ trạng thái). Chạy lại được.
+
+### Còn nợ — việc LỚN nhất trước mắt
+· **Bỏ luồng chỉ định cũ, giữ `service_order`** (Tuyền đã chốt, CHƯA làm). Ba
+  bước: mở luồng mới cho bác sĩ + thư ký → chạy đối chiếu một lượt khám thật →
+  gỡ luồng cũ (`order_services()` + OrderComposer). Câu phải hỏi khi tới bước
+  ba: chỉ định cũ trong database có cần chuyển sang bảng mới không.
+· Điều dưỡng gọi bệnh nhân ở hàng chờ dịch vụ (Tuyền chốt) — chưa dựng màn.
+· **Không** chặn "thanh toán trước khi thực hiện" (Tuyền: xong xuôi mới thu).
+· Kết quả xét nghiệm dạng bảng chỉ số + khoảng tham chiếu — CHƯA chốt; hiện đi
+  đường ô chữ + đính kèm tệp.
+· ~25 mã dịch vụ trong ảnh chưa có trong danh mục 39 mã; chưa có mã ICD-10.
+· Chưa kiểm 3 cỡ màn 375/768/1280 cho các màn mới.
+
+### Bẫy gặp trong phiên
+· `demo_clinic_day.sql` KHÔNG chạy lại được: mở đầu bằng `DELETE FROM visit` mà
+  `visit` là bảng chỉ-ghi-thêm.
+· Năm ràng buộc database bắt fixture viết đúng luật: `finished_at` khi việc về
+  trạng thái cuối · lượt INCOMPLETE phải có lý do · `consultation` cần
+  `round_no` + `kind` khớp nhau · huỷ lịch mã KHAC phải viết rõ lý do · trần
+  vãng lai 1 chỗ/khung.
+· Bài kiểm "gương hai chiều" bắt đúng chỗ bỏ sót: gỡ màn khỏi thanh bên mà quên
+  gỡ ở guard API.
+· `node --test` không nạp `.tsx` — hàm thuần phải nằm ở file `.ts` riêng.
+
+## 000. Phiên 16/09/2026 — Làm lại VAI CSKH trên local (đã commit, chưa push)
+
+Tuyền chốt thứ tự: xong nghiệp vụ/giao diện/lỗi trên LOCAL theo từng vai, online
+(VPS/Viettel/file storage) bàn sau. Tuyền gửi 4 ảnh ChatGPT (trang chủ, đặt lịch,
+khách mới, danh sách BN) + chốt hành trình khách → memory
+`cskh-hanh-trinh-khach-1609`, `lo-trinh-hoan-thien-local-theo-vai-1609`.
+Nhánh `lat-1-luot-kham`: `00c23ad` (luật 15/09) rồi 6 commit CSKH:
+
+1. `733d98c` Dòng trạng thái khách: bỏ "Làm bước này", vòng tròn = nút (bấm ghi,
+   bấm lại hoàn tác — sổ giữ dòng); ô KHOÁ đồng bộ từ lễ tân/bác sĩ/đối tác; bỏ
+   Vượt sức chứa/Nhắc hẹn mai/Sau sinh/Sau thủ thuật 1 ngày; màn CSKH KHÔNG còn
+   đóng lượt (CHECK_OUT) — checkout là lễ tân. Migration 20260916000001
+   `visit.theo_doi_thu_thuat` + GET/PUT /visits/{id}/theo-doi-thu-thuat, ô chọn ở
+   mục X hồ sơ khám. CSKH mở được Chờ xếp bác sĩ; cơ sở mặc định form khách mới.
+2. `bc13bcf` Khung báo dưới tên khách (khung-bao.ts thuần + test) + thanh chọn
+   lượt theo đợt ở đầu vùng làm việc.
+3. `57af6e8` Một nguồn "còn chỗ": quote thêm `con_lai`/`dat_tu_do`; GET
+   /appointments/cho-trong-tuan (Bác sĩ × 7 ngày, tóm từ chính quote; ít chỗ ngày
+   = ≤2 chỗ hoặc ≤20%, `clinic.settings.it_cho_toi_da`). Màn Đặt lịch: bảng tuần
+   + popup + "Khung giờ khả dụng"; dọn ~400 dòng lưới tự đếm chỗ.
+4. `4334722` Form khách mới dùng chung bảng tuần; tab Có sẵn/Mới; ô Kênh đặt
+   (Trực tiếp·Điện thoại·Hotline·Zalo·Facebook·Website·Giới thiệu).
+5. `4336fb1` Trang chủ: ô số bấm được (Lịch cần xử lý thay Lịch chờ xác nhận),
+   gập ngày, menu "…", "Đặt lịch vào đây" → /appointments?ngay=&gio=&bac_si=.
+   **Lỗi**: "bác sĩ đã đổi lịch" bật cho tuần CHƯA công bố lịch trực → nay chỉ
+   tính tuần đã công bố (trang chủ + Quản lý khách hàng).
+6. `f9ce522` Danh sách BN về backend GET /patients/danh-sach — qua nửa đêm không
+   mất lượt đang mở (local 21, bản cũ 0); lịch sử lượt trong hồ sơ.
+
+Kiểm mỗi bước: pytest phủ ≥80% (1896, 80.27%) · mypy src · máy kiểm phạm vi 0 ·
+tsc · eslint 0 · test node CI · xem/bấm trên stack local (dev-up.sh). Chưa kiểm
+đủ 3 cỡ 375/768/1280 (mới 1440). **Còn lại CSKH:** lưới vãng lai của lễ tân vẫn
+dùng CinemaSlotPicker (làm ở vai lễ tân); `nutLoiRa`/HanhDongTrangThai còn các
+case VUOT_SUC_CHUA/NHAC_HEN_MAI chỉ vào qua khung báo. Vai tiếp: **Lễ tân**.
+
+## 00. Phiên 15/09/2026 — Sửa luật hệ đang chạy theo CONTEXT v1.0 (CHƯA COMMIT)
+
+**Quyết định của Tuyền (15/09 chiều):** code thẳng trên Dr4Women, không chờ
+ClinicAI-final; sửa từng luật trái CONTEXT v1.0. Bản đối chiếu hai hệ (danh
+sách luật sai + nguồn) nằm ở scratchpad phiên, file
+`DOI-CHIEU-DR4WOMEN-CLINICAI-FINAL-20260915.md` + PL1–PL4 — xin Tuyền chỗ lưu.
+VPS Vietnix vẫn hết hạn → không deploy gì; mọi thứ nằm trên cây làm việc của
+nhánh `lat-1-luot-kham` (lẫn với lát 1 chưa commit — tách PR theo file khi commit).
+
+**Đã xong, đã kiểm:**
+1. **Gỡ ca trực không huỷ lịch** (`config_service.RosterService.remove`): lịch
+   rơi ra ngoài ca còn lại chỉ bị gỡ bác sĩ → hàng "Lịch chờ xếp bác sĩ";
+   thêm event `roster.shift_removed`; tin Telegram + hộp xác nhận đổi câu.
+   Đảo #117 — lý do ghi trong docstring và `test_khoi_phuc_lich_khi_xep_lai_ca.py`.
+2. **Trần sức chứa chỉ chặn sau khi công bố tuần** (migration
+   `20260915000001`): trigger + `booking_service._slot_full` hỏi cùng hàm
+   `tuan_lich_truc_da_cong_bo`; lưới BookingHub không khoá ô đủ trần khi tuần
+   chưa công bố. `apply_week` đối soát bằng `khung_vuot_tran_trong_tuan` →
+   thông báo KHAN cho TRUONG_CA, trả `khung_vuot_tran`, không huỷ lịch nào.
+
+3. **Hàng chờ bỏ hai làn tự vượt** (`queue_order.py`): vé ƯT chỉ còn nhãn
+   `uu_tien`; người quay lại đọc kết quả được CHÈN sau mọi người đã chờ lúc
+   kết quả cuối cùng về (`lab_result.result_received_at` → `b3_ready_at`).
+   **Tuyền CHỐT 15/09: không phân biệt có hẹn/đến thẳng — ai check-in trước
+   khám trước** (thay [CHƯA RÕ] ở CONTEXT §6). Giờ hẹn + độ dài khung chỉ còn
+   quyết lý do hiển thị; câu TV "được ưu tiên vì đã đặt lịch trước" đã gỡ. TV
+   và lưới tuần chưa tính "kết quả đã về" (có từ trước).
+4. **Tuần đã công bố chặn cả gán/đổi/dời lịch** (`_guard_slot` gọi
+   `_roster_warning`), và tự xếp ca khi gán bác sĩ (quyết định Quang 09/08)
+   chỉ còn chạy ở tuần CHƯA công bố. Không bỏ hẳn việc tự xếp ca — không có
+   dòng CHỐT nào gỡ quyết định đó.
+
+5. **Đóng lượt giữ việc kết quả** (`checkout_service.close`): huỷ việc còn
+   treo TRỪ node `flow_group = 'ket_qua'` (nhập/duyệt kết quả XN, tinh dịch đồ);
+   trả + ghi event `viec_ket_qua_giu_lai`. Hạn của việc giữ lại CHƯA đặt (câu 8).
+6. **Đơn thuốc đã cấp không bị xoá khi lưu lại bệnh án**
+   (`clinical_record_service._replace_prescriptions`): dòng đã cấp/đã chốt bị
+   khoá (đổi số lượng/xoá → 409, liều dùng sửa tại chỗ); dòng mới ghi
+   `quantity_num`/`unit` — trước đó chốt "không cấp quá số kê" chưa từng chạy
+   với đơn mới.
+
+7. **Thư ký nhập — bác sĩ duyệt** (Tuyền chốt 15/09: bác sĩ đọc, thư ký nhập,
+   màn bác sĩ hiện song song, bác sĩ duyệt; chưa duyệt CHỈ bác sĩ + thư ký thấy):
+   - Đơn thuốc: một phiên khác làm 14:58–15:44 trên cùng cây (Tuyền cho Claude
+     tiếp quản) — `clinical_record.revision` + `prescription_draft` (cột ẩn
+     khỏi điều dưỡng, 20260915000005/007), `clinical_prescription_service.py`,
+     form bác sĩ đồng bộ không đè chữ đang gõ (`lib/clinical-sync.ts`), nút
+     "Kết thúc khám" riêng thay cho tự-khám-xong. Claude sửa 004/005 cho chạy
+     lại được (CI bắt buộc).
+   - Chỉ định dịch vụ (đường thật, không phải lát 1): bảng
+     `service_order_draft` (20260915000008) — thư ký POST/PUT nháp, bác sĩ
+     phụ trách duyệt đúng `expected_version` → `order_services` với danh tính
+     bác sĩ trong cùng giao dịch; `create()` chặn TKYK. UI trong
+     `OrderComposer` (panel "Chỉ định chờ bác sĩ duyệt", realtime qua
+     `service_order_draft` trong LIVE_TABLES). Smoke Postgres 8 bước OK.
+   - CHƯA: bảng bác sĩ chưa báo có nháp khi bác sĩ chưa mở màn chỉ định; chưa
+     bấm thử trên trình duyệt (Claude không đăng nhập được app).
+
+8. **Check-in lưu bằng chứng xác minh** (Tuyền chốt 3 cách: đối chiếu thông
+   tin cá nhân / kiểm giấy tờ có ảnh / người nhà xác nhận): migration
+   20260915000009 (visit.xac_minh_* + CHECK đủ bộ), `cach_xac_minh_bat_buoc`
+   ở booking_service cho check-in quầy, vãng lai tự check-in và mốc CHECK_IN
+   của CSKH; nút dùng chung `components/ui/NutCheckIn.tsx` — không có mặc định.
+   Lớp bảo vệ: service bắt buộc; DB chỉ ép đủ bộ (lượt cũ/lượt điều dưỡng mở
+   trước quầy không có bằng chứng).
+9. **Nhắc lịch trước 7 ngày và 1 ngày** (Tuyền: đặt 2/9 lịch 15/9 → nhắc 8/9
+   và 14/9): migration 20260915000010 đổi 2 nhánh `v_viec_cskh` — hạn = ngày
+   khám − so_ngay, quá mốc là đỏ, việc nhắc 1 ngày không biến mất ngày khám;
+   lịch đặt trong vòng 7 ngày không sinh việc 7 ngày (giả định của Claude —
+   cuộc gọi đặt lịch vừa xảy ra). Test SQL `nhac_lich_truoc_7_ngay_va_1_ngay.sql`.
+
+10. **AI đứng sau cờ + bác sĩ quyết báo kết quả:** không có ANTHROPIC_API_KEY
+    thì API vẫn khởi động (endpoint AI trả 503 AI_DISABLED, orchestrator
+    rule-based). Bỏ ba cổng AI chặn kết quả xét nghiệm: (a) `finalize_review`
+    từ chối nhóm PENDING — chỉ định tay luôn PENDING nên không AI thì không
+    duyệt được; (b) `lab_release_decision` chỉ cho GROUP_A — nay "bác sĩ đã chốt
+    là được báo"; (c) `v_viec_cskh` KQ_CHUA_GUI sinh khi AI không gắn cờ — CSKH bị
+    giục gửi kết quả chưa duyệt (sửa trong 20260915000010). Trang duyệt kết quả:
+    nút "Ký duyệt" từng là nút giả → nối endpoint thật; hàng chờ lọc "có kết
+    quả + chưa chốt" thay cho cờ AI; gỡ nút "Trả lại chỉnh sửa" (không có đường).
+    Smoke Postgres: chỉ định → nhập → chưa duyệt không báo → duyệt → được báo.
+
+11. **Tệp kết quả: bác sĩ cho phép gửi từng tệp** (Tuyền chốt 15/09, thay
+    14/08): migration 20260915000011 (cột cho_phep_gui_* + trigger chặn
+    gui_luc khi chưa cho phép + v_viec_cskh: CHO_BAC_SI → KQ_CHUA_GUI). API
+    `GET /cskh/ket-qua/cho-phep-gui`, `POST /cskh/ket-qua/tep/{id}/cho-phep-gui`
+    (chỉ bác sĩ); bác sĩ được mở nội dung tệp. UI: hàng chờ ở trang Duyệt kết
+    quả (`TepChoPhepGui.tsx`); màn khách hàng hiện "Chờ bác sĩ cho phép gửi" và
+    ẩn nút xác nhận đã gửi. Smoke Postgres 7 bước OK.
+
+12. **Sinh hiệu: 100% huyết áp, có thai thêm cao/nặng, mỗi lần đo một dòng**
+    (CONTEXT v1.0 [PM], thay D26 "3 trường cho MỌI khách" chỉ ép ở giao diện).
+    KHÔNG dựng bảng mới: lát 1 đã có `vital_measurement` (huyết áp NOT NULL);
+    `clinical_record_service._ghi_sinh_hieu` cho hồ sơ khám cũ ghi vào CÙNG bảng,
+    qua CÙNG `luot_kham_rules.parse_vitals` + `thieu_sinh_hieu_khi_co_thai` (luồng
+    khám mới cũng được thêm luật có thai). Đường điều dưỡng kiểm bộ gửi lên; bác
+    sĩ lưu hồ sơ kiểm bộ sau gộp, và chỉ ghi dòng khi số đổi. JSON hồ sơ vẫn giữ
+    bản mới nhất. Migration 20260915000012: trigger cấm sửa/xoá dòng đã đo
+    (`xoa-du-lieu-test.sh` mở/đóng khoá như 7 bảng kia). UI `ClinicalRecordForm`:
+    dấu * theo có thai. "Báo sốt → nhiệt độ" CHƯA ép (chưa có dữ kiện có cấu
+    trúc). Hở còn lại: ghi từ màn cũ KHÔNG đổi `encounter_flow.vitals_status` —
+    đổi mà không `_decide_route` thì lượt kẹt; hai màn nhập sinh hiệu cho cùng
+    lượt là việc gộp màn của lát 1. Smoke Postgres 9 bước OK; 22 test DB lát 1 OK.
+
+13. **Trưởng ca chỉ điều phối chỉ định bác sĩ đã duyệt** (CONTEXT v1.0).
+    Migration 20260915000013 viết lại `move_visit_to_station`: tới bước dịch vụ
+    (flow_group `dich_vu`/`ket_qua`) chỉ khi lượt đã có việc mở từ chỉ định —
+    trước đây hàm tự INSERT việc (một "chỉ định" không bác sĩ nào ra); điều phối
+    chỉ gắn phòng, KHÔNG tự bắt đầu; rời bước dịch vụ KHÔNG đánh COMPLETED (trước
+    đây đổi thứ tự là siêu âm hiện "đã xong"). Nhà thuốc THUOC-* cần đơn thuốc.
+    Bước ga (tiếp nhận/khám/thu ngân) giữ hành vi cũ. `apply_route` bỏ bước dịch
+    vụ chưa chỉ định khỏi mẫu tuyến, trả `bo_qua_chua_chi_dinh` (toast trưởng ca
+    nói bỏ mấy bước). Màn trưởng ca vốn không gọi `/dispatch/move` — lỗ hổng là
+    ở API và tuyến. Luồng lát 1 (`/luot-kham/orders/{id}/dispatch`) không đụng.
+    Smoke Postgres 9 bước OK; test SQL `dieu_phoi_chi_chi_dinh_da_duyet.sql`.
+    **Câu hỏi mở phát sinh:** khách đặt lịch thẳng với BS siêu âm không có chỉ
+    định nào sinh việc DICHVU-SIEUAM — trước đây chỉ `move` tạo được. Cần chốt:
+    check-in lịch siêu âm có tự sinh việc siêu âm theo dịch vụ đã đặt không.
+
+14. **Sức chứa = số khách online + số khách trực tiếp, quản lý đặt** (Tuyền chốt
+    15/09 tối). Khung 3 tầng có sẵn (regular_cap = online, walkin_cap = trực
+    tiếp). Migration 20260915000014: bỏ ghế VANG_LAI_TRE (khách hẹn đến muộn
+    chiếm ghế trực tiếp — đếm 1 khách 2 lần); hàm `lich_vuot_suc_chua()` + việc
+    CSKH `VUOT_SUC_CHUA` cho TỪNG lịch đặt sau cùng vượt trần ở tuần đã công bố
+    (tự hết khi dời/huỷ/nâng trần/CSKH ghi chạm). `apply_week` báo cả CSKH và
+    Trưởng ca. Chỉ Quản lý sửa luật đặt lịch (Trưởng ca còn đọc + cài TV). UI
+    nhãn "online/trực tiếp", màn CSKH có việc mới. Test SQL
+    `lich_vuot_suc_chua.sql`; `ghe_vang_lai_khach_den_muon.sql` +
+    `dem_ghe_ca_ngay_mot_lan.sql` đảo khối người đến muộn kèm lý do.
+
+15. **Lễ tân / quyền / ưu tiên** (Tuyền chốt 15/09 tối):
+    - CSKH không check-in (CHECKIN_ROLES bỏ CSKH; CSKH đặt WALK_IN hôm nay bị
+      chặn; màn CSKH bước "Đã check-in" chỉ còn chữ "Lễ tân check-in tại quầy").
+    - Bác sĩ không nhận/từ chối lịch: bỏ action confirm/decline (DOCTOR_DECLINED
+      cũ vẫn `reassign` được); xoá AppointmentActions.tsx (không ai import).
+    - CCCD trùng: trả `cccd_trung` + hồ sơ trùng, gửi lại kèm lý do mới tạo
+      (lý do vào event_log). Migration 20260915000015 bỏ UNIQUE. MPI CHƯA chấm
+      CCCD (đo: 49 điểm) — chưa tự vào hàng gộp.
+    - Bỏ vé/ghế ưu tiên → cờ `patient.uu_tien` + lý do (PUT
+      /patients/{id}/uu-tien, lễ tân/CSKH/TC/QL); thứ tự khám kéo tay
+      `visit.thu_tu_tay_ms` = trung điểm mốc hai người kế bên (POST /queue/keo,
+      lễ tân/TC/QL). Migration 20260915000016. UI: bảng "Thứ tự khám hôm nay"
+      kéo thả + ↑/↓ ở /reception/queue; nút "Đánh dấu khách ưu tiên" ở màn
+      khách hàng; chip ưu tiên đọc cờ hồ sơ (bỏ is_priority_slot, bỏ hạng vé ƯT).
+    - TV trưởng ca hiện số + tên (bảng gọi số chính vốn mặc định tên đầy đủ).
+    Smoke Postgres 10 bước OK.
+
+16. **Lâm sàng** (Tuyền chốt 15/09 tối):
+    - Lịch hẹn thẳng với BS siêu âm → check-in tự sinh việc DICHVU-SIEUAM
+      (`_open_visit`, payload nguon=lich_hen_sieu_am; check-in lại không nhân đôi).
+    - Bác sĩ chính nghỉ giữa chừng: `DoiBacSiService` (POST /dispatch/doi-bac-si,
+      TC/QL, bắt buộc lý do) đổi visit.attending_doctor_id + appointment.doctor_id
+      + consultation/queue_entry luồng mới; migration 20260915000017 miễn trần
+      sức chứa cho lịch đã CHECKED_IN/COMPLETED. UI ở panel bệnh nhân /truong-ca.
+    - Miễn/huỷ bước phải có lý do; bước dịch vụ chỉ DOCTOR/ULTRASOUND_DOCTOR quyết
+      (bác sĩ chính miễn được cả siêu âm/lấy máu).
+    - Kết quả XN muộn: `CHO_KQ_XN` mặc định 3 ngày (20260915000018).
+    - BMI: gợi ý từ cân/cao, bấm để điền, sửa được.
+    Smoke Postgres 9 bước OK. Kiểm lượt 14–16: 1831 pytest · 331 node · tsc/eslint
+    · ruff/format/mypy · tenant audit 0 · SQL suite 0 hỏng.
+    **Chưa làm (cần thiết kế/hỏi):** thư ký theo bác sĩ (bảng ghép + màn nào dùng);
+    "1 phòng 1 dịch vụ" (phòng khám đang phục vụ 5 chuyên khoa — dịch vụ là nhóm hay
+    chuyên khoa?); làm lại dịch vụ (order_services gộp vào việc cũ kể cả đã xong —
+    lần siêu âm thứ hai không hiện hàng chờ); MPI chưa chấm CCCD; giao diện trưởng
+    ca (Tuyền sẽ chỉ); kế hoạch khám trước (O4); huỷ phiếu thu & hoàn tiền thuốc.
+
+17. **Lượt Tuyền trả lời thêm (15/09 tối)**:
+    - Check-in KHÔNG bắt chọn cách xác minh nữa (đảo luật 8): gửi thì ghi, không
+      gửi thì thôi; NutCheckIn bấm là check-in; bỏ ô xác minh ở form vãng lai.
+    - Huỷ phiếu thu: chỉ thu ngân ĐÃ THU phiếu đó (hoặc Quản lý); thu ngân khác
+      bị chặn — trước đây ai cũng gạch được.
+    - Lịch vượt sức chứa có CHỖ LƯU để xử lý: gộp vào trang "Lịch chờ xếp bác
+      sĩ" (ly_do VUOT_SUC_CHUA, đổi bác sĩ/giờ qua reschedule), không huỷ lịch.
+    - Thư ký theo bác sĩ: bảng `thu_ky_bac_si` (20260915000020) + mục "Thư ký
+      đi cùng bác sĩ" ở /settings/clinic-config; thư ký đã phân chỉ thấy/ghi
+      khách của bác sĩ mình (bảng việc, bảng lịch bác sĩ, nháp chỉ định, bệnh
+      án); chưa phân = thấy cả phòng khám như cũ. Màn /result-review và
+      /patients/[id] đọc thẳng Supabase — CHƯA lọc.
+    - Chỉ định = danh sách tích: màn chỉ định hiện "Đã chỉ định", bác sĩ bỏ tích
+      dịch vụ phòng chưa bắt đầu (POST /visits/{id}/service-orders/remove; hết
+      dịch vụ thì huỷ việc phòng đó). Làm lại dịch vụ: Tuyền nói không cần.
+    - Kết quả về (nhập kết quả XN lần đầu / tải tệp kết quả): chuông báo CSKH +
+      ĐÍCH DANH bác sĩ của khách (chưa có bác sĩ thì báo vai bác sĩ);
+      `ThongBaoService.goi_nguoi` + chỉ mục 20260915000019. Sửa lỗi thật: "về
+      lần đầu" không đo được bằng result_received_at (NOT NULL DEFAULT now()).
+    - Bảng bác sĩ: dấu "Chỉ định chờ duyệt" khi thư ký đã nhập nháp.
+    - Phòng khám dịch vụ: Tuyền — do quản lý cấu hình (phòng ↔ bước, người ↔
+      bước đã có) → không đổi code. Hoàn tiền thuốc: bỏ qua (chưa có tin).
+    Smoke Postgres 7 bước OK. Kiểm: 1832 pytest · 331 node · tsc/eslint ·
+    ruff/mypy · tenant audit 0 · SQL suite 0 hỏng.
+
+18. **Thư ký theo bác sĩ — LUẬT CỨNG, qua backend** (Tuyền 15/09 khuya: "thư ký
+    nào thì theo bác sĩ ấy, không được làm việc của bác sĩ khác"):
+    - Thư ký CHƯA được phân bác sĩ → không thấy/không làm được khách nào (đảo
+      mặc định "thấy cả phòng khám" của số 17); layout hiện dải cảnh báo.
+    - Lọc ở FastAPI cho: bảng việc bác sĩ, lịch bác sĩ (/tasks), bảng lượt khám,
+      hàng siêu âm, duyệt kết quả (GET /lab/results/cho-duyet — trang thôi đọc
+      thẳng Supabase), nhập kết quả XN, tóm tắt trước khám, nháp chỉ định, bệnh
+      án (ghi). Router mới `/thu-ky/pham-vi`, `/thu-ky/khach-duoc-xem`,
+      `/thu-ky/khach/{id}` cho trang hồ sơ bệnh nhân, danh sách bệnh nhân và GET
+      /api/clinical-record (đọc bệnh án).
+    - "Khách của bác sĩ" = có lịch hẹn với bác sĩ đó hoặc lượt khám bác sĩ đó
+      phụ trách. Smoke Postgres 7 bước OK; 1832 pytest · 331 node · audit 0.
+
+19. **Bác sĩ thực hiện siêu âm** (Tuyền đồng ý 15/09 khuya): `work_item.assigned_to`
+    của việc DICHVU-SIEUAM = bác sĩ siêu âm làm ca. Ghi khi: check-in lịch đặt
+    thẳng BS siêu âm; BS siêu âm bấm "Nhận ca" (POST /ultrasound/queue/{id}/nhan)
+    hoặc trưởng ca/quản lý giao; BS siêu âm đo/nhập kết quả ca chưa ai nhận. Thư
+    ký của BS siêu âm thấy ca mình + hàng chung chưa ai nhận; ca đã giao bác sĩ
+    khác thì không. Hàng siêu âm hiện "BS thực hiện"/"Chưa bác sĩ nhận". Phiếu
+    siêu âm (tab soạn/đã ký) và nhập nháp kết quả cũng lọc theo thư ký. Smoke 5 bước OK.
+
+20. **Rà backend còn thiếu (bản rà 15/09 khuya) — đã làm:**
+    - P0 RLS: migration 20260915000021 — chính sách RESTRICTIVE `*_thu_ky_theo_bac_si`
+      trên clinical_record, clinical_form_response, ultrasound_record, lab_result,
+      prescription, patient_medical_profile, pregnancy, visit, tep_ket_qua,
+      visit_amendment, vital_measurement: thư ký đọc thẳng PostgREST cũng chỉ
+      thấy khách bác sĩ mình. Hàm `thu_ky_duoc_xem_khach` khớp Python. Test SQL
+      `thu_ky_rls_theo_bac_si.sql`.
+    - P0 siêu âm: nháp do thư ký/trưởng ca lưu không ghi họ làm người thực hiện
+      (lấy bác sĩ đã nhận ca); bác sĩ đã nhận ca ký được, ký xong ghi đúng người.
+    - P0 tài khoản nhân sự: mọi tạo/đổi mật khẩu/đổi tên đăng nhập/thu hồi ghi
+      event_log qua POST /staff/{id}/nhat-ky-tai-khoan (thao tác GoTrue vẫn ở
+      route Next vì backend chưa có khoá quản trị — chuyển hẳn cần thêm env).
+    - P1: ký bệnh án gửi `expected_revision` (bản đang hiện trên form) — thư ký
+      sửa sau khi mở thì từ chối; bỏ tích chỉ định bắt buộc lý do + chỉ bác sĩ
+      phụ trách lượt; sửa hồ sơ khách ghi `patient.updated` (tên trường); cấu
+      hình phòng/bước/người/thư ký ghi `clinic_config.*`.
+    - P2: số khám khách trực tiếp do database cấp, bỏ số client gửi.
+    Smoke P0/P1 7 bước OK; 1832 pytest · 331 node · audit 0 · SQL suite 0 hỏng.
+    **CÒN LẠI (cần quyết/việc lớn):** Idempotency-Key bắt buộc +
+    biên nhận trong cùng giao dịch (phải làm cùng giao diện gửi khoá); backend
+    kết nối DB bằng quyền chủ (vai DB riêng — Quang); đơn thuốc chưa cấp xoá-ghi
+    lại mỗi lần lưu; lab result ghi đè không giữ giá trị cũ; gỡ ca trực xoá cứng
+    (có log); ngưỡng cảnh báo trưởng ca 20'/8 (chờ giao diện trưởng ca); JWT chưa
+    kiểm `iss`; luồng /luot-kham lát 1 chạy song song (bỏ hay làm tiếp?); MPI
+    chấm CCCD; tiền: số tiền do client gửi, sửa giá không log, thu lại sau huỷ
+    đè dòng (để khi làm thanh toán).
+
+21. **Dịch vụ làm lại trong cùng lượt = LẦN MỚI** (Tuyền: "siêu âm lại thì vẫn
+    tính là lần siêu âm thứ 2 của lần khám"). Migration 20260915000022:
+    `work_item.lan` + `ultrasound_record.lan`; chỉ mục duy nhất thêm cột lần;
+    order_services chỉ gộp vào việc CÒN MỞ, bước đã xong/miễn → việc mới lần kế;
+    viết lại instantiate_visit_workflow / move_visit_to_station / check-in lịch
+    siêu âm theo chỉ mục mới. Phiếu siêu âm lần 1 đã ký + có lần mới → phiếu mới.
+    Màn chỉ định hiện "(lần 2)". Smoke 7 bước OK (lần 2 vào hàng chờ, điều phối
+    đúng lần, 2 phiếu, tính tiền 2 dòng, check-in lại không trùng bước ga); chạy
+    lại smoke điều phối / đợt 3 / siêu âm / lượt 4 đều OK.
+22. **Đóng gói để commit** (Tuyền: "làm thật hết, commit nếu ok hết"):
+    - Ngưỡng cảnh báo điều phối **riêng từng phòng** do quản lý (và trưởng ca)
+      chỉnh ở `/truong-ca/canh-bao` → `PUT /dispatch/threshold` (room_id rỗng =
+      mặc định cả phòng khám). Đã có sẵn, nay có test HTTP khoá quyền + chỉ mục.
+    - Ẩn màn "Luồng khám mới" (`/luot-kham`) khỏi menu, chỉ MANAGEMENT vào được —
+      không chạy hai màn khám song song.
+    - Migration cũ 20260803000006: khối dedupe phiếu siêu âm bỏ qua khi đã có cột
+      `lan` (CI chạy lại migration sẽ xoá mất phiếu lần 2 nếu không chặn).
+    - CI đòi phủ ≥80%: thêm test đơn vị theo luật (nháp chỉ định/duyệt/bỏ, ký
+      theo revision/cho gửi/đính chính/ký siêu âm, điều phối qua HTTP, hàng chờ
+      kéo tay, phạm vi thư ký, phiếu siêu âm lần 2) — `tests/services/fake_sql.py`
+      trả lời theo nội dung câu SQL. Dọn 118 lỗi `mypy src/` trong file test.
+    - Kiểm trước commit: 1875 pytest (phủ 80.04%) · ruff/format/mypy src/ sạch ·
+      máy kiểm phạm vi 0 · tsc · eslint 0 cảnh báo · 327 test node CI · `npm run
+      build` · infra safety · SQL suite kiểu CI + chạy lại migration.
+23. **Chạy thật trên local** (`scripts/dev-up.sh`, Tuyền: "chạy được trên local đã"):
+    áp 20 migration mới vào DB thử; script thử HTTP (scratchpad
+    `smoke_http_local.py`, 32 bước: phân thư ký, check-in, ưu tiên + kéo thứ tự,
+    nháp chỉ định → duyệt, ngưỡng từng phòng, chuyển bác sĩ, nhận ca siêu âm,
+    lịch chờ xếp bác sĩ) chạy 3 lần liền đều 32/32. Bắt được và sửa:
+    - **401 ngẫu nhiên ngay sau đăng nhập**: GoTrue trong máy ảo Docker nhanh
+      hơn máy thật vài phần giây → `iat` ở tương lai, PyJWT lệch 0 giây từ chối.
+      `identity.py` cho lệch 5 giây (`JWT_CLOCK_LEEWAY_SECONDS`) + 2 test.
+    - **Bảng điều phối trưởng ca rỗng trên local**: `luot_kham_demo.sql` gán
+      thư ký + trưởng ca vào cơ sở Kim Ngưu (0 phòng) trong khi 8 tài khoản kia ở
+      MAIN → chọn cơ sở giống `staff_logins.sql` và cập nhật khi nạp lại.
+    - Hướng dẫn in cuối `dev-up.sh` còn trỏ màn /luot-kham đã ẩn; 4 chú thích còn
+      ghi check-in "bắt buộc xác minh" — đã sửa.
+    Chưa bấm giao diện thật: Claude không được gõ mật khẩu vào trình duyệt —
+    Tuyền đăng nhập tay theo danh sách tài khoản in cuối `dev-up.sh`.
+
+**Tuyền chốt 15/09 tối (trả lời mục 7 bản đối chiếu)** — chi tiết ở memory
+`tuyen-chot-luat-van-hanh-1509`. Tinh thần: luật khắt khe quá là vận hành rắc rối;
+số liệu từng phòng khám để quản lý tự cấu hình.
+- Sức chứa: mỗi bác sĩ × khung, quản lý đặt số khách ONLINE + số khách TRỰC TIẾP
+  (lễ tân đặt xong check-in luôn). Bỏ 2+1 cứng. Chưa có lịch trực → đặt không giới
+  hạn; có lịch trực → khách vượt trần (đặt sau cùng) báo về màn CSKH (+ trưởng ca).
+- Bỏ ghế ưu tiên. Thay bằng cờ ưu tiên/VIP + lý do trên hồ sơ; lễ tân kéo thả thứ
+  tự khám. Khám theo thứ tự check-in.
+- CSKH không check-in. Bác sĩ không nhận/từ chối lịch. Chỉ Quản lý công bố/gỡ
+  lịch trực. CCCD trùng: cảnh báo + lý do. TV hiện tên đầy đủ.
+- Sinh hiệu: sốt/nhịp thở không bắt buộc; BMI tự tính là gợi ý, sửa được; sửa
+  lúc nào cũng được, có log.
+- Bác sĩ nghỉ giữa chừng: trưởng ca chuyển bác sĩ khác + lý do. Thư ký theo bác sĩ.
+  Bệnh án: bác sĩ bấm xác nhận là chốt; sửa sau có log. Chỉ định trùng: cảnh báo;
+  huỷ: bắt lý do. Dịch vụ không làm được: bác sĩ quyết. Kết quả muộn: CSKH theo dõi,
+  hạn 3 ngày, cảnh báo tới khi xử lý. 1 phòng 1 dịch vụ. Gia hạn Vietnix.
+- Tiền: quản lý thu được; khám xong mới thu; trừ kho tự động; kê thuốc tự đồng bộ
+  kho → hoá đơn. Chưa trả lời: kế hoạch khám trước (O4), số khung chiều, form
+  chuyên khoa, hoàn tiền thuốc đã giao.
+
+**Quyết định 15/09:** khách ĐƯỢC đặt lịch thẳng với bác sĩ siêu âm → giữ nguyên
+`BOOKABLE_DOCTOR_ROLES`; không làm luật "bác sĩ chính chỉ DOCTOR" cho lịch hẹn.
+
+**(Cũ, đã đóng) Hoãn có lý do — bác sĩ chính chỉ DOCTOR:** đặt lịch với bác sĩ siêu âm là
+thiết kế có chủ ý (`BOOKABLE_DOCTOR_ROLES`, 5 BS SA trong lịch trực thật,
+ultrasound_service tự mở lượt với BS SA); CONTEXT chỉ bắt qua bác sĩ chính cho
+lượt "chưa có kế hoạch trước hợp lệ" mà hệ cũ chưa có khái niệm kế hoạch trước
+(O4). Ép cứng có thể chặn lịch siêu âm theo kế hoạch đang dùng thật → cần chốt.
+
+Kiểm lượt 3 (luật 3 chốt + 5 + 6): 1702 pytest · 327 node · tsc · toàn bộ SQL
+suite (0 hỏng) · smoke Postgres thật cho đóng lượt và đơn thuốc.
+
+Kiểm lượt 2 (luật 3–4): 1700 pytest · 327 test node · smoke Postgres thật
+(hàng B→A→C→D, gán BS không trực bị chặn ở tuần công bố, tuần nháp vẫn tự xếp).
+
+Kiểm lượt 1: 1692 pytest unit · 270 test node · toàn bộ migration + 24 file SQL
+assertion trên Postgres tạm (script `chay-test-sql.sh` trong scratchpad, không
+dừng ở lỗi đầu) · smoke chạy thật cả hai luật trên Postgres tạm · ruff/format/
+mypy/tsc/eslint.
+
+**Luật sai còn lại, thứ tự định làm:** "+1" là ghế ưu tiên chứ không phải
+ghế vãng lai (chờ câu 11, 13) → huy hiệu nháp chỉ định chờ duyệt trên bảng
+bác sĩ → việc siêu âm cho khách đặt thẳng BS siêu âm (chờ chốt, xem 13).
+Đã xong khỏi danh sách: điều phối (13), sinh hiệu (12), check-in xác minh (8),
+TKYK không tự tạo chỉ định (7). Câu hỏi còn mở: mục 7 của bản đối chiếu.
+
+Kiểm lượt 12–13: 1819 pytest · 331 node · tsc/eslint · ruff/format/mypy · máy
+kiểm phạm vi 0 · SQL suite 0 hỏng · smoke Postgres sinh hiệu + điều phối.
+
 ## 0. Phiên 21→22/08/2026 — Chịu tải: Lát 1+2+3 xong, OOM tìm ra, đường ghi đã kiểm
 
 **BỔ SUNG TRƯA 22/08 — Lát 3 + kiểm đường ghi (staging-0822e = `026669b7`):**
@@ -364,3 +1384,82 @@ ssh clinic-vps 'docker cp /tmp/m.sql clinicai_db:/tmp/m.sql && \
 ```
 Nhớ ghi vào sổ `supabase_migrations.schema_migrations`, và `NOTIFY pgrst,
 'reload schema'` nếu có đổi bảng hoặc khoá ngoại.
+
+## 9. Bản thiết kế thống nhất + quy trình kiểm chứng một khẳng định
+
+Bản đọc và vault Obsidian: `docs/thiet-ke-he-thong/`. **Nguồn sinh nằm ở
+`docs/thiet-ke-he-thong/_nguon/`** — sửa nội dung ở đó rồi `python3 build.py`,
+đừng bao giờ sửa tay `.md` hay `.html` đã sinh (mỗi lần dựng lại là mất).
+
+Vòng phản biện 06/09/2026 (Codex đọc worktree `charming-mcclintock-d227f5` tại
+`9376db8`) tìm ra **sáu** kết luận rút quá tay trong bản 05/09. Tất cả cùng một
+lỗi: dừng ở `grep` hoặc ở một con số rồi suy ra ý định của hệ thống. Quy trình
+dưới đây là thứ lẽ ra phải làm, ghi lại để phiên sau dùng.
+
+**Trước khi viết một câu dạng "code không làm X":**
+
+1. Truy đủ chuỗi **caller → service → SQL/event**, không dừng ở tên hàm.
+   `grep "checked_in"` không thấy ở `tuong_tac_cskh_service.py` — nhưng nó gọi
+   `_doi_trang_thai_lich` → `BookingService.apply_action` → `_log(...)`.
+2. Đếm **mọi** nhánh phát cùng một event trước khi nói "một cửa ghi duy nhất".
+   `appointment.checked_in` có hai nhánh: `apply_action` và `auto_checkin` cho
+   khách vãng lai trong ngày (`booking_service.py:464`, `:623`).
+3. Kiểm **mẫu số** trước khi biến tỷ lệ thành kết luận. "1 check-in / 66 lịch"
+   vô nghĩa vì 66 là lịch *đã tạo*, không phải khách *đã đến*.
+4. Hỏi **cờ này còn ai đặt được nữa không**. `event_published = TRUE` không
+   chứng minh đã gửi: `scripts/danh-dau-event-cu-truoc-khi-bat-telegram.sql`
+   đặt hàng loạt mà không gửi gì.
+5. Trước khi nói "dữ liệu này vô dụng", tìm **ai đang đọc nó**.
+   `AuditLogService.events()` đọc `event_log` làm nhật ký thao tác mỗi ngày.
+6. Số dòng trong trích dẫn phải là **dòng thật của tệp**. `grep -n` trên đầu ra
+   của `awk`/`sed` cho số dòng của đoạn cắt, không phải của tệp (đã cắn một lần:
+   ghi `:106` trong khi dòng thật là `:227`).
+7. Tách bốn thứ hay bị gộp: **ai thao tác** · **code phủ tới đâu** · **mức dùng
+   đo được** · **quyết định sản phẩm**. Số đo trả lời ba cái đầu, không cái cuối.
+8. Một hàm đặt cờ có thể có **nhiều nhánh gọi**. `_mark_published` chạy ở cả
+   nhánh *không có template* (`notification_relay.py:205-214`, không gửi gì) lẫn
+   nhánh gửi ok (`:238`), và `processed` cộng cả hai (`:256`). Đọc hết thân vòng
+   lặp trước khi mô tả ngữ nghĩa một cờ.
+9. **Hai cột bằng nhau không phải một phép đo**, nếu cả hai cùng `DEFAULT now()`
+   và đường ghi truyền `now()` (`baseline_schema.sql:539-540`). Nó nói về cách
+   ghi, không nói về thế giới thật.
+10. Trước khi viết một câu truy vấn, kiểm **giá trị nằm ở cột nào**. `origin`
+   không phải cột: `_log` đổ nó vào `source` và `metadata->>'origin'`
+   (`booking_service.py:2019-2036`).
+11. Đề xuất của chính mình cũng phải soi bằng đúng thước ấy. `seq bigserial`
+   cấp số lúc INSERT chứ không lúc commit, và sequence có khoảng trống — nên
+   `seq > last_seq` bỏ sót event, `max(seq) − last_seq` không phải số việc tồn.
+   Tài liệu: `functions-sequence` và Wiki FAQ của PostgreSQL. Giao thức tiêu thụ
+   trong bản thiết kế đang bị **chặn** cho tới khi có xác nhận theo từng event,
+   consumer idempotent, và test commit đảo thứ tự + crash-retry.
+
+**Nhãn bắt buộc trong tài liệu:** số đo cũ không chạy lại trong phiên phải ghi
+*"chưa xác minh lại"*; suy luận phải nói rõ là suy luận và kèm phép đo còn thiếu.
+
+**Sáu phép đo còn nợ.** Ghi thành *yêu cầu*, cố ý KHÔNG ghi sẵn câu SQL: câu
+viết vội đo nhầm thứ khác rồi vẫn cho ra một con số trông có vẻ chắc chắn. Đã
+cắn đúng lỗi này hai lần trong một phiên, nên đây là luật.
+
+1. **Check-in có mất event không.** Không so hai tổng `count(*)`. Phải đối soát
+   từng cặp `(clinic_id, appointment_id)`: lịch từng đạt `CHECKED_IN` có dòng
+   `appointment.checked_in` tương ứng không, và ngược lại. Phải xét hoàn tác
+   (`appointment.checkin_undone`, hành động `undo_checkin`) và thứ tự thời gian
+   — một lịch có thể check-in, hoàn tác, rồi check-in lại, nên số event lớn hơn
+   số lịch vẫn là đúng. Mẫu số "số lịch đã tạo" không bao giờ dùng được.
+2. **CSKH đang chạm chặng nào.** `tuong_tac_cskh` tách theo `loai`, để biết tỷ
+   trọng giữa trước buổi khám (`XAC_NHAN_LICH`, `NHAC_HEN`), trong buổi khám
+   (`CHECK_IN`, `CHECK_OUT`, `THANH_TOAN`, `MUA_THUOC`) và sau khám (`TRA_KQ`).
+3. **`slot_hold` có lấn cửa sổ nhật ký không.** Phải chạy lại **đúng câu truy
+   vấn của màn hình** trong `audit_log_service.py` — nó UNION `v_audit_log` với
+   `work_item_event` TRƯỚC khi sắp xếp và cắt. `LIMIT 200` trên một mình
+   `v_audit_log` cho ra một tập khác, không kết luận được gì về màn hình.
+4. **Nhánh `auto_checkin` đã từng chạy chưa.** Đếm trên `event_log` những dòng
+   có `source = 'api:appointment-walkin-autocheckin'` hoặc `metadata->>'origin'`
+   bằng chuỗi ấy (không có cột tên `origin`), lọc theo `clinic_id` và một khoảng
+   thời gian rõ ràng. KHÔNG suy từ "hôm nay bảng lịch hẹn có 0 khách vãng lai":
+   ảnh chụp một thời điểm của bảng trạng thái không nói gì về lịch sử thực thi.
+5. **Relay thật sự gửi được bao nhiêu.** `processed` trong `relay_poll_complete`
+   cộng cả nhánh không-có-template. Muốn biết số tin thật sự ra khỏi hệ thì đếm
+   log `relay_no_template` và trừ ra, hoặc đọc lịch sử nhóm Telegram.
+6. **Độ trễ ghi nhận thật.** Chưa đo được và sẽ chưa đo được cho tới khi có
+   đường ghi truyền `occurred_at` thật của sự việc thay vì `now()`.

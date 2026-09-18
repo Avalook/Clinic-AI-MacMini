@@ -16,7 +16,9 @@ import { INPUT, LABEL } from "../form-ui";
 import PatientAdminEditor from "../PatientAdminEditor";
 import ClinicalSignPanel from "./ClinicalSignPanel";
 import SonoBiometry from "./SonoBiometry";
+import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
+import TepCuaLuotKham from "./TepCuaLuotKham";
 import { resolveServiceCode } from "../../../lib/form-schemas";
 import {
   docNhap,
@@ -26,7 +28,9 @@ import {
   moTaLuc,
   xoaNhap,
 } from "../../../lib/luu-nhap";
-import type { DoctorApptRow } from "./DoctorWorkBoard";
+import { clinicalSyncDecision } from "../../../lib/clinical-sync";
+import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
+import type { DoctorApptRow } from "./DoctorApptRow";
 
 interface Profile {
   blood_type: string | null;
@@ -42,6 +46,7 @@ interface Pregnancy {
   gestational_age_at_registration: number | null;
   is_high_risk: boolean | null;
   high_risk_reason: string | null;
+  outcome?: string | null;
 }
 interface Lab {
   test_name: string;
@@ -61,12 +66,15 @@ interface HistoryItem {
   assessment: string;
 }
 interface ApiRx {
+  id: string;
   drug_name_raw: string | null;
   quantity: string | null;
   dosage_instructions: string | null;
   caution: string | null;
 }
 interface Data {
+  revision: number;
+  prescription_draft: { items: RxRow[]; recorded_by: string } | null;
   profile: Profile | null;
   pregnancy: Pregnancy | null;
   labs: Lab[];
@@ -85,18 +93,26 @@ interface Data {
 const EMPTY = {
   ly_do: "", benh_su: "", chan_doan: "", loi_dan: "",
   mach: "", nhiet_do: "", huyet_ap: "", nhip_tho: "", spo2: "",
-  can_nang: "", chieu_cao: "", bmi: "",
+  can_nang: "", chieu_cao: "", bmi: "", muc_do_dau: "",
   tuoi_thai: "", du_kien_sinh: "", chieu_cao_tc: "", nhip_tim_thai: "",
 };
 type Fields = typeof EMPTY;
 
-// D26 — Sinh hiệu BẮT BUỘC: CHỈ 3 trường (Huyết áp / Cân nặng / Chiều cao).
-// Mọi vital khác (mạch, nhiệt độ, nhịp thở, SpO2, BMI) là tuỳ chọn.
-const REQUIRED_VITALS: ReadonlySet<keyof Fields> = new Set([
+// Sinh hiệu bắt buộc — luật PM (CONTEXT v1.0), sửa 15/09/2026 thay D26 ("3
+// trường cho MỌI khách"): 100% đo huyết áp; khách ĐANG CÓ THAI đo thêm cân nặng
+// + chiều cao. Luật thật nằm ở API (clinical_record_service.sinh_hieu_tu_ho_so);
+// đây chỉ đánh dấu * và nhắc sớm, câu API trả về vẫn hiện nếu lệch.
+const VITALS_BAT_BUOC: ReadonlySet<keyof Fields> = new Set(["huyet_ap"]);
+const VITALS_BAT_BUOC_CO_THAI: ReadonlySet<keyof Fields> = new Set([
   "huyet_ap",
   "can_nang",
   "chieu_cao",
 ]);
+function vitalsBatBuoc(preg: Pregnancy | null | undefined): ReadonlySet<keyof Fields> {
+  return preg && (preg.outcome ?? "ONGOING") === "ONGOING"
+    ? VITALS_BAT_BUOC_CO_THAI
+    : VITALS_BAT_BUOC;
+}
 
 // Tiền sử (III/IV) — bác sĩ sửa, lưu patient_medical_profile.
 const EMPTY_PM = {
@@ -108,6 +124,7 @@ type PmFields = typeof EMPTY_PM;
 // Đơn thuốc (mục IX) — mỗi dòng 1 thuốc. Tên gợi ý từ drug_catalog (mig 051)
 // qua <datalist>, vẫn cho gõ tự do (giữ name_raw verbatim khi BS tự nhập).
 interface RxRow {
+  id?: string;
   drug_name: string;
   quantity: string;
   dosage: string;
@@ -199,6 +216,7 @@ function readDraft(d: Data["draft"]): Fields {
     mach: str(v.mach), nhiet_do: str(v.nhiet_do), huyet_ap: str(v.huyet_ap),
     nhip_tho: str(v.nhip_tho), spo2: str(v.spo2), can_nang: str(v.can_nang),
     chieu_cao: str(v.chieu_cao), bmi: str(v.bmi),
+    muc_do_dau: str(v.muc_do_dau),
     tuoi_thai: str(k.tuoi_thai), du_kien_sinh: str(k.du_kien_sinh),
     chieu_cao_tc: str(k.chieu_cao_tc), nhip_tim_thai: str(k.nhip_tim_thai),
   };
@@ -309,6 +327,18 @@ export default function ClinicalRecordForm({
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [f, setF] = useState<Fields>(EMPTY);
+  const requiredVitals = vitalsBatBuoc(data?.pregnancy);
+  // BMI gợi ý = cân nặng (kg) / chiều cao (m)². Chỉ là số gợi ý hiển thị.
+  const bmiGoiY = (() => {
+    const kg = Number(f.can_nang);
+    const m = Number(f.chieu_cao) / 100;
+    if (!f.can_nang.trim() || !f.chieu_cao.trim() || !(kg > 0) || !(m > 0)) return null;
+    return (kg / (m * m)).toFixed(1);
+  })();
+  const requiredVitalsMsg =
+    requiredVitals.size > 1
+      ? "Khách đang có thai — bắt buộc nhập Huyết áp, Cân nặng, Chiều cao."
+      : "Bắt buộc nhập Huyết áp.";
   const [pm, setPm] = useState<PmFields>(EMPTY_PM);
   const [tk, setTk] = useState<TkFields>(EMPTY_TK);
   const [rx, setRx] = useState<RxRow[]>([]);
@@ -318,8 +348,10 @@ export default function ClinicalRecordForm({
   const [labOrder, setLabOrder] = useState("");
   const [labBusy, setLabBusy] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [completedExplicit, setCompletedExplicit] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  // D26 — đã bấm Lưu sinh hiệu mà thiếu trường bắt buộc → bật viền đỏ inline.
+  // D26 — đã bấm lưu mà thiếu trường sinh hiệu bắt buộc → bật viền đỏ inline.
   const [vitalsTried, setVitalsTried] = useState(false);
   // Tab đang chọn (gom 4 mục). Đón-khám (vitalsOnly) mặc định mở tab "Khám" (1)
   // để điều dưỡng thấy Sinh hiệu ngay; còn lại mặc định tab "Hành chính" (0).
@@ -339,14 +371,30 @@ export default function ClinicalRecordForm({
   // effect) rồi đổi pageIdx → effect dưới nạp lượt khám tương ứng.
   const goPage = (idx: number) => {
     setLoading(true);
+    if (idx !== pageIdx) {
+      // Viewing another visit replaces fields. Never mistake them for the
+      // current chart when the doctor returns from historical records.
+      setForceApply(true);
+      setRemoteChanged(false);
+    }
     setPageIdx(idx);
   };
   // Hằng số ổn định theo từng lần mount (appt cố định vì board truyền key).
   const apptSlotStart = appt.slot_start;
   const apptServiceName = appt.service?.name ?? null;
 
+  const [coGoDoChuaLuu, setCoGoDoChuaLuu] = useState(false);
+  const mocDaLuuRef = useRef<string>("");
+  const latestLocal = useRef({ snapshot: "", saving: false });
+  const [forceApply, setForceApply] = useState(false);
+  const [reloadEpoch, setReloadEpoch] = useState(0);
+  const [remoteChanged, setRemoteChanged] = useState(false);
   useEffect(() => {
-    if (!p?.clinic_patient_id) return;
+    latestLocal.current = { snapshot: JSON.stringify({ f, pm, tk, rx }), saving };
+  }, [f, pm, tk, rx, saving]);
+
+  useEffect(() => {
+    if (!p?.clinic_patient_id || saving) return;
     let on = true;
     // Trang 0 = lượt đang mở (nạp theo appointmentId, đồng thời dựng `pages`).
     // Trang >0 = lượt cũ (nạp theo visitId đã biết trong `pages`).
@@ -356,15 +404,16 @@ export default function ClinicalRecordForm({
       ? `patientId=${p.clinic_patient_id}&appointmentId=${appt.id}`
       : `patientId=${p.clinic_patient_id}&visitId=${pastVisitId}`;
     fetch(`/api/clinical-record?${qs}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Không tải được hồ sơ.");
+        return r.json();
+      })
       .then((d: Data) => {
         if (!on) return;
-        setData(d);
-        setF(readDraft(d.draft));
-        setTk(readTaiKham(d.draft));
+        const nextF = readDraft(d.draft);
+        const nextTk = readTaiKham(d.draft);
         const pr = d.profile;
-        setPm(
-          pr
+        const nextPm = pr
             ? {
                 allergies: arr(pr.allergies),
                 blood_type: pr.blood_type ?? "",
@@ -374,16 +423,48 @@ export default function ClinicalRecordForm({
                 family: famText(pr.family_history),
                 notes: pr.notes ?? "",
               }
-            : EMPTY_PM,
-        );
-        setRx(
-          (d.prescriptions ?? []).map((p) => ({
+            : EMPTY_PM;
+        const nextRx = d.prescription_draft
+          ? d.prescription_draft.items.map((r) => ({...r, id: r.id ?? undefined}))
+          : (d.prescriptions ?? []).map((p) => ({
+            id: p.id,
             drug_name: p.drug_name_raw ?? "",
             quantity: p.quantity ?? "",
             dosage: p.dosage_instructions ?? "",
             caution: p.caution ?? "",
-          })),
-        );
+          }));
+        const nextSnapshot = JSON.stringify({ f: nextF, pm: nextPm, tk: nextTk, rx: nextRx });
+        if (isCurrent && mocDaLuuRef.current && !forceApply) {
+          const choice = clinicalSyncDecision(latestLocal.current.snapshot,
+            mocDaLuuRef.current, nextSnapshot, latestLocal.current.saving);
+          if (choice === "conflict") { setRemoteChanged(true); return; }
+          if (choice === "unchanged") { setData(d); return; }
+        }
+        if (isCurrent && forceApply) setForceApply(false);
+        if (isCurrent) {
+          mocDaLuuRef.current = nextSnapshot;
+          latestLocal.current.snapshot = nextSnapshot;
+        }
+        setRemoteChanged(false);
+        setCoGoDoChuaLuu(false);
+        setData(d);
+        setF(nextF);
+        setTk(nextTk);
+        setPm(nextPm);
+        // Giữ dòng thuốc MỚI chưa lên máy chủ (chưa có id, chưa trùng tên dòng nào
+        // vừa nạp) — không thì bản nạp lại xoá dòng người dùng đang gõ dở.
+        setRx((cur) => [
+          ...nextRx,
+          ...(isCurrent
+            ? cur.filter(
+                (r) =>
+                  !r.id &&
+                  !nextRx.some(
+                    (n) => n.drug_name.trim() !== "" && n.drug_name.trim() === r.drug_name.trim(),
+                  ),
+              )
+            : []),
+        ]);
         // Dựng danh sách lượt khám 1 lần: [lượt này] + lịch sử (mới → cũ).
         if (isCurrent && pagesRef.current.length === 0) {
           const built: PageRef[] = [
@@ -398,10 +479,40 @@ export default function ClinicalRecordForm({
           setPages(built);
         }
       })
-      .catch(() => on && setData(null))
+      .catch(() => {
+        if (on) {
+          if (reloadEpoch === 0) setData(null);
+          setMsg("Không tải được bản cập nhật; nội dung đang nhập được giữ nguyên.");
+        }
+      })
       .finally(() => on && setLoading(false));
     return () => { on = false; };
-  }, [p?.clinic_patient_id, appt.id, pageIdx, apptSlotStart, apptServiceName]);
+  }, [p?.clinic_patient_id, appt.id, pageIdx, apptSlotStart, apptServiceName, reloadEpoch, saving, forceApply]);
+
+  // Reuse the one clinic-scoped SSE connection; no EventSource per form.
+  useEffect(() => {
+    if (pageIdx !== 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => {
+      if (document.visibilityState === "hidden") return;
+      clearTimeout(timer);
+      timer = setTimeout(() => setReloadEpoch((n) => n + 1), 250);
+    };
+    const changed = (ev: Event) => {
+      const table = (ev as CustomEvent<string>).detail;
+      if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) reload();
+    };
+    window.addEventListener(SU_KIEN_BANG, changed);
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", reload);
+    const safety = setInterval(reload, 60_000);
+    return () => {
+      clearTimeout(timer); clearInterval(safety);
+      window.removeEventListener(SU_KIEN_BANG, changed);
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", reload);
+    };
+  }, [pageIdx]);
 
   // Tải danh mục thuốc + CLS cho picker (dùng chung mọi loại form khám).
   useEffect(() => {
@@ -448,60 +559,10 @@ export default function ClinicalRecordForm({
   const arrivalPending =
     appt.status !== "CHECKED_IN" && appt.status !== "COMPLETED";
 
-  // Đủ điều kiện TỰ ĐỘNG "Khám xong": đang đã-đến + đã điền Chuẩn đoán + Lời dặn.
-  const willComplete =
-    !vitalsOnly &&
-    appt.status === "CHECKED_IN" &&
-    f.chan_doan.trim() !== "" &&
-    f.loi_dan.trim() !== "";
+  // Saving a chart never finishes the visit. The physician may still order
+  // services and return to read results; completion is a separate command.
 
-  // Sinh hiệu (Sinh hiệu) gói riêng để dùng cho cả 2 luồng lưu.
-  const vitalsPayload = () => ({
-    mach: f.mach,
-    nhiet_do: f.nhiet_do,
-    huyet_ap: f.huyet_ap,
-    nhip_tho: f.nhip_tho,
-    spo2: f.spo2,
-    can_nang: f.can_nang,
-    chieu_cao: f.chieu_cao,
-    bmi: f.bmi,
-  });
 
-  // Điều dưỡng (đón-khám): ghi Sinh hiệu + (D25) "Lý do khám bệnh" mà BS đưa ra.
-  // KHÔNG đụng mục khác. D26: 3 sinh hiệu BẮT BUỘC (Huyết áp/Cân nặng/Chiều cao).
-  async function saveVitals() {
-    if (arrivalPending) {
-      setMsg("Chờ lễ tân check-in bệnh nhân (đã đến) trước khi điền sinh hiệu.");
-      return;
-    }
-    const missingReq = [...REQUIRED_VITALS].filter((k) => f[k].trim() === "");
-    if (missingReq.length) {
-      setVitalsTried(true);
-      setTab(1); // C — nhảy sang tab "Khám" (chứa Sinh hiệu) để thấy ô đỏ dù đang ở tab khác.
-      setMsg("Bắt buộc nhập Huyết áp, Cân nặng, Chiều cao.");
-      return;
-    }
-    setSaving(true);
-    setMsg(null);
-    const res = await fetch("/api/clinical-record", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        appointmentId: appt.id,
-        clinicPatientId: p?.clinic_patient_id,
-        vitalsOnly: true,
-        chief_complaint: f.ly_do,
-        objective: { vitals: vitalsPayload() },
-      }),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      setMsg((await res.json()).error ?? "Lỗi lưu sinh hiệu.");
-      return;
-    }
-    setMsg("Đã lưu sinh hiệu.");
-    router.refresh();
-  }
 
   // ---- Giữ lại thứ đang gõ dở khi trang bị tải lại / máy mất điện -----------
   //
@@ -513,6 +574,8 @@ export default function ClinicalRecordForm({
   // Chỉ giữ khi ĐANG GHI ĐƯỢC: xem lượt khám cũ hay lễ tân mở chỉ-đọc thì không
   // có gì để mất, mà lưu lại chỉ tổ để dữ liệu bệnh nhân nằm trên máy vô ích.
   const khoaGoDo = khoaNhap(staffId, "phieu-kham", appt.id);
+  // Effect tự lưu gọi bản `save` MỚI NHẤT (state mới nhất), không bắt bản cũ.
+  const saveRef = useRef<((a?: boolean, b?: boolean) => Promise<void>) | null>(null);
   const ghiDuoc = !readOnly && !viewingPast && !vitalsOnly && !loading && !!data;
 
   // Bản gõ dở đọc NGAY lúc dựng component, không qua effect: đọc kho của trình
@@ -526,10 +589,6 @@ export default function ClinicalRecordForm({
     return b ? { moTa: moTaLuc(b.luc, Date.now()), giaTri: b.giaTri } : null;
   });
 
-  // Mốc "khớp với thứ đang nằm trên máy chủ". Là ref vì chỉ đọc trong effect và
-  // trong hàm lưu — không bao giờ đọc lúc vẽ.
-  const mocDaLuuRef = useRef<string>("");
-  const [coGoDoChuaLuu, setCoGoDoChuaLuu] = useState(false);
 
   // Ghi sau mỗi nhịp gõ ngừng 1 giây. Ghi mỗi phím là ép đĩa vô ích; chờ lâu hơn
   // thì đúng lúc mất điện lại chưa kịp ghi.
@@ -547,6 +606,10 @@ export default function ClinicalRecordForm({
     const t = setTimeout(() => {
       ghiNhap(window.localStorage, khoaGoDo, { f, pm, tk, rx }, Date.now());
       setCoGoDoChuaLuu(true);
+      // TỰ LƯU LÊN MÁY CHỦ (Tuyền 17/09/2026): gõ xong ~1 giây là ghi thật, để màn
+      // bác sĩ / thư ký bên kia thấy ngay và chuyển màn không mất gì. Bản trên máy
+      // trạm vẫn giữ làm lưới hứng khi mất mạng.
+      void saveRef.current?.(false, true);
     }, 1000);
     return () => clearTimeout(t);
   }, [ghiDuoc, khoaGoDo, f, pm, tk, rx]);
@@ -562,6 +625,10 @@ export default function ClinicalRecordForm({
 
   function khoiPhucGoDo() {
     if (!goDoCu) return;
+    if (canSign && data?.prescription_draft) {
+      setMsg("Có đơn thuốc thư ký đang chờ duyệt. Không thể khôi phục đơn thuốc cũ đè lên bản đang xem.");
+      return;
+    }
     setF(goDoCu.giaTri.f);
     setPm(goDoCu.giaTri.pm);
     setTk(goDoCu.giaTri.tk);
@@ -574,12 +641,43 @@ export default function ClinicalRecordForm({
     setGoDoCu(null);
   }
 
-  async function save() {
+  async function save(approvePrescriptionDraft = false, tuDong = false) {
     if (readOnly) return; // Lễ tân chỉ-đọc: chặn ghi ngay tầng UI (server cũng chặn).
     if (viewingPast) return; // Đang xem lượt khám cũ qua pager: tuyệt đối không ghi.
-    if (vitalsOnly) return saveVitals();
+    if (vitalsOnly) return; // Sinh hiệu chỉ đo ở màn Đo sinh hiệu (17/09/2026).
     // Chưa tải xong / tải LỖI (data=null) → KHÔNG lưu: form còn rỗng sẽ ghi đè
     // xoá đơn thuốc + tiền sử + chẩn đoán cũ của lượt khám (backend thay toàn bộ).
+    if (approvePrescriptionDraft && data?.prescription_draft) {
+      if (JSON.stringify({ f, pm, tk, rx }) !== mocDaLuuRef.current) {
+        setMsg("Bạn đang sửa bệnh án. Hãy lưu phần đang sửa trước rồi mới duyệt đơn thuốc thư ký nhập.");
+        return;
+      }
+      const shown = JSON.stringify(rx.map(({ id, drug_name, quantity, dosage, caution }) =>
+        ({ id: id ?? null, drug_name, quantity, dosage, caution })));
+      const pending = JSON.stringify(data.prescription_draft.items.map(({ id, drug_name, quantity, dosage, caution }) =>
+        ({ id: id ?? null, drug_name, quantity, dosage, caution })));
+      if (shown !== pending) {
+        setMsg("Đơn thuốc trên màn hình không khớp bản thư ký đã lưu. Tải lại trước khi duyệt.");
+        return;
+      }
+    }
+    // Tự lưu: im lặng bỏ qua khi chưa lưu được (đang lưu, đang tải, có bản mới
+    // từ bên kia) — lần gõ sau sẽ thử lại; không nhảy tab, không bật lỗi.
+    if (tuDong && (saving || loading || !data || remoteChanged || arrivalPending)) return;
+    // DÒNG THUỐC ĐANG GÕ DỞ (17/09/2026): bấm "Thêm thuốc" rồi gõ, bản tự lưu chạy
+    // giữa chừng gửi một dòng thiếu tên/số lượng/cách dùng; máy chủ bỏ dòng ấy, lần
+    // nạp lại xoá luôn dòng người dùng đang gõ. Chưa đủ ba ô thì chưa tự lưu.
+    if (
+      tuDong &&
+      !(canSign && data?.prescription_draft) &&
+      rx.some((r) => !r.drug_name.trim() || !r.quantity.trim() || !r.dosage.trim())
+    ) {
+      return;
+    }
+    if (remoteChanged) {
+      setMsg("Hồ sơ đã có thay đổi. Tải và đối chiếu bản mới trước khi lưu.");
+      return;
+    }
     if (loading || !data) {
       setMsg("Chưa tải xong hồ sơ — đợi/tải lại rồi lưu (tránh mất dữ liệu cũ).");
       return;
@@ -588,13 +686,14 @@ export default function ClinicalRecordForm({
       setMsg("Chờ lễ tân xác nhận bệnh nhân đã đến (check-in) trước khi khám.");
       return;
     }
-    // C — Sinh hiệu BẮT BUỘC (D26) cũng áp cho luồng bác sĩ: thiếu → nhảy tab
-    // "Khám" + bật viền đỏ (REQUIRED_VITALS ở tab khác nên không thì sẽ "im lặng").
-    const missingReq = [...REQUIRED_VITALS].filter((k) => f[k].trim() === "");
+    // C — Sinh hiệu bắt buộc cũng áp cho luồng bác sĩ: thiếu → nhảy tab "Khám"
+    // + bật viền đỏ (ô ở tab khác nên không thì sẽ "im lặng").
+    const missingReq = [...requiredVitals].filter((k) => f[k].trim() === "");
+    if (missingReq.length && tuDong) return;
     if (missingReq.length) {
       setVitalsTried(true);
       setTab(1);
-      setMsg("Bắt buộc nhập Huyết áp, Cân nặng, Chiều cao.");
+      setMsg(requiredVitalsMsg);
       return;
     }
     setSaving(true);
@@ -624,7 +723,7 @@ export default function ClinicalRecordForm({
           vitals: {
             mach: f.mach, nhiet_do: f.nhiet_do, huyet_ap: f.huyet_ap,
             nhip_tho: f.nhip_tho, spo2: f.spo2, can_nang: f.can_nang,
-            chieu_cao: f.chieu_cao, bmi: f.bmi,
+            chieu_cao: f.chieu_cao, bmi: f.bmi, muc_do_dau: f.muc_do_dau,
           },
           kham_thai: {
             tuoi_thai: f.tuoi_thai, du_kien_sinh: f.du_kien_sinh,
@@ -642,7 +741,12 @@ export default function ClinicalRecordForm({
           family_history: pm.family || null,
           notes: pm.notes || null,
         },
-        prescriptions: rx,
+        expectedRevision: data.revision,
+        approvePrescriptionDraft,
+        prescriptions: canSign && data.prescription_draft
+          ? data.prescriptions.map((r) => ({ id: r.id, drug_name: r.drug_name_raw ?? "",
+              quantity: r.quantity ?? "", dosage: r.dosage_instructions ?? "", caution: r.caution ?? "" }))
+          : rx,
       }),
     });
     if (!res.ok) {
@@ -655,27 +759,73 @@ export default function ClinicalRecordForm({
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
     mocDaLuuRef.current = JSON.stringify({ f, pm, tk, rx });
     setCoGoDoChuaLuu(false);
-    // Điền ĐỦ (Chuẩn đoán VII + Lời dặn VIII) + BN đã đến → TỰ ĐỘNG chuyển lịch
-    // sang "Đã khám xong" (COMPLETED). Không đụng FINALIZE (khóa pháp lý riêng).
-    if (willComplete) {
-      const done = await fetch("/api/appointments", {
+    if (tuDong) {
+      // Không nạp lại cả form (người đang gõ tiếp sẽ mất chữ); chỉ nhận số phiên
+      // bản mới để lần lưu sau không bị coi là ghi đè.
+      const ra = (await res.json().catch(() => null)) as { revision?: number } | null;
+      if (ra?.revision !== undefined) {
+        setData((d) => (d ? { ...d, revision: ra.revision as number } : d));
+      }
+      setSaving(false);
+      setMsg(
+        `Đã tự lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}.`,
+      );
+      return;
+    }
+    setLoading(true);
+    setReloadEpoch((n) => n + 1);
+    setSaving(false);
+    setMsg(approvePrescriptionDraft
+      ? "Đã duyệt đơn thuốc thư ký nhập; nhà thuốc có thể tiếp nhận."
+      : canSign
+        ? "Đã lưu nháp hồ sơ. Kết thúc lượt khám là thao tác riêng sau khi hoàn tất chỉ định."
+        : "Đã lưu nháp. Đơn thuốc cần bác sĩ duyệt trước khi nhà thuốc tiếp nhận.");
+    router.refresh();
+  }
+
+  useEffect(() => {
+    saveRef.current = save;
+  });
+
+  async function completeExam() {
+    if (!canSign || readOnly || vitalsOnly || viewingPast || appt.status !== "CHECKED_IN") return;
+    if (saving || closing || loading || !data || remoteChanged) {
+      setMsg("Hồ sơ chưa sẵn sàng. Tải và đối chiếu bản mới trước khi kết thúc khám.");
+      return;
+    }
+    if (JSON.stringify({ f, pm, tk, rx }) !== mocDaLuuRef.current) {
+      setMsg("Bạn còn nội dung chưa lưu. Lưu hồ sơ trước khi kết thúc khám.");
+      return;
+    }
+    if (data.prescription_draft) {
+      setMsg("Còn đơn thuốc thư ký nhập chờ bác sĩ duyệt; chưa thể kết thúc khám.");
+      return;
+    }
+    if (!f.chan_doan.trim() || !f.loi_dan.trim()) {
+      setMsg("Ghi chẩn đoán và lời dặn, lưu hồ sơ, rồi mới kết thúc khám.");
+      return;
+    }
+    if (!window.confirm("Bác sĩ xác nhận đã hoàn tất lần khám này và các chỉ định cần làm trong lượt. Kết quả gửi về sau vẫn được theo dõi riêng. Kết thúc khám?")) return;
+    setClosing(true);
+    try {
+      const res = await fetch("/api/appointments", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: appt.id, action: "complete" }),
       });
-      setSaving(false);
-      setMsg(
-        done.ok
-          ? "Đã lưu hồ sơ & chuyển bệnh nhân sang Đã khám xong."
-          : "Đã lưu hồ sơ. (Chưa tự chuyển Khám xong — hãy tải lại.)",
-      );
-    } else {
-      setSaving(false);
-      setMsg(
-        "Đã lưu nháp. Điền đủ Chuẩn đoán + Lời dặn sẽ tự chuyển Đã khám xong.",
-      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setMsg(body?.error ?? "Chưa thể kết thúc khám; hãy kiểm tra tình trạng lượt khám.");
+        return;
+      }
+      setCompletedExplicit(true);
+      setMsg("Đã kết thúc khám. Các kết quả về sau vẫn được theo dõi riêng.");
+      router.refresh();
+    } catch {
+      setMsg("Không gửi được lệnh kết thúc khám. Hãy kiểm tra kết nối rồi thử lại.");
+    } finally {
+      setClosing(false);
     }
-    router.refresh();
   }
 
   // Bác sĩ chỉ định 1 XN mới (PENDING) → ĐD nhập kết quả ở "Hàng đợi xét nghiệm".
@@ -717,7 +867,7 @@ export default function ClinicalRecordForm({
         : d,
     );
     setLabOrder("");
-    setMsg("Đã chỉ định XN — điều dưỡng nhập kết quả ở Hàng đợi xét nghiệm.");
+    setMsg("Đã chỉ định XN — điều dưỡng nhập kết quả ở mục Lấy mẫu xét nghiệm.");
   }
 
   const preg = data?.pregnancy;
@@ -726,7 +876,12 @@ export default function ClinicalRecordForm({
   // / đang tải prefill (chưa tải xong mà sửa+lưu sẽ ghi đè rỗng — xem guard save())
   // / đang XEM LƯỢT KHÁM CŨ qua pager (viewingPast — chỉ đọc, không ghi đè lượt cũ).
   const ro = readOnly || locked || saving || arrivalPending || loading || viewingPast;
-  const vitalsRo = (readOnly && !vitalsOnly) || locked || saving || arrivalPending || loading || viewingPast;
+  // SINH HIỆU CHỈ ĐO Ở MÀN "ĐO SINH HIỆU" (Tuyền chốt 17/09/2026: "cái nào cũ
+  // thì bỏ"). Luồng đón-khám cũ (vitalsOnly) chỉ còn XEM số đã đo — lưu ở đây
+  // không báo "đã đo" cho luồng khám, khách kẹt ngoài hàng chờ bác sĩ.
+  const vitalsRo =
+    vitalsOnly || (readOnly && !vitalsOnly) || locked || saving || arrivalPending || loading || viewingPast;
+  const rxReadOnly = ro || vitalsOnly || (canSign && data?.prescription_draft != null);
   const roRest = ro || vitalsOnly; // đón-khám (vitalsOnly): mọi mục khác chỉ xem
   // "YYYY-MM-DD" theo giờ máy người dùng — min cho ô Ngày tái khám (mục X).
   const todayYmd = new Date().toLocaleDateString("en-CA");
@@ -738,7 +893,7 @@ export default function ClinicalRecordForm({
       case 0:
         return [pm.allergies, pm.blood_type, pm.chronic, pm.surgical, pm.medications, pm.family, pm.notes].some(ne);
       case 1:
-        return [f.ly_do, f.benh_su, f.mach, f.nhiet_do, f.huyet_ap, f.nhip_tho, f.spo2, f.can_nang, f.chieu_cao, f.bmi, f.tuoi_thai, f.du_kien_sinh, f.chieu_cao_tc, f.nhip_tim_thai].some(ne);
+        return [f.ly_do, f.benh_su, f.mach, f.nhiet_do, f.huyet_ap, f.nhip_tho, f.spo2, f.can_nang, f.chieu_cao, f.bmi, f.muc_do_dau, f.tuoi_thai, f.du_kien_sinh, f.chieu_cao_tc, f.nhip_tim_thai].some(ne);
       case 2:
         return (data?.labs?.length ?? 0) > 0;
       case 3:
@@ -773,6 +928,15 @@ export default function ClinicalRecordForm({
           </option>
         ))}
       </datalist>
+      {remoteChanged && (
+        <div role="status" className="border-b border-line bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Hồ sơ có bản mới từ nhân viên khác. Nội dung bạn đang nhập được giữ nguyên.
+          <button type="button" disabled={saving} className="ml-2 underline font-semibold"
+            onClick={() => { setForceApply(true); setReloadEpoch((n) => n + 1); }}>
+            Tải bản mới và bỏ nội dung chưa lưu
+          </button>
+        </div>
+      )}
       {/* Có thứ gõ dở của chính người này, cho chính lịch hẹn này, chưa kịp lưu.
           Không tự điền đè: bác sĩ có thể đã chủ ý bỏ nó, và điền đè lên hồ sơ
           vừa tải về là cách âm thầm làm hỏng dữ liệu đúng. Hỏi, rồi mới làm. */}
@@ -803,7 +967,7 @@ export default function ClinicalRecordForm({
             <span>Phiếu khám bệnh</span>
             {vitalsOnly && (
               <span className="rounded bg-warning-bg px-1.5 py-0.5 text-label font-medium normal-case text-warning">
-                Chỉ ghi Sinh hiệu
+                Chỉ xem — đo ở màn Đo sinh hiệu
               </span>
             )}
           </h3>
@@ -820,11 +984,19 @@ export default function ClinicalRecordForm({
       </div>
 
       {/* Banner cảnh báo = vùng TRÊN cố định (không cuộn cùng nội dung). */}
-      {!viewingPast && ((readOnly && !vitalsOnly) || locked || (arrivalPending && !readOnly)) && (
+      {!viewingPast && (readOnly || locked || (arrivalPending && !readOnly)) && (
         <div className="space-y-1.5 border-b border-line px-4 py-2">
           {readOnly && !vitalsOnly && (
             <p className="rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800">
               👁 Hồ sơ lâm sàng chỉ xem (Lễ tân/CSKH có thể sửa thông tin Hành chính ở tab tương ứng).
+            </p>
+          )}
+          {/* Bảng lịch ở Trang chủ mở phiếu CHỈ XEM (Tuyền chốt 18/09/2026).
+              Nhãn "Chỉ xem — đo ở màn Đo sinh hiệu" chỉ nói về sinh hiệu, nên
+              người mở tưởng phần còn lại gõ được. Nói thẳng chỗ sửa. */}
+          {readOnly && vitalsOnly && (
+            <p className="rounded-md bg-brand-100 px-3 py-1.5 text-xs text-brand-800">
+              👁 Chỉ xem — sửa bệnh án ở Bàn khám, đo sinh hiệu ở màn Đo sinh hiệu.
             </p>
           )}
           {locked && (
@@ -1019,6 +1191,9 @@ export default function ClinicalRecordForm({
               ["can_nang", "Cân nặng (kg)", "number", "0.1", 1, 300],
               ["chieu_cao", "Chiều cao (cm)", "number", "0.1", 20, 250],
               ["bmi", "BMI", "number", "0.1", 5, 80],
+              // Thang đau 0–10 — có trong phiếu giấy và trong bảng sinh hiệu
+              // từ 16/09/2026, nhưng thiếu ô nhập thì cột ấy vĩnh viễn rỗng.
+              ["muc_do_dau", "Mức độ đau (0–10)", "number", "1", 0, 10],
             ] as [keyof Fields, string, string, string | undefined, number, number][]).map(
               ([k, lbl, ty, st, lo, hi]) => {
                 // Cảnh báo: ô số → ngoài ngưỡng; Huyết áp → sai định dạng/bất thường.
@@ -1032,8 +1207,8 @@ export default function ClinicalRecordForm({
                     else if (n < lo || n > hi) warn = `Nên trong ${lo}–${hi}`;
                   }
                 }
-                // D26: 3 trường bắt buộc → đánh dấu * + báo "Bắt buộc" khi đã bấm Lưu.
-                const required = REQUIRED_VITALS.has(k);
+                // Trường bắt buộc → đánh dấu * + báo "Bắt buộc" khi đã bấm Lưu.
+                const required = requiredVitals.has(k);
                 const missing = required && v === "" && vitalsTried;
                 return (
                   <div key={k}>
@@ -1057,6 +1232,17 @@ export default function ClinicalRecordForm({
                       <p className="mt-0.5 text-label text-danger">
                         {missing ? "Bắt buộc" : warn}
                       </p>
+                    )}
+                    {k === "bmi" && bmiGoiY && bmiGoiY !== v && !vitalsRo && (
+                      // BMI là GỢI Ý từ cân nặng/chiều cao, sửa được (Tuyền chốt
+                      // 15/09/2026) — bấm để điền, không tự ghi đè số đã nhập.
+                      <button
+                        type="button"
+                        onClick={() => set("bmi", bmiGoiY)}
+                        className="mt-0.5 text-label text-brand-700 underline"
+                      >
+                        Gợi ý {bmiGoiY} — bấm để điền
+                      </button>
                     )}
                   </div>
                 );
@@ -1214,7 +1400,7 @@ export default function ClinicalRecordForm({
               ))}
             </ul>
           )}
-          {!vitalsOnly && !readOnly && (
+          {!vitalsOnly && !readOnly && canSign && (
             <div className="mt-2 flex items-center gap-2">
               <input
                 className={INPUT}
@@ -1256,6 +1442,17 @@ export default function ClinicalRecordForm({
 
         {(tab === 3 || showAll) && !vitalsOnly && (
           <Section no="IX" title="Đơn thuốc">
+            {data?.prescription_draft && (
+              <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                Đơn thuốc nháp — chưa chuyển sang nhà thuốc.
+                {canSign && !viewingPast && !readOnly && (
+                  <button type="button" disabled={saving || loading || remoteChanged || locked}
+                    onClick={() => void save(true)} className="ml-2 font-semibold underline">
+                    Duyệt đơn thuốc đang xem
+                  </button>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               {rx.length === 0 && (
                 <p className="text-sm text-ink-faint">— chưa kê thuốc —</p>
@@ -1268,10 +1465,10 @@ export default function ClinicalRecordForm({
                       placeholder="Tên thuốc"
                       list="drug-catalog-list"
                       value={row.drug_name}
-                      disabled={roRest}
+                      disabled={rxReadOnly}
                       onChange={(e) => setRxAt(i, "drug_name", e.target.value)}
                     />
-                    {!roRest && (
+                    {!rxReadOnly && (
                       <button
                         onClick={() => removeRx(i)}
                         aria-label="Xoá thuốc"
@@ -1286,27 +1483,27 @@ export default function ClinicalRecordForm({
                       className={INPUT}
                       placeholder="Số lượng (vd: 30 viên)"
                       value={row.quantity}
-                      disabled={roRest}
+                      disabled={rxReadOnly}
                       onChange={(e) => setRxAt(i, "quantity", e.target.value)}
                     />
                     <input
                       className={INPUT}
                       placeholder="Cách dùng (vd: 2v/ngày sau ăn)"
                       value={row.dosage}
-                      disabled={roRest}
+                      disabled={rxReadOnly}
                       onChange={(e) => setRxAt(i, "dosage", e.target.value)}
                     />
                     <input
                       className={INPUT}
                       placeholder="Lưu ý"
                       value={row.caution}
-                      disabled={roRest}
+                      disabled={rxReadOnly}
                       onChange={(e) => setRxAt(i, "caution", e.target.value)}
                     />
                   </div>
                 </div>
               ))}
-              {!roRest && (
+              {!rxReadOnly && (
                 <button
                   onClick={addRx}
                   className="inline-flex items-center gap-1 rounded-lg border border-dashed border-brand-100 px-3 py-1.5 text-sm font-medium text-brand-800 hover:bg-brand-50"
@@ -1364,6 +1561,11 @@ export default function ClinicalRecordForm({
                 placeholder="Tùy chọn, vd: nhịn ăn sáng trước khi xét nghiệm"
               />
             </div>
+            {/* Bác sĩ quyết theo dõi sau thủ thuật — màn CSKH đọc (16/09/2026).
+                Tự ẩn khi lượt không có chỉ định thủ thuật. */}
+            {data?.visit?.visit_id && (
+              <TheoDoiThuThuat visitId={data.visit.visit_id} readOnly={roRest} />
+            )}
           </div>
         </Section>
         )}
@@ -1377,6 +1579,24 @@ export default function ClinicalRecordForm({
               visitId={data.visit.visit_id}
               serviceCode={serviceCode}
               readOnly={readOnly || locked}
+            />
+          </div>
+        )}
+
+        {/* TỆP KẾT QUẢ — ngay trong hồ sơ, không phải một màn khác.
+            
+            Tuyền 16/09/2026: *"phải có chỗ up file cho bác sĩ, thư ký, điều
+            dưỡng… cả CSKH cũng cần có file để xem và tải xuống"*. Kho tệp đã có
+            từ 09/08 nhưng chỉ mở ở màn CSKH, nên người cầm kết quả trên tay
+            phải nhờ người khác tải hộ.
+            
+            KHÔNG hiện ở chế độ chỉ-sinh-hiệu: điều dưỡng và lễ tân đo xong là
+            xong, tệp kết quả thuộc về phần chuyên môn. */}
+        {tab === 2 && !vitalsOnly && !showAll && p?.clinic_patient_id && (
+          <div className="border-t border-surface-sunken pt-3">
+            <TepCuaLuotKham
+              clinicPatientId={p.clinic_patient_id}
+              appointmentId={appt.id}
             />
           </div>
         )}
@@ -1427,7 +1647,7 @@ export default function ClinicalRecordForm({
               ? "text-brand-800"
               : readOnly && !vitalsOnly
                 ? "text-brand-800"
-                : msg?.startsWith("Đã lưu")
+                : /^Đã (lưu|duyệt|kết thúc)/.test(msg ?? "")
                   ? "text-success"
                   : "text-danger")
           }
@@ -1436,19 +1656,32 @@ export default function ClinicalRecordForm({
         </span>
         <div className="flex gap-2">
           {/* Lễ tân chỉ-đọc / đang xem lượt cũ: ẨN nút Lưu hoàn toàn (không chỉ disable). */}
-          {((!readOnly || vitalsOnly) && !viewingPast) && (
+          {vitalsOnly && !viewingPast ? (
+            <a
+              href="/do-sinh-hieu"
+              className="inline-flex min-h-10 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Đo sinh hiệu
+            </a>
+          ) : null}
+          {!readOnly && !vitalsOnly && !viewingPast && (
             <button
-              onClick={save}
-              disabled={vitalsOnly ? vitalsRo : ro}
+              onClick={() => void save()}
+              disabled={ro}
               className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
-              {saving
-                ? "Đang lưu…"
-                : vitalsOnly
-                  ? "Lưu sinh hiệu"
-                  : willComplete
-                    ? "Lưu & Khám xong"
-                    : "Lưu hồ sơ"}
+              {saving ? "Đang lưu…" : "Lưu hồ sơ"}
+            </button>
+          )}
+          {canSign && !readOnly && !vitalsOnly && !viewingPast && appt.status === "CHECKED_IN" && (
+            <button
+              type="button"
+              onClick={() => void completeExam()}
+              disabled={saving || closing || loading || !data || remoteChanged || completedExplicit}
+              className="min-h-10 rounded-control border border-brand-100 bg-surface px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-50"
+              title="Chỉ kết thúc sau khi bác sĩ đã xử lý xong các chỉ định của lượt này"
+            >
+              {closing ? "Đang kết thúc…" : completedExplicit ? "Đã kết thúc khám" : "Kết thúc khám"}
             </button>
           )}
           {/* CSKH / Lễ tân: Tái khám. Có onRebook → mở MODAL đặt lịch nhanh (ở Danh sách
@@ -1477,6 +1710,7 @@ export default function ClinicalRecordForm({
       {!viewingPast && !vitalsOnly && (
         <ClinicalSignPanel
           visitId={data?.visit?.visit_id ?? null}
+          revision={data?.revision ?? null}
           isDoctor={canSign}
           onChanged={() => router.refresh()}
         />

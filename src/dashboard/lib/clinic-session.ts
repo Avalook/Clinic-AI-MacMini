@@ -3,6 +3,8 @@
 // server-side role/staff decision comes from auth.uid() → staff.auth_user_id.
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
+import { fetchFromBackend } from "./backend-proxy";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
@@ -20,12 +22,56 @@ export async function getClinicRole(): Promise<ClinicRole | null> {
   return staff ? departmentToRole(staff.clinic_role) : null;
 }
 
+/** VAI LÀM VIỆC HÔM NAY: vai tài khoản + vai vận hành mà vị trí trong lịch hôm
+ *  nay cấp (Tuyền chốt 16/09/2026 — tài khoản Điều dưỡng đứng Lễ tân thì làm
+ *  được việc lễ tân). Máy chủ tính (`GET /me/vi-tri-hom-nay` → `vai`); ở đây
+ *  chỉ ghép, không tự suy vai từ mã vị trí. Không bao giờ chứa vai bác sĩ mà
+ *  tài khoản không có. */
+export const getViTriHomNay = cache(() =>
+  fetchFromBackend<{ vi_tri: string[]; ca: string[]; vai?: string[] }>(
+    "/api/v1/me/vi-tri-hom-nay",
+  ),
+);
+
+export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
+  const goc = await getClinicRole();
+  if (!goc) return [];
+  const d = await getViTriHomNay();
+  // VAI THEO VỊ TRÍ ĐỨNG TRƯỚC, theo thứ tự máy chủ xếp (Lễ tân → Điều dưỡng →
+  // Trưởng ca; có thể gồm cả vai trùng vai tài khoản). Vai tài khoản đứng cuối
+  // nếu hôm nay không vị trí nào mang nó — vẫn còn đó cho mọi quyền vốn có.
+  const theo = (d?.vai ?? []) as ClinicRole[];
+  return theo.includes(goc) ? theo : [...theo, goc];
+});
+
+/** VAI CHÍNH HÔM NAY — vai quyết định HIỂN THỊ (trang chủ, nhãn vai, bảng việc).
+ *  Có ca: vai của vị trí đầu tiên trong ngày. Không ca: vai tài khoản.
+ *  Dùng cho quyết định "vẽ màn nào"; quyết định "được làm không" dùng
+ *  `vaiLamViec` (xét MỌI vai hôm nay). */
+export async function getVaiChinh(): Promise<ClinicRole | null> {
+  return (await getVaiHomNay())[0] ?? null;
+}
+
+/** Vai đầu tiên trong vai làm việc hôm nay thoả `dieuKien`, hoặc vai tài khoản. */
+export async function vaiLamViec(
+  dieuKien: (r: ClinicRole) => boolean,
+): Promise<ClinicRole | null> {
+  const ds = await getVaiHomNay();
+  return ds.find(dieuKien) ?? ds[0] ?? null;
+}
+
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ
  *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn role để chặn cả truy cập trực tiếp. */
 export async function requireNavAccess(href: string): Promise<void> {
-  const role = await getClinicRole();
-  if (!canSeeNav(role, href)) redirect("/home");
+  // Vào được nếu MỘT trong các vai hôm nay vào được — vai tài khoản vẫn nằm
+  // trong tập này, nên không ai mất lối vào cũ.
+  const vai = await getVaiHomNay();
+  if (vai.length === 0) {
+    if (!canSeeNav(null, href)) redirect("/home");
+    return;
+  }
+  if (!vai.some((r) => canSeeNav(r, href))) redirect("/home");
 }
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền

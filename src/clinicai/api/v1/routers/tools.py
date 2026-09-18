@@ -16,6 +16,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
@@ -156,7 +157,10 @@ def get_event_publisher() -> IEventPublisher:
 
 def get_llm_client(request: Request) -> AnthropicClient:
     """FastAPI dependency: yields the application's AnthropicClient singleton."""
-    return cast(AnthropicClient, request.app.state.llm_client)
+    client = request.app.state.llm_client
+    if client is None:
+        raise AIDisabledError("Tính năng AI chưa bật trên hệ thống này.")
+    return cast(AnthropicClient, client)
 
 
 @router.post("/patient/get-summary", response_model=PatientSummaryOutput)

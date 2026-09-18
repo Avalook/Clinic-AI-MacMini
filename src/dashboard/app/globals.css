@@ -120,6 +120,22 @@
   --color-specialty-andro: #4f46e5;
   --color-specialty-service: #2563eb;
 
+  /* LỊCH LÀM VIỆC — màu lấy ĐÚNG mã màu trong file Excel xếp lịch của PK Kim
+   * Ngưu (Tuyền 16/09/2026: "bảng nó phải dạng y hệt như này"). Người xếp lịch
+   * nhận ra phòng bằng MÀU trước khi đọc chữ; đổi màu là bắt họ đọc lại từng
+   * dòng. Đọc bằng openpyxl từ cột "Phòng", không chọn bằng mắt.
+   * Quầy thuốc và Phòng Sản - Biofeedback trong Excel để nền trắng. */
+  --color-lich-tiep-don: #fce5cd;
+  --color-lich-noi-tiet: #d9d2e9;
+  --color-lich-thu-thuat: #d9ead3;
+  --color-lich-sieu-am: #cfe2f3;
+  --color-lich-ngoai-gio: #fff2cc;
+  --color-lich-san-chau: #ead1dc;
+  /* Vạch ngăn tầng, ô đóng (vị trí không làm ca ấy), khối NGHỈ. */
+  --color-lich-vach-tang: #073763;
+  --color-lich-dong: #000000;
+  --color-lich-nghi: #666666;
+
   /* Priority. P0 is not an emergency colour on its own — the screens use it as
    * a quiet marker beside the status, which is the loud one. */
   --color-priority-p0: #b91c1c;

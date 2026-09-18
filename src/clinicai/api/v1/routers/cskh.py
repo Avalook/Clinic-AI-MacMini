@@ -8,7 +8,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -18,7 +18,12 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    require_role,
+    require_role_co_the_mo,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
@@ -26,11 +31,6 @@ from clinicai.services.cskh_service import (
     clinic_today,
 )
 from clinicai.services.man_khach_hang_service import ManKhachHangService
-from clinicai.services.media_service import (
-    KET_QUA_VIDEO_UPLOAD_ENABLED,
-    MAX_BYTES_THEO_LOAI,
-    sniff_ket_qua,
-)
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 from clinicai.services.tuong_tac_cskh_service import (
@@ -48,13 +48,18 @@ _RECALL_GUARD = require_role(
     ClinicRole.TRUONG_CA,
 )
 
-# Bảy vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
+# SÁU vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
+# Lễ tân đã rời danh sách 16/09/2026 (Tuyền: *"quản lý khách hàng… vì thừa"*) —
+# quầy không gọi điện chăm sóc khách. Quyền GHI vùng CSKH giữ nguyên
+# (`cskh_service.INTAKE_ROLES` vẫn có RECEPTION) để Quản lý/Trưởng ca thao tác
+# hộ được; bỏ ở đây chỉ là đóng cửa MÀN.
 # Hai danh sách này phải khớp nhau: lệch là một vai thấy được màn nhưng màn
 # trống dữ liệu (API chặn), hoặc ngược lại. Có test canh ở
 # test_man_khach_hang.py; đổi bên nào thì đổi cả hai + test.
-_MAN_KHACH_HANG_GUARD = require_role(
+# Dữ liệu chăm sóc khách là thông tin VẬN HÀNH — lịch hẹn, trạng thái, sổ gọi
+# điện — không phải bệnh án. Nới theo công tắc mở quyền tạm thời.
+_MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
-    ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
     ClinicRole.CASHIER,
@@ -62,17 +67,25 @@ _MAN_KHACH_HANG_GUARD = require_role(
     ClinicRole.CASHIER_DV,
 )
 
-_UPLOAD_SNIFF_BYTES = 512
-_UPLOAD_CHUNK_BYTES = 64 * 1024
-
 
 @router.get("/cskh/man-khach-hang")
 async def man_khach_hang(
     ids: str,
     identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, list[dict[str, object]]]:
+) -> dict[str, list[Any]]:
     """Mười khối dữ liệu làm giàu của màn Quản lý khách hàng, MỘT vòng.
+
+    KIỂU TRẢ VỀ LÀ `list[Any]`, KHÔNG PHẢI `list[dict]`. FastAPI kiểm kiểu trả
+    về theo chú thích này, và khối `tuan_cong_bo` là danh sách CHUỖI (mã tuần
+    đã công bố) chứ không phải danh sách bản ghi.
+
+    Lỗi ấy ngủ suốt: khi chưa tuần lịch trực nào được công bố thì danh sách
+    rỗng, và một danh sách rỗng thì hợp lệ với mọi kiểu phần tử. Đúng ngày
+    16/09/2026 dựng lịch trực thật cho phòng khám, cả màn Quản lý khách hàng
+    trả 500 cho MỌI vai — CSKH lẫn trưởng ca — và màn chỉ hiện "Không đọc được
+    dữ liệu chăm sóc". Nhìn vào đó không ai đoán ra thủ phạm là một chú thích
+    kiểu.
 
     Lát 2 lộ trình chịu tải (22/08/2026): thay mười vòng PostgREST — mỗi vòng
     một giao dịch riêng — bằng một lời gọi; mười câu SQL chạy tuần tự trên MỘT
@@ -98,48 +111,6 @@ async def man_khach_hang(
     return await ManKhachHangService(pool).goi_du_lieu(
         clinic_id=identity.clinic_id, ids=danh_sach
     )
-
-
-async def _doc_upload_co_gioi_han(file: UploadFile) -> bytes:
-    """Read one result file in bounded chunks and stop at its content-type cap.
-
-    ``UploadFile.read()`` with no size consumes an attacker-controlled body in
-    one call. Read only enough to identify the real type first, then at most the
-    corresponding limit plus one byte. That last byte proves the upload is too
-    large without consuming the rest of it.
-    """
-    prefix = await file.read(_UPLOAD_SNIFF_BYTES)
-    if not prefix:
-        raise ValidationError("Tệp rỗng.")
-
-    _mime, _ext, loai = sniff_ket_qua(prefix)
-    if loai == "VIDEO" and not KET_QUA_VIDEO_UPLOAD_ENABLED:
-        raise ValidationError(
-            "Video kết quả chưa được bật. Hiện chỉ nhận ảnh hoặc phiếu PDF."
-        )
-    limit = MAX_BYTES_THEO_LOAI[loai]
-    chunks = [prefix]
-    total = len(prefix)
-    if total > limit:
-        raise ValidationError(
-            f"Tệp quá lớn ({total // 1024 // 1024}MB). "
-            f"Tối đa {limit // 1024 // 1024}MB cho loại này."
-        )
-
-    while True:
-        # At the exact limit, read one byte: EOF means valid, one byte means too
-        # large. Never ask the upload object for an unbounded read.
-        remaining_with_probe = limit - total + 1
-        chunk = await file.read(min(_UPLOAD_CHUNK_BYTES, remaining_with_probe))
-        if not chunk:
-            return b"".join(chunks)
-        total += len(chunk)
-        if total > limit:
-            raise ValidationError(
-                f"Tệp quá lớn ({total // 1024 // 1024}MB). "
-                f"Tối đa {limit // 1024 // 1024}MB cho loại này."
-            )
-        chunks.append(chunk)
 
 
 class CskhActionRequest(BaseModel):
@@ -368,6 +339,8 @@ class TuongTacRequest(BaseModel):
     trang_thai_ma: str | None = Field(default=None, max_length=64)
     khach_xac_nhan: bool | None = None
     noi_dung: str | None = Field(default=None, max_length=2000)
+    #: Bắt buộc với mốc CHECK_IN: xác minh khách bằng cách nào (CACH_XAC_MINH).
+    xac_minh_cach: str | None = Field(default=None, max_length=32)
 
 
 @router.post("/cskh/tuong-tac", status_code=201)
@@ -423,6 +396,7 @@ async def ghi_tuong_tac(
             khach_xac_nhan=body.khach_xac_nhan,
             noi_dung=body.noi_dung,
             trang_thai_ma=body.trang_thai_ma,
+            xac_minh_cach=body.xac_minh_cach,
         )
         await idem.save(pool, dong_moi, status_code=201)
     return dong_moi
@@ -540,40 +514,124 @@ async def cap_nhat_phan_hoi(
 
 # ── Tệp kết quả khám (ảnh / video siêu âm, phiếu xét nghiệm) ────────────────
 #
-# Cùng gác với phần nhập liệu chăm sóc: ai ghi được "đã gọi cho khách" thì tải
-# được kết quả của khách đó lên. KHÔNG mở rộng _SONO_GUARD — đường siêu âm của
-# kỹ thuật viên giữ nguyên vai của nó; đây là đường của CSKH.
+# AI TẢI LÊN ĐƯỢC (Tuyền chốt 16/09/2026: *"phải có chỗ up file cho bác sĩ, thư
+# ký, điều dưỡng… cả CSKH cũng cần có file để xem và tải xuống"*).
+#
+# Trước đó chỉ nhóm nhập liệu chăm sóc (CSKH, Lễ tân, Quản lý, Trưởng ca) tải
+# lên được — tức chính những người KHÔNG cầm kết quả trên tay. Bác sĩ siêu âm
+# chụp xong, kỹ thuật viên có phiếu xét nghiệm, điều dưỡng cầm phim chụp: cả ba
+# đều phải nhờ người khác tải hộ, và bản gốc đi qua Zalo trước khi vào hồ sơ.
+#
+# Giữ nguyên đường siêu âm riêng của kỹ thuật viên (_SONO_GUARD) — nó gắn tệp
+# vào phiếu siêu âm, khác với kho tệp kết quả của lượt khám ở đây.
+_TEP_TAI_LEN_GUARD = require_role(
+    *INTAKE_ROLES,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+)
 
 
 @router.post("/cskh/ket-qua/tep", status_code=201)
 async def tai_len_ket_qua(
-    clinic_patient_id: UUID = Form(...),
-    file: UploadFile = File(...),
-    appointment_id: UUID | None = Form(default=None),
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    request: Request,
+    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Tải một tệp kết quả lên.
+    """Tải một tệp kết quả lên (multipart: file, clinic_patient_id,
+    [appointment_id], [service_order_id]).
 
+    Thân request chảy THẲNG vào kho (không giới hạn dung lượng — xem
+    `nhan_tep_luong`). Quyền được kiểm trước khi đọc byte nào của thân.
     Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
     Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
     """
+    from clinicai.services.nhan_tep_luong import nhan_multipart, uuid_hoac_loi
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    data = await _doc_upload_co_gioi_han(file)
-    return await TepKetQuaService(pool).tai_len(
-        identity=identity,
-        clinic_patient_id=str(clinic_patient_id),
-        data=data,
-        ten_hien_thi=file.filename,
-        appointment_id=str(appointment_id) if appointment_id else None,
+    truong, tep = await nhan_multipart(request)
+    try:
+        return await TepKetQuaService(pool).tai_len(
+            identity=identity,
+            clinic_patient_id=str(
+                uuid_hoac_loi(
+                    truong.get("clinic_patient_id"), "Mã khách", bat_buoc=True
+                )
+            ),
+            tep_da_nhan=tep,
+            ten_hien_thi=tep.ten,
+            appointment_id=uuid_hoac_loi(
+                truong.get("appointment_id"), "Mã lịch hẹn", bat_buoc=False
+            ),
+            service_order_id=uuid_hoac_loi(
+                truong.get("service_order_id"), "Mã chỉ định", bat_buoc=False
+            ),
+        )
+    finally:
+        # Đã đổi tên về chỗ ở thật thì tệp tạm không còn; bị từ chối thì dọn.
+        tep.duong.unlink(missing_ok=True)
+
+
+#: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được
+#: tệp mới cho phép gửi (15/09/2026). Từ 16/09 thêm thư ký và điều dưỡng: ai
+#: tải lên được thì phải mở lại được thứ mình vừa tải, nếu không thì không có
+#: cách nào kiểm tra mình có tải nhầm tệp của người khác hay không.
+_KET_QUA_DOC_GUARD = _TEP_TAI_LEN_GUARD
+_BAC_SI_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+
+
+@router.get("/cskh/ho-so-kham/{appointment_id}")
+async def ho_so_kham(
+    appointment_id: UUID,
+    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hồ sơ một lần khám, bản đọc gộp — để CSKH xem trước và tải PDF.
+
+    Cùng nhóm vai với đọc tệp kết quả: ai đã được mở tệp kết quả của khách thì
+    được xem hồ sơ lần khám chứa tệp ấy.
+    """
+    from clinicai.services.ho_so_kham_service import HoSoKhamService
+
+    return await HoSoKhamService(pool).doc(
+        identity=identity, appointment_id=str(appointment_id)
+    )
+
+
+@router.get("/cskh/ket-qua/cho-phep-gui")
+async def tep_cho_bac_si_cho_phep(
+    identity: StaffIdentity = Depends(_BAC_SI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tệp kết quả CSKH đã tải lên, đang chờ bác sĩ cho phép gửi khách."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {
+        "items": await TepKetQuaService(pool).cho_bac_si_cho_phep(identity=identity)
+    }
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/cho-phep-gui", status_code=201)
+async def cho_phep_gui_tep(
+    tep_id: UUID,
+    identity: StaffIdentity = Depends(_BAC_SI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).cho_phep_gui(
+        identity=identity, tep_id=str(tep_id)
     )
 
 
 @router.get("/cskh/ket-qua/{clinic_patient_id}")
 async def danh_sach_ket_qua(
     clinic_patient_id: UUID,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    # Ai tải lên được thì phải XEM LẠI được danh sách — bản trước chỉ mở cho
+    # vai tiếp nhận, nên bác sĩ, điều dưỡng tải xong không thấy tệp mình vừa gửi.
+    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tệp kết quả của một khách, kèm đã gửi hay chưa."""
@@ -590,7 +648,7 @@ async def danh_sach_ket_qua(
 async def doc_tep_ket_qua(
     tep_id: UUID,
     request: Request,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.

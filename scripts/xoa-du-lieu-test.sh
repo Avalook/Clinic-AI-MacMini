@@ -120,6 +120,8 @@ ALTER TABLE lab_result      DISABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         DISABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         DISABLE TRIGGER trg_payment_no_delete;
 ALTER TABLE visit           DISABLE TRIGGER trg_visit_no_delete;
+-- Sinh hiệu chỉ thêm (20260915000012): xoá visit kéo theo nó qua FK CASCADE.
+ALTER TABLE vital_measurement DISABLE TRIGGER trg_vital_measurement_chi_them;
 
 -- TRÌNH TỰ NÀY LẤY TỪ ĐỒ THỊ KHOÁ NGOẠI, KHÔNG PHẢI TỪ TRÍ NHỚ.
 --
@@ -198,6 +200,7 @@ ALTER TABLE lab_result      ENABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         ENABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         ENABLE TRIGGER trg_payment_no_delete;
 ALTER TABLE visit           ENABLE TRIGGER trg_visit_no_delete;
+ALTER TABLE vital_measurement ENABLE TRIGGER trg_vital_measurement_chi_them;
 
 -- Đếm lại TRƯỚC KHI COMMIT. Một lệnh ENABLE gõ sai tên bảng sẽ đổ ngay ở trên,
 -- nhưng một cái BỊ QUÊN thì im lặng — và prod sẽ chạy tiếp mà không còn lớp

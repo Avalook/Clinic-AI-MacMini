@@ -7,13 +7,13 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
+    require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
@@ -28,13 +28,15 @@ from clinicai.services.patient_service import PatientService
 
 router = APIRouter()
 
-_INTAKE_GUARD = require_role(
+# Tạo và sửa hồ sơ hành chính là thao tác VẬN HÀNH, không phải việc lâm sàng —
+# nên hai cửa này nới được theo công tắc mở quyền tạm thời.
+_INTAKE_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
-_PATIENT_EDIT_GUARD = require_role(
+_PATIENT_EDIT_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.RECEPTION,
     ClinicRole.MANAGEMENT,
@@ -59,7 +61,8 @@ async def create_patient(
 
     * created      → 201, the PatientDTO.
     * phone dup    → 200 ``{"duplicate": true, "matches": [...]}`` (no insert).
-    * CCCD conflict → 409 (raised as ConflictError by the service).
+    * CCCD dup     → 200 ``{"duplicate": true, "cccd_trung": true, ...}``;
+      gửi lại kèm ``ly_do_trung_cccd`` để tạo.
     """
     service = PatientService(pool)
     result = await service.create_patient(data, identity)
@@ -68,6 +71,7 @@ async def create_patient(
             status_code=status.HTTP_200_OK,
             content={
                 "duplicate": True,
+                "cccd_trung": result.cccd_trung,
                 "matches": jsonable_encoder(result.matches),
             },
         )
@@ -262,6 +266,43 @@ async def get_patient_by_id(
     return patient
 
 
+# Danh sách bệnh nhân (tra cứu) — cùng tập vai với route "/patient-list" ở
+# dashboard (lib/roles.ts). Trưởng ca / dược sĩ / TV không có màn này.
+# TRƯỞNG CA thiếu ở đây là SÓT, không phải luật: danh sách này có đủ mười vai
+# làm việc còn lại, và trưởng ca thì đã được tạo lẫn sửa hồ sơ bệnh nhân qua hai
+# cửa ngay phía trên. Hệ quả đo được 16/09/2026: bấm "Quản lý khách hàng" từ màn
+# Toàn cảnh điều phối thì màn báo "Không đọc được dữ liệu chăm sóc".
+_DANH_SACH_GUARD = require_role_co_the_mo(
+    ClinicRole.RECEPTION,
+    ClinicRole.MANAGEMENT,
+    ClinicRole.CSKH,
+    ClinicRole.TRUONG_CA,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_THUOC,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.TKYK,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.DOCTOR,
+    ClinicRole.ULTRASOUND_DOCTOR,
+)
+
+
+@router.get("/patients/danh-sach")
+async def danh_sach_benh_nhan(
+    identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hồ sơ + các lượt khám (khách ĐÃ TỚI, bất kể ngày) + số tổng.
+
+    Thay truy vấn Supabase của màn Danh sách bệnh nhân — bản cũ chỉ đếm lượt
+    COMPLETED hoặc CHECKED_IN trong HÔM NAY nên qua nửa đêm mất hết lượt đang mở
+    (16/09/2026). Thư ký y khoa chỉ nhận khách của bác sĩ mình.
+    """
+    from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
+
+    return await DanhSachBenhNhanService(pool).lay(identity=identity)
+
+
 @router.get("/patients", response_model=list[PatientDTO])
 async def get_patients_by_phone(
     phone: str,
@@ -285,3 +326,29 @@ async def update_patient(
     """Partially update demographic details for a patient."""
     service = PatientService(pool)
     return await service.update_patient(id, data, identity)
+
+
+class UuTienRequest(BaseModel):
+    uu_tien: bool
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.put("/patients/{id:uuid}/uu-tien")
+async def dat_khach_uu_tien(
+    id: UUID,
+    body: UuTienRequest,
+    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đánh dấu / bỏ dấu khách ưu tiên (VIP) kèm lý do — Tuyền chốt 15/09/2026.
+
+    Chỉ là dấu cho lễ tân; không tự đổi thứ tự khám (lễ tân kéo tay).
+    """
+    from clinicai.services.thu_tu_kham_service import ThuTuKhamService
+
+    return await ThuTuKhamService(pool).dat_uu_tien(
+        identity=identity,
+        clinic_patient_id=str(id),
+        uu_tien=body.uu_tien,
+        ly_do=body.ly_do,
+    )

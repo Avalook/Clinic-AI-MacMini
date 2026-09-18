@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { canWriteIntake } from "../../../../lib/roles";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
   // Cùng vai với màn tạo bệnh nhân — nơi duy nhất có nút này.
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -56,7 +56,7 @@ export async function DELETE(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

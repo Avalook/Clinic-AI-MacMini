@@ -9,6 +9,31 @@
 	admin off
 }
 
+# ĐƯỜNG SỐNG-CHẾT CHO HEALTHCHECK, CHỈ NGHE TRONG MÁY.
+#
+# VÌ SAO TÁCH RA (16/09/2026). Healthcheck của compose gõ
+# `http://localhost:80/health`. Ở chế độ tunnel (`SITE_ADDRESS=:80`) nó chạy
+# đúng. Nhưng ngày bật tên miền thật, Caddy tự chuyển mọi thứ ở cổng 80 sang
+# HTTPS — wget đi theo, bắt tay TLS với tên `localhost` mà máy chủ không có
+# chứng chỉ cho tên ấy, và nhận `SSL alert number 80`.
+#
+# Kết quả đo được ngay hôm bật HTTPS: container Caddy đỏ **377 lần liên tiếp**
+# trong khi trang web phục vụ 200 hoàn toàn bình thường. Đó là kiểu hỏng tệ
+# nhất của giám sát — một đèn đỏ GIẢ. Người trực nhìn nó vài ngày là quen bỏ
+# qua màu đỏ, và lần đỏ thật cũng bị bỏ qua nốt.
+#
+# Khối này khai `http://` tường minh nên Caddy KHÔNG tự nâng cấp nó, và nó chỉ
+# khớp khi Host là localhost/127.0.0.1 — tức chỉ chính máy này gọi được. Mọi
+# request từ ngoài mang Host là tên miền, nên vẫn rơi vào khối bên dưới.
+http://localhost, http://127.0.0.1 {
+	handle /health {
+		log_skip
+		respond "ok" 200
+	}
+	# Không mở gì khác qua cửa này.
+	respond 404
+}
+
 {$SITE_ADDRESS} {
 	encode zstd gzip
 

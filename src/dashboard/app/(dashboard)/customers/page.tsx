@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { requireNavAccess, getClinicRole } from "../../../lib/clinic-session";
+import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   canManageAppt,
@@ -25,11 +25,12 @@ import {
   VN_TZ,
   ngayVN,
 } from "../../../lib/datetime";
-import { currentWeekStartVn, shiftWeek } from "../../../lib/roster";
+import { currentWeekStartVn, shiftWeek, weekStartOf } from "../../../lib/roster";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
 import type { MocTaiKham } from "./NhacTaiKham";
+import type { ViecDoiTac } from "./CustomersView";
 import CustomersView, {
   type CustomerRow,
   type ApptInfo,
@@ -109,7 +110,7 @@ const SELECT = `
   clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
   phone_primary, phone_secondary, gender, ethnicity, nationality,
   occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc, updated_at,
+  van_de_di_kham, linh_vuc, updated_at, uu_tien, uu_tien_ly_do,
   patient_sdt_them ( so_dien_thoai, loai )
 `;
 
@@ -130,10 +131,11 @@ export default async function CustomersPage({
   }>;
 }) {
   await requireNavAccess("/customers");
-  const role = await getClinicRole();
+  const vaiHomNay = await getVaiHomNay();
+  const role = await getVaiChinh();
   // CSKH / Lễ tân / Quản lý: được SỬA thông tin hành chính ngay trong panel.
-  const canEdit = canWriteIntake(role);
-  const canOperateCskh = canOperateCustomerCare(role);
+  const canEdit = vaiHomNay.some(canWriteIntake);
+  const canOperateCskh = vaiHomNay.some(canOperateCustomerCare);
   // CSKH / Quản lý / Trưởng ca: được ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới").
   const canManage = canManageAppt(role);
   const sp = await searchParams;
@@ -288,6 +290,8 @@ export default async function CustomersPage({
   type GoiManKhachHang = {
     appts: unknown[];
     ca_truc: unknown[];
+    /** Thứ Hai của các tuần đã công bố lịch trực (yyyy-mm-dd). */
+    tuan_cong_bo?: string[];
     trang_thai: unknown[];
     viec_mo: unknown[];
     tep: unknown[];
@@ -452,6 +456,11 @@ type LichHenRaw = {
   // không phải hỏi database lần thứ hai cho cùng một câu hỏi.
   const coCaTruc = new Set<string>();
   let doCaTruc = false;
+  // Tuần ĐÃ CÔNG BỐ lịch trực — chưa công bố thì không có "mất bác sĩ".
+  const tuanCongBo = new Set<string>();
+  /** Ngày này thuộc tuần đã công bố lịch trực chưa. */
+  const daCongBo = (iso: string | null | undefined) =>
+    tuanCongBo.has(weekStartOf(ngayVN(iso)) ?? "");
   if (rows.length) {
     // Bắn CÙNG LÚC với truy vấn cskh_action bên dưới: cả hai chỉ cần `ids`, và
     // xếp hàng chúng là cộng thêm một lượt ~180ms sang Seoul mà không đổi kết
@@ -478,6 +487,7 @@ type LichHenRaw = {
       if (r.staff_id && r.work_date) coCaTruc.add(`${r.staff_id}|${r.work_date}`);
     }
     doCaTruc = coCaTruc.size > 0;
+    for (const w of (await goiPromise)?.tuan_cong_bo ?? []) tuanCongBo.add(w);
     // SO GIỜ BẰNG MỐC THỜI GIAN, KHÔNG BẰNG CHUỖI.
     //
     // Chỗ này từng là `a.slot_start >= new Date().toISOString()`. Database chạy
@@ -598,6 +608,7 @@ type LichHenRaw = {
         // chục khách để nói một chuyện không xảy ra.
         mat_bac_si:
           doCaTruc &&
+          daCongBo(repr.slot_start) &&
           !!repr.doctor_id &&
           !daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status) &&
@@ -803,6 +814,9 @@ type LichHenRaw = {
     tai_len_luc: string;
     gui_luc: string | null;
     gui_kenh: string | null;
+    cho_phep_gui_luc: string | null;
+    cho_phep_gui_boi: string | null;
+    la_ket_qua_xet_nghiem?: boolean | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
   type HenGoiLaiRaw = {
@@ -835,6 +849,9 @@ type LichHenRaw = {
         gui_luc: r.gui_luc,
         gui_kenh: r.gui_kenh,
         gui_boi: null,
+        cho_phep_gui_luc: r.cho_phep_gui_luc ?? null,
+        cho_phep_gui_boi: r.cho_phep_gui_boi ?? null,
+        la_ket_qua_xet_nghiem: r.la_ket_qua_xet_nghiem ?? undefined,
       });
     }
     const { data: hgl } = await henGoiLaiPromise;
@@ -915,17 +932,45 @@ type LichHenRaw = {
     const visitRows = (await goiPromise)?.visits ?? [];
     const visitTheoLich: Record<
       string,
-      { batDau: string | null; ketThuc: string | null }
+      {
+        batDau: string | null;
+        ketThuc: string | null;
+        quayDong: string | null;
+        coThuThuat: boolean;
+        thuThuatXong: string | null;
+        doiTac: ViecDoiTac[];
+        viTri: string | null;
+        daDo: boolean;
+        theoDoi: string | null;
+        theoDoiSauNgay: number | null;
+      }
     > = {};
     for (const v of (visitRows ?? []) as {
       appointment_id: string | null;
       checked_in_at: string | null;
       closed_at: string | null;
       finalized_at: string | null;
+      theo_doi_thu_thuat?: string | null;
+      theo_doi_sau_ngay?: number | null;
+      co_thu_thuat?: boolean | null;
+      thu_thuat_xong_luc?: string | null;
+      doi_tac?: ViecDoiTac[] | null;
+      vi_tri_hien_tai?: string | null;
+      da_do_sinh_hieu?: boolean | null;
     }[]) {
       if (!v.appointment_id) continue;
       visitTheoLich[v.appointment_id] = {
         batDau: v.checked_in_at,
+        // Lễ tân đóng lượt ở quầy — ô "Checkout" ở màn CSKH chỉ đọc mốc này
+        // (Tuyền chốt 16/09/2026: checkout là việc của lễ tân).
+        quayDong: v.closed_at,
+        coThuThuat: Boolean(v.co_thu_thuat),
+        thuThuatXong: v.thu_thuat_xong_luc ?? null,
+        doiTac: v.doi_tac ?? [],
+        viTri: v.vi_tri_hien_tai ?? null,
+        daDo: Boolean(v.da_do_sinh_hieu),
+        theoDoi: v.theo_doi_thu_thuat ?? null,
+        theoDoiSauNgay: v.theo_doi_sau_ngay ?? null,
         // BA MỐC KẾT THÚC, ưu tiên theo độ chắc chắn: quầy đóng lượt >
         // bác sĩ ký bệnh án > CSKH bấm checkout (ghép ở dưới). Không có mốc
         // nào thì để null và nói ra là "chưa đóng" — đừng bịa giờ.
@@ -941,6 +986,8 @@ type LichHenRaw = {
     for (const ap of Object.values(apptByPatient)) {
       if (ap.id && ap.status === "CHECKED_IN") {
         ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+        ap.vi_tri_hien_tai = visitTheoLich[ap.id]?.viTri ?? null;
+        ap.da_do_sinh_hieu = visitTheoLich[ap.id]?.daDo ?? false;
       }
     }
 
@@ -951,6 +998,8 @@ type LichHenRaw = {
     for (const ap of Object.values(apptByPatient)) {
       if (ap.id && ap.status === "CHECKED_IN") {
         ap.checked_in_at = visitTheoLich[ap.id]?.batDau ?? null;
+        ap.vi_tri_hien_tai = visitTheoLich[ap.id]?.viTri ?? null;
+        ap.da_do_sinh_hieu = visitTheoLich[ap.id]?.daDo ?? false;
       }
     }
 
@@ -1000,6 +1049,7 @@ type LichHenRaw = {
             mat_bac_si:
               !!a.bac_si_da_go_id ||
               (doCaTruc &&
+              daCongBo(a.slot_start) &&
               !!a.doctor_id &&
               !daQua(a.slot_start, nowMs()) &&
               ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&
@@ -1021,6 +1071,12 @@ type LichHenRaw = {
             cancelled_at: a.cancelled_at ?? null,
             bat_dau: v?.batDau ?? null,
             ket_thuc: v?.ketThuc ?? checkout?.xay_ra_luc ?? null,
+            quay_dong_luc: v?.quayDong ?? null,
+            co_thu_thuat: v?.coThuThuat ?? false,
+            thu_thuat_xong_luc: v?.thuThuatXong ?? null,
+            doi_tac: v?.doiTac ?? [],
+            theo_doi_thu_thuat: v?.theoDoi ?? null,
+            theo_doi_sau_ngay: v?.theoDoiSauNgay ?? null,
             buoc: buoc.map((d) => ({
               luc: d.xay_ra_luc,
               huy_luc: d.huy_luc ?? null,

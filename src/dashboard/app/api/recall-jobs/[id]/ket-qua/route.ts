@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
 
 const VAI_DUOC_GHI = new Set(["CSKH", "MANAGEMENT", "TRUONG_CA"]);
@@ -22,7 +22,7 @@ export async function POST(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => VAI_DUOC_GHI.has(r));
   if (!role || !VAI_DUOC_GHI.has(role)) {
     return NextResponse.json(
       { error: "Chỉ CSKH / Trưởng ca / Quản lý mới ghi được kết quả cuộc gọi." },

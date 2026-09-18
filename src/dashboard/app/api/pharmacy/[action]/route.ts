@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 /** Thao tác cho phép → đường backend. */
@@ -35,8 +35,11 @@ export async function POST(
 
   // Backend chặn lần nữa (require_role PHARMACIST/MANAGEMENT). Chặn ở đây để
   // người không có quyền đọc được một câu tiếng Việt thay vì 403 trần.
-  const role = await getClinicRole();
-  if (role !== "PHARMACIST" && role !== "MANAGEMENT") {
+  // Lễ tân kiêm quầy thuốc ở Kim Ngưu (Tuyền 16/09/2026) — khớp `_GHI` ở máy chủ.
+  const role = await vaiLamViec(
+    (r) => r === "PHARMACIST" || r === "MANAGEMENT" || r === "RECEPTION",
+  );
+  if (role !== "PHARMACIST" && role !== "MANAGEMENT" && role !== "RECEPTION") {
     return NextResponse.json(
       { error: "Chỉ Dược sĩ / Quản lý mới được thao tác kho thuốc." },
       { status: 403 },

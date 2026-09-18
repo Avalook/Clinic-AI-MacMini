@@ -93,6 +93,68 @@ SELECT
 """
 
 
+_BUOC_WORK_ITEM_SQL = """
+SELECT w.node_code, w.status, w.started_at, w.finished_at,
+       coalesce(nd.name, w.node_code) AS ten_buoc,
+       s.full_name                    AS nguoi_lam,
+       w.assigned_role                AS vai
+  FROM public.work_item w
+  LEFT JOIN public.node_definition nd
+         ON nd.code = w.node_code AND nd.clinic_id = w.clinic_id
+  LEFT JOIN public.staff s ON s.id = w.assigned_to
+ WHERE w.visit_id = $2::uuid AND w.clinic_id = $1::uuid
+   AND w.status <> 'CANCELLED'
+ ORDER BY coalesce(w.finished_at, w.started_at, w.created_at)
+"""
+
+_BUOC_LUONG_MOI_SQL = """
+SELECT * FROM (
+    SELECT 'CHECKIN'::text AS node_code, 'COMPLETED'::text AS status,
+           v.checked_in_at AS started_at, v.checked_in_at AS finished_at,
+           'Tiếp nhận người bệnh (check-in)'::text AS ten_buoc,
+           s.full_name AS nguoi_lam, NULL::text AS vai, 1 AS thu_tu
+      FROM public.visit v
+      LEFT JOIN public.staff s ON s.id = v.checked_in_by
+     WHERE v.visit_id = $2::uuid AND v.clinic_id = $1::uuid
+    UNION ALL
+    SELECT 'SINH_HIEU', CASE WHEN m.created_at IS NULL THEN 'PENDING'
+                             ELSE 'COMPLETED' END,
+           m.created_at, m.created_at, 'Đo sinh hiệu', s.full_name, NULL, 2
+      FROM (SELECT 1) x
+      LEFT JOIN LATERAL (
+          SELECT vm.created_at, vm.recorded_by
+            FROM public.vital_measurement vm
+           WHERE vm.visit_id = $2::uuid AND vm.clinic_id = $1::uuid
+           ORDER BY vm.created_at DESC LIMIT 1) m ON TRUE
+      LEFT JOIN public.staff s ON s.id = m.recorded_by
+    UNION ALL
+    SELECT 'KHAM', CASE c.status WHEN 'completed' THEN 'COMPLETED'
+                                 WHEN 'in_progress' THEN 'IN_PROGRESS'
+                                 ELSE 'PENDING' END,
+           c.started_at, c.completed_at,
+           CASE c.kind WHEN 'PRIMARY' THEN 'Khám với bác sĩ'
+                       ELSE 'Đọc kết quả với bác sĩ' END,
+           d.full_name, NULL, 3
+      FROM public.consultation c
+      LEFT JOIN public.staff d ON d.id = c.doctor_staff_id
+     WHERE c.visit_id = $2::uuid AND c.clinic_id = $1::uuid
+       AND c.status <> 'cancelled'
+    UNION ALL
+    SELECT o.node_code, CASE o.exec_status WHEN 'performed' THEN 'COMPLETED'
+                                           WHEN 'not_performed' THEN 'COMPLETED'
+                                           WHEN 'in_progress' THEN 'IN_PROGRESS'
+                                           ELSE 'PENDING' END,
+           o.started_at, o.finished_at, coalesce(o.service_name, o.service_code),
+           pf.full_name, NULL, 4
+      FROM public.service_order o
+      LEFT JOIN public.staff pf ON pf.id = o.performed_by
+     WHERE o.visit_id = $2::uuid AND o.clinic_id = $1::uuid
+       AND o.exec_status NOT IN ('draft', 'cancelled')
+) b
+ORDER BY coalesce(b.finished_at, b.started_at), b.thu_tu
+"""
+
+
 class CheckoutService:
     """Đối soát và đóng lượt khám tại quầy."""
 
@@ -194,20 +256,18 @@ class CheckoutService:
             if chung is None:
                 return {"ok": False, "visit_id": visit_id}
 
+            # LUỒNG MỚI (lượt có phiên khám) đọc bước từ chính dữ liệu luồng mới:
+            # check-in → đo sinh hiệu → các phiên khám → từng chỉ định. Bản cũ
+            # chỉ đọc work_item, nên lượt đi luồng mới hiện "Thanh toán: Chưa
+            # làm", "Sinh hiệu: Đang làm" dù đã thu đủ (17/09/2026).
+            luong_moi = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.consultation"
+                " WHERE visit_id = $2::uuid AND clinic_id = $1::uuid)",
+                identity.clinic_id,
+                visit_id,
+            )
             buoc = await conn.fetch(
-                """
-                SELECT w.node_code, w.status, w.started_at, w.finished_at,
-                       coalesce(nd.name, w.node_code) AS ten_buoc,
-                       s.full_name                    AS nguoi_lam,
-                       w.assigned_role                AS vai
-                  FROM public.work_item w
-                  LEFT JOIN public.node_definition nd
-                         ON nd.code = w.node_code AND nd.clinic_id = w.clinic_id
-                  LEFT JOIN public.staff s ON s.id = w.assigned_to
-                 WHERE w.visit_id = $2::uuid AND w.clinic_id = $1::uuid
-                   AND w.status <> 'CANCELLED'
-                 ORDER BY coalesce(w.finished_at, w.started_at, w.created_at)
-                """,
+                _BUOC_LUONG_MOI_SQL if luong_moi else _BUOC_WORK_ITEM_SQL,
                 identity.clinic_id,
                 visit_id,
             )
@@ -506,14 +566,41 @@ class CheckoutService:
                 # thiếu nó, nên đóng một lượt khám dở CÒN VIỆC TREO sẽ đổ cả
                 # giao dịch — chưa lộ ra vì lượt duy nhất đóng theo đường ấy
                 # không còn bước nào đang treo.
-                await conn.execute(
+                #
+                # TRỪ VIỆC KẾT QUẢ (15/09/2026). [CHỐT-TUYỀN] "Đóng lượt không
+                # xóa nhiệm vụ trả kết quả muộn." Khách ra về không làm kết quả
+                # xét nghiệm biến mất: việc nhập kết quả (TKYK) và duyệt kết quả
+                # (bác sĩ) vẫn phải có người làm sau đó. Nhận diện bằng
+                # `node_definition.flow_group = 'ket_qua'` — nhóm mà danh mục
+                # node đã khai, không liệt kê mã cứng ở đây. Việc lấy mẫu chưa
+                # làm (flow `dich_vu`) vẫn huỷ: khách về thì mẫu không còn lấy.
+                # Các việc kết quả không tự sinh theo khung lượt khám
+                # (instantiate_visit_workflow chỉ đi chuỗi LUOTKHAM), nên việc
+                # giữ lại luôn là việc có thật, không phải đầu việc rỗng.
+                giu_ket_qua = await conn.fetchval(
                     """
-                    UPDATE public.work_item
-                       SET status = 'CANCELLED',
-                           finished_at = coalesce(finished_at, now()),
-                           updated_at = now()
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND status IN ('PENDING', 'IN_PROGRESS')
+                    WITH huy AS (
+                        UPDATE public.work_item w
+                           SET status = 'CANCELLED',
+                               finished_at = coalesce(w.finished_at, now()),
+                               updated_at = now()
+                         WHERE w.clinic_id = $1::uuid AND w.visit_id = $2::uuid
+                           AND w.status IN ('PENDING', 'IN_PROGRESS')
+                           AND NOT EXISTS (
+                               SELECT 1 FROM public.node_definition n
+                                WHERE n.clinic_id = w.clinic_id
+                                  AND n.code = w.node_code
+                                  AND n.flow_group = 'ket_qua'
+                           )
+                        RETURNING w.id
+                    )
+                    SELECT count(*)::int
+                      FROM public.work_item w
+                      JOIN public.node_definition n
+                        ON n.clinic_id = w.clinic_id AND n.code = w.node_code
+                     WHERE w.clinic_id = $1::uuid AND w.visit_id = $2::uuid
+                       AND w.status IN ('PENDING', 'IN_PROGRESS')
+                       AND n.flow_group = 'ket_qua'
                     """,
                     identity.clinic_id,
                     visit_id,
@@ -557,6 +644,8 @@ class CheckoutService:
                             "blockers": blockers,
                             "override": bool(blockers),
                             "incomplete": incomplete,
+                            # Việc kết quả còn mở được GIỮ lại khi đóng lượt.
+                            "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
                             "incomplete_reason": ly_do_do or None,
                         },
                         ensure_ascii=False,
@@ -584,6 +673,7 @@ class CheckoutService:
             "closed": closed is not None,
             "override": bool(blockers),
             "incomplete": incomplete,
+            "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
         }
 
 

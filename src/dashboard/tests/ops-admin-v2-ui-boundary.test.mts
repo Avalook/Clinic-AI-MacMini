@@ -8,16 +8,21 @@ const read = (path: string): string =>
 const sources = {
   lead: read("../app/(dashboard)/truong-ca/page.tsx"),
   schedule: read("../app/(dashboard)/schedule/page.tsx"),
-  official: read("../app/(dashboard)/schedule/OfficialRosterTable.tsx"),
+  // Bảng lịch chính thức giờ chỉ là một dòng gọi sang bảng trang chủ (16/09/2026,
+  // xem OfficialRosterTable.tsx). Khung cuộn ngang thật nằm ở ĐÓ — đọc tệp vỏ
+  // thì bài kiểm đỏ oan, còn nới bài kiểm thì mất luôn thứ nó canh.
+  official: read("../app/(dashboard)/home/WorkRosterTable.tsx"),
   register: read("../app/(dashboard)/schedule/RosterRegisterTable.tsx"),
   // WeekKanban.tsx và schedule/edit/* đều đã bị xoá (commit 410c989, 09/08/2026:
   // hai màn cùng ghi vào một bảng lịch trực). Đường ghi /api/roster mà `editor`
   // từng canh nay do `register` canh — cùng một API, một màn duy nhất.
-  sessions: read("../app/(dashboard)/work-sessions/page.tsx"),
   reports: read("../app/(dashboard)/reports/page.tsx"),
   print: read("../app/(dashboard)/reports/PrintReportButton.tsx"),
   ops: read("../app/(dashboard)/ops/OpsCenter.tsx"),
-  telemetry: read("../app/(dashboard)/ops/telemetry/page.tsx"),
+  // /ops/telemetry gộp thành tab "Sức khoẻ API" của /ops (18/09/2026);
+  // /work-sessions chuyển hướng về /schedule (bảng work_session 0 dòng).
+  opsPage: read("../app/(dashboard)/ops/page.tsx"),
+  telemetry: read("../app/(dashboard)/ops/SucKhoeApi.tsx"),
   settings: read("../app/(dashboard)/settings/page.tsx"),
   // Bảng tài khoản nhân viên đã tách khỏi trang Cài đặt (06/08/2026). Bài kiểm
   // đi theo BẢNG, không đi theo đường dẫn cũ — nếu chỉ sửa `settings` cho hết
@@ -32,7 +37,6 @@ test("all operational and admin routes use the ClinicAI V2 page shell", () => {
   for (const key of [
     "lead",
     "schedule",
-    "sessions",
     "reports",
     "ops",
     "telemetry",
@@ -73,7 +77,7 @@ test("operational views use project tokens instead of legacy and hard-coded pale
 });
 
 test("dense operational tables remain reachable on narrow content widths", () => {
-  for (const key of ["official", "register", "sessions", "reports", "telemetry", "taiKhoan"] as const) {
+  for (const key of ["official", "register", "reports", "telemetry", "taiKhoan"] as const) {
     assert.match(
       sources[key],
       /overflow-x-auto|overflow-auto/,
@@ -92,7 +96,7 @@ test("dense operational tables remain reachable on narrow content widths", () =>
 
 test("existing authorization and mutation boundaries stay in place", () => {
   assert.match(sources.lead, /requireNavAccess\("\/truong-ca"\)/);
-  assert.match(sources.sessions, /requireNavAccess\("\/work-sessions"\)/);
+  assert.match(sources.opsPage, /requireNavAccess\("\/ops"\)/);
   assert.match(sources.ops, /fetch\("\/api\/ops\/summary"/);
   assert.match(sources.register, /fetch\("\/api\/roster"/);
   assert.match(sources.account, /\/api\/admin\/users/);

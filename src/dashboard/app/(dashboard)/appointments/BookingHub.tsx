@@ -22,20 +22,13 @@ import {
   MapPin,
   Pencil,
 } from "lucide-react";
-import Link from "next/link";
 import {
-  fmtTime,
   giuaTruaVn,
   slotRange,
   VN_OFFSET,
   VN_TZ,
   vnLocalToUtcISO,
 } from "@/lib/datetime";
-import { isDeadStatus } from "@/lib/slot-capacity";
-import {
-  trongKhungNhanLich,
-  type KhungNhanLich,
-} from "@/lib/khung-nhan-lich";
 import { dayLabel } from "@/lib/roster";
 import { useDoiCa } from "../dung-doi-ca";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -43,12 +36,16 @@ import LichSapToiCuaKhach, {
   type LichCu,
   type TrangThaiTra,
 } from "./LichSapToiCuaKhach";
+import BangBacSiTuan from "./BangBacSiTuan";
+import { CHANNELS } from "../form-ui";
+import { canCheckin, type ClinicRole } from "../../../lib/roles";
+import { useGiuCho } from "./dung-giu-cho";
+import { type ThongTinKhung } from "./cho-trong";
 import NewPatientForm, {
   type Option,
   type ProvinceOpt,
 } from "../patients/new/NewPatientForm";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
-import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -74,11 +71,15 @@ export interface ApptLite {
 
 interface Props {
   locations: Option[];
+  /** Cơ sở của người đang đặt — mặc định cho form khách mới. */
+  coSoMacDinhId?: string | null;
   services: Option[];
   doctors: Option[];
   provinces: ProvinceOpt[];
   patients: PatientLite[];
   appts: ApptLite[];
+  /** Vai của người đang mở màn — quyết định kênh đặt nào hiện ra. */
+  vai?: ClinicRole | null;
   /** Khách này đã khám mấy lần, và có đang trong chuỗi tái khám không.
    *  Khoá = clinic_patient_id. Thiếu khoá = chưa khám lần nào. */
   lanKham?: Record<string, { soLanKham: number; laTaiKham: boolean }>;
@@ -100,6 +101,14 @@ function nhanLanKham(
 }
 
 const DAY_NAMES = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+/** Phút trong ngày giờ VN của một mốc ms. */
+function phutVn(ms: number): number {
+  const [h, m] = new Date(ms)
+    .toLocaleTimeString("en-GB", { timeZone: VN_TZ, hour: "2-digit", minute: "2-digit" })
+    .split(":");
+  return Number(h) * 60 + Number(m);
+}
 
 /** Ngày hôm nay theo giờ VN, dạng "YYYY-MM-DD".
  *
@@ -246,95 +255,9 @@ function LichThang({
   );
 }
 
-/** Các khung giờ của một ngày, theo GIỜ MỞ CỬA CỦA PHÒNG KHÁM.
- *
- *  Trước đây hàm này viết cứng `startHour = isWeekend ? 8 : 17; endHour = 22`
- *  — lịch của Dr4Women nung vào bundle. Hai vấn đề, và cái đầu đã xảy ra:
- *
- *   * lib/roster.ts nói phòng khám đóng cửa lúc 23:00, hàm này nói 22:00. Bác
- *     sĩ đăng ký được ca 22:00–23:00 mà CSKH không đặt lịch vào được — một
- *     tiếng mỗi tối biến mất giữa hai file, không ai báo lỗi;
- *   * phòng khám thứ hai không thể có giờ khác chừng nào nó còn là hằng số.
- *
- *  Giờ cả hai đọc `clinic.settings.hours` qua BookingPolicy. `stepMinutes`
- *  cũng từ đó — lưới 15 phút trong một phòng khám cấu hình 30 phút là mời lễ
- *  tân bấm vào ô mà trigger sẽ từ chối. */
-function generateSlotsForDate(
-  isoDate: string,
-  stepMinutes: number,
-  hours: Record<string, { open: string; close: string }>,
-  khungNhanLich?: KhungNhanLich,
-): string[] {
-  const dow = giuaTruaVn(isoDate).getUTCDay();
-  const today = hours[String(dow)];
-  if (!today) return []; // thứ không có trong cấu hình = đóng cửa
 
-  const toMin = (hhmm: string): number => {
-    const [h, m] = hhmm.split(":").map(Number);
-    return (h ?? 0) * 60 + (m ?? 0);
-  };
-  const open = toMin(today.open);
-  const close = toMin(today.close);
-  if (close <= open) return []; // open === close = nghỉ
 
-  const slots: string[] = [];
-  // Nửa mở: khung cuối BẮT ĐẦU trước giờ đóng cửa, không phải kết thúc đúng nó.
-  for (let m = open; m < close; m += stepMinutes) {
-    // GIỜ MỞ CỬA KHÔNG PHẢI GIỜ NHẬN LỊCH. Ba ca không phủ kín giờ mở cửa —
-    // trước ca sáng, nghỉ trưa, sau ca tối — và backend TỪ CHỐI đặt vào đó
-    // (21/08/2026). Bỏ hẳn ô thay vì để lễ tân bấm rồi mới bị mắng.
-    if (!trongKhungNhanLich(khungNhanLich, dow, m)) continue;
-    slots.push(
-      `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`,
-    );
-  }
-  return slots;
-}
 
-type SlotTone =
-  | "available"
-  | "few"
-  | "holding"
-  | "loading"
-  | "full"
-  | "selected";
-
-/** Trả lời của GET /api/appointments/quote — sức chứa hiệu lực từng khung. */
-interface QuoteResponse {
-  closed?: boolean;
-  /** Ngày đó đã xếp ca và bác sĩ này KHÔNG có tên trong lịch. */
-  off_duty?: boolean;
-  /** Ngày đó ĐÃ có lịch trực được duyệt hay chưa. `false` = phòng khám chưa
-   *  xếp ca cho ngày này, nên chưa biết ai khám — khác hẳn "đã xếp và bác sĩ
-   *  này nghỉ" (`off_duty`). */
-  roster_known?: boolean;
-  /** Ca trực của bác sĩ hôm đó, theo phút-trong-ngày `[[bắt đầu, kết thúc]]`.
-   *  Rỗng = không giới hạn (ngày chưa xếp ca, hoặc lưới không lọc bác sĩ). */
-  shift_windows?: [number, number][];
-  /** Ca trực KHÔNG phủ trọn giờ mở cửa — backend tính, vì chỉ nó biết giờ mở
-   *  cửa của ngày đó. */
-  partial_shift?: boolean;
-  slots?: {
-    time: string;
-    regular_cap: number;
-    walkin_cap: number;
-  }[];
-}
-
-interface CellStatus {
-  tone: SlotTone;
-  label: string;
-  sub: string;
-  bookedCount: number;
-  maxCap: number;
-}
-
-/** Một chỗ đang được người khác giữ — trả từ /api/appointments/slot-hold. */
-interface SlotHoldLite {
-  doctor_id: string | null;
-  slot_start: string;
-  held_by_name: string | null;
-}
 
 /** Một mốc trên thanh ba bước của việc đặt lịch. */
 function MocDatLich({
@@ -377,42 +300,35 @@ function MocDatLich({
 
 export default function BookingHub({
   locations,
+  coSoMacDinhId = null,
   services,
   doctors,
   provinces,
   patients,
   appts,
   lanKham,
+  vai = null,
 }: Props) {
   const router = useRouter();
   const policy = useBookingPolicy();
-  // SỐ CHỖ KHÔNG CÓ MẶC ĐỊNH. Trước đây là `(policy?.regularCap ?? 3) +
-  // (policy?.walkinCap ?? 0)` — số 3 không trùng với mặc định 2 ở bất kỳ chỗ nào
-  // khác trong hệ thống, nên khi backend im lặng thì lưới mời đặt vào chỗ thứ ba
-  // mà trigger sẽ từ chối. Thiếu luật ⇒ 0 ⇒ lưới khoá (xem gridLocked bên dưới).
-  const dynamicCap = policy ? policy.regularCap + policy.walkinCap : 0;
-
-  // LƯỚI VẪN PHẢI HIỆN KHI CHƯA ĐỌC ĐƯỢC LUẬT — CHỈ LÀ KHÔNG ĐẶT ĐƯỢC.
-  //
-  // Tôi từng để `slotMinutes ? generateSlots(...) : []`, và đó là một lỗi tệ hơn
-  // cái nó định sửa: backend không trả lời thì màn "Đặt lịch" hiện ra TRỐNG
-  // TRƠN. Một màn trắng không nói được nó đang hỏng hay đang tải hay hôm nay
-  // không có ca — người dùng chỉ thấy hệ thống biến mất.
-  //
-  // Hai điều cần đồng thời đúng:
-  //   * KHÔNG mời đặt vào một lưới vẽ theo con số bịa (booking-policy.ts);
-  //   * KHÔNG xoá màn hình của người đang làm việc.
-  //
-  // Nên khi thiếu luật, lưới vẫn vẽ ở bước 15 phút NHƯNG mọi ô bị khoá và nút
-  // đặt lịch tắt. Không có gì sai có thể được ghi xuống, mà bố cục vẫn còn đó để
-  // người dùng biết mình đang ở đâu. Đây là khung xương, không phải một luật —
-  // khác biệt nằm ở chỗ không bấm được.
-  const gridLocked = !policy;
   const PROVISIONAL_STEP_MIN = 15;
   const slotMinutes = policy?.slotMinutes ?? PROVISIONAL_STEP_MIN;
 
   const [mode, setMode] = useState<"grid" | "new_patient">("grid");
-  const [weekOffset, setWeekOffset] = useState(0);
+  // KHUNG ĐIỀN SẴN từ "Đặt lịch vào đây" ở trang chủ: ?ngay=&gio=&bac_si=
+  // (16/09/2026). Chỉ đọc lúc mở màn; ngày sai định dạng thì bỏ qua.
+  const sp = useSearchParams();
+  const [khungSan] = useState(() => {
+    const ngay = sp.get("ngay") ?? "";
+    const gio = sp.get("gio") ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngay) || !/^\d{2}:\d{2}$/.test(gio)) return null;
+    const bacSi = sp.get("bac_si");
+    const ten = bacSi ? (doctors.find((d) => d.id === bacSi)?.label ?? null) : null;
+    return { ngay, gio, bacSi: ten ? bacSi : null, ten: ten ?? "Chưa phân bác sĩ" };
+  });
+  const [weekOffset, setWeekOffset] = useState(() =>
+    khungSan ? tuanLechSoVoiHomNay(khungSan.ngay) : 0,
+  );
   const [moLichThang, setMoLichThang] = useState(false);
 
   // MỐC "BÂY GIỜ" NẰM TRONG STATE, không gọi Date.now() lúc render.
@@ -429,22 +345,10 @@ export default function BookingHub({
     const t = setInterval(() => setBayGio(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
-  const [selectedDateIso, setSelectedDateIso] = useState(vnToday);
+  const [selectedDateIso, setSelectedDateIso] = useState(() => khungSan?.ngay ?? vnToday());
 
   const weekDays = useMemo(() => weekOf(vnToday(), weekOffset), [weekOffset]);
 
-  const timeSlots = useMemo(
-    () =>
-      policy
-        ? generateSlotsForDate(
-            selectedDateIso,
-            slotMinutes,
-            policy.hours,
-            policy.khungNhanLich,
-          )
-        : [],
-    [selectedDateIso, slotMinutes, policy],
-  );
 
   // Clean Service Names
   const cleanServices = useMemo(
@@ -463,7 +367,6 @@ export default function BookingHub({
   // chọn — và panel bên phải cũng ghi tên nó, nên trông càng giống một lựa chọn
   // có chủ ý.
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // `?bn=<mã bệnh nhân>` — CSKH bấm "Đặt lịch mới" từ màn Quản lý khách hàng
@@ -473,7 +376,7 @@ export default function BookingHub({
   //
   // Chỉ đọc MỘT LẦN làm giá trị khởi tạo: sau đó người dùng đổi khách trong
   // màn này là quyền của họ, URL không được kéo ngược lựa chọn về.
-  const bnParam = useSearchParams().get("bn");
+  const bnParam = sp.get("bn");
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(
     () =>
       (bnParam
@@ -509,9 +412,11 @@ export default function BookingHub({
     doctorName: string;
     time: string;
   }>({
-    doctorId: doctors[0]?.id ?? "",
-    doctorName: doctors[0]?.label ?? "Bác sĩ",
-    time: "18:00",
+    // CHƯA CHỌN GÌ LÀ CHƯA CHỌN (16/09/2026). Bản cũ mặc định bác sĩ đầu danh
+    // sách + 18:00, nên cột phải hiện sẵn một khung người dùng chưa từng bấm.
+    doctorId: khungSan?.bacSi ?? "",
+    doctorName: khungSan?.ten ?? "",
+    time: khungSan?.gio ?? "",
   });
 
   /** ĐỔI NGÀY THÌ BỎ CHỌN KHUNG GIỜ.
@@ -534,6 +439,39 @@ export default function BookingHub({
   function chonNgay(iso: string) {
     setSelectedDateIso(iso);
     setSelectedSlot((prev) => ({ ...prev, time: "" }));
+    setOChon(null);
+    // Sức chứa đi theo KHUNG, không theo ngày: bỏ ô đang chọn mà giữ lại nó thì
+    // panel phải còn ghi "còn 2 chỗ" của một khung không ai chọn nữa.
+    setThongTinKhung(null);
+    setJustBooked(null);
+  }
+
+  /** Ô (bác sĩ × ngày) đang làm việc — do bảng tuần chọn (16/09/2026).
+   *  null = chưa chọn ô nào, nút đặt lịch tắt. `doctorId` null = "Chưa phân
+   *  bác sĩ" (lịch rơi vào hàng Chờ xếp bác sĩ). */
+  const [oChon, setOChon] = useState<{
+    doctorId: string | null;
+    doctorName: string;
+    date: string;
+  } | null>(() =>
+    khungSan ? { doctorId: khungSan.bacSi, doctorName: khungSan.ten, date: khungSan.ngay } : null,
+  );
+  /** Sức chứa của khung đang chọn — popup của bảng tuần gửi kèm lúc bấm khung
+   *  (16/09/2026). Trước đó do ô "3. Khung giờ khả dụng" báo lên, ô ấy đã bỏ. */
+  const [thongTinKhung, setThongTinKhung] = useState<ThongTinKhung | null>(null);
+
+  function chonKhungTuBang(v: {
+    doctorId: string | null;
+    doctorName: string;
+    date: string;
+    time: string;
+    thongTin: ThongTinKhung;
+  }) {
+    if (v.date !== selectedDateIso) setSelectedDateIso(v.date);
+    setOChon({ doctorId: v.doctorId, doctorName: v.doctorName, date: v.date });
+    setSelectedSlot({ doctorId: v.doctorId ?? "", doctorName: v.doctorName, time: v.time });
+    // Sức chứa đi kèm cú bấm: popup vừa đọc quote của đúng ngày/bác sĩ ấy.
+    setThongTinKhung(v.thongTin);
     setJustBooked(null);
   }
 
@@ -558,6 +496,9 @@ export default function BookingHub({
   }
 
   const [note, setNote] = useState("");
+  /** Kênh khách liên hệ đặt lịch (Tuyền chốt danh sách 16/09/2026). Trước đây
+   *  mọi lịch CSKH đặt đều gán cứng "HOTLINE". */
+  const [kenhDat, setKenhDat] = useState("DIEN_THOAI");
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
   // ĐẶT XONG THÌ PHẢI THẤY NGAY TẠI CHỖ VỪA BẤM.
   //
@@ -635,104 +576,11 @@ export default function BookingHub({
   // đặt; xoá khi server đã trả lời (dù thành công hay lỗi).
   const idemKeyRef = useRef<string | null>(null);
 
-  // Ba cột bác sĩ ở chế độ "Tất cả" — ĐÚNG THIẾT KẾ, không phải giới hạn nhầm.
-  //
-  // Tôi đã có lần đổi chỗ này thành `doctors` (bỏ slice) vì tưởng nó khiến các
-  // bác sĩ còn lại không đặt lịch được. Sai: ô lọc bác sĩ ngay phía trên liệt kê
-  // ĐỦ danh sách (`doctors.map` ở phần render), chọn ai thì lưới đổi sang đúng
-  // người đó. `slice` chỉ quyết định xem lưới tổng quan hiện mấy cột.
-  //
-  // Và ba là con số của bố cục: lưới ba cột nằm vừa khung giữa mà không cuộn
-  // ngang. Đổ mười lăm cột vào đó làm hỏng màn hình để giải quyết một vấn đề
-  // không tồn tại.
-  // SỐ CHỖ THẬT CỦA TỪNG Ô, đọc từ chính hàm mà trigger dùng để chặn.
-  //
-  // Trước đây mọi ô dùng chung `dynamicCap` = số chỗ mặc định của phòng khám,
-  // nên luật riêng của một bác sĩ KHÔNG hiện ra: Trưởng ca đặt BS Thành 18:00
-  // được 10 ca, lưới vẫn vẽ 3/3 rồi khoá ô ở ca thứ tư — cấu hình lưu thành
-  // công mà màn hình không đổi, đúng loại "chỉnh xong chẳng thấy gì" tệ nhất.
-  //
-  // /appointments/quote gọi resolve_effective_cap cho TỪNG khung của ngày, nên
-  // ô dãn hay co theo đúng luật ba tầng. Một request cho mỗi bác sĩ đang hiện
-  // (tối đa ba cột), huỷ khi đổi ngày.
-  const [capByCell, setCapByCell] = useState<
-    Record<string, { regular: number; walkin: number }>
-  >({});
-  // Bác sĩ nào KHÔNG có lịch làm việc ngày đang chọn. Khoá theo `bác sĩ|ngày`
-  // để đổi ngày không kéo theo câu trả lời của ngày cũ.
-  const [offDuty, setOffDuty] = useState<Record<string, boolean>>({});
-  // Ca trực, để nói "chỉ trực 08:00–12:00" thay vì lặng lẽ bớt nửa lưới. Một
-  // nửa lưới biến mất không lời giải thích trông y hệt lỗi tải dữ liệu.
-  const [shiftLabel, setShiftLabel] = useState<Record<string, string>>({});
-  // ĐÃ ĐỌC XONG SỨC CHỨA CỦA (bác sĩ, ngày) NÀY CHƯA.
-  //
-  // Cần vì "chưa tải" và "ngoài ca trực" đều biểu hiện là KHÔNG CÓ dữ liệu cho
-  // ô đó, mà hai thứ ấy phải hiện hai câu khác nhau: một bên là "đợi chút",
-  // một bên là "bác sĩ không có mặt giờ này". Thiếu cờ này thì mọi khung ngoài
-  // ca trực lại rơi về số mặc định và tiếp tục mời đặt — đúng cái vừa sửa.
-  const [capLoaded, setCapLoaded] = useState<Record<string, boolean>>({});
 
-  // CHỈ HIỆN BÁC SĨ CÓ CA NGÀY ĐANG XEM, và hiện HẾT.
-  //
-  // Bản cũ cắt còn ba cột đầu danh sách bất kể ai trực: bác sĩ thứ tư có ca hôm
-  // nay thì không có cột nào để đặt, còn ba người đầu nghỉ vẫn chiếm chỗ kèm
-  // dòng "Không có lịch làm việc ngày này" — ba cột chết giữa màn hình.
-  //
-  // `offDuty` chỉ bật khi ngày đó ĐÃ xếp ca và người này không có tên. Chưa đọc
-  // xong thì giữ lại cột: giấu một bác sĩ vì chưa tải xong là giấu một chỗ còn
-  // trống. Lưới cuộn ngang nên bao nhiêu người cũng vừa.
-  const activeDoctors = useMemo(() => {
-    if (selectedDoctorId !== "all") {
-      const doc = doctors.find((d) => d.id === selectedDoctorId);
-      return doc ? [doc] : [];
-    }
-    return doctors.filter(
-      (d) => offDuty[`${d.id}|${selectedDateIso}`] !== true,
-    );
-  }, [doctors, selectedDoctorId, offDuty, selectedDateIso]);
 
-  // NGÀY NÀY ĐÃ XẾP CA CHƯA — khoá theo ngày, không theo bác sĩ (lịch trực là
-  // của cả phòng khám). `undefined` = chưa đọc xong.
-  const [daXepCa, setDaXepCa] = useState<Record<string, boolean>>({});
 
-  // CHƯA XẾP CA NGÀY NÀY ⇒ KHÔNG ĐƯA TÊN BÁC SĨ RA.
-  //
-  // Quang chốt 09/08/2026: *"nếu chưa có bác sĩ phân ca hôm đó thì chỉ cần hiện
-  // là chọn khung giờ mong muốn — form vẫn thế nhưng không cho tên các bác sĩ
-  // vào nữa. Lịch này sẽ báo về cho quản lý hệ thống, họ sẽ tự xếp bác sĩ."*
-  //
-  // Trước đây lưới vẫn dựng ba cột mang tên ba bác sĩ cho một ngày chưa ai
-  // được xếp ca. CSKH chọn "BS Thành 09:00", nói với khách "chị được xếp BS
-  // Thành", rồi tuần sau quản lý xếp ca và người khám là ai đó khác. Cái tên
-  // ấy là một lời hứa mà hệ thống không có cơ sở để giữ.
-  //
-  // Lịch đặt trong trạng thái này đi ra với `doctor_id = null` và rơi vào màn
-  // "Chờ xếp bác sĩ" (/appointments/cho-xep-bac-si) — đúng chỗ quản lý xếp.
-  const chuaXepCa = daXepCa[selectedDateIso] === false;
 
-  /** Các CỘT của lưới giờ. Ngày chưa xếp ca thì đúng MỘT cột, không tên ai. */
-  const cotLuoi = useMemo(
-    () =>
-      chuaXepCa
-        ? [{ id: "", label: "Khung giờ mong muốn" }]
-        : activeDoctors.map((d) => ({ id: d.id, label: d.label })),
-    [chuaXepCa, activeDoctors],
-  );
 
-  // Handle doctor filter selection
-  function handleDoctorFilterChange(docId: string) {
-    setSelectedDoctorId(docId);
-    if (docId !== "all") {
-      const doc = doctors.find((d) => d.id === docId);
-      if (doc) {
-        setSelectedSlot((prev) => ({
-          ...prev,
-          doctorId: doc.id,
-          doctorName: doc.label,
-        }));
-      }
-    }
-  }
 
   // Filtered patients for search list
   const filteredPatients = useMemo(() => {
@@ -747,28 +595,7 @@ export default function BookingHub({
     );
   }, [patients, searchQuery]);
 
-  // Lịch của NGÀY ĐANG CHỌN.
-  //
-  // `appts` từ server chỉ chứa lịch HÔM NAY (page.tsx dùng vnTodayRangeUtc).
-  // Chừng nào dải ngày còn là bảy hằng số của tháng Năm thì điều đó không lộ ra;
-  // khi lưới đi được sang ngày khác, mọi ngày không phải hôm nay sẽ hiện trống
-  // trơn — tệ hơn hẳn con số sai, vì nó trông như một ngày thật sự còn chỗ.
-  //
-  // GET /api/appointments?date= đã có sẵn (và giờ đã có gate vai + trần 500
-  // dòng). Ngày hôm nay dùng luôn dữ liệu server để không tốn một vòng mạng cho
-  // thứ vừa render xong.
-  // DẪN XUẤT, KHÔNG SAO CHÉP VÀO STATE. Bản đầu giữ một `apptsForDate` rồi
-  // đồng bộ nó trong effect bằng setState cho nhánh "hôm nay" — đúng thứ
-  // react-hooks/set-state-in-effect chặn, và có lý do: nó render hai lần cho một
-  // dữ liệu vốn đã có sẵn trong props.
-  /** Phút-trong-ngày → "HH:MM", cho nhãn ca trực. */
-  const minLabel = (m: number) =>
-    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-  const [todayIso] = useState(vnToday);
-  const [fetchedByDate, setFetchedByDate] = useState<
-    Record<string, ApptLite[]>
-  >({});
   // SỐ KHÔNG TĂNG SAU KHI ĐẶT — đây là chỗ gây ra nó.
   //
   // `router.refresh()` chỉ nạp lại prop từ server, mà prop đó CHỈ CHỨA LỊCH
@@ -785,103 +612,9 @@ export default function BookingHub({
   // Ca trực đổi (quản lý thêm/xoá/đổi ca) → hỏi lại sức chứa + nhãn ca.
   // Xem dung-doi-ca.ts — cùng vai bookingSeq, khác nguồn.
   const doiCa = useDoiCa();
-  useEffect(() => {
-    // Xoá ca là lịch hẹn của ca ấy bị HUỶ theo (remove() 15/08) — cache lịch
-    // của-ngày-khác đang giữ những dòng vừa chết. Xả để lượt xem sau tự nạp.
-    // Hoãn qua setTimeout(0): luật nhà cấm setState đồng bộ trong effect
-    // (react-hooks/set-state-in-effect) — cùng mẫu với tick của WaitClock.
-    if (doiCa === 0) return;
-    const t = setTimeout(() => setFetchedByDate({}), 0);
-    return () => clearTimeout(t);
-  }, [doiCa]);
 
-  const isToday = selectedDateIso === todayIso;
-  const apptsForDate = isToday ? appts : fetchedByDate[selectedDateIso];
-  // undefined = CHƯA BIẾT, khác hẳn [] = "ngày này trống". Phân biệt hai thứ đó
-  // là điều quan trọng nhất ở đây: coi "chưa tải xong" là "còn chỗ" thì lưới
-  // mời đặt vào một khung có thể đã kín.
-  const dateLoading = !isToday && apptsForDate === undefined;
 
-  useEffect(() => {
-    if (isToday || fetchedByDate[selectedDateIso] !== undefined) return;
-    const ctrl = new AbortController();
-    fetch(`/api/appointments?date=${selectedDateIso}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
-      .then((d: { appointments?: ApptLite[] }) =>
-        setFetchedByDate((prev) => ({
-          ...prev,
-          [selectedDateIso]: d.appointments ?? [],
-        })),
-      )
-      .catch(() => {
-        // Để nguyên `undefined` → lưới tiếp tục nói "đang tải" thay vì tự tin
-        // báo còn chỗ. Chỉ báo realtime ở đầu màn nói kênh có hỏng hay không.
-      });
-    return () => ctrl.abort();
-  }, [selectedDateIso, isToday, fetchedByDate]);
 
-  const activeDoctorIds = activeDoctors.map((d) => d.id).join(",");
-
-  useEffect(() => {
-    if (!policy || !activeDoctorIds) return;
-    const ctrl = new AbortController();
-    // Chuỗi rỗng = HỎI SỨC CHỨA CHUNG, không lọc bác sĩ. Cần cho cột "khung giờ
-    // mong muốn" của ngày chưa xếp ca — ô ở đó không thuộc bác sĩ nào, nên số
-    // chỗ của nó cũng phải là số chung chứ không phải của một người cụ thể.
-    const ids = [...activeDoctorIds.split(","), ""];
-    Promise.all(
-      ids.map((docId) =>
-        fetch(
-          `/api/appointments/quote?date=${selectedDateIso}` +
-            (docId ? `&doctor_id=${docId}` : ""),
-          { signal: ctrl.signal },
-        )
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d: QuoteResponse | null) => [docId, d] as const)
-          .catch(() => [docId, null] as const),
-      ),
-    ).then((pairs) => {
-      if (ctrl.signal.aborted) return;
-      const next: Record<string, { regular: number; walkin: number }> = {};
-      const off: Record<string, boolean> = {};
-      const shifts: Record<string, string> = {};
-      const loaded: Record<string, boolean> = {};
-      // Lịch trực là của cả ngày, nên bất kỳ câu trả lời nào cũng nói được —
-      // lấy câu ĐẦU TIÊN đọc được, và bỏ qua nếu cả loạt đều hỏng.
-      const daXep = pairs.find(([, d]) => d?.roster_known !== undefined)?.[1]
-        ?.roster_known;
-      for (const [docId, d] of pairs) {
-        // `d === null` = request hỏng ⇒ KHÔNG đánh dấu đã tải, để lưới nói
-        // "đang tải" thay vì kết luận cả ngày ngoài ca trực.
-        loaded[`${docId}|${selectedDateIso}`] = d !== null;
-        off[`${docId}|${selectedDateIso}`] = d?.off_duty === true;
-        // Chỉ nói khi ca KHÔNG phủ trọn giờ mở cửa — trực cả ngày là chuyện
-        // thường, dán nhãn cho mọi cột chỉ làm loãng cái nhãn cần đọc.
-        const w = d?.shift_windows ?? [];
-        shifts[`${docId}|${selectedDateIso}`] = d?.partial_shift
-          ? w.map(([a, b]) => `${minLabel(a)}–${minLabel(b)}`).join(", ")
-          : "";
-        for (const s of d?.slots ?? []) {
-          next[`${docId}|${selectedDateIso}|${s.time}`] = {
-            regular: s.regular_cap,
-            walkin: s.walkin_cap,
-          };
-        }
-      }
-      // Gộp thay vì thay: đổi bộ lọc bác sĩ không nên xoá số chỗ của các cột
-      // vừa đọc xong, nếu không lưới nhấp nháy về "chưa biết" mỗi lần lọc.
-      setCapByCell((prev) => ({ ...prev, ...next }));
-      setOffDuty((prev) => ({ ...prev, ...off }));
-      setShiftLabel((prev) => ({ ...prev, ...shifts }));
-      setCapLoaded((prev) => ({ ...prev, ...loaded }));
-      if (daXep !== undefined) {
-        setDaXepCa((prev) => ({ ...prev, [selectedDateIso]: daXep }));
-      }
-    });
-    return () => ctrl.abort();
-    // `bookingSeq` đổi sau mỗi lần đặt thành công: số chỗ ĐÃ DÙNG nằm trong
-    // chính câu trả lời này, nên không đọc lại thì ô vừa đặt vẫn vẽ là trống.
-  }, [selectedDateIso, activeDoctorIds, policy, bookingSeq, doiCa]);
 
   // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
   //
@@ -898,113 +631,12 @@ export default function BookingHub({
   //
   // Trạng thái chết (CANCELLED/NO_SHOW/DOCTOR_DECLINED) không giữ chỗ — cùng
   // danh sách với lib/slot-capacity.ts và DEAD_STATUSES ở booking_service.py.
-  // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ", giống usageByCell.
+  // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ".
   //
-  // Trước đây ô bị dán nhãn "Đang giữ" khi có LỊCH HẸN ở trạng thái
-  // WAITING/CSKH_CONFIRMED — tức là gọi một ghế ĐÃ BÁN là "đang giữ". Hai thứ
-  // đó khác nhau, và gộp lại thì CSKH thứ hai không biết khung nào còn chỗ
-  // thật. Giờ nó đọc từ slot_hold: có người đang mở form ở khung này.
-  const [heldByOthers, setHeldByOthers] = useState<Map<string, string>>(
-    new Map(),
-  );
-
-  useEffect(() => {
-    let alive = true;
-    const load = () =>
-      fetch(`/api/appointments/slot-hold?date=${selectedDateIso}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { items?: SlotHoldLite[] } | null) => {
-          if (!alive || !d?.items) return;
-          const m = new Map<string, string>();
-          for (const h of d.items) {
-            const dt = new Date(h.slot_start);
-            if (Number.isNaN(dt.getTime())) continue;
-            const isoDate = dt.toLocaleDateString("en-CA", { timeZone: VN_TZ });
-            m.set(
-              `${h.doctor_id ?? ""}|${isoDate}|${fmtTime(dt)}`,
-              h.held_by_name ?? "người khác",
-            );
-          }
-          setHeldByOthers(m);
-        })
-        .catch(() => {
-          // Đọc không được thì giữ bản đồ cũ. Xoá sạch nghĩa là mọi ô đột ngột
-          // hiện "còn trống" — đúng câu khẳng định gây đặt trùng.
-        });
-    const t = setTimeout(load, 0);
-    // NHỊP 5 GIÂY — trước 14/08/2026 là 15s.
-    //
-    // Đo trên staging: máy chủ thấy một chỗ giữ mới sau 27–40ms, nên gần như
-    // TOÀN BỘ độ trễ người bên cạnh cảm nhận chính là nhịp này. 15s nghĩa là
-    // trung bình 8 giây, chậm nhất 16 — trong khi hai CSKH tranh một khung
-    // thường quyết trong vòng vài giây, tức là cảnh báo tới sau khi việc đã rồi.
-    //
-    // Giá phải trả đã ĐO, không ước lượng: một nhịp tốn 4,8ms cả chuỗi (GoTrue
-    // xác minh token 2,1ms + FastAPI đọc bảng 2,7ms — xem scripts/tests/
-    // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
-    // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
-    //
-    // TAB ẨN THÌ BỎ NHỊP (21/08/2026). Bản đồ chỗ giữ chỉ có nghĩa khi có người
-    // nhìn lưới. Một tab ẩn hỏi lại mỗi 5 giây là mỗi 5 giây chiếm một trong
-    // sáu kết nối HTTP/1.1 mà trình duyệt cho phép tới origin này — đúng thứ
-    // đang khan hiếm (xem `lib/nhip-lam-moi`). Quay lại thì đã có tay nghe
-    // `visibilitychange` ngay dưới đây hỏi lại tức thì, nên không mù chỗ nào.
-    const iv = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void load();
-    }, 5000);
-
-    // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
-    //
-    // Trình duyệt bóp nhịp của tab bị ẩn, nên quay lại sau mười phút thì bản đồ
-    // chỗ giữ đang cũ và phải chờ hết một nhịp mới đúng. Ở nhịp 15s chuyện đó
-    // đã khó chịu; nhưng lý do thật để thêm bây giờ là: hạ nhịp chỉ có nghĩa
-    // nếu lúc người ta THỰC SỰ NHÌN màn hình thì dữ liệu là mới.
-    const khiHien = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    document.addEventListener("visibilitychange", khiHien);
-
-    // TIN ĐẨY: AI ĐÓ VỪA GIỮ HOẶC THẢ MỘT CHỖ.
-    //
-    // Tuyền 14/08/2026: *"mỗi vị trí lịch nào mà người này click thì cũng sẽ
-    // hiện realtime trên màn hình của người kia, cả 8 CSKH cùng làm cũng thế"*.
-    //
-    // Nhịp 5 giây cho ra ~2,5 giây trung bình. Với tin đẩy thì còn đúng một
-    // vòng mạng: `slot_hold` có trigger `pg_notify` từ 14/08 (migration
-    // 20260814000001), FastAPI nghe rồi đẩy SSE về đây.
-    //
-    // MÀN NÀY KHÔNG DỰNG LẠI CẢ TRANG, chỉ hỏi lại một endpoint nhẹ (4,8ms cả
-    // chuỗi). `RealtimeRefresher` gọi `router.refresh()` cho mọi tin — dựng lại
-    // toàn bộ cây server component; tám CSKH bấm lướt qua các khung giờ sẽ
-    // thành một trận mưa render trên mọi tab đang mở, cho một thay đổi mà chỉ
-    // màn này quan tâm.
-    //
-    // NHƯNG KHÔNG CÒN TỰ MỞ DÒNG RIÊNG (21/08/2026). Trước đây chỗ này mở
-    // EventSource thứ hai, nên một tab ở màn Đặt lịch nuốt HAI trong sáu kết
-    // nối HTTP/1.1 của trình duyệt thay vì một — phòng khám chạm trần chỉ sau
-    // ba tab, và trần đó là lúc trang không tải nổi nữa (đo 21/08, xem
-    // `lib/nhip-lam-moi`). Nay nghe ké dòng chung do một tab giữ; điều muốn giữ
-    // — tự quyết làm gì với tin, không bị ép dựng lại trang — vẫn nguyên.
-    //
-    // GIỮ NHỊP 5 GIÂY LÀM LƯỚI AN TOÀN. Dòng SSE có thể rớt, và ở đúng màn này
-    // thì im lặng là thứ tệ nhất: người trực tin rằng khung còn trống.
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      // `null` = tin méo hoặc không rõ bảng nào. Cứ hỏi lại — một lượt gọi
-      // 4,8ms rẻ hơn nhiều so với việc bỏ sót một chỗ vừa bị giữ.
-      if (bang === "slot_hold" || bang === null) void load();
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-
-    return () => {
-      alive = false;
-      clearTimeout(t);
-      clearInterval(iv);
-      document.removeEventListener("visibilitychange", khiHien);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [selectedDateIso]);
+  // Khối nhịp/SSE đã chuyển sang `dung-giu-cho.ts` (16/09/2026) để popup khung
+  // giờ của bảng tuần dùng chung: nó mở được một NGÀY KHÁC ngày đang xem, nên
+  // trước đó nó mù hẳn chuyện ai đang giữ chỗ.
+  const heldByOthers = useGiuCho(selectedDateIso);
 
   // RỜI MÀN THÌ THẢ CHỖ ĐANG GIỮ.
   //
@@ -1072,230 +704,16 @@ export default function BookingHub({
     activePatient?.clinic_patient_id,
   ]);
 
-  const usageByCell = useMemo(() => {
-    const m = new Map<string, ApptLite[]>();
-    for (const a of apptsForDate ?? []) {
-      if (!a.slot_start || isDeadStatus(a.status)) continue;
-      const d = new Date(a.slot_start);
-      if (Number.isNaN(d.getTime())) continue;
-      const isoDate = d.toLocaleDateString("en-CA", { timeZone: VN_TZ });
-      const hhmm = fmtTime(d);
-      const key = `${a.doctor_id ?? ""}|${isoDate}|${hhmm}`;
-      const arr = m.get(key);
-      if (arr) arr.push(a);
-      else m.set(key, [a]);
-    }
-    return m;
-  }, [apptsForDate]);
 
-  /** Khung `time` của ngày đang xem đã kết thúc chưa.
-   *
-   * So bằng GIỜ KẾT THÚC, không phải giờ bắt đầu: khung 18:00–18:15 lúc 18:05
-   * thì chưa qua, và khách vãng lai bước vào giữa khung phải xếp được vào chính
-   * khung đang chạy. Cùng luật với backend.
-   */
-  function khungDaQua(time: string): boolean {
-    // KHÔNG CÓ GIỜ THÌ KHÔNG CÓ MỐC ĐỂ SO — và gọi tiếp là làm vỡ cả màn hình.
-    //
-    // `vnLocalToUtcISO(ngày, "")` dựng chuỗi "2026-08-29T:00+07:00" → Invalid
-    // Date → `.toISOString()` NÉM RangeError. Hàm này chạy TRONG LÚC RENDER
-    // (qua selectedCellStatus), nên lỗi ném ra làm React bỏ cả cây và error
-    // boundary hiện "Màn hình gặp trục trặc".
-    //
-    // `selectedSlot.time` rỗng ở hai lúc rất thường: vừa đổi ngày (chonNgay bỏ
-    // chọn khung giờ để không đặt nhầm sang ngày mới) và vừa đặt lịch xong
-    // (cũng bỏ chọn để không bấm ra lịch thứ hai). Đây không phải trường hợp
-    // hiếm — nó là đường đi bình thường của mọi lần đặt lịch.
-    if (!time) return false;
-    const ketThuc = new Date(vnLocalToUtcISO(selectedDateIso, time));
-    ketThuc.setMinutes(ketThuc.getMinutes() + slotMinutes);
-    return ketThuc.getTime() <= bayGio;
-  }
 
-  function getCellStatus(docId: string, time: string): CellStatus {
-    // Chưa chọn khung giờ nào — trả về một trạng thái trung tính thay vì đi
-    // tiếp và dựng mốc thời gian từ một chuỗi rỗng.
-    if (!time) {
-      return {
-        tone: "available",
-        label: "Chưa chọn khung giờ",
-        sub: "—",
-        bookedCount: 0,
-        maxCap: 0,
-      };
-    }
-    // KHUNG ĐÃ TRÔI QUA — luật cao hơn cả lịch làm việc, vì không ai đặt được
-    // vào một thời điểm đã đi qua dù bác sĩ có rảnh hay không.
-    //
-    // Backend là chốt thật (booking_service._chan_dat_vao_qua_khu). Ở đây chỉ
-    // để CSKH không bấm vào một ô rồi mới bị từ chối: trước khi có cả hai lớp,
-    // lúc 16:40 vẫn đặt được lịch cho 16:20 và server trả 201.
-    if (khungDaQua(time)) {
-      return {
-        tone: "full",
-        label: "Đã qua giờ",
-        sub: "—",
-        bookedCount: 0,
-        maxCap: 0,
-      };
-    }
-    // LỊCH LÀM VIỆC LÀ LUẬT CAO NHẤT — trước cả sức chứa.
-    //
-    // Một luật "18:00–18:15 tám chỗ" không có nghĩa gì vào ngày bác sĩ không đi
-    // làm. Backend đã trả lời câu đó (quote.off_duty, chỉ bật khi ngày ấy ĐÃ
-    // xếp ca), nên ở đây chỉ việc nói ra thay vì mời đặt.
-    if (offDuty[`${docId}|${selectedDateIso}`]) {
-      return {
-        tone: "full",
-        label: "Không có lịch",
-        sub: "—",
-        bookedCount: 0,
-        maxCap: 0,
-      };
-    }
-    // Luật riêng của ô này nếu đã đọc được; chưa đọc xong thì tạm dùng mặc định
-    // phòng khám — cùng con số mà backend sẽ trả về nếu ô không có luật riêng,
-    // nên nó không phải một phỏng đoán mới.
-    const cell = capByCell[`${docId}|${selectedDateIso}|${time}`];
-    // Đã đọc xong mà khung này KHÔNG có trong câu trả lời ⇒ nó nằm ngoài ca
-    // trực của bác sĩ (hoặc ngoài giờ mở cửa). Không phải "còn chỗ".
-    if (!cell && capLoaded[`${docId}|${selectedDateIso}`]) {
-      return {
-        tone: "full",
-        label: "Ngoài ca trực",
-        sub: "—",
-        bookedCount: 0,
-        maxCap: 0,
-      };
-    }
-    const maxCap = Math.max(
-      1,
-      cell ? cell.regular + cell.walkin : dynamicCap,
-    );
-    // Chưa có luật ⇒ chưa biết khung này mấy chỗ. Trả về "full" để mọi ô render
-    // ở nhánh disabled sẵn có, thay vì thêm một tone mới chỉ dùng cho lúc hỏng.
-    if (gridLocked) {
-      return {
-        tone: "full",
-        label: "Chưa có luật",
-        sub: "—",
-        bookedCount: 0,
-        maxCap,
-      };
-    }
-    // Chưa biết ngày này có gì thì nói là chưa biết. Vẽ "Có thể đặt" trong lúc
-    // còn đang tải là câu khẳng định duy nhất ở màn này có thể gây đặt trùng.
-    if (dateLoading) {
-      // TONE RIÊNG, KHÔNG MƯỢN "holding".
-      //
-      // Xanh dương ở lưới này có đúng MỘT nghĩa: "một CSKH khác đang chọn ô
-      // đó". Cho ô "đang tải" mượn cùng màu là dạy người dùng rằng màu ấy đôi
-      // khi chẳng nghĩa gì — và lúc nó thật sự nghĩa gì thì không ai tin nữa.
-      return {
-        tone: "loading",
-        label: "Đang tải…",
-        sub: "—",
-        bookedCount: 0,
-        maxCap,
-      };
-    }
-    const matchingAppts =
-      usageByCell.get(`${docId}|${selectedDateIso}|${time}`) ?? [];
-    const bookedCount = matchingAppts.length;
-    const isSelected =
-      selectedSlot.doctorId === docId && selectedSlot.time === time;
 
-    // Ô đang chọn vẫn phải nói SỰ THẬT về sức chứa. Bản cũ trả cứng
-    // bookedCount: 1 cho ô được chọn, nên bấm vào một khung đã đầy thì nhãn đổi
-    // thành "Còn N chỗ" — giao diện tự trấn an người dùng ngay trước khi server
-    // từ chối.
-    if (isSelected) {
-      return {
-        tone: "selected",
-        label:
-          bookedCount >= maxCap
-            ? "Đã đầy — chọn khung khác"
-            : `Còn ${maxCap - bookedCount} chỗ`,
-        sub: `${bookedCount}/${maxCap}`,
-        bookedCount,
-        maxCap,
-      };
-    }
-
-    const holder = heldByOthers.get(`${docId}|${selectedDateIso}|${time}`);
-    const isHolding = Boolean(holder);
-
-    if (bookedCount >= maxCap) {
-      return {
-        tone: "full",
-        label: "Đã đầy",
-        sub: `${bookedCount}/${maxCap}`,
-        bookedCount,
-        maxCap,
-      };
-    }
-    if (isHolding) {
-      return {
-        tone: "holding",
-        label: `${holder} đang chọn`,
-        sub: `${bookedCount}/${maxCap}`,
-        bookedCount,
-        maxCap,
-      };
-    }
-    if (bookedCount > 0) {
-      return {
-        tone: "few",
-        label: `Còn ${maxCap - bookedCount} chỗ`,
-        sub: `${bookedCount}/${maxCap}`,
-        bookedCount,
-        maxCap,
-      };
-    }
-    return {
-      tone: "available",
-      label: "Có thể đặt",
-      sub: `0/${maxCap}`,
-      bookedCount: 0,
-      maxCap,
-    };
-  }
-
-  // Current slot capacity summary for right panel
-  const selectedCellStatus = useMemo(
-    () => getCellStatus(selectedSlot.doctorId, selectedSlot.time),
-    // CỐ Ý BỎ `getCellStatus` KHỎI DEPS.
-    //
-    // Nó là một hàm thường, dựng lại ở MỌI lần render, nên đưa vào deps thì
-    // useMemo tính lại mỗi lần — tức là không còn là memo nữa. Thứ thật sự
-    // quyết định kết quả là năm giá trị dưới đây, và chúng có đủ.
-    //
-    // capByCell phải nằm trong đó: thiếu nó, thẻ tóm tắt bên phải giữ nguyên số
-    // chỗ mặc định sau khi luật riêng của bác sĩ đã về, và hai chỗ trên cùng
-    // màn hình nói hai con số khác nhau cho cùng một ô.
-    //
-    // `selectedDateIso` và `apptsForDate` CŨNG phải nằm trong đó, và thiếu
-    // chúng là nửa còn lại của lỗi "đổi ngày mà vẫn ở khung cũ": thẻ "Sức chứa"
-    // bên phải giữ nguyên con số của NGÀY TRƯỚC sau khi người dùng đã bấm sang
-    // ngày khác. Người đặt đọc đúng dòng đó ngay trước khi bấm.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      selectedSlot,
-      selectedDateIso,
-      apptsForDate,
-      appts,
-      capByCell,
-      offDuty,
-      capLoaded,
-    ],
-  );
 
   async function handleConfirmBooking() {
     // Ngày CHƯA XẾP CA thì không có bác sĩ để chọn, và đó là hợp lệ: lịch đi ra
     // với doctor_id = null rồi rơi vào màn "Chờ xếp bác sĩ". Chặn ở đây như cũ
     // nghĩa là nút bấm không làm gì cả trong đúng trường hợp Quang vừa mô tả.
     if (!activePatient) return;
-    if (!chuaXepCa && !selectedSlot.doctorId) return;
+    if (!oChon) return;
     // Không có luật thì không có lưới, và không có lưới thì không đặt được: gửi
     // đi lúc này chỉ tạo một lịch dài sai giờ. Nút đã bị vô hiệu hoá ở phần
     // render; đây là chốt chặn thứ hai.
@@ -1375,7 +793,7 @@ export default function BookingHub({
           // ĐẶT TRƯỚC, KHÔNG PHẢI VÃNG LAI. Màn này không gửi trường nào và
           // backend mặc định "WALK_IN", nên mọi lịch CSKH đặt đều ăn vào ô để
           // dành cho khách đến thẳng quầy, còn ô đặt trước thì trống. Nói rõ ra.
-          booking_channel: "HOTLINE",
+          booking_channel: kenhDat,
           notes: note,
         }),
       });
@@ -1414,11 +832,6 @@ export default function BookingHub({
         // số không tăng": nó chỉ nạp lại prop từ server, mà prop đó chỉ chứa
         // lịch HÔM NAY. Đặt cho ngày khác thì con số đến từ `fetchedByDate`
         // (bộ nhớ trình duyệt) và từ /quote — cả hai đều không biết gì.
-        setFetchedByDate((prev) => {
-          const next = { ...prev };
-          delete next[targetDate];
-          return next;
-        });
         setBookingSeq((n) => n + 1);
         router.refresh();
       } else {
@@ -1514,7 +927,7 @@ export default function BookingHub({
               giây thay vì im lặng hiển thị số sai".
 
               "Còn chỗ" hiện là dấu gạch, KHÔNG phải quên: sức chứa còn lại phụ
-              thuộc luật 2+1 mỗi khung, lịch trực của từng bác sĩ và cấu hình
+              thuộc số khách online + trực tiếp quản lý đặt cho mỗi khung, lịch trực của từng bác sĩ và cấu hình
               riêng của bác sĩ Thành (18h–18h15 nhận 10 ca, sau đó 4). Tính
               nhẩm ở frontend là ra một con số thứ hai lệch với backend. Thà để
               trống còn hơn nói sai — bảng lưới bên dưới đã hiện đúng từng ô. */}
@@ -1538,7 +951,7 @@ export default function BookingHub({
                 <p className="text-xs font-medium text-ink-muted">Còn chỗ</p>
                 <p
                   className="text-xl font-bold text-ink-muted"
-                  title="Sức chứa còn lại phụ thuộc luật 2+1, lịch trực và cấu hình riêng từng bác sĩ — xem trực tiếp trên lưới giờ bên dưới."
+                  title="Sức chứa còn lại phụ thuộc số khách quản lý đặt cho từng bác sĩ, lịch trực và cấu hình riêng từng bác sĩ — xem trực tiếp trên lưới giờ bên dưới."
                 >
                   —
                 </p>
@@ -1581,7 +994,10 @@ export default function BookingHub({
               
               "Chọn khách hàng" không còn là một mốc: nó là điều kiện để lưới giờ
               hiện ra, chứ không phải một chặng của việc đặt lịch. */}
-          <div className="flex items-center justify-center gap-4 rounded-2xl border border-line bg-surface py-2.5 px-4 text-xs font-medium text-ink-muted shadow-card">
+          {/* KHÔNG THẺ TRẮNG quanh ba mốc (Tuyền 16/09/2026): *"xoá bo trắng
+              đằng sau chỉ hiện timeline node ở trên cho đẹp"*. Ba mốc là chỉ
+              dẫn, không phải một khối nội dung cần khung riêng. */}
+          <div className="flex items-center justify-center gap-4 py-1 text-xs font-medium text-ink-muted">
             <MocDatLich
               so={1}
               nhan="Khung giờ"
@@ -1619,29 +1035,44 @@ export default function BookingHub({
           <div
             className={`grid items-start gap-4 ${
               mode === "new_patient"
-                ? "xl:grid-cols-[280px_1fr]"
-                : "xl:grid-cols-[280px_1fr_320px]"
+                ? "xl:grid-cols-[240px_1fr]"
+                : "xl:grid-cols-[240px_1fr_280px]"
             }`}
           >
             {/* COLUMN 1 (LEFT - 280px): New Patient Button + Active Patient Card + Search List */}
             <aside className="space-y-3">
-              {/* Nút đặt lịch cho khách hàng mới (Đặt lên trên cùng của Cột 1) */}
-              <button
-                type="button"
-                onClick={() => {
-                  // BỎ CHỌN KHÁCH CŨ. Bấm "khách mới" mà thẻ "Khách hàng đang
-                  // chọn" vẫn là người trước đó thì cả cột trái lẫn panel phải
-                  // đang nói về một người KHÔNG liên quan tới biểu mẫu đang mở
-                  // — và nút "Đặt lịch hẹn" ở panel ấy vẫn bấm được, ra một
-                  // lịch cho đúng người cũ.
-                  setMode("new_patient");
-                  chonKhach(null);
-                }}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-600 py-2.5 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 transition-all"
-              >
-                <UserPlus className="size-4" />
-                + Đặt lịch hẹn cho khách mới
-              </button>
+              {/* HAI TAB "KHÁCH HÀNG CÓ SẴN / KHÁCH HÀNG MỚI" (ảnh Tuyền 16/09/2026)
+                  thay nút "+ Đặt lịch hẹn cho khách mới". Chuyển sang "Khách
+                  mới" vẫn BỎ CHỌN khách cũ — không thì panel phải còn tên người
+                  trước và nút "Đặt lịch hẹn" ra lịch cho đúng người cũ. */}
+              <div role="tablist" aria-label="Loại khách" className="grid grid-cols-2 gap-1 rounded-2xl border border-line bg-surface p-1 shadow-card">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "grid"}
+                  onClick={() => setMode("grid")}
+                  className={`rounded-xl py-2 text-xs font-semibold ${
+                    mode === "grid" ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-surface-muted"
+                  }`}
+                >
+                  Khách hàng
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "new_patient"}
+                  onClick={() => {
+                    setMode("new_patient");
+                    chonKhach(null);
+                  }}
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-semibold ${
+                    mode === "new_patient" ? "bg-brand-600 text-white" : "text-ink-soft hover:bg-surface-muted"
+                  }`}
+                >
+                  <UserPlus className="size-3.5" />
+                  Thêm
+                </button>
+              </div>
 
               {/* 1. KHÁCH HÀNG ĐANG CHỌN — hoặc thẻ "khách mới" khi đang nhập.
                      Ô này không bao giờ được để trống trong lúc người dùng
@@ -1761,8 +1192,9 @@ export default function BookingHub({
                       trang này đã có thanh ba bước của nó ở trên đầu, hai thanh
                       chồng nhau thì không thanh nào đáng tin. */}
                   <NewPatientForm
-                    role="CSKH"
+                    role={vai ?? "CSKH"}
                     locations={locations}
+                    coSoMacDinhId={coSoMacDinhId}
                     services={cleanServices}
                     doctors={doctors}
                     provinces={provinces}
@@ -1792,47 +1224,21 @@ export default function BookingHub({
                   </select>
                 </div>
 
-                {/* Doctor dropdown — ẩn hẳn khi ngày chưa xếp ca. Một ô lọc
-                    liệt kê tên bác sĩ cho một ngày chưa ai được xếp là mời
-                    người dùng chọn một cái tên không có cơ sở. */}
-                <div
-                  className={`items-center gap-1 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink font-medium ${
-                    chuaXepCa ? "hidden" : "flex"
-                  }`}
-                >
-                  <User size={14} className="text-ink-muted" />
-                  <select
-                    value={selectedDoctorId}
-                    onChange={(e) => handleDoctorFilterChange(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-ink outline-none cursor-pointer"
-                  >
-                    <option value="all">— Chọn bác sĩ —</option>
-                    {doctors.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {/* HAI Ô ĐÃ BỎ KHỎI HÀNG NÀY (Tuyền 16/09/2026): *"nút tất cả
+                    bác sĩ và nút lịch làm việc đâu còn ý nghĩa gì ở đây nữa"*.
 
-                <Link
-                  href="/schedule"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-50 ml-auto"
-                  title="Xem lịch làm việc ca trực của bác sĩ & phòng khám"
-                >
-                  📅 Lịch làm việc
-                </Link>
+                      · ô lọc "Tất cả bác sĩ" — đã ĐI XUỐNG chính cột "Bác sĩ"
+                        của bảng tuần (BangBacSiTuan): bấm tên cột là ra ô tìm
+                        + danh sách tên. Bộ lọc nằm trên đúng cột nó lọc, và
+                        nó ở lại khi đổi khách — chốt một bác sĩ rồi đặt cùng
+                        một khung cho nhiều khách liên tiếp.
+                      · nút "📅 Lịch làm việc" (`<Link href="/schedule">`) —
+                        lịch trực đã nằm trong chính bảng tuần. Muốn trả lại thì
+                        dựng lại ở đúng chỗ này.
 
-              </div>
-
-              {/* Date navigator & legend — CĂN GIỮA cả ba hàng.
-                  
-                  Trước đây khối này dùng `justify-between`: nút tuần dạt trái,
-                  dãy ngày dạt phải, chú thích màu dạt trái — ba hàng ba mép
-                  khác nhau trên một tấm thẻ. */}
-              <div className="space-y-2.5 rounded-2xl border border-line bg-surface p-3.5 shadow-card">
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <div className="relative flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
+                    Chỗ hai ô ấy nay là bộ chọn tuần + nút "Hôm nay", trước nằm
+                    trên một tấm thẻ trắng riêng bên dưới (đã bỏ luôn tấm thẻ). */}
+                <div className="relative ml-auto flex items-center rounded-xl border border-line bg-surface px-2 py-1 text-xs">
                     <button
                       type="button"
                       aria-label="Tuần trước"
@@ -1883,254 +1289,54 @@ export default function BookingHub({
                           />
                         </div>
                       </>
-                    ) : null}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWeekOffset(0);
-                      chonNgay(vnToday());
-                      setMoLichThang(false);
-                    }}
-                    className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
-                  >
-                    Hôm nay
-                  </button>
+                  ) : null}
                 </div>
-
-                {/* Day Tabs */}
-                <div className="flex flex-wrap items-center justify-center gap-1 text-xs">
-                  {weekDays.map((d) => {
-                    const isSelectedDay = d.isoDate === selectedDateIso;
-                    return (
-                      <button
-                        key={d.dayName}
-                        type="button"
-                        onClick={() => chonNgay(d.isoDate)}
-                        className={`rounded-xl border px-3 py-1 font-medium transition-all ${
-                          isSelectedDay
-                            ? "border-teal-600 bg-teal-50 text-teal-700 font-bold"
-                            : "border-line bg-surface text-ink-muted hover:border-line"
-                        }`}
-                      >
-                        {d.dayName} {d.dateStr}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Status Legend Pills */}
-                <div className="flex flex-wrap items-center justify-center gap-4 pt-1 text-xs">
-                  <span className="flex items-center gap-1.5 text-teal-700 font-medium">
-                    <span className="size-3.5 rounded-md border border-teal-300 bg-teal-50" />
-                    Có thể đặt
-                  </span>
-                  <span className="flex items-center gap-1.5 text-amber-700 font-medium">
-                    <span className="size-3.5 rounded-md border border-amber-300 bg-amber-50" />
-                    Còn ít chỗ
-                  </span>
-                  <span className="flex items-center gap-1.5 text-sky-700 font-medium">
-                    <span className="size-3.5 rounded-md border border-sky-300 bg-sky-50" />
-                    Đang giữ
-                  </span>
-                  <span className="flex items-center gap-1.5 text-rose-700 font-medium">
-                    <span className="size-3.5 rounded-md border border-rose-300 bg-rose-50" />
-                    Đã đầy
-                  </span>
-                </div>
-              </div>
-
-              {chuaXepCa ? (
-                <div
-                  role="status"
-                  className="rounded-2xl border border-warning/40 bg-warning-bg p-3 text-xs text-warning"
-                >
-                  <span className="font-semibold">
-                    Ngày này chưa xếp lịch làm việc.
-                  </span>{" "}
-                  Chọn khung giờ khách mong muốn — hệ thống chưa biết ai khám
-                  hôm đó nên không đưa tên bác sĩ ra ở đây. Lịch đặt xong sẽ nằm
-                  ở màn <b>Chờ xếp bác sĩ</b> để quản lý phân người; khi đã có
-                  bác sĩ, khách này hiện lại ở Quản lý khách hàng để CSKH gọi
-                  xác nhận lịch và bác sĩ khám.
-                </div>
-              ) : null}
-
-              {/* Table Grid (FIRST COLUMN = TIME RANGE e.g. 18:00 - 18:15, NO INNER GRID LINES) */}
-              {/* CUỘN NGANG khi có nhiều bác sĩ trực hơn bề ngang màn hình.
-                  Trước đây lưới cắt cứng còn ba cột nên người thứ tư có ca hôm
-                  nay đơn giản là không đặt được. `min-w-max` để các cột giữ bề
-                  rộng tối thiểu thay vì bị bóp lại đến mức không đọc nổi. */}
-              <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-card p-2">
-                {/* Doctor Header Row */}
-                <div
-                  className="grid min-w-max text-xs font-bold text-ink text-center pb-2 border-b border-line"
-                  style={{
-                    gridTemplateColumns: `110px repeat(${cotLuoi.length}, minmax(170px, 1fr))`,
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWeekOffset(0);
+                    chonNgay(vnToday());
+                    setMoLichThang(false);
                   }}
+                  className="rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink hover:bg-surface-muted"
                 >
-                  <div className="p-2 text-ink-muted font-medium flex items-center justify-center">
-                    Giờ
-                  </div>
-                  {cotLuoi.map((doc) => (
-                    <div key={doc.id} className="p-2">
-                      <div className="truncate font-bold text-ink">
-                        {doc.label}
-                      </div>
-                      {/* Câu trả lời đặt ngay dưới TÊN BÁC SĨ, không phải ở
-                          một góc màn hình: nó nói về đúng người này, và nó là
-                          lý do cả cột bên dưới không bấm được. */}
-                      {shiftLabel[`${doc.id}|${selectedDateIso}`] ? (
-                        <div className="truncate text-label font-medium text-warning">
-                          Chỉ trực {shiftLabel[`${doc.id}|${selectedDateIso}`]}
-                        </div>
-                      ) : chuaXepCa ? (
-                        <div className="truncate text-label font-medium text-warning">
-                          Chưa xếp ca — quản lý sẽ phân bác sĩ
-                        </div>
-                      ) : (
-                        <div className="text-label font-normal text-ink-muted truncate">
-                          Phụ khoa
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {cotLuoi.length === 0 && (
-                  <p className="px-3 py-8 text-center text-xs text-warning">
-                    Ngày này đã xếp ca nhưng không bác sĩ nào có mặt. Chọn ngày
-                    khác, hoặc báo quản lý xếp thêm người.
-                  </p>
-                )}
-
-                {/* Slot Rows */}
-                <div className="max-h-120 overflow-y-auto space-y-1 pt-1.5">
-                  {timeSlots.map((time) => {
-                    // Độ dài khung từ LUẬT, không phải hằng số 15. Phòng khám
-                    // đổi sang khung 30 phút thì nhãn "18:00 - 18:15" sẽ nói
-                    // sai về đúng cái ô nằm ngay cạnh nó.
-                    const timeRangeStr = slotRange(time, slotMinutes);
-                    return (
-                      <div
-                        key={time}
-                        className="grid min-w-max text-xs items-center"
-                        style={{
-                          gridTemplateColumns: `110px repeat(${cotLuoi.length}, minmax(170px, 1fr))`,
-                        }}
-                      >
-                        {/* FIRST COLUMN: TIME RANGE (e.g. 08:00 - 08:15) */}
-                        <div className="p-2 text-center font-mono font-medium text-ink-muted text-label">
-                          {timeRangeStr}
-                        </div>
-
-                        {/* DOCTOR COLUMNS (CELLS - NO TIME TEXT INSIDE!) */}
-                        {cotLuoi.map((doc) => {
-                          const st = getCellStatus(doc.id, time);
-
-                          if (st.tone === "selected") {
-                            return (
-                              <button
-                                key={doc.id}
-                                type="button"
-                                className="m-1 flex items-center justify-between rounded-xl bg-teal-600 px-3 py-2 text-xs font-bold text-white shadow-xs transition-all border border-teal-700"
-                              >
-                                <span>
-                                  {st.label} · {st.sub}
-                                </span>
-                                <span className="grid size-4 place-items-center rounded-full bg-white text-teal-700 text-label font-extrabold">
-                                  ✓
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          if (st.tone === "few") {
-                            return (
-                              <button
-                                key={doc.id}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedSlot({
-                                    doctorId: doc.id,
-                                    doctorName: doc.label,
-                                    time,
-                                  })
-                                }
-                                className="m-1 flex items-center justify-center rounded-xl border border-amber-200 bg-amber-50/80 py-2 px-3 text-xs font-semibold text-amber-800 transition-all hover:bg-amber-100"
-                              >
-                                {st.label} · {st.sub}
-                              </button>
-                            );
-                          }
-
-                          if (st.tone === "loading") {
-                            return (
-                              <button
-                                key={doc.id}
-                                disabled
-                                type="button"
-                                className="m-1 flex animate-pulse items-center justify-center rounded-xl border border-line bg-surface-sunken py-2 px-3 text-xs font-medium text-ink-muted"
-                              >
-                                {st.label}
-                              </button>
-                            );
-                          }
-
-                          if (st.tone === "holding") {
-                            return (
-                              <button
-                                key={doc.id}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedSlot({
-                                    doctorId: doc.id,
-                                    doctorName: doc.label,
-                                    time,
-                                  })
-                                }
-                                className="m-1 flex items-center justify-center rounded-xl border border-sky-200 bg-sky-50/80 py-2 px-3 text-xs font-semibold text-sky-800 transition-all hover:bg-sky-100"
-                              >
-                                {st.label} · {st.sub}
-                              </button>
-                            );
-                          }
-
-                          if (st.tone === "full") {
-                            return (
-                              <button
-                                key={doc.id}
-                                disabled
-                                type="button"
-                                className="m-1 flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50/70 py-2 px-3 text-xs font-semibold text-rose-700 cursor-not-allowed opacity-75"
-                              >
-                                {st.label} · {st.sub}
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <button
-                              key={doc.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedSlot({
-                                  doctorId: doc.id,
-                                  doctorName: doc.label,
-                                  time,
-                                })
-                              }
-                              className="m-1 flex items-center justify-center rounded-xl border border-teal-200 bg-teal-50/60 py-2 px-3 text-xs font-semibold text-teal-800 transition-all hover:bg-teal-100/80"
-                            >
-                              {st.label} · {st.sub}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-                </div>
+                  Hôm nay
+                </button>
               </div>
+
+              {/* 2. BẢNG BÁC SĨ × TUẦN + POPUP (Tuyền duyệt 16/09/2026) — thay
+                  hàng nút ngày và lưới giờ × bác sĩ cũ. Lưới cũ TỰ ĐẾM CHỖ ở
+                  trình duyệt theo con số chung của phòng khám; bảng này đọc
+                  "còn chỗ" từ backend (capacity_service), cùng nguồn với trigger. */}
+              <div className="rounded-2xl border border-line bg-surface p-3 shadow-card">
+                <BangBacSiTuan
+                  weekStart={weekDays[0]?.isoDate ?? vnToday()}
+                  lamMoi={bookingSeq + doiCa}
+                  homNay={vnToday()}
+                  bayGioPhut={phutVn(bayGio)}
+                  chon={
+                    oChon
+                      ? { doctorId: oChon.doctorId, date: oChon.date, time: selectedSlot.time }
+                      : null
+                  }
+                  onChonKhung={chonKhungTuBang}
+                />
+              </div>
+
+              {/* Ô "3. KHUNG GIỜ KHẢ DỤNG" ĐÃ BỎ (Tuyền 16/09/2026).
+
+                  Nó và popup của bảng tuần gọi CÙNG endpoint `/appointments/
+                  quote?date=&doctor_id=` và in nhãn bằng cùng hàm `chuKhung` —
+                  mỗi lần chọn khung là hai lượt gọi cho cùng một câu trả lời.
+                  Đổi giờ nay bấm lại ô ngày trong bảng (ô đang chọn có viền).
+
+                  Sức chứa của khung đang chọn nay đi kèm cú bấm trong popup
+                  (`onChonKhung(...).thongTin`), không còn ô nào báo lên. */}
+              {!oChon && (
+                <p className="rounded-2xl border border-dashed border-line bg-surface px-4 py-6 text-center text-xs text-ink-muted">
+                  Bấm một ô trong bảng để chọn bác sĩ, ngày và khung giờ.
+                </p>
+              )}
                 </>
               )}
             </div>
@@ -2152,10 +1358,14 @@ export default function BookingHub({
               {/* Patient info box */}
               {activePatient && (
                 <div className="rounded-xl border border-line bg-surface-muted/60 p-3 space-y-2 text-xs">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <User size={15} className="text-ink-muted shrink-0" />
-                      <div>
+                  {/* BA DÒNG, KHÔNG HAI CỘT (Tuyền 16/09/2026): tên — mã —
+                      số điện thoại. Panel rộng 220px, nên tên và số chen một
+                      dòng thì tên dài bị cắt giữa chừng đúng lúc người trực
+                      đang đọc để gọi cho khách. */}
+                  <div>
+                    <div className="flex items-start gap-2">
+                      <User size={15} className="mt-0.5 text-ink-muted shrink-0" />
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-ink">
                             {activePatient.full_name}
@@ -2175,11 +1385,11 @@ export default function BookingHub({
                         <div className="text-label text-ink-muted font-mono">
                           {activePatient.patient_code}
                         </div>
+                        <div className="mt-0.5 flex items-center gap-1 text-ink-muted font-mono">
+                          <Phone size={12} className="shrink-0" />
+                          <span>{activePatient.phone_primary ?? "—"}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-ink-muted font-mono">
-                      <Phone size={12} />
-                      <span>{activePatient.phone_primary ?? "—"}</span>
                     </div>
                   </div>
                   {/* Nút "Đổi khách hàng" đã bỏ (Quang chốt 09/08/2026): nó chỉ
@@ -2223,9 +1433,11 @@ export default function BookingHub({
                         : "font-semibold text-warning"
                     }
                   >
-                    {selectedSlot.doctorId
-                      ? selectedSlot.doctorName
-                      : "Quản lý sẽ xếp"}
+                    {!oChon
+                      ? "Chưa chọn"
+                      : selectedSlot.doctorId
+                        ? selectedSlot.doctorName
+                        : "Quản lý sẽ xếp"}
                   </span>
                 </div>
               </div>
@@ -2243,30 +1455,58 @@ export default function BookingHub({
                       cơ hội cuối để phát hiện đặt nhầm ngày, và nó đang nói
                       dối. */}
                   <div className="text-xs font-bold text-teal-800">
-                    {selectedSlot.time
+                    {oChon && selectedSlot.time
                       ? slotRange(selectedSlot.time, slotMinutes)
                       : "Chưa chọn khung giờ"}
                   </div>
-                  <div className="text-label text-teal-700 font-medium">
-                    {dayLabel(selectedDateIso)},{" "}
-                    {selectedDateIso.split("-").reverse().join("/")}
-                  </div>
+                  {oChon && (
+                    <div className="text-label text-teal-700 font-medium">
+                      {dayLabel(oChon.date)},{" "}
+                      {oChon.date.split("-").reverse().join("/")}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Capacity Status */}
+              {/* SỨC CHỨA — cùng nguồn với lưới khung giờ (quote), không tự đếm. */}
               <div className="flex items-center justify-between text-xs rounded-xl bg-surface-muted p-2.5 border border-line">
                 <span className="text-ink-muted font-medium flex items-center gap-1.5">
                   <Users size={13} className="text-brand-600" />
                   Sức chứa:
                 </span>
                 <span className="font-bold text-ink">
-                  {selectedCellStatus.bookedCount}/{selectedCellStatus.maxCap} đã đặt
-                  ·{" "}
-                  <span className="text-teal-700 font-bold">
-                    còn {selectedCellStatus.maxCap - selectedCellStatus.bookedCount} chỗ
-                  </span>
+                  {!oChon || !thongTinKhung
+                    ? "—"
+                    : // Tuần chưa công bố lịch trực thì KHÔNG có trần nào để
+                      // so — chỉ nói "đặt tự do". Con số "0 đã đặt" đứng trước
+                      // nó đọc như một hạn mức đang đếm dần (Tuyền 16/09/2026).
+                      thongTinKhung.datTuDo
+                      ? "đặt tự do"
+                      : thongTinKhung.khung
+                        ? `${thongTinKhung.khung.regular_used}/${thongTinKhung.khung.regular_cap} đã đặt · còn ${thongTinKhung.khung.con_lai} chỗ`
+                        : "—"}
                 </span>
+              </div>
+
+              {/* KÊNH ĐẶT — không còn gán cứng HOTLINE (16/09/2026). */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-ink" htmlFor="kenh-dat">
+                  Kênh đặt
+                </label>
+                <select
+                  id="kenh-dat"
+                  value={kenhDat}
+                  onChange={(e) => setKenhDat(e.target.value)}
+                  className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
+                >
+                  {CHANNELS.filter(
+                    (c) => c.id !== "WALK_IN" || canCheckin(vai),
+                  ).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Note */}
@@ -2358,7 +1598,12 @@ export default function BookingHub({
                     !selectedSlot.time ||
                     // Chưa chọn dịch vụ thì backend sẽ từ chối; nói trước ở đây.
                     !selectedServiceId ||
-                    offDuty[`${selectedSlot.doctorId}|${selectedDateIso}`] === true
+                    !oChon ||
+                    Boolean(
+                      thongTinKhung?.khung &&
+                        !thongTinKhung.datTuDo &&
+                        thongTinKhung.khung.con_lai <= 0,
+                    )
                   }
                   className="flex-[1.5] rounded-xl bg-brand-600 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-brand-700 disabled:opacity-50"
                 >

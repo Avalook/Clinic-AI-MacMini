@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { canWriteClinical } from "../../../lib/roles";
 
 interface PostBody {
@@ -31,7 +31,7 @@ async function guard() {
   if (!user) {
     return { res: NextResponse.json({ error: "Unauthorised" }, { status: 401 }) };
   }
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => canWriteClinical(r));
   // Log dịch vụ (SA/XN) = LÂM SÀNG → chỉ Bác sĩ / Điều dưỡng / Thư ký Y khoa.
   // Lễ tân / Quản lý KHÔNG ghi (recap 17/6).
   if (!canWriteClinical(role)) {

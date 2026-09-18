@@ -223,10 +223,11 @@ class LabSafetyService:
                 if bool(current["is_finalized"]):
                     return _review_outcome(current, already_finalized=True)
 
-                if current["triage_group"] == "PENDING":
-                    raise ValidationError(
-                        "Kết quả chưa được phân loại; không thể hoàn tất duyệt"
-                    )
+                # KHÔNG CÒN CHẶN KHI AI CHƯA PHÂN LOẠI (15/09/2026). Bản cũ từ chối
+                # mọi kết quả `triage_group = PENDING` — mà chỉ định xét nghiệm
+                # nhập tay luôn sinh PENDING, nên không có AI thì KHÔNG kết quả
+                # nào duyệt được. Bác sĩ là người đánh giá; nhóm AI chỉ là gợi ý
+                # (CONTEXT v1.0: bác sĩ đánh giá/cho phép gửi).
                 if not bool(current["has_result"]):
                     raise ValidationError(
                         "Chưa có dữ liệu kết quả xét nghiệm để hoàn tất duyệt"

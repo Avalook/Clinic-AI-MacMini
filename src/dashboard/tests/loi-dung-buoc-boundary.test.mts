@@ -34,10 +34,12 @@ test("lỗi ghi bước MANG THEO mã bước, không chỉ mang câu chữ", ()
 test("mỗi bước CHỈ vẽ lỗi của chính nó", () => {
   // Điều kiện cũ `motCham && loiGhiLoiRa && …` không so mã bước — đó chính là
   // chỗ một câu lỗi nhân bản ra mười mấy thẻ.
+  // 16/09/2026: các ô là JSX tường minh (không còn vòng lặp `tt`), nên mỗi
+  // chỗ so với MÃ Ô của chính nó.
   assert.match(
     ma,
-    /loiGhiLoiRa\?\.ma === tt\.ma/,
-    "Node phải so mã bước trước khi vẽ dòng đỏ",
+    /loiGhiLoiRa\?\.ma === "[A-Z_]+"/,
+    "Ô phải so mã bước trước khi vẽ dòng đỏ",
   );
   assert.doesNotMatch(
     ma,

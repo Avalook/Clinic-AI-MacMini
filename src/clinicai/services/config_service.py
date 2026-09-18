@@ -34,6 +34,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.shifts import (
     CAC_CA,
@@ -44,6 +45,24 @@ from clinicai.core.shifts import (
 )
 
 logger = structlog.get_logger()
+
+#: Mã vị trí là CA KHÁM của bác sĩ — `LICH_KHAM` (mẫu cũ) và mọi vị trí bác sĩ của
+#: lịch Kim Ngưu. Bản Python của hàm DB `public.la_ca_kham_bac_si` (migration
+#: 20260917000004), dùng ở chỗ đã có sẵn dòng lịch trong tay.
+MA_CA_KHAM_BAC_SI: frozenset[str] = frozenset(
+    {
+        "LICH_KHAM",
+        "T1_BS_NOITIET",
+        "T1_TT_BS",
+        "T1_TTNG_BS",
+        "T1_SA_BS",
+        "T4_SA_BS1",
+        "T4_SA_BS2",
+        "T4_SANCHAU_BS",
+        "T4_SANCHAU_BSTT",
+        "T4_SAN_BS",
+    }
+)
 
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
@@ -124,7 +143,7 @@ class RosterService:
         if not station:
             raise ValidationError("Thiếu vị trí")
 
-        is_admin = identity.role in ROSTER_ADMIN_ROLES
+        is_admin = identity.co_vai(ROSTER_ADMIN_ROLES)
         # Only management may name somebody else. For everyone else the client's
         # value is ignored entirely rather than checked.
         assigning_other = is_admin and bool(staff_id)
@@ -190,7 +209,7 @@ class RosterService:
             # tự tươi qua realtime, nhưng màn chỉ nói với người ĐANG NHÌN —
             # tin Telegram mới gọi được người đang làm việc khác quay lại xếp.
             # Chỉ ca ĐÃ DUYỆT: đăng ký PENDING chưa phải ca trực.
-            if station == "LICH_KHAM" and is_admin:
+            if station in MA_CA_KHAM_BAC_SI and is_admin:
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=str(row_id),
@@ -394,7 +413,7 @@ class RosterService:
         xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
         trước đó không có.
         """
-        if identity.role not in ROSTER_ADMIN_ROLES:
+        if not identity.co_vai(ROSTER_ADMIN_ROLES):
             raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
         tram_ma = (tram_ma or "").strip()
         vai = (vai or "").strip()
@@ -434,7 +453,7 @@ class RosterService:
         identity: StaffIdentity,
     ) -> None:
         """Approve or reject a self-registered shift. Management only."""
-        if identity.role not in ROSTER_ADMIN_ROLES:
+        if not identity.co_vai(ROSTER_ADMIN_ROLES):
             raise SafetyGateError("Chỉ quản lý được duyệt ca")
 
         status = "APPROVED" if decision == "approve" else "REJECTED"
@@ -461,32 +480,40 @@ class RosterService:
     async def remove(
         self, *, roster_id: str, identity: StaffIdentity, dry_run: bool = False
     ) -> dict[str, Any]:
-        """Gỡ một ca trực — và HUỶ những lịch hẹn KHÔNG CÒN KHUNG NÀO PHỦ.
+        """Gỡ một ca trực — lịch hẹn KHÔNG CÒN KHUNG NÀO PHỦ chuyển sang hàng
+        "Lịch chờ xếp bác sĩ". KHÔNG HUỶ lịch nào.
 
-        Tuyền chốt 14/08: gỡ ca thì lịch của ca ấy phải có kết thúc (huỷ hẳn,
-        mã BAC_SI_DOI_LICH — xem #117). 17/08 Tuyền bắt tiếp cái tinh hơn:
-        "xoá ca sáng để thêm cả ngày thì sao — về bản chất bác sĩ vẫn khám".
-        Bản cũ hỏi thô "còn ca nào TRONG NGÀY không" nên sai cả hai chiều:
+        Luật hiện hành: CONTEXT v1.0 (12/09/2026) — *đổi hay gỡ lịch trực
+        không bao giờ huỷ lịch hẹn*. Lịch trực là kế hoạch của phòng khám;
+        lịch hẹn là lời hứa với khách. Kế hoạch đổi thì lời hứa cần một người
+        xử lý (xếp bác sĩ khác, hoặc gọi khách đổi giờ), không cần một câu
+        UPDATE tự quyết thay khách.
 
-          · xoá SÁNG khi còn CHIỀU → không huỷ gì — lịch buổi sáng SỐNG SÓT
-            MỒ CÔI dưới tên một bác sĩ sáng đó không đến, và cờ mất-bác-sĩ
-            (cũng dò theo ngày) không hề kêu;
-          · xoá SÁNG rồi thêm CẢ NGÀY → lịch sáng bị huỷ oan trước khi ca mới
-            kịp vào.
+        Lịch sử để khỏi đi vòng lại:
+          · #103 (14/08): gỡ ca → gỡ bác sĩ khỏi lịch, lịch về hàng chờ xếp.
+          · #115: xếp lại ca thì tự gắn lại bác sĩ — bỏ vì đụng ghế đã bị lịch
+            khác chiếm.
+          · #117 (15/08): đổi sang HUỶ HẲN, vì lịch còn sống không bác sĩ chặn
+            việc ĐẶT LỊCH MỚI cùng khung cho cùng khách (`_patient_conflict`).
+            Cái chặn ấy có thật, nhưng thuốc chữa là SỬA CHÍNH LỊCH ĐÓ ở hàng
+            chờ (gán bác sĩ khác / đổi giờ) chứ không phải tạo lịch thứ hai —
+            nên huỷ là chữa sai bệnh và làm mất lời hứa với khách.
+          · 17/08: tính theo KHUNG GIỜ chứ không theo ngày — giữ nguyên ở đây.
+            Chỉ lịch mà giờ hẹn rơi RA NGOÀI hợp các ca còn lại của chính bác
+            sĩ ấy hôm đó mới bị gỡ bác sĩ; muốn đổi sáng→cả ngày thì thêm ca
+            mới trước rồi gỡ ca cũ là không lịch nào phải xếp lại.
 
-        Nay: huỷ theo KHUNG GIỜ — chỉ những lịch mà giờ hẹn rơi RA NGOÀI hợp
-        các ca còn lại của chính bác sĩ ấy hôm đó (cùng thước đo core/shifts
-        với đường đặt lịch). Hệ quả tự nhiên: muốn đổi sáng→cả ngày thì THÊM
-        ca mới TRƯỚC rồi xoá ca cũ — mọi lịch nằm trong khung còn phủ được
-        giữ nguyên, không cần cơ chế hồi sinh nào.
+        Người xử lý: hàng "Lịch chờ xếp bác sĩ" (Quản lý + Trưởng ca), đọc
+        `doctor_id IS NULL`; `bac_si_da_go_id` giữ tên người cũ để CSKH gọi
+        khách nói được "đổi từ ai", và cờ `bs_go_co_ca_lai` báo khi bác sĩ cũ
+        đã có ca lại (gán lại một cú bấm, không cần gọi khách).
 
-        `dry_run=True`: đo mà không cắt — trả về số lịch SẼ huỷ (kèm giờ) để
-        màn hình hỏi lại người xoá trước khi làm thật. Đây đúng chỗ xứng đáng
-        có hộp xác nhận: cái giá là lịch hẹn của khách, không lấy lại được —
-        ngược với hoàn tác rẻ tiền đã bỏ hộp (10/08).
+        `dry_run=True`: đo mà không cắt — trả số lịch SẼ chuyển sang chờ xếp
+        (kèm giờ) để màn hình hỏi lại người gỡ.
 
-        CHỈ LỊCH CÒN CỨU ĐƯỢC (chưa tới giờ, chưa check-in) và NHỚ NGƯỜI BỊ
-        GỠ (`bac_si_da_go_id`) — như cũ, xem #117.
+        CHỈ LỊCH CÒN SỐNG (chưa tới giờ, chưa check-in); câu UPDATE lặp lại
+        điều kiện trạng thái + bác sĩ để một lượt check-in/gán lại chen giữa
+        lúc đọc và lúc ghi không bị gỡ nhầm.
         """
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -499,7 +526,7 @@ class RosterService:
                 if row is None:
                     raise NotFoundError("Không tìm thấy ca trực")
 
-                if identity.role not in ROSTER_ADMIN_ROLES and (
+                if not identity.co_vai(ROSTER_ADMIN_ROLES) and (
                     str(row["staff_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")
@@ -511,9 +538,37 @@ class RosterService:
                         roster_id,
                         identity.clinic_id,
                     )
+                    # Dòng ca bị xoá khỏi bảng thì dấu vết duy nhất còn lại
+                    # là ở đây: ai gỡ ca của ai, ngày nào.
+                    await conn.execute(
+                        """
+                        INSERT INTO public.event_log
+                            (clinic_id, event_type, aggregate_type, aggregate_id,
+                             payload, metadata, source, event_published)
+                        VALUES ($1::uuid, 'roster.shift_removed', 'work_roster',
+                                $2::uuid, $3::jsonb, $4::jsonb, 'api:roster',
+                                FALSE)
+                        """,
+                        identity.clinic_id,
+                        roster_id,
+                        json.dumps(
+                            {
+                                "staff_id": str(row["staff_id"] or ""),
+                                "work_date": row["work_date"].isoformat(),
+                                "station": row["station"],
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "clinic_role": identity.role.value,
+                                "clinic_staff_id": identity.staff_id,
+                                "origin": "api:roster",
+                            }
+                        ),
+                    )
 
-                if row["station"] != "LICH_KHAM" or row["staff_id"] is None:
-                    return {"so_lich_huy": 0, "gio": []}
+                if row["station"] not in MA_CA_KHAM_BAC_SI or row["staff_id"] is None:
+                    return {"so_lich_cho_xep": 0, "gio": []}
 
                 # HỢP CÁC CA CÒN LẠI của bác sĩ hôm đó — loại trừ chính ca đang
                 # xoá (dry_run chưa xoá thật nên phải tự loại). Chỉ ca ĐÃ DUYỆT
@@ -533,7 +588,8 @@ class RosterService:
                              WHERE id = $1::uuid) AS settings
                       FROM public.work_roster w
                      WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
-                       AND w.work_date = $3 AND w.station = 'LICH_KHAM'
+                       AND w.work_date = $3
+                       AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
                        AND w.id <> $4::uuid
                        AND coalesce(w.status, 'APPROVED') = 'APPROVED'
                     """,
@@ -581,34 +637,34 @@ class RosterService:
                     row["staff_id"],
                     row["work_date"],
                 )
-                # Khung nào còn được phủ thì lịch ở yên — chỉ huỷ phần rơi ra
-                # ngoài. Không còn khung nào (windows rỗng) thì huỷ cả, như #117.
-                se_huy = [uv for uv in ung_vien if not covers(windows, uv["phut"])]
+                # Khung nào còn được phủ thì lịch ở yên — chỉ phần rơi ra ngoài
+                # mới cần xếp lại bác sĩ. Không còn khung nào thì cả ngày.
+                cho_xep = [uv for uv in ung_vien if not covers(windows, uv["phut"])]
 
-                if dry_run or not se_huy:
+                if dry_run or not cho_xep:
                     return {
-                        "so_lich_huy": len(se_huy),
-                        "gio": [uv["gio"] for uv in se_huy],
+                        "so_lich_cho_xep": len(cho_xep),
+                        "gio": [uv["gio"] for uv in cho_xep],
                     }
 
+                # Gỡ BÁC SĨ, giữ LỊCH: trạng thái, giờ, khách, dịch vụ nguyên
+                # vẹn. Không đụng cột huỷ (status/cancelled_*/ly_do_huy_ma).
                 await conn.execute(
                     """
                     UPDATE public.appointment
                        SET doctor_id = NULL,
                            bac_si_da_go_id = doctor_id,
-                           bo_bac_si_luc = now(),
-                           status = 'CANCELLED',
-                           cancelled_at = now(),
-                           ly_do_huy_ma = 'BAC_SI_DOI_LICH',
-                           cancelled_by_staff_id = $3::uuid
+                           bo_bac_si_luc = now()
                      WHERE clinic_id = $1::uuid
                        AND id = ANY($2::uuid[])
+                       AND doctor_id = $3::uuid
+                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
                     """,
                     identity.clinic_id,
-                    [uv["id"] for uv in se_huy],
-                    identity.staff_id,
+                    [uv["id"] for uv in cho_xep],
+                    row["staff_id"],
                 )
-                for uv in se_huy:
+                for uv in cho_xep:
                     await conn.execute(
                         """
                         INSERT INTO public.event_log
@@ -636,14 +692,14 @@ class RosterService:
                         ),
                     )
                 logger.info(
-                    "roster_shift_removed_cancelled_appointments",
-                    so_lich=len(se_huy),
+                    "roster_shift_removed_appointments_need_doctor",
+                    so_lich=len(cho_xep),
                     staff_id=str(row["staff_id"]),
                     work_date=row["work_date"].isoformat(),
                 )
                 return {
-                    "so_lich_huy": len(se_huy),
-                    "gio": [uv["gio"] for uv in se_huy],
+                    "so_lich_cho_xep": len(cho_xep),
+                    "gio": [uv["gio"] for uv in cho_xep],
                 }
 
     async def apply_week(
@@ -736,14 +792,107 @@ class RosterService:
                 week_start=mon, so_lich_cho=int(cho_xep), identity=identity
             )
 
+        # ĐỐI SOÁT LÚC CÔNG BỐ (CONTEXT v1.0). Trước khi công bố, trần không
+        # chặn lịch hẹn (20260915000001), nên có thể có khung vượt trần. Giữ
+        # hết lịch; liệt kê khung vượt và giao cho Trưởng ca xử lý với khách.
+        vuot = await self._pool.fetch(
+            """
+            SELECT k.doctor_id::text AS doctor_id, s.full_name, k.bat_dau,
+                   k.tran, k.da_dung
+              FROM public.khung_vuot_tran_trong_tuan($1::uuid, $2) k
+              LEFT JOIN public.staff s ON s.id = k.doctor_id
+            """,
+            identity.clinic_id,
+            mon,
+        )
+        khung_vuot_tran = [
+            {
+                "doctor_id": r["doctor_id"],
+                "bac_si": r["full_name"],
+                "bat_dau": r["bat_dau"].isoformat(),
+                "tran": int(r["tran"]),
+                "da_dung": int(r["da_dung"]),
+            }
+            for r in vuot
+        ]
+        if vuot:
+            await self._bao_truong_ca_vuot_tran(
+                week_start=mon, vuot=list(vuot), identity=identity
+            )
+
         logger.info(
             "roster_week_applied",
             week_start=mon.isoformat(),
             so_ca=so_ca,
             cho_xep_bac_si=int(cho_xep or 0),
+            khung_vuot_tran=len(khung_vuot_tran),
             by_staff_id=identity.staff_id,
         )
-        return {"ok": True, "week_start": mon.isoformat(), "so_ca": so_ca}
+        return {
+            "ok": True,
+            "week_start": mon.isoformat(),
+            "so_ca": so_ca,
+            "khung_vuot_tran": khung_vuot_tran,
+        }
+
+    async def _bao_truong_ca_vuot_tran(
+        self, *, week_start: date, vuot: list[Any], identity: StaffIdentity
+    ) -> None:
+        """Báo khung vượt trần cho CSKH VÀ Trưởng ca (Tuyền chốt 15/09/2026).
+
+        CSKH là người gọi khách chốt/đổi ca — từng lịch vượt nằm ở việc
+        `VUOT_SUC_CHUA` màn CSKH (20260915000014). Trưởng ca cũng phải biết.
+        Nuốt lỗi cùng lý do với `_bao_cskh_tuan_da_co_lich`: lịch trực đã áp và
+        commit; danh sách vẫn nằm trong câu trả lời của apply_week.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        dong = [
+            f"{(r['full_name'] or 'Bác sĩ')} "
+            f"{r['bat_dau'].astimezone(CLINIC_TZ):%H:%M %d/%m} "
+            f"({r['da_dung']}/{r['tran']})"
+            for r in vuot[:8]
+        ]
+        them = f" và {len(vuot) - 8} khung khác" if len(vuot) > 8 else ""
+        het = week_start + timedelta(days=6)
+        tieu_de = (
+            f"Tuần {week_start:%d/%m}–{het:%d/%m}: {len(vuot)} khung "
+            "vượt sức chứa sau khi công bố lịch trực"
+        )
+        khung = "; ".join(dong) + them + "."
+        for vai, noi_dung, duong_dan in (
+            (
+                ClinicRole.CSKH.value,
+                "Lịch nhận lúc tuần chưa công bố, KHÔNG bị huỷ. Gọi những khách "
+                "đặt sau cùng (việc 'Lịch vượt sức chứa') để chốt hoặc đổi ca: "
+                + khung,
+                "/customers",
+            ),
+            (
+                ClinicRole.TRUONG_CA.value,
+                "Lịch nhận lúc tuần chưa công bố, KHÔNG bị huỷ; CSKH đang gọi "
+                "khách chốt hoặc đổi ca: " + khung,
+                "/appointments/cho-xep-bac-si",
+            ),
+        ):
+            try:
+                await ThongBaoService(self._pool).goi(
+                    identity=identity,
+                    vai_nhan=vai,
+                    nguon="xung_dot_suc_chua",
+                    nguon_id=f"{week_start.isoformat()}:{vai}",
+                    muc_do="KHAN",
+                    tieu_de=tieu_de,
+                    noi_dung=noi_dung,
+                    duong_dan=duong_dan,
+                )
+            except Exception:  # noqa: BLE001 — xem docstring
+                logger.warning(
+                    "bao_vuot_tran_that_bai",
+                    vai=vai,
+                    week_start=week_start.isoformat(),
+                    exc_info=True,
+                )
 
     async def _bao_cskh_tuan_da_co_lich(
         self, *, week_start: date, so_lich_cho: int, identity: StaffIdentity

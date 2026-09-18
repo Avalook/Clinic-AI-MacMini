@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
+import { NAV, navLabelFor } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
 
 interface GlobalHeaderProps {
@@ -166,9 +167,6 @@ export default function GlobalHeader({
   };
 
   const getPageTitle = () => {
-    if (pathname.startsWith("/cskh-tasks")) {
-      return { title: "Nhiệm vụ chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
-    }
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
@@ -211,14 +209,16 @@ export default function GlobalHeader({
           "Hai lượt gọi: mời đặt lịch trước hẹn 7 ngày, và nhắc đi khám vào sáng ngày hẹn.",
       };
     }
-    if (pathname.startsWith("/tasks")) {
-      return { title: "Công việc chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
-    }
-    if (pathname.startsWith("/appointments")) {
+    // ĐÚNG /appointments — trang con "Chờ xếp bác sĩ" lấy tên nút của nó từ
+    // NAV bên dưới (18/09/2026: startsWith làm nó hiện "Đặt lịch hẹn").
+    if (pathname === "/appointments") {
       return { title: "Đặt lịch hẹn", subtitle: "Chọn khung giờ còn sức chứa và xác nhận lịch cho khách hàng" };
     }
     if (pathname.startsWith("/audit-log")) {
       return { title: "Lịch sử thao tác", subtitle: "Tra cứu ai đã thực hiện thay đổi, vào thời điểm nào và dữ liệu nào bị ảnh hưởng" };
+    }
+    if (pathname.startsWith("/do-sinh-hieu")) {
+      return { title: "Đo sinh hiệu", subtitle: "Khách theo thứ tự đến — bấm vào một người để nhập chỉ số đo được" };
     }
     if (pathname.startsWith("/reception/checkout")) {
       return {
@@ -228,14 +228,19 @@ export default function GlobalHeader({
       };
     }
     if (pathname.startsWith("/reception")) {
-      return { title: "Hàng đợi tiếp nhận", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
+      return { title: "Tiếp đón khách", subtitle: "Check-in khách hẹn hôm nay và xếp hàng chờ" };
     }
-    if (pathname.startsWith("/doctor")) {
-      return { title: "Bàn khám bác sĩ", subtitle: "Khám bệnh, kê đơn và chỉ định cận lâm sàng" };
-    }
-    if (pathname.startsWith("/cashier")) {
-      return { title: "Bàn thu ngân", subtitle: "Thanh toán và xuất hóa đơn dịch vụ" };
-    }
+    // KHÔNG CÓ TIÊU ĐỀ RIÊNG ⇒ LẤY ĐÚNG TÊN NÚT Ở THANH BÊN (18/09/2026).
+    //
+    // Rà ngày 18/09: 32/46 mục thanh bên — Bàn khám, các phòng dịch vụ, Thu
+    // tiền, Điều phối ca, Kho thuốc… — rơi xuống câu chung "Hệ thống Quản lý
+    // ClinicAI". Viết thêm 32 nhánh thì lần thêm màn sau lại quên; lấy từ NAV
+    // (nguồn duy nhất của tên nút) thì tên trên thanh bên và tiêu đề trang
+    // không thể lệch nhau. Khớp đường dài nhất: /truong-ca/tv thắng /truong-ca.
+    const muc = NAV.filter(
+      (n) => pathname === n.href || pathname.startsWith(`${n.href}/`),
+    ).sort((x, y) => y.href.length - x.href.length)[0];
+    if (muc) return { title: navLabelFor(muc, role), subtitle: "" };
     return { title: "Hệ thống Quản lý ClinicAI", subtitle: "Quy trình phòng khám liên thông thông minh" };
   };
 
@@ -267,7 +272,7 @@ export default function GlobalHeader({
 
         <div className="hidden sm:block">
           <h1 className="text-base font-bold text-ink leading-tight">{title}</h1>
-          <p className="text-label text-ink-muted leading-none">{subtitle}</p>
+          {subtitle && <p className="text-label text-ink-muted leading-none">{subtitle}</p>}
         </div>
       </div>
 

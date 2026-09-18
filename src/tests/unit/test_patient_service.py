@@ -127,28 +127,37 @@ async def test_create_patient_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_patient_cccd_conflict_raises() -> None:
-    """An existing CCCD → ConflictError, BEFORE any insert (force can't override)."""
-    from clinicai.api.exceptions import ConflictError
+async def test_create_patient_cccd_trung_canh_bao_khong_tao() -> None:
+    """CCCD đã có hồ sơ, chưa ghi lý do → trả cảnh báo kèm hồ sơ trùng, KHÔNG thêm.
 
+    Trước 15/09/2026 là ConflictError cứng (UNIQUE ở DB). Tuyền chốt: cảnh báo +
+    bắt ghi lý do. `force` (dành cho trùng SĐT) vẫn KHÔNG vượt được CCCD.
+    """
     pool, conn = _mock_pool_and_conn()
-    # Lần 1 = kiểm cơ sở (qua), lần 2 = tiền kiểm CCCD trả hàng đã tồn tại.
-    conn.fetchrow.side_effect = [
-        _co_so(),
-        {"patient_code": "BN-2026-000001", "full_name": "Người Khác"},
+    conn.fetchrow.side_effect = [_co_so()]
+    conn.fetch.return_value = [
+        {
+            "clinic_patient_id": FAKE_UUID,
+            "patient_code": "BN-2026-000001",
+            "full_name": "Người Khác",
+            "date_of_birth": None,
+        }
     ]
 
     svc = PatientService(pool)
-    with pytest.raises(ConflictError, match="CCCD"):
-        await svc.create_patient(
-            PatientCreateDTO(
-                full_name="Nguyễn Thị Lan",
-                national_id_number="012345678901",
-                location_id=FAKE_LOCATION,
-                force=True,  # force does NOT bypass a CCCD conflict
-            ),
-            identity,
-        )
+    result = await svc.create_patient(
+        PatientCreateDTO(
+            full_name="Nguyễn Thị Lan",
+            national_id_number="012345678901",
+            location_id=FAKE_LOCATION,
+            force=True,
+        ),
+        identity,
+    )
+    assert result.patient is None
+    assert result.duplicate and result.cccd_trung
+    assert result.matches[0].patient_code == "BN-2026-000001"
+    conn.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,8 @@ Two verification modes (auto-selected):
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
 from enum import Enum
 from functools import lru_cache
 from time import monotonic
@@ -39,6 +40,12 @@ from clinicai.core.database import get_db_pool
 logger = structlog.get_logger()
 
 SUPABASE_AUDIENCE = "authenticated"
+#: Độ lệch đồng hồ cho phép giữa GoTrue (máy cấp token) và API, tính bằng giây.
+#: 15/09/2026 trên stack local: GoTrue chạy trong máy ảo Docker có đồng hồ nhanh
+#: hơn máy thật vài phần giây → token vừa cấp có `iat` "ở tương lai" và PyJWT
+#: (mặc định lệch 0 giây) trả 401 "The token is not yet valid (iat)" — người vừa
+#: đăng nhập bị đá ra ngẫu nhiên. 5 giây chỉ nới đúng chừng ấy cho iat/exp.
+JWT_CLOCK_LEEWAY_SECONDS = 5
 
 
 class ClinicRole(str, Enum):
@@ -69,6 +76,19 @@ class ClinicRole(str, Enum):
     # đó. Thêm endpoint mới sau này cũng tự động loại vai này ra, không phải
     # nhớ gì cả.
     DISPLAY = "DISPLAY"
+    # NGƯỜI NGOÀI PHÒNG KHÁM — lab, phòng chụp, nơi làm dịch vụ gửi ra ngoài.
+    #
+    # Vào để làm đúng MỘT việc: gửi kết quả họ vừa làm. Tuyền yêu cầu tài khoản
+    # này 16/09/2026; tôi đã nêu lo ngại rằng một mật khẩu thường trực nằm ngoài
+    # tầm quản lý của phòng khám là một cánh cửa mở mãi, và Tuyền chốt vẫn làm.
+    #
+    # Nên nó được chặn theo CÙNG cách vai DISPLAY bị chặn, và vì cùng một lý do:
+    # `get_current_identity` từ chối thẳng, nên MỌI endpoint đang có và MỌI
+    # endpoint viết sau này đều đóng với vai này mà không ai phải nhớ gì. Chỉ
+    # `get_partner_identity` mở ra, và hôm nay đúng hai đường dùng nó.
+    #
+    # Danh sách cho phép thì bỏ sót; danh sách từ chối thì không.
+    PARTNER = "PARTNER"
 
 
 _VALID_ROLES = {r.value for r in ClinicRole}
@@ -172,6 +192,44 @@ class StaffIdentity:
     short_name: str = ""
     clinic_name: str = ""
 
+    #: VAI THEO VỊ TRÍ HÔM NAY (Tuyền chốt 16/09/2026). Tài khoản Phùng Thị Minh
+    #: Thư là Điều dưỡng, hôm nay đứng Lễ tân + Thu ngân: menu đã đi theo vị trí
+    #: nhưng mọi cửa thu ngân, check-out, đặt lịch vẫn trả 403 vì chỉ xét vai tài
+    #: khoản. Tập này là các vai VẬN HÀNH mà lịch hôm nay cấp thêm — không bao giờ
+    #: có vai bác sĩ (xem `VAI_THEO_VI_TRI`).
+    vai_theo_vi_tri: frozenset[ClinicRole] = frozenset()
+    #: Có giá trị khi cửa gác đã THAY `role` bằng vai của vị trí hôm nay: đây là
+    #: vai tài khoản gốc. Nhật ký thao tác ghi cả hai ("Minh Thư, tài khoản Điều
+    #: dưỡng, làm với vai Lễ tân") — không thì mất dấu ai thật sự đã bấm.
+    vai_tai_khoan: ClinicRole | None = None
+
+    def cac_vai(self) -> frozenset[ClinicRole]:
+        """MỌI vai người này làm được HÔM NAY: vai đang dùng, vai tài khoản gốc
+        (nếu cửa gác đã thay), và vai vận hành mà vị trí trong lịch cấp."""
+        vai = {self.role, *self.vai_theo_vi_tri}
+        if self.vai_tai_khoan is not None:
+            vai.add(self.vai_tai_khoan)
+        return frozenset(vai)
+
+    @property
+    def vai_goc(self) -> ClinicRole:
+        """Vai TÀI KHOẢN — khớp `clinic_membership.role` trong database."""
+        return self.vai_tai_khoan or self.role
+
+    def ds_vai(self) -> list[str]:
+        """`cac_vai()` dạng chuỗi, để truyền vào truy vấn (`$n::text[]`)."""
+        return sorted(v.value for v in self.cac_vai())
+
+    def co_vai(self, roles: Iterable[ClinicRole]) -> bool:
+        """Có ÍT NHẤT MỘT vai hôm nay nằm trong `roles`.
+
+        Dùng thay cho `identity.role in roles` ở MỌI kiểm tra nghiệp vụ (Tuyền
+        duyệt 16/09/2026). Vai giấy phép (bác sĩ, thư ký, quản lý) không bao giờ
+        đến từ lịch, nên với chúng kết quả y như so vai tài khoản; chỉ các vai
+        vận hành (lễ tân, điều dưỡng, trưởng ca) mở thêm cho người đứng vị trí.
+        """
+        return not self.cac_vai().isdisjoint(roles)
+
     def can_write_clinical(self) -> bool:
         return self.role in CLINICAL_WRITE_ROLES
 
@@ -201,6 +259,7 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
                 secret,
                 algorithms=["HS256"],
                 audience=SUPABASE_AUDIENCE,
+                leeway=JWT_CLOCK_LEEWAY_SECONDS,
             )
         signing_key = _jwk_client().get_signing_key_from_jwt(token).key
         return jwt.decode(
@@ -208,6 +267,7 @@ def verify_supabase_jwt(token: str) -> dict[str, Any]:
             signing_key,
             algorithms=["ES256", "RS256"],
             audience=SUPABASE_AUDIENCE,
+            leeway=JWT_CLOCK_LEEWAY_SECONDS,
         )
     except jwt.PyJWTError as exc:
         logger.info("jwt_verification_failed", error=str(exc))
@@ -339,7 +399,15 @@ async def _resolve_identity(
                s.primary_department,
                m.clinic_id, m.role AS membership_role,
                s.primary_location_id, l.name AS location_name,
-               c.name AS clinic_name
+               c.name AS clinic_name,
+               -- Vị trí trong lịch HÔM NAY: cấp vai vận hành (`vai_tu_vi_tri`).
+               (SELECT array_agg(DISTINCT w.station)
+                  FROM work_roster w
+                 WHERE w.clinic_id = m.clinic_id AND w.staff_id = s.id
+                   AND w.status <> 'REJECTED'
+                   AND w.work_date
+                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               ) AS vi_tri_hom_nay
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
@@ -408,17 +476,21 @@ async def _resolve_identity(
         )
 
     membership_role = row["membership_role"]
+    vai_tai_khoan = role_from_department(membership_role)
     identity = StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
         full_name=row["full_name"],
         department=dept,
-        role=role_from_department(membership_role),
+        role=vai_tai_khoan,
         clinic_id=str(clinic_id),
         location_id=str(location_id),
         location_name=row["location_name"] or "",
         short_name=row["short_name"] or "",
         clinic_name=row["clinic_name"] or "",
+        vai_theo_vi_tri=vai_tu_vi_tri(
+            [str(v) for v in (row.get("vi_tri_hom_nay") or [])], vai_tai_khoan
+        ),
     )
     # Only the success path is cached. A 403 stays uncached so a staff member
     # who has just been granted a membership gets in on their next request
@@ -443,6 +515,11 @@ async def get_current_identity(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản màn hình chỉ được xem bảng gọi số",
         )
+    if identity.role is ClinicRole.PARTNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tài khoản đối tác chỉ được gửi kết quả",
+        )
     return identity
 
 
@@ -455,6 +532,26 @@ async def get_display_identity(
     Trước khi gắn dependency này vào một đường mới, hãy đọc lại ràng buộc ① ở
     đầu ``display_board_service``.
     """
+    return identity
+
+
+async def get_partner_identity(
+    identity: StaffIdentity = Depends(_resolve_identity),
+) -> StaffIdentity:
+    """Danh tính cho hai đường của ĐỐI TÁC — và chỉ hai đường ấy.
+
+    Nhận đúng vai PARTNER, cộng MANAGEMENT để quản lý xem được đối tác đang
+    nhìn thấy gì (không có đường ấy thì không ai kiểm được lời hứa "họ chỉ thấy
+    việc của họ" ngoài cách tự đăng nhập bằng tài khoản đối tác).
+
+    Mọi vai khác bị từ chối ở đây, và vai PARTNER bị từ chối ở mọi nơi khác —
+    hai chiều khoá lẫn nhau.
+    """
+    if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Đường này dành cho tài khoản đối tác",
+        )
     return identity
 
 
@@ -474,6 +571,23 @@ class RoleGuard:
         identity: StaffIdentity = Depends(get_current_identity),
     ) -> StaffIdentity:
         if identity.role not in self.allowed_roles:
+            # Vai tài khoản không được, nhưng VỊ TRÍ HÔM NAY cho phép: yêu cầu đi
+            # tiếp dưới vai của vị trí. Thay `role` ngay tại cửa (thay vì thêm
+            # một tập vai) để MỌI kiểm tra phía sau — loại thanh toán được thu,
+            # vai được đọc hàng chờ… — tự đúng mà không phải sửa 41 chỗ.
+            for vai in sorted(identity.vai_theo_vi_tri, key=lambda r: r.value):
+                if vai in self.allowed_roles:
+                    logger.info(
+                        "role_theo_vi_tri",
+                        vai_tai_khoan=identity.role.value,
+                        vai_hom_nay=vai.value,
+                        staff_id=identity.staff_id,
+                    )
+                    return replace(
+                        identity,
+                        role=vai,
+                        vai_tai_khoan=identity.vai_tai_khoan or identity.role,
+                    )
             logger.info(
                 "role_forbidden",
                 role=identity.role.value,
@@ -489,3 +603,164 @@ class RoleGuard:
 def require_role(*allowed: ClinicRole) -> RoleGuard:
     """Dependency factory: 403 unless the caller's role is in ``allowed``."""
     return RoleGuard(frozenset(allowed))
+
+
+#: Mọi vai LÀM VIỆC TRONG phòng khám. Không có DISPLAY (cái tivi) và không có
+#: PARTNER (người ngoài phòng khám) — hai vai ấy đóng theo thiết kế, và nới
+#: chúng ra là một quyết định về bảo mật chứ không phải một bước dọn dẹp.
+VAI_LAM_VIEC: frozenset[ClinicRole] = frozenset(ClinicRole) - {
+    ClinicRole.DISPLAY,
+    ClinicRole.PARTNER,
+}
+
+
+#: Vị trí trong lịch → vai VẬN HÀNH mà người đứng đó được dùng hôm nay.
+#:
+#: CHỈ VAI VẬN HÀNH. Lịch cấp quyền lễ tân, điều dưỡng, trưởng ca; KHÔNG cấp
+#: bác sĩ, bác sĩ siêu âm, thư ký hay quản lý — khám, kê đơn, duyệt kết quả là
+#: việc có chứng chỉ hành nghề đứng sau, không thể thành của ai đó chỉ vì bảng
+#: xếp ca ghi nhầm một ô. `test_vai_theo_vi_tri.py` canh điều này.
+#:
+#: Khít với nhóm "Lễ tân" / "Điều dưỡng" / "Trưởng ca" của thanh bên
+#: (`nav-items.ts` NHOM_THEO_VI_TRI).
+VAI_THEO_VI_TRI: dict[str, ClinicRole] = {
+    "T1_LETAN": ClinicRole.RECEPTION,
+    "T1_THUNGAN": ClinicRole.RECEPTION,
+    "T2_XEPTHUOC": ClinicRole.RECEPTION,
+    "T2_TAODON": ClinicRole.RECEPTION,
+    "T1_DOCHISO": ClinicRole.NURSE_ULTRASOUND,
+    "T1_LAYMAU": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TT_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TTNG_DD1": ClinicRole.NURSE_ULTRASOUND,
+    "T1_TTNG_DD2": ClinicRole.NURSE_ULTRASOUND,
+    "T1_SA_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SA_DD1": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SA_DD2": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SANCHAU_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_SAN_DD": ClinicRole.NURSE_ULTRASOUND,
+    "T4_BIO_DD": ClinicRole.NURSE_ULTRASOUND,
+    "DIEU_PHOI": ClinicRole.TRUONG_CA,
+    # Mã ĐỜI CŨ còn trong lịch 14–27/09/2026 (khớp `MA_VI_TRI_CU` ở nav-items.ts):
+    # lịch quản lý đã xếp thì phải được hiểu, dù ghi theo mẫu cũ.
+    "LE_TAN": ClinicRole.RECEPTION,
+    "LAY_MAU": ClinicRole.NURSE_ULTRASOUND,
+    "PHU_BS_SA": ClinicRole.NURSE_ULTRASOUND,
+}
+
+#: Thứ tự HIỂN THỊ khi một người có nhiều vai vận hành trong ngày: Lễ tân ở trên,
+#: Điều dưỡng ở dưới (Tuyền 17/09/2026). Vai đầu là "vai chính" của trang chủ.
+THU_TU_VAI_VAN_HANH: tuple[ClinicRole, ...] = (
+    ClinicRole.RECEPTION,
+    ClinicRole.NURSE_ULTRASOUND,
+    ClinicRole.TRUONG_CA,
+)
+
+#: Không vai nào trong tập này được cấp qua lịch, dù bảng trên có ghi gì.
+VAI_KHONG_CAP_QUA_LICH: frozenset[ClinicRole] = frozenset(
+    {
+        ClinicRole.DOCTOR,
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.TKYK,
+        ClinicRole.MANAGEMENT,
+        ClinicRole.PARTNER,
+        ClinicRole.DISPLAY,
+    }
+)
+
+
+def vai_tu_vi_tri(
+    vi_tri: list[str] | tuple[str, ...], vai_tai_khoan: ClinicRole
+) -> frozenset[ClinicRole]:
+    """Vai vận hành lịch hôm nay cấp thêm. Thuần — test được không cần DB."""
+    # Tài khoản ngoài phòng khám không bao giờ được cấp gì từ lịch.
+    if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):
+        return frozenset()
+    return frozenset(
+        VAI_THEO_VI_TRI[v]
+        for v in vi_tri
+        if v in VAI_THEO_VI_TRI
+        and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
+        and VAI_THEO_VI_TRI[v] != vai_tai_khoan
+    )
+
+
+def vai_theo_thu_tu(vi_tri: list[str], vai_tai_khoan: ClinicRole) -> list[str]:
+    """Vai vận hành các vị trí hôm nay mang lại — KỂ CẢ vai trùng vai tài khoản
+    (lễ tân đứng Lễ tân vẫn là "hôm nay làm Lễ tân") — xếp Lễ tân → Điều dưỡng →
+    Trưởng ca. Chỉ để HIỂN THỊ; quyền dùng `vai_tu_vi_tri`."""
+    if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):
+        return []
+    co = {
+        VAI_THEO_VI_TRI[v]
+        for v in vi_tri
+        if v in VAI_THEO_VI_TRI and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
+    }
+    return [v.value for v in THU_TU_VAI_VAN_HANH if v in co]
+
+
+def mo_quyen_tam_thoi() -> bool:
+    """Đang bật chế độ MỞ QUYỀN TẠM THỜI?
+
+    Tuyền chốt 16/09/2026: *"giờ này mở quyền giúp tôi, tất cả các tài khoản
+    đều có thể thao tác đã, đừng bị phụ thuộc lịch khám nữa, trừ bác sĩ ra
+    thui, tại giờ đang rối, trước mắt giải quyết vậy đã"*.
+
+    LÀ CÔNG TẮC, KHÔNG PHẢI XOÁ LUẬT. Những luật bị nới ở đây đều từng được
+    chốt có lý do — đặc biệt luật "thư ký nào theo bác sĩ ấy" (Tuyền, 15/09).
+    Xoá chúng đi thì lúc phòng khám hết rối, dựng lại là dựng lại từ đầu, và
+    lý do đằng sau từng luật đã mất. Để sau một công tắc thì tắt là về như cũ.
+
+    Mặc định BẬT, và đó là một lựa chọn khó chịu có chủ ý: mặc định tắt nghĩa
+    là chỉ cần một biến môi trường rơi rụng lúc chuyển máy là quyền tự siết
+    lại trong im lặng, và triệu chứng sẽ là "tự nhiên thư ký không thấy khách
+    nào" — thứ mất nửa ngày để lần ra. Bù lại, máy chủ KÊU TO lúc khởi động
+    (xem `main.py`) nên không ai quên được là nó đang bật.
+
+    Tắt: đặt `MO_QUYEN_TAM_THOI=0` trong `.env.prod` rồi dựng lại container.
+    """
+    return os.environ.get("MO_QUYEN_TAM_THOI", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "",
+    )
+
+
+class RoleGuardCoTheMo(RoleGuard):
+    """Cửa gác nới ra khi công tắc mở quyền tạm thời đang bật.
+
+    ĐỌC CÔNG TẮC LÚC GỌI, KHÔNG PHẢI LÚC DỰNG. Bản đầu quyết định tập vai ngay
+    trong hàm dựng — mà hàm dựng chạy lúc *import module*, tức trước khi bất kỳ
+    ai kịp đặt biến môi trường. Hệ quả: đặt `MO_QUYEN_TAM_THOI=0` rồi mà quyền
+    vẫn mở, và không có gì trên màn hình mâu thuẫn với điều đó. Đọc lúc gọi tốn
+    thêm một lần tra `os.environ` mỗi yêu cầu — không đo được, và đổi lại là
+    công tắc thật sự bật tắt được.
+
+    `allowed_roles` vẫn giữ tập GỐC, cố ý: máy kiểm phạm vi và các bài kiểm đối
+    chiếu với `roles.ts` phải đọc được Ý ĐỊNH của cửa này, chứ không phải trạng
+    thái tạm thời của một biến môi trường.
+    """
+
+    async def __call__(
+        self,
+        identity: StaffIdentity = Depends(get_current_identity),
+    ) -> StaffIdentity:
+        # Vai theo vị trí hôm nay đi TRƯỚC công tắc: người đứng Lễ tân thì làm
+        # việc dưới vai Lễ tân, để kiểm tra phía sau đọc đúng vai.
+        if identity.role not in self.allowed_roles and any(
+            v in self.allowed_roles for v in identity.vai_theo_vi_tri
+        ):
+            return await super().__call__(identity)
+        if mo_quyen_tam_thoi() and identity.role in VAI_LAM_VIEC:
+            return identity
+        return await super().__call__(identity)
+
+
+def require_role_co_the_mo(*allowed: ClinicRole) -> RoleGuard:
+    """Như `require_role`, nhưng NHẬN MỌI VAI LÀM VIỆC khi công tắc đang bật.
+
+    CHỈ DÙNG CHO CỬA KHÔNG PHẢI VIỆC CỦA BÁC SĨ. Khám, kê đơn, chẩn đoán, duyệt
+    chỉ định vẫn `require_role(DOCTOR)` — Tuyền nói rõ "trừ bác sĩ ra thui", và
+    đó là ranh giới có luật hành nghề đứng sau, không phải một quy ước nội bộ.
+    """
+    return RoleGuardCoTheMo(frozenset(allowed))

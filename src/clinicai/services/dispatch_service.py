@@ -15,6 +15,7 @@ cái mà chính danh sách cảnh báo của khách hàng liệt kê là bất t
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -57,6 +58,7 @@ SELECT v.visit_id,
        p.full_name                                AS patient_name,
        p.patient_code,
        a.queue_number,
+       a.so_tiep_don,
        a.status                                   AS appointment_status,
        st.name                                    AS specialty,
        d.full_name                                AS doctor_name,
@@ -70,10 +72,24 @@ SELECT v.visit_id,
                                                   AS total_minutes,
        ng.wait_minutes                            AS threshold_minutes,
        -- Bước đã xong: đọc từ timeline, theo đúng thứ tự đã đi.
-       (SELECT array_agg(w2.node_code ORDER BY w2.finished_at)
-          FROM public.work_item w2
-         WHERE w2.visit_id = v.visit_id AND w2.status = 'COMPLETED')
+       -- Luồng mới: bước đã xong = chỉ định đã làm; luồng cũ: work_item.
+       coalesce(
+           (SELECT array_agg(o2.node_code ORDER BY o2.finished_at)
+              FROM public.service_order o2
+             WHERE o2.visit_id = v.visit_id AND o2.clinic_id = v.clinic_id
+               AND o2.exec_status = 'performed'),
+           (SELECT array_agg(w2.node_code ORDER BY w2.finished_at)
+              FROM public.work_item w2
+             WHERE w2.visit_id = v.visit_id AND w2.status = 'COMPLETED'))
                                                   AS done_steps,
+       -- BƯỚC KẾ TIẾP theo chỉ định còn mở (tuyến điều phối đã bỏ 16/09).
+       (SELECT o3.node_code
+          FROM public.service_order o3
+         WHERE o3.visit_id = v.visit_id AND o3.clinic_id = v.clinic_id
+           AND o3.exec_status IN ('authorized', 'assigned')
+           AND o3.node_code IS DISTINCT FROM v.current_node_code
+         ORDER BY o3.created_at
+         LIMIT 1)                                 AS buoc_chi_dinh_ke,
        vr.steps                                   AS route_steps,
        vr.id                                      AS route_id
   FROM public.visit v
@@ -110,13 +126,13 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
        -- ĐANG PHỤC VỤ vs ĐANG CHỜ. Bước đã bắt đầu (IN_PROGRESS) là đang phục
        -- vụ; PENDING là đang chờ tới lượt. Gộp hai số này lại thì Trưởng ca
        -- không biết phòng đang kẹt hay đang rảnh.
-       count(v.visit_id) FILTER (WHERE v.status = 'IN_PROGRESS'
-                                   AND w.status = 'IN_PROGRESS') AS serving,
-       count(v.visit_id) FILTER (WHERE w.status = 'PENDING')      AS waiting,
-       coalesce(max(EXTRACT(EPOCH FROM (now() - v.current_node_since)) / 60)
-                FILTER (WHERE w.status = 'PENDING'), 0)::int      AS max_wait,
-       coalesce(avg(EXTRACT(EPOCH FROM (now() - v.current_node_since)) / 60)
-                FILTER (WHERE w.status = 'PENDING'), 0)::int      AS avg_wait
+       -- ĐẾM THEO HÀNG CHỜ THẬT (queue_entry) — 17/09/2026. Bản cũ đếm
+       -- work_item của luồng chỉ định cũ, nên khách trên luồng mới không bao
+       -- giờ làm phòng "đông": trưởng ca nhìn SA1 có 5 người chờ vẫn thấy 0.
+       coalesce(qq.serving, 0)  AS serving,
+       coalesce(qq.waiting, 0)  AS waiting,
+       coalesce(qq.max_wait, 0) AS max_wait,
+       coalesce(qq.avg_wait, 0) AS avg_wait
   FROM public.clinic_room r
   LEFT JOIN public.node_definition n
          ON n.code = r.node_code AND n.clinic_id = r.clinic_id
@@ -124,11 +140,24 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
          ON t.room_id = r.id AND t.clinic_id = r.clinic_id
   LEFT JOIN public.dispatch_threshold d
          ON d.room_id IS NULL AND d.clinic_id = r.clinic_id
-  LEFT JOIN public.visit v
-         ON v.current_room_id = r.id AND v.status = ANY($2::text[])
-  LEFT JOIN public.work_item w
-         ON w.visit_id = v.visit_id AND w.node_code = r.node_code
-        AND w.status IN ('PENDING', 'IN_PROGRESS')
+  LEFT JOIN LATERAL (
+      SELECT count(*) FILTER (WHERE q.status IN ('called', 'serving')) AS serving,
+             count(*) FILTER (WHERE q.status = 'waiting')             AS waiting,
+             max(EXTRACT(EPOCH FROM (
+                     now() - coalesce(q.eligible_at, q.created_at))) / 60)
+                 FILTER (WHERE q.status = 'waiting')::int              AS max_wait,
+             avg(EXTRACT(EPOCH FROM (
+                     now() - coalesce(q.eligible_at, q.created_at))) / 60)
+                 FILTER (WHERE q.status = 'waiting')::int              AS avg_wait
+        FROM public.queue_entry q
+        JOIN public.visit v
+          ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
+         AND v.status = ANY($2::text[])
+       WHERE q.clinic_id = r.clinic_id
+         AND q.status IN ('waiting', 'called', 'serving')
+         -- Hàng DOCTOR không mang phòng: tính vào phòng khách đang đứng.
+         AND coalesce(q.room_id, v.current_room_id) = r.id
+  ) qq ON TRUE
  WHERE r.clinic_id = $1::uuid AND r.is_active
    -- CHỈ PHÒNG CỦA CƠ SỞ ĐANG ĐỨNG. Không lọc thì khi Hào Nam mở, nhân sự ở đó
    -- thấy nguyên danh sách phòng của Kim Ngưu và bấm chuyển bệnh nhân sang một
@@ -141,7 +170,8 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
    AND r.location_id = coalesce($3::uuid, r.location_id)
  GROUP BY r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
           r.show_on_tv, r.floor, n.name, t.wait_minutes, d.wait_minutes,
-          t.max_waiting, d.max_waiting
+          t.max_waiting, d.max_waiting, qq.serving, qq.waiting, qq.max_wait,
+          qq.avg_wait
  ORDER BY r.sort, r.code
 """
 
@@ -159,6 +189,32 @@ class DispatchService:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(_OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES))
         return [_overview_row(r) for r in rows]
+
+    async def chi_dinh(self, *, clinic_id: str, visit_id: str) -> list[dict[str, Any]]:
+        """BÁC SĨ ĐÃ CHỈ ĐỊNH GÌ cho lượt khám này — Tuyền chốt 16/09/2026.
+
+        Thay khối "tuyến điều phối" (áp một quy trình mẫu lên cả lượt khám):
+        *"cái tuyến lúc ấn vào hiện tại nó quá cứng, cần mềm để linh hoạt"*.
+
+        Trưởng ca không tự nghĩ ra việc cho bệnh nhân — việc đã có sẵn trong chỉ
+        định của bác sĩ. Thứ ông ấy cần biết là: còn những việc nào chưa làm, và
+        chỗ làm việc ấy có đang tắc không. Cột `dang_cho_buoc` trả lời vế sau,
+        nên quyết định "đổi phòng hay đổi bác sĩ" dựa trên số thật chứ không
+        dựa vào cảm giác.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                _CHI_DINH_SQL, clinic_id, visit_id, list(LIVE_VISIT_STATUSES)
+            )
+        return [
+            {
+                **dict(r),
+                # json_agg về tay asyncpg là chuỗi — giải ra danh sách.
+                "phong_lam_duoc": json.loads(r["phong_lam_duoc"] or "[]"),
+                "xong": r["exec_status"] in _CHI_DINH_XONG,
+            }
+            for r in rows
+        ]
 
     async def stations(
         self, *, clinic_id: str, location_id: str | None = None
@@ -305,6 +361,23 @@ class DispatchService:
                 if tpl is None:
                     raise ValidationError(f"Không có tuyến {template_code}.")
 
+                # Tuyến là THỨ TỰ các việc bác sĩ đã chỉ định (15/09/2026, CONTEXT
+                # v1.0: bác sĩ duyệt chỉ định → trưởng ca điều phối). Mẫu tuyến
+                # liệt kê cả dịch vụ lượt này không có; giữ lại bước dịch vụ nào
+                # đã có việc (chưa huỷ), bỏ phần còn lại và nói rõ đã bỏ gì —
+                # không để tuyến gợi ý một dịch vụ không ai chỉ định.
+                steps, bo_qua = await _buoc_theo_chi_dinh(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    visit_id=visit_id,
+                    steps=list(tpl["steps"]),
+                )
+                if not steps:
+                    raise ValidationError(
+                        f"Tuyến {template_code} chỉ gồm dịch vụ bác sĩ chưa chỉ định "
+                        "cho lượt này — chờ bác sĩ chỉ định rồi mới xếp tuyến."
+                    )
+
                 done = await conn.fetchval(
                     "SELECT coalesce(array_agg(node_code), '{}')"
                     "  FROM public.work_item"
@@ -333,7 +406,7 @@ class DispatchService:
                     identity.clinic_id,
                     visit_id,
                     tpl["id"],
-                    list(tpl["steps"]),
+                    steps,
                     list(done or []),
                     is_exception,
                     reason,
@@ -354,7 +427,8 @@ class DispatchService:
                         {
                             "to_node": None,
                             "template": template_code,
-                            "steps": list(tpl["steps"]),
+                            "steps": steps,
+                            "bo_qua_chua_chi_dinh": bo_qua,
                             "kept_steps": list(done or []),
                             "is_exception": is_exception,
                             "reason": reason,
@@ -380,7 +454,12 @@ class DispatchService:
             template=template_code,
             is_exception=is_exception,
         )
-        return {"ok": True, "route_id": str(route_id)}
+        return {
+            "ok": True,
+            "route_id": str(route_id),
+            "steps": steps,
+            "bo_qua_chua_chi_dinh": bo_qua,
+        }
 
     # ── Cấu hình ───────────────────────────────────────────────────────
 
@@ -561,18 +640,8 @@ def build_alerts(
                     ],
                 }
             )
-        elif not p["next_step"] and not p["route_steps"]:
-            out.append(
-                {
-                    "type": "no_route",
-                    "severity": "warning",
-                    "message": (f"{p['patient_name']} chưa được chọn tuyến điều phối"),
-                    "room_code": p["room_code"],
-                    "patients": [
-                        {"name": p["patient_name"], "code": p["patient_code"]}
-                    ],
-                }
-            )
+        # Cảnh báo "chưa được chọn tuyến điều phối" ĐÃ BỎ (17/09/2026): tuyến
+        # điều phối không còn nút chọn từ 16/09, nên câu này báo mọi khách.
 
     rank = {"critical": 0, "warning": 1}
     out.sort(key=lambda a: (rank.get(a["severity"], 9), a["message"]))
@@ -607,6 +676,7 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
             str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
         ),
         "queue_number": r["queue_number"],
+        "so_tiep_don": r.get("so_tiep_don"),
         "specialty": r["specialty"],
         "doctor_name": r["doctor_name"],
         "current_node_code": r["current_node_code"],
@@ -620,7 +690,8 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
         "threshold_minutes": r["threshold_minutes"] or 20,
         "done_steps": done,
         "route_steps": route,
-        "next_step": next_step_of(route, done, r["current_node_code"]),
+        "next_step": next_step_of(route, done, r["current_node_code"])
+        or r.get("buoc_chi_dinh_ke"),
         "checked_in_at": (
             r["checked_in_at"].isoformat() if r["checked_in_at"] else None
         ),
@@ -631,3 +702,103 @@ def _json(value: dict[str, Any]) -> str:
     import json
 
     return json.dumps(value, ensure_ascii=False)
+
+
+#: Nhóm bước chỉ sinh từ chỉ định của bác sĩ (order_services và chuỗi của nó).
+NHOM_BUOC_DICH_VU: tuple[str, ...] = ("dich_vu", "ket_qua")
+
+
+async def _buoc_theo_chi_dinh(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str, steps: list[str]
+) -> tuple[list[str], list[str]]:
+    """(bước giữ lại, bước dịch vụ bị bỏ vì lượt khám không có chỉ định).
+
+    Cùng luật với `move_visit_to_station` (20260915000013): bước dịch vụ cần
+    việc sinh từ chỉ định; nhà thuốc (THUOC-*) cần đơn thuốc của lượt khám.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT n.code,
+               CASE WHEN n.code LIKE 'THUOC-%' THEN EXISTS (
+                   SELECT 1 FROM public.prescription r
+                    WHERE r.clinic_id = n.clinic_id AND r.visit_id = $2::uuid
+               ) ELSE EXISTS (
+                   SELECT 1 FROM public.work_item w
+                    WHERE w.clinic_id = n.clinic_id AND w.visit_id = $2::uuid
+                      AND w.node_code = n.code AND w.status <> 'CANCELLED'
+               ) END AS co_viec
+          FROM public.node_definition n
+         WHERE n.clinic_id = $1::uuid AND n.code = ANY($3::text[])
+           AND n.flow_group = ANY($4::text[])
+        """,
+        clinic_id,
+        visit_id,
+        steps,
+        list(NHOM_BUOC_DICH_VU),
+    )
+    khong_chi_dinh = {r["code"] for r in rows if not r["co_viec"]}
+    return (
+        [s for s in steps if s not in khong_chi_dinh],
+        [s for s in steps if s in khong_chi_dinh],
+    )
+
+
+#: Trạng thái chỉ định đã XONG — không còn là việc phải xếp phòng nữa.
+_CHI_DINH_XONG: tuple[str, ...] = ("performed", "not_performed", "cancelled")
+
+_CHI_DINH_SQL = """
+SELECT o.id::text,
+       o.service_code, o.service_name, o.node_code, o.exec_status, o.version,
+       n.name AS node_name,
+       coalesce(n.lam_ben_ngoai, false) AS doi_tac,
+       o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,
+       q.status AS work_status,
+       -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG ĐANG XẾP — câu trưởng ca thật sự hỏi khi
+       -- nhìn một chỉ định: "chỗ ấy có tắc không?". Đếm theo hàng chờ thật.
+       (SELECT count(*) FROM public.queue_entry q2
+          JOIN public.visit v2
+            ON v2.visit_id = q2.visit_id AND v2.clinic_id = q2.clinic_id
+           AND v2.status = ANY($3::text[])
+         WHERE q2.clinic_id = o.clinic_id AND q2.room_id = o.room_id
+           AND q2.status = 'waiting') AS dang_cho_buoc,
+       -- CÁC PHÒNG LÀM ĐƯỢC BƯỚC NÀY + tải + ngưỡng "đầy", để chuyển khách
+       -- sang phòng vắng hơn ngay tại đây (Tuyền 17/09: "siêu âm có 4 khách
+       -- chờ là đầy rồi nên khách 5 được trưởng ca điều hướng sang SA2").
+       (SELECT coalesce(json_agg(json_build_object(
+                   'id', r3.id, 'name', r3.name, 'floor', r3.floor,
+                   'waiting', (SELECT count(*) FROM public.queue_entry q3
+                                 JOIN public.visit v3
+                                   ON v3.visit_id = q3.visit_id
+                                  AND v3.clinic_id = q3.clinic_id
+                                  AND v3.status = ANY($3::text[])
+                                WHERE q3.clinic_id = r3.clinic_id
+                                  AND q3.room_id = r3.id AND q3.status = 'waiting'),
+                   'threshold_waiting', coalesce(t3.max_waiting, d3.max_waiting, 8)
+               ) ORDER BY r3.sort, r3.code), '[]'::json)
+          FROM public.clinic_room r3
+          JOIN public.clinic_room_node rn3
+            ON rn3.room_id = r3.id AND rn3.clinic_id = r3.clinic_id
+           AND rn3.node_code = o.node_code
+          LEFT JOIN public.dispatch_threshold t3
+                 ON t3.room_id = r3.id AND t3.clinic_id = r3.clinic_id
+          LEFT JOIN public.dispatch_threshold d3
+                 ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
+         WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
+           AND NOT r3.la_doi_tac
+       ) AS phong_lam_duoc
+  FROM public.service_order o
+  JOIN public.visit v
+    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+   AND v.status = ANY($3::text[])
+  LEFT JOIN public.node_definition n
+         ON n.code = o.node_code AND n.clinic_id = o.clinic_id
+  LEFT JOIN public.clinic_room r ON r.id = o.room_id
+  LEFT JOIN LATERAL (
+      SELECT q1.status FROM public.queue_entry q1
+       WHERE q1.clinic_id = o.clinic_id AND q1.visit_id = o.visit_id
+         AND q1.ref_id = o.id AND q1.reason = 'SERVICE'
+       ORDER BY q1.created_at DESC LIMIT 1
+  ) q ON TRUE
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+ ORDER BY o.created_at
+"""

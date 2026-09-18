@@ -127,6 +127,35 @@ services:
       start_period: 40s
     networks: [internal, supabase]
 
+  # ---- Quyền ổ tệp kết quả (chạy một lần rồi thoát) ------------------------
+  # Thư mục nguồn của ổ bind chưa có thì Docker TỰ TẠO với chủ là root, còn api
+  # chạy bằng uid 1000 (Dockerfile.api). Kết quả đo trên final cloud 16/09/2026:
+  # mọi lần tải ảnh/video/PDF đều 503 "Permission denied" — và vì chưa ai từng
+  # tải lên nên lỗi nằm im từ ngày dựng máy. Bước này trao thư mục cho uid 1000
+  # trước khi api chạy, nên máy mới hay thư mục bị tạo lại đều tự đúng.
+  media-quyen:
+    # Cùng lớp an toàn chung như mọi service (log có trần, no-new-privileges,
+    # init). Bài kiểm infra-safety đòi điều này cho MỌI service; service này
+    # thêm ngày 16/09 mà thiếu — bắt được khi CI chạy lại 18/09/2026.
+    # no-new-privileges không cản chown: container chạy root sẵn, chỉ chặn leo
+    # quyền qua tệp setuid.
+    <<: *clinic-service-defaults
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    user: "0:0"
+    mem_limit: 32m
+    pids_limit: 16
+    # Kho là ổ mạng Viettel (CIFS, gắn sẵn uid=1000) thì chown bị từ chối — nên
+    # chỉ trao quyền khi chủ CHƯA phải 1000, không thì bước này làm api không lên.
+    # `.tam`: chỗ api ghi tạm tệp đang nhận (xem TMPDIR của api). Tạo sẵn ở đây vì
+    # thư mục TMPDIR không tồn tại thì Python lặng lẽ quay về /tmp.
+    entrypoint: ["sh", "-c", "d=/var/lib/clinicai/media; [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }; mkdir -p $$d/.tam; [ \"$$(stat -c %u $$d/.tam)\" = 1000 ] || chown 1000:1000 $$d/.tam"]
+    restart: "no"
+    network_mode: none
+    volumes:
+      - type: bind
+        source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media
+
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
     <<: *clinic-service-defaults
@@ -142,6 +171,15 @@ services:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
       MEDIA_ROOT: /var/lib/clinicai/media
+      # TỆP ĐANG NHẬN GHI TẠM VÀO KHO MEDIA, KHÔNG VÀO /tmp (16/09/2026). Starlette
+      # ghi thân multipart quá 1MB ra thư mục tạm. /tmp của container nằm trên Ổ
+      # HỆ ĐIỀU HÀNH — cùng ổ với database — và không giới hạn dung lượng nghĩa
+      # là một video 20GB đang tải có thể làm đầy nó. Kho media (Viettel, 1TB)
+      # thì chịu được; tệp tạm tự xoá khi request kết thúc.
+      TMPDIR: /var/lib/clinicai/media/.tam
+    depends_on:
+      media-quyen:
+        condition: service_completed_successfully
     volumes:
       # The default must exist on any host, not just this Mac (ADR-0013): a
       # hard-coded /Users/... path made `up` fail or silently mount an empty

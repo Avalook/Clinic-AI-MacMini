@@ -8,18 +8,21 @@ Returns a FLAT list already sorted by call order; the board just groups by docto
 from __future__ import annotations
 
 from datetime import date as date_cls
+from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.services.queue_order import (
     VISIT_DA_RA_VE,
-    b3_ready_appt_ids,
+    b3_ready_times,
     explain_queue,
 )
 from clinicai.services.queue_rows import entry_from_row
+from clinicai.services.thu_tu_kham_service import ThuTuKhamService
 
 router = APIRouter()
 
@@ -35,15 +38,19 @@ SELECT a.id::text            AS appointment_id,
        p.patient_code        AS patient_code,
        s.full_name           AS doctor_name,
        st.name               AS service_name,
+       v.visit_id::text      AS visit_id,
        v.checked_in_at,
+       v.thu_tu_tay_ms,
        v.status              AS visit_status,
+       p.uu_tien             AS khach_uu_tien,
+       p.uu_tien_ly_do,
        cap.slot_minutes
 FROM appointment a
 JOIN patient p        ON p.clinic_patient_id = a.clinic_patient_id
 LEFT JOIN staff s        ON s.id = a.doctor_id
 LEFT JOIN service_type st ON st.id = a.service_type_id
 LEFT JOIN LATERAL (
-    SELECT checked_in_at, status
+    SELECT visit_id, checked_in_at, status, thu_tu_tay_ms
     FROM visit
     WHERE appointment_id = a.id
     ORDER BY checked_in_at DESC NULLS LAST
@@ -71,7 +78,8 @@ WHERE a.slot_start >= ($1::date)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
 """
 
 _LAB_SQL = """
-SELECT appointment_id::text AS appointment_id, result_value, external_ref
+SELECT appointment_id::text AS appointment_id, result_value, external_ref,
+       result_received_at
 FROM lab_result
 WHERE appointment_id::text = ANY($1::text[])
   AND clinic_id = $2::uuid
@@ -97,7 +105,9 @@ async def get_queue(
     appt_ids = [r["appointment_id"] for r in appt_rows]
 
     labs = await pool.fetch(_LAB_SQL, appt_ids, identity.clinic_id) if appt_ids else []
-    b3 = b3_ready_appt_ids([dict(lab) for lab in labs])
+    # Lượt đã đủ kết quả → lúc kết quả cuối cùng về: mốc "đủ điều kiện quay
+    # lại hàng" (CONTEXT v1.0 — xếp sau người đã chờ, không chen ngang).
+    b3 = b3_ready_times([dict(lab) for lab in labs])
     by_id = {r["appointment_id"]: r for r in appt_rows}
 
     # `/queue` chỉ nhìn MỘT ngày nên không cần gom nhóm — nhưng vẫn dựng
@@ -105,7 +115,11 @@ async def get_queue(
     # khác nhau về cùng một hàng dữ liệu.
     entries = [
         entry_from_row(
-            {**dict(r), "b3_ready": r["appointment_id"] in b3},
+            {
+                **dict(r),
+                "b3_ready": r["appointment_id"] in b3,
+                "b3_ready_at": b3.get(r["appointment_id"]),
+            },
             id_key="appointment_id",
         )
         for r in appt_rows
@@ -140,7 +154,37 @@ async def get_queue(
                 "call_reason": d.call_reason,
                 "promoted": d.promoted,
                 "promoted_over": d.promoted_over,
+                "uu_tien": d.uu_tien,
+                "uu_tien_ly_do": r["uu_tien_ly_do"],
+                "visit_id": r["visit_id"],
             }
         )
 
     return {"date": day.isoformat(), "rows": rows}
+
+
+class KeoThuTuRequest(BaseModel):
+    appointment_id: UUID
+    #: Người đứng ngay TRÊN chỗ thả (None = thả lên đầu).
+    sau_appointment_id: UUID | None = None
+    #: Người đứng ngay DƯỚI chỗ thả (None = thả xuống cuối).
+    truoc_appointment_id: UUID | None = None
+
+
+@router.post("/queue/keo")
+async def keo_thu_tu(
+    body: KeoThuTuRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Lễ tân kéo một khách lên/xuống trong hàng chờ (Tuyền chốt 15/09/2026)."""
+    return await ThuTuKhamService(pool).keo(
+        identity=identity,
+        appointment_id=str(body.appointment_id),
+        sau_appointment_id=(
+            str(body.sau_appointment_id) if body.sau_appointment_id else None
+        ),
+        truoc_appointment_id=(
+            str(body.truoc_appointment_id) if body.truoc_appointment_id else None
+        ),
+    )

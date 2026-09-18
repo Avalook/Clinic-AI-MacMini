@@ -130,7 +130,7 @@ test("QUẢN LÝ thấy màn của mình, không phải màn của người khá
   const ds = THANH_DUOI.MANAGEMENT;
   assert.ok(ds, "chưa khai thanh dưới cho Quản lý");
   assert.ok(ds.includes("/reports"), "Quản lý phải có Báo cáo trên thanh dưới");
-  for (const cua_nguoi_khac of ["/doctor/board", "/cashier/board"]) {
+  for (const cua_nguoi_khac of ["/ban-kham", "/thu-ngan/dich-vu"]) {
     assert.ok(
       !ds.includes(cua_nguoi_khac),
       `Quản lý không thao tác "${cua_nguoi_khac}" — đó là màn của vai khác`,
@@ -151,7 +151,8 @@ test("hai thanh dùng CHUNG một phép lọc, không mỗi bên một bản", (
     ["Nav", nav],
     ["BottomNav", duoi],
   ] as const) {
-    assert.match(ma, /mucHienRa\(/, `${ten} phải lọc qua mucHienRa`);
+    // Nav gọi `nhomThanhBen`, hàm ấy lọc qua chính `mucHienRa` (nav-items.ts).
+    assert.match(ma, /(mucHienRa|nhomThanhBen)\(/, `${ten} phải lọc qua mucHienRa`);
     assert.doesNotMatch(
       ma.replace(/\/\/.*$/gm, ""),
       /NAV\.filter\(/,
@@ -182,7 +183,7 @@ test("MỘT NÚT CHỈ CÓ MỘT TÊN — không còn shortLabel", () => {
   );
   for (const f of [
     "../app/(dashboard)/BottomNav.tsx",
-    "../app/(dashboard)/portal/PortalBoard.tsx",
+    "../app/(dashboard)/ops/PortalBoard.tsx",
   ]) {
     const ma = readFileSync(new URL(f, import.meta.url), "utf8").replace(
       /\/\/.*$/gm,

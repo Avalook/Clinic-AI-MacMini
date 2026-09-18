@@ -36,9 +36,14 @@ import { tieuDeHanhDong, coBoNut } from "./HanhDongTrangThai";
 import type { DongLichSu } from "./so-tuong-tac";
 import HanhDongTrangThai from "./HanhDongTrangThai";
 import VungLamViecKhach, { type MocLich } from "./VungLamViecKhach";
+import DauUuTien from "./DauUuTien";
+import KhungBao from "./KhungBao";
+import { dungKhungBao } from "./khung-bao";
+import { todayVn } from "@/lib/roster";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
+import ThanhLuotKham from "./ThanhLuotKham";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
@@ -81,6 +86,7 @@ const TONE_VIEC: Record<string, StatusTone> = {
   NHAC_HEN_MAI: "assigned",
   MOI_TAI_KHAM: "ready",
   CHO_XAC_NHAN: "ready",
+  VUOT_SUC_CHUA: "assigned",
 };
 
 // Việc phải làm, viết ở thể mệnh lệnh. Nhãn trạng thái nói KHÁCH đang ở đâu;
@@ -97,6 +103,7 @@ const BUOC_TIEP: Record<string, string> = {
   NHAC_HEN_MAI: "Gọi nhắc hẹn ngày mai",
   MOI_TAI_KHAM: "Gọi mời tái khám",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
+  VUOT_SUC_CHUA: "Gọi khách chốt hoặc đổi ca — lịch vượt sức chứa",
 };
 
 const NHAN_LOAI_NGAN: Record<string, string> = {
@@ -167,6 +174,9 @@ export interface CustomerRow {
   created_at: string | null;
   van_de_di_kham: string | null;
   linh_vuc: string | null;
+  /** Dấu khách ưu tiên/VIP + lý do (20260915000016). */
+  uu_tien?: boolean | null;
+  uu_tien_ly_do?: string | null;
   /** Các số gắn THÊM (patient_sdt_them) — hai cột cũ vẫn là số chính thức.
    *  CHINH vẽ dưới "SĐT chính", NGUOI_NHA vẽ dưới "SĐT người nhà". */
   patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
@@ -226,7 +236,23 @@ export interface LuotKham {
   /** `visit.closed_at` → `finalized_at` → dòng CHECK_OUT của CSKH. null = chưa
    *  đóng, và nói ra như thế đúng hơn là bịa một giờ. */
   ket_thuc: string | null;
+  /** `visit.closed_at` — lễ tân checkout tại quầy. */
+  quay_dong_luc?: string | null;
+  /** Lượt có chỉ định thủ thuật; làm xong lúc nào; bác sĩ quyết theo dõi. */
+  co_thu_thuat?: boolean;
+  thu_thuat_xong_luc?: string | null;
+  theo_doi_thu_thuat?: string | null;
+  theo_doi_sau_ngay?: number | null;
+  /** Việc gửi đối tác của lượt + trạng thái đối tác bấm (17/09/2026). */
+  doi_tac?: ViecDoiTac[];
   buoc: BuocCham[];
+}
+
+/** Một việc gửi đối tác, trạng thái tính ở backend (man_khach_hang_service). */
+export interface ViecDoiTac {
+  ten: string;
+  trang_thai: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+  luc: string | null;
 }
 
 /** Một ĐỢT: các lượt nối nhau bằng `lich_truoc_id`, sớm trước. */
@@ -384,6 +410,9 @@ export interface ApptInfo {
    *  Chip danh sách cần mốc này để "Đã check-in" thắng được lần chạm cuối
    *  của sổ chăm sóc trong cùng phép so thời gian với huỷ/đặt lịch. */
   checked_in_at?: string | null;
+  /** Khách đang ở phòng/bước nào (visit.current_room/node) — chỉ khi CHECKED_IN. */
+  vi_tri_hien_tai?: string | null;
+  da_do_sinh_hieu?: boolean;
   /** Lịch có bác sĩ, nhưng bác sĩ ấy không còn ca trực vào ngày khám. */
   mat_bac_si?: boolean;
   count: number;
@@ -948,6 +977,12 @@ export default function CustomersView({
         cancellation_reason: luot.cancellation_reason,
         service_type_id: luot.service_type_id,
         service_name: luot.service_name,
+        quay_dong_luc: luot.quay_dong_luc ?? null,
+        co_thu_thuat: luot.co_thu_thuat ?? false,
+        thu_thuat_xong_luc: luot.thu_thuat_xong_luc ?? null,
+        theo_doi_thu_thuat: luot.theo_doi_thu_thuat ?? null,
+        theo_doi_sau_ngay: luot.theo_doi_sau_ngay ?? null,
+        doi_tac: luot.doi_tac ?? [],
       };
     }
     if (!selectedAppt) return null;
@@ -999,6 +1034,41 @@ export default function CustomersView({
       (t) => t.appointment_id === (luotDangXem?.id ?? null),
     );
   }, [tepByPatient, selected, luotDangXem]);
+
+  /** KHUNG BÁO DƯỚI TÊN KHÁCH (Tuyền chốt 16/09/2026) — mọi thay đổi ảnh
+   *  hưởng lịch của khách. Chỉ dịch dữ liệu backend đã có thành câu đọc được;
+   *  xem khung-bao.ts. */
+  const khungBao = useMemo(() => {
+    const pid = selected?.clinic_patient_id;
+    if (!pid) return [];
+    const luot = cacLuotCuaKhach.find((l) => l.id === luotDangXem?.id);
+    return dungKhungBao({
+      homNay: todayVn(),
+      nowMs: nowMs(),
+      luot: luotDangXem
+        ? { ...luotDangXem, doctor_name: luot?.doctor_name ?? null }
+        : null,
+      viec: viecCuaLuot,
+      quanLyDoiGio: Boolean(
+        tuongTacByPatient[pid]?.find(
+          (d) =>
+            d.trang_thai_ma === "QUAN_LY_DOI_GIO" &&
+            !d.huy_luc &&
+            (!luotDangXem?.id || d.appointment_id === luotDangXem.id),
+        ),
+      ),
+      henGoiLai: henGoiLaiByPatient[pid] ?? [],
+      taiKham: taiKhamByPatient[pid] ?? [],
+    });
+  }, [
+    selected,
+    cacLuotCuaKhach,
+    luotDangXem,
+    viecCuaLuot,
+    tuongTacByPatient,
+    henGoiLaiByPatient,
+    taiKhamByPatient,
+  ]);
 
   /** Lượt đang xem có còn đổi / huỷ được không. `undefined` = không. */
   const apptSuaDuoc =
@@ -1152,6 +1222,13 @@ export default function CustomersView({
       denLuc &&
       (!chamCuoiRow || mocMs(denLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
     ) {
+      // Nói khách ĐANG Ở ĐÂU thay vì đứng yên "chờ khám" (17/09/2026).
+      if (!apptRow?.da_do_sinh_hieu) {
+        return { label: "Đã check-in — chờ đo sinh hiệu", tone: "assigned" };
+      }
+      if (apptRow.vi_tri_hien_tai) {
+        return { label: `Đang ở: ${apptRow.vi_tri_hien_tai}`, tone: "assigned" };
+      }
       return { label: "Đã check-in — đang chờ khám", tone: "assigned" };
     }
 
@@ -1426,6 +1503,9 @@ export default function CustomersView({
                     const cskh = cskhByPatient[row.clinic_patient_id];
                     const st = customerStatus(row);
                     const dl = customerDeadline(row);
+                    const moiCu = nhanKhachMoiCu(
+                      apptByPatient[row.clinic_patient_id],
+                    );
 
                     return (
                       <div
@@ -1450,7 +1530,25 @@ export default function CustomersView({
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
-                          <StatusChip tone={st.tone} label={st.label} />
+                          {/* CỘT HẸP CHỈ TRẢ LỜI "AI", KHÔNG TRẢ LỜI "ĐANG Ở
+                              ĐÂU" (Tuyền 16/09/2026). Khi đã chọn một khách,
+                              cột này còn ~210px, mà chip trạng thái dài tới
+                              191px ("Đã check-in — đang chờ khám") nên nó rơi
+                              xuống một dòng riêng dưới từng tên: danh sách
+                              thành một cột chữ vỡ, đọc lướt không ra ai là ai.
+                              Trạng thái nay nằm cạnh tiêu đề "Trạng thái khách
+                              hàng — …" ở vùng làm việc, đúng chỗ người trực
+                              đang nhìn khi làm việc với khách ấy. */}
+                          {selected ? (
+                            <Chip
+                              tone={moiCu.dong2 ? "brand" : "neutral"}
+                              title={moiCu.dong2 ?? undefined}
+                            >
+                              {moiCu.dong1}
+                            </Chip>
+                          ) : (
+                            <StatusChip tone={st.tone} label={st.label} />
+                          )}
                           {/* TRÙNG LỊCH — cảnh báo BẤM ĐƯỢC, không phải con số
                               câm. Chip cũ ở đây đếm `so_viec_mo` (số VIỆC CSKH
                               đang mở) nhưng người đọc hiểu là số LỊCH, và bấm
@@ -1464,8 +1562,11 @@ export default function CustomersView({
                               đang có ba việc ở ba lượt. Hai cột đều đúng, nhưng
                               đọc cạnh nhau thì trông như lệch — trừ khi màn nói
                               thẳng rằng còn việc khác. */}
-                          {(trangThaiByPatient[row.clinic_patient_id]
-                            ?.so_viec_mo ?? 0) > 1 && (
+                          {/* Chỉ ở bảng rộng: nó chú thích cho chip trạng thái
+                              đứng cạnh, mà cột hẹp không còn chip ấy. */}
+                          {!selected &&
+                            (trangThaiByPatient[row.clinic_patient_id]
+                              ?.so_viec_mo ?? 0) > 1 && (
                             <Chip
                               tone="neutral"
                               title="Chip bên cạnh là việc gấp nhất; khách còn việc khác, có thể ở lượt khám khác."
@@ -1510,23 +1611,14 @@ export default function CustomersView({
                             Nằm chung một ô thì cả hai bị đọc lướt. */}
                         {!selected && (
                           <div className="min-w-0">
-                            {(() => {
-                              const nhan = nhanKhachMoiCu(
-                                apptByPatient[row.clinic_patient_id],
-                              );
-                              return (
-                                <>
-                                  <Chip tone={nhan.dong2 ? "brand" : "neutral"}>
-                                    {nhan.dong1}
-                                  </Chip>
-                                  {nhan.dong2 && (
-                                    <span className="mt-0.5 block truncate text-meta text-ink-muted">
-                                      {nhan.dong2}
-                                    </span>
-                                  )}
-                                </>
-                              );
-                            })()}
+                            <Chip tone={moiCu.dong2 ? "brand" : "neutral"}>
+                              {moiCu.dong1}
+                            </Chip>
+                            {moiCu.dong2 && (
+                              <span className="mt-0.5 block truncate text-meta text-ink-muted">
+                                {moiCu.dong2}
+                              </span>
+                            )}
                           </div>
                         )}
                         {!selected && (
@@ -1635,6 +1727,27 @@ export default function CustomersView({
             onDatLich={(kieu) => setDatLich(kieu)}
             henGoiLai={henGoiLaiByPatient[selected.clinic_patient_id] ?? []}
             taiKham={taiKhamByPatient[selected.clinic_patient_id] ?? []}
+            tepCuaLuot={tepKetQuaCuaLuot}
+            // Chip trạng thái của khách đang chọn — rời cột danh sách hẹp sang
+            // đây (16/09/2026), xem chú thích ở ô chip trong danh sách.
+            chipTrangThai={(() => {
+              const st = customerStatus(selected);
+              return <StatusChip tone={st.tone} label={st.label} />;
+            })()}
+            thanhLuot={
+              <ThanhLuotKham
+                chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
+                luotDangXem={luotDangXem?.id ?? null}
+                luotConViec={
+                  new Set(
+                    (viecMoByPatient[selected.clinic_patient_id] ?? [])
+                      .map((v) => v.appointment_id)
+                      .filter((x): x is string => Boolean(x)),
+                  )
+                }
+                onChonLuot={chonLuot}
+              />
+            }
             ghiChu={ghiChuChung}
             onGhiChuXong={() => setGhiChuChung("")}
           >
@@ -1645,11 +1758,7 @@ export default function CustomersView({
                 VÀ NAY BẤM ĐƯỢC. Đây là chỗ DUY NHẤT trên màn liệt kê đủ mọi
                 lượt của khách, nên nó cũng là chỗ tự nhiên để chọn lượt muốn
                 làm việc — thay vì để server đoán một lượt cho cả khách. */}
-            <LichSuCacLanKham
-              chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
-              luotDangXem={luotDangXem?.id ?? null}
-              onChonLuot={chonLuot}
-            />
+            {/* Lịch sử các lần khám → thanh chọn lượt ở đầu vùng làm việc (16/09/2026). */}
             <PhanHoiKhach
               key={`${selected.clinic_patient_id}-${luotDangXem?.id ?? "khong-co-luot"}`}
               clinicPatientId={selected.clinic_patient_id}
@@ -1703,6 +1812,13 @@ export default function CustomersView({
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
                   <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <DauUuTien
+                    key={selected.clinic_patient_id}
+                    clinicPatientId={selected.clinic_patient_id}
+                    uuTien={Boolean(selected.uu_tien)}
+                    lyDo={selected.uu_tien_ly_do ?? null}
+                    onDoi={() => router.refresh()}
+                  />
                   <p className="mt-1 text-sm text-ink-muted">
                     {selected.phone_primary ?? "Chưa có số điện thoại"}
                   </p>
@@ -1717,6 +1833,11 @@ export default function CustomersView({
                         <span className="text-label text-ink-faint">· số thêm</span>
                       </p>
                     ))}
+                  <KhungBao
+                    dong={khungBao}
+                    onSuaLich={canManage && apptSuaDuoc ? () => setEditOpen(true) : undefined}
+                    onChonViec={(ma) => setViecDangGhi(ma)}
+                  />
                 </div>
                 <button
                   type="button"
@@ -1768,34 +1889,11 @@ export default function CustomersView({
                         )}
                       {!apptSuaDuoc.doctor_id && (
                         <span className="mt-1 block text-xs font-semibold text-warning">
-                          Bác sĩ: chờ quản lý xác nhận
+                          Chưa phân bác sĩ
                         </span>
                       )}
-                      {/* QUẢN LÝ ĐÃ ĐỔI GIỜ SO VỚI GIỜ CSKH HẸN VỚI KHÁCH.
-                          Khách đã được nghe một giờ; nếu người gọi xác nhận
-                          không biết là nó đã đổi thì họ đọc lại đúng giờ cũ. */}
-                      {tuongTacByPatient[selected.clinic_patient_id]?.find(
-                        (d) =>
-                          d.trang_thai_ma === "QUAN_LY_DOI_GIO" && !d.huy_luc,
-                      ) && (
-                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          ⚠ Quản lý đã đổi giờ so với giờ hẹn ban đầu — gọi báo
-                          khách trước khi xác nhận.
-                        </span>
-                      )}
-                      {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT — Ô LỊCH HẸN BẤM ĐƯỢC.
-                          Cảnh báo này đã có ở khối lịch CHỈ-ĐỌC bên dưới, nhưng
-                          khối đó chỉ hiện khi lịch không sửa được nữa. Với một
-                          lịch còn đổi được — tức đúng lúc CSKH có thể làm gì đó
-                          — nó lại không hiện. Vá một khối trong hai, y hệt vụ
-                          ba lưới đặt chỗ sáng nay. */}
-                      {luotDangXem?.mat_bac_si && (
-                        <span className="mt-1 block rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
-                        </span>
-                      )}
+                      {/* Đổi giờ / mất bác sĩ / vượt sức chứa: đã lên KHUNG BÁO
+                          dưới tên khách (16/09/2026) — không nhắc lại ở đây. */}
                       <span className="mt-1 block text-xs text-brand-700">Bấm để đổi hoặc hủy lịch</span>
                     </span>
                   </button>
@@ -1819,27 +1917,7 @@ export default function CustomersView({
                           ⚠ Đã quá giờ hẹn — khách chưa check-in.
                         </p>
                       )}
-                    {/* BÁC SĨ NGHỈ SAU KHI KHÁCH ĐÃ ĐẶT.
-                        Tình huống số 9 trong bảng "tình huống phát sinh" của
-                        khách. Trước đây quản lý gỡ một ca trực là lịch của
-                        khách nằm im dưới tên một bác sĩ hôm đó không đi làm, và
-                        đường duy nhất để biết là khách tới quầy rồi mới vỡ lẽ —
-                        thứ khách hàng nhớ rất lâu.
-                        Đặt NGAY DƯỚI giờ hẹn, không nhét vào chuỗi bước: người
-                        trực mở hồ sơ là nhìn thấy, không phải cuộn tìm. */}
-                    {/* ĐỌC TỪ CHÍNH LƯỢT ĐANG XEM.
-                        Bản trước: `selectedAppt?.mat_bac_si && luotDangXem?.id
-                        === selectedAppt.id` — phải khớp id giữa "lịch đại
-                        diện" (apptByPatient) và "lượt đang xem" (lịch sử khám),
-                        hai nguồn dựng riêng. Lệch một cái là cảnh báo im lặng
-                        biến mất, và không có gì báo rằng nó đã biến mất. */}
-                    {luotDangXem?.mat_bac_si && (
-                        <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-semibold text-warning">
-                          {luotDangXem?.bs_go_co_ca_lai
-                            ? "⚠ Ca bác sĩ cũ đã xếp lại — lịch này đã huỷ, gọi khách và có thể đặt lại đúng khung cho bác sĩ ấy nếu còn chỗ."
-                            : "⚠ Bác sĩ đã đổi lịch làm việc — lịch này đã huỷ. Gọi khách và đặt lịch khám mới."}
-                        </p>
-                      )}
+                    {/* Mất bác sĩ: đã lên KHUNG BÁO dưới tên khách (16/09/2026). */}
                   </div>
                 )}
 

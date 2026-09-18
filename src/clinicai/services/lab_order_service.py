@@ -29,6 +29,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 
 logger = structlog.get_logger()
 
@@ -148,7 +149,11 @@ class LabOrderService:
         lab_provider: str | None,
         identity: StaffIdentity,
     ) -> None:
-        """Attach a summary and/or the provider's document to a lab result."""
+        """Attach a result; corrections keep first receipt time and queue position.
+
+        ``updated_at`` tracks edits. Receipt is stamped only once; changing the
+        text of an already available result must not restart the patient's wait.
+        """
         value = (result_value or "").strip() or None
         link = normalize_link(result_link)
         provider = (lab_provider or "").strip() or None
@@ -158,18 +163,37 @@ class LabOrderService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                updated = await conn.fetchval(
+                # "Về lần đầu" = TRƯỚC câu này chưa có kết quả lẫn link. Không dùng
+                # result_received_at: cột ấy NOT NULL DEFAULT now() từ lúc tạo
+                # phiếu, nên không nói được kết quả đã về hay chưa.
+                updated = await conn.fetchrow(
                     """
-                    UPDATE lab_result
+                    WITH cu AS (
+                        SELECT lab_result_id,
+                               coalesce(
+                                   nullif(btrim(coalesce(result_value, '')), ''),
+                                   nullif(btrim(coalesce(external_ref, '')), '')
+                               ) IS NULL AS chua_co
+                          FROM lab_result
+                         WHERE lab_result_id = $1::uuid
+                           AND clinic_id = $5::uuid
+                           FOR UPDATE
+                    )
+                    UPDATE lab_result l
                        SET result_value       = $2,
                            external_ref       = $3,
                            lab_provider       = $4,
-                           result_received_at = now(),
+                           result_received_at = coalesce(l.result_received_at, now()),
                            updated_at         = now()
-                     WHERE lab_result_id = $1::uuid
-                       AND clinic_id = $5::uuid
-                       AND is_finalized = FALSE
-                    RETURNING lab_result_id
+                      FROM cu
+                     WHERE l.lab_result_id = cu.lab_result_id
+                       AND l.clinic_id = $5::uuid
+                       AND l.is_finalized = FALSE
+                    RETURNING l.lab_result_id::text AS lab_result_id,
+                              l.clinic_patient_id::text AS clinic_patient_id,
+                              l.appointment_id::text AS appointment_id,
+                              l.visit_id::text AS visit_id,
+                              cu.chua_co AS lan_dau
                     """,
                     lab_result_id,
                     value,
@@ -192,6 +216,18 @@ class LabOrderService:
                     identity=identity,
                     origin="api:lab-entry",
                 )
+
+        if updated["lan_dau"]:
+            # Kết quả vừa về lần đầu (sửa lại không báo lần nữa) → CSKH + bác sĩ.
+            await bao_ket_qua_ve(
+                self._pool,
+                identity=identity,
+                loai="xet_nghiem",
+                ref_id=updated["lab_result_id"],
+                clinic_patient_id=updated["clinic_patient_id"],
+                appointment_id=updated["appointment_id"],
+                visit_id=updated["visit_id"],
+            )
 
         logger.info(
             "lab_result_entered",

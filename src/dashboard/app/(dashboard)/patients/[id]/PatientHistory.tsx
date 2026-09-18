@@ -62,6 +62,7 @@ const VISIT_COLUMNS = `
 const KV_LABEL: Record<string, string> = {
   mach: "Mạch", nhiet_do: "Nhiệt độ", huyet_ap: "Huyết áp", nhip_tho: "Nhịp thở",
   spo2: "SpO2", can_nang: "Cân nặng", chieu_cao: "Chiều cao", bmi: "BMI",
+  muc_do_dau: "Mức độ đau",
   tuoi_thai: "Tuổi thai", du_kien_sinh: "Dự kiến sinh", chieu_cao_tc: "Cao TC/VB",
   nhip_tim_thai: "Tim thai", benh_su: "Bệnh sử", chan_doan: "Chuẩn đoán",
   loi_dan: "Lời dặn",

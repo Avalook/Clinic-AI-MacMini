@@ -186,16 +186,27 @@ class TestClinicalRecordWriteRoles:
             ClinicRole.DOCTOR,
             ClinicRole.ULTRASOUND_DOCTOR,
             ClinicRole.TKYK,
-            ClinicRole.NURSE_ULTRASOUND,
         ],
     )
     def test_clinical_writers_may_write_the_full_record(self, role: ClinicRole) -> None:
         assert may_write(role, vitals_only=False)
         assert may_write(role, vitals_only=True)
 
-    def test_reception_writes_vitals_and_nothing_else(self) -> None:
-        assert may_write(ClinicRole.RECEPTION, vitals_only=True)
-        assert not may_write(ClinicRole.RECEPTION, vitals_only=False)
+    @pytest.mark.parametrize(
+        "role", [ClinicRole.RECEPTION, ClinicRole.NURSE_ULTRASOUND]
+    )
+    def test_vitals_only_roles_write_vitals_and_nothing_else(
+        self, role: ClinicRole
+    ) -> None:
+        """Lễ tân VÀ điều dưỡng chỉ ghi sinh hiệu (Tuyền chốt 16/09/2026).
+
+        Điều dưỡng được mở ghi trọn hồ sơ từ 29/6; đảo lại sau khi đối chiếu
+        tài liệu bàn giao chuyên môn: bệnh sử — tiền sử — khám — chẩn đoán là
+        phần chịu trách nhiệm chuyên môn của bác sĩ, thư ký nhập hộ được nhưng
+        bác sĩ vẫn phải duyệt.
+        """
+        assert may_write(role, vitals_only=True)
+        assert not may_write(role, vitals_only=False)
 
     @pytest.mark.parametrize(
         "role",

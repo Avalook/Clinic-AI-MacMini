@@ -14,8 +14,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+// Khối nhịp rời BookingHub sang hook dùng chung 16/09/2026: popup khung giờ của
+// bảng Bác sĩ × tuần cũng phải biết ai đang giữ chỗ, mà nó mở được NGÀY KHÁC
+// ngày đang xem. Cùng một khối, nay có hai người gọi.
 const nguon = readFileSync(
-  new URL("../app/(dashboard)/appointments/BookingHub.tsx", import.meta.url),
+  new URL("../app/(dashboard)/appointments/dung-giu-cho.ts", import.meta.url),
   "utf8",
 );
 const ma = nguon.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");

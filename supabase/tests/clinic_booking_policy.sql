@@ -72,6 +72,16 @@ INSERT INTO public.clinic (id, code, name, settings)
 VALUES ('c3000000-0000-4000-8000-0000000000c3', 'C3TEST', 'Phòng khám khung 30',
         '{"booking": {"slot_minutes": 30, "regular_cap": 1, "walkin_cap": 0}}'::jsonb);
 
+-- Từ 20260915000001 trần chỉ CHẶN khi tuần lịch trực đã công bố. Bài này kiểm
+-- trần, nên công bố mọi tuần của các phòng khám thử (trong giao dịch sẽ ROLLBACK).
+INSERT INTO public.roster_week (clinic_id, week_start)
+SELECT c.id, w::date
+  FROM public.clinic c
+ CROSS JOIN generate_series('2020-01-06'::date, '2031-12-29'::date,
+                            interval '7 days') AS w
+ON CONFLICT (clinic_id, week_start) DO NOTHING;
+
+
 DO $bad_configurations_are_rejected$
 DECLARE
     bad jsonb;

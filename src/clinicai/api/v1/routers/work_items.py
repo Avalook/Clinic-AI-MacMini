@@ -71,7 +71,7 @@ async def require_workspace_read_access(
     pool: asyncpg.Pool,
 ) -> None:
     """Fail closed before a workspace query can expose another station's PII."""
-    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+    if identity.co_vai(_WORKSPACE_COORDINATOR_ROLES):
         return
 
     may_read = await pool.fetchval(
@@ -83,12 +83,12 @@ async def require_workspace_read_access(
                AND n.workspace = $2
                -- ``{}`` is deliberately "nobody yet" in the catalogue, so
                -- neither an empty nor a NULL actor list may grant a read.
-               AND $3 = ANY(n.actor_roles)
+               AND n.actor_roles && $3::text[]
         )
         """,
         identity.clinic_id,
         workspace,
-        identity.role.value,
+        identity.ds_vai(),
     )
     if not may_read:
         raise HTTPException(
@@ -112,7 +112,7 @@ async def require_visit_work_items_read_access(
     for a missing and an unauthorized visit so the endpoint does not become an
     identifier oracle.
     """
-    if identity.role in _WORKSPACE_COORDINATOR_ROLES:
+    if identity.co_vai(_WORKSPACE_COORDINATOR_ROLES):
         return
 
     may_read = await pool.fetchval(
@@ -140,12 +140,12 @@ async def require_visit_work_items_read_access(
                         )
                     )
                )
-               AND $3 = ANY(n.actor_roles)
+               AND n.actor_roles && $3::text[]
         )
         """,
         visit_id,
         identity.clinic_id,
-        identity.role.value,
+        identity.ds_vai(),
     )
     if not may_read:
         raise HTTPException(
@@ -315,7 +315,11 @@ class WorklistItem(BaseModel):
     queue_number: str | None = None
     slot_start: datetime | None = None
     booking_channel: str | None = None
-    is_priority_slot: bool = False
+    # Khách ưu tiên/VIP (cờ hồ sơ + lý do, Tuyền chốt 15/09/2026).
+    khach_uu_tien: bool = False
+    uu_tien_ly_do: str | None = None
+    #: Có chỉ định thư ký nhập đang chờ bác sĩ duyệt.
+    co_nhap_chi_dinh: bool = False
     # LOẠI DỊCH VỤ KHÁM. Phải khai Ở ĐÂY, không chỉ ở câu SQL: `response_model`
     # LỌC BỎ mọi khoá không có trong model, im lặng. Service trả về đúng dữ
     # liệu mà API vẫn ra `null` — đã mất một lượt deploy vì chuyện này.
@@ -459,6 +463,168 @@ async def order_services(
         visit_id=str(visit_id), codes=body.service_codes, identity=identity
     )
     return [OrderedRoom(**r) for r in rows]  # type: ignore[arg-type]
+
+
+# ── Chỉ định là danh sách tích của bác sĩ (Tuyền chốt 15/09/2026) ───────────
+
+
+@router.get("/visits/{visit_id}/service-orders/current")
+async def current_service_orders(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Dịch vụ đang tích cho lượt — màn chỉ định hiện sẵn dấu tích."""
+    return {
+        "items": await ServiceOrderService(pool).dang_chi_dinh(
+            visit_id=str(visit_id), identity=identity
+        )
+    }
+
+
+class RemoveOrderRequest(BaseModel):
+    service_code: str = Field(min_length=1, max_length=64)
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/visits/{visit_id}/service-orders/remove")
+async def remove_service_order(
+    visit_id: UUID,
+    body: RemoveOrderRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bác sĩ bỏ tích một dịch vụ (phòng chưa bắt đầu làm)."""
+    return await ServiceOrderService(pool).bo_chi_dinh(
+        visit_id=str(visit_id),
+        service_code=body.service_code,
+        ly_do=body.ly_do,
+        identity=identity,
+    )
+
+
+# ── Chỉ định nháp: thư ký nhập, bác sĩ duyệt (Tuyền chốt 15/09/2026) ────────
+
+
+class DraftService(BaseModel):
+    service_code: str
+    name: str | None = None
+    unit_price: float | None = None
+    node_code: str | None = None
+
+
+class ServiceOrderDraft(BaseModel):
+    id: UUID
+    version: int
+    updated_at: datetime
+    recorded_by: UUID
+    recorded_by_name: str | None = None
+    services: list[DraftService]
+
+
+class DraftReplaceRequest(BaseModel):
+    service_codes: list[str] = Field(max_length=50)
+    expected_version: int = Field(ge=1, strict=True)
+
+
+class DraftDecisionRequest(BaseModel):
+    expected_version: int = Field(ge=1, strict=True)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class DraftState(BaseModel):
+    draft: ServiceOrderDraft | None = None
+    # Vai của NGƯỜI ĐANG XEM với chỉ định: bác sĩ duyệt/bỏ; thư ký nhập vào nháp.
+    # Backend nói ra để màn hình không tự suy luật từ tên vai.
+    vai: Literal["BAC_SI", "THU_KY"]
+
+
+@router.get("/visits/{visit_id}/service-orders/draft", response_model=DraftState)
+async def get_service_order_draft(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Chỉ định thư ký đã nhập, đang chờ bác sĩ duyệt, và vai người đang xem."""
+    draft = await ServiceOrderService(pool).get_draft(
+        visit_id=str(visit_id), identity=identity
+    )
+    return {
+        "draft": draft,
+        "vai": "THU_KY" if identity.co_vai({ClinicRole.TKYK}) else "BAC_SI",
+    }
+
+
+@router.post(
+    "/visits/{visit_id}/service-orders/draft",
+    response_model=ServiceOrderDraft | None,
+)
+async def add_to_service_order_draft(
+    visit_id: UUID,
+    body: OrderRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object] | None:
+    """Thư ký thêm dịch vụ vào bản nháp của lượt (gộp, không trùng)."""
+    return await ServiceOrderService(pool).save_draft(
+        visit_id=str(visit_id), codes=body.service_codes, identity=identity
+    )
+
+
+@router.put(
+    "/visits/{visit_id}/service-orders/draft",
+    response_model=ServiceOrderDraft | None,
+)
+async def replace_service_order_draft(
+    visit_id: UUID,
+    body: DraftReplaceRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object] | None:
+    """Sửa cả danh sách nháp (bỏ bớt dịch vụ). Rỗng = bỏ nháp."""
+    return await ServiceOrderService(pool).save_draft(
+        visit_id=str(visit_id),
+        codes=body.service_codes,
+        identity=identity,
+        replace=True,
+        expected_version=body.expected_version,
+    )
+
+
+@router.post(
+    "/visits/{visit_id}/service-orders/draft/approve",
+    response_model=list[OrderedRoom],
+)
+async def approve_service_order_draft(
+    visit_id: UUID,
+    body: DraftDecisionRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[OrderedRoom]:
+    """Bác sĩ duyệt đúng phiên bản nháp đang xem → việc về phòng thực hiện."""
+    rows = await ServiceOrderService(pool).approve_draft(
+        visit_id=str(visit_id),
+        expected_version=body.expected_version,
+        identity=identity,
+    )
+    return [OrderedRoom(**r) for r in rows]  # type: ignore[arg-type]
+
+
+@router.post("/visits/{visit_id}/service-orders/draft/discard")
+async def discard_service_order_draft(
+    visit_id: UUID,
+    body: DraftDecisionRequest,
+    identity: StaffIdentity = Depends(_ORDERING_ROLES),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, bool]:
+    """Bỏ bản nháp. Bác sĩ bỏ phải ghi lý do."""
+    await ServiceOrderService(pool).discard_draft(
+        visit_id=str(visit_id),
+        expected_version=body.expected_version,
+        reason=body.reason,
+        identity=identity,
+    )
+    return {"ok": True}
 
 
 @router.post(

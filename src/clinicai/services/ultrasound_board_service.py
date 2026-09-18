@@ -25,6 +25,14 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.audit import record_event
+from clinicai.services.thu_ky_bac_si import (
+    bac_si_cua_thu_ky,
+    bac_si_sieu_am_trong,
+    khach_duoc_xem,
+    kiem_khach,
+)
 
 logger = structlog.get_logger()
 
@@ -84,6 +92,8 @@ SELECT w.id                                   AS work_item_id,
        st.name                                AS service_name,
        a.slot_start,
        d.full_name                            AS indication_doctor,
+       w.assigned_to::text                    AS bac_si_thuc_hien_id,
+       th.full_name                           AS bac_si_thuc_hien,
        w.payload,
        GREATEST(0, EXTRACT(EPOCH FROM (now() - w.created_at)) / 60)::int
                                               AS wait_minutes
@@ -94,11 +104,22 @@ SELECT w.id                                   AS work_item_id,
   LEFT JOIN public.appointment a ON a.id = v.appointment_id
   LEFT JOIN public.service_type st ON st.id = v.service_type_id
   LEFT JOIN public.staff d ON d.id = v.attending_doctor_id
+  LEFT JOIN public.staff th ON th.id = w.assigned_to
   LEFT JOIN public.clinic_room r ON r.id = w.room_id
  WHERE w.clinic_id = $1::uuid
    AND w.node_code = $2
    AND w.status IN ('PENDING', 'IN_PROGRESS')
    AND w.created_at >= $3
+   -- Thư ký chỉ thấy khách của bác sĩ mình (20260915000020). "Của ai" theo
+   -- thứ tự: bác sĩ THỰC HIỆN siêu âm (assigned_to) → nếu chưa ai nhận và thư
+   -- ký theo một bác sĩ siêu âm ($5) thì là hàng chung, thấy được → bác sĩ phụ
+   -- trách lượt / bác sĩ của lịch hẹn.
+   AND coalesce(w.assigned_to::text,
+                CASE WHEN $5::boolean THEN ($4::text[])[1] END,
+                coalesce(v.attending_doctor_id, a.doctor_id)::text, '~')
+       = ANY(coalesce($4::text[], ARRAY[
+             coalesce(w.assigned_to::text,
+                      coalesce(v.attending_doctor_id, a.doctor_id)::text, '~')]))
  ORDER BY w.created_at
  LIMIT 300
 """
@@ -131,6 +152,10 @@ SELECT r.id, r.code, r.name, r.floor, r.capacity, r.accepting, r.sort,
 _RECORDS_SQL = """
 SELECT u.ultrasound_id,
        u.visit_id,
+       -- Mã lịch hẹn: khối "Ảnh & video siêu âm" gắn tệp vào kho tệp kết quả
+       -- THEO LỊCH HẸN (bảng tep_ket_qua), để CSKH và bác sĩ chính thấy đúng
+       -- tệp của đúng lượt ấy.
+       v.appointment_id,
        u.clinic_patient_id,
        u.ultrasound_type,
        u.findings,
@@ -158,9 +183,53 @@ SELECT u.ultrasound_id,
  WHERE u.clinic_id = $1::uuid
    AND (($2 AND u.signed_at IS NOT NULL) OR (NOT $2 AND u.signed_at IS NULL))
    AND u.performed_at >= $3
+   -- Thư ký chỉ thấy phiếu của khách bác sĩ mình (20260915000020).
+   AND u.clinic_patient_id::text
+       = ANY(coalesce($4::text[], ARRAY[u.clinic_patient_id::text]))
  ORDER BY u.performed_at DESC
  LIMIT 300
 """
+
+
+async def co_lan_sieu_am_moi(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, sau_luc: Any
+) -> bool:
+    """Lượt này có việc siêu âm CÒN MỞ tạo SAU mốc (vd. lúc ký phiếu lần trước)."""
+    return bool(
+        await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM public.work_item"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            "   AND node_code = 'DICHVU-SIEUAM'"
+            "   AND status IN ('PENDING', 'IN_PROGRESS') AND created_at > $3)",
+            clinic_id,
+            visit_id,
+            sau_luc,
+        )
+    )
+
+
+async def ghi_bac_si_thuc_hien(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    bac_si_id: str,
+) -> None:
+    """Bác sĩ siêu âm chạm vào ca (nhập kết quả, đo) mà ca chưa ai nhận → là
+    người thực hiện. Không đè người đã nhận."""
+    await conn.execute(
+        """
+        UPDATE public.work_item
+           SET assigned_to = $3::uuid, updated_at = now()
+         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+           AND node_code = 'DICHVU-SIEUAM'
+           AND status IN ('PENDING', 'IN_PROGRESS')
+           AND assigned_to IS NULL
+        """,
+        clinic_id,
+        visit_id,
+        bac_si_id,
+    )
 
 
 class UltrasoundBoardService:
@@ -169,10 +238,75 @@ class UltrasoundBoardService:
 
     async def queue(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Ai đang chờ siêu âm hôm nay, và đã đủ điều kiện làm chưa."""
+        bac_si = await bac_si_cua_thu_ky(self._pool, identity)
         rows = await self._pool.fetch(
-            _QUEUE_SQL, identity.clinic_id, SONO_NODE, _vn_midnight()
+            _QUEUE_SQL,
+            identity.clinic_id,
+            SONO_NODE,
+            _vn_midnight(),
+            bac_si,
+            await bac_si_sieu_am_trong(self._pool, identity.clinic_id, bac_si or []),
         )
         return {"items": [_queue_row(r, i) for i, r in enumerate(rows, start=1)]}
+
+    async def nhan_ca(
+        self,
+        *,
+        identity: StaffIdentity,
+        work_item_id: str,
+        bac_si_id: str | None,
+    ) -> dict[str, Any]:
+        """Ghi BÁC SĨ THỰC HIỆN siêu âm (15/09/2026).
+
+        Bác sĩ siêu âm bấm nhận ca → chính mình. Trưởng ca / quản lý chỉ định
+        một bác sĩ siêu âm. Nhờ vậy thư ký đi cùng bác sĩ siêu âm thấy đúng khách
+        mình phải nhập hộ, kể cả khách do bác sĩ chính chỉ định siêu âm.
+        """
+        if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR}):
+            nguoi = identity.staff_id
+        elif identity.co_vai((ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)):
+            if not bac_si_id:
+                raise ValidationError("Chọn bác sĩ siêu âm thực hiện.")
+            nguoi = bac_si_id
+        else:
+            raise SafetyGateError(
+                "Chỉ bác sĩ siêu âm, trưởng ca hoặc quản lý giao ca siêu âm."
+            )
+        async with self._pool.acquire() as conn, conn.transaction():
+            la_sa = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.clinic_membership"
+                " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid AND is_active"
+                " AND role = 'ULTRASOUND_DOCTOR')",
+                identity.clinic_id,
+                nguoi,
+            )
+            if not la_sa:
+                raise ValidationError("Người nhận ca không phải bác sĩ siêu âm.")
+            doi = await conn.fetchval(
+                """
+                UPDATE public.work_item
+                   SET assigned_to = $3::uuid, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                   AND node_code = 'DICHVU-SIEUAM'
+                   AND status IN ('PENDING', 'IN_PROGRESS')
+                RETURNING visit_id::text
+                """,
+                identity.clinic_id,
+                work_item_id,
+                nguoi,
+            )
+            if doi is None:
+                raise ValidationError("Ca siêu âm không còn chờ hoặc không tồn tại.")
+            await record_event(
+                conn,
+                event_type="ultrasound.assigned",
+                aggregate_type="visit",
+                aggregate_id=doi,
+                identity=identity,
+                origin="api:ultrasound",
+                payload={"work_item_id": work_item_id, "bac_si_id": nguoi},
+            )
+        return {"ok": True, "bac_si_id": nguoi}
 
     async def rooms(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Ba phòng siêu âm: đang làm, đang chờ, còn nhận không."""
@@ -226,6 +360,16 @@ class UltrasoundBoardService:
             )
             if row is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
+            if identity.co_vai({ClinicRole.TKYK}):
+                # Thư ký chỉ nhập hộ kết quả cho bác sĩ mình (20260915000020).
+                await kiem_khach(conn, identity, str(row["clinic_patient_id"]))
+            if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR}):
+                await ghi_bac_si_thuc_hien(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    visit_id=visit_id,
+                    bac_si_id=identity.staff_id,
+                )
 
             existing = await conn.fetchrow(
                 """
@@ -238,6 +382,16 @@ class UltrasoundBoardService:
                 visit_id,
                 ultrasound_type,
             )
+            if (
+                existing
+                and existing["signed_at"] is not None
+                and await co_lan_sieu_am_moi(
+                    conn, identity.clinic_id, visit_id, existing["signed_at"]
+                )
+            ):
+                # Siêu âm LẠI trong cùng lượt (lần 2, 20260915000022): phiếu cũ
+                # đã ký là của lần 1 — lần mới có phiếu mới, không đính chính.
+                existing = None
             if existing and existing["signed_at"] is not None:
                 raise ValidationError(
                     "Kết quả này đã ký — sửa nội dung phải qua đường đính chính."
@@ -267,15 +421,35 @@ class UltrasoundBoardService:
                     INSERT INTO public.ultrasound_record
                         (clinic_id, visit_id, clinic_patient_id, performed_by,
                          ultrasound_type, findings, impression,
-                         gestational_age_weeks, performed_at)
+                         gestational_age_weeks, performed_at, lan)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5,
-                            $6::jsonb, $7, $8, now())
+                            $6::jsonb, $7, $8, now(),
+                            -- Lần kế tiếp của loại này trong lượt (lần 2 khi
+                            -- siêu âm lại — 20260915000022).
+                            (SELECT coalesce(max(x.lan), 0) + 1
+                               FROM public.ultrasound_record x
+                              WHERE x.clinic_id = $1::uuid
+                                AND x.visit_id = $2::uuid
+                                AND x.ultrasound_type = $5))
                     RETURNING ultrasound_id
                     """,
                     identity.clinic_id,
                     visit_id,
                     row["clinic_patient_id"],
-                    identity.staff_id,
+                    # NGƯỜI THỰC HIỆN là bác sĩ siêu âm, KHÔNG phải ai bấm lưu
+                    # (15/09/2026). Thư ký/trưởng ca nhập hộ thì lấy bác sĩ đã
+                    # nhận ca; trước đây người lưu đầu tiên thành performed_by và
+                    # bác sĩ siêu âm thật bị chặn ký.
+                    identity.staff_id
+                    if identity.co_vai({ClinicRole.ULTRASOUND_DOCTOR})
+                    else await conn.fetchval(
+                        "SELECT assigned_to FROM public.work_item"
+                        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                        "   AND node_code = 'DICHVU-SIEUAM' AND status <> 'CANCELLED'"
+                        " ORDER BY created_at DESC LIMIT 1",
+                        identity.clinic_id,
+                        visit_id,
+                    ),
                     ultrasound_type,
                     json.dumps(findings) if findings is not None else None,
                     impression,
@@ -299,7 +473,13 @@ class UltrasoundBoardService:
         trước, không chỉ hôm nay.
         """
         since = _vn_midnight() - timedelta(days=max(0, days - 1))
-        rows = await self._pool.fetch(_RECORDS_SQL, identity.clinic_id, signed, since)
+        rows = await self._pool.fetch(
+            _RECORDS_SQL,
+            identity.clinic_id,
+            signed,
+            since,
+            await khach_duoc_xem(self._pool, identity),
+        )
         return {"items": [_record_row(r) for r in rows]}
 
 
@@ -328,6 +508,8 @@ def _queue_row(r: asyncpg.Record, stt: int) -> dict[str, Any]:
         "service_name": r["service_name"],
         "appointment_at": r["slot_start"].isoformat() if r["slot_start"] else None,
         "indication_doctor": r["indication_doctor"],
+        "bac_si_thuc_hien_id": r["bac_si_thuc_hien_id"],
+        "bac_si_thuc_hien": r["bac_si_thuc_hien"],
         "room_code": r["room_code"],
         "room_name": r["room_name"],
         "room_floor": r["room_floor"],
@@ -347,6 +529,7 @@ def _record_row(r: asyncpg.Record) -> dict[str, Any]:
     return {
         "ultrasound_id": str(r["ultrasound_id"]),
         "visit_id": str(r["visit_id"]) if r["visit_id"] else None,
+        "appointment_id": (str(r["appointment_id"]) if r["appointment_id"] else None),
         "clinic_patient_id": (
             str(r["clinic_patient_id"]) if r["clinic_patient_id"] else None
         ),

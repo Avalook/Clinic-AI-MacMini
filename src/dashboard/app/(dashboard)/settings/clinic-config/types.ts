@@ -40,6 +40,8 @@ export interface ConfigStaff {
   role: string;
   location_name: string | null;
   nodes: string[];
+  /** Bác sĩ mà thư ký (TKYK) này đi cùng — quản lý phân (20260915000020). */
+  bac_si?: string[];
 }
 
 export interface ConfigService {

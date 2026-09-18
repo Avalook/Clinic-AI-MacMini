@@ -116,8 +116,13 @@ class TuongTacCskhService:
         khach_xac_nhan: bool | None = None,
         noi_dung: str | None = None,
         trang_thai_ma: str | None = None,
+        xac_minh_cach: str | None = None,
     ) -> dict[str, Any]:
-        """Ghi một lần chạm tới khách. Trả về id dòng vừa ghi."""
+        """Ghi một lần chạm tới khách. Trả về id dòng vừa ghi.
+
+        Mốc CHECK_IN đổi lịch sang đã đến nên cần `xac_minh_cach` như nút
+        check-in ở quầy (booking_service.cach_xac_minh_bat_buoc).
+        """
         if loai not in LOAI_HOP_LE:
             raise ValidationError(f"Loại tương tác không hợp lệ: {loai!r}.")
         if kenh not in KENH_HOP_LE:
@@ -187,7 +192,10 @@ class TuongTacCskhService:
         # lịch vẫn đúng và chuỗi bước vẫn tích qua trạng thái.
         if loai in ("CHECK_IN", "CHECK_OUT") and appointment_id:
             da_doi = await self._doi_trang_thai_lich(
-                identity=identity, appointment_id=appointment_id, loai=loai
+                identity=identity,
+                appointment_id=appointment_id,
+                loai=loai,
+                xac_minh_cach=xac_minh_cach,
             )
             if not da_doi:
                 # Mốc đã được vai khác thực hiện. Không tạo một dòng no-op có
@@ -409,7 +417,12 @@ class TuongTacCskhService:
         return {"ok": True}
 
     async def _doi_trang_thai_lich(
-        self, *, identity: StaffIdentity, appointment_id: str, loai: str
+        self,
+        *,
+        identity: StaffIdentity,
+        appointment_id: str,
+        loai: str,
+        xac_minh_cach: str | None = None,
     ) -> bool:
         """Chạy hành động lịch tương ứng với mốc quầy — nếu lịch đang ở chỗ cần nó.
 
@@ -442,7 +455,10 @@ class TuongTacCskhService:
                     f"Lịch đang ở trạng thái {status}, không check-in được."
                 )
             await BookingService(self._pool).apply_action(
-                appointment_id=appointment_id, action="checkin", identity=identity
+                appointment_id=appointment_id,
+                action="checkin",
+                identity=identity,
+                xac_minh_cach=xac_minh_cach,
             )
             return True
 

@@ -52,6 +52,7 @@ class _Conn:
             # Bài nào cần giờ ca cụ thể thì tự khai, thay vì phụ thuộc mặc
             # định — mặc định là con số của MỘT phòng khám và sẽ đổi.
             "settings": ({"ca_lam_viec": ca_lam_viec} if ca_lam_viec else None),
+            "tuan_da_cong_bo": roster_known,
         }
         self.fetched_slots = False
 
@@ -304,14 +305,18 @@ class TestDemGheCaNgayMotLan:
             "quay lại đếm từng khung là quay lại 283ms/lượt"
         )
 
-    def test_ghe_tre_chi_vao_khung_sau_gio_hen(self) -> None:
-        """Phép so ts_goc < đầu-khung phải có mặt — thiếu nó, khách check-in
-        trong chính khung hẹn bị đếm thành chiếm thêm ghế vãng lai (bài kiểm
-        SQL bắt đúng ca này khi kiểm ngược: chờ 2, đếm 3)."""
+    def test_khach_hen_den_muon_khong_chiem_ghe_truc_tiep(self) -> None:
+        """Lưới đếm ghế trực tiếp CHỈ từ lịch lễ tân đặt tại quầy.
+
+        Trước 15/09/2026 lưới đếm thêm ghế VANG_LAI_TRE (khách hẹn check-in trễ
+        sang khung sau). Tuyền chốt: sức chứa = số online + số trực tiếp quản
+        lý đặt; khám theo giờ check-in — người đến muộn không chiếm ghế trực
+        tiếp nữa (20260915000014). Bài kiểm SQL tương ứng:
+        supabase/tests/ghe_vang_lai_khach_den_muon.sql."""
         import inspect
 
         from clinicai.services.capacity_service import CapacityService
 
         nguon = inspect.getsource(CapacityService.quote)
-        assert "VANG_LAI_TRE" in nguon
-        assert "ts_goc <" in nguon
+        assert "VANG_LAI_TRE" not in nguon
+        assert "b.loai = 'VANG_LAI'" in nguon

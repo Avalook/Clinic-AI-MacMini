@@ -132,6 +132,8 @@ class TestDongLuotKhamDo:
         tx = AsyncMock()
         tx.__aenter__.return_value = None
         conn.transaction = MagicMock(return_value=tx)
+        # Số việc kết quả được giữ lại khi đóng lượt (15/09/2026).
+        conn.fetchval.return_value = 0
         return CheckoutService(pool), conn
 
     def test_khong_co_ly_do_thi_khong_dong_duoc_du_sach_vuong_mac(self) -> None:

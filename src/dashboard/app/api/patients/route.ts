@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { canWriteIntake, canEditPatient } from "../../../lib/roles";
 import {
   PHONE_RE,
@@ -49,6 +49,7 @@ interface Body {
   linh_vuc?: string;
   guardian_name?: string;
   force?: boolean;
+  ly_do_trung_cccd?: string;
 }
 
 /** Trim → null nếu rỗng. */
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
 
   let json: {
     duplicate?: boolean;
+    cccd_trung?: boolean;
     matches?: unknown;
     clinic_patient_id?: string;
     patient_code?: string;
@@ -184,7 +186,11 @@ export async function POST(request: Request) {
   }
 
   if (res.status === 200 && json.duplicate) {
-    return NextResponse.json({ duplicate: true, matches: json.matches ?? [] });
+    return NextResponse.json({
+      duplicate: true,
+      cccd_trung: Boolean(json.cccd_trung),
+      matches: json.matches ?? [],
+    });
   }
   if (!res.ok) {
     const msg =
@@ -233,7 +239,7 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await getClinicRole();
+  const role = await vaiLamViec(canEditPatient);
   // SỬA hồ sơ hành chính: intake (CSKH/Lễ tân/QL/ĐD) + BÁC SĨ. (Tạo mới = POST
   // vẫn chỉ canWriteIntake — bác sĩ không tạo BN, chỉ sửa.)
   if (!canEditPatient(role)) {

@@ -17,6 +17,8 @@ import { AlertTriangle, CheckCircle2, FileSignature, Send } from "lucide-react";
 interface Status {
   state: "DRAFT" | "SIGNED" | "RELEASED" | "AMENDED";
   version: number;
+  /** Phiên bản bệnh án đang xem — gửi khi ký để chốt đúng bản ấy. */
+  record_revision?: number | null;
   signed_at: string | null;
   signed_by_name: string | null;
   released_at: string | null;
@@ -58,8 +60,11 @@ export default function ClinicalSignPanel({
   visitId,
   isDoctor,
   onChanged,
+  revision,
 }: {
   visitId: string | null;
+  /** Phiên bản bệnh án ĐANG HIỆN trên form bác sĩ — ký đúng bản này. */
+  revision?: number | null;
   /** Chỉ bác sĩ thấy nút. Backend cũng chặn — đây là để không bày nút vô dụng. */
   isDoctor: boolean;
   onChanged?: () => void;
@@ -180,7 +185,13 @@ export default function ClinicalSignPanel({
           {st.state === "DRAFT" && (
             <button
               disabled={busy || !st.can_sign}
-              onClick={() => act("sign", {}, "✓ Đã ký bệnh án")}
+              onClick={() =>
+                act(
+                  "sign",
+                  { expected_revision: revision ?? st.record_revision ?? 0 },
+                  "✓ Đã ký bệnh án",
+                )
+              }
               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
             >
               <FileSignature size={14} /> Ký bệnh án

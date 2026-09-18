@@ -114,6 +114,20 @@ services:
       GOTRUE_URI_ALLOW_LIST: "*"
       GOTRUE_JWT_SECRET: ${SUPABASE_JWT_SECRET:?can jwt secret}
       GOTRUE_JWT_EXP: "3600"
+      # MỘT TÀI KHOẢN MỞ Ở HAI NƠI KHÔNG ĐƯỢC ĐÁ NHAU.
+      #
+      # Khoá làm mới XOAY VÒNG: mỗi lần làm mới, khoá cũ chết và khoá mới sinh
+      # ra. Hai máy (hoặc một máy + một tab nền) cùng làm mới trong tích tắc thì
+      # máy chậm chân cầm khoá đã chết — GoTrue từ chối, thư viện thử lại, và
+      # người dùng thấy trang treo vài giây rồi bị đá về /login. Đo được đúng
+      # cảnh này 16/09/2026: trang chủ 3–16 GIÂY, có lần trả 307 về /login.
+      #
+      # KHOẢNG DÙNG LẠI 10 GIÂY là cách Supabase bản cloud chữa: trong 10s sau
+      # khi xoay, khoá cũ vẫn trả về ĐÚNG cặp khoá mới thay vì báo lỗi. Cuộc
+      # đua biến mất mà không phải tắt việc xoay vòng (tắt là mất lớp phòng thủ
+      # khi khoá bị đánh cắp).
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: "10"
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
       # Bỏ trống thì GoTrue đặt aud = "" và tra người dùng theo aud = "" — mọi
       # dòng auth.users mang aud = 'authenticated' (chuẩn Supabase, và là thứ

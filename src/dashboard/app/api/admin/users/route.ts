@@ -25,12 +25,30 @@ import {
 } from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 import {
   resolveLinkedStaffAuthority,
   resolveSingleManagementClinic,
 } from "../../../../lib/identity-authority";
 
 const MIN_PASSWORD = 8;
+
+// NHẬT KÝ (15/09/2026): mọi thao tác tài khoản thành công ghi vào event_log qua
+// FastAPI — trước đây route này không để lại dấu vết nào. Không gửi mật khẩu.
+// Ghi hỏng thì không huỷ thao tác đã xong, nhưng báo ra log máy chủ.
+async function ghiNhatKy(
+  staffId: string,
+  hanhDong: "tao" | "doi_mat_khau" | "doi_ten_dang_nhap" | "thu_hoi",
+): Promise<void> {
+  const res = await proxyJsonToBackend(
+    "POST",
+    `/api/v1/staff/${encodeURIComponent(staffId)}/nhat-ky-tai-khoan`,
+    { hanh_dong: hanhDong },
+  );
+  if (res.status >= 300) {
+    console.error("nhat_ky_tai_khoan_that_bai", staffId, hanhDong, res.status);
+  }
+}
 
 type AuthResult =
   | { ok: true; admin: SupabaseClient; clinicId: string }
@@ -264,6 +282,7 @@ export async function POST(request: Request) {
     );
   }
 
+  await ghiNhatKy(staffId, "tao");
   return NextResponse.json({
     ok: true,
     userId: newUserId,
@@ -342,6 +361,7 @@ export async function PATCH(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    await ghiNhatKy(staffId, "doi_mat_khau");
     return NextResponse.json({
       ok: true,
       action,
@@ -376,6 +396,7 @@ export async function PATCH(request: Request) {
         { status: trung ? 409 : 500 },
       );
     }
+    await ghiNhatKy(staffId, "doi_ten_dang_nhap");
     return NextResponse.json({
       ok: true,
       action,
@@ -404,6 +425,7 @@ export async function PATCH(request: Request) {
         { status: upd.error ? 500 : 409 },
       );
     }
+    await ghiNhatKy(staffId, "thu_hoi");
     const del = await admin.auth.admin.deleteUser(target.auth_user_id);
     if (del.error) {
       // FK already cleared; the orphan Auth user can be removed in the

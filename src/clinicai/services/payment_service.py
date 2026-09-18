@@ -50,7 +50,9 @@ def allowed_kinds(role: ClinicRole) -> frozenset[str]:
         return frozenset({"thuoc"})
     if role is ClinicRole.CASHIER_DV:
         return frozenset({"dich_vu"})
-    if role in (ClinicRole.CASHIER, ClinicRole.MANAGEMENT):
+    # LỄ TÂN KIÊM THU NGÂN ở Kim Ngưu (Tuyền 16/09/2026): quầy tiếp đón thu tiền
+    # dịch vụ, quầy thuốc thu tiền thuốc — cùng một vai đứng cả hai quầy.
+    if role in (ClinicRole.CASHIER, ClinicRole.MANAGEMENT, ClinicRole.RECEPTION):
         return PAYMENT_KINDS
     return frozenset()
 
@@ -88,7 +90,8 @@ class PaymentService:
     def _assert_kind_allowed(self, kind: str, identity: StaffIdentity) -> None:
         if kind not in PAYMENT_KINDS:
             raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
-        if kind not in allowed_kinds(identity.role):
+        duoc_thu = {k for v in identity.cac_vai() for k in allowed_kinds(v)}
+        if kind not in duoc_thu:
             logger.info("payment_kind_forbidden", role=identity.role.value, kind=kind)
             raise SafetyGateError("Vai trò của bạn không được thu loại thanh toán này")
 
@@ -279,7 +282,12 @@ class PaymentService:
         reason: object,
         identity: StaffIdentity,
     ) -> None:
-        """Soft-void a payment, retaining the row and an immutable audit event."""
+        """Soft-void a payment, retaining the row and an immutable audit event.
+
+        AI HUỶ ĐƯỢC (Tuyền chốt 15/09/2026): chính THU NGÂN ĐÃ THU phiếu đó tự
+        gạch phiếu bấm nhầm, không cần quản lý duyệt. Thu ngân khác không gạch
+        được phiếu của người khác (trước đây được); Quản lý vẫn gạch được.
+        """
         self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
@@ -298,6 +306,7 @@ class PaymentService:
                        AND kind = $2
                        AND clinic_id = $3::uuid
                        AND status = 'PAID'
+                       AND ($6::boolean OR paid_by_staff_id = $4::uuid)
                     RETURNING id, amount, payment_cycle_id,
                               paid_by_staff_id, paid_at
                     """,
@@ -306,7 +315,18 @@ class PaymentService:
                     identity.clinic_id,
                     identity.staff_id,
                     normalized_reason,
+                    identity.co_vai({ClinicRole.MANAGEMENT}),
                 )
+                if payment is None and await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid "
+                    "AND kind = $2 AND clinic_id = $3::uuid AND status = 'PAID')",
+                    visit_id,
+                    kind,
+                    identity.clinic_id,
+                ):
+                    raise SafetyGateError(
+                        "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
+                    )
                 if payment is not None:
                     payment_id = str(payment["id"])
                     payment_cycle_id = str(payment["payment_cycle_id"])

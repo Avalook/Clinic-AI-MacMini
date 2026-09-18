@@ -10,7 +10,6 @@ const vungLamViec = read("app/(dashboard)/customers/VungLamViecKhach.tsx");
 const lichSu = read("app/(dashboard)/customers/LichSuCacLanKham.tsx");
 const lichTrung = read("app/(dashboard)/customers/LichTrungCuaKhach.tsx");
 const statusBadge = read("app/(dashboard)/StatusBadge.tsx");
-const cskhTasks = read("app/(dashboard)/cskh-tasks/CskhTasksView.tsx");
 
 function khoiMotCham(ma: string): string {
   const batDau = motCham.indexOf(`  ${ma}: {`);
@@ -20,8 +19,10 @@ function khoiMotCham(ma: string): string {
   return motCham.slice(batDau, ketThuc);
 }
 
-test("hai cuộc gọi trước khám ghi rõ khách đã xác nhận", () => {
-  for (const ma of ["CHO_XAC_NHAN", "NHAC_HEN_MAI"]) {
+test("cuộc gọi xác nhận trước khám ghi rõ khách đã xác nhận", () => {
+  // NHAC_HEN_MAI đã bỏ khỏi dòng trạng thái (Tuyền chốt 16/09/2026: "cần nhắc
+  // hẹn không nói tới nghĩa là bỏ"); còn đúng một cuộc gọi xác nhận.
+  for (const ma of ["CHO_XAC_NHAN"]) {
     assert.match(
       khoiMotCham(ma),
       /khachXacNhan:\s*true/,
@@ -43,7 +44,6 @@ test("màn CSKH gọi CONFIRMED là Đã đặt lịch, không phải đã gọi
     ["Lịch sử các lần khám", lichSu],
     ["Lịch trùng của khách", lichTrung],
     ["Nhãn trạng thái dùng chung", statusBadge],
-    ["Danh sách việc CSKH", cskhTasks],
   ] as const) {
     assert.match(source, /\bCONFIRMED:\s*"Đã đặt lịch"/, `${ten} dùng sai nhãn CONFIRMED`);
     assert.doesNotMatch(

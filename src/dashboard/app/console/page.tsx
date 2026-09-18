@@ -45,7 +45,7 @@ interface Overview {
 const WORKSPACE_VI: Record<string, { ten: string; man: string | null }> = {
   bang_dieu_phoi: { ten: "Tiếp nhận", man: "/reception/queue" },
   khu_bac_si: { ten: "Bàn khám", man: "/doctor/board" },
-  thu_ngan_dong_luot: { ten: "Thu ngân", man: "/cashier/board" },
+  thu_ngan_dong_luot: { ten: "Thu ngân", man: "/thu-ngan/dich-vu" },
   khu_dieu_duong: { ten: "Điều dưỡng", man: null },
   khu_sieu_am: { ten: "Siêu âm", man: null },
   khu_xet_nghiem: { ten: "Xét nghiệm", man: null },
@@ -205,7 +205,7 @@ export default async function ConsolePage() {
         <h2 className="font-medium text-ink">Theo dõi & xử lý sự cố</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { t: "Sức khoẻ API", d: "p50/p95, lỗi 5xx", href: "/ops/telemetry", ext: false },
+            { t: "Sức khoẻ API", d: "p50/p95, lỗi 5xx", href: "/ops?tab=api", ext: false },
             { t: "Vận hành", d: "trạng thái container", href: "/ops", ext: false },
             { t: "Uptime Kuma", d: "monitor + lịch sử", href: "http://127.0.0.1:3002", ext: true },
             { t: "Dozzle", d: "log trực tiếp", href: "http://127.0.0.1:8889", ext: true },

@@ -1,26 +1,36 @@
 "use client";
 
-// "Đăng ký / xếp ca" — bảng MA TRẬN tương tác (ngày × trạm, gom theo tầng, mỗi
-// ngày HAI HÀNG CON), CÙNG layout với hai bảng chỉ-đọc ở trên. Khác ở chỗ:
-//   - Click 1 ô → popup: quản lý CHỌN NGƯỜI + chọn ca rồi xếp vào đúng trạm +
-//     đúng ngày; nhân viên (nếu về sau mở lại) chỉ tự đăng ký ca của mình.
+// "Đăng ký / xếp ca" — bảng MA TRẬN tương tác, CÙNG form với hai bảng chỉ-đọc:
+// form Excel của PK Kim Ngưu, hàng = Tầng → Phòng → Vị trí, cột = ngày × ca.
+// Khác ở chỗ:
+//   - Click 1 ô → popup: quản lý CHỌN NGƯỜI rồi xếp vào đúng vị trí, đúng
+//     ngày, và đúng CA CỦA CỘT vừa bấm (chọn lại ca khác được trong popup).
 //   - Ô trống có dấu "+"; ô đã có người hiện tên + ca.
 // Ghi qua /api/roster (POST xếp, DELETE gỡ) rồi router.refresh().
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { X, Trash2 } from "lucide-react";
 import {
   STATION_LABEL,
   SHIFTS,
   SHIFT_LABEL,
-  chiaHaiHang,
+  STATIONS,
+  cotCuaTuan,
   demBacSiTruc,
+  type CotLich,
+  type Station,
   dayShort,
   fmtDayMonth,
   type Shift,
 } from "../../../lib/roster";
-import { RosterGridHead, RosterDayRows, O_TREN, O_DUOI } from "../RosterGrid";
+import {
+  RosterGridHead,
+  RosterViTriRows,
+  nenO,
+  type ThongTinO,
+} from "../RosterGrid";
+import type { DongCaRow } from "../home/WorkRosterTable";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
 export interface RegisterRow {
@@ -63,10 +73,12 @@ function cellKey(date: string, station: string) {
   return `${date}|${station}`;
 }
 
+const VI_TRI_LICH_KHAM = STATIONS.find((x) => x.key === "LICH_KHAM")!;
+
 export default function RosterRegisterTable({
   weekStart,
-  dates,
   rows,
+  dong = [],
   myStaffId,
   myStaffName,
   staff = [],
@@ -76,6 +88,8 @@ export default function RosterRegisterTable({
   weekStart: string;
   dates: string[];
   rows: RegisterRow[];
+  /** Ô đen / khối NGHỈ của tuần (bảng `vi_tri_dong_ca`). */
+  dong?: DongCaRow[];
   /** staff_id người đang đăng nhập; null = chưa chọn danh tính (không đăng ký được). */
   myStaffId: string | null;
   /** Tên người đăng nhập — hiện ngay cho ca vừa đăng ký (optimistic). */
@@ -90,7 +104,11 @@ export default function RosterRegisterTable({
   const router = useRouter();
   const dialogTitleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<{ date: string; station: string } | null>(null);
+  const [open, setOpen] = useState<{
+    date: string;
+    station: string;
+    shift: Shift;
+  } | null>(null);
   const [shift, setShift] = useState<Shift>("FULL");
   const [pickedId, setPickedId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +185,13 @@ export default function RosterRegisterTable({
     byCell.set(k, list);
   }
 
-  const openCellRows = open ? byCell.get(cellKey(open.date, open.station)) ?? [] : [];
+  // Một ô = vị trí × ngày × CA. Người trực CẢ NGÀY thuộc về mọi ca của ngày
+  // ấy — không tính họ vào thì bảng nói ca Tối trống trong khi có người đứng.
+  const cuaCa = (list: RegisterRow[], ca: Shift) =>
+    list.filter((r) => r.shift === ca || r.shift === "FULL");
+  const openCellRows = open
+    ? cuaCa(byCell.get(cellKey(open.date, open.station)) ?? [], open.shift)
+    : [];
   // "Đã đăng ký" chỉ tính ca ĐANG hiệu lực (Đã xếp) của mình. Ca bị gỡ không
   // tính → cho phép xếp lại ô đó.
   const myHere = openCellRows.find(
@@ -191,11 +215,14 @@ export default function RosterRegisterTable({
       })
     : [];
 
-  function moO(date: string, station: string) {
+  function moO(date: string, station: string, ca: Shift) {
     setError(null);
-    setShift("FULL");
+    // Chọn sẵn ĐÚNG ca của cột vừa bấm. Bản cũ luôn chọn sẵn "Cả ngày" vì bảng
+    // cũ không có cột theo ca — giữ vậy thì bấm vào cột Tối rồi lưu là xếp
+    // người ấy vào cả Sáng lẫn Chiều mà không ai để ý.
+    setShift(ca);
     setPickedId("");
-    setOpen({ date, station });
+    setOpen({ date, station, shift: ca });
   }
 
   /** Quản lý xếp NGƯỜI ĐƯỢC CHỌN; vai khác tự đăng ký chính mình. */
@@ -284,28 +311,29 @@ export default function RosterRegisterTable({
       refresh();
       return;
     }
-    // ĐO TRƯỚC KHI CẮT. Gỡ một ca khám có thể HUỶ lịch hẹn của khách — mất
-    // mát không lấy lại được, đúng chỗ xứng đáng một hộp xác nhận (ngược với
-    // hoàn tác rẻ tiền đã bỏ hộp 10/08). Máy chủ chỉ huỷ những lịch rơi RA
-    // NGOÀI phần ca còn lại, nên hộp cũng dạy luôn đường đổi ca an toàn.
+    // ĐO TRƯỚC KHI CẮT. Gỡ một ca khám KHÔNG huỷ lịch hẹn (CONTEXT v1.0),
+    // nhưng những lịch rơi RA NGOÀI phần ca còn lại sẽ mất bác sĩ và vào hàng
+    // "Lịch chờ xếp bác sĩ" — việc cho người khác, nên hỏi lại trước. Hộp
+    // cũng dạy luôn đường đổi ca không sinh việc: thêm ca mới trước.
     const uom = await fetch("/api/roster", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, dry_run: true }),
     });
     const doDac = (await uom.json().catch(() => null)) as {
-      so_lich_huy?: number;
+      so_lich_cho_xep?: number;
       gio?: string[];
     } | null;
-    const soHuy = doDac?.so_lich_huy ?? 0;
-    if (uom.ok && soHuy > 0) {
+    const soChoXep = doDac?.so_lich_cho_xep ?? 0;
+    if (uom.ok && soChoXep > 0) {
       const dsGio = (doDac?.gio ?? []).join(", ");
       const dongY = window.confirm(
-        `Ca này đang gánh ${soHuy} lịch hẹn (${dsGio}).\n` +
-          `Gỡ ca là HUỶ những lịch ấy — CSKH sẽ được báo để gọi khách đặt lại.\n\n` +
+        `Ca này đang gánh ${soChoXep} lịch hẹn (${dsGio}).\n` +
+          `Gỡ ca KHÔNG huỷ lịch — các lịch ấy sẽ mất bác sĩ và chuyển sang ` +
+          `"Lịch chờ xếp bác sĩ" để xếp bác sĩ khác hoặc gọi khách đổi giờ.\n\n` +
           `Nếu chị định ĐỔI ca (vd sáng → cả ngày): bấm Huỷ ở hộp này, THÊM ca mới ` +
-          `trước rồi mới gỡ ca cũ — lịch nằm trong khung còn phủ sẽ được giữ nguyên.\n\n` +
-          `Gỡ ca và huỷ ${soHuy} lịch?`,
+          `trước rồi mới gỡ ca cũ — lịch nằm trong khung còn phủ sẽ giữ nguyên bác sĩ.\n\n` +
+          `Gỡ ca và chuyển ${soChoXep} lịch sang chờ xếp bác sĩ?`,
       );
       if (!dongY) return;
     }
@@ -327,58 +355,124 @@ export default function RosterRegisterTable({
     refresh();
   }
 
+  const cot = cotCuaTuan(weekStart, effRows);
+
+  const dongO = new Map(
+    dong.map((d) => [`${d.station}|${d.work_date}|${d.shift}`, d.ly_do] as const),
+  );
+  const thongTin = (st: Station, c: CotLich): ThongTinO => ({
+    dong: dongO.get(`${st.key}|${c.date}|${c.shift}`) ?? null,
+    // Gộp dọc CHỈ theo người đang có hiệu lực — một ca đã gỡ không được làm hai
+    // ô dính nhau vì còn lưu tên cũ.
+    khoa: cuaCa(byCell.get(cellKey(c.date, st.key)) ?? [], c.shift)
+      .filter((r) => r.status !== "REJECTED")
+      .map((r) => r.staff_id ?? r.staff_name)
+      .sort()
+      .join("|"),
+  });
+
+  const oCuaBang = (st: Station, date: string, ca: Shift, rowSpan = 1) => {
+    const station = st.key;
+    const list = cuaCa(byCell.get(cellKey(date, station)) ?? [], ca);
+    return (
+      <td rowSpan={rowSpan} className={`border border-line-strong ${nenO(st)} p-0`}>
+        <button
+          type="button"
+          onClick={() => moO(date, station, ca)}
+          aria-label={`${STATION_LABEL[station] ?? station} · ${dayShort(date)} ${fmtDayMonth(date)} · ${SHIFT_LABEL[ca]}`}
+          className="flex h-full min-h-8 w-full flex-col gap-0.5 px-1.5 py-1 text-center transition-colors hover:bg-brand-50"
+        >
+          {list.length === 0 ? (
+            <span className="text-brand-200">+</span>
+          ) : (
+            list.map((r) => {
+              const b = STATUS_BADGE[r.status];
+              return (
+                <span
+                  key={r.id}
+                  className={
+                    "block whitespace-nowrap rounded px-1 leading-snug " +
+                    b.cls +
+                    (r.status === "REJECTED" ? " line-through" : "") +
+                    (r.staff_id === myStaffId ? " ring-1 ring-brand-600/40" : "")
+                  }
+                  title={`${b.label}${r.reject_reason ? " — " + r.reject_reason : ""}${
+                    r.shift === "FULL" ? " · trực cả ngày" : ""
+                  }`}
+                >
+                  {r.staff_name}
+                </span>
+              );
+            })
+          )}
+        </button>
+      </td>
+    );
+  };
+
   return (
     <>
       <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
-          <RosterGridHead minWidth={104} />
+          <RosterGridHead cot={cot} minWidth={112} />
           <tbody>
-            {dates.map((d, ri) => (
-              <RosterDayRows
-                key={d}
-                nhan={`${dayShort(d)} · ${fmtDayMonth(d)}`}
-                soBacSi={demBacSiTruc(
+            <RosterViTriRows
+              cot={cot}
+              thongTin={thongTin}
+              veO={(st, c, rs) => oCuaBang(st, c.date, c.shift, rs)}
+            />
+          </tbody>
+        </table>
+      </div>
+
+      {/* BÁC SĨ NHẬN LỊCH KHÁM — đứng NGOÀI bảng Excel, có chủ ý.
+          File Excel không có dòng này, và bảng trên phải y hệt file. Nhưng lưới
+          đặt lịch cần biết hôm nào nhận lịch cho bác sĩ nào, và đây là chỗ duy
+          nhất quản lý khai điều đó. */}
+      <div className="mt-4 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
+        <table className="w-full min-w-max border-collapse text-xs">
+          <RosterGridHead cot={cot} minWidth={112} />
+          <tbody>
+            <tr className="align-middle">
+              <td
+                colSpan={3}
+                className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-2 font-semibold text-ink"
+                title={STATION_LABEL.LICH_KHAM}
+              >
+                Bác sĩ nhận lịch khám
+                <span className="block text-meta font-normal text-ink-muted">
+                  Không có trong Excel · lưới đặt lịch đọc dòng này
+                </span>
+              </td>
+              {cot.map((c) => (
+                <Fragment key={`lk-${c.date}-${c.shift}`}>
+                  {oCuaBang(VI_TRI_LICH_KHAM, c.date, c.shift)}
+                </Fragment>
+              ))}
+            </tr>
+            <tr>
+              <td
+                colSpan={3}
+                className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-1 text-meta text-ink-muted"
+              >
+                Số bác sĩ nhận lịch
+              </td>
+              {cot.map((c) => {
+                const n = demBacSiTruc(
                   effRows.filter((r) => r.status !== "REJECTED"),
-                  d,
-                )}
-                vach={ri % 2 ? "bg-surface-muted" : "bg-surface"}
-                oCua={(s, hang) => {
-                  const list = chiaHaiHang(byCell.get(cellKey(d, s.key)) ?? [])[hang];
-                  return (
-                    <td className={(hang === 0 ? O_TREN : O_DUOI) + " p-0"}>
-                      <button
-                        type="button"
-                        onClick={() => moO(d, s.key)}
-                        className="flex h-full min-h-[30px] w-full flex-col gap-0.5 px-1.5 py-1 text-center transition-colors hover:bg-brand-50"
-                      >
-                        {list.length === 0 ? (
-                          <span className="text-brand-200">+</span>
-                        ) : (
-                          list.map((r) => {
-                            const b = STATUS_BADGE[r.status];
-                            return (
-                              <span
-                                key={r.id}
-                                className={
-                                  "block whitespace-nowrap rounded px-1 leading-snug " +
-                                  b.cls +
-                                  (r.status === "REJECTED" ? " line-through" : "") +
-                                  (r.staff_id === myStaffId ? " ring-1 ring-brand-600/40" : "")
-                                }
-                                title={`${b.label}${r.reject_reason ? " — " + r.reject_reason : ""}`}
-                              >
-                                {r.staff_name}
-                                {r.shift !== "FULL" ? ` (${SHIFT_LABEL[r.shift]})` : ""}
-                              </span>
-                            );
-                          })
-                        )}
-                      </button>
-                    </td>
-                  );
-                }}
-              />
-            ))}
+                  c.date,
+                  c.shift,
+                );
+                return (
+                  <td
+                    key={`sobs-${c.date}-${c.shift}`}
+                    className="border border-line-strong px-2 py-1 text-center font-semibold text-brand-700"
+                  >
+                    {n > 0 ? n : <span className="text-ink-faint">—</span>}
+                  </td>
+                );
+              })}
+            </tr>
           </tbody>
         </table>
       </div>

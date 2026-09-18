@@ -28,6 +28,21 @@ const path = require("node:path");
 
 const MAY_CHU = path.join(__dirname, "server.js");
 
+// KHÔNG GIỚI HẠN THỜI GIAN MỘT REQUEST (Tuyền chốt 16/09/2026: không giới hạn
+// dung lượng tệp tải lên). Node mặc định `server.requestTimeout = 300000` — cả
+// thân request phải tới trong 5 phút, quá là cắt. Video vài GB qua mạng phòng
+// khám lâu hơn thế. Next dựng máy chủ bằng `http.createServer` bên trong
+// server.js và không cho cấu hình, nên vá ngay tại chỗ tạo — TRƯỚC khi nạp
+// server.js. Chống request treo vẫn còn: `headersTimeout` (60s cho phần header)
+// và `keepAliveTimeout` giữ nguyên.
+const http = require("node:http");
+const taoGoc = http.createServer;
+http.createServer = function taoKhongHan(...thamSo) {
+  const mayChu = taoGoc.apply(this, thamSo);
+  mayChu.requestTimeout = 0;
+  return mayChu;
+};
+
 // Mặc định: dùng hết số nhân, trần 4. Đặt NEXT_WORKERS=1 để về hành vi cũ —
 // staging và máy dev không cần chia, và giữ đường lui một biến môi trường.
 function soTienTrinh() {
@@ -46,7 +61,11 @@ if (N === 1 || !cluster.isPrimary) {
   // Một tiến trình thì chạy thẳng, không đẻ thêm tầng nào.
   require(MAY_CHU);
 } else {
-  cluster.setupPrimary({ exec: MAY_CHU });
+  // Tiến trình con chạy LẠI tệp này (không chạy thẳng server.js): bản vá
+  // `requestTimeout` ở trên phải có mặt trong CHÍNH tiến trình phục vụ request.
+  // Bản đầu trỏ thẳng server.js — vá chỉ nằm ở tiến trình chính, không phục vụ
+  // ai, và tệp gửi chậm vẫn bị cắt ở giây ~327 (đo trên final cloud 16/09/2026).
+  cluster.setupPrimary({ exec: __filename });
 
   // CHỐNG ĐẺ VÔ HẠN. Nếu server.js chết ngay khi khởi động (cấu hình sai,
   // thiếu biến môi trường), vòng hồi sinh sẽ quay tít và đốt CPU mà không ai

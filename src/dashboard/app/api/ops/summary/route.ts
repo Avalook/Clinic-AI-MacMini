@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { buildOpsLinks, emptyOpsSummary, normalizeOpsPayload } from "../../../../lib/ops-summary";
 import { isAdminRole } from "../../../../lib/roles";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
@@ -21,7 +21,7 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return json({ error: "Unauthorised" }, 401);
 
-  const role = await getClinicRole();
+  const role = await vaiLamViec((r) => isAdminRole(r));
   if (!isAdminRole(role)) return json({ error: "Forbidden" }, 403);
 
   const {

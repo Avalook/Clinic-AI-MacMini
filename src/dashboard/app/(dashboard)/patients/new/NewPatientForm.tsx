@@ -20,21 +20,22 @@ import {
   moTaLuc,
   xoaNhap,
 } from "../../../../lib/luu-nhap";
-import { type ClinicRole } from "../../../../lib/roles";
+import { maTab } from "../../../../lib/ma-tab";
+import { canCheckin, type ClinicRole } from "../../../../lib/roles";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
+import BangBacSiTuan from "../../appointments/BangBacSiTuan";
+import { phutVn, thuHaiCua } from "../../appointments/cho-trong";
 import {
   buildSlotUsage,
   usageAt,
   slotBucketMs,
-  slotMinuteOptions,
   type SlotApptLite,
 } from "../../../../lib/slot-capacity";
 import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
   todayVn,
-  clinicHoursForDate,
   clinicHoursError,
 } from "../../../../lib/roster";
 import {
@@ -52,12 +53,14 @@ import { LINH_VUC_OPTIONS } from "../../../../lib/linh-vuc";
 import {
   INPUT,
   LABEL,
+  HANG,
+  HANG_LABEL,
+  HANG_LABEL_HEP,
   BTN,
   BTN_GHOST,
   CARD,
   CHANNELS,
 } from "../../form-ui";
-import Time24Input from "../../Time24Input";
 import { useKhoangCa } from "../dung-khoang-ca";
 
 export type { Option };
@@ -109,6 +112,102 @@ function Req() {
  *  mỗi lượt vẽ, mất chữ đang gõ. Mỗi hồ sơ khớp một bản — bấm ra một ô nhập
  *  NGAY BÊN PHẢI nút, Lưu là POST /api/patients/sdt-them; từ đó tra số nào
  *  cũng ra khách ấy. */
+/** HAI LỐI RA KHI SỐ ĐIỆN THOẠI TRÙNG ĐÚNG MỘT HỒ SƠ (Tuyền 16/09/2026).
+ *
+ *  *"người này đã có trong cơ sở dữ liệu, đặt lịch khám mới? / Người khác (kèm
+ *  ghi chú vào vì có thể người nhà bệnh nhân đến lấy kết quả mà dùng tên của
+ *  bệnh nhân luôn)"*.
+ *
+ *  Trước đó cảnh báo chỉ LIỆT KÊ hồ sơ trùng rồi để người trực tự xoay: muốn
+ *  đặt cho người cũ thì phải nhớ mã, thoát biểu mẫu, sang màn đặt lịch, tìm
+ *  lại. Nay:
+ *    · "Đặt lịch khám mới" → sang thẳng màn đặt lịch với ĐÚNG hồ sơ ấy được
+ *      chọn sẵn. Không cần điền lại gì: mọi thông tin hành chính đã có trong
+ *      hồ sơ, chỉ "vấn đề đi khám" là mỗi lần một khác nên để trống.
+ *    · "Người khác" → mở ô ghi chú và ghi vào SỔ CHĂM SÓC CỦA HỒ SƠ CŨ. Ghi
+ *      vào hồ sơ mới thì lần sau ai mở hồ sơ cũ vẫn không hiểu vì sao số ấy
+ *      xuất hiện ở hai nơi — mà bản chất nó là chuyện của MỘT hồ sơ. */
+function LoiRaKhiTrungSo({ khach }: { khach: PhoneMatch }) {
+  const [mo, setMo] = useState(false);
+  const [ghi, setGhi] = useState("");
+  const [dang, setDang] = useState(false);
+  const [ket, setKet] = useState<{ ok: boolean; cau: string } | null>(null);
+
+  async function luu() {
+    setDang(true);
+    setKet(null);
+    // TRY/CATCH, KHÔNG PHẢI `await` TRẦN. Bản đầu để `fetch` trần: mạng chớp
+    // một cái là lời hứa bị từ chối, `setDang(false)` không bao giờ chạy và nút
+    // đứng nguyên ở "Đang ghi…" — người trực ngồi chờ một việc đã chết. Bắt được
+    // trên local: một lần bấm treo vĩnh viễn trong khi cùng lời gọi ấy chạy tay
+    // vẫn trả 201.
+    try {
+      const res = await fetch("/api/cskh-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: "Ghi chú tiếp nhận",
+          description: `Người khác dùng thông tin của hồ sơ này tại quầy${
+            ghi.trim() ? ` — ${ghi.trim()}` : ""
+          }`,
+          patient_code: khach.patient_code,
+        }),
+      });
+      setKet(
+        res.ok
+          ? { ok: true, cau: "Đã ghi vào hồ sơ này." }
+          : { ok: false, cau: "Không ghi được — thử lại." },
+      );
+      if (res.ok) setGhi("");
+    } catch {
+      setKet({ ok: false, cau: "Mất mạng — chưa ghi được, thử lại." });
+    } finally {
+      setDang(false);
+    }
+  }
+
+  return (
+    <span className="ml-1 inline-flex flex-wrap items-center gap-1">
+      <a
+        href={`/appointments?bn=${encodeURIComponent(khach.patient_code)}`}
+        className="rounded-chip border border-warning/40 px-1.5 py-0.5 text-meta font-semibold text-warning hover:bg-warning/10"
+      >
+        Đặt lịch khám mới
+      </a>
+      <button
+        type="button"
+        onClick={() => setMo((v) => !v)}
+        className="rounded-chip border border-warning/40 px-1.5 py-0.5 text-meta font-semibold text-warning hover:bg-warning/10"
+      >
+        Người khác
+      </button>
+      {mo && (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <input
+            value={ghi}
+            onChange={(e) => setGhi(e.target.value)}
+            placeholder="VD: người nhà tới lấy kết quả hộ"
+            className="min-w-48 rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink outline-none focus:border-brand-600"
+          />
+          <button
+            type="button"
+            disabled={dang}
+            onClick={() => void luu()}
+            className="rounded-control bg-brand-600 px-2 py-1 text-meta font-semibold text-white disabled:opacity-50"
+          >
+            {dang ? "Đang ghi…" : "Ghi vào hồ sơ này"}
+          </button>
+          {ket && (
+            <span className={ket.ok ? "text-meta text-success" : "text-meta text-danger"}>
+              {ket.cau}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ThemSdtChoKhach({
   khach,
   goiY,
@@ -266,6 +365,7 @@ function SectionHeader({
 
 export default function NewPatientForm({
   staffId = null,
+  coSoMacDinhId = null,
   role,
   locations,
   services,
@@ -281,6 +381,9 @@ export default function NewPatientForm({
   staffId?: string | null;
   role?: ClinicRole | null;
   locations: Option[];
+  /** Cơ sở của người đang đặt (staff.primary_location_id qua /api/v1/me).
+   *  Mặc định ô "Cơ sở đăng ký khám" — KHÔNG phải cơ sở đầu danh sách. */
+  coSoMacDinhId?: string | null;
   services: Option[];
   doctors: Option[];
   provinces: ProvinceOpt[];
@@ -332,7 +435,12 @@ export default function NewPatientForm({
   const [phone, setPhone] = useState("");
   const [phone2, setPhone2] = useState("");
   const [cccd, setCccd] = useState("");
-  const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
+  // Cơ sở CỦA NGƯỜI ĐẶT trước, rồi mới tới đầu danh sách (16/09/2026): danh
+  // sách xếp theo tên nên `locations[0]` là "Kim Ngưu" với mọi người — hồ sơ
+  // khách mới của CSKH ở cơ sở khác rơi sai cơ sở mà không ai để ý.
+  const coSoDau =
+    locations.find((l) => l.id === coSoMacDinhId)?.id ?? locations[0]?.id ?? "";
+  const [locationId, setLocationId] = useState(coSoDau);
   // Hành chính (mục I form khám) — đồng bộ sang hồ sơ lâm sàng.
   const [gender, setGender] = useState("");
   const [ethnicity, setEthnicity] = useState("Kinh");
@@ -357,7 +465,10 @@ export default function NewPatientForm({
   // chúng thường tới từ URL ("đặt vào đây") và một khung giờ cũ khôi phục lại
   // có thể đã bị người khác giữ mất — bịa lại lựa chọn thời gian là sai hơn
   // bắt chọn lại. ──
-  const khoaNhapKhach = khoaNhap(staffId, "khach-moi", "form");
+  // KHOÁ THEO TAB, không phải chữ "form" cố định. Hai tab cùng nhập khách mới
+  // thì tab gõ sau từng ghi đè bản nháp của tab gõ trước — người kia F5 là nhận
+  // về thông tin của khách khác. Xem lib/ma-tab.ts.
+  const khoaNhapKhach = khoaNhap(staffId, "khach-moi", maTab() || "form");
   const [nhapDo, setNhapDo] = useState<{
     moTa: string;
     giaTri: Record<string, string | boolean>;
@@ -414,6 +525,15 @@ export default function NewPatientForm({
   const [doctorOpen, setDoctorOpen] = useState(false);
   const [apptDate, setApptDate] = useState(initialAppt?.date ?? "");
   const [apptTime, setApptTime] = useState(initialAppt?.time ?? "");
+  // BẢNG BÁC SĨ × TUẦN cho khách mới (16/09/2026) — cùng nguồn "còn chỗ" với
+  // màn Đặt lịch. `oLich` = ô (bác sĩ × ngày) đang mở lưới khung giờ.
+  const [tuanLech, setTuanLech] = useState(0);
+  const [oLich, setOLich] = useState<{
+    doctorId: string | null;
+    doctorName: string;
+    date: string;
+  } | null>(null);
+  const [phutHienTai] = useState(() => phutVn(nowMs()));
   // Loại ghế đang chọn ở sơ đồ (luồng full): "regular" = BN1/BN2 (kênh thường);
   // "walkin" = chỗ ĐẾN TRỰC TIẾP — đặt như WALK_IN để vào đúng ghế, không
   // cần Kênh đặt. onPick của sơ đồ luôn set lại theo ô bấm.
@@ -597,6 +717,10 @@ export default function NewPatientForm({
     ? Number(birthYear) || null
     : Number(dobIso.slice(0, 4)) || null;
   const [dupes, setDupes] = useState<DupMatch[] | null>(null);
+  // CCCD trùng hồ sơ khác: cảnh báo + bắt ghi lý do (Tuyền chốt 15/09/2026 —
+  // trước đó chặn cứng). Backend quyết; ô này chỉ gom lý do để gửi lại.
+  const [cccdTrung, setCccdTrung] = useState(false);
+  const [lyDoTrungCccd, setLyDoTrungCccd] = useState("");
 
   // Cảnh báo SỚM trùng SĐT (feedback #9): nhập đủ 10 số → hỏi backend xem đã có
   // ai dùng chưa. CHỈ cảnh báo, KHÔNG chặn lưu — backend lo chuẩn hoá +84/0.
@@ -672,19 +796,6 @@ export default function NewPatientForm({
   // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
   // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
   // + Ngày + Giờ khám + Kênh đặt (mới đủ điều kiện tạo lượt khám). Walk-in giữ nguyên.
-  // Giờ mở cửa PK theo ngày khám đã chọn (T2–T6 17–23h; T7+CN cả ngày).
-  const apptCh =
-    apptDate && policy ? clinicHoursForDate(apptDate, policy.hours) : null;
-  const apptMinHour = apptCh ? Number(apptCh.open.slice(0, 2)) : 0;
-  const apptMaxHour = apptCh ? Number(apptCh.close.slice(0, 2)) - 1 : 23;
-  // Giờ mở cửa cắt được hai đầu ngày nhưng KHÔNG nói được nghỉ trưa,
-  // nên ô giờ vẫn mời 13:00 trong khi backend từ chối (21/08/2026).
-  const apptKhung =
-    apptDate && policy
-      ? (policy.khungNhanLich[
-          String(new Date(`${apptDate}T00:00:00`).getDay())
-        ] ?? [])
-      : [];
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
   // không chờ submit + không còn 1 câu lỗi chung gây khó hiểu.
   const phoneErr = phoneError(phone);
@@ -694,7 +805,7 @@ export default function NewPatientForm({
   async function bookFor(clinicPatientId: string): Promise<boolean> {
     // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
     // sau, và gửi location_id rỗng thì backend từ chối bằng một câu khó hiểu.
-    const effLocationId = locationId || locations[0]?.id || "";
+    const effLocationId = locationId || coSoDau;
     if (!wantsAppointment) return true;
     if (!policy) {
       setError(
@@ -843,9 +954,9 @@ export default function NewPatientForm({
   // Không cần thay bằng gì cả: state đã khởi tạo `locations[0]?.id` ngay ở
   // useState, và `save()` vẫn còn lớp đỡ `locationId || locations[0]?.id`.
 
-  async function save(force: boolean) {
+  async function save(force: boolean, lyDoCccd?: string) {
     setError(null);
-    const effLocationId = locationId || locations[0]?.id || "";
+    const effLocationId = locationId || coSoDau;
     if (!effLocationId) {
       setError("Chưa chọn cơ sở khám.");
       return;
@@ -977,6 +1088,7 @@ export default function NewPatientForm({
         van_de_di_kham: vanDe.trim() || undefined,
         linh_vuc: linhVuc || undefined,
         force,
+        ly_do_trung_cccd: lyDoCccd?.trim() || undefined,
       }),
     });
     const json = await res.json();
@@ -987,6 +1099,7 @@ export default function NewPatientForm({
     }
     if (json.duplicate) {
       setSubmitting(false);
+      setCccdTrung(Boolean(json.cccd_trung));
       setDupes(json.matches as DupMatch[]);
       return;
     }
@@ -1073,23 +1186,12 @@ export default function NewPatientForm({
               placeholder="Nguyễn Thị A"
             />
           </div>
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <label className={LABEL + " mb-0"}>
-                {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
-              </label>
-              <label className="flex cursor-pointer items-center gap-1 text-meta text-ink-muted">
-                <input
-                  type="checkbox"
-                  checked={dobYearOnly}
-                  onChange={(e) => setDobYearOnly(e.target.checked)}
-                  className="accent-brand-600"
-                />
-                Chỉ biết năm
-              </label>
-            </div>
+          <div className={HANG}>
+            <label className={HANG_LABEL_HEP}>
+              {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
+            </label>
             {dobYearOnly ? (
-              <div>
+              <div className="min-w-0 flex-1">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -1110,7 +1212,7 @@ export default function NewPatientForm({
                 )}
               </div>
             ) : (
-              <div>
+              <div className="min-w-0 flex-1">
                 <DateField
                   value={dobIso}
                   onChange={setDobIso}
@@ -1123,6 +1225,18 @@ export default function NewPatientForm({
                 )}
               </div>
             )}
+            {/* Ô tích đi CÙNG DÒNG với ô ngày (16/09/2026) — nó đổi chính ô
+                bên cạnh, để tách ra một dòng riêng thì phải dò xem nó đổi cái
+                gì. */}
+            <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-meta text-ink-muted">
+              <input
+                type="checkbox"
+                checked={dobYearOnly}
+                onChange={(e) => setDobYearOnly(e.target.checked)}
+                className="accent-brand-600"
+              />
+              Chỉ biết năm
+            </label>
           </div>
           <div>
             <label className={LABEL}>
@@ -1173,6 +1287,7 @@ export default function NewPatientForm({
                       {/* Khách dùng thêm số khác? Gắn ngay vào hồ sơ này —
                           KHÔNG gợi ý số đang gõ: nó đã là của hồ sơ này. */}
                       <ThemSdtChoKhach khach={m} />
+                      <LoiRaKhiTrungSo khach={m} />
                     </li>
                   ))}
                 </ul>
@@ -1182,14 +1297,15 @@ export default function NewPatientForm({
                 </p>
               </div>
             )}
-            {/* TRÙNG TÊN ĐƠN THUẦN — nhẹ hơn, và nói rõ là nhẹ hơn.
-                Trùng tên ở Việt Nam là chuyện thường, nên khối này không dùng
-                màu cảnh báo và không đứng chung với khối trên: gộp lại thì
-                người trực sẽ học cách bỏ qua cả hai. */}
+            {/* TRÙNG TÊN — VÀNG NHẠT (Tuyền 16/09/2026 muốn nó cũng là cảnh
+                báo vàng). Nhưng vẫn PHẢI nhẹ hơn khối trên và không có nút
+                hành động: trùng tên ở Việt Nam là chuyện thường, để hai khối
+                y hệt nhau là dạy người trực bỏ qua cả hai. Nhạt + không nút =
+                vẫn vàng mà vẫn phân biệt được nặng nhẹ. */}
             {trungTen.length > 0 && (
-              <div className="mt-1.5 rounded-lg border border-line bg-surface-muted px-3 py-2 text-meta text-ink-soft">
-                <p className="font-medium text-ink">
-                  Đã có {trungTen.length} hồ sơ trùng họ tên:
+              <div className="mt-1.5 rounded-lg border border-warning/25 bg-warning-bg/50 px-3 py-2 text-meta text-ink-soft">
+                <p className="font-medium text-warning">
+                  ⚠ Đã có {trungTen.length} hồ sơ trùng họ tên:
                 </p>
                 <ul className="mt-1 space-y-0.5">
                   {trungTen.map((m) => (
@@ -1281,24 +1397,24 @@ export default function NewPatientForm({
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Quốc tịch</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Quốc tịch</label>
             <input
               value={nationality}
               onChange={(e) => setNationality(e.target.value)}
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Nghề nghiệp</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Nghề nghiệp</label>
             <input
               value={occupation}
               onChange={(e) => setOccupation(e.target.value)}
               className={INPUT}
             />
           </div>
-          <div>
-            <label className={LABEL}>Đối tượng</label>
+          <div className={HANG}>
+            <label className={HANG_LABEL}>Đối tượng</label>
             <input
               value={objection}
               onChange={(e) => setObjection(e.target.value)}
@@ -1337,8 +1453,8 @@ export default function NewPatientForm({
               ariaLabel="Phường / Xã"
             />
           </div>
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Địa chỉ chi tiết (số nhà, đường)</label>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>Địa chỉ chi tiết</label>
             <input
               value={addressDetail}
               onChange={(e) => setAddressDetail(e.target.value)}
@@ -1347,8 +1463,8 @@ export default function NewPatientForm({
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <label className={LABEL}>Vấn đề khiến bệnh nhân đi khám</label>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>Vấn đề đi khám</label>
             <input
               value={vanDe}
               onChange={(e) => setVanDe(e.target.value)}
@@ -1507,8 +1623,8 @@ export default function NewPatientForm({
           hint="Mục có dấu * là bắt buộc (Dịch vụ, Bác sĩ, Ngày, Giờ, Kênh đặt)."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={LABEL}>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>
               Dịch vụ khám <Req />
             </label>
             <select
@@ -1529,6 +1645,34 @@ export default function NewPatientForm({
               ))}
             </select>
           </div>
+          {/* KÊNH ĐẶT ngay dưới Dịch vụ khám (Tuyền 16/09/2026): hai ô này là
+              "khám gì" và "khách tới từ đâu" — trả lời một lượt rồi mới tới
+              chuyện xếp giờ. Ô "Có siêu âm" đã bỏ khỏi biểu mẫu khách mới: siêu
+              âm là một DỊCH VỤ trong ô ngay trên, nên hỏi lại bằng ô tích là
+              mời người nhập tự mâu thuẫn với chính mình. Cột `need_sono` vẫn
+              còn và luồng VÃNG LAI của lễ tân vẫn tích được. */}
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>
+              Kênh đặt {!gheTrucTiep && <Req />}
+            </label>
+            <select
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              className={INPUT}
+            >
+              <option value="" disabled hidden>— Chọn kênh —</option>
+              {/* "Trực tiếp" chỉ hiện với vai được check-in (Lễ tân, Quản lý):
+                  kênh ấy kéo theo tự check-in, và backend từ chối thẳng nếu
+                  người đặt không được check-in (luật Tuyền 15/09/2026). */}
+              {CHANNELS.filter(
+                (c) => c.id !== "WALK_IN" || canCheckin(role ?? null),
+              ).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
           {/* Ô "Tìm bác sĩ" ĐÃ BỎ — bác sĩ chọn bằng cách bấm một ô trong SƠ ĐỒ
               KHUNG GIỜ ngay dưới đây (`onPick` set thẳng `doctorId`).
 
@@ -1538,82 +1682,54 @@ export default function NewPatientForm({
               đưa sơ đồ sang là cắt mất đường phân bác sĩ duy nhất của luồng
               này: Quang thử trên staging và thấy biểu mẫu không còn chỗ nào
               chọn bác sĩ. Lỗi của tôi, sinh ra ở đúng lượt sửa trước. */}
-          <div>
+          {/* BÁC SĨ + NGÀY + KHUNG GIỜ — bảng Bác sĩ × tuần + lưới khung giờ
+              (Tuyền duyệt 16/09/2026). Thay sơ đồ "rạp chiếu phim" + hai ô
+              Giờ/Phút: sơ đồ cũ tự đếm chỗ trong trình duyệt theo con số chung
+              của phòng khám (lệch trigger) và ô giờ mời chọn cả 00–06h. Nay số
+              chỗ và khung giờ đều do backend nói. */}
+          <div className="sm:col-span-2 space-y-2">
             <label className={LABEL}>
-              Ngày khám <Req />
+              Chọn giờ khám <Req />
             </label>
-            <DateField
-              value={apptDate}
-              onChange={setApptDate}
-              min={TODAY}
-              ariaLabel="Ngày khám"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={LABEL}>
-              Bác sĩ &amp; khung giờ <Req />
-            </label>
-            {apptDate ? (
-              <CinemaSlotPicker
-                date={apptDate}
-                doctors={doctors}
-                dutyDoctorIds={dutyDoctorIds}
-                dutyDuKien={dutyDuKien}
-                shiftWindows={shiftWindows}
-                existingAppts={visibleExistingAppts}
-                selectedDoctorId={doctorId}
-                selectedTime={apptTime}
-                onPick={(docId, t) => {
-                  setApptTime(t);
-                  setDoctorId(docId);
+            <div className="rounded-card border border-hairline p-2">
+              <BangBacSiTuan
+                weekStart={thuHaiCua(TODAY, tuanLech)}
+                lamMoi={doiCa}
+                homNay={TODAY}
+                bayGioPhut={phutHienTai}
+                chon={
+                  oLich
+                    ? { doctorId: oLich.doctorId, date: oLich.date, time: apptTime }
+                    : null
+                }
+                onChonKhung={(v) => {
+                  setOLich({ doctorId: v.doctorId, doctorName: v.doctorName, date: v.date });
+                  setApptDate(v.date);
+                  setApptTime(v.time);
+                  setDoctorId(v.doctorId ?? "");
+                }}
+                doiTuan={{
+                  truoc: () => setTuanLech((n) => n - 1),
+                  sau: () => setTuanLech((n) => n + 1),
+                  homNay: () => setTuanLech(0),
                 }}
               />
+            </div>
+            {/* Ô "3. Khung giờ khả dụng" đã bỏ (Tuyền 16/09/2026) — nó gọi
+                cùng endpoint và in cùng nhãn với popup của bảng. Còn lại một
+                dòng NHẮC LẠI thứ vừa chọn: biểu mẫu dài, và khung giờ là thứ
+                người nhập phải đọc lại trước khi bấm lưu. */}
+            {oLich ? (
+              <p className="rounded-card border border-hairline bg-surface-muted px-3 py-2 text-label text-ink">
+                <span className="font-semibold">{oLich.doctorName}</span> ·{" "}
+                {oLich.date.split("-").reverse().join("/")}
+                {apptTime ? ` · ${apptTime}` : ""}
+              </p>
             ) : (
-              <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
-                Chọn ngày khám để hiện sơ đồ chỗ trống.
+              <p className="rounded-card border border-dashed border-line px-3 py-3 text-center text-label text-ink-muted">
+                Bấm một ô trong bảng để chọn bác sĩ, ngày và khung giờ.
               </p>
             )}
-          </div>
-          <div>
-            <label className={LABEL}>
-              Giờ <Req />
-            </label>
-            <Time24Input
-            khungPhut={apptKhung}
-              value={apptTime}
-              onChange={setApptTime}
-              minHour={apptMinHour}
-              maxHour={apptMaxHour}
-              minutesOptions={policy ? slotMinuteOptions(policy) : []}
-            />
-            {/* BỎ DÒNG "đến muộn 15 phút mất chỗ" (Quang chốt 09/08/2026).
-                Nó là một lời hứa về luật vận hành mà hệ thống KHÔNG thi hành:
-                không có chỗ nào hạ ưu tiên người đến muộn, và thứ tự gọi do
-                services/queue_order.py quyết theo giờ check-in thật. Một câu
-                doạ không có hiệu lực thì chỉ dạy người đọc bỏ qua chữ đỏ. */}
-            {apptCh && (
-              <p className="mt-1 text-label text-ink-faint">
-                Giờ mở cửa: {apptCh.open}–{apptCh.close}
-              </p>
-            )}
-          </div>
-          <div>
-            {/* Khách MỚI ⇒ luôn Khám mới (EPI-01 DEC-E5): bỏ nút Loại khám, giữ NEW. */}
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                marginTop: 6,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={needSono}
-                onChange={(e) => setNeedSono(e.target.checked)}
-              />
-              Có siêu âm
-            </label>
           </div>
           {/* SƠ ĐỒ CHỖ ĐÃ BỎ KHỎI BIỂU MẪU KHÁCH MỚI (Quang chốt 09/08/2026).
 
@@ -1626,23 +1742,6 @@ export default function NewPatientForm({
               Hai ô Ngày khám / Giờ ở trên vẫn đủ để đặt: thiếu bác sĩ thì lịch
               đi ra với doctor_id rỗng và rơi vào hàng đợi "Chờ xếp bác sĩ". */}
           {/* Số khám: KHÔNG nhập tay — hệ tự cấp khi check-in. */}
-          <div>
-            <label className={LABEL}>
-              Kênh đặt {!gheTrucTiep && <Req />}
-            </label>
-            <select
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              className={INPUT}
-            >
-              <option value="" disabled hidden>— Chọn kênh —</option>
-              {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       </section>
       )}
@@ -1651,8 +1750,9 @@ export default function NewPatientForm({
       {dupes && dupes.length > 0 && (
         <div className="space-y-2 rounded-xl border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
           <p className="font-medium">
-            ⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc
-            vẫn tạo mới:
+            {cccdTrung
+              ? "⚠️ CCCD này đã có hồ sơ. Chọn đúng người để đặt lịch, hoặc ghi lý do rồi vẫn tạo mới:"
+              : "⚠️ Đã có bệnh nhân dùng SĐT này. Chọn đúng người để đặt lịch, hoặc vẫn tạo mới:"}
           </p>
           <ul className="space-y-1.5">
             {dupes.map((m) => (
@@ -1681,12 +1781,22 @@ export default function NewPatientForm({
               </li>
             ))}
           </ul>
+          {cccdTrung && (
+            <textarea
+              value={lyDoTrungCccd}
+              onChange={(e) => setLyDoTrungCccd(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder="Lý do trùng CCCD (bắt buộc), ví dụ: hồ sơ cũ nhập nhầm số"
+              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+            />
+          )}
           <button
-            onClick={() => save(true)}
-            disabled={submitting}
+            onClick={() => save(true, cccdTrung ? lyDoTrungCccd : undefined)}
+            disabled={submitting || (cccdTrung && !lyDoTrungCccd.trim())}
             className="text-xs font-medium text-danger underline disabled:opacity-50"
           >
-            Vẫn tạo bệnh nhân mới
+            {cccdTrung ? "Vẫn tạo hồ sơ mới (đã ghi lý do)" : "Vẫn tạo bệnh nhân mới"}
           </button>
         </div>
       )}

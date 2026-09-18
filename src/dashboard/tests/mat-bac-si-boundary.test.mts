@@ -16,6 +16,10 @@ const page = readFileSync(
   new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
   "utf8",
 );
+const khungBao = readFileSync(
+  new URL("../app/(dashboard)/customers/khung-bao.ts", import.meta.url),
+  "utf8",
+);
 
 test("ngayVN trả ngày theo giờ Việt Nam, không theo giờ quốc tế", () => {
   // ĐÂY LÀ CÁI BẪY THẬT. `work_roster.work_date` là ngày làm việc theo lịch Việt
@@ -98,17 +102,13 @@ test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đ�
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
     "utf8",
   ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.match(view, /luotDangXem\?\.mat_bac_si/, "vẽ từ chính lượt đang xem");
-  // Chỉ soi KHỐI cảnh báo mất bác sĩ. Cảnh báo "quá giờ hẹn" vẫn dùng phép so
-  // id ấy — nó là chuyện khác và chưa được đụng tới ở lần này.
-  // Cửa sổ 700: từ 15/08 khối này chứa câu rẽ nhánh hai tình huống nên dài ra.
-  const khoi = /mat_bac_si[\s\S]{0,700}?\)\}/.exec(view);
-  assert.ok(khoi, "không tìm thấy khối cảnh báo mất bác sĩ");
-  assert.doesNotMatch(
-    khoi![0],
-    /selectedAppt/,
-    "khối này không được đọc lịch đại diện nữa",
-  );
+  // 16/09/2026: cảnh báo lên KHUNG BÁO dưới tên khách (Tuyền chốt). Khung báo
+  // dựng từ CHÍNH lượt đang xem — không đọc lịch đại diện.
+  assert.match(view, /dungKhungBao\(\{[\s\S]{0,400}luot: luotDangXem/, "khung báo dựng từ lượt đang xem");
+  const khoiBao = /const khungBao = useMemo[\s\S]{0,1200}?\]\);/.exec(view);
+  assert.ok(khoiBao, "không tìm thấy khối dựng khung báo");
+  assert.doesNotMatch(khoiBao![0], /selectedAppt/, "khung báo không được đọc lịch đại diện");
+  assert.match(khungBao, /l\?\.mat_bac_si/, "khung-bao.ts đọc cờ mất bác sĩ của lượt");
 });
 
 test("tập ca trực dùng CHUNG cho cả hai chỗ, không hỏi database hai lần", () => {
@@ -141,32 +141,28 @@ test("tập ca trực dùng CHUNG cho cả hai chỗ, không hỏi database hai 
 });
 
 
-test("CẢ HAI khối lịch hẹn đều hiện cảnh báo", () => {
-  // Màn khách hàng có HAI khối vẽ giờ hẹn: một ô BẤM ĐƯỢC (lịch còn đổi/huỷ
-  // được) và một khối chỉ-đọc (lịch đã đóng). Bản trước chỉ đặt cảnh báo ở khối
-  // chỉ-đọc — tức là nó im lặng đúng lúc CSKH CÒN LÀM ĐƯỢC gì đó.
-  //
-  // Cùng kiểu sót với ba lưới đặt chỗ cùng ngày: vá một chỗ trong nhiều chỗ,
-  // test xanh, deploy xanh, màn hình vẫn thiếu. Nên bài kiểm này ĐẾM.
+test("cảnh báo mất bác sĩ nằm MỘT chỗ — khung báo, hiện với mọi khối lịch", () => {
+  // Trước 16/09/2026 câu cảnh báo được CHÉP vào hai khối vẽ giờ hẹn (bấm được /
+  // chỉ-đọc) và bài kiểm này đếm cho bằng nhau — vì vá một khối là khối kia im.
+  // Nay Tuyền chốt một KHUNG BÁO dưới tên khách cho mọi thay đổi ảnh hưởng lịch:
+  // cảnh báo sống đúng một chỗ, không gác sau điều kiện "lịch còn sửa được".
   const view = readFileSync(
     new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
     "utf8",
   ).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  const soKhoiVeGioHen = (view.match(/nhanLuot\(luotDangXem\)/g) ?? []).length;
-  const soCanhBao = (view.match(/luotDangXem\?\.mat_bac_si/g) ?? []).length;
-  assert.ok(soKhoiVeGioHen >= 2, "không tìm thấy đủ hai khối giờ hẹn");
   assert.equal(
-    soCanhBao,
-    soKhoiVeGioHen,
-    `${soKhoiVeGioHen} khối vẽ giờ hẹn nhưng chỉ ${soCanhBao} khối cảnh báo — ` +
-      "khối thiếu sẽ im lặng đúng lúc người trực còn đổi được lịch",
+    (view.match(/luotDangXem\?\.mat_bac_si/g) ?? []).length,
+    0,
+    "không được chép lại câu mất bác sĩ vào khối giờ hẹn nữa",
   );
+  assert.equal((view.match(/<KhungBao\b/g) ?? []).length, 1, "khung báo vẽ đúng một lần");
+  const khoi = /<KhungBao[\s\S]{0,300}\/>/.exec(view);
+  assert.ok(khoi);
+  assert.match(khoi![0], /dong=\{khungBao\}/);
 });
 
 test("hai tình huống mất bác sĩ có HAI câu — ở cả hai màn", () => {
-  // "Đã nghỉ" = gọi KHÁCH đổi lịch; "ca đã xếp lại" = việc NỘI BỘ (gán lại
-  // bác sĩ — add_shift 15/08 tự gắn phần còn ghế, nhánh này chỉ còn khi khung
-  // cũ đã kín). Một câu chung thì hoặc khách bị gọi oan, hoặc lịch chờ mãi.
+  // "Bác sĩ nghỉ" = gọi KHÁCH đổi lịch; "ca đã xếp lại" = đặt lại đúng khung.
   const tuan = readFileSync(
     new URL("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx", import.meta.url),
     "utf8",
@@ -176,27 +172,9 @@ test("hai tình huống mất bác sĩ có HAI câu — ở cả hai màn", () =
     /bac_si_da_go_co_ca_lai\s*\?/,
     "bảng tuần phải rẽ nhánh câu theo cờ 'đã có ca lại'",
   );
-  // 15/08 chiều: remove() nay HUỶ HẲN lịch (Tuyền: "slot đó thực sự bị xoá
-  // đi… chỉ có đặt lịch slot mới") — câu phải nói "đã huỷ", không còn "gán
-  // lại" vì không còn lịch sống để gán.
-  assert.match(tuan, /lịch (cũ )?đã huỷ/, "câu phải nói rõ lịch cũ đã huỷ");
-
-  const view = readFileSync(
-    new URL("../app/(dashboard)/customers/CustomersView.tsx", import.meta.url),
-    "utf8",
-  );
-  const soReNhanh = (view.match(/luotDangXem\?\.bs_go_co_ca_lai\s*\?/g) ?? []).length;
-  assert.equal(
-    soReNhanh,
-    2,
-    "CẢ HAI khối lịch hẹn (bấm được + chỉ-đọc) phải rẽ nhánh — vá một trong " +
-      "hai là đúng lỗi 'ba lưới đặt chỗ' lặp lại",
-  );
-  assert.match(
-    view,
-    /đã huỷ[\s\S]{0,80}?đặt (lại|lịch)/,
-    "câu phải nói lịch đã huỷ và việc tiếp theo là đặt lại",
-  );
+  assert.match(khungBao, /l\.bs_go_co_ca_lai\s*\?/, "khung báo rẽ nhánh hai câu");
+  // Gỡ ca KHÔNG huỷ lịch (luật 15/09/2026 số 1) — câu nói gọi khách đổi lịch.
+  assert.match(khungBao, /đổi lịch làm việc — gọi khách đổi lịch/);
 });
 
 test("chip danh sách bám LƯỢT người trực tự chọn — đổi lượt là đổi ngay", () => {

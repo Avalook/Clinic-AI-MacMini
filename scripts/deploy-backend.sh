@@ -186,12 +186,21 @@ MEDIA_BIND="${MEDIA_BIND:-./.media}"
 OPS_BIND="$(env_value OPS_STATUS_DIR)"
 OPS_BIND="${OPS_BIND:-./.ops-status}"
 APP_ENV_VALUE="$(env_value APP_ENV)"
-for d in "${MEDIA_BIND}/${APP_ENV_VALUE}" "${OPS_BIND}/${APP_ENV_VALUE}"; do
-  case "$d" in
-    "~/"*) d="$HOME/${d#\~/}" ;;
-    /*) : ;;
-    *) d="${REPO}/${d#./}" ;;
+
+# Giải một đường dẫn cấu hình thành đường tuyệt đối. Tách thành hàm vì cuối
+# script còn cần lại thư mục ops để ghi mốc deploy — và một luật viết hai lần
+# là một luật sẽ lệch nhau ở lần sửa sau.
+giai_duong_dan() {
+  case "$1" in
+    "~/"*) printf '%s\n' "$HOME/${1#\~/}" ;;
+    /*)    printf '%s\n' "$1" ;;
+    *)     printf '%s\n' "${REPO}/${1#./}" ;;
   esac
+}
+
+MEDIA_DIR_DA_GIAI="$(giai_duong_dan "${MEDIA_BIND}/${APP_ENV_VALUE}")"
+OPS_DIR_DA_GIAI="$(giai_duong_dan "${OPS_BIND}/${APP_ENV_VALUE}")"
+for d in "$MEDIA_DIR_DA_GIAI" "$OPS_DIR_DA_GIAI"; do
   mkdir -p "$d" || {
     echo "!! không tạo được thư mục ổ bind: $d" >&2
     exit 1
@@ -397,4 +406,38 @@ echo "==> [6/6] deployment verified at $(git rev-parse HEAD)"
 truoc=$(docker system df --format '{{.Type}}|{{.Size}}' 2>/dev/null | awk -F'|' '/^Build/{print $2}')
 docker builder prune -af --filter 'until=24h' >/dev/null 2>&1 || true
 echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đĩa còn: $(df -h / | awk 'NR==2{print $4}')"
+# ── GHI MỐC "VỪA CÓ AI ĐỔI GÌ KHÔNG" ─────────────────────────────────────────
+#
+# Câu hỏi ĐẦU TIÊN khi có sự cố là "trước lúc hỏng vừa có thay đổi gì". Trước
+# bản này màn Ops không trả lời được: script biết RELEASE_SHA nhưng không nói
+# cho ai, và người trực phải ssh vào máy rồi `git log` — đúng lúc đang vội.
+#
+# Giữ CẢ LỊCH SỬ, không chỉ lần cuối. "10:31 deploy, 10:34 lỗi tăng" chỉ đọc
+# được khi còn nhìn thấy mốc 10:31; giữ mỗi lần cuối thì lần deploy sau xoá mất
+# bằng chứng của lần trước. Cắt ở 20 dòng — đủ vài tuần, và không để một tệp
+# trạng thái lớn dần mãi trên ổ đĩa máy chủ.
+if [ -d "$OPS_DIR_DA_GIAI" ]; then
+  LUC_DEPLOY="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  CHU_THICH="$(git log -1 --format=%s | tr -d '"\\' | cut -c1-120)"
+  printf '%s\n' \
+    '{' \
+    '  "format_version": 1,' \
+    "  \"deployed_at\": \"${LUC_DEPLOY}\"," \
+    "  \"sha\": \"${RELEASE_SHA}\"," \
+    "  \"environment\": \"${APP_ENV_VALUE}\"," \
+    "  \"image_tag\": \"${TAG}\"," \
+    "  \"subject\": \"${CHU_THICH}\"" \
+    '}' > "${OPS_DIR_DA_GIAI}/deploy-status.json.tmp" \
+    && mv "${OPS_DIR_DA_GIAI}/deploy-status.json.tmp" \
+          "${OPS_DIR_DA_GIAI}/deploy-status.json" \
+    && chmod 600 "${OPS_DIR_DA_GIAI}/deploy-status.json"
+
+  LICH_SU="${OPS_DIR_DA_GIAI}/deploy-history.jsonl"
+  printf '{"deployed_at":"%s","sha":"%s","image_tag":"%s","subject":"%s"}\n' \
+    "$LUC_DEPLOY" "$RELEASE_SHA" "$TAG" "$CHU_THICH" >> "$LICH_SU"
+  tail -n 20 "$LICH_SU" > "${LICH_SU}.tmp" && mv "${LICH_SU}.tmp" "$LICH_SU"
+  chmod 600 "$LICH_SU" 2>/dev/null || true
+  echo "==> mốc deploy ghi vào ${OPS_DIR_DA_GIAI}/deploy-status.json"
+fi
+
 echo "==> deploy ($ENVN) complete."

@@ -2,7 +2,11 @@
 #
 # Nạp lược đồ ClinicAI vào bộ Supabase tự dựng trên Mac.
 #
-#   ./scripts/supabase-local-nap.sh
+#   SUPABASE_DB_CONTAINER=clinicai_thu_db ./scripts/supabase-local-nap.sh   # môi trường thử (dev-up.sh tự đặt)
+#   SUPABASE_DB_CONTAINER=clinicai_db     ./scripts/supabase-local-nap.sh   # dựng mới database máy chủ
+#
+# CHỈ CHO DATABASE TRỐNG. Database đã có sổ migration thì script dừng — áp phần
+# còn thiếu là việc của apply-pending-migrations.sh.
 #
 # CHẠY SAU KHI GoTrue ĐÃ KHỞI ĐỘNG XONG. Thứ tự bắt buộc, và lý do:
 # baseline có `staff.auth_user_id → auth.users(id)`, mà bảng `auth.users` do
@@ -14,10 +18,36 @@
 
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DB=clinicai_db
+# KHÔNG CÓ ĐÍCH MẶC ĐỊNH. Trước 11/09 biến này mặc định `clinicai_db` — tên
+# container của PROD — nên quên đặt biến trên máy có container ấy là chạy cả chuỗi
+# migration vào database đang đón bệnh nhân. Cùng luật với
+# apply-pending-migrations.sh: script đoán lấy đích là script có ngày sửa nhầm.
+DB="${SUPABASE_DB_CONTAINER:-}"
+if [ -z "$DB" ]; then
+  echo "!! chưa chọn đích: đặt SUPABASE_DB_CONTAINER (xem đầu file)" >&2
+  exit 2
+fi
 psql_() { docker exec -i "$DB" psql -U postgres -X -q -v ON_ERROR_STOP=1 "$@"; }
 
 docker inspect "$DB" >/dev/null 2>&1 || { echo "!! chưa dựng $DB" >&2; exit 1; }
+
+# Mỗi file migration chạy bằng `psql -f` KHÔNG bọc giao dịch: đổ ở dòng 40 thì 39
+# dòng trước đã vào. Nạp lại lên database đã có lược đồ là để lại nửa migration.
+if [ "$(psql_ -tAc "SELECT to_regclass('supabase_migrations.schema_migrations') IS NOT NULL" | tr -d ' ')" = "t" ] \
+   && [ "$(psql_ -tAc "SELECT count(*) FROM supabase_migrations.schema_migrations" | tr -d ' ')" != "0" ]; then
+  echo "!! $DB đã có sổ migration — script này chỉ dựng database TRỐNG." >&2
+  echo "   Áp phần còn thiếu: CLINIC_DB_CONTAINER=$DB ./scripts/apply-pending-migrations.sh" >&2
+  exit 1
+fi
+
+# GoTrue tạo schema `auth` bằng migration của chính nó lúc khởi động. Nạp lược đồ
+# trước khi `auth.users` có mặt là đổ ở khoá ngoại staff.auth_user_id.
+for _ in $(seq 1 120); do
+  psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL" 2>/dev/null | grep -q t && break
+  sleep 1
+done
+psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL" | grep -q t \
+  || { echo "!! GoTrue chưa tạo auth.users sau 120 giây — xem log container auth" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # 1. Nâng auth.uid() / auth.role() để đọc được CẢ HAI dạng claim
@@ -81,6 +111,22 @@ GRANT ALL ON ALL TABLES    IN SCHEMA public TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 SQL
+
+# ---------------------------------------------------------------------------
+# 4. Bảo PostgREST nạp lại lược đồ
+# ---------------------------------------------------------------------------
+# PostgREST đọc lược đồ MỘT LẦN lúc khởi động rồi giữ trong bộ nhớ. Dựng stack
+# trước, chạy migration sau — thứ tự tự nhiên, và cũng là thứ tự bắt buộc vì
+# baseline cần `auth.users` do GoTrue tạo — nghĩa là PostgREST luôn đang nhớ
+# một database RỖNG.
+#
+# Triệu chứng (đã cắn thật trên VPS mới 16/09/2026): đăng nhập được, dữ liệu
+# nằm nguyên trong database, nhưng màn Danh sách bệnh nhân và Quản lý khách
+# hàng đỏ một dòng "Could not find a relationship between 'appointment' and
+# 'patient' in the schema cache". Nhìn như hỏng lược đồ, thực ra chỉ là
+# PostgREST chưa biết. Không lỗi nào vào log của database.
+echo "==> bảo PostgREST nạp lại lược đồ"
+psql_ -c "NOTIFY pgrst, 'reload schema'"
 
 echo "==> xong. Kiểm nhanh:"
 psql_ -c "select

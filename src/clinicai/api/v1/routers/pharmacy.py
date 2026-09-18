@@ -14,8 +14,14 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
 from clinicai.services.pharmacy_service import PharmacyService
@@ -25,13 +31,15 @@ router = APIRouter()
 # ĐỌC mở rộng hơn GHI. Thu ngân thuốc cần thấy đơn để thu tiền, Trưởng ca và
 # Quản lý cần thấy tồn để biết sắp hết gì — nhưng chỉ Dược sĩ (và Quản lý, cho
 # lúc dược sĩ nghỉ) mới được chạm vào kho.
+# Lễ tân kiêm quầy thuốc + kho thuốc ở Kim Ngưu (Tuyền 16/09/2026).
 _DOC = require_role(
+    ClinicRole.RECEPTION,
     ClinicRole.PHARMACIST,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
-_GHI = require_role(ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT)
+_GHI = require_role(ClinicRole.RECEPTION, ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT)
 
 
 @router.get("/pharmacy/queue")
@@ -93,14 +101,48 @@ async def cap_phat(
     body: CapPhatRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Cấp thuốc cho một dòng đơn. Cấp một phần là chuyện bình thường."""
-    return await PharmacyService(pool).cap_phat(
-        identity=identity,
-        prescription_id=str(body.prescription_id),
-        drug_batch_id=str(body.drug_batch_id),
-        so_luong=body.so_luong,
-    )
+    """Cấp thuốc cho một dòng đơn. Cấp một phần là chuyện bình thường.
+
+    CHỐNG GỬI TRÙNG — thêm 16/09/2026 sau khi đo được cảnh sau: hai lời gọi
+    cấp 1 viên bắn cùng lúc, cả hai trả 201, và lô nhập 50 viên còn **48**.
+    Trừ tồn hai lần.
+
+    Vì sao chuyện này không tự chặn được như `/payments`: ở đó một lượt khám
+    chỉ có một khoản thu mỗi loại nên ghi đè là đủ, còn ở đây **cấp một phần là
+    hợp lệ** — hệ thống không có cách nào phân biệt "bấm nhầm hai lần" với "cố
+    ý cấp thêm một viên nữa" nếu người gọi không nói ra. Khoá chống-gửi-trùng
+    chính là chỗ người gọi nói ra điều đó: một lần bấm = một khoá, gửi lại bao
+    nhiêu lần cũng chỉ trừ tồn một lần.
+
+    Đây là cửa ghi DUY NHẤT động vào vật thật (thuốc), và trước bản này nó là
+    cửa ghi duy nhất trong hệ không có lớp bảo vệ ấy.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        # `jsonable_encoder` TRƯỚC KHI CẤT, không phải sau.
+        #
+        # Kết quả cấp thuốc mang số lượng tồn dưới dạng `Decimal` — đúng kiểu
+        # cho tiền và cho thuốc, nhưng `json.dumps` của lớp chống-gửi-trùng
+        # không nuốt được, và nó nổ thành 500 ĐÚNG Ở LẦN BẤM THỨ HAI. Người
+        # dùng thấy "lỗi máy chủ" cho một thao tác thực ra đã thành công.
+        # `/payments` không vấp vì nó cất `{"ok": true}`.
+        ket_qua: dict[str, Any] = jsonable_encoder(
+            await PharmacyService(pool).cap_phat(
+                identity=identity,
+                prescription_id=str(body.prescription_id),
+                drug_batch_id=str(body.drug_batch_id),
+                so_luong=body.so_luong,
+            )
+        )
+        # Ghi TRONG khối trả-khoá, giống `/payments`: đặt ngoài thì một lỗi
+        # nghiệp vụ ở giữa sẽ trả khoá về rồi mới ghi, và lần bấm lại nhận một
+        # kết quả cũ của thao tác chưa từng xảy ra.
+        await idem.save(pool, ket_qua, status_code=201)
+    return ket_qua
 
 
 class TuChoiRequest(BaseModel):

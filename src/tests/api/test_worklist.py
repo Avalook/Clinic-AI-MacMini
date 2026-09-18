@@ -200,8 +200,9 @@ async def test_a_workspace_reader_only_receives_nodes_for_its_role() -> None:
     )
 
     sql, *_ = pool.fetch.call_args.args
-    assert "AND (m.role IN ('MANAGEMENT', 'TRUONG_CA')" in sql
-    assert "OR m.role = ANY(n.actor_roles))" in sql
+    # Vai hôm nay (tài khoản + vị trí) — Tuyền 16/09/2026.
+    assert "AND ($8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']" in sql
+    assert "OR n.actor_roles && $8::text[])" in sql
     assert "cardinality(n.actor_roles) = 0" not in sql
     assert "n.actor_roles IS NULL" not in sql
 
@@ -238,7 +239,7 @@ async def test_a_future_or_terminal_role_step_cannot_authorize_visit_pii() -> No
     ) -> bool:
         normalized = " ".join(sql.split())
         return (
-            "$3 = ANY(n.actor_roles)" in normalized
+            "n.actor_roles && $3::text[]" in normalized
             and "w.status = 'IN_PROGRESS'" not in normalized
             and "w.status = 'PENDING'" not in normalized
         )
@@ -311,6 +312,6 @@ async def test_active_owned_step_is_the_only_normal_visit_read_grant() -> None:
     assert "w.status = 'IN_PROGRESS'" in normalized
     assert "w.status = 'PENDING'" in normalized
     assert "work_item_gate_blockers(w.id, 'start')" in normalized
-    assert "$3 = ANY(n.actor_roles)" in normalized
+    assert "n.actor_roles && $3::text[]" in normalized
     assert "cardinality(n.actor_roles) = 0" not in normalized
     assert "n.actor_roles IS NULL" not in normalized

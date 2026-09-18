@@ -34,7 +34,7 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.exceptions import ValidationError
+from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 
 logger = structlog.get_logger()
@@ -69,7 +69,21 @@ class ClinicalSignService:
                 """
                 SELECT st.*, cr.soap_subjective, cr.soap_objective,
                        cr.soap_assessment, cr.soap_plan,
-                       p.full_name AS patient_name, p.patient_code
+                       cr.revision AS record_revision,
+                       cr.chief_complaint_at_visit,
+                       p.full_name AS patient_name, p.patient_code,
+                       -- PHIẾU CHUYÊN KHOA + SINH HIỆU ĐÃ ĐO cũng là nội dung bệnh
+                       -- án (17/09/2026): thư ký điền "Lý do khám" ở phiếu Nội
+                       -- tiết, điều dưỡng đo ở màn Đo sinh hiệu — nút ký không được
+                       -- báo thiếu những thứ đã có.
+                       (SELECT jsonb_object_agg(k, v)
+                          FROM public.clinical_form_response f,
+                               jsonb_each(f.form_data) AS e(k, v)
+                         WHERE f.visit_id = st.visit_id
+                           AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
+                       EXISTS (SELECT 1 FROM public.vital_measurement m
+                                WHERE m.visit_id = st.visit_id
+                                  AND m.clinic_id = st.clinic_id) AS co_sinh_hieu
                   FROM public.v_clinical_status st
                   LEFT JOIN public.clinical_record cr
                          ON cr.visit_id = st.visit_id
@@ -92,6 +106,8 @@ class ClinicalSignService:
             "patient_code": row["patient_code"],
             "state": state,
             "version": row["version"],
+            # Phiên bản bệnh án bác sĩ đang xem — gửi lại khi ký (15/09/2026).
+            "record_revision": row["record_revision"],
             "signed_at": (
                 row["finalized_at"].isoformat() if row["finalized_at"] else None
             ),
@@ -113,8 +129,20 @@ class ClinicalSignService:
 
     # ── Ghi ────────────────────────────────────────────────────────────
 
-    async def sign(self, *, identity: StaffIdentity, visit_id: str) -> dict[str, Any]:
-        """Bác sĩ ký bệnh án. Sau bước này nội dung bị khoá."""
+    async def sign(
+        self,
+        *,
+        identity: StaffIdentity,
+        visit_id: str,
+        expected_revision: int | None = None,
+    ) -> dict[str, Any]:
+        """Bác sĩ ký bệnh án. Sau bước này nội dung bị khoá.
+
+        KÝ ĐÚNG BẢN ĐANG XEM (15/09/2026): bác sĩ + thư ký xem song song, bác sĩ
+        bấm xác nhận là chốt BẢN ĐÓ. Gửi `expected_revision` thì phiên bản được
+        kiểm NGAY TRONG câu UPDATE — thư ký sửa giữa lúc bác sĩ đọc và bấm ký thì
+        từ chối, bác sĩ tải lại xem bản mới.
+        """
         _assert_doctor(identity)
 
         state = await self.status(identity=identity, visit_id=visit_id)
@@ -137,12 +165,32 @@ class ClinicalSignService:
                            finalized_by = $3::uuid, updated_at = now()
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND status <> 'FINALIZED'
+                       AND coalesce((SELECT cr.revision FROM public.clinical_record cr
+                                      WHERE cr.clinic_id = $1::uuid
+                                        AND cr.visit_id = $2::uuid), 0)
+                           = coalesce($4::int,
+                                      (SELECT cr.revision FROM public.clinical_record cr
+                                        WHERE cr.clinic_id = $1::uuid
+                                          AND cr.visit_id = $2::uuid), 0)
                     RETURNING visit_id
                     """,
                     identity.clinic_id,
                     visit_id,
                     identity.staff_id,
+                    expected_revision,
                 )
+                if signed is None and expected_revision is not None:
+                    da_ky = await conn.fetchval(
+                        "SELECT status = 'FINALIZED' FROM public.visit"
+                        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+                        identity.clinic_id,
+                        visit_id,
+                    )
+                    if not da_ky:
+                        raise ConflictError(
+                            "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
+                            "bản mới rồi ký."
+                        )
                 if signed is None:
                     # Người khác vừa ký xong giữa hai câu lệnh. Không phải lỗi.
                     return {"ok": True, "already_signed": True}
@@ -334,7 +382,7 @@ class ClinicalSignService:
         self, *, identity: StaffIdentity, ultrasound_id: str
     ) -> dict[str, Any]:
         """Bác sĩ siêu âm ký kết quả CỦA MÌNH."""
-        if identity.role not in SIGNING_ROLES:
+        if not identity.co_vai(SIGNING_ROLES):
             raise ValidationError("Chỉ bác sĩ mới ký được kết quả siêu âm.")
 
         async with self._pool.acquire() as conn:
@@ -349,16 +397,31 @@ class ClinicalSignService:
             if row["signed_at"] is not None:
                 return {"ok": True, "already_signed": True}
             # "Ký kết quả CỦA MÌNH" — quyết định của Quang. Bác sĩ siêu âm khác
-            # ký hộ là ghi sai người chịu trách nhiệm chuyên môn.
-            if row["performed_by"] and str(row["performed_by"]) != str(
-                identity.staff_id
+            # ký hộ là ghi sai người chịu trách nhiệm chuyên môn. "Của mình" =
+            # người thực hiện ghi trên phiếu, HOẶC bác sĩ đã nhận ca siêu âm
+            # (work_item.assigned_to, 15/09/2026) — phiếu cũ do thư ký lưu nháp
+            # trước từng ghi thư ký làm người thực hiện và khoá bác sĩ thật.
+            nhan_ca = await conn.fetchval(
+                "SELECT w.assigned_to::text FROM public.work_item w"
+                "  JOIN public.ultrasound_record u ON u.visit_id = w.visit_id"
+                " WHERE u.ultrasound_id = $1::uuid AND w.clinic_id = $2::uuid"
+                "   AND w.node_code = 'DICHVU-SIEUAM' AND w.status <> 'CANCELLED'"
+                " ORDER BY w.created_at DESC LIMIT 1",
+                ultrasound_id,
+                identity.clinic_id,
+            )
+            if (
+                row["performed_by"]
+                and str(row["performed_by"]) != str(identity.staff_id)
+                and nhan_ca != str(identity.staff_id)
             ):
                 raise ValidationError(
                     "Chỉ bác sĩ đã thực hiện ca siêu âm này mới ký được."
                 )
             await conn.execute(
                 "UPDATE public.ultrasound_record"
-                "   SET signed_by = $2::uuid, signed_at = now(), updated_at = now()"
+                "   SET signed_by = $2::uuid, signed_at = now(), updated_at = now(),"
+                "       performed_by = $2::uuid"
                 " WHERE ultrasound_id = $1::uuid AND clinic_id = $3::uuid",
                 ultrasound_id,
                 identity.staff_id,
@@ -387,8 +450,28 @@ def missing_fields(row: dict[str, Any]) -> list[str]:
     ``{}`` là ĐÃ ĐIỀN, vì chuỗi "{}" không rỗng. Nghĩa là một hồ sơ trống rỗng
     vẫn ký được, và cái chốt chặn duy nhất trước chữ ký sẽ luôn nói "đủ rồi".
     """
+    phieu = _loads(row.get("phieu_chuyen_khoa")) or {}
+    if not isinstance(phieu, dict):
+        phieu = {}
+
+    def phieu_co(*khoa: str, tien_to: tuple[str, ...] = ()) -> bool:
+        for k, v in phieu.items():
+            if (k in khoa or k.startswith(tien_to)) and not _blank_json(v):
+                return True
+        return False
+
+    thay_the = {
+        "soap_subjective": phieu_co("ly_do", "ly_do_khac", "benh_su")
+        or not _blank_json(row.get("chief_complaint_at_visit")),
+        "soap_objective": bool(row.get("co_sinh_hieu"))
+        or phieu_co(tien_to=("kls_", "kham_")),
+        "soap_assessment": phieu_co("chan_doan"),
+        "soap_plan": phieu_co("dieu_tri", "pp_dieu_tri", "loi_dan", "huong_xu_tri"),
+    }
     return [
-        label for field, label in REQUIRED_SOAP.items() if _blank_json(row.get(field))
+        label
+        for field, label in REQUIRED_SOAP.items()
+        if _blank_json(row.get(field)) and not thay_the.get(field, False)
     ]
 
 
@@ -418,7 +501,7 @@ def _loads(value: Any) -> Any:
 
 
 def _assert_doctor(identity: StaffIdentity) -> None:
-    if identity.role not in SIGNING_ROLES:
+    if not identity.co_vai(SIGNING_ROLES):
         raise ValidationError(
             "Chỉ bác sĩ mới ký được bệnh án. Thư ký Y khoa nhập hộ được, nhưng "
             "người ký phải là bác sĩ chịu trách nhiệm chuyên môn."

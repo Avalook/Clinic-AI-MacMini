@@ -3,8 +3,8 @@
 // Màn TOÀN CẢNH — mỗi bệnh nhân một dòng, kèm panel chi tiết bên phải.
 
 import { useMemo, useState } from "react";
-import { Clock, Search, Users, X } from "lucide-react";
-import type { DispatchPatient, DispatchRoom, RouteTemplate } from "./types";
+import { Search, X } from "lucide-react";
+import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
 import { humanMinutes, nodeLabel } from "./types";
 import {
   type ActFn,
@@ -16,15 +16,24 @@ import {
   useDispatchAction,
   useDispatchLive,
 } from "./shared";
+import { BonOSo, DieuPhoiNhanh, SoDoPhong } from "./SoDoTang";
+import ChiDinhCuaBacSi from "./ChiDinhCuaBacSi";
 
 export default function OverviewClient({
   initial,
-  routes,
 }: {
-  initial: { patients: DispatchPatient[]; rooms: DispatchRoom[]; ok: boolean };
-  routes: RouteTemplate[];
+  initial: {
+    patients: DispatchPatient[];
+    rooms: DispatchRoom[];
+    alerts: DispatchAlert[];
+    ok: boolean;
+  };
 }) {
-  const live = useDispatchLive({ ...initial, alerts: [] });
+  // CẢNH BÁO ĐÃ TẢI THÌ PHẢI ĐƯỢC DÙNG. Màn này vẫn gọi `/dispatch/alerts` 30
+  // giây một lần (cả lúc dựng ở server) nhưng vứt đi bằng `alerts: []`, trong
+  // khi mỗi lời gọi ấy chạy lại TOÀN BỘ truy vấn điều phối ở backend. Khối
+  // "Điều phối nhanh" nay vẽ đúng dữ liệu ấy.
+  const live = useDispatchLive(initial);
   const { act, toast } = useDispatchAction();
   const [selected, setSelected] = useState<DispatchPatient | null>(null);
 
@@ -34,7 +43,10 @@ export default function OverviewClient({
         <LiveBadge seconds={live.staleSeconds} ok={live.ok} />
       </div>
       <ReadFailed ok={live.ok} />
-      <Board live={live} routes={routes} selected={selected} onSelect={setSelected} onAct={act} />
+      <div className="mb-4">
+        <BonOSo patients={live.patients} rooms={live.rooms} />
+      </div>
+      <Board live={live} selected={selected} onSelect={setSelected} onAct={act} />
       <Toast text={toast} />
     </div>
   );
@@ -42,13 +54,11 @@ export default function OverviewClient({
 
 function Board({
   live,
-  routes,
   selected,
   onSelect,
   onAct,
 }: {
   live: LiveData;
-  routes: RouteTemplate[];
   selected: DispatchPatient | null;
   onSelect: (p: DispatchPatient | null) => void;
   onAct: ActFn;
@@ -81,8 +91,6 @@ function Board({
   return (
     <div style={{ display: "flex", gap: 16 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <StationCards rooms={live.rooms} />
-
         <div
           style={{
             display: "flex",
@@ -172,7 +180,7 @@ function Board({
                       <div style={{ fontWeight: 600 }}>{p.patient_name ?? "—"}</div>
                       <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
                         {p.patient_code ?? ""}
-                        {p.queue_number ? ` · số ${p.queue_number}` : ""}
+                        {(p.so_tiep_don ?? p.queue_number) ? ` · số ${p.so_tiep_don ?? p.queue_number}` : ""}
                       </div>
                     </td>
                     <td>{p.specialty ?? "—"}</td>
@@ -203,11 +211,9 @@ function Board({
                         : "—"}
                     </td>
                     <td>
-                      {p.next_step ? (
-                        nodeLabel(p.next_step)
-                      ) : (
-                        <span className="badge badge-warning">Chưa có tuyến</span>
-                      )}
+                      {/* Tuyến điều phối đã bỏ (16/09): bước kế tiếp đọc từ chỉ
+                          định còn mở; không còn gì thì là "—", không báo lỗi. */}
+                      {p.next_step ? nodeLabel(p.next_step) : "—"}
                     </td>
                   </tr>
                 );
@@ -217,71 +223,24 @@ function Board({
         </div>
       </div>
 
-      {selected && (
+      {selected ? (
         <DetailPanel
           patient={
             live.patients.find((p) => p.visit_id === selected.visit_id) ?? selected
           }
           rooms={live.rooms}
-          routes={routes}
           onClose={() => onSelect(null)}
           onAct={onAct}
         />
+      ) : (
+        /* CHƯA CHỌN AI thì cột phải là bàn điều phối: việc cần xử lý ngay, và
+           phòng nào đang kẹt. Chọn một người thì chỗ ấy thành panel thao tác —
+           một cột, hai nhiệm vụ, không phải hai cột tranh chỗ. */
+        <div className="w-80 shrink-0 space-y-3">
+          <DieuPhoiNhanh alerts={live.alerts} />
+          <SoDoPhong rooms={live.rooms} />
+        </div>
       )}
-    </div>
-  );
-}
-
-function StationCards({ rooms }: { rooms: DispatchRoom[] }) {
-  const tone = {
-    ok: { bg: "var(--success-bg)", fg: "var(--success)", label: "Trong mức" },
-    warning: { bg: "var(--warning-bg)", fg: "var(--warning)", label: "Cần chú ý" },
-    critical: { bg: "var(--danger-bg)", fg: "var(--danger)", label: "Quá tải" },
-  };
-  return (
-    <div
-      className="fade-in"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-        gap: 10,
-      }}
-    >
-      {rooms.map((r) => {
-        const t = tone[r.state];
-        return (
-          <div key={r.id} className="card" style={{ padding: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 8,
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{r.name}</span>
-              <span
-                className="badge"
-                style={{ background: t.bg, color: t.fg }}
-              >
-                {t.label}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
-              <span>
-                <Users size={12} /> đang khám <b>{r.serving}</b>
-              </span>
-              <span>
-                <Clock size={12} /> chờ <b>{r.waiting}</b>
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ink-muted)", marginTop: 6 }}>
-              lâu nhất {r.max_wait}′ · TB {r.avg_wait}′ · ngưỡng{" "}
-              {r.threshold_minutes}′/{r.threshold_waiting} người
-            </div>
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -289,20 +248,16 @@ function StationCards({ rooms }: { rooms: DispatchRoom[] }) {
 function DetailPanel({
   patient,
   rooms,
-  routes,
   onClose,
   onAct,
 }: {
   patient: DispatchPatient;
   rooms: DispatchRoom[];
-  routes: RouteTemplate[];
   onClose: () => void;
   onAct: ActFn;
 }) {
   const [reason, setReason] = useState("");
   const [targetRoom, setTargetRoom] = useState("");
-  const [routeCode, setRouteCode] = useState("");
-  const [isException, setIsException] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Chỉ những phòng phục vụ ĐÚNG bước hiện tại mới chuyển sang được — backend
@@ -343,23 +298,6 @@ function DetailPanel({
     }
   }
 
-  async function applyRoute() {
-    if (!routeCode) return;
-    if (isException && !reason.trim()) return;
-    setBusy(true);
-    const ok = await onAct(
-      "route",
-      {
-        visit_id: patient.visit_id,
-        template_code: routeCode,
-        is_exception: isException,
-        reason: reason.trim() || null,
-      },
-      "✓ Đã áp dụng tuyến điều phối",
-    );
-    setBusy(false);
-    if (ok) setReason("");
-  }
 
   return (
     <aside
@@ -450,52 +388,80 @@ function DetailPanel({
         </>
       )}
 
-      <div style={{ margin: "12px 0 6px", fontSize: 12, fontWeight: 700 }}>
-        Tuyến điều phối
-      </div>
-      <select
-        value={routeCode}
-        onChange={(e) => setRouteCode(e.target.value)}
-        style={{ width: "100%" }}
-      >
-        <option value="">-- Chọn tuyến --</option>
-        {routes.map((r) => (
-          <option key={r.code} value={r.code}>
-            {r.name}
-          </option>
-        ))}
-      </select>
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          fontSize: 12,
-          margin: "8px 0",
-        }}
-      >
-        <input
-          type="checkbox"
-          checked={isException}
-          onChange={() => setIsException(!isException)}
-        />
-        Đổi tuyến giữa chừng (bắt buộc ghi lý do)
-      </label>
-      {/* Bước đã hoàn tất không bị đụng tới — backend giữ chúng trong
-          `kept_steps`. Nói ra để người bấm biết mình không làm mất gì. */}
-      {patient.done_steps.length > 0 && (
-        <div style={{ fontSize: 11, color: "var(--ink-muted)", marginBottom: 8 }}>
-          Giữ nguyên bước đã xong: {patient.done_steps.map(nodeLabel).join(", ")}
-        </div>
-      )}
-      <button
-        className="btn btn-primary"
-        style={{ width: "100%" }}
-        disabled={busy || !routeCode || (isException && !reason.trim())}
-        onClick={applyRoute}
-      >
-        Áp dụng tuyến
-      </button>
+      {/* KHỐI "TUYẾN ĐIỀU PHỐI" ĐÃ BỎ (Tuyền 16/09/2026) — xem
+          ChiDinhCuaBacSi.tsx. Nó áp một quy trình MẪU lên cả lượt khám, buộc
+          trưởng ca nghĩ thay bác sĩ; việc thật đã nằm trong chỉ định. Dịch vụ
+          `apply_route` ở backend giữ nguyên, chỉ không còn nút gọi. */}
+      <ChiDinhCuaBacSi key={patient.visit_id} visitId={patient.visit_id} />
+
+      <DoiBacSi visitId={patient.visit_id} reason={reason} onAct={onAct} />
     </aside>
   );
 }
+
+/** Bác sĩ chính nghỉ giữa chừng → chuyển lượt cho bác sĩ khác (Tuyền chốt
+ *  15/09/2026). Dùng chung ô "Lý do điều phối" phía trên — backend bắt buộc. */
+function DoiBacSi({
+  visitId,
+  reason,
+  onAct,
+}: {
+  visitId: string;
+  reason: string;
+  onAct: ActFn;
+}) {
+  const [bacSi, setBacSi] = useState<{ id: string; full_name: string }[] | null>(
+    null,
+  );
+  const [chon, setChon] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function moDanhSach() {
+    if (bacSi !== null) return;
+    const res = await fetch("/api/dispatch-read?what=bac-si", { cache: "no-store" });
+    const json = (await res.json().catch(() => ({}))) as {
+      items?: { id: string; full_name: string }[];
+    };
+    setBacSi(json.items ?? []);
+  }
+
+  return (
+    <>
+      <div style={{ margin: "12px 0 6px", fontSize: 12, fontWeight: 700 }}>
+        Chuyển bác sĩ (bác sĩ chính nghỉ giữa chừng)
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <select
+          value={chon}
+          onFocus={() => void moDanhSach()}
+          onChange={(e) => setChon(e.target.value)}
+          style={{ flex: 1 }}
+        >
+          <option value="">-- Chọn bác sĩ nhận --</option>
+          {(bacSi ?? []).map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.full_name}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn btn-primary"
+          disabled={busy || !chon || !reason.trim()}
+          onClick={async () => {
+            setBusy(true);
+            const ok = await onAct(
+              "doi-bac-si",
+              { visit_id: visitId, bac_si_moi_id: chon, ly_do: reason.trim() },
+              "✓ Đã chuyển bác sĩ — bác sĩ mới mở bệnh án đang dở để khám tiếp",
+            );
+            setBusy(false);
+            if (ok) setChon("");
+          }}
+        >
+          Chuyển
+        </button>
+      </div>
+    </>
+  );
+}
+

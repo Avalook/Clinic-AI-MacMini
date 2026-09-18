@@ -35,7 +35,6 @@ import asyncpg
 import structlog
 
 from clinicai.services.queue_order import (
-    REASON_DAT_TRUOC_DUNG_GIO,
     VISIT_DA_RA_VE,
     QueueDecision,
 )
@@ -48,7 +47,10 @@ MAX_ROWS = 200
 # Câu hiện dưới số của người được đẩy lên. Viết ở backend, không ở TSX: nó phải
 # khớp CHÍNH XÁC với lý do mà luật đưa ra, và một chuỗi nằm cạnh luật thì khó
 # lệch hơn một chuỗi nằm cách đó hai tầng.
-CHU_THICH_DAY_LEN = "Được ưu tiên vì đã đặt lịch trước"
+#
+# 15/09/2026: không còn ai "được ưu tiên vì đã đặt lịch trước" — Tuyền chốt ai
+# check-in trước khám trước, có hẹn hay đến thẳng như nhau. Câu chú thích cũ
+# bị gỡ; giữ trường `promoted_note` (luôn None) để màn TV cũ không vỡ.
 
 
 def che_ten_nguoi(ten: str | None) -> str:
@@ -75,10 +77,13 @@ SELECT a.id,
        a.doctor_id,
        st.name AS service_name,
        v.checked_in_at,
+       v.thu_tu_tay_ms,
        v.status AS visit_status,
        v.room_name,
        v.room_code,
-       cap.slot_minutes
+       cap.slot_minutes,
+       coalesce(lb.da_co > 0 AND lb.con_cho = 0, FALSE) AS b3_ready,
+       lb.ket_qua_ve_luc AS b3_ready_at
   FROM appointment a
   LEFT JOIN patient p
          ON p.clinic_patient_id = a.clinic_patient_id
@@ -88,7 +93,7 @@ SELECT a.id,
       -- Tên PHÒNG, không phải tên người: bảng phòng chờ cần chỉ đường cho
       -- người được gọi ("C007 — Phòng khám 2"). Đây là thông tin về địa điểm,
       -- không định danh ai.
-      SELECT vi.checked_in_at, vi.status,
+      SELECT vi.checked_in_at, vi.status, vi.thu_tu_tay_ms,
              r.name AS room_name, r.code AS room_code
         FROM visit vi
         LEFT JOIN public.clinic_room r
@@ -97,6 +102,21 @@ SELECT a.id,
        ORDER BY vi.checked_in_at DESC NULLS LAST
        LIMIT 1
   ) v ON TRUE
+  LEFT JOIN LATERAL (
+      SELECT count(*) FILTER (
+                 WHERE coalesce(nullif(btrim(coalesce(l.result_value, '')), ''),
+                                nullif(btrim(coalesce(l.external_ref, '')), ''))
+                       IS NOT NULL
+             ) AS da_co,
+             count(*) FILTER (
+                 WHERE coalesce(nullif(btrim(coalesce(l.result_value, '')), ''),
+                                nullif(btrim(coalesce(l.external_ref, '')), ''))
+                       IS NULL
+             ) AS con_cho,
+             max(l.result_received_at) AS ket_qua_ve_luc
+        FROM lab_result l
+       WHERE l.appointment_id = a.id AND l.clinic_id = $1::uuid
+  ) lb ON TRUE
   LEFT JOIN LATERAL public.resolve_effective_cap(
       $1::uuid, a.doctor_id, a.slot_start
   ) cap ON TRUE
@@ -288,7 +308,7 @@ def _mot_dong(
 ) -> dict[str, Any]:
     """Xem ràng buộc ① ở đầu module: ngoài TÊN (và chỉ khi phòng khám bật),
     không một trường định danh nào khác được rời máy chủ."""
-    promoted = bool(d and d.promoted and d.call_reason == REASON_DAT_TRUOC_DUNG_GIO)
+    promoted = bool(d and d.promoted)
     ten = r["patient_name"] if hien_ten else None
     return {
         "patient_name": che_ten_nguoi(ten) if (ten and che_ten) else ten,
@@ -314,5 +334,5 @@ def _mot_dong(
             and (r["visit_status"] or "") not in VISIT_DA_RA_VE
         ),
         "promoted": promoted,
-        "promoted_note": CHU_THICH_DAY_LEN if promoted else None,
+        "promoted_note": None,
     }

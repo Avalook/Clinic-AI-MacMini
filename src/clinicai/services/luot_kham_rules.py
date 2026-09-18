@@ -1,0 +1,341 @@
+"""Luật THUẦN của luồng khám lát 1 — không I/O, không await, không database.
+
+Mỗi hàm là một câu trong contract (DANH-GIA-THIET-KE-CLAUDE-20260911-v2 §3)
+viết thành code, để test được từng câu mà không cần dựng Postgres. Service
+đọc dữ liệu, gọi các hàm này để QUYẾT, rồi ghi.
+
+Hàm nhận dữ liệu người dùng (``parse_vitals``) trả câu lỗi thay vì ném —
+cùng luật với mọi hàm nhận ngày/giờ trong repo: đầu vào rác là chuyện thường,
+không phải lỗi máy chủ.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# D1 — đích tiếp theo sau check-in
+# ---------------------------------------------------------------------------
+
+PRIMARY = "PRIMARY"
+SERVICES = "SERVICES"
+
+PLAN_STATUSES = frozenset({"none", "pending", "applied", "rejected", "abandoned"})
+
+
+def decide_route(
+    *, vitals_recorded: bool, plan_status: str, current_route: str | None
+) -> str | None:
+    """Đích MỚI cần ghi, hoặc None khi chưa đủ điều kiện hay đã có đích.
+
+    Chạy lại bao nhiêu lần cũng ra cùng kết quả, nên xác minh kế hoạch và ghi
+    sinh hiệu đến theo thứ tự nào cũng được (T-P1, T-P2). Đích chỉ ghi một lần
+    (I10): kế hoạch hợp lệ đến muộn không kéo khách đã vào bác sĩ sang dịch vụ.
+    """
+    if plan_status not in PLAN_STATUSES:
+        raise ValueError(f"plan_check_status không hợp lệ: {plan_status!r}")
+    if current_route is not None:
+        return None
+    if not vitals_recorded:
+        return None
+    if plan_status == "pending":
+        return None
+    if plan_status == "applied":
+        return SERVICES
+    return PRIMARY
+
+
+# ---------------------------------------------------------------------------
+# D2 — vòng đọc kết quả đã sẵn sàng chưa
+# ---------------------------------------------------------------------------
+
+NEEDS = frozenset({"PERFORMED", "VALID_RESULT"})
+
+
+@dataclass(frozen=True)
+class RequirementView:
+    """Một yêu cầu của vòng đọc, kèm trạng thái THỰC HIỆN của chỉ định nó trỏ tới."""
+
+    order_id: str
+    need: str
+    status: str
+    exec_status: str
+    has_valid_result: bool = False
+
+
+def requirement_met(req: RequirementView) -> bool:
+    """Yêu cầu đã thoả theo dữ liệu chưa. Miễn (waived) KHÔNG tính ở đây."""
+    if req.need not in NEEDS:
+        raise ValueError(f"need không hợp lệ: {req.need!r}")
+    if req.exec_status != "performed":
+        return False
+    if req.need == "PERFORMED":
+        return True
+    return req.has_valid_result
+
+
+def round_ready(reqs: Sequence[RequirementView]) -> bool:
+    """Sẵn sàng khi MỌI yêu cầu đã thoả hoặc được bác sĩ miễn.
+
+    Tập rỗng KHÔNG BAO GIỜ sẵn sàng (I5). "Mọi phần tử của tập rỗng đều thoả"
+    đúng về logic nhưng sai về nghiệp vụ: nó tự sinh một lần gọi bác sĩ không ai
+    yêu cầu.
+    """
+    if not reqs:
+        return False
+    return all(r.status == "waived" or requirement_met(r) for r in reqs)
+
+
+def cyclic_orders(
+    round_no: int, required: Iterable[tuple[str, int | None]]
+) -> list[str]:
+    """Chỉ định vừa là yêu cầu của vòng ``round_no`` vừa bị giữ tới vòng ấy đóng.
+
+    Vòng chờ chỉ định, chỉ định chờ vòng: không bên nào đi tiếp (I6, T-V4).
+    """
+    return [oid for oid, hold in required if hold is not None and hold >= round_no]
+
+
+# ---------------------------------------------------------------------------
+# C7 — chỉ định này điều phối được chưa
+# ---------------------------------------------------------------------------
+
+DISPATCHABLE = frozenset({"authorized", "assigned"})
+
+
+def dispatch_block(
+    *,
+    exec_status: str,
+    source: str,
+    authorized_by: str | None,
+    plan_applied: bool,
+    route_decision: str | None,
+    vitals_recorded: bool,
+    hold_until_round: int | None,
+    closed_rounds: set[int],
+) -> str | None:
+    """Mã lý do chặn, hoặc None khi điều phối được.
+
+    Thứ tự kiểm có chủ ý: chỉ định chưa được bác sĩ duyệt thì nói điều đó trước
+    mọi thứ khác (I1); sinh hiệu kiểm TRƯỚC đích, nên kế hoạch áp trước khi đo
+    huyết áp vẫn bị chặn bằng đúng lý do người dùng cần nghe (T-P9).
+    """
+    if exec_status == "draft" or authorized_by is None:
+        return "NO_VALID_ORDER"
+    if exec_status not in DISPATCHABLE:
+        return "ORDER_NOT_DISPATCHABLE"
+    if source == "PRIOR_PLAN" and not plan_applied:
+        return "PLAN_NOT_APPLIED"
+    if not vitals_recorded:
+        return "VITALS_REQUIRED"
+    if route_decision is None:
+        return "ROUTE_NOT_DECIDED"
+    if source == "PRIOR_PLAN" and route_decision != SERVICES:
+        return "PLAN_NOT_APPLIED"
+    if hold_until_round is not None and hold_until_round not in closed_rounds:
+        return "HELD_UNTIL_ROUND"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Hàng chờ
+# ---------------------------------------------------------------------------
+
+LIVE_QUEUE_STATUSES = ("blocked", "waiting", "called", "serving")
+_STATUS_RANK = {"serving": 0, "called": 1, "waiting": 2, "blocked": 3}
+
+
+@dataclass(frozen=True)
+class QueueView:
+    id: str
+    status: str
+    eligible_at: datetime | None
+    created_at: datetime
+
+
+def initial_queue_status(*, visit_busy: bool) -> str:
+    """Vào hàng khi khách đang ở chỗ khác thì CHỜ MỞ, chưa gọi được (I9)."""
+    return "blocked" if visit_busy else "waiting"
+
+
+def order_queue(entries: Iterable[QueueView]) -> list[QueueView]:
+    """Thứ tự gọi của MỘT hàng: đang phục vụ, đã gọi, rồi chờ theo ``eligible_at``.
+
+    Không làn ưu tiên tự động, không xếp theo giờ hẹn (S4). Khách quay lại sau
+    dịch vụ có ``eligible_at`` là lúc quay lại, nên đứng sau người đang chờ và
+    trước người vào sau (T-A14).
+    """
+    live = [e for e in entries if e.status in _STATUS_RANK]
+    return sorted(
+        live,
+        key=lambda e: (
+            _STATUS_RANK[e.status],
+            e.eligible_at or e.created_at,
+            e.created_at,
+            e.id,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phiên khám
+# ---------------------------------------------------------------------------
+
+OUTCOMES_BY_KIND = {
+    "PRIMARY": frozenset({"NO_SERVICES", "SERVICES"}),
+    "REVIEW": frozenset({"DONE", "MORE_SERVICES"}),
+}
+OUTCOMES_OPENING_ROUND = frozenset({"SERVICES", "MORE_SERVICES"})
+
+
+def outcome_allowed(kind: str, outcome: str) -> bool:
+    return outcome in OUTCOMES_BY_KIND.get(kind, frozenset())
+
+
+# ---------------------------------------------------------------------------
+# Sinh hiệu
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Vitals:
+    systolic: int
+    diastolic: int
+    pulse: int | None = None
+    temperature: Decimal | None = None
+    weight_kg: Decimal | None = None
+    height_cm: Decimal | None = None
+    # Bốn chỉ số thêm 16/09/2026 — trước đó có ô nhập trên màn nhưng không có
+    # cột, nên chúng rơi vào JSONB hồ sơ và không vào lịch sử đo được.
+    respiratory_rate: int | None = None
+    spo2: int | None = None
+    bmi: Decimal | None = None
+    pain_score: int | None = None
+
+
+_RANGES: dict[str, tuple[str, Decimal, Decimal]] = {
+    "systolic": ("Huyết áp tâm thu", Decimal(50), Decimal(260)),
+    "diastolic": ("Huyết áp tâm trương", Decimal(30), Decimal(180)),
+    "pulse": ("Mạch", Decimal(20), Decimal(250)),
+    "temperature": ("Nhiệt độ", Decimal(34), Decimal(43)),
+    "weight_kg": ("Cân nặng", Decimal(1), Decimal(300)),
+    "height_cm": ("Chiều cao", Decimal(30), Decimal(230)),
+    # Cùng khoảng với CHECK ở database (20260916000003). Hai nơi phải khớp:
+    # rộng hơn ở đây là để người đo gõ xong mới bị máy chủ từ chối.
+    "respiratory_rate": ("Nhịp thở", Decimal(4), Decimal(80)),
+    "spo2": ("SpO₂", Decimal(50), Decimal(100)),
+    "bmi": ("BMI", Decimal(5), Decimal(100)),
+    "pain_score": ("Mức độ đau", Decimal(0), Decimal(10)),
+}
+
+#: Chỉ số phải là số nguyên — đo bằng máy đếm, không có phần thập phân.
+_NGUYEN: tuple[str, ...] = (
+    "systolic",
+    "diastolic",
+    "pulse",
+    "respiratory_rate",
+    "spo2",
+    "pain_score",
+)
+
+
+def _number(value: Any) -> Decimal | None:
+    """Số từ đầu vào người dùng, hoặc None nếu không đọc được. Không ném."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        raw = str(value)
+    elif isinstance(value, str):
+        raw = value.strip().replace(",", ".")
+        if not raw:
+            return None
+    else:
+        return None
+    try:
+        num = Decimal(raw)
+    except (InvalidOperation, ValueError):
+        return None
+    return num if num.is_finite() else None
+
+
+def thieu_sinh_hieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> str | None:
+    """Câu nhắc khi khách đang có thai mà thiếu chiều cao/cân nặng; đủ → None.
+
+    Luật PM (CONTEXT v1.0): khách có thai đo thêm chiều cao và cân nặng.
+    "Báo sốt thì đo nhiệt độ" CHƯA ép: chưa có dữ kiện "khách báo sốt" có cấu
+    trúc, và không đoán từ chữ lý do khám.
+    """
+    if not co_thai:
+        return None
+    thieu = [
+        nhan
+        for gia_tri, nhan in (
+            (vitals.height_cm, "chiều cao"),
+            (vitals.weight_kg, "cân nặng"),
+        )
+        if gia_tri is None
+    ]
+    if not thieu:
+        return None
+    return "Khách đang có thai — sinh hiệu cần thêm " + " và ".join(thieu) + "."
+
+
+def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
+    """(Vitals, None) khi hợp lệ; (None, câu lỗi tiếng Việt) khi không.
+
+    Huyết áp bắt buộc cho MỌI lượt (I8, tiêu chí "100% BN đc đo huyết áp").
+    Các chỉ số khác tuỳ chọn; bộ bắt buộc theo dịch vụ còn chờ chốt (O5).
+    """
+    if not isinstance(raw, dict):
+        return None, "Dữ liệu sinh hiệu không đúng dạng."
+    values: dict[str, Decimal | None] = {}
+    for field, (label, low, high) in _RANGES.items():
+        given = raw.get(field)
+        num = _number(given)
+        if given not in (None, "") and num is None:
+            return None, f"{label} phải là một con số."
+        if num is not None and not (low <= num <= high):
+            return None, f"{label} phải trong khoảng {low}–{high}."
+        values[field] = num
+    systolic, diastolic = values["systolic"], values["diastolic"]
+    if systolic is None or diastolic is None:
+        return None, "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám."
+    for field in _NGUYEN:
+        num = values[field]
+        if num is not None and num != num.to_integral_value():
+            return None, f"{_RANGES[field][0]} phải là số nguyên."
+    if systolic <= diastolic:
+        return None, "Huyết áp tâm thu phải lớn hơn tâm trương."
+
+    def _int(ten: str) -> int | None:
+        num = values[ten]
+        return int(num) if num is not None else None
+
+    # BMI TỰ TÍNH khi có cân nặng + chiều cao mà người đo để trống (17/09/2026).
+    # Số đo tay (nếu có) được giữ nguyên.
+    bmi = values["bmi"]
+    can, cao = values["weight_kg"], values["height_cm"]
+    if bmi is None and can is not None and cao is not None and cao > 0:
+        tinh = (can / ((cao / 100) ** 2)).quantize(Decimal("0.1"))
+        if Decimal(5) <= tinh <= Decimal(100):
+            bmi = tinh
+
+    return (
+        Vitals(
+            systolic=int(systolic),
+            diastolic=int(diastolic),
+            pulse=_int("pulse"),
+            temperature=values["temperature"],
+            weight_kg=values["weight_kg"],
+            height_cm=values["height_cm"],
+            respiratory_rate=_int("respiratory_rate"),
+            spo2=_int("spo2"),
+            bmi=bmi,
+            pain_score=_int("pain_score"),
+        ),
+        None,
+    )

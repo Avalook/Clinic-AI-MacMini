@@ -27,6 +27,24 @@ export interface OpsSummary {
     archiveBytes: number | null;
     offsiteUploaded: boolean | null;
     scope: "public-schema-only" | null;
+    // DIỄN TẬP PHỤC HỒI — khác `verified`. `verified` nói TỆP còn nguyên; cái
+    // này nói đã NẠP THỬ vào một database rỗng và phòng khám về đủ.
+    drillState: "fresh" | "stale" | "failed" | "never" | null;
+    drillRanAt: string | null;
+    drillAgeDays: number | null;
+    drillChecksPassed: number | null;
+    drillChecksFailed: number | null;
+  };
+  // PHIÊN BẢN ĐANG CHẠY + vài lần deploy gần đây. Câu hỏi đầu tiên khi có sự cố
+  // là "vừa có ai đổi gì không"; không có khối này thì phải ssh vào máy rồi
+  // `git log` — đúng lúc đang vội.
+  deploy: {
+    deployedAt: string | null;
+    ageHours: number | null;
+    shaShort: string | null;
+    imageTag: string | null;
+    subject: string | null;
+    recent: Array<{ deployedAt: string | null; sha: string; subject: string }>;
   };
   security: Array<{
     id: string;
@@ -124,6 +142,19 @@ export function emptyOpsSummary(): OpsSummary {
       archiveBytes: null,
       offsiteUploaded: null,
       scope: null,
+      drillState: null,
+      drillRanAt: null,
+      drillAgeDays: null,
+      drillChecksPassed: null,
+      drillChecksFailed: null,
+    },
+    deploy: {
+      deployedAt: null,
+      ageHours: null,
+      shaShort: null,
+      imageTag: null,
+      subject: null,
+      recent: [],
     },
     security: [],
     logCounts: null,
@@ -194,6 +225,45 @@ export function normalizeOpsPayload(payload: unknown): OpsSummary {
       backupRaw?.scope === "public-schema-only"
         ? ("public-schema-only" as const)
         : null,
+    drillState: ["fresh", "stale", "failed", "never"].includes(
+      String(backupRaw?.drill_state ?? backupRaw?.drillState),
+    )
+      ? ((backupRaw?.drill_state ?? backupRaw?.drillState) as
+          | "fresh"
+          | "stale"
+          | "failed"
+          | "never")
+      : null,
+    drillRanAt: text(backupRaw?.drill_ran_at ?? backupRaw?.drillRanAt),
+    drillAgeDays: finiteNumber(backupRaw?.drill_age_days ?? backupRaw?.drillAgeDays),
+    drillChecksPassed: finiteNumber(
+      backupRaw?.drill_checks_passed ?? backupRaw?.drillChecksPassed,
+    ),
+    drillChecksFailed: finiteNumber(
+      backupRaw?.drill_checks_failed ?? backupRaw?.drillChecksFailed,
+    ),
+  };
+
+  const deployRaw = record(root.deploy);
+  const deploy = {
+    deployedAt: text(deployRaw?.deployed_at ?? deployRaw?.deployedAt),
+    ageHours: finiteNumber(deployRaw?.age_hours ?? deployRaw?.ageHours),
+    shaShort: text(deployRaw?.sha_short ?? deployRaw?.shaShort),
+    imageTag: text(deployRaw?.image_tag ?? deployRaw?.imageTag),
+    subject: text(deployRaw?.subject),
+    recent: Array.isArray(deployRaw?.recent)
+      ? deployRaw.recent.flatMap((v) => {
+          const r = record(v);
+          if (!r) return [];
+          return [
+            {
+              deployedAt: text(r.deployed_at ?? r.deployedAt),
+              sha: String(r.sha ?? "").slice(0, 12),
+              subject: String(r.subject ?? "").slice(0, 200),
+            },
+          ];
+        })
+      : [],
   };
 
   const security = Array.isArray(root.security)
@@ -229,6 +299,7 @@ export function normalizeOpsPayload(payload: unknown): OpsSummary {
     services,
     host: diskUsedPercent === null ? null : { diskUsedPercent },
     backup,
+    deploy,
     security,
     logCounts:
       windowMinutes === null || warnings === null || errors === null

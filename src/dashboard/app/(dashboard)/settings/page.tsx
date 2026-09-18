@@ -8,7 +8,7 @@
 
 import { redirect } from "next/navigation";
 
-import { getClinicRole } from "../../../lib/clinic-session";
+import { vaiLamViec } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
 import { getBookingPolicy } from "../../../lib/booking-policy";
 import { getFeatureMode } from "../../../lib/feature-mode";
@@ -20,7 +20,7 @@ import { fetchFromBackend } from "../../../lib/backend-proxy";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const role = await getClinicRole();
+  const role = await vaiLamViec(isAdminRole);
   if (!isAdminRole(role)) redirect("/home");
 
   const bookingPolicy = await getBookingPolicy();

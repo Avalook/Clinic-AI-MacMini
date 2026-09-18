@@ -43,6 +43,8 @@ const WRITE_PATHS: Record<string, string> = {
   "room-nodes": "/api/v1/clinic-config/room-nodes",
   "staff-nodes": "/api/v1/clinic-config/staff-nodes",
   "service-form": "/api/v1/clinic-config/service-form",
+  // Thư ký đi cùng bác sĩ nào (Tuyền chốt 15/09/2026).
+  "thu-ky-bac-si": "/api/v1/clinic-config/thu-ky-bac-si",
 };
 
 export async function PUT(request: Request) {

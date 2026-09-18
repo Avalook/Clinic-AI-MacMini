@@ -24,6 +24,18 @@ class ConflictError(ClinicAIBaseException):
     error_code: str = "CONFLICT_ERROR"
 
 
+class AIDisabledError(ClinicAIBaseException):
+    """Tính năng AI chưa bật (thiếu ANTHROPIC_API_KEY) — HTTP 503.
+
+    AI đứng SAU cờ (15/09/2026): thiếu khoá thì cả API vẫn chạy, chỉ những
+    endpoint cần mô hình trả câu này. Trước đó `AnthropicClient()` ném lỗi ngay
+    lúc khởi động và cả phòng khám mất hệ thống vì một tính năng phụ.
+    """
+
+    status_code: int = 503
+    error_code: str = "AI_DISABLED"
+
+
 class PatientNotFoundError(NotFoundError):
     """Raised when a patient cannot be located by id."""
 

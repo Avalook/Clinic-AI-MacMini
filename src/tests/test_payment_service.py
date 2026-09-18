@@ -27,13 +27,16 @@ class TestAllowedKinds:
     def test_cashier_dv_only_dich_vu(self) -> None:
         assert allowed_kinds(ClinicRole.CASHIER_DV) == frozenset({"dich_vu"})
 
-    @pytest.mark.parametrize("role", [ClinicRole.CASHIER, ClinicRole.MANAGEMENT])
+    @pytest.mark.parametrize(
+        "role", [ClinicRole.CASHIER, ClinicRole.MANAGEMENT, ClinicRole.RECEPTION]
+    )
     def test_general_cashier_and_management_both(self, role: ClinicRole) -> None:
+        # Lễ tân kiêm thu ngân cả hai quầy ở Kim Ngưu (Tuyền 16/09/2026).
         assert allowed_kinds(role) == PAYMENT_KINDS
 
     @pytest.mark.parametrize(
         "role",
-        [ClinicRole.DOCTOR, ClinicRole.RECEPTION, ClinicRole.CSKH, ClinicRole.TKYK],
+        [ClinicRole.DOCTOR, ClinicRole.CSKH, ClinicRole.TKYK],
     )
     def test_non_cashier_roles_get_nothing(self, role: ClinicRole) -> None:
         assert allowed_kinds(role) == frozenset()

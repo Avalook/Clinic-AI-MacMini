@@ -34,9 +34,15 @@ export interface WorklistItem {
   started_at: string | null;
   patient: WorklistPatient;
   queue_number: string | null;
+  /** Số tiếp đón CHUNG của quầy trong ngày (cấp lúc check-in). `queue_number` là số riêng theo bác sĩ. */
+  so_tiep_don?: number | null;
   slot_start: string | null;
   booking_channel: string | null;
-  is_priority_slot: boolean;
+  /** Khách ưu tiên/VIP — dấu trên hồ sơ, không tự đổi thứ tự (15/09/2026). */
+  khach_uu_tien: boolean;
+  uu_tien_ly_do: string | null;
+  /** Thư ký đã nhập chỉ định, chờ bác sĩ duyệt. */
+  co_nhap_chi_dinh?: boolean;
   /** Loại dịch vụ khám của lượt — để bàn khám mở đúng biểu mẫu. */
   service_code: string | null;
   service_name: string | null;

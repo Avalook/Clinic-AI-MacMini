@@ -13,6 +13,8 @@ export interface DispatchPatient {
   patient_name: string | null;
   patient_code: string | null;
   clinic_patient_id: string | null;
+  /** Số tiếp đón chung của quầy (cấp lúc check-in). */
+  so_tiep_don?: number | null;
   queue_number: string | null;
   specialty: string | null;
   doctor_name: string | null;

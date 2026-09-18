@@ -15,7 +15,9 @@
 // CHUỖI DỰNG TỪ `appointment.lich_truoc_id` (20260810000007), không suy diễn từ
 // "cùng dịch vụ, gần ngày nhau". Xem migration ấy để biết vì sao suy diễn sai.
 
-import { Clock, CircleDashed, Check } from "lucide-react";
+import { useState } from "react";
+import { Clock, CircleDashed, Check, FileText } from "lucide-react";
+import HoSoKhamModal from "../_lam-viec/HoSoKham";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
@@ -43,6 +45,7 @@ const NHAN_BUOC: Record<string, string> = {
   // Mã do màn Chờ xếp bác sĩ ghi vào sổ khi quản lý đổi giờ.
   QUAN_LY_DOI_GIO: "Quản lý đổi giờ hẹn",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
+  VUOT_SUC_CHUA: "Gọi chốt lịch vượt sức chứa",
   NHAC_HEN_MAI: "Gọi nhắc hẹn",
   DA_CHECKIN: "Check-in",
   CHO_KQ_XN: "Hỏi kết quả xét nghiệm",
@@ -104,6 +107,9 @@ function MotLuot({
 }) {
   const xong = luot.status === "COMPLETED";
   const chet = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"].includes(luot.status);
+  // Hồ sơ khám chỉ có từ lúc khách đã vào khám (check-in trở đi).
+  const coHoSo = xong || luot.status === "CHECKED_IN";
+  const [xemHoSo, setXemHoSo] = useState(false);
 
   return (
     <li className="flex gap-3">
@@ -160,6 +166,20 @@ function MotLuot({
             )
           )}
         </div>
+
+        {coHoSo && (
+          <button
+            type="button"
+            onClick={() => setXemHoSo(true)}
+            className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-label font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+          >
+            <FileText className="size-3" aria-hidden="true" />
+            Xem hồ sơ khám · tải PDF
+          </button>
+        )}
+        {xemHoSo && (
+          <HoSoKhamModal appointmentId={luot.id} onDong={() => setXemHoSo(false)} />
+        )}
 
         <p className="mt-0.5 flex items-center gap-1 text-label text-ink-muted">
           <Clock className="size-3 shrink-0" aria-hidden="true" />

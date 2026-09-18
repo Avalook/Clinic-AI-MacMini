@@ -107,6 +107,22 @@ def pytest_collection_modifyitems(
 
 
 @pytest.fixture(autouse=True)
+def _siet_quyen_khi_kiem(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bộ kiểm chạy ở chế độ SIẾT, kể cả khi bản chạy thật đang mở quyền.
+
+    `MO_QUYEN_TAM_THOI` mặc định BẬT (Tuyền chốt 16/09/2026, xem
+    `identity.mo_quyen_tam_thoi`). Nếu bộ kiểm cũng chạy ở chế độ mở thì mọi
+    bài kiểm phân quyền đều xanh vì ai cũng qua được — và ngày tắt công tắc,
+    không còn gì bảo đảm các luật gốc vẫn đúng.
+
+    Nên ở đây ghim TẮT. Luật gốc tiếp tục được canh đầy đủ; bài nào muốn kiểm
+    chính chế độ mở thì tự bật lại bằng monkeypatch (xem
+    `test_mo_quyen_tam_thoi.py`).
+    """
+    monkeypatch.setenv("MO_QUYEN_TAM_THOI", "0")
+
+
+@pytest.fixture(autouse=True)
 def _clear_identity_cache() -> Iterator[None]:
     """Every test starts with a cold membership cache.
 

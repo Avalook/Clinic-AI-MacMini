@@ -41,7 +41,13 @@ class TestGuongVaiHaiChieu:
         ben_web = set(re.findall(r'"([A-Z_]+)"', khoi.group(1)))
 
         nguon = inspect.getsource(router_cskh)
-        khai = re.search(r"_MAN_KHACH_HANG_GUARD = require_role\(([^)]+)\)", nguon)
+        # Nhận CẢ `require_role` lẫn `require_role_co_the_mo`. Bất biến ở đây là
+        # "tập vai hai bên khớp nhau", không phải "cửa gác dùng đúng hàm nào" —
+        # và `require_role_co_the_mo` vẫn giữ nguyên tập gốc trong `allowed_roles`,
+        # cố ý, để chính bài kiểm này còn đọc được ý định của cửa.
+        khai = re.search(
+            r"_MAN_KHACH_HANG_GUARD = require_role(?:_co_the_mo)?\(([^)]+)\)", nguon
+        )
         assert khai, "không tìm thấy guard của màn khách hàng"
         ben_api = set(re.findall(r"ClinicRole\.([A-Z_]+)", khai.group(1)))
 

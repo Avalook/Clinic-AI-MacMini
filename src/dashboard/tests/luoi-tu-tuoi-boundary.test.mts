@@ -37,15 +37,13 @@ test("RealtimeRefresher là người rung chuông duy nhất, có debounce", () 
 test("cả HAI lưới cùng nghe chuông — vá một trong hai là bài học ba lưới lặp lại", () => {
   const hub = doc("../app/(dashboard)/appointments/BookingHub.tsx");
   assert.match(hub, /useDoiCa\(\)/, "BookingHub phải nghe chuông");
+  // 16/09/2026: lưới giờ × bác sĩ (tự đếm chỗ, cache lịch ngày khác) thay bằng
+  // bảng Bác sĩ × tuần + khung giờ đọc backend. Không còn cache nào để xả —
+  // chuông đổi ca đi thẳng vào khoá tải lại của cả hai.
   assert.match(
     hub,
-    /bookingSeq, doiCa\]/,
-    "effect quote phải có doiCa trong deps",
-  );
-  assert.match(
-    hub,
-    /setFetchedByDate\(\{\}\)/,
-    "xoá ca là lịch bị huỷ theo — cache lịch ngày-khác phải xả",
+    /lamMoi=\{bookingSeq \+ doiCa\}/,
+    "bảng tuần và lưới khung giờ phải tải lại khi ca trực đổi",
   );
 
   const khoang = doc("../app/(dashboard)/patients/dung-khoang-ca.ts");

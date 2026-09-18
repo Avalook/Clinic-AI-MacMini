@@ -207,6 +207,7 @@ export default function OpsCenter() {
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><FileClock size={17} /> Backup & tài nguyên</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Backup gần nhất</p><p className="mt-1 text-lg font-semibold text-ink">{summary.backup.ageHours === null ? "Chưa rõ" : `${fmtNumber(summary.backup.ageHours)} giờ trước`}</p><div className="mt-2"><Badge state={summary.backup.state} text={summary.backup.state === "fresh" ? "Còn mới" : summary.backup.state === "stale" ? "Sắp quá hạn" : summary.backup.state === "critical" ? "Quá hạn/lỗi" : "Chưa có dữ liệu"} /></div></div>
+            <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Diễn tập phục hồi</p><p className="mt-1 text-lg font-semibold text-ink">{summary.backup.drillAgeDays === null ? "Chưa từng thử" : `${fmtNumber(summary.backup.drillAgeDays)} ngày trước`}</p><div className="mt-2"><Badge state={summary.backup.drillState === "fresh" ? "fresh" : summary.backup.drillState === "stale" ? "stale" : summary.backup.drillState === "failed" ? "critical" : "unknown"} text={summary.backup.drillState === "fresh" ? `Nạp lại được (${summary.backup.drillChecksPassed ?? 0} mục)` : summary.backup.drillState === "stale" ? "Đã quá 30 ngày" : summary.backup.drillState === "failed" ? "Diễn tập HỎNG" : "Chưa từng nạp thử"} /></div><p className="mt-2 text-xs text-ink-muted">Backup chưa từng restore thử thì chưa chắc dùng được — <code>scripts/restore-drill.sh</code></p></div>
             <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Dung lượng backup</p><p className="mt-1 text-lg font-semibold text-ink">{fmtBytes(summary.backup.archiveBytes)}</p><p className="mt-2 text-xs text-ink-muted">Public schema · cần Supabase PITR/Auth riêng</p></div>
             <div className="rounded-control border border-line bg-surface p-3"><p className="flex items-center gap-1.5 text-xs text-ink-muted"><HardDrive size={14} /> SSD đã dùng</p><p className="mt-1 text-lg font-semibold text-ink">{fmtNumber(summary.host?.diskUsedPercent ?? null, "%")}</p></div>
             <div className="rounded-control border border-line bg-surface p-3"><p className="text-xs text-ink-muted">Log 15 phút</p><p className="mt-1 text-lg font-semibold text-ink">{summary.logCounts ? `${summary.logCounts.errors} lỗi · ${summary.logCounts.warnings} cảnh báo` : "Chưa rõ"}</p><p className="mt-2 text-xs text-ink-muted">Chỉ đếm mức độ, không đọc nội dung log.</p></div>
@@ -218,6 +219,42 @@ export default function OpsCenter() {
           <ul className="space-y-2">{summary.security.length > 0 ? summary.security.map((item) => <FindingCard key={item.id} item={item} />) : <FindingCard item={{ label: "Kiểm tra host", detail: "Chưa có snapshot host hợp lệ; không tự giả định trạng thái an toàn.", state: "unknown" }} />}</ul>
         </section>
       </div>
+
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><FileClock size={17} /> Vừa có ai đổi gì không</h2>
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-control border border-line bg-surface p-3">
+            <p className="text-xs text-ink-muted">Phiên bản đang chạy</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-ink">{summary.deploy.shaShort ?? "chưa rõ"}</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {summary.deploy.ageHours === null
+                ? "Chưa có mốc deploy nào — bản này deploy trước khi script ghi mốc, hoặc máy vừa dựng."
+                : `deploy ${fmtNumber(summary.deploy.ageHours)} giờ trước${summary.deploy.imageTag ? ` · ${summary.deploy.imageTag}` : ""}`}
+            </p>
+            {summary.deploy.subject ? (
+              <p className="mt-1 text-xs text-ink">{summary.deploy.subject}</p>
+            ) : null}
+          </div>
+          <div className="rounded-control border border-line bg-surface p-3 md:col-span-2">
+            <p className="text-xs text-ink-muted">Vài lần deploy gần đây</p>
+            {summary.deploy.recent.length === 0 ? (
+              <p className="mt-1 text-xs text-ink-muted">Chưa có lịch sử.</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {summary.deploy.recent.slice(0, 5).map((d) => (
+                  <li key={`${d.sha}-${d.deployedAt}`} className="flex gap-2 text-xs">
+                    <span className="shrink-0 text-ink-muted">
+                      {d.deployedAt ? new Date(d.deployedAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </span>
+                    <span className="shrink-0 font-mono text-ink-muted">{d.sha.slice(0, 7)}</span>
+                    <span className="truncate text-ink">{d.subject}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink"><ScrollText size={17} /> Công cụ chuyên sâu</h2>

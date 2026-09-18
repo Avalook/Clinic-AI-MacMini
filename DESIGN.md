@@ -87,6 +87,11 @@ thoại, hành động chính). Đệm ngang 12/14/16. Bo `r-control`. Mỗi mà
 Chip: cao 20px, đệm ngang 7px, bo `r-chip`, chữ `label` không uppercase, nền
 nhạt + chữ đậm cùng họ màu — **không viền**.
 
+Ô nhập bị khoá (chỉ xem): nền `surface-sunken`, chữ `ink-soft`, bỏ bóng, con
+trỏ "cấm" — khai MỘT lần trong `INPUT` (`app/(dashboard)/form-ui.ts`). Ô khoá mà
+vẫn trắng như ô gõ được là nói dối người dùng (Tuyền 18/09/2026: bệnh án chỉ
+xem ở Trang chủ trông như sửa được).
+
 ## 6. Bảng — nơi sửa cảm giác "Google Sheets"
 
 1. **Chỉ kẻ ngang**, bằng `hairline`. Kẻ dọc bị cấm — căn cột và khoảng trắng

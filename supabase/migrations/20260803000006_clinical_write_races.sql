@@ -45,6 +45,19 @@ DO $dedupe$
 DECLARE
     v_dupes int;
 BEGIN
+    -- CHẠY LẠI SAU 20260915000022 THÌ BỎ QUA. Từ bản ấy một lượt khám được có
+    -- nhiều phiếu cùng loại — mỗi LẦN siêu âm một phiếu (cột `lan`), chỉ mục
+    -- duy nhất đã tính cả lần. Gộp theo (lượt × loại) ở đây sẽ XOÁ phiếu lần 2
+    -- thật khi `db push` thử lại hay khi diễn tập phục hồi chạy lại migration.
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public' AND table_name = 'ultrasound_record'
+           AND column_name = 'lan'
+    ) THEN
+        RAISE NOTICE 'ultrasound_record đã có cột lan — không gộp trùng';
+        RETURN;
+    END IF;
+
     SELECT count(*) INTO v_dupes
       FROM (
         SELECT clinic_id, visit_id, ultrasound_type

@@ -10,12 +10,13 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
+import { MA_CA_KHAM_BAC_SI } from "@/lib/ca-kham-bac-si";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
-  getClinicRole,
   getClinicStaffId,
   getActiveStaff,
+  getVaiHomNay,
 } from "../../../lib/clinic-session";
 import { isAdminRole } from "../../../lib/roles";
 // MỘT HÀM, KHÔNG PHẢI HAI. Chỗ này từng có bản `weekStartOf` riêng, đã được vá
@@ -46,7 +47,7 @@ async function authorize(): Promise<Auth> {
   }
   // Quyền "duyệt + tự duyệt + xếp cho người khác" CHỈ thuộc Quản lý hệ thống
   // (MANAGEMENT). Trưởng ca dưới quản lý → đăng ký ca như nhân viên (PENDING).
-  const isAdmin = isAdminRole(await getClinicRole());
+  const isAdmin = (await getVaiHomNay()).some((r) => isAdminRole(r));
   const staffId = await getClinicStaffId();
   const staff = await getActiveStaff();
   const staffName = staff?.full_name ?? staff?.short_name ?? "";
@@ -158,7 +159,7 @@ export async function GET(request: Request) {
     .from("work_roster")
     .select("staff_id, staff_name")
     .eq("work_date", date)
-    .eq("station", "LICH_KHAM")
+    .in("station", [...MA_CA_KHAM_BAC_SI])
     .eq("status", "APPROVED")
     .not("staff_id", "is", null);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

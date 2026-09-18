@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicRole } from "../../../../lib/clinic-session";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
@@ -27,14 +27,25 @@ export default async function NewPatientPage({
   // ?date&time&doctor để điền sẵn khung + bác sĩ cho khách vãng lai.
   const { date: qDate, time: qTime, doctor: qDoctor, mode: qMode } =
     await searchParams;
-  const role = await getClinicRole();
+  // Vai LÀM VIỆC hôm nay: điều dưỡng đứng Lễ tân thì mở đúng màn lễ tân.
+  const role = await vaiLamViec(canWriteIntake);
   if (!canWriteIntake(role)) redirect("/home");
   const nurse = isNurseRole(role);
   // Trưởng ca + Quản lý làm được CẢ hai luồng: online (full — như CSKH, chọn ô đỏ
   // BN1/BN2) và vãng lai (walkin — như Lễ tân, chọn ô xanh). Chuyển bằng ?mode=walkin.
   // Các vai khác giữ luồng CỐ ĐỊNH: CSKH → full; Lễ tân/điều dưỡng → walkin.
   const canBothFlows = role === "TRUONG_CA" || role === "MANAGEMENT";
-  const forcedWalkin = nurse || role === "RECEPTION";
+  // LỄ TÂN RỜI KHỎI LUỒNG "VÃNG LAI" (Tuyền 16/09/2026).
+  //
+  // *"vãng lai giờ hiểu chung là đến trực tiếp, chưa có trong cơ sở dữ liệu thì
+  // là khách mới, có rồi thì là khách cũ và đặt trực tiếp thôi"* — tức nó không
+  // phải một LUỒNG riêng, chỉ là một KÊNH ĐẶT. Nên Lễ tân dùng đúng biểu mẫu
+  // của CSKH: đủ thông tin hành chính, và có bảng Bác sĩ × tuần để nhìn lịch
+  // tổng quan trước khi chọn giờ — thứ lưới vãng lai cũ không có.
+  //
+  // Điều dưỡng vẫn ở luồng cũ: họ không có quyền check-in nên không đi được
+  // đường "Trực tiếp hôm nay ⇒ tự check-in". Gỡ nốt khi làm tới vai ấy.
+  const forcedWalkin = nurse;
   const walkinMode = forcedWalkin || (canBothFlows && qMode === "walkin");
   const variant = walkinMode ? "walkin" : "full";
   // `h1` cũ đã bỏ: tiêu đề nay ở thanh trên cùng, và nó không đọc được
@@ -44,7 +55,7 @@ export default async function NewPatientPage({
   const supabase = await getSupabaseServer();
   const [locRes, svcRes, docRes, provRes] = await Promise.all([
     supabase.from("clinic_location").select("id, name").order("name"),
-    supabase.from("service_type").select("id, name").order("name"),
+    supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
     listBookableDoctors(),
     // 34 tỉnh/thành sau sáp nhập — phường/xã load runtime theo tỉnh (/api/wards).
     // Trước đây phải đọc bằng service-role vì province bật RLS mà không có policy
@@ -106,6 +117,7 @@ export default async function NewPatientPage({
       )}
       <NewPatientForm
         staffId={(await getCurrentStaff())?.id ?? null}
+        coSoMacDinhId={(await getCurrentStaff())?.primary_location_id ?? null}
         role={role}
         locations={locations}
         services={services}

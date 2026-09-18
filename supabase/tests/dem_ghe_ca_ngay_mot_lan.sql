@@ -165,21 +165,23 @@ BEGIN
         RAISE EXCEPTION 'Ghế đặt hẹn khung A: chờ 4, đếm được %', v_dem;
     END IF;
 
-    -- Khung A, ghế vãng lai: ② (vãng lai thật) + ⑤ (xuyên ngày, check-in
-    -- trong A, hẹn hôm qua < đầu khung A) = 2. Ca ④ check-in trong A nhưng
-    -- hẹn CŨNG ở A nên không chiếm thêm.
+    -- Khung A, ghế trực tiếp: chỉ ② (lễ tân đặt tại quầy) = 1. Từ
+    -- 20260915000014 khách hẹn đến muộn — ③ sang khung sau, ④ trong khung,
+    -- ⑤ xuyên ngày — KHÔNG chiếm ghế trực tiếp (Tuyền chốt 15/09/2026: sức
+    -- chứa = số online + số trực tiếp; khám theo giờ check-in). Trước đó ⑤
+    -- được đếm thêm ở khung A và ③ ở khung B.
     v_dem := public.slot_seats_used(v_clinic, NULL, v_A, v_B, TRUE, NULL);
-    IF v_dem <> 2 THEN
-        RAISE EXCEPTION 'Ghế vãng lai khung A: chờ 2 (thật + xuyên ngày), đếm %',
+    IF v_dem <> 1 THEN
+        RAISE EXCEPTION 'Ghế trực tiếp khung A: chờ 1 (chỉ lễ tân đặt), đếm %',
             v_dem;
     END IF;
 
-    -- Khung B, ghế vãng lai: chỉ ③ (hẹn A, check-in B) = 1.
+    -- Khung B, ghế trực tiếp: ③ đến muộn không chiếm = 0.
     v_dem := public.slot_seats_used(
                  v_clinic, NULL, v_B, v_B + make_interval(mins => v_phut),
                  TRUE, NULL);
-    IF v_dem <> 1 THEN
-        RAISE EXCEPTION 'Ghế vãng lai khung B: chờ 1 (đến muộn), đếm %', v_dem;
+    IF v_dem <> 0 THEN
+        RAISE EXCEPTION 'Ghế trực tiếp khung B: chờ 0 (đến muộn không chiếm), đếm %', v_dem;
     END IF;
 
     -- p_exclude loại đúng một ghế đặt hẹn.

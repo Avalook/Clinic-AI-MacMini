@@ -51,6 +51,14 @@ interface HanhDongViec {
 }
 
 const HANH_DONG: Record<string, HanhDongViec> = {
+  // Lịch vượt sức chứa sau khi công bố lịch trực (20260915000014): gọi khách
+  // đặt sau cùng để chốt giữ lịch hay đổi ca.
+  VUOT_SUC_CHUA: {
+    tieuDe: "Gọi khách chốt hoặc đổi ca (lịch vượt sức chứa)",
+    loai: "XAC_NHAN_LICH",
+    goiKhach: true,
+    zalo: "NHAC_HEN",
+  },
   CHO_XAC_NHAN: {
     tieuDe: "Gọi xác nhận lịch",
     loai: "XAC_NHAN_LICH",
@@ -555,6 +563,7 @@ export default function HanhDongTrangThai({
       //     `CustomersView` giữ và truyền cho cả hai cột), nên gõ ở đây rồi bấm
       //     bên kia là ghi chú vào đúng dòng ấy. Bỏ luôn ô này thì không còn
       //     đường nào ghi lại "khách nói đang họp, gọi lại sau 5h".
+      case "VUOT_SUC_CHUA":
       case "CHO_XAC_NHAN":
       case "NHAC_HEN_MAI":
         return (

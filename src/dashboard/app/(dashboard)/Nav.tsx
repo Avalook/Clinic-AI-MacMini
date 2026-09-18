@@ -7,11 +7,12 @@
 // a gender-coded accent; the icon system explicitly forbids that treatment,
 // and the shared teal token keeps the shell neutral.
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { hienTrenThanhBen, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
-import { isActiveNav, mucHienRa, navLabelFor } from "./nav-items";
+import { isActiveNav, navLabelFor, nhomThanhBen, type NavItem } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
 
@@ -20,8 +21,11 @@ export default function Nav({
   onNavigate,
   isCollapsed = false,
   featureMode = "FULL_CLINIC",
+  viTriHomNay = [],
 }: {
   role: ClinicRole | null;
+  /** Mã vị trí hôm nay — thanh bên đi theo việc thật (xem `mucHienRa`). */
+  viTriHomNay?: readonly string[];
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;
@@ -34,8 +38,22 @@ export default function Nav({
   const blinkHome = unread > 0 && pathname !== "/home";
   // Cùng hàm với thanh dưới (BottomNav) — xem `mucHienRa`. Trước đây mỗi bên
   // tự lọc và hai bên đã lệch nhau ở chế độ CSKH_ONLY.
-  const visible = mucHienRa(role, hienTrenThanhBen, featureMode, CLINICAL_HREFS);
+  // Nhóm theo VAI hôm nay + "Việc khác" — `nhomThanhBen` lọc qua `mucHienRa`.
+  const { dau, nhom, khac } = nhomThanhBen(
+    role,
+    hienTrenThanhBen,
+    featureMode,
+    CLINICAL_HREFS,
+    viTriHomNay,
+  );
+  const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);
+  const coHaiPhan = nhom.length > 0;
+  // "Việc khác" gập sẵn — nhưng đang đứng ở một màn trong đó thì phải mở, không
+  // thì mục đang mở bị giấu và người dùng không biết mình đang ở đâu.
+  const [moKhac, setMoKhac] = useState(false);
+  const dangOViecKhac = khac.some((i) => isActiveNav(i.href, pathname, hrefs));
+  const hienViecKhac = !coHaiPhan || isCollapsed || moKhac || dangOViecKhac;
 
   // PHẢN HỒI TỨC THÌ KHI BẤM, KHÔNG PHẢI TỰ VẼ TRẠNG THÁI ĐANG-ĐẾN.
   //
@@ -55,14 +73,7 @@ export default function Nav({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  return (
-    <nav className="space-y-0.5">
-      {!isCollapsed && role ? (
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
-          {ROLE_LABEL[role]}
-        </p>
-      ) : null}
-      {visible.map((item) => {
+  const veMuc = (item: NavItem) => {
         const { href, badge, icon: Icon } = item;
         const active = isActiveNav(href, pathname, hrefs);
         const label = navLabelFor(item, role);
@@ -135,7 +146,51 @@ export default function Nav({
             )}
           </Link>
         );
-      })}
+      };
+
+  return (
+    <nav className="space-y-0.5">
+      {/* Nhãn vai chỉ khi KHÔNG có nhóm hôm nay — có nhóm thì tiêu đề nhóm đã
+          nói vai, in thêm là "LỄ TÂN" hai lần liền nhau (ảnh Tuyền 16/09/2026). */}
+      {!isCollapsed && role && !coHaiPhan ? (
+        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          {ROLE_LABEL[role]}
+        </p>
+      ) : null}
+      {dau.map(veMuc)}
+      {/* MỖI VAI MỘT NHÓM, có tiêu đề (Tuyền 16/09/2026): "điều dưỡng rồi các
+          node điều dưỡng, dưới là lễ tân rồi các node của lễ tân". */}
+      {nhom.map((g) => (
+        <div key={g.nhom} className="pt-2">
+          {isCollapsed ? (
+            <div className="mx-3 mb-1 border-t border-line" aria-hidden />
+          ) : (
+            <p className="px-3 pb-1 text-label font-semibold uppercase tracking-wider text-brand-700">
+              {g.ten}
+            </p>
+          )}
+          {g.muc.map(veMuc)}
+        </div>
+      ))}
+      {coHaiPhan ? (
+        isCollapsed ? (
+          <div className="mx-3 my-2 border-t border-line" aria-hidden />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMoKhac((v) => !v)}
+            aria-expanded={hienViecKhac}
+            className="mt-3 flex w-full items-center justify-between rounded-control px-3 py-2 text-label font-semibold uppercase tracking-wider text-ink-muted hover:bg-surface-sunken"
+          >
+            <span>Việc khác ({khac.length})</span>
+            <ChevronDown
+              size={14}
+              className={hienViecKhac ? "rotate-180 transition-transform" : "transition-transform"}
+            />
+          </button>
+        )
+      ) : null}
+      {hienViecKhac ? khac.map(veMuc) : null}
       {/* CSKH_ONLY mode indicator */}
       {featureMode === "CSKH_ONLY" && !isCollapsed && (
         <div className="mx-3 mt-3 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-label font-medium text-brand-700">
