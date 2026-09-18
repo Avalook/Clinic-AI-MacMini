@@ -272,6 +272,91 @@ async def test_ket_qua_muon_chuyen_theo_doi_roi_duyet_sau_khi_ky(
     )
 
 
+async def test_ky_benh_an_o_phien_doc_ket_qua_van_kham_xong_duoc(
+    kb: KichBan,
+) -> None:
+    """Smoke prod 18/09: bác sĩ KÝ bệnh án trong phiên đọc kết quả (lượt
+    FINALIZED) rồi bấm "Khám xong" → "Lượt khám này đã đóng" → lịch hẹn không
+    bao giờ COMPLETED → thu ngân bị chặn vĩnh viễn. Ký là khoá HỒ SƠ, không
+    phải đóng LƯỢT."""
+    phien = await _vao_kham(kb)
+    [sa] = await _chi_dinh(kb, phien, kb.ma_sa)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    await _lam(kb, sa, sa=True)
+    phien2 = next(
+        p["id"]
+        for p in _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)["phien"]
+        if p["loai"] == "REVIEW"
+    )
+    await kb.svc.start_consultation(consultation_id=phien2, identity=kb.bac_si)
+    # Lượt thử không có lịch hẹn — gắn một lịch CHECKED_IN (trước khi ký, vì
+    # ký xong dòng visit bất biến) để đo đúng thứ quầy thu dựa vào.
+    await kb.pool.execute(
+        """
+        WITH v AS (SELECT clinic_id, clinic_patient_id FROM visit
+                    WHERE visit_id = $1::uuid),
+             a AS (
+               INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,
+                                        service_type_id, slot_start, slot_end, status)
+               SELECT v.clinic_id, v.clinic_patient_id,
+                      (SELECT id FROM clinic_location
+                        WHERE clinic_id = v.clinic_id LIMIT 1),
+                      (SELECT id FROM service_type LIMIT 1),
+                      now(), now() + interval '15 minutes', 'CHECKED_IN'
+                 FROM v RETURNING id)
+        UPDATE visit SET appointment_id = (SELECT id FROM a)
+         WHERE visit_id = $1::uuid
+        """,
+        kb.visit_id,
+    )
+    await kb.pool.execute(
+        "UPDATE visit SET status = 'FINALIZED' WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    await kb.svc.kham_xong(consultation_id=phien2, identity=kb.bac_si)
+    assert await _da_khep(kb)
+    assert (
+        await kb.pool.fetchval(
+            "SELECT a.status FROM appointment a JOIN visit v"
+            " ON v.appointment_id = a.id WHERE v.visit_id = $1::uuid",
+            kb.visit_id,
+        )
+        == "COMPLETED"
+    )
+    # Ký vẫn là khoá hồ sơ: không thêm chỉ định vào lượt đã ký được nữa.
+    with pytest.raises(LuotKhamConflictError) as e:
+        await kb.svc.authorize_orders(
+            consultation_id=phien2,
+            service_codes=[kb.ma_sa],
+            draft_order_ids=None,
+            identity=kb.bac_si,
+        )
+    assert e.value.error_code == "VISIT_SIGNED"
+
+
+async def test_ky_roi_van_thay_luot_va_quyet_duoc_yeu_cau(kb: KichBan) -> None:
+    """Đã ký (FINALIZED) mà một dịch vụ không làm được: Bàn khám vẫn phải thấy
+    lượt (sinh hiệu, chỉ định) và "Chờ bác sĩ quyết" vẫn phải có yêu cầu đó —
+    không thì bác sĩ không miễn được, lượt kẹt vĩnh viễn."""
+    phien2, rid, _ = await _khong_lam_duoc(kb)
+    await kb.pool.execute(
+        "UPDATE visit SET status = 'FINALIZED' WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    assert _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id) is not None
+    cho = await kb.svc.cho_quyet(identity=kb.bac_si)
+    assert rid in str(cho)
+    await kb.svc.quyet_yeu_cau(
+        requirement_id=rid,
+        hanh_dong="WAIVE",
+        ly_do="Đổi kế hoạch sau khi ký",
+        identity=kb.bac_si,
+    )
+    await kb.svc.start_consultation(consultation_id=phien2, identity=kb.bac_si)
+    await kb.svc.kham_xong(consultation_id=phien2, identity=kb.bac_si)
+    assert await _da_khep(kb)
+
+
 # ── NOT_PERFORMED ──────────────────────────────────────────────────────────
 
 

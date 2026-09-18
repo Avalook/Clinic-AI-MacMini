@@ -222,8 +222,23 @@ class LuotKhamService:
 
     @staticmethod
     async def _lock_visit(
-        conn: asyncpg.Connection, clinic_id: str, visit_id: str
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        visit_id: str,
+        *,
+        cho_phep_da_ky: bool = False,
     ) -> asyncpg.Record:
+        """Khoá dòng lượt khám và chặn thao tác trên lượt không còn làm được.
+
+        ``cho_phep_da_ky``: KÝ BỆNH ÁN (FINALIZED/AMENDED) là khoá HỒ SƠ, không
+        phải đóng LƯỢT — lượt đóng ở quầy (`closed_at`). Thao tác đưa khách đi
+        tiếp trong ngày (gọi khách, bắt đầu/kết thúc phiên, bác sĩ quyết yêu
+        cầu, xếp phòng, phòng làm dịch vụ, kết quả về) phải chạy được sau khi
+        ký; thao tác SỬA hồ sơ (ghi chú, chỉ định, sinh hiệu) thì không.
+        Smoke prod 18/09: bác sĩ ký ở phiên đọc kết quả rồi bấm "Khám xong" →
+        "Lượt khám này đã đóng" → lịch hẹn không bao giờ COMPLETED → thu ngân
+        bị chặn vĩnh viễn.
+        """
         row = await conn.fetchrow(
             """
             SELECT visit_id::text AS visit_id, status,
@@ -243,9 +258,15 @@ class LuotKhamService:
             raise LuotKhamConflictError(
                 "VISIT_INCOMPLETE", "Khách đã rời phòng khám giữa chừng."
             )
-        if row["status"] not in ("OPEN", "IN_PROGRESS"):
-            raise LuotKhamConflictError("VISIT_CLOSED", "Lượt khám này đã đóng.")
-        return row
+        if row["status"] in ("OPEN", "IN_PROGRESS"):
+            return row
+        if cho_phep_da_ky and row["status"] in ("FINALIZED", "AMENDED"):
+            return row
+        if row["status"] in ("FINALIZED", "AMENDED"):
+            raise LuotKhamConflictError(
+                "VISIT_SIGNED", "Bệnh án đã ký — không sửa được nữa."
+            )
+        raise LuotKhamConflictError("VISIT_CLOSED", "Lượt khám này đã đóng.")
 
     @staticmethod
     async def _lock_flow(
@@ -791,11 +812,14 @@ class LuotKhamService:
             cid,
             vid,
         )
+        # Bệnh án đã ký thì dòng `visit` bất biến (trigger TT13/2011) — bỏ mốc
+        # này thay vì làm hỏng cả lần kết thúc lượt; lịch hẹn COMPLETED ở trên
+        # vẫn là mốc "khám xong" mà quầy thu dựa vào.
         await conn.execute(
             "UPDATE visit SET exam_completed_at = coalesce("
             "exam_completed_at, now()), updated_at = now()"
             " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-            " AND exam_completed_at IS NULL",
+            " AND exam_completed_at IS NULL AND status <> 'FINALIZED'",
             cid,
             vid,
         )
@@ -1130,8 +1154,11 @@ class LuotKhamService:
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE v.clinic_id = $1::uuid
-                   -- INCOMPLETE cố ý không hiện: khách đã về.
-                   AND v.status IN ('OPEN', 'IN_PROGRESS')
+                   -- INCOMPLETE cố ý không hiện: khách đã về. FINALIZED /
+                   -- AMENDED (đã ký) VẪN hiện: ký là khoá hồ sơ, khách còn trong
+                   -- lượt — thiếu thì Bàn khám mất sinh hiệu, chỉ định, kết quả
+                   -- ngay sau khi ký (smoke prod 18/09).
+                   AND v.status IN ('OPEN', 'IN_PROGRESS', 'FINALIZED', 'AMENDED')
                    AND v.checked_in_at IS NOT NULL
                    AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
@@ -1794,7 +1821,7 @@ class LuotKhamService:
             )
             if q is None:
                 raise NotFoundError("Không tìm thấy khách trong hàng chờ.")
-            await self._lock_visit(conn, cid, q["visit_id"])
+            await self._lock_visit(conn, cid, q["visit_id"], cho_phep_da_ky=True)
             if q["reason"] == "SERVICE":
                 if not set(identity.ds_vai()) & (
                     set(q["actor_roles"] or []) | {v.value for v in HO_TRO_PHONG}
@@ -2142,7 +2169,7 @@ class LuotKhamService:
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "consultation", cid, con_id)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             c = await conn.fetchrow(
                 """
                 SELECT id::text AS id, kind, status, started_by::text AS started_by,
@@ -2565,7 +2592,7 @@ class LuotKhamService:
         }
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "consultation", cid, con_id)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             cached = await self._receipt_get(
                 conn, identity, "consult.complete", idempotency_key, payload
             )
@@ -2820,7 +2847,7 @@ class LuotKhamService:
             )
             if vid is None:
                 raise NotFoundError("Không tìm thấy yêu cầu này.")
-            visit = await self._lock_visit(conn, cid, vid)
+            visit = await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             cached = await self._receipt_get(
                 conn, identity, "requirement.decide", idempotency_key, payload
             )
@@ -3006,7 +3033,8 @@ class LuotKhamService:
                    AND p.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
                    AND r.status <> 'closed' AND q.status = 'open'
-                   AND v.status IN ('OPEN', 'IN_PROGRESS')
+                   -- Đã ký vẫn phải quyết được yêu cầu còn mở (smoke 18/09).
+                   AND v.status IN ('OPEN', 'IN_PROGRESS', 'FINALIZED', 'AMENDED')
                    -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
                    -- quả) hoặc không làm được. Lọc ở SQL để LIMIT không cắt mất.
                    AND ((q.need = 'VALID_RESULT' AND o.exec_status = 'performed'
@@ -3150,7 +3178,7 @@ class LuotKhamService:
         async with self._pool.acquire() as conn, conn.transaction():
             try:
                 vid = await self._visit_of(conn, "service_order", cid, oid)
-                await self._lock_visit(conn, cid, vid)
+                await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             except (NotFoundError, LuotKhamConflictError):
                 return
             await self._evaluate_rounds(conn, identity, vid)
@@ -3181,7 +3209,7 @@ class LuotKhamService:
         }
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "service_order", cid, oid)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             cached = await self._receipt_get(
                 conn, identity, "dispatch.assign", idempotency_key, payload
             )
@@ -3843,7 +3871,7 @@ class LuotKhamService:
                 raise SafetyGateError(
                     "Không tìm thấy việc này trong danh sách của bạn."
                 )
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             trang_thai = await conn.fetchval(
                 "SELECT exec_status FROM service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
@@ -3939,7 +3967,7 @@ class LuotKhamService:
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "service_order", cid, oid)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             o = await self._order_for_performer(conn, identity, oid)
             if (
                 o["exec_status"] == "in_progress"
@@ -4024,7 +4052,7 @@ class LuotKhamService:
             raise ValidationError("Nội dung quá dài.")
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "service_order", cid, oid)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             o = await self._order_for_performer(conn, identity, oid)
             if o["exec_status"] != "in_progress":
                 raise LuotKhamConflictError(
