@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import ThanhTab from "@/components/ui/ThanhTab";
 
 import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
@@ -131,6 +132,8 @@ const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
   CHO_TAI_LIEU: "Đối tác đang làm",
   DA_GUI_KET_QUA: "Đối tác đã gửi kết quả",
 };
+
+type Khung = "benh-an" | "chi-dinh";
 
 export default function BanKham({
   phongMa,
@@ -252,6 +255,26 @@ export default function BanKham({
   const chon = hienRa.find((d) => d.id === chonId) ?? macDinh;
   const luot = bang?.luot.find((l) => l.visit_id === chon?.visit_id) ?? null;
 
+  // VÙNG LÀM VIỆC khi không đủ chỗ cho 3 cột (< 1536px): Bệnh án và Chỉ định &
+  // kết quả thành hai tab. Ba cột tối thiểu 220 + 480 + 320 = 1052px, trong khi
+  // laptop 1280 cạnh thanh bên chỉ còn ~925px → trước đây cả trang kéo ngang
+  // (smoke 18/09). Khách quay lại đọc kết quả thì mở sẵn tab kết quả; bác sĩ
+  // đổi tab thì giữ lựa chọn cho tới khi chọn khách khác. Cả hai khung vẫn
+  // nằm trong cây (chỉ ẩn) — chữ đang gõ trong bệnh án không mất khi đổi tab.
+  const [khungChon, setKhungChon] = useState<{ id: string; khung: Khung } | null>(null);
+  const khungMacDinh: Khung =
+    chon?.vong === "REVIEW" && chon.trang_thai !== "done" ? "chi-dinh" : "benh-an";
+  const khung = khungChon && khungChon.id === chon?.id ? khungChon.khung : khungMacDinh;
+  const chonKhach = useCallback((id: string) => {
+    setChonId(id);
+    // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
+    if (window.innerWidth < 1280) {
+      requestAnimationFrame(() =>
+        document.getElementById("vung-lam-viec")?.scrollIntoView({ block: "start" }),
+      );
+    }
+  }, []);
+
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -299,10 +322,10 @@ export default function BanKham({
         <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
       </StatRow>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
+      <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
         <aside
           aria-label="Hàng chờ khám"
-          className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+          className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:w-auto"
         >
           <div className="px-3 py-3">
             <label className="flex items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-ink-muted">
@@ -320,40 +343,57 @@ export default function BanKham({
             <p className="px-3 pb-3 text-xs text-ink-muted">Đang tải hàng chờ…</p>
           ) : (
             <div className="max-h-[720px] overflow-y-auto">
-              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} ds={dangKham} chon={chon?.id ?? null} onChon={setChonId} trong="Chưa có ai đang khám." />
-              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={setChonId} daKhamLuc={daKhamLuc} />
-              <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={setChonId} trong="Không có khách đang chờ." />
-              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={setChonId} />
+              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang khám." />
+              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} daKhamLuc={daKhamLuc} />
+              <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." />
+              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
               {laThuKy ? (
                 <>
-                  <Nhom ten="Chờ bác sĩ ký" ds={choKy} chon={chon?.id ?? null} onChon={setChonId} />
-                  <Nhom ten="Đã ký hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={setChonId} />
+                  <Nhom ten="Chờ bác sĩ ký" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Đã ký hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
                 </>
               ) : (
-                <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={setChonId} />
+                <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
               )}
             </div>
           )}
         </aside>
 
-        <HoSo
-          dong={chon}
-          daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
-          luot={luot}
-          choBam={laBacSi || laThuKy}
-          laBacSi={laBacSi}
-          staffId={staffId}
-          onDaBam={napLai}
-        />
-
-        <ChiDinhPanel
-          dong={chon}
-          luot={luot}
-          dichVu={bang?.dich_vu ?? []}
-          laBacSi={laBacSi}
-          laThuKy={laThuKy}
-          onDaGui={napLai}
-        />
+        {/* ≥ 1536: `contents` → Bệnh án và Chỉ định & kết quả là cột 2 và 3.
+            Dưới đó: một cột, chọn bằng tab. */}
+        <div id="vung-lam-viec" className="grid min-w-0 scroll-mt-4 gap-3 2xl:contents">
+          <ThanhTab
+            nhan="Vùng làm việc"
+            className="2xl:hidden"
+            muc={[
+              { ma: "benh-an", nhan: "Bệnh án" },
+              { ma: "chi-dinh", nhan: "Chỉ định & kết quả", nhac: khungMacDinh === "chi-dinh" },
+            ]}
+            chon={khung}
+            onChon={(k) => chon && setKhungChon({ id: chon.id, khung: k })}
+          />
+          <div className={`min-w-0 ${khung === "benh-an" ? "" : "hidden"} 2xl:block`}>
+            <HoSo
+              dong={chon}
+              daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
+              luot={luot}
+              choBam={laBacSi || laThuKy}
+              laBacSi={laBacSi}
+              staffId={staffId}
+              onDaBam={napLai}
+            />
+          </div>
+          <div className={`min-w-0 ${khung === "chi-dinh" ? "" : "hidden"} 2xl:block`}>
+            <ChiDinhPanel
+              dong={chon}
+              luot={luot}
+              dichVu={bang?.dich_vu ?? []}
+              laBacSi={laBacSi}
+              laThuKy={laThuKy}
+              onDaGui={napLai}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
