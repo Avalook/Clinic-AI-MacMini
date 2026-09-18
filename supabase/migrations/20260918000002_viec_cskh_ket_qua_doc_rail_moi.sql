@@ -6,7 +6,8 @@
 -- một xét nghiệm gửi đối tác mà kết quả về muộn KHÔNG sinh việc "kết quả muộn"
 -- nào cho CSKH (đo bằng đọc định nghĩa view, 18/09).
 --
--- Thay ba nhánh ấy bằng hai nhánh trên `service_order`:
+-- THÊM hai nhánh trên `service_order` (ba nhánh `lab_result` GIỮ song song
+-- cho dữ liệu cũ còn dở — xem chú thích trong thân view):
 --   * CHO_KQ_XN: chỉ định cho-kết-quả-sau đã làm, chưa có kết quả; hạn lấy từ
 --     follow_up_case bác sĩ đặt nếu có;
 --   * CHO_BAC_SI: có kết quả (không phải tệp) mà bác sĩ chưa duyệt.
@@ -35,9 +36,9 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
              CROSS JOIN hom_nay h_1
           WHERE a.status = 'CHECKED_IN'::text
         UNION ALL
-         -- RAIL MỚI (Slice 1, 20260918000002). Ba nhánh `lab_result` cũ nằm ở
-         -- đây đã được thay: luồng khám mới không ghi `lab_result`, nên kết quả
-         -- xét nghiệm của nó không bao giờ sinh việc CSKH nào.
+         -- RAIL MỚI (Slice 1, 20260918000002): luồng khám mới không ghi
+         -- `lab_result`, nên trước đây kết quả xét nghiệm của nó không bao giờ
+         -- sinh việc CSKH nào.
          --
          -- CHO_BAC_SI: chỉ định cho-kết-quả-sau (làm bên ngoài / nhóm kết quả)
          -- đã có kết quả nhưng bác sĩ chưa duyệt, và kết quả KHÔNG ở dạng tệp
@@ -78,6 +79,42 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
             AND o.exec_status = 'performed'::text
             AND o.ket_qua_luc IS NULL
             AND o.created_at > (now() - '60 days'::interval)
+        UNION ALL
+         -- ĐỜI CŨ (`lab_result`) GIỮ SONG SONG cho tới khi đếm trên prod không
+         -- còn dòng dở: bỏ ngay thì kết quả cũ chưa duyệt/chưa gửi biến khỏi
+         -- danh sách CSKH mà không ai biết. Rail cũ không còn lối ghi (410 từ
+         -- Slice 1) nên các nhánh này chỉ cạn dần. Xoá ở Đợt D.
+         SELECT r.clinic_id,
+            r.clinic_patient_id,
+            'CHO_BAC_SI'::text AS loai,
+            1 AS uu_tien,
+            (r.result_received_at AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date + l_1.so_ngay AS han,
+            NULL::uuid AS appointment_id
+           FROM lab_result r
+             JOIN luat_cskh l_1 ON l_1.clinic_id = r.clinic_id AND l_1.loai_viec = 'CHO_BAC_SI'::text AND l_1.bat
+          WHERE r.result_value IS NOT NULL AND NOT r.is_finalized
+        UNION ALL
+         SELECT r.clinic_id,
+            r.clinic_patient_id,
+            'KQ_CHUA_GUI'::text AS text,
+            2,
+            (COALESCE(r.reviewed_at, r.result_received_at) AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date + l_1.so_ngay,
+            NULL::uuid AS uuid
+           FROM lab_result r
+             JOIN luat_cskh l_1 ON l_1.clinic_id = r.clinic_id AND l_1.loai_viec = 'KQ_CHUA_GUI'::text AND l_1.bat
+          WHERE r.result_value IS NOT NULL AND r.is_finalized AND NOT (EXISTS ( SELECT 1
+                   FROM tuong_tac_cskh t
+                  WHERE t.clinic_patient_id = r.clinic_patient_id AND t.loai = 'TRA_KQ'::text AND t.xay_ra_luc >= COALESCE(r.reviewed_at, r.result_received_at, r.created_at) AND t.huy_luc IS NULL))
+        UNION ALL
+         SELECT r.clinic_id,
+            r.clinic_patient_id,
+            'CHO_KQ_XN'::text AS text,
+            3,
+            (COALESCE(r.sample_collected_at, r.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date + l_1.so_ngay,
+            NULL::uuid AS uuid
+           FROM lab_result r
+             JOIN luat_cskh l_1 ON l_1.clinic_id = r.clinic_id AND l_1.loai_viec = 'CHO_KQ_XN'::text AND l_1.bat
+          WHERE r.result_value IS NULL
         UNION ALL
          SELECT a.clinic_id,
             a.clinic_patient_id,

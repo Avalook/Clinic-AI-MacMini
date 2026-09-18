@@ -60,14 +60,26 @@ TRƯỚC khi deploy code, bước riêng có người xem.
 - **Khép lượt một chỗ:** `_ket_thuc_neu_xong` (hết kẹt khi DONE còn chỉ định dở,
   hoặc chỉ còn theo dõi).
 - **Checkout** đọc `service_order`/`review_round`/`round_requirement`; **CSKH**
-  `v_viec_cskh` CHO_KQ_XN/CHO_BAC_SI đọc `service_order` (3 nhánh `lab_result`
-  đã bỏ).
+  `v_viec_cskh` thêm CHO_KQ_XN/CHO_BAC_SI trên `service_order`. Ba nhánh
+  `lab_result` GIỮ song song cho dữ liệu cũ còn dở — xoá ở Đợt D sau khi đếm
+  prod.
+- **Theo dõi không mồ côi:** chỉ chuyển theo dõi khi đang chờ kết quả (dịch vụ
+  không làm được → miễn + hẹn tái khám); chỉ định không làm được thì việc theo
+  dõi của nó CANCELLED; yêu cầu đã đạt không quyết lại.
 - **Rail cũ đã nghỉ (410 + log người gọi):** 13 lối ghi `service_log`,
   `lab_result` (tạo/nhập), `service_order_draft`, `order_services`. Ô "Chỉ định
   CLS" trong bệnh án đã gỡ. Chuyển cả lượt (`move_visit_to_station`) từ chối
   lượt luồng mới; đặt vào trạm lúc check-in GIỮ (cùng giao dịch đã có
   `appointment.checked_in` ghi đủ vai).
-- **Còn nợ (không chặn Slice 2):** TV/hàng chờ lễ tân tính "kết quả đã về" từ
+- **SEC-01 (có từ trước, cần làm sớm):** `v_viec_cskh` mất
+  `security_invoker = true` từ một lần CREATE OR REPLACE trước Slice 1, trong
+  khi dashboard đọc thẳng view (GRANT authenticated) → RLS bảng nền bị bỏ qua.
+  Một phòng khám thì chưa lộ chéo; phải xử lý trước phòng khám thứ hai. Không
+  lật trong Slice 1 vì đổi những gì màn CSKH thấy.
+- **Còn nợ (không chặn Slice 2):** `hold_until_round` chưa ai ghi; khi làm
+  tính năng giữ chỉ định phải chặn trường hợp vòng sau không được tạo (kế
+  hoạch toàn FOLLOW_UP). Kết quả dạng ghi chú đã duyệt chưa sinh việc CSKH
+  "gửi kết quả" (chỉ tệp mới sinh) — cần Tuyền chốt có cần không. TV/hàng chờ lễ tân tính "kết quả đã về" từ
   `lab_result` (`display_board_service`, `routers/queue.py`) — với luồng mới
   luôn "chưa về" → Đợt C (queue). `booking_service` còn tạo work_item
   DICHVU-SIEUAM lúc check-in lịch bác sĩ siêu âm → Đợt C (thống nhất SA). Mục

@@ -455,3 +455,56 @@ async def test_bac_si_thay_viec_cho_ket_qua_va_can_quyet(kb: KichBan) -> None:
     assert await cua(kb.bac_si_2) == []  # khách của bác sĩ khác
     kq = await kb.svc.cho_quyet(identity=kb.bac_si)
     assert kq["duoc_quyet"] is True
+
+
+# ── không để việc theo dõi mồ côi (rà độc lập 18/09) ──────────────────────
+
+
+async def test_khong_lam_duoc_thi_chi_mien_khong_theo_doi(kb: KichBan) -> None:
+    _, rid, _ = await _khong_lam_duoc(kb)
+    with pytest.raises(LuotKhamConflictError) as e:
+        await kb.svc.quyet_yeu_cau(
+            requirement_id=rid,
+            hanh_dong="FOLLOW_UP",
+            ly_do="Hẹn làm sau",
+            identity=kb.bac_si,
+        )
+    assert e.value.error_code == "FOLLOW_UP_NEEDS_RESULT"
+
+
+async def test_yeu_cau_da_dat_khong_quyet_lai(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    [sa] = await _chi_dinh(kb, phien, kb.ma_sa)
+    await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+    await _lam(kb, sa, sa=True)
+    rid = await kb.pool.fetchval(
+        "SELECT id::text FROM round_requirement WHERE service_order_id = $1::uuid",
+        sa,
+    )
+    with pytest.raises(LuotKhamConflictError) as e:
+        await kb.svc.quyet_yeu_cau(
+            requirement_id=rid, hanh_dong="WAIVE", ly_do="x", identity=kb.bac_si
+        )
+    assert e.value.error_code == "REQUIREMENT_SATISFIED"
+
+
+async def test_theo_doi_huy_khi_mau_khong_lay_duoc(kb: KichBan) -> None:
+    phien = await _vao_kham(kb)
+    [mau] = await _chi_dinh(kb, phien, kb.ma_mau)
+    with pytest.raises(ValidationError):
+        await kb.svc.kham_xong(
+            consultation_id=phien,
+            identity=kb.bac_si,
+            ke_hoach={mau: {"need": "FOLLOW_UP", "han": "2026-13-40"}},
+        )
+    await kb.svc.kham_xong(
+        consultation_id=phien, identity=kb.bac_si, ke_hoach={mau: "FOLLOW_UP"}
+    )
+    await _lam(kb, mau, performed=False, reason="Khách về trước khi lấy máu")
+    assert (
+        await kb.pool.fetchval(
+            "SELECT status FROM follow_up_case WHERE service_order_id = $1::uuid", mau
+        )
+        == "CANCELLED"
+    )
+    assert await _da_khep(kb)

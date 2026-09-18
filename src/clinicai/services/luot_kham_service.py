@@ -2522,6 +2522,11 @@ class LuotKhamService:
                 seen.add(oid)
                 plan.append((oid, need))
                 if need == rules.FOLLOW_UP:
+                    han = item.get("han")
+                    if han not in (None, "") and rules.doc_han_theo_doi(han) is None:
+                        raise ValidationError(
+                            "Hạn theo dõi phải là ngày dạng YYYY-MM-DD."
+                        )
                     theo_doi_cau_hinh[oid] = item
         reqs, theo_doi = rules.tach_ke_hoach(plan)
         if theo_doi and not identity.co_vai(DOCTOR_ROLES):
@@ -2808,9 +2813,12 @@ class LuotKhamService:
             q = await conn.fetchrow(
                 """
                 SELECT q.status, q.service_order_id::text AS order_id,
+                       q.round_id::text AS round_id, o.exec_status,
                        r.status AS vong_status, r.round_no
                   FROM round_requirement q
                   JOIN review_round r ON r.id = q.round_id AND r.clinic_id = q.clinic_id
+                  JOIN service_order o
+                    ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
                  WHERE q.clinic_id = $1::uuid AND q.id = $2::uuid
                    FOR UPDATE OF q
                 """,
@@ -2841,6 +2849,29 @@ class LuotKhamService:
             if q["status"] in ("waived", "follow_up"):
                 raise LuotKhamConflictError(
                     "REQUIREMENT_DECIDED", "Yêu cầu này bác sĩ đã quyết rồi."
+                )
+            trang_thai = rules.requirement_state(
+                self._view(
+                    next(
+                        r
+                        for r in await self._yeu_cau_cua_vong(conn, cid, q["round_id"])
+                        if r["id"] == rid
+                    )
+                )
+            )
+            if trang_thai == "satisfied":
+                raise LuotKhamConflictError(
+                    "REQUIREMENT_SATISFIED",
+                    "Yêu cầu này đã đạt — không cần miễn hay theo dõi nữa.",
+                )
+            if hanh_dong == "FOLLOW_UP" and q["exec_status"] != "performed":
+                # Việc theo dõi đóng khi bác sĩ DUYỆT KẾT QUẢ. Dịch vụ không làm
+                # được thì không bao giờ có kết quả → việc mồ côi. Hẹn làm lại
+                # là tái khám: miễn ở đây (ghi lý do) + hẹn trong bệnh án.
+                raise LuotKhamConflictError(
+                    "FOLLOW_UP_NEEDS_RESULT",
+                    "Chỉ chuyển theo dõi khi đang chờ kết quả. Dịch vụ không làm"
+                    " được: miễn (ghi lý do) và hẹn tái khám trong bệnh án.",
                 )
             fid: str | None = None
             mien = hanh_dong == "WAIVE"
@@ -2960,6 +2991,11 @@ class LuotKhamService:
                  WHERE q.clinic_id = $1::uuid
                    AND r.status <> 'closed' AND q.status = 'open'
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
+                   -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
+                   -- quả) hoặc không làm được. Lọc ở SQL để LIMIT không cắt mất.
+                   AND ((q.need = 'VALID_RESULT' AND o.exec_status = 'performed'
+                         AND o.ket_qua_luc IS NULL)
+                        OR o.exec_status IN ('not_performed', 'cancelled'))
                    AND ($2::text[] IS NULL
                         OR v.attending_doctor_id::text = ANY($2::text[])
                         OR EXISTS (SELECT 1 FROM consultation c
@@ -3861,6 +3897,21 @@ class LuotKhamService:
                 bool(set(identity.ds_vai()) & set(o["actor_roles"] or [])),
                 identity.staff_id,
             )
+            if not performed:
+                # Không làm được thì sẽ không có kết quả: việc theo dõi "chờ kết
+                # quả" của chỉ định này huỷ (lý do nằm ở not_performed_reason),
+                # không để mồ côi. Bác sĩ quyết tiếp qua vòng đọc / tái khám.
+                await conn.execute(
+                    """
+                    UPDATE follow_up_case
+                       SET status = 'CANCELLED', closed_at = now(),
+                           updated_at = now()
+                     WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                       AND status = 'OPEN'
+                    """,
+                    cid,
+                    oid,
+                )
             await conn.execute(
                 """
                 UPDATE queue_entry
