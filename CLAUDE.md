@@ -92,6 +92,35 @@ supabase db push
   loại **ở quy mô này (~1 lượt gọi/giây, một người vận hành)**, kèm ngưỡng đo
   được để mở lại. Đừng đề xuất lại từ best-practice chung.
 
+## Sửa giao diện — quy trình bắt buộc (Tuyền chốt 18/09/2026)
+
+Vì sao có mục này: các lần sửa giao diện trước hay **sửa nhầm bản cũ** hoặc
+**sửa một lối, sót lối khác**. Ví dụ có thật ngày 17/09: nút QR được gỡ ở màn
+thu ngân cũ (`/tasks`), trong khi màn đang dùng là `/thu-ngan/*`.
+
+1. **Trước khi sửa, tra `docs/SITEMAP.md`.** Mục A cho biết route nào là màn
+   chuẩn. Mục B liệt kê mọi lối vào của cùng một chức năng. Phải sửa **đủ mọi
+   lối** trong hàng đó, hoặc ghi rõ lối nào cố ý bỏ và vì sao. Không có trong
+   bảng thì grep theo **component và API**, không grep theo tên màn.
+2. **Không sửa màn đã đánh dấu GỘP hay ĐÃ CHUYỂN HƯỚNG.** Sửa ở màn chuẩn.
+3. **Không tự chế giao diện.**
+   - Màu, cỡ và bo góc lấy từ `DESIGN.md` và token trong `globals.css`.
+   - Nút và thành phần lấy từ `src/dashboard/components/ui`. Thiếu thì thêm vào
+     đó trước, rồi mới dùng.
+   - Không viết hex, px tự chế hay `style={{}}` mới.
+   - Không thêm `window.confirm` mới.
+   - `<button>` luôn có `type=`.
+4. **Thêm, xoá hay đổi một route, một mục thanh bên, hoặc quyền trong
+   `NAV_ROLES`:** sửa `docs/SITEMAP.md` trong **cùng commit**.
+5. **Báo cáo sau khi sửa phải có bảng "nút/link đã đụng"**, gồm: màn → nút →
+   đi đâu hoặc gọi API nào → vai nào thấy.
+6. **Chưa bấm thật thì không báo "xong".** Ghi rõ đã kiểm ở lớp nào:
+   - test;
+   - API;
+   - bấm trên trình duyệt, ở cỡ 375 và 1280.
+
+   Kiểm bằng API không chứng minh được giao diện.
+
 ## Đang làm dở
 
 Đọc **`docs/DANG-LAM.md`** trước khi bắt tay — nó giữ trạng thái giữa các phiên.
