@@ -37,6 +37,24 @@ lịch sử hội thoại.
 
 ---
 
+## -0021. Bản đồ màn hình + gộp màn cũ (18/09/2026)
+
+- **Luật mới:** sửa giao diện phải tra `docs/SITEMAP.md` trước (quy trình 6 bước
+  trong `CLAUDE.md`).
+- **Tuyền chốt "1 ok, 2 bỏ ở home, 3 chỉ xem, 4 gộp hết":**
+  - `/tasks` chuyển theo vai. Đã gỡ 5 component cũ và `HomeCheckin`.
+  - Check-in **chỉ ở** `/reception/queue` (bảng "Lịch hẹn hôm nay").
+  - Bệnh án mở từ Trang chủ và Danh sách bệnh nhân chỉ xem.
+  - `/queue`, `/cashier/board`, `/cskh-tasks`, `/episodes`, `/work-sessions`
+    chuyển hướng.
+  - `/portal` và `/ops/telemetry` thành tab của `/ops`.
+  - Backend gỡ khối `checkin` của trang chủ. Thông báo kết quả trỏ
+    `/duyet-ket-qua`.
+- **Canh bằng test:** `tests/man-da-gop-boundary.test.mts`. Ratchet px 85 → 64.
+- **Chưa làm:** 20 route `/api/*` không màn nào gọi (danh sách lấy bằng grep —
+  phải kiểm tay trước khi xoá). Đo lại số `<button>`. Làm lại thanh bên theo
+  việc.
+
 ## -0020. Khách kẹt sau đo sinh hiệu (17/09 09:53) — BỎ đường đón-khám cũ
 
 - Nguyên nhân: ĐD Huế lưu sinh hiệu qua biểu mẫu bệnh án cũ (bấm tên khách ở Trang chủ, `ClinicalRecordForm vitalsOnly`) → có `vital_measurement` nhưng `encounter_flow` không "đã đo", không quyết tuyến → không vào hàng chờ bác sĩ/thư ký. Sáng 06:56 chỉ đổi nút "Điền sinh hiệu", sót lối bấm tên.

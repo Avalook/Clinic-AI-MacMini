@@ -87,17 +87,6 @@ class _WeekGia:
         return [{"id": "a1", "slot_start": "s", "phan_loai": "Tái khám"}]
 
 
-class _BoardGia:
-    goi: list[dict[str, object]] = []
-
-    def __init__(self, pool: object) -> None:
-        pass
-
-    async def board(self, **kw: object) -> list[dict[str, Any]]:
-        _BoardGia.goi.append(dict(kw))
-        return [{"id": "a1"}]
-
-
 class _ProgressGia:
     def __init__(self, pool: object) -> None:
         pass
@@ -125,9 +114,7 @@ def _ai(role: ClinicRole) -> StaffIdentity:
 @pytest.fixture(autouse=True)
 def _thay_service_con(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(mtc, "WeekAppointmentsService", _WeekGia)
-    monkeypatch.setattr(mtc, "DoctorBoardService", _BoardGia)
     monkeypatch.setattr(mtc, "VisitProgressService", _ProgressGia)
-    _BoardGia.goi = []
 
 
 async def _goi(role: ClinicRole) -> tuple[dict[str, Any], _Conn]:
@@ -154,22 +141,6 @@ async def test_le_tan_co_bang_trang_thai_vai_khac_khong() -> None:
 
 
 @pytest.mark.asyncio
-async def test_o_checkin_chi_do_cho_quan_ly() -> None:
-    """Gương với page.tsx: showCheckin = canCheckin && !RECEPTION = MANAGEMENT.
-
-    Lễ tân check-in qua cột trong bảng lịch tuần; ô riêng chỉ gây trùng."""
-    ra_ql, _ = await _goi(ClinicRole.MANAGEMENT)
-    assert ra_ql["checkin"] == [{"id": "a1"}]
-    assert len(_BoardGia.goi) == 1
-
-    ra_lt, _ = await _goi(ClinicRole.RECEPTION)
-    assert ra_lt["checkin"] == []
-    ra_cskh, _ = await _goi(ClinicRole.CSKH)
-    assert ra_cskh["checkin"] == []
-    assert len(_BoardGia.goi) == 1, "vai khác Quản lý thì đừng gọi cả board"
-
-
-@pytest.mark.asyncio
 async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     _, conn = await _goi(ClinicRole.RECEPTION)
     # 3 đếm + roster + ô đen/NGHỈ + trực ca + bảng trạng thái = 7, cùng một _Conn.
@@ -187,7 +158,6 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
             "truc_ca",
             "trang_thai_kham",
             "tuan_hen",
-            "checkin",
             "tien_trinh",
         ]
     )

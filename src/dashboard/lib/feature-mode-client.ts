@@ -19,10 +19,11 @@ export const CLINICAL_HREFS = new Set([
   "/phong/KN-SANCHAU",
   "/phong/KN-SAN-BIO",
   "/duyet-ket-qua",
-  "/cashier/board",
+  // /cashier/board gộp vào hai quầy dưới đây 18/09/2026 (docs/SITEMAP.md).
+  "/thu-ngan/dich-vu",
+  "/thu-ngan/thuoc",
   "/pharmacy",
   "/pharmacy/inventory",
   "/pharmacy/history",
   "/pharmacy/consult",
-  "/queue",
 ]);

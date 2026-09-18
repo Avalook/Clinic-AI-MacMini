@@ -23,7 +23,7 @@ import {
   isDoctorRole,
 } from "../../../lib/roles";
 import PatientListView, { type ExaminedRow } from "./PatientListView";
-import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
+import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 
 export const dynamic = "force-dynamic";
 

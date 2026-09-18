@@ -11,7 +11,7 @@
 
 import { requireNavAccess } from "@/lib/clinic-session";
 
-import QuayThuNgan from "../../cashier/board/QuayThuNgan";
+import QuayThuNgan from "../QuayThuNgan";
 
 export const metadata = { title: "Thu ngân thuốc · ClinicAI" };
 export const dynamic = "force-dynamic";

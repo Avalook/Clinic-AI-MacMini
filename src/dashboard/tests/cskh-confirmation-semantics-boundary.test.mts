@@ -10,7 +10,6 @@ const vungLamViec = read("app/(dashboard)/customers/VungLamViecKhach.tsx");
 const lichSu = read("app/(dashboard)/customers/LichSuCacLanKham.tsx");
 const lichTrung = read("app/(dashboard)/customers/LichTrungCuaKhach.tsx");
 const statusBadge = read("app/(dashboard)/StatusBadge.tsx");
-const cskhTasks = read("app/(dashboard)/cskh-tasks/CskhTasksView.tsx");
 
 function khoiMotCham(ma: string): string {
   const batDau = motCham.indexOf(`  ${ma}: {`);
@@ -45,7 +44,6 @@ test("màn CSKH gọi CONFIRMED là Đã đặt lịch, không phải đã gọi
     ["Lịch sử các lần khám", lichSu],
     ["Lịch trùng của khách", lichTrung],
     ["Nhãn trạng thái dùng chung", statusBadge],
-    ["Danh sách việc CSKH", cskhTasks],
   ] as const) {
     assert.match(source, /\bCONFIRMED:\s*"Đã đặt lịch"/, `${ten} dùng sai nhãn CONFIRMED`);
     assert.doesNotMatch(

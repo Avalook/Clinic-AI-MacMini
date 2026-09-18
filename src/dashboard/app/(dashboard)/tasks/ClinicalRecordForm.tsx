@@ -30,7 +30,7 @@ import {
 } from "../../../lib/luu-nhap";
 import { clinicalSyncDecision } from "../../../lib/clinical-sync";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
-import type { DoctorApptRow } from "./DoctorWorkBoard";
+import type { DoctorApptRow } from "./DoctorApptRow";
 
 interface Profile {
   blood_type: string | null;

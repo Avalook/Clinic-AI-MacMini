@@ -5,7 +5,11 @@
 //                                   → không file nào import; /appointments dùng
 //                                     BookingHub. Xoá 04/08/2026.
 //
-// Tám màn còn lại trong file này vẫn được canh nguyên: customers, episodes,
+//   episodes/EpisodesBoard          → /episodes chuyển hướng về /customers
+//                                     (0 đợt PENDING_CLOSE trên prod, không
+//                                     code nào còn tạo ra). Xoá 18/09/2026.
+//
+// Các màn còn lại trong file này vẫn được canh nguyên: customers,
 // AppointmentsRealtime, AppointmentEditModal, StatCard.
 //
 // Bỏ một bài kiểm an ninh phải là quyết định có chủ ý. Ở đây nó canh MỘT MÀN
@@ -25,8 +29,6 @@ const appointmentsPage = read("../app/(dashboard)/appointments/page.tsx");
 const realtime = read("../app/(dashboard)/appointments/AppointmentsRealtime.tsx");
 const appointmentEdit = read("../app/(dashboard)/customers/AppointmentEditModal.tsx");
 const statCard = read("../components/ui/StatCard.tsx");
-const episodesPage = read("../app/(dashboard)/episodes/page.tsx");
-const episodes = read("../app/(dashboard)/episodes/EpisodesBoard.tsx");
 
 test("CSKH customer directory uses the catalogue-style table and a real detail panel", () => {
   for (const label of [
@@ -145,25 +147,6 @@ test("cột danh sách hẹp chỉ nói AI, trạng thái nằm ở vùng làm v
   assert.equal((customers.match(/<StatusChip /g) ?? []).length, 2);
 });
 
-test("episode confirmation retains its actual close and reopen contract in a three-region workspace", () => {
-  for (const label of [
-    "Danh sách đợt chờ xác nhận",
-    "Chi tiết đợt khám",
-    "Quyết định CSKH",
-    "Tìm bệnh nhân hoặc mã hồ sơ",
-    "Xác nhận đóng",
-    "Còn theo dõi",
-  ]) {
-    assert.match(episodes, new RegExp(label));
-  }
-  assert.match(
-    episodes,
-    /xl:grid-cols-\[minmax\(240px,0\.82fr\)_minmax\(360px,1\.25fr\)_minmax\(250px,0\.86fr\)\]/,
-  );
-  assert.match(episodes, /fetch\("\/api\/episodes"/);
-  assert.match(episodesPage, /requireNavAccess\("\/episodes"\)/);
-});
-
 test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette", () => {
   // Năm màn đã xoá được bỏ khỏi danh sách (cskh-today ×3, AppointmentsWorkspace,
   // AppointmentsKanban). Bảy màn còn lại vẫn bị canh: không mã màu cứng, không
@@ -174,8 +157,6 @@ test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette"
     appointmentsPage,
     realtime,
     appointmentEdit,
-    episodesPage,
-    episodes,
   ]) {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}/iu);
     assert.doesNotMatch(source, /pink|rose|fuchsia/iu);

@@ -22,7 +22,7 @@ import {
 import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
-import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
+import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import SplitPane from "../SplitPane";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 

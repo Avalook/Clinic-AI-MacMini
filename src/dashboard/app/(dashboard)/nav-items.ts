@@ -5,7 +5,6 @@ import {
   Home,
   ClipboardList,
   UserPlus,
-  CheckSquare,
   Calendar,
   CalendarRange,
   BarChart3,
@@ -23,13 +22,10 @@ import {
   Rows3,
   History,
   Tv,
-  ListOrdered,
   CheckCheck,
   Gauge,
   Users,
   Receipt,
-  Timer,
-  Zap,
   Building2,
   PhoneCall,
   type LucideIcon,
@@ -93,7 +89,7 @@ export const NAV: NavItem[] = [
   // ý hay của nó đưa vào các màn thật khi làm giao diện.
   // HAI QUẦY, MỘT TÀI KHOẢN (Tuyền 16/09/2026: "thu ngân hiện tại cho thành 1
   // tài khoản tên là thu-ngan thôi để nó có cả node thu ngân dịch vụ và thu
-  // ngân thuốc cùng 1 chỗ"). Màn gộp /cashier/board vẫn chạy bằng đường dẫn.
+  // ngân thuốc cùng 1 chỗ"). /cashier/board cũ nay chuyển hướng về đây.
   { href: "/thu-ngan/dich-vu", label: "Thu tiền dịch vụ", icon: Receipt },
   { href: "/thu-ngan/thuoc", label: "Thu tiền thuốc", icon: Receipt },
   {
@@ -101,14 +97,7 @@ export const NAV: NavItem[] = [
     label: "Check-out lượt khám",
     icon: CheckCheck,
   },
-  {
-    href: "/cskh-tasks",
-    label: "Nhiệm vụ chăm sóc",
-    icon: ClipboardCheck,
-  },
-  // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch. Đứng cạnh
-  // "Nhiệm vụ chăm sóc" vì cùng người làm, nhưng là danh sách khác: màn kia
-  // xoay quanh lịch ĐÃ CÓ, màn này xoay quanh lịch CÒN THIẾU.
+  // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch.
   {
     href: "/nhac-tai-kham",
     label: "Nhắc tái khám",
@@ -138,24 +127,6 @@ export const NAV: NavItem[] = [
     href: "/patients/new",
     label: "Tạo bệnh nhân",
     icon: UserPlus,
-  },
-  // Check-in ĐÃ chuyển lên TRANG CHỦ (HomeCheckin) — không còn ở sidebar.
-  {
-    href: "/tasks",
-    label: "Công việc của tôi",
-    icon: CheckSquare,
-  },
-  // Số thứ tự GỌI khám — ưu tiên người có hẹn, gọi theo tên (xem chung).
-  {
-    href: "/queue",
-    label: "Số thứ tự gọi khám",
-    icon: ListOrdered,
-  },
-  // CSKH xác nhận đóng "đợt khám" BS đã khám xong không hẹn lần sau (EPI-01).
-  {
-    href: "/episodes",
-    label: "Đóng đợt khám",
-    icon: CheckCheck,
   },
   // TRƯỞNG CA — năm màn điều phối, mỗi màn một mục trên thanh bên.
   //
@@ -189,7 +160,7 @@ export const NAV: NavItem[] = [
     label: "TV phòng chờ",
     icon: Tv,
   },
-  // Bảng giá tách 2 trang, đặt NGAY DƯỚI "Công việc của tôi" (sidebar Thu ngân).
+  // Bảng giá tách 2 trang (thuốc / dịch vụ).
   { href: "/cashier/thuoc", label: "Bảng giá thuốc", icon: Pill },
   { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ", icon: Tag },
   // Nhà thuốc — Dược sĩ (PHARMACIST). Đơn chờ cấp + Chuẩn bị + Kho.
@@ -217,13 +188,6 @@ export const NAV: NavItem[] = [
   },
 
   { href: "/schedule", label: "Lịch làm việc", icon: Calendar },
-  // Có trong NAV_ROLES (Quản lý + Trưởng ca) nhưng CHƯA TỪNG có mục ở đây, nên
-  // trang chỉ vào được bằng cách gõ URL — quyền đã cấp mà không có đường đi.
-  {
-    href: "/work-sessions",
-    label: "Buổi làm việc",
-    icon: Timer,
-  },
   // "Lịch đổ về" — Quản lý xem toàn bộ lịch một tuần + thống kê theo khung giờ.
   // Đứng NGAY TRÊN Báo cáo vì cùng một loại việc: đọc số của cả phòng khám,
   // không thao tác lên lịch của ai.
@@ -243,11 +207,6 @@ export const NAV: NavItem[] = [
     // Mười badge còn lại vẫn giữ: chúng đánh dấu những màn ĐANG chạy song song
     // với bản cũ (xem ghi chú đầu danh sách), và bỏ chúng là mất đúng thông tin
     // mà nhân viên cần để biết mình đang ở bản nào.
-  },
-  {
-    href: "/ops/telemetry",
-    label: "Sức khoẻ API",
-    icon: Timer,
   },
   { href: "/ops", label: "Vận hành hệ thống", icon: Gauge },
   {
@@ -275,12 +234,6 @@ export const NAV: NavItem[] = [
     icon: KeyRound,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
-  {
-    href: "/portal",
-    label: "Command Center",
-    icon: Zap,
-    badge: "Mới",
-  },
 ];
 
 // Nhãn nav theo vai. Wording ĐỒNG BỘ: mọi vai (kể cả điều dưỡng) đều "Tạo bệnh
@@ -607,7 +560,7 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // Bác sĩ và thư ký: bàn khám là màn chính. Ngày có ca, thanh dưới đi theo
   // vị trí và bảng này không được dùng tới.
   DOCTOR: ["/home", "/ban-kham", "/duyet-ket-qua", "/patient-list"],
-  TKYK: ["/home", "/ban-kham", "/tasks", "/patient-list"],
+  TKYK: ["/home", "/ban-kham", "/patient-list", "/schedule"],
   ULTRASOUND_DOCTOR: ["/home", "/phong/KN-SA-T1", "/duyet-ket-qua", "/patient-list"],
   // Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
   RECEPTION: ["/home", "/reception/queue", "/thu-ngan/dich-vu", "/appointments"],

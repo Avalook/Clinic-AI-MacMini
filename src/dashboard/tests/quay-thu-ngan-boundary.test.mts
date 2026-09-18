@@ -10,7 +10,7 @@ import test from "node:test";
 // Bài mới khoá thứ dễ hỏng hơn nhiều: CÁCH XỬ LÝ DÒNG CHƯA CÓ GIÁ.
 
 const quay = readFileSync(
-  new URL("../app/(dashboard)/cashier/board/QuayThuNgan.tsx", import.meta.url),
+  new URL("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx", import.meta.url),
   "utf8",
 );
 
@@ -35,15 +35,22 @@ test("cộng tiền bỏ qua dòng thiếu giá và đếm chúng lại", () => 
   assert.match(quay, /thieuGia\s*\+=\s*1/);
 });
 
-test("quầy nào hiện ô nào là theo VAI, không theo URL", () => {
-  const trang = readFileSync(
-    new URL("../app/(dashboard)/cashier/board/page.tsx", import.meta.url),
-    "utf8",
-  );
-  // Theo VAI CHÍNH hôm nay (16/09/2026), vẫn không theo URL.
-  assert.match(trang, /getVaiChinh/);
-  assert.match(trang, /CASHIER_THUOC/);
-  assert.match(trang, /CASHIER_DV/);
-  // Không đọc quầy từ query string — gõ URL là đổi được quầy thì cái gác vô nghĩa.
-  assert.doesNotMatch(trang, /searchParams/);
+test("mỗi quầy là một trang có cửa gác riêng, quầy ghim cứng trong trang", () => {
+  // Từ 16/09/2026 một tài khoản thu ngân có HAI mục (Thu tiền dịch vụ / Thu
+  // tiền thuốc), nên quầy được chọn bằng ĐƯỜNG DẪN. /cashier/board — bản chọn
+  // quầy theo vai — đã gộp 18/09/2026. Cái gác còn nguyên: mỗi trang tự gọi
+  // requireNavAccess của chính nó, và quầy ghim cứng, không đọc từ query
+  // string — gõ URL là đổi được quầy thì cái gác vô nghĩa.
+  for (const [duong, quayCua] of [
+    ["dich-vu", "dich_vu"],
+    ["thuoc", "thuoc"],
+  ] as const) {
+    const trang = readFileSync(
+      new URL(`../app/(dashboard)/thu-ngan/${duong}/page.tsx`, import.meta.url),
+      "utf8",
+    );
+    assert.match(trang, new RegExp(`await requireNavAccess\\("/thu-ngan/${duong}"\\)`));
+    assert.match(trang, new RegExp(`<QuayThuNgan quay="${quayCua}" />`));
+    assert.doesNotMatch(trang, /searchParams/);
+  }
 });

@@ -166,9 +166,6 @@ export default function GlobalHeader({
   };
 
   const getPageTitle = () => {
-    if (pathname.startsWith("/cskh-tasks")) {
-      return { title: "Nhiệm vụ chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
-    }
     if (pathname.startsWith("/customers")) {
       return { title: "Quản lý khách hàng", subtitle: "Theo dõi trạng thái và bước tiếp theo của từng khách hàng" };
     }
@@ -211,9 +208,6 @@ export default function GlobalHeader({
           "Hai lượt gọi: mời đặt lịch trước hẹn 7 ngày, và nhắc đi khám vào sáng ngày hẹn.",
       };
     }
-    if (pathname.startsWith("/tasks")) {
-      return { title: "Công việc chăm sóc", subtitle: "Theo dõi, thực hiện và ghi nhận kết quả chăm sóc khách hàng" };
-    }
     if (pathname.startsWith("/appointments")) {
       return { title: "Đặt lịch hẹn", subtitle: "Chọn khung giờ còn sức chứa và xác nhận lịch cho khách hàng" };
     }
@@ -231,13 +225,11 @@ export default function GlobalHeader({
       };
     }
     if (pathname.startsWith("/reception")) {
-      return { title: "Tiếp đón khách", subtitle: "Tiếp đón và phân luồng bệnh nhân" };
+      return { title: "Tiếp đón khách", subtitle: "Check-in khách hẹn hôm nay và xếp hàng chờ" };
     }
-    if (pathname.startsWith("/doctor")) {
-      return { title: "Bàn khám bác sĩ", subtitle: "Khám bệnh, kê đơn và chỉ định cận lâm sàng" };
-    }
+    // /cashier/* nay CHỈ còn bảng giá; thu tiền ở /thu-ngan/* (18/09/2026).
     if (pathname.startsWith("/cashier")) {
-      return { title: "Bàn thu ngân", subtitle: "Thanh toán và xuất hóa đơn dịch vụ" };
+      return { title: "Bảng giá", subtitle: "Giá thuốc và dịch vụ dùng khi thu tiền" };
     }
     return { title: "Hệ thống Quản lý ClinicAI", subtitle: "Quy trình phòng khám liên thông thông minh" };
   };

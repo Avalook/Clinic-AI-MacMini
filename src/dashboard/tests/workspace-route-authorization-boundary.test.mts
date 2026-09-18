@@ -8,7 +8,8 @@ const page = (path: string) =>
 const protectedWorkspaces = [
   ["../app/(dashboard)/reception/queue/page.tsx", "/reception/queue"],
   ["../app/(dashboard)/ban-kham/page.tsx", "/ban-kham"],
-  ["../app/(dashboard)/cashier/board/page.tsx", "/cashier/board"],
+  ["../app/(dashboard)/thu-ngan/dich-vu/page.tsx", "/thu-ngan/dich-vu"],
+  ["../app/(dashboard)/thu-ngan/thuoc/page.tsx", "/thu-ngan/thuoc"],
   ["../app/(dashboard)/duyet-ket-qua/page.tsx", "/duyet-ket-qua"],
   ["../app/(dashboard)/do-sinh-hieu/page.tsx", "/do-sinh-hieu"],
 ] as const;

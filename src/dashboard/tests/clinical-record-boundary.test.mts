@@ -10,12 +10,6 @@ const getSource = routeSource.split("export async function POST")[0];
 const clinicSessionSource = read("../lib/clinic-session.ts");
 const currentStaffSource = read("../lib/current-staff.ts");
 const patientListSource = read("../app/(dashboard)/patient-list/page.tsx");
-const doctorBoardSource = read(
-  "../app/(dashboard)/tasks/DoctorWorkBoard.tsx",
-);
-const homeCheckinSource = read(
-  "../app/(dashboard)/home/HomeCheckin.tsx",
-);
 const weeklyAppointmentsSource = read(
   "../app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
 );
@@ -68,14 +62,8 @@ test("operational roles cannot open a clinical-record popup", () => {
     patientListSource,
     /const enablePopup = vaiHomNay\.some\(canReadClinical\)/,
   );
-  assert.match(
-    doctorBoardSource,
-    /const open = readOnly\s*\?\s*null\s*:\s*\(?rows\.find/,
-  );
-  assert.match(
-    homeCheckinSource,
-    /const sel = canWriteClinical\s*\?\s*\(?rows\.find/,
-  );
+  // DoctorWorkBoard (/tasks) và HomeCheckin đã gỡ 18/09/2026 — hai lối mở
+  // bệnh án ấy không còn tồn tại (xem man-da-gop-boundary.test.mts).
   assert.match(
     weeklyAppointmentsSource,
     /\{canWriteClinical && selAppt && \(/,

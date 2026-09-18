@@ -74,7 +74,7 @@ async def bao_ket_qua_ve(
                 nguon_id=f"{loai}:{ref_id}",
                 tieu_de=tieu_de,
                 noi_dung=noi_dung_bs,
-                duong_dan="/result-review",
+                duong_dan="/duyet-ket-qua",
             )
         else:
             # Chưa biết bác sĩ của khách → báo cả vai bác sĩ, không bỏ rơi kết quả.
@@ -86,7 +86,7 @@ async def bao_ket_qua_ve(
                 muc_do="THUONG",
                 tieu_de=tieu_de,
                 noi_dung=noi_dung_bs,
-                duong_dan="/result-review",
+                duong_dan="/duyet-ket-qua",
             )
     except Exception:  # noqa: BLE001 — xem docstring module
         logger.warning(

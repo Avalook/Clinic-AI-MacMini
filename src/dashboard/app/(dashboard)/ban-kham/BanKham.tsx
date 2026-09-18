@@ -26,7 +26,7 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
-import type { DoctorApptRow } from "../tasks/DoctorWorkBoard";
+import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import {
   docBang,
   guiThaoTac,

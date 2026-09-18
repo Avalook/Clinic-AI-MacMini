@@ -22,6 +22,7 @@
 
 import { Suspense, cache } from "react";
 import StatCard from "@/components/ui/StatCard";
+import { buttonClass } from "@/components/ui/Button";
 import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
 import {
   getVaiChinh,
@@ -38,25 +39,19 @@ import {
 } from "../../../lib/roles";
 import Link from "next/link";
 import { NAV, TEN_NHOM, hrefTheoViTri, nhomTheoViTri } from "../nav-items";
-import HomeCheckin, { type HomeCheckinRow } from "./HomeCheckin";
 import type { ActiveStaff } from "../../../lib/clinic-session";
-import { fmtDate, vnLocalToUtcISO } from "../../../lib/datetime";
+import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { doctorName } from "../../../lib/doctor-name";
 import { currentWeekStartVn, todayVn, weekDates, weekStartOf } from "../../../lib/roster";
 import WeekNav from "../WeekNav";
-import WeeklyAppointmentsTable, {
-  type ApptDay,
-  type WeekApptRow,
-  type DutyByDate,
-} from "./WeeklyAppointmentsTable";
+import WeeklyAppointmentsTable, { type WeekApptRow } from "./WeeklyAppointmentsTable";
+import { dungLichHenTuan } from "./lich-hen-ngay";
 import WorkRosterTable, { type DongCaRow, type RosterRow } from "./WorkRosterTable";
 import VisitStatusBoard, { type VisitStatusRow } from "./VisitStatusBoard";
 import VisitStatusRealtime from "./VisitStatusRealtime";
 
 export const dynamic = "force-dynamic";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Shape of GET /api/v1/visits/progress — flags only, never the note itself. */
 interface VisitProgressRow {
@@ -84,7 +79,6 @@ interface GoiTrangChu {
   truc_ca: { work_date: string; staff_id: string; staff_name: string | null }[];
   trang_thai_kham: VisitStatusRow[];
   tuan_hen: WeekApptRow[];
-  checkin: HomeCheckinRow[];
   tien_trinh: VisitProgressRow[];
 }
 
@@ -182,11 +176,9 @@ export default async function HomePage({
   }));
   const staff = await getActiveStaff();
   const staffId = await getClinicStaffId();
-  // Lễ tân KHÔNG cần ô check-in riêng: bảng "Lịch hẹn khám" (WeeklyAppointmentsTable) ĐÃ có
-  // cột "Thao tác Check-in" (showActions = canCheckin → gồm RECEPTION) — bấm tên BN mở popup
-  // check-in / không-đến ngay trong lịch. Ô HomeCheckin riêng chỉ gây TRÙNG nên ẩn cho Lễ
-  // tân; vẫn để cho Quản lý (giữ hành vi cũ). Bảng trạng thái read-only của Lễ tân giữ ở dưới.
-  const showCheckin = canCheckin(role) && role !== "RECEPTION";
+  // CHECK-IN KHÔNG CÒN Ở TRANG CHỦ (Tuyền chốt 18/09/2026): cả ô check-in của
+  // Quản lý lẫn cột check-in của Lễ tân chuyển sang Tiếp đón khách
+  // (/reception/queue) — một việc, một chỗ. Bảng lịch ở đây chỉ để xem.
   // CHỈ Bác sĩ + Điều dưỡng ghi lâm sàng; Lễ tân/QL check-in nhưng xem chỉ-đọc.
   const writeClinical = canWriteClinical(role);
   const isReception = role === "RECEPTION"; // bảng trạng thái buổi khám: chỉ Lễ tân
@@ -286,7 +278,6 @@ export default async function HomePage({
           choDoSinhHieu={choDoSinhHieu}
           role={role}
           staffId={staffId}
-          showCheckin={showCheckin}
           writeClinical={writeClinical}
           isReception={isReception}
           weekAppt={weekAppt}
@@ -419,7 +410,6 @@ async function BaOSo({
 async function KhoiDuLieu({
   role,
   staffId,
-  showCheckin,
   writeClinical,
   isReception,
   choDoSinhHieu,
@@ -428,24 +418,19 @@ async function KhoiDuLieu({
 }: {
   role: ClinicRole | null;
   staffId: string | null;
-  showCheckin: boolean;
   writeClinical: boolean;
   isReception: boolean;
   choDoSinhHieu: boolean;
   weekAppt: string;
   weekRoster: string;
 }) {
-  const apptDates = weekDates(weekAppt);
   const rosterDates = weekDates(weekRoster);
-  const apptStartUtc = vnLocalToUtcISO(weekAppt, "00:00");
 
   const goi = await goiTrangChu(weekAppt, weekRoster);
   // Backend im thì các bảng cùng rỗng — phải NÓI RA. Một trang chủ trống trơn
   // trông y hệt "hôm nay chưa có gì", và người trực sẽ tin nó (cùng luật với
   // goiLoi ở màn Quản lý khách hàng, Lát 2).
   const goiLoi = goi === null;
-
-  const checkinRows = showCheckin ? (goi?.checkin ?? []) : [];
 
   // Bảng trạng thái buổi khám: join đã làm THẲNG trong SQL của backend, nên
   // đường-lùi-hai-truy-vấn cũ (sinh ra vì select join PostgREST từng lỗi cột)
@@ -498,42 +483,7 @@ async function KhoiDuLieu({
     return { ...r, staff_name: (r.staff_id && ten) || r.staff_name };
   });
 
-  // Backend trả sẵn phan_loai, nên không còn `RawAppt` (kiểu "thiếu phan_loai")
-  // và không còn bước gắn thêm ở dưới.
-  const weekApptRows: WeekApptRow[] = goi?.tuan_hen ?? [];
-
-  // Bác sĩ TRỰC CA từng ngày của TUẦN LỊCH HẸN (weekAppt ≠ weekRoster!) — nuôi
-  // các nhóm bác sĩ + ô xanh "đặt vào đây" trong bảng Lịch hẹn khám.
-  const dutyByDate: DutyByDate = {};
-  for (const r of goi?.truc_ca ?? []) {
-    const list = dutyByDate[r.work_date] ?? [];
-    if (!list.some((d) => d.id === r.staff_id)) {
-      list.push({ id: r.staff_id, name: r.staff_name ?? "" });
-    }
-    dutyByDate[r.work_date] = list;
-  }
-
-  // "!" nhắc điều dưỡng điền sinh hiệu chỉ hiện khi lịch đã CHECKED_IN mà CHƯA
-  // ghi đủ 3 vital bắt buộc (huyết áp / cân nặng / chiều cao). Luật "đủ 3 vital"
-  // nằm trong visit_progress_service, cạnh chỗ có dữ liệu — trang này chỉ nhận
-  // cờ, nên Lễ tân không cần (và không còn) quyền đọc bệnh án.
-  const vitalsRecorded = new Set(
-    progress.filter((p) => p.vitals_recorded).map((p) => p.appointment_id),
-  );
-
-  const t0 = new Date(apptStartUtc).getTime();
-  const apptDays: ApptDay[] = apptDates.map((date, i) => {
-    const s = t0 + i * DAY_MS;
-    const e = s + DAY_MS;
-    const items = weekApptRows
-      .filter((a) => {
-        const t = new Date(a.slot_start).getTime();
-        return t >= s && t < e;
-      })
-      // phan_loai đã do backend tính; ở đây chỉ gắn thêm cờ sinh hiệu.
-      .map((a) => ({ ...a, has_vitals: vitalsRecorded.has(a.id) }));
-    return { date, items };
-  });
+  const { apptDays, dutyByDate } = dungLichHenTuan(goi, weekAppt);
 
   return (
     <>
@@ -545,16 +495,6 @@ async function KhoiDuLieu({
           Không đọc được dữ liệu trang chủ — backend không trả lời. Các bảng
           bên dưới đang trống vì thế, không phải vì hôm nay không có gì.
         </div>
-      )}
-
-      {/* Check-in bệnh nhân — TRÊN Lịch hẹn khám (ĐD/Lễ tân/Quản lý).
-          Bấm mở danh sách ngay dưới nút; Lịch hẹn khám tự đẩy xuống. */}
-      {showCheckin && (
-        <HomeCheckin
-          rows={checkinRows}
-          staffId={staffId}
-          canWriteClinical={writeClinical}
-        />
       )}
 
       {/* Trạng thái BN buổi khám hôm nay — CHỈ Lễ tân, READ-ONLY (theo visit.status).
@@ -577,6 +517,11 @@ async function KhoiDuLieu({
           <h2 className="text-sm font-semibold text-ink">
             Lịch hẹn khám (check đặt lịch)
           </h2>
+          {canCheckin(role) && (
+            <Link href="/reception/queue" className={buttonClass("primary", "sm")}>
+              Check-in ở Tiếp đón khách
+            </Link>
+          )}
           <WeekNav
             week={weekAppt}
             basePath="/home"

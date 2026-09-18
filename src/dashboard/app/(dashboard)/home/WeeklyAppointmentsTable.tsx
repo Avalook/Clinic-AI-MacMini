@@ -15,6 +15,7 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import {
   canCheckin,
+  canSeeNavGoc,
   canManageAppt,
   canWriteIntake,
   isNurseRole,
@@ -219,8 +220,8 @@ function buildDayRows(
       // nhận lịch khám — nên bảng dài gấp mấy lần số lịch thật. Đặt lịch mới
       // cho bác sĩ chưa có ai vẫn làm ở màn Đặt lịch.
       if (mine.length === 0) continue;
-      // Thứ tự gọi do backend tính sẵn (call_order). Xem ghi chú ở
-      // DoctorWorkBoard: luật chỉ còn một bản, ở Python.
+      // Thứ tự gọi do backend tính sẵn (call_order) — luật chỉ còn một bản,
+      // ở Python.
       const theoThuTuGoi = (a: WeekApptRow, b: WeekApptRow) =>
         (a.call_order ?? 0) - (b.call_order ?? 0);
       const regular = mine
@@ -318,6 +319,7 @@ export default function WeeklyAppointmentsTable({
   canWriteClinical = false,
   dutyByDate = {},
   choDoSinhHieu,
+  choCheckIn = false,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
@@ -327,6 +329,10 @@ export default function WeeklyAppointmentsTable({
   /** Hiện cột "Điền sinh hiệu". Trang chủ quyết theo VỊ TRÍ hôm nay (đứng Đo
    *  chỉ số); không truyền thì theo vai điều dưỡng như trước. */
   choDoSinhHieu?: boolean;
+  /** Hiện cột Check-in / Không đến / Hoàn tác. CHỈ màn Tiếp đón khách bật
+   *  (Tuyền chốt 18/09/2026: check-in bỏ khỏi Trang chủ — một việc, một chỗ).
+   *  Trang chủ không truyền → bảng chỉ để xem. */
+  choCheckIn?: boolean;
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -342,9 +348,9 @@ export default function WeeklyAppointmentsTable({
   const [moTay, setMoTay] = useState<Record<string, boolean>>({});
   const dangMo = (d: ApptDay) => moTay[d.date] ?? d.items.length > 0;
   // Menu "…" cho vai quản lý lịch hẹn không có cột check-in (CSKH).
-  const coMenu = canManageAppt(role) && !canCheckin(role);
+  const showActions = choCheckIn && canCheckin(role);
+  const coMenu = canManageAppt(role) && !showActions;
 
-  const showActions = canCheckin(role);
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
   const isNurse = choDoSinhHieu ?? isNurseRole(role);
   const showActionCol = showActions || isNurse;
@@ -708,16 +714,25 @@ export default function WeeklyAppointmentsTable({
           <div className="flex h-full w-full max-w-lg flex-col border-l border-hairline bg-surface p-4 shadow-panel" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between border-b border-hairline pb-2">
               <h3 className="text-base font-semibold text-brand-800">Hành chính & Sinh hiệu bệnh nhân</h3>
-              <button onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {canSeeNavGoc(role, "/ban-kham") && (
+                  <Link href="/ban-kham" className={buttonClass("secondary", "sm")}>
+                    Mở ở Bàn khám
+                  </Link>
+                )}
+                <button type="button" aria-label="Đóng" onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
+              {/* CHỈ XEM (Tuyền chốt 18/09/2026): bệnh án sửa ở Bàn khám, sinh
+                  hiệu đo ở màn Đo sinh hiệu — bảng lịch không là lối ghi thứ ba. */}
               <ClinicalRecordForm
                 appt={selAppt}
                 staffId={staffId}
                 vitalsOnly
-                readOnly={!canWriteClinical}
+                readOnly
                 fill
                 onClose={() => setSelAppt(null)}
               />

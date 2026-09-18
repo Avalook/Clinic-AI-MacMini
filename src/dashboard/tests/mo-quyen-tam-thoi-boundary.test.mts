@@ -19,7 +19,7 @@ async function napRoles(bat: boolean) {
 test("công tắc BẬT: điều dưỡng mở được màn không phải của mình", async () => {
   const { canSeeNav } = await napRoles(true);
   // Đúng thứ Tuyền cần: không vai nào bị chặn khỏi màn thao tác.
-  assert.equal(canSeeNav("NURSE_ULTRASOUND", "/cashier/board"), true);
+  assert.equal(canSeeNav("NURSE_ULTRASOUND", "/thu-ngan/dich-vu"), true);
   assert.equal(canSeeNav("CASHIER_DV", "/truong-ca"), true);
   assert.equal(canSeeNav("TKYK", "/reception/queue"), true);
 });
@@ -29,8 +29,8 @@ test("công tắc BẬT vẫn KHÔNG mở màn của người ngoài phòng khá
   // Đối tác và cái tivi: đóng theo thiết kế. Công tắc "mở tạm" không được
   // phép chạm vào — đây là chốt chặn, không phải cách sắp xếp menu.
   assert.equal(canSeeNav("NURSE_ULTRASOUND", "/doi-tac"), false);
-  assert.equal(canSeeNav("PARTNER", "/luot-kham"), false);
-  assert.equal(canSeeNav("DISPLAY", "/luot-kham"), false);
+  assert.equal(canSeeNav("PARTNER", "/ban-kham"), false);
+  assert.equal(canSeeNav("DISPLAY", "/ban-kham"), false);
 });
 
 test("công tắc BẬT vẫn KHÔNG chôn thanh bên bằng màn quản trị", async () => {
@@ -42,7 +42,7 @@ test("công tắc BẬT vẫn KHÔNG chôn thanh bên bằng màn quản trị",
   // trước công tắc. Không phải lỗ hổng — trang ấy `notFound()` trên production
   // và API của nó tự trả 404 khi APP_ENV=production, tức bị chặn ở hai tầng
   // khác. Ghi ra đây để lần sau đọc bài kiểm không tưởng là bỏ sót.
-  for (const href of ["/portal", "/settings", "/reports", "/ops"]) {
+  for (const href of ["/settings", "/reports", "/ops"]) {
     assert.equal(
       canSeeNav("NURSE_ULTRASOUND", href),
       false,
@@ -53,7 +53,7 @@ test("công tắc BẬT vẫn KHÔNG chôn thanh bên bằng màn quản trị",
 
 test("công tắc TẮT: về đúng luật gốc", async () => {
   const { canSeeNav } = await napRoles(false);
-  assert.equal(canSeeNav("NURSE_ULTRASOUND", "/cashier/board"), false);
+  assert.equal(canSeeNav("NURSE_ULTRASOUND", "/thu-ngan/dich-vu"), false);
   assert.equal(canSeeNav("CASHIER_DV", "/truong-ca"), false);
   // Và những đường vốn mở thì vẫn mở.
   assert.equal(canSeeNav("NURSE_ULTRASOUND", "/home"), true);

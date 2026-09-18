@@ -52,7 +52,7 @@ _ORDER_GUARD = require_role(*PHYSICIAN_ROLES)
 # Reception and management are deliberately excluded.
 _RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
 _TRIAGE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
-# Màn Duyệt kết quả: bác sĩ + thư ký + quản lý (khớp NAV /result-review).
+# Màn Duyệt kết quả: bác sĩ + thư ký + quản lý (khớp NAV /duyet-ket-qua).
 _REVIEW_READ_GUARD = require_role(
     ClinicRole.DOCTOR,
     ClinicRole.ULTRASOUND_DOCTOR,

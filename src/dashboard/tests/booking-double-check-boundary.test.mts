@@ -64,7 +64,6 @@ test("chỉ MỘT chỗ trong mã nguồn biết lệch múi giờ Việt Nam", 
   for (const f of [
     "../app/(dashboard)/customers/page.tsx",
     "../app/(dashboard)/customers/NhacTaiKham.tsx",
-    "../app/(dashboard)/cskh-tasks/CskhTasksView.tsx",
     "../app/api/appointments/route.ts",
   ]) {
     const src = read(f).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");

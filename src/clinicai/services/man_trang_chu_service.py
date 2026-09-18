@@ -14,8 +14,8 @@ thì mỗi vòng trả giá kép: nghi lễ PostgREST + tranh chấp event-loop 
 KHỐI THEO VAI TÍNH Ở BACKEND, không nhận cờ từ client:
   * `trang_thai_kham` chỉ đổ dữ liệu khi vai là RECEPTION (bảng "Trạng thái BN
     buổi khám" là màn của Lễ tân);
-  * `checkin` chỉ đổ khi vai là MANAGEMENT (frontend: canCheckin && !RECEPTION
-    — Lễ tân đã có cột check-in trong bảng lịch tuần, ô riêng chỉ gây trùng).
+  * (khối `checkin` cho Quản lý đã gỡ 18/09/2026 — check-in chỉ còn ở màn
+    Tiếp đón khách; xem docs/SITEMAP.md).
   Nhận cờ từ query-string là cho phép client tự cấp thêm dữ liệu vai khác.
 
 Hình trả về bắt chước PostgREST từng trường (lồng patient/doctor/service/
@@ -34,7 +34,6 @@ from zoneinfo import ZoneInfo
 import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.services.doctor_board_service import DoctorBoardService
 from clinicai.services.visit_progress_service import VisitProgressService
 from clinicai.services.week_appointments_service import WeekAppointmentsService
 
@@ -42,15 +41,6 @@ _VN = ZoneInfo("Asia/Ho_Chi_Minh")
 
 # Trần giữ nguyên từ bản PostgREST của trang (limit 300 ở bảng trạng thái).
 _TRAN_TRANG_THAI = 300
-
-# Trạng thái check-in của ô Quản lý — đúng chuỗi query cũ ở page.tsx.
-_CHECKIN_STATUSES = [
-    "SCHEDULED",
-    "CSKH_CONFIRMED",
-    "CONFIRMED",
-    "CHECKED_IN",
-    "COMPLETED",
-]
 
 
 class ManTrangChuService:
@@ -196,15 +186,6 @@ class ManTrangChuService:
         tuan_hen = await WeekAppointmentsService(self._pool).week(
             clinic_id=clinic_id, week_start=week_appt
         )
-        checkin: list[dict[str, Any]] = []
-        if identity.co_vai({ClinicRole.MANAGEMENT}):
-            checkin = await DoctorBoardService(self._pool).board(
-                clinic_id=clinic_id,
-                start=dau_ngay,
-                end=cuoi_ngay,
-                doctor_id=None,
-                statuses=_CHECKIN_STATUSES,
-            )
         tien_trinh = await VisitProgressService(self._pool).for_range(
             date_from=ngay_tuan_hen[0],
             date_to=ngay_tuan_hen[-1],
@@ -222,7 +203,6 @@ class ManTrangChuService:
             "truc_ca": [dict(r) for r in truc_ca],
             "trang_thai_kham": trang_thai_kham,
             "tuan_hen": tuan_hen,
-            "checkin": checkin,
             "tien_trinh": [asdict(p) for p in tien_trinh],
         }
 
