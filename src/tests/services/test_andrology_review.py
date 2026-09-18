@@ -200,6 +200,33 @@ class TestReview:
         )
         assert out["bmi"] == 22.9
 
+    def test_bmi_lay_tu_so_do_sinh_hieu_cua_luot_kham(self) -> None:
+        """S0-3 (18/09/2026): cân/cao đo ở màn Đo sinh hiệu, phiếu Nam khoa không
+        còn ô nhập. BMI đọc từ lần đo mới nhất của lượt, thắng ô `kls_` cũ."""
+        pool = FakePool(NGUONG, Decimal("21.4"))
+        out = _run(
+            AndrologyReviewService(pool).review(
+                identity=_who(),
+                form_data={"kls_chieu_cao": "175", "kls_can_nang": "70"},
+                visit_id="11111111-1111-4111-8111-111111111111",
+            )
+        )
+        assert out["bmi"] == 21.4
+        sql = pool.queries("fetchval")[-1]
+        assert "vital_measurement" in sql and "clinic_id" in sql
+
+    def test_luot_chua_do_thi_doc_o_kls_cu(self) -> None:
+        """Phiếu cũ (trước S0-3) còn cân/cao trong form_data — vẫn đọc được."""
+        pool = FakePool(NGUONG, None)
+        out = _run(
+            AndrologyReviewService(pool).review(
+                identity=_who(),
+                form_data={"kls_chieu_cao": "175", "kls_can_nang": "70"},
+                visit_id="11111111-1111-4111-8111-111111111111",
+            )
+        )
+        assert out["bmi"] == 22.9
+
     def test_thieu_so_do_thi_bmi_la_none_chu_khong_phai_0(self) -> None:
         """BMI bằng 0 lọt vào mọi phép so sánh; None thì màn hình hiện dấu gạch
         và không ai đọc nhầm."""

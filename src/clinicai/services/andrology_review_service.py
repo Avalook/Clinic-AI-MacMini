@@ -143,6 +143,33 @@ class AndrologyReviewService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def _bmi(
+        self,
+        identity: StaffIdentity,
+        form_data: dict[str, Any],
+        visit_id: str | None,
+    ) -> float | None:
+        """BMI của lần đo sinh hiệu mới nhất; lượt chưa đo thì đọc ô `kls_` cũ.
+
+        S0-3 (18/09/2026): cân nặng/chiều cao chỉ đo ở màn Đo sinh hiệu, phiếu
+        Nam khoa không còn ô nhập. Phiếu lưu trước đó vẫn mang `kls_chieu_cao`
+        / `kls_can_nang` — giữ đường đọc ấy cho hồ sơ cũ.
+        """
+        if visit_id:
+            bmi = await self._pool.fetchval(
+                "SELECT bmi FROM vital_measurement "
+                "WHERE clinic_id = $1::uuid AND visit_id = $2::uuid "
+                "ORDER BY created_at DESC LIMIT 1",
+                identity.clinic_id,
+                visit_id,
+            )
+            if bmi is not None:
+                return float(bmi)
+        return compute_bmi(
+            _so(form_data.get("kls_chieu_cao")),
+            _so(form_data.get("kls_can_nang")),
+        )
+
     async def ranges(self, *, identity: StaffIdentity) -> list[SemenRange]:
         rows = await self._pool.fetch(_RANGE_SQL, identity.clinic_id)
         return [
@@ -157,7 +184,11 @@ class AndrologyReviewService:
         ]
 
     async def review(
-        self, *, identity: StaffIdentity, form_data: dict[str, Any]
+        self,
+        *,
+        identity: StaffIdentity,
+        form_data: dict[str, Any],
+        visit_id: str | None = None,
     ) -> dict[str, Any]:
         """Cờ bất thường, gợi ý xét nghiệm di truyền, và BMI."""
         ranges = await self.ranges(identity=identity)
@@ -191,10 +222,7 @@ class AndrologyReviewService:
         out = {
             "semen_flags": flags,
             "genetic_suggestions": suggestions,
-            "bmi": compute_bmi(
-                _so(form_data.get("kls_chieu_cao")),
-                _so(form_data.get("kls_can_nang")),
-            ),
+            "bmi": await self._bmi(identity, form_data, visit_id),
             "notes": notes,
             # Nói rõ đọc theo ấn bản nào. Một cờ đỏ không kèm nguồn thì bác sĩ
             # vẫn phải đi tra lại, và cái cờ ấy chỉ làm màn hình ồn hơn.

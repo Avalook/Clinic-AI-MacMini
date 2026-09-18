@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT, LABEL } from "../form-ui";
 import { getFormSchema } from "../../../lib/form-schemas";
 import AndrologyReview from "./AndrologyReview";
+import type { ONhanSinhHieu } from "../../../lib/sinh-hieu-dong-bo";
 import type {
   FormData,
   FormField,
@@ -50,6 +51,14 @@ function normalOption(field: FormField): string | null {
 // ===== Tokens trình bày ClinicAI dùng chung với workspace lâm sàng =====
 // TAB / TAB_ON / TAB_OFF / NAV_BTN đã bỏ cùng thanh tab và nút "Mục trước /
 // Mục sau" (07/08/2026): cả phiếu nay nằm trên một mạch cuộn hai cột.
+/** Khối sinh hiệu API trả RIÊNG với form_data (S0-3): chỉ xem, không lưu vào phiếu. */
+interface KhoiSinhHieu {
+  nguon: "do" | "phieu_cu";
+  luc: string | null;
+  o: ONhanSinhHieu[];
+}
+type PhieuTraVe = { form_data?: FormData; sinh_hieu?: KhoiSinhHieu };
+
 const CHIP =
   "rounded-full border px-3 py-1 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const CHIP_ON = " border-brand-600 bg-brand-100 font-semibold text-brand-800";
@@ -66,6 +75,7 @@ export default function ServiceFormEngine({
 }) {
   const schema = useMemo(() => getFormSchema(serviceCode), [serviceCode]);
   const [values, setValues] = useState<FormData>({});
+  const [sinhHieu, setSinhHieu] = useState<KhoiSinhHieu | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -82,10 +92,11 @@ export default function ServiceFormEngine({
     let on = true;
     fetch(`/api/clinical-form?visitId=${visitId}&serviceCode=${schema.service_code}`)
       .then((r) => r.json())
-      .then((d: { form_data?: FormData }) => {
+      .then((d: PhieuTraVe) => {
         if (!on) return;
         daLuuRef.current = JSON.stringify(d.form_data ?? {});
         setValues(d.form_data ?? {});
+        setSinhHieu(d.sinh_hieu ?? null);
       })
       .catch(() => on && setValues({}))
       .finally(() => on && setLoading(false));
@@ -114,8 +125,9 @@ export default function ServiceFormEngine({
         cache: "no-store",
       })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { form_data?: FormData } | null) => {
+        .then((d: PhieuTraVe | null) => {
           if (!d) return;
+          setSinhHieu(d.sinh_hieu ?? null);
           const moi = d.form_data ?? {};
           const chuoiMoi = JSON.stringify(moi);
           setValues((cur) => {
@@ -252,6 +264,7 @@ export default function ServiceFormEngine({
               xa (mục "Lý do khám" 1 trường nằm cạnh "Khám lâm sàng" 15 trường),
               nên chia cứng sẽ để lại khoảng trắng so le. Xếp gạch thì thẻ tự
               rơi vào cột nào còn chỗ. */}
+          <KhoiSinhHieuChiXem khoi={sinhHieu} />
           <div className="[column-gap:0.75rem] lg:[columns:2]">
             {sections.map((sec, i) => {
               const cls = laCanLamSang(sec.title);
@@ -320,7 +333,7 @@ export default function ServiceFormEngine({
           {/* Chỉ phiếu Nam khoa mới có bảng đối chiếu ngưỡng. Đặt ở đây chứ
               không trong Field: nó đọc CẢ phiếu (tinh dịch đồ + khám bìu + nội
               tiết) để suy ra gợi ý, không đọc từng ô rời. */}
-          {schema.service_code === "NK" && <AndrologyReview values={values} />}
+          {schema.service_code === "NK" && <AndrologyReview values={values} visitId={visitId} />}
 
           {/* Thanh dưới — chỉ còn nút Lưu. Không còn prev/next: cả phiếu
               nằm trên một mạch cuộn, nên "Mục 3/11" không còn nghĩa gì. */}
@@ -331,6 +344,7 @@ export default function ServiceFormEngine({
             </span>
             {!readOnly && (
               <button
+                type="button"
                 onClick={save}
                 disabled={saving}
                 className="min-h-9 shrink-0 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
@@ -491,5 +505,42 @@ function Field({
       <label className={LABEL}>{field.label}</label>
       {control}
     </div>
+  );
+}
+
+/** Sinh hiệu CHỈ XEM trên đầu phiếu (S0-3, 18/09/2026). Đo và sửa ở màn Đo
+ *  sinh hiệu; phiếu chuyên khoa không còn ô nhập trùng. */
+function KhoiSinhHieuChiXem({ khoi }: { khoi: KhoiSinhHieu | null }) {
+  if (!khoi) return null;
+  const luc = khoi.luc
+    ? new Date(khoi.luc).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Ho_Chi_Minh",
+      })
+    : null;
+  return (
+    <section className="mb-3 rounded-card border border-line bg-surface-sunken p-3">
+      <h5 className="text-sm font-semibold text-ink">
+        Sinh hiệu
+        <span className="ml-2 text-label font-normal text-ink-muted">
+          {khoi.nguon === "do"
+            ? `từ màn Đo sinh hiệu${luc ? ` · đo lúc ${luc}` : ""} — chỉ xem`
+            : "ghi trên phiếu cũ — chỉ xem"}
+        </span>
+      </h5>
+      {khoi.o.length === 0 ? (
+        <p className="mt-1 text-sm text-ink-muted">Chưa đo sinh hiệu cho lượt này.</p>
+      ) : (
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+          {khoi.o.map((o, i) => (
+            <div key={`${o.nhan}-${i}`} className="flex items-baseline gap-2">
+              <dt className="text-label text-ink-muted">{o.nhan}</dt>
+              <dd className="text-sm font-medium tabular-nums text-ink">{o.gia_tri}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
   );
 }

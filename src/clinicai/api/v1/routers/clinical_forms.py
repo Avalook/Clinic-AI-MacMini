@@ -82,6 +82,9 @@ async def save_clinical_form(
 
 class AndrologyReviewRequest(BaseModel):
     form_data: dict[str, Any] = Field(default_factory=dict)
+    #: Lượt khám — để đọc BMI từ số đo sinh hiệu (S0-3). Kiểu UUID: chuỗi rác
+    #: bị chặn 422 ở đây thay vì thành lỗi ép kiểu 500 trong SQL.
+    visit_id: UUID | None = None
 
 
 @router.post("/clinical-forms/andrology-review")
@@ -100,5 +103,7 @@ async def andrology_review(
     đọc (Notion §13).
     """
     return await AndrologyReviewService(pool).review(
-        identity=identity, form_data=body.form_data
+        identity=identity,
+        form_data=body.form_data,
+        visit_id=str(body.visit_id) if body.visit_id else None,
     )

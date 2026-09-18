@@ -39,5 +39,55 @@ export function sinhHieuTheoKhoaPhieu(m: DongSinhHieu | null): Record<string, st
   return Object.fromEntries(Object.entries(ra).filter(([, v]) => v !== ""));
 }
 
+/** Một dòng trong khối "Sinh hiệu" CHỈ XEM của phiếu chuyên khoa. */
+export interface ONhanSinhHieu {
+  nhan: string;
+  gia_tri: string;
+}
+
+/** Số đo điều dưỡng (vital_measurement) → dòng hiển thị, theo thứ tự trên phiếu. */
+export function sinhHieuHienThi(m: DongSinhHieu | null): ONhanSinhHieu[] {
+  const k = sinhHieuTheoKhoaPhieu(m);
+  return (
+    [
+      ["huyet_ap", "Huyết áp", "mmHg"],
+      ["mach", "Mạch", "lần/phút"],
+      ["nhiet_do", "Nhiệt độ", "°C"],
+      ["nhip_tho", "Nhịp thở", "lần/phút"],
+      ["spo2", "SpO₂", "%"],
+      ["can_nang", "Cân nặng", "kg"],
+      ["chieu_cao", "Chiều cao", "cm"],
+      ["bmi", "BMI", ""],
+      ["muc_do_dau", "Mức độ đau", "/10"],
+    ] as const
+  )
+    .filter(([khoa]) => k[khoa])
+    .map(([khoa, nhan, dv]) => ({ nhan, gia_tri: dv ? `${k[khoa]} ${dv}` : k[khoa] }));
+}
+
+/** Ô sinh hiệu CŨ phiếu chuyên khoa từng tự chứa (trước S0-3, 18/09/2026).
+ *  Chỉ để đọc lại hồ sơ cũ khi lượt ấy không có số đo — không còn ô nhập. */
+const O_SINH_HIEU_PHIEU_CU: readonly (readonly [string, string])[] = [
+  ["huyet_ap", "Huyết áp"],
+  ["kls_huyet_ap", "Huyết áp"],
+  ["nhip_tim", "Nhịp tim"],
+  ["kls_mach", "Mạch"],
+  ["nhiet_do", "Nhiệt độ"],
+  ["nhip_tho", "Nhịp thở"],
+  ["can_nang", "Cân nặng"],
+  ["kls_can_nang", "Cân nặng"],
+  ["kls_chieu_cao", "Chiều cao"],
+  ["bmt", "BMT (ghi tay)"],
+];
+
+export function sinhHieuPhieuCu(formData: Record<string, unknown>): ONhanSinhHieu[] {
+  return O_SINH_HIEU_PHIEU_CU.flatMap(([khoa, nhan]) => {
+    const v = formData[khoa];
+    return v === undefined || v === null || String(v).trim() === ""
+      ? []
+      : [{ nhan, gia_tri: String(v).trim() }];
+  });
+}
+
 export const COT_SINH_HIEU =
   "systolic, diastolic, pulse, temperature, weight_kg, height_cm, respiratory_rate, spo2, bmi, pain_score, created_at";

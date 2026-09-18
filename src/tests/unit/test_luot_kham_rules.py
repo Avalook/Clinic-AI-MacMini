@@ -281,8 +281,15 @@ def test_bmi_tu_tinh_khi_co_can_nang_va_chieu_cao() -> None:
     assert v.bmi == Decimal("21.1")
 
 
-def test_bmi_do_tay_duoc_giu_nguyen() -> None:
-    v, _ = rules.parse_vitals(
-        {"systolic": 118, "diastolic": 76, "weight_kg": 54, "height_cm": 160, "bmi": 22}
+def test_bmi_client_gui_len_bi_bo_qua_luon_tu_tinh() -> None:
+    """S0-3 (18/09/2026): BMI chỉ là số TÍNH RA, không ai nhập tay. Client gửi
+    `bmi` (kể cả số sai như 99) thì backend bỏ qua và tính lại từ cân/cao."""
+    v, loi = rules.parse_vitals(
+        {"systolic": 118, "diastolic": 76, "weight_kg": 54, "height_cm": 160, "bmi": 99}
     )
-    assert v is not None and v.bmi == Decimal("22")
+    assert loi is None and v is not None and v.bmi == Decimal("21.1")
+
+
+def test_bmi_client_gui_ma_thieu_can_hoac_cao_thi_rong() -> None:
+    v, loi = rules.parse_vitals({"systolic": 118, "diastolic": 76, "bmi": 22})
+    assert loi is None and v is not None and v.bmi is None

@@ -18,7 +18,8 @@ import { getFormSchema } from "../../../lib/form-schemas";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import {
   COT_SINH_HIEU,
-  sinhHieuTheoKhoaPhieu,
+  sinhHieuHienThi,
+  sinhHieuPhieuCu,
   type DongSinhHieu,
 } from "@/lib/sinh-hieu-dong-bo";
 
@@ -44,13 +45,12 @@ export async function GET(request: Request) {
     .eq("service_code", serviceCode.toUpperCase())
     .maybeSingle();
 
-  // Ô sinh hiệu của phiếu còn TRỐNG thì điền từ số đo mới nhất của điều dưỡng —
-  // chỉ những khoá phiếu này thật sự có, và không đè thứ bác sĩ/thư ký đã ghi.
-  const formData = { ...((data?.form_data as Record<string, unknown> | null) ?? {}) };
-  const schema = getFormSchema(serviceCode);
-  const khoaPhieu = new Set(
-    (schema?.sections ?? []).flatMap((s) => s.fields.map((f) => f.key)),
-  );
+  // SINH HIỆU LÀ KHỐI RIÊNG, CHỈ XEM (S0-3, 18/09/2026). Trước đó số đo điều
+  // dưỡng được TRỘN vào form_data rồi tự lưu ngược vào phiếu — một số đo nằm
+  // hai nơi, và ô trên phiếu sửa được nên hai nơi lệch nhau. form_data giờ trả
+  // nguyên như đã lưu; phiếu cũ còn ô sinh hiệu thì chỉ đọc lại khi lượt không
+  // có số đo.
+  const formData = (data?.form_data as Record<string, unknown> | null) ?? {};
   const { data: do_ } = await caller
     .from("vital_measurement")
     .select(COT_SINH_HIEU)
@@ -58,16 +58,16 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  for (const [k0, v] of Object.entries(sinhHieuTheoKhoaPhieu((do_ as DongSinhHieu | null) ?? null))) {
-    // Phiếu Nam khoa đặt tiền tố `kls_` (khám lâm sàng) cho cùng các ô.
-    for (const k of [k0, `kls_${k0}`]) {
-      const cu = formData[k];
-      if (khoaPhieu.has(k) && (cu === undefined || cu === null || cu === "")) formData[k] = v;
-    }
-  }
+  const doMoi = (do_ as (DongSinhHieu & { created_at?: string }) | null) ?? null;
+  const tuDo = sinhHieuHienThi(doMoi);
+  const sinh_hieu =
+    tuDo.length > 0
+      ? { nguon: "do", luc: doMoi?.created_at ?? null, o: tuDo }
+      : { nguon: "phieu_cu", luc: null, o: sinhHieuPhieuCu(formData) };
 
   return NextResponse.json({
     form_data: formData,
+    sinh_hieu,
     updated_at: (data?.updated_at as string | null) ?? null,
   });
 }

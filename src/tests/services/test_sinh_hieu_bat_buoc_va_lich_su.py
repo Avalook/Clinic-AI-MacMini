@@ -187,7 +187,8 @@ class TestBonChiSoThem:
                 "diastolic": 80,
                 "respiratory_rate": 18,
                 "spo2": 99,
-                "bmi": "20.9",
+                "weight_kg": 54,
+                "height_cm": 160.7,
                 "pain_score": 3,
             }
         )
@@ -195,6 +196,7 @@ class TestBonChiSoThem:
         assert vitals is not None
         assert vitals.respiratory_rate == 18
         assert vitals.spo2 == 99
+        # BMI là số TÍNH RA từ cân/cao (S0-3), không nhận từ client.
         assert str(vitals.bmi) == "20.9"
         assert vitals.pain_score == 3
 
@@ -212,7 +214,6 @@ class TestBonChiSoThem:
             ("pain_score", 44, "Mức độ đau"),
             ("spo2", 30, "SpO₂"),
             ("respiratory_rate", 200, "Nhịp thở"),
-            ("bmi", 300, "BMI"),
         ],
     )
     def test_ngoai_khoang_bi_chan_bang_cau_doc_duoc(
@@ -235,13 +236,16 @@ class TestBonChiSoThem:
                 "huyet_ap": "118/76",
                 "nhip_tho": 16,
                 "spo2": 98,
-                "bmi": "20.2",
+                "can_nang": 52,
+                "chieu_cao": 160.4,
+                "bmi": "35",
                 "muc_do_dau": 0,
             },
             co_thai=False,
         )
         assert so.respiratory_rate == 16
         assert so.spo2 == 98
+        # Ô "bmi" hồ sơ cũ gửi lên bị bỏ qua — BMI tính lại từ cân/cao (S0-3).
         assert str(so.bmi) == "20.2"
         assert so.pain_score == 0
 

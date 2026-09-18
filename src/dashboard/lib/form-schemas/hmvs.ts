@@ -186,13 +186,9 @@ export const hmvsSchema: FormSchema = {
     {
       title: "Khám lâm sàng tổng quát",
       fields: [
-        { key: "nhip_tim", label: "Nhịp tim", type: "number", unit: "l/p" },
-        { key: "nhiet_do", label: "Nhiệt độ", type: "number", unit: "°C" },
-        { key: "huyet_ap", label: "Huyết áp", type: "text", unit: "mmHg", placeholder: "vd 120/80" },
-        { key: "nhip_tho", label: "Nhịp thở", type: "number", unit: "l/p" },
-        { key: "can_nang", label: "Cân nặng", type: "number", unit: "kg" },
-        // docx ghi "BMT" — //TODO-BS-REVIEW: nhiều khả năng BMI.
-        { key: "bmt", label: "BMT", type: "text" },
+        // Sinh hiệu (mạch, nhiệt độ, huyết áp, nhịp thở, cân nặng, BMI) KHÔNG còn
+        // ô nhập ở phiếu (S0-3, 18/09/2026): đo ở màn Đo sinh hiệu, phiếu hiện
+        // khối chỉ xem. Key cũ trong form_data đã lưu giữ nguyên, không migration.
         { key: "da_niem_mac", label: "Da niêm mạc", type: "text" },
         { key: "tuyen_giap", label: "Tuyến giáp", type: "text" },
         { key: "vu", label: "Vú", type: "text" },
