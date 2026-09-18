@@ -55,7 +55,7 @@ class Pool:
 @pytest.mark.asyncio
 async def test_lich_khong_co_hoac_khac_phong_kham_thi_404() -> None:
     with pytest.raises(NotFoundError):
-        await HoSoKhamService(Pool(None)).doc(identity=_ai(), appointment_id=LICH)  # type: ignore[arg-type]
+        await HoSoKhamService(Pool(None)).doc(identity=_ai(), appointment_id=LICH)
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_moi_cau_doc_deu_khoa_theo_phong_kham() -> None:
     lich = {"clinic_patient_id": "p1", "appointment_id": LICH}
     luot = {"visit_id": "v1"}
     pool = Pool(lich, luot, None, [], [], [], [], [], [])
-    d = await HoSoKhamService(pool).doc(identity=_ai(), appointment_id=LICH)  # type: ignore[arg-type]
+    d = await HoSoKhamService(pool).doc(identity=_ai(), appointment_id=LICH)
 
     assert len(pool.calls) == 9
     for sql, args in pool.calls:
@@ -87,5 +87,5 @@ async def test_moi_cau_doc_deu_khoa_theo_phong_kham() -> None:
 async def test_chua_check_in_thi_van_tra_ho_so_rong() -> None:
     lich = {"clinic_patient_id": "p1", "appointment_id": LICH}
     pool = Pool(lich, None, [], [])
-    d = await HoSoKhamService(pool).doc(identity=_ai(), appointment_id=LICH)  # type: ignore[arg-type]
+    d = await HoSoKhamService(pool).doc(identity=_ai(), appointment_id=LICH)
     assert d["luot"] is None and d["phieu_kham"] == [] and d["chi_dinh"] == []

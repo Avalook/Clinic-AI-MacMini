@@ -669,8 +669,13 @@ exit 0
 DOCKER
   chmod +x "$FAKE_BIN/docker"
 
+  # Repo giả mang ĐÚNG .gitignore của repo thật. Từ 16/09/2026 deploy ghi mốc
+  # vào thư mục ops (mặc định ./.ops-status, bên trong repo). Trên VPS thư mục
+  # ấy được .gitignore che nên cây vẫn sạch; thiếu tệp này thì lần deploy thứ
+  # hai trong bài kiểm bị chặn ở "dirty worktree" trước khi tới phép kiểm ref.
+  cp "$ROOT/.gitignore" "$deploy_repo/.gitignore"
   git -C "$deploy_repo" init -q
-  git -C "$deploy_repo" add scripts/deploy-backend.sh
+  git -C "$deploy_repo" add .gitignore scripts/deploy-backend.sh
   git -C "$deploy_repo" -c user.name=Test -c user.email=test@example.test commit -qm init
   local sha
   sha="$(git -C "$deploy_repo" rev-parse HEAD)"
@@ -804,7 +809,7 @@ import sys
 
 services = json.load(sys.stdin)["services"]
 expected = {
-    "api", "caddy", "cloudflared", "dashboard", "dozzle",
+    "api", "caddy", "cloudflared", "dashboard", "dozzle", "media-quyen",
     "notification-relay", "pos-relay", "rabbitmq", "uptime-kuma", "worker",
 }
 assert set(services) == expected, set(services)

@@ -109,11 +109,6 @@ def has_clinic_scope(sql: str) -> bool:
 # each branch. Parenthesised ORs (`clinic_id = $1 AND (a OR b)`) are unaffected,
 # and a deliberately repeated predicate (`(clinic_id=$1 AND a) OR (clinic_id=$1
 # AND b)`) passes too — only a genuinely unscoped branch is reported.
-WHERE_CLAUSE = re.compile(
-    r"\bWHERE\b(.*?)(?=\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|"
-    r"\bRETURNING\b|\bON\s+CONFLICT\b|\bUNION\b|;|$)",
-    re.IGNORECASE | re.DOTALL,
-)
 
 
 def _split_top_level_or(clause: str) -> list[str]:
@@ -143,11 +138,50 @@ def _split_top_level_or(clause: str) -> list[str]:
     return parts
 
 
+_WHERE_KEYWORD = re.compile(r"\bWHERE\b", re.IGNORECASE)
+_CLAUSE_END = re.compile(
+    r"\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bRETURNING\b|"
+    r"\bON\s+CONFLICT\b|\bUNION\b|;",
+    re.IGNORECASE,
+)
+
+
+def _where_clauses(sql: str) -> list[str]:
+    """Mỗi mệnh đề WHERE, kể cả WHERE trong CTE / truy vấn con.
+
+    18/09/2026: bản cũ dùng một regex WHERE…(?=ORDER BY|…) với finditer — không chồng lấn, và không
+    biết dấu `)` đóng truy vấn con. Với `WITH x AS (… WHERE …) SELECT … WHERE …`
+    mệnh đề của CTE tràn sang câu chính, đếm ngoặc lệch xuống âm: OR có ngoặc
+    bị báo là OR trần (báo động giả) còn OR trần thật thì lọt (bỏ sót). Nay mỗi
+    WHERE lấy tới dấu kết thúc CÙNG TẦNG ngoặc, hoặc tới `)` đóng tầng của nó.
+    """
+    out: list[str] = []
+    for m in _WHERE_KEYWORD.finditer(sql):
+        rest = sql[m.end() :]
+        depth = 0
+        end = len(rest)
+        i = 0
+        while i < len(rest):
+            ch = rest[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth < 0:
+                    end = i
+                    break
+            elif depth == 0 and _CLAUSE_END.match(rest, i):
+                end = i
+                break
+            i += 1
+        out.append(rest[:end])
+    return out
+
+
 def or_bypasses_tenant(sql: str) -> bool:
     """True when some top-level OR branch has no clinic_id predicate."""
     cleaned = SQL_COMMENT.sub("", sql)
-    for match in WHERE_CLAUSE.finditer(cleaned):
-        clause = match.group(1)
+    for clause in _where_clauses(cleaned):
         branches = _split_top_level_or(clause)
         if len(branches) < 2:
             continue

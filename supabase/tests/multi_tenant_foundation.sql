@@ -89,7 +89,11 @@ DECLARE
     -- 78 → 79 (15/09/2026): service_order_draft (20260915000008) — chỉ định
     -- thư ký nhập chờ bác sĩ duyệt.
     -- 79 → 80 (15/09/2026): thu_ky_bac_si (20260915000020).
-    expected_tenant_tables constant integer := 80;
+    -- 80 → 83 (16/09/2026, cập nhật bài kiểm 18/09): vị trí làm việc theo lịch
+    -- Kim Ngưu — vi_tri_lam_viec, staff_vi_tri (20260916000008) và
+    -- vi_tri_dong_ca (20260916000011). Đã kiểm trên prod trước khi nâng số: cả
+    -- ba có clinic_id NOT NULL, FK tới clinic, và clinic_id đứng đầu index.
+    expected_tenant_tables constant integer := 83;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

@@ -275,7 +275,7 @@ def test_thu_ky_hoi_pham_vi_qua_backend(db: list[SqlConn]) -> None:
 async def test_phieu_sieu_am_thu_ky_chi_thay_khach_bac_si_minh() -> None:
     from clinicai.services.ultrasound_board_service import UltrasoundBoardService
 
-    phieu = {
+    phieu: dict[str, object] = {
         "ultrasound_id": "u-1",
         "visit_id": VISIT,
         "appointment_id": None,
