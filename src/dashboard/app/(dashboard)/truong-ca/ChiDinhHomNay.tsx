@@ -25,6 +25,7 @@ interface ChiDinh {
   nguoi_lam: string | null;
   can: string | null;
   vong_doc: string | null;
+  khong_co_phong: boolean;
   chi_dinh_luc: string | null;
   xep_phong_luc: string | null;
   bat_dau_luc: string | null;
@@ -131,6 +132,11 @@ export default function ChiDinhHomNay() {
                     : ""}
                   {c.vong_doc ? ` · ${VONG[c.vong_doc] ?? c.vong_doc}` : ""}
                 </span>
+                {c.khong_co_phong && c.nhom === "can_dieu_phoi" ? (
+                  <span className="block text-xs font-medium text-danger">
+                    Chưa có phòng nào làm dịch vụ này — báo quản lý gán phòng ở Cấu trúc phòng khám.
+                  </span>
+                ) : null}
               </button>
             </li>
           ))}

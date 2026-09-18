@@ -32,13 +32,28 @@ SELECT v.visit_id::text AS visit_id,
   FROM public.visit v
   LEFT JOIN public.staff s ON s.id = v.theo_doi_boi
   LEFT JOIN LATERAL (
+      -- RAIL MỚI (batch pilot 18/09): thủ thuật là `service_order` của node
+      -- thủ thuật — "đã làm" = performed, người làm = performed_by. Bản cũ chỉ
+      -- đọc work_item, nên thủ thuật trên luồng khám mới không bao giờ có hạn
+      -- gọi hỏi thăm. work_item giữ lại cho lượt đời cũ.
       SELECT count(*) > 0 AS co_thu_thuat,
-             max(w.finished_at) FILTER (WHERE w.status = 'COMPLETED') AS xong_luc,
-             array_agg(w.assigned_to::text) FILTER (WHERE w.assigned_to IS NOT NULL)
-                 AS nguoi_lam
-        FROM public.work_item w
-       WHERE w.clinic_id = v.clinic_id AND w.visit_id = v.visit_id
-         AND w.node_code = $3 AND w.status <> 'CANCELLED'
+             max(x.xong) AS xong_luc,
+             array_agg(x.ai) FILTER (WHERE x.ai IS NOT NULL) AS nguoi_lam
+        FROM (
+            SELECT CASE WHEN o.exec_status = 'performed' THEN o.finished_at END
+                       AS xong,
+                   o.performed_by::text AS ai
+              FROM public.service_order o
+             WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
+               AND o.node_code = $3
+               AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
+            UNION ALL
+            SELECT CASE WHEN w.status = 'COMPLETED' THEN w.finished_at END,
+                   w.assigned_to::text
+              FROM public.work_item w
+             WHERE w.clinic_id = v.clinic_id AND w.visit_id = v.visit_id
+               AND w.node_code = $3 AND w.status <> 'CANCELLED'
+        ) x
   ) tt ON TRUE
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
 """

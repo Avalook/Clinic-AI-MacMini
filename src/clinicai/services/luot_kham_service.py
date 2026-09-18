@@ -3076,7 +3076,17 @@ class LuotKhamService:
                      ORDER BY r.round_no DESC LIMIT 1)          AS vong_doc,
                    (SELECT q.need FROM round_requirement q
                      WHERE q.clinic_id = o.clinic_id AND q.service_order_id = o.id
-                     ORDER BY q.created_at DESC LIMIT 1)        AS can
+                     ORDER BY q.created_at DESC LIMIT 1)        AS can,
+                   -- Không phòng nào (kể cả phòng đối tác) làm bước này: chỉ
+                   -- định sẽ kẹt "chờ xếp phòng" mãi — cấu hình, không phải
+                   -- việc trưởng ca tự xoay được.
+                   NOT EXISTS (
+                       SELECT 1 FROM clinic_room_node rn
+                         JOIN clinic_room r2
+                           ON r2.id = rn.room_id AND r2.clinic_id = rn.clinic_id
+                        WHERE rn.clinic_id = o.clinic_id
+                          AND rn.node_code = o.node_code
+                          AND r2.is_active)                     AS khong_co_phong
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p
@@ -3115,6 +3125,7 @@ class LuotKhamService:
                     "nguoi_lam": r["nguoi_lam"],
                     "can": r["can"],
                     "vong_doc": r["vong_doc"],
+                    "khong_co_phong": bool(r["khong_co_phong"]),
                     "chi_dinh_luc": _iso(r["authorized_at"] or r["created_at"]),
                     "xep_phong_luc": _iso(r["assigned_at"]),
                     "bat_dau_luc": _iso(r["started_at"]),
