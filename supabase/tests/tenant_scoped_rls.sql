@@ -127,8 +127,10 @@ BEGIN
     -- Bảng service_order_draft (20260915000008) có policy riêng theo vai bác
     -- sĩ/thư ký nên không làm đổi con số này.
     -- 53 → 54 ngày 15/09/2026: thu_ky_bac_si (20260915000020).
-    IF scoped_count <> 54 THEN
-        RAISE EXCEPTION 'expected 54 tenant-scoped read policies, found %', scoped_count;
+    -- 54 → 55 (16/09/2026, cập nhật bài kiểm 18/09): vi_tri_dong_ca_select_own_clinic
+    -- (20260916000011) — qual `clinic_id IN (current_clinic_ids())`, đúng khuôn.
+    IF scoped_count <> 55 THEN
+        RAISE EXCEPTION 'expected 55 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
