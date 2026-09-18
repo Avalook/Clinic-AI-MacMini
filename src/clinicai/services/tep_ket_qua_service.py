@@ -368,6 +368,14 @@ class TepKetQuaService:
             bytes=so_byte,
             by_staff_id=identity.staff_id,
         )
+        if service_order_id:
+            # Kết quả gắn đúng chỉ định → rail mới chạy lại vòng đọc: yêu cầu
+            # "cần kết quả" của chỉ định này có thể vừa đạt (Slice 1).
+            from clinicai.services.luot_kham_service import LuotKhamService
+
+            await LuotKhamService(self._pool).sau_khi_co_ket_qua(
+                order_id=service_order_id, identity=identity
+            )
         # Tệp kết quả (thường của đối tác) vừa lên → báo CSKH + bác sĩ của khách.
         await bao_ket_qua_ve(
             self._pool,

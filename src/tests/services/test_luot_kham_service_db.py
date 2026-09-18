@@ -658,22 +658,7 @@ async def test_sinh_hieu_rac_khong_ghi_gi(kb: KichBan) -> None:
     assert luot["sinh_hieu"] is None and luot["dich"] is None
 
 
-async def test_yeu_cau_co_ket_qua_chua_ho_tro_o_lat_1(kb: KichBan) -> None:
-    phien = await _vao_kham(kb)
-    duyet = await kb.svc.authorize_orders(
-        consultation_id=phien,
-        service_codes=[kb.ma_sa],
-        draft_order_ids=None,
-        identity=kb.bac_si,
-    )
-    with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.complete_consultation(
-            consultation_id=phien,
-            outcome="SERVICES",
-            requirements=[{"order_id": duyet["order_ids"][0], "need": "VALID_RESULT"}],
-            identity=kb.bac_si,
-        )
-    assert e.value.error_code == "NEED_NOT_SUPPORTED_YET"
+# Yêu cầu "có kết quả hợp lệ" đã có từ Slice 1 — xem test_slice1_rail_db.py.
 
 
 # ---------------------------------------------------------------------------

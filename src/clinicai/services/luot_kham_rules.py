@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -54,6 +54,12 @@ def decide_route(
 # ---------------------------------------------------------------------------
 
 NEEDS = frozenset({"PERFORMED", "VALID_RESULT"})
+#: Mức thứ ba khi kết thúc phiên: KHÔNG giữ lượt chờ. Không thành yêu cầu của
+#: vòng đọc mà thành một ``follow_up_case`` có người phụ trách và hạn (Slice 1).
+FOLLOW_UP = "FOLLOW_UP"
+PLAN_NEEDS = NEEDS | {FOLLOW_UP}
+#: Chỉ định đã dừng mà không làm được — yêu cầu trỏ vào nó không bao giờ tự đạt.
+KHONG_THUC_HIEN = frozenset({"not_performed", "cancelled"})
 
 
 @dataclass(frozen=True)
@@ -78,8 +84,27 @@ def requirement_met(req: RequirementView) -> bool:
     return req.has_valid_result
 
 
+def requirement_state(req: RequirementView) -> str:
+    """Một yêu cầu đang ở đâu: ``satisfied`` | ``open`` | ``needs_decision`` |
+    ``waived`` | ``follow_up``.
+
+    ``needs_decision``: chỉ định trỏ tới đã KHÔNG THỰC HIỆN (hay bị huỷ). Nó
+    không bao giờ tự đạt — bác sĩ phải miễn (có lý do) hoặc chuyển theo dõi.
+    """
+    if req.status in ("waived", "follow_up"):
+        return req.status
+    if req.exec_status in KHONG_THUC_HIEN:
+        return "needs_decision"
+    return "satisfied" if requirement_met(req) else "open"
+
+
 def round_ready(reqs: Sequence[RequirementView]) -> bool:
-    """Sẵn sàng khi MỌI yêu cầu đã thoả hoặc được bác sĩ miễn.
+    """Sẵn sàng khi không còn yêu cầu nào đang CHỜ (làm hoặc kết quả).
+
+    Yêu cầu cần bác sĩ quyết (không thực hiện được) KHÔNG giữ vòng lại: khách
+    quay về bác sĩ để bác sĩ quyết, thay vì kẹt mãi ở "đang thu" mà không ai
+    thấy. Nhưng nó cũng không được tính là đạt — ``can_quyet`` chặn đóng vòng
+    cho tới khi bác sĩ quyết.
 
     Tập rỗng KHÔNG BAO GIỜ sẵn sàng (I5). "Mọi phần tử của tập rỗng đều thoả"
     đúng về logic nhưng sai về nghiệp vụ: nó tự sinh một lần gọi bác sĩ không ai
@@ -87,7 +112,62 @@ def round_ready(reqs: Sequence[RequirementView]) -> bool:
     """
     if not reqs:
         return False
-    return all(r.status == "waived" or requirement_met(r) for r in reqs)
+    return all(requirement_state(r) != "open" for r in reqs)
+
+
+def vong_khong_can_doc(reqs: Sequence[RequirementView]) -> bool:
+    """Mọi yêu cầu đã được bác sĩ miễn hoặc chuyển theo dõi: không có gì để đọc.
+
+    Khi ấy vòng đóng luôn, khách không phải quay lại bác sĩ — đúng nghĩa
+    FOLLOW_UP "không giữ lượt chờ". Tập rỗng không tính.
+    """
+    return bool(reqs) and all(
+        requirement_state(r) in ("waived", "follow_up") for r in reqs
+    )
+
+
+def can_quyet(reqs: Sequence[RequirementView]) -> list[str]:
+    """Chỉ định mà bác sĩ còn phải quyết trước khi đóng vòng đọc."""
+    return [r.order_id for r in reqs if requirement_state(r) == "needs_decision"]
+
+
+def need_mac_dinh(*, lam_ben_ngoai: bool | None, flow_group: str | None) -> str:
+    """Mức cần mặc định khi bác sĩ bấm "Đã khám xong" mà không chọn từng dịch vụ.
+
+    Dịch vụ LÀM BÊN NGOÀI (lấy mẫu gửi đối tác, chụp chiếu ngoài) hoặc thuộc
+    nhóm KẾT QUẢ (tinh dịch đồ…) cho ra kết quả SAU khi làm: lấy mẫu xong chưa
+    có gì cho bác sĩ đọc, nên cần kết quả hợp lệ. Thủ thuật, siêu âm, DXA… ra
+    kết quả ngay khi làm: làm xong là đủ.
+    """
+    if lam_ben_ngoai or flow_group == "ket_qua":
+        return "VALID_RESULT"
+    return "PERFORMED"
+
+
+def tach_ke_hoach(
+    items: Iterable[tuple[str, str]],
+) -> tuple[list[tuple[str, str]], list[str]]:
+    """(yêu cầu của vòng đọc, chỉ định chuyển theo dõi) từ kế hoạch bác sĩ chọn."""
+    reqs: list[tuple[str, str]] = []
+    theo_doi: list[str] = []
+    for oid, need in items:
+        if need not in PLAN_NEEDS:
+            raise ValueError(f"need không hợp lệ: {need!r}")
+        if need == FOLLOW_UP:
+            theo_doi.append(oid)
+        else:
+            reqs.append((oid, need))
+    return reqs, theo_doi
+
+
+def doc_han_theo_doi(raw: Any) -> date | None:
+    """Hạn theo dõi dạng YYYY-MM-DD, hoặc None khi rỗng/rác. Không ném."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        return date.fromisoformat(raw.strip()[:10])
+    except ValueError:
+        return None
 
 
 def cyclic_orders(

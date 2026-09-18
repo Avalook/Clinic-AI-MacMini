@@ -100,7 +100,26 @@ class AuthorizeBody(BaseModel):
 
 class RequirementBody(BaseModel):
     order_id: UUID
-    need: Literal["PERFORMED", "VALID_RESULT"]
+    need: Literal["PERFORMED", "VALID_RESULT", "FOLLOW_UP"]
+    # Chỉ với FOLLOW_UP: ai theo dõi, hạn (YYYY-MM-DD), vì sao. Bỏ trống thì
+    # mặc định bác sĩ của phiên và hạn theo luật CSKH CHO_KQ_XN.
+    owner_id: UUID | None = None
+    han: str | None = Field(default=None, max_length=10)
+    ly_do: str | None = Field(default=None, max_length=2000)
+
+
+class KhamXongBody(BaseModel):
+    #: {mã chỉ định: PERFORMED | VALID_RESULT | FOLLOW_UP} — đổi mức mặc định.
+    ke_hoach: dict[UUID, Literal["PERFORMED", "VALID_RESULT", "FOLLOW_UP"]] = Field(
+        default_factory=dict, max_length=30
+    )
+
+
+class QuyetYeuCauBody(BaseModel):
+    hanh_dong: Literal["WAIVE", "FOLLOW_UP"]
+    ly_do: str = Field(min_length=1, max_length=2000)
+    owner_id: UUID | None = None
+    han: str | None = Field(default=None, max_length=10)
 
 
 class CompleteConsultationBody(BaseModel):
@@ -234,6 +253,7 @@ async def goi_khach(
 @router.post("/luot-kham/consultations/{consultation_id}/kham-xong")
 async def kham_xong(
     consultation_id: UUID,
+    body: KhamXongBody | None = None,
     identity: StaffIdentity = Depends(_CONSULT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
@@ -241,6 +261,27 @@ async def kham_xong(
     """Nút "Đã khám xong": máy chủ tự chọn kết quả phiên theo chỉ định còn lại."""
     return await LuotKhamService(pool).kham_xong(
         consultation_id=str(consultation_id),
+        identity=identity,
+        idempotency_key=idempotency_key,
+        ke_hoach={str(k): v for k, v in (body.ke_hoach if body else {}).items()},
+    )
+
+
+@router.post("/luot-kham/yeu-cau/{requirement_id}/quyet")
+async def quyet_yeu_cau(
+    requirement_id: UUID,
+    body: QuyetYeuCauBody,
+    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Bác sĩ miễn hoặc chuyển theo dõi một yêu cầu của vòng đọc kết quả."""
+    return await LuotKhamService(pool).quyet_yeu_cau(
+        requirement_id=str(requirement_id),
+        hanh_dong=body.hanh_dong,
+        ly_do=body.ly_do,
+        owner_id=str(body.owner_id) if body.owner_id else None,
+        han=body.han,
         identity=identity,
         idempotency_key=idempotency_key,
     )
@@ -315,7 +356,14 @@ async def complete_consultation(
         consultation_id=str(consultation_id),
         outcome=body.outcome,
         requirements=[
-            {"order_id": str(r.order_id), "need": r.need} for r in body.requirements
+            {
+                "order_id": str(r.order_id),
+                "need": r.need,
+                "owner_id": str(r.owner_id) if r.owner_id else None,
+                "han": r.han,
+                "ly_do": r.ly_do,
+            }
+            for r in body.requirements
         ],
         identity=identity,
         idempotency_key=idempotency_key,
