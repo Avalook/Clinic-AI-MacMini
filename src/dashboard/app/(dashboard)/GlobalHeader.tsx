@@ -209,7 +209,9 @@ export default function GlobalHeader({
           "Hai lượt gọi: mời đặt lịch trước hẹn 7 ngày, và nhắc đi khám vào sáng ngày hẹn.",
       };
     }
-    if (pathname.startsWith("/appointments")) {
+    // ĐÚNG /appointments — trang con "Chờ xếp bác sĩ" lấy tên nút của nó từ
+    // NAV bên dưới (18/09/2026: startsWith làm nó hiện "Đặt lịch hẹn").
+    if (pathname === "/appointments") {
       return { title: "Đặt lịch hẹn", subtitle: "Chọn khung giờ còn sức chứa và xác nhận lịch cho khách hàng" };
     }
     if (pathname.startsWith("/audit-log")) {

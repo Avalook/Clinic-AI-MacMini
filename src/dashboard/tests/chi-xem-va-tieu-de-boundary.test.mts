@@ -23,6 +23,8 @@ test("trang không có tiêu đề riêng lấy đúng tên nút ở thanh bên"
   const h = read("../app/(dashboard)/GlobalHeader.tsx");
   assert.match(h, /import \{ NAV, navLabelFor \} from "\.\/nav-items"/);
   assert.match(h, /title: navLabelFor\(muc, role\)/);
+  // Nhánh riêng không được nuốt trang con có tên nút khác.
+  assert.doesNotMatch(h, /startsWith\("\/appointments"\)/);
 });
 
 test("tab Toàn cảnh không mang tên thứ hai 'Command Center'", () => {
