@@ -18,6 +18,8 @@ CLINIC = "10000000-0000-0000-0000-000000000001"
 RX = "20000000-0000-0000-0000-000000000001"
 BATCH = "30000000-0000-0000-0000-000000000001"
 STAFF = "40000000-0000-0000-0000-000000000001"
+VISIT = "50000000-0000-0000-0000-000000000001"
+CYCLE = "60000000-0000-0000-0000-000000000001"
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.db]
 
@@ -31,9 +33,21 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
     try:
         await conn.execute(
             """
+            CREATE TEMP TABLE visit (
+                visit_id uuid PRIMARY KEY, clinic_id uuid NOT NULL
+            );
+            -- CP3: cấp phát đòi tiền thuốc đã thu; lần thu cũ (`legacy`) đi
+            -- đúng luồng cấp phát cũ mà file này kiểm.
+            CREATE TEMP TABLE payment_cycle (
+                payment_cycle_id uuid PRIMARY KEY, clinic_id uuid NOT NULL,
+                visit_id uuid NOT NULL, kind text NOT NULL, status text NOT NULL,
+                legacy boolean NOT NULL
+            );
             CREATE TEMP TABLE prescription (
                 id uuid PRIMARY KEY, clinic_id uuid NOT NULL,
-                drug_name_raw text, quantity_num numeric, unit text,
+                visit_id uuid NOT NULL,
+                drug_name_raw text, purchased_qty numeric, drug_catalog_id uuid,
+                quantity_num numeric, unit text,
                 dispensed_qty numeric NOT NULL DEFAULT 0,
                 closed_at timestamptz, refusal_reason text,
                 dispensed_at timestamptz, dispensed_by_staff_id uuid,
@@ -55,7 +69,8 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
             CREATE TEMP TABLE inventory_txn (
                 clinic_id uuid, drug_batch_id uuid, txn_type text,
                 quantity numeric, reason text, ref_type text, ref_id uuid,
-                performed_by_staff_id uuid, performed_at timestamptz
+                performed_by_staff_id uuid, performed_at timestamptz,
+                payment_cycle_id uuid, allocation_id uuid
             );
             CREATE TEMP TABLE event_log (
                 clinic_id uuid, event_type text, aggregate_type text,
@@ -74,10 +89,22 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
             """
         )
         await conn.execute(
-            "INSERT INTO prescription (id, clinic_id, drug_name_raw, "
-            "quantity_num, unit) VALUES ($1::uuid, $2::uuid, 'Thuốc thử', 2, 'hộp')",
+            "INSERT INTO visit VALUES ($1::uuid, $2::uuid)", VISIT, CLINIC
+        )
+        await conn.execute(
+            "INSERT INTO payment_cycle VALUES"
+            " ($1::uuid, $2::uuid, $3::uuid, 'thuoc', 'PAID', true)",
+            CYCLE,
+            CLINIC,
+            VISIT,
+        )
+        await conn.execute(
+            "INSERT INTO prescription (id, clinic_id, visit_id, drug_name_raw, "
+            "quantity_num, unit) VALUES ($1::uuid, $2::uuid, $3::uuid, 'Thuốc thử',"
+            " 2, 'hộp')",
             RX,
             CLINIC,
+            VISIT,
         )
         await conn.execute(
             "INSERT INTO drug_catalog VALUES ($1::uuid, 'Thuốc thử')", BATCH
@@ -102,10 +129,14 @@ def temporary_service(conn: asyncpg.Connection) -> PharmacyService:
     async def execute(sql: str, *args: Any) -> Any:
         return await conn.execute(sql.replace("public.", "pg_temp."), *args)
 
+    async def fetchval(sql: str, *args: Any) -> Any:
+        return await conn.fetchval(sql.replace("public.", "pg_temp."), *args)
+
     proxy = MagicMock()
     proxy.transaction = conn.transaction
     proxy.fetchrow = AsyncMock(side_effect=fetchrow)
     proxy.execute = AsyncMock(side_effect=execute)
+    proxy.fetchval = AsyncMock(side_effect=fetchval)
     pool = MagicMock()
     pool.acquire.return_value.__aenter__ = AsyncMock(return_value=proxy)
     pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)

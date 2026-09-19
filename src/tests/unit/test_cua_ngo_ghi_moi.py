@@ -82,6 +82,9 @@ class _Conn:
         return _Suot()
 
 
+_LAN_THU_CU = {"payment_cycle_id": "c1", "legacy": True}
+
+
 class _Suot:
     async def __aenter__(self) -> None:
         return None
@@ -276,7 +279,9 @@ class TestCapPhatNoiTruocRangBuoc:
 
     @staticmethod
     def _conn(don: Any, lo: Any) -> _Conn:
-        return _Conn(don, lo)
+        # CP3: tìm lượt → khoá dòng → lần thu thuốc (cũ → luồng cấp phát cũ,
+        # đúng luồng các câu từ chối này thuộc về) → lô.
+        return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo)
 
     @pytest.mark.asyncio
     async def test_cap_qua_so_ke_thi_noi_con_bao_nhieu(self) -> None:
@@ -650,14 +655,17 @@ class TestCapPhatDiTronVen:
     @pytest.mark.asyncio
     async def test_cap_mot_phan_tra_ve_trang_thai_moi(self) -> None:
         conn = _Conn(
+            "v1",
             {  # đơn còn mở, kê 10, đã cấp 0
                 "id": "p1",
+                "visit_id": "v1",
                 "drug_name_raw": "Paracetamol",
                 "quantity_num": 10,
                 "dispensed_qty": 0,
                 "closed_at": None,
                 "refusal_reason": None,
             },
+            _LAN_THU_CU,
             {  # lô còn hàng, còn hạn
                 "id": "b1",
                 "quantity_on_hand": 50,

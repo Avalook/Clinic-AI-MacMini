@@ -63,6 +63,7 @@ def _locked_prescription_matches(
             da_thu_tien
             or (row["dispensed_qty"] or 0) > 0
             or row["closed_at"] is not None
+            or row.get("co_phan_lo")
         ):
             continue
         key = _prescription_key(row["drug_name_raw"], row["quantity"])
@@ -100,8 +101,9 @@ def _locked_prescription_matches(
                 )
             raise ConflictError(
                 f"Thuốc “{row['drug_name_raw']}” ({row['quantity'] or '—'}) "
-                "nhà thuốc đã cấp hoặc đã chốt — không xoá hay đổi số lượng "
-                "được từ bệnh án. Giữ nguyên dòng này; cần đổi thì báo nhà thuốc."
+                "nhà thuốc đã cấp, đã chốt hoặc đã chọn lô — không xoá hay đổi "
+                "số lượng được từ bệnh án. Giữ nguyên dòng này; "
+                "cần đổi thì báo nhà thuốc."
             )
         matches.append((row, item))
     return matches

@@ -21,6 +21,7 @@ import json
 import math
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 import asyncpg
@@ -33,9 +34,20 @@ from clinicai.api.exceptions import (
     ValidationError,
 )
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import pos_outbox
 from clinicai.services.bill_service import HoaDon, tinh_hoa_don
+from clinicai.services.phan_lo_service import (
+    PhanLo,
+    can_theo_hoa_don,
+    dao_ban,
+    gan_lan_thu,
+    ghi_ban,
+    go_va_giu_ke_hoach,
+    khoa_ban_thuoc,
+    van_de_phan_lo,
+)
 
 logger = structlog.get_logger()
 
@@ -188,6 +200,16 @@ class PaymentService:
                     raise ConflictError(
                         "Bác sĩ chưa khám xong lượt này — chưa thể thu tiền"
                     )
+                # CP3: khoá theo đúng thứ tự visit → dòng đơn → phân lô → lô,
+                # TRƯỚC khi chạm payment_cycle / payment.
+                phan_lo: list[PhanLo] = []
+                if kind == "thuoc":
+                    phan_lo = await khoa_ban_thuoc(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        visit_id=visit_id,
+                        payment_cycle_id=None,
+                    )
 
                 cho = await conn.fetchrow(
                     """
@@ -294,6 +316,31 @@ class PaymentService:
                         f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
                     )
                 normalized = hoa_don.tong
+                if kind == "thuoc":
+                    # CP3: thuốc chỉ thu được khi mọi dòng đã có đủ lô, lô còn
+                    # hạn và còn khả dụng — thu xong là bán.
+                    can = await can_theo_hoa_don(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        dong=[
+                            (d.source_id, d.ten, d.so_luong)
+                            for d in hoa_don.dong
+                            if d.source_type == "prescription"
+                        ],
+                    )
+                    phan_lo = [p for p in phan_lo if p.prescription_id in can]
+                    van_de = await van_de_phan_lo(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        can=can,
+                        phan_lo=phan_lo,
+                        da_giu=False,
+                        hom_nay=now_vn().date(),
+                    )
+                    if van_de:
+                        raise ValidationError(
+                            "Chưa thu được tiền thuốc — " + "; ".join(van_de)
+                        )
 
                 cycle_id = str(uuid.uuid4())
                 dien_tu = method in DIEN_TU
@@ -340,6 +387,23 @@ class PaymentService:
                     payment_cycle_id=cycle_id,
                     hoa_don=hoa_don,
                 )
+                if phan_lo:
+                    # Chờ xác minh: phân lô thành phần GIỮ của lần thu này.
+                    # Tiền mặt: PAID ngay → bán luôn, cùng giao dịch.
+                    await gan_lan_thu(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        cycle_id=cycle_id,
+                        phan_lo=phan_lo,
+                    )
+                    if not dien_tu:
+                        await ghi_ban(
+                            conn,
+                            clinic_id=identity.clinic_id,
+                            cycle_id=cycle_id,
+                            staff_id=identity.staff_id,
+                            phan_lo=phan_lo,
+                        )
                 if dien_tu:
                     await _log_payment_event(
                         conn,
@@ -372,12 +436,15 @@ class PaymentService:
         visit_id: str,
         kind: str,
         identity: StaffIdentity,
-    ) -> asyncpg.Record:
+    ) -> tuple[asyncpg.Record, list[PhanLo]]:
         """Khoá lượt rồi khoá ĐÚNG lần thu được nhắm (review CP2 #1).
 
         Không bao giờ tìm "lần thu hiện tại" theo (lượt, loại): một lệnh cũ đến
         muộn phải chạm đúng lần thu nó nhắm — A — chứ không trượt sang B vừa tạo
         sau. Lượt, loại, phòng khám vẫn được kiểm chéo.
+
+        Tiền thuốc (CP3): giữa lượt và lần thu còn khoá dòng đơn → phân lô của
+        lần thu này → lô, đúng thứ tự chung. Trả kèm các phân lô ấy.
         """
         luot = await conn.fetchrow(
             """
@@ -393,10 +460,18 @@ class PaymentService:
         )
         if luot is None:
             raise NotFoundError("Không tìm thấy lượt khám này.")
+        phan_lo: list[PhanLo] = []
+        if kind == "thuoc":
+            phan_lo = await khoa_ban_thuoc(
+                conn,
+                clinic_id=identity.clinic_id,
+                visit_id=visit_id,
+                payment_cycle_id=payment_cycle_id,
+            )
         lan = await conn.fetchrow(
             """
             SELECT payment_cycle_id, status, method, amount, bill_revision,
-                   reference, can_doi_soat, created_by, confirmed_by
+                   reference, can_doi_soat, created_by, confirmed_by, legacy
               FROM payment_cycle
              WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
                AND visit_id = $3::uuid AND kind = $4
@@ -409,7 +484,7 @@ class PaymentService:
         )
         if lan is None:
             raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
-        return lan
+        return lan, phan_lo
 
     async def xac_minh_dien_tu(
         self,
@@ -439,7 +514,7 @@ class PaymentService:
             raise ValidationError("Nhập mã giao dịch ngân hàng (3–100 ký tự).")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                lan = await self._khoa_lan_thu(
+                lan, phan_lo = await self._khoa_lan_thu(
                     conn,
                     payment_cycle_id=payment_cycle_id,
                     visit_id=visit_id,
@@ -472,6 +547,23 @@ class PaymentService:
                     conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
                 )
                 lech = hoa_don.revision != lan["bill_revision"]
+                khong_ban_duoc: list[str] = []
+                if kind == "thuoc" and not lan["legacy"]:
+                    # Phân lô đã GIỮ từ lúc tạo lần chờ, nên bình thường luôn
+                    # bán được. Nếu không (dữ liệu hỏng, lô hết hạn qua đêm):
+                    # tiền thật vẫn ghi đã thu, KHÔNG ghi bán, bật đối soát.
+                    can = await _can_theo_anh_chup(
+                        conn, clinic_id=identity.clinic_id, cycle_id=payment_cycle_id
+                    )
+                    khong_ban_duoc = await van_de_phan_lo(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        can=can,
+                        phan_lo=phan_lo,
+                        da_giu=True,
+                        hom_nay=now_vn().date(),
+                    )
+                can_doi_soat = lech or bool(khong_ban_duoc)
                 payment_id = await _ghi_da_thu(
                     conn,
                     cycle_id=payment_cycle_id,
@@ -496,8 +588,29 @@ class PaymentService:
                     identity.staff_id,
                     ma,
                     payment_id,
-                    lech,
+                    can_doi_soat,
                 )
+                if kind == "thuoc" and not lan["legacy"] and not khong_ban_duoc:
+                    await ghi_ban(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        cycle_id=payment_cycle_id,
+                        staff_id=identity.staff_id,
+                        phan_lo=phan_lo,
+                    )
+                if khong_ban_duoc:
+                    await _log_payment_event(
+                        conn,
+                        event_type="payment.sale_not_applied",
+                        payment_id=payment_id,
+                        payment_cycle_id=payment_cycle_id,
+                        visit_id=visit_id,
+                        kind=kind,
+                        amount=int(lan["amount"]),
+                        identity=identity,
+                        method=lan["method"],
+                        note="; ".join(khong_ban_duoc),
+                    )
                 if lech:
                     await _log_payment_event(
                         conn,
@@ -513,7 +626,7 @@ class PaymentService:
         return {
             "payment_cycle_id": payment_cycle_id,
             "status": "PAID",
-            "can_doi_soat": lech,
+            "can_doi_soat": can_doi_soat,
         }
 
     async def huy_cho_xac_minh(
@@ -534,7 +647,7 @@ class PaymentService:
             raise ValidationError("Lý do huỷ phải có từ 5 đến 500 ký tự")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                lan = await self._khoa_lan_thu(
+                lan, phan_lo = await self._khoa_lan_thu(
                     conn,
                     payment_cycle_id=payment_cycle_id,
                     visit_id=visit_id,
@@ -562,6 +675,14 @@ class PaymentService:
                     payment_cycle_id,
                     identity.staff_id,
                     ly_do,
+                )
+                # Bỏ phần giữ lô của lần chờ; kế hoạch lô chép lại (chưa gắn).
+                await go_va_giu_ke_hoach(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    staff_id=identity.staff_id,
+                    ly_do=f"Huỷ lần chờ xác minh: {ly_do}",
+                    phan_lo=phan_lo,
                 )
                 await _log_payment_event(
                     conn,
@@ -598,7 +719,7 @@ class PaymentService:
             raise ValidationError("Lý do hoàn tác phải có từ 5 đến 500 ký tự")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                lan = await self._khoa_lan_thu(
+                lan, phan_lo = await self._khoa_lan_thu(
                     conn,
                     payment_cycle_id=payment_cycle_id,
                     visit_id=visit_id,
@@ -669,6 +790,29 @@ class PaymentService:
                     identity.staff_id,
                     normalized_reason,
                 )
+                if phan_lo:
+                    # CP3: dòng chưa giao gì → đảo bán đúng một lần; dòng đã
+                    # giao → không tự nhập lại kho, ghi cần xử lý trả thuốc (CP5).
+                    can_tra = await dao_ban(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        cycle_id=payment_cycle_id,
+                        staff_id=identity.staff_id,
+                        ly_do=f"Huỷ phiếu thu: {normalized_reason}",
+                        phan_lo=phan_lo,
+                    )
+                    if can_tra:
+                        await _log_payment_event(
+                            conn,
+                            event_type="payment.drug_return_needed",
+                            payment_id=payment_cycle_id,
+                            payment_cycle_id=payment_cycle_id,
+                            visit_id=visit_id,
+                            kind=kind,
+                            amount=None,
+                            identity=identity,
+                            note=",".join(can_tra),
+                        )
                 # Serialize this void with any relay currently delivering the
                 # invoice for the same payment cycle. If void wins, the pending
                 # invoice becomes DEAD before a stale relay can send it; if relay
@@ -823,6 +967,29 @@ async def _ghi_da_thu(
     return payment_id
 
 
+async def _can_theo_anh_chup(
+    conn: asyncpg.Connection, *, clinic_id: str, cycle_id: str
+) -> dict[str, Any]:
+    """Số phải có lô của lần thu, theo ẢNH CHỤP hoá đơn của chính nó."""
+    dong = await conn.fetch(
+        """
+        SELECT source_id, name_snapshot, quantity FROM public.payment_bill_line
+         WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid
+           AND source_type = 'prescription'
+        """,
+        clinic_id,
+        cycle_id,
+    )
+    return await can_theo_hoa_don(
+        conn,
+        clinic_id=clinic_id,
+        dong=[
+            (str(r["source_id"]), r["name_snapshot"], Decimal(str(r["quantity"])))
+            for r in dong
+        ],
+    )
+
+
 async def _ghi_anh_hoa_don(
     conn: asyncpg.Connection,
     *,
@@ -880,6 +1047,7 @@ async def _log_payment_event(
     original_paid_at: object | None = None,
     method: str | None = None,
     reference: str | None = None,
+    note: str | None = None,
 ) -> None:
     """Append a non-PHI financial audit event in the payment transaction."""
     await conn.execute(
@@ -902,6 +1070,7 @@ async def _log_payment_event(
                 "void_reason": void_reason,
                 "method": method,
                 "reference": reference,
+                "note": note,
                 "original_paid_by_staff_id": original_paid_by_staff_id,
                 "original_paid_at": (
                     original_paid_at.isoformat()

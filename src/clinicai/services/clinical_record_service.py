@@ -820,11 +820,16 @@ class ClinicalRecordService:
 
         cu = await conn.fetch(
             """
-            SELECT id, drug_name_raw, quantity, dispensed_qty, closed_at
-              FROM prescription
-             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-             ORDER BY created_at, id
-               FOR UPDATE
+            SELECT r.id, r.drug_name_raw, r.quantity, r.dispensed_qty, r.closed_at,
+                   -- CP3: nhà thuốc đã chọn lô (kể cả lô đã bỏ — lịch sử) →
+                   -- dòng khoá, không xoá-chèn lại.
+                   EXISTS (SELECT 1 FROM prescription_allocation a
+                            WHERE a.prescription_id = r.id
+                              AND a.clinic_id = r.clinic_id) AS co_phan_lo
+              FROM prescription r
+             WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
+             ORDER BY r.created_at, r.id
+               FOR UPDATE OF r
             """,
             visit_id,
             clinic_id,
@@ -878,9 +883,12 @@ class ClinicalRecordService:
             return  # mọi dòng khoá: chỉ liều dùng/lưu ý được cập nhật ở trên
         await conn.execute(
             """
-            DELETE FROM prescription
-             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-               AND dispensed_qty = 0 AND closed_at IS NULL
+            DELETE FROM prescription r
+             WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
+               AND r.dispensed_qty = 0 AND r.closed_at IS NULL
+               AND NOT EXISTS (SELECT 1 FROM prescription_allocation a
+                                WHERE a.prescription_id = r.id
+                                  AND a.clinic_id = r.clinic_id)
             """,
             visit_id,
             clinic_id,

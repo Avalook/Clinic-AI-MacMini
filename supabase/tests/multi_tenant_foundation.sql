@@ -99,7 +99,10 @@ DECLARE
     -- 84 → 85 (19/09/2026): payment_cycle — sổ các lần thu (20260919000002,
     -- contract tiền–thuốc CP2). clinic_id NOT NULL, FK tới clinic, clinic_id
     -- đứng đầu uq_payment_cycle_mot_lan_song / idx_payment_cycle_ngay.
-    expected_tenant_tables constant integer := 85;
+    -- 85 → 86 (19/09/2026): prescription_allocation — phân lô trước khi thu
+    -- (20260919000003, contract tiền–thuốc CP3). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu mọi index của bảng.
+    expected_tenant_tables constant integer := 86;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

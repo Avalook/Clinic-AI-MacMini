@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 
 import asyncpg
@@ -59,6 +60,11 @@ async def _gia_dv(
 
 @pytest_asyncio.fixture
 async def q(pool: asyncpg.Pool) -> Quay:
+    return await tao_quay(pool)
+
+
+async def tao_quay(pool: asyncpg.Pool) -> Quay:
+    """Một lượt đã khám xong, kèm thu ngân / dược sĩ / bác sĩ riêng."""
     duoi = uuid.uuid4().hex[:8]
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
@@ -168,7 +174,43 @@ async def _hd(q: Quay, kind: str):  # type: ignore[no-untyped-def]
         )
 
 
+async def _nhap_lo(q: Quay, drug: str, so: int = 100, **kw) -> str:  # type: ignore[no-untyped-def]
+    kq = await PharmacyService(q.pool).nhap_lo(
+        identity=q.duoc_si,
+        drug_catalog_id=drug,
+        so_luong=so,
+        batch_code=f"LO-{uuid.uuid4().hex[:10]}",
+        expiry_date=kw.get("han", date(2099, 12, 31)),
+        unit=kw.get("don_vi", "viên"),
+    )
+    return str(kq["drug_batch_id"])
+
+
+async def _du_lo(q: Quay) -> None:
+    """CP3: thu tiền thuốc đòi đủ lô. Chọn lô MỚI (100 viên) cho mọi dòng đã
+    xác định thuốc mà còn thiếu lô — để test CP1/CP2 vẫn chỉ đo đúng điều của
+    chúng."""
+    for r in await q.pool.fetch(
+        "SELECT r.id::text, r.drug_catalog_id::text,"
+        " coalesce(r.purchased_qty, r.quantity_num) - r.dispensed_qty"
+        " - coalesce((SELECT sum(a.quantity) FROM prescription_allocation a"
+        "   WHERE a.prescription_id = r.id AND a.released_at IS NULL), 0) AS thieu"
+        " FROM prescription r WHERE r.visit_id = $1::uuid"
+        " AND r.drug_catalog_id IS NOT NULL AND r.closed_at IS NULL",
+        q.visit_id,
+    ):
+        if r["thieu"] is not None and r["thieu"] > 0:
+            await PharmacyService(q.pool).phan_lo(
+                identity=q.duoc_si,
+                prescription_id=r["id"],
+                drug_batch_id=await _nhap_lo(q, r["drug_catalog_id"]),
+                so_luong=r["thieu"],
+            )
+
+
 async def _thu(q: Quay, kind: str, **kw) -> None:  # type: ignore[no-untyped-def]
+    if kind == "thuoc" and kw.get("du_lo", True):
+        await _du_lo(q)
     await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind=kind,
@@ -557,8 +599,12 @@ async def test_thu_va_doi_thuoc_dong_thoi_khong_ra_hai_su_that(q: Quay) -> None:
         await ph.xac_dinh_thuoc(
             identity=q.duoc_si, prescription_id=rx, drug_catalog_id=a
         )
+        # CP3: lô chọn TRƯỚC khi thu (không phải trong lúc đua) — thu tiền thuốc
+        # đòi đủ lô. Đổi thuốc khi đã có lô thì bị từ chối; bất biến cần đo
+        # vẫn là ảnh chụp và dòng đơn cùng một thuốc.
+        await _du_lo(q)
         await asyncio.gather(
-            _thu(q, "thuoc"),
+            _thu(q, "thuoc", du_lo=False),
             ph.xac_dinh_thuoc(
                 identity=q.duoc_si, prescription_id=rx, drug_catalog_id=b
             ),

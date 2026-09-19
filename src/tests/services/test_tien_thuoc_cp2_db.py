@@ -28,6 +28,7 @@ from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import (
     Quay,
     _don,
+    _du_lo,
     _hd,
     _thu,
     _thuoc,
@@ -135,6 +136,8 @@ async def _rev(q: Quay, kind: str = "dich_vu") -> str:
 
 
 async def _thu_pt(q: Quay, method: str, kind: str = "dich_vu") -> dict[str, Any]:
+    if kind == "thuoc":
+        await _du_lo(q)
     return await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind=kind,

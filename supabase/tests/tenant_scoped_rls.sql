@@ -132,8 +132,10 @@ BEGIN
     -- 55 → 56 (19/09/2026): payment_bill_line_select_own_clinic
     -- (20260919000001) — qual `clinic_id IN (current_clinic_ids())`, chỉ SELECT.
     -- 56 → 57 (19/09/2026): payment_cycle_select_own_clinic (20260919000002).
-    IF scoped_count <> 57 THEN
-        RAISE EXCEPTION 'expected 57 tenant-scoped read policies, found %', scoped_count;
+    -- 57 → 58 (19/09/2026): prescription_allocation_select_own_clinic
+    -- (20260919000003, contract tiền–thuốc CP3).
+    IF scoped_count <> 58 THEN
+        RAISE EXCEPTION 'expected 58 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

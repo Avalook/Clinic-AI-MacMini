@@ -269,3 +269,77 @@ async def khai_so_luong_mua(
         )
     )
     return kq
+
+
+class PhanLoRequest(BaseModel):
+    prescription_id: UUID
+    drug_batch_id: UUID
+    so_luong: float = Field(gt=0)
+
+
+@router.post("/pharmacy/phan-lo")
+async def phan_lo(
+    body: PhanLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chọn lô cho dòng đơn trước khi thu tiền thuốc (contract tiền–thuốc CP3).
+
+    Bấm trùng không tạo hai phân lô: mỗi (dòng đơn, lô) chỉ có một phân lô còn
+    hiệu lực — ép bằng chỉ mục duy nhất ở DB.
+    """
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).phan_lo(
+            identity=identity,
+            prescription_id=str(body.prescription_id),
+            drug_batch_id=str(body.drug_batch_id),
+            so_luong=body.so_luong,
+        )
+    )
+    return kq
+
+
+class BoPhanLoRequest(BaseModel):
+    allocation_id: UUID
+    ly_do: str
+
+
+@router.post("/pharmacy/bo-phan-lo")
+async def bo_phan_lo(
+    body: BoPhanLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ một lô đã chọn, chưa gắn lần thu."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).bo_phan_lo(
+            identity=identity,
+            allocation_id=str(body.allocation_id),
+            ly_do=body.ly_do,
+        )
+    )
+    return kq
+
+
+class DoiLoRequest(BaseModel):
+    allocation_id: UUID
+    drug_batch_id: UUID
+    ly_do: str
+
+
+@router.post("/pharmacy/doi-lo")
+async def doi_lo_khi_cho(
+    body: DoiLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi lô đang giữ cho lần chuyển khoản/QR chờ xác minh."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).doi_lo_khi_cho(
+            identity=identity,
+            allocation_id=str(body.allocation_id),
+            drug_batch_id=str(body.drug_batch_id),
+            ly_do=body.ly_do,
+        )
+    )
+    return kq

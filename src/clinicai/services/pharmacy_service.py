@@ -42,6 +42,8 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import now_vn
+from clinicai.services.phan_lo_service import khoa_lo, so
 
 logger = structlog.get_logger()
 
@@ -270,131 +272,61 @@ class PharmacyService:
         drug_batch_id: str,
         so_luong: Any,
     ) -> dict[str, Any]:
-        """Cấp thuốc cho một dòng đơn. Cấp một phần là chuyện bình thường.
+        """GIAO thuốc cho một dòng đơn (bàn giao vật lý). Giao một phần là bình thường.
 
-        Một thao tác, hai sổ, MỘT GIAO DỊCH: trừ kho và cộng vào số đã cấp của
-        đơn. Tách ra hai lần gọi sẽ có lúc kho trừ rồi mà đơn chưa ghi — và
-        không ai đối soát lại được.
+        Contract tiền–thuốc CP3: thuốc đã BÁN lúc thu tiền thành công. Giao chỉ
+        là thuốc thật rời quầy — ghi DISPENSE (tồn vật lý giảm) gắn đúng phân lô
+        và lần thu, nên lượng khả dụng không giảm lần hai.
 
-        Đơn có đơn vị chỉ cấp từ lô cùng đơn vị; chưa có quy đổi bao bì đã xác
-        minh nên không đoán số viên/hộp. Đơn cũ thiếu đơn vị giữ hành vi cũ:
-        số lượng cấp được hiểu theo đơn vị lô. Đây là giới hạn dữ liệu cũ,
-        không xác nhận rằng số kê và số tồn đã có cùng đơn vị.
+          * Chưa thu tiền thuốc → không giao.
+          * Lần thu cũ (`payment_cycle.legacy`, trước CP3, không có phân lô) →
+            giữ nguyên luồng cũ `_cap_phat_cu`.
+          * Lần thu mới → chỉ giao từ đúng lô đã phân, không vượt phần chưa giao.
+
+        Một thao tác, hai sổ, MỘT GIAO DỊCH: kho và số đã cấp của đơn.
         """
         luong = _so(so_luong, ten="Số lượng cấp")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                # FOR UPDATE: hai dược sĩ cùng bấm trên một đơn thì người sau
-                # đọc được số người trước vừa ghi. Không khoá thì cả hai đọc
-                # cùng một `dispensed_qty` và tổng cấp vượt số kê.
-                don = await conn.fetchrow(
-                    """
-                    SELECT id, drug_name_raw, quantity_num, unit, dispensed_qty,
-                           closed_at, refusal_reason
-                      FROM public.prescription
-                     WHERE id = $1::uuid AND clinic_id = $2::uuid
-                     FOR UPDATE
-                    """,
-                    prescription_id,
-                    identity.clinic_id,
-                )
-                if don is None:
-                    raise NotFoundError("Không tìm thấy dòng thuốc này trong đơn.")
+                # visit → dòng đơn (cùng thứ tự với lần thu / huỷ phiếu).
+                don = await self._khoa_theo_luot(conn, identity, prescription_id)
                 if don["closed_at"] is not None:
                     raise ConflictError(
                         "Dòng thuốc này đã chốt — không cấp thêm được nữa."
                     )
-
-                da_cap = Decimal(str(don["dispensed_qty"] or 0))
-                ke = don["quantity_num"]
-                if ke is not None and da_cap + luong > Decimal(str(ke)):
-                    con = Decimal(str(ke)) - da_cap
-                    raise ValidationError(
-                        f"Đơn kê {ke} {don['drug_name_raw']}, đã cấp {da_cap} — "
-                        f"chỉ còn {con}. Không cấp quá số bác sĩ kê."
-                    )
-
-                lo = await conn.fetchrow(
+                lan = await conn.fetchrow(
                     """
-                    SELECT b.id, b.quantity_on_hand, b.unit, b.expiry_date,
-                           c.name_base
-                      FROM public.drug_batch b
-                      LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id
-                     WHERE b.id = $1::uuid AND b.clinic_id = $2::uuid
-                     FOR UPDATE OF b
+                    SELECT payment_cycle_id::text, legacy FROM public.payment_cycle
+                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                       AND kind = 'thuoc' AND status = 'PAID'
                     """,
-                    drug_batch_id,
                     identity.clinic_id,
+                    don["visit_id"],
                 )
-                if lo is None:
-                    raise NotFoundError("Không tìm thấy lô thuốc này trong kho.")
-
-                don_vi_ke = _don_vi(don.get("unit"))
-                don_vi_lo = _don_vi(lo.get("unit"))
-                if don_vi_ke and don_vi_ke != don_vi_lo:
-                    raise ValidationError(
-                        f"Đơn kê theo đơn vị {don['unit']}, nhưng lô thuốc theo "
-                        f"đơn vị {lo.get('unit') or 'chưa xác định'}. "
-                        "Chọn lô cùng đơn vị hoặc xác nhận lại đơn thuốc; "
-                        "không tự quy đổi hộp, vỉ, viên."
+                if lan is None:
+                    raise ConflictError(
+                        "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
+                        "rồi mới giao thuốc."
                     )
-
-                ton = Decimal(str(lo["quantity_on_hand"] or 0))
-                if ton < luong:
-                    # Nói TRƯỚC ràng buộc `drug_batch_qty_non_negative`. Để
-                    # Postgres từ chối thì dược sĩ đọc được một câu tiếng Anh
-                    # về CHECK constraint và không biết còn bao nhiêu.
-                    raise ValidationError(
-                        f"Lô này chỉ còn {ton} {lo['name_base'] or ''}".rstrip()
-                        + f" — không đủ để cấp {luong}. Chọn lô khác hoặc nhập thêm."
+                if lan["legacy"]:
+                    moi = await self._cap_phat_cu(
+                        conn,
+                        identity=identity,
+                        don=don,
+                        prescription_id=prescription_id,
+                        drug_batch_id=drug_batch_id,
+                        luong=luong,
                     )
-                if lo["expiry_date"] is not None and lo["expiry_date"] < date.today():
-                    raise ValidationError(
-                        f"Lô này hết hạn ngày {lo['expiry_date']:%d/%m/%Y} — "
-                        "không cấp được. Huỷ lô rồi chọn lô khác."
+                else:
+                    moi = await self._giao_theo_phan_lo(
+                        conn,
+                        identity=identity,
+                        prescription_id=prescription_id,
+                        drug_batch_id=drug_batch_id,
+                        cycle_id=lan["payment_cycle_id"],
+                        luong=luong,
                     )
-
-                await self._ghi_so(
-                    conn,
-                    identity=identity,
-                    drug_batch_id=drug_batch_id,
-                    txn_type=CAP,
-                    # DISPENSE mang dấu ÂM (inventory_txn_qty_sign_check).
-                    quantity=-luong,
-                    reason=None,
-                    ref_type="prescription",
-                    ref_id=prescription_id,
-                )
-
-                moi = await conn.fetchrow(
-                    """
-                    UPDATE public.prescription
-                       SET dispensed_qty = dispensed_qty + $3,
-                           dispensed_at = now(),
-                           dispensed_by_staff_id = $4::uuid,
-                           updated_at = now()
-                     WHERE id = $1::uuid AND clinic_id = $2::uuid
-                    RETURNING dispensed_qty, dispense_status
-                    """,
-                    prescription_id,
-                    identity.clinic_id,
-                    luong,
-                    identity.staff_id,
-                )
-                await _log(
-                    conn,
-                    identity=identity,
-                    event_type="pharmacy.dispensed",
-                    aggregate_type="prescription",
-                    aggregate_id=prescription_id,
-                    payload={
-                        "drug_batch_id": drug_batch_id,
-                        "quantity": str(luong),
-                        "dispensed_qty": str(moi["dispensed_qty"]),
-                        "dispense_status": moi["dispense_status"],
-                    },
-                )
 
         logger.info(
             "pharmacy_dispensed",
@@ -407,6 +339,239 @@ class PharmacyService:
             "dispensed_qty": moi["dispensed_qty"],
             "dispense_status": moi["dispense_status"],
         }
+
+    async def _giao_theo_phan_lo(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        prescription_id: str,
+        drug_batch_id: str,
+        cycle_id: str,
+        luong: Decimal,
+    ) -> asyncpg.Record:
+        pl = await conn.fetchrow(
+            """
+            SELECT id::text, quantity, handed_over_qty
+              FROM public.prescription_allocation
+             WHERE clinic_id = $1::uuid AND prescription_id = $2::uuid
+               AND drug_batch_id = $3::uuid AND payment_cycle_id = $4::uuid
+               AND released_at IS NULL
+             FOR UPDATE
+            """,
+            identity.clinic_id,
+            prescription_id,
+            drug_batch_id,
+            cycle_id,
+        )
+        if pl is None:
+            raise ValidationError(
+                "Lô này không nằm trong các lô đã bán cho dòng thuốc này — "
+                "giao đúng lô đã chọn lúc thu tiền."
+            )
+        con = Decimal(str(pl["quantity"])) - Decimal(str(pl["handed_over_qty"]))
+        if luong > con:
+            raise ValidationError(
+                f"Lô này đã bán {so(Decimal(str(pl['quantity'])))}, còn {so(con)} "
+                "chưa giao — "
+                "không giao quá số đã bán."
+            )
+        await khoa_lo(conn, clinic_id=identity.clinic_id, lo_ids=[drug_batch_id])
+        lo = await conn.fetchrow(
+            "SELECT quantity_on_hand, expiry_date FROM public.drug_batch"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            drug_batch_id,
+            identity.clinic_id,
+        )
+        if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
+            raise ValidationError(
+                f"Lô này hết hạn ngày {lo['expiry_date']:%d/%m/%Y} — không giao "
+                "được. Cần xử lý đổi/trả (chưa có trong bản này)."
+            )
+        if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
+            raise ConflictError(
+                f"Trên kệ lô này chỉ còn {lo['quantity_on_hand']} — không khớp số "
+                "đã bán. Cần kiểm kê trước khi giao."
+            )
+        da_ban = await conn.fetchval(
+            """
+            SELECT EXISTS (SELECT 1 FROM public.inventory_txn s
+                            WHERE s.clinic_id = $1::uuid AND s.txn_type = 'SALE'
+                              AND s.allocation_id = $2::uuid
+                              AND s.payment_cycle_id = $3::uuid
+                              AND NOT EXISTS (
+                                  SELECT 1 FROM public.inventory_txn r
+                                   WHERE r.txn_type = 'SALE_REVERSAL'
+                                     AND r.reverses_txn_id = s.id))
+            """,
+            identity.clinic_id,
+            pl["id"],
+            cycle_id,
+        )
+        if not da_ban:
+            raise ConflictError(
+                "Lần thu này chưa ghi bán được cho lô này (đang cần đối soát) — "
+                "chưa giao được."
+            )
+        await self._ghi_so(
+            conn,
+            identity=identity,
+            drug_batch_id=drug_batch_id,
+            txn_type=CAP,
+            quantity=-luong,
+            reason=None,
+            ref_type="prescription",
+            ref_id=prescription_id,
+            payment_cycle_id=cycle_id,
+            allocation_id=pl["id"],
+        )
+        await conn.execute(
+            "UPDATE public.prescription_allocation"
+            " SET handed_over_qty = handed_over_qty + $3"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            pl["id"],
+            identity.clinic_id,
+            luong,
+        )
+        moi = await conn.fetchrow(
+            """
+            UPDATE public.prescription
+               SET dispensed_qty = dispensed_qty + $3,
+                   dispensed_at = now(),
+                   dispensed_by_staff_id = $4::uuid,
+                   updated_at = now()
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+            RETURNING dispensed_qty, dispense_status
+            """,
+            prescription_id,
+            identity.clinic_id,
+            luong,
+            identity.staff_id,
+        )
+        await _log(
+            conn,
+            identity=identity,
+            event_type="pharmacy.dispensed",
+            aggregate_type="prescription",
+            aggregate_id=prescription_id,
+            payload={
+                "drug_batch_id": drug_batch_id,
+                "allocation_id": pl["id"],
+                "payment_cycle_id": cycle_id,
+                "quantity": str(luong),
+                "dispensed_qty": str(moi["dispensed_qty"]),
+                "dispense_status": moi["dispense_status"],
+            },
+        )
+        return moi
+
+    async def _cap_phat_cu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        don: asyncpg.Record,
+        prescription_id: str,
+        drug_batch_id: str,
+        luong: Decimal,
+    ) -> asyncpg.Record:
+        """Luồng cấp phát TRƯỚC CP3, chỉ cho lần thu cũ (`legacy`).
+
+        Đơn có đơn vị chỉ cấp từ lô cùng đơn vị; chưa có quy đổi bao bì đã xác
+        minh nên không đoán số viên/hộp. Đơn cũ thiếu đơn vị giữ hành vi cũ:
+        số lượng cấp được hiểu theo đơn vị lô. Đây là giới hạn dữ liệu cũ,
+        không xác nhận rằng số kê và số tồn đã có cùng đơn vị.
+        """
+        da_cap = Decimal(str(don["dispensed_qty"] or 0))
+        ke = don["quantity_num"]
+        if ke is not None and da_cap + luong > Decimal(str(ke)):
+            con = Decimal(str(ke)) - da_cap
+            raise ValidationError(
+                f"Đơn kê {ke} {don['drug_name_raw']}, đã cấp {da_cap} — "
+                f"chỉ còn {con}. Không cấp quá số bác sĩ kê."
+            )
+
+        lo = await conn.fetchrow(
+            """
+            SELECT b.id, b.quantity_on_hand, b.unit, b.expiry_date,
+                   c.name_base
+              FROM public.drug_batch b
+              LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id
+             WHERE b.id = $1::uuid AND b.clinic_id = $2::uuid
+             FOR UPDATE OF b
+            """,
+            drug_batch_id,
+            identity.clinic_id,
+        )
+        if lo is None:
+            raise NotFoundError("Không tìm thấy lô thuốc này trong kho.")
+
+        don_vi_ke = _don_vi(don.get("unit"))
+        don_vi_lo = _don_vi(lo.get("unit"))
+        if don_vi_ke and don_vi_ke != don_vi_lo:
+            raise ValidationError(
+                f"Đơn kê theo đơn vị {don['unit']}, nhưng lô thuốc theo "
+                f"đơn vị {lo.get('unit') or 'chưa xác định'}. "
+                "Chọn lô cùng đơn vị hoặc xác nhận lại đơn thuốc; "
+                "không tự quy đổi hộp, vỉ, viên."
+            )
+
+        ton = Decimal(str(lo["quantity_on_hand"] or 0))
+        if ton < luong:
+            # Nói TRƯỚC ràng buộc `drug_batch_qty_non_negative`. Để
+            # Postgres từ chối thì dược sĩ đọc được một câu tiếng Anh
+            # về CHECK constraint và không biết còn bao nhiêu.
+            raise ValidationError(
+                f"Lô này chỉ còn {ton} {lo['name_base'] or ''}".rstrip()
+                + f" — không đủ để cấp {luong}. Chọn lô khác hoặc nhập thêm."
+            )
+        if lo["expiry_date"] is not None and lo["expiry_date"] < date.today():
+            raise ValidationError(
+                f"Lô này hết hạn ngày {lo['expiry_date']:%d/%m/%Y} — "
+                "không cấp được. Huỷ lô rồi chọn lô khác."
+            )
+
+        await self._ghi_so(
+            conn,
+            identity=identity,
+            drug_batch_id=drug_batch_id,
+            txn_type=CAP,
+            # DISPENSE mang dấu ÂM (inventory_txn_qty_sign_check).
+            quantity=-luong,
+            reason=None,
+            ref_type="prescription",
+            ref_id=prescription_id,
+        )
+
+        moi = await conn.fetchrow(
+            """
+            UPDATE public.prescription
+               SET dispensed_qty = dispensed_qty + $3,
+                   dispensed_at = now(),
+                   dispensed_by_staff_id = $4::uuid,
+                   updated_at = now()
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+            RETURNING dispensed_qty, dispense_status
+            """,
+            prescription_id,
+            identity.clinic_id,
+            luong,
+            identity.staff_id,
+        )
+        await _log(
+            conn,
+            identity=identity,
+            event_type="pharmacy.dispensed",
+            aggregate_type="prescription",
+            aggregate_id=prescription_id,
+            payload={
+                "drug_batch_id": drug_batch_id,
+                "quantity": str(luong),
+                "dispensed_qty": str(moi["dispensed_qty"]),
+                "dispense_status": moi["dispense_status"],
+            },
+        )
+        return moi
 
     async def xac_dinh_thuoc(
         self,
@@ -430,6 +595,13 @@ class PharmacyService:
                 if Decimal(str(don["dispensed_qty"] or 0)) > 0:
                     raise ConflictError(
                         "Dòng này đã cấp thuốc — không đổi thuốc kho được nữa."
+                    )
+                if str(don["drug_catalog_id"] or "") != str(
+                    drug_catalog_id
+                ) and await self._da_phan_lo(conn, identity, prescription_id):
+                    raise ConflictError(
+                        "Dòng này đã chọn lô — bỏ các lô đã chọn trước khi "
+                        "đổi thuốc kho."
                     )
                 thuoc = await conn.fetchrow(
                     """
@@ -503,6 +675,12 @@ class PharmacyService:
                     raise ValidationError(
                         f"Đã giao {da_giao} — số mua không nhỏ hơn số đã giao."
                     )
+                da_phan = await self._da_phan_lo(conn, identity, prescription_id)
+                if mua < da_phan:
+                    raise ValidationError(
+                        f"Đã chọn lô cho {so(da_phan)} — bỏ bớt lô trước khi "
+                        "giảm số mua."
+                    )
                 await conn.execute(
                     """
                     UPDATE public.prescription
@@ -539,8 +717,10 @@ class PharmacyService:
         Review CP1 #3 (TOCTOU): lần thu khoá `visit` rồi tính hoá đơn; nếu lệnh
         đổi dòng thuốc chỉ khoá `prescription` thì hai giao dịch không chặn nhau
         và có thể commit hai sự thật (đơn = thuốc B, ảnh chụp hoá đơn = thuốc A).
-        Thứ tự khoá DUY NHẤT cho mọi thao tác chạm hoá đơn thuốc:
-            visit → prescription → payment
+        Thứ tự khoá DUY NHẤT cho mọi thao tác chạm hoá đơn thuốc (CP3 thêm
+        phân lô và lô vào giữa — xem phan_lo_service):
+            visit → prescription → prescription_allocation → drug_batch
+                  → payment_cycle / payment
         Không bao giờ khoá ngược (prescription trước visit) — sẽ tắc lẫn nhau.
         """
         vid = await conn.fetchval(
@@ -560,7 +740,7 @@ class PharmacyService:
         don = await conn.fetchrow(
             """
             SELECT id, visit_id, quantity_num, purchased_qty, dispensed_qty,
-                   drug_catalog_id, closed_at
+                   drug_catalog_id, closed_at, drug_name_raw, unit
               FROM public.prescription
              WHERE id = $1::uuid AND clinic_id = $2::uuid
              FOR UPDATE
@@ -686,6 +866,323 @@ class PharmacyService:
             event_type="pharmacy.discarded",
         )
 
+    # ── Phân lô (contract tiền–thuốc CP3) ─────────────────────────────────
+
+    async def phan_lo(
+        self,
+        *,
+        identity: StaffIdentity,
+        prescription_id: str,
+        drug_batch_id: str,
+        so_luong: Any,
+    ) -> dict[str, Any]:
+        """Chọn lô cho dòng đơn TRƯỚC khi thu tiền thuốc. Chưa giữ chỗ.
+
+        Thu tiền thuốc đòi mọi dòng có đủ lô; thu xong là bán đúng các lô này.
+        Hai khách có thể cùng chọn một lô — người thu sau được kiểm lại.
+        """
+        luong = _so(so_luong, ten="Số lượng chọn lô")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                if don["drug_catalog_id"] is None:
+                    raise ValidationError(
+                        "Chưa xác định thuốc trong kho cho dòng này — xác định "
+                        "thuốc trước khi chọn lô."
+                    )
+                if not _don_vi(don["unit"]):
+                    raise ValidationError(
+                        "Chưa xác định đơn vị thuốc được kê; cần xác nhận/chỉnh "
+                        "đơn trước khi chọn lô."
+                    )
+                if don["quantity_num"] is None:
+                    raise ValidationError(
+                        "Chưa xác định số lượng bác sĩ kê cho dòng này — chưa "
+                        "chọn lô được."
+                    )
+                ban = Decimal(
+                    str(
+                        don["purchased_qty"]
+                        if don["purchased_qty"] is not None
+                        else don["quantity_num"]
+                    )
+                )
+                can = ban - Decimal(str(don["dispensed_qty"] or 0))
+                da_phan = await self._da_phan_lo(conn, identity, prescription_id)
+                if da_phan + luong > can:
+                    raise ValidationError(
+                        f"Dòng này cần lô cho {so(can)}, đã chọn {so(da_phan)} — "
+                        "không chọn quá số bán."
+                    )
+                await khoa_lo(
+                    conn, clinic_id=identity.clinic_id, lo_ids=[drug_batch_id]
+                )
+                lo = await self._kiem_lo(
+                    conn, identity, don, drug_batch_id, luong, them_giu=Decimal(0)
+                )
+                try:
+                    pl_id = await conn.fetchval(
+                        """
+                        INSERT INTO public.prescription_allocation
+                            (clinic_id, visit_id, prescription_id, drug_catalog_id,
+                             drug_batch_id, quantity, created_by)
+                        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
+                                $6, $7::uuid)
+                        RETURNING id::text
+                        """,
+                        identity.clinic_id,
+                        don["visit_id"],
+                        prescription_id,
+                        don["drug_catalog_id"],
+                        drug_batch_id,
+                        luong,
+                        identity.staff_id,
+                    )
+                except asyncpg.UniqueViolationError as exc:
+                    raise ConflictError(
+                        f"Dòng này đã chọn lô {lo['batch_code']} — bỏ lô ấy rồi "
+                        "chọn lại với số lượng mới."
+                    ) from exc
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.allocated",
+                    aggregate_type="prescription",
+                    aggregate_id=prescription_id,
+                    payload={
+                        "allocation_id": pl_id,
+                        "drug_batch_id": drug_batch_id,
+                        "quantity": str(luong),
+                    },
+                )
+        return {"ok": True, "allocation_id": pl_id}
+
+    async def bo_phan_lo(
+        self, *, identity: StaffIdentity, allocation_id: str, ly_do: str
+    ) -> dict[str, Any]:
+        """Bỏ một lô đã chọn (chưa gắn lần thu). Dòng giữ lại làm lịch sử."""
+        ly = (ly_do or "").strip()
+        if not ly:
+            raise ValidationError("Bỏ lô đã chọn thì ghi lý do.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                pl = await self._khoa_phan_lo(conn, identity, allocation_id)
+                if pl["released_at"] is not None:
+                    return {"ok": True, "da_bo_tu_truoc": True}
+                if pl["payment_cycle_id"] is not None:
+                    raise ConflictError(
+                        "Lô này đã gắn vào một lần thu — huỷ lần chờ / huỷ phiếu "
+                        "thu, hoặc đổi lô khi đang chờ xác minh."
+                    )
+                await conn.execute(
+                    "UPDATE public.prescription_allocation"
+                    " SET released_at = now(), released_by = $3::uuid,"
+                    " release_reason = $4"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    allocation_id,
+                    identity.clinic_id,
+                    identity.staff_id,
+                    ly,
+                )
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.allocation_released",
+                    aggregate_type="prescription",
+                    aggregate_id=str(pl["prescription_id"]),
+                    payload={"allocation_id": allocation_id, "reason": ly},
+                )
+        return {"ok": True}
+
+    async def doi_lo_khi_cho(
+        self,
+        *,
+        identity: StaffIdentity,
+        allocation_id: str,
+        drug_batch_id: str,
+        ly_do: str,
+    ) -> dict[str, Any]:
+        """Đổi lô ĐANG GIỮ cho một lần chuyển khoản/QR chờ xác minh.
+
+        Chuyển phần giữ sang lô mới trong MỘT giao dịch: cùng thuốc, cùng số
+        lượng, cùng lần thu — hoá đơn tiền không đổi. Lô mới phải còn hạn và đủ
+        khả dụng; không được thì không đổi gì.
+        """
+        ly = (ly_do or "").strip()
+        if not ly:
+            raise ValidationError("Đổi lô thì ghi lý do.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                pl = await self._khoa_phan_lo(conn, identity, allocation_id)
+                if pl["released_at"] is not None:
+                    raise ConflictError("Lô này đã được bỏ/đổi — tải lại.")
+                if str(pl["drug_batch_id"]) == str(drug_batch_id):
+                    return {"ok": True, "allocation_id": allocation_id}
+                await khoa_lo(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    lo_ids=[str(pl["drug_batch_id"]), drug_batch_id],
+                )
+                trang_thai = await conn.fetchval(
+                    "SELECT status FROM public.payment_cycle"
+                    " WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid",
+                    pl["payment_cycle_id"],
+                    identity.clinic_id,
+                )
+                if (
+                    pl["payment_cycle_id"] is None
+                    or trang_thai != "PENDING_VERIFICATION"
+                ):
+                    raise ConflictError(
+                        "Chỉ đổi lô đang giữ cho lần chuyển khoản/QR chờ xác minh."
+                    )
+                don = await conn.fetchrow(
+                    "SELECT id, visit_id, drug_catalog_id, unit"
+                    " FROM public.prescription"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    pl["prescription_id"],
+                    identity.clinic_id,
+                )
+                luong = Decimal(str(pl["quantity"]))
+                await self._kiem_lo(
+                    conn, identity, don, drug_batch_id, luong, them_giu=Decimal(0)
+                )
+                await conn.execute(
+                    "UPDATE public.prescription_allocation"
+                    " SET released_at = now(), released_by = $3::uuid,"
+                    " release_reason = $4"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    allocation_id,
+                    identity.clinic_id,
+                    identity.staff_id,
+                    f"Đổi lô khi chờ xác minh: {ly}",
+                )
+                try:
+                    moi = await conn.fetchval(
+                        """
+                        INSERT INTO public.prescription_allocation
+                            (clinic_id, visit_id, prescription_id, drug_catalog_id,
+                             drug_batch_id, quantity, created_by, payment_cycle_id)
+                        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
+                                $6, $7::uuid, $8::uuid)
+                        RETURNING id::text
+                        """,
+                        identity.clinic_id,
+                        pl["visit_id"],
+                        pl["prescription_id"],
+                        pl["drug_catalog_id"],
+                        drug_batch_id,
+                        luong,
+                        identity.staff_id,
+                        pl["payment_cycle_id"],
+                    )
+                except asyncpg.UniqueViolationError as exc:
+                    raise ConflictError(
+                        "Dòng này đã có lô ấy trong lần thu — chưa hỗ trợ gộp lô."
+                    ) from exc
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.allocation_moved",
+                    aggregate_type="prescription",
+                    aggregate_id=str(pl["prescription_id"]),
+                    payload={
+                        "from_allocation_id": allocation_id,
+                        "to_allocation_id": moi,
+                        "drug_batch_id": drug_batch_id,
+                        "payment_cycle_id": str(pl["payment_cycle_id"]),
+                        "reason": ly,
+                    },
+                )
+        return {"ok": True, "allocation_id": moi}
+
+    async def _khoa_phan_lo(
+        self, conn: asyncpg.Connection, identity: StaffIdentity, allocation_id: str
+    ) -> asyncpg.Record:
+        """visit → dòng đơn → phân lô (đúng thứ tự khoá chung)."""
+        rx = await conn.fetchval(
+            "SELECT prescription_id::text FROM public.prescription_allocation"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            allocation_id,
+            identity.clinic_id,
+        )
+        if rx is None:
+            raise NotFoundError("Không tìm thấy lô đã chọn này.")
+        await self._khoa_theo_luot(conn, identity, rx)
+        pl = await conn.fetchrow(
+            """
+            SELECT id, visit_id, prescription_id, drug_catalog_id, drug_batch_id,
+                   quantity, payment_cycle_id, released_at
+              FROM public.prescription_allocation
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+             FOR UPDATE
+            """,
+            allocation_id,
+            identity.clinic_id,
+        )
+        assert pl is not None
+        return pl
+
+    @staticmethod
+    async def _da_phan_lo(
+        conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
+    ) -> Decimal:
+        return Decimal(
+            str(
+                await conn.fetchval(
+                    "SELECT coalesce(sum(quantity), 0)"
+                    " FROM public.prescription_allocation"
+                    " WHERE clinic_id = $1::uuid AND prescription_id = $2::uuid"
+                    " AND released_at IS NULL",
+                    identity.clinic_id,
+                    prescription_id,
+                )
+            )
+        )
+
+    @staticmethod
+    async def _kiem_lo(
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        don: asyncpg.Record,
+        drug_batch_id: str,
+        luong: Decimal,
+        *,
+        them_giu: Decimal,
+    ) -> asyncpg.Record:
+        """Lô đúng thuốc, đúng đơn vị, còn hạn, đủ khả dụng — nói bằng tiếng Việt
+        trước khi trigger của DB từ chối."""
+        lo = await conn.fetchrow(
+            """
+            SELECT batch_code, drug_catalog_id, unit, expiry_date,
+                   public.drug_batch_kha_dung($2::uuid, id) AS kha_dung
+              FROM public.drug_batch
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+            """,
+            drug_batch_id,
+            identity.clinic_id,
+        )
+        if lo is None:
+            raise NotFoundError("Không tìm thấy lô thuốc này trong kho.")
+        if str(lo["drug_catalog_id"]) != str(don["drug_catalog_id"]):
+            raise ValidationError("Lô này không phải thuốc của dòng đơn.")
+        if _don_vi(lo["unit"]) != _don_vi(don["unit"]):
+            raise ValidationError(
+                f"Đơn kê theo đơn vị {don['unit']}, lô theo đơn vị {lo['unit']} — "
+                "không tự quy đổi hộp, vỉ, viên."
+            )
+        if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
+            raise ValidationError(
+                f"Lô {lo['batch_code']} hết hạn ngày {lo['expiry_date']:%d/%m/%Y}."
+            )
+        kd = Decimal(str(lo["kha_dung"] or 0)) + them_giu
+        if kd < luong:
+            raise ValidationError(
+                f"Lô {lo['batch_code']} chỉ còn {so(max(kd, Decimal(0)))} khả dụng "
+                f"— không đủ {so(luong)}."
+            )
+        return lo
+
     # ── Bên trong ──────────────────────────────────────────────────────────
 
     async def _chot_dong(
@@ -726,6 +1223,19 @@ class PharmacyService:
                     identity.clinic_id,
                     refusal_reason,
                 )
+                if row is not None:
+                    # Dòng đã chốt không bán nữa → bỏ các lô CHƯA gắn lần thu
+                    # (chỉ là kế hoạch, không giữ chỗ). Lô đã bán thì giữ nguyên.
+                    await conn.execute(
+                        "UPDATE public.prescription_allocation"
+                        " SET released_at = now(), released_by = $3::uuid,"
+                        " release_reason = 'Dòng đơn đã chốt'"
+                        " WHERE clinic_id = $1::uuid AND prescription_id = $2::uuid"
+                        " AND released_at IS NULL AND payment_cycle_id IS NULL",
+                        identity.clinic_id,
+                        prescription_id,
+                        identity.staff_id,
+                    )
                 if row is None:
                     # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Không
                     # phải lỗi — nhưng phải nói rõ là KHÔNG CÓ GÌ ĐỔI, chứ không
@@ -825,6 +1335,8 @@ class PharmacyService:
         reason: str | None,
         ref_type: str | None,
         ref_id: str | None,
+        payment_cycle_id: str | None = None,
+        allocation_id: str | None = None,
     ) -> None:
         """Một dòng vào sổ kho. Trigger tự cộng vào tồn của lô.
 
@@ -836,8 +1348,10 @@ class PharmacyService:
             """
             INSERT INTO public.inventory_txn
                 (clinic_id, drug_batch_id, txn_type, quantity, reason,
-                 ref_type, ref_id, performed_by_staff_id, performed_at)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, now())
+                 ref_type, ref_id, performed_by_staff_id, performed_at,
+                 payment_cycle_id, allocation_id)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, now(),
+                    $9::uuid, $10::uuid)
             """,
             identity.clinic_id,
             drug_batch_id,
@@ -847,6 +1361,8 @@ class PharmacyService:
             ref_type,
             ref_id,
             identity.staff_id,
+            payment_cycle_id,
+            allocation_id,
         )
 
     @staticmethod
