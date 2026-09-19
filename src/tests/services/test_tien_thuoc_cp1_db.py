@@ -15,7 +15,12 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from clinicai.api.exceptions import BillChangedError, ConflictError, ValidationError
+from clinicai.api.exceptions import (
+    BillChangedError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.payment_service import PaymentService
@@ -670,3 +675,36 @@ async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
                 q.visit_id,
             )
             await conn.execute("SELECT 1 FROM payment_bill_line LIMIT 1")
+
+
+# ── Review CP1 lần 2: thuốc kho phải CÙNG phòng khám — ép ở DB ─────────────
+
+
+async def test_dong_don_phong_kham_a_khong_tro_thuoc_phong_kham_b(q: Quay) -> None:
+    rx = await _don(q, 10)
+    clinic_b = await q.pool.fetchval(
+        "INSERT INTO clinic (code, name) VALUES ($1, 'Phòng khám B thử')"
+        " RETURNING id::text",
+        f"PK-B-{q.duoi}",
+    )
+    thuoc_b = await q.pool.fetchval(
+        "INSERT INTO drug_catalog (clinic_id, name_base, name_raw, unit_price)"
+        " VALUES ($1::uuid, 'Thuốc của B', 'Thuốc của B', 5000) RETURNING id::text",
+        clinic_b,
+    )
+    # Ghi thẳng SQL — đúng loại đường ghi không đi qua service (service_role
+    # bỏ qua RLS). Khoá ngoại ghép (drug_catalog_id, clinic_id) phải chặn.
+    with pytest.raises(asyncpg.ForeignKeyViolationError):
+        await q.pool.execute(
+            "UPDATE prescription SET drug_catalog_id = $2::uuid,"
+            " drug_mapped_by = $3::uuid, drug_mapped_at = now()"
+            " WHERE id = $1::uuid",
+            rx,
+            thuoc_b,
+            q.duoc_si.staff_id,
+        )
+    # Đường service cũng từ chối (không thấy thuốc trong danh mục của mình).
+    with pytest.raises(NotFoundError):
+        await PharmacyService(q.pool).xac_dinh_thuoc(
+            identity=q.duoc_si, prescription_id=rx, drug_catalog_id=thuoc_b
+        )

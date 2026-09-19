@@ -21,6 +21,30 @@ ALTER TABLE public.prescription
     ADD COLUMN IF NOT EXISTS drug_mapped_at timestamptz,
     ADD COLUMN IF NOT EXISTS purchased_qty numeric;
 
+-- CÙNG PHÒNG KHÁM ép ở DATABASE (review CP1, lần 2): khoá ngoại đơn tới
+-- drug_catalog(id) vẫn cho một dòng đơn của phòng khám A trỏ tới thuốc của
+-- phòng khám B nếu có một đường ghi khác service (service_role bỏ qua RLS).
+-- Cùng mẫu với inventory_txn → drug_batch (20260805000003): neo UNIQUE
+-- (id, clinic_id) rồi khoá ngoại ghép. Cả hai clinic_id đều NOT NULL nên
+-- khoá ghép luôn được kiểm (MATCH SIMPLE không bỏ qua).
+DO $drug_catalog_tenant_anchor$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = 'public.drug_catalog'::regclass
+           AND conname = 'uq_drug_catalog_id_clinic'
+    ) THEN
+        ALTER TABLE public.drug_catalog
+            ADD CONSTRAINT uq_drug_catalog_id_clinic UNIQUE (id, clinic_id);
+    END IF;
+END
+$drug_catalog_tenant_anchor$;
+
+ALTER TABLE public.prescription DROP CONSTRAINT IF EXISTS prescription_drug_same_clinic_fkey;
+ALTER TABLE public.prescription ADD CONSTRAINT prescription_drug_same_clinic_fkey
+    FOREIGN KEY (drug_catalog_id, clinic_id)
+    REFERENCES public.drug_catalog (id, clinic_id) ON DELETE RESTRICT;
+
 ALTER TABLE public.prescription DROP CONSTRAINT IF EXISTS prescription_purchased_qty_check;
 -- Số mua CHỈ tồn tại khi đã biết số bác sĩ kê: chưa biết số kê thì không có
 -- căn cứ nào cho phép bán một con số bất kỳ (review CP1 #1).
