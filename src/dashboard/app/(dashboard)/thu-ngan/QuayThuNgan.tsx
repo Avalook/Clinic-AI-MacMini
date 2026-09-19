@@ -8,6 +8,11 @@
 // Tuyền chốt 16/09: "thu ngân thì cần gì đối soát, nó là thu ngân dịch vụ
 // luôn, hiện các dịch vụ khách đó khám ra và tính tiền là xong á".
 //
+// TIỀN DO MÁY CHỦ TÍNH (contract tiền–thuốc C3, 19/09/2026). Màn này KHÔNG tự
+// cộng nữa: nó hiện `hoa_don` máy chủ dựng (số lượng × đơn giá từng dòng, tổng,
+// lý do chưa thu được) và gửi lại `revision` của đúng hoá đơn ấy. Bản trước
+// cộng đơn giá thuốc mà quên nhân số lượng.
+//
 // GIÁ TRỐNG PHẢI HIỆN RA LÀ TRỐNG, không được hiện thành 0đ. Hôm nay bảng giá
 // mới có 1/39 dịch vụ và 0/80 thuốc có giá (phòng khám chưa gửi bảng giá). Một
 // dòng "0đ" trông như miễn phí; một dòng "chưa có giá" trông như thiếu dữ liệu.
@@ -23,6 +28,25 @@ interface Dong {
   dosage?: string | null;
 }
 
+interface DongHoaDon {
+  source_id: string;
+  ten: string;
+  so_luong: number;
+  don_vi: string | null;
+  don_gia: number | null;
+  thanh_tien: number | null;
+  ben_thu: "CLINIC" | "EXTERNAL_PARTNER";
+  van_de: string | null;
+}
+
+interface HoaDon {
+  tong: number;
+  revision: string;
+  thu_duoc: boolean;
+  van_de: string[];
+  dong: DongHoaDon[];
+}
+
 interface Luot {
   visit_id: string;
   clinic_patient_id: string;
@@ -31,6 +55,7 @@ interface Luot {
   phone: string | null;
   services: Dong[];
   drugs: Dong[];
+  hoa_don?: { dich_vu?: HoaDon; thuoc?: HoaDon };
 }
 
 interface DaThu {
@@ -48,17 +73,6 @@ const MODES: Record<Quay, string> = {
 
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
-}
-
-/** Cộng tiền một nhóm dòng. Trả về cả số dòng CHƯA có giá — xem chú thích đầu tệp. */
-function congDong(ds: Dong[]): { tong: number; thieuGia: number } {
-  let tong = 0;
-  let thieuGia = 0;
-  for (const d of ds) {
-    if (d.price === null || d.price === undefined) thieuGia += 1;
-    else tong += Number(d.price) || 0;
-  }
-  return { tong, thieuGia };
 }
 
 export default function QuayThuNgan({ quay }: { quay: Quay }) {
@@ -109,7 +123,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   }, [doc, nhan]);
 
   const thu = useCallback(
-    async (l: Luot, kind: "dich_vu" | "thuoc", amount: number) => {
+    async (l: Luot, kind: "dich_vu" | "thuoc", hd: HoaDon) => {
       setDangThu(`${l.visit_id}:${kind}`);
       setLoi(null);
       setXong(null);
@@ -121,7 +135,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             visitId: l.visit_id,
             clinicPatientId: l.clinic_patient_id,
             kind,
-            amount,
+            billRevision: hd.revision,
+            amount: hd.tong,
           }),
         });
         const d = (await r.json().catch(() => null)) as
@@ -129,9 +144,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           | null;
         if (!r.ok) {
           setLoi(d?.message ?? d?.error ?? "Không thu được.");
+          // Hoá đơn đổi (BILL_CHANGED) hay bị từ chối: tải lại để thấy số mới.
+          await tai();
           return;
         }
-        setXong(`Đã thu ${tien(amount)} của ${l.full_name ?? "khách"}.`);
+        setXong(`Đã thu ${tien(hd.tong)} của ${l.full_name ?? "khách"}.`);
         await tai();
       } catch {
         setLoi("Mất kết nối — CHƯA thu được khoản này.");
@@ -212,20 +229,20 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             {quay !== "thuoc" && l.services.length > 0 ? (
               <NhomThu
                 tieu_de="Dịch vụ đã khám"
-                dong={l.services}
+                hd={l.hoa_don?.dich_vu}
                 daThu={daThuCua(l.visit_id, "dich_vu")}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
-                onThu={(t) => thu(l, "dich_vu", t)}
+                onThu={(hd) => thu(l, "dich_vu", hd)}
               />
             ) : null}
 
             {quay !== "dich_vu" && l.drugs.length > 0 ? (
               <NhomThu
                 tieu_de="Thuốc đã kê"
-                dong={l.drugs}
+                hd={l.hoa_don?.thuoc}
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
-                onThu={(t) => thu(l, "thuoc", t)}
+                onThu={(hd) => thu(l, "thuoc", hd)}
               />
             ) : null}
           </article>
@@ -237,57 +254,68 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
 function NhomThu({
   tieu_de,
-  dong,
+  hd,
   daThu,
   dangThu,
   onThu,
 }: {
   tieu_de: string;
-  dong: Dong[];
+  hd: HoaDon | undefined;
   daThu: boolean;
   dangThu: boolean;
-  onThu: (tong: number) => void;
+  onThu: (hd: HoaDon) => void;
 }) {
-  const { tong, thieuGia } = congDong(dong);
   return (
     <div className="border-b border-line px-4 py-3 last:border-b-0">
       <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
         {tieu_de}
       </p>
-      <ul className="mt-2 space-y-1">
-        {dong.map((d) => (
-          <li key={d.id} className="flex items-baseline justify-between gap-3">
-            <span className="min-w-0 text-body text-ink">
-              {d.name}
-              {d.quantity ? (
-                <span className="text-ink-muted"> × {d.quantity}</span>
-              ) : null}
-            </span>
-            <span
-              className={
-                d.price === null || d.price === undefined
-                  ? "shrink-0 text-meta text-warning"
-                  : "shrink-0 text-body tabular-nums text-ink"
-              }
-            >
-              {d.price === null || d.price === undefined
-                ? "chưa có giá"
-                : tien(Number(d.price))}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {daThu ? (
+        <p className="mt-2 text-meta text-ink-muted">Khoản này đã thu.</p>
+      ) : !hd ? (
+        <p className="mt-2 text-meta text-ink-muted">Đang tính hoá đơn…</p>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {hd.dong.map((d) => (
+            <li key={d.source_id} className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 text-body text-ink">
+                {d.ten}
+                {d.so_luong !== 1 || d.don_vi ? (
+                  <span className="text-ink-muted">
+                    {" "}
+                    × {d.so_luong.toLocaleString("vi-VN")}
+                    {d.don_vi ? ` ${d.don_vi}` : ""}
+                    {d.don_gia !== null ? ` × ${tien(d.don_gia)}` : ""}
+                  </span>
+                ) : null}
+                {d.ben_thu === "EXTERNAL_PARTNER" ? (
+                  <span className="text-meta text-ink-muted"> · đối tác tự thu, không cộng</span>
+                ) : null}
+              </span>
+              <span
+                className={
+                  d.van_de
+                    ? "shrink-0 text-meta text-warning"
+                    : "shrink-0 text-body tabular-nums text-ink"
+                }
+              >
+                {d.van_de ?? (d.thanh_tien !== null ? tien(d.thanh_tien) : "—")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
         <div>
           <p className="text-body font-semibold text-ink">
-            Tổng: <span className="tabular-nums">{tien(tong)}</span>
+            Tổng: <span className="tabular-nums">{hd ? tien(hd.tong) : "—"}</span>
           </p>
-          {thieuGia > 0 ? (
-            // KHÔNG cho bấm thu khi còn dòng chưa có giá: thu thiếu rồi ghi sổ
-            // là đã thu đủ thì sai lệch ấy không còn chỗ nào lộ ra nữa.
+          {hd && hd.van_de.length > 0 ? (
+            // KHÔNG cho bấm thu khi còn dòng chưa thu được (thiếu giá, giá mâu
+            // thuẫn, chưa xác định thuốc kho): máy chủ cũng từ chối y như vậy.
             <p className="text-meta text-warning">
-              {thieuGia} dòng chưa có giá — chưa thu được. Cần bảng giá của phòng khám.
+              {hd.van_de.length} dòng chưa thu được — xem lý do từng dòng.
             </p>
           ) : null}
         </div>
@@ -298,8 +326,8 @@ function NhomThu({
         ) : (
           <button
             type="button"
-            disabled={dangThu || thieuGia > 0 || tong <= 0}
-            onClick={() => onThu(tong)}
+            disabled={dangThu || !hd || !hd.thu_duoc}
+            onClick={() => hd && onThu(hd)}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             {dangThu ? "Đang thu…" : "Đã nhận đủ"}

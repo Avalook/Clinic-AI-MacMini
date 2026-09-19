@@ -129,8 +129,10 @@ BEGIN
     -- 53 → 54 ngày 15/09/2026: thu_ky_bac_si (20260915000020).
     -- 54 → 55 (16/09/2026, cập nhật bài kiểm 18/09): vi_tri_dong_ca_select_own_clinic
     -- (20260916000011) — qual `clinic_id IN (current_clinic_ids())`, đúng khuôn.
-    IF scoped_count <> 55 THEN
-        RAISE EXCEPTION 'expected 55 tenant-scoped read policies, found %', scoped_count;
+    -- 55 → 56 (19/09/2026): payment_bill_line_select_own_clinic
+    -- (20260919000001) — qual `clinic_id IN (current_clinic_ids())`, chỉ SELECT.
+    IF scoped_count <> 56 THEN
+        RAISE EXCEPTION 'expected 56 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

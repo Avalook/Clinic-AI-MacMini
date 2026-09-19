@@ -1,5 +1,6 @@
 // /api/payment — chốt / hoàn tác thu tiền 1 khâu của 1 lượt khám.
-//   POST   { visitId, clinicPatientId?, kind, amount? }  → đánh dấu ĐÃ THU.
+//   POST   { visitId, clinicPatientId?, kind, billRevision?, amount? } → đánh dấu ĐÃ THU.
+//          Số tiền do máy chủ tính (contract tiền–thuốc C3); amount chỉ để đối chiếu.
 //   DELETE { visitId, kind, reason }                     → hoàn tác có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
@@ -29,12 +30,14 @@ export async function POST(request: Request) {
     clinicPatientId?: string;
     kind?: string;
     amount?: number;
+    billRevision?: string;
   };
   return proxyJsonToBackend("POST", "/api/v1/payments", {
     visit_id: p.visitId,
     clinic_patient_id: p.clinicPatientId || null,
     kind: p.kind,
     amount: p.amount,
+    bill_revision: p.billRevision || null,
   });
 }
 

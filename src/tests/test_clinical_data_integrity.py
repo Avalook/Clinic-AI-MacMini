@@ -377,7 +377,9 @@ async def test_payment_rejects_patient_not_owned_by_visit() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("amount", [None, 0, -1, float("nan"), float("inf")])
+# `None` KHÔNG còn ở đây: từ contract tiền–thuốc C3 máy chủ tự tính số tiền,
+# trình duyệt không gửi số cũng được. Số gửi lên mà rác thì vẫn bị từ chối.
+@pytest.mark.parametrize("amount", [0, -1, float("nan"), float("inf")])
 async def test_payment_rejects_invalid_amount_before_touching_db(
     amount: object,
 ) -> None:
@@ -393,6 +395,29 @@ async def test_payment_rejects_invalid_amount_before_touching_db(
         )
 
     pool.acquire.assert_not_called()
+
+
+def _hoa_don_dich_vu(tong: int) -> Any:
+    """Hoá đơn máy chủ một dòng — DB giả của các test này không có bảng giá."""
+    from decimal import Decimal
+
+    from clinicai.services.bill_service import HoaDon, _dong_gia
+
+    return HoaDon(
+        visit_id=VISIT_ID,
+        kind="dich_vu",
+        dong=[
+            _dong_gia(
+                source_type="exam",
+                source_id=f"exam-{VISIT_ID}",
+                ten="Khám",
+                so_luong=Decimal(1),
+                don_vi=None,
+                gia=[Decimal(tong)],
+                ben_thu="CLINIC",
+            )
+        ],
+    )
 
 
 @pytest.mark.asyncio
@@ -411,9 +436,15 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     ]
     enqueue = AsyncMock()
 
-    with patch(
-        "clinicai.services.payment_service.pos_outbox.enqueue",
-        new=enqueue,
+    with (
+        patch(
+            "clinicai.services.payment_service.pos_outbox.enqueue",
+            new=enqueue,
+        ),
+        patch(
+            "clinicai.services.payment_service.tinh_hoa_don",
+            new=AsyncMock(return_value=_hoa_don_dich_vu(100_000)),
+        ),
     ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
@@ -455,7 +486,14 @@ async def test_paid_amount_change_requires_void_first() -> None:
         },
     ]
 
-    with pytest.raises(ConflictError, match="hoàn tác"):
+    # Hoá đơn máy chủ hiện là 120_000đ (DB giả không có bảng giá).
+    with (
+        pytest.raises(ConflictError, match="hoàn tác"),
+        patch(
+            "clinicai.services.payment_service.tinh_hoa_don",
+            new=AsyncMock(return_value=_hoa_don_dich_vu(120_000)),
+        ),
+    ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
             kind="dich_vu",
@@ -486,7 +524,14 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
         },
     ]
 
-    with pytest.raises(ConflictError, match="sai bệnh nhân"):
+    # Hoá đơn máy chủ hiện là 100_000đ (DB giả không có bảng giá).
+    with (
+        pytest.raises(ConflictError, match="sai bệnh nhân"),
+        patch(
+            "clinicai.services.payment_service.tinh_hoa_don",
+            new=AsyncMock(return_value=_hoa_don_dich_vu(100_000)),
+        ),
+    ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
             kind="dich_vu",

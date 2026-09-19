@@ -43,8 +43,11 @@ class PaymentRecordRequest(BaseModel):
 
     visit_id: UUID
     kind: PaymentKind
+    # Chỉ để ĐỐI CHIẾU: máy chủ tự tính tiền (contract tiền–thuốc C3).
     amount: float | None = None
     clinic_patient_id: UUID | None = None
+    # Dấu hoá đơn thu ngân đang nhìn; khác hoá đơn máy chủ → 409 BILL_CHANGED.
+    bill_revision: str | None = Field(default=None, max_length=64)
 
 
 class PaymentVoidRequest(BaseModel):
@@ -84,6 +87,7 @@ async def record_payment(
             clinic_patient_id=(
                 str(body.clinic_patient_id) if body.clinic_patient_id else None
             ),
+            bill_revision=body.bill_revision,
             identity=identity,
         )
         result = {"ok": True}

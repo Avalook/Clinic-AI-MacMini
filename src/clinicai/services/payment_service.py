@@ -25,6 +25,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import (
+    BillChangedError,
     ConflictError,
     NotFoundError,
     ValidationError,
@@ -32,6 +33,7 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import pos_outbox
+from clinicai.services.bill_service import HoaDon, tinh_hoa_don
 
 logger = structlog.get_logger()
 
@@ -103,8 +105,14 @@ class PaymentService:
         amount: object,
         clinic_patient_id: str | None,
         identity: StaffIdentity,
+        bill_revision: str | None = None,
     ) -> None:
         """Upsert a PAID payment for ``(visit_id, kind)``.
+
+        SỐ TIỀN DO MÁY CHỦ TÍNH (contract tiền–thuốc C3, 19/09/2026). Hoá đơn
+        dựng lại trong chính giao dịch này (`bill_service.tinh_hoa_don`);
+        ``amount`` và ``bill_revision`` của trình duyệt chỉ để ĐỐI CHIẾU — lệch
+        thì từ chối (BILL_CHANGED), không bao giờ ghi số trình duyệt gửi.
 
         Raises SafetyGateError (403) if the kind is not allowed for the role,
         NotFoundError (404) if the visit/appointment is missing, and
@@ -112,9 +120,11 @@ class PaymentService:
         """
         self._assert_kind_allowed(kind, identity)
 
-        normalized = normalize_amount(amount)
-        if normalized is None:
-            raise ValidationError("Số tiền phải là số hữu hạn lớn hơn 0")
+        so_trinh_duyet: int | None = None
+        if amount is not None:
+            so_trinh_duyet = normalize_amount(amount)
+            if so_trinh_duyet is None:
+                raise ValidationError("Số tiền phải là số hữu hạn lớn hơn 0")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -165,6 +175,27 @@ class PaymentService:
                         "Bác sĩ chưa khám xong lượt này — chưa thể thu tiền"
                     )
 
+                hoa_don = await tinh_hoa_don(
+                    conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
+                )
+                if hoa_don.van_de:
+                    raise ValidationError(
+                        "Chưa thu được — " + "; ".join(hoa_don.van_de)
+                    )
+                if hoa_don.tong <= 0:
+                    raise ValidationError("Lượt này không có khoản nào để thu.")
+                if bill_revision is not None and bill_revision != hoa_don.revision:
+                    raise BillChangedError(
+                        "Hoá đơn vừa thay đổi (chỉ định, số lượng hoặc giá) — "
+                        "tải lại rồi thu theo hoá đơn mới."
+                    )
+                if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
+                    raise BillChangedError(
+                        f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
+                        f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
+                    )
+                normalized = hoa_don.tong
+
                 existing_payment = await conn.fetchrow(
                     """
                     SELECT id, status, amount, payment_cycle_id,
@@ -205,10 +236,10 @@ class PaymentService:
                     """
                     INSERT INTO payment (
                         clinic_id, visit_id, clinic_patient_id, kind, status,
-                        amount, paid_by_staff_id, paid_at, updated_at
+                        amount, paid_by_staff_id, paid_at, updated_at, bill_revision
                     )
                     VALUES ($6::uuid, $1::uuid, $2::uuid, $3, 'PAID', $4, $5::uuid,
-                            now(), now())
+                            now(), now(), $7)
                     ON CONFLICT (visit_id, kind) DO UPDATE SET
                         clinic_patient_id = EXCLUDED.clinic_patient_id,
                         amount            = EXCLUDED.amount,
@@ -219,6 +250,7 @@ class PaymentService:
                         voided_at          = NULL,
                         voided_by_staff_id = NULL,
                         void_reason        = NULL,
+                        bill_revision      = EXCLUDED.bill_revision,
                         updated_at        = now()
                     WHERE payment.status = 'VOIDED'
                     RETURNING id, payment_cycle_id
@@ -229,6 +261,7 @@ class PaymentService:
                     normalized,
                     identity.staff_id,
                     identity.clinic_id,
+                    hoa_don.revision,
                 )
                 if payment is None:
                     # A concurrent collector inserted the same unique
@@ -238,6 +271,13 @@ class PaymentService:
                     )
                 payment_id = str(payment["id"])
                 payment_cycle_id = str(payment["payment_cycle_id"])
+                await _ghi_anh_hoa_don(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    payment_id=payment_id,
+                    payment_cycle_id=payment_cycle_id,
+                    hoa_don=hoa_don,
+                )
                 # Transactional outbox (ADR-0010): queued with the payment, so
                 # the push cannot be lost, and pushed later, so an external POS
                 # being down cannot fail the cashier. No adapter is imported
@@ -385,6 +425,47 @@ class PaymentService:
             kind=kind,
             by_staff_id=identity.staff_id,
         )
+
+
+async def _ghi_anh_hoa_don(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    payment_id: str,
+    payment_cycle_id: str,
+    hoa_don: HoaDon,
+) -> None:
+    """Ảnh chụp từng dòng hoá đơn của LẦN THU này (C4) — chỉ thêm, bất biến."""
+    await conn.executemany(
+        """
+        INSERT INTO public.payment_bill_line (
+            clinic_id, payment_id, payment_cycle_id, visit_id, kind,
+            source_type, source_id, name_snapshot, quantity, unit,
+            unit_price, line_total, billing_owner, drug_catalog_id
+        )
+        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14::uuid)
+        """,
+        [
+            (
+                clinic_id,
+                payment_id,
+                payment_cycle_id,
+                hoa_don.visit_id,
+                hoa_don.kind,
+                d.source_type,
+                d.source_id,
+                d.ten,
+                d.so_luong,
+                d.don_vi,
+                d.don_gia if d.don_gia is not None else 0,
+                d.thanh_tien if d.thanh_tien is not None else 0,
+                d.ben_thu,
+                d.drug_catalog_id,
+            )
+            for d in hoa_don.dong
+        ],
+    )
 
 
 async def _log_payment_event(

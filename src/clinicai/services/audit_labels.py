@@ -96,6 +96,8 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",
     "pharmacy.discarded": "Huỷ thuốc",
+    "pharmacy.drug_mapped": "Xác định thuốc kho cho dòng đơn",
+    "pharmacy.purchase_qty_set": "Khai số lượng khách mua",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",

@@ -24,6 +24,15 @@ class ConflictError(ClinicAIBaseException):
     error_code: str = "CONFLICT_ERROR"
 
 
+class BillChangedError(ConflictError):
+    """Hoá đơn máy chủ tính lại khác hoá đơn thu ngân đang nhìn (HTTP 409).
+
+    Contract tiền–thuốc C3: không thu theo số cũ — giao diện phải tải lại.
+    """
+
+    error_code: str = "BILL_CHANGED"
+
+
 class AIDisabledError(ClinicAIBaseException):
     """Tính năng AI chưa bật (thiếu ANTHROPIC_API_KEY) — HTTP 503.
 

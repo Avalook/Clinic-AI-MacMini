@@ -408,6 +408,156 @@ class PharmacyService:
             "dispense_status": moi["dispense_status"],
         }
 
+    async def xac_dinh_thuoc(
+        self,
+        *,
+        identity: StaffIdentity,
+        prescription_id: str,
+        drug_catalog_id: str,
+    ) -> dict[str, Any]:
+        """Gắn dòng đơn với ĐÚNG một thuốc trong danh mục kho (contract C1).
+
+        Bác sĩ kê bằng tên gõ tay; tên không phải bằng chứng thuốc nào trong kho.
+        Chưa gắn thì dòng ấy chưa vào hoá đơn và chưa cấp được — người có quyền
+        nhà thuốc chọn thuốc, hệ thống không đoán theo tên.
+
+        Không đổi được sau khi đã thu tiền thuốc (hoá đơn đã chụp theo thuốc
+        này) hoặc đã cấp (lô đã chọn theo thuốc này).
+        """
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                if Decimal(str(don["dispensed_qty"] or 0)) > 0:
+                    raise ConflictError(
+                        "Dòng này đã cấp thuốc — không đổi thuốc kho được nữa."
+                    )
+                thuoc = await conn.fetchrow(
+                    """
+                    SELECT id, name_base FROM public.drug_catalog
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid AND is_active
+                    """,
+                    drug_catalog_id,
+                    identity.clinic_id,
+                )
+                if thuoc is None:
+                    raise NotFoundError("Không tìm thấy thuốc này trong danh mục kho.")
+                await conn.execute(
+                    """
+                    UPDATE public.prescription
+                       SET drug_catalog_id = $3::uuid, drug_mapped_by = $4::uuid,
+                           drug_mapped_at = now(), updated_at = now()
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                    """,
+                    prescription_id,
+                    identity.clinic_id,
+                    drug_catalog_id,
+                    identity.staff_id,
+                )
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.drug_mapped",
+                    aggregate_type="prescription",
+                    aggregate_id=prescription_id,
+                    payload={
+                        "drug_catalog_id": drug_catalog_id,
+                        "truoc_do": (
+                            str(don["drug_catalog_id"])
+                            if don["drug_catalog_id"]
+                            else None
+                        ),
+                    },
+                )
+        return {"ok": True, "drug_catalog_id": drug_catalog_id}
+
+    async def khai_so_luong_mua(
+        self, *, identity: StaffIdentity, prescription_id: str, so_luong: Any
+    ) -> dict[str, Any]:
+        """Số khách đồng ý mua (contract C2) — khác số kê và số đã giao.
+
+        0 ≤ số mua ≤ số kê, và không nhỏ hơn số đã giao. Mua một phần trên
+        production là HOLD J3 — mô hình hỗ trợ, việc bật cho quầy là quyết định
+        của Dr4Women. Không đổi được sau khi đã thu tiền thuốc.
+        """
+        try:
+            mua = Decimal(str(so_luong))
+        except Exception as exc:  # noqa: BLE001
+            raise ValidationError("Số lượng mua phải là một con số.") from exc
+        if mua < 0:
+            raise ValidationError("Số lượng mua không âm.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                ke = don["quantity_num"]
+                if ke is not None and mua > Decimal(str(ke)):
+                    raise ValidationError(f"Bác sĩ kê {ke} — không bán quá số kê.")
+                da_giao = Decimal(str(don["dispensed_qty"] or 0))
+                if mua < da_giao:
+                    raise ValidationError(
+                        f"Đã giao {da_giao} — số mua không nhỏ hơn số đã giao."
+                    )
+                await conn.execute(
+                    """
+                    UPDATE public.prescription
+                       SET purchased_qty = $3, updated_at = now()
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                    """,
+                    prescription_id,
+                    identity.clinic_id,
+                    mua,
+                )
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.purchase_qty_set",
+                    aggregate_type="prescription",
+                    aggregate_id=prescription_id,
+                    payload={
+                        "purchased_qty": str(mua),
+                        "truoc_do": (
+                            str(don["purchased_qty"])
+                            if don["purchased_qty"] is not None
+                            else None
+                        ),
+                    },
+                )
+        return {"ok": True, "purchased_qty": mua}
+
+    @staticmethod
+    async def _khoa_dong_chua_thu(
+        conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
+    ) -> asyncpg.Record:
+        """Khoá dòng đơn; từ chối nếu dòng đã chốt hoặc tiền thuốc đã thu."""
+        don = await conn.fetchrow(
+            """
+            SELECT id, visit_id, quantity_num, purchased_qty, dispensed_qty,
+                   drug_catalog_id, closed_at
+              FROM public.prescription
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+             FOR UPDATE
+            """,
+            prescription_id,
+            identity.clinic_id,
+        )
+        if don is None:
+            raise NotFoundError("Không tìm thấy dòng thuốc này trong đơn.")
+        if don["closed_at"] is not None:
+            raise ConflictError("Dòng thuốc này đã chốt — không sửa được nữa.")
+        if await conn.fetchval(
+            """
+            SELECT EXISTS (SELECT 1 FROM public.payment
+                            WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                              AND kind = 'thuoc' AND status = 'PAID')
+            """,
+            identity.clinic_id,
+            don["visit_id"],
+        ):
+            raise ConflictError(
+                "Tiền thuốc của lượt này đã thu theo hoá đơn cũ — huỷ phiếu thu "
+                "trước rồi mới sửa dòng thuốc."
+            )
+        return don
+
     async def tu_choi(
         self, *, identity: StaffIdentity, prescription_id: str, ly_do: str
     ) -> dict[str, Any]:

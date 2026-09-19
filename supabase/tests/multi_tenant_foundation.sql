@@ -93,7 +93,10 @@ DECLARE
     -- Kim Ngưu — vi_tri_lam_viec, staff_vi_tri (20260916000008) và
     -- vi_tri_dong_ca (20260916000011). Đã kiểm trên prod trước khi nâng số: cả
     -- ba có clinic_id NOT NULL, FK tới clinic, và clinic_id đứng đầu index.
-    expected_tenant_tables constant integer := 83;
+    -- 83 → 84 (19/09/2026): payment_bill_line — ảnh chụp hoá đơn lúc thu
+    -- (20260919000001, contract tiền–thuốc CP1). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu idx_payment_bill_line_cycle.
+    expected_tenant_tables constant integer := 84;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

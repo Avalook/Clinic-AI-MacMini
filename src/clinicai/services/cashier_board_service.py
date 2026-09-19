@@ -227,7 +227,31 @@ class CashierBoardService:
         row = await self._pool.fetchval(_SQL, identity.clinic_id, start, end)
         raw = json.loads(row) if isinstance(row, str) else row
 
-        return build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        # HOÁ ĐƠN MÁY CHỦ (contract tiền–thuốc C3, 19/09/2026): tổng tiền và
+        # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
+        # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
+        # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
+        from clinicai.services.bill_service import tinh_hoa_don
+
+        da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
+        loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
+        async with self._pool.acquire() as conn:
+            for item in out["items"]:
+                hd: dict[str, Any] = {}
+                for k in loai:
+                    if (item["visit_id"], k) in da_thu:
+                        continue
+                    hd[k] = (
+                        await tinh_hoa_don(
+                            conn,
+                            clinic_id=identity.clinic_id,
+                            visit_id=item["visit_id"],
+                            kind=k,
+                        )
+                    ).cho_api()
+                item["hoa_don"] = hd
+        return out
 
 
 def doc_khoang_ngay(tu: Any, den: Any, *, mac_dinh_ngay: int = 0) -> tuple[date, date]:

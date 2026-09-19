@@ -225,3 +225,47 @@ async def huy(
         so_luong=body.so_luong,
         ly_do=body.ly_do,
     )
+
+
+class XacDinhThuocRequest(BaseModel):
+    prescription_id: UUID
+    drug_catalog_id: UUID
+
+
+@router.post("/pharmacy/xac-dinh-thuoc")
+async def xac_dinh_thuoc(
+    body: XacDinhThuocRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gắn dòng đơn với một thuốc trong danh mục kho (contract tiền–thuốc C1)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).xac_dinh_thuoc(
+            identity=identity,
+            prescription_id=str(body.prescription_id),
+            drug_catalog_id=str(body.drug_catalog_id),
+        )
+    )
+    return kq
+
+
+class SoLuongMuaRequest(BaseModel):
+    prescription_id: UUID
+    so_luong: float = Field(ge=0)
+
+
+@router.post("/pharmacy/so-luong-mua")
+async def khai_so_luong_mua(
+    body: SoLuongMuaRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Số khách đồng ý mua (contract tiền–thuốc C2)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).khai_so_luong_mua(
+            identity=identity,
+            prescription_id=str(body.prescription_id),
+            so_luong=body.so_luong,
+        )
+    )
+    return kq
