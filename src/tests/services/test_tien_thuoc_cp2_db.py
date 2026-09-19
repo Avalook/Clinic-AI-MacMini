@@ -433,6 +433,69 @@ async def test_dung_lai_lich_su_cu_tu_su_kien(q: Quay) -> None:
     } == {(a, "VOIDED"), (b, "PAID")}
 
 
+async def _su_kien_thu_cu(q: Quay, cycle: str, amount: int) -> None:
+    import json
+    import uuid as _uuid
+
+    await q.pool.execute(
+        "INSERT INTO event_log (clinic_id, event_type, aggregate_type,"
+        " aggregate_id, payload, metadata, source, event_published, occurred_at)"
+        " VALUES ($1::uuid, 'payment.recorded', 'payment', $2::uuid, $3::jsonb,"
+        " $4::jsonb, 'test', false, now() - interval '1 day')",
+        CLINIC,
+        str(_uuid.uuid4()),
+        json.dumps(
+            {
+                "visit_id": q.visit_id,
+                "kind": "dich_vu",
+                "payment_cycle_id": cycle,
+                "amount": amount,
+            }
+        ),
+        json.dumps({"clinic_staff_id": q.thu_ngan.staff_id}),
+    )
+
+
+async def _co_lan_thu(q: Quay, cycle: str) -> bool:
+    return bool(
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment_cycle WHERE payment_cycle_id = $1::uuid",
+            cycle,
+        )
+    )
+
+
+async def test_khong_hoi_sinh_lan_thu_cu_khi_lan_moi_da_huy(q: Quay) -> None:
+    import uuid as _uuid
+
+    # Dòng payment hiện tại là lần thu B, và B đã huỷ.
+    b = (await _thu_pt(q, "CASH"))["payment_cycle_id"]
+    await _huy_phieu(q, b)
+    # A cũ chỉ có "đã thu", không có "đã huỷ".
+    a = str(_uuid.uuid4())
+    await _su_kien_thu_cu(q, a, 90000)
+
+    kq = await q.pool.fetchrow("SELECT * FROM payment_cycle_backfill_legacy()")
+    assert not await _co_lan_thu(q, a)
+    assert kq is not None and kq["su_kien_bo_qua"] >= 1
+    assert [c["status"] for c in await _cycles(q)] == ["VOIDED"]
+
+
+async def test_chay_lai_sau_khi_b_huy_van_khong_hoi_sinh_a(q: Quay) -> None:
+    import uuid as _uuid
+
+    b = (await _thu_pt(q, "CASH"))["payment_cycle_id"]
+    a = str(_uuid.uuid4())
+    await _su_kien_thu_cu(q, a, 90000)
+    await q.pool.fetchrow("SELECT * FROM payment_cycle_backfill_legacy()")
+    assert not await _co_lan_thu(q, a)
+
+    await _huy_phieu(q, b)
+    await q.pool.fetchrow("SELECT * FROM payment_cycle_backfill_legacy()")
+    assert not await _co_lan_thu(q, a)
+    assert [c["status"] for c in await _cycles(q)] == ["VOIDED"]
+
+
 async def test_cho_xac_minh_thuoc_cung_khoa_dong_don(q: Quay) -> None:
     rx = await _don(q, 10)
     await PharmacyService(q.pool).xac_dinh_thuoc(

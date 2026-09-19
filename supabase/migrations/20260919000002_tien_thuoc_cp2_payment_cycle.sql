@@ -192,6 +192,21 @@ BEGIN
                     WHERE v.visit_id = g.vid AND v.clinic_id = g.clinic_id)
        AND NOT EXISTS (SELECT 1 FROM public.payment_cycle c
                         WHERE c.payment_cycle_id = g.cid)
+       -- Lần thu chỉ có "đã thu" mà không có "đã huỷ", trong khi cùng (lượt,
+       -- loại) đã có một lần thu KHÁC — ở dòng `payment` hiện tại hay trong sổ,
+       -- kể cả lần đó đã huỷ — là mâu thuẫn: A phải đóng trước khi B mở, nhưng
+       -- không có bằng chứng A đóng thế nào. Không hồi sinh A thành "đã thu",
+       -- bỏ qua và đếm (review CP2, lần 2). Chạy lại sau khi B chuyển VOIDED
+       -- cũng vẫn bị chặn ở đây, không nhờ vào chỉ mục một-lần-sống.
+       AND (h.cid IS NOT NULL OR (
+            NOT EXISTS (SELECT 1 FROM public.payment p
+                         WHERE p.clinic_id = g.clinic_id AND p.visit_id = g.vid
+                           AND p.kind = g.kind
+                           AND p.payment_cycle_id IS DISTINCT FROM g.cid)
+            AND NOT EXISTS (SELECT 1 FROM public.payment_cycle c
+                             WHERE c.clinic_id = g.clinic_id AND c.visit_id = g.vid
+                               AND c.kind = g.kind
+                               AND c.payment_cycle_id <> g.cid)))
      ORDER BY g.occurred_at
     -- Hai lần thu cũ cùng "đang sống" cho một (lượt, loại) là mâu thuẫn trong sổ
     -- — không chọn hộ, bỏ qua và đếm.
