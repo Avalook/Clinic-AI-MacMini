@@ -26,6 +26,8 @@ import {
 interface Props {
   dong: DongDon;
   danhMuc: ThuocDanhMuc[];
+  /** Người xem không có quyền ghi — câu "chưa có thao tác" không nói về giai đoạn. */
+  chiXem?: boolean;
 }
 
 const O_NHAP = `${INPUT} mt-1`;
@@ -40,7 +42,7 @@ function nhanLo(b: LoGoiY): string {
   );
 }
 
-export default function DongThuoc({ dong, danhMuc }: Props) {
+export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   const router = useRouter();
   const tt = dong.thao_tac;
   const [thuocId, setThuocId] = useState(dong.drug_catalog_id ?? "");
@@ -422,7 +424,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
         </div>
       ) : null}
 
-      {khongCoNutNao && !dong.closed ? (
+      {khongCoNutNao && !dong.closed && !chiXem ? (
         <p className="text-meta text-ink-faint">Chưa có thao tác nào ở giai đoạn này.</p>
       ) : null}
 

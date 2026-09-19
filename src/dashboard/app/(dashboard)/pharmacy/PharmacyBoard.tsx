@@ -132,6 +132,11 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
             <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
               {GIAI_DOAN[luot.giai_doan].giai_thich}
             </p>
+            {!man.co_quyen_ghi ? (
+              <p className="text-meta text-ink-muted">
+                Tài khoản của bạn chỉ xem màn Nhà thuốc — không có nút ghi.
+              </p>
+            ) : null}
             <Button className={CHAM} size="sm" variant="ghost" onClick={() => setXemLuot(luot.visit_id)}>
               Xem chi tiết lượt &amp; lịch sử cấp
             </Button>
@@ -152,6 +157,7 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
                 ].join("|")}
                 dong={d}
                 danhMuc={man.danh_muc}
+                chiXem={!man.co_quyen_ghi}
               />
             ))}
           </div>

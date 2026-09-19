@@ -94,6 +94,8 @@ export interface ManNhaThuoc {
   luot: LuotThuoc[];
   danh_muc: ThuocDanhMuc[];
   hom_nay: string;
+  /** Người xem có được ghi ở nhà thuốc không — máy chủ đã AND vào mọi nút. */
+  co_quyen_ghi: boolean;
 }
 
 export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_thich: string }> = {
