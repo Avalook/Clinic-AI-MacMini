@@ -136,8 +136,10 @@ BEGIN
     -- (20260919000003, contract tiền–thuốc CP3).
     -- 58 → 61 (19/09/2026): payment_refund / payment_refund_line / drug_return
     -- _select_own_clinic (20260919000004, contract tiền–thuốc CP5).
-    IF scoped_count <> 61 THEN
-        RAISE EXCEPTION 'expected 61 tenant-scoped read policies, found %', scoped_count;
+    -- 61 → 62 (20/09/2026): prescription_correction_select_own_clinic
+    -- (20260920000002, contract tiền–thuốc CP6 bước 4a).
+    IF scoped_count <> 62 THEN
+        RAISE EXCEPTION 'expected 62 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

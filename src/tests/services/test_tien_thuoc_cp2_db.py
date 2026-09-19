@@ -80,14 +80,32 @@ async def _cac_dong(q: Quay) -> list[asyncpg.Record]:
     )
 
 
-async def test_da_thu_tien_luu_lai_giu_nguyen_dong_chi_doi_lieu_dung(q: Quay) -> None:
+async def test_da_thu_tien_luu_lai_khong_doi_gi_thi_giu_nguyen_dong(q: Quay) -> None:
     rx, sl = await _don_da_thu(q)
-    await _luu_don(
-        q,
-        [{"id": rx, "drug_name": "Thuốc đã thu", "quantity": sl, "dosage": "Sáng 1"}],
-    )
+    await _luu_don(q, [{"id": rx, "drug_name": "Thuốc đã thu", "quantity": sl}])
+    assert [d["id"] for d in await _cac_dong(q)] == [rx]
+
+
+async def test_da_thu_tien_doi_lieu_tai_cho_bi_db_chan(q: Quay) -> None:
+    """CP6 bước 4a (Q2, duyệt 20/09): dòng đã có ảnh chụp hoá đơn là mức C —
+    đổi cả liều dùng cũng phải tạo dòng thay thế, không sửa tại chỗ. Trước CP6
+    liều được sửa tại chỗ; nay DB từ chối. Đường đính chính + câu báo 409 ở
+    service là việc của bước 4b."""
+    rx, sl = await _don_da_thu(q)
+    with pytest.raises(asyncpg.CheckViolationError, match="dòng thay thế"):
+        await _luu_don(
+            q,
+            [
+                {
+                    "id": rx,
+                    "drug_name": "Thuốc đã thu",
+                    "quantity": sl,
+                    "dosage": "Sáng 1",
+                }
+            ],
+        )
     dong = await _cac_dong(q)
-    assert [(d["id"], d["dosage_instructions"]) for d in dong] == [(rx, "Sáng 1")]
+    assert [(d["id"], d["dosage_instructions"]) for d in dong] == [(rx, None)]
 
 
 async def test_da_thu_tien_khong_xoa_dong_duoc(q: Quay) -> None:

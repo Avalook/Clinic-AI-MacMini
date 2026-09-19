@@ -105,7 +105,9 @@ DECLARE
     -- 86 → 89 (19/09/2026): payment_refund, payment_refund_line, drug_return
     -- (20260919000004, contract tiền–thuốc CP5). clinic_id NOT NULL, FK tới
     -- clinic, clinic_id đứng đầu mọi index.
-    expected_tenant_tables constant integer := 89;
+    -- 89 → 90 (20/09/2026): prescription_correction (20260920000002, contract
+    -- tiền–thuốc CP6 bước 4a — một lần bác sĩ đính chính đơn).
+    expected_tenant_tables constant integer := 90;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
