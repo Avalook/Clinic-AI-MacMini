@@ -31,7 +31,7 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
@@ -40,6 +40,13 @@ CHO_XAC_MINH = "CHO_XAC_MINH"
 DA_THU = "DA_THU"
 CAN_DOI_SOAT = "CAN_DOI_SOAT"
 DA_THU_CU = "DA_THU_CU"
+
+#: Vai được GHI ở nhà thuốc — router dùng đúng tập này cho mọi lệnh ghi, và màn
+#: đọc AND nó vào mọi nút (review CP4 P2): người chỉ đọc (thu ngân thuốc,
+#: trưởng ca) thấy dữ liệu nhưng không thấy nút sẽ bị 403.
+VAI_GHI_NHA_THUOC: frozenset[ClinicRole] = frozenset(
+    {ClinicRole.RECEPTION, ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT}
+)
 
 
 def _don_vi(value: str | None) -> str:
@@ -83,11 +90,14 @@ def thao_tac_dong(
     can_lo: Decimal,
     da_chon: Decimal,
     co_phan_lo: bool,
+    so_ban: Decimal | None,
+    co_quyen_ghi: bool = True,
 ) -> dict[str, bool]:
-    """Nút nào được hiện cho một dòng đơn."""
+    """Nút nào được hiện cho một dòng đơn — cùng luật với lệnh ghi ở
+    pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
     mo = not dong_da_chot
     san_sang = gd == SAN_SANG and mo
-    return {
+    nut = {
         "xac_dinh_thuoc": san_sang and da_giao == 0 and not co_phan_lo,
         "khai_so_mua": san_sang and co_so_ke,
         "chon_lo": san_sang
@@ -100,15 +110,28 @@ def thao_tac_dong(
         # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
         # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
         "tu_choi": san_sang,
-        "chot": mo and gd not in (CHUA_SAN_SANG, CHO_XAC_MINH),
+        # Chờ xác minh / cần đối soát: không bao giờ. Đã thu (luồng mới): chỉ
+        # khi đã giao đủ số bán — trước CP5 không có đường xử lý phần còn lại.
+        "chot": mo
+        and (
+            gd in (SAN_SANG, DA_THU_CU)
+            or (gd == DA_THU and so_ban is not None and da_giao >= so_ban)
+        ),
     }
+    return {k: v and co_quyen_ghi for k, v in nut.items()}
 
 
 def thao_tac_phan_lo(
-    *, gd: str, dong_da_chot: bool, gan_lan_thu: bool, da_ban: bool, con_giao: Decimal
+    *,
+    gd: str,
+    dong_da_chot: bool,
+    gan_lan_thu: bool,
+    da_ban: bool,
+    con_giao: Decimal,
+    co_quyen_ghi: bool = True,
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một phân lô (một lô đã chọn của dòng đơn)."""
-    return {
+    nut = {
         "bo": gd == SAN_SANG and not gan_lan_thu and not dong_da_chot,
         "doi": gd == CHO_XAC_MINH and gan_lan_thu,
         "giao": gd == DA_THU
@@ -117,12 +140,14 @@ def thao_tac_phan_lo(
         and con_giao > 0
         and not dong_da_chot,
     }
+    return {k: v and co_quyen_ghi for k, v in nut.items()}
 
 
 async def man_nha_thuoc(
     pool: asyncpg.Pool, *, identity: StaffIdentity
 ) -> dict[str, Any]:
     hom_nay = now_vn().date()
+    co_quyen_ghi = identity.co_vai(VAI_GHI_NHA_THUOC)
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
     async with pool.acquire() as conn:
         dong = await conn.fetch(
@@ -295,11 +320,14 @@ async def man_nha_thuoc(
         )
         g["giai_doan"] = gd
         for r in g.pop("_rows"):
-            g["dong"].append(_dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu))
+            g["dong"].append(
+                _dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu, co_quyen_ghi)
+            )
     return {
         "luot": list(luot.values()),
         "danh_muc": [dict(d) for d in danh_muc],
         "hom_nay": hom_nay.isoformat(),
+        "co_quyen_ghi": co_quyen_ghi,
     }
 
 
@@ -310,6 +338,7 @@ def _dong(
     pl_theo_dong: dict[str, list[asyncpg.Record]],
     lo_theo_thuoc: dict[str, list[asyncpg.Record]],
     lo_cu: list[asyncpg.Record],
+    co_quyen_ghi: bool,
 ) -> dict[str, Any]:
     ke = r["quantity_num"]
     ban = r["purchased_qty"] if r["purchased_qty"] is not None else ke
@@ -343,6 +372,7 @@ def _dong(
                     and p["payment_cycle_id"] == lt.payment_cycle_id,
                     da_ban=bool(p["da_ban"]),
                     con_giao=con,
+                    co_quyen_ghi=co_quyen_ghi,
                 ),
             }
         )
@@ -403,6 +433,8 @@ def _dong(
             can_lo=can_lo,
             da_chon=da_chon,
             co_phan_lo=bool(cac_pl),
+            so_ban=_so(ban) if ban is not None else None,
+            co_quyen_ghi=co_quyen_ghi,
         ),
     }
 

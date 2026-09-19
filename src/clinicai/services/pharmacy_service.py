@@ -592,6 +592,7 @@ class PharmacyService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                await self._bat_buoc_kham_xong(conn, identity, don["visit_id"])
                 if Decimal(str(don["dispensed_qty"] or 0)) > 0:
                     raise ConflictError(
                         "Dòng này đã cấp thuốc — không đổi thuốc kho được nữa."
@@ -660,6 +661,7 @@ class PharmacyService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                await self._bat_buoc_kham_xong(conn, identity, don["visit_id"])
                 ke = don["quantity_num"]
                 if ke is None:
                     # Không biết số kê thì không có căn cứ cho một số mua bất kỳ
@@ -707,6 +709,92 @@ class PharmacyService:
                     },
                 )
         return {"ok": True, "purchased_qty": mua}
+
+    @staticmethod
+    async def _bat_buoc_kham_xong(
+        conn: asyncpg.Connection, identity: StaffIdentity, visit_id: Any
+    ) -> None:
+        """Mọi lệnh làm đổi dòng thuốc chỉ chạy SAU khi bác sĩ bấm Khám xong.
+
+        Review CP4 P1 #1: màn đọc đã "chỉ xem" trước Khám xong, nhưng lệnh gọi
+        thẳng vẫn xác định thuốc / khai số mua / từ chối / chốt được — và chốt
+        hay từ chối cũng khoá dòng khỏi nút Lưu bệnh án khi bác sĩ còn sửa đơn.
+        Muốn "dược sĩ chuẩn bị trước" thì nới ở đây, có chủ ý.
+        """
+        if not await conn.fetchval(
+            """
+            SELECT a.status = 'COMPLETED'
+              FROM public.visit v
+              JOIN public.appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+             WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
+            """,
+            visit_id,
+            identity.clinic_id,
+        ):
+            raise ConflictError(
+                "Bác sĩ chưa bấm Khám xong lượt này — nhà thuốc chỉ xem, chưa "
+                "thao tác được (đơn còn có thể thay đổi)."
+            )
+
+    @staticmethod
+    async def _chot_duoc_khong(
+        conn: asyncpg.Connection, identity: StaffIdentity, don: asyncpg.Record
+    ) -> None:
+        """Chốt "không giao thêm" không được bỏ lại thuốc đã bán chưa giao.
+
+        Review CP4 P1 #2 — trước CP5 (hoàn / trả / đảo) chưa có đường nào xử lý
+        phần đã bán mà không giao, nên:
+          * lần chờ xác minh → không chốt;
+          * đã thu nhưng có phân lô chưa ghi bán được (cần đối soát) → không;
+          * đã thu (luồng mới) → chỉ chốt khi đã giao đủ số bán.
+        Chưa có lần thu, hoặc lần thu cũ (legacy): giữ nghĩa cũ.
+        """
+        lan = await conn.fetchrow(
+            """
+            SELECT payment_cycle_id, status, legacy FROM public.payment_cycle
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND kind = 'thuoc'
+               AND status IN ('PENDING_VERIFICATION', 'PAID')
+            """,
+            identity.clinic_id,
+            don["visit_id"],
+        )
+        if lan is None or lan["legacy"]:
+            return
+        if lan["status"] == "PENDING_VERIFICATION":
+            raise ConflictError(
+                "Tiền thuốc đang chờ xác minh chuyển khoản — chưa chốt dòng được."
+            )
+        if await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM public.prescription_allocation a
+                 WHERE a.clinic_id = $1::uuid AND a.payment_cycle_id = $2::uuid
+                   AND a.released_at IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.inventory_txn s
+                        WHERE s.txn_type = 'SALE' AND s.allocation_id = a.id
+                          AND s.payment_cycle_id = a.payment_cycle_id))
+            """,
+            identity.clinic_id,
+            lan["payment_cycle_id"],
+        ):
+            raise ConflictError(
+                "Lượt này đang cần đối soát (đã nhận tiền, chưa ghi bán được) — "
+                "không chốt dòng; báo quản lý đối soát."
+            )
+        ban = (
+            don["purchased_qty"]
+            if don["purchased_qty"] is not None
+            else (don["quantity_num"])
+        )
+        da_giao = Decimal(str(don["dispensed_qty"] or 0))
+        if ban is None or da_giao < Decimal(str(ban)):
+            raise ConflictError(
+                f"Đã bán {so(Decimal(str(ban or 0)))}, mới giao {so(da_giao)} — "
+                "chưa chốt được: phần đã bán chưa giao cần hoàn tiền / trả thuốc "
+                "(chưa có trong bản này), không đóng dòng để bỏ lại."
+            )
 
     @staticmethod
     async def _khoa_theo_luot(
@@ -885,23 +973,7 @@ class PharmacyService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
-                # CP4: chọn lô khoá dòng đơn khỏi nút Lưu bệnh án — chỉ cho khi
-                # bác sĩ đã bấm Khám xong (cùng mốc với "thu được tiền").
-                if not await conn.fetchval(
-                    """
-                    SELECT a.status = 'COMPLETED'
-                      FROM public.visit v
-                      JOIN public.appointment a
-                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
-                     WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
-                    """,
-                    don["visit_id"],
-                    identity.clinic_id,
-                ):
-                    raise ConflictError(
-                        "Bác sĩ chưa bấm Khám xong lượt này — chưa chọn lô được "
-                        "(đơn còn có thể thay đổi)."
-                    )
+                await self._bat_buoc_kham_xong(conn, identity, don["visit_id"])
                 if don["drug_catalog_id"] is None:
                     raise ValidationError(
                         "Chưa xác định thuốc trong kho cho dòng này — xác định "
@@ -1217,6 +1289,10 @@ class PharmacyService:
                 # (review CP1 #3), và không từ chối dòng đã thu tiền: phải huỷ
                 # phiếu / hoàn tiền trước (contract D).
                 don = await self._khoa_theo_luot(conn, identity, prescription_id)
+                if don["closed_at"] is None:
+                    await self._bat_buoc_kham_xong(conn, identity, don["visit_id"])
+                    if refusal_reason is None:
+                        await self._chot_duoc_khong(conn, identity, don)
                 if (
                     refusal_reason is not None
                     and don["closed_at"] is None

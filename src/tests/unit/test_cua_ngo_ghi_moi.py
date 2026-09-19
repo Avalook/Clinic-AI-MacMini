@@ -168,8 +168,9 @@ class TestChotHaiLanKhongHong:
     @pytest.mark.asyncio
     async def test_chot_lai_dong_da_chot_thi_noi_ro(self) -> None:
         # UPDATE không khớp dòng nào (đã chốt trước đó) → nhưng dòng CÓ tồn tại.
-        # Thứ tự gọi (review CP1 #3): tìm lượt → khoá lượt → khoá dòng → UPDATE.
-        conn = _Conn("v1", {"visit_id": "v1", "closed_at": None}, None, 1)
+        # Thứ tự gọi (review CP1 #3): tìm lượt → khoá lượt → khoá dòng →
+        # (CP4) đã Khám xong → lần thu thuốc (chưa có) → UPDATE.
+        conn = _Conn("v1", {"visit_id": "v1", "closed_at": None}, True, None, None, 1)
         ra = await PharmacyService(_PoolCo(conn)).chot(
             identity=_identity(), prescription_id="p1"
         )
@@ -687,10 +688,11 @@ class TestCapPhatDiTronVen:
 
     @pytest.mark.asyncio
     async def test_tu_choi_tra_ve_dong_da_chot(self) -> None:
-        # tìm lượt → khoá dòng → CHƯA thu tiền thuốc → UPDATE.
+        # tìm lượt → khoá dòng → (CP4) đã Khám xong → CHƯA thu tiền → UPDATE.
         conn = _Conn(
             "v1",
             {"visit_id": "v1", "closed_at": None},
+            True,
             False,
             {"dispensed_qty": 0, "dispense_status": "TU_CHOI"},
         )
@@ -705,7 +707,8 @@ class TestCapPhatDiTronVen:
     @pytest.mark.asyncio
     async def test_chot_lai_dong_da_chot_thi_noi_ro_khong_doi_gi(self) -> None:
         # UPDATE ... AND closed_at IS NULL không khớp dòng nào, nhưng đơn CÓ tồn tại.
-        conn = _Conn("v1", {"visit_id": "v1", "closed_at": None}, None, 1)
+        # (CP4) đã Khám xong → lần thu thuốc (chưa có) → UPDATE.
+        conn = _Conn("v1", {"visit_id": "v1", "closed_at": None}, True, None, None, 1)
         ra = await PharmacyService(_PoolCo(conn)).chot(
             identity=_identity(), prescription_id="p1", ly_do=None
         )

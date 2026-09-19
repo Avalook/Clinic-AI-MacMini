@@ -40,7 +40,8 @@ _DOC = require_role(
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
-_GHI = require_role(ClinicRole.RECEPTION, ClinicRole.PHARMACIST, ClinicRole.MANAGEMENT)
+# Một nguồn duy nhất: màn đọc AND tập này vào mọi nút (review CP4 P2).
+_GHI = require_role(*sorted(ban_thuoc_service.VAI_GHI_NHA_THUOC, key=str))
 
 
 @router.get("/pharmacy/queue")
