@@ -426,8 +426,16 @@ async def test_dung_lai_lich_su_cu_tu_su_kien(q: Quay) -> None:
         )
         == 2
     )
+    # Sự kiện dựng lùi 1–3 giờ: chạy trong 00:00–03:00 giờ VN thì lần thu A
+    # rơi sang HÔM QUA. Đọc từ hôm qua để test không phụ thuộc giờ chạy (đỏ thật
+    # lúc 01:23 ngày 20/09/2026 dù code đúng).
+    from datetime import timedelta
+
+    from clinicai.core.clock import now_vn
+
+    hom_qua = (now_vn().date() - timedelta(days=1)).isoformat()
     lich_su = await CashierBoardService(q.pool).giao_dich(
-        identity=q.thu_ngan, tu=None, den=None
+        identity=q.thu_ngan, tu=hom_qua, den=None
     )
     assert {
         (g["id"], g["trang_thai"])

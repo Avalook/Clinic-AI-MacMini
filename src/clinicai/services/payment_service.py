@@ -59,6 +59,10 @@ PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
 DIEN_TU: frozenset[str] = frozenset({"TRANSFER", "QR"})
 CHO_XAC_MINH = "PENDING_VERIFICATION"
+# Mã nguyên nhân cần đối soát (CP6) — đúng hai mã DB chấp nhận
+# (payment_cycle_doi_soat_ma_hop_le). Thêm mã = thêm vào CHECK cùng lúc.
+DOI_SOAT_HOA_DON_DOI = "HOA_DON_DOI"
+DOI_SOAT_CHUA_GHI_BAN = "CHUA_GHI_BAN"
 MIN_VOID_REASON_LENGTH = 5
 MAX_VOID_REASON_LENGTH = 500
 
@@ -478,7 +482,8 @@ class PaymentService:
         lan = await conn.fetchrow(
             """
             SELECT payment_cycle_id, status, method, amount, bill_revision,
-                   reference, can_doi_soat, created_by, confirmed_by, legacy
+                   reference, can_doi_soat, doi_soat_ly_do, created_by, confirmed_by,
+                   legacy
               FROM payment_cycle
              WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
                AND visit_id = $3::uuid AND kind = $4
@@ -534,6 +539,7 @@ class PaymentService:
                             "payment_cycle_id": payment_cycle_id,
                             "status": "PAID",
                             "can_doi_soat": lan["can_doi_soat"],
+                            "doi_soat_ly_do": list(lan["doi_soat_ly_do"]),
                             "da_xac_minh_tu_truoc": True,
                         }
                     raise ConflictError(
@@ -570,7 +576,17 @@ class PaymentService:
                         da_giu=True,
                         hom_nay=now_vn().date(),
                     )
-                can_doi_soat = lech or bool(khong_ban_duoc)
+                # CP6: mã NGUYÊN NHÂN, không chỉ cờ — lịch sử phải nói đúng vì
+                # sao lần thu này cần đối soát. DB ép cờ = có ít nhất một mã.
+                ly_do_doi_soat = [
+                    ma_ld
+                    for ma_ld, co in (
+                        (DOI_SOAT_HOA_DON_DOI, lech),
+                        (DOI_SOAT_CHUA_GHI_BAN, bool(khong_ban_duoc)),
+                    )
+                    if co
+                ]
+                can_doi_soat = bool(ly_do_doi_soat)
                 payment_id = await _ghi_da_thu(
                     conn,
                     cycle_id=payment_cycle_id,
@@ -587,7 +603,8 @@ class PaymentService:
                     """
                     UPDATE payment_cycle
                        SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
-                           reference = $3, payment_id = $4::uuid, can_doi_soat = $5
+                           reference = $3, payment_id = $4::uuid, can_doi_soat = $5,
+                           doi_soat_ly_do = $6::text[]
                      WHERE payment_cycle_id = $1::uuid
                        AND status = 'PENDING_VERIFICATION'
                     """,
@@ -596,6 +613,7 @@ class PaymentService:
                     ma,
                     payment_id,
                     can_doi_soat,
+                    ly_do_doi_soat,
                 )
                 if kind == "thuoc" and not lan["legacy"] and not khong_ban_duoc:
                     await ghi_ban(
@@ -634,6 +652,7 @@ class PaymentService:
             "payment_cycle_id": payment_cycle_id,
             "status": "PAID",
             "can_doi_soat": can_doi_soat,
+            "doi_soat_ly_do": ly_do_doi_soat,
         }
 
     async def huy_cho_xac_minh(
