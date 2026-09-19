@@ -18,9 +18,11 @@ LUẬT ĐI THEO, KHÔNG Ở LẠI.
 Ba luật vốn nằm trong TSX được chuyển xuống cùng, đúng nguyên tắc của dự án
 (logic ở backend, TSX chỉ vẽ):
 
-  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG: lịch hẹn 'COMPLETED' (đường
-     cũ) HOẶC phiên khám chính đã kết thúc (luồng lượt khám — nút "Đã khám
-     xong" không đụng tới trạng thái lịch hẹn).
+  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG — cùng mốc với Payment và
+     Nhà thuốc (`moc_kham_xong`: `visit.exam_completed_at`, nhánh tương thích
+     lịch hẹn COMPLETED). Lượt không có lịch hẹn vẫn hiện (review CP4). Trước
+     đây còn nhận "phiên khám chính đã kết thúc" dù lượt chưa khép — những
+     lượt ấy lệnh thu vẫn từ chối, nên chỉ là dòng hiện ra mà không thu được.
   2. Tên dịch vụ/thuốc phải CHUẨN HOÁ trước khi tra bảng giá — bỏ đường link
      dính trong tên, gộp khoảng trắng, bỏ ngoặc. Không chuẩn hoá thì "Siêu âm
      (https://...)" không khớp dòng giá nào và thu ngân thấy giá trống.
@@ -39,6 +41,7 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.moc_kham_xong import kham_xong_sql
 
 logger = structlog.get_logger()
 
@@ -77,7 +80,8 @@ def clean_name(s: str | None) -> str:
 
 
 # Một câu, một vòng mạng. Sáu tập dữ liệu gói trong một JSON.
-_SQL = """
+_SQL = (
+    """
 WITH v AS (
     SELECT vi.visit_id,
            vi.clinic_patient_id,
@@ -88,19 +92,18 @@ WITH v AS (
            a.status                AS appt_status,
            st.name                 AS exam_service_name
       FROM public.visit vi
-      JOIN public.appointment a ON a.id = vi.appointment_id
+      LEFT JOIN public.appointment a
+             ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
       LEFT JOIN public.patient p
              ON p.clinic_patient_id = vi.clinic_patient_id
             AND p.clinic_id = vi.clinic_id
       LEFT JOIN public.service_type st ON st.id = a.service_type_id
      WHERE vi.clinic_id = $1::uuid
        AND vi.created_at >= $2 AND vi.created_at < $3
-       -- Luật 1: chỉ khi bác sĩ đã khám xong.
-       AND (a.status = 'COMPLETED'
-            OR EXISTS (SELECT 1 FROM public.consultation c
-                        WHERE c.clinic_id = vi.clinic_id
-                          AND c.visit_id = vi.visit_id
-                          AND c.kind = 'PRIMARY' AND c.status = 'completed'))
+       -- Luật 1: chỉ khi bác sĩ đã khám xong (moc_kham_xong).
+       AND """
+    + kham_xong_sql("vi")
+    + """
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -154,6 +157,7 @@ SELECT json_build_object(
         AND pay.voided_at IS NULL)
 ) AS data
 """
+)
 
 
 class CashierBoardService:

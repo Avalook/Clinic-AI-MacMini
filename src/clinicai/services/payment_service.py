@@ -5,8 +5,9 @@ rule lives in the backend instead of the frontend. Rules preserved 1:1:
 
 * Two payment kinds per visit — ``thuoc`` (pharmacy) + ``dich_vu`` (services),
   unique per ``(visit_id, kind)``. Recording is an upsert (status ``PAID``).
-* A payment may only be recorded once the visit's appointment is ``COMPLETED``
-  (the doctor has finished the exam) → otherwise 409. Void is NOT gated.
+* A payment may only be recorded once the doctor has finished the exam —
+  ``visit.exam_completed_at`` (legacy: appointment ``COMPLETED``), see
+  ``moc_kham_xong`` → otherwise 409. Void is NOT gated.
 * Role → kinds: CASHIER_THUOC ⟶ {thuoc}, CASHIER_DV ⟶ {dich_vu},
   CASHIER/MANAGEMENT ⟶ both. Coarse role gate is done at the router with
   ``require_role``; this finer kind↔role check lives here.
@@ -38,6 +39,7 @@ from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import pos_outbox
 from clinicai.services.bill_service import HoaDon, tinh_hoa_don
+from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
     can_theo_hoa_don,
@@ -57,7 +59,6 @@ PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
 DIEN_TU: frozenset[str] = frozenset({"TRANSFER", "QR"})
 CHO_XAC_MINH = "PENDING_VERIFICATION"
-COMPLETED_STATUS = "COMPLETED"
 MIN_VOID_REASON_LENGTH = 5
 MAX_VOID_REASON_LENGTH = 500
 
@@ -140,7 +141,7 @@ class PaymentService:
 
         Raises SafetyGateError (403) if the kind is not allowed for the role,
         NotFoundError (404) if the visit/appointment is missing, and
-        ConflictError (409) if the appointment is not yet COMPLETED.
+        ConflictError (409) if the doctor has not finished the exam yet.
         """
         self._assert_kind_allowed(kind, identity)
         if method not in PAYMENT_METHODS:
@@ -154,10 +155,16 @@ class PaymentService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # "Khám xong" là trạng thái của LƯỢT (moc_kham_xong, review
+                # CP4): không INNER JOIN lịch hẹn — lượt không có lịch hẹn vẫn
+                # thu được. Lịch hẹn nếu có chỉ còn là kiểm chéo bệnh nhân.
+                # Khoá chỉ `visit`: mốc nằm trên visit, và Postgres không cho
+                # khoá phía có thể rỗng của LEFT JOIN.
                 status_row = await conn.fetchrow(
-                    """
+                    f"""
                     SELECT
-                        a.status AS appt_status,
+                        {kham_xong_sql("v")} AS kham_xong,
+                        (v.appointment_id IS NULL OR a.id IS NOT NULL) AS hen_khop,
                         v.clinic_patient_id,
                         EXISTS (
                             SELECT 1
@@ -167,7 +174,7 @@ class PaymentService:
                                AND m.is_active
                         ) AS staff_in_clinic
                       FROM visit v
-                      JOIN appointment a
+                      LEFT JOIN appointment a
                         ON a.id = v.appointment_id
                        AND a.clinic_id = v.clinic_id
                        AND a.clinic_patient_id = v.clinic_patient_id
@@ -176,13 +183,13 @@ class PaymentService:
                        AND p.clinic_id = v.clinic_id
                      WHERE v.visit_id = $1::uuid
                        AND v.clinic_id = $2::uuid
-                     FOR UPDATE OF v, a
-                    """,
+                     FOR UPDATE OF v
+                    """,  # noqa: S608 — chỉ chèn biểu thức cố định
                     visit_id,
                     identity.clinic_id,
                     identity.staff_id,
                 )
-                if status_row is None:
+                if status_row is None or not status_row["hen_khop"]:
                     raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
                 if not status_row["staff_in_clinic"]:
                     raise ValidationError(
@@ -196,7 +203,7 @@ class PaymentService:
                     raise ValidationError(
                         "Lượt khám không thuộc bệnh nhân thanh toán này"
                     )
-                if status_row["appt_status"] != COMPLETED_STATUS:
+                if not status_row["kham_xong"]:
                     raise ConflictError(
                         "Bác sĩ chưa khám xong lượt này — chưa thể thu tiền"
                     )

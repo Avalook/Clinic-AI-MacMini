@@ -7,8 +7,8 @@ kiểm lại từng lệnh ghi — đây chỉ là để màn hình không mời
 chắn bị từ chối.
 
 GIAI ĐOẠN CỦA LƯỢT (tiền thuốc):
-  CHUA_SAN_SANG  bác sĩ chưa bấm Khám xong — chỉ xem. Chọn lô sớm sẽ khoá
-                 dòng đơn trong khi bác sĩ còn sửa bệnh án.
+  CHUA_SAN_SANG  bác sĩ chưa bấm Khám xong (`moc_kham_xong`) — chỉ xem. Chọn
+                 lô sớm sẽ khoá dòng đơn trong khi bác sĩ còn sửa bệnh án.
   SAN_SANG       đã khám xong, chưa có lần thu thuốc — xác định thuốc kho,
                  khai số mua, chọn / bỏ lô.
   CHO_XAC_MINH   chuyển khoản/QR đang chờ — lô đang GIỮ; chỉ đổi lô.
@@ -33,6 +33,7 @@ import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
+from clinicai.services.moc_kham_xong import kham_xong_sql
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
 SAN_SANG = "SAN_SANG"
@@ -151,19 +152,17 @@ async def man_nha_thuoc(
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
     async with pool.acquire() as conn:
         dong = await conn.fetch(
-            """
+            f"""
             SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,
                    r.quantity_num, r.unit, r.purchased_qty, r.dispensed_qty,
                    r.dispense_status, r.closed_at, r.refusal_reason,
                    r.dosage_instructions, r.drug_catalog_id::text,
                    c.name_base AS ten_thuoc_kho, r.created_at,
                    p.full_name AS ten_khach, p.patient_code, p.phone_primary,
-                   (a.status = 'COMPLETED') AS kham_xong
+                   {kham_xong_sql("v")} AS kham_xong
               FROM public.prescription r
               JOIN public.visit v
                 ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
-              LEFT JOIN public.appointment a
-                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
               LEFT JOIN public.patient p
                 ON p.clinic_patient_id = r.clinic_patient_id
                AND p.clinic_id = r.clinic_id

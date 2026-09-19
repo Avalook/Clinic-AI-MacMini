@@ -354,7 +354,8 @@ async def test_finalized_lab_result_cannot_be_changed() -> None:
 async def test_payment_rejects_patient_not_owned_by_visit() -> None:
     pool, conn, _ = _pool_and_conn()
     relation = {
-        "appt_status": "COMPLETED",
+        "kham_xong": True,
+        "hen_khop": True,
         "clinic_patient_id": OTHER_PATIENT_ID,
         "staff_in_clinic": True,
     }
@@ -427,7 +428,8 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     cycle_id = "aa000000-0000-4000-8000-000000000001"
     conn.fetchrow.side_effect = [
         {
-            "appt_status": "COMPLETED",
+            "kham_xong": True,
+            "hen_khop": True,
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },
@@ -482,7 +484,8 @@ async def test_paid_amount_change_requires_void_first() -> None:
     pool, conn, _ = _pool_and_conn()
     conn.fetchrow.side_effect = [
         {
-            "appt_status": "COMPLETED",
+            "kham_xong": True,
+            "hen_khop": True,
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },
@@ -522,7 +525,8 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
     pool, conn, _ = _pool_and_conn()
     conn.fetchrow.side_effect = [
         {
-            "appt_status": "COMPLETED",
+            "kham_xong": True,
+            "hen_khop": True,
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },

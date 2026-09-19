@@ -43,6 +43,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
+from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import khoa_lo, so
 
 logger = structlog.get_logger()
@@ -721,14 +722,14 @@ class PharmacyService:
         hay từ chối cũng khoá dòng khỏi nút Lưu bệnh án khi bác sĩ còn sửa đơn.
         Muốn "dược sĩ chuẩn bị trước" thì nới ở đây, có chủ ý.
         """
+        # Mốc chung của Nhà thuốc / Thu ngân / Payment (moc_kham_xong): trạng
+        # thái của LƯỢT, không phụ thuộc lượt có lịch hẹn hay không.
         if not await conn.fetchval(
-            """
-            SELECT a.status = 'COMPLETED'
+            f"""
+            SELECT {kham_xong_sql("v")}
               FROM public.visit v
-              JOIN public.appointment a
-                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
              WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
-            """,
+            """,  # noqa: S608 — chỉ chèn biểu thức cố định
             visit_id,
             identity.clinic_id,
         ):
@@ -897,7 +898,13 @@ class PharmacyService:
     async def chot(
         self, *, identity: StaffIdentity, prescription_id: str, ly_do: str | None = None
     ) -> dict[str, Any]:
-        """Không cấp thêm nữa. Dùng cho "lấy 5 rồi thôi" và cho đơn đã cấp đủ."""
+        """Không giao thêm dòng này nữa.
+
+        Trước khi thu: đóng dòng (khách thôi lấy phần còn lại). Đã thu theo luồng
+        mới: CHỈ khi đã giao đủ số bán — "đã thu 10, giao 5 rồi chốt" bị từ chối
+        vì 5 viên đã bán sẽ không còn đường giao (chờ CP5 hoàn / trả). Lần thu
+        cũ (legacy) giữ nghĩa cũ. Xem `_chot_duoc_khong`.
+        """
         return await self._chot_dong(
             identity=identity,
             prescription_id=prescription_id,

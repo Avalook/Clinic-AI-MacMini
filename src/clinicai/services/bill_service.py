@@ -192,6 +192,7 @@ def ghep_dich_vu(
                 gia=[Decimal(str(g)) for g in kham.get("gia") or []],
                 ben_thu=kham.get("ben_thu") or CLINIC,
                 ma=kham.get("ma"),
+                van_de=kham.get("van_de"),
             )
         )
     for o in chi_dinh:
@@ -263,9 +264,10 @@ async def tinh_hoa_don(
         )
         kham_row = await conn.fetchrow(
             """
-            SELECT st.id::text AS st_id, st.name
+            SELECT st.id::text AS st_id, st.name,
+                   (vi.appointment_id IS NULL) AS khong_hen
               FROM public.visit vi
-              JOIN public.appointment a
+              LEFT JOIN public.appointment a
                 ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
               LEFT JOIN public.service_type st ON st.id = a.service_type_id
              WHERE vi.clinic_id = $1::uuid AND vi.visit_id = $2::uuid
@@ -274,7 +276,19 @@ async def tinh_hoa_don(
             visit_id,
         )
         kham: dict[str, Any] | None = None
-        if kham_row and kham_row["name"]:
+        if kham_row and kham_row["khong_hen"]:
+            # Lượt không có lịch hẹn (review CP4): loại khám — nguồn giá tiền
+            # khám — chưa có ở đâu cả. Không đoán giá, không bỏ im lặng dòng
+            # tiền khám (thu thiếu mà không ai thấy): hiện dòng ấy với vấn đề,
+            # đúng luật CP1 — khoản chưa thu được chứ không phải "chưa khám".
+            kham = {
+                "ma": None,
+                "ten": "Tiền khám",
+                "gia": [],
+                "ben_thu": CLINIC,
+                "van_de": "chưa xác định loại khám (lượt không có lịch hẹn)",
+            }
+        elif kham_row and kham_row["name"]:
             khop = [
                 r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
             ]
