@@ -62,7 +62,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 |---|---|---|---|---|
 | `/thu-ngan/dich-vu` · `/thu-ngan/thuoc` | Lễ tân, thu ngân, QL | Thu tiền dịch vụ · Thu tiền thuốc | GIỮ | **Màn thu tiền duy nhất.** `thu-ngan/QuayThuNgan.tsx`, nút "Đã nhận đủ". |
 | `/cashier/thuoc` · `/cashier/dich-vu` | Lễ tân, thu ngân, QL | Bảng giá thuốc · Bảng giá dịch vụ | GIỮ | Là **bảng giá**, không phải thu tiền. Sẽ đụng khi làm lại kho thuốc (hai nguồn giá). |
-| `/pharmacy` | Lễ tân, dược sĩ, QL | Cấp thuốc | GIỮ | Sẽ làm lại trong đợt kho thuốc. |
+| `/pharmacy` | Lễ tân, dược sĩ, QL | Cấp thuốc | GIỮ | **Làm lại 19/09 (contract tiền–thuốc CP4):** theo lượt, đọc qua `GET /api/v1/pharmacy/ban-thuoc` (không còn đọc thẳng Supabase). `PharmacyBoard.tsx` + `DongThuoc.tsx` (thay `ThaoTacCapPhat.tsx`): xác định thuốc kho · số mua · chọn/bỏ/đổi lô · giao thuốc — nút theo `thao_tac` máy chủ trả. |
 | `/pharmacy/inventory` | Lễ tân, dược sĩ, QL | Kho thuốc | GIỮ | Như trên. |
 | `/pharmacy/history` · `/pharmacy/consult` | dược sĩ, QL | Lịch sử bàn giao · Tư vấn dùng thuốc | CẦN QUYẾT | Còn gắn badge "Mới". |
 
@@ -144,6 +144,7 @@ chuyển hướng.
 | **Bảng lịch hẹn** (`WeeklyAppointmentsTable` + `home/lich-hen-ngay.ts`) | `/home` (cả tuần, xem) · `/reception/queue` (hôm nay, check-in) | cùng một phép dựng |
 | **Hàng chờ tiếp đón** (`QueueBoard`) | `/reception/queue` | |
 | **Ghi sinh hiệu** | `/do-sinh-hieu` | biểu mẫu bệnh án chỉ xem + nút dẫn sang |
+| **Chọn lô / giao thuốc** (`/api/pharmacy/{phan-lo,bo-phan-lo,doi-lo,dispense,…}`) | `pharmacy/DongThuoc.tsx` (qua `/pharmacy`) | **chỉ ở đây** (contract tiền–thuốc CP4) |
 | **Thu tiền** (`POST /api/payment`) | `thu-ngan/QuayThuNgan.tsx` (qua `/thu-ngan/dich-vu`, `/thu-ngan/thuoc`) | chỉ ở đây |
 | **Tạo bệnh nhân** (`NewPatientForm`) | `/patients/new` · tab "Thêm" trong `/appointments` | cùng component |
 | **Đặt / sửa lịch** (`AppointmentBooking`) | `customers/AppointmentEditModal.tsx` · `customers/DatLichModal.tsx` · `patients/[id]/PatientBooking.tsx` | `/appointments` dùng `BookingHub` riêng — CẦN QUYẾT |
@@ -175,7 +176,7 @@ Ngày 18/09, `/tasks` và 5 component của nó đã gỡ:
 | Hạng mục | 18/09 trước lượt 2 | Sau lượt 2 |
 |---|---|---|
 | Mục thanh bên (`NAV`) | 53 | 46 |
-| `[..px]` tự chế (ratchet `px-tu-che`) | 85 | 64 |
+| `[..px]` tự chế (ratchet `px-tu-che`) | 85 | 64 → 61 (Nhà thuốc CP4, 19/09) |
 | `<button>` viết tay | 337 / 97 file | chưa đo lại |
 | Dùng `<Button>` / `buttonClass()` chung | 6 | chưa đo lại |
 | `window.confirm` | 5 | chưa đo lại |

@@ -885,6 +885,23 @@ class PharmacyService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
+                # CP4: chọn lô khoá dòng đơn khỏi nút Lưu bệnh án — chỉ cho khi
+                # bác sĩ đã bấm Khám xong (cùng mốc với "thu được tiền").
+                if not await conn.fetchval(
+                    """
+                    SELECT a.status = 'COMPLETED'
+                      FROM public.visit v
+                      JOIN public.appointment a
+                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                     WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
+                    """,
+                    don["visit_id"],
+                    identity.clinic_id,
+                ):
+                    raise ConflictError(
+                        "Bác sĩ chưa bấm Khám xong lượt này — chưa chọn lô được "
+                        "(đơn còn có thể thay đổi)."
+                    )
                 if don["drug_catalog_id"] is None:
                     raise ValidationError(
                         "Chưa xác định thuốc trong kho cho dòng này — xác định "

@@ -21,6 +21,12 @@ const ACTIONS: Record<string, string> = {
   "close-line": "/api/v1/pharmacy/close-line",
   adjust: "/api/v1/pharmacy/adjust",
   discard: "/api/v1/pharmacy/discard",
+  // Contract tiền–thuốc CP4: xác định thuốc kho, số mua, chọn / bỏ / đổi lô.
+  "xac-dinh-thuoc": "/api/v1/pharmacy/xac-dinh-thuoc",
+  "so-luong-mua": "/api/v1/pharmacy/so-luong-mua",
+  "phan-lo": "/api/v1/pharmacy/phan-lo",
+  "bo-phan-lo": "/api/v1/pharmacy/bo-phan-lo",
+  "doi-lo": "/api/v1/pharmacy/doi-lo",
 };
 
 export async function POST(

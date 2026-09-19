@@ -24,6 +24,7 @@ from clinicai.api.idempotency import (
 )
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services import ban_thuoc_service
 from clinicai.services.pharmacy_service import PharmacyService
 
 router = APIRouter()
@@ -49,6 +50,19 @@ async def hang_doi(
 ) -> dict[str, Any]:
     """Đơn thuốc chưa chốt — gồm cả đơn đã cấp một phần."""
     return {"items": await PharmacyService(pool).hang_doi(identity=identity)}
+
+
+@router.get("/pharmacy/ban-thuoc")
+async def man_nha_thuoc(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Màn Nhà thuốc (contract tiền–thuốc CP4): lượt → dòng đơn → phân lô, kèm
+    giai đoạn tiền thuốc và các thao tác được phép — máy chủ quyết, giao diện vẽ."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await ban_thuoc_service.man_nha_thuoc(pool, identity=identity)
+    )
+    return kq
 
 
 @router.get("/pharmacy/inventory")
