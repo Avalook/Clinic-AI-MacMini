@@ -96,9 +96,11 @@ def thao_tac_dong(
         and co_so_ke
         and da_chon < can_lo,
         "giao_luong_cu": gd == DA_THU_CU and mo,
-        # Khách không lấy: chỉ trước khi có lần thu (sau đó phải huỷ phiếu).
-        "tu_choi": mo and gd in (CHUA_SAN_SANG, SAN_SANG),
-        "chot": mo and gd != CHO_XAC_MINH,
+        # Khách không lấy: sau Khám xong, trước khi có lần thu (sau đó phải
+        # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
+        # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
+        "tu_choi": san_sang,
+        "chot": mo and gd not in (CHUA_SAN_SANG, CHO_XAC_MINH),
     }
 
 

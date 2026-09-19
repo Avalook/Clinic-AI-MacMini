@@ -1195,8 +1195,8 @@ class PharmacyService:
         kd = Decimal(str(lo["kha_dung"] or 0)) + them_giu
         if kd < luong:
             raise ValidationError(
-                f"Lô {lo['batch_code']} chỉ còn {so(max(kd, Decimal(0)))} khả dụng "
-                f"— không đủ {so(luong)}."
+                f"Lô {lo['batch_code']} chỉ còn {so(max(kd, Decimal(0)))} có thể "
+                f"phân lô lúc này — không đủ {so(luong)}."
             )
         return lo
 

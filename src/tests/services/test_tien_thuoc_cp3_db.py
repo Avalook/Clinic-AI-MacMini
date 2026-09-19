@@ -289,7 +289,7 @@ async def test_chon_lo_khong_giu_cho_nguoi_thu_sau_bi_kiem_lai(q: Quay) -> None:
     # Chọn lô chưa giữ chỗ: khách thứ hai cũng chọn được lô ấy.
     await _chon(q2, rx2, lo, 6)
     await _thu(q)
-    with pytest.raises(ValidationError, match="chỉ còn 4 khả dụng"):
+    with pytest.raises(ValidationError, match="chỉ còn 4 có thể phân lô"):
         await _thu(q2)
     assert await _kd(q, lo) == 4
 

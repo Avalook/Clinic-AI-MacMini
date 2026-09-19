@@ -159,7 +159,8 @@ async def van_de_phan_lo(
         kd = Decimal(str(lo["kha_dung"] or 0)) + (can_so if da_giu else Decimal(0))
         if kd < can_so:
             van_de.append(
-                f"lô {lo['batch_code']} chỉ còn {so(max(kd, Decimal(0)))} khả dụng, "
+                f"lô {lo['batch_code']} chỉ còn {so(max(kd, Decimal(0)))} có thể "
+                "phân lô lúc này, "
                 f"cần {so(can_so)} — chọn lô khác"
             )
     return van_de

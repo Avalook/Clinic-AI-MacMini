@@ -70,7 +70,8 @@ def _tt(gd: str, **kw: Any) -> dict[str, bool]:
 
 def test_chua_kham_xong_chi_xem_khong_chon_lo() -> None:
     tt = _tt(bt.CHUA_SAN_SANG)
-    assert not (tt["xac_dinh_thuoc"] or tt["khai_so_mua"] or tt["chon_lo"])
+    # Chỉ xem: cả từ chối / chốt cũng khoá dòng khỏi nút Lưu bệnh án.
+    assert not any(tt.values())
 
 
 def test_sau_khi_thu_khong_sua_thuoc_so_mua_lo() -> None:

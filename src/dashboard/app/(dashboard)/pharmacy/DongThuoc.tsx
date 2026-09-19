@@ -30,6 +30,8 @@ interface Props {
 
 const O_NHAP = `${INPUT} mt-1`;
 const NHAN = "block text-xs text-ink-muted";
+/** Trên điện thoại ô bấm tối thiểu 40px (DESIGN.md §7) = đúng cỡ `lg` của thang. */
+export const CHAM = "max-sm:h-10 max-sm:px-4";
 
 function nhanLo(b: LoGoiY): string {
   return (
@@ -46,7 +48,11 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
     dong.purchased_qty !== null ? String(dong.purchased_qty) : "",
   );
   const conCanLo = Math.max(0, dong.can_lo - dong.da_chon);
-  const [loChon, setLoChon] = useState(dong.lo_goi_y[0]?.drug_batch_id ?? "");
+  // Rơi về lô đầu tiên khi chưa chọn: trình duyệt tô sẵn option đầu, nên giá
+  // trị bên trong cũng phải là nó — không thì nút bị khoá mà không ai biết vì
+  // sao (bấm thử 19/09: xác định thuốc xong, ô lô hiện X nhưng state còn rỗng).
+  const [loChonTay, setLoChon] = useState("");
+  const loChon = loChonTay || (dong.lo_goi_y[0]?.drug_batch_id ?? "");
   const [soChon, setSoChon] = useState(conCanLo > 0 ? String(conCanLo) : "");
   const [soGiao, setSoGiao] = useState<Record<string, string>>({});
   const [loDoi, setLoDoi] = useState<Record<string, string>>({});
@@ -130,7 +136,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                   </option>
                 ))}
               </select>
-              <Button
+              <Button className={CHAM}
                 size="md"
                 disabled={dangGui || !thuocId || thuocId === dong.drug_catalog_id}
                 onClick={() =>
@@ -163,7 +169,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                 onChange={(e) => setSoMua(e.target.value)}
                 className={`${O_NHAP} flex-1`}
               />
-              <Button
+              <Button className={CHAM}
                 size="md"
                 disabled={dangGui || soMua === ""}
                 onClick={() =>
@@ -185,7 +191,10 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
       {dong.phan_lo.length > 0 ? (
         <div>
           <span className={NHAN}>
-            Lô đã chọn · {fmtSo(dong.da_chon)}/{fmtSo(dong.can_lo)} {dong.unit ?? ""}
+            Lô đã chọn · {fmtSo(dong.da_chon)}
+            {/* "Còn cần lô" chỉ có nghĩa trước khi thu — sau khi giao, số bán
+                trừ số đã giao không còn là mẫu số (bấm thử 19/09: "10/7"). */}
+            {tt.chon_lo ? `/${fmtSo(dong.can_lo)}` : ""} {dong.unit ?? ""}
           </span>
           <ul className="mt-1 divide-y divide-line rounded-control border border-line">
             {dong.phan_lo.map((p) => (
@@ -218,7 +227,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                         className={O_NHAP}
                       />
                     </label>
-                    <Button
+                    <Button className={CHAM}
                       disabled={dangGui}
                       onClick={() =>
                         goi("dispense", {
@@ -253,7 +262,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                           ))}
                       </select>
                     </label>
-                    <Button
+                    <Button className={CHAM}
                       disabled={dangGui || !loDoi[p.allocation_id] || !lyDo.trim()}
                       onClick={() =>
                         goi("doi-lo", {
@@ -268,7 +277,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                   </div>
                 ) : null}
                 {p.thao_tac.bo ? (
-                  <Button
+                  <Button className={CHAM}
                     size="sm"
                     variant="ghost"
                     disabled={dangGui || !lyDo.trim()}
@@ -314,7 +323,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
                 className={O_NHAP}
               />
             </label>
-            <Button
+            <Button className={CHAM}
               variant="primary"
               disabled={dangGui || !loChon || !soChon}
               onClick={() =>
@@ -361,7 +370,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
               className={O_NHAP}
             />
           </label>
-          <Button
+          <Button className={CHAM}
             variant="primary"
             disabled={dangGui || !loChon || !soCu}
             onClick={() =>
@@ -390,7 +399,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
             />
           </label>
           {tt.tu_choi ? (
-            <Button
+            <Button className={CHAM}
               variant="danger"
               disabled={dangGui || !lyDo.trim()}
               onClick={() => goi("refuse", { prescription_id: dong.id, ly_do: lyDo })}
@@ -399,7 +408,7 @@ export default function DongThuoc({ dong, danhMuc }: Props) {
             </Button>
           ) : null}
           {tt.chot ? (
-            <Button
+            <Button className={CHAM}
               variant="ghost"
               disabled={dangGui}
               title="Dùng khi khách lấy một phần rồi thôi, hoặc đã giao đủ"

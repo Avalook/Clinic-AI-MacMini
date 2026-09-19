@@ -10,7 +10,8 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import StatusChip from "@/components/ui/StatusChip";
 import XemLuot from "../_lam-viec/XemLuot";
-import DongThuoc from "./DongThuoc";
+import DongThuoc, { CHAM } from "./DongThuoc";
+import { INPUT } from "../form-ui";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
 
 type Tab = "dang_lam" | "xong";
@@ -57,7 +58,7 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
                 ["xong", "Xong hôm nay"],
               ] as const
             ).map(([ma, nhan]) => (
-              <Button
+              <Button className={CHAM}
                 key={ma}
                 size="sm"
                 role="tab"
@@ -74,7 +75,7 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
             onChange={(e) => setTim(e.target.value)}
             placeholder="Tìm tên / mã khách / thuốc…"
             aria-label="Tìm đơn thuốc"
-            className="mt-2 w-full rounded-control border border-line bg-surface-muted px-3 py-2 text-body text-ink outline-none focus:border-brand-500"
+            className={`${INPUT} mt-2`}
           />
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -131,12 +132,27 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
             <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
               {GIAI_DOAN[luot.giai_doan].giai_thich}
             </p>
-            <Button size="sm" variant="ghost" onClick={() => setXemLuot(luot.visit_id)}>
+            <Button className={CHAM} size="sm" variant="ghost" onClick={() => setXemLuot(luot.visit_id)}>
               Xem chi tiết lượt &amp; lịch sử cấp
             </Button>
             {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
             {luot.dong.map((d) => (
-              <DongThuoc key={`${d.id}-${luot.giai_doan}`} dong={d} danhMuc={man.danh_muc} />
+              // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
+              // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn
+              // cần chọn / còn phải giao đã đổi, giữ số cũ trong ô là mời sai.
+              <DongThuoc
+                key={[
+                  d.id,
+                  luot.giai_doan,
+                  d.drug_catalog_id,
+                  d.purchased_qty,
+                  d.da_chon,
+                  d.dispensed_qty,
+                  d.phan_lo.map((p) => `${p.allocation_id}:${p.handed_over_qty}`).join(","),
+                ].join("|")}
+                dong={d}
+                danhMuc={man.danh_muc}
+              />
             ))}
           </div>
         ) : (
