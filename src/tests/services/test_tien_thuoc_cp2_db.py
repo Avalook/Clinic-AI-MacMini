@@ -15,13 +15,22 @@ from typing import Any
 import asyncpg
 import pytest
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import (
+    BillChangedError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
+from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.clinical_record_service import ClinicalRecordService
+from clinicai.services.payment_service import PaymentService
 from clinicai.services.pharmacy_service import PharmacyService
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import (
     Quay,
+    _chi_dinh,
     _don,
+    _gia_dv,
     _hd,
     _thu,
     _thuoc,
@@ -118,3 +127,197 @@ async def test_chua_thu_tien_van_thay_don_nhu_cu(q: Quay) -> None:
     dong = await _cac_dong(q)
     assert [d["drug_name_raw"] for d in dong] == ["Thuốc khác"]
     assert rx not in {d["id"] for d in dong}
+
+
+# ── Payment cycle: mỗi lần thu một dòng ───────────────────────────────────
+
+
+async def _rev(q: Quay, kind: str = "dich_vu") -> str:
+    r: str = (await _hd(q, kind)).revision
+    return r
+
+
+async def _thu_pt(q: Quay, method: str, kind: str = "dich_vu") -> dict[str, Any]:
+    return await PaymentService(q.pool).record_payment(
+        visit_id=q.visit_id,
+        kind=kind,
+        amount=None,
+        clinic_patient_id=None,
+        identity=q.thu_ngan,
+        bill_revision=await _rev(q, kind),
+        method=method,
+    )
+
+
+async def _cycles(q: Quay) -> list[asyncpg.Record]:
+    return list(
+        await q.pool.fetch(
+            "SELECT payment_cycle_id::text, status, method, amount, paid_at,"
+            " closed_at, reference, payment_id FROM payment_cycle"
+            " WHERE visit_id = $1::uuid ORDER BY created_at",
+            q.visit_id,
+        )
+    )
+
+
+async def test_17_thu_a_huy_a_thu_b_lich_su_du_ca_hai(q: Quay) -> None:
+    a = await _thu_pt(q, "CASH")
+    await PaymentService(q.pool).void_payment(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        reason="Bấm nhầm khách",
+        identity=q.thu_ngan,
+    )
+    b = await _thu_pt(q, "CASH")
+    cs = await _cycles(q)
+    assert [(c["payment_cycle_id"], c["status"]) for c in cs] == [
+        (a["payment_cycle_id"], "VOIDED"),
+        (b["payment_cycle_id"], "PAID"),
+    ]
+    assert cs[0]["paid_at"] is not None and cs[0]["closed_at"] is not None
+    # Hình chiếu `payment` trỏ đúng lần thu hiện tại.
+    assert (
+        await q.pool.fetchval(
+            "SELECT payment_cycle_id::text FROM payment WHERE visit_id = $1::uuid"
+            " AND kind = 'dich_vu'",
+            q.visit_id,
+        )
+        == b["payment_cycle_id"]
+    )
+    lich_su = await CashierBoardService(q.pool).giao_dich(
+        identity=q.thu_ngan, tu=None, den=None
+    )
+    cua_luot = [g for g in lich_su["giao_dich"] if g["visit_id"] == q.visit_id]
+    assert {(g["id"], g["trang_thai"], g["phuong_thuc"]) for g in cua_luot} == {
+        (a["payment_cycle_id"], "VOIDED", "CASH"),
+        (b["payment_cycle_id"], "PAID", "CASH"),
+    }
+
+
+async def test_chuyen_khoan_cho_xac_minh_chua_phai_da_thu(q: Quay) -> None:
+    kq = await _thu_pt(q, "TRANSFER")
+    assert kq["status"] == "PENDING_VERIFICATION"
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment WHERE visit_id = $1::uuid", q.visit_id
+        )
+        == 0
+    ), "chờ xác minh không được thành phiếu đã thu"
+    with pytest.raises(ValidationError, match="mã giao dịch"):
+        await PaymentService(q.pool).xac_minh_dien_tu(
+            visit_id=q.visit_id, kind="dich_vu", reference=" ", identity=q.thu_ngan
+        )
+    await PaymentService(q.pool).xac_minh_dien_tu(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        reference="FT2609191234",
+        identity=q.thu_ngan,
+    )
+    [c] = await _cycles(q)
+    assert (c["status"], c["method"], c["reference"]) == (
+        "PAID",
+        "TRANSFER",
+        "FT2609191234",
+    )
+    p = await q.pool.fetchrow(
+        "SELECT status, payment_cycle_id::text FROM payment WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    assert p is not None and (p["status"], p["payment_cycle_id"]) == (
+        "PAID",
+        kq["payment_cycle_id"],
+    )
+
+
+async def test_dien_tu_khong_the_paid_khong_co_ma_o_db(q: Quay) -> None:
+    await _thu_pt(q, "QR")
+    with pytest.raises(asyncpg.CheckViolationError):
+        await q.pool.execute(
+            "UPDATE payment_cycle SET status = 'PAID', paid_at = now(),"
+            " confirmed_by = $2::uuid WHERE visit_id = $1::uuid",
+            q.visit_id,
+            q.thu_ngan.staff_id,
+        )
+
+
+async def test_cho_xac_minh_hoa_don_doi_thi_khong_xac_minh_duoc(q: Quay) -> None:
+    await _thu_pt(q, "TRANSFER")
+    async with q.pool.acquire() as conn:
+        await _gia_dv(conn, f"Z-{q.duoi}", f"Dịch vụ Z {q.duoi}", 50_000)
+    await _chi_dinh(q, f"Z-{q.duoi}", f"Dịch vụ Z {q.duoi}")
+    with pytest.raises(BillChangedError):
+        await PaymentService(q.pool).xac_minh_dien_tu(
+            visit_id=q.visit_id, kind="dich_vu", reference="FT1", identity=q.thu_ngan
+        )
+
+
+async def test_huy_cho_roi_thu_lai_duoc(q: Quay) -> None:
+    await _thu_pt(q, "TRANSFER")
+    # Đang chờ: thu phương thức khác bị chặn cho tới khi huỷ/xác minh.
+    with pytest.raises(ConflictError, match="chờ xác minh"):
+        await _thu_pt(q, "CASH")
+    # Gửi lại đúng lần chờ (cùng hoá đơn, cùng phương thức) → idempotent.
+    lai = await _thu_pt(q, "TRANSFER")
+    assert lai["status"] == "PENDING_VERIFICATION"
+    await PaymentService(q.pool).huy_cho_xac_minh(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        reason="Khách không chuyển",
+        identity=q.thu_ngan,
+    )
+    with pytest.raises(NotFoundError):
+        await PaymentService(q.pool).xac_minh_dien_tu(
+            visit_id=q.visit_id, kind="dich_vu", reference="FT9", identity=q.thu_ngan
+        )
+    await _thu_pt(q, "CASH")
+    assert [c["status"] for c in await _cycles(q)] == ["CANCELLED", "PAID"]
+
+
+async def test_cho_xac_minh_thuoc_cung_khoa_dong_don(q: Quay) -> None:
+    rx = await _don(q, 10)
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx, drug_catalog_id=await _thuoc(q)
+    )
+    await _thu_pt(q, "QR", kind="thuoc")
+    with pytest.raises(ConflictError, match="đã thu"):
+        await PharmacyService(q.pool).khai_so_luong_mua(
+            identity=q.duoc_si, prescription_id=rx, so_luong=3
+        )
+    with pytest.raises(ConflictError):
+        await _luu_don(q, [])
+
+
+async def test_19_hai_thu_ngan_bam_cung_luc_chi_mot_lan_thu(q: Quay) -> None:
+    import asyncio
+
+    rev = await _rev(q)
+    kq = await asyncio.gather(
+        *(
+            PaymentService(q.pool).record_payment(
+                visit_id=q.visit_id,
+                kind="dich_vu",
+                amount=None,
+                clinic_patient_id=None,
+                identity=q.thu_ngan,
+                bill_revision=rev,
+                method="CASH",
+            )
+            for _ in range(4)
+        ),
+        return_exceptions=True,
+    )
+    thanh_cong = [k for k in kq if isinstance(k, dict)]
+    assert thanh_cong and len({k["payment_cycle_id"] for k in thanh_cong}) == 1
+    assert [c["status"] for c in await _cycles(q)] == ["PAID"]
+
+
+async def test_so_lan_thu_chi_chuyen_trang_thai_dung_duong(q: Quay) -> None:
+    await _thu_pt(q, "CASH")
+    for sql in (
+        "UPDATE payment_cycle SET amount = 1 WHERE visit_id = $1::uuid",
+        "UPDATE payment_cycle SET status = 'PENDING_VERIFICATION'"
+        " WHERE visit_id = $1::uuid",
+        "DELETE FROM payment_cycle WHERE visit_id = $1::uuid",
+    ):
+        with pytest.raises(asyncpg.PostgresError):
+            await q.pool.execute(sql, q.visit_id)

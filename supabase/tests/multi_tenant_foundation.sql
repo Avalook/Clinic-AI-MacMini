@@ -96,7 +96,10 @@ DECLARE
     -- 83 → 84 (19/09/2026): payment_bill_line — ảnh chụp hoá đơn lúc thu
     -- (20260919000001, contract tiền–thuốc CP1). clinic_id NOT NULL, FK tới
     -- clinic, clinic_id đứng đầu idx_payment_bill_line_cycle.
-    expected_tenant_tables constant integer := 84;
+    -- 84 → 85 (19/09/2026): payment_cycle — sổ các lần thu (20260919000002,
+    -- contract tiền–thuốc CP2). clinic_id NOT NULL, FK tới clinic, clinic_id
+    -- đứng đầu uq_payment_cycle_mot_lan_song / idx_payment_cycle_ngay.
+    expected_tenant_tables constant integer := 85;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

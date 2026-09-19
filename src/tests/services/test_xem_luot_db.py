@@ -136,22 +136,33 @@ async def test_thu_ngan_xem_giao_dich_ca_dong_da_huy(kb: KichBan) -> None:
     khach = await kb.pool.fetchval(
         "SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid", kb.visit_id
     )
-    await kb.pool.execute(
+    # Phiếu thu KIỂU CŨ (trước CP2) đã huỷ + dòng sổ `legacy` mà migration
+    # 20260919000002 dựng cho nó: phương thức NULL — không đoán.
+    pid = await kb.pool.fetchval(
         "INSERT INTO payment (clinic_id, visit_id, clinic_patient_id, kind, status,"
         " amount, paid_at, voided_at, voided_by_staff_id, void_reason)"
         " VALUES ($1::uuid, $2::uuid, $3, 'dich_vu', 'VOIDED', 150000, now(), now(),"
-        " $4::uuid, 'Thu nhầm')",
+        " $4::uuid, 'Thu nhầm') RETURNING id",
         kb.bac_si.clinic_id,
         kb.visit_id,
         khach,
         kb.le_tan.staff_id,
+    )
+    await kb.pool.execute(
+        "INSERT INTO payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,"
+        " payment_id, amount, status, legacy, created_at, paid_at, closed_at,"
+        " closed_by, close_reason)"
+        " SELECT payment_cycle_id, clinic_id, visit_id, kind, id, amount, status,"
+        " true, paid_at, paid_at, voided_at, voided_by_staff_id, void_reason"
+        " FROM payment WHERE id = $1",
+        pid,
     )
     kq = await CashierBoardService(kb.pool).giao_dich(
         identity=_ai(ClinicRole.CASHIER, kb), tu=None, den=None
     )
     [gd] = [g for g in kq["giao_dich"] if g["visit_id"] == kb.visit_id]
     assert gd["so_tien"] == 150000 and gd["ly_do_huy"] == "Thu nhầm"
-    assert gd["phuong_thuc"] is None
+    assert gd["phuong_thuc"] is None and gd["legacy"] is True
 
 
 async def test_lich_tiep_theo_khong_tinh_lich_da_check_in(kb: KichBan) -> None:

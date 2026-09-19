@@ -167,23 +167,34 @@ class CashierBoardService:
         thức thanh toán CHƯA có cột trong `payment` — trả null, không đoán.
         """
         a, b = doc_khoang_ngay(tu, den)
+        # SỔ CÁC LẦN THU (contract tiền–thuốc CP2): một dòng mỗi lần thu, kể cả
+        # lần đã huỷ và lần chuyển khoản chờ xác minh/đã huỷ chờ. Bản trước đọc
+        # `payment` — dòng hiện tại, bị tái dùng sau khi huỷ → mất lần thu cũ.
         rows = await self._pool.fetch(
             """
-            SELECT pm.id::text AS id, pm.visit_id::text AS visit_id, pm.kind,
-                   pm.status, pm.amount, pm.paid_at, pm.voided_at, pm.void_reason,
+            SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
+                   pc.kind, pc.status, pc.amount, pc.method, pc.reference,
+                   pc.legacy, pc.created_at, pc.paid_at, pc.closed_at,
+                   pc.close_reason,
                    p.full_name, p.patient_code,
-                   s.full_name AS nguoi_thu, pm.paid_by_text,
-                   vb.full_name AS nguoi_huy
-              FROM payment pm
+                   cb.full_name AS nguoi_tao,
+                   xn.full_name AS nguoi_xac_nhan,
+                   dg.full_name AS nguoi_huy,
+                   (vi.closed_at IS NOT NULL AND pc.closed_at IS NOT NULL
+                    AND pc.closed_at > vi.closed_at) AS sau_khi_dong_luot
+              FROM payment_cycle pc
+              JOIN visit vi
+                ON vi.visit_id = pc.visit_id AND vi.clinic_id = pc.clinic_id
               LEFT JOIN patient p
-                ON p.clinic_patient_id = pm.clinic_patient_id
-               AND p.clinic_id = pm.clinic_id
-              LEFT JOIN staff s ON s.id = pm.paid_by_staff_id
-              LEFT JOIN staff vb ON vb.id = pm.voided_by_staff_id
-             WHERE pm.clinic_id = $1::uuid
-               AND (coalesce(pm.paid_at, pm.created_at) AT TIME ZONE
+                ON p.clinic_patient_id = vi.clinic_patient_id
+               AND p.clinic_id = vi.clinic_id
+              LEFT JOIN staff cb ON cb.id = pc.created_by
+              LEFT JOIN staff xn ON xn.id = pc.confirmed_by
+              LEFT JOIN staff dg ON dg.id = pc.closed_by
+             WHERE pc.clinic_id = $1::uuid
+               AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
-             ORDER BY coalesce(pm.paid_at, pm.created_at) DESC
+             ORDER BY coalesce(pc.paid_at, pc.created_at) DESC
              LIMIT 1000
             """,
             identity.clinic_id,
@@ -202,12 +213,16 @@ class CashierBoardService:
                     "loai": r["kind"],
                     "trang_thai": r["status"],
                     "so_tien": float(r["amount"]) if r["amount"] is not None else None,
-                    "luc": r["paid_at"].isoformat() if r["paid_at"] else None,
-                    "nguoi_thu": r["nguoi_thu"] or r["paid_by_text"],
-                    "phuong_thuc": None,
-                    "huy_luc": r["voided_at"].isoformat() if r["voided_at"] else None,
+                    "luc": (r["paid_at"] or r["created_at"]).isoformat(),
+                    "nguoi_thu": r["nguoi_xac_nhan"] or r["nguoi_tao"],
+                    # NULL = phiếu thu trước CP2 — không biết phương thức, không đoán.
+                    "phuong_thuc": r["method"],
+                    "ma_giao_dich": r["reference"],
+                    "legacy": r["legacy"],
+                    "huy_luc": r["closed_at"].isoformat() if r["closed_at"] else None,
                     "nguoi_huy": r["nguoi_huy"],
-                    "ly_do_huy": r["void_reason"],
+                    "ly_do_huy": r["close_reason"],
+                    "sau_khi_dong_luot": r["sau_khi_dong_luot"],
                 }
                 for r in rows
             ],
@@ -235,12 +250,33 @@ class CashierBoardService:
         from clinicai.services.bill_service import tinh_hoa_don
 
         da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
+        cho_rows = await self._pool.fetch(
+            """
+            SELECT visit_id::text AS visit_id, kind, amount, method, created_at
+              FROM payment_cycle
+             WHERE clinic_id = $1::uuid AND status = 'PENDING_VERIFICATION'
+               AND visit_id = ANY($2::uuid[])
+            """,
+            identity.clinic_id,
+            [i["visit_id"] for i in out["items"]],
+        )
+        out["cho_xac_minh"] = [
+            {
+                "visit_id": r["visit_id"],
+                "kind": r["kind"],
+                "so_tien": int(r["amount"]),
+                "phuong_thuc": r["method"],
+                "luc": r["created_at"].isoformat(),
+            }
+            for r in cho_rows
+        ]
+        cho = {(r["visit_id"], r["kind"]) for r in cho_rows}
         loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
         async with self._pool.acquire() as conn:
             for item in out["items"]:
                 hd: dict[str, Any] = {}
                 for k in loai:
-                    if (item["visit_id"], k) in da_thu:
+                    if (item["visit_id"], k) in da_thu or (item["visit_id"], k) in cho:
                         continue
                     hd[k] = (
                         await tinh_hoa_don(

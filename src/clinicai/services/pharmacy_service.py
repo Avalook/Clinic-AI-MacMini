@@ -579,9 +579,15 @@ class PharmacyService:
         return bool(
             await conn.fetchval(
                 """
+                -- Đã thu, HOẶC đang chờ xác minh chuyển khoản/QR (CP2): hoá
+                -- đơn thuốc đã chốt theo lần thu ấy.
                 SELECT EXISTS (SELECT 1 FROM public.payment
                                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                                   AND kind = 'thuoc' AND status = 'PAID')
+                    OR EXISTS (SELECT 1 FROM public.payment_cycle
+                                WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                                  AND kind = 'thuoc'
+                                  AND status IN ('PENDING_VERIFICATION', 'PAID'))
                 """,
                 identity.clinic_id,
                 visit_id,

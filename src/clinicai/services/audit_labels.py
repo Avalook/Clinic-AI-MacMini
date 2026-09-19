@@ -147,6 +147,8 @@ EVENT_LABELS: dict[str, str] = {
     "service_log.started": "Bắt đầu làm dịch vụ",
     "service_log.finished": "Xong dịch vụ",
     "payment.recorded": "Ghi nhận thanh toán",
+    "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
+    "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
     "payment.voided": "Huỷ phiếu thanh toán",
     # ── CSKH ────────────────────────────────────────────────────────────────
     "cskh_action.created": "Tạo việc chăm sóc khách",

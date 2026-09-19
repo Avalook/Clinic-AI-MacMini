@@ -2,10 +2,10 @@
 
 // GIAO DỊCH ĐÃ GHI — batch pilot 18/09/2026 (Pack B, vai Thu ngân).
 //
-// "Đã thanh toán hôm nay" và "Lịch sử giao dịch" đọc cùng MỘT nguồn (`payment`)
-// qua máy chủ, chỉ đọc. Dòng đã huỷ vẫn hiện kèm ai huỷ và vì sao — xem lại
-// không bao giờ ghi đè lịch sử. Phương thức thanh toán chưa có trong dữ liệu:
-// hiện "chưa ghi", không đoán.
+// "Đã thanh toán hôm nay" và "Lịch sử giao dịch" đọc cùng MỘT nguồn — SỔ CÁC LẦN
+// THU (`payment_cycle`, contract tiền–thuốc CP2) — qua máy chủ, chỉ đọc. Mỗi
+// lần thu một dòng: đã thu, đã huỷ (ai, vì sao), chờ xác minh, đã huỷ chờ.
+// Phiếu thu trước CP2 không có phương thức: hiện "không rõ (phiếu cũ)", không đoán.
 
 import { useEffect, useState } from "react";
 
@@ -23,11 +23,22 @@ interface GiaoDichDong {
   so_tien: number | null;
   luc: string | null;
   nguoi_thu: string | null;
-  phuong_thuc: string | null;
+  phuong_thuc: "CASH" | "TRANSFER" | "QR" | null;
+  ma_giao_dich: string | null;
+  legacy: boolean;
+  sau_khi_dong_luot: boolean;
   huy_luc: string | null;
   nguoi_huy: string | null;
   ly_do_huy: string | null;
 }
+
+const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
+const TRANG_THAI: Record<string, string> = {
+  PAID: "Đã thu",
+  VOIDED: "Đã huỷ phiếu",
+  PENDING_VERIFICATION: "Chờ xác minh",
+  CANCELLED: "Đã huỷ lần chờ",
+};
 
 const INPUT = "min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink";
 
@@ -70,8 +81,9 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
 
   const ds = kq?.khoa === khoa ? kq.ds : undefined;
   const loi = kq?.khoa === khoa ? kq.loi : undefined;
+  // Chỉ lần thu ĐÃ THU mới cộng — chờ xác minh chưa phải tiền đã nhận.
   const tong = (ds ?? [])
-    .filter((g) => !g.huy_luc)
+    .filter((g) => g.trang_thai === "PAID")
     .reduce((t, g) => t + (g.so_tien ?? 0), 0);
 
   return (
@@ -110,17 +122,19 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                   <p className="text-sm font-medium text-ink">
                     {g.ten ?? "—"} <span className="text-xs font-normal text-ink-muted">{g.ma_bn ?? ""}</span>
                   </p>
-                  <p className={`text-sm font-semibold ${g.huy_luc ? "text-ink-faint line-through" : "text-ink"}`}>
-                    {(g.so_tien ?? 0).toLocaleString("vi-VN")} đ
+                  <p className={`text-sm font-semibold ${g.trang_thai === "PAID" ? "text-ink" : "text-ink-faint line-through"}`}>
+                    {(g.so_tien ?? 0).toLocaleString("vi-VN")} đ · {TRANG_THAI[g.trang_thai] ?? g.trang_thai}
                   </p>
                 </div>
                 <p className="text-xs text-ink-soft">
                   {g.loai === "thuoc" ? "Thuốc" : "Dịch vụ"} · {ngayGio(g.luc)} · {g.nguoi_thu ?? "—"} · phương thức:{" "}
-                  {g.phuong_thuc ?? "chưa ghi"}
+                  {g.phuong_thuc ? TEN_PT[g.phuong_thuc] : g.legacy ? "không rõ (phiếu cũ)" : "—"}
+                  {g.ma_giao_dich ? ` · mã GD ${g.ma_giao_dich}` : ""}
                 </p>
                 {g.huy_luc ? (
                   <p className="text-xs text-danger">
                     Đã huỷ {ngayGio(g.huy_luc)} — {g.nguoi_huy ?? "?"}: {g.ly_do_huy ?? ""}
+                    {g.sau_khi_dong_luot ? " · phát sinh SAU khi đóng lượt" : ""}
                   </p>
                 ) : null}
                 {g.visit_id ? (

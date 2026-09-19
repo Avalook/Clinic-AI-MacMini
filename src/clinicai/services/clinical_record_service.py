@@ -838,9 +838,14 @@ class ClinicalRecordService:
         da_thu_tien = bool(
             await conn.fetchval(
                 """
+                -- Đã thu, HOẶC đang chờ xác minh chuyển khoản/QR (CP2).
                 SELECT EXISTS (SELECT 1 FROM payment
                                 WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
                                   AND kind = 'thuoc' AND status = 'PAID')
+                    OR EXISTS (SELECT 1 FROM payment_cycle
+                                WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+                                  AND kind = 'thuoc'
+                                  AND status IN ('PENDING_VERIFICATION', 'PAID'))
                 """,
                 visit_id,
                 clinic_id,

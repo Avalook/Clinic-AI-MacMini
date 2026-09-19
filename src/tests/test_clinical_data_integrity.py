@@ -431,7 +431,8 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },
-        None,
+        None,  # không có lần chuyển khoản chờ xác minh (CP2)
+        None,  # chưa có phiếu thu
         {"id": payment_id, "payment_cycle_id": cycle_id},
     ]
     enqueue = AsyncMock()
@@ -454,14 +455,22 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
             identity=_identity(ClinicRole.CASHIER),
         )
 
-    payment_write = conn.fetchrow.await_args_list[2]
+    payment_write = conn.fetchrow.await_args_list[3]
     assert payment_write.args[2] == PATIENT_ID
-    assert "payment_cycle_id  = gen_random_uuid()" in payment_write.args[0]
+    # CP2: mã lần thu là CHÍNH dòng payment_cycle vừa ghi, không sinh ngầm.
+    assert "payment_cycle_id  = EXCLUDED.payment_cycle_id" in payment_write.args[0]
     assert "WHERE payment.status = 'VOIDED'" in payment_write.args[0]
+    lan_thu = next(
+        c
+        for c in conn.execute.await_args_list
+        if "INSERT INTO payment_cycle" in c.args[0]
+    )
+    ma_lan_thu = lan_thu.args[1]
+    assert payment_write.args[8] == ma_lan_thu
     enqueue_call = enqueue.await_args
     assert enqueue_call is not None
-    assert enqueue_call.kwargs["subject_id"] == cycle_id
-    assert enqueue_call.kwargs["payload"]["clinic_reference"] == cycle_id
+    assert enqueue_call.kwargs["subject_id"] == ma_lan_thu
+    assert enqueue_call.kwargs["payload"]["clinic_reference"] == ma_lan_thu
     assert enqueue_call.kwargs["payload"]["payment_id"] == payment_id
     assert any(
         call.args[1] == "payment.recorded" for call in conn.execute.await_args_list
@@ -477,6 +486,7 @@ async def test_paid_amount_change_requires_void_first() -> None:
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },
+        None,  # không có lần chờ xác minh (CP2)
         {
             "id": "a9000000-0000-4000-8000-000000000001",
             "status": "PAID",
@@ -503,7 +513,7 @@ async def test_paid_amount_change_requires_void_first() -> None:
             identity=_identity(ClinicRole.CASHIER),
         )
 
-    assert len(conn.fetchrow.await_args_list) == 2
+    assert len(conn.fetchrow.await_args_list) == 3
     conn.execute.assert_not_awaited()
 
 
@@ -516,6 +526,7 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
             "clinic_patient_id": PATIENT_ID,
             "staff_in_clinic": True,
         },
+        None,  # không có lần chờ xác minh (CP2)
         {
             "id": "a9000000-0000-4000-8000-000000000001",
             "status": "PAID",
@@ -542,7 +553,7 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
             identity=_identity(ClinicRole.CASHIER),
         )
 
-    assert len(conn.fetchrow.await_args_list) == 2
+    assert len(conn.fetchrow.await_args_list) == 3
     conn.execute.assert_not_awaited()
 
 

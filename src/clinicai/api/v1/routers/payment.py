@@ -7,7 +7,7 @@ SafetyGateError) are mapped to HTTP by the global handlers in ``main.py``.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -36,6 +36,7 @@ _CASHIER_GUARD = require_role(
 )
 
 PaymentKind = Literal["thuoc", "dich_vu"]
+PaymentMethod = Literal["CASH", "TRANSFER", "QR"]
 
 
 class PaymentRecordRequest(BaseModel):
@@ -48,6 +49,8 @@ class PaymentRecordRequest(BaseModel):
     clinic_patient_id: UUID | None = None
     # Dấu hoá đơn thu ngân đang nhìn; khác hoá đơn máy chủ → 409 BILL_CHANGED.
     bill_revision: str | None = Field(default=None, max_length=64)
+    # Tiền mặt → PAID ngay; chuyển khoản/QR → chờ xác minh (contract A2).
+    method: PaymentMethod = "CASH"
 
 
 class PaymentVoidRequest(BaseModel):
@@ -70,8 +73,8 @@ async def record_payment(
     identity: StaffIdentity = Depends(_CASHIER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
-) -> dict[str, bool]:
-    """Record (upsert) a PAID payment once the visit's appointment is COMPLETED."""
+) -> dict[str, Any]:
+    """Một lần thu. Tiền mặt → PAID; chuyển khoản/QR → chờ xác minh."""
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
@@ -80,7 +83,7 @@ async def record_payment(
     # câu giải thích thật biến mất. Xem `IdempotencyGuard.release`.
     async with tra_khoa_neu_bi_tu_choi(idem, pool):
         service = PaymentService(pool)
-        await service.record_payment(
+        lan_thu = await service.record_payment(
             visit_id=str(body.visit_id),
             kind=body.kind,
             amount=body.amount,
@@ -88,9 +91,10 @@ async def record_payment(
                 str(body.clinic_patient_id) if body.clinic_patient_id else None
             ),
             bill_revision=body.bill_revision,
+            method=body.method,
             identity=identity,
         )
-        result = {"ok": True}
+        result = {"ok": True, **lan_thu}
         await idem.save(pool, result, status_code=200)
 
     return result
@@ -111,3 +115,49 @@ async def void_payment(
         identity=identity,
     )
     return {"ok": True}
+
+
+class XacMinhRequest(BaseModel):
+    """Xác minh chuyển khoản/QR đã nhận tiền, kèm mã giao dịch ngân hàng."""
+
+    visit_id: UUID
+    kind: PaymentKind
+    reference: str = Field(min_length=3, max_length=100)
+
+
+@router.post("/payments/xac-minh")
+async def xac_minh_dien_tu(
+    body: XacMinhRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lần chuyển khoản/QR chờ xác minh → PAID (contract tiền–thuốc A2)."""
+    kq = await PaymentService(pool).xac_minh_dien_tu(
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+        reference=body.reference,
+        identity=identity,
+    )
+    return {"ok": True, **kq}
+
+
+class HuyChoRequest(BaseModel):
+    visit_id: UUID
+    kind: PaymentKind
+    reason: str = Field(min_length=5, max_length=500)
+
+
+@router.post("/payments/huy-cho")
+async def huy_cho_xac_minh(
+    body: HuyChoRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Huỷ lần chuyển khoản/QR chờ xác minh (chưa từng thu)."""
+    kq = await PaymentService(pool).huy_cho_xac_minh(
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+        reason=body.reason,
+        identity=identity,
+    )
+    return {"ok": True, **kq}
