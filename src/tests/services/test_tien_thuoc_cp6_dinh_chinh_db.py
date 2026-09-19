@@ -145,7 +145,9 @@ async def _ky(q: Quay) -> None:
     )
 
 
-async def _amendment(conn: asyncpg.Connection, q: Quay) -> str:
+async def _amendment(
+    conn: asyncpg.Connection, q: Quay, truong: tuple[str, ...] = ("don_thuoc",)
+) -> str:
     """Đúng đường đính chính hồ sơ: AMENDED + visit_amendment, cùng giao dịch."""
     await conn.execute(
         "UPDATE visit SET status = 'AMENDED' WHERE visit_id = $1::uuid", q.visit_id
@@ -154,12 +156,13 @@ async def _amendment(conn: asyncpg.Connection, q: Quay) -> str:
         await conn.fetchval(
             "INSERT INTO visit_amendment (clinic_id, visit_id, amended_by, reason,"
             " corrected_fields, original_values, corrected_values)"
-            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, ARRAY['don_thuoc'],"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::text[],"
             " '{}'::jsonb, '{}'::jsonb) RETURNING amendment_id::text",
             CLINIC,
             q.visit_id,
             q.bac_si.staff_id,
             LY_DO,
+            list(truong),
         )
     )
 
@@ -422,6 +425,24 @@ async def test_c_da_thu_doi_lieu_hay_luu_y_tai_cho_bi_chan(q: Quay) -> None:
             await _sua(q, rx, cot, "viết lại")
 
 
+@pytest.mark.parametrize("ly_do_tu_choi", [None, "Khách không lấy"])
+@pytest.mark.parametrize("cot", ["dosage_instructions", "caution"])
+async def test_c_dong_da_chot_hay_khach_khong_lay_doi_lieu_bi_chan(
+    q: Quay, cot: str, ly_do_tu_choi: str | None
+) -> None:
+    """Review 4a P1-A: Chốt / Khách không lấy là sự kiện lịch sử — mức C, không
+    phải B. Sửa liều tại chỗ sẽ làm như khách đã từ chối hướng dẫn mới."""
+    rx = await _don(q, 10)
+    await q.pool.execute(
+        "UPDATE prescription SET closed_at = now(), refusal_reason = $2"
+        " WHERE id = $1::uuid",
+        rx,
+        ly_do_tu_choi,
+    )
+    with pytest.raises(asyncpg.CheckViolationError, match="dòng thay thế"):
+        await _sua(q, rx, cot, "Tối 2")
+
+
 async def test_c_da_thu_van_ghi_dinh_chinh_duoc_tien_kho_cu_giu_nguyen(
     q: Quay,
 ) -> None:
@@ -604,6 +625,95 @@ async def test_da_ky_khong_tai_dung_amendment_cua_giao_dich_truoc(q: Quay) -> No
                 )
                 lan = await _lan(conn, q, amendment=cu)
                 await _go(conn, q, a, lan, None)
+
+
+async def _soap_only(conn: asyncpg.Connection, q: Quay) -> str:
+    """Đính chính hồ sơ CHỈ khai SOAP, rồi đặt biến phiên trỏ vào nó."""
+    am = await _amendment(conn, q, ("soap_plan",))
+    await conn.execute("SELECT set_config('clinicai.amendment_id', $1, true)", am)
+    return am
+
+
+async def test_amendment_chi_khai_soap_khong_sua_tai_cho_duoc_don(q: Quay) -> None:
+    """Review 4a P1-B: sổ đính chính nói "chỉ sửa hướng xử trí" thì đơn không
+    được đổi trong cùng giao dịch ấy."""
+    a = await _don(q, 10)
+    await _ky(q)
+    with pytest.raises(asyncpg.CheckViolationError, match="đính chính hồ sơ"):
+        async with q.pool.acquire() as conn, conn.transaction():
+            await _soap_only(conn, q)
+            await conn.execute(
+                "UPDATE prescription SET dosage_instructions = 'Tối 2'"
+                " WHERE id = $1::uuid",
+                a,
+            )
+
+
+async def test_amendment_chi_khai_soap_khong_them_dong_duoc(q: Quay) -> None:
+    await _don(q, 10)
+    await _ky(q)
+    with pytest.raises(asyncpg.CheckViolationError, match="đính chính hồ sơ"):
+        async with q.pool.acquire() as conn, conn.transaction():
+            await _soap_only(conn, q)
+            await _dong_moi(conn, q, None)
+    with pytest.raises(asyncpg.CheckViolationError, match="đính chính hồ sơ"):
+        async with q.pool.acquire() as conn, conn.transaction():
+            am = await _soap_only(conn, q)
+            await _dong_moi(conn, q, await _lan(conn, q, amendment=am))
+
+
+async def test_amendment_chi_khai_soap_khong_go_dong_duoc(q: Quay) -> None:
+    a = await _don(q, 10)
+    await _ky(q)
+    with pytest.raises(asyncpg.CheckViolationError, match="đính chính hồ sơ"):
+        async with q.pool.acquire() as conn, conn.transaction():
+            am = await _soap_only(conn, q)
+            await _go(conn, q, a, await _lan(conn, q, amendment=am), None)
+    assert a in await _hien_hanh(q)
+
+
+async def test_go_dong_tu_lay_nguoi_luc_ly_do_tu_lan_dinh_chinh(q: Quay) -> None:
+    """Review 4a P2: một nguồn sự thật — chỉ gửi mã lần đính chính là đủ."""
+    a = await _don(q, 10)
+    async with q.pool.acquire() as conn, conn.transaction():
+        lan = await _lan(conn, q)
+        await conn.execute(
+            "UPDATE prescription SET removed_in_correction_id = $2::uuid"
+            " WHERE id = $1::uuid",
+            a,
+            lan,
+        )
+    r = await q.pool.fetchrow(
+        "SELECT r.removed_by = c.corrected_by AS nguoi,"
+        " r.removed_at = c.corrected_at AS luc,"
+        " r.removal_reason = c.reason AS ly_do"
+        " FROM prescription r JOIN prescription_correction c"
+        "   ON c.id = r.removed_in_correction_id WHERE r.id = $1::uuid",
+        a,
+    )
+    assert (r["nguoi"], r["luc"], r["ly_do"]) == (True, True, True)
+
+
+@pytest.mark.parametrize("sai", ["nguoi", "ly_do", "luc"])
+async def test_go_dong_ghi_nguoi_luc_ly_do_khac_lan_dinh_chinh_bi_chan(
+    q: Quay, sai: str
+) -> None:
+    a = await _don(q, 10)
+    with pytest.raises(asyncpg.CheckViolationError, match="khớp lần đính chính"):
+        async with q.pool.acquire() as conn, conn.transaction():
+            lan = await _lan(conn, q)
+            await conn.execute(
+                "UPDATE prescription SET removed_in_correction_id = $2::uuid,"
+                " removed_by = CASE WHEN $3 = 'nguoi' THEN $4::uuid END,"
+                " removal_reason = CASE WHEN $3 = 'ly_do' THEN 'Lý do khác hẳn' END,"
+                " removed_at = CASE WHEN $3 = 'luc'"
+                "   THEN now() + interval '5 hours' END"
+                " WHERE id = $1::uuid",
+                a,
+                lan,
+                sai,
+                q.duoc_si.staff_id,
+            )
 
 
 async def test_chua_ky_khong_gan_amendment(q: Quay) -> None:

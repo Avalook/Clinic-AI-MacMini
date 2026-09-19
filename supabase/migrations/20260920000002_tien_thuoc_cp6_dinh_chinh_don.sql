@@ -12,11 +12,14 @@
 --
 -- Mức dấu vết của một dòng (prescription_muc_dau_vet), duyệt 20/09:
 --   0  A  chưa gì cả                     → sửa tại chỗ mọi thứ, xoá cứng được
---   1  B  đã có phân lô (kể cả đã nhả) hoặc đã chốt/từ chối, chưa có gì dưới
---         → đổi liều / lưu ý tại chỗ được; đổi thuốc / số lượng phải thay thế
+--   1  B  CHỈ có phân lô (kể cả đã nhả) — nhà thuốc mới chọn lô, chưa có gì
+--         khác → đổi liều / lưu ý tại chỗ được; đổi thuốc / số lượng phải thay
 --   2  C  có ảnh chụp hoá đơn, phân lô gắn lần thu, SALE, DISPENSE (theo phân lô
---         hoặc luồng cũ) hoặc khách trả → MỌI thay đổi chuyên môn, kể cả liều /
---         lưu ý, phải thay thế: sửa tại chỗ là viết lại hướng dẫn "lúc giao".
+--         hoặc luồng cũ), khách trả, HOẶC dòng đã Chốt / Khách không lấy
+--         → MỌI thay đổi chuyên môn, kể cả liều / lưu ý, phải thay thế: sửa tại
+--         chỗ là viết lại hướng dẫn "lúc giao" / "lúc khách từ chối" (review
+--         4a P1-A: dòng từ chối "sáng 1" rồi sửa thành "tối 2" trông như khách
+--         đã từ chối hướng dẫn mới).
 --
 -- Dòng lịch sử (duyệt 20/09, Q3): BẤT BIẾN về nội dung, và KHÔNG nhận tác động
 -- thương mại MỚI — không phân lô mới, không gắn lần thu, không SALE, không
@@ -169,12 +172,12 @@ AS $$
                         AND t.ref_type = 'prescription' AND t.ref_id = p_id)
           OR EXISTS (SELECT 1 FROM public.drug_return d
                       WHERE d.prescription_id = p_id AND d.clinic_id = p_clinic)
+          OR EXISTS (SELECT 1 FROM public.prescription r
+                      WHERE r.id = p_id AND r.clinic_id = p_clinic
+                        AND (r.closed_at IS NOT NULL OR r.refusal_reason IS NOT NULL))
             THEN 2
         WHEN EXISTS (SELECT 1 FROM public.prescription_allocation a
                       WHERE a.prescription_id = p_id AND a.clinic_id = p_clinic)
-          OR EXISTS (SELECT 1 FROM public.prescription r
-                      WHERE r.id = p_id AND r.clinic_id = p_clinic
-                        AND r.closed_at IS NOT NULL)
             THEN 1
         ELSE 0
     END
@@ -192,7 +195,9 @@ $$;
 
 -- Giao dịch hiện tại có đang đi đường đính chính hồ sơ của ĐÚNG lượt này không:
 -- `clinicai.amendment_id` trỏ tới một visit_amendment cùng phòng khám, cùng
--- lượt, ghi trong chính giao dịch này (amended_at = now()). Lưới toàn vẹn —
+-- lượt, ghi trong chính giao dịch này (amended_at = now()), và KHAI sửa đơn
+-- ('don_thuoc' trong corrected_fields — review 4a P1-B: đính chính chỉ khai
+-- SOAP thì sổ đính chính nói một đằng, đơn đổi một nẻo). Lưới toàn vẹn —
 -- không phải token bảo mật (xem đầu file).
 CREATE OR REPLACE FUNCTION public.dang_dinh_chinh_ho_so(p_visit uuid, p_clinic uuid)
 RETURNS uuid
@@ -207,7 +212,8 @@ BEGIN
     END IF;
     RETURN (SELECT a.amendment_id FROM public.visit_amendment a
              WHERE a.amendment_id = ma::uuid AND a.clinic_id = p_clinic
-               AND a.visit_id = p_visit AND a.amended_at = now());
+               AND a.visit_id = p_visit AND a.amended_at = now()
+               AND 'don_thuoc' = ANY (a.corrected_fields));
 END $$;
 
 -- ── 5. Guard của lần đính chính ───────────────────────────────────────────
@@ -325,7 +331,8 @@ BEGIN
     END IF;
 
     -- Gỡ khỏi đơn hiện hành: một thao tác thuần, không kèm đổi nội dung.
-    IF NEW.removed_at IS NOT NULL THEN
+    IF NEW.removed_in_correction_id IS NOT NULL OR NEW.removed_at IS NOT NULL
+       OR NEW.removed_by IS NOT NULL OR NEW.removal_reason IS NOT NULL THEN
         IF (to_jsonb(NEW) - bo_qua - cot_go) IS DISTINCT FROM (to_jsonb(OLD) - bo_qua - cot_go) THEN
             RAISE EXCEPTION 'Gỡ dòng đơn không được kèm sửa nội dung dòng'
                 USING ERRCODE = 'check_violation';
@@ -336,6 +343,19 @@ BEGIN
             RAISE EXCEPTION 'Gỡ dòng đơn phải bằng lần đính chính đang ghi'
                 USING ERRCODE = 'check_violation';
         END IF;
+        -- MỘT nguồn sự thật cho người / lúc / lý do gỡ (review 4a P2): lấy từ
+        -- lần đính chính. Gửi kèm giá trị khác thì từ chối — không ghi đè lặng
+        -- lẽ một đầu vào mâu thuẫn.
+        IF (NEW.removed_by IS NOT NULL AND NEW.removed_by IS DISTINCT FROM lan.corrected_by)
+           OR (NEW.removed_at IS NOT NULL AND NEW.removed_at IS DISTINCT FROM lan.corrected_at)
+           OR (NEW.removal_reason IS NOT NULL
+               AND NEW.removal_reason IS DISTINCT FROM lan.reason) THEN
+            RAISE EXCEPTION 'Người / lúc / lý do gỡ phải khớp lần đính chính'
+                USING ERRCODE = 'check_violation';
+        END IF;
+        NEW.removed_by := lan.corrected_by;
+        NEW.removed_at := lan.corrected_at;
+        NEW.removal_reason := lan.reason;
         IF ky AND (lan.amendment_id IS NULL
                    OR lan.amendment_id IS DISTINCT FROM
                       public.dang_dinh_chinh_ho_so(NEW.visit_id, NEW.clinic_id)) THEN
