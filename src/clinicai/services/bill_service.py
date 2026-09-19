@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -180,7 +180,7 @@ KHAM_KHONG_RO_LOAI = "chưa xác định loại khám"
 
 
 def dong_kham(
-    kham_row: Mapping[str, Any] | None, gia_dv: list[Mapping[str, Any]]
+    kham_row: Mapping[str, Any] | None, gia_dv: Sequence[Mapping[str, Any]]
 ) -> dict[str, Any] | None:
     """Dòng tiền khám của một lượt. Thuần — kiểm được không cần DB.
 
