@@ -392,6 +392,10 @@ async def test_u4_man_nha_thuoc_bao_con_can_hoan_roi_mo_nut(q: Quay) -> None:
     await _huy_cg(q, rx)
     d = await dong()
     assert d["chua_giao"] == 0 and d["thao_tac"]["chot"]
+    # Phân lô vẫn là "đã bán" (đã giao 3, phần còn lại đã huỷ), không phải
+    # "đã chọn, chưa thu" — và lượt không bị hiểu nhầm là cần đối soát.
+    pl = d["phan_lo"][0]
+    assert (pl["co_sale"], pl["da_ban"]) == (True, False)
 
 
 # ══ T — KHÁCH TRẢ THUỐC ═══════════════════════════════════════════════════

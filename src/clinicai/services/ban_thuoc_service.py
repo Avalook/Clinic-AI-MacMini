@@ -443,6 +443,8 @@ def _dong(
                 "con_giao": con,
                 "dang_giu": gan and gd == CHO_XAC_MINH,
                 "da_ban": bool(p["da_ban"]),
+                # Đã TỪNG ghi bán — kể cả khi phần chưa giao sau đó đã huỷ (CP5).
+                "co_sale": bool(p["co_sale"]),
                 "thao_tac": thao_tac_phan_lo(
                     gd=gd,
                     dong_da_chot=da_chot,

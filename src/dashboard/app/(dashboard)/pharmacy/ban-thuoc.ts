@@ -37,6 +37,8 @@ export interface PhanLo {
   con_giao: number;
   dang_giu: boolean;
   da_ban: boolean;
+  /** Đã từng ghi bán (kể cả khi phần chưa giao sau đó đã huỷ). */
+  co_sale: boolean;
   thao_tac: { bo: boolean; doi: boolean; giao: boolean };
 }
 

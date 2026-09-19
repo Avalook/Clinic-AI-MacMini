@@ -222,7 +222,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
                       ? "Đang giữ cho lần chuyển khoản"
                       : p.da_ban
                         ? `Đã bán · đã giao ${fmtSo(p.handed_over_qty)} · còn ${fmtSo(p.con_giao)}`
-                        : "Đã chọn, chưa thu"}
+                        : p.co_sale
+                          ? `Đã bán · đã giao ${fmtSo(p.handed_over_qty)} · phần còn lại đã huỷ`
+                          : "Đã chọn, chưa thu"}
                   </span>
                 </div>
                 {p.thao_tac.giao ? (

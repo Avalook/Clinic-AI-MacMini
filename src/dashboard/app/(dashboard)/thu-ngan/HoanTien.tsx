@@ -50,6 +50,8 @@ const TRANG_THAI: Record<KhoanHoan["status"], { nhan: string; tone: StatusTone }
 };
 const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
 const O = "min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink";
+/** Số lượng cho người đọc: máy chủ trả Decimal (3.0) — hiện "3". */
+const fmtSl = (n: number) => Number(n).toLocaleString("vi-VN", { maximumFractionDigits: 3 });
 
 async function goi(body: Record<string, unknown>): Promise<string | null> {
   // Một THAO TÁC một khoá: gửi lại cùng khoản hoàn (mất phản hồi, bấm hai lần)
@@ -182,7 +184,7 @@ export default function HoanTien({
             {conHoan.map((d) => (
               <label key={d.payment_bill_line_id} className="flex flex-wrap items-center gap-2 text-xs text-ink-soft">
                 <span className="min-w-0 flex-1">
-                  {d.ten} — đã thu {d.so_luong} {d.don_vi ?? ""}, còn hoàn được {d.con_hoan}
+                  {d.ten} — đã thu {fmtSl(d.so_luong)} {d.don_vi ?? ""}, còn hoàn được {fmtSl(d.con_hoan)}
                 </span>
                 <input
                   type="number"
