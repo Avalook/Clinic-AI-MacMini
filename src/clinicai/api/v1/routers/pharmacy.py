@@ -370,15 +370,25 @@ async def huy_phan_chua_giao(
     body: HuyChuaGiaoRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Nhả phần đã bán mà chưa giao (CP5) — cần căn cứ: huỷ phiếu / đã hoàn tiền."""
-    kq: dict[str, Any] = jsonable_encoder(
-        await PharmacyService(pool).huy_phan_chua_giao(
-            identity=identity,
-            prescription_id=str(body.prescription_id),
-            ly_do=body.ly_do,
+    """Nhả phần đã bán mà chưa giao (CP5) — cần căn cứ: huỷ phiếu / đã hoàn tiền.
+
+    Sổ kho đã chặn đảo hai lần; khoá chống-gửi-trùng để lần gửi lại nhận đúng
+    kết quả lần đầu thay vì câu "không còn phần chưa giao" gây hoảng.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq: dict[str, Any] = jsonable_encoder(
+            await PharmacyService(pool).huy_phan_chua_giao(
+                identity=identity,
+                prescription_id=str(body.prescription_id),
+                ly_do=body.ly_do,
+            )
         )
-    )
+        await idem.save(pool, kq, status_code=200)
     return kq
 
 
@@ -393,14 +403,25 @@ async def khach_tra_thuoc(
     body: KhachTraRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Ghi nhận thuốc khách trả lại quầy (CP5) — chưa quyết xử lý (HOLD J1/J2)."""
-    kq: dict[str, Any] = jsonable_encoder(
-        await PharmacyService(pool).khach_tra_thuoc(
-            identity=identity,
-            dispense_txn_id=str(body.dispense_txn_id),
-            so_luong=body.so_luong,
-            ly_do=body.ly_do,
+    """Ghi nhận thuốc khách trả lại quầy (CP5) — chưa quyết xử lý (HOLD J1/J2).
+
+    CHỐNG GỬI TRÙNG (review CP5 P1-A): trả nhiều lần là hợp lệ, DB chỉ chặn tổng
+    trả ≤ số đã giao — nên gửi lại sau khi mất phản hồi sẽ thành "khách trả
+    thêm". Cùng `Idempotency-Key` → không có lần trả / RETURN_RECEIVED thứ hai.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq: dict[str, Any] = jsonable_encoder(
+            await PharmacyService(pool).khach_tra_thuoc(
+                identity=identity,
+                dispense_txn_id=str(body.dispense_txn_id),
+                so_luong=body.so_luong,
+                ly_do=body.ly_do,
+            )
         )
-    )
+        await idem.save(pool, kq, status_code=200)
     return kq

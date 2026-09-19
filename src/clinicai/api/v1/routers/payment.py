@@ -193,8 +193,27 @@ async def hoan_tien(
     body: HoanTienRequest,
     identity: StaffIdentity = Depends(_CASHIER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Hoàn tiền theo dòng ảnh chụp hoá đơn; số tiền do máy chủ tính."""
+    """Hoàn tiền theo dòng ảnh chụp hoá đơn; số tiền do máy chủ tính.
+
+    CHỐNG GỬI TRÙNG (review CP5 P1-A): hoàn một phần là hợp lệ, nên máy chủ
+    không phân biệt được "gửi lại vì mất phản hồi" với "hoàn thêm lần nữa" —
+    trừ khi người gọi nói ra bằng `Idempotency-Key`. Cùng khoá → trả lại kết
+    quả lần đầu, không tạo khoản hoàn thứ hai.
+    """
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        kq = await _tao_hoan(body, identity, pool)
+        await idem.save(pool, kq, status_code=200)
+    return kq
+
+
+async def _tao_hoan(
+    body: HoanTienRequest, identity: StaffIdentity, pool: asyncpg.Pool
+) -> dict[str, Any]:
     kq = await HoanTienService(pool).tao(
         identity=identity,
         payment_cycle_id=str(body.payment_cycle_id),

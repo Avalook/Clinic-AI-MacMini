@@ -155,16 +155,20 @@ BEGIN
         RAISE EXCEPTION 'payment_refund_line chỉ thêm (%)', TG_OP
             USING ERRCODE = 'insufficient_privilege';
     END IF;
-    SELECT payment_cycle_id, status INTO hoan FROM public.payment_refund
-     WHERE refund_id = NEW.refund_id AND clinic_id = NEW.clinic_id;
-    IF hoan.payment_cycle_id IS DISTINCT FROM NEW.payment_cycle_id
-       OR hoan.status NOT IN ('PENDING', 'COMPLETED') THEN
-        RAISE EXCEPTION 'Dòng hoàn phải thuộc đúng lần thu của khoản hoàn'
-            USING ERRCODE = 'check_violation';
-    END IF;
+    -- Khoá theo ĐÚNG thứ tự của service (review CP5 P1-B): lần thu → khoản
+    -- hoàn, RỒI mới đọc trạng thái. Đọc trước khoá sau thì một lệnh ghi thẳng
+    -- có thể thấy PENDING trong khi khoản hoàn vừa bị chuyển FAILED/CANCELLED.
     PERFORM 1 FROM public.payment_cycle
       WHERE payment_cycle_id = NEW.payment_cycle_id AND clinic_id = NEW.clinic_id
       FOR UPDATE;
+    SELECT payment_cycle_id, status INTO hoan FROM public.payment_refund
+     WHERE refund_id = NEW.refund_id AND clinic_id = NEW.clinic_id
+     FOR UPDATE;
+    IF hoan.payment_cycle_id IS DISTINCT FROM NEW.payment_cycle_id
+       OR hoan.status NOT IN ('PENDING', 'COMPLETED') THEN
+        RAISE EXCEPTION 'Dòng hoàn phải thuộc đúng lần thu của khoản hoàn còn mở'
+            USING ERRCODE = 'check_violation';
+    END IF;
     SELECT quantity, unit_price, billing_owner INTO dong
       FROM public.payment_bill_line
      WHERE id = NEW.payment_bill_line_id AND clinic_id = NEW.clinic_id;
@@ -215,6 +219,32 @@ CREATE CONSTRAINT TRIGGER trg_payment_refund_tong_khop
     AFTER INSERT ON public.payment_refund
     DEFERRABLE INITIALLY DEFERRED
     FOR EACH ROW EXECUTE FUNCTION public.payment_refund_tong_khop();
+
+-- Review CP5 P1-B: kiểm LẠI khi thêm dòng. Chỉ kiểm lúc chèn đầu khoản thì sau
+-- khi khoản hoàn đã commit, một dòng chèn thêm làm tổng dòng ≠ đầu khoản mà
+-- không ai chặn — sổ hoàn tiền tự lệch.
+CREATE OR REPLACE FUNCTION public.payment_refund_line_tong_khop()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+    dau numeric;
+    tong numeric;
+BEGIN
+    SELECT amount INTO dau FROM public.payment_refund
+     WHERE refund_id = NEW.refund_id AND clinic_id = NEW.clinic_id;
+    SELECT coalesce(sum(amount), 0) INTO tong FROM public.payment_refund_line
+     WHERE refund_id = NEW.refund_id AND clinic_id = NEW.clinic_id;
+    IF tong IS DISTINCT FROM dau THEN
+        RAISE EXCEPTION 'Khoản hoàn %: tiền đầu khoản % ≠ tổng dòng %',
+            NEW.refund_id, dau, tong
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NULL;
+END $$;
+DROP TRIGGER IF EXISTS trg_payment_refund_line_tong_khop ON public.payment_refund_line;
+CREATE CONSTRAINT TRIGGER trg_payment_refund_line_tong_khop
+    AFTER INSERT ON public.payment_refund_line
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION public.payment_refund_line_tong_khop();
 
 -- ══ KHÁCH TRẢ THUỐC ════════════════════════════════════════════════════
 -- Neo cho khoá ngoại ghép của phân lô.
@@ -283,7 +313,11 @@ BEGIN
     IF xuat.txn_type IS DISTINCT FROM 'DISPENSE'
        OR xuat.ref_id IS DISTINCT FROM NEW.prescription_id
        OR xuat.allocation_id IS DISTINCT FROM NEW.allocation_id
-       OR NEW.disposition IS NOT NULL THEN
+       OR NEW.disposition IS NOT NULL
+       -- Dòng đơn phải thuộc ĐÚNG lượt khai trên lần trả (lineage/audit).
+       OR NOT EXISTS (SELECT 1 FROM public.prescription r
+                       WHERE r.id = NEW.prescription_id AND r.clinic_id = NEW.clinic_id
+                         AND r.visit_id = NEW.visit_id) THEN
         RAISE EXCEPTION 'Khách trả thuốc phải trỏ đúng DISPENSE gốc của dòng đơn'
             USING ERRCODE = 'check_violation';
     END IF;

@@ -71,5 +71,9 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  return proxyJsonToBackend("POST", path, body);
+  // Chuyển tiếp khoá chống-gửi-trùng (review CP5 P1-A). Trước bản này proxy
+  // KHÔNG chuyển header, nên chốt chống trùng của /pharmacy/dispense (16/09)
+  // chưa từng chạy khi bấm từ giao diện.
+  const khoa = request.headers.get("Idempotency-Key") ?? undefined;
+  return proxyJsonToBackend("POST", path, body, khoa);
 }

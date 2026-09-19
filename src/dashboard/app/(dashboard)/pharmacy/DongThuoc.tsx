@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import { INPUT } from "../form-ui";
+import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import {
   NHAN_CAP,
   fmtNgay,
@@ -67,10 +68,16 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   async function goi(action: string, body: Record<string, unknown>) {
     setDangGui(true);
     setLoi(null);
+    // Một THAO TÁC một khoá (không phải một lần bấm): bấm lại hay gửi lại sau
+    // khi mất mạng đều mang khoá cũ → máy chủ không giao / trả / huỷ hai lần.
+    const thaoTac = dinhDanhThaoTac(action, JSON.stringify(body));
     try {
       const res = await fetch(`/api/pharmacy/${action}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": khoaThaoTac(thaoTac),
+        },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
@@ -86,6 +93,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
       setSoCu("");
       setSoGiao({});
       setSoTra({});
+      xongThaoTac(thaoTac);
       router.refresh();
     } finally {
       setDangGui(false);

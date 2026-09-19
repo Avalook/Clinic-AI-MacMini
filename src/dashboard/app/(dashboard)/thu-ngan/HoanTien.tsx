@@ -13,6 +13,7 @@
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 
 export interface KhoanHoan {
@@ -51,12 +52,18 @@ const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuy�
 const O = "min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink";
 
 async function goi(body: Record<string, unknown>): Promise<string | null> {
+  // Một THAO TÁC một khoá: gửi lại cùng khoản hoàn (mất phản hồi, bấm hai lần)
+  // → máy chủ trả kết quả lần đầu, không hoàn tiền hai lần (review CP5 P1-A).
+  const thaoTac = dinhDanhThaoTac("hoan", JSON.stringify(body));
   const r = await fetch("/api/payment", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Idempotency-Key": khoaThaoTac(thaoTac) },
     body: JSON.stringify(body),
   });
-  if (r.ok) return null;
+  if (r.ok) {
+    xongThaoTac(thaoTac);
+    return null;
+  }
   const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
   return d?.message ?? d?.error ?? "Không lưu được. Thử lại giúp em.";
 }

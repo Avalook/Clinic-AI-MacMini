@@ -533,3 +533,67 @@ async def test_t6_chuyen_khoan_xac_minh_roi_tra_khong_ban_lan_hai(q: Quay) -> No
     await _tra(q, await _xuat(q, rx), 10)
     assert await _so_dong(q, "SALE", lo) == 1
     assert (await _ton(q, lo), await _kd(q, lo)) == (100, 90)
+
+
+# ══ Review CP5 — P1-B: sổ hoàn không tự lệch sau commit; lineage lần trả ══
+
+
+async def test_r11_them_dong_vao_khoan_hoan_da_commit_bi_chan(q: Quay) -> None:
+    _, _, lan = await _da_thu_giao(q, 0)
+    kq = await _hoan(q, lan, 2)  # 10.000đ, đã commit
+    with pytest.raises(asyncpg.CheckViolationError, match="tổng dòng"):
+        await q.pool.execute(
+            "INSERT INTO payment_refund_line (clinic_id, refund_id, payment_cycle_id,"
+            " payment_bill_line_id, quantity, amount)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 1, 5000)",
+            CLINIC,
+            kq["refund_id"],
+            lan,
+            await _dong_thuoc(q, lan),
+        )
+    assert (
+        await q.pool.fetchval(
+            "SELECT sum(amount) FROM payment_refund_line WHERE refund_id = $1::uuid",
+            kq["refund_id"],
+        )
+        == 10_000
+    )
+
+
+async def test_r12_khong_them_dong_vao_khoan_hoan_da_dong(q: Quay) -> None:
+    _, _, lan = await _da_thu_giao(q, 0)
+    kq = await _hoan(q, lan, 2, method="QR")
+    await HoanTienService(q.pool).dong(
+        identity=_ql(q),
+        refund_id=kq["refund_id"],
+        trang_thai="CANCELLED",
+        reason="Khách đổi ý, không cần hoàn",
+    )
+    with pytest.raises(asyncpg.CheckViolationError, match="còn mở"):
+        await q.pool.execute(
+            "INSERT INTO payment_refund_line (clinic_id, refund_id, payment_cycle_id,"
+            " payment_bill_line_id, quantity, amount)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 1, 5000)",
+            CLINIC,
+            kq["refund_id"],
+            lan,
+            await _dong_thuoc(q, lan),
+        )
+
+
+async def test_t7_lan_tra_phai_dung_luot_cua_dong_don(q: Quay) -> None:
+    from tests.services.test_tien_thuoc_cp1_db import tao_quay
+
+    rx, _, _ = await _da_thu_giao(q, 4)
+    khac = await tao_quay(q.pool)
+    with pytest.raises(asyncpg.CheckViolationError, match="DISPENSE gốc"):
+        await q.pool.execute(
+            "INSERT INTO drug_return (clinic_id, visit_id, prescription_id,"
+            " original_dispense_txn_id, allocation_id, drug_batch_id, returned_qty,"
+            " reason, returned_by)"
+            " SELECT clinic_id, $2::uuid, ref_id, id, allocation_id, drug_batch_id, 1,"
+            " 'sai lượt', $3::uuid FROM inventory_txn WHERE id = $1::uuid",
+            await _xuat(q, rx),
+            khac.visit_id,
+            q.duoc_si.staff_id,
+        )

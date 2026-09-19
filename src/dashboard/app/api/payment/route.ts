@@ -48,14 +48,21 @@ export async function POST(request: Request) {
   };
   // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
   if (p.action === "hoan-tien") {
-    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien", {
-      payment_cycle_id: p.paymentCycleId,
-      visit_id: p.visitId,
-      kind: p.kind,
-      method: p.method,
-      reason: p.reason,
-      dong: p.dong,
-    });
+    // Chống gửi trùng (review CP5 P1-A): cùng khoá → máy chủ trả lại kết quả
+    // lần đầu, không tạo khoản hoàn thứ hai.
+    return proxyJsonToBackend(
+      "POST",
+      "/api/v1/payments/hoan-tien",
+      {
+        payment_cycle_id: p.paymentCycleId,
+        visit_id: p.visitId,
+        kind: p.kind,
+        method: p.method,
+        reason: p.reason,
+        dong: p.dong,
+      },
+      request.headers.get("Idempotency-Key") ?? undefined,
+    );
   }
   if (p.action === "hoan-tien-xac-nhan") {
     return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien/xac-nhan", {
