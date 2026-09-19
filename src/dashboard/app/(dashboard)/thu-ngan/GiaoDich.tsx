@@ -26,6 +26,7 @@ interface GiaoDichDong {
   phuong_thuc: "CASH" | "TRANSFER" | "QR" | null;
   ma_giao_dich: string | null;
   legacy: boolean;
+  can_doi_soat: boolean;
   sau_khi_dong_luot: boolean;
   huy_luc: string | null;
   nguoi_huy: string | null;
@@ -131,6 +132,13 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                   {g.phuong_thuc ? TEN_PT[g.phuong_thuc] : g.legacy ? "không rõ (phiếu cũ)" : "—"}
                   {g.ma_giao_dich ? ` · mã GD ${g.ma_giao_dich}` : ""}
                 </p>
+                {g.can_doi_soat ? (
+                  // Tiền THẬT đã nhận theo ảnh chụp hoá đơn lúc chờ; hoá đơn hiện
+                  // tại đã khác → cần xử lý tài chính, không phải "chưa trả".
+                  <p className="text-xs font-medium text-warning">
+                    Cần đối soát: hoá đơn đã đổi trong lúc chờ xác minh.
+                  </p>
+                ) : null}
                 {g.huy_luc ? (
                   <p className="text-xs text-danger">
                     Đã huỷ {ngayGio(g.huy_luc)} — {g.nguoi_huy ?? "?"}: {g.ly_do_huy ?? ""}

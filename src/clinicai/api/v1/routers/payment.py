@@ -54,8 +54,9 @@ class PaymentRecordRequest(BaseModel):
 
 
 class PaymentVoidRequest(BaseModel):
-    """Body for voiding (undoing) a payment."""
+    """Body for voiding (undoing) a payment — nhắm ĐÚNG một lần thu."""
 
+    payment_cycle_id: UUID
     visit_id: UUID
     kind: PaymentKind
     reason: str = Field(min_length=5, max_length=500)
@@ -105,21 +106,22 @@ async def void_payment(
     body: PaymentVoidRequest,
     identity: StaffIdentity = Depends(_CASHIER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, bool]:
-    """Reverse a payment without deleting its immutable financial history."""
-    service = PaymentService(pool)
-    await service.void_payment(
+) -> dict[str, Any]:
+    """Huỷ ĐÚNG phiếu thu được nhắm, giữ nguyên lịch sử bất biến."""
+    kq = await PaymentService(pool).void_payment(
+        payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
         kind=body.kind,
         reason=body.reason,
         identity=identity,
     )
-    return {"ok": True}
+    return {"ok": True, **kq}
 
 
 class XacMinhRequest(BaseModel):
     """Xác minh chuyển khoản/QR đã nhận tiền, kèm mã giao dịch ngân hàng."""
 
+    payment_cycle_id: UUID
     visit_id: UUID
     kind: PaymentKind
     reference: str = Field(min_length=3, max_length=100)
@@ -133,6 +135,7 @@ async def xac_minh_dien_tu(
 ) -> dict[str, Any]:
     """Lần chuyển khoản/QR chờ xác minh → PAID (contract tiền–thuốc A2)."""
     kq = await PaymentService(pool).xac_minh_dien_tu(
+        payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
         kind=body.kind,
         reference=body.reference,
@@ -142,6 +145,7 @@ async def xac_minh_dien_tu(
 
 
 class HuyChoRequest(BaseModel):
+    payment_cycle_id: UUID
     visit_id: UUID
     kind: PaymentKind
     reason: str = Field(min_length=5, max_length=500)
@@ -155,6 +159,7 @@ async def huy_cho_xac_minh(
 ) -> dict[str, Any]:
     """Huỷ lần chuyển khoản/QR chờ xác minh (chưa từng thu)."""
     kq = await PaymentService(pool).huy_cho_xac_minh(
+        payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
         kind=body.kind,
         reason=body.reason,

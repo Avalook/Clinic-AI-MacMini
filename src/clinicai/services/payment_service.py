@@ -364,9 +364,57 @@ class PaymentService:
             "status": CHO_XAC_MINH if dien_tu else "PAID",
         }
 
+    @staticmethod
+    async def _khoa_lan_thu(
+        conn: asyncpg.Connection,
+        *,
+        payment_cycle_id: str,
+        visit_id: str,
+        kind: str,
+        identity: StaffIdentity,
+    ) -> asyncpg.Record:
+        """Khoá lượt rồi khoá ĐÚNG lần thu được nhắm (review CP2 #1).
+
+        Không bao giờ tìm "lần thu hiện tại" theo (lượt, loại): một lệnh cũ đến
+        muộn phải chạm đúng lần thu nó nhắm — A — chứ không trượt sang B vừa tạo
+        sau. Lượt, loại, phòng khám vẫn được kiểm chéo.
+        """
+        luot = await conn.fetchrow(
+            """
+            SELECT v.clinic_patient_id
+              FROM visit v
+              LEFT JOIN appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+             WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
+             FOR UPDATE OF v
+            """,
+            visit_id,
+            identity.clinic_id,
+        )
+        if luot is None:
+            raise NotFoundError("Không tìm thấy lượt khám này.")
+        lan = await conn.fetchrow(
+            """
+            SELECT payment_cycle_id, status, method, amount, bill_revision,
+                   reference, can_doi_soat, created_by, confirmed_by
+              FROM payment_cycle
+             WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
+               AND visit_id = $3::uuid AND kind = $4
+             FOR UPDATE
+            """,
+            payment_cycle_id,
+            identity.clinic_id,
+            visit_id,
+            kind,
+        )
+        if lan is None:
+            raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
+        return lan
+
     async def xac_minh_dien_tu(
         self,
         *,
+        payment_cycle_id: str,
         visit_id: str,
         kind: str,
         reference: object,
@@ -375,9 +423,14 @@ class PaymentService:
         """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN, kèm mã giao dịch → PAID.
 
         Khách quét mã không phải bằng chứng; mã giao dịch ngân hàng người xác
-        minh nhập mới là bằng chứng (contract A2). Hoá đơn phải còn ĐÚNG hoá
-        đơn lúc tạo lần chờ — đổi thì huỷ lần chờ và thu lại.
+        minh nhập mới là bằng chứng (contract A2).
 
+        GẮN VỚI ẢNH CHỤP CỦA LẦN THU (review CP2 #3): tiền khách chuyển là cho
+        đúng hoá đơn đã chụp lúc tạo lần chờ, với đúng số tiền ấy. Hoá đơn hiện
+        tại khác (bảng giá đổi trong lúc chờ…) KHÔNG phủ nhận tiền đã nhận — vẫn
+        ghi đã thu theo ảnh chụp và bật `can_doi_soat` để xử lý tài chính sau.
+
+        Gửi lại cùng mã cho lần đã xác minh → thành công như cũ (idempotent).
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
         self._assert_kind_allowed(kind, identity)
@@ -386,140 +439,158 @@ class PaymentService:
             raise ValidationError("Nhập mã giao dịch ngân hàng (3–100 ký tự).")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                luot = await conn.fetchrow(
-                    """
-                    SELECT v.clinic_patient_id
-                      FROM visit v
-                      JOIN appointment a
-                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
-                     WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
-                     FOR UPDATE OF v, a
-                    """,
-                    visit_id,
-                    identity.clinic_id,
+                lan = await self._khoa_lan_thu(
+                    conn,
+                    payment_cycle_id=payment_cycle_id,
+                    visit_id=visit_id,
+                    kind=kind,
+                    identity=identity,
                 )
-                if luot is None:
-                    raise NotFoundError("Không tìm thấy lượt khám này.")
-                cho = await conn.fetchrow(
-                    """
-                    SELECT payment_cycle_id, bill_revision, method, amount
-                      FROM payment_cycle
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND kind = $3 AND status = 'PENDING_VERIFICATION'
-                     FOR UPDATE
-                    """,
-                    identity.clinic_id,
-                    visit_id,
-                    kind,
-                )
-                if cho is None:
-                    raise NotFoundError(
-                        "Không có lần chuyển khoản/QR nào chờ xác minh."
+                if lan["status"] == "PAID":
+                    if lan["reference"] == ma:
+                        return {
+                            "payment_cycle_id": payment_cycle_id,
+                            "status": "PAID",
+                            "can_doi_soat": lan["can_doi_soat"],
+                            "da_xac_minh_tu_truoc": True,
+                        }
+                    raise ConflictError(
+                        "Lần thu này đã được xác minh với một mã giao dịch khác."
                     )
+                if lan["status"] != CHO_XAC_MINH:
+                    raise ConflictError(
+                        "Lần thu này không còn chờ xác minh (đã huỷ) — "
+                        "không xác minh được."
+                    )
+                patient_id = await conn.fetchval(
+                    "SELECT clinic_patient_id::text FROM visit"
+                    " WHERE visit_id = $1::uuid AND clinic_id = $2::uuid",
+                    visit_id,
+                    identity.clinic_id,
+                )
                 hoa_don = await tinh_hoa_don(
                     conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
                 )
-                if hoa_don.revision != cho["bill_revision"]:
-                    raise BillChangedError(
-                        "Hoá đơn đã đổi trong lúc chờ xác minh — huỷ lần chờ này "
-                        "rồi thu lại theo hoá đơn mới."
-                    )
-                cycle_id = str(cho["payment_cycle_id"])
+                lech = hoa_don.revision != lan["bill_revision"]
                 payment_id = await _ghi_da_thu(
                     conn,
-                    cycle_id=cycle_id,
+                    cycle_id=payment_cycle_id,
                     visit_id=visit_id,
                     kind=kind,
-                    amount=int(cho["amount"]),
-                    bill_revision=cho["bill_revision"],
-                    patient_id=str(luot["clinic_patient_id"]),
+                    amount=int(lan["amount"]),
+                    bill_revision=lan["bill_revision"],
+                    patient_id=str(patient_id),
                     identity=identity,
-                    method=cho["method"],
+                    method=lan["method"],
                     reference=ma,
                 )
                 await conn.execute(
                     """
                     UPDATE payment_cycle
                        SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
-                           reference = $3, payment_id = $4::uuid
+                           reference = $3, payment_id = $4::uuid, can_doi_soat = $5
                      WHERE payment_cycle_id = $1::uuid
+                       AND status = 'PENDING_VERIFICATION'
                     """,
-                    cycle_id,
+                    payment_cycle_id,
                     identity.staff_id,
                     ma,
                     payment_id,
+                    lech,
                 )
-        return {"payment_cycle_id": cycle_id, "status": "PAID"}
+                if lech:
+                    await _log_payment_event(
+                        conn,
+                        event_type="payment.reconciliation_needed",
+                        payment_id=payment_id,
+                        payment_cycle_id=payment_cycle_id,
+                        visit_id=visit_id,
+                        kind=kind,
+                        amount=int(lan["amount"]),
+                        identity=identity,
+                        method=lan["method"],
+                    )
+        return {
+            "payment_cycle_id": payment_cycle_id,
+            "status": "PAID",
+            "can_doi_soat": lech,
+        }
 
     async def huy_cho_xac_minh(
         self,
         *,
+        payment_cycle_id: str,
         visit_id: str,
         kind: str,
         reason: object,
         identity: StaffIdentity,
     ) -> dict[str, Any]:
-        """Huỷ lần chuyển khoản/QR chờ xác minh (khách không chuyển / chuyển
-        sai). Không phải huỷ phiếu thu — chưa từng thu."""
+        """Huỷ ĐÚNG lần chuyển khoản/QR chờ xác minh (khách không chuyển / chuyển
+        sai). Không phải huỷ phiếu thu — chưa từng thu. Gửi lại cho lần đã huỷ
+        → thành công như cũ."""
         self._assert_kind_allowed(kind, identity)
         ly_do = normalize_void_reason(reason)
         if ly_do is None:
             raise ValidationError("Lý do huỷ phải có từ 5 đến 500 ký tự")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    "SELECT 1 FROM visit WHERE visit_id = $1::uuid"
-                    " AND clinic_id = $2::uuid FOR UPDATE",
-                    visit_id,
-                    identity.clinic_id,
+                lan = await self._khoa_lan_thu(
+                    conn,
+                    payment_cycle_id=payment_cycle_id,
+                    visit_id=visit_id,
+                    kind=kind,
+                    identity=identity,
                 )
-                row = await conn.fetchrow(
+                if lan["status"] == "CANCELLED":
+                    return {
+                        "payment_cycle_id": payment_cycle_id,
+                        "status": "CANCELLED",
+                        "da_huy_tu_truoc": True,
+                    }
+                if lan["status"] != CHO_XAC_MINH:
+                    raise ConflictError(
+                        "Lần thu này không còn chờ xác minh — không huỷ lần chờ được."
+                    )
+                await conn.execute(
                     """
                     UPDATE payment_cycle
                        SET status = 'CANCELLED', closed_at = now(),
-                           closed_by = $4::uuid, close_reason = $5
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND kind = $3 AND status = 'PENDING_VERIFICATION'
-                    RETURNING payment_cycle_id, amount, method
+                           closed_by = $2::uuid, close_reason = $3
+                     WHERE payment_cycle_id = $1::uuid
+                       AND status = 'PENDING_VERIFICATION'
                     """,
-                    identity.clinic_id,
-                    visit_id,
-                    kind,
+                    payment_cycle_id,
                     identity.staff_id,
                     ly_do,
                 )
-                if row is None:
-                    raise NotFoundError(
-                        "Không có lần chuyển khoản/QR nào chờ xác minh."
-                    )
-                cycle_id = str(row["payment_cycle_id"])
                 await _log_payment_event(
                     conn,
                     event_type="payment.pending_cancelled",
-                    payment_id=cycle_id,
-                    payment_cycle_id=cycle_id,
+                    payment_id=payment_cycle_id,
+                    payment_cycle_id=payment_cycle_id,
                     visit_id=visit_id,
                     kind=kind,
-                    amount=int(row["amount"]),
+                    amount=int(lan["amount"]),
                     identity=identity,
                     void_reason=ly_do,
-                    method=row["method"],
+                    method=lan["method"],
                 )
-        return {"payment_cycle_id": cycle_id, "status": "CANCELLED"}
+        return {"payment_cycle_id": payment_cycle_id, "status": "CANCELLED"}
 
     async def void_payment(
         self,
         *,
+        payment_cycle_id: str,
         visit_id: str,
         kind: str,
         reason: object,
         identity: StaffIdentity,
-    ) -> None:
-        """Soft-void a payment, retaining the row and an immutable audit event.
+    ) -> dict[str, Any]:
+        """Huỷ ĐÚNG phiếu thu (lần thu) được nhắm — contract D2, review CP2 #1.
 
-        AI HUỶ ĐƯỢC (Tuyền chốt 15/09/2026): chính THU NGÂN ĐÃ THU phiếu đó tự
-        gạch phiếu bấm nhầm, không cần quản lý duyệt. Thu ngân khác không gạch
-        được phiếu của người khác (trước đây được); Quản lý vẫn gạch được.
+        Giữ nguyên dòng và sự kiện bất biến. AI HUỶ ĐƯỢC (Tuyền chốt 15/09/2026):
+        chính người đã thu phiếu đó, hoặc Quản lý. Lệnh cũ đến muộn nhắm A thì
+        không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
         self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
@@ -527,6 +598,23 @@ class PaymentService:
             raise ValidationError("Lý do hoàn tác phải có từ 5 đến 500 ký tự")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                lan = await self._khoa_lan_thu(
+                    conn,
+                    payment_cycle_id=payment_cycle_id,
+                    visit_id=visit_id,
+                    kind=kind,
+                    identity=identity,
+                )
+                if lan["status"] == "VOIDED":
+                    return {
+                        "payment_cycle_id": payment_cycle_id,
+                        "status": "VOIDED",
+                        "da_huy_tu_truoc": True,
+                    }
+                if lan["status"] != "PAID":
+                    raise ConflictError(
+                        "Lần thu này chưa phải phiếu đã thu — không huỷ phiếu được."
+                    )
                 payment = await conn.fetchrow(
                     """
                     UPDATE payment
@@ -539,6 +627,7 @@ class PaymentService:
                        AND kind = $2
                        AND clinic_id = $3::uuid
                        AND status = 'PAID'
+                       AND payment_cycle_id = $7::uuid
                        AND ($6::boolean OR paid_by_staff_id = $4::uuid)
                     RETURNING id, amount, payment_cycle_id,
                               paid_by_staff_id, paid_at
@@ -549,88 +638,94 @@ class PaymentService:
                     identity.staff_id,
                     normalized_reason,
                     identity.co_vai({ClinicRole.MANAGEMENT}),
+                    payment_cycle_id,
                 )
-                if payment is None and await conn.fetchval(
-                    "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid "
-                    "AND kind = $2 AND clinic_id = $3::uuid AND status = 'PAID')",
-                    visit_id,
-                    kind,
-                    identity.clinic_id,
-                ):
-                    raise SafetyGateError(
-                        "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
-                    )
-                if payment is not None:
-                    payment_id = str(payment["id"])
-                    payment_cycle_id = str(payment["payment_cycle_id"])
-                    # Sổ các lần thu: ĐÚNG lần thu này chuyển PAID → VOIDED;
-                    # lần thu sau là một dòng mới, không ghi đè (contract F).
-                    await conn.execute(
-                        """
-                        UPDATE payment_cycle
-                           SET status = 'VOIDED', closed_at = now(),
-                               closed_by = $2::uuid, close_reason = $3
-                         WHERE payment_cycle_id = $1::uuid AND status = 'PAID'
-                        """,
+                if payment is None:
+                    if await conn.fetchval(
+                        "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid"
+                        " AND kind = $2 AND clinic_id = $3::uuid AND status = 'PAID'"
+                        " AND payment_cycle_id = $4::uuid)",
+                        visit_id,
+                        kind,
+                        identity.clinic_id,
                         payment_cycle_id,
-                        identity.staff_id,
-                        normalized_reason,
-                    )
-                    # Serialize this void with any relay currently delivering
-                    # the invoice for the same payment cycle. If void wins, the
-                    # pending invoice becomes DEAD before a stale relay can
-                    # send it; if relay wins, invoice completes before void.
-                    await conn.execute(
-                        """
-                        SELECT pg_advisory_xact_lock(
-                            hashtextextended($1::text, 0)
+                    ):
+                        raise SafetyGateError(
+                            "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
                         )
-                        """,
-                        pos_outbox.causal_lock_name(payment_cycle_id),
+                    raise ConflictError(
+                        "Lần thu này không phải phiếu thu hiện hành của lượt — "
+                        "không huỷ được từ đây."
                     )
-                    await pos_outbox.cancel_pending_invoice(
-                        conn,
-                        subject_id=payment_cycle_id,
-                        clinic_id=identity.clinic_id,
+                payment_id = str(payment["id"])
+                await conn.execute(
+                    """
+                    UPDATE payment_cycle
+                       SET status = 'VOIDED', closed_at = now(),
+                           closed_by = $2::uuid, close_reason = $3
+                     WHERE payment_cycle_id = $1::uuid AND status = 'PAID'
+                    """,
+                    payment_cycle_id,
+                    identity.staff_id,
+                    normalized_reason,
+                )
+                # Serialize this void with any relay currently delivering the
+                # invoice for the same payment cycle. If void wins, the pending
+                # invoice becomes DEAD before a stale relay can send it; if relay
+                # wins, invoice completes before void.
+                await conn.execute(
+                    """
+                    SELECT pg_advisory_xact_lock(
+                        hashtextextended($1::text, 0)
                     )
-                    # A POS that was told about the invoice has to be told it is
-                    # void; one that never heard of it will no-op.
-                    await pos_outbox.enqueue(
-                        conn,
-                        kind=pos_outbox.INVOICE_VOID,
-                        subject_id=payment_cycle_id,
-                        payload={
-                            "clinic_reference": payment_cycle_id,
-                            "payment_id": payment_id,
-                            "kind": kind,
-                            "visit_id": visit_id,
-                            "void_reason": normalized_reason,
-                        },
-                        clinic_id=identity.clinic_id,
-                    )
-                    await _log_payment_event(
-                        conn,
-                        event_type="payment.voided",
-                        payment_id=payment_id,
-                        payment_cycle_id=payment_cycle_id,
-                        visit_id=visit_id,
-                        kind=kind,
-                        amount=payment["amount"],
-                        identity=identity,
-                        void_reason=normalized_reason,
-                        original_paid_by_staff_id=(
-                            str(payment["paid_by_staff_id"])
-                            if payment["paid_by_staff_id"] is not None
-                            else None
-                        ),
-                        original_paid_at=payment["paid_at"],
-                    )
+                    """,
+                    pos_outbox.causal_lock_name(payment_cycle_id),
+                )
+                await pos_outbox.cancel_pending_invoice(
+                    conn,
+                    subject_id=payment_cycle_id,
+                    clinic_id=identity.clinic_id,
+                )
+                # A POS that was told about the invoice has to be told it is
+                # void; one that never heard of it will no-op.
+                await pos_outbox.enqueue(
+                    conn,
+                    kind=pos_outbox.INVOICE_VOID,
+                    subject_id=payment_cycle_id,
+                    payload={
+                        "clinic_reference": payment_cycle_id,
+                        "payment_id": payment_id,
+                        "kind": kind,
+                        "visit_id": visit_id,
+                        "void_reason": normalized_reason,
+                    },
+                    clinic_id=identity.clinic_id,
+                )
+                await _log_payment_event(
+                    conn,
+                    event_type="payment.voided",
+                    payment_id=payment_id,
+                    payment_cycle_id=payment_cycle_id,
+                    visit_id=visit_id,
+                    kind=kind,
+                    amount=payment["amount"],
+                    identity=identity,
+                    void_reason=normalized_reason,
+                    original_paid_by_staff_id=(
+                        str(payment["paid_by_staff_id"])
+                        if payment["paid_by_staff_id"] is not None
+                        else None
+                    ),
+                    original_paid_at=payment["paid_at"],
+                )
         logger.info(
             "payment_voided",
             visit_id=visit_id,
             kind=kind,
+            payment_cycle_id=payment_cycle_id,
             by_staff_id=identity.staff_id,
         )
+        return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
 
 
 async def _ghi_da_thu(

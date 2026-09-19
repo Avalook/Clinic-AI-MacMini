@@ -2,9 +2,11 @@
 //   POST   { visitId, clinicPatientId?, kind, billRevision?, amount?, method? }
 //          → một LẦN THU. method CASH (mặc định) → ĐÃ THU; TRANSFER/QR → CHỜ XÁC MINH.
 //          Số tiền do máy chủ tính (contract tiền–thuốc C3); amount chỉ để đối chiếu.
-//   POST   { action: "xac-minh", visitId, kind, reference } → chuyển khoản/QR đã nhận.
-//   POST   { action: "huy-cho", visitId, kind, reason }     → huỷ lần chờ xác minh.
-//   DELETE { visitId, kind, reason }                     → hoàn tác có lý do.
+//   POST   { action: "xac-minh", paymentCycleId, visitId, kind, reference }
+//          → chuyển khoản/QR đã nhận. Mọi lệnh sau khi đã có lần thu nhắm ĐÚNG
+//          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
+//   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
+//   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
 // Toàn bộ luật nằm ở FastAPI (ADR-0012): vai nào được thu khâu nào, chốt "chỉ
@@ -38,9 +40,11 @@ export async function POST(request: Request) {
     method?: string;
     reference?: string;
     reason?: string;
+    paymentCycleId?: string;
   };
   if (p.action === "xac-minh") {
     return proxyJsonToBackend("POST", "/api/v1/payments/xac-minh", {
+      payment_cycle_id: p.paymentCycleId,
       visit_id: p.visitId,
       kind: p.kind,
       reference: p.reference,
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
   }
   if (p.action === "huy-cho") {
     return proxyJsonToBackend("POST", "/api/v1/payments/huy-cho", {
+      payment_cycle_id: p.paymentCycleId,
       visit_id: p.visitId,
       kind: p.kind,
       reason: p.reason,
@@ -68,8 +73,14 @@ export async function DELETE(request: Request) {
   if (raw === undefined) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const p = (raw ?? {}) as { visitId?: string; kind?: string; reason?: string };
+  const p = (raw ?? {}) as {
+    paymentCycleId?: string;
+    visitId?: string;
+    kind?: string;
+    reason?: string;
+  };
   return proxyJsonToBackend("DELETE", "/api/v1/payments", {
+    payment_cycle_id: p.paymentCycleId,
     visit_id: p.visitId,
     kind: p.kind,
     reason: p.reason,

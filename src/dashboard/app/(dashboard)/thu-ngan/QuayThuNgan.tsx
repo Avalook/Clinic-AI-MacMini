@@ -64,6 +64,7 @@ interface DaThu {
 }
 
 interface ChoXacMinh {
+  payment_cycle_id: string;
   visit_id: string;
   kind: string;
   so_tien: number;
@@ -272,14 +273,28 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 onXacMinh={(ma) =>
                   void gui(
                     `${l.visit_id}:dich_vu`,
-                    { action: "xac-minh", visitId: l.visit_id, kind: "dich_vu", reference: ma },
+                    {
+                      action: "xac-minh",
+                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
+                      paymentCycleId: choCua(l.visit_id, "dich_vu")?.payment_cycle_id,
+                      visitId: l.visit_id,
+                      kind: "dich_vu",
+                      reference: ma,
+                    },
                     "Đã xác minh — khoản này đã thu.",
                   )
                 }
                 onHuyCho={(lyDo) =>
                   void gui(
                     `${l.visit_id}:dich_vu`,
-                    { action: "huy-cho", visitId: l.visit_id, kind: "dich_vu", reason: lyDo },
+                    {
+                      action: "huy-cho",
+                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
+                      paymentCycleId: choCua(l.visit_id, "dich_vu")?.payment_cycle_id,
+                      visitId: l.visit_id,
+                      kind: "dich_vu",
+                      reason: lyDo,
+                    },
                     "Đã huỷ lần chờ xác minh.",
                   )
                 }
@@ -297,14 +312,28 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 onXacMinh={(ma) =>
                   void gui(
                     `${l.visit_id}:thuoc`,
-                    { action: "xac-minh", visitId: l.visit_id, kind: "thuoc", reference: ma },
+                    {
+                      action: "xac-minh",
+                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
+                      paymentCycleId: choCua(l.visit_id, "thuoc")?.payment_cycle_id,
+                      visitId: l.visit_id,
+                      kind: "thuoc",
+                      reference: ma,
+                    },
                     "Đã xác minh — khoản này đã thu.",
                   )
                 }
                 onHuyCho={(lyDo) =>
                   void gui(
                     `${l.visit_id}:thuoc`,
-                    { action: "huy-cho", visitId: l.visit_id, kind: "thuoc", reason: lyDo },
+                    {
+                      action: "huy-cho",
+                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
+                      paymentCycleId: choCua(l.visit_id, "thuoc")?.payment_cycle_id,
+                      visitId: l.visit_id,
+                      kind: "thuoc",
+                      reason: lyDo,
+                    },
                     "Đã huỷ lần chờ xác minh.",
                   )
                 }

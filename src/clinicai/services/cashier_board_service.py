@@ -174,7 +174,8 @@ class CashierBoardService:
             """
             SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
                    pc.kind, pc.status, pc.amount, pc.method, pc.reference,
-                   pc.legacy, pc.created_at, pc.paid_at, pc.closed_at,
+                   pc.legacy, pc.can_doi_soat, pc.created_at, pc.paid_at,
+                   pc.closed_at,
                    pc.close_reason,
                    p.full_name, p.patient_code,
                    cb.full_name AS nguoi_tao,
@@ -219,6 +220,7 @@ class CashierBoardService:
                     "phuong_thuc": r["method"],
                     "ma_giao_dich": r["reference"],
                     "legacy": r["legacy"],
+                    "can_doi_soat": r["can_doi_soat"],
                     "huy_luc": r["closed_at"].isoformat() if r["closed_at"] else None,
                     "nguoi_huy": r["nguoi_huy"],
                     "ly_do_huy": r["close_reason"],
@@ -252,7 +254,8 @@ class CashierBoardService:
         da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
         cho_rows = await self._pool.fetch(
             """
-            SELECT visit_id::text AS visit_id, kind, amount, method, created_at
+            SELECT payment_cycle_id::text AS payment_cycle_id,
+                   visit_id::text AS visit_id, kind, amount, method, created_at
               FROM payment_cycle
              WHERE clinic_id = $1::uuid AND status = 'PENDING_VERIFICATION'
                AND visit_id = ANY($2::uuid[])
@@ -262,6 +265,7 @@ class CashierBoardService:
         )
         out["cho_xac_minh"] = [
             {
+                "payment_cycle_id": r["payment_cycle_id"],
                 "visit_id": r["visit_id"],
                 "kind": r["kind"],
                 "so_tien": int(r["amount"]),
