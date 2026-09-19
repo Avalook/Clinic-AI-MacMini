@@ -54,6 +54,9 @@ async def replace(conn: Any, items: list[dict[str, Any]]) -> None:
 
 def connection(rows: list[dict[str, Any]]) -> AsyncMock:
     conn = AsyncMock()
+    # "Tiền thuốc của lượt đã thu chưa?" — mặc định CHƯA (contract tiền–thuốc
+    # CP2 khoá mọi dòng khi đã thu; có test DB riêng cho nhánh đó).
+    conn.fetchval.return_value = False
     conn.fetch.return_value = rows
     return conn
 

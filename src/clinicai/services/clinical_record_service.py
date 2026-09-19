@@ -832,9 +832,30 @@ class ClinicalRecordService:
         gui_len = _validated_prescription_items(
             prescriptions, {str(row["id"]) for row in cu}
         )
-        locked_matches = _locked_prescription_matches(list(cu), gui_len)
+        # ĐÃ THU TIỀN THUỐC → mọi dòng khoá (contract tiền–thuốc, đầu CP2).
+        # Thứ tự khoá đã đúng `visit → prescription → payment`: `save()` khoá
+        # dòng visit trong `_writable_visit` trước khi tới đây.
+        da_thu_tien = bool(
+            await conn.fetchval(
+                """
+                SELECT EXISTS (SELECT 1 FROM payment
+                                WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+                                  AND kind = 'thuoc' AND status = 'PAID')
+                """,
+                visit_id,
+                clinic_id,
+            )
+        )
+        locked_matches = _locked_prescription_matches(
+            list(cu), gui_len, da_thu_tien=da_thu_tien
+        )
         matched = {id(item) for _, item in locked_matches}
         con_lai = [item for item in gui_len if id(item) not in matched]
+        if da_thu_tien and con_lai:
+            raise ConflictError(
+                "Tiền thuốc của lượt này đã thu — không thêm thuốc vào đơn được. "
+                "Cần đổi đơn thì thu ngân huỷ phiếu thu thuốc trước."
+            )
         for dong, khop in locked_matches:
             await conn.execute(
                 """
@@ -848,6 +869,8 @@ class ClinicalRecordService:
                 (khop.get("caution") or "").strip() or None,
             )
 
+        if da_thu_tien:
+            return  # mọi dòng khoá: chỉ liều dùng/lưu ý được cập nhật ở trên
         await conn.execute(
             """
             DELETE FROM prescription

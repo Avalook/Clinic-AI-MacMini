@@ -45,13 +45,25 @@ def _validated_prescription_items(
 
 
 def _locked_prescription_matches(
-    existing: list[Any], incoming: list[dict[str, Any]]
+    existing: list[Any],
+    incoming: list[dict[str, Any]],
+    *,
+    da_thu_tien: bool = False,
 ) -> list[tuple[Any, dict[str, Any]]]:
-    """Resolve all locked rows before writing; never guess legacy identities."""
+    """Resolve all locked rows before writing; never guess legacy identities.
+
+    ``da_thu_tien``: tiền thuốc của lượt đã thu (contract tiền–thuốc, đầu CP2)
+    → MỌI dòng là dòng khoá, không chỉ dòng đã cấp/đã chốt. Hoá đơn đã chụp
+    theo đúng các dòng này; xoá rồi chèn lại thì nhà thuốc mất nguồn để giao.
+    """
     by_id = {item["id"]: item for item in incoming if item["id"] is not None}
     matches = []
     for row in existing:
-        if not ((row["dispensed_qty"] or 0) > 0 or row["closed_at"] is not None):
+        if not (
+            da_thu_tien
+            or (row["dispensed_qty"] or 0) > 0
+            or row["closed_at"] is not None
+        ):
             continue
         key = _prescription_key(row["drug_name_raw"], row["quantity"])
         item = by_id.get(str(row["id"]))
@@ -80,6 +92,12 @@ def _locked_prescription_matches(
             item is None
             or _prescription_key(item.get("drug_name"), item.get("quantity")) != key
         ):
+            if da_thu_tien:
+                raise ConflictError(
+                    f"Thuốc “{row['drug_name_raw']}” ({row['quantity'] or '—'}) "
+                    "đã thu tiền — không xoá hay đổi số lượng được từ bệnh án. "
+                    "Cần đổi đơn thì thu ngân huỷ phiếu thu thuốc trước."
+                )
             raise ConflictError(
                 f"Thuốc “{row['drug_name_raw']}” ({row['quantity'] or '—'}) "
                 "nhà thuốc đã cấp hoặc đã chốt — không xoá hay đổi số lượng "
