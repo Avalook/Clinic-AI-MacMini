@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -174,6 +175,46 @@ def _dong_gia(
     )
 
 
+KHAM_KHONG_HEN = "chưa xác định loại khám (lượt không có lịch hẹn)"
+KHAM_KHONG_RO_LOAI = "chưa xác định loại khám"
+
+
+def dong_kham(
+    kham_row: Mapping[str, Any] | None, gia_dv: list[Mapping[str, Any]]
+) -> dict[str, Any] | None:
+    """Dòng tiền khám của một lượt. Thuần — kiểm được không cần DB.
+
+    Luật (CP1, review CP4, CP6 bước 3): một lượt đã có thì LUÔN có dòng tiền
+    khám. Không xác định được loại khám — vì lượt không có lịch hẹn, hay vì
+    lịch hẹn không dẫn tới loại khám nào (dữ liệu hỏng, schema đổi sau này) —
+    thì hiện dòng "Tiền khám" kèm vấn đề: khoản chưa thu được, chứ không bỏ im
+    lặng (thu thiếu mà không ai thấy). Không đoán loại khám, không đoán giá.
+    """
+    if kham_row is None:
+        return None  # không có lượt — nơi gọi đã báo lỗi riêng
+    if kham_row["khong_hen"]:
+        van_de = KHAM_KHONG_HEN
+    elif clean_name(kham_row["name"]):
+        khop = [
+            r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
+        ]
+        return {
+            "ma": kham_row["st_id"],
+            "ten": kham_row["name"],
+            "gia": [r["unit_price"] for r in khop],
+            "ben_thu": khop[0]["billing_owner"] if khop else CLINIC,
+        }
+    else:
+        van_de = KHAM_KHONG_RO_LOAI
+    return {
+        "ma": None,
+        "ten": "Tiền khám",
+        "gia": [],
+        "ben_thu": CLINIC,
+        "van_de": van_de,
+    }
+
+
 def ghep_dich_vu(
     visit_id: str,
     kham: dict[str, Any] | None,
@@ -275,29 +316,7 @@ async def tinh_hoa_don(
             clinic_id,
             visit_id,
         )
-        kham: dict[str, Any] | None = None
-        if kham_row and kham_row["khong_hen"]:
-            # Lượt không có lịch hẹn (review CP4): loại khám — nguồn giá tiền
-            # khám — chưa có ở đâu cả. Không đoán giá, không bỏ im lặng dòng
-            # tiền khám (thu thiếu mà không ai thấy): hiện dòng ấy với vấn đề,
-            # đúng luật CP1 — khoản chưa thu được chứ không phải "chưa khám".
-            kham = {
-                "ma": None,
-                "ten": "Tiền khám",
-                "gia": [],
-                "ben_thu": CLINIC,
-                "van_de": "chưa xác định loại khám (lượt không có lịch hẹn)",
-            }
-        elif kham_row and kham_row["name"]:
-            khop = [
-                r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
-            ]
-            kham = {
-                "ma": kham_row["st_id"],
-                "ten": kham_row["name"],
-                "gia": [r["unit_price"] for r in khop],
-                "ben_thu": khop[0]["billing_owner"] if khop else CLINIC,
-            }
+        kham = dong_kham(kham_row, gia_dv)
         orders = await conn.fetch(
             """
             SELECT o.id::text AS id, o.service_name, o.service_code,
