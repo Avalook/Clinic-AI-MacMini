@@ -84,7 +84,9 @@ async def khoa_ban_thuoc(
     """
     await conn.execute(
         "SELECT 1 FROM public.prescription WHERE clinic_id = $1::uuid"
-        " AND visit_id = $2::uuid ORDER BY id FOR UPDATE",
+        " AND visit_id = $2::uuid ORDER BY id FOR UPDATE"
+        " /* rx:gom-ca-lich-su: khoá mọi dòng của lượt theo id (thứ tự khoá"
+        " chung) — phân lô gắn lần thu của dòng đã đính chính cũng dưới khoá */",
         clinic_id,
         visit_id,
     )
@@ -181,7 +183,9 @@ async def can_theo_hoa_don(
         str(r["id"]): Decimal(str(r["dispensed_qty"] or 0))
         for r in await conn.fetch(
             "SELECT id, dispensed_qty FROM public.prescription"
-            " WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])",
+            " WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])"
+            " /* rx:gom-ca-lich-su: đọc theo id của hoá đơn / ảnh chụp lần thu —"
+            " ảnh chụp có thể chứa dòng nay đã đính chính */",
             clinic_id,
             [rx for rx, _, _ in dong],
         )
@@ -271,6 +275,9 @@ async def go_va_giu_ke_hoach(
             ON r.id = a.prescription_id AND r.clinic_id = a.clinic_id
          WHERE a.clinic_id = $1::uuid AND a.id = ANY($3::uuid[])
            AND r.closed_at IS NULL
+           -- CP6: dòng đã đính chính (lịch sử) không nhận kế hoạch lô mới —
+           -- nhả hẳn, không chép lại.
+           AND r.removed_at IS NULL
            AND r.drug_catalog_id = a.drug_catalog_id
          ORDER BY a.id
         """,

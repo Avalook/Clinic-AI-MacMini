@@ -484,22 +484,20 @@ async def test_dong_lich_su_da_thu_khong_giao_them(q: Quay) -> None:
 
 
 async def test_dong_lich_su_khong_ghi_sale_moi(q: Quay) -> None:
-    """Lần thu đang chờ, bác sĩ đính chính: SALE lên dòng lịch sử bị DB chặn.
-
-    Hôm nay (4a) đường xác minh của service vẫn cố ghi SALE nên bị chặn cả giao
-    dịch — lần thu đứng yên ở PENDING, không bán lén. Bước 4b đổi service thành:
-    xác minh tiền thật → PAID + CHUA_GHI_BAN, KHÔNG ghi SALE (Q3)."""
+    """Lần thu đang chờ, bác sĩ đính chính (Q3, 4b): tiền thật vẫn PAID, dòng
+    lịch sử KHÔNG được ghi SALE, lần thu mang HOA_DON_DOI + CHUA_GHI_BAN."""
     rx, _, _ = await _san_sang(q, 10, 100)
     lan = (await _thu(q, "TRANSFER"))["payment_cycle_id"]
     await _thay(q, rx)
-    with pytest.raises(asyncpg.CheckViolationError, match="không ghi bán"):
-        await _xac_minh(q, lan)
-    assert (
-        await q.pool.fetchval(
-            "SELECT status FROM payment_cycle WHERE payment_cycle_id = $1::uuid", lan
-        )
-        == "PENDING_VERIFICATION"
+    kq = await _xac_minh(q, lan)
+    assert kq["status"] == "PAID"
+    r = await q.pool.fetchrow(
+        "SELECT status, can_doi_soat, doi_soat_ly_do FROM payment_cycle"
+        " WHERE payment_cycle_id = $1::uuid",
+        lan,
     )
+    assert (r["status"], r["can_doi_soat"]) == ("PAID", True)
+    assert sorted(r["doi_soat_ly_do"]) == ["CHUA_GHI_BAN", "HOA_DON_DOI"]
     assert (
         await q.pool.fetchval(
             "SELECT count(*) FROM inventory_txn WHERE txn_type = 'SALE'"

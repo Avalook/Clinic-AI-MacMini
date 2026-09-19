@@ -210,6 +210,8 @@ export async function GET(request: Request) {
       .from("prescription")
       .select("id, drug_name_raw, quantity, dosage_instructions, caution")
       .eq("visit_id", visit.visit_id)
+      // CP6: form bác sĩ chỉ sửa ĐƠN HIỆN HÀNH; dòng đã đính chính là lịch sử.
+      .is("removed_at", null)
       .order("created_at", { ascending: true });
     prescriptions = rx ?? [];
   }
@@ -287,6 +289,8 @@ interface PostBody {
     dosage?: string;
     caution?: string;
   }>;
+  // CP6: lý do đính chính khi sửa / bỏ dòng đơn nhà thuốc / thu ngân đã đụng tới.
+  prescriptionCorrectionReason?: string;
   // Điều dưỡng: chỉ ghi Sinh hiệu (objective.vitals), KHÔNG đụng mục khác.
   vitalsOnly?: boolean;
 }
@@ -360,5 +364,6 @@ export async function POST(request: Request) {
     plan: body.plan ?? null,
     profile: body.profile ?? null,
     prescriptions: body.prescriptions ?? null,
+    prescription_correction_reason: body.prescriptionCorrectionReason ?? null,
   });
 }

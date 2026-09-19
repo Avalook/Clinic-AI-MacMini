@@ -22,6 +22,8 @@ export default async function PharmacyConsultPage() {
     // tháng trước nằm mãi trong danh sách "chờ" — và danh sách chờ nào cũng
     // chỉ dài thêm thì không ai còn nhìn nó nữa.
     .is("closed_at", null)
+    // CP6: dòng đã được bác sĩ đính chính không còn chờ tư vấn.
+    .is("removed_at", null)
     .order("created_at", { ascending: false })
     .limit(100);
 

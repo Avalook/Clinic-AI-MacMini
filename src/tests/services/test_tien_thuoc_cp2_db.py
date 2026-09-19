@@ -22,6 +22,7 @@ from clinicai.api.exceptions import (
 )
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.clinical_record_service import ClinicalRecordService
+from clinicai.services.dinh_chinh_don import CanLyDoDinhChinhError
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.pharmacy_service import PharmacyService
 from tests.services.test_luot_kham_service_db import CLINIC
@@ -39,8 +40,15 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def _luu_don(q: Quay, dong: list[dict[str, Any]]) -> None:
-    """Đúng như `save()`: khoá dòng visit trước, rồi thay đơn thuốc."""
+async def _luu_don(
+    q: Quay,
+    dong: list[dict[str, Any]],
+    *,
+    ly_do: str | None = None,
+    identity: Any = None,
+) -> None:
+    """Đúng như `save()`: khoá dòng visit trước, rồi thay đơn thuốc — bằng
+    danh tính bác sĩ chính của lượt (CP6: đính chính cần bác sĩ + lý do)."""
     async with q.pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(
@@ -58,6 +66,8 @@ async def _luu_don(q: Quay, dong: list[dict[str, Any]]) -> None:
                 prescriptions=dong,
                 clinic_id=CLINIC,
                 created_by=q.bac_si.staff_id,
+                identity=identity or q.bac_si,
+                ly_do_dinh_chinh=ly_do,
             )
 
 
@@ -86,55 +96,95 @@ async def test_da_thu_tien_luu_lai_khong_doi_gi_thi_giu_nguyen_dong(q: Quay) -> 
     assert [d["id"] for d in await _cac_dong(q)] == [rx]
 
 
-async def test_da_thu_tien_doi_lieu_tai_cho_bi_db_chan(q: Quay) -> None:
-    """CP6 bước 4a (Q2, duyệt 20/09): dòng đã có ảnh chụp hoá đơn là mức C —
-    đổi cả liều dùng cũng phải tạo dòng thay thế, không sửa tại chỗ. Trước CP6
-    liều được sửa tại chỗ; nay DB từ chối. Đường đính chính + câu báo 409 ở
-    service là việc của bước 4b."""
-    rx, sl = await _don_da_thu(q)
-    with pytest.raises(asyncpg.CheckViolationError, match="dòng thay thế"):
-        await _luu_don(
-            q,
-            [
-                {
-                    "id": rx,
-                    "drug_name": "Thuốc đã thu",
-                    "quantity": sl,
-                    "dosage": "Sáng 1",
-                }
-            ],
+async def _hien_hanh(q: Quay) -> list[asyncpg.Record]:
+    return list(
+        await q.pool.fetch(
+            "SELECT id::text, drug_name_raw, quantity, dosage_instructions,"
+            " created_in_correction_id::text AS lan"
+            " FROM prescription WHERE visit_id = $1::uuid AND removed_at IS NULL"
+            " ORDER BY created_at",
+            q.visit_id,
         )
-    dong = await _cac_dong(q)
-    assert [(d["id"], d["dosage_instructions"]) for d in dong] == [(rx, None)]
+    )
 
 
-async def test_da_thu_tien_khong_xoa_dong_duoc(q: Quay) -> None:
+async def _con_nguyen_lan_thu(q: Quay, rx: str) -> None:
+    """Tiền / ảnh chụp cũ không đổi: lần thu vẫn PAID, dòng hoá đơn vẫn trỏ rx."""
+    r = await q.pool.fetchrow(
+        "SELECT c.status, b.source_id FROM payment_cycle c"
+        " JOIN payment_bill_line b ON b.payment_cycle_id = c.payment_cycle_id"
+        " WHERE c.visit_id = $1::uuid AND c.kind = 'thuoc'"
+        "   AND b.source_type = 'prescription'",
+        q.visit_id,
+    )
+    assert (r["status"], r["source_id"]) == ("PAID", rx)
+
+
+async def test_da_thu_tien_doi_lieu_la_dinh_chinh_can_ly_do(q: Quay) -> None:
+    """CP6 (Q2): dòng đã có ảnh chụp hoá đơn là mức C — đổi cả liều cũng là
+    đính chính: thiếu lý do → 409; có lý do → dòng thay thế, dòng cũ lịch sử.
+    Bác sĩ KHÔNG phải huỷ phiếu trước."""
+    rx, sl = await _don_da_thu(q)
+    moi = [{"id": rx, "drug_name": "Thuốc đã thu", "quantity": sl, "dosage": "S1"}]
+    with pytest.raises(CanLyDoDinhChinhError, match="ĐÍNH CHÍNH"):
+        await _luu_don(q, moi)
+    assert [d["id"] for d in await _hien_hanh(q)] == [rx]
+    await _luu_don(q, moi, ly_do="Đổi giờ uống cho hợp")
+    dong = await _hien_hanh(q)
+    assert len(dong) == 1 and dong[0]["id"] != rx
+    assert (dong[0]["dosage_instructions"], dong[0]["lan"] is not None) == ("S1", True)
+    await _con_nguyen_lan_thu(q, rx)
+
+
+async def test_da_thu_tien_bo_dong_la_dinh_chinh_khong_can_huy_phieu(
+    q: Quay,
+) -> None:
     rx, _ = await _don_da_thu(q)
-    with pytest.raises(ConflictError, match="đã thu tiền"):
+    with pytest.raises(CanLyDoDinhChinhError, match="đã thu tiền"):
         await _luu_don(q, [])
-    assert [d["id"] for d in await _cac_dong(q)] == [rx]
+    await _luu_don(q, [], ly_do="Bệnh nhân dị ứng thuốc này")
+    assert await _hien_hanh(q) == []
+    assert (
+        await q.pool.fetchval(
+            "SELECT removal_reason FROM prescription WHERE id = $1::uuid", rx
+        )
+        == "Bệnh nhân dị ứng thuốc này"
+    )
+    await _con_nguyen_lan_thu(q, rx)
 
 
-async def test_da_thu_tien_khong_doi_so_luong_duoc(q: Quay) -> None:
+async def test_da_thu_tien_doi_so_luong_tao_dong_thay_the(q: Quay) -> None:
     rx, _ = await _don_da_thu(q)
-    with pytest.raises(ConflictError, match="đã thu tiền"):
-        await _luu_don(
-            q, [{"id": rx, "drug_name": "Thuốc đã thu", "quantity": "20 viên"}]
+    await _luu_don(
+        q,
+        [{"id": rx, "drug_name": "Thuốc đã thu", "quantity": "20 viên"}],
+        ly_do="Tăng liều theo đáp ứng",
+    )
+    dong = await _hien_hanh(q)
+    assert [(d["quantity"], d["id"] != rx) for d in dong] == [("20 viên", True)]
+    assert (
+        await q.pool.fetchval(
+            "SELECT superseded_by_id::text FROM prescription WHERE id = $1::uuid", rx
         )
-    assert (await _cac_dong(q))[0]["quantity"] == "10 viên"
+        == dong[0]["id"]
+    )
 
 
-async def test_da_thu_tien_khong_them_thuoc_duoc(q: Quay) -> None:
+async def test_da_thu_tien_them_thuoc_la_nghia_vu_moi(q: Quay) -> None:
+    """Thêm thuốc sau khi đã thu: dòng mới (chưa thu); dòng cũ nguyên vẹn.
+    Thu thêm lần hai là bước 5 (nhiều lần thu thuốc) — chưa mở ở đây."""
     rx, sl = await _don_da_thu(q)
-    with pytest.raises(ConflictError, match="không thêm thuốc"):
-        await _luu_don(
-            q,
-            [
-                {"id": rx, "drug_name": "Thuốc đã thu", "quantity": sl},
-                {"id": None, "drug_name": "Thuốc thêm", "quantity": "5 viên"},
-            ],
-        )
-    assert [d["id"] for d in await _cac_dong(q)] == [rx]
+    await _luu_don(
+        q,
+        [
+            {"id": rx, "drug_name": "Thuốc đã thu", "quantity": sl},
+            {"id": None, "drug_name": "Thuốc thêm", "quantity": "5 viên"},
+        ],
+    )
+    dong = await _hien_hanh(q)
+    assert [d["drug_name_raw"] for d in dong] == ["Thuốc đã thu", "Thuốc thêm"]
+    assert dong[0]["id"] == rx and dong[1]["lan"] is None
+    await _con_nguyen_lan_thu(q, rx)
 
 
 async def test_chua_thu_tien_van_thay_don_nhu_cu(q: Quay) -> None:

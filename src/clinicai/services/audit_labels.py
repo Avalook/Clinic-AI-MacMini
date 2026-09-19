@@ -127,6 +127,7 @@ EVENT_LABELS: dict[str, str] = {
     # ── Khám & bệnh án ──────────────────────────────────────────────────────
     "clinical_record.saved": "Lưu bệnh án",
     "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
+    "prescription.corrected": "Bác sĩ đính chính đơn thuốc",
     "service_order.draft_saved": "Thư ký nhập chỉ định nháp",
     "service_order.draft_approved": "Bác sĩ duyệt chỉ định thư ký nhập",
     "service_order.draft_discarded": "Bỏ chỉ định nháp",

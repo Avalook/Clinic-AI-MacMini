@@ -757,6 +757,7 @@ async def _buoc_theo_chi_dinh(
                CASE WHEN n.code LIKE 'THUOC-%' THEN EXISTS (
                    SELECT 1 FROM public.prescription r
                     WHERE r.clinic_id = n.clinic_id AND r.visit_id = $2::uuid
+                      AND r.removed_at IS NULL
                ) ELSE EXISTS (
                    SELECT 1 FROM public.work_item w
                     WHERE w.clinic_id = n.clinic_id AND w.visit_id = $2::uuid

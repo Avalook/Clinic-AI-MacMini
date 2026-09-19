@@ -79,7 +79,20 @@ interface DuLieuXem {
     theo_doi: { trang_thai: string; ly_do: string; han: string | null; chu: string | null; dich_vu: string | null }[];
   };
   tai_chinh?: { id: string; loai: string; trang_thai: string; so_tien: number | null; luc: string | null; nguoi_thu: string | null; huy_luc: string | null; nguoi_huy: string | null; ly_do_huy: string | null }[];
-  thuoc?: { thuoc: string; so_luong: number | string | null; don_vi: string | null; cach_dung: string | null; da_cap: number | null; trang_thai_cap: string | null; nguoi_cap: string | null; cap_luc: string | null }[];
+  thuoc?: {
+    thuoc: string;
+    so_luong: number | string | null;
+    don_vi: string | null;
+    cach_dung: string | null;
+    da_cap: number | null;
+    trang_thai_cap: string | null;
+    nguoi_cap: string | null;
+    cap_luc: string | null;
+    // CP6: dòng đã được bác sĩ đính chính — lịch sử, không còn trong đơn.
+    da_dinh_chinh?: boolean;
+    dinh_chinh_luc?: string | null;
+    ly_do_dinh_chinh?: string | null;
+  }[];
 }
 
 const TRANG_THAI_DV: Record<string, string> = {
@@ -373,10 +386,13 @@ export default function XemLuot({
                 ) : (
                   <ul className="grid gap-1 text-xs text-ink-soft">
                     {dl.thuoc.map((t, i) => (
-                      <li key={i}>
-                        <b className="text-ink">{t.thuoc}</b> · {t.so_luong ?? "—"} {t.don_vi ?? ""} ·{" "}
-                        {t.cach_dung ?? ""} · đã cấp {t.da_cap ?? 0}
+                      <li key={i} className={t.da_dinh_chinh ? "text-ink-muted" : undefined}>
+                        <b className={t.da_dinh_chinh ? "line-through" : "text-ink"}>{t.thuoc}</b> ·{" "}
+                        {t.so_luong ?? "—"} {t.don_vi ?? ""} · {t.cach_dung ?? ""} · đã cấp {t.da_cap ?? 0}
                         {t.nguoi_cap ? ` — ${t.nguoi_cap}, ${ngayGio(t.cap_luc)}` : ""}
+                        {t.da_dinh_chinh
+                          ? ` · bác sĩ đã đính chính ${ngayGio(t.dinh_chinh_luc ?? null)}: ${t.ly_do_dinh_chinh ?? ""}`
+                          : ""}
                       </li>
                     ))}
                   </ul>

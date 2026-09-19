@@ -112,6 +112,7 @@ class PharmacyService:
                     ON p.clinic_patient_id = r.clinic_patient_id
                  WHERE r.clinic_id = $1::uuid
                    AND r.closed_at IS NULL
+                   AND r.removed_at IS NULL
                  ORDER BY r.created_at DESC
                  LIMIT 300
                 """,
@@ -830,7 +831,11 @@ class PharmacyService:
 
     @staticmethod
     async def _khoa_theo_luot(
-        conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        prescription_id: str,
+        *,
+        cho_lich_su: bool = False,
     ) -> asyncpg.Record:
         """Khoá LƯỢT KHÁM rồi mới khoá dòng đơn — cùng thứ tự với lần thu.
 
@@ -845,7 +850,9 @@ class PharmacyService:
         """
         vid = await conn.fetchval(
             "SELECT visit_id FROM public.prescription"
-            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+            " /* rx:gom-ca-lich-su: tìm lượt theo id để khoá; removed_at kiểm"
+            " ngay dưới, sau khi đã khoá */",
             prescription_id,
             identity.clinic_id,
         )
@@ -860,9 +867,11 @@ class PharmacyService:
         don = await conn.fetchrow(
             """
             SELECT id, visit_id, quantity_num, purchased_qty, dispensed_qty,
-                   drug_catalog_id, closed_at, drug_name_raw, unit
+                   drug_catalog_id, closed_at, drug_name_raw, unit, removed_at
               FROM public.prescription
              WHERE id = $1::uuid AND clinic_id = $2::uuid
+             /* rx:gom-ca-lich-su: khoá theo id; dòng lịch sử bị từ chối ngay
+                dưới trừ lệnh đối soát (cho_lich_su) */
              FOR UPDATE
             """,
             prescription_id,
@@ -870,6 +879,13 @@ class PharmacyService:
         )
         if don is None or don["visit_id"] != vid:
             raise ConflictError("Dòng thuốc vừa thay đổi — tải lại rồi thử lại.")
+        if don["removed_at"] is not None and not cho_lich_su:
+            # CP6 Q3: dòng lịch sử không nhận tác động mới (thuốc kho, số mua,
+            # lô, giao, chốt). Chỉ còn đối soát: huỷ phần chưa giao, khách trả.
+            raise ConflictError(
+                "Dòng thuốc này đã được bác sĩ đính chính — không thao tác mới "
+                "được. Chỉ còn đối soát: huỷ phần chưa giao, khách trả thuốc."
+            )
         return don
 
     @staticmethod
@@ -1009,7 +1025,9 @@ class PharmacyService:
             raise ValidationError("Huỷ phần chưa giao thì ghi lý do.")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await self._khoa_theo_luot(conn, identity, prescription_id)
+                await self._khoa_theo_luot(
+                    conn, identity, prescription_id, cho_lich_su=True
+                )
                 ban = await conn.fetch(
                     """
                     SELECT s.id::text AS sale_id, s.payment_cycle_id::text,
@@ -1127,7 +1145,7 @@ class PharmacyService:
                 if xuat is None:
                     raise NotFoundError("Không tìm thấy lần giao thuốc gốc này.")
                 don = await self._khoa_theo_luot(
-                    conn, identity, xuat["prescription_id"]
+                    conn, identity, xuat["prescription_id"], cho_lich_su=True
                 )
                 await khoa_lo(
                     conn, clinic_id=identity.clinic_id, lo_ids=[xuat["drug_batch_id"]]
@@ -1368,7 +1386,9 @@ class PharmacyService:
                 don = await conn.fetchrow(
                     "SELECT id, visit_id, drug_catalog_id, unit"
                     " FROM public.prescription"
-                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                    " /* rx:gom-ca-lich-su: dòng của phân lô vừa khoá qua"
+                    " _khoa_phan_lo (đã chặn dòng lịch sử) */",
                     pl["prescription_id"],
                     identity.clinic_id,
                 )
@@ -1587,7 +1607,9 @@ class PharmacyService:
                     # trả "ok" trống khiến người dùng tưởng vừa ghi được.
                     ton_tai = await conn.fetchval(
                         "SELECT 1 FROM public.prescription "
-                        "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                        "WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                        " /* rx:gom-ca-lich-su: chỉ phân biệt 'không có' với"
+                        " 'đã chốt từ trước' */",
                         prescription_id,
                         identity.clinic_id,
                     )

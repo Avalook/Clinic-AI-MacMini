@@ -96,6 +96,7 @@ def thao_tac_dong(
     co_quyen_ghi: bool = True,
     chua_giao: Decimal = Decimal(0),
     can_hoan: Decimal = Decimal(0),
+    lich_su: bool = False,
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một dòng đơn — cùng luật với lệnh ghi ở
     pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
@@ -126,6 +127,10 @@ def thao_tac_dong(
         # (huỷ phiếu / hoàn tiền xong đủ). Thiếu căn cứ: màn nói còn cần hoàn.
         "huy_chua_giao": chua_giao > 0 and can_hoan == 0,
     }
+    if lich_su:
+        # CP6 Q3: dòng bác sĩ đã đính chính không nhận thao tác mới — chỉ còn
+        # đối soát phần đã bán (khách trả nằm ở từng lần giao).
+        nut = {k: (k == "huy_chua_giao" and v) for k, v in nut.items()}
     return {k: v and co_quyen_ghi for k, v in nut.items()}
 
 
@@ -137,8 +142,10 @@ def thao_tac_phan_lo(
     da_ban: bool,
     con_giao: Decimal,
     co_quyen_ghi: bool = True,
+    lich_su: bool = False,
 ) -> dict[str, bool]:
-    """Nút nào được hiện cho một phân lô (một lô đã chọn của dòng đơn)."""
+    """Nút nào được hiện cho một phân lô (một lô đã chọn của dòng đơn).
+    Dòng đã đính chính (lịch sử): không nút nào — không bỏ, đổi hay giao."""
     nut = {
         "bo": gd == SAN_SANG and not gan_lan_thu and not dong_da_chot,
         "doi": gd == CHO_XAC_MINH and gan_lan_thu,
@@ -148,6 +155,8 @@ def thao_tac_phan_lo(
         and con_giao > 0
         and not dong_da_chot,
     }
+    if lich_su:
+        return dict.fromkeys(nut, False)
     return {k: v and co_quyen_ghi for k, v in nut.items()}
 
 
@@ -166,7 +175,9 @@ async def man_nha_thuoc(
                    r.dosage_instructions, r.drug_catalog_id::text,
                    c.name_base AS ten_thuoc_kho, r.created_at,
                    p.full_name AS ten_khach, p.patient_code, p.phone_primary,
-                   {kham_xong_sql("v")} AS kham_xong
+                   {kham_xong_sql("v")} AS kham_xong,
+                   r.removed_at, r.removal_reason,
+                   r.superseded_by_id::text AS thay_boi_id
               FROM public.prescription r
               JOIN public.visit v
                 ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
@@ -176,7 +187,39 @@ async def man_nha_thuoc(
               LEFT JOIN public.drug_catalog c
                 ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
              WHERE r.clinic_id = $1::uuid
-               AND (r.closed_at IS NULL OR r.closed_at >= $2)
+               AND ((r.removed_at IS NULL
+                     AND (r.closed_at IS NULL OR r.closed_at >= $2))
+                    -- CP6: dòng bác sĩ đã đính chính (lịch sử) chỉ hiện khi
+                    -- còn việc đối soát ở quầy: đính chính hôm nay, còn phần
+                    -- đã bán chưa giao, hoặc lô còn gắn lần thu đang chờ.
+                    OR (r.removed_at IS NOT NULL
+                        AND (r.removed_at >= $2
+                             OR EXISTS (
+                                 SELECT 1 FROM public.prescription_allocation a
+                                   JOIN public.inventory_txn s
+                                     ON s.allocation_id = a.id
+                                    AND s.clinic_id = a.clinic_id
+                                    AND s.txn_type = 'SALE'
+                                  WHERE a.clinic_id = r.clinic_id
+                                    AND a.prescription_id = r.id
+                                    AND NOT EXISTS (
+                                        SELECT 1 FROM public.inventory_txn x
+                                         WHERE x.txn_type = 'SALE_REVERSAL'
+                                           AND x.reverses_txn_id = s.id)
+                                    AND -s.quantity > coalesce((
+                                        SELECT -sum(d.quantity)
+                                          FROM public.inventory_txn d
+                                         WHERE d.txn_type = 'DISPENSE'
+                                           AND d.allocation_id = a.id), 0))
+                             OR EXISTS (
+                                 SELECT 1 FROM public.prescription_allocation a
+                                   JOIN public.payment_cycle c
+                                     ON c.payment_cycle_id = a.payment_cycle_id
+                                    AND c.clinic_id = a.clinic_id
+                                  WHERE a.clinic_id = r.clinic_id
+                                    AND a.prescription_id = r.id
+                                    AND a.released_at IS NULL
+                                    AND c.status = 'PENDING_VERIFICATION'))))
              ORDER BY r.created_at DESC, r.id
              LIMIT 300
             """,
@@ -428,6 +471,9 @@ def _dong(
     cac_pl = pl_theo_dong.get(r["id"], [])
     da_chon = sum((_so(p["quantity"]) for p in cac_pl), Decimal(0))
     da_chot = r["closed_at"] is not None
+    lich_su = r["removed_at"] is not None
+    if lich_su:
+        can_lo = Decimal(0)
     ds_pl = []
     for p in cac_pl:
         gan = p["payment_cycle_id"] is not None
@@ -454,6 +500,7 @@ def _dong(
                     da_ban=bool(p["da_ban"]),
                     con_giao=con,
                     co_quyen_ghi=co_quyen_ghi,
+                    lich_su=lich_su,
                 ),
             }
         )
@@ -469,7 +516,7 @@ def _dong(
             if ten
             and any(x and (x in ten or ten in x) for x in (b["ten_a"], b["ten_b"]))
         ]
-    if ung_vien:
+    if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
         for b in ung_vien:
             # Luồng mới: chỉ lô cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ:
@@ -507,6 +554,11 @@ def _dong(
         "xuat": them["xuat"],
         "chua_giao": them["chua_giao"],
         "can_hoan": them["can_hoan"],
+        # CP6: dòng đã được bác sĩ đính chính (lịch sử) — chỉ còn đối soát.
+        "lich_su": lich_su,
+        "thay_boi_id": r["thay_boi_id"],
+        "ly_do_dinh_chinh": r["removal_reason"],
+        "dinh_chinh_luc": r["removed_at"],
         "thao_tac": thao_tac_dong(
             gd=gd,
             dong_da_chot=da_chot,
@@ -522,6 +574,7 @@ def _dong(
             co_quyen_ghi=co_quyen_ghi,
             chua_giao=them["chua_giao"],
             can_hoan=them["can_hoan"],
+            lich_su=lich_su,
         ),
     }
 

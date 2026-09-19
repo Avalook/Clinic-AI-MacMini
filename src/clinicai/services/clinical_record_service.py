@@ -35,7 +35,6 @@ no prescriptions, or a record saved and the medical history lost.
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -47,10 +46,9 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit import record_event
 from clinicai.services.clinical_prescription_service import (
-    _locked_prescription_matches,
-    _validated_prescription_items,
     prepare_prescription_write,
 )
+from clinicai.services.dinh_chinh_don import luu_don_chua_ky
 from clinicai.services.luot_kham_rules import (
     Vitals,
     parse_vitals,
@@ -250,6 +248,7 @@ class ClinicalRecordService:
         plan: Any = None,
         profile: dict[str, Any] | None = None,
         prescriptions: list[dict[str, Any]] | None = None,
+        prescription_correction_reason: str | None = None,
     ) -> dict[str, Any]:
         """Write the record. Returns the visit id it was written to."""
         # ĐƯỜNG ĐÓN-KHÁM CŨ ĐÃ BỎ (Tuyền chốt 17/09/2026: "cái nào cũ thì bỏ").
@@ -498,6 +497,8 @@ class ClinicalRecordService:
                             {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
                         )
                         else None,
+                        identity=identity,
+                        ly_do_dinh_chinh=prescription_correction_reason,
                     )
                 if approve_prescription_draft:
                     await record_event(
@@ -794,134 +795,36 @@ class ClinicalRecordService:
         prescriptions: list[dict[str, Any]],
         clinic_id: str | None,
         created_by: str | None = None,
-    ) -> None:
-        """Lưu đơn thuốc của lượt — KHÔNG xoá dòng nhà thuốc đã đụng tới.
+        identity: StaffIdentity | None = None,
+        ly_do_dinh_chinh: str | None = None,
+    ) -> dict[str, Any]:
+        """Lưu đơn thuốc CHƯA KÝ — theo mức dấu vết, xem `dinh_chinh_don`.
 
-        Bản cũ xoá TOÀN BỘ đơn rồi chèn lại mỗi lần lưu bệnh án. Từ khi có cấp
-        phát một phần (20260807000004), mỗi dòng đơn mang số ĐÃ CẤP và sổ kho
-        trỏ về `prescription.id`. Lưu lại bệnh án sau khi dược sĩ đã cấp là:
-        mất dấu đã cấp, sổ kho trỏ vào dòng không còn tồn tại, và dòng mới về
-        CHUA_CAP — cấp lại được, trừ kho hai lần (phát hiện 15/09/2026).
-
-        Luật:
-          · Dòng ĐÃ KHOÁ = đã cấp (`dispensed_qty > 0`) hoặc đã chốt/từ chối
-            (`closed_at`). Không bao giờ bị xoá. Bản gửi lên phải còn đúng thuốc
-            và số lượng của nó, không thì từ chối bằng câu nói rõ dòng nào —
-            sửa đơn đã cấp là việc của nhà thuốc, không phải của nút Lưu.
-            Liều dùng/lưu ý của dòng khoá được cập nhật tại chỗ theo `id`.
-            Bản cũ thiếu `id` chỉ được ghép khi không có dòng trùng tên/số lượng.
-          · Dòng CHƯA KHOÁ vẫn là bản nháp: thay như cũ.
-          · Dòng mới ghi luôn `quantity_num`/`unit` bằng CHÍNH hàm SQL của
-            migration cấp phát — trước đây không đường ghi nào điền hai cột
-            này, nên chốt "không cấp quá số kê" chưa từng chạy với đơn mới.
-          · `source_ref` duy nhất theo dòng (uuid), không theo vị trí: dòng khoá
-            giữ ref cũ nên đánh số lại từ 0 sẽ đụng UNIQUE.
+        Lịch sử: bản đầu xoá TOÀN BỘ đơn rồi chèn lại (mất số đã cấp, sổ kho trỏ
+        vào dòng không còn — 15/09/2026); CP2 khoá mọi dòng khi đã thu và bắt
+        thu ngân huỷ phiếu trước. CP6 (20/09/2026): dòng đã có dấu vết không
+        sửa nghĩa tại chỗ mà ĐÍNH CHÍNH — dòng cũ ở lại làm lịch sử, bác sĩ
+        không phải huỷ phiếu / hoàn tiền trước.
         """
-
-        cu = await conn.fetch(
-            """
-            SELECT r.id, r.drug_name_raw, r.quantity, r.dispensed_qty, r.closed_at,
-                   -- CP3: nhà thuốc đã chọn lô (kể cả lô đã bỏ — lịch sử) →
-                   -- dòng khoá, không xoá-chèn lại.
-                   EXISTS (SELECT 1 FROM prescription_allocation a
-                            WHERE a.prescription_id = r.id
-                              AND a.clinic_id = r.clinic_id) AS co_phan_lo
-              FROM prescription r
-             WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
-             ORDER BY r.created_at, r.id
-               FOR UPDATE OF r
-            """,
-            visit_id,
-            clinic_id,
-        )
-        gui_len = _validated_prescription_items(
-            prescriptions, {str(row["id"]) for row in cu}
-        )
-        # ĐÃ THU TIỀN THUỐC → mọi dòng khoá (contract tiền–thuốc, đầu CP2).
-        # Thứ tự khoá đã đúng `visit → prescription → payment`: `save()` khoá
-        # dòng visit trong `_writable_visit` trước khi tới đây.
-        da_thu_tien = bool(
-            await conn.fetchval(
-                """
-                -- Đã thu, HOẶC đang chờ xác minh chuyển khoản/QR (CP2).
-                SELECT EXISTS (SELECT 1 FROM payment
-                                WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-                                  AND kind = 'thuoc' AND status = 'PAID')
-                    OR EXISTS (SELECT 1 FROM payment_cycle
-                                WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-                                  AND kind = 'thuoc'
-                                  AND status IN ('PENDING_VERIFICATION', 'PAID'))
-                """,
-                visit_id,
-                clinic_id,
+        try:
+            return await luu_don_chua_ky(
+                conn,
+                visit_id=visit_id,
+                clinic_id=clinic_id,
+                clinic_patient_id=clinic_patient_id,
+                prescriptions=prescriptions,
+                created_by=created_by,
+                identity=identity,
+                ly_do=ly_do_dinh_chinh,
             )
-        )
-        locked_matches = _locked_prescription_matches(
-            list(cu), gui_len, da_thu_tien=da_thu_tien
-        )
-        matched = {id(item) for _, item in locked_matches}
-        con_lai = [item for item in gui_len if id(item) not in matched]
-        if da_thu_tien and con_lai:
+        except asyncpg.CheckViolationError as exc:
+            # Lưới DB (4a) chặn một thay đổi service đã không lường trước — nói
+            # thành câu 409, không để 500.
             raise ConflictError(
-                "Tiền thuốc của lượt này đã thu — không thêm thuốc vào đơn được. "
-                "Cần đổi đơn thì thu ngân huỷ phiếu thu thuốc trước."
-            )
-        for dong, khop in locked_matches:
-            await conn.execute(
-                """
-                UPDATE prescription
-                   SET dosage_instructions = $3, caution = $4, updated_at = now()
-                 WHERE id = $1::uuid AND clinic_id = $2::uuid
-                """,
-                dong["id"],
-                clinic_id,
-                (khop.get("dosage") or "").strip() or None,
-                (khop.get("caution") or "").strip() or None,
-            )
-
-        if da_thu_tien:
-            return  # mọi dòng khoá: chỉ liều dùng/lưu ý được cập nhật ở trên
-        await conn.execute(
-            """
-            DELETE FROM prescription r
-             WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
-               AND r.dispensed_qty = 0 AND r.closed_at IS NULL
-               AND NOT EXISTS (SELECT 1 FROM prescription_allocation a
-                                WHERE a.prescription_id = r.id
-                                  AND a.clinic_id = r.clinic_id)
-            """,
-            visit_id,
-            clinic_id,
-        )
-        rows = [
-            (
-                f"dash-rx-{visit_id}-{uuid.uuid4().hex}",
-                clinic_patient_id,
-                str(visit_id),
-                (item.get("drug_name") or "").strip(),
-                (item.get("quantity") or "").strip() or None,
-                (item.get("dosage") or "").strip() or None,
-                (item.get("caution") or "").strip() or None,
-                clinic_id,
-                created_by,
-            )
-            for item in con_lai
-        ]
-        if not rows:
-            return
-        await conn.executemany(
-            """
-            INSERT INTO prescription (
-                source_ref, clinic_patient_id, visit_id, drug_name_raw,
-                quantity, dosage_instructions, caution, clinic_id,
-                quantity_num, unit, created_by
-            )
-            VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8::uuid,
-                    public.so_luong_tu_van_ban($5),
-                    public.don_vi_tu_van_ban($5), $9::uuid)
-            """,
-            rows,
-        )
+                "Đơn thuốc không lưu được: "
+                + (exc.message or "vi phạm luật đơn thuốc")
+                + ". Tải lại bệnh án rồi thử lại."
+            ) from exc
 
 
 def _json_or_none(value: Any) -> str | None:

@@ -50,6 +50,7 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 quantity_num numeric, unit text,
                 dispensed_qty numeric NOT NULL DEFAULT 0,
                 closed_at timestamptz, refusal_reason text,
+                removed_at timestamptz,
                 dispensed_at timestamptz, dispensed_by_staff_id uuid,
                 updated_at timestamptz,
                 dispense_status text GENERATED ALWAYS AS (

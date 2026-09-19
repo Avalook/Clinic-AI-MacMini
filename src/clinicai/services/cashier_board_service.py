@@ -139,7 +139,8 @@ SELECT json_build_object(
               'quantity', d.quantity, 'dosage', d.dosage_instructions)),
             '[]'::json)
        FROM public.prescription d
-      WHERE d.visit_id IN (SELECT visit_id FROM v)),
+      WHERE d.visit_id IN (SELECT visit_id FROM v)
+        AND d.removed_at IS NULL),
   'prices', (
      SELECT coalesce(json_agg(json_build_object(
               'name', pr.name, 'group', pr."group",

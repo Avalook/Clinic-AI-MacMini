@@ -54,6 +54,9 @@ class ClinicalRecordSaveRequest(BaseModel):
     profile: dict[str, Any] | None = None
     # None means "leave the prescription alone"; [] means "clear it".
     prescriptions: list[PrescriptionItem] | None = None
+    # CP6: sửa / bỏ dòng đơn đã có nhà thuốc / thu ngân đụng tới là ĐÍNH CHÍNH
+    # và bắt buộc lý do (thiếu → 409 PRESCRIPTION_CORRECTION_REASON_REQUIRED).
+    prescription_correction_reason: str | None = Field(default=None, max_length=1000)
 
 
 @router.post("/clinical-records")
@@ -84,5 +87,6 @@ async def save_clinical_record(
             if body.prescriptions is not None
             else None
         ),
+        prescription_correction_reason=body.prescription_correction_reason,
     )
     return {"ok": True, **result}

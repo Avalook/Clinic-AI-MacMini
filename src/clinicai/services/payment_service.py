@@ -576,6 +576,13 @@ class PaymentService:
                         da_giu=True,
                         hom_nay=now_vn().date(),
                     )
+                    # CP6 Q3: bác sĩ đã đính chính dòng đơn trong lúc lần thu
+                    # còn chờ. Tiền thật vẫn ghi đã thu, nhưng dòng lịch sử KHÔNG
+                    # nhận SALE mới (DB cũng chặn) → không ghi bán cả lần thu,
+                    # đối soát CHUA_GHI_BAN. Bán dở một phần sẽ khó đối soát hơn.
+                    khong_ban_duoc += await _dong_da_dinh_chinh(
+                        conn, identity.clinic_id, phan_lo
+                    )
                 # CP6: mã NGUYÊN NHÂN, không chỉ cờ — lịch sử phải nói đúng vì
                 # sao lần thu này cần đối soát. DB ép cờ = có ít nhất một mã.
                 ly_do_doi_soat = [
@@ -991,6 +998,28 @@ async def _ghi_da_thu(
         reference=reference,
     )
     return payment_id
+
+
+async def _dong_da_dinh_chinh(
+    conn: asyncpg.Connection, clinic_id: str, phan_lo: list[PhanLo]
+) -> list[str]:
+    """Phân lô của lần thu mà dòng đơn đã được bác sĩ đính chính (lịch sử)."""
+    if not phan_lo:
+        return []
+    rows = await conn.fetch(
+        """
+        SELECT drug_name_raw FROM public.prescription
+         WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])
+           AND removed_at IS NOT NULL
+         ORDER BY id
+        """,
+        clinic_id,
+        sorted({p.prescription_id for p in phan_lo}),
+    )
+    return [
+        f"“{r['drug_name_raw']}” đã được bác sĩ đính chính — không ghi bán"
+        for r in rows
+    ]
 
 
 async def _can_theo_anh_chup(

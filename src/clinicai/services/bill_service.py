@@ -359,6 +359,9 @@ async def tinh_hoa_don(
           LEFT JOIN public.drug_catalog c
             ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
          WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
+           -- CP6: hoá đơn MỚI chỉ gồm đơn hiện hành. Ảnh chụp của lần thu cũ
+           -- (payment_bill_line) vẫn trỏ dòng lịch sử — không mất.
+           AND r.removed_at IS NULL
          ORDER BY r.created_at, r.id
         """,
         clinic_id,

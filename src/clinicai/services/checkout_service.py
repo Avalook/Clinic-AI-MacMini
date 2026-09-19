@@ -103,7 +103,8 @@ SELECT
              WHERE pm.visit_id = v.visit_id AND pm.kind = 'thuoc'
                AND pm.status = 'PAID' AND pm.voided_at IS NULL) AS paid_drug,
     EXISTS (SELECT 1 FROM public.prescription pr
-             WHERE pr.visit_id = v.visit_id)                    AS has_drug
+             WHERE pr.visit_id = v.visit_id
+               AND pr.removed_at IS NULL)                        AS has_drug
   FROM public.visit v
   LEFT JOIN public.patient p
          ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id

@@ -43,6 +43,7 @@ def connection(rx_unit: str | None, batch_unit: str | None) -> Any:
                 "dispensed_qty": Decimal("0"),
                 "closed_at": None,
                 "refusal_reason": None,
+                "removed_at": None,
             },
             {"payment_cycle_id": "c1", "legacy": True},
             {

@@ -122,6 +122,7 @@ _PROGRESS_SQL = """
           SELECT TRUE AS has_prescription
             FROM prescription p
            WHERE p.visit_id = v.visit_id
+             AND p.removed_at IS NULL
            LIMIT 1
       ) rx ON TRUE
       -- `status = 'PAID'` KHÔNG phải thừa. Không có nó thì một khoản đã HUỶ
