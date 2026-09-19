@@ -40,6 +40,17 @@ export interface PhanLo {
   thao_tac: { bo: boolean; doi: boolean; giao: boolean };
 }
 
+/** Một lần GIAO (DISPENSE) — khách trả thuốc phải chọn đúng lần giao gốc. */
+export interface LanGiao {
+  dispense_txn_id: string;
+  batch_code: string;
+  so_luong: number;
+  luc: string;
+  da_tra: number;
+  con_tra: number;
+  thao_tac: { tra: boolean };
+}
+
 export interface DongDon {
   id: string;
   drug_name_raw: string | null;
@@ -58,6 +69,11 @@ export interface DongDon {
   da_chon: number;
   phan_lo: PhanLo[];
   lo_goi_y: LoGoiY[];
+  xuat: LanGiao[];
+  /** Đã bán mà chưa giao (mọi lần thu). */
+  chua_giao: number;
+  /** Phần chưa giao còn thiếu căn cứ (chưa huỷ phiếu, chưa hoàn xong đủ). */
+  can_hoan: number;
   thao_tac: {
     xac_dinh_thuoc: boolean;
     khai_so_mua: boolean;
@@ -65,6 +81,7 @@ export interface DongDon {
     giao_luong_cu: boolean;
     tu_choi: boolean;
     chot: boolean;
+    huy_chua_giao: boolean;
   };
 }
 

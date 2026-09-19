@@ -60,6 +60,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   const [loDoi, setLoDoi] = useState<Record<string, string>>({});
   const [soCu, setSoCu] = useState("");
   const [lyDo, setLyDo] = useState("");
+  const [soTra, setSoTra] = useState<Record<string, string>>({});
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
 
@@ -84,6 +85,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
       setLyDo("");
       setSoCu("");
       setSoGiao({});
+      setSoTra({});
       router.refresh();
     } finally {
       setDangGui(false);
@@ -92,6 +94,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
 
   const khongCoNutNao =
     !Object.values(tt).some(Boolean) &&
+    !dong.xuat.some((x) => x.thao_tac.tra) &&
     !dong.phan_lo.some((p) => p.thao_tac.bo || p.thao_tac.doi || p.thao_tac.giao);
 
   return (
@@ -388,11 +391,91 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
         </div>
       ) : null}
 
+      {/* ── CP5: đã giao → khách trả thuốc (chỉ ghi nhận, chưa quyết xử lý) ── */}
+      {dong.xuat.length > 0 ? (
+        <div>
+          <span className={NHAN}>Đã giao</span>
+          <ul className="mt-1 divide-y divide-line rounded-control border border-line">
+            {dong.xuat.map((x) => (
+              <li key={x.dispense_txn_id} className="flex flex-wrap items-end gap-2 px-3 py-2">
+                <span className="min-w-0 flex-1 text-body text-ink">
+                  Lô {x.batch_code} · giao {fmtSo(x.so_luong)}
+                  {x.da_tra > 0 ? ` · khách đã trả ${fmtSo(x.da_tra)}` : ""}
+                </span>
+                {x.thao_tac.tra ? (
+                  <>
+                    <label className={`${NHAN} w-24`}>
+                      Khách trả
+                      <input
+                        type="number"
+                        min="0"
+                        max={x.con_tra}
+                        step="any"
+                        value={soTra[x.dispense_txn_id] ?? ""}
+                        onChange={(e) =>
+                          setSoTra((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                        }
+                        className={O_NHAP}
+                      />
+                    </label>
+                    <Button className={CHAM}
+                      disabled={
+                        dangGui || !soTra[x.dispense_txn_id] || lyDo.trim().length < 3
+                      }
+                      onClick={() =>
+                        goi("khach-tra", {
+                          dispense_txn_id: x.dispense_txn_id,
+                          so_luong: Number(soTra[x.dispense_txn_id]),
+                          ly_do: lyDo,
+                        })
+                      }
+                    >
+                      Ghi nhận khách trả
+                    </Button>
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {dong.xuat.some((x) => x.da_tra > 0) ? (
+            <p className="mt-1 text-meta text-ink-faint">
+              Thuốc khách trả đã về quầy nhưng CHƯA bán lại được — chờ quyết định xử lý của phòng
+              khám. Ghi nhận khách trả không tự hoàn tiền.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* ── CP5: phần đã bán mà chưa giao ── */}
+      {dong.chua_giao > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+          <span className="min-w-0 flex-1">
+            Còn {fmtSo(dong.chua_giao)} {dong.unit ?? ""} đã bán mà chưa giao.
+            {dong.can_hoan > 0
+              ? ` Muốn thôi giao: Quản lý hoàn tiền ${fmtSo(dong.can_hoan)} ${dong.unit ?? ""} ở Lịch sử giao dịch (hoặc huỷ phiếu) trước.`
+              : ""}
+          </span>
+          {tt.huy_chua_giao ? (
+            <Button className={CHAM}
+              variant="danger"
+              disabled={dangGui || lyDo.trim().length < 1}
+              onClick={() => goi("huy-phan-chua-giao", { prescription_id: dong.id, ly_do: lyDo })}
+            >
+              Huỷ phần chưa giao
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* ── Lý do + khách không lấy / chốt ── */}
-      {tt.tu_choi || tt.chot || dong.phan_lo.some((p) => p.thao_tac.bo || p.thao_tac.doi) ? (
+      {tt.tu_choi ||
+      tt.chot ||
+      tt.huy_chua_giao ||
+      dong.xuat.some((x) => x.thao_tac.tra) ||
+      dong.phan_lo.some((p) => p.thao_tac.bo || p.thao_tac.doi) ? (
         <div className="flex flex-wrap items-end gap-2 border-t border-line pt-3">
           <label className={`${NHAN} flex-1`}>
-            Lý do (bắt buộc khi khách không lấy, bỏ lô, đổi lô)
+            Lý do (bắt buộc khi khách không lấy, bỏ lô, đổi lô, khách trả, huỷ phần chưa giao)
             <input
               value={lyDo}
               onChange={(e) => setLyDo(e.target.value)}

@@ -54,3 +54,33 @@ test("proxy mở đủ và chỉ đúng các thao tác phân lô của máy ch�
   }
   assert.doesNotMatch(dong, /window\.confirm/);
 });
+
+// ── CP5: hoàn tiền / huỷ phần chưa giao / khách trả thuốc ─────────────────
+const hoan = doc("app/(dashboard)/thu-ngan/HoanTien.tsx");
+const payProxy = doc("app/api/payment/route.ts");
+
+test("CP5: màn hoàn tiền không tự tính tiền và chỉ hiện nút khi máy chủ cho", () => {
+  // Số tiền hoàn do máy chủ tính theo đơn giá ảnh chụp — màn không nhân.
+  assert.doesNotMatch(hoan, /don_gia/);
+  assert.doesNotMatch(hoan, /\*\s*Number|Number\([^)]*\)\s*\*/);
+  // Nút ghi chỉ khi máy chủ báo có quyền hoàn (tạm thời chỉ Quản lý, HOLD J4).
+  assert.match(hoan, /coQuyenHoan && k\.status === "PENDING"/);
+  assert.match(hoan, /coQuyenHoan && conHoan\.length > 0/);
+  assert.doesNotMatch(hoan, /window\.confirm/);
+  for (const a of ["hoan-tien", "hoan-tien-xac-nhan", "hoan-tien-dong"]) {
+    assert.match(payProxy, new RegExp(`p\\.action === "${a}"`));
+  }
+});
+
+test("CP5: khách trả / huỷ phần chưa giao theo cờ máy chủ, đủ proxy", () => {
+  assert.match(dong, /x\.thao_tac\.tra/);
+  assert.match(dong, /tt\.huy_chua_giao/);
+  for (const [a, p] of [
+    ["huy-phan-chua-giao", "huy-phan-chua-giao"],
+    ["khach-tra", "khach-tra"],
+  ]) {
+    assert.match(proxy, new RegExp(`"${a}":\\s*"/api/v1/pharmacy/${p}"`));
+  }
+  // Khách trả KHÔNG có nút "đưa lại bán / huỷ / cách ly" (HOLD J1/J2).
+  assert.doesNotMatch(dong, /disposition|Đưa lại bán|Nhập lại kho/);
+});

@@ -6,11 +6,12 @@
 //          → chuyển khoản/QR đã nhận. Mọi lệnh sau khi đã có lần thu nhắm ĐÚNG
 //          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
 //   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
+//   POST   { action: "hoan-tien" | "hoan-tien-xac-nhan" | "hoan-tien-dong", … } → CP5.
 //   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
 // Toàn bộ luật nằm ở FastAPI (ADR-0012): vai nào được thu khâu nào, chốt "chỉ
-// thu khi bác sĩ đã khám xong" (appointment.status = COMPLETED), ghi sổ + audit
+// thu khi bác sĩ đã khám xong" (visit.exam_completed_at), ghi sổ + audit
 // trong cùng một transaction. Route này chỉ chuyển tiếp kèm token người gọi —
 // không còn service-role, nên nó không thể đọc/ghi ngoài phòng khám của họ.
 
@@ -41,7 +42,34 @@ export async function POST(request: Request) {
     reference?: string;
     reason?: string;
     paymentCycleId?: string;
+    refundId?: string;
+    trangThai?: string;
+    dong?: { payment_bill_line_id: string; so_luong: number }[];
   };
+  // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
+  if (p.action === "hoan-tien") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien", {
+      payment_cycle_id: p.paymentCycleId,
+      visit_id: p.visitId,
+      kind: p.kind,
+      method: p.method,
+      reason: p.reason,
+      dong: p.dong,
+    });
+  }
+  if (p.action === "hoan-tien-xac-nhan") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien/xac-nhan", {
+      refund_id: p.refundId,
+      reference: p.reference,
+    });
+  }
+  if (p.action === "hoan-tien-dong") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien/dong", {
+      refund_id: p.refundId,
+      trang_thai: p.trangThai,
+      reason: p.reason,
+    });
+  }
   if (p.action === "xac-minh") {
     return proxyJsonToBackend("POST", "/api/v1/payments/xac-minh", {
       payment_cycle_id: p.paymentCycleId,

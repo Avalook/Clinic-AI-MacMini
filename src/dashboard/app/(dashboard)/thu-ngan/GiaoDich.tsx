@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 
 import XemLuot from "../_lam-viec/XemLuot";
+import HoanTien, { type HoanCuaLanThu } from "./HoanTien";
 
 interface GiaoDichDong {
   id: string;
@@ -31,6 +32,8 @@ interface GiaoDichDong {
   huy_luc: string | null;
   nguoi_huy: string | null;
   ly_do_huy: string | null;
+  /** CP5: khoản hoàn + dòng còn hoàn được — chỉ lần thu đã từng thu. */
+  hoan: HoanCuaLanThu | null;
 }
 
 const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
@@ -58,8 +61,17 @@ function ngayGio(iso: string | null): string {
 export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
   const [tu, setTu] = useState(homNay);
   const [den, setDen] = useState(homNay);
-  const [hoi, setHoi] = useState<{ tu: string; den: string }>(() => ({ tu: homNay(), den: homNay() }));
-  const [kq, setKq] = useState<{ khoa: string; ds?: GiaoDichDong[]; loi?: string } | null>(null);
+  const [hoi, setHoi] = useState<{ tu: string; den: string; lan: number }>(() => ({
+    tu: homNay(),
+    den: homNay(),
+    lan: 0,
+  }));
+  const [kq, setKq] = useState<{
+    khoa: string;
+    ds?: GiaoDichDong[];
+    coQuyenHoan?: boolean;
+    loi?: string;
+  } | null>(null);
   const [xem, setXem] = useState<string | null>(null);
   const khoa = `${hoi.tu}|${hoi.den}`;
 
@@ -71,7 +83,11 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
         if (huy) return;
         setKq(
           ok
-            ? { khoa: `${hoi.tu}|${hoi.den}`, ds: (d as { giao_dich: GiaoDichDong[] }).giao_dich }
+            ? {
+                khoa: `${hoi.tu}|${hoi.den}`,
+                ds: (d as { giao_dich: GiaoDichDong[] }).giao_dich,
+                coQuyenHoan: (d as { co_quyen_hoan?: boolean }).co_quyen_hoan === true,
+              }
             : { khoa: `${hoi.tu}|${hoi.den}`, loi: (d as { message?: string; error?: string } | null)?.message ?? "Không đọc được giao dịch." },
         );
       });
@@ -99,7 +115,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
             Đến ngày
             <input type="date" value={den} onChange={(e) => setDen(e.target.value)} className={INPUT} />
           </label>
-          <Button onClick={() => setHoi({ tu, den })}>Xem</Button>
+          <Button onClick={() => setHoi((h) => ({ tu, den, lan: h.lan + 1 }))}>Xem</Button>
         </div>
       ) : null}
       {loi ? (
@@ -144,6 +160,16 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                     Đã huỷ {ngayGio(g.huy_luc)} — {g.nguoi_huy ?? "?"}: {g.ly_do_huy ?? ""}
                     {g.sau_khi_dong_luot ? " · phát sinh SAU khi đóng lượt" : ""}
                   </p>
+                ) : null}
+                {g.hoan && g.visit_id ? (
+                  <HoanTien
+                    paymentCycleId={g.id}
+                    visitId={g.visit_id}
+                    kind={g.loai}
+                    hoan={g.hoan}
+                    coQuyenHoan={kq?.coQuyenHoan === true}
+                    onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
+                  />
                 ) : null}
                 {g.visit_id ? (
                   <Button size="sm" variant="ghost" className="mt-1 -ml-3" onClick={() => setXem(g.visit_id)}>
