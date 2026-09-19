@@ -340,3 +340,86 @@ def tom_tat(phan_lo: list[PhanLo]) -> list[dict[str, Any]]:
         }
         for p in phan_lo
     ]
+
+
+async def ban_chua_giao(
+    conn: asyncpg.Connection, clinic_id: str, prescription_ids: list[str]
+) -> dict[str, dict[str, Decimal]]:
+    """Phần ĐÃ BÁN MÀ CHƯA GIAO theo dòng đơn, và phần còn thiếu căn cứ để huỷ.
+
+    Trả prescription_id → {"chua_giao", "can_hoan"}. `can_hoan` = phần chưa
+    giao mà chưa có căn cứ tài chính (lần thu chưa huỷ phiếu và chưa hoàn tiền
+    xong đủ) — cùng luật với trigger `inventory_txn_ban_hop_le`.
+    """
+    if not prescription_ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        WITH ban AS (
+            SELECT a.prescription_id, s.payment_cycle_id,
+                   -s.quantity - coalesce((
+                       SELECT -sum(d.quantity) FROM public.inventory_txn d
+                        WHERE d.txn_type = 'DISPENSE' AND d.allocation_id = a.id
+                          AND d.clinic_id = a.clinic_id), 0) AS chua_giao
+              FROM public.prescription_allocation a
+              JOIN public.inventory_txn s
+                ON s.allocation_id = a.id AND s.clinic_id = a.clinic_id
+               AND s.txn_type = 'SALE'
+             WHERE a.clinic_id = $1::uuid AND a.prescription_id = ANY($2::uuid[])
+               AND NOT EXISTS (SELECT 1 FROM public.inventory_txn r
+                                WHERE r.txn_type = 'SALE_REVERSAL'
+                                  AND r.reverses_txn_id = s.id)
+        ), theo_lan AS (
+            SELECT prescription_id, payment_cycle_id, sum(chua_giao) AS chua_giao
+              FROM ban WHERE chua_giao > 0
+             GROUP BY prescription_id, payment_cycle_id
+        )
+        SELECT t.prescription_id::text, t.chua_giao,
+               CASE WHEN c.status = 'VOIDED' THEN 0
+                    ELSE greatest(t.chua_giao - (
+                        coalesce((
+                            SELECT sum(l.quantity)
+                              FROM public.payment_refund_line l
+                              JOIN public.payment_refund r
+                                ON r.refund_id = l.refund_id
+                               AND r.clinic_id = l.clinic_id
+                              JOIN public.payment_bill_line b
+                                ON b.id = l.payment_bill_line_id
+                               AND b.clinic_id = l.clinic_id
+                             WHERE l.clinic_id = $1::uuid
+                               AND l.payment_cycle_id = t.payment_cycle_id
+                               AND r.status = 'COMPLETED'
+                               AND b.source_type = 'prescription'
+                               AND b.source_id = t.prescription_id::text), 0)
+                        - coalesce((
+                            SELECT sum(x.quantity) FROM public.inventory_txn x
+                              JOIN public.prescription_allocation a2
+                                ON a2.id = x.allocation_id
+                               AND a2.clinic_id = x.clinic_id
+                             WHERE x.clinic_id = $1::uuid
+                               AND x.txn_type = 'SALE_REVERSAL'
+                               AND x.payment_cycle_id = t.payment_cycle_id
+                               AND a2.prescription_id = t.prescription_id), 0)), 0)
+               END AS can_hoan
+          FROM theo_lan t
+          JOIN public.payment_cycle c
+            ON c.payment_cycle_id = t.payment_cycle_id AND c.clinic_id = $1::uuid
+        """,
+        clinic_id,
+        prescription_ids,
+    )
+    ket_qua: dict[str, dict[str, Decimal]] = {}
+    for r in rows:
+        k = ket_qua.setdefault(
+            r["prescription_id"], {"chua_giao": Decimal(0), "can_hoan": Decimal(0)}
+        )
+        k["chua_giao"] += Decimal(str(r["chua_giao"]))
+        k["can_hoan"] += Decimal(str(r["can_hoan"]))
+    return ket_qua
+
+
+async def chua_giao_cua_dong(
+    conn: asyncpg.Connection, clinic_id: str, prescription_id: str
+) -> Decimal:
+    k = (await ban_chua_giao(conn, clinic_id, [prescription_id])).get(prescription_id)
+    return k["chua_giao"] if k else Decimal(0)

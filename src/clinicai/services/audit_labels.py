@@ -101,6 +101,8 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.allocated": "Chọn lô cho dòng thuốc",
     "pharmacy.allocation_released": "Bỏ lô đã chọn",
     "pharmacy.allocation_moved": "Đổi lô đang giữ cho lần chờ xác minh",
+    "pharmacy.undelivered_cancelled": "Huỷ phần thuốc đã bán chưa giao",
+    "pharmacy.drug_returned": "Khách trả thuốc (chưa quyết xử lý)",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",
@@ -158,6 +160,10 @@ EVENT_LABELS: dict[str, str] = {
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
     "payment.voided": "Huỷ phiếu thanh toán",
+    "payment.refunded": "Hoàn tiền cho khách",
+    "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
+    "payment.refund_failed": "Hoàn tiền không thành",
+    "payment.refund_cancelled": "Huỷ yêu cầu hoàn tiền",
     # ── CSKH ────────────────────────────────────────────────────────────────
     "cskh_action.created": "Tạo việc chăm sóc khách",
     "cskh_log.followup_call": "Gọi chăm sóc khách",

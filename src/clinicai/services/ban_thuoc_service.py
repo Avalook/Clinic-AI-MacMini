@@ -34,6 +34,7 @@ import asyncpg
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.services.moc_kham_xong import kham_xong_sql
+from clinicai.services.phan_lo_service import ban_chua_giao
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
 SAN_SANG = "SAN_SANG"
@@ -93,6 +94,8 @@ def thao_tac_dong(
     co_phan_lo: bool,
     so_ban: Decimal | None,
     co_quyen_ghi: bool = True,
+    chua_giao: Decimal = Decimal(0),
+    can_hoan: Decimal = Decimal(0),
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một dòng đơn — cùng luật với lệnh ghi ở
     pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
@@ -110,14 +113,18 @@ def thao_tac_dong(
         # Khách không lấy: sau Khám xong, trước khi có lần thu (sau đó phải
         # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
         # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
-        "tu_choi": san_sang,
+        "tu_choi": san_sang and chua_giao == 0,
         # Chờ xác minh / cần đối soát: không bao giờ. Đã thu (luồng mới): chỉ
         # khi đã giao đủ số bán — trước CP5 không có đường xử lý phần còn lại.
         "chot": mo
+        and chua_giao == 0
         and (
             gd in (SAN_SANG, DA_THU_CU)
             or (gd == DA_THU and so_ban is not None and da_giao >= so_ban)
         ),
+        # CP5: nhả phần đã bán chưa giao — chỉ khi đã có căn cứ tài chính
+        # (huỷ phiếu / hoàn tiền xong đủ). Thiếu căn cứ: màn nói còn cần hoàn.
+        "huy_chua_giao": chua_giao > 0 and can_hoan == 0,
     }
     return {k: v and co_quyen_ghi for k, v in nut.items()}
 
@@ -197,6 +204,13 @@ async def man_nha_thuoc(
             SELECT a.id::text, a.prescription_id::text, a.drug_batch_id::text,
                    a.quantity, a.handed_over_qty, a.payment_cycle_id::text,
                    b.batch_code, b.expiry_date,
+                   -- Đã TỪNG ghi bán (kể cả phần sau đó bị huỷ-chưa-giao). Không
+                   -- có SALE nào = "chưa ghi bán được" (cần đối soát).
+                   EXISTS (SELECT 1 FROM public.inventory_txn s0
+                            WHERE s0.clinic_id = a.clinic_id
+                              AND s0.txn_type = 'SALE' AND s0.allocation_id = a.id
+                              AND s0.payment_cycle_id = a.payment_cycle_id)
+                       AS co_sale,
                    EXISTS (SELECT 1 FROM public.inventory_txn s
                             WHERE s.clinic_id = a.clinic_id
                               AND s.txn_type = 'SALE' AND s.allocation_id = a.id
@@ -252,6 +266,41 @@ async def man_nha_thuoc(
                 identity.clinic_id,
                 hom_nay,
             )
+        # CP5: các lần GIAO (DISPENSE) của từng dòng — khách trả thuốc phải
+        # chọn đúng lần giao gốc — kèm số đã trả; phần đã bán chưa giao; phần
+        # đã huỷ-chưa-giao của lần thu đang sống (để "số bán" là số ròng).
+        xuat_rows = await conn.fetch(
+            """
+            SELECT t.id::text, t.ref_id::text AS prescription_id, b.batch_code,
+                   -t.quantity AS so_luong, t.performed_at,
+                   coalesce((SELECT sum(r.returned_qty) FROM public.drug_return r
+                              WHERE r.clinic_id = t.clinic_id
+                                AND r.original_dispense_txn_id = t.id), 0) AS da_tra
+              FROM public.inventory_txn t
+              JOIN public.drug_batch b
+                ON b.id = t.drug_batch_id AND b.clinic_id = t.clinic_id
+             WHERE t.clinic_id = $1::uuid AND t.txn_type = 'DISPENSE'
+               AND t.ref_type = 'prescription' AND t.ref_id = ANY($2::uuid[])
+             ORDER BY t.performed_at, t.id
+            """,
+            identity.clinic_id,
+            rx_ids,
+        )
+        chua_giao = await ban_chua_giao(conn, identity.clinic_id, rx_ids)
+        dao_rows = await conn.fetch(
+            """
+            SELECT a.prescription_id::text, t.payment_cycle_id::text,
+                   sum(t.quantity) AS da_dao
+              FROM public.inventory_txn t
+              JOIN public.prescription_allocation a
+                ON a.id = t.allocation_id AND a.clinic_id = t.clinic_id
+             WHERE t.clinic_id = $1::uuid AND t.txn_type = 'SALE_REVERSAL'
+               AND a.prescription_id = ANY($2::uuid[])
+             GROUP BY a.prescription_id, t.payment_cycle_id
+            """,
+            identity.clinic_id,
+            rx_ids,
+        )
         danh_muc = await conn.fetch(
             """
             SELECT id::text, name_base, variant FROM public.drug_catalog
@@ -270,6 +319,25 @@ async def man_nha_thuoc(
             can_doi_soat=bool(r["can_doi_soat"]),
         )
         for r in lan_thu_rows
+    }
+    xuat_theo_dong: dict[str, list[dict[str, Any]]] = {}
+    for x in xuat_rows:
+        con_tra = _so(x["so_luong"]) - _so(x["da_tra"])
+        xuat_theo_dong.setdefault(x["prescription_id"], []).append(
+            {
+                "dispense_txn_id": x["id"],
+                "batch_code": x["batch_code"],
+                "so_luong": _so(x["so_luong"]),
+                "luc": x["performed_at"],
+                "da_tra": _so(x["da_tra"]),
+                "con_tra": con_tra,
+                # Chỉ là "thuốc đã quay lại quầy" — không quyết xử lý (HOLD J1/J2).
+                "thao_tac": {"tra": co_quyen_ghi and con_tra > 0},
+            }
+        )
+    dao: dict[tuple[str, str], Decimal] = {
+        (r["prescription_id"], r["payment_cycle_id"]): _so(r["da_dao"])
+        for r in dao_rows
     }
     pl_theo_dong: dict[str, list[asyncpg.Record]] = {}
     for p in phan_lo:
@@ -315,12 +383,23 @@ async def man_nha_thuoc(
         gd = giai_doan(
             kham_xong=g["kham_xong"],
             lan_thu=lt,
-            co_phan_lo_chua_ban=any(not p["da_ban"] for p in bound),
+            co_phan_lo_chua_ban=any(not p["co_sale"] for p in bound),
         )
         g["giai_doan"] = gd
         for r in g.pop("_rows"):
+            cg = chua_giao.get(r["id"], {})
+            them = {
+                "xuat": xuat_theo_dong.get(r["id"], []),
+                "chua_giao": cg.get("chua_giao", Decimal(0)),
+                "can_hoan": cg.get("can_hoan", Decimal(0)),
+                "da_dao_song": (
+                    dao.get((r["id"], lt.payment_cycle_id), Decimal(0))
+                    if lt
+                    else Decimal(0)
+                ),
+            }
             g["dong"].append(
-                _dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu, co_quyen_ghi)
+                _dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu, co_quyen_ghi, them)
             )
     return {
         "luot": list(luot.values()),
@@ -338,6 +417,7 @@ def _dong(
     lo_theo_thuoc: dict[str, list[asyncpg.Record]],
     lo_cu: list[asyncpg.Record],
     co_quyen_ghi: bool,
+    them: dict[str, Any],
 ) -> dict[str, Any]:
     ke = r["quantity_num"]
     ban = r["purchased_qty"] if r["purchased_qty"] is not None else ke
@@ -422,6 +502,9 @@ def _dong(
         "da_chon": da_chon,
         "phan_lo": ds_pl,
         "lo_goi_y": lo_goi_y,
+        "xuat": them["xuat"],
+        "chua_giao": them["chua_giao"],
+        "can_hoan": them["can_hoan"],
         "thao_tac": thao_tac_dong(
             gd=gd,
             dong_da_chot=da_chot,
@@ -432,8 +515,11 @@ def _dong(
             can_lo=can_lo,
             da_chon=da_chon,
             co_phan_lo=bool(cac_pl),
-            so_ban=_so(ban) if ban is not None else None,
+            # Số bán RÒNG: trừ phần đã "huỷ phần chưa giao" của lần thu đang sống.
+            so_ban=_so(ban) - them["da_dao_song"] if ban is not None else None,
             co_quyen_ghi=co_quyen_ghi,
+            chua_giao=them["chua_giao"],
+            can_hoan=them["can_hoan"],
         ),
     }
 

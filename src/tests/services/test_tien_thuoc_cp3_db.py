@@ -571,8 +571,9 @@ async def test_db_chan_ban_hai_lan_go_lo_da_ban_va_xoa_phan_lo(q: Quay) -> None:
             "DELETE FROM prescription_allocation WHERE id = $1::uuid",
             ban["allocation_id"],
         )
-    # Đảo bán khi lần thu chưa huỷ phiếu: DB từ chối.
-    with pytest.raises(asyncpg.CheckViolationError, match="SALE_REVERSAL"):
+    # Đảo bán khi lần thu chưa huỷ phiếu và chưa hoàn tiền: DB từ chối (CP5:
+    # đảo phần chưa giao phải có căn cứ tài chính).
+    with pytest.raises(asyncpg.CheckViolationError, match="cần căn cứ"):
         await q.pool.execute(
             "INSERT INTO inventory_txn (clinic_id, drug_batch_id, txn_type, quantity,"
             " ref_type, ref_id, performed_by_staff_id, payment_cycle_id,"

@@ -21,6 +21,7 @@ from clinicai.api.idempotency import (
 )
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
 
 router = APIRouter()
@@ -164,5 +165,89 @@ async def huy_cho_xac_minh(
         kind=body.kind,
         reason=body.reason,
         identity=identity,
+    )
+    return {"ok": True, **kq}
+
+
+# ── Hoàn tiền (contract tiền–thuốc CP5) ────────────────────────────────────
+# Cửa ngoài giữ nguyên nhóm thu ngân; QUYỀN HOÀN do service kiểm
+# (VAI_HOAN_TIEN_TAM_THOI — tạm thời chỉ Quản lý, HOLD J4).
+
+
+class DongHoanRequest(BaseModel):
+    payment_bill_line_id: UUID
+    so_luong: float = Field(gt=0)
+
+
+class HoanTienRequest(BaseModel):
+    payment_cycle_id: UUID
+    visit_id: UUID
+    kind: PaymentKind
+    method: PaymentMethod
+    reason: str = Field(min_length=5, max_length=500)
+    dong: list[DongHoanRequest] = Field(min_length=1)
+
+
+@router.post("/payments/hoan-tien")
+async def hoan_tien(
+    body: HoanTienRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tiền theo dòng ảnh chụp hoá đơn; số tiền do máy chủ tính."""
+    kq = await HoanTienService(pool).tao(
+        identity=identity,
+        payment_cycle_id=str(body.payment_cycle_id),
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+        dong=[
+            {
+                "payment_bill_line_id": str(d.payment_bill_line_id),
+                "so_luong": d.so_luong,
+            }
+            for d in body.dong
+        ],
+        method=body.method,
+        reason=body.reason,
+    )
+    return {"ok": True, **kq}
+
+
+class XacNhanHoanRequest(BaseModel):
+    refund_id: UUID
+    reference: str = Field(min_length=3, max_length=100)
+
+
+@router.post("/payments/hoan-tien/xac-nhan")
+async def xac_nhan_hoan(
+    body: XacNhanHoanRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khoản hoàn chuyển khoản / QR đã chuyển xong (kèm mã giao dịch)."""
+    kq = await HoanTienService(pool).xac_nhan(
+        identity=identity, refund_id=str(body.refund_id), reference=body.reference
+    )
+    return {"ok": True, **kq}
+
+
+class DongKhoanHoanRequest(BaseModel):
+    refund_id: UUID
+    trang_thai: Literal["FAILED", "CANCELLED"]
+    reason: str = Field(min_length=5, max_length=500)
+
+
+@router.post("/payments/hoan-tien/dong")
+async def dong_khoan_hoan(
+    body: DongKhoanHoanRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khoản hoàn đang chờ → FAILED (thử không thành) hoặc CANCELLED (huỷ yêu cầu)."""
+    kq = await HoanTienService(pool).dong(
+        identity=identity,
+        refund_id=str(body.refund_id),
+        trang_thai=body.trang_thai,
+        reason=body.reason,
     )
     return {"ok": True, **kq}

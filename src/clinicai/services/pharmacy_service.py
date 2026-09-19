@@ -44,7 +44,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.services.moc_kham_xong import kham_xong_sql
-from clinicai.services.phan_lo_service import khoa_lo, so
+from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
 logger = structlog.get_logger()
 
@@ -55,6 +55,8 @@ NHAP = "RECEIVE"
 CAP = "DISPENSE"
 DIEU_CHINH = "ADJUST"
 HUY = "DISCARD"
+# CP5: thuốc khách trả đã quay lại quầy — vật lý tăng, CHƯA bán lại được.
+TRA_NHAN = "RETURN_RECEIVED"
 
 
 def _so(value: Any, *, ten: str) -> Decimal:
@@ -410,9 +412,18 @@ class PharmacyService:
             cycle_id,
         )
         if not da_ban:
+            da_huy = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.inventory_txn"
+                " WHERE clinic_id = $1::uuid AND txn_type = 'SALE_REVERSAL'"
+                " AND allocation_id = $2::uuid)",
+                identity.clinic_id,
+                pl["id"],
+            )
             raise ConflictError(
-                "Lần thu này chưa ghi bán được cho lô này (đang cần đối soát) — "
-                "chưa giao được."
+                "Phần chưa giao của lô này đã huỷ — không giao thêm."
+                if da_huy
+                else "Lần thu này chưa ghi bán được cho lô này (đang cần đối soát) "
+                "— chưa giao được."
             )
         await self._ghi_so(
             conn,
@@ -789,12 +800,32 @@ class PharmacyService:
             if don["purchased_qty"] is not None
             else (don["quantity_num"])
         )
+        # CP5: phần đã "huỷ phần chưa giao" (SALE_REVERSAL) không còn là bán.
+        da_dao = Decimal(
+            str(
+                await conn.fetchval(
+                    """
+                    SELECT coalesce(sum(t.quantity), 0)
+                      FROM public.inventory_txn t
+                      JOIN public.prescription_allocation a
+                        ON a.id = t.allocation_id AND a.clinic_id = t.clinic_id
+                     WHERE t.clinic_id = $1::uuid AND t.txn_type = 'SALE_REVERSAL'
+                       AND t.payment_cycle_id = $2::uuid
+                       AND a.prescription_id = $3::uuid
+                    """,
+                    identity.clinic_id,
+                    lan["payment_cycle_id"],
+                    don["id"],
+                )
+            )
+        )
+        ban_rong = Decimal(str(ban)) - da_dao if ban is not None else None
         da_giao = Decimal(str(don["dispensed_qty"] or 0))
-        if ban is None or da_giao < Decimal(str(ban)):
+        if ban_rong is None or da_giao < ban_rong:
             raise ConflictError(
-                f"Đã bán {so(Decimal(str(ban or 0)))}, mới giao {so(da_giao)} — "
-                "chưa chốt được: phần đã bán chưa giao cần hoàn tiền / trả thuốc "
-                "(chưa có trong bản này), không đóng dòng để bỏ lại."
+                f"Đã bán {so(ban_rong or Decimal(0))}, mới giao {so(da_giao)} — "
+                "chưa chốt được: phần đã bán chưa giao phải hoàn tiền rồi "
+                "“Huỷ phần chưa giao” trước, không đóng dòng để bỏ lại."
             )
 
     @staticmethod
@@ -960,6 +991,208 @@ class PharmacyService:
             ly_do=ly,
             event_type="pharmacy.discarded",
         )
+
+    # ── Huỷ phần chưa giao / khách trả thuốc (contract tiền–thuốc CP5) ────
+
+    async def huy_phan_chua_giao(
+        self, *, identity: StaffIdentity, prescription_id: str, ly_do: str
+    ) -> dict[str, Any]:
+        """Nhả PHẦN ĐÃ BÁN MÀ CHƯA GIAO của dòng đơn — lệnh KHO, không phải tiền.
+
+        Đảo đúng `bán − đã xuất` của từng phân lô còn bán (không nhận số tuỳ ý),
+        mỗi dòng bán một lần. Phải có căn cứ tài chính — lần thu đã huỷ phiếu,
+        hoặc đã hoàn tiền xong cho đủ phần ấy; DB kiểm lại (trigger
+        `inventory_txn_ban_hop_le`). Sau đó phân lô không giao thêm được.
+        """
+        ly = (ly_do or "").strip()
+        if not ly:
+            raise ValidationError("Huỷ phần chưa giao thì ghi lý do.")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await self._khoa_theo_luot(conn, identity, prescription_id)
+                ban = await conn.fetch(
+                    """
+                    SELECT s.id::text AS sale_id, s.payment_cycle_id::text,
+                           a.id::text AS allocation_id, a.drug_batch_id::text,
+                           -s.quantity AS da_ban,
+                           coalesce((SELECT -sum(d.quantity) FROM public.inventory_txn d
+                                      WHERE d.txn_type = 'DISPENSE'
+                                        AND d.allocation_id = a.id
+                                        AND d.clinic_id = a.clinic_id), 0) AS da_xuat
+                      FROM public.prescription_allocation a
+                      JOIN public.inventory_txn s
+                        ON s.allocation_id = a.id AND s.clinic_id = a.clinic_id
+                       AND s.txn_type = 'SALE'
+                     WHERE a.clinic_id = $1::uuid AND a.prescription_id = $2::uuid
+                       AND NOT EXISTS (SELECT 1 FROM public.inventory_txn r
+                                        WHERE r.txn_type = 'SALE_REVERSAL'
+                                          AND r.reverses_txn_id = s.id)
+                     ORDER BY a.id
+                       FOR UPDATE OF a
+                    """,
+                    identity.clinic_id,
+                    prescription_id,
+                )
+                dao = [
+                    b
+                    for b in ban
+                    if Decimal(str(b["da_ban"])) > Decimal(str(b["da_xuat"]))
+                ]
+                if not dao:
+                    raise ConflictError("Dòng này không còn phần đã bán mà chưa giao.")
+                await khoa_lo(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    lo_ids=[b["drug_batch_id"] for b in dao],
+                )
+                tong = Decimal(0)
+                try:
+                    for b in dao:
+                        con = Decimal(str(b["da_ban"])) - Decimal(str(b["da_xuat"]))
+                        tong += con
+                        await conn.execute(
+                            """
+                            INSERT INTO public.inventory_txn
+                                (clinic_id, drug_batch_id, txn_type, quantity, reason,
+                                 ref_type, ref_id, performed_by_staff_id, performed_at,
+                                 payment_cycle_id, allocation_id, reverses_txn_id)
+                            VALUES ($1::uuid, $2::uuid, 'SALE_REVERSAL', $3, $4,
+                                    'payment_cycle', $5::uuid, $6::uuid, now(),
+                                    $5::uuid, $7::uuid, $8::uuid)
+                            """,
+                            identity.clinic_id,
+                            b["drug_batch_id"],
+                            con,
+                            f"Huỷ phần chưa giao: {ly}",
+                            b["payment_cycle_id"],
+                            identity.staff_id,
+                            b["allocation_id"],
+                            b["sale_id"],
+                        )
+                except asyncpg.CheckViolationError as exc:
+                    if "căn cứ" in str(exc):
+                        raise ConflictError(
+                            "Chưa có căn cứ để huỷ phần chưa giao: cần huỷ phiếu thu, "
+                            "hoặc Quản lý hoàn tiền xong cho đủ phần chưa giao trước."
+                        ) from exc
+                    raise
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.undelivered_cancelled",
+                    aggregate_type="prescription",
+                    aggregate_id=prescription_id,
+                    payload={
+                        "quantity": str(tong),
+                        "allocations": [b["allocation_id"] for b in dao],
+                        "reason": ly,
+                    },
+                )
+        return {"ok": True, "da_huy": so(tong)}
+
+    async def khach_tra_thuoc(
+        self,
+        *,
+        identity: StaffIdentity,
+        dispense_txn_id: str,
+        so_luong: Any,
+        ly_do: str,
+    ) -> dict[str, Any]:
+        """Ghi nhận thuốc KHÁCH ĐÃ NHẬN rồi mang trả lại quầy.
+
+        Nghĩa của lệnh chỉ là "thuốc vật lý đã quay lại" — KHÔNG phải quyết định
+        bán lại / huỷ / cách ly (HOLD J1/J2), và KHÔNG tự hoàn tiền. Trỏ đúng
+        DISPENSE gốc; lô trả = lô đã xuất; tổng trả không vượt số đã xuất (DB
+        kiểm). Tồn vật lý tăng (`RETURN_RECEIVED`), nhưng phần trả chưa có
+        quyết định xử lý không vào lượng có thể bán.
+        """
+        luong = _so(so_luong, ten="Số lượng trả")
+        ly = (ly_do or "").strip()
+        if len(ly) < 3:
+            raise ValidationError("Ghi lý do khách trả thuốc (tối thiểu 3 ký tự).")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                xuat = await conn.fetchrow(
+                    """
+                    SELECT id::text, ref_id::text AS prescription_id,
+                           drug_batch_id::text, allocation_id::text,
+                           -quantity AS da_xuat
+                      FROM public.inventory_txn
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                       AND txn_type = 'DISPENSE' AND ref_type = 'prescription'
+                    """,
+                    dispense_txn_id,
+                    identity.clinic_id,
+                )
+                if xuat is None:
+                    raise NotFoundError("Không tìm thấy lần giao thuốc gốc này.")
+                don = await self._khoa_theo_luot(
+                    conn, identity, xuat["prescription_id"]
+                )
+                await khoa_lo(
+                    conn, clinic_id=identity.clinic_id, lo_ids=[xuat["drug_batch_id"]]
+                )
+                da_tra = Decimal(
+                    str(
+                        await conn.fetchval(
+                            "SELECT coalesce(sum(returned_qty), 0)"
+                            " FROM public.drug_return WHERE clinic_id = $1::uuid"
+                            " AND original_dispense_txn_id = $2::uuid",
+                            identity.clinic_id,
+                            dispense_txn_id,
+                        )
+                    )
+                )
+                con = Decimal(str(xuat["da_xuat"])) - da_tra
+                if luong > con:
+                    raise ValidationError(
+                        f"Lần giao này xuất {so(Decimal(str(xuat['da_xuat'])))}, "
+                        f"đã trả {so(da_tra)} — chỉ còn trả được {so(con)}."
+                    )
+                tra_id = await conn.fetchval(
+                    """
+                    INSERT INTO public.drug_return
+                        (clinic_id, visit_id, prescription_id,
+                         original_dispense_txn_id, allocation_id, drug_batch_id,
+                         returned_qty, reason, returned_by)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
+                            $7, $8, $9::uuid)
+                    RETURNING id::text
+                    """,
+                    identity.clinic_id,
+                    don["visit_id"],
+                    xuat["prescription_id"],
+                    dispense_txn_id,
+                    xuat["allocation_id"],
+                    xuat["drug_batch_id"],
+                    luong,
+                    ly,
+                    identity.staff_id,
+                )
+                await self._ghi_so(
+                    conn,
+                    identity=identity,
+                    drug_batch_id=xuat["drug_batch_id"],
+                    txn_type=TRA_NHAN,
+                    quantity=luong,
+                    reason=ly,
+                    ref_type="drug_return",
+                    ref_id=tra_id,
+                )
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.drug_returned",
+                    aggregate_type="prescription",
+                    aggregate_id=xuat["prescription_id"],
+                    payload={
+                        "drug_return_id": tra_id,
+                        "original_dispense_txn_id": dispense_txn_id,
+                        "drug_batch_id": xuat["drug_batch_id"],
+                        "quantity": str(luong),
+                    },
+                )
+        return {"ok": True, "drug_return_id": tra_id}
 
     # ── Phân lô (contract tiền–thuốc CP3) ─────────────────────────────────
 
@@ -1298,6 +1531,18 @@ class PharmacyService:
                 don = await self._khoa_theo_luot(conn, identity, prescription_id)
                 if don["closed_at"] is None:
                     await self._bat_buoc_kham_xong(conn, identity, don["visit_id"])
+                    # CP5: còn phần ĐÃ BÁN mà chưa giao (ở bất kỳ lần thu nào,
+                    # kể cả lần đã huỷ phiếu) thì không đóng dòng — chốt hay
+                    # "khách không lấy" đều bỏ lại số thuốc ấy không ai xử lý.
+                    chua_giao = await chua_giao_cua_dong(
+                        conn, identity.clinic_id, prescription_id
+                    )
+                    if chua_giao > 0:
+                        raise ConflictError(
+                            f"Còn {so(chua_giao)} đã bán mà chưa giao — “Huỷ phần "
+                            "chưa giao” (sau khi hoàn tiền hoặc huỷ phiếu) trước "
+                            "khi đóng dòng."
+                        )
                     if refusal_reason is None:
                         await self._chot_duoc_khong(conn, identity, don)
                 if (

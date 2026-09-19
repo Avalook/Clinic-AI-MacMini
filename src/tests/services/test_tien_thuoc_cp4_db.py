@@ -259,7 +259,7 @@ async def test_da_thu_giao_mot_phan_thi_khong_chot_duoc(q: Quay) -> None:
     rx, _, lo = await _san_sang(q, 10, 100)
     await _thu(q)
     await _giao(q, rx, lo, 3)
-    with pytest.raises(ConflictError, match="Đã bán 10, mới giao 3"):
+    with pytest.raises(ConflictError, match="Còn 7 đã bán mà chưa giao"):
         await PharmacyService(q.pool).chot(identity=q.duoc_si, prescription_id=rx)
     d = (await _luot(q))["dong"][0]
     assert not d["closed"] and not d["thao_tac"]["chot"]

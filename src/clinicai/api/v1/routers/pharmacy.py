@@ -358,3 +358,49 @@ async def doi_lo_khi_cho(
         )
     )
     return kq
+
+
+class HuyChuaGiaoRequest(BaseModel):
+    prescription_id: UUID
+    ly_do: str
+
+
+@router.post("/pharmacy/huy-phan-chua-giao")
+async def huy_phan_chua_giao(
+    body: HuyChuaGiaoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Nhả phần đã bán mà chưa giao (CP5) — cần căn cứ: huỷ phiếu / đã hoàn tiền."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).huy_phan_chua_giao(
+            identity=identity,
+            prescription_id=str(body.prescription_id),
+            ly_do=body.ly_do,
+        )
+    )
+    return kq
+
+
+class KhachTraRequest(BaseModel):
+    dispense_txn_id: UUID
+    so_luong: float = Field(gt=0)
+    ly_do: str
+
+
+@router.post("/pharmacy/khach-tra")
+async def khach_tra_thuoc(
+    body: KhachTraRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi nhận thuốc khách trả lại quầy (CP5) — chưa quyết xử lý (HOLD J1/J2)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).khach_tra_thuoc(
+            identity=identity,
+            dispense_txn_id=str(body.dispense_txn_id),
+            so_luong=body.so_luong,
+            ly_do=body.ly_do,
+        )
+    )
+    return kq

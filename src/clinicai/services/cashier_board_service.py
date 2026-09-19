@@ -41,6 +41,7 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 
 logger = structlog.get_logger()
@@ -206,9 +207,16 @@ class CashierBoardService:
             a,
             b,
         )
+        # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
+        # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
+        async with self._pool.acquire() as conn:
+            hoan = await hoan_cua_cac_lan_thu(
+                conn, identity, [r["id"] for r in rows if r["paid_at"] is not None]
+            )
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
+            "co_quyen_hoan": co_quyen_hoan(identity),
             "giao_dich": [
                 {
                     "id": r["id"],
@@ -229,6 +237,7 @@ class CashierBoardService:
                     "nguoi_huy": r["nguoi_huy"],
                     "ly_do_huy": r["close_reason"],
                     "sau_khi_dong_luot": r["sau_khi_dong_luot"],
+                    "hoan": hoan.get(r["id"]),
                 }
                 for r in rows
             ],
