@@ -483,6 +483,7 @@ async def test_paid_amount_change_requires_void_first() -> None:
             "amount": 100_000,
             "payment_cycle_id": "aa000000-0000-4000-8000-000000000001",
             "clinic_patient_id": PATIENT_ID,
+            "bill_revision": None,
         },
     ]
 
@@ -521,6 +522,7 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
             "amount": 100_000,
             "payment_cycle_id": "aa000000-0000-4000-8000-000000000001",
             "clinic_patient_id": OTHER_PATIENT_ID,
+            "bill_revision": None,
         },
     ]
 

@@ -175,31 +175,10 @@ class PaymentService:
                         "Bác sĩ chưa khám xong lượt này — chưa thể thu tiền"
                     )
 
-                hoa_don = await tinh_hoa_don(
-                    conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
-                )
-                if hoa_don.van_de:
-                    raise ValidationError(
-                        "Chưa thu được — " + "; ".join(hoa_don.van_de)
-                    )
-                if hoa_don.tong <= 0:
-                    raise ValidationError("Lượt này không có khoản nào để thu.")
-                if bill_revision is not None and bill_revision != hoa_don.revision:
-                    raise BillChangedError(
-                        "Hoá đơn vừa thay đổi (chỉ định, số lượng hoặc giá) — "
-                        "tải lại rồi thu theo hoá đơn mới."
-                    )
-                if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
-                    raise BillChangedError(
-                        f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
-                        f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
-                    )
-                normalized = hoa_don.tong
-
                 existing_payment = await conn.fetchrow(
                     """
                     SELECT id, status, amount, payment_cycle_id,
-                           clinic_patient_id
+                           clinic_patient_id, bill_revision
                       FROM payment
                      WHERE visit_id = $1::uuid
                        AND kind = $2
@@ -222,15 +201,55 @@ class PaymentService:
                             "Khoản đã thu đang gắn sai bệnh nhân — "
                             "hãy hoàn tác trước khi thu lại"
                         )
-                    if existing_payment["amount"] != normalized:
+                    # ĐÃ THU — xét TRƯỚC khi tính hoá đơn hiện tại (review CP1
+                    # #4). Lần gửi lại của CHÍNH hoá đơn đã thu (cùng revision,
+                    # cùng số nếu có gửi) là thành công, kể cả khi bảng giá đã đổi
+                    # sau đó. Hoá đơn KHÁC — dù cùng tổng tiền — không bao giờ
+                    # được coi là đã trả.
+                    da_luu = existing_payment["bill_revision"]
+                    if bill_revision is not None:
+                        cung_hoa_don = bill_revision == da_luu
+                    else:
+                        # Client cũ không gửi revision: chỉ nhận lại phiếu trước
+                        # CP1 (chưa có revision) với đúng số tiền đã thu.
+                        cung_hoa_don = (
+                            da_luu is None
+                            and so_trinh_duyet is not None
+                            and so_trinh_duyet == existing_payment["amount"]
+                        )
+                    if not cung_hoa_don or (
+                        so_trinh_duyet is not None
+                        and so_trinh_duyet != existing_payment["amount"]
+                    ):
                         raise ConflictError(
-                            "Khoản này đã thu với số tiền khác — "
-                            "hãy hoàn tác trước khi thu lại"
+                            "Khoản này đã thu theo một hoá đơn khác — cần xử lý "
+                            "tài chính: hãy hoàn tác phiếu thu trước khi thu lại"
                         )
                     # An identical retry is already durable and its POS invoice
                     # is already queued. Rewriting paid_at/actor would create a
                     # false second collection while the outbox correctly dedups.
                     return
+
+                hoa_don = await tinh_hoa_don(
+                    conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
+                )
+                if hoa_don.van_de:
+                    raise ValidationError(
+                        "Chưa thu được — " + "; ".join(hoa_don.van_de)
+                    )
+                if hoa_don.tong <= 0:
+                    raise ValidationError("Lượt này không có khoản nào để thu.")
+                if bill_revision is not None and bill_revision != hoa_don.revision:
+                    raise BillChangedError(
+                        "Hoá đơn vừa thay đổi (chỉ định, số lượng hoặc giá) — "
+                        "tải lại rồi thu theo hoá đơn mới."
+                    )
+                if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
+                    raise BillChangedError(
+                        f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
+                        f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
+                    )
+                normalized = hoa_don.tong
 
                 payment = await conn.fetchrow(
                     """
@@ -458,8 +477,9 @@ async def _ghi_anh_hoa_don(
                 d.ten,
                 d.so_luong,
                 d.don_vi,
-                d.don_gia if d.don_gia is not None else 0,
-                d.thanh_tien if d.thanh_tien is not None else 0,
+                # Chưa biết giá là NULL, không phải 0đ (review CP1 #5).
+                d.don_gia,
+                d.thanh_tien,
                 d.ben_thu,
                 d.drug_catalog_id,
             )

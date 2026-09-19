@@ -53,6 +53,9 @@ class DongHoaDon:
     thanh_tien: Decimal | None
     ben_thu: str
     drug_catalog_id: str | None = None
+    # Mã ĐỊNH DANH của thứ được bán: service_code (chỉ định), mã loại khám
+    # (tiền khám). Thuốc dùng drug_catalog_id. Vào revision (review CP1 #2).
+    ma: str | None = None
     # Vì sao dòng này chưa thu được (thiếu giá, mâu thuẫn giá, chưa xác định
     # thuốc kho, thiếu số lượng). Rỗng = thu được.
     van_de: str | None = None
@@ -83,8 +86,20 @@ class HoaDon:
 
     @property
     def revision(self) -> str:
+        # Gắn cả ĐỊNH DANH thứ được bán (mã dịch vụ / loại khám / thuốc kho) và
+        # đơn vị (review CP1 #2): đổi A → B cùng giá, cùng số lượng vẫn là một
+        # hoá đơn KHÁC.
         noi_dung = [
-            [d.source_type, d.source_id, str(d.so_luong), str(d.don_gia), d.ben_thu]
+            [
+                d.source_type,
+                d.source_id,
+                d.ma,
+                d.drug_catalog_id,
+                str(d.so_luong),
+                d.don_vi,
+                str(d.don_gia),
+                d.ben_thu,
+            ]
             for d in sorted(self.dong, key=lambda x: (x.source_type, x.source_id))
         ]
         return hashlib.sha256(json.dumps([self.kind, noi_dung]).encode()).hexdigest()[
@@ -127,6 +142,7 @@ def _dong_gia(
     gia: list[Decimal],
     ben_thu: str,
     drug_catalog_id: str | None = None,
+    ma: str | None = None,
     van_de: str | None = None,
 ) -> DongHoaDon:
     """Một dòng, với luật giá "không mâu thuẫn" (xem đầu file)."""
@@ -153,6 +169,7 @@ def _dong_gia(
         thanh_tien=_tien(don_gia, so_luong) if don_gia is not None else None,
         ben_thu=ben_thu,
         drug_catalog_id=drug_catalog_id,
+        ma=ma,
         van_de=van_de,
     )
 
@@ -174,6 +191,7 @@ def ghep_dich_vu(
                 don_vi=None,
                 gia=[Decimal(str(g)) for g in kham.get("gia") or []],
                 ben_thu=kham.get("ben_thu") or CLINIC,
+                ma=kham.get("ma"),
             )
         )
     for o in chi_dinh:
@@ -186,6 +204,7 @@ def ghep_dich_vu(
                 don_vi=None,
                 gia=[Decimal(str(g)) for g in o.get("gia") or []],
                 ben_thu=o.get("ben_thu") or CLINIC,
+                ma=o.get("service_code"),
             )
         )
     return hd
@@ -244,7 +263,7 @@ async def tinh_hoa_don(
         )
         kham_row = await conn.fetchrow(
             """
-            SELECT st.name
+            SELECT st.id::text AS st_id, st.name
               FROM public.visit vi
               JOIN public.appointment a
                 ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
@@ -260,6 +279,7 @@ async def tinh_hoa_don(
                 r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
             ]
             kham = {
+                "ma": kham_row["st_id"],
                 "ten": kham_row["name"],
                 "gia": [r["unit_price"] for r in khop],
                 "ben_thu": khop[0]["billing_owner"] if khop else CLINIC,

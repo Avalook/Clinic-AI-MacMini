@@ -489,7 +489,14 @@ class PharmacyService:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
                 ke = don["quantity_num"]
-                if ke is not None and mua > Decimal(str(ke)):
+                if ke is None:
+                    # Không biết số kê thì không có căn cứ cho một số mua bất kỳ
+                    # (review CP1 #1; DB cũng chặn: prescription_purchased_qty_check).
+                    raise ValidationError(
+                        "Chưa xác định số lượng bác sĩ kê cho dòng này — "
+                        "cần bác sĩ ghi rõ số lượng trước khi khai số mua."
+                    )
+                if mua > Decimal(str(ke)):
                     raise ValidationError(f"Bác sĩ kê {ke} — không bán quá số kê.")
                 da_giao = Decimal(str(don["dispensed_qty"] or 0))
                 if mua < da_giao:
@@ -524,10 +531,32 @@ class PharmacyService:
         return {"ok": True, "purchased_qty": mua}
 
     @staticmethod
-    async def _khoa_dong_chua_thu(
+    async def _khoa_theo_luot(
         conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
     ) -> asyncpg.Record:
-        """Khoá dòng đơn; từ chối nếu dòng đã chốt hoặc tiền thuốc đã thu."""
+        """Khoá LƯỢT KHÁM rồi mới khoá dòng đơn — cùng thứ tự với lần thu.
+
+        Review CP1 #3 (TOCTOU): lần thu khoá `visit` rồi tính hoá đơn; nếu lệnh
+        đổi dòng thuốc chỉ khoá `prescription` thì hai giao dịch không chặn nhau
+        và có thể commit hai sự thật (đơn = thuốc B, ảnh chụp hoá đơn = thuốc A).
+        Thứ tự khoá DUY NHẤT cho mọi thao tác chạm hoá đơn thuốc:
+            visit → prescription → payment
+        Không bao giờ khoá ngược (prescription trước visit) — sẽ tắc lẫn nhau.
+        """
+        vid = await conn.fetchval(
+            "SELECT visit_id FROM public.prescription"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            prescription_id,
+            identity.clinic_id,
+        )
+        if vid is None:
+            raise NotFoundError("Không tìm thấy dòng thuốc này trong đơn.")
+        await conn.execute(
+            "SELECT 1 FROM public.visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid FOR UPDATE",
+            identity.clinic_id,
+            vid,
+        )
         don = await conn.fetchrow(
             """
             SELECT id, visit_id, quantity_num, purchased_qty, dispensed_qty,
@@ -539,19 +568,35 @@ class PharmacyService:
             prescription_id,
             identity.clinic_id,
         )
-        if don is None:
-            raise NotFoundError("Không tìm thấy dòng thuốc này trong đơn.")
+        if don is None or don["visit_id"] != vid:
+            raise ConflictError("Dòng thuốc vừa thay đổi — tải lại rồi thử lại.")
+        return don
+
+    @staticmethod
+    async def _da_thu_tien_thuoc(
+        conn: asyncpg.Connection, identity: StaffIdentity, visit_id: Any
+    ) -> bool:
+        return bool(
+            await conn.fetchval(
+                """
+                SELECT EXISTS (SELECT 1 FROM public.payment
+                                WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                                  AND kind = 'thuoc' AND status = 'PAID')
+                """,
+                identity.clinic_id,
+                visit_id,
+            )
+        )
+
+    @classmethod
+    async def _khoa_dong_chua_thu(
+        cls, conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
+    ) -> asyncpg.Record:
+        """Khoá (lượt → dòng); từ chối nếu dòng đã chốt hoặc tiền thuốc đã thu."""
+        don = await cls._khoa_theo_luot(conn, identity, prescription_id)
         if don["closed_at"] is not None:
             raise ConflictError("Dòng thuốc này đã chốt — không sửa được nữa.")
-        if await conn.fetchval(
-            """
-            SELECT EXISTS (SELECT 1 FROM public.payment
-                            WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                              AND kind = 'thuoc' AND status = 'PAID')
-            """,
-            identity.clinic_id,
-            don["visit_id"],
-        ):
+        if await cls._da_thu_tien_thuoc(conn, identity, don["visit_id"]):
             raise ConflictError(
                 "Tiền thuốc của lượt này đã thu theo hoá đơn cũ — huỷ phiếu thu "
                 "trước rồi mới sửa dòng thuốc."
@@ -648,6 +693,19 @@ class PharmacyService:
     ) -> dict[str, Any]:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Từ chối làm đổi hoá đơn thuốc → cùng thứ tự khoá với lần thu
+                # (review CP1 #3), và không từ chối dòng đã thu tiền: phải huỷ
+                # phiếu / hoàn tiền trước (contract D).
+                don = await self._khoa_theo_luot(conn, identity, prescription_id)
+                if (
+                    refusal_reason is not None
+                    and don["closed_at"] is None
+                    and await self._da_thu_tien_thuoc(conn, identity, don["visit_id"])
+                ):
+                    raise ConflictError(
+                        "Tiền thuốc của lượt này đã thu — khách đổi ý thì huỷ "
+                        "phiếu thu / hoàn tiền trước, rồi mới ghi không lấy thuốc."
+                    )
                 row = await conn.fetchrow(
                     """
                     UPDATE public.prescription

@@ -22,10 +22,13 @@ ALTER TABLE public.prescription
     ADD COLUMN IF NOT EXISTS purchased_qty numeric;
 
 ALTER TABLE public.prescription DROP CONSTRAINT IF EXISTS prescription_purchased_qty_check;
+-- Số mua CHỈ tồn tại khi đã biết số bác sĩ kê: chưa biết số kê thì không có
+-- căn cứ nào cho phép bán một con số bất kỳ (review CP1 #1).
 ALTER TABLE public.prescription ADD CONSTRAINT prescription_purchased_qty_check
     CHECK (purchased_qty IS NULL
-           OR (purchased_qty >= 0
-               AND (quantity_num IS NULL OR purchased_qty <= quantity_num)));
+           OR (quantity_num IS NOT NULL
+               AND purchased_qty >= 0
+               AND purchased_qty <= quantity_num));
 
 ALTER TABLE public.prescription DROP CONSTRAINT IF EXISTS prescription_map_co_dau_vet;
 ALTER TABLE public.prescription ADD CONSTRAINT prescription_map_co_dau_vet
@@ -68,11 +71,18 @@ CREATE TABLE IF NOT EXISTS public.payment_bill_line (
     name_snapshot    text NOT NULL,
     quantity         numeric NOT NULL CHECK (quantity > 0),
     unit             text,
-    unit_price       numeric(12, 0) NOT NULL CHECK (unit_price >= 0),
-    line_total       numeric(14, 0) NOT NULL CHECK (line_total >= 0),
+    -- NULL = CHƯA BIẾT giá, không phải 0đ (review CP1 #5). Chỉ dòng đối tác tự
+    -- thu được phép chưa biết giá; dòng phòng khám thu thì lúc thu phải có giá.
+    unit_price       numeric(12, 0) CHECK (unit_price >= 0),
+    line_total       numeric(14, 0) CHECK (line_total >= 0),
     billing_owner    text NOT NULL CHECK (billing_owner IN ('CLINIC', 'EXTERNAL_PARTNER')),
     drug_catalog_id  uuid,
-    created_at       timestamptz NOT NULL DEFAULT now()
+    created_at       timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT payment_bill_line_clinic_co_gia CHECK (
+        billing_owner = 'EXTERNAL_PARTNER'
+        OR (unit_price IS NOT NULL AND line_total IS NOT NULL)),
+    CONSTRAINT payment_bill_line_gia_di_cung CHECK (
+        (unit_price IS NULL) = (line_total IS NULL))
 );
 CREATE INDEX IF NOT EXISTS idx_payment_bill_line_cycle
     ON public.payment_bill_line (clinic_id, payment_cycle_id);
@@ -95,3 +105,8 @@ DROP POLICY IF EXISTS payment_bill_line_select_own_clinic ON public.payment_bill
 CREATE POLICY payment_bill_line_select_own_clinic ON public.payment_bill_line
     FOR SELECT TO authenticated
     USING (clinic_id IN (SELECT current_clinic_ids()));
+-- Policy chỉ THU HẸP quyền có sẵn, không tạo quyền (review CP1 #6): bảng sinh
+-- sau phải grant tay. service_role chỉ THÊM + ĐỌC — bảng chỉ-thêm, không cấp
+-- UPDATE/DELETE cho ai.
+GRANT SELECT ON public.payment_bill_line TO authenticated;
+GRANT SELECT, INSERT ON public.payment_bill_line TO service_role;

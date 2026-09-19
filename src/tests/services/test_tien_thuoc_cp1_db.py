@@ -371,8 +371,12 @@ async def test_thu_lai_giong_het_khong_ghi_lan_hai(q: Quay) -> None:
     await PharmacyService(q.pool).xac_dinh_thuoc(
         identity=q.duoc_si, prescription_id=rx, drug_catalog_id=await _thuoc(q)
     )
-    await _thu(q, "thuoc")
-    await _thu(q, "thuoc")
+    rev = (await _hd(q, "thuoc")).revision
+    await _thu(q, "thuoc", bill_revision=rev)
+    await _thu(q, "thuoc", bill_revision=rev)
+    # Gửi lại KHÔNG kèm dấu hoá đơn thì không chứng minh được là cùng hoá đơn.
+    with pytest.raises(ConflictError, match="hoá đơn khác"):
+        await _thu(q, "thuoc")
     assert (
         await q.pool.fetchval(
             "SELECT count(*) FROM payment_bill_line WHERE visit_id = $1::uuid",
@@ -380,3 +384,289 @@ async def test_thu_lai_giong_het_khong_ghi_lan_hai(q: Quay) -> None:
         )
         == 1
     )
+
+
+# ── Review CP1 #1: chưa biết số kê thì không có số mua ────────────────────
+
+
+async def test_chua_biet_so_ke_thi_khong_khai_so_mua(q: Quay) -> None:
+    rx = await _don(q, 10)
+    await q.pool.execute(
+        "UPDATE prescription SET quantity_num = NULL WHERE id = $1::uuid", rx
+    )
+    with pytest.raises(ValidationError, match="Chưa xác định số lượng bác sĩ kê"):
+        await PharmacyService(q.pool).khai_so_luong_mua(
+            identity=q.duoc_si, prescription_id=rx, so_luong=100
+        )
+    # DB cũng chặn — không ai lách được bằng một đường ghi khác.
+    with pytest.raises(asyncpg.CheckViolationError):
+        await q.pool.execute(
+            "UPDATE prescription SET purchased_qty = 100 WHERE id = $1::uuid", rx
+        )
+
+
+# ── Review CP1 #2: revision gắn định danh thuốc kho ────────────────────────
+
+
+async def test_doi_thuoc_a_sang_b_cung_gia_thi_revision_doi(q: Quay) -> None:
+    rx = await _don(q, 10)
+    a = await _thuoc(q, gia=5_000, ten=f"Thuốc A {q.duoi}")
+    b = await _thuoc(q, gia=5_000, ten=f"Thuốc B {q.duoi}")
+    ph = PharmacyService(q.pool)
+    await ph.xac_dinh_thuoc(identity=q.duoc_si, prescription_id=rx, drug_catalog_id=a)
+    rev_a = (await _hd(q, "thuoc")).revision
+    await ph.xac_dinh_thuoc(identity=q.duoc_si, prescription_id=rx, drug_catalog_id=b)
+    hd_b = await _hd(q, "thuoc")
+    assert hd_b.tong == 50_000 and hd_b.revision != rev_a
+    with pytest.raises(BillChangedError):
+        await _thu(q, "thuoc", bill_revision=rev_a)
+
+
+# ── Review CP1 #4: đã thu — thu lại vs hoá đơn khác cùng tổng ──────────────
+
+
+async def _thu_kham(q: Quay) -> str:
+    rev: str = (await _hd(q, "dich_vu")).revision
+    await _thu(q, "dich_vu", bill_revision=rev)
+    return rev
+
+
+async def test_da_thu_a_gia_doi_roi_gui_lai_a_van_thanh_cong(q: Quay) -> None:
+    rev_a = await _thu_kham(q)
+    p0 = await _phieu(q, "dich_vu")
+    await q.pool.execute(
+        "UPDATE service_price SET unit_price = 180000 WHERE service_code = $1",
+        f"KHAM-{q.duoi}",
+    )
+    assert (await _hd(q, "dich_vu")).revision != rev_a  # hoá đơn hiện tại đã khác
+    await _thu(q, "dich_vu", bill_revision=rev_a, amount=150_000)  # mạng rớt, gửi lại
+    p1 = await _phieu(q, "dich_vu")
+    assert p0 is not None and p1 is not None
+    assert (p1["payment_cycle_id"], p1["amount"]) == (p0["payment_cycle_id"], 150_000)
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment_bill_line WHERE visit_id = $1::uuid",
+            q.visit_id,
+        )
+        == 1
+    )
+
+
+async def test_da_thu_a_hoa_don_b_cung_tong_khong_duoc_coi_la_da_tra(q: Quay) -> None:
+    async with q.pool.acquire() as conn:
+        await _gia_dv(conn, f"X-{q.duoi}", f"Dịch vụ X {q.duoi}", 100_000)
+        await _gia_dv(conn, f"Y-{q.duoi}", f"Dịch vụ Y {q.duoi}", 100_000)
+    o = await _chi_dinh(q, f"X-{q.duoi}", f"Dịch vụ X {q.duoi}")
+    await _thu_kham(q)
+    # Nội dung đổi (X → Y), tổng vẫn 250.000.
+    await q.pool.execute(
+        "UPDATE service_order SET service_code = $2, service_name = $3"
+        " WHERE id = $1::uuid",
+        o,
+        f"Y-{q.duoi}",
+        f"Dịch vụ Y {q.duoi}",
+    )
+    hd_b = await _hd(q, "dich_vu")
+    assert hd_b.tong == 250_000
+    with pytest.raises(ConflictError, match="hoá đơn khác"):
+        await _thu(q, "dich_vu", bill_revision=hd_b.revision, amount=250_000)
+
+
+# ── Review CP1 #3: đổi dòng thuốc và lần thu không commit hai sự thật ──────
+
+
+async def _giu_khoa_luot_roi_thu(q: Quay, lenh) -> None:  # type: ignore[no-untyped-def]
+    """Một giao dịch THU đang giữ khoá lượt (đúng như PaymentService) thì lệnh
+    đổi dòng thuốc phải CHỜ; thu xong commit thì lệnh ấy thấy 'đã thu' và dừng."""
+    import asyncio
+
+    async with q.pool.acquire() as conn:
+        tr = conn.transaction()
+        await tr.start()
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE visit_id = $1::uuid FOR UPDATE", q.visit_id
+        )
+        viec = asyncio.ensure_future(lenh())
+        await asyncio.sleep(0.4)
+        assert not viec.done(), "lệnh đổi dòng thuốc không chờ khoá lượt"
+        await conn.execute(
+            "INSERT INTO payment (clinic_id, visit_id, clinic_patient_id, kind,"
+            " status, amount, paid_by_staff_id, paid_at)"
+            " SELECT clinic_id, visit_id, clinic_patient_id, 'thuoc', 'PAID', 50000,"
+            " $2::uuid, now() FROM visit WHERE visit_id = $1::uuid",
+            q.visit_id,
+            q.thu_ngan.staff_id,
+        )
+        await tr.commit()
+    with pytest.raises(ConflictError, match="đã thu"):
+        await viec
+
+
+async def test_doi_thuoc_cho_lan_thu_dang_chay(q: Quay) -> None:
+    rx = await _don(q, 10)
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx, drug_catalog_id=await _thuoc(q)
+    )
+    b = await _thuoc(q, ten=f"Thuốc B {q.duoi}")
+    await _giu_khoa_luot_roi_thu(
+        q,
+        lambda: PharmacyService(q.pool).xac_dinh_thuoc(
+            identity=q.duoc_si, prescription_id=rx, drug_catalog_id=b
+        ),
+    )
+
+
+async def test_doi_so_mua_cho_lan_thu_dang_chay(q: Quay) -> None:
+    rx = await _don(q, 10)
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx, drug_catalog_id=await _thuoc(q)
+    )
+    await _giu_khoa_luot_roi_thu(
+        q,
+        lambda: PharmacyService(q.pool).khai_so_luong_mua(
+            identity=q.duoc_si, prescription_id=rx, so_luong=4
+        ),
+    )
+
+
+async def test_tu_choi_cho_lan_thu_dang_chay(q: Quay) -> None:
+    rx = await _don(q, 10)
+    await _giu_khoa_luot_roi_thu(
+        q,
+        lambda: PharmacyService(q.pool).tu_choi(
+            identity=q.duoc_si, prescription_id=rx, ly_do="Khách đổi ý"
+        ),
+    )
+
+
+async def test_thu_va_doi_thuoc_dong_thoi_khong_ra_hai_su_that(q: Quay) -> None:
+    """Bắn thật đồng thời nhiều lần: nếu lần thu thành công thì ảnh chụp và
+    dòng đơn PHẢI cùng một thuốc."""
+    import asyncio
+
+    for i in range(8):
+        rx = await _don(q, 2, ten=f"rx{i}")
+        a = await _thuoc(q, ten=f"A{i} {q.duoi}")
+        b = await _thuoc(q, ten=f"B{i} {q.duoi}")
+        ph = PharmacyService(q.pool)
+        await ph.xac_dinh_thuoc(
+            identity=q.duoc_si, prescription_id=rx, drug_catalog_id=a
+        )
+        await asyncio.gather(
+            _thu(q, "thuoc"),
+            ph.xac_dinh_thuoc(
+                identity=q.duoc_si, prescription_id=rx, drug_catalog_id=b
+            ),
+            return_exceptions=True,
+        )
+        p = await _phieu(q, "thuoc")
+        if p is not None:
+            chup = await q.pool.fetch(
+                "SELECT source_id, drug_catalog_id::text FROM payment_bill_line"
+                " WHERE payment_cycle_id = $1",
+                p["payment_cycle_id"],
+            )
+            hien = {
+                r["id"]: r["drug_catalog_id"]
+                for r in await q.pool.fetch(
+                    "SELECT id::text, drug_catalog_id::text FROM prescription"
+                    " WHERE visit_id = $1::uuid",
+                    q.visit_id,
+                )
+            }
+            for r in chup:
+                assert hien[r["source_id"]] == r["drug_catalog_id"]
+            return
+    pytest.fail("không lần thu nào thành công — kịch bản không đo được gì")
+
+
+# ── Review CP1 #5: chưa biết giá là NULL, không phải 0đ ────────────────────
+
+
+async def test_dich_vu_doi_tac_chua_biet_gia_chup_la_null(q: Quay) -> None:
+    async with q.pool.acquire() as conn:
+        await _gia_dv(
+            conn, f"DN-{q.duoi}", f"Đối tác chưa giá {q.duoi}", None, "EXTERNAL_PARTNER"
+        )
+    await _chi_dinh(q, f"DN-{q.duoi}", f"Đối tác chưa giá {q.duoi}")
+    await _thu_kham(q)
+    r = await q.pool.fetchrow(
+        "SELECT unit_price, line_total FROM payment_bill_line WHERE visit_id = $1::uuid"
+        " AND billing_owner = 'EXTERNAL_PARTNER'",
+        q.visit_id,
+    )
+    assert r is not None and r["unit_price"] is None and r["line_total"] is None
+    # Dòng phòng khám thu thì DB không nhận thiếu giá.
+    with pytest.raises(asyncpg.CheckViolationError):
+        await q.pool.execute(
+            "INSERT INTO payment_bill_line (clinic_id, payment_id, payment_cycle_id,"
+            " visit_id, kind, source_type, source_id, name_snapshot, quantity,"
+            " billing_owner) SELECT clinic_id, payment_id, payment_cycle_id,"
+            " visit_id, kind, 'exam', 'x', 'x', 1, 'CLINIC' FROM payment_bill_line"
+            " WHERE visit_id = $1::uuid LIMIT 1",
+            q.visit_id,
+        )
+
+
+# ── Review CP1 #6: quyền thật, không chỉ đếm policy ───────────────────────
+
+
+async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
+    await _thu_kham(q)
+    uid = str(uuid.uuid4())
+    await q.pool.execute("INSERT INTO auth.users (id) VALUES ($1::uuid)", uid)
+    await q.pool.execute(
+        "UPDATE staff SET auth_user_id = $2::uuid WHERE id = $1::uuid",
+        q.thu_ngan.staff_id,
+        uid,
+    )
+    async with q.pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL ROLE authenticated")
+            await conn.execute(
+                "SELECT set_config('request.jwt.claim.sub', $1, true)", uid
+            )
+            assert (
+                await conn.fetchval(
+                    "SELECT count(*) FROM payment_bill_line WHERE visit_id = $1::uuid",
+                    q.visit_id,
+                )
+                >= 1
+            )
+            # Người không thuộc phòng khám nào: RLS lọc sạch.
+            await conn.execute(
+                "SELECT set_config('request.jwt.claim.sub', $1, true)",
+                str(uuid.uuid4()),
+            )
+            assert (
+                await conn.fetchval(
+                    "SELECT count(*) FROM payment_bill_line WHERE visit_id = $1::uuid",
+                    q.visit_id,
+                )
+                == 0
+            )
+    async with q.pool.acquire() as conn:
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            async with conn.transaction():
+                await conn.execute("SET LOCAL ROLE authenticated")
+                await conn.execute(
+                    "INSERT INTO payment_bill_line (clinic_id, payment_id,"
+                    " payment_cycle_id, visit_id, kind, source_type, source_id,"
+                    " name_snapshot, quantity, unit_price, line_total,"
+                    " billing_owner) SELECT clinic_id, payment_id, payment_cycle_id,"
+                    " visit_id, kind, 'exam', 'x', 'x', 1, 0, 0, 'CLINIC'"
+                    " FROM payment_bill_line LIMIT 1"
+                )
+    async with q.pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL ROLE service_role")
+            await conn.execute(
+                "INSERT INTO payment_bill_line (clinic_id, payment_id,"
+                " payment_cycle_id, visit_id, kind, source_type, source_id,"
+                " name_snapshot, quantity, unit_price, line_total, billing_owner)"
+                " SELECT clinic_id, payment_id, payment_cycle_id, visit_id, kind,"
+                " 'exam', 'x', 'x', 1, 0, 0, 'CLINIC' FROM payment_bill_line"
+                " WHERE visit_id = $1::uuid LIMIT 1",
+                q.visit_id,
+            )
+            await conn.execute("SELECT 1 FROM payment_bill_line LIMIT 1")
