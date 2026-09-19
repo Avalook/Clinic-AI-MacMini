@@ -646,3 +646,73 @@ async def test_hai_luot_cheo_lo_thu_cung_luc_khong_tac(q: Quay) -> None:
         kq = await asyncio.gather(_thu(q), _thu(q2), return_exceptions=True)
         assert all(isinstance(k, dict) for k in kq), kq
     assert (await _kd(q, x), await _kd(q, y)) == (96, 96)
+
+
+# ── Review CP3 P1-A: đã PAID mà chưa ghi bán được thì vẫn giữ ─────────────
+
+
+async def test_paid_chua_ban_duoc_van_giu_phan_da_phan_lo(q: Quay) -> None:
+    rx, drug, lo = await _san_sang(q, 10, 100)
+    cho = await _thu(q, "TRANSFER")
+    # Kiểm kê: trên kệ chỉ còn 5 — không đủ 10 đã giữ.
+    await PharmacyService(q.pool).dieu_chinh(
+        identity=q.duoc_si, drug_batch_id=lo, so_luong=-95, ly_do="kiểm kê thiếu"
+    )
+    assert await _kd(q, lo) == -5
+    kq = await _xac_minh(q, cho["payment_cycle_id"])
+    assert (kq["status"], kq["can_doi_soat"]) == ("PAID", True)
+    assert await _so_dong(q, "SALE") == 0
+    # Tiền khách đã trả: phần giữ KHÔNG được nhả ra cho người khác.
+    assert await _kd(q, lo) == -5
+    q2 = await tao_quay(q.pool)
+    rx2 = await _don(q2, 5)
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q2.duoc_si, prescription_id=rx2, drug_catalog_id=drug
+    )
+    with pytest.raises(ValidationError, match="chỉ còn 0"):
+        await _chon(q2, rx2, lo, 5)
+
+
+# ── Review CP3 P1-B: DB chặn DISPENSE vượt phân lô / sau huỷ phiếu ────────
+
+
+async def _xuat_thang(q: Quay, lo: str, so: int) -> None:
+    """Ghi DISPENSE thẳng vào sổ, bỏ qua service — như một writer service_role."""
+    pl = await q.pool.fetchrow(
+        "SELECT id, payment_cycle_id FROM prescription_allocation"
+        " WHERE visit_id = $1::uuid AND drug_batch_id = $2::uuid"
+        " AND payment_cycle_id IS NOT NULL ORDER BY created_at LIMIT 1",
+        q.visit_id,
+        lo,
+    )
+    await q.pool.execute(
+        "INSERT INTO inventory_txn (clinic_id, drug_batch_id, txn_type, quantity,"
+        " ref_type, performed_by_staff_id, payment_cycle_id, allocation_id)"
+        " VALUES ($1::uuid, $2::uuid, 'DISPENSE', $3, 'prescription', $4::uuid,"
+        " $5, $6)",
+        CLINIC,
+        lo,
+        -so,
+        q.duoc_si.staff_id,
+        pl["payment_cycle_id"],
+        pl["id"],
+    )
+
+
+async def test_db_chan_xuat_vuot_so_da_phan_lo(q: Quay) -> None:
+    _, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _xuat_thang(q, lo, 6)
+    with pytest.raises(asyncpg.CheckViolationError, match="vượt số đã phân"):
+        await _xuat_thang(q, lo, 5)
+    assert await _ton(q, lo) == 94
+
+
+async def test_db_chan_xuat_sau_khi_huy_phieu(q: Quay) -> None:
+    rx, _, lo = await _san_sang(q, 10, 100)
+    lan = await _thu(q)
+    await _giao(q, rx, lo, 4)
+    await _huy_phieu(q, lan["payment_cycle_id"])
+    with pytest.raises(asyncpg.CheckViolationError, match="chưa PAID"):
+        await _xuat_thang(q, lo, 1)
+    assert await _ton(q, lo) == 96

@@ -217,14 +217,31 @@ BEGIN
                 USING ERRCODE = 'check_violation';
         END IF;
     ELSE
-        -- DISPENSE theo phân lô: chỉ giao phần đã bán, chưa đảo.
-        IF NOT EXISTS (SELECT 1 FROM public.inventory_txn s
-                        WHERE s.txn_type = 'SALE' AND s.allocation_id = NEW.allocation_id
-                          AND s.payment_cycle_id = NEW.payment_cycle_id)
-           OR EXISTS (SELECT 1 FROM public.inventory_txn r
-                       WHERE r.txn_type = 'SALE_REVERSAL'
-                         AND r.allocation_id = NEW.allocation_id) THEN
-            RAISE EXCEPTION 'DISPENSE theo phân lô chưa bán (hoặc đã đảo bán)'
+        -- DISPENSE theo phân lô (review CP3 P1-B): lưới cuối ở DB, không chỉ
+        -- trong Python — lần thu đang PAID, có SALE chưa đảo, và TỔNG đã xuất
+        -- của phân lô (tính từ chính sổ, không từ handed_over_qty) không vượt
+        -- số đã phân. Khoá dòng phân lô để hai lệnh ghi thẳng cùng lúc cũng
+        -- phải xếp hàng.
+        PERFORM 1 FROM public.prescription_allocation
+          WHERE id = NEW.allocation_id AND clinic_id = NEW.clinic_id FOR UPDATE;
+        IF trang_thai IS DISTINCT FROM 'PAID'
+           OR NOT EXISTS (SELECT 1 FROM public.inventory_txn s
+                           WHERE s.txn_type = 'SALE'
+                             AND s.allocation_id = NEW.allocation_id
+                             AND s.payment_cycle_id = NEW.payment_cycle_id
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM public.inventory_txn r
+                                  WHERE r.txn_type = 'SALE_REVERSAL'
+                                    AND r.reverses_txn_id = s.id)) THEN
+            RAISE EXCEPTION 'DISPENSE theo phân lô: lần thu chưa PAID hoặc chưa bán (đã đảo bán)'
+                USING ERRCODE = 'check_violation';
+        END IF;
+        IF coalesce((SELECT -sum(d.quantity) FROM public.inventory_txn d
+                      WHERE d.txn_type = 'DISPENSE'
+                        AND d.allocation_id = NEW.allocation_id
+                        AND d.clinic_id = NEW.clinic_id), 0)
+           - NEW.quantity > pl.quantity THEN
+            RAISE EXCEPTION 'DISPENSE theo phân lô: vượt số đã phân (%)', pl.quantity
                 USING ERRCODE = 'check_violation';
         END IF;
     END IF;
@@ -379,7 +396,8 @@ CREATE TRIGGER trg_prescription_giu_phan_lo
     FOR EACH ROW EXECUTE FUNCTION public.prescription_giu_phan_lo();
 
 -- ── Lượng khả dụng kỹ thuật của một lô ───────────────────────────────────
--- = vật lý − đang giữ cho lần chuyển khoản/QR chờ − đã bán chưa giao.
+-- = vật lý − đang giữ (lần chuyển khoản/QR chờ, hoặc lần đã PAID mà chưa ghi
+--   bán được) − đã bán chưa giao.
 -- Chỉ để CHẶN BÁN QUÁ; chưa phải con số/nhãn nghiệp vụ hiển thị (HOLD J6).
 CREATE OR REPLACE FUNCTION public.drug_batch_kha_dung(p_clinic uuid, p_batch uuid)
 RETURNS numeric LANGUAGE sql STABLE AS $$
@@ -392,7 +410,16 @@ RETURNS numeric LANGUAGE sql STABLE AS $$
                   AND c.clinic_id = a.clinic_id
                 WHERE a.clinic_id = p_clinic AND a.drug_batch_id = p_batch
                   AND a.released_at IS NULL
-                  AND c.status = 'PENDING_VERIFICATION'), 0)
+                  -- Giữ kỹ thuật: lần chờ xác minh, HOẶC lần đã PAID mà chưa
+                  -- ghi bán được (sale_not_applied — review CP3 P1-A): tiền
+                  -- khách đã trả, phần thuốc ấy không được hứa cho người khác
+                  -- tới khi đối soát xong. Có SALE rồi thì nhánh dưới lo.
+                  AND (c.status = 'PENDING_VERIFICATION'
+                       OR (c.status = 'PAID' AND NOT EXISTS (
+                               SELECT 1 FROM public.inventory_txn s
+                                WHERE s.txn_type = 'SALE'
+                                  AND s.allocation_id = a.id
+                                  AND s.payment_cycle_id = a.payment_cycle_id)))), 0)
          - coalesce((
                SELECT sum(greatest(ban.da_ban - a.handed_over_qty, 0))
                  FROM public.prescription_allocation a
