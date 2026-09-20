@@ -366,8 +366,13 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
         ("FROM public.v_clinical_status", _trang_thai("SIGNED")),
         ("SELECT visit_id FROM public.visit", VISIT),
         (
-            "SELECT v.status, EXISTS",
-            {"status": "FINALIZED", "active_release": False},
+            "SELECT v.status",
+            {
+                "status": "FINALIZED",
+                "attending_doctor_id": ME,
+                "active_release": False,
+                "latest_amendment_id": None,
+            },
         ),
     )
     assert (

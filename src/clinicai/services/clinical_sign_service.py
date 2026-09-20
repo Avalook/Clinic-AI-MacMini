@@ -271,10 +271,22 @@ class ClinicalSignService:
         return {"ok": True, "state": "SIGNED"}
 
     async def release(
-        self, *, identity: StaffIdentity, visit_id: str, note: str | None = None
+        self,
+        *,
+        identity: StaffIdentity,
+        visit_id: str,
+        note: str | None = None,
+        expected_amendment_id: str | None = None,
     ) -> dict[str, Any]:
-        """Bước hai: bác sĩ cho phép CSKH gửi kết quả cho bệnh nhân."""
-        _assert_doctor(identity)
+        """Bước hai: bác sĩ cho phép CSKH gửi kết quả cho bệnh nhân.
+
+        CHỈ BÁC SĨ CHÍNH CỦA LƯỢT. Bác sĩ siêu âm ký kết quả siêu âm CỦA
+        MÌNH; cho phép gửi bệnh án là trách nhiệm bác sĩ khám.
+
+        expected_amendment_id: nếu hồ sơ ở AMENDED, bác sĩ phải gửi
+        last_amendment_id đang nhìn. Không khớp ⇒ 409 (tải lại trước).
+        """
+        _assert_release_authority(identity)
 
         state = await self.status(identity=identity, visit_id=visit_id)
         if state["state"] == "DRAFT":
@@ -299,12 +311,19 @@ class ClinicalSignService:
                 locked = await conn.fetchrow(
                     """
                     SELECT v.status,
+                           v.attending_doctor_id::text,
                            EXISTS (
                                SELECT 1 FROM public.clinical_release r
                                 WHERE r.clinic_id = v.clinic_id
                                   AND r.visit_id = v.visit_id
                                   AND r.revoked_at IS NULL
-                           ) AS active_release
+                           ) AS active_release,
+                           (SELECT a.amendment_id::text
+                              FROM public.visit_amendment a
+                             WHERE a.clinic_id = v.clinic_id
+                               AND a.visit_id = v.visit_id
+                             ORDER BY a.amended_at DESC, a.amendment_id DESC
+                             LIMIT 1) AS latest_amendment_id
                       FROM public.visit v
                      WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
                     """,
@@ -312,11 +331,20 @@ class ClinicalSignService:
                     visit_id,
                 )
                 assert locked is not None
+                # Bác sĩ chính: kiểm SAU lock vì attending_doctor_id có thể
+                # đổi giữa lúc status() đọc và lúc lock xong.
+                _assert_release_doctor_is_attending(
+                    identity, locked["attending_doctor_id"]
+                )
                 locked_state = (
                     "RELEASED"
                     if locked["active_release"]
                     else (
-                        "SIGNED"
+                        (
+                            "AMENDED"
+                            if locked["latest_amendment_id"]
+                            else "SIGNED"
+                        )
                         if locked["status"] == "FINALIZED"
                         else locked["status"]
                     )
@@ -327,6 +355,14 @@ class ClinicalSignService:
                     raise ConflictError(
                         "Bệnh án vừa thay đổi — tải lại trước khi cho phép gửi."
                     )
+                # AMENDED: bác sĩ phải nhìn đúng amendment mới nhất.
+                if locked_state == "AMENDED":
+                    latest = locked["latest_amendment_id"]
+                    if expected_amendment_id != latest:
+                        raise ConflictError(
+                            "Hồ sơ vừa được đính chính — tải lại trước khi "
+                            "cho phép gửi."
+                        )
                 await conn.execute(
                     """
                     INSERT INTO public.clinical_release
@@ -789,6 +825,35 @@ def _assert_amend_authority(
     if attending_doctor_id != identity.staff_id:
         raise SafetyGateError(
             "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt được đính chính."
+        )
+
+
+def _assert_release_authority(identity: StaffIdentity) -> None:
+    """Cho phép gửi bệnh án: CHỈ BÁC SĨ, KHÔNG gồm bác sĩ siêu âm.
+
+    Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH — nhưng cho phép gửi toàn bộ
+    bệnh án (bao gồm SOAP, chẩn đoán) là trách nhiệm bác sĩ khám.
+    """
+    if not identity.co_vai({ClinicRole.DOCTOR}):
+        raise SafetyGateError(
+            "Chỉ bác sĩ chính của lượt mới cho phép gửi bệnh án."
+        )
+
+
+def _assert_release_doctor_is_attending(
+    identity: StaffIdentity, attending_doctor_id: str | None
+) -> None:
+    """Bác sĩ cho phép gửi phải là bác sĩ chính của lượt.
+
+    Kiểm SAU lock vì attending_doctor_id có thể đổi giữa lúc status() đọc
+    (trước lock) và lúc transaction thật sự giữ lock.
+    """
+    if attending_doctor_id is None:
+        # Lượt chưa có bác sĩ chính — fallback: cho bác sĩ đang gọi qua.
+        return
+    if attending_doctor_id != identity.staff_id:
+        raise SafetyGateError(
+            "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt cho phép gửi."
         )
 
 

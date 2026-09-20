@@ -35,6 +35,7 @@ router = APIRouter()
 # Quản lý KHÔNG có ở đây, có chủ ý: ký là trách nhiệm chuyên môn, không phải
 # quyền hành chính.
 _SIGN_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+_RELEASE_GUARD = require_role(ClinicRole.DOCTOR)
 _AMEND_GUARD = require_role(ClinicRole.DOCTOR)
 
 
@@ -76,13 +77,16 @@ async def sign(
 
 class ReleaseRequest(BaseModel):
     note: str | None = Field(default=None, max_length=500)
+    #: Bản đính chính bác sĩ ĐANG NHÌN. Bắt buộc khi state AMENDED;
+    #: nullable cho SIGNED (chưa có amendment).
+    expected_amendment_id: str | None = None
 
 
 @router.post("/clinical/{visit_id:uuid}/release", status_code=201)
 async def release(
     visit_id: UUID,
     body: ReleaseRequest,
-    identity: StaffIdentity = Depends(_SIGN_GUARD),
+    identity: StaffIdentity = Depends(_RELEASE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """BƯỚC HAI: cho phép CSKH gửi kết quả cho bệnh nhân.
@@ -91,7 +95,10 @@ async def release(
     xong vẫn giữ lại, CSKH không thấy nút gửi.
     """
     return await ClinicalSignService(pool).release(
-        identity=identity, visit_id=str(visit_id), note=body.note
+        identity=identity,
+        visit_id=str(visit_id),
+        note=body.note,
+        expected_amendment_id=body.expected_amendment_id,
     )
 
 

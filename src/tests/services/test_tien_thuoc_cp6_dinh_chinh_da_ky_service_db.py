@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -419,7 +420,7 @@ async def test_status_va_audit_sau_commit_cung_amendment(q: Quay) -> None:
 async def test_amendment_duoc_release_lai_va_release_idempotent(q: Quay) -> None:
     await _don(q)
     await _ky(q)
-    await ClinicalSignService(q.pool).amend(
+    out = await ClinicalSignService(q.pool).amend(
         identity=q.bac_si,
         visit_id=q.visit_id,
         reason="Sửa SOAP trước khi gửi lại",
@@ -432,7 +433,9 @@ async def test_amendment_duoc_release_lai_va_release_idempotent(q: Quay) -> None
     assert amended["state"] == "AMENDED" and amended["can_release"] is True
 
     released = await ClinicalSignService(q.pool).release(
-        identity=q.bac_si, visit_id=q.visit_id
+        identity=q.bac_si,
+        visit_id=q.visit_id,
+        expected_amendment_id=out["amendment_id"],
     )
     assert released["state"] == "RELEASED"
     status = await ClinicalSignService(q.pool).status(
@@ -670,3 +673,145 @@ async def test_ultrasound_only_va_doctor_khac_bi_chan(
             expected_revision=await _revision(q),
         )
     assert await _amendments(q) == []
+
+
+async def test_release_amendment_stale_khi_amendment_moi_commit_truoc(
+    q: Quay,
+) -> None:
+    """Tab xem A1; A2 commit trước khi release lấy lock => release A1 phải 409."""
+    await _don(q)
+    await _ky(q)
+    rev = await _revision(q)
+    # A1 commit
+    a1 = await ClinicalSignService(q.pool).amend(
+        identity=q.bac_si,
+        visit_id=q.visit_id,
+        reason="A1",
+        corrected={"soap_plan": {"p": "bản A1"}},
+        expected_revision=rev,
+    )
+    a1_id = a1["amendment_id"]
+
+    # Tab nhìn A1, bấm "Cho phép gửi" gửi expected_amendment_id = a1_id
+    # Nhưng trước khi lock, A2 commit
+    async with q.pool.acquire() as conn:
+        tx = conn.transaction()
+        await tx.start()
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid FOR UPDATE",
+            CLINIC,
+            q.visit_id,
+        )
+        # Trong khi visit bị khóa, tạo task release A1
+        release_task = asyncio.create_task(
+            ClinicalSignService(q.pool).release(
+                identity=q.bac_si,
+                visit_id=q.visit_id,
+                expected_amendment_id=a1_id,
+            )
+        )
+        await asyncio.sleep(0.1)
+        assert not release_task.done(), "release không chờ khóa visit"
+        # A2 commit giữa lúc release chờ
+        a2_id = str(uuid.uuid4())
+        await conn.execute(
+            "INSERT INTO visit_amendment"
+            " (amendment_id, clinic_id, visit_id, amended_by, reason,"
+            "  corrected_fields, original_values, corrected_values)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5,"
+            "  $6, '{}'::jsonb, '{}'::jsonb)",
+            a2_id,
+            CLINIC,
+            q.visit_id,
+            q.bac_si.staff_id,
+            "A2 commit trước release",
+            ["soap_plan"],
+        )
+        await tx.commit()
+
+    # release PHẢI 409 vì expected_amendment_id (A1) khác latest (A2).
+    # release().status() đọc TRƯỚC lock: nó thấy state=AMENDED nên không
+    # early-return. Sau lock, latest_amendment_id = A2 ≠ A1 → 409.
+    with pytest.raises(ConflictError, match="đính chính"):
+        await release_task
+    assert not await q.pool.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM clinical_release"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        " AND revoked_at IS NULL)",
+        CLINIC,
+        q.visit_id,
+    )
+
+
+async def test_release_amendment_stale_khi_amendment_moi_commit_truoc_v2(
+    q: Quay,
+) -> None:
+    """Tab xem A1; A2 commit giữa status/lock => release phải 409,
+    không tạo clinical_release."""
+    await _don(q)
+    await _ky(q)
+    rev = await _revision(q)
+    a1 = await ClinicalSignService(q.pool).amend(
+        identity=q.bac_si,
+        visit_id=q.visit_id,
+        reason="A1",
+        corrected={"soap_plan": {"p": "bản A1"}},
+        expected_revision=rev,
+    )
+    a1_id = a1["amendment_id"]
+    # A2 commit
+    await ClinicalSignService(q.pool).amend(
+        identity=q.bac_si,
+        visit_id=q.visit_id,
+        reason="A2",
+        corrected={"soap_plan": {"p": "bản A2"}},
+        expected_revision=await _revision(q),
+    )
+    # Release gửi A1 (stale) => phải 409
+    with pytest.raises(ConflictError, match="đính chính"):
+        await ClinicalSignService(q.pool).release(
+            identity=q.bac_si,
+            visit_id=q.visit_id,
+            expected_amendment_id=a1_id,
+        )
+    assert not await q.pool.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM clinical_release"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        " AND revoked_at IS NULL)",
+        CLINIC,
+        q.visit_id,
+    )
+
+
+@pytest.mark.parametrize("role_case", ["ultrasound", "other_doctor"])
+async def test_release_bi_chan_cho_sieu_am_va_bac_si_khac(
+    q: Quay, role_case: str
+) -> None:
+    """ULTRASOUND_DOCTOR và bác sĩ khác đều không release được."""
+    await _don(q)
+    await _ky(q)
+    if role_case == "ultrasound":
+        identity = dataclasses.replace(
+            q.bac_si,
+            role=ClinicRole.ULTRASOUND_DOCTOR,
+            vai_tai_khoan=None,
+        )
+    else:
+        identity = dataclasses.replace(
+            q.bac_si,
+            role=ClinicRole.DOCTOR,
+            staff_id=q.duoc_si.staff_id,
+        )
+    with pytest.raises(SafetyGateError):
+        await ClinicalSignService(q.pool).release(
+            identity=identity,
+            visit_id=q.visit_id,
+        )
+    assert not await q.pool.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM clinical_release"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid)",
+        CLINIC,
+        q.visit_id,
+    )
+
