@@ -299,6 +299,30 @@ async def _chay(pool: asyncpg.Pool) -> None:
         r.status_code == 201,
         f"{r.status_code} {r.text[:300]}",
     )
+    tep_id = r.json()["id"]
+
+    # Tệp mới tải lên ở trạng thái CHO_XAC_NHAN -> vòng CHƯA sẵn sàng (Blocker 1)
+    vong = (await bang(bs, vid))["vong"][0]
+    kiem(
+        "tệp mới tải lên chưa xác nhận → vòng CHƯA sẵn sàng",
+        vong["trang_thai"] == "collecting",
+        vong,
+    )
+
+    # Cấp capability ket_qua.xac_nhan và xác nhận HOP_LE qua HTTP
+    await pool.execute(
+        "INSERT INTO staff_capability (staff_id, capability) "
+        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        tc.staff_id,
+    )
+    r = await goi(
+        tc,
+        "POST",
+        f"/cskh/ket-qua/tep/{tep_id}/xac-nhan",
+        json={"trang_thai": "HOP_LE"},
+    )
+    kiem("xác nhận tệp kết quả hợp lệ", r.status_code == 200, r.text)
+
     vong = (await bang(bs, vid))["vong"][0]
     kiem(
         "tệp về → vòng SẴN SÀNG, khách quay lại bác sĩ",

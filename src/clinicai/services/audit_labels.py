@@ -210,6 +210,8 @@ EVENT_LABELS: dict[str, str] = {
     "pregnancy.updated": "Bác sĩ cập nhật thai kỳ",
     "pregnancy.outcome_set": "Bác sĩ ghi kết cục thai kỳ",
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
+    "tep_ket_qua.xac_nhan": "Xác nhận tệp kết quả",
+    "tep_ket_qua.thu_hoi": "Thu hồi tệp kết quả",
 }
 
 #: Lệnh của workflow kernel (bảng `work_item_event`), gộp chung vào một dòng
@@ -260,6 +262,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
     "api:thai-ky": "Bàn khám — Thai kỳ",
+    "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
+    "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
 }
 
 #: Khớp theo TIỀN TỐ khi không có mục khớp đúng — và đây mới là phần quan trọng.

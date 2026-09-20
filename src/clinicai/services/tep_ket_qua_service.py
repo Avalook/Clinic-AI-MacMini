@@ -744,13 +744,13 @@ class TepKetQuaService:
         # BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026). Trigger
         # `tep_ket_qua_gui_phai_duoc_cho_phep` cũng chặn — câu ở đây nói bằng
         # tiếng người trước khi chạm ràng buộc.
-        if hien["xac_nhan_trang_thai"] != "HOP_LE":
-            raise ConflictError(
-                "Tệp kết quả chưa ở trạng thái hợp lệ để gửi cho khách."
-            )
-        if hien["cho_phep_gui_luc"] is None:
+        if hien.get("cho_phep_gui_luc") is None:
             raise ConflictError(
                 "Bác sĩ chưa cho phép gửi tệp này — chờ bác sĩ xem và cho phép."
+            )
+        if hien.get("xac_nhan_trang_thai") != "HOP_LE":
+            raise ConflictError(
+                "Tệp kết quả chưa ở trạng thái hợp lệ để gửi cho khách."
             )
         row = await self._pool.fetchrow(
             """

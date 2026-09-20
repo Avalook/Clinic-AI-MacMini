@@ -1192,9 +1192,23 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
             service_order_id=mau_id,
         )
         # Có kết quả → sang mục "Đã gửi hôm nay" của đối tác (không còn là việc
-        # cần làm), và sang hàng chờ bác sĩ duyệt.
+        # cần làm), và sau khi xác nhận HOP_LE thì sang hàng chờ bác sĩ duyệt.
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
         assert viec is not None and viec["trang_thai"] == "DA_GUI_KET_QUA"
+
+        # Cấp capability xác nhận kết quả và xác nhận HOP_LE
+        async with kb.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO staff_capability (staff_id, capability) "
+                "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+                kb.dieu_duong.staff_id,
+            )
+        await TepKetQuaService(kb.pool).xac_nhan_tep(
+            identity=kb.dieu_duong,
+            tep_id=tep["id"],
+            trang_thai="HOP_LE",
+        )
+
         cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
         dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
         assert [t["id"] for t in dong["tep"]] == [tep["id"]]
@@ -1235,6 +1249,14 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
                 )
                 is None
             )
+
+        # Xác nhận HOP_LE cho tep2 trước khi bác sĩ duyệt bản mới
+        await TepKetQuaService(kb.pool).xac_nhan_tep(
+            identity=kb.dieu_duong,
+            tep_id=tep2["id"],
+            trang_thai="HOP_LE",
+        )
+
         cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
         dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
         assert dong["duyet_lan_truoc"] is not None
