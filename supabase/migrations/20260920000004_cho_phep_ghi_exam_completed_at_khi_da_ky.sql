@@ -16,11 +16,13 @@
 -- câu lệnh `_ket_thuc_neu_xong` cố ghi mốc `exam_completed_at` lần đầu bị trigger chặn lỗi.
 --
 -- NGOẠI LỆ AN TOÀN DUY NHẤT:
---   Cho phép ghi `exam_completed_at` khi OLD.exam_completed_at IS NULL và
---   NEW.exam_completed_at IS NOT NULL, với điều kiện MỌI trường khác
---   (status, patient, clinic, finalized_at, finalized_by, v.v.) GIỮ NGUYÊN.
---   Mọi cố gắng đổi status (ví dụ kéo về OPEN/INCOMPLETE) hoặc sửa đè mốc đã có
---   VẪN BỊ CHẶN TUYỆT ĐỐI (check_violation).
+--   Cho phép ghi `exam_completed_at` khi:
+--   1. OLD.exam_completed_at IS NULL và NEW.exam_completed_at IS NOT NULL
+--   2. MỌI cột khác của visit (ngoài exam_completed_at và updated_at) phải GIỐNG HỆT OLD:
+--      (to_jsonb(NEW) - ARRAY['exam_completed_at', 'updated_at']) =
+--      (to_jsonb(OLD) - ARRAY['exam_completed_at', 'updated_at'])
+--   Bất kỳ cố gắng đổi trường nào khác (service_type_id, attending_doctor_id,
+--   status, appointment_id, v.v.) hoặc sửa đè mốc đã có VẪN BỊ CHẶN TUYỆT ĐỐI (check_violation).
 
 CREATE OR REPLACE FUNCTION public.visit_finalized_block_update() RETURNS trigger
     LANGUAGE plpgsql
@@ -29,12 +31,13 @@ BEGIN
     IF OLD.status = 'FINALIZED' AND NEW.status <> 'AMENDED' THEN
         -- Ngoại lệ an toàn duy nhất: ghi nhận mốc khám xong (exam_completed_at) lần đầu
         -- khi bác sĩ ký bệnh án trước rồi bấm khám xong sau.
-        IF OLD.exam_completed_at IS NULL AND NEW.exam_completed_at IS NOT NULL
-           AND NEW.status = OLD.status
-           AND NEW.clinic_patient_id = OLD.clinic_patient_id
-           AND NEW.clinic_id = OLD.clinic_id
-           AND NEW.finalized_at = OLD.finalized_at
-           AND NEW.finalized_by IS NOT DISTINCT FROM OLD.finalized_by THEN
+        -- BẮT BUỘC:
+        -- 1. exam_completed_at từ NULL -> NOT NULL
+        -- 2. MỌI cột khác của visit (trừ exam_completed_at và updated_at) phải GIỐNG HỆT OLD.
+        IF OLD.exam_completed_at IS NULL
+           AND NEW.exam_completed_at IS NOT NULL
+           AND (to_jsonb(NEW) - ARRAY['exam_completed_at', 'updated_at'])
+             = (to_jsonb(OLD) - ARRAY['exam_completed_at', 'updated_at']) THEN
             RETURN NEW;
         END IF;
 
@@ -50,4 +53,4 @@ $$;
 COMMENT ON FUNCTION public.visit_finalized_block_update() IS
     'Khóa hồ sơ bệnh án theo TT13/2011/TT-BYT khi status=FINALIZED. '
     'Chỉ cho phép: (1) FINALIZED -> AMENDED khi có đính chính, '
-    'hoặc (2) ghi mốc exam_completed_at lần đầu nếu bác sĩ ký trước rồi bấm khám xong.';
+    'hoặc (2) ghi mốc exam_completed_at lần đầu nếu bác sĩ ký trước rồi bấm khám xong (mọi cột khác bất biến).';

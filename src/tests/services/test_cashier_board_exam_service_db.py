@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError
@@ -454,3 +455,106 @@ async def test_regression_nguon_visit_thang_appointment_khi_lech_loai_kham(
         pay_res["payment_cycle_id"],
     )
     assert da_thu == 250_000
+
+
+async def test_trigger_integrity_finalized_visit(q: Quay) -> None:
+    """Kiểm tra độ chặt chẽ (integrity) của trigger visit_finalized_block_update:
+    1. FINALIZED + chỉ set exam_completed_at (+ updated_at) => PASS
+    2. FINALIZED + set exam_completed_at + đổi service_type_id => BLOCK
+    3. FINALIZED + set exam_completed_at + đổi attending_doctor_id => BLOCK
+    4. Đổi exam_completed_at lần thứ hai => BLOCK
+    5. FINALIZED -> AMENDED vẫn PASS như cũ
+    """
+    st1 = await _tao_loai_kham(q.pool, f"ST1-{q.duoi}", f"Khám 1 {q.duoi}", 100_000)
+    st2 = await _tao_loai_kham(q.pool, f"ST2-{q.duoi}", f"Khám 2 {q.duoi}", 200_000)
+
+    staff_rows = await q.pool.fetch(
+        "SELECT staff_id FROM clinic_membership"
+        " WHERE clinic_id = $1::uuid AND is_active LIMIT 2",
+        CLINIC,
+    )
+    doc1 = staff_rows[0]["staff_id"]
+    doc2 = staff_rows[1]["staff_id"] if len(staff_rows) > 1 else doc1
+
+    pid = await q.pool.fetchval(
+        "SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid", q.visit_id
+    )
+
+    async def _tao_visit_finalized() -> str:
+        vid = await q.pool.fetchval(
+            """
+            INSERT INTO visit (clinic_id, clinic_patient_id, service_type_id,
+                               attending_doctor_id, status, checked_in_at)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'OPEN', now())
+            RETURNING visit_id::text
+            """,
+            CLINIC,
+            pid,
+            st1,
+            doc1,
+        )
+        await q.pool.execute(
+            "UPDATE visit SET status = 'FINALIZED', finalized_at = now()"
+            " WHERE visit_id = $1::uuid",
+            vid,
+        )
+        return str(vid)
+
+    # 1. FINALIZED + chỉ set exam_completed_at (+ updated_at) => PASS
+    v1 = await _tao_visit_finalized()
+    await q.pool.execute(
+        "UPDATE visit SET exam_completed_at = now(), updated_at = now()"
+        " WHERE visit_id = $1::uuid",
+        v1,
+    )
+    v1_kx = await q.pool.fetchval(
+        "SELECT exam_completed_at FROM visit WHERE visit_id = $1::uuid", v1
+    )
+    assert v1_kx is not None
+
+    # 2. FINALIZED + set exam_completed_at + đổi service_type_id => BLOCK
+    v2 = await _tao_visit_finalized()
+    with pytest.raises(asyncpg.exceptions.CheckViolationError):
+        await q.pool.execute(
+            "UPDATE visit SET exam_completed_at = now(), service_type_id = $2::uuid,"
+            " updated_at = now() WHERE visit_id = $1::uuid",
+            v2,
+            st2,
+        )
+
+    # 3. FINALIZED + set exam_completed_at + đổi attending_doctor_id => BLOCK
+    v3 = await _tao_visit_finalized()
+    with pytest.raises(asyncpg.exceptions.CheckViolationError):
+        await q.pool.execute(
+            "UPDATE visit SET exam_completed_at = now(),"
+            " attending_doctor_id = $2::uuid, updated_at = now()"
+            " WHERE visit_id = $1::uuid",
+            v3,
+            doc2,
+        )
+
+    # 4. Đổi exam_completed_at lần thứ hai => BLOCK
+    v4 = await _tao_visit_finalized()
+    await q.pool.execute(
+        "UPDATE visit SET exam_completed_at = now(), updated_at = now()"
+        " WHERE visit_id = $1::uuid",
+        v4,
+    )
+    with pytest.raises(asyncpg.exceptions.CheckViolationError):
+        await q.pool.execute(
+            "UPDATE visit SET exam_completed_at = now(), updated_at = now()"
+            " WHERE visit_id = $1::uuid",
+            v4,
+        )
+
+    # 5. FINALIZED -> AMENDED vẫn PASS như cũ
+    v5 = await _tao_visit_finalized()
+    await q.pool.execute(
+        "UPDATE visit SET status = 'AMENDED', updated_at = now()"
+        " WHERE visit_id = $1::uuid",
+        v5,
+    )
+    v5_status = await q.pool.fetchval(
+        "SELECT status FROM visit WHERE visit_id = $1::uuid", v5
+    )
+    assert v5_status == "AMENDED"

@@ -259,12 +259,10 @@ CREATE OR REPLACE FUNCTION "public"."visit_finalized_block_update"() RETURNS "tr
     AS $$
 BEGIN
     IF OLD.status = 'FINALIZED' AND NEW.status <> 'AMENDED' THEN
-        IF OLD.exam_completed_at IS NULL AND NEW.exam_completed_at IS NOT NULL
-           AND NEW.status = OLD.status
-           AND NEW.clinic_patient_id = OLD.clinic_patient_id
-           AND NEW.clinic_id = OLD.clinic_id
-           AND NEW.finalized_at = OLD.finalized_at
-           AND NEW.finalized_by IS NOT DISTINCT FROM OLD.finalized_by THEN
+        IF OLD.exam_completed_at IS NULL
+           AND NEW.exam_completed_at IS NOT NULL
+           AND (to_jsonb(NEW) - ARRAY['exam_completed_at', 'updated_at'])
+             = (to_jsonb(OLD) - ARRAY['exam_completed_at', 'updated_at']) THEN
             RETURN NEW;
         END IF;
 
