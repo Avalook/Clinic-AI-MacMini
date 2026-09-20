@@ -14,6 +14,7 @@ Verifies that:
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -23,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DUNG_STAGING_SH = REPO_ROOT / "scripts" / "dung-staging.sh"
 SUPABASE_LOCAL_NAP_SH = REPO_ROOT / "scripts" / "supabase-local-nap.sh"
 ENV_STAGING_EXAMPLE = REPO_ROOT / ".env.staging.example"
+CADDYFILE_STAGING = REPO_ROOT / "caddy" / "Caddyfile.staging"
 
 
 def _make_valid_staging_env() -> dict[str, str]:
@@ -204,3 +206,88 @@ class TestStagingEnvExample:
             env={**os.environ, "CLINIC_ENV_FILE": ".env.staging.example"},
         )
         assert proc.returncode == 0, f"docker compose config failed:\n{proc.stderr}"
+
+    def test_example_caddy_port_mapping_contract(self) -> None:
+        content = ENV_STAGING_EXAMPLE.read_text()
+        lines = [
+            line.strip()
+            for line in content.splitlines()
+            if not line.strip().startswith("#") and "=" in line
+        ]
+        env_map = dict(line.split("=", 1) for line in lines)
+        site_address = env_map.get("SITE_ADDRESS")
+        assert site_address == ":80", (
+            f"Expected SITE_ADDRESS=:80 inside container, got {site_address}"
+        )
+        http_port = env_map.get("CADDY_HTTP_PORT")
+        assert http_port == "8080", (
+            f"Expected CADDY_HTTP_PORT=8080 on host, got {http_port}"
+        )
+        https_port = env_map.get("CADDY_HTTPS_PORT")
+        assert https_port == "8443", (
+            f"Expected CADDY_HTTPS_PORT=8443 on host, got {https_port}"
+        )
+
+    def test_caddyfile_staging_binds_site_address_placeholder(self) -> None:
+        content = CADDYFILE_STAGING.read_text()
+        assert "{$SITE_ADDRESS}" in content, (
+            "Caddyfile.staging must use {$SITE_ADDRESS} placeholder"
+        )
+
+    def test_docker_compose_renders_caddy_port_mapping(self) -> None:
+        # Clean environment to prevent ambient .env (e.g. loaded by root conftest)
+        # from overriding .env.staging.example values in docker compose interpolation.
+        clean_env = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith("CADDY_") and k != "SITE_ADDRESS"
+        }
+        clean_env["CLINIC_ENV_FILE"] = ".env.staging.example"
+
+        proc = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                ".env.staging.example",
+                "config",
+                "--format",
+                "json",
+            ],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            env=clean_env,
+        )
+        assert proc.returncode == 0, f"docker compose config failed:\n{proc.stderr}"
+        data = json.loads(proc.stdout)
+        caddy_service = data.get("services", {}).get("caddy", {})
+        assert caddy_service, "caddy service not found in rendered compose"
+
+        # SITE_ADDRESS inside container must be :80
+        caddy_env = caddy_service.get("environment", {})
+        caddy_site_address = caddy_env.get("SITE_ADDRESS")
+        assert caddy_site_address == ":80", (
+            f"Expected caddy container SITE_ADDRESS to be ':80', "
+            f"got {caddy_site_address}"
+        )
+
+        # Host 8080 must be forwarded to target port 80 inside container
+        ports = caddy_service.get("ports", [])
+        port_80_mapped = any(
+            int(p.get("target", 0)) == 80 and str(p.get("published", "")) == "8080"
+            for p in ports
+            if isinstance(p, dict)
+        )
+        assert port_80_mapped, (
+            f"Caddy ports must map host 8080 -> target 80 in container, got: {ports}"
+        )
+
+        port_443_mapped = any(
+            int(p.get("target", 0)) == 443 and str(p.get("published", "")) == "8443"
+            for p in ports
+            if isinstance(p, dict)
+        )
+        assert port_443_mapped, (
+            f"Caddy ports must map host 8443 -> target 443 in container, got: {ports}"
+        )
