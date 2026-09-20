@@ -615,8 +615,18 @@ _REVOKE_CAPABILITY_CHECK_SQL = """
 """
 
 _REVOKE_CAPABILITY_SQL = """
-    DELETE FROM staff_capability
-    WHERE staff_id = $1 AND capability = $2
+    DELETE FROM staff_capability sc
+    USING clinic_membership cm
+    WHERE sc.staff_id = $1
+      AND sc.capability = $2
+      AND cm.staff_id = sc.staff_id
+      AND cm.clinic_id = $3::uuid
+      AND NOT EXISTS (
+          SELECT 1
+          FROM clinic_membership cm2
+          WHERE cm2.staff_id = sc.staff_id
+            AND cm2.clinic_id <> $3::uuid
+      )
 """
 
 _GET_STAFF_CAPABILITIES_SQL = """
@@ -659,6 +669,7 @@ async def revoke_capability(
             _REVOKE_CAPABILITY_SQL,
             staff_uuid,
             capability,
+            clinic_id,
         )
 
     logger.info(
