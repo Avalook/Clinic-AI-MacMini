@@ -627,6 +627,21 @@ async def cho_phep_gui_tep(
     )
 
 
+@router.get("/cskh/ket-qua/cho-xac-nhan")
+async def tep_cho_xac_nhan(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách tệp kết quả external đang chờ xác nhận (CHO_XAC_NHAN).
+
+    Bắt buộc capability ket_qua.xac_nhan (fail-closed, 403 nếu không có).
+    LƯU Ý HIỆN TẠI (CURRENT LIMITATION): SINGLE-PARTNER PILOT ONLY.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {"items": await TepKetQuaService(pool).cho_xac_nhan(identity=identity)}
+
+
 class XacNhanTepDTO(BaseModel):
     trang_thai: str
     ly_do: str | None = None
@@ -699,7 +714,7 @@ async def danh_sach_ket_qua(
 async def doc_tep_ket_qua(
     tep_id: UUID,
     request: Request,
-    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.

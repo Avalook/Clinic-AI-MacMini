@@ -70,17 +70,18 @@ async def _tao_staff(
         loc = str(uuid.uuid4())
         await conn.execute(
             """
-            INSERT INTO clinic_location (id, clinic_id, name, is_active)
-            VALUES ($1::uuid, $2::uuid, 'Cơ sở chính test', true)
+            INSERT INTO clinic_location (id, clinic_id, code, name, is_active)
+            VALUES (
+                $1::uuid, $2::uuid, 'CS_TEST_' || substr($1::text, 1, 4),
+                'Cơ sở chính test', true
+            )
             ON CONFLICT (id) DO NOTHING
             """,
             loc,
             clinic_id,
         )
     dept = role
-    if role == "PARTNER":
-        dept = "CSKH"
-    elif role == "NURSE":
+    if role == "NURSE":
         dept = "NURSE_ULTRASOUND"
         role = "NURSE_ULTRASOUND"
 
@@ -145,8 +146,11 @@ async def _tao_benh_nhan_va_visit(
         loc = str(uuid.uuid4())
         await conn.execute(
             """
-            INSERT INTO clinic_location (id, clinic_id, name, is_active)
-            VALUES ($1::uuid, $2::uuid, 'Cơ sở chính test', true)
+            INSERT INTO clinic_location (id, clinic_id, code, name, is_active)
+            VALUES (
+                $1::uuid, $2::uuid, 'CS_TEST_' || substr($1::text, 1, 4),
+                'Cơ sở chính test', true
+            )
             ON CONFLICT (id) DO NOTHING
             """,
             loc,
@@ -272,11 +276,11 @@ async def _tao_external_order(
         await conn.execute(
             """
             INSERT INTO clinic_room (
-                id, clinic_id, location_id, name, room_number, is_active,
+                id, clinic_id, location_id, name, code, node_code, is_active,
                 la_doi_tac
             )
             VALUES (
-                $1::uuid, $2::uuid, $3::uuid, 'Phòng đối tác test', 'P-DT',
+                $1::uuid, $2::uuid, $3::uuid, 'Phòng đối tác test', 'P-DT', $4,
                 true, true
             )
             ON CONFLICT (id) DO NOTHING
@@ -284,6 +288,7 @@ async def _tao_external_order(
             room_id,
             clinic_id,
             loc,
+            node_code,
         )
     oid = str(uuid.uuid4())
     await conn.execute(

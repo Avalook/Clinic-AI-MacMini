@@ -1148,17 +1148,39 @@ async def test_partner_security_negative_suite(
         if loc2:
             bs2 = await _tao_nhan_vien(conn, CLINIC_2, loc2, "DOCTOR")
             vid2, pid2 = await _tao_luot_kham(conn, CLINIC_2, loc2, bs2.staff_id)
+            cid2 = await conn.fetchval(
+                "INSERT INTO consultation (clinic_id, visit_id, round_no, kind) "
+                "VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY') RETURNING id::text",
+                CLINIC_2,
+                vid2,
+            )
+            await conn.execute(
+                """
+                INSERT INTO node_definition (
+                    clinic_id, code, name, flow_group, workspace, actor_roles
+                )
+                VALUES (
+                    $1::uuid, 'DICHVU-SIEUAM', 'Siêu âm clinic 2', 'sieu_am',
+                    'khu_sieu_am', ARRAY['ULTRASOUND_DOCTOR']
+                )
+                ON CONFLICT (clinic_id, code) DO NOTHING
+                """,
+                CLINIC_2,
+            )
             order_clinic2 = await conn.fetchval(
                 """
                 INSERT INTO service_order (
-                  clinic_id, visit_id, service_code,
-                  service_name, node_code, exec_status
-                ) VALUES ($1::uuid, $2::uuid, 'TEST2', 'Dịch vụ clinic 2',
-                          'DICHVU-SIEUAM', 'authorized')
+                  clinic_id, visit_id, consultation_id, service_code,
+                  service_name, node_code, exec_status, recorded_by,
+                  authorized_by, authorized_at
+                ) VALUES ($1::uuid, $2::uuid, $3::uuid, 'TEST2', 'Dịch vụ clinic 2',
+                          'DICHVU-SIEUAM', 'authorized', $4::uuid, $4::uuid, now())
                 RETURNING id::text
                 """,
                 CLINIC_2,
                 vid2,
+                cid2,
+                bs2.staff_id,
             )
             tep_fake_path2 = tmp_path / "fake2.pdf"
             tep_fake_path2.write_bytes(pdf_sample)

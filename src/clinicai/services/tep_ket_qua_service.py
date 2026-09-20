@@ -109,8 +109,71 @@ BAC_SI_CHO_PHEP_GUI = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR
 TU_CHO_PHEP_GUI: frozenset[ClinicRole] = BAC_SI_CHO_PHEP_GUI
 
 
+NORMAL_READ_ROLES: frozenset[ClinicRole] = frozenset(
+    {
+        ClinicRole.CSKH,
+        ClinicRole.RECEPTION,
+        ClinicRole.MANAGEMENT,
+        ClinicRole.TRUONG_CA,
+        ClinicRole.DOCTOR,
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.TKYK,
+        ClinicRole.NURSE_ULTRASOUND,
+    }
+)
+
+
+async def co_quyen_xac_nhan(
+    conn: asyncpg.Connection | asyncpg.Pool,
+    identity: StaffIdentity,
+) -> bool:
+    """Kiểm tra xem identity có capability ket_qua.xac_nhan hợp lệ hay không.
+
+    Quy tắc an toàn:
+    1. PARTNER không bao giờ có quyền xác nhận -> False.
+    2. staff_id phải có active clinic_membership tại đúng identity.clinic_id.
+    3. staff_id KHÔNG ĐƯỢC có active membership tại bất kỳ clinic nào
+       khác (fail-closed).
+    4. staff_id phải có capability 'ket_qua.xac_nhan' trong staff_capability.
+    """
+    if identity.co_vai([ClinicRole.PARTNER]):
+        return False
+
+    row = await conn.fetchrow(
+        """
+        SELECT
+            EXISTS (
+                SELECT 1 FROM public.staff_capability sc
+                 WHERE sc.staff_id = $1::uuid
+                   AND sc.capability = 'ket_qua.xac_nhan'
+            ) AS co_capability,
+            EXISTS (
+                SELECT 1 FROM public.clinic_membership cm
+                 WHERE cm.staff_id = $1::uuid
+                   AND cm.clinic_id = $2::uuid
+                   AND cm.is_active = true
+            ) AS co_membership_hien_tai,
+            (
+                SELECT count(DISTINCT cm.clinic_id)::int
+                  FROM public.clinic_membership cm
+                 WHERE cm.staff_id = $1::uuid
+                   AND cm.is_active = true
+            ) AS so_clinic_active
+        """,
+        identity.staff_id,
+        identity.clinic_id,
+    )
+    if not row:
+        return False
+    return bool(
+        row["co_capability"]
+        and row["co_membership_hien_tai"]
+        and row["so_clinic_active"] == 1
+    )
+
+
 async def kiem_tra_quyen_xac_nhan(
-    conn: asyncpg.Connection,
+    conn: asyncpg.Connection | asyncpg.Pool,
     *,
     identity: StaffIdentity,
 ) -> None:
@@ -701,15 +764,48 @@ class TepKetQuaService:
 
         Trả về ĐƯỜNG DẪN chứ không phải nội dung: video phải đi theo luồng, và
         một hàm trả `bytes` là một hàm buộc mọi lời gọi phải nạp cả tệp vào RAM.
+
+        Quyền đọc:
+        A. caller thuộc nhóm NORMAL_READ_ROLES (_KET_QUA_DOC_GUARD semantics cũ)
+        OR
+        B. caller có capability 'ket_qua.xac_nhan'
+           AND file cùng clinic
+           AND xac_nhan_trang_thai = 'CHO_XAC_NHAN'
+           AND service_order_id IS NOT NULL
+           AND order join node_definition.lam_ben_ngoai = true.
         """
         row = await self._pool.fetchrow(
-            "SELECT khoa, mime, so_byte, ten_hien_thi FROM public.tep_ket_qua"
-            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            """
+            SELECT t.khoa, t.mime, t.so_byte, t.ten_hien_thi,
+                   t.clinic_id::text, t.xac_nhan_trang_thai,
+                   t.service_order_id::text,
+                   n.lam_ben_ngoai
+              FROM public.tep_ket_qua t
+              LEFT JOIN public.service_order o
+                ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
+              LEFT JOIN public.node_definition n
+                ON n.code = o.node_code AND n.clinic_id = t.clinic_id
+             WHERE t.id = $1::uuid AND t.clinic_id = $2::uuid
+            """,
             tep_id,
             identity.clinic_id,
         )
         if row is None:
             raise NotFoundError("Không tìm thấy tệp này.")
+
+        duoc_doc = False
+        if identity.co_vai(NORMAL_READ_ROLES):
+            duoc_doc = True
+        elif await co_quyen_xac_nhan(self._pool, identity):
+            if (
+                row["xac_nhan_trang_thai"] == "CHO_XAC_NHAN"
+                and row["service_order_id"] is not None
+                and row["lam_ben_ngoai"] is True
+            ):
+                duoc_doc = True
+
+        if not duoc_doc:
+            raise SafetyGateError("Không có quyền xem tệp này.")
 
         khoa = row["khoa"]
         # Hai chốt, giữ cả hai. Câu truy vấn trên đã lọc theo clinic_id, nhưng
@@ -871,3 +967,64 @@ class TepKetQuaService:
             identity.clinic_id,
         )
         return [dict(r) for r in rows]
+
+    async def cho_xac_nhan(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Danh sách tệp kết quả external đang chờ xác nhận — cũ nhất lên trước.
+
+        Yêu cầu capability 'ket_qua.xac_nhan' (Fail-closed, 403 nếu không có).
+        LƯU Ý HIỆN TẠI (CURRENT LIMITATION): SINGLE-PARTNER PILOT ONLY.
+        """
+        await kiem_tra_quyen_xac_nhan(self._pool, identity=identity)
+
+        rows = await self._pool.fetch(
+            """
+            SELECT t.id::text AS tep_id,
+                   t.clinic_patient_id::text,
+                   p.full_name AS ten_khach,
+                   p.patient_code,
+                   t.service_order_id::text,
+                   o.service_name AS ten_dich_vu,
+                   t.tai_len_luc,
+                   s.full_name AS tai_len_boi_ten,
+                   m.role::text AS tai_len_boi_vai,
+                   t.tai_len_boi_staff_id::text,
+                   t.ten_hien_thi,
+                   t.loai_tep,
+                   t.mime,
+                   t.xac_nhan_trang_thai
+              FROM public.tep_ket_qua t
+              JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
+              JOIN public.service_order o
+                ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
+              JOIN public.node_definition n
+                ON n.code = o.node_code AND n.clinic_id = t.clinic_id
+              LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
+              LEFT JOIN public.clinic_membership m
+                ON m.staff_id = s.id
+               AND m.clinic_id = t.clinic_id
+               AND m.is_active = true
+             WHERE t.clinic_id = $1::uuid
+               AND t.xac_nhan_trang_thai = 'CHO_XAC_NHAN'
+               AND t.service_order_id IS NOT NULL
+               AND n.lam_ben_ngoai = true
+               AND o.exec_status NOT IN ('draft', 'cancelled')
+             ORDER BY t.tai_len_luc ASC, t.id ASC
+             LIMIT 100
+            """,
+            identity.clinic_id,
+        )
+
+        res: list[dict[str, Any]] = []
+        for r in rows:
+            d = dict(r)
+            is_own = r["tai_len_boi_staff_id"] is not None and str(
+                r["tai_len_boi_staff_id"]
+            ) == str(identity.staff_id)
+            d["co_the_xac_nhan"] = not is_own
+            d["khong_the_xac_nhan_ly_do"] = (
+                "Bạn là người tải tệp này — cần người khác xác nhận."
+                if is_own
+                else None
+            )
+            res.append(d)
+        return res

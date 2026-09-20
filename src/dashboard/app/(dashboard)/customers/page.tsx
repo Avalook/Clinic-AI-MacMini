@@ -816,6 +816,7 @@ type LichHenRaw = {
     gui_kenh: string | null;
     cho_phep_gui_luc: string | null;
     cho_phep_gui_boi: string | null;
+    xac_nhan_trang_thai?: string | null;
     la_ket_qua_xet_nghiem?: boolean | null;
     staff?: { full_name: string } | { full_name: string }[] | null;
   };
@@ -851,6 +852,7 @@ type LichHenRaw = {
         gui_boi: null,
         cho_phep_gui_luc: r.cho_phep_gui_luc ?? null,
         cho_phep_gui_boi: r.cho_phep_gui_boi ?? null,
+        xac_nhan_trang_thai: r.xac_nhan_trang_thai ?? null,
         la_ket_qua_xet_nghiem: r.la_ket_qua_xet_nghiem ?? undefined,
       });
     }

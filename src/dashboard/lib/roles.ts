@@ -401,6 +401,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
   // quyết định chuyên môn; thư ký không có nút Duyệt — Notion v1.0.0).
   "/duyet-ket-qua": ["DOCTOR", "ULTRASOUND_DOCTOR", "MANAGEMENT"],
+  // Xác nhận tệp kết quả external — phân quyền bằng capability ket_qua.xac_nhan.
+  // Không giới hạn role ở đây; backend API và page fail-closed bằng capability.
+  "/xac-nhan-ket-qua": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   "/ops": ["MANAGEMENT"],
   // Luật đặt lịch (khung giờ / số chỗ) — Trưởng ca + Quản lý sửa được.
   // Trang riêng vì /settings (tạo user) vẫn chỉ MANAGEMENT.

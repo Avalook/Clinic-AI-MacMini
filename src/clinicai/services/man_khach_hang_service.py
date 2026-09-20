@@ -137,7 +137,7 @@ class ManKhachHangService:
                 SELECT t.id, t.clinic_patient_id, t.appointment_id,
                        t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
                        t.tai_len_luc, t.gui_luc, t.gui_kenh,
-                       t.cho_phep_gui_luc,
+                       t.cho_phep_gui_luc, t.xac_nhan_trang_thai,
                        bs.full_name AS cho_phep_gui_boi,
                        nv.full_name AS ten_nhan_vien,
                        -- TỆP NÀY CÓ PHẢI KẾT QUẢ XÉT NGHIỆM không (17/09/2026):
