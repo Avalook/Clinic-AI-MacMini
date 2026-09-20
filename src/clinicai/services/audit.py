@@ -57,6 +57,7 @@ async def record_event(
     identity: StaffIdentity,
     origin: str,
     payload: dict[str, Any] | None = None,
+    correlation_id: str | None = None,
 ) -> None:
     """Append one row to ``event_log`` on the caller's transaction.
 
@@ -70,8 +71,8 @@ async def record_event(
         """
         INSERT INTO event_log
             (clinic_id, event_type, aggregate_type, aggregate_id, payload,
-             metadata, source, event_published)
-        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, FALSE)
+             metadata, correlation_id, source, event_published)
+        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid, $8, FALSE)
         """,
         identity.clinic_id,
         event_type,
@@ -92,6 +93,7 @@ async def record_event(
                 "origin": origin,
             }
         ),
+        correlation_id,
         origin,
     )
 

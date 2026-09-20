@@ -155,6 +155,7 @@ class HoSoKhamService:
                            caution AS luu_y
                       FROM public.prescription
                      WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+                       AND removed_at IS NULL
                      ORDER BY created_at
                     """,
                     visit_id,

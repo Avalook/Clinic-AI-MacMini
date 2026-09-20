@@ -29,6 +29,7 @@ bệnh án đã ký mà "bỏ ký" được thì chữ ký không có nghĩa gì
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
 
 import asyncpg
@@ -36,6 +37,13 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.dinh_chinh_don import (
+    ap_dung_don_da_ky,
+    chuan_bi_don_da_ky,
+    prescription_fingerprint,
+    validate_amendment_prescriptions,
+)
 
 logger = structlog.get_logger()
 
@@ -84,41 +92,72 @@ class ClinicalSignService:
     async def status(self, *, identity: StaffIdentity, visit_id: str) -> dict[str, Any]:
         """Trạng thái hồ sơ + những gì còn thiếu để ký được."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """
-                SELECT st.*, cr.soap_subjective, cr.soap_objective,
-                       cr.soap_assessment, cr.soap_plan,
-                       cr.revision AS record_revision,
-                       cr.chief_complaint_at_visit,
-                       p.full_name AS patient_name, p.patient_code,
-                       -- PHIẾU CHUYÊN KHOA + SINH HIỆU ĐÃ ĐO cũng là nội dung bệnh
-                       -- án (17/09/2026): thư ký điền "Lý do khám" ở phiếu Nội
-                       -- tiết, điều dưỡng đo ở màn Đo sinh hiệu — nút ký không được
-                       -- báo thiếu những thứ đã có.
-                       (SELECT jsonb_object_agg(k, v)
-                          FROM public.clinical_form_response f,
-                               jsonb_each(f.form_data) AS e(k, v)
-                         WHERE f.visit_id = st.visit_id
-                           AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
-                       EXISTS (SELECT 1 FROM public.vital_measurement m
-                                WHERE m.visit_id = st.visit_id
-                                  AND m.clinic_id = st.clinic_id) AS co_sinh_hieu
-                  FROM public.v_clinical_status st
-                  LEFT JOIN public.clinical_record cr
-                         ON cr.visit_id = st.visit_id
-                  LEFT JOIN public.patient p
-                         ON p.clinic_patient_id = st.clinic_patient_id
-                        AND p.clinic_id = st.clinic_id
-                 WHERE st.clinic_id = $1::uuid AND st.visit_id = $2::uuid
-                """,
-                identity.clinic_id,
-                visit_id,
-            )
+            # Hai câu đọc phải cùng một MVCC snapshot: nếu amendment commit giữa
+            # chúng, không được trả state/amendment cũ cùng fingerprint Rx mới.
+            async with conn.transaction(isolation="repeatable_read", readonly=True):
+                row = await conn.fetchrow(
+                    """
+                    SELECT st.*, cr.soap_subjective, cr.soap_objective,
+                           cr.soap_assessment, cr.soap_plan,
+                           cr.revision AS record_revision,
+                           cr.chief_complaint_at_visit,
+                           p.full_name AS patient_name, p.patient_code,
+                           (SELECT a.amendment_id::text
+                              FROM public.visit_amendment a
+                             WHERE a.clinic_id = st.clinic_id
+                               AND a.visit_id = st.visit_id
+                             ORDER BY a.amended_at DESC, a.amendment_id DESC
+                             LIMIT 1) AS last_amendment_id,
+                           -- PHIẾU CHUYÊN KHOA + SINH HIỆU ĐÃ ĐO cũng là nội dung bệnh
+                           -- án (17/09/2026): thư ký điền "Lý do khám" ở phiếu Nội
+                           -- tiết, điều dưỡng đo ở màn Đo sinh hiệu — nút ký không được
+                           -- báo thiếu những thứ đã có.
+                           (SELECT jsonb_object_agg(k, v)
+                              FROM public.clinical_form_response f,
+                                   jsonb_each(f.form_data) AS e(k, v)
+                             WHERE f.visit_id = st.visit_id
+                               AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
+                           EXISTS (SELECT 1 FROM public.vital_measurement m
+                                    WHERE m.visit_id = st.visit_id
+                                      AND m.clinic_id = st.clinic_id) AS co_sinh_hieu
+                      FROM public.v_clinical_status st
+                      LEFT JOIN public.clinical_record cr
+                             ON cr.visit_id = st.visit_id
+                            AND cr.clinic_id = st.clinic_id
+                      LEFT JOIN public.patient p
+                             ON p.clinic_patient_id = st.clinic_patient_id
+                            AND p.clinic_id = st.clinic_id
+                     WHERE st.clinic_id = $1::uuid AND st.visit_id = $2::uuid
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
+                rx_rows = (
+                    [
+                        dict(rx)
+                        for rx in await conn.fetch(
+                            """
+                            SELECT id, drug_name_raw, quantity,
+                                   dosage_instructions, caution
+                              FROM public.prescription
+                             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                               AND removed_at IS NULL
+                             ORDER BY id
+                            """,
+                            identity.clinic_id,
+                            visit_id,
+                        )
+                    ]
+                    if row is not None
+                    else []
+                )
         if row is None:
             raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
 
         missing = missing_fields(dict(row))
-        state = row["clinical_state"]
+        # View lịch sử ưu tiên AMENDED, nhưng một amendment đã được cho phép gửi
+        # lại phải là RELEASED để release() idempotent và UI không nói sai.
+        state = "RELEASED" if row["released_at"] is not None else row["clinical_state"]
         return {
             "visit_id": str(row["visit_id"]),
             "patient_name": row["patient_name"],
@@ -127,6 +166,8 @@ class ClinicalSignService:
             "version": row["version"],
             # Phiên bản bệnh án bác sĩ đang xem — gửi lại khi ký (15/09/2026).
             "record_revision": row["record_revision"],
+            "expected_rx": prescription_fingerprint(rx_rows),
+            "last_amendment_id": _optional_row_value(row, "last_amendment_id"),
             "signed_at": (
                 row["finalized_at"].isoformat() if row["finalized_at"] else None
             ),
@@ -142,7 +183,7 @@ class ClinicalSignService:
             "can_sign": state == "DRAFT" and not missing,
             # Cho phép gửi CHỈ sau khi ký. Đây là chốt chặn mà Quang muốn:
             # bệnh án nguy hiểm thì bác sĩ giữ lại, CSKH không thấy nút gửi.
-            "can_release": state == "SIGNED",
+            "can_release": state in ("SIGNED", "AMENDED"),
             "can_amend": state in ("SIGNED", "RELEASED", "AMENDED"),
         }
 
@@ -230,10 +271,22 @@ class ClinicalSignService:
         return {"ok": True, "state": "SIGNED"}
 
     async def release(
-        self, *, identity: StaffIdentity, visit_id: str, note: str | None = None
+        self,
+        *,
+        identity: StaffIdentity,
+        visit_id: str,
+        note: str | None = None,
+        expected_amendment_id: str | None = None,
     ) -> dict[str, Any]:
-        """Bước hai: bác sĩ cho phép CSKH gửi kết quả cho bệnh nhân."""
-        _assert_doctor(identity)
+        """Bước hai: bác sĩ cho phép CSKH gửi kết quả cho bệnh nhân.
+
+        CHỈ BÁC SĨ CHÍNH CỦA LƯỢT. Bác sĩ siêu âm ký kết quả siêu âm CỦA
+        MÌNH; cho phép gửi bệnh án là trách nhiệm bác sĩ khám.
+
+        expected_amendment_id: nếu hồ sơ ở AMENDED, bác sĩ phải gửi
+        last_amendment_id đang nhìn. Không khớp ⇒ 409 (tải lại trước).
+        """
+        _assert_release_authority(identity)
 
         state = await self.status(identity=identity, visit_id=visit_id)
         if state["state"] == "DRAFT":
@@ -243,6 +296,69 @@ class ClinicalSignService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Statement FOR UPDATE có thể lấy snapshot TRƯỚC khi chờ lock.
+                # Vì vậy chỉ khóa visit ở đây; state/release phải đọc bằng
+                # statement mới sau khi lock đã thật sự thuộc giao dịch này.
+                locked_visit = await conn.fetchval(
+                    "SELECT visit_id FROM public.visit"
+                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                    " FOR UPDATE",
+                    identity.clinic_id,
+                    visit_id,
+                )
+                if locked_visit is None:
+                    raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+                locked = await conn.fetchrow(
+                    """
+                    SELECT v.status,
+                           v.attending_doctor_id::text,
+                           EXISTS (
+                               SELECT 1 FROM public.clinical_release r
+                                WHERE r.clinic_id = v.clinic_id
+                                  AND r.visit_id = v.visit_id
+                                  AND r.revoked_at IS NULL
+                           ) AS active_release,
+                           (SELECT a.amendment_id::text
+                              FROM public.visit_amendment a
+                             WHERE a.clinic_id = v.clinic_id
+                               AND a.visit_id = v.visit_id
+                             ORDER BY a.amended_at DESC, a.amendment_id DESC
+                             LIMIT 1) AS latest_amendment_id
+                      FROM public.visit v
+                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
+                assert locked is not None
+                # Bác sĩ chính: kiểm SAU lock vì attending_doctor_id có thể
+                # đổi giữa lúc status() đọc và lúc lock xong.
+                _assert_release_doctor_is_attending(
+                    identity, locked["attending_doctor_id"]
+                )
+                locked_state = (
+                    "RELEASED"
+                    if locked["active_release"]
+                    else (
+                        ("AMENDED" if locked["latest_amendment_id"] else "SIGNED")
+                        if locked["status"] == "FINALIZED"
+                        else locked["status"]
+                    )
+                )
+                if locked_state == "RELEASED":
+                    return {"ok": True, "already_released": True}
+                if locked_state != state["state"]:
+                    raise ConflictError(
+                        "Bệnh án vừa thay đổi — tải lại trước khi cho phép gửi."
+                    )
+                # AMENDED: bác sĩ phải nhìn đúng amendment mới nhất.
+                if locked_state == "AMENDED":
+                    latest = locked["latest_amendment_id"]
+                    if expected_amendment_id != latest:
+                        raise ConflictError(
+                            "Hồ sơ vừa được đính chính — tải lại trước khi "
+                            "cho phép gửi."
+                        )
                 await conn.execute(
                     """
                     INSERT INTO public.clinical_release
@@ -273,6 +389,8 @@ class ClinicalSignService:
         visit_id: str,
         reason: str,
         corrected: dict[str, Any],
+        expected_revision: int | None = None,
+        expected_rx: str | None = None,
     ) -> dict[str, Any]:
         """Đính chính bản đã ký: tạo phiên bản mới, GIỮ NGUYÊN bản cũ.
 
@@ -280,26 +398,105 @@ class ClinicalSignService:
         báo lại cho CSKH — Notion §6: *"Nếu bản cũ đã gửi cho bệnh nhân, hệ
         thống phải tạo công việc thông báo lại."*
         """
-        _assert_doctor(identity)
-
         reason = (reason or "").strip()
         if not reason:
             raise ValidationError("Đính chính bắt buộc phải ghi lý do.")
-        corrected = {k: v for k, v in (corrected or {}).items() if k in REQUIRED_SOAP}
+        corrected = {
+            k: v
+            for k, v in (corrected or {}).items()
+            if k in REQUIRED_SOAP or k == "don_thuoc"
+        }
         if not corrected:
             raise ValidationError(
                 "Chưa có nội dung nào được sửa. Chọn ít nhất một mục."
             )
-
-        state = await self.status(identity=identity, visit_id=visit_id)
-        if state["state"] == "DRAFT":
+        if expected_revision is None:
             raise ValidationError(
-                "Hồ sơ chưa ký thì sửa trực tiếp, không cần đính chính."
+                "Thiếu expected_revision — tải lại bệnh án trước khi đính chính."
             )
-        was_released = state["state"] == "RELEASED"
+        rx_requested = "don_thuoc" in corrected
+        if rx_requested:
+            corrected = {
+                **corrected,
+                "don_thuoc": validate_amendment_prescriptions(corrected["don_thuoc"]),
+            }
+        if rx_requested and not expected_rx:
+            raise ValidationError(
+                "Thiếu expected_rx — tải lại bệnh án trước khi đính chính đơn thuốc."
+            )
+        if rx_requested and len(reason) < 5:
+            raise ValidationError("Lý do đính chính đơn thuốc phải có ít nhất 5 ký tự.")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Tách statement khóa khỏi statement đọc revision/release.
+                # Ở READ COMMITTED, join/subquery trong chính SELECT FOR UPDATE
+                # có thể giữ snapshot cũ sau khi chờ transaction trước commit.
+                locked_visit = await conn.fetchval(
+                    "SELECT visit_id FROM public.visit"
+                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                    " FOR UPDATE",
+                    identity.clinic_id,
+                    visit_id,
+                )
+                if locked_visit is None:
+                    raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+                visit = await conn.fetchrow(
+                    """
+                    SELECT v.status, v.clinic_patient_id::text,
+                           v.attending_doctor_id::text,
+                           cr.revision AS record_revision,
+                           EXISTS (
+                               SELECT 1 FROM public.clinical_release r
+                                WHERE r.clinic_id = v.clinic_id
+                                  AND r.visit_id = v.visit_id
+                                  AND r.revoked_at IS NULL
+                           ) AS was_released
+                      FROM public.visit v
+                      LEFT JOIN public.clinical_record cr
+                             ON cr.clinic_id = v.clinic_id
+                            AND cr.visit_id = v.visit_id
+                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
+                assert visit is not None
+                _assert_amend_authority(identity, visit["attending_doctor_id"])
+                if visit["status"] not in ("FINALIZED", "AMENDED"):
+                    raise ValidationError(
+                        "Hồ sơ chưa ký thì sửa trực tiếp, không cần đính chính."
+                    )
+                if visit["record_revision"] != expected_revision:
+                    raise ConflictError(
+                        "Bệnh án vừa thay đổi — tải lại trước khi đính chính."
+                    )
+                was_released = bool(visit["was_released"])
+
+                rx_plan = None
+                if rx_requested:
+                    assert expected_rx is not None
+                    rx_plan = await chuan_bi_don_da_ky(
+                        conn,
+                        visit_id=visit_id,
+                        clinic_id=identity.clinic_id,
+                        prescriptions=corrected["don_thuoc"],
+                        identity=identity,
+                        expected_rx=expected_rx,
+                    )
+                    if not rx_plan.changed:
+                        corrected.pop("don_thuoc")
+                        rx_requested = False
+                if not corrected:
+                    raise ValidationError(
+                        "Chưa có nội dung nào được sửa. Chọn ít nhất một mục."
+                    )
+
+                soap_corrected = {
+                    key: value
+                    for key, value in corrected.items()
+                    if key in REQUIRED_SOAP
+                }
                 before = await conn.fetchrow(
                     "SELECT soap_subjective, soap_objective, soap_assessment,"
                     "       soap_plan"
@@ -311,7 +508,16 @@ class ClinicalSignService:
                 # asyncpg trả jsonb về dạng CHUỖI. Giải mã để "giá trị
                 # trước" trong visit_amendment là JSON thật, không phải một
                 # chuỗi JSON bị đóng gói hai lần.
-                original = {k: _loads(before[k]) if before else None for k in corrected}
+                original = {
+                    key: _loads(before[key]) if before else None
+                    for key in soap_corrected
+                }
+                corrected_values: dict[str, Any] = dict(soap_corrected)
+                if rx_requested and rx_plan is not None:
+                    original["don_thuoc"] = rx_plan.original_snapshot
+                    corrected_values["don_thuoc"] = rx_plan.corrected_snapshot
+
+                amendment_id = str(uuid.uuid4())
 
                 # AMENDED trước: trigger chỉ cho FINALIZED → AMENDED, nên phải
                 # mở khoá rồi mới ghi được nội dung mới.
@@ -324,33 +530,59 @@ class ClinicalSignService:
                 # `::jsonb` vì các cột SOAP là jsonb, không phải text. Truyền
                 # chuỗi trần vào đây sẽ ném "invalid input syntax for type json"
                 # ngay ký tự tiếng Việt đầu tiên.
-                sets = ", ".join(
-                    f"{k} = ${i + 2}::jsonb" for i, k in enumerate(corrected)
-                )
-                # clinic_id là tham số CUỐI vì các cột SOAP đánh số từ $2 trở
-                # đi và số lượng thay đổi theo số trường được đính chính.
-                await conn.execute(  # noqa: S608 — khoá cột từ REQUIRED_SOAP
-                    f"UPDATE public.clinical_record SET {sets}, updated_at = now()"
-                    f" WHERE visit_id = $1::uuid"
-                    f" AND clinic_id = ${len(corrected) + 2}::uuid",
-                    visit_id,
-                    *(json.dumps(v, ensure_ascii=False) for v in corrected.values()),
-                    identity.clinic_id,
-                )
                 await conn.execute(
                     """
                     INSERT INTO public.visit_amendment
-                        (visit_id, amended_by, reason, corrected_fields,
+                        (amendment_id, clinic_id, visit_id, amended_by,
+                         reason, corrected_fields,
                          original_values, corrected_values)
-                    VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::jsonb)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
+                            $5, $6, $7::jsonb, $8::jsonb)
                     """,
+                    amendment_id,
+                    identity.clinic_id,
                     visit_id,
                     identity.staff_id,
                     reason,
                     list(corrected.keys()),
                     json.dumps(original, ensure_ascii=False),
-                    json.dumps(corrected, ensure_ascii=False),
+                    json.dumps(corrected_values, ensure_ascii=False),
                 )
+                await conn.execute(
+                    "SELECT set_config('clinicai.amendment_id', $1, true)",
+                    amendment_id,
+                )
+
+                if soap_corrected:
+                    sets = ", ".join(
+                        f"{key} = ${index + 2}::jsonb"
+                        for index, key in enumerate(soap_corrected)
+                    )
+                    await conn.execute(  # noqa: S608 — keys từ REQUIRED_SOAP
+                        f"UPDATE public.clinical_record SET {sets}, updated_at = now()"
+                        f" WHERE visit_id = $1::uuid"
+                        f" AND clinic_id = ${len(soap_corrected) + 2}::uuid",
+                        visit_id,
+                        *(
+                            json.dumps(value, ensure_ascii=False)
+                            for value in soap_corrected.values()
+                        ),
+                        identity.clinic_id,
+                    )
+
+                rx_result: dict[str, Any] | None = None
+                if rx_requested and rx_plan is not None:
+                    rx_result = await ap_dung_don_da_ky(
+                        conn,
+                        plan=rx_plan,
+                        amendment_id=amendment_id,
+                        visit_id=visit_id,
+                        clinic_id=identity.clinic_id,
+                        clinic_patient_id=visit["clinic_patient_id"],
+                        created_by=identity.staff_id,
+                        identity=identity,
+                        reason=reason,
+                    )
 
                 if was_released:
                     # Bản cũ đã được phép gửi ⇒ thu hồi. KHÔNG xoá dòng: "đã
@@ -361,13 +593,21 @@ class ClinicalSignService:
                         UPDATE public.clinical_release
                            SET revoked_at = now(), revoked_by = $2::uuid,
                                revoke_reason = $3
-                         WHERE visit_id = $1::uuid AND revoked_at IS NULL
+                         WHERE visit_id = $1::uuid AND clinic_id = $4::uuid
+                           AND revoked_at IS NULL
                         """,
                         visit_id,
                         identity.staff_id,
                         f"Hồ sơ được đính chính: {reason}",
+                        identity.clinic_id,
                     )
-                    await _create_renotify_task(conn, identity, visit_id, reason)
+                    await _create_renotify_task(
+                        conn,
+                        identity,
+                        visit_id,
+                        reason,
+                        amendment_id=amendment_id,
+                    )
 
                 await _log(
                     conn,
@@ -375,10 +615,14 @@ class ClinicalSignService:
                     visit_id,
                     "clinical.amended",
                     {
-                        "reason": reason,
                         "fields": list(corrected.keys()),
                         "was_released": was_released,
+                        "amendment_id": amendment_id,
+                        "correction_id": (
+                            rx_result["correction_id"] if rx_result else None
+                        ),
                     },
+                    correlation_id=amendment_id,
                 )
 
         logger.info(
@@ -395,6 +639,7 @@ class ClinicalSignService:
             # Màn hình phải nói ra: bản cũ đã tới tay bệnh nhân, và một việc
             # gọi lại vừa được tạo.
             "renotify_created": was_released,
+            "amendment_id": amendment_id,
         }
 
     async def sign_ultrasound(
@@ -547,6 +792,14 @@ def _loads(value: Any) -> Any:
     return value
 
 
+def _optional_row_value(row: Any, key: str) -> Any:
+    """Asyncpg Record và fake dict cùng trả None cho cột mới chưa stub."""
+    try:
+        return row[key]
+    except KeyError:
+        return None
+
+
 def _assert_doctor(identity: StaffIdentity) -> None:
     if not identity.co_vai(SIGNING_ROLES):
         raise ValidationError(
@@ -555,11 +808,57 @@ def _assert_doctor(identity: StaffIdentity) -> None:
         )
 
 
+def _assert_amend_authority(
+    identity: StaffIdentity, attending_doctor_id: str | None
+) -> None:
+    """Đính chính bệnh án chính hẹp hơn quyền ký kết quả siêu âm."""
+    if not identity.co_vai({ClinicRole.DOCTOR}):
+        raise SafetyGateError("Chỉ bác sĩ chính của lượt mới được đính chính bệnh án.")
+    if attending_doctor_id is None:
+        raise SafetyGateError(
+            "Lượt chưa có bác sĩ chính — chưa thể xác định quyền đính chính."
+        )
+    if attending_doctor_id != identity.staff_id:
+        raise SafetyGateError(
+            "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt được đính chính."
+        )
+
+
+def _assert_release_authority(identity: StaffIdentity) -> None:
+    """Cho phép gửi bệnh án: CHỈ BÁC SĨ, KHÔNG gồm bác sĩ siêu âm.
+
+    Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH — nhưng cho phép gửi toàn bộ
+    bệnh án (bao gồm SOAP, chẩn đoán) là trách nhiệm bác sĩ khám.
+    """
+    if not identity.co_vai({ClinicRole.DOCTOR}):
+        raise SafetyGateError("Chỉ bác sĩ chính của lượt mới cho phép gửi bệnh án.")
+
+
+def _assert_release_doctor_is_attending(
+    identity: StaffIdentity, attending_doctor_id: str | None
+) -> None:
+    """Bác sĩ cho phép gửi phải là bác sĩ chính của lượt.
+
+    Kiểm SAU lock vì attending_doctor_id có thể đổi giữa lúc status() đọc
+    (trước lock) và lúc transaction thật sự giữ lock.
+    """
+    if attending_doctor_id is None:
+        raise SafetyGateError(
+            "Lượt chưa có bác sĩ chính — chưa thể cho phép gửi bệnh án."
+        )
+    if attending_doctor_id != identity.staff_id:
+        raise SafetyGateError(
+            "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt cho phép gửi."
+        )
+
+
 async def _create_renotify_task(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
     visit_id: str,
     reason: str,
+    *,
+    amendment_id: str | None = None,
 ) -> None:
     """Việc cho CSKH: gọi lại báo bệnh nhân rằng kết quả đã đính chính."""
     row = await conn.fetchrow(
@@ -604,7 +903,7 @@ async def _create_renotify_task(
                 $5)
         """,
         identity.clinic_id,
-        f"amend:{visit_id}",
+        f"amend:{amendment_id or visit_id}",
         row["clinic_patient_id"],
         f"Kết quả đã gửi cho bệnh nhân vừa được bác sĩ đính chính. Lý do: {reason}."
         " Cần liên hệ lại và gửi bản mới.",
@@ -623,14 +922,16 @@ async def _log(
     visit_id: str,
     event_type: str,
     payload: dict[str, Any],
+    *,
+    correlation_id: str | None = None,
 ) -> None:
     await conn.execute(
         """
         INSERT INTO public.event_log
             (clinic_id, event_type, aggregate_type, aggregate_id, payload,
-             metadata, source, event_published)
+             metadata, correlation_id, source, event_published)
         VALUES ($1::uuid, $2, 'visit', $3::uuid, $4::jsonb, $5::jsonb,
-                'api:clinical', FALSE)
+                $6::uuid, 'api:clinical', FALSE)
         """,
         identity.clinic_id,
         event_type,
@@ -654,4 +955,5 @@ async def _log(
                 "vai_tai_khoan": identity.vai_goc.value,
             }
         ),
+        correlation_id,
     )

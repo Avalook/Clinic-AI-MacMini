@@ -21,6 +21,8 @@ interface Status {
   version: number;
   /** Phiên bản bệnh án đang xem — gửi khi ký để chốt đúng bản ấy. */
   record_revision?: number | null;
+  /** Amendment mới nhất — gửi khi cho phép gửi bản AMENDED. */
+  last_amendment_id?: string | null;
   signed_at: string | null;
   signed_by_name: string | null;
   released_at: string | null;
@@ -223,7 +225,11 @@ export default function ClinicalSignPanel({
             <button
               disabled={busy}
               onClick={() =>
-                act("release", {}, "✓ Đã cho phép CSKH gửi kết quả")
+                act(
+                  "release",
+                  { expected_amendment_id: st.last_amendment_id ?? null },
+                  "✓ Đã cho phép CSKH gửi kết quả",
+                )
               }
               className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-success px-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
             >
@@ -290,14 +296,20 @@ export default function ClinicalSignPanel({
                 if (!f) return;
                 // Các cột SOAP là jsonb dạng {"chan_doan": "..."} — gửi object,
                 // không gửi chuỗi trần.
-                void act(
-                  "amend",
-                  {
-                    reason: reason.trim(),
-                    corrected: { [f.key]: { [f.json]: value.trim() } },
-                  },
-                  "✓ Đã đính chính",
-                );
+                    const rev = revision ?? st.record_revision;
+                    if (rev == null) {
+                      setMsg("✗ Chưa có revision — tải lại trang trước khi đính chính.");
+                      return;
+                    }
+                    void act(
+                      "amend",
+                      {
+                        reason: reason.trim(),
+                        corrected: { [f.key]: { [f.json]: value.trim() } },
+                        expected_revision: rev,
+                      },
+                      "✓ Đã đính chính",
+                    );
               }}
               className="min-h-9 rounded-lg bg-danger px-3 text-sm font-semibold text-white disabled:opacity-50"
             >

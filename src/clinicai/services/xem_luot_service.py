@@ -595,12 +595,18 @@ class XemLuotService:
     ) -> list[dict[str, Any]]:
         rows = await conn.fetch(
             """
-            SELECT pr.drug_name_raw, pr.quantity, pr.quantity_num, pr.unit,
-                   pr.dosage_instructions, pr.dispensed_qty, pr.dispensed_at,
-                   pr.dispense_status, pr.refusal_reason, pr.closed_at,
-                   s.full_name AS nguoi_cap
+            -- rx:gom-ca-lich-su: Xem lượt là LỊCH SỬ — hiện cả dòng đã đính
+            -- chính (đánh dấu), để thấy "thuốc A được thay bằng B vì ...".
+            SELECT pr.id::text, pr.drug_name_raw, pr.quantity, pr.quantity_num,
+                   pr.unit, pr.dosage_instructions, pr.dispensed_qty,
+                   pr.dispensed_at, pr.dispense_status, pr.refusal_reason,
+                   pr.closed_at, s.full_name AS nguoi_cap,
+                   pr.removed_at, pr.removal_reason,
+                   pr.superseded_by_id::text AS thay_boi,
+                   sg.full_name AS nguoi_dinh_chinh
               FROM prescription pr
               LEFT JOIN staff s ON s.id = pr.dispensed_by_staff_id
+              LEFT JOIN staff sg ON sg.id = pr.removed_by
              WHERE pr.clinic_id = $1::uuid AND pr.visit_id = $2::uuid
              ORDER BY pr.created_at, pr.id
             """,
@@ -618,6 +624,13 @@ class XemLuotService:
                 "trang_thai_cap": r["dispense_status"],
                 "ly_do_tu_choi": r["refusal_reason"],
                 "nguoi_cap": r["nguoi_cap"],
+                # CP6: dòng đã đính chính vẫn hiện — đánh dấu, kèm dòng thay.
+                "id": r["id"],
+                "da_dinh_chinh": r["removed_at"] is not None,
+                "dinh_chinh_luc": _iso(r["removed_at"]),
+                "ly_do_dinh_chinh": r["removal_reason"],
+                "nguoi_dinh_chinh": r["nguoi_dinh_chinh"],
+                "thay_boi": r["thay_boi"],
             }
             for r in rows
         ]

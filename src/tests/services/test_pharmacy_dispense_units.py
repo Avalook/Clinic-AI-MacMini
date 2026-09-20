@@ -29,17 +29,23 @@ def connection(rx_unit: str | None, batch_unit: str | None) -> Any:
     conn = MagicMock()
     conn.transaction.return_value.__aenter__ = AsyncMock()
     conn.transaction.return_value.__aexit__ = AsyncMock(return_value=False)
+    # CP3: cap_phat khoá lượt → dòng đơn, rồi đọc lần thu thuốc. Lần thu cũ
+    # (`legacy`) đi luồng cấp phát cũ — đúng luồng các test này kiểm đơn vị.
+    conn.fetchval = AsyncMock(return_value="v1")
     conn.fetchrow = AsyncMock(
         side_effect=[
             {
                 "id": "p1",
+                "visit_id": "v1",
                 "drug_name_raw": "Thuốc thử",
                 "quantity_num": Decimal("2"),
                 "unit": rx_unit,
                 "dispensed_qty": Decimal("0"),
                 "closed_at": None,
                 "refusal_reason": None,
+                "removed_at": None,
             },
+            {"payment_cycle_id": "c1", "legacy": True},
             {
                 "id": "b1",
                 "quantity_on_hand": Decimal("100"),
@@ -87,8 +93,9 @@ async def test_incompatible_units_rejected_before_any_write(
     if rx_unit and rx_unit.strip() and batch_unit and batch_unit.strip():
         assert rx_unit in str(error.value)
         assert batch_unit in str(error.value)
-    conn.execute.assert_not_awaited()
-    assert conn.fetchrow.await_count == 2  # no prescription UPDATE either
+    # Chỉ có lệnh khoá lượt; không ghi sổ kho.
+    assert all("inventory_txn" not in c.args[0] for c in conn.execute.await_args_list)
+    assert conn.fetchrow.await_count == 3  # no prescription UPDATE either
 
 
 @pytest.mark.asyncio
@@ -117,11 +124,11 @@ async def test_equal_units_keep_stock_and_prescription_quantity_in_same_unit(
         "dispensed_qty": Decimal("2"),
         "dispense_status": "CAP_DU",
     }
-    inventory_sql, *inventory_args = conn.execute.await_args_list[0].args
+    inventory_sql, *inventory_args = conn.execute.await_args_list[1].args
     assert "inventory_txn" in inventory_sql
     assert inventory_args[3] == Decimal("-2")
-    update_sql, *update_args = conn.fetchrow.await_args_list[2].args
+    update_sql, *update_args = conn.fetchrow.await_args_list[3].args
     assert "UPDATE public.prescription" in update_sql
     assert update_args[2] == Decimal("2")
     assert "unit" in conn.fetchrow.await_args_list[0].args[0]
-    assert "b.unit" in conn.fetchrow.await_args_list[1].args[0]
+    assert "b.unit" in conn.fetchrow.await_args_list[2].args[0]

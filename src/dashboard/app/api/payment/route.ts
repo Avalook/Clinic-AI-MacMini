@@ -1,10 +1,17 @@
 // /api/payment — chốt / hoàn tác thu tiền 1 khâu của 1 lượt khám.
-//   POST   { visitId, clinicPatientId?, kind, amount? }  → đánh dấu ĐÃ THU.
-//   DELETE { visitId, kind, reason }                     → hoàn tác có lý do.
+//   POST   { visitId, clinicPatientId?, kind, billRevision?, amount?, method? }
+//          → một LẦN THU. method CASH (mặc định) → ĐÃ THU; TRANSFER/QR → CHỜ XÁC MINH.
+//          Số tiền do máy chủ tính (contract tiền–thuốc C3); amount chỉ để đối chiếu.
+//   POST   { action: "xac-minh", paymentCycleId, visitId, kind, reference }
+//          → chuyển khoản/QR đã nhận. Mọi lệnh sau khi đã có lần thu nhắm ĐÚNG
+//          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
+//   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
+//   POST   { action: "hoan-tien" | "hoan-tien-xac-nhan" | "hoan-tien-dong", … } → CP5.
+//   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
 // Toàn bộ luật nằm ở FastAPI (ADR-0012): vai nào được thu khâu nào, chốt "chỉ
-// thu khi bác sĩ đã khám xong" (appointment.status = COMPLETED), ghi sổ + audit
+// thu khi bác sĩ đã khám xong" (visit.exam_completed_at), ghi sổ + audit
 // trong cùng một transaction. Route này chỉ chuyển tiếp kèm token người gọi —
 // không còn service-role, nên nó không thể đọc/ghi ngoài phòng khám của họ.
 
@@ -25,16 +32,74 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const p = (raw ?? {}) as {
+    action?: string;
     visitId?: string;
     clinicPatientId?: string;
     kind?: string;
     amount?: number;
+    billRevision?: string;
+    method?: string;
+    reference?: string;
+    reason?: string;
+    paymentCycleId?: string;
+    refundId?: string;
+    trangThai?: string;
+    dong?: { payment_bill_line_id: string; so_luong: number }[];
   };
+  // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
+  if (p.action === "hoan-tien") {
+    // Chống gửi trùng (review CP5 P1-A): cùng khoá → máy chủ trả lại kết quả
+    // lần đầu, không tạo khoản hoàn thứ hai.
+    return proxyJsonToBackend(
+      "POST",
+      "/api/v1/payments/hoan-tien",
+      {
+        payment_cycle_id: p.paymentCycleId,
+        visit_id: p.visitId,
+        kind: p.kind,
+        method: p.method,
+        reason: p.reason,
+        dong: p.dong,
+      },
+      request.headers.get("Idempotency-Key") ?? undefined,
+    );
+  }
+  if (p.action === "hoan-tien-xac-nhan") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien/xac-nhan", {
+      refund_id: p.refundId,
+      reference: p.reference,
+    });
+  }
+  if (p.action === "hoan-tien-dong") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tien/dong", {
+      refund_id: p.refundId,
+      trang_thai: p.trangThai,
+      reason: p.reason,
+    });
+  }
+  if (p.action === "xac-minh") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/xac-minh", {
+      payment_cycle_id: p.paymentCycleId,
+      visit_id: p.visitId,
+      kind: p.kind,
+      reference: p.reference,
+    });
+  }
+  if (p.action === "huy-cho") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/huy-cho", {
+      payment_cycle_id: p.paymentCycleId,
+      visit_id: p.visitId,
+      kind: p.kind,
+      reason: p.reason,
+    });
+  }
   return proxyJsonToBackend("POST", "/api/v1/payments", {
     visit_id: p.visitId,
     clinic_patient_id: p.clinicPatientId || null,
     kind: p.kind,
     amount: p.amount,
+    bill_revision: p.billRevision || null,
+    method: p.method || "CASH",
   });
 }
 
@@ -43,8 +108,14 @@ export async function DELETE(request: Request) {
   if (raw === undefined) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const p = (raw ?? {}) as { visitId?: string; kind?: string; reason?: string };
+  const p = (raw ?? {}) as {
+    paymentCycleId?: string;
+    visitId?: string;
+    kind?: string;
+    reason?: string;
+  };
   return proxyJsonToBackend("DELETE", "/api/v1/payments", {
+    payment_cycle_id: p.paymentCycleId,
     visit_id: p.visitId,
     kind: p.kind,
     reason: p.reason,

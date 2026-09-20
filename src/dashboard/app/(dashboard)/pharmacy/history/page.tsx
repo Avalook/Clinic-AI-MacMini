@@ -26,6 +26,8 @@ export default async function PharmacyHistoryPage() {
     // từng xảy ra, mà người quản lý nhìn vào sẽ tin thuốc đã ra khỏi kho. Đó là
     // màn hình nói dối, không phải màn hình thiếu dữ liệu.
     .gt("dispensed_qty", 0)
+    // rx:gom-ca-lich-su: thuốc ĐÃ GIAO của dòng sau đó được bác sĩ đính chính
+    // vẫn là thuốc đã ra khỏi kho — lịch sử bàn giao phải còn nó.
     .order("dispensed_at", { ascending: false })
     .limit(200);
 

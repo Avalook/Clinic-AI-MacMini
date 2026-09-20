@@ -259,6 +259,13 @@ CREATE OR REPLACE FUNCTION "public"."visit_finalized_block_update"() RETURNS "tr
     AS $$
 BEGIN
     IF OLD.status = 'FINALIZED' AND NEW.status <> 'AMENDED' THEN
+        IF OLD.exam_completed_at IS NULL
+           AND NEW.exam_completed_at IS NOT NULL
+           AND (to_jsonb(NEW) - ARRAY['exam_completed_at', 'updated_at'])
+             = (to_jsonb(OLD) - ARRAY['exam_completed_at', 'updated_at']) THEN
+            RETURN NEW;
+        END IF;
+
         RAISE EXCEPTION
             'visit % is FINALIZED; UPDATE blocked except FINALIZED -> AMENDED (TT13/2011/TT-BYT)',
             OLD.visit_id

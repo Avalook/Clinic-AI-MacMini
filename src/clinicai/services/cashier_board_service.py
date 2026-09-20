@@ -18,9 +18,11 @@ LUẬT ĐI THEO, KHÔNG Ở LẠI.
 Ba luật vốn nằm trong TSX được chuyển xuống cùng, đúng nguyên tắc của dự án
 (logic ở backend, TSX chỉ vẽ):
 
-  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG: lịch hẹn 'COMPLETED' (đường
-     cũ) HOẶC phiên khám chính đã kết thúc (luồng lượt khám — nút "Đã khám
-     xong" không đụng tới trạng thái lịch hẹn).
+  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG — cùng mốc với Payment và
+     Nhà thuốc (`moc_kham_xong`: `visit.exam_completed_at`, nhánh tương thích
+     lịch hẹn COMPLETED). Lượt không có lịch hẹn vẫn hiện (review CP4). Trước
+     đây còn nhận "phiên khám chính đã kết thúc" dù lượt chưa khép — những
+     lượt ấy lệnh thu vẫn từ chối, nên chỉ là dòng hiện ra mà không thu được.
   2. Tên dịch vụ/thuốc phải CHUẨN HOÁ trước khi tra bảng giá — bỏ đường link
      dính trong tên, gộp khoảng trắng, bỏ ngoặc. Không chuẩn hoá thì "Siêu âm
      (https://...)" không khớp dòng giá nào và thu ngân thấy giá trống.
@@ -39,6 +41,8 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
+from clinicai.services.moc_kham_xong import kham_xong_sql
 
 logger = structlog.get_logger()
 
@@ -77,7 +81,8 @@ def clean_name(s: str | None) -> str:
 
 
 # Một câu, một vòng mạng. Sáu tập dữ liệu gói trong một JSON.
-_SQL = """
+_SQL = (
+    """
 WITH v AS (
     SELECT vi.visit_id,
            vi.clinic_patient_id,
@@ -88,19 +93,19 @@ WITH v AS (
            a.status                AS appt_status,
            st.name                 AS exam_service_name
       FROM public.visit vi
-      JOIN public.appointment a ON a.id = vi.appointment_id
+      LEFT JOIN public.appointment a
+             ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
       LEFT JOIN public.patient p
              ON p.clinic_patient_id = vi.clinic_patient_id
             AND p.clinic_id = vi.clinic_id
-      LEFT JOIN public.service_type st ON st.id = a.service_type_id
+      LEFT JOIN public.service_type st
+             ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
        AND vi.created_at >= $2 AND vi.created_at < $3
-       -- Luật 1: chỉ khi bác sĩ đã khám xong.
-       AND (a.status = 'COMPLETED'
-            OR EXISTS (SELECT 1 FROM public.consultation c
-                        WHERE c.clinic_id = vi.clinic_id
-                          AND c.visit_id = vi.visit_id
-                          AND c.kind = 'PRIMARY' AND c.status = 'completed'))
+       -- Luật 1: chỉ khi bác sĩ đã khám xong (moc_kham_xong).
+       AND """
+    + kham_xong_sql("vi")
+    + """
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -135,7 +140,8 @@ SELECT json_build_object(
               'quantity', d.quantity, 'dosage', d.dosage_instructions)),
             '[]'::json)
        FROM public.prescription d
-      WHERE d.visit_id IN (SELECT visit_id FROM v)),
+      WHERE d.visit_id IN (SELECT visit_id FROM v)
+        AND d.removed_at IS NULL),
   'prices', (
      SELECT coalesce(json_agg(json_build_object(
               'name', pr.name, 'group', pr."group",
@@ -154,6 +160,7 @@ SELECT json_build_object(
         AND pay.voided_at IS NULL)
 ) AS data
 """
+)
 
 
 class CashierBoardService:
@@ -167,32 +174,51 @@ class CashierBoardService:
         thức thanh toán CHƯA có cột trong `payment` — trả null, không đoán.
         """
         a, b = doc_khoang_ngay(tu, den)
+        # SỔ CÁC LẦN THU (contract tiền–thuốc CP2): một dòng mỗi lần thu, kể cả
+        # lần đã huỷ và lần chuyển khoản chờ xác minh/đã huỷ chờ. Bản trước đọc
+        # `payment` — dòng hiện tại, bị tái dùng sau khi huỷ → mất lần thu cũ.
         rows = await self._pool.fetch(
             """
-            SELECT pm.id::text AS id, pm.visit_id::text AS visit_id, pm.kind,
-                   pm.status, pm.amount, pm.paid_at, pm.voided_at, pm.void_reason,
+            SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
+                   pc.kind, pc.status, pc.amount, pc.method, pc.reference,
+                   pc.legacy, pc.can_doi_soat, pc.created_at, pc.paid_at,
+                   pc.closed_at,
+                   pc.close_reason,
                    p.full_name, p.patient_code,
-                   s.full_name AS nguoi_thu, pm.paid_by_text,
-                   vb.full_name AS nguoi_huy
-              FROM payment pm
+                   cb.full_name AS nguoi_tao,
+                   xn.full_name AS nguoi_xac_nhan,
+                   dg.full_name AS nguoi_huy,
+                   (vi.closed_at IS NOT NULL AND pc.closed_at IS NOT NULL
+                    AND pc.closed_at > vi.closed_at) AS sau_khi_dong_luot
+              FROM payment_cycle pc
+              JOIN visit vi
+                ON vi.visit_id = pc.visit_id AND vi.clinic_id = pc.clinic_id
               LEFT JOIN patient p
-                ON p.clinic_patient_id = pm.clinic_patient_id
-               AND p.clinic_id = pm.clinic_id
-              LEFT JOIN staff s ON s.id = pm.paid_by_staff_id
-              LEFT JOIN staff vb ON vb.id = pm.voided_by_staff_id
-             WHERE pm.clinic_id = $1::uuid
-               AND (coalesce(pm.paid_at, pm.created_at) AT TIME ZONE
+                ON p.clinic_patient_id = vi.clinic_patient_id
+               AND p.clinic_id = vi.clinic_id
+              LEFT JOIN staff cb ON cb.id = pc.created_by
+              LEFT JOIN staff xn ON xn.id = pc.confirmed_by
+              LEFT JOIN staff dg ON dg.id = pc.closed_by
+             WHERE pc.clinic_id = $1::uuid
+               AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
-             ORDER BY coalesce(pm.paid_at, pm.created_at) DESC
+             ORDER BY coalesce(pc.paid_at, pc.created_at) DESC
              LIMIT 1000
             """,
             identity.clinic_id,
             a,
             b,
         )
+        # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
+        # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
+        async with self._pool.acquire() as conn:
+            hoan = await hoan_cua_cac_lan_thu(
+                conn, identity, [r["id"] for r in rows if r["paid_at"] is not None]
+            )
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
+            "co_quyen_hoan": co_quyen_hoan(identity),
             "giao_dich": [
                 {
                     "id": r["id"],
@@ -202,12 +228,18 @@ class CashierBoardService:
                     "loai": r["kind"],
                     "trang_thai": r["status"],
                     "so_tien": float(r["amount"]) if r["amount"] is not None else None,
-                    "luc": r["paid_at"].isoformat() if r["paid_at"] else None,
-                    "nguoi_thu": r["nguoi_thu"] or r["paid_by_text"],
-                    "phuong_thuc": None,
-                    "huy_luc": r["voided_at"].isoformat() if r["voided_at"] else None,
+                    "luc": (r["paid_at"] or r["created_at"]).isoformat(),
+                    "nguoi_thu": r["nguoi_xac_nhan"] or r["nguoi_tao"],
+                    # NULL = phiếu thu trước CP2 — không biết phương thức, không đoán.
+                    "phuong_thuc": r["method"],
+                    "ma_giao_dich": r["reference"],
+                    "legacy": r["legacy"],
+                    "can_doi_soat": r["can_doi_soat"],
+                    "huy_luc": r["closed_at"].isoformat() if r["closed_at"] else None,
                     "nguoi_huy": r["nguoi_huy"],
-                    "ly_do_huy": r["void_reason"],
+                    "ly_do_huy": r["close_reason"],
+                    "sau_khi_dong_luot": r["sau_khi_dong_luot"],
+                    "hoan": hoan.get(r["id"]),
                 }
                 for r in rows
             ],
@@ -227,7 +259,54 @@ class CashierBoardService:
         row = await self._pool.fetchval(_SQL, identity.clinic_id, start, end)
         raw = json.loads(row) if isinstance(row, str) else row
 
-        return build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        # HOÁ ĐƠN MÁY CHỦ (contract tiền–thuốc C3, 19/09/2026): tổng tiền và
+        # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
+        # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
+        # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
+        from clinicai.services.bill_service import tinh_hoa_don
+
+        da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
+        cho_rows = await self._pool.fetch(
+            """
+            SELECT payment_cycle_id::text AS payment_cycle_id,
+                   visit_id::text AS visit_id, kind, amount, method, created_at
+              FROM payment_cycle
+             WHERE clinic_id = $1::uuid AND status = 'PENDING_VERIFICATION'
+               AND visit_id = ANY($2::uuid[])
+            """,
+            identity.clinic_id,
+            [i["visit_id"] for i in out["items"]],
+        )
+        out["cho_xac_minh"] = [
+            {
+                "payment_cycle_id": r["payment_cycle_id"],
+                "visit_id": r["visit_id"],
+                "kind": r["kind"],
+                "so_tien": int(r["amount"]),
+                "phuong_thuc": r["method"],
+                "luc": r["created_at"].isoformat(),
+            }
+            for r in cho_rows
+        ]
+        cho = {(r["visit_id"], r["kind"]) for r in cho_rows}
+        loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
+        async with self._pool.acquire() as conn:
+            for item in out["items"]:
+                hd: dict[str, Any] = {}
+                for k in loai:
+                    if (item["visit_id"], k) in da_thu or (item["visit_id"], k) in cho:
+                        continue
+                    hd[k] = (
+                        await tinh_hoa_don(
+                            conn,
+                            clinic_id=identity.clinic_id,
+                            visit_id=item["visit_id"],
+                            kind=k,
+                        )
+                    ).cho_api()
+                item["hoa_don"] = hd
+        return out
 
 
 def doc_khoang_ngay(tu: Any, den: Any, *, mac_dinh_ngay: int = 0) -> tuple[date, date]:

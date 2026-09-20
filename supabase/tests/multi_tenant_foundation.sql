@@ -93,7 +93,21 @@ DECLARE
     -- Kim Ngưu — vi_tri_lam_viec, staff_vi_tri (20260916000008) và
     -- vi_tri_dong_ca (20260916000011). Đã kiểm trên prod trước khi nâng số: cả
     -- ba có clinic_id NOT NULL, FK tới clinic, và clinic_id đứng đầu index.
-    expected_tenant_tables constant integer := 83;
+    -- 83 → 84 (19/09/2026): payment_bill_line — ảnh chụp hoá đơn lúc thu
+    -- (20260919000001, contract tiền–thuốc CP1). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu idx_payment_bill_line_cycle.
+    -- 84 → 85 (19/09/2026): payment_cycle — sổ các lần thu (20260919000002,
+    -- contract tiền–thuốc CP2). clinic_id NOT NULL, FK tới clinic, clinic_id
+    -- đứng đầu uq_payment_cycle_mot_lan_song / idx_payment_cycle_ngay.
+    -- 85 → 86 (19/09/2026): prescription_allocation — phân lô trước khi thu
+    -- (20260919000003, contract tiền–thuốc CP3). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu mọi index của bảng.
+    -- 86 → 89 (19/09/2026): payment_refund, payment_refund_line, drug_return
+    -- (20260919000004, contract tiền–thuốc CP5). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu mọi index.
+    -- 89 → 90 (20/09/2026): prescription_correction (20260920000002, contract
+    -- tiền–thuốc CP6 bước 4a — một lần bác sĩ đính chính đơn).
+    expected_tenant_tables constant integer := 90;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

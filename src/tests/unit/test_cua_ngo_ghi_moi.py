@@ -82,6 +82,9 @@ class _Conn:
         return _Suot()
 
 
+_LAN_THU_CU = {"payment_cycle_id": "c1", "legacy": True}
+
+
 class _Suot:
     async def __aenter__(self) -> None:
         return None
@@ -165,7 +168,17 @@ class TestChotHaiLanKhongHong:
     @pytest.mark.asyncio
     async def test_chot_lai_dong_da_chot_thi_noi_ro(self) -> None:
         # UPDATE không khớp dòng nào (đã chốt trước đó) → nhưng dòng CÓ tồn tại.
-        conn = _Conn(None, 1)
+        # Thứ tự gọi (review CP1 #3): tìm lượt → khoá lượt → khoá dòng →
+        # (CP4) đã Khám xong → (CP5) còn chưa giao? → lần thu thuốc → UPDATE.
+        conn = _Conn(
+            "v1",
+            {"visit_id": "v1", "closed_at": None, "removed_at": None},
+            True,
+            None,
+            None,
+            None,
+            1,
+        )
         ra = await PharmacyService(_PoolCo(conn)).chot(
             identity=_identity(), prescription_id="p1"
         )
@@ -275,7 +288,9 @@ class TestCapPhatNoiTruocRangBuoc:
 
     @staticmethod
     def _conn(don: Any, lo: Any) -> _Conn:
-        return _Conn(don, lo)
+        # CP3: tìm lượt → khoá dòng → lần thu thuốc (cũ → luồng cấp phát cũ,
+        # đúng luồng các câu từ chối này thuộc về) → lô.
+        return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo)
 
     @pytest.mark.asyncio
     async def test_cap_qua_so_ke_thi_noi_con_bao_nhieu(self) -> None:
@@ -285,6 +300,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "quantity_num": 10,
             "dispensed_qty": 4,
             "closed_at": None,
+            "removed_at": None,
             "refusal_reason": None,
         }
         with pytest.raises(ValidationError) as e:
@@ -307,6 +323,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "quantity_num": 10,
             "dispensed_qty": 0,
             "closed_at": "2026-08-07",
+            "removed_at": None,
             "refusal_reason": None,
         }
         with pytest.raises(ConflictError):
@@ -325,6 +342,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "quantity_num": None,
             "dispensed_qty": 0,
             "closed_at": None,
+            "removed_at": None,
             "refusal_reason": None,
         }
         lo = {
@@ -353,6 +371,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "quantity_num": None,
             "dispensed_qty": 0,
             "closed_at": None,
+            "removed_at": None,
             "refusal_reason": None,
         }
         lo = {
@@ -649,14 +668,18 @@ class TestCapPhatDiTronVen:
     @pytest.mark.asyncio
     async def test_cap_mot_phan_tra_ve_trang_thai_moi(self) -> None:
         conn = _Conn(
+            "v1",
             {  # đơn còn mở, kê 10, đã cấp 0
                 "id": "p1",
+                "visit_id": "v1",
                 "drug_name_raw": "Paracetamol",
                 "quantity_num": 10,
                 "dispensed_qty": 0,
                 "closed_at": None,
+                "removed_at": None,
                 "refusal_reason": None,
             },
+            _LAN_THU_CU,
             {  # lô còn hàng, còn hạn
                 "id": "b1",
                 "quantity_on_hand": 50,
@@ -678,7 +701,15 @@ class TestCapPhatDiTronVen:
 
     @pytest.mark.asyncio
     async def test_tu_choi_tra_ve_dong_da_chot(self) -> None:
-        conn = _Conn({"dispensed_qty": 0, "dispense_status": "TU_CHOI"})
+        # tìm lượt → khoá dòng → (CP4) đã Khám xong → CHƯA thu tiền → UPDATE.
+        conn = _Conn(
+            "v1",
+            {"visit_id": "v1", "closed_at": None, "removed_at": None},
+            True,
+            None,  # (CP5) phần đã bán chưa giao — không có
+            False,
+            {"dispensed_qty": 0, "dispense_status": "TU_CHOI"},
+        )
         ra = await PharmacyService(_PoolCo(conn)).tu_choi(
             identity=_identity(),
             prescription_id="p1",
@@ -690,7 +721,16 @@ class TestCapPhatDiTronVen:
     @pytest.mark.asyncio
     async def test_chot_lai_dong_da_chot_thi_noi_ro_khong_doi_gi(self) -> None:
         # UPDATE ... AND closed_at IS NULL không khớp dòng nào, nhưng đơn CÓ tồn tại.
-        conn = _Conn(None, 1)
+        # (CP4) đã Khám xong → (CP5) còn chưa giao? → lần thu thuốc → UPDATE.
+        conn = _Conn(
+            "v1",
+            {"visit_id": "v1", "closed_at": None, "removed_at": None},
+            True,
+            None,
+            None,
+            None,
+            1,
+        )
         ra = await PharmacyService(_PoolCo(conn)).chot(
             identity=_identity(), prescription_id="p1", ly_do=None
         )

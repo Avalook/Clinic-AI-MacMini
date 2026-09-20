@@ -362,7 +362,19 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
             pool(("FROM public.v_clinical_status", _trang_thai("RELEASED")))
         ).release(identity=who(ClinicRole.DOCTOR), visit_id=VISIT)
     )["already_released"]
-    r = pool(("FROM public.v_clinical_status", _trang_thai("SIGNED")))
+    r = pool(
+        ("FROM public.v_clinical_status", _trang_thai("SIGNED")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        (
+            "SELECT v.status",
+            {
+                "status": "FINALIZED",
+                "attending_doctor_id": ME,
+                "active_release": False,
+                "latest_amendment_id": None,
+            },
+        ),
+    )
     assert (
         await ClinicalSignService(r).release(
             identity=who(ClinicRole.DOCTOR), visit_id=VISIT, note="ok"
@@ -373,7 +385,11 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
     svc = ClinicalSignService
     with pytest.raises(ValidationError, match="lý do"):
         await svc(pool()).amend(
-            identity=who(ClinicRole.DOCTOR), visit_id=VISIT, reason=" ", corrected={}
+            identity=who(ClinicRole.DOCTOR),
+            visit_id=VISIT,
+            reason=" ",
+            corrected={},
+            expected_revision=5,
         )
     with pytest.raises(ValidationError, match="Chưa có nội dung"):
         await svc(pool()).amend(
@@ -381,16 +397,51 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
             visit_id=VISIT,
             reason="x",
             corrected={"khac": 1},
+            expected_revision=5,
+        )
+    with pytest.raises(ValidationError, match="ít nhất 5"):
+        await svc(pool()).amend(
+            identity=who(ClinicRole.DOCTOR),
+            visit_id=VISIT,
+            reason="sai",
+            corrected={"don_thuoc": []},
+            expected_revision=5,
+            expected_rx="0" * 64,
         )
     with pytest.raises(ValidationError, match="chưa ký"):
-        await svc(pool(("FROM public.v_clinical_status", _trang_thai("DRAFT")))).amend(
+        await svc(
+            pool(
+                ("SELECT visit_id FROM public.visit", VISIT),
+                (
+                    "SELECT v.status, v.clinic_patient_id::text",
+                    {
+                        "status": "OPEN",
+                        "clinic_patient_id": BS1,
+                        "attending_doctor_id": ME,
+                        "record_revision": 5,
+                        "was_released": False,
+                    },
+                ),
+            )
+        ).amend(
             identity=who(ClinicRole.DOCTOR),
             visit_id=VISIT,
             reason="x",
             corrected={"soap_plan": "y"},
+            expected_revision=5,
         )
     a = pool(
-        ("FROM public.v_clinical_status", _trang_thai("RELEASED")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        (
+            "SELECT v.status, v.clinic_patient_id::text",
+            {
+                "status": "FINALIZED",
+                "clinic_patient_id": BS1,
+                "attending_doctor_id": ME,
+                "record_revision": 5,
+                "was_released": True,
+            },
+        ),
         (
             "FROM public.clinical_record WHERE visit_id",
             {
@@ -406,11 +457,86 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
         visit_id=VISIT,
         reason="Sai chẩn đoán",
         corrected={"soap_assessment": "mới", "soap_plan": {"x": 2}},
+        expected_revision=5,
     )
     assert out["ok"] and a.da_goi("INSERT INTO public.visit_amendment")
+    [amend_args] = a.da_goi("INSERT INTO public.visit_amendment")
+    assert amend_args[1] == who(ClinicRole.DOCTOR).clinic_id
     assert a.da_goi("UPDATE public.clinical_release")
     with pytest.raises(ValidationError):
         await svc(pool()).sign(identity=who(ClinicRole.TKYK), visit_id=VISIT)
+
+
+@pytest.mark.asyncio
+async def test_dinh_chinh_don_khoa_visit_roi_prescription_roi_allocation() -> None:
+    from clinicai.services.clinical_sign_service import ClinicalSignService
+    from clinicai.services.dinh_chinh_don import prescription_fingerprint
+
+    rx = "10000000-0000-4000-8000-000000000001"
+    old = {
+        "id": rx,
+        "drug_name_raw": "Thuốc cũ",
+        "quantity": "10 viên",
+        "dosage_instructions": "Sáng 1",
+        "caution": None,
+        # Mức B + đổi thuốc buộc replacement và nhánh khóa allocation.
+        "muc": 1,
+    }
+    p = pool(
+        ("SELECT visit_id FROM public.visit", VISIT),
+        (
+            "SELECT v.status, v.clinic_patient_id::text",
+            {
+                "status": "FINALIZED",
+                "clinic_patient_id": BS1,
+                "attending_doctor_id": ME,
+                "record_revision": 5,
+                "was_released": False,
+            },
+        ),
+        ("SELECT attending_doctor_id::text FROM public.visit", ME),
+        ("SELECT r.id, r.drug_name_raw", [old]),
+        (
+            "FROM public.clinical_record WHERE visit_id",
+            {
+                "soap_subjective": '"s"',
+                "soap_objective": '"o"',
+                "soap_assessment": '"a"',
+                "soap_plan": '"p"',
+            },
+        ),
+    )
+    await ClinicalSignService(p).amend(
+        identity=who(ClinicRole.DOCTOR),
+        visit_id=VISIT,
+        reason="Đổi thuốc sau khi ký",
+        corrected={
+            "don_thuoc": [
+                {
+                    "id": rx,
+                    "drug_name": "Thuốc mới",
+                    "quantity": "10 viên",
+                    "dosage": "Sáng 1",
+                }
+            ]
+        },
+        expected_revision=5,
+        expected_rx=prescription_fingerprint([old]),
+    )
+
+    queries = [query for _, query, _ in p.calls]
+    visit_lock = next(
+        i
+        for i, query in enumerate(queries)
+        if "SELECT visit_id FROM public.visit" in query and "FOR UPDATE" in query
+    )
+    rx_lock = next(i for i, query in enumerate(queries) if "FOR UPDATE OF r" in query)
+    allocation_lock = next(
+        i
+        for i, query in enumerate(queries)
+        if "FROM public.prescription_allocation" in query and "FOR UPDATE" in query
+    )
+    assert visit_lock < rx_lock < allocation_lock
 
 
 @pytest.mark.asyncio

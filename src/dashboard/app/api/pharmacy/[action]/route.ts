@@ -21,6 +21,15 @@ const ACTIONS: Record<string, string> = {
   "close-line": "/api/v1/pharmacy/close-line",
   adjust: "/api/v1/pharmacy/adjust",
   discard: "/api/v1/pharmacy/discard",
+  // Contract tiền–thuốc CP4: xác định thuốc kho, số mua, chọn / bỏ / đổi lô.
+  "xac-dinh-thuoc": "/api/v1/pharmacy/xac-dinh-thuoc",
+  "so-luong-mua": "/api/v1/pharmacy/so-luong-mua",
+  "phan-lo": "/api/v1/pharmacy/phan-lo",
+  "bo-phan-lo": "/api/v1/pharmacy/bo-phan-lo",
+  "doi-lo": "/api/v1/pharmacy/doi-lo",
+  // CP5: huỷ phần đã bán chưa giao (cần căn cứ), khách trả thuốc (chưa xử lý).
+  "huy-phan-chua-giao": "/api/v1/pharmacy/huy-phan-chua-giao",
+  "khach-tra": "/api/v1/pharmacy/khach-tra",
 };
 
 export async function POST(
@@ -62,5 +71,9 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  return proxyJsonToBackend("POST", path, body);
+  // Chuyển tiếp khoá chống-gửi-trùng (review CP5 P1-A). Trước bản này proxy
+  // KHÔNG chuyển header, nên chốt chống trùng của /pharmacy/dispense (16/09)
+  // chưa từng chạy khi bấm từ giao diện.
+  const khoa = request.headers.get("Idempotency-Key") ?? undefined;
+  return proxyJsonToBackend("POST", path, body, khoa);
 }

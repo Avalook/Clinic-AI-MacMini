@@ -96,6 +96,13 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",
     "pharmacy.discarded": "Huỷ thuốc",
+    "pharmacy.drug_mapped": "Xác định thuốc kho cho dòng đơn",
+    "pharmacy.purchase_qty_set": "Khai số lượng khách mua",
+    "pharmacy.allocated": "Chọn lô cho dòng thuốc",
+    "pharmacy.allocation_released": "Bỏ lô đã chọn",
+    "pharmacy.allocation_moved": "Đổi lô đang giữ cho lần chờ xác minh",
+    "pharmacy.undelivered_cancelled": "Huỷ phần thuốc đã bán chưa giao",
+    "pharmacy.drug_returned": "Khách trả thuốc (chưa quyết xử lý)",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",
@@ -120,6 +127,7 @@ EVENT_LABELS: dict[str, str] = {
     # ── Khám & bệnh án ──────────────────────────────────────────────────────
     "clinical_record.saved": "Lưu bệnh án",
     "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
+    "prescription.corrected": "Bác sĩ đính chính đơn thuốc",
     "service_order.draft_saved": "Thư ký nhập chỉ định nháp",
     "service_order.draft_approved": "Bác sĩ duyệt chỉ định thư ký nhập",
     "service_order.draft_discarded": "Bỏ chỉ định nháp",
@@ -145,7 +153,18 @@ EVENT_LABELS: dict[str, str] = {
     "service_log.started": "Bắt đầu làm dịch vụ",
     "service_log.finished": "Xong dịch vụ",
     "payment.recorded": "Ghi nhận thanh toán",
+    "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
+    "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
+    "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",
+    "payment.sale_not_applied": "Đã nhận tiền nhưng chưa ghi bán thuốc — cần đối soát",
+    "payment.drug_return_needed": (
+        "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
+    ),
     "payment.voided": "Huỷ phiếu thanh toán",
+    "payment.refunded": "Hoàn tiền cho khách",
+    "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
+    "payment.refund_failed": "Hoàn tiền không thành",
+    "payment.refund_cancelled": "Huỷ yêu cầu hoàn tiền",
     # ── CSKH ────────────────────────────────────────────────────────────────
     "cskh_action.created": "Tạo việc chăm sóc khách",
     "cskh_log.followup_call": "Gọi chăm sóc khách",

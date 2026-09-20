@@ -44,51 +44,6 @@ def _validated_prescription_items(
     return validated
 
 
-def _locked_prescription_matches(
-    existing: list[Any], incoming: list[dict[str, Any]]
-) -> list[tuple[Any, dict[str, Any]]]:
-    """Resolve all locked rows before writing; never guess legacy identities."""
-    by_id = {item["id"]: item for item in incoming if item["id"] is not None}
-    matches = []
-    for row in existing:
-        if not ((row["dispensed_qty"] or 0) > 0 or row["closed_at"] is not None):
-            continue
-        key = _prescription_key(row["drug_name_raw"], row["quantity"])
-        item = by_id.get(str(row["id"]))
-        if item is None:
-            legacy = [
-                candidate
-                for candidate in incoming
-                if candidate["id"] is None
-                and _prescription_key(
-                    candidate.get("drug_name"), candidate.get("quantity")
-                )
-                == key
-            ]
-            existing_count = sum(
-                _prescription_key(candidate["drug_name_raw"], candidate["quantity"])
-                == key
-                for candidate in existing
-            )
-            if legacy and (len(legacy) != 1 or existing_count != 1):
-                raise ValidationError(
-                    "Đơn thuốc cũ có dòng trùng tên và số lượng — "
-                    "hãy tải lại bệnh án để lấy mã dòng trước khi lưu"
-                )
-            item = legacy[0] if legacy else None
-        if (
-            item is None
-            or _prescription_key(item.get("drug_name"), item.get("quantity")) != key
-        ):
-            raise ConflictError(
-                f"Thuốc “{row['drug_name_raw']}” ({row['quantity'] or '—'}) "
-                "nhà thuốc đã cấp hoặc đã chốt — không xoá hay đổi số lượng "
-                "được từ bệnh án. Giữ nguyên dòng này; cần đổi thì báo nhà thuốc."
-            )
-        matches.append((row, item))
-    return matches
-
-
 class PrescriptionDraftPendingError(ConflictError):
     error_code = "PRESCRIPTION_DRAFT_PENDING"
 
@@ -110,7 +65,7 @@ async def _approved_rows_unchanged(
     rows = await conn.fetch(
         "SELECT id, drug_name_raw, quantity, dosage_instructions, caution "
         "FROM prescription WHERE visit_id = $1::uuid AND clinic_id = $2::uuid "
-        "FOR UPDATE",
+        "AND removed_at IS NULL ORDER BY id FOR UPDATE",
         visit_id,
         clinic_id,
     )
@@ -186,7 +141,8 @@ async def prepare_prescription_write(
             return PrescriptionWrite(draft, None)
         rows = await conn.fetch(
             "SELECT id FROM prescription "
-            "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+            "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid "
+            "AND removed_at IS NULL ORDER BY id FOR UPDATE",
             visit_id,
             identity.clinic_id,
         )

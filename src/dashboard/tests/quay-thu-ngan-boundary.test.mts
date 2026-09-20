@@ -24,15 +24,19 @@ test("giá trống hiện ra là trống, không hiện thành 0đ", () => {
   assert.doesNotMatch(quay, /d\.price\s*(\?\?|\|\|)\s*0/);
 });
 
-test("còn dòng chưa có giá thì KHÔNG bấm thu được", () => {
+test("còn dòng chưa thu được thì KHÔNG bấm thu được — theo lời MÁY CHỦ", () => {
   // Thu thiếu rồi ghi sổ là đã thu đủ thì sai lệch ấy không còn chỗ nào lộ ra.
-  assert.match(quay, /disabled=\{[^}]*thieuGia\s*>\s*0/);
-  assert.match(quay, /disabled=\{[^}]*tong\s*<=\s*0/);
+  // Từ contract tiền–thuốc C3 (19/09/2026) "thu được hay không" do máy chủ
+  // quyết (thiếu giá, giá mâu thuẫn, chưa xác định thuốc kho) — màn chỉ nghe.
+  assert.match(quay, /disabled=\{[^}]*!hd\.thu_duoc/);
 });
 
-test("cộng tiền bỏ qua dòng thiếu giá và đếm chúng lại", () => {
-  assert.match(quay, /function congDong/);
-  assert.match(quay, /thieuGia\s*\+=\s*1/);
+test("màn KHÔNG tự cộng tiền; lệnh thu gửi dấu hoá đơn máy chủ", () => {
+  // Bản trước tự cộng `price` từng dòng và quên nhân số lượng thuốc (B2), rồi
+  // gửi số ấy lên và máy chủ tin (B1). Nay tổng là `hd.tong` máy chủ tính, và
+  // lệnh thu mang `revision` để máy chủ từ chối nếu hoá đơn đã đổi.
+  assert.doesNotMatch(quay, /function congDong/);
+  assert.match(quay, /billRevision:\s*hd\.revision/);
 });
 
 test("mỗi quầy là một trang có cửa gác riêng, quầy ghim cứng trong trang", () => {

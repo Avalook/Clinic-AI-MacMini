@@ -1,118 +1,26 @@
-// Nhà thuốc — Đơn thuốc chờ cấp + Chuẩn bị thuốc (image_8 + image_9).
-// Dược sĩ (PHARMACIST) quản lý hàng đợi đơn thuốc, soạn thuốc theo đơn,
-// kiểm tra trước bàn giao. Kho đầy đủ (lô/hạn dùng) qua drug_batch + inventory_txn.
+// Nhà thuốc — contract tiền–thuốc CP4 (19/09/2026).
+//
+// Đọc QUA MÁY CHỦ (`GET /api/v1/pharmacy/ban-thuoc`), không đọc thẳng
+// Supabase như bản trước: màn này phải biết giai đoạn tiền thuốc của lượt (đã
+// khám xong chưa, lần thu nào đang chờ / đã thu, lô nào đang giữ / đã bán) và
+// những nút nào được phép — đó là luật nghiệp vụ, sống ở FastAPI.
 
-import { getSupabaseServer } from "../../../lib/supabase-server";
-import { motBanGhi } from "../../../lib/postgrest-embed";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import PharmacyBoard from "./PharmacyBoard";
+import type { ManNhaThuoc } from "./ban-thuoc";
 
 export const dynamic = "force-dynamic";
 
-/** Nửa đêm hôm nay giờ Việt Nam, dạng ISO có múi giờ (+07:00). */
-function nuaDemHomNayVn(): string {
-  const ngay = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
-  return `${ngay}T00:00:00+07:00`;
-}
-
 export default async function PharmacyPage() {
   await requireNavAccess("/pharmacy");
-  const supabase = await getSupabaseServer();
-
-  // Đơn thuốc CÒN VIỆC (prescription) + bệnh nhân + lượt khám
-  // HAI TRUY VẤN NÀY KHÔNG LIÊN QUAN GÌ NHAU — đơn thuốc hôm nay và tồn kho.
-  // Xếp hàng chúng là cộng thêm một lượt ~210ms sang Seoul mà không đổi kết
-  // quả. Bắn cùng lúc, chờ một lần.
-  const qRx = supabase
-    .from("prescription")
-    .select(
-      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
-       quantity_num, unit, dispensed_qty, dispense_status, closed_at,
-       created_at,
-       patient:clinic_patient_id(full_name, phone_primary),
-       visit:visit_id(visit_id)`,
-    )
-    // KHÔNG lọc theo NGÀY. Bản trước chỉ lấy đơn tạo hôm nay, nên một đơn kê
-    // chiều qua mà khách sáng nay mới tới lấy thì biến mất khỏi hàng đợi —
-    // dược sĩ không có đường nào cấp nốt. Lọc theo VIỆC CÒN LẠI: chưa chốt.
-    //
-    // Batch pilot 18/09: thêm đơn ĐÃ CHỐT HÔM NAY cho tab "Đã cấp" — dược sĩ
-    // xem lại được cái vừa cấp mà không phải sang trang lịch sử.
-    .or(`closed_at.is.null,closed_at.gte.${nuaDemHomNayVn()}`)
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  const qInv = supabase
-    .from("drug_batch")
-    .select(
-      `id, batch_code, expiry_date, quantity_on_hand, unit, cost_price,
-       drug:drug_catalog_id(name_base, name_raw, variant)`,
-    )
-    .gt("quantity_on_hand", 0)
-    .order("expiry_date", { ascending: true });
-
-  // Tồn kho theo thuốc (drug_catalog + drug_batch)
-  const [
-    { data: prescriptions, error: rxErr },
-    { data: inventory, error: invErr },
-  ] = await Promise.all([qRx, qInv]);
-
-  if (rxErr) {
+  const man = await fetchFromBackend<ManNhaThuoc>("/api/v1/pharmacy/ban-thuoc");
+  if (!man) {
     return (
-      <div className="p-6 text-sm text-danger">
-        Không đọc được đơn thuốc: {rxErr.message}
+      <div className="p-6 text-body text-danger">
+        Không đọc được đơn thuốc từ máy chủ. Tải lại trang; nếu vẫn lỗi, báo quản lý.
       </div>
     );
   }
-
-  // Supabase trả FK relationship dạng mảng — chuẩn hoá về object|null.
-  interface RxPatientRaw {
-    full_name: string | null;
-    phone_primary: string | null;
-  }
-  interface RxVisitRaw {
-    visit_id: string;
-  }
-  type RxRaw = Omit<
-    (typeof prescriptions)[number],
-    "patient" | "visit"
-  > & {
-    patient: RxPatientRaw[] | null;
-    visit: RxVisitRaw[] | null;
-  };
-  const normalizedRxs = (prescriptions ?? []).map((p: RxRaw) => ({
-    ...p,
-    patient: motBanGhi(p.patient),
-    visit: motBanGhi(p.visit),
-  }));
-
-
-
-  if (invErr) {
-    return (
-      <div className="p-6 text-sm text-danger">
-        Không đọc được tồn kho: {invErr.message}
-      </div>
-    );
-  }
-
-  interface BatchDrugRaw {
-    name_base: string | null;
-    name_raw: string | null;
-    variant: string | null;
-  }
-  type BatchRaw = Omit<(typeof inventory)[number], "drug"> & {
-    drug: BatchDrugRaw[] | null;
-  };
-  const normalizedInv = (inventory ?? []).map((b: BatchRaw) => ({
-    ...b,
-    drug: motBanGhi(b.drug),
-  }));
-
-  return (
-    <PharmacyBoard
-      prescriptions={normalizedRxs}
-      inventory={normalizedInv}
-    />
-  );
+  return <PharmacyBoard man={man} />;
 }
