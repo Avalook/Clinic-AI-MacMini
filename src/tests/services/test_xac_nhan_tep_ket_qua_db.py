@@ -1054,7 +1054,7 @@ async def test_t1_legacy_null_valid(pool: asyncpg.Pool) -> None:
                  khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
                  xac_nhan_trang_thai)
             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
-                    $5, 'HINH_ANH', 'image/jpeg', 100, 'abc123', $6::uuid,
+                    $5, 'ANH', 'image/jpeg', 100, 'abc123', $6::uuid,
                     NULL)
             """,
             tep_id,
@@ -1115,7 +1115,7 @@ async def test_t2_immutable_confirmation_fields(
     )
 
     async with pool.acquire() as conn:
-        # Giữ nguyên state = HOP_LE nhưng thử sửa xac_nhan_luc → trigger chặn
+        # Giữ state = HOP_LE nhưng sửa xac_nhan_luc không set state → trigger chặn
         with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
             await conn.execute(
                 "UPDATE tep_ket_qua SET xac_nhan_luc = now() - interval '1 day' "
@@ -1123,12 +1123,36 @@ async def test_t2_immutable_confirmation_fields(
                 tep_id,
             )
 
-        # Giữ nguyên state = HOP_LE nhưng thử sửa xac_nhan_boi_staff_id
+        # Giữ state = HOP_LE nhưng sửa xac_nhan_boi_staff_id không set state → chặn
         with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
             await conn.execute(
                 "UPDATE tep_ket_qua SET xac_nhan_boi_staff_id = $1::uuid "
                 "WHERE id = $2::uuid",
                 doc.staff_id,
+                tep_id,
+            )
+
+    # Thu hồi tệp
+    await svc_tep.thu_hoi_tep(
+        identity=staff_xac_nhan,
+        tep_id=tep_id,
+        ly_do="Phát hiện sai sót sau khi xác nhận",
+    )
+
+    async with pool.acquire() as conn:
+        # Ở state = THU_HOI, sửa thu_hoi_ly_do bằng direct SQL (không set state) → chặn
+        with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET thu_hoi_ly_do = 'Sửa lý do lén lút' "
+                "WHERE id = $1::uuid",
+                tep_id,
+            )
+
+        # Thử sửa thu_hoi_luc bằng direct SQL (không SET state) → trigger chặn
+        with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET thu_hoi_luc = now() - interval '2 hours' "
+                "WHERE id = $1::uuid",
                 tep_id,
             )
 
@@ -1397,9 +1421,7 @@ async def test_t6_internal_danh_dau_da_gui(
     )
 
     # CSKH can mark it as sent — xac_nhan_trang_thai is NULL, not HOP_LE
-    res = await svc_tep.danh_dau_da_gui(
-        identity=cskh, tep_id=t["id"], kenh="ZALO"
-    )
+    res = await svc_tep.danh_dau_da_gui(identity=cskh, tep_id=t["id"], kenh="ZALO")
     assert res["ok"] is True
 
     async with pool.acquire() as conn:
@@ -1430,7 +1452,7 @@ async def test_t7_null_to_non_null_blocked(pool: asyncpg.Pool) -> None:
                  khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
                  xac_nhan_trang_thai)
             VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
-                    $5, 'HINH_ANH', 'image/jpeg', 100, 'abc789', $6::uuid,
+                    $5, 'ANH', 'image/jpeg', 100, 'abc789', $6::uuid,
                     NULL)
             """,
             tep_id,
@@ -1504,3 +1526,180 @@ async def test_t8_internal_in_cho_bac_si_queue(
     tep_ids2 = [item["id"] for item in queue2]
     assert t["id"] not in tep_ids2
 
+
+# ==============================================================================
+# T9: DB MUST BLOCK SEND AFTER THU_HOI — direct SQL set gui_luc bị chặn
+# ==============================================================================
+async def test_t9_db_blocks_send_after_thu_hoi(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """External HOP_LE -> doctor approve -> THU_HOI -> direct SQL set gui_luc.
+
+    Database trigger must reject the send attempt.
+    Also verifies that service danh_dau_da_gui rejects.
+    Approval history (cho_phep_gui_luc) is preserved, but send is blocked.
+    """
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        partner = await _tao_staff(conn, CLINIC_A, "PARTNER")
+        staff_xac_nhan = await _tao_staff(
+            conn, CLINIC_A, "NURSE", caps=[Capability.KET_QUA_XAC_NHAN.value]
+        )
+        cskh = await _tao_staff(conn, CLINIC_A, "CSKH")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+        oid = await _tao_external_order(conn, CLINIC_A, vid)
+
+    svc_tep = TepKetQuaService(pool)
+
+    # 1. Partner uploads external file -> CHO_XAC_NHAN
+    t = await svc_tep.tai_len(
+        identity=partner,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="thu-hoi-send.pdf",
+        service_order_id=oid,
+    )
+    tep_id = t["id"]
+
+    # 2. Nurse confirms HOP_LE
+    await svc_tep.xac_nhan_tep(
+        identity=staff_xac_nhan,
+        tep_id=tep_id,
+        trang_thai="HOP_LE",
+    )
+
+    # 3. Doctor approves -> cho_phep_gui_luc set
+    res_bs = await svc_tep.cho_phep_gui(identity=doc, tep_id=tep_id)
+    assert res_bs["ok"] is True
+
+    # 4. Nurse revokes -> THU_HOI
+    await svc_tep.thu_hoi_tep(
+        identity=staff_xac_nhan,
+        tep_id=tep_id,
+        ly_do="Phát hiện sai sót nghiêm trọng",
+    )
+
+    # Verify state in DB: xac_nhan_trang_thai = THU_HOI, cho_phep_gui_luc preserved
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai, cho_phep_gui_luc "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            tep_id,
+        )
+        assert row["xac_nhan_trang_thai"] == "THU_HOI"
+        assert row["cho_phep_gui_luc"] is not None  # Approval history preserved!
+
+        # 5. Direct SQL attempt to set gui_luc -> DB trigger must REJECT!
+        with pytest.raises(
+            (asyncpg.RaiseError, asyncpg.CheckViolationError),
+            match="THU_HOI.*không được phép gửi",
+        ):
+            await conn.execute(
+                """
+                UPDATE tep_ket_qua
+                   SET gui_luc = now(),
+                       gui_boi_staff_id = $1::uuid,
+                       gui_kenh = 'ZALO'
+                 WHERE id = $2::uuid
+                """,
+                cskh.staff_id,
+                tep_id,
+            )
+
+    # 6. Service danh_dau_da_gui also rejects
+    with pytest.raises(ConflictError, match="chưa ở trạng thái hợp lệ để gửi"):
+        await svc_tep.danh_dau_da_gui(
+            identity=cskh,
+            tep_id=tep_id,
+            kenh="ZALO",
+        )
+
+
+# ==============================================================================
+# T10: DIRECT TAMPERING ON INTERNAL FILE (NULL STATE) REJECTED AT DB LEVEL
+# ==============================================================================
+async def test_t10_internal_direct_tamper_rejected_at_db(
+    pool: asyncpg.Pool,
+) -> None:
+    """Internal files (NULL state) cannot be manipulated with confirmation fields."""
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+        tep_id = str(uuid.uuid4())
+
+        # Direct INSERT with NULL state but setting xac_nhan_luc -> rejected by CHECK
+        with pytest.raises(
+            (asyncpg.RaiseError, asyncpg.CheckViolationError),
+            match="chk_tep_ket_qua_xac_nhan",
+        ):
+            await conn.execute(
+                """
+                INSERT INTO tep_ket_qua
+                    (id, clinic_id, clinic_patient_id, appointment_id,
+                     khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
+                     xac_nhan_trang_thai, xac_nhan_luc)
+                VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
+                        $5, 'PDF', 'application/pdf', 100, 'abc', $6::uuid,
+                        NULL, now())
+                """,
+                tep_id,
+                CLINIC_A,
+                pid,
+                aid,
+                f"{CLINIC_A}/{pid}/t10.pdf",
+                doc.staff_id,
+            )
+
+        # Valid internal insert
+        await conn.execute(
+            """
+            INSERT INTO tep_ket_qua
+                (id, clinic_id, clinic_patient_id, appointment_id,
+                 khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
+                 xac_nhan_trang_thai)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
+                    $5, 'PDF', 'application/pdf', 100, 'abc', $6::uuid,
+                    NULL)
+            """,
+            tep_id,
+            CLINIC_A,
+            pid,
+            aid,
+            f"{CLINIC_A}/{pid}/t10.pdf",
+            doc.staff_id,
+        )
+
+        # Direct UPDATE adding confirmation timestamp without state change -> rejected
+        with pytest.raises(
+            asyncpg.RaiseError, match="Tệp nội bộ.*không được có thông tin xác nhận"
+        ):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET xac_nhan_luc = now() WHERE id = $1::uuid",
+                tep_id,
+            )
+
+        # Direct SQL attempt to set gui_luc without doctor approval -> rejected
+        with pytest.raises(
+            (asyncpg.RaiseError, asyncpg.CheckViolationError),
+            match="Bác sĩ chưa cho phép gửi",
+        ):
+            await conn.execute(
+                """
+                UPDATE tep_ket_qua
+                   SET gui_luc = now(),
+                       gui_boi_staff_id = $1::uuid,
+                       gui_kenh = 'ZALO'
+                 WHERE id = $2::uuid
+                """,
+                doc.staff_id,
+                tep_id,
+            )
+
+        # Cleanup
+        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)

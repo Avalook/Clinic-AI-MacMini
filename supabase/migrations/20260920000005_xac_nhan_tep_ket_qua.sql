@@ -86,6 +86,15 @@ RETURNS TRIGGER AS $$
 BEGIN
   -- Bỏ qua nếu cả OLD và NEW đều NULL (internal files, không áp dụng)
   IF OLD.xac_nhan_trang_thai IS NULL AND NEW.xac_nhan_trang_thai IS NULL THEN
+    IF NEW.xac_nhan_luc IS NOT NULL
+       OR NEW.xac_nhan_boi_staff_id IS NOT NULL
+       OR NEW.xac_nhan_ly_do IS NOT NULL
+       OR NEW.thu_hoi_luc IS NOT NULL
+       OR NEW.thu_hoi_boi_staff_id IS NOT NULL
+       OR NEW.thu_hoi_ly_do IS NOT NULL
+    THEN
+      RAISE EXCEPTION 'Tệp nội bộ (NULL) không được có thông tin xác nhận/thu hồi';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -138,21 +147,67 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trg_tep_ket_qua_chuyen_trang_thai ON public.tep_ket_qua;
 CREATE TRIGGER trg_tep_ket_qua_chuyen_trang_thai
-  BEFORE UPDATE OF xac_nhan_trang_thai ON public.tep_ket_qua
+  BEFORE UPDATE OF
+    xac_nhan_trang_thai,
+    xac_nhan_luc,
+    xac_nhan_boi_staff_id,
+    xac_nhan_ly_do,
+    thu_hoi_luc,
+    thu_hoi_boi_staff_id,
+    thu_hoi_ly_do
+  ON public.tep_ket_qua
   FOR EACH ROW
   EXECUTE FUNCTION public.fn_tep_ket_qua_chuyen_trang_thai();
 
--- 4. Trigger kiểm soát duyệt gửi khách
--- Chỉ chặn hành động MỚI SET approval (NULL -> non-NULL)
--- nếu external confirmation state chưa HOP_LE.
--- Không chặn UPDATE khác trên row chỉ vì row từng có cho_phep_gui_luc.
--- Đặc biệt: HOP_LE + đã doctor approve -> THU_HOI phải thành công (giữ approval history).
--- Internal/non-order files (xac_nhan_trang_thai IS NULL): KHÔNG bị chặn.
+-- 4. Trigger kiểm soát duyệt gửi khách và gửi khách
+-- 4.1. Chặn gửi khách (gui_luc: NULL -> non-NULL) khi:
+--      - tệp external ở trạng thái CHO_XAC_NHAN, TU_CHOI, hoặc THU_HOI
+--      - hoặc chưa có cho_phep_gui_luc
+-- Cập nhật hàm từ migration 20260915000011 để nhận biết trạng thái xác nhận mới.
+CREATE OR REPLACE FUNCTION public.tep_ket_qua_gui_phai_duoc_cho_phep()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'pg_catalog', 'public'
+AS $fn$
+BEGIN
+    IF (TG_OP = 'INSERT' AND NEW.gui_luc IS NOT NULL)
+       OR (TG_OP = 'UPDATE' AND OLD.gui_luc IS NULL AND NEW.gui_luc IS NOT NULL)
+    THEN
+        -- External files: cấm gửi nếu đang ở CHO_XAC_NHAN, TU_CHOI, hoặc THU_HOI
+        IF NEW.xac_nhan_trang_thai IN ('CHO_XAC_NHAN', 'TU_CHOI', 'THU_HOI') THEN
+            RAISE EXCEPTION 'Tệp kết quả ở trạng thái % không được phép gửi cho khách',
+                NEW.xac_nhan_trang_thai
+                USING ERRCODE = 'check_violation';
+        END IF;
+        -- Cả external (HOP_LE) và internal (NULL) đều phải được bác sĩ duyệt gửi
+        IF NEW.cho_phep_gui_luc IS NULL THEN
+            RAISE EXCEPTION 'Bác sĩ chưa cho phép gửi tệp kết quả này'
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+    IF TG_OP = 'UPDATE' AND OLD.cho_phep_gui_luc IS NOT NULL
+       AND NEW.cho_phep_gui_luc IS DISTINCT FROM OLD.cho_phep_gui_luc THEN
+        RAISE EXCEPTION 'Không sửa mốc bác sĩ cho phép gửi đã ghi'
+            USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+END;
+$fn$;
+
+DROP TRIGGER IF EXISTS trg_tep_ket_qua_gui_phai_duoc_cho_phep ON public.tep_ket_qua;
+CREATE TRIGGER trg_tep_ket_qua_gui_phai_duoc_cho_phep
+    BEFORE INSERT OR UPDATE ON public.tep_ket_qua
+    FOR EACH ROW EXECUTE FUNCTION public.tep_ket_qua_gui_phai_duoc_cho_phep();
+
+-- 4.2. Chặn bác sĩ duyệt gửi (cho_phep_gui_luc: NULL -> non-NULL)
+--      nếu external confirmation state chưa HOP_LE.
 CREATE OR REPLACE FUNCTION public.fn_tep_ket_qua_kiem_tra_cho_phep_gui()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Chỉ quan tâm khi đang SET approval mới (NULL -> non-NULL)
-  IF OLD.cho_phep_gui_luc IS NULL AND NEW.cho_phep_gui_luc IS NOT NULL THEN
+  IF (TG_OP = 'INSERT' AND NEW.cho_phep_gui_luc IS NOT NULL)
+     OR (TG_OP = 'UPDATE' AND OLD.cho_phep_gui_luc IS NULL AND NEW.cho_phep_gui_luc IS NOT NULL)
+  THEN
     -- External files: phải ở HOP_LE mới được approve-send
     IF NEW.xac_nhan_trang_thai IS NOT NULL AND NEW.xac_nhan_trang_thai <> 'HOP_LE' THEN
       RAISE EXCEPTION 'Chỉ tệp kết quả ở trạng thái HOP_LE mới được phép duyệt gửi cho khách (hiện tại: %)',

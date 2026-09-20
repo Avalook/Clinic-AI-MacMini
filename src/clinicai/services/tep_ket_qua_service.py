@@ -361,13 +361,9 @@ class TepKetQuaService:
                 # Internal / non-order: NULL (không áp dụng).
                 # Giữ behavior trước #174: uploader BAC_SI thì
                 # tự cho phép gửi ngay.
-                xac_nhan_state = (
-                    "CHO_XAC_NHAN" if is_external else None
-                )
+                xac_nhan_state = "CHO_XAC_NHAN" if is_external else None
                 # Internal files: giữ auto cho_phep_gui nếu bác sĩ tải lên.
-                auto_gui = (
-                    not is_external and identity.co_vai(TU_CHO_PHEP_GUI)
-                )
+                auto_gui = not is_external and identity.co_vai(TU_CHO_PHEP_GUI)
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO public.tep_ket_qua
@@ -764,9 +760,7 @@ class TepKetQuaService:
             )
         # External: yêu cầu HOP_LE + cho_phep_gui. Internal: chỉ cho_phep_gui.
         where_extra = (
-            "AND xac_nhan_trang_thai = 'HOP_LE'"
-            if xn_state is not None
-            else ""
+            "AND xac_nhan_trang_thai = 'HOP_LE'" if xn_state is not None else ""
         )
         row = await self._pool.fetchrow(
             f"""
@@ -811,9 +805,7 @@ class TepKetQuaService:
                         f"duyệt gửi cho khách (hiện tại: {xn_state})."
                     )
                 where_extra = (
-                    "AND xac_nhan_trang_thai = 'HOP_LE'"
-                    if xn_state is not None
-                    else ""
+                    "AND xac_nhan_trang_thai = 'HOP_LE'" if xn_state is not None else ""
                 )
                 row = await conn.fetchrow(
                     f"""

@@ -81,47 +81,82 @@ BEGIN
         RAISE EXCEPTION 'Đã gọi xác nhận mà việc vẫn mở';
     END IF;
 
-    -- Kết quả: chưa được bác sĩ cho phép gửi → chờ bác sĩ, KHÔNG giục CSKH gửi;
-    -- bác sĩ cho phép → mới có việc gửi kết quả.
-    --
-    -- Slice 1 (18/09/2026): kiểm trên RAIL MỚI — tệp kết quả (`tep_ket_qua`).
-    -- Bản trước kiểm nhánh `lab_result`, nhánh ấy đã rời `v_viec_cskh`
-    -- (20260918000002) vì luồng khám mới không ghi `lab_result` nữa.
+    -- Kết quả: kiểm tra theo đúng contract xác nhận tệp (Blocker 1):
+    -- A. Tệp nội bộ (xac_nhan_trang_thai IS NULL):
+    --    - Chưa duyệt gửi -> vào hàng chờ bác sĩ duyệt (CHO_BAC_SI)
+    --    - Bác sĩ duyệt gửi -> chuyển sang việc giục CSKH gửi (KQ_CHUA_GUI)
+    -- B. Tệp bên ngoài (xac_nhan_trang_thai = 'CHO_XAC_NHAN'):
+    --    - Chưa xác nhận (CHO_XAC_NHAN) -> KHÔNG xuất hiện trong hàng CSKH
+    --    - Xác nhận HOP_LE -> vào hàng chờ bác sĩ duyệt (CHO_BAC_SI)
+    --    - Bác sĩ duyệt gửi -> chuyển sang việc giục CSKH gửi (KQ_CHUA_GUI)
     DECLARE
-        tk uuid;
-        kh uuid;
+        tk_nb  uuid;
+        kh_nb  uuid;
+        tk_ext uuid;
+        kh_ext uuid;
     BEGIN
-        SELECT clinic_patient_id INTO kh FROM public.appointment WHERE id = mai;
+        -- A. TỆP NỘI BỘ (NULL):
+        SELECT clinic_patient_id INTO kh_nb FROM public.appointment WHERE id = mai;
         INSERT INTO public.tep_ket_qua (clinic_id, clinic_patient_id, khoa, loai_tep,
             mime, so_byte, sha256, tai_len_boi_staff_id)
-        VALUES (pk, kh, 'test/nhac-7-1.pdf', 'PDF', 'application/pdf', 10,
-                repeat('0', 64), nv)
-        RETURNING id INTO tk;
-        -- Tệp mới tải lên ở trạng thái CHO_XAC_NHAN: chưa vào hàng chờ bác sĩ duyệt gửi
+        VALUES (pk, kh_nb, 'test/nhac-7-1-nb.pdf', 'PDF', 'application/pdf', 10,
+                repeat('1', 64), nv)
+        RETURNING id INTO tk_nb;
+
+        -- Tệp nội bộ chưa duyệt phải lập tức vào hàng chờ bác sĩ (CHO_BAC_SI)
+        IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
+                        WHERE clinic_patient_id = kh_nb AND trang_thai = 'CHO_BAC_SI') THEN
+            RAISE EXCEPTION 'Tệp nội bộ chưa duyệt phải có việc chờ bác sĩ';
+        END IF;
         IF EXISTS (SELECT 1 FROM public.v_viec_cskh
-                    WHERE clinic_patient_id = kh AND trang_thai IN ('CHO_BAC_SI', 'KQ_CHUA_GUI')) THEN
-            RAISE EXCEPTION 'Tệp CHO_XAC_NHAN không được xuất hiện trong hàng CSKH';
+                    WHERE clinic_patient_id = kh_nb AND trang_thai = 'KQ_CHUA_GUI') THEN
+            RAISE EXCEPTION 'Bác sĩ chưa duyệt mà CSKH đã bị giục gửi kết quả (nội bộ)';
+        END IF;
+
+        -- Bác sĩ cho phép gửi tệp nội bộ
+        UPDATE public.tep_ket_qua
+           SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = nv
+         WHERE id = tk_nb;
+        IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
+                        WHERE clinic_patient_id = kh_nb AND trang_thai = 'KQ_CHUA_GUI') THEN
+            RAISE EXCEPTION 'Bác sĩ đã duyệt tệp nội bộ thì CSKH phải có việc gửi kết quả';
+        END IF;
+
+        -- B. TỆP BÊN NGOÀI (CHO_XAC_NHAN):
+        SELECT clinic_patient_id INTO kh_ext FROM public.appointment WHERE id = gan;
+        INSERT INTO public.tep_ket_qua (clinic_id, clinic_patient_id, khoa, loai_tep,
+            mime, so_byte, sha256, tai_len_boi_staff_id, xac_nhan_trang_thai)
+        VALUES (pk, kh_ext, 'test/nhac-7-1-ext.pdf', 'PDF', 'application/pdf', 10,
+                repeat('2', 64), nv, 'CHO_XAC_NHAN')
+        RETURNING id INTO tk_ext;
+
+        -- Tệp bên ngoài ở trạng thái CHO_XAC_NHAN: chưa vào hàng chờ bác sĩ hay CSKH
+        IF EXISTS (SELECT 1 FROM public.v_viec_cskh
+                    WHERE clinic_patient_id = kh_ext AND trang_thai IN ('CHO_BAC_SI', 'KQ_CHUA_GUI')) THEN
+            RAISE EXCEPTION 'Tệp external CHO_XAC_NHAN không được xuất hiện trong hàng CSKH';
         END IF;
 
         -- Xác nhận tệp HOP_LE
         UPDATE public.tep_ket_qua
            SET xac_nhan_trang_thai = 'HOP_LE', xac_nhan_luc = now(), xac_nhan_boi_staff_id = nv
-         WHERE id = tk;
+         WHERE id = tk_ext;
 
         IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
-                        WHERE clinic_patient_id = kh AND trang_thai = 'CHO_BAC_SI') THEN
-            RAISE EXCEPTION 'Kết quả chưa được cho phép gửi phải là việc chờ bác sĩ';
+                        WHERE clinic_patient_id = kh_ext AND trang_thai = 'CHO_BAC_SI') THEN
+            RAISE EXCEPTION 'Tệp external đã HOP_LE chưa được cho phép gửi phải là việc chờ bác sĩ';
         END IF;
         IF EXISTS (SELECT 1 FROM public.v_viec_cskh
-                    WHERE clinic_patient_id = kh AND trang_thai = 'KQ_CHUA_GUI') THEN
-            RAISE EXCEPTION 'Bác sĩ chưa duyệt mà CSKH đã bị giục gửi kết quả';
+                    WHERE clinic_patient_id = kh_ext AND trang_thai = 'KQ_CHUA_GUI') THEN
+            RAISE EXCEPTION 'Bác sĩ chưa duyệt mà CSKH đã bị giục gửi kết quả (external)';
         END IF;
+
+        -- Bác sĩ cho phép gửi tệp bên ngoài đã HOP_LE
         UPDATE public.tep_ket_qua
            SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = nv
-         WHERE id = tk;
+         WHERE id = tk_ext;
         IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
-                        WHERE clinic_patient_id = kh AND trang_thai = 'KQ_CHUA_GUI') THEN
-            RAISE EXCEPTION 'Bác sĩ đã duyệt thì CSKH phải có việc gửi kết quả';
+                        WHERE clinic_patient_id = kh_ext AND trang_thai = 'KQ_CHUA_GUI') THEN
+            RAISE EXCEPTION 'Bác sĩ đã duyệt tệp external HOP_LE thì CSKH phải có việc gửi kết quả';
         END IF;
     END;
 END
