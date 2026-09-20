@@ -70,6 +70,25 @@ def test_khong_co_luot_thi_khong_bia_dong() -> None:
     assert bs.dong_kham(None, []) is None
 
 
+def test_khong_hen_nhung_co_loai_kham_thi_dong_binh_thuong() -> None:
+    """Lượt không hẹn nhưng có loại khám (ví dụ vãng lai hoặc gán trên Bàn khám)
+    thì dòng tiền khám phải tính bình thường, không bị gán van_de."""
+    row = {"st_id": "st_pk", "name": "Khám phụ khoa", "khong_hen": True}
+    gia = [
+        {
+            "name": "khám phụ khoa",
+            "unit_price": Decimal(250000),
+            "billing_owner": "CLINIC",
+        }
+    ]
+    kham = bs.dong_kham(row, gia)
+    assert kham is not None
+    assert "van_de" not in kham
+    assert kham["ma"] == "st_pk"
+    assert kham["ten"] == "Khám phụ khoa"
+    assert kham["gia"] == [Decimal(250000)]
+
+
 # ── DB ─────────────────────────────────────────────────────────────────────
 
 

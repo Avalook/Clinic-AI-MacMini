@@ -192,9 +192,7 @@ def dong_kham(
     """
     if kham_row is None:
         return None  # không có lượt — nơi gọi đã báo lỗi riêng
-    if kham_row["khong_hen"]:
-        van_de = KHAM_KHONG_HEN
-    elif clean_name(kham_row["name"]):
+    if clean_name(kham_row["name"]):
         khop = [
             r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
         ]
@@ -204,6 +202,8 @@ def dong_kham(
             "gia": [r["unit_price"] for r in khop],
             "ben_thu": khop[0]["billing_owner"] if khop else CLINIC,
         }
+    elif kham_row["khong_hen"]:
+        van_de = KHAM_KHONG_HEN
     else:
         van_de = KHAM_KHONG_RO_LOAI
     return {
@@ -310,7 +310,8 @@ async def tinh_hoa_don(
               FROM public.visit vi
               LEFT JOIN public.appointment a
                 ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
-              LEFT JOIN public.service_type st ON st.id = a.service_type_id
+              LEFT JOIN public.service_type st
+                ON st.id = coalesce(vi.service_type_id, a.service_type_id)
              WHERE vi.clinic_id = $1::uuid AND vi.visit_id = $2::uuid
             """,
             clinic_id,

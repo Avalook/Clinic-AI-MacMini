@@ -98,7 +98,8 @@ WITH v AS (
       LEFT JOIN public.patient p
              ON p.clinic_patient_id = vi.clinic_patient_id
             AND p.clinic_id = vi.clinic_id
-      LEFT JOIN public.service_type st ON st.id = a.service_type_id
+      LEFT JOIN public.service_type st
+             ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
        AND vi.created_at >= $2 AND vi.created_at < $3
        -- Luật 1: chỉ khi bác sĩ đã khám xong (moc_kham_xong).

@@ -222,7 +222,11 @@ class LuotKhamService:
 
     @staticmethod
     async def _lock_visit(
-        conn: asyncpg.Connection, clinic_id: str, visit_id: str
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        visit_id: str,
+        *,
+        cho_phep_da_ky: bool = False,
     ) -> asyncpg.Record:
         row = await conn.fetchrow(
             """
@@ -243,7 +247,12 @@ class LuotKhamService:
             raise LuotKhamConflictError(
                 "VISIT_INCOMPLETE", "Khách đã rời phòng khám giữa chừng."
             )
-        if row["status"] not in ("OPEN", "IN_PROGRESS"):
+        hop_le = (
+            ("OPEN", "IN_PROGRESS", "FINALIZED")
+            if cho_phep_da_ky
+            else ("OPEN", "IN_PROGRESS")
+        )
+        if row["status"] not in hop_le:
             raise LuotKhamConflictError("VISIT_CLOSED", "Lượt khám này đã đóng.")
         return row
 
@@ -2565,7 +2574,7 @@ class LuotKhamService:
         }
         async with self._pool.acquire() as conn, conn.transaction():
             vid = await self._visit_of(conn, "consultation", cid, con_id)
-            await self._lock_visit(conn, cid, vid)
+            await self._lock_visit(conn, cid, vid, cho_phep_da_ky=True)
             cached = await self._receipt_get(
                 conn, identity, "consult.complete", idempotency_key, payload
             )
