@@ -120,8 +120,6 @@ async def _luot(conn: asyncpg.Connection, loc: str, doctor_id: str) -> str:
     )
 
 
-
-
 @pytest_asyncio.fixture
 async def kb(pool: asyncpg.Pool) -> KichBan:
     async with pool.acquire() as conn:
@@ -1540,7 +1538,6 @@ async def _benh_an_sach(
     )
 
 
-
 async def test_handoff_services_pass_du_chua_co_chan_doan_cuoi(kb: KichBan) -> None:
     """1. PRIMARY + còn chỉ định -> SERVICES:
     hồ sơ chưa có chẩn đoán cuối vẫn được kết thúc phiên để đi dịch vụ.
@@ -1570,7 +1567,9 @@ async def test_handoff_services_pass_du_chua_co_chan_doan_cuoi(kb: KichBan) -> N
     assert con_outcome == "SERVICES"
 
 
-async def test_primary_no_services_khong_bat_buoc_chan_doan_loi_dan(kb: KichBan) -> None:
+async def test_primary_no_services_khong_bat_buoc_chan_doan_loi_dan(
+    kb: KichBan,
+) -> None:
     """2. PRIMARY + không có chỉ định -> NO_SERVICES:
     chưa có chẩn đoán/lời dặn cuối vẫn được kết thúc (chưa có hard gate y khoa).
     """
@@ -1684,7 +1683,8 @@ async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
     )
     async with kb.pool.acquire() as conn:
         rev_id = await conn.fetchval(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
@@ -1698,7 +1698,7 @@ async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
 
 
 async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
-    """Bác sĩ khác (không phụ trách phiên khám) bị chặn TERMINAL NO_SERVICES/DONE -> SafetyGateError."""
+    """Bác sĩ khác (không phụ trách) bị chặn TERMINAL NO_SERVICES/DONE."""
     # 1. Thử với PRIMARY NO_SERVICES
     phien = await _vao_kham(kb)
     with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
@@ -1739,7 +1739,8 @@ async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
     )
     async with kb.pool.acquire() as conn:
         rev_id = await conn.fetchval(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
@@ -1845,7 +1846,8 @@ async def test_review_done_pending_prescription_draft(kb: KichBan) -> None:
     )
     async with kb.pool.acquire() as conn:
         rev_id = await conn.fetchval(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
@@ -1913,7 +1915,8 @@ async def test_review_done_ho_so_sach_pass(kb: KichBan) -> None:
     )
     async with kb.pool.acquire() as conn:
         rev_id = await conn.fetchval(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
