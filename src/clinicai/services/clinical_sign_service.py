@@ -252,12 +252,11 @@ class ClinicalSignService:
                 )
                 assert locked is not None
 
-                if locked["status"] == "FINALIZED":
-                    return {"ok": True, "already_signed": True}
-
-                # 3. Kiểm tra attending_doctor_id:
+                # 3. Kiểm tra attending_doctor_id TRƯỚC HẾT (Fail-closed)
                 # - attending_doctor_id NULL => 403/SafetyGateError
                 # - attending_doctor_id != identity.staff_id => 403/SafetyGateError
+                # Phải kiểm tra trước khi xử lý status để bác sĩ khác không bao giờ
+                # nhận được already_signed=True khi đua lệnh với bác sĩ chính.
                 attending_id = locked["attending_doctor_id"]
                 if attending_id is None:
                     raise SafetyGateError(
@@ -269,21 +268,36 @@ class ClinicalSignService:
                         "mới được ký bệnh án."
                     )
 
-                # 4. Kiểm tra revision trước khi update
+                # 4. Sau khi quyền đúng mới xử lý status
+                # - FINALIZED: idempotent chỉ cho đúng bác sĩ chính
+                # - AMENDED: đã đính chính, tuyệt đối không cho phép ký lại
+                # - Chỉ các trạng thái được phép ký (OPEN, IN_PROGRESS) mới đi tiếp
+                status = locked["status"]
+                if status == "FINALIZED":
+                    return {"ok": True, "already_signed": True}
+                if status == "AMENDED":
+                    raise ValidationError("Bệnh án này đã đính chính, không ký lại.")
+                if status not in ("OPEN", "IN_PROGRESS"):
+                    raise ValidationError(
+                        f"Không thể ký lượt khám ở trạng thái {status} "
+                        "(chỉ cho phép OPEN hoặc IN_PROGRESS)."
+                    )
+
+                # 5. Kiểm tra revision trước khi update
                 if locked["current_revision"] != expected_revision:
                     raise ConflictError(
                         "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
                         "bản mới rồi ký."
                     )
 
-                # 5. Ký bệnh án
+                # 6. Ký bệnh án — khóa chặt điều kiện status IN ('OPEN', 'IN_PROGRESS')
                 signed = await conn.fetchval(
                     """
                     UPDATE public.visit
                        SET status = 'FINALIZED', finalized_at = now(),
                            finalized_by = $3::uuid, updated_at = now()
                       WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                        AND status <> 'FINALIZED'
+                        AND status IN ('OPEN', 'IN_PROGRESS')
                         AND coalesce((SELECT cr.revision FROM public.clinical_record cr
                                        WHERE cr.clinic_id = $1::uuid
                                          AND cr.visit_id = $2::uuid), 0) = $4::int
@@ -700,7 +714,7 @@ class ClinicalSignService:
         self, *, identity: StaffIdentity, ultrasound_id: str
     ) -> dict[str, Any]:
         """Bác sĩ siêu âm ký kết quả CỦA MÌNH."""
-        if not identity.co_vai(SIGNING_ROLES):
+        if not identity.co_vai(ULTRASOUND_SIGNING_ROLES):
             raise ValidationError("Chỉ bác sĩ mới ký được kết quả siêu âm.")
 
         async with self._pool.acquire() as conn:

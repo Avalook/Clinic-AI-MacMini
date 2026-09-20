@@ -88,7 +88,7 @@ def _clean_overrides() -> Iterator[None]:
 def test_1_attending_doctor_signs_successfully() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": ATTENDING_DOC,
         "current_revision": 2,
     }
@@ -110,7 +110,7 @@ def test_1_attending_doctor_signs_successfully() -> None:
 def test_2_other_doctor_cannot_sign_403() -> None:
     _as(ClinicRole.DOCTOR, OTHER_DOC)
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": ATTENDING_DOC,
         "current_revision": 2,
     }
@@ -131,7 +131,7 @@ def test_2_other_doctor_cannot_sign_403() -> None:
 def test_3_null_attending_doctor_cannot_sign_403() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": None,
         "current_revision": 2,
     }
@@ -205,7 +205,7 @@ def test_6_missing_expected_revision_422() -> None:
 def test_7_stale_expected_revision_409() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": ATTENDING_DOC,
         "current_revision": 3,  # hiện tại trên DB là 3
     }
@@ -227,13 +227,10 @@ def test_7_stale_expected_revision_409() -> None:
 def test_8_race_revision_changed_before_update_fails_closed_409() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": ATTENDING_DOC,
         "current_revision": 2,  # lúc đọc sau lock thấy 2
     }
-    # Nhưng câu UPDATE trả về None (do subquery kiểm revision
-    # trong UPDATE thấy không khớp vì concurrent commit)
-    # và status = 'FINALIZED' trả về False (chưa bị ký bởi ai khác)
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT", record_revision=2)),
         ("SELECT visit_id FROM public.visit", VISIT),
@@ -247,3 +244,112 @@ def test_8_race_revision_changed_before_update_fails_closed_409() -> None:
     res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
     assert res.status_code == 409
     assert "vừa được sửa" in res.json().get("message", "")
+
+
+# ── TEST A: status() ban đầu DRAFT, locked row FINALIZED, doctor khác => 403 ───
+def test_a_other_doctor_cannot_get_already_signed_on_finalized_403() -> None:
+    _as(ClinicRole.DOCTOR, OTHER_DOC)
+    locked_row = {
+        "status": "FINALIZED",
+        "attending_doctor_id": ATTENDING_DOC,
+        "current_revision": 2,
+    }
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+
+    client = TestClient(app)
+    res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
+    assert res.status_code == 403
+    assert "bác sĩ khác" in res.json().get("message", "")
+
+
+# ── TEST B: status() ban đầu DRAFT, locked row FINALIZED, chính doctor => 201 ──
+def test_b_attending_doctor_gets_already_signed_on_finalized() -> None:
+    _as(ClinicRole.DOCTOR, ATTENDING_DOC)
+    locked_row = {
+        "status": "FINALIZED",
+        "attending_doctor_id": ATTENDING_DOC,
+        "current_revision": 2,
+    }
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+
+    client = TestClient(app)
+    res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
+    assert res.status_code == 201
+    assert res.json() == {"ok": True, "already_signed": True}
+
+
+# ── TEST C: locked status = INCOMPLETE => 422 ─────────────────────────────────
+def test_c_locked_status_incomplete_fails_closed_422() -> None:
+    _as(ClinicRole.DOCTOR, ATTENDING_DOC)
+    locked_row = {
+        "status": "INCOMPLETE",
+        "attending_doctor_id": ATTENDING_DOC,
+        "current_revision": 2,
+    }
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+
+    client = TestClient(app)
+    res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
+    assert res.status_code == 422
+    assert "Không thể ký lượt khám ở trạng thái INCOMPLETE" in (
+        res.json().get("message", "")
+    )
+
+
+# ── TEST D: locked status = AMENDED + same revision => 422 ────────────────────
+def test_d_locked_status_amended_fails_closed_422() -> None:
+    _as(ClinicRole.DOCTOR, ATTENDING_DOC)
+    locked_row = {
+        "status": "AMENDED",
+        "attending_doctor_id": ATTENDING_DOC,
+        "current_revision": 2,
+    }
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+
+    client = TestClient(app)
+    res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
+    assert res.status_code == 422
+    assert "đã đính chính" in res.json().get("message", "")
+
+
+# ── TEST E: OPEN / IN_PROGRESS + đúng attending + đúng revision => ký được ────
+@pytest.mark.parametrize("status", ["OPEN", "IN_PROGRESS"])
+def test_e_open_and_in_progress_sign_normally(status: str) -> None:
+    _as(ClinicRole.DOCTOR, ATTENDING_DOC)
+    locked_row = {
+        "status": status,
+        "attending_doctor_id": ATTENDING_DOC,
+        "current_revision": 2,
+    }
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
+        ("UPDATE public.visit", VISIT),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+
+    client = TestClient(app)
+    res = client.post(f"/api/v1/clinical/{VISIT}/sign", json={"expected_revision": 2})
+    assert res.status_code == 201
+    assert res.json() == {"ok": True, "state": "SIGNED"}

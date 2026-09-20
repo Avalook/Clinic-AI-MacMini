@@ -14,6 +14,7 @@ BUG REPRODUCE:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import asyncpg
@@ -560,3 +561,90 @@ async def test_trigger_integrity_finalized_visit(q: Quay) -> None:
         "SELECT status FROM visit WHERE visit_id = $1::uuid", v5
     )
     assert v5_status == "AMENDED"
+
+
+async def test_concurrency_sign_waits_for_lock_and_fails_on_stale_revision(
+    q: Quay,
+) -> None:
+    """Kiểm tra concurrency thật với 2 connection / transaction:
+    - Transaction writer khóa visit FOR UPDATE và tăng revision lên 2 rồi commit
+    - ClinicalSignService.sign() gọi với expected_revision=1 phải chờ lock
+    - Khi writer commit, sign() nhận lock nhưng phát hiện stale revision => 409
+    - DB không ghi nhận FINALIZED từ snapshot cũ.
+    """
+    from clinicai.services.clinical_sign_service import ClinicalSignService
+
+    # 1. Chuẩn bị hồ sơ khám DRAFT với revision = 1
+    await q.pool.execute(
+        """
+        INSERT INTO public.clinical_record (
+            clinic_id, visit_id, revision,
+            soap_subjective, soap_objective, soap_assessment, soap_plan
+        ) VALUES (
+            $1::uuid, $2::uuid, 1,
+            '{"s": "khám"}'::jsonb, '{"o": "ổn"}'::jsonb,
+            '{"a": "viêm"}'::jsonb, '{"p": "theo dõi"}'::jsonb
+        )
+        ON CONFLICT (visit_id) DO UPDATE
+        SET revision = 1,
+            soap_subjective = '{"s": "khám"}'::jsonb,
+            soap_objective = '{"o": "ổn"}'::jsonb,
+            soap_assessment = '{"a": "viêm"}'::jsonb,
+            soap_plan = '{"p": "theo dõi"}'::jsonb
+        """,
+        CLINIC,
+        q.visit_id,
+    )
+    await q.pool.execute(
+        "UPDATE public.visit SET status = 'OPEN', attending_doctor_id = $2::uuid"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+        q.bac_si.staff_id,
+    )
+
+    # 2. Connection 1 mở transaction và giữ lock visit FOR UPDATE
+    conn1 = await q.pool.acquire()
+    tx1 = conn1.transaction()
+    await tx1.start()
+    try:
+        await conn1.execute(
+            "SELECT visit_id FROM public.visit WHERE visit_id = $1::uuid FOR UPDATE",
+            q.visit_id,
+        )
+
+        # 3. Chạy sign() trong task bất đồng bộ (connection 2 sẽ chạy sign)
+        sign_svc = ClinicalSignService(q.pool)
+        sign_task = asyncio.create_task(
+            sign_svc.sign(
+                identity=q.bac_si,
+                visit_id=q.visit_id,
+                expected_revision=1,
+            )
+        )
+
+        # Cho event loop chạy: sign() đọc status() xong và bị treo khi đợi FOR UPDATE
+        await asyncio.sleep(0.1)
+        assert not sign_task.done(), "sign() phải đang chờ lock từ connection 1"
+
+        # 4. Connection 1 tăng revision lên 2 rồi commit
+        await conn1.execute(
+            "UPDATE public.clinical_record SET revision = 2 WHERE visit_id = $1::uuid",
+            q.visit_id,
+        )
+        await tx1.commit()
+    finally:
+        await q.pool.release(conn1)
+
+    # 5. sign_task unblock và phải fail với 409 ConflictError
+    with pytest.raises(ConflictError, match="vừa được sửa"):
+        await sign_task
+
+    # 6. Xác nhận DB không bị ghi đè FINALIZED từ snapshot cũ
+    visit_row = await q.pool.fetchrow(
+        "SELECT status, finalized_at, finalized_by FROM public.visit"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    assert visit_row["status"] == "OPEN"
+    assert visit_row["finalized_at"] is None
+    assert visit_row["finalized_by"] is None

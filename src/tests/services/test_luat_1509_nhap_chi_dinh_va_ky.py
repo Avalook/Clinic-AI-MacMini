@@ -313,7 +313,7 @@ async def test_ky_benh_an_dung_phien_ban() -> None:
     from clinicai.services.clinical_sign_service import ClinicalSignService
 
     locked_row = {
-        "status": "DRAFT",
+        "status": "OPEN",
         "attending_doctor_id": ME,
         "current_revision": 5,
     }
