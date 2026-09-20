@@ -55,7 +55,7 @@ export const dynamic = "force-dynamic";
 
 /** Shape of GET /api/v1/visits/progress — flags only, never the note itself. */
 interface VisitProgressRow {
-  appointment_id: string;
+  appointment_id: string | null;
   visit_id: string | null;
   vitals_recorded: boolean;
   has_clinical_record: boolean;
