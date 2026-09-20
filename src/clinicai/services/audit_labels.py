@@ -260,6 +260,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:reception": "Quầy tiếp nhận",
     "api:pharmacy": "Nhà thuốc",
     "api:staff": "Quản lý nhân sự",
+    "api:staff-capability": "Quản lý nhân sự — Phân quyền",
     "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
