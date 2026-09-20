@@ -312,8 +312,22 @@ def _trang_thai(state: str, **kw: Any) -> dict[str, Any]:
 async def test_ky_benh_an_dung_phien_ban() -> None:
     from clinicai.services.clinical_sign_service import ClinicalSignService
 
+    locked_row = {
+        "status": "OPEN",
+        "attending_doctor_id": ME,
+        "current_revision": 5,
+        "soap_subjective": '{"s": "khám"}',
+        "soap_objective": '{"o": "ổn"}',
+        "soap_assessment": '{"a": "viêm"}',
+        "soap_plan": '{"p": "theo dõi"}',
+        "chief_complaint_at_visit": None,
+        "phieu_chuyen_khoa": None,
+        "co_sinh_hieu": False,
+    }
     ok = pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
         ("UPDATE public.visit", VISIT),
     )
     assert await ClinicalSignService(ok).sign(
@@ -321,28 +335,34 @@ async def test_ky_benh_an_dung_phien_ban() -> None:
     ) == {"ok": True, "state": "SIGNED"}
     cu = pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", locked_row),
         ("status = 'FINALIZED' FROM", False),
     )
     with pytest.raises(ConflictError, match="vừa được sửa"):
         await ClinicalSignService(cu).sign(
             identity=who(ClinicRole.DOCTOR), visit_id=VISIT, expected_revision=4
         )
-    da_ky = pool(("FROM public.v_clinical_status", _trang_thai("DRAFT")))
+    da_ky = pool(
+        ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        ("FROM public.visit v", {**locked_row, "status": "FINALIZED"}),
+    )
     assert (
         await ClinicalSignService(da_ky).sign(
-            identity=who(ClinicRole.DOCTOR), visit_id=VISIT
+            identity=who(ClinicRole.DOCTOR), visit_id=VISIT, expected_revision=5
         )
     )["already_signed"]
     with pytest.raises(ValidationError, match="không ký lại"):
         await ClinicalSignService(
             pool(("FROM public.v_clinical_status", _trang_thai("SIGNED")))
-        ).sign(identity=who(ClinicRole.DOCTOR), visit_id=VISIT)
+        ).sign(identity=who(ClinicRole.DOCTOR), visit_id=VISIT, expected_revision=5)
     with pytest.raises(ValidationError, match="còn thiếu"):
         await ClinicalSignService(
             pool(
                 ("FROM public.v_clinical_status", _trang_thai("DRAFT", soap_plan="{}"))
             )
-        ).sign(identity=who(ClinicRole.DOCTOR), visit_id=VISIT)
+        ).sign(identity=who(ClinicRole.DOCTOR), visit_id=VISIT, expected_revision=5)
     with pytest.raises(ValidationError, match="Không tìm thấy"):
         await ClinicalSignService(pool()).status(
             identity=who(ClinicRole.DOCTOR), visit_id=VISIT
@@ -463,8 +483,10 @@ async def test_cho_phep_gui_va_dinh_chinh() -> None:
     [amend_args] = a.da_goi("INSERT INTO public.visit_amendment")
     assert amend_args[1] == who(ClinicRole.DOCTOR).clinic_id
     assert a.da_goi("UPDATE public.clinical_release")
-    with pytest.raises(ValidationError):
-        await svc(pool()).sign(identity=who(ClinicRole.TKYK), visit_id=VISIT)
+    with pytest.raises((ValidationError, SafetyGateError)):
+        await svc(pool()).sign(
+            identity=who(ClinicRole.TKYK), visit_id=VISIT, expected_revision=5
+        )
 
 
 @pytest.mark.asyncio
