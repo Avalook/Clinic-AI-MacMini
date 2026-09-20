@@ -16,7 +16,7 @@
     "test:khung": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/khung-nhan-lich.test.mts",
     "test:gio-ca": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/soat-gio-ca.test.mts",
     "test:nhip": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/nhip-lam-moi.test.mts",
-    "test:clinical-sync": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/clinical-sync.test.mts",
+    "test:clinical-sync": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/clinical-sync.test.mts lib/clinical-completion.test.mts",
     "e2e:clinical-sync": "node e2e/clinical-sync-smoke.mjs",
     "test:bo-nho": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/bo-nho-tam.test.mts"
   },

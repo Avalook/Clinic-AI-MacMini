@@ -2528,6 +2528,31 @@ class LuotKhamService:
     # C11 / C12 — kết thúc phiên khám
     # ------------------------------------------------------------------
 
+    async def _kiem_ho_so_truoc_khi_khep(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+    ) -> None:
+        row = await conn.fetchrow(
+            """
+            SELECT prescription_draft
+              FROM clinical_record
+             WHERE clinic_id = $1::uuid
+               AND visit_id = $2::uuid
+             FOR UPDATE
+            """,
+            clinic_id,
+            visit_id,
+        )
+
+        if row is not None and row["prescription_draft"] is not None:
+            raise LuotKhamConflictError(
+                "PRESCRIPTION_DRAFT_PENDING",
+                "Còn đơn thuốc thư ký nhập chờ bác sĩ duyệt.",
+            )
+
     async def complete_consultation(
         self,
         *,
@@ -2705,6 +2730,19 @@ class LuotKhamService:
                             f"Còn {len(con_quyet)} dịch vụ không thực hiện được —"
                             " bác sĩ miễn (ghi lý do) hoặc chuyển theo dõi trước.",
                         )
+            if outcome in ("NO_SERVICES", "DONE"):
+                if (
+                    not identity.co_vai(DOCTOR_ROLES)
+                    or identity.staff_id != c["doctor_id"]
+                ):
+                    raise SafetyGateError(
+                        "Chỉ bác sĩ phụ trách mới được kết thúc phần khám lâm sàng."
+                    )
+                await self._kiem_ho_so_truoc_khi_khep(
+                    conn,
+                    clinic_id=cid,
+                    visit_id=vid,
+                )
             await conn.execute(
                 """
                 UPDATE consultation

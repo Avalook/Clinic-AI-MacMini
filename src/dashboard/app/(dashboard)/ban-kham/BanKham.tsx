@@ -29,6 +29,10 @@ import ServiceFormEngine from "../tasks/ServiceFormEngine";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import {
+  type ClinicalCompletionGate,
+  type ClinicalCompletionMode,
+} from "@/lib/clinical-completion";
+import {
   docBang,
   guiThaoTac,
   soPhutTu,
@@ -504,6 +508,21 @@ function HoSo({
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<{ id: string; cau: string } | null>(null);
   const [xemLuot, setXemLuot] = useState<string | null>(null);
+  const [completionGate, setCompletionGate] =
+    useState<ClinicalCompletionGate | null>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCompletionGate(null);
+  }, [dong?.id]);
+
+  const conChiDinhDangLam =
+    luot?.chi_dinh.some((c) =>
+      ["authorized", "assigned", "in_progress"].includes(c.trang_thai),
+    ) ?? false;
+
+  const completionMode: ClinicalCompletionMode =
+    conChiDinhDangLam ? "HANDOFF" : "TERMINAL";
 
   if (!dong) {
     return (
@@ -523,13 +542,40 @@ function HoSo({
   }
 
   const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "goi-khach") => {
-    if (
-      thaoTac === "kham-xong" &&
-      !window.confirm(
-        `Đã khám xong cho ${dong.ten}? Khách còn chỉ định chưa làm sẽ tự sang hàng chờ phòng làm chỉ định.`,
-      )
-    ) {
-      return;
+    if (thaoTac === "kham-xong") {
+      if (completionMode === "TERMINAL" && !laBacSi) {
+        setLoi({
+          id: dong.id,
+          cau: "Chờ bác sĩ hoàn tất lượt khám.",
+        });
+        return;
+      }
+
+      if (!completionGate) {
+        setLoi({
+          id: dong.id,
+          cau: "Đang kiểm tra trạng thái bệnh án. Thử lại sau một chút.",
+        });
+        return;
+      }
+
+      if (!completionGate.ok) {
+        setLoi({
+          id: dong.id,
+          cau: completionGate.message ?? "Hồ sơ chưa sẵn sàng để Khám xong.",
+        });
+        return;
+      }
+
+      if (
+        !window.confirm(
+          completionMode === "HANDOFF"
+            ? `Đã khám xong cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ.`
+            : `Xác nhận đã hoàn tất phần khám của ${dong.ten}?`,
+        )
+      ) {
+        return;
+      }
     }
     setDangGui(true);
     setLoi(null);
@@ -641,6 +687,11 @@ function HoSo({
             {dong.trang_thai === "serving" && laBacSi && !dong.da_ky ? (
               <p className="text-xs text-ink-muted">
                 Nút này không ký bệnh án — ký ở khung “Ký bệnh án”.
+              </p>
+            ) : null}
+            {dong.trang_thai === "serving" && !laBacSi && completionMode === "TERMINAL" ? (
+              <p className="text-xs text-ink-muted">
+                Chờ bác sĩ hoàn tất lượt khám.
               </p>
             ) : null}
             {dong.trang_thai === "blocked" ? (
@@ -767,6 +818,8 @@ function HoSo({
               onClose={() => {}}
               canSign={laBacSi}
               readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
+              completionMode={completionMode}
+              onCompletionGateChange={setCompletionGate}
             />
           </details>
         ) : null}
