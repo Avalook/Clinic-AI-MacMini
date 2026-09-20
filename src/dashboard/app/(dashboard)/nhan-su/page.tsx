@@ -16,6 +16,7 @@
 
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { getCurrentStaff } from "../../../lib/current-staff";
 import NhanSuBoard from "./NhanSuBoard";
 import type { StaffRow } from "../../api/staff/route";
 
@@ -29,11 +30,12 @@ interface ConfigLocation {
 export default async function NhanSuPage() {
   await requireNavAccess("/nhan-su");
 
-  const [staff, overview] = await Promise.all([
+  const [staff, overview, me] = await Promise.all([
     fetchFromBackend<StaffRow[]>("/api/v1/staff"),
     fetchFromBackend<{ locations: ConfigLocation[] }>(
       "/api/v1/clinic-config/overview",
     ),
+    getCurrentStaff(),
   ]);
 
   return (
@@ -43,6 +45,7 @@ export default async function NhanSuPage() {
       <NhanSuBoard
         initialStaff={staff ?? []}
         locations={overview?.locations ?? []}
+        currentStaffId={me?.id ?? null}
       />
     </main>
   );

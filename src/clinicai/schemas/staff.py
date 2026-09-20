@@ -199,3 +199,17 @@ class StaffCapabilityDTO(BaseModel):
     capability: str
     proficiency_level: str
     created_at: datetime
+
+
+class CapabilityRequest(BaseModel):
+    """Request payload to grant a capability to a staff member."""
+
+    capability: str
+    proficiency_level: str = "COMPETENT"
+
+
+class StaffCapabilitiesResponse(BaseModel):
+    """Response containing capabilities granted to a staff member."""
+
+    staff_id: UUID
+    capabilities: list[str]

@@ -597,3 +597,95 @@ async def get_staff_by_capability(
             clinic_id,
         )
     return [dict(row) for row in rows]
+
+
+_REVOKE_CAPABILITY_CHECK_SQL = """
+    SELECT
+        EXISTS (
+            SELECT 1
+            FROM clinic_membership
+            WHERE staff_id = $1 AND clinic_id = $2::uuid
+        ) AS in_clinic,
+        EXISTS (
+            SELECT 1
+            FROM clinic_membership
+            WHERE staff_id = $1 AND clinic_id <> $2::uuid
+        ) AS multi_clinic
+"""
+
+_REVOKE_CAPABILITY_SQL = """
+    DELETE FROM staff_capability
+    WHERE staff_id = $1 AND capability = $2
+"""
+
+_GET_STAFF_CAPABILITIES_SQL = """
+    SELECT
+        sc.id,
+        sc.staff_id,
+        sc.capability,
+        sc.proficiency_level,
+        sc.created_at
+    FROM staff_capability sc
+    JOIN clinic_membership cm ON cm.staff_id = sc.staff_id
+    WHERE sc.staff_id = $1
+      AND cm.clinic_id = $2::uuid
+    ORDER BY sc.capability
+"""
+
+
+async def revoke_capability(
+    pool: asyncpg.Pool,
+    staff_id: UUID,
+    capability: str,
+    clinic_id: str,
+) -> bool:
+    """Revoke a capability for a staff member owned only by this clinic.
+
+    Fails closed if the staff does not belong to clinic_id or is multi-clinic.
+    Idempotent: returns True if staff is valid, even if capability was already absent.
+    """
+    async with pool.acquire() as conn:
+        check = await conn.fetchrow(
+            _REVOKE_CAPABILITY_CHECK_SQL,
+            staff_id,
+            clinic_id,
+        )
+        if not check or not check["in_clinic"] or check["multi_clinic"]:
+            raise ResourceNotFoundError(f"Staff {staff_id} not found")
+
+        await conn.execute(
+            _REVOKE_CAPABILITY_SQL,
+            staff_id,
+            capability,
+        )
+
+    logger.info(
+        "staff_capability_revoked",
+        staff_id=str(staff_id),
+        clinic_id=clinic_id,
+        capability=capability,
+    )
+    return True
+
+
+async def get_staff_capabilities(
+    pool: asyncpg.Pool,
+    staff_id: UUID,
+    clinic_id: str,
+) -> list[StaffCapabilityDTO]:
+    """Return all capabilities granted to a staff member in this clinic."""
+    async with pool.acquire() as conn:
+        in_clinic = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM clinic_membership
+                WHERE staff_id = $1 AND clinic_id = $2::uuid
+            )
+            """,
+            staff_id,
+            clinic_id,
+        )
+        if not in_clinic:
+            raise ResourceNotFoundError(f"Staff {staff_id} not found")
+        rows = await conn.fetch(_GET_STAFF_CAPABILITIES_SQL, staff_id, clinic_id)
+    return [StaffCapabilityDTO.model_validate(dict(row)) for row in rows]

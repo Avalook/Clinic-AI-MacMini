@@ -184,6 +184,8 @@ EVENT_LABELS: dict[str, str] = {
     "staff.created": "Tạo nhân sự",
     "staff.updated": "Sửa thông tin nhân sự",
     "staff.deactivated": "Ngưng hoạt động nhân sự",
+    "staff.capability_granted": "Cấp quyền năng lực nhân sự",
+    "staff.capability_revoked": "Thu hồi quyền năng lực nhân sự",
     # ── Luồng khám lát 1 (20260911000001) ────────────────────────────────
     "vitals.recorded": "Đo sinh hiệu trước khám",
     "visit.routed": "Xác định bước tiếp theo của lượt khám",
