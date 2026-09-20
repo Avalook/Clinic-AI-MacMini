@@ -642,7 +642,8 @@ async def test_11_transfer_tao_khi_flag_1_co_allocation_doi_flag_0_xac_minh_van_
     """Tạo TRANSFER khi inventory flag=1 và có allocation
     → đổi env flag=0
     → xác minh
-    → vẫn xử lý allocation đúng như cycle inventory cũ: ghi_ban, trừ tồn kho, sinh SALE txn.
+    → vẫn xử lý allocation đúng như cycle inventory cũ:
+      ghi_ban, trừ tồn kho, sinh SALE txn.
     """
     # 1. Bật flag = 1
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
@@ -704,12 +705,6 @@ async def test_11_transfer_tao_khi_flag_1_co_allocation_doi_flag_0_xac_minh_van_
         )
         assert alloc is not None
         assert alloc["quantity"] == Decimal(10)
-        batch_id = alloc["drug_batch_id"]
-
-        ton_truoc = await conn.fetchval(
-            "SELECT quantity_on_hand FROM public.drug_batch WHERE id = $1::uuid",
-            batch_id,
-        )
 
     # 2. Đổi env flag = 0 (tắt kho)
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
