@@ -86,7 +86,7 @@ def validate_amendment_prescriptions(value: Any) -> list[dict[str, Any]]:
     if len(value) > MAX_PRESCRIPTIONS_PER_AMENDMENT:
         raise ValidationError("Đơn thuốc đính chính có quá nhiều dòng.")
 
-    allowed = {"id", "drug_name", "quantity", "dosage", "caution"}
+    allowed = {"id", "drug_catalog_id", "drug_name", "quantity", "dosage", "caution"}
     limits = {
         "drug_name": MAX_DRUG_NAME_LENGTH,
         "quantity": MAX_QUANTITY_LENGTH,
@@ -180,6 +180,14 @@ def _chu(v: Any) -> str | None:
 
 
 def _doi_thuoc(cu: dict[str, Any], moi: dict[str, Any]) -> bool:
+    old_catalog = _chu(cu.get("drug_catalog_id"))
+    new_catalog = _chu(moi.get("drug_catalog_id"))
+
+    if new_catalog is not None:
+        if new_catalog != old_catalog:
+            return True
+        return _chu(cu.get("quantity")) != _chu(moi.get("quantity"))
+
     return _prescription_key(cu["drug_name_raw"], cu["quantity"]) != _prescription_key(
         moi.get("drug_name"), moi.get("quantity")
     )
@@ -296,8 +304,8 @@ async def chuan_bi_don_da_ky(
         dict(row)
         for row in await conn.fetch(
             """
-            SELECT r.id, r.drug_name_raw, r.quantity, r.dosage_instructions,
-                   r.caution,
+            SELECT r.id, r.drug_catalog_id, r.drug_name_raw, r.quantity,
+                   r.dosage_instructions, r.caution,
                    greatest(public.prescription_muc_dau_vet(r.id, r.clinic_id),
                             CASE WHEN r.dispensed_qty > 0 OR r.closed_at IS NOT NULL
                                    OR r.refusal_reason IS NOT NULL
@@ -464,6 +472,13 @@ async def ap_dung_don_da_ky(
             _chu(item.get("caution")),
         )
     for old, item in kh.sua_thuoc:
+        catalog_id = _chu(item.get("drug_catalog_id"))
+        catalog_name = await _ten_thuoc_catalog(
+            conn,
+            clinic_id=clinic_id,
+            drug_catalog_id=catalog_id,
+        )
+        drug_name = catalog_name or _chu(item.get("drug_name"))
         await conn.execute(
             """
             UPDATE prescription
@@ -471,16 +486,22 @@ async def ap_dung_don_da_ky(
                    quantity_num = public.so_luong_tu_van_ban($4),
                    unit = public.don_vi_tu_van_ban($4),
                    dosage_instructions = $5, caution = $6,
-                   drug_catalog_id = NULL, drug_mapped_by = NULL,
-                   drug_mapped_at = NULL, purchased_qty = NULL, updated_at = now()
+                   drug_catalog_id = $7::uuid,
+                   drug_mapped_by =
+                       CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
+                   drug_mapped_at =
+                       CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
+                   purchased_qty = NULL, updated_at = now()
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             old["id"],
             clinic_id,
-            _chu(item.get("drug_name")),
+            drug_name,
             _chu(item.get("quantity")),
             _chu(item.get("dosage")),
             _chu(item.get("caution")),
+            catalog_id,
+            created_by,
         )
     for old, item in kh.thay:
         new_id = plan.replacement_ids[str(old["id"])]
@@ -569,8 +590,8 @@ async def luu_don_chua_ky(
         dict(r)
         for r in await conn.fetch(
             """
-            SELECT r.id, r.drug_name_raw, r.quantity, r.dosage_instructions,
-                   r.caution,
+            SELECT r.id, r.drug_catalog_id, r.drug_name_raw, r.quantity,
+                   r.dosage_instructions, r.caution,
                    -- Mức do DB tính; cột của chính dòng (đã cấp / chốt /
                    -- khách không lấy) tính lại tại chỗ cho chắc.
                    greatest(public.prescription_muc_dau_vet(r.id, r.clinic_id),
@@ -676,6 +697,13 @@ async def luu_don_chua_ky(
     for r, m in kh.sua_thuoc:
         # Mức A: nhà thuốc chưa làm gì ngoài (có thể) xác định thuốc kho — đổi
         # thuốc thì xác định lại từ đầu.
+        catalog_id = _chu(m.get("drug_catalog_id"))
+        catalog_name = await _ten_thuoc_catalog(
+            conn,
+            clinic_id=clinic_id,
+            drug_catalog_id=catalog_id,
+        )
+        drug_name = catalog_name or _chu(m.get("drug_name"))
         await conn.execute(
             """
             UPDATE prescription
@@ -683,16 +711,22 @@ async def luu_don_chua_ky(
                    quantity_num = public.so_luong_tu_van_ban($4),
                    unit = public.don_vi_tu_van_ban($4),
                    dosage_instructions = $5, caution = $6,
-                   drug_catalog_id = NULL, drug_mapped_by = NULL,
-                   drug_mapped_at = NULL, purchased_qty = NULL, updated_at = now()
+                   drug_catalog_id = $7::uuid,
+                   drug_mapped_by =
+                       CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
+                   drug_mapped_at =
+                       CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
+                   purchased_qty = NULL, updated_at = now()
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             r["id"],
             clinic_id,
-            _chu(m.get("drug_name")),
+            drug_name,
             _chu(m.get("quantity")),
             _chu(m.get("dosage")),
             _chu(m.get("caution")),
+            catalog_id,
+            created_by,
         )
     if kh.xoa:
         await conn.execute(
@@ -760,6 +794,32 @@ async def luu_don_chua_ky(
     }
 
 
+async def _ten_thuoc_catalog(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str | None,
+    drug_catalog_id: Any,
+) -> str | None:
+    if drug_catalog_id is None:
+        return None
+
+    row = await conn.fetchrow(
+        """
+        SELECT name_raw
+          FROM public.drug_catalog
+         WHERE id = $1::uuid
+           AND clinic_id = $2::uuid
+        """,
+        str(drug_catalog_id),
+        clinic_id,
+    )
+
+    if row is None:
+        raise ValidationError("Thuốc đã chọn không thuộc danh mục của phòng khám này.")
+
+    return str(row["name_raw"]).strip()
+
+
 async def _chen(
     conn: asyncpg.Connection,
     *,
@@ -771,16 +831,28 @@ async def _chen(
     lan: str | None,
     row_id: str | None = None,
 ) -> Any:
+    catalog_id = _chu(item.get("drug_catalog_id"))
+    catalog_name = await _ten_thuoc_catalog(
+        conn,
+        clinic_id=clinic_id,
+        drug_catalog_id=catalog_id,
+    )
+    drug_name = catalog_name or _chu(item.get("drug_name"))
+
     return await conn.fetchval(
         """
         INSERT INTO prescription (
             id, source_ref, clinic_patient_id, visit_id, drug_name_raw,
             quantity, dosage_instructions, caution, clinic_id,
-            quantity_num, unit, created_by, created_in_correction_id
+            quantity_num, unit, created_by, created_in_correction_id,
+            drug_catalog_id, drug_mapped_by, drug_mapped_at
         )
         VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6, $7, $8, $9::uuid,
                 public.so_luong_tu_van_ban($6),
-                public.don_vi_tu_van_ban($6), $10::uuid, $11::uuid)
+                public.don_vi_tu_van_ban($6), $10::uuid, $11::uuid,
+                $12::uuid,
+                CASE WHEN $12::uuid IS NULL THEN NULL ELSE $10::uuid END,
+                CASE WHEN $12::uuid IS NULL THEN NULL ELSE now() END)
         RETURNING id
         """,
         row_id or str(uuid.uuid4()),
@@ -788,13 +860,14 @@ async def _chen(
         f"dash-rx-{visit_id}-{uuid.uuid4().hex}",
         clinic_patient_id,
         str(visit_id),
-        _chu(item.get("drug_name")),
+        drug_name,
         _chu(item.get("quantity")),
         _chu(item.get("dosage")),
         _chu(item.get("caution")),
         clinic_id,
         created_by,
         lan,
+        catalog_id,
     )
 
 

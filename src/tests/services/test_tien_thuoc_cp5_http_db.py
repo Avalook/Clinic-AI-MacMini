@@ -32,6 +32,12 @@ from tests.services.test_tien_thuoc_cp5_db import (
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
+
+@pytest.fixture(autouse=True)
+def _bat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
+
+
 AI: dict[str, StaffIdentity] = {}
 
 

@@ -200,6 +200,7 @@ export async function GET(request: Request) {
   // Đơn thuốc đã kê cho lượt khám này (để prefill form kê thuốc của bác sĩ).
   let prescriptions: {
     id: string;
+    drug_catalog_id: string | null;
     drug_name_raw: string | null;
     quantity: string | null;
     dosage_instructions: string | null;
@@ -208,7 +209,7 @@ export async function GET(request: Request) {
   if (visit?.visit_id) {
     const { data: rx } = await supabase
       .from("prescription")
-      .select("id, drug_name_raw, quantity, dosage_instructions, caution")
+      .select("id, drug_catalog_id, drug_name_raw, quantity, dosage_instructions, caution")
       .eq("visit_id", visit.visit_id)
       // CP6: form bác sĩ chỉ sửa ĐƠN HIỆN HÀNH; dòng đã đính chính là lịch sử.
       .is("removed_at", null)
@@ -284,6 +285,7 @@ interface PostBody {
   // Đơn thuốc bác sĩ kê (free-text) — thay TOÀN BỘ đơn của lượt khám này.
   prescriptions?: Array<{
     id?: string;
+    drug_catalog_id?: string | null;
     drug_name?: string;
     quantity?: string;
     dosage?: string;

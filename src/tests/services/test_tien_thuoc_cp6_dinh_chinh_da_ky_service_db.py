@@ -34,6 +34,12 @@ from tests.services.test_tien_thuoc_cp3_db import _giao, _san_sang, _thu
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
+
+@pytest.fixture(autouse=True)
+def _bat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
+
+
 LY_DO = "Bác sĩ đính chính đơn sau khi ký"
 
 

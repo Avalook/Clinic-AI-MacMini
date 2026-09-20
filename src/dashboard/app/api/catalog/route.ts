@@ -19,7 +19,7 @@ export async function GET() {
   const [drugRes, clsRes] = await Promise.all([
     db
       .from("drug_catalog")
-      .select("name_base, name_raw, variant, needs_review")
+      .select("id, name_base, name_raw, variant, needs_review")
       .eq("is_active", true)
       .order("name_base"),
     db

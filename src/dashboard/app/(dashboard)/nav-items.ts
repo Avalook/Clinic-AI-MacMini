@@ -298,10 +298,21 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC (Tuyền 16/09/2026). Bốn vị trí ở quầy tiếp
   // đón và quầy thuốc đều mở trọn bộ việc quầy: người đứng quầy thuốc chiều nay
   // có thể là người đứng tiếp đón sáng nay.
-  T1_LETAN: ["/reception/queue", "/thu-ngan/dich-vu", "/reception/checkout", "/patients/new", "/appointments"],
-  T1_THUNGAN: ["/thu-ngan/dich-vu", "/reception/checkout"],
-  T2_XEPTHUOC: ["/pharmacy", "/thu-ngan/thuoc", "/pharmacy/inventory"],
-  T2_TAODON: ["/thu-ngan/thuoc", "/pharmacy", "/pharmacy/inventory"],
+  T1_LETAN: [
+    "/reception/queue",
+    "/thu-ngan/dich-vu",
+    "/thu-ngan/thuoc",
+    "/reception/checkout",
+    "/patients/new",
+    "/appointments",
+  ],
+  T1_THUNGAN: [
+    "/thu-ngan/dich-vu",
+    "/thu-ngan/thuoc",
+    "/reception/checkout",
+  ],
+  T2_XEPTHUOC: ["/thu-ngan/thuoc"],
+  T2_TAODON: ["/thu-ngan/thuoc"],
 
   T1_DOCHISO: ["/do-sinh-hieu"],
   T1_LAYMAU: ["/phong/KN-LAYMAU"],
@@ -562,8 +573,13 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   DOCTOR: ["/home", "/ban-kham", "/duyet-ket-qua", "/patient-list"],
   TKYK: ["/home", "/ban-kham", "/patient-list", "/schedule"],
   ULTRASOUND_DOCTOR: ["/home", "/phong/KN-SA-T1", "/duyet-ket-qua", "/patient-list"],
-  // Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
-  RECEPTION: ["/home", "/reception/queue", "/thu-ngan/dich-vu", "/appointments"],
+  // Lễ tân kiêm thu ngân (Tuyền 16/09/2026, cập nhật 20/09/2026).
+  RECEPTION: [
+    "/home",
+    "/reception/queue",
+    "/thu-ngan/dich-vu",
+    "/thu-ngan/thuoc",
+  ],
   // Dược sĩ: đơn chờ cấp → kho → tư vấn.
   PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],
   CASHIER: ["/home", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/cashier/dich-vu"],

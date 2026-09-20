@@ -29,7 +29,9 @@ from tests.services.test_tien_thuoc_cp3_db import (
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
 
-# ── Hàm thuần ─────────────────────────────────────────────────────────────
+@pytest.fixture(autouse=True)
+def _bat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
 
 
 def _lt(status: str, legacy: bool = False) -> bt.LanThu:
