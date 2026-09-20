@@ -372,10 +372,9 @@ async def test_scenario_k_migration_version_khong_trung() -> None:
     assert "public.staff_capability" in content
     assert (
         "RAISE EXCEPTION 'Table public.staff_capability does not exist. "
-        "Baseline schema required.';"
-        in content
+        "Baseline schema required.';" in content
     )
-    assert "Capability.KET_QUA_XAC_NHAN" != "staff_capability"  # smoke
+    assert Capability.KET_QUA_XAC_NHAN.value == "ket_qua.xac_nhan"
 
 
 # ==============================================================================

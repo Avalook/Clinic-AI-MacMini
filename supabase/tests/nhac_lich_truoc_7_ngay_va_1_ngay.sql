@@ -97,6 +97,17 @@ BEGIN
         VALUES (pk, kh, 'test/nhac-7-1.pdf', 'PDF', 'application/pdf', 10,
                 repeat('0', 64), nv)
         RETURNING id INTO tk;
+        -- Tệp mới tải lên ở trạng thái CHO_XAC_NHAN: chưa vào hàng chờ bác sĩ duyệt gửi
+        IF EXISTS (SELECT 1 FROM public.v_viec_cskh
+                    WHERE clinic_patient_id = kh AND trang_thai IN ('CHO_BAC_SI', 'KQ_CHUA_GUI')) THEN
+            RAISE EXCEPTION 'Tệp CHO_XAC_NHAN không được xuất hiện trong hàng CSKH';
+        END IF;
+
+        -- Xác nhận tệp HOP_LE
+        UPDATE public.tep_ket_qua
+           SET xac_nhan_trang_thai = 'HOP_LE', xac_nhan_luc = now(), xac_nhan_boi_staff_id = nv
+         WHERE id = tk;
+
         IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh
                         WHERE clinic_patient_id = kh AND trang_thai = 'CHO_BAC_SI') THEN
             RAISE EXCEPTION 'Kết quả chưa được cho phép gửi phải là việc chờ bác sĩ';

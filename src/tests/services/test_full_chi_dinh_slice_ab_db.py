@@ -1,9 +1,10 @@
 """DB integration tests cho Full luồng Chỉ định — SLICE A+B (Nội bộ + Đối tác ngoài).
 
 Bao gồm:
-1. Luồng hỗn hợp (Mixed orders): A (nội bộ siêu âm) + B (nội bộ lab) + C (đối tác ngoài).
-   Kiểm tra từng nấc: A xong -> chưa ready; B xong -> chưa ready; C đã lấy mẫu -> chưa ready;
-   C chờ tài liệu -> chưa ready; C tải kết quả -> ready, đúng 1 review_round, 1 consultation REVIEW, 1 queue_entry.
+1. Luồng hỗn hợp (Mixed orders): A (nội bộ siêu âm) + B (nội bộ lab) + C (đối tác).
+   Kiểm tra từng nấc: A xong -> chưa ready; B xong -> chưa ready;
+   C đã lấy mẫu -> chưa ready; C chờ tài liệu -> chưa ready;
+   C tải kết quả -> ready, đúng 1 review_round, 1 consultation REVIEW, 1 queue_entry.
 2. Kết quả muộn (FOLLOW_UP): A cần ngay, C kết quả muộn.
    Bác sĩ chọn FOLLOW_UP cho C (owner, hạn, lý do). Khách kết thúc lượt bình thường.
    Đối tác upload kết quả muộn -> follow_up_case cập nhật, hồ sơ đã ký không bị sửa.
@@ -23,15 +24,16 @@ Bao gồm:
    - UUID order không phải việc đối tác: response không tiết lộ order tồn tại
    - Retry upload không tạo duplicate review_round / consultation / queue_entry
 5. Hai loại việc đối tác:
-   - Loại 1: doi_tac_lay_mau = true -> hiện ngay, bấm đã lấy mẫu -> chờ tài liệu -> upload
-   - Loại 2: doi_tac_lay_mau = false -> chỉ hiện sau khi điều dưỡng lấy mẫu -> đối tác không được bấm đã lấy mẫu -> chờ tài liệu -> upload
+   - Loại 1: doi_tac_lay_mau = true -> hiện ngay, bấm đã lấy mẫu ->
+     chờ tài liệu -> upload
+   - Loại 2: doi_tac_lay_mau = false -> chỉ hiện sau khi điều dưỡng lấy mẫu ->
+     đối tác không được bấm đã lấy mẫu -> chờ tài liệu -> upload
 6. Định dạng tệp kết quả:
    - PDF, ảnh, video, từ chối tệp không hợp lệ, dọn dẹp khi lỗi giữa chừng.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 import uuid
 from dataclasses import dataclass
@@ -44,22 +46,24 @@ import pytest
 import pytest_asyncio
 from fastapi import HTTPException
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    get_partner_identity,
 )
 from clinicai.api.v1.routers.doi_tac import _gui_ket_qua
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.bill_service import (
-    tinh_hoa_don,
     CLINIC as BO_CLINIC,
+)
+from clinicai.services.bill_service import (
     EXTERNAL as BO_EXTERNAL,
 )
+from clinicai.services.bill_service import (
+    tinh_hoa_don,
+)
 from clinicai.services.luot_kham_service import (
-    LuotKhamConflictError,
     LuotKhamService,
 )
 from clinicai.services.nhan_tep_luong import TepDaNhan
@@ -108,8 +112,9 @@ async def _tao_nhan_vien(
 ) -> StaffIdentity:
     ten = f"Test {role} {uuid.uuid4().hex[:6]}"
     sid = await conn.fetchval(
-        "INSERT INTO staff (full_name, primary_department, primary_location_id, is_active)"
-        " VALUES ($1, $2, $3::uuid, true) RETURNING id::text",
+        "INSERT INTO staff ("
+        "  full_name, primary_department, primary_location_id, is_active"
+        ") VALUES ($1, $2, $3::uuid, true) RETURNING id::text",
         ten,
         role,
         loc,
@@ -139,14 +144,17 @@ async def _tao_luot_kham(
 ) -> tuple[str, str]:
     pid = await conn.fetchval(
         "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
-        " VALUES ($1::uuid, $2, 'BN Test Slice A+B', $3::uuid) RETURNING clinic_patient_id::text",
+        " VALUES ($1::uuid, $2, 'BN Test Slice A+B', $3::uuid)"
+        " RETURNING clinic_patient_id::text",
         clinic_id,
         f"LK-AB-{uuid.uuid4().hex[:8]}",
         loc,
     )
     vid = await conn.fetchval(
-        "INSERT INTO visit (clinic_id, clinic_patient_id, status, attending_doctor_id, checked_in_at)"
-        " VALUES ($1::uuid, $2::uuid, 'OPEN', $3::uuid, now()) RETURNING visit_id::text",
+        "INSERT INTO visit ("
+        "  clinic_id, clinic_patient_id, status, attending_doctor_id, checked_in_at"
+        ") VALUES ($1::uuid, $2::uuid, 'OPEN', $3::uuid, now())"
+        " RETURNING visit_id::text",
         clinic_id,
         pid,
         doctor_id,
@@ -158,7 +166,9 @@ async def _tao_luot_kham(
 async def kban(pool: asyncpg.Pool) -> BoKichBan:
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
-            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid AND is_active ORDER BY created_at, id LIMIT 1",
+            "SELECT id::text FROM clinic_location "
+            "WHERE clinic_id = $1::uuid AND is_active "
+            "ORDER BY created_at, id LIMIT 1",
             CLINIC,
         )
         bs = await _tao_nhan_vien(conn, CLINIC, loc, "DOCTOR")
@@ -179,27 +189,35 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
         )
 
         phong_sa = await conn.fetchval(
-            "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON rn.room_id = r.id"
-            " WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-SIEUAM' AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+            "SELECT r.id::text FROM clinic_room r "
+            "JOIN clinic_room_node rn ON rn.room_id = r.id "
+            "WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-SIEUAM' "
+            "  AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
         phong_mau = await conn.fetchval(
-            "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON rn.room_id = r.id"
-            " WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-LAYMAU-MAU' AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+            "SELECT r.id::text FROM clinic_room r "
+            "JOIN clinic_room_node rn ON rn.room_id = r.id "
+            "WHERE r.clinic_id = $1::uuid AND rn.node_code = 'DICHVU-LAYMAU-MAU' "
+            "  AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
         ma_sa = await conn.fetchval(
-            "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid AND active"
-            " AND node_code = 'DICHVU-SIEUAM' ORDER BY service_code LIMIT 1",
+            "SELECT service_code FROM service_price "
+            "WHERE clinic_id = $1::uuid AND active "
+            "  AND node_code = 'DICHVU-SIEUAM' ORDER BY service_code LIMIT 1",
             CLINIC,
         )
         # Node lab nội bộ (lam_ben_ngoai = false)
         node_noibo = "DICHVU-LAB-NOIBO"
         await conn.execute(
             """
-            INSERT INTO node_definition (clinic_id, code, name, flow_group, workspace, lam_ben_ngoai, actor_roles)
-            VALUES ($1::uuid, $2, 'Lab nội bộ', 'dich_vu', 'khu_dieu_duong', false, '{NURSE_ULTRASOUND}')
-            ON CONFLICT (clinic_id, code) DO UPDATE SET lam_ben_ngoai = false, workspace = 'khu_dieu_duong'
+            INSERT INTO node_definition (
+              clinic_id, code, name, flow_group, workspace, lam_ben_ngoai, actor_roles
+            ) VALUES ($1::uuid, $2, 'Lab nội bộ', 'dich_vu', 'khu_dieu_duong',
+                      false, '{NURSE_ULTRASOUND}')
+            ON CONFLICT (clinic_id, code)
+            DO UPDATE SET lam_ben_ngoai = false, workspace = 'khu_dieu_duong'
             """,
             CLINIC,
             node_noibo,
@@ -217,8 +235,11 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
         ma_mau_noi_bo = f"MAU-NOIBO-{uuid.uuid4().hex[:6]}"
         await conn.execute(
             """
-            INSERT INTO service_price (clinic_id, service_code, name, "group", unit_price, active, node_code, doi_tac_lay_mau, billing_owner)
-            VALUES ($1::uuid, $2, 'Xét nghiệm máu nội bộ test', 'dich_vu', 200000, true, $3, false, 'CLINIC')
+            INSERT INTO service_price (
+              clinic_id, service_code, name, "group", unit_price, active,
+              node_code, doi_tac_lay_mau, billing_owner
+            ) VALUES ($1::uuid, $2, 'Xét nghiệm máu nội bộ test', 'dich_vu',
+                      200000, true, $3, false, 'CLINIC')
             """,
             CLINIC,
             ma_mau_noi_bo,
@@ -229,15 +250,19 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
         node_ngoai = "DICHVU-XETNGHIEM-NGOAI"
         await conn.execute(
             """
-            INSERT INTO node_definition (clinic_id, code, name, flow_group, workspace, lam_ben_ngoai, actor_roles)
-            VALUES ($1::uuid, $2, 'Xét nghiệm gửi ngoài', 'ket_qua', 'khu_dieu_duong', true, '{NURSE_ULTRASOUND}')
-            ON CONFLICT (clinic_id, code) DO UPDATE SET lam_ben_ngoai = true, workspace = 'khu_dieu_duong'
+            INSERT INTO node_definition (
+              clinic_id, code, name, flow_group, workspace, lam_ben_ngoai, actor_roles
+            ) VALUES ($1::uuid, $2, 'Xét nghiệm gửi ngoài', 'ket_qua', 'khu_dieu_duong',
+                      true, '{NURSE_ULTRASOUND}')
+            ON CONFLICT (clinic_id, code)
+            DO UPDATE SET lam_ben_ngoai = true, workspace = 'khu_dieu_duong'
             """,
             CLINIC,
             node_ngoai,
         )
         phong_doi_tac = await conn.fetchval(
-            "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid AND la_doi_tac AND is_active LIMIT 1",
+            "SELECT id::text FROM clinic_room "
+            "WHERE clinic_id = $1::uuid AND la_doi_tac AND is_active LIMIT 1",
             CLINIC,
         )
         if phong_doi_tac:
@@ -254,8 +279,11 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
         ma_mau_doi_tac = f"MAU-DOITAC-{uuid.uuid4().hex[:6]}"
         await conn.execute(
             """
-            INSERT INTO service_price (clinic_id, service_code, name, "group", unit_price, active, node_code, doi_tac_lay_mau, billing_owner)
-            VALUES ($1::uuid, $2, 'Xét nghiệm gửi ngoài đối tác test', 'dich_vu', 900000, true, $3, true, 'EXTERNAL_PARTNER')
+            INSERT INTO service_price (
+              clinic_id, service_code, name, "group", unit_price, active,
+              node_code, doi_tac_lay_mau, billing_owner
+            ) VALUES ($1::uuid, $2, 'Xét nghiệm gửi ngoài đối tác test', 'dich_vu',
+                      900000, true, $3, true, 'EXTERNAL_PARTNER')
             """,
             CLINIC,
             ma_mau_doi_tac,
@@ -314,7 +342,7 @@ async def test_mixed_orders_slice_ab_progression(
       - B hoàn thành => review_round chưa ready
       - C 'đã lấy mẫu' => chưa ready
       - C 'chờ tài liệu' => chưa ready
-      - C upload file => review_round READY, đúng 1 consultation REVIEW queued, đúng 1 queue_entry
+      - C upload file => review_round READY, đúng 1 consultation REVIEW queued
       - Bác sĩ start REVIEW -> complete REVIEW -> review_round closed.
     """
     import clinicai.services.media_service as media
@@ -359,7 +387,8 @@ async def test_mixed_orders_slice_ab_progression(
     # Xác định id của từng order: A (sa), B (máu nội bộ), C (máu đối tác)
     async with kban.pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id::text, service_code FROM service_order WHERE id = ANY($1::uuid[])",
+            "SELECT id::text, service_code FROM service_order "
+            "WHERE id = ANY($1::uuid[])",
             order_ids,
         )
         code_to_id = {r["service_code"]: r["id"] for r in rows}
@@ -384,7 +413,8 @@ async def test_mixed_orders_slice_ab_progression(
     # Kiểm tra: review_round đã mở ở status = 'collecting'
     async with kban.pool.acquire() as conn:
         round_row = await conn.fetchrow(
-            "SELECT id::text, round_no, status FROM review_round WHERE visit_id = $1::uuid",
+            "SELECT id::text, round_no, status FROM review_round "
+            "WHERE visit_id = $1::uuid",
             kban.visit_id,
         )
         assert round_row is not None
@@ -393,7 +423,8 @@ async def test_mixed_orders_slice_ab_progression(
 
         # Chưa có consultation REVIEW nào
         review_con = await conn.fetchval(
-            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT count(*) FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert review_con == 0
@@ -427,7 +458,8 @@ async def test_mixed_orders_slice_ab_progression(
         )
         assert r_status == "collecting"
         rev_count = await conn.fetchval(
-            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT count(*) FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert rev_count == 0
@@ -460,7 +492,8 @@ async def test_mixed_orders_slice_ab_progression(
         )
         assert r_status == "collecting"
         rev_count = await conn.fetchval(
-            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT count(*) FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert rev_count == 0
@@ -475,7 +508,8 @@ async def test_mixed_orders_slice_ab_progression(
         )
         assert r_status == "collecting"
         rev_count = await conn.fetchval(
-            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT count(*) FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert rev_count == 0
@@ -488,13 +522,17 @@ async def test_mixed_orders_slice_ab_progression(
         )
         assert r_status == "collecting"
         rev_count = await conn.fetchval(
-            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT count(*) FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert rev_count == 0
 
     # Nấc 5: C (đối tác) upload file kết quả PDF
-    pdf_data = b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\nxref\n0 1\n0000000000 65535 f \ntrailer<</Size 1/Root 1 0 R>>\nstartxref\n49\n%%EOF"
+    pdf_data = (
+        b"%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\nxref\n0 1\n"
+        b"0000000000 65535 f \ntrailer<</Size 1/Root 1 0 R>>\nstartxref\n49\n%%EOF"
+    )
     tep = await TepKetQuaService(kban.pool).tai_len(
         identity=kban.doi_tac,
         clinic_patient_id=kban.patient_id,
@@ -507,14 +545,16 @@ async def test_mixed_orders_slice_ab_progression(
     # Tệp vừa tải lên ở trạng thái CHO_XAC_NHAN -> round vẫn collecting
     async with kban.pool.acquire() as conn:
         round_row = await conn.fetchrow(
-            "SELECT id::text, round_no, status, ready_at FROM review_round WHERE visit_id = $1::uuid",
+            "SELECT id::text, round_no, status, ready_at "
+            "FROM review_round WHERE visit_id = $1::uuid",
             kban.visit_id,
         )
         assert round_row["status"] == "collecting"
         assert round_row["ready_at"] is None
         # Cấp capability xác nhận kết quả cho điều dưỡng
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO staff_capability (staff_id, capability) "
+            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
         )
 
@@ -532,14 +572,16 @@ async def test_mixed_orders_slice_ab_progression(
     # Đúng 1 queue_entry REVIEW lane DOCTOR
     async with kban.pool.acquire() as conn:
         round_row = await conn.fetchrow(
-            "SELECT id::text, round_no, status, ready_at FROM review_round WHERE visit_id = $1::uuid",
+            "SELECT id::text, round_no, status, ready_at "
+            "FROM review_round WHERE visit_id = $1::uuid",
             kban.visit_id,
         )
         assert round_row["status"] == "ready"
         assert round_row["ready_at"] is not None
 
         con_rows = await conn.fetch(
-            "SELECT id::text, round_no, kind, status FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text, round_no, kind, status FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert len(con_rows) == 1
@@ -547,8 +589,9 @@ async def test_mixed_orders_slice_ab_progression(
         review_con_id = con_rows[0]["id"]
 
         q_rows = await conn.fetch(
-            "SELECT id::text, lane, reason, status, ref_id::text FROM queue_entry"
-            " WHERE visit_id = $1::uuid AND reason = 'REVIEW' AND status NOT IN ('done', 'left', 'cancelled')",
+            "SELECT id::text, lane, reason, status, ref_id::text FROM queue_entry "
+            "WHERE visit_id = $1::uuid AND reason = 'REVIEW' "
+            "  AND status NOT IN ('done', 'left', 'cancelled')",
             kban.visit_id,
         )
         assert len(q_rows) == 1
@@ -566,12 +609,15 @@ async def test_mixed_orders_slice_ab_progression(
     assert tep_retry["ok"] is True
     async with kban.pool.acquire() as conn:
         con_rows_after = await conn.fetch(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
         assert len(con_rows_after) == 1
         q_rows_after = await conn.fetch(
-            "SELECT id::text FROM queue_entry WHERE visit_id = $1::uuid AND reason = 'REVIEW' AND status NOT IN ('done', 'left', 'cancelled')",
+            "SELECT id::text FROM queue_entry "
+            "WHERE visit_id = $1::uuid AND reason = 'REVIEW' "
+            "  AND status NOT IN ('done', 'left', 'cancelled')",
             kban.visit_id,
         )
         assert len(q_rows_after) == 1
@@ -647,7 +693,8 @@ async def test_late_result_follow_up_scenario(
     order_ids = duyet["order_ids"]
     async with kban.pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id::text, service_code FROM service_order WHERE id = ANY($1::uuid[])",
+            "SELECT id::text, service_code FROM service_order "
+            "WHERE id = ANY($1::uuid[])",
             order_ids,
         )
         code_to_id = {r["service_code"]: r["id"] for r in rows}
@@ -730,7 +777,8 @@ async def test_late_result_follow_up_scenario(
         )
         assert round_row["status"] == "ready"
         rev_id = await conn.fetchval(
-            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            "SELECT id::text FROM consultation "
+            "WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
             kban.visit_id,
         )
 
@@ -749,15 +797,18 @@ async def test_late_result_follow_up_scenario(
     async with kban.pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO clinical_record (clinic_id, visit_id, chief_complaint_at_visit, revision)
-            VALUES ($1::uuid, $2::uuid, 'Đã ký', 1)
-            ON CONFLICT (visit_id) DO UPDATE SET chief_complaint_at_visit = 'Đã ký'
+            INSERT INTO clinical_record (
+              clinic_id, visit_id, chief_complaint_at_visit, revision
+            ) VALUES ($1::uuid, $2::uuid, 'Đã ký', 1)
+            ON CONFLICT (visit_id)
+            DO UPDATE SET chief_complaint_at_visit = 'Đã ký'
             """,
             CLINIC,
             kban.visit_id,
         )
         await conn.execute(
-            "UPDATE visit SET status = 'FINALIZED', attending_doctor_id = $1::uuid WHERE visit_id = $2::uuid",
+            "UPDATE visit SET status = 'FINALIZED', attending_doctor_id = $1::uuid "
+            "WHERE visit_id = $2::uuid",
             kban.bac_si.staff_id,
             kban.visit_id,
         )
@@ -786,7 +837,8 @@ async def test_late_result_follow_up_scenario(
         )
         assert v_st == "FINALIZED"
         rec = await conn.fetchrow(
-            "SELECT revision, chief_complaint_at_visit FROM clinical_record WHERE visit_id = $1::uuid",
+            "SELECT revision, chief_complaint_at_visit "
+            "FROM clinical_record WHERE visit_id = $1::uuid",
             kban.visit_id,
         )
         assert rec["revision"] == 1
@@ -795,7 +847,8 @@ async def test_late_result_follow_up_scenario(
     # 3. Điều dưỡng có capability xác nhận HOP_LE cho tệp muộn
     async with kban.pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO staff_capability (staff_id, capability) "
+            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
         )
     await TepKetQuaService(kban.pool).xac_nhan_tep(
@@ -850,8 +903,10 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         )
         await conn.execute(
             """
-            INSERT INTO service_price (clinic_id, service_code, name, "group", unit_price, active, billing_owner)
-            VALUES ($1::uuid, $2, 'Khám tổng quát test', 'dich_vu', 100000, true, 'CLINIC')
+            INSERT INTO service_price (
+              clinic_id, service_code, name, "group", unit_price, active, billing_owner
+            ) VALUES ($1::uuid, $2, 'Khám tổng quát test', 'dich_vu', 100000,
+                      true, 'CLINIC')
             """,
             CLINIC,
             ma_kham,
@@ -863,13 +918,12 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         )
 
     phien = await _bat_dau_kham_primary(kban)
-    duyet = await kban.svc.authorize_orders(
+    await kban.svc.authorize_orders(
         consultation_id=phien,
         service_codes=[kban.ma_mau_noi_bo, kban.ma_mau_doi_tac],
         draft_order_ids=None,
         identity=kban.bac_si,
     )
-    order_ids = duyet["order_ids"]
 
     # Đọc hóa đơn dịch vụ qua tinh_hoa_don
     async with kban.pool.acquire() as conn:
@@ -936,21 +990,23 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
 
         # payment_bill_line snapshot đủ 3 dòng
         lines = await conn.fetch(
-            "SELECT name_snapshot, line_total, billing_owner FROM payment_bill_line WHERE payment_cycle_id = $1::uuid",
+            "SELECT name_snapshot, line_total, billing_owner "
+            "FROM payment_bill_line WHERE payment_cycle_id = $1::uuid",
             cycle_id,
         )
-        owners = {l["billing_owner"] for l in lines}
+        owners = {line["billing_owner"] for line in lines}
         assert BO_CLINIC in owners
         assert BO_EXTERNAL in owners
 
-        ext_line = next(l for l in lines if l["billing_owner"] == BO_EXTERNAL)
+        ext_line = next(line for line in lines if line["billing_owner"] == BO_EXTERNAL)
         assert ext_line["line_total"] == Decimal(900_000)
 
     # Negative: thay đổi billing_owner làm revision thay đổi
     rev_goc = hd.revision
     async with kban.pool.acquire() as conn:
         await conn.execute(
-            "UPDATE service_price SET billing_owner = 'CLINIC' WHERE clinic_id = $1::uuid AND service_code = $2",
+            "UPDATE service_price SET billing_owner = 'CLINIC' "
+            "WHERE clinic_id = $1::uuid AND service_code = $2",
             CLINIC,
             kban.ma_mau_doi_tac,
         )
@@ -962,7 +1018,8 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
     # Khôi phục
     async with kban.pool.acquire() as conn:
         await conn.execute(
-            "UPDATE service_price SET billing_owner = 'EXTERNAL_PARTNER' WHERE clinic_id = $1::uuid AND service_code = $2",
+            "UPDATE service_price SET billing_owner = 'EXTERNAL_PARTNER' "
+            "WHERE clinic_id = $1::uuid AND service_code = $2",
             CLINIC,
             kban.ma_mau_doi_tac,
         )
@@ -977,7 +1034,7 @@ async def test_partner_security_negative_suite(
     kban: BoKichBan, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """10 Negative tests bảo mật cho tài khoản PARTNER:
-    1. PARTNER không gọi được endpoint nhân viên bình thường (get_current_identity trả 403).
+    1. PARTNER không gọi được endpoint nhân viên (get_current_identity 403).
     2. PARTNER không search bệnh nhân.
     3. PARTNER không đọc clinical_record.
     4. PARTNER không tải xuống tệp kết quả.
@@ -985,7 +1042,7 @@ async def test_partner_security_negative_suite(
     6. PARTNER không upload kết quả vào order nội bộ.
     7. PARTNER không upload vào service_order của clinic khác.
     8. PARTNER không được gửi patient_id để đổi người nhận.
-    9. UUID order tồn tại nhưng không phải việc đối tác: response không tiết lộ order tồn tại.
+    9. UUID order không phải việc đối tác: response không tiết lộ order.
     10. Upload cùng tệp / retry: không tạo trạng thái kết quả sai hoặc mở nhiều REVIEW.
     """
     import clinicai.services.media_service as media
@@ -1005,8 +1062,9 @@ async def test_partner_security_negative_suite(
 
     # 2. PARTNER không search bệnh nhân:
     # Mọi endpoint bệnh nhân (/patients/...) đều đi qua get_current_identity (trả 403).
-    # Endpoint đối tác (/api/v1/doi-tac/viec) hoàn toàn KHÔNG có tham số tìm kiếm bệnh nhân.
+    # Endpoint đối tác (/api/v1/doi-tac/viec) KHÔNG có tham số tìm kiếm bệnh nhân.
     import inspect
+
     from clinicai.api.v1.routers.doi_tac import viec_cua_doi_tac
 
     sig = inspect.signature(viec_cua_doi_tac)
@@ -1016,8 +1074,8 @@ async def test_partner_security_negative_suite(
 
     # 3. PARTNER không đọc và không ghi clinical_record:
     from clinicai.services.clinical_record_service import (
-        may_write,
         ClinicalRecordService,
+        may_write,
     )
 
     assert not may_write(doi_tac.role, vitals_only=False)
@@ -1048,7 +1106,8 @@ async def test_partner_security_negative_suite(
     )
     async with kban.pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id::text, service_code FROM service_order WHERE id = ANY($1::uuid[])",
+            "SELECT id::text, service_code FROM service_order "
+            "WHERE id = ANY($1::uuid[])",
             duyet["order_ids"],
         )
         code_to_id = {r["service_code"]: r["id"] for r in rows}
@@ -1082,7 +1141,8 @@ async def test_partner_security_negative_suite(
     # Tạo order ở clinic 2
     async with kban.pool.acquire() as conn:
         loc2 = await conn.fetchval(
-            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid AND is_active LIMIT 1",
+            "SELECT id::text FROM clinic_location "
+            "WHERE clinic_id = $1::uuid AND is_active LIMIT 1",
             CLINIC_2,
         )
         if loc2:
@@ -1090,8 +1150,11 @@ async def test_partner_security_negative_suite(
             vid2, pid2 = await _tao_luot_kham(conn, CLINIC_2, loc2, bs2.staff_id)
             order_clinic2 = await conn.fetchval(
                 """
-                INSERT INTO service_order (clinic_id, visit_id, service_code, service_name, node_code, exec_status)
-                VALUES ($1::uuid, $2::uuid, 'TEST2', 'Dịch vụ clinic 2', 'DICHVU-SIEUAM', 'authorized')
+                INSERT INTO service_order (
+                  clinic_id, visit_id, service_code,
+                  service_name, node_code, exec_status
+                ) VALUES ($1::uuid, $2::uuid, 'TEST2', 'Dịch vụ clinic 2',
+                          'DICHVU-SIEUAM', 'authorized')
                 RETURNING id::text
                 """,
                 CLINIC_2,
@@ -1195,8 +1258,11 @@ async def test_partner_two_types_of_orders(
         )
         await conn.execute(
             """
-            INSERT INTO service_price (clinic_id, service_code, name, "group", unit_price, active, node_code, doi_tac_lay_mau, billing_owner)
-            VALUES ($1::uuid, $2, 'Xét nghiệm PK lấy mẫu, ngoài chạy test', 'dich_vu', 350000, true, $3, false, 'EXTERNAL_PARTNER')
+            INSERT INTO service_price (
+              clinic_id, service_code, name, "group", unit_price, active,
+              node_code, doi_tac_lay_mau, billing_owner
+            ) VALUES ($1::uuid, $2, 'Xét nghiệm PK lấy mẫu, ngoài chạy test',
+                      'dich_vu', 350000, true, $3, false, 'EXTERNAL_PARTNER')
             """,
             CLINIC,
             ma_pk_lay,
@@ -1212,14 +1278,16 @@ async def test_partner_two_types_of_orders(
     )
     async with kban.pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT id::text, service_code FROM service_order WHERE id = ANY($1::uuid[])",
+            "SELECT id::text, service_code FROM service_order "
+            "WHERE id = ANY($1::uuid[])",
             duyet["order_ids"],
         )
         code_to_id = {r["service_code"]: r["id"] for r in rows}
     id_tu_lay = code_to_id[kban.ma_mau_doi_tac]
     id_pk_lay = code_to_id[ma_pk_lay]
 
-    # Bác sĩ hoàn thành khám PRIMARY với outcome = SERVICES để giải phóng khách cho phòng điều dưỡng/lấy mẫu
+    # Bác sĩ hoàn thành khám PRIMARY với outcome = SERVICES
+    # để giải phóng khách cho phòng điều dưỡng/lấy mẫu
     await kban.svc.complete_consultation(
         consultation_id=phien,
         outcome="SERVICES",
@@ -1278,7 +1346,8 @@ async def test_partner_two_types_of_orders(
         identity=kban.dieu_duong,
     )
 
-    # Sau khi điều dưỡng lấy mẫu xong -> Việc loại 2 xuất hiện trên bàn đối tác ở trạng thái DA_LAY_MAU
+    # Sau khi điều dưỡng lấy mẫu xong ->
+    # Việc loại 2 xuất hiện trên bàn đối tác ở trạng thái DA_LAY_MAU
     viec_dt_sau = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
     v2_sau = next(
         (
