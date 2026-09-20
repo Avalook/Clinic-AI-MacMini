@@ -333,8 +333,8 @@ async def test_chua_xac_dinh_thuoc_kho_chua_thu_duoc(q: Quay) -> None:
     await _thuoc(q)  # có thuốc trong danh mục nhưng dòng đơn CHƯA gắn — không đoán
     hd = await _hd(q, "thuoc")
     assert not hd.thu_duoc
-    assert any("chưa xác định thuốc" in v for v in hd.van_de)
-    with pytest.raises(ValidationError, match="chưa xác định thuốc"):
+    assert any("thuốc chưa có trong danh mục giá" in v for v in hd.van_de)
+    with pytest.raises(ValidationError, match="thuốc chưa có trong danh mục giá"):
         await _thu(q, "thuoc")
 
 

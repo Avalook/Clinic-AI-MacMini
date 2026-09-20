@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -52,6 +53,17 @@ from clinicai.services.phan_lo_service import (
 )
 
 logger = structlog.get_logger()
+
+
+def dung_kho_thuoc_khi_thanh_toan() -> bool:
+    """Tạm thời Tuyền chốt 20/09/2026: thu tiền thuốc không chờ kho/phân lô.
+
+    Giữ code kho phía sau để bật lại khi scope kho được chốt.
+    """
+    return os.getenv(
+        "CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
 
 PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
 # Contract tiền–thuốc A2/C6: tiền mặt = nhân viên xác nhận đã nhận đủ; chuyển
@@ -214,7 +226,7 @@ class PaymentService:
                 # CP3: khoá theo đúng thứ tự visit → dòng đơn → phân lô → lô,
                 # TRƯỚC khi chạm payment_cycle / payment.
                 phan_lo: list[PhanLo] = []
-                if kind == "thuoc":
+                if kind == "thuoc" and dung_kho_thuoc_khi_thanh_toan():
                     phan_lo = await khoa_ban_thuoc(
                         conn,
                         clinic_id=identity.clinic_id,
@@ -327,7 +339,7 @@ class PaymentService:
                         f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
                     )
                 normalized = hoa_don.tong
-                if kind == "thuoc":
+                if kind == "thuoc" and dung_kho_thuoc_khi_thanh_toan():
                     # CP3: thuốc chỉ thu được khi mọi dòng đã có đủ lô, lô còn
                     # hạn và còn khả dụng — thu xong là bán.
                     can = await can_theo_hoa_don(
@@ -561,7 +573,7 @@ class PaymentService:
                 )
                 lech = hoa_don.revision != lan["bill_revision"]
                 khong_ban_duoc: list[str] = []
-                if kind == "thuoc" and not lan["legacy"]:
+                if kind == "thuoc" and bool(phan_lo) and not lan["legacy"]:
                     # Phân lô đã GIỮ từ lúc tạo lần chờ, nên bình thường luôn
                     # bán được. Nếu không (dữ liệu hỏng, lô hết hạn qua đêm):
                     # tiền thật vẫn ghi đã thu, KHÔNG ghi bán, bật đối soát.
@@ -609,11 +621,11 @@ class PaymentService:
                 await conn.execute(
                     """
                     UPDATE payment_cycle
-                       SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
-                           reference = $3, payment_id = $4::uuid, can_doi_soat = $5,
-                           doi_soat_ly_do = $6::text[]
-                     WHERE payment_cycle_id = $1::uuid
-                       AND status = 'PENDING_VERIFICATION'
+                        SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
+                            reference = $3, payment_id = $4::uuid, can_doi_soat = $5,
+                            doi_soat_ly_do = $6::text[]
+                      WHERE payment_cycle_id = $1::uuid
+                        AND status = 'PENDING_VERIFICATION'
                     """,
                     payment_cycle_id,
                     identity.staff_id,
@@ -622,7 +634,12 @@ class PaymentService:
                     can_doi_soat,
                     ly_do_doi_soat,
                 )
-                if kind == "thuoc" and not lan["legacy"] and not khong_ban_duoc:
+                if (
+                    kind == "thuoc"
+                    and bool(phan_lo)
+                    and not lan["legacy"]
+                    and not khong_ban_duoc
+                ):
                     await ghi_ban(
                         conn,
                         clinic_id=identity.clinic_id,
@@ -709,14 +726,15 @@ class PaymentService:
                     identity.staff_id,
                     ly_do,
                 )
-                # Bỏ phần giữ lô của lần chờ; kế hoạch lô chép lại (chưa gắn).
-                await go_va_giu_ke_hoach(
-                    conn,
-                    clinic_id=identity.clinic_id,
-                    staff_id=identity.staff_id,
-                    ly_do=f"Huỷ lần chờ xác minh: {ly_do}",
-                    phan_lo=phan_lo,
-                )
+                if phan_lo:
+                    # Bỏ phần giữ lô của lần chờ; kế hoạch lô chép lại (chưa gắn).
+                    await go_va_giu_ke_hoach(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        staff_id=identity.staff_id,
+                        ly_do=f"Huỷ lần chờ xác minh: {ly_do}",
+                        phan_lo=phan_lo,
+                    )
                 await _log_payment_event(
                     conn,
                     event_type="payment.pending_cancelled",

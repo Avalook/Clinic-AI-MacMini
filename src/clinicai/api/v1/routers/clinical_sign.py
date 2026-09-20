@@ -109,6 +109,7 @@ class AmendPrescriptionItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: UUID | None = None
+    drug_catalog_id: UUID | None = None
     drug_name: str = Field(min_length=1, max_length=MAX_DRUG_NAME_LENGTH)
     quantity: str | None = Field(default=None, max_length=MAX_QUANTITY_LENGTH)
     dosage: str | None = Field(default=None, max_length=MAX_DOSAGE_LENGTH)

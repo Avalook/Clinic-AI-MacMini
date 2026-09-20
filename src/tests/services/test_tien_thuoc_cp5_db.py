@@ -44,6 +44,11 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
+@pytest.fixture(autouse=True)
+def _bat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
+
+
 def _ql(q: Quay) -> Any:
     """Quản lý — vai hoàn tiền TẠM THỜI (HOLD J4)."""
     return dataclasses.replace(

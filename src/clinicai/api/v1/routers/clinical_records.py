@@ -33,6 +33,7 @@ _RECORD_GUARD = require_role(
 class PrescriptionItem(BaseModel):
     # Existing rows round-trip prescription.id; new/legacy rows omit it.
     id: UUID | None = None
+    drug_catalog_id: UUID | None = None
     drug_name: str | None = None
     quantity: str | None = None
     dosage: str | None = None
