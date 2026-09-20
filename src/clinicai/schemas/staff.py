@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -202,9 +203,13 @@ class StaffCapabilityDTO(BaseModel):
 
 
 class CapabilityRequest(BaseModel):
-    """Request payload to grant a capability to a staff member."""
+    """Request payload to grant a capability to a staff member.
 
-    capability: str
+    PR #174 chỉ mở thao tác vận hành cho quyền xác nhận tệp kết quả (ket_qua.xac_nhan).
+    Không cho phép cấp các capability hệ thống khác qua API này.
+    """
+
+    capability: Literal["ket_qua.xac_nhan"]
     proficiency_level: str = "COMPETENT"
 
 

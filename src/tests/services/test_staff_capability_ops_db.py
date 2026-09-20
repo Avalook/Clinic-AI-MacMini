@@ -250,6 +250,26 @@ async def test_staff_capabilities_http_endpoints_and_guards(
                 json={"capability": "ket_qua.xac_nhan"},
             )
             assert res_missing.status_code == 404
+
+            # 9. POST capability khác ket_qua.xac_nhan -> 422/400
+            res_other_post = await client.post(
+                f"/api/v1/staff/{nurse.staff_id}/capabilities",
+                json={"capability": "CASHIER"},
+            )
+            assert res_other_post.status_code in (400, 422)
+
+            # 10. DELETE capability khác ket_qua.xac_nhan qua path -> 400/422
+            res_other_del_path = await client.delete(
+                f"/api/v1/staff/{nurse.staff_id}/capabilities/CASHIER",
+            )
+            assert res_other_del_path.status_code in (400, 422)
+
+            # 11. DELETE capability khác ket_qua.xac_nhan qua query -> 400/422
+            res_other_del_query = await client.delete(
+                f"/api/v1/staff/{nurse.staff_id}/capabilities",
+                params={"capability": "DOCTOR_CONSULTATION"},
+            )
+            assert res_other_del_query.status_code in (400, 422)
     finally:
         app.dependency_overrides.pop(get_current_identity, None)
         app.dependency_overrides.pop(get_db_pool, None)

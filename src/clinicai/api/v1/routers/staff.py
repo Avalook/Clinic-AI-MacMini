@@ -227,12 +227,23 @@ async def grant_staff_capability(
     return dto
 
 
+OPERABLE_CAPABILITY = "ket_qua.xac_nhan"
+
+
 async def _do_revoke_capability(
     id: UUID,
     capability: str,
     identity: StaffIdentity,
     pool: asyncpg.Pool,
 ) -> None:
+    if capability != OPERABLE_CAPABILITY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Chỉ hỗ trợ thao tác thu hồi capability "
+                f"'{OPERABLE_CAPABILITY}' trên endpoint này."
+            ),
+        )
     if str(identity.staff_id) == str(id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
