@@ -44,14 +44,15 @@ def who(role: ClinicRole = ClinicRole.DOCTOR, staff: str = ME) -> StaffIdentity:
 
 def _trang_thai(state: str, **kw: Any) -> dict[str, Any]:
     from datetime import datetime, timezone
+
     now = datetime.now(timezone.utc)
     return {
         "visit_id": VISIT,
         "patient_name": "Nguyễn Thị A",
         "patient_code": "BN1",
-        "clinical_state": "AMENDED" if state == "AMENDED" else (
-            "SIGNED" if state in ("SIGNED", "RELEASED") else state
-        ),
+        "clinical_state": "AMENDED"
+        if state == "AMENDED"
+        else ("SIGNED" if state in ("SIGNED", "RELEASED") else state),
         "version": 1,
         "record_revision": 1,
         "finalized_at": now if state in ("SIGNED", "RELEASED", "AMENDED") else None,
@@ -293,3 +294,29 @@ def test_release_route_reception_cannot_release() -> None:
         json={},
     )
     assert r.status_code == 403
+
+
+def test_release_route_null_attending_doctor_gets_403() -> None:
+    """POST /clinical/{visit}/release: attending_doctor_id NULL → 403."""
+    _as(ClinicRole.DOCTOR)
+    p = _pool(
+        ("FROM public.v_clinical_status", _trang_thai("SIGNED")),
+        ("SELECT visit_id FROM public.visit", VISIT),
+        (
+            "SELECT v.status",
+            {
+                "status": "FINALIZED",
+                "attending_doctor_id": None,
+                "active_release": False,
+                "latest_amendment_id": None,
+            },
+        ),
+    )
+    app.dependency_overrides[get_db_pool] = lambda: p
+    c = TestClient(app)
+    r = c.post(
+        f"/api/v1/clinical/{VISIT}/release",
+        json={},
+    )
+    assert r.status_code == 403
+    assert "bác sĩ chính" in r.json().get("message", "")

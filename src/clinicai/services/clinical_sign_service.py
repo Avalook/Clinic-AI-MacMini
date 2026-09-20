@@ -340,11 +340,7 @@ class ClinicalSignService:
                     "RELEASED"
                     if locked["active_release"]
                     else (
-                        (
-                            "AMENDED"
-                            if locked["latest_amendment_id"]
-                            else "SIGNED"
-                        )
+                        ("AMENDED" if locked["latest_amendment_id"] else "SIGNED")
                         if locked["status"] == "FINALIZED"
                         else locked["status"]
                     )
@@ -835,9 +831,7 @@ def _assert_release_authority(identity: StaffIdentity) -> None:
     bệnh án (bao gồm SOAP, chẩn đoán) là trách nhiệm bác sĩ khám.
     """
     if not identity.co_vai({ClinicRole.DOCTOR}):
-        raise SafetyGateError(
-            "Chỉ bác sĩ chính của lượt mới cho phép gửi bệnh án."
-        )
+        raise SafetyGateError("Chỉ bác sĩ chính của lượt mới cho phép gửi bệnh án.")
 
 
 def _assert_release_doctor_is_attending(
@@ -849,8 +843,9 @@ def _assert_release_doctor_is_attending(
     (trước lock) và lúc transaction thật sự giữ lock.
     """
     if attending_doctor_id is None:
-        # Lượt chưa có bác sĩ chính — fallback: cho bác sĩ đang gọi qua.
-        return
+        raise SafetyGateError(
+            "Lượt chưa có bác sĩ chính — chưa thể cho phép gửi bệnh án."
+        )
     if attending_doctor_id != identity.staff_id:
         raise SafetyGateError(
             "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt cho phép gửi."

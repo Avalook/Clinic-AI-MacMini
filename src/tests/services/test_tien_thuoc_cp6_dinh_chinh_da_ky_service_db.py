@@ -814,4 +814,3 @@ async def test_release_bi_chan_cho_sieu_am_va_bac_si_khac(
         CLINIC,
         q.visit_id,
     )
-
