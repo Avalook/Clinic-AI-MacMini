@@ -234,17 +234,34 @@ class ClinicalSignService:
                 if locked_visit is None:
                     raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
 
-                # 2. Đọc thông tin kiểm tra sau lock
+                # 2. Đọc đầy đủ dữ liệu quyết định ký sau khi đã giữ lock:
+                # - status, attending_doctor_id, current_revision
+                # - SOAP fields từ clinical_record
+                # - chief_complaint_at_visit
+                # - phieu_chuyen_khoa từ clinical_form_response
+                # - co_sinh_hieu từ vital_measurement
                 locked = await conn.fetchrow(
                     """
                     SELECT v.status,
                            v.attending_doctor_id::text,
-                           coalesce(
-                               (SELECT cr.revision FROM public.clinical_record cr
-                                 WHERE cr.clinic_id = v.clinic_id
-                                   AND cr.visit_id = v.visit_id), 0
-                           ) AS current_revision
+                           coalesce(cr.revision, 0) AS current_revision,
+                           cr.soap_subjective,
+                           cr.soap_objective,
+                           cr.soap_assessment,
+                           cr.soap_plan,
+                           cr.chief_complaint_at_visit,
+                           (SELECT jsonb_object_agg(k, v)
+                              FROM public.clinical_form_response f,
+                                   jsonb_each(f.form_data) AS e(k, v)
+                             WHERE f.visit_id = v.visit_id
+                               AND f.clinic_id = v.clinic_id) AS phieu_chuyen_khoa,
+                           EXISTS (SELECT 1 FROM public.vital_measurement m
+                                    WHERE m.visit_id = v.visit_id
+                                      AND m.clinic_id = v.clinic_id) AS co_sinh_hieu
                       FROM public.visit v
+                      LEFT JOIN public.clinical_record cr
+                             ON cr.visit_id = v.visit_id
+                            AND cr.clinic_id = v.clinic_id
                      WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
                     """,
                     identity.clinic_id,
@@ -290,7 +307,16 @@ class ClinicalSignService:
                         "bản mới rồi ký."
                     )
 
-                # 6. Ký bệnh án — khóa chặt điều kiện status IN ('OPEN', 'IN_PROGRESS')
+                # 6. Kiểm tra lại tính đầy đủ của hồ sơ (SOAP + phiếu + sinh hiệu)
+                # NGAY TRONG TRANSACTION ĐÃ GIỮ LOCK, chống race condition khi
+                # phiếu bị sửa/xoá.
+                missing = missing_fields(dict(locked))
+                if missing:
+                    raise ValidationError(
+                        "Chưa ký được, còn thiếu: " + ", ".join(missing)
+                    )
+
+                # 7. Ký bệnh án — khóa chặt điều kiện status IN ('OPEN', 'IN_PROGRESS')
                 signed = await conn.fetchval(
                     """
                     UPDATE public.visit

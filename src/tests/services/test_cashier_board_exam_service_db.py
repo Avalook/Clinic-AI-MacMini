@@ -15,6 +15,7 @@ BUG REPRODUCE:
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import Any
 
 import asyncpg
@@ -648,3 +649,206 @@ async def test_concurrency_sign_waits_for_lock_and_fails_on_stale_revision(
     assert visit_row["status"] == "OPEN"
     assert visit_row["finalized_at"] is None
     assert visit_row["finalized_by"] is None
+
+
+async def test_concurrency_sign_aborts_if_form_modified_concurrently_to_incomplete(
+    q: Quay,
+) -> None:
+    """Test A (Concurrency):
+    - sign.status() ban đầu thấy phiếu chuyên khoa đầy đủ (đáp ứng SOAP).
+    - Connection 1 giữ visit lock FOR UPDATE và sửa phiếu làm hồ sơ thiếu.
+    - sign() chờ lock, sau khi lấy lock re-check missing_fields() và FAIL CLOSED.
+    - sign() tuyệt đối không FINALIZED.
+    """
+    from clinicai.api.exceptions import ValidationError
+    from clinicai.services.clinical_sign_service import ClinicalSignService
+
+    # Đảm bảo có catalogue phiếu
+    await q.pool.execute(
+        """
+        INSERT INTO public.clinical_form_catalogue (
+            clinic_id, form_code, title, is_active
+        ) VALUES ($1::uuid, 'PK', 'Khám Phụ Khoa', true)
+        ON CONFLICT (clinic_id, form_code) DO UPDATE SET is_active = true
+        """,
+        CLINIC,
+    )
+
+    # 1. Chuẩn bị hồ sơ khám với SOAP trống, nhưng phiếu chuyên khoa PK có đủ trường:
+    # ly_do (S), kls_kham (O), cd_chinh (A), huong_xu_tri (P).
+    await q.pool.execute(
+        """
+        INSERT INTO public.clinical_record (
+            clinic_id, visit_id, revision,
+            soap_subjective, soap_objective, soap_assessment, soap_plan
+        ) VALUES (
+            $1::uuid, $2::uuid, 1,
+            '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb
+        )
+        ON CONFLICT (visit_id) DO UPDATE
+        SET revision = 1,
+            soap_subjective = '{}'::jsonb,
+            soap_objective = '{}'::jsonb,
+            soap_assessment = '{}'::jsonb,
+            soap_plan = '{}'::jsonb
+        """,
+        CLINIC,
+        q.visit_id,
+    )
+    form_json = json.dumps(
+        {
+            "ly_do": "đau",
+            "kls_kham": "ổn",
+            "chan_doan": "viêm",
+            "huong_xu_tri": "uống thuốc",
+        }
+    )
+    await q.pool.execute(
+        """
+        INSERT INTO public.clinical_form_response (
+            clinic_id, visit_id, service_code, form_data, created_by, updated_by
+        ) VALUES (
+            $1::uuid, $2::uuid, 'PK', $3::jsonb, 'test', 'test'
+        )
+        ON CONFLICT ON CONSTRAINT uq_clinical_form_visit_service DO UPDATE
+        SET form_data = $3::jsonb
+        """,
+        CLINIC,
+        q.visit_id,
+        form_json,
+    )
+    await q.pool.execute(
+        "UPDATE public.visit SET status = 'OPEN', attending_doctor_id = $2::uuid"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+        q.bac_si.staff_id,
+    )
+
+    # 2. Connection 1 mở transaction và giữ lock visit FOR UPDATE
+    conn1 = await q.pool.acquire()
+    tx1 = conn1.transaction()
+    await tx1.start()
+    try:
+        await conn1.execute(
+            "SELECT visit_id FROM public.visit WHERE visit_id = $1::uuid FOR UPDATE",
+            q.visit_id,
+        )
+
+        # 3. Chạy sign() trong task bất đồng bộ (connection 2 sẽ chạy sign)
+        # Lúc này sign() gọi status() thấy phiếu PK đầy đủ => qua gate status()
+        # Nhưng khi tới lượt lock visit thì bị treo đợi connection 1.
+        sign_svc = ClinicalSignService(q.pool)
+        sign_task = asyncio.create_task(
+            sign_svc.sign(
+                identity=q.bac_si,
+                visit_id=q.visit_id,
+                expected_revision=1,
+            )
+        )
+
+        await asyncio.sleep(0.1)
+        assert not sign_task.done(), "sign() phải đang chờ lock từ connection 1"
+
+        # 4. Connection 1 sửa phiếu thành rỗng (làm hồ sơ thiếu trường) rồi commit
+        await conn1.execute(
+            "UPDATE public.clinical_form_response SET form_data = '{}'::jsonb"
+            " WHERE visit_id = $1::uuid AND service_code = 'PK'",
+            q.visit_id,
+        )
+        await tx1.commit()
+    finally:
+        await q.pool.release(conn1)
+
+    # 5. sign_task unblock và phải fail với ValidationError (chưa đủ điều kiện ký)
+    with pytest.raises(ValidationError, match="Chưa ký được, còn thiếu"):
+        await sign_task
+
+    # 6. Xác nhận DB không bị ghi đè FINALIZED
+    visit_row = await q.pool.fetchrow(
+        "SELECT status, finalized_at, finalized_by FROM public.visit"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    assert visit_row["status"] == "OPEN"
+    assert visit_row["finalized_at"] is None
+
+
+async def test_concurrency_sign_blocks_save_form_and_save_form_fails_once_finalized(
+    q: Quay,
+) -> None:
+    """Test B (Concurrency):
+    - sign giữ visit lock trước.
+    - save_form() phải chờ.
+    - sau khi sign commit FINALIZED, save_form() đọc lại thấy FINALIZED và
+      bị chặn (409 ConflictError).
+    - clinical_form_response không bị thay đổi.
+    """
+    from clinicai.api.exceptions import ConflictError
+    from clinicai.services.clinical_form_service import ClinicalFormService
+
+    # Đảm bảo có catalogue phiếu
+    await q.pool.execute(
+        """
+        INSERT INTO public.clinical_form_catalogue (
+            clinic_id, form_code, title, is_active
+        ) VALUES ($1::uuid, 'PK', 'Khám Phụ Khoa', true)
+        ON CONFLICT (clinic_id, form_code) DO UPDATE SET is_active = true
+        """,
+        CLINIC,
+    )
+
+    # 1. Visit ở trạng thái OPEN
+    await q.pool.execute(
+        "UPDATE public.visit SET status = 'OPEN', attending_doctor_id = $2::uuid"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+        q.bac_si.staff_id,
+    )
+
+    # 2. Connection 1 mở transaction và giữ lock visit FOR UPDATE (mô phỏng sign)
+    conn1 = await q.pool.acquire()
+    tx1 = conn1.transaction()
+    await tx1.start()
+    try:
+        await conn1.execute(
+            "SELECT visit_id FROM public.visit WHERE visit_id = $1::uuid FOR UPDATE",
+            q.visit_id,
+        )
+
+        # 3. Chạy save_form() trong task bất đồng bộ
+        form_svc = ClinicalFormService(q.pool)
+        save_task = asyncio.create_task(
+            form_svc.save_form(
+                visit_id=q.visit_id,
+                service_code="PK",
+                form_data={"ghi_chu": "lén ghi sau khi ký"},
+                identity=q.bac_si,
+            )
+        )
+
+        # save_form() chạy tới câu SELECT ... FOR UPDATE OF v và bị treo chờ lock
+        await asyncio.sleep(0.1)
+        assert not save_task.done(), "save_form() phải chờ lock từ connection 1"
+
+        # 4. Connection 1 cập nhật status sang FINALIZED rồi commit
+        await conn1.execute(
+            "UPDATE public.visit SET status = 'FINALIZED', finalized_at = now()"
+            " WHERE visit_id = $1::uuid",
+            q.visit_id,
+        )
+        await tx1.commit()
+    finally:
+        await q.pool.release(conn1)
+
+    # 5. save_task unblock và phải bị từ chối với 409 ConflictError
+    with pytest.raises(ConflictError, match="không còn ở trạng thái cho phép sửa"):
+        await save_task
+
+    # 6. Xác nhận clinical_form_response không có dữ liệu lén ghi
+    form_row = await q.pool.fetchrow(
+        "SELECT form_data FROM public.clinical_form_response"
+        " WHERE visit_id = $1::uuid AND service_code = 'PK'",
+        q.visit_id,
+    )
+    if form_row is not None:
+        assert "lén ghi sau khi ký" not in str(form_row["form_data"])

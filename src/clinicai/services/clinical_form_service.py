@@ -176,12 +176,15 @@ class ClinicalFormService:
             async with conn.transaction():
                 # Bác sĩ của lượt: CÙNG nguồn với bệnh án SOAP (bác sĩ của lịch
                 # hẹn), lùi về bác sĩ phụ trách lượt khi lượt không có lịch.
+                # Khóa visit (FOR UPDATE OF v) để đồng bộ với transaction ký (sign),
+                # ngăn form bị sửa quanh/sau chữ ký mà không đi qua AMENDED.
                 visit = await conn.fetchrow(
                     "SELECT v.visit_id, v.status,"
                     " coalesce(a.doctor_id, v.attending_doctor_id)::text AS bac_si"
                     " FROM visit v LEFT JOIN appointment a"
                     " ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
-                    " WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid",
+                    " WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid"
+                    " FOR UPDATE OF v",
                     visit_id,
                     identity.clinic_id,
                 )

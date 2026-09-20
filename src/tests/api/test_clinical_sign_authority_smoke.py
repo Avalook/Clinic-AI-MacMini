@@ -70,6 +70,28 @@ def _trang_thai(state: str = "DRAFT", **kw: Any) -> dict[str, Any]:
     return base
 
 
+def _locked(
+    status: str = "OPEN",
+    attending: str | None = ATTENDING_DOC,
+    rev: int = 2,
+    **kw: Any,
+) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "status": status,
+        "attending_doctor_id": attending,
+        "current_revision": rev,
+        "soap_subjective": '{"s": "khám"}',
+        "soap_objective": '{"o": "ổn"}',
+        "soap_assessment": '{"a": "viêm"}',
+        "soap_plan": '{"p": "theo dõi"}',
+        "chief_complaint_at_visit": None,
+        "phieu_chuyen_khoa": None,
+        "co_sinh_hieu": False,
+    }
+    base.update(kw)
+    return base
+
+
 def _as(role: ClinicRole, staff_id: str) -> None:
     app.dependency_overrides[get_current_identity] = lambda: who(role, staff_id)
 
@@ -87,15 +109,10 @@ def _clean_overrides() -> Iterator[None]:
 # ── 1. DOCTOR chính + current revision => ký thành công ───────────────────────
 def test_1_attending_doctor_signs_successfully() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "OPEN",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("OPEN", ATTENDING_DOC, 2)),
         ("UPDATE public.visit", VISIT),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
@@ -109,15 +126,10 @@ def test_1_attending_doctor_signs_successfully() -> None:
 # ── 2. DOCTOR khác + current revision => 403 ─────────────────────────────────
 def test_2_other_doctor_cannot_sign_403() -> None:
     _as(ClinicRole.DOCTOR, OTHER_DOC)
-    locked_row = {
-        "status": "OPEN",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("OPEN", ATTENDING_DOC, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -130,15 +142,10 @@ def test_2_other_doctor_cannot_sign_403() -> None:
 # ── 3. attending_doctor_id NULL => 403 ───────────────────────────────────────
 def test_3_null_attending_doctor_cannot_sign_403() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "OPEN",
-        "attending_doctor_id": None,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("OPEN", None, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -204,15 +211,10 @@ def test_6_missing_expected_revision_422() -> None:
 # ── 7. stale expected_revision => 409 ─────────────────────────────────────────
 def test_7_stale_expected_revision_409() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "OPEN",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 3,  # hiện tại trên DB là 3
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT", record_revision=3)),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("OPEN", ATTENDING_DOC, 3)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -226,15 +228,10 @@ def test_7_stale_expected_revision_409() -> None:
 # ── 8. race: revision thay đổi trước câu ký => không ký (409) ─────────────────
 def test_8_race_revision_changed_before_update_fails_closed_409() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "OPEN",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,  # lúc đọc sau lock thấy 2
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT", record_revision=2)),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("OPEN", ATTENDING_DOC, 2)),
         ("UPDATE public.visit", None),  # UPDATE matched 0 rows
         ("status = 'FINALIZED' FROM public.visit", False),
     )
@@ -249,15 +246,10 @@ def test_8_race_revision_changed_before_update_fails_closed_409() -> None:
 # ── TEST A: status() ban đầu DRAFT, locked row FINALIZED, doctor khác => 403 ───
 def test_a_other_doctor_cannot_get_already_signed_on_finalized_403() -> None:
     _as(ClinicRole.DOCTOR, OTHER_DOC)
-    locked_row = {
-        "status": "FINALIZED",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("FINALIZED", ATTENDING_DOC, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -270,15 +262,10 @@ def test_a_other_doctor_cannot_get_already_signed_on_finalized_403() -> None:
 # ── TEST B: status() ban đầu DRAFT, locked row FINALIZED, chính doctor => 201 ──
 def test_b_attending_doctor_gets_already_signed_on_finalized() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "FINALIZED",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("FINALIZED", ATTENDING_DOC, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -291,15 +278,10 @@ def test_b_attending_doctor_gets_already_signed_on_finalized() -> None:
 # ── TEST C: locked status = INCOMPLETE => 422 ─────────────────────────────────
 def test_c_locked_status_incomplete_fails_closed_422() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "INCOMPLETE",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("INCOMPLETE", ATTENDING_DOC, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -314,15 +296,10 @@ def test_c_locked_status_incomplete_fails_closed_422() -> None:
 # ── TEST D: locked status = AMENDED + same revision => 422 ────────────────────
 def test_d_locked_status_amended_fails_closed_422() -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": "AMENDED",
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked("AMENDED", ATTENDING_DOC, 2)),
     )
     app.dependency_overrides[get_db_pool] = lambda: p
 
@@ -336,15 +313,10 @@ def test_d_locked_status_amended_fails_closed_422() -> None:
 @pytest.mark.parametrize("status", ["OPEN", "IN_PROGRESS"])
 def test_e_open_and_in_progress_sign_normally(status: str) -> None:
     _as(ClinicRole.DOCTOR, ATTENDING_DOC)
-    locked_row = {
-        "status": status,
-        "attending_doctor_id": ATTENDING_DOC,
-        "current_revision": 2,
-    }
     p = _pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
         ("SELECT visit_id FROM public.visit", VISIT),
-        ("FROM public.visit v", locked_row),
+        ("FROM public.visit v", _locked(status, ATTENDING_DOC, 2)),
         ("UPDATE public.visit", VISIT),
     )
     app.dependency_overrides[get_db_pool] = lambda: p

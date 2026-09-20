@@ -316,6 +316,13 @@ async def test_ky_benh_an_dung_phien_ban() -> None:
         "status": "OPEN",
         "attending_doctor_id": ME,
         "current_revision": 5,
+        "soap_subjective": '{"s": "khám"}',
+        "soap_objective": '{"o": "ổn"}',
+        "soap_assessment": '{"a": "viêm"}',
+        "soap_plan": '{"p": "theo dõi"}',
+        "chief_complaint_at_visit": None,
+        "phieu_chuyen_khoa": None,
+        "co_sinh_hieu": False,
     }
     ok = pool(
         ("FROM public.v_clinical_status", _trang_thai("DRAFT")),
