@@ -539,7 +539,7 @@ _GET_BY_CAPABILITY_SQL = """
 
 async def add_capability(
     pool: asyncpg.Pool,
-    staff_id: UUID,
+    staff_id: UUID | str,
     capability: str,
     clinic_id: str,
     proficiency_level: str = "COMPETENT",
@@ -553,10 +553,11 @@ async def add_capability(
     Shared multi-clinic profiles require a system-admin path because this table
     has no clinic_id and any write would otherwise affect another tenant.
     """
+    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             _ADD_CAPABILITY_SQL,
-            staff_id,
+            staff_uuid,
             capability,
             proficiency_level,
             clinic_id,
@@ -597,3 +598,108 @@ async def get_staff_by_capability(
             clinic_id,
         )
     return [dict(row) for row in rows]
+
+
+_REVOKE_CAPABILITY_CHECK_SQL = """
+    SELECT
+        EXISTS (
+            SELECT 1
+            FROM clinic_membership
+            WHERE staff_id = $1 AND clinic_id = $2::uuid
+        ) AS in_clinic,
+        EXISTS (
+            SELECT 1
+            FROM clinic_membership
+            WHERE staff_id = $1 AND clinic_id <> $2::uuid
+        ) AS multi_clinic
+"""
+
+_REVOKE_CAPABILITY_SQL = """
+    DELETE FROM staff_capability sc
+    USING clinic_membership cm
+    WHERE sc.staff_id = $1
+      AND sc.capability = $2
+      AND cm.staff_id = sc.staff_id
+      AND cm.clinic_id = $3::uuid
+      AND NOT EXISTS (
+          SELECT 1
+          FROM clinic_membership cm2
+          WHERE cm2.staff_id = sc.staff_id
+            AND cm2.clinic_id <> $3::uuid
+      )
+"""
+
+_GET_STAFF_CAPABILITIES_SQL = """
+    SELECT
+        sc.id,
+        sc.staff_id,
+        sc.capability,
+        sc.proficiency_level,
+        sc.created_at
+    FROM staff_capability sc
+    JOIN clinic_membership cm ON cm.staff_id = sc.staff_id
+    WHERE sc.staff_id = $1
+      AND cm.clinic_id = $2::uuid
+    ORDER BY sc.capability
+"""
+
+
+async def revoke_capability(
+    pool: asyncpg.Pool,
+    staff_id: UUID | str,
+    capability: str,
+    clinic_id: str,
+) -> bool:
+    """Revoke a capability for a staff member owned only by this clinic.
+
+    Fails closed if the staff does not belong to clinic_id or is multi-clinic.
+    Idempotent: returns True if staff is valid, even if capability was already absent.
+    """
+    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
+    async with pool.acquire() as conn:
+        check = await conn.fetchrow(
+            _REVOKE_CAPABILITY_CHECK_SQL,
+            staff_uuid,
+            clinic_id,
+        )
+        if not check or not check["in_clinic"] or check["multi_clinic"]:
+            raise ResourceNotFoundError(f"Staff {staff_id} not found")
+
+        await conn.execute(
+            _REVOKE_CAPABILITY_SQL,
+            staff_uuid,
+            capability,
+            clinic_id,
+        )
+
+    logger.info(
+        "staff_capability_revoked",
+        staff_id=str(staff_id),
+        clinic_id=clinic_id,
+        capability=capability,
+    )
+    return True
+
+
+async def get_staff_capabilities(
+    pool: asyncpg.Pool,
+    staff_id: UUID | str,
+    clinic_id: str,
+) -> list[StaffCapabilityDTO]:
+    """Return all capabilities granted to a staff member in this clinic."""
+    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
+    async with pool.acquire() as conn:
+        in_clinic = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM clinic_membership
+                WHERE staff_id = $1 AND clinic_id = $2::uuid
+            )
+            """,
+            staff_uuid,
+            clinic_id,
+        )
+        if not in_clinic:
+            raise ResourceNotFoundError(f"Staff {staff_id} not found")
+        rows = await conn.fetch(_GET_STAFF_CAPABILITIES_SQL, staff_uuid, clinic_id)
+    return [StaffCapabilityDTO.model_validate(dict(row)) for row in rows]

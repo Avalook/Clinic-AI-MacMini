@@ -49,7 +49,7 @@ def test_chi_bac_si_cho_phep_gui(role: ClinicRole) -> None:
 
 class _Pool:
     async def fetchrow(self, *_: Any) -> dict[str, Any]:
-        return {"gui_luc": None, "cho_phep_gui_luc": None}
+        return {"gui_luc": None, "cho_phep_gui_luc": None, "xac_nhan_trang_thai": None}
 
 
 def test_chua_cho_phep_thi_cskh_khong_danh_dau_da_gui() -> None:

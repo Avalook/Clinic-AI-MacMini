@@ -32,6 +32,8 @@ export interface TepKetQuaRow {
   cho_phep_gui_boi: string | null;
   /** false = tệp siêu âm / thủ thuật — không tính vào "Có kết quả xét nghiệm". */
   la_ket_qua_xet_nghiem?: boolean;
+  /** Trạng thái xác nhận tệp external: CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI (null = internal) */
+  xac_nhan_trang_thai?: string | null;
 }
 
 const BIEU_TUONG = {
@@ -365,7 +367,12 @@ export default function TepKetQua({
                   </div>
                 )}
 
-                {!t.gui_luc && !t.cho_phep_gui_luc && (
+                {!t.gui_luc && t.xac_nhan_trang_thai === "CHO_XAC_NHAN" && (
+                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-chip bg-warning-bg px-2 py-0.5 text-label font-bold text-warning">
+                    Chờ xác nhận đúng người/chỉ định
+                  </p>
+                )}
+                {!t.gui_luc && t.xac_nhan_trang_thai !== "CHO_XAC_NHAN" && !t.cho_phep_gui_luc && (
                   // BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026): chưa cho phép thì không
                   // có nút xác nhận đã gửi — backend và DB cũng chặn.
                   <p className="mt-1.5 text-label font-medium text-warning">

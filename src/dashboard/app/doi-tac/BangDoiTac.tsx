@@ -60,14 +60,14 @@ const BUOC: { ma: TrangThai; nhan: string }[] = [
   { ma: "CHO_LAY_MAU", nhan: "Lấy mẫu" },
   { ma: "DA_LAY_MAU", nhan: "Nhận mẫu" },
   { ma: "CHO_TAI_LIEU", nhan: "Chờ tài liệu" },
-  { ma: "DA_GUI_KET_QUA", nhan: "Đã gửi" },
+  { ma: "DA_GUI_KET_QUA", nhan: "Đã gửi tệp" },
 ];
 
 const NHAN_TRANG_THAI: Record<TrangThai, { chu: string; mau: string }> = {
   CHO_LAY_MAU: { chu: "Chờ lấy mẫu", mau: "bg-warning-bg text-warning" },
   DA_LAY_MAU: { chu: "Đã có mẫu · chờ nhận", mau: "bg-brand-50 text-brand-700" },
   CHO_TAI_LIEU: { chu: "Đang chờ tài liệu", mau: "bg-brand-50 text-brand-700" },
-  DA_GUI_KET_QUA: { chu: "Đã gửi kết quả", mau: "bg-success-bg text-success" },
+  DA_GUI_KET_QUA: { chu: "Đã gửi tệp · chờ xác nhận", mau: "bg-success-bg text-success" },
 };
 
 function gioVn(iso: string | null): string {

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -178,6 +179,7 @@ class Capability(str, Enum):
     ULTRASOUND_NURSE = "ULTRASOUND_NURSE"
     CSKH = "CSKH"
     DOCTOR_CONSULTATION = "DOCTOR_CONSULTATION"
+    KET_QUA_XAC_NHAN = "ket_qua.xac_nhan"
 
 
 class ProficiencyLevel(str, Enum):
@@ -198,3 +200,21 @@ class StaffCapabilityDTO(BaseModel):
     capability: str
     proficiency_level: str
     created_at: datetime
+
+
+class CapabilityRequest(BaseModel):
+    """Request payload to grant a capability to a staff member.
+
+    PR #174 chỉ mở thao tác vận hành cho quyền xác nhận tệp kết quả (ket_qua.xac_nhan).
+    Không cho phép cấp các capability hệ thống khác qua API này.
+    """
+
+    capability: Literal["ket_qua.xac_nhan"]
+    proficiency_level: str = "COMPETENT"
+
+
+class StaffCapabilitiesResponse(BaseModel):
+    """Response containing capabilities granted to a staff member."""
+
+    staff_id: UUID
+    capabilities: list[str]

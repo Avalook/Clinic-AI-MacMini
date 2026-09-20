@@ -20,6 +20,7 @@ import pytest
 from clinicai.api.exceptions import ValidationError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
+from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from tests.services.test_luot_kham_service_db import KichBan, _cua, _vao_kham
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
@@ -115,11 +116,32 @@ async def test_lay_mau_xong_chua_du_phai_co_ket_qua(kb: KichBan) -> None:
     assert await _cho_doc(kb) == []
     assert not await _da_khep(kb)
 
-    # Kết quả về (tệp gắn chỉ định → tep_ket_qua_service gọi đúng hook này).
-    await kb.pool.execute(
-        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", mau
+    # Tệp kết quả tải lên (ở trạng thái CHO_XAC_NHAN) -> vẫn chưa đủ (Blocker 1)
+    khach = await kb.pool.fetchval(
+        "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
     )
-    await kb.svc.sau_khi_co_ket_qua(order_id=mau, identity=kb.dieu_duong)
+    tep = await TepKetQuaService(kb.pool).tai_len(
+        identity=kb.dieu_duong,
+        clinic_patient_id=khach,
+        data=b"%PDF-1.4\n%%EOF\n",
+        ten_hien_thi="ket-qua-mau.pdf",
+        service_order_id=mau,
+    )
+    [vong] = await _vong(kb)
+    assert vong["trang_thai"] == "collecting"
+
+    # Xác nhận HOP_LE (yêu cầu capability ket_qua.xac_nhan) -> vòng SẴN SÀNG
+    await kb.pool.execute(
+        "INSERT INTO staff_capability (staff_id, capability) "
+        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        kb.truong_ca.staff_id,
+    )
+    await TepKetQuaService(kb.pool).xac_nhan_tep(
+        identity=kb.truong_ca,
+        tep_id=str(tep["id"]),
+        trang_thai="HOP_LE",
+    )
     [vong] = await _vong(kb)
     assert vong["trang_thai"] == "ready"
     assert vong["yeu_cau"][0]["trang_thai"] == "satisfied"
@@ -256,8 +278,26 @@ async def test_ket_qua_muon_chuyen_theo_doi_roi_duyet_sau_khi_ky(
     )
     # Bác sĩ ký bệnh án (lượt FINALIZED) rồi kết quả mới về: vẫn duyệt được, và
     # duyệt xong thì việc theo dõi đóng.
+    khach = await kb.pool.fetchval(
+        "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    tep = await TepKetQuaService(kb.pool).tai_len(
+        identity=kb.dieu_duong,
+        clinic_patient_id=khach,
+        data=b"%PDF-1.4\n%%EOF\n",
+        ten_hien_thi="ket-qua-mau.pdf",
+        service_order_id=mau,
+    )
     await kb.pool.execute(
-        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", mau
+        "INSERT INTO staff_capability (staff_id, capability) "
+        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        kb.truong_ca.staff_id,
+    )
+    await TepKetQuaService(kb.pool).xac_nhan_tep(
+        identity=kb.truong_ca,
+        tep_id=str(tep["id"]),
+        trang_thai="HOP_LE",
     )
     await kb.pool.execute(
         "UPDATE visit SET status = 'FINALIZED' WHERE visit_id = $1::uuid",
@@ -478,9 +518,27 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
         mau,
     )
     assert await viec() == [("CHO_KQ_XN", han)]
-    # Kết quả (dạng nội dung) về: hết "muộn", sang "chờ bác sĩ duyệt".
+    # Tệp kết quả về và được xác nhận HOP_LE: sang "chờ bác sĩ duyệt".
+    khach = await kb.pool.fetchval(
+        "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    tep = await TepKetQuaService(kb.pool).tai_len(
+        identity=kb.dieu_duong,
+        clinic_patient_id=khach,
+        data=b"%PDF-1.4\n%%EOF\n",
+        ten_hien_thi="ket-qua-mau.pdf",
+        service_order_id=mau,
+    )
     await kb.pool.execute(
-        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", mau
+        "INSERT INTO staff_capability (staff_id, capability) "
+        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        kb.truong_ca.staff_id,
+    )
+    await TepKetQuaService(kb.pool).xac_nhan_tep(
+        identity=kb.truong_ca,
+        tep_id=str(tep["id"]),
+        trang_thai="HOP_LE",
     )
     assert [t for t, _ in await viec()] == ["CHO_BAC_SI"]
     await kb.svc.duyet_ket_qua(order_id=mau, danh_gia=None, identity=kb.bac_si)

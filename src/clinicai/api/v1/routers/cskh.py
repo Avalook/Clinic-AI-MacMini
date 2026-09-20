@@ -21,6 +21,7 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
+    get_current_identity,
     require_role,
     require_role_co_the_mo,
 )
@@ -626,6 +627,71 @@ async def cho_phep_gui_tep(
     )
 
 
+@router.get("/cskh/ket-qua/cho-xac-nhan")
+async def tep_cho_xac_nhan(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách tệp kết quả external đang chờ xác nhận (CHO_XAC_NHAN).
+
+    Bắt buộc capability ket_qua.xac_nhan (fail-closed, 403 nếu không có).
+    LƯU Ý HIỆN TẠI (CURRENT LIMITATION): SINGLE-PARTNER PILOT ONLY.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {"items": await TepKetQuaService(pool).cho_xac_nhan(identity=identity)}
+
+
+class XacNhanTepDTO(BaseModel):
+    trang_thai: str
+    ly_do: str | None = None
+
+
+class ThuHoiTepDTO(BaseModel):
+    ly_do: str
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/xac-nhan")
+async def xac_nhan_tep_ket_qua(
+    tep_id: UUID,
+    body: XacNhanTepDTO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Xác nhận tệp kết quả (HOP_LE hoặc TU_CHOI).
+
+    Bắt buộc capability ket_qua.xac_nhan.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).xac_nhan_tep(
+        identity=identity,
+        tep_id=str(tep_id),
+        trang_thai=body.trang_thai,
+        ly_do=body.ly_do,
+    )
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/thu-hoi")
+async def thu_hoi_tep_ket_qua(
+    tep_id: UUID,
+    body: ThuHoiTepDTO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thu hồi tệp kết quả đã từng HOP_LE.
+
+    Bắt buộc capability ket_qua.xac_nhan và lý do.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).thu_hoi_tep(
+        identity=identity,
+        tep_id=str(tep_id),
+        ly_do=body.ly_do,
+    )
+
+
 @router.get("/cskh/ket-qua/{clinic_patient_id}")
 async def danh_sach_ket_qua(
     clinic_patient_id: UUID,
@@ -648,7 +714,7 @@ async def danh_sach_ket_qua(
 async def doc_tep_ket_qua(
     tep_id: UUID,
     request: Request,
-    identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.

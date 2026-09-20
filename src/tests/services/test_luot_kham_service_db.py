@@ -1192,9 +1192,23 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
             service_order_id=mau_id,
         )
         # Có kết quả → sang mục "Đã gửi hôm nay" của đối tác (không còn là việc
-        # cần làm), và sang hàng chờ bác sĩ duyệt.
+        # cần làm), và sau khi xác nhận HOP_LE thì sang hàng chờ bác sĩ duyệt.
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
         assert viec is not None and viec["trang_thai"] == "DA_GUI_KET_QUA"
+
+        # Cấp capability xác nhận kết quả và xác nhận HOP_LE
+        async with kb.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO staff_capability (staff_id, capability) "
+                "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+                kb.dieu_duong.staff_id,
+            )
+        await TepKetQuaService(kb.pool).xac_nhan_tep(
+            identity=kb.dieu_duong,
+            tep_id=tep["id"],
+            trang_thai="HOP_LE",
+        )
+
         cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
         dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
         assert [t["id"] for t in dong["tep"]] == [tep["id"]]
@@ -1235,6 +1249,14 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
                 )
                 is None
             )
+
+        # Xác nhận HOP_LE cho tep2 trước khi bác sĩ duyệt bản mới
+        await TepKetQuaService(kb.pool).xac_nhan_tep(
+            identity=kb.dieu_duong,
+            tep_id=tep2["id"],
+            trang_thai="HOP_LE",
+        )
+
         cho = await kb.svc.ket_qua_cho_duyet(identity=kb.bac_si)
         dong = next(r for r in cho["ket_qua"] if r["id"] == mau_id)
         assert dong["duyet_lan_truoc"] is not None
@@ -1484,3 +1506,429 @@ async def test_le_tan_khong_bam_duoc_phong_dich_vu(kb: KichBan) -> None:
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     with pytest.raises(SafetyGateError):
         await kb.svc.start_service(order_id=duyet["order_ids"][0], identity=kb.le_tan)
+
+
+# ------------------------------------------------------------------
+# Tests an toàn nút Khám xong (HANDOFF vs TERMINAL) & guard hồ sơ
+# ------------------------------------------------------------------
+
+
+async def _benh_an_sach(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+) -> None:
+    await conn.execute(
+        """
+        INSERT INTO clinical_record (
+            clinic_id, visit_id, soap_assessment, soap_plan, prescription_draft
+        ) VALUES (
+            $1::uuid, $2::uuid,
+            '{"chan_doan": "Khám sức khỏe tổng quát"}'::jsonb,
+            '{"loi_dan": "Tái khám theo hẹn"}'::jsonb,
+            NULL
+        )
+        ON CONFLICT (visit_id) DO UPDATE SET
+            soap_assessment = '{"chan_doan": "Khám sức khỏe tổng quát"}'::jsonb,
+            soap_plan = '{"loi_dan": "Tái khám theo hẹn"}'::jsonb,
+            prescription_draft = NULL
+        """,
+        clinic_id,
+        visit_id,
+    )
+
+
+async def test_handoff_services_pass_du_chua_co_chan_doan_cuoi(kb: KichBan) -> None:
+    """1. PRIMARY + còn chỉ định -> SERVICES:
+    hồ sơ chưa có chẩn đoán cuối vẫn được kết thúc phiên để đi dịch vụ.
+    """
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    # Chưa hề có clinical_record hay chẩn đoán/lời dặn cuối
+    kq = await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    assert kq["ok"] is True
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["phien"][0]["trang_thai"] == "completed"
+    async with kb.pool.acquire() as conn:
+        con_outcome = await conn.fetchval(
+            "SELECT outcome FROM consultation WHERE id = $1::uuid", phien
+        )
+    assert con_outcome == "SERVICES"
+
+
+async def test_primary_no_services_khong_bat_buoc_chan_doan_loi_dan(
+    kb: KichBan,
+) -> None:
+    """2. PRIMARY + không có chỉ định -> NO_SERVICES:
+    chưa có chẩn đoán/lời dặn cuối vẫn được kết thúc (chưa có hard gate y khoa).
+    """
+    phien = await _vao_kham(kb)
+    kq = await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="NO_SERVICES",
+        requirements=None,
+        identity=kb.bac_si,
+    )
+    assert kq["ok"] is True
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["phien"][0]["trang_thai"] == "completed"
+
+
+async def test_tkyk_handoff_services_pass(kb: KichBan) -> None:
+    """TKYK đi kèm bác sĩ được phép HANDOFF qua SERVICES."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)
+            VALUES ($1::uuid, $2::uuid, $3::uuid)
+            ON CONFLICT DO NOTHING
+            """,
+            CLINIC,
+            kb.thu_ky.staff_id,
+            kb.bac_si.staff_id,
+        )
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    kq = await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.thu_ky,
+    )
+    assert kq["ok"] is True
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["phien"][0]["trang_thai"] == "completed"
+
+
+async def test_tkyk_terminal_no_services_blocked(kb: KichBan) -> None:
+    """TKYK đi kèm bác sĩ bị chặn TERMINAL NO_SERVICES -> SafetyGateError."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)
+            VALUES ($1::uuid, $2::uuid, $3::uuid)
+            ON CONFLICT DO NOTHING
+            """,
+            CLINIC,
+            kb.thu_ky.staff_id,
+            kb.bac_si.staff_id,
+        )
+    phien = await _vao_kham(kb)
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+        await kb.svc.complete_consultation(
+            consultation_id=phien,
+            outcome="NO_SERVICES",
+            requirements=None,
+            identity=kb.thu_ky,
+        )
+
+
+async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
+    """TKYK đi kèm bác sĩ bị chặn TERMINAL DONE -> SafetyGateError."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)
+            VALUES ($1::uuid, $2::uuid, $3::uuid)
+            ON CONFLICT DO NOTHING
+            """,
+            CLINIC,
+            kb.thu_ky.staff_id,
+            kb.bac_si.staff_id,
+        )
+    phien_1 = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien_1,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.complete_consultation(
+        consultation_id=phien_1,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    await kb.svc.dispatch_order(
+        order_id=sa_id,
+        room_id=kb.phong_sa,
+        expected_version=None,
+        identity=kb.truong_ca,
+    )
+    await kb.svc.start_service(order_id=sa_id, identity=kb.bs_sieu_am)
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="Bình thường",
+        identity=kb.bs_sieu_am,
+    )
+    async with kb.pool.acquire() as conn:
+        rev_id = await conn.fetchval(
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kb.visit_id,
+        )
+    await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+        await kb.svc.complete_consultation(
+            consultation_id=rev_id,
+            outcome="DONE",
+            requirements=None,
+            identity=kb.thu_ky,
+        )
+
+
+async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
+    """Bác sĩ khác (không phụ trách) bị chặn TERMINAL NO_SERVICES/DONE."""
+    # 1. Thử với PRIMARY NO_SERVICES
+    phien = await _vao_kham(kb)
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+        await kb.svc.complete_consultation(
+            consultation_id=phien,
+            outcome="NO_SERVICES",
+            requirements=None,
+            identity=kb.bac_si_2,
+        )
+
+    # 2. Bác sĩ phụ trách hoàn tất HANDOFF sang dịch vụ
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    await kb.svc.dispatch_order(
+        order_id=sa_id,
+        room_id=kb.phong_sa,
+        expected_version=None,
+        identity=kb.truong_ca,
+    )
+    await kb.svc.start_service(order_id=sa_id, identity=kb.bs_sieu_am)
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="Bình thường",
+        identity=kb.bs_sieu_am,
+    )
+    async with kb.pool.acquire() as conn:
+        rev_id = await conn.fetchval(
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kb.visit_id,
+        )
+    await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
+
+    # Thử bác sĩ khác kết thúc REVIEW DONE -> chặn
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+        await kb.svc.complete_consultation(
+            consultation_id=rev_id,
+            outcome="DONE",
+            requirements=None,
+            identity=kb.bac_si_2,
+        )
+
+
+async def test_primary_no_services_pending_prescription_draft(kb: KichBan) -> None:
+    """3. PRIMARY + NO_SERVICES:
+    hồ sơ đủ nhưng prescription_draft còn -> 409 PRESCRIPTION_DRAFT_PENDING.
+    """
+    phien = await _vao_kham(kb)
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO clinical_record (
+                clinic_id, visit_id, soap_assessment, soap_plan, prescription_draft
+            ) VALUES (
+                $1::uuid, $2::uuid,
+                '{"chan_doan": "Cảm cúm"}'::jsonb,
+                '{"loi_dan": "Uống nhiều nước"}'::jsonb,
+                '{"items": [{"drug_name": "Paracetamol"}]}'::jsonb
+            )
+            ON CONFLICT (visit_id) DO UPDATE SET
+                soap_assessment = '{"chan_doan": "Cảm cúm"}'::jsonb,
+                soap_plan = '{"loi_dan": "Uống nhiều nước"}'::jsonb,
+                prescription_draft = '{"items": [{"drug_name": "Paracetamol"}]}'::jsonb
+            """,
+            CLINIC,
+            kb.visit_id,
+        )
+    with pytest.raises(LuotKhamConflictError) as exc_info:
+        await kb.svc.complete_consultation(
+            consultation_id=phien,
+            outcome="NO_SERVICES",
+            requirements=None,
+            identity=kb.bac_si,
+        )
+    assert exc_info.value.error_code == "PRESCRIPTION_DRAFT_PENDING"
+
+
+async def test_primary_no_services_ho_so_sach_pass(kb: KichBan) -> None:
+    """4. PRIMARY + NO_SERVICES:
+    hồ sơ đủ, không pending draft -> PASS.
+    """
+    phien = await _vao_kham(kb)
+    async with kb.pool.acquire() as conn:
+        await _benh_an_sach(conn, CLINIC, kb.visit_id)
+    kq = await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="NO_SERVICES",
+        requirements=None,
+        identity=kb.bac_si,
+    )
+    assert kq["ok"] is True
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["phien"][0]["trang_thai"] == "completed"
+    async with kb.pool.acquire() as conn:
+        con_outcome = await conn.fetchval(
+            "SELECT outcome FROM consultation WHERE id = $1::uuid", phien
+        )
+    assert con_outcome == "NO_SERVICES"
+
+
+async def test_review_done_pending_prescription_draft(kb: KichBan) -> None:
+    """5. REVIEW + DONE:
+    pending prescription draft -> không đóng (409 PRESCRIPTION_DRAFT_PENDING).
+    """
+    phien_1 = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien_1,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.complete_consultation(
+        consultation_id=phien_1,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    await kb.svc.dispatch_order(
+        order_id=sa_id,
+        room_id=kb.phong_sa,
+        expected_version=None,
+        identity=kb.truong_ca,
+    )
+    await kb.svc.start_service(order_id=sa_id, identity=kb.bs_sieu_am)
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="Bình thường",
+        identity=kb.bs_sieu_am,
+    )
+    async with kb.pool.acquire() as conn:
+        rev_id = await conn.fetchval(
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kb.visit_id,
+        )
+    await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
+    # Hồ sơ có chẩn đoán & lời dặn nhưng prescription_draft còn tồn đọng
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO clinical_record (
+                clinic_id, visit_id, soap_assessment, soap_plan, prescription_draft
+            ) VALUES (
+                $1::uuid, $2::uuid,
+                '{"chan_doan": "Viêm dạ dày"}'::jsonb,
+                '{"loi_dan": "Ăn uống đúng giờ"}'::jsonb,
+                '{"items": [{"drug_name": "Omeprazole"}]}'::jsonb
+            )
+            ON CONFLICT (visit_id) DO UPDATE SET
+                soap_assessment = '{"chan_doan": "Viêm dạ dày"}'::jsonb,
+                soap_plan = '{"loi_dan": "Ăn uống đúng giờ"}'::jsonb,
+                prescription_draft = '{"items": [{"drug_name": "Omeprazole"}]}'::jsonb
+            """,
+            CLINIC,
+            kb.visit_id,
+        )
+    with pytest.raises(LuotKhamConflictError) as exc_info:
+        await kb.svc.complete_consultation(
+            consultation_id=rev_id,
+            outcome="DONE",
+            requirements=None,
+            identity=kb.bac_si,
+        )
+    assert exc_info.value.error_code == "PRESCRIPTION_DRAFT_PENDING"
+
+
+async def test_review_done_ho_so_sach_pass(kb: KichBan) -> None:
+    """6. REVIEW + DONE:
+    hồ sơ sạch -> PASS.
+    """
+    phien_1 = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien_1,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    sa_id = duyet["order_ids"][0]
+    await kb.svc.complete_consultation(
+        consultation_id=phien_1,
+        outcome="SERVICES",
+        requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
+        identity=kb.bac_si,
+    )
+    await kb.svc.dispatch_order(
+        order_id=sa_id,
+        room_id=kb.phong_sa,
+        expected_version=None,
+        identity=kb.truong_ca,
+    )
+    await kb.svc.start_service(order_id=sa_id, identity=kb.bs_sieu_am)
+    await kb.svc.complete_service(
+        order_id=sa_id,
+        performed=True,
+        reason=None,
+        result_note="Bình thường",
+        identity=kb.bs_sieu_am,
+    )
+    async with kb.pool.acquire() as conn:
+        rev_id = await conn.fetchval(
+            "SELECT id::text FROM consultation"
+            " WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kb.visit_id,
+        )
+    await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
+    # Hồ sơ sạch
+    async with kb.pool.acquire() as conn:
+        await _benh_an_sach(conn, CLINIC, kb.visit_id)
+    kq = await kb.svc.complete_consultation(
+        consultation_id=rev_id,
+        outcome="DONE",
+        requirements=None,
+        identity=kb.bac_si,
+    )
+    assert kq["ok"] is True
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["ket_thuc_luc"] is not None

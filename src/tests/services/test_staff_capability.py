@@ -24,6 +24,8 @@ from clinicai.schemas.staff import (
 from clinicai.services.staff_service import (
     add_capability,
     get_staff_by_capability,
+    get_staff_capabilities,
+    revoke_capability,
 )
 
 _NOW = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
@@ -34,6 +36,7 @@ def _mock_pool_with_fetchrow(row: dict[str, Any] | None) -> MagicMock:
     pool = MagicMock()
     conn = MagicMock()
     conn.fetchrow = AsyncMock(return_value=row)
+    conn.execute = AsyncMock(return_value="DELETE 1")
     acquire_ctx = AsyncMock()
     acquire_ctx.__aenter__.return_value = conn
     pool.acquire.return_value = acquire_ctx
@@ -237,3 +240,75 @@ async def test_get_staff_by_capability__filters_inactive() -> None:
 
     assert len(rows) == 2
     assert {r["full_name"] for r in rows} == {"Y tá A", "Y tá B"}
+
+
+# ---- revoke_capability ------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_revoke_capability__ok() -> None:
+    """Revoke capability for an exclusively-owned staff member succeeds."""
+    staff_id = uuid4()
+    pool = _mock_pool_with_fetchrow({"in_clinic": True, "multi_clinic": False})
+
+    res = await revoke_capability(
+        pool,
+        staff_id=staff_id,
+        capability=Capability.KET_QUA_XAC_NHAN.value,
+        clinic_id=_CLINIC_ID,
+    )
+    assert res is True
+    conn_mock = pool.acquire.return_value.__aenter__.return_value
+    conn_mock.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_revoke_capability__other_or_shared_tenant_is_not_found() -> None:
+    """Multi-clinic or wrong clinic fails closed (ResourceNotFoundError)."""
+    staff_id = uuid4()
+    # Case 1: not in clinic
+    pool1 = _mock_pool_with_fetchrow({"in_clinic": False, "multi_clinic": False})
+    with pytest.raises(ResourceNotFoundError, match=str(staff_id)):
+        await revoke_capability(
+            pool1,
+            staff_id=staff_id,
+            capability=Capability.KET_QUA_XAC_NHAN.value,
+            clinic_id=_CLINIC_ID,
+        )
+
+    # Case 2: multi-clinic
+    pool2 = _mock_pool_with_fetchrow({"in_clinic": True, "multi_clinic": True})
+    with pytest.raises(ResourceNotFoundError, match=str(staff_id)):
+        await revoke_capability(
+            pool2,
+            staff_id=staff_id,
+            capability=Capability.KET_QUA_XAC_NHAN.value,
+            clinic_id=_CLINIC_ID,
+        )
+
+
+# ---- get_staff_capabilities -------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_staff_capabilities__ok() -> None:
+    """Read capabilities for staff in clinic returns list of DTOs."""
+    staff_id = uuid4()
+    row = _capability_row(
+        staff_id=staff_id, capability=Capability.KET_QUA_XAC_NHAN.value
+    )
+    pool = MagicMock()
+    conn = MagicMock()
+    conn.fetchval = AsyncMock(return_value=True)
+    conn.fetch = AsyncMock(return_value=[row])
+    acquire_ctx = AsyncMock()
+    acquire_ctx.__aenter__.return_value = conn
+    pool.acquire.return_value = acquire_ctx
+
+    dtos = await get_staff_capabilities(
+        pool,
+        staff_id=staff_id,
+        clinic_id=_CLINIC_ID,
+    )
+    assert len(dtos) == 1
+    assert dtos[0].capability == Capability.KET_QUA_XAC_NHAN.value

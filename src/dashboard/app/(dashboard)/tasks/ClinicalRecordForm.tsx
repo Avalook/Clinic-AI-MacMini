@@ -7,7 +7,7 @@
 //   điền → LƯU NHÁP vào visit (IN_PROGRESS) + clinical_record qua /api/clinical-record.
 // AN TOÀN: nếu visit đã FINALIZED → khóa (luật cấm sửa). KHÔNG tự chốt hồ sơ.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, CalendarPlus } from "lucide-react";
 import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
@@ -30,6 +30,11 @@ import {
   xoaNhap,
 } from "../../../lib/luu-nhap";
 import { clinicalSyncDecision } from "../../../lib/clinical-sync";
+import {
+  clinicalCompletionGate,
+  type ClinicalCompletionGate,
+  type ClinicalCompletionMode,
+} from "../../../lib/clinical-completion";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
 import type { DoctorApptRow } from "./DoctorApptRow";
 
@@ -286,6 +291,8 @@ export default function ClinicalRecordForm({
   showSono = false,
   showRebook = false,
   onRebook,
+  completionMode = "TERMINAL",
+  onCompletionGateChange,
 }: {
   appt: DoctorApptRow;
   staffId: string | null;
@@ -321,6 +328,10 @@ export default function ClinicalRecordForm({
   /** onRebook = nếu truyền, nút "Tái khám" gọi callback (mở MODAL đặt lịch nhanh) thay vì
    *  điều hướng sang /patients/[id]. Không truyền → giữ hành vi push cũ (vd trang khác). */
   onRebook?: (clinicPatientId: string) => void;
+  /** Bàn giao khách sang phòng dịch vụ ("HANDOFF") hay kết thúc lâm sàng ("TERMINAL"). */
+  completionMode?: ClinicalCompletionMode;
+  /** Báo trạng thái an toàn của form bệnh án lên khung cha (BanKham). */
+  onCompletionGateChange?: (gate: ClinicalCompletionGate) => void;
 }) {
   const router = useRouter();
   const p = appt.patient;
@@ -804,22 +815,59 @@ export default function ClinicalRecordForm({
     saveRef.current = save;
   });
 
+  /* eslint-disable react-hooks/refs */
+  const currentSnapshot = JSON.stringify({ f, pm, tk, rx });
+  const isDirty =
+    mocDaLuuRef.current !== "" && currentSnapshot !== mocDaLuuRef.current;
+
+  const completionGate = useMemo(
+    () =>
+      clinicalCompletionGate({
+        mode: completionMode,
+        hasData: Boolean(data),
+        loading,
+        saving,
+        remoteChanged,
+        dirty: isDirty,
+        hasPrescriptionDraft: Boolean(data?.prescription_draft),
+        diagnosis: f.chan_doan,
+        advice: f.loi_dan,
+      }),
+    [
+      completionMode,
+      data,
+      loading,
+      saving,
+      remoteChanged,
+      isDirty,
+      f.chan_doan,
+      f.loi_dan,
+    ],
+  );
+  /* eslint-enable react-hooks/refs */
+
+  useEffect(() => {
+    onCompletionGateChange?.(completionGate);
+  }, [onCompletionGateChange, completionGate]);
+
   async function completeExam() {
     if (!canSign || readOnly || vitalsOnly || viewingPast || appt.status !== "CHECKED_IN") return;
-    if (saving || closing || loading || !data || remoteChanged) {
-      setMsg("Hồ sơ chưa sẵn sàng. Tải và đối chiếu bản mới trước khi kết thúc khám.");
-      return;
-    }
-    if (JSON.stringify({ f, pm, tk, rx }) !== mocDaLuuRef.current) {
-      setMsg("Bạn còn nội dung chưa lưu. Lưu hồ sơ trước khi kết thúc khám.");
-      return;
-    }
-    if (data.prescription_draft) {
-      setMsg("Còn đơn thuốc thư ký nhập chờ bác sĩ duyệt; chưa thể kết thúc khám.");
-      return;
-    }
-    if (!f.chan_doan.trim() || !f.loi_dan.trim()) {
-      setMsg("Ghi chẩn đoán và lời dặn, lưu hồ sơ, rồi mới kết thúc khám.");
+    if (closing) return;
+    const gate = clinicalCompletionGate({
+      mode: "TERMINAL",
+      hasData: Boolean(data),
+      loading,
+      saving,
+      remoteChanged,
+      dirty:
+        mocDaLuuRef.current !== "" &&
+        JSON.stringify({ f, pm, tk, rx }) !== mocDaLuuRef.current,
+      hasPrescriptionDraft: Boolean(data?.prescription_draft),
+      diagnosis: f.chan_doan,
+      advice: f.loi_dan,
+    });
+    if (!gate.ok) {
+      setMsg(gate.message ?? "Hồ sơ chưa sẵn sàng.");
       return;
     }
     if (!window.confirm("Bác sĩ xác nhận đã hoàn tất lần khám này và các chỉ định cần làm trong lượt. Kết quả gửi về sau vẫn được theo dõi riêng. Kết thúc khám?")) return;

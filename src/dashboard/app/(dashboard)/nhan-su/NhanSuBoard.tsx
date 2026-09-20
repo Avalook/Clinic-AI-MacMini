@@ -1,7 +1,7 @@
 "use client";
 
 import { doctorName } from "../../../lib/doctor-name";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { StaffRow } from "../../api/staff/route";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
@@ -54,9 +54,11 @@ const LABEL = "text-xs font-medium text-ink-muted";
 export default function NhanSuBoard({
   initialStaff,
   locations,
+  currentStaffId,
 }: {
   initialStaff: StaffRow[];
   locations: ConfigLocation[];
+  currentStaffId?: string | null;
 }) {
   const router = useRouter();
   const [staff, setStaff] = useState<StaffRow[]>(initialStaff);
@@ -72,6 +74,78 @@ export default function NhanSuBoard({
   // Cùng lý do như nút đặt lịch: state chỉ đổi sau lần render kế tiếp, nên hai
   // cú click nhanh đều lọt. useRef đổi ngay.
   const savingRef = useRef(false);
+
+  const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [togglingCap, setTogglingCap] = useState(false);
+  const [capError, setCapError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    fetch(`/api/staff/${encodeURIComponent(selectedId)}/capabilities`)
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("Không tải được quyền năng lực");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (active) {
+          setCapabilities(data.capabilities ?? []);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setCapabilities([]);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedId]);
+
+  async function toggleKetQuaXacNhan(enable: boolean) {
+    if (!selectedId || togglingCap) return;
+    setTogglingCap(true);
+    setCapError(null);
+    try {
+      if (enable) {
+        const res = await fetch(
+          `/api/staff/${encodeURIComponent(selectedId)}/capabilities`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ capability: "ket_qua.xac_nhan" }),
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setCapError(loiDocDuoc(err, "Không cấp được quyền xác nhận kết quả."));
+          return;
+        }
+        setCapabilities((prev) => Array.from(new Set([...prev, "ket_qua.xac_nhan"])));
+      } else {
+        const res = await fetch(
+          `/api/staff/${encodeURIComponent(selectedId)}/capabilities?capability=ket_qua.xac_nhan`,
+          {
+            method: "DELETE",
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setCapError(
+            loiDocDuoc(err, "Không thu hồi được quyền xác nhận kết quả."),
+          );
+          return;
+        }
+        setCapabilities((prev) => prev.filter((c) => c !== "ket_qua.xac_nhan"));
+      }
+    } catch {
+      setCapError("Mất kết nối tới máy chủ.");
+    } finally {
+      setTogglingCap(false);
+    }
+  }
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -105,6 +179,7 @@ export default function NhanSuBoard({
     setDraft({});
     setError(null);
     setSaved(false);
+    setCapError(null);
   }
 
   function edit<K extends keyof StaffRow>(key: K, value: StaffRow[K]) {
@@ -413,6 +488,38 @@ export default function NhanSuBoard({
                   />
                   Đang đào tạo
                 </label>
+              </div>
+
+              {/* Quyền vận hành & nghiệp vụ (Capability) */}
+              <div className="border-t border-line pt-3 sm:col-span-2">
+                <span className={LABEL}>Quyền vận hành &amp; nghiệp vụ</span>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                  <label className="flex items-center gap-2 text-sm text-ink">
+                    <input
+                      type="checkbox"
+                      checked={capabilities.includes("ket_qua.xac_nhan")}
+                      disabled={
+                        togglingCap ||
+                        (Boolean(currentStaffId) && selected.id === currentStaffId)
+                      }
+                      onChange={(e) => toggleKetQuaXacNhan(e.target.checked)}
+                    />
+                    <span>Được xác nhận tệp kết quả</span>
+                    {togglingCap && (
+                      <span className="text-xs text-ink-muted">(Đang lưu...)</span>
+                    )}
+                  </label>
+                  {Boolean(currentStaffId) && selected.id === currentStaffId && (
+                    <span className="text-xs text-ink-muted">
+                      (Quản lý không được tự cấp hoặc thu hồi quyền cho chính mình)
+                    </span>
+                  )}
+                </div>
+                {capError && (
+                  <p className="mt-2 rounded-lg border border-danger bg-danger-bg px-3 py-1.5 text-xs text-danger">
+                    {capError}
+                  </p>
+                )}
               </div>
             </div>
 
