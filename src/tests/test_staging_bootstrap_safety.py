@@ -92,6 +92,74 @@ def _run_dung_staging_preflight(
     )
 
 
+def _run_dung_staging_with_gotrue_status(
+    tmp_path: Path, auth_status: str
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    test_dir = tmp_path / f"clinicai_gotrue_{abs(hash(auth_status))}"
+    test_dir.mkdir(parents=True, exist_ok=True)
+    scripts_dir = test_dir / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy(DUNG_STAGING_SH, scripts_dir / "dung-staging.sh")
+
+    call_log = test_dir / "call_log.txt"
+
+    # Fake migration scripts that log execution if called
+    fake_nap = scripts_dir / "supabase-local-nap.sh"
+    fake_nap.write_text(f'#!/bin/sh\necho "NAP_CALLED" >> "{call_log}"\nexit 0\n')
+    fake_nap.chmod(0o755)
+
+    fake_apply = scripts_dir / "apply-pending-migrations.sh"
+    fake_apply.write_text(f'#!/bin/sh\necho "APPLY_CALLED" >> "{call_log}"\nexit 0\n')
+    fake_apply.chmod(0o755)
+
+    (test_dir / "docker-compose.supabase.yml").write_text("services: {}\n")
+
+    env_dict = _make_valid_staging_env()
+    lines = [f"{k}={v}" for k, v in env_dict.items()]
+    (test_dir / ".env.staging").write_text("\n".join(lines) + "\n")
+
+    fake_bin = test_dir / "bin"
+    fake_bin.mkdir()
+
+    # Fast sleep to avoid 60s delay in test
+    fake_sleep = fake_bin / "sleep"
+    fake_sleep.write_text("#!/bin/sh\nexit 0\n")
+    fake_sleep.chmod(0o755)
+
+    # Mock docker to simulate postgres ready, gotrue status
+    mock_docker = fake_bin / "docker"
+    mock_docker.write_text(
+        f"""#!/bin/sh
+case "$*" in
+  *inspect*auth*)
+    echo '{auth_status}'
+    exit 0
+    ;;
+  *pg_isready*)
+    exit 0
+    ;;
+  *)
+    exit 0
+    ;;
+esac
+"""
+    )
+    mock_docker.chmod(0o755)
+
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+
+    proc = subprocess.run(
+        ["bash", str(scripts_dir / "dung-staging.sh")],
+        cwd=str(test_dir),
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    return proc, call_log
+
+
 class TestDungStagingPreflightSafety:
     def test_missing_supabase_network_fails(self, tmp_path: Path) -> None:
         env = _make_valid_staging_env()
@@ -158,6 +226,51 @@ class TestDungStagingScriptIntegrity:
         assert "clinicai_stg_db_supabase" in content
         assert "clinicai_db_supabase" in content
         assert "BỊ NỐI VÀO MẠNG PROD" in content
+
+    def test_enforces_gotrue_health_before_migration_steps(self) -> None:
+        content = DUNG_STAGING_SH.read_text()
+        assert "AUTH_HEALTH=" in content
+        assert '[ "$AUTH_HEALTH" = \'"healthy"\' ]' in content
+        assert "chưa healthy sau 60s" in content
+        health_idx = content.index('[ "$AUTH_HEALTH" = \'"healthy"\' ]')
+        migration_idx = content.index("[2/5] lược đồ")
+        assert health_idx < migration_idx
+
+
+class TestDungStagingGoTrueHealthGate:
+    def test_unhealthy_gotrue_fails_closed_without_running_migrations(
+        self, tmp_path: Path
+    ) -> None:
+        proc, call_log = _run_dung_staging_with_gotrue_status(tmp_path, '"unhealthy"')
+        assert proc.returncode != 0
+        assert "chưa healthy sau 60s" in proc.stderr
+        assert "nạp lược đồ qua supabase-local-nap.sh" not in proc.stdout
+        assert "áp migration còn thiếu" not in proc.stdout
+        if call_log.exists():
+            log_content = call_log.read_text()
+            assert "NAP_CALLED" not in log_content
+            assert "APPLY_CALLED" not in log_content
+
+    def test_starting_gotrue_timeout_fails_closed_without_running_migrations(
+        self, tmp_path: Path
+    ) -> None:
+        proc, call_log = _run_dung_staging_with_gotrue_status(tmp_path, '"starting"')
+        assert proc.returncode != 0
+        assert "chưa healthy sau 60s" in proc.stderr
+        assert "nạp lược đồ qua supabase-local-nap.sh" not in proc.stdout
+        assert "áp migration còn thiếu" not in proc.stdout
+        if call_log.exists():
+            log_content = call_log.read_text()
+            assert "NAP_CALLED" not in log_content
+            assert "APPLY_CALLED" not in log_content
+
+    def test_healthy_gotrue_proceeds_to_migrations(self, tmp_path: Path) -> None:
+        proc, call_log = _run_dung_staging_with_gotrue_status(tmp_path, '"healthy"')
+        assert "chưa healthy sau 60s" not in proc.stderr
+        # With mock docker returning empty ledger, it routes to fresh db helper
+        assert "nạp lược đồ qua supabase-local-nap.sh" in proc.stdout
+        assert call_log.exists()
+        assert "NAP_CALLED" in call_log.read_text()
 
 
 class TestSupabaseLocalNapReadiness:

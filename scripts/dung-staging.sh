@@ -134,6 +134,12 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
+AUTH_HEALTH="$(docker inspect --format='{{json .State.Health.Status}}' "$AUTH_CONTAINER" 2>/dev/null || echo '""')"
+[ "$AUTH_HEALTH" = '"healthy"' ] || {
+  echo "!! GoTrue staging ($AUTH_CONTAINER) chưa healthy sau 60s (trạng thái: $AUTH_HEALTH)" >&2
+  exit 1
+}
+
 echo "==> [2/5] lược đồ (không dùng bootstrap_plain_postgres.sql)"
 HAS_LEDGER="$(docker exec -i "$DB" psql -U postgres -d postgres -tAc "SELECT to_regclass('supabase_migrations.schema_migrations') IS NOT NULL" 2>/dev/null | tr -d ' ' || true)"
 MIGRATION_COUNT="0"
