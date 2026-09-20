@@ -573,11 +573,7 @@ class PaymentService:
                 )
                 lech = hoa_don.revision != lan["bill_revision"]
                 khong_ban_duoc: list[str] = []
-                if (
-                    kind == "thuoc"
-                    and bool(phan_lo)
-                    and not lan["legacy"]
-                ):
+                if kind == "thuoc" and bool(phan_lo) and not lan["legacy"]:
                     # Phân lô đã GIỮ từ lúc tạo lần chờ, nên bình thường luôn
                     # bán được. Nếu không (dữ liệu hỏng, lô hết hạn qua đêm):
                     # tiền thật vẫn ghi đã thu, KHÔNG ghi bán, bật đối soát.
