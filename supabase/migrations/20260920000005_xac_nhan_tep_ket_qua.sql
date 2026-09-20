@@ -3,6 +3,7 @@
 -- Tách UPLOAD khỏi KET_QUA_HOP_LE.
 -- Tệp đối tác upload bắt đầu ở trạng thái CHO_XAC_NHAN.
 -- Chỉ tệp được xác nhận HOP_LE mới làm has_valid_result = true cho external order.
+-- Internal / non-order files: xac_nhan_trang_thai = NULL (confirmation flow không áp dụng).
 
 DO $$
 BEGIN
@@ -18,8 +19,10 @@ BEGIN
 END $$;
 
 -- 1. Thêm các cột trạng thái xác nhận và thu hồi
+-- NULL = confirmation flow không áp dụng (internal / non-order files).
+-- Không dùng DEFAULT 'CHO_XAC_NHAN' — chỉ external partner files mới có state.
 ALTER TABLE public.tep_ket_qua
-  ADD COLUMN IF NOT EXISTS xac_nhan_trang_thai text NOT NULL DEFAULT 'CHO_XAC_NHAN',
+  ADD COLUMN IF NOT EXISTS xac_nhan_trang_thai text NULL,
   ADD COLUMN IF NOT EXISTS xac_nhan_luc timestamp with time zone NULL,
   ADD COLUMN IF NOT EXISTS xac_nhan_boi_staff_id uuid NULL REFERENCES public.staff(id),
   ADD COLUMN IF NOT EXISTS xac_nhan_ly_do text NULL,
@@ -28,47 +31,84 @@ ALTER TABLE public.tep_ket_qua
   ADD COLUMN IF NOT EXISTS thu_hoi_ly_do text NULL;
 
 -- 2. Ràng buộc toàn vẹn trạng thái
+-- Hỗ trợ 5 trạng thái: NULL (không áp dụng), CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI.
 DO $$
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM pg_constraint WHERE conname = 'chk_tep_ket_qua_xac_nhan'
   ) THEN
-    ALTER TABLE public.tep_ket_qua
-      ADD CONSTRAINT chk_tep_ket_qua_xac_nhan CHECK (
-        (xac_nhan_trang_thai = 'CHO_XAC_NHAN' 
-         AND xac_nhan_luc IS NULL 
-         AND xac_nhan_boi_staff_id IS NULL 
-         AND thu_hoi_luc IS NULL 
-         AND thu_hoi_boi_staff_id IS NULL)
-        OR 
-        (xac_nhan_trang_thai = 'HOP_LE' 
-         AND xac_nhan_luc IS NOT NULL 
-         AND xac_nhan_boi_staff_id IS NOT NULL 
-         AND thu_hoi_luc IS NULL 
-         AND thu_hoi_boi_staff_id IS NULL)
-        OR 
-        (xac_nhan_trang_thai = 'TU_CHOI' 
-         AND xac_nhan_luc IS NOT NULL 
-         AND xac_nhan_boi_staff_id IS NOT NULL 
-         AND xac_nhan_ly_do IS NOT NULL AND length(trim(xac_nhan_ly_do)) > 0
-         AND thu_hoi_luc IS NULL 
-         AND thu_hoi_boi_staff_id IS NULL)
-        OR 
-        (xac_nhan_trang_thai = 'THU_HOI' 
-         AND xac_nhan_luc IS NOT NULL 
-         AND xac_nhan_boi_staff_id IS NOT NULL 
-         AND thu_hoi_luc IS NOT NULL 
-         AND thu_hoi_boi_staff_id IS NOT NULL 
-         AND thu_hoi_ly_do IS NOT NULL AND length(trim(thu_hoi_ly_do)) > 0)
-      );
+    ALTER TABLE public.tep_ket_qua DROP CONSTRAINT chk_tep_ket_qua_xac_nhan;
   END IF;
+
+  ALTER TABLE public.tep_ket_qua
+    ADD CONSTRAINT chk_tep_ket_qua_xac_nhan CHECK (
+      -- NULL: confirmation flow không áp dụng (internal/non-order).
+      -- Mọi confirmation/thu-hoi fields phải NULL.
+      (xac_nhan_trang_thai IS NULL
+       AND xac_nhan_luc IS NULL
+       AND xac_nhan_boi_staff_id IS NULL
+       AND xac_nhan_ly_do IS NULL
+       AND thu_hoi_luc IS NULL
+       AND thu_hoi_boi_staff_id IS NULL
+       AND thu_hoi_ly_do IS NULL)
+      OR
+      (xac_nhan_trang_thai = 'CHO_XAC_NHAN'
+       AND xac_nhan_luc IS NULL
+       AND xac_nhan_boi_staff_id IS NULL
+       AND thu_hoi_luc IS NULL
+       AND thu_hoi_boi_staff_id IS NULL)
+      OR
+      (xac_nhan_trang_thai = 'HOP_LE'
+       AND xac_nhan_luc IS NOT NULL
+       AND xac_nhan_boi_staff_id IS NOT NULL
+       AND thu_hoi_luc IS NULL
+       AND thu_hoi_boi_staff_id IS NULL)
+      OR
+      (xac_nhan_trang_thai = 'TU_CHOI'
+       AND xac_nhan_luc IS NOT NULL
+       AND xac_nhan_boi_staff_id IS NOT NULL
+       AND xac_nhan_ly_do IS NOT NULL AND length(trim(xac_nhan_ly_do)) > 0
+       AND thu_hoi_luc IS NULL
+       AND thu_hoi_boi_staff_id IS NULL)
+      OR
+      (xac_nhan_trang_thai = 'THU_HOI'
+       AND xac_nhan_luc IS NOT NULL
+       AND xac_nhan_boi_staff_id IS NOT NULL
+       AND thu_hoi_luc IS NOT NULL
+       AND thu_hoi_boi_staff_id IS NOT NULL
+       AND thu_hoi_ly_do IS NOT NULL AND length(trim(thu_hoi_ly_do)) > 0)
+    );
 END $$;
 
--- 3. Trigger kiểm soát chuyển đổi trạng thái (State Machine)
+-- 3. Trigger kiểm soát chuyển đổi trạng thái (State Machine) + Immutability
 CREATE OR REPLACE FUNCTION public.fn_tep_ket_qua_chuyen_trang_thai()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF OLD.xac_nhan_trang_thai = NEW.xac_nhan_trang_thai THEN
+  -- Bỏ qua nếu cả OLD và NEW đều NULL (internal files, không áp dụng)
+  IF OLD.xac_nhan_trang_thai IS NULL AND NEW.xac_nhan_trang_thai IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Không cho phép chuyển từ NULL sang non-NULL hoặc ngược lại bằng UPDATE
+  -- (chỉ INSERT mới quyết định state ban đầu)
+  IF OLD.xac_nhan_trang_thai IS NULL AND NEW.xac_nhan_trang_thai IS NOT NULL THEN
+    RAISE EXCEPTION 'Không được chuyển tệp nội bộ (NULL) sang luồng xác nhận bên ngoài';
+  END IF;
+  IF OLD.xac_nhan_trang_thai IS NOT NULL AND NEW.xac_nhan_trang_thai IS NULL THEN
+    RAISE EXCEPTION 'Không được chuyển tệp bên ngoài sang NULL';
+  END IF;
+
+  -- Same state: chặn sửa confirmation/thu-hoi fields (immutability)
+  IF OLD.xac_nhan_trang_thai IS NOT DISTINCT FROM NEW.xac_nhan_trang_thai THEN
+    IF OLD.xac_nhan_luc IS DISTINCT FROM NEW.xac_nhan_luc
+       OR OLD.xac_nhan_boi_staff_id IS DISTINCT FROM NEW.xac_nhan_boi_staff_id
+       OR OLD.xac_nhan_ly_do IS DISTINCT FROM NEW.xac_nhan_ly_do
+       OR OLD.thu_hoi_luc IS DISTINCT FROM NEW.thu_hoi_luc
+       OR OLD.thu_hoi_boi_staff_id IS DISTINCT FROM NEW.thu_hoi_boi_staff_id
+       OR OLD.thu_hoi_ly_do IS DISTINCT FROM NEW.thu_hoi_ly_do
+    THEN
+      RAISE EXCEPTION 'Không được sửa thông tin xác nhận/thu hồi khi giữ nguyên trạng thái (immutable audit fields)';
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -80,15 +120,17 @@ BEGIN
     RETURN NEW;
   ELSIF OLD.xac_nhan_trang_thai = 'HOP_LE' AND NEW.xac_nhan_trang_thai = 'THU_HOI' THEN
     -- Giữ nguyên actor và thời gian xác nhận ban đầu
-    IF NEW.xac_nhan_luc <> OLD.xac_nhan_luc OR NEW.xac_nhan_boi_staff_id <> OLD.xac_nhan_boi_staff_id THEN
+    IF NEW.xac_nhan_luc IS DISTINCT FROM OLD.xac_nhan_luc
+       OR NEW.xac_nhan_boi_staff_id IS DISTINCT FROM OLD.xac_nhan_boi_staff_id
+    THEN
       RAISE EXCEPTION 'Không được ghi đè thông tin xác nhận ban đầu khi thu hồi tệp kết quả';
     END IF;
-    -- Khi thu hồi, nếu tệp đã được cho phép gửi trước đó thì phải thu hồi luôn quyền gửi
-    NEW.cho_phep_gui_luc := NULL;
-    NEW.cho_phep_gui_boi_staff_id := NULL;
+    -- GIỮ NGUYÊN cho_phep_gui_luc / cho_phep_gui_boi_staff_id
+    -- để audit vẫn biết bác sĩ từng duyệt.
+    -- Tệp THU_HOI không gửi được vì current state, không phải vì xóa lịch sử approval.
     RETURN NEW;
   ELSE
-    RAISE EXCEPTION 'Chuyển trạng thái xác nhận tệp không hợp lệ từ % sang %', 
+    RAISE EXCEPTION 'Chuyển trạng thái xác nhận tệp không hợp lệ từ % sang %',
       OLD.xac_nhan_trang_thai, NEW.xac_nhan_trang_thai;
   END IF;
 END;
@@ -100,13 +142,23 @@ CREATE TRIGGER trg_tep_ket_qua_chuyen_trang_thai
   FOR EACH ROW
   EXECUTE FUNCTION public.fn_tep_ket_qua_chuyen_trang_thai();
 
--- 4. Trigger kiểm soát duyệt gửi khách (chỉ cho phép duyệt gửi tệp HOP_LE)
+-- 4. Trigger kiểm soát duyệt gửi khách
+-- Chỉ chặn hành động MỚI SET approval (NULL -> non-NULL)
+-- nếu external confirmation state chưa HOP_LE.
+-- Không chặn UPDATE khác trên row chỉ vì row từng có cho_phep_gui_luc.
+-- Đặc biệt: HOP_LE + đã doctor approve -> THU_HOI phải thành công (giữ approval history).
+-- Internal/non-order files (xac_nhan_trang_thai IS NULL): KHÔNG bị chặn.
 CREATE OR REPLACE FUNCTION public.fn_tep_ket_qua_kiem_tra_cho_phep_gui()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF NEW.cho_phep_gui_luc IS NOT NULL AND NEW.xac_nhan_trang_thai <> 'HOP_LE' THEN
-    RAISE EXCEPTION 'Chỉ tệp kết quả ở trạng thái HOP_LE mới được phép duyệt gửi cho khách (hiện tại: %)', 
-      NEW.xac_nhan_trang_thai;
+  -- Chỉ quan tâm khi đang SET approval mới (NULL -> non-NULL)
+  IF OLD.cho_phep_gui_luc IS NULL AND NEW.cho_phep_gui_luc IS NOT NULL THEN
+    -- External files: phải ở HOP_LE mới được approve-send
+    IF NEW.xac_nhan_trang_thai IS NOT NULL AND NEW.xac_nhan_trang_thai <> 'HOP_LE' THEN
+      RAISE EXCEPTION 'Chỉ tệp kết quả ở trạng thái HOP_LE mới được phép duyệt gửi cho khách (hiện tại: %)',
+        NEW.xac_nhan_trang_thai;
+    END IF;
+    -- Internal files (xac_nhan_trang_thai IS NULL): cho qua, không yêu cầu confirmation
   END IF;
   RETURN NEW;
 END;
@@ -118,7 +170,7 @@ CREATE TRIGGER trg_tep_ket_qua_kiem_tra_cho_phep_gui
   FOR EACH ROW
   EXECUTE FUNCTION public.fn_tep_ket_qua_kiem_tra_cho_phep_gui();
 
-COMMENT ON COLUMN public.tep_ket_qua.xac_nhan_trang_thai IS 'Trạng thái xác nhận đúng người/đúng chỉ định: CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI';
+COMMENT ON COLUMN public.tep_ket_qua.xac_nhan_trang_thai IS 'Trạng thái xác nhận: NULL (không áp dụng / internal), CHO_XAC_NHAN, HOP_LE, TU_CHOI, THU_HOI';
 COMMENT ON COLUMN public.tep_ket_qua.xac_nhan_luc IS 'Thời điểm xác nhận';
 COMMENT ON COLUMN public.tep_ket_qua.xac_nhan_boi_staff_id IS 'Nhân sự có capability ket_qua.xac_nhan thực hiện xác nhận';
 COMMENT ON COLUMN public.tep_ket_qua.xac_nhan_ly_do IS 'Lý do từ chối (bắt buộc khi xac_nhan_trang_thai = TU_CHOI)';
@@ -127,6 +179,7 @@ COMMENT ON COLUMN public.tep_ket_qua.thu_hoi_boi_staff_id IS 'Nhân sự thực 
 COMMENT ON COLUMN public.tep_ket_qua.thu_hoi_ly_do IS 'Lý do thu hồi (bắt buộc khi xac_nhan_trang_thai = THU_HOI)';
 
 -- 5. Cập nhật v_viec_cskh: Chỉ tệp HOP_LE mới sinh việc CSKH (CHO_BAC_SI / KQ_CHUA_GUI)
+-- Internal files (xac_nhan_trang_thai IS NULL) VẪN đi qua nhánh CHO_BAC_SI cũ từ service_order.
 CREATE OR REPLACE VIEW public.v_viec_cskh AS
  WITH hom_nay AS (
          SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date AS d
@@ -298,7 +351,7 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
                    FROM tuong_tac_cskh t
                   WHERE t.appointment_id = a.id AND t.loai = 'XAC_NHAN_LICH'::text AND t.huy_luc IS NULL))
         UNION ALL
-        -- TỆP KẾT QUẢ ĐÃ ĐƯỢC BÁC SĨ CHO PHÉP GỬI (chỉ tệp HOP_LE)
+        -- TỆP KẾT QUẢ ĐÃ ĐƯỢC BÁC SĨ CHO PHÉP GỬI (chỉ tệp HOP_LE external)
         SELECT k.clinic_id,
             k.clinic_patient_id,
             'KQ_CHUA_GUI'::text AS text,
@@ -309,7 +362,7 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
              JOIN luat_cskh l_kq ON l_kq.clinic_id = k.clinic_id AND l_kq.loai_viec = 'KQ_CHUA_GUI'::text AND l_kq.bat
           WHERE k.xac_nhan_trang_thai = 'HOP_LE' AND k.gui_luc IS NULL AND k.cho_phep_gui_luc IS NOT NULL
         UNION ALL
-        -- TỆP KẾT QUẢ ĐÃ XÁC NHẬN HỢP LỆ, CHỜ BÁC SĨ CHO PHÉP GỬI
+        -- TỆP KẾT QUẢ ĐÃ XÁC NHẬN HỢP LỆ, CHỜ BÁC SĨ CHO PHÉP GỬI (external)
          SELECT k.clinic_id,
             k.clinic_patient_id,
             'CHO_BAC_SI'::text AS text,
@@ -319,6 +372,28 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
            FROM tep_ket_qua k
              JOIN luat_cskh l_bs ON l_bs.clinic_id = k.clinic_id AND l_bs.loai_viec = 'CHO_BAC_SI'::text AND l_bs.bat
           WHERE k.xac_nhan_trang_thai = 'HOP_LE' AND k.gui_luc IS NULL AND k.cho_phep_gui_luc IS NULL
+        UNION ALL
+        -- TỆP NỘI BỘ (xac_nhan_trang_thai IS NULL) CHỜ BÁC SĨ CHO PHÉP GỬI
+         SELECT k.clinic_id,
+            k.clinic_patient_id,
+            'CHO_BAC_SI'::text AS text,
+            1,
+            (k.tai_len_luc AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date + l_bs.so_ngay,
+            k.appointment_id
+           FROM tep_ket_qua k
+             JOIN luat_cskh l_bs ON l_bs.clinic_id = k.clinic_id AND l_bs.loai_viec = 'CHO_BAC_SI'::text AND l_bs.bat
+          WHERE k.xac_nhan_trang_thai IS NULL AND k.gui_luc IS NULL AND k.cho_phep_gui_luc IS NULL
+        UNION ALL
+        -- TỆP NỘI BỘ (xac_nhan_trang_thai IS NULL) ĐÃ BÁC SĨ CHO PHÉP, CHƯA GỬI
+         SELECT k.clinic_id,
+            k.clinic_patient_id,
+            'KQ_CHUA_GUI'::text AS text,
+            2,
+            (k.tai_len_luc AT TIME ZONE 'Asia/Ho_Chi_Minh'::text)::date + l_kq.so_ngay,
+            k.appointment_id
+           FROM tep_ket_qua k
+             JOIN luat_cskh l_kq ON l_kq.clinic_id = k.clinic_id AND l_kq.loai_viec = 'KQ_CHUA_GUI'::text AND l_kq.bat
+          WHERE k.xac_nhan_trang_thai IS NULL AND k.gui_luc IS NULL AND k.cho_phep_gui_luc IS NOT NULL
         UNION ALL
          SELECT o.clinic_id,
             o.clinic_patient_id,
@@ -344,4 +419,3 @@ CREATE OR REPLACE VIEW public.v_viec_cskh AS
    FROM viec v
      CROSS JOIN hom_nay h
      JOIN luat_cskh l ON l.clinic_id = v.clinic_id AND l.loai_viec = v.loai;
-

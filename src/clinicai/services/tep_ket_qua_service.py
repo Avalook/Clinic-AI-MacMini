@@ -357,9 +357,17 @@ class TepKetQuaService:
                 tmp.replace(path)
                 path.chmod(0o600)
 
-                # Mọi tệp tải lên bắt đầu ở trạng thái CHO_XAC_NHAN.
-                # DB trigger cấm đặt cho_phep_gui_luc nếu chưa HOP_LE,
-                # vì vậy cho_phep_gui_luc luôn là NULL ở thời điểm tải lên.
+                # External files: CHO_XAC_NHAN, không auto-approve.
+                # Internal / non-order: NULL (không áp dụng).
+                # Giữ behavior trước #174: uploader BAC_SI thì
+                # tự cho phép gửi ngay.
+                xac_nhan_state = (
+                    "CHO_XAC_NHAN" if is_external else None
+                )
+                # Internal files: giữ auto cho_phep_gui nếu bác sĩ tải lên.
+                auto_gui = (
+                    not is_external and identity.co_vai(TU_CHO_PHEP_GUI)
+                )
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO public.tep_ket_qua
@@ -370,9 +378,9 @@ class TepKetQuaService:
                          service_order_id, xac_nhan_trang_thai)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
-                            NULL,
-                            NULL,
-                            $11::uuid, 'CHO_XAC_NHAN')
+                            CASE WHEN $12 THEN now() ELSE NULL END,
+                            CASE WHEN $12 THEN $10::uuid ELSE NULL END,
+                            $11::uuid, $13)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -386,6 +394,8 @@ class TepKetQuaService:
                     sha,
                     identity.staff_id,
                     service_order_id,
+                    auto_gui,
+                    xac_nhan_state,
                 )
                 if service_order_id:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
@@ -622,9 +632,7 @@ class TepKetQuaService:
                    SET xac_nhan_trang_thai = 'THU_HOI',
                        thu_hoi_luc = now(),
                        thu_hoi_boi_staff_id = $1::uuid,
-                       thu_hoi_ly_do = $2,
-                       cho_phep_gui_luc = NULL,
-                       cho_phep_gui_boi_staff_id = NULL
+                       thu_hoi_ly_do = $2
                  WHERE id = $3::uuid AND clinic_id = $4::uuid
                 """,
                 identity.staff_id,
@@ -748,17 +756,25 @@ class TepKetQuaService:
             raise ConflictError(
                 "Bác sĩ chưa cho phép gửi tệp này — chờ bác sĩ xem và cho phép."
             )
-        if hien.get("xac_nhan_trang_thai") != "HOP_LE":
+        # External files: phải ở HOP_LE. Internal (NULL): không yêu cầu.
+        xn_state = hien.get("xac_nhan_trang_thai")
+        if xn_state is not None and xn_state != "HOP_LE":
             raise ConflictError(
                 "Tệp kết quả chưa ở trạng thái hợp lệ để gửi cho khách."
             )
+        # External: yêu cầu HOP_LE + cho_phep_gui. Internal: chỉ cho_phep_gui.
+        where_extra = (
+            "AND xac_nhan_trang_thai = 'HOP_LE'"
+            if xn_state is not None
+            else ""
+        )
         row = await self._pool.fetchrow(
-            """
+            f"""
             UPDATE public.tep_ket_qua
                SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
              WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
                AND cho_phep_gui_luc IS NOT NULL
-               AND xac_nhan_trang_thai = 'HOP_LE'
+               {where_extra}
             RETURNING id::text
             """,
             identity.staff_id,
@@ -787,20 +803,26 @@ class TepKetQuaService:
                 )
                 if hien is None:
                     raise NotFoundError("Không tìm thấy tệp này.")
-                if hien["xac_nhan_trang_thai"] != "HOP_LE":
-                    curr = hien["xac_nhan_trang_thai"]
+                # External files: bắt buộc HOP_LE. Internal (NULL): cho qua.
+                xn_state = hien["xac_nhan_trang_thai"]
+                if xn_state is not None and xn_state != "HOP_LE":
                     raise SafetyGateError(
                         f"Chỉ tệp kết quả ở trạng thái HOP_LE mới được phép "
-                        f"duyệt gửi cho khách (hiện tại: {curr})."
+                        f"duyệt gửi cho khách (hiện tại: {xn_state})."
                     )
+                where_extra = (
+                    "AND xac_nhan_trang_thai = 'HOP_LE'"
+                    if xn_state is not None
+                    else ""
+                )
                 row = await conn.fetchrow(
-                    """
+                    f"""
                     UPDATE public.tep_ket_qua
                        SET cho_phep_gui_luc = now(),
                            cho_phep_gui_boi_staff_id = $1::uuid
                      WHERE id = $2::uuid AND clinic_id = $3::uuid
                        AND cho_phep_gui_luc IS NULL
-                       AND xac_nhan_trang_thai = 'HOP_LE'
+                       {where_extra}
                     RETURNING id::text, clinic_patient_id::text
                     """,
                     identity.staff_id,
@@ -831,7 +853,12 @@ class TepKetQuaService:
     async def cho_bac_si_cho_phep(
         self, *, identity: StaffIdentity
     ) -> list[dict[str, Any]]:
-        """Tệp kết quả đang chờ bác sĩ cho phép gửi — cũ nhất trước (chỉ tệp HOP_LE)."""
+        """Tệp kết quả đang chờ bác sĩ cho phép gửi — cũ nhất trước.
+
+        Gồm cả:
+        - External files đã xác nhận HOP_LE.
+        - Internal/non-order (NULL) — behavior trước #174.
+        """
         if not identity.co_vai(BAC_SI_CHO_PHEP_GUI):
             raise SafetyGateError("Chỉ bác sĩ mới xem hàng chờ cho phép gửi.")
         rows = await self._pool.fetch(
@@ -843,7 +870,8 @@ class TepKetQuaService:
               JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
               LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
              WHERE t.clinic_id = $1::uuid
-               AND t.xac_nhan_trang_thai = 'HOP_LE'
+               AND (t.xac_nhan_trang_thai = 'HOP_LE'
+                    OR t.xac_nhan_trang_thai IS NULL)
                AND t.cho_phep_gui_luc IS NULL AND t.gui_luc IS NULL
              ORDER BY t.tai_len_luc
              LIMIT 200

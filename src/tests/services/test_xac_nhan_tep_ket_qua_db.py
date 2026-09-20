@@ -937,7 +937,8 @@ async def test_scenarios_p_q_thu_hoi_ket_qua(
             tep_row["thu_hoi_ly_do"]
             == "Phát hiện đối tác gửi nhầm mẫu của bệnh nhân khác"
         )
-        # Tự động rút quyền gửi nếu có
+        # Giữ approval history khi thu hồi
+        # (test này chưa approve nên vẫn NULL)
         assert tep_row["cho_phep_gui_luc"] is None
 
         # REVIEW round bị rút lại về 'collecting'
@@ -1033,3 +1034,473 @@ async def test_scenario_r_partner_status_da_gui_tep(
     viec_item = next((v for v in viec_list if v["chi_dinh_id"] == oid), None)
     assert viec_item is not None
     assert viec_item["trang_thai"] == "DA_GUI_KET_QUA"
+
+
+# ==============================================================================
+# T1: LEGACY ROWS — xac_nhan_trang_thai = NULL valid via CHECK constraint
+# ==============================================================================
+async def test_t1_legacy_null_valid(pool: asyncpg.Pool) -> None:
+    """Rows inserted with xac_nhan_trang_thai = NULL are valid (legacy/internal)."""
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+        # Direct INSERT with NULL xac_nhan_trang_thai — must succeed
+        tep_id = str(uuid.uuid4())
+        await conn.execute(
+            """
+            INSERT INTO tep_ket_qua
+                (id, clinic_id, clinic_patient_id, appointment_id,
+                 khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
+                 xac_nhan_trang_thai)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
+                    $5, 'HINH_ANH', 'image/jpeg', 100, 'abc123', $6::uuid,
+                    NULL)
+            """,
+            tep_id,
+            CLINIC_A,
+            pid,
+            aid,
+            f"{CLINIC_A}/{pid}/test.jpg",
+            doc.staff_id,
+        )
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai, xac_nhan_luc, thu_hoi_luc "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            tep_id,
+        )
+        assert row["xac_nhan_trang_thai"] is None
+        assert row["xac_nhan_luc"] is None
+        assert row["thu_hoi_luc"] is None
+
+        # Cleanup
+        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
+
+
+# ==============================================================================
+# T2: IMMUTABLE CONFIRMATION FIELDS — direct SQL sửa fields khi giữ state bị chặn
+# ==============================================================================
+async def test_t2_immutable_confirmation_fields(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """IS DISTINCT FROM trigger prevents tampering with confirmation fields."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        partner = await _tao_staff(conn, CLINIC_A, "PARTNER")
+        staff_xac_nhan = await _tao_staff(
+            conn, CLINIC_A, "NURSE", caps=[Capability.KET_QUA_XAC_NHAN.value]
+        )
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+        oid = await _tao_external_order(conn, CLINIC_A, vid)
+
+    svc_tep = TepKetQuaService(pool)
+    t = await svc_tep.tai_len(
+        identity=partner,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="immutable.pdf",
+        service_order_id=oid,
+    )
+    tep_id = t["id"]
+
+    # Xác nhận HOP_LE
+    await svc_tep.xac_nhan_tep(
+        identity=staff_xac_nhan, tep_id=tep_id, trang_thai="HOP_LE"
+    )
+
+    async with pool.acquire() as conn:
+        # Giữ nguyên state = HOP_LE nhưng thử sửa xac_nhan_luc → trigger chặn
+        with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET xac_nhan_luc = now() - interval '1 day' "
+                "WHERE id = $1::uuid",
+                tep_id,
+            )
+
+        # Giữ nguyên state = HOP_LE nhưng thử sửa xac_nhan_boi_staff_id
+        with pytest.raises(asyncpg.RaiseError, match="immutable audit fields"):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET xac_nhan_boi_staff_id = $1::uuid "
+                "WHERE id = $2::uuid",
+                doc.staff_id,
+                tep_id,
+            )
+
+
+# ==============================================================================
+# T3: INTERNAL / NON-ORDER FILES — xac_nhan_trang_thai = NULL via service
+# ==============================================================================
+async def test_t3_internal_non_order_null_state(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """Internal files (no service_order OR internal order) → NULL state."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+    svc_tep = TepKetQuaService(pool)
+
+    # Case 1: No service_order_id → NULL state
+    t1 = await svc_tep.tai_len(
+        identity=doc,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="internal-no-order.pdf",
+        appointment_id=aid,
+    )
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid",
+            t1["id"],
+        )
+        assert row["xac_nhan_trang_thai"] is None
+
+    # Case 2: Internal order (lam_ben_ngoai = false) → NULL state
+    async with pool.acquire() as conn:
+        # Tạo internal node_definition
+        await conn.execute(
+            """
+            INSERT INTO node_definition (
+                clinic_id, code, name, flow_group, workspace, lam_ben_ngoai,
+                actor_roles
+            )
+            VALUES (
+                $1::uuid, 'XN_NOI_BO_TEST_T3', 'Xét nghiệm nội bộ test', 'ket_qua',
+                'khu_dieu_duong', false, ARRAY['NURSE_ULTRASOUND']
+            )
+            ON CONFLICT (clinic_id, code) DO UPDATE SET lam_ben_ngoai = false
+            """,
+            CLINIC_A,
+        )
+        cid = await conn.fetchval(
+            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid LIMIT 1",
+            vid,
+        )
+        if not cid:
+            cid = await conn.fetchval(
+                "INSERT INTO consultation (clinic_id, visit_id, round_no, kind) "
+                "VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY') RETURNING id::text",
+                CLINIC_A,
+                vid,
+            )
+        rec_by = await conn.fetchval(
+            "SELECT attending_doctor_id::text FROM visit WHERE visit_id = $1::uuid",
+            vid,
+        )
+        room_id = await conn.fetchval(
+            "SELECT id::text FROM clinic_room "
+            "WHERE clinic_id = $1::uuid AND is_active LIMIT 1",
+            CLINIC_A,
+        )
+        if not room_id:
+            loc = await conn.fetchval(
+                "SELECT id::text FROM clinic_location"
+                " WHERE clinic_id = $1::uuid LIMIT 1",
+                CLINIC_A,
+            )
+            room_id = str(uuid.uuid4())
+            await conn.execute(
+                """
+                INSERT INTO clinic_room
+                (id, clinic_id, location_id, name,
+                 room_number, is_active)
+                VALUES ($1::uuid, $2::uuid, $3::uuid, 'Test room', 'TR', true)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                room_id,
+                CLINIC_A,
+                loc,
+            )
+        internal_oid = str(uuid.uuid4())
+        await conn.execute(
+            """
+            INSERT INTO service_order (
+                id, clinic_id, visit_id, consultation_id, service_code, service_name,
+                node_code, exec_status, recorded_by,
+                authorized_by, authorized_at, room_id
+            )
+            VALUES (
+                $1::uuid, $2::uuid, $3::uuid, $4::uuid, 'DV_NOI', 'Dịch vụ nội bộ',
+                'XN_NOI_BO_TEST_T3', 'performed', $5::uuid, $5::uuid, now(), $6::uuid
+            )
+            """,
+            internal_oid,
+            CLINIC_A,
+            vid,
+            cid,
+            rec_by,
+            room_id,
+        )
+
+    t2 = await svc_tep.tai_len(
+        identity=doc,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="internal-order.pdf",
+        service_order_id=internal_oid,
+    )
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai FROM tep_ket_qua WHERE id = $1::uuid",
+            t2["id"],
+        )
+        assert row["xac_nhan_trang_thai"] is None
+
+
+# ==============================================================================
+# T4: DOCTOR UPLOADS INTERNAL FILE → AUTO cho_phep_gui
+# ==============================================================================
+async def test_t4_doctor_upload_auto_cho_phep_gui(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """Doctor upload internal file → auto cho_phep_gui (pre-#174)."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+    svc_tep = TepKetQuaService(pool)
+    t = await svc_tep.tai_len(
+        identity=doc,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="doctor-upload.pdf",
+        appointment_id=aid,
+    )
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai, cho_phep_gui_luc,"
+            " cho_phep_gui_boi_staff_id::text "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            t["id"],
+        )
+        assert row["xac_nhan_trang_thai"] is None
+        assert row["cho_phep_gui_luc"] is not None  # Auto-approved!
+        assert row["cho_phep_gui_boi_staff_id"] == doc.staff_id
+
+
+# ==============================================================================
+# T5: HOP_LE → THU_HOI PRESERVES DOCTOR APPROVAL HISTORY
+# ==============================================================================
+async def test_t5_thu_hoi_preserves_approval(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """When revoking a HOP_LE file that was doctor-approved, cho_phep_gui stays."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        partner = await _tao_staff(conn, CLINIC_A, "PARTNER")
+        staff_xac_nhan = await _tao_staff(
+            conn, CLINIC_A, "NURSE", caps=[Capability.KET_QUA_XAC_NHAN.value]
+        )
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+        oid = await _tao_external_order(conn, CLINIC_A, vid)
+
+    svc_tep = TepKetQuaService(pool)
+
+    t = await svc_tep.tai_len(
+        identity=partner,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="t5.pdf",
+        service_order_id=oid,
+    )
+
+    # CHO_XAC_NHAN → HOP_LE
+    await svc_tep.xac_nhan_tep(
+        identity=staff_xac_nhan, tep_id=t["id"], trang_thai="HOP_LE"
+    )
+
+    # Bác sĩ cho phép gửi
+    await svc_tep.cho_phep_gui(identity=doc, tep_id=t["id"])
+
+    async with pool.acquire() as conn:
+        before = await conn.fetchrow(
+            "SELECT cho_phep_gui_luc, cho_phep_gui_boi_staff_id::text "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            t["id"],
+        )
+        assert before["cho_phep_gui_luc"] is not None
+        original_gui_luc = before["cho_phep_gui_luc"]
+        original_gui_boi = before["cho_phep_gui_boi_staff_id"]
+
+    # THU_HOI
+    await svc_tep.thu_hoi_tep(
+        identity=staff_xac_nhan,
+        tep_id=t["id"],
+        ly_do="Thu hồi nhưng giữ lịch sử approval",
+    )
+
+    async with pool.acquire() as conn:
+        after = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai, cho_phep_gui_luc, "
+            "cho_phep_gui_boi_staff_id::text "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            t["id"],
+        )
+        assert after["xac_nhan_trang_thai"] == "THU_HOI"
+        # APPROVAL HISTORY PRESERVED
+        assert after["cho_phep_gui_luc"] == original_gui_luc
+        assert after["cho_phep_gui_boi_staff_id"] == original_gui_boi
+
+
+# ==============================================================================
+# T6: INTERNAL FILE danh_dau_da_gui — no HOP_LE needed
+# ==============================================================================
+async def test_t6_internal_danh_dau_da_gui(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """Internal files can be marked as sent without needing HOP_LE state."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        cskh = await _tao_staff(conn, CLINIC_A, "CSKH")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+    svc_tep = TepKetQuaService(pool)
+
+    # Doctor uploads internal file → auto cho_phep_gui
+    t = await svc_tep.tai_len(
+        identity=doc,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="internal-sendable.pdf",
+        appointment_id=aid,
+    )
+
+    # CSKH can mark it as sent — xac_nhan_trang_thai is NULL, not HOP_LE
+    res = await svc_tep.danh_dau_da_gui(
+        identity=cskh, tep_id=t["id"], kenh="ZALO"
+    )
+    assert res["ok"] is True
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT gui_luc, gui_kenh, xac_nhan_trang_thai "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            t["id"],
+        )
+        assert row["gui_luc"] is not None
+        assert row["gui_kenh"] == "ZALO"
+        assert row["xac_nhan_trang_thai"] is None  # Still NULL
+
+
+# ==============================================================================
+# T7: NULL→CHO_XAC_NHAN via UPDATE blocked by trigger
+# ==============================================================================
+async def test_t7_null_to_non_null_blocked(pool: asyncpg.Pool) -> None:
+    """Cannot switch a NULL (internal) file to the confirmation flow via UPDATE."""
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+        tep_id = str(uuid.uuid4())
+        await conn.execute(
+            """
+            INSERT INTO tep_ket_qua
+                (id, clinic_id, clinic_patient_id, appointment_id,
+                 khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,
+                 xac_nhan_trang_thai)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid,
+                    $5, 'HINH_ANH', 'image/jpeg', 100, 'abc789', $6::uuid,
+                    NULL)
+            """,
+            tep_id,
+            CLINIC_A,
+            pid,
+            aid,
+            f"{CLINIC_A}/{pid}/t7.jpg",
+            doc.staff_id,
+        )
+
+        with pytest.raises(asyncpg.RaiseError, match="nội bộ.*NULL"):
+            await conn.execute(
+                "UPDATE tep_ket_qua SET xac_nhan_trang_thai = 'CHO_XAC_NHAN' "
+                "WHERE id = $1::uuid",
+                tep_id,
+            )
+
+        # Cleanup
+        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
+
+
+# ==============================================================================
+# T8: INTERNAL FILE APPEARS IN cho_bac_si_cho_phep QUEUE
+# ==============================================================================
+async def test_t8_internal_in_cho_bac_si_queue(
+    pool: asyncpg.Pool, monkeypatch: Any, tmp_path: pathlib.Path
+) -> None:
+    """Internal files (NULL state) with no approval yet appear in doctor queue."""
+    import clinicai.services.media_service as media
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(media, "MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(tep_mod, "MEDIA_ROOT", tmp_path)
+
+    async with pool.acquire() as conn:
+        doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
+        cskh = await _tao_staff(conn, CLINIC_A, "CSKH")
+        pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
+
+    svc_tep = TepKetQuaService(pool)
+
+    # CSKH uploads internal file → no auto cho_phep_gui (not a doctor)
+    t = await svc_tep.tai_len(
+        identity=cskh,
+        clinic_patient_id=pid,
+        data=PDF_DUMMY,
+        ten_hien_thi="cskh-upload.pdf",
+        appointment_id=aid,
+    )
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT xac_nhan_trang_thai, cho_phep_gui_luc "
+            "FROM tep_ket_qua WHERE id = $1::uuid",
+            t["id"],
+        )
+        assert row["xac_nhan_trang_thai"] is None
+        assert row["cho_phep_gui_luc"] is None  # CSKH not auto-approved
+
+    # File should appear in doctor's approval queue
+    queue = await svc_tep.cho_bac_si_cho_phep(identity=doc)
+    tep_ids = [item["id"] for item in queue]
+    assert t["id"] in tep_ids
+
+    # Doctor approves
+    res = await svc_tep.cho_phep_gui(identity=doc, tep_id=t["id"])
+    assert res["ok"] is True
+
+    # Now it should be gone from the queue
+    queue2 = await svc_tep.cho_bac_si_cho_phep(identity=doc)
+    tep_ids2 = [item["id"] for item in queue2]
+    assert t["id"] not in tep_ids2
+
