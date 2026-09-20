@@ -50,7 +50,7 @@ class SqlConn:
     async def executemany(self, query: str, args: Any) -> None:
         self.calls.append(("executemany", " ".join(query.split()), tuple(args)))
 
-    def transaction(self) -> SqlConn:
+    def transaction(self, *args: Any, **kwargs: Any) -> SqlConn:
         return self
 
     def acquire(self) -> SqlConn:

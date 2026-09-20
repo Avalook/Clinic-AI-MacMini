@@ -16,14 +16,21 @@ import json
 from typing import Any
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.v1.routers.clinical_sign import AmendRequest
 from clinicai.services.clinical_sign_service import (
     REQUIRED_SOAP,
     SIGNING_ROLES,
     _assert_doctor,
     missing_fields,
+)
+from clinicai.services.dinh_chinh_don import (
+    MAX_PRESCRIPTIONS_PER_AMENDMENT,
+    prescription_fingerprint,
+    validate_amendment_prescriptions,
 )
 
 
@@ -66,6 +73,80 @@ class TestOnlyDoctorsSign:
     def test_a_nurse_may_not_sign(self) -> None:
         with pytest.raises(ValidationError, match="Chỉ bác sĩ"):
             _assert_doctor(_identity(ClinicRole.NURSE_ULTRASOUND))
+
+
+class TestPrescriptionFingerprint:
+    def test_only_active_clinical_fields_affect_fingerprint(self) -> None:
+        rows = [
+            {
+                "id": "10000000-0000-4000-8000-000000000001",
+                "drug_name_raw": "Thuốc A",
+                "quantity": "10 viên",
+                "dosage_instructions": "Sáng 1",
+                "caution": "Sau ăn",
+                "drug_catalog_id": "catalog-a",
+                "purchased_qty": 10,
+                "dispensed_qty": 0,
+            }
+        ]
+        expected = prescription_fingerprint(rows)
+        allocation_only = [{**rows[0], "purchased_qty": 8, "dispensed_qty": 2}]
+        assert prescription_fingerprint(allocation_only) == expected
+        assert (
+            prescription_fingerprint([{**rows[0], "dosage_instructions": "Tối 1"}])
+            != expected
+        )
+
+    def test_order_does_not_affect_fingerprint(self) -> None:
+        a = {
+            "id": "10000000-0000-4000-8000-000000000001",
+            "drug_name_raw": "A",
+            "quantity": "1 viên",
+            "dosage_instructions": None,
+            "caution": None,
+        }
+        b = {**a, "id": "10000000-0000-4000-8000-000000000002", "drug_name_raw": "B"}
+        assert prescription_fingerprint([a, b]) == prescription_fingerprint([b, a])
+
+
+class TestAmendPrescriptionInput:
+    @pytest.mark.parametrize(
+        "item",
+        [
+            {"drug_name": 123},
+            {"drug_name": "   "},
+            {"drug_name": "A", "unknown": "x"},
+            {"drug_name": "A", "dosage": {"bad": True}},
+        ],
+    )
+    def test_router_rejects_malformed_rx_rows(self, item: dict[str, Any]) -> None:
+        with pytest.raises(PydanticValidationError):
+            AmendRequest(
+                reason="Đính chính đơn",
+                corrected={"don_thuoc": [item]},
+                expected_revision=1,
+                expected_rx="0" * 64,
+            )
+
+    def test_router_caps_rx_row_count(self) -> None:
+        with pytest.raises(PydanticValidationError):
+            AmendRequest(
+                reason="Đính chính đơn",
+                corrected={
+                    "don_thuoc": [
+                        {"drug_name": f"Thuốc {index}"}
+                        for index in range(MAX_PRESCRIPTIONS_PER_AMENDMENT + 1)
+                    ]
+                },
+                expected_revision=1,
+                expected_rx="0" * 64,
+            )
+
+    def test_service_boundary_rejects_blank_instead_of_treating_as_removal(
+        self,
+    ) -> None:
+        with pytest.raises(ValidationError, match="không được để trống"):
+            validate_amendment_prescriptions([{"id": None, "drug_name": " "}])
 
 
 def _row(**over: Any) -> dict[str, Any]:

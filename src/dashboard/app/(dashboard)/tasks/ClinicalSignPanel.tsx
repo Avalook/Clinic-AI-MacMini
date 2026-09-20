@@ -295,6 +295,7 @@ export default function ClinicalSignPanel({
                   {
                     reason: reason.trim(),
                     corrected: { [f.key]: { [f.json]: value.trim() } },
+                    expected_revision: st.record_revision ?? revision ?? 0,
                   },
                   "✓ Đã đính chính",
                 );
