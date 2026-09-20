@@ -269,7 +269,7 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
             if so_luong == 0:
                 continue
         if d.get("drug_catalog_id") is None:
-            van_de = "chưa xác định thuốc trong kho"
+            van_de = "thuốc chưa có trong danh mục giá"
         hd.dong.append(
             _dong_gia(
                 source_type="prescription",

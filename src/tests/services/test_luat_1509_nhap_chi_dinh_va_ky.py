@@ -497,6 +497,7 @@ async def test_dinh_chinh_don_khoa_visit_roi_prescription_roi_allocation() -> No
     rx = "10000000-0000-4000-8000-000000000001"
     old = {
         "id": rx,
+        "drug_catalog_id": None,
         "drug_name_raw": "Thuốc cũ",
         "quantity": "10 viên",
         "dosage_instructions": "Sáng 1",
@@ -517,7 +518,7 @@ async def test_dinh_chinh_don_khoa_visit_roi_prescription_roi_allocation() -> No
             },
         ),
         ("SELECT attending_doctor_id::text FROM public.visit", ME),
-        ("SELECT r.id, r.drug_name_raw", [old]),
+        ("SELECT r.id, r.drug_catalog_id", [old]),
         (
             "FROM public.clinical_record WHERE visit_id",
             {
