@@ -83,14 +83,15 @@ bảng `patient` rồi kéo theo 55 lỗi phía sau. Sửa ở
 **Backup vẫn chạy suốt thời gian đó và dữ liệu bên trong vẫn đúng** — chỉ là
 không nạp lại được, và không có gì báo cho tới ngày cần dùng.
 
-## Còn hở, chưa làm
+## Diễn tập khôi phục trên VPS mới: OPEN
+- Lần diễn tập ngày 04/08/2026 ở trên diễn ra trên môi trường Docker của máy Mac cũ (`DOC HISTORICAL`).
+- Trên máy chủ VPS Vietnix mới (`222.255.214.133`), **chưa có đợt diễn tập khôi phục thực tế nào được thực hiện** (`RUNTIME OPEN`). Cần lên lịch diễn tập định kỳ nạp thử bản backup nightly vào một container Postgres/GoTrue độc lập để nghiệm thu toàn trình.
 
-1. **Bản lưu chỉ nằm trên đúng ổ đĩa của máy Mac.** Mac hỏng là mất cả hệ thống
-   lẫn bản lưu. Cần một bản chép sang nơi khác (ổ ngoài, hoặc R2/S3 — script đã
-   có sẵn đường đẩy qua `rclone`, chưa cấu hình).
-2. **FileVault đang Tắt.** Ổ đĩa không mã hoá, mà trong đó có bệnh án thật của
-   bệnh nhân thật. Chỉ Quang bật được (cần mật khẩu máy).
-3. **Mất tối đa 24 giờ.** Muốn ngắn hơn thì tăng số lần chạy trong ngày — dump
-   chỉ 20MB nên chạy mỗi 6 giờ là rẻ.
-4. **Chưa ai diễn tập khôi phục vào một project Supabase thật**, mới chỉ vào
-   Postgres trắng. Phần `auth` là phần duy nhất chưa được kiểm đầu-cuối.
+## Lưu ý về cơ chế Rollback
+- Cơ chế rollback tự động trong `scripts/deploy-backend.sh` là **application release/image rollback** (quay lui container Docker API/Dashboard, source code checkout và env snapshot về bản release trước).
+- **Cơ chế này KHÔNG tự động rollback các thay đổi DDL/migration đã áp dụng vào Database.** Mọi migration DDL áp dụng lên database phải được kiểm soát chặt chẽ tính tương thích ngược (additive), và phải có bản sao lưu cơ sở dữ liệu ngay trước khi chạy migration.
+
+## Còn hở, chưa làm
+1. **Bản lưu chỉ nằm trên đúng ổ đĩa của máy chủ.** Ổ VPS hỏng là mất cả hệ thống lẫn bản lưu. Cần một bản chép sang nơi khác (R2/S3 — script đã có sẵn đường đẩy qua `rclone`, chưa cấu hình off-host).
+2. **Diễn tập khôi phục trên VPS mới (OPEN):** Cần diễn tập khôi phục hoàn chỉnh cả data lâm sàng lẫn auth identities trên VPS.
+3. **Mất tối đa 24 giờ:** Muốn ngắn hơn thì tăng số lần chạy trong ngày — dump chỉ vài trăm KB nên chạy mỗi 6 giờ là rất nhẹ.
