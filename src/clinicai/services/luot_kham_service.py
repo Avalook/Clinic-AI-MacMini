@@ -533,20 +533,33 @@ class LuotKhamService:
     ) -> list[asyncpg.Record]:
         """Yêu cầu của một vòng kèm trạng thái THỰC HIỆN và KẾT QUẢ của chỉ định.
 
-        "Kết quả hợp lệ" (Slice 1) = chỉ định đã có mốc ``ket_qua_luc`` — đặt
-        khi người thực hiện ghi nội dung kết quả, hoặc khi có tệp kết quả gắn
-        vào đúng chỉ định (``tep_ket_qua.service_order_id``). Lấy mẫu xong
-        (``performed``) mà chưa có mốc ấy thì CHƯA đủ.
+        "Kết quả hợp lệ" (Blocker 1):
+          - Đối với chỉ định làm bên ngoài (node_definition.lam_ben_ngoai = true):
+            BẮT BUỘC phải có ít nhất một tệp kết quả ở trạng thái HOP_LE
+            (xác nhận đúng người, đúng chỉ định bởi nhân sự có capability).
+            Mốc ket_qua_luc chỉ là mốc tài liệu tới, không làm co_ket_qua = true.
+          - Đối với chỉ định nội bộ: giữ nguyên quy tắc ket_qua_luc IS NOT NULL.
         """
         return list(
             await conn.fetch(
                 """
                 SELECT q.id::text AS id, q.service_order_id::text AS order_id,
                        q.need, q.status, o.exec_status,
-                       o.ket_qua_luc IS NOT NULL AS co_ket_qua
+                       CASE
+                         WHEN coalesce(nd.lam_ben_ngoai, false) THEN
+                           EXISTS (
+                             SELECT 1 FROM tep_ket_qua t
+                              WHERE t.clinic_id = q.clinic_id
+                                AND t.service_order_id = o.id
+                                AND t.xac_nhan_trang_thai = 'HOP_LE'
+                           )
+                         ELSE o.ket_qua_luc IS NOT NULL
+                       END AS co_ket_qua
                   FROM round_requirement q
                   JOIN service_order o
                     ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
+                  LEFT JOIN node_definition nd
+                    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                  WHERE q.clinic_id = $1::uuid AND q.round_id = $2::uuid
                  ORDER BY q.created_at, q.id
                 """,
@@ -3000,7 +3013,17 @@ class LuotKhamService:
                 """
                 SELECT q.id::text AS id, q.need, q.status,
                        q.service_order_id::text AS order_id,
-                       o.exec_status, o.ket_qua_luc IS NOT NULL AS co_ket_qua,
+                       o.exec_status,
+                       CASE
+                         WHEN coalesce(nd.lam_ben_ngoai, false) THEN
+                           EXISTS (
+                             SELECT 1 FROM tep_ket_qua t
+                              WHERE t.clinic_id = q.clinic_id
+                                AND t.service_order_id = o.id
+                                AND t.xac_nhan_trang_thai = 'HOP_LE'
+                           )
+                         ELSE o.ket_qua_luc IS NOT NULL
+                       END AS co_ket_qua,
                        o.service_name, o.not_performed_reason,
                        r.round_no, r.status AS vong_status,
                        v.visit_id::text AS visit_id, p.full_name, p.patient_code
@@ -3009,6 +3032,8 @@ class LuotKhamService:
                     ON r.id = q.round_id AND r.clinic_id = q.clinic_id
                   JOIN service_order o
                     ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
+                  LEFT JOIN node_definition nd
+                    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                   JOIN visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -3019,7 +3044,18 @@ class LuotKhamService:
                    -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
                    -- quả) hoặc không làm được. Lọc ở SQL để LIMIT không cắt mất.
                    AND ((q.need = 'VALID_RESULT' AND o.exec_status = 'performed'
-                         AND o.ket_qua_luc IS NULL)
+                         AND (
+                           CASE
+                             WHEN coalesce(nd.lam_ben_ngoai, false) THEN
+                               NOT EXISTS (
+                                 SELECT 1 FROM tep_ket_qua t
+                                  WHERE t.clinic_id = q.clinic_id
+                                    AND t.service_order_id = o.id
+                                    AND t.xac_nhan_trang_thai = 'HOP_LE'
+                               )
+                             ELSE o.ket_qua_luc IS NULL
+                           END
+                         ))
                         OR o.exec_status IN ('not_performed', 'cancelled'))
                    AND ($2::text[] IS NULL
                         OR v.attending_doctor_id::text = ANY($2::text[])
@@ -3463,17 +3499,32 @@ class LuotKhamService:
                        pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
                   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+                  LEFT JOIN node_definition nd
+                    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
                    AND p.clinic_id = v.clinic_id
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                  WHERE o.clinic_id = $1::uuid
-                   AND o.ket_qua_luc IS NOT NULL
+                   AND (
+                     (coalesce(nd.lam_ben_ngoai, false) AND EXISTS (
+                         SELECT 1 FROM tep_ket_qua t
+                          WHERE t.clinic_id = o.clinic_id
+                            AND t.service_order_id = o.id
+                            AND t.xac_nhan_trang_thai = 'HOP_LE'
+                     ))
+                     OR
+                     (
+                       NOT coalesce(nd.lam_ben_ngoai, false)
+                       AND o.ket_qua_luc IS NOT NULL
+                     )
+                   )
                    AND (o.duyet_luc IS NULL
                         OR EXISTS (SELECT 1 FROM tep_ket_qua t
                                     WHERE t.clinic_id = o.clinic_id
                                       AND t.service_order_id = o.id
+                                      AND t.xac_nhan_trang_thai = 'HOP_LE'
                                       AND t.cho_phep_gui_luc IS NULL))
                    AND o.exec_status NOT IN ('draft', 'cancelled')
                    AND o.created_at > now() - interval '60 days'
@@ -3492,6 +3543,7 @@ class LuotKhamService:
                   FROM tep_ket_qua t
                  WHERE t.clinic_id = $1::uuid
                    AND t.service_order_id = ANY($2::uuid[])
+                   AND t.xac_nhan_trang_thai = 'HOP_LE'
                  ORDER BY t.tai_len_luc
                 """,
                 cid,
@@ -3565,12 +3617,37 @@ class LuotKhamService:
                 vid,
             )
             o = await conn.fetchrow(
-                "SELECT exec_status, ket_qua_luc, duyet_luc FROM service_order"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                """
+                SELECT o.exec_status, o.ket_qua_luc, o.duyet_luc,
+                       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai
+                  FROM service_order o
+                  LEFT JOIN node_definition nd
+                    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid FOR UPDATE OF o
+                """,
                 cid,
                 oid,
             )
             assert o is not None
+            if o["lam_ben_ngoai"]:
+                has_hop_le = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM tep_ket_qua t
+                         WHERE t.clinic_id = $1::uuid
+                           AND t.service_order_id = $2::uuid
+                           AND t.xac_nhan_trang_thai = 'HOP_LE'
+                    )
+                    """,
+                    cid,
+                    oid,
+                )
+                if not has_hop_le:
+                    raise LuotKhamConflictError(
+                        "NO_VALID_RESULT",
+                        "Chỉ định ngoài chưa có tệp kết quả được xác nhận "
+                        "hợp lệ để duyệt.",
+                    )
             if o["duyet_luc"] is not None:
                 # Đã duyệt trước đó. Tệp mới gửi SAU lần duyệt không thừa hưởng
                 # quyền gửi — bác sĩ bấm duyệt lần nữa thì chỉ mở các tệp ấy,
@@ -3582,6 +3659,7 @@ class LuotKhamService:
                            cho_phep_gui_boi_staff_id = $3::uuid
                      WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
                        AND cho_phep_gui_luc IS NULL
+                       AND xac_nhan_trang_thai = 'HOP_LE'
                     RETURNING id::text
                     """,
                     cid,
@@ -3616,7 +3694,7 @@ class LuotKhamService:
                     },
                 )
                 return {"ok": True, "order_id": oid, "tep_moi": len(moi)}
-            if o["ket_qua_luc"] is None:
+            if o["ket_qua_luc"] is None and not o["lam_ben_ngoai"]:
                 raise LuotKhamConflictError(
                     "NO_RESULT_YET", "Chỉ định này chưa có kết quả để duyệt."
                 )
@@ -3639,6 +3717,7 @@ class LuotKhamService:
                    SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = $3::uuid
                  WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
                    AND cho_phep_gui_luc IS NULL
+                   AND xac_nhan_trang_thai = 'HOP_LE'
                 """,
                 cid,
                 oid,

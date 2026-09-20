@@ -21,6 +21,7 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
+    get_current_identity,
     require_role,
     require_role_co_the_mo,
 )
@@ -623,6 +624,56 @@ async def cho_phep_gui_tep(
 
     return await TepKetQuaService(pool).cho_phep_gui(
         identity=identity, tep_id=str(tep_id)
+    )
+
+
+class XacNhanTepDTO(BaseModel):
+    trang_thai: str
+    ly_do: str | None = None
+
+
+class ThuHoiTepDTO(BaseModel):
+    ly_do: str
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/xac-nhan")
+async def xac_nhan_tep_ket_qua(
+    tep_id: UUID,
+    body: XacNhanTepDTO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Xác nhận tệp kết quả (HOP_LE hoặc TU_CHOI).
+
+    Bắt buộc capability ket_qua.xac_nhan.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).xac_nhan_tep(
+        identity=identity,
+        tep_id=str(tep_id),
+        trang_thai=body.trang_thai,
+        ly_do=body.ly_do,
+    )
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/thu-hoi")
+async def thu_hoi_tep_ket_qua(
+    tep_id: UUID,
+    body: ThuHoiTepDTO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thu hồi tệp kết quả đã từng HOP_LE.
+
+    Bắt buộc capability ket_qua.xac_nhan và lý do.
+    """
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).thu_hoi_tep(
+        identity=identity,
+        tep_id=str(tep_id),
+        ly_do=body.ly_do,
     )
 
 

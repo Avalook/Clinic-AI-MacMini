@@ -45,10 +45,19 @@ import pytest_asyncio
 from fastapi import HTTPException
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity, get_partner_identity
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    get_partner_identity,
+)
 from clinicai.api.v1.routers.doi_tac import _gui_ket_qua
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.services.bill_service import tinh_hoa_don, CLINIC as BO_CLINIC, EXTERNAL as BO_EXTERNAL
+from clinicai.services.bill_service import (
+    tinh_hoa_don,
+    CLINIC as BO_CLINIC,
+    EXTERNAL as BO_EXTERNAL,
+)
 from clinicai.services.luot_kham_service import (
     LuotKhamConflictError,
     LuotKhamService,
@@ -392,7 +401,9 @@ async def test_mixed_orders_slice_ab_progression(
     # Nấc 1: Hoàn thành A (nội bộ siêu âm)
     # Điều phối phòng cho A nếu chưa assigned
     async with kban.pool.acquire() as conn:
-        st_a = await conn.fetchval("SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a)
+        st_a = await conn.fetchval(
+            "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
+        )
         if st_a == "authorized":
             await kban.svc.dispatch_order(
                 order_id=id_a,
@@ -411,14 +422,21 @@ async def test_mixed_orders_slice_ab_progression(
 
     # Sau khi A hoàn thành: review_round VẪN collecting vì B và C chưa xong
     async with kban.pool.acquire() as conn:
-        r_status = await conn.fetchval("SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id)
+        r_status = await conn.fetchval(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert r_status == "collecting"
-        rev_count = await conn.fetchval("SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'", kban.visit_id)
+        rev_count = await conn.fetchval(
+            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kban.visit_id,
+        )
         assert rev_count == 0
 
     # Nấc 2: Hoàn thành B (nội bộ lab) có kết quả (result_note)
     async with kban.pool.acquire() as conn:
-        st_b = await conn.fetchval("SELECT exec_status FROM service_order WHERE id = $1::uuid", id_b)
+        st_b = await conn.fetchval(
+            "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_b
+        )
         if st_b == "authorized":
             await kban.svc.dispatch_order(
                 order_id=id_b,
@@ -437,9 +455,14 @@ async def test_mixed_orders_slice_ab_progression(
 
     # Sau khi B hoàn thành: review_round VẪN collecting vì C chưa đạt
     async with kban.pool.acquire() as conn:
-        r_status = await conn.fetchval("SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id)
+        r_status = await conn.fetchval(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert r_status == "collecting"
-        rev_count = await conn.fetchval("SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'", kban.visit_id)
+        rev_count = await conn.fetchval(
+            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kban.visit_id,
+        )
         assert rev_count == 0
 
     # Nấc 3: C (đối tác) bấm "Đã lấy mẫu"
@@ -447,17 +470,27 @@ async def test_mixed_orders_slice_ab_progression(
     # Sau khi bấm đã lấy mẫu: C exec_status = 'performed' nhưng ket_qua_luc IS NULL
     # Vì C need = VALID_RESULT, review_round VẪN collecting!
     async with kban.pool.acquire() as conn:
-        r_status = await conn.fetchval("SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id)
+        r_status = await conn.fetchval(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert r_status == "collecting"
-        rev_count = await conn.fetchval("SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'", kban.visit_id)
+        rev_count = await conn.fetchval(
+            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kban.visit_id,
+        )
         assert rev_count == 0
 
     # Nấc 4: C (đối tác) bấm "Chờ tài liệu"
     await kban.svc.doi_tac_cho_tai_lieu(order_id=id_c, identity=kban.doi_tac)
     async with kban.pool.acquire() as conn:
-        r_status = await conn.fetchval("SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id)
+        r_status = await conn.fetchval(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert r_status == "collecting"
-        rev_count = await conn.fetchval("SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'", kban.visit_id)
+        rev_count = await conn.fetchval(
+            "SELECT count(*) FROM consultation WHERE visit_id = $1::uuid AND kind = 'REVIEW'",
+            kban.visit_id,
+        )
         assert rev_count == 0
 
     # Nấc 5: C (đối tác) upload file kết quả PDF
@@ -471,7 +504,29 @@ async def test_mixed_orders_slice_ab_progression(
     )
     assert tep["ok"] is True
 
-    # Kiểm tra trạng thái: Tất cả 3 requirement đã đạt!
+    # Tệp vừa tải lên ở trạng thái CHO_XAC_NHAN -> round vẫn collecting
+    async with kban.pool.acquire() as conn:
+        round_row = await conn.fetchrow(
+            "SELECT id::text, round_no, status, ready_at FROM review_round WHERE visit_id = $1::uuid",
+            kban.visit_id,
+        )
+        assert round_row["status"] == "collecting"
+        assert round_row["ready_at"] is None
+        # Cấp capability xác nhận kết quả cho điều dưỡng
+        await conn.execute(
+            "INSERT INTO staff_capability (staff_id, capability) VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            kban.dieu_duong.staff_id,
+        )
+
+    # Điều dưỡng xác nhận HOP_LE
+    res_xn = await TepKetQuaService(kban.pool).xac_nhan_tep(
+        identity=kban.dieu_duong,
+        tep_id=tep["id"],
+        trang_thai="HOP_LE",
+    )
+    assert res_xn["ok"] is True
+
+    # Sau khi HOP_LE: Tất cả 3 requirement đã đạt!
     # review_round chuyển sang 'ready'
     # Đúng 1 consultation REVIEW queued
     # Đúng 1 queue_entry REVIEW lane DOCTOR
@@ -522,9 +577,13 @@ async def test_mixed_orders_slice_ab_progression(
         assert len(q_rows_after) == 1
 
     # Nấc 6: Bác sĩ bắt đầu khám REVIEW
-    await kban.svc.start_consultation(consultation_id=review_con_id, identity=kban.bac_si)
+    await kban.svc.start_consultation(
+        consultation_id=review_con_id, identity=kban.bac_si
+    )
     async with kban.pool.acquire() as conn:
-        r_status = await conn.fetchval("SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id)
+        r_status = await conn.fetchval(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert r_status == "in_review"
 
     # Nấc 7: Bác sĩ đọc kết quả và kết thúc REVIEW
@@ -645,14 +704,23 @@ async def test_late_result_follow_up_scenario(
 
     # Thực hiện A
     async with kban.pool.acquire() as conn:
-        st_a = await conn.fetchval("SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a)
+        st_a = await conn.fetchval(
+            "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
+        )
         if st_a == "authorized":
             await kban.svc.dispatch_order(
-                order_id=id_a, room_id=kban.phong_sa, expected_version=None, identity=kban.truong_ca
+                order_id=id_a,
+                room_id=kban.phong_sa,
+                expected_version=None,
+                identity=kban.truong_ca,
             )
     await kban.svc.start_service(order_id=id_a, identity=kban.bs_sieu_am)
     await kban.svc.complete_service(
-        order_id=id_a, performed=True, reason=None, result_note=None, identity=kban.bs_sieu_am
+        order_id=id_a,
+        performed=True,
+        reason=None,
+        result_note=None,
+        identity=kban.bs_sieu_am,
     )
 
     # Sau khi A xong, review_round READY (vì không phải chờ C)
@@ -672,7 +740,9 @@ async def test_late_result_follow_up_scenario(
         consultation_id=rev_id, outcome="DONE", requirements=None, identity=kban.bac_si
     )
     async with kban.pool.acquire() as conn:
-        v_status = await conn.fetchval("SELECT status FROM visit WHERE visit_id = $1::uuid", kban.visit_id)
+        v_status = await conn.fetchval(
+            "SELECT status FROM visit WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert v_status in ("OPEN", "IN_PROGRESS", "FINALIZED")
 
     # Giả lập hồ sơ bệnh án đã ký
@@ -705,11 +775,15 @@ async def test_late_result_follow_up_scenario(
 
     # 1. service_order được ghi nhận ket_qua_luc
     async with kban.pool.acquire() as conn:
-        kq_luc = await conn.fetchval("SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", id_c)
+        kq_luc = await conn.fetchval(
+            "SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", id_c
+        )
         assert kq_luc is not None
 
         # 2. Hồ sơ bệnh án đã ký KHÔNG bị sửa ngược
-        v_st = await conn.fetchval("SELECT status FROM visit WHERE visit_id = $1::uuid", kban.visit_id)
+        v_st = await conn.fetchval(
+            "SELECT status FROM visit WHERE visit_id = $1::uuid", kban.visit_id
+        )
         assert v_st == "FINALIZED"
         rec = await conn.fetchrow(
             "SELECT revision, chief_complaint_at_visit FROM clinical_record WHERE visit_id = $1::uuid",
@@ -718,9 +792,23 @@ async def test_late_result_follow_up_scenario(
         assert rec["revision"] == 1
         assert rec["chief_complaint_at_visit"] == "Đã ký"
 
-    # 3. Bác sĩ duyệt kết quả muộn qua /duyet-ket-qua
+    # 3. Điều dưỡng có capability xác nhận HOP_LE cho tệp muộn
+    async with kban.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO staff_capability (staff_id, capability) VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            kban.dieu_duong.staff_id,
+        )
+    await TepKetQuaService(kban.pool).xac_nhan_tep(
+        identity=kban.dieu_duong,
+        tep_id=tep_muon["id"],
+        trang_thai="HOP_LE",
+    )
+
+    # 4. Bác sĩ duyệt kết quả muộn qua /duyet-ket-qua
     await kban.svc.duyet_ket_qua(
-        order_id=id_c, danh_gia="Vi sinh âm tính, không phát hiện vi khuẩn", identity=kban.bac_si
+        order_id=id_c,
+        danh_gia="Vi sinh âm tính, không phát hiện vi khuẩn",
+        identity=kban.bac_si,
     )
 
     # 4. follow_up_case chuyển thành DONE
@@ -785,7 +873,9 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
 
     # Đọc hóa đơn dịch vụ qua tinh_hoa_don
     async with kban.pool.acquire() as conn:
-        hd = await tinh_hoa_don(conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu")
+        hd = await tinh_hoa_don(
+            conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu"
+        )
 
     # Hóa đơn có cả dòng khám / dịch vụ
     cac_ben = {d.ben_thu for d in hd.dong}
@@ -797,7 +887,9 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
     assert dong_external[0].thanh_tien == Decimal(900_000)
 
     dong_clinic = [d for d in hd.dong if d.ben_thu == BO_CLINIC]
-    tong_clinic_tinh_tay = sum(d.thanh_tien for d in dong_clinic if d.thanh_tien is not None)
+    tong_clinic_tinh_tay = sum(
+        d.thanh_tien for d in dong_clinic if d.thanh_tien is not None
+    )
     assert hd.tong == int(tong_clinic_tinh_tay)
     # 900,000 của đối tác KHÔNG được nằm trong hd.tong
     assert hd.tong == 300_000  # 100,000 khám + 200,000 xét nghiệm nội bộ
@@ -805,7 +897,10 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
 
     # Đánh dấu khám xong để thoả mãn điều kiện thu tiền
     async with kban.pool.acquire() as conn:
-        await conn.execute("UPDATE visit SET exam_completed_at = now() WHERE visit_id = $1::uuid", kban.visit_id)
+        await conn.execute(
+            "UPDATE visit SET exam_completed_at = now() WHERE visit_id = $1::uuid",
+            kban.visit_id,
+        )
 
     # Thu tiền qua PaymentService
     pay_svc = PaymentService(kban.pool)
@@ -833,7 +928,8 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
     # Kiểm tra database payment và payment_bill_line
     async with kban.pool.acquire() as conn:
         pay_row = await conn.fetchrow(
-            "SELECT amount, status FROM payment WHERE payment_cycle_id = $1::uuid", cycle_id
+            "SELECT amount, status FROM payment WHERE payment_cycle_id = $1::uuid",
+            cycle_id,
         )
         assert pay_row["amount"] == hd.tong
         assert pay_row["status"] == "PAID"
@@ -859,7 +955,9 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
             kban.ma_mau_doi_tac,
         )
     async with kban.pool.acquire() as conn:
-        hd_doi = await tinh_hoa_don(conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu")
+        hd_doi = await tinh_hoa_don(
+            conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu"
+        )
     assert hd_doi.revision != rev_goc
     # Khôi phục
     async with kban.pool.acquire() as conn:
@@ -910,13 +1008,18 @@ async def test_partner_security_negative_suite(
     # Endpoint đối tác (/api/v1/doi-tac/viec) hoàn toàn KHÔNG có tham số tìm kiếm bệnh nhân.
     import inspect
     from clinicai.api.v1.routers.doi_tac import viec_cua_doi_tac
+
     sig = inspect.signature(viec_cua_doi_tac)
     assert "query" not in sig.parameters
     assert "search" not in sig.parameters
     assert "patient_id" not in sig.parameters
 
     # 3. PARTNER không đọc và không ghi clinical_record:
-    from clinicai.services.clinical_record_service import may_write, ClinicalRecordService
+    from clinicai.services.clinical_record_service import (
+        may_write,
+        ClinicalRecordService,
+    )
+
     assert not may_write(doi_tac.role, vitals_only=False)
     assert not may_write(doi_tac.role, vitals_only=True)
     with pytest.raises(SafetyGateError):
@@ -930,6 +1033,7 @@ async def test_partner_security_negative_suite(
     # 4. PARTNER không tải xuống tệp kết quả:
     # Router cskh.py bảo vệ GET /cskh/tep-ket-qua/{id}/noi-dung bằng _KET_QUA_DOC_GUARD.
     from clinicai.api.v1.routers.cskh import _KET_QUA_DOC_GUARD
+
     with pytest.raises(HTTPException) as exc_doc:
         await _KET_QUA_DOC_GUARD(doi_tac)
     assert exc_doc.value.status_code == 403
@@ -969,10 +1073,10 @@ async def test_partner_security_negative_suite(
         sha256="fake_sha",
         dau=pdf_sample[:8192],
     )
-    with pytest.raises(SafetyGateError, match="Không tìm thấy việc này trong danh sách của bạn"):
-        await _gui_ket_qua(
-            kban.pool, doi_tac, {"chi_dinh_id": id_noi_bo}, tep_nhan
-        )
+    with pytest.raises(
+        SafetyGateError, match="Không tìm thấy việc này trong danh sách của bạn"
+    ):
+        await _gui_ket_qua(kban.pool, doi_tac, {"chi_dinh_id": id_noi_bo}, tep_nhan)
 
     # 7. PARTNER không upload vào service_order của clinic khác
     # Tạo order ở clinic 2
@@ -1002,7 +1106,9 @@ async def test_partner_security_negative_suite(
                 sha256="fake_sha2",
                 dau=pdf_sample[:8192],
             )
-            with pytest.raises(SafetyGateError, match="Không tìm thấy việc này trong danh sách của bạn"):
+            with pytest.raises(
+                SafetyGateError, match="Không tìm thấy việc này trong danh sách của bạn"
+            ):
                 await _gui_ket_qua(
                     kban.pool, doi_tac, {"chi_dinh_id": order_clinic2}, tep_nhan2
                 )
@@ -1126,12 +1232,28 @@ async def test_partner_two_types_of_orders(
 
     # --- Kiểm tra Loại 1 (Đối tác tự lấy) ---
     viec_dt = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
-    v1 = next((v for k in viec_dt["khach"] for v in k["viec"] if v["chi_dinh_id"] == id_tu_lay), None)
+    v1 = next(
+        (
+            v
+            for k in viec_dt["khach"]
+            for v in k["viec"]
+            if v["chi_dinh_id"] == id_tu_lay
+        ),
+        None,
+    )
     assert v1 is not None
     assert v1["trang_thai"] == "CHO_LAY_MAU"
 
     # --- Kiểm tra Loại 2 (Phòng khám lấy mẫu) ---
-    v2 = next((v for k in viec_dt["khach"] for v in k["viec"] if v["chi_dinh_id"] == id_pk_lay), None)
+    v2 = next(
+        (
+            v
+            for k in viec_dt["khach"]
+            for v in k["viec"]
+            if v["chi_dinh_id"] == id_pk_lay
+        ),
+        None,
+    )
     assert v2 is None  # CHƯA hiện trên bàn đối tác khi điều dưỡng chưa lấy mẫu!
 
     # Đối tác cố tình gọi 'da-lay-mau' cho việc phòng khám lấy mẫu -> BỊ CHẶN
@@ -1149,19 +1271,39 @@ async def test_partner_two_types_of_orders(
     # Điều dưỡng phòng khám thực hiện lấy mẫu
     await kban.svc.start_service(order_id=id_pk_lay, identity=kban.dieu_duong)
     await kban.svc.complete_service(
-        order_id=id_pk_lay, performed=True, reason=None, result_note=None, identity=kban.dieu_duong
+        order_id=id_pk_lay,
+        performed=True,
+        reason=None,
+        result_note=None,
+        identity=kban.dieu_duong,
     )
 
     # Sau khi điều dưỡng lấy mẫu xong -> Việc loại 2 xuất hiện trên bàn đối tác ở trạng thái DA_LAY_MAU
     viec_dt_sau = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
-    v2_sau = next((v for k in viec_dt_sau["khach"] for v in k["viec"] if v["chi_dinh_id"] == id_pk_lay), None)
+    v2_sau = next(
+        (
+            v
+            for k in viec_dt_sau["khach"]
+            for v in k["viec"]
+            if v["chi_dinh_id"] == id_pk_lay
+        ),
+        None,
+    )
     assert v2_sau is not None
     assert v2_sau["trang_thai"] == "DA_LAY_MAU"
 
     # Đối tác nhận mẫu loại 2 -> Chờ tài liệu
     await kban.svc.doi_tac_cho_tai_lieu(order_id=id_pk_lay, identity=kban.doi_tac)
     viec_dt_cho = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
-    v2_cho = next((v for k in viec_dt_cho["khach"] for v in k["viec"] if v["chi_dinh_id"] == id_pk_lay), None)
+    v2_cho = next(
+        (
+            v
+            for k in viec_dt_cho["khach"]
+            for v in k["viec"]
+            if v["chi_dinh_id"] == id_pk_lay
+        ),
+        None,
+    )
     assert v2_cho is not None
     assert v2_cho["trang_thai"] == "CHO_TAI_LIEU"
 

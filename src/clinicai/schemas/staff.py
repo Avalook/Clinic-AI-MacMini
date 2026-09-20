@@ -178,6 +178,7 @@ class Capability(str, Enum):
     ULTRASOUND_NURSE = "ULTRASOUND_NURSE"
     CSKH = "CSKH"
     DOCTOR_CONSULTATION = "DOCTOR_CONSULTATION"
+    KET_QUA_XAC_NHAN = "ket_qua.xac_nhan"
 
 
 class ProficiencyLevel(str, Enum):
