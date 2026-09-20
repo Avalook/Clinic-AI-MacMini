@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from clinicai.api.exceptions import ConflictError
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.payment_service import PaymentService
 from tests.services.test_luot_kham_service_db import CLINIC
@@ -251,10 +252,18 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
     st_phukhoa = await _tao_loai_kham(
         q.pool, f"PK-RUNTIME-{q.duoi}", f"Khám phụ khoa {q.duoi}", 220_000
     )
-    # Check-in: gán loại khám Phụ khoa cho visit
+    # Check-in: lịch hẹn CHECKED_IN, chưa có mốc khám xong,
+    # gán loại khám Phụ khoa cho visit
+    await q.pool.execute(
+        """
+        UPDATE appointment SET status = 'CHECKED_IN'
+         WHERE id = (SELECT appointment_id FROM visit WHERE visit_id = $1::uuid)
+        """,
+        q.visit_id,
+    )
     await q.pool.execute(
         "UPDATE visit SET service_type_id = $2::uuid, checked_in_at = now(),"
-        " status = 'OPEN' WHERE visit_id = $1::uuid",
+        " exam_completed_at = NULL, status = 'OPEN' WHERE visit_id = $1::uuid",
         q.visit_id,
         st_phukhoa,
     )
@@ -288,7 +297,35 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
     )
     assert sign_res.get("ok") is True
 
-    # KHÁM XONG SAU: hoàn tất consultation & appointment, không bị chặn bởi FINALIZED
+    # 1. Sau sign():
+    # - visit.status = FINALIZED
+    # - exam_completed_at IS NULL
+    # - cashier board CHƯA có bệnh nhân
+    # - PaymentService chưa cho thu
+    v_ky = await q.pool.fetchrow(
+        "SELECT status, exam_completed_at FROM visit WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    assert v_ky["status"] == "FINALIZED"
+    assert v_ky["exam_completed_at"] is None
+
+    board_chua_xong = await CashierBoardService(q.pool).board(
+        identity=q.thu_ngan, modes=["dich_vu"]
+    )
+    assert not any(i["visit_id"] == q.visit_id for i in board_chua_xong["items"]), (
+        "Khi mới ký bệnh án và CHƯA khám xong, bệnh nhân không được hiện ở Thu ngân"
+    )
+
+    with pytest.raises(ConflictError, match="Bác sĩ chưa khám xong lượt này"):
+        await PaymentService(q.pool).record_payment(
+            visit_id=q.visit_id,
+            kind="dich_vu",
+            amount=None,
+            clinic_patient_id=None,
+            identity=q.thu_ngan,
+        )
+
+    # 2. KHÁM XONG SAU: hoàn tất consultation & appointment, không bị chặn bởi FINALIZED
     from clinicai.services.luot_kham_service import LuotKhamService
 
     lk_svc = LuotKhamService(q.pool)
@@ -297,13 +334,17 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
         identity=q.bac_si,
     )
     assert kham_xong_res.get("ok") is True
-    assert (
-        await q.pool.fetchval(
-            "SELECT exam_completed_at IS NOT NULL FROM visit WHERE visit_id = $1::uuid",
-            q.visit_id,
-        )
-        is True
+
+    # Sau kham_xong():
+    # - exam_completed_at IS NOT NULL
+    # - cashier board CÓ bệnh nhân
+    # - đúng dịch vụ từ visit.service_type_id
+    # - PaymentService thu thành công
+    v_sau = await q.pool.fetchval(
+        "SELECT exam_completed_at FROM visit WHERE visit_id = $1::uuid",
+        q.visit_id,
     )
+    assert v_sau is not None
 
     # Sang /thu-ngan/dich-vu: Cashier board phải thấy bệnh nhân
     board = await CashierBoardService(q.pool).board(

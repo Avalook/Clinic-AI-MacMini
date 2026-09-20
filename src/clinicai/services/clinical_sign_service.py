@@ -222,7 +222,6 @@ class ClinicalSignService:
                     """
                     UPDATE public.visit
                        SET status = 'FINALIZED', finalized_at = now(),
-                           exam_completed_at = coalesce(exam_completed_at, now()),
                            finalized_by = $3::uuid, updated_at = now()
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND status <> 'FINALIZED'
