@@ -73,6 +73,7 @@ interface HistoryItem {
 }
 interface ApiRx {
   id: string;
+  drug_catalog_id: string | null;
   drug_name_raw: string | null;
   quantity: string | null;
   dosage_instructions: string | null;
@@ -127,16 +128,23 @@ const EMPTY_PM = {
 };
 type PmFields = typeof EMPTY_PM;
 
-// Đơn thuốc (mục IX) — mỗi dòng 1 thuốc. Tên gợi ý từ drug_catalog (mig 051)
-// qua <datalist>, vẫn cho gõ tự do (giữ name_raw verbatim khi BS tự nhập).
+// Đơn thuốc (mục IX) — mỗi dòng 1 thuốc. Bác sĩ chọn từ danh mục drug_catalog
+// hoặc nhập tay tự do nếu chưa có trong danh mục.
 interface RxRow {
   id?: string;
+  drug_catalog_id: string | null;
   drug_name: string;
   quantity: string;
   dosage: string;
   caution: string;
 }
-const EMPTY_RX: RxRow = { drug_name: "", quantity: "", dosage: "", caution: "" };
+const EMPTY_RX: RxRow = {
+  drug_catalog_id: null,
+  drug_name: "",
+  quantity: "",
+  dosage: "",
+  caution: "",
+};
 
 // Bốn khối bác sĩ GÕ TAY — đúng và chỉ đúng những thứ mất đi khi trang tải lại.
 // Hồ sơ tải từ máy chủ về không nằm ở đây: nó lấy lại được, và để nó trên đĩa
@@ -149,7 +157,13 @@ interface GoDo {
 }
 
 // Danh mục dùng chung cho picker (đọc runtime từ /api/catalog — KHÔNG hardcode).
-interface DrugOpt { name_raw: string; variant: string | null; needs_review: boolean }
+interface DrugOpt {
+  id: string;
+  name_base: string;
+  name_raw: string;
+  variant: string | null;
+  needs_review: boolean;
+}
 
 // Mục X — Theo dõi & Tái khám (theo biểu mẫu giấy: "Ngày tái khám + XN cần kiểm
 // tra lại"). Lưu vào soap_plan.tai_kham — HỢP ĐỒNG với màn CSKH nhắc tái khám:
@@ -426,14 +440,19 @@ export default function ClinicalRecordForm({
               }
             : EMPTY_PM;
         const nextRx = d.prescription_draft
-          ? d.prescription_draft.items.map((r) => ({...r, id: r.id ?? undefined}))
+          ? d.prescription_draft.items.map((r) => ({
+              ...r,
+              id: r.id ?? undefined,
+              drug_catalog_id: r.drug_catalog_id ?? null,
+            }))
           : (d.prescriptions ?? []).map((p) => ({
-            id: p.id,
-            drug_name: p.drug_name_raw ?? "",
-            quantity: p.quantity ?? "",
-            dosage: p.dosage_instructions ?? "",
-            caution: p.caution ?? "",
-          }));
+              id: p.id,
+              drug_catalog_id: p.drug_catalog_id ?? null,
+              drug_name: p.drug_name_raw ?? "",
+              quantity: p.quantity ?? "",
+              dosage: p.dosage_instructions ?? "",
+              caution: p.caution ?? "",
+            }));
         const nextSnapshot = JSON.stringify({ f: nextF, pm: nextPm, tk: nextTk, rx: nextRx });
         if (isCurrent && mocDaLuuRef.current && !forceApply) {
           const choice = clinicalSyncDecision(latestLocal.current.snapshot,
@@ -652,10 +671,10 @@ export default function ClinicalRecordForm({
         setMsg("Bạn đang sửa bệnh án. Hãy lưu phần đang sửa trước rồi mới duyệt đơn thuốc thư ký nhập.");
         return;
       }
-      const shown = JSON.stringify(rx.map(({ id, drug_name, quantity, dosage, caution }) =>
-        ({ id: id ?? null, drug_name, quantity, dosage, caution })));
-      const pending = JSON.stringify(data.prescription_draft.items.map(({ id, drug_name, quantity, dosage, caution }) =>
-        ({ id: id ?? null, drug_name, quantity, dosage, caution })));
+      const shown = JSON.stringify(rx.map(({ id, drug_catalog_id, drug_name, quantity, dosage, caution }) =>
+        ({ id: id ?? null, drug_catalog_id: drug_catalog_id ?? null, drug_name, quantity, dosage, caution })));
+      const pending = JSON.stringify(data.prescription_draft.items.map(({ id, drug_catalog_id, drug_name, quantity, dosage, caution }) =>
+        ({ id: id ?? null, drug_catalog_id: drug_catalog_id ?? null, drug_name, quantity, dosage, caution })));
       if (shown !== pending) {
         setMsg("Đơn thuốc trên màn hình không khớp bản thư ký đã lưu. Tải lại trước khi duyệt.");
         return;
@@ -743,9 +762,18 @@ export default function ClinicalRecordForm({
         expectedRevision: data.revision,
         approvePrescriptionDraft,
         prescriptions: canSign && data.prescription_draft
-          ? data.prescriptions.map((r) => ({ id: r.id, drug_name: r.drug_name_raw ?? "",
-              quantity: r.quantity ?? "", dosage: r.dosage_instructions ?? "", caution: r.caution ?? "" }))
-          : rx,
+          ? data.prescriptions.map((r) => ({
+              id: r.id,
+              drug_catalog_id: r.drug_catalog_id ?? null,
+              drug_name: r.drug_name_raw ?? "",
+              quantity: r.quantity ?? "",
+              dosage: r.dosage_instructions ?? "",
+              caution: r.caution ?? "",
+            }))
+          : rx.map((r) => ({
+              ...r,
+              drug_catalog_id: r.drug_catalog_id ?? null,
+            })),
       }),
     });
     if (!res.ok) {
@@ -909,15 +937,7 @@ export default function ClinicalRecordForm({
           : "max-h-[calc(100vh-2rem)]")
       }
     >
-      {/* Danh mục dùng chung cho picker — options bơm runtime, KHÔNG hardcode
-          vào schema tĩnh. Dùng cho mọi loại form khám (PK/SK/NT/NK/HMVS). */}
-      <datalist id="drug-catalog-list">
-        {drugOpts.map((d) => (
-          <option key={d.name_raw} value={d.name_raw}>
-            {d.needs_review ? "⚠ cần dược xác nhận" : d.variant ? `biến thể: ${d.variant}` : ""}
-          </option>
-        ))}
-      </datalist>
+      {/* Danh mục dùng chung cho picker đã nạp vào state drugOpts */}
       {remoteChanged && (
         <div role="status" className="border-b border-line bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Hồ sơ có bản mới từ nhân viên khác. Nội dung bạn đang nhập được giữ nguyên.
@@ -1434,20 +1454,60 @@ export default function ClinicalRecordForm({
               )}
               {rx.map((row, i) => (
                 <div key={i} className="rounded-lg border border-line p-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      className={INPUT}
-                      placeholder="Tên thuốc"
-                      list="drug-catalog-list"
-                      value={row.drug_name}
-                      disabled={rxReadOnly}
-                      onChange={(e) => setRxAt(i, "drug_name", e.target.value)}
-                    />
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-2">
+                      <select
+                        className={INPUT}
+                        value={row.drug_catalog_id ?? ""}
+                        disabled={rxReadOnly}
+                        onChange={(e) => {
+                          const id = e.target.value;
+                          const opt = drugOpts.find((d) => d.id === id);
+
+                          setRx((rows) =>
+                            rows.map((r, j) =>
+                              j !== i
+                                ? r
+                                : opt
+                                  ? {
+                                      ...r,
+                                      drug_catalog_id: opt.id,
+                                      drug_name: opt.name_raw,
+                                    }
+                                  : {
+                                      ...r,
+                                      drug_catalog_id: null,
+                                      drug_name: "",
+                                    },
+                            ),
+                          );
+                        }}
+                      >
+                        <option value="">— Thuốc khác / chưa có trong danh mục —</option>
+
+                        {drugOpts.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name_raw}
+                            {d.variant ? ` · ${d.variant}` : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      {row.drug_catalog_id === null && (
+                        <input
+                          className={INPUT}
+                          placeholder="Tên thuốc chưa có trong danh mục"
+                          value={row.drug_name}
+                          disabled={rxReadOnly}
+                          onChange={(e) => setRxAt(i, "drug_name", e.target.value)}
+                        />
+                      )}
+                    </div>
                     {!rxReadOnly && (
                       <button
                         onClick={() => removeRx(i)}
                         aria-label="Xoá thuốc"
-                        className="shrink-0 rounded-md p-1.5 text-danger hover:bg-danger-bg"
+                        className="shrink-0 rounded-md p-1.5 text-danger hover:bg-danger-bg mt-1"
                       >
                         <X size={15} />
                       </button>
