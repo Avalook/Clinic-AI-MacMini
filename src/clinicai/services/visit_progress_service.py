@@ -44,7 +44,7 @@ _MAX_RANGE_DAYS = 31
 
 @dataclass(frozen=True)
 class VisitProgress:
-    appointment_id: str
+    appointment_id: str | None
     visit_id: str | None
     vitals_recorded: bool = False
     has_clinical_record: bool = False
@@ -71,8 +71,13 @@ class VisitProgress:
 # One statement instead of the page's four round-trips. "Vitals recorded" means
 # blood pressure, weight and height are all filled in — the rule the page used
 # to apply after downloading every note, tested here where the rows already are.
+#
+# VISIT LÀ NGUỒN GỐC (20/09/2026): trước đây query anchor từ appointment a, khiến
+# lượt khám không có lịch hẹn (appointmentless / walk-in) KHÔNG BAO GIỜ có dòng
+# tiến trình, dẫn tới cờ paid_kinds rỗng và mốc "Đã thanh toán" bị kẹt ở Lễ tân
+# dù thu ngân đã thu tiền thành công. Giờ visit v là gốc, appointment a là tùy chọn.
 _PROGRESS_SQL = """
-    SELECT a.id::text                       AS appointment_id,
+    SELECT v.appointment_id::text          AS appointment_id,
            v.visit_id::text                 AS visit_id,
            -- Sinh hiệu điều dưỡng đo ở màn Đo sinh hiệu nằm ở encounter_flow /
            -- vital_measurement, KHÔNG ở bệnh án (17/09/2026: đo xong Trang chủ
@@ -88,14 +93,9 @@ _PROGRESS_SQL = """
            -- "Đang khám"). Bệnh án mở là mốc dự phòng cho lượt cũ.
            COALESCE(cs.started_at, cr.exam_started_at) AS exam_started_at,
            pay.paid_at
-      FROM appointment a
-      LEFT JOIN LATERAL (
-          SELECT v2.visit_id
-            FROM visit v2
-           WHERE v2.appointment_id = a.id
-           ORDER BY v2.created_at DESC
-           LIMIT 1
-      ) v ON TRUE
+      FROM visit v
+      LEFT JOIN appointment a
+        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
       LEFT JOIN LATERAL (
           SELECT r.visit_id,
                  bool_or(
@@ -112,11 +112,11 @@ _PROGRESS_SQL = """
            GROUP BY r.visit_id
       ) cr ON TRUE
       LEFT JOIN encounter_flow ef
-        ON ef.visit_id = v.visit_id AND ef.clinic_id = a.clinic_id
+        ON ef.visit_id = v.visit_id AND ef.clinic_id = v.clinic_id
       LEFT JOIN LATERAL (
           SELECT min(c.started_at) AS started_at
             FROM consultation c
-           WHERE c.visit_id = v.visit_id AND c.clinic_id = a.clinic_id
+           WHERE c.visit_id = v.visit_id AND c.clinic_id = v.clinic_id
       ) cs ON TRUE
       LEFT JOIN LATERAL (
           SELECT TRUE AS has_prescription
@@ -135,11 +135,14 @@ _PROGRESS_SQL = """
             FROM payment pm
            WHERE pm.visit_id = v.visit_id
              AND pm.status = 'PAID'
+             AND pm.voided_at IS NULL
       ) pay ON TRUE
-     WHERE a.clinic_id = $1::uuid
-       AND a.slot_start >= $2::timestamptz
-       AND a.slot_start <  $3::timestamptz
-       AND a.status NOT IN ('CANCELLED', 'NO_SHOW')
+     WHERE v.clinic_id = $1::uuid
+       AND (
+           (v.created_at >= $2::timestamptz AND v.created_at < $3::timestamptz)
+           OR (a.slot_start >= $2::timestamptz AND a.slot_start < $3::timestamptz)
+       )
+       AND (a.status IS NULL OR a.status NOT IN ('CANCELLED', 'NO_SHOW'))
 """
 
 

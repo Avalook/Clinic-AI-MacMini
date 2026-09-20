@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 class VisitProgressRead(BaseModel):
-    appointment_id: str
+    appointment_id: str | None = None
     visit_id: str | None
     vitals_recorded: bool
     has_clinical_record: bool

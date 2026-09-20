@@ -15,7 +15,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface GoiLichHen {
   tuan_hen: WeekApptRow[];
   truc_ca: { work_date: string; staff_id: string; staff_name: string | null }[];
-  tien_trinh: { appointment_id: string; vitals_recorded: boolean }[];
+  tien_trinh: { appointment_id?: string | null; vitals_recorded: boolean }[];
 }
 
 export function dungLichHenTuan(
@@ -39,8 +39,8 @@ export function dungLichHenTuan(
   // trang chỉ nhận cờ, nên Lễ tân không cần (và không có) quyền đọc bệnh án.
   const vitalsRecorded = new Set(
     (goi?.tien_trinh ?? [])
-      .filter((p) => p.vitals_recorded)
-      .map((p) => p.appointment_id),
+      .filter((p) => p.vitals_recorded && p.appointment_id)
+      .map((p) => p.appointment_id as string),
   );
 
   const t0 = new Date(vnLocalToUtcISO(weekAppt, "00:00")).getTime();
