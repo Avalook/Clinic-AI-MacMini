@@ -41,13 +41,18 @@ if [ "$(psql_ -tAc "SELECT to_regclass('supabase_migrations.schema_migrations') 
 fi
 
 # GoTrue tạo schema `auth` bằng migration của chính nó lúc khởi động. Nạp lược đồ
-# trước khi `auth.users` có mặt là đổ ở khoá ngoại staff.auth_user_id.
+# trước khi GoTrue sẵn sàng là đổ ở khoá ngoại staff.auth_user_id hoặc các fixture.
+# Chờ cả auth.users và auth.identities để đảm bảo GoTrue đã hoàn tất cấu trúc auth.
 for _ in $(seq 1 120); do
-  psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL" 2>/dev/null | grep -q t && break
+  if [ "$(psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL AND to_regclass('auth.identities') IS NOT NULL" 2>/dev/null | tr -d ' ')" = "t" ]; then
+    break
+  fi
   sleep 1
 done
-psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL" | grep -q t \
-  || { echo "!! GoTrue chưa tạo auth.users sau 120 giây — xem log container auth" >&2; exit 1; }
+if [ "$(psql_ -tAc "SELECT to_regclass('auth.users') IS NOT NULL AND to_regclass('auth.identities') IS NOT NULL" 2>/dev/null | tr -d ' ')" != "t" ]; then
+  echo "!! GoTrue chưa sẵn sàng sau 120 giây (thiếu auth.users hoặc auth.identities) — xem log container auth" >&2
+  exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Nâng auth.uid() / auth.role() để đọc được CẢ HAI dạng claim
