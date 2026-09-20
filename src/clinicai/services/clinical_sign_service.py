@@ -47,9 +47,9 @@ from clinicai.services.dinh_chinh_don import (
 
 logger = structlog.get_logger()
 
-# Ai được ký. Quản lý KHÔNG có ở đây: ký là trách nhiệm chuyên môn, không phải
-# quyền hành chính — và một Quản lý ký thay bác sĩ là một chữ ký sai người.
-SIGNING_ROLES = (ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+# Ai được ký kết quả siêu âm. Ký bệnh án khám CHỈ dành riêng cho bác sĩ khám (DOCTOR).
+ULTRASOUND_SIGNING_ROLES = (ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+SIGNING_ROLES = ULTRASOUND_SIGNING_ROLES
 
 # Trường bắt buộc trước khi ký. Notion §6: *"hệ thống kiểm tra các trường bắt
 # buộc và liệt kê nội dung còn thiếu"* — liệt kê, không phải chặn với một câu
@@ -203,6 +203,11 @@ class ClinicalSignService:
         kiểm NGAY TRONG câu UPDATE — thư ký sửa giữa lúc bác sĩ đọc và bấm ký thì
         từ chối, bác sĩ tải lại xem bản mới.
         """
+        if expected_revision is None or expected_revision < 0:
+            raise ValidationError(
+                "Thiếu expected_revision — tải lại bệnh án trước khi ký."
+            )
+
         _assert_doctor(identity)
 
         state = await self.status(identity=identity, visit_id=visit_id)
@@ -218,28 +223,78 @@ class ClinicalSignService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # 1. Khóa visit để bảo vệ khỏi race condition và giữ attending_doctor_id
+                locked_visit = await conn.fetchval(
+                    "SELECT visit_id FROM public.visit"
+                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                    " FOR UPDATE",
+                    identity.clinic_id,
+                    visit_id,
+                )
+                if locked_visit is None:
+                    raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+
+                # 2. Đọc thông tin kiểm tra sau lock
+                locked = await conn.fetchrow(
+                    """
+                    SELECT v.status,
+                           v.attending_doctor_id::text,
+                           coalesce(
+                               (SELECT cr.revision FROM public.clinical_record cr
+                                 WHERE cr.clinic_id = v.clinic_id
+                                   AND cr.visit_id = v.visit_id), 0
+                           ) AS current_revision
+                      FROM public.visit v
+                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
+                assert locked is not None
+
+                if locked["status"] == "FINALIZED":
+                    return {"ok": True, "already_signed": True}
+
+                # 3. Kiểm tra attending_doctor_id:
+                # - attending_doctor_id NULL => 403/SafetyGateError
+                # - attending_doctor_id != identity.staff_id => 403/SafetyGateError
+                attending_id = locked["attending_doctor_id"]
+                if attending_id is None:
+                    raise SafetyGateError(
+                        "Lượt chưa có bác sĩ chính — chưa thể cho phép ký bệnh án."
+                    )
+                if attending_id != identity.staff_id:
+                    raise SafetyGateError(
+                        "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt "
+                        "mới được ký bệnh án."
+                    )
+
+                # 4. Kiểm tra revision trước khi update
+                if locked["current_revision"] != expected_revision:
+                    raise ConflictError(
+                        "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
+                        "bản mới rồi ký."
+                    )
+
+                # 5. Ký bệnh án
                 signed = await conn.fetchval(
                     """
                     UPDATE public.visit
                        SET status = 'FINALIZED', finalized_at = now(),
                            finalized_by = $3::uuid, updated_at = now()
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND status <> 'FINALIZED'
-                       AND coalesce((SELECT cr.revision FROM public.clinical_record cr
-                                      WHERE cr.clinic_id = $1::uuid
-                                        AND cr.visit_id = $2::uuid), 0)
-                           = coalesce($4::int,
-                                      (SELECT cr.revision FROM public.clinical_record cr
-                                        WHERE cr.clinic_id = $1::uuid
-                                          AND cr.visit_id = $2::uuid), 0)
-                    RETURNING visit_id
+                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                        AND status <> 'FINALIZED'
+                        AND coalesce((SELECT cr.revision FROM public.clinical_record cr
+                                       WHERE cr.clinic_id = $1::uuid
+                                         AND cr.visit_id = $2::uuid), 0) = $4::int
+                     RETURNING visit_id
                     """,
                     identity.clinic_id,
                     visit_id,
                     identity.staff_id,
                     expected_revision,
                 )
-                if signed is None and expected_revision is not None:
+                if signed is None:
                     da_ky = await conn.fetchval(
                         "SELECT status = 'FINALIZED' FROM public.visit"
                         " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
@@ -251,9 +306,8 @@ class ClinicalSignService:
                             "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
                             "bản mới rồi ký."
                         )
-                if signed is None:
-                    # Người khác vừa ký xong giữa hai câu lệnh. Không phải lỗi.
                     return {"ok": True, "already_signed": True}
+
                 await _log(
                     conn,
                     identity,
@@ -801,8 +855,9 @@ def _optional_row_value(row: Any, key: str) -> Any:
 
 
 def _assert_doctor(identity: StaffIdentity) -> None:
-    if not identity.co_vai(SIGNING_ROLES):
-        raise ValidationError(
+    """Chỉ bác sĩ khám mới ký được bệnh án chính (không gồm bác sĩ siêu âm)."""
+    if not identity.co_vai({ClinicRole.DOCTOR}):
+        raise SafetyGateError(
             "Chỉ bác sĩ mới ký được bệnh án. Thư ký Y khoa nhập hộ được, nhưng "
             "người ký phải là bác sĩ chịu trách nhiệm chuyên môn."
         )

@@ -21,9 +21,9 @@ from pydantic import ValidationError as PydanticValidationError
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.clinical_sign import AmendRequest
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinical_sign_service import (
     REQUIRED_SOAP,
-    SIGNING_ROLES,
     _assert_doctor,
     missing_fields,
 )
@@ -48,9 +48,13 @@ def _identity(role: ClinicRole) -> StaffIdentity:
 
 
 class TestOnlyDoctorsSign:
-    @pytest.mark.parametrize("role", list(SIGNING_ROLES))
-    def test_a_doctor_may_sign(self, role: ClinicRole) -> None:
-        _assert_doctor(_identity(role))
+    def test_a_doctor_may_sign(self) -> None:
+        _assert_doctor(_identity(ClinicRole.DOCTOR))
+
+    def test_ultrasound_doctor_may_not_sign_main_clinical_record(self) -> None:
+        """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không ký bệnh án khám."""
+        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
+            _assert_doctor(_identity(ClinicRole.ULTRASOUND_DOCTOR))
 
     def test_the_medical_secretary_may_not_sign(self) -> None:
         """TKYK nhập hộ bệnh án được (Notion cho phép), nhưng KHÔNG ký.
@@ -58,7 +62,7 @@ class TestOnlyDoctorsSign:
         Người ký là người chịu trách nhiệm chuyên môn. Để TKYK ký là ghi sai
         người vào một chữ ký có giá trị pháp lý.
         """
-        with pytest.raises(ValidationError, match="Chỉ bác sĩ"):
+        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
             _assert_doctor(_identity(ClinicRole.TKYK))
 
     def test_management_may_not_sign(self) -> None:
@@ -67,11 +71,11 @@ class TestOnlyDoctorsSign:
         Quản lý có mọi quyền hành chính khác — nhưng ký bệnh án không phải
         quyền hành chính.
         """
-        with pytest.raises(ValidationError, match="Chỉ bác sĩ"):
+        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
             _assert_doctor(_identity(ClinicRole.MANAGEMENT))
 
     def test_a_nurse_may_not_sign(self) -> None:
-        with pytest.raises(ValidationError, match="Chỉ bác sĩ"):
+        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
             _assert_doctor(_identity(ClinicRole.NURSE_ULTRASOUND))
 
 

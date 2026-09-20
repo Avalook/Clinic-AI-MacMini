@@ -34,7 +34,8 @@ router = APIRouter()
 
 # Quản lý KHÔNG có ở đây, có chủ ý: ký là trách nhiệm chuyên môn, không phải
 # quyền hành chính.
-_SIGN_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+_SIGN_GUARD = require_role(ClinicRole.DOCTOR)
+_ULTRASOUND_SIGN_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 _RELEASE_GUARD = require_role(ClinicRole.DOCTOR)
 _AMEND_GUARD = require_role(ClinicRole.DOCTOR)
 
@@ -57,13 +58,13 @@ async def clinical_status(
 
 class SignRequest(BaseModel):
     #: Phiên bản bệnh án bác sĩ đang xem (status.record_revision).
-    expected_revision: int | None = Field(default=None, ge=0)
+    expected_revision: int = Field(..., ge=0)
 
 
 @router.post("/clinical/{visit_id:uuid}/sign", status_code=201)
 async def sign(
     visit_id: UUID,
-    body: SignRequest | None = None,
+    body: SignRequest,
     identity: StaffIdentity = Depends(_SIGN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -71,7 +72,7 @@ async def sign(
     return await ClinicalSignService(pool).sign(
         identity=identity,
         visit_id=str(visit_id),
-        expected_revision=body.expected_revision if body else None,
+        expected_revision=body.expected_revision,
     )
 
 
@@ -178,7 +179,7 @@ async def amend(
 @router.post("/clinical/ultrasound/{ultrasound_id:uuid}/sign", status_code=201)
 async def sign_ultrasound(
     ultrasound_id: UUID,
-    identity: StaffIdentity = Depends(_SIGN_GUARD),
+    identity: StaffIdentity = Depends(_ULTRASOUND_SIGN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bác sĩ siêu âm ký kết quả CỦA MÌNH."""

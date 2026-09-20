@@ -225,6 +225,7 @@ async def test_smoke_checkin_kham_xong_truoc_roi_ky_sau(q: Quay) -> None:
     sign_res = await ClinicalSignService(q.pool).sign(
         identity=q.bac_si,
         visit_id=q.visit_id,
+        expected_revision=1,
     )
     assert sign_res.get("ok") is True
 
@@ -295,6 +296,7 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
     sign_res = await ClinicalSignService(q.pool).sign(
         identity=q.bac_si,
         visit_id=q.visit_id,
+        expected_revision=1,
     )
     assert sign_res.get("ok") is True
 
