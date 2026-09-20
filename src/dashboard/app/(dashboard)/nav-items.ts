@@ -72,6 +72,7 @@ export const NAV: NavItem[] = [
   { href: "/ban-kham/KN-NOITIET", label: "Bàn khám · Phòng Nội tiết", icon: Stethoscope },
   { href: "/ban-kham/KN-SANCHAU", label: "Bàn khám · Phòng Sàn chậu", icon: Stethoscope },
   { href: "/ban-kham/KN-SAN-BIO", label: "Bàn khám · Phòng Sản - Biofeedback", icon: Stethoscope },
+  { href: "/xac-nhan-ket-qua", label: "Xác nhận kết quả", icon: ClipboardCheck },
   { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
   // PHÒNG DỊCH VỤ — mã phòng khớp `clinic_room.code` (migration 20260917000001).
   { href: "/phong/KN-LAYMAU", label: "Lấy mẫu xét nghiệm", icon: FlaskConical },

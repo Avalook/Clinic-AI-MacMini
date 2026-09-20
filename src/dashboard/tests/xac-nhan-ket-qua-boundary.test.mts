@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import { canSeeNav, canSeeNavGoc } from "../lib/roles.ts";
+
 const ROOT = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, ROOT), "utf8");
 
@@ -9,6 +11,37 @@ const hangChoSource = read("app/(dashboard)/xac-nhan-ket-qua/HangChoXacNhanKetQu
 const xacNhanPageSource = read("app/(dashboard)/xac-nhan-ket-qua/page.tsx");
 const tepKetQuaSource = read("app/(dashboard)/customers/TepKetQua.tsx");
 const rolesSource = read("lib/roles.ts");
+const navItemsSource = read("app/(dashboard)/nav-items.ts");
+
+test("NAV và điều hướng: có /xac-nhan-ket-qua và đặt trước /duyet-ket-qua", () => {
+  assert.match(
+    navItemsSource,
+    /\{\s*href:\s*"\/xac-nhan-ket-qua",\s*label:\s*"Xác nhận kết quả",\s*icon:\s*ClipboardCheck\s*\}/,
+    "nav-items.ts thiếu NAV item { href: '/xac-nhan-ket-qua', label: 'Xác nhận kết quả', icon: ClipboardCheck }",
+  );
+  const xacNhanIdx = navItemsSource.indexOf('href: "/xac-nhan-ket-qua"');
+  const duyetKetQuaIdx = navItemsSource.indexOf('href: "/duyet-ket-qua"');
+  assert.ok(xacNhanIdx > 0, "Không tìm thấy /xac-nhan-ket-qua trong nav-items.ts");
+  assert.ok(duyetKetQuaIdx > 0, "Không tìm thấy /duyet-ket-qua trong nav-items.ts");
+  assert.ok(
+    xacNhanIdx < duyetKetQuaIdx,
+    "/xac-nhan-ket-qua phải đặt trước /duyet-ket-qua để luồng nhìn thành: Xác nhận kết quả -> Duyệt kết quả bác sĩ",
+  );
+});
+
+test("NAV_ROLES: chặn PARTNER và DISPLAY, mở cho nội bộ, fail-closed ở backend capability", () => {
+  // PARTNER và DISPLAY tuyệt đối không vào được
+  assert.equal(canSeeNav("PARTNER", "/xac-nhan-ket-qua"), false, "PARTNER không được vào /xac-nhan-ket-qua");
+  assert.equal(canSeeNav("DISPLAY", "/xac-nhan-ket-qua"), false, "DISPLAY không được vào /xac-nhan-ket-qua");
+  assert.equal(canSeeNavGoc("PARTNER", "/xac-nhan-ket-qua"), false, "Luật gốc PARTNER không được vào /xac-nhan-ket-qua");
+  assert.equal(canSeeNavGoc("DISPLAY", "/xac-nhan-ket-qua"), false, "Luật gốc DISPLAY không được vào /xac-nhan-ket-qua");
+
+  // Các vai nội bộ được vào route để thấy màn, quyền xử lý gate bằng backend capability
+  assert.equal(canSeeNav("DOCTOR", "/xac-nhan-ket-qua"), true);
+  assert.equal(canSeeNav("CSKH", "/xac-nhan-ket-qua"), true);
+  assert.equal(canSeeNav("MANAGEMENT", "/xac-nhan-ket-qua"), true);
+  assert.equal(canSeeNav("RECEPTION", "/xac-nhan-ket-qua"), true);
+});
 
 test("màn xác nhận kết quả: tách riêng route /xac-nhan-ket-qua và có gác phân quyền", () => {
   assert.match(
@@ -20,6 +53,21 @@ test("màn xác nhận kết quả: tách riêng route /xac-nhan-ket-qua và có
     rolesSource,
     /"\/xac-nhan-ket-qua":/,
     "roles.ts chưa đăng ký route /xac-nhan-ket-qua trong NAV_ROLES",
+  );
+  assert.match(
+    hangChoSource,
+    /\/api\/cskh\/ket-qua\/cho-xac-nhan/,
+    "HangChoXacNhanKetQua phải gọi endpoint queue /api/cskh/ket-qua/cho-xac-nhan",
+  );
+  assert.match(
+    hangChoSource,
+    /res\.status === 403/,
+    "HangChoXacNhanKetQua phải xử lý fail-closed khi 403 (chưa có capability)",
+  );
+  assert.match(
+    hangChoSource,
+    /ket_qua\.xac_nhan/,
+    "HangChoXacNhanKetQua thông báo capability ket_qua.xac_nhan khi 403",
   );
   assert.doesNotMatch(
     hangChoSource,
