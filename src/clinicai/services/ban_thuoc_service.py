@@ -103,10 +103,11 @@ def thao_tac_dong(
     pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
     mo = not dong_da_chot
     san_sang = gd == SAN_SANG and mo
+    tu_dong = dung_kho_thuoc_khi_thanh_toan()
     nut = {
-        "xac_dinh_thuoc": san_sang and da_giao == 0 and not co_phan_lo,
-        "khai_so_mua": san_sang and co_so_ke,
-        "chon_lo": not dung_kho_thuoc_khi_thanh_toan()
+        "xac_dinh_thuoc": not tu_dong and san_sang and da_giao == 0 and not co_phan_lo,
+        "khai_so_mua": not tu_dong and san_sang and co_so_ke,
+        "chon_lo": not tu_dong
         and san_sang
         and co_thuoc_kho
         and co_don_vi
@@ -148,14 +149,10 @@ def thao_tac_phan_lo(
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một phân lô (một lô đã chọn của dòng đơn).
     Dòng đã đính chính (lịch sử): không nút nào — không bỏ, đổi hay giao."""
+    tu_dong = dung_kho_thuoc_khi_thanh_toan()
     nut = {
-        "bo": not dung_kho_thuoc_khi_thanh_toan()
-        and gd == SAN_SANG
-        and not gan_lan_thu
-        and not dong_da_chot,
-        "doi": not dung_kho_thuoc_khi_thanh_toan()
-        and gd == CHO_XAC_MINH
-        and gan_lan_thu,
+        "bo": not tu_dong and gd == SAN_SANG and not gan_lan_thu and not dong_da_chot,
+        "doi": not tu_dong and gd == CHO_XAC_MINH and gan_lan_thu,
         "giao": gd == DA_THU
         and gan_lan_thu
         and da_ban

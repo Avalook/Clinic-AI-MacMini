@@ -86,8 +86,9 @@ def test_sau_khi_thu_khong_sua_thuoc_so_mua_lo() -> None:
         assert not tt["tu_choi"]
 
 
-def test_tu_phan_lo_khong_phat_nut_chon_lo() -> None:
-    assert not _tt(bt.SAN_SANG)["chon_lo"]
+def test_tu_phan_lo_khong_phat_nut_thao_tac_tay() -> None:
+    tt = _tt(bt.SAN_SANG)
+    assert not any(tt[k] for k in ("xac_dinh_thuoc", "khai_so_mua", "chon_lo"))
     assert not _tt(bt.SAN_SANG, da_chon=Decimal(10))["chon_lo"]
     assert not _tt(bt.SAN_SANG, co_don_vi=False)["chon_lo"]
 
@@ -111,6 +112,33 @@ def test_nut_cua_phan_lo_theo_giai_doan() -> None:
     assert pl(bt.DA_THU, True, ban=True) == {"bo": False, "doi": False, "giao": True}
     assert not pl(bt.DA_THU, True, ban=True, con=0)["giao"]
     assert not pl(bt.CAN_DOI_SOAT, True)["giao"]
+
+
+def test_flag_off_giu_nguyen_thao_tac_cu(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+    tt = _tt(bt.SAN_SANG)
+    assert all(tt[k] for k in ("xac_dinh_thuoc", "khai_so_mua", "chon_lo"))
+    assert bt.thao_tac_phan_lo(
+        gd=bt.SAN_SANG,
+        dong_da_chot=False,
+        gan_lan_thu=False,
+        da_ban=False,
+        con_giao=Decimal(10),
+    )["bo"]
+    assert bt.thao_tac_phan_lo(
+        gd=bt.CHO_XAC_MINH,
+        dong_da_chot=False,
+        gan_lan_thu=True,
+        da_ban=False,
+        con_giao=Decimal(10),
+    )["doi"]
+    assert bt.thao_tac_phan_lo(
+        gd=bt.DA_THU,
+        dong_da_chot=False,
+        gan_lan_thu=True,
+        da_ban=True,
+        con_giao=Decimal(10),
+    )["giao"]
 
 
 # ── Máy chủ chặn chọn lô trước Khám xong ─────────────────────────────────
