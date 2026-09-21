@@ -16,7 +16,7 @@ interface ConfigLocation {
 const DEPARTMENTS: { value: string; label: string }[] = [
   { value: "DOCTOR", label: "Bác sĩ" },
   { value: "ULTRASOUND_DOCTOR", label: "Bác sĩ siêu âm" },
-  { value: "NURSE_ULTRASOUND", label: "Điều dưỡng siêu âm" },
+  { value: "NURSE_ULTRASOUND", label: "Điều dưỡng" },
   { value: "TKYK", label: "Thư ký y khoa" },
   { value: "RECEPTION", label: "Lễ tân" },
   { value: "CSKH", label: "CSKH" },
