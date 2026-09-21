@@ -86,8 +86,8 @@ def test_sau_khi_thu_khong_sua_thuoc_so_mua_lo() -> None:
         assert not tt["tu_choi"]
 
 
-def test_chon_du_lo_thi_het_nut_chon_lo() -> None:
-    assert _tt(bt.SAN_SANG)["chon_lo"]
+def test_tu_phan_lo_khong_phat_nut_chon_lo() -> None:
+    assert not _tt(bt.SAN_SANG)["chon_lo"]
     assert not _tt(bt.SAN_SANG, da_chon=Decimal(10))["chon_lo"]
     assert not _tt(bt.SAN_SANG, co_don_vi=False)["chon_lo"]
 
@@ -102,8 +102,12 @@ def test_nut_cua_phan_lo_theo_giai_doan() -> None:
             con_giao=Decimal(con),
         )
 
-    assert pl(bt.SAN_SANG, False) == {"bo": True, "doi": False, "giao": False}
-    assert pl(bt.CHO_XAC_MINH, True) == {"bo": False, "doi": True, "giao": False}
+    assert pl(bt.SAN_SANG, False) == {"bo": False, "doi": False, "giao": False}
+    assert pl(bt.CHO_XAC_MINH, True) == {
+        "bo": False,
+        "doi": False,
+        "giao": False,
+    }
     assert pl(bt.DA_THU, True, ban=True) == {"bo": False, "doi": False, "giao": True}
     assert not pl(bt.DA_THU, True, ban=True, con=0)["giao"]
     assert not pl(bt.CAN_DOI_SOAT, True)["giao"]
@@ -142,7 +146,8 @@ async def test_man_nha_thuoc_qua_tung_giai_doan(q: Quay) -> None:
     assert g["giai_doan"] == bt.SAN_SANG
     d = g["dong"][0]
     assert (d["can_lo"], d["da_chon"]) == (Decimal(10), Decimal(10))
-    assert d["phan_lo"][0]["thao_tac"]["bo"] and not d["thao_tac"]["chon_lo"]
+    assert not d["phan_lo"][0]["thao_tac"]["bo"]
+    assert not d["thao_tac"]["chon_lo"]
     assert [
         (b["ton_vat_ly"], b["co_the_phan_lo"])
         for b in d["lo_goi_y"]
@@ -153,11 +158,7 @@ async def test_man_nha_thuoc_qua_tung_giai_doan(q: Quay) -> None:
     g = await _luot(q)
     assert g["giai_doan"] == bt.CHO_XAC_MINH
     pl = g["dong"][0]["phan_lo"][0]
-    assert pl["dang_giu"] and pl["thao_tac"] == {
-        "bo": False,
-        "doi": True,
-        "giao": False,
-    }
+    assert pl["dang_giu"] and not any(pl["thao_tac"].values())
     assert g["dong"][0]["lo_goi_y"][0]["co_the_phan_lo"] == Decimal(90)
 
     await _xac_minh(q, cho["payment_cycle_id"])
@@ -186,7 +187,7 @@ async def test_man_nha_thuoc_can_doi_soat_khong_cho_giao(q: Quay) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_man_nha_thuoc_huy_phieu_quay_lai_chon_lo(q: Quay) -> None:
+async def test_man_nha_thuoc_huy_phieu_khong_moi_chon_lo_tay(q: Quay) -> None:
     _, _, _ = await _san_sang(q)
     lan = await _thu(q)
     await PaymentService(q.pool).void_payment(
@@ -198,8 +199,8 @@ async def test_man_nha_thuoc_huy_phieu_quay_lai_chon_lo(q: Quay) -> None:
     )
     g = await _luot(q)
     assert g["giai_doan"] == bt.SAN_SANG and g["lan_thu"] is None
-    # Kế hoạch lô chép lại, bỏ được.
-    assert g["dong"][0]["phan_lo"][0]["thao_tac"]["bo"]
+    # Kế hoạch lô vẫn còn để lần thu sau tái sử dụng, nhưng không mời sửa tay.
+    assert not any(g["dong"][0]["phan_lo"][0]["thao_tac"].values())
 
 
 @pytest.mark.db
@@ -334,5 +335,5 @@ async def test_thu_ngan_thuoc_xem_duoc_nhung_khong_co_nut(q: Quay) -> None:
     d = g["dong"][0]
     assert not any(d["thao_tac"].values())
     assert not any(v for p in d["phan_lo"] for v in p["thao_tac"].values())
-    # Cùng dữ liệu, người ghi được thì có nút.
-    assert (await _luot(q))["dong"][0]["phan_lo"][0]["thao_tac"]["bo"]
+    # Flow tự phân lô không phát hành thao tác sửa lô kể cả cho người có quyền ghi.
+    assert not any((await _luot(q))["dong"][0]["phan_lo"][0]["thao_tac"].values())

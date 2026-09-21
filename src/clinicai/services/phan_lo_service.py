@@ -1,7 +1,7 @@
 """Phân lô và BÁN thuốc theo lần thu (contract tiền–thuốc CP3, 19/09/2026).
 
-Thuốc được BÁN lúc lần thu tiền thuốc thành PAID — theo đúng các lô dược sĩ đã
-chọn trước (`prescription_allocation`), đúng một lần theo `payment_cycle_id`.
+Thuốc được BÁN lúc lần thu tiền thuốc thành PAID — theo đúng các lô hệ thống đã
+phân (`prescription_allocation`), đúng một lần theo `payment_cycle_id`.
 
 Ba con số, không đổi nghĩa con số cũ:
   * `drug_batch.quantity_on_hand` — VẬT LÝ, chỉ đổi khi thuốc thật vào/ra
@@ -19,6 +19,7 @@ dần trong MỘT câu lệnh — nên không khoá chéo nhau.
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -26,12 +27,18 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.api.exceptions import ValidationError
+
 
 def so(d: Decimal) -> str:
     """Số lượng cho người đọc: `numeric(12,3)` in thẳng ra "6.000" — người
     Việt đọc thành sáu nghìn. Bỏ phần thập phân thừa."""
     t = format(d.normalize(), "f")
     return t
+
+
+def _don_vi(value: str | None) -> str:
+    return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
 
 
 @dataclass(frozen=True)
@@ -76,6 +83,7 @@ async def khoa_ban_thuoc(
     clinic_id: str,
     visit_id: str,
     payment_cycle_id: str | None,
+    khoa_cac_lo: bool = True,
 ) -> list[PhanLo]:
     """Người gọi ĐÃ khoá `visit`. Khoá tiếp dòng đơn → phân lô → lô.
 
@@ -106,7 +114,10 @@ async def khoa_ban_thuoc(
         payment_cycle_id,
     )
     phan_lo = [_pl(r) for r in rows]
-    await khoa_lo(conn, clinic_id=clinic_id, lo_ids=[p.drug_batch_id for p in phan_lo])
+    if khoa_cac_lo:
+        await khoa_lo(
+            conn, clinic_id=clinic_id, lo_ids=[p.drug_batch_id for p in phan_lo]
+        )
     return phan_lo
 
 
@@ -135,7 +146,7 @@ async def van_de_phan_lo(
         co = theo_dong.get(rx, Decimal(0))
         if co != can_so:
             van_de.append(
-                f"“{ten}” mới chọn lô cho {so(co)}/{so(can_so)} — dược sĩ chọn đủ lô"
+                f"“{ten}” mới phân lô {so(co)}/{so(can_so)} — chưa đủ lô để bán"
             )
 
     dung = [p for p in phan_lo if p.prescription_id in can]
@@ -196,6 +207,210 @@ async def can_theo_hoa_don(
         if con > 0:
             ket_qua[rx] = (ten, con)
     return ket_qua
+
+
+async def tu_phan_lo(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    staff_id: str,
+    can: dict[str, tuple[str, Decimal]],
+    phan_lo: list[PhanLo],
+    hom_nay: date,
+) -> list[PhanLo]:
+    """Tự phân đủ lô FEFO cho các dòng của hoá đơn trong giao dịch hiện tại.
+
+    Dòng đơn và ``prescription_allocation`` đã được người gọi khoá. Hàm khoá
+    toàn bộ lô ứng viên theo ID trước khi đọc khả dụng, tái dùng phân lô đang
+    sống và chỉ ghi sau khi đã lập được kế hoạch đủ cho mọi dòng.
+    """
+    if not can:
+        return []
+
+    don_rows = await conn.fetch(
+        """
+        SELECT id::text, drug_catalog_id::text, unit
+          FROM public.prescription
+         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+           AND id = ANY($3::uuid[])
+         ORDER BY id
+        """,
+        clinic_id,
+        visit_id,
+        list(can),
+    )
+    don = {r["id"]: r for r in don_rows}
+    for rx, (ten, _) in can.items():
+        row = don.get(rx)
+        if row is None or row["drug_catalog_id"] is None:
+            raise ValidationError(
+                f"“{ten}” chưa gắn đúng thuốc catalog — chưa tự phân lô được."
+            )
+        if not _don_vi(row["unit"]):
+            raise ValidationError(
+                f"“{ten}” chưa có đơn vị kê — không tự quy đổi đơn vị."
+            )
+
+    catalog_ids = sorted({r["drug_catalog_id"] for r in don_rows})
+    ung_vien_ids = [
+        str(batch_id)
+        for batch_id in await conn.fetchval(
+            """
+            SELECT coalesce(array_agg(id ORDER BY id), ARRAY[]::uuid[])
+              FROM public.drug_batch
+             WHERE clinic_id = $1::uuid
+               AND drug_catalog_id = ANY($2::uuid[])
+               AND expiry_date >= $3
+            """,
+            clinic_id,
+            catalog_ids,
+            hom_nay,
+        )
+    ]
+    tat_ca_lo = ung_vien_ids + [p.drug_batch_id for p in phan_lo]
+    await khoa_lo(conn, clinic_id=clinic_id, lo_ids=tat_ca_lo)
+
+    lo_rows = await conn.fetch(
+        """
+        SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
+               public.drug_batch_kha_dung($1::uuid, id) AS kha_dung
+          FROM public.drug_batch
+         WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])
+         ORDER BY expiry_date, batch_code
+        """,
+        clinic_id,
+        sorted(set(tat_ca_lo)),
+    )
+    lo_theo_id = {r["id"]: r for r in lo_rows}
+    dang_dung = [p for p in phan_lo if p.prescription_id in can]
+    da_phan: dict[str, Decimal] = {}
+    da_dung_lo: dict[str, Decimal] = {}
+    allocation_theo_dong_lo: dict[tuple[str, str], PhanLo] = {}
+
+    for p in dang_dung:
+        row = don[p.prescription_id]
+        lo = lo_theo_id.get(p.drug_batch_id)
+        ten = can[p.prescription_id][0]
+        if (
+            lo is None
+            or lo["drug_catalog_id"] != row["drug_catalog_id"]
+            or _don_vi(lo["unit"]) != _don_vi(row["unit"])
+            or lo["expiry_date"] is None
+            or lo["expiry_date"] < hom_nay
+        ):
+            raise ValidationError(
+                f"Phân lô hiện tại của “{ten}” không còn hợp lệ về thuốc, "
+                "hạn dùng hoặc đơn vị."
+            )
+        da_phan[p.prescription_id] = (
+            da_phan.get(p.prescription_id, Decimal(0)) + p.quantity
+        )
+        da_dung_lo[p.drug_batch_id] = (
+            da_dung_lo.get(p.drug_batch_id, Decimal(0)) + p.quantity
+        )
+        allocation_theo_dong_lo[(p.prescription_id, p.drug_batch_id)] = p
+
+    con_lai = {
+        r["id"]: Decimal(str(r["kha_dung"] or 0)) - da_dung_lo.get(r["id"], Decimal(0))
+        for r in lo_rows
+    }
+    ke_hoach: list[tuple[str, str, Decimal]] = []
+    thay_phan_lo: dict[str, tuple[str, str, Decimal]] = {}
+    for rx in sorted(can):
+        ten, can_so = can[rx]
+        co = da_phan.get(rx, Decimal(0))
+        if co > can_so:
+            raise ValidationError(
+                f"“{ten}” đã phân lô {so(co)}, vượt số cần bán {so(can_so)}."
+            )
+        thieu = can_so - co
+        row = don[rx]
+        cung_thuoc_con_han = [
+            lo
+            for lo in lo_rows
+            if lo["drug_catalog_id"] == row["drug_catalog_id"]
+            and lo["expiry_date"] is not None
+            and lo["expiry_date"] >= hom_nay
+        ]
+        cung_don_vi = [
+            lo
+            for lo in cung_thuoc_con_han
+            if _don_vi(lo["unit"]) == _don_vi(row["unit"])
+        ]
+        for lo in cung_don_vi:
+            if thieu <= 0:
+                break
+            co_the_dung = max(con_lai[lo["id"]], Decimal(0))
+            lay = min(thieu, co_the_dung)
+            if lay > 0:
+                hien_co = allocation_theo_dong_lo.get((rx, lo["id"]))
+                if hien_co is None:
+                    ke_hoach.append((rx, lo["id"], lay))
+                else:
+                    # Allocation là sổ bất biến. Nếu kế hoạch cũ mới có một
+                    # phần trên chính lô này, đóng dòng cũ rồi tạo một dòng
+                    # sống thay thế đủ số; allocation đã đủ được reuse nguyên.
+                    thay_phan_lo[hien_co.id] = (
+                        rx,
+                        lo["id"],
+                        hien_co.quantity + lay,
+                    )
+                con_lai[lo["id"]] -= lay
+                thieu -= lay
+        if thieu > 0:
+            if not cung_thuoc_con_han:
+                ly_do = "không có lô còn hạn"
+            elif not cung_don_vi:
+                ly_do = f"không có lô cùng đơn vị {row['unit']}"
+            else:
+                ly_do = f"không đủ tồn còn bán được, thiếu {so(thieu)}"
+            raise ValidationError(f"“{ten}” {ly_do}.")
+
+    if thay_phan_lo:
+        await conn.execute(
+            "UPDATE public.prescription_allocation"
+            " SET released_at = now(), released_by = $2::uuid,"
+            " release_reason = 'Hệ thống hoàn tất tự phân lô'"
+            " WHERE clinic_id = $1::uuid AND id = ANY($3::uuid[])"
+            " AND payment_cycle_id IS NULL AND released_at IS NULL",
+            clinic_id,
+            staff_id,
+            list(thay_phan_lo),
+        )
+    tao = ke_hoach + list(thay_phan_lo.values())
+    if tao:
+        await conn.executemany(
+            """
+            INSERT INTO public.prescription_allocation
+                (clinic_id, visit_id, prescription_id, drug_catalog_id,
+                 drug_batch_id, quantity, created_by)
+            SELECT $1::uuid, $2::uuid, r.id, r.drug_catalog_id, $4::uuid, $5,
+                   $6::uuid
+              FROM public.prescription r
+             WHERE r.id = $3::uuid AND r.clinic_id = $1::uuid
+            """,
+            [
+                (clinic_id, visit_id, rx, batch_id, quantity, staff_id)
+                for rx, batch_id, quantity in tao
+            ],
+        )
+    rows = await conn.fetch(
+        """
+        SELECT id, prescription_id, drug_batch_id, quantity, handed_over_qty,
+               payment_cycle_id
+          FROM public.prescription_allocation
+         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+           AND prescription_id = ANY($3::uuid[])
+           AND released_at IS NULL AND payment_cycle_id IS NULL
+         ORDER BY id
+           FOR UPDATE
+        """,
+        clinic_id,
+        visit_id,
+        list(can),
+    )
+    return [_pl(r) for r in rows]
 
 
 async def gan_lan_thu(
