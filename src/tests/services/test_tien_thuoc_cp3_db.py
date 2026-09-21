@@ -83,6 +83,16 @@ async def _so_dong(q: Quay, loai: str, lo: str | None = None) -> int:
     )
 
 
+async def _phan_bo(q: Quay, rx: str) -> list[tuple[str, Decimal]]:
+    rows = await q.pool.fetch(
+        "SELECT drug_batch_id::text, quantity FROM prescription_allocation"
+        " WHERE prescription_id = $1::uuid AND released_at IS NULL"
+        " ORDER BY drug_batch_id",
+        rx,
+    )
+    return [(r["drug_batch_id"], Decimal(str(r["quantity"]))) for r in rows]
+
+
 # ── Dựng ──────────────────────────────────────────────────────────────────
 
 
@@ -152,20 +162,24 @@ async def _giao(q: Quay, rx: str, lo: str, so: Any) -> dict[str, Any]:
 
 
 async def test_thu_tien_mat_ban_dung_mot_lan_ton_vat_ly_khong_doi(q: Quay) -> None:
-    _, _, lo = await _san_sang(q, 10, 100)
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 100)
     assert (await _ton(q, lo), await _kd(q, lo)) == (100, 100)
     kq = await _thu(q)
     assert kq["status"] == "PAID"
+    assert await _phan_bo(q, rx) == [(lo, Decimal(10))]
     assert await _so_dong(q, "SALE", lo) == 1
     # Bán không phải thuốc rời quầy: tồn vật lý giữ nguyên, khả dụng giảm.
     assert (await _ton(q, lo), await _kd(q, lo)) == (100, 90)
 
 
 async def test_thu_lai_cung_hoa_don_khong_ban_lan_hai(q: Quay) -> None:
-    _, _, lo = await _san_sang(q)
+    rx, drug = await _dong_da_xac_dinh(q)
+    lo = await _nhap_lo(q, drug)
     a = await _thu(q)
     b = await _thu(q)
     assert a["payment_cycle_id"] == b["payment_cycle_id"]
+    assert await _phan_bo(q, rx) == [(lo, Decimal(10))]
     assert await _so_dong(q, "SALE", lo) == 1
     assert await _kd(q, lo) == 90
 
@@ -178,26 +192,88 @@ async def test_hai_thu_ngan_cung_bam_chi_ban_mot_lan(q: Quay) -> None:
     assert await _kd(q, lo) == 90
 
 
-# ── Thiếu lô / lô sai → không thu được ────────────────────────────────────
+async def test_tu_phan_lo_dong_thoi_khong_ban_vuot_ton(q: Quay) -> None:
+    await _dong_da_xac_dinh(q, 6)
+    drug = await q.pool.fetchval(
+        "SELECT drug_catalog_id::text FROM prescription WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    lo = await _nhap_lo(q, drug, 10)
+    q2 = await tao_quay(q.pool)
+    rx2 = await _don(q2, 6)
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q2.duoc_si, prescription_id=rx2, drug_catalog_id=drug
+    )
 
+    ket_qua = await asyncio.gather(_thu(q), _thu(q2), return_exceptions=True)
 
-async def test_chua_chon_lo_thi_khong_thu_duoc_tien_thuoc(q: Quay) -> None:
-    await _dong_da_xac_dinh(q, 10)
-    with pytest.raises(ValidationError, match="chọn lô cho 0/10"):
-        await _thu(q)
+    assert sum(isinstance(k, dict) for k in ket_qua) == 1
+    assert sum(isinstance(k, ValidationError) for k in ket_qua) == 1
+    assert await _kd(q, lo) == 4
     assert (
         await q.pool.fetchval(
-            "SELECT count(*) FROM payment_cycle WHERE visit_id = $1::uuid", q.visit_id
+            "SELECT count(*) FROM inventory_txn"
+            " WHERE txn_type = 'SALE' AND drug_batch_id = $1::uuid",
+            lo,
         )
-        == 0
+        == 1
     )
 
 
-async def test_chon_thieu_lo_thi_khong_thu_duoc(q: Quay) -> None:
+# ── Thiếu lô / lô sai → không thu được ────────────────────────────────────
+
+
+async def test_tu_phan_lo_chia_hai_lo_theo_han_dung(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 10)
-    await _chon(q, rx, await _nhap_lo(q, drug, 100), 6)
-    with pytest.raises(ValidationError, match="6/10"):
-        await _thu(q)
+    lo_sau = await _nhap_lo(q, drug, 10, han=date.today() + timedelta(days=60))
+    lo_truoc = await _nhap_lo(q, drug, 4, han=date.today() + timedelta(days=30))
+    await _thu(q)
+    assert dict(await _phan_bo(q, rx)) == {
+        lo_truoc: Decimal(4),
+        lo_sau: Decimal(6),
+    }
+    assert (await _so_dong(q, "SALE", lo_truoc), await _so_dong(q, "SALE", lo_sau)) == (
+        1,
+        1,
+    )
+
+
+async def test_tu_phan_lo_hoan_tat_allocation_cu_tren_cung_lo(q: Quay) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 100)
+    allocation_id = await _chon(q, rx, lo, 6)
+    await _thu(q)
+    rows = await q.pool.fetch(
+        "SELECT id::text, drug_batch_id::text, quantity, released_at"
+        " FROM prescription_allocation WHERE prescription_id = $1::uuid"
+        " ORDER BY created_at, id",
+        rx,
+    )
+    assert len(rows) == 2
+    assert (rows[0]["id"], rows[0]["quantity"], rows[0]["released_at"] is None) == (
+        allocation_id,
+        Decimal(6),
+        False,
+    )
+    assert rows[1]["id"] != allocation_id
+    assert (rows[1]["quantity"], rows[1]["released_at"] is None) == (
+        Decimal(10),
+        True,
+    )
+    assert rows[1]["drug_batch_id"] == lo
+
+
+async def test_tu_phan_lo_reuse_allocation_da_du_khong_nhan_doi(q: Quay) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 100)
+    allocation_id = await _chon(q, rx, lo, 10)
+    await _thu(q)
+    rows = await q.pool.fetch(
+        "SELECT id::text, quantity FROM prescription_allocation"
+        " WHERE prescription_id = $1::uuid AND released_at IS NULL",
+        rx,
+    )
+    assert [(r["id"], r["quantity"]) for r in rows] == [(allocation_id, Decimal(10))]
 
 
 async def test_chon_hai_lo_ban_dung_tung_lo(q: Quay) -> None:
@@ -222,6 +298,31 @@ async def test_lo_het_han_bi_tu_choi(q: Quay) -> None:
     cu = await _nhap_lo(q, drug, 100, han=date.today() - timedelta(days=1))
     with pytest.raises(ValidationError, match="hết hạn"):
         await _chon(q, rx, cu, 10)
+
+
+async def test_tu_phan_lo_bo_qua_lo_het_han(q: Quay) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    het_han = await _nhap_lo(q, drug, 100, han=date.today() - timedelta(days=1))
+    con_han = await _nhap_lo(q, drug, 10, han=date.today() + timedelta(days=1))
+    await _thu(q)
+    assert await _phan_bo(q, rx) == [(con_han, Decimal(10))]
+    assert await _so_dong(q, "SALE", het_han) == 0
+
+
+async def test_tu_phan_lo_sai_don_vi_va_thieu_ton_rollback_sach(q: Quay) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    await _nhap_lo(q, drug, 100, don_vi="hộp")
+    await _nhap_lo(q, drug, 5)
+    with pytest.raises(ValidationError, match="không đủ"):
+        await _thu(q)
+    assert await _phan_bo(q, rx) == []
+    assert await _so_dong(q, "SALE") == 0
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment_cycle WHERE visit_id = $1::uuid", q.visit_id
+        )
+        == 0
+    )
 
 
 async def test_lo_khong_du_kha_dung_bi_tu_choi(q: Quay) -> None:
@@ -303,9 +404,19 @@ async def test_chon_lo_khong_giu_cho_nguoi_thu_sau_bi_kiem_lai(q: Quay) -> None:
 
 
 async def test_chuyen_khoan_cho_thi_giu_chua_ban_xac_minh_thi_ban(q: Quay) -> None:
-    _, _, lo = await _san_sang(q, 10, 100)
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 100)
     cho = await _thu(q, "TRANSFER")
     assert cho["status"] == "PENDING_VERIFICATION"
+    phan_bo = await q.pool.fetch(
+        "SELECT drug_batch_id::text, quantity, payment_cycle_id::text"
+        " FROM prescription_allocation WHERE prescription_id = $1::uuid"
+        " AND released_at IS NULL",
+        rx,
+    )
+    assert [
+        (r["drug_batch_id"], r["quantity"], r["payment_cycle_id"]) for r in phan_bo
+    ] == [(lo, Decimal(10), cho["payment_cycle_id"])]
     assert await _so_dong(q, "SALE", lo) == 0
     assert (await _ton(q, lo), await _kd(q, lo)) == (100, 90)  # giữ kỹ thuật
     await _xac_minh(q, cho["payment_cycle_id"])
@@ -316,6 +427,7 @@ async def test_chuyen_khoan_cho_thi_giu_chua_ban_xac_minh_thi_ban(q: Quay) -> No
     )  # giữ → bán, không trừ hai
     await _xac_minh(q, cho["payment_cycle_id"])  # gửi lại
     assert await _so_dong(q, "SALE", lo) == 1
+    assert await _phan_bo(q, rx) == [(lo, Decimal(10))]
 
 
 async def test_hai_lenh_xac_minh_dong_thoi_chi_ban_mot_lan(q: Quay) -> None:
@@ -440,7 +552,8 @@ async def test_lo_het_han_trong_luc_cho_van_ghi_da_thu_va_can_doi_soat(
 async def test_giao_sau_khi_thu_ton_vat_ly_giam_kha_dung_khong_giam_lan_hai(
     q: Quay,
 ) -> None:
-    rx, _, lo = await _san_sang(q, 10, 100)
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 100)
     await _thu(q)
     await _giao(q, rx, lo, 4)
     assert (await _ton(q, lo), await _kd(q, lo)) == (96, 90)
@@ -457,6 +570,7 @@ async def test_giao_sau_khi_thu_ton_vat_ly_giam_kha_dung_khong_giam_lan_hai(
         )
         == 2
     )
+    assert await _so_dong(q, "SALE", lo) == 1
 
 
 async def test_chua_thu_tien_thi_khong_giao(q: Quay) -> None:

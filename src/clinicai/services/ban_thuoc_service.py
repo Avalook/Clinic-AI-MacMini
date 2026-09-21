@@ -9,9 +9,9 @@ chắn bị từ chối.
 GIAI ĐOẠN CỦA LƯỢT (tiền thuốc):
   CHUA_SAN_SANG  bác sĩ chưa bấm Khám xong (`moc_kham_xong`) — chỉ xem. Chọn
                  lô sớm sẽ khoá dòng đơn trong khi bác sĩ còn sửa bệnh án.
-  SAN_SANG       đã khám xong, chưa có lần thu thuốc — xác định thuốc kho,
-                 khai số mua, chọn / bỏ lô.
-  CHO_XAC_MINH   chuyển khoản/QR đang chờ — lô đang GIỮ; chỉ đổi lô.
+  SAN_SANG       đã khám xong, chưa có lần thu thuốc — hệ thống tự phân lô
+                 khi thu; màn chỉ giữ các thao tác ngoài happy path.
+  CHO_XAC_MINH   chuyển khoản/QR đang chờ — lô tự phân đang GIỮ.
   DA_THU         đã thu (lần thu mới) — giao từ đúng lô đã bán.
   CAN_DOI_SOAT   đã thu nhưng có phân lô chưa ghi bán được — không giao.
   DA_THU_CU      lần thu trước CP3 (legacy) — giao theo luồng cũ.
@@ -34,6 +34,7 @@ import asyncpg
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.services.moc_kham_xong import kham_xong_sql
+from clinicai.services.payment_service import dung_kho_thuoc_khi_thanh_toan
 from clinicai.services.phan_lo_service import ban_chua_giao
 
 CHUA_SAN_SANG = "CHUA_SAN_SANG"
@@ -105,7 +106,8 @@ def thao_tac_dong(
     nut = {
         "xac_dinh_thuoc": san_sang and da_giao == 0 and not co_phan_lo,
         "khai_so_mua": san_sang and co_so_ke,
-        "chon_lo": san_sang
+        "chon_lo": not dung_kho_thuoc_khi_thanh_toan()
+        and san_sang
         and co_thuoc_kho
         and co_don_vi
         and co_so_ke
@@ -147,8 +149,13 @@ def thao_tac_phan_lo(
     """Nút nào được hiện cho một phân lô (một lô đã chọn của dòng đơn).
     Dòng đã đính chính (lịch sử): không nút nào — không bỏ, đổi hay giao."""
     nut = {
-        "bo": gd == SAN_SANG and not gan_lan_thu and not dong_da_chot,
-        "doi": gd == CHO_XAC_MINH and gan_lan_thu,
+        "bo": not dung_kho_thuoc_khi_thanh_toan()
+        and gd == SAN_SANG
+        and not gan_lan_thu
+        and not dong_da_chot,
+        "doi": not dung_kho_thuoc_khi_thanh_toan()
+        and gd == CHO_XAC_MINH
+        and gan_lan_thu,
         "giao": gd == DA_THU
         and gan_lan_thu
         and da_ban

@@ -49,6 +49,7 @@ from clinicai.services.phan_lo_service import (
     ghi_ban,
     go_va_giu_ke_hoach,
     khoa_ban_thuoc,
+    tu_phan_lo,
     van_de_phan_lo,
 )
 
@@ -232,6 +233,7 @@ class PaymentService:
                         clinic_id=identity.clinic_id,
                         visit_id=visit_id,
                         payment_cycle_id=None,
+                        khoa_cac_lo=False,
                     )
 
                 cho = await conn.fetchrow(
@@ -340,8 +342,8 @@ class PaymentService:
                     )
                 normalized = hoa_don.tong
                 if kind == "thuoc" and dung_kho_thuoc_khi_thanh_toan():
-                    # CP3: thuốc chỉ thu được khi mọi dòng đã có đủ lô, lô còn
-                    # hạn và còn khả dụng — thu xong là bán.
+                    # Tự phân đủ lô còn hạn/cùng đơn vị/còn khả dụng; CASH bán
+                    # ngay, điện tử gắn allocation vào lần chờ để giữ.
                     can = await can_theo_hoa_don(
                         conn,
                         clinic_id=identity.clinic_id,
@@ -351,7 +353,15 @@ class PaymentService:
                             if d.source_type == "prescription"
                         ],
                     )
-                    phan_lo = [p for p in phan_lo if p.prescription_id in can]
+                    phan_lo = await tu_phan_lo(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        visit_id=visit_id,
+                        staff_id=identity.staff_id,
+                        can=can,
+                        phan_lo=phan_lo,
+                        hom_nay=now_vn().date(),
+                    )
                     van_de = await van_de_phan_lo(
                         conn,
                         clinic_id=identity.clinic_id,
