@@ -122,7 +122,7 @@ const STATE_STYLE: Record<string, string> = {
 const ROLE_DESC: Record<ClinicRole, string> = {
   DOCTOR: "Khám, chẩn đoán, kê đơn", // Bác sĩ
   ULTRASOUND_DOCTOR: "Siêu âm, đo chỉ số thai", // Bác sĩ siêu âm
-  NURSE_ULTRASOUND: "Hỗ trợ siêu âm, xét nghiệm", // Điều dưỡng siêu âm
+  NURSE_ULTRASOUND: "Hỗ trợ siêu âm, xét nghiệm", // Điều dưỡng
   TKYK: "Nhập hồ sơ lâm sàng hộ bác sĩ", // Thư ký y khoa
   CSKH: "Chăm sóc khách hàng, đặt lịch", // Chăm sóc khách hàng
   MANAGEMENT: "Quản lý toàn hệ thống", // Quản lý

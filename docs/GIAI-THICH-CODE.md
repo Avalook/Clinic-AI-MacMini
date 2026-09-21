@@ -133,7 +133,7 @@ Nguồn: `src/dashboard/lib/roles.ts` (13 mã) + `src/clinicai/api/identity.py`.
 | `CSKH` | CSKH | Gọi/nhắn khách, đặt–đổi–huỷ lịch, nhắc hẹn, trả kết quả | `/customers`, `/cskh-tasks`, `/nhac-tai-kham` |
 | `DOCTOR` / `ULTRASOUND_DOCTOR` | Bác sĩ / Bác sĩ Siêu âm | Khám, **chỉ định**, duyệt & **ký** kết quả | `/tasks`, `/sieu-am`, `/result-review` |
 | `TKYK` | Thư ký Y khoa | **Nhập hộ** bệnh án cho bác sĩ (bản nháp) | `/tasks` |
-| `NURSE_ULTRASOUND` | Điều dưỡng / Phụ siêu âm | Sinh hiệu, lấy mẫu, thủ thuật, phụ SA | `/lab-queue`, `/service-queue`, `/sono` |
+| `NURSE_ULTRASOUND` | Điều dưỡng | Sinh hiệu, lấy mẫu, thủ thuật, phụ SA | `/lab-queue`, `/service-queue`, `/sono` |
 | `CASHIER` · `CASHIER_THUOC` · `CASHIER_DV` | Thu ngân (chung / thuốc / dịch vụ) | Đối soát, thu tiền, đóng lượt | `/cashier/thuoc`, `/cashier/dich-vu` |
 | `PHARMACIST` | Dược sĩ | Nhà thuốc: soạn, kiểm, tư vấn, bàn giao thuốc; tồn kho | `/pharmacy`, `/pharmacy/inventory` |
 | `TRUONG_CA` | Trưởng ca | Toàn cảnh hàng đợi, gỡ nghẽn, duyệt điều phối | `/truong-ca/*` (5 màn) |
@@ -6115,7 +6115,7 @@ lẫn Client Component (`Nav.tsx`, `BottomNav.tsx`).
 | `DOCTOR` | Bác sĩ | `/tasks` | ✅ | — | — | — |
 | `ULTRASOUND_DOCTOR` | Bác sĩ Siêu âm | `/tasks` | ✅ | — | — | — |
 | `TKYK` | Thư ký Y khoa | `/tasks` | ✅ | — | — | — |
-| `NURSE_ULTRASOUND` | Điều dưỡng / Phụ siêu âm | `/home` | ✅ | — | — | — |
+| `NURSE_ULTRASOUND` | Điều dưỡng | `/home` | ✅ | — | — | — |
 | `CSKH` | CSKH | `/home` | — | ✅ | ✅ | ✅ |
 | `RECEPTION` | Lễ tân | `/home` | — | ✅ | — | ✅ |
 | `TRUONG_CA` | Trưởng ca | `/truong-ca` | — (chỉ xem) | ✅ | ✅ | ✅ |

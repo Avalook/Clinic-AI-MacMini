@@ -101,7 +101,7 @@ export function isUltrasoundDoctorRole(role: ClinicRole | null): boolean {
   return role === "ULTRASOUND_DOCTOR";
 }
 
-/** Điều dưỡng / phụ siêu âm. */
+/** Điều dưỡng. */
 export function isNurseRole(role: ClinicRole | null): boolean {
   return role === "NURSE_ULTRASOUND";
 }
@@ -212,7 +212,7 @@ export function roleLanding(role: ClinicRole | null): string {
 export const ROLE_LABEL: Record<ClinicRole, string> = {
   DOCTOR: "Bác sĩ",
   ULTRASOUND_DOCTOR: "Bác sĩ Siêu âm",
-  NURSE_ULTRASOUND: "Điều dưỡng / Phụ siêu âm",
+  NURSE_ULTRASOUND: "Điều dưỡng",
   TKYK: "Thư ký Y khoa",
   CSKH: "CSKH",
   MANAGEMENT: "Quản lý",

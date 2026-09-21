@@ -235,7 +235,7 @@ Nhóm theo domain (V1 đang chạy):
 | `DOCTOR` | Bác sĩ | Bác sĩ |
 | `ULTRASOUND_DOCTOR` | Bác sĩ Siêu âm | Bác sĩ |
 | `TKYK` | Thư ký Y khoa | Thư ký y khoa |
-| `NURSE_ULTRASOUND` | Điều dưỡng / Phụ siêu âm | Điều dưỡng |
+| `NURSE_ULTRASOUND` | Điều dưỡng | Điều dưỡng |
 | `CSKH` | CSKH | CSKH |
 | `RECEPTION` | Lễ tân | Lễ tân |
 | `CASHIER` / `CASHIER_THUOC` / `CASHIER_DV` | Thu ngân / …thuốc / …dịch vụ | Thu ngân |
@@ -307,7 +307,7 @@ Nhóm theo domain (V1 đang chạy):
 - **Backend:** `patient_context_service.py` (brief hồ sơ), `graphs/lab_triage`, `tools/lab`, `tools/brief`.
 - **Ghi chú:** `TKYK` (Thư ký y khoa) được xếp cùng nhóm "doctor-scope" cho lịch hẹn, và **được ghi lâm sàng dạng nháp** — nhưng **chỉ bác sĩ ký**.
 
-### 7.5 Điều dưỡng / Phụ siêu âm (NURSE_ULTRASOUND)
+### 7.5 Điều dưỡng (NURSE_ULTRASOUND)
 - **Làm gì:** **sinh hiệu**, lấy mẫu, thủ thuật, DXA, cấp thuốc (thao tác), phụ siêu âm; quản 3 hàng đợi dịch vụ.
 - **Màn hình:** `/lab-queue` (xét nghiệm), `/service-queue` (dịch vụ), `/sono` (siêu âm), `/tasks`, `/patient-list` (tra cứu).
 - **Dữ liệu chạm:** `service_log`, `lab_result` (nhập), `ultrasound_record` (số đo), sinh hiệu gắn `visit` (`VITAL-01`: người đo, thời điểm, đơn vị, giá trị; ngưỡng bất thường → cảnh báo, **không tự chẩn đoán**).

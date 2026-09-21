@@ -43,7 +43,7 @@ export interface WorkItemActionsProps {
 const ROLE_VI: Record<string, string> = {
   DOCTOR: "bác sĩ",
   ULTRASOUND_DOCTOR: "bác sĩ siêu âm",
-  NURSE_ULTRASOUND: "điều dưỡng siêu âm",
+  NURSE_ULTRASOUND: "điều dưỡng",
   TKYK: "thư ký y khoa",
   RECEPTION: "lễ tân",
   CSKH: "CSKH",
