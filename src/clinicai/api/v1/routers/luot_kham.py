@@ -22,6 +22,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.service_selection_service import ServiceSelectionService
 
 router = APIRouter()
 
@@ -357,6 +358,44 @@ async def authorize_orders(
         service_codes=body.service_codes,
         draft_order_ids=[str(d) for d in body.draft_order_ids],
         expected_versions={str(k): v for k, v in body.expected_versions.items()},
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+#: Cửa ngoài của ConfirmServiceSelection. Ánh xạ vai cuối cùng còn OPEN
+#: (SELECTION §14): tạm dùng đúng các vai đang thu được tiền dịch vụ
+#: (``payment_service.allowed_kinds``). Cửa thật là capability trong service.
+#: KHÔNG mở theo công tắc — đây là bước ngay trước tiền.
+_SELECTION_GUARD = require_role(
+    ClinicRole.RECEPTION,
+    ClinicRole.CASHIER,
+    ClinicRole.CASHIER_DV,
+    ClinicRole.MANAGEMENT,
+)
+
+
+class ServiceSelectionBody(BaseModel):
+    # Any: kiểm UUID, trùng lặp và tập con nằm ở service để trả mã lỗi ổn định
+    # của contract thay vì mảng lỗi Pydantic.
+    order_ids_seen: list[Any]
+    selected_order_ids: list[Any]
+    expected_selection_revision: Any
+
+
+@router.post("/luot-kham/visits/{visit_id}/service-selection/confirm")
+async def confirm_service_selection(
+    visit_id: UUID,
+    body: ServiceSelectionBody,
+    identity: StaffIdentity = Depends(_SELECTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceSelectionService(pool).confirm(
+        visit_id=str(visit_id),
+        order_ids_seen=body.order_ids_seen,
+        selected_order_ids=body.selected_order_ids,
+        expected_selection_revision=body.expected_selection_revision,
         identity=identity,
         idempotency_key=idempotency_key,
     )

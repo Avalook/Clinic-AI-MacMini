@@ -38,6 +38,10 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Bác sĩ miễn / chuyển theo dõi một yêu cầu của vòng đọc (Slice 1) — id là
   // YÊU CẦU (round_requirement).
   "quyet-yeu-cau": (id) => `/api/v1/luot-kham/yeu-cau/${id}/quyet`,
+  // Khách xác nhận dịch vụ sẽ làm (Lifecycle v1, ConfirmServiceSelection) —
+  // id là LƯỢT KHÁM. Khoá gửi lại là bắt buộc; backend từ chối nếu thiếu.
+  "chon-dich-vu": (id) =>
+    `/api/v1/luot-kham/visits/${id}/service-selection/confirm`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

@@ -180,6 +180,26 @@ def _cua(board: dict[str, Any], visit_id: str) -> dict[str, Any]:
     return next(v for v in board["luot"] if v["visit_id"] == visit_id)
 
 
+async def _dieu_phoi_tay(kb: KichBan, order_id: str, room_id: str) -> None:
+    """Lifecycle v1 (CHECKPOINT §1, Slice 2): duyệt chỉ định KHÔNG còn tự xếp
+    phòng — chỉ định chờ khách chọn và đủ tài chính. Trước khi có lệnh Routing
+    (Slice 4), trưởng ca điều phối tay như đường hiện hành."""
+    async with kb.pool.acquire() as conn:
+        assert (
+            await conn.fetchval(
+                "SELECT exec_status FROM service_order WHERE id = $1::uuid",
+                order_id,
+            )
+            == "authorized"
+        )
+    await kb.svc.dispatch_order(
+        order_id=order_id,
+        room_id=room_id,
+        expected_version=None,
+        identity=kb.truong_ca,
+    )
+
+
 async def _vao_kham(kb: KichBan) -> str:
     """Đo sinh hiệu rồi bác sĩ nhận khám. Trả mã phiên vòng 1."""
     await kb.svc.record_vitals(
@@ -264,9 +284,10 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     luot = _cua(await svc.bang(identity=kb.bac_si), kb.visit_id)
     # T-C2: duyệt chỉ định không kết thúc phiên khám.
     assert luot["phien"][0]["trang_thai"] == "in_progress"
-    # Duyệt xong là TỰ vào hàng chờ phòng (Notion v1.0.0, vai Trưởng ca) — chỗ
-    # chờ bị khoá vì khách còn đang khám.
-    assert {o["trang_thai"] for o in luot["chi_dinh"]} == {"assigned"}
+    # Đổi theo contract frozen Lifecycle v1 (Slice 2): trước đây duyệt xong là
+    # TỰ vào hàng chờ phòng (Notion v1.0.0). Nay chỉ định chờ khách chọn và đủ
+    # tài chính trước khi xếp phòng — duyệt KHÔNG tự xếp.
+    assert {o["trang_thai"] for o in luot["chi_dinh"]} == {"authorized"}
 
     # Trưởng ca xếp phòng SA khi bác sĩ còn khám → chỗ chờ SA bị khoá.
     await svc.dispatch_order(
@@ -378,9 +399,10 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
         ["consult.started"],
         ["consult.note_saved"],
         ["orders.drafted"],
-        # Duyệt = tự xếp phòng cho cả hai chỉ định trong cùng lệnh.
-        ["dispatch.assigned", "dispatch.assigned", "orders.authorized"],
-        # Trưởng ca đổi phòng siêu âm bằng tay.
+        # Lifecycle v1 (Slice 2): duyệt KHÔNG còn tự xếp phòng — trước đây lệnh
+        # này kèm hai "dispatch.assigned".
+        ["orders.authorized"],
+        # Trưởng ca xếp phòng siêu âm bằng tay.
         ["dispatch.assigned"],
         ["consult.completed"],
         ["service.started"],
@@ -916,6 +938,7 @@ async def test_kham_xong_tu_chon_ket_qua_theo_chi_dinh_con_lai(kb: KichBan) -> N
         identity=kb.bac_si,
     )
     sa_id = duyet["order_ids"][0]
+    await _dieu_phoi_tay(kb, sa_id, kb.phong_sa)
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     async with kb.pool.acquire() as conn:
         c = await conn.fetchrow(
@@ -956,6 +979,7 @@ async def test_hang_cho_phong_cho_dang_lam_da_xong(kb: KichBan) -> None:
         identity=kb.bac_si,
     )
     sa_id = duyet["order_ids"][0]
+    await _dieu_phoi_tay(kb, sa_id, kb.phong_sa)
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     async with kb.pool.acquire() as conn:
         phong = await conn.fetchval(
@@ -1301,6 +1325,7 @@ async def test_dieu_duong_lay_mau_thi_doi_tac_chi_thay_sau_khi_lay(
         identity=kb.bac_si,
     )
     mau_id = duyet["order_ids"][0]
+    await _dieu_phoi_tay(kb, mau_id, kb.phong_mau)
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     assert _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id) is None
 
@@ -1442,6 +1467,7 @@ async def test_dieu_duong_di_kem_checkin_checkout_phong_dich_vu(kb: KichBan) -> 
         identity=kb.bac_si,
     )
     sa_id = duyet["order_ids"][0]
+    await _dieu_phoi_tay(kb, sa_id, kb.phong_sa)
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     node, _ = await _vi_tri(kb)
     assert node == "DICHVU-SIEUAM"  # rời bàn khám → đang chờ ở phòng siêu âm

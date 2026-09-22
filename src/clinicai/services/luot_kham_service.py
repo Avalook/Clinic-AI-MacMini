@@ -2461,7 +2461,9 @@ class LuotKhamService:
                     UPDATE service_order
                        SET exec_status = 'authorized', authorized_by = $4::uuid,
                            authorized_at = now(), version = version + 1,
-                              updated_at = now()
+                              updated_at = now(),
+                           -- Lifecycle v1: chỉ định chính thức chờ khách chọn.
+                           selection_status = 'PENDING'
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND id = ANY($3::uuid[]) AND exec_status = 'draft'
                        AND consultation_id = $5::uuid
@@ -2488,9 +2490,10 @@ class LuotKhamService:
                             INSERT INTO service_order
                                 (clinic_id, visit_id, consultation_id, service_code,
                                  service_name, node_code, exec_status, recorded_by,
-                                 authorized_by, authorized_at)
+                                 authorized_by, authorized_at, selection_status)
                             VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6,
-                                    'authorized', $7::uuid, $7::uuid, now())
+                                    'authorized', $7::uuid, $7::uuid, now(),
+                                    'PENDING')
                             RETURNING id::text
                             """,
                             cid,
@@ -3451,6 +3454,11 @@ class LuotKhamService:
               FROM service_order o
              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                AND exec_status = 'authorized'
+               -- Lifecycle v1 (CHECKPOINT §1): chỉ định có selection_status chỉ
+               -- được xếp phòng SAU khi khách chọn và đủ điều kiện tài chính —
+               -- qua lệnh Routing (Slice 4), không tự xếp lúc duyệt. Dòng cũ
+               -- (NULL) giữ hành vi cũ.
+               AND o.selection_status IS NULL
                -- Đối tác tự lấy mẫu thì khách không xếp hàng ở phòng nào của
                -- phòng khám — việc ấy nằm trên bàn đối tác.
                AND NOT EXISTS (
