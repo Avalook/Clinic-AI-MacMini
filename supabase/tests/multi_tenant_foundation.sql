@@ -107,7 +107,10 @@ DECLARE
     -- clinic, clinic_id đứng đầu mọi index.
     -- 89 → 90 (20/09/2026): prescription_correction (20260920000002, contract
     -- tiền–thuốc CP6 bước 4a — một lần bác sĩ đính chính đơn).
-    expected_tenant_tables constant integer := 90;
+    -- 90 → 92 (22/09/2026): service_selection_state, service_execution_attempt
+    -- (20260922000001, Service Lifecycle v1 Slice 1). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu PK / uq_service_execution_attempt_clinic_id.
+    expected_tenant_tables constant integer := 92;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

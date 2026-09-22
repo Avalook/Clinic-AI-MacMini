@@ -138,8 +138,11 @@ BEGIN
     -- _select_own_clinic (20260919000004, contract tiền–thuốc CP5).
     -- 61 → 62 (20/09/2026): prescription_correction_select_own_clinic
     -- (20260920000002, contract tiền–thuốc CP6 bước 4a).
-    IF scoped_count <> 62 THEN
-        RAISE EXCEPTION 'expected 62 tenant-scoped read policies, found %', scoped_count;
+    -- 62 → 64 (22/09/2026): service_selection_state / service_execution_attempt
+    -- _select_own_clinic (20260922000001, Service Lifecycle v1 Slice 1). CHỈ
+    -- ĐỌC: ghi qua command FastAPI.
+    IF scoped_count <> 64 THEN
+        RAISE EXCEPTION 'expected 64 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
