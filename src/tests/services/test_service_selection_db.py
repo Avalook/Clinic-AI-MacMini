@@ -712,3 +712,32 @@ async def test_http_endpoint_cua_vai_va_ma_loi(kb: KB) -> None:
     finally:
         app.dependency_overrides.pop(get_db_pool, None)
         app.dependency_overrides.pop(_resolve_identity, None)
+
+
+@pytest.mark.parametrize(
+    ("status", "paid"), [("PAID", True), ("PENDING_VERIFICATION", False)]
+)
+async def test_dong_doi_tac_thu_khong_khoa_selection(
+    kb: KB, status: str, paid: bool
+) -> None:
+    """Review #178: ảnh chụp hoá đơn lưu cả dòng EXTERNAL_PARTNER (không cộng vào
+    tổng phòng khám). Lần thu của phòng khám không được khoá dịch vụ đối tác thu."""
+    a, b = await _chi_dinh(kb), await _chi_dinh(kb)
+    await _confirm(kb, [a, b], [a, b], 0)
+    cycle = await _lan_thu(kb, [b], status=status, paid=paid)
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO payment_bill_line (clinic_id, payment_cycle_id, visit_id,"
+            " kind, source_type, source_id, name_snapshot, quantity, billing_owner)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, 'dich_vu', 'service_order', $4,"
+            " 'Xét nghiệm đối tác', 1, 'EXTERNAL_PARTNER')",
+            CLINIC,
+            cycle,
+            kb.visit_id,
+            a,
+        )
+    # b có dòng phòng khám → vẫn khoá; a chỉ có dòng đối tác → còn quyết được.
+    await _loi(_confirm(kb, [a, b], [a], 1), "SELECTION_FINANCIAL_LOCKED")
+    r = await _confirm(kb, [a], [], 1)
+    assert r["changed_order_ids"] == [a]
+    assert (await _trang_thai(kb, a))[a][0] == "NOT_SELECTED"

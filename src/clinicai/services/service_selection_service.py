@@ -240,6 +240,10 @@ SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
             WHERE bl.clinic_id = o.clinic_id
               AND bl.source_type = 'service_order'
               AND bl.source_id = o.id::text
+              -- Chỉ dòng PHÒNG KHÁM thu mới là cam kết tài chính của phòng khám.
+              -- Ảnh chụp hoá đơn lưu cả dòng đối tác tự thu (không cộng vào tổng
+              -- tiền phòng khám) — lần thu của phòng khám không khoá dịch vụ đó.
+              AND bl.billing_owner = 'CLINIC'
               -- Đang chờ xác minh, hoặc ĐÃ TỪNG nhận tiền (kể cả nay VOIDED).
               -- Lần chờ đã huỷ mà chưa từng nhận tiền thì không khoá.
               AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
