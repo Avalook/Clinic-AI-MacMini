@@ -1244,7 +1244,7 @@ async def _huy_hinh_chieu_dich_vu(
                        bill_revision = $6, voided_at = NULL,
                        voided_by_staff_id = NULL, void_reason = NULL,
                        updated_at = now()
-                 WHERE id = $1::uuid
+                 WHERE id = $1::uuid AND clinic_id = $7::uuid
                 """,
                 proj["id"],
                 thay["payment_cycle_id"],
@@ -1252,6 +1252,7 @@ async def _huy_hinh_chieu_dich_vu(
                 thay["confirmed_by"],
                 thay["paid_at"],
                 thay["bill_revision"],
+                identity.clinic_id,
             )
         else:
             await conn.execute(
@@ -1260,11 +1261,12 @@ async def _huy_hinh_chieu_dich_vu(
                    SET status = 'VOIDED', voided_at = now(),
                        voided_by_staff_id = $2::uuid, void_reason = $3,
                        updated_at = now()
-                 WHERE id = $1::uuid
+                 WHERE id = $1::uuid AND clinic_id = $4::uuid
                 """,
                 proj["id"],
                 identity.staff_id,
                 reason,
+                identity.clinic_id,
             )
     return {
         "id": proj["id"] if proj is not None else cycle_id,
@@ -1316,7 +1318,8 @@ async def _ghi_da_thu(
         -- dich_vu thu được NHIỀU lần (Slice 3): hình chiếu trỏ lần thu PAID mới
         -- nhất để reader cũ còn sống; sự thật tài chính là payment_cycle +
         -- payment_bill_line, không phải dòng này. thuoc giữ luật cũ.
-        WHERE payment.status = 'VOIDED' OR EXCLUDED.kind = 'dich_vu'
+        WHERE payment.clinic_id = EXCLUDED.clinic_id
+          AND (payment.status = 'VOIDED' OR EXCLUDED.kind = 'dich_vu')
         RETURNING id, payment_cycle_id
         """,
         visit_id,

@@ -471,7 +471,10 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     assert payment_write.args[2] == PATIENT_ID
     # CP2: mã lần thu là CHÍNH dòng payment_cycle vừa ghi, không sinh ngầm.
     assert "payment_cycle_id  = EXCLUDED.payment_cycle_id" in payment_write.args[0]
-    assert "WHERE payment.status = 'VOIDED'" in payment_write.args[0]
+    # Chỉ đè hình chiếu khi nó đã VOIDED (thuốc) — và luôn trong đúng phòng khám
+    # (tenant-scope audit: upsert không được ghi đè dòng của phòng khám khác).
+    assert "WHERE payment.clinic_id = EXCLUDED.clinic_id" in payment_write.args[0]
+    assert "payment.status = 'VOIDED'" in payment_write.args[0]
     lan_thu = next(
         c
         for c in conn.execute.await_args_list
