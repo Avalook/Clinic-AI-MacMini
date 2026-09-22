@@ -67,6 +67,7 @@ from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.services.test_luot_kham_service_db import dieu_phoi_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 CLINIC_2 = "a0000000-0000-4000-8000-000000000002"
@@ -434,7 +435,8 @@ async def test_mixed_orders_slice_ab_progression(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
         )
         if st_a == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_a,
                 room_id=kban.phong_sa,
                 expected_version=None,
@@ -468,7 +470,8 @@ async def test_mixed_orders_slice_ab_progression(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_b
         )
         if st_b == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_b,
                 room_id=kban.phong_mau,
                 expected_version=None,
@@ -753,7 +756,8 @@ async def test_late_result_follow_up_scenario(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
         )
         if st_a == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_a,
                 room_id=kban.phong_sa,
                 expected_version=None,
@@ -1371,7 +1375,8 @@ async def test_partner_two_types_of_orders(
         await kban.svc.doi_tac_da_lay_mau(order_id=id_pk_lay, identity=kban.doi_tac)
 
     # Trưởng ca điều phối việc loại 2 vào phòng Lấy mẫu
-    await kban.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kban.svc,
         order_id=id_pk_lay,
         room_id=kban.phong_mau,
         expected_version=None,

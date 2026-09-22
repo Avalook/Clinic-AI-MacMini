@@ -210,8 +210,43 @@ def dispatch_block(
         return "ORDER_NOT_DISPATCHABLE"
     if source == "PRIOR_PLAN" and not plan_applied:
         return "PLAN_NOT_APPLIED"
-    if not vitals_recorded:
-        return "VITALS_REQUIRED"
+    return routing_hold_block(
+        source=source,
+        route_decision=route_decision,
+        vitals_recorded=vitals_recorded,
+        hold_until_round=hold_until_round,
+        closed_rounds=closed_rounds,
+    )
+
+
+def vitals_routing_block(*, vitals_recorded: bool) -> str | None:
+    """SEAM có tên cho luật "sinh hiệu có chặn điều phối không".
+
+    OPEN (ROUTING §5): code cũ chặn khi chưa đo huyết áp; khảo sát phòng khám mới
+    nói sinh hiệu không phải chốt cứng. Chưa có quyết định PM/phòng khám nên ở
+    đây GIỮ hành vi hiện tại để tương thích — đây KHÔNG phải luật đã duyệt. Khi
+    có quyết định, chỉ đổi hàm này; không rải kiểm sinh hiệu ở chỗ khác.
+    """
+    return None if vitals_recorded else "VITALS_REQUIRED"
+
+
+def routing_hold_block(
+    *,
+    source: str,
+    route_decision: str | None,
+    vitals_recorded: bool,
+    hold_until_round: int | None,
+    closed_rounds: set[int],
+) -> str | None:
+    """Chốt giữ (hold) chuyên môn / vận hành trước khi xếp phòng — MỘT chính sách
+    có tên, dùng chung cho điều phối cũ và AssignServiceRoom (ROUTING §5).
+
+    Thứ tự giữ như ``dispatch_block``: sinh hiệu (seam) → đích của lượt → kế
+    hoạch trước → dặn làm sau vòng đọc.
+    """
+    vitals = vitals_routing_block(vitals_recorded=vitals_recorded)
+    if vitals:
+        return vitals
     if route_decision is None:
         return "ROUTE_NOT_DECIDED"
     if source == "PRIOR_PLAN" and route_decision != SERVICES:

@@ -197,6 +197,9 @@ EVENT_LABELS: dict[str, str] = {
     "orders.authorized": "Bác sĩ duyệt chỉ định",
     "consult.completed": "Kết thúc phiên khám",
     "dispatch.assigned": "Xếp phòng cho chỉ định",
+    # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
+    "service.routed": "Xếp phòng chính thức cho dịch vụ",
+    "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
@@ -311,6 +314,8 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
+    "service_order": "Chỉ định dịch vụ",
     "pregnancy": "Thai kỳ",
     "episode": "Đợt điều trị",
     "work_item": "Bước trong quy trình",

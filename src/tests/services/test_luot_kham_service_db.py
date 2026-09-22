@@ -180,6 +180,23 @@ def _cua(board: dict[str, Any], visit_id: str) -> dict[str, Any]:
     return next(v for v in board["luot"] if v["visit_id"] == visit_id)
 
 
+async def dieu_phoi_cu(svc: LuotKhamService, **kw: Any) -> dict[str, Any]:
+    """Điều phối kiểu CŨ (``dispatch_order``) — chỉ còn cho dòng legacy.
+
+    Lifecycle v1 Slice 4 §D: chỉ định có ``selection_status`` bị đường cũ từ chối
+    (LIFECYCLE_ROUTING_REQUIRED) và phải xếp phòng qua AssignServiceRoom. Các test
+    dùng helper này kiểm CƠ CHẾ điều phối / hàng chờ cũ — cơ chế ấy vẫn chạy cho
+    dòng legacy — nên đưa chỉ định về dạng legacy (selection / routing NULL) trước
+    khi gọi. Luồng lifecycle-v1: ``test_service_routing_db.py``.
+    """
+    await svc._pool.execute(
+        "UPDATE service_order SET selection_status = NULL, routing_status = NULL"
+        " WHERE id = $1::uuid AND selection_status IS NOT NULL",
+        kw["order_id"],
+    )
+    return await svc.dispatch_order(**kw)
+
+
 async def _dieu_phoi_tay(kb: KichBan, order_id: str, room_id: str) -> None:
     """Lifecycle v1 (CHECKPOINT §1, Slice 2): duyệt chỉ định KHÔNG còn tự xếp
     phòng — chỉ định chờ khách chọn và đủ tài chính. Trước khi có lệnh Routing
@@ -192,7 +209,8 @@ async def _dieu_phoi_tay(kb: KichBan, order_id: str, room_id: str) -> None:
             )
             == "authorized"
         )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=order_id,
         room_id=room_id,
         expected_version=None,
@@ -290,7 +308,8 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     assert {o["trang_thai"] for o in luot["chi_dinh"]} == {"authorized"}
 
     # Trưởng ca xếp phòng SA khi bác sĩ còn khám → chỗ chờ SA bị khoá.
-    await svc.dispatch_order(
+    await dieu_phoi_cu(
+        svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,
@@ -318,7 +337,8 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
 
     await svc.start_service(order_id=sa_id, identity=kb.bs_sieu_am)
     # Xếp phòng lấy máu khi khách đang siêu âm → chờ mở.
-    await svc.dispatch_order(
+    await dieu_phoi_cu(
+        svc,
         order_id=mau_id,
         room_id=kb.phong_mau,
         expected_version=None,
@@ -427,7 +447,8 @@ async def test_nhap_cua_thu_ky_khong_dieu_phoi_duoc(kb: KichBan) -> None:
         consultation_id=phien, service_codes=[kb.ma_sa], identity=kb.thu_ky
     )
     with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.dispatch_order(
+        await dieu_phoi_cu(
+            kb.svc,
             order_id=nhap["order_ids"][0],
             room_id=kb.phong_sa,
             expected_version=None,
@@ -520,7 +541,8 @@ async def test_khach_dang_kham_thi_phong_khac_khong_goi_duoc(kb: KichBan) -> Non
         draft_order_ids=None,
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=duyet["order_ids"][0],
         room_id=kb.phong_sa,
         expected_version=None,
@@ -549,14 +571,16 @@ async def test_dieu_phoi_khong_doi_trang_thai_chi_dinh_khac(kb: KichBan) -> None
         requirements=[{"order_id": mau_id, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=mau_id,
         room_id=kb.phong_mau,
         expected_version=None,
         identity=kb.truong_ca,
     )
     await kb.svc.start_service(order_id=mau_id, identity=kb.dieu_duong)
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,
@@ -576,7 +600,8 @@ async def test_phong_khong_lam_dich_vu_do(kb: KichBan) -> None:
         identity=kb.bac_si,
     )
     with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.dispatch_order(
+        await dieu_phoi_cu(
+            kb.svc,
             order_id=duyet["order_ids"][0],
             room_id=kb.phong_mau,
             expected_version=None,
@@ -599,7 +624,8 @@ async def test_nguoi_khong_dung_vai_khong_lam_dich_vu(kb: KichBan) -> None:
         requirements=[{"order_id": duyet["order_ids"][0], "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=duyet["order_ids"][0],
         room_id=kb.phong_mau,
         expected_version=None,
@@ -662,7 +688,8 @@ async def test_bi_giu_toi_khi_doc_xong_moi_dieu_phoi_duoc(kb: KichBan) -> None:
         identity=kb.bac_si,
     )
     with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.dispatch_order(
+        await dieu_phoi_cu(
+            kb.svc,
             order_id=mau_id,
             room_id=kb.phong_mau,
             expected_version=None,
@@ -778,13 +805,15 @@ async def test_hai_truong_ca_dieu_phoi_cung_luc(kb: KichBan) -> None:
         "SELECT version FROM service_order WHERE id = $1::uuid", sa_id
     )
     kq = await asyncio.gather(
-        kb.svc.dispatch_order(
+        dieu_phoi_cu(
+            kb.svc,
             order_id=sa_id,
             room_id=kb.phong_sa,
             expected_version=ban,
             identity=kb.truong_ca,
         ),
-        kb.svc.dispatch_order(
+        dieu_phoi_cu(
+            kb.svc,
             order_id=sa_id,
             room_id=kb.phong_sa,
             expected_version=ban,
@@ -845,7 +874,8 @@ async def test_hang_cho_bac_si_nguoi_quay_lai_dung_sau_nguoi_dang_cho(
     await svc.record_vitals(
         visit_id=visit_b, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
     )
-    await svc.dispatch_order(
+    await dieu_phoi_cu(
+        svc,
         order_id=duyet["order_ids"][0],
         room_id=kb.phong_mau,
         expected_version=None,
@@ -1088,8 +1118,12 @@ async def test_hai_nguoi_cung_bat_dau_mot_chi_dinh_chi_mot_nguoi_duoc(
         requirements=[{"order_id": oid, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
-        order_id=oid, room_id=kb.phong_mau, expected_version=None, identity=kb.truong_ca
+    await dieu_phoi_cu(
+        kb.svc,
+        order_id=oid,
+        room_id=kb.phong_mau,
+        expected_version=None,
+        identity=kb.truong_ca,
     )
     async with kb.pool.acquire() as conn:
         dd2 = await _nguoi(conn, kb.location_id, "NURSE_ULTRASOUND")
@@ -1693,7 +1727,8 @@ async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
         requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,
@@ -1749,7 +1784,8 @@ async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
         requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,
@@ -1856,7 +1892,8 @@ async def test_review_done_pending_prescription_draft(kb: KichBan) -> None:
         requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,
@@ -1925,7 +1962,8 @@ async def test_review_done_ho_so_sach_pass(kb: KichBan) -> None:
         requirements=[{"order_id": sa_id, "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
-    await kb.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kb.svc,
         order_id=sa_id,
         room_id=kb.phong_sa,
         expected_version=None,

@@ -22,6 +22,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.service_routing_service import ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
 
 router = APIRouter()
@@ -424,6 +425,69 @@ async def complete_consultation(
         ],
         identity=identity,
         idempotency_key=idempotency_key,
+    )
+
+
+class AssignRoomBody(BaseModel):
+    # Any: kiểm UUID / revision / mã lý do nằm ở service để trả mã lỗi ổn định.
+    room_id: Any
+    expected_routing_revision: Any
+    reason_code: Any
+    recommendation_ref: str | None = Field(default=None, max_length=300)
+
+
+class InvalidateRoutingBody(BaseModel):
+    expected_routing_revision: Any
+    reason_code: Any
+
+
+# Lifecycle v1 Slice 4 — Routing chính thức. Cửa ngoài giữ đúng cửa điều phối
+# cũ (trưởng ca / quản lý, theo công tắc mở quyền); ánh xạ vai cuối cùng còn
+# OPEN — cửa thật là capability trong ServiceRoutingService.
+@router.post("/luot-kham/orders/{order_id}/routing/assign")
+async def assign_service_room(
+    order_id: UUID,
+    body: AssignRoomBody,
+    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceRoutingService(pool).assign(
+        order_id=str(order_id),
+        room_id=body.room_id,
+        expected_routing_revision=body.expected_routing_revision,
+        reason_code=body.reason_code,
+        recommendation_ref=body.recommendation_ref,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/routing/invalidate")
+async def invalidate_service_routing(
+    order_id: UUID,
+    body: InvalidateRoutingBody,
+    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceRoutingService(pool).invalidate(
+        order_id=str(order_id),
+        expected_routing_revision=body.expected_routing_revision,
+        reason_code=body.reason_code,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.get("/luot-kham/orders/{order_id}/routing/recommendation")
+async def recommend_service_room(
+    order_id: UUID,
+    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await ServiceRoutingService(pool).recommend(
+        order_id=str(order_id), identity=identity
     )
 
 

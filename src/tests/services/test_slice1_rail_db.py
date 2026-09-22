@@ -21,7 +21,12 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from tests.services.test_luot_kham_service_db import KichBan, _cua, _vao_kham
+from tests.services.test_luot_kham_service_db import (
+    KichBan,
+    _cua,
+    _vao_kham,
+    dieu_phoi_cu,
+)
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -46,7 +51,8 @@ async def _lam(kb: KichBan, oid: str, *, performed: bool = True, **kw: Any) -> N
         node = await kb.pool.fetchval(
             "SELECT node_code FROM service_order WHERE id = $1::uuid", oid
         )
-        await kb.svc.dispatch_order(
+        await dieu_phoi_cu(
+            kb.svc,
             order_id=oid,
             room_id=kb.phong_sa if node == "DICHVU-SIEUAM" else kb.phong_mau,
             expected_version=None,

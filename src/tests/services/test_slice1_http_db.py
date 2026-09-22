@@ -35,6 +35,15 @@ KET: list[tuple[str, bool, str]] = []
 HIEN_TAI: dict[str, StaffIdentity] = {}
 
 
+# Lifecycle v1 Slice 4 §D: /dispatch cũ chỉ còn cho dòng legacy — smoke này
+# kiểm rail Slice 1 qua HTTP, không kiểm Routing, nên đưa chỉ định về dạng
+# legacy trước khi gọi. Routing chính thức: test_service_routing_db.py.
+_VE_LEGACY = (
+    "UPDATE service_order SET selection_status = NULL, routing_status = NULL"
+    " WHERE id = $1::uuid"
+)
+
+
 def kiem(ten: str, dung: bool, chi_tiet: Any = "") -> None:
     KET.append((ten, dung, str(chi_tiet)[:300]))
 
@@ -233,6 +242,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
                 CLINIC,
                 room_node,
             )
+            await pool.execute(_VE_LEGACY, oid)
             await goi(
                 tc, "POST", f"/luot-kham/orders/{oid}/dispatch", json={"room_id": room}
             )
@@ -372,6 +382,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             " 'DICHVU-SIEUAM' AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
+        await pool.execute(_VE_LEGACY, sa2)
         await goi(
             tc, "POST", f"/luot-kham/orders/{sa2}/dispatch", json={"room_id": room}
         )

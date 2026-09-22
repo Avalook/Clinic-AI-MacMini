@@ -42,6 +42,10 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // id là LƯỢT KHÁM. Khoá gửi lại là bắt buộc; backend từ chối nếu thiếu.
   "chon-dich-vu": (id) =>
     `/api/v1/luot-kham/visits/${id}/service-selection/confirm`,
+  // Điều phối chính thức (Lifecycle v1 Slice 4) — id là CHỈ ĐỊNH. Khoá gửi lại
+  // bắt buộc. Màn hình chuyển sang dùng ở Slice 6.
+  "xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/assign`,
+  "huy-xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/invalidate`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -57,6 +61,11 @@ function duongDoc(url: URL): string | null {
     return UUID_RE.test(luot) ? `/api/v1/xem-luot/${luot}` : null;
   }
   if (xem === "chi-dinh-hom-nay") return "/api/v1/luot-kham/chi-dinh-hom-nay";
+  // Gợi ý phòng theo luật (Slice 4) — chỉ đọc, không đổi gì.
+  if (xem === "goi-y-phong") {
+    const cd = url.searchParams.get("chi_dinh") ?? "";
+    return UUID_RE.test(cd) ? `/api/v1/luot-kham/orders/${cd}/routing/recommendation` : null;
+  }
   if (xem === "hang-cho") {
     const phong = url.searchParams.get("phong") ?? "";
     if (phong && !UUID_RE.test(phong)) return null;

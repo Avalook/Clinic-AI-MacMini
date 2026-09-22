@@ -2462,8 +2462,10 @@ class LuotKhamService:
                        SET exec_status = 'authorized', authorized_by = $4::uuid,
                            authorized_at = now(), version = version + 1,
                               updated_at = now(),
-                           -- Lifecycle v1: chỉ định chính thức chờ khách chọn.
-                           selection_status = 'PENDING'
+                           -- Lifecycle v1: chỉ định chính thức chờ khách chọn,
+                           -- chưa có phòng chính thức (routing_revision = 0).
+                           selection_status = 'PENDING',
+                           routing_status = 'UNASSIGNED'
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND id = ANY($3::uuid[]) AND exec_status = 'draft'
                        AND consultation_id = $5::uuid
@@ -2490,10 +2492,11 @@ class LuotKhamService:
                             INSERT INTO service_order
                                 (clinic_id, visit_id, consultation_id, service_code,
                                  service_name, node_code, exec_status, recorded_by,
-                                 authorized_by, authorized_at, selection_status)
+                                 authorized_by, authorized_at, selection_status,
+                                 routing_status)
                             VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6,
                                     'authorized', $7::uuid, $7::uuid, now(),
-                                    'PENDING')
+                                    'PENDING', 'UNASSIGNED')
                             RETURNING id::text
                             """,
                             cid,
@@ -3276,7 +3279,7 @@ class LuotKhamService:
             o = await conn.fetchrow(
                 """
                 SELECT exec_status, source, authorized_by::text AS authorized_by,
-                       hold_until_round, node_code, version
+                       hold_until_round, node_code, version, selection_status
                   FROM service_order
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
                    FOR UPDATE
@@ -3285,6 +3288,16 @@ class LuotKhamService:
                 oid,
             )
             assert o is not None
+            if o["selection_status"] is not None:
+                # Lifecycle v1 (Slice 4 §D): chỉ định mới chỉ xếp phòng qua
+                # AssignServiceRoom — sau khi khách chọn, đủ tài chính, đúng
+                # routing_revision. Đường cũ không có revision để đối chiếu, nên
+                # từ chối thay vì đoán (không lấy `version` thay revision).
+                raise LuotKhamConflictError(
+                    "LIFECYCLE_ROUTING_REQUIRED",
+                    "Chỉ định này điều phối bằng lệnh xếp phòng mới"
+                    " (AssignServiceRoom).",
+                )
             if expected_version is not None and o["version"] != expected_version:
                 raise LuotKhamConflictError(
                     "STALE_VERSION",
@@ -3434,6 +3447,11 @@ class LuotKhamService:
         kết quả…) hoặc không phòng nào làm được thì ĐỂ NGUYÊN "đã duyệt" — trưởng
         ca thấy và xếp tay. Không bao giờ ném lỗi làm hỏng lệnh duyệt.
         """
+        from clinicai.services.service_routing_service import (
+            eligible_rooms,
+            rank_rooms,
+        )
+
         cid = identity.clinic_id
         flow = await self._lock_flow(conn, cid, vid)
         closed = {
@@ -3485,34 +3503,10 @@ class LuotKhamService:
                 closed_rounds=closed,
             ):
                 continue
-            rid = await conn.fetchval(
-                """
-                SELECT r.id::text
-                  FROM clinic_room r
-                  JOIN clinic_room_node rn
-                    ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
-                 WHERE r.clinic_id = $1::uuid AND rn.node_code = $2
-                   AND r.is_active AND r.accepting AND NOT r.la_doi_tac
-                 ORDER BY
-                   EXISTS (
-                       SELECT 1 FROM work_roster w
-                         JOIN vi_tri_lam_viec v
-                           ON v.clinic_id = w.clinic_id AND v.code = w.station
-                        WHERE w.clinic_id = r.clinic_id AND v.room_id = r.id
-                          AND w.status <> 'REJECTED'
-                          AND w.work_date
-                              = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                   ) DESC,
-                   (SELECT count(*) FROM queue_entry q
-                     WHERE q.clinic_id = r.clinic_id AND q.room_id = r.id
-                       AND q.status IN ('blocked', 'waiting', 'called', 'serving')
-                   ),
-                   r.sort, r.code
-                 LIMIT 1
-                """,
-                cid,
-                o["node_code"],
-            )
+            # Cùng luật gợi ý với Routing v1 (EligibleRoomQuery + advisor theo
+            # luật): chỉ dòng CŨ (selection_status NULL) mới tự xếp ở đây.
+            xep = rank_rooms(await eligible_rooms(conn, cid, o["node_code"]))
+            rid = xep[0]["room_id"] if xep else None
             if rid is None:
                 continue
             await self._gan_phong(conn, identity, vid=vid, oid=o["id"], rid=rid, o=o)

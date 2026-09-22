@@ -99,8 +99,25 @@ BEGIN
     -- ── 4. routing_status + routing_revision ───────────────────────────────
     UPDATE public.service_order
        SET routing_status = 'ASSIGNED', routing_revision = 1 WHERE id = v_legacy;
+    -- 20260922000005: mất hiệu lực thì không còn trỏ phòng (như
+    -- InvalidateServiceRouting: hình chiếu cũ về 'authorized', room_id NULL).
+    BEGIN
+        UPDATE public.service_order
+           SET routing_status = 'REASSIGNMENT_REQUIRED', routing_revision = 2
+         WHERE id = v_legacy;
+        RAISE EXCEPTION 'routing: REASSIGNMENT_REQUIRED còn phòng lẽ ra bị chặn';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
     UPDATE public.service_order
-       SET routing_status = 'REASSIGNMENT_REQUIRED', routing_revision = 2 WHERE id = v_legacy;
+       SET routing_status = 'REASSIGNMENT_REQUIRED', routing_revision = 2,
+           exec_status = 'authorized', room_id = NULL, assigned_by = NULL,
+           assigned_at = NULL
+     WHERE id = v_legacy;
+    BEGIN
+        UPDATE public.service_order SET routing_status = 'ASSIGNED' WHERE id = v_legacy;
+        RAISE EXCEPTION 'routing: ASSIGNED không phòng lẽ ra bị chặn';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
     UPDATE public.service_order SET routing_status = 'UNASSIGNED' WHERE id = v_legacy;
     BEGIN
         UPDATE public.service_order SET routing_status = 'ROUTED' WHERE id = v_legacy;

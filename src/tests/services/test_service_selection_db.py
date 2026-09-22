@@ -457,7 +457,8 @@ async def test_14_da_xep_phong_thi_khoa(kb: KB, extra: dict[str, Any]) -> None:
     extra = dict(extra)
     exec_status = extra.pop("exec_status", "authorized")
     room = None
-    if exec_status == "assigned":
+    # Slice 4: ASSIGNED luôn có phòng (CHECK service_order_routing_khop_phong).
+    if exec_status == "assigned" or extra.get("routing_status") == "ASSIGNED":
         async with kb.pool.acquire() as conn:
             room = await conn.fetchval(
                 "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid LIMIT 1",
@@ -635,8 +636,9 @@ async def test_20_duyet_chi_dinh_moi_khong_tu_xep_phong(kb: KB) -> None:
     moi = rows[oid]
     assert moi["exec_status"] == "authorized" and moi["room_id"] is None
     assert moi["selection_status"] == "PENDING" and moi["hang"] == 0
-    # Trục routing/execution do Slice 4/5 sở hữu — Slice 2 không ghi hộ.
-    assert moi["routing_status"] is None and moi["execution_status"] is None
+    # Slice 4 §B: chỉ định chính thức mới chưa có phòng chính thức (UNASSIGNED,
+    # revision 0). Trục execution vẫn do Slice 5 sở hữu.
+    assert moi["routing_status"] == "UNASSIGNED" and moi["execution_status"] is None
     assert rows[cu]["exec_status"] == "assigned" and rows[cu]["hang"] == 1
 
 
