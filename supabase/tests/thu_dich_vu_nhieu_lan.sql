@@ -169,6 +169,73 @@ BEGIN
 END
 $phu$;
 
+-- ── Trùng nguồn TRONG CÙNG một lần thu (20260922000004) ────────────────────
+DO $cung_lan$
+DECLARE
+    v_clinic constant uuid := 'a0000000-0000-4000-8000-000000000001';
+    v_visit  constant uuid := '1e000000-0000-4000-8000-0000000000a1';
+    v_staff  constant uuid := '1e000000-0000-4000-8000-0000000005f1';
+    v_x      constant text := '1e000000-0000-4000-8000-0000000000e1';
+    v_y      constant text := '1e000000-0000-4000-8000-0000000000e2';
+    v_exam   constant text := 'exam-1e000000-0000-4000-8000-0000000000c9';
+    c        uuid := gen_random_uuid();
+BEGIN
+    INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,
+        amount, bill_revision, method, status, created_by, paid_at, confirmed_by)
+    VALUES (c, v_clinic, v_visit, 'dich_vu', 1000, 'r', 'CASH', 'PAID', v_staff,
+            now(), v_staff);
+    -- Lần đầu: chỉ định X, tiền khám, và nguồn Y khác — cùng một lần thu: được.
+    INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id, visit_id,
+        kind, source_type, source_id, name_snapshot, quantity, unit_price,
+        line_total, billing_owner)
+    VALUES (v_clinic, c, v_visit, 'dich_vu', 'service_order', v_x, 'SA', 1, 1000,
+            1000, 'CLINIC'),
+           (v_clinic, c, v_visit, 'dich_vu', 'service_order', v_y, 'XN', 1, 1000,
+            1000, 'CLINIC'),
+           (v_clinic, c, v_visit, 'dich_vu', 'exam', v_exam, 'Khám', 1, 1000,
+            1000, 'CLINIC');
+    -- X lần hai trong CHÍNH lần thu ấy: bị chặn.
+    BEGIN
+        INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id,
+            visit_id, kind, source_type, source_id, name_snapshot, quantity,
+            unit_price, line_total, billing_owner)
+        VALUES (v_clinic, c, v_visit, 'dich_vu', 'service_order', v_x, 'SA', 1,
+                1000, 1000, 'CLINIC');
+        RAISE EXCEPTION 'chỉ định trùng trong cùng lần thu lẽ ra bị chặn';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+    -- Tiền khám lần hai trong chính lần thu ấy: bị chặn.
+    BEGIN
+        INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id,
+            visit_id, kind, source_type, source_id, name_snapshot, quantity,
+            unit_price, line_total, billing_owner)
+        VALUES (v_clinic, c, v_visit, 'dich_vu', 'exam', v_exam, 'Khám', 1, 1000,
+                1000, 'CLINIC');
+        RAISE EXCEPTION 'tiền khám trùng trong cùng lần thu lẽ ra bị chặn';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+    -- Trùng trong CÙNG MỘT câu lệnh cũng bị chặn.
+    BEGIN
+        INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id,
+            visit_id, kind, source_type, source_id, name_snapshot, quantity,
+            unit_price, line_total, billing_owner)
+        SELECT v_clinic, c, v_visit, 'dich_vu', 'service_order',
+               '1e000000-0000-4000-8000-0000000000e3', 'SA', 1, 1000, 1000,
+               'CLINIC'
+          FROM generate_series(1, 2);
+        RAISE EXCEPTION 'hai dòng trùng trong một câu lệnh lẽ ra bị chặn';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+    -- Dòng đối tác cùng nguồn X không phải phủ của phòng khám: vẫn chèn được.
+    INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id, visit_id,
+        kind, source_type, source_id, name_snapshot, quantity, billing_owner)
+    VALUES (v_clinic, c, v_visit, 'dich_vu', 'service_order', v_x, 'SA', 1,
+            'EXTERNAL_PARTNER'),
+           (v_clinic, c, v_visit, 'dich_vu', 'service_order', v_x, 'SA', 1,
+            'EXTERNAL_PARTNER');
+END
+$cung_lan$;
+
 -- ── Backfill: chạy lại sạch; nhóm mâu thuẫn không chọn hộ ────────────────
 DO $backfill$
 DECLARE

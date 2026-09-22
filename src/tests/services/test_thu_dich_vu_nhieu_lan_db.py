@@ -741,7 +741,7 @@ async def test_lo_30_chi_dinh_mot_truy_van(q: Quay) -> None:
     ids = [await _cd(q, f"L{i}", 10_000 * (i + 1)) for i in range(30)]
     async with q.pool.acquire() as conn:
         dem = _DemTruyVan(conn)
-        lo = await fg.states_for_orders(dem, CLINIC, ids)  # type: ignore[arg-type]
+        lo = await fg.states_for_orders(dem, CLINIC, ids)
         assert dem.so == 1
         for oid in ids:
             mot = await fg.can_start(conn, CLINIC, oid)
