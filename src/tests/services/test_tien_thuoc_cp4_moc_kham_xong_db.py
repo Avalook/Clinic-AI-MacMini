@@ -11,6 +11,7 @@ nhánh tương thích dữ liệu cũ. Ba nhóm:
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import pytest
@@ -76,6 +77,7 @@ async def test_a_khong_hen_chua_kham_xong_thi_chua_san_sang(q: Quay) -> None:
         await PaymentService(q.pool).record_payment(
             visit_id=q.visit_id,
             kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=None,
             clinic_patient_id=None,
             identity=q.thu_ngan,
@@ -111,6 +113,7 @@ async def test_b_khong_hen_tien_kham_bao_thieu_nguon_gia_khong_phai_chua_kham(
         await PaymentService(q.pool).record_payment(
             visit_id=q.visit_id,
             kind="dich_vu",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=None,
             clinic_patient_id=None,
             identity=q.thu_ngan,

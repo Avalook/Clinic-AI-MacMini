@@ -152,7 +152,9 @@ EVENT_LABELS: dict[str, str] = {
     # nay bài kiểm đọc được cả f-string, xem `_FSTRING` bên đó.
     "service_log.started": "Bắt đầu làm dịch vụ",
     "service_log.finished": "Xong dịch vụ",
+    # Tên cũ (trước 22/09/2026) — giữ để đọc lịch sử.
     "payment.recorded": "Ghi nhận thanh toán",
+    "payment.confirmed": "Đã nhận tiền",
     "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
     "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
     "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",

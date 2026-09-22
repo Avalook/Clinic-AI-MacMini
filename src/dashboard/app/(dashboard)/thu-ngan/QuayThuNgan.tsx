@@ -20,6 +20,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+
 interface Dong {
   id: string;
   name: string;
@@ -143,16 +145,26 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
   /** Gửi một lệnh thu ngân; trả `true` nếu máy chủ nhận. Luôn tải lại sau đó. */
   const gui = useCallback(
-    async (khoa: string, noiDung: Record<string, unknown>, xongCau: string) => {
+    async (
+      khoa: string,
+      noiDung: Record<string, unknown>,
+      xongCau: string,
+      thaoTac?: string,
+    ) => {
       setDangThu(khoa);
       setLoi(null);
       setXong(null);
       try {
+        // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
+        // khoá cũ, máy chủ trả kết quả lần đầu thay vì thu lần hai.
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (thaoTac) headers["Idempotency-Key"] = khoaThaoTac(thaoTac);
         const r = await fetch("/api/payment", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(noiDung),
         });
+        if (r.ok && thaoTac) xongThaoTac(thaoTac);
         const d = (await r.json().catch(() => null)) as
           | { error?: string; message?: string; status?: string }
           | null;
@@ -189,6 +201,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           method: pt,
         },
         `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) của ${l.full_name ?? "khách"}.`,
+        dinhDanhThaoTac("thu", l.visit_id, kind, hd.revision, pt, String(hd.tong)),
       ),
     [gui],
   );

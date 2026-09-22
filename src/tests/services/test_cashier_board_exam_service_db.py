@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from typing import Any
 
 import asyncpg
@@ -116,6 +117,7 @@ async def test_reproduce_visit_service_type_null_appointment_service_type(
         pay_res = await PaymentService(q.pool).record_payment(
             visit_id=q.visit_id,
             kind="dich_vu",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=None,
             clinic_patient_id=None,
             identity=q.thu_ngan,
@@ -174,6 +176,7 @@ async def test_visit_khong_co_appointment_co_service_type_id(q: Quay) -> None:
     pay_res = await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=None,
         clinic_patient_id=None,
         identity=q.thu_ngan,
@@ -325,6 +328,7 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
         await PaymentService(q.pool).record_payment(
             visit_id=q.visit_id,
             kind="dich_vu",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=None,
             clinic_patient_id=None,
             identity=q.thu_ngan,
@@ -378,6 +382,7 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_ky_kham_xong_thu_tien
     pay_res = await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=None,
         clinic_patient_id=None,
         identity=q.thu_ngan,
@@ -449,6 +454,7 @@ async def test_regression_nguon_visit_thang_appointment_khi_lech_loai_kham(
     pay_res = await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=None,
         clinic_patient_id=None,
         identity=q.thu_ngan,

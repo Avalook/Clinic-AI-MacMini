@@ -121,13 +121,16 @@ async def tao_quay(pool: asyncpg.Pool) -> Quay:
 
 
 async def _chi_dinh(q: Quay, ma: str, ten: str) -> str:
+    # Lifecycle v1 Slice 3: chỉ chỉ định khách đã CHỌN mới vào hoá đơn — các
+    # test tiền ở đây kiểm cách tính tiền của dịch vụ khách đã chọn làm.
     return str(
         await q.pool.fetchval(
             "INSERT INTO service_order (clinic_id, visit_id, consultation_id,"
             " service_code, service_name, node_code, exec_status, recorded_by,"
-            " authorized_by, authorized_at)"
+            " authorized_by, authorized_at, selection_status)"
             " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, 'DICHVU-SIEUAM',"
-            " 'authorized', $6::uuid, $6::uuid, now()) RETURNING id::text",
+            " 'authorized', $6::uuid, $6::uuid, now(), 'SELECTED')"
+            " RETURNING id::text",
             CLINIC,
             q.visit_id,
             q.consultation_id,
@@ -214,6 +217,7 @@ async def _thu(q: Quay, kind: str, **kw) -> None:  # type: ignore[no-untyped-def
     await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind=kind,
+        idempotency_key=kw.get("key") or f"test-{uuid.uuid4().hex}",
         amount=kw.get("amount"),
         clinic_patient_id=None,
         identity=q.thu_ngan,
@@ -310,18 +314,20 @@ async def test_dich_vu_doi_tac_tu_thu_khong_cong_vao_tong(q: Quay) -> None:
     await _chi_dinh(q, f"DT-{q.duoi}", f"Đối tác thu {q.duoi}")
     hd = await _hd(q, "dich_vu")
     assert hd.tong == 150_000 + 200_000
-    assert {d.ben_thu for d in hd.dong} == {"CLINIC", "EXTERNAL_PARTNER"}
+    # Đổi vì Lifecycle v1 Slice 3 (Outstanding Bill): dòng đối tác tự thu không
+    # phải khoản phòng khám thu → không vào hoá đơn, không vào ảnh chụp (trước:
+    # hiện ra nhưng không cộng). FinanceGate báo EXTERNAL_PAYMENT_UNRESOLVED.
+    assert {d.ben_thu for d in hd.dong} == {"CLINIC"}
     await _thu(q, "dich_vu")
     p = await _phieu(q, "dich_vu")
     assert p is not None and p["amount"] == 350_000
-    # Dòng đối tác vẫn có trong ảnh chụp để biết khách đã làm gì.
     assert (
         await q.pool.fetchval(
             "SELECT count(*) FROM payment_bill_line WHERE payment_cycle_id = $1"
             " AND billing_owner = 'EXTERNAL_PARTNER'",
             p["payment_cycle_id"],
         )
-        == 1
+        == 0
     )
 
 
@@ -479,14 +485,19 @@ async def _thu_kham(q: Quay) -> str:
 
 
 async def test_da_thu_a_gia_doi_roi_gui_lai_a_van_thanh_cong(q: Quay) -> None:
-    rev_a = await _thu_kham(q)
+    # Đổi vì Lifecycle v1 Slice 3: "gửi lại vì mất phản hồi" nay nhận ra bằng
+    # CÙNG Idempotency-Key (biên nhận trong giao dịch), không bằng so hình chiếu
+    # `payment`. Cùng khoá + cùng nội dung → trả đúng lần thu cũ.
+    khoa = f"test-{uuid.uuid4().hex}"
+    rev_a = (await _hd(q, "dich_vu")).revision
+    await _thu(q, "dich_vu", bill_revision=rev_a, key=khoa)
     p0 = await _phieu(q, "dich_vu")
     await q.pool.execute(
         "UPDATE service_price SET unit_price = 180000 WHERE service_code = $1",
         f"KHAM-{q.duoi}",
     )
     assert (await _hd(q, "dich_vu")).revision != rev_a  # hoá đơn hiện tại đã khác
-    await _thu(q, "dich_vu", bill_revision=rev_a, amount=150_000)  # mạng rớt, gửi lại
+    await _thu(q, "dich_vu", bill_revision=rev_a, key=khoa)  # mạng rớt, gửi lại
     p1 = await _phieu(q, "dich_vu")
     assert p0 is not None and p1 is not None
     assert (p1["payment_cycle_id"], p1["amount"]) == (p0["payment_cycle_id"], 150_000)
@@ -513,9 +524,12 @@ async def test_da_thu_a_hoa_don_b_cung_tong_khong_duoc_coi_la_da_tra(q: Quay) ->
         f"Y-{q.duoi}",
         f"Dịch vụ Y {q.duoi}",
     )
+    # Đổi vì Lifecycle v1 Slice 3: chỉ định (cùng id) đã được lần thu A phủ —
+    # hoá đơn còn nợ không có nó nữa, nên không có "hoá đơn B" nào để thu và
+    # không thể coi B là đã trả bằng tiền của A: lần thu mới bị từ chối.
     hd_b = await _hd(q, "dich_vu")
-    assert hd_b.tong == 250_000
-    with pytest.raises(ConflictError, match="hoá đơn khác"):
+    assert hd_b.dong == []
+    with pytest.raises(ValidationError, match="không còn khoản"):
         await _thu(q, "dich_vu", bill_revision=hd_b.revision, amount=250_000)
 
 
@@ -646,14 +660,17 @@ async def test_dich_vu_doi_tac_chua_biet_gia_chup_la_null(q: Quay) -> None:
         " AND billing_owner = 'EXTERNAL_PARTNER'",
         q.visit_id,
     )
-    assert r is not None and r["unit_price"] is None and r["line_total"] is None
+    # Đổi vì Lifecycle v1 Slice 3: dòng đối tác không vào ảnh chụp lần thu của
+    # phòng khám (trước: chụp với giá NULL).
+    assert r is None
     # Dòng phòng khám thu thì DB không nhận thiếu giá.
     with pytest.raises(asyncpg.CheckViolationError):
         await q.pool.execute(
             "INSERT INTO payment_bill_line (clinic_id, payment_id, payment_cycle_id,"
             " visit_id, kind, source_type, source_id, name_snapshot, quantity,"
             " billing_owner) SELECT clinic_id, payment_id, payment_cycle_id,"
-            " visit_id, kind, 'exam', 'x', 'x', 1, 'CLINIC' FROM payment_bill_line"
+            " visit_id, kind, 'exam', 'x-' || gen_random_uuid()::text, 'x', 1,"
+            " 'CLINIC' FROM payment_bill_line"
             " WHERE visit_id = $1::uuid LIMIT 1",
             q.visit_id,
         )
@@ -705,7 +722,8 @@ async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
                     " payment_cycle_id, visit_id, kind, source_type, source_id,"
                     " name_snapshot, quantity, unit_price, line_total,"
                     " billing_owner) SELECT clinic_id, payment_id, payment_cycle_id,"
-                    " visit_id, kind, 'exam', 'x', 'x', 1, 0, 0, 'CLINIC'"
+                    " visit_id, kind, 'exam', 'x-' || gen_random_uuid()::text,"
+                    " 'x', 1, 0, 0, 'CLINIC'"
                     " FROM payment_bill_line LIMIT 1"
                 )
     async with q.pool.acquire() as conn:
@@ -716,7 +734,8 @@ async def test_quyen_that_tren_payment_bill_line(q: Quay) -> None:
                 " payment_cycle_id, visit_id, kind, source_type, source_id,"
                 " name_snapshot, quantity, unit_price, line_total, billing_owner)"
                 " SELECT clinic_id, payment_id, payment_cycle_id, visit_id, kind,"
-                " 'exam', 'x', 'x', 1, 0, 0, 'CLINIC' FROM payment_bill_line"
+                " 'exam', 'x-' || gen_random_uuid()::text, 'x', 1, 0, 0, 'CLINIC'"
+                " FROM payment_bill_line"
                 " WHERE visit_id = $1::uuid LIMIT 1",
                 q.visit_id,
             )

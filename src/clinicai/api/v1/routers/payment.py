@@ -11,7 +11,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import (
@@ -75,8 +75,26 @@ async def record_payment(
     identity: StaffIdentity = Depends(_CASHIER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Một lần thu. Tiền mặt → PAID; chuyển khoản/QR → chờ xác minh."""
+    if body.kind == "dich_vu":
+        # Lifecycle v1 Slice 3: tiền dịch vụ dùng BIÊN NHẬN TRONG CÙNG giao dịch
+        # (command_receipt) — một cơ chế chống trùng, khoá bắt buộc. Không đi
+        # qua IdempotencyGuard: biên nhận của nó lưu SAU giao dịch nghiệp vụ.
+        lan_thu = await PaymentService(pool).record_payment(
+            visit_id=str(body.visit_id),
+            kind=body.kind,
+            amount=body.amount,
+            clinic_patient_id=(
+                str(body.clinic_patient_id) if body.clinic_patient_id else None
+            ),
+            bill_revision=body.bill_revision,
+            method=body.method,
+            identity=identity,
+            idempotency_key=idempotency_key,
+        )
+        return {"ok": True, **lan_thu}
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]

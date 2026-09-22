@@ -93,14 +93,21 @@ export async function POST(request: Request) {
       reason: p.reason,
     });
   }
-  return proxyJsonToBackend("POST", "/api/v1/payments", {
-    visit_id: p.visitId,
-    clinic_patient_id: p.clinicPatientId || null,
-    kind: p.kind,
-    amount: p.amount,
-    bill_revision: p.billRevision || null,
-    method: p.method || "CASH",
-  });
+  // Tiền dịch vụ (Lifecycle v1 Slice 3): backend BẮT BUỘC khoá gửi lại và
+  // giữ biên nhận trong cùng giao dịch — chuyển nguyên khoá của màn hình.
+  return proxyJsonToBackend(
+    "POST",
+    "/api/v1/payments",
+    {
+      visit_id: p.visitId,
+      clinic_patient_id: p.clinicPatientId || null,
+      kind: p.kind,
+      amount: p.amount,
+      bill_revision: p.billRevision || null,
+      method: p.method || "CASH",
+    },
+    request.headers.get("Idempotency-Key") ?? undefined,
+  );
 }
 
 export async function DELETE(request: Request) {

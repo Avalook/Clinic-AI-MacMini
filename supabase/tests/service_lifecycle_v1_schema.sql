@@ -2,7 +2,7 @@
 --
 -- Kiểm ràng buộc DB của ba trục selection / routing / execution,
 -- service_selection_state, service_execution_attempt; và chỉ mục một-lần-thu
--- của payment_cycle vẫn như cũ (Slice 1 chưa nới cho dich_vu).
+-- của payment_cycle theo loại.
 --
 -- Tự dựng dữ liệu, cuối file ROLLBACK.
 
@@ -302,8 +302,9 @@ BEGIN
 END
 $lc$;
 
--- ── 10/11. payment_cycle: chỉ mục một-lần-thu-sống vẫn như cũ ─────────────
--- Slice 1 KHÔNG nới cho dich_vu (xem đầu migration 20260922000001).
+-- ── 10/11. payment_cycle theo loại (20260922000003 thay chỉ mục của Slice 1) ─
+-- Hai loại đều chặn hai lần chờ xác minh. Thuốc còn chặn PAID khi đang chờ;
+-- dịch vụ thì không — thu nhiều lần là hợp lệ (chi tiết: thu_dich_vu_nhieu_lan.sql).
 DO $pc$
 DECLARE
     v_clinic constant uuid := 'a0000000-0000-4000-8000-000000000001';
@@ -324,16 +325,21 @@ BEGIN
             RAISE EXCEPTION 'payment_cycle %: hai lần chờ xác minh lẽ ra bị chặn', k;
         EXCEPTION WHEN unique_violation THEN NULL;
         END;
-        BEGIN
-            INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id,
-                kind, amount, bill_revision, method, status, created_by,
-                paid_at, confirmed_by)
-            VALUES (gen_random_uuid(), v_clinic, v_visit, k, 100000, 'r3', 'CASH',
-                'PAID', v_staff, now(), v_staff);
-            RAISE EXCEPTION 'payment_cycle %: PAID khi đang chờ lẽ ra bị chặn', k;
-        EXCEPTION WHEN unique_violation THEN NULL;
-        END;
     END LOOP;
+    BEGIN
+        INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id,
+            kind, amount, bill_revision, method, status, created_by,
+            paid_at, confirmed_by)
+        VALUES (gen_random_uuid(), v_clinic, v_visit, 'thuoc', 100000, 'r3', 'CASH',
+            'PAID', v_staff, now(), v_staff);
+        RAISE EXCEPTION 'payment_cycle thuoc: PAID khi đang chờ lẽ ra bị chặn';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+    INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id,
+        kind, amount, bill_revision, method, status, created_by,
+        paid_at, confirmed_by)
+    VALUES (gen_random_uuid(), v_clinic, v_visit, 'dich_vu', 100000, 'r3', 'CASH',
+        'PAID', v_staff, now(), v_staff);
 END
 $pc$;
 

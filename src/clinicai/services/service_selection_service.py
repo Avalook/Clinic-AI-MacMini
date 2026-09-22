@@ -24,6 +24,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit import record_event
+from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
 from clinicai.services.luot_kham_service import (
     LuotKhamConflictError,
     LuotKhamService,
@@ -254,29 +255,9 @@ SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
    FOR UPDATE OF o
 """
 
-#: Tiền dịch vụ của lượt mà KHÔNG truy được tới từng chỉ định: lần thu đang chờ
-#: hoặc đã từng nhận tiền nhưng không có dòng hoá đơn nào, hoặc dòng ``payment``
-#: dịch vụ không trỏ tới lần thu có dòng hoá đơn. Không suy phân bổ từ số tiền,
-#: exec_status, phòng hay hình chiếu payment (SELECTION §9).
-_ALLOCATION_UNKNOWN_SQL = """
-SELECT EXISTS (
-           SELECT 1 FROM payment_cycle c
-            WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
-              AND c.kind = 'dich_vu'
-              AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
-              AND NOT EXISTS (
-                  SELECT 1 FROM payment_bill_line bl
-                   WHERE bl.clinic_id = c.clinic_id
-                     AND bl.payment_cycle_id = c.payment_cycle_id))
-    OR EXISTS (
-           SELECT 1 FROM payment p
-            WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid
-              AND p.kind = 'dich_vu'
-              AND NOT EXISTS (
-                  SELECT 1 FROM payment_bill_line bl
-                   WHERE bl.clinic_id = p.clinic_id
-                     AND bl.payment_cycle_id = p.payment_cycle_id))
-"""
+#: Tiền dịch vụ cũ không truy được tới từng chỉ định — cùng MỘT luật với
+#: Outstanding Bill (``bill_service.THU_CU_KHONG_TRUY_DUOC_SQL``).
+_ALLOCATION_UNKNOWN_SQL = THU_CU_KHONG_TRUY_DUOC_SQL
 
 
 def _iso(value: datetime | None) -> str | None:

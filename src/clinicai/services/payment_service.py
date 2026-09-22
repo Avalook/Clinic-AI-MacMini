@@ -39,7 +39,12 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import pos_outbox
-from clinicai.services.bill_service import HoaDon, tinh_hoa_don
+from clinicai.services.bill_service import (
+    HoaDon,
+    hoa_don_theo_anh_chup,
+    tinh_hoa_don,
+)
+from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
@@ -71,6 +76,8 @@ PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
 DIEN_TU: frozenset[str] = frozenset({"TRANSFER", "QR"})
 CHO_XAC_MINH = "PENDING_VERIFICATION"
+#: Hành động trong command_receipt của lệnh thu tiền dịch vụ.
+_THU_DICH_VU = "payment.record.dich_vu"
 # Mã nguyên nhân cần đối soát (CP6) — đúng hai mã DB chấp nhận
 # (payment_cycle_doi_soat_ma_hop_le). Thêm mã = thêm vào CHECK cùng lúc.
 DOI_SOAT_HOA_DON_DOI = "HOA_DON_DOI"
@@ -143,6 +150,7 @@ class PaymentService:
         identity: StaffIdentity,
         bill_revision: str | None = None,
         method: str = "CASH",
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Một LẦN THU (payment_cycle) cho ``(visit_id, kind)``.
 
@@ -169,60 +177,21 @@ class PaymentService:
             if so_trinh_duyet is None:
                 raise ValidationError("Số tiền phải là số hữu hạn lớn hơn 0")
 
+        if kind == "dich_vu":
+            return await self._thu_dich_vu(
+                visit_id=visit_id,
+                clinic_patient_id=clinic_patient_id,
+                identity=identity,
+                bill_revision=bill_revision,
+                method=method,
+                so_trinh_duyet=so_trinh_duyet,
+                idempotency_key=idempotency_key,
+            )
+
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                # "Khám xong" là trạng thái của LƯỢT (moc_kham_xong, review
-                # CP4): không INNER JOIN lịch hẹn — lượt không có lịch hẹn vẫn
-                # thu được. Lịch hẹn nếu có chỉ còn là kiểm chéo bệnh nhân.
-                # Khoá chỉ `visit`: mốc nằm trên visit, và Postgres không cho
-                # khoá phía có thể rỗng của LEFT JOIN.
-                status_row = await conn.fetchrow(
-                    f"""
-                    SELECT
-                        {kham_xong_sql("v")} AS kham_xong,
-                        (v.appointment_id IS NULL OR a.id IS NOT NULL) AS hen_khop,
-                        v.clinic_patient_id,
-                        EXISTS (
-                            SELECT 1
-                              FROM clinic_membership m
-                             WHERE m.staff_id = $3::uuid
-                               AND m.clinic_id = v.clinic_id
-                               AND m.is_active
-                        ) AS staff_in_clinic
-                      FROM visit v
-                      LEFT JOIN appointment a
-                        ON a.id = v.appointment_id
-                       AND a.clinic_id = v.clinic_id
-                       AND a.clinic_patient_id = v.clinic_patient_id
-                      JOIN patient p
-                        ON p.clinic_patient_id = v.clinic_patient_id
-                       AND p.clinic_id = v.clinic_id
-                     WHERE v.visit_id = $1::uuid
-                       AND v.clinic_id = $2::uuid
-                     FOR UPDATE OF v
-                    """,  # noqa: S608 — chỉ chèn biểu thức cố định
-                    visit_id,
-                    identity.clinic_id,
-                    identity.staff_id,
-                )
-                if status_row is None or not status_row["hen_khop"]:
-                    raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
-                if not status_row["staff_in_clinic"]:
-                    raise ValidationError(
-                        "Nhân viên thu tiền không thuộc phòng khám này"
-                    )
-                authoritative_patient_id = str(status_row["clinic_patient_id"])
-                if (
-                    clinic_patient_id is not None
-                    and clinic_patient_id != authoritative_patient_id
-                ):
-                    raise ValidationError(
-                        "Lượt khám không thuộc bệnh nhân thanh toán này"
-                    )
-                if not status_row["kham_xong"]:
-                    raise ConflictError(
-                        "Bác sĩ chưa khám xong lượt này — chưa thể thu tiền"
-                    )
+                status_row = await _khoa_luot_thu(conn, visit_id, identity)
+                authoritative_patient_id = _kiem_luot_thu(status_row, clinic_patient_id)
                 # CP3: khoá theo đúng thứ tự visit → dòng đơn → phân lô → lô,
                 # TRƯỚC khi chạm payment_cycle / payment.
                 phan_lo: list[PhanLo] = []
@@ -451,6 +420,202 @@ class PaymentService:
             "status": CHO_XAC_MINH if dien_tu else "PAID",
         }
 
+    async def _thu_dich_vu(
+        self,
+        *,
+        visit_id: str,
+        clinic_patient_id: str | None,
+        identity: StaffIdentity,
+        bill_revision: str | None,
+        method: str,
+        so_trinh_duyet: int | None,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        """Một lần thu TIỀN DỊCH VỤ theo OUTSTANDING BILL (Lifecycle v1 Slice 3).
+
+        Nhiều lần thu PAID trên một lượt là hợp lệ: mỗi lần chỉ thu phần còn nợ
+        (tiền khám nếu chưa phủ + chỉ định khách đã chọn mà chưa phủ). Chốt DB
+        ``payment_bill_line_mot_lan_phu`` bảo đảm một dòng không bị phủ hai lần,
+        kể cả khi hai người thu cùng lúc.
+
+        BIÊN NHẬN TRONG CÙNG GIAO DỊCH (CHECKPOINT §5): khoá lượt → đọc biên
+        nhận → (gửi lại thì trả đúng kết quả cũ) → dựng hoá đơn → ghi lần thu +
+        ảnh chụp + sự kiện + biên nhận → commit. Đọc biên nhận TRƯỚC khi dựng
+        hoá đơn: lần đầu có thể đã commit (các dòng đã thành "đã phủ", hoá đơn
+        còn nợ đã đổi) rồi mới mất phản hồi.
+        """
+        if not idempotency_key:
+            raise ValidationError(
+                "Thiếu Idempotency-Key — mỗi lần bấm thu tiền dịch vụ phải mang"
+                " một khoá (gửi lại cùng thao tác thì dùng lại khoá cũ)."
+            )
+        payload = {
+            "visit_id": visit_id,
+            "kind": "dich_vu",
+            "clinic_patient_id": clinic_patient_id,
+            "bill_revision": bill_revision,
+            "method": method,
+            "amount": so_trinh_duyet,
+        }
+        async with self._pool.acquire() as conn:
+            try:
+                async with conn.transaction():
+                    status_row = await _khoa_luot_thu(conn, visit_id, identity)
+                    cached = await LuotKhamService._receipt_get(
+                        conn, identity, _THU_DICH_VU, idempotency_key, payload
+                    )
+                    if cached is not None:
+                        return cached
+                    patient_id = _kiem_luot_thu(status_row, clinic_patient_id)
+                    kq = await self._ghi_lan_thu_dich_vu(
+                        conn,
+                        visit_id=visit_id,
+                        patient_id=patient_id,
+                        identity=identity,
+                        bill_revision=bill_revision,
+                        method=method,
+                        so_trinh_duyet=so_trinh_duyet,
+                    )
+                    await LuotKhamService._receipt_put(
+                        conn,
+                        identity,
+                        _THU_DICH_VU,
+                        idempotency_key,
+                        payload,
+                        visit_id,
+                        kq,
+                    )
+            except asyncpg.UniqueViolationError as exc:
+                # Chốt DB chống phủ trùng / một lần chờ xác minh: người khác vừa
+                # thu đúng các dòng này. Cả giao dịch đã lùi — không ghi gì.
+                raise ConflictError(
+                    "Khoản dịch vụ này vừa được thu ở một lần thu khác — tải lại"
+                    " để thấy phần còn nợ."
+                ) from exc
+        logger.info(
+            "payment_recorded",
+            visit_id=visit_id,
+            kind="dich_vu",
+            method=method,
+            by_staff_id=identity.staff_id,
+        )
+        return kq
+
+    async def _ghi_lan_thu_dich_vu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        visit_id: str,
+        patient_id: str,
+        identity: StaffIdentity,
+        bill_revision: str | None,
+        method: str,
+        so_trinh_duyet: int | None,
+    ) -> dict[str, Any]:
+        cho = await conn.fetchrow(
+            """
+            SELECT payment_cycle_id, bill_revision, method
+              FROM payment_cycle
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND kind = 'dich_vu' AND status = 'PENDING_VERIFICATION'
+             FOR UPDATE
+            """,
+            identity.clinic_id,
+            visit_id,
+        )
+        if cho is not None:
+            # Một lần chờ xác minh tại một thời điểm. Gửi lại ĐÚNG lần chờ ấy
+            # (cùng hoá đơn, cùng phương thức) → trả lần chờ, không tạo lần hai.
+            if (
+                bill_revision is not None
+                and bill_revision == cho["bill_revision"]
+                and method == cho["method"]
+            ):
+                return {
+                    "payment_cycle_id": str(cho["payment_cycle_id"]),
+                    "status": CHO_XAC_MINH,
+                }
+            raise ConflictError(
+                "Khoản này đang có một lần chuyển khoản/QR chờ xác minh — "
+                "xác minh đã nhận tiền hoặc huỷ lần chờ trước khi thu lại."
+            )
+        hoa_don = await tinh_hoa_don(
+            conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind="dich_vu"
+        )
+        if hoa_don.van_de:
+            raise ValidationError("Chưa thu được — " + "; ".join(hoa_don.van_de))
+        if hoa_don.tong <= 0:
+            raise ValidationError("Lượt này không còn khoản dịch vụ nào phải thu.")
+        if bill_revision is not None and bill_revision != hoa_don.revision:
+            raise BillChangedError(
+                "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) — "
+                "tải lại rồi thu theo hoá đơn mới."
+            )
+        if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
+            raise BillChangedError(
+                f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
+                f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
+            )
+        cycle_id = str(uuid.uuid4())
+        dien_tu = method in DIEN_TU
+        await conn.execute(
+            """
+            INSERT INTO payment_cycle (
+                payment_cycle_id, clinic_id, visit_id, kind, amount,
+                bill_revision, method, status, created_by, paid_at, confirmed_by
+            )
+            VALUES ($1::uuid, $2::uuid, $3::uuid, 'dich_vu', $4, $5, $6, $7,
+                    $8::uuid,
+                    CASE WHEN $7 = 'PAID' THEN now() END,
+                    CASE WHEN $7 = 'PAID' THEN $8::uuid END)
+            """,
+            cycle_id,
+            identity.clinic_id,
+            visit_id,
+            hoa_don.tong,
+            hoa_don.revision,
+            method,
+            CHO_XAC_MINH if dien_tu else "PAID",
+            identity.staff_id,
+        )
+        payment_id: str | None = None
+        if not dien_tu:
+            payment_id = await _ghi_da_thu(
+                conn,
+                cycle_id=cycle_id,
+                visit_id=visit_id,
+                kind="dich_vu",
+                amount=hoa_don.tong,
+                bill_revision=hoa_don.revision,
+                patient_id=patient_id,
+                identity=identity,
+                method=method,
+                reference=None,
+            )
+        await _ghi_anh_hoa_don(
+            conn,
+            clinic_id=identity.clinic_id,
+            payment_id=payment_id,
+            payment_cycle_id=cycle_id,
+            hoa_don=hoa_don,
+        )
+        if dien_tu:
+            await _log_payment_event(
+                conn,
+                event_type="payment.pending_verification",
+                payment_id=cycle_id,
+                payment_cycle_id=cycle_id,
+                visit_id=visit_id,
+                kind="dich_vu",
+                amount=hoa_don.tong,
+                identity=identity,
+                method=method,
+            )
+        return {
+            "payment_cycle_id": cycle_id,
+            "status": CHO_XAC_MINH if dien_tu else "PAID",
+        }
+
     @staticmethod
     async def _khoa_lan_thu(
         conn: asyncpg.Connection,
@@ -495,7 +660,7 @@ class PaymentService:
             """
             SELECT payment_cycle_id, status, method, amount, bill_revision,
                    reference, can_doi_soat, doi_soat_ly_do, created_by, confirmed_by,
-                   legacy
+                   legacy, paid_at
               FROM payment_cycle
              WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
                AND visit_id = $3::uuid AND kind = $4
@@ -568,9 +733,25 @@ class PaymentService:
                     visit_id,
                     identity.clinic_id,
                 )
-                hoa_don = await tinh_hoa_don(
-                    conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind=kind
-                )
+                if kind == "dich_vu":
+                    # Slice 3 §6: ảnh chụp của CHÍNH lần chờ là khoản khách đang
+                    # trả. Outstanding bill hiện tại đã loại các dòng ấy (vì lần
+                    # chờ đang phủ chúng) và có thể có chỉ định MỚI của lần thu
+                    # sau — so với nó thì luôn "lệch". Chỉ so đúng các nguồn đã
+                    # chụp: nguồn đổi giá / đổi bên thu / bị huỷ mới là lệch.
+                    hoa_don = await hoa_don_theo_anh_chup(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        visit_id=visit_id,
+                        cycle_id=payment_cycle_id,
+                    )
+                else:
+                    hoa_don = await tinh_hoa_don(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        visit_id=visit_id,
+                        kind=kind,
+                    )
                 lech = hoa_don.revision != lan["bill_revision"]
                 khong_ban_duoc: list[str] = []
                 if kind == "thuoc" and bool(phan_lo) and not lan["legacy"]:
@@ -787,48 +968,59 @@ class PaymentService:
                     raise ConflictError(
                         "Lần thu này chưa phải phiếu đã thu — không huỷ phiếu được."
                     )
-                payment = await conn.fetchrow(
-                    """
-                    UPDATE payment
-                       SET status = 'VOIDED',
-                           voided_at = now(),
-                           voided_by_staff_id = $4::uuid,
-                           void_reason = $5,
-                           updated_at = now()
-                     WHERE visit_id = $1::uuid
-                       AND kind = $2
-                       AND clinic_id = $3::uuid
-                       AND status = 'PAID'
-                       AND payment_cycle_id = $7::uuid
-                       AND ($6::boolean OR paid_by_staff_id = $4::uuid)
-                    RETURNING id, amount, payment_cycle_id,
-                              paid_by_staff_id, paid_at
-                    """,
-                    visit_id,
-                    kind,
-                    identity.clinic_id,
-                    identity.staff_id,
-                    normalized_reason,
-                    identity.co_vai({ClinicRole.MANAGEMENT}),
-                    payment_cycle_id,
-                )
-                if payment is None:
-                    if await conn.fetchval(
-                        "SELECT EXISTS (SELECT 1 FROM payment WHERE visit_id = $1::uuid"
-                        " AND kind = $2 AND clinic_id = $3::uuid AND status = 'PAID'"
-                        " AND payment_cycle_id = $4::uuid)",
+                if kind == "dich_vu":
+                    payment = await _huy_hinh_chieu_dich_vu(
+                        conn,
+                        lan=lan,
+                        visit_id=visit_id,
+                        identity=identity,
+                        reason=normalized_reason,
+                    )
+                else:
+                    payment = await conn.fetchrow(
+                        """
+                        UPDATE payment
+                           SET status = 'VOIDED',
+                               voided_at = now(),
+                               voided_by_staff_id = $4::uuid,
+                               void_reason = $5,
+                               updated_at = now()
+                         WHERE visit_id = $1::uuid
+                           AND kind = $2
+                           AND clinic_id = $3::uuid
+                           AND status = 'PAID'
+                           AND payment_cycle_id = $7::uuid
+                           AND ($6::boolean OR paid_by_staff_id = $4::uuid)
+                        RETURNING id, amount, payment_cycle_id,
+                                  paid_by_staff_id, paid_at
+                        """,
                         visit_id,
                         kind,
                         identity.clinic_id,
+                        identity.staff_id,
+                        normalized_reason,
+                        identity.co_vai({ClinicRole.MANAGEMENT}),
                         payment_cycle_id,
-                    ):
-                        raise SafetyGateError(
-                            "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
-                        )
-                    raise ConflictError(
-                        "Lần thu này không phải phiếu thu hiện hành của lượt — "
-                        "không huỷ được từ đây."
                     )
+                    if payment is None:
+                        if await conn.fetchval(
+                            "SELECT EXISTS (SELECT 1 FROM payment"
+                            " WHERE visit_id = $1::uuid AND kind = $2"
+                            " AND clinic_id = $3::uuid AND status = 'PAID'"
+                            " AND payment_cycle_id = $4::uuid)",
+                            visit_id,
+                            kind,
+                            identity.clinic_id,
+                            payment_cycle_id,
+                        ):
+                            raise SafetyGateError(
+                                "Chỉ thu ngân đã thu phiếu này (hoặc quản lý)"
+                                " mới huỷ được."
+                            )
+                        raise ConflictError(
+                            "Lần thu này không phải phiếu thu hiện hành của lượt — "
+                            "không huỷ được từ đây."
+                        )
                 payment_id = str(payment["id"])
                 await conn.execute(
                     """
@@ -923,6 +1115,165 @@ class PaymentService:
         return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
 
 
+async def _khoa_luot_thu(
+    conn: asyncpg.Connection, visit_id: str, identity: StaffIdentity
+) -> asyncpg.Record | None:
+    """Khoá dòng ``visit`` (khoá đầu tiên của mọi lệnh thu) và đọc các mốc cần kiểm.
+
+    "Khám xong" là trạng thái của LƯỢT (moc_kham_xong, review CP4): không INNER
+    JOIN lịch hẹn — lượt không có lịch hẹn vẫn thu được. Lịch hẹn nếu có chỉ còn
+    là kiểm chéo bệnh nhân. Khoá chỉ `visit`: mốc nằm trên visit, và Postgres
+    không cho khoá phía có thể rỗng của LEFT JOIN.
+    """
+    return await conn.fetchrow(
+        f"""
+        SELECT
+            {kham_xong_sql("v")} AS kham_xong,
+            (v.appointment_id IS NULL OR a.id IS NOT NULL) AS hen_khop,
+            v.clinic_patient_id,
+            EXISTS (
+                SELECT 1
+                  FROM clinic_membership m
+                 WHERE m.staff_id = $3::uuid
+                   AND m.clinic_id = v.clinic_id
+                   AND m.is_active
+            ) AS staff_in_clinic
+          FROM visit v
+          LEFT JOIN appointment a
+            ON a.id = v.appointment_id
+           AND a.clinic_id = v.clinic_id
+           AND a.clinic_patient_id = v.clinic_patient_id
+          JOIN patient p
+            ON p.clinic_patient_id = v.clinic_patient_id
+           AND p.clinic_id = v.clinic_id
+         WHERE v.visit_id = $1::uuid
+           AND v.clinic_id = $2::uuid
+         FOR UPDATE OF v
+        """,  # noqa: S608 — chỉ chèn biểu thức cố định
+        visit_id,
+        identity.clinic_id,
+        identity.staff_id,
+    )
+
+
+def _kiem_luot_thu(
+    status_row: asyncpg.Record | None, clinic_patient_id: str | None
+) -> str:
+    """Các chốt trước khi thu; trả mã bệnh nhân chuẩn của lượt."""
+    if status_row is None or not status_row["hen_khop"]:
+        raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
+    if not status_row["staff_in_clinic"]:
+        raise ValidationError("Nhân viên thu tiền không thuộc phòng khám này")
+    authoritative_patient_id = str(status_row["clinic_patient_id"])
+    if clinic_patient_id is not None and clinic_patient_id != authoritative_patient_id:
+        raise ValidationError("Lượt khám không thuộc bệnh nhân thanh toán này")
+    if not status_row["kham_xong"]:
+        raise ConflictError("Bác sĩ chưa khám xong lượt này — chưa thể thu tiền")
+    return authoritative_patient_id
+
+
+async def _huy_hinh_chieu_dich_vu(
+    conn: asyncpg.Connection,
+    *,
+    lan: asyncpg.Record,
+    visit_id: str,
+    identity: StaffIdentity,
+    reason: str,
+) -> dict[str, Any]:
+    """Huỷ một lần thu dịch vụ khi lượt có thể có NHIỀU lần thu PAID (Slice 3).
+
+    ``payment`` chỉ là hình chiếu cho reader cũ. Huỷ lần cũ không được làm mất
+    nghĩa các lần PAID khác: hình chiếu chỉ đổi khi nó đang trỏ ĐÚNG lần bị huỷ
+    — khi ấy dựng lại từ sổ, trỏ lần PAID còn hợp lệ gần nhất; không còn lần nào
+    thì hình chiếu thành VOIDED như trước. Không sửa lịch sử lần thu nào.
+
+    Ai huỷ được giữ nguyên luật 15/09/2026: chính người đã thu lần ấy, hoặc
+    Quản lý. Trả thông tin lần bị huỷ cho sự kiện ``payment.voided``.
+    """
+    cycle_id = str(lan["payment_cycle_id"])
+    if not (
+        identity.co_vai({ClinicRole.MANAGEMENT})
+        or str(lan["confirmed_by"] or "") == identity.staff_id
+    ):
+        raise SafetyGateError(
+            "Chỉ thu ngân đã thu phiếu này (hoặc quản lý) mới huỷ được."
+        )
+    proj = await conn.fetchrow(
+        """
+        SELECT id, payment_cycle_id::text AS payment_cycle_id, status
+          FROM payment
+         WHERE visit_id = $1::uuid AND kind = 'dich_vu' AND clinic_id = $2::uuid
+         FOR UPDATE
+        """,
+        visit_id,
+        identity.clinic_id,
+    )
+    tro_dung = (
+        proj is not None
+        and proj["payment_cycle_id"] == cycle_id
+        and proj["status"] == "PAID"
+    )
+    if not tro_dung and lan["legacy"]:
+        # Lần thu cũ chỉ còn trong sổ sự kiện — như trước, không huỷ từ đây.
+        raise ConflictError(
+            "Lần thu này không phải phiếu thu hiện hành của lượt — "
+            "không huỷ được từ đây."
+        )
+    if tro_dung:
+        assert proj is not None
+        thay = await conn.fetchrow(
+            """
+            SELECT payment_cycle_id, amount, confirmed_by, paid_at, bill_revision
+              FROM payment_cycle
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND kind = 'dich_vu' AND status = 'PAID'
+               AND payment_cycle_id <> $3::uuid
+             ORDER BY paid_at DESC, created_at DESC, payment_cycle_id DESC
+             LIMIT 1
+            """,
+            identity.clinic_id,
+            visit_id,
+            cycle_id,
+        )
+        if thay is not None:
+            await conn.execute(
+                """
+                UPDATE payment
+                   SET payment_cycle_id = $2::uuid, amount = $3, status = 'PAID',
+                       paid_by_staff_id = $4::uuid, paid_at = $5,
+                       bill_revision = $6, voided_at = NULL,
+                       voided_by_staff_id = NULL, void_reason = NULL,
+                       updated_at = now()
+                 WHERE id = $1::uuid
+                """,
+                proj["id"],
+                thay["payment_cycle_id"],
+                thay["amount"],
+                thay["confirmed_by"],
+                thay["paid_at"],
+                thay["bill_revision"],
+            )
+        else:
+            await conn.execute(
+                """
+                UPDATE payment
+                   SET status = 'VOIDED', voided_at = now(),
+                       voided_by_staff_id = $2::uuid, void_reason = $3,
+                       updated_at = now()
+                 WHERE id = $1::uuid
+                """,
+                proj["id"],
+                identity.staff_id,
+                reason,
+            )
+    return {
+        "id": proj["id"] if proj is not None else cycle_id,
+        "amount": int(lan["amount"]),
+        "paid_by_staff_id": lan["confirmed_by"],
+        "paid_at": lan["paid_at"],
+    }
+
+
 async def _ghi_da_thu(
     conn: asyncpg.Connection,
     *,
@@ -962,7 +1313,10 @@ async def _ghi_da_thu(
             void_reason        = NULL,
             bill_revision      = EXCLUDED.bill_revision,
             updated_at        = now()
-        WHERE payment.status = 'VOIDED'
+        -- dich_vu thu được NHIỀU lần (Slice 3): hình chiếu trỏ lần thu PAID mới
+        -- nhất để reader cũ còn sống; sự thật tài chính là payment_cycle +
+        -- payment_bill_line, không phải dòng này. thuoc giữ luật cũ.
+        WHERE payment.status = 'VOIDED' OR EXCLUDED.kind = 'dich_vu'
         RETURNING id, payment_cycle_id
         """,
         visit_id,
@@ -1003,9 +1357,12 @@ async def _ghi_da_thu(
         },
         clinic_id=identity.clinic_id,
     )
+    # Sự kiện CHUẨN khi tiền thật sự đã nhận (CHECKPOINT §6): tiền mặt thu
+    # xong, hoặc chuyển khoản/QR xác minh xong. Trước 22/09/2026 tên là
+    # "payment.recorded" — lịch sử cũ giữ nguyên, không viết lại.
     await _log_payment_event(
         conn,
-        event_type="payment.recorded",
+        event_type="payment.confirmed",
         payment_id=payment_id,
         payment_cycle_id=cycle_id,
         visit_id=visit_id,
