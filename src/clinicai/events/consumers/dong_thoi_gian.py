@@ -23,6 +23,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.events.catalogue import DANH_MUC, DONG_THOI_GIAN_LUOT
+from clinicai.events.phat_lai import Projection, dang_ky_projection
 from clinicai.events.worker import SuKienDaNhan, dang_ky
 
 # Trường nào của payload được đưa lên màn. Whitelist, không phải blacklist: thêm
@@ -87,5 +88,7 @@ async def ghi_dong_thoi_gian(conn: asyncpg.Connection, su_kien: SuKienDaNhan) ->
 
 
 dang_ky(DONG_THOI_GIAN_LUOT, ghi_dong_thoi_gian)
+# Là PROJECTION: xoá đi dựng lại từ sổ được (events/phat_lai.py).
+dang_ky_projection(DONG_THOI_GIAN_LUOT, Projection(bang="luot_dong_thoi_gian"))
 
 __all__ = ["ghi_dong_thoi_gian"]

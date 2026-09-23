@@ -30,11 +30,13 @@ import asyncio
 import json
 import random
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import asyncpg
 import structlog
+
+from clinicai.events.nang_cap import len_ban_hien_hanh
 
 logger = structlog.get_logger()
 
@@ -61,6 +63,9 @@ class SuKienDaNhan:
     payload: dict[str, Any]
     replay_id: str | None
     attempts: int
+    #: Version của payload SAU khi nâng cấp — luôn là version hiện hành trong
+    #: catalogue (xem `events/nang_cap.py`). Bên nhận chỉ phải hiểu bản này.
+    event_version: int = 1
 
     @property
     def la_phat_lai(self) -> bool:
@@ -121,7 +126,7 @@ WHERE d.event_id = ung_vien.event_id
 RETURNING d.event_id::text, e.event_type, d.clinic_id::text,
           d.aggregate_id::text, d.aggregate_version, e.occurred_at, e.seq,
           e.actor_type, e.actor_staff_id::text, e.payload, e.replay_id::text,
-          d.attempts
+          d.attempts, e.event_version
 """
 
 
@@ -157,10 +162,14 @@ async def lam_mot_dong(
             payload=json.loads(dong["payload"]),
             replay_id=dong["replay_id"],
             attempts=dong["attempts"],
+            event_version=int(dong["event_version"]),
         )
 
     # Việc của bên nhận và việc đánh dấu DONE đi chung một giao dịch (luật 3).
     try:
+        # Nâng bản cũ lên bản hiện hành TRƯỚC khi đưa cho bên nhận. Nâng hỏng
+        # (thiếu hàm, sổ mới hơn code) đi đúng đường RETRY → DEAD như lỗi khác.
+        su_kien = nang_len_hien_hanh(su_kien)
         async with pool.acquire() as conn, conn.transaction():
             await xu_ly(conn, su_kien)
             await conn.execute(
@@ -195,6 +204,14 @@ async def lam_mot_dong(
         return True
 
     return True
+
+
+def nang_len_hien_hanh(su_kien: SuKienDaNhan) -> SuKienDaNhan:
+    """Payload của sự kiện, nâng lên version hiện hành (upcasting)."""
+    version, payload = len_ban_hien_hanh(
+        su_kien.event_type, su_kien.event_version, su_kien.payload
+    )
+    return replace(su_kien, event_version=version, payload=payload)
 
 
 async def thu_hoi_thue(pool: asyncpg.Pool) -> int:
@@ -240,5 +257,6 @@ __all__ = [
     "chay_vong",
     "dang_ky",
     "lam_mot_dong",
+    "nang_len_hien_hanh",
     "thu_hoi_thue",
 ]
