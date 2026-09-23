@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 tối**, sau batch CORE A+B+C (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, sau nhóm 1 (Hành trình + khám tư vấn) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,24 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 1 — khối HÀNH TRÌNH + khám tư vấn (ĐÃ PUSH 8eea8db6, CHƯA deploy, CHƯA bấm thật)
+
+Thiết kế: `docs/BAN-DO-DAY-NOI-LEGO.md` mục "Bản chốt 24/09" (dây H1/H3) +
+`docs/CHUAN-CAM-LEGO.md`. Commit: 40afa08a (backend) · 7742cb24 (màn) ·
+ecb92294 (khách giả) · 8eea8db6 (vá test).
+
+- Check-in / đo sinh hiệu / tư vấn Xong **không còn tự xếp hàng trong lệnh ghi**:
+  khối `events/consumers/hanh_trinh.py` nghe `visit.checked_in`, `vitals.recorded`,
+  `consultation.handed_over` rồi gọi lệnh của khối Khám.
+- Loại khám nào qua tư vấn = dữ liệu `service_type.qua_tu_van` (5 loại lõi bật sẵn).
+- Màn mới `/tu-van` (Bàn khám tư vấn, quyền `clinical.intake.perform`, preset DOCTOR).
+  Bàn khám bác sĩ chính có khối "Sắp tới — đang ở tư vấn" (chỉ xem).
+- ⚠️ **DEPLOY PHẢI CHẠY SERVICE `su-kien`** (docker-compose đã thêm; `scripts/dev-up.sh`
+  cũng bật). Thiếu nó = check-in xong khách KHÔNG vào hàng nào.
+- Kiểm: backend 2910 xanh (55500, đúng lệnh CI) + 13 bài 55433 · lược đồ áp 2 lần +
+  33 bài · tsc/eslint/test frontend/build xanh · khách giả: bước 1→6 + 9 chạy đúng dây.
+- Còn hỏng (đúng dự kiến, là nhóm 2): 7b thu tiền đòi "khám xong" → 7c xếp phòng → 8 phòng.
 
 ## 23/09/2026 khuya — Batch F theo LUỒNG CHUẨN (ĐÃ PUSH, CI xanh 36242dc8, CHƯA deploy)
 
