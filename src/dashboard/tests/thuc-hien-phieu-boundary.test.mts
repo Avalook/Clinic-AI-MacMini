@@ -108,11 +108,14 @@ test("phòng dịch vụ chỉ có MỘT nút kết thúc", () => {
     1,
     "chỉ được một chỗ gọi lệnh đóng dịch vụ",
   );
+  // 23/09 khuya: phòng luôn có 18 mẫu dự phòng, nên "không có phiếu" nay là
+  // "không có phiếu CHÍNH" (mẫu gắn / gợi ý v5) — hoặc phòng lấy mẫu.
   assert.match(
     ma,
-    /th\.mau_ket_qua\.length === 0/,
-    "nút đóng thẳng chỉ dành cho dịch vụ không có phiếu",
+    /dangLam && th\.lan_dang_chay && !coPhieuChinh/,
+    "nút đóng thẳng chỉ dành cho dịch vụ không có phiếu chính",
   );
+  assert.match(ma, /const coPhieuChinh =/);
   // Ba ngoại lệ không được là nút chính.
   assert.doesNotMatch(
     ma,
