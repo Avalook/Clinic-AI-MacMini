@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, sau nhóm 1 (Hành trình + khám tư vấn) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, sau nhóm 2 (thu tiền → tự xếp phòng, mang chỉ định sang lượt mới) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,38 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 2 — thu tiền → tự xếp phòng (H4) · mang chỉ định sang lượt mới (H2) (CHƯA deploy, CHƯA bấm thật)
+
+Thiết kế + các chỗ Claude tự chốt: `docs/BAN-DO-DAY-NOI-LEGO.md` mục "Đã làm — nhóm 1 + nhóm 2".
+
+- Migration `20260924000002_di_thang_phong_mang_sang.sql`: `service_type.di_thang_phong`
+  (bật THU_THUAT), `service_order.mang_tu_visit_id/mang_sang_luc`.
+- 3 sự kiện mới: `payment.service_collected` · `service.routed` · `service_order.carried_over`.
+- Khối Hành trình nghe thêm `payment.service_collected` (H4); lúc check-in gọi lệnh
+  `CarryOverUnfinishedOrders` của khối Chỉ định (H2).
+- Thu tiền dịch vụ không đợi khám xong (đã có chỉ định là thu được); màn `/thu-ngan/dich-vu`
+  có ô **"Khách làm dịch vụ nào?"** (`thu-ngan/ChonDichVu.tsx`) — lệnh chọn dịch vụ trước
+  đây có mà KHÔNG màn nào gọi, nên chỉ định mới không vào được hoá đơn.
+- "Đợi quay lại": phòng Bắt đầu khi phiên bác sĩ còn mở → hàng bác sĩ `blocked`; phòng
+  xong → `waiting`; bác sĩ bấm Bắt đầu lần nữa = khám tiếp.
+- **Lỗi thật đã sửa:** sự kiện của một chỉ định dùng 3 bộ đếm khác nhau làm số thứ tự
+  trong sổ → "đã chỉ định" (số 1) đụng "bắt đầu làm" lần đầu (số 1), Postgres chặn, phòng
+  không Bắt đầu được. Nay `emit_event(so_ke_tiep=True)`: một dãy số cho mỗi đối tượng.
+- Kiểm: `test_thu_tien_xep_phong_mang_sang_db.py` (11 bài) · khách giả chạy trọn 1→12b.
+
+**Deploy phải làm (Claude tự nhớ):** áp migration 20260924000001 + 20260924000002 · service
+`su-kien` chạy · check-in một khách thử thấy vào hàng · thu tiền thử thấy tự xếp phòng.
+
+**OFF chờ Tuyền quyết xoá (thêm):** `_tu_xep_phong` trong `luot_kham_service.py` (chỉ còn
+chạy cho chỉ định đời cũ `selection_status IS NULL`).
+
+**NỢ nhóm sau:** tiền thuốc vẫn đợi khám xong (nhóm 4) · bật/tắt tự xếp phòng trên màn
+(khối chỉnh dây, nhóm 5) · tài khoản "Thu ngân" riêng không có quyền điều phối → không
+tự xếp (xem chốt 1) · check-out chưa phát sự kiện (nhóm 3/5) · dịch vụ chưa có giá
+(`service_price.unit_price` NULL — seed hiện vậy; ghi chú 16/09 ở `QuayThuNgan.tsx`: mới 1/39
+dịch vụ có giá) → quầy từ chối thu "chưa có giá" — đúng luật, nhưng phải có bảng giá mới
+thu được; CHƯA đo lại trên prod.
 
 ## Nhóm 1 — khối HÀNH TRÌNH + khám tư vấn (ĐÃ PUSH 8eea8db6, CHƯA deploy, CHƯA bấm thật)
 

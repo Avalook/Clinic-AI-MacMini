@@ -43,6 +43,34 @@ xếp phòng (H4) · các thời hạn (H6/H7: mấy ngày, H8: mấy giờ) · 
 nào (vd tệp kết quả về → bác sĩ, thư ký, điều dưỡng, CSKH). **Khoá trong code (dây lõi):**
 dòng thời gian, trách nhiệm tiền (không làm được mà đã thu tiền → việc đối soát).
 
+### Đã làm — nhóm 1 + nhóm 2 (code, chưa deploy)
+
+- **H1, H3** (nhóm 1): check-in → tư vấn (đo trước) → bác sĩ chính, qua khối Hành trình.
+- **H2** (nhóm 2): check-in lịch "đi thẳng phòng" (`service_type.di_thang_phong`, bật
+  sẵn cho THỦ THUẬT) → chỉ định chưa làm của lượt trước đi theo khách sang lượt mới
+  (sự kiện `service_order.carried_over`), khách đi thẳng dịch vụ, không vào hàng bác sĩ.
+  Chỉ định ĐÃ TRẢ mà chưa làm thì mang sang ở MỌI lượt và vào thẳng hàng phòng.
+- **H4** (nhóm 2): lễ tân thu tiền dịch vụ (sự kiện `payment.service_collected`) → Hành
+  trình xếp phòng vắng nhất thay người vừa thu, bằng quyền của người ấy (sự kiện
+  `service.routed`, `tu_dong=true`). Lễ tân/ai có quyền điều phối đổi lại được.
+- Thu tiền dịch vụ không đợi "khám xong"; màn thu ngân có ô "Khách làm dịch vụ nào?".
+- Phòng bấm Bắt đầu khi phiên bác sĩ còn mở → khách "đợi quay lại" ở hàng bác sĩ; phòng
+  xong → khách về hàng bác sĩ; bác sĩ bấm Bắt đầu lần nữa = khám tiếp.
+
+**Chỗ Claude tự chốt khi làm nhóm 2 (Tuyền soát, sai thì nói một câu là đổi):**
+1. Người thu KHÔNG có quyền điều phối (vd tài khoản "Thu ngân" riêng) → không tự xếp,
+   để người có quyền xếp tay. Lễ tân có sẵn quyền điều phối nên lễ tân thu là tự xếp.
+2. Thu tiền dịch vụ được ngay khi lượt ĐÃ CÓ chỉ định. Lượt chỉ có tiền khám (chưa chỉ
+   định gì) vẫn đợi khám xong — bác sĩ còn có thể chỉ định thêm.
+3. Lịch đi thẳng phòng: KHÔNG tính tiền khám (khách không khám). Không có chỉ định nào
+   để mang sang → về hàng bác sĩ chính (có người quyết), khi đó tính tiền khám như thường.
+4. Lịch thủ thuật mang sang cả chỉ định hôm trước khách "không làm" — ngoài đời "hẹn hôm
+   khác" và "không làm" là cùng một cú bỏ tick; hôm nay hỏi lại. Lượt khám thường thì
+   chỉ mang cái đã trả tiền.
+5. Phòng cũ bị huỷ (sự cố phòng) thì Hành trình KHÔNG tự xếp phòng khác — đã có việc
+   "điều phối lại" cho người (giữ luật cũ).
+6. Chỉ định cũ quá 180 ngày không mang sang.
+
 ### Các chốt khác (24/09)
 
 - **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),
