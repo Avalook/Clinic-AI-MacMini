@@ -2203,6 +2203,17 @@ class BookingService:
                 visit_id=str(visit_id),
                 clinic_id=identity.clinic_id,
             )
+
+        # XẾP ĐƯỜNG ĐI NGAY LÚC CHECK-IN (luồng chuẩn bước 6, 23/09/2026).
+        # Trước đây khách chỉ vào hàng bác sĩ chính SAU KHI có sinh hiệu. Nay
+        # sinh hiệu không chặn: khách hiện ở bác sĩ chính ngay, và vẫn nằm ở hàng
+        # đo sinh hiệu của điều dưỡng — đo trước hay sau đều đúng. Cùng giao dịch
+        # với mở lượt; lượt đã có đích (check-in lại) thì không đổi gì.
+        from clinicai.services.luot_kham_service import LuotKhamService
+
+        luot = LuotKhamService(self._pool)
+        visit = await luot._lock_visit(conn, identity.clinic_id, str(visit_id))
+        await luot._decide_route(conn, identity, visit)
         return str(visit_id)
 
     async def _cancel_visit_workflow(
@@ -2272,6 +2283,37 @@ class BookingService:
                 else "Lịch hẹn bị huỷ sau khi khách đã check-in"
             ),
             identity.staff_id,
+        )
+
+        # KHÁCH KHÔNG CÒN Ở ĐÂY → RA KHỎI HÀNG CHỜ (23/09/2026). Từ khi đường đi
+        # được xếp ngay lúc check-in, hoàn tác mà không đóng hàng thì khách vẫn
+        # "đang chờ" bác sĩ, bị đếm vào số người chờ của phòng. Người đang được
+        # phục vụ (serving) thì không đụng. Bác sĩ chưa bắt đầu phiên nào thì xoá
+        # luôn đường đi, để check-in lại được xếp đường đi từ đầu.
+        await conn.execute(
+            """
+            UPDATE public.queue_entry
+               SET status = 'cancelled', updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND status IN ('blocked', 'waiting', 'called')
+            """,
+            identity.clinic_id,
+            visit_id,
+        )
+        await conn.execute(
+            """
+            UPDATE public.encounter_flow f
+               SET route_decision = NULL, route_decided_at = NULL,
+                   route_reason = NULL, version = f.version + 1, updated_at = now()
+             WHERE f.clinic_id = $1::uuid AND f.visit_id = $2::uuid
+               AND f.route_decision IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM public.consultation c
+                    WHERE c.clinic_id = f.clinic_id AND c.visit_id = f.visit_id
+                      AND c.status <> 'queued')
+            """,
+            identity.clinic_id,
+            visit_id,
         )
 
     def _is_today(self, moment: datetime) -> bool:

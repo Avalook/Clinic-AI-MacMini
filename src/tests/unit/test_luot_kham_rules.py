@@ -15,12 +15,13 @@ T0 = datetime(2026, 9, 11, 18, 0, tzinfo=timezone.utc)
 # --- D1: đích sau check-in -------------------------------------------------
 
 
-def test_chua_do_sinh_hieu_thi_chua_co_dich() -> None:
+def test_chua_do_sinh_hieu_van_vao_bac_si_chinh() -> None:
+    """Sinh hiệu KHÔNG chặn (luồng chuẩn bước 6, Tuyền chốt 23/09/2026)."""
     assert (
         rules.decide_route(
             vitals_recorded=False, plan_status="none", current_route=None
         )
-        is None
+        == rules.PRIMARY
     )
 
 

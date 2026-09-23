@@ -503,7 +503,7 @@ class LuotKhamService:
             cid,
             vid,
             new,
-            "sinh hiệu đã ghi, không có kế hoạch trước hợp lệ"
+            "không có kế hoạch trước hợp lệ — vào bác sĩ chính"
             if new == rules.PRIMARY
             else "kế hoạch trước đã áp hợp lệ",
         )

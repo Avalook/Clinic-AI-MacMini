@@ -32,15 +32,18 @@ def decide_route(
 ) -> str | None:
     """Đích MỚI cần ghi, hoặc None khi chưa đủ điều kiện hay đã có đích.
 
-    Chạy lại bao nhiêu lần cũng ra cùng kết quả, nên xác minh kế hoạch và ghi
-    sinh hiệu đến theo thứ tự nào cũng được (T-P1, T-P2). Đích chỉ ghi một lần
-    (I10): kế hoạch hợp lệ đến muộn không kéo khách đã vào bác sĩ sang dịch vụ.
+    Chạy lại bao nhiêu lần cũng ra cùng kết quả. Đích chỉ ghi một lần (I10):
+    kế hoạch hợp lệ đến muộn không kéo khách đã vào bác sĩ sang dịch vụ.
+
+    SINH HIỆU KHÔNG CÒN LÀ CỬA (luồng chuẩn bước 6, Tuyền chốt 23/09/2026):
+    *"có đo cũng chả sao, vẫn có event phát ra cho điều dưỡng, không làm cũng
+    không sai"*. Đích quyết ngay lúc check-in; điều dưỡng vẫn thấy khách ở hàng
+    đo sinh hiệu. `vitals_recorded` giữ trong chữ ký để người gọi cũ không vỡ.
     """
+    _ = vitals_recorded
     if plan_status not in PLAN_STATUSES:
         raise ValueError(f"plan_check_status không hợp lệ: {plan_status!r}")
     if current_route is not None:
-        return None
-    if not vitals_recorded:
         return None
     if plan_status == "pending":
         return None
