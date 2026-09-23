@@ -19,8 +19,9 @@ export type TrangThaiHang =
 export interface DongHangCho {
   id: string;
   trang_thai: TrangThaiHang;
-  /** KHAM = lượt khám chính của bác sĩ · DICH_VU = chỉ định xếp vào phòng. */
-  loai: "KHAM" | "DICH_VU";
+  /** KHAM = lượt khám chính của bác sĩ · TU_VAN = hàng bác sĩ tư vấn ·
+   *  DICH_VU = chỉ định xếp vào phòng. */
+  loai: "KHAM" | "TU_VAN" | "DICH_VU";
   /** Mã phiên khám (KHAM) hoặc mã chỉ định (DICH_VU). */
   ref_id: string;
   visit_id: string;

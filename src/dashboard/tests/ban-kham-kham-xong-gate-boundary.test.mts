@@ -64,33 +64,41 @@ test("BanKham resets completionGate when current queue item changes", () => {
 });
 
 test("BanKham enforces gate check and confirm BEFORE calling guiThaoTac('kham-xong')", () => {
+  // 24/09: hỏi lại bằng dải xác nhận TẠI CHỖ (XacNhanTaiCho) thay window.confirm.
+  // `bam` kiểm cổng rồi chỉ MỞ dải hỏi; lệnh chỉ gửi khi bấm đồng ý (`gui`).
+  assert.doesNotMatch(banKhamSource, /window\.confirm\(/);
   const bamFnIdx = banKhamSource.indexOf("const bam = async");
   assert.ok(bamFnIdx > 0, "bam handler must exist");
   const bamBody = banKhamSource.slice(bamFnIdx, bamFnIdx + 2000);
 
   const gateCheckIdx = bamBody.indexOf("if (!completionGate)");
   const gateOkCheckIdx = bamBody.indexOf("if (!completionGate.ok)");
-  const confirmIdx = bamBody.indexOf("window.confirm(");
-  const guiThaoTacIdx = bamBody.indexOf("guiThaoTac(");
+  const confirmIdx = bamBody.indexOf("setHoiHoanTat(dong.id)");
+  const guiIdx = bamBody.indexOf("await gui(thaoTac)");
 
   assert.ok(gateCheckIdx > 0, "must check completionGate existence");
   assert.ok(gateOkCheckIdx > gateCheckIdx, "must check completionGate.ok after existence");
-  assert.ok(confirmIdx > gateOkCheckIdx, "must confirm after completionGate passes");
-  assert.ok(guiThaoTacIdx > confirmIdx, "guiThaoTac must only be called after all gates and confirmation pass");
+  assert.ok(confirmIdx > gateOkCheckIdx, "must ask to confirm after completionGate passes");
+  assert.ok(guiIdx > confirmIdx, "sending must come after gates and the confirm branch");
+  assert.doesNotMatch(bamBody.slice(0, guiIdx), /guiThaoTac\(/);
 
-  // Verify return on failed gate prevents calling guiThaoTac
   const beforeConfirm = bamBody.slice(gateCheckIdx, confirmIdx);
   assert.match(
     beforeConfirm,
     /setLoi\(\{[^}]*cau:\s*completionGate\.message/,
     "must display gate message when gate.ok is false",
   );
+  // Chỉ nút đồng ý của dải xác nhận mới gửi "kham-xong".
+  assert.match(
+    banKhamSource,
+    /<XacNhanTaiCho[\s\S]*?onDongY=\{\(\) => void gui\("kham-xong"\)\}/,
+  );
 });
 
 test("BanKham blocks non-doctor from terminal completion with explicit waiting message", () => {
   assert.match(
     banKhamSource,
-    /if\s*\(\s*completionMode\s*===\s*"TERMINAL"\s*&&\s*!laBacSi\s*\)\s*\{[\s\S]*?cau:\s*"Chờ bác sĩ hoàn tất lượt khám\."[\s\S]*?return;/,
+    /if\s*\(\s*thaoTac\s*===\s*"kham-xong"\s*&&\s*completionMode\s*===\s*"TERMINAL"\s*&&\s*!laBacSi\s*\)\s*\{[\s\S]*?cau:\s*"Chờ bác sĩ hoàn tất lượt khám\."[\s\S]*?return;/,
   );
   assert.match(
     banKhamSource,

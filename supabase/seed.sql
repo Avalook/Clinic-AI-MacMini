@@ -3710,3 +3710,7 @@ SET session_replication_role = DEFAULT;
 -- runs AFTER migrations: at migration time this table is still empty on a fresh
 -- database, so the migration's own call maps nothing locally.
 SELECT public.map_services_to_nodes();
+
+-- Giá trống điền theo bảng giá phòng khám (migration 20260924000012) — gọi lại ở
+-- đây vì migration chạy khi bảng giá/danh mục thuốc còn rỗng trên DB dựng mới.
+SELECT public.dien_gia_trong_theo_phieu_v5();

@@ -654,3 +654,87 @@ async def test_phong_bam_bat_dau_xong_thi_cot_cu_exec_status_di_theo(
     )
     assert sau["exec_status"] == "performed"
     assert sau["ai"] == ca.dd.staff_id
+
+
+async def test_bac_si_hoan_tat_truoc_roi_phong_xong_thi_vong_doc_mo_hoac_khep_luot(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Lỗi thật 24/09: đường làm MỚI (phòng [Xong]) không chạy lại vòng đọc /
+    điều kiện khép lượt — chỉ lối gọi thẳng cũ mới chạy. Bác sĩ Hoàn tất khi
+    khách còn đi làm dịch vụ, phòng xong sau → không ai khép lượt, quầy chờ mãi.
+    Nay khối VÒNG ĐỌC nghe `service.completed`."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=con, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    d = await _don(pool, order)
+    mo = await ServiceExecutionService(pool).bat_dau(
+        order_id=order,
+        expected_execution_revision=int(d["execution_revision"]),
+        expected_routing_revision=int(d["routing_revision"]),
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    await ServiceExecutionService(pool).xong(
+        order_id=order,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+
+    async def vong() -> list[str]:
+        return [
+            str(r["status"])
+            for r in await pool.fetch(
+                "SELECT status FROM review_round WHERE visit_id = $1::uuid", visit
+            )
+        ]
+
+    assert await vong() == ["collecting"]  # lệnh [Xong] không tự chạy vòng đọc
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+    assert await vong() == ["ready"]
+    # Bác sĩ chính có chỗ chờ "đọc kết quả" (REVIEW) trong hàng của mình.
+    assert await pool.fetchval(
+        "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+        " AND reason = 'REVIEW' AND status IN ('waiting', 'blocked')",
+        visit,
+    )
+
+
+async def test_luot_khep_han_phat_visit_exam_completed_dung_mot_lan(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Mốc "khám xong hẳn" là sự kiện: quầy / nhà thuốc / nhắc check-out cắm
+    vào đây. Phát đúng một lần dù điều kiện khép được kiểm nhiều lần."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = str(
+        await pool.fetchval(
+            "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+            " AND kind = 'PRIMARY'",
+            visit,
+        )
+    )
+    await LuotKhamService(pool).start_consultation(
+        consultation_id=con, identity=ca.bac_si
+    )
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=con, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    await LuotKhamService(pool).sau_khi_co_ket_qua(
+        order_id=str(uuid.uuid4()), identity=ca.bac_si
+    )
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+    su_kien = await _su_kien(pool, "visit.exam_completed", visit)
+    assert len(su_kien) == 1
+    assert json.loads(su_kien[0]["payload"]) == {"visit_id": visit}

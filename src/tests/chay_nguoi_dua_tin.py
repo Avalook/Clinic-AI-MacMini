@@ -8,6 +8,8 @@ trong bài kiểm, gọi hàm dưới ngay sau lệnh ghi.
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncpg
 
 import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận
@@ -25,3 +27,27 @@ async def chay_ben_nhan(pool: asyncpg.Pool, *ben_nhan: str) -> None:
     for ten in ben_nhan:
         while await lam_mot_dong(pool, ten):
             pass
+
+
+def vong_doc_chay_ngay_sau_lenh_tep(monkeypatch: Any) -> None:
+    """Bài kiểm luồng cũ: coi như worker chạy khối VÒNG ĐỌC ngay sau mỗi lệnh tệp.
+
+    Từ 24/09/2026 tải / xác nhận / thu hồi tệp KHÔNG còn gọi thẳng khối Khám —
+    khối VÒNG ĐỌC nghe sự kiện rồi mở / rút chỗ chờ đọc kết quả. Các bài kiểm
+    viết trước đó khẳng định vòng đọc ngay sau lệnh; bọc lệnh để chạy một vòng
+    người đưa tin (y như worker `--su-kien` làm mỗi giây ở máy thật).
+    """
+    from clinicai.events.catalogue import VONG_DOC
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    for ten in ("tai_len", "xac_nhan_tep", "thu_hoi_tep"):
+        goc = getattr(TepKetQuaService, ten)
+
+        async def boc(
+            self: TepKetQuaService, *a: Any, _goc: Any = goc, **kw: Any
+        ) -> Any:
+            kq = await _goc(self, *a, **kw)
+            await chay_ben_nhan(self._pool, VONG_DOC)
+            return kq
+
+        monkeypatch.setattr(TepKetQuaService, ten, boc)

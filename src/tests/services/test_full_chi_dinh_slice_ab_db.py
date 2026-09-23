@@ -78,6 +78,14 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 @pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
 def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
     khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""

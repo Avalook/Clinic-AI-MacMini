@@ -7,6 +7,14 @@ from clinicai.events.consumers import (
     hanh_trinh,
     nhac_viec,
     trach_nhiem,
+    vong_doc,
 )
 
-__all__ = ["chuong", "dong_thoi_gian", "hanh_trinh", "nhac_viec", "trach_nhiem"]
+__all__ = [
+    "chuong",
+    "dong_thoi_gian",
+    "hanh_trinh",
+    "nhac_viec",
+    "trach_nhiem",
+    "vong_doc",
+]

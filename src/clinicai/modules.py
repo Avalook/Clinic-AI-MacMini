@@ -198,6 +198,7 @@ MODULE: dict[str, Module] = {
                 "result.ready",
                 "result.corrected",
                 "visit.routed",
+                "visit.exam_completed",
                 "consultation.started",
                 "consultation.handed_over",
                 "consultation.completed",
@@ -208,6 +209,7 @@ MODULE: dict[str, Module] = {
                 "medicine.dispensed",
                 "result_file.uploaded",
                 "result_file.confirmed",
+                "result_file.revoked",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
                 "result.reviewed",
@@ -342,14 +344,37 @@ MODULE: dict[str, Module] = {
                 "ConfirmResultFile",
                 "OpenResultFile",
                 "MarkSent",
+                "RevokeResultFile",
             ],
             phat=[
                 "result_file.uploaded",
                 "result_file.confirmed",
+                "result_file.revoked",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
             ],
             bang=["tep_ket_qua"],
+        ),
+        Module(
+            ma="vong_doc",
+            ten="Vòng đọc kết quả + khép lượt",
+            # 24/09/2026: kết quả/dịch vụ xong ở BẤT KỲ lối nào (phòng, phiếu,
+            # đối tác, tệp) → mở chỗ chờ "có kết quả" cho bác sĩ chính, khép
+            # phần khám khi hết việc. Trước đây chỉ lối gọi thẳng mới chạy.
+            # Luật vòng đọc + điều kiện khép vẫn nằm trong khối Khám (đợt bóc
+            # sau chuyển hẳn sang đây); khối này là CỬA sự kiện duy nhất.
+            phat=["visit.exam_completed"],
+            nghe=[
+                "service.completed",
+                "service.not_performed",
+                "partner.sample_collected",
+                "result.ready",
+                "result_file.uploaded",
+                "result_file.confirmed",
+                "result_file.revoked",
+            ],
+            ben_nhan=["vong_doc_luot_kham"],
+            bang=["review_round"],
         ),
         Module(
             ma="chuong",

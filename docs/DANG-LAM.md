@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 khuya**, phiếu khám v5 đã vào Bàn khám (nhóm 1–6 xong, đang bấm thật) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **24/09/2026 sáng**, trả nợ + khối Vòng đọc, đang bóc lõi `luot_kham` (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,30 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Trả nợ + khối Vòng đọc (24/09 sáng — CHƯA deploy)
+
+Tuyền: "làm hết thôi nào". Thứ tự: nợ nhỏ → gộp hai cột trạng thái → bóc lõi
+`luot_kham` (4.970 dòng) thành khối riêng nói chuyện bằng sự kiện.
+
+- **Hai cột trạng thái khớp ở Postgres** — migration `20260924000011`, trigger
+  `service_order_dong_bo_trang_thai` (BAN-DO mục 36). Hết nợ "đối tác tự lấy mẫu làm
+  lệch cột". `_doi_trang_thai` bỏ CASE viết tay.
+- **Khối VÒNG ĐỌC** (`events/consumers/vong_doc.py`) — sửa lỗi thật: phòng bấm [Xong]
+  theo đường mới không mở "có kết quả cần đọc" cho bác sĩ chính, lượt không tự khép.
+  Sự kiện mới `visit.exam_completed`, `result_file.revoked`. Tệp kết quả không còn gọi
+  thẳng khối Khám (BAN-DO mục 37–38).
+- **Bàn khám tư vấn** dùng phiếu v5 chung của lượt (mục 39). [Hoàn tất] dùng dải xác
+  nhận tại chỗ `components/ui/XacNhanTaiCho.tsx` (mục 40).
+- **Giá trống**: migration `20260924000012` + seed.sql gọi `dien_gia_trong_theo_phieu_v5()`
+  (mục 41). Local: 58/80 thuốc, mọi dịch vụ trong bảng giá có giá.
+- **Deploy phải làm thêm (Claude tự nhớ):** migration 20260924000011 + 000012; restart
+  worker `--su-kien` (bên nhận mới `vong_doc_luot_kham`).
+- **Việc tiếp (đang làm):** bóc `luot_kham` theo bản đồ 6 bước — (1) tách phần dùng chung
+  (khoá lượt, biên nhận, lỗi) ra `lenh_kham_core.py`; (2) OFF lối cũ (dispatch cũ,
+  `_tu_xep_phong`, `/start` `/complete`, `propose_orders`) → 410; (3) hàng chờ + gọi khách
+  thành khối riêng, phát `queue.called`; (4) sinh hiệu / đối tác / duyệt kết quả ra file
+  riêng; (5) màn đọc ra `luot_kham_queries.py`; (6) CI kiểm file nào thật sự phát sự kiện.
 
 ## Phòng thủ thuật + đối tác (24/09 rạng sáng — CHƯA deploy, ĐÃ bấm thật BS A)
 

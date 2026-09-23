@@ -55,6 +55,7 @@ import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import Button from "@/components/ui/Button";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 
@@ -632,10 +633,13 @@ function HoSo({
   const [xemLuot, setXemLuot] = useState<string | null>(null);
   const [completionGate, setCompletionGate] =
     useState<ClinicalCompletionGate | null>(null);
+  // Hỏi lại trước khi Hoàn tất — dải xác nhận tại chỗ, theo đúng khách đang mở.
+  const [hoiHoanTat, setHoiHoanTat] = useState<string | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCompletionGate(null);
+    setHoiHoanTat(null);
   }, [dong?.id]);
 
   const conChiDinhDangLam =
@@ -663,9 +667,20 @@ function HoSo({
     );
   }
 
+  const gui = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
+    setDangGui(true);
+    setLoi(null);
+    // Gọi khách: theo CHỖ CHỜ; bắt đầu/khám xong: theo PHIÊN KHÁM.
+    const kq = await guiThaoTac(thaoTac, dong.ref_id);
+    setDangGui(false);
+    setHoiHoanTat(null);
+    if (!kq.ok) setLoi({ id: dong.id, cau: kq.loi });
+    else onDaBam();
+  };
+
   const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
-    if (thaoTac === "kham-xong") {
-      if (completionMode === "TERMINAL" && !laBacSi) {
+    if (thaoTac === "kham-xong" || thaoTac === "xong-tu-van") {
+      if (thaoTac === "kham-xong" && completionMode === "TERMINAL" && !laBacSi) {
         setLoi({
           id: dong.id,
           cau: "Chờ bác sĩ hoàn tất lượt khám.",
@@ -673,6 +688,7 @@ function HoSo({
         return;
       }
 
+      // Phiếu còn chữ chưa lưu thì đợi — cả Hoàn tất lẫn Xong tư vấn.
       if (!completionGate) {
         setLoi({
           id: dong.id,
@@ -689,26 +705,13 @@ function HoSo({
         return;
       }
 
-      if (
-        !window.confirm(
-          completionMode === "HANDOFF"
-            ? `Hoàn tất lượt khám này cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ.`
-            : `Hoàn tất khám cho ${dong.ten}?`,
-        )
-      ) {
+      if (thaoTac === "kham-xong") {
+        setLoi(null);
+        setHoiHoanTat(dong.id);
         return;
       }
     }
-    setDangGui(true);
-    setLoi(null);
-    // Gọi khách: theo CHỖ CHỜ; bắt đầu/khám xong: theo PHIÊN KHÁM.
-    const kq = await guiThaoTac(
-      thaoTac,
-      dong.ref_id,
-    );
-    setDangGui(false);
-    if (!kq.ok) setLoi({ id: dong.id, cau: kq.loi });
-    else onDaBam();
+    await gui(thaoTac);
   };
   const t = tone(dong);
   const sh = luot?.sinh_hieu ?? null;
@@ -856,7 +859,9 @@ function HoSo({
               readOnly
             />
           </div>
-        ) : PHIEU_V5 && dong.loai === "KHAM" && !tuVan ? (
+        ) : PHIEU_V5 && (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
+          // Bàn khám tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt
+          // 24/09) — bác sĩ chính mở ra thấy ngay phần tư vấn đã điền.
           <>
             <PhieuKhamLuot
               key={dong.visit_id}
@@ -970,6 +975,19 @@ function HoSo({
             </button>
             {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
               <p className="text-xs text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
+            ) : null}
+            {hoiHoanTat === dong.id ? (
+              <XacNhanTaiCho
+                cau={
+                  completionMode === "HANDOFF"
+                    ? `Hoàn tất lượt khám này cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ. Phiếu vẫn sửa được sau.`
+                    : `Hoàn tất khám cho ${dong.ten}? Phiếu vẫn sửa được sau.`
+                }
+                nhanDongY="Hoàn tất"
+                dangGui={dangGui}
+                onDongY={() => void gui("kham-xong")}
+                onThoi={() => setHoiHoanTat(null)}
+              />
             ) : null}
             {loiHienTai ? (
               <p role="alert" className="text-xs text-danger">

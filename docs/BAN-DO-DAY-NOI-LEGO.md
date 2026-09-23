@@ -166,6 +166,32 @@ khách, tới giờ chuông réo đúng người.
 34. Phòng lấy mẫu không bao giờ có phiếu kết quả (kết quả do đối tác gửi tệp); thủ thuật
     không có mẫu gợi ý thì phiếu là tuỳ chọn.
 35. Thủ thuật đã làm mà không có phiếu hiện "Đã làm" ở mục C (không treo "Chưa có kết quả").
+36. **Hai cột trạng thái chỉ định khớp ở Postgres** (trigger `service_order_dong_bo_trang_thai`,
+    migration 20260924000011): `execution_status` là nguồn thật, `exec_status` là bản
+    chiếu cho màn cũ. Lối cũ ghi cột cũ (đối tác tự lấy mẫu, `/start`, `/complete`) thì
+    cột mới đi theo — CHỈ với chỉ định đời mới (`selection_status` có giá trị); đời cũ
+    giữ NULL. [Không làm được] trước khi có phòng nay đóng được cả cột cũ (nới ràng buộc
+    phòng cho `not_performed`). Giờ bắt đầu/xong ghi vào `service_order` ở cùng chỗ.
+37. **Khối VÒNG ĐỌC** (`events/consumers/vong_doc.py`, module `vong_doc`): nghe
+    service.completed / service.not_performed / partner.sample_collected / result.ready /
+    result_file.uploaded|confirmed|revoked → chạy lại vòng đọc + khép lượt. Sửa lỗi thật:
+    đường làm mới không mở "có kết quả cần đọc" cho bác sĩ chính, và lượt không tự khép
+    khi dịch vụ cuối xong sau lúc bác sĩ Hoàn tất. Tải/xác nhận/thu hồi tệp KHÔNG còn gọi
+    thẳng khối Khám. Chậm vài giây (worker) — chấp nhận, vì mọi lối giờ đi chung một cửa.
+38. Sự kiện mới **`visit.exam_completed`** (phát đúng một lần, lúc lượt khép hẳn) và
+    **`result_file.revoked`**. Quầy/nhà thuốc/nhắc check-out về sau cắm vào mốc này.
+39. **Bàn khám tư vấn ghi vào CHÍNH phiếu khám v5 của lượt** (cùng `phieu_kham_luot`);
+    người chỉ có khối Tư vấn (`clinical.intake.perform`) cũng ghi được phiếu.
+    [Xong tư vấn] đợi phiếu lưu xong như [Hoàn tất].
+40. [Hoàn tất] hỏi lại bằng dải xác nhận tại chỗ (`components/ui/XacNhanTaiCho.tsx`),
+    không còn `window.confirm`; câu hỏi nói rõ "phiếu vẫn sửa được sau".
+41. **Giá trống điền theo chi-dinh.html, chỉ chỗ đang trống** (hàm
+    `dien_gia_trong_theo_phieu_v5()`, migration 20260924000012 + seed.sql): dịch vụ như
+    migration 09 (lỗ: DB dựng mới chạy migration trước seed nên giá không vào) + **58
+    thuốc** của phiếu v5 (`drug_catalog.unit_price`, giá một đơn vị bán như bảng giá ghi).
+    Giá đã đặt không bị đè. Còn trống: dịch vụ không có trong bảng giá (khám phụ khoa,
+    SA 3D sàn chậu, biofeedback cơ bản/nâng cao, 7 dịch vụ nam khoa) + 22 thuốc ngoài
+    phiếu — quản lý nhập giá.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

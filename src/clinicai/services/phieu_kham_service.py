@@ -62,6 +62,9 @@ async def chua_noi_quyen(
 
 #: Ghi phiếu khám = ghi bệnh án (bác sĩ, thư ký y khoa, BS siêu âm).
 QUYEN_GHI = "clinical.record.write"
+#: Bác sĩ tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt 24/09: "tư vấn
+#: ghi vào chính bệnh án") — người chỉ có khối Tư vấn cũng ghi được.
+QUYEN_GHI_THEM: frozenset[str] = frozenset({"clinical.intake.perform"})
 #: Đọc: ai đang khám / ghi bệnh án / điền kết quả của lượt.
 QUYEN_DOC = (
     "clinical.record.write",
@@ -80,6 +83,9 @@ async def kiem_quyen_core(
 ) -> None:
     """Hệ phân quyền của CORE cắm vào gói (IP-2) — hỏi capability, không hỏi vai."""
     if hanh_dong == "ghi_phieu":
+        for quyen in QUYEN_GHI_THEM:
+            if await can(conn, identity, quyen):
+                return
         await doi_quyen(
             conn, identity, QUYEN_GHI, cau="Bạn chưa được cấp quyền ghi phiếu khám."
         )

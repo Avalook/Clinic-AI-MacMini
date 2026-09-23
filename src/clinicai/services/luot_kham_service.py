@@ -48,6 +48,7 @@ from clinicai.events.catalogue import (
     DoiTacDaLayMau,
     KetQuaDaDuyet,
     KhamXong,
+    LuotDaKhamXong,
     PhienKhamBatDau,
     SinhHieuBatDau,
     SinhHieuDaDo,
@@ -950,7 +951,12 @@ class LuotKhamService:
                 )
 
     async def _ket_thuc_neu_xong(
-        self, conn: asyncpg.Connection, identity: StaffIdentity, vid: str
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        vid: str,
+        *,
+        causation_id: str | None = None,
     ) -> bool:
         """Khép phần khám của lượt khi rail mới nói không còn gì phải chờ.
 
@@ -1016,7 +1022,7 @@ class LuotKhamService:
             cid,
             vid,
         )
-        await conn.execute(
+        vua_khep = await conn.execute(
             "UPDATE visit SET exam_completed_at = coalesce("
             "exam_completed_at, now()), updated_at = now()"
             " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
@@ -1024,6 +1030,19 @@ class LuotKhamService:
             cid,
             vid,
         )
+        if vua_khep == "UPDATE 1":
+            # Mốc "khám xong hẳn" — phát ĐÚNG MỘT LẦN, lúc lượt thật sự khép.
+            # Quầy / nhà thuốc / nhắc check-out cắm vào đây thay vì tự dò.
+            await emit_event(
+                conn,
+                ten="visit.exam_completed",
+                clinic_id=cid,
+                aggregate_id=vid,
+                payload=LuotDaKhamXong(visit_id=vid),
+                boi=nguoi(identity),
+                correlation_id=vid,
+                causation_id=causation_id,
+            )
         if hen:
             await record_event(
                 conn,

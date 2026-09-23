@@ -57,6 +57,9 @@ HANH_TRINH = "hanh_trinh_luot_kham"
 #: Khối CHUÔNG: sự kiện nào báo cho ai — người nhận là DỮ LIỆU
 #: (`day_nhan_thong_bao`), quản lý chỉnh trên màn.
 CHUONG = "chuong_thong_bao"
+#: Khối VÒNG ĐỌC: kết quả/dịch vụ vừa xong → mở vòng đọc cho bác sĩ chính và
+#: khép lượt khi không còn gì phải chờ (phát `visit.exam_completed`).
+VONG_DOC = "vong_doc_luot_kham"
 
 
 @dataclass(frozen=True)
@@ -171,6 +174,14 @@ class TepKetQuaDaXacNhan(PayloadSuKien):
     visit_id: str | None = None
     service_order_id: str | None = None
     trang_thai: str
+
+
+class TepKetQuaDaThuHoi(PayloadSuKien):
+    """`result_file.revoked` — tệp bị thu hồi (tải nhầm khách / nhầm chỉ định)."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
 
 
 class TepKetQuaDaXem(PayloadSuKien):
@@ -388,6 +399,18 @@ class KhachDaToi(PayloadSuKien):
     so_thu_tu: int | None = None
 
 
+class LuotDaKhamXong(PayloadSuKien):
+    """`visit.exam_completed` — phần KHÁM của lượt đã khép hẳn: mọi phiên khám
+    xong, không vòng đọc nào mở, không chỉ định nào còn chờ làm.
+
+    Khác `consultation.completed` (một lần bấm Hoàn tất): bác sĩ có thể Hoàn
+    tất khi khách còn đi làm dịch vụ; mốc này chỉ tới khi thật sự hết việc.
+    Quầy thu tiền / nhà thuốc / nhắc check-out nghe mốc này thay vì tự dò.
+    """
+
+    visit_id: str
+
+
 class DaXepDuongDi(PayloadSuKien):
     """`visit.routed` — khối Hành trình đã quyết khách đi đâu tiếp.
 
@@ -569,6 +592,15 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="visit.exam_completed",
+            version=1,
+            aggregate_type="visit",
+            source_module="vong_doc",
+            payload=LuotDaKhamXong,
+            nhan="Khám xong hẳn (hết việc chờ)",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
             ten="consultation.started",
             version=1,
             aggregate_type="consultation",
@@ -632,7 +664,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaXong,
             nhan="Đã làm xong dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -644,7 +676,7 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Không làm dịch vụ",
             # Hai bên nghe, độc lập nhau: một bên vẽ hành trình, một bên mở việc
             # đối soát tiền. Bên này hỏng không chặn bên kia.
-            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU],
+            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU, VONG_DOC],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -711,7 +743,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result_file",
             payload=TepKetQuaDaVe,
             nhan="Tệp kết quả đã về",
-            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
         ),
         SuKien(
             ten="result_file.confirmed",
@@ -722,7 +754,17 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Đã xác nhận tệp kết quả",
             # Chuông (23/09 khuya): tệp đối tác HỢP LỆ = kết quả chính thức về
             # → báo bác sĩ chính + CSKH. Trước đó chỉ có chuông lúc TẢI LÊN.
-            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
+        ),
+        SuKien(
+            ten="result_file.revoked",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaThuHoi,
+            nhan="Đã thu hồi tệp kết quả",
+            # Vòng đọc nghe để rút chỗ chờ "có kết quả" khi tệp duy nhất bị gỡ.
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
         ),
         SuKien(
             ten="result_file.viewed",
@@ -861,7 +903,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="doi_tac",
             payload=DoiTacDaLayMau,
             nhan="Đối tác đã lấy mẫu",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -925,7 +967,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result",
             payload=KetQuaSanSang,
             nhan="Đã có kết quả",
-            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
             is_public=True,
             theo_thu_tu=True,
         ),
@@ -1027,6 +1069,9 @@ __all__ = [
     "DONG_THOI_GIAN_LUOT",
     "TRACH_NHIEM_DICH_VU",
     "DONG_TU_CAM",
+    "LuotDaKhamXong",
+    "TepKetQuaDaThuHoi",
+    "VONG_DOC",
     "ChiDinhDaDat",
     "KhachDaToi",
     "SinhHieuDaDo",

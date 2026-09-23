@@ -771,27 +771,16 @@ class ServiceExecutionService:
         ly_do: str | None = None,
         nguoi_lam: str | None = None,
     ) -> int:
-        """Đổi `execution_status` — và KÉO THEO cột cũ `exec_status`.
+        """Đổi `execution_status`; cột cũ `exec_status` + giờ bắt đầu/xong do
+        trigger `service_order_dong_bo_trang_thai` (migration 20260924000011)
+        suy ra — mọi lối ghi (kể cả đối tác lấy mẫu) khớp ở một chỗ.
 
-        Bấm thật 23/09 22:00: phòng bấm Xong, Bàn khám vẫn ghi "Chờ ở phòng" và
-        không hiện nút xem kết quả — vì Bàn khám, trưởng ca, xem lượt, hàng "chờ
-        bác sĩ quyết" và vài view SQL còn đọc `exec_status`, mà đường làm mới
-        chưa từng ghi nó. Ghi kèm ở MỘT chỗ này thay vì sửa từng người đọc.
-        Chỉ kéo khi chỉ định đã qua nháp và có phòng (ràng buộc của cột cũ);
-        huỷ/nháp thì để nguyên.
+        Bấm thật 23/09 22:00: phòng bấm Xong mà Bàn khám vẫn "Chờ ở phòng" vì
+        nhiều màn/view còn đọc cột cũ — lý do phải có bản chiếu này.
         """
         moi = await conn.fetchval(
             "UPDATE service_order"
             "   SET execution_status = $3, execution_revision = execution_revision + 1,"
-            "       exec_status = CASE"
-            "         WHEN exec_status IN ('draft', 'cancelled') OR room_id IS NULL"
-            "           THEN exec_status"
-            "         WHEN $3 = 'IN_PROGRESS' THEN 'in_progress'"
-            "         WHEN $3 = 'COMPLETED' THEN 'performed'"
-            "         WHEN $3 = 'NOT_PERFORMED' AND nullif(btrim(coalesce($4, '')), '')"
-            "              IS NOT NULL THEN 'not_performed'"
-            "         WHEN $3 IN ('INTERRUPTED', 'PENDING') THEN 'assigned'"
-            "         ELSE exec_status END,"
             "       not_performed_reason = CASE WHEN $3 = 'NOT_PERFORMED'"
             "         THEN coalesce(nullif(btrim(coalesce($4, '')), ''),"
             "                       not_performed_reason)"

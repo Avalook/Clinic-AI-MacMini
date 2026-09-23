@@ -38,6 +38,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     KetQuaDaGuiKhach,
+    TepKetQuaDaThuHoi,
     TepKetQuaDaVe,
     TepKetQuaDaXacNhan,
     TepKetQuaDaXem,
@@ -501,21 +502,8 @@ class TepKetQuaService:
             bytes=so_byte,
             by_staff_id=identity.staff_id,
         )
-        if service_order_id and (not is_external or not XAC_NHAN_TEP_DOI_TAC):
-            # Chỉ tự động chạy lại vòng đọc cho nội bộ (lam_ben_ngoai = false).
-            # Đối với đối tác ngoài, tệp tải lên bắt đầu ở CHO_XAC_NHAN,
-            # KHÔNG phải VALID_RESULT nên KHÔNG được mở REVIEW.
-            from clinicai.services.luot_kham_service import LuotKhamService
-
-            try:
-                await LuotKhamService(self._pool).sau_khi_co_ket_qua(
-                    order_id=service_order_id, identity=identity
-                )
-            except Exception:
-                logger.exception(
-                    "tep_ket_qua_danh_gia_lai_vong_doc_loi",
-                    service_order_id=service_order_id,
-                )
+        # Vòng đọc (mở chỗ chờ "có kết quả" cho bác sĩ chính) do khối VÒNG ĐỌC
+        # làm khi nghe `result_file.uploaded` — không gọi thẳng khối Khám nữa.
         return {"ok": True, "id": row_id, "loai_tep": loai, "so_byte": so_byte}
 
     async def xac_nhan_tep(
@@ -643,13 +631,7 @@ class TepKetQuaService:
                 correlation_id=luot_tep,
             )
 
-        # Nếu HOP_LE và có service_order -> đánh giá lại vòng đọc (mở REVIEW)
-        if trang_thai == "HOP_LE" and tep["service_order_id"]:
-            from clinicai.services.luot_kham_service import LuotKhamService
-
-            await LuotKhamService(self._pool).sau_khi_co_ket_qua(
-                order_id=str(tep["service_order_id"]), identity=identity
-            )
+        # Vòng đọc: khối VÒNG ĐỌC nghe `result_file.confirmed`.
 
         return {"ok": True, "id": str(tep["id"]), "trang_thai": trang_thai}
 
@@ -760,14 +742,22 @@ class TepKetQuaService:
                     else None,
                 },
             )
-
-        # Đánh giá lại vòng đọc: nếu requirement không còn valid thì rút lại hàng chờ
-        if tep["service_order_id"]:
-            from clinicai.services.luot_kham_service import LuotKhamService
-
-            await LuotKhamService(self._pool).sau_khi_co_ket_qua(
-                order_id=str(tep["service_order_id"]), identity=identity
-            )
+            if tep["service_order_id"]:
+                so_id = str(tep["service_order_id"])
+                luot_tep = await _luot_cua_tep(conn, cid, so_id, None)
+                await emit_event(
+                    conn,
+                    ten="result_file.revoked",
+                    clinic_id=cid,
+                    aggregate_id=str(tep["id"]),
+                    payload=TepKetQuaDaThuHoi(
+                        tep_id=str(tep["id"]),
+                        visit_id=luot_tep,
+                        service_order_id=so_id,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=luot_tep,
+                )
 
         return {"ok": True, "id": str(tep["id"]), "trang_thai": "THU_HOI"}
 
