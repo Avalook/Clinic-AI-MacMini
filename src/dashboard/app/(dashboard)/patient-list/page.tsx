@@ -123,8 +123,6 @@ export default async function PatientListPage() {
           rows={rows}
           enablePopup={enablePopup}
           canEditAdmin={canEditPatient(role)}
-          /* Nút tóm tắt trước khám chỉ cho BÁC SĨ. */
-          showPreVisitBrief={isDoctorRole(role)}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}
           enableVisitPager={showPager}

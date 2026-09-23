@@ -166,7 +166,6 @@ export default function PatientListView({
   rows,
   enablePopup = false,
   canEditAdmin = false,
-  showPreVisitBrief = false,
   showRebook = false,
   enableVisitPager = false,
   canBook = false,
@@ -175,7 +174,6 @@ export default function PatientListView({
   /** Chỉ vai lâm sàng mở phiếu khám thật ở vùng SplitPane. */
   enablePopup?: boolean;
   canEditAdmin?: boolean;
-  showPreVisitBrief?: boolean;
   showRebook?: boolean;
   enableVisitPager?: boolean;
   /** Vai đặt lịch được: hiện nút "Đặt lịch mới" ở đầu hồ sơ. */
@@ -650,7 +648,6 @@ export default function PatientListView({
               fill
               readOnly
               canEditAdmin={canEditAdmin}
-              showPreVisitBrief={showPreVisitBrief}
               showRebook={showRebook}
               enableVisitPager={enableVisitPager}
               onRebook={() => datLichLai(openAppt)}

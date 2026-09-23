@@ -9,12 +9,13 @@ from clinicai.tools.registry import ToolMeta
 
 
 def test_all_tools_registered() -> None:
-    """All 16 tools across 8 toolsets self-register on import.
+    """Every tool across the 7 toolsets self-registers on import.
 
-    (render_brief_markdown is intentionally excluded — sync, returns str.)
+    (Bộ `brief` — một công cụ — gỡ 24/09/2026 cùng AI tóm tắt trước khám.)
     """
     all_tools = REGISTRY.list_all()
-    assert len(all_tools) >= 16
+    assert len(all_tools) >= 15
+    assert not [m for m in all_tools if m.toolset == "brief"]
     assert all(isinstance(m, ToolMeta) for m in all_tools)
     # Names are unique.
     names = [m.name for m in all_tools]

@@ -7,7 +7,6 @@ from fastapi.routing import APIRoute
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, RoleGuard
-from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.clinical_forms import router as form_router
 from clinicai.api.v1.routers.clinical_records import router as record_router
 from clinicai.api.v1.routers.orchestrator import (
@@ -67,8 +66,6 @@ def test_medical_reads_ask_a_permission_not_a_role() -> None:
     mẫu, nên không mở được — trừ khi quản lý cấp. Quản lý có đủ khối nên mở được.
     """
     for route in (
-        # Tóm tắt AI trước khám cũng là nội dung y khoa (24/09/2026).
-        _route(brief_router, "/brief/{clinic_patient_id}", "POST"),
         _route(form_router, "/clinical-forms", "GET"),
         _route(record_router, "/clinical-records/doc", "GET"),
         _route(record_router, "/clinical-records/in-theo-lich/{appointment_id}", "GET"),

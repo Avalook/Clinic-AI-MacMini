@@ -5,12 +5,6 @@ from __future__ import annotations
 from fastapi.routing import APIRoute
 
 from clinicai.api.identity import RoleGuard
-from clinicai.api.v1.routers.brief import (
-    BRIEF_RATE_LIMIT,
-)
-from clinicai.api.v1.routers.brief import (
-    router as brief_router,
-)
 from clinicai.api.v1.routers.lab import (
     LAB_TRIAGE_RATE_LIMIT,
 )
@@ -55,7 +49,6 @@ def test_voice_requires_clinical_role_and_rate_limit() -> None:
 
 def test_all_expensive_ai_routes_attach_their_rate_limiter() -> None:
     cases = [
-        (brief_router, "/brief/{clinic_patient_id}", BRIEF_RATE_LIMIT),
         (lab_router, "/lab/triage/{lab_result_id}", LAB_TRIAGE_RATE_LIMIT),
         (orchestrator_router, "/orchestrator/chat", ORCHESTRATOR_RATE_LIMIT),
     ]
@@ -67,7 +60,6 @@ def test_all_expensive_ai_routes_attach_their_rate_limiter() -> None:
 
 def test_production_limits_are_bounded_and_nonzero() -> None:
     assert (VOICE_RATE_LIMIT.limit, VOICE_RATE_LIMIT.window_seconds) == (10, 60)
-    assert (BRIEF_RATE_LIMIT.limit, BRIEF_RATE_LIMIT.window_seconds) == (20, 60)
     assert (LAB_TRIAGE_RATE_LIMIT.limit, LAB_TRIAGE_RATE_LIMIT.window_seconds) == (
         30,
         60,

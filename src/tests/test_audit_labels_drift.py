@@ -131,7 +131,6 @@ _NGUON = re.compile(r"""['"]((?:api:|config\.|cskh\.)[a-z0-9:._-]+)['"]""")
 #: và giá trị cột `source` (nơi phát ra sự kiện, không phải bản thân sự kiện).
 #: Liệt kê tường minh thay vì nới biểu thức, để một mã thật viết nhầm không lọt.
 _KHONG_PHAI_SU_KIEN = {
-    "brief.generate_brief",
     "config.roster",  # cột source của roster.week_applied
     "config.booking_rule",  # cột source của booking.doctor_rule_saved
     "communication.send_zalo_message",

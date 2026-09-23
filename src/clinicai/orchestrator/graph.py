@@ -8,10 +8,6 @@ from langgraph.graph import END, START, StateGraph
 
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
-from clinicai.graphs.pre_visit_brief import (
-    PreVisitBriefState,
-    build_pre_visit_brief_subgraph,
-)
 from clinicai.graphs.scheduling import build_scheduling_subgraph
 from clinicai.graphs.task_manager import (
     TaskManagerState,
@@ -48,16 +44,6 @@ _VALID_ROUTES: set[str] = {
 
 _LAB_TRIAGE_HANDLED_BY = "lab_triage_subgraph"
 _TASK_MANAGER_HANDLED_BY = "task_manager_subgraph"
-_PREVISIT_BRIEF_HANDLED_BY = "previsit_brief_subgraph"
-
-_PREVISIT_ACK_NO_PATIENT = (
-    "Em đã ghi nhận yêu cầu xem tóm tắt trước khám. "
-    "Vui lòng cung cấp mã bệnh nhân để em tổng hợp giúp ạ."
-)
-_PREVISIT_ACK_ERROR = (
-    "Em chưa tổng hợp được tóm tắt trước khám lúc này. "
-    "Bộ phận chăm sóc khách hàng sẽ hỗ trợ chị sớm."
-)
 
 _TASK_MANAGER_ACK_DEFAULT = (
     "Em đã ghi nhận yêu cầu liên quan tới công việc. "
@@ -182,53 +168,6 @@ def _make_task_manager_wrapper_node(
     return task_manager_wrapper
 
 
-def _make_previsit_brief_wrapper_node(
-    pool: "asyncpg.Pool",
-    llm_client: AnthropicClient,
-) -> OrchestratorNode:
-    """Wrap the pre_visit_brief sub-graph behind the orchestrator state surface.
-
-    The sub-graph is pull/event-driven: it needs a concrete patient. The
-    orchestrator only carries `patient_id` (Optional) — when absent the wrapper
-    can only acknowledge. When present it maps patient_id → clinic_patient_id,
-    runs the real sub-graph, and surfaces the brief headline into `response`
-    (the BS-facing markdown stays inside the sub-graph; we don't add new
-    orchestrator-state fields).
-    """
-    sub_graph = build_pre_visit_brief_subgraph(pool=pool, llm_client=llm_client)
-
-    async def previsit_brief_wrapper(
-        state: OrchestratorState,
-    ) -> dict[str, Any]:
-        patient_id = state.get("patient_id")
-        if not patient_id:
-            return {
-                "handled_by": _PREVISIT_BRIEF_HANDLED_BY,
-                "response": _PREVISIT_ACK_NO_PATIENT,
-            }
-
-        sub_state = PreVisitBriefState(
-            clinic_patient_id=patient_id,
-            clinic_id=state["clinic_id"],
-            trace_id=state.get("trace_id"),
-        )
-        result_dict = await sub_graph.ainvoke(sub_state)
-
-        brief = result_dict.get("brief")
-        if result_dict.get("error") or brief is None:
-            return {
-                "handled_by": _PREVISIT_BRIEF_HANDLED_BY,
-                "response": _PREVISIT_ACK_ERROR,
-            }
-
-        return {
-            "handled_by": _PREVISIT_BRIEF_HANDLED_BY,
-            "response": brief.headline,
-        }
-
-    return previsit_brief_wrapper
-
-
 def build_orchestrator_graph(
     checkpointer: Optional[BaseCheckpointSaver[Any]] = None,
     llm_client: Optional[AnthropicClient] = None,
@@ -237,7 +176,6 @@ def build_orchestrator_graph(
     scheduling_location_id: Optional[UUID] = None,
     lab_triage_pool: Optional["asyncpg.Pool"] = None,
     task_manager_pool: Optional["asyncpg.Pool"] = None,
-    previsit_pool: Optional["asyncpg.Pool"] = None,
 ) -> Any:
     """Factory.
 
@@ -250,8 +188,8 @@ def build_orchestrator_graph(
     - lab_triage_pool given → wire the real lab_triage sub-graph (uses
       `llm_client` when supplied; otherwise classify safety-falls back to
       hard_block). Without a pool the legacy stub keeps test coverage.
-    - previsit_pool + llm_client given → wire the real pre_visit_brief sub-graph
-      (needs both a pool and an LLM). Otherwise fall back to the stub node.
+    - previsit: AI tóm tắt trước khám ĐÃ GỠ (Tuyền 24/09/2026: "giờ chưa cần")
+      — ý định này chỉ còn trả lời stub.
 
     Conditional edges: classify → 5 sub-graphs/stubs OR respond (general).
     Each branch → END directly (no loop back to respond).
@@ -294,13 +232,7 @@ def build_orchestrator_graph(
     else:
         task_manager_node = task_manager_stub_node
 
-    if previsit_pool is not None and llm_client is not None:
-        previsit_brief_node = _make_previsit_brief_wrapper_node(
-            pool=previsit_pool,
-            llm_client=llm_client,
-        )
-    else:
-        previsit_brief_node = previsit_brief_stub_node
+    previsit_brief_node = previsit_brief_stub_node
 
     graph: StateGraph[
         OrchestratorState,

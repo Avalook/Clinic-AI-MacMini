@@ -307,10 +307,6 @@ export default function ClinicalRecordForm({
   /** canEditAdmin = cho SỬA mục I Hành chính (PATCH /api/patients) — độc lập với
    *  readOnly (Lễ tân chỉ-đọc lâm sàng nhưng vẫn sửa được hành chính). */
   canEditAdmin?: boolean;
-  /** showPreVisitBrief = hiện nút "Xem tóm tắt trước khám" (gọi-và-hiện, read-only).
-   *  Chỉ BÁC SĨ (isDoctorRole) bật từ server. ĐỘC LẬP với readOnly — nút chỉ đọc
-   *  nên vẫn hiện khi form khóa ghi. */
-  showPreVisitBrief?: boolean;
   /** canSign = BÁC SĨ (DOCTOR / ULTRASOUND_DOCTOR): hiện nút cho phép gửi / đính chính, cho
    *  phép gửi và đính chính. Backend cũng chặn theo vai — cờ này chỉ để không
    *  bày ra một cái nút mà người bấm chắc chắn nhận 403. Quản lý và TKYK KHÔNG
