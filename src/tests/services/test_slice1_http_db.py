@@ -339,9 +339,11 @@ async def _chay(pool: asyncpg.Pool) -> None:
 
     # Cấp capability ket_qua.xac_nhan và xác nhận HOP_LE qua HTTP
     await pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         tc.staff_id,
+        tc.clinic_id,
     )
     r = await goi(
         tc,

@@ -36,6 +36,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 from clinicai.services.media_service import (
@@ -124,53 +125,31 @@ NORMAL_READ_ROLES: frozenset[ClinicRole] = frozenset(
 )
 
 
+async def _hoi_quyen_xac_nhan(
+    conn: asyncpg.Connection | asyncpg.Pool, identity: StaffIdentity
+) -> bool:
+    if isinstance(conn, asyncpg.Pool):
+        async with conn.acquire() as c:
+            return await can(c, identity, "result.file.confirm")
+    return await can(conn, identity, "result.file.confirm")
+
+
 async def co_quyen_xac_nhan(
     conn: asyncpg.Connection | asyncpg.Pool,
     identity: StaffIdentity,
 ) -> bool:
-    """Kiểm tra xem identity có capability ket_qua.xac_nhan hợp lệ hay không.
+    """Người này xác nhận được tệp kết quả ở phòng khám này không?
 
-    Quy tắc an toàn:
-    1. PARTNER không bao giờ có quyền xác nhận -> False.
-    2. staff_id phải có active clinic_membership tại đúng identity.clinic_id.
-    3. staff_id KHÔNG ĐƯỢC có active membership tại bất kỳ clinic nào
-       khác (fail-closed).
-    4. staff_id phải có capability 'ket_qua.xac_nhan' trong staff_capability.
+    MỘT hệ quyền (23/09/2026): quyền thật là `result.file.confirm` trong
+    `capability_grant`, theo từng phòng khám. `staff_capability` cũ đã nghỉ.
+
+    Đối tác KHÔNG BAO GIỜ xác nhận được, kể cả lỡ được cấp: tệp là của chính họ
+    gửi lên, tự xác nhận thì phép kiểm mất nghĩa. Đây là tách vai (người gửi ≠
+    người xác nhận), không phải phân quyền theo vai.
     """
     if identity.co_vai([ClinicRole.PARTNER]):
         return False
-
-    row = await conn.fetchrow(
-        """
-        SELECT
-            EXISTS (
-                SELECT 1 FROM public.staff_capability sc
-                 WHERE sc.staff_id = $1::uuid
-                   AND sc.capability = 'ket_qua.xac_nhan'
-            ) AS co_capability,
-            EXISTS (
-                SELECT 1 FROM public.clinic_membership cm
-                 WHERE cm.staff_id = $1::uuid
-                   AND cm.clinic_id = $2::uuid
-                   AND cm.is_active = true
-            ) AS co_membership_hien_tai,
-            (
-                SELECT count(DISTINCT cm.clinic_id)::int
-                  FROM public.clinic_membership cm
-                 WHERE cm.staff_id = $1::uuid
-                   AND cm.is_active = true
-            ) AS so_clinic_active
-        """,
-        identity.staff_id,
-        identity.clinic_id,
-    )
-    if not row:
-        return False
-    return bool(
-        row["co_capability"]
-        and row["co_membership_hien_tai"]
-        and row["so_clinic_active"] == 1
-    )
+    return await _hoi_quyen_xac_nhan(conn, identity)
 
 
 async def kiem_tra_quyen_xac_nhan(
@@ -178,53 +157,13 @@ async def kiem_tra_quyen_xac_nhan(
     *,
     identity: StaffIdentity,
 ) -> None:
-    """Kiểm tra quyền xác nhận kết quả (Blocker 1 - Capability ket_qua.xac_nhan).
-
-    Quy tắc an toàn:
-    1. PARTNER không bao giờ có quyền xác nhận.
-    2. staff_id phải có capability 'ket_qua.xac_nhan' trong staff_capability.
-    3. staff_id phải có active clinic_membership tại đúng identity.clinic_id.
-    4. staff_id KHÔNG ĐƯỢC có active membership tại bất kỳ clinic nào khác.
-       Nếu nhân sự thuộc nhiều clinic -> FAIL-CLOSED (vì staff_capability là bảng
-       toàn cục không có clinic_id, chưa đủ dữ liệu phân quyền theo từng clinic).
-    """
+    """Như `co_quyen_xac_nhan`, nhưng chặn bằng lỗi khi không có quyền."""
     if identity.co_vai([ClinicRole.PARTNER]):
         raise SafetyGateError("Đối tác không có quyền xác nhận kết quả.")
-
-    row = await conn.fetchrow(
-        """
-        SELECT
-            EXISTS (
-                SELECT 1 FROM public.staff_capability sc
-                 WHERE sc.staff_id = $1::uuid
-                   AND sc.capability = 'ket_qua.xac_nhan'
-            ) AS co_capability,
-            EXISTS (
-                SELECT 1 FROM public.clinic_membership cm
-                 WHERE cm.staff_id = $1::uuid
-                   AND cm.clinic_id = $2::uuid
-                   AND cm.is_active = true
-            ) AS co_membership_hien_tai,
-            (
-                SELECT count(DISTINCT cm.clinic_id)::int
-                  FROM public.clinic_membership cm
-                 WHERE cm.staff_id = $1::uuid
-                   AND cm.is_active = true
-            ) AS so_clinic_active
-        """,
-        identity.staff_id,
-        identity.clinic_id,
-    )
-    if not row or not row["co_capability"]:
+    if not await _hoi_quyen_xac_nhan(conn, identity):
         raise SafetyGateError(
-            "Nhân sự chưa được cấp quyền xác nhận kết quả (ket_qua.xac_nhan)."
-        )
-    if not row["co_membership_hien_tai"]:
-        raise SafetyGateError("Nhân sự không có active membership tại phòng khám này.")
-    if row["so_clinic_active"] > 1:
-        raise SafetyGateError(
-            "Nhân sự thuộc nhiều phòng khám — tạm khóa quyền xác nhận kết quả "
-            "để đảm bảo an toàn phân quyền (fail-closed)."
+            "Bạn chưa được cấp quyền xác nhận tệp kết quả."
+            " Quản lý cấp ở màn Phân quyền."
         )
 
 

@@ -11,6 +11,7 @@ Target:
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import pathlib
 import uuid
@@ -109,15 +110,20 @@ async def _tao_staff(
         role,
     )
     if caps:
+        # MỘT hệ quyền (23/09/2026): `ket_qua.xac_nhan` cũ = `result.file.confirm`
+        # trong `capability_grant`, theo từng phòng khám.
         for c in caps:
+            ma = "result.file.confirm" if c == "ket_qua.xac_nhan" else c
             await conn.execute(
                 """
-                INSERT INTO staff_capability (staff_id, capability, proficiency_level)
-                VALUES ($1::uuid, $2, 'COMPETENT')
-                ON CONFLICT (staff_id, capability) DO NOTHING
+                INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)
+                SELECT $1::uuid, $2::uuid, c.ma, c.work_pack
+                  FROM capability c WHERE c.ma = $3
+                ON CONFLICT DO NOTHING
                 """,
+                clinic_id,
                 sid,
-                c,
+                ma,
             )
 
     return StaffIdentity(
@@ -679,11 +685,14 @@ async def test_scenarios_f_g_h_l_capability_fail_closed(
             identity=staff_with_cap, tep_id=t_self["id"], trang_thai="HOP_LE"
         )
 
-    # L: Multi-clinic staff có global capability vẫn FAIL-CLOSED
-    with pytest.raises(SafetyGateError, match="thuộc nhiều phòng khám"):
-        await svc_tep.xac_nhan_tep(
-            identity=staff_multi_clinic, tep_id=tep_id, trang_thai="HOP_LE"
-        )
+    # L: Quyền THEO TỪNG PHÒNG KHÁM (23/09/2026, một hệ quyền). Bảng cũ không có
+    # clinic_id nên người làm ≥2 phòng khám bị chặn hết; giờ quyền cấp ở A chỉ
+    # có hiệu lực ở A — sang B vẫn bị chặn, dù cùng một người.
+    async with pool.acquire() as conn:
+        await kiem_tra_quyen_xac_nhan(conn, identity=staff_multi_clinic)
+        o_b = dataclasses.replace(staff_multi_clinic, clinic_id=CLINIC_B)
+        with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+            await kiem_tra_quyen_xac_nhan(conn, identity=o_b)
 
 
 # ==============================================================================

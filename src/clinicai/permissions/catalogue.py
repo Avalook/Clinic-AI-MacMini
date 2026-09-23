@@ -130,6 +130,15 @@ KHOI: dict[str, KhoiCongViec] = {
             "result",
             "Điền và hoàn tất biểu mẫu kết quả cho dịch vụ đã làm",
         ),
+        # Khối RIÊNG, không gộp vào `ket_qua`: gộp là mọi người có preset
+        # `ket_qua` (bác sĩ, thư ký, điều dưỡng) tự nhiên xác nhận được tệp của
+        # đối tác. Trước 23/09 quyền này chỉ có ai được tick tay ở /nhan-su.
+        KhoiCongViec(
+            "xac_nhan_ket_qua",
+            "Xác nhận tệp kết quả",
+            "result",
+            "Xác nhận hoặc từ chối tệp kết quả đối tác gửi về",
+        ),
         KhoiCongViec(
             "quan_tri_quyen",
             "Phân quyền",
@@ -272,6 +281,15 @@ QUYEN: dict[str, Quyen] = {
             "result.form.fill",
             "Điền và hoàn tất biểu mẫu kết quả",
             "ket_qua",
+            "result",
+            MucRuiRo.LAM_SANG,
+        ),
+        # Chuyển từ `staff_capability` (`ket_qua.xac_nhan`) sang đây 23/09/2026:
+        # chỉ còn MỘT hệ quyền.
+        Quyen(
+            "result.file.confirm",
+            "Xác nhận / từ chối / thu hồi tệp kết quả",
+            "xac_nhan_ket_qua",
             "result",
             MucRuiRo.LAM_SANG,
         ),

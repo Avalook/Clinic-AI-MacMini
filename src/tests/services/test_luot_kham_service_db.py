@@ -1271,9 +1271,12 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         # Cấp capability xác nhận kết quả và xác nhận HOP_LE
         async with kb.pool.acquire() as conn:
             await conn.execute(
-                "INSERT INTO staff_capability (staff_id, capability) "
-                "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+                "INSERT INTO capability_grant"
+                " (clinic_id, staff_id, capability, tu_khoi)"
+                " VALUES ($2::uuid, $1::uuid, 'result.file.confirm',"
+                " 'xac_nhan_ket_qua') ON CONFLICT DO NOTHING",
                 kb.dieu_duong.staff_id,
+                kb.dieu_duong.clinic_id,
             )
         await TepKetQuaService(kb.pool).xac_nhan_tep(
             identity=kb.dieu_duong,

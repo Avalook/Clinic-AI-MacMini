@@ -46,9 +46,17 @@ const MUC_RUI_RO: Record<string, string> = {
   admin: "quản trị",
 };
 
-export default function BangPhanQuyen({ nhanSu }: { nhanSu: Nguoi[] }) {
+export default function BangPhanQuyen({
+  nhanSu,
+  chonTruoc,
+}: {
+  nhanSu: Nguoi[];
+  chonTruoc?: string;
+}) {
   const [danhMuc, setDanhMuc] = useState<DanhMuc | null>(null);
-  const [chon, setChon] = useState<Nguoi | null>(nhanSu[0] ?? null);
+  const [chon, setChon] = useState<Nguoi | null>(
+    nhanSu.find((n) => n.id === chonTruoc) ?? nhanSu[0] ?? null,
+  );
   const [dangCo, setDangCo] = useState<Set<string>>(new Set());
   const [bung, setBung] = useState<Set<string>>(new Set());
   const [dangLam, setDangLam] = useState<string | null>(null);

@@ -139,9 +139,11 @@ async def test_lay_mau_xong_chua_du_phai_co_ket_qua(kb: KichBan) -> None:
 
     # Xác nhận HOP_LE (yêu cầu capability ket_qua.xac_nhan) -> vòng SẴN SÀNG
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,
@@ -296,9 +298,11 @@ async def test_ket_qua_muon_chuyen_theo_doi_roi_duyet_sau_khi_ky(
         service_order_id=mau,
     )
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,
@@ -537,9 +541,11 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
         service_order_id=mau,
     )
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,

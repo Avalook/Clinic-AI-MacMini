@@ -96,7 +96,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/schedule` | mọi vai trừ CSKH, đối tác, TV | Lịch làm việc | GIỮ | |
 | `/reports` | QL | Báo cáo | GIỮ | |
 | `/audit-log` | CSKH, QL | Lịch sử thao tác | GIỮ | |
-| `/nhan-su` | QL | Quản lý nhân sự | GIỮ | |
+| `/nhan-su` | QL | Quản lý nhân sự | GIỮ | **Không quản quyền** (23/09): ô "Được xác nhận tệp kết quả" (hệ `staff_capability` cũ) đã gỡ; nút `[Mở Phân quyền cho người này]` → `/phan-quyen?nguoi=<id>`. `/api/staff/{id}/capabilities` trả 410. |
 | `/settings` | QL | Cài đặt | GIỮ | |
 | `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | |
 | `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | |

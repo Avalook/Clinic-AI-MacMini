@@ -558,9 +558,11 @@ async def test_mixed_orders_slice_ab_progression(
         assert round_row["ready_at"] is None
         # Cấp capability xác nhận kết quả cho điều dưỡng
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) "
-            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+            " ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
+            kban.dieu_duong.clinic_id,
         )
 
     # Điều dưỡng xác nhận HOP_LE
@@ -853,9 +855,11 @@ async def test_late_result_follow_up_scenario(
     # 3. Điều dưỡng có capability xác nhận HOP_LE cho tệp muộn
     async with kban.pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) "
-            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+            " ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
+            kban.dieu_duong.clinic_id,
         )
     await TepKetQuaService(kban.pool).xac_nhan_tep(
         identity=kban.dieu_duong,

@@ -16,7 +16,13 @@ import BangPhanQuyen from "./BangPhanQuyen";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Phân quyền · ClinicAI" };
 
-export default async function TrangPhanQuyen() {
+export default async function TrangPhanQuyen({
+  searchParams,
+}: {
+  searchParams: Promise<{ nguoi?: string }>;
+}) {
+  // `?nguoi=` — mở thẳng từ hồ sơ nhân sự (màn Nhân sự thôi quản quyền 23/09).
+  const { nguoi } = await searchParams;
   await requireNavAccess("/phan-quyen");
   const nhanSu = (await fetchFromBackend<StaffRow[]>("/api/v1/staff")) ?? [];
   return (
@@ -36,7 +42,7 @@ export default async function TrangPhanQuyen() {
             ten: n.full_name,
             vai: n.primary_department,
           }))}
-      />
+      chonTruoc={nguoi} />
     </main>
   );
 }
