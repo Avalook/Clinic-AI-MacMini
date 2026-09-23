@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.api.exceptions import ValidationError
 from clinicai.services import ban_thuoc_service as bt
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.payment_service import PaymentService
@@ -66,23 +66,26 @@ async def _tren_quay(q: Quay) -> dict[str, Any] | None:
 # ── A ──────────────────────────────────────────────────────────────────────
 
 
-async def test_a_khong_hen_chua_kham_xong_thi_chua_san_sang(q: Quay) -> None:
+async def test_a_khong_hen_chua_kham_xong_van_ban_duoc(q: Quay) -> None:
+    """Nhóm 4 (Tuyền 24/09/2026): tiền thuốc KHÔNG đợi Khám xong — lượt đã có
+    đơn là quầy thuốc làm được, thu ngân thu được."""
     rx, drug = await _dong_da_xac_dinh(q, 10)  # xác định khi lượt còn lịch hẹn
     lo = await _nhap_lo(q, drug, 100)
     await _khong_hen(q, kham_xong=False)
-    assert await _giai_doan(q) == bt.CHUA_SAN_SANG
-    with pytest.raises(ConflictError, match="Khám xong"):
-        await _chon(q, rx, lo, 10)
-    with pytest.raises(ConflictError, match="chưa khám xong"):
-        await PaymentService(q.pool).record_payment(
-            visit_id=q.visit_id,
-            kind="thuoc",
-            idempotency_key=f"test-{uuid.uuid4().hex}",
-            amount=None,
-            clinic_patient_id=None,
-            identity=q.thu_ngan,
+    assert await _giai_doan(q) == bt.SAN_SANG
+    await _chon(q, rx, lo, 10)
+    assert await _tren_quay(q) is not None
+    kq = await _thu(q)
+    assert kq["status"] == "PAID"
+    # Sổ sự kiện (dòng thời gian): tiền thuốc đã thu.
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM domain_event WHERE event_type ="
+            " 'payment.medicine_collected' AND aggregate_id = $1::uuid",
+            kq["payment_cycle_id"],
         )
-    assert await _tren_quay(q) is None
+        == 1
+    )
 
 
 # ── B ──────────────────────────────────────────────────────────────────────
@@ -145,7 +148,8 @@ async def test_c_moc_cua_luot_thang_trang_thai_lich_hen(q: Quay) -> None:
         q.visit_id,
     )
     rx = await _don(q, 10)
-    assert await _giai_doan(q) == bt.CHUA_SAN_SANG
+    # Nhóm 4 (24/09/2026): chưa khép lượt cũng đã sẵn sàng.
+    assert await _giai_doan(q) == bt.SAN_SANG
     await q.pool.execute(
         "UPDATE visit SET exam_completed_at = now() WHERE visit_id = $1::uuid",
         q.visit_id,

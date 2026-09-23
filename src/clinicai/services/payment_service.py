@@ -39,7 +39,7 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.events.catalogue import TienDichVuDaThu
+from clinicai.events.catalogue import TienDichVuDaThu, TienThuocDaThu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import pos_outbox
@@ -202,7 +202,9 @@ class PaymentService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 status_row = await _khoa_luot_thu(conn, visit_id, identity)
-                authoritative_patient_id = _kiem_luot_thu(status_row, clinic_patient_id)
+                authoritative_patient_id = _kiem_luot_thu(
+                    status_row, clinic_patient_id, can_kham_xong=False, kind=kind
+                )
                 # CP3: khoá theo đúng thứ tự visit → dòng đơn → phân lô → lô,
                 # TRƯỚC khi chạm payment_cycle / payment.
                 phan_lo: list[PhanLo] = []
@@ -1169,6 +1171,11 @@ async def _khoa_luot_thu(
                    AND so.selection_status IS NOT NULL
                    AND so.exec_status NOT IN ('draft', 'cancelled')
             ) AS co_chi_dinh,
+            EXISTS (
+                SELECT 1 FROM prescription rx
+                 WHERE rx.clinic_id = v.clinic_id AND rx.visit_id = v.visit_id
+                   AND rx.removed_at IS NULL
+            ) AS co_don_thuoc,
             (v.appointment_id IS NULL OR a.id IS NOT NULL) AS hen_khop,
             v.clinic_patient_id,
             EXISTS (
@@ -1201,6 +1208,7 @@ def _kiem_luot_thu(
     clinic_patient_id: str | None,
     *,
     can_kham_xong: bool = True,
+    kind: str = "dich_vu",
 ) -> str:
     """Các chốt trước khi thu; trả mã bệnh nhân chuẩn của lượt.
 
@@ -1208,8 +1216,8 @@ def _kiem_luot_thu(
     định đi làm ở phòng khác là "đợi quay lại", không phải khám xong — khách
     xuống lễ tân trả tiền dịch vụ ngay lúc phiên bác sĩ còn mở. Chỉ cần lượt
     ĐÃ CÓ chỉ định (chưa có gì ngoài tiền khám thì vẫn đợi khám xong — bác sĩ
-    còn có thể chỉ định thêm). Tiền thuốc vẫn giữ mốc khám xong tới nhóm 4
-    (đơn còn đang kê).
+    còn có thể chỉ định thêm). TIỀN THUỐC cũng vậy từ 24/09/2026 (nhóm 4): lượt
+    đã có đơn là thu được; bác sĩ sửa đơn sau đó thì đi đường đính chính.
     """
     if status_row is None or not status_row["hen_khop"]:
         raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
@@ -1221,7 +1229,12 @@ def _kiem_luot_thu(
     if not status_row["kham_xong"]:
         if can_kham_xong:
             raise ConflictError("Bác sĩ chưa khám xong lượt này — chưa thể thu tiền")
-        if not status_row["co_chi_dinh"]:
+        if kind == "thuoc" and not status_row["co_don_thuoc"]:
+            raise ConflictError(
+                "Bác sĩ chưa khám xong lượt này và chưa kê đơn thuốc nào"
+                " — chưa thể thu tiền thuốc"
+            )
+        if kind != "thuoc" and not status_row["co_chi_dinh"]:
             raise ConflictError(
                 "Bác sĩ chưa khám xong lượt này và chưa có chỉ định dịch vụ nào"
                 " — chưa thể thu tiền"
@@ -1420,6 +1433,23 @@ async def _ghi_da_thu(
     # Sự kiện CHUẨN khi tiền thật sự đã nhận (CHECKPOINT §6): tiền mặt thu
     # xong, hoặc chuyển khoản/QR xác minh xong. Trước 22/09/2026 tên là
     # "payment.recorded" — lịch sử cũ giữ nguyên, không viết lại.
+    if kind == "thuoc":
+        # Sổ sự kiện mới (dòng thời gian). Tiền dịch vụ phát riêng sau khi ảnh
+        # chụp hoá đơn đã ghi (`_phat_da_thu_dich_vu`).
+        await emit_event(
+            conn,
+            ten="payment.medicine_collected",
+            clinic_id=identity.clinic_id,
+            aggregate_id=cycle_id,
+            payload=TienThuocDaThu(
+                visit_id=visit_id,
+                payment_cycle_id=cycle_id,
+                so_tien=int(amount),
+                phuong_thuc=method or "CASH",
+            ),
+            boi=nguoi(identity),
+            correlation_id=visit_id,
+        )
     await _log_payment_event(
         conn,
         event_type="payment.confirmed",

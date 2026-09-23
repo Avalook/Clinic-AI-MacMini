@@ -78,6 +78,10 @@ class _Conn:
     async def execute(self, sql: str, *a: Any) -> None:
         self.da_chay.append(sql)
 
+    async def executemany(self, sql: str, *a: Any) -> None:
+        # emit_event ghi dòng giao cho bên nhận bằng executemany.
+        self.da_chay.append(sql)
+
     def transaction(self) -> Any:
         return _Suot()
 
@@ -169,11 +173,10 @@ class TestChotHaiLanKhongHong:
     async def test_chot_lai_dong_da_chot_thi_noi_ro(self) -> None:
         # UPDATE không khớp dòng nào (đã chốt trước đó) → nhưng dòng CÓ tồn tại.
         # Thứ tự gọi (review CP1 #3): tìm lượt → khoá lượt → khoá dòng →
-        # (CP4) đã Khám xong → (CP5) còn chưa giao? → lần thu thuốc → UPDATE.
+        # (CP5, 24/09: không còn chờ Khám xong) còn chưa giao? → lần thu thuốc → UPDATE.
         conn = _Conn(
             "v1",
             {"visit_id": "v1", "closed_at": None, "removed_at": None},
-            True,
             None,
             None,
             None,
@@ -701,11 +704,10 @@ class TestCapPhatDiTronVen:
 
     @pytest.mark.asyncio
     async def test_tu_choi_tra_ve_dong_da_chot(self) -> None:
-        # tìm lượt → khoá dòng → (CP4) đã Khám xong → CHƯA thu tiền → UPDATE.
+        # tìm lượt → khoá dòng → CHƯA thu tiền → UPDATE (không còn chờ Khám xong).
         conn = _Conn(
             "v1",
             {"visit_id": "v1", "closed_at": None, "removed_at": None},
-            True,
             None,  # (CP5) phần đã bán chưa giao — không có
             False,
             {"dispensed_qty": 0, "dispense_status": "TU_CHOI"},
@@ -721,11 +723,10 @@ class TestCapPhatDiTronVen:
     @pytest.mark.asyncio
     async def test_chot_lai_dong_da_chot_thi_noi_ro_khong_doi_gi(self) -> None:
         # UPDATE ... AND closed_at IS NULL không khớp dòng nào, nhưng đơn CÓ tồn tại.
-        # (CP4) đã Khám xong → (CP5) còn chưa giao? → lần thu thuốc → UPDATE.
+        # (CP5, 24/09: không còn chờ Khám xong) còn chưa giao? → lần thu thuốc → UPDATE.
         conn = _Conn(
             "v1",
             {"visit_id": "v1", "closed_at": None, "removed_at": None},
-            True,
             None,
             None,
             None,

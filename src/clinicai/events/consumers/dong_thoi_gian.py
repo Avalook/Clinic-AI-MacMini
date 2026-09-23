@@ -47,6 +47,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.carried_over": ["service_code", "da_thu_tien"],
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.
     "payment.service_collected": ["so_tien", "phuong_thuc"],
+    "payment.medicine_collected": ["so_tien", "phuong_thuc"],
+    # Kê ↔ mua ↔ giao: đối chiếu hai bản đơn (Tuyền 24/09).
+    "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
     "visit.checked_in": ["so_thu_tu"],
     "visit.routed": ["dich", "ly_do"],
     "consultation.started": ["loai"],

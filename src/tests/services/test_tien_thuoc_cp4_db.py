@@ -41,7 +41,8 @@ def _lt(status: str, legacy: bool = False) -> bt.LanThu:
 @pytest.mark.parametrize(
     ("kham_xong", "lan", "chua_ban", "ket_qua"),
     [
-        (False, None, False, bt.CHUA_SAN_SANG),
+        # Nhóm 4 (24/09/2026): chưa Khám xong vẫn làm được — không còn chờ.
+        (False, None, False, bt.SAN_SANG),
         (True, None, False, bt.SAN_SANG),
         (True, _lt("PENDING_VERIFICATION"), False, bt.CHO_XAC_MINH),
         (True, _lt("PAID"), False, bt.DA_THU),
@@ -114,7 +115,7 @@ def test_nut_cua_phan_lo_theo_giai_doan() -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_chua_kham_xong_khong_chon_lo_duoc(q: Quay) -> None:
+async def test_chua_kham_xong_van_chon_lo_duoc(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 10)
     lo = await _nhap_lo(q, drug, 100)
     await q.pool.execute(
@@ -122,8 +123,8 @@ async def test_chua_kham_xong_khong_chon_lo_duoc(q: Quay) -> None:
         " (SELECT appointment_id FROM visit WHERE visit_id = $1::uuid)",
         q.visit_id,
     )
-    with pytest.raises(ConflictError, match="Khám xong"):
-        await _chon(q, rx, lo, 10)
+    # Nhóm 4 (Tuyền 24/09/2026): tiền thuốc/quầy thuốc không đợi Khám xong.
+    await _chon(q, rx, lo, 10)
 
 
 # ── Đọc màn: đi qua các giai đoạn ────────────────────────────────────────
@@ -218,7 +219,7 @@ async def test_man_nha_thuoc_luot_khac_phong_kham_khong_lot(q: Quay) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_chua_kham_xong_ca_nam_lenh_ghi_deu_bi_chan(q: Quay) -> None:
+async def test_chua_kham_xong_ca_nam_lenh_ghi_deu_chay(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 10)  # xác định khi đã Khám xong
     lo = await _nhap_lo(q, drug, 100)
     await q.pool.execute(
@@ -235,21 +236,22 @@ async def test_chua_kham_xong_ca_nam_lenh_ghi_deu_bi_chan(q: Quay) -> None:
             identity=q.duoc_si, prescription_id=rx, so_luong=5
         ),
         "phan_lo": ph.phan_lo(
-            identity=q.duoc_si, prescription_id=rx, drug_batch_id=lo, so_luong=10
+            identity=q.duoc_si, prescription_id=rx, drug_batch_id=lo, so_luong=5
         ),
         "tu_choi": ph.tu_choi(
             identity=q.duoc_si, prescription_id=rx, ly_do="khách đã có thuốc"
         ),
         "chot": ph.chot(identity=q.duoc_si, prescription_id=rx),
     }
+    # Nhóm 4 (Tuyền 24/09/2026): KHÔNG lệnh nào còn bị chặn vì chưa Khám xong.
+    # (từ chối rồi chốt trên cùng dòng: chốt sau từ chối là "đã chốt từ trước")
     for ten, coro in lenh.items():
-        with pytest.raises(ConflictError, match="Khám xong"):
-            await coro
+        await coro
         assert ten
     r = await q.pool.fetchrow(
-        "SELECT closed_at, purchased_qty FROM prescription WHERE id = $1::uuid", rx
+        "SELECT closed_at FROM prescription WHERE id = $1::uuid", rx
     )
-    assert r["closed_at"] is None and r["purchased_qty"] is None
+    assert r["closed_at"] is not None
 
 
 # ── Review CP4 P1 #2: chốt không bỏ lại thuốc đã bán chưa giao ───────────

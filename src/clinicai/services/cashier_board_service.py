@@ -18,12 +18,10 @@ LUẬT ĐI THEO, KHÔNG Ở LẠI.
 Ba luật vốn nằm trong TSX được chuyển xuống cùng, đúng nguyên tắc của dự án
 (logic ở backend, TSX chỉ vẽ):
 
-  1. Ô THUỐC chỉ hiện khi BÁC SĨ ĐÃ KHÁM XONG — cùng mốc với Payment và
-     Nhà thuốc (`moc_kham_xong`: `visit.exam_completed_at`, nhánh tương thích
-     lịch hẹn COMPLETED). Lượt không có lịch hẹn vẫn hiện (review CP4).
-     Ô DỊCH VỤ hiện ngay khi lượt có chỉ định (Tuyền chốt 24/09/2026): khách
-     xuống trả tiền dịch vụ rồi đi làm, phiên bác sĩ còn mở — cùng luật với
-     lệnh thu (`payment_service._kiem_luot_thu(can_kham_xong=False)`).
+  1. Khách hiện khi BÁC SĨ ĐÃ KHÁM XONG (`moc_kham_xong`), HOẶC ngay khi có
+     chỉ định (ô dịch vụ) / có đơn thuốc (ô thuốc) — Tuyền chốt 24/09/2026:
+     khách trả tiền trong lúc phiên bác sĩ còn mở. Cùng luật với lệnh thu
+     (`payment_service._kiem_luot_thu(can_kham_xong=False)`).
   2. Tên dịch vụ/thuốc phải CHUẨN HOÁ trước khi tra bảng giá — bỏ đường link
      dính trong tên, gộp khoảng trắng, bỏ ngoặc. Không chuẩn hoá thì "Siêu âm
      (https://...)" không khớp dòng giá nào và thu ngân thấy giá trống.
@@ -115,7 +113,12 @@ WITH v AS (
                 SELECT 1 FROM public.service_order so
                  WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
                    AND so.selection_status IS NOT NULL
-                   AND so.exec_status NOT IN ('draft', 'cancelled')))
+                   AND so.exec_status NOT IN ('draft', 'cancelled'))
+            -- Ô THUỐC: đã có đơn (nhóm 4, 24/09 — không đợi khám xong).
+            OR EXISTS (
+                SELECT 1 FROM public.prescription rx
+                 WHERE rx.clinic_id = vi.clinic_id AND rx.visit_id = vi.visit_id
+                   AND rx.removed_at IS NULL))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -433,10 +436,8 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 "phone": v.get("phone_primary"),
                 "appt_status": v.get("appt_status"),
                 "services": services,
-                # Tiền thuốc vẫn chờ khám xong (tới nhóm 4): đơn còn đang kê.
-                "drugs": rx_by_visit.get(v["visit_id"], [])
-                if want_rx and v.get("kham_xong", True)
-                else [],
+                # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
+                "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],
             }
         )
 

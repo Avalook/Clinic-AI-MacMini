@@ -44,6 +44,8 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import ThuocDaGiao
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
@@ -74,6 +76,14 @@ def _so(value: Any, *, ten: str) -> Decimal:
 def _don_vi(value: str | None) -> str:
     """Chỉ chuẩn hoá cách viết; hộp, vỉ, viên luôn là các đơn vị khác nhau."""
     return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
+
+
+def _so_chu(v: Any) -> str | None:
+    return None if v is None else str(v)
+
+
+#: Luật cũ "nhà thuốc đợi Khám xong" — OFF từ 24/09/2026 (xem `_bat_buoc_kham_xong`).
+_CHO_KHAM_XONG = False
 
 
 class PharmacyService:
@@ -335,6 +345,23 @@ class PharmacyService:
                         cycle_id=lan["payment_cycle_id"],
                         luong=luong,
                     )
+                # Dòng thời gian: kê ↔ khách mua ↔ đã giao (hai bản đơn). Số kê
+                # và số mua đọc từ dòng đã khoá ở trên — giao không đổi hai số ấy.
+                await emit_event(
+                    conn,
+                    ten="medicine.dispensed",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=prescription_id,
+                    payload=ThuocDaGiao(
+                        visit_id=str(don["visit_id"]),
+                        prescription_id=prescription_id,
+                        so_ke=_so_chu(don.get("quantity_num")),
+                        so_mua=_so_chu(don.get("purchased_qty")),
+                        so_da_giao=str(moi["dispensed_qty"]),
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=str(don["visit_id"]),
+                )
 
         logger.info(
             "pharmacy_dispensed",
@@ -731,13 +758,18 @@ class PharmacyService:
     async def _bat_buoc_kham_xong(
         conn: asyncpg.Connection, identity: StaffIdentity, visit_id: Any
     ) -> None:
-        """Mọi lệnh làm đổi dòng thuốc chỉ chạy SAU khi bác sĩ bấm Khám xong.
+        """OFF từ 24/09/2026 — nhà thuốc KHÔNG còn đợi bác sĩ bấm Khám xong.
 
-        Review CP4 P1 #1: màn đọc đã "chỉ xem" trước Khám xong, nhưng lệnh gọi
-        thẳng vẫn xác định thuốc / khai số mua / từ chối / chốt được — và chốt
-        hay từ chối cũng khoá dòng khỏi nút Lưu bệnh án khi bác sĩ còn sửa đơn.
-        Muốn "dược sĩ chuẩn bị trước" thì nới ở đây, có chủ ý.
+        Tuyền chốt: "tiền thuốc không cần khám xong"; Khám xong là mốc thời gian,
+        không phải cửa khoá (luồng chuẩn bước 9–10). Đơn đổi SAU khi nhà thuốc đã
+        đụng dòng thì đi đường ĐÍNH CHÍNH (dinh_chinh_don: dòng cũ giữ lịch sử,
+        dòng mới thay) — không cần chặn nhà thuốc để giữ đơn đứng yên.
+
+        Giữ hàm (không xoá, Tuyền bấm thật xong mới dọn): bật lại luật cũ =
+        đổi `_CHO_KHAM_XONG` thành True.
         """
+        if not _CHO_KHAM_XONG:
+            return
         # Mốc chung của Nhà thuốc / Thu ngân / Payment (moc_kham_xong): trạng
         # thái của LƯỢT, không phụ thuộc lượt có lịch hẹn hay không.
         if not await conn.fetchval(

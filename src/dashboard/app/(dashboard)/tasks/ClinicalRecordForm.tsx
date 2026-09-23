@@ -366,6 +366,10 @@ export default function ClinicalRecordForm({
   const [closing, setClosing] = useState(false);
   const [completedExplicit, setCompletedExplicit] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Đơn đã có dấu vết ở nhà thuốc / thu ngân: máy chủ đòi LÝ DO ĐÍNH CHÍNH
+  // (dinh_chinh_don). Trước 24/09 màn không có ô gõ lý do → bác sĩ kẹt ở 409.
+  const [canLyDoDinhChinh, setCanLyDoDinhChinh] = useState(false);
+  const [lyDoDinhChinh, setLyDoDinhChinh] = useState("");
   // D26 — đã bấm lưu mà thiếu trường sinh hiệu bắt buộc → bật viền đỏ inline.
   const [vitalsTried, setVitalsTried] = useState(false);
   // Tab đang chọn (gom 4 mục). Đón-khám (vitalsOnly) mặc định mở tab "Khám" (1)
@@ -761,6 +765,9 @@ export default function ClinicalRecordForm({
         },
         expectedRevision: data.revision,
         approvePrescriptionDraft,
+        ...(lyDoDinhChinh.trim()
+          ? { prescriptionCorrectionReason: lyDoDinhChinh.trim() }
+          : {}),
         prescriptions: canSign && data.prescription_draft
           ? data.prescriptions.map((r) => ({
               id: r.id,
@@ -778,9 +785,16 @@ export default function ClinicalRecordForm({
     });
     if (!res.ok) {
       setSaving(false);
-      setMsg((await res.json()).error ?? "Lỗi lưu hồ sơ.");
+      const loi = (await res.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
+      if (loi?.error === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDoDinhChinh(true);
+      // Câu của máy chủ, không phải mã lỗi.
+      setMsg(loi?.message ?? loi?.error ?? "Lỗi lưu hồ sơ.");
       return; // GIỮ bản gõ dở: lưu hỏng đúng là lúc cần nó nhất.
     }
+    setCanLyDoDinhChinh(false);
+    setLyDoDinhChinh("");
     // Đã nằm trên máy chủ → bản trên máy trạm hết việc. Xoá ngay, và dời mốc
     // "đã lưu" để cảnh báo đóng tab không còn kêu oan.
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
@@ -803,11 +817,11 @@ export default function ClinicalRecordForm({
     setLoading(true);
     setReloadEpoch((n) => n + 1);
     setSaving(false);
+    // Thư ký y khoa = bác sĩ về đơn thuốc (Tuyền 24/09/2026): đơn lưu là tới
+    // nhà thuốc ngay, không còn "chờ bác sĩ duyệt".
     setMsg(approvePrescriptionDraft
       ? "Đã duyệt đơn thuốc thư ký nhập; nhà thuốc có thể tiếp nhận."
-      : canSign
-        ? "Đã lưu nháp hồ sơ. Kết thúc lượt khám là thao tác riêng sau khi hoàn tất chỉ định."
-        : "Đã lưu nháp. Đơn thuốc cần bác sĩ duyệt trước khi nhà thuốc tiếp nhận.");
+      : "Đã lưu hồ sơ — đơn thuốc đã tới nhà thuốc. Bấm Khám xong khi xong (không bấm cũng được).");
     router.refresh();
   }
 
@@ -1437,9 +1451,22 @@ export default function ClinicalRecordForm({
 
         {(tab === 3 || showAll) && !vitalsOnly && (
           <Section no="IX" title="Đơn thuốc">
+            {canLyDoDinhChinh && (
+              <label className="mb-3 block rounded-card border border-warning bg-warning-bg p-3 text-meta text-ink">
+                Đơn này nhà thuốc / thu ngân đã đụng tới — ghi lý do đính chính rồi bấm Lưu lại
+                (dòng cũ giữ trong lịch sử, dòng mới thay).
+                <input
+                  className={`${INPUT} mt-2`}
+                  value={lyDoDinhChinh}
+                  onChange={(e) => setLyDoDinhChinh(e.target.value)}
+                  placeholder="Vd: đổi liều theo kết quả xét nghiệm"
+                  aria-label="Lý do đính chính đơn thuốc"
+                />
+              </label>
+            )}
             {data?.prescription_draft && (
               <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Đơn thuốc nháp — chưa chuyển sang nhà thuốc.
+                Đơn thuốc nháp (bản cũ trước 24/09) — chưa chuyển sang nhà thuốc.
                 {canSign && !viewingPast && !readOnly && (
                   <button type="button" disabled={saving || loading || remoteChanged || locked}
                     onClick={() => void save(true)} className="ml-2 font-semibold underline">

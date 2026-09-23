@@ -47,6 +47,7 @@ from clinicai.services.clinical_prescription_service import (
     _prescription_key,
     _validated_prescription_items,
 )
+from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
 
 LY_DO_NHA_PHAN_LO = "Bác sĩ đính chính đơn"
 LY_DO_TOI_THIEU = 5
@@ -874,10 +875,12 @@ async def _chen(
 async def _cho_phep_dinh_chinh(
     conn: asyncpg.Connection, *, identity: StaffIdentity | None, visit_id: Any
 ) -> None:
-    if identity is None or not identity.co_vai({ClinicRole.DOCTOR}):
+    # Thư ký y khoa = bác sĩ về đơn thuốc (Tuyền chốt 24/09/2026) — thư ký của
+    # CHÍNH bác sĩ chính của lượt đính chính được như bác sĩ.
+    if identity is None or not identity.co_vai({ClinicRole.DOCTOR, ClinicRole.TKYK}):
         raise SafetyGateError(
-            "Chỉ bác sĩ chính của lượt mới đính chính được dòng đơn nhà thuốc / "
-            "thu ngân đã đụng tới."
+            "Chỉ bác sĩ chính của lượt (hoặc thư ký của bác sĩ ấy) mới đính chính"
+            " được dòng đơn nhà thuốc / thu ngân đã đụng tới."
         )
     chinh = await conn.fetchval(
         "SELECT attending_doctor_id::text FROM public.visit"
@@ -885,6 +888,9 @@ async def _cho_phep_dinh_chinh(
         visit_id,
         identity.clinic_id,
     )
+    if identity.co_vai({ClinicRole.TKYK}) and not identity.co_vai({ClinicRole.DOCTOR}):
+        kiem_thu_ky_duoc_lam(await bac_si_cua_thu_ky(conn, identity), chinh)
+        return
     if chinh is not None and chinh != identity.staff_id:
         # Đính chính chéo bác sĩ: HOLD Dr4Women — mặc định từ chối.
         raise SafetyGateError(

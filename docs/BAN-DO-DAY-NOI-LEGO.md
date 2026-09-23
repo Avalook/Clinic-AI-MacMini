@@ -71,6 +71,20 @@ dòng thời gian, trách nhiệm tiền (không làm được mà đã thu ti�
    "điều phối lại" cho người (giữ luật cũ).
 6. Chỉ định cũ quá 180 ngày không mang sang.
 
+**Nhóm 4 — kê đơn + quầy thuốc (đã làm):** thư ký y khoa ghi đơn THẲNG như bác sĩ (không
+nháp, không duyệt); dòng đơn ghi người nhập (`created_by`) + bác sĩ chính (`bac_si_chinh_id`,
+chụp lúc ghi). Quầy thuốc và tiền thuốc KHÔNG đợi Khám xong — lượt đã có đơn là làm/thu
+được. Hai bản đơn: số bác sĩ kê ↔ số khách mua (màn quầy báo "khác số kê"); sự kiện
+`payment.medicine_collected`, `medicine.dispensed` (mang số kê / mua / đã giao) lên dòng
+thời gian. Đơn đổi sau khi quầy đã đụng → đường ĐÍNH CHÍNH, màn bệnh án nay có ô lý do.
+
+**Chỗ Claude tự chốt ở nhóm 4:**
+7. Nháp đơn cũ của thư ký (trước 24/09) vẫn duyệt được — OFF, không xoá; ai ghi thẳng một
+   đơn mới thì nháp cũ bị thay.
+8. Thư ký đính chính được đơn — nhưng chỉ đơn của bác sĩ mình theo (giữ luật "không đính
+   chính chéo bác sĩ").
+9. Thu tiền thuốc cần lượt đã có ít nhất một dòng đơn (chưa kê gì thì chưa có gì để thu).
+
 ### Các chốt khác (24/09)
 
 - **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),

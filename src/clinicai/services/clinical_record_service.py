@@ -487,11 +487,9 @@ class ClinicalRecordService:
                         clinic_patient_id=clinic_patient_id,
                         prescriptions=prescription_write.items,
                         clinic_id=identity.clinic_id,
-                        created_by=identity.staff_id
-                        if identity.co_vai(
-                            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
-                        )
-                        else None,
+                        # NGƯỜI NHẬP (Tuyền 24/09: ghi đúng người nhập, thư ký =
+                        # bác sĩ). Duyệt nháp cũ: người nhập là thư ký đã gõ.
+                        created_by=prescription_write.recorded_by or identity.staff_id,
                         identity=identity,
                         ly_do_dinh_chinh=prescription_correction_reason,
                     )

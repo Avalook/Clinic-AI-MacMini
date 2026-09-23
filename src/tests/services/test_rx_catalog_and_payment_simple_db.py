@@ -546,8 +546,8 @@ async def test_9_bac_si_sua_dosage_soap_giu_nguyen_mapping_duoc_si(q: Quay) -> N
         assert rx_after["dosage_instructions"] == "Ngày 3 gói chia 3 lần"
 
 
-async def test_10_tkyk_draft_catalog_bac_si_duyet_co_catalog_id(q: Quay) -> None:
-    """10. Thư ký Y khoa nhập draft catalog -> Bác sĩ duyệt -> có drug_catalog_id."""
+async def test_10_tkyk_ke_thang_co_catalog_id(q: Quay) -> None:
+    """10. Thư ký Y khoa kê đơn có catalog → đơn thật có ngay drug_catalog_id."""
     async with q.pool.acquire() as conn:
         drug_id = await _tao_thuoc_catalog(conn, ten=f"Acid folic {q.duoi}", gia=4_000)
         appt_id = await _get_appointment_id(conn, q.visit_id)
@@ -575,7 +575,7 @@ async def test_10_tkyk_draft_catalog_bac_si_duyet_co_catalog_id(q: Quay) -> None
             q.bac_si.staff_id,
         )
 
-    # 1. Thư ký nhập nháp đơn thuốc có catalog ID
+    # 1. Thư ký kê đơn thuốc có catalog ID
     service = ClinicalRecordService(q.pool)
     await service.save(
         identity=thu_ky,
@@ -594,38 +594,14 @@ async def test_10_tkyk_draft_catalog_bac_si_duyet_co_catalog_id(q: Quay) -> None
         ],
     )
 
-    # Chưa tạo đơn chính thức, mới nằm trong prescription_draft
-    async with q.pool.acquire() as conn:
-        count_main = await conn.fetchval(
-            "SELECT count(*) FROM public.prescription WHERE visit_id = $1::uuid",
-            q.visit_id,
-        )
-        assert count_main == 0
-        draft = await conn.fetchval(
-            """
-            SELECT prescription_draft
-              FROM public.clinical_record
-             WHERE visit_id = $1::uuid
-            """,
-            q.visit_id,
-        )
-        assert draft is not None
-
-    # 2. Bác sĩ duyệt đơn nháp
-    await service.save(
-        identity=q.bac_si,
-        appointment_id=appt_id,
-        clinic_patient_id=pat_id,
-        expected_revision=1,
-        approve_prescription_draft=True,
-    )
-
-    # 3. Đơn chính thức đã được tạo và mang đúng drug_catalog_id
+    # Thư ký = bác sĩ (Tuyền 24/09/2026): đơn thật có NGAY, không nháp, không
+    # chờ duyệt — ghi đúng người nhập (thư ký) và bác sĩ chính của lượt.
     async with q.pool.acquire() as conn:
         rx = await conn.fetchrow(
             """
             SELECT id::text, drug_catalog_id::text, drug_name_raw, quantity_num, unit,
-                   drug_mapped_by::text, drug_mapped_at
+                   drug_mapped_by::text, drug_mapped_at, created_by::text,
+                   bac_si_chinh_id::text
               FROM public.prescription
              WHERE visit_id = $1::uuid AND removed_at IS NULL
             """,
@@ -635,9 +611,23 @@ async def test_10_tkyk_draft_catalog_bac_si_duyet_co_catalog_id(q: Quay) -> None
         assert rx["drug_catalog_id"] == drug_id
         assert rx["quantity_num"] == Decimal(60)
         assert rx["unit"] == "viên"
-        assert rx["drug_mapped_by"] == q.bac_si.staff_id
+        assert rx["created_by"] == thu_ky.staff_id
+        assert rx["drug_mapped_by"] == thu_ky.staff_id
         assert rx["drug_mapped_at"] is not None
         assert rx["drug_name_raw"] == f"Acid folic {q.duoi}"
+        bac_si_luot = await conn.fetchval(
+            "SELECT attending_doctor_id::text FROM visit WHERE visit_id = $1::uuid",
+            q.visit_id,
+        )
+        assert rx["bac_si_chinh_id"] == bac_si_luot
+        assert (
+            await conn.fetchval(
+                "SELECT prescription_draft FROM public.clinical_record"
+                " WHERE visit_id = $1::uuid",
+                q.visit_id,
+            )
+            is None
+        )
 
 
 async def test_11_transfer_tao_khi_flag_1_co_allocation_doi_flag_0_xac_minh_van_ghi_ban(

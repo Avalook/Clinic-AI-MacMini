@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, sau nhóm 2 (thu tiền → tự xếp phòng, mang chỉ định sang lượt mới) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1, 2, 4 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,21 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 4 — kê đơn thư ký = bác sĩ · quầy thuốc không đợi khám xong (CHƯA deploy, CHƯA bấm thật)
+
+- Migration `20260924000003_don_thuoc_bac_si_chinh.sql`: `prescription.bac_si_chinh_id` + trigger chụp.
+- `clinical_prescription_service.prepare_prescription_write`: thư ký ghi thẳng; nháp cũ OFF.
+- `pharmacy_service._bat_buoc_kham_xong` OFF (`_CHO_KHAM_XONG = False`); `ban_thuoc.giai_doan`
+  không còn trả CHUA_SAN_SANG; `payment_service` thu thuốc khi lượt có đơn; bảng thu ngân
+  hiện ô thuốc khi có đơn.
+- Sự kiện mới: `payment.medicine_collected`, `medicine.dispensed`; module `pharmacy` ở modules.py.
+- Màn bệnh án (`tasks/ClinicalRecordForm.tsx`, nhúng trong Bàn khám): ô "lý do đính chính"
+  khi máy chủ đòi; hiện CÂU lỗi thay vì mã lỗi; bỏ chữ "chờ bác sĩ duyệt".
+- **OFF chờ Tuyền quyết xoá:** nháp đơn thư ký (`clinical_record.prescription_draft`, nút
+  "Duyệt đơn thuốc đang xem", `approve_prescription_draft`) · `_CHO_KHAM_XONG` ·
+  giai đoạn CHUA_SAN_SANG ở nhà thuốc.
+- **Deploy phải làm (Claude tự nhớ):** áp migration 20260924000003.
 
 ## Nhóm 2 — thu tiền → tự xếp phòng (H4) · mang chỉ định sang lượt mới (H2) (CHƯA deploy, CHƯA bấm thật)
 

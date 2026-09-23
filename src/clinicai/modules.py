@@ -201,6 +201,8 @@ MODULE: dict[str, Module] = {
                 "service.routed",
                 "service_order.carried_over",
                 "payment.service_collected",
+                "payment.medicine_collected",
+                "medicine.dispensed",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -295,10 +297,26 @@ MODULE: dict[str, Module] = {
             ten="Thu tiền dịch vụ",
             lenh=["CollectServicePayment"],
             # Tiền thật đã nhận (tiền mặt, hoặc chuyển khoản đã xác minh) —
-            # khối Hành trình nghe để xếp phòng (H4).
-            phat=["payment.service_collected"],
+            # khối Hành trình nghe để xếp phòng (H4). Tiền thuốc: dòng thời gian.
+            phat=["payment.service_collected", "payment.medicine_collected"],
             bang=["payment_cycle", "payment_bill_line"],
             quyen=["payment.service.collect"],
+        ),
+        Module(
+            ma="pharmacy",
+            ten="Quầy thuốc",
+            # Tiền thuốc KHÔNG đợi Khám xong (Tuyền 24/09/2026). Hai bản đơn:
+            # số bác sĩ kê (quantity_num) và số khách chốt (purchased_qty).
+            lenh=[
+                "MapDrug",
+                "SetPurchasedQty",
+                "AllocateLots",
+                "DispenseMedicine",
+                "RefuseLine",
+                "CloseLine",
+            ],
+            phat=["medicine.dispensed"],
+            bang=["prescription_allocation", "inventory_txn"],
         ),
     )
 }

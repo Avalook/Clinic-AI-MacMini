@@ -79,7 +79,10 @@ def giai_doan(
         if lan_thu.legacy:
             return DA_THU_CU
         return CAN_DOI_SOAT if co_phan_lo_chua_ban else DA_THU
-    return SAN_SANG if kham_xong else CHUA_SAN_SANG
+    # Tiền thuốc không cần Khám xong (Tuyền 24/09/2026): chưa thu thì luôn làm
+    # được. CHUA_SAN_SANG giữ lại (OFF) — không đường nào trả về nữa.
+    _ = kham_xong
+    return SAN_SANG
 
 
 def thao_tac_dong(

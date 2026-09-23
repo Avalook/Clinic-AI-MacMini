@@ -120,6 +120,31 @@ class TienDichVuDaThu(PayloadSuKien):
     order_ids: list[str] = []
 
 
+class TienThuocDaThu(PayloadSuKien):
+    """`payment.medicine_collected` — tiền THUỐC đã thật sự nhận (không cần
+    bác sĩ bấm Khám xong — Tuyền 24/09/2026)."""
+
+    visit_id: str
+    payment_cycle_id: str
+    so_tien: int
+    phuong_thuc: str
+
+
+class ThuocDaGiao(PayloadSuKien):
+    """`medicine.dispensed` — quầy thuốc giao thuốc cho khách (một dòng đơn).
+
+    Mang BA con số để đối chiếu "đơn bác sĩ kê" với "đơn khách chốt" (Tuyền
+    24/09: quầy thuốc lưu 2 bản): số kê, số khách mua, số đã giao tới giờ.
+    Không mang tên thuốc — sổ này không xoá được, hỏi bảng đơn khi cần.
+    """
+
+    visit_id: str
+    prescription_id: str
+    so_ke: str | None = None
+    so_mua: str | None = None
+    so_da_giao: str
+
+
 # ── permission ──────────────────────────────────────────────────────────────
 
 
@@ -527,6 +552,26 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         SuKien(
+            ten="payment.medicine_collected",
+            version=1,
+            aggregate_type="payment_cycle",
+            source_module="payment",
+            payload=TienThuocDaThu,
+            nhan="Đã thu tiền thuốc",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        SuKien(
+            ten="medicine.dispensed",
+            version=1,
+            aggregate_type="prescription",
+            source_module="pharmacy",
+            payload=ThuocDaGiao,
+            nhan="Đã giao thuốc",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        SuKien(
             # Tiền là chuyện nội bộ: AI/Zalo/đối tác không nghe sự kiện này.
             ten="payment.service_collected",
             version=1,
@@ -629,6 +674,8 @@ __all__ = [
     "DaXepDuongDi",
     "DaXepPhong",
     "TienDichVuDaThu",
+    "TienThuocDaThu",
+    "ThuocDaGiao",
     "KhamXong",
     "PhienKhamBatDau",
     "TuVanXong",
