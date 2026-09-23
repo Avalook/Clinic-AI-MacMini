@@ -7,6 +7,10 @@ Phần 3): đọc gì, của phòng khám nào, ai được xem — ở đây. T
 
 Trả DỮ LIỆU THÔ; việc ghép ô hiển thị (sinh hiệu theo khoá phiếu, gộp chữ chẩn
 đoán) vẫn ở giao diện vì đó là trình bày.
+
+24/09/2026 (cách B): `doc_ho_so` ráp từ CỔNG ĐỌC của các module — xem
+`ho_so/cong_doc.py`. `phieu_in_theo_lich` vẫn tự đọc (phiếu in cần lát cắt khác:
+xét nghiệm của đúng lịch ấy) — nợ chuyển sang cổng.
 """
 
 from __future__ import annotations
@@ -21,14 +25,8 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.ho_so.cong_doc import NguCanhHoSo, ghep_ho_so
 from clinicai.services.lenh_kham_core import ma_uuid
-
-#: Vai được thấy đơn thuốc nháp của thư ký (đường cũ, OFF từ 23/09 — còn đọc
-#: được cho lượt cũ). Khớp hàm SQL `read_prescription_draft`.
-_VAI_THAY_DON_NHAP = frozenset(
-    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
-)
-
 
 #: Cột jsonb (asyncpg trả chuỗi) — CHỈ những cột này được giải JSON; giải mọi
 #: chuỗi thì ô chữ như tên xét nghiệm "123" thành số.
@@ -66,6 +64,12 @@ async def doc_ho_so(
     appointment_id: str | None = None,
     visit_id: str | None = None,
 ) -> dict[str, Any]:
+    """Hồ sơ lâm sàng = bản RÁP từ cổng đọc của các module (cách B, 24/09/2026).
+
+    Hàm này chỉ còn quyết BỐI CẢNH (khách nào, lượt nào, thư ký có được xem
+    không); nội dung từng phần do module sở hữu dữ liệu tự đọc qua cổng khai ở
+    `modules.py` (`ho_so/cong_doc.py`). Thêm module = khai thêm cổng.
+    """
     cid = identity.clinic_id
     pid = ma_uuid(patient_id, "Mã bệnh nhân không hợp lệ.")
     appt = (
@@ -94,143 +98,33 @@ async def doc_ho_so(
         if not co_khach:
             raise ValidationError("Không tìm thấy bệnh nhân này.")
 
-        ho_so = await conn.fetchrow(
-            """
-            SELECT blood_type, allergies, chronic_diseases, current_medications,
-                   surgical_history, family_history, notes
-              FROM patient_medical_profile
-             WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
-            """,
-            pid,
-            cid,
-        )
-        thai = await conn.fetchrow(
-            """
-            SELECT edd_date, gestational_age_at_registration, is_high_risk,
-                   high_risk_reason, outcome
-              FROM pregnancy
-             WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
-             ORDER BY created_at DESC LIMIT 1
-            """,
-            pid,
-            cid,
-        )
-        xet_nghiem = await conn.fetch(
-            """
-            SELECT test_name, result_value, result_numeric, result_unit, flag,
-                   external_ref, triage_group, result_received_at
-              FROM lab_result
-             WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
-             ORDER BY result_received_at DESC NULLS LAST LIMIT 20
-            """,
-            pid,
-            cid,
-        )
-        canh_bao_neu_day("ho_so.xet_nghiem", len(xet_nghiem), 20, clinic_id=cid)
-        cot_luot = """
-            SELECT v.visit_id::text, v.status, v.created_at,
-                   r.revision, r.chief_complaint_at_visit, r.soap_subjective,
-                   r.soap_objective, r.soap_assessment, r.soap_plan,
-                   r.prescription_draft
-              FROM visit v
-              LEFT JOIN clinical_record r
-                ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
-        """
+        # Bối cảnh: LƯỢT nào đang xem — theo mã lượt, hoặc lượt mới nhất của lịch.
+        luot: str | None = None
         if vid:
-            luot = await conn.fetchrow(
-                cot_luot
-                + " WHERE v.visit_id = $1::uuid AND v.clinic_patient_id = $2::uuid"
-                " AND v.clinic_id = $3::uuid",
+            luot = await conn.fetchval(
+                "SELECT visit_id::text FROM visit WHERE visit_id = $1::uuid"
+                " AND clinic_patient_id = $2::uuid AND clinic_id = $3::uuid",
                 vid,
                 pid,
                 cid,
             )
         elif appt:
-            luot = await conn.fetchrow(
-                cot_luot
-                + " WHERE v.appointment_id = $1::uuid AND v.clinic_id = $2::uuid"
-                " ORDER BY v.created_at DESC LIMIT 1",
+            luot = await conn.fetchval(
+                "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid"
+                " AND clinic_id = $2::uuid ORDER BY created_at DESC LIMIT 1",
                 appt,
                 cid,
             )
-        else:
-            luot = None
-        lich_su = await conn.fetch(
-            """
-            SELECT v.visit_id::text, v.status, v.created_at,
-                   v.appointment_id::text, st.name AS service, s.full_name AS doctor,
-                   r.chief_complaint_at_visit, r.soap_assessment
-              FROM visit v
-              LEFT JOIN service_type st ON st.id = v.service_type_id
-              LEFT JOIN staff s ON s.id = v.attending_doctor_id
-              LEFT JOIN clinical_record r
-                ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
-             WHERE v.clinic_patient_id = $1::uuid AND v.clinic_id = $2::uuid
-             ORDER BY v.created_at DESC LIMIT 8
-            """,
-            pid,
-            cid,
+        return await ghep_ho_so(
+            conn,
+            NguCanhHoSo(
+                identity=identity,
+                clinic_id=cid,
+                khach=pid,
+                visit_id=luot,
+                appointment_id=appt,
+            ),
         )
-        don: list[asyncpg.Record] = []
-        sinh_hieu = None
-        if luot is not None:
-            don = await conn.fetch(
-                """
-                SELECT id::text, drug_catalog_id::text, drug_name_raw, quantity,
-                       dosage_instructions, caution
-                  FROM prescription
-                 WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-                   AND removed_at IS NULL
-                 ORDER BY created_at
-                """,
-                luot["visit_id"],
-                cid,
-            )
-            sinh_hieu = await conn.fetchrow(
-                """
-                SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,
-                       respiratory_rate, spo2, bmi, pain_score, created_at
-                  FROM vital_measurement
-                 WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-                 ORDER BY created_at DESC LIMIT 1
-                """,
-                luot["visit_id"],
-                cid,
-            )
-
-    lt = _dong(luot)
-    return {
-        "revision": (lt or {}).get("revision") or 0,
-        "prescription_draft": (
-            (lt or {}).get("prescription_draft")
-            if identity.co_vai(_VAI_THAY_DON_NHAP)
-            else None
-        ),
-        "profile": _dong(ho_so),
-        "pregnancy": _dong(thai),
-        "labs": [_dong(r) for r in xet_nghiem],
-        "history_raw": [
-            _dong(r) for r in lich_su if appt is None or r["appointment_id"] != appt
-        ],
-        "prescriptions": [_dong(r) for r in don],
-        "vital_latest": _dong(sinh_hieu),
-        "visit": (
-            {
-                "visit_id": lt["visit_id"],
-                "status": lt["status"],
-                "created_at": lt["created_at"],
-            }
-            if lt
-            else None
-        ),
-        "draft": {
-            "chief_complaint": (lt or {}).get("chief_complaint_at_visit") or "",
-            "subjective": (lt or {}).get("soap_subjective"),
-            "objective": (lt or {}).get("soap_objective"),
-            "assessment": (lt or {}).get("soap_assessment"),
-            "plan": (lt or {}).get("soap_plan"),
-        },
-    }
 
 
 async def phieu_in_theo_lich(
@@ -304,6 +198,7 @@ async def phieu_in_theo_lich(
             pid,
             appt,
         )
+    canh_bao_neu_day("phieu_in.xet_nghiem", len(xn), 20, clinic_id=cid)
     return {
         "appointment": _dong(lich),
         "visit": _dong(luot),

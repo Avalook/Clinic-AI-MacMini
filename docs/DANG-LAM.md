@@ -13,6 +13,49 @@ lịch sử hội thoại.
 
 ---
 
+## Mô phỏng 20 khách qua API thật + 6 lỗi thật đã sửa (24/09 — CHƯA deploy)
+
+Tuyền: "chạy dữ liệu thật cho 10–20 khách, đủ mọi trường hợp, xem log rồi check".
+Công cụ: `scripts/mo-phong/mo_phong.py` (chỉ local, sau `scripts/dev-up.sh`). 20 kịch
+bản, mỗi bước gọi ĐÚNG API giao diện gọi bằng tài khoản thử của đúng vai; cuối chạy tự
+kiểm log API/worker, sổ sự kiện (tin chưa giao / chết), bất biến dữ liệu. Báo cáo JSON ở
+`.dev-logs/mo-phong-*.json`. Chạy lại: `.venv/bin/python scripts/mo-phong/mo_phong.py [K01 …]`.
+
+**Lỗi thật bộ mô phỏng bắt được — đã sửa, mỗi cái có test DB:**
+1. **Giao thuốc không được** ở chế độ đang chạy (thu tiền thuốc không chờ kho, công tắc tắt):
+   lần thu không gắn lô nhưng lệnh giao chỉ đi đường "đúng lô đã bán". Nay theo dữ liệu:
+   không gắn lô → giao thẳng từ lô dược sĩ chọn (vẫn chặn quá số kê / quá tồn / hết hạn).
+   Mọi test nhà thuốc trước đây BẬT công tắc — đúng chế độ prod chưa ai kiểm.
+   (`test_tien_thuoc_khong_cho_kho_db.py`)
+2. **Khách bỏ bớt chỉ định → vòng đọc treo mãi** (yêu cầu kết quả của chỉ định khách bỏ
+   không bao giờ đạt). Nay NOT_SELECTED = "bác sĩ cần quyết", như chỉ định không làm được.
+   Khối Chọn dịch vụ phát sự kiện `service_selection.confirmed`, khối Vòng đọc nghe.
+3. **Miễn xong vẫn bị gọi lại** — Hoàn tất vòng đọc mở vòng mới đòi lại chỉ định khách bỏ.
+4. **Check-out bị chặn** "còn dịch vụ chưa xong" vì đếm cả chỉ định khách bỏ / đã miễn.
+   2–4 gom về MỘT điều kiện `CHI_DINH_CON_VIEC_SQL` (luot_kham_chung). (`test_khach_bo_chi_dinh_vong_doc_db.py`)
+5. **Đổi bác sĩ sang người không khám được** (danh sách lọc theo tên vai, có BS siêu âm
+   thiếu khối) → khách kẹt. Nay theo QUYỀN: phải có khối Khám + Hoàn tất khám.
+   Hệ quả: Quản lý (có mọi khối) cũng hiện trong danh sách. (`test_doi_bac_si_theo_quyen_db.py`)
+6. **`/luot-kham/cho-quyet` sập 500** (lỗi do chính đợt này, CI bắt trước khi lên máy chủ).
+Kèm: câu báo "Chỉ bác sĩ phụ trách…" tách thành hai câu (thiếu khối Hoàn tất ≠ không phải
+bác sĩ phụ trách); bộ mô phỏng hết in mật khẩu DB trong log lỗi.
+
+**Chờ Tuyền quyết (không tự chốt):**
+- **Thu nhầm → huỷ phiếu thu dịch vụ → không thu lại được** (FINANCE-GATE v1: PAID→VOIDED
+  = "cần xem xét tài chính", cách xử lý ghi "Chưa chốt"). Lượt treo: chưa trả tiền nên
+  không xếp phòng. Tiền thuốc thì huỷ rồi thu lại được — hai khoản đang cư xử khác nhau.
+- **Thu ngân thu tiền → không tự xếp phòng** (nhóm mẫu Thu ngân không có khối Điều phối;
+  luật "xếp bằng quyền người vừa thu"). Lễ tân thu thì tự xếp. Giữ hay cho Thu ngân khối
+  Điều phối / cho dây H4 chạy bằng quyền hệ thống?
+- **Mã phiếu kết quả "KQ_" + mã mẫu** do giao diện tự ghép (PhieuKetQua.tsx) — nợ: backend
+  nên trả thẳng mã phiếu.
+- **Đơn kê ở phiếu v5 không có đơn vị** → khi bật lại kho thuốc, dược sĩ không chọn lô được.
+
+**Đã gỡ / đổi theo Tuyền (cùng đợt):** bỏ hàng rào chứng chỉ hành nghề (migration
+`20260924000015`, Quản lý = MỌI khối); AI tóm tắt trước khám XOÁ hẳn (router, graph,
+tools, UI); hồ sơ khám ráp theo **cách B** — cổng đọc khai trong `modules.py`
+(`cong_doc`), `ho_so/cong_doc.py` ráp; bài kiểm ổ cắm canh cổng.
+
 ## DB local đồng nhất với VPS (24/09)
 
 - Stack local `clinicai_thu_db` tụt 8 migration vì bật API/worker/web bằng tay. Đã

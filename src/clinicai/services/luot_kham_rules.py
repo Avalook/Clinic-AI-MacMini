@@ -74,6 +74,10 @@ class RequirementView:
     status: str
     exec_status: str
     has_valid_result: bool = False
+    #: Khách KHÔNG chọn làm (SELECTION v1) — như chỉ định không thực hiện: không
+    #: bao giờ tự đạt, trả về bác sĩ quyết (24/09/2026, bộ mô phỏng bắt được
+    #: vòng đọc treo mãi khi khách bỏ bớt chỉ định).
+    selection_status: str | None = None
 
 
 def requirement_met(req: RequirementView) -> bool:
@@ -91,12 +95,13 @@ def requirement_state(req: RequirementView) -> str:
     """Một yêu cầu đang ở đâu: ``satisfied`` | ``open`` | ``needs_decision`` |
     ``waived`` | ``follow_up``.
 
-    ``needs_decision``: chỉ định trỏ tới đã KHÔNG THỰC HIỆN (hay bị huỷ). Nó
-    không bao giờ tự đạt — bác sĩ phải miễn (có lý do) hoặc chuyển theo dõi.
+    ``needs_decision``: chỉ định trỏ tới đã KHÔNG THỰC HIỆN (hay bị huỷ), hoặc
+    KHÁCH KHÔNG CHỌN làm. Nó không bao giờ tự đạt — bác sĩ phải miễn (có lý do)
+    hoặc chuyển theo dõi. Không tự bỏ qua kết quả (CONTEXT v1.0).
     """
     if req.status in ("waived", "follow_up"):
         return req.status
-    if req.exec_status in KHONG_THUC_HIEN:
+    if req.exec_status in KHONG_THUC_HIEN or req.selection_status == "NOT_SELECTED":
         return "needs_decision"
     return "satisfied" if requirement_met(req) else "open"
 

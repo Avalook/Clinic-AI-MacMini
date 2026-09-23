@@ -61,12 +61,11 @@ LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
     limit=30,
     window_seconds=60,
 )
-#: Duyệt / chốt kết quả = khối `duyet_ket_qua` (quyền cần chứng chỉ hành nghề —
-#: hệ thống từ chối cấp cho người không có vai lâm sàng). Hỏi QUYỀN, không hỏi
-#: vai (24/09/2026).
+#: Duyệt / chốt kết quả = khối `duyet_ket_qua`. Hỏi QUYỀN, không hỏi vai
+#: (24/09/2026).
 _REVIEW_GUARD = cua_quyen(
     "result.review.approve",
-    cau="Bạn chưa được cấp khối duyệt kết quả (cần chứng chỉ hành nghề).",
+    cau="Bạn chưa được cấp khối duyệt kết quả.",
 )
 
 

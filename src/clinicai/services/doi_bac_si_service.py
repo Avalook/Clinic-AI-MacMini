@@ -39,11 +39,18 @@ class DoiBacSiService:
     ) -> list[dict[str, Any]]:
         rows = await self._pool.fetch(
             """
-            SELECT s.id::text AS id, s.full_name, m.role
+            SELECT DISTINCT s.id::text AS id, s.full_name, m.role
               FROM clinic_membership m
               JOIN staff s ON s.id = m.staff_id AND s.is_active
              WHERE m.clinic_id = $1::uuid AND m.is_active
-               AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+               -- Nhận làm BÁC SĨ PHỤ TRÁCH = khám được VÀ khép được lượt (quyền
+               -- "Khám bệnh" + "Hoàn tất khám"), không phải có tên vai bác sĩ
+               -- (24/09/2026: bác sĩ siêu âm thiếu khối bị đưa vào danh sách,
+               -- đổi sang là khách kẹt — mô phỏng 20 khách bắt được).
+               AND (SELECT count(DISTINCT q.capability) FROM v_quyen_hieu_luc q
+                     WHERE q.clinic_id = m.clinic_id AND q.staff_id = m.staff_id
+                       AND q.capability IN ('clinical.consult.perform',
+                                            'clinical.consult.finalize')) = 2
              ORDER BY s.full_name
             """,
             identity.clinic_id,
@@ -94,13 +101,21 @@ class DoiBacSiService:
                       JOIN staff s ON s.id = m.staff_id AND s.is_active
                      WHERE m.clinic_id = $1::uuid AND m.staff_id = $2::uuid
                        AND m.is_active
-                       AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR'))
+                       AND (SELECT count(DISTINCT q.capability)
+                              FROM v_quyen_hieu_luc q
+                             WHERE q.clinic_id = m.clinic_id
+                               AND q.staff_id = m.staff_id
+                               AND q.capability IN ('clinical.consult.perform',
+                                                    'clinical.consult.finalize')) = 2)
                 """,
                 identity.clinic_id,
                 bac_si_moi_id,
             )
             if not la_bac_si:
-                raise ValidationError("Người nhận không phải bác sĩ đang làm ở đây.")
+                raise ValidationError(
+                    "Người nhận chưa được cấp đủ khối Khám bệnh + Hoàn tất khám"
+                    " (hoặc không làm ở đây) — đổi sang người khám được."
+                )
 
             await conn.execute(
                 """

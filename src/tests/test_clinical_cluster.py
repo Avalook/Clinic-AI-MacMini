@@ -182,8 +182,7 @@ class TestClinicalRecordWriteRoles:
     nguyên: điều dưỡng và lễ tân chỉ đo sinh hiệu (Tuyền chốt 16/09/2026) —
     bệnh sử, tiền sử, khám, chẩn đoán là phần chịu trách nhiệm chuyên môn của
     bác sĩ; thư ký nhập hộ được. Quản lý CÓ từ 24/09/2026 (Tuyền: "quản lý
-    quyền cao nhất — có module đó thì mọi quyền của nó có cả"), trừ hai khối
-    cần chứng chỉ hành nghề.
+    quyền cao nhất — có module đó thì mọi quyền của nó có cả") — mọi khối.
     """
 
     @pytest.mark.parametrize("vai", ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"])
@@ -204,11 +203,10 @@ class TestClinicalRecordWriteRoles:
     def test_nguoi_khac_khong_co(self, vai: str) -> None:
         assert "ghi_benh_an" not in PRESET.get(vai, [])
 
-    def test_quan_ly_co_moi_khoi_tru_khoi_can_chung_chi(self) -> None:
-        can_chung_chi = {q.khoi for q in QUYEN.values() if q.chung_chi_lam_sang}
-        assert can_chung_chi == {"hoan_tat_kham", "duyet_ket_qua"}
-        assert not can_chung_chi & set(PRESET["MANAGEMENT"])
-        assert set(PRESET["MANAGEMENT"]) | can_chung_chi == set(KHOI)
+    def test_quan_ly_co_tat_ca_khoi_va_khong_con_chung_chi(self) -> None:
+        # Tuyền 24/09/2026: bỏ chứng chỉ; quản lý có mọi khối, không loại trừ.
+        assert not [q for q in QUYEN.values() if q.chung_chi_lam_sang]
+        assert set(PRESET["MANAGEMENT"]) == set(KHOI)
 
     def test_quyen_ghi_benh_an_nam_trong_khoi_ay(self) -> None:
         assert QUYEN["clinical.record.write"].khoi == "ghi_benh_an"

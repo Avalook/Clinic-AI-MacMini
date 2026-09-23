@@ -9,10 +9,9 @@ bất kỳ ai trong phòng khám của mình, kể cả khối không nằm tron
 `default_presets` chỉ là gợi ý (#132). Đổi lại: mọi lần cấp và thu đều ghi thành
 sự kiện, không sửa đè, nên luôn trả lời được "ai cho ai quyền gì, lúc nào".
 
-HAI HÀNG RÀO KHÔNG MỞ BẰNG TICK
-  1. Không cấp cho người ngoài phòng khám của mình.
-  2. Quyền có `chung_chi_lam_sang` đụng luật hành nghề. Hệ thống KHÔNG tự chốt ai
-     đủ tư cách — lệnh từ chối và ghi rõ, chờ phòng khám quyết (chỗ này còn MỞ).
+MỘT HÀNG RÀO KHÔNG MỞ BẰNG TICK: không cấp cho người ngoài phòng khám của mình.
+(Hàng rào "chứng chỉ hành nghề" đã bỏ 24/09/2026 — Tuyền: ai được làm gì = khối
+được cấp.)
 
 TỰ CẤP CHO CHÍNH MÌNH. Không chặn: một phòng khám có thể chỉ còn một quản lý, và
 chặn tự cấp là cách nhanh nhất để khoá chết cả hệ thống lúc 7 giờ sáng. Bù lại,
@@ -27,7 +26,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.exceptions import SafetyGateError, ValidationError
+from clinicai.core.exceptions import ValidationError
 from clinicai.events.catalogue import KhoiQuyenDaCap, KhoiQuyenDaThu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions import cache
@@ -42,20 +41,6 @@ from clinicai.permissions.catalogue import (
     man_dang_bat,
     quyen_cua_khoi,
 )
-
-#: Vai lâm sàng — dùng làm bằng chứng tạm thời cho "có chứng chỉ hành nghề".
-#:
-#: THƯ KÝ Y KHOA NẰM TRONG ĐÂY, và đó là một quyết định nghiệp vụ chứ không
-#: phải sơ suất. Tuyền đã chốt: *"Không cần bác sĩ ký. Thư ký y khoa được coi
-#: như bác sĩ."* Ở Dr4Women, thư ký y khoa nhập và chốt hồ sơ thay bác sĩ hằng
-#: ngày; một hệ thống chặn họ là một hệ thống bắt phòng khám tìm đường lách.
-#:
-#: Sửa ngày 23/09/2026 sau khi đối chiếu lại chat: bản trước chỉ có DOCTOR và
-#: ULTRASOUND_DOCTOR, tức đã chặn đúng cái chốt bảo đừng chặn.
-#:
-#: CHƯA CHỐT: phòng khám phải nói rõ lấy gì làm bằng chứng (số chứng chỉ? bằng?).
-#: Tới lúc ấy thì chỗ này đọc từ hồ sơ nhân sự, không đọc từ vai nữa.
-VAI_LAM_SANG = frozenset({"DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"})
 
 PHAM_VI = frozenset({"CLINIC", "ROOM", "SHIFT"})
 
@@ -196,15 +181,6 @@ class PermissionService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "permission.manage")
             await self._phai_cung_phong_kham(conn, identity, staff_id)
-
-            can_chung_chi = [ma for ma in ds_quyen if QUYEN[ma].chung_chi_lam_sang]
-            if can_chung_chi and not await self._co_vai_lam_sang(
-                conn, identity.clinic_id, staff_id
-            ):
-                raise SafetyGateError(
-                    "Khối này có quyền cần chứng chỉ hành nghề. Hệ thống không tự "
-                    "quyết ai đủ tư cách — phòng khám phải chốt trước."
-                )
 
             da_cap: list[str] = []
             for ma in ds_quyen:
@@ -509,20 +485,5 @@ class PermissionService:
         if not thuoc:
             raise ValidationError("Người này không làm ở phòng khám của bạn.")
 
-    @staticmethod
-    async def _co_vai_lam_sang(
-        conn: asyncpg.Connection, clinic_id: str, staff_id: str
-    ) -> bool:
-        return bool(
-            await conn.fetchval(
-                "SELECT EXISTS (SELECT 1 FROM clinic_membership"
-                " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid AND is_active"
-                "   AND role = ANY($3::text[]))",
-                clinic_id,
-                staff_id,
-                list(VAI_LAM_SANG),
-            )
-        )
 
-
-__all__ = ["PermissionService", "VAI_LAM_SANG"]
+__all__ = ["PermissionService"]

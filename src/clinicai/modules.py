@@ -30,6 +30,18 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
+class CongDoc:
+    """Một CỔNG ĐỌC góp vào hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`).
+
+    `ham` = "goi.module:ten_ham", hàm `async (conn, NguCanhHoSo) -> dict` chỉ đọc
+    bảng của CHÍNH module này và chỉ điền đúng các khoá trong `khoa`."""
+
+    ten: str
+    ham: str
+    khoa: Sequence[str]
+
+
+@dataclass(frozen=True)
 class Module:
     ma: str
     ten: str
@@ -53,6 +65,9 @@ class Module:
     #: "module.Lenh". Gọi thẳng KHÔNG bị cấm — nhưng phải khai ra, để đọc bản
     #: khai là biết hết đường dây, không phải đi dò trong code.
     goi_dong_bo: Sequence[str] = field(default_factory=list)
+    #: Cổng đọc góp phần của module vào HỒ SƠ KHÁM. Thêm module có dữ liệu y
+    #: khoa = khai thêm cổng ở đây; hàm ráp hồ sơ không phải sửa.
+    cong_doc: Sequence[CongDoc] = field(default_factory=list)
 
 
 MODULE: dict[str, Module] = {
@@ -72,6 +87,7 @@ MODULE: dict[str, Module] = {
             ma="service_selection",
             ten="Khách chọn dịch vụ",
             lenh=["ConfirmServiceSelection"],
+            phat=["service_selection.confirmed"],
             bang=["service_selection_state"],
             # Từ 23/09: hỏi capability trong chính giao dịch của lệnh, không
             # còn mượn ánh xạ vai của người thu tiền.
@@ -187,6 +203,7 @@ MODULE: dict[str, Module] = {
                 "visit.checked_in",
                 "vitals.started",
                 "vitals.recorded",
+                "service_selection.confirmed",
                 "service_order.placed",
                 "service.started",
                 "service.completed",
@@ -260,6 +277,14 @@ MODULE: dict[str, Module] = {
             lenh=["StartVitals", "RecordVitals"],
             phat=["vitals.started", "vitals.recorded"],
             quyen=["vitals.measure"],
+            bang=["vital_measurement"],
+            cong_doc=[
+                CongDoc(
+                    "Sinh hiệu mới nhất của lượt",
+                    "clinicai.services.sinh_hieu_service:sinh_hieu_cho_ho_so",
+                    ["vital_latest"],
+                ),
+            ],
         ),
         Module(
             ma="hanh_trinh",
@@ -319,6 +344,29 @@ MODULE: dict[str, Module] = {
                 "clinical.record.write",
                 "clinical.consult.finalize",
             ],
+            bang=["clinical_record", "patient_medical_profile", "prescription"],
+            cong_doc=[
+                CongDoc(
+                    "Tiền sử & hồ sơ y tế",
+                    "clinicai.services.clinical_record_service:ho_so_y_te_cho_ho_so",
+                    ["profile"],
+                ),
+                CongDoc(
+                    "Bệnh án của lượt",
+                    "clinicai.services.clinical_record_service:benh_an_cho_ho_so",
+                    ["visit", "draft", "revision", "prescription_draft"],
+                ),
+                CongDoc(
+                    "Các lượt khám trước",
+                    "clinicai.services.clinical_record_service:lich_su_cho_ho_so",
+                    ["history_raw"],
+                ),
+                CongDoc(
+                    "Đơn thuốc của lượt",
+                    "clinicai.services.clinical_prescription_service:don_thuoc_cho_ho_so",
+                    ["prescriptions"],
+                ),
+            ],
         ),
         Module(
             ma="payment",
@@ -365,6 +413,7 @@ MODULE: dict[str, Module] = {
             # sau chuyển hẳn sang đây); khối này là CỬA sự kiện duy nhất.
             phat=["visit.exam_completed"],
             nghe=[
+                "service_selection.confirmed",
                 "service.completed",
                 "service.not_performed",
                 "partner.sample_collected",
@@ -429,6 +478,25 @@ MODULE: dict[str, Module] = {
             lenh=["EnterLabResult"],
             phat=["lab_result.arrived"],
             bang=["lab_result"],
+            cong_doc=[
+                CongDoc(
+                    "Xét nghiệm gần nhất",
+                    "clinicai.services.lab_order_service:xet_nghiem_cho_ho_so",
+                    ["labs"],
+                ),
+            ],
+        ),
+        Module(
+            ma="thai_ky",
+            ten="Theo dõi thai kỳ",
+            bang=["pregnancy"],
+            cong_doc=[
+                CongDoc(
+                    "Thai kỳ gần nhất",
+                    "clinicai.services.thai_ky_service:thai_ky_cho_ho_so",
+                    ["pregnancy"],
+                ),
+            ],
         ),
         Module(
             ma="pharmacy",
@@ -466,4 +534,4 @@ def module_cua_ben_nhan(consumer: str) -> str | None:
     return None
 
 
-__all__ = ["MODULE", "Module", "module_cua_ben_nhan", "module_phat"]
+__all__ = ["MODULE", "CongDoc", "Module", "module_cua_ben_nhan", "module_phat"]

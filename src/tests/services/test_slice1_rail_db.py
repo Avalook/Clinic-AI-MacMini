@@ -367,8 +367,18 @@ async def test_khong_thuc_hien_khong_tu_dat_bac_si_phai_quyet(kb: KichBan) -> No
     # Khách được đưa về bác sĩ (không kẹt ở "đang thu")…
     assert await _cho_doc(kb) == ["waiting"]
     [vong] = await _vong(kb)
-    # Trạng thái lưu vẫn là "open" — không thực hiện KHÔNG thành "satisfied".
-    assert {y["trang_thai"] for y in vong["yeu_cau"]} == {"satisfied", "open"}
+    # Không thực hiện KHÔNG thành "satisfied". Từ 24/09/2026 bảng nói rõ
+    # "bác sĩ cần quyết" (cùng luật `requirement_state`) thay vì "open" chung
+    # chung; trạng thái LƯU trong bảng yêu cầu vẫn là "open".
+    assert {y["trang_thai"] for y in vong["yeu_cau"]} == {"satisfied", "needs_decision"}
+    assert (
+        await kb.pool.fetchval(
+            "SELECT count(*) FROM round_requirement WHERE round_id = $1::uuid"
+            " AND status = 'open'",
+            vong["id"],
+        )
+        == 1
+    )
     # …nhưng không đóng vòng được khi chưa quyết.
     await kb.svc.start_consultation(consultation_id=phien2, identity=kb.bac_si)
     with pytest.raises(LuotKhamConflictError) as e:

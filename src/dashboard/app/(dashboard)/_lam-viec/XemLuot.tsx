@@ -120,6 +120,8 @@ const THEO_DOI: Record<string, string> = {
 };
 const YEU_CAU: Record<string, string> = {
   open: "đang chờ",
+  // Chỉ định không làm được / khách không chọn — bác sĩ miễn hoặc chuyển theo dõi.
+  needs_decision: "bác sĩ cần quyết",
   satisfied: "đạt",
   waived: "bác sĩ miễn",
   follow_up: "chuyển theo dõi",

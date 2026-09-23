@@ -26,6 +26,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
@@ -298,3 +299,24 @@ class ThaiKyService:
                 },
             )
         return {"ok": True, "id": pregnancy_id}
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+
+async def thai_ky_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Thai kỳ gần nhất của khách (không có → None)."""
+    r = await conn.fetchrow(
+        """
+        SELECT edd_date, gestational_age_at_registration, is_high_risk,
+               high_risk_reason, outcome
+          FROM pregnancy
+         WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
+         ORDER BY created_at DESC LIMIT 1
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+    )
+    return {"pregnancy": dong(r)}

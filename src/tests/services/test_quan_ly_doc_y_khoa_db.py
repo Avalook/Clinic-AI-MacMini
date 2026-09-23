@@ -1,7 +1,7 @@
 """Quản lý đọc được nội dung y khoa theo QUYỀN + nhật ký mở hồ sơ (24/09/2026).
 
 Tuyền chốt: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó có cả".
-Chạy trên Postgres thật (nhóm mẫu theo migration 20260924000014), không giả `can`.
+Chạy trên Postgres thật (nhóm mẫu theo migration 20260924000014 → 15), không giả `can`.
 """
 
 from __future__ import annotations
@@ -42,11 +42,15 @@ async def test_quan_ly_mo_duoc_ho_so_va_de_lai_dau_vet(pool: asyncpg.Pool) -> No
     ca = await _dung(pool)
     async with pool.acquire() as conn:
         ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
-        # Mọi khối trừ hai khối cần chứng chỉ hành nghề.
-        assert await can(conn, ql, "clinical.record.write")
-        assert await can(conn, ql, "clinical.consult.perform")
-        assert not await can(conn, ql, "clinical.consult.finalize")
-        assert not await can(conn, ql, "result.review.approve")
+        # Mọi khối — không còn hàng rào chứng chỉ (migration 20260924000015).
+        for q in (
+            "clinical.record.write",
+            "clinical.consult.perform",
+            "clinical.consult.finalize",
+            "result.review.approve",
+            "permission.manage",
+        ):
+            assert await can(conn, ql, q), q
     pid = await _benh_nhan(pool, ca)
     await _check_in(pool, ca, pid, ca.loai_kham)
 

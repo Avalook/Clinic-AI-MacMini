@@ -357,7 +357,10 @@ class PharmacyService:
           * Chưa thu tiền thuốc → không giao.
           * Lần thu cũ (`payment_cycle.legacy`, trước CP3, không có phân lô) →
             giữ nguyên luồng cũ `_cap_phat_cu`.
-          * Lần thu mới → chỉ giao từ đúng lô đã phân, không vượt phần chưa giao.
+          * Lần thu mới ĐÃ gắn lô → chỉ giao từ đúng lô đã phân, không vượt phần
+            chưa giao.
+          * Lần thu mới KHÔNG gắn lô (thu không chờ kho) → giao thẳng như lần
+            thu cũ.
 
         Một thao tác, hai sổ, MỘT GIAO DỊCH: kho và số đã cấp của đơn.
         """
@@ -385,7 +388,21 @@ class PharmacyService:
                         "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
                         "rồi mới giao thuốc."
                     )
-                if lan["legacy"]:
+                # Lần thu KHÔNG gắn lô nào (thu không chờ kho — công tắc
+                # CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY tắt, Tuyền chốt
+                # 20/09/2026) đi đường giao thẳng từ lô như lần thu cũ. Trước
+                # 24/09 nó rơi vào nhánh "giao đúng lô đã bán" và KHÔNG giao
+                # được gì (bộ mô phỏng 20 khách bắt được). Quyết theo DỮ LIỆU,
+                # không đọc công tắc: lần thu nào đã bán lô thì vẫn phải giao
+                # đúng lô ấy, dù công tắc sau đó đổi.
+                giao_thang = bool(lan["legacy"]) or not await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
+                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+                    " AND released_at IS NULL)",
+                    identity.clinic_id,
+                    lan["payment_cycle_id"],
+                )
+                if giao_thang:
                     moi = await self._cap_phat_cu(
                         conn,
                         identity=identity,
@@ -577,7 +594,8 @@ class PharmacyService:
         drug_batch_id: str,
         luong: Decimal,
     ) -> asyncpg.Record:
-        """Luồng cấp phát TRƯỚC CP3, chỉ cho lần thu cũ (`legacy`).
+        """Giao thẳng từ lô: lần thu cũ (`legacy`, trước CP3) và lần thu KHÔNG gắn
+        lô (thu không chờ kho, 24/09/2026).
 
         Đơn có đơn vị chỉ cấp từ lô cùng đơn vị; chưa có quy đổi bao bì đã xác
         minh nên không đoán số viên/hộp. Đơn cũ thiếu đơn vị giữ hành vi cũ:

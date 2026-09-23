@@ -485,6 +485,17 @@ class DichVuDaBatDau(PayloadSuKien):
     execution_revision: int
 
 
+class KhachDaChonDichVu(PayloadSuKien):
+    """`service_selection.confirmed` — lễ tân chốt khách làm / không làm những
+    chỉ định nào (SELECTION v1). Vòng đọc nghe: chỉ định khách bỏ thành việc
+    bác sĩ quyết, không treo vòng đọc."""
+
+    visit_id: str
+    selection_revision: int
+    selected_order_ids: list[str] = []
+    not_selected_order_ids: list[str] = []
+
+
 class DichVuDaXong(PayloadSuKien):
     """`service.completed` — lần làm ấy xong. KHÁC `result.ready`."""
 
@@ -656,6 +667,17 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Bắt đầu làm dịch vụ",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service_selection.confirmed",
+            version=1,
+            aggregate_type="visit",
+            source_module="service_selection",
+            payload=KhachDaChonDichVu,
+            nhan="Khách chốt làm / không làm chỉ định",
+            # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
+            # thái hiện tại (chạy lại bao lần cũng ra một kết quả).
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
         ),
         SuKien(
             ten="service.completed",

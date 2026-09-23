@@ -1743,7 +1743,7 @@ async def test_tkyk_terminal_no_services_blocked(kb: KichBan) -> None:
             kb.bac_si.staff_id,
         )
     phien = await _vao_kham(kb)
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
         await kb.svc.complete_consultation(
             consultation_id=phien,
             outcome="NO_SERVICES",
@@ -1801,7 +1801,7 @@ async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
         await kb.svc.complete_consultation(
             consultation_id=rev_id,
             outcome="DONE",
@@ -1814,7 +1814,7 @@ async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
     """Bác sĩ khác (không phụ trách) bị chặn TERMINAL NO_SERVICES/DONE."""
     # 1. Thử với PRIMARY NO_SERVICES
     phien = await _vao_kham(kb)
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
         await kb.svc.complete_consultation(
             consultation_id=phien,
             outcome="NO_SERVICES",
@@ -1860,7 +1860,7 @@ async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
 
     # Thử bác sĩ khác kết thúc REVIEW DONE -> chặn
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách"):
+    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
         await kb.svc.complete_consultation(
             consultation_id=rev_id,
             outcome="DONE",

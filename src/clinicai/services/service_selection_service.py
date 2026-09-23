@@ -22,6 +22,8 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.events.catalogue import KhachDaChonDichVu
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
@@ -478,6 +480,22 @@ class ServiceSelectionService:
                         "not_selected_order_ids": result["not_selected_order_ids"],
                         "changed_order_ids": result["changed_order_ids"],
                     },
+                )
+                # Sự kiện NGHIỆP VỤ (không chỉ nhật ký): khối Vòng đọc nghe để
+                # chỉ định khách bỏ không giữ vòng đọc lại (24/09/2026).
+                await emit_event(
+                    conn,
+                    ten="service_selection.confirmed",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=inp.visit_id,
+                    payload=KhachDaChonDichVu(
+                        visit_id=inp.visit_id,
+                        selection_revision=revision,
+                        selected_order_ids=sorted(chosen),
+                        not_selected_order_ids=sorted(set(inp.order_ids_seen) - chosen),
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=inp.visit_id,
                 )
             await bien_nhan_ghi(
                 conn, identity, ACTION, idempotency_key, payload, inp.visit_id, result

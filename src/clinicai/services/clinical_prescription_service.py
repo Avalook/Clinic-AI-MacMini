@@ -11,6 +11,7 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 
 
 def _prescription_key(name: Any, quantity: Any) -> tuple[str, str]:
@@ -162,3 +163,27 @@ async def prepare_prescription_write(
         items = _validated_prescription_items(items, {str(row["id"]) for row in rows})
     # Ghi thẳng; nháp cũ (nếu có) bị thay.
     return PrescriptionWrite(None, items)
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+
+async def don_thuoc_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Các dòng đơn thuốc CÒN HIỆU LỰC của lượt đang xem."""
+    if not ngu_canh.visit_id:
+        return {"prescriptions": []}
+    rows = await conn.fetch(
+        """
+        SELECT id::text, drug_catalog_id::text, drug_name_raw, quantity,
+               dosage_instructions, caution
+          FROM prescription
+         WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+           AND removed_at IS NULL
+         ORDER BY created_at
+        """,
+        ngu_canh.visit_id,
+        ngu_canh.clinic_id,
+    )
+    return {"prescriptions": [dong(r) for r in rows]}

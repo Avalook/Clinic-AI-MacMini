@@ -7,13 +7,10 @@ mọi quyền của nó có cả", không tách đọc với sửa.
 
 Luật bây giờ: có BẤT KỲ khối nào của module khám / kết quả (tư vấn, khám, ghi
 bệnh án, hoàn tất khám, điền kết quả, duyệt kết quả) là đọc được nội dung y
-khoa. Ai không có khối nào (lễ tân, thu ngân, CSKH, dược sĩ… theo nhóm mẫu) thì
-không — tinh thần ROLE-02 "không MẶC ĐỊNH, phải được cấp" giữ nguyên, chỉ đổi từ
-"vai" sang "được cấp". Quản lý cấp thêm được cho ai cần trên màn Phân quyền.
-
-Hai quyền ký chuyên môn (hoàn tất khám, duyệt kết quả) vẫn cần chứng chỉ hành
-nghề: hệ thống từ chối CẤP chúng cho người không phải vai lâm sàng
-(`permission_service`), nên "mọi quyền" của quản lý dừng trước hàng rào luật.
+khoa. Vai chỉ là TÊN của nhóm mẫu (gói khối chép cho người mới); nhóm mẫu nào
+không có khối y khoa thì người đó chưa mở được — cho tới khi quản lý bật khối
+cho họ trên màn Phân quyền. Quản lý có tất cả khối. Không còn hàng rào chứng chỉ
+(Tuyền bỏ 24/09/2026).
 """
 
 from __future__ import annotations

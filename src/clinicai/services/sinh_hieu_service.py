@@ -25,6 +25,7 @@ from clinicai.events.catalogue import (
     SinhHieuDaDo,
 )
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -383,3 +384,26 @@ class SinhHieuService:
                 conn, identity, "vitals.record", idempotency_key, payload, vid, result
             )
         return result
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+
+async def sinh_hieu_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Lần đo sinh hiệu mới nhất của lượt đang xem (không có lượt → None)."""
+    if not ngu_canh.visit_id:
+        return {"vital_latest": None}
+    r = await conn.fetchrow(
+        """
+        SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,
+               respiratory_rate, spo2, bmi, pain_score, created_at
+          FROM vital_measurement
+         WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+         ORDER BY created_at DESC LIMIT 1
+        """,
+        ngu_canh.visit_id,
+        ngu_canh.clinic_id,
+    )
+    return {"vital_latest": dong(r)}

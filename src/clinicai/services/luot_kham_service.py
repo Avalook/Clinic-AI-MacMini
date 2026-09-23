@@ -87,6 +87,9 @@ from clinicai.services.luot_kham_chung import (
     CHECKIN_ROLES as CHECKIN_ROLES,
 )
 from clinicai.services.luot_kham_chung import (
+    CHI_DINH_CON_VIEC_SQL as CHI_DINH_CON_VIEC_SQL,
+)
+from clinicai.services.luot_kham_chung import (
     CLINICAL_READ_ROLES as CLINICAL_READ_ROLES,
 )
 from clinicai.services.luot_kham_chung import (
@@ -425,7 +428,7 @@ class LuotKhamService:
             await conn.fetch(
                 """
                 SELECT q.id::text AS id, q.service_order_id::text AS order_id,
-                       q.need, q.status, o.exec_status,
+                       q.need, q.status, o.exec_status, o.selection_status,
                        CASE
                          WHEN coalesce(nd.lam_ben_ngoai, false) THEN
                            EXISTS (
@@ -452,7 +455,14 @@ class LuotKhamService:
     @staticmethod
     def _view(q: asyncpg.Record) -> rules.RequirementView:
         return rules.RequirementView(
-            q["order_id"], q["need"], q["status"], q["exec_status"], q["co_ket_qua"]
+            q["order_id"],
+            q["need"],
+            q["status"],
+            q["exec_status"],
+            q["co_ket_qua"],
+            # Không phải câu đọc nào cũng mang cột này (vd /cho-quyet) — thiếu
+            # thì coi như chưa biết, không làm sập cả màn.
+            q.get("selection_status"),
         )
 
     async def _evaluate_rounds(
@@ -666,8 +676,9 @@ class LuotKhamService:
                                   AND r.status <> 'closed')
                AND NOT EXISTS (SELECT 1 FROM service_order o
                                 WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
-                                  AND o.exec_status IN ('authorized', 'assigned',
-                                                        'in_progress'))
+                                  AND """
+            + CHI_DINH_CON_VIEC_SQL
+            + """)
             """,
             cid,
             vid,
@@ -1060,8 +1071,10 @@ class LuotKhamService:
                   LEFT JOIN node_definition n
                     ON n.clinic_id = o.clinic_id AND n.code = o.node_code
                  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
-                   AND o.exec_status IN ('authorized', 'assigned', 'in_progress')
                    AND o.hold_until_round IS NULL
+                   AND """
+                + CHI_DINH_CON_VIEC_SQL
+                + """
                  ORDER BY o.created_at, o.id
                 """,
                 cid,
@@ -1869,10 +1882,15 @@ class LuotKhamService:
                 # `clinical.consult.finalize` VÀ là bác sĩ phụ trách phiên này.
                 # KHÔNG khoá hồ sơ — Tuyền chốt 23/09: "không khoá, sửa thoải
                 # mái"; bệnh án vẫn sửa trực tiếp sau khi hoàn tất.
-                if (
-                    not await can(conn, identity, "clinical.consult.finalize")
-                    or identity.staff_id != c["doctor_id"]
-                ):
+                # Hai lý do, hai câu (24/09/2026): câu gộp cũ nói "chỉ bác sĩ phụ
+                # trách" cả khi người bấm CHÍNH LÀ bác sĩ phụ trách mà thiếu khối
+                # Hoàn tất khám — người đọc đi tìm sai chỗ.
+                if not await can(conn, identity, "clinical.consult.finalize"):
+                    raise SafetyGateError(
+                        "Bạn chưa được cấp khối Hoàn tất khám — nhờ quản lý cấp"
+                        " trên màn Phân quyền."
+                    )
+                if identity.staff_id != c["doctor_id"]:
                     raise SafetyGateError(
                         "Chỉ bác sĩ phụ trách mới được kết thúc phần khám lâm sàng."
                     )

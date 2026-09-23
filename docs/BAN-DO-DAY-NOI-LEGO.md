@@ -219,6 +219,17 @@ khách, tới giờ chuông réo đúng người.
     khoa = có một khối khám / kết quả (`permissions/y_khoa.py`); nhóm mẫu Quản lý = mọi khối
     trừ khối cần chứng chỉ (tự tính, khối mới tự vào). Mở rộng quyền đi kèm nhật ký
     `clinical_record.opened` cho người ngoài vai lâm sàng.
+48. **Hồ sơ khám = ráp từ CỔNG ĐỌC** (cách B, Tuyền chốt 24/09): mỗi module khai `cong_doc`
+    trong `modules.py` (hàm đọc cạnh bảng của chính nó + các khoá nó điền); `ho_so/cong_doc.py`
+    đi qua các cổng. Thêm module = khai cổng, hồ sơ không sửa. CI: cổng phải có thật, không
+    hai cổng giành một khoá, hàm ráp không SELECT bảng của module. (Cách A — dựng từ sự
+    kiện — loại: trễ trước mặt bác sĩ, dữ liệu y khoa nằm trong sổ sự kiện.)
+49. **`service_selection.confirmed` là sự kiện nghiệp vụ** (trước chỉ ghi nhật ký) — khối
+    Vòng đọc nghe; chỉ định khách bỏ thành việc bác sĩ quyết.
+50. **"Chỉ định còn là việc dở" = MỘT điều kiện** `CHI_DINH_CON_VIEC_SQL` cho Hoàn tất,
+    tự khép lượt, check-out.
+51. **Bộ mô phỏng** `scripts/mo-phong/` là lớp kiểm thứ 4 (sau test đơn vị, test DB, CI):
+    chạy API thật + worker thật; chạy lại sau mỗi đợt lớn trước khi báo Tuyền bấm thật.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

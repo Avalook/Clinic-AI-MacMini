@@ -228,8 +228,11 @@ class BangLuotKham:
                     yeu_cau = await conn.fetch(
                         """
                         SELECT q.round_id::text AS round_id,
-                               q.service_order_id::text AS order_id, q.need, q.status
+                               q.service_order_id::text AS order_id, q.need, q.status,
+                               o.exec_status, o.selection_status
                           FROM round_requirement q
+                          JOIN service_order o
+                            ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
                          WHERE q.clinic_id = $1::uuid AND q.round_id = ANY($2::uuid[])
                         """,
                         cid,
@@ -417,7 +420,17 @@ class BangLuotKham:
                 {
                     "chi_dinh_id": q["order_id"],
                     "can": q["need"],
-                    "trang_thai": q["status"],
+                    # Cùng luật với vòng đọc (`luot_kham_rules.requirement_state`):
+                    # chỉ định không làm / khách không chọn → bác sĩ phải quyết.
+                    "trang_thai": (
+                        "needs_decision"
+                        if q["status"] == "open"
+                        and (
+                            q["exec_status"] in rules.KHONG_THUC_HIEN
+                            or q["selection_status"] == "NOT_SELECTED"
+                        )
+                        else q["status"]
+                    ),
                 }
             )
         for r in vong:

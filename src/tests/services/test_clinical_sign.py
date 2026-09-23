@@ -53,7 +53,8 @@ class TestOnlyDoctorsFinalize:
 
     def test_a_doctor_may_finalize(self) -> None:
         assert "hoan_tat_kham" in PRESET["DOCTOR"]
-        assert QUYEN["clinical.consult.finalize"].chung_chi_lam_sang
+        # Hàng rào chứng chỉ đã bỏ 24/09/2026 — khối được cấp là đủ.
+        assert not QUYEN["clinical.consult.finalize"].chung_chi_lam_sang
 
     def test_ultrasound_doctor_may_not_finalize_main_clinical_record(self) -> None:
         """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không khoá bệnh án khám."""
@@ -64,10 +65,11 @@ class TestOnlyDoctorsFinalize:
         trách nhiệm chuyên môn."""
         assert "hoan_tat_kham" not in PRESET["TKYK"]
 
-    def test_management_may_not_finalize(self) -> None:
-        """Quang: *"chỉ bác sĩ được ký vì bác sĩ làm mà"* — khoá hồ sơ không phải
-        quyền hành chính."""
-        assert "hoan_tat_kham" not in PRESET["MANAGEMENT"]
+    def test_management_has_every_pack_including_finalize(self) -> None:
+        """ĐỔI 24/09/2026 — Tuyền chốt (và xác nhận lại khi được hỏi về câu cũ
+        của Quang "chỉ bác sĩ được ký"): quản lý có MỌI khối; hệ thống để MỞ,
+        phòng khám khác cần chặt hơn thì chỉnh nhóm mẫu của họ sau."""
+        assert "hoan_tat_kham" in PRESET["MANAGEMENT"]
 
     def test_a_nurse_may_not_finalize(self) -> None:
         assert "hoan_tat_kham" not in PRESET["NURSE_ULTRASOUND"]

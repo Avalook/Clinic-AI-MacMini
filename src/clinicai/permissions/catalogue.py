@@ -25,11 +25,9 @@ QUẢN LÝ CHỈNH ĐƯỢC CAO NHẤT. Ai có `permission.manage` thì cấp ha
 khối cho bất kỳ ai trong phòng khám, kể cả quyền không nằm trong preset của vai
 họ. `default_presets` chỉ là GỢI Ý, không phải trần.
 
-MỘT HÀNG RÀO KHÔNG MỞ BẰNG TICK. Quyền có `chung_chi_lam_sang = True` (duyệt kết
-quả, ký bệnh án, duyệt đơn thuốc, chốt chẩn đoán) đụng luật hành nghề, không phải
-quy ước nội bộ. Hệ thống KHÔNG tự chốt ai đủ tư cách: lệnh cấp quyền từ chối cấp
-những quyền này cho người không có vai lâm sàng, và chỗ này còn để MỞ chờ phòng
-khám quyết (xem `docs/slices/`).
+KHÔNG CÒN HÀNG RÀO CHỨNG CHỈ (Tuyền bỏ 24/09/2026). Cột `chung_chi_lam_sang` giữ
+lại (mọi quyền đều False) để sau này phòng khám cần thì bật lại — hiện không lệnh
+nào đọc nó để chặn. Ai được làm gì = khối được cấp, hết.
 """
 
 from __future__ import annotations
@@ -380,7 +378,6 @@ QUYEN: dict[str, Quyen] = {
             "hoan_tat_kham",
             "consultation",
             MucRuiRo.LAM_SANG,
-            chung_chi_lam_sang=True,
         ),
         Quyen(
             "result.review.approve",
@@ -388,7 +385,6 @@ QUYEN: dict[str, Quyen] = {
             "duyet_ket_qua",
             "result",
             MucRuiRo.LAM_SANG,
-            chung_chi_lam_sang=True,
         ),
         # Chuyển từ `staff_capability` (`ket_qua.xac_nhan`) sang đây 23/09/2026:
         # chỉ còn MỘT hệ quyền.
@@ -511,23 +507,14 @@ PRESET: dict[str, Sequence[str]] = {
         "ghi_benh_an",
         "duyet_ket_qua",
     ],
-    # Quản lý: MỌI KHỐI trừ khối cần chứng chỉ hành nghề — tính ở dưới
-    # (`_khoi_quan_ly`). Tuyền chốt 24/09/2026: "quản lý quyền cao nhất — có
-    # module đó thì mọi quyền của nó có cả", không tách đọc với sửa.
 }
 
 
-def _khoi_quan_ly() -> list[str]:
-    """Mọi khối, trừ khối có quyền đòi chứng chỉ hành nghề (hoàn tất khám,
-    duyệt kết quả) — hàng rào luật, không phải hàng rào nội bộ; lệnh cấp quyền
-    cũng từ chối cấp chúng cho người không có vai lâm sàng. Khối mới thêm sau
-    này tự vào nhóm Quản lý (migration thêm khối phải thêm cả vào nhóm này —
-    `test_danh_muc_quyen_db` so hai bên)."""
-    can_chung_chi = {q.khoi for q in QUYEN.values() if q.chung_chi_lam_sang}
-    return [k for k in KHOI if k not in can_chung_chi]
-
-
-PRESET["MANAGEMENT"] = _khoi_quan_ly()
+# Quản lý có TẤT CẢ các khối — mặc định, không liệt kê, không loại trừ. Tuyền
+# chốt 24/09/2026: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó
+# có cả". Khối mới thêm sau này tự vào (migration thêm khối phải thêm cả vào
+# nhóm này — `test_danh_muc_quyen_db` so hai bên).
+PRESET["MANAGEMENT"] = list(KHOI)
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────

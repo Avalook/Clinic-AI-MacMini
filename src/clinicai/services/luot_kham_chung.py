@@ -75,6 +75,23 @@ PERFORMER_ROLES = frozenset(
 #: (Xong) — y như ở bàn khám bác sĩ chính. Chuyên môn vẫn là của bác sĩ: node
 #: giữ actor_roles = DOCTOR, và bác sĩ bấm Xong thì được ghi là người thực hiện.
 HO_TRO_PHONG = frozenset({ClinicRole.NURSE_ULTRASOUND, ClinicRole.TKYK})
+#: MỘT điều kiện cho câu hỏi "chỉ định `o` còn là VIỆC DỞ của lượt không" —
+#: dùng chung cho Hoàn tất (`kham_xong`), tự khép lượt (`_ket_thuc_neu_xong`)
+#: và check-out (`checkout_service`). Ba chỗ từng tự viết riêng, lệch nhau:
+#: chỉ định khách ĐÃ BỎ (NOT_SELECTED) hay đã được bác sĩ MIỄN / chuyển THEO
+#: DÕI vẫn bị đếm là việc dở → vòng đọc mở lại mãi, lượt không khép, quầy không
+#: check-out được (mô phỏng 20 khách, 24/09/2026). Chỉ định CHƯA CHỌN vẫn tính:
+#: khách chưa quyết. Đòi alias `o` cho `service_order`.
+CHI_DINH_CON_VIEC_SQL = """
+    o.exec_status IN ('authorized', 'assigned', 'in_progress')
+    AND coalesce(o.selection_status, 'PENDING') <> 'NOT_SELECTED'
+    AND NOT EXISTS (
+        SELECT 1 FROM public.round_requirement q_mien
+         WHERE q_mien.clinic_id = o.clinic_id
+           AND q_mien.service_order_id = o.id
+           AND q_mien.status IN ('waived', 'follow_up'))
+"""
+
 # Ai đọc được nội dung khám (ghi chú, kết quả). Lễ tân và trưởng ca làm việc
 # với trạng thái, không cần đọc chữ bác sĩ viết.
 CLINICAL_READ_ROLES = frozenset(

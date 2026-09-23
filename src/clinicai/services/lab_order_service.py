@@ -29,8 +29,10 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import KetQuaXetNghiemVe
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 
 logger = structlog.get_logger()
 
@@ -273,3 +275,30 @@ async def _log(
         origin,
         identity.clinic_id,
     )
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+_TRAN_XN_HO_SO = 20
+
+
+async def xet_nghiem_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """20 kết quả xét nghiệm gần nhất của khách."""
+    rows = await conn.fetch(
+        """
+        SELECT test_name, result_value, result_numeric, result_unit, flag,
+               external_ref, triage_group, result_received_at
+          FROM lab_result
+         WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
+         ORDER BY result_received_at DESC NULLS LAST LIMIT $3
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+        _TRAN_XN_HO_SO,
+    )
+    canh_bao_neu_day(
+        "ho_so_xet_nghiem", len(rows), _TRAN_XN_HO_SO, clinic_id=ngu_canh.clinic_id
+    )
+    return {"labs": [dong(r) for r in rows]}

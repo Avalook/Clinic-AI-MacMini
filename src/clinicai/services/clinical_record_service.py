@@ -44,6 +44,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.clinical_prescription_service import (
@@ -834,3 +835,116 @@ class ClinicalRecordService:
 
 def _json_or_none(value: Any) -> str | None:
     return None if value is None else json.dumps(value)
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+#: Vai được thấy đơn thuốc NHÁP của thư ký (đường cũ, OFF từ 23/09 — còn đọc
+#: được cho lượt cũ). Khớp hàm SQL `read_prescription_draft`.
+_VAI_THAY_DON_NHAP = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
+)
+_COT_BENH_AN_JSON = (
+    "soap_subjective",
+    "soap_objective",
+    "soap_assessment",
+    "soap_plan",
+    "prescription_draft",
+)
+
+
+async def ho_so_y_te_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Tiền sử, dị ứng, bệnh mạn, thuốc đang dùng… của khách."""
+    r = await conn.fetchrow(
+        """
+        SELECT blood_type, allergies, chronic_diseases, current_medications,
+               surgical_history, family_history, notes
+          FROM patient_medical_profile
+         WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+    )
+    return {"profile": dong(r)}
+
+
+async def benh_an_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Bệnh án (SOAP) của lượt đang xem + revision để lưu không đè nhau."""
+    lt = None
+    if ngu_canh.visit_id:
+        lt = dong(
+            await conn.fetchrow(
+                """
+                SELECT v.visit_id::text, v.status, v.created_at,
+                       r.revision, r.chief_complaint_at_visit, r.soap_subjective,
+                       r.soap_objective, r.soap_assessment, r.soap_plan,
+                       r.prescription_draft
+                  FROM visit v
+                  LEFT JOIN clinical_record r
+                    ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
+                 WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
+                """,
+                ngu_canh.visit_id,
+                ngu_canh.clinic_id,
+            ),
+            _COT_BENH_AN_JSON,
+        )
+    g = lt or {}
+    return {
+        "revision": g.get("revision") or 0,
+        "prescription_draft": (
+            g.get("prescription_draft")
+            if ngu_canh.identity.co_vai(_VAI_THAY_DON_NHAP)
+            else None
+        ),
+        "visit": (
+            {
+                "visit_id": g["visit_id"],
+                "status": g["status"],
+                "created_at": g["created_at"],
+            }
+            if lt
+            else None
+        ),
+        "draft": {
+            "chief_complaint": g.get("chief_complaint_at_visit") or "",
+            "subjective": g.get("soap_subjective"),
+            "objective": g.get("soap_objective"),
+            "assessment": g.get("soap_assessment"),
+            "plan": g.get("soap_plan"),
+        },
+    }
+
+
+async def lich_su_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """8 lượt khám gần nhất (bỏ chính lượt của lịch đang mở)."""
+    rows = await conn.fetch(
+        """
+        SELECT v.visit_id::text, v.status, v.created_at,
+               v.appointment_id::text, st.name AS service, s.full_name AS doctor,
+               r.chief_complaint_at_visit, r.soap_assessment
+          FROM visit v
+          LEFT JOIN service_type st ON st.id = v.service_type_id
+          LEFT JOIN staff s ON s.id = v.attending_doctor_id
+          LEFT JOIN clinical_record r
+            ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
+         WHERE v.clinic_patient_id = $1::uuid AND v.clinic_id = $2::uuid
+         ORDER BY v.created_at DESC LIMIT 8
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+    )
+    appt = ngu_canh.appointment_id
+    return {
+        "history_raw": [
+            dong(r, ["soap_assessment"])
+            for r in rows
+            if appt is None or r["appointment_id"] != appt
+        ]
+    }
