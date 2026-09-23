@@ -67,7 +67,14 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
-from clinicai.events.catalogue import KhachDaToi
+from clinicai.events.catalogue import (
+    CskhDaGoiXacNhan,
+    KhachDaToi,
+    KhachKhongDen,
+    LichDaDat,
+    LichDaDoi,
+    LichDaHuy,
+)
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
@@ -673,6 +680,18 @@ class BookingService:
                     identity=identity,
                     origin="api:appointment-booking",
                 )
+                await emit_event(
+                    conn,
+                    ten="appointment.booked",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=str(appointment_id),
+                    payload=LichDaDat(
+                        appointment_id=str(appointment_id),
+                        bat_dau=slot_start.isoformat(),
+                        kenh=channel,
+                    ),
+                    boi=nguoi(identity),
+                )
 
                 if auto_checkin:
                     # Same audit trail as the receptionist's check-in button, and
@@ -859,6 +878,7 @@ class BookingService:
                     str(appt["doctor_id"]) if appt["doctor_id"] else None
                 )
 
+                patch: dict[str, Any] = {}
                 if action == "checkin":
                     updated = await self._check_in(conn, appointment_id, transition)
                 else:
@@ -906,6 +926,15 @@ class BookingService:
                     },
                     identity=identity,
                     origin=f"api:appointment-{action}",
+                )
+                await _phat_su_kien_lich(
+                    conn,
+                    identity=identity,
+                    action=action,
+                    appt=appt,
+                    patch=patch,
+                    ly_do=cancellation_reason,
+                    ly_do_huy_ma=ly_do_huy_ma,
                 )
 
                 if action == "checkin":
@@ -2312,6 +2341,89 @@ class BookingService:
     def _is_today(self, moment: datetime) -> bool:
         local = moment.astimezone(CLINIC_TZ).date()
         return local == datetime.now(CLINIC_TZ).date()
+
+
+async def _phat_su_kien_lich(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    action: str,
+    appt: asyncpg.Record,
+    patch: dict[str, Any],
+    ly_do: str | None,
+    ly_do_huy_ma: str | None,
+) -> None:
+    """Sự kiện nghiệp vụ của lịch hẹn (nhóm 3, 24/09/2026) — cùng giao dịch.
+
+    Đổi lịch LƯU LỊCH SỬ (Tuyền chốt): mỗi lần một dòng `appointment_doi_lich`
+    từ → đến, ai đổi, lý do. Trước đây `slot_start` bị ghi đè, mất giờ cũ.
+    """
+    aid = str(appt["id"])
+    boi = nguoi(identity)
+    if action == "reschedule":
+        den_bat_dau = patch.get("slot_start", appt["slot_start"])
+        den_bac_si = patch["doctor_id"] if "doctor_id" in patch else appt["doctor_id"]
+        await conn.execute(
+            """
+            INSERT INTO appointment_doi_lich
+                (clinic_id, appointment_id, tu_bat_dau, tu_ket_thuc, den_bat_dau,
+                 den_ket_thuc, tu_bac_si_id, den_bac_si_id, ly_do, doi_boi_staff_id)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, $9,
+                    $10::uuid)
+            """,
+            identity.clinic_id,
+            aid,
+            appt["slot_start"],
+            appt["slot_end"],
+            den_bat_dau,
+            patch.get("slot_end", appt["slot_end"]),
+            appt["doctor_id"],
+            den_bac_si,
+            (ly_do or "").strip() or None,
+            identity.staff_id,
+        )
+        await emit_event(
+            conn,
+            ten="appointment.rescheduled",
+            clinic_id=identity.clinic_id,
+            aggregate_id=aid,
+            payload=LichDaDoi(
+                appointment_id=aid,
+                tu_bat_dau=appt["slot_start"].isoformat()
+                if appt["slot_start"]
+                else None,
+                den_bat_dau=den_bat_dau.isoformat() if den_bat_dau else None,
+                doi_bac_si=str(den_bac_si or "") != str(appt["doctor_id"] or ""),
+            ),
+            boi=boi,
+        )
+    elif action == "cancel":
+        await emit_event(
+            conn,
+            ten="appointment.cancelled",
+            clinic_id=identity.clinic_id,
+            aggregate_id=aid,
+            payload=LichDaHuy(appointment_id=aid, ly_do_ma=ly_do_huy_ma),
+            boi=boi,
+        )
+    elif action == "no_show":
+        await emit_event(
+            conn,
+            ten="appointment.no_show",
+            clinic_id=identity.clinic_id,
+            aggregate_id=aid,
+            payload=KhachKhongDen(appointment_id=aid),
+            boi=boi,
+        )
+    elif action == "cskh_confirm":
+        await emit_event(
+            conn,
+            ten="appointment.confirmed_by_call",
+            clinic_id=identity.clinic_id,
+            aggregate_id=aid,
+            payload=CskhDaGoiXacNhan(appointment_id=aid),
+            boi=boi,
+        )
 
 
 async def _log(

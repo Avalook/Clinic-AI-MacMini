@@ -50,6 +50,17 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "payment.medicine_collected": ["so_tien", "phuong_thuc"],
     # Kê ↔ mua ↔ giao: đối chiếu hai bản đơn (Tuyền 24/09).
     "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
+    # Nhóm 3 (24/09/2026).
+    "result_file.uploaded": ["cho_xac_nhan"],
+    "result_file.confirmed": ["trang_thai"],
+    "result_file.viewed": [],
+    "result_file.sent_to_patient": ["kenh"],
+    "result.reviewed": [],
+    "visit.checked_out": ["con_vuong"],
+    "visit.left_early": [],
+    "payment.refunded": ["so_tien"],
+    "followup.scheduled": ["ngay"],
+    "partner.sample_collected": [],
     "visit.checked_in": ["so_thu_tu"],
     "visit.routed": ["dich", "ly_do"],
     "consultation.started": ["loai"],

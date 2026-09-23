@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 
 from clinicai.api.identity import StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
+from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.xem_luot_service import GOI_DUOC, XemLuotService
 
 router = APIRouter()
@@ -23,3 +24,13 @@ async def xem_luot(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     return await XemLuotService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.get("/hanh-trinh/hom-nay")
+async def bang_hanh_trinh(
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng hành trình chung (nhóm 3, 24/09/2026): mỗi khách hôm nay — đang ở
+    đâu, đã xong gì, còn chờ gì."""
+    return await BangHanhTrinhService(pool).hom_nay(identity=identity)

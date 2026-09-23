@@ -85,6 +85,27 @@ thời gian. Đơn đổi sau khi quầy đã đụng → đường ĐÍNH CHÍN
    chính chéo bác sĩ").
 9. Thu tiền thuốc cần lượt đã có ít nhất một dòng đơn (chưa kê gì thì chưa có gì để thu).
 
+**Nhóm 3 — kết quả, chuông, hành trình (đã làm):** tệp kết quả phát `result_file.uploaded`
+(chuông KHÔNG còn gọi thẳng — khối **Chuông** nghe, người nhận là dữ liệu
+`day_nhan_thong_bao`: mặc định CSKH + thư ký + điều dưỡng + bác sĩ chính đích danh);
+`result_file.confirmed` / `.viewed` / `.sent_to_patient`; bác sĩ/thư ký/BS siêu âm MỞ tệp là
+tự ghi "đã xem" (`tep_ket_qua.da_xem_luc`); duyệt (không bắt buộc) = `result.reviewed` + coi
+như đã xem. Phiếu kết quả hoàn tất ở phòng (`result.ready`) cũng réo chuông bác sĩ chính +
+thư ký. **7 sự kiện mới** Tuyền chốt: `appointment.no_show` · `appointment.confirmed_by_call`
+· `visit.left_early` · `payment.refunded` · `followup.scheduled` · `partner.sample_collected`
+· `patient.contacted`; kèm `appointment.booked/rescheduled/cancelled`, `visit.checked_out`.
+Đổi lịch lưu lịch sử (`appointment_doi_lich`). **Bảng hành trình chung** `/hanh-trinh` + mục
+"Hành trình (sự kiện)" trong Xem lượt.
+
+**Chỗ Claude tự chốt ở nhóm 3:**
+10. "Đã xem" chỉ tính khi BÁC SĨ / THƯ KÝ Y KHOA / BÁC SĨ SIÊU ÂM mở tệp (CSKH mở để gửi,
+    lễ tân mở không tính). Kết quả dạng PHIẾU (điền ở phòng) chưa có "đã xem" riêng —
+    bác sĩ thấy nó ngay trên Bàn khám; ghi NỢ nếu cần.
+11. Kết quả xét nghiệm NHẬP TAY (`lab_order_service`) vẫn gọi chuông thẳng như cũ — NỢ,
+    chuyển sang sự kiện khi làm lại màn nhập xét nghiệm.
+12. Hẹn tái khám chỉ phát sự kiện lúc bấm Khám xong (bệnh án lưu liên tục không phát).
+13. Bảng hành trình mở cho MỌI vai nội bộ (kể cả CSKH), không có nội dung lâm sàng.
+
 ### Các chốt khác (24/09)
 
 - **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),

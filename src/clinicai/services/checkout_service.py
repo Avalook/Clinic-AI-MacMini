@@ -45,6 +45,8 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -709,6 +711,28 @@ class CheckoutService:
                     ),
                     "visit.closed_incomplete" if incomplete else "dispatch.checkout",
                 )
+                # Sổ sự kiện nghiệp vụ (nhóm 3, 24/09/2026): khách về / bỏ về giữa
+                # chừng — dòng thời gian + (sau này) theo dõi sau khám H6.
+                if incomplete:
+                    await emit_event(
+                        conn,
+                        ten="visit.left_early",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=visit_id,
+                        payload=KhachBoVeGiuaChung(visit_id=visit_id),
+                        boi=nguoi(identity),
+                        correlation_id=visit_id,
+                    )
+                else:
+                    await emit_event(
+                        conn,
+                        ten="visit.checked_out",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=visit_id,
+                        payload=KhachDaVe(visit_id=visit_id, con_vuong=len(blockers)),
+                        boi=nguoi(identity),
+                        correlation_id=visit_id,
+                    )
 
         logger.info(
             "visit_checked_out",

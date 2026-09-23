@@ -43,7 +43,10 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
+    DaHenTaiKham,
     DaXepDuongDi,
+    DoiTacDaLayMau,
+    KetQuaDaDuyet,
     KhamXong,
     PhienKhamBatDau,
     SinhHieuBatDau,
@@ -3380,6 +3383,31 @@ class LuotKhamService:
                 boi=nguoi(identity),
                 correlation_id=vid,
             )
+            # Bác sĩ hẹn tái khám (mục X bệnh án) — sự thật chốt lúc Khám xong.
+            ngay_tai_kham = await conn.fetchval(
+                "SELECT nullif(btrim(soap_plan #>> '{tai_kham,ngay}'), '')"
+                " FROM clinical_record WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid",
+                cid,
+                vid,
+            )
+            if ngay_tai_kham and not await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM domain_event WHERE clinic_id = $1::uuid"
+                " AND event_type = 'followup.scheduled' AND aggregate_id = $2::uuid"
+                " AND payload->>'ngay' = $3)",
+                cid,
+                vid,
+                str(ngay_tai_kham),
+            ):
+                await emit_event(
+                    conn,
+                    ten="followup.scheduled",
+                    clinic_id=cid,
+                    aggregate_id=vid,
+                    payload=DaHenTaiKham(visit_id=vid, ngay=str(ngay_tai_kham)),
+                    boi=nguoi(identity),
+                    correlation_id=vid,
+                )
             await conn.execute(
                 """
                 UPDATE queue_entry
@@ -4375,6 +4403,7 @@ class LuotKhamService:
                         "tep_moi": [r["id"] for r in moi],
                     },
                 )
+                await self._phat_da_duyet(conn, identity, vid, oid)
                 return {"ok": True, "order_id": oid, "tep_moi": len(moi)}
             if o["ket_qua_luc"] is None and not o["lam_ben_ngoai"]:
                 raise LuotKhamConflictError(
@@ -4425,7 +4454,33 @@ class LuotKhamService:
                 origin=ORIGIN,
                 payload={"visit_id": vid, "order_id": oid},
             )
+            await self._phat_da_duyet(conn, identity, vid, oid)
         return {"ok": True, "order_id": oid}
+
+    @staticmethod
+    async def _phat_da_duyet(
+        conn: asyncpg.Connection, identity: StaffIdentity, vid: str, oid: str
+    ) -> None:
+        """Duyệt (không bắt buộc — Tuyền 24/09) = đã xem mọi tệp của chỉ định,
+        và một dòng `result.reviewed` trên dòng thời gian."""
+        await conn.execute(
+            "UPDATE tep_ket_qua SET da_xem_luc = now(), da_xem_boi_staff_id = $3::uuid"
+            " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+            "   AND da_xem_luc IS NULL",
+            identity.clinic_id,
+            oid,
+            identity.staff_id,
+        )
+        await emit_event(
+            conn,
+            ten="result.reviewed",
+            clinic_id=identity.clinic_id,
+            aggregate_id=oid,
+            so_ke_tiep=True,
+            payload=KetQuaDaDuyet(service_order_id=oid, visit_id=vid),
+            boi=nguoi(identity),
+            correlation_id=vid,
+        )
 
     # ------------------------------------------------------------------
     # Đối tác: hai trạng thái "Chờ lấy mẫu" → "Đã lấy mẫu" → (tải kết quả)
@@ -4664,6 +4719,16 @@ class LuotKhamService:
             await self._evaluate_rounds(conn, identity, vid)
             await self._ket_thuc_neu_xong(conn, identity, vid)
             await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
+            await emit_event(
+                conn,
+                ten="partner.sample_collected",
+                clinic_id=cid,
+                aggregate_id=oid,
+                so_ke_tiep=True,
+                payload=DoiTacDaLayMau(visit_id=vid, service_order_id=oid),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
             await record_event(
                 conn,
                 event_type="service.performed",

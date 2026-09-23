@@ -54,6 +54,10 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.reassigned": "Đổi bác sĩ phụ trách",
     "appointment.reminder": "Nhắc lịch hẹn",
     "appointment.checked_in": "Tiếp nhận (check-in)",
+    # Sổ sự kiện nghiệp vụ, nhóm 3 (24/09/2026).
+    "visit.checked_out": "Khách đã về (check-out)",
+    "visit.left_early": "Khách bỏ về giữa chừng",
+    "patient.contacted": "CSKH đã liên hệ khách",
     "appointment.checkin_undone": "Huỷ tiếp nhận",
     "appointment.completed": "Khám xong",
     # Giữ chỗ tồn tại trong lúc CSKH đang chọn khung giờ, để hai người không
@@ -345,6 +349,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "lab_result": "Kết quả xét nghiệm",
     "payment": "Thanh toán",
     "payment_cycle": "Lần thu tiền",
+    "payment_refund": "Hoàn tiền",
     "service_log": "Dịch vụ đã dùng",
     "clinical_record": "Bệnh án",
     "clinical_form_response": "Phiếu khám chuyên khoa",

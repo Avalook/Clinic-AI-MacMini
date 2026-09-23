@@ -127,7 +127,11 @@ DECLARE
     -- 102 → 104 (23/09/2026): result_correction · form_result_release
     -- (20260923000014, sửa kết quả mà không mất bản cũ). clinic_id NOT NULL, FK
     -- thẳng tới clinic, clinic_id đứng đầu index của cả hai.
-    expected_tenant_tables constant integer := 104;
+    -- 104 → 106 (24/09/2026, nhóm 3): day_nhan_thong_bao (dây nối chuông,
+    -- PK (clinic_id, su_kien)) · appointment_doi_lich (lịch sử đổi lịch, index
+    -- (clinic_id, appointment_id, doi_luc)) — 20260924000004. clinic_id NOT
+    -- NULL, FK thẳng tới clinic, bật RLS.
+    expected_tenant_tables constant integer := 106;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

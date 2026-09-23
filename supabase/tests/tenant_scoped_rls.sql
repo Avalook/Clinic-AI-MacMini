@@ -166,8 +166,10 @@ BEGIN
     -- 74 → 76 (23/09/2026): result_correction · form_result_release
     -- (20260923000014). Cùng khuôn `current_clinic_ids()`, CHỈ SELECT — ghi đi
     -- qua lệnh FastAPI, và cả hai bảng có trigger chặn UPDATE/DELETE.
-    IF scoped_count <> 76 THEN
-        RAISE EXCEPTION 'expected 76 tenant-scoped read policies, found %', scoped_count;
+    -- 76 → 78 (24/09/2026, nhóm 3): day_nhan_thong_bao · appointment_doi_lich
+    -- (20260924000004), cùng khuôn `clinic_id IN (current_clinic_ids())`.
+    IF scoped_count <> 78 THEN
+        RAISE EXCEPTION 'expected 78 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

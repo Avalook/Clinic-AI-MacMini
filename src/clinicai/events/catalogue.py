@@ -54,6 +54,9 @@ TRACH_NHIEM_DICH_VU = "trach_nhiem_dich_vu"
 #: Khối HÀNH TRÌNH (Journey Process Manager, thesis §9): giữ luật THỨ TỰ khách
 #: đi — nghe sự thật rồi gửi LỆNH xếp hàng. Dây H1…H8 ở docs/BAN-DO-DAY-NOI-LEGO.md.
 HANH_TRINH = "hanh_trinh_luot_kham"
+#: Khối CHUÔNG: sự kiện nào báo cho ai — người nhận là DỮ LIỆU
+#: (`day_nhan_thong_bao`), quản lý chỉnh trên màn.
+CHUONG = "chuong_thong_bao"
 
 
 @dataclass(frozen=True)
@@ -143,6 +146,140 @@ class ThuocDaGiao(PayloadSuKien):
     so_ke: str | None = None
     so_mua: str | None = None
     so_da_giao: str
+
+
+# ── kết quả: tệp, xem, duyệt, gửi khách (nhóm 3) ──────────────────────────
+
+
+class TepKetQuaDaVe(PayloadSuKien):
+    """`result_file.uploaded` — một tệp kết quả vừa vào hồ sơ khách.
+
+    Tệp của ĐỐI TÁC phải có người xác nhận đúng người/đúng chỉ định trước khi
+    dùng (`cho_xac_nhan`); tệp nội bộ dùng được ngay.
+    """
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+    cho_xac_nhan: bool = False
+
+
+class TepKetQuaDaXacNhan(PayloadSuKien):
+    """`result_file.confirmed` — xác nhận tệp đối tác: HOP_LE / TU_CHOI."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+    trang_thai: str
+
+
+class TepKetQuaDaXem(PayloadSuKien):
+    """`result_file.viewed` — lần ĐẦU người làm chuyên môn mở tệp (tự ghi).
+
+    Duyệt kết quả không bắt buộc (Tuyền 24/09): "đã xem" thay cho "đã duyệt" để
+    biết kết quả nào chưa ai xem.
+    """
+
+    tep_id: str
+    visit_id: str | None = None
+
+
+class KetQuaDaGuiKhach(PayloadSuKien):
+    """`result_file.sent_to_patient` — CSKH đánh dấu đã gửi kết quả cho khách."""
+
+    tep_id: str
+    visit_id: str | None = None
+    kenh: str
+
+
+class KetQuaDaDuyet(PayloadSuKien):
+    """`result.reviewed` — bác sĩ bấm duyệt (không bắt buộc) một chỉ định."""
+
+    service_order_id: str
+    visit_id: str | None = None
+
+
+# ── lịch hẹn + rời phòng khám (nhóm 3) ──────────────────────────────────────
+
+
+class LichDaDat(PayloadSuKien):
+    """`appointment.booked` — CSKH / lễ tân đặt một lịch hẹn."""
+
+    appointment_id: str
+    bat_dau: str
+    kenh: str | None = None
+
+
+class LichDaDoi(PayloadSuKien):
+    """`appointment.rescheduled` — đổi giờ và/hoặc bác sĩ. Lịch sử đầy đủ ở
+    `appointment_doi_lich` (từ → đến, ai đổi, lý do)."""
+
+    appointment_id: str
+    tu_bat_dau: str | None = None
+    den_bat_dau: str | None = None
+    doi_bac_si: bool = False
+
+
+class LichDaHuy(PayloadSuKien):
+    """`appointment.cancelled` — huỷ lịch (mã lý do, không phải lời khách nói)."""
+
+    appointment_id: str
+    ly_do_ma: str | None = None
+
+
+class KhachKhongDen(PayloadSuKien):
+    """`appointment.no_show` — tới giờ mà khách không đến."""
+
+    appointment_id: str
+
+
+class CskhDaGoiXacNhan(PayloadSuKien):
+    """`appointment.confirmed_by_call` — CSKH gọi khách xác nhận lịch."""
+
+    appointment_id: str
+
+
+class KhachDaVe(PayloadSuKien):
+    """`visit.checked_out` — lễ tân đóng lượt, khách rời phòng khám."""
+
+    visit_id: str
+    con_vuong: int = 0
+
+
+class KhachBoVeGiuaChung(PayloadSuKien):
+    """`visit.left_early` — khách về giữa chừng (lượt INCOMPLETE, có lý do)."""
+
+    visit_id: str
+
+
+class DaHoanTien(PayloadSuKien):
+    """`payment.refunded` — một khoản hoàn tiền đã xong."""
+
+    visit_id: str
+    refund_id: str
+    so_tien: int
+
+
+class DaHenTaiKham(PayloadSuKien):
+    """`followup.scheduled` — bác sĩ hẹn tái khám (ghi lúc bấm Khám xong)."""
+
+    visit_id: str
+    ngay: str
+
+
+class DoiTacDaLayMau(PayloadSuKien):
+    """`partner.sample_collected` — đối tác tự lấy mẫu, bấm "Đã lấy mẫu"."""
+
+    visit_id: str
+    service_order_id: str
+
+
+class CskhDaLienHe(PayloadSuKien):
+    """`patient.contacted` — CSKH đã liên hệ khách (gọi / nhắn), kèm kết quả."""
+
+    clinic_patient_id: str
+    loai: str
+    ket_qua: str | None = None
 
 
 # ── permission ──────────────────────────────────────────────────────────────
@@ -551,6 +688,155 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
+        # ── nhóm 3: kết quả ──
+        SuKien(
+            ten="result_file.uploaded",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaVe,
+            nhan="Tệp kết quả đã về",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+        ),
+        SuKien(
+            ten="result_file.confirmed",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaXacNhan,
+            nhan="Đã xác nhận tệp kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="result_file.viewed",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaXem,
+            nhan="Bác sĩ đã xem kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="result_file.sent_to_patient",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=KetQuaDaGuiKhach,
+            nhan="Đã gửi kết quả cho khách",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="result.reviewed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="result",
+            payload=KetQuaDaDuyet,
+            nhan="Bác sĩ đã duyệt kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        # ── nhóm 3: lịch hẹn, rời phòng khám, tiền, CSKH ──
+        SuKien(
+            ten="appointment.booked",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaDat,
+            nhan="Đã đặt lịch",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.rescheduled",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaDoi,
+            nhan="Đã đổi lịch",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.cancelled",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaHuy,
+            nhan="Đã huỷ lịch",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.no_show",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=KhachKhongDen,
+            nhan="Khách không đến",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.confirmed_by_call",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=CskhDaGoiXacNhan,
+            nhan="CSKH đã gọi xác nhận lịch",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="visit.checked_out",
+            version=1,
+            aggregate_type="visit",
+            source_module="reception",
+            payload=KhachDaVe,
+            nhan="Khách đã về (check-out)",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="visit.left_early",
+            version=1,
+            aggregate_type="visit",
+            source_module="reception",
+            payload=KhachBoVeGiuaChung,
+            nhan="Khách bỏ về giữa chừng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="payment.refunded",
+            version=1,
+            aggregate_type="payment_refund",
+            source_module="payment",
+            payload=DaHoanTien,
+            nhan="Đã hoàn tiền",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        SuKien(
+            ten="followup.scheduled",
+            version=1,
+            aggregate_type="visit",
+            source_module="consultation",
+            payload=DaHenTaiKham,
+            nhan="Bác sĩ hẹn tái khám",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="partner.sample_collected",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacDaLayMau,
+            nhan="Đối tác đã lấy mẫu",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="patient.contacted",
+            version=1,
+            aggregate_type="clinic_patient",
+            source_module="cskh",
+            payload=CskhDaLienHe,
+            nhan="CSKH đã liên hệ khách",
+            is_public=False,
+        ),
         SuKien(
             ten="payment.medicine_collected",
             version=1,
@@ -603,7 +889,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result",
             payload=KetQuaSanSang,
             nhan="Đã có kết quả",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
             is_public=True,
             theo_thu_tu=True,
         ),
@@ -675,6 +961,23 @@ __all__ = [
     "DaXepPhong",
     "TienDichVuDaThu",
     "TienThuocDaThu",
+    "CHUONG",
+    "TepKetQuaDaVe",
+    "TepKetQuaDaXacNhan",
+    "TepKetQuaDaXem",
+    "KetQuaDaGuiKhach",
+    "KetQuaDaDuyet",
+    "LichDaDat",
+    "LichDaDoi",
+    "LichDaHuy",
+    "KhachKhongDen",
+    "CskhDaGoiXacNhan",
+    "KhachDaVe",
+    "KhachBoVeGiuaChung",
+    "DaHoanTien",
+    "DaHenTaiKham",
+    "CskhDaLienHe",
+    "DoiTacDaLayMau",
     "ThuocDaGiao",
     "KhamXong",
     "PhienKhamBatDau",

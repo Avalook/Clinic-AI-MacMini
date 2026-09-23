@@ -18,3 +18,10 @@ from clinicai.events.worker import lam_mot_dong
 async def chay_hanh_trinh(pool: asyncpg.Pool) -> None:
     while await lam_mot_dong(pool, HANH_TRINH):
         pass
+
+
+async def chay_ben_nhan(pool: asyncpg.Pool, *ben_nhan: str) -> None:
+    """Chạy một vòng cho các bên nhận chỉ định (vd khối Chuông, dòng thời gian)."""
+    for ten in ben_nhan:
+        while await lam_mot_dong(pool, ten):
+            pass

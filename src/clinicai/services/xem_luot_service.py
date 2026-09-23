@@ -37,6 +37,9 @@ from clinicai.services.thu_ky_bac_si import kiem_khach
 
 GOI_DUOC = frozenset(
     {
+        # CSKH xem được hành trình (bảng hành trình chung — nhóm 3, 24/09/2026:
+        # "mở được từ mọi màn"). Nội dung lâm sàng vẫn cắt theo `muc_duoc_xem`.
+        ClinicRole.CSKH,
         ClinicRole.DOCTOR,
         ClinicRole.TKYK,
         ClinicRole.ULTRASOUND_DOCTOR,
@@ -154,6 +157,39 @@ def muc_duoc_xem(identity: StaffIdentity) -> dict[str, bool]:
     }
 
 
+async def dong_thoi_gian_luot(
+    conn: asyncpg.Connection, cid: str, visit_id: str
+) -> list[dict[str, Any]]:
+    """Dòng thời gian của một lượt — đọc PROJECTION `luot_dong_thoi_gian` (dựng
+    từ sổ sự kiện, dựng lại được bằng phát lại). Không có nội dung lâm sàng:
+    chi tiết là whitelist của bên nhận (`dong_thoi_gian.CHI_TIET_HIEN`)."""
+    rows = await conn.fetch(
+        """
+        SELECT d.occurred_at, d.event_type, d.nhan, d.chi_tiet,
+               d.actor_type, s.full_name AS ai
+          FROM luot_dong_thoi_gian d
+          LEFT JOIN staff s ON s.id = d.actor_staff_id
+         WHERE d.clinic_id = $1::uuid AND d.visit_id = $2::uuid
+         ORDER BY d.occurred_at, d.thu_tu
+         LIMIT 300
+        """,
+        cid,
+        visit_id,
+    )
+    return [
+        {
+            "luc": _iso(r["occurred_at"]),
+            "su_kien": r["event_type"],
+            "nhan": r["nhan"],
+            "chi_tiet": json.loads(r["chi_tiet"])
+            if isinstance(r["chi_tiet"], str)
+            else (r["chi_tiet"] or {}),
+            "ai": r["ai"] or ("Hệ thống" if r["actor_type"] == "SYSTEM" else None),
+        }
+        for r in rows
+    ]
+
+
 class XemLuotService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -209,6 +245,7 @@ class XemLuotService:
                 "hanh_chinh": await self._hanh_chinh(conn, cid, v),
                 "dich_vu": await self._dich_vu(conn, cid, visit_id, muc["lam_sang"]),
                 "su_kien": await self._su_kien(conn, cid, v),
+                "dong_thoi_gian": await dong_thoi_gian_luot(conn, cid, visit_id),
                 "lich_su": await self._lich_su(conn, cid, v),
             }
             if muc["sinh_hieu"]:

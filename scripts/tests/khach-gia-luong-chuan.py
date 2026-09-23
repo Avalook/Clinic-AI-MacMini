@@ -48,7 +48,11 @@ import asyncpg  # noqa: E402
 
 from clinicai.api.identity import ClinicRole, StaffIdentity  # noqa: E402
 from clinicai.events import worker as nguoi_dua_tin  # noqa: E402
-from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT, HANH_TRINH  # noqa: E402
+from clinicai.events.catalogue import (  # noqa: E402
+    CHUONG,
+    DONG_THOI_GIAN_LUOT,
+    HANH_TRINH,
+)
 from clinicai.events.consumers import dong_thoi_gian, trach_nhiem  # noqa: E402,F401
 from clinicai.services.booking_service import BookingService  # noqa: E402
 from clinicai.services.checkout_service import CheckoutService  # noqa: E402
@@ -67,7 +71,7 @@ from clinicai.services.service_selection_service import (  # noqa: E402
 from clinicai.services.tep_ket_qua_service import TepKetQuaService  # noqa: E402
 
 CLINIC = os.environ.get("CLINIC_ID", "a0000000-0000-4000-8000-000000000001")
-BEN_NHAN = [HANH_TRINH, DONG_THOI_GIAN_LUOT, trach_nhiem.TRACH_NHIEM]
+BEN_NHAN = [HANH_TRINH, DONG_THOI_GIAN_LUOT, trach_nhiem.TRACH_NHIEM, CHUONG]
 
 
 def _khoa() -> str:
@@ -534,18 +538,23 @@ async def main(bo_sinh_hieu: bool) -> int:
         async def quay_lai_lam_thu_thuat() -> None:
             if dv_thu_thuat is None:
                 raise RuntimeError("chưa có loại lịch nào bật di_thang_phong")
-            bd = datetime.now(UTC) + timedelta(minutes=40)
-            kq = await BookingService(pool).create(
-                clinic_patient_id=k.patient,
-                service_type_id=dv_thu_thuat,
-                location_id=loc,
-                slot_start=bd,
-                slot_end=bd + timedelta(minutes=15),
-                identity=cskh,
-                doctor_id=bs.staff_id,
-                notes="[khach-gia] hẹn thủ thuật",
+            # Lịch thủ thuật tạo THẲNG (không qua luật giờ ca): khách giả có thể
+            # chạy lúc tối, ngoài giờ nhận lịch — bước này kiểm dây H2, không
+            # kiểm luật đặt lịch.
+            bd = datetime.now(UTC)
+            k.appointment = await pool.fetchval(
+                "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+                " service_type_id, slot_start, slot_end, doctor_id, status, notes)"
+                " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid,"
+                " 'CONFIRMED', '[khach-gia] hẹn thủ thuật') RETURNING id::text",
+                CLINIC,
+                k.patient,
+                loc,
+                dv_thu_thuat,
+                bd,
+                bd + timedelta(minutes=15),
+                bs.staff_id,
             )
-            k.appointment = kq["appointment_id"]
             await BookingService(pool).apply_action(
                 appointment_id=k.appointment, action="checkin", identity=le_tan
             )

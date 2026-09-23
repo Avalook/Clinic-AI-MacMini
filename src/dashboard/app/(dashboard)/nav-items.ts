@@ -28,6 +28,7 @@ import {
   Receipt,
   Building2,
   PhoneCall,
+  Route,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -137,6 +138,12 @@ export const NAV: NavItem[] = [
     href: "/truong-ca",
     label: "Điều phối ca",
     icon: LayoutDashboard,
+  },
+  // BẢNG HÀNH TRÌNH CHUNG (nhóm 3, 24/09/2026) — mọi vai nội bộ.
+  {
+    href: "/hanh-trinh",
+    label: "Hành trình khách hôm nay",
+    icon: Route,
   },
   // ĐỐI TÁC chỉ có đúng mục này, và đây là toàn bộ thanh bên của họ.
   {

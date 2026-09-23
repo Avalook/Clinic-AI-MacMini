@@ -281,6 +281,14 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // BÀN KHÁM TƯ VẤN (24/09/2026): mặc định bác sĩ; ai được cấp khối "Khám tư
   // vấn" cũng vào được qua NAV_QUYEN.
   "/tu-van": ["DOCTOR", "MANAGEMENT"],
+  // BẢNG HÀNH TRÌNH CHUNG (nhóm 3, 24/09/2026): mỗi khách hôm nay đang ở đâu /
+  // đã xong gì / còn chờ gì — cho MỌI vai nội bộ (khớp GOI_DUOC ở
+  // xem_luot_service.py). Nội dung lâm sàng không có trên bảng này.
+  "/hanh-trinh": [
+    "CSKH", "RECEPTION", "TRUONG_CA", "MANAGEMENT", "DOCTOR", "TKYK",
+    "ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "CASHIER", "CASHIER_DV",
+    "CASHIER_THUOC", "PHARMACIST",
+  ],
   // Bàn khám MỘT phòng (`/ban-kham/<room_id>`) dùng chung luật `/ban-kham` —
   // xem `luatNav`. Không còn một dòng cho mỗi mã phòng (CORE-C, 23/09/2026).
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC ở Kim Ngưu (Tuyền 16/09/2026: "trong màn

@@ -67,6 +67,8 @@ interface DuLieuXem {
   };
   dich_vu: DichVu[];
   su_kien: Moc[];
+  /** Sổ sự kiện nghiệp vụ (nhóm 3, 24/09/2026) — projection dòng thời gian. */
+  dong_thoi_gian?: { luc: string | null; nhan: string; ai: string | null }[];
   lich_su: { visit_id: string; luc: string | null; dich_vu: string | null; bac_si: string | null }[];
   sinh_hieu?: { luot_nay: SinhHieu[]; luot_truoc: SinhHieu[] };
   lam_sang?: {
@@ -434,6 +436,21 @@ export default function XemLuot({
                 )}
               </Muc>
             ) : null}
+
+            <Muc tieuDe="Hành trình (sự kiện)">
+              {!dl.dong_thoi_gian || dl.dong_thoi_gian.length === 0 ? (
+                <p className="text-xs text-ink-muted">Chưa có sự kiện nào.</p>
+              ) : (
+                <ol className="grid gap-0.5 text-xs text-ink-soft">
+                  {dl.dong_thoi_gian.map((e, i) => (
+                    <li key={i}>
+                      {ngayGio(e.luc)} · {e.nhan}
+                      {e.ai ? ` — ${e.ai}` : ""}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Muc>
 
             <Muc tieuDe="Dòng thời gian thao tác">
               {dl.su_kien.length === 0 ? (

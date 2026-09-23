@@ -52,9 +52,32 @@ class _Pool:
     def __init__(self, xac_nhan: str | None) -> None:
         self.xac_nhan = xac_nhan
 
+    # Đánh dấu đã gửi chạy trong MỘT giao dịch và phát sự kiện (nhóm 3):
+    # pool giả đóng vai luôn kết nối.
+    def acquire(self) -> "_Pool":
+        return self
+
+    def transaction(self) -> "_Pool":
+        return self
+
+    async def __aenter__(self) -> "_Pool":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        return None
+
+    async def execute(self, *_: Any) -> None:
+        return None
+
+    async def executemany(self, *_: Any) -> None:
+        return None
+
+    async def fetchval(self, *_: Any) -> None:
+        return None
+
     async def fetchrow(self, sql: str, *_: Any) -> dict[str, Any] | None:
         if sql.lstrip().startswith("UPDATE"):
-            return {"id": TEP}
+            return {"id": TEP, "service_order_id": None, "appointment_id": None}
         return {
             "gui_luc": None,
             "cho_phep_gui_luc": None,

@@ -136,6 +136,7 @@ MODULE: dict[str, Module] = {
                 "result_form.completed",
                 "result.ready",
                 "result.corrected",
+                "result.reviewed",
             ],
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
@@ -203,6 +204,21 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "medicine.dispensed",
+                "result_file.uploaded",
+                "result_file.confirmed",
+                "result_file.viewed",
+                "result_file.sent_to_patient",
+                "result.reviewed",
+                "appointment.booked",
+                "appointment.rescheduled",
+                "appointment.cancelled",
+                "appointment.no_show",
+                "appointment.confirmed_by_call",
+                "visit.checked_out",
+                "visit.left_early",
+                "payment.refunded",
+                "followup.scheduled",
+                "partner.sample_collected",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -228,8 +244,8 @@ MODULE: dict[str, Module] = {
         Module(
             ma="reception",
             ten="Tiếp đón",
-            lenh=["CheckInPatient"],
-            phat=["visit.checked_in"],
+            lenh=["CheckInPatient", "CheckOutPatient"],
+            phat=["visit.checked_in", "visit.checked_out", "visit.left_early"],
             quyen=["reception.checkin.perform"],
         ),
         Module(
@@ -284,6 +300,7 @@ MODULE: dict[str, Module] = {
                 "consultation.started",
                 "consultation.handed_over",
                 "consultation.completed",
+                "followup.scheduled",
             ],
             quyen=[
                 "clinical.intake.perform",
@@ -298,9 +315,73 @@ MODULE: dict[str, Module] = {
             lenh=["CollectServicePayment"],
             # Tiền thật đã nhận (tiền mặt, hoặc chuyển khoản đã xác minh) —
             # khối Hành trình nghe để xếp phòng (H4). Tiền thuốc: dòng thời gian.
-            phat=["payment.service_collected", "payment.medicine_collected"],
+            phat=[
+                "payment.service_collected",
+                "payment.medicine_collected",
+                "payment.refunded",
+            ],
             bang=["payment_cycle", "payment_bill_line"],
             quyen=["payment.service.collect"],
+        ),
+        Module(
+            ma="result_file",
+            ten="Tệp kết quả",
+            # Nhóm 3 (24/09/2026): tải / xác nhận / mở (tự ghi đã xem) / đánh dấu
+            # đã gửi khách. Chuông KHÔNG còn gọi thẳng — khối Chuông nghe.
+            lenh=[
+                "UploadResultFile",
+                "ConfirmResultFile",
+                "OpenResultFile",
+                "MarkSent",
+            ],
+            phat=[
+                "result_file.uploaded",
+                "result_file.confirmed",
+                "result_file.viewed",
+                "result_file.sent_to_patient",
+            ],
+            bang=["tep_ket_qua"],
+        ),
+        Module(
+            ma="chuong",
+            ten="Chuông thông báo",
+            # CHỈ NGHE. Ai nhận chuông cho sự kiện nào là DỮ LIỆU
+            # (`day_nhan_thong_bao`) — quản lý chỉnh trên màn (nhóm 5).
+            nghe=["result_file.uploaded", "result.ready"],
+            ben_nhan=["chuong_thong_bao"],
+            bang=["day_nhan_thong_bao"],
+        ),
+        Module(
+            ma="booking",
+            ten="Đặt lịch",
+            lenh=[
+                "BookAppointment",
+                "RescheduleAppointment",
+                "CancelAppointment",
+                "MarkNoShow",
+                "ConfirmByCall",
+            ],
+            phat=[
+                "appointment.booked",
+                "appointment.rescheduled",
+                "appointment.cancelled",
+                "appointment.no_show",
+                "appointment.confirmed_by_call",
+            ],
+            bang=["appointment", "appointment_doi_lich"],
+        ),
+        Module(
+            ma="doi_tac",
+            ten="Đối tác",
+            lenh=["MarkSampleCollected", "MarkAwaitingDocuments"],
+            phat=["partner.sample_collected"],
+        ),
+        Module(
+            ma="cskh",
+            ten="Chăm sóc khách hàng",
+            lenh=["LogContact"],
+            phat=["patient.contacted"],
+            bang=["tuong_tac_cskh"],
         ),
         Module(
             ma="pharmacy",

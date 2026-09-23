@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1, 2, 4 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1, 2, 3, 4 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,19 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 3 — kết quả · chuông · 7 sự kiện mới · bảng hành trình (CHƯA deploy, CHƯA bấm thật)
+
+- Migration `20260924000004_ket_qua_chuong_doi_lich.sql`: `tep_ket_qua.da_xem_*`,
+  `day_nhan_thong_bao` (+ gieo mặc định), `appointment_doi_lich`.
+- Khối mới `events/consumers/chuong.py` (bên nhận `chuong_thong_bao`); `tai_len` bỏ gọi thẳng
+  `bao_ket_qua_ve`.
+- Sự kiện mới (xem BAN-DO mục nhóm 3); modules.py thêm `result_file`, `chuong`, `booking`,
+  `doi_tac`, `cskh`.
+- `bang_hanh_trinh_service.py` + `GET /hanh-trinh/hom-nay` + màn `/hanh-trinh` (SITEMAP);
+  Xem lượt thêm "Hành trình (sự kiện)", CSKH xem được.
+- **Deploy phải làm (Claude tự nhớ):** áp migration 20260924000004.
+- **NỢ:** kết quả xét nghiệm nhập tay chưa qua sự kiện · "đã xem" cho kết quả dạng phiếu.
 
 ## Nhóm 4 — kê đơn thư ký = bác sĩ · quầy thuốc không đợi khám xong (CHƯA deploy, CHƯA bấm thật)
 

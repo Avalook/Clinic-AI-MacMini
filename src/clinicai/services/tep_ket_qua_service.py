@@ -36,9 +36,15 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import (
+    KetQuaDaGuiKhach,
+    TepKetQuaDaVe,
+    TepKetQuaDaXacNhan,
+    TepKetQuaDaXem,
+)
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
-from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MEDIA_ROOT,
@@ -165,6 +171,43 @@ async def kiem_tra_quyen_xac_nhan(
             "Bạn chưa được cấp quyền xác nhận tệp kết quả."
             " Quản lý cấp ở màn Phân quyền."
         )
+
+
+#: Mở tệp là "đã xem" với người làm chuyên môn đọc kết quả (không phải CSKH
+#: mở để gửi, không phải lễ tân).
+XEM_LA_DA_XEM: frozenset[ClinicRole] = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
+)
+
+
+async def _luot_cua_tep(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    service_order_id: str | None,
+    appointment_id: str | None,
+) -> str | None:
+    """Lượt khám của tệp — qua chỉ định, rồi qua lịch hẹn. Không có thì None
+    (tệp gắn thẳng hồ sơ khách: dòng thời gian của lượt không nhận)."""
+    if service_order_id:
+        v = await conn.fetchval(
+            "SELECT visit_id::text FROM public.service_order"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            service_order_id,
+            clinic_id,
+        )
+        if v:
+            return str(v)
+    if appointment_id:
+        v = await conn.fetchval(
+            "SELECT visit_id::text FROM public.visit"
+            " WHERE appointment_id = $1::uuid AND clinic_id = $2::uuid"
+            " ORDER BY created_at DESC LIMIT 1",
+            appointment_id,
+            clinic_id,
+        )
+        if v:
+            return str(v)
+    return None
 
 
 class TepKetQuaService:
@@ -407,6 +450,27 @@ class TepKetQuaService:
                         service_order_id,
                         identity.clinic_id,
                     )
+                # Sự kiện trong CÙNG giao dịch với dòng tệp: khối Chuông nghe để
+                # báo bác sĩ / thư ký / điều dưỡng / CSKH (người nhận chỉnh được),
+                # dòng thời gian ghi "tệp đã về". Trước 24/09 gọi thẳng
+                # `bao_ket_qua_ve` sau commit.
+                luot_tep = await _luot_cua_tep(
+                    conn, identity.clinic_id, service_order_id, appointment_id
+                )
+                await emit_event(
+                    conn,
+                    ten="result_file.uploaded",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=str(row_id),
+                    payload=TepKetQuaDaVe(
+                        tep_id=str(row_id),
+                        visit_id=luot_tep,
+                        service_order_id=service_order_id,
+                        cho_xac_nhan=is_external,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=luot_tep,
+                )
         except BaseException:
             tmp.unlink(missing_ok=True)
             path.unlink(missing_ok=True)
@@ -434,15 +498,6 @@ class TepKetQuaService:
                     "tep_ket_qua_danh_gia_lai_vong_doc_loi",
                     service_order_id=service_order_id,
                 )
-        await bao_ket_qua_ve(
-            self._pool,
-            identity=identity,
-            loai="tep",
-            ref_id=str(row_id),
-            clinic_patient_id=clinic_patient_id,
-            appointment_id=appointment_id,
-            visit_id=None,
-        )
         return {"ok": True, "id": row_id, "loai_tep": loai, "so_byte": so_byte}
 
     async def xac_nhan_tep(
@@ -535,6 +590,22 @@ class TepKetQuaService:
                     if tep["service_order_id"]
                     else None,
                 },
+            )
+            so_id = str(tep["service_order_id"]) if tep["service_order_id"] else None
+            luot_tep = await _luot_cua_tep(conn, cid, so_id, None)
+            await emit_event(
+                conn,
+                ten="result_file.confirmed",
+                clinic_id=cid,
+                aggregate_id=str(tep["id"]),
+                payload=TepKetQuaDaXacNhan(
+                    tep_id=str(tep["id"]),
+                    visit_id=luot_tep,
+                    service_order_id=so_id,
+                    trang_thai=trang_thai,
+                ),
+                boi=nguoi(identity),
+                correlation_id=luot_tep,
             )
 
         # Nếu HOP_LE và có service_order -> đánh giá lại vòng đọc (mở REVIEW)
@@ -763,7 +834,39 @@ class TepKetQuaService:
             raise ValidationError("Đường dẫn tệp không hợp lệ.")
         if not path.exists():
             raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
+        if identity.co_vai(XEM_LA_DA_XEM):
+            await self._ghi_da_xem(identity, tep_id, row["service_order_id"])
         return path, row["mime"], row["so_byte"], row["ten_hien_thi"] or ""
+
+    async def _ghi_da_xem(
+        self, identity: StaffIdentity, tep_id: str, service_order_id: str | None
+    ) -> None:
+        """Bác sĩ MỞ kết quả = đã xem (Tuyền chốt 24/09/2026: duyệt không bắt
+        buộc; mở kết quả thì hệ thống TỰ ghi "đã xem lúc…"). Chỉ lần đầu."""
+        async with self._pool.acquire() as conn, conn.transaction():
+            moi = await conn.fetchval(
+                "UPDATE public.tep_ket_qua"
+                "   SET da_xem_luc = now(), da_xem_boi_staff_id = $3::uuid"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid AND da_xem_luc IS NULL"
+                " RETURNING id::text",
+                tep_id,
+                identity.clinic_id,
+                identity.staff_id,
+            )
+            if moi is None:
+                return
+            luot_tep = await _luot_cua_tep(
+                conn, identity.clinic_id, service_order_id, None
+            )
+            await emit_event(
+                conn,
+                ten="result_file.viewed",
+                clinic_id=identity.clinic_id,
+                aggregate_id=tep_id,
+                payload=TepKetQuaDaXem(tep_id=tep_id, visit_id=luot_tep),
+                boi=nguoi(identity),
+                correlation_id=luot_tep,
+            )
 
     async def danh_dau_da_gui(
         self, *, identity: StaffIdentity, tep_id: str, kenh: str
@@ -799,21 +902,37 @@ class TepKetQuaService:
         where_extra = (
             "AND xac_nhan_trang_thai = 'HOP_LE'" if xn_state is not None else ""
         )
-        row = await self._pool.fetchrow(
-            f"""
-            UPDATE public.tep_ket_qua
-               SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
-             WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
-               {where_extra}
-            RETURNING id::text
-            """,
-            identity.staff_id,
-            kenh,
-            tep_id,
-            identity.clinic_id,
-        )
-        if row is None:
-            raise NotFoundError("Tệp này đã được gửi rồi.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow(
+                f"""
+                UPDATE public.tep_ket_qua
+                   SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
+                 WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
+                   {where_extra}
+                RETURNING id::text, service_order_id::text, appointment_id::text
+                """,
+                identity.staff_id,
+                kenh,
+                tep_id,
+                identity.clinic_id,
+            )
+            if row is None:
+                raise NotFoundError("Tệp này đã được gửi rồi.")
+            luot_tep = await _luot_cua_tep(
+                conn,
+                identity.clinic_id,
+                row["service_order_id"],
+                row["appointment_id"],
+            )
+            await emit_event(
+                conn,
+                ten="result_file.sent_to_patient",
+                clinic_id=identity.clinic_id,
+                aggregate_id=tep_id,
+                payload=KetQuaDaGuiKhach(tep_id=tep_id, visit_id=luot_tep, kenh=kenh),
+                boi=nguoi(identity),
+                correlation_id=luot_tep,
+            )
         return {"ok": True}
 
     async def cho_phep_gui(
