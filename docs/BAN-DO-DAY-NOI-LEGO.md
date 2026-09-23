@@ -13,6 +13,58 @@ thật đã xảy ra) → **node nghe** làm việc của nó.
 
 ---
 
+## BẢN CHỐT 24/09 — đọc phần này là đủ
+
+Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội tiết.
+
+### Các dây của khối Hành trình (đánh số lại cho gọn)
+
+- **H1 — Check-in khám thường → hàng tư vấn.** Chị Lan check-in, loại khám là 1 trong
+  5 loại khám lõi → vào hàng chờ **bác sĩ tư vấn** (hàng chung, bác sĩ tư vấn nào rảnh
+  thì nhận). Bác sĩ chính của chị thấy chị ngay nhưng ở dạng **"sắp tới — đang ở tư
+  vấn"** (chỉ xem, không gọi được). Điều dưỡng thấy chị ở hàng đo sinh hiệu.
+- **H2 — Check-in thủ thuật / sàn chậu → phòng.** Nếu lịch là thủ thuật hoặc sàn chậu:
+  không qua tư vấn. Hệ thống tạo sẵn chỉ định theo lịch. Đã trả tiền ở lượt trước mà
+  chưa làm → mang sang, vào thẳng hàng của phòng. Chưa trả → chờ lễ tân thu tiền (H4).
+- **H3 — Tư vấn xong → bác sĩ chính.** Bác sĩ tư vấn bấm Xong (đã ghi vào chính bệnh án
+  của lượt) → chị Lan vào **hàng chờ khám thật** của bác sĩ chính.
+- **H4 — Trả tiền xong → tự xếp phòng.** Lễ tân thu tiền dịch vụ → hệ thống xếp chị vào
+  phòng vắng nhất làm được dịch vụ đó (thay cho người vừa thu tiền, dùng quyền của người
+  ấy). Ai có quyền điều phối đổi lại được bất cứ lúc nào, lần sau đè lần trước.
+- **H5 — Phòng làm xong / có kết quả → bác sĩ chính.** Bác sĩ chính thấy "có kết quả
+  mới", chị Lan vào hàng **đọc kết quả** của bác sĩ chính.
+- **H6 — Khách về mà còn việc dở → CSKH theo dõi.** Chị Lan về (check-out hoặc bỏ về)
+  mà còn kết quả chưa ai xem / kết quả chưa về → mở việc theo dõi cho CSKH.
+- **H7 — Kết quả đối tác quá hạn → CSKH.** Quá hạn chưa về → việc CSKH gọi đối tác/khách.
+- **H8 — Trả tiền xong quá 1 giờ chưa check-out → nhắc lễ tân** (chỉ nhắc, không tự đóng lượt).
+
+**Chỉnh được trên màn (dây nghiệp vụ):** loại khám nào qua tư vấn (H1/H2) · bật/tắt tự
+xếp phòng (H4) · các thời hạn (H6/H7: mấy ngày, H8: mấy giờ) · ai nhận chuông cho event
+nào (vd tệp kết quả về → bác sĩ, thư ký, điều dưỡng, CSKH). **Khoá trong code (dây lõi):**
+dòng thời gian, trách nhiệm tiền (không làm được mà đã thu tiền → việc đối soát).
+
+### Các chốt khác (24/09)
+
+- **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),
+  nhưng KHÔNG phát event mỗi lần lưu. Event phát khi bấm **Hoàn tất / Khám xong** (một
+  nút). Quên bấm cũng được — bản lưu vẫn là bản mới nhất.
+- **Kê đơn:** thư ký = bác sĩ, không nháp, không duyệt (phòng khám cho phép). Đơn ghi
+  đúng người nhập, kèm bác sĩ chính của lượt.
+- **Duyệt kết quả:** không bắt buộc. Bác sĩ mở kết quả thì hệ thống TỰ ghi "đã xem lúc…"
+  (không phải bấm gì) — để H6 biết kết quả nào chưa ai xem.
+- **Bảng hành trình chung:** một bảng cho mọi người biết mỗi khách hôm nay **đang ở đâu,
+  đã xong gì, còn chờ gì** — dựng từ event, mở được từ mọi màn (nút Xem lượt) và bảng
+  tổng ở màn Trưởng ca.
+- **Đổi lịch:** lưu từng lần đổi (từ giờ nào → giờ nào, ai đổi, lý do).
+- **Thêm 7 event:** khách không đến · CSKH gọi xác nhận lịch · khách bỏ về giữa chừng ·
+  hoàn tiền · bác sĩ hẹn tái khám · đối tác đã lấy mẫu · CSKH đã liên hệ khách.
+- **Chỉ định cũ đã trả tiền mà chưa làm** → mang sang lượt mới, không thu lại.
+- **Tiền thuốc:** không cần bác sĩ bấm Khám xong.
+
+---
+
+## PHỤ LỤC — bảng chi tiết (bản nháp 23/09, số H cũ)
+
 ## A. Các khối và event mỗi khối phát
 
 | # | Khối (module) | Lệnh — ai bấm | State riêng | Event phát ra | Hiện trạng |
