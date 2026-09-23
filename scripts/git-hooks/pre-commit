@@ -30,12 +30,31 @@ NGUONG_BYTE=$((1024 * 1024))
 loi=0
 bao() { printf '  ✗ %s\n' "$1" >&2; loi=1; }
 
-# Chỉ soi file ĐANG ĐƯỢC THÊM/SỬA trong lần commit này.
-while IFS= read -r f; do
-  [ -f "$f" ] || continue
+# SOI BẢN ĐANG STAGE, KHÔNG SOI FILE TRÊN ĐĨA (sửa 23/09/2026).
+#
+# Bản trước lấy TÊN file từ index rồi đọc NỘI DUNG ở working tree. Hai thứ ấy
+# khác nhau được, và khoảng cách giữa chúng là một lối lọt thật:
+#
+#   1. `git add` một file có dữ liệu bệnh nhân;
+#   2. sửa file trên đĩa cho sạch, KHÔNG stage lại;
+#   3. hook đọc bản trên đĩa → thấy sạch → cho qua;
+#   4. git commit BẢN ĐANG STAGE — tức bản còn dữ liệu.
+#
+# `git show ":$f"` đọc đúng blob sắp được commit. Đó là thứ duy nhất đáng soi.
+#
+# `--diff-filter=ACMRT` thay cho `AM`: một file vừa đổi tên vừa thêm dữ liệu
+# rơi vào trạng thái R và bản trước bỏ qua nó hoàn toàn.
+#
+# `-z` và `read -d ''`: tên file có khoảng trắng hoặc ký tự lạ thì `--name-only`
+# thường sẽ bọc nháy và cắt sai.
+noi_dung() { git show ":$1" 2>/dev/null; }
+
+while IFS= read -r -d '' f; do
+  # Xoá trong lần commit này thì không còn blob để soi.
+  git cat-file -e ":$f" 2>/dev/null || continue
 
   # --- Kích thước bất thường ---
-  kb=$(wc -c < "$f" | tr -d ' ')
+  kb=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
   if [ "$kb" -gt "$NGUONG_BYTE" ]; then
     case "$f" in
       *.png|*.jpg|*.jpeg|*.webp|*.pdf|*.woff2|package-lock.json)
@@ -49,7 +68,7 @@ while IFS= read -r f; do
   #
   # HAI DẤU HIỆU CHẮC CHẮN, luôn chặn ở mọi loại file: header của pg_dump, và
   # `COPY public.` — dạng mặc định pg_dump ghi dữ liệu, không ai viết tay.
-  if head -c 8192 "$f" 2>/dev/null | grep -qE '^COPY public\.|^-- PostgreSQL database dump'; then
+  if noi_dung "$f" | head -c 8192 | grep -qE '^COPY public\.|^-- PostgreSQL database dump'; then
     bao "$f trông như một bản dump database — dump chứa hồ sơ bệnh nhân và bí mật, không được vào git"
     continue
   fi
@@ -73,14 +92,27 @@ while IFS= read -r f; do
   # sự vào bước quy trình (lược đồ), `staff` mới là bảng người thật. Bản đầu
   # không có ranh giới này nên bắt oan cả `staff_node` lẫn `visit_gate_rule`.
   BANG_NHAY_CAM='patient|staff|visit|appointment|lab_result|clinical_record|clinical_form_response|prescription|tep_ket_qua|clinic_secret|payment|consultation|nhac_tai_kham|cskh_action'
-  if grep -qE "^INSERT INTO (public\.|auth\.)?($BANG_NHAY_CAM)[[:space:](]" "$f" 2>/dev/null; then
-    bao "$f có INSERT vào bảng chứa người thật hoặc bí mật — dữ liệu ấy không vào git"
-  fi
+  case "$f" in
+    supabase/tests/*)
+      # BÀI KIỂM LƯỢC ĐỒ CỐ TÌNH TẠO NGƯỜI GIẢ. `tenant_scoped_rls.sql` chèn
+      # "RLS test A" vào `staff` rồi chứng minh phòng khám khác KHÔNG đọc được
+      # — không có dòng ấy thì không chứng minh được gì. Chúng chạy trên một
+      # Postgres dựng rồi vứt, không bao giờ chạm database thật.
+      #
+      # Chỉ miễn LUẬT TÊN BẢNG. Hai dấu hiệu chắc chắn của một bản dump (header
+      # pg_dump, `COPY public.`) và trần 200 dòng INSERT vẫn áp ở đây: thả một
+      # bản dump vào `supabase/tests/` không phải là cách lách được.
+      : ;;
+    *)
+      if noi_dung "$f" | grep -qE "^INSERT INTO (public\.|auth\.)?($BANG_NHAY_CAM)[[:space:](]"; then
+        bao "$f có INSERT vào bảng chứa người thật hoặc bí mật — dữ liệu ấy không vào git"
+      fi ;;
+  esac
 
   # Rất nhiều dòng INSERT cũng là dấu hiệu dump, dù tên bảng trông vô hại.
   # `grep -c` in ra số RỒI THOÁT 1 khi không khớp, nên `|| echo 0` nối thêm một
   # số 0 thứ hai và `[ "$x" -gt ... ]` nổ. Nuốt mã thoát bằng `|| true` mới đúng.
-  so_insert=$(grep -cE '^INSERT INTO ' "$f" 2>/dev/null || true)
+  so_insert=$(noi_dung "$f" | grep -cE '^INSERT INTO ' || true)
   if [ "${so_insert:-0}" -gt 200 ]; then
     bao "$f có $so_insert dòng INSERT — quá nhiều cho một seed, xem lại có phải dump không"
   fi
@@ -99,7 +131,8 @@ while IFS= read -r f; do
   #
   # Nên: chỉ báo khi tên-nghe-như-bí-mật đi kèm một GIÁ TRỊ nghĩa đen đủ dài, và
   # dòng ấy KHÔNG phải một tham chiếu `${...}`.
-  if grep -nE '(SECRET|_KEY|PASSWORD|TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9+/=._-]{12,}' "$f" 2>/dev/null \
+  if noi_dung "$f" \
+       | grep -nE '(SECRET|_KEY|PASSWORD|TOKEN)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9+/=._-]{12,}' \
        | grep -qv '\${'; then
     case "$f" in
       *.example|*/git-hooks/*|docs/*|*.md|*.lock|package-lock.json)
@@ -108,7 +141,7 @@ while IFS= read -r f; do
         bao "$f có vẻ chứa GIÁ TRỊ bí mật ghi cứng — bí mật chỉ nằm trong .env.* (đã gitignore)" ;;
     esac
   fi
-done < <(git diff --cached --name-only --diff-filter=AM)
+done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
 
 if [ "$loi" -ne 0 ]; then
   cat >&2 <<'EOF'
