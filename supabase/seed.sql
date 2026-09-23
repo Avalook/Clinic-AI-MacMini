@@ -78,6 +78,17 @@ INSERT INTO public.service_type (id, code, name, default_duration_minutes, is_ac
     ('af545864-a967-41cf-9274-869d5483bd40', 'FREE', 'FREE', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001'),
     ('a478cb9b-c659-4529-adef-ea1d742ae420', 'KHAM_TIEN_SAN', 'Khám tiền sản', '30', 't', '2026-06-19 04:45:46.928117+00', 'a0000000-0000-4000-8000-000000000001');
 
+-- Đồng bộ với migration 20260924000001_kham_tu_van (24/09/2026). Migration ấy
+-- bật "qua tư vấn" bằng UPDATE lên loại khám ĐANG CÓ — trên DB dựng mới (local,
+-- DB thử của CI, phòng khám mới) nó chạy TRƯỚC seed nên không trúng dòng nào,
+-- và mọi DB mới lệch prod (khách đi thẳng bác sĩ chính). Bộ mô phỏng ngày khám
+-- bắt được. Lặp lại đúng luật ở đây để DB mới giống prod.
+UPDATE public.service_type
+   SET qua_tu_van = true
+ WHERE code IN ('PHU_KHOA', 'NOI_TIET_TINH_DUC', 'NAM_KHOA', 'HIEM_MUON',
+                'SAN_1', 'SAN_2', 'SAN_3')
+   AND NOT qua_tu_van;
+
 --
 -- PostgreSQL database dump complete
 --

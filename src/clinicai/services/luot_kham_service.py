@@ -46,6 +46,7 @@ from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
+from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_tac_service import DoiTacService
 from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
@@ -264,9 +265,27 @@ class LuotKhamService:
                        SELECT 1 FROM service_order o
                         WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
                           AND o.mang_tu_visit_id IS NOT NULL
-                          AND o.exec_status <> 'cancelled') AS co_mang_sang
+                          AND o.exec_status <> 'cancelled') AS co_mang_sang,
+                   -- KHÁCH QUEN của bác sĩ chính (Tuyền 24/09/2026: "người quen
+                   -- bác sĩ chính vào thẳng bác sĩ chính luôn"): lịch đánh dấu
+                   -- tái khám, lịch nối từ lượt trước, hoặc đã từng được CHÍNH
+                   -- bác sĩ này khám xong ở một lượt khác.
+                   (coalesce(a.patient_kind, '') = 'RETURN'
+                    OR a.lich_truoc_id IS NOT NULL
+                    OR EXISTS (
+                        SELECT 1 FROM visit v2
+                          JOIN consultation c
+                            ON c.visit_id = v2.visit_id AND c.clinic_id = v2.clinic_id
+                         WHERE v2.clinic_id = v.clinic_id
+                           AND v2.clinic_patient_id = v.clinic_patient_id
+                           AND v2.visit_id <> v.visit_id
+                           AND c.kind = 'PRIMARY' AND c.status = 'completed'
+                           AND c.doctor_staff_id = v.attending_doctor_id))
+                     AS khach_quen
               FROM visit v
               LEFT JOIN service_type st ON st.id = v.service_type_id
+              LEFT JOIN appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
              WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
                FOR UPDATE OF v
             """,
@@ -278,10 +297,15 @@ class LuotKhamService:
         flow = await self._lock_flow(conn, clinic_id, visit_id)
         if flow["route_decision"] is not None:
             return None
+        quen_vao_thang = (
+            v["qua_tu_van"]
+            and v["khach_quen"]
+            and await doc_day(conn, clinic_id, "h1_khach_quen_vao_thang_bs")
+        )
         if v["di_thang_phong"] and v["co_mang_sang"]:
             dich = rules.SERVICES
             ly_do = "lịch đi thẳng phòng — làm chỉ định hẹn từ lượt trước"
-        elif v["qua_tu_van"]:
+        elif v["qua_tu_van"] and not quen_vao_thang:
             con_id = await conn.fetchval(
                 """
                 INSERT INTO consultation
@@ -317,6 +341,8 @@ class LuotKhamService:
                 "lịch đi thẳng phòng nhưng không có chỉ định mang sang"
                 " — bác sĩ chính quyết"
                 if v["di_thang_phong"]
+                else "khách quen của bác sĩ chính — vào thẳng"
+                if quen_vao_thang
                 else "loại khám không qua tư vấn"
             )
         await conn.execute(
@@ -2580,6 +2606,7 @@ class LuotKhamService:
         ca thấy và xếp tay. Không bao giờ ném lỗi làm hỏng lệnh duyệt.
         """
         from clinicai.services.service_routing_service import (
+            co_so_cua_luot,
             eligible_rooms,
             rank_rooms,
         )
@@ -2637,7 +2664,14 @@ class LuotKhamService:
                 continue
             # Cùng luật gợi ý với Routing v1 (EligibleRoomQuery + advisor theo
             # luật): chỉ dòng CŨ (selection_status NULL) mới tự xếp ở đây.
-            xep = rank_rooms(await eligible_rooms(conn, cid, o["node_code"]))
+            xep = rank_rooms(
+                await eligible_rooms(
+                    conn,
+                    cid,
+                    o["node_code"],
+                    await co_so_cua_luot(conn, cid, visit_id=vid),
+                )
+            )
             rid = xep[0]["room_id"] if xep else None
             if rid is None:
                 continue

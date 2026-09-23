@@ -725,13 +725,31 @@ class BookingService:
                         identity=identity,
                         origin="api:appointment-walkin-autocheckin",
                     )
-                    await self._open_visit(
+                    visit_vua_mo = await self._open_visit(
                         conn,
                         appointment_id=appointment_id,
                         clinic_patient_id=clinic_patient_id,
                         doctor_id=doctor_id,
                         identity=identity,
                     )
+                    # CÙNG sự kiện mở đầu hành trình như nút check-in của lễ tân.
+                    # Thiếu nó (trước 24/09/2026) thì khách vãng lai không được
+                    # xếp hàng tư vấn / bác sĩ cho tới khi đo sinh hiệu, và chỉ
+                    # định hẹn từ lượt trước không được mang sang (H2) — bộ mô
+                    # phỏng ngày khám bắt được.
+                    if visit_vua_mo:
+                        await emit_event(
+                            conn,
+                            ten="visit.checked_in",
+                            clinic_id=identity.clinic_id,
+                            aggregate_id=visit_vua_mo,
+                            payload=KhachDaToi(
+                                visit_id=visit_vua_mo,
+                                appointment_id=str(appointment_id),
+                            ),
+                            boi=nguoi(identity),
+                            correlation_id=visit_vua_mo,
+                        )
                     if cach_xac_minh:
                         await self._ghi_xac_minh(
                             conn,
@@ -1846,15 +1864,16 @@ class BookingService:
         row = await conn.fetchrow(
             """
             SELECT
+              -- "ĐÃ XẾP CA" = TUẦN CỦA NGÀY ĐÓ ĐÃ CÔNG BỐ (24/09/2026). Bản trước
+              -- hỏi "hôm đó có ai có ca đã duyệt không" — một ngày trong tuần đã
+              -- công bố mà KHÔNG AI được xếp (ngày nghỉ, hoặc chỉ bác sĩ này bị
+              -- bỏ) thì bị coi là "chưa xếp" và vẫn nhận đặt cho bác sĩ nghỉ,
+              -- trong khi màn "chờ xếp bác sĩ" đã đánh dấu chính các lịch ấy là
+              -- MẤT BÁC SĨ. Bộ mô phỏng ngày khám bắt được.
               EXISTS (
-                SELECT 1 FROM work_roster
-                 WHERE clinic_id = $1::uuid AND work_date = $2
-                   AND status = 'APPROVED'
-                   AND EXISTS (
-                     SELECT 1 FROM roster_week rw
-                      WHERE rw.clinic_id = work_roster.clinic_id
-                        AND rw.week_start = work_roster.week_start
-                   )
+                SELECT 1 FROM roster_week rw
+                 WHERE rw.clinic_id = $1::uuid
+                   AND rw.week_start = date_trunc('week', $2::date)::date
               ) AS roster_exists,
               coalesce((
                 SELECT array_agg(DISTINCT shift) FROM work_roster
@@ -2123,13 +2142,18 @@ class BookingService:
             INSERT INTO visit (
                 clinic_id, clinic_patient_id, appointment_id,
                 attending_doctor_id, status, checked_in_at, checked_in_by,
-                service_type_id
+                service_type_id, location_id
             )
             -- LOẠI KHÁM ĐI THEO LỊCH (17/09/2026). Thiếu cột này thì bàn khám
             -- báo "Chưa gán dịch vụ" và không mở được đúng phiếu khám cho một
             -- lịch đã đặt Nội tiết.
+            -- CƠ SỞ ĐI THEO LỊCH (24/09/2026): trước đây cột này luôn trống, nên
+            -- không chỗ nào biết khách đang khám ở cơ sở nào (tự xếp phòng từng
+            -- xếp sang cơ sở khác).
             VALUES ($1::uuid, $2::uuid, $3, $4::uuid, 'OPEN', now(), $5::uuid,
                     (SELECT a.service_type_id FROM appointment a
+                      WHERE a.id = $3 AND a.clinic_id = $1::uuid),
+                    (SELECT a.location_id FROM appointment a
                       WHERE a.id = $3 AND a.clinic_id = $1::uuid))
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
             -- CHECK-IN LẠI SAU KHI HOÀN TÁC (bắt được khi bấm thật 18/09/2026).

@@ -857,14 +857,26 @@ class BangLuotKham:
                      ORDER BY q.created_at DESC LIMIT 1)        AS can,
                    -- Không phòng nào (kể cả phòng đối tác) làm bước này: chỉ
                    -- định sẽ kẹt "chờ xếp phòng" mãi — cấu hình, không phải
-                   -- việc trưởng ca tự xoay được.
+                   -- việc trưởng ca tự xoay được. Tính trong CƠ SỞ của lượt:
+                   -- phòng ở cơ sở khác không cứu được khách đang đứng ở đây
+                   -- (mô phỏng 24/09: phòng Lấy mẫu ở Hào Nam che mất báo
+                   -- "không phòng nào làm được" ở Kim Ngưu).
                    NOT EXISTS (
                        SELECT 1 FROM clinic_room_node rn
                          JOIN clinic_room r2
                            ON r2.id = rn.room_id AND r2.clinic_id = rn.clinic_id
                         WHERE rn.clinic_id = o.clinic_id
                           AND rn.node_code = o.node_code
-                          AND r2.is_active)                     AS khong_co_phong
+                          AND r2.is_active
+                          AND (coalesce(v.location_id, (
+                                   SELECT a.location_id FROM appointment a
+                                    WHERE a.id = v.appointment_id
+                                      AND a.clinic_id = v.clinic_id)) IS NULL
+                               OR r2.location_id = coalesce(v.location_id, (
+                                   SELECT a.location_id FROM appointment a
+                                    WHERE a.id = v.appointment_id
+                                      AND a.clinic_id = v.clinic_id))))
+                                                                AS khong_co_phong
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p

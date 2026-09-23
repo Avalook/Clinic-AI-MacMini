@@ -485,6 +485,17 @@ class DichVuDaBatDau(PayloadSuKien):
     execution_revision: int
 
 
+class DonThuocDaLuu(PayloadSuKien):
+    """`prescription.saved` — bác sĩ vừa kê / sửa đơn thuốc của lượt (đơn chưa
+    ký, bản đang dùng). Chỉ số dòng — không tên thuốc, không liều."""
+
+    visit_id: str
+    so_dong: int
+    so_dong_them: int = 0
+    so_dong_thay: int = 0
+    so_dong_bo: int = 0
+
+
 class KhachDaChonDichVu(PayloadSuKien):
     """`service_selection.confirmed` — lễ tân chốt khách làm / không làm những
     chỉ định nào (SELECTION v1). Vòng đọc nghe: chỉ định khách bỏ thành việc
@@ -667,6 +678,17 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Bắt đầu làm dịch vụ",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="prescription.saved",
+            version=1,
+            aggregate_type="visit",
+            source_module="consultation",
+            payload=DonThuocDaLuu,
+            nhan="Bác sĩ kê / sửa đơn thuốc",
+            # Kê đơn từng KHÔNG phát sự kiện nào (bộ mô phỏng ngày khám,
+            # 24/09/2026): kho thuốc, dòng thời gian không có dây để nghe.
+            consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
             ten="service_selection.confirmed",

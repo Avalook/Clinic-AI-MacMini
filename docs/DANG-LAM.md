@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **24/09/2026 sáng**, trả nợ + khối Vòng đọc, đang bóc lõi `luot_kham` (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **24/09/2026 rạng sáng (05:30)**, buổi khám giả lập 3 tầng + 9 lỗ hổng đã sửa (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -10,6 +10,58 @@ lịch sử hội thoại.
 > Bản trước của file này **chưa từng được commit** nên đã mất theo phiên. Từ giờ
 > nó nằm trong git. Cuối mỗi phiên: cập nhật lại, nhất là mục "chờ Quang quyết"
 > và "cạm bẫy".
+
+---
+
+## Buổi khám giả lập 3 tầng — 9 lỗ hổng đã sửa (24/09 rạng sáng — CHƯA deploy)
+
+Tuyền: "coi như một buổi khám thật, nhiều CSKH đặt cùng lúc, tìm lỗ hổng chứ không đi
+happy path". Công cụ: `scripts/mo-phong/ngay_kham.py` (chỉ local, sau `dev-up.sh`).
+Quản lý dựng phòng khám 3 tầng qua API (T1 lễ tân·kho·BS tư vấn·BS chính+thư ký · T2 hai
+phòng siêu âm BS+ĐD · T3 hai phòng thủ thuật BS+ĐD + phòng đối tác), rồi: PHA A 3 CSKH
+đặt song song (A1 tranh chỗ cuối · A2 thấy người khác giữ chỗ · A3 tạo trùng khách · A4
+trùng giờ · A5 đặt trước khi có lịch trực rồi công bố lịch bác sĩ nghỉ · A6 khung vô lý) ·
+PHA E một khách đi chậm đo thao tác→sự kiện · PHA B 13 khách so le (mới/quen/vãng lai/bỏ
+về/không đến) có thời gian thao tác thật để hàng chờ hình thành · PHA PHÁ P1–P10 · 19 màn
+hình đọc song song mỗi 2 giây. Báo cáo: `.dev-logs/ngay-kham-*.md|json`.
+
+Lần 1: 521 thao tác, **13 hỏng**. Sau sửa: 556 thao tác, **0 hỏng** (lần 2 còn P8 → đã sửa,
+có test). 0 lỗi 5xx, giao tin p50 ~520–620 ms / max ~1,1 s, màn hình p50 2–41 ms.
+
+**Lỗ hổng thật đã sửa (test: `src/tests/services/test_ngay_kham_lo_hong_db.py`, 8 bài):**
+1. **Vãng lai tự check-in KHÔNG phát `visit.checked_in`** → không ai xếp đường, khách đứng
+   ngoài mọi hàng. `booking_service.create` nay phát như check-in thường.
+2. **Xếp phòng không lọc CƠ SỞ** → khách Kim Ngưu bị xếp vào phòng Lấy mẫu ở Hào Nam.
+   `eligible_rooms(..., location_id)`, `co_so_cua_luot`, xếp tay sang cơ sở khác →
+   `ROOM_OTHER_LOCATION`. Gốc: `visit.location_id` chưa từng được ghi → `_open_visit` ghi.
+3. **Cờ "không phòng nào làm được" (trưởng ca)** cũng đếm phòng cơ sở khác → nay theo cơ sở.
+4. **Hai quầy tạo cùng một khách cùng lúc → 2 hồ sơ** → khoá tư vấn theo số điện thoại.
+5. **Tuần lịch trực ĐÃ công bố, ngày bác sĩ không trực vẫn đặt được** (`_roster_warning` hỏi
+   "ngày đó có dòng lịch không" thay vì "tuần đó đã công bố chưa") → sửa.
+6. **Khách quen bị ép qua tư vấn** → dây mới `h1_khach_quen_vao_thang_bs` (mặc định BẬT):
+   khách quen = lịch đánh dấu tái khám (`patient_kind RETURN`) · đặt từ lượt trước · từng
+   được CHÍNH bác sĩ ấy khám xong. ⚠ Định nghĩa này tôi tự chốt — Tuyền soát.
+7. **Kê đơn không phát sự kiện** → `prescription.saved` (số dòng thêm/sửa/thay/bỏ, KHÔNG
+   chép tên thuốc). Lần đầu kê chỉ có dòng "thêm" — bài kiểm bắt được bản vá đầu sót chỗ này.
+8. **Mã tham chiếu không tồn tại → 500** (`/phieu/mo`) → khoá ngoại sai = 422.
+9. **Seed local ≠ prod** ở `service_type.qua_tu_van` → seed bật cho 7 dịch vụ khám.
+
+**Chỗ trống cấu hình (chưa sửa — hỏi Tuyền):**
+- **Giờ mở cửa (`clinic.settings.hours`) KHÔNG có API/màn nào sửa** — ca làm việc bị kẹp trong
+  giờ mở cửa, nên muốn mở ca sớm hơn 07:00 là bó tay. Mô phỏng phải ghi thẳng DB (`ghi_sql`).
+- Không có API cho: phòng là đối tác (`la_doi_tac`), cơ sở, loại dịch vụ, `accepting`,
+  `require_roster`. Trạm (vị trí) mới phải tự khai phạm vi trạm mới xếp lịch được.
+- Thu ngân không có khối Điều phối → thu xong KHÔNG tự xếp phòng (H4 theo quyền người thu).
+- Công bố lịch trực làm 3 lịch mất bác sĩ: vào "chờ xếp bác sĩ" đúng, nhưng chuông CSKH chỉ
+  báo "vượt sức chứa", KHÔNG báo "lịch mất bác sĩ".
+- 40 sự kiện không ghi người làm (do hệ thống/worker phát) — đúng, nhưng màn nhật ký nên ghi
+  "hệ thống" cho rõ.
+- `visit.status` giữ `IN_PROGRESS` sau check-out (đóng = bước check-out COMPLETED +
+  `closed_at`) — đúng thiết kế nhưng dễ đọc nhầm khi tra DB.
+- Hỏi mở từ trước: phiếu PAID→VOIDED rồi thu lại (FINANCE-GATE "Chưa chốt").
+
+**Chạy lại:** `scripts/dev-up.sh --reset && .venv/bin/python scripts/mo-phong/ngay_kham.py`
+(~6 phút). KHÔNG sửa `src` khi đang chạy (API `--reload`).
 
 ---
 

@@ -203,6 +203,7 @@ MODULE: dict[str, Module] = {
                 "visit.checked_in",
                 "vitals.started",
                 "vitals.recorded",
+                "prescription.saved",
                 "service_selection.confirmed",
                 "service_order.placed",
                 "service.started",
@@ -337,6 +338,7 @@ MODULE: dict[str, Module] = {
                 "consultation.handed_over",
                 "consultation.completed",
                 "followup.scheduled",
+                "prescription.saved",
             ],
             quyen=[
                 "clinical.intake.perform",

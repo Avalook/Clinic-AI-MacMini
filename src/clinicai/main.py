@@ -456,6 +456,31 @@ async def unique_violation_handler(
     )
 
 
+@app.exception_handler(asyncpg.exceptions.ForeignKeyViolationError)
+async def foreign_key_violation_handler(
+    request: Request, exc: asyncpg.exceptions.ForeignKeyViolationError
+) -> JSONResponse:
+    """Mã tham chiếu KHÔNG TỒN TẠI (khoá ngoại) → 422, không phải 500.
+
+    Bộ mô phỏng ngày khám (24/09/2026) bắt được: mở phiếu kết quả cho một chỉ
+    định không có thật làm sập 500 vì câu INSERT vấp khoá ngoại mà không ai bắt.
+    Đây là lỗi của DỮ LIỆU người gửi (mã sai / đã xoá), không phải của máy chủ.
+    Câu trả lời không nêu tên bảng hay ràng buộc (cùng lý do như 409 ở trên).
+    """
+    logger.warning(
+        "foreign_key_violation",
+        constraint=getattr(exc, "constraint_name", None) or "",
+        path=request.url.path,
+    )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "VALIDATION_ERROR",
+            "message": "Mã tham chiếu không tồn tại (hoặc không thuộc phòng khám này).",
+        },
+    )
+
+
 @app.exception_handler(ClinicAIBaseException)
 async def clinicai_exception_handler(
     request: Request, exc: ClinicAIBaseException

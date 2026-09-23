@@ -29,6 +29,8 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
+from clinicai.events.catalogue import DonThuocDaLuu
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
 from clinicai.phieu_kham.che_do import doi_ghi_duoc
@@ -405,6 +407,34 @@ class PhieuKhamService:
                 identity=identity,
                 ly_do=ly_do,
             )
+            thay = int((tom_tat or {}).get("so_dong_thay") or 0)
+            bo = int((tom_tat or {}).get("so_dong_bo") or 0)
+            them = int((tom_tat or {}).get("so_dong_them") or 0)
+            doi_tai_cho = int((tom_tat or {}).get("so_dong_sua") or 0) + int(
+                (tom_tat or {}).get("so_dong_xoa") or 0
+            )
+            if thay or bo or them or doi_tai_cho:
+                so_dong = await conn.fetchval(
+                    "SELECT count(*) FROM prescription WHERE clinic_id = $1::uuid"
+                    " AND visit_id = $2::uuid AND removed_at IS NULL",
+                    cid,
+                    visit_id,
+                )
+                await emit_event(
+                    conn,
+                    ten="prescription.saved",
+                    clinic_id=cid,
+                    aggregate_id=visit_id,
+                    payload=DonThuocDaLuu(
+                        visit_id=visit_id,
+                        so_dong=int(so_dong or 0),
+                        so_dong_them=them,
+                        so_dong_thay=thay,
+                        so_dong_bo=bo,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=visit_id,
+                )
         return {"ok": True, "tom_tat": tom_tat}
 
     # ------------------------------------------------------------------

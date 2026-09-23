@@ -792,6 +792,9 @@ async def luu_don_chua_ky(
         "correction_id": lan,
         "so_dong_thay": len(kh.thay),
         "so_dong_bo": len(kh.bo),
+        "so_dong_them": len(kh.them),
+        "so_dong_sua": len(kh.sua_huong_dan) + len(kh.sua_thuoc),
+        "so_dong_xoa": len(kh.xoa),
     }
 
 

@@ -142,7 +142,48 @@ SELECT r.id::text AS room_id, r.code, r.sort,
   JOIN clinic_room_node rn ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
  WHERE r.clinic_id = $1::uuid AND rn.node_code = $2
    AND r.is_active AND r.accepting AND NOT r.la_doi_tac
+   -- CÙNG CƠ SỞ với lượt khám (24/09/2026): phòng khám có nhiều cơ sở thì
+   -- khách ở Kim Ngưu không được xếp sang phòng Hào Nam. Trước đây câu này
+   -- không lọc cơ sở — bộ mô phỏng ngày khám bắt được một xét nghiệm máu bị xếp
+   -- sang phòng lấy mẫu của cơ sở khác.
+   AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
 """
+
+
+async def co_so_cua_luot(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    *,
+    visit_id: str | None = None,
+    order_id: str | None = None,
+) -> str | None:
+    """Cơ sở (clinic_location) nơi khách đang khám — theo lượt hoặc theo chỉ định.
+
+    `visit.location_id` chỉ được ghi từ 24/09/2026; lượt cũ rơi về cơ sở của
+    lịch hẹn."""
+    if order_id is not None:
+        v = await conn.fetchval(
+            "SELECT coalesce(v.location_id, a.location_id)::text"
+            " FROM service_order o JOIN visit v"
+            " ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
+            " LEFT JOIN appointment a"
+            " ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+            " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+            clinic_id,
+            order_id,
+        )
+        return str(v) if v else None
+    if visit_id is not None:
+        v = await conn.fetchval(
+            "SELECT coalesce(v.location_id, a.location_id)::text FROM visit v"
+            " LEFT JOIN appointment a"
+            " ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+            " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
+            clinic_id,
+            visit_id,
+        )
+        return str(v) if v else None
+    return None
 
 
 @dataclass(frozen=True)
@@ -155,9 +196,15 @@ class RoomCandidate:
 
 
 async def eligible_rooms(
-    conn: asyncpg.Connection, clinic_id: str, node_code: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    node_code: str,
+    location_id: str | None = None,
 ) -> list[RoomCandidate]:
-    """EligibleRoomQuery — tập phòng hợp lệ của một node, một truy vấn."""
+    """EligibleRoomQuery — tập phòng hợp lệ của một node, một truy vấn.
+
+    `location_id` = cơ sở của lượt khám; truyền vào thì chỉ lấy phòng cùng cơ
+    sở (None = không lọc — chỉ dùng cho màn cấu hình)."""
     return [
         RoomCandidate(
             room_id=r["room_id"],
@@ -166,7 +213,7 @@ async def eligible_rooms(
             co_nguoi_truc=bool(r["co_nguoi_truc"]),
             tai=int(r["tai"]),
         )
-        for r in await conn.fetch(_ELIGIBLE_SQL, clinic_id, node_code)
+        for r in await conn.fetch(_ELIGIBLE_SQL, clinic_id, node_code, location_id)
     ]
 
 
@@ -306,7 +353,11 @@ class ServiceRoutingService:
             )
             if node is None:
                 raise _loi("ORDER_NOT_FOUND", "Không tìm thấy chỉ định này.")
-            ung_vien = rank_rooms(await eligible_rooms(conn, cid, str(node)))
+            ung_vien = rank_rooms(
+                await eligible_rooms(
+                    conn, cid, str(node), await co_so_cua_luot(conn, cid, order_id=oid)
+                )
+            )
         luc = datetime.now(timezone.utc).isoformat()
         return {
             "advisor": ADVISOR,
@@ -431,7 +482,13 @@ class ServiceRoutingService:
         )
         if giu:
             raise _loi(giu, f"Chưa điều phối được ({giu}).")
-        await self._kiem_phong(conn, cid, rid, str(o["node_code"]))
+        await self._kiem_phong(
+            conn,
+            cid,
+            rid,
+            str(o["node_code"]),
+            await co_so_cua_luot(conn, cid, visit_id=vid),
+        )
 
         hien = _routing_hieu_luc(o)
         q = await conn.fetchrow(
@@ -586,11 +643,14 @@ class ServiceRoutingService:
             conn, clinic_id, [o["id"] for o in orders]
         )
         da_xep: list[str] = []
+        co_so = await co_so_cua_luot(conn, clinic_id, visit_id=visit_id)
         for o in orders:
             quyet = tai_chinh.get(o["id"])
             if quyet is None or not quyet.financially_ready:
                 continue
-            ung_vien = rank_rooms(await eligible_rooms(conn, clinic_id, o["node_code"]))
+            ung_vien = rank_rooms(
+                await eligible_rooms(conn, clinic_id, o["node_code"], co_so)
+            )
             if not ung_vien:
                 continue
             try:
@@ -749,11 +809,15 @@ class ServiceRoutingService:
 
     @staticmethod
     async def _kiem_phong(
-        conn: asyncpg.Connection, cid: str, rid: str, node_code: str
+        conn: asyncpg.Connection,
+        cid: str,
+        rid: str,
+        node_code: str,
+        co_so: str | None = None,
     ) -> None:
         r = await conn.fetchrow(
             """
-            SELECT r.is_active, r.accepting,
+            SELECT r.is_active, r.accepting, r.location_id::text AS location_id,
                    EXISTS (SELECT 1 FROM clinic_room_node rn
                             WHERE rn.clinic_id = r.clinic_id AND rn.room_id = r.id
                               AND rn.node_code = $3) AS lam_duoc
@@ -773,6 +837,11 @@ class ServiceRoutingService:
             raise _loi("ROOM_NOT_ACCEPTING", "Phòng đang tạm ngừng nhận khách.")
         if not r["lam_duoc"]:
             raise _loi("ROOM_NOT_SERVING_SERVICE", "Phòng này không làm dịch vụ này.")
+        if co_so and r["location_id"] and r["location_id"] != co_so:
+            raise _loi(
+                "ROOM_OTHER_LOCATION",
+                "Phòng này ở cơ sở khác với nơi khách đang khám.",
+            )
 
     @staticmethod
     async def _xep_hang(

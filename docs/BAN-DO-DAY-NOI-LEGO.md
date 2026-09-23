@@ -269,7 +269,7 @@ khách, tới giờ chuông réo đúng người.
 |---|---|---|---|---|---|
 | 1 | **Đặt lịch** | Đặt / Đổi / Huỷ lịch — CSKH, lễ tân | `appointment` (+ số booking) | `appointment.booked` · `appointment.rescheduled` · `appointment.cancelled` | 🟡 sổ cũ |
 | 2 | **Lịch làm việc** | Xếp ca, Công bố tuần — quản lý | `work_roster`, `roster_week` | `roster.week_published` | 🟡 sổ cũ |
-| 3 | **Tiếp đón** | Check-in / Hoàn tác — lễ tân | `visit` (mở lượt, số quầy) | `visit.checked_in` · `visit.check_in_undone` | ✅ / ❌ |
+| 3 | **Tiếp đón** | Check-in / Hoàn tác — lễ tân; đặt kênh VÃNG LAI tự check-in | `visit` (mở lượt, số quầy, **cơ sở**) | `visit.checked_in` (cả đường vãng lai — trước 24/09 đường này im lặng) · `visit.check_in_undone` | ✅ / ❌ |
 | 4 | **Sinh hiệu** | Bắt đầu đo / Lưu — điều dưỡng | `vital_measurement`, `encounter_flow.vitals_*` | `vitals.started` · `vitals.recorded` | ✅ |
 | 5 | **Khám tư vấn** | Bắt đầu / Xong tư vấn — bác sĩ tư vấn | `consultation` (loại TU_VAN) | `consultation.started` · `consultation.handed_over` (xong tư vấn, chuyển bác sĩ chính) | ❌ chưa có khối |
 | 6 | **Khám chính** | Bắt đầu khám / Khám xong — bác sĩ chính, thư ký | `consultation` (PRIMARY/REVIEW) | `consultation.started` · `consultation.completed` | 🟡 sổ cũ |
@@ -282,7 +282,7 @@ khách, tới giờ chuông réo đúng người.
 | 13 | **Phiếu kết quả** | Điền / Hoàn tất / Sửa lại — phòng | `form_instance` | `result_form.completed` · `result.ready` · `result.corrected` | ✅ |
 | 14 | **Tệp kết quả + đối tác** | Tải tệp / Xác nhận đúng người — điều dưỡng, đối tác | `tep_ket_qua` | `result_file.uploaded` · `result_file.confirmed` | ❌ |
 | 15 | **Duyệt kết quả** | Bác sĩ xem/duyệt | `service_order.duyet_*` | `result.reviewed` | 🟡 sổ cũ |
-| 16 | **Kê đơn** | Kê thuốc — bác sĩ (thư ký nháp) | `prescription` | `prescription.written` | ❌ |
+| 16 | **Kê đơn** | Kê thuốc — bác sĩ / thư ký | `prescription` | `prescription.saved` (mỗi lần lưu CÓ đổi: số dòng thêm/thay/bỏ; nội dung thuốc KHÔNG vào sự kiện) — nghe: dòng thời gian lượt | ✅ 24/09 |
 | 17 | **Quầy thuốc** | Phát thuốc theo khách chọn (ít/thêm) + thu tiền thuốc — dược sĩ | `prescription` (số phát), `payment_cycle` | `medicine.dispensed` (kèm chênh lệch kê ↔ mua) · `payment.medicine_collected` | 🟡 |
 | 18 | **Gửi khách (CSKH)** | Đánh dấu đã gửi kết quả — CSKH | `tep_ket_qua.gui_*`, `tuong_tac_cskh` | `result.sent_to_patient` | 🟡 |
 | 19 | **Rời phòng khám** | Check-out — lễ tân | `visit.closed_*` | `visit.checked_out` | 🟡 sổ cũ |
@@ -295,7 +295,7 @@ khách, tới giờ chuông réo đúng người.
 
 | Dây | Nghe | Điều kiện | Gửi lệnh (của khối khác) | Hiện trạng |
 |---|---|---|---|---|
-| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn | Xếp khách vào hàng **bác sĩ tư vấn** | ❌ |
+| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, mặc định BẬT) | Xếp khách vào hàng **bác sĩ tư vấn**; khách quen → thẳng bác sĩ chính | ✅ |
 | H2 | `visit.checked_in` | không có bước tư vấn | Xếp khách vào hàng **bác sĩ chính** | 🟡 gọi thẳng (F2) |
 | H3 | `consultation.handed_over` | — | Xếp khách vào hàng bác sĩ chính | ❌ |
 | H4 | `visit.checked_in` | lịch hẹn là THỦ THUẬT/dịch vụ (đặt từ lượt trước) | Tạo sẵn chỉ định theo lịch → chờ thu tiền | ❌ |

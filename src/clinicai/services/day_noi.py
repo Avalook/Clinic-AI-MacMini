@@ -31,6 +31,13 @@ DAY: dict[str, Day] = {
     d.ma: d
     for d in (
         Day(
+            "h1_khach_quen_vao_thang_bs",
+            "Khách quen của bác sĩ chính (tái khám / từng được bác sĩ ấy khám)"
+            " → vào thẳng bác sĩ chính, không qua tư vấn",
+            True,
+            "bat_tat",
+        ),
+        Day(
             "h4_tu_xep_phong",
             "Thu tiền dịch vụ xong → tự xếp phòng vắng nhất (thay người vừa thu)",
             True,
