@@ -13,6 +13,42 @@ lịch sử hội thoại.
 
 ---
 
+## 23/09/2026 khuya — Batch F theo LUỒNG CHUẨN (ĐÃ PUSH, CI xanh 36242dc8, CHƯA deploy)
+
+Thước đo: memory `luong-chuan-tuyen-2309.md` (11 bước Tuyền nhắc lại + bảng
+"màn nào mặc định cho vai nào"). Nguyên tắc: cũ thì **OFF, không xoá** — Tuyền
+bấm thật hết lỗi rồi mới quyết dọn.
+
+| Việc | Commit |
+|---|---|
+| F1 Số booking cấp lúc đặt (`so_booking`, theo ngày hẹn), đứng cạnh số quầy | 14b9544e |
+| F2 Sinh hiệu không chặn: xếp đường đi ngay lúc check-in; hoàn tác check-in đóng hàng chờ | e7c5a3f2 |
+| F3 CSKH gửi tệp kết quả không cần bác sĩ cho phép (tệp đối tác vẫn phải HOP_LE) | 1dc2084e, 36242dc8 |
+| F4 Bác sĩ chính thấy giờ bắt đầu/xong của phòng | 16bacf2c |
+| F5 Khối `DoiPhong`: phòng làm được + số người chờ; ai có quyền điều phối cũng đổi phòng | a1afcf10 |
+| Công cụ **khách giả** `scripts/tests/khach-gia-luong-chuan.py` | d1ebea50 |
+
+**Khách giả bắt được (chưa sửa — batch G):**
+1. **Gốc chặn cả luồng:** thu tiền DỊCH VỤ đòi "bác sĩ khám xong" (`payment_service._kiem_luot_thu`
+   + màn thu ngân `cashier_board_service` chỉ hiện lượt đã khám xong). Luồng chuẩn: trả tiền
+   dịch vụ trong lúc phiên bác sĩ chính còn mở → hệ quả: không qua cổng tiền → không xếp
+   được phòng → phòng không làm được.
+2. Chỉ định mới (PlaceServiceOrders) không tự xếp phòng; sau khi trả tiền cũng chưa có gì
+   tự xếp (đường cũ `_tu_xep_phong` chỉ ở luồng duyệt nháp cũ).
+3. Chưa thành lego (chỉ ghi sổ cũ `event_log`): đặt lịch, bắt đầu khám, khám xong, tệp
+   kết quả về, chọn dịch vụ. Chỉ có 2 node nghe sổ mới (dòng thời gian, trách nhiệm dịch vụ).
+
+**OFF chờ Tuyền quyết xoá:** `/goi-do` · nút "Duyệt chỉ định (bản cũ)" + draft-orders/
+authorize-orders · `/dispatch` cũ (gác vai) · nút + cột "bác sĩ cho phép gửi" tệp ·
+API ký bệnh án `/sign` (410) · 4 API quyền nhân sự cũ (410) · trang chuyển hướng
+`/sono` `/sieu-am` `/lab-queue` `/service-queue` `/tasks` · `MO_QUYEN_TAM_THOI` ·
+`goi_do_luc/boi` · `plan_check_status` (không đường nào ghi).
+
+**NỢ:** khách đặt THỦ THUẬT từ lượt trước check-in xong đi thẳng phòng (cần sinh chỉ định
+lúc check-in) · kết quả xét nghiệm NHẬP TAY vẫn qua CHO_BAC_SI · quyền theo MÀN + màn
+"Bàn khám tư vấn" + gán người vào phòng theo ca (bảng mặc định ở memory) · lịch sử đơn kê
+vs đơn thực mua ở quầy thuốc (kiểm lại).
+
 ## 23/09/2026 tối — CORE A+B+C (nhánh `claude/clinicai-lifecycle-v1-8b92b8`, ĐÃ PUSH, CHƯA deploy)
 
 ChatGPT chốt "CORE A+B+C APPROVED — IMPLEMENT, KHÔNG AUDIT THÊM". Thứ tự:
