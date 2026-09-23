@@ -153,6 +153,43 @@ lọc của câu chính, mà các bộ lọc này dài và tinh vi ("đơn thu�
 thế là đổi một lỗi im lặng lấy một lỗi khác. Chỗ nào trả về dict thì kèm
 `bi_cat` + `tran` để màn nói được "đã đạt trần N".
 
+**SỬA KẾT QUẢ GIỮ BẢN CŨ — ĐÓNG KỸ THUẬT 23/09, CHƯA CHỨNG NHẬN PRODUCTION**
+
+`22d8fccb` + `105b1aa7`, CI 5/5 xanh, ChatGPT audit diff thật hai vòng.
+
+    form_instance → result_correction (link mỏng) → visit_amendment (ảnh chụp)
+
+Ảnh chụp là CẢ PHIÊN BẢN `{du_lieu, nhap_boi, thuc_hien_boi, hoan_tat_boi,
+hoan_tat_luc}`, không chỉ phần chữ — chụp mỗi `du_lieu` thì v1→v2 nhìn đẹp và
+chỉ vỡ ở v3. `ban_thu` là phiên bản CHUYÊN MÔN, không bao giờ là `revision`.
+
+Nháp tách hẳn bản chính thức: `du_lieu_dang_sua` + `nhap_boi_dang_sua` +
+`thuc_hien_boi_dang_sua`. Tự lưu không chạm gì thuộc bản đang phát hành.
+
+`form_result_release`: quyền phát hành THEO TỪNG BẢN. **Hiện là NỀN và nguồn sự
+thật, CHƯA phải hàng rào đang chặn ai** — không đường gửi/in nào đọc
+`form_instance`. Chưa có thu hồi. Đừng viết tài liệu nói nó đã chặn.
+
+⚠️ **TRƯỚC KHI ÁP MIGRATION LÊN PRODUCTION** (`…000014`): FK mới
+`form_instance → service_order` xanh trên database dựng mới **không chứng minh**
+dữ liệu production cũ sạch. Phải soi dòng mồ côi và dòng lệch `clinic_id` trên
+dữ liệu thật trước, nếu không migration sẽ hỏng giữa chừng lúc deploy:
+
+```sql
+SELECT f.id, f.clinic_id, f.service_order_id
+  FROM form_instance f
+  LEFT JOIN service_order o
+    ON o.clinic_id = f.clinic_id AND o.id = f.service_order_id
+ WHERE o.id IS NULL;
+```
+
+Đây là **việc trước deploy**, không phải lỗi của batch.
+
+**CÒN NỢ TRƯỚC KHI GỌI "XONG NỀN":**
+- **StartVitals** — màn Đo sinh hiệu còn `[Gọi vào đo]`, chưa có lệnh Bắt đầu
+  để hấp thụ phần việc (`_cap_nhat_vi_tri`). Xem `d4d94a41`.
+- **Chưa bấm thật trên trình duyệt** ở 375 và 1280.
+
 **Bổ sung cùng ngày — LEGO có chuẩn, trách nhiệm có chủ, cache có luật**
 
 | Lát | Nội dung | File |
