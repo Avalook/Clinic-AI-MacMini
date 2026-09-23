@@ -122,21 +122,33 @@ async def mo_sua(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Mở lại phiếu đã hoàn tất để sửa. Kết quả cũ vẫn là kết quả chính thức."""
+    """Mở lại phiếu đã hoàn tất để sửa. Kết quả cũ vẫn là kết quả chính thức.
+
+    Trả về TOÀN BỘ phiếu hiện hành, không chỉ số revision: người thứ hai phải
+    nhận đúng bản nháp đang có, kể cả những ô người đầu vừa gõ.
+    """
     return await FormEngineService(pool).mo_sua(
         phieu_id=str(phieu_id), identity=identity
     )
 
 
+class HuySuaBody(BaseModel):
+    #: Bản nháp là của CHUNG — huỷ bằng số cũ là xoá cái người khác vừa gõ.
+    expected_revision: int = Field(ge=0)
+
+
 @router.post("/phieu/{phieu_id}/huy-sua")
 async def huy_sua(
     phieu_id: UUID,
+    body: HuySuaBody,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bỏ bản sửa đang gõ dở. Bản chính thức không đổi một chữ."""
     return await FormEngineService(pool).huy_sua(
-        phieu_id=str(phieu_id), identity=identity
+        phieu_id=str(phieu_id),
+        identity=identity,
+        expected_revision=body.expected_revision,
     )
 
 

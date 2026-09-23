@@ -460,6 +460,11 @@ class FormEngineService:
         Bản thân việc mở ra sửa CHƯA phải một sự thật nghiệp vụ, nên không phát
         sự kiện: người ta mở ra rồi đổi ý là chuyện thường — và có [Huỷ sửa]
         cho đúng lúc ấy.
+
+        TRẢ VỀ TOÀN BỘ PHIẾU, không chỉ số revision. Trả mỗi số là để lại một
+        khoảng hở chết người: người thứ hai nhận SỐ mới nhưng màn hình họ vẫn
+        giữ NỘI DUNG cũ, và lần tự lưu kế tiếp ghi đè những gì người đầu vừa gõ
+        — bằng đúng số revision hợp lệ, nên không lớp chống ghi đè nào bắt được.
         """
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
@@ -486,7 +491,20 @@ class FormEngineService:
                     identity.clinic_id,
                     phieu_id,
                 )
-        return {"ok": True, "dang_sua": True, "revision": dong["revision"]}
+            # Đọc lại SAU khi mở: người thứ hai phải nhận đúng bản nháp đang
+            # có, kể cả những ô người đầu vừa gõ.
+            moi = await conn.fetchrow(
+                "SELECT * FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                identity.clinic_id,
+                phieu_id,
+            )
+            if moi is None:
+                raise ValidationError("Không tìm thấy phiếu này.")
+            khung = await self._khung(
+                conn, identity.clinic_id, moi["form_id"], moi["version"]
+            )
+        return {"ok": True, **self._tra_phieu(moi, khung)}
 
     @staticmethod
     async def _ghi_lan_sua(
@@ -566,7 +584,7 @@ class FormEngineService:
         return ban_thu
 
     async def huy_sua(
-        self, *, phieu_id: str, identity: StaffIdentity
+        self, *, phieu_id: str, identity: StaffIdentity, expected_revision: int
     ) -> dict[str, Any]:
         """`DiscardFormCorrection` — bỏ bản sửa đang gõ dở.
 
@@ -577,6 +595,11 @@ class FormEngineService:
         Bản chính thức KHÔNG đổi một chữ. Không có `visit_amendment`, không có
         `result_correction`, không phát `result.corrected` — chưa có sửa chữa
         chuyên môn nào được xác nhận thì không có gì để ghi vào lịch sử y khoa.
+
+        ĐÒI ĐÚNG SỐ ĐANG THẤY, y như [Lưu] và [Xác nhận sửa]. Bản nháp là của
+        CHUNG: người thứ hai cầm màn hình cũ mà bấm [Huỷ sửa] sẽ xoá luôn những
+        gì người đầu vừa gõ. Hai lệnh kia đã chống ghi đè bằng revision, còn
+        lệnh PHÁ HUỶ thì chưa — đúng chỗ cần nó nhất.
         """
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
@@ -591,6 +614,10 @@ class FormEngineService:
             if not dong["dang_sua"]:
                 # Bấm hai lần, hoặc người khác vừa huỷ: không phải lỗi.
                 return {"ok": True, "dang_sua": False, "revision": dong["revision"]}
+            if dong["revision"] != expected_revision:
+                raise ValidationError(
+                    "Bản sửa vừa được người khác gõ tiếp — tải lại rồi hãy huỷ."
+                )
             moi = await conn.fetchval(
                 "UPDATE form_instance"
                 "   SET dang_sua = false, du_lieu_dang_sua = NULL,"

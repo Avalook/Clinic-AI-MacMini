@@ -138,3 +138,39 @@ test("quản lý sửa được nhóm quyền mẫu, và màn nói rõ nó khôn
   // Câu cảnh báo quan trọng nhất trên màn ấy.
   assert.match(NHOM, /không<\/strong>\s*đổi\s*\n?\s*quyền của người đã được cấp/);
 });
+
+test("mở sửa phải nạp lại phiếu từ máy chủ, không giữ nội dung cũ", () => {
+  // A gõ dở; B bấm [Sửa lại] khi màn còn bản cũ. Nếu chỉ lấy `revision` thì B
+  // nhận SỐ mới với NỘI DUNG cũ, và lần tự lưu tới ghi đè chữ của A — bằng một
+  // số hợp lệ, nên không lớp chống ghi đè nào bắt được.
+  assert.match(
+    PHIEU,
+    /const kq = await goi<Phieu>\(\{ thao_tac: "mo-sua"/,
+    "mo-sua phải nhận cả phiếu, không chỉ revision",
+  );
+  assert.match(PHIEU, /nhan\(kq\.data\)/);
+});
+
+test("huỷ sửa cũng phải kèm revision đang thấy", () => {
+  // Bản nháp là của CHUNG. Lệnh GHI đã chống ghi đè; lệnh PHÁ HUỶ mà không
+  // chống thì một màn hình cũ xoá được cái người khác vừa gõ.
+  const i = PHIEU.indexOf('thao_tac: "huy-sua"');
+  assert.ok(i > 0);
+  assert.match(
+    PHIEU.slice(i, i + 220),
+    /expected_revision: revision\.current/,
+  );
+});
+
+test("đổi người thực hiện thì tự lưu ngay", () => {
+  // Người thực hiện là dữ liệu nghiệp vụ, không phải trạng thái màn hình.
+  const i = PHIEU.indexOf("setThucHienBoi(ai)");
+  assert.ok(i > 0, "onChange phải giữ lựa chọn");
+  assert.match(PHIEU.slice(i, i + 500), /tuLuu\(gia, phieu, ai\)/);
+});
+
+test("nút Xác nhận sửa KHÔNG khoá vì chưa gõ lý do", () => {
+  // Máy chủ hỏi "có đổi gì không" TRƯỚC rồi mới đòi lý do. Khoá nút ở đây là
+  // bắt người ta gõ lý do cho một thay đổi không tồn tại.
+  assert.doesNotMatch(PHIEU, /disabled=\{dangHoanTat \|\| \(dangSuaLai && !lyDoSua/);
+});

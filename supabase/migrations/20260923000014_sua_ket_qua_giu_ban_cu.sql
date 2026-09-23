@@ -219,9 +219,20 @@ CREATE TRIGGER trg_result_correction_hop_le
 
 -- Không duyệt phát hành một bản chưa tồn tại.
 CREATE OR REPLACE FUNCTION public.release_ban_phai_co_that() RETURNS trigger AS $$
+DECLARE
+    da_hoan_tat boolean;
 BEGIN
     IF NEW.ban_thu = 1 THEN
-        RETURN NEW;  -- v1 = lần [Hoàn tất] đầu tiên, nằm trong form_instance
+        -- v1 = lần [Hoàn tất] ĐẦU TIÊN. Phiếu còn nháp thì v1 CHƯA TỒN TẠI —
+        -- duyệt phát hành một bản chưa ai chốt là duyệt một tờ giấy trắng.
+        SELECT f.trang_thai = 'READY' INTO da_hoan_tat
+          FROM public.form_instance f
+         WHERE f.clinic_id = NEW.clinic_id AND f.id = NEW.form_instance_id;
+        IF NOT coalesce(da_hoan_tat, false) THEN
+            RAISE EXCEPTION
+                'khong the duyet phat hanh ban v1 — phieu chua hoan tat lan nao';
+        END IF;
+        RETURN NEW;
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM public.result_correction c

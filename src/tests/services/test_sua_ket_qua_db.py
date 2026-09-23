@@ -517,7 +517,9 @@ async def test_huy_sua_tra_lai_ban_chinh_thuc(pool: asyncpg.Pool) -> None:
     # hứa với người dùng, và trước 23/09 nó là lời hứa suông.
     assert (await _chinh_thuc(pool, phieu_id))["ket_luan"]["gia_tri"] == "bản một"
 
-    await svc.huy_sua(phieu_id=phieu_id, identity=bs)
+    await svc.huy_sua(
+        phieu_id=phieu_id, identity=bs, expected_revision=await _rev(pool, phieu_id)
+    )
     dong = await pool.fetchrow(
         "SELECT dang_sua, du_lieu_dang_sua FROM form_instance WHERE id = $1::uuid",
         phieu_id,
@@ -1039,3 +1041,115 @@ async def test_moc_chot_trong_anh_chup_dung_bang_moc_trong_phieu(
     assert trong_anh == dong["hoan_tat_luc"].isoformat()
     # Bản cũ giữ mốc chốt CỦA NÓ, không phải mốc vừa rồi.
     assert json.loads(dong["original_values"])["hoan_tat_luc"] != trong_anh
+
+
+# ── 25–28. Bản nháp là CỦA CHUNG (audit ChatGPT trên SHA 22d8fccb) ─────────
+# Năm chỗ dưới đây CI xanh mà vẫn sai, vì 24 bài trước gọi thẳng service và
+# không đi qua đường người dùng thật. Chúng là lỗi mất dữ liệu, không phải lỗi
+# thẩm mỹ.
+
+
+async def test_nguoi_thu_hai_mo_sua_nhan_dung_ban_nhap_dang_co(
+    pool: asyncpg.Pool,
+) -> None:
+    """A gõ dở, B mở sửa — B phải thấy chữ của A, không thấy bản cũ.
+
+    Nếu `mo_sua` chỉ trả số revision thì màn B giữ nội dung cũ, và lần tự lưu
+    kế tiếp của B ghi đè những gì A vừa gõ — bằng đúng một số hợp lệ, nên không
+    lớp chống ghi đè nào bắt được.
+    """
+    async with pool.acquire() as conn:
+        a = await _nguoi(conn, "DOCTOR")
+        b = await _nguoi(conn, "DOCTOR")
+        oid, _ = await _don(conn, a)
+    svc = FormEngineService(pool)
+    phieu_id = await _phieu_v1(svc, a, oid)
+
+    await svc.mo_sua(phieu_id=phieu_id, identity=a)
+    await svc.luu_nhap(
+        phieu_id=phieu_id,
+        du_lieu={"ket_luan": {"gia_tri": "A vừa gõ", "nguon": "USER"}},
+        expected_revision=await _rev(pool, phieu_id),
+        identity=a,
+    )
+
+    # B bấm [Sửa lại] khi A đã gõ dở.
+    cua_b = await svc.mo_sua(phieu_id=phieu_id, identity=b)
+    assert cua_b["du_lieu"]["ket_luan"]["gia_tri"] == "A vừa gõ", (
+        "B nhận bản cũ — lần tự lưu tới sẽ xoá chữ của A"
+    )
+    assert cua_b["dang_sua"] is True
+    assert cua_b["revision"] == await _rev(pool, phieu_id)
+
+
+async def test_huy_sua_bang_so_cu_bi_tu_choi(pool: asyncpg.Pool) -> None:
+    """Lệnh PHÁ HUỶ cũng phải chống ghi đè, không chỉ lệnh ghi."""
+    async with pool.acquire() as conn:
+        a = await _nguoi(conn, "DOCTOR")
+        b = await _nguoi(conn, "DOCTOR")
+        oid, _ = await _don(conn, a)
+    svc = FormEngineService(pool)
+    phieu_id = await _phieu_v1(svc, a, oid)
+
+    await svc.mo_sua(phieu_id=phieu_id, identity=a)
+    so_cua_a = await _rev(pool, phieu_id)  # A cầm số này trên màn
+
+    # B gõ thêm → revision tăng.
+    await svc.luu_nhap(
+        phieu_id=phieu_id,
+        du_lieu={"ket_luan": {"gia_tri": "B vừa gõ", "nguon": "USER"}},
+        expected_revision=so_cua_a,
+        identity=b,
+    )
+
+    with pytest.raises(ValidationError, match="người khác gõ tiếp"):
+        await svc.huy_sua(phieu_id=phieu_id, identity=a, expected_revision=so_cua_a)
+
+    # Chữ của B còn nguyên.
+    con = await pool.fetchval(
+        "SELECT du_lieu_dang_sua FROM form_instance WHERE id = $1::uuid", phieu_id
+    )
+    assert json.loads(con)["ket_luan"]["gia_tri"] == "B vừa gõ"
+
+
+async def test_khong_duyet_phat_hanh_phieu_chua_hoan_tat(pool: asyncpg.Pool) -> None:
+    """v1 chỉ tồn tại SAU lần [Hoàn tất] đầu tiên.
+
+    Duyệt phát hành một phiếu còn nháp là duyệt một tờ giấy trắng.
+    """
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        oid, _ = await _don(conn, bs)
+    svc = FormEngineService(pool)
+    p = await svc.mo_phieu(service_order_id=oid, form_id="KQ_SA_VU", identity=bs)
+
+    with pytest.raises(asyncpg.PostgresError, match="chua hoan tat"):
+        await _duyet(pool, bs, str(p["id"]), 1)
+
+    # Hoàn tất rồi thì duyệt được.
+    await svc.hoan_tat(phieu_id=p["id"], expected_revision=p["revision"], identity=bs)
+    await _duyet(pool, bs, str(p["id"]), 1)
+
+
+async def test_doi_nguoi_thuc_hien_luu_ngay_khong_cho_sua_o_nao(
+    pool: asyncpg.Pool,
+) -> None:
+    """Đổi lựa chọn rồi tải lại ngay — không sửa ô nào — vẫn phải còn."""
+    async with pool.acquire() as conn:
+        a = await _nguoi(conn, "DOCTOR")
+        ai_khac = await _nguoi(conn, "DOCTOR")
+        oid, _ = await _don(conn, a)
+    svc = FormEngineService(pool)
+    phieu_id = await _phieu_v1(svc, a, oid)
+
+    mo = await svc.mo_sua(phieu_id=phieu_id, identity=a)
+    # Màn chỉ đổi người thực hiện, giữ nguyên mọi ô.
+    await svc.luu_nhap(
+        phieu_id=phieu_id,
+        du_lieu=mo["du_lieu"],
+        expected_revision=mo["revision"],
+        identity=a,
+        thuc_hien_boi=ai_khac.staff_id,
+    )
+    lai = await svc.mo_phieu(service_order_id=oid, form_id="KQ_SA_VU", identity=a)
+    assert lai["thuc_hien_boi"] == ai_khac.staff_id

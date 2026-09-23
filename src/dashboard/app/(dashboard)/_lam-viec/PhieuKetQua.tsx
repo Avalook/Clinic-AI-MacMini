@@ -273,21 +273,23 @@ export default function PhieuKetQua({
     });
   };
 
+  // NHẬN TOÀN BỘ PHIẾU TỪ MÁY CHỦ, không tự suy ra từ state đang có.
+  //
+  // Bản trước chỉ lấy `revision` rồi giữ nguyên nội dung trên màn. Khoảng hở ấy
+  // chết người: A mở sửa và gõ vài ô; B vẫn đang nhìn bản cũ, bấm [Sửa lại],
+  // nhận SỐ mới nhưng NỘI DUNG cũ — rồi lần tự lưu kế tiếp của B ghi đè những
+  // gì A vừa gõ, bằng đúng một số hợp lệ nên không lớp nào bắt được.
   const moSua = async () => {
     if (!phieu) return;
     setDangHoanTat(true);
     setLoi(null);
-    const kq = await goi<{ revision: number }>({
-      thao_tac: "mo-sua",
-      phieu_id: phieu.id,
-    });
+    const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id });
     setDangHoanTat(false);
     if (!kq.ok) {
       setLoi(kq.loi);
       return;
     }
-    revision.current = kq.data.revision;
-    setPhieu({ ...phieu, dang_sua: true, revision: kq.data.revision });
+    nhan(kq.data);
   };
 
   const huySua = async () => {
@@ -298,6 +300,8 @@ export default function PhieuKetQua({
     const kq = await goi<{ revision: number }>({
       thao_tac: "huy-sua",
       phieu_id: phieu.id,
+      // Bản nháp là của CHUNG: huỷ bằng số cũ là xoá cái người khác vừa gõ.
+      du_lieu: { expected_revision: revision.current },
     });
     setDangHoanTat(false);
     if (!kq.ok) {
@@ -435,7 +439,14 @@ export default function PhieuKetQua({
               </span>
               <select
                 value={thucHienBoi}
-                onChange={(e) => setThucHienBoi(e.target.value)}
+                onChange={(e) => {
+                  const ai = e.target.value;
+                  setThucHienBoi(ai);
+                  // Người thực hiện là DỮ LIỆU NGHIỆP VỤ, không phải trạng
+                  // thái màn hình. Không lưu thì đổi lựa chọn rồi tải lại
+                  // trang là mất — tự lưu mới lưu nửa cái phiếu.
+                  if (phieu) tuLuu(gia, phieu, ai);
+                }}
                 className="mt-1 min-h-10 w-full max-w-sm rounded-control border border-line bg-surface px-3 text-sm text-ink"
               >
                 <option value="">— tôi, người đang gõ —</option>
@@ -452,7 +463,7 @@ export default function PhieuKetQua({
             {dangSuaLai ? (
               <label className="w-full">
                 <span className="text-xs font-semibold text-ink">
-                  Vì sao sửa kết quả này (bắt buộc)
+                  Vì sao sửa kết quả này
                 </span>
                 <input
                   value={lyDoSua}
@@ -465,7 +476,11 @@ export default function PhieuKetQua({
             <Button
               size="md"
               variant="primary"
-              disabled={dangHoanTat || (dangSuaLai && !lyDoSua.trim())}
+              // KHÔNG khoá nút khi chưa gõ lý do. Máy chủ hỏi "có đổi gì
+              // không" TRƯỚC rồi mới đòi lý do; khoá ở đây là bắt người ta gõ
+              // lý do cho một thay đổi không tồn tại, rồi mới được nghe câu
+              // "thực ra không thay gì". Frontend không dựng bộ so thứ hai.
+              disabled={dangHoanTat}
               onClick={() => void hoanTat()}
             >
               {dangHoanTat
