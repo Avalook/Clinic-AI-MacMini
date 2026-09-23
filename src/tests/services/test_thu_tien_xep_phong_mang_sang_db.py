@@ -738,3 +738,27 @@ async def test_luot_khep_han_phat_visit_exam_completed_dung_mot_lan(
     su_kien = await _su_kien(pool, "visit.exam_completed", visit)
     assert len(su_kien) == 1
     assert json.loads(su_kien[0]["payload"]) == {"visit_id": visit}
+
+
+async def test_truong_ca_thay_chi_dinh_doi_moi_doi_phong_duoc_bang_khoi_chung(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Trưởng ca (`/truong-ca`) đổi phòng chỉ định đời mới bằng khối chung
+    `DoiPhong` (`xep-phong-v1`) — cần `selection_status`, `routing_revision`
+    và `doi_phong_duoc` cùng luật với Bàn khám (24/09)."""
+    from clinicai.services.dispatch_service import DispatchService
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    [dong] = [
+        d
+        for d in await DispatchService(pool).chi_dinh(clinic_id=CLINIC, visit_id=visit)
+        if d["id"] == order
+    ]
+    assert dong["selection_status"] == "SELECTED"
+    assert dong["doi_phong_duoc"] is True
+    assert dong["routing_revision"] >= 1

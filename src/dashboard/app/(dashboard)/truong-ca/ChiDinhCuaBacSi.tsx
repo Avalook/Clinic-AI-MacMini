@@ -125,13 +125,16 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
       cache: "no-store",
     })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { items?: ChiDinh[] } | null) => {
+      .then((j: { items?: ChiDinh[]; ok?: boolean } | null) => {
         if (!song) return;
-        if (!j) {
+        // `{ ok: false }` = máy chủ không trả được (từ chối quyền, lỗi) — KHÔNG
+        // phải "không có chỉ định". Bấm thật 24/09: bác sĩ mở màn trưởng ca bị
+        // 403 mà màn ghi "Bác sĩ chưa chỉ định dịch vụ nào" — sai sự thật.
+        if (!j || j.ok === false || !Array.isArray(j.items)) {
           setLoi(true);
           return;
         }
-        setDs(j.items ?? []);
+        setDs(j.items);
       })
       .catch(() => song && setLoi(true));
     return () => {
@@ -148,7 +151,10 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
       </div>
 
       {loi ? (
-        <p className="text-label text-danger">Không đọc được chỉ định — thử tải lại.</p>
+        <p className="text-label text-danger">
+          Không đọc được chỉ định (có thể tài khoản này chưa có quyền điều phối) —
+          thử tải lại.
+        </p>
       ) : ds === null ? (
         <p className="text-label text-ink-muted">Đang đọc chỉ định…</p>
       ) : ds.length === 0 ? (

@@ -50,6 +50,16 @@ Tuyền: "làm hết thôi nào". Thứ tự: nợ nhỏ → gộp hai cột tr�
      hôm nay, kết quả chờ duyệt — chỉ ĐỌC).
   6. CI `tests/unit/test_su_kien_phat_that.py`: tên sự kiện code phát ⊆ danh mục, mọi sự
      kiện trong danh mục đều có nơi phát, mọi file bên nhận đều đăng ký.
+- **Bấm thật 24/09 ~01:00 (BS A local, laptop, 3 khách DEMO fixture):** tư vấn ghi phiếu v5
+  → [Xong tư vấn] → bác sĩ chính thấy chữ tư vấn → chỉ định SA vú trong phiếu → [Hoàn tất]
+  (dải xác nhận) → lễ tân thu (script) → tự xếp Phòng SA 3 → phòng [Bắt đầu] + [Hoàn tất
+  phiếu] → **khối Vòng đọc mở "Kết quả cần đọc"** ở Bàn khám → bác sĩ đọc → [Hoàn tất] →
+  `visit.exam_completed`. Hai lỗi bắt được + đã sửa: [Xong tư vấn]/[Hoàn tất] kẹt "Đang
+  kiểm tra trạng thái bệnh án" (gate bị effect màn cha xoá) · màn trưởng ca nuốt lỗi 403
+  thành "Bác sĩ chưa chỉ định dịch vụ nào".
+- **Chưa bấm được (cần Tuyền đăng nhập):** trưởng ca/quản lý đổi phòng bằng `DoiPhong` ở
+  `/truong-ca` (đã kiểm payload API + test); lễ tân thu tiền trên màn; CSKH; điều dưỡng;
+  dược sĩ; đối tác trên màn.
 - **Còn trong khối Khám (đúng việc của nó):** phiên khám (bắt đầu / Hoàn tất / tư vấn),
   xếp đường đi sau check-in (khối Hành trình gọi), vòng đọc + khép lượt (khối Vòng đọc
   gọi), chỉ định đời cũ (duyệt nháp), duyệt kết quả (màn OFF). Bước sau nếu cần: chuyển
