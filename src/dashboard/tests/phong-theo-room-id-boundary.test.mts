@@ -30,8 +30,10 @@ test("vị trí trỏ tới PHÒNG CỦA NÓ, máy chủ giải ra room_id", () 
     nav.indexOf("export const MAN_THEO_VI_TRI"),
     nav.indexOf("// ── NHÓM VAI TRÊN THANH BÊN"),
   );
-  assert.match(khoi, /T4_SA_BS1: \[PHONG, "\/duyet-ket-qua"\]/);
-  assert.match(khoi, /T1_BS_NOITIET: \[BAN_KHAM, "\/duyet-ket-qua"\]/);
+  // "Duyệt kết quả" OFF 23/09 tối — vị trí chỉ còn phòng / bàn khám của nó.
+  assert.match(khoi, /T4_SA_BS1: \[PHONG\]/);
+  assert.match(khoi, /T1_BS_NOITIET: \[BAN_KHAM\]/);
+  assert.doesNotMatch(khoi, /duyet-ket-qua/);
   // Tên mục = tên phòng hiện tại, không phải nhãn khai sẵn.
   assert.match(nav, /if \(goc === "phong"\) return \{ href, label: p\.ten/);
   // Máy chủ trả phòng của từng vị trí cùng lời gọi vị trí hôm nay.

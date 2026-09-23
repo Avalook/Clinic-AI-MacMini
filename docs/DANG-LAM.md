@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1–6 xong — chờ bấm thật) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 khuya**, phiếu khám v5 đã vào Bàn khám (nhóm 1–6 xong, đang bấm thật) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,34 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Phiếu khám v5 vào Bàn khám (23/09 tối — CHƯA deploy, ĐÃ bấm thật bằng BS A local)
+
+Tuyền gửi `ClinicAI-7-phieu-v5-final-review.html` + `chi-dinh.html`: "không cần nút
+lưu hồ sơ… form sửa theo như này… các dịch vụ thủ thuật đều có hết… không cần cái
+duyệt kết quả nữa".
+
+- Gộp gói 7 phiếu (`c915df89`, nhánh `claude/7-phieu-kh-m-forms-0dc921`) + gỡ
+  INTEGRATION_BLOCKER: bảng riêng `phieu_kham_luot` (migration 20260924000008), KHÔNG
+  nới `form_instance`. Quyền nối capability (`clinical.record.write` ghi; đọc = ai
+  khám/ghi/điền kết quả). Không khoá: chế độ luôn editable.
+- Danh mục C/F: bảng ghép viết tay `phieu_kham/anh_xa_danh_muc.py`; migration
+  20260924000009 thêm 20 dịch vụ mới (HPV, ThinPrep, PCR 12 VK, soi/hút buồng TC, soi
+  âm hộ, laser, ghế ĐTT…), giá chi-dinh.html; giá có sẵn KHÔNG đè (chỉ điền chỗ trống).
+- Bàn khám: cờ `PHIEU_V5` — lượt KHÁM dùng phiếu v5; `ServiceFormEngine` +
+  `ClinicalRecordForm` OFF (không xoá). Nút Hoàn tất giữ, chỉ là mốc giờ.
+- "Duyệt kết quả" OFF khỏi thanh bên / màn theo vị trí / tab Theo màn; chuông kết quả
+  trỏ `/ban-kham`.
+- Bấm thật (BS A, khổ ~800 + 375): chọn phiếu HMVS · tự lưu (DB revision tăng) · chỉ
+  định SÂ tuyến vú (C) + Soi âm hộ (F) · điền kết quả siêu âm vú → READY bởi BS A · kê
+  Duphaston từ danh mục (gắn đúng mã kho) · sửa số lượng không tạo dòng trùng.
+- Bắt + sửa khi bấm: chip "Chế độ lạ" trên phiếu ghi được (`??` với null) · "hộp2"
+  (tách số lượng/đơn vị) · proxy ghép query vào path · thanh dưới đáy tràn 375 (vai bác
+  sĩ, lỗi có sẵn).
+- **Deploy phải làm thêm:** migration `20260924000008`, `20260924000009`.
+- **Chưa làm (việc tiếp):** ruột 18 mẫu kết quả theo chi-dinh.html (đang khung rỗng 3
+  mục) · giá thuốc · Hoàn tất bấm thật trên phiếu v5 (hộp xác nhận window.confirm cũ
+  chặn công cụ) · bàn khám tư vấn vẫn dùng phiếu cũ.
 
 ## Nợ còn lại sau nhóm 6 — đã trả (CHƯA deploy, CHƯA bấm thật)
 

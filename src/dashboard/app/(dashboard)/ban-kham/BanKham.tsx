@@ -53,6 +53,7 @@ import KhungTep from "../_lam-viec/KhungTep";
 import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
+import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import Button from "@/components/ui/Button";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
@@ -115,6 +116,13 @@ interface Bang {
 }
 
 const LA_PHONG_KHAM = (p: Phong) => p.nodes.some((n) => n.startsWith("KHAM-"));
+
+/** PHIẾU KHÁM v5 (Tuyền 23/09/2026 tối: "form sửa theo như này đi… làm luôn").
+ *  Bật: lượt khám dùng bảy phiếu v5 — tự lưu, chỉ định C/F có giá, kết quả điền
+ *  tại chỗ, đơn thuốc mục E. Đường cũ (phiếu chuyên khoa `ServiceFormEngine` +
+ *  bệnh án `ClinicalRecordForm` có nút Lưu) để OFF, KHÔNG xoá, tới khi Tuyền
+ *  bấm thật xong. Lượt CŨ (xem lại) vẫn đọc bằng đường cũ. */
+const PHIEU_V5 = true;
 
 function initials(name: string | null): string {
   if (!name) return "BN";
@@ -836,6 +844,29 @@ function HoSo({
               readOnly
             />
           </div>
+        ) : PHIEU_V5 && dong.loai === "KHAM" && !tuVan ? (
+          <>
+            <PhieuKhamLuot
+              key={dong.visit_id}
+              visitId={dong.visit_id}
+              choGhi={choBam}
+              datChiDinh={async (codes) => {
+                const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
+                  service_codes: codes,
+                });
+                return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
+              }}
+              onDaDat={onDaBam}
+              onTrangThai={setCompletionGate}
+            />
+            {dong.form_code === "SK" ? (
+              <ThaiKy
+                key={`tk-${dong.clinic_patient_id}`}
+                clinicPatientId={dong.clinic_patient_id}
+                visitId={dong.visit_id}
+              />
+            ) : null}
+          </>
         ) : !dong.form_code ? (
           <p className="rounded-control border border-dashed border-warning bg-warning-bg px-3 py-6 text-center text-xs text-warning">
             Dịch vụ “{dong.dich_vu_kham ?? "chưa gán"}” chưa gắn phiếu khám nào.
@@ -865,7 +896,7 @@ function HoSo({
             bác sĩ tự tải lại khi bên kia lưu (sự kiện realtime), bác sĩ duyệt
             đơn rồi bấm Hoàn tất ở cuối hồ sơ — trạng thái truyền vào là
             COMPLETED để form KHÔNG bày nút "Kết thúc khám" của đường cũ. */}
-        {dong.loai === "KHAM" && dong.appointment_id && !dangXem ? (
+        {!PHIEU_V5 && dong.loai === "KHAM" && dong.appointment_id && !dangXem ? (
           <details open className="mt-3 rounded-card border border-line">
             <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-ink">
               Bệnh án · Chẩn đoán · Đơn thuốc · Lời dặn

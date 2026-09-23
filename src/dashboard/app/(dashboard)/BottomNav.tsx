@@ -61,7 +61,9 @@ export default function BottomNav({
 
   const tabClass = (active: boolean) =>
     [
-      "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium transition-colors duration-150",
+      // min-w-0: nút flex mặc định không co dưới TỪ dài nhất — "(khách của tôi)"
+      // của bác sĩ đẩy nút Menu ra ngoài màn 375 (bấm thật 23/09).
+      "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium transition-colors duration-150",
       active ? "text-brand-600" : "text-ink-muted active:text-ink",
     ].join(" ");
 
@@ -81,7 +83,7 @@ export default function BottomNav({
                   người dùng học "Danh sách bệnh nhân" trên máy tính rồi tìm
                   mãi không thấy nó trên điện thoại vì ở đó nó tên "BN đã khám".
                   Không cắt cụt bằng "…" — "Quản lý khá…" còn tệ hơn xuống dòng. */}
-              <span className="px-0.5 text-center leading-tight">
+              <span className="max-w-full break-words px-0.5 text-center leading-tight">
                 {navLabelFor(item, role)}
               </span>
           </Link>
@@ -91,7 +93,7 @@ export default function BottomNav({
         type="button"
         onClick={onMenu}
         aria-label="Mở menu đầy đủ"
-        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium text-ink-muted transition-colors duration-150 active:text-ink"
+        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium text-ink-muted transition-colors duration-150 active:text-ink"
       >
         <Menu size={20} strokeWidth={2} />
         <span className="leading-none">Menu</span>

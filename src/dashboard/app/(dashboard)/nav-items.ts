@@ -72,7 +72,9 @@ export const NAV: NavItem[] = [
   { href: "/tu-van", label: "Bàn khám tư vấn", icon: Stethoscope },
   { href: "/ban-kham", label: "Bàn khám (khách của tôi)", icon: Stethoscope },
   { href: "/xac-nhan-ket-qua", label: "Xác nhận kết quả", icon: ClipboardCheck },
-  { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
+  // "Duyệt kết quả" OFF (Tuyền 23/09/2026 tối: "không cần cái duyệt kết quả nữa,
+  // duyệt làm gì khi ta có thể tự điền vào đây") — bác sĩ đọc/điền kết quả ngay
+  // trong phiếu khám (mục C). Route /duyet-ket-qua còn giữ, chỉ gỡ khỏi thanh bên.
   // Việc sinh ra từ sự kiện: khách đã trả tiền mà không làm được dịch vụ, và
   // dịch vụ bị dừng giữa chừng. Mở việc mà không màn nào hiện thì vẫn là rơi.
   { href: "/viec-can-xu-ly", label: "Việc cần xử lý", icon: ClipboardCheck },
@@ -329,7 +331,7 @@ function giaiMan(h: string, viTri: string, phong: PhongTheoViTri): string {
 
 export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   // Không có trong Excel — "bác sĩ trực hôm ấy" không đứng phòng cụ thể.
-  LICH_KHAM: ["/ban-kham", "/duyet-ket-qua"],
+  LICH_KHAM: ["/ban-kham"],
 
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC (Tuyền 16/09/2026). Bốn vị trí ở quầy tiếp
   // đón và quầy thuốc đều mở trọn bộ việc quầy: người đứng quầy thuốc chiều nay
@@ -354,7 +356,7 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   T1_LAYMAU: [PHONG],
 
   // Phòng Nội tiết: bác sĩ khám; hỏi bệnh ban đầu và thư ký ngồi cùng phòng.
-  T1_BS_NOITIET: [BAN_KHAM, "/duyet-ket-qua"],
+  T1_BS_NOITIET: [BAN_KHAM],
   // Hỏi bệnh ban đầu = BÀN KHÁM TƯ VẤN (24/09/2026): hàng tư vấn chung.
   T1_HOIBENH: ["/tu-van"],
   T1_TKYK: [BAN_KHAM],
@@ -367,18 +369,18 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   T1_TTNG_DD2: [PHONG],
 
   // Siêu âm: bác sĩ và điều dưỡng cùng một phòng, cùng bấm Bắt đầu được.
-  T1_SA_BS: [PHONG, "/duyet-ket-qua"],
+  T1_SA_BS: [PHONG],
   T1_SA_DD: [PHONG],
-  T4_SA_BS1: [PHONG, "/duyet-ket-qua"],
+  T4_SA_BS1: [PHONG],
   T4_SA_DD1: [PHONG],
-  T4_SA_BS2: [PHONG, "/duyet-ket-qua"],
+  T4_SA_BS2: [PHONG],
   T4_SA_DD2: [PHONG],
 
   // Tầng 4: bác sĩ phòng vừa KHÁM (bàn khám) vừa LÀM thủ thuật/dịch vụ (phòng).
-  T4_SANCHAU_BS: [BAN_KHAM, PHONG, "/duyet-ket-qua"],
+  T4_SANCHAU_BS: [BAN_KHAM, PHONG],
   T4_SANCHAU_BSTT: [PHONG],
   T4_SANCHAU_DD: [PHONG],
-  T4_SAN_BS: [BAN_KHAM, PHONG, "/duyet-ket-qua"],
+  T4_SAN_BS: [BAN_KHAM, PHONG],
   T4_SAN_DD: [PHONG],
   T4_BIO_DD: [PHONG],
 
@@ -650,9 +652,9 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   NURSE_ULTRASOUND: ["/home", "/do-sinh-hieu", "/phong", "/schedule"],
   // Bác sĩ và thư ký: bàn khám là màn chính. Ngày có ca, thanh dưới đi theo
   // vị trí và bảng này không được dùng tới.
-  DOCTOR: ["/home", "/ban-kham", "/duyet-ket-qua", "/patient-list"],
+  DOCTOR: ["/home", "/ban-kham", "/patient-list", "/hanh-trinh"],
   TKYK: ["/home", "/ban-kham", "/patient-list", "/schedule"],
-  ULTRASOUND_DOCTOR: ["/home", "/phong", "/duyet-ket-qua", "/patient-list"],
+  ULTRASOUND_DOCTOR: ["/home", "/phong", "/patient-list", "/hanh-trinh"],
   // Lễ tân kiêm thu ngân (Tuyền 16/09/2026, cập nhật 20/09/2026).
   RECEPTION: [
     "/home",

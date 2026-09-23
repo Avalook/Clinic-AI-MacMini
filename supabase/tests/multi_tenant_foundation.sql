@@ -133,7 +133,9 @@ DECLARE
     -- NULL, FK thẳng tới clinic, bật RLS.
     -- 106 → 108 (24/09/2026, nhóm 5): day_nghiep_vu (PK (clinic_id, ma)) ·
     -- nhac_viec_ca_nhan (index (clinic_id, staff_id, nhac_luc)) — 20260924000005.
-    expected_tenant_tables constant integer := 108;
+    -- 108 → 109 (23/09/2026 tối): phieu_kham_luot (phiếu khám v5 theo lượt,
+    -- unique (clinic_id, visit_id, form_id)) — 20260924000008.
+    expected_tenant_tables constant integer := 109;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

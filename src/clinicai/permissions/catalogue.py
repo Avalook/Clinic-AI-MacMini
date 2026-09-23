@@ -493,13 +493,8 @@ MAN: dict[str, Man] = {
             "Lễ tân",
         ),
         Man("dieu_phoi", "Điều phối ca · TV", "/truong-ca", ["dieu_phoi"], "Trưởng ca"),
-        Man(
-            "duyet_ket_qua",
-            "Duyệt kết quả (không bắt buộc)",
-            "/duyet-ket-qua",
-            ["duyet_ket_qua"],
-            "Bác sĩ",
-        ),
+        # "Duyệt kết quả" OFF 23/09/2026 tối — bác sĩ đọc/điền kết quả trong phiếu
+        # khám (mục C). Khối `duyet_ket_qua` vẫn còn, chỉ không còn là một màn.
         Man(
             "cai_dat",
             "Danh mục · Dây nối nghiệp vụ",

@@ -129,6 +129,21 @@ khách, tới giờ chuông réo đúng người.
     quản lý bật/tắt màn cho NHÓM (vai); 5 màn còn đi theo vai (Thu tiền thuốc, Đặt lịch, Danh
     sách bệnh nhân, Đối tác, Hành trình) chưa chỉnh ở đó được. Sửa nhóm không đổi quyền người đã cấp.
 
+**Chỗ Claude tự chốt ở phiếu khám v5 (23/09 tối):**
+21. Chỗ lưu phiếu khám là bảng RIÊNG `phieu_kham_luot` (một lượt một phiếu mỗi loại),
+    không nới `form_instance` (bảng ấy gắn chuỗi kết quả của chỉ định).
+22. Lượt có loại khám gắn phiếu (form_code) → mở thẳng phiếu ấy; không có → bác sĩ chọn
+    1 trong 7. Đã ghi phiếu nào thì mở lại đúng phiếu đó.
+23. Giá: dịch vụ đã có giá KHÔNG đổi; chỉ điền giá cho dòng trống + dịch vụ mới theo
+    chi-dinh.html. "SÂ 4D sàn chậu", "Biofeedback" (một giá) tạo MÃ MỚI, không gộp vào
+    "3D sàn chậu" / "Biofeedback cơ bản-nâng cao" có sẵn — phòng khám gộp nếu đúng là một.
+24. Thuốc: chỉ gắn mã kho khi tên kho khớp chắc chắn (60/73); còn lại đi tên thô, quầy
+    thuốc xác định như cũ. Đường dùng + cách dùng ghép vào một cột ("Uống — …"), số lượng
+    + đơn vị ghép "2 hộp" (bảng `prescription` không có cột riêng).
+25. Mẫu kết quả khi bác sĩ tự điền: mẫu đã gắn cho dịch vụ → mẫu gợi ý của phiếu v5 → 18
+    mẫu dự phòng. Migration KHÔNG tự gắn mẫu cho dịch vụ (luật cũ có test canh).
+26. Quản lý mở phiếu khám được (đọc) nhưng chỉ ghi khi có `clinical.record.write`.
+
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
   không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).

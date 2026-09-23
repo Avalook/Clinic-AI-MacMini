@@ -53,9 +53,10 @@ test("mọi mục bàn khám / phòng / duyệt kết quả đều có luật va
   const moi = [...nav.matchAll(/href: "(\/(?:ban-kham|phong|duyet-ket-qua)[^"]*)"/g)].map(
     (m) => m[1],
   );
-  // Ba mục cố định: Bàn khám, Phòng dịch vụ, Duyệt kết quả. Mục của từng phòng
-  // dựng từ database theo room_id (CORE-C) — không còn khai trong NAV.
-  assert.deepEqual(moi.sort(), ["/ban-kham", "/duyet-ket-qua", "/phong"]);
+  // Hai mục cố định: Bàn khám, Phòng dịch vụ. "Duyệt kết quả" OFF khỏi thanh bên
+  // 23/09/2026 tối (kết quả đọc/điền trong phiếu khám). Mục của từng phòng dựng
+  // từ database theo room_id (CORE-C) — không còn khai trong NAV.
+  assert.deepEqual(moi.sort(), ["/ban-kham", "/phong"]);
   for (const href of moi) {
     assert.match(roles, new RegExp(`"${href}": \\[`), `${href} thiếu luật vai`);
   }

@@ -101,12 +101,15 @@ function gioVn(iso: string): string {
 export default function PhieuKetQua({
   serviceOrderId,
   mau,
+  mauMacDinh,
   nguoiCoThe,
   onHoanTat,
 }: {
   serviceOrderId: string;
   /** Mẫu kết quả đã gắn cho dịch vụ này. Rỗng = chưa ai gắn. */
   mau: MauKetQua[];
+  /** Mẫu chọn sẵn (phiếu đang điền dở, hoặc mẫu gợi ý của phiếu khám v5). */
+  mauMacDinh?: string | null;
   /** Danh sách chọn "người thực hiện". Bỏ trống thì mặc định là người gõ. */
   nguoiCoThe?: { id: string; ten: string }[];
   /** Phiếu vừa hoàn tất — màn cha nạp lại hàng chờ. */
@@ -117,7 +120,11 @@ export default function PhieuKetQua({
   }) => void;
 }) {
   const [chonMau, setChonMau] = useState<string | null>(
-    mau.length === 1 ? mau[0].ma : null,
+    mauMacDinh && mau.some((m) => m.ma === mauMacDinh)
+      ? mauMacDinh
+      : mau.length === 1
+        ? mau[0].ma
+        : null,
   );
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [gia, setGia] = useState<Record<string, string>>({});

@@ -1,0 +1,827 @@
+{
+ "form_id": "NT",
+ "ten": "Phiếu nội tiết",
+ "nhom": "PHIEU_KHAM",
+ "nguon": {
+  "tai_lieu": "ClinicAI-7-phieu-v5-final-review.html",
+  "sha256": "5628ad40bcfe5e0eef4f0e247f2f71b141610f82cc4456e6cbf4131cdca8069f",
+  "ghi_chu": []
+ },
+ "khung": [
+  {
+   "ma": "HANH_CHINH",
+   "ten": "Hành chính & sinh hiệu",
+   "lien_ket": {
+    "loai": "mang_sang",
+    "truong": [
+     "patient.name",
+     "patient.birth_year",
+     "patient.code",
+     "encounter.date",
+     "vitals.blood_pressure",
+     "vitals.pulse",
+     "vitals.weight",
+     "vitals.height",
+     "vitals.temperature",
+     "vitals.spo2",
+     "vitals.bmi",
+     "vitals.respiratory_rate",
+     "vitals.pain_score"
+    ]
+   },
+   "block": []
+  },
+  {
+   "ma": "A",
+   "ten": "A. Khám của bác sĩ tư vấn",
+   "block": [
+    {
+     "ma": "nt_a_note",
+     "ten": "Ghi chú bổ sung (nếu cần)",
+     "kieu": "doan_van"
+    }
+   ],
+   "lien_ket": {
+    "loai": "mang_sang",
+    "nguon": "doctor-consultation"
+   }
+  },
+  {
+   "ma": "B",
+   "ten": "B. Phiếu khám / đánh giá chuyên khoa",
+   "block": [
+    {
+     "ma": "nt_ly_do",
+     "ten": "Lý do khám bệnh",
+     "kieu": "doan_van",
+     "nhom": "1. Lý do khám bệnh"
+    },
+    {
+     "ma": "nt_para",
+     "ten": "PARA",
+     "kieu": "text",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_menarche",
+     "ten": "Tuổi lần đầu thấy kinh",
+     "kieu": "so",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_cycle",
+     "ten": "Chu kỳ kinh nguyệt (ngày)",
+     "kieu": "so",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_marriage_age",
+     "ten": "Tuổi lấy chồng",
+     "kieu": "so",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_contraception",
+     "ten": "Biện pháp tránh thai đang dùng",
+     "kieu": "text",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_gyn_disease",
+     "ten": "Các bệnh phụ khoa đang điều trị",
+     "kieu": "doan_van",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_gyn_surgery",
+     "ten": "Phẫu thuật phụ khoa",
+     "kieu": "doan_van",
+     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+    },
+    {
+     "ma": "nt_endo_hist",
+     "ten": "3. Tiền sử nội tiết",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_endo_hist_1",
+       "ten": "Đái tháo đường"
+      },
+      {
+       "ma": "nt_endo_hist_2",
+       "ten": "Tuyến giáp"
+      },
+      {
+       "ma": "nt_endo_hist_3",
+       "ten": "Tuyến thượng thận"
+      },
+      {
+       "ma": "nt_endo_hist_4",
+       "ten": "PCOS"
+      },
+      {
+       "ma": "nt_endo_hist_5",
+       "ten": "Loãng xương"
+      },
+      {
+       "ma": "nt_endo_hist_6",
+       "ten": "Tim mạch"
+      },
+      {
+       "ma": "nt_endo_hist_7",
+       "ten": "Ung thư vú / phụ khoa"
+      },
+      {
+       "ma": "nt_endo_hist_8",
+       "ten": "Huyết khối tĩnh mạch"
+      },
+      {
+       "ma": "nt_endo_hist_9",
+       "ten": "Tăng huyết áp"
+      },
+      {
+       "ma": "nt_endo_hist_10",
+       "ten": "Rối loạn mỡ máu"
+      }
+     ],
+     "nhom": "3. Tiền sử nội tiết"
+    },
+    {
+     "ma": "nt_endo_detail",
+     "ten": "Chi tiết",
+     "kieu": "doan_van",
+     "nhom": "3. Tiền sử nội tiết"
+    },
+    {
+     "ma": "nt_allergy",
+     "ten": "Dị ứng thuốc",
+     "kieu": "doan_van",
+     "nhom": "3. Tiền sử nội tiết"
+    },
+    {
+     "ma": "nt_family",
+     "ten": "4. Tiền sử gia đình",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_family_1",
+       "ten": "Mãn kinh sớm"
+      },
+      {
+       "ma": "nt_family_2",
+       "ten": "Loãng xương"
+      },
+      {
+       "ma": "nt_family_3",
+       "ten": "Ung thư vú / buồng trứng"
+      },
+      {
+       "ma": "nt_family_4",
+       "ten": "Tim mạch sớm"
+      },
+      {
+       "ma": "nt_family_5",
+       "ten": "Đái tháo đường"
+      }
+     ],
+     "nhom": "4. Tiền sử gia đình"
+    },
+    {
+     "ma": "nt_family_other",
+     "ten": "Khác / ghi chú",
+     "kieu": "doan_van",
+     "nhom": "4. Tiền sử gia đình"
+    },
+    {
+     "ma": "nt_history",
+     "ten": "Quá trình bệnh lý hiện tại",
+     "kieu": "doan_van",
+     "nhom": "5. Bệnh sử"
+    },
+    {
+     "ma": "nt_current_meds",
+     "ten": "Thuốc đang sử dụng (tên, liều, thời gian)",
+     "kieu": "doan_van",
+     "nhom": "5. Bệnh sử"
+    },
+    {
+     "ma": "nt_blood_1",
+     "ten": "CTM (HC, BC, TC, Hb, HCT)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "CTM (HC, BC, TC, Hb, HCT)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_2",
+     "ten": "Glucose máu đói",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Glucose máu đói",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_3",
+     "ten": "HbA1c",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "HbA1c",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_4",
+     "ten": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_5",
+     "ten": "Chức năng gan (AST, ALT, GGT)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Chức năng gan (AST, ALT, GGT)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_6",
+     "ten": "Chức năng thận (Ure, Creatinin)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Chức năng thận (Ure, Creatinin)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_7",
+     "ten": "Điện giải đồ (Na, K, Ca, P)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Điện giải đồ (Na, K, Ca, P)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_blood_8",
+     "ten": "CRP / Procalcitonin (nếu cần)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "CRP / Procalcitonin (nếu cần)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_1",
+     "ten": "FSH (mIU/mL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "FSH (mIU/mL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_2",
+     "ten": "LH (mIU/mL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "LH (mIU/mL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_3",
+     "ten": "Estradiol E2 (pg/mL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "Estradiol E2 (pg/mL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_4",
+     "ten": "Progesterone (ng/mL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "Progesterone (ng/mL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_5",
+     "ten": "Testosterone tổng (ng/dL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "Testosterone tổng (ng/dL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_6",
+     "ten": "DHEA-S (µg/dL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "DHEA-S (µg/dL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_7",
+     "ten": "Prolactin (ng/mL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "Prolactin (ng/mL)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_8",
+     "ten": "TSH / FT4 (tuyến giáp)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "TSH / FT4 (tuyến giáp)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_9",
+     "ten": "AMH (ng/mL) — nếu chỉ định",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "AMH (ng/mL) — nếu chỉ định",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_hormone_10",
+     "ten": "Inhibin B (nếu chỉ định)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_hormone",
+      "ten": "Nội tiết tố",
+      "cot": [
+       "Kết quả"
+      ]
+     },
+     "hang": "Inhibin B (nếu chỉ định)",
+     "cot": "Kết quả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_1",
+     "ten": "Siêu âm PTTC (TA/DA)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Siêu âm PTTC (TA/DA)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_2",
+     "ten": "Nội mạc tử cung (mm)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Nội mạc tử cung (mm)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_3",
+     "ten": "Kích thước buồng trứng T/P",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Kích thước buồng trứng T/P",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_4",
+     "ten": "Nang noãn / AFC (số nang 2-10mm)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Nang noãn / AFC (số nang 2-10mm)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_5",
+     "ten": "PAP smear / HPV test",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "PAP smear / HPV test",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_6",
+     "ten": "Mammography / SA vú",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Mammography / SA vú",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_7",
+     "ten": "Đo mật độ xương DXA (T-score)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Đo mật độ xương DXA (T-score)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_8",
+     "ten": "Điện tim (ECG)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Điện tim (ECG)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    },
+    {
+     "ma": "nt_imaging_9",
+     "ten": "Sinh thiết NM tử cung (nếu chỉ định)",
+     "kieu": "text",
+     "bang": {
+      "ma": "nt_imaging",
+      "ten": "Hình ảnh học & thăm dò",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Sinh thiết NM tử cung (nếu chỉ định)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "6. Cận lâm sàng"
+    }
+   ]
+  },
+  {
+   "ma": "C",
+   "ten": "C. Chỉ định cận lâm sàng",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_cls",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "D",
+   "ten": "D. Chẩn đoán và xử lý",
+   "block": [
+    {
+     "ma": "nt_dx",
+     "ten": "Chẩn đoán",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "nt_mht_assess",
+     "ten": "Liệu pháp hormone mãn kinh (MHT)",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_mht_assess_1",
+       "ten": "Chỉ định MHT"
+      },
+      {
+       "ma": "nt_mht_assess_2",
+       "ten": "Chống chỉ định MHT"
+      },
+      {
+       "ma": "nt_mht_assess_3",
+       "ten": "Cần cân nhắc (relative CI)"
+      }
+     ],
+     "nhom": "Liệu pháp hormone mãn kinh (MHT)"
+    },
+    {
+     "ma": "nt_mht_plan",
+     "ten": "Phác đồ",
+     "kieu": "doan_van",
+     "nhom": "Liệu pháp hormone mãn kinh (MHT)"
+    },
+    {
+     "ma": "nt_mht_type",
+     "ten": "Phác đồ MHT",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_mht_type_1",
+       "ten": "Estrogen đơn thuần"
+      },
+      {
+       "ma": "nt_mht_type_2",
+       "ten": "Kết hợp E+P liên tục"
+      },
+      {
+       "ma": "nt_mht_type_3",
+       "ten": "Kết hợp E+P chu kỳ"
+      },
+      {
+       "ma": "nt_mht_type_4",
+       "ten": "Tibolon"
+      },
+      {
+       "ma": "nt_mht_type_5",
+       "ten": "Phytoestrogen"
+      }
+     ],
+     "ten_tu_dat": true,
+     "nhom": "Liệu pháp hormone mãn kinh (MHT)"
+    },
+    {
+     "ma": "nt_support",
+     "ten": "Điều trị hỗ trợ",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_support_1",
+       "ten": "Bổ sung Canxi + Vitamin D"
+      },
+      {
+       "ma": "nt_support_2",
+       "ten": "Bisphosphonate (loãng xương)"
+      },
+      {
+       "ma": "nt_support_3",
+       "ten": "Omega-3"
+      },
+      {
+       "ma": "nt_support_4",
+       "ten": "Chống trầm cảm / lo âu"
+      },
+      {
+       "ma": "nt_support_5",
+       "ten": "Dưỡng ẩm âm đạo tại chỗ"
+      },
+      {
+       "ma": "nt_support_6",
+       "ten": "Điều chỉnh lối sống"
+      },
+      {
+       "ma": "nt_support_7",
+       "ten": "Tư vấn tâm lý"
+      }
+     ],
+     "nhom": "Điều trị hỗ trợ"
+    },
+    {
+     "ma": "nt_support_detail",
+     "ten": "Chi tiết điều trị bổ sung",
+     "kieu": "doan_van",
+     "nhom": "Điều trị hỗ trợ"
+    },
+    {
+     "ma": "nt_lifestyle_diet",
+     "ten": "Chế độ ăn",
+     "kieu": "doan_van",
+     "nhom": "Lối sống - Dinh dưỡng - Vận động"
+    },
+    {
+     "ma": "nt_lifestyle_activity",
+     "ten": "Vận động",
+     "kieu": "doan_van",
+     "nhom": "Lối sống - Dinh dưỡng - Vận động"
+    },
+    {
+     "ma": "nt_lifestyle_other",
+     "ten": "Giảm cân / thuốc lá / rượu bia / giấc ngủ",
+     "kieu": "doan_van",
+     "nhom": "Lối sống - Dinh dưỡng - Vận động"
+    }
+   ]
+  },
+  {
+   "ma": "E",
+   "ten": "E. Chỉ định điều trị",
+   "block": [
+    {
+     "ma": "nt_treatment_other",
+     "ten": "Điều trị khác / thuốc ngoài danh mục",
+     "kieu": "doan_van",
+     "goi_y": "Nhập tự do nếu chưa có trong danh mục",
+     "khoa_tu": "name"
+    },
+    {
+     "ma": "nt_treatment_note",
+     "ten": "Lời dặn điều trị chung",
+     "kieu": "doan_van",
+     "goi_y": "Lời dặn chung cho bệnh nhân",
+     "khoa_tu": "name"
+    }
+   ],
+   "lien_ket": {
+    "loai": "don_thuoc",
+    "rang_buoc": "prescription.drug_catalog_id"
+   }
+  },
+  {
+   "ma": "F",
+   "ten": "F. Chỉ định thủ thuật",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_thu_thuat",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "G",
+   "ten": "G. Theo dõi và tái khám",
+   "block": [
+    {
+     "ma": "nt_follow_date",
+     "ten": "Ngày tái khám",
+     "kieu": "ngay"
+    },
+    {
+     "ma": "nt_follow_tests",
+     "ten": "Cần kiểm tra lại khi tái khám",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "nt_follow_tests_1",
+       "ten": "Hormone"
+      },
+      {
+       "ma": "nt_follow_tests_2",
+       "ten": "Sinh hóa"
+      },
+      {
+       "ma": "nt_follow_tests_3",
+       "ten": "Siêu âm"
+      },
+      {
+       "ma": "nt_follow_tests_4",
+       "ten": "DXA"
+      },
+      {
+       "ma": "nt_follow_tests_5",
+       "ten": "Pap smear"
+      }
+     ],
+     "ten_tu_dat": true
+    },
+    {
+     "ma": "nt_follow_note",
+     "ten": "Ghi chú theo dõi",
+     "kieu": "doan_van"
+    }
+   ]
+  }
+ ]
+}

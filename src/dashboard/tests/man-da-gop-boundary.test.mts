@@ -66,10 +66,13 @@ test("đăng nhập xong không ai bị đưa về màn cũ", () => {
   assert.equal(canSeeNavGoc("ULTRASOUND_DOCTOR", "/phong"), true);
 });
 
-test("thông báo kết quả về trỏ thẳng màn Duyệt kết quả, không qua đường cũ", () => {
+// 23/09/2026 tối: "Duyệt kết quả" OFF khỏi thanh bên — bác sĩ đọc/điền kết quả
+// trong phiếu khám (Bàn khám, mục C), nên chuông trỏ Bàn khám.
+test("thông báo kết quả về trỏ Bàn khám, không qua đường cũ", () => {
   const py = read("../../clinicai/services/bao_ket_qua_ve.py");
   assert.doesNotMatch(py, /\/result-review/);
-  assert.match(py, /duong_dan="\/duyet-ket-qua"/);
+  assert.doesNotMatch(py, /duong_dan="\/duyet-ket-qua"/);
+  assert.match(py, /duong_dan="\/ban-kham"/);
 });
 
 test("check-in chỉ ở Tiếp đón khách — Trang chủ không bật cột check-in", () => {
