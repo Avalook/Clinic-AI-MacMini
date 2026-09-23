@@ -13,7 +13,6 @@ import asyncpg
 import pytest
 
 import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận
-from clinicai.events import worker as nguoi_dua_tin
 from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT
 from clinicai.events.consumers.trach_nhiem import TRACH_NHIEM
 from clinicai.events.phat_lai import dung_lai
@@ -56,8 +55,9 @@ async def test_xoa_roi_dung_lai_dong_thoi_gian_ra_y_het(
     await svc.record_vitals(
         visit_id=vid, raw={"systolic": 120, "diastolic": 80}, identity=dd
     )
-    while await nguoi_dua_tin.lam_mot_dong(pool, DONG_THOI_GIAN_LUOT):
-        pass
+    from tests.chay_nguoi_dua_tin import chay_het
+
+    await chay_het(pool, DONG_THOI_GIAN_LUOT)
 
     truoc = await _chup(pool, vid)
     assert [r[1] for r in truoc] == [

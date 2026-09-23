@@ -46,8 +46,9 @@ class Lan:
 
 async def _hanh_trinh(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Người đưa tin chạy một vòng cho khối Hành trình (ở máy thật là worker)."""
-    while await nguoi_dua_tin.lam_mot_dong(pool, HANH_TRINH):
-        pass
+    from tests.chay_nguoi_dua_tin import chay_het
+
+    await chay_het(pool, HANH_TRINH)
 
 
 async def _check_in(pool: asyncpg.Pool, *, qua_tu_van: bool) -> Lan:  # noqa: F811

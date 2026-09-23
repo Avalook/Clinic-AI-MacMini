@@ -998,6 +998,40 @@ class PriceListService:
             )
             return [dict(r) for r in rows]
 
+    @staticmethod
+    async def _dong_bo_gia_danh_muc_thuoc(
+        conn: asyncpg.Connection, clinic_id: str, ten: str, gia: Any
+    ) -> int:
+        """Giá thuốc sửa ở màn Bảng giá thuốc → danh mục thuốc CÙNG TÊN CHUẨN.
+
+        Hoá đơn (`bill_service`, HOLD J5) lấy giá ở CẢ HAI nguồn — lệch nhau là
+        dòng thuốc "mâu thuẫn giá", không thu được. Màn chỉ sửa `service_price`,
+        nên sửa ở đây mà danh mục không theo là tự khoá quầy (24/09). Ghép tên
+        đúng cách hoá đơn ghép (`norm_name` của name_base / name_raw).
+        """
+        from clinicai.services.cashier_board_service import norm_name
+
+        khoa = norm_name(ten)
+        if not khoa:
+            return 0
+        ids = [
+            r["id"]
+            for r in await conn.fetch(
+                "SELECT id, name_base, name_raw FROM drug_catalog"
+                " WHERE clinic_id = $1::uuid",
+                clinic_id,
+            )
+            if khoa in {norm_name(r["name_base"]), norm_name(r["name_raw"])}
+        ]
+        if ids:
+            await conn.execute(
+                "UPDATE drug_catalog SET unit_price = $2"
+                " WHERE id = ANY($1::uuid[]) AND unit_price IS DISTINCT FROM $2",
+                ids,
+                gia,
+            )
+        return len(ids)
+
     async def add(
         self,
         *,
@@ -1013,7 +1047,7 @@ class PriceListService:
             raise ValidationError("Thiếu mã hoặc tên dịch vụ")
 
         price = parse_price(unit_price)
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
             try:
                 row_id = await conn.fetchval(
                     """
@@ -1030,6 +1064,10 @@ class PriceListService:
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(f"Mã {code} đã có trong nhóm {group}.") from exc
+            if group == "thuoc" and price is not None:
+                await self._dong_bo_gia_danh_muc_thuoc(
+                    conn, identity.clinic_id, label, price
+                )
         return str(row_id)
 
     async def update(
@@ -1054,19 +1092,27 @@ class PriceListService:
 
         columns = list(patch)
         assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
-        async with self._pool.acquire() as conn:
-            updated = await conn.fetchval(
+        async with self._pool.acquire() as conn, conn.transaction():
+            updated = await conn.fetchrow(
                 f"""
                 UPDATE service_price SET {assignments}, updated_at = now()
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
-                RETURNING id
+                RETURNING id, "group", name, unit_price
                 """,
                 price_id,
                 identity.clinic_id,
                 *[patch[c] for c in columns],
             )
-        if updated is None:
-            raise NotFoundError("Không tìm thấy dòng giá")
+            if updated is None:
+                raise NotFoundError("Không tìm thấy dòng giá")
+            if (
+                updated["group"] == "thuoc"
+                and unit_price_provided
+                and updated["unit_price"] is not None
+            ):
+                await self._dong_bo_gia_danh_muc_thuoc(
+                    conn, identity.clinic_id, updated["name"], updated["unit_price"]
+                )
 
     async def remove(self, *, price_id: str, identity: StaffIdentity) -> None:
         async with self._pool.acquire() as conn:

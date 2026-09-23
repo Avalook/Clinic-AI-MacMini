@@ -8,6 +8,7 @@ trong bài kiểm, gọi hàm dưới ngay sau lệnh ghi.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import asyncpg
@@ -17,16 +18,38 @@ from clinicai.events.catalogue import HANH_TRINH
 from clinicai.events.worker import lam_mot_dong
 
 
+async def chay_het(pool: asyncpg.Pool, ben_nhan: str) -> None:
+    """Chạy bên nhận tới khi hết việc — CHỊU được đồng hồ máy ảo lùi.
+
+    Đỏ ngẫu nhiên 24/09 (bắt được sau ~12 lần chạy lặp): dòng giao vừa ghi có
+    `next_attempt_at = now()`; Docker Desktop thỉnh thoảng lùi đồng hồ vài chục
+    ms (memory khong-chay-gate-chong-tai-docker-desktop), nên lượt nhận ngay sau
+    thấy `next_attempt_at > now()` → "hết việc" dù việc còn đó → bài đỏ oan. Máy
+    thật không bị (worker chạy mỗi giây). Còn dòng PENDING chưa thử lần nào thì
+    đợi một chút rồi nhận lại, tối đa ~1 giây.
+    """
+    for _ in range(20):
+        while await lam_mot_dong(pool, ben_nhan):
+            pass
+        con = await pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM event_delivery WHERE consumer = $1"
+            " AND status = 'PENDING' AND attempts = 0"
+            " AND next_attempt_at <= now() + interval '1 second')",
+            ben_nhan,
+        )
+        if not con:
+            return
+        await asyncio.sleep(0.05)
+
+
 async def chay_hanh_trinh(pool: asyncpg.Pool) -> None:
-    while await lam_mot_dong(pool, HANH_TRINH):
-        pass
+    await chay_het(pool, HANH_TRINH)
 
 
 async def chay_ben_nhan(pool: asyncpg.Pool, *ben_nhan: str) -> None:
     """Chạy một vòng cho các bên nhận chỉ định (vd khối Chuông, dòng thời gian)."""
     for ten in ben_nhan:
-        while await lam_mot_dong(pool, ten):
-            pass
+        await chay_het(pool, ten)
 
 
 def vong_doc_chay_ngay_sau_lenh_tep(monkeypatch: Any) -> None:

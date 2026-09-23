@@ -13,6 +13,28 @@ lịch sử hội thoại.
 
 ---
 
+## Trả nợ đợt 2 (24/09 rạng sáng — CHƯA deploy)
+
+Tuyền: "làm nốt những nợ chưa xong". Rà bằng 3 nhánh dò: sinh hiệu/giá/nhà thuốc,
+88 route `/api`, ~150 chỗ hỏi vai.
+
+- **Một đường ghi sinh hiệu** (nợ "Single write path for vitals"): lưu bệnh án không ghi
+  số đo / không hoàn tất bước sinh hiệu nữa — cờ `HO_SO_GHI_SINH_HIEU = False` ở
+  `clinical_record_service.py`. Đã rà: không màn nào còn gửi sinh hiệu qua bệnh án
+  (ClinicalRecordForm chỉ còn dạng chỉ-xem; phiếu v5 chỉ đọc sinh hiệu).
+- **Giá thuốc hai nguồn khớp:** sửa giá ở màn Bảng giá thuốc (`service_price` nhóm thuốc)
+  kéo `drug_catalog.unit_price` cùng tên chuẩn theo (`PriceListService`), trong cùng giao
+  dịch — trước đây sửa một nguồn là hoá đơn báo "mâu thuẫn giá", quầy không thu được.
+- **Tab check-out "Bị chặn" → "Còn việc"** (Claude chốt; lượt còn việc vẫn đóng được).
+- **17 route `/api` không màn nào gọi → 410** ở `proxy.ts` (`lib/route-da-tat.ts`), file giữ.
+- **Đỏ ngẫu nhiên trong test** (3 lần/phiên): đồng hồ máy ảo Docker lùi vài chục ms →
+  vòng người đưa tin trong test tưởng hết việc. `tests/chay_nguoi_dua_tin.chay_het` đợi
+  thêm khi còn dòng PENDING. 15 lần chạy lặp: 0 lần tái. (Bài đối tác 300 dòng đỏ = DB
+  thử phình → dựng lại.)
+- **Đơn kê vs khách mua:** dữ liệu đã có (`quantity_num` / `purchased_qty` + nhật ký
+  `pharmacy.purchase_qty_set`); màn lịch sử nhà thuốc chưa hiện — làm cùng việc chuyển
+  trang đọc thẳng DB sang backend.
+
 ## Trả nợ + khối Vòng đọc (24/09 sáng — CHƯA deploy)
 
 Tuyền: "làm hết thôi nào". Thứ tự: nợ nhỏ → gộp hai cột trạng thái → bóc lõi

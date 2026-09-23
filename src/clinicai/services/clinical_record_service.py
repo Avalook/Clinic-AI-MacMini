@@ -219,6 +219,12 @@ def merge_vitals_only(previous: Any, incoming: Any) -> dict[str, Any]:
     return {**as_obj(previous), "vitals": as_obj(incoming).get("vitals") or {}}
 
 
+#: Lưu bệnh án có kèm sinh hiệu thì ghi `vital_measurement` + đẩy bước sinh hiệu
+#: sang "đã đo" (đường cũ 17/09). OFF từ 24/09: một đường ghi duy nhất là màn
+#: Đo sinh hiệu. Xem chú thích tại chỗ dùng trong `save`.
+HO_SO_GHI_SINH_HIEU = False
+
+
 class ClinicalRecordService:
     """Create or update the clinical record attached to an appointment's visit."""
 
@@ -379,7 +385,13 @@ class ClinicalRecordService:
                             **non_empty(as_obj(as_obj(objective).get("vitals"))),
                         }
                     )
-                if vitals_only or vitals_moi != vitals_cu:
+                # MỘT ĐƯỜNG GHI SINH HIỆU (24/09/2026, nợ "Single write path for
+                # vitals"): lưu bệnh án KHÔNG tạo số đo, KHÔNG hoàn tất bước sinh
+                # hiệu nữa — số đo chỉ vào từ màn Đo sinh hiệu ([Bắt đầu] →
+                # lưu), để mốc "ai đo, lúc nào" luôn thật. Bệnh án vẫn lưu bình
+                # thường (ô sinh hiệu nằm trong nội dung hồ sơ). Cũ thì OFF:
+                # bật lại bằng `HO_SO_GHI_SINH_HIEU = True`.
+                if HO_SO_GHI_SINH_HIEU and (vitals_only or vitals_moi != vitals_cu):
                     if identity.co_vai({ClinicRole.TKYK}):
                         kiem_thu_ky_duoc_lam(
                             await bac_si_cua_thu_ky(conn, identity), bac_si_lich
