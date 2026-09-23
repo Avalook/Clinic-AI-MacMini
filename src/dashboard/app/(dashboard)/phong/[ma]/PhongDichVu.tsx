@@ -3,7 +3,7 @@
 // MỘT PHÒNG DỊCH VỤ: siêu âm, thủ thuật, lấy mẫu (Tuyền chốt 16/09/2026).
 //
 // Trái: hàng chờ của phòng. Phải: khách đang chọn —
-//   Bắt đầu  → mở một LẦN LÀM (giờ vào)
+//   Bắt đầu  → mở một LẦN LÀM (giờ vào) + dời con trỏ "khách đang ở đâu"
 //   phiếu kết quả + gửi ảnh/video/PDF vào ô (xem ngay tại chỗ)
 //   Xong     → đóng lần làm ấy, khách sang bước tiếp theo
 //
@@ -27,6 +27,14 @@
 // Ai bấm được là do MÁY CHỦ quyết — nay theo QUYỀN (khối "Thực hiện dịch vụ"),
 // không theo vai. Màn này không tự đoán, chỉ hiện câu từ chối của máy chủ.
 // Ẩn nút không phải bảo mật: mỗi lệnh vẫn tự hỏi quyền của nó khi bấm.
+//
+// BỎ HẲN [GỌI VÀO] (Tuyền chốt 23/09/2026): `Gọi vào → Bắt đầu` là hai bước
+// cho một việc. Nay chỉ còn `Chờ → Bắt đầu → Hoàn tất`. Lệnh Bắt đầu đã hấp
+// thụ phần việc thật mà [Gọi vào] từng làm — dời con trỏ "khách đang ở đâu" —
+// nên đây không phải xoá một cái nút rồi để state mắc lại.
+//
+// `called_at` trong database GIỮ NGUYÊN: lượt cũ còn đọc được giờ gọi. Chỉ
+// thôi ghi mới từ màn này.
 //
 // KẾT QUẢ KHÔNG NẰM TRONG LỆNH "XONG" nữa. "Đã làm xong" và "đã có kết quả" là
 // hai sự thật khác nhau — kết quả đi qua phiếu (`PhieuKetQua`), có vòng đời và
@@ -223,19 +231,6 @@ function KhachTrongPhong({
 
   const docLai = () => setLanDoc((n) => n + 1);
 
-  const bamCu = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
-    setDangGui(true);
-    setLoi(null);
-    const kq = await guiThaoTac(
-      thaoTac,
-      thaoTac === "goi-khach" ? dong.id : dong.ref_id,
-      duLieu,
-    );
-    setDangGui(false);
-    if (!kq.ok) setLoi(kq.loi);
-    else onDaBam();
-  };
-
   /** Một lệnh thực hiện. Xong thì đọc lại trạng thái VÀ nạp lại hàng chờ. */
   const lenh = async (thaoTac: string, duLieu: Record<string, unknown>) => {
     setDangGui(true);
@@ -254,7 +249,6 @@ function KhachTrongPhong({
     onDaBam();
   };
 
-  const dangCho = dong.trang_thai === "waiting" || dong.trang_thai === "called";
   const trangThai = th?.execution_status ?? null;
   const dangLam = trangThai === "IN_PROGRESS" && th?.lan_dang_chay != null;
   const daDung = trangThai === "INTERRUPTED" && th?.lan_da_dung != null;
@@ -291,23 +285,11 @@ function KhachTrongPhong({
                         : ""
                     }`
                   : dong.trang_thai === "blocked"
-                    ? "Khách đang ở một bước khác — chưa gọi vào được."
+                    ? "Khách đang ở một bước khác — chưa làm bước này được."
                     : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {dangCho ? (
-            <Button
-              size="lg"
-              variant="secondary"
-              disabled={dangGui}
-              onClick={() => void bamCu("goi-khach")}
-            >
-              {dong.trang_thai === "called"
-                ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
-                : "Gọi vào"}
-            </Button>
-          ) : null}
           {chuaLam && th ? (
             <Button
               size="lg"

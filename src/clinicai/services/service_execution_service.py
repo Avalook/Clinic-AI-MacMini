@@ -86,6 +86,10 @@ LY_DO_GIAN_DOAN = frozenset(
 class ServiceExecutionService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+        # Dùng nhờ hai thứ của kernel cũ: biên nhận lệnh và con trỏ "khách đang
+        # ở đâu". Cả hai là CƠ CHẾ DÙNG CHUNG, chép lại là tạo bản thứ hai sẽ
+        # lệch.
+        self._luot = LuotKhamService(pool)
 
     # ------------------------------------------------------------------
     async def bat_dau(
@@ -186,6 +190,16 @@ class ServiceExecutionService:
                 cid,
                 order_id,
             )
+            # CON TRỎ "KHÁCH ĐANG Ở ĐÂU" — việc mà nút [Gọi vào] từng làm.
+            #
+            # Bỏ [Gọi vào] mà không bù chỗ này là dựng lại đúng sự cố 17/09/2026
+            # ghi trong `_cap_nhat_vi_tri`: khám xong cả vòng rồi mà trưởng ca
+            # vẫn thấy khách "đang ở Đo chỉ số", và quầy không đóng được lượt.
+            # Bảng điều phối, TV phòng chờ và bước đóng lượt đều đọc con trỏ này.
+            #
+            # Trong CÙNG giao dịch với việc mở lần làm: hai thứ ấy hoặc cùng
+            # đúng, hoặc cùng không xảy ra.
+            await self._luot._cap_nhat_vi_tri(conn, cid, vid)
 
             await emit_event(
                 conn,

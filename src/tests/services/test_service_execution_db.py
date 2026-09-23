@@ -559,3 +559,58 @@ async def test_xem_lan_lam_thu_hai_khong_de_lan_cu_thanh_lan_da_dung(kb: KB) -> 
 async def test_xem_chi_dinh_khong_co_thi_bao_ro(kb: KB) -> None:
     with pytest.raises(ValidationError):
         await kb.svc.xem(order_id=str(uuid.uuid4()), identity=kb.bs)
+
+
+# ── Bắt đầu phải làm nốt việc mà [Gọi vào] từng làm (23/09/2026) ────────────
+# Nút [Gọi vào] đã bỏ. Nó từng dời con trỏ "khách đang ở đâu"; nếu Bắt đầu
+# không làm thay thì con trỏ đứng im — đúng sự cố 17/09/2026: khám xong cả vòng
+# mà trưởng ca vẫn thấy khách "đang ở Đo chỉ số", và quầy không đóng được lượt.
+
+
+async def test_bat_dau_doi_con_tro_khach_dang_o_dau(kb: KB) -> None:
+    truoc = await kb.pool.fetchrow(
+        "SELECT current_room_id::text AS phong, current_node_code AS nut"
+        "  FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    assert truoc is not None
+    assert truoc["phong"] != kb.room_id, "chưa bắt đầu mà con trỏ đã ở phòng này"
+
+    await kb.svc.bat_dau(
+        order_id=kb.order_id,
+        expected_execution_revision=0,
+        expected_routing_revision=1,
+        identity=kb.bs,
+    )
+
+    sau = await kb.pool.fetchrow(
+        "SELECT current_room_id::text AS phong, current_node_code AS nut"
+        "  FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    assert sau is not None
+    assert sau["phong"] == kb.room_id, (
+        "Bắt đầu không dời con trỏ sang phòng đang làm — bảng điều phối, TV"
+        " phòng chờ và bước đóng lượt đều đọc con trỏ này"
+    )
+
+
+async def test_khong_bat_dau_duoc_thi_con_tro_khong_nhuc_nhich(kb: KB) -> None:
+    """Cùng một giao dịch: hoặc cả hai xảy ra, hoặc không gì cả."""
+    truoc = await kb.pool.fetchval(
+        "SELECT current_room_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    # Số revision sai → lệnh bị từ chối.
+    with pytest.raises(LuotKhamConflictError):
+        await kb.svc.bat_dau(
+            order_id=kb.order_id,
+            expected_execution_revision=99,
+            expected_routing_revision=1,
+            identity=kb.bs,
+        )
+    sau = await kb.pool.fetchval(
+        "SELECT current_room_id::text FROM visit WHERE visit_id = $1::uuid",
+        kb.visit_id,
+    )
+    assert sau == truoc, "lệnh hỏng mà con trỏ vẫn dời — giao dịch không trọn"
