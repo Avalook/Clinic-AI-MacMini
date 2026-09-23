@@ -19,6 +19,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinical_record_service import ClinicalRecordService
+from tests.quyen_gia import doi_quyen_theo_nhom_mau
 
 VISIT = "10000000-0000-0000-0000-000000000001"
 CLINIC = "20000000-0000-0000-0000-000000000001"
@@ -27,6 +28,18 @@ APPOINTMENT = "40000000-0000-0000-0000-000000000001"
 STAFF = "50000000-0000-0000-0000-000000000001"
 MIGRATIONS = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
 pytestmark = [pytest.mark.asyncio, pytest.mark.db]
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bài này chạy trên bảng TEMP dựng tay — không có `capability_grant` /
+    `v_quyen_hieu_luc`, nên cửa quyền thật (CORE-B3) chặn mọi lần lưu. Cửa giả
+    trả lời theo nhóm mẫu của vai (bác sĩ, thư ký có "Ghi bệnh án"); cửa thật
+    có bài riêng trên Postgres: `test_duong_kham_hoi_quyen_db.py`."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_record_service.doi_quyen",
+        doi_quyen_theo_nhom_mau,
+    )
 
 
 class Context:
