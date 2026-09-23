@@ -185,7 +185,7 @@ SELECT f.id, f.clinic_id, f.service_order_id
 
 Đây là **việc trước deploy**, không phải lỗi của batch.
 
-**StartVitals — ĐÃ CODE (23/09, migration `…000015`), chưa bấm thật:**
+**StartVitals — ĐÓNG (23/09): `a4792ca9` + `4814dba1`, CI xanh, BẤM THẬT XANH.**
 `Chờ đo → [Bắt đầu] → Đang đo → [Lưu sinh hiệu] → Đã đo`.
 - `vitals_status` thêm `in_progress`; `vitals_started_at/by` ghi ai bấm, lúc
   nào. Postgres chặn "đang đo mà không có người".
@@ -198,10 +198,15 @@ SELECT f.id, f.clinic_id, f.service_order_id
   A bắt đầu, B lưu → được (bàn giao), mốc bắt đầu vẫn của A. Dòng cũ đã
   `recorded` từ trước (không có người bắt đầu) vẫn lưu thêm được.
   Lưu thêm = THÊM dòng `vital_measurement`, không có `vitals.corrected`.
-- ⚠️ **CÂU HỎI MỞ — lối thứ hai:** bác sĩ/thư ký lưu **bệnh án đầy đủ** có kèm
-  sinh hiệu (`clinical_record_service` → `dong_bo_sinh_hieu_tu_ho_so`) vẫn đưa
-  `pending → recorded` KHÔNG qua [Bắt đầu]. Chưa sửa: chặn nó là chặn bác sĩ
-  lưu bệnh án — quyết định nghiệp vụ, không tự chốt.
+- ⚠️ **NỢ — batch riêng "Single write path for vitals"** (ChatGPT định hướng
+  23/09, CHƯA code): bác sĩ/thư ký lưu **bệnh án đầy đủ** có kèm sinh hiệu
+  (`clinical_record_service` → `dong_bo_sinh_hieu_tu_ho_so`) vẫn ghi
+  `vital_measurement` và đưa `pending → recorded` KHÔNG qua [Bắt đầu] — trong
+  khi chính file đó ghi "Sinh hiệu chỉ đo ở màn Đo sinh hiệu". Hướng: bệnh án
+  vẫn lưu bình thường, nhưng KHÔNG được tạo/hoàn tất bước sinh hiệu; muốn đổi
+  số thì đi qua contract sinh hiệu chuyên dụng. **Audit UI bệnh án trước**
+  (nó gửi ô sinh hiệu thế nào) — chặn backend mù có thể làm bác sĩ không lưu
+  được hồ sơ. Không trộn vào V5.
 - `goi_do_luc/boi` giữ cột + dữ liệu cũ, không chép sang, không màn nào đọc
   làm trạng thái nữa. Đường `/goi-do` còn mở ở máy chủ, giao diện thôi gọi —
   gỡ hẳn là việc riêng.
@@ -211,8 +216,17 @@ SELECT f.id, f.clinic_id, f.service_order_id
   chốt** — nguồn nghiệp vụ gắn ghi sinh hiệu với Điều dưỡng. Để audit quyền
   riêng, không sửa trong StartVitals.
 
-**CÒN NỢ TRƯỚC KHI GỌI "XONG NỀN":**
-- **Chưa bấm thật trên trình duyệt** ở 375 và 1280.
+**Bấm thật 23/09 (stack local `dev-up.sh`, dd.sa):** 8/8 ca xanh — chờ đo có
+nút Bắt đầu + Lưu khoá + lời nhắc · số gõ trước giữ nguyên · bấm đúp = 1 sự
+kiện · tải lại vẫn "Đang đo" · người khác bắt đầu: bảng tự hiện tên, bấm màn cũ
+ra "Da nang local đã bắt đầu đo … lúc 14:28." · lưu → Đã đo · mất mạng →
+"Mất kết nối — CHƯA bắt đầu đo.", DB không ghi gì · 375 và 1280 không tràn ngang.
+Kiểm ở lớp: test + API + DB + bấm trình duyệt.
+
+Bẫy môi trường gặp lúc bấm: `supabase_analytics_dr4women-clinic` (stack khác)
+chết vì hết bộ nhớ mỗi giây → đường Mac→Docker chậm 0,4–27 giây, GoTrue quá
+giờ, bị đá ra trang đăng nhập. Dừng nó → 0,001 giây. `dev-up.sh` đổ nếu DB thử
+có lược đồ dở mà không có sổ migration → dùng `--reset` (chỉ xoá volume thử).
 
 **Bổ sung cùng ngày — LEGO có chuẩn, trách nhiệm có chủ, cache có luật**
 
