@@ -8,7 +8,8 @@
 
 import { redirect } from "next/navigation";
 
-import { vaiLamViec } from "../../../lib/clinic-session";
+import { getViTriHomNay, vaiLamViec } from "../../../lib/clinic-session";
+import { viTriTuDb } from "../../../lib/roster";
 import { isAdminRole } from "../../../lib/roles";
 import { getBookingPolicy } from "../../../lib/booking-policy";
 import { getFeatureMode } from "../../../lib/feature-mode";
@@ -27,16 +28,23 @@ export default async function SettingsPage() {
   const featureMode = await getFeatureMode();
   // Đọc SERVER-SIDE rồi truyền xuống làm prop. Nạp trong useEffect thì trình
   // biên dịch React chặn setState đồng bộ trong effect — đã vấp ba lần.
-  const phamVi = await fetchFromBackend<{ items: OViTri[] }>(
-    "/api/v1/roster/station-scope",
-  );
+  const [phamVi, viTri] = await Promise.all([
+    fetchFromBackend<{ items: OViTri[] }>("/api/v1/roster/station-scope"),
+    getViTriHomNay(),
+  ]);
+  const danhMuc = viTriTuDb(viTri?.danh_muc);
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       {/* Tiêu đề nằm ở thanh trên cùng (GlobalHeader) — không lặp lại ở đây. */}
       <FeatureModeCard currentMode={featureMode} />
       <BookingPolicyCard policy={bookingPolicy} />
-      {phamVi && <PhamViViTriCard items={phamVi.items} />}
+      {phamVi && (
+        <PhamViViTriCard
+          items={phamVi.items}
+          stations={danhMuc}
+        />
+      )}
     </main>
   );
 }

@@ -43,7 +43,13 @@ import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { doctorName } from "../../../lib/doctor-name";
-import { currentWeekStartVn, todayVn, weekDates, weekStartOf } from "../../../lib/roster";
+import {
+  currentWeekStartVn,
+  todayVn,
+  viTriTuDb,
+  weekDates,
+  weekStartOf,
+} from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, { type WeekApptRow } from "./WeeklyAppointmentsTable";
 import { dungLichHenTuan } from "./lich-hen-ngay";
@@ -428,7 +434,12 @@ async function KhoiDuLieu({
 }) {
   const rosterDates = weekDates(weekRoster);
 
-  const goi = await goiTrangChu(weekAppt, weekRoster);
+  // Danh mục vị trí từ database (C4) — cùng lời gọi layout đã làm (cache theo
+  // lượt dựng trang), không thêm vòng mạng.
+  const [goi, viTri] = await Promise.all([
+    goiTrangChu(weekAppt, weekRoster),
+    getViTriHomNay(),
+  ]);
   // Backend im thì các bảng cùng rỗng — phải NÓI RA. Một trang chủ trống trơn
   // trông y hệt "hôm nay chưa có gì", và người trực sẽ tin nó (cùng luật với
   // goiLoi ở màn Quản lý khách hàng, Lát 2).
@@ -553,6 +564,7 @@ async function KhoiDuLieu({
           />
         </div>
         <WorkRosterTable
+          stations={viTriTuDb(viTri?.danh_muc)}
           dates={rosterDates}
           rows={rosterRows}
           dong={goi?.dong_ca ?? []}

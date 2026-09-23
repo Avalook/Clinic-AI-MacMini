@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { vaiLamViec } from "../../../lib/clinic-session";
+import { getViTriHomNay, vaiLamViec } from "../../../lib/clinic-session";
 import { isAdminRole, departmentToRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
@@ -16,6 +16,7 @@ import {
   weekStartOf,
   shiftWeek,
   currentWeekStartVn,
+  viTriTuDb,
 } from "../../../lib/roster";
 import OfficialRosterTable, {
   type OfficialRosterRow,
@@ -63,7 +64,7 @@ export default async function SchedulePage({
   // `sort` rồi `id`: thứ tự trong ô LÀ thứ tự hai hàng con của ngày. Mọi dòng
   // nạp từ Excel đều sort = 0, nên không có chốt thứ hai thì người thứ nhất và
   // thứ hai đổi chỗ cho nhau giữa hai lần tải trang.
-  const [{ data }, staffRes, tramRes, dongRes] = await Promise.all([
+  const [{ data }, staffRes, tramRes, dongRes, viTri] = await Promise.all([
     supabase
       .from("work_roster")
       .select(
@@ -94,7 +95,10 @@ export default async function SchedulePage({
       .select("work_date, shift, station, ly_do")
       .gte("work_date", dates[0])
       .lte("work_date", dates[dates.length - 1]),
+    // Danh mục vị trí từ database (CORE-C4) — cùng lời gọi layout đã làm.
+    getViTriHomNay(),
   ]);
+  const stations = viTriTuDb(viTri?.danh_muc);
   const dong = (dongRes.data as DongCaRow[] | null) ?? [];
   const rows = (data as RosterRowWithId[] | null) ?? [];
 
@@ -194,7 +198,12 @@ export default async function SchedulePage({
       {/* BẢNG 1 — Lịch làm việc chính thức (chỉ ca ĐÃ DUYỆT). */}
       <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
         <h2 className="font-semibold text-ink">Lịch làm việc chính thức</h2>
-        <OfficialRosterTable dates={dates} rows={approvedRows} dong={dong} />
+        <OfficialRosterTable
+          stations={stations}
+          dates={dates}
+          rows={approvedRows}
+          dong={dong}
+        />
       </section>
 
       {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO QUẢN LÝ (Quang 09/08/2026).
@@ -217,6 +226,7 @@ export default async function SchedulePage({
             </p>
           </div>
           <RosterRegisterTable
+            stations={stations}
             weekStart={week}
             dates={dates}
             rows={rowsDongBo as RegisterRow[]}

@@ -13,6 +13,7 @@ import {
   quyenMoDuocMan,
   type ClinicRole,
 } from "./roles";
+import { type ViTriDb } from "./roster";
 import { getSupabaseServer } from "./supabase-server";
 
 export const ROLE_COOKIE = "clinic_role";
@@ -35,6 +36,8 @@ export const getViTriHomNay = cache(() =>
     vai?: string[];
     /** Phòng của từng vị trí (theo `room_id`, CORE-C 23/09/2026). */
     phong?: Record<string, { room_id: string; ten: string }>;
+    /** Danh mục vị trí của phòng khám (`vi_tri_lam_viec`, CORE-C4). */
+    danh_muc?: ViTriDb[];
   }>(
     "/api/v1/me/vi-tri-hom-nay",
   ),

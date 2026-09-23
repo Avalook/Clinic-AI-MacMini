@@ -127,7 +127,12 @@ export default async function DashboardLayout({
   }));
 
   return (
-    <NotificationProvider staffId={staffId}>
+    <NotificationProvider
+      staffId={staffId}
+      tenViTri={Object.fromEntries(
+        (viTri?.danh_muc ?? []).map((v) => [v.code, v.ten]),
+      )}
+    >
       <BookingPolicyProvider policy={bookingPolicy}>
         <Shell
           role={role}

@@ -19,7 +19,6 @@ import {
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import {
-  STATION_LABEL,
   SHIFT_LABEL,
   dayShort,
   fmtDayMonth,
@@ -83,12 +82,21 @@ export const useNotifications = () => useContext(Ctx);
 
 export function NotificationProvider({
   staffId,
+  tenViTri = {},
   children,
 }: {
   staffId: string | null;
+  /** Tên vị trí theo mã — từ danh mục trong database (CORE-C4). */
+  tenViTri?: Readonly<Record<string, string>>;
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  // Qua ref: layout dựng lại ở mỗi lần chuyển trang nên object này luôn mới —
+  // đưa thẳng vào deps thì kênh realtime đóng/mở lại mỗi lần bấm menu.
+  const tenViTriRef = useRef(tenViTri);
+  useEffect(() => {
+    tenViTriRef.current = tenViTri;
+  }, [tenViTri]);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [transient, setTransient] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
@@ -223,7 +231,7 @@ export function NotificationProvider({
     }
 
     function label(r: MyRow) {
-      const st = STATION_LABEL[r.station] ?? r.station;
+      const st = tenViTriRef.current[r.station] ?? r.station;
       const sh = r.shift !== "FULL" ? ` (${SHIFT_LABEL[r.shift]})` : "";
       return `${dayShort(r.work_date)} ${fmtDayMonth(r.work_date)} · ${st}${sh}`;
     }

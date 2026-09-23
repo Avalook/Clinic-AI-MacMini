@@ -12,11 +12,11 @@ import { Fragment, useEffect, useId, useRef, useState, useTransition } from "rea
 import { useRouter } from "next/navigation";
 import { X, Trash2 } from "lucide-react";
 import {
-  STATION_LABEL,
   SHIFTS,
   SHIFT_LABEL,
-  STATIONS,
+  VI_TRI_LICH_KHAM,
   cotCuaTuan,
+  nhanViTri,
   demBacSiTruc,
   type CotLich,
   type Station,
@@ -73,9 +73,8 @@ function cellKey(date: string, station: string) {
   return `${date}|${station}`;
 }
 
-const VI_TRI_LICH_KHAM = STATIONS.find((x) => x.key === "LICH_KHAM")!;
-
 export default function RosterRegisterTable({
+  stations,
   weekStart,
   rows,
   dong = [],
@@ -85,6 +84,8 @@ export default function RosterRegisterTable({
   tramTheoVai = {},
   isApprover = false,
 }: {
+  /** Danh mục vị trí từ database — xem `viTriTuDb`. */
+  stations: readonly Station[];
   weekStart: string;
   dates: string[];
   rows: RegisterRow[];
@@ -102,6 +103,7 @@ export default function RosterRegisterTable({
   isApprover?: boolean;
 }) {
   const router = useRouter();
+  const STATION_LABEL = nhanViTri(stations);
   const dialogTitleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<{
@@ -417,6 +419,7 @@ export default function RosterRegisterTable({
           <RosterGridHead cot={cot} minWidth={112} />
           <tbody>
             <RosterViTriRows
+              stations={stations}
               cot={cot}
               thongTin={thongTin}
               veO={(st, c, rs) => oCuaBang(st, c.date, c.shift, rs)}

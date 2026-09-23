@@ -95,27 +95,47 @@ async def vi_tri_hom_nay(
     # TRONG GIỜ CA. Trước đó thanh bên lấy cả ngày và cả dòng chưa duyệt.
     hien_hanh = await doc_vi_tri_hien_hanh(pool, identity.clinic_id, identity.staff_id)
     vi_tri = list(dict.fromkeys(tram for tram, _ca in hien_hanh))
-    # PHÒNG CỦA TỪNG VỊ TRÍ (CORE-C, 23/09/2026) — dữ kiện, theo room_id: thanh
-    # bên dựng `/phong/<room_id>` và ghi TÊN phòng hiện tại, không còn mã phòng
-    # viết cứng trong giao diện. Đổi tên phòng là thanh bên đổi theo. Trả MỌI vị
-    # trí đang dùng (~30 dòng), không chỉ vị trí hôm nay: giao diện còn đổi mã vị
-    # trí đời cũ sang mã mới (`MA_VI_TRI_CU`) rồi mới tra phòng.
+    # DANH MỤC VỊ TRÍ + PHÒNG CỦA TỪNG VỊ TRÍ (CORE-C, 23/09/2026) — dữ kiện,
+    # đọc từ `vi_tri_lam_viec`, không còn viết cứng trong giao diện:
+    #   * `phong`: thanh bên dựng `/phong/<room_id>` và ghi TÊN phòng hiện tại.
+    #     Đổi tên phòng là thanh bên đổi theo.
+    #   * `danh_muc`: bảng lịch làm việc, màn phạm vi vị trí, thông báo ca trực
+    #     đọc tên/tầng/phòng của vị trí từ đây (C4).
+    # Trả MỌI vị trí đang dùng (~35 dòng), không chỉ vị trí hôm nay: giao diện
+    # còn đổi mã vị trí đời cũ (`MA_VI_TRI_CU`) rồi mới tra. Đi chung lời gọi
+    # này vì layout vốn đã gọi nó ở mọi trang — không thêm một vòng mạng.
+    rows = await pool.fetch(
+        """
+        SELECT v.code, v.ten, v.ten_ngan, v.tang, v.phong, v.nhom_nghe,
+               r.id::text AS room_id, r.name AS ten_phong
+          FROM public.vi_tri_lam_viec v
+          LEFT JOIN public.clinic_room r
+            ON r.id = v.room_id AND r.clinic_id = v.clinic_id AND r.is_active
+         WHERE v.clinic_id = $1::uuid AND v.is_active
+         ORDER BY v.sort, v.code
+        """,
+        identity.clinic_id,
+    )
     phong = {
-        r["code"]: {"room_id": r["room_id"], "ten": r["ten"]}
-        for r in await pool.fetch(
-            """
-            SELECT v.code, r.id::text AS room_id, r.name AS ten
-              FROM public.vi_tri_lam_viec v
-              JOIN public.clinic_room r
-                ON r.id = v.room_id AND r.clinic_id = v.clinic_id AND r.is_active
-             WHERE v.clinic_id = $1::uuid AND v.is_active
-            """,
-            identity.clinic_id,
-        )
+        r["code"]: {"room_id": r["room_id"], "ten": r["ten_phong"]}
+        for r in rows
+        if r["room_id"]
     }
+    danh_muc = [
+        {
+            "code": r["code"],
+            "ten": r["ten"],
+            "ten_ngan": r["ten_ngan"] or r["ten"],
+            "tang": r["tang"] or "",
+            "phong": r["phong"] or "",
+            "nhom": r["nhom_nghe"],
+        }
+        for r in rows
+    ]
     return {
         "vi_tri": vi_tri,
         "phong": phong,
+        "danh_muc": danh_muc,
         "ca": sorted({ca for _tram, ca in hien_hanh}),
         # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
         # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.

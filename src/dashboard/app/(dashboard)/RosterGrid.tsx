@@ -22,8 +22,8 @@ import { Fragment, type ReactNode } from "react";
 import {
   MAU_PHONG,
   SHIFT_LABEL,
-  STATION_SEGMENTS,
   dayShort,
+  phanTang,
   fmtDayMonth,
   type CotLich,
   type Station,
@@ -123,18 +123,22 @@ export function RosterGridHead({
  *  `thongTin(vị trí, cột)` nói ô ấy đóng hay mở và ai đứng (khoá để gộp).
  *  `veO(vị trí, cột, rowSpan)` vẽ nội dung một ô MỞ — trả về đúng một `<td>`. */
 export function RosterViTriRows({
+  stations,
   cot,
   thongTin,
   veO,
 }: {
+  /** Danh mục vị trí từ database (`viTriTuDb`), theo thứ tự dòng Excel. */
+  stations: readonly Station[];
   cot: CotLich[];
   thongTin: (station: Station, c: CotLich) => ThongTinO;
   veO: (station: Station, c: CotLich, rowSpan: number) => ReactNode;
 }) {
   const tongCot = 3 + cot.length;
+  const cacTang = phanTang(stations);
   return (
     <>
-      {STATION_SEGMENTS.map((tang, ti) => {
+      {cacTang.map((tang, ti) => {
         const viTri = tang.phongs.flatMap((p) => p.stations);
 
         // ── Tính trước, theo từng cột: ô nào bị gộp vào ô trên, ô nào dài bao nhiêu.
@@ -242,7 +246,7 @@ export function RosterViTriRows({
               );
             })}
             {/* Vạch xanh đậm ngăn tầng — đúng hàng kẻ màu `073763` trong Excel. */}
-            {ti < STATION_SEGMENTS.length - 1 ? (
+            {ti < cacTang.length - 1 ? (
               <tr aria-hidden="true">
                 <td colSpan={tongCot} className="h-3 bg-lich-vach-tang p-0" />
               </tr>

@@ -12,7 +12,7 @@
 // người sang việc mới là cả màn xếp lịch đứng lại, và không ai tự mở được.
 
 import { useState } from "react";
-import { STATIONS } from "../../../lib/roster";
+import { VI_TRI_LICH_KHAM, type Station } from "../../../lib/roster";
 import { ROLE_LABEL, type ClinicRole } from "../../../lib/roles";
 import { LABEL } from "../form-ui";
 
@@ -39,7 +39,16 @@ const VAI_XEP_CA: ClinicRole[] = [
   "MANAGEMENT",
 ];
 
-export default function PhamViViTriCard({ items }: { items: OViTri[] }) {
+export default function PhamViViTriCard({
+  items,
+  stations: danhMuc,
+}: {
+  items: OViTri[];
+  /** Danh mục vị trí từ database (`viTriTuDb`). Cột "Lịch khám" thêm ở đầu —
+   *  nó không phải vị trí nhưng vẫn là ô xếp được. */
+  stations: readonly Station[];
+}) {
+  const STATIONS = [VI_TRI_LICH_KHAM, ...danhMuc];
   const [bang, setBang] = useState(() => {
     const m = new Map<string, boolean>();
     for (const it of items) m.set(`${it.tram_ma}|${it.vai}`, it.is_active);
