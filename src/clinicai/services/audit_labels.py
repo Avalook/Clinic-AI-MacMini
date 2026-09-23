@@ -322,6 +322,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    "consultation": "Phiên khám",
     # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
     "service_order": "Chỉ định dịch vụ",
     # Phiếu kết quả là đối tượng riêng (Form Template Engine, 23/09) — không

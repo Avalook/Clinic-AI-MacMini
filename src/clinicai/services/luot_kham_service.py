@@ -2661,9 +2661,9 @@ class LuotKhamService:
             )
             # Tư vấn nhận được cả khách còn "chờ đo sinh hiệu" (blocked) — đo
             # trước là đường chuẩn, nhưng KHÔNG khoá (Tuyền 23–24/09).
-            cho_phep = ("waiting", "called") + (
-                ("blocked",) if c["kind"] == "TU_VAN" else ()
-            )
+            cho_phep = ["waiting", "called"]
+            if c["kind"] == "TU_VAN":
+                cho_phep.append("blocked")
             if (
                 entry is None
                 or entry["status"] not in cho_phep

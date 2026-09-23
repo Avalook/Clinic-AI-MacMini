@@ -28,6 +28,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity, _resolve_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
 from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -201,6 +202,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             json=sinh_hieu,
         )
         kiem("đo sinh hiệu 200", r.status_code == 200, r.text)
+        await chay_hanh_trinh(pool)  # khối Hành trình xếp hàng (worker ở máy thật)
         phien = (await bang(bs, vid))["phien"][0]["id"]
         r = await goi(bs, "POST", f"/luot-kham/consultations/{phien}/start")
         kiem("bác sĩ bắt đầu khám", r.status_code == 200, r.text)
