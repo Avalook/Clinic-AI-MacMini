@@ -1,0 +1,1061 @@
+{
+ "nguon_sha256": "5628ad40bcfe5e0eef4f0e247f2f71b141610f82cc4456e6cbf4131cdca8069f",
+ "chi_dinh_cls": [
+  {
+   "nhom": "Xét nghiệm",
+   "muc": [
+    {
+     "nhan": "Đo mật độ xương",
+     "cach_tra_ket_qua": "Nhập/đính kèm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "Test nước tiểu",
+     "cach_tra_ket_qua": "Nhập/đính kèm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "Chạy monitoring",
+     "cach_tra_ket_qua": "Nhập/đính kèm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "XN máu",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": "KQ_XN_TONG_QUAT",
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Xét nghiệm phụ khoa",
+   "muc": [
+    {
+     "nhan": "*XN dịch âm đạo",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": "KQ_XN_PCR_STDS",
+     "service_code": null
+    },
+    {
+     "nhan": "• HPV",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": "KQ_XN_HPV",
+     "service_code": null
+    },
+    {
+     "nhan": "• ThinPrep",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": "KQ_XN_HPV",
+     "service_code": null
+    },
+    {
+     "nhan": "• PCR 12 loại VK",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": "KQ_XN_PCR_STDS",
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Siêu âm thai",
+   "muc": [
+    {
+     "nhan": "SÂ 3D thai <12 tuần",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_THAI_SOM",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ 3D thai >12 tuần",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_THAI_QUY_23",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ thai 6D",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_THAI_QUY_23",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ đầu dò độ dài CTC",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ 2D TC-BT",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_TC_BT",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ 4D TC-BT",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_TC_PP",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ bơm nước tử cung",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Siêu âm NT-PK",
+   "muc": [
+    {
+     "nhan": "SÂ khớp",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ ổ bụng",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_OBUNG",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ tuyến vú",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_VU",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ tuyến giáp",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_GIAP",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ dopper ĐM cảnh",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_MACH_CANH",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ dopper ĐM thận",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_MACH_THAN",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ dopper âm vật",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_DOPPLER_AM_VAT",
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ dopper 4D sàn chậu",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Siêu âm Nam khoa",
+   "muc": [
+    {
+     "nhan": "SÂ Doppler dương vật",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "SÂ Doppler tinh hoàn",
+     "cach_tra_ket_qua": "Siêu âm",
+     "form_id_ket_qua": "KQ_SA_TINH_HOAN",
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Sàn chậu",
+   "muc": [
+    {
+     "nhan": "Đo cơ lực âm đạo bằng máy (sàng lọc)",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": "KQ_SOI_AM_HO",
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Tr.nghiệm 5p ghế ĐTT",
+   "muc": [
+    {
+     "nhan": "• Yếu cơ",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "• Đau cơ",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "Khám sàn chậu",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": "KQ_SOI_AM_HO",
+     "service_code": null
+    }
+   ]
+  },
+  {
+   "nhom": "Chụp phim ngoài",
+   "muc": [
+    {
+     "nhan": "XQ vú (chụp vú ép)",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "MRI tuyến vú",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": null,
+     "service_code": null
+    },
+    {
+     "nhan": "XQ TC – vòi trứng",
+     "cach_tra_ket_qua": "Đối tác",
+     "form_id_ket_qua": null,
+     "service_code": null
+    }
+   ]
+  }
+ ],
+ "thu_thuat": [
+  {
+   "nhan": "Đặt vòng nội tiết",
+   "ma": "procedure_1",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Tháo vòng",
+   "ma": "procedure_2",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Cấy que tránh thai",
+   "ma": "procedure_3",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Tháo que tránh thai",
+   "ma": "procedure_4",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Soi buồng tử cung",
+   "ma": "procedure_5",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Hút buồng tử cung",
+   "ma": "procedure_6",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "*Soi cổ tử cung",
+   "ma": "procedure_7",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "*Soi âm hộ",
+   "ma": "procedure_8",
+   "form_id_ket_qua": "KQ_SOI_AM_HO",
+   "service_code": null
+  },
+  {
+   "nhan": "*Nong bao quy đầu ÂV",
+   "ma": "procedure_9",
+   "form_id_ket_qua": "KQ_SOI_AM_HO",
+   "service_code": null
+  },
+  {
+   "nhan": "*Tách bao quy đầu ÂV",
+   "ma": "procedure_10",
+   "form_id_ket_qua": "KQ_SOI_AM_HO",
+   "service_code": null
+  },
+  {
+   "nhan": "• Biofeeback",
+   "ma": "procedure_11",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "• Ghế ĐTT",
+   "ma": "procedure_12",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "• Laser",
+   "ma": "procedure_13",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "- Laser trẻ hoá",
+   "ma": "procedure_14",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "- Laser ST/SSD",
+   "ma": "procedure_15",
+   "form_id_ket_qua": null,
+   "service_code": null
+  }
+ ],
+ "mau_thuoc": [
+  {
+   "ma": "rx_001",
+   "nhan_nguon": "5-MTHF",
+   "brand": "Venice 5-MTHF / Quatrefolic",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên sau bữa ăn sáng.",
+   "note": "Dạng folate hoạt tính sinh học trực tiếp, tối ưu cho người có đột biến gen MTHFR, chuẩn bị mang thai.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_002",
+   "nhan_nguon": "Androgel",
+   "brand": "Androgel 50mg / pump",
+   "type": "Bôi ngoài da",
+   "dosage": "Cách ngày bôi 1 lần, mỗi lần 1/3 gói (hoặc 1 pump). Bôi vào vùng da mỏng như xương quai xanh, mặt trong cánh tay hoặc đùi.",
+   "note": "Không bôi vào vùng sinh dục nữ. Với nam giới: Bôi 1 gói/ngày vào vùng vai, cánh tay hoặc bụng buổi sáng.",
+   "unit": "gói",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_003",
+   "nhan_nguon": "Aspilete",
+   "brand": "Aspilet 80mg / Aspirin pH8",
+   "type": "Uống",
+   "dosage": "Ngày uống duy nhất 1 viên vào buổi tối sau bữa ăn no trước khi đi ngủ.",
+   "note": "Dự phòng tiền sản giật, hội chứng kháng phospholipid (APS), tăng tưới máu bánh nhau.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_004",
+   "nhan_nguon": "Assicin (3/6/9v)",
+   "brand": "Assimicin (Azithromycin 500mg / 250mg)",
+   "type": "Uống",
+   "dosage": "Uống 1 lần duy nhất 2 viên (1g) hoặc uống 1 viên/ngày x 3 - 6 ngày liên tục sau ăn no.",
+   "note": "Đặc trị Chlamydia, Ureaplasma, Mycoplasma. Nên điều trị đồng thời cho bạn tình.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_005",
+   "nhan_nguon": "Avanafil (Flepgo 100)",
+   "brand": "Flepgo 100mg (Avanafil)",
+   "type": "Uống",
+   "dosage": "Uống 1 viên trước khi quan hệ tình dục 15 - 30 phút.",
+   "note": "Thuốc giãn mạch thế hệ mới tác dụng nhanh, hỗ trợ cương dương cho nam giới.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_006",
+   "nhan_nguon": "Bennatfort (Clobetasol)",
+   "brand": "Benate Fort Ointment (Clobetasol propionate)",
+   "type": "Bôi ngoài da",
+   "dosage": "Bôi một lớp rất mỏng lên vùng tổn thương âm hộ 1 lần vào buổi tối trong 7-14 ngày.",
+   "note": "Đặc trị Lichen xơ hóa teo (Lichen sclerosus), ngứa âm hộ mạn tính. Không bôi sâu vào trong âm đạo.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_007",
+   "nhan_nguon": "Besuto",
+   "brand": "Besuto Mama Gold",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 viên sau bữa ăn sáng 30 phút cùng nhiều nước.",
+   "note": "Bổ sung đa vi chất, vitamin và khoáng chất toàn diện cho thai kỳ và mẹ sau sinh.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_008",
+   "nhan_nguon": "Betmiga",
+   "brand": "Betmiga 50mg (Mirabegron)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên vào buổi sáng. Uống nguyên viên với nhiều nước, không nhai hoặc nghiền nát.",
+   "note": "Điều trị bàng quang tăng hoạt, tiểu gấp, tiểu nhiều lần, són tiểu gấp.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_009",
+   "nhan_nguon": "Canesten",
+   "brand": "Canesten Cream 1% (Clotrimazole)",
+   "type": "Bôi ngoài da",
+   "dosage": "Ngày bôi 2 lần (sáng - tối), mỗi lần lấy lượng bằng hạt đỗ xanh bôi môi lớn, môi bé, tiền đình.",
+   "note": "Đặc trị nấm Candida sinh dục ngoài, chống ngứa rát vùng kín.",
+   "unit": "tuýp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_010",
+   "nhan_nguon": "Canxi",
+   "brand": "Procalcium / Green Calcium / Calci Citrate",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 lần, mỗi lần 1 viên. Uống sau ăn sáng hoặc sau ăn trưa trước 15h.",
+   "note": "Không uống canxi vào buổi tối. Uống cách xa viên Sắt tối thiểu 2 tiếng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_011",
+   "nhan_nguon": "Cavidagel",
+   "brand": "Cavidagel",
+   "type": "Bôi tại chỗ",
+   "dosage": "Ngày bôi 2 lần, mỗi lần bôi 1 lớp mỏng đều vào vùng tổn thương tiền đình, âm hộ sau khi vệ sinh sạch sẽ.",
+   "note": "Thúc đẩy làm lành niêm mạc sau thủ thuật soi, nong tách bao quy đầu âm vật, laser trẻ hóa.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_012",
+   "nhan_nguon": "Cefdinir",
+   "brand": "Cefdinir 300mg (Cefnirvid)",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 lần, mỗi lần 1 viên sau ăn sáng và tối. Đợt dùng 5 - 7 ngày.",
+   "note": "Kháng sinh nhóm Cephalosporin thế hệ 3 điều trị nhiễm khuẩn phụ khoa và tiết niệu.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_013",
+   "nhan_nguon": "Cetrotide",
+   "brand": "Cetrotide 0.25mg (Cetrorelix)",
+   "type": "Tiêm dưới da",
+   "dosage": "Tiêm dưới da bụng 1 lọ mỗi ngày theo lịch hẹn chính xác của bác sĩ hỗ trợ sinh sản.",
+   "note": "Kháng GnRH ngăn ngừa phóng noãn sớm trong chu kỳ kích thích buồng trứng thụ tinh ống nghiệm.",
+   "unit": "ống",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_014",
+   "nhan_nguon": "CoQ10 (1/2)",
+   "brand": "CoQ10 Blackmores / Puritan (100mg - 200mg)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 lần, mỗi lần 1 viên sau bữa ăn có chất béo.",
+   "note": "Chất chống oxy hóa tế bào, cải thiện năng lượng ty thể của nang noãn và tinh trùng.",
+   "unit": "lọ",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_015",
+   "nhan_nguon": "Cumlaude lubripiu (B)",
+   "brand": "Cumlaude Lab Lubripiu kem bôi",
+   "type": "Bôi tại chỗ",
+   "dosage": "Thoa một lượng kem vừa đủ vào vùng âm hộ bên ngoài ngày 1 - 2 lần hoặc trước khi quan hệ.",
+   "note": "Chống đau rát khi sinh hoạt vợ chồng, làm mềm mại niêm mạc vùng kín.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_016",
+   "nhan_nguon": "Cumlaude lubripiu (D)",
+   "brand": "Cumlaude Lab Lubripiu viên đặt",
+   "type": "Đặt âm đạo",
+   "dosage": "Tuần đặt 2 - 3 lần, mỗi lần 1 viên vào buổi tối.",
+   "note": "Cấp ẩm sâu kéo dài với phức hợp Hyaluronic acid cho phụ nữ bị khô rát âm đạo.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_017",
+   "nhan_nguon": "Cumlaude prebiotic",
+   "brand": "Cumlaude Lab Prebiotic viên đặt",
+   "type": "Đặt âm đạo",
+   "dosage": "Đặt 1 viên/ngày vào buổi tối trước khi đi ngủ trong 10 ngày liên tiếp, sau đó duy trì 1-2 viên/tuần.",
+   "note": "Cân bằng hệ vi sinh âm đạo, bổ sung prebiotic nuôi dưỡng khuẩn có lợi Lactobacillus.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_018",
+   "nhan_nguon": "DHA",
+   "brand": "DHA NataPure / BioIsland DHA",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên sau bữa ăn tối hoặc trước khi đi ngủ.",
+   "note": "Phát triển não bộ, thị giác của thai nhi và hỗ trợ giấc ngủ cho mẹ bầu.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_019",
+   "nhan_nguon": "DHEA (D/U)",
+   "brand": "DHEA Avemos / Puritan",
+   "type": "Uống / Đặt",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên. Sáng 1 viên sau ăn 30 phút. Hoặc đặt âm đạo theo chỉ định chuyên sâu.",
+   "note": "Hỗ trợ cải thiện chất lượng nang noãn, dự trữ buồng trứng AMH và nội tiết sinh sản.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_020",
+   "nhan_nguon": "Daikyn",
+   "brand": "Daikyn 0.5mg (Estriol)",
+   "type": "Đặt âm đạo / Bôi",
+   "dosage": "Mỗi lần đặt 1 viên (hoặc bôi 1 lượng nhỏ), tuần 2 lần vào buổi tối trước khi đi ngủ.",
+   "note": "Điều trị teo khô niêm mạc âm đạo - âm hộ tiền mãn kinh, chống đau rát khi quan hệ.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_021",
+   "nhan_nguon": "Dalacin C",
+   "brand": "Dalacin C 300mg (Clindamycin)",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 lần, mỗi lần 1 viên sau ăn sáng và tối. Đợt dùng 7 ngày.",
+   "note": "Đặc trị viêm âm đạo do vi khuẩn kỵ khí (Bacterial Vaginosis / Gardnerella vaginalis).",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_022",
+   "nhan_nguon": "Dermolivo (D)",
+   "brand": "Dermolivo viên đặt âm đạo",
+   "type": "Đặt âm đạo",
+   "dosage": "Tuần đặt 2 - 3 lần, mỗi lần 1 viên vào buổi tối sau khi vệ sinh sạch sẽ.",
+   "note": "Dưỡng ẩm tự nhiên từ dầu olive ozone hóa, tái tạo biểu mô âm đạo bị teo khô, trợt loét.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_023",
+   "nhan_nguon": "Dermolivo gel",
+   "brand": "Dermolivo Gel bôi",
+   "type": "Bôi ngoài da",
+   "dosage": "Ngày bôi 1 - 2 lần vào vùng âm hộ, tiền đình hoặc vết nứt kẽ sau vệ sinh.",
+   "note": "Làm dịu ngứa rát, chống kích ứng, phục hồi vết thương vi mô.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_024",
+   "nhan_nguon": "Dianne",
+   "brand": "Diane-35 (Cyproterone + Ethinylestradiol)",
+   "type": "Uống",
+   "dosage": "Uống 1 viên/ngày bắt đầu từ ngày 1 chu kỳ kinh trong 21 ngày liên tiếp, nghỉ 7 ngày rồi sang vỉ mới.",
+   "note": "Trị mụn trứng cá, rậm lông do buồng trứng đa nang (PCOS) và tránh thai.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_025",
+   "nhan_nguon": "Dienosis",
+   "brand": "Dienosis 2mg (Dienogest)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên, liên tục hằng ngày không ngắt quãng, uống cố định vào 1 giờ nhất định.",
+   "note": "Đặc trị lạc nội mạc tử cung, đau bụng kinh mạn tính. Uống liên tục cả trong chu kỳ hành kinh.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_026",
+   "nhan_nguon": "Difavon",
+   "brand": "Diflavon (Flavoxate)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên sau ăn sáng.",
+   "note": "Giảm kích thích bàng quang, giảm đau rát vùng chậu.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_027",
+   "nhan_nguon": "Diflucan",
+   "brand": "Diflucan 150mg (Fluconazole chính hãng Pfizer)",
+   "type": "Uống",
+   "dosage": "Uống 1 viên duy nhất với 1 cốc nước lọc lớn sau ăn. Trường hợp nấm tái phát: uống viên thứ 2 sau 72 giờ.",
+   "note": "Thuốc đầu tay điều trị nấm âm đạo Candida cấp tính.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_028",
+   "nhan_nguon": "Diphereline (3.75/0.1)",
+   "brand": "Diphereline (Triptorelin)",
+   "type": "Tiêm",
+   "dosage": "Loại 0.1mg: Tiêm dưới da hằng ngày. Loại 3.75mg: Tiêm bắp 1 mũi duy nhất mỗi 28 ngày.",
+   "note": "Đồng vận GnRH hạ điều hòa tuyến yên trong IVF hoặc điều trị lạc nội mạc tử cung, u xơ.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_029",
+   "nhan_nguon": "Docy (15v/30v)",
+   "brand": "Doxycycline 100mg",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 lần, mỗi lần 1 viên sau ăn sáng và tối. Uống cùng nhiều nước và ngồi thẳng 30 phút.",
+   "note": "Kháng sinh diệt Ureaplasma parvum, Chlamydia. Tuyệt đối không nằm ngay sau uống để tránh loét thực quản.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_030",
+   "nhan_nguon": "Dunium/ Fetogard (10v/15v)",
+   "brand": "Fetogard (Clomiphene 50mg)",
+   "type": "Uống",
+   "dosage": "Uống 1 - 2 viên/ngày x 5 ngày liên tục theo lịch hẹn của bác sĩ.",
+   "note": "Kích thích nang trứng phát triển.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_031",
+   "nhan_nguon": "Dunium/Fetogard (10v/15v)",
+   "brand": "Dunium (Clomiphene Citrate 50mg)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 viên từ ngày thứ 2 (hoặc ngày 3-5) của chu kỳ kinh, liên tục trong 5 ngày.",
+   "note": "Thuốc kích thích rụng trứng đường uống trong bơm IUI hoặc quan hệ tự nhiên.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_032",
+   "nhan_nguon": "Duphaston (4v/2v)",
+   "brand": "Duphaston 10mg (Dydrogesterone)",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 - 4 viên chia 2 lần (sáng - tối) sau ăn. Uống từ ngày thứ 14 đến ngày 25 của chu kỳ kinh, hoặc dùng liên tục trong dọa sảy thai.",
+   "note": "Điều hòa kinh nguyệt, hỗ trợ hoàng thể, an thai an toàn không gây ức chế rụng trứng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_033",
+   "nhan_nguon": "Durapil",
+   "brand": "Durapil 30mg (Dapoxetine)",
+   "type": "Uống",
+   "dosage": "Uống 1 viên với 1 cốc nước đầy trước khi quan hệ 1 - 2 giờ.",
+   "note": "Đặc trị xuất tinh sớm cho nam giới. Không dùng chung với rượu bia.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_034",
+   "nhan_nguon": "Estrogel",
+   "brand": "Estrogel (Estradiol gel)",
+   "type": "Bôi ngoài da",
+   "dosage": "Sáng thức dậy bôi 1 lần, mỗi lần 1 thước đo (hoặc 1 pump). Thoa đều lên diện tích rộng vùng cánh tay, vai hoặc đùi.",
+   "note": "Không thoa lên ngực hoặc niêm mạc âm đạo. Rửa sạch tay sau khi bôi.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_035",
+   "nhan_nguon": "Estrogel pump",
+   "brand": "Estrogel pump (Estradiol 0.06%)",
+   "type": "Bôi ngoài da",
+   "dosage": "Mỗi ngày 1 - 2 nhát xịt (pump) vào buổi sáng. Thoa mỏng lên vùng da sạch, khô ở cánh tay, đùi hoặc bả vai.",
+   "note": "Hỗ trợ nội tiết estrogen tự nhiên, cải thiện bốc hỏa, mất ngủ, teo niêm mạc.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_036",
+   "nhan_nguon": "Eulac",
+   "brand": "Eulac / Gynoflor (Lactobacillus + Estriol)",
+   "type": "Đặt âm đạo",
+   "dosage": "Tuần đặt 2 lần (hoặc 1 viên/ngày x 6 ngày), tối sau khi vệ sinh vùng kín.",
+   "note": "Phục hồi hệ khuẩn chí âm đạo và tái tạo niêm mạc sau điều trị kháng sinh/kháng nấm.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_037",
+   "nhan_nguon": "Fersen",
+   "brand": "Fersen (Hộp 30 gói)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 gói, pha với 100-150ml nước lọc uống sau bữa ăn sáng và tối.",
+   "note": "Bổ sung L-Carnitine, Arginine, Kẽm cải thiện mật độ và tốc độ bơi của tinh trùng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_038",
+   "nhan_nguon": "Fes 1/10",
+   "brand": "Femoston 1/10 (Estradiol + Dydrogesterone)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên cố định giờ. Uống liên tục 14 viên trắng đầu, sau đó chuyển sang 14 viên xám.",
+   "note": "Liệu pháp hormone thay thế HRT theo chu kỳ cho phụ nữ quanh mãn kinh còn tử cung.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_039",
+   "nhan_nguon": "Fes 1/5",
+   "brand": "Femoston 1/5 (Estradiol + Dydrogesterone liên tục)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên, uống liên tục hằng ngày không nghỉ, uống cố định vào 1 khung giờ.",
+   "note": "Liệu pháp hormone phối hợp liên tục cho phụ nữ đã mãn kinh hoàn toàn (> 12 tháng).",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_040",
+   "nhan_nguon": "Filrosy progesteron 200 (D)",
+   "brand": "Filrosy (Progesterone 200mg)",
+   "type": "Đặt âm đạo",
+   "dosage": "Ngày đặt âm đạo 1 lần, mỗi lần 1 viên. Đặt sâu vào âm đạo vào buổi tối trước khi đi ngủ sau khi vệ sinh vùng kín.",
+   "note": "Nằm nghỉ ngơi tại chỗ tối thiểu 30 phút sau khi đặt. Giữ thuốc nơi thoáng mát hoặc ngăn mát tủ lạnh.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_041",
+   "nhan_nguon": "Fluconazole",
+   "brand": "Fluconazole 150mg",
+   "type": "Uống",
+   "dosage": "Uống 1 viên duy nhất sau ăn no.",
+   "note": "Thuốc kháng nấm toàn thân.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_042",
+   "nhan_nguon": "Folic mum",
+   "brand": "Folic Mum / Acid Folic 400mcg",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên sau ăn sáng.",
+   "note": "Phòng ngừa dị tật ống thần kinh thai nhi, uống trước thụ thai tối thiểu 1-3 tháng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_043",
+   "nhan_nguon": "Follintrope",
+   "brand": "Follitrope 300IU / 150IU (r-FSH)",
+   "type": "Tiêm dưới da",
+   "dosage": "Tiêm dưới da bụng theo liều lượng chỉ định riêng và đúng khung giờ mỗi ngày.",
+   "note": "Hormone kích thích nang noãn phát triển trong chu kỳ IVF / IUI.",
+   "unit": "ống",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_044",
+   "nhan_nguon": "Fosamax 2800/5600",
+   "brand": "Fosamax Plus (Alendronate + Vitamin D3)",
+   "type": "Uống",
+   "dosage": "Mỗi tuần uống duy nhất 1 viên vào 1 ngày cố định. Uống ngay khi thức dậy với 1 cốc nước lọc đầy (200ml).",
+   "note": "QUAN TRỌNG: Không được nằm trong vòng 30 phút sau uống, không nhai viên thuốc, không ăn sáng hoặc uống thuốc khác trong 30 phút đầu.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_045",
+   "nhan_nguon": "Gemapaxan",
+   "brand": "Gemapaxane 4000IU / Lovenox (Enoxaparin)",
+   "type": "Tiêm dưới da",
+   "dosage": "Tiêm dưới da thành bụng 1 bơm (0.4ml) mỗi ngày vào 1 giờ cố định.",
+   "note": "Kháng đông trọng lượng phân tử thấp dự phòng huyết khối và sẩy thai liên tiếp.",
+   "unit": "bơm",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_046",
+   "nhan_nguon": "Glucophage",
+   "brand": "Glucophage XR 750mg / 500mg (Metformin)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 viên vào buổi tối sau bữa ăn no để giảm tác dụng phụ trên đường tiêu hóa.",
+   "note": "Cải thiện đề kháng insulin ở bệnh nhân buồng trứng đa nang (PCOS), hỗ trợ phóng noãn.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_047",
+   "nhan_nguon": "GonalF",
+   "brand": "Gonal-F 300 / 450 / 900 (Follitropin alfa)",
+   "type": "Tiêm dưới da",
+   "dosage": "Tiêm dưới da bằng bút tiêm chuyên dụng, xoay đúng nấc liều bác sĩ chỉ định.",
+   "note": "Bảo quản bút tiêm trong ngăn mát tủ lạnh (2 - 8 độ C).",
+   "unit": "bút",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_048",
+   "nhan_nguon": "IVF-C",
+   "brand": "IVF-C 5000 IU (hCG)",
+   "type": "Tiêm bắp / Tiêm dưới da",
+   "dosage": "Tiêm 1 liều duy nhất chính xác vào giờ bác sĩ hẹn (mũi tiêm rụng trứng).",
+   "note": "Kích hoạt trưởng thành noãn cuối cùng trước khi chọc hút trứng 36 giờ hoặc trước IUI 36-40 giờ.",
+   "unit": "lọ",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_049",
+   "nhan_nguon": "IVF-M",
+   "brand": "IVF-M 75 / 150 IU (hMG - Menotropin)",
+   "type": "Tiêm bắp / Tiêm dưới da",
+   "dosage": "Tiêm hàng ngày theo liều lượng chỉ định của bác sĩ chuyên khoa.",
+   "note": "Chứa cả FSH và LH giúp nang noãn phát triển đồng đều.",
+   "unit": "lọ",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_050",
+   "nhan_nguon": "Indurate 5 (D/U)",
+   "brand": "Indurat 5mg / Tadalafil",
+   "type": "Uống / Đặt",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên sau ăn. Hoặc đặt âm đạo làm tăng tuần hoàn tưới máu tử cung buồng trứng.",
+   "note": "Tăng tưới máu niêm mạc tử cung cho phụ nữ niêm mạc mỏng, chuẩn bị chuyển phôi.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_051",
+   "nhan_nguon": "Intimate",
+   "brand": "Dung dịch vệ sinh Ziaja Intimate",
+   "type": "Rửa ngoài",
+   "dosage": "Dùng vệ sinh bên ngoài vùng kín ngày 1 - 2 lần khi tắm.",
+   "note": "Độ pH sinh lý, không thụt rửa sâu vào trong âm đạo.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_052",
+   "nhan_nguon": "Isoflavon",
+   "brand": "Aktiv Meno / Doppelherz Isoflavone",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 viên sau ăn sáng hoặc trưa cùng với lượng nước vừa đủ.",
+   "note": "Estrogen thảo dược (Phytoestrogen) giúp giảm bốc hỏa, cải thiện tâm trạng và làn da phụ nữ.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_053",
+   "nhan_nguon": "Kofio",
+   "brand": "Kofio (Estriol viên đặt)",
+   "type": "Đặt âm đạo",
+   "dosage": "Tuần đặt âm đạo 2 viên vào buổi tối trước khi đi ngủ. Đặt cách ngày hoặc theo chỉ dẫn.",
+   "note": "Bảo quản trong ngăn mát tủ lạnh để viên thuốc giữ độ cứng dễ đặt.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_054",
+   "nhan_nguon": "Letrozole (Femara) (10v/15v)",
+   "brand": "Femara 2.5mg (Letrozole)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 viên (sáng 1 viên, chiều 1 viên) từ ngày 2 hoặc 3 chu kỳ kinh, liên tục 5 ngày.",
+   "note": "Kích trứng thế hệ mới hiệu quả vượt trội cho phụ nữ buồng trứng đa nang PCOS.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_055",
+   "nhan_nguon": "Levina 5",
+   "brand": "Levina 5mg (Levocetirizine / Vardenafil)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 viên sau ăn.",
+   "note": "Cải thiện vi tuần hoàn hoặc giảm phản ứng dị ứng theo chỉ định lâm sàng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_056",
+   "nhan_nguon": "Lomexin",
+   "brand": "Lomexin 200mg / 600mg (Fenticonazole)",
+   "type": "Đặt âm đạo",
+   "dosage": "Loại 600mg: Đặt 1 viên duy nhất vào buổi tối. Loại 200mg: Đặt 1 viên/ngày trong 3 ngày.",
+   "note": "Kháng nấm phổ rộng tại chỗ.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_057",
+   "nhan_nguon": "Magie",
+   "brand": "Magie Max / Magne B6",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 lần, mỗi lần 1 viên. Uống buổi tối sau ăn để cải thiện chất lượng giấc ngủ.",
+   "note": "Giảm chuột rút, giảm co thắt tử cung, thư giãn thần kinh, chống đau đầu chóng mặt.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_058",
+   "nhan_nguon": "Meclon",
+   "brand": "Meclon viên đặt (Metronidazole + Clotrimazole)",
+   "type": "Đặt âm đạo",
+   "dosage": "Ngày đặt 1 viên vào buổi tối trước khi đi ngủ, liên tục trong 6 - 10 ngày.",
+   "note": "Phối hợp trị viêm âm đạo hỗn hợp do Trichomonas và Candida.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_059",
+   "nhan_nguon": "Mensterona",
+   "brand": "Mensterona / King Seal",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 gói (hoặc 2 viên), chia sáng và tối sau ăn.",
+   "note": "Tăng số lượng, độ di động tiến tới và hình thái tinh trùng cho nam giới.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_060",
+   "nhan_nguon": "Metronidazole",
+   "brand": "Metronidazole 250mg / 500mg",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 lần, mỗi lần 2 viên (500mg) sau ăn sáng và tối trong 7 ngày.",
+   "note": "QUAN TRỌNG: Tuyệt đối kiêng rượu bia, đồ uống có cồn trong suốt thời gian uống và 48h sau đó.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_061",
+   "nhan_nguon": "Nystatin",
+   "brand": "Nystatin 100.000 UI viên đặt",
+   "type": "Đặt âm đạo",
+   "dosage": "Ngày đặt 1 - 2 lần, mỗi lần 1 viên, liên tục trong 14 ngày.",
+   "note": "Làm ẩm viên thuốc với nước 1-2 giây trước khi đặt sâu vào âm đạo.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_062",
+   "nhan_nguon": "Ovagrow",
+   "brand": "Ovagrow (Myo-inositol + D-chiro-inositol)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 - 2 gói (hoặc viên) sau bữa ăn sáng và tối.",
+   "note": "Cân bằng nội tiết, phục hồi chu kỳ rụng trứng tự nhiên cho phụ nữ PCOS.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_063",
+   "nhan_nguon": "Ovitrelle",
+   "brand": "Ovitrelle 250mcg (Choriogonadotropin alfa)",
+   "type": "Tiêm dưới da",
+   "dosage": "Tiêm dưới da 1 bút tiêm duy nhất chính xác đến từng phút theo chỉ định của bác sĩ.",
+   "note": "Mũi tiêm rụng trứng kích hoạt noãn trưởng thành trước chọc hút trứng hoặc IUI.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_064",
+   "nhan_nguon": "Pruzena",
+   "brand": "Pruzena (Doxylamine + Pyridoxine B6)",
+   "type": "Uống",
+   "dosage": "Uống 1 - 2 viên vào buổi tối trước khi đi ngủ. Trường hợp nghén nặng: thêm 1 viên buổi sáng.",
+   "note": "Đặc trị nghén, buồn nôn, nôn mửa trong thai kỳ quý I an toàn tuyệt đối.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_065",
+   "nhan_nguon": "Tadalafil 5/20",
+   "brand": "Tadalafil 5mg / 20mg",
+   "type": "Uống",
+   "dosage": "Loại 5mg: Uống 1 viên/ngày sau ăn. Loại 20mg: Uống 1 viên trước khi quan hệ 30 - 60 phút.",
+   "note": "Tăng tưới máu cơ quan sinh dục, hỗ trợ niêm mạc tử cung ở nữ và cương dương ở nam.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_066",
+   "nhan_nguon": "Usatestos (D)",
+   "brand": "Usartestos (Testosterone viên đặt)",
+   "type": "Đặt âm đạo",
+   "dosage": "Tuần đặt 2 lần, mỗi lần 1 viên vào buổi tối theo chỉ định nghiêm ngặt của bác sĩ.",
+   "note": "Điều trị rối loạn chức năng tình dục nữ, cải thiện ham muốn và bôi trơn âm đạo.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_067",
+   "nhan_nguon": "Utrogestran 100 (D/U) (1v/2v)",
+   "brand": "Utrogestan 100mg",
+   "type": "Đặt âm đạo / Uống",
+   "dosage": "Ngày 1 - 2 lần, mỗi lần 1 viên. Ưu tiên đặt âm đạo buổi tối để tránh cảm giác chóng mặt, buồn ngủ khi uống.",
+   "note": "Dưỡng thai, hỗ trợ hoàng thể pha 2 chu kỳ kinh.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_068",
+   "nhan_nguon": "Utrogestran 200 (D/U) (1v/2v)",
+   "brand": "Utrogestan 200mg",
+   "type": "Đặt âm đạo / Uống",
+   "dosage": "Ngày đặt âm đạo 1 - 2 lần, mỗi lần 1 viên. Sáng 1 viên, tối 1 viên sau khi vệ sinh sạch sẽ.",
+   "note": "Dọa sẩy thai, dọa sinh non hoặc hỗ trợ sau chuyển phôi IVF.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_069",
+   "nhan_nguon": "Valiera (D/U) (1v/2v/3v)",
+   "brand": "Valiera (Estradiol 2mg)",
+   "type": "Đặt âm đạo / Uống",
+   "dosage": "Tuần đặt 2 - 3 lần, mỗi lần đặt 1 viên vào buổi tối trước khi đi ngủ. Hoặc uống ngày 1 - 3 viên theo phác đồ làm dày niêm mạc.",
+   "note": "Bổ sung estrogen làm dày niêm mạc tử cung và cải thiện teo khô âm đạo.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_070",
+   "nhan_nguon": "Vitcofol",
+   "brand": "Vitcofol (Sắt hữu cơ + Vitamin nhóm B)",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 lần, mỗi lần 1 viên. Uống trước bữa ăn 30 phút hoặc sau ăn 1 tiếng.",
+   "note": "Uống với nước cam hoặc nước lọc giàu Vitamin C. Uống cách xa Canxi tối thiểu 2 tiếng.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_071",
+   "nhan_nguon": "Yspuripax (2v/4v)",
+   "brand": "Yspuripax 200mg (Flavoxate HCl)",
+   "type": "Uống",
+   "dosage": "Ngày uống 2 - 3 lần, mỗi lần 1 - 2 viên sau ăn.",
+   "note": "Chống co thắt cơ trơn đường tiết niệu, giảm tiểu buốt, tiểu rắt, đau bàng quang.",
+   "unit": "viên",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_072",
+   "nhan_nguon": "Zinc",
+   "brand": "Zincodin / Zinc Puritan",
+   "type": "Uống",
+   "dosage": "Ngày uống 1 viên sau ăn trưa hoặc sáng.",
+   "note": "Tăng cường miễn dịch, làm dày niêm mạc, hỗ trợ chức năng buồng trứng và tinh hoàn.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  },
+  {
+   "ma": "rx_073",
+   "nhan_nguon": "Zolmed",
+   "brand": "Zolmed (Secnidazole 1g / 2g)",
+   "type": "Uống",
+   "dosage": "Uống 1 liều duy nhất 2g (2 viên) vào đầu bữa ăn.",
+   "note": "Điều trị viêm âm đạo do Gardnerella, Trichomonas liều duy nhất.",
+   "unit": "hộp",
+   "drug_catalog_id": null
+  }
+ ]
+}

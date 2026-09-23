@@ -56,6 +56,7 @@ from clinicai.api.v1.routers.payment import router as payment_router
 from clinicai.api.v1.routers.phan_quyen import router as phan_quyen_router
 from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
 from clinicai.api.v1.routers.phieu import router as phieu_router
+from clinicai.api.v1.routers.phieu_kham import router as phieu_kham_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -287,6 +288,11 @@ app.include_router(
 # Biểu mẫu: điền phiếu kết quả, xuất bản bản mẫu mới.
 app.include_router(
     phieu_router, prefix="/api/v1", tags=["phieu"], dependencies=_GUARDED
+)
+# Bảy phiếu khám — chỉ đường ĐỌC; quyền mặc định CHẶN TẤT cho tới khi hệ phân
+# quyền của CORE nối vào (`phieu_kham.lay_kiem_quyen`).
+app.include_router(
+    phieu_kham_router, prefix="/api/v1", tags=["phieu-kham"], dependencies=_GUARDED
 )
 # Mẫu kết quả: đọc cho mọi vai, gắn/gỡ cần capability quản lý danh mục.
 app.include_router(

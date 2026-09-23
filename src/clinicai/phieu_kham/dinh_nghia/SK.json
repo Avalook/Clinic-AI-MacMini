@@ -1,0 +1,495 @@
+{
+ "form_id": "SK",
+ "ten": "Phiếu sản khoa",
+ "nhom": "PHIEU_KHAM",
+ "nguon": {
+  "tai_lieu": "ClinicAI-7-phieu-v5-final-review.html",
+  "sha256": "5628ad40bcfe5e0eef4f0e247f2f71b141610f82cc4456e6cbf4131cdca8069f",
+  "ghi_chu": []
+ },
+ "khung": [
+  {
+   "ma": "HANH_CHINH",
+   "ten": "Hành chính & sinh hiệu",
+   "lien_ket": {
+    "loai": "mang_sang",
+    "truong": [
+     "patient.name",
+     "patient.birth_year",
+     "patient.code",
+     "encounter.date",
+     "vitals.blood_pressure",
+     "vitals.pulse",
+     "vitals.weight",
+     "vitals.height",
+     "vitals.temperature",
+     "vitals.spo2",
+     "vitals.bmi",
+     "vitals.respiratory_rate",
+     "vitals.pain_score"
+    ]
+   },
+   "block": []
+  },
+  {
+   "ma": "A",
+   "ten": "A. Khám của bác sĩ tư vấn",
+   "block": [
+    {
+     "ma": "sk_a_note",
+     "ten": "Ghi chú bổ sung (nếu cần)",
+     "kieu": "doan_van"
+    }
+   ],
+   "lien_ket": {
+    "loai": "mang_sang",
+    "nguon": "doctor-consultation"
+   }
+  },
+  {
+   "ma": "B",
+   "ten": "B. Phiếu khám / đánh giá chuyên khoa",
+   "block": [
+    {
+     "ma": "sk_edd",
+     "ten": "Dự kiến sinh",
+     "kieu": "ngay"
+    },
+    {
+     "ma": "sk_reason",
+     "ten": "Lý do khám",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "sk_reason_1",
+       "ten": "Khám thai"
+      },
+      {
+       "ma": "sk_reason_2",
+       "ten": "Ra máu"
+      },
+      {
+       "ma": "sk_reason_3",
+       "ten": "Đau bụng"
+      }
+     ],
+     "nhom": "Lý do khám"
+    },
+    {
+     "ma": "sk_reason_other",
+     "ten": "Khác",
+     "kieu": "doan_van",
+     "nhom": "Lý do khám"
+    },
+    {
+     "ma": "sk_history",
+     "ten": "Quá trình bệnh lý hiện tại",
+     "kieu": "doan_van",
+     "nhom": "Lý do khám"
+    },
+    {
+     "ma": "sk_para",
+     "ten": "PARA",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_menarche",
+     "ten": "Tuổi lần đầu thấy kinh",
+     "kieu": "so",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_cycle",
+     "ten": "Chu kỳ kinh nguyệt (ngày)",
+     "kieu": "so",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_days",
+     "ten": "Số ngày hành kinh",
+     "kieu": "so",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_flow",
+     "ten": "Lượng kinh",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_dysmenorrhea",
+     "ten": "Thống kinh (Có/Không, độ)",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_lmp",
+     "ten": "Kinh lần cuối (LMP)",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_marriage",
+     "ten": "Lấy chồng năm / tuổi",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_contraception",
+     "ten": "Biện pháp tránh thai đã/đang dùng",
+     "kieu": "text",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_gyn_disease",
+     "ten": "Các bệnh phụ khoa đang điều trị",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_gyn_surgery",
+     "ten": "Phẫu thuật phụ khoa",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử"
+    },
+    {
+     "ma": "sk_med_hist",
+     "ten": "Tiền sử nội khoa, nội tiết",
+     "kieu": "nhieu_chon",
+     "lua_chon": [
+      {
+       "ma": "sk_med_hist_1",
+       "ten": "Đái tháo đường"
+      },
+      {
+       "ma": "sk_med_hist_2",
+       "ten": "Tuyến giáp"
+      },
+      {
+       "ma": "sk_med_hist_3",
+       "ten": "PCOS"
+      },
+      {
+       "ma": "sk_med_hist_4",
+       "ten": "Lạc nội mạc tử cung"
+      },
+      {
+       "ma": "sk_med_hist_5",
+       "ten": "U xơ tử cung"
+      },
+      {
+       "ma": "sk_med_hist_6",
+       "ten": "Tắc vòi trứng"
+      },
+      {
+       "ma": "sk_med_hist_7",
+       "ten": "Loãng xương"
+      },
+      {
+       "ma": "sk_med_hist_8",
+       "ten": "Tim mạch"
+      },
+      {
+       "ma": "sk_med_hist_9",
+       "ten": "Ung thư phụ khoa"
+      },
+      {
+       "ma": "sk_med_hist_10",
+       "ten": "Huyết khối tĩnh mạch"
+      },
+      {
+       "ma": "sk_med_hist_11",
+       "ten": "Tăng huyết áp"
+      },
+      {
+       "ma": "sk_med_hist_12",
+       "ten": "Rối loạn mỡ máu"
+      }
+     ],
+     "nhom": "Tiền sử nội khoa, nội tiết"
+    },
+    {
+     "ma": "sk_med_hist_detail",
+     "ten": "Chi tiết",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử nội khoa, nội tiết"
+    },
+    {
+     "ma": "sk_allergy",
+     "ten": "Dị ứng thuốc",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử nội khoa, nội tiết"
+    },
+    {
+     "ma": "sk_surgical_hist",
+     "ten": "Tiền sử ngoại khoa",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử nội khoa, nội tiết"
+    },
+    {
+     "ma": "sk_stable",
+     "ten": "Ổn định",
+     "kieu": "text",
+     "nhom": "Khám"
+    },
+    {
+     "ma": "sk_warning",
+     "ten": "Dấu hiệu cần lưu ý",
+     "kieu": "doan_van",
+     "nhom": "Khám"
+    },
+    {
+     "ma": "sk_blood_1",
+     "ten": "CTM (HC, BC, TC, Hb, HCT)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "CTM (HC, BC, TC, Hb, HCT)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_2",
+     "ten": "Glucose máu đói",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Glucose máu đói",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_3",
+     "ten": "HbA1c",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "HbA1c",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_4",
+     "ten": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_5",
+     "ten": "Chức năng gan (AST, ALT, GGT)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Chức năng gan (AST, ALT, GGT)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_6",
+     "ten": "Chức năng thận (Ure, Creatinin)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Chức năng thận (Ure, Creatinin)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_7",
+     "ten": "Nhóm máu",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Nhóm máu",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_8",
+     "ten": "Viêm gan B (HBsAg / Anti-HBs)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Viêm gan B (HBsAg / Anti-HBs)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_9",
+     "ten": "HIV, Giang mai (VDRL/TPHA)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "HIV, Giang mai (VDRL/TPHA)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_10",
+     "ten": "Rubella IgG / IgM",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Rubella IgG / IgM",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_blood_11",
+     "ten": "Đông máu cơ bản (PT, APTT, Fibrinogen)",
+     "kieu": "text",
+     "bang": {
+      "ma": "sk_blood",
+      "ten": "Nội dung",
+      "cot": [
+       "Kết quả / Mô tả"
+      ]
+     },
+     "hang": "Đông máu cơ bản (PT, APTT, Fibrinogen)",
+     "cot": "Kết quả / Mô tả",
+     "nhom": "Cận lâm sàng"
+    },
+    {
+     "ma": "sk_ultrasound",
+     "ten": "Siêu âm",
+     "kieu": "doan_van",
+     "nhom": "Cận lâm sàng"
+    }
+   ]
+  },
+  {
+   "ma": "C",
+   "ten": "C. Chỉ định cận lâm sàng",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_cls",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "D",
+   "ten": "D. Chẩn đoán và xử lý",
+   "block": [
+    {
+     "ma": "sk_conclusion",
+     "ten": "Kết luận / chẩn đoán",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sk_plan",
+     "ten": "Xử lý / kế hoạch",
+     "kieu": "doan_van"
+    }
+   ]
+  },
+  {
+   "ma": "E",
+   "ten": "E. Chỉ định điều trị",
+   "block": [
+    {
+     "ma": "sk_treatment_other",
+     "ten": "Điều trị khác / thuốc ngoài danh mục",
+     "kieu": "doan_van",
+     "goi_y": "Nhập tự do nếu chưa có trong danh mục",
+     "khoa_tu": "name"
+    },
+    {
+     "ma": "sk_treatment_note",
+     "ten": "Lời dặn điều trị chung",
+     "kieu": "doan_van",
+     "goi_y": "Lời dặn chung cho bệnh nhân",
+     "khoa_tu": "name"
+    }
+   ],
+   "lien_ket": {
+    "loai": "don_thuoc",
+    "rang_buoc": "prescription.drug_catalog_id"
+   }
+  },
+  {
+   "ma": "F",
+   "ten": "F. Chỉ định thủ thuật",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_thu_thuat",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "G",
+   "ten": "G. Theo dõi và tái khám",
+   "block": [
+    {
+     "ma": "sk_advice",
+     "ten": "Lời dặn",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sk_follow_date",
+     "ten": "Ngày tái khám (nếu có)",
+     "kieu": "ngay"
+    },
+    {
+     "ma": "sk_follow_note",
+     "ten": "Ghi chú theo dõi",
+     "kieu": "doan_van"
+    }
+   ]
+  }
+ ]
+}
