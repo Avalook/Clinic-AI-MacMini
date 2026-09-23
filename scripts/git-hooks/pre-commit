@@ -46,8 +46,43 @@ while IFS= read -r f; do
   fi
 
   # --- Dấu hiệu một bản dump database ---
-  if head -c 8192 "$f" 2>/dev/null | grep -qE '^COPY public\.|^-- PostgreSQL database dump|^INSERT INTO public\.'; then
+  #
+  # HAI DẤU HIỆU CHẮC CHẮN, luôn chặn ở mọi loại file: header của pg_dump, và
+  # `COPY public.` — dạng mặc định pg_dump ghi dữ liệu, không ai viết tay.
+  if head -c 8192 "$f" 2>/dev/null | grep -qE '^COPY public\.|^-- PostgreSQL database dump'; then
     bao "$f trông như một bản dump database — dump chứa hồ sơ bệnh nhân và bí mật, không được vào git"
+    continue
+  fi
+
+  # `INSERT INTO public.` MỘT MÌNH KHÔNG ĐỦ ĐỂ KẾT LUẬN (sửa 23/09/2026).
+  #
+  # Bản đầu chặn mọi dòng `^INSERT INTO public.` trong 8KB đầu. Đo lại trên
+  # chính kho này: **21 migration ĐÃ NẰM TRONG GIT** cũng bị chặn — seed danh
+  # mục node, phòng, biểu mẫu, bảng giá. Chúng lọt vào kho chỉ vì được commit
+  # TRƯỚC ngày có chốt này, tức là chốt chưa từng được thử với thứ nó gặp
+  # thường xuyên nhất.
+  #
+  # Một chốt kêu oan 21 lần thì người ta sẽ gõ `--no-verify` cho quen tay, và
+  # lần nó kêu thật cũng bị bỏ qua nốt. Chính file này đã viết câu ấy ở phần
+  # bí mật bên dưới; phần dump thì chưa áp dụng.
+  #
+  # Nên: chặn khi INSERT chạm BẢNG CÓ NGƯỜI THẬT hoặc bí mật. Seed danh mục
+  # (node, phòng, dịch vụ, biểu mẫu, quyền) thì cho qua — chúng là lược đồ
+  # nghiệp vụ, không phải hồ sơ ai cả.
+  # Tên bảng phải KHỚP TRỌN, không khớp tiền tố: `staff_node` là bảng gán nhân
+  # sự vào bước quy trình (lược đồ), `staff` mới là bảng người thật. Bản đầu
+  # không có ranh giới này nên bắt oan cả `staff_node` lẫn `visit_gate_rule`.
+  BANG_NHAY_CAM='patient|staff|visit|appointment|lab_result|clinical_record|clinical_form_response|prescription|tep_ket_qua|clinic_secret|payment|consultation|nhac_tai_kham|cskh_action'
+  if grep -qE "^INSERT INTO (public\.|auth\.)?($BANG_NHAY_CAM)[[:space:](]" "$f" 2>/dev/null; then
+    bao "$f có INSERT vào bảng chứa người thật hoặc bí mật — dữ liệu ấy không vào git"
+  fi
+
+  # Rất nhiều dòng INSERT cũng là dấu hiệu dump, dù tên bảng trông vô hại.
+  # `grep -c` in ra số RỒI THOÁT 1 khi không khớp, nên `|| echo 0` nối thêm một
+  # số 0 thứ hai và `[ "$x" -gt ... ]` nổ. Nuốt mã thoát bằng `|| true` mới đúng.
+  so_insert=$(grep -cE '^INSERT INTO ' "$f" 2>/dev/null || true)
+  if [ "${so_insert:-0}" -gt 200 ]; then
+    bao "$f có $so_insert dòng INSERT — quá nhiều cho một seed, xem lại có phải dump không"
   fi
 
   # --- Bí mật ---
