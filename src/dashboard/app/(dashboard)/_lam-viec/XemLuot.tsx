@@ -290,8 +290,8 @@ export default function XemLuot({
               <Muc tieuDe="Khám & bệnh án">
                 <p className="text-xs text-ink-soft">
                   {ls.ky.da_ky
-                    ? `Đã ký · ${ls.ky.nguoi_ky ?? "?"} · ${ngayGio(ls.ky.luc)}`
-                    : "Chưa ký bệnh án"}
+                    ? `Đã hoàn tất · ${ls.ky.nguoi_ky ?? "?"} · ${ngayGio(ls.ky.luc)}`
+                    : "Chưa hoàn tất khám"}
                   {ls.benh_an.revision ? ` · bản ${ls.benh_an.revision}` : ""}
                   {ls.benh_an.co_don_nhap_cho_duyet ? " · có đơn thuốc thư ký nhập chờ bác sĩ duyệt" : ""}
                 </p>

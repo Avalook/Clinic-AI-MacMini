@@ -6,7 +6,7 @@ Chứng minh:
   3. request hợp lệ SOAP-only => thành công
   4. request hợp lệ Rx amendment => thành công
   5. proxy không bỏ field  (kiểm qua schema/router round-trip)
-  6. UI không tự retry bằng revision mới  (kiểm qua luồng ClinicalSignPanel)
+  6. UI không tự retry bằng revision mới  (kiểm qua luồng HoSoHoanTatPanel)
 
 Tests 1–4 chạy trên DB thật (marker `db`).
 Test 5 kiểm schema round-trip thuần (không cần DB).
@@ -210,7 +210,7 @@ def test_smoke_amend_request_giu_du_field() -> None:
 
 
 def test_smoke_ui_khong_auto_retry() -> None:
-    """ClinicalSignPanel act() không tự gọi lại khi lỗi.
+    """HoSoHoanTatPanel act() (trước 23/09: ClinicalSignPanel) không tự gọi lại khi lỗi.
 
     Đọc source: `act()` khi `!r.ok` chỉ `setMsg(error)` rồi return.
     Không có vòng lặp, không có re-fetch revision, không có second POST.
@@ -219,7 +219,7 @@ def test_smoke_ui_khong_auto_retry() -> None:
 
     panel = Path(
         __file__,
-        "../../../dashboard/app/(dashboard)/tasks/ClinicalSignPanel.tsx",
+        "../../../dashboard/app/(dashboard)/tasks/HoSoHoanTatPanel.tsx",
     ).resolve()
     src = panel.read_text()
     # act() khi lỗi chỉ setMsg, không gọi lại fetch POST

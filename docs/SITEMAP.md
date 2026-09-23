@@ -50,7 +50,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL | Bàn khám (khách của tôi) · Bàn khám · Phòng … | GIỮ | **Nơi DUY NHẤT sửa bệnh án.** |
+| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL | Bàn khám (khách của tôi) · Bàn khám · Phòng … | GIỮ | **Nơi DUY NHẤT sửa bệnh án.** 23/09: trên chỉ còn `[Bắt đầu khám]`; `[Hoàn tất]` ở CUỐI hồ sơ (→ `kham-xong`). **Không còn Ký bệnh án** (`POST /clinical/{id}/sign` trả 410); Hoàn tất KHÔNG khoá, bệnh án sửa tiếp được. Khung `HoSoHoanTatPanel`: `[Cho phép CSKH gửi]` (sau Hoàn tất), `[Đính chính]` (chỉ lượt cũ đã ký). |
 | `/phan-quyen` | QL | Phân quyền | MỚI 23/09 | Chọn người → bật/tắt **khối công việc**; `[+ Thêm preset <vai>]` cấp nhanh theo vai; "▾ Chi tiết" bung quyền con. Đọc `GET /api/phan-quyen`; đổi bằng `POST` (`cap`/`thu`/`them-preset`). Cửa thật là capability `permission.manage` ở backend. |
 | `/viec-can-xu-ly` | QL, Thu ngân, Trưởng ca, BS | Việc cần xử lý | MỚI 23/09 | Việc sinh ra từ SỰ KIỆN: khách đã trả tiền mà dịch vụ không làm được (`OPS-FINANCIAL-RESOLUTION`), dịch vụ dừng giữa chừng (`OPS-SERVICE-INTERRUPTED`). Đọc `GET /api/work-items?workspace=khu_van_hanh`; đóng việc bằng lệnh kernel `complete`. |
 | `/duyet-ket-qua` | BS, BS SA, QL | Duyệt kết quả | GIỮ | Thông báo "có kết quả về" trỏ thẳng vào đây (`bao_ket_qua_ve.py`). |

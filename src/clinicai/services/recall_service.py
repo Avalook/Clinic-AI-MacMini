@@ -65,7 +65,15 @@ _DUE_FOLLOWUPS_SQL = r"""
             ON p.clinic_patient_id = v.clinic_patient_id
            AND p.clinic_id = v.clinic_id
          WHERE v.clinic_id = $1::uuid
-           AND v.status IN ('FINALIZED', 'AMENDED')
+           -- KHÁM ĐÃ HOÀN TẤT, không phải "đã ký" (CORE-A, 23/09/2026): không
+           -- còn bước ký, và Hoàn tất không khoá — nhận ra qua phiên khám cuối
+           -- đã kết thúc. Lượt CŨ đã từng ký (FINALIZED/AMENDED) vẫn được tính.
+           AND (v.status IN ('FINALIZED', 'AMENDED')
+                OR EXISTS (
+                    SELECT 1 FROM consultation c
+                     WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
+                       AND c.status = 'completed'
+                       AND c.outcome IN ('NO_SERVICES', 'DONE')))
            AND v.created_at >= (
                $2::date AT TIME ZONE 'Asia/Ho_Chi_Minh'
            )

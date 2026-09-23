@@ -10,12 +10,20 @@
 // ghi vào `payload` của thẻ — một đường thứ ba song song mà trên final cloud có
 // 0 chỉ định thật.
 //
-// CHECK-IN / CHECK-OUT CỦA PHÒNG = hai nút: "Bắt đầu khám" và "Đã khám xong"
-// (Tuyền: *"bác sĩ chọn rồi ấn bắt đầu khám cho người đó rồi điền thông tin bên
-// trong, khám xong thì ghi đã khám xong là được"*). Khám xong mà còn chỉ định
+// CHECK-IN / CHECK-OUT CỦA PHÒNG = hai nút: "Bắt đầu khám" ở TRÊN và "Hoàn tất"
+// ở CUỐI hồ sơ (Tuyền chốt 23/09/2026: *"chỉ cần nút hoàn tất là khám xong
+// rồi… bỏ luôn nút khám xong ở trên đi, chỉ cần nút bắt đầu khám"*). Không còn
+// nút Ký, và Hoàn tất KHÔNG khoá hồ sơ ("không khoá, sửa thoải mái"). Khám xong mà còn chỉ định
 // chưa làm thì khách tự sang hàng chờ phòng làm chỉ định — máy chủ quyết.
 
-import { ClipboardPlus, FlaskConical, HeartPulse, Search, Stethoscope } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardPlus,
+  FlaskConical,
+  HeartPulse,
+  Search,
+  Stethoscope,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -251,8 +259,8 @@ export default function BanKham({
     if (!cu || (d.xong_luc ?? "") > (cu.xong_luc ?? "")) cuoiCung[d.visit_id] = d;
   }
   const daXong = hienRa.filter((d) => cuoiCung[d.visit_id] === d);
-  // Thư ký: phân "chờ bác sĩ ký" với "đã ký" — thấy ngay lượt nào mình đã nhập
-  // mà bác sĩ chưa xác nhận.
+  // Thư ký: phân "chờ bác sĩ hoàn tất" với "đã hoàn tất" — thấy ngay lượt nào
+  // mình đã nhập mà bác sĩ chưa hoàn tất (không còn bước ký riêng, 23/09/2026).
   const choKy = daXong.filter((d) => !d.da_ky);
   const daKy = daXong.filter((d) => d.da_ky);
   const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
@@ -353,8 +361,8 @@ export default function BanKham({
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
               {laThuKy ? (
                 <>
-                  <Nhom ten="Chờ bác sĩ ký" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom ten="Đã ký hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Chờ bác sĩ hoàn tất" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Đã hoàn tất hôm nay" ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
                 </>
               ) : (
                 <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
@@ -562,7 +570,7 @@ function HoSo({
       if (!completionGate.ok) {
         setLoi({
           id: dong.id,
-          cau: completionGate.message ?? "Hồ sơ chưa sẵn sàng để Khám xong.",
+          cau: completionGate.message ?? "Hồ sơ chưa sẵn sàng để Hoàn tất.",
         });
         return;
       }
@@ -570,8 +578,8 @@ function HoSo({
       if (
         !window.confirm(
           completionMode === "HANDOFF"
-            ? `Đã khám xong cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ.`
-            : `Xác nhận đã hoàn tất phần khám của ${dong.ten}?`,
+            ? `Hoàn tất lượt khám này cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ.`
+            : `Hoàn tất khám cho ${dong.ten}?`,
         )
       ) {
         return;
@@ -667,35 +675,12 @@ function HoSo({
                 {dangGui ? "Đang ghi…" : "Bắt đầu khám"}
               </button>
             ) : null}
-            {dong.trang_thai === "serving" ? (
-              <button
-                type="button"
-                disabled={dangGui}
-                onClick={() => void bam("kham-xong")}
-                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {dangGui ? "Đang ghi…" : laBacSi ? "Khám xong" : "Đã khám xong"}
-              </button>
-            ) : null}
-            {/* Nút trên CHỈ đóng phiên khám (khách sang bước tiếp) — trước đây
-                ghi "Xác nhận & ký" nhưng không ký gì (smoke 18/09). Ký bệnh án
-                là nút riêng ở khung "Ký bệnh án". */}
-            {dong.trang_thai === "serving" && laBacSi && !dong.da_ky ? (
-              <p className="text-xs text-ink-muted">
-                Nút này không ký bệnh án — ký ở khung “Ký bệnh án”.
-              </p>
-            ) : null}
-            {dong.trang_thai === "serving" && !laBacSi && completionMode === "TERMINAL" ? (
-              <p className="text-xs text-ink-muted">
-                Chờ bác sĩ hoàn tất lượt khám.
-              </p>
-            ) : null}
             {dong.trang_thai === "blocked" ? (
               <p className="text-xs text-warning">
                 Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
               </p>
             ) : null}
-            {loiHienTai ? (
+            {loiHienTai && dong.trang_thai !== "serving" ? (
               <p role="alert" className="text-xs text-danger">
                 {loiHienTai}
               </p>
@@ -728,7 +713,7 @@ function HoSo({
         </div>
         {dong.da_ky ? (
           <p className="mt-2 text-xs font-medium text-ink-soft">
-            Bệnh án đã ký{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
+            Hồ sơ đã hoàn tất{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
             {dong.ky_luc ? ` · ${gioVn(dong.ky_luc)}` : ""} — phiếu chỉ xem.
           </p>
         ) : null}
@@ -761,7 +746,9 @@ function HoSo({
               key={dong.visit_id}
               visitId={dong.visit_id}
               serviceCode={dong.form_code}
-              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
+              // Hoàn tất KHÔNG khoá (Tuyền chốt 23/09/2026): khách đã khám xong
+              // vẫn sửa được. Chỉ lượt CŨ đã từng ký mới chỉ-xem.
+              readOnly={!choBam || Boolean(dong.da_ky)}
             />
             {/* Sản khoa: thai kỳ CHÍNH THỨC (bảng `pregnancy`) — chỉ bác sĩ ghi. */}
             {dong.form_code === "SK" ? (
@@ -775,7 +762,7 @@ function HoSo({
         )}
         {/* BỆNH ÁN · CHẨN ĐOÁN · ĐƠN THUỐC (demo 17/09/2026). Thư ký nhập, màn
             bác sĩ tự tải lại khi bên kia lưu (sự kiện realtime), bác sĩ duyệt
-            đơn và ký. Khám xong vẫn bấm ở nút trên — trạng thái truyền vào là
+            đơn rồi bấm Hoàn tất ở cuối hồ sơ — trạng thái truyền vào là
             COMPLETED để form KHÔNG bày nút "Kết thúc khám" của đường cũ. */}
         {dong.loai === "KHAM" && dong.appointment_id && !dangXem ? (
           <details open className="mt-3 rounded-card border border-line">
@@ -813,11 +800,38 @@ function HoSo({
               staffId={staffId}
               onClose={() => {}}
               canSign={laBacSi}
-              readOnly={!choBam || dong.trang_thai === "done" || Boolean(dong.da_ky)}
+              // Hoàn tất KHÔNG khoá (Tuyền chốt 23/09/2026): khách đã khám xong
+              // vẫn sửa được. Chỉ lượt CŨ đã từng ký mới chỉ-xem.
+              readOnly={!choBam || Boolean(dong.da_ky)}
               completionMode={completionMode}
               onCompletionGateChange={setCompletionGate}
             />
           </details>
+        ) : null}
+        {/* HOÀN TẤT — nút duy nhất để khép phiên khám, đặt CUỐI hồ sơ: điền
+            xong bệnh án và chỉ định rồi mới bấm (Tuyền chốt 23/09/2026). Phiên
+            cuối thì khép lượt khám; còn chỉ định thì khách sang phòng. Không
+            khoá hồ sơ — bệnh án vẫn sửa được sau khi hoàn tất. */}
+        {choBam && dong.trang_thai === "serving" ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <button
+              type="button"
+              disabled={dangGui}
+              onClick={() => void bam("kham-xong")}
+              className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+              {dangGui ? "Đang ghi…" : "Hoàn tất"}
+            </button>
+            {!laBacSi && completionMode === "TERMINAL" ? (
+              <p className="text-xs text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
+            ) : null}
+            {loiHienTai ? (
+              <p role="alert" className="text-xs text-danger">
+                {loiHienTai}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </section>

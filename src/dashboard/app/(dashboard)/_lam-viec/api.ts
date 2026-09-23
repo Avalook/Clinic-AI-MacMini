@@ -51,7 +51,7 @@ export interface DongHangCho {
   xong_luc: string | null;
   ket_qua_luc: string | null;
   duyet_luc: string | null;
-  /** Bệnh án của lượt đã ký (FINALIZED/AMENDED) — phiếu khoá theo mốc này. */
+  /** Lượt đã hoàn tất khám (FINALIZED/AMENDED) — phiếu khoá theo mốc này. */
   da_ky?: boolean;
   ky_luc?: string | null;
   nguoi_ky?: string | null;

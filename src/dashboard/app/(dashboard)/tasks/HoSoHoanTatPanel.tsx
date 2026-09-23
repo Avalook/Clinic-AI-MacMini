@@ -1,25 +1,28 @@
 "use client";
 
-// KÝ BỆNH ÁN — HAI BƯỚC, và bước hai không tự xảy ra.
+// HỒ SƠ ĐÃ HOÀN TẤT — cho phép gửi và đính chính.
 //
-// Quyết định của Quang (2026-08-04): bác sĩ ký xong, kết quả VẪN CHƯA tới tay
+// KHÔNG CÒN "KÝ BỆNH ÁN" (Tuyền chốt 23/09/2026, CORE-A). Hoàn tất = khám
+// xong, KHÔNG khoá: bệnh án vẫn sửa thẳng sau đó. Panel này hiện trạng thái và
+// nút "Cho phép CSKH gửi" (chỉ sau khi hoàn tất). "Đính chính" chỉ còn cho lượt
+// CŨ đã từng ký.
+//
+// Quyết định của Quang (2026-08-04): hoàn tất xong, kết quả VẪN CHƯA tới tay
 // bệnh nhân. Phải bấm thêm "Cho phép CSKH gửi". Lý do của anh: *"nếu trường hợp
 // bệnh án nguy hiểm thì phải cảnh báo CSKH chưa được gửi"* — có những kết quả
 // bác sĩ muốn tự gọi báo, hoặc muốn gặp trực tiếp, chứ không để CSKH nhắn đi.
 //
 // Panel này KHÔNG tự bấm gì. Nó chỉ hiện trạng thái thật và mở đúng nút hợp lệ
-// cho từng trạng thái — vì sau chữ ký, hồ sơ bị khoá theo TT13/2011/TT-BYT và
-// đường quay lại duy nhất là đính chính có lý do.
+// cho từng trạng thái.
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileSignature, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Send } from "lucide-react";
 
 import { ngheBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
 
 interface Status {
   state: "DRAFT" | "SIGNED" | "RELEASED" | "AMENDED";
   version: number;
-  /** Phiên bản bệnh án đang xem — gửi khi ký để chốt đúng bản ấy. */
   record_revision?: number | null;
   /** Amendment mới nhất — gửi khi cho phép gửi bản AMENDED. */
   last_amendment_id?: string | null;
@@ -34,9 +37,13 @@ interface Status {
 }
 
 const LABEL: Record<Status["state"], { text: string; bg: string; fg: string }> = {
-  DRAFT: { text: "Bản nháp", bg: "var(--surface-sunken)", fg: "var(--ink-muted)" },
+  DRAFT: {
+    text: "Chưa hoàn tất",
+    bg: "var(--surface-sunken)",
+    fg: "var(--ink-muted)",
+  },
   SIGNED: {
-    text: "Đã ký — CSKH chưa gửi được",
+    text: "Đã hoàn tất — CSKH chưa gửi được",
     bg: "var(--warning-bg)",
     fg: "var(--warning)",
   },
@@ -60,14 +67,14 @@ const SOAP = [
   { key: "soap_plan", label: "Hướng xử trí", json: "xu_tri" },
 ];
 
-export default function ClinicalSignPanel({
+export default function HoSoHoanTatPanel({
   visitId,
   isDoctor,
   onChanged,
   revision,
 }: {
   visitId: string | null;
-  /** Phiên bản bệnh án ĐANG HIỆN trên form bác sĩ — ký đúng bản này. */
+  /** Phiên bản bệnh án ĐANG HIỆN trên form — đính chính đúng bản này. */
   revision?: number | null;
   /** Chỉ bác sĩ thấy nút. Backend cũng chặn — đây là để không bày nút vô dụng. */
   isDoctor: boolean;
@@ -89,7 +96,7 @@ export default function ClinicalSignPanel({
       setSt((await r.json()) as Status);
     } catch {
       // Giữ trạng thái cũ. Panel này không được đoán — đoán sai một chiều là
-      // bày ra nút "Ký" cho một hồ sơ đã ký.
+      // bày ra nút "Cho phép gửi" cho một hồ sơ chưa hoàn tất.
     }
   }, [visitId]);
 
@@ -108,24 +115,12 @@ export default function ClinicalSignPanel({
     };
   }, [load]);
 
-  // UI-01 (smoke 18/09): phiếu chuyên khoa và bệnh án TỰ LƯU ở component khác,
-  // nên danh sách "còn thiếu" ở đây đứng yên và nút Ký bị khoá dù máy chủ đã
-  // đủ điều kiện — bác sĩ phải tải lại trang mới ký được.
-  //  · Lưu ở CHÍNH trang này → chuông `baoBenhAnDaLuu` → đọc lại ngay.
-  //  · Người khác sửa ở máy khác (thư ký) → hỏi lại thưa (15 giây, tab đang mở),
-  //    chỉ khi còn là bản nháp chưa ký được; dừng ngay khi ký được hoặc đã ký.
-  const choKy = st?.state === "DRAFT" && !st.can_sign;
+  // Bệnh án / phiếu lưu ở CHÍNH trang này → chuông `baoBenhAnDaLuu` → đọc lại,
+  // để trạng thái (chưa hoàn tất / đã hoàn tất) không đứng yên.
   useEffect(() => {
     if (!visitId) return;
     return ngheBenhAnDaLuu(visitId, () => void load());
   }, [visitId, load]);
-  useEffect(() => {
-    if (!choKy) return;
-    const t = setInterval(() => {
-      if (document.visibilityState !== "hidden") void load();
-    }, 15000);
-    return () => clearInterval(t);
-  }, [choKy, load]);
 
   async function act(path: string, body?: unknown, ok?: string) {
     setBusy(true);
@@ -166,8 +161,8 @@ export default function ClinicalSignPanel({
   return (
     <div className="mt-3 rounded-lg border border-line bg-surface-muted p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <FileSignature size={15} className="text-ink-muted" />
-        <span className="text-sm font-semibold text-ink">Chốt hồ sơ</span>
+        <CheckCircle2 size={15} className="text-ink-muted" />
+        <span className="text-sm font-semibold text-ink">Hồ sơ</span>
         <span
           className="rounded-full px-2 py-0.5 text-xs font-semibold"
           style={{ background: tone.bg, color: tone.fg }}
@@ -181,7 +176,7 @@ export default function ClinicalSignPanel({
 
       {st.signed_at && (
         <div className="mt-1.5 text-xs text-ink-muted">
-          Ký bởi {st.signed_by_name ?? "—"} lúc{" "}
+          Hoàn tất bởi {st.signed_by_name ?? "—"} lúc{" "}
           {new Date(st.signed_at).toLocaleString("vi-VN", {
             timeZone: "Asia/Ho_Chi_Minh",
             day: "2-digit",
@@ -195,32 +190,15 @@ export default function ClinicalSignPanel({
         </div>
       )}
 
-      {/* Còn thiếu gì thì NÓI ĐỦ, không nói một mục rồi im — bác sĩ điền xong
-          lại bấm, lại bị chặn là cách nhanh nhất để người ta ghét cái nút. */}
-      {st.state === "DRAFT" && st.missing.length > 0 && (
-        <div className="mt-2 text-xs text-warning">
-          Chưa ký được, còn thiếu: <b>{st.missing.join(" · ")}</b>
+      {st.state === "DRAFT" && (
+        <div className="mt-2 text-xs text-ink-muted">
+          Khám xong thì bấm <b>Hoàn tất</b> ở cuối hồ sơ. Sau đó bác sĩ mới cho
+          phép CSKH gửi hồ sơ.
         </div>
       )}
 
       {isDoctor && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {st.state === "DRAFT" && (
-            <button
-              disabled={busy || !st.can_sign}
-              onClick={() =>
-                act(
-                  "sign",
-                  { expected_revision: revision ?? st.record_revision ?? 0 },
-                  "✓ Đã ký bệnh án",
-                )
-              }
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              <FileSignature size={14} /> Ký bệnh án
-            </button>
-          )}
-
           {st.can_release && (
             <button
               disabled={busy}
@@ -249,11 +227,11 @@ export default function ClinicalSignPanel({
         </div>
       )}
 
-      {/* Hồ sơ đã ký nhưng CHƯA cho phép gửi — nói rõ hệ quả, vì đây chính là
+      {/* Hồ sơ đã hoàn tất nhưng CHƯA cho phép gửi — nói rõ hệ quả, vì đây chính là
           tình huống Quang muốn có: kết quả nguy hiểm thì giữ lại. */}
       {st.state === "SIGNED" && (
         <div className="mt-2 rounded-md bg-warning-bg px-2.5 py-1.5 text-xs text-warning">
-          Hồ sơ đã ký nhưng <b>chưa cho phép gửi</b> — CSKH không thấy nút gửi
+          Hồ sơ đã hoàn tất nhưng <b>chưa cho phép gửi</b> — CSKH không thấy nút gửi
           kết quả cho bệnh nhân.
         </div>
       )}

@@ -2894,8 +2894,10 @@ class LuotKhamService:
                             " bác sĩ miễn (ghi lý do) hoặc chuyển theo dõi trước.",
                         )
             if outcome in ("NO_SERVICES", "DONE"):
-                # HOÀN TẤT KHÁM (CORE-A, 23/09/2026): mốc khoá hồ sơ. Cần quyền
+                # HOÀN TẤT KHÁM (CORE-A, 23/09/2026): phiên khám cuối. Cần quyền
                 # `clinical.consult.finalize` VÀ là bác sĩ phụ trách phiên này.
+                # KHÔNG khoá hồ sơ — Tuyền chốt 23/09: "không khoá, sửa thoải
+                # mái"; bệnh án vẫn sửa trực tiếp sau khi hoàn tất.
                 if (
                     not await can(conn, identity, "clinical.consult.finalize")
                     or identity.staff_id != c["doctor_id"]
@@ -2982,7 +2984,11 @@ class LuotKhamService:
                     "next_round": next_round,
                 },
             )
-            result = {"ok": True, "consultation_id": con_id, "next_round": next_round}
+            result = {
+                "ok": True,
+                "consultation_id": con_id,
+                "next_round": next_round,
+            }
             await self._receipt_put(
                 conn,
                 identity,

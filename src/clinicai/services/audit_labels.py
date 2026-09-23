@@ -137,7 +137,7 @@ EVENT_LABELS: dict[str, str] = {
     "tep_ket_qua.cho_phep_gui": "Bác sĩ cho phép gửi tệp kết quả",
     "clinical_record.vitals_saved": "Ghi sinh hiệu",
     "clinical_form.saved": "Lưu phiếu khám chuyên khoa",
-    "clinical.signed": "Ký bệnh án",
+    "clinical.signed": "Ký bệnh án (cách cũ, trước 23/09/2026)",
     "clinical.released": "Cho phép gửi kết quả",
     "clinical.amended": "Đính chính bệnh án",
     "episode.closed": "Đóng đợt điều trị",

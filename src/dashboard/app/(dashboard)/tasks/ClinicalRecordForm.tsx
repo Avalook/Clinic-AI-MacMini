@@ -14,7 +14,7 @@ import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { toHref } from "../../../lib/url";
 import { INPUT, LABEL } from "../form-ui";
 import PatientAdminEditor from "../PatientAdminEditor";
-import ClinicalSignPanel from "./ClinicalSignPanel";
+import HoSoHoanTatPanel from "./HoSoHoanTatPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
@@ -311,7 +311,7 @@ export default function ClinicalRecordForm({
    *  Chỉ BÁC SĨ (isDoctorRole) bật từ server. ĐỘC LẬP với readOnly — nút chỉ đọc
    *  nên vẫn hiện khi form khóa ghi. */
   showPreVisitBrief?: boolean;
-  /** canSign = BÁC SĨ (DOCTOR / ULTRASOUND_DOCTOR): hiện khối ký bệnh án, cho
+  /** canSign = BÁC SĨ (DOCTOR / ULTRASOUND_DOCTOR): hiện nút cho phép gửi / đính chính, cho
    *  phép gửi và đính chính. Backend cũng chặn theo vai — cờ này chỉ để không
    *  bày ra một cái nút mà người bấm chắc chắn nhận 403. Quản lý và TKYK KHÔNG
    *  có: ký là trách nhiệm chuyên môn, không phải quyền hành chính. */
@@ -1739,11 +1739,11 @@ export default function ClinicalRecordForm({
         </div>
       </div>
 
-      {/* KÝ BỆNH ÁN — đặt DƯỚI nút Lưu, đúng thứ tự thao tác: điền → lưu → ký.
-          Không hiện khi đang xem lượt cũ hoặc chỉ nhập sinh hiệu: hai trường
-          hợp đó người dùng không phải người ký. */}
+      {/* HỒ SƠ ĐÃ HOÀN TẤT — cho phép gửi + đính chính. Không còn nút ký:
+          mốc khoá là Hoàn tất khám ở Bàn khám (23/09/2026). Không hiện khi đang
+          xem lượt cũ hoặc chỉ nhập sinh hiệu. */}
       {!viewingPast && !vitalsOnly && (
-        <ClinicalSignPanel
+        <HoSoHoanTatPanel
           visitId={data?.visit?.visit_id ?? null}
           revision={data?.revision ?? null}
           isDoctor={canSign}
