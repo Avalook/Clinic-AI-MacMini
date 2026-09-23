@@ -175,3 +175,15 @@ async def xem_ket_qua(
     return await FormEngineService(pool).xem_ket_qua(
         service_order_id=str(service_order_id), identity=identity
     )
+
+
+@router.get("/phieu/in/{service_order_id}")
+async def in_ket_qua(
+    service_order_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu in phiếu kết quả (bản chính thức, hoặc nháp kèm nhãn BẢN NHÁP)."""
+    return await FormEngineService(pool).in_ket_qua(
+        service_order_id=str(service_order_id), identity=identity
+    )

@@ -114,6 +114,7 @@ export default function PhieuKham({
     mauDuPhong: MauKetQuaNgan[];
     goiYMau: Record<string, string>;
     choDien: boolean;
+    clinicPatientId?: string;
     onDoi: () => void;
   };
 }) {

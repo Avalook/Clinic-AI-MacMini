@@ -79,17 +79,26 @@ async def test_18_mau_deu_co_khung_dang_dung(pool: asyncpg.Pool) -> None:
     assert so == 18
 
 
-async def test_khung_rong_co_du_ba_muc_chung(pool: asyncpg.Pool) -> None:
-    """Ruột phòng khám đưa sau; ba mục này là phần na ná nhau của mọi mẫu."""
-    khung = json.loads(
+async def test_khung_v1_rong_ve_huu_v2_co_ruot_dien_san(pool: asyncpg.Pool) -> None:
+    """v1 = ba mục rỗng hệ thống dựng; v2 (migration 20260924000010) = ruột theo
+    mẫu thật của phòng khám, câu bình thường điền sẵn. v1 về hưu, không bị sửa."""
+    v1 = json.loads(
+        await pool.fetchval(
+            "SELECT khung FROM form_definition WHERE clinic_id = $1::uuid"
+            " AND form_id = 'KQ_SA_VU' AND version = 1",
+            CLINIC,
+        )
+    )
+    assert [m["ma"] for m in v1] == ["mo_ta", "ket_luan", "de_nghi"]
+    v2 = json.loads(
         await pool.fetchval(
             "SELECT khung FROM form_definition WHERE clinic_id = $1::uuid"
             " AND form_id = 'KQ_SA_VU' AND trang_thai = 'PUBLISHED'",
             CLINIC,
         )
     )
-    assert [m["ma"] for m in khung] == ["mo_ta", "ket_luan", "de_nghi"]
-    assert all(b.get("cho_trong") for m in khung for b in m["block"])
+    assert v2[-2]["ma"] == "ket_luan" and v2[-1]["ma"] == "de_nghi"
+    assert any(b.get("mac_dinh") for m in v2 for b in m["block"])
 
 
 async def test_mo_phieu_hai_lan_khong_tao_hai_phieu(pool: asyncpg.Pool) -> None:
@@ -101,8 +110,8 @@ async def test_mo_phieu_hai_lan_khong_tao_hai_phieu(pool: asyncpg.Pool) -> None:
     p2 = await svc.mo_phieu(service_order_id=order_id, form_id="KQ_SA_VU", identity=bs)
     assert p1["id"] == p2["id"]
     assert p1["trang_thai"] == "DRAFT"
-    # Ba ô, chưa điền gì.
-    assert len(p1["con_trong"]) == 3
+    # Mẫu v2 điền sẵn câu bình thường: chỉ "Đề nghị" còn trống.
+    assert p1["con_trong"] == ["Đề nghị / lời dặn"]
 
 
 async def test_tu_luu_khong_phat_su_kien(pool: asyncpg.Pool) -> None:
@@ -161,12 +170,10 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
     )
     luu = await svc.luu_nhap(
         phieu_id=phieu["id"],
+        # Câu điền sẵn của mẫu giữ nguyên (TEMPLATE_DEFAULT), sửa một ô.
         du_lieu={
-            "mo_ta_chi_tiet": {"gia_tri": "Nhu mô đều", "nguon": "USER"},
-            "ket_luan": {
-                "gia_tri": "Không thấy bất thường",
-                "nguon": "TEMPLATE_DEFAULT",
-            },
+            **phieu["du_lieu"],
+            "trai_nhu_mo": {"gia_tri": "Nhu mô đều", "nguon": "USER"},
         },
         expected_revision=phieu["revision"],
         identity=dd,

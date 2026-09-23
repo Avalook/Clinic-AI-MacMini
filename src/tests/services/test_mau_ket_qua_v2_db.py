@@ -1,0 +1,86 @@
+"""Ruột 18 mẫu kết quả (v2) + in phiếu (23/09/2026 khuya).
+
+Tuyền: "các form này lặp lại, họ muốn mặc định là điền sẵn, sửa lại rồi lưu rồi
+in được và đồng bộ sang bác sĩ chính". Kiểm luật an toàn của ruột: câu bình
+thường điền sẵn, SỐ ĐO và kết quả XÉT NGHIỆM thì không; và ai in được.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import asyncpg
+import pytest
+
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.form_engine_service import FormEngineService
+from tests.services.test_form_engine_db import (
+    CLINIC,
+    _don_tron,
+    _nguoi,
+    pool,  # noqa: F401
+)
+
+pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+async def _khung(pool: asyncpg.Pool, form_id: str) -> list[dict[str, Any]]:  # noqa: F811
+    khung: list[dict[str, Any]] = json.loads(
+        await pool.fetchval(
+            "SELECT khung FROM form_definition WHERE clinic_id = $1::uuid"
+            " AND form_id = $2 AND trang_thai = 'PUBLISHED'",
+            CLINIC,
+            form_id,
+        )
+    )
+    return khung
+
+
+async def test_so_do_va_xet_nghiem_khong_dien_san(pool: asyncpg.Pool) -> None:  # noqa: F811
+    # Xét nghiệm: không một ô chọn nào có sẵn "ÂM TÍNH".
+    hpv = await _khung(pool, "KQ_XN_HPV")
+    chon = [b for m in hpv for b in m["block"] if b["kieu"] == "chon"]
+    assert len(chon) == 6 and not any(b.get("mac_dinh") for b in chon)
+    # Số đo mạch thận: chỉ gợi ý đơn vị, không có con số điền sẵn.
+    than = await _khung(pool, "KQ_SA_MACH_THAN")
+    so_do = [
+        b for m in than for b in m["block"] if b["ma"].endswith(("_psv", "_edv", "_ri"))
+    ]
+    assert len(so_do) == 18
+    assert not any(b.get("mac_dinh") for b in so_do)
+    # Câu bình thường thì có.
+    obung = await _khung(pool, "KQ_SA_OBUNG")
+    assert next(b for m in obung for b in m["block"] if b["ma"] == "gan").get(
+        "mac_dinh"
+    )
+
+
+async def test_mo_phieu_moi_la_co_cau_dien_san(pool: asyncpg.Pool) -> None:  # noqa: F811
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        order = await _don_tron(conn, bs)
+    p = await FormEngineService(pool).mo_phieu(
+        service_order_id=order, form_id="KQ_SA_OBUNG", identity=bs
+    )
+    assert p["du_lieu"]["gan"]["nguon"] == "TEMPLATE_DEFAULT"
+    assert "không có sỏi" in p["du_lieu"]["tui_mat"]["gia_tri"]
+
+
+async def test_in_phieu_ai_in_duoc_va_ban_nhap_ghi_ro(pool: asyncpg.Pool) -> None:  # noqa: F811
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        cskh = await _nguoi(conn, "CSKH")
+        le_tan = await _nguoi(conn, "RECEPTION")
+        order = await _don_tron(conn, bs)
+    svc = FormEngineService(pool)
+    p = await svc.mo_phieu(service_order_id=order, form_id="KQ_SA_VU", identity=bs)
+    ban = await svc.in_ket_qua(service_order_id=order, identity=cskh)
+    assert ban["phieu"][0]["ban_nhap"] is True
+    assert ban["benh_nhan"]["ho_ten"]
+    await svc.hoan_tat(phieu_id=p["id"], expected_revision=p["revision"], identity=bs)
+    ban = await svc.in_ket_qua(service_order_id=order, identity=bs)
+    assert ban["phieu"][0]["ban_nhap"] is False
+    assert ban["phieu"][0]["hoan_tat_boi"]
+    with pytest.raises(SafetyGateError):
+        await svc.in_ket_qua(service_order_id=order, identity=le_tan)

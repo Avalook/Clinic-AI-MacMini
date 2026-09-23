@@ -111,6 +111,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/design-system` | | | DEV | `notFound()` khi không phải `development`. |
 | `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | |
 | `/print/sono/[id]` | | | CẦN QUYẾT | **Không chỗ nào dẫn tới** (grep 0 kết quả). |
+| `/print/ket-qua/[orderId]` | BS, TKYK, BS SA, ĐD SA, trưởng ca, QL, CSKH + ai có `result.form.fill` | In phiếu kết quả | MỚI 23/09 khuya | Mở từ `[In phiếu]` của `PhieuKetQua` (phòng dịch vụ + phiếu khám mục C) và `[In]` ở dòng kết quả mục C. Đọc `GET /api/phieu?in=` → `/api/v1/phieu/in/{order}`. Bản chưa Hoàn tất in kèm "BẢN NHÁP". |
 
 ### Đã chuyển hướng (không còn giao diện)
 
@@ -145,7 +146,7 @@ chuyển hướng.
 | | `home/WeeklyAppointmentsTable.tsx` | chỉ xem (`readOnly` + `vitalsOnly`) |
 | | `patient-list/PatientListView.tsx` | chỉ xem (`readOnly`) |
 | **Phiếu khám theo dịch vụ** (`ServiceFormEngine`) | `ban-kham/BanKham.tsx` · `tasks/ClinicalRecordForm.tsx` | ghi ở Bàn khám — **OFF cho lượt KHÁM từ 23/09 tối** (cờ `PHIEU_V5`), chỉ còn đọc lượt cũ (`LuotKhamTruoc`) và bàn khám tư vấn |
-| **Phiếu khám v5 (bảy phiếu NT/HMVS/PK/SK/NK/Thủ thuật/Sàn chậu)** | `ban-kham/BanKham.tsx` → `_lam-viec/phieu-kham/PhieuKhamLuot.tsx` (→ `PhieuKham`, `DanhMucChiDinh`, `KetQuaChiDinh`, `DonThuocPhieu`) → `/api/phieu-kham` (GET `?visit_id&xem=phieu|dau-phieu|don-thuoc`, PUT `luu-phieu`/`luu-don`) → `/api/v1/phieu-kham/*` | **23/09 tối.** Tự lưu (không nút Lưu hồ sơ). Mục C/F: danh mục có giá → chỉ định thật (`chi-dinh`). Mục C: [Xem kết quả] (tự ghi đã xem) · [Điền kết quả] (`PhieuKetQua`, cùng engine phòng). Mục E: đơn thuốc tự lưu → `luu_don_chua_ky` → nhà thuốc. Bệnh án cũ `ClinicalRecordForm` OFF cho lượt khám (cờ `PHIEU_V5`). |
+| **Phiếu khám v5 (bảy phiếu NT/HMVS/PK/SK/NK/Thủ thuật/Sàn chậu)** — 23/09 khuya: tab "Chỉ định & kết quả" + cột `ChiDinhPanel` ở `/ban-kham` **OFF** (cờ `PHIEU_V5`); tệp kết quả mở ở mục C `[Ảnh · tệp]` (`KhungTep`) | `ban-kham/BanKham.tsx` → `_lam-viec/phieu-kham/PhieuKhamLuot.tsx` (→ `PhieuKham`, `DanhMucChiDinh`, `KetQuaChiDinh`, `DonThuocPhieu`) → `/api/phieu-kham` (GET `?visit_id&xem=phieu|dau-phieu|don-thuoc`, PUT `luu-phieu`/`luu-don`) → `/api/v1/phieu-kham/*` | **23/09 tối.** Tự lưu (không nút Lưu hồ sơ). Mục C/F: danh mục có giá → chỉ định thật (`chi-dinh`). Mục C: [Xem kết quả] (tự ghi đã xem) · [Điền kết quả] (`PhieuKetQua`, cùng engine phòng). Mục E: đơn thuốc tự lưu → `luu_don_chua_ky` → nhà thuốc. Bệnh án cũ `ClinicalRecordForm` OFF cho lượt khám (cờ `PHIEU_V5`). |
 | **Check-in / Không đến / Hoàn tác** | `reception/queue/page.tsx` → `WeeklyAppointmentsTable` với `choCheckIn` | chỉ ở đây |
 | | đặt lịch "Trực tiếp" hôm nay (`/appointments`) | máy chủ tự check-in |
 | **Bảng lịch hẹn** (`WeeklyAppointmentsTable` + `home/lich-hen-ngay.ts`) | `/home` (cả tuần, xem) · `/reception/queue` (hôm nay, check-in) | cùng một phép dựng |

@@ -33,7 +33,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 
 export interface MauKetQua {
   ma: string;
@@ -413,6 +413,14 @@ export default function PhieuKetQua({
           >
             {dangHoanTat ? "Đang mở…" : "Sửa lại"}
           </Button>
+          <a
+            href={`/print/ket-qua/${serviceOrderId}`}
+            target="_blank"
+            rel="noopener"
+            className={`ml-2 ${buttonClass("ghost", "md")}`}
+          >
+            In phiếu
+          </a>
           <p className="text-label text-ink-muted">
             Sửa được, và mỗi lần sửa đều được ghi lại — ai sửa, lúc nào, bản thứ
             mấy.
@@ -506,6 +514,15 @@ export default function PhieuKetQua({
                 Huỷ sửa
               </Button>
             ) : null}
+            {/* In được cả khi chưa Hoàn tất — trang in ghi rõ BẢN NHÁP. */}
+            <a
+              href={`/print/ket-qua/${serviceOrderId}`}
+              target="_blank"
+              rel="noopener"
+              className={buttonClass("ghost", "md")}
+            >
+              In phiếu
+            </a>
             {phieu.con_trong.length > 0 ? (
               <span className="text-label text-warning">
                 Còn {phieu.con_trong.length} mục chưa điền — vẫn hoàn tất được.

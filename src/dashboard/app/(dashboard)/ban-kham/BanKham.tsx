@@ -392,7 +392,10 @@ export default function BanKham({
         </StatRow>
       )}
 
-      <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
+      {/* Hai cột (hàng chờ · phiếu khám) từ khi bỏ cột "Chỉ định & kết quả"
+          (23/09 khuya). Bật lại đường cũ (PHIEU_V5 = false) thì trả cột thứ ba:
+          minmax 320px, 1fr. */}
+      <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)]">
         <aside
           aria-label="Hàng chờ khám"
           className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:w-auto"
@@ -444,6 +447,10 @@ export default function BanKham({
         {/* ≥ 1536: `contents` → Bệnh án và Chỉ định & kết quả là cột 2 và 3.
             Dưới đó: một cột, chọn bằng tab. */}
         <div id="vung-lam-viec" className="grid min-w-0 scroll-mt-4 gap-3 2xl:contents">
+          {/* Tab "Chỉ định & kết quả" + cột chỉ định OFF (Tuyền 23/09 khuya: "xoá đi,
+              chỉ định ở trong form khám rồi mà"). Phiếu v5 có mục C/F (chỉ định),
+              kết quả + tệp ngay dưới mục C. */}
+          {!PHIEU_V5 ? (
           <ThanhTab
             nhan="Vùng làm việc"
             className="2xl:hidden"
@@ -454,7 +461,10 @@ export default function BanKham({
             chon={khung}
             onChon={(k) => chon && setKhungChon({ id: chon.id, khung: k })}
           />
-          <div className={`min-w-0 ${khung === "benh-an" ? "" : "hidden"} 2xl:block`}>
+          ) : null}
+          <div
+            className={`min-w-0 ${PHIEU_V5 || khung === "benh-an" ? "" : "hidden"} 2xl:block`}
+          >
             <HoSo
               dong={chon}
               daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
@@ -466,6 +476,7 @@ export default function BanKham({
               tuVan={tuVan}
             />
           </div>
+          {!PHIEU_V5 ? (
           <div className={`min-w-0 ${khung === "chi-dinh" && !tuVan ? "" : "hidden"} ${tuVan ? "" : "2xl:block"}`}>
             <ChiDinhPanel
               dong={chon}
@@ -476,6 +487,7 @@ export default function BanKham({
               onDaGui={napLai}
             />
           </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -849,6 +861,7 @@ function HoSo({
             <PhieuKhamLuot
               key={dong.visit_id}
               visitId={dong.visit_id}
+              clinicPatientId={dong.clinic_patient_id}
               choGhi={choBam}
               datChiDinh={async (codes) => {
                 const kq = await guiThaoTac("chi-dinh", dong.ref_id, {

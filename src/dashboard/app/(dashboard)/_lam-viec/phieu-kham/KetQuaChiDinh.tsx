@@ -18,8 +18,9 @@
 
 import { useState } from "react";
 
+import KhungTep from "../KhungTep";
 import PhieuKetQua from "../PhieuKetQua";
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import {
   giaTriDoc,
@@ -46,6 +47,7 @@ export default function KetQuaChiDinh({
   mauDuPhong = [],
   goiYMau = {},
   choDien = false,
+  clinicPatientId,
   onDoi,
 }: {
   ds: ChiDinhVaKetQua[];
@@ -55,10 +57,13 @@ export default function KetQuaChiDinh({
   goiYMau?: Record<string, string>;
   /** Người đang mở có quyền điền kết quả (máy chủ vẫn kiểm lại). */
   choDien?: boolean;
+  /** Có thì mở được khung ảnh / video / tệp kết quả của từng chỉ định. */
+  clinicPatientId?: string;
   onDoi?: () => void;
 }) {
   const [mo, setMo] = useState<string | null>(null);
   const [dien, setDien] = useState<string | null>(null);
+  const [tep, setTep] = useState<string | null>(null);
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
     const g = goiYMau[d.service_code];
@@ -99,6 +104,29 @@ export default function KetQuaChiDinh({
                   {dangMo ? "Thu gọn" : "Xem kết quả"}
                 </Button>
               ) : null}
+              {d.ket_qua.some((k) => k.loai === "PHIEU") ? (
+                <a
+                  href={`/print/ket-qua/${d.service_order_id}`}
+                  target="_blank"
+                  rel="noopener"
+                  className={buttonClass("ghost", "sm")}
+                >
+                  In
+                </a>
+              ) : null}
+              {clinicPatientId ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-expanded={tep === d.service_order_id}
+                  onClick={() =>
+                    setTep(tep === d.service_order_id ? null : d.service_order_id)
+                  }
+                >
+                  {tep === d.service_order_id ? "Ẩn ảnh · tệp" : "Ảnh · tệp"}
+                </Button>
+              ) : null}
               {choDien ? (
                 <Button
                   type="button"
@@ -113,6 +141,16 @@ export default function KetQuaChiDinh({
                 </Button>
               ) : null}
             </div>
+            {tep === d.service_order_id && clinicPatientId ? (
+              <div className="mt-2">
+                <KhungTep
+                  clinicPatientId={clinicPatientId}
+                  serviceOrderId={d.service_order_id}
+                  choTaiLen={choDien}
+                  onDaTaiLen={() => onDoi?.()}
+                />
+              </div>
+            ) : null}
             {dien === d.service_order_id ? (
               <div className="mt-2">
                 <PhieuKetQua

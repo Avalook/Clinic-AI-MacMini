@@ -45,7 +45,7 @@ from clinicai.events.catalogue import (
     PhieuKetQuaDaXem,
 )
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.can import can, doi_quyen
 
 QUYEN_DIEN = "result.form.fill"
 
@@ -208,6 +208,94 @@ class FormEngineService:
                         correlation_id=vid,
                     )
         return {"phieu": phieu}
+
+    # ------------------------------------------------------------------
+    # In phiếu kết quả (23/09/2026 khuya: "sửa lại rồi lưu rồi in được")
+    # ------------------------------------------------------------------
+    async def in_ket_qua(
+        self, *, service_order_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Dữ liệu để IN mọi phiếu kết quả của một chỉ định — chỉ đọc.
+
+        Bản chính thức (READY) nếu có; phiếu mới lưu nháp vẫn in được nhưng
+        màn in phải ghi "BẢN NHÁP". Thông tin bệnh nhân lấy từ hồ sơ (mẫu
+        không có khung bệnh nhân). Ai in: vai đọc kết quả, người được điền kết
+        quả, và CSKH (gửi kết quả cho khách). In KHÔNG tính là "đã xem".
+        """
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn:
+            if not (
+                identity.co_vai(DOC_KET_QUA | {ClinicRole.CSKH})
+                or await can(conn, identity, QUYEN_DIEN)
+            ):
+                raise SafetyGateError("Vai của bạn không in phiếu kết quả.")
+            dau = await conn.fetchrow(
+                "SELECT o.service_name, o.visit_id::text AS visit_id,"
+                "       c.name AS phong_kham, c.address AS dia_chi_pk,"
+                "       p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
+                "       p.gender, p.phone_primary, p.address,"
+                "       bs.full_name AS bac_si_chi_dinh"
+                "  FROM service_order o"
+                "  JOIN visit v"
+                "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
+                "  JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id"
+                "   AND p.clinic_id = v.clinic_id"
+                "  JOIN clinic c ON c.id = o.clinic_id"
+                "  LEFT JOIN staff bs ON bs.id = o.recorded_by"
+                " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+                cid,
+                service_order_id,
+            )
+            if dau is None:
+                raise ValidationError("Không tìm thấy chỉ định.")
+            rows = await conn.fetch(
+                "SELECT i.*, d.ten AS ten_mau, th.full_name AS thuc_hien_ten,"
+                "       ht.full_name AS hoan_tat_ten"
+                "  FROM form_instance i"
+                "  JOIN form_definition d ON d.clinic_id = i.clinic_id"
+                "   AND d.form_id = i.form_id AND d.version = i.version"
+                "  LEFT JOIN staff th ON th.id = coalesce(i.thuc_hien_boi, i.nhap_boi)"
+                "  LEFT JOIN staff ht ON ht.id = i.hoan_tat_boi"
+                " WHERE i.clinic_id = $1::uuid AND i.service_order_id = $2::uuid"
+                " ORDER BY i.tao_luc",
+                cid,
+                service_order_id,
+            )
+            phieu = []
+            for r in rows:
+                khung = await self._khung(conn, cid, r["form_id"], r["version"])
+                phieu.append(
+                    {
+                        "form_id": r["form_id"],
+                        "ten": r["ten_mau"],
+                        "khung": khung,
+                        "du_lieu": json.loads(r["du_lieu"]),
+                        "ban_nhap": r["trang_thai"] != "READY",
+                        "thuc_hien": r["thuc_hien_ten"],
+                        "hoan_tat_boi": r["hoan_tat_ten"],
+                        "hoan_tat_luc": (
+                            r["hoan_tat_luc"].isoformat() if r["hoan_tat_luc"] else None
+                        ),
+                    }
+                )
+        return {
+            "phong_kham": {"ten": dau["phong_kham"], "dia_chi": dau["dia_chi_pk"]},
+            "benh_nhan": {
+                "ho_ten": dau["full_name"],
+                "ma_bn": dau["patient_code"],
+                "nam_sinh": (
+                    dau["date_of_birth"].isoformat()
+                    if dau["date_of_birth"]
+                    else dau["birth_year"]
+                ),
+                "gioi_tinh": dau["gender"],
+                "dien_thoai": dau["phone_primary"],
+                "dia_chi": dau["address"],
+            },
+            "dich_vu": dau["service_name"],
+            "bac_si_chi_dinh": dau["bac_si_chi_dinh"],
+            "phieu": phieu,
+        }
 
     # ------------------------------------------------------------------
     # Tự lưu

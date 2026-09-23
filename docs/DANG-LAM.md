@@ -13,6 +13,25 @@ lịch sử hội thoại.
 
 ---
 
+## Ruột 18 mẫu kết quả + in phiếu + bỏ tab Chỉ định (23/09 khuya — CHƯA deploy, ĐÃ bấm thật BS A)
+
+Tuyền: "nút chỉ định và kết quả xoá đi… các phần siêu âm, thủ thuật, đối tác trong
+chi-dinh.html có rồi, muốn chắc hơn xem PDF… mặc định điền sẵn, sửa rồi lưu rồi in được,
+đồng bộ sang bác sĩ chính; sửa sau cũng được". Tạm bỏ qua khổ 375, tập trung laptop.
+
+- Bàn khám: tab + cột "Chỉ định & kết quả" OFF; lưới 2 cột. Tệp kết quả ở mục C [Ảnh · tệp].
+- 18 mẫu v2 (migration 20260924000010) dựng từ **16 PDF mẫu thật** (chuẩn, chi tiết hơn
+  chi-dinh.html) — `scripts/phieu-kham/dung-mau-ket-qua.py` → `phieu_kham/mau_ket_qua.json`.
+  Câu bình thường điền sẵn; SỐ ĐO và kết quả XÉT NGHIỆM không điền sẵn (chỉ gợi ý đơn vị).
+  HPV 6 nhóm theo phiếu đối tác. v1 về hưu (phiếu cũ vẫn ghim v1).
+- In: `/print/ket-qua/[orderId]` + `GET /phieu/in/{order}` (`FormEngineService.in_ket_qua`);
+  nút In ở `PhieuKetQua` và dòng kết quả mục C. Nháp in kèm "BẢN NHÁP".
+- Bấm thật (BS A, ~1383px): chỉ định SÂ ổ bụng → Điền kết quả (mẫu tự chọn, câu điền sẵn)
+  → sửa túi mật → Hoàn tất (DB: v2 READY) → trang in đúng.
+- **Deploy phải làm thêm:** migration `20260924000010`.
+- ⚠️ PDF + phần "Dữ liệu mẫu (Gốc)" của chi-dinh.html chứa dữ liệu BỆNH NHÂN THẬT — không
+  chép vào repo (script chỉ viết câu mẫu chung).
+
 ## Phiếu khám v5 vào Bàn khám (23/09 tối — CHƯA deploy, ĐÃ bấm thật bằng BS A local)
 
 Tuyền gửi `ClinicAI-7-phieu-v5-final-review.html` + `chi-dinh.html`: "không cần nút

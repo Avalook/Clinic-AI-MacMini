@@ -68,12 +68,14 @@ function cauLoi(d: Record<string, unknown> | null, macDinh: string): string {
 
 export default function PhieuKhamLuot({
   visitId,
+  clinicPatientId,
   choGhi,
   datChiDinh,
   onDaDat,
   onTrangThai,
 }: {
   visitId: string;
+  clinicPatientId: string;
   /** Người đang mở được ghi (bác sĩ / thư ký của lượt) — máy chủ vẫn kiểm lại. */
   choGhi: boolean;
   datChiDinh: (codes: string[]) => Promise<{ ok: true } | { ok: false; loi: string }>;
@@ -373,6 +375,7 @@ export default function PhieuKhamLuot({
           mauDuPhong,
           goiYMau,
           choDien: choGhi,
+          clinicPatientId,
           onDoi: () => {
             void napKetQua();
             onDaDat();

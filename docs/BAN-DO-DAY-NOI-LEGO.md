@@ -144,6 +144,16 @@ khách, tới giờ chuông réo đúng người.
     mẫu dự phòng. Migration KHÔNG tự gắn mẫu cho dịch vụ (luật cũ có test canh).
 26. Quản lý mở phiếu khám được (đọc) nhưng chỉ ghi khi có `clinical.record.write`.
 
+**Chỗ Claude tự chốt ở ruột mẫu kết quả + in (23/09 khuya):**
+27. PDF mẫu thật của phòng khám là CHUẨN cho 16 mẫu siêu âm/soi; chi-dinh.html chỉ lấy ô
+    chọn (BI-RADS, TIRADS, loại song thai, Oxford) + 3 mẫu xét nghiệm.
+28. SỐ ĐO (PSV, kích thước, CRL…) và KẾT QUẢ XÉT NGHIỆM (HPV âm/dương) KHÔNG điền sẵn — chỉ
+    gợi ý đơn vị. Câu của riêng một bệnh nhân trong PDF ("dính 50%", "01 nang thứ cấp",
+    "mảng xơ vữa 5.7x2.0 mm") không thành câu mẫu.
+29. In được cả bản nháp nhưng ghi "BẢN NHÁP"; CSKH in được (gửi kết quả cho khách); in
+    không tính là "bác sĩ đã xem".
+30. Kết luận soi âm hộ / HPV / PCR để trống (câu kết luận trong nguồn là của một ca cụ thể).
+
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
   không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).
