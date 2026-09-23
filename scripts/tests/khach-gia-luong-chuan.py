@@ -48,7 +48,7 @@ import asyncpg  # noqa: E402
 
 from clinicai.api.identity import ClinicRole, StaffIdentity  # noqa: E402
 from clinicai.events import worker as nguoi_dua_tin  # noqa: E402
-from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT  # noqa: E402
+from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT, HANH_TRINH  # noqa: E402
 from clinicai.events.consumers import dong_thoi_gian, trach_nhiem  # noqa: E402,F401
 from clinicai.services.booking_service import BookingService  # noqa: E402
 from clinicai.services.chi_dinh_service import ChiDinhService  # noqa: E402
@@ -66,7 +66,7 @@ from clinicai.services.service_selection_service import (  # noqa: E402
 from clinicai.services.tep_ket_qua_service import TepKetQuaService  # noqa: E402
 
 CLINIC = os.environ.get("CLINIC_ID", "a0000000-0000-4000-8000-000000000001")
-BEN_NHAN = [DONG_THOI_GIAN_LUOT, trach_nhiem.TRACH_NHIEM]
+BEN_NHAN = [HANH_TRINH, DONG_THOI_GIAN_LUOT, trach_nhiem.TRACH_NHIEM]
 
 
 def _khoa() -> str:
@@ -233,7 +233,9 @@ async def _node_thay_gi(pool: asyncpg.Pool, k: Khach) -> list[str]:
             k.visit,
         )
         for q in hang:
-            noi = "Bác sĩ chính" if q["lane"] == "DOCTOR" else f"Phòng {q['phong']}"
+            noi = {"DOCTOR": "Bác sĩ chính", "TU_VAN": "Tư vấn"}.get(
+                q["lane"], f"Phòng {q['phong']}"
+            )
             dong.append(f"  ◦ Hàng chờ {noi}: {q['status']}")
         tien = await pool.fetch(
             "SELECT kind, status FROM payment_cycle WHERE visit_id = $1::uuid",
@@ -275,9 +277,11 @@ async def main(bo_sinh_hieu: bool) -> int:
             le_tan = await _nguoi(conn, loc, "RECEPTION")
             dd = await _nguoi(conn, loc, "NURSE_ULTRASOUND")
             bs = await _nguoi(conn, loc, "DOCTOR")
+            bs_tu_van = await _nguoi(conn, loc, "DOCTOR")
+            # Loại khám QUA TƯ VẤN nếu có (5 loại lõi), không thì loại bất kỳ.
             dv_kham = await conn.fetchval(
                 "SELECT id::text FROM service_type WHERE is_active"
-                " ORDER BY code LIMIT 1"
+                " ORDER BY qua_tu_van DESC, code LIMIT 1"
             )
             ma_sa = await conn.fetchval(
                 "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid"
@@ -327,10 +331,23 @@ async def main(bo_sinh_hieu: bool) -> int:
                 identity=dd,
             )
 
+        async def tu_van() -> None:
+            tv = await pool.fetchval(
+                "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+                " AND kind = 'TU_VAN'",
+                k.visit,
+            )
+            if tv is None:
+                print("  (loại khám này không qua tư vấn — bỏ bước)")
+                return
+            svc = LuotKhamService(pool)
+            await svc.start_consultation(consultation_id=tv, identity=bs_tu_van)
+            await svc.xong_tu_van(consultation_id=tv, identity=bs_tu_van)
+
         async def bat_dau_kham() -> None:
             k.consultation = await pool.fetchval(
                 "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
-                " ORDER BY round_no LIMIT 1",
+                " AND kind = 'PRIMARY'",
                 k.visit,
             )
             await LuotKhamService(pool).start_consultation(
@@ -444,6 +461,7 @@ async def main(bo_sinh_hieu: bool) -> int:
         if not bo_sinh_hieu:
             buoc.append(("5. Điều dưỡng bắt đầu đo + lưu sinh hiệu", do_sinh_hieu))
         buoc += [
+            ("5b. Bác sĩ tư vấn Bắt đầu → Xong tư vấn", tu_van),
             ("6. Bác sĩ chính bấm Bắt đầu khám", bat_dau_kham),
             ("7a. Bác sĩ chỉ định siêu âm", chi_dinh),
             ("7b. Lễ tân chốt dịch vụ khách chọn + thu tiền", chon_va_tra_tien),
