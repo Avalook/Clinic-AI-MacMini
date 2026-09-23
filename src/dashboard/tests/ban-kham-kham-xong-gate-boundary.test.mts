@@ -52,15 +52,16 @@ test("BanKham determines HANDOFF vs TERMINAL based on active service orders", ()
   );
 });
 
-test("BanKham resets completionGate when current queue item changes", () => {
+test("BanKham keys completionGate to the open queue item (no reset effect)", () => {
+  // Bấm thật 24/09: xoá gate bằng effect của màn cha chạy SAU effect của phiếu
+  // con → báo "sẵn sàng" đầu tiên bị xoá, [Xong tư vấn]/[Hoàn tất] kẹt mãi.
+  // Nay gate gắn với id khách: đổi khách thì gate cũ tự không còn hiệu lực.
   assert.match(
     banKhamSource,
-    /const \[completionGate,\s*setCompletionGate\]\s*=\s*useState<ClinicalCompletionGate \| null>\(null\)/,
+    /const completionGate =\s*gateTheoKhach && gateTheoKhach\.id === dong\?\.id \? gateTheoKhach\.gate : null/,
   );
-  assert.match(
-    banKhamSource,
-    /useEffect\(\(\)\s*=>\s*\{[\s\S]*?setCompletionGate\(null\);[\s\S]*?\}, \[[^\]]*dong\?\.id[^\]]*\]\)/,
-  );
+  assert.doesNotMatch(banKhamSource, /setCompletionGate\(null\)/);
+  assert.match(banKhamSource, /onTrangThai=\{baoGate\}/);
 });
 
 test("BanKham enforces gate check and confirm BEFORE calling guiThaoTac('kham-xong')", () => {

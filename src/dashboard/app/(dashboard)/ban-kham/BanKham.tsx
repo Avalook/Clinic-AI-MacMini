@@ -631,16 +631,25 @@ function HoSo({
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<{ id: string; cau: string } | null>(null);
   const [xemLuot, setXemLuot] = useState<string | null>(null);
-  const [completionGate, setCompletionGate] =
-    useState<ClinicalCompletionGate | null>(null);
+  // Trạng thái phiếu (đã lưu hết chưa) GẮN VỚI KHÁCH đang mở, không xoá bằng
+  // effect: bấm thật 24/09 — effect của phiếu con chạy TRƯỚC effect của màn
+  // này, nên "xoá khi đổi khách" đè mất báo "sẵn sàng" đầu tiên của phiếu và
+  // [Xong tư vấn] / [Hoàn tất] kẹt ở "Đang kiểm tra trạng thái bệnh án" mãi.
+  const [gateTheoKhach, setGateTheoKhach] = useState<{
+    id: string;
+    gate: ClinicalCompletionGate;
+  } | null>(null);
+  const completionGate =
+    gateTheoKhach && gateTheoKhach.id === dong?.id ? gateTheoKhach.gate : null;
+  const khachId = dong?.id ?? null;
+  const baoGate = useCallback(
+    (g: ClinicalCompletionGate) => {
+      if (khachId) setGateTheoKhach({ id: khachId, gate: g });
+    },
+    [khachId],
+  );
   // Hỏi lại trước khi Hoàn tất — dải xác nhận tại chỗ, theo đúng khách đang mở.
   const [hoiHoanTat, setHoiHoanTat] = useState<string | null>(null);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setCompletionGate(null);
-    setHoiHoanTat(null);
-  }, [dong?.id]);
 
   const conChiDinhDangLam =
     luot?.chi_dinh.some((c) =>
@@ -875,7 +884,7 @@ function HoSo({
                 return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
               }}
               onDaDat={onDaBam}
-              onTrangThai={setCompletionGate}
+              onTrangThai={baoGate}
             />
             {dong.form_code === "SK" ? (
               <ThaiKy
@@ -954,7 +963,7 @@ function HoSo({
               // vẫn sửa được. Chỉ lượt CŨ đã từng ký mới chỉ-xem.
               readOnly={!choBam || Boolean(dong.da_ky)}
               completionMode={completionMode}
-              onCompletionGateChange={setCompletionGate}
+              onCompletionGateChange={baoGate}
             />
           </details>
         ) : null}
