@@ -7,6 +7,7 @@ export const CLINICAL_HREFS = new Set([
   "/reception/queue",
   "/do-sinh-hieu",
   "/ban-kham",
+  "/tu-van",
   // Mọi màn theo phòng (`/phong/<room_id>`, `/ban-kham/<room_id>`) cũng là màn
   // lâm sàng — `laManLamSang` ở nav-items.ts khớp theo tiền tố (CORE-C).
   "/phong",

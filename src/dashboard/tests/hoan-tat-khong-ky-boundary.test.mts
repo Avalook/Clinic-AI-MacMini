@@ -33,9 +33,13 @@ test("không còn khung / nút / chữ Ký bệnh án trên luồng chuẩn", ()
 test("trên chỉ còn Bắt đầu khám; Hoàn tất là nút duy nhất khép phiên", () => {
   assert.match(BAN_KHAM, /"Bắt đầu khám"/);
   assert.doesNotMatch(BAN_KHAM, /"Khám xong"|"Hoàn tất khám"/, "không còn nút khám xong ở trên");
-  const hoanTat = BAN_KHAM.match(/bam\("kham-xong"\)/g) ?? [];
+  // Một nút khép phiên, hai nghĩa theo màn (24/09/2026): Bàn khám → "Hoàn tất"
+  // (kham-xong), Bàn khám tư vấn → "Xong tư vấn" (xong-tu-van).
+  const hoanTat =
+    BAN_KHAM.match(/bam\((?:tuVan \? "xong-tu-van" : )?"kham-xong"\)/g) ?? [];
   assert.equal(hoanTat.length, 1, "đúng MỘT nút gọi kham-xong");
   assert.match(BAN_KHAM, /"Hoàn tất"/);
+  assert.match(BAN_KHAM, /"Xong tư vấn — chuyển bác sĩ chính"/);
 });
 
 test("Hoàn tất không khoá: khách đã khám xong vẫn sửa bệnh án/phiếu được", () => {

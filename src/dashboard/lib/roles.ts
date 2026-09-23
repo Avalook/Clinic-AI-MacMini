@@ -278,6 +278,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // BÀN KHÁM theo phòng (Tuyền chốt 16/09/2026) — thay /doctor/board và năm
   // màn /kham/*. Bác sĩ khám, thư ký đi kèm nhập hộ + bấm Bắt đầu/Khám xong.
   "/ban-kham": ["DOCTOR", "TKYK", "MANAGEMENT"],
+  // BÀN KHÁM TƯ VẤN (24/09/2026): mặc định bác sĩ; ai được cấp khối "Khám tư
+  // vấn" cũng vào được qua NAV_QUYEN.
+  "/tu-van": ["DOCTOR", "MANAGEMENT"],
   // Bàn khám MỘT phòng (`/ban-kham/<room_id>`) dùng chung luật `/ban-kham` —
   // xem `luatNav`. Không còn một dòng cho mỗi mã phòng (CORE-C, 23/09/2026).
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC ở Kim Ngưu (Tuyền 16/09/2026: "trong màn
@@ -558,6 +561,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/reception/checkout": ["reception.checkin.perform"],
   "/do-sinh-hieu": ["vitals.measure"],
   "/ban-kham": ["clinical.order.place"],
+  "/tu-van": ["clinical.intake.perform"],
   "/truong-ca": ["service.routing.view"],
   "/phong": ["service.execute.start"],
   "/duyet-ket-qua": ["result.form.fill"],

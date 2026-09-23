@@ -25,6 +25,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "bat-dau-do": (id) => `/api/v1/luot-kham/visits/${id}/vitals/start`,
   "goi-do": (id) => `/api/v1/luot-kham/visits/${id}/goi-do`,
   "nhan-kham": (id) => `/api/v1/luot-kham/consultations/${id}/start`,
+  // Bác sĩ tư vấn bấm Xong → khối Hành trình chuyển khách sang bác sĩ chính (H3).
+  "xong-tu-van": (id) => `/api/v1/luot-kham/consultations/${id}/xong-tu-van`,
   "ghi-chu": (id) => `/api/v1/luot-kham/consultations/${id}/notes`,
   // Lát CD-01: MỘT lệnh thay cho nhập-nháp rồi duyệt. Bác sĩ và thư ký y khoa
   // ngang quyền (Tuyền, tin số 149). Khoá gửi lại bắt buộc.
@@ -90,6 +92,10 @@ function duongDoc(url: URL): string | null {
       : null;
   }
   if (xem === "hang-cho") {
+    // Hàng TƯ VẤN chung (24/09/2026).
+    if (url.searchParams.get("tu_van") === "true") {
+      return "/api/v1/luot-kham/hang-cho?tu_van=true";
+    }
     const phong = url.searchParams.get("phong") ?? "";
     if (phong && !UUID_RE.test(phong)) return null;
     return phong

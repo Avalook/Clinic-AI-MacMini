@@ -156,18 +156,33 @@ const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
 
 type Khung = "benh-an" | "chi-dinh";
 
+/** Khách của bác sĩ chính đang ở bước TƯ VẤN — bác sĩ chính chỉ xem (24/09). */
+interface SapToi {
+  visit_id: string;
+  ten: string;
+  ma_bn: string | null;
+  so_tiep_don: number | null;
+  dang_o: string;
+}
+
 export default function BanKham({
   phongMa,
   vai,
   staffId = null,
+  cheDo = "kham",
 }: {
   /** room_id (hoặc mã phòng cũ) trên đường dẫn. Rỗng = khách của tôi. */
   phongMa: string | null;
   vai: string | null;
   staffId?: string | null;
+  /** "tu_van" = Bàn khám TƯ VẤN (dây H1/H3, 24/09/2026): CÙNG màn, đọc hàng tư
+   *  vấn chung, nút "Bắt đầu tư vấn" / "Xong tư vấn". Không chép màn thứ hai. */
+  cheDo?: "kham" | "tu_van";
 }) {
+  const tuVan = cheDo === "tu_van";
   const laBacSi = vai === "DOCTOR";
   const laThuKy = vai === "TKYK";
+  const [sapToi, setSapToi] = useState<SapToi[]>([]);
 
   const router = useRouter();
   const [phongs, setPhongs] = useState<PhongHomNay | null>(null);
@@ -205,9 +220,9 @@ export default function BanKham({
     let huy = false;
     const nap = async () => {
       const [h, b] = await Promise.all([
-        docBang<{ hang_cho: DongHangCho[] }>(
+        docBang<{ hang_cho: DongHangCho[]; sap_toi?: SapToi[] }>(
           "hang-cho",
-          phong ? { phong: phong.id } : {},
+          tuVan ? { tu_van: "true" } : phong ? { phong: phong.id } : {},
         ),
         docBang<Bang>(null),
       ]);
@@ -215,7 +230,8 @@ export default function BanKham({
       if (!h.ok) setLoi(h.loi);
       else {
         setLoi(null);
-        setHang(h.data.hang_cho.filter((d) => d.loai === "KHAM"));
+        setHang(h.data.hang_cho.filter((d) => d.loai === (tuVan ? "TU_VAN" : "KHAM")));
+        setSapToi(tuVan ? [] : (h.data.sap_toi ?? []));
       }
       if (b.ok) setBang(b.data);
     };
@@ -226,7 +242,7 @@ export default function BanKham({
       huy = true;
       clearInterval(t);
     };
-  }, [phongs, phong, lanNap]);
+  }, [phongs, phong, lanNap, tuVan]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
 
@@ -301,6 +317,13 @@ export default function BanKham({
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
+        {tuVan ? (
+          <p className="text-sm text-ink-muted">
+            Hàng tư vấn chung — bác sĩ tư vấn nào rảnh thì nhận. Đo sinh hiệu trước,
+            nhưng khách chưa đo vẫn nhận được.
+          </p>
+        ) : (
+        <>
         <label className="text-sm font-semibold text-ink" htmlFor="chon-phong">
           Phòng
         </label>
@@ -326,6 +349,8 @@ export default function BanKham({
             </option>
           ))}
         </select>
+        </>
+        )}
         {loi ? (
           <p role="alert" className="text-sm text-danger">
             {loi}
@@ -333,17 +358,27 @@ export default function BanKham({
         ) : null}
       </div>
 
-      {laBacSi || laThuKy ? (
+      {!tuVan && (laBacSi || laThuKy) ? (
         <ChoBacSiQuyet lanNap={lanNap} onDaQuyet={napLai} />
       ) : null}
 
-      <StatRow>
-        <StatCard label="Chờ khám" value={choKham.length} tone="brand" />
-        <StatCard label="Kết quả cần đọc" value={canDoc.length} tone="warning" />
-        <StatCard label="Đang khám" value={dangKham.length} tone="neutral" />
-        <StatCard label="Đang ở bước khác" value={buocKhac.length} tone="warning" />
-        <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
-      </StatRow>
+      {tuVan ? (
+        <StatRow>
+          <StatCard label="Chờ tư vấn" value={choKham.length} tone="brand" />
+          <StatCard label="Chờ đo sinh hiệu" value={buocKhac.length} tone="warning" />
+          <StatCard label="Đang tư vấn" value={dangKham.length} tone="neutral" />
+          <StatCard label="Đã chuyển bác sĩ chính" value={daXong.length} tone="neutral" />
+        </StatRow>
+      ) : (
+        <StatRow>
+          <StatCard label="Chờ khám" value={choKham.length} tone="brand" />
+          <StatCard label="Kết quả cần đọc" value={canDoc.length} tone="warning" />
+          <StatCard label="Đang khám" value={dangKham.length} tone="neutral" />
+          <StatCard label="Sắp tới" value={sapToi.length} tone="neutral" />
+          <StatCard label="Đang ở bước khác" value={buocKhac.length} tone="warning" />
+          <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
+        </StatRow>
+      )}
 
       <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(480px,1.9fr)_minmax(320px,1fr)]">
         <aside
@@ -366,9 +401,19 @@ export default function BanKham({
             <p className="px-3 pb-3 text-xs text-ink-muted">Đang tải hàng chờ…</p>
           ) : (
             <div className="max-h-[720px] overflow-y-auto">
+              {tuVan ? (
+                <>
+                  <Nhom ten="Đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang tư vấn." />
+                  <Nhom ten="Chờ tư vấn" ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." />
+                  <Nhom ten="Chờ đo sinh hiệu" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Đã chuyển bác sĩ chính hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+                </>
+              ) : (
+              <>
               <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang khám." />
               <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} daKhamLuc={daKhamLuc} />
               <Nhom ten="Chờ khám" ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." />
+              <NhomSapToi ds={sapToi} />
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
               {laThuKy ? (
                 <>
@@ -377,6 +422,8 @@ export default function BanKham({
                 </>
               ) : (
                 <Nhom ten="Đã khám xong hôm nay" ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+              )}
+              </>
               )}
             </div>
           )}
@@ -400,13 +447,14 @@ export default function BanKham({
               dong={chon}
               daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
               luot={luot}
-              choBam={laBacSi || laThuKy}
+              choBam={laBacSi || laThuKy || tuVan}
               laBacSi={laBacSi}
               staffId={staffId}
               onDaBam={napLai}
+              tuVan={tuVan}
             />
           </div>
-          <div className={`min-w-0 ${khung === "chi-dinh" ? "" : "hidden"} 2xl:block`}>
+          <div className={`min-w-0 ${khung === "chi-dinh" && !tuVan ? "" : "hidden"} ${tuVan ? "" : "2xl:block"}`}>
             <ChiDinhPanel
               dong={chon}
               luot={luot}
@@ -419,6 +467,34 @@ export default function BanKham({
         </div>
       </div>
     </div>
+  );
+}
+
+/** "Sắp tới — đang ở tư vấn": bác sĩ chính THẤY trước, chưa gọi được (24/09).
+ *  Chỉ xem — khách vào "Chờ khám" khi bác sĩ tư vấn bấm Xong. */
+function NhomSapToi({ ds }: { ds: SapToi[] }) {
+  if (ds.length === 0) return null;
+  return (
+    <section>
+      <h3 className="border-y border-line bg-surface-muted px-3 py-2 text-xs font-semibold text-ink-soft">
+        Sắp tới — đang ở tư vấn ({ds.length})
+      </h3>
+      <ul>
+        {ds.map((d) => (
+          <li key={d.visit_id} className="flex items-center gap-2.5 px-2.5 py-2.5 text-xs">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-surface-sunken font-semibold text-ink-soft">
+              {d.so_tiep_don ?? "—"}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-ink">{d.ten}</span>
+              <span className="block truncate text-ink-muted">
+                {d.ma_bn ?? ""} · {d.dang_o}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -513,6 +589,7 @@ function HoSo({
   laBacSi,
   staffId,
   onDaBam,
+  tuVan = false,
 }: {
   dong: DongHangCho | null;
   daKhamLuc: string | null;
@@ -521,6 +598,8 @@ function HoSo({
   laBacSi: boolean;
   staffId: string | null;
   onDaBam: () => void;
+  /** Bàn khám tư vấn: Bắt đầu / Xong tư vấn thay cho Bắt đầu khám / Hoàn tất. */
+  tuVan?: boolean;
 }) {
   const [xemLai, setXemLai] = useState<{ id: string; luot: LuotTruoc } | null>(null);
   const dangXem = xemLai && xemLai.id === dong?.id ? xemLai.luot : null;
@@ -560,7 +639,7 @@ function HoSo({
     );
   }
 
-  const bam = async (thaoTac: "nhan-kham" | "kham-xong") => {
+  const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
     if (thaoTac === "kham-xong") {
       if (completionMode === "TERMINAL" && !laBacSi) {
         setLoi({
@@ -675,7 +754,9 @@ function HoSo({
             gọi; chỉ thôi ghi mới từ màn này. */}
         {choBam ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {dong.trang_thai === "waiting" || dong.trang_thai === "called" ? (
+            {dong.trang_thai === "waiting" ||
+            dong.trang_thai === "called" ||
+            (tuVan && dong.trang_thai === "blocked") ? (
               <button
                 type="button"
                 disabled={dangGui}
@@ -683,10 +764,15 @@ function HoSo({
                 className="inline-flex min-h-11 items-center gap-2 rounded-control bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 <Stethoscope className="size-4" aria-hidden="true" />
-                {dangGui ? "Đang ghi…" : "Bắt đầu khám"}
+                {dangGui ? "Đang ghi…" : tuVan ? "Bắt đầu tư vấn" : "Bắt đầu khám"}
               </button>
             ) : null}
-            {dong.trang_thai === "blocked" ? (
+            {tuVan && dong.trang_thai === "blocked" ? (
+              <p className="text-xs text-warning">
+                Khách chưa đo sinh hiệu — vẫn nhận tư vấn được.
+              </p>
+            ) : null}
+            {!tuVan && dong.trang_thai === "blocked" ? (
               <p className="text-xs text-warning">
                 Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
               </p>
@@ -828,13 +914,13 @@ function HoSo({
             <button
               type="button"
               disabled={dangGui}
-              onClick={() => void bam("kham-xong")}
+              onClick={() => void bam(tuVan ? "xong-tu-van" : "kham-xong")}
               className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
             >
               <CheckCircle2 className="size-4" aria-hidden="true" />
-              {dangGui ? "Đang ghi…" : "Hoàn tất"}
+              {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn — chuyển bác sĩ chính" : "Hoàn tất"}
             </button>
-            {!laBacSi && completionMode === "TERMINAL" ? (
+            {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
               <p className="text-xs text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
             ) : null}
             {loiHienTai ? (

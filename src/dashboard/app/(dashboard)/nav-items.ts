@@ -68,6 +68,7 @@ export const NAV: NavItem[] = [
   // năm màn Khám nội tiết / phụ khoa / sản / hiếm muộn / nam khoa: năm màn ấy
   // đặt tên theo PHIẾU, còn thanh bên đặt tên theo NƠI LÀM VIỆC. Phiếu tự mở
   // theo dịch vụ khách đặt, không do mục thanh bên quyết.
+  { href: "/tu-van", label: "Bàn khám tư vấn", icon: Stethoscope },
   { href: "/ban-kham", label: "Bàn khám (khách của tôi)", icon: Stethoscope },
   { href: "/xac-nhan-ket-qua", label: "Xác nhận kết quả", icon: ClipboardCheck },
   { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
@@ -340,7 +341,8 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
 
   // Phòng Nội tiết: bác sĩ khám; hỏi bệnh ban đầu và thư ký ngồi cùng phòng.
   T1_BS_NOITIET: [BAN_KHAM, "/duyet-ket-qua"],
-  T1_HOIBENH: [BAN_KHAM],
+  // Hỏi bệnh ban đầu = BÀN KHÁM TƯ VẤN (24/09/2026): hàng tư vấn chung.
+  T1_HOIBENH: ["/tu-van"],
   T1_TKYK: [BAN_KHAM],
 
   // THỦ THUẬT DO BÁC SĨ LÀM (Tuyền 16/09/2026); điều dưỡng cùng phòng hỗ trợ.
