@@ -32,6 +32,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit_labels import action_label
+from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
 GOI_DUOC = frozenset(
@@ -282,6 +283,9 @@ class XemLuotService:
                    rb.full_name AS nguoi_ghi, ab.full_name AS nguoi_duyet,
                    sb.full_name AS nguoi_xep, pb.full_name AS nguoi_lam,
                    db.full_name AS nguoi_duyet_ket_qua, rm.name AS phong,
+                   o.selection_status, o.execution_status, o.routing_revision,
+                   o.room_id::text AS room_id,
+                   coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
                    (SELECT count(*) FROM tep_ket_qua t
                      WHERE t.clinic_id = o.clinic_id AND t.service_order_id = o.id)
                                                               AS so_tep,
@@ -301,6 +305,8 @@ class XemLuotService:
               LEFT JOIN staff db ON db.id = o.duyet_boi
               LEFT JOIN clinic_room rm
                 ON rm.id = o.room_id AND rm.clinic_id = o.clinic_id
+              LEFT JOIN node_definition nd
+                ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
              ORDER BY o.created_at, o.id
             """,
@@ -314,6 +320,16 @@ class XemLuotService:
                 "node": r["node_code"],
                 "trang_thai": r["exec_status"],
                 "phong": r["phong"],
+                # Đổi phòng ngay trong màn xem lượt (23/09/2026) — lệnh vẫn tự
+                # kiểm quyền + cổng tiền; đây chỉ để biết có bày nút không.
+                "phong_id": r.get("room_id"),
+                "routing_revision": r.get("routing_revision"),
+                "doi_phong_duoc": doi_phong_duoc(
+                    selection_status=r.get("selection_status"),
+                    execution_status=r.get("execution_status"),
+                    exec_status=r["exec_status"],
+                    doi_tac=bool(r.get("doi_tac")),
+                ),
                 "so_tep": int(r["so_tep"] or 0),
                 "ly_do_khong_lam": r["not_performed_reason"],
                 "ly_do_huy": r["cancel_reason"],

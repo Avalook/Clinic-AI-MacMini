@@ -465,3 +465,40 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
         ),
         None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Đổi phòng dịch vụ — ai có quyền điều phối cũng làm được (23/09/2026)
+# ---------------------------------------------------------------------------
+
+_DA_LAM_HOAC_XONG = frozenset(
+    {"in_progress", "performed", "not_performed", "cancelled"}
+)
+_THUC_HIEN_KHONG_DOI = frozenset(
+    {"IN_PROGRESS", "COMPLETED", "CANCELLED", "NOT_PERFORMED"}
+)
+
+
+def doi_phong_duoc(
+    *,
+    selection_status: str | None,
+    execution_status: str | None,
+    exec_status: str | None,
+    doi_tac: bool,
+) -> bool:
+    """Chỉ định này đổi phòng được không — để màn hình biết có bày nút.
+
+    Luồng chuẩn bước 7 (Tuyền chốt 23/09/2026): khách trả tiền dịch vụ thực làm
+    xong, phòng còn ổn thì đi, đầy thì lễ tân (hay điều dưỡng, thư ký, bác sĩ —
+    ai có quyền điều phối) đổi sang phòng vắng hơn cùng chức năng.
+
+    Chỉ là GỢI Ý hiển thị: lệnh `AssignServiceRoom` vẫn tự kiểm đủ (đã chọn, đã
+    qua cổng tiền, chưa bắt đầu, revision) và nói lý do nếu từ chối.
+    """
+    if doi_tac:
+        return False  # đối tác làm — không có phòng của phòng khám để xếp
+    if selection_status != "SELECTED":
+        return False  # khách chưa chọn làm dịch vụ này (chưa qua quầy)
+    if (execution_status or "") in _THUC_HIEN_KHONG_DOI:
+        return False
+    return (exec_status or "") not in _DA_LAM_HOAC_XONG

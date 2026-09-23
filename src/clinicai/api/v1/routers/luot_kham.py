@@ -493,7 +493,10 @@ class InvalidateRoutingBody(BaseModel):
 async def assign_service_room(
     order_id: UUID,
     body: AssignRoomBody,
-    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    # QUYỀN, KHÔNG VAI (23/09/2026): trước đây chỉ Trưởng ca/Quản lý qua được
+    # cửa này dù lễ tân, điều dưỡng, thư ký, bác sĩ đều có khối Điều phối. Cửa
+    # thật là `service.routing.assign` trong ServiceRoutingService.
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:

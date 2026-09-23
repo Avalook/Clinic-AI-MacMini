@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 
 import { docBang, gioVn } from "./api";
+import DoiPhong from "./DoiPhong";
 
 interface Moc {
   viec: string;
@@ -25,6 +26,10 @@ interface DichVu {
   dich_vu: string;
   trang_thai: string;
   phong: string | null;
+  /** Đổi phòng ngay tại đây (23/09/2026) — máy chủ vẫn tự kiểm quyền + tiền. */
+  phong_id?: string | null;
+  routing_revision?: number | null;
+  doi_phong_duoc?: boolean;
   so_tep: number;
   ly_do_khong_lam: string | null;
   ket_qua_ghi: string | null;
@@ -171,6 +176,7 @@ export default function XemLuot({
   // Kết quả gắn với MÃ lượt đã hỏi — đổi lượt thì bản cũ tự thành "đang tải",
   // không cần xoá state đồng bộ trong effect.
   const [kq, setKq] = useState<{ id: string; dl?: DuLieuXem; loi?: string } | null>(null);
+  const [lanNap, setLanNap] = useState(0);
   const dongRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -182,7 +188,7 @@ export default function XemLuot({
     return () => {
       huy = true;
     };
-  }, [dangXem]);
+  }, [dangXem, lanNap]);
 
   useEffect(() => {
     dongRef.current?.focus();
@@ -365,6 +371,15 @@ export default function XemLuot({
                         <p className="text-xs text-warning">Lý do không làm: {d.ly_do_khong_lam}</p>
                       ) : null}
                       {d.ket_qua_ghi ? <p className="text-xs text-ink">Kết quả: {d.ket_qua_ghi}</p> : null}
+                      {d.doi_phong_duoc ? (
+                        <DoiPhong
+                          orderId={d.id}
+                          phongHienTaiId={d.phong_id ?? null}
+                          routingRevision={d.routing_revision ?? null}
+                          choDoi
+                          onDaDoi={() => setLanNap((n) => n + 1)}
+                        />
+                      ) : null}
                       <ol className="mt-1 grid gap-0.5 text-xs text-ink-soft">
                         {d.moc.map((m, i) => (
                           <li key={i}>

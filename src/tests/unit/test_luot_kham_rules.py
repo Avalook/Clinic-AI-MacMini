@@ -297,3 +297,31 @@ def test_bmi_client_gui_len_bi_bo_qua_luon_tu_tinh() -> None:
 def test_bmi_client_gui_ma_thieu_can_hoac_cao_thi_rong() -> None:
     v, loi = rules.parse_vitals({"systolic": 118, "diastolic": 76, "bmi": 22})
     assert loi is None and v is not None and v.bmi is None
+
+
+# --- Đổi phòng dịch vụ (23/09/2026) ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("chon", "thuc_hien", "cu", "doi_tac", "duoc"),
+    [
+        ("SELECTED", "PENDING", "assigned", False, True),
+        ("SELECTED", None, "ordered", False, True),
+        ("PENDING", "PENDING", "ordered", False, False),  # khách chưa chọn
+        ("SELECTED", "IN_PROGRESS", "assigned", False, False),  # đang làm
+        ("SELECTED", "COMPLETED", "performed", False, False),  # xong rồi
+        ("SELECTED", "PENDING", "assigned", True, False),  # đối tác làm
+    ],
+)
+def test_doi_phong_duoc(
+    chon: str, thuc_hien: str | None, cu: str, doi_tac: bool, duoc: bool
+) -> None:
+    assert (
+        rules.doi_phong_duoc(
+            selection_status=chon,
+            execution_status=thuc_hien,
+            exec_status=cu,
+            doi_tac=doi_tac,
+        )
+        is duoc
+    )

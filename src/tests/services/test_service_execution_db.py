@@ -655,3 +655,60 @@ async def test_bac_si_chinh_thay_gio_bat_dau_va_xong_cua_phong(kb: KB) -> None:
     xong = await chi_dinh()
     assert xong["lam_trang_thai"] == "COMPLETED"
     assert xong["lam_xong_luc"] is not None
+
+
+async def test_le_tan_doi_phong_vang_hon_sau_khi_khach_tra_tien(kb: KB) -> None:
+    """Luồng chuẩn bước 7 (23/09/2026): phòng đầy thì lễ tân đổi sang phòng vắng
+    hơn cùng chức năng — lễ tân, điều dưỡng, thư ký, bác sĩ đều làm được, không
+    riêng trưởng ca. Cửa là QUYỀN điều phối, không phải vai."""
+    import inspect
+
+    from clinicai.api.identity import get_current_identity
+    from clinicai.api.v1.routers.luot_kham import assign_service_room
+    from clinicai.services.clinic_config_service import ClinicConfigService
+    from clinicai.services.service_routing_service import ServiceRoutingService
+    from clinicai.services.xem_luot_service import XemLuotService
+
+    # Router không còn gác vai (trước chỉ Trưởng ca / Quản lý qua được).
+    cua = inspect.signature(assign_service_room).parameters["identity"].default
+    assert cua.dependency is get_current_identity
+
+    # Lượt dựng tay trong fixture: ghi đường đi như check-in thật đã làm (F2).
+    await kb.pool.execute(
+        "INSERT INTO encounter_flow (clinic_id, visit_id, route_decision,"
+        " route_decided_at) VALUES ($1::uuid, $2::uuid, 'PRIMARY', now())"
+        " ON CONFLICT (visit_id) DO UPDATE SET route_decision = 'PRIMARY',"
+        " route_decided_at = now()",
+        CLINIC,
+        kb.visit_id,
+    )
+    ql = await _nguoi_quan_ly(kb)
+    moi = await ClinicConfigService(kb.pool).create_room(
+        identity=ql,
+        location_id=kb.le_tan.location_id,
+        name="Siêu âm vắng",
+        node_code="DICHVU-SIEUAM",
+        floor="2",
+    )
+    luot = await XemLuotService(kb.pool).doc(identity=kb.le_tan, visit_id=kb.visit_id)
+    [dv] = [d for d in luot["dich_vu"] if d["id"] == kb.order_id]
+    assert dv["doi_phong_duoc"] is True and dv["phong_id"] == kb.room_id
+
+    kq = await ServiceRoutingService(kb.pool).assign(
+        order_id=kb.order_id,
+        room_id=str(moi["room_id"]),
+        expected_routing_revision=dv["routing_revision"],
+        reason_code="LOAD_BALANCE",
+        identity=kb.le_tan,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert kq["room_id"] == str(moi["room_id"])
+    phong = await kb.pool.fetchval(
+        "SELECT room_id::text FROM service_order WHERE id = $1::uuid", kb.order_id
+    )
+    assert phong == str(moi["room_id"])
+
+
+async def _nguoi_quan_ly(kb: KB) -> StaffIdentity:
+    async with kb.pool.acquire() as conn:
+        return await _nguoi(conn, "MANAGEMENT")

@@ -50,6 +50,7 @@ import {
   type PhongHomNay,
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
+import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import Button from "@/components/ui/Button";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
@@ -87,6 +88,9 @@ interface ChiDinh {
   lam_xong_luc?: string | null;
   lam_trang_thai?: "IN_PROGRESS" | "COMPLETED" | "INTERRUPTED" | null;
   lam_phong?: string | null;
+  phong_id?: string | null;
+  routing_revision?: number | null;
+  doi_phong_duoc?: boolean;
   /** Việc gửi đối tác làm — không có phòng nào của phòng khám để xếp. */
   doi_tac?: boolean;
   trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA" | null;
@@ -967,6 +971,17 @@ function ChiDinhPanel({
               </p>
               {c.ket_qua ? (
                 <p className="mt-1 whitespace-pre-line text-xs text-ink">{c.ket_qua}</p>
+              ) : null}
+              {/* PHÒNG LÀM ĐƯỢC + SỐ NGƯỜI CHỜ ngay lúc chỉ định (luồng chuẩn
+                  bước 7). Chưa làm / chưa đối tác thì mới bày. */}
+              {!c.doi_tac && !["draft", "performed", "not_performed", "cancelled", "in_progress"].includes(c.trang_thai) ? (
+                <DoiPhong
+                  orderId={c.id}
+                  phongHienTaiId={c.phong_id ?? null}
+                  routingRevision={c.routing_revision ?? null}
+                  choDoi={Boolean(c.doi_phong_duoc)}
+                  onDaDoi={onDaGui}
+                />
               ) : null}
               {c.trang_thai === "performed" || c.trang_thai === "in_progress" ? (
                 <button

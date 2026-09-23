@@ -1247,6 +1247,8 @@ class LuotKhamService:
                            pf.full_name AS performed_by_name,
                            coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
                            o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,
+                           o.selection_status, o.execution_status,
+                           o.routing_revision,
                            lam.started_at AS lam_bat_dau_luc,
                            lam.ended_at AS lam_xong_luc,
                            lam.status AS lam_trang_thai,
@@ -1454,6 +1456,13 @@ class LuotKhamService:
                     "lam_xong_luc": _iso(o.get("lam_xong_luc")),
                     "lam_trang_thai": o.get("lam_trang_thai"),
                     "lam_phong": o.get("lam_phong"),
+                    "routing_revision": o.get("routing_revision"),
+                    "doi_phong_duoc": rules.doi_phong_duoc(
+                        selection_status=o.get("selection_status"),
+                        execution_status=o.get("execution_status"),
+                        exec_status=o["exec_status"],
+                        doi_tac=bool(o["doi_tac"]),
+                    ),
                     # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
                     # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".
                     "doi_tac": o["doi_tac"],
