@@ -168,6 +168,14 @@ async def main() -> int:
                     clinic_id,
                     staff_id,
                 )
+                # Có tên mà không có quyền là người ngồi nhìn màn trắng: cấp preset
+                # theo vai ngay trong cùng giao dịch (migration 20260923000016).
+                await conn.fetch(
+                    "SELECT public.cap_quyen_theo_preset($1::uuid, $2::uuid, $3)",
+                    clinic_id,
+                    staff_id,
+                    "CSKH",
+                )
             print(f"  ✓ {ten:24} {email}")
 
     n = await conn.fetchval(

@@ -259,6 +259,15 @@ async def main() -> int:
                             staff_id,
                             k["vai"],
                         )
+                        # Có tên mà không có quyền = ngồi nhìn màn
+                        # trắng: cấp preset theo vai, cùng giao dịch.
+                        await conn.fetch(
+                            "SELECT public.cap_quyen_theo_preset("
+                            "$1::uuid, $2::uuid, $3)",
+                            clinic_id,
+                            staff_id,
+                            k["vai"],
+                        )
                     else:
                         await conn.execute(
                             "UPDATE staff SET auth_user_id = $1::uuid "

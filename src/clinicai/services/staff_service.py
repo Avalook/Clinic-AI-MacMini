@@ -17,7 +17,10 @@ from clinicai.schemas.staff import (
     StaffUpdateDTO,
 )
 from clinicai.services.audit import record_event
-from clinicai.services.permission_service import cap_preset_mac_dinh
+from clinicai.services.permission_service import (
+    cap_preset_mac_dinh,
+    giu_nguoi_cap_quyen,
+)
 
 logger = structlog.get_logger()
 
@@ -342,6 +345,7 @@ class StaffService:
                         )
                     else:
                         await self._deactivate_global_if_orphaned(conn, staff_id)
+                        await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
 
                 await self._audit(
                     conn,
@@ -396,6 +400,7 @@ class StaffService:
                 )
                 if row is not None:
                     await self._deactivate_global_if_orphaned(conn, staff_id)
+                    await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
                     await self._audit(
                         conn,
                         event_type="staff.deactivated",

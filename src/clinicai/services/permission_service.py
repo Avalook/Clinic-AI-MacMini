@@ -25,6 +25,7 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import KhoiQuyenDaCap, KhoiQuyenDaThu
@@ -75,21 +76,14 @@ async def cap_preset_mac_dinh(
     # Tra nhóm NGAY TRONG câu INSERT chứ không hỏi trước rồi mới ghi: bớt một
     # vòng hỏi database trên đường tạo nhân sự, và không để hai câu nhìn thấy
     # hai phiên bản khác nhau của cùng một nhóm.
+    # Một chỗ cấp preset cho cả Python, fixture và script: hàm SQL
+    # `cap_quyen_theo_preset` (migration 20260923000016). Nó bỏ qua quyền người
+    # này TỪNG có, kể cả đã bị thu — cấp lại không bật lại thứ quản lý đã tắt.
+    # `PRESET` chỉ còn là lưới an toàn cho phòng khám chưa có nhóm mẫu.
     ds = await conn.fetch(
-        """
-        INSERT INTO capability_grant
-            (clinic_id, staff_id, capability, tu_khoi, tu_preset, ly_do)
-        SELECT $1::uuid, $2::uuid, c.ma, c.work_pack, $3,
-               'Cấp theo preset khi thêm nhân sự'
-          FROM capability c
-         WHERE c.work_pack = ANY(
-             coalesce(
-                 (SELECT p.khoi FROM quyen_preset p
-                   WHERE p.clinic_id = $1::uuid AND p.ma = $3 AND p.active),
-                 $4::text[]))
-        ON CONFLICT DO NOTHING
-        RETURNING capability
-        """,
+        "SELECT cap AS capability"
+        "  FROM public.cap_quyen_theo_preset($1::uuid, $2::uuid, $3, $4::text[],"
+        "       'Cấp theo preset khi thêm nhân sự') AS cap",
         clinic_id,
         staff_id,
         vai,
@@ -97,6 +91,24 @@ async def cap_preset_mac_dinh(
     )
     cache.quen(clinic_id, staff_id)
     return sorted(r["capability"] for r in ds)
+
+
+async def giu_nguoi_cap_quyen(conn: asyncpg.Connection, clinic_id: str) -> None:
+    """Chặn trước khi commit nếu phòng khám sắp không còn ai cấp được quyền.
+
+    Postgres cũng chặn (trigger `giu_nguoi_cap_quyen_*`, lúc COMMIT) — đây chỉ
+    để người dùng nhận một câu dễ hiểu thay vì lỗi database. Khoá dòng phòng
+    khám như trigger, để hai người thu quyền cùng lúc không cùng thấy "còn".
+    """
+    await conn.execute(
+        "SELECT 1 FROM public.clinic WHERE id = $1::uuid FOR UPDATE", clinic_id
+    )
+    con = await conn.fetchval("SELECT public.con_nguoi_cap_quyen($1::uuid)", clinic_id)
+    if not con:
+        raise ConflictError(
+            "Không làm được: phòng khám phải còn ít nhất một người đang làm"
+            " có quyền cấp quyền. Cấp quyền ấy cho người khác trước."
+        )
 
 
 class PermissionService:
@@ -264,6 +276,8 @@ class PermissionService:
                 ly_do,
             )
             ds = sorted(r["capability"] for r in da_thu)
+            if "permission.manage" in ds:
+                await giu_nguoi_cap_quyen(conn, identity.clinic_id)
             if ds:
                 await emit_event(
                     conn,

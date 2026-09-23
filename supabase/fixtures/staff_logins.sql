@@ -148,3 +148,7 @@ SELECT u.email, s.primary_department, m.role, s.is_active
   JOIN public.clinic_membership m ON m.staff_id = s.id
  WHERE u.email LIKE '%@dr4women.local'
  ORDER BY 1;
+
+-- Người vừa tạo phải làm được việc ngay: cấp quyền theo vai (migration
+-- 20260923000016). Không có dòng này thì mọi tài khoản thử có 0 quyền.
+SELECT public.cap_quyen_cho_moi_thanh_vien();

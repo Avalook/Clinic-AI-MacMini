@@ -153,3 +153,7 @@ BEGIN
           WHERE clinic_id = v_clinic AND is_active);
 END
 $roster$;
+
+-- Người vừa tạo phải làm được việc ngay: cấp quyền theo vai (migration
+-- 20260923000016). Không có dòng này thì mọi tài khoản thử có 0 quyền.
+SELECT public.cap_quyen_cho_moi_thanh_vien();
