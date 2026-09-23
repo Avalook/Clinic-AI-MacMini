@@ -130,7 +130,9 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
             ],
             bang=["form_instance"],
-            quyen=["result.form.fill"],
+            # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
+            # vòng đời kết quả — cùng module, không mở module mới cho hai lệnh.
+            quyen=["result.form.fill", "result.file.confirm", "result.review.approve"],
             # Điền xong phiếu mà dịch vụ còn đang làm dở thì đóng hộ — nhưng
             # bằng LỆNH của module Thực hiện, không thò tay vào bảng của nó.
             goi_dong_bo=["execution.CompleteService"],
@@ -219,6 +221,25 @@ MODULE: dict[str, Module] = {
             lenh=["StartVitals", "RecordVitals"],
             phat=["vitals.started", "vitals.recorded"],
             quyen=["vitals.measure"],
+        ),
+        Module(
+            ma="consultation",
+            ten="Khám bệnh",
+            # Đường khám chính hỏi QUYỀN, không hỏi vai (CORE-B3, 23/09/2026).
+            # Hoàn tất KHÔNG khoá hồ sơ (Tuyền chốt 23/09) — finalize chỉ là
+            # mốc "khám xong", mở "Cho phép CSKH gửi".
+            lenh=[
+                "StartConsultation",
+                "CompleteConsultation",
+                "SaveConsultationNote",
+                "SaveClinicalRecord",
+                "ReleaseRecord",
+            ],
+            quyen=[
+                "clinical.consult.perform",
+                "clinical.record.write",
+                "clinical.consult.finalize",
+            ],
         ),
         Module(
             ma="payment",

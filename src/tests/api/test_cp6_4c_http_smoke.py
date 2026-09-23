@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
+from tests.quyen_gia import doi_quyen_theo_nhom_mau
 from tests.services.fake_sql import SqlConn, pool
 
 CLINIC = "00000000-aaaa-4000-8000-000000000001"
@@ -88,6 +89,17 @@ def _pool(*rules: tuple[str, Any]) -> SqlConn:
 def _clean_overrides() -> Iterator[None]:
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pool ở đây là SQL giả theo luật khớp chuỗi — cửa quyền thật (CORE-A/B3,
+    `clinical.consult.finalize`) không có dòng để đọc. Cửa giả trả lời theo
+    nhóm mẫu của vai: bác sĩ có, bác sĩ siêu âm và lễ tân không."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_sign_service.doi_quyen",
+        doi_quyen_theo_nhom_mau,
+    )
 
 
 # ── amend route tests ────────────────────────────────────────────────────

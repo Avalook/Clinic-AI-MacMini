@@ -4,7 +4,9 @@ Target:
 1. Endpoint & Service: cho_xac_nhan(identity)
    - Fail-closed: 403 nếu không có capability ket_qua.xac_nhan.
    - PARTNER không bao giờ có quyền.
-   - Multi-clinic active membership bị chặn.
+   - Quyền theo TỪNG phòng khám (CORE-B2): có quyền ở A thì làm ở A, sang B
+     thì bị chặn. (Hệ cũ chặn hẳn người nhiều phòng khám vì quyền gắn theo
+     người, không theo phòng khám — mơ hồ nên phải fail-closed.)
    - Trả về đúng tệp external (lam_ben_ngoai = true, service_order_id IS NOT NULL).
    - Loại trừ internal, orders bị hủy/draft, orders đã HOP_LE/TU_CHOI/THU_HOI.
    - Xếp theo thứ tự cũ nhất trước (tai_len_luc ASC, id ASC).
@@ -23,6 +25,7 @@ Target:
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import pathlib
 from typing import Any
@@ -97,9 +100,13 @@ async def test_cho_xac_nhan_queue_auth_fail_closed(pool: asyncpg.Pool) -> None:
     with pytest.raises(SafetyGateError):
         await svc.cho_xac_nhan(identity=partner)
 
-    # 3. Multi-clinic active -> 403
+    # 3. Quyền theo từng phòng khám (CORE-B2, capability_grant.clinic_id):
+    #    cấp ở A → làm được ở A; đứng ở B (chưa ai cấp) → 403.
+    assert isinstance(await svc.cho_xac_nhan(identity=staff_multi), list)
     with pytest.raises(SafetyGateError):
-        await svc.cho_xac_nhan(identity=staff_multi)
+        await svc.cho_xac_nhan(
+            identity=dataclasses.replace(staff_multi, clinic_id=CLINIC_B)
+        )
 
 
 async def test_cho_xac_nhan_queue_filters_and_ordering(

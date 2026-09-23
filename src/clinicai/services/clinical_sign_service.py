@@ -238,6 +238,17 @@ class ClinicalSignService:
         expected_amendment_id: nếu hồ sơ ở AMENDED, bác sĩ phải gửi
         last_amendment_id đang nhìn. Không khớp ⇒ 409 (tải lại trước).
         """
+        # QUYỀN HỎI ĐẦU TIÊN, trước khi tìm lượt (luật chung của CORE-B3): người
+        # không có quyền nhận câu "chưa được cấp quyền", không phải "không tìm
+        # thấy". Hỏi lại trong giao dịch ghi bên dưới — quyền có thể bị thu
+        # giữa hai lần.
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.finalize",
+                cau="Bạn chưa được cấp quyền cho phép gửi hồ sơ.",
+            )
         state = await self.status(identity=identity, visit_id=visit_id)
         if state["state"] == "DRAFT":
             raise ValidationError("Phải hoàn tất khám trước khi cho phép gửi.")
@@ -400,6 +411,13 @@ class ClinicalSignService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Quyền hỏi ĐẦU TIÊN trong giao dịch, trước khi tìm lượt.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.consult.finalize",
+                    cau="Bạn chưa được cấp quyền đính chính hồ sơ.",
+                )
                 # Tách statement khóa khỏi statement đọc revision/release.
                 # Ở READ COMMITTED, join/subquery trong chính SELECT FOR UPDATE
                 # có thể giữ snapshot cũ sau khi chờ transaction trước commit.
@@ -433,12 +451,6 @@ class ClinicalSignService:
                     visit_id,
                 )
                 assert visit is not None
-                await doi_quyen(
-                    conn,
-                    identity,
-                    "clinical.consult.finalize",
-                    cau="Bạn chưa được cấp quyền đính chính hồ sơ.",
-                )
                 _assert_amend_authority(identity, visit["attending_doctor_id"])
                 if visit["status"] not in ("FINALIZED", "AMENDED"):
                     raise ValidationError(

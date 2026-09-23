@@ -11,12 +11,25 @@ import pytest
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole
 from clinicai.core.exceptions import SafetyGateError
+from tests.quyen_gia import doi_quyen_theo_nhom_mau
 from tests.services.test_clinical_record_revision import (
     STAFF,
     identity,
     save,
     setup_service,
 )
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`conn` là mock đếm từng lần fetchval — cửa quyền thật (CORE-B3) không
+    chạy được ở đây. Cửa giả trả lời theo nhóm mẫu của vai: điều dưỡng không có
+    "Ghi bệnh án" nên vẫn bị chặn ngay ở cổng, đúng như bài kiểm canh."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_record_service.doi_quyen",
+        doi_quyen_theo_nhom_mau,
+    )
+
 
 ITEM = {
     "id": None,
