@@ -2,7 +2,7 @@
 //
 //   GET  /api/phieu                      → các biểu mẫu đang dùng
 //   POST /api/phieu  { thao_tac: "mo" }  → mở (hoặc lấy lại) phiếu của chỉ định
-//   POST /api/phieu  { thao_tac: "luu" | "hoan-tat" | "mo-sua", phieu_id }
+//   POST /api/phieu  { thao_tac: "luu"|"hoan-tat"|"mo-sua"|"huy-sua", phieu_id }
 //
 // Không chép luật nào: "Hoàn tất = xác nhận toàn bộ", nguồn giá trị hợp lệ,
 // ai được điền (`result.form.fill`) đều nằm trong service. Tầng này chỉ kiểm
@@ -22,6 +22,8 @@ const THEO_PHIEU: Record<string, (id: string) => string> = {
   // Mở lại phiếu đã hoàn tất để sửa. Không có đường nào "xoá kết quả" —
   // sửa thì được, mất dấu thì không.
   "mo-sua": (id) => `/api/v1/phieu/${id}/mo-sua`,
+  // Bỏ bản sửa đang gõ dở. KHÔNG có đường nào xoá kết quả chính thức.
+  "huy-sua": (id) => `/api/v1/phieu/${id}/huy-sua`,
 };
 
 export async function GET() {

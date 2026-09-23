@@ -160,19 +160,57 @@ class FormEngineService:
                     "Phiếu vừa được người khác lưu — tải lại trước khi gõ tiếp."
                 )
 
-            moi = await conn.fetchrow(
-                "UPDATE form_instance"
-                "   SET du_lieu = $3::jsonb, revision = revision + 1,"
-                "       nhap_boi = $4::uuid, sua_luc = now(),"
-                "       thuc_hien_boi = COALESCE($5::uuid, thuc_hien_boi)"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid"
-                " RETURNING id::text, revision, sua_luc",
-                identity.clinic_id,
-                phieu_id,
-                json.dumps(sach, ensure_ascii=False),
-                identity.staff_id,
-                thuc_hien_boi,
-            )
+            # ĐANG SỬA THÌ GHI VÀO NHÁP. Bản chính thức (`du_lieu`) đứng yên
+            # cho tới khi bấm [Xác nhận sửa] — đó là thứ làm câu "bản cũ vẫn là
+            # kết quả chính thức" trên màn thành sự thật, chứ không phải lời hứa.
+            if dong["dang_sua"]:
+                # ĐANG SỬA: KHÔNG chạm gì thuộc về bản chính thức — không
+                # `du_lieu`, không `nhap_boi`, không `thuc_hien_boi`.
+                #
+                # Bản trước ghi `nhap_boi = người đang gõ` ở mọi lần tự lưu. Hệ
+                # quả: v1 còn nguyên nội dung, nhưng tên NGƯỜI NHẬP v1 âm thầm
+                # biến thành người đang gõ v2 — một dòng hồ sơ nói sai về ai đã
+                # làm, mà không ai bấm nút nào.
+                #
+                # NHƯNG KHÔNG ĐÁNH MẤT NGƯỜI GÕ NHÁP. Contract Form Engine
+                # tách `nhap_boi` (người gõ — nhật ký) khỏi `thuc_hien_boi`
+                # (người làm — dữ liệu nghiệp vụ); bỏ cả hai trong lúc sửa là
+                # xoá một vai có thật:
+                #
+                #   v1: điều dưỡng A nhập · bác sĩ B thực hiện
+                #   sửa: điều dưỡng C gõ · B vẫn thực hiện · bác sĩ D xác nhận
+                #
+                # Ba người, ba vai. Nên metadata đi THEO BẢN NHÁP, và chỉ trở
+                # thành chính thức lúc [Xác nhận sửa].
+                moi = await conn.fetchrow(
+                    "UPDATE form_instance"
+                    "   SET du_lieu_dang_sua = $3::jsonb,"
+                    "       nhap_boi_dang_sua = $4::uuid,"
+                    "       thuc_hien_boi_dang_sua ="
+                    "           COALESCE($5::uuid, thuc_hien_boi_dang_sua),"
+                    "       revision = revision + 1, sua_luc = now()"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                    " RETURNING id::text, revision, sua_luc",
+                    identity.clinic_id,
+                    phieu_id,
+                    json.dumps(sach, ensure_ascii=False),
+                    identity.staff_id,
+                    thuc_hien_boi,
+                )
+            else:
+                moi = await conn.fetchrow(
+                    "UPDATE form_instance"
+                    "   SET du_lieu = $3::jsonb, revision = revision + 1,"
+                    "       nhap_boi = $4::uuid, sua_luc = now(),"
+                    "       thuc_hien_boi = COALESCE($5::uuid, thuc_hien_boi)"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                    " RETURNING id::text, revision, sua_luc",
+                    identity.clinic_id,
+                    phieu_id,
+                    json.dumps(sach, ensure_ascii=False),
+                    identity.staff_id,
+                    thuc_hien_boi,
+                )
         return {
             "ok": True,
             "id": moi["id"],
@@ -190,12 +228,19 @@ class FormEngineService:
         expected_revision: int,
         identity: StaffIdentity,
         thuc_hien_boi: str | None = None,
+        ly_do_sua: str | None = None,
     ) -> dict[str, Any]:
         """`CompleteForm` — xác nhận TOÀN BỘ nội dung hiện tại của phiếu.
 
         Kể cả những câu mẫu không ai sửa: bấm nút này là nhận trách nhiệm về
         chúng (#177). Vì vậy `hoan_tat_boi` là người bấm, và nguồn của mọi ô
         đang là câu mẫu được đổi sang "người dùng đã xác nhận".
+
+        LẦN SỬA THÌ PHẢI CÓ LÝ DO. Kết quả này đã được in ra giấy và giao cho
+        khách; đổi nó mà không nói vì sao là để lại một câu hỏi không ai trả lời
+        được. `ly_do_sua` bắt buộc khi đang sửa lại, và nó đi vào
+        `visit_amendment.reason` — nơi duy nhất giữ lý do, không chép sang chỗ
+        thứ hai.
         """
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
@@ -228,29 +273,93 @@ class FormEngineService:
                     "Phiếu vừa được người khác lưu — tải lại rồi hoàn tất."
                 )
 
-            du_lieu = json.loads(dong["du_lieu"])
+            # ĐANG SỬA: nội dung mới nằm ở bản NHÁP, bản chính thức vẫn là bản
+            # người bệnh đang cầm trên tay.
+            ban_cu = json.loads(dong["du_lieu"])
+            du_lieu = json.loads(dong["du_lieu_dang_sua"]) if sua_lai else ban_cu
             khung = json.loads(dong["khung"])
             con_trong = _con_trong(khung, du_lieu)
+
+            anh_cu: dict[str, Any] = {}
+            if sua_lai:
+                anh_cu = _anh_phien_ban(dong, du_lieu=ban_cu, nhap_theo_nhap=False)
+                # Bản dự kiến, CHỈ để trả lời "có gì đổi không". Ảnh chụp thật
+                # dựng SAU khi ghi, từ chính giá trị Postgres vừa nhận.
+                du_kien = _anh_phien_ban(
+                    dong,
+                    du_lieu=du_lieu,
+                    nhap_theo_nhap=True,
+                    hoan_tat_boi=identity.staff_id,
+                    thuc_hien_boi=thuc_hien_boi,
+                )
+                # THỨ TỰ CÓ CHỦ Ý: hỏi "có đổi gì không" TRƯỚC, rồi mới đòi lý
+                # do. Bắt người ta gõ lý do xong mới báo "thực ra không thay gì"
+                # là bắt họ làm một việc vô ích rồi mới nói.
+                if not _da_doi_gi(anh_cu, du_kien):
+                    raise ValidationError(
+                        "Không có gì thay đổi so với bản hiện tại — bấm"
+                        " [Huỷ sửa] nếu bạn đổi ý."
+                    )
+                if not (ly_do_sua or "").strip():
+                    raise ValidationError("Sửa kết quả đã hoàn tất thì phải ghi lý do.")
 
             # Xác nhận toàn bộ: ô nào còn là câu mẫu cũng thành "đã xác nhận".
             for o in du_lieu.values():
                 if o.get("nguon") == "TEMPLATE_DEFAULT":
                     o["nguon"] = "USER"
 
+            # ĐẨY NHÁP THÀNH CHÍNH THỨC — cả nội dung lẫn metadata, rồi dọn
+            # sạch mọi cột nháp. `hoan_tat_boi` là người bấm nút; `nhap_boi`
+            # là người đã gõ; `thuc_hien_boi` là người được chọn. Ba vai khác
+            # nhau, và không vai nào suy ra từ vai kia.
             moi = await conn.fetchrow(
                 "UPDATE form_instance"
-                "   SET trang_thai = 'READY', dang_sua = false, du_lieu = $3::jsonb,"
+                "   SET trang_thai = 'READY', dang_sua = false,"
+                "       du_lieu = $3::jsonb, du_lieu_dang_sua = NULL,"
+                "       nhap_boi = COALESCE(nhap_boi_dang_sua, nhap_boi),"
+                "       nhap_boi_dang_sua = NULL,"
                 "       revision = revision + 1, hoan_tat_boi = $4::uuid,"
                 "       hoan_tat_luc = now(), sua_luc = now(),"
-                "       thuc_hien_boi = COALESCE($5::uuid, thuc_hien_boi, $4::uuid)"
+                "       thuc_hien_boi = COALESCE($5::uuid,"
+                "           thuc_hien_boi_dang_sua, thuc_hien_boi, $4::uuid),"
+                "       thuc_hien_boi_dang_sua = NULL"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid"
-                " RETURNING revision, thuc_hien_boi::text AS thuc_hien_boi",
+                " RETURNING revision, nhap_boi::text AS nhap_boi,"
+                "           thuc_hien_boi::text AS thuc_hien_boi,"
+                "           hoan_tat_boi::text AS hoan_tat_boi, hoan_tat_luc",
                 identity.clinic_id,
                 phieu_id,
                 json.dumps(du_lieu, ensure_ascii=False),
                 identity.staff_id,
                 thuc_hien_boi,
             )
+
+            ban_thu = 1
+            if sua_lai:
+                # ẢNH CHỤP DỰNG TỪ GIÁ TRỊ POSTGRES VỪA GHI, không dựng lại từ
+                # phía Python. `hoan_tat_luc` trong ảnh phải là CHÍNH cái mốc
+                # `form_instance.hoan_tat_luc` đang mang — nếu Python tự lấy giờ
+                # của mình thì có hai mốc lệch nhau cho cùng một sự việc, và
+                # không ai biết mốc nào mới là lúc kết quả được chốt.
+                anh_moi = {
+                    "du_lieu": du_lieu,
+                    "nhap_boi": moi["nhap_boi"],
+                    "thuc_hien_boi": moi["thuc_hien_boi"],
+                    "hoan_tat_boi": moi["hoan_tat_boi"],
+                    # ISO-8601 chuẩn (`2026-09-23T05:06:32+00:00`), không phải
+                    # `str(datetime)` — bản sau có dấu cách thay chữ T, và ảnh
+                    # chụp này còn phải đọc lại được sau nhiều năm.
+                    "hoan_tat_luc": _gio_iso(moi["hoan_tat_luc"]),
+                }
+                ban_thu = await self._ghi_lan_sua(
+                    conn,
+                    identity=identity,
+                    phieu_id=phieu_id,
+                    visit_id=dong["visit_id"],
+                    anh_cu=anh_cu,
+                    anh_moi=anh_moi,
+                    ly_do=(ly_do_sua or "").strip(),
+                )
 
             if not sua_lai:
                 await emit_event(
@@ -288,14 +397,17 @@ class FormEngineService:
                     # cùng mã, khác loại đối tượng, nên hai chuỗi số không
                     # giẫm chân nhau.
                     aggregate_id=phieu_id,
-                    aggregate_version=int(moi["revision"]),
+                    # Đối tượng `ket_qua` đánh số theo PHIÊN BẢN CHUYÊN MÔN, nên
+                    # chuỗi số của nó là 1, 2, 3… chứ không phải `revision` —
+                    # `revision` tăng cả khi tự lưu nháp.
+                    aggregate_version=ban_thu,
                     payload=(
                         KetQuaDaSua(
                             service_order_id=str(dong["service_order_id"]),
                             visit_id=dong["visit_id"],
                             form_id=dong["form_id"],
                             form_version=int(dong["version"]),
-                            ban_thu=int(moi["revision"]),
+                            ban_thu=ban_thu,
                             sua_boi=identity.staff_id,
                         )
                         if sua_lai
@@ -305,6 +417,7 @@ class FormEngineService:
                             form_id=dong["form_id"],
                             form_version=int(dong["version"]),
                             result_mode=mode,
+                            ban_thu=ban_thu,
                             thuc_hien_boi=moi["thuc_hien_boi"],
                         )
                     ),
@@ -323,6 +436,7 @@ class FormEngineService:
             "ok": True,
             "da_hoan_tat": True,
             "la_lan_sua": sua_lai,
+            "ban_thu": ban_thu,
             "revision": moi["revision"],
             # Không chặn, chỉ nói: "còn 3 mục chưa điền".
             "con_trong": con_trong,
@@ -334,12 +448,18 @@ class FormEngineService:
     async def mo_sua(self, *, phieu_id: str, identity: StaffIdentity) -> dict[str, Any]:
         """`ReopenForm` — mở lại phiếu đã hoàn tất để sửa.
 
-        KHÔNG đưa phiếu về nháp. Kết quả cũ vẫn là kết quả chính thức trong
-        suốt lúc sửa — không có khoảnh khắc nào bác sĩ mở ra mà thấy trống.
-        Bấm [Hoàn tất] lần nữa thì phát `result.corrected`.
+        KHÔNG đưa phiếu về nháp, và KHÔNG cho tự lưu chạm vào bản chính thức:
+        `du_lieu` đứng yên, mọi thứ người dùng gõ đi vào `du_lieu_dang_sua`.
+        Kết quả cũ vẫn là kết quả chính thức trong suốt lúc sửa — không có
+        khoảnh khắc nào bác sĩ mở ra mà thấy trống.
+
+        CHÉP MỘT LẦN. Người thứ hai mở ra sửa khi đã `dang_sua` thì nhận đúng
+        bản nháp đang có; chép lại từ bản chính thức là xoá mất những gì người
+        đầu vừa gõ.
 
         Bản thân việc mở ra sửa CHƯA phải một sự thật nghiệp vụ, nên không phát
-        sự kiện: người ta mở ra rồi đổi ý là chuyện thường.
+        sự kiện: người ta mở ra rồi đổi ý là chuyện thường — và có [Huỷ sửa]
+        cho đúng lúc ấy.
         """
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
@@ -355,12 +475,132 @@ class FormEngineService:
                 raise ValidationError("Phiếu chưa hoàn tất — cứ gõ tiếp.")
             if not dong["dang_sua"]:
                 await conn.execute(
-                    "UPDATE form_instance SET dang_sua = true, sua_luc = now()"
+                    "UPDATE form_instance"
+                    "   SET dang_sua = true, du_lieu_dang_sua = du_lieu,"
+                    # Người THỰC HIỆN mặc định giữ nguyên người của bản chính
+                    # thức: sửa một câu kết luận không đổi ai đã làm siêu âm.
+                    # Người GÕ thì để trống — chưa ai gõ gì cả.
+                    "       thuc_hien_boi_dang_sua = thuc_hien_boi,"
+                    "       nhap_boi_dang_sua = NULL, sua_luc = now()"
                     " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                     identity.clinic_id,
                     phieu_id,
                 )
         return {"ok": True, "dang_sua": True, "revision": dong["revision"]}
+
+    @staticmethod
+    async def _ghi_lan_sua(
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        phieu_id: str,
+        visit_id: str | None,
+        anh_cu: dict[str, Any],
+        anh_moi: dict[str, Any],
+        ly_do: str,
+    ) -> int:
+        """Chụp bản cũ và bản mới, rồi nối chúng vào lịch sử. Trả số bản mới.
+
+        ẢNH CHỤP LÀ CẢ PHIÊN BẢN, KHÔNG CHỈ PHẦN CHỮ. Kết quả ở phòng khám này
+        được IN RA GIẤY và giao cho khách; muốn mở lại bản v1 thì phải có nguyên
+        nó, không phải dựng lại từ hiệu số qua nhiều đời.
+
+        Và "nguyên nó" gồm cả AI ĐÃ LÀM:
+
+            {du_lieu, nhap_boi, thuc_hien_boi, hoan_tat_boi, hoan_tat_luc}
+
+        Nếu chỉ chụp `du_lieu` thì tới lần sửa thứ hai, `form_instance` bị đẩy
+        sang metadata của v3 và câu "ai nhập v2, ai thực hiện v2" không còn chỗ
+        nào trả lời. v1→v2 nhìn rất đẹp, và chỉ vỡ ở v3.
+
+        (Nói cho đúng: ảnh chụp này giữ được NỘI DUNG CHUYÊN MÔN của bản cũ, kèm
+        `form_definition.version` để biết khung lúc ấy. Nó KHÔNG bảo đảm in ra
+        giống hệt tờ giấy ngày xưa từng điểm ảnh — bộ vẽ và CSS đổi được. Muốn
+        thế phải lưu bản PDF đã kết xuất; việc riêng, chưa làm.)
+
+        Lý do · người sửa · lúc nào nằm ở `visit_amendment`, KHÔNG chép sang
+        `result_correction`. Hai chỗ giữ cùng một sự thật là hai chỗ để lệch.
+        """
+        if not visit_id:
+            raise ValidationError("Phiếu không gắn với lượt khám nào.")
+
+        # `hoan_tat` đã chặn trường hợp rỗng; giữ lại phép tính ở đây vì
+        # `corrected_fields` là cột NOT NULL có CHECK khác rỗng ở Postgres.
+        doi = _da_doi_gi(anh_cu, anh_moi)
+        amendment_id = await conn.fetchval(
+            "INSERT INTO visit_amendment"
+            " (clinic_id, visit_id, amended_by, amended_at, reason,"
+            "  corrected_fields, original_values, corrected_values)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, now(), $4, $5::text[],"
+            "         $6::jsonb, $7::jsonb)"
+            " RETURNING amendment_id::text",
+            identity.clinic_id,
+            visit_id,
+            identity.staff_id,
+            ly_do,
+            doi,
+            json.dumps(anh_cu, ensure_ascii=False, default=str),
+            json.dumps(anh_moi, ensure_ascii=False, default=str),  # lưới an toàn
+        )
+
+        # Số bản kế tiếp. Postgres kiểm lại trong trigger (liền mạch) và chặn
+        # hai người cùng lúc bằng khoá duy nhất — ở đây chỉ tính để ghi.
+        ban_thu = int(
+            await conn.fetchval(
+                "SELECT 2 + count(*) FROM result_correction"
+                " WHERE clinic_id = $1::uuid AND form_instance_id = $2::uuid",
+                identity.clinic_id,
+                phieu_id,
+            )
+        )
+        await conn.execute(
+            "INSERT INTO result_correction"
+            " (clinic_id, form_instance_id, visit_id, ban_thu, amendment_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid)",
+            identity.clinic_id,
+            phieu_id,
+            visit_id,
+            ban_thu,
+            amendment_id,
+        )
+        return ban_thu
+
+    async def huy_sua(
+        self, *, phieu_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """`DiscardFormCorrection` — bỏ bản sửa đang gõ dở.
+
+        KHÔNG có đường này thì bấm [Sửa lại] rồi đổi ý là phiếu kẹt ở chế độ
+        sửa mãi, và màn hình nói với mọi người rằng kết quả đang được sửa trong
+        khi không ai sửa gì.
+
+        Bản chính thức KHÔNG đổi một chữ. Không có `visit_amendment`, không có
+        `result_correction`, không phát `result.corrected` — chưa có sửa chữa
+        chuyên môn nào được xác nhận thì không có gì để ghi vào lịch sử y khoa.
+        """
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, QUYEN_DIEN)
+            dong = await conn.fetchrow(
+                "SELECT dang_sua, revision FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                identity.clinic_id,
+                phieu_id,
+            )
+            if dong is None:
+                raise ValidationError("Không tìm thấy phiếu này.")
+            if not dong["dang_sua"]:
+                # Bấm hai lần, hoặc người khác vừa huỷ: không phải lỗi.
+                return {"ok": True, "dang_sua": False, "revision": dong["revision"]}
+            moi = await conn.fetchval(
+                "UPDATE form_instance"
+                "   SET dang_sua = false, du_lieu_dang_sua = NULL,"
+                "       nhap_boi_dang_sua = NULL, thuc_hien_boi_dang_sua = NULL,"
+                "       revision = revision + 1, sua_luc = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid RETURNING revision",
+                identity.clinic_id,
+                phieu_id,
+            )
+        return {"ok": True, "dang_sua": False, "revision": int(moi)}
 
     @staticmethod
     async def _result_mode(
@@ -504,7 +744,17 @@ class FormEngineService:
 
     @staticmethod
     def _tra_phieu(dong: asyncpg.Record, khung: list[dict[str, Any]]) -> dict[str, Any]:
-        du_lieu = json.loads(dong["du_lieu"])
+        # ĐANG SỬA thì màn điền phải thấy BẢN NHÁP, không thấy bản chính thức:
+        # người thứ hai mở ra sửa phải nối tiếp cái người đầu vừa gõ, chứ không
+        # bắt đầu lại từ bản cũ.
+        #
+        # Còn ai ĐỌC KẾT QUẢ ở nơi khác vẫn đọc `du_lieu` — bản chính thức không
+        # đổi cho tới lúc [Xác nhận sửa].
+        du_lieu = json.loads(
+            dong["du_lieu_dang_sua"]
+            if dong["dang_sua"] and dong["du_lieu_dang_sua"]
+            else dong["du_lieu"]
+        )
         return {
             "id": str(dong["id"]),
             "form_id": dong["form_id"],
@@ -517,6 +767,15 @@ class FormEngineService:
             "khung": khung,
             "du_lieu": du_lieu,
             "con_trong": _con_trong(khung, du_lieu),
+            # Màn sửa phải nhận lại lựa chọn "người thực hiện" của chính bản
+            # đang sửa; tải lại trang mà mất lựa chọn ấy thì tự lưu mới lưu nửa
+            # cái phiếu.
+            "thuc_hien_boi": str(
+                dong["thuc_hien_boi_dang_sua"]
+                if dong["dang_sua"] and dong["thuc_hien_boi_dang_sua"]
+                else dong["thuc_hien_boi"] or ""
+            )
+            or None,
         }
 
 
@@ -541,6 +800,76 @@ def _kiem_du_lieu(du_lieu: dict[str, Any]) -> dict[str, Any]:
             raise ValidationError(f"Ô “{ma}” có nguồn lạ: {ngu}.")
         sach[ma] = {"gia_tri": o["gia_tri"], "nguon": ngu}
     return sach
+
+
+def _gio_iso(gio: Any) -> str | None:
+    """Mốc thời gian trong ảnh chụp luôn là ISO-8601, không phải `str(datetime)`.
+
+    `str()` cho ra `2026-09-23 05:06:32+00:00` — dấu cách thay chữ T. Đọc lại
+    được, nhưng không phải chuẩn, và ảnh chụp này còn phải mở ra sau nhiều năm.
+    """
+    return gio.isoformat() if hasattr(gio, "isoformat") else (gio or None)
+
+
+def _anh_phien_ban(
+    dong: asyncpg.Record,
+    *,
+    du_lieu: dict[str, Any],
+    nhap_theo_nhap: bool,
+    hoan_tat_boi: str | None = None,
+    thuc_hien_boi: str | None = None,
+) -> dict[str, Any]:
+    """Một phiên bản kết quả TRỌN VẸN: nội dung + ai đã làm.
+
+    `nhap_theo_nhap=True` dựng ảnh của bản SẮP thành chính thức, nên lấy người
+    gõ và người thực hiện từ các cột nháp. `False` dựng ảnh của bản ĐANG là
+    chính thức.
+    """
+    if nhap_theo_nhap:
+        nguoi_nhap = dong["nhap_boi_dang_sua"] or dong["nhap_boi"]
+        nguoi_lam = (
+            thuc_hien_boi or dong["thuc_hien_boi_dang_sua"] or dong["thuc_hien_boi"]
+        )
+        chot_boi: Any = hoan_tat_boi
+        chot_luc: Any = None
+    else:
+        nguoi_nhap = dong["nhap_boi"]
+        nguoi_lam = dong["thuc_hien_boi"]
+        chot_boi = dong["hoan_tat_boi"]
+        chot_luc = _gio_iso(dong["hoan_tat_luc"])
+    return {
+        "du_lieu": du_lieu,
+        "nhap_boi": str(nguoi_nhap) if nguoi_nhap else None,
+        "thuc_hien_boi": str(nguoi_lam) if nguoi_lam else None,
+        "hoan_tat_boi": str(chot_boi) if chot_boi else None,
+        "hoan_tat_luc": chot_luc,
+    }
+
+
+def _o_da_doi(ban_cu: dict[str, Any], ban_moi: dict[str, Any]) -> list[str]:
+    """Những ô thật sự đổi giá trị. So GIÁ TRỊ, không so cả object.
+
+    Nguồn của một ô đổi từ TEMPLATE_DEFAULT sang USER mà chữ y nguyên thì đó
+    không phải một sửa chữa chuyên môn — không có gì để ghi vào lịch sử y khoa.
+    """
+    return sorted(
+        k
+        for k in set(ban_cu) | set(ban_moi)
+        if ban_cu.get(k, {}).get("gia_tri") != ban_moi.get(k, {}).get("gia_tri")
+    )
+
+
+def _da_doi_gi(anh_cu: dict[str, Any], anh_moi: dict[str, Any]) -> list[str]:
+    """Cái gì đã đổi giữa hai phiên bản — nội dung VÀ người thực hiện.
+
+    KHÔNG tính `nhap_boi`: người khác ngồi gõ không làm kết quả khác đi. Tính
+    `thuc_hien_boi`: đổi "ai làm siêu âm này" là sửa dữ liệu nghiệp vụ, kể cả
+    khi không một chữ nào trong phiếu đổi.
+    """
+    doi = _o_da_doi(anh_cu.get("du_lieu", {}), anh_moi.get("du_lieu", {}))
+    if anh_cu.get("thuc_hien_boi") != anh_moi.get("thuc_hien_boi"):
+        doi.append("thuc_hien_boi")
+    return doi
 
 
 def _con_trong(khung: list[dict[str, Any]], du_lieu: dict[str, Any]) -> list[str]:

@@ -163,8 +163,11 @@ BEGIN
     --   form_definition · form_instance      (…0005, Form Template Engine)
     --   hen_gio                              (…0008, hẹn kiểm lại)
     --   quyen_preset                         (…0011, nhóm quyền mẫu)
-    IF scoped_count <> 74 THEN
-        RAISE EXCEPTION 'expected 74 tenant-scoped read policies, found %', scoped_count;
+    -- 74 → 76 (23/09/2026): result_correction · form_result_release
+    -- (20260923000014). Cùng khuôn `current_clinic_ids()`, CHỈ SELECT — ghi đi
+    -- qua lệnh FastAPI, và cả hai bảng có trigger chặn UPDATE/DELETE.
+    IF scoped_count <> 76 THEN
+        RAISE EXCEPTION 'expected 76 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

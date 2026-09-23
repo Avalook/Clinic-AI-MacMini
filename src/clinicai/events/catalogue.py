@@ -144,6 +144,9 @@ class KetQuaSanSang(PayloadSuKien):
     form_id: str
     form_version: int
     result_mode: str
+    #: Bản kết quả thứ mấy. Lần [Hoàn tất] đầu tiên LUÔN là 1 — không bao giờ
+    #: lấy `form_instance.revision`, vì số ấy tăng cả khi tự lưu nháp.
+    ban_thu: int = 1
     thuc_hien_boi: str | None = None
 
 

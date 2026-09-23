@@ -95,7 +95,7 @@ async def test_khung_rong_co_du_ba_muc_chung(pool: asyncpg.Pool) -> None:
 async def test_mo_phieu_hai_lan_khong_tao_hai_phieu(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     p1 = await svc.mo_phieu(service_order_id=order_id, form_id="KQ_SA_VU", identity=bs)
     p2 = await svc.mo_phieu(service_order_id=order_id, form_id="KQ_SA_VU", identity=bs)
@@ -108,7 +108,7 @@ async def test_mo_phieu_hai_lan_khong_tao_hai_phieu(pool: asyncpg.Pool) -> None:
 async def test_tu_luu_khong_phat_su_kien(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
         service_order_id=order_id, form_id="KQ_SA_VU", identity=bs
@@ -129,7 +129,7 @@ async def test_hai_nguoi_cung_go_thi_khong_ghi_de_im_lang(pool: asyncpg.Pool) ->
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         dd = await _nguoi(conn, "NURSE_ULTRASOUND")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
         service_order_id=order_id, form_id="KQ_SA_VU", identity=bs
@@ -154,7 +154,7 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         dd = await _nguoi(conn, "NURSE_ULTRASOUND")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
         service_order_id=order_id, form_id="KQ_SA_VU", identity=dd
@@ -209,9 +209,11 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
 async def test_khong_co_quyen_thi_khong_dien_duoc(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         le_tan = await _nguoi(conn, "RECEPTION")
+        bs = await _nguoi(conn, "DOCTOR")
+        order_id = await _don_tron(conn, bs)
     with pytest.raises(SafetyGateError):
         await FormEngineService(pool).mo_phieu(
-            service_order_id=str(uuid.uuid4()), form_id="KQ_SA_VU", identity=le_tan
+            service_order_id=order_id, form_id="KQ_SA_VU", identity=le_tan
         )
 
 
@@ -220,7 +222,7 @@ async def test_xuat_ban_ban_moi_khong_doi_phieu_cu(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         ql = await _nguoi(conn, "MANAGEMENT")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     # Không so với số 1 tuyệt đối: database thử có thể đã xuất bản vài lần rồi.
     ban_dau = await pool.fetchval(
@@ -259,9 +261,12 @@ async def test_xuat_ban_ban_moi_khong_doi_phieu_cu(pool: asyncpg.Pool) -> None:
     assert lai["version"] == ban_dau
     assert [m["ma"] for m in lai["khung"]] == [m["ma"] for m in cu["khung"]]
 
-    # Phiếu mới lấy v2.
+    # Phiếu mới lấy v2 — CHỈ ĐỊNH KHÁC. Cùng một chỉ định thì `mo_phieu` trả
+    # lại đúng phiếu cũ (một chỉ định một phiếu), nên không chứng minh được gì.
+    async with pool.acquire() as conn:
+        order_moi = await _don_tron(conn, bs)
     moi = await svc.mo_phieu(
-        service_order_id=str(uuid.uuid4()), form_id="KQ_SA_GIAP", identity=bs
+        service_order_id=order_moi, form_id="KQ_SA_GIAP", identity=bs
     )
     assert moi["version"] == ban_dau + 1
     assert moi["khung"][0]["block"][0]["ma"] == "thuy_phai"
@@ -281,7 +286,7 @@ async def test_bac_si_khong_xuat_ban_duoc_mau(pool: asyncpg.Pool) -> None:
 async def test_nguon_la_bi_chan_ngay_luc_luu(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
-    order_id = str(uuid.uuid4())
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
         service_order_id=order_id, form_id="KQ_SA_VU", identity=bs
@@ -355,6 +360,24 @@ async def _don_co_mau(
     return order_id, vid
 
 
+async def _don_tron(conn: asyncpg.Connection, bs: StaffIdentity) -> str:
+    """Một chỉ định THẬT nhưng KHÔNG gắn mẫu kết quả.
+
+    Từ 23/09 `form_instance.service_order_id` có khoá ngoại thật, nên phiếu
+    không còn trỏ vào một mã bịa được nữa — đúng thứ khoá ngoại ấy sinh ra để
+    chặn. Các bài dưới vốn chỉ cần "một chỗ để treo phiếu", nên dựng chỉ định
+    trần là đủ.
+    """
+    order_id, _ = await _don_co_mau(conn, bs, mode="NONE")
+    await conn.execute(
+        "DELETE FROM dich_vu_mau_ket_qua d USING service_order o"
+        " WHERE o.id = $1::uuid AND d.clinic_id = o.clinic_id"
+        "   AND d.service_code = o.service_code",
+        order_id,
+    )
+    return order_id
+
+
 async def _su_kien(pool: asyncpg.Pool, phieu_id: str) -> list[str]:
     rows = await pool.fetch(
         "SELECT event_type FROM domain_event WHERE aggregate_id = $1::uuid"
@@ -403,9 +426,10 @@ async def test_chua_gan_mau_thi_im_lang_la_khong_co_ket_qua(
 ) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
-        service_order_id=str(uuid.uuid4()), form_id="KQ_SA_VU", identity=bs
+        service_order_id=order_id, form_id="KQ_SA_VU", identity=bs
     )
     await svc.hoan_tat(
         phieu_id=phieu["id"], expected_revision=phieu["revision"], identity=bs
@@ -446,7 +470,12 @@ async def test_sua_duoc_sau_khi_hoan_tat_va_ghi_lai_lan_sua(
         identity=bs,
     )
     lan_sua = await svc.hoan_tat(
-        phieu_id=phieu["id"], expected_revision=luu["revision"], identity=bs
+        phieu_id=phieu["id"],
+        expected_revision=luu["revision"],
+        identity=bs,
+        # Sửa một kết quả đã hoàn tất thì phải nói vì sao — kết quả này in ra
+        # giấy giao cho khách được.
+        ly_do_sua="Gõ nhầm kết luận",
     )
     assert lan_sua["la_lan_sua"] is True
 
@@ -493,9 +522,10 @@ async def test_trong_luc_sua_ban_cu_van_la_ket_qua_chinh_thuc(
 async def test_phieu_chua_hoan_tat_thi_khong_can_mo_sua(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
+        order_id = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     phieu = await svc.mo_phieu(
-        service_order_id=str(uuid.uuid4()), form_id="KQ_SA_VU", identity=bs
+        service_order_id=order_id, form_id="KQ_SA_VU", identity=bs
     )
     with pytest.raises(ValidationError, match="chưa hoàn tất"):
         await svc.mo_sua(phieu_id=phieu["id"], identity=bs)

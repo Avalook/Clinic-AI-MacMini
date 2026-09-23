@@ -39,6 +39,9 @@ class LuuBody(BaseModel):
 class HoanTatBody(BaseModel):
     expected_revision: int = Field(ge=0)
     thuc_hien_boi: UUID | None = None
+    #: Bắt buộc khi đang sửa lại kết quả đã hoàn tất — đi vào
+    #: `visit_amendment.reason`, nơi duy nhất giữ lý do.
+    ly_do_sua: str | None = Field(default=None, max_length=1000)
 
 
 class XuatBanBody(BaseModel):
@@ -109,6 +112,7 @@ async def hoan_tat(
         expected_revision=body.expected_revision,
         identity=identity,
         thuc_hien_boi=str(body.thuc_hien_boi) if body.thuc_hien_boi else None,
+        ly_do_sua=body.ly_do_sua,
     )
 
 
@@ -120,6 +124,18 @@ async def mo_sua(
 ) -> dict[str, Any]:
     """Mở lại phiếu đã hoàn tất để sửa. Kết quả cũ vẫn là kết quả chính thức."""
     return await FormEngineService(pool).mo_sua(
+        phieu_id=str(phieu_id), identity=identity
+    )
+
+
+@router.post("/phieu/{phieu_id}/huy-sua")
+async def huy_sua(
+    phieu_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ bản sửa đang gõ dở. Bản chính thức không đổi một chữ."""
+    return await FormEngineService(pool).huy_sua(
         phieu_id=str(phieu_id), identity=identity
     )
 

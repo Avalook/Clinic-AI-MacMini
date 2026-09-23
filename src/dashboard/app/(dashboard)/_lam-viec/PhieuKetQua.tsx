@@ -22,10 +22,13 @@
 // ngày, nên có ô chọn riêng "người thực hiện" chứ không suy từ ai đăng nhập.
 //
 // HOÀN TẤT RỒI VẪN SỬA ĐƯỢC (Tuyền 23/09: *"vẫn cho sửa được vì audit log
-// được mà"*). Bấm [Sửa lại] → gõ → bấm [Hoàn tất] lần nữa; lần này hệ thống
-// ghi một sự kiện "đã sửa kết quả" thay vì "đã có kết quả". Trong suốt lúc
-// sửa, bản cũ vẫn là kết quả chính thức — không có khoảnh khắc nào bác sĩ mở
-// ra mà thấy trống.
+// được mà"*). [Sửa lại] → gõ → [Xác nhận sửa], kèm LÝ DO bắt buộc. Đổi ý giữa
+// chừng thì [Huỷ sửa].
+//
+// TRONG SUỐT LÚC SỬA, BẢN CŨ VẪN LÀ KẾT QUẢ CHÍNH THỨC — và từ 23/09 câu này
+// là sự thật chứ không còn là lời hứa: tự lưu ghi vào `du_lieu_dang_sua`, bản
+// chính thức `du_lieu` đứng yên tới lúc chốt. Trước đó tự lưu ghi thẳng vào
+// bản chính thức, nên câu trên màn sai ngay từ phím đầu tiên.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -63,6 +66,8 @@ interface Phieu {
   khung: Muc[];
   du_lieu: Record<string, { gia_tri: string; nguon: string }>;
   con_trong: string[];
+  /** Người thực hiện của BẢN ĐANG SỬA — tải lại trang không mất lựa chọn. */
+  thuc_hien_boi: string | null;
 }
 
 /** Khoảng lặng trước khi tự lưu. Gõ liên tục thì không bắn từng phím. */
@@ -117,6 +122,9 @@ export default function PhieuKetQua({
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [gia, setGia] = useState<Record<string, string>>({});
   const [thucHienBoi, setThucHienBoi] = useState<string>("");
+  // Sửa một kết quả ĐÃ IN RA GIẤY VÀ GIAO CHO KHÁCH mà không nói vì sao là để
+  // lại một câu hỏi không ai trả lời được. Máy chủ cũng từ chối nếu bỏ trống.
+  const [lyDoSua, setLyDoSua] = useState("");
   const [luuLuc, setLuuLuc] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
   const [dangHoanTat, setDangHoanTat] = useState(false);
@@ -130,6 +138,9 @@ export default function PhieuKetQua({
   const nhan = useCallback((p: Phieu) => {
     revision.current = p.revision;
     setPhieu(p);
+    // Máy chủ là nguồn: đang sửa thì trả lựa chọn của bản nháp, chưa sửa thì
+    // trả lựa chọn của bản chính thức.
+    setThucHienBoi(p.thuc_hien_boi ?? "");
     setGia(
       Object.fromEntries(
         Object.entries(p.du_lieu).map(([k, v]) => [k, v.gia_tri ?? ""]),
@@ -240,6 +251,7 @@ export default function PhieuKetQua({
       du_lieu: {
         expected_revision: revision.current,
         thuc_hien_boi: thucHienBoi || null,
+        ly_do_sua: lyDoSua.trim() || null,
       },
     });
     setDangHoanTat(false);
@@ -276,6 +288,31 @@ export default function PhieuKetQua({
     }
     revision.current = kq.data.revision;
     setPhieu({ ...phieu, dang_sua: true, revision: kq.data.revision });
+  };
+
+  const huySua = async () => {
+    if (!phieu) return;
+    if (hen.current) clearTimeout(hen.current);
+    setDangHoanTat(true);
+    setLoi(null);
+    const kq = await goi<{ revision: number }>({
+      thao_tac: "huy-sua",
+      phieu_id: phieu.id,
+    });
+    setDangHoanTat(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    revision.current = kq.data.revision;
+    setLyDoSua("");
+    // Quay về bản chính thức — nó chưa từng bị đụng tới.
+    void goi<Phieu>({
+      thao_tac: "mo",
+      du_lieu: { service_order_id: serviceOrderId, form_id: `KQ_${chonMau}` },
+    }).then((r) => {
+      if (r.ok) nhan(r.data);
+    });
   };
 
   if (mau.length === 0) {
@@ -412,10 +449,23 @@ export default function PhieuKetQua({
           ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
+            {dangSuaLai ? (
+              <label className="w-full">
+                <span className="text-xs font-semibold text-ink">
+                  Vì sao sửa kết quả này (bắt buộc)
+                </span>
+                <input
+                  value={lyDoSua}
+                  onChange={(e) => setLyDoSua(e.target.value)}
+                  placeholder="Ví dụ: nhầm bên phải/trái khi gõ kết luận"
+                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                />
+              </label>
+            ) : null}
             <Button
               size="md"
               variant="primary"
-              disabled={dangHoanTat}
+              disabled={dangHoanTat || (dangSuaLai && !lyDoSua.trim())}
               onClick={() => void hoanTat()}
             >
               {dangHoanTat
@@ -424,6 +474,16 @@ export default function PhieuKetQua({
                   ? "Xác nhận sửa"
                   : "Hoàn tất phiếu"}
             </Button>
+            {dangSuaLai ? (
+              <Button
+                size="md"
+                variant="ghost"
+                disabled={dangHoanTat}
+                onClick={() => void huySua()}
+              >
+                Huỷ sửa
+              </Button>
+            ) : null}
             {phieu.con_trong.length > 0 ? (
               <span className="text-label text-warning">
                 Còn {phieu.con_trong.length} mục chưa điền — vẫn hoàn tất được.

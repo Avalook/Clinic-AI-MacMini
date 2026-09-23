@@ -124,7 +124,10 @@ DECLARE
     -- tính: chúng là danh mục của phần mềm, giống nhau ở mọi phòng khám. Đặt
     -- clinic_id lên chúng là mời mỗi phòng khám định nghĩa lại "quyền
     -- clinical.order.place nghĩa là gì".
-    expected_tenant_tables constant integer := 102;
+    -- 102 → 104 (23/09/2026): result_correction · form_result_release
+    -- (20260923000014, sửa kết quả mà không mất bản cũ). clinic_id NOT NULL, FK
+    -- thẳng tới clinic, clinic_id đứng đầu index của cả hai.
+    expected_tenant_tables constant integer := 104;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
