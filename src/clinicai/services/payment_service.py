@@ -48,7 +48,7 @@ from clinicai.services.bill_service import (
     hoa_don_theo_anh_chup,
     tinh_hoa_don,
 )
-from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
@@ -479,7 +479,7 @@ class PaymentService:
                 async with conn.transaction():
                     await doi_quyen(conn, identity, "payment.service.collect")
                     status_row = await _khoa_luot_thu(conn, visit_id, identity)
-                    cached = await LuotKhamService._receipt_get(
+                    cached = await bien_nhan_doc(
                         conn, identity, _THU_DICH_VU, idempotency_key, payload
                     )
                     if cached is not None:
@@ -496,7 +496,7 @@ class PaymentService:
                         method=method,
                         so_trinh_duyet=so_trinh_duyet,
                     )
-                    await LuotKhamService._receipt_put(
+                    await bien_nhan_ghi(
                         conn,
                         identity,
                         _THU_DICH_VU,

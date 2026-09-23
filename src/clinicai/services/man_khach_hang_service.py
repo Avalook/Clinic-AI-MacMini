@@ -241,7 +241,7 @@ class ManKhachHangService:
                        -- VIỆC GỬI ĐỐI TÁC của lượt (17/09/2026): ô "Có kết quả
                        -- xét nghiệm" ở màn CSKH đọc trạng thái đối tác bấm —
                        -- chờ lấy mẫu / đã lấy mẫu / chờ tài liệu / đã gửi.
-                       -- Cùng thứ bậc với luot_kham_service.trang_thai_doi_tac.
+                       -- Cùng thứ bậc với doi_tac_service.trang_thai_doi_tac.
                        dt.doi_tac,
                        -- KHÁCH ĐANG Ở ĐÂU (17/09/2026): chip CSKH đứng yên ở
                        -- "đang chờ khám" suốt lúc khách đi siêu âm, thủ thuật.

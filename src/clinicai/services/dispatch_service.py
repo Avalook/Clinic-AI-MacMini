@@ -25,6 +25,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.gate_rule_service import enforce as gate_enforce
+from clinicai.services.luot_kham_rules import doi_phong_duoc
 
 logger = structlog.get_logger()
 
@@ -224,6 +225,15 @@ class DispatchService:
                 # json_agg về tay asyncpg là chuỗi — giải ra danh sách.
                 "phong_lam_duoc": json.loads(r["phong_lam_duoc"] or "[]"),
                 "xong": r["exec_status"] in _CHI_DINH_XONG,
+                # Chỉ định đời mới đổi phòng qua lệnh xếp phòng CHÍNH THỨC (khối
+                # "Đổi phòng" chung, `xep-phong-v1`) — lối điều phối cũ từ chối
+                # chúng (LIFECYCLE_ROUTING_REQUIRED). Cùng một luật với Bàn khám.
+                "doi_phong_duoc": doi_phong_duoc(
+                    selection_status=r["selection_status"],
+                    execution_status=r["execution_status"],
+                    exec_status=r["exec_status"],
+                    doi_tac=bool(r["doi_tac"]),
+                ),
             }
             for r in rows
         ]
@@ -791,6 +801,7 @@ _CHI_DINH_XONG: tuple[str, ...] = ("performed", "not_performed", "cancelled")
 _CHI_DINH_SQL = """
 SELECT o.id::text,
        o.service_code, o.service_name, o.node_code, o.exec_status, o.version,
+       o.selection_status, o.execution_status, o.routing_revision,
        n.name AS node_name,
        coalesce(n.lam_ben_ngoai, false) AS doi_tac,
        o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,

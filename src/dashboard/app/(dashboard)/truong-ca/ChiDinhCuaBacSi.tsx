@@ -14,6 +14,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import DoiPhong from "../_lam-viec/DoiPhong";
+
 import { tenTang } from "./shared";
 
 interface PhongLamDuoc {
@@ -44,6 +46,11 @@ interface ChiDinh {
   dang_cho_buoc: number;
   phong_lam_duoc: PhongLamDuoc[];
   xong: boolean;
+  /** Có = chỉ định đời mới (khách đã chọn dịch vụ) — đổi phòng bằng khối chung. */
+  selection_status: string | null;
+  routing_revision: number;
+  /** Máy chủ nói đổi phòng được (cùng luật với Bàn khám / Xem lượt). */
+  doi_phong_duoc: boolean;
 }
 
 /** Chuyển phòng được khi chỉ định đang chờ xếp/đang chờ ở phòng — phòng cũ đã
@@ -196,7 +203,19 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                   </span>
                 )}
               </div>
-              {!x.xong && !x.doi_tac && chuyenDuoc(x) && x.phong_lam_duoc.length > 1 && (
+              {x.selection_status !== null ? (
+                // Đời mới: khối "Đổi phòng" chung (`xep-phong-v1`) — lối điều
+                // phối cũ từ chối chỉ định này (24/09).
+                !x.xong && !x.doi_tac ? (
+                  <DoiPhong
+                    orderId={x.id}
+                    phongHienTaiId={x.room_id}
+                    routingRevision={x.routing_revision}
+                    choDoi={x.doi_phong_duoc}
+                    onDaDoi={() => setLan((n) => n + 1)}
+                  />
+                ) : null
+              ) : !x.xong && !x.doi_tac && chuyenDuoc(x) && x.phong_lam_duoc.length > 1 && (
                 <div className="mt-1.5 flex gap-1.5">
                   <select
                     id={`chuyen-phong-${x.id}`}

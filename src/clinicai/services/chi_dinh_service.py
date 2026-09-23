@@ -35,14 +35,18 @@ from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import finance_gate
 from clinicai.services.audit import record_event
-from clinicai.services.luot_kham_service import (
+from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
-    LuotKhamService,
-    _uuid,
+    bien_nhan_doc,
+    bien_nhan_ghi,
+    khoa_luot,
+    luot_cua,
 )
-from clinicai.services.luot_kham_service import (
+from clinicai.services.lenh_kham_core import (
     LuotKhamValidationError as ValidationError,
 )
+from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.luot_kham_service import LuotKhamService
 
 #: Quyền cần có để chỉ định. KHÔNG phải một tập vai: ai được cấp khối "Chỉ định
 #: dịch vụ" thì làm được, kể cả vai mà hôm nay chưa nghĩ tới. Bác sĩ và thư ký y
@@ -89,10 +93,10 @@ class ChiDinhService:
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền TRƯỚC mọi thứ khác, và kiểm trong chính giao dịch này.
             await doi_quyen(conn, identity, QUYEN_CHI_DINH)
-            vid = await LuotKhamService._visit_of(conn, "consultation", cid, con_id)
-            await LuotKhamService._lock_visit(conn, cid, vid)
+            vid = await luot_cua(conn, "consultation", cid, con_id)
+            await khoa_luot(conn, cid, vid)
 
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, ACTION, idempotency_key, payload_bien_nhan
             )
             if cached is not None:
@@ -147,9 +151,10 @@ class ChiDinhService:
                     correlation_id=vid,
                 )
 
-            # Giữ nguyên hành vi cũ: chỉ định xong tự vào hàng chờ phòng làm
-            # được. Không ném lỗi làm hỏng lệnh (xem _tu_xep_phong).
-            await luot_kham._tu_xep_phong(conn, identity, vid)
+            # KHÔNG tự xếp phòng ở đây nữa (24/09): chỉ định đời mới chỉ vào
+            # hàng phòng sau khi khách chọn + trả tiền (khối Hành trình, H4).
+            # `_tu_xep_phong` chỉ còn chạy cho chỉ định đời cũ
+            # (`selection_status IS NULL`) nên lời gọi này vốn không làm gì.
 
             await record_event(
                 conn,
@@ -167,7 +172,7 @@ class ChiDinhService:
             )
 
             result = {"ok": True, "order_ids": ids}
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn,
                 identity,
                 ACTION,

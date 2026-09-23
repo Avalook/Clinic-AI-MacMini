@@ -36,12 +36,17 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
-from clinicai.services.luot_kham_service import (
+from clinicai.services.hang_cho import cap_nhat_vi_tri, khach_dang_duoc_phuc_vu
+from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
-    LuotKhamService,
     LuotKhamValidationError,
-    _uuid,
+    bien_nhan_doc,
+    bien_nhan_ghi,
+    khoa_flow,
+    khoa_luot,
+    luot_cua,
 )
+from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 
 ORIGIN = "api:service-routing"
 ACTION_ASSIGN = "service_routing.assign"
@@ -279,7 +284,6 @@ def _kiem_thuc_hien(o: asyncpg.Record) -> None:
 class ServiceRoutingService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
-        self._luot = LuotKhamService(pool)
 
     async def recommend(
         self, *, order_id: Any, identity: StaffIdentity
@@ -347,11 +351,9 @@ class ServiceRoutingService:
             await doi_quyen(
                 conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
             )
-            vid = await self._luot._visit_of(conn, "service_order", cid, oid)
-            await self._luot._lock_visit(conn, cid, vid)
-            cached = await self._luot._receipt_get(
-                conn, identity, ACTION_ASSIGN, key, payload
-            )
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await khoa_luot(conn, cid, vid)
+            cached = await bien_nhan_doc(conn, identity, ACTION_ASSIGN, key, payload)
             if cached is not None:
                 return cached
             result = await self._gan(
@@ -365,7 +367,7 @@ class ServiceRoutingService:
                 ref=ref,
                 tu_dong=False,
             )
-            await self._luot._receipt_put(
+            await bien_nhan_ghi(
                 conn, identity, ACTION_ASSIGN, key, payload, oid, result
             )
         return result
@@ -410,7 +412,7 @@ class ServiceRoutingService:
             raise RoutingFinanceNotReadyError(
                 tai_chinh.reason_code if tai_chinh else None
             )
-        flow = await self._luot._lock_flow(conn, cid, vid)
+        flow = await khoa_flow(conn, cid, vid)
         closed = {
             int(r["round_no"])
             for r in await conn.fetch(
@@ -475,7 +477,7 @@ class ServiceRoutingService:
             rid,
             identity.staff_id,
         )
-        await self._luot._cap_nhat_vi_tri(conn, cid, vid)
+        await cap_nhat_vi_tri(conn, cid, vid)
         tu_phong = o["room_id"] if hien == ASSIGNED else None
         # Sổ sự kiện nghiệp vụ (dòng thời gian, bảng hành trình) — cùng giao
         # dịch với việc xếp. Người gây ra là người bấm, hoặc người vừa thu tiền
@@ -635,9 +637,9 @@ class ServiceRoutingService:
             await doi_quyen(
                 conn, identity, QUYEN_HUY, cau="Bạn chưa được cấp quyền huỷ xếp phòng."
             )
-            vid = await self._luot._visit_of(conn, "service_order", cid, oid)
-            await self._luot._lock_visit(conn, cid, vid)
-            cached = await self._luot._receipt_get(
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await khoa_luot(conn, cid, vid)
+            cached = await bien_nhan_doc(
                 conn, identity, ACTION_INVALIDATE, key, payload
             )
             if cached is not None:
@@ -699,7 +701,7 @@ class ServiceRoutingService:
                 cid,
                 oid,
             )
-            await self._luot._cap_nhat_vi_tri(conn, cid, vid)
+            await cap_nhat_vi_tri(conn, cid, vid)
             # Sổ sự kiện nghiệp vụ, cùng giao dịch: phòng vừa mất thì phải có
             # người xếp lại, và người ấy nhận việc qua đây chứ không qua ai nhớ.
             await emit_event(
@@ -740,7 +742,7 @@ class ServiceRoutingService:
                 "room_id": None,
                 "routing_revision": int(moi),
             }
-            await self._luot._receipt_put(
+            await bien_nhan_ghi(
                 conn, identity, ACTION_INVALIDATE, key, payload, oid, result
             )
         return result
@@ -797,7 +799,7 @@ class ServiceRoutingService:
                 rid,
             )
             return str(q["status"])
-        busy = await LuotKhamService._visit_busy(conn, cid, vid)
+        busy = await khach_dang_duoc_phuc_vu(conn, cid, vid)
         status = rules.initial_queue_status(visit_busy=busy)
         # Sau khi phân phòng cũ mất hiệu lực, chỗ chờ cũ đã huỷ nhưng giữ mốc
         # bắt đầu chờ — xếp lại phòng thì khách giữ tuổi chờ ấy.

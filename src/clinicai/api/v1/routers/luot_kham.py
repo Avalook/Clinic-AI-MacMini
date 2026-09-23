@@ -11,7 +11,8 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header
+import structlog
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
@@ -23,12 +24,37 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.chi_dinh_service import ChiDinhService
+from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
+from clinicai.services.sinh_hieu_service import SinhHieuService
 
 router = APIRouter()
+logger = structlog.get_logger()
+
+#: LỐI CŨ ĐÃ TẮT (24/09/2026, đợt bóc lõi `luot_kham` bước 2). Không màn nào
+#: còn gọi các cửa dưới — đường mới đã thay (xem `_tat_loi_cu`). Cũ thì OFF,
+#: KHÔNG xoá (luật Tuyền): bật lại = đặt True. Bài kiểm luồng cũ bật cờ này.
+LOI_CU_MO = False
+
+
+def _tat_loi_cu(identity: StaffIdentity, endpoint: str, thay: str) -> None:
+    """Trả 410 cho cửa cũ và ghi log người gọi — để biết còn ai dùng."""
+    if LOI_CU_MO:
+        return
+    logger.warning(
+        "endpoint_retired_called",
+        endpoint=endpoint,
+        staff_id=identity.staff_id,
+        role=identity.role.value,
+    )
+    raise HTTPException(
+        status_code=410,
+        detail={"error": "ENDPOINT_RETIRED", "message": f"Lối cũ đã tắt — {thay}"},
+    )
+
 
 # NĂM CỬA DƯỚI ĐÂY MỞ THEO CÔNG TẮC (Tuyền 16/09/2026: "tất cả các tài khoản
 # đều có thể thao tác đã… trừ bác sĩ ra thui"). Khi `MO_QUYEN_TAM_THOI` bật,
@@ -152,7 +178,7 @@ async def bang(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai."""
-    return await LuotKhamService(pool).bang(identity=identity)
+    return await BangLuotKham(pool).bang(identity=identity)
 
 
 @router.post("/luot-kham/check-in")
@@ -176,7 +202,7 @@ async def record_vitals(
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
-    return await LuotKhamService(pool).record_vitals(
+    return await SinhHieuService(pool).record_vitals(
         visit_id=str(visit_id),
         raw=body.model_dump(),
         identity=identity,
@@ -195,7 +221,7 @@ async def bat_dau_do_sinh_hieu(
     Bấm lại chính mình thì `already=true`, không sự kiện thứ hai. Người khác
     bấm sau thì bị từ chối kèm tên và giờ người đã bắt đầu.
     """
-    return await LuotKhamService(pool).bat_dau_do_sinh_hieu(
+    return await SinhHieuService(pool).bat_dau_do_sinh_hieu(
         visit_id=str(visit_id), identity=identity
     )
 
@@ -207,7 +233,12 @@ async def goi_do_sinh_hieu(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Điều dưỡng gọi khách vào đo sinh hiệu."""
-    return await LuotKhamService(pool).goi_do_sinh_hieu(
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/visits/{id}/goi-do",
+        "màn Đo sinh hiệu dùng nút [Bắt đầu đo].",
+    )
+    return await SinhHieuService(pool).goi_do_sinh_hieu(
         visit_id=str(visit_id), identity=identity
     )
 
@@ -218,7 +249,7 @@ async def phong_hom_nay(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Phòng người gọi đứng hôm nay (theo lịch) + danh sách mọi phòng."""
-    return await LuotKhamService(pool).phong_hom_nay(identity=identity)
+    return await BangLuotKham(pool).phong_hom_nay(identity=identity)
 
 
 @router.get("/luot-kham/hang-cho")
@@ -231,7 +262,7 @@ async def hang_cho(
     """Hàng chờ một phòng: đang chờ · đang trong phòng · đã xong hôm nay.
 
     `tu_van=true`: hàng CHUNG của bác sĩ tư vấn (dây H1, 24/09/2026)."""
-    return await LuotKhamService(pool).hang_cho(
+    return await BangLuotKham(pool).hang_cho(
         identity=identity, room_id=str(phong) if phong else None, tu_van=tu_van
     )
 
@@ -250,7 +281,7 @@ async def ket_qua_cho_duyet(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Chỉ định đã có kết quả, chờ bác sĩ đánh giá và cho phép gửi."""
-    return await LuotKhamService(pool).ket_qua_cho_duyet(identity=identity)
+    return await BangLuotKham(pool).ket_qua_cho_duyet(identity=identity)
 
 
 @router.post("/luot-kham/orders/{order_id}/duyet-ket-qua")
@@ -272,6 +303,11 @@ async def goi_khach(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Gọi khách vào phòng. Ai được gọi là do bước của chỗ chờ quyết."""
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/hang-cho/{id}/goi",
+        "bấm [Bắt đầu khám] / [Bắt đầu] ở phòng.",
+    )
     return await LuotKhamService(pool).goi_khach(
         queue_entry_id=str(queue_entry_id), identity=identity
     )
@@ -300,7 +336,7 @@ async def chi_dinh_hom_nay(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Chỉ định hôm nay chia bốn nhóm điều phối (trưởng ca)."""
-    return await LuotKhamService(pool).chi_dinh_hom_nay(identity=identity)
+    return await BangLuotKham(pool).chi_dinh_hom_nay(identity=identity)
 
 
 @router.get("/luot-kham/cho-quyet")
@@ -362,6 +398,11 @@ async def save_note(
     identity: StaffIdentity = Depends(_NOTE_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/consultations/{id}/notes",
+        "ghi vào phiếu khám (tự lưu).",
+    )
     return await LuotKhamService(pool).save_note(
         consultation_id=str(consultation_id), body=body.body, identity=identity
     )
@@ -402,6 +443,11 @@ async def propose_orders(
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/consultations/{id}/draft-orders",
+        "chỉ định trong phiếu khám (một lệnh, không nháp).",
+    )
     return await LuotKhamService(pool).propose_orders(
         consultation_id=str(consultation_id),
         service_codes=body.service_codes,
@@ -469,6 +515,11 @@ async def complete_consultation(
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/consultations/{id}/complete",
+        "bấm [Hoàn tất] (kham-xong).",
+    )
     return await LuotKhamService(pool).complete_consultation(
         consultation_id=str(consultation_id),
         outcome=body.outcome,
@@ -577,6 +628,11 @@ async def start_service(
     identity: StaffIdentity = Depends(_PERFORMER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/orders/{id}/start",
+        "phòng bấm [Bắt đầu] (execution/bat-dau).",
+    )
     return await LuotKhamService(pool).start_service(
         order_id=str(order_id), identity=identity
     )
@@ -589,6 +645,11 @@ async def complete_service(
     identity: StaffIdentity = Depends(_PERFORMER_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
+    _tat_loi_cu(
+        identity,
+        "POST /luot-kham/orders/{id}/complete",
+        "phòng bấm [Xong] (execution/xong).",
+    )
     return await LuotKhamService(pool).complete_service(
         order_id=str(order_id),
         performed=body.performed,

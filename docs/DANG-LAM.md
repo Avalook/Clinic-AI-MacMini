@@ -31,11 +31,29 @@ Tuyền: "làm hết thôi nào". Thứ tự: nợ nhỏ → gộp hai cột tr�
   (mục 41). Local: 58/80 thuốc, mọi dịch vụ trong bảng giá có giá.
 - **Deploy phải làm thêm (Claude tự nhớ):** migration 20260924000011 + 000012; restart
   worker `--su-kien` (bên nhận mới `vong_doc_luot_kham`).
-- **Việc tiếp (đang làm):** bóc `luot_kham` theo bản đồ 6 bước — (1) tách phần dùng chung
-  (khoá lượt, biên nhận, lỗi) ra `lenh_kham_core.py`; (2) OFF lối cũ (dispatch cũ,
-  `_tu_xep_phong`, `/start` `/complete`, `propose_orders`) → 410; (3) hàng chờ + gọi khách
-  thành khối riêng, phát `queue.called`; (4) sinh hiệu / đối tác / duyệt kết quả ra file
-  riêng; (5) màn đọc ra `luot_kham_queries.py`; (6) CI kiểm file nào thật sự phát sự kiện.
+- **Bóc lõi `luot_kham` — 6 bước ĐÃ LÀM** (4.970 → ~3.000 dòng; hành vi giữ nguyên, tên
+  cũ trỏ về chỗ mới nên router/test cũ không vỡ):
+  1. `services/lenh_kham_core.py` — khoá lượt, biên nhận chống bấm hai lần, lỗi có mã.
+     Chọn dịch vụ + thu tiền KHÔNG còn import khối Khám.
+  2. OFF lối cũ (cờ `LOI_CU_MO = False` ở `routers/luot_kham.py`, trả 410 + log người
+     gọi): `goi-do`, `hang-cho/{id}/goi`, `notes`, `draft-orders`, `consultations/{id}/complete`,
+     `orders/{id}/start`, `orders/{id}/complete`. Trưởng ca đổi phòng chỉ định đời mới
+     bằng khối chung `DoiPhong` (`xep-phong-v1`). Bỏ lời gọi `_tu_xep_phong` không làm gì
+     trong `chi_dinh_service`. Bài HTTP luồng cũ bật cờ lại cho riêng nó.
+  3. `services/hang_cho.py` — vào hàng / chặn / mở chỗ chờ / "khách đang ở đâu". Thực
+     hiện dịch vụ + xếp phòng KHÔNG còn import khối Khám.
+  4. `services/sinh_hieu_service.py` (4 lệnh sinh hiệu) · `services/doi_tac_service.py`
+     (3 lệnh đối tác). [Đã lấy mẫu] của đối tác thôi gọi thẳng vòng đọc — khối VÒNG ĐỌC
+     nghe `partner.sample_collected`.
+  5. `services/luot_kham_chung.py` (tập vai, `_require`, định dạng) ·
+     `services/luot_kham_doc.py` (`BangLuotKham`: bảng, phòng hôm nay, hàng chờ, chỉ định
+     hôm nay, kết quả chờ duyệt — chỉ ĐỌC).
+  6. CI `tests/unit/test_su_kien_phat_that.py`: tên sự kiện code phát ⊆ danh mục, mọi sự
+     kiện trong danh mục đều có nơi phát, mọi file bên nhận đều đăng ký.
+- **Còn trong khối Khám (đúng việc của nó):** phiên khám (bắt đầu / Hoàn tất / tư vấn),
+  xếp đường đi sau check-in (khối Hành trình gọi), vòng đọc + khép lượt (khối Vòng đọc
+  gọi), chỉ định đời cũ (duyệt nháp), duyệt kết quả (màn OFF). Bước sau nếu cần: chuyển
+  luật vòng đọc hẳn sang `vong_doc`, rồi xoá lối cũ khi Tuyền bấm thật xong.
 
 ## Phòng thủ thuật + đối tác (24/09 rạng sáng — CHƯA deploy, ĐÃ bấm thật BS A)
 

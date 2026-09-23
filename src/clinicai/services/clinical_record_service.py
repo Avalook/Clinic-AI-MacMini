@@ -647,9 +647,9 @@ class ClinicalRecordService:
         self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str
     ) -> None:
         """Đẩy lượt khám sang bước kế tiếp sau khi sinh hiệu lưu qua bệnh án."""
-        from clinicai.services.luot_kham_service import LuotKhamService
+        from clinicai.services.sinh_hieu_service import SinhHieuService
 
-        await LuotKhamService(self._pool).dong_bo_sinh_hieu_tu_ho_so(
+        await SinhHieuService(self._pool).dong_bo_sinh_hieu_tu_ho_so(
             conn, identity, visit_id
         )
 

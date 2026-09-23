@@ -192,6 +192,12 @@ khách, tới giờ chuông réo đúng người.
     Giá đã đặt không bị đè. Còn trống: dịch vụ không có trong bảng giá (khám phụ khoa,
     SA 3D sàn chậu, biofeedback cơ bản/nâng cao, 7 dịch vụ nam khoa) + 22 thuốc ngoài
     phiếu — quản lý nhập giá.
+42. **Bóc lõi `luot_kham`** (DANG-LAM mục "Trả nợ + khối Vòng đọc"): nền chung
+    (`lenh_kham_core`, `hang_cho`, `luot_kham_chung`) + khối riêng (`sinh_hieu_service`,
+    `doi_tac_service`, `luot_kham_doc`). Không đổi hành vi. Khối chọn dịch vụ / thu tiền
+    / xếp phòng / thực hiện dịch vụ không còn phụ thuộc khối Khám.
+43. **Lối cũ OFF = 410 + log người gọi** (cờ `LOI_CU_MO`), không xoá. Giữ lối điều phối cũ
+    `/orders/{id}/dispatch` vì chỉ định đời cũ (trước 22/09) chỉ đổi phòng được bằng nó.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

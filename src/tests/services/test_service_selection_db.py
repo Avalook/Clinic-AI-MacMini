@@ -534,7 +534,11 @@ async def test_18_loi_truoc_bien_nhan_thi_rollback_het(
     async def hong(*_: Any, **__: Any) -> None:
         raise RuntimeError("chết trước khi ghi biên nhận")
 
-    monkeypatch.setattr(LuotKhamService, "_receipt_put", staticmethod(hong))
+    # Biên nhận nay ở nền chung `lenh_kham_core` (bóc 24/09) — giả lỗi ngay
+    # tại chỗ khối này gọi nó.
+    import clinicai.services.service_selection_service as khoi
+
+    monkeypatch.setattr(khoi, "bien_nhan_ghi", hong)
     with pytest.raises(RuntimeError):
         await _confirm(kb, [a], [a], 0)
     assert (await _trang_thai(kb, a))[a] == ("PENDING", 1)

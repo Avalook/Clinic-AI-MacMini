@@ -39,6 +39,11 @@ def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
 
     vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+    # Bài này đi trọn LUỒNG CŨ qua HTTP (nháp → điều phối → /start → /complete):
+    # các cửa ấy tắt 410 từ 24/09 — bật lại cho riêng bài canh luồng cũ.
+    import clinicai.api.v1.routers.luot_kham as r_luot_kham
+
+    monkeypatch.setattr(r_luot_kham, "LOI_CU_MO", True)
 
 
 @pytest.fixture(autouse=True)

@@ -28,6 +28,7 @@ import asyncpg
 from clinicai.api.identity import danh_tinh_nhan_vien
 from clinicai.events.catalogue import VONG_DOC
 from clinicai.events.worker import SuKienDaNhan, dang_ky
+from clinicai.services.hang_cho import cap_nhat_vi_tri
 from clinicai.services.luot_kham_service import LuotKhamService
 
 
@@ -86,7 +87,7 @@ async def xu_ly_vong_doc(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> Non
     luot = LuotKhamService(pool=None)
     await luot._evaluate_rounds(conn, nguoi, visit_id)
     await luot._ket_thuc_neu_xong(conn, nguoi, visit_id, causation_id=su_kien.event_id)
-    await luot._cap_nhat_vi_tri(conn, su_kien.clinic_id, visit_id)
+    await cap_nhat_vi_tri(conn, su_kien.clinic_id, visit_id)
 
 
 dang_ky(VONG_DOC, xu_ly_vong_doc)

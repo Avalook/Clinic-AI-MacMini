@@ -86,7 +86,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái |
 |---|---|---|---|
-| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ | Có link "Hành trình khách hôm nay →" sang `/hanh-trinh`. |
+| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ | Có link "Hành trình khách hôm nay →" sang `/hanh-trinh`. 24/09: khối "Bác sĩ chỉ định gì" (`truong-ca/ChiDinhCuaBacSi.tsx`) đổi phòng chỉ định đời mới bằng khối chung `_lam-viec/DoiPhong.tsx` (`xep-phong-v1`, cùng luật Bàn khám / Xem lượt); chỉ định đời cũ vẫn ô chọn phòng cũ (`xep-phong` → `/orders/{id}/dispatch`). |
 | `/truong-ca/hang-doi` | trưởng ca, QL | Hàng đợi theo trạm | GIỮ |
 | `/truong-ca/lich-su` | trưởng ca, QL | Lịch sử điều phối | GIỮ |
 | `/truong-ca/tv` | trưởng ca, QL | TV phòng chờ | GIỮ |

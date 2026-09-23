@@ -25,12 +25,14 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
-from clinicai.services.luot_kham_service import (
+from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
-    LuotKhamService,
     LuotKhamValidationError,
-    _uuid,
+    bien_nhan_doc,
+    bien_nhan_ghi,
+    khoa_luot,
 )
+from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 
 ORIGIN = "api:service-selection"
 ACTION = "service_selection.confirm"
@@ -369,10 +371,10 @@ class ServiceSelectionService:
                 QUYEN_CHON_DICH_VU,
                 cau="Bạn chưa được cấp quyền xác nhận lựa chọn dịch vụ.",
             )
-            await LuotKhamService._lock_visit(conn, cid, inp.visit_id)
+            await khoa_luot(conn, cid, inp.visit_id)
             # Gửi lại trước khi xét revision: lần trước đã commit mà mất phản hồi
             # thì revision nay đã tăng, nhưng gửi lại vẫn phải nhận đúng kết quả.
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, ACTION, idempotency_key, payload
             )
             if cached is not None:
@@ -477,7 +479,7 @@ class ServiceSelectionService:
                         "changed_order_ids": result["changed_order_ids"],
                     },
                 )
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn, identity, ACTION, idempotency_key, payload, inp.visit_id, result
             )
         return result

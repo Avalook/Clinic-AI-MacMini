@@ -104,7 +104,7 @@ def khong_tran(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bài kiểm CÁCH NHÓM, không kiểm trần 500 dòng: database thử dùng chung
     cả bộ có thể đã quá 500 chỉ định "hôm nay" (24/09: 732 sau khi thêm nhóm
     2) — khi đó chỉ định của chính bài bị cắt khỏi bảng và bài đỏ oan."""
-    from clinicai.services import luot_kham_service as lks
+    from clinicai.services import luot_kham_doc as lks
 
     monkeypatch.setattr(lks, "_TRAN_CHI_DINH_HOM_NAY", 1_000_000)
 
@@ -219,7 +219,7 @@ async def test_bang_truong_ca_noi_that_khi_bi_cat(kb: KichBan) -> None:
     phải biết mình đang nhìn một bảng thiếu, thay vì tự phát hiện bằng cách
     không tìm thấy khách của mình.
     """
-    from clinicai.services import luot_kham_service as lks
+    from clinicai.services import luot_kham_doc as lks
 
     phien = await _vao_kham(kb)
     await _chi_dinh(kb, phien, kb.ma_mau, kb.ma_sa)

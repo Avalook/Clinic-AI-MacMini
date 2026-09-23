@@ -52,7 +52,14 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services.finance_gate import can_start
-from clinicai.services.luot_kham_service import LuotKhamConflictError, LuotKhamService
+from clinicai.services.hang_cho import cap_nhat_vi_tri, mo_cho_bi_chan
+from clinicai.services.lenh_kham_core import (
+    LuotKhamConflictError,
+    bien_nhan_doc,
+    bien_nhan_ghi,
+    khoa_luot,
+    luot_cua,
+)
 
 QUYEN_BAT_DAU = "service.execute.start"
 QUYEN_XONG = "service.execute.complete"
@@ -99,7 +106,6 @@ class ServiceExecutionService:
         # Dùng nhờ hai thứ của kernel cũ: biên nhận lệnh và con trỏ "khách đang
         # ở đâu". Cả hai là CƠ CHẾ DÙNG CHUNG, chép lại là tạo bản thứ hai sẽ
         # lệch.
-        self._luot = LuotKhamService(pool)
 
     # ------------------------------------------------------------------
     async def bat_dau(
@@ -122,7 +128,7 @@ class ServiceExecutionService:
             await doi_quyen(conn, identity, QUYEN_BAT_DAU)
             don, vid = await self._khoa_don(conn, cid, order_id)
 
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, "service.start", idempotency_key, payload
             )
             if cached is not None:
@@ -242,7 +248,7 @@ class ServiceExecutionService:
             #
             # Trong CÙNG giao dịch với việc mở lần làm: hai thứ ấy hoặc cùng
             # đúng, hoặc cùng không xảy ra.
-            await self._luot._cap_nhat_vi_tri(conn, cid, vid)
+            await cap_nhat_vi_tri(conn, cid, vid)
 
             await emit_event(
                 conn,
@@ -271,7 +277,7 @@ class ServiceExecutionService:
                 "execution_revision": moi,
                 "started_at": lan["started_at"].isoformat(),
             }
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn, identity, "service.start", idempotency_key, payload, vid, ket_qua
             )
         return ket_qua
@@ -296,7 +302,7 @@ class ServiceExecutionService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_XONG)
             don, vid = await self._khoa_don(conn, cid, order_id)
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, "service.complete", idempotency_key, payload
             )
             if cached is not None:
@@ -346,7 +352,7 @@ class ServiceExecutionService:
                 "execution_status": "COMPLETED",
                 "execution_revision": moi,
             }
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn,
                 identity,
                 "service.complete",
@@ -384,7 +390,7 @@ class ServiceExecutionService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_KHONG_LAM)
             don, vid = await self._khoa_don(conn, cid, order_id)
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, "service.not_performed", idempotency_key, payload
             )
             if cached is not None:
@@ -450,7 +456,7 @@ class ServiceExecutionService:
                 "execution_revision": moi,
                 "can_doi_soat_tien": bool(tien and tien.finance_state == "PAID"),
             }
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn,
                 identity,
                 "service.not_performed",
@@ -484,7 +490,7 @@ class ServiceExecutionService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_GIAN_DOAN)
             don, vid = await self._khoa_don(conn, cid, order_id)
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, "service.interrupt", idempotency_key, payload
             )
             if cached is not None:
@@ -536,7 +542,7 @@ class ServiceExecutionService:
                 "execution_status": "INTERRUPTED",
                 "execution_revision": moi,
             }
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn,
                 identity,
                 "service.interrupt",
@@ -569,7 +575,7 @@ class ServiceExecutionService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_LAM_LAI)
             don, vid = await self._khoa_don(conn, cid, order_id)
-            cached = await LuotKhamService._receipt_get(
+            cached = await bien_nhan_doc(
                 conn, identity, "service.retry", idempotency_key, payload
             )
             if cached is not None:
@@ -619,7 +625,7 @@ class ServiceExecutionService:
                 "execution_revision": moi,
                 "ghi_chu": ghi_chu,
             }
-            await LuotKhamService._receipt_put(
+            await bien_nhan_ghi(
                 conn, identity, "service.retry", idempotency_key, payload, vid, ket_qua
             )
         return ket_qua
@@ -711,10 +717,8 @@ class ServiceExecutionService:
         conn: asyncpg.Connection, clinic_id: str, order_id: str
     ) -> tuple[asyncpg.Record, str]:
         """Khoá lượt rồi khoá chỉ định — luôn cùng thứ tự, để không kẹt nhau."""
-        vid = await LuotKhamService._visit_of(
-            conn, "service_order", clinic_id, order_id
-        )
-        await LuotKhamService._lock_visit(conn, clinic_id, vid)
+        vid = await luot_cua(conn, "service_order", clinic_id, order_id)
+        await khoa_luot(conn, clinic_id, vid)
         don = await conn.fetchrow(
             "SELECT id::text, selection_status, routing_status, execution_status,"
             "       execution_revision, routing_revision, room_id"
@@ -823,7 +827,7 @@ class ServiceExecutionService:
             order_id,
         )
         if vid is not None:
-            await LuotKhamService._release_blocked(conn, clinic_id, vid)
+            await mo_cho_bi_chan(conn, clinic_id, vid)
 
 
 __all__ = [
