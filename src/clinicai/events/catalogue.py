@@ -617,7 +617,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaXong,
             nhan="Đã làm xong dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -788,7 +788,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachDaVe,
             nhan="Khách đã về (check-out)",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="visit.left_early",
@@ -797,7 +797,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachBoVeGiuaChung,
             nhan="Khách bỏ về giữa chừng",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="payment.refunded",
@@ -825,7 +825,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="doi_tac",
             payload=DoiTacDaLayMau,
             nhan="Đối tác đã lấy mẫu",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -844,7 +844,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienThuocDaThu,
             nhan="Đã thu tiền thuốc",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
             is_public=False,
         ),
         SuKien(

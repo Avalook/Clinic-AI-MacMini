@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1, 2, 3, 4 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1–5 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,16 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 5 — khối chỉnh dây · H6/H7/H8 · tự nhắc việc · vị trí trực (CHƯA deploy, CHƯA bấm thật)
+
+- Migration `20260924000005_day_nghiep_vu_nhac_viec.sql`: `day_nghiep_vu`, `nhac_viec_ca_nhan`,
+  capability `config.wiring.manage` (khối Danh mục).
+- `services/day_noi.py` (đọc dây, nhẹ) + `day_noi_service.py` (ghi) + router `day_noi.py`
+  (`/day-noi*`, `/nhac-viec*`); màn `/settings/day-noi`, ô "Tự nhắc tôi" trong Xem lượt.
+- Khối Hành trình: H4 tôn trọng dây bật/tắt; H6 (checked_out/left_early), H7 (hẹn N ngày),
+  H8 (hẹn N phút). `events/consumers/nhac_viec.py` xử lý hẹn tự nhắc.
+- **Deploy phải làm (Claude tự nhớ):** áp migration 20260924000005.
 
 ## Nhóm 3 — kết quả · chuông · 7 sự kiện mới · bảng hành trình (CHƯA deploy, CHƯA bấm thật)
 

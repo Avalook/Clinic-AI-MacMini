@@ -121,47 +121,112 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         duong = _DUONG_DAN.get(vai, "/home")
         if vai == "CSKH":
             duong = f"/customers?selected={k['pid']}"
-        await conn.execute(
-            """
-            INSERT INTO thong_bao
-                (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon, nguon_id,
-                 duong_dan, nguoi_goi_staff_id)
-            VALUES ($1::uuid, $2, 'THUONG', $3, $4, 'ket_qua_ve', $5, $6, $7::uuid)
-            ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)
-                WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
-                  AND vai_nhan IS NOT NULL
-            DO NOTHING
-            """,
-            su_kien.clinic_id,
-            vai,
-            tieu_de,
-            noi_dung,
-            nguon_id,
-            duong,
-            su_kien.actor_staff_id,
+        await ghi_chuong_vai(
+            conn,
+            clinic_id=su_kien.clinic_id,
+            vai=vai,
+            tieu_de=tieu_de,
+            noi_dung=noi_dung,
+            nguon="ket_qua_ve",
+            nguon_id=nguon_id,
+            duong_dan=duong,
+            nguoi_goi=su_kien.actor_staff_id,
         )
     if day.bac_si_chinh and k["bac_si_id"]:
-        await conn.execute(
-            """
-            INSERT INTO thong_bao
-                (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung, nguon,
-                 nguon_id, duong_dan, nguoi_goi_staff_id)
-            VALUES ($1::uuid, $2::uuid, 'THUONG', $3, $4, 'ket_qua_ve', $5,
-                    '/ban-kham', $6::uuid)
-            ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)
-                WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
-                  AND vai_nhan IS NULL
-            DO NOTHING
-            """,
-            su_kien.clinic_id,
-            k["bac_si_id"],
-            tieu_de,
-            noi_dung,
-            nguon_id,
-            su_kien.actor_staff_id,
+        await ghi_chuong_nguoi(
+            conn,
+            clinic_id=su_kien.clinic_id,
+            nguoi_nhan=k["bac_si_id"],
+            tieu_de=tieu_de,
+            noi_dung=noi_dung,
+            nguon="ket_qua_ve",
+            nguon_id=nguon_id,
+            duong_dan="/ban-kham",
+            nguoi_goi=su_kien.actor_staff_id,
         )
+
+
+async def ghi_chuong_vai(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    vai: str,
+    tieu_de: str,
+    noi_dung: str,
+    nguon: str,
+    nguon_id: str,
+    duong_dan: str | None,
+    nguoi_goi: str,
+    muc_do: str = "THUONG",
+) -> None:
+    """Một chuông cho CẢ VAI. Việc đang mở cùng nguồn thì không tạo thêm."""
+    await conn.execute(
+        """
+        INSERT INTO thong_bao
+            (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon, nguon_id,
+             duong_dan, nguoi_goi_staff_id)
+        VALUES ($1::uuid, $2, $8, $3, $4, $9, $5, $6, $7::uuid)
+        ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)
+            WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
+              AND vai_nhan IS NOT NULL
+        DO NOTHING
+        """,
+        clinic_id,
+        vai,
+        tieu_de,
+        noi_dung,
+        nguon_id,
+        duong_dan,
+        nguoi_goi,
+        muc_do,
+        nguon,
+    )
+
+
+async def ghi_chuong_nguoi(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    nguoi_nhan: str,
+    tieu_de: str,
+    noi_dung: str,
+    nguon: str,
+    nguon_id: str,
+    duong_dan: str | None,
+    nguoi_goi: str,
+    muc_do: str = "THUONG",
+) -> None:
+    """Một chuông ĐÍCH DANH một người."""
+    await conn.execute(
+        """
+        INSERT INTO thong_bao
+            (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung, nguon,
+             nguon_id, duong_dan, nguoi_goi_staff_id)
+        VALUES ($1::uuid, $2::uuid, $8, $3, $4, $9, $5, $6, $7::uuid)
+        ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)
+            WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
+              AND vai_nhan IS NULL
+        DO NOTHING
+        """,
+        clinic_id,
+        nguoi_nhan,
+        tieu_de,
+        noi_dung,
+        nguon_id,
+        duong_dan,
+        nguoi_goi,
+        muc_do,
+        nguon,
+    )
 
 
 dang_ky(CHUONG, bao_chuong)
 
-__all__ = ["MAC_DINH", "DayNhan", "bao_chuong", "day_nhan"]
+__all__ = [
+    "MAC_DINH",
+    "DayNhan",
+    "bao_chuong",
+    "day_nhan",
+    "ghi_chuong_nguoi",
+    "ghi_chuong_vai",
+]

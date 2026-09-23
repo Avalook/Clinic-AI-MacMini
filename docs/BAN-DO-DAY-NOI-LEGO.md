@@ -106,6 +106,22 @@ thư ký. **7 sự kiện mới** Tuyền chốt: `appointment.no_show` · `appo
 12. Hẹn tái khám chỉ phát sự kiện lúc bấm Khám xong (bệnh án lưu liên tục không phát).
 13. Bảng hành trình mở cho MỌI vai nội bộ (kể cả CSKH), không có nội dung lâm sàng.
 
+**Nhóm 5 — khối chỉnh dây (đã làm):** màn **Cài đặt → Dây nối nghiệp vụ**
+(`/settings/day-noi`, quyền `config.wiring.manage`): loại khám qua tư vấn / đi thẳng
+phòng; bật/tắt H4 (tự xếp phòng) và H6 (báo CSKH khi khách về còn việc); H7 số ngày kết
+quả đối tác quá hạn; H8 số phút nhắc check-out; ai nhận chuông; vị trí trực (thêm, đổi
+tên, gắn phòng, tắt). H6/H7/H8 chạy bằng hẹn giờ (`hen_gio`) trong khối Hành trình, tới
+giờ KIỂM LẠI rồi mới réo. **Tự nhắc tôi** (ở màn Xem lượt): hẹn nhắc chính mình về một
+khách, tới giờ chuông réo đúng người.
+
+**Chỗ Claude tự chốt ở nhóm 5:**
+14. H8 mặc định 60 phút (0 = tắt), đặt cả khi thu tiền thuốc; CHỈ nhắc lễ tân, không tự
+    đóng lượt.
+15. H6 báo CSKH khi khách về mà còn: kết quả đối tác chưa về / tệp chưa bác sĩ xem /
+    dịch vụ đã chọn chưa làm. Khách BỎ VỀ giữa chừng thì luôn báo.
+16. H7 mặc định 3 ngày, tính từ lúc dịch vụ đối tác làm xong / đối tác lấy mẫu.
+17. Vị trí trực không xoá — chỉ tắt (lịch trực cũ còn trỏ tới); mã nội bộ tự sinh.
+
 ### Các chốt khác (24/09)
 
 - **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),

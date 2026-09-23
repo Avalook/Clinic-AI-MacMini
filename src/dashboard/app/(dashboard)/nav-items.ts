@@ -225,6 +225,13 @@ export const NAV: NavItem[] = [
     label: "Cấu trúc phòng khám",
     icon: Building2,
   },
+  // Dây nối nghiệp vụ (nhóm 5, 24/09/2026): qua tư vấn / đi thẳng phòng, tự
+  // xếp phòng, thời hạn nhắc, người nhận chuông, vị trí trực.
+  {
+    href: "/settings/day-noi",
+    label: "Dây nối nghiệp vụ",
+    icon: Route,
+  },
   // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
   // viên vào trạm công việc, màn này là tên/vai/cơ sở/hợp đồng của từng người.
   {

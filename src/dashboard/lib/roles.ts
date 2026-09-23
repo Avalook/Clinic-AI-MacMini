@@ -443,6 +443,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Đổi sơ đồ phòng là đổi nơi bệnh nhân được gửi tới, và bảng điều phối đọc
   // thẳng từ đó.
   "/settings/clinic-config": ["MANAGEMENT"],
+  // Khối chỉnh dây nối nghiệp vụ (nhóm 5, 24/09/2026) — quản lý; ai được cấp
+  // quyền `config.wiring.manage` cũng vào được qua NAV_QUYEN.
+  "/settings/day-noi": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
@@ -570,6 +573,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/do-sinh-hieu": ["vitals.measure"],
   "/ban-kham": ["clinical.order.place"],
   "/tu-van": ["clinical.intake.perform"],
+  "/settings/day-noi": ["config.wiring.manage"],
   "/truong-ca": ["service.routing.view"],
   "/phong": ["service.execute.start"],
   "/duyet-ket-qua": ["result.form.fill"],

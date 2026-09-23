@@ -131,7 +131,9 @@ DECLARE
     -- PK (clinic_id, su_kien)) · appointment_doi_lich (lịch sử đổi lịch, index
     -- (clinic_id, appointment_id, doi_luc)) — 20260924000004. clinic_id NOT
     -- NULL, FK thẳng tới clinic, bật RLS.
-    expected_tenant_tables constant integer := 106;
+    -- 106 → 108 (24/09/2026, nhóm 5): day_nghiep_vu (PK (clinic_id, ma)) ·
+    -- nhac_viec_ca_nhan (index (clinic_id, staff_id, nhac_luc)) — 20260924000005.
+    expected_tenant_tables constant integer := 108;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

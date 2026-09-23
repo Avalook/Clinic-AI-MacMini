@@ -168,8 +168,9 @@ BEGIN
     -- qua lệnh FastAPI, và cả hai bảng có trigger chặn UPDATE/DELETE.
     -- 76 → 78 (24/09/2026, nhóm 3): day_nhan_thong_bao · appointment_doi_lich
     -- (20260924000004), cùng khuôn `clinic_id IN (current_clinic_ids())`.
-    IF scoped_count <> 78 THEN
-        RAISE EXCEPTION 'expected 78 tenant-scoped read policies, found %', scoped_count;
+    -- 78 → 80 (24/09/2026, nhóm 5): day_nghiep_vu · nhac_viec_ca_nhan.
+    IF scoped_count <> 80 THEN
+        RAISE EXCEPTION 'expected 80 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

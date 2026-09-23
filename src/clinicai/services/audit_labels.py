@@ -58,6 +58,8 @@ EVENT_LABELS: dict[str, str] = {
     "visit.checked_out": "Khách đã về (check-out)",
     "visit.left_early": "Khách bỏ về giữa chừng",
     "patient.contacted": "CSKH đã liên hệ khách",
+    # Khối chỉnh dây (nhóm 5, 24/09/2026).
+    "config.wiring_changed": "Đổi dây nối nghiệp vụ",
     "appointment.checkin_undone": "Huỷ tiếp nhận",
     "appointment.completed": "Khám xong",
     # Giữ chỗ tồn tại trong lúc CSKH đang chọn khung giờ, để hai người không
@@ -281,6 +283,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
     "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
+    "api:day-noi": "Cài đặt — dây nối nghiệp vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",

@@ -40,6 +40,7 @@ from clinicai.api.v1.routers.config import router as config_router
 from clinicai.api.v1.routers.consent import router as consent_router
 from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
+from clinicai.api.v1.routers.day_noi import router as day_noi_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
@@ -305,6 +306,7 @@ app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(xem_luot_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(day_noi_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED

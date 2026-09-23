@@ -272,6 +272,15 @@ QUYEN: dict[str, Quyen] = {
             "catalogue",
             MucRuiRo.LAM_SANG,
         ),
+        # Khối chỉnh dây (nhóm 5, 24/09/2026): loại khám qua tư vấn / đi thẳng
+        # phòng, bật tắt tự xếp phòng, thời hạn nhắc, người nhận chuông, vị trí.
+        Quyen(
+            "config.wiring.manage",
+            "Chỉnh dây nối nghiệp vụ (tư vấn, tự xếp phòng, chuông, vị trí)",
+            "danh_muc",
+            "catalogue",
+            MucRuiRo.VAN_HANH,
+        ),
         Quyen(
             "service.execute.start",
             "Bắt đầu làm dịch vụ",

@@ -15,6 +15,7 @@ import Button from "@/components/ui/Button";
 
 import { docBang, gioVn } from "./api";
 import DoiPhong from "./DoiPhong";
+import TuNhac from "./TuNhac";
 
 interface Moc {
   viec: string;
@@ -436,6 +437,10 @@ export default function XemLuot({
                 )}
               </Muc>
             ) : null}
+
+            <Muc tieuDe="Tự nhắc tôi về khách này">
+              <TuNhac clinicPatientId={dl.khach.id} visitId={dl.visit_id} />
+            </Muc>
 
             <Muc tieuDe="Hành trình (sự kiện)">
               {!dl.dong_thoi_gian || dl.dong_thoi_gian.length === 0 ? (

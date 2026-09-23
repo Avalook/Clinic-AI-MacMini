@@ -159,6 +159,7 @@ MODULE: dict[str, Module] = {
                 "catalogue.result_template.manage",
                 "catalogue.form_template.edit",
                 "catalogue.form_template.publish",
+                "config.wiring.manage",
             ],
         ),
         Module(
@@ -267,6 +268,11 @@ MODULE: dict[str, Module] = {
                 "vitals.recorded",
                 "consultation.handed_over",
                 "payment.service_collected",
+                "payment.medicine_collected",
+                "visit.checked_out",
+                "visit.left_early",
+                "service.completed",
+                "partner.sample_collected",
             ],
             ben_nhan=["hanh_trinh_luot_kham"],
             goi_dong_bo=[
