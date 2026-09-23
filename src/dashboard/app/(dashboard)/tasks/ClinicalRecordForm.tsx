@@ -1704,7 +1704,7 @@ export default function ClinicalRecordForm({
       <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
         <span
           className={
-            "text-xs " +
+            "min-w-0 text-xs " +
             (viewingPast
               ? "text-brand-800"
               : readOnly && !vitalsOnly
@@ -1716,7 +1716,9 @@ export default function ClinicalRecordForm({
         >
           {viewingPast ? "" : readOnly && !vitalsOnly ? "👁 Hồ sơ lâm sàng chỉ xem." : (msg ?? "")}
         </span>
-        <div className="flex gap-2">
+        {/* shrink-0: câu báo dài (vd "đơn thuốc đã tới nhà thuốc…") từng bóp nút
+            "Lưu hồ sơ" gãy thành 3 dòng — bấm thật 23/09. */}
+        <div className="flex shrink-0 gap-2">
           {/* Lễ tân chỉ-đọc / đang xem lượt cũ: ẨN nút Lưu hoàn toàn (không chỉ disable). */}
           {vitalsOnly && !viewingPast ? (
             <a
@@ -1728,6 +1730,7 @@ export default function ClinicalRecordForm({
           ) : null}
           {!readOnly && !vitalsOnly && !viewingPast && (
             <button
+              type="button"
               onClick={() => void save()}
               disabled={ro}
               className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"

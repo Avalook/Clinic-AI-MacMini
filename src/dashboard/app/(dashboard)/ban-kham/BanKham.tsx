@@ -1174,7 +1174,9 @@ function ChiDinhPanel({
                   ? "Đang ghi…"
                   : dsChon.length > 0
                     ? `Xác nhận ${dsChon.length} chỉ định`
-                    : `Duyệt ${nhap.length} chỉ định nháp (bản cũ)`}
+                    : nhap.length > 0
+                      ? `Duyệt ${nhap.length} chỉ định nháp (bản cũ)`
+                      : "Chọn dịch vụ ở ô trên để chỉ định"}
               </button>
               <p className="mt-1 text-label text-ink-muted">
                 Xác nhận xong khách tự vào hàng chờ phòng làm dịch vụ.
