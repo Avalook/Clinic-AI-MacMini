@@ -14,24 +14,18 @@ const weeklyAppointmentsSource = read(
   "../app/(dashboard)/home/WeeklyAppointmentsTable.tsx",
 );
 
-test("clinical-record GET authorizes the membership role before sensitive reads", () => {
-  // Vai LÀM VIỆC hôm nay (16/09/2026) — vai tài khoản vẫn nằm trong tập ấy.
-  const resolveRoleAt = getSource.indexOf("await vaiLamViec(");
-  const clinicalGateAt = getSource.indexOf("canReadClinical(role)");
-  const firstSensitiveReadAt = getSource.indexOf(
-    '.from("patient_medical_profile")',
-  );
-
-  assert.ok(resolveRoleAt >= 0, "GET must resolve the caller's clinic role");
-  assert.ok(clinicalGateAt > resolveRoleAt, "GET must check the resolved role");
-  assert.ok(
-    firstSensitiveReadAt > clinicalGateAt,
-    "profile/pregnancy/lab/SOAP/prescription reads must happen after the role gate",
-  );
-  assert.match(
-    getSource.slice(resolveRoleAt, firstSensitiveReadAt),
-    /status:\s*403/,
-  );
+test("clinical-record GET: backend quyết ai đọc được, trang không tự đọc bảng nhạy cảm", () => {
+  // 24/09/2026: cửa đọc (quyền đọc hồ sơ + thư ký chỉ khách của bác sĩ mình)
+  // và mọi câu đọc nằm ở backend (`GET /api/v1/clinical-records/doc`,
+  // services/ho_so_lam_sang_doc.py). Trang không còn câu `.from(` nào ở GET —
+  // nó quay lại là quay lại quyết định ở frontend.
+  assert.match(getSource, /\/api\/v1\/clinical-records\/doc/);
+  assert.doesNotMatch(getSource, /\.from\(["']/);
+  assert.doesNotMatch(getSource, /\.rpc\(["']/);
+  const py = read("../../clinicai/api/v1/routers/clinical_records.py");
+  assert.match(py, /_DOC_HO_SO_GUARD = require_role\(\*CLINICAL_WRITE_ROLES\)/);
+  const svc = read("../../clinicai/services/ho_so_lam_sang_doc.py");
+  assert.match(svc, /khach_duoc_xem/);
 });
 
 test("the clinical role authority comes from clinic_membership, not department or cookies", () => {

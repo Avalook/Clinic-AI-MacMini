@@ -1,12 +1,11 @@
-// Danh mục dùng chung cho picker form khám (đọc-only, runtime — KHÔNG hardcode
-// vào schema tĩnh):
-//   - drugs : drug_catalog (mig 051) → picker "Đơn thuốc" (name_raw VERBATIM + variant).
-//   - cls   : service_price group='dich_vu' (mig 044/051) → picker "Chỉ định CLS",
-//             gom nhóm theo category (group_label trong phiếu PK).
-// Cả 2 bảng có RLS SELECT cho authenticated → đọc qua server client thường.
-// Catalog chỉ là MENU gợi ý; input vẫn cho gõ tự do (không phải safety gate).
+// /api/catalog — danh mục cho ô kê của bệnh án (thuốc kho + dịch vụ CLS).
+//
+// 24/09/2026: đi qua backend `GET /api/v1/catalog/danh-muc-ke` (lọc đúng phòng
+// khám người gọi) thay vì đọc thẳng `drug_catalog` / `service_price` bằng
+// Supabase — frontend chỉ là giao diện (SO-LUAT Phần 3).
 
 import { NextResponse } from "next/server";
+import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 
 export async function GET() {
@@ -15,31 +14,5 @@ export async function GET() {
     data: { user },
   } = await db.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-
-  const [drugRes, clsRes] = await Promise.all([
-    db
-      .from("drug_catalog")
-      .select("id, name_base, name_raw, variant, needs_review")
-      .eq("is_active", true)
-      .order("name_base"),
-    db
-      .from("service_price")
-      .select("service_code, name, category")
-      .eq("group", "dich_vu")
-      .eq("active", true)
-      .order("category")
-      .order("name"),
-  ]);
-
-  if (drugRes.error || clsRes.error) {
-    return NextResponse.json(
-      { error: drugRes.error?.message ?? clsRes.error?.message ?? "Lỗi đọc danh mục." },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({
-    drugs: drugRes.data ?? [],
-    cls: clsRes.data ?? [],
-  });
+  return proxyJsonToBackend("GET", "/api/v1/catalog/danh-muc-ke", undefined);
 }

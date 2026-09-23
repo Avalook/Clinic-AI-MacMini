@@ -9,6 +9,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import CLINICAL_WRITE_ROLES, ClinicRole, RoleGuard
 from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.clinical_forms import router as form_router
+from clinicai.api.v1.routers.clinical_records import router as record_router
 from clinicai.api.v1.routers.orchestrator import (
     router as orchestrator_router,
 )
@@ -56,6 +57,8 @@ def test_medical_form_read_and_ai_brief_require_a_clinical_role() -> None:
     for route in (
         _route(form_router, "/clinical-forms", "GET"),
         _route(brief_router, "/brief/{clinic_patient_id}", "POST"),
+        # 24/09/2026: hồ sơ lâm sàng đọc ở backend (trang từng đọc thẳng DB).
+        _route(record_router, "/clinical-records/doc", "GET"),
     ):
         guards = _role_guards(route)
         assert len(guards) == 1

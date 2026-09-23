@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -62,6 +62,7 @@ def _private_json(data: list[dict[str, Any]]) -> JSONResponse:
 @router.get("/catalog/wards")
 async def list_wards(
     pool: asyncpg.Pool = Depends(get_db_pool),
+    province: str | None = Query(default=None, max_length=10),
 ) -> JSONResponse:
     """Danh mục phường/xã. Cached for 1 hour.
 
@@ -72,9 +73,18 @@ async def list_wards(
 
     Docstring cũ ghi "tỉnh/thành phố" cũng sai: cấp tỉnh là bảng ``province``.
     """
-    rows = await pool.fetch(
-        "SELECT code, name, full_name, province_code FROM ward ORDER BY name"
-    )
+    if province:
+        # Lọc theo tỉnh (24/09/2026): màn thêm bệnh nhân từng tự đọc bảng `ward`
+        # qua Supabase (route /api/wards) — nay đi qua đây.
+        rows = await pool.fetch(
+            "SELECT code, name, full_name, province_code FROM ward"
+            " WHERE province_code = $1 ORDER BY name",
+            province.strip(),
+        )
+    else:
+        rows = await pool.fetch(
+            "SELECT code, name, full_name, province_code FROM ward ORDER BY name"
+        )
     return _cached_json([dict(r) for r in rows])
 
 
@@ -100,6 +110,42 @@ async def list_service_types(
         identity.clinic_id,
     )
     return _private_json([dict(r) for r in rows])
+
+
+@router.get("/catalog/danh-muc-ke")
+async def danh_muc_ke(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> JSONResponse:
+    """Danh mục cho ô kê của bệnh án: thuốc kho + dịch vụ cận lâm sàng.
+
+    24/09/2026: route giao diện `/api/catalog` từng đọc thẳng hai bảng này
+    bằng Supabase — nay đi qua đây, lọc đúng phòng khám của người gọi.
+    """
+    thuoc = await pool.fetch(
+        """
+        SELECT id::text, name_base, name_raw, variant, needs_review
+          FROM drug_catalog
+         WHERE clinic_id = $1::uuid AND is_active
+         ORDER BY name_base
+        """,
+        identity.clinic_id,
+    )
+    cls = await pool.fetch(
+        """
+        SELECT service_code, name, category
+          FROM service_price
+         WHERE clinic_id = $1::uuid AND "group" = 'dich_vu' AND active
+         ORDER BY category, name
+        """,
+        identity.clinic_id,
+    )
+    return JSONResponse(
+        content=jsonable_encoder(
+            {"drugs": [dict(r) for r in thuoc], "cls": [dict(r) for r in cls]}
+        ),
+        headers={"Cache-Control": "private, no-store", "Vary": "Authorization"},
+    )
 
 
 @router.get("/catalog/booking-channels")

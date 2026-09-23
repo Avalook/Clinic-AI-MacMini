@@ -32,6 +32,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services import lich_hen_doc
 from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -99,6 +100,64 @@ class ActionRequest(BaseModel):
     slot_end: datetime | None = None
     #: TUỲ CHỌN với action = "checkin" — xem `cach_xac_minh_bat_buoc`.
     xac_minh_cach: str | None = Field(default=None, max_length=32)
+
+
+# ── ĐỌC lịch hẹn cho màn đặt lịch (24/09/2026) ─────────────────────────────
+# Route giao diện `/api/appointments` (GET) và `/api/appointments/service-history`
+# từng đọc thẳng bảng bằng Supabase — nay đọc ở đây (services/lich_hen_doc.py).
+# Cửa: ai làm việc với lịch — đặt lịch, check-in, hoặc khám (cùng người với
+# cửa vai cũ ở proxy: CSKH/Lễ tân/QL/Trưởng ca + bác sĩ/thư ký).
+_DOC_LICH_GUARD = cua_quyen(
+    "booking.create", "reception.checkin.perform", "clinical.consult.perform"
+)
+
+
+@router.get("/appointments/lich-ngay")
+async def lich_ngay(
+    ngay: str,
+    doctor_id: UUID | None = None,
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch hẹn một ngày; ngày rác → danh sách rỗng (không 500)."""
+    return {
+        "appointments": await lich_hen_doc.lich_trong_ngay(
+            pool,
+            identity=identity,
+            ngay=ngay,
+            doctor_id=str(doctor_id) if doctor_id else None,
+        )
+    }
+
+
+@router.get("/appointments/sap-toi")
+async def lich_sap_toi(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch còn sống sắp tới của một khách."""
+    return {
+        "appointments": await lich_hen_doc.lich_sap_toi(
+            pool, identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+@router.get("/appointments/lich-su-dich-vu")
+async def lich_su_dich_vu(
+    clinic_patient_id: UUID,
+    service_type_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách đã đặt dịch vụ này bao nhiêu lần + đợt khám còn sống."""
+    return await lich_hen_doc.lich_su_dich_vu(
+        pool,
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        service_type_id=str(service_type_id),
+    )
 
 
 @router.get("/appointments/cho-xep-bac-si")

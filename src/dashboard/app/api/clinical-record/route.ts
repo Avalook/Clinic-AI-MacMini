@@ -8,41 +8,38 @@
 
 import { NextResponse } from "next/server";
 import {
-  COT_SINH_HIEU,
   sinhHieuTheoKhoaPhieu,
   type DongSinhHieu,
 } from "@/lib/sinh-hieu-dong-bo";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { canReadClinical } from "../../../lib/roles";
+import { docTuBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
-interface ClinicalRecordRow {
+/** Dữ liệu thô backend trả (`GET /api/v1/clinical-records/doc`, 24/09/2026). */
+interface HoSoTho {
   revision: number;
-  chief_complaint_at_visit: string | null;
-  soap_subjective: unknown;
-  soap_objective: unknown;
-  soap_assessment: unknown;
-  soap_plan: unknown;
-}
-interface VisitRow {
-  visit_id: string;
-  status: string;
-  created_at: string | null;
-  clinical_record: ClinicalRecordRow | ClinicalRecordRow[] | null;
-}
-
-interface HistoryVisitRow {
-  visit_id: string;
-  status: string;
-  created_at: string;
-  appointment_id: string | null;
-  service: { name: string } | { name: string }[] | null;
-  doctor: { full_name: string } | { full_name: string }[] | null;
-  clinical_record:
-    | { chief_complaint_at_visit: string | null; soap_assessment: unknown }
-    | { chief_complaint_at_visit: string | null; soap_assessment: unknown }[]
-    | null;
+  prescription_draft: unknown;
+  profile: unknown;
+  pregnancy: unknown;
+  labs: unknown[];
+  history_raw: {
+    visit_id: string;
+    status: string;
+    created_at: string;
+    service: string | null;
+    doctor: string | null;
+    chief_complaint_at_visit: string | null;
+    soap_assessment: unknown;
+  }[];
+  prescriptions: unknown[];
+  vital_latest: DongSinhHieu | null;
+  visit: { visit_id: string; status: string; created_at: string | null } | null;
+  draft: {
+    chief_complaint: string;
+    subjective: unknown;
+    objective: unknown;
+    assessment: unknown;
+    plan: unknown;
+  };
 }
 
 /** JSONB SOAP có thể là chuỗi hoặc object → gộp thành text đọc được. */
@@ -58,10 +55,6 @@ function flatten(v: unknown): string {
   return String(v);
 }
 
-function one<T>(x: T | T[] | null): T | null {
-  if (!x) return null;
-  return Array.isArray(x) ? (x[0] ?? null) : x;
-}
 
 export async function GET(request: Request) {
   const supabase = await getSupabaseServer();
@@ -70,190 +63,54 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  // Role authority is auth.uid() → staff.auth_user_id → clinic_membership.role.
-  // This gate must precede every medical-profile/SOAP/lab/prescription query:
-  // authenticated operational users are not clinical readers.
-  const role = await vaiLamViec((r) => canReadClinical(r));
-  if (!canReadClinical(role)) {
-    return NextResponse.json(
-      { error: "Bạn không có quyền xem hồ sơ lâm sàng." },
-      { status: 403 },
-    );
-  }
-
   const url = new URL(request.url);
   const patientId = url.searchParams.get("patientId");
   const appointmentId = url.searchParams.get("appointmentId");
-  // visitId = xem 1 LƯỢT KHÁM cũ cụ thể (pager ◀▶ trong phiếu khám, chỉ đọc).
-  // Khi có visitId → nạp đúng visit đó (draft + đơn thuốc); appointmentId bỏ qua.
   const visitId = url.searchParams.get("visitId");
   if (!patientId) {
     return NextResponse.json({ error: "Thiếu patientId." }, { status: 400 });
   }
-  // Thư ký chỉ đọc bệnh án khách của bác sĩ mình được phân — FastAPI quyết
-  // (Tuyền chốt 15/09/2026). Không xác nhận được thì không trả hồ sơ.
-  if (role === "TKYK") {
-    const ok = await fetchFromBackend<{ ok: boolean }>(
-      `/api/v1/thu-ky/khach/${encodeURIComponent(patientId)}`,
-    );
-    if (!ok?.ok) {
-      return NextResponse.json(
-        { error: "Khách này của bác sĩ khác — thư ký chỉ xem khách của bác sĩ mình được phân." },
-        { status: 403 },
-      );
-    }
-  }
 
-  const [profileRes, pregRes, labRes, visitRes, historyRes] = await Promise.all([
-    supabase
-      .from("patient_medical_profile")
-      .select(
-        "blood_type, allergies, chronic_diseases, current_medications, surgical_history, family_history, notes",
-      )
-      .eq("clinic_patient_id", patientId)
-      .maybeSingle(),
-    supabase
-      .from("pregnancy")
-      .select("edd_date, gestational_age_at_registration, is_high_risk, high_risk_reason, outcome")
-      .eq("clinic_patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("lab_result")
-      .select(
-        "test_name, result_value, result_numeric, result_unit, flag, external_ref, triage_group, result_received_at",
-      )
-      .eq("clinic_patient_id", patientId)
-      .order("result_received_at", { ascending: false })
-      .limit(20),
-    visitId
-      ? supabase
-          .from("visit")
-          .select(
-            "visit_id, status, created_at, clinical_record ( revision, chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
-          )
-          .eq("visit_id", visitId)
-          .eq("clinic_patient_id", patientId)
-          .maybeSingle()
-      : appointmentId
-        ? supabase
-            .from("visit")
-            .select(
-              "visit_id, status, created_at, clinical_record ( revision, chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
-            )
-            .eq("appointment_id", appointmentId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    // Lịch sử khám các đợt TRƯỚC của BN (feedback C5#4) — đọc qua RLS, read-only.
-    supabase
-      .from("visit")
-      .select(
-        "visit_id, status, created_at, appointment_id, service:service_type!service_type_id ( name ), doctor:staff!attending_doctor_id ( full_name ), clinical_record ( chief_complaint_at_visit, soap_assessment )",
-      )
-      .eq("clinic_patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(8),
-  ]);
+  // 24/09/2026: ĐỌC + ai được xem (quyền đọc hồ sơ, thư ký chỉ khách của bác sĩ
+  // mình) ở backend (`services/ho_so_lam_sang_doc.py`). Trang này từng tự đọc
+  // bảy bảng bằng Supabase. Ở đây chỉ còn GHÉP Ô HIỂN THỊ.
+  const q = new URLSearchParams({ patient_id: patientId });
+  if (appointmentId) q.set("appointment_id", appointmentId);
+  if (visitId) q.set("visit_id", visitId);
+  const doc = await docTuBackend<HoSoTho>(`/api/v1/clinical-records/doc?${q.toString()}`);
+  if (!doc.ok) return doc.res;
+  const d = doc.data;
 
-  // Bỏ chính lượt khám đang mở; gói gọn để hiển thị.
-  const history = ((historyRes.data as HistoryVisitRow[] | null) ?? [])
-    .filter((v) => v.appointment_id !== appointmentId)
-    .map((v) => {
-      const cr = one(v.clinical_record);
-      return {
-        visit_id: v.visit_id,
-        created_at: v.created_at,
-        status: v.status,
-        service: one(v.service)?.name ?? null,
-        doctor: one(v.doctor)?.full_name ?? null,
-        chief_complaint: cr?.chief_complaint_at_visit ?? "",
-        assessment: cr ? flatten(cr.soap_assessment) : "",
-      };
-    });
+  const history = d.history_raw.map((v) => ({
+    visit_id: v.visit_id,
+    created_at: v.created_at,
+    status: v.status,
+    service: v.service,
+    doctor: v.doctor,
+    chief_complaint: v.chief_complaint_at_visit ?? "",
+    assessment: flatten(v.soap_assessment),
+  }));
 
-  const visit = (visitRes.data as VisitRow | null) ?? null;
-  const cr = visit
-    ? Array.isArray(visit.clinical_record)
-      ? visit.clinical_record[0]
-      : visit.clinical_record
-    : null;
-
-  let prescriptionDraft: unknown = null;
-  if (visit?.visit_id && ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"].includes(role ?? "")) {
-    const draftRes = await supabase.rpc("read_prescription_draft", {
-      p_visit_id: visit.visit_id,
-    });
-    if (draftRes.error) {
-      return NextResponse.json({ error: "Không tải được đơn thuốc nháp." }, { status: 503 });
-    }
-    prescriptionDraft = draftRes.data ?? null;
-  }
-
-  // Đơn thuốc đã kê cho lượt khám này (để prefill form kê thuốc của bác sĩ).
-  let prescriptions: {
-    id: string;
-    drug_catalog_id: string | null;
-    drug_name_raw: string | null;
-    quantity: string | null;
-    dosage_instructions: string | null;
-    caution: string | null;
-  }[] = [];
-  if (visit?.visit_id) {
-    const { data: rx } = await supabase
-      .from("prescription")
-      .select("id, drug_catalog_id, drug_name_raw, quantity, dosage_instructions, caution")
-      .eq("visit_id", visit.visit_id)
-      // CP6: form bác sĩ chỉ sửa ĐƠN HIỆN HÀNH; dòng đã đính chính là lịch sử.
-      .is("removed_at", null)
-      .order("created_at", { ascending: true });
-    prescriptions = rx ?? [];
-  }
-
-  if ("error" in visitRes && visitRes.error) {
-    return NextResponse.json({ error: "Không tải được hồ sơ khám." }, { status: 503 });
-  }
-
-  // Sinh hiệu MỚI NHẤT điều dưỡng (hoặc bác sĩ) đo cho lượt này — luồng khám
-  // mới ghi vào `vital_measurement`, không vào bệnh án. Có số đo thì số đo thắng
-  // ô trong bản nháp: lưu bệnh án cũng ghi thêm một dòng đo, nên dòng mới nhất
-  // luôn là bản đúng nhất.
-  let objective = (cr?.soap_objective ?? null) as Record<string, unknown> | null;
-  if (visit?.visit_id) {
-    const { data: do_ } = await supabase
-      .from("vital_measurement")
-      .select(COT_SINH_HIEU)
-      .eq("visit_id", visit.visit_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const tuDo = sinhHieuTheoKhoaPhieu((do_ as DongSinhHieu | null) ?? null);
-    if (Object.keys(tuDo).length > 0) {
-      const cu = (objective ?? {}) as Record<string, unknown>;
-      const vitalsCu =
-        cu.vitals && typeof cu.vitals === "object" ? (cu.vitals as Record<string, unknown>) : {};
-      objective = { ...cu, vitals: { ...vitalsCu, ...tuDo } };
-    }
+  // Số đo mới nhất ghép vào ô sinh hiệu của phiếu (trình bày).
+  let objective = (d.draft.objective ?? null) as Record<string, unknown> | null;
+  const tuDo = sinhHieuTheoKhoaPhieu(d.vital_latest);
+  if (Object.keys(tuDo).length > 0) {
+    const cu = (objective ?? {}) as Record<string, unknown>;
+    const vitalsCu =
+      cu.vitals && typeof cu.vitals === "object" ? (cu.vitals as Record<string, unknown>) : {};
+    objective = { ...cu, vitals: { ...vitalsCu, ...tuDo } };
   }
 
   return NextResponse.json({
-    revision: cr?.revision ?? 0,
-    prescription_draft: prescriptionDraft,
-    profile: profileRes.data ?? null,
-    pregnancy: pregRes.data ?? null,
-    labs: labRes.data ?? [],
+    revision: d.revision ?? 0,
+    prescription_draft: d.prescription_draft ?? null,
+    profile: d.profile ?? null,
+    pregnancy: d.pregnancy ?? null,
+    labs: d.labs ?? [],
     history,
-    prescriptions,
-    visit: visit ? { visit_id: visit.visit_id, status: visit.status, created_at: visit.created_at ?? null } : null,
-    draft: {
-      chief_complaint: cr?.chief_complaint_at_visit ?? "",
-      subjective: cr?.soap_subjective ?? null,
-      objective,
-      assessment: cr?.soap_assessment ?? null,
-      plan: cr?.soap_plan ?? null,
-    },
+    prescriptions: d.prescriptions ?? [],
+    visit: d.visit,
+    draft: { ...d.draft, objective },
   });
 }
 

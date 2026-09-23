@@ -39,6 +39,9 @@ class ClinicalFormSaveRequest(BaseModel):
 async def read_clinical_form(
     visit_id: UUID,
     service_code: str,
+    # Giữ cửa VAI lâm sàng (ROLE-02: lễ tân, thu ngân, QUẢN LÝ không đọc nội
+    # dung y khoa). Đổi sang quyền "điền kết quả" từng mở cho quản lý — bài
+    # test_clinical_read_and_legacy_boundaries bắt được (24/09/2026).
     identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:

@@ -14,9 +14,15 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.api.identity import (
+    CLINICAL_WRITE_ROLES,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.clinical_record_service import ClinicalRecordService
+from clinicai.services.ho_so_lam_sang_doc import doc_ho_so
 
 router = APIRouter()
 
@@ -53,6 +59,30 @@ class ClinicalRecordSaveRequest(BaseModel):
     # CP6: sửa / bỏ dòng đơn đã có nhà thuốc / thu ngân đụng tới là ĐÍNH CHÍNH
     # và bắt buộc lý do (thiếu → 409 PRESCRIPTION_CORRECTION_REASON_REQUIRED).
     prescription_correction_reason: str | None = Field(default=None, max_length=1000)
+
+
+#: Đọc hồ sơ lâm sàng: VAI lâm sàng (ROLE-02 — lễ tân, thu ngân, quản lý không
+#: đọc nội dung y khoa), đúng tập mà trang cũ gác (`canReadClinical`).
+_DOC_HO_SO_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+
+
+@router.get("/clinical-records/doc")
+async def doc_ho_so_lam_sang(
+    patient_id: str,
+    appointment_id: str | None = None,
+    visit_id: str | None = None,
+    identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hồ sơ lâm sàng của một khách cho màn bệnh án (route giao diện từng tự đọc
+    bảy bảng bằng Supabase — nay ở `services/ho_so_lam_sang_doc.py`)."""
+    return await doc_ho_so(
+        pool,
+        identity=identity,
+        patient_id=patient_id,
+        appointment_id=appointment_id,
+        visit_id=visit_id,
+    )
 
 
 @router.post("/clinical-records")

@@ -31,6 +31,33 @@ Tuyền: "làm nốt những nợ chưa xong". Rà bằng 3 nhánh dò: sinh hi�
   vòng người đưa tin trong test tưởng hết việc. `tests/chay_nguoi_dua_tin.chay_het` đợi
   thêm khi còn dòng PENDING. 15 lần chạy lặp: 0 lần tái. (Bài đối tác 300 dòng đỏ = DB
   thử phình → dựng lại.)
+- **Hỏi QUYỀN thay vì hỏi vai — đợt thu tiền thuốc / nhà thuốc / lịch hẹn** (migration
+  `20260924000013`, 5 khối mới: `thu_tien_thuoc`, `nha_thuoc`, `xem_nha_thuoc`, `dat_lich`,
+  `quan_ly_lich`; nhóm mẫu mới cho Dược sĩ + CSKH; người đang làm nhận đúng theo vai cũ):
+  thu/huỷ/xác minh phiếu cả hai loại tiền · router thu tiền + bảng thu ngân · nhà thuốc
+  (router + nút ghi trên màn) · đặt lịch + giữ chỗ · huỷ/dời/gán bác sĩ · check-out + kéo
+  thứ tự hàng chờ (`reception.checkin.perform`) · chờ bác sĩ quyết / quyết
+  (`clinical.consult.perform` / `finalize`) · router chỉ định (hết chặn nhầm điều dưỡng).
+  Cửa router dùng chung: `permissions/cua_quyen.py`. Giao diện thôi gác vai ở
+  `/api/appointments` (POST/PATCH — hết lỗi CSKH/QL không đóng được lịch),
+  `/api/booking-policy` (hết lệch Trưởng ca), `/api/pharmacy/[action]`, `/api/brief/[id]`.
+  **Còn hỏi vai (ghi nợ):** ~100 chỗ ngoài các đường trên (bảng lượt khám đọc, siêu âm,
+  xét nghiệm, bệnh nhân, CSKH, lịch trực, báo cáo, quản trị) — danh sách đủ ở BAN-DO mục 44.
+- **Route `/api` thôi đọc thẳng database — xong cả 10 route nhóm B:** `/api/wards` →
+  `catalog/wards?province` · `/api/catalog` → `catalog/danh-muc-ke` · `/api/roster` (ngày →
+  `roster/bac-si-ngay`; khoảng tuần → `roster/weeks/applied`) · `/api/brief/[id]` bỏ tự kiểm
+  bảng `appointment` (backend đã kiểm) · `/api/appointments` GET → `appointments/lich-ngay` +
+  `appointments/sap-toi` · `/api/appointments/service-history` → `appointments/lich-su-dich-vu`
+  (`services/lich_hen_doc.py`) · `/api/clinical-form` GET → `clinical-forms` (+ `sinh_hieu_moi`)
+  · `/api/clinical-record` GET → `clinical-records/doc` (`services/ho_so_lam_sang_doc.py`) ·
+  `patients/check-phone` 410. Cửa đọc nội dung y khoa GIỮ vai lâm sàng (ROLE-02: lễ tân, thu
+  ngân, quản lý không đọc) — thử đổi sang quyền "điền kết quả" thì quản lý lọt, bài
+  `test_clinical_read_and_legacy_boundaries` bắt được. **Ngoại lệ có chủ ý:** `/api/admin/users`
+  vẫn gọi Supabase Auth admin (quản trị tài khoản đăng nhập = phần "đăng nhập").
+- **Câu hỏi cho Tuyền:** phiếu khám v5 cho đọc theo quyền (gồm "điền kết quả") nên QUẢN LÝ
+  đọc được phiếu khám; phiếu cũ theo ROLE-02 thì không. Giữ hay siết?
+- **Còn nợ:** ~20 trang server/client còn tự đọc Supabase (danh sách ở mục "Pages" dưới) —
+  đang làm tiếp.
 - **Đơn kê vs khách mua:** dữ liệu đã có (`quantity_num` / `purchased_qty` + nhật ký
   `pharmacy.purchase_qty_set`); màn lịch sử nhà thuốc chưa hiện — làm cùng việc chuyển
   trang đọc thẳng DB sang backend.

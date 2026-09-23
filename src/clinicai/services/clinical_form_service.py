@@ -90,11 +90,27 @@ class ClinicalFormService:
             service_code.upper(),
             identity.clinic_id,
         )
+        # Số đo sinh hiệu MỚI NHẤT của lượt — màn phiếu hiện kèm (24/09/2026:
+        # route giao diện thôi tự đọc `vital_measurement` bằng Supabase).
+        do = await self._pool.fetchrow(
+            """
+            SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,
+                   respiratory_rate, spo2, bmi, pain_score, created_at
+              FROM vital_measurement
+             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+             ORDER BY created_at DESC
+             LIMIT 1
+            """,
+            visit_id,
+            identity.clinic_id,
+        )
+        sinh_hieu_moi = dict(do) if do is not None else None
         if row is None:
-            return {"form_data": {}, "updated_at": None}
+            return {"form_data": {}, "updated_at": None, "sinh_hieu_moi": sinh_hieu_moi}
         return {
             "form_data": _as_dict(row["form_data"]),
             "updated_at": row["updated_at"],
+            "sinh_hieu_moi": sinh_hieu_moi,
         }
 
     async def lich_su_kham(

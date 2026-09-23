@@ -13,7 +13,12 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import (
     CAC_CA,
@@ -221,6 +226,16 @@ async def applied_weeks(
             identity=identity, tu=tu, den=den
         )
     }
+
+
+@router.get("/roster/bac-si-ngay")
+async def bac_si_trong_ngay(
+    ngay: date,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bác sĩ có ca khám trong ngày — lưới đặt lịch của CSKH / lễ tân đọc."""
+    return await RosterService(pool).bac_si_trong_ngay(identity=identity, ngay=ngay)
 
 
 @router.delete("/roster/shifts/{roster_id}")

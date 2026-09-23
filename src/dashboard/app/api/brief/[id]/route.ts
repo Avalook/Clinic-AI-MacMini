@@ -11,8 +11,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicStaffId, vaiLamViec } from "../../../../lib/clinic-session";
-import { isDoctorRole } from "../../../../lib/roles";
 
 // FastAPI base URL. Server-only (không phải NEXT_PUBLIC) vì lời gọi đi từ server.
 // Missing configuration is a broken deployment, never an implicit localhost.
@@ -43,40 +41,14 @@ export async function POST(
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
-  // 2) Tóm tắt trước khám là dành cho BÁC SĨ.
-  const role = await vaiLamViec((r) => isDoctorRole(r));
-  if (!isDoctorRole(role)) {
-    return NextResponse.json(
-      { error: "Chỉ bác sĩ mới xem được tóm tắt trước khám." },
-      { status: 403 },
-    );
-  }
+  // 2) Ai được tóm tắt khách nào là việc của BACKEND (`_can_generate_brief`:
+  //    vai bác sĩ/thư ký + đúng khách của mình). Trang này từng tự đọc bảng
+  //    `appointment` để kiểm lặp lại — một quyết định ở frontend, bỏ 24/09/2026.
 
   if (!UUID_RE.test(id)) {
     return NextResponse.json(
       { error: "Mã bệnh nhân không hợp lệ." },
       { status: 400 },
-    );
-  }
-
-  // 3) Bác sĩ chỉ tóm tắt BN CỦA MÌNH (mirror guard ở patients/[id]) — không nới
-  // quyền: phải có ít nhất 1 lịch hẹn giữa bác sĩ này và bệnh nhân.
-  const staffId = await getClinicStaffId();
-  let own = true;
-  if (role !== "TKYK") {
-    const { data: ownAppt } = await supabase
-      .from("appointment")
-      .select("id")
-      .eq("doctor_id", staffId)
-      .eq("clinic_patient_id", id)
-      .limit(1)
-      .maybeSingle();
-    own = !!ownAppt;
-  }
-  if (!own) {
-    return NextResponse.json(
-      { error: "Bệnh nhân này không thuộc lịch khám của bạn." },
-      { status: 403 },
     );
   }
 

@@ -968,6 +968,39 @@ class RosterService:
             )
         return [r["week_start"].isoformat() for r in rows]
 
+    async def bac_si_trong_ngay(
+        self, *, identity: StaffIdentity, ngay: date
+    ) -> dict[str, Any]:
+        """Bác sĩ có ca khám trong ngày (lưới đặt lịch) + tuần đã chốt chưa.
+
+        Chuyển từ route giao diện `/api/roster?date=` (24/09/2026) — nó từng đọc
+        thẳng `roster_week` / `work_roster` bằng Supabase. Luật giữ nguyên (Quang
+        10/08): CÓ phân công thì trả về; tuần chưa áp dụng chỉ là `du_kien`
+        (câu nói thêm), không phải cái khoá.
+        """
+        async with self._pool.acquire() as conn:
+            da_ap_dung = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM roster_week"
+                " WHERE clinic_id = $1::uuid AND week_start = $2)",
+                identity.clinic_id,
+                week_start_of(ngay),
+            )
+            rows = await conn.fetch(
+                """
+                SELECT DISTINCT ON (staff_id) staff_id::text AS id,
+                       coalesce(staff_name, '') AS name
+                  FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND station = ANY($3::text[]) AND status = 'APPROVED'
+                   AND staff_id IS NOT NULL
+                 ORDER BY staff_id, created_at
+                """,
+                identity.clinic_id,
+                ngay,
+                sorted(MA_CA_KHAM_BAC_SI),
+            )
+        return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
+
 
 class PriceListService:
     """Maintain the service and medicine price list."""
