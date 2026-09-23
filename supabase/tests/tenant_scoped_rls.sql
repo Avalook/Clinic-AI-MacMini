@@ -47,13 +47,25 @@ DECLARE
     offenders text;
 BEGIN
     -- province and ward are the national administrative lists: no patient data,
-    -- identical for every tenant. Everything else must be scoped.
+    -- identical for every tenant.
+    --
+    -- work_pack và capability (23/09/2026) là DANH MỤC CỦA PHẦN MỀM: tên các
+    -- khối công việc và các quyền mà mã nguồn biết cách kiểm. Chúng giống nhau
+    -- ở mọi phòng khám và không chứa dữ liệu của ai — đó cũng là lý do chúng
+    -- không có `clinic_id` và không nằm trong phép đếm bảng tenant.
+    --
+    -- Cho mỗi phòng khám một bản riêng là mời họ định nghĩa lại "quyền
+    -- clinical.order.place nghĩa là gì", trong khi câu trả lời nằm trong code.
+    -- Thứ THEO PHÒNG KHÁM là ai được cấp quyền gì — `capability_grant` và
+    -- `quyen_preset` — và cả hai đều có clinic_id, đều lọc theo phòng khám.
+    --
+    -- Everything else must be scoped.
     SELECT string_agg(tablename || '.' || policyname, ', ')
       INTO offenders
       FROM pg_policies
      WHERE schemaname = 'public'
        AND coalesce(qual, '') IN ('true', '(true)')
-       AND tablename NOT IN ('province', 'ward');
+       AND tablename NOT IN ('province', 'ward', 'work_pack', 'capability');
 
     IF offenders IS NOT NULL THEN
         RAISE EXCEPTION 'blanket USING(true) read policies still present: %', offenders;
@@ -141,8 +153,18 @@ BEGIN
     -- 62 → 64 (22/09/2026): service_selection_state / service_execution_attempt
     -- _select_own_clinic (20260922000001, Service Lifecycle v1 Slice 1). CHỈ
     -- ĐỌC: ghi qua command FastAPI.
-    IF scoped_count <> 64 THEN
-        RAISE EXCEPTION 'expected 64 tenant-scoped read policies, found %', scoped_count;
+    -- 64 → 74 (23/09/2026): MƯỜI policy đọc mới, tất cả cùng khuôn
+    -- `clinic_id IN (SELECT current_clinic_ids())`, tất cả CHỈ SELECT — ghi đi
+    -- qua lệnh FastAPI, không qua PostgREST:
+    --   domain_event · event_delivery        (…0001, sổ sự kiện)
+    --   luot_dong_thoi_gian                  (…0002, projection hành trình)
+    --   capability_grant                     (…0003, quyền đã cấp cho từng người)
+    --   ket_qua_mau · dich_vu_mau_ket_qua    (…0004, danh mục mẫu kết quả)
+    --   form_definition · form_instance      (…0005, Form Template Engine)
+    --   hen_gio                              (…0008, hẹn kiểm lại)
+    --   quyen_preset                         (…0011, nhóm quyền mẫu)
+    IF scoped_count <> 74 THEN
+        RAISE EXCEPTION 'expected 74 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

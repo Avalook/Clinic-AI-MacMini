@@ -110,7 +110,21 @@ DECLARE
     -- 90 → 92 (22/09/2026): service_selection_state, service_execution_attempt
     -- (20260922000001, Service Lifecycle v1 Slice 1). clinic_id NOT NULL, FK tới
     -- clinic, clinic_id đứng đầu PK / uq_service_execution_attempt_clinic_id.
-    expected_tenant_tables constant integer := 92;
+    -- 92 → 102 (23/09/2026): MƯỜI bảng tenant mới. Cả mười đều `clinic_id`
+    -- NOT NULL, có khoá ngoại thẳng tới clinic (bảy cái thêm ở
+    -- 20260923000012), `clinic_id` đứng đầu ít nhất một index, và bật RLS:
+    --   domain_event · event_delivery        (20260923000001, sổ sự kiện)
+    --   luot_dong_thoi_gian                  (…0002, projection hành trình)
+    --   capability_grant                     (…0003, quyền đã cấp cho từng người)
+    --   ket_qua_mau · dich_vu_mau_ket_qua    (…0004, danh mục mẫu kết quả)
+    --   form_definition · form_instance      (…0005, Form Template Engine)
+    --   hen_gio                              (…0008, hẹn kiểm lại)
+    --   quyen_preset                         (…0011, nhóm quyền mẫu)
+    -- `capability` và `work_pack` (…0003) KHÔNG có `clinic_id` và KHÔNG được
+    -- tính: chúng là danh mục của phần mềm, giống nhau ở mọi phòng khám. Đặt
+    -- clinic_id lên chúng là mời mỗi phòng khám định nghĩa lại "quyền
+    -- clinical.order.place nghĩa là gì".
+    expected_tenant_tables constant integer := 102;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
