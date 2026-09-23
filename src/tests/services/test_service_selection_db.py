@@ -609,6 +609,7 @@ async def test_20_duyet_chi_dinh_moi_khong_tu_xep_phong(kb: KB) -> None:
             pid,
             kb.bac_si.staff_id,
         )
+    await luot.bat_dau_do_sinh_hieu(visit_id=vid, identity=kb.bac_si)
     await luot.record_vitals(
         visit_id=vid, raw={"systolic": 118, "diastolic": 76}, identity=kb.bac_si
     )

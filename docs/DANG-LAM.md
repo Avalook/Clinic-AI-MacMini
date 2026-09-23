@@ -191,15 +191,25 @@ SELECT f.id, f.clinic_id, f.service_order_id
   nào. Postgres chặn "đang đo mà không có người".
 - Bấm hai lần cùng người → `already=true`, không phát sự kiện lần hai. Người
   khác bấm → `VITALS_STARTED_BY_OTHER` kèm tên và giờ.
-- `pending → recorded` VẪN ĐƯỢC: [Bắt đầu] là mốc đo thời gian, không phải cửa
-  khoá. Lưu thêm = THÊM dòng `vital_measurement`, không có `vitals.corrected`.
+- **Lần lưu đầu PHẢI sau [Bắt đầu]** (ChatGPT rà `a4792ca9`, chốt cùng ngày):
+  còn `pending` thì `record_vitals` từ chối `VITALS_NOT_STARTED`, không ghi gì.
+  KHÔNG tự bắt đầu thay (giờ bắt đầu sẽ thành giờ lưu, sai nghĩa). Màn khoá
+  nút Lưu + ghi "Bấm [Bắt đầu] trước khi lưu"; ô nhập vẫn gõ được.
+  A bắt đầu, B lưu → được (bàn giao), mốc bắt đầu vẫn của A. Dòng cũ đã
+  `recorded` từ trước (không có người bắt đầu) vẫn lưu thêm được.
+  Lưu thêm = THÊM dòng `vital_measurement`, không có `vitals.corrected`.
+- ⚠️ **CÂU HỎI MỞ — lối thứ hai:** bác sĩ/thư ký lưu **bệnh án đầy đủ** có kèm
+  sinh hiệu (`clinical_record_service` → `dong_bo_sinh_hieu_tu_ho_so`) vẫn đưa
+  `pending → recorded` KHÔNG qua [Bắt đầu]. Chưa sửa: chặn nó là chặn bác sĩ
+  lưu bệnh án — quyết định nghiệp vụ, không tự chốt.
 - `goi_do_luc/boi` giữ cột + dữ liệu cũ, không chép sang, không màn nào đọc
   làm trạng thái nữa. Đường `/goi-do` còn mở ở máy chủ, giao diện thôi gọi —
   gỡ hẳn là việc riêng.
 - Soi rồi: `goi_do_sinh_hieu` **không** gọi `_cap_nhat_vi_tri` (khác
   `goi_khach` ở `d4d94a41`), nên bỏ nút cũ không rơi việc gì.
-- Nợ biết trước: cổng là `VITALS_ROLES` (vai), cùng cổng với `record_vitals`,
-  chưa phải capability — preset Lễ tân chưa có gói `sinh_hieu`.
+- Quyền: `VITALS_ROLES` (ĐD + Lễ tân + BS) là **HIỆN TRẠNG CODE, chưa phải
+  chốt** — nguồn nghiệp vụ gắn ghi sinh hiệu với Điều dưỡng. Để audit quyền
+  riêng, không sửa trong StartVitals.
 
 **CÒN NỢ TRƯỚC KHI GỌI "XONG NỀN":**
 - **Chưa bấm thật trên trình duyệt** ở 375 và 1280.

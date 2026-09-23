@@ -179,11 +179,26 @@ async def _chay(pool: asyncpg.Pool) -> None:
         )
         kiem("check-in 200", r.status_code == 200, r.text)
         vid = await luot_cua(hen)
+        sinh_hieu = {
+            "systolic": 118,
+            "diastolic": 76,
+            "weight_kg": 55,
+            "height_cm": 160,
+        }
+        # Chưa bấm [Bắt đầu] thì không lưu lần đầu được (chốt 23/09/2026).
+        r = await goi(dd, "POST", f"/luot-kham/visits/{vid}/vitals", json=sinh_hieu)
+        kiem(
+            "lưu khi chưa Bắt đầu → 409 VITALS_NOT_STARTED",
+            r.status_code == 409 and r.json().get("error") == "VITALS_NOT_STARTED",
+            r.text,
+        )
+        r = await goi(dd, "POST", f"/luot-kham/visits/{vid}/vitals/start")
+        kiem("bắt đầu đo 200", r.status_code == 200, r.text)
         r = await goi(
             dd,
             "POST",
             f"/luot-kham/visits/{vid}/vitals",
-            json={"systolic": 118, "diastolic": 76, "weight_kg": 55, "height_cm": 160},
+            json=sinh_hieu,
         )
         kiem("đo sinh hiệu 200", r.status_code == 200, r.text)
         phien = (await bang(bs, vid))["phien"][0]["id"]

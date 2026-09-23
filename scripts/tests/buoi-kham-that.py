@@ -352,6 +352,13 @@ async def mot_khach(
 
     # 4 ── Điều dưỡng đo sinh hiệu — ĐỦ MƯỜI Ô, gồm bốn chỉ số thêm 16/09.
     #      Gửi thiếu thì không ai báo lỗi, nên phép thử phải gửi đủ.
+    #      Lần lưu đầu phải sau [Bắt đầu] (chốt 23/09/2026).
+    await phien["dieuduong"].goi(
+        kq,
+        f"{nhan}: bắt đầu đo",
+        "POST",
+        f"/api/v1/luot-kham/visits/{visit_id}/vitals/start",
+    )
     await phien["dieuduong"].goi(
         kq,
         f"{nhan}: sinh hiệu",

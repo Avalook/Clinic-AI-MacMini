@@ -7,6 +7,7 @@ Phạm vi chốt với Tuyền + ChatGPT 23/09/2026:
 
     [Bắt đầu]            pending → in_progress, ghi ai/lúc nào, `vitals.started` 1 lần
     [Lưu] lần đầu        in_progress → recorded, THÊM một vital_measurement
+                         — còn `pending` thì TỪ CHỐI (VITALS_NOT_STARTED)
     [Lưu] thêm sau đó    vẫn recorded, THÊM một dòng nữa, dòng cũ giữ nguyên
                          — KHÔNG gọi là "sửa", không có `vitals.corrected`
     `goi_do_*`           giữ cột và dữ liệu cũ, không dùng làm trạng thái
@@ -270,25 +271,82 @@ async def test_luu_them_giu_nguyen_lan_do_cu(pool: asyncpg.Pool) -> None:
     )
 
 
-async def test_luu_thang_khong_can_bat_dau(pool: asyncpg.Pool) -> None:
-    """[Bắt đầu] là mốc đo thời gian chờ, KHÔNG phải cửa khoá.
+async def test_chua_bat_dau_thi_khong_luu_lan_dau(pool: asyncpg.Pool) -> None:
+    """Chốt 23/09/2026: lần lưu đầu phải sau [Bắt đầu].
 
-    Không ai bấm thì không bịa ra một người đã bấm: `vitals_started_*` để trống.
+    Cho bỏ qua thì lại có lượt "đã đo" mà không biết bắt đầu lúc nào. Và KHÔNG
+    tự bắt đầu thay: `vitals_started_at` khi ấy là giờ lưu, sai nghĩa.
+    Bị từ chối thì không ghi GÌ cả.
     """
     async with pool.acquire() as conn:
         dd = await _nguoi(conn, "NURSE_ULTRASOUND")
         vid = await _luot(conn)
     svc = LuotKhamService(pool)
 
+    with pytest.raises(LuotKhamConflictError) as loi:
+        await svc.record_vitals(
+            visit_id=vid, raw={"systolic": 120, "diastolic": 80}, identity=dd
+        )
+    assert loi.value.error_code == "VITALS_NOT_STARTED"
+
+    # Cả giao dịch lùi lại — kể cả dòng encounter_flow vừa được khoá/tạo.
+    f = await pool.fetchrow(
+        "SELECT vitals_status FROM encounter_flow WHERE visit_id = $1::uuid", vid
+    )
+    assert f is None or f["vitals_status"] == "pending"
+    assert await _so_lan_do(pool, vid) == 0
+    assert await _so_su_kien(pool, vid, "vitals.recorded") == 0
+    assert await _so_su_kien(pool, vid, "vitals.started") == 0
+
+
+async def test_nguoi_bat_dau_va_nguoi_luu_khac_nhau(pool: asyncpg.Pool) -> None:
+    """Bàn giao: A bắt đầu, B lưu. Được — và mốc bắt đầu vẫn là của A."""
+    async with pool.acquire() as conn:
+        a = await _nguoi(conn, "NURSE_ULTRASOUND")
+        b = await _nguoi(conn, "NURSE_ULTRASOUND")
+        vid = await _luot(conn)
+    svc = LuotKhamService(pool)
+
+    await svc.bat_dau_do_sinh_hieu(visit_id=vid, identity=a)
     await svc.record_vitals(
-        visit_id=vid, raw={"systolic": 120, "diastolic": 80}, identity=dd
+        visit_id=vid, raw={"systolic": 120, "diastolic": 80}, identity=b
+    )
+
+    f = await _flow(pool, vid)
+    assert f["vitals_status"] == "recorded"
+    assert f["boi"] == a.staff_id
+    nguoi_luu = await pool.fetchval(
+        "SELECT recorded_by::text FROM vital_measurement WHERE visit_id = $1::uuid",
+        vid,
+    )
+    assert nguoi_luu == b.staff_id
+
+
+async def test_du_lieu_cu_da_do_van_luu_them_duoc(pool: asyncpg.Pool) -> None:
+    """Dòng đã `recorded` từ TRƯỚC StartVitals không có người bắt đầu.
+
+    Lưu thêm trên dòng ấy vẫn phải được — chốt chặn chỉ canh LẦN ĐẦU, không
+    bắt dữ liệu cũ khai lại một cái mốc nó chưa từng có.
+    """
+    async with pool.acquire() as conn:
+        dd = await _nguoi(conn, "NURSE_ULTRASOUND")
+        vid = await _luot(conn)
+        await conn.execute(
+            "INSERT INTO encounter_flow (clinic_id, visit_id, vitals_status)"
+            " SELECT clinic_id, visit_id, 'recorded' FROM visit"
+            " WHERE visit_id = $1::uuid",
+            vid,
+        )
+    svc = LuotKhamService(pool)
+
+    await svc.record_vitals(
+        visit_id=vid, raw={"systolic": 118, "diastolic": 78}, identity=dd
     )
 
     f = await _flow(pool, vid)
     assert f["vitals_status"] == "recorded"
     assert f["vitals_started_at"] is None
-    assert f["boi"] is None
-    assert await _so_su_kien(pool, vid, "vitals.started") == 0
+    assert await _so_lan_do(pool, vid) == 1
 
 
 # ── 8–10. Ranh giới ────────────────────────────────────────────────────────
@@ -299,6 +357,7 @@ async def test_da_do_roi_thi_khong_bat_dau_lai(pool: asyncpg.Pool) -> None:
         dd = await _nguoi(conn, "NURSE_ULTRASOUND")
         vid = await _luot(conn)
     svc = LuotKhamService(pool)
+    await svc.bat_dau_do_sinh_hieu(visit_id=vid, identity=dd)
     await svc.record_vitals(
         visit_id=vid, raw={"systolic": 120, "diastolic": 80}, identity=dd
     )

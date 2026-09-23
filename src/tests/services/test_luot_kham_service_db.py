@@ -223,6 +223,7 @@ async def _dieu_phoi_tay(kb: KichBan, order_id: str, room_id: str) -> None:
 
 async def _vao_kham(kb: KichBan) -> str:
     """Đo sinh hiệu rồi bác sĩ nhận khám. Trả mã phiên vòng 1."""
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -271,6 +272,7 @@ async def test_sinh_hieu_luu_qua_benh_an_van_vao_hang_cho_bac_si(kb: KichBan) ->
 
 async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     svc = kb.svc
+    await svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     r = await svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": "120", "diastolic": "80", "pulse": 72},
@@ -418,6 +420,7 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     for row in rows:
         theo_lenh.setdefault(row["occurred_at"], []).append(row["event_type"])
     assert [sorted(g) for g in theo_lenh.values()] == [
+        ["vitals.started"],
         ["visit.routed", "vitals.recorded"],
         ["consult.started"],
         ["consult.note_saved"],
@@ -702,6 +705,7 @@ async def test_bi_giu_toi_khi_doc_xong_moi_dieu_phoi_duoc(kb: KichBan) -> None:
 
 
 async def test_sinh_hieu_rac_khong_ghi_gi(kb: KichBan) -> None:
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     with pytest.raises(ValidationError):
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": "cao"}, identity=kb.dieu_duong
@@ -832,6 +836,7 @@ async def test_hai_truong_ca_dieu_phoi_cung_luc(kb: KichBan) -> None:
 
 async def test_hai_bac_si_goi_cung_mot_khach(kb: KichBan) -> None:
     # I9: đúng một người được.
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -874,6 +879,7 @@ async def test_hang_cho_bac_si_nguoi_quay_lai_dung_sau_nguoi_dang_cho(
         requirements=[{"order_id": duyet["order_ids"][0], "need": "PERFORMED"}],
         identity=kb.bac_si,
     )
+    await svc.bat_dau_do_sinh_hieu(visit_id=visit_b, identity=kb.dieu_duong)
     await svc.record_vitals(
         visit_id=visit_b, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
     )
@@ -912,6 +918,8 @@ async def test_luot_kham_cua_phong_kham_khac_khong_thay(kb: KichBan) -> None:
         location_id=kb.location_id,
         location_name="x",
     )
+    # Bắt đầu bằng người THẬT, để lỗi chắc chắn đến từ bước lưu của người lạ.
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     with pytest.raises(NotFoundError):
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": 120, "diastolic": 80}, identity=la
@@ -924,6 +932,7 @@ async def test_luot_kham_cua_phong_kham_khac_khong_thay(kb: KichBan) -> None:
 
 
 async def test_thu_ky_bam_bat_dau_bac_si_van_duyet_duoc(kb: KichBan) -> None:
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -1043,6 +1052,7 @@ async def test_hang_cho_phong_cho_dang_lam_da_xong(kb: KichBan) -> None:
 
 
 async def test_hang_cho_bac_si_thay_luot_kham_chinh_cua_minh(kb: KichBan) -> None:
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -1064,6 +1074,7 @@ async def test_hang_cho_vip_khong_tu_chen_truoc_nguoi_vao_hang_som_hon(
         a = await _luot(conn, kb.location_id, kb.bac_si.staff_id)
         b = await _luot(conn, kb.location_id, kb.bac_si.staff_id)
     for v in (a, b):  # A đủ điều kiện TRƯỚC B
+        await kb.svc.bat_dau_do_sinh_hieu(visit_id=v, identity=kb.dieu_duong)
         await kb.svc.record_vitals(
             visit_id=v, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
         )
@@ -1415,6 +1426,7 @@ async def test_chua_co_ket_qua_thi_khong_duyet_duoc(kb: KichBan) -> None:
 
 
 async def test_goi_vao_kham_roi_bat_dau(kb: KichBan) -> None:
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -1444,6 +1456,7 @@ async def test_thu_ky_chua_phan_bac_si_van_thay_khach_o_ban_kham_cua_toi(
     """Chế độ mở quyền: thư ký chưa được phân bác sĩ mở 'Khách của tôi' phải thấy
     lượt khám chính (bản trước trả rỗng)."""
     monkeypatch.setenv("MO_QUYEN_TAM_THOI", "1")
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},
@@ -1460,6 +1473,7 @@ async def test_khach_chua_co_bac_si_van_hien_o_hang_cho_bac_si(kb: KichBan) -> N
             "UPDATE visit SET attending_doctor_id = NULL WHERE visit_id = $1::uuid",
             kb.visit_id,
         )
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 118, "diastolic": 76},

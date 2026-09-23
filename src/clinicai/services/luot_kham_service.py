@@ -2206,6 +2206,19 @@ class LuotKhamService:
             )
             if cached is not None:
                 return cached
+            # LẦN LƯU ĐẦU PHẢI SAU [Bắt đầu] (chốt 23/09/2026). Bỏ qua được thì
+            # lại có lượt "đã đo" mà không biết bắt đầu lúc nào — đúng cái lỗ
+            # StartVitals sinh ra để bịt. KHÔNG tự bắt đầu thay người dùng:
+            # `vitals_started_at` khi ấy sẽ là giờ LƯU, sai nghĩa.
+            # Kiểm SAU khoá encounter_flow nên không có kẽ tranh chấp.
+            # Đã `recorded` → lưu thêm vẫn được. Người bắt đầu và người lưu
+            # được phép khác nhau (bàn giao giữa hai điều dưỡng).
+            flow = await self._lock_flow(conn, identity.clinic_id, vid)
+            if flow["vitals_status"] == "pending":
+                raise LuotKhamConflictError(
+                    "VITALS_NOT_STARTED",
+                    "Bấm [Bắt đầu] trước khi lưu sinh hiệu.",
+                )
             co_thai = await conn.fetchval(
                 """
                 SELECT EXISTS (
@@ -2221,7 +2234,6 @@ class LuotKhamService:
             loi_thai = rules.thieu_sinh_hieu_khi_co_thai(vitals, co_thai=bool(co_thai))
             if loi_thai:
                 raise ValidationError(loi_thai)
-            await self._lock_flow(conn, identity.clinic_id, vid)
             await conn.execute(
                 """
                 INSERT INTO vital_measurement

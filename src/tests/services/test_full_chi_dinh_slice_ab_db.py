@@ -314,6 +314,7 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
 
 async def _bat_dau_kham_primary(kb: BoKichBan) -> str:
     """Ghi sinh hiệu và bắt đầu khám PRIMARY."""
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 120, "diastolic": 80},

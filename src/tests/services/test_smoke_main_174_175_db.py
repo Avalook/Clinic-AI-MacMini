@@ -356,6 +356,7 @@ async def test_smoke_2_cross_feature_handoff_terminal_catalog_rx_and_payment_e2e
     svc_pay = PaymentService(pool)
 
     # 1. Điều dưỡng ghi sinh hiệu để đưa lượt vào hàng chờ khám (PRIMARY)
+    await svc_lk.bat_dau_do_sinh_hieu(visit_id=vid, identity=nurse)
     await svc_lk.record_vitals(
         visit_id=vid,
         raw={"systolic": 120, "diastolic": 80},

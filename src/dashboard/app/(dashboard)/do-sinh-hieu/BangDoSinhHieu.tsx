@@ -168,8 +168,10 @@ export default function BangDoSinhHieu() {
   // và ghi ai bắt đầu, lúc nào. Bấm lại chính mình thì không sao; người khác đã
   // bắt đầu thì máy chủ từ chối kèm tên — câu ấy hiện nguyên văn ở đây.
   //
-  // Đây là mốc đo THỜI GIAN CHỜ, không phải cửa khoá: ô nhập và nút [Lưu] vẫn
-  // dùng được khi chưa ai bấm [Bắt đầu].
+  // LẦN LƯU ĐẦU PHẢI SAU [Bắt đầu] (chốt 23/09/2026) — không thì lại có lượt
+  // "đã đo" mà không biết bắt đầu lúc nào. Máy chủ là cửa chặn thật
+  // (VITALS_NOT_STARTED); ở đây khoá nút Lưu và nói rõ lý do để khỏi ăn lỗi.
+  // Ô nhập VẪN gõ được: gõ chưa phải lưu, bấm Bắt đầu xong số vẫn còn.
   const batDau = async () => {
     if (!dangChon) return;
     setDangBatDau(true);
@@ -241,6 +243,10 @@ export default function BangDoSinhHieu() {
       <p className="text-body text-ink-muted">Đang tải…</p>
     );
   }
+
+  // Chưa ai bấm [Bắt đầu] cho khách đang mở: hiện nút Bắt đầu, khoá nút Lưu.
+  const chuaBatDau =
+    !!dangChon && !dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending";
 
   const MotDong = ({ l, stt }: { l: Luot; stt: number }) => (
     <li>
@@ -357,7 +363,7 @@ export default function BangDoSinhHieu() {
               </div>
               {/* Chỉ hiện khi CHƯA ai bắt đầu. Đang đo rồi thì không bày nút —
                   bấm lại cũng chỉ nhận "đã bắt đầu", không có việc gì mới. */}
-              {!dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending" ? (
+              {chuaBatDau ? (
                 <Button
                   size="md"
                   variant="primary"
@@ -408,10 +414,13 @@ export default function BangDoSinhHieu() {
                   {xong}
                 </p>
               ) : null}
+              {chuaBatDau ? (
+                <p className="text-meta text-ink-muted">Bấm [Bắt đầu] trước khi lưu.</p>
+              ) : null}
               <button
                 type="button"
                 onClick={luu}
-                disabled={dangLuu}
+                disabled={dangLuu || chuaBatDau}
                 className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {dangLuu ? "Đang lưu…" : "Lưu sinh hiệu"}
