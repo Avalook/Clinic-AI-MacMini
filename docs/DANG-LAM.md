@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **18/09/2026 tối**, sau batch hoàn thiện pilot (mục -0023 là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 tối**, sau batch CORE A+B+C (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,57 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## 23/09/2026 tối — CORE A+B+C (nhánh `claude/clinicai-lifecycle-v1-8b92b8`, ĐÃ PUSH, CHƯA deploy)
+
+ChatGPT chốt "CORE A+B+C APPROVED — IMPLEMENT, KHÔNG AUDIT THÊM". Thứ tự:
+A Clinical shell → B Quyền → C Phòng/vị trí → **D V5-A** (đang đỗ ở nhánh
+local `v5a-wip` 26dd065a, migration phải đánh số lại SAU 000019) → **E bấm
+xuyên nguyên lượt thật**.
+
+| Mục | Commit | Cốt lõi |
+|---|---|---|
+| B1 | d8ae650e | Ai vào hệ thống cũng có quyền theo nhóm mẫu của vai (SQL `cap_quyen_theo_preset`); **Postgres ép luôn còn ≥1 người `permission.manage`/phòng khám** (constraint trigger hoãn, khoá dòng clinic) |
+| B2 | 310f8732 | Chỉ còn MỘT hệ quyền: xác nhận tệp kết quả vào `capability_grant`; 4 endpoint quyền cũ → 410 |
+| B3 | ecafb9e7 | Đường khám chính hỏi QUYỀN: check-in · sinh hiệu · khám · ghi bệnh án · duyệt KQ · thu tiền DV. Migration 000018 |
+| A | 996cfc95 | Bỏ "Ký bệnh án" (`/sign` → 410). Trên chỉ [Bắt đầu khám]; **[Hoàn tất] ở cuối = khám xong, KHÔNG khoá** |
+| C1 | b3839fb2 | Phòng là tài nguyên: thêm/đổi tên/bật-tắt theo `room_id`; bước chưa có phòng (DXA, tinh dịch đồ) báo `CONFIG_MISSING` |
+| C2/C3 | a28bc843 | Thanh bên + cửa trang theo `room_id`; bỏ 9 mục `/phong/KN-*`; `/phong` = danh sách phòng từ DB |
+| C4 | 625a0d96 | Danh mục vị trí trực đọc từ DB (`danh_muc` trong `/me/vi-tri-hom-nay`), bỏ 34 vị trí viết cứng; migration 000019 `ten_ngan` |
+| Vá | a19ca3b7 | Trọn bộ test bắt 24 bài đỏ: module chưa khai quyền, release/amend hỏi quyền sau khi tìm lượt, mock cần cửa quyền theo nhóm mẫu |
+
+**Tuyền ĐÈ đề xuất ChatGPT (phải báo lại ChatGPT):** ChatGPT muốn "Hoàn tất =
+khoá, sửa phải đính chính". Tuyền chốt 23/09: **không khoá, sửa thoải mái**.
+Lượt mới không bao giờ thành FINALIZED; [Đính chính] chỉ còn cho lượt cũ đã ký.
+
+**Đã kiểm (cuối batch, một lần):** backend 2861 passed / 0 failed, cover 86% ·
+lược đồ áp 2 lần + 33 bài lược đồ · ruff/format/mypy 546 file · tsc · eslint
+0 cảnh báo · 452 bài frontend · `next build`. **CHƯA bấm trình duyệt 375/1280.**
+
+**NỢ (ngoài phạm vi CORE, KHÔNG làm lén):**
+- Single write path cho sinh hiệu (xem mục dưới).
+- Thu tiền THUỐC vẫn hỏi vai; các cửa vai còn lại ở proxy booking; `cho-quyet`
+  đọc theo vai; ~70 chỗ hỏi vai ngoài đường chính.
+- Phạm vi quyền ROOM/SHIFT có cột nhưng chưa dùng; RECORD_LOCK 48h.
+- **Câu hỏi mở:** hệ mới cho người có `permission.manage` tự cấp quyền cho mình
+  (hệ cũ cấm) — chưa chốt.
+- Ký kết quả SIÊU ÂM (của BS siêu âm) vẫn giữ — chỉ bỏ ký BỆNH ÁN.
+- `MO_QUYEN_TAM_THOI` không còn nới check-in/sinh hiệu (đã sang quyền).
+- Nhóm mẫu: Lễ tân & Bác sĩ KHÔNG còn quyền sinh hiệu mặc định; Trưởng ca có
+  check-in. Cần người dùng xác nhận khi UAT.
+- Luật `/phong` gộp: BS và BS siêu âm nay VÀO được mọi phòng dịch vụ (trước
+  mỗi vai vài phòng). Chỉ là vào xem — lệnh vẫn hỏi quyền ở máy chủ.
+- Vị trí mới quản lý thêm trong DB: bảng lịch hiện ngay, nhưng THANH BÊN chưa
+  biết mở màn nào (`MAN_THEO_VI_TRI`/`NHOM_THEO_VI_TRI` vẫn trong code). Bài
+  `test_vi_tri_tu_database_db.py` chỉ canh danh mục gốc trong DB thử, không
+  canh vị trí quản lý thêm trên máy thật.
+
+**Kịch bản E (Tuyền tả 23/09 — kiểm, KHÔNG code trước):** khách đến → bác sĩ
+[Bắt đầu khám] → điền, sang màn khác vẫn giữ → xác nhận chỉ định → sự kiện về
+lễ tân đối chiếu lựa chọn thật của khách → khách trả tiền dịch vụ thật chọn →
+LÚC ĐÓ phòng được chỉ định mới nhận khách vào hàng chờ; phiên bác sĩ chính vẫn
+"đang khám" → phòng [Bắt đầu] → hồ sơ bác sĩ chính hiện "đang làm" → kết quả
+SA/thủ thuật hiện về hồ sơ bệnh nhân cho bác sĩ xem bất cứ lúc nào.
 
 ## 23/09/2026 — NỀN EVENT-DRIVEN, bước 1–3 (nhánh `claude/clinicai-lifecycle-v1-8b92b8`, CHƯA commit/deploy)
 
