@@ -1135,9 +1135,11 @@ class PriceListService:
         if ids:
             await conn.execute(
                 "UPDATE drug_catalog SET unit_price = $2"
-                " WHERE id = ANY($1::uuid[]) AND unit_price IS DISTINCT FROM $2",
+                " WHERE clinic_id = $3::uuid AND id = ANY($1::uuid[])"
+                " AND unit_price IS DISTINCT FROM $2",
                 ids,
                 gia,
+                clinic_id,
             )
         return len(ids)
 
