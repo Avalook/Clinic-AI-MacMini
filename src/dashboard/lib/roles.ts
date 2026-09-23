@@ -212,7 +212,10 @@ export function roleLanding(role: ClinicRole | null): string {
 export const ROLE_LABEL: Record<ClinicRole, string> = {
   DOCTOR: "Bác sĩ",
   ULTRASOUND_DOCTOR: "Bác sĩ Siêu âm",
-  NURSE_ULTRASOUND: "Điều dưỡng / Phụ siêu âm",
+  // "Điều dưỡng", không phải "Điều dưỡng / Phụ siêu âm" (Tuyền chốt): họ làm
+  // sinh hiệu, lấy mẫu, phụ phòng dịch vụ và nay cả đặt chỉ định. Cái tên ghép
+  // kia bó họ vào một phòng.
+  NURSE_ULTRASOUND: "Điều dưỡng",
   TKYK: "Thư ký Y khoa",
   CSKH: "CSKH",
   MANAGEMENT: "Quản lý",

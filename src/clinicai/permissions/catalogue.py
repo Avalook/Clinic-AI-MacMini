@@ -292,7 +292,21 @@ PRESET: dict[str, Sequence[str]] = {
     "DOCTOR": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien"],
     "TKYK": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien"],
     "RECEPTION": ["tiep_don", "chon_dich_vu", "thu_tien_dv", "dieu_phoi"],
-    "NURSE_ULTRASOUND": ["sinh_hieu", "dieu_phoi", "ket_qua", "thuc_hien"],
+    # ĐIỀU DƯỠNG CÓ `chi_dinh` (Tuyền chốt 23/09/2026). Trong nghiệp vụ tạo chỉ
+    # định và phát sinh dịch vụ tại phòng, bác sĩ = thư ký y khoa = điều dưỡng;
+    # khác nhau chỉ ở chỗ AI THỰC SỰ BẤM, và chuyện đó là việc của nhật ký, không
+    # phải của hàng rào quyền. Không có nhánh "điều dưỡng nhập nháp rồi bác sĩ
+    # duyệt" — nó chưa từng tồn tại ngoài đời ở phòng khám này.
+    #
+    # KHÔNG SUY RỘNG: đây là quyền ĐẶT CHỈ ĐỊNH. Ký bệnh án và duyệt/phát hành
+    # kết quả là những quyền khác, nằm ở khối khác, và không đi kèm.
+    "NURSE_ULTRASOUND": [
+        "sinh_hieu",
+        "chi_dinh",
+        "dieu_phoi",
+        "ket_qua",
+        "thuc_hien",
+    ],
     "CASHIER": ["thu_tien_dv", "chon_dich_vu"],
     "CASHIER_DV": ["thu_tien_dv", "chon_dich_vu"],
     "CASHIER_THUOC": ["thu_tien_dv"],

@@ -26,7 +26,10 @@ import pytest_asyncio
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.permissions.can import can, quyen_hieu_luc
-from clinicai.services.permission_service import PermissionService
+from clinicai.services.permission_service import (
+    PermissionService,
+    cap_preset_mac_dinh,
+)
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 # Một phòng khám thứ hai, tự dựng: dữ liệu seed chỉ có một phòng khám.
@@ -99,27 +102,56 @@ async def quan_ly(pool: asyncpg.Pool) -> StaffIdentity:
 
 
 async def test_chua_cap_thi_khong_lam_duoc(pool: asyncpg.Pool) -> None:
-    """Vai nghe "có vẻ đúng" không đủ: quyền phải được cấp thật."""
+    """Vai nghe "có vẻ đúng" không đủ: quyền phải được cấp thật.
+
+    23/09/2026 đổi ví dụ từ ĐIỀU DƯỠNG sang THU NGÂN. Không nới luật — luật vẫn
+    y nguyên — mà vì ví dụ cũ đã sai nghiệp vụ: Tuyền chốt bác sĩ = thư ký y
+    khoa = điều dưỡng cùng đặt chỉ định được. Bài kiểm ấy không chỉ CHO PHÉP
+    cái sai, nó CANH cho cái sai không đổi.
+
+    Thu ngân là ví dụ đúng: nhóm mẫu của họ không có khối Chỉ định, nên chưa ai
+    cấp thì không đặt chỉ định được, dù màn hình có hiện nút hay không.
+    """
     async with pool.acquire() as conn:
-        # Điều dưỡng mới, chưa ai cấp khối Chỉ định.
+        thu_ngan = await _nguoi(conn, "CASHIER")
+        assert await can(conn, thu_ngan, "clinical.order.place") is False
+
+
+async def test_dieu_duong_dat_duoc_chi_dinh_ngay_tu_dau(pool: asyncpg.Pool) -> None:
+    """Không phải chờ quản lý tick thêm (Tuyền chốt 23/09/2026).
+
+    KHÔNG SUY RỘNG: đây là quyền đặt chỉ định. Ký bệnh án và duyệt/phát hành kết
+    quả là quyền khác, và bài kiểm này không nói gì về chúng.
+
+    `_nguoi` ở tệp này CỐ Ý không cấp preset — cả tệp xoay quanh "chưa cấp thì
+    chưa có". Nên bài này gọi `cap_preset_mac_dinh` đúng như `staff_service` làm
+    lúc thêm nhân sự thật: thứ cần chứng minh là NHÓM MẪU đã có khối Chỉ định,
+    không phải ai đó tick tay.
+    """
+    async with pool.acquire() as conn:
         dd = await _nguoi(conn, "NURSE_ULTRASOUND")
-        assert await can(conn, dd, "clinical.order.place") is False
+        await cap_preset_mac_dinh(
+            conn, clinic_id=CLINIC, staff_id=dd.staff_id, vai="NURSE_ULTRASOUND"
+        )
+        assert await can(conn, dd, "clinical.order.place") is True
 
 
 async def test_quan_ly_bat_mot_khoi_la_lam_duoc_ngay(
     pool: asyncpg.Pool, quan_ly: StaffIdentity
 ) -> None:
     async with pool.acquire() as conn:
-        dd = await _nguoi(conn, "NURSE_ULTRASOUND")
+        # Thu ngân, vì nhóm mẫu của họ không có khối Chỉ định — đúng thứ bài
+        # này cần: một người CHƯA có quyền, rồi quản lý bật cho.
+        ai_do = await _nguoi(conn, "CASHIER")
 
     svc = PermissionService(pool)
-    kq = await svc.cap_khoi(staff_id=dd.staff_id, khoi="chi_dinh", identity=quan_ly)
+    kq = await svc.cap_khoi(staff_id=ai_do.staff_id, khoi="chi_dinh", identity=quan_ly)
     assert kq["da_cap"] == ["clinical.order.place"]
 
     async with pool.acquire() as conn:
-        # Không sửa dòng code nào: điều dưỡng chỉ định được.
-        assert await can(conn, dd, "clinical.order.place") is True
-        assert "clinical.order.place" in await quyen_hieu_luc(conn, dd)
+        # Không sửa dòng code nào: thu ngân chỉ định được.
+        assert await can(conn, ai_do, "clinical.order.place") is True
+        assert "clinical.order.place" in await quyen_hieu_luc(conn, ai_do)
 
 
 async def test_cap_duoc_khoi_ngoai_preset_cua_vai(
