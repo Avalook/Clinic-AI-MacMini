@@ -240,7 +240,7 @@ async def _don(pool: asyncpg.Pool, order: str) -> asyncpg.Record:  # noqa: F811
     return await pool.fetchrow(
         "SELECT visit_id::text AS visit_id, routing_status, room_id::text AS room_id,"
         " routing_revision, execution_revision, assigned_by::text AS assigned_by,"
-        " mang_tu_visit_id::text AS mang_tu, selection_status"
+        " mang_tu_visit_id::text AS mang_tu, selection_status, exec_status"
         " FROM service_order WHERE id = $1::uuid",
         order,
     )
@@ -614,3 +614,43 @@ async def test_phong_lam_khi_phien_bac_si_con_mo_roi_khach_quay_lai(
         consultation_id=con, identity=ca.bac_si
     )
     assert await hang_bac_si() == "serving"  # khám tiếp
+
+
+async def test_phong_bam_bat_dau_xong_thi_cot_cu_exec_status_di_theo(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bấm thật 23/09 22:00: phòng bấm Xong mà Bàn khám vẫn ghi "Chờ ở phòng",
+    không hiện nút xem kết quả — Bàn khám, trưởng ca, xem lượt còn đọc
+    `exec_status`. Đường làm mới phải kéo cột cũ theo."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.le_tan)
+    await chay_hanh_trinh(pool)
+    assert (await _don(pool, order))["exec_status"] == "assigned"
+
+    d = await _don(pool, order)
+    mo = await ServiceExecutionService(pool).bat_dau(
+        order_id=order,
+        expected_execution_revision=int(d["execution_revision"]),
+        expected_routing_revision=int(d["routing_revision"]),
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    assert (await _don(pool, order))["exec_status"] == "in_progress"
+
+    await ServiceExecutionService(pool).xong(
+        order_id=order,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    sau = await pool.fetchrow(
+        "SELECT exec_status, performed_by::text AS ai FROM service_order"
+        " WHERE id = $1::uuid",
+        order,
+    )
+    assert sau["exec_status"] == "performed"
+    assert sau["ai"] == ca.dd.staff_id

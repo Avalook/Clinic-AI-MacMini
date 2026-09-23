@@ -27,7 +27,18 @@ lịch sử hội thoại.
   từng màn cho nhóm; tắt màn không lấy mất khối mà màn khác của nhóm còn cần. Bấm thật
   375/1280 23/09 22:00: chạy; sửa tràn ngang 375 ở cả 3 tab (lưới thiếu `minmax(0,1fr)`).
 - Trưởng ca có link "Hành trình khách hôm nay →".
-- **Deploy phải làm thêm:** migration `20260924000006_da_xem_phieu_ket_qua.sql`.
+- **Deploy phải làm thêm:** migration `20260924000006_da_xem_phieu_ket_qua.sql` và
+  `20260924000007_keo_exec_status_theo_duong_lam_moi.sql`.
+- **Bấm thật 23/09 22:00 (quản lý, stack local + 2 khách giả đi trọn 14 bước):** bắt lỗi
+  phòng bấm Xong mà Bàn khám vẫn ghi "Chờ ở phòng", không hiện nút xem tệp/phiếu — đường
+  làm mới chỉ ghi `execution_status`, còn Bàn khám/trưởng ca/xem lượt/view SQL đọc
+  `exec_status`. Sửa ở `ServiceExecutionService._doi_trang_thai` (ghi kèm cột cũ) +
+  migration 07 chữa dòng cũ. Sau sửa: "Đã làm", nút Xem phiếu mở phiếu chỉ đọc; quản lý
+  xem không tính "bác sĩ đã xem". 375: không màn nào tràn ngang, không lỗi.
+- **Chưa bấm thật được (cần đăng nhập vai khác):** bác sĩ chỉ định/kê đơn trên màn (quản
+  lý không có ô chỉ định), bác sĩ mở phiếu → tự ghi đã xem (đã có test DB).
+- **Để Tuyền quyết chữ:** màn check-out tab "Bị chặn (N)" nhưng thật ra vẫn đóng được (ghi
+  lý do) — nên đổi thành "Còn việc (N)"?
 
 ## Nhóm 6 — rà quyền + trách nhiệm không rơi (CHƯA deploy, CHƯA bấm thật)
 

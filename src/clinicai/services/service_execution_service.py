@@ -70,6 +70,15 @@ LY_DO_KHONG_LAM = frozenset(
     }
 )
 
+#: Lời cho người đọc cột cũ `not_performed_reason` (Bàn khám in thẳng ra).
+_TEN_LY_DO_KHONG_LAM = {
+    "PATIENT_DECLINED_AT_ROOM": "Khách từ chối tại phòng",
+    "CLINICAL_CONTRAINDICATION_BEFORE_START": "Chống chỉ định trước khi làm",
+    "EQUIPMENT_UNAVAILABLE_BEFORE_START": "Máy/thiết bị không dùng được",
+    "STAFF_UNAVAILABLE": "Không có người làm",
+    "OTHER": "Lý do khác",
+}
+
 #: Vì sao đang làm mà phải dừng.
 LY_DO_GIAN_DOAN = frozenset(
     {
@@ -308,7 +317,9 @@ class ServiceExecutionService:
                 lan["id"],
                 identity.staff_id,
             )
-            moi = await self._doi_trang_thai(conn, cid, order_id, "COMPLETED")
+            moi = await self._doi_trang_thai(
+                conn, cid, order_id, "COMPLETED", nguoi_lam=identity.staff_id
+            )
             await self._dong_hang_cho(conn, cid, order_id)
 
             await emit_event(
@@ -396,7 +407,20 @@ class ServiceExecutionService:
                     "Chỉ định này đã từng bắt đầu — dùng đường gián đoạn.",
                 )
 
-            moi = await self._doi_trang_thai(conn, cid, order_id, "NOT_PERFORMED")
+            moi = await self._doi_trang_thai(
+                conn,
+                cid,
+                order_id,
+                "NOT_PERFORMED",
+                ly_do=" — ".join(
+                    x
+                    for x in (
+                        _TEN_LY_DO_KHONG_LAM.get(ly_do, ly_do),
+                        (ghi_chu or "").strip(),
+                    )
+                    if x
+                ),
+            )
             await self._dong_hang_cho(conn, cid, order_id)
 
             tien = await can_start(conn, cid, order_id)
@@ -741,17 +765,49 @@ class ServiceExecutionService:
 
     @staticmethod
     async def _doi_trang_thai(
-        conn: asyncpg.Connection, clinic_id: str, order_id: str, trang_thai: str
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        order_id: str,
+        trang_thai: str,
+        *,
+        ly_do: str | None = None,
+        nguoi_lam: str | None = None,
     ) -> int:
+        """Đổi `execution_status` — và KÉO THEO cột cũ `exec_status`.
+
+        Bấm thật 23/09 22:00: phòng bấm Xong, Bàn khám vẫn ghi "Chờ ở phòng" và
+        không hiện nút xem kết quả — vì Bàn khám, trưởng ca, xem lượt, hàng "chờ
+        bác sĩ quyết" và vài view SQL còn đọc `exec_status`, mà đường làm mới
+        chưa từng ghi nó. Ghi kèm ở MỘT chỗ này thay vì sửa từng người đọc.
+        Chỉ kéo khi chỉ định đã qua nháp và có phòng (ràng buộc của cột cũ);
+        huỷ/nháp thì để nguyên.
+        """
         moi = await conn.fetchval(
             "UPDATE service_order"
             "   SET execution_status = $3, execution_revision = execution_revision + 1,"
+            "       exec_status = CASE"
+            "         WHEN exec_status IN ('draft', 'cancelled') OR room_id IS NULL"
+            "           THEN exec_status"
+            "         WHEN $3 = 'IN_PROGRESS' THEN 'in_progress'"
+            "         WHEN $3 = 'COMPLETED' THEN 'performed'"
+            "         WHEN $3 = 'NOT_PERFORMED' AND nullif(btrim(coalesce($4, '')), '')"
+            "              IS NOT NULL THEN 'not_performed'"
+            "         WHEN $3 IN ('INTERRUPTED', 'PENDING') THEN 'assigned'"
+            "         ELSE exec_status END,"
+            "       not_performed_reason = CASE WHEN $3 = 'NOT_PERFORMED'"
+            "         THEN coalesce(nullif(btrim(coalesce($4, '')), ''),"
+            "                       not_performed_reason)"
+            "         ELSE not_performed_reason END,"
+            "       performed_by = CASE WHEN $3 = 'COMPLETED'"
+            "         THEN coalesce($5::uuid, performed_by) ELSE performed_by END,"
             "       updated_at = now()"
             " WHERE clinic_id = $1::uuid AND id = $2::uuid"
             " RETURNING execution_revision",
             clinic_id,
             order_id,
             trang_thai,
+            ly_do,
+            nguoi_lam,
         )
         return int(moi)
 

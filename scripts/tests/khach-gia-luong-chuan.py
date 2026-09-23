@@ -46,6 +46,7 @@ os.environ.setdefault("MEDIA_MIN_FREE_BYTES", "0")
 
 import asyncpg  # noqa: E402
 
+from clinicai.api.exceptions import ValidationError  # noqa: E402
 from clinicai.api.identity import ClinicRole, StaffIdentity  # noqa: E402
 from clinicai.events import worker as nguoi_dua_tin  # noqa: E402
 from clinicai.events.catalogue import (  # noqa: E402
@@ -338,6 +339,16 @@ async def main(bo_sinh_hieu: bool) -> int:
                 " AND di_thang_phong AND is_active ORDER BY code LIMIT 1",
                 CLINIC,
             )
+            if dv_thu_thuat is None:
+                # DB chưa có loại lịch thủ thuật (vd stack local chỉ có seed demo).
+                dv_thu_thuat = await conn.fetchval(
+                    "INSERT INTO service_type (clinic_id, code, name, is_active,"
+                    " di_thang_phong) VALUES ($1::uuid, $2, $3, true, true)"
+                    " RETURNING id::text",
+                    CLINIC,
+                    f"KG-LTT-{duoi}",
+                    f"[khach-gia] Lịch thủ thuật {duoi}",
+                )
             # Có phòng làm thủ thuật chưa; chưa thì dựng một phòng giả.
             if not await conn.fetchval(
                 "SELECT EXISTS (SELECT 1 FROM clinic_room r JOIN clinic_room_node n"
@@ -372,17 +383,38 @@ async def main(bo_sinh_hieu: bool) -> int:
 
         async def dat_lich() -> None:
             bd = datetime.now(UTC) + timedelta(minutes=20)
-            kq = await BookingService(pool).create(
-                clinic_patient_id=k.patient,
-                service_type_id=dv_kham,
-                location_id=loc,
-                slot_start=bd,
-                slot_end=bd + timedelta(minutes=15),
-                identity=cskh,
-                doctor_id=bs.staff_id,
-                notes="[khach-gia]",
-            )
-            k.appointment = kq["appointment_id"]
+            try:
+                kq = await BookingService(pool).create(
+                    clinic_patient_id=k.patient,
+                    service_type_id=dv_kham,
+                    location_id=loc,
+                    slot_start=bd,
+                    slot_end=bd + timedelta(minutes=15),
+                    identity=cskh,
+                    doctor_id=bs.staff_id,
+                    notes="[khach-gia]",
+                )
+                k.appointment = kq["appointment_id"]
+            except ValidationError as exc:
+                # Chạy ngoài giờ ca (tối/đêm): luật giờ ca là luật ĐẶT lịch, không
+                # phải thứ script này kiểm — gieo thẳng lịch hẹn rồi đi tiếp.
+                if "không thuộc ca nào" not in str(exc):
+                    raise
+                print("  (ngoài giờ ca — gieo thẳng lịch hẹn để đi tiếp các bước sau)")
+                k.appointment = await pool.fetchval(
+                    "INSERT INTO appointment (clinic_id, clinic_patient_id,"
+                    " location_id, service_type_id, slot_start, slot_end,"
+                    " doctor_id, status, notes) VALUES ($1::uuid, $2::uuid,"
+                    " $3::uuid, $4::uuid, $5, $6, $7::uuid, 'CONFIRMED',"
+                    " '[khach-gia]') RETURNING id::text",
+                    CLINIC,
+                    k.patient,
+                    loc,
+                    dv_kham,
+                    bd,
+                    bd + timedelta(minutes=15),
+                    bs.staff_id,
+                )
 
         async def check_in() -> None:
             await BookingService(pool).apply_action(
