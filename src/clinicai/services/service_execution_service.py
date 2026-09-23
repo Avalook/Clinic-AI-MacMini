@@ -50,6 +50,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services.finance_gate import can_start
 from clinicai.services.luot_kham_service import LuotKhamConflictError, LuotKhamService
 
@@ -669,14 +670,10 @@ class ServiceExecutionService:
                 cid,
                 order_id,
             )
-            mau = await conn.fetch(
-                "SELECT m.ma, m.ten, m.nhom FROM dich_vu_mau_ket_qua d"
-                "  JOIN ket_qua_mau m"
-                "    ON m.clinic_id = d.clinic_id AND m.ma = d.mau AND m.active"
-                " WHERE d.clinic_id = $1::uuid AND d.service_code = $2"
-                " ORDER BY m.ten",
-                cid,
-                don["service_code"],
+            # Mẫu đã gắn → dùng; chưa gắn → mẫu gợi ý của phiếu v5 chọn sẵn +
+            # 18 mẫu dự phòng (23/09 khuya: phòng siêu âm mở ra là điền được).
+            mau, mau_goi_y = await mau_cho_dich_vu(
+                conn, clinic_id=cid, service_code=don["service_code"]
             )
             phieu = await conn.fetch(
                 "SELECT id::text, form_id, trang_thai, revision, hoan_tat_luc"
@@ -699,7 +696,8 @@ class ServiceExecutionService:
                 else None
             ),
             "cac_lan": [dict(d) for d in lan],
-            "mau_ket_qua": [dict(d) for d in mau],
+            "mau_ket_qua": mau,
+            "mau_goi_y": mau_goi_y,
             "phieu": [dict(d) for d in phieu],
             "ly_do_khong_lam": sorted(LY_DO_KHONG_LAM),
             "ly_do_gian_doan": sorted(LY_DO_GIAN_DOAN),

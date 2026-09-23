@@ -45,7 +45,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/reception/checkout` | Lễ tân, QL | Check-out lượt khám | GIỮ | |
 | `/do-sinh-hieu` | ĐD, Lễ tân, BS, QL | Đo sinh hiệu | GIỮ | **Nơi DUY NHẤT ghi sinh hiệu.** Máy chủ từ chối đường cũ từ `6976513`. |
 | `/phong` | BS, BS SA, ĐD, TKYK, QL + ai có quyền `service.execute.start` | Phòng dịch vụ | GIỮ (mới 23/09) | **Danh sách phòng dịch vụ đọc từ `clinic_room`** (phòng đang bật, không phải phòng khám), phòng mình đứng hôm nay lên đầu. Thay chín mục `/phong/KN-*` viết cứng. |
-| `/phong/[ma]` | MỘT luật `/phong` cho mọi phòng | Tên phòng thật (theo lịch trực hôm nay) | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. **23/09: `[ma]` là `room_id`**; mã phòng cũ (`KN-SA1`…) vẫn mở được. Ngày có ca, thanh bên dựng mục theo `vi_tri_lam_viec.room_id`, tên = `clinic_room.name`. |
+| `/phong/[ma]` | MỘT luật `/phong` cho mọi phòng | Tên phòng thật (theo lịch trực hôm nay) | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. **23/09: `[ma]` là `room_id`**; mã phòng cũ (`KN-SA1`…) vẫn mở được. Ngày có ca, thanh bên dựng mục theo `vi_tri_lam_viec.room_id`, tên = `clinic_room.name`. 23/09 khuya: phiếu kết quả mở được cả khi dịch vụ chưa gắn mẫu (mẫu gợi ý v5 chọn sẵn + 18 mẫu dự phòng, `mau_goi_y` từ `thuc-hien`); [In phiếu] → `/print/ket-qua/[orderId]`; [Bắt đầu] hiện cả khi `execution_status` NULL. |
 
 ### Bác sĩ và thư ký
 

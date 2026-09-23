@@ -154,6 +154,12 @@ khách, tới giờ chuông réo đúng người.
     không tính là "bác sĩ đã xem".
 30. Kết luận soi âm hộ / HPV / PCR để trống (câu kết luận trong nguồn là của một ca cụ thể).
 
+**Chỗ Claude tự chốt ở phòng điền kết quả (23/09 khuya):**
+31. Dịch vụ chưa gắn mẫu: phòng mở mẫu gợi ý của phiếu v5 (chọn sẵn) + 18 mẫu dự phòng;
+    KHÔNG tự gắn chính thức — gắn vẫn là việc của quản lý.
+32. Phiếu kết quả đã Hoàn tất = có kết quả (result.ready, báo bác sĩ chính) khi dịch vụ
+    chưa cấu hình `result_mode`; chỉ im lặng khi quản lý cấu hình rõ NONE / LATER.
+
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
   không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).

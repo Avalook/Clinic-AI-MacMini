@@ -256,7 +256,10 @@ function KhachTrongPhong({
   const dangLam = trangThai === "IN_PROGRESS" && th?.lan_dang_chay != null;
   const daDung = trangThai === "INTERRUPTED" && th?.lan_da_dung != null;
   const daXong = trangThai === "COMPLETED" || trangThai === "NOT_PERFORMED";
-  const chuaLam = trangThai === "PENDING";
+  // NULL = chưa có lần làm nào (chỉ định tạo từ phiếu khám không ghi sẵn
+  // PENDING) — máy chủ coi như PENDING (`coalesce(execution_status, 'PENDING')`).
+  // Bấm thật 23/09 khuya: so đúng chữ "PENDING" làm mất nút Bắt đầu.
+  const chuaLam = th != null && (trangThai === "PENDING" || trangThai === null);
 
   return (
     <section
@@ -403,6 +406,7 @@ function KhachTrongPhong({
         <PhieuKetQua
           serviceOrderId={dong.ref_id}
           mau={th.mau_ket_qua}
+          mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
           onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
             setBao(
               laLanSua

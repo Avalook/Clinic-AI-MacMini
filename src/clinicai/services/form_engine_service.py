@@ -809,9 +809,12 @@ class FormEngineService:
     ) -> str:
         """Dịch vụ này có sinh kết quả ngay tại phòng không.
 
-        Chưa cấu hình thì `NONE`: im lặng là "không có kết quả để đọc", chứ
-        không phải "cứ báo có kết quả cho chắc". Báo thừa một lần là một lần
-        bác sĩ mở ra và thấy trống.
+        Chưa cấu hình → `INLINE` (đổi 23/09/2026 khuya). Trước đây là `NONE`
+        ("im lặng là không có kết quả"), khi phòng chỉ điền được mẫu ĐÃ GẮN.
+        Từ khi phòng mở mẫu gợi ý của phiếu v5 cho dịch vụ chưa gắn, một phiếu
+        kết quả đã Hoàn tất LÀ có kết quả để đọc — bấm thật: phòng siêu âm
+        hoàn tất phiếu mà bác sĩ chính không được báo. Muốn im lặng / báo sau
+        thì quản lý cấu hình rõ `NONE` / `LATER` khi gắn mẫu.
         """
         mode = await conn.fetchval(
             "SELECT d.result_mode FROM dich_vu_mau_ket_qua d"
@@ -823,7 +826,7 @@ class FormEngineService:
             clinic_id,
             service_order_id,
         )
-        return str(mode) if mode else "NONE"
+        return str(mode) if mode else "INLINE"
 
     async def _dong_dich_vu_neu_dang_lam(
         self, *, service_order_id: str, identity: StaffIdentity

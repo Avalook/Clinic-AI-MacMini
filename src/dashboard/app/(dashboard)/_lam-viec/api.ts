@@ -178,6 +178,8 @@ export interface ThucHien {
   lan_da_dung: LanLam | null;
   cac_lan: LanLam[];
   mau_ket_qua: { ma: string; ten: string; nhom: string | null }[];
+  /** Mẫu chọn sẵn: mẫu đã gắn, hoặc mẫu gợi ý của phiếu v5 (23/09 khuya). */
+  mau_goi_y?: string | null;
   phieu: {
     id: string;
     form_id: string;

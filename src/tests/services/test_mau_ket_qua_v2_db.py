@@ -84,3 +84,35 @@ async def test_in_phieu_ai_in_duoc_va_ban_nhap_ghi_ro(pool: asyncpg.Pool) -> Non
     assert ban["phieu"][0]["hoan_tat_boi"]
     with pytest.raises(SafetyGateError):
         await svc.in_ket_qua(service_order_id=order, identity=le_tan)
+
+
+async def test_phong_chua_gan_mau_van_mo_duoc_mau_goi_y(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Phòng siêu âm mở ra là điền được: chưa gắn mẫu thì mẫu gợi ý v5 chọn sẵn
+    + 18 mẫu dự phòng; đã gắn thì chỉ mẫu đã gắn (quyết định của quản lý)."""
+    from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
+
+    async with pool.acquire() as conn:
+        ds, goi_y = await mau_cho_dich_vu(
+            conn, clinic_id=CLINIC, service_code="CLS_SIEU_AM_VU"
+        )
+        assert goi_y == "SA_VU" and ds[0]["ma"] == "SA_VU" and len(ds) == 18
+        # Dịch vụ không có gợi ý: vẫn đủ 18 mẫu, không chọn sẵn.
+        ds, goi_y = await mau_cho_dich_vu(
+            conn, clinic_id=CLINIC, service_code="KHONG_CO"
+        )
+        assert goi_y is None and len(ds) == 18
+        # Quản lý đã gắn mẫu → chỉ mẫu ấy.
+        bs = await _nguoi(conn, "DOCTOR")
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO dich_vu_mau_ket_qua"
+                " (clinic_id, service_code, mau, gan_boi)"
+                " VALUES ($1::uuid, 'CLS_TEST_GAN_MAU', 'SA_GIAP', $2::uuid)"
+                " ON CONFLICT DO NOTHING",
+                CLINIC,
+                bs.staff_id,
+            )
+        ds, goi_y = await mau_cho_dich_vu(
+            conn, clinic_id=CLINIC, service_code="CLS_TEST_GAN_MAU"
+        )
+        assert [m["ma"] for m in ds] == ["SA_GIAP"] and goi_y == "SA_GIAP"

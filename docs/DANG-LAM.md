@@ -13,6 +13,19 @@ lịch sử hội thoại.
 
 ---
 
+## Phòng siêu âm điền kết quả (23/09 khuya — CHƯA deploy, ĐÃ bấm thật BS A)
+
+- Phòng chưa gắn mẫu → trước đây "chưa gắn mẫu kết quả nào", không điền được. Nay
+  `phieu_kham/mau_goi_y.py`: mẫu đã gắn → dùng; chưa gắn → mẫu gợi ý v5 chọn sẵn + 18 mẫu
+  dự phòng (22 dịch vụ có gợi ý). Không tự gắn vào `dich_vu_mau_ket_qua`.
+- Nút [Bắt đầu] mất với chỉ định tạo từ phiếu khám (`execution_status` NULL, màn so đúng
+  chữ "PENDING") — sửa ở `PhongDichVu.tsx` (NULL = PENDING như backend).
+- `result_mode` chưa cấu hình: NONE → INLINE — phiếu kết quả đã Hoàn tất là có kết quả;
+  trước đó phòng hoàn tất mà bác sĩ chính KHÔNG được báo.
+- Bấm thật: SÂ tuyến giáp (TIRADS 3) và SÂ doppler ĐM thận (12 ô số đo để trống, gợi ý
+  cm/s) → Bắt đầu → điền → Hoàn tất một nút đóng dịch vụ → result.ready → chuông bác sĩ
+  chính (đích danh) + TKYK → phiếu khám mục C "Có kết quả".
+
 ## Ruột 18 mẫu kết quả + in phiếu + bỏ tab Chỉ định (23/09 khuya — CHƯA deploy, ĐÃ bấm thật BS A)
 
 Tuyền: "nút chỉ định và kết quả xoá đi… các phần siêu âm, thủ thuật, đối tác trong

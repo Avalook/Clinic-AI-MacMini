@@ -428,9 +428,11 @@ async def test_lay_mau_gui_di_thi_khong_bao_da_co_ket_qua(pool: asyncpg.Pool) ->
     assert await _su_kien(pool, phieu["id"]) == ["result_form.completed"]
 
 
-async def test_chua_gan_mau_thi_im_lang_la_khong_co_ket_qua(
+async def test_chua_gan_mau_hoan_tat_van_bao_co_ket_qua(
     pool: asyncpg.Pool,
 ) -> None:
+    """Đổi 23/09 khuya: phòng điền mẫu gợi ý cho dịch vụ chưa gắn mẫu — phiếu
+    đã Hoàn tất là có kết quả, phải báo bác sĩ chính (trước đây: im lặng)."""
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         order_id = await _don_tron(conn, bs)
@@ -441,7 +443,7 @@ async def test_chua_gan_mau_thi_im_lang_la_khong_co_ket_qua(
     await svc.hoan_tat(
         phieu_id=phieu["id"], expected_revision=phieu["revision"], identity=bs
     )
-    assert "result.ready" not in await _su_kien(pool, phieu["id"])
+    assert "result.ready" in await _su_kien(pool, phieu["id"])
 
 
 async def test_sua_duoc_sau_khi_hoan_tat_va_ghi_lai_lan_sua(
