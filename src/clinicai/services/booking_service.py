@@ -2204,16 +2204,9 @@ class BookingService:
                 clinic_id=identity.clinic_id,
             )
 
-        # XẾP ĐƯỜNG ĐI NGAY LÚC CHECK-IN (luồng chuẩn bước 6, 23/09/2026).
-        # Trước đây khách chỉ vào hàng bác sĩ chính SAU KHI có sinh hiệu. Nay
-        # sinh hiệu không chặn: khách hiện ở bác sĩ chính ngay, và vẫn nằm ở hàng
-        # đo sinh hiệu của điều dưỡng — đo trước hay sau đều đúng. Cùng giao dịch
-        # với mở lượt; lượt đã có đích (check-in lại) thì không đổi gì.
-        from clinicai.services.luot_kham_service import LuotKhamService
-
-        luot = LuotKhamService(self._pool)
-        visit = await luot._lock_visit(conn, identity.clinic_id, str(visit_id))
-        await luot._decide_route(conn, identity, visit)
+        # XẾP ĐƯỜNG ĐI KHÔNG LÀM Ở ĐÂY (chuẩn lego, 24/09/2026): check-in phát
+        # `visit.checked_in`, khối HÀNH TRÌNH nghe rồi xếp (dây H1). Bản 23/09
+        # (F2) gọi thẳng khối lượt khám từ đây — chạy đúng nhưng trái luật cắm.
         return str(visit_id)
 
     async def _cancel_visit_workflow(

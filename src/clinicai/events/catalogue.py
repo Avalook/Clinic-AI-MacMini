@@ -51,6 +51,9 @@ class PayloadSuKien(BaseModel):
 DONG_THOI_GIAN_LUOT = "dong_thoi_gian_luot"
 #: Mở việc cho trách nhiệm không được rơi (tiền đã thu, dịch vụ dừng giữa chừng).
 TRACH_NHIEM_DICH_VU = "trach_nhiem_dich_vu"
+#: Khối HÀNH TRÌNH (Journey Process Manager, thesis §9): giữ luật THỨ TỰ khách
+#: đi — nghe sự thật rồi gửi LỆNH xếp hàng. Dây H1…H8 ở docs/BAN-DO-DAY-NOI-LEGO.md.
+HANH_TRINH = "hanh_trinh_luot_kham"
 
 
 @dataclass(frozen=True)
@@ -179,6 +182,44 @@ class KhachDaToi(PayloadSuKien):
     so_thu_tu: int | None = None
 
 
+class DaXepDuongDi(PayloadSuKien):
+    """`visit.routed` — khối Hành trình đã quyết khách đi đâu tiếp.
+
+    `dich`: TU_VAN (hàng bác sĩ tư vấn) · PRIMARY (hàng bác sĩ chính).
+    """
+
+    visit_id: str
+    dich: str
+    ly_do: str
+
+
+class PhienKhamBatDau(PayloadSuKien):
+    """`consultation.started` — người khám bấm Bắt đầu (tư vấn / khám / đọc KQ)."""
+
+    visit_id: str
+    consultation_id: str
+    loai: str
+
+
+class TuVanXong(PayloadSuKien):
+    """`consultation.handed_over` — bác sĩ tư vấn xong, chuyển bác sĩ chính."""
+
+    visit_id: str
+    consultation_id: str
+
+
+class KhamXong(PayloadSuKien):
+    """`consultation.completed` — bấm Hoàn tất / Khám xong (một nút).
+
+    Bệnh án lưu liên tục KHÔNG phát sự kiện; chỉ mốc này (Tuyền chốt 24/09).
+    """
+
+    visit_id: str
+    consultation_id: str
+    loai: str
+    ket_qua: str
+
+
 class SinhHieuBatDau(PayloadSuKien):
     """`vitals.started` — điều dưỡng bấm [Bắt đầu] đo cho khách này.
 
@@ -293,6 +334,42 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachDaToi,
             nhan="Khách đã tới (check-in)",
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+        ),
+        SuKien(
+            ten="visit.routed",
+            version=1,
+            aggregate_type="visit",
+            source_module="hanh_trinh",
+            payload=DaXepDuongDi,
+            nhan="Xếp khách vào hàng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="consultation.started",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=PhienKhamBatDau,
+            nhan="Bắt đầu khám",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="consultation.handed_over",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=TuVanXong,
+            nhan="Tư vấn xong — chuyển bác sĩ chính",
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+        ),
+        SuKien(
+            ten="consultation.completed",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=KhamXong,
+            nhan="Khám xong",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
@@ -313,7 +390,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="vitals",
             payload=SinhHieuDaDo,
             nhan="Đã đo sinh hiệu",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="service.started",
@@ -469,6 +546,11 @@ def moi_consumer() -> frozenset[str]:
 
 __all__ = [
     "DANH_MUC",
+    "HANH_TRINH",
+    "DaXepDuongDi",
+    "KhamXong",
+    "PhienKhamBatDau",
+    "TuVanXong",
     "KetQuaDaSua",
     "SinhHieuBatDau",
     "XepPhongDaHuy",

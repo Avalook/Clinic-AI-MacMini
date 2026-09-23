@@ -44,6 +44,10 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.retry_prepared": [],
     "service.routing_invalidated": ["ly_do"],
     "visit.checked_in": ["so_thu_tu"],
+    "visit.routed": ["dich", "ly_do"],
+    "consultation.started": ["loai"],
+    "consultation.handed_over": [],
+    "consultation.completed": ["loai", "ket_qua"],
     "vitals.started": [],
     "vitals.recorded": ["qua_duong"],
 }

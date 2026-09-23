@@ -33,6 +33,7 @@ from clinicai.services.luot_kham_service import (
     LuotKhamValidationError,
 )
 from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -179,6 +180,12 @@ async def kb(pool: asyncpg.Pool) -> KichBan:
     return kich_ban
 
 
+async def _hanh_trinh(pool: asyncpg.Pool) -> None:
+    """Khối Hành trình xếp hàng qua sự kiện (24/09/2026) — xem
+    tests/chay_nguoi_dua_tin.py."""
+    await chay_hanh_trinh(pool)
+
+
 def _cua(board: dict[str, Any], visit_id: str) -> dict[str, Any]:
     return next(v for v in board["luot"] if v["visit_id"] == visit_id)
 
@@ -229,6 +236,7 @@ async def _vao_kham(kb: KichBan) -> str:
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     board = await kb.svc.bang(identity=kb.bac_si)
     phien = _cua(board, kb.visit_id)["phien"][0]["id"]
     await kb.svc.start_consultation(consultation_id=phien, identity=kb.bac_si)
@@ -252,10 +260,9 @@ async def test_sinh_hieu_luu_qua_benh_an_van_vao_hang_cho_bac_si(kb: KichBan) ->
             kb.dieu_duong.staff_id,
         )
         async with conn.transaction():
-            route = await kb.svc.dong_bo_sinh_hieu_tu_ho_so(
-                conn, kb.dieu_duong, kb.visit_id
-            )
-        assert route == "PRIMARY"
+            await kb.svc.dong_bo_sinh_hieu_tu_ho_so(conn, kb.dieu_duong, kb.visit_id)
+    await _hanh_trinh(kb.pool)
+    async with kb.pool.acquire() as conn:
         # Gọi lại không mở thêm gì.
         async with conn.transaction():
             assert (
@@ -264,6 +271,7 @@ async def test_sinh_hieu_luu_qua_benh_an_van_vao_hang_cho_bac_si(kb: KichBan) ->
                 )
                 == "PRIMARY"
             )
+    await _hanh_trinh(kb.pool)
     board = await kb.svc.bang(identity=kb.bac_si)
     luot = _cua(board, kb.visit_id)
     assert luot["sinh_hieu_trang_thai"] == "recorded"
@@ -278,7 +286,10 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
         raw={"systolic": "120", "diastolic": "80", "pulse": 72},
         identity=kb.dieu_duong,
     )
-    assert r["route"] == "PRIMARY"
+    await _hanh_trinh(kb.pool)
+    # Xếp hàng do khối Hành trình, không còn trong lệnh ghi (24/09/2026).
+    assert r["route"] is None
+    await _hanh_trinh(kb.pool)
 
     luot = _cua(await svc.bang(identity=kb.bac_si), kb.visit_id)
     assert luot["sinh_hieu"]["tam_thu"] == 120
@@ -414,6 +425,12 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
             CLINIC,
             kb.visit_id,
         )
+        da_xep = await conn.fetchval(
+            "SELECT count(*) FROM domain_event WHERE event_type = 'visit.routed'"
+            " AND aggregate_id = $1::uuid",
+            kb.visit_id,
+        )
+    assert da_xep == 1
     # Sự kiện trong CÙNG một transaction mang cùng occurred_at (DEFAULT now()),
     # nên thứ tự bên trong một lệnh không xác định — so theo từng lệnh.
     theo_lenh: dict[Any, list[str]] = {}
@@ -421,7 +438,9 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
         theo_lenh.setdefault(row["occurred_at"], []).append(row["event_type"])
     assert [sorted(g) for g in theo_lenh.values()] == [
         ["vitals.started"],
-        ["visit.routed", "vitals.recorded"],
+        # `visit.routed` nay do khối Hành trình phát vào SỔ MỚI (24/09/2026),
+        # không còn nằm trong sổ cũ cùng lệnh ghi sinh hiệu.
+        ["vitals.recorded"],
         ["consult.started"],
         ["consult.note_saved"],
         ["orders.drafted"],
@@ -710,6 +729,7 @@ async def test_sinh_hieu_rac_khong_ghi_gi(kb: KichBan) -> None:
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": "cao"}, identity=kb.dieu_duong
         )
+        await _hanh_trinh(kb.pool)
     luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
     assert luot["sinh_hieu"] is None and luot["dich"] is None
 
@@ -842,6 +862,7 @@ async def test_hai_bac_si_goi_cung_mot_khach(kb: KichBan) -> None:
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     phien = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)["phien"][0]["id"]
     kq = await asyncio.gather(
         kb.svc.start_consultation(consultation_id=phien, identity=kb.bac_si),
@@ -883,6 +904,7 @@ async def test_hang_cho_bac_si_nguoi_quay_lai_dung_sau_nguoi_dang_cho(
     await svc.record_vitals(
         visit_id=visit_b, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
     )
+    await _hanh_trinh(kb.pool)
     await dieu_phoi_cu(
         svc,
         order_id=duyet["order_ids"][0],
@@ -927,6 +949,7 @@ async def test_luot_kham_cua_phong_kham_khac_khong_thay(kb: KichBan) -> None:
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": 120, "diastolic": 80}, identity=la
         )
+        await _hanh_trinh(kb.pool)
 
 
 # ---------------------------------------------------------------------------
@@ -941,6 +964,7 @@ async def test_thu_ky_bam_bat_dau_bac_si_van_duyet_duoc(kb: KichBan) -> None:
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     phien = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)["phien"][0]
     # Chưa được phân đi kèm bác sĩ này → không bấm được.
     with pytest.raises(SafetyGateError):
@@ -1061,6 +1085,7 @@ async def test_hang_cho_bac_si_thay_luot_kham_chinh_cua_minh(kb: KichBan) -> Non
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = [r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id]
     assert len(dong) == 1 and dong[0]["loai"] == "KHAM"
@@ -1081,6 +1106,7 @@ async def test_hang_cho_vip_khong_tu_chen_truoc_nguoi_vao_hang_som_hon(
         await kb.svc.record_vitals(
             visit_id=v, raw={"systolic": 110, "diastolic": 70}, identity=kb.dieu_duong
         )
+        await _hanh_trinh(kb.pool)
     async with kb.pool.acquire() as conn:
         await conn.execute(
             "UPDATE patient SET uu_tien = true, uu_tien_ly_do = 'VIP thử'"
@@ -1438,6 +1464,7 @@ async def test_goi_vao_kham_roi_bat_dau(kb: KichBan) -> None:
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
     # Điều dưỡng không gọi khách vào phòng khám bác sĩ.
@@ -1468,6 +1495,7 @@ async def test_thu_ky_chua_phan_bac_si_van_thay_khach_o_ban_kham_cua_toi(
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     hc = await kb.svc.hang_cho(identity=kb.thu_ky, room_id=None)
     assert any(r["visit_id"] == kb.visit_id for r in hc["hang_cho"])
 
@@ -1485,6 +1513,7 @@ async def test_khach_chua_co_bac_si_van_hien_o_hang_cho_bac_si(kb: KichBan) -> N
         raw={"systolic": 118, "diastolic": 76},
         identity=kb.dieu_duong,
     )
+    await _hanh_trinh(kb.pool)
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = [r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id]
     assert len(dong) == 1

@@ -45,6 +45,7 @@ from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_xac_nhan_tep_ket_qua_db import (
     CLINIC_A,
     CLINIC_B,
@@ -366,6 +367,7 @@ async def test_smoke_2_cross_feature_handoff_terminal_catalog_rx_and_payment_e2e
         raw={"systolic": 120, "diastolic": 80},
         identity=nurse,
     )
+    await chay_hanh_trinh(pool)
     board = await svc_lk.bang(identity=doc)
     luot = next(v for v in board["luot"] if v["visit_id"] == vid)
     cid_primary = luot["phien"][0]["id"]

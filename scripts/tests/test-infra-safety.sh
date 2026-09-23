@@ -810,7 +810,8 @@ import sys
 services = json.load(sys.stdin)["services"]
 expected = {
     "api", "caddy", "cloudflared", "dashboard", "dozzle", "media-quyen",
-    "notification-relay", "pos-relay", "rabbitmq", "uptime-kuma", "worker",
+    "notification-relay", "pos-relay", "rabbitmq", "su-kien", "uptime-kuma",
+    "worker",
 }
 assert set(services) == expected, set(services)
 for name, service in services.items():

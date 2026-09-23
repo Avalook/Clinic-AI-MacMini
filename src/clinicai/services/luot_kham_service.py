@@ -42,8 +42,15 @@ from clinicai.api.identity import (
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.events.catalogue import SinhHieuBatDau, SinhHieuDaDo
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.catalogue import (
+    DaXepDuongDi,
+    KhamXong,
+    PhienKhamBatDau,
+    SinhHieuBatDau,
+    SinhHieuDaDo,
+    TuVanXong,
+)
+from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -479,19 +486,134 @@ class LuotKhamService:
             status,
         )
 
-    async def _decide_route(
-        self, conn: asyncpg.Connection, identity: StaffIdentity, visit: asyncpg.Record
-    ) -> str | None:
-        """D1 — chạy cuối mọi lệnh có thể đổi điều kiện của đích."""
-        cid, vid = identity.clinic_id, visit["visit_id"]
-        flow = await self._lock_flow(conn, cid, vid)
-        new = rules.decide_route(
-            vitals_recorded=flow["vitals_status"] == "recorded",
-            plan_status=flow["plan_check_status"],
-            current_route=flow["route_decision"],
+    # ------------------------------------------------------------------
+    # Lệnh xếp hàng — CHỈ khối Hành trình gọi (events/consumers/hanh_trinh.py)
+    # ------------------------------------------------------------------
+    #
+    # Trước 24/09 các lệnh ghi (check-in, lưu sinh hiệu) tự gọi thẳng việc xếp
+    # hàng. Nay đúng chuẩn lego (docs/CHUAN-CAM-LEGO.md): khối Hành trình nghe
+    # sự thật rồi gửi các lệnh dưới. Cả ba đều CHẠY LẠI ĐƯỢC (người đưa tin giao
+    # ít nhất một lần): làm rồi thì không làm lại, không sinh event thứ hai.
+
+    async def _mo_hang_bac_si_chinh(
+        self, conn: asyncpg.Connection, clinic_id: str, visit_id: str
+    ) -> str:
+        """Phiên khám chính + chỗ chờ bác sĩ chính. Trả mã phiên."""
+        doctor_id = await conn.fetchval(
+            "SELECT attending_doctor_id::text FROM visit"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+            clinic_id,
+            visit_id,
         )
-        if new is None:
-            return str(flow["route_decision"]) if flow["route_decision"] else None
+        consultation_id = str(
+            await conn.fetchval(
+                """
+                INSERT INTO consultation
+                    (clinic_id, visit_id, round_no, kind, status, doctor_staff_id)
+                VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY', 'queued', $3::uuid)
+                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
+                RETURNING id::text
+                """,
+                clinic_id,
+                visit_id,
+                doctor_id,
+            )
+        )
+        await self._enqueue(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            lane="DOCTOR",
+            reason="PRIMARY",
+            ref_id=consultation_id,
+            doctor_id=doctor_id,
+        )
+        return consultation_id
+
+    async def _phat_da_xep(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        dich: str,
+        ly_do: str,
+        causation_id: str | None,
+    ) -> None:
+        await emit_event(
+            conn,
+            ten="visit.routed",
+            clinic_id=clinic_id,
+            aggregate_id=visit_id,
+            payload=DaXepDuongDi(visit_id=visit_id, dich=dich, ly_do=ly_do),
+            boi=HE_THONG,
+            correlation_id=visit_id,
+            causation_id=causation_id,
+        )
+
+    async def xep_sau_check_in(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> str | None:
+        """`RouteAfterCheckIn` — dây H1: loại khám qua tư vấn → hàng TƯ VẤN,
+        còn lại → hàng bác sĩ chính. Đã có đường đi thì thôi (chạy lại được).
+
+        Hàng tư vấn: chưa có sinh hiệu thì "chờ đo sinh hiệu" (blocked) — đo
+        trước rồi mới tư vấn (Tuyền 24/09) — nhưng KHÔNG khoá: tư vấn vẫn nhận
+        được sớm (xem `start_consultation`).
+        """
+        v = await conn.fetchrow(
+            """
+            SELECT v.status, coalesce(st.qua_tu_van, false) AS qua_tu_van
+              FROM visit v
+              LEFT JOIN service_type st ON st.id = v.service_type_id
+             WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+               FOR UPDATE OF v
+            """,
+            clinic_id,
+            visit_id,
+        )
+        if v is None or v["status"] not in ("OPEN", "IN_PROGRESS"):
+            return None
+        flow = await self._lock_flow(conn, clinic_id, visit_id)
+        if flow["route_decision"] is not None:
+            return None
+        if v["qua_tu_van"]:
+            con_id = await conn.fetchval(
+                """
+                INSERT INTO consultation
+                    (clinic_id, visit_id, round_no, kind, status)
+                VALUES ($1::uuid, $2::uuid, 0, 'TU_VAN', 'queued')
+                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
+                RETURNING id::text
+                """,
+                clinic_id,
+                visit_id,
+            )
+            da_do = flow["vitals_status"] == "recorded"
+            await conn.execute(
+                """
+                INSERT INTO queue_entry
+                    (clinic_id, visit_id, lane, reason, ref_id, status, eligible_at)
+                VALUES ($1::uuid, $2::uuid, 'TU_VAN', 'TU_VAN', $3::uuid, $4,
+                        CASE WHEN $4 = 'waiting' THEN now() END)
+                ON CONFLICT (visit_id, reason, ref_id)
+                    WHERE status NOT IN ('done', 'left', 'cancelled')
+                DO NOTHING
+                """,
+                clinic_id,
+                visit_id,
+                con_id,
+                "waiting" if da_do else "blocked",
+            )
+            dich, ly_do = "TU_VAN", "loại khám qua bác sĩ tư vấn"
+        else:
+            await self._mo_hang_bac_si_chinh(conn, clinic_id, visit_id)
+            dich, ly_do = rules.PRIMARY, "loại khám không qua tư vấn"
         await conn.execute(
             """
             UPDATE encounter_flow
@@ -500,45 +622,89 @@ class LuotKhamService:
              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                AND route_decision IS NULL
             """,
-            cid,
-            vid,
-            new,
-            "không có kế hoạch trước hợp lệ — vào bác sĩ chính"
-            if new == rules.PRIMARY
-            else "kế hoạch trước đã áp hợp lệ",
+            clinic_id,
+            visit_id,
+            dich,
+            ly_do,
         )
-        if new == rules.PRIMARY:
-            consultation_id = await conn.fetchval(
-                """
-                INSERT INTO consultation
-                    (clinic_id, visit_id, round_no, kind, status, doctor_staff_id)
-                VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY', 'queued', $3::uuid)
-                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
-                RETURNING id::text
-                """,
-                cid,
-                vid,
-                visit["doctor_id"],
-            )
-            await self._enqueue(
-                conn,
-                clinic_id=cid,
-                visit_id=vid,
-                lane="DOCTOR",
-                reason="PRIMARY",
-                ref_id=str(consultation_id),
-                doctor_id=visit["doctor_id"],
-            )
-        await record_event(
+        await self._phat_da_xep(
             conn,
-            event_type="visit.routed",
-            aggregate_type="visit",
-            aggregate_id=vid,
-            identity=identity,
-            origin=ORIGIN,
-            payload={"visit_id": vid, "route": new},
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            dich=dich,
+            ly_do=ly_do,
+            causation_id=causation_id,
         )
-        return new
+        return dich
+
+    @staticmethod
+    async def mo_hang_tu_van(
+        conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+    ) -> bool:
+        """`OpenIntakeQueue` — có sinh hiệu rồi: "chờ đo" → "chờ tư vấn".
+
+        Khách đang ở phòng khác (serving) thì để nguyên — rời phòng sẽ tự mở.
+        """
+        tag = await conn.execute(
+            """
+            UPDATE queue_entry q
+               SET status = 'waiting', eligible_at = now(),
+                   version = version + 1, updated_at = now()
+             WHERE q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+               AND q.lane = 'TU_VAN' AND q.status = 'blocked'
+               AND NOT EXISTS (
+                   SELECT 1 FROM queue_entry s
+                    WHERE s.clinic_id = $1::uuid AND s.visit_id = $2::uuid
+                      AND s.status = 'serving')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        return str(tag) != "UPDATE 0"
+
+    async def chuyen_bac_si_chinh(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> bool:
+        """`HandToPrimaryDoctor` — dây H3: tư vấn xong → hàng bác sĩ chính."""
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        if await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'PRIMARY')",
+            clinic_id,
+            visit_id,
+        ):
+            return False
+        await self._mo_hang_bac_si_chinh(conn, clinic_id, visit_id)
+        await conn.execute(
+            """
+            UPDATE encounter_flow
+               SET route_decision = 'PRIMARY', route_reason = $3,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+            """,
+            clinic_id,
+            visit_id,
+            "tư vấn xong — chuyển bác sĩ chính",
+        )
+        await self._phat_da_xep(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            dich=rules.PRIMARY,
+            ly_do="tư vấn xong — chuyển bác sĩ chính",
+            causation_id=causation_id,
+        )
+        return True
 
     @staticmethod
     async def _yeu_cau_cua_vong(
@@ -1617,6 +1783,7 @@ class LuotKhamService:
         *,
         identity: StaffIdentity,
         room_id: str | None,
+        tu_van: bool = False,
     ) -> dict[str, Any]:
         """HÀNG CHỜ của một phòng: ai đang chờ, ai đang trong phòng, ai đã xong.
 
@@ -1749,7 +1916,9 @@ class LuotKhamService:
                    AND (
                         ($2::uuid IS NOT NULL AND q.lane = 'ROOM'
                              AND q.room_id = $2::uuid)
-                     OR (q.lane = 'DOCTOR'
+                     -- Hàng TƯ VẤN là hàng CHUNG: ai mở màn tư vấn cũng thấy hết.
+                     OR ($5::boolean AND q.lane = 'TU_VAN')
+                     OR (NOT $5::boolean AND q.lane = 'DOCTOR'
                              AND ($4::boolean
                                   OR q.doctor_staff_id::text = ANY($3::text[])
                                   -- Khách CHƯA có bác sĩ (lịch hẹn không gắn
@@ -1769,12 +1938,59 @@ class LuotKhamService:
                 rid,
                 ds_bac_si,
                 tat_ca_bac_si,
+                tu_van,
+            )
+            # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
+            # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
+            # ở hàng bác sĩ). Tư vấn bấm Xong thì khách mới vào hàng thật.
+            sap_toi = (
+                []
+                if tu_van
+                else await conn.fetch(
+                    """
+                    SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
+                           a.so_tiep_don, a.so_booking,
+                           q.status AS tu_van_status, f.vitals_status
+                      FROM consultation c
+                      JOIN visit v
+                        ON v.visit_id = c.visit_id AND v.clinic_id = c.clinic_id
+                      JOIN patient p
+                        ON p.clinic_patient_id = v.clinic_patient_id
+                       AND p.clinic_id = v.clinic_id
+                      LEFT JOIN appointment a
+                        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                      LEFT JOIN encounter_flow f
+                        ON f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id
+                      LEFT JOIN queue_entry q
+                        ON q.ref_id = c.id AND q.clinic_id = c.clinic_id
+                       AND q.status NOT IN ('done', 'left', 'cancelled')
+                     WHERE c.clinic_id = $1::uuid AND c.kind = 'TU_VAN'
+                       AND c.status IN ('queued', 'in_progress')
+                       AND v.status IN ('OPEN', 'IN_PROGRESS')
+                       AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       AND ($3::boolean
+                            OR v.attending_doctor_id::text = ANY($2::text[])
+                            OR (v.attending_doctor_id IS NULL
+                                AND cardinality($2::text[]) > 0))
+                     ORDER BY v.checked_in_at, v.visit_id
+                    """,
+                    cid,
+                    ds_bac_si,
+                    tat_ca_bac_si,
+                )
             )
         now_rows = [
             {
                 "id": r["id"],
                 "trang_thai": r["status"],
-                "loai": "KHAM" if r["reason"] != "SERVICE" else "DICH_VU",
+                "loai": (
+                    "TU_VAN"
+                    if r["reason"] == "TU_VAN"
+                    else "KHAM"
+                    if r["reason"] != "SERVICE"
+                    else "DICH_VU"
+                ),
                 "ref_id": r["ref_id"],
                 "visit_id": r["visit_id"],
                 "clinic_patient_id": r["clinic_patient_id"],
@@ -1832,6 +2048,23 @@ class LuotKhamService:
                 else None
             ),
             "hang_cho": now_rows,
+            "sap_toi": [
+                {
+                    "visit_id": r["visit_id"],
+                    "ten": r["full_name"],
+                    "ma_bn": r["patient_code"],
+                    "so_tiep_don": r["so_tiep_don"],
+                    "so_booking": r["so_booking"],
+                    "dang_o": (
+                        "đang tư vấn"
+                        if r["tu_van_status"] == "serving"
+                        else "chờ tư vấn"
+                        if r["vitals_status"] == "recorded"
+                        else "chờ đo sinh hiệu"
+                    ),
+                }
+                for r in sap_toi
+            ],
             # Phòng khám mà hôm nay chưa có bác sĩ nào trong lịch: màn nói rõ
             # vì sao hàng chờ khám trống, thay vì trông như "hết khách".
             "so_bac_si_trong_phong": so_bac_si_trong_phong if rid else None,
@@ -2194,7 +2427,7 @@ class LuotKhamService:
         )
         if not co_huyet_ap:
             return None
-        visit = await self._lock_visit(conn, cid, visit_id)
+        await self._lock_visit(conn, cid, visit_id)
         flow = await self._lock_flow(conn, cid, visit_id)
         if flow["vitals_status"] == "recorded":
             return str(flow["route_decision"]) if flow["route_decision"] else None
@@ -2218,9 +2451,20 @@ class LuotKhamService:
             origin=ORIGIN,
             payload={"visit_id": visit_id, "qua": "ho_so_benh_an"},
         )
-        route = await self._decide_route(conn, identity, visit)
+        # Sổ MỚI nữa: khối Hành trình nghe sự kiện này (sổ cũ không ai nghe).
+        await emit_event(
+            conn,
+            ten="vitals.recorded",
+            clinic_id=cid,
+            aggregate_id=visit_id,
+            payload=SinhHieuDaDo(visit_id=visit_id, qua_duong="ho_so_benh_an"),
+            boi=nguoi(identity),
+            correlation_id=visit_id,
+        )
+        # Xếp hàng KHÔNG làm ở đây nữa: khối Hành trình nghe sự thật (24/09).
         await self._cap_nhat_vi_tri(conn, cid, visit_id)
-        return route
+        flow_moi = await self._lock_flow(conn, cid, visit_id)
+        return str(flow_moi["route_decision"]) if flow_moi["route_decision"] else None
 
     async def record_vitals(
         self,
@@ -2240,7 +2484,7 @@ class LuotKhamService:
         }
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "vitals.measure")
-            visit = await self._lock_visit(conn, identity.clinic_id, vid)
+            await self._lock_visit(conn, identity.clinic_id, vid)
             cached = await self._receipt_get(
                 conn, identity, "vitals.record", idempotency_key, payload
             )
@@ -2329,8 +2573,11 @@ class LuotKhamService:
                 boi=nguoi(identity),
                 correlation_id=vid,
             )
-            route = await self._decide_route(conn, identity, visit)
+            # Xếp hàng do khối Hành trình (nghe `vitals.recorded`), không gọi
+            # thẳng ở đây nữa (chuẩn lego, 24/09/2026).
             await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
+            flow_moi = await self._lock_flow(conn, identity.clinic_id, vid)
+            route = flow_moi["route_decision"]
             result = {"ok": True, "visit_id": vid, "route": route}
             await self._receipt_put(
                 conn, identity, "vitals.record", idempotency_key, payload, vid, result
@@ -2347,12 +2594,28 @@ class LuotKhamService:
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(
-                conn,
-                identity,
-                "clinical.consult.perform",
-                cau="Bạn chưa được cấp quyền nhận khách vào khám.",
+            # Quyền theo LOẠI phiên: tư vấn hỏi khối "Khám tư vấn", khám chính /
+            # đọc kết quả hỏi khối "Khám bệnh". Vẫn hỏi TRƯỚC khi đụng dữ liệu.
+            loai = await conn.fetchval(
+                "SELECT kind FROM consultation WHERE clinic_id = $1::uuid"
+                " AND id = $2::uuid",
+                cid,
+                con_id,
             )
+            if loai == "TU_VAN":
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.intake.perform",
+                    cau="Bạn chưa được cấp quyền khám tư vấn.",
+                )
+            else:
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.consult.perform",
+                    cau="Bạn chưa được cấp quyền nhận khách vào khám.",
+                )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
             c = await conn.fetchrow(
@@ -2396,9 +2659,14 @@ class LuotKhamService:
                 con_id,
                 c["kind"],
             )
+            # Tư vấn nhận được cả khách còn "chờ đo sinh hiệu" (blocked) — đo
+            # trước là đường chuẩn, nhưng KHÔNG khoá (Tuyền 23–24/09).
+            cho_phep = ("waiting", "called") + (
+                ("blocked",) if c["kind"] == "TU_VAN" else ()
+            )
             if (
                 entry is None
-                or entry["status"] not in ("waiting", "called")
+                or entry["status"] not in cho_phep
                 or await self._visit_busy(conn, cid, vid)
             ):
                 raise LuotKhamConflictError(
@@ -2422,7 +2690,10 @@ class LuotKhamService:
                 identity.co_vai({ClinicRole.DOCTOR}),
             )
             await conn.execute(
+                # Tư vấn nhận khách còn "chờ đo" (blocked, chưa có giờ vào hàng):
+                # giờ vào hàng = lúc được nhận.
                 "UPDATE queue_entry SET status = 'serving', serving_at = now(),"
+                " eligible_at = coalesce(eligible_at, now()),"
                 " version = version + 1, updated_at = now()"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 cid,
@@ -2450,6 +2721,94 @@ class LuotKhamService:
                 identity=identity,
                 origin=ORIGIN,
                 payload={"visit_id": vid, "consultation_id": con_id, "kind": c["kind"]},
+            )
+            await emit_event(
+                conn,
+                ten="consultation.started",
+                clinic_id=cid,
+                aggregate_id=con_id,
+                payload=PhienKhamBatDau(
+                    visit_id=vid, consultation_id=con_id, loai=c["kind"]
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+        return {"ok": True, "consultation_id": con_id}
+
+    async def xong_tu_van(
+        self, *, consultation_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """`CompleteIntake` — bác sĩ tư vấn bấm Xong: chuyển bác sĩ chính (H3).
+
+        Không bắt phải bấm Bắt đầu trước (không khoá): chưa bắt đầu thì mốc bắt
+        đầu = lúc bấm Xong. Chuyện xếp khách sang bác sĩ chính KHÔNG làm ở đây —
+        khối Hành trình nghe `consultation.handed_over` rồi gửi lệnh (chuẩn lego).
+        """
+        cid = identity.clinic_id
+        con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.intake.perform",
+                cau="Bạn chưa được cấp quyền khám tư vấn.",
+            )
+            vid = await self._visit_of(conn, "consultation", cid, con_id)
+            await self._lock_visit(conn, cid, vid)
+            c = await conn.fetchrow(
+                "SELECT kind, status FROM consultation"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                cid,
+                con_id,
+            )
+            assert c is not None
+            if c["kind"] != "TU_VAN":
+                raise LuotKhamConflictError(
+                    "NOT_INTAKE", "Đây không phải phiên tư vấn."
+                )
+            if c["status"] == "completed":
+                return {"ok": True, "consultation_id": con_id, "already": True}
+            if c["status"] not in ("queued", "in_progress"):
+                raise LuotKhamConflictError(
+                    "CONSULTATION_NOT_OPEN", "Phiên tư vấn này đã đóng."
+                )
+            await conn.execute(
+                """
+                UPDATE consultation
+                   SET status = 'completed', outcome = 'HANDED_OVER',
+                       started_by = coalesce(started_by, $3::uuid),
+                       started_at = coalesce(started_at, now()),
+                       doctor_staff_id = coalesce(doctor_staff_id, $3::uuid),
+                       completed_by = $3::uuid, completed_at = now(),
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                cid,
+                con_id,
+                identity.staff_id,
+            )
+            await conn.execute(
+                """
+                UPDATE queue_entry
+                   SET status = 'done', done_at = now(),
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                   AND ref_id = $3::uuid
+                   AND status NOT IN ('done', 'left', 'cancelled')
+                """,
+                cid,
+                vid,
+                con_id,
+            )
+            await self._release_blocked(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="consultation.handed_over",
+                clinic_id=cid,
+                aggregate_id=con_id,
+                payload=TuVanXong(visit_id=vid, consultation_id=con_id),
+                boi=nguoi(identity),
+                correlation_id=vid,
             )
         return {"ok": True, "consultation_id": con_id}
 
@@ -2957,6 +3316,22 @@ class LuotKhamService:
                 con_id,
                 outcome,
                 identity.staff_id,
+            )
+            # Mốc "khám xong" = mốc DUY NHẤT phát sự kiện của bệnh án (Tuyền chốt
+            # 24/09): lưu liên tục thì không phát, bấm Hoàn tất/Khám xong mới phát.
+            await emit_event(
+                conn,
+                ten="consultation.completed",
+                clinic_id=cid,
+                aggregate_id=con_id,
+                payload=KhamXong(
+                    visit_id=vid,
+                    consultation_id=con_id,
+                    loai=c["kind"],
+                    ket_qua=outcome,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
             )
             await conn.execute(
                 """

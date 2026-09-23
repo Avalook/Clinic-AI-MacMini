@@ -144,6 +144,12 @@ KHOI: dict[str, KhoiCongViec] = {
         # gọi-bắt đầu-khám xong là bác sĩ + thư ký; ghi bệnh án thêm bác sĩ siêu
         # âm; HOÀN TẤT (khoá hồ sơ) và DUYỆT kết quả là quyết định chuyên môn.
         KhoiCongViec(
+            "tu_van",
+            "Khám tư vấn",
+            "consultation",
+            "Nhận khách ở hàng tư vấn, hỏi bệnh ban đầu, chuyển bác sĩ chính",
+        ),
+        KhoiCongViec(
             "kham",
             "Khám bệnh",
             "consultation",
@@ -313,6 +319,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.LAM_SANG,
         ),
         Quyen(
+            "clinical.intake.perform",
+            "Khám tư vấn — nhận khách, chuyển bác sĩ chính",
+            "tu_van",
+            "consultation",
+            MucRuiRo.LAM_SANG,
+        ),
+        Quyen(
             "clinical.consult.perform",
             "Gọi khách, bắt đầu khám, khám xong",
             "kham",
@@ -366,6 +379,7 @@ QUYEN: dict[str, Quyen] = {
 # Quản lý tick gì thì người đó có nấy; preset chỉ để cấp cho nhanh (#133).
 PRESET: dict[str, Sequence[str]] = {
     "DOCTOR": [
+        "tu_van",
         "chi_dinh",
         "dieu_phoi",
         "ket_qua",

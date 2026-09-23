@@ -68,6 +68,7 @@ from clinicai.services.payment_service import PaymentService
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_luot_kham_service_db import dieu_phoi_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -320,6 +321,7 @@ async def _bat_dau_kham_primary(kb: BoKichBan) -> str:
         raw={"systolic": 120, "diastolic": 80},
         identity=kb.dieu_duong,
     )
+    await chay_hanh_trinh(kb.pool)
     board = await kb.svc.bang(identity=kb.bac_si)
     luot = next(v for v in board["luot"] if v["visit_id"] == kb.visit_id)
     phien = luot["phien"][0]["id"]

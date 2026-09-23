@@ -31,6 +31,7 @@ from clinicai.services.luot_kham_service import (
 )
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -623,6 +624,7 @@ async def test_20_duyet_chi_dinh_moi_khong_tu_xep_phong(kb: KB) -> None:
     await luot.record_vitals(
         visit_id=vid, raw={"systolic": 118, "diastolic": 76}, identity=kb.bac_si
     )
+    await chay_hanh_trinh(kb.pool)
     async with kb.pool.acquire() as conn:
         phien = await conn.fetchval(
             "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"

@@ -224,12 +224,15 @@ async def phong_hom_nay(
 @router.get("/luot-kham/hang-cho")
 async def hang_cho(
     phong: UUID | None = None,
+    tu_van: bool = False,
     identity: StaffIdentity = Depends(_BANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Hàng chờ một phòng: đang chờ · đang trong phòng · đã xong hôm nay."""
+    """Hàng chờ một phòng: đang chờ · đang trong phòng · đã xong hôm nay.
+
+    `tu_van=true`: hàng CHUNG của bác sĩ tư vấn (dây H1, 24/09/2026)."""
     return await LuotKhamService(pool).hang_cho(
-        identity=identity, room_id=str(phong) if phong else None
+        identity=identity, room_id=str(phong) if phong else None, tu_van=tu_van
     )
 
 
@@ -336,6 +339,18 @@ async def start_consultation(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     return await LuotKhamService(pool).start_consultation(
+        consultation_id=str(consultation_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/xong-tu-van")
+async def xong_tu_van(
+    consultation_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """`CompleteIntake` — tư vấn xong, chuyển bác sĩ chính (dây H3)."""
+    return await LuotKhamService(pool).xong_tu_van(
         consultation_id=str(consultation_id), identity=identity
     )
 

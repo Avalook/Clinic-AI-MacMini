@@ -186,6 +186,10 @@ MODULE: dict[str, Module] = {
                 "result_form.completed",
                 "result.ready",
                 "result.corrected",
+                "visit.routed",
+                "consultation.started",
+                "consultation.handed_over",
+                "consultation.completed",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -223,6 +227,21 @@ MODULE: dict[str, Module] = {
             quyen=["vitals.measure"],
         ),
         Module(
+            ma="hanh_trinh",
+            ten="Hành trình lượt khám (Process Manager)",
+            # Giữ luật THỨ TỰ khách đi (thesis §9): nghe sự thật, gửi LỆNH của
+            # module khác. Không ghi bảng của ai. Dây H1…H8 —
+            # docs/BAN-DO-DAY-NOI-LEGO.md.
+            phat=["visit.routed"],
+            nghe=["visit.checked_in", "vitals.recorded", "consultation.handed_over"],
+            ben_nhan=["hanh_trinh_luot_kham"],
+            goi_dong_bo=[
+                "consultation.RouteAfterCheckIn",
+                "consultation.OpenIntakeQueue",
+                "consultation.HandToPrimaryDoctor",
+            ],
+        ),
+        Module(
             ma="consultation",
             ten="Khám bệnh",
             # Đường khám chính hỏi QUYỀN, không hỏi vai (CORE-B3, 23/09/2026).
@@ -234,8 +253,20 @@ MODULE: dict[str, Module] = {
                 "SaveConsultationNote",
                 "SaveClinicalRecord",
                 "ReleaseRecord",
+                "StartIntake",
+                "CompleteIntake",
+                # Lệnh nội bộ khối Hành trình gọi (xếp hàng theo đường đi).
+                "RouteAfterCheckIn",
+                "OpenIntakeQueue",
+                "HandToPrimaryDoctor",
+            ],
+            phat=[
+                "consultation.started",
+                "consultation.handed_over",
+                "consultation.completed",
             ],
             quyen=[
+                "clinical.intake.perform",
                 "clinical.consult.perform",
                 "clinical.record.write",
                 "clinical.consult.finalize",

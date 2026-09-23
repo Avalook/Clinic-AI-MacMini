@@ -19,6 +19,7 @@ import pytest
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.booking_service import BookingService
 from clinicai.services.luot_kham_service import LuotKhamService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -84,6 +85,7 @@ async def test_check_in_xong_vao_ngay_hang_bac_si_chinh_du_chua_do(
     await BookingService(pool).apply_action(
         appointment_id=appt, action="checkin", identity=le_tan
     )
+    await chay_hanh_trinh(pool)
     row = await pool.fetchrow(
         "SELECT f.vitals_status, f.route_decision,"
         " (SELECT count(*) FROM consultation c WHERE c.visit_id = v.visit_id) AS phien"
@@ -110,6 +112,7 @@ async def test_do_sau_van_duoc_khong_nhan_doi_hang(pool: asyncpg.Pool) -> None: 
     await BookingService(pool).apply_action(
         appointment_id=appt, action="checkin", identity=le_tan
     )
+    await chay_hanh_trinh(pool)
     vid = await pool.fetchval(
         "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid", appt
     )
@@ -120,6 +123,7 @@ async def test_do_sau_van_duoc_khong_nhan_doi_hang(pool: asyncpg.Pool) -> None: 
     await svc.record_vitals(
         visit_id=vid, raw={"systolic": 118, "diastolic": 76}, identity=dd
     )
+    await chay_hanh_trinh(pool)
     assert len(await _hang_bac_si(pool, appt)) == 1
 
 
@@ -129,9 +133,11 @@ async def test_check_in_lai_sau_hoan_tac_van_vao_hang_bac_si(
     appt, le_tan, _, _ = await _lich_hom_nay(pool)
     svc = BookingService(pool)
     await svc.apply_action(appointment_id=appt, action="checkin", identity=le_tan)
+    await chay_hanh_trinh(pool)
     await svc.apply_action(appointment_id=appt, action="undo_checkin", identity=le_tan)
     assert await _hang_bac_si(pool, appt) == []
     await svc.apply_action(appointment_id=appt, action="checkin", identity=le_tan)
+    await chay_hanh_trinh(pool)
     assert len(await _hang_bac_si(pool, appt)) == 1, (
         "check-in lại: khách phải về lại hàng bác sĩ chính"
     )
