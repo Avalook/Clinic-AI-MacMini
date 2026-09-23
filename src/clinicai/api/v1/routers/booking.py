@@ -32,7 +32,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import lich_hen_doc
+from clinicai.services import lich_hen_doc, man_dat_lich_doc
 from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -110,6 +110,17 @@ class ActionRequest(BaseModel):
 _DOC_LICH_GUARD = cua_quyen(
     "booking.create", "reception.checkin.perform", "clinical.consult.perform"
 )
+
+
+@router.get("/appointments/hub-dat-lich")
+async def hub_dat_lich(
+    identity: StaffIdentity = Depends(
+        cua_quyen("booking.create", "reception.checkin.perform")
+    ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu màn Đặt lịch (CSKH + Lễ tân) — kèm "khách khám lần mấy"."""
+    return await man_dat_lich_doc.hub_dat_lich(pool, identity=identity)
 
 
 @router.get("/appointments/lich-ngay")

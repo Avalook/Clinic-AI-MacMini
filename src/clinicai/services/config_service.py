@@ -968,6 +968,82 @@ class RosterService:
             )
         return [r["week_start"].isoformat() for r in rows]
 
+    async def lich_tuan(self, *, identity: StaffIdentity, tuan: date) -> dict[str, Any]:
+        """Dữ liệu màn Lịch làm việc (/schedule) cho một tuần.
+
+        24/09/2026: trang từng tự đọc 5 bảng bằng Supabase (work_roster, staff,
+        vai_duoc_vao_tram, vi_tri_dong_ca, roster_week). Danh sách nhân sự + trạm
+        theo vai chỉ trả cho người xếp lịch (ROSTER_ROLES) — ô "+" chỉ bày cho họ.
+        `ten_chuan` = `staff.full_name` theo `staff_id` (dòng nhập tay không nối
+        được ai giữ nguyên `staff_name`); giao diện rút gọn tên để hiển thị.
+        """
+        dau = week_start_of(tuan)
+        cuoi = dau + timedelta(days=6)
+        la_quan_ly = identity.co_vai(ROSTER_ROLES)
+        async with self._pool.acquire() as conn:
+            dong = await conn.fetch(
+                """
+                SELECT w.id::text, w.work_date, w.shift, w.station,
+                       w.staff_id::text, w.staff_name, w.status, w.reject_reason,
+                       s.full_name AS ten_chuan
+                  FROM work_roster w
+                  LEFT JOIN staff s ON s.id = w.staff_id
+                 WHERE w.clinic_id = $1::uuid AND w.week_start = $2
+                 ORDER BY w.sort, w.id
+                """,
+                identity.clinic_id,
+                dau,
+            )
+            dong_ca = await conn.fetch(
+                """
+                SELECT work_date, shift, station, ly_do FROM vi_tri_dong_ca
+                 WHERE clinic_id = $1::uuid AND work_date BETWEEN $2 AND $3
+                """,
+                identity.clinic_id,
+                dau,
+                cuoi,
+            )
+            da_ap_dung = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM roster_week"
+                " WHERE clinic_id = $1::uuid AND week_start = $2)",
+                identity.clinic_id,
+                dau,
+            )
+            nhan_su: list[asyncpg.Record] = []
+            tram: list[asyncpg.Record] = []
+            if la_quan_ly:
+                nhan_su = await conn.fetch(
+                    """
+                    SELECT DISTINCT s.id::text, s.full_name, s.short_name,
+                           s.primary_department
+                      FROM staff s
+                      JOIN clinic_membership m ON m.staff_id = s.id
+                     WHERE m.clinic_id = $1::uuid AND s.is_active
+                     ORDER BY s.full_name
+                    """,
+                    identity.clinic_id,
+                )
+                tram = await conn.fetch(
+                    "SELECT vai, tram_ma FROM vai_duoc_vao_tram"
+                    " WHERE clinic_id = $1::uuid AND is_active",
+                    identity.clinic_id,
+                )
+
+        def _d(r: asyncpg.Record) -> dict[str, Any]:
+            return {
+                k: (v.isoformat() if isinstance(v, date) else v) for k, v in r.items()
+            }
+
+        return {
+            "tuan": dau.isoformat(),
+            "da_ap_dung": bool(da_ap_dung),
+            "la_quan_ly": la_quan_ly,
+            "dong": [_d(r) for r in dong],
+            "dong_ca": [_d(r) for r in dong_ca],
+            "nhan_su": [dict(r) for r in nhan_su],
+            "tram_theo_vai": [dict(r) for r in tram],
+        }
+
     async def bac_si_trong_ngay(
         self, *, identity: StaffIdentity, ngay: date
     ) -> dict[str, Any]:

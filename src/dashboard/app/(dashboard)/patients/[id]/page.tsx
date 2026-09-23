@@ -8,8 +8,8 @@ import PatientDetail from "./PatientDetail";
 import PatientHistory from "./PatientHistory";
 import PatientBooking from "./PatientBooking";
 import PatientCskhLog from "./PatientCskhLog";
-import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { getClinicStaffId, vaiLamViec } from "../../../../lib/clinic-session";
+import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
+import { vaiLamViec } from "../../../../lib/clinic-session";
 import {
   canReadClinical,
   canWriteIntake,
@@ -37,28 +37,13 @@ export default async function PatientDetailPage({
   // nếu tài khoản có, không để vị trí hôm nay che mất.
   const role = await vaiLamViec((r) => isDoctorRole(r));
 
-  // Bác sĩ chỉ được mở hồ sơ BN CỦA MÌNH (có lịch hẹn với bác sĩ này). Chặn cả
-  // truy cập trực tiếp bằng URL, không chỉ ẩn ở danh sách.
-  if (isDoctorRole(role) && role !== "TKYK") {
-    const staffId = await getClinicStaffId();
-    const supabase = await getSupabaseServer();
-    const { data: own } = await supabase
-      .from("appointment")
-      .select("id")
-      .eq("doctor_id", staffId)
-      .eq("clinic_patient_id", id)
-      .limit(1)
-      .maybeSingle();
-    if (!own) redirect("/patient-list");
-  }
-  // Thư ký chỉ mở hồ sơ khách của bác sĩ mình được phân — FastAPI quyết
-  // (Tuyền chốt 15/09/2026). Không trả lời được thì cũng không cho mở.
-  if (role === "TKYK") {
-    const ok = await fetchFromBackend<{ ok: boolean }>(
-      `/api/v1/thu-ky/khach/${encodeURIComponent(id)}`,
-    );
-    if (!ok?.ok) redirect("/patient-list");
-  }
+  // Bác sĩ chỉ mở hồ sơ BN CỦA MÌNH; thư ký chỉ khách của bác sĩ mình được
+  // phân. Chặn cả truy cập thẳng bằng URL. Luật ở backend (24/09/2026 — trang
+  // từng tự đọc bảng `appointment`): không trả lời được thì cũng không cho mở.
+  const duocMo = await fetchFromBackend<{ ok: boolean }>(
+    `/api/v1/ho-so-khach/${encodeURIComponent(id)}/duoc-mo`,
+  );
+  if (!duocMo?.ok) redirect("/patient-list");
 
   // Booking is an intake action (CSKH / Lễ tân / Quản lý). Only those roles see
   // the form, so only load its dropdown options when they will be used.
@@ -72,23 +57,17 @@ export default async function PatientDetailPage({
   let doctors: Option[] = [];
   let locations: Option[] = [];
   if (canBook) {
-    const supabase = await getSupabaseServer();
-    const [locRes, svcRes, docRes] = await Promise.all([
-      supabase.from("clinic_location").select("id, name").order("name"),
-      supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
+    // Danh mục qua backend (lib/danh-muc.ts, 24/09/2026).
+    const [coSo, dichVu, docRes] = await Promise.all([
+      layCoSo(),
+      layDichVu(),
       listBookableDoctors(),
     ]);
-    locations = (locRes.data ?? []).map((r) => ({
-      id: r.id as string,
-      label: r.name as string,
-    }));
+    locations = coSo.map((r) => ({ id: r.id, label: r.name }));
     // Bỏ dịch vụ rác "FREE" khỏi dropdown đặt lịch (feedback B5#3).
-    services = (svcRes.data ?? [])
-      .filter((r) => (r.name as string)?.trim().toUpperCase() !== "FREE")
-      .map((r) => ({
-        id: r.id as string,
-        label: r.name as string,
-      }));
+    services = dichVu
+      .filter((r) => r.name.trim().toUpperCase() !== "FREE")
+      .map((r) => ({ id: r.id, label: r.name }));
     doctors = docRes;
   }
 

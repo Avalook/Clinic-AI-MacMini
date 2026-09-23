@@ -69,6 +69,32 @@ async def ton_kho(
     return {"items": await PharmacyService(pool).ton_kho(identity=identity)}
 
 
+@router.get("/pharmacy/lich-su")
+async def lich_su_giao(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dòng đã giao — kèm số kê / số khách mua / số đã giao."""
+    return {
+        "items": jsonable_encoder(
+            await PharmacyService(pool).lich_su_giao(identity=identity)
+        )
+    }
+
+
+@router.get("/pharmacy/cho-tu-van")
+async def cho_tu_van(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dòng thuốc còn việc — màn Tư vấn dùng thuốc."""
+    return {
+        "items": jsonable_encoder(
+            await PharmacyService(pool).cho_tu_van(identity=identity)
+        )
+    }
+
+
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
     so_luong: float = Field(gt=0)

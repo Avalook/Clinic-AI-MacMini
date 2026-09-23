@@ -10,7 +10,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { vaiLamViec } from "../../../../lib/clinic-session";
 import {
   isAdminRole,
@@ -38,16 +38,10 @@ export default async function ThietLapTaiKhoanPage() {
   const role = await vaiLamViec(isAdminRole);
   if (!isAdminRole(role)) redirect("/home");
 
-  const supabase = await getSupabaseServer();
-  const { data, error } = await supabase
-    .from("staff")
-    .select(
-      "id, full_name, short_name, primary_department, employment_type, " +
-        "is_active, auth_user_id",
-    )
-    .order("primary_department", { ascending: true })
-    .order("full_name", { ascending: true });
-
+  // 24/09/2026: đọc qua backend `GET /api/v1/staff/tai-khoan` (Quản lý) thay vì
+  // đọc thẳng `staff` bằng Supabase.
+  const data = await fetchFromBackend<StaffRow[]>("/api/v1/staff/tai-khoan");
+  const error = data === null ? { message: "Không đọc được danh sách nhân viên." } : null;
   const rows = (data as StaffRow[] | null) ?? [];
   const linked = rows.filter((r) => r.auth_user_id !== null).length;
 

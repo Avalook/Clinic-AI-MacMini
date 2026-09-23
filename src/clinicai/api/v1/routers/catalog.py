@@ -88,6 +88,30 @@ async def list_wards(
     return _cached_json([dict(r) for r in rows])
 
 
+@router.get("/catalog/provinces")
+async def list_provinces(
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> JSONResponse:
+    """34 tỉnh/thành (sau sáp nhập) — danh mục hành chính dùng chung."""
+    rows = await pool.fetch("SELECT code, name, full_name FROM province ORDER BY name")
+    return _cached_json([dict(r) for r in rows])
+
+
+@router.get("/catalog/locations")
+async def list_locations(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> JSONResponse:
+    """Cơ sở của phòng khám người gọi, theo tên (24/09/2026 — `lib/danh-muc.ts`
+    và các trang đặt lịch từng đọc thẳng `clinic_location` bằng Supabase)."""
+    rows = await pool.fetch(
+        "SELECT id::text AS id, name FROM clinic_location"
+        " WHERE clinic_id = $1::uuid ORDER BY name",
+        identity.clinic_id,
+    )
+    return _private_json([dict(r) for r in rows])
+
+
 @router.get("/catalog/service-types")
 async def list_service_types(
     identity: StaffIdentity = Depends(get_current_identity),

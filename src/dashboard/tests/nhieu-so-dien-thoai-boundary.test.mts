@@ -30,8 +30,9 @@ test("danh sách khách tìm bằng cột gộp, và tải kèm số thêm để
 });
 
 test("màn đặt lịch: ô tìm khách nhìn thấy số thêm", () => {
-  const page = doc("../app/(dashboard)/appointments/page.tsx");
-  assert.match(page, /sdt_tim_kiem/, "query nạp khách phải mang cột gộp");
+  // 24/09/2026: trang nạp khách qua backend (services/man_dat_lich_doc.py).
+  const nap = doc("../../clinicai/services/man_dat_lich_doc.py");
+  assert.match(nap, /sdt_tim_kiem/, "query nạp khách phải mang cột gộp");
   const hub = doc("../app/(dashboard)/appointments/BookingHub.tsx");
   assert.match(
     hub,

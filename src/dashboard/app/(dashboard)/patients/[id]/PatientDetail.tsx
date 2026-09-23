@@ -6,7 +6,7 @@
 import Link from "next/link";
 import StatusBadge from "../../StatusBadge";
 import PatientAdminEditor from "../../PatientAdminEditor";
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { fmtDateTimeOrDate } from "../../../../lib/datetime";
 import { doctorName } from "../../../../lib/doctor-name";
 
@@ -39,19 +39,6 @@ interface AppointmentRow {
   service: { name: string } | null;
 }
 
-const PATIENT_COLUMNS_BASE =
-  "clinic_patient_id, patient_code, full_name, date_of_birth, gender, " +
-  "phone_primary, phone_secondary, ethnicity, nationality, occupation, " +
-  "patient_objection, address, guardian_name, van_de_di_kham, linh_vuc, created_at";
-// birth_year cần migration 040; nếu chưa apply → fallback PATIENT_COLUMNS_BASE.
-const PATIENT_COLUMNS = PATIENT_COLUMNS_BASE + ", birth_year";
-
-// doctor is a LEFT JOIN (doctor_id is nullable).
-const APPOINTMENT_COLUMNS = `
-  id, slot_start, status, booking_channel,
-  doctor:staff!doctor_id ( full_name ),
-  service:service_type!service_type_id ( name )
-`;
 
 function ageFromDob(dob: string | null, birthYear?: number | null): string {
   if (!dob && birthYear) return String(new Date().getFullYear() - birthYear);
@@ -88,36 +75,15 @@ export default async function PatientDetail({
   /** CSKH/Lễ tân/QL/Bác sĩ: sửa thông tin hành chính ngay tại đây. */
   canEdit?: boolean;
 }) {
-  const supabase = await getSupabaseServer();
-
-  const [patientRes, apptRes] = await Promise.all([
-    supabase
-      .from("patient")
-      .select(PATIENT_COLUMNS)
-      .eq("clinic_patient_id", id)
-      .maybeSingle(),
-    supabase
-      .from("appointment")
-      .select(APPOINTMENT_COLUMNS)
-      .eq("clinic_patient_id", id)
-      .order("slot_start", { ascending: false })
-      .limit(20),
-  ]);
-
-  let patient = patientRes.data as PatientRow | null;
-  let perr = patientRes.error;
-  // birth_year chưa migrate → query lỗi cột thiếu → đọc lại không có birth_year.
-  if (perr && /birth_year|column/i.test(perr.message ?? "")) {
-    const retry = await supabase
-      .from("patient")
-      .select(PATIENT_COLUMNS_BASE)
-      .eq("clinic_patient_id", id)
-      .maybeSingle();
-    patient = retry.data as PatientRow | null;
-    perr = retry.error;
-  }
-  const error = perr ?? apptRes.error;
-  const appointments = (apptRes.data as AppointmentRow[] | null) ?? [];
+  // 24/09/2026: đọc qua backend `GET /api/v1/ho-so-khach/{id}/hanh-chinh`
+  // (lọc phòng khám + luật được mở hồ sơ) thay vì đọc thẳng Supabase.
+  const doc = await fetchFromBackend<{
+    patient: PatientRow | null;
+    appointments: AppointmentRow[];
+  }>(`/api/v1/ho-so-khach/${encodeURIComponent(id)}/hanh-chinh`);
+  const patient = doc?.patient ?? null;
+  const appointments = doc?.appointments ?? [];
+  const error = doc === null ? { message: "Không đọc được hồ sơ khách." } : null;
 
   if (error) {
     return (

@@ -228,6 +228,16 @@ async def applied_weeks(
     }
 
 
+@router.get("/roster/lich-tuan")
+async def lich_tuan(
+    tuan: date,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu màn Lịch làm việc cho một tuần (mọi nhân sự xem được lịch)."""
+    return await RosterService(pool).lich_tuan(identity=identity, tuan=tuan)
+
+
 @router.get("/roster/bac-si-ngay")
 async def bac_si_trong_ngay(
     ngay: date,

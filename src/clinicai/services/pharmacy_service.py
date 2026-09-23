@@ -134,6 +134,64 @@ class PharmacyService:
         canh_bao_neu_day("nha_thuoc.hang_doi", len(rows), 300)
         return [dict(r) for r in rows]
 
+    async def lich_su_giao(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Dòng thuốc ĐÃ GIAO (mới nhất trước, tối đa 200) — kèm ba con số của
+        một dòng: bác sĩ KÊ (`quantity_num`), khách CHỐT MUA (`purchased_qty`,
+        trống = như kê) và ĐÃ GIAO (`dispensed_qty`).
+
+        24/09/2026: trang Lịch sử bàn giao từng đọc thẳng `prescription` bằng
+        Supabase và chỉ hiện số đã giao — nợ "đơn kê vs khách thực mua".
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id::text, r.source_ref, r.drug_name_raw,
+                       r.dosage_instructions, r.quantity, r.quantity_note,
+                       r.quantity_num, r.purchased_qty, r.dispensed_qty, r.unit,
+                       r.dispense_status, r.dispensed_at, r.created_at,
+                       p.full_name, p.phone_primary
+                  FROM public.prescription r
+                  LEFT JOIN public.patient p
+                    ON p.clinic_patient_id = r.clinic_patient_id
+                   AND p.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = $1::uuid AND r.dispensed_qty > 0
+                 -- rx:gom-ca-lich-su: thuốc ĐÃ GIAO tay khách là sự thật, kể cả
+                 -- dòng bác sĩ đính chính sau khi giao — lịch sử phải còn nó.
+                 ORDER BY r.dispensed_at DESC NULLS LAST
+                 LIMIT 200
+                """,
+                identity.clinic_id,
+            )
+        canh_bao_neu_day(
+            "nha_thuoc.lich_su", len(rows), 200, clinic_id=identity.clinic_id
+        )
+        return [dict(r) for r in rows]
+
+    async def cho_tu_van(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Dòng thuốc còn việc (chưa chốt, chưa bị đính chính) — màn Tư vấn dùng
+        thuốc. Chuyển từ trang đọc thẳng Supabase (24/09/2026)."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id::text, r.source_ref, r.drug_name_raw,
+                       r.dosage_instructions, r.quantity, r.quantity_note,
+                       r.caution, r.created_at, p.full_name, p.phone_primary
+                  FROM public.prescription r
+                  LEFT JOIN public.patient p
+                    ON p.clinic_patient_id = r.clinic_patient_id
+                   AND p.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = $1::uuid
+                   AND r.closed_at IS NULL AND r.removed_at IS NULL
+                 ORDER BY r.created_at DESC
+                 LIMIT 100
+                """,
+                identity.clinic_id,
+            )
+        canh_bao_neu_day(
+            "nha_thuoc.cho_tu_van", len(rows), 100, clinic_id=identity.clinic_id
+        )
+        return [dict(r) for r in rows]
+
     async def ton_kho(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Tồn theo lô, kèm hạn dùng. Lô hết sạch vẫn hiện — nó là lịch sử."""
         async with self._pool.acquire() as conn:

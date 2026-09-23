@@ -4,7 +4,7 @@
 
 import StatusBadge from "../../StatusBadge";
 import LabReviewActions from "./LabReviewActions";
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { fmtDate } from "../../../../lib/datetime";
 
 interface ClinicalRecord {
@@ -45,16 +45,6 @@ interface PregnancyRow {
   is_high_risk: boolean;
   high_risk_reason: string | null;
 }
-
-const VISIT_COLUMNS = `
-  visit_id, status, created_at,
-  doctor:staff!attending_doctor_id ( full_name ),
-  service:service_type!service_type_id ( name ),
-  clinical_record (
-    chief_complaint_at_visit,
-    soap_subjective, soap_objective, soap_assessment, soap_plan
-  )
-`;
 
 // SOAP là JSONB — chuỗi HOẶC object LỒNG (vd objective = {vitals:{...},
 // kham_thai:{...}}). Flatten ĐỆ QUY thành "Nhãn: giá trị · …" (KHÔNG để lòi JSON
@@ -176,34 +166,16 @@ export default async function PatientHistory({
    *  real gate (DOCTOR_ROLES); this only decides whether to draw them. */
   canReviewLabs?: boolean;
 }) {
-  const supabase = await getSupabaseServer();
-  const [visitRes, labRes, pregRes] = await Promise.all([
-    supabase
-      .from("visit")
-      .select(VISIT_COLUMNS)
-      .eq("clinic_patient_id", id)
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("lab_result")
-      .select(
-        "lab_result_id, test_name, result_value, result_numeric, result_unit, flag, triage_group, is_finalized, result_received_at",
-      )
-      .eq("clinic_patient_id", id)
-      .order("result_received_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("pregnancy")
-      .select(
-        "id, lmp_date, edd_date, gestational_age_at_registration, outcome, is_high_risk, high_risk_reason",
-      )
-      .eq("clinic_patient_id", id)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  const visits = (visitRes.data as VisitRow[] | null) ?? [];
-  const labs = (labRes.data as LabRow[] | null) ?? [];
-  const pregnancies = (pregRes.data as PregnancyRow[] | null) ?? [];
+  // 24/09/2026: đọc qua backend `GET /api/v1/ho-so-khach/{id}/lich-su-lam-sang`
+  // (vai lâm sàng — ROLE-02 — + luật được mở hồ sơ) thay vì đọc thẳng Supabase.
+  const doc = await fetchFromBackend<{
+    visits: VisitRow[];
+    labs: LabRow[];
+    pregnancies: PregnancyRow[];
+  }>(`/api/v1/ho-so-khach/${encodeURIComponent(id)}/lich-su-lam-sang`);
+  const visits = doc?.visits ?? [];
+  const labs = doc?.labs ?? [];
+  const pregnancies = doc?.pregnancies ?? [];
 
   return (
     <div className="space-y-6">
@@ -252,9 +224,9 @@ export default async function PatientHistory({
       {/* ---- Visit / clinical history ---- */}
       <section className="space-y-3">
         <h3 className={SECTION}>Lịch sử khám ({visits.length})</h3>
-        {visitRes.error && (
+        {doc === null && (
           <div className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
-            {visitRes.error.message}
+            Không đọc được lịch sử khám.
           </div>
         )}
         {visits.length === 0 ? (

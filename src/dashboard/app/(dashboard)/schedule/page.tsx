@@ -7,7 +7,7 @@
 // Ghi qua /api/roster — bảng đăng ký ở dưới là đường DUY NHẤT để xếp người.
 
 import Link from "next/link";
-import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { getViTriHomNay, vaiLamViec } from "../../../lib/clinic-session";
 import { isAdminRole, departmentToRole } from "../../../lib/roles";
 import {
@@ -28,7 +28,6 @@ import RosterRegisterTable, {
 } from "./RosterRegisterTable";
 import type { DongCaRow } from "../home/WorkRosterTable";
 import { doctorName } from "../../../lib/doctor-name";
-import { dongBoTenTrucNhat } from "../../../lib/roster-names";
 import { getClinicStaffId } from "../../../lib/clinic-session";
 export const dynamic = "force-dynamic";
 
@@ -60,65 +59,31 @@ export default async function SchedulePage({
 
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.
-  const supabase = await getSupabaseServer();
-  // `sort` rồi `id`: thứ tự trong ô LÀ thứ tự hai hàng con của ngày. Mọi dòng
-  // nạp từ Excel đều sort = 0, nên không có chốt thứ hai thì người thứ nhất và
-  // thứ hai đổi chỗ cho nhau giữa hai lần tải trang.
-  const [{ data }, staffRes, tramRes, dongRes, viTri] = await Promise.all([
-    supabase
-      .from("work_roster")
-      .select(
-        "id, work_date, shift, station, staff_id, staff_name, status, reject_reason",
-      )
-      .eq("week_start", week)
-      .order("sort", { ascending: true })
-      .order("id", { ascending: true }),
-    // Danh sách người để quản lý chọn trong popup, và ma trận phạm vi vị trí.
-    // Cả hai chỉ cần khi có ô "+" — nhưng `isAdmin` đã biết từ trên nên đọc
-    // luôn ở đây rẻ hơn một vòng mạng nữa từ trình duyệt.
-    isAdmin
-      ? supabase
-          .from("staff")
-          .select("id, full_name, short_name, primary_department")
-          .eq("is_active", true)
-          .order("full_name")
-      : Promise.resolve({ data: [] }),
-    isAdmin
-      ? supabase
-          .from("vai_duoc_vao_tram")
-          .select("vai, tram_ma")
-          .eq("is_active", true)
-      : Promise.resolve({ data: [] }),
-    // Ô đen / khối NGHỈ của tuần — để bảng y hệt file Excel.
-    supabase
-      .from("vi_tri_dong_ca")
-      .select("work_date, shift, station, ly_do")
-      .gte("work_date", dates[0])
-      .lte("work_date", dates[dates.length - 1]),
-    // Danh mục vị trí từ database (CORE-C4) — cùng lời gọi layout đã làm.
+  // 24/09/2026: đọc qua backend `GET /api/v1/roster/lich-tuan` thay vì tự đọc
+  // 5 bảng bằng Supabase. Nhân sự + trạm theo vai chỉ về khi người xem là người
+  // xếp lịch (backend quyết); ở đây chỉ còn rút gọn tên để hiển thị.
+  const [lich, viTri] = await Promise.all([
+    fetchFromBackend<{
+      da_ap_dung: boolean;
+      dong: (Omit<RosterRowWithId, "staff_name"> & {
+        staff_name: string | null;
+        ten_chuan: string | null;
+      })[];
+      dong_ca: DongCaRow[];
+      nhan_su: {
+        id: string;
+        full_name: string;
+        short_name: string | null;
+        primary_department: string | null;
+      }[];
+      tram_theo_vai: { vai: string; tram_ma: string }[];
+    }>(`/api/v1/roster/lich-tuan?tuan=${encodeURIComponent(week)}`),
     getViTriHomNay(),
   ]);
   const stations = viTriTuDb(viTri?.danh_muc);
-  const dong = (dongRes.data as DongCaRow[] | null) ?? [];
-  const rows = (data as RosterRowWithId[] | null) ?? [];
+  const dong = lich?.dong_ca ?? [];
 
-  // Nhân viên xếp được: bỏ dòng có `primary_department` không phải chức danh
-  // hợp lệ (không biết vai thì không kiểm được phạm vi vị trí).
-  //
-  // BỎ LUÔN "Màn hình phòng chờ". Nó là cái tivi treo tường, không phải người,
-  // và backend từ chối thẳng nó (`_kiem_pham_vi_tram`). Nó lại chưa khai vị trí
-  // nào trong `vai_duoc_vao_tram`, nên nhánh "chưa khai thì cho qua" bên dưới
-  // sẽ mời nó vào MỌI trạm — đúng kiểu mời một lựa chọn rồi lưu mới báo lỗi.
-  const staffOptions: StaffOpt[] = (
-    (staffRes.data as
-      | {
-          id: string;
-          full_name: string;
-          short_name: string | null;
-          primary_department: string | null;
-        }[]
-      | null) ?? []
-  )
+  const staffOptions: StaffOpt[] = (isAdmin ? (lich?.nhan_su ?? []) : [])
     .filter(
       (s) =>
         departmentToRole(s.primary_department) !== null &&
@@ -130,27 +95,19 @@ export default async function SchedulePage({
       vai: s.primary_department as string,
     }));
 
-  // Chức danh → mã trạm. CÙNG bảng mà backend dùng để từ chối, nên popup không
-  // thể mời một người rồi lưu mới báo lỗi.
   const tramTheoVai: Record<string, string[]> = {};
-  for (const t of ((tramRes.data as { vai: string; tram_ma: string }[] | null) ??
-    [])) {
+  for (const t of lich?.tram_theo_vai ?? []) {
     (tramTheoVai[t.vai] ??= []).push(t.tram_ma);
   }
 
-  // Tên người lấy từ MỘT nguồn duy nhất (`staff.full_name` qua doctorName) —
-  // cùng hàm mà bảng lịch làm việc ở trang chủ dùng. Xem lib/roster-names.ts.
-  const rowsDongBo = (await dongBoTenTrucNhat(supabase, rows)) as RosterRowWithId[];
+  // Tên chuẩn theo staff_id (dòng nhập tay không nối được ai giữ chuỗi cũ).
+  const rowsDongBo = (lich?.dong ?? []).map(({ ten_chuan, ...r }) => ({
+    ...r,
+    staff_name: (r.staff_id && doctorName(ten_chuan)) || r.staff_name || "",
+  })) as RosterRowWithId[];
 
-  // Lịch chung CHỈ hiện ca đã duyệt. Ca PENDING/REJECTED không lọt vào bảng.
   const approvedRows = rowsDongBo.filter((r) => r.status === "APPROVED");
-
-  // Tuần này đã được quản lý bấm áp dụng chưa. Có dòng trong roster_week = rồi.
-  const { data: tuanApDung } = await supabase
-    .from("roster_week")
-    .select("week_start")
-    .eq("week_start", week)
-    .maybeSingle();
+  const tuanApDung = lich?.da_ap_dung ?? false;
 
   const weekLabel = `${fmtDayMonth(dates[0])} – ${fmtDayMonth(dates[6])}`;
   const navHref = (w: string) => `/schedule?week=${w}`;

@@ -18,9 +18,19 @@ interface HistRow {
   dosage_instructions: string | null;
   quantity: string | null;
   quantity_note: string | null;
+  /** Ba con số của một dòng (24/09/2026): bác sĩ KÊ · khách CHỐT MUA (trống =
+   *  như kê) · ĐÃ GIAO. Trước chỉ hiện số giao — không thấy khách mua ít/thêm. */
+  quantity_num: number | null;
+  purchased_qty: number | null;
+  dispensed_qty: number | null;
+  unit: string | null;
+  dispensed_at: string | null;
   created_at: string | null;
   patient: HistPatient | null;
 }
+
+const so = (n: number | null | undefined) =>
+  n == null ? "—" : Number(n).toLocaleString("vi-VN");
 
 interface Props {
   records: HistRow[];
@@ -67,7 +77,9 @@ export default function HistoryBoard({ records }: Props) {
               <th className="px-3 py-2">Bệnh nhân</th>
               <th className="px-3 py-2">Thuốc</th>
               <th className="px-3 py-2">Liều dùng</th>
-              <th className="px-3 py-2 text-right">SL</th>
+              <th className="px-3 py-2 text-right">Bác sĩ kê</th>
+              <th className="px-3 py-2 text-right">Khách mua</th>
+              <th className="px-3 py-2 text-right">Đã giao</th>
               <th className="px-3 py-2">Mã đơn</th>
               <th className="px-3 py-2">Thời điểm</th>
             </tr>
@@ -75,7 +87,7 @@ export default function HistoryBoard({ records }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-ink-muted">
+                <td colSpan={8} className="px-3 py-6 text-center text-ink-muted">
                   Không có bản ghi nào.
                 </td>
               </tr>
@@ -95,11 +107,30 @@ export default function HistoryBoard({ records }: Props) {
                     {r.dosage_instructions ?? "—"}
                   </td>
                   <td className="px-3 py-2 text-right text-ink">
-                    {r.quantity ?? "—"}
+                    {r.quantity_num != null ? so(r.quantity_num) : (r.quantity ?? "—")}
                     {r.quantity_note ? ` (${r.quantity_note})` : ""}
                   </td>
+                  <td
+                    className={`px-3 py-2 text-right ${
+                      r.purchased_qty != null && r.purchased_qty !== r.quantity_num
+                        ? "font-semibold text-warning"
+                        : "text-ink"
+                    }`}
+                    title={
+                      r.purchased_qty != null && r.purchased_qty !== r.quantity_num
+                        ? "Khách mua khác số bác sĩ kê"
+                        : undefined
+                    }
+                  >
+                    {r.purchased_qty != null ? so(r.purchased_qty) : "như kê"}
+                  </td>
+                  <td className="px-3 py-2 text-right text-ink">
+                    {so(r.dispensed_qty)} {r.unit ?? ""}
+                  </td>
                   <td className="px-3 py-2 text-ink-muted">{r.source_ref ?? "—"}</td>
-                  <td className="px-3 py-2 text-ink-muted">{fmtDate(r.created_at)}</td>
+                  <td className="px-3 py-2 text-ink-muted">
+                    {fmtDate(r.dispensed_at ?? r.created_at)}
+                  </td>
                 </tr>
               ))
             )}

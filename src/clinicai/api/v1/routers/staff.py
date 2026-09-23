@@ -58,6 +58,76 @@ async def create_staff(
         raise ValidationError(exc.message) from exc
 
 
+# ── Đọc nhẹ cho màn đặt lịch / lịch trực (24/09/2026) ─────────────────────
+# Hai helper giao diện (`lib/doctors-server.ts`, `lib/roster-names.ts`) từng đọc
+# thẳng bảng `staff` bằng Supabase. Khai TRƯỚC `/staff/{id}`: đường ấy nuốt mọi
+# chữ đứng sau `/staff/` rồi đòi UUID.
+
+
+@router.get("/staff/bac-si-dat-duoc")
+async def bac_si_dat_duoc(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, str | None]]:
+    """Bác sĩ nhận được lịch hẹn (DOCTOR, ULTRASOUND_DOCTOR) đang làm, theo tên."""
+    rows = await pool.fetch(
+        """
+        SELECT DISTINCT s.id::text AS id, s.full_name
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id AND m.is_active
+         WHERE m.clinic_id = $1::uuid AND s.is_active
+           AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+         ORDER BY s.full_name
+        """,
+        identity.clinic_id,
+    )
+    return [dict(r) for r in rows]
+
+
+@router.get("/staff/tai-khoan")
+async def danh_sach_tai_khoan(
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, object]]:
+    """Nhân sự + đã nối tài khoản đăng nhập chưa — màn Thiết lập tài khoản /
+    Thêm tài khoản (Quản lý). Trước đọc thẳng `staff` bằng Supabase (24/09)."""
+    rows = await pool.fetch(
+        """
+        SELECT DISTINCT s.id::text AS id, s.full_name, s.short_name,
+               s.primary_department, s.employment_type, s.is_active,
+               s.auth_user_id::text AS auth_user_id
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id
+         WHERE m.clinic_id = $1::uuid
+         ORDER BY s.primary_department, s.full_name
+        """,
+        identity.clinic_id,
+    )
+    return [dict(r) for r in rows]
+
+
+@router.get("/staff/ten")
+async def ten_nhan_vien(
+    ids: list[UUID] = Query(default_factory=list, max_length=500),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, str]:
+    """Tên chuẩn theo mã nhân viên (cùng phòng khám) — ghép tên lịch trực."""
+    if not ids:
+        return {}
+    rows = await pool.fetch(
+        """
+        SELECT s.id::text AS id, s.full_name
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id
+         WHERE m.clinic_id = $1::uuid AND s.id = ANY($2::uuid[])
+        """,
+        identity.clinic_id,
+        [str(x) for x in ids],
+    )
+    return {r["id"]: r["full_name"] for r in rows if r["full_name"]}
+
+
 @router.get("/staff/{id}", response_model=StaffRead)
 async def get_staff_by_id(
     id: UUID,

@@ -1,55 +1,44 @@
-// Nhà thuốc — Lịch sử bàn giao thuốc (image_10).
-// Tra cứu bản ghi thuốc đã cấp cho từng bệnh nhân (read-only, bất biến).
+// Lịch sử bàn giao thuốc — đọc qua backend `GET /api/v1/pharmacy/lich-su`
+// (24/09/2026; trước đọc thẳng `prescription` bằng Supabase). Kèm ba con số của
+// một dòng: bác sĩ kê · khách mua · đã giao.
 
-import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { motBanGhi } from "../../../../lib/postgrest-embed";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import HistoryBoard from "./HistoryBoard";
 
 export const dynamic = "force-dynamic";
 
+interface DongLichSu {
+  id: string;
+  source_ref: string | null;
+  drug_name_raw: string | null;
+  dosage_instructions: string | null;
+  quantity: string | null;
+  quantity_note: string | null;
+  quantity_num: number | null;
+  purchased_qty: number | null;
+  dispensed_qty: number | null;
+  unit: string | null;
+  dispensed_at: string | null;
+  created_at: string | null;
+  full_name: string | null;
+  phone_primary: string | null;
+}
+
 export default async function PharmacyHistoryPage() {
   await requireNavAccess("/pharmacy/history");
-  const supabase = await getSupabaseServer();
-
-  const { data: records, error } = await supabase
-    .from("prescription")
-    .select(
-      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note,
-       dispensed_qty, unit, dispense_status, dispensed_at, created_at,
-       patient:clinic_patient_id(full_name, phone_primary)`,
-    )
-    // "LỊCH SỬ BÀN GIAO" PHẢI LÀ THUỐC ĐÃ RA KHỎI KHO.
-    //
-    // Bản trước đọc CẢ BẢNG prescription không lọc gì, nên nó liệt kê mọi đơn
-    // bác sĩ vừa kê và gọi đó là "đã bàn giao". Không một thao tác bàn giao nào
-    // từng xảy ra, mà người quản lý nhìn vào sẽ tin thuốc đã ra khỏi kho. Đó là
-    // màn hình nói dối, không phải màn hình thiếu dữ liệu.
-    .gt("dispensed_qty", 0)
-    // rx:gom-ca-lich-su: thuốc ĐÃ GIAO của dòng sau đó được bác sĩ đính chính
-    // vẫn là thuốc đã ra khỏi kho — lịch sử bàn giao phải còn nó.
-    .order("dispensed_at", { ascending: false })
-    .limit(200);
-
-  if (error) {
+  const data = await fetchFromBackend<{ items: DongLichSu[] }>("/api/v1/pharmacy/lich-su");
+  if (!data) {
     return (
       <div className="p-6 text-sm text-danger">
-        Không đọc được lịch sử: {error.message}
+        Không đọc được lịch sử (máy chủ không trả lời hoặc tài khoản chưa có quyền xem nhà
+        thuốc).
       </div>
     );
   }
-
-  interface PatientRaw {
-    full_name: string | null;
-    phone_primary: string | null;
-  }
-  type Raw = Omit<(typeof records)[number], "patient"> & {
-    patient: PatientRaw[] | null;
-  };
-  const normalized = (records ?? []).map((r: Raw) => ({
+  const records = data.items.map(({ full_name, phone_primary, ...r }) => ({
     ...r,
-    patient: motBanGhi(r.patient),
+    patient: { full_name, phone_primary },
   }));
-
-  return <HistoryBoard records={normalized} />;
+  return <HistoryBoard records={records} />;
 }
