@@ -13,6 +13,276 @@ lịch sử hội thoại.
 
 ---
 
+## 23/09/2026 — NỀN EVENT-DRIVEN, bước 1–3 (nhánh `claude/clinicai-lifecycle-v1-8b92b8`, CHƯA commit/deploy)
+
+**Bối cảnh:** Tuyền dừng Slice 4.5/5 ngày 22/09 để chốt thiết kế trước
+(`memory/dung-slice-chot-thiet-ke-truoc.md`). Đã tra nguồn thật hai vòng; kết quả
+và danh sách lỗ ở `memory/thiet-ke-lego/`.
+
+**Đã làm**
+
+| Thứ | File |
+|---|---|
+| Sổ sự kiện `domain_event` (chỉ thêm, trigger chặn sửa/xoá) + `event_delivery` (mỗi sự kiện × bên nhận một dòng) + view `v_event_delivery_suc_khoe` | `supabase/migrations/20260923000001_domain_event.sql` |
+| Projection dòng thời gian lượt khám | `supabase/migrations/20260923000002_projection_dong_thoi_gian.sql` |
+| Danh mục sự kiện + một đường phát duy nhất | `src/clinicai/events/catalogue.py`, `emit.py` |
+| Người đưa tin: thuê có hạn, đúng thứ tự trong cùng đối tượng, chờ tăng dần, hộp chết | `src/clinicai/events/worker.py` |
+| Bên nhận đầu tiên (vô hại) | `src/clinicai/events/consumers/dong_thoi_gian.py` |
+| Chế độ chạy `python -m clinicai.worker --su-kien` | `src/clinicai/worker.py` |
+| Lát CD-01: lệnh `PlaceServiceOrders` | `src/clinicai/services/chi_dinh_service.py` + endpoint trong `api/v1/routers/luot_kham.py` |
+| Màn bàn khám bấm lệnh mới | `src/dashboard/app/(dashboard)/ban-kham/BanKham.tsx`, `app/api/luot-kham/route.ts` |
+| Đặc tả lát (khuôn 8 mục) | `docs/slices/CD-01-bac-si-chi-dinh-dich-vu.md` |
+
+**Đã kiểm:** ruff · mypy · eslint · tsc · 28 test mới trên Postgres thật (DB dùng
+một lần, cổng 55471) · toàn bộ `src/tests`.
+**CHƯA kiểm:** chưa bấm thật trên trình duyệt ở 375 và 1280. Chưa deploy.
+
+**Sửa kèm:** `src/tests/integration/conftest.py` — fixture `location_id` lấy
+`LIMIT 1` không lọc `is_active` nên có lúc bốc trúng cơ sở đã ngừng hoạt động
+("Hào Nam") và test đỏ tuỳ thứ tự dòng.
+
+**Bổ sung cùng ngày — MÔ HÌNH QUYỀN (lát PQ-01)**
+
+Tài khoản là người; vai chỉ là preset; quyền thật là capability gom theo **khối
+công việc**; quản lý có `permission.manage` chỉnh được cao nhất, kể cả ngoài
+preset. Xem `docs/slices/PQ-01-quan-ly-phan-quyen.md`.
+
+| Thứ | File |
+|---|---|
+| Danh mục khối/quyền/preset | `src/clinicai/permissions/catalogue.py` |
+| `can` / `doi_quyen` / `quyen_hieu_luc` | `src/clinicai/permissions/can.py` |
+| Lệnh cấp/thu/thêm preset | `src/clinicai/services/permission_service.py` |
+| Endpoint | `src/clinicai/api/v1/routers/phan_quyen.py` |
+| Bảng + view + chép quyền cho người đang làm | `supabase/migrations/20260923000003_capability.sql` |
+
+Lệnh CD-01 đã bỏ cửa theo vai, chuyển sang `clinical.order.place`. Các cửa khác
+chuyển dần theo từng lát.
+
+**Màn phân quyền đã dựng** (`/phan-quyen`, chỉ Quản lý thấy trong thanh bên):
+chọn người → bật/tắt từng **khối công việc**, `[+ Thêm preset <vai>]` cấp nhanh
+theo vai, `▾ Chi tiết` bung quyền con kèm mức rủi ro. Màn nói rõ "Vai chỉ là gợi
+ý, không phải giới hạn". Vào được màn ≠ cấp được quyền: backend vẫn đòi
+`permission.manage` ở từng lệnh — **ẩn nút không phải bảo mật**.
+`app/(dashboard)/phan-quyen/` + `app/api/phan-quyen/route.ts`.
+
+**Bổ sung cùng ngày — BIỂU MẪU (lát KQ-01 + BM-01)**
+
+Nguồn: phiếu chỉ định giấy Dr4Women 17/08/2026 (`chi-dinh.html`) — 18 mẫu kết quả
+và 28 chỗ "📄 Xem mẫu".
+
+| Thứ | File |
+|---|---|
+| 18 mẫu + bảng gắn mẫu cho dịch vụ | `supabase/migrations/20260923000004_mau_ket_qua.sql` |
+| Lệnh gắn/gỡ + đề xuất theo tên (KHÔNG tự gắn) | `services/mau_ket_qua_service.py`, `routers/mau_ket_qua.py` |
+| Form Template Engine (1 engine, mẫu là dữ liệu) | `services/form_engine_service.py`, `routers/phieu.py`, migration `…000005_form_engine.sql` |
+| Lát | `docs/slices/KQ-01-…md`, `docs/slices/BM-01-…md` |
+
+**18 khung đang RỖNG** (chỉ 3 mục chung: Mô tả · Kết luận · Đề nghị). Phòng khám
+đưa ruột sau → sửa DỮ LIỆU qua lệnh xuất bản, không sửa code.
+
+**Bổ sung cùng ngày — THỰC HIỆN DỊCH VỤ (lát TH-01, Lifecycle Slice 5)**
+
+5 lệnh theo contract EXECUTION v1: Bắt đầu · Xong · Không làm được · Gián đoạn ·
+Chuẩn bị làm lại. Một chỉ định có NHIỀU lần làm; `attempt_id` bắt buộc khi Xong
+và Gián đoạn để lệnh cũ không đóng lần làm mới. "Chờ làm" là trạng thái TÍNH RA,
+không lưu. Xem `docs/slices/TH-01-thuc-hien-dich-vu.md`.
+
+| Thứ | File |
+|---|---|
+| 5 lệnh | `src/clinicai/services/service_execution_service.py` |
+| Endpoint + proxy | `routers/luot_kham.py` · `src/dashboard/app/api/luot-kham/route.ts` |
+| Quyền (khối "Thực hiện dịch vụ") | `supabase/migrations/20260923000006_quyen_thuc_hien.sql` |
+| Test (15) | `src/tests/services/test_service_execution_db.py` |
+| Câu đọc cho màn (`?xem=thuc-hien`) | `ServiceExecutionService.xem` + `GET /luot-kham/orders/{id}/execution` |
+| **Màn phòng đã chuyển sang 5 lệnh** | `app/(dashboard)/phong/[ma]/PhongDichVu.tsx` |
+
+Màn phòng đọc trạng thái trước khi vẽ nút, vì mỗi lệnh phải kèm đúng
+`execution_revision` (và `routing_revision` cho Bắt đầu) nó đang thấy. `attempt_id`
+lấy từ chính câu đọc, không suy từ số thứ tự. Lịch sử các lần làm hiện thành danh
+sách khi có từ 2 lần — máy hỏng 10:05 rồi làm lại 10:18 phải đọc được.
+
+**Màn điền phiếu kết quả** (`_lam-viec/PhieuKetQua.tsx` + proxy `app/api/phieu/`):
+MỘT màn cho mọi biểu mẫu, vẽ theo `khung` máy chủ trả về. Tự lưu sau 1,5 giây im
+("Đã lưu 10:32 · nháp, chưa phải kết quả"); bấm Hoàn tất thì **lưu lần cuối trước
+khi chốt**; hoàn tất lúc dịch vụ còn dở thì in ra dịch vụ đã đóng hay chưa.
+
+**Bổ sung cùng ngày (chiều) — MỘT NÚT, VÀ SỬA LẠI ĐƯỢC**
+
+Đọc lại nguyên văn chat với ChatGPT (`memory/chatgpt-clinic6/`) thì thấy màn
+phòng đang bày **hai** nút kết thúc cạnh nhau — `[Xong]` cho dịch vụ và
+`[Hoàn tất phiếu]` cho kết quả. Đó đúng là thứ ChatGPT tin 156 và Tuyền tin 157
+đã gạt: *"chỉ cần 1 nút bắt đầu … xử lý thông minh phía sau, nút chỉ 1"*.
+
+| Sửa | File |
+|---|---|
+| Gộp còn `[Bắt đầu]` → `[Hoàn tất]`; ba ngoại lệ xuống hàng phụ | `phong/[ma]/PhongDichVu.tsx` |
+| `[Hoàn tất]` phát thêm `result.ready` theo `result_mode` | `services/form_engine_service.py` |
+| Sửa lại sau khi hoàn tất → `result.corrected` | `mo_sua()` + cờ `dang_sua` |
+| Hai sự kiện mới | `events/catalogue.py`, consumer `dong_thoi_gian` |
+| Lược đồ | `…000010_ket_qua_san_sang.sql` |
+| Test (7 mới) | `src/tests/services/test_form_engine_db.py` |
+
+`service.completed` ≠ `result.ready`: lấy mẫu gửi ra ngoài thì dịch vụ xong hôm
+nay, kết quả hai ngày sau mới về. `result_mode` trên `dich_vu_mau_ket_qua` quyết
+(INLINE · LATER · NONE); chưa cấu hình thì coi như NONE — im lặng nghĩa là
+"không có kết quả", không phải "cứ báo có cho chắc".
+
+**NHÓM QUYỀN MẪU — quản lý tự thêm, sửa, xoá**
+
+Preset rời khỏi hằng số Python, vào bảng `quyen_preset`. Tab "Nhóm quyền mẫu"
+trong `/phan-quyen`. Ba lằn ranh có bài kiểm giữ: nhóm không phải quyền · sửa
+nhóm không đổi quyền người đã cấp · nhóm dựng sẵn tắt chứ không xoá mất dấu.
+
+| Thứ | File |
+|---|---|
+| Bảng + chép 10 nhóm dựng sẵn | `…000011_nhom_quyen_mau.sql` |
+| Lệnh | `permission_service.py::luu_nhom/xoa_nhom/danh_sach_nhom` |
+| Màn | `phan-quyen/NhomQuyenMau.tsx` + proxy |
+| Test (7 mới) | `src/tests/services/test_permission_db.py` |
+
+**RÀ HẾT `LIMIT` CẮT IM LẶNG**
+
+Mười câu còn lại đã rà: nhà thuốc · nhắc tái khám · ba bảng tệp kết quả · hai
+bảng siêu âm · hai câu lịch chờ xếp bác sĩ · kết quả xét nghiệm chờ duyệt. Danh
+sách ngoại lệ trong `test_tran_khong_cat_im_lang.py` rút **15 → 9**, chốt bánh
+cóc siết xuống 9.
+
+Dùng `canh_bao_neu_day` chứ không `dem_va_bi_cat`: hàm đếm cần lặp lại y hệt bộ
+lọc của câu chính, mà các bộ lọc này dài và tinh vi ("đơn thuốc còn nợ tiền",
+"lịch *vừa mất* bác sĩ chứ không phải *chưa từng* xếp"). Chép lại một bộ lọc như
+thế là đổi một lỗi im lặng lấy một lỗi khác. Chỗ nào trả về dict thì kèm
+`bi_cat` + `tran` để màn nói được "đã đạt trần N".
+
+**Bổ sung cùng ngày — LEGO có chuẩn, trách nhiệm có chủ, cache có luật**
+
+| Lát | Nội dung | File |
+|---|---|---|
+| OC-01 | Bản khai module + 5 bài kiểm CI (ổ cắm) | `src/clinicai/modules.py`, `src/tests/unit/test_o_cam_module.py` |
+| TN-01 | Khách đã trả tiền mà không được làm → mở việc có chủ | `events/consumers/trach_nhiem.py`, migration `…000007` |
+| — | Nhớ tạm quyền: quên NGAY khi thu/cấp, hết hạn 5 giây cho thay đổi từ nơi khác | `permissions/cache.py` |
+
+Hai module **chỉ nghe** (`journey`, `trach_nhiem`) là bằng chứng ổ cắm chạy thật:
+thêm cả hai mà không sửa một dòng nào của module phát sự kiện.
+
+**Bổ sung cùng ngày — HÀNH TRÌNH ĐỦ MỘT LƯỢT**
+
+Hai đường ghi cũ (check-in, sinh hiệu) nay phát thêm sự kiện nghiệp vụ trong
+CÙNG giao dịch: `visit.checked_in`, `vitals.recorded`. Không đổi hành vi, chỉ
+thêm một dòng vào sổ — đúng bước "Event Interception" của đường chuyển đổi.
+
+Nhờ đó màn hành trình hiện đủ: check-in → sinh hiệu → chỉ định → bắt đầu → xong
+→ phiếu kết quả. Có test dựng lại projection từ sổ sự kiện (xoá màn, chạy lại,
+ra đúng như cũ).
+
+Payload CỐ Ý không mang chỉ số sinh hiệu hay chữ lâm sàng: sổ sự kiện không xoá
+được, nên nó chỉ giữ mã và số.
+
+**Bổ sung cùng ngày — MÀN "VIỆC CẦN XỬ LÝ" (`/viec-can-xu-ly`)**
+
+Mở việc mà không màn nào hiện thì vẫn là rơi. Màn mới đọc bảng việc khu vận hành
+(`GET /api/work-items?workspace=khu_van_hanh`) và đóng việc bằng lệnh `complete`
+của kernel — không luật riêng, không đường thứ hai.
+
+| Thứ | File |
+|---|---|
+| Trang + bảng | `app/(dashboard)/viec-can-xu-ly/page.tsx`, `BangViecCanXuLy.tsx` |
+| Proxy đọc | `app/api/work-items/route.ts` |
+| Thanh bên + quyền xem | `nav-items.ts`, `lib/roles.ts` |
+| SITEMAP | đã thêm hàng `/viec-can-xu-ly` |
+
+⚠️ Bẫy đã cắn: bài kiểm ranh giới giao diện coi `#149` trong **chú thích** là mã
+màu hex. Viết "tin số 149", đừng viết "#149" trong `src/dashboard`.
+
+**Bổ sung cùng ngày — HẸN GIỜ (viên gạch cho mọi luật "quá … phút")**
+
+Bảng `hen_gio` + vòng chạy trong `python -m clinicai.worker --su-kien`. Hai luật
+đã code: (1) hẹn ghi CÙNG giao dịch với việc sinh ra nó; (2) tới giờ phải KIỂM
+LẠI hiện trạng — "hết cần" là kết thúc bình thường, không phải lỗi.
+
+Dùng ngay: việc đối soát tiền có hạn 4 giờ, việc quyết làm lại 8 giờ; tới hạn mà
+việc còn mở thì tự nâng lên ưu tiên cao nhất (P0) để nổi đầu bảng.
+
+| Thứ | File |
+|---|---|
+| Bảng | `supabase/migrations/20260923000008_hen_gio.sql` |
+| Hạ tầng | `src/clinicai/events/hen_gio.py` |
+| Dùng đầu tiên | `events/consumers/trach_nhiem.py` |
+| Test (7) | `src/tests/services/test_hen_gio_db.py` |
+
+**Lỗi thật bắt được nhờ test đỏ (23/09)**
+
+`chi_dinh_hom_nay` (bảng trưởng ca) có `LIMIT 500` **im lặng**: quá 500 chỉ định
+trong ngày là bảng thiếu người mà không ai biết — trưởng ca tưởng đã hết. Đã sửa:
+trả thêm `tong` + `bi_cat`, và màn `truong-ca/ChiDinhHomNay.tsx` hiện dòng
+"Bảng đang hiện N/M chỉ định". Có test.
+
+**Bổ sung cùng ngày — LIMIT không được cắt im lặng + nối phiếu → đóng dịch vụ**
+
+1. `src/clinicai/core/tran.py`: `canh_bao_neu_day` (log có tên bảng) và
+   `dem_va_bi_cat` (trả `tong`/`bi_cat` cho màn). Đã gắn vào 5 bảng nguy hiểm
+   nhất: chỉ định hôm nay · điều phối tổng quan · hàng đợi nhà thuốc · chờ đóng
+   lượt · chờ bác sĩ quyết. Bài kiểm `test_tran_khong_cat_im_lang.py` là bánh
+   cóc: file nào có `LIMIT` mà cắt im lặng thì đỏ, danh sách ngoại lệ chỉ được
+   ngắn đi (còn 15 chỗ **chưa rà**, ghi rõ trong bài kiểm).
+2. Hoàn tất phiếu kết quả → đóng dịch vụ, bằng **lệnh** của module Thực hiện.
+   Không đủ quyền thì phiếu vẫn xong và kết quả nói rõ `dich_vu.vi_sao`.
+
+**Hai lỗi thiết kế bắt được nhờ Postgres và nhờ test:**
+- `result_form.completed` từng dùng `aggregate_type = service_order`, đụng số
+  phiên bản với `service.*` → **chỉ mục duy nhất chặn**. Phiếu là ĐỐI TƯỢNG
+  RIÊNG (`form_instance`); chỉ định nằm trong payload.
+- Sự kiện ghi cùng một giao dịch có `occurred_at` BẰNG NHAU (`now()` là giờ mở
+  giao dịch) → dòng thời gian xếp sai thứ tự. Thêm cột `thu_tu` = `domain_event.seq`.
+
+**Đã áp quyết định còn nợ: SINH HIỆU KHÔNG CHẶN XẾP PHÒNG (Tuyền chốt 23/09)**
+
+`luot_kham_rules.vitals_routing_block` trước đây trả `VITALS_REQUIRED` khi chưa
+đo — giữ hành vi cũ vì chờ quyết định. Nay trả `None`: chưa đo sinh hiệu vẫn đưa
+khách vào phòng dịch vụ được. Hàm GIỮ NGUYÊN (không xoá) vì nó là chỗ duy nhất
+trả lời câu hỏi ấy — ngày nào muốn chặn lại thì sửa đúng một chỗ. Mã
+`VITALS_REQUIRED` giữ trong bảng thông điệp để đọc được nhật ký cũ.
+
+**Chuyển Chọn dịch vụ + Điều phối sang quyền capability (23/09)**
+
+`can_confirm_service_selection` và ba hàm `can_route_*` trước đây là "seam" tạm
+mượn ánh xạ vai; nay hỏi `can(...)` thật, **trong chính giao dịch của lệnh** (thu
+quyền ở lệnh trước thì lệnh sau thấy ngay). Cửa router bỏ danh sách vai — hai bản
+luật thì có ngày nói ngược nhau.
+
+Kéo theo: fixture của các test cũ phải **cấp preset cho nhân sự vừa dựng**, đúng
+như `staff_service` làm ngoài đời (người mới vào làm có quyền theo vai ngay).
+Hai file test quyền CỐ Ý không cấp — đó là điều chúng kiểm.
+
+Ba bài kiểm sửa lại cho đúng câu hỏi chúng muốn hỏi:
+- hai bài "phòng khám khác": lời từ chối nay đến sớm hơn một bước (quyền cấp
+  theo từng phòng khám) — nới câu chữ, KHÔNG nới ranh giới;
+- `test_quyen_goi_y_va_xep`: trước dựa vào "bác sĩ không thuộc vai điều phối",
+  nay hỏi đúng câu: **thu khối Điều phối thì bác sĩ không xếp phòng được nữa**.
+
+**Màn PHÂN QUYỀN của quản lý (`/phan-quyen`) — 23/09**
+
+Chọn người → bật/tắt **khối công việc** → xong. `[+ Thêm preset <vai>]` cấp nhanh
+theo vai; "▾ Chi tiết" bung quyền con kèm mức rủi ro. Từ nay quản lý tự đổi
+"ai làm được gì" mà không cần ai sửa code — đúng mô hình đã chốt trong chat.
+
+| Thứ | File |
+|---|---|
+| Trang + bảng | `app/(dashboard)/phan-quyen/page.tsx`, `BangPhanQuyen.tsx` |
+| Proxy | `app/api/phan-quyen/route.ts` |
+| Thanh bên + quyền vào màn | `nav-items.ts`, `lib/roles.ts` (chỉ QL thấy màn; cấp được hay không do capability `permission.manage`) |
+
+⚠️ Bẫy giao diện đã cắn: `grid-cols-[minmax(220px,300px)]` làm vượt **trần px tự
+chế** (bài kiểm ratchet, trần 61). Dùng `rem` theo thang như các màn khác.
+
+**Bước tiếp theo (đúng thứ tự)**
+
+1. Bấm thật CD-01 trên trình duyệt: bác sĩ và thư ký y khoa, 375 + 1280.
+2. Chạy worker `--su-kien` trên máy chạy thật, xem dòng thời gian có lên không.
+3. Lát kế: thu tiền → xếp phòng → thực hiện (Slice 5 cũ), viết lát trước khi code.
+4. Ba chỗ chưa chốt của CD-01 nằm ở mục Hotspot trong file lát.
+
+---
+
 ## 15/09 — Bổ sung khi tiếp quản worktree Claude (chưa commit/deploy)
 
 - Giữ giao diện Dr4Women hiện có. Phiếu bệnh án bác sĩ và thư ký cập nhật qua
