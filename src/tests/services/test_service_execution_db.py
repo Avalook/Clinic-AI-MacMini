@@ -614,3 +614,44 @@ async def test_khong_bat_dau_duoc_thi_con_tro_khong_nhuc_nhich(kb: KB) -> None:
         kb.visit_id,
     )
     assert sau == truoc, "lệnh hỏng mà con trỏ vẫn dời — giao dịch không trọn"
+
+
+async def test_bac_si_chinh_thay_gio_bat_dau_va_xong_cua_phong(kb: KB) -> None:
+    """Luồng chuẩn bước 8 (23/09/2026): bác sĩ chính thấy dịch vụ đang làm ở
+    phòng nào, bắt đầu/xong lúc nào — nối thẳng tới giờ phòng đã bấm."""
+    from clinicai.services.luot_kham_service import LuotKhamService
+
+    async def chi_dinh() -> dict[str, Any]:
+        bang = await LuotKhamService(kb.pool).bang(identity=kb.bs)
+        [luot] = [x for x in bang["luot"] if x["visit_id"] == kb.visit_id]
+        [cd] = [c for c in luot["chi_dinh"] if c["id"] == kb.order_id]
+        return dict(cd)
+
+    truoc = await chi_dinh()
+    assert truoc["lam_bat_dau_luc"] is None and truoc["lam_trang_thai"] is None
+
+    mo = await kb.svc.bat_dau(
+        order_id=kb.order_id,
+        expected_execution_revision=0,
+        expected_routing_revision=1,
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    dang = await chi_dinh()
+    ten_phong = await kb.pool.fetchval(
+        "SELECT name FROM clinic_room WHERE id = $1::uuid", kb.room_id
+    )
+    assert dang["lam_trang_thai"] == "IN_PROGRESS"
+    assert dang["lam_bat_dau_luc"] is not None and dang["lam_xong_luc"] is None
+    assert dang["lam_phong"] == ten_phong
+
+    await kb.svc.xong(
+        order_id=kb.order_id,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    xong = await chi_dinh()
+    assert xong["lam_trang_thai"] == "COMPLETED"
+    assert xong["lam_xong_luc"] is not None

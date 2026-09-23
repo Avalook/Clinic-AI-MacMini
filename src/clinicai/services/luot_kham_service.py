@@ -1246,12 +1246,32 @@ class LuotKhamService:
                            au.full_name AS authorized_by_name,
                            pf.full_name AS performed_by_name,
                            coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
-                           o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc
+                           o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,
+                           lam.started_at AS lam_bat_dau_luc,
+                           lam.ended_at AS lam_xong_luc,
+                           lam.status AS lam_trang_thai,
+                           lam.phong AS lam_phong
                       FROM service_order o
                       LEFT JOIN node_definition nd
                         ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                       LEFT JOIN clinic_room r
                         ON r.id = o.room_id AND r.clinic_id = o.clinic_id
+                      -- GIỜ CỦA PHÒNG (luồng chuẩn bước 8, 23/09/2026): bác sĩ
+                      -- chính thấy dịch vụ đang làm ở đâu, bắt đầu/xong lúc nào —
+                      -- nối thẳng tới lần làm gần nhất mà phòng đã bấm.
+                      LEFT JOIN LATERAL (
+                          SELECT a.started_at,
+                                 coalesce(a.completed_at, a.interrupted_at) AS ended_at,
+                                 a.status, ar.name AS phong
+                            FROM service_execution_attempt a
+                            LEFT JOIN clinic_room ar
+                              ON ar.id = a.room_id_snapshot
+                             AND ar.clinic_id = a.clinic_id
+                           WHERE a.clinic_id = o.clinic_id
+                             AND a.service_order_id = o.id
+                           ORDER BY a.attempt_no DESC
+                           LIMIT 1
+                      ) lam ON true
                       LEFT JOIN staff rec ON rec.id = o.recorded_by
                       LEFT JOIN staff au ON au.id = o.authorized_by
                       LEFT JOIN staff pf ON pf.id = o.performed_by
@@ -1428,6 +1448,12 @@ class LuotKhamService:
                     "nguoi_lam": o["performed_by_name"],
                     "ket_qua": o["result_note"] if doc_noi_dung else None,
                     "ly_do_khong_lam": o["not_performed_reason"],
+                    # Lần làm gần nhất ở phòng: bắt đầu/xong lúc nào, ở phòng
+                    # nào (có thể khác phòng được xếp nếu lễ tân đã đổi).
+                    "lam_bat_dau_luc": _iso(o.get("lam_bat_dau_luc")),
+                    "lam_xong_luc": _iso(o.get("lam_xong_luc")),
+                    "lam_trang_thai": o.get("lam_trang_thai"),
+                    "lam_phong": o.get("lam_phong"),
                     # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
                     # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".
                     "doi_tac": o["doi_tac"],

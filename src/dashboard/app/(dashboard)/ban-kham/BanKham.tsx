@@ -82,6 +82,11 @@ interface ChiDinh {
   nguoi_ghi: string | null;
   ket_qua: string | null;
   ly_do_khong_lam: string | null;
+  /** Lần làm gần nhất ở phòng (23/09/2026): giờ phòng bấm Bắt đầu / xong. */
+  lam_bat_dau_luc?: string | null;
+  lam_xong_luc?: string | null;
+  lam_trang_thai?: "IN_PROGRESS" | "COMPLETED" | "INTERRUPTED" | null;
+  lam_phong?: string | null;
   /** Việc gửi đối tác làm — không có phòng nào của phòng khám để xếp. */
   doi_tac?: boolean;
   trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA" | null;
@@ -951,7 +956,13 @@ function ChiDinhPanel({
                 </span>
               </div>
               <p className="mt-0.5 text-label text-ink-muted">
-                {c.phong ? `${c.phong}` : ""}
+                {c.lam_phong ?? c.phong ?? ""}
+                {c.lam_bat_dau_luc ? ` · bắt đầu ${gioVn(c.lam_bat_dau_luc)}` : ""}
+                {c.lam_xong_luc
+                  ? ` · ${c.lam_trang_thai === "INTERRUPTED" ? "dừng" : "xong"} ${gioVn(c.lam_xong_luc)}`
+                  : c.lam_trang_thai === "IN_PROGRESS"
+                    ? " · đang làm"
+                    : ""}
                 {c.ly_do_khong_lam ? ` · ${c.ly_do_khong_lam}` : ""}
               </p>
               {c.ket_qua ? (
