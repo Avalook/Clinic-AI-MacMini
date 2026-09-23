@@ -64,7 +64,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/thu-ngan/dich-vu` · `/thu-ngan/thuoc` | Lễ tân, thu ngân, QL | Thu tiền dịch vụ · Thu tiền thuốc | GIỮ | **Màn thu tiền duy nhất.** `thu-ngan/QuayThuNgan.tsx`, nút "Đã nhận đủ". |
+| `/thu-ngan/dich-vu` · `/thu-ngan/thuoc` | Lễ tân, thu ngân, QL | Thu tiền dịch vụ · Thu tiền thuốc | GIỮ | **Màn thu tiền duy nhất.** `thu-ngan/QuayThuNgan.tsx`, nút "Đã nhận đủ". **Nhóm 2 (24/09):** ô dịch vụ hiện khách NGAY KHI có chỉ định (không đợi khám xong), thu được nhiều lần; khối `ChonDichVu.tsx` "Khách làm dịch vụ nào?" → `[Chốt dịch vụ khách làm]`; thu xong hệ thống tự xếp phòng (dây H4), nút "Xem hành trình · đổi phòng" để báo/đổi phòng. Ô thuốc vẫn đợi khám xong (nhóm 4). |
 | `/cashier/thuoc` · `/cashier/dich-vu` | Lễ tân, thu ngân, QL | Bảng giá thuốc · Bảng giá dịch vụ | GIỮ | Là **bảng giá**, không phải thu tiền. Sẽ đụng khi làm lại kho thuốc (hai nguồn giá). |
 | `/pharmacy` | Lễ tân, dược sĩ, QL | Cấp thuốc | GIỮ | **Làm lại 19/09 (contract tiền–thuốc CP4):** theo lượt, đọc qua `GET /api/v1/pharmacy/ban-thuoc` (không còn đọc thẳng Supabase). `PharmacyBoard.tsx` + `DongThuoc.tsx` (thay `ThaoTacCapPhat.tsx`): xác định thuốc kho · số mua · chọn/bỏ/đổi lô · giao thuốc — nút theo `thao_tac` máy chủ trả. |
 | `/pharmacy/inventory` | Lễ tân, dược sĩ, QL | Kho thuốc | GIỮ | Như trên. |
@@ -150,6 +150,7 @@ chuyển hướng.
 | **Ghi sinh hiệu** | `/do-sinh-hieu` | biểu mẫu bệnh án chỉ xem + nút dẫn sang |
 | **Chọn lô / giao thuốc** (`/api/pharmacy/{phan-lo,bo-phan-lo,doi-lo,dispense,…}`) | `pharmacy/DongThuoc.tsx` (qua `/pharmacy`) | **chỉ ở đây** (contract tiền–thuốc CP4) |
 | **Thu tiền** (`POST /api/payment`) | `thu-ngan/QuayThuNgan.tsx` (qua `/thu-ngan/dich-vu`, `/thu-ngan/thuoc`) | chỉ ở đây |
+| **Khách chọn làm dịch vụ nào** (`chon-dich-vu` → `POST /luot-kham/visits/{id}/service-selection/confirm`) | `thu-ngan/ChonDichVu.tsx` (trong `QuayThuNgan.tsx`) | **chỉ ở đây** — nhóm 2, 24/09. Trước đó lệnh có mà không màn nào gọi, nên chỉ định mới không vào được hoá đơn |
 | **Tạo bệnh nhân** (`NewPatientForm`) | `/patients/new` · tab "Thêm" trong `/appointments` | cùng component |
 | **Đặt / sửa lịch** (`AppointmentBooking`) | `customers/AppointmentEditModal.tsx` · `customers/DatLichModal.tsx` · `patients/[id]/PatientBooking.tsx` | `/appointments` dùng `BookingHub` riêng — CẦN QUYẾT |
 | **Nhắc tái khám** (`/api/recall-jobs`) | `customers/NhacTaiKham.tsx` · `customers/VungLamViecKhach.tsx` · `nhac-tai-kham/ViecGoiNhac.tsx` | cùng API |
@@ -159,7 +160,7 @@ chuyển hướng.
 | **Điền phiếu kết quả** (`/api/phieu` → Form Template Engine) | `_lam-viec/PhieuKetQua.tsx`, mở từ `phong/[ma]/PhongDichVu.tsx` | Một màn cho MỌI biểu mẫu: máy chủ trả `khung`, màn vẽ đúng khung ấy. **[Hoàn tất] là nút kết thúc DUY NHẤT**: nó đóng luôn dịch vụ và phát `result.ready` nếu dịch vụ có kết quả ngay tại phòng. **Hoàn tất rồi vẫn sửa được** — [Sửa lại] → [Xác nhận sửa] → `result.corrected`. Ruột 18 mẫu phòng khám đưa sau — không phải sửa TSX. Lát `docs/slices/BM-01-form-template-engine.md` |
 | **Nhóm quyền mẫu** (`/api/phan-quyen?nhom=1`) | `phan-quyen/NhomQuyenMau.tsx` (tab trong `/phan-quyen`) | Quản lý thêm · sửa · xoá nhóm mà không cần deploy. Nhóm **không phải quyền**: sửa nhóm không đổi quyền người đã cấp. Nhóm dựng sẵn thì tắt chứ không xoá mất dấu. |
 | **Bác sĩ quyết kết quả chờ / dịch vụ không làm được** (`/luot-kham/cho-quyet`, `quyet-yeu-cau`) | `ban-kham/ChoBacSiQuyet.tsx` | bác sĩ quyết; thư ký chỉ xem — Slice 1 |
-| **Xem lại một lượt khám** (`/xem-luot/{visit}`, chỉ đọc, máy chủ cắt theo vai) | `_lam-viec/XemLuot.tsx` (+ `NutXemLuot.tsx`) mở từ: `ban-kham/BanKham.tsx` · `do-sinh-hieu/BangDoSinhHieu.tsx` · `phong/[ma]/PhongDichVu.tsx` · `truong-ca/ChiDinhHomNay.tsx` · `reception/queue/QueueBoard.tsx` · `thu-ngan/GiaoDich.tsx` · `pharmacy/PharmacyBoard.tsx` | batch pilot 18/09 |
+| **Xem lại một lượt khám** (`/xem-luot/{visit}`, chỉ đọc, máy chủ cắt theo vai) | `_lam-viec/XemLuot.tsx` (+ `NutXemLuot.tsx`) mở từ: `ban-kham/BanKham.tsx` · `do-sinh-hieu/BangDoSinhHieu.tsx` · `phong/[ma]/PhongDichVu.tsx` · `truong-ca/ChiDinhHomNay.tsx` · `reception/queue/QueueBoard.tsx` · `thu-ngan/GiaoDich.tsx` · `thu-ngan/QuayThuNgan.tsx` (nhóm 2 — đổi phòng sau khi thu) · `pharmacy/PharmacyBoard.tsx` | batch pilot 18/09 |
 | **Thai kỳ** (`/api/thai-ky`) | `ban-kham/ThaiKy.tsx` (cạnh phiếu Sản) | bác sĩ ghi; vai lâm sàng khác chỉ xem |
 | **Giao dịch thu ngân đã ghi** (`/api/cashier?xem=giao-dich`) | `thu-ngan/TabThuNgan.tsx` → `GiaoDich.tsx` (tab Đã thanh toán hôm nay · Lịch sử) | chỉ đọc |
 | **Chuyển phòng** | `truong-ca/ChiDinhCuaBacSi.tsx` (từng chỉ định — luồng mới) · `truong-ca/OverviewClient.tsx` (cả lượt — chỉ lượt đời cũ; lượt luồng mới bị ẩn + máy chủ từ chối) | Slice 1 |
