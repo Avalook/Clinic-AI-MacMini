@@ -168,7 +168,7 @@ export default function BangPhanQuyen({
 
   if (tab === "man") {
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <ThanhChon tab={tab} onDoi={setTab} />
         <QuyenTheoMan />
       </div>
@@ -177,7 +177,7 @@ export default function BangPhanQuyen({
 
   if (tab === "nhom") {
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <ThanhChon tab={tab} onDoi={setTab} />
         <NhomQuyenMau
           khoiCo={(danhMuc?.khoi ?? []).map((k) => ({ ma: k.ma, ten: k.ten }))}
@@ -187,7 +187,7 @@ export default function BangPhanQuyen({
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
       <div className="lg:col-span-2">
         <ThanhChon tab={tab} onDoi={setTab} />
       </div>

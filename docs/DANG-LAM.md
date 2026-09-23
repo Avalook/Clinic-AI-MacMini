@@ -23,8 +23,9 @@ lịch sử hội thoại.
 - **Hẹn giờ hỏng hẳn** (`hen_gio` CHET) → chuông KHẨN trưởng ca + quản lý
   (`nguon = hen_gio_hong`). Kèm sửa LỖI CÓ SẴN: đường CHET ghi `lam_luc` → vi phạm
   `hen_gio_xong_co_gio` → worker văng thay vì đánh dấu chết.
-- **Quyền theo màn:** tab "Theo màn" ở `/phan-quyen` — bật/tắt một màn cho một người;
-  tắt màn không lấy mất khối mà màn khác của người ấy còn cần.
+- **Quyền theo màn:** tab "Theo màn" ở `/phan-quyen` — chọn nhóm (vai), bật/tắt
+  từng màn cho nhóm; tắt màn không lấy mất khối mà màn khác của nhóm còn cần. Bấm thật
+  375/1280 23/09 22:00: chạy; sửa tràn ngang 375 ở cả 3 tab (lưới thiếu `minmax(0,1fr)`).
 - Trưởng ca có link "Hành trình khách hôm nay →".
 - **Deploy phải làm thêm:** migration `20260924000006_da_xem_phieu_ket_qua.sql`.
 

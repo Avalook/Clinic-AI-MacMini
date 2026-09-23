@@ -126,7 +126,8 @@ khách, tới giờ chuông réo đúng người.
 18. Bác sĩ MỞ phiếu kết quả = đã xem (giống tệp). Không có nút "đánh dấu đã xem" riêng.
 19. Xét nghiệm: chỉ LẦN ĐẦU có kết quả mới réo; sửa chính tả sau đó không réo lại.
 20. Danh sách "màn theo vai" mặc định nằm trong code (`permissions/catalogue.py` `MAN_THEO_VAI`);
-    quản lý chỉnh theo TỪNG NGƯỜI, chưa chỉnh được bảng mặc định theo vai.
+    quản lý bật/tắt màn cho NHÓM (vai); 5 màn còn đi theo vai (Thu tiền thuốc, Đặt lịch, Danh
+    sách bệnh nhân, Đối tác, Hành trình) chưa chỉnh ở đó được. Sửa nhóm không đổi quyền người đã cấp.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
