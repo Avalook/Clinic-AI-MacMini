@@ -278,7 +278,7 @@ def test_dang_o_va_con_cho_la_ham_thuan() -> None:
     )
     assert viec == [
         "Chờ bác sĩ tư vấn",
-        "Chờ trả tiền / xếp phòng: Siêu âm",
+        "Chờ trả tiền: Siêu âm",
         "Chờ khách chọn làm: Xét nghiệm",
         "2 tệp kết quả chưa bác sĩ nào xem",
     ]

@@ -38,6 +38,9 @@ _CASHIER_GUARD = require_role(
     ClinicRole.CASHIER,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
+    # Dược sĩ: chỉ tiền THUỐC — `allowed_kinds` trong service giới hạn loại
+    # (Tuyền chốt 23/09; rà quyền nhóm 6, 24/09).
+    ClinicRole.PHARMACIST,
     ClinicRole.MANAGEMENT,
 )
 

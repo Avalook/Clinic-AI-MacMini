@@ -295,7 +295,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // của họ chưa có thu ngân, nên tích hợp thu ngân vào lễ tân luôn, kho thuốc
   // cũng ở lễ tân luôn") — vai RECEPTION vào được quầy thu, quầy thuốc, kho.
   "/thu-ngan/dich-vu": ["RECEPTION", "CASHIER", "CASHIER_DV", "MANAGEMENT"],
-  "/thu-ngan/thuoc": ["RECEPTION", "CASHIER", "CASHIER_THUOC", "MANAGEMENT"],
+  // Dược sĩ thu tiền thuốc (Tuyền chốt 23/09: "Thu tiền thuốc + Kho thuốc →
+  // Dược sĩ"; rà quyền nhóm 6, 24/09).
+  "/thu-ngan/thuoc": ["RECEPTION", "CASHIER", "CASHIER_THUOC", "PHARMACIST", "MANAGEMENT"],
   // Hồ sơ nhân sự — cùng ràng buộc với backend: routers/staff.py gác mọi thao
   // tác ghi bằng require_role(MANAGEMENT), nên mở mục này cho vai khác chỉ dẫn
   // tới một trang lưu gì cũng 403.

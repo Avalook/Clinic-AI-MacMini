@@ -298,9 +298,23 @@ async def test_chart_and_profile_triggers_emit_only_table_and_clinic(
     assert all(payload == {"t": payload["t"], "c": CLINIC} for payload in received)
 
 
-async def test_secretary_draft_is_invisible_to_pharmacy_until_physician_approval(
+async def _nhap_cu(
+    conn: asyncpg.Connection, items: list[dict[str, Any]], recorded_by: str = STAFF
+) -> int:
+    """Nháp đơn của thư ký CÒN TREO từ trước 24/09/2026 (dữ liệu cũ). Nay không
+    lệnh nào tạo được nháp nữa (thư ký ghi thẳng); đường DUYỆT nháp cũ vẫn giữ
+    đủ chốt an toàn. Trả revision hiện tại của hồ sơ."""
+    await conn.execute(
+        "UPDATE clinical_record SET prescription_draft = $1::jsonb",
+        json.dumps({"items": items, "recorded_by": recorded_by}),
+    )
+    return int(await conn.fetchval("SELECT revision FROM clinical_record"))
+
+
+async def test_thu_ky_ke_don_thang_nha_thuoc_thay_ngay(
     chart_conn: asyncpg.Connection,
 ) -> None:
+    """Tuyền chốt 24/09: thư ký = bác sĩ — không nháp, không duyệt."""
     items = [
         {
             "id": None,
@@ -310,72 +324,58 @@ async def test_secretary_draft_is_invisible_to_pharmacy_until_physician_approval
             "caution": None,
         }
     ]
-    secretary = await save(
+    kq = await save(
         chart_conn, role=ClinicRole.TKYK, expected_revision=0, prescriptions=items
     )
-    assert secretary["revision"] == 1
-    assert await chart_conn.fetchval("SELECT count(*) FROM prescription") == 0
-    assert json.loads(
-        await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")
-    ) == {"items": items, "recorded_by": STAFF}
-    with pytest.raises(ConflictError):
-        await save(chart_conn, expected_revision=1, prescriptions=items)
-    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == 1
-    approved = await save(
-        chart_conn,
-        expected_revision=1,
-        approve_prescription_draft=True,
-        prescriptions=[{**items[0], "drug_name": "Tampered"}],
-    )
-    assert approved["revision"] == 2
+    assert kq["revision"] == 1
     row = await chart_conn.fetchrow("SELECT * FROM prescription")
-    assert row["drug_name_raw"] == "Drug A"
-    assert str(row["created_by"]) == STAFF
-    assert row["quantity_num"] == 10
-    assert row["unit"] == "viên"
+    assert row["drug_name_raw"] == "Drug A" and str(row["created_by"]) == STAFF
+    assert row["quantity_num"] == 10 and row["unit"] == "viên"
     assert (
         await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")
         is None
     )
 
 
-async def test_stale_approval_cannot_promote_replaced_secretary_snapshot(
+async def test_ghi_thang_thay_nhap_cu_nen_duyet_nhap_cu_bi_tu_choi(
     chart_conn: asyncpg.Connection,
 ) -> None:
-    first = [{"drug_name": "First drug", "quantity": "10 viên"}]
-    second = [{"drug_name": "Second drug", "quantity": "20 viên"}]
-    await save(
-        chart_conn, role=ClinicRole.TKYK, expected_revision=0, prescriptions=first
+    await save(chart_conn, expected_revision=0)
+    rev = await _nhap_cu(
+        chart_conn, [{"id": None, "drug_name": "First drug", "quantity": "10 viên"}]
     )
+    moi = [{"drug_name": "Second drug", "quantity": "20 viên"}]
     await save(
-        chart_conn, role=ClinicRole.TKYK, expected_revision=1, prescriptions=second
+        chart_conn, role=ClinicRole.TKYK, expected_revision=rev, prescriptions=moi
+    )
+    assert (
+        await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")
+        is None
     )
     with pytest.raises(ConflictError):
-        await save(chart_conn, expected_revision=1, approve_prescription_draft=True)
-    assert await chart_conn.fetchval("SELECT count(*) FROM prescription") == 0
-    draft = json.loads(
-        await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")
+        await save(
+            chart_conn, expected_revision=rev + 1, approve_prescription_draft=True
+        )
+    assert (
+        await chart_conn.fetchval("SELECT drug_name_raw FROM prescription")
+        == "Second drug"
     )
-    assert draft["items"][0]["drug_name"] == "Second drug"
-    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == 2
 
 
 async def test_other_attending_doctor_cannot_approve_unassigned_appointment_draft(
     chart_conn: asyncpg.Connection,
 ) -> None:
-    await save(
-        chart_conn,
-        role=ClinicRole.TKYK,
-        expected_revision=0,
-        prescriptions=[{"drug_name": "Drug A", "quantity": "10 viên"}],
+    await save(chart_conn, expected_revision=0)
+    rev = await _nhap_cu(
+        chart_conn, [{"id": None, "drug_name": "Drug A", "quantity": "10 viên"}]
     )
     await chart_conn.execute(
         "UPDATE visit SET attending_doctor_id = $1::uuid",
         "60000000-0000-0000-0000-000000000001",
     )
     with pytest.raises(SafetyGateError):
-        await save(chart_conn, expected_revision=1, approve_prescription_draft=True)
-    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == 1
+        await save(chart_conn, expected_revision=rev, approve_prescription_draft=True)
+    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == rev
     assert (
         await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")
         is not None
@@ -389,15 +389,15 @@ async def test_locked_rx_removal_draft_cannot_be_approved_and_rolls_back_chart(
     await save(chart_conn, expected_revision=0, prescriptions=items)
     await chart_conn.execute("UPDATE prescription SET dispensed_qty = 2")
     before = await chart_conn.fetchrow("SELECT * FROM prescription")
-    await save(chart_conn, role=ClinicRole.TKYK, expected_revision=1, prescriptions=[])
+    rev = await _nhap_cu(chart_conn, [])  # nháp cũ: xoá hết đơn
     with pytest.raises(ConflictError):
         await save(
             chart_conn,
-            expected_revision=2,
+            expected_revision=rev,
             approve_prescription_draft=True,
             assessment={"diagnosis": "Must rollback"},
         )
-    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == 2
+    assert await chart_conn.fetchval("SELECT revision FROM clinical_record") == rev
     assert (
         await chart_conn.fetchval("SELECT soap_assessment FROM clinical_record") is None
     )
@@ -430,22 +430,19 @@ async def test_chart_only_save_with_pending_draft_keeps_approved_ids_and_snapsho
             "caution": before["caution"],
         }
     ]
-    await save(
-        chart_conn,
-        role=ClinicRole.TKYK,
-        expected_revision=1,
-        prescriptions=[{"drug_name": "Pending drug", "quantity": "20 viên"}],
+    rev = await _nhap_cu(
+        chart_conn, [{"id": None, "drug_name": "Pending drug", "quantity": "20 viên"}]
     )
     snapshot = await chart_conn.fetchval(
         "SELECT prescription_draft FROM clinical_record"
     )
     result = await save(
         chart_conn,
-        expected_revision=2,
+        expected_revision=rev,
         prescriptions=approved_payload,
         assessment={"diagnosis": "Chart correction"},
     )
-    assert result["revision"] == 3
+    assert result["revision"] == rev + 1
     assert await chart_conn.fetchrow("SELECT * FROM prescription") == before
     assert (
         await chart_conn.fetchval("SELECT prescription_draft FROM clinical_record")

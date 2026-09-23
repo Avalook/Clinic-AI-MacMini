@@ -1,6 +1,6 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1–5 xong) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **23/09/2026 đêm**, đang làm nhóm 3→6 liền mạch (nhóm 1–6 xong — chờ bấm thật) (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -12,6 +12,15 @@ lịch sử hội thoại.
 > và "cạm bẫy".
 
 ---
+
+## Nhóm 6 — rà quyền + trách nhiệm không rơi (CHƯA deploy, CHƯA bấm thật)
+
+- Dược sĩ: `allowed_kinds` = {thuốc}; vào `/thu-ngan/thuoc`; router payment + bảng thu ngân
+  nhận vai này.
+- `events/worker.py`: DEAD → chuông KHẨN trưởng ca + quản lý (`nguon = su_kien_hong`).
+- Bảng hành trình: "ĐÃ TRẢ TIỀN — chờ xếp phòng".
+- Bài kiểm 55433 (`test_clinical_record_revision_sql.py`) viết lại theo luật thư ký ghi
+  thẳng; nháp cũ gieo thẳng vào DB để kiểm đường duyệt nháp cũ vẫn an toàn.
 
 ## Nhóm 5 — khối chỉnh dây · H6/H7/H8 · tự nhắc việc · vị trí trực (CHƯA deploy, CHƯA bấm thật)
 

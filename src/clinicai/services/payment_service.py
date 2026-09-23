@@ -99,6 +99,10 @@ def allowed_kinds(role: ClinicRole) -> frozenset[str]:
         return frozenset({"thuoc"})
     if role is ClinicRole.CASHIER_DV:
         return frozenset({"dich_vu"})
+    # Dược sĩ thu tiền thuốc ở quầy thuốc (bảng "màn mặc định theo vai" Tuyền
+    # chốt 23/09: "Thu tiền thuốc + Kho thuốc → Dược sĩ"). Rà quyền nhóm 6.
+    if role is ClinicRole.PHARMACIST:
+        return frozenset({"thuoc"})
     # LỄ TÂN KIÊM THU NGÂN ở Kim Ngưu (Tuyền 16/09/2026): quầy tiếp đón thu tiền
     # dịch vụ, quầy thuốc thu tiền thuốc — cùng một vai đứng cả hai quầy.
     if role in (ClinicRole.CASHIER, ClinicRole.MANAGEMENT, ClinicRole.RECEPTION):

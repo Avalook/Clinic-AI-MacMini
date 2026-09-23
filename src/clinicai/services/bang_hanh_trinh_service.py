@@ -71,7 +71,13 @@ def con_cho(
         elif o["selection_status"] == "SELECTED":
             ex = o["execution_status"] or "PENDING"
             if ex == "PENDING" and o["routing_status"] in (None, "UNASSIGNED"):
-                out.append(f"Chờ trả tiền / xếp phòng: {ten}")
+                # Đã trả mà chưa có phòng = TRÁCH NHIỆM đang rơi (người thu không
+                # có quyền điều phối, hoặc dây tự xếp đang tắt) — nói thẳng.
+                out.append(
+                    f"ĐÃ TRẢ TIỀN — chờ xếp phòng: {ten}"
+                    if o.get("da_tra")
+                    else f"Chờ trả tiền: {ten}"
+                )
             elif ex == "PENDING" and o["routing_status"] == "REASSIGNMENT_REQUIRED":
                 out.append(f"Cần xếp lại phòng: {ten}")
             elif ex == "PENDING":
@@ -144,7 +150,16 @@ class BangHanhTrinhService:
                 SELECT o.visit_id::text AS visit_id, o.service_name AS ten,
                        o.selection_status, o.routing_status, o.execution_status,
                        o.ket_qua_luc, r.name AS phong,
-                       coalesce(n.lam_ben_ngoai, false) AS ngoai
+                       coalesce(n.lam_ben_ngoai, false) AS ngoai,
+                       EXISTS (
+                           SELECT 1 FROM payment_bill_line bl
+                             JOIN payment_cycle c
+                               ON c.clinic_id = bl.clinic_id
+                              AND c.payment_cycle_id = bl.payment_cycle_id
+                            WHERE bl.clinic_id = o.clinic_id
+                              AND bl.source_type = 'service_order'
+                              AND bl.source_id = o.id::text
+                              AND c.status = 'PAID') AS da_tra
                   FROM service_order o
                   LEFT JOIN clinic_room r ON r.id = o.room_id
                   LEFT JOIN node_definition n

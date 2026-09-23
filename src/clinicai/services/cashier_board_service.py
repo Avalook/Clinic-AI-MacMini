@@ -52,6 +52,8 @@ CASHIER_ROLES: frozenset[ClinicRole] = frozenset(
         ClinicRole.CASHIER,
         ClinicRole.CASHIER_THUOC,
         ClinicRole.CASHIER_DV,
+        # Dược sĩ đứng quầy thu tiền thuốc (Tuyền chốt 23/09, rà quyền nhóm 6).
+        ClinicRole.PHARMACIST,
         ClinicRole.MANAGEMENT,
     }
 )

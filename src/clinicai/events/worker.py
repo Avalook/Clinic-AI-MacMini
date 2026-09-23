@@ -201,9 +201,64 @@ async def lam_mot_dong(
             chet=het_luot,
             loi=str(loi)[:200],
         )
+        if het_luot:
+            await _bao_nguoi_truc_khi_chet(pool, su_kien, consumer)
         return True
 
     return True
+
+
+#: Ai phải biết khi một bước tự động hỏng hẳn (nhóm 6 — trách nhiệm không rơi).
+VAI_BIET_KHI_CHET: tuple[str, ...] = ("TRUONG_CA", "MANAGEMENT")
+
+
+async def _bao_nguoi_truc_khi_chet(
+    pool: asyncpg.Pool, su_kien: SuKienDaNhan, consumer: str
+) -> None:
+    """Một dòng DEAD CHẶN các sự kiện sau của cùng đối tượng (luật 2) — với khối
+    Hành trình nghĩa là một KHÁCH đứng kẹt. Số đo ở `/ops` cho kỹ thuật; ở đây
+    réo chuông NGƯỜI TRỰC (trưởng ca, quản lý) để có người xử lý tay ngay.
+
+    Nuốt lỗi: báo hỏng mà hỏng thì không được làm chết vòng đưa tin. Sự kiện
+    không có người gây ra (hệ thống) thì không có `nguoi_goi` — chỉ còn log +
+    `/ops` (bảng `thong_bao` bắt buộc người gọi).
+    """
+    if not su_kien.actor_staff_id:
+        return
+    try:
+        from clinicai.events.catalogue import DANH_MUC
+
+        nhan = (
+            DANH_MUC[su_kien.event_type].nhan
+            if su_kien.event_type in DANH_MUC
+            else su_kien.event_type
+        )
+        visit_id = su_kien.payload.get("visit_id")
+        for vai in VAI_BIET_KHI_CHET:
+            await pool.execute(
+                """
+                INSERT INTO thong_bao
+                    (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon,
+                     nguon_id, duong_dan, nguoi_goi_staff_id)
+                VALUES ($1::uuid, $2, 'KHAN', $3, $4, 'su_kien_hong', $5, $6,
+                        $7::uuid)
+                ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)
+                    WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
+                      AND vai_nhan IS NOT NULL
+                DO NOTHING
+                """,
+                su_kien.clinic_id,
+                vai,
+                f"Bước tự động hỏng: {nhan}",
+                f"Bên nhận '{consumer}' đã thử {su_kien.attempts} lần không được."
+                " Khách của lượt này có thể đang kẹt — kiểm tra bảng hành trình"
+                " và xử lý tay; báo kỹ thuật xem /ops.",
+                f"{consumer}:{su_kien.event_id}",
+                f"/hanh-trinh?luot={visit_id}" if visit_id else "/hanh-trinh",
+                su_kien.actor_staff_id,
+            )
+    except Exception:  # noqa: BLE001 — xem docstring
+        logger.exception("bao_su_kien_chet_hong", event_id=su_kien.event_id)
 
 
 def nang_len_hien_hanh(su_kien: SuKienDaNhan) -> SuKienDaNhan:

@@ -122,6 +122,16 @@ khách, tới giờ chuông réo đúng người.
 16. H7 mặc định 3 ngày, tính từ lúc dịch vụ đối tác làm xong / đối tác lấy mẫu.
 17. Vị trí trực không xoá — chỉ tắt (lịch trực cũ còn trỏ tới); mã nội bộ tự sinh.
 
+**Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
+- Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
+  không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).
+- Một bước tự động hỏng hẳn (DEAD) → chuông KHẨN cho trưởng ca + quản lý (với khối Hành
+  trình, DEAD = một khách đang kẹt). `/ops` vẫn giữ số đo cho kỹ thuật.
+- Bảng hành trình tách "ĐÃ TRẢ TIỀN — chờ xếp phòng" (trách nhiệm đang rơi: người thu
+  không có quyền điều phối, hoặc dây tự xếp tắt) khỏi "Chờ trả tiền".
+- NỢ: hẹn giờ hỏng hẳn (`hen_gio` CHET) chưa réo người trực; khối trách nhiệm cũ
+  (tiền đã thu mà không làm, dừng giữa chừng, phòng hỏng) giữ nguyên, đã có việc + hẹn kiểm lại.
+
 ### Các chốt khác (24/09)
 
 - **Bệnh án:** lưu liên tục vào database (máy khác, người khác thấy ngay bản mới nhất),
