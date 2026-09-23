@@ -1,0 +1,191 @@
+"""Phòng là TÀI NGUYÊN — định danh bằng room_id, tên đổi tự do (CORE-C, 23/09/2026).
+
+    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55500/postgres \\
+        poetry run pytest src/tests/services/test_phong_la_tai_nguyen_db.py
+
+Ví dụ Tuyền: hôm nay "Siêu âm 1", mai quản lý đổi thành "Phòng Hoa" — lịch trực,
+hàng chờ, quyền không được hỏng. Tên là dữ liệu hiển thị, không phải định danh.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from typing import Any
+
+import asyncpg
+import pytest
+import pytest_asyncio
+
+from clinicai.api.exceptions import ValidationError
+from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.services.clinic_config_service import ClinicConfigService
+
+CLINIC = "a0000000-0000-4000-8000-000000000001"
+
+pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest_asyncio.fixture
+async def pool() -> Any:
+    url = os.environ.get("DATABASE_URL") or ""
+    if not url:
+        pytest.skip("cần DATABASE_URL_TEST trỏ tới database dùng một lần")
+    dsn = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    p = await asyncpg.create_pool(dsn=dsn, min_size=1, max_size=4)
+    yield p
+    await p.close()
+
+
+def _quan_ly() -> StaffIdentity:
+    return StaffIdentity(
+        staff_id=str(uuid.uuid4()),
+        auth_user_id=str(uuid.uuid4()),
+        full_name="QL test",
+        department="MANAGEMENT",
+        role=ClinicRole.MANAGEMENT,
+        clinic_id=CLINIC,
+        location_id="",
+        location_name="",
+    )
+
+
+async def _co_so(pool: asyncpg.Pool) -> str:
+    return str(
+        await pool.fetchval(
+            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"
+            " AND is_active ORDER BY created_at, id LIMIT 1",
+            CLINIC,
+        )
+    )
+
+
+async def _tao(pool: asyncpg.Pool, ten: str) -> str:
+    kq = await ClinicConfigService(pool).create_room(
+        identity=_quan_ly(),
+        location_id=await _co_so(pool),
+        name=ten,
+        node_code="DICHVU-SIEUAM",
+        floor="2",
+    )
+    return str(kq["room_id"])
+
+
+async def test_tao_phong_ten_tu_do_ma_noi_bo_tu_sinh(pool: asyncpg.Pool) -> None:
+    rid = await _tao(pool, "Phòng ABC")
+    r = await pool.fetchrow(
+        "SELECT name, code, node_code, floor, is_active FROM clinic_room"
+        " WHERE id = $1::uuid",
+        rid,
+    )
+    assert r["name"] == "Phòng ABC" and r["floor"] == "2" and r["is_active"]
+    assert r["node_code"] == "DICHVU-SIEUAM"
+    assert r["code"].startswith("P-")  # mã nội bộ, không ai phải gõ
+    phuc_vu = await pool.fetchval(
+        "SELECT array_agg(node_code) FROM clinic_room_node WHERE room_id = $1::uuid",
+        rid,
+    )
+    assert phuc_vu == ["DICHVU-SIEUAM"]
+
+
+async def test_doi_ten_giu_nguyen_room_id_lich_truc_va_hang_cho(
+    pool: asyncpg.Pool,
+) -> None:
+    """Nghiệm thu 6: "Phòng ABC" → "Phòng Hoa" vẫn cùng room_id; phân công
+    (vị trí trực → phòng) và khách đang chờ trong phòng không mất."""
+    rid = await _tao(pool, "Phòng ABC")
+    vi_tri = await pool.fetchval(
+        "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, room_id)"
+        " VALUES ($1::uuid, $2, 'Siêu âm — test', $3::uuid) RETURNING id::text",
+        CLINIC,
+        f"T-{uuid.uuid4().hex[:6]}",
+        rid,
+    )
+
+    kq = await ClinicConfigService(pool).rename_room(
+        identity=_quan_ly(), room_id=rid, name="Phòng Hoa"
+    )
+    assert kq["room_id"] == rid
+
+    assert (
+        await pool.fetchval("SELECT name FROM clinic_room WHERE id = $1::uuid", rid)
+        == "Phòng Hoa"
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT room_id::text FROM vi_tri_lam_viec WHERE id = $1::uuid", vi_tri
+        )
+        == rid
+    )
+    ov = await ClinicConfigService(pool).overview(identity=_quan_ly())
+    ten = {
+        r["room_id"]: r["name"]
+        for loc in ov["locations"]
+        for f in loc["floors"]
+        for r in f["rooms"]
+    }
+    assert ten[rid] == "Phòng Hoa"
+
+
+async def test_ten_rong_bi_tu_choi(pool: asyncpg.Pool) -> None:
+    rid = await _tao(pool, "Phòng ABC")
+    with pytest.raises(ValidationError):
+        await ClinicConfigService(pool).rename_room(
+            identity=_quan_ly(), room_id=rid, name="   "
+        )
+
+
+async def test_tat_phong_con_khach_bi_chan_het_khach_thi_tat_duoc(
+    pool: asyncpg.Pool,
+) -> None:
+    rid = await _tao(pool, "Phòng tắt thử")
+    loc = await _co_so(pool)
+    async with pool.acquire() as conn:
+        pid = await conn.fetchval(
+            "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
+            " VALUES ($1::uuid, $2, 'BN phòng', $3::uuid)"
+            " RETURNING clinic_patient_id::text",
+            CLINIC,
+            f"PH-{uuid.uuid4().hex[:8]}",
+            loc,
+        )
+        vid = await conn.fetchval(
+            "INSERT INTO visit (clinic_id, clinic_patient_id, location_id, status)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, 'OPEN') RETURNING visit_id::text",
+            CLINIC,
+            pid,
+            loc,
+        )
+        qid = await conn.fetchval(
+            "INSERT INTO queue_entry (clinic_id, visit_id, lane, reason, ref_id,"
+            " status, room_id, eligible_at)"
+            " VALUES ($1::uuid, $2::uuid, 'ROOM', 'SERVICE', gen_random_uuid(),"
+            " 'waiting', $3::uuid, now()) RETURNING id::text",
+            CLINIC,
+            vid,
+            rid,
+        )
+
+    with pytest.raises(ValidationError, match="đang chờ"):
+        await ClinicConfigService(pool).set_room_active(
+            identity=_quan_ly(), room_id=rid, is_active=False
+        )
+
+    await pool.execute(
+        "UPDATE queue_entry SET status = 'done' WHERE id = $1::uuid", qid
+    )
+    await ClinicConfigService(pool).set_room_active(
+        identity=_quan_ly(), room_id=rid, is_active=False
+    )
+    assert not await pool.fetchval(
+        "SELECT is_active FROM clinic_room WHERE id = $1::uuid", rid
+    )
+
+
+async def test_buoc_chua_co_phong_bao_config_missing(pool: asyncpg.Pool) -> None:
+    """DXA / tinh dịch đồ chưa có phòng: báo CONFIG_MISSING, không tự tạo phòng."""
+    ov = await ClinicConfigService(pool).overview(identity=_quan_ly())
+    thieu = {t["code"] for t in ov["config_missing"]}
+    assert "DICHVU-DXA" in thieu
+    assert all(t["loi"] == "CONFIG_MISSING" for t in ov["config_missing"])
+    assert "DICHVU-SIEUAM" not in thieu

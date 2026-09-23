@@ -121,9 +121,30 @@ class ClinicConfigService:
             " WHERE clinic_id = $1::uuid ORDER BY code",
             identity.clinic_id,
         )
+        # CONFIG_MISSING: bước dịch vụ không có PHÒNG ĐANG BẬT nào phục vụ —
+        # chỉ định vào bước ấy sẽ không xếp được phòng. Không tự tạo phòng: báo
+        # để quản lý cấu hình (vd DICHVU-DXA, DICHVU-TINHDICHDO, 23/09/2026).
+        thieu = await self._pool.fetch(
+            """
+            SELECT n.code, n.name FROM public.node_definition n
+             WHERE n.clinic_id = $1::uuid AND n.code LIKE 'DICHVU-%'
+               AND n.is_active
+               AND NOT EXISTS (
+                     SELECT 1 FROM public.clinic_room_node rn
+                       JOIN public.clinic_room r ON r.id = rn.room_id
+                      WHERE rn.clinic_id = n.clinic_id AND rn.node_code = n.code
+                        AND r.is_active)
+             ORDER BY n.code
+            """,
+            identity.clinic_id,
+        )
         return {
             "locations": _group_locations(rows),
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
+            "config_missing": [
+                {"code": t["code"], "name": t["name"], "loi": "CONFIG_MISSING"}
+                for t in thieu
+            ],
         }
 
     async def services(self, *, identity: StaffIdentity) -> dict[str, Any]:
@@ -256,6 +277,148 @@ class ClinicConfigService:
             identity, loai="room_floor", doi_tuong_id=room_id, payload={"floor": clean}
         )
         return {"ok": True, "room_code": updated, "floor": clean}
+
+    # ── Phòng là TÀI NGUYÊN (CORE-C, 23/09/2026) ─────────────────────────────
+    # Định danh phòng là `room_id`. Tên chỉ để hiển thị — đổi "Siêu âm 1" thành
+    # "Phòng Hoa" không đụng tới lịch trực, hàng chờ hay quyền. `code` là mã NỘI
+    # BỘ tự sinh cho phòng mới, không ai phải gõ, không nghĩa nghiệp vụ.
+
+    async def create_room(
+        self,
+        *,
+        identity: StaffIdentity,
+        location_id: str,
+        name: str,
+        node_code: str,
+        floor: str | None = None,
+    ) -> dict[str, Any]:
+        """Thêm phòng. Phải chọn luôn bước chính (bảng bắt buộc): "phòng này làm
+        việc gì" — thêm bước khác sau ở danh sách bước phục vụ."""
+        assert_may_configure(identity)
+        ten = " ".join((name or "").split())
+        if not ten or len(ten) > 80:
+            raise ValidationError("Tên phòng phải có, tối đa 80 ký tự.")
+        tang = (floor or "").strip() or None
+        async with self._pool.acquire() as conn, conn.transaction():
+            if not await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.clinic_location"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid)",
+                location_id,
+                identity.clinic_id,
+            ):
+                raise ValidationError("Không tìm thấy cơ sở này.")
+            if not await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.node_definition"
+                " WHERE clinic_id = $1::uuid AND code = $2)",
+                identity.clinic_id,
+                node_code,
+            ):
+                raise ValidationError(f"Không có bước “{node_code}”.")
+            room_id = await conn.fetchval(
+                """
+                INSERT INTO public.clinic_room
+                    (clinic_id, location_id, code, name, node_code, floor, sort)
+                SELECT $1::uuid, $2::uuid,
+                       'P-' || upper(substr(md5(gen_random_uuid()::text), 1, 8)),
+                       $3, $4, $5,
+                       coalesce((SELECT max(sort) FROM public.clinic_room
+                                  WHERE location_id = $2::uuid), 0) + 10
+                RETURNING id::text
+                """,
+                identity.clinic_id,
+                location_id,
+                ten,
+                node_code,
+                tang,
+            )
+            await conn.execute(
+                "INSERT INTO public.clinic_room_node (clinic_id, room_id, node_code)"
+                " VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
+                identity.clinic_id,
+                room_id,
+                node_code,
+            )
+        await self._ghi_nhat_ky(
+            identity,
+            loai="room_created",
+            doi_tuong_id=room_id,
+            payload={"name": ten, "node_code": node_code, "floor": tang},
+        )
+        return {"ok": True, "room_id": room_id}
+
+    async def rename_room(
+        self, *, identity: StaffIdentity, room_id: str, name: str
+    ) -> dict[str, Any]:
+        """Đổi TÊN hiển thị. `room_id` giữ nguyên nên lịch trực, hàng chờ, chỉ
+        định đã xếp vào phòng này không mất gì."""
+        assert_may_configure(identity)
+        ten = " ".join((name or "").split())
+        if not ten or len(ten) > 80:
+            raise ValidationError("Tên phòng phải có, tối đa 80 ký tự.")
+        cu = await self._pool.fetchval(
+            """
+            WITH cu AS (SELECT name FROM public.clinic_room
+                         WHERE id = $1::uuid AND clinic_id = $2::uuid)
+            UPDATE public.clinic_room r SET name = $3, updated_at = now()
+              FROM cu WHERE r.id = $1::uuid AND r.clinic_id = $2::uuid
+            RETURNING cu.name
+            """,
+            room_id,
+            identity.clinic_id,
+            ten,
+        )
+        if cu is None:
+            raise ValidationError("Không tìm thấy phòng này.")
+        await self._ghi_nhat_ky(
+            identity,
+            loai="room_renamed",
+            doi_tuong_id=room_id,
+            payload={"tu": cu, "thanh": ten},
+        )
+        return {"ok": True, "room_id": room_id, "name": ten}
+
+    async def set_room_active(
+        self, *, identity: StaffIdentity, room_id: str, is_active: bool
+    ) -> dict[str, Any]:
+        """Bật/tắt phòng. Tắt chứ không xoá: lịch sử khám ở phòng này còn trỏ
+        vào nó. Không tắt được khi còn khách đang chờ/đang làm trong phòng."""
+        assert_may_configure(identity)
+        async with self._pool.acquire() as conn, conn.transaction():
+            room = await conn.fetchrow(
+                "SELECT id FROM public.clinic_room"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                room_id,
+                identity.clinic_id,
+            )
+            if room is None:
+                raise ValidationError("Không tìm thấy phòng này.")
+            if not is_active:
+                con_khach = await conn.fetchval(
+                    "SELECT count(*) FROM public.queue_entry"
+                    " WHERE clinic_id = $1::uuid AND room_id = $2::uuid"
+                    "   AND status IN ('waiting', 'called', 'serving')",
+                    identity.clinic_id,
+                    room_id,
+                )
+                if con_khach:
+                    raise ValidationError(
+                        f"Phòng còn {con_khach} khách đang chờ/đang làm —"
+                        " chuyển khách sang phòng khác trước khi tắt."
+                    )
+            await conn.execute(
+                "UPDATE public.clinic_room SET is_active = $3, updated_at = now()"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                room_id,
+                identity.clinic_id,
+                is_active,
+            )
+        await self._ghi_nhat_ky(
+            identity,
+            loai="room_active",
+            doi_tuong_id=room_id,
+            payload={"is_active": is_active},
+        )
+        return {"ok": True, "room_id": room_id, "is_active": is_active}
 
     async def set_room_nodes(
         self, *, identity: StaffIdentity, room_id: str, node_codes: list[str]

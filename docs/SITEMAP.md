@@ -99,7 +99,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/nhan-su` | QL | Quản lý nhân sự | GIỮ | **Không quản quyền** (23/09): ô "Được xác nhận tệp kết quả" (hệ `staff_capability` cũ) đã gỡ; nút `[Mở Phân quyền cho người này]` → `/phan-quyen?nguoi=<id>`. `/api/staff/{id}/capabilities` trả 410. |
 | `/settings` | QL | Cài đặt | GIỮ | |
 | `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | |
-| `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | |
+| `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | 23/09 (CORE-C): phòng là tài nguyên, định danh `room_id`. `[+ Thêm phòng]` (tên tự do + làm việc gì + tầng; mã nội bộ tự sinh, không hiện) · sửa tên tại chỗ · `[Tắt phòng]/[Bật phòng]` (chặn khi còn khách chờ) · dải cảnh báo bước chưa có phòng (`CONFIG_MISSING`). |
 | `/settings/tai-khoan` | QL | Thiết lập tài khoản cho nhân viên | GIỮ | |
 | `/settings/new-user` | QL | (không có mục; mở từ `/settings/tai-khoan`) | GIỮ | |
 | `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |

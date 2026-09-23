@@ -111,6 +111,65 @@ async def set_room_floor(
     )
 
 
+# ── Phòng là tài nguyên (CORE-C, 23/09/2026): định danh = room_id ──────────
+class RoomCreateRequest(BaseModel):
+    location_id: UUID
+    name: str = Field(min_length=1, max_length=80)
+    #: Bước chính — "phòng này làm việc gì". Thêm bước khác ở room-nodes.
+    node_code: str = Field(min_length=1, max_length=64)
+    floor: str | None = Field(default=None, max_length=40)
+
+
+@router.post("/clinic-config/rooms")
+async def create_room(
+    body: RoomCreateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm phòng. Tên tự do; mã nội bộ tự sinh, không ai phải gõ."""
+    return await ClinicConfigService(pool).create_room(
+        identity=identity,
+        location_id=str(body.location_id),
+        name=body.name,
+        node_code=body.node_code,
+        floor=body.floor,
+    )
+
+
+class RoomNameRequest(BaseModel):
+    room_id: UUID
+    name: str = Field(min_length=1, max_length=80)
+
+
+@router.put("/clinic-config/room-name")
+async def rename_room(
+    body: RoomNameRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi tên hiển thị — room_id giữ nguyên, lịch/hàng chờ không mất gì."""
+    return await ClinicConfigService(pool).rename_room(
+        identity=identity, room_id=str(body.room_id), name=body.name
+    )
+
+
+class RoomActiveRequest(BaseModel):
+    room_id: UUID
+    is_active: bool
+
+
+@router.put("/clinic-config/room-active")
+async def set_room_active(
+    body: RoomActiveRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật/tắt phòng (tắt chứ không xoá)."""
+    return await ClinicConfigService(pool).set_room_active(
+        identity=identity, room_id=str(body.room_id), is_active=body.is_active
+    )
+
+
 class NodesRequest(BaseModel):
     #: Danh sách ĐẦY ĐỦ, không phải phần thêm. Rỗng = không phục vụ bước nào.
     node_codes: list[str] = Field(default_factory=list)
