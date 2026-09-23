@@ -43,7 +43,7 @@ import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai, ViecDoiTac } from "./CustomersView";
 import type { MocTaiKham } from "./NhacTaiKham";
 import type { MaXacMinh } from "@/lib/xac-minh";
-import type { TepKetQuaRow } from "./TepKetQua";
+import { coTheGui, type TepKetQuaRow } from "./TepKetQua";
 
 /** MỘT Ô TRÊN DÒNG TRẠNG THÁI KHÁCH (Tuyền chốt 16/09/2026).
  *
@@ -859,8 +859,10 @@ export default function VungLamViecKhach({
   // (KQ_CHUA_GUI / CHO_BAC_SI) đếm MỌI tệp, kể cả video siêu âm, nên chỉ dùng
   // làm dự phòng khi màn chưa nạp tệp của lượt này.
   const coTep = tepCuaLuot.length > 0;
+  // "Gửi được" = tệp nội bộ hoặc tệp đối tác đã xác nhận đúng người — không
+  // còn đợi bác sĩ cho phép (Tuyền chốt 23/09/2026).
   const kqChoPhep = coTep
-    ? tepXetNghiem.some((t) => t.cho_phep_gui_luc)
+    ? tepXetNghiem.some(coTheGui)
     : coViec("KQ_CHUA_GUI");
   const kqDaVe = coTep
     ? tepXetNghiem.length > 0

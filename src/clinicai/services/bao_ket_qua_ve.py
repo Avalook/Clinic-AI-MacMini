@@ -2,7 +2,8 @@
 
 Kết quả xét nghiệm nhiều khi do đối tác làm. Khi kết quả được nhập / tệp kết
 quả được tải lên: CSKH (theo vai) và BÁC SĨ CỦA KHÁCH (đích danh) nhận thông báo
-chuông; bác sĩ bấm cho phép gửi thì CSKH gửi (luật 20260915000011).
+chuông. CSKH gửi được NGAY, không đợi bác sĩ cho phép (Tuyền chốt 23/09/2026 —
+luật 20260915000011 đã tắt ở 20260923000021).
 
 Chạy SAU khi giao dịch ghi kết quả đã commit và NUỐT LỖI: kết quả đã lưu, một
 thông báo hỏng không được làm hỏng việc đã xong (cùng mẫu booking_service).
@@ -62,10 +63,10 @@ async def bao_ket_qua_ve(
             nguon_id=f"{loai}:{ref_id}",
             muc_do="THUONG",
             tieu_de=tieu_de,
-            noi_dung="Chờ bác sĩ cho phép rồi gửi cho khách.",
+            noi_dung="Gửi cho khách được ngay.",
             duong_dan=f"/customers?selected={clinic_patient_id}",
         )
-        noi_dung_bs = "Xem và bấm cho phép gửi để CSKH gửi cho khách."
+        noi_dung_bs = "Kết quả đã về hồ sơ khách — xem khi cần."
         if row["bac_si_id"]:
             await tb.goi_nguoi(
                 identity=identity,

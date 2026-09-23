@@ -1,8 +1,9 @@
-"""Tệp kết quả: bác sĩ cho phép gửi từng tệp trước khi CSKH gửi (Tuyền 15/09/2026).
+"""Tệp kết quả: bác sĩ cho phép gửi — nay KHÔNG còn là cửa (Tuyền chốt 23/09/2026).
 
-Hành vi đầy đủ đã chạy thật trên Postgres (smoke 15/09: CSKH gửi khi chưa cho
-phép bị chặn, CSKH tự cho phép bị chặn, ghi thẳng DB bị trigger chặn, bác sĩ cho
-phép → việc CSKH đổi CHO_BAC_SI → KQ_CHUA_GUI → gửi xong hết việc).
+Luật 15/09 "bác sĩ cho phép trước rồi CSKH mới gửi" đã TẮT (migration
+20260923000021): "cứ open đi, cho gửi cũng được". Nút cho phép của bác sĩ còn
+giữ (ghi vết), nhưng CSKH gửi được ngay. Tệp của ĐỐI TÁC vẫn phải xác nhận
+đúng người, đúng chỉ định (HOP_LE) mới gửi được.
 """
 
 from __future__ import annotations
@@ -48,20 +49,38 @@ def test_chi_bac_si_cho_phep_gui(role: ClinicRole) -> None:
 
 
 class _Pool:
-    async def fetchrow(self, *_: Any) -> dict[str, Any]:
-        return {"gui_luc": None, "cho_phep_gui_luc": None, "xac_nhan_trang_thai": None}
+    def __init__(self, xac_nhan: str | None) -> None:
+        self.xac_nhan = xac_nhan
+
+    async def fetchrow(self, sql: str, *_: Any) -> dict[str, Any] | None:
+        if sql.lstrip().startswith("UPDATE"):
+            return {"id": TEP}
+        return {
+            "gui_luc": None,
+            "cho_phep_gui_luc": None,
+            "xac_nhan_trang_thai": self.xac_nhan,
+        }
 
 
-def test_chua_cho_phep_thi_cskh_khong_danh_dau_da_gui() -> None:
-    with pytest.raises(ConflictError, match="chưa cho phép"):
+def test_chua_cho_phep_cskh_van_danh_dau_da_gui_duoc() -> None:
+    kq = asyncio.run(
+        TepKetQuaService(_Pool(None)).danh_dau_da_gui(
+            identity=_identity(ClinicRole.CSKH), tep_id=TEP, kenh="ZALO"
+        )
+    )
+    assert kq == {"ok": True}
+
+
+def test_tep_doi_tac_chua_xac_nhan_dung_nguoi_van_bi_chan() -> None:
+    with pytest.raises(ConflictError, match="chưa ở trạng thái hợp lệ"):
         asyncio.run(
-            TepKetQuaService(_Pool()).danh_dau_da_gui(
+            TepKetQuaService(_Pool("CHO_XAC_NHAN")).danh_dau_da_gui(
                 identity=_identity(ClinicRole.CSKH), tep_id=TEP, kenh="ZALO"
             )
         )
 
 
-def test_cau_update_da_gui_tu_kiem_cho_phep() -> None:
+def test_cau_update_da_gui_khong_con_doi_cho_phep() -> None:
     ma = inspect.getsource(TepKetQuaService.danh_dau_da_gui)
     dau = ma.index("UPDATE public.tep_ket_qua")
-    assert "cho_phep_gui_luc IS NOT NULL" in ma[dau : ma.index('"""', dau)]
+    assert "cho_phep_gui_luc IS NOT NULL" not in ma[dau : ma.index('"""', dau)]

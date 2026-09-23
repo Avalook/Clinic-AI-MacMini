@@ -786,20 +786,16 @@ class TepKetQuaService:
         )
         if hien is None:
             raise NotFoundError("Không tìm thấy tệp này.")
-        # BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026). Trigger
-        # `tep_ket_qua_gui_phai_duoc_cho_phep` cũng chặn — câu ở đây nói bằng
-        # tiếng người trước khi chạm ràng buộc.
-        if hien.get("cho_phep_gui_luc") is None:
-            raise ConflictError(
-                "Bác sĩ chưa cho phép gửi tệp này — chờ bác sĩ xem và cho phép."
-            )
+        # KHÔNG CÒN ĐỢI BÁC SĨ CHO PHÉP (Tuyền chốt 23/09/2026: "cứ open đi,
+        # cho gửi cũng được"). Luật 15/09 đã TẮT ở đây và ở trigger
+        # `tep_ket_qua_gui_phai_duoc_cho_phep` (migration 20260923000021).
         # External files: phải ở HOP_LE. Internal (NULL): không yêu cầu.
         xn_state = hien.get("xac_nhan_trang_thai")
         if xn_state is not None and xn_state != "HOP_LE":
             raise ConflictError(
                 "Tệp kết quả chưa ở trạng thái hợp lệ để gửi cho khách."
             )
-        # External: yêu cầu HOP_LE + cho_phep_gui. Internal: chỉ cho_phep_gui.
+        # External: vẫn phải HOP_LE (đúng người, đúng chỉ định). Internal: gửi được.
         where_extra = (
             "AND xac_nhan_trang_thai = 'HOP_LE'" if xn_state is not None else ""
         )
@@ -808,7 +804,6 @@ class TepKetQuaService:
             UPDATE public.tep_ket_qua
                SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
              WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
-               AND cho_phep_gui_luc IS NOT NULL
                {where_extra}
             RETURNING id::text
             """,

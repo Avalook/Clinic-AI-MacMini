@@ -1707,22 +1707,19 @@ async def test_t10_internal_direct_tamper_rejected_at_db(
                 tep_id,
             )
 
-        # Direct SQL attempt to set gui_luc without doctor approval -> rejected
-        with pytest.raises(
-            (asyncpg.RaiseError, asyncpg.CheckViolationError),
-            match="Bác sĩ chưa cho phép gửi",
-        ):
-            await conn.execute(
-                """
-                UPDATE tep_ket_qua
-                   SET gui_luc = now(),
-                       gui_boi_staff_id = $1::uuid,
-                       gui_kenh = 'ZALO'
-                 WHERE id = $2::uuid
-                """,
-                doc.staff_id,
-                tep_id,
-            )
+        # Tệp NỘI BỘ gửi được mà không cần bác sĩ cho phép (Tuyền chốt
+        # 23/09/2026 — luật 15/09 đã tắt ở migration 20260923000021).
+        await conn.execute(
+            """
+            UPDATE tep_ket_qua
+               SET gui_luc = now(),
+                   gui_boi_staff_id = $1::uuid,
+                   gui_kenh = 'ZALO'
+             WHERE id = $2::uuid
+            """,
+            doc.staff_id,
+            tep_id,
+        )
 
         # Cleanup
         await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)

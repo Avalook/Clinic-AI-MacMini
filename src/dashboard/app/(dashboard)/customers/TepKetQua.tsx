@@ -64,6 +64,13 @@ function gio(iso: string): string {
   });
 }
 
+/** Tệp này CSKH gửi được chưa: tệp nội bộ luôn được; tệp đối tác phải đã
+ *  xác nhận đúng người, đúng chỉ định (HOP_LE). Bác sĩ cho phép KHÔNG còn là
+ *  điều kiện (23/09/2026). */
+export function coTheGui(t: { xac_nhan_trang_thai?: string | null }): boolean {
+  return t.xac_nhan_trang_thai == null || t.xac_nhan_trang_thai === "HOP_LE";
+}
+
 export default function TepKetQua({
   clinicPatientId,
   appointmentId,
@@ -372,19 +379,14 @@ export default function TepKetQua({
                     Chờ xác nhận đúng người/chỉ định
                   </p>
                 )}
-                {!t.gui_luc && t.xac_nhan_trang_thai !== "CHO_XAC_NHAN" && !t.cho_phep_gui_luc && (
-                  // BÁC SĨ CHO PHÉP TRƯỚC (15/09/2026): chưa cho phép thì không
-                  // có nút xác nhận đã gửi — backend và DB cũng chặn.
-                  <p className="mt-1.5 text-label font-medium text-warning">
-                    Chờ bác sĩ cho phép gửi
-                  </p>
-                )}
                 {!t.gui_luc && t.cho_phep_gui_luc && (
                   <p className="mt-1 text-label text-success">
                     {t.cho_phep_gui_boi ?? "Bác sĩ"} đã cho phép gửi {gio(t.cho_phep_gui_luc)}
                   </p>
                 )}
-                {!readOnly && !t.gui_luc && t.cho_phep_gui_luc && (
+                {/* GỬI ĐƯỢC NGAY (Tuyền chốt 23/09/2026): không còn đợi bác sĩ
+                    cho phép. Tệp đối tác vẫn phải xác nhận đúng người/chỉ định. */}
+                {!readOnly && !t.gui_luc && coTheGui(t) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* NHÃN NÓI ĐÚNG SỰ THẬT: người xác nhận đã gửi, hệ thống
                         chưa tự gửi được (send_zalo.py luôn delivered=False). */}
