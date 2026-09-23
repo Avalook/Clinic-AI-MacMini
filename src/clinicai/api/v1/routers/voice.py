@@ -23,11 +23,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from clinicai.api.identity import (
-    CLINICAL_WRITE_ROLES,
     StaffIdentity,
-    require_role,
 )
 from clinicai.api.rate_limit import InMemoryRateLimiter
+from clinicai.permissions.y_khoa import cua_ghi_y_khoa
 from clinicai.voice.transcribe import (
     Transcriber,
     VoiceModelNotConfiguredError,
@@ -43,7 +42,7 @@ _ALLOWED_AUDIO_TYPES: dict[str, frozenset[str]] = {
     "mp3": frozenset({"audio/mpeg", "audio/mp3"}),
     "m4a": frozenset({"audio/mp4", "audio/m4a", "audio/x-m4a"}),
 }
-_VOICE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+_VOICE_GUARD = cua_ghi_y_khoa
 VOICE_RATE_LIMIT = InMemoryRateLimiter(
     scope="voice-transcribe",
     limit=10,

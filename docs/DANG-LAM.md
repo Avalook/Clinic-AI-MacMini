@@ -13,6 +13,29 @@ lịch sử hội thoại.
 
 ---
 
+## Quản lý có đủ khối — đọc/sửa y khoa theo QUYỀN (24/09 — CHƯA deploy)
+
+Tuyền chốt: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó có cả",
+không tách đọc với sửa.
+
+- **Nhóm mẫu Quản lý = mọi khối trừ 2 khối cần chứng chỉ hành nghề** (hoàn tất khám,
+  duyệt kết quả): `catalogue._khoi_quan_ly()` + migration `20260924000014` (thêm tư vấn,
+  khám, ghi bệnh án, xác nhận kết quả; chạy lại `cap_quyen_cho_moi_thanh_vien`).
+- **Cửa nội dung y khoa hỏi QUYỀN** (`permissions/y_khoa.py`): có một khối khám / kết quả
+  là mở được. 6 router thôi gác vai: `clinical_records` (đọc hồ sơ, in phiếu), `clinical_forms`,
+  `voice`, `service_log`, `thu_ky` (lịch sử lâm sàng), `lab` (nhập / phân loại / đọc kết quả);
+  bảng lượt khám hiện chữ bác sĩ theo quyền. Giao diện: `docDuocYKhoa()`
+  (`lib/quyen-cua-toi.ts`, đọc `/phan-quyen/toi`) thay `canReadClinical` ở hồ sơ khách,
+  danh sách bệnh nhân, trang chủ, phiếu in; `/api/clinical-form` thôi gác vai.
+  Lễ tân / thu ngân / CSKH / dược sĩ / trưởng ca vẫn không mở (nhóm mẫu không có khối y khoa).
+- **Nhật ký mở hồ sơ y khoa** (Tuyền duyệt): `clinical_record.opened` vào `event_log`, hiện
+  ở màn Lịch sử thao tác ("Mở hồ sơ y khoa"). Chỉ ghi cho người NGOÀI vai lâm sàng; chỉ mã
+  khách + tên màn, không nội dung. Gắn ở: bệnh án, in phiếu, hồ sơ khách, phiếu cũ, phiếu v5.
+- **Giữ nguyên có chủ ý:** AI tóm tắt trước khám (`/brief`) và chỉ định xét nghiệm / duyệt
+  kết quả xét nghiệm (`lab` `_ORDER_GUARD` / `_REVIEW_GUARD`) vẫn gác vai bác sĩ — việc có
+  giấy phép hành nghề. RLS `role_scoped_clinical_read` giữ chặt: trình duyệt không đọc thẳng
+  bảng nữa nên không cản ai. `canReadClinical`/`canWriteClinical` gắn ⏸ OFF, không xoá.
+
 ## Trả nợ đợt 2 (24/09 rạng sáng — CHƯA deploy)
 
 Tuyền: "làm nốt những nợ chưa xong". Rà bằng 3 nhánh dò: sinh hiệu/giá/nhà thuốc,

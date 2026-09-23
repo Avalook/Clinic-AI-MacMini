@@ -19,10 +19,8 @@ from pydantic import BaseModel
 
 from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
-    PHYSICIAN_ROLES,
     ClinicRole,
     StaffIdentity,
-    require_role,
 )
 from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.core.database import get_db_pool
@@ -31,12 +29,16 @@ from clinicai.graphs.pre_visit_brief import (
     build_pre_visit_brief_subgraph,
 )
 from clinicai.llm.anthropic_client import AnthropicClient
+from clinicai.permissions.y_khoa import cua_y_khoa
 from clinicai.tools.brief.generate_brief import PreVisitBrief
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/brief", tags=["brief"])
-_BRIEF_GUARD = require_role(*PHYSICIAN_ROLES, ClinicRole.TKYK)
+#: Tóm tắt AI trước khám là NỘI DUNG Y KHOA — cùng cửa với hồ sơ: ai có một
+#: khối khám / kết quả (permissions/y_khoa.py). Hỏi quyền, không hỏi vai
+#: (24/09/2026, Tuyền: "vai chỉ là tên — bản chất là các khối").
+_BRIEF_GUARD = cua_y_khoa
 BRIEF_RATE_LIMIT = InMemoryRateLimiter(
     scope="pre-visit-brief",
     limit=20,

@@ -2,7 +2,7 @@
 //   GET  ?visitId=&serviceCode=         → form_data đã lưu (hoặc {} nếu chưa có).
 //   POST { visitId, serviceCode, form_data }  → tạo/cập nhật (upsert) form_data.
 //   PATCH = alias POST (cùng upsert).
-// Gate: ai có quyền ghi lâm sàng (canWriteClinical: BS, BS siêu âm, TKYK, Điều dưỡng)
+// Gate: backend hỏi QUYỀN (khối ghi bệnh án / điền kết quả) — permissions/y_khoa.py
 // mới ghi. service_code phải có trong registry.
 //
 // ⚠️ SAFETY GATE FINALIZED (migration 043 append-only đang PENDING → ép Ở APP LAYER):
@@ -12,8 +12,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
 import { docTuBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import {
@@ -80,13 +78,9 @@ async function write(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await vaiLamViec((r) => canWriteClinical(r));
-  if (!canWriteClinical(role)) {
-    return NextResponse.json(
-      { error: "Bạn không có quyền điền phiếu khám chuyên khoa." },
-      { status: 403 },
-    );
-  }
+  // Quyền do BACKEND quyết (khối ghi bệnh án / điền kết quả —
+  // permissions/y_khoa.py, 24/09/2026). Giao diện không gác vai nữa: hai hệ
+  // quyền từng chặn nhầm người đã được cấp (BAN-DO mục 45).
 
   let body: WriteBody;
   try {

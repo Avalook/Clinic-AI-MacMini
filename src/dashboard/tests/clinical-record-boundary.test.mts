@@ -22,8 +22,10 @@ test("clinical-record GET: backend quyết ai đọc được, trang không tự
   assert.match(getSource, /\/api\/v1\/clinical-records\/doc/);
   assert.doesNotMatch(getSource, /\.from\(["']/);
   assert.doesNotMatch(getSource, /\.rpc\(["']/);
+  // 24/09/2026 (Tuyền chốt): cửa đọc hỏi QUYỀN — có khối khám / kết quả —
+  // không hỏi vai; quản lý có đủ khối nên đọc được.
   const py = read("../../clinicai/api/v1/routers/clinical_records.py");
-  assert.match(py, /_DOC_HO_SO_GUARD = require_role\(\*CLINICAL_WRITE_ROLES\)/);
+  assert.match(py, /_DOC_HO_SO_GUARD = cua_y_khoa/);
   const svc = read("../../clinicai/services/ho_so_lam_sang_doc.py");
   assert.match(svc, /khach_duoc_xem/);
 });
@@ -52,14 +54,34 @@ test("the clinical role authority comes from clinic_membership, not department o
 });
 
 test("operational roles cannot open a clinical-record popup", () => {
-  assert.match(
-    patientListSource,
-    /const enablePopup = vaiHomNay\.some\(canReadClinical\)/,
-  );
+  // 24/09/2026: mở bệnh án theo QUYỀN (docDuocYKhoa), không theo vai. Người
+  // chỉ có khối vận hành (check-in, thu tiền, đặt lịch, nhà thuốc) vẫn không
+  // mở được: danh sách quyền y khoa không chứa quyền vận hành nào.
+  assert.match(patientListSource, /const enablePopup = await docDuocYKhoa\(\)/);
+  const home = read("../app/(dashboard)/home/page.tsx");
+  assert.match(home, /const writeClinical = await docDuocYKhoa\(\)/);
   // DoctorWorkBoard (/tasks) và HomeCheckin đã gỡ 18/09/2026 — hai lối mở
   // bệnh án ấy không còn tồn tại (xem man-da-gop-boundary.test.mts).
   assert.match(
     weeklyAppointmentsSource,
     /\{canWriteClinical && selAppt && \(/,
   );
+  const fe = read("../lib/quyen-cua-toi.ts");
+  const py = read("../../clinicai/permissions/y_khoa.py");
+  for (const src of [fe, py]) {
+    for (const vanHanh of [
+      "reception.checkin.perform",
+      "payment.service.collect",
+      "payment.medicine.collect",
+      "booking.create",
+      "pharmacy.dispense",
+      "service.routing.assign",
+    ]) {
+      assert.ok(!src.includes(`"${vanHanh}"`), `quyền vận hành ${vanHanh} không được mở y khoa`);
+    }
+  }
+  // Hai bản danh sách (giao diện / backend) phải khớp nhau.
+  const lay = (src: string) =>
+    [...src.matchAll(/"((?:clinical|result)\.[a-z_.]+)"/g)].map((m) => m[1]).sort();
+  assert.deepEqual(lay(fe), lay(py.slice(py.indexOf("QUYEN_Y_KHOA"), py.indexOf("QUYEN_GHI_Y_KHOA"))));
 });

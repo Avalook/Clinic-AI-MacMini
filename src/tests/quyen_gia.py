@@ -39,3 +39,24 @@ async def can_theo_nhom_mau(
     """Như `can` thật, trả lời theo nhóm mẫu của vai (xem đầu file)."""
     tra_quyen(quyen)
     return quyen in quyen_cua_preset(identity.role.value)
+
+
+class PoolGia:
+    """Pool giả tối thiểu cho cửa quyền router (`cua_quyen`) — chỉ cần mở được
+    một "kết nối" để truyền cho `can` giả; không chạy SQL nào."""
+
+    def acquire(self) -> PoolGia:
+        return self
+
+    async def __aenter__(self) -> object:
+        return object()
+
+    async def __aexit__(self, *_a: object) -> bool:
+        return False
+
+
+def cua_router_theo_nhom_mau(monkeypatch: Any) -> None:
+    """Cửa quyền ở ROUTER (`cua_quyen`, `permissions/y_khoa`) trả lời theo nhóm
+    mẫu của vai — dùng cho bài kiểm router chạy trên pool giả."""
+    monkeypatch.setattr("clinicai.permissions.cua_quyen.can", can_theo_nhom_mau)
+    monkeypatch.setattr("clinicai.permissions.y_khoa.can", can_theo_nhom_mau)

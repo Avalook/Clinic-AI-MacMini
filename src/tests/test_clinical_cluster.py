@@ -19,7 +19,8 @@ from clinicai.api.v1.routers.lab import _ORDER_GUARD, _RESULT_GUARD
 from clinicai.api.v1.routers.ultrasound import _SONOGRAPHER_GUARD
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.exceptions import ValidationError as CoreValidationError
-from clinicai.permissions.catalogue import PRESET, QUYEN
+from clinicai.permissions.catalogue import KHOI, PRESET, QUYEN
+from clinicai.permissions.y_khoa import QUYEN_GHI_Y_KHOA, cua_ghi_y_khoa
 from clinicai.services.clinical_record_service import (
     ARRIVED_APPOINTMENT_STATUSES as ARRIVED,
 )
@@ -159,18 +160,14 @@ class TestGuards:
             {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
         )
 
-    def test_reception_and_management_may_not_enter_results(self) -> None:
-        # Entering a lab result is clinical work — decided 2026-06-17.
-        assert ClinicRole.RECEPTION not in _RESULT_GUARD.allowed_roles
-        assert ClinicRole.MANAGEMENT not in _RESULT_GUARD.allowed_roles
-        assert _RESULT_GUARD.allowed_roles == frozenset(
-            {
-                ClinicRole.DOCTOR,
-                ClinicRole.ULTRASOUND_DOCTOR,
-                ClinicRole.TKYK,
-                ClinicRole.NURSE_ULTRASOUND,
-            }
-        )
+    def test_results_are_entered_by_permission_not_role(self) -> None:
+        # 24/09/2026 (Tuyền chốt): nhập kết quả hỏi QUYỀN — khối ghi bệnh án /
+        # điền kết quả — không hỏi vai. Lễ tân không có khối nào trong đó theo
+        # nhóm mẫu; quản lý có (quản lý có mọi khối trừ khối cần chứng chỉ).
+        assert _RESULT_GUARD is cua_ghi_y_khoa
+        khoi_ghi = {QUYEN[q].khoi for q in QUYEN_GHI_Y_KHOA}
+        assert not khoi_ghi & set(PRESET["RECEPTION"])
+        assert khoi_ghi & set(PRESET["MANAGEMENT"])
 
     def test_ultrasound_stays_narrow(self) -> None:
         # Deliberately not widened to doctors in general.
@@ -184,7 +181,9 @@ class TestClinicalRecordWriteRoles:
     `ghi_benh_an`), cấp theo nhóm mẫu của vai (CORE-B3, 23/09/2026). Ý nghĩa giữ
     nguyên: điều dưỡng và lễ tân chỉ đo sinh hiệu (Tuyền chốt 16/09/2026) —
     bệnh sử, tiền sử, khám, chẩn đoán là phần chịu trách nhiệm chuyên môn của
-    bác sĩ; thư ký nhập hộ được. Quản lý không có: phụ trách ≠ làm lâm sàng.
+    bác sĩ; thư ký nhập hộ được. Quản lý CÓ từ 24/09/2026 (Tuyền: "quản lý
+    quyền cao nhất — có module đó thì mọi quyền của nó có cả"), trừ hai khối
+    cần chứng chỉ hành nghề.
     """
 
     @pytest.mark.parametrize("vai", ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"])
@@ -199,12 +198,17 @@ class TestClinicalRecordWriteRoles:
             "CASHIER",
             "CASHIER_THUOC",
             "CASHIER_DV",
-            "MANAGEMENT",
             "TRUONG_CA",
         ],
     )
     def test_nguoi_khac_khong_co(self, vai: str) -> None:
         assert "ghi_benh_an" not in PRESET.get(vai, [])
+
+    def test_quan_ly_co_moi_khoi_tru_khoi_can_chung_chi(self) -> None:
+        can_chung_chi = {q.khoi for q in QUYEN.values() if q.chung_chi_lam_sang}
+        assert can_chung_chi == {"hoan_tat_kham", "duyet_ket_qua"}
+        assert not can_chung_chi & set(PRESET["MANAGEMENT"])
+        assert set(PRESET["MANAGEMENT"]) | can_chung_chi == set(KHOI)
 
     def test_quyen_ghi_benh_an_nam_trong_khoi_ay(self) -> None:
         assert QUYEN["clinical.record.write"].khoi == "ghi_benh_an"

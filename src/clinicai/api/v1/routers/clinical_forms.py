@@ -10,18 +10,18 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    CLINICAL_WRITE_ROLES,
     StaffIdentity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa, ghi_mo_ho_so
 from clinicai.services.andrology_review_service import AndrologyReviewService
 from clinicai.services.clinical_form_service import ClinicalFormService
 
 router = APIRouter()
 
 # Reading or filling in an exam form is clinical work (ROLE-02).
-_FORM_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+_FORM_GUARD = cua_y_khoa
+_FORM_GHI_GUARD = cua_ghi_y_khoa
 
 
 class ClinicalFormSaveRequest(BaseModel):
@@ -39,16 +39,17 @@ class ClinicalFormSaveRequest(BaseModel):
 async def read_clinical_form(
     visit_id: UUID,
     service_code: str,
-    # Giữ cửa VAI lâm sàng (ROLE-02: lễ tân, thu ngân, QUẢN LÝ không đọc nội
-    # dung y khoa). Đổi sang quyền "điền kết quả" từng mở cho quản lý — bài
-    # test_clinical_read_and_legacy_boundaries bắt được (24/09/2026).
+    # Ai có khối khám / kết quả (permissions/y_khoa.py) — gồm quản lý từ
+    # 24/09/2026 (Tuyền: "có module đó thì mọi quyền của nó có cả").
     identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Read one form. Medical content is limited to clinical roles."""
-    return await ClinicalFormService(pool).get_form(
+    """Read one form. Medical content needs a consultation / result pack."""
+    data = await ClinicalFormService(pool).get_form(
         visit_id=str(visit_id), service_code=service_code, identity=identity
     )
+    await ghi_mo_ho_so(pool, identity, noi="phieu-kham-cu", visit_id=str(visit_id))
+    return data
 
 
 @router.get("/clinical-forms/history")
@@ -68,7 +69,7 @@ async def read_exam_history(
 @router.put("/clinical-forms")
 async def save_clinical_form(
     body: ClinicalFormSaveRequest,
-    identity: StaffIdentity = Depends(_FORM_GUARD),
+    identity: StaffIdentity = Depends(_FORM_GHI_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Upsert one form. Refused once the visit is FINALIZED (ADR-0008)."""
@@ -93,7 +94,7 @@ class AndrologyReviewRequest(BaseModel):
 @router.post("/clinical-forms/andrology-review")
 async def andrology_review(
     body: AndrologyReviewRequest,
-    identity: StaffIdentity = Depends(_FORM_GUARD),
+    identity: StaffIdentity = Depends(_FORM_GHI_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Cờ dưới ngưỡng WHO, gợi ý xét nghiệm di truyền, và BMI — cho form NK.

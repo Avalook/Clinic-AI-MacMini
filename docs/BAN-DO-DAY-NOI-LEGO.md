@@ -215,6 +215,10 @@ khách, tới giờ chuông réo đúng người.
     thực. Số đếm "hôm nay" tính ở backend theo giờ VN (tab Toàn cảnh từng lệch 7 giờ).
     Thêm tính năng đọc mới = thêm hàm `*_doc.py` + endpoint, không thêm `.from(` ở dashboard;
     bài `postgrest-select-boundary` giữ ngưỡng thấp vì số chuỗi select chỉ được giảm.
+47. **Nội dung y khoa theo QUYỀN, quản lý có đủ khối** (24/09, Tuyền chốt): cửa đọc/ghi y
+    khoa = có một khối khám / kết quả (`permissions/y_khoa.py`); nhóm mẫu Quản lý = mọi khối
+    trừ khối cần chứng chỉ (tự tính, khối mới tự vào). Mở rộng quyền đi kèm nhật ký
+    `clinical_record.opened` cho người ngoài vai lâm sàng.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

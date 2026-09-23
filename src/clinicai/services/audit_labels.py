@@ -135,6 +135,7 @@ EVENT_LABELS: dict[str, str] = {
     "clinical_data_consent.revoked": "Thu hồi đồng ý chia sẻ",
     # ── Khám & bệnh án ──────────────────────────────────────────────────────
     "clinical_record.saved": "Lưu bệnh án",
+    "clinical_record.opened": "Mở hồ sơ y khoa",
     "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
     "prescription.corrected": "Bác sĩ đính chính đơn thuốc",
     # Lát CD-01 (23/09): một lệnh thay hai bước; bác sĩ và thư ký y khoa ngang

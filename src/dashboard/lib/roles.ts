@@ -111,7 +111,11 @@ export function isThuKyRole(role: ClinicRole | null): boolean {
   return role === "TKYK";
 }
 
-/** Ghi LÂM SÀNG (lý do khám, sinh hiệu, bệnh án, KQ xét nghiệm, log SA) = CHỈ
+/** ⏸ OFF 24/09/2026 cho màn đang dùng — nội dung y khoa hỏi QUYỀN qua
+ *  `docDuocYKhoa()` (lib/quyen-cua-toi.ts), backend `permissions/y_khoa.py`.
+ *  Chỉ còn hai route `/api` đã tắt (410) gọi hàm này; giữ, không xoá.
+ *
+ *  Ghi LÂM SÀNG (lý do khám, sinh hiệu, bệnh án, KQ xét nghiệm, log SA) = CHỈ
  *  Bác sĩ + Điều dưỡng + Thư ký Y khoa (recap 17/6). Lễ tân / Quản lý làm hành
  *  chính (check-in, hồ sơ hành chính) — KHÔNG ghi lâm sàng. Tách bạch với
  *  canCheckin (đón khách = hành chính, rộng hơn). */
@@ -119,7 +123,7 @@ export function canWriteClinical(role: ClinicRole | null): boolean {
   return isDoctorRole(role) || isNurseRole(role) || isThuKyRole(role);
 }
 
-/** Reading the medical note has the same boundary as writing it (ROLE-02). */
+/** ⏸ OFF 24/09/2026 — thay bằng `docDuocYKhoa()` (theo quyền). Giữ, không xoá. */
 export function canReadClinical(role: ClinicRole | null): boolean {
   return canWriteClinical(role);
 }

@@ -13,12 +13,11 @@ import asyncpg
 from fastapi import APIRouter, Depends
 
 from clinicai.api.identity import (
-    CLINICAL_WRITE_ROLES,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import cua_y_khoa, ghi_mo_ho_so
 from clinicai.services import ho_so_khach_doc
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem, kiem_khach, pham_vi
 
@@ -81,14 +80,16 @@ async def ho_so_hanh_chinh(
 @router.get("/ho-so-khach/{clinic_patient_id}/lich-su-lam-sang")
 async def ho_so_lich_su_lam_sang(
     clinic_patient_id: UUID,
-    # ROLE-02: nội dung y khoa chỉ cho vai lâm sàng.
-    identity: StaffIdentity = Depends(require_role(*CLINICAL_WRITE_ROLES)),
+    # Nội dung y khoa: ai có khối khám / kết quả (permissions/y_khoa.py).
+    identity: StaffIdentity = Depends(cua_y_khoa),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Lượt khám (+ SOAP), xét nghiệm, thai kỳ."""
-    return await ho_so_khach_doc.lich_su_lam_sang(
+    data = await ho_so_khach_doc.lich_su_lam_sang(
         pool, identity=identity, khach=str(clinic_patient_id)
     )
+    await ghi_mo_ho_so(pool, identity, noi="ho-so-khach", khach=str(clinic_patient_id))
+    return data
 
 
 @router.get("/ho-so-khach/{clinic_patient_id}/cskh")

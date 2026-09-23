@@ -11,7 +11,6 @@ import PatientCskhLog from "./PatientCskhLog";
 import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
 import { vaiLamViec } from "../../../../lib/clinic-session";
 import {
-  canReadClinical,
   canWriteIntake,
   isDoctorRole,
   isPhysicianRole,
@@ -20,6 +19,7 @@ import {
 import type { Option } from "../AppointmentBooking";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
+import { docDuocYKhoa } from "../../../../lib/quyen-cua-toi";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,8 @@ export default async function PatientDetailPage({
   // Sửa thông tin hành chính: intake + bác sĩ (canEditPatient) — vd CSKH mở từ
   // "Danh sách bệnh nhân" sửa tại trang chi tiết.
   const canEdit = canEditPatient(role);
-  const canSeeClinicalHistory = canReadClinical(role);
+  // Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
+  const canSeeClinicalHistory = await docDuocYKhoa();
 
   let services: Option[] = [];
   let doctors: Option[] = [];

@@ -26,9 +26,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
-    CLINICAL_WRITE_ROLES,
     PHYSICIAN_ROLES,
-    ClinicRole,
     StaffIdentity,
     require_role,
 )
@@ -40,6 +38,8 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa
 from clinicai.services.lab_safety_service import LabReviewOutcome, LabSafetyService
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
@@ -51,21 +51,23 @@ router = APIRouter(prefix="/lab", tags=["lab"])
 _ORDER_GUARD = require_role(*PHYSICIAN_ROLES)
 # Entering a result is clinical work: doctors, nurses and the medical secretary.
 # Reception and management are deliberately excluded.
-_RESULT_GUARD = require_role(*CLINICAL_WRITE_ROLES)
-_TRIAGE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+_RESULT_GUARD = cua_ghi_y_khoa
+_RESULT_READ_GUARD = cua_y_khoa
+_TRIAGE_GUARD = cua_ghi_y_khoa
 # Màn Duyệt kết quả: bác sĩ + thư ký + quản lý (khớp NAV /duyet-ket-qua).
-_REVIEW_READ_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.MANAGEMENT,
-)
+_REVIEW_READ_GUARD = cua_y_khoa
 LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
     scope="lab-triage",
     limit=30,
     window_seconds=60,
 )
-_REVIEW_GUARD = require_role(*PHYSICIAN_ROLES)
+#: Duyệt / chốt kết quả = khối `duyet_ket_qua` (quyền cần chứng chỉ hành nghề —
+#: hệ thống từ chối cấp cho người không có vai lâm sàng). Hỏi QUYỀN, không hỏi
+#: vai (24/09/2026).
+_REVIEW_GUARD = cua_quyen(
+    "result.review.approve",
+    cau="Bạn chưa được cấp khối duyệt kết quả (cần chứng chỉ hành nghề).",
+)
 
 
 class LabOrderRequest(BaseModel):
@@ -306,7 +308,7 @@ class LabReleaseDecision(BaseModel):
 )
 async def lab_release_decision(
     lab_result_id: UUID,
-    identity: StaffIdentity = Depends(_RESULT_GUARD),
+    identity: StaffIdentity = Depends(_RESULT_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> LabReleaseDecision:
     """Can this lab result be told to the patient?

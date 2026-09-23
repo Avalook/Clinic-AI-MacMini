@@ -18,13 +18,13 @@ from clinicai.api.identity import (
     StaffIdentity,
 )
 from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
     BOARD_ROLES,
     CHECKIN_ROLES,
-    CLINICAL_READ_ROLES,
     DISPATCH_ROLES,
     NOTE_ROLES,
     _cung_ngay_vn,
@@ -50,8 +50,9 @@ class BangLuotKham:
     async def bang(self, *, identity: StaffIdentity) -> dict[str, Any]:
         _require(identity, BOARD_ROLES, "Vai của bạn không dùng màn lượt khám.")
         cid = identity.clinic_id
-        doc_noi_dung = identity.co_vai(CLINICAL_READ_ROLES)
         async with self._pool.acquire() as conn:
+            # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
+            doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
             visits = await conn.fetch(
                 """
                 SELECT v.visit_id::text AS visit_id, v.checked_in_at,
@@ -547,9 +548,10 @@ class BangLuotKham:
         """
         _require(identity, BOARD_ROLES, "Vai của bạn không dùng hàng chờ phòng.")
         cid = identity.clinic_id
-        doc_noi_dung = identity.co_vai(CLINICAL_READ_ROLES)
         rid = _uuid(room_id, "Mã phòng không hợp lệ.") if room_id else None
         async with self._pool.acquire() as conn:
+            # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
+            doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
             phong = None
             if rid is not None:
                 phong = await conn.fetchrow(

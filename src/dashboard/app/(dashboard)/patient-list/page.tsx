@@ -13,12 +13,12 @@
 // /api/clinical-record còn chặn độc lập.
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { docDuocYKhoa } from "../../../lib/quyen-cua-toi";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
 import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
 import {
   canEditPatient,
   canManageAppt,
-  canReadClinical,
   canWriteIntake,
   isDoctorRole,
 } from "../../../lib/roles";
@@ -56,7 +56,8 @@ export default async function PatientListPage() {
   await requireNavAccess("/patient-list");
   const vaiHomNay = await getVaiHomNay();
   const role = await getVaiChinh();
-  const enablePopup = vaiHomNay.some(canReadClinical);
+  // Mở hồ sơ y khoa trong popup: theo QUYỀN, không theo vai (24/09/2026).
+  const enablePopup = await docDuocYKhoa();
   const showRebook = enablePopup && vaiHomNay.some(canWriteIntake);
   const showPager = vaiHomNay.some(isDoctorRole);
 

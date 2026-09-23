@@ -6096,7 +6096,7 @@ lẫn Client Component (`Nav.tsx`, `BottomNav.tsx`).
 | `isCashierRole(role)` `:189` | CASHIER + CASHIER_THUOC + CASHIER_DV |
 | `isOpsAdmin(role)` `:155` | MANAGEMENT + TRUONG_CA (quản trị **vận hành**, thấp hơn quản trị hệ thống) |
 | `canWriteClinical(role)` `:112` | Bác sĩ desk + Điều dưỡng + TKYK |
-| `canReadClinical(role)` `:117` | **Bằng đúng** `canWriteClinical` (ROLE-02) |
+| `canReadClinical(role)` `:117` | ⏸ OFF 24/09 — thay bằng `docDuocYKhoa()` (theo quyền, `lib/quyen-cua-toi.ts`) |
 | `canWriteIntake(role)` `:125` | CSKH, RECEPTION, MANAGEMENT, TRUONG_CA |
 | `canOperateCustomerCare(role)` `:140` | Bằng `canWriteIntake` — khớp `cskh_service.INTAKE_ROLES` |
 | `canCheckin(role)` `:161` | RECEPTION, MANAGEMENT |

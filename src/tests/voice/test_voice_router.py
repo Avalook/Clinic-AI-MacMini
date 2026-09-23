@@ -13,11 +13,15 @@ from clinicai.api.v1.routers.voice import (
     get_transcriber,
     router,
 )
+from clinicai.core.database import get_db_pool
+from clinicai.core.exceptions import ClinicAIBaseException
+from clinicai.main import clinicai_exception_handler
 from clinicai.voice.transcribe import (
     TranscriptResult,
     TranscriptSegment,
     VoiceModelNotInstalledError,
 )
+from tests.quyen_gia import PoolGia, cua_router_theo_nhom_mau
 
 _NOTE = "bệnh nhân đau bụng dưới ba ngày"
 
@@ -58,7 +62,20 @@ def _app(transcriber: object, role: ClinicRole = ClinicRole.DOCTOR) -> FastAPI:
     app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_transcriber] = lambda: transcriber
     app.dependency_overrides[get_current_identity] = lambda: _identity(role)
+    # Cửa quyền router (24/09/2026) mở một kết nối để hỏi `can` — pool giả.
+    app.dependency_overrides[get_db_pool] = lambda: PoolGia()
+    # Cửa quyền báo chặn bằng SafetyGateError — app thật đổi thành 403.
+    app.add_exception_handler(
+        ClinicAIBaseException,
+        clinicai_exception_handler,  # type: ignore[arg-type]
+    )
     return app
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_gia(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Quyền theo nhóm mẫu của vai: bác sĩ ghi được, lễ tân không."""
+    cua_router_theo_nhom_mau(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

@@ -34,7 +34,6 @@ import {
   type ClinicRole,
   canCheckin,
   canSeeNav,
-  canWriteClinical,
   isNurseRole,
 } from "../../../lib/roles";
 import Link from "next/link";
@@ -42,6 +41,7 @@ import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { docDuocYKhoa } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
 import {
   currentWeekStartVn,
@@ -187,8 +187,9 @@ export default async function HomePage({
   // CHECK-IN KHÔNG CÒN Ở TRANG CHỦ (Tuyền chốt 18/09/2026): cả ô check-in của
   // Quản lý lẫn cột check-in của Lễ tân chuyển sang Tiếp đón khách
   // (/reception/queue) — một việc, một chỗ. Bảng lịch ở đây chỉ để xem.
-  // CHỈ Bác sĩ + Điều dưỡng ghi lâm sàng; Lễ tân/QL check-in nhưng xem chỉ-đọc.
-  const writeClinical = canWriteClinical(role);
+  // Mở hồ sơ lâm sàng từ bảng lịch: theo QUYỀN (khối khám / kết quả), không
+  // theo vai — quản lý có đủ khối nên mở được (Tuyền chốt 24/09/2026).
+  const writeClinical = await docDuocYKhoa();
   const isReception = role === "RECEPTION"; // bảng trạng thái buổi khám: chỉ Lễ tân
 
   // 2 bảng có tuần ĐỘC LẬP: weekAppt cho Lịch hẹn khám, weekRoster cho Lịch làm

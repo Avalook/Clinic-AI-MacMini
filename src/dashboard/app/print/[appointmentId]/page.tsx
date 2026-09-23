@@ -109,7 +109,7 @@ export default async function PrintMedicalSummaryPage({
 }: {
   params: Promise<{ appointmentId: string }>;
 }) {
-  await requireClinicalRole(); // phiếu chứa hồ sơ khám: chỉ 4 vai lâm sàng
+  await requireClinicalRole(); // phiếu chứa hồ sơ khám: ai có khối khám / kết quả
   const { appointmentId } = await params;
   // 24/09/2026: đọc qua backend `GET /api/v1/clinical-records/in-theo-lich/{id}`
   // (vai lâm sàng, lọc phòng khám) thay vì đọc thẳng 4 bảng bằng Supabase.

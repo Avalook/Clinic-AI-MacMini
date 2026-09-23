@@ -27,6 +27,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.main import app
 from clinicai.tools.lab.classify import ClassifyResult
 from clinicai.tools.lab.query_lab_result import LabResultRow
+from tests.quyen_gia import cua_router_theo_nhom_mau
 
 _NOW = datetime(2026, 5, 22, 12, 0, tzinfo=timezone.utc)
 
@@ -115,6 +116,12 @@ def _override_pool(row: LabResultRow) -> MagicMock:
     pool = _mock_pool_returning_row(row)
     app.dependency_overrides[get_db_pool] = lambda: pool
     return pool
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_gia(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cửa quyền router (24/09/2026) trả lời theo nhóm mẫu của vai."""
+    cua_router_theo_nhom_mau(monkeypatch)
 
 
 @pytest.fixture(autouse=True)

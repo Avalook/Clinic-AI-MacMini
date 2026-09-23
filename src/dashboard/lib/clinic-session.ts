@@ -5,10 +5,10 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
+import { docDuocYKhoa } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
-  canReadClinical,
   canSeeNav,
   quyenMoDuocMan,
   type ClinicRole,
@@ -114,10 +114,12 @@ export async function requireClinicRole(): Promise<ClinicRole> {
   return role;
 }
 
-/** Guard a surface that renders the medical note, not merely operational PII. */
+/** Guard a surface that renders the medical note, not merely operational PII.
+ *  24/09/2026: hỏi QUYỀN (có khối khám / kết quả), không hỏi vai — quản lý có
+ *  đủ khối nên mở được (Tuyền chốt). Backend vẫn tự kiểm lại. */
 export async function requireClinicalRole(): Promise<ClinicRole> {
   const role = await requireClinicRole();
-  if (!canReadClinical(role)) redirect("/home");
+  if (!(await docDuocYKhoa())) redirect("/home");
   return role;
 }
 

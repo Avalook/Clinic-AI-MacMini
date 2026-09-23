@@ -511,27 +511,23 @@ PRESET: dict[str, Sequence[str]] = {
         "ghi_benh_an",
         "duyet_ket_qua",
     ],
-    # Quản lý: phân quyền + mọi khối VẬN HÀNH. Liệt kê rõ, không `list(KHOI)`:
-    # thế là tự nhận luôn các khối chuyên môn (hoàn tất khám, duyệt kết quả)
-    # mỗi khi có khối mới. Quản lý vẫn tự cấp thêm được nếu cần.
-    "MANAGEMENT": [
-        "tiep_don",
-        "sinh_hieu",
-        "chi_dinh",
-        "chon_dich_vu",
-        "thu_tien_dv",
-        "dieu_phoi",
-        "ket_qua",
-        "thuc_hien",
-        "danh_muc",
-        "quan_tri_quyen",
-        "thu_tien_thuoc",
-        "nha_thuoc",
-        "xem_nha_thuoc",
-        "dat_lich",
-        "quan_ly_lich",
-    ],
+    # Quản lý: MỌI KHỐI trừ khối cần chứng chỉ hành nghề — tính ở dưới
+    # (`_khoi_quan_ly`). Tuyền chốt 24/09/2026: "quản lý quyền cao nhất — có
+    # module đó thì mọi quyền của nó có cả", không tách đọc với sửa.
 }
+
+
+def _khoi_quan_ly() -> list[str]:
+    """Mọi khối, trừ khối có quyền đòi chứng chỉ hành nghề (hoàn tất khám,
+    duyệt kết quả) — hàng rào luật, không phải hàng rào nội bộ; lệnh cấp quyền
+    cũng từ chối cấp chúng cho người không có vai lâm sàng. Khối mới thêm sau
+    này tự vào nhóm Quản lý (migration thêm khối phải thêm cả vào nhóm này —
+    `test_danh_muc_quyen_db` so hai bên)."""
+    can_chung_chi = {q.khoi for q in QUYEN.values() if q.chung_chi_lam_sang}
+    return [k for k in KHOI if k not in can_chung_chi]
+
+
+PRESET["MANAGEMENT"] = _khoi_quan_ly()
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
