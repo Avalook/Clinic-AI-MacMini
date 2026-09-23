@@ -81,9 +81,16 @@ export default function KetQuaChiDinh({
           <li key={d.service_order_id} className="px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-body font-medium text-ink">{d.ten_hien_thi}</span>
-              <Chip tone={TONE[d.ket_qua_trang_thai]}>
-                {NHAN_KET_QUA[d.ket_qua_trang_thai]}
-              </Chip>
+              {d.ket_qua_trang_thai === "CHUA_CO" &&
+              (d.thuc_hien === "COMPLETED" || d.thuc_hien === "performed") ? (
+                // Thủ thuật không có phiếu kết quả (tháo vòng…): đã làm là xong
+                // việc — đừng treo "Chưa có kết quả" mãi (bấm thật 23/09 khuya).
+                <Chip tone="success">Đã làm</Chip>
+              ) : (
+                <Chip tone={TONE[d.ket_qua_trang_thai]}>
+                  {NHAN_KET_QUA[d.ket_qua_trang_thai]}
+                </Chip>
+              )}
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}

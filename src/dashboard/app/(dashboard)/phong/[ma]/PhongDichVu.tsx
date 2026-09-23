@@ -217,6 +217,7 @@ function KhachTrongPhong({
   const [bao, setBao] = useState<string | null>(null);
   const [xemLuot, setXemLuot] = useState(false);
   const [lanDoc, setLanDoc] = useState(0);
+  const [moPhieuPhu, setMoPhieuPhu] = useState(false);
 
   // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
   // hai số revision, mà thiếu chúng thì mọi lệnh đều phải đoán.
@@ -260,6 +261,16 @@ function KhachTrongPhong({
   // PENDING) — máy chủ coi như PENDING (`coalesce(execution_status, 'PENDING')`).
   // Bấm thật 23/09 khuya: so đúng chữ "PENDING" làm mất nút Bắt đầu.
   const chuaLam = th != null && (trangThai === "PENDING" || trangThai === null);
+  // PHIẾU LÀ ĐƯỜNG CHÍNH khi dịch vụ có mẫu (đã gắn, hoặc gợi ý của phiếu v5) —
+  // [Hoàn tất] trong phiếu đóng luôn dịch vụ. Không có mẫu (tháo vòng, đặt
+  // vòng…) hoặc phòng LẤY MẪU gửi đối tác: [Xong] là đường chính, phiếu chỉ mở
+  // khi cần. Bấm thật 23/09 khuya: từ khi luôn có 18 mẫu dự phòng, nút [Xong]
+  // (trước chỉ hiện khi danh sách mẫu rỗng) biến mất — phòng thủ thuật / lấy
+  // mẫu không kết thúc được nếu không điền một phiếu.
+  const coPhieuChinh =
+    th != null &&
+    loai !== "LAY_MAU" &&
+    (th.mau_goi_y != null || (th.phieu?.length ?? 0) > 0);
 
   return (
     <section
@@ -402,7 +413,12 @@ function KhachTrongPhong({
 
       {/* Phiếu kết quả: mở được ngay khi đang làm, và vẫn xem/điền được sau khi
           dịch vụ đã đóng — kết quả về muộn là chuyện thường. */}
-      {th && (dangLam || daXong) ? (
+      {th && (dangLam || daXong) && !coPhieuChinh && loai !== "LAY_MAU" ? (
+        <Button size="sm" variant="ghost" onClick={() => setMoPhieuPhu((v) => !v)}>
+          {moPhieuPhu ? "Đóng phiếu kết quả" : "Điền phiếu kết quả (nếu cần)"}
+        </Button>
+      ) : null}
+      {th && (dangLam || daXong) && (coPhieuChinh || moPhieuPhu) ? (
         <PhieuKetQua
           serviceOrderId={dong.ref_id}
           mau={th.mau_ket_qua}
@@ -425,9 +441,9 @@ function KhachTrongPhong({
           [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}
       {th && (chuaLam || dangLam) ? (
         <div className="space-y-3 border-t border-line pt-3">
-          {dangLam && th.lan_dang_chay && th.mau_ket_qua.length === 0 ? (
-            // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi): [Hoàn tất] gọi
-            // thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
+          {dangLam && th.lan_dang_chay && !coPhieuChinh ? (
+            // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi, thủ thuật không
+            // mẫu): nút này gọi thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
             <Button
               size="lg"
               variant="primary"
