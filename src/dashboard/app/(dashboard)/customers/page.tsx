@@ -4,28 +4,21 @@
 // (CustomersView) lo chọn + bôi hồng.
 
 import Link from "next/link";
-import { getSupabaseServer } from "../../../lib/supabase-server";
 import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   canManageAppt,
   canOperateCustomerCare,
 } from "../../../lib/roles";
-import { unaccentVi } from "../../../lib/validation";
 import type { EditableAppt } from "./AppointmentEditModal";
 import {
-  vnTodayRangeUtc,
-  vnMonthStartUtc,
-  vnLocalToUtcISO,
   nowMs,
   mocMs,
   conToi,
   daQua,
-  VN_OFFSET,
-  VN_TZ,
   ngayVN,
 } from "../../../lib/datetime";
-import { currentWeekStartVn, shiftWeek, weekStartOf } from "../../../lib/roster";
+import { weekStartOf } from "../../../lib/roster";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
@@ -50,70 +43,17 @@ import { layCoSo, layDichVu } from "../../../lib/danh-muc";
 
 export const dynamic = "force-dynamic";
 
-/** Đầu tháng SAU theo giờ VN, dạng UTC ISO (chặn cuối cửa sổ "Tháng này"). */
-function vnNextMonthStartUtc(): string {
-  const ymd = new Date().toLocaleDateString("en-CA", {
-    timeZone: VN_TZ,
-  });
-  const [y, m] = ymd.split("-").map(Number);
-  const ny = m === 12 ? y + 1 : y;
-  const nm = m === 12 ? 1 : m + 1;
-  return new Date(
-    `${ny}-${String(nm).padStart(2, "0")}-01T00:00:00${VN_OFFSET}`,
-  ).toISOString();
-}
-
-/** [start,end) UTC cho kỳ lọc theo giờ VN; null = "Tất cả". */
-function windowFor(period: Period): { start: string; end: string } | null {
-  if (period === "today") {
-    const { startUtc, endUtc } = vnTodayRangeUtc();
-    return { start: startUtc, end: endUtc };
-  }
-  if (period === "week") {
-    const ws = currentWeekStartVn();
-    return {
-      start: vnLocalToUtcISO(ws, "00:00"),
-      end: vnLocalToUtcISO(shiftWeek(ws, 1), "00:00"),
-    };
-  }
-  if (period === "month") {
-    return { start: vnMonthStartUtc(), end: vnNextMonthStartUtc() };
-  }
-  return null;
-}
-
 /** Supabase join trả object HOẶC array (tuỳ quan hệ) — lấy phần tử đầu. */
 function pick1<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-// KHÔNG ĐƯỢC ĐẶT CHÚ THÍCH BÊN TRONG CHUỖI NÀY.
-//
-// Nó trông như SQL nhưng KHÔNG PHẢI SQL: đây là tham số `select` của PostgREST,
-// một danh sách cột phân cách bằng dấu phẩy. `--` không phải chú thích ở đây; nó
-// là ký tự trong tên cột.
-//
-// Tôi đặt hai dòng `-- …` vào đây ngày 11/08/2026 để giải thích cột `updated_at`.
-// Kết quả: PostgREST trả
-//     failed to parse select parameter (…,--Thẻkhoálạcquancho…)
-// và CẢ MÀN Quản lý khách hàng trắng. Câu giải thích cho người đọc đã giết chính
-// thứ nó giải thích.
-//
-// Nó lọt qua vì tôi nghiệm thu tính năng ấy bằng đường API (PATCH /api/patients)
-// mà không mở lại chính trang tiêu thụ dữ liệu này. Bài học: sửa truy vấn của
-// trang nào thì phải MỞ trang đó, không chỉ gọi API của nó.
-//
-// `updated_at` = thẻ khoá lạc quan cho form sửa hồ sơ (mốc màn hình đã đọc).
-// Xem PatientAdminEditor.save() và patient_service.update_patient().
-const SELECT = `
-  clinic_patient_id, patient_code, full_name, date_of_birth, birth_year,
-  phone_primary, phone_secondary, gender, ethnicity, nationality,
-  occupation, patient_objection, address, guardian_name, location_id, created_at,
-  van_de_di_kham, linh_vuc, updated_at, uu_tien, uu_tien_ly_do,
-  patient_sdt_them ( so_dien_thoai, loai )
-`;
-
+// Cột của một dòng khách nay do backend chọn (services/danh_sach_khach_cskh.py).
+// `updated_at` = thẻ khoá lạc quan cho form sửa hồ sơ (mốc màn hình đã đọc) —
+// xem PatientAdminEditor.save() và patient_service.update_patient(). Bài học
+// 11/08 (chú thích `--` trong chuỗi select PostgREST làm trắng màn) nằm ở
+// tests/postgrest-select-boundary.test.mts.
 export default async function CustomersPage({
   searchParams,
 }: {
@@ -166,68 +106,21 @@ export default async function CustomersPage({
   // chuyển keyset (`created_at < mốc-cuối-trang-trước`) — ghi sẵn để khỏi quên.
   const KHACH_MOT_TRANG = 50;
   const trang = Math.max(1, Number.parseInt(sp.trang ?? "1", 10) || 1);
-  const win = windowFor(period);
 
-  const supabase = await getSupabaseServer();
-
-  // Lọc THEO NGÀY HẸN: tìm khách có lịch trong cửa sổ trước → lấy danh sách id.
-  // BỎ lịch đã hủy/không đến/BS từ chối — hủy lịch xong khách không còn "có hẹn".
-  const DEAD_STATUSES = "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)";
-  let apptFilterIds: string[] | null = null;
-  if (by === "appt" && win) {
-    const { data: inWin } = await supabase
-      .from("appointment")
-      .select("clinic_patient_id")
-      .gte("slot_start", win.start)
-      .lt("slot_start", win.end)
-      .not("clinic_patient_id", "is", null)
-      .not("status", "in", DEAD_STATUSES)
-      .limit(3000);
-    apptFilterIds = [
-      ...new Set((inWin ?? []).map((a) => a.clinic_patient_id as string)),
-    ];
-  }
-
-  // Tìm tên KHÔNG phân biệt dấu (D11): cộng thêm điều kiện trên cột
-  // full_name_unaccent (migration 039 — bỏ dấu + thường). useUnaccent=false để
-  // fallback nếu cột chưa migrate (KHÔNG đổi DB, chỉ tái dùng cột sẵn có).
-  const t = q ? q.replace(/[,()%*]/g, " ").trim() : "";
-  const buildPatientQuery = (useUnaccent: boolean) => {
-    let query = supabase
-      .from("patient")
-      // `count: "exact"` để vẽ "Trang X/Y — N khách": đếm chạy trên cùng bộ
-      // lọc, Postgres đếm bằng index nên rẻ hơn nhiều so với kéo thừa 250 dòng.
-      .select(SELECT, { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range((trang - 1) * KHACH_MOT_TRANG, trang * KHACH_MOT_TRANG - 1);
-    if (by === "created" && win) query = query.gte("created_at", win.start);
-    if (by === "appt" && apptFilterIds) {
-      // Rỗng → sentinel để .in() không lỗi và trả 0 dòng.
-      query = query.in(
-        "clinic_patient_id",
-        apptFilterIds.length
-          ? apptFilterIds
-          : ["00000000-0000-0000-0000-000000000000"],
-      );
-    }
-    if (t) {
-      const ors = [
-        `full_name.ilike.%${t}%`,
-        `patient_code.ilike.%${t}%`,
-        // Cột gộp mọi số (chính + người nhà + số thêm) — tra số nào cũng
-        // ra khách này, đúng một chỗ đổi cho mọi màn (20260815000002).
-        `sdt_tim_kiem.ilike.%${t}%`,
-      ];
-      if (useUnaccent) {
-        ors.push(`full_name_unaccent.ilike.%${unaccentVi(t)}%`);
-      }
-      query = query.or(ors.join(","));
-    }
-    return query;
-  };
+  // 24/09/2026: bộ lọc + phân trang + tìm không dấu chạy ở backend
+  // (`/cskh/danh-sach-khach`) — trang từng tự dựng truy vấn Supabase.
+  const thamSo = new URLSearchParams({
+    period,
+    by,
+    trang: String(trang),
+  });
+  if (q) thamSo.set("q", q);
+  if (selected) thamSo.set("selected", selected);
 
   const [patRes, locRes, svcRes, docRes] = await Promise.all([
-    buildPatientQuery(true),
+    fetchFromBackend<{ rows: CustomerRow[]; total: number }>(
+      `/api/v1/cskh/danh-sach-khach?${thamSo.toString()}`,
+    ),
     // Cơ sở + dịch vụ qua bộ nhớ tạm có hạn giờ: hai danh mục này đổi vài
     // tháng một lần nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
     layCoSo().then((data) => ({ data })),
@@ -239,29 +132,16 @@ export default async function CustomersPage({
     canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
-  let { data, error, count } = patRes;
-  // Thiếu cột full_name_unaccent (chưa migrate) → tìm lại không bỏ dấu.
-  if (error && /full_name_unaccent|column/i.test(error.message ?? "")) {
-    ({ data, error, count } = await buildPatientQuery(false));
-  }
-  const tongKhach = count ?? (data?.length ?? 0);
+  const error = patRes
+    ? null
+    : { message: "Không đọc được danh sách khách từ máy chủ." };
+  const tongKhach = patRes?.total ?? 0;
   const tongTrang = Math.max(1, Math.ceil(tongKhach / KHACH_MOT_TRANG));
 
-  const rows = (data as CustomerRow[] | null) ?? [];
-
-  // CỨU KHÁCH ĐƯỢC TRỎ THẲNG. Chuông thông báo gửi người trực tới đây kèm
-  // `selected` — trước phân trang thì khách ấy chắc chắn nằm trong 300 dòng,
-  // giờ có thể rơi ngoài trang hiện tại và cột phải sẽ trống không lý do.
-  // Nạp riêng đúng MỘT người ấy và ghép vào đầu danh sách; mọi truy vấn làm
-  // giàu phía dưới chạy trên `shownIds` nên tự phủ luôn họ.
-  if (selected && !rows.some((r) => r.clinic_patient_id === selected)) {
-    const { data: mot } = await supabase
-      .from("patient")
-      .select(SELECT)
-      .eq("clinic_patient_id", selected)
-      .maybeSingle();
-    if (mot) rows.unshift(mot as CustomerRow);
-  }
+  // Khách được chuông trỏ tới (`selected`) mà ngoài trang hiện tại: backend đã
+  // nạp riêng và đặt lên đầu — mọi truy vấn làm giàu bên dưới chạy trên
+  // `shownIds` nên tự phủ luôn họ.
+  const rows = patRes?.rows ?? [];
   const locations: Opt[] = (locRes.data ?? []).map((r) => ({
     id: r.id as string,
     label: r.name as string,

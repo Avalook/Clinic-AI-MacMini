@@ -15,18 +15,22 @@ const doc = (p: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("danh sách khách tìm bằng cột gộp, và tải kèm số thêm để vẽ", () => {
-  const page = doc("../app/(dashboard)/customers/page.tsx");
-  assert.match(page, /sdt_tim_kiem\.ilike/, "tìm phải qua cột gộp mọi số");
+  // 24/09/2026: truy vấn danh sách khách chuyển về backend
+  // (services/danh_sach_khach_cskh.py) — luật canh giữ nguyên, đổi chỗ đọc.
+  const nap = doc("../../clinicai/services/danh_sach_khach_cskh.py");
+  assert.match(nap, /p\.sdt_tim_kiem ILIKE/, "tìm phải qua cột gộp mọi số");
   assert.doesNotMatch(
-    page,
-    /phone_primary\.ilike/,
+    nap,
+    /phone_primary ILIKE/,
     "tìm bằng cột lẻ là mù số thêm — đường cũ không được quay lại",
   );
   assert.match(
-    page,
-    /patient_sdt_them\s*\(\s*so_dien_thoai,\s*loai\s*\)/,
-    "SELECT phải embed bảng số thêm — không có dữ liệu thì hồ sơ không vẽ được dòng số phụ",
+    nap,
+    /FROM patient_sdt_them t/,
+    "phải kèm bảng số thêm — không có dữ liệu thì hồ sơ không vẽ được dòng số phụ",
   );
+  const page = doc("../app/(dashboard)/customers/page.tsx");
+  assert.match(page, /\/api\/v1\/cskh\/danh-sach-khach/, "trang phải đọc qua backend");
 });
 
 test("màn đặt lịch: ô tìm khách nhìn thấy số thêm", () => {

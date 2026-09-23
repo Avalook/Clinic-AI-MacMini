@@ -1,3 +1,7 @@
+// ⏸ OFF 24/09/2026: KHÔNG CÒN FILE NÀO IMPORT. Giữ lại theo luật "cũ thì tắt,
+// không xoá" tới khi Tuyền bấm thật xong đợt chuyển đọc về backend; đừng dùng
+// lại — đọc/ghi qua FastAPI.
+//
 // Append one row to the append-only `event_log` (migration 013/014) — the
 // immutable audit trail for state changes. Call AFTER a successful business
 // write, with the same service-role client (event_log INSERT is allowed;

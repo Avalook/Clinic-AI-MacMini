@@ -104,14 +104,15 @@ const khungKhach = readFileSync(
   "utf8",
 );
 
-test("danh sách khách phân trang bằng range(), không kéo 300 dòng", () => {
-  assert.match(trangKhach, /KHACH_MOT_TRANG = 50/);
-  assert.match(trangKhach, /\.range\(\(trang - 1\) \* KHACH_MOT_TRANG/);
-  assert.doesNotMatch(
-    trangKhach,
-    /from\("patient"\)[\s\S]{0,200}\.limit\(300\)/,
-    "limit(300) trên bảng patient là quay lại kéo cả danh sách",
+test("danh sách khách phân trang theo trang 50, không kéo 300 dòng", () => {
+  // 24/09/2026: truy vấn về backend — phân trang bằng OFFSET/LIMIT ở đó.
+  const nap = readFileSync(
+    new URL("../../clinicai/services/danh_sach_khach_cskh.py", import.meta.url),
+    "utf8",
   );
+  assert.match(trangKhach, /KHACH_MOT_TRANG = 50/);
+  assert.match(nap, /\(trang - 1\) \* KHACH_MOT_TRANG/);
+  assert.doesNotMatch(nap, /LIMIT 300/, "LIMIT 300 là quay lại kéo cả danh sách");
 });
 
 test("đổi bộ lọc thì trang rơi về 1 — go() không chép URL cũ", () => {

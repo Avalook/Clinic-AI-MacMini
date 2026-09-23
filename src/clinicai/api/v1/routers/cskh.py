@@ -31,6 +31,7 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
+from clinicai.services.danh_sach_khach_cskh import danh_sach_khach
 from clinicai.services.man_khach_hang_service import ManKhachHangService
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
@@ -67,6 +68,22 @@ _MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
 )
+
+
+@router.get("/cskh/danh-sach-khach")
+async def danh_sach_khach_cskh(
+    q: str | None = None,
+    period: str | None = None,
+    by: str | None = None,
+    trang: int = 1,
+    selected: str | None = None,
+    identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một trang khách (50) của màn Quản lý khách hàng + tổng số khớp bộ lọc."""
+    return await danh_sach_khach(
+        pool, identity=identity, q=q, ky=period, theo=by, trang=trang, chon=selected
+    )
 
 
 @router.get("/cskh/man-khach-hang")

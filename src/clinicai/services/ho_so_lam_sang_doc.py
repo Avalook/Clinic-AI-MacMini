@@ -233,4 +233,83 @@ async def doc_ho_so(
     }
 
 
-__all__ = ["doc_ho_so"]
+async def phieu_in_theo_lich(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, appointment_id: str
+) -> dict[str, Any] | None:
+    """Dữ liệu phiếu TÓM TẮT KHÁM để in theo một lịch hẹn (/print/[appointmentId]).
+
+    24/09/2026: trang in từng đọc thẳng 4 bảng bằng Supabase. Trả thô — dàn
+    trang in ở giao diện. None = không có lịch này ở phòng khám người gọi.
+    """
+    cid = identity.clinic_id
+    appt = ma_uuid(appointment_id, "Mã lịch hẹn không hợp lệ.")
+    async with pool.acquire() as conn:
+        lich = await conn.fetchrow(
+            """
+            SELECT a.id::text, a.slot_start, a.status,
+                   p.clinic_patient_id::text, p.patient_code, p.full_name,
+                   p.date_of_birth, p.gender, p.ethnicity, p.nationality,
+                   p.occupation, p.patient_objection, p.address, p.guardian_name,
+                   p.phone_primary,
+                   s.full_name AS doctor_name, st.name AS service_name,
+                   l.name AS location_name
+              FROM appointment a
+              JOIN patient p
+                ON p.clinic_patient_id = a.clinic_patient_id
+               AND p.clinic_id = a.clinic_id
+              LEFT JOIN staff s ON s.id = a.doctor_id
+              LEFT JOIN service_type st ON st.id = a.service_type_id
+              LEFT JOIN clinic_location l ON l.id = a.location_id
+             WHERE a.clinic_id = $1::uuid AND a.id = $2::uuid
+            """,
+            cid,
+            appt,
+        )
+        if lich is None:
+            return None
+        pid = lich["clinic_patient_id"]
+        luot = await conn.fetchrow(
+            """
+            SELECT v.visit_id::text, v.status, v.created_at,
+                   r.chief_complaint_at_visit, r.soap_subjective, r.soap_objective,
+                   r.soap_assessment, r.soap_plan
+              FROM visit v
+              LEFT JOIN clinical_record r
+                ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
+             WHERE v.clinic_id = $1::uuid AND v.appointment_id = $2::uuid
+             ORDER BY v.created_at DESC LIMIT 1
+            """,
+            cid,
+            appt,
+        )
+        ho_so = await conn.fetchrow(
+            """
+            SELECT allergies, chronic_diseases, current_medications,
+                   surgical_history, family_history, notes
+              FROM patient_medical_profile
+             WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid
+            """,
+            cid,
+            pid,
+        )
+        xn = await conn.fetch(
+            """
+            SELECT test_name, result_value, result_numeric, result_unit, flag
+              FROM lab_result
+             WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid
+               AND appointment_id = $3::uuid
+             ORDER BY result_received_at DESC NULLS LAST LIMIT 20
+            """,
+            cid,
+            pid,
+            appt,
+        )
+    return {
+        "appointment": _dong(lich),
+        "visit": _dong(luot),
+        "profile": _dong(ho_so),
+        "labs": [_dong(r) for r in xn],
+    }
+
+
+__all__ = ["doc_ho_so", "phieu_in_theo_lich"]

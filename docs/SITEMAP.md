@@ -70,13 +70,13 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/cashier/thuoc` · `/cashier/dich-vu` | Lễ tân, thu ngân, QL | Bảng giá thuốc · Bảng giá dịch vụ | GIỮ | Là **bảng giá**, không phải thu tiền. Sẽ đụng khi làm lại kho thuốc (hai nguồn giá). |
 | `/pharmacy` | Lễ tân, dược sĩ, QL | Cấp thuốc | GIỮ | **Làm lại 19/09 (contract tiền–thuốc CP4):** theo lượt, đọc qua `GET /api/v1/pharmacy/ban-thuoc` (không còn đọc thẳng Supabase). `PharmacyBoard.tsx` + `DongThuoc.tsx` (thay `ThaoTacCapPhat.tsx`): xác định thuốc kho · số mua · chọn/bỏ/đổi lô · giao thuốc — nút theo `thao_tac` máy chủ trả. |
 | `/pharmacy/inventory` | Lễ tân, dược sĩ, QL | Kho thuốc | GIỮ | Như trên. |
-| `/pharmacy/history` · `/pharmacy/consult` | dược sĩ, QL | Lịch sử bàn giao · Tư vấn dùng thuốc | CẦN QUYẾT | Còn gắn badge "Mới". |
+| `/pharmacy/history` · `/pharmacy/consult` | dược sĩ, QL | Lịch sử bàn giao · Tư vấn dùng thuốc | GIỮ (Claude chốt 24/09 — Tuyền soát) | Còn gắn badge "Mới". 24/09: đọc qua backend `/pharmacy/lich-su` · `/pharmacy/cho-tu-van` (thôi đọc thẳng Supabase). |
 
 ### CSKH và lịch hẹn
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/customers` | CSKH, QL, trưởng ca, thu ngân | Quản lý khách hàng | GIỮ | Màn chuẩn của CSKH. |
+| `/customers` | CSKH, QL, trưởng ca, thu ngân | Quản lý khách hàng | GIỮ | Màn chuẩn của CSKH. 24/09: danh sách khách (lọc kỳ / theo hẹn / tìm không dấu / phân trang) đọc qua `/cskh/danh-sach-khach`. |
 | `/appointments` | CSKH, Lễ tân, QL | Đặt lịch | GIỮ | Đặt "Trực tiếp" hôm nay thì tự check-in (luật máy chủ). |
 | `/appointments/cho-xep-bac-si` | QL, CSKH | Chờ xếp bác sĩ | GIỮ | Thông báo từ máy chủ trỏ vào đây. |
 | `/nhac-tai-kham` | QL | Nhắc tái khám | GIỮ | Cùng API với khối nhắc tái khám trong `/customers`. |
@@ -98,7 +98,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | `/schedule` | mọi vai trừ CSKH, đối tác, TV | Lịch làm việc | GIỮ | |
-| `/reports` | QL | Báo cáo | GIỮ | |
+| `/reports` | QL | Báo cáo | GIỮ | 24/09: các ô đếm đọc qua `/reports/tong-quan` (một lượt, theo ngày VN). |
 | `/audit-log` | CSKH, QL | Lịch sử thao tác | GIỮ | |
 | `/nhan-su` | QL | Quản lý nhân sự | GIỮ | **Không quản quyền** (23/09): ô "Được xác nhận tệp kết quả" (hệ `staff_capability` cũ) đã gỡ; nút `[Mở Phân quyền cho người này]` → `/phan-quyen?nguoi=<id>`. `/api/staff/{id}/capabilities` trả 410. |
 | `/settings` | QL | Cài đặt | GIỮ | |
@@ -107,11 +107,11 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/settings/day-noi` | QL (+ ai có quyền `config.wiring.manage`) | Dây nối nghiệp vụ | MỚI 24/09 (nhóm 5) | Khối chỉnh dây: bật/tắt tự xếp phòng (H4), báo CSKH khi khách về còn việc (H6), số ngày kết quả đối tác quá hạn (H7), số phút nhắc check-out (H8); loại khám qua tư vấn / đi thẳng phòng; ai nhận chuông; vị trí trực (thêm, đổi tên, gắn phòng, tắt). `settings/day-noi/DayNoiBoard.tsx` → `/api/day-noi` → `/api/v1/day-noi*`. |
 | `/settings/tai-khoan` | QL | Thiết lập tài khoản cho nhân viên | GIỮ | |
 | `/settings/new-user` | QL | (không có mục; mở từ `/settings/tai-khoan`) | GIỮ | |
-| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |
+| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`, đọc qua `/reports/toan-canh` từ 24/09; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |
 | `/console` | | | DEV | `notFound()` khi `APP_ENV=production`. |
 | `/design-system` | | | DEV | `notFound()` khi không phải `development`. |
-| `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | |
-| `/print/sono/[id]` | | | CẦN QUYẾT | **Không chỗ nào dẫn tới** (grep 0 kết quả). |
+| `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | 24/09: đọc qua `/clinical-records/in-theo-lich/{id}` (cửa ROLE-02 như hồ sơ lâm sàng). |
+| `/print/sono/[id]` | | | **OFF 24/09** (Claude chốt — Tuyền soát) | Không chỗ nào dẫn tới. Trang chỉ còn câu báo tắt; phiếu in kết quả hiện hành là `/print/ket-qua/[orderId]`. Bản cũ nằm trong git. |
 | `/print/ket-qua/[orderId]` | BS, TKYK, BS SA, ĐD SA, trưởng ca, QL, CSKH + ai có `result.form.fill` | In phiếu kết quả | MỚI 23/09 khuya | Mở từ `[In phiếu]` của `PhieuKetQua` (phòng dịch vụ + phiếu khám mục C) và `[In]` ở dòng kết quả mục C. Đọc `GET /api/phieu?in=` → `/api/v1/phieu/in/{order}`. Bản chưa Hoàn tất in kèm "BẢN NHÁP". |
 
 ### Đã chuyển hướng (không còn giao diện)

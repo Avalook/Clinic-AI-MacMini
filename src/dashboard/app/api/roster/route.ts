@@ -76,6 +76,12 @@ export async function GET(request: Request) {
 
   // Nhánh 1: khoảng tuần → trả về những tuần ĐÃ ÁP DỤNG, để lưới lịch biết tuần
   // nào còn là dự kiến.
+  // Ca của CHÍNH người gọi — chuông "ca được chấp nhận / bị từ chối" (24/09/2026:
+  // trình duyệt thôi tự đọc `work_roster` bằng Supabase).
+  if (sp.get("ca_cua_toi") === "1") {
+    return proxyJsonToBackend("GET", "/api/v1/roster/ca-cua-toi", undefined);
+  }
+
   const tu = (sp.get("tu") ?? "").trim();
   const den = (sp.get("den") ?? "").trim();
   if (tu && den) {

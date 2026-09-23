@@ -17,11 +17,18 @@ from fastapi import APIRouter, Depends, Query
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
-from clinicai.services.reports_service import ReportsService
+from clinicai.services.reports_service import (
+    ReportsService,
+    toan_canh,
+    tong_quan,
+)
 
 router = APIRouter()
 
 _READ_GUARD = require_role(ClinicRole.MANAGEMENT)
+#: Các ô đếm tổng (không tên khách, không so người với người) — cùng tập vai
+#: trang /reports đang mở (`isOpsAdmin` = quản lý + trưởng ca).
+_TONG_QUAN_GUARD = require_role(ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA)
 
 
 @router.get("/reports/booking-channels")
@@ -47,3 +54,21 @@ async def kpi_dat_lich(
     được nói ra chứ không rơi vào mặc định.
     """
     return await ReportsService(pool).kpi_dat_lich_theo_nhan_vien(identity=identity)
+
+
+@router.get("/reports/tong-quan")
+async def bao_cao_tong_quan(
+    identity: StaffIdentity = Depends(_TONG_QUAN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô số trang /reports: hôm nay · ngày mai · theo bác sĩ · 30 ngày · 7 ngày."""
+    return await tong_quan(pool, identity=identity)
+
+
+@router.get("/reports/toan-canh")
+async def bao_cao_toan_canh(
+    identity: StaffIdentity = Depends(_TONG_QUAN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tab "Toàn cảnh" của /ops: nhân sự · bốn con số hôm nay · 10 sự kiện."""
+    return await toan_canh(pool, identity=identity)

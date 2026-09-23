@@ -1,3 +1,7 @@
+// ⏸ OFF 24/09/2026: KHÔNG CÒN FILE NÀO IMPORT. Giữ lại theo luật "cũ thì tắt,
+// không xoá" tới khi Tuyền bấm thật xong đợt chuyển đọc về backend; đừng dùng
+// lại — đọc/ghi qua FastAPI.
+//
 // TÊN NGƯỜI TRONG LỊCH TRỰC — MỘT NGUỒN, MỘT CÁCH VIẾT.
 //
 // `work_roster.staff_name` là chuỗi TỰ DO nạp từ file Excel "BẢNG LÀM VIỆC",

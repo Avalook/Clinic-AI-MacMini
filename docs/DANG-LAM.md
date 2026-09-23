@@ -56,11 +56,23 @@ Tuyền: "làm nốt những nợ chưa xong". Rà bằng 3 nhánh dò: sinh hi�
   vẫn gọi Supabase Auth admin (quản trị tài khoản đăng nhập = phần "đăng nhập").
 - **Câu hỏi cho Tuyền:** phiếu khám v5 cho đọc theo quyền (gồm "điền kết quả") nên QUẢN LÝ
   đọc được phiếu khám; phiếu cũ theo ROLE-02 thì không. Giữ hay siết?
-- **Còn nợ:** ~20 trang server/client còn tự đọc Supabase (danh sách ở mục "Pages" dưới) —
-  đang làm tiếp.
-- **Đơn kê vs khách mua:** dữ liệu đã có (`quantity_num` / `purchased_qty` + nhật ký
-  `pharmacy.purchase_qty_set`); màn lịch sử nhà thuốc chưa hiện — làm cùng việc chuyển
-  trang đọc thẳng DB sang backend.
+- **Trang giao diện thôi đọc thẳng database — XONG.** Đợt này chuyển nốt: nhà thuốc (lịch
+  sử kê/mua/giao · chờ tư vấn · kho), lịch trực tuần, tài khoản, đặt lịch (`/appointments/
+  hub-dat-lich`), thêm khách, hồ sơ khách (3 khối), khung "bác sĩ từ chối" ở layout, chuông
+  ca trực (`/roster/ca-cua-toi`), phiếu in theo lịch (`/clinical-records/in-theo-lich`),
+  chính sách đặt lịch (`/booking-rules/thoi-luong-do`), **báo cáo** (`/reports/tong-quan`),
+  **tab Toàn cảnh** (`/reports/toan-canh` — sửa luôn lỗi "hôm nay" tính theo nửa đêm UTC),
+  **danh sách khách CSKH** (`/cskh/danh-sach-khach`, `services/danh_sach_khach_cskh.py`).
+  Đếm lại 24/09: chỉ còn `.from(` ở `admin/users` (Supabase Auth admin), `login/actions`
+  (đăng nhập), `patients/check-phone` (đã 410) — ba ngoại lệ có chủ ý — và hai file lib
+  không ai import (`roster-names.ts`, `event-log.ts`, gắn nhãn ⏸ OFF, chưa xoá).
+  `/print/sono/[id]` OFF (không chỗ nào dẫn tới — Claude chốt, SITEMAP ghi).
+  Các client component chỉ còn dùng Supabase cho **đăng nhập + tin thời gian thực**.
+- **Đơn kê vs khách mua:** màn lịch sử nhà thuốc hiện đủ kê / mua / giao.
+- **Còn nợ thật:** ~100 chỗ hỏi vai (BAN-DO 44) · bấm thật các vai cần Tuyền đăng nhập
+  (trưởng ca/QL đổi phòng, lễ tân, CSKH, điều dưỡng, dược sĩ, đối tác) · câu hỏi phiếu v5.
+- **Deploy (Tuyền quyết, khung 1h–4h):** migration `20260924000001` → `…13` + khởi động lại
+  worker `--su-kien`.
 
 ## Trả nợ + khối Vòng đọc (24/09 sáng — CHƯA deploy)
 

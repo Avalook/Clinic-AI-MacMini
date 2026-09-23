@@ -210,6 +210,11 @@ khách, tới giờ chuông réo đúng người.
 45. Giao diện KHÔNG gác vai trên route đã có cửa backend — backend quyết (hai hệ quyền
     từng làm chặn nhầm ở proxy). Còn gác ở proxy khi route vẫn tự đọc database (sẽ bỏ khi
     route chuyển sang backend).
+46. **Trang giao diện không còn đọc bảng** (24/09): mọi trang/route đọc qua FastAPI; chỉ còn
+    Supabase cho đăng nhập (`login/actions`, `admin/users` = Auth admin) và tin thời gian
+    thực. Số đếm "hôm nay" tính ở backend theo giờ VN (tab Toàn cảnh từng lệch 7 giờ).
+    Thêm tính năng đọc mới = thêm hàm `*_doc.py` + endpoint, không thêm `.from(` ở dashboard;
+    bài `postgrest-select-boundary` giữ ngưỡng thấp vì số chuỗi select chỉ được giảm.
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

@@ -14,7 +14,7 @@ import {
   listBookingRules, // Hàm lấy danh sách các luật override
 } from "../../../../lib/booking-policy";
 // Nhập hàm getSupabaseServer để lấy client Supabase phía server
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { layDichVu } from "../../../../lib/danh-muc";
 // Nhập component BookingPolicyCard để hiển thị luật đặt lịch
 import BookingPolicyCard from "../BookingPolicyCard";
 import GioCaLamViecCard from "../GioCaLamViecCard";
@@ -39,34 +39,18 @@ export default async function BookingPolicyPage() {
   // Nếu không phải Trưởng ca hoặc Quản lý thì chuyển hướng về trang chủ
   if (!isOpsAdmin(role)) redirect("/home");
 
-  // Lấy client Supabase phía server (dùng cookie phiên đăng nhập)
-  const supabase = await getSupabaseServer();
   // Chạy song song các truy vấn để tối ưu hiệu năng
   const [bookingPolicy, staffRes, rules, durationRes, svcRes, luatRes] =
     await Promise.all([
     getBookingPolicy(), // Lấy luật đặt lịch hiện tại
     listBookableDoctors(), // Lấy danh sách bác sĩ có thể đặt lịch
     listBookingRules(), // Lấy danh sách các luật override
-    // Thời lượng ĐO ĐƯỢC, đặt cạnh chỗ chỉnh số chỗ. RLS của view là
-    // security_invoker nên nó chỉ trả số liệu của phòng khám đang đăng nhập.
-    // Giới hạn 40 dòng, ưu tiên khung có nhiều ca nhất — bảng này để cân lịch,
-    // không phải để tra cứu toàn bộ lịch sử.
-    // Truy vấn thống kê thời lượng khám từ view
-    supabase
-      .from("v_consultation_duration_stats") // Từ view thống kê thời lượng khám
-      .select(
-        // Chọn các cột cần thiết
-        "doctor_id, vn_weekday, vn_hour, patient_kind, sample_count, median_minutes, p90_minutes",
-      )
-      .order("sample_count", { ascending: false }) // Sắp xếp theo số mẫu giảm dần
-      .limit(40), // Giới hạn 40 dòng
-    // Danh mục dịch vụ cho thẻ "bắt buộc bác sĩ". Chỉ dịch vụ ĐANG BẬT: khai
-    // luật cho một dịch vụ đã ẩn là khai một luật không bao giờ chạy.
-    supabase
-      .from("service_type")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("name"),
+    // Thời lượng ĐO ĐƯỢC + danh mục dịch vụ đang bật — qua backend (24/09/2026;
+    // trang từng đọc thẳng view thống kê và `service_type` bằng Supabase).
+    fetchFromBackend<{
+      items: (Omit<DurationStatRow, "doctor_name"> & { doctor_id: string | null })[];
+    }>("/api/v1/booking-rules/thoi-luong-do"),
+    layDichVu(),
     // Luật bắt buộc bác sĩ — qua FastAPI, vì bảng luật không mở đường ghi cho
     // client và đường đọc cũng đi cùng một cửa cho nhất quán.
     fetchFromBackend<{ items: LuatBacSi[] }>("/api/v1/booking-rules/doctor"),
@@ -86,9 +70,7 @@ export default async function BookingPolicyPage() {
   const doctorName = new Map(doctors.map((d) => [d.id, d.name]));
   // Chuyển đổi dữ liệu thời lượng khám sang định dạng DurationStatRow
   const durationRows: DurationStatRow[] = (
-    (durationRes.data as
-      | (Omit<DurationStatRow, "doctor_name"> & { doctor_id: string | null })[]
-      | null) ?? [] // Nếu null thì dùng mảng rỗng
+    durationRes?.items ?? []
   ).map((r) => ({
     doctor_name: r.doctor_id ? (doctorName.get(r.doctor_id) ?? null) : null, // Tên bác sĩ từ map
     vn_weekday: r.vn_weekday, // Thứ trong tuần
@@ -135,7 +117,7 @@ export default async function BookingPolicyPage() {
       <OverridePolicyCard doctors={doctors} policy={bookingPolicy} rules={rules} />
 
       <LuatBacSiCard
-        services={((svcRes.data as { id: string; name: string }[] | null) ?? []).map(
+        services={svcRes.map(
           (s) => ({ id: s.id, label: s.name }),
         )}
         doctors={doctors.map((d) => ({ id: d.id, label: d.name }))}

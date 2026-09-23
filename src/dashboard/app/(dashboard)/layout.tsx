@@ -5,7 +5,6 @@ import { NotificationProvider } from "./NotificationContext";
 import { BookingPolicyProvider } from "./BookingPolicyContext";
 import RealtimeRefresher from "./RealtimeRefresher";
 import { logout } from "../(auth)/login/actions";
-import { getSupabaseServer } from "../../lib/supabase-server";
 import { getCurrentStaff } from "../../lib/current-staff";
 import {
   getQuyenCuaToi,
@@ -13,7 +12,7 @@ import {
   getViTriHomNay,
 } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
-import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
+import { fmtDayTime } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
 import { fetchFromBackend } from "../../lib/backend-proxy";
 import { getFeatureMode } from "../../lib/feature-mode";
@@ -160,16 +159,10 @@ export default async function DashboardLayout({
 
 /** Lịch bác sĩ đã từ chối, từ hôm nay trở đi — để CSKH xếp lại bác sĩ khác. */
 async function loadDeclined(): Promise<DeclinedRow[]> {
-  const supabase = await getSupabaseServer();
-  const { startUtc } = vnTodayRangeUtc();
-  const { data } = await supabase
-    .from("appointment")
-    .select(
-      "id, slot_start, patient:patient!clinic_patient_id ( full_name ), doctor:staff!doctor_id ( full_name )",
-    )
-    .eq("status", "DOCTOR_DECLINED")
-    .gte("slot_start", startUtc)
-    .order("slot_start", { ascending: true })
-    .limit(20);
-  return (data as DeclinedRow[] | null) ?? [];
+  // 24/09/2026: đọc qua backend `GET /api/v1/appointments/bac-si-tu-choi` thay vì
+  // đọc thẳng `appointment` bằng Supabase.
+  const data = await fetchFromBackend<{ items: DeclinedRow[] }>(
+    "/api/v1/appointments/bac-si-tu-choi",
+  );
+  return data?.items ?? [];
 }

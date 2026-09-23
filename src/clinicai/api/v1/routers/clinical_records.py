@@ -14,6 +14,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import (
     CLINICAL_WRITE_ROLES,
     StaffIdentity,
@@ -22,7 +23,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.services.clinical_record_service import ClinicalRecordService
-from clinicai.services.ho_so_lam_sang_doc import doc_ho_so
+from clinicai.services.ho_so_lam_sang_doc import doc_ho_so, phieu_in_theo_lich
 
 router = APIRouter()
 
@@ -83,6 +84,21 @@ async def doc_ho_so_lam_sang(
         appointment_id=appointment_id,
         visit_id=visit_id,
     )
+
+
+@router.get("/clinical-records/in-theo-lich/{appointment_id}")
+async def in_phieu_theo_lich(
+    appointment_id: str,
+    identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu phiếu tóm tắt khám để in theo lịch hẹn (vai lâm sàng)."""
+    data = await phieu_in_theo_lich(
+        pool, identity=identity, appointment_id=appointment_id
+    )
+    if data is None:
+        raise NotFoundError("Không tìm thấy lịch hẹn này.")
+    return data
 
 
 @router.post("/clinical-records")

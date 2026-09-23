@@ -114,6 +114,10 @@ test("không chuỗi select nào có dấu phẩy thừa hoặc rỗng giữa c�
 test("bài kiểm này thật sự tìm thấy chuỗi select để canh", () => {
   // Nếu biểu thức dò hỏng, hai phép kiểm trên sẽ xanh vĩnh viễn mà không canh gì
   // — kiểu bài kiểm tệ nhất, vì nó tạo cảm giác an toàn giả.
+  //
+  // 24/09/2026: ngưỡng 20 → 8. Số chuỗi select GIẢM CÓ CHỦ Ý — các trang đã
+  // chuyển sang đọc qua backend (đo lúc đổi: còn 11). Ngưỡng chỉ canh biểu thức
+  // dò còn sống, không canh số trang đọc Supabase (con số đó chỉ được giảm).
   const n = moiChuoiSelect().length;
-  assert.ok(n >= 20, `chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
+  assert.ok(n >= 8, `chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
 });

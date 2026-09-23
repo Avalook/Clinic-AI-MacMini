@@ -17,7 +17,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 
 #: Trạng thái không còn là "lịch sắp tới" của khách.
@@ -132,4 +132,44 @@ async def lich_su_dich_vu(
     }
 
 
-__all__ = ["doc_ngay", "lich_su_dich_vu", "lich_sap_toi", "lich_trong_ngay"]
+async def lich_bac_si_tu_choi(
+    pool: asyncpg.Pool, *, identity: StaffIdentity
+) -> list[dict[str, Any]]:
+    """Lịch bác sĩ đã từ chối từ hôm nay trở đi (tối đa 20) — để CSKH xếp lại
+    bác sĩ khác. Khung trang từng đọc thẳng `appointment` (24/09/2026)."""
+    dau = datetime.combine(now_vn().date(), time.min, tzinfo=CLINIC_TZ)
+    rows = await pool.fetch(
+        """
+        SELECT a.id::text, a.slot_start, p.full_name AS patient_name,
+               s.full_name AS doctor_name
+          FROM appointment a
+          LEFT JOIN patient p
+            ON p.clinic_patient_id = a.clinic_patient_id AND p.clinic_id = a.clinic_id
+          LEFT JOIN staff s ON s.id = a.doctor_id
+         WHERE a.clinic_id = $1::uuid AND a.status = 'DOCTOR_DECLINED'
+           AND a.slot_start >= $2
+         ORDER BY a.slot_start
+         LIMIT 20
+        """,
+        identity.clinic_id,
+        dau,
+    )
+    canh_bao_neu_day("lich_hen.tu_choi", len(rows), 20, clinic_id=identity.clinic_id)
+    return [
+        {
+            "id": r["id"],
+            "slot_start": _iso(r["slot_start"]),
+            "patient": {"full_name": r["patient_name"]} if r["patient_name"] else None,
+            "doctor": {"full_name": r["doctor_name"]} if r["doctor_name"] else None,
+        }
+        for r in rows
+    ]
+
+
+__all__ = [
+    "doc_ngay",
+    "lich_bac_si_tu_choi",
+    "lich_su_dich_vu",
+    "lich_sap_toi",
+    "lich_trong_ngay",
+]

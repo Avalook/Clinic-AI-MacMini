@@ -123,6 +123,15 @@ async def hub_dat_lich(
     return await man_dat_lich_doc.hub_dat_lich(pool, identity=identity)
 
 
+@router.get("/appointments/bac-si-tu-choi")
+async def lich_bac_si_tu_choi(
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch bác sĩ từ chối từ hôm nay — thông báo ở khung trang cho CSKH."""
+    return {"items": await lich_hen_doc.lich_bac_si_tu_choi(pool, identity=identity)}
+
+
 @router.get("/appointments/lich-ngay")
 async def lich_ngay(
     ngay: str,

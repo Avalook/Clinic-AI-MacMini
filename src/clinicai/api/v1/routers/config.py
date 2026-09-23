@@ -10,6 +10,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
@@ -27,6 +28,7 @@ from clinicai.core.shifts import (
     kiem_cau_hinh_ca,
     phut_tu_gio,
 )
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.clinic_settings_service import ClinicSettingsService
 from clinicai.services.config_service import (
     PRICE_ROLES,
@@ -225,6 +227,32 @@ async def applied_weeks(
         "weeks": await RosterService(pool).applied_weeks(
             identity=identity, tu=tu, den=den
         )
+    }
+
+
+@router.get("/roster/ca-cua-toi")
+async def ca_cua_toi(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ca của CHÍNH người gọi (tối đa 200) — chuông "ca được chấp nhận / bị từ
+    chối" (24/09/2026: trình duyệt từng tự đọc `work_roster` bằng Supabase)."""
+    rows = await pool.fetch(
+        """
+        SELECT id::text, work_date, station, shift, status, reject_reason
+          FROM work_roster
+         WHERE clinic_id = $1::uuid AND staff_id = $2::uuid
+         ORDER BY work_date DESC
+         LIMIT 200
+        """,
+        identity.clinic_id,
+        identity.staff_id,
+    )
+    canh_bao_neu_day(
+        "lich_truc.ca_cua_toi", len(rows), 200, clinic_id=identity.clinic_id
+    )
+    return {
+        "items": [{**dict(r), "work_date": r["work_date"].isoformat()} for r in rows]
     }
 
 
@@ -706,6 +734,27 @@ class LuatBacSiRequest(BaseModel):
     chan_han: bool = True
     is_active: bool = True
     ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/booking-rules/thoi-luong-do")
+async def thoi_luong_kham_do_duoc(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thời lượng khám ĐO ĐƯỢC (view thống kê) — 40 khung nhiều ca nhất, đặt
+    cạnh chỗ chỉnh số chỗ. Trang từng đọc thẳng view bằng Supabase (24/09)."""
+    rows = await pool.fetch(
+        """
+        SELECT doctor_id::text, vn_weekday, vn_hour, patient_kind, sample_count,
+               median_minutes, p90_minutes
+          FROM v_consultation_duration_stats
+         WHERE clinic_id = $1::uuid
+         ORDER BY sample_count DESC
+         LIMIT 40
+        """,
+        identity.clinic_id,
+    )
+    return {"items": jsonable_encoder([dict(r) for r in rows])}
 
 
 @router.get("/booking-rules/doctor")

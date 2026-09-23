@@ -268,13 +268,13 @@ export function NotificationProvider({
         hydrateFromStore();
         hydratedOnce = true;
       }
-      const { data } = await supabase
-        .from("work_roster")
-        .select("id, work_date, station, shift, status, reject_reason")
-        .eq("staff_id", staffId)
-        .limit(200);
-      if (stopped) return;
-      const rows = (data as MyRow[] | null) ?? [];
+      // Qua backend (24/09/2026) — ca của chính mình; realtime bên dưới giữ nguyên.
+      const res = await fetch("/api/roster?ca_cua_toi=1", { cache: "no-store" }).catch(
+        () => null,
+      );
+      if (stopped || !res?.ok) return;
+      const rows = (((await res.json().catch(() => null)) as { items?: MyRow[] } | null)
+        ?.items ?? []) as MyRow[];
       const decided = rows.filter(
         (r) => r.status === "APPROVED" || r.status === "REJECTED",
       );
