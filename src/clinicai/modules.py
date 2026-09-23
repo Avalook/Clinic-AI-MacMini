@@ -172,6 +172,7 @@ MODULE: dict[str, Module] = {
             # Không có lệnh: đây là module CHỈ NGHE. Thêm nó không đụng ai.
             nghe=[
                 "visit.checked_in",
+                "vitals.started",
                 "vitals.recorded",
                 "service_order.placed",
                 "service.started",
@@ -215,8 +216,8 @@ MODULE: dict[str, Module] = {
         Module(
             ma="vitals",
             ten="Sinh hiệu",
-            lenh=["RecordVitals"],
-            phat=["vitals.recorded"],
+            lenh=["StartVitals", "RecordVitals"],
+            phat=["vitals.started", "vitals.recorded"],
             quyen=["vitals.measure"],
         ),
         Module(

@@ -181,6 +181,22 @@ async def record_vitals(
     )
 
 
+@router.post("/luot-kham/visits/{visit_id}/vitals/start")
+async def bat_dau_do_sinh_hieu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Bắt đầu] đo sinh hiệu — thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026).
+
+    Bấm lại chính mình thì `already=true`, không sự kiện thứ hai. Người khác
+    bấm sau thì bị từ chối kèm tên và giờ người đã bắt đầu.
+    """
+    return await LuotKhamService(pool).bat_dau_do_sinh_hieu(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
 @router.post("/luot-kham/visits/{visit_id}/goi-do")
 async def goi_do_sinh_hieu(
     visit_id: UUID,

@@ -39,9 +39,10 @@ from clinicai.api.identity import (
     StaffIdentity,
     mo_quyen_tam_thoi,
 )
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.events.catalogue import SinhHieuDaDo
+from clinicai.events.catalogue import SinhHieuBatDau, SinhHieuDaDo
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -1151,6 +1152,7 @@ class LuotKhamService:
                        p.full_name, p.patient_code, d.full_name AS doctor_name,
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
+                       f.vitals_started_at, bd.full_name AS vitals_started_by,
                        ap.so_tiep_don
                   FROM visit v
                   JOIN patient p
@@ -1160,6 +1162,7 @@ class LuotKhamService:
                   LEFT JOIN encounter_flow f
                     ON f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id
                   LEFT JOIN staff g ON g.id = f.goi_do_boi
+                  LEFT JOIN staff bd ON bd.id = f.vitals_started_by
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE v.clinic_id = $1::uuid
@@ -1351,6 +1354,12 @@ class LuotKhamService:
                 "bac_si": v["doctor_name"],
                 "check_in_luc": _iso(v["checked_in_at"]),
                 "sinh_hieu_trang_thai": v["vitals_status"] or "pending",
+                # Mốc [Bắt đầu] đo — trạng thái "đang đo" đọc từ ĐÂY và từ
+                # `sinh_hieu_trang_thai`, không còn suy từ giờ gọi.
+                "bat_dau_do_luc": _iso(v["vitals_started_at"]),
+                "bat_dau_do_boi": v["vitals_started_by"],
+                # DỮ LIỆU CŨ: giữ để lượt trước 23/09 còn đọc được giờ gọi.
+                # Màn Đo sinh hiệu KHÔNG dùng nó làm trạng thái nữa.
                 "goi_do_luc": _iso(v["goi_do_luc"]),
                 "goi_do_boi": v["goi_do_boi"],
                 "so_tiep_don": v["so_tiep_don"],
@@ -2014,6 +2023,111 @@ class LuotKhamService:
                 payload={"visit_id": vid},
             )
         return {"ok": True, "lan_goi_lai": bool(lan_goi_lai)}
+
+    async def bat_dau_do_sinh_hieu(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """`StartVitals` — điều dưỡng bấm [Bắt đầu] đo cho khách này.
+
+        Thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026: `Gọi vào → Bắt đầu` là
+        hai bước cho một việc). `pending → in_progress`, ghi ai bắt đầu và lúc
+        nào, phát `vitals.started` ĐÚNG MỘT LẦN.
+
+        BA TÌNH HUỐNG BẤM TRÙNG, xử lý khác nhau có chủ ý:
+
+          * cùng người bấm hai lần (double-click, mạng chập) → `already=True`,
+            không sự kiện thứ hai. Không phải lỗi, không làm người ta hoảng.
+          * người KHÁC bấm sau → từ chối, nói rõ ai đã bắt đầu, lúc mấy giờ.
+            Hai điều dưỡng cùng đo một khách là chuyện phải biết ngay.
+          * hai người bấm CÙNG LÚC → `_lock_flow` khoá dòng; người sau chờ,
+            rồi rơi vào một trong hai trường hợp trên.
+
+        Mốc này là để ĐO THỜI GIAN CHỜ, không phải cửa khoá: lưu sinh hiệu mà
+        chưa ai bấm [Bắt đầu] vẫn được (xem migration 20260923000015).
+
+        CỬA QUYỀN theo VAI, không theo capability — CỐ Ý, và là nợ biết trước.
+        Lệnh anh em ngay bên cạnh (`record_vitals`) vẫn gác bằng `VITALS_ROLES`.
+        Hai nút trên CÙNG một màn mà gác bằng hai luật khác nhau thì lễ tân sẽ
+        lưu được sinh hiệu nhưng không bấm được [Bắt đầu] (nhóm mẫu lễ tân
+        chưa có khối Sinh hiệu). Chuyển cả hai sang `vitals.measure` là một
+        bước riêng.
+        """
+        _require(identity, VITALS_ROLES, "Vai của bạn không đo sinh hiệu được.")
+        cid = identity.clinic_id
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await self._lock_visit(conn, cid, vid)
+            flow = await self._lock_flow(conn, cid, vid)
+            if flow["vitals_status"] == "recorded":
+                raise LuotKhamConflictError(
+                    "VITALS_DONE", "Khách này đã đo sinh hiệu rồi."
+                )
+            if flow["vitals_status"] == "in_progress":
+                ai = await conn.fetchrow(
+                    "SELECT f.vitals_started_by::text AS boi,"
+                    "       f.vitals_started_at AS luc, s.full_name AS ten"
+                    "  FROM encounter_flow f"
+                    "  LEFT JOIN staff s ON s.id = f.vitals_started_by"
+                    " WHERE f.clinic_id = $1::uuid AND f.visit_id = $2::uuid",
+                    cid,
+                    vid,
+                )
+                assert ai is not None  # vừa khoá trong cùng giao dịch
+                if ai["boi"] == identity.staff_id:
+                    return {
+                        "ok": True,
+                        "already": True,
+                        "vitals_status": "in_progress",
+                        "bat_dau_do_luc": _iso(ai["luc"]),
+                    }
+                gio = (
+                    ai["luc"].astimezone(CLINIC_TZ).strftime("%H:%M")
+                    if ai["luc"]
+                    else "?"
+                )
+                raise LuotKhamConflictError(
+                    "VITALS_STARTED_BY_OTHER",
+                    f"{ai['ten'] or 'Người khác'} đã bắt đầu đo cho khách này"
+                    f" lúc {gio}.",
+                )
+
+            luc = await conn.fetchval(
+                """
+                UPDATE encounter_flow
+                   SET vitals_status = 'in_progress',
+                       vitals_started_at = now(), vitals_started_by = $3::uuid,
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                RETURNING vitals_started_at
+                """,
+                cid,
+                vid,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="vitals.started",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid},
+            )
+            await emit_event(
+                conn,
+                ten="vitals.started",
+                clinic_id=cid,
+                aggregate_id=vid,
+                payload=SinhHieuBatDau(visit_id=vid),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+        return {
+            "ok": True,
+            "already": False,
+            "vitals_status": "in_progress",
+            "bat_dau_do_luc": _iso(luc),
+        }
 
     async def dong_bo_sinh_hieu_tu_ho_so(
         self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str

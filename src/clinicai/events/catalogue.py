@@ -179,6 +179,16 @@ class KhachDaToi(PayloadSuKien):
     so_thu_tu: int | None = None
 
 
+class SinhHieuBatDau(PayloadSuKien):
+    """`vitals.started` — điều dưỡng bấm [Bắt đầu] đo cho khách này.
+
+    Mốc để đo THỜI GIAN CHỜ ĐO, không phải cửa khoá: lưu sinh hiệu mà chưa ai
+    bấm [Bắt đầu] vẫn được. Không mang chỉ số — chưa đo gì cả.
+    """
+
+    visit_id: str
+
+
 class SinhHieuDaDo(PayloadSuKien):
     """`vitals.recorded` — điều dưỡng đã đo xong.
 
@@ -283,6 +293,17 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachDaToi,
             nhan="Khách đã tới (check-in)",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            # Phát ĐÚNG MỘT LẦN cho một lượt: bấm hai lần, hay người khác bấm
+            # sau, đều không sinh sự kiện thứ hai.
+            ten="vitals.started",
+            version=1,
+            aggregate_type="visit",
+            source_module="vitals",
+            payload=SinhHieuBatDau,
+            nhan="Bắt đầu đo sinh hiệu",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
@@ -449,6 +470,7 @@ def moi_consumer() -> frozenset[str]:
 __all__ = [
     "DANH_MUC",
     "KetQuaDaSua",
+    "SinhHieuBatDau",
     "XepPhongDaHuy",
     "KetQuaSanSang",
     "DONG_THOI_GIAN_LUOT",

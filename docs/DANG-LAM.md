@@ -185,9 +185,23 @@ SELECT f.id, f.clinic_id, f.service_order_id
 
 Đây là **việc trước deploy**, không phải lỗi của batch.
 
+**StartVitals — ĐÃ CODE (23/09, migration `…000015`), chưa bấm thật:**
+`Chờ đo → [Bắt đầu] → Đang đo → [Lưu sinh hiệu] → Đã đo`.
+- `vitals_status` thêm `in_progress`; `vitals_started_at/by` ghi ai bấm, lúc
+  nào. Postgres chặn "đang đo mà không có người".
+- Bấm hai lần cùng người → `already=true`, không phát sự kiện lần hai. Người
+  khác bấm → `VITALS_STARTED_BY_OTHER` kèm tên và giờ.
+- `pending → recorded` VẪN ĐƯỢC: [Bắt đầu] là mốc đo thời gian, không phải cửa
+  khoá. Lưu thêm = THÊM dòng `vital_measurement`, không có `vitals.corrected`.
+- `goi_do_luc/boi` giữ cột + dữ liệu cũ, không chép sang, không màn nào đọc
+  làm trạng thái nữa. Đường `/goi-do` còn mở ở máy chủ, giao diện thôi gọi —
+  gỡ hẳn là việc riêng.
+- Soi rồi: `goi_do_sinh_hieu` **không** gọi `_cap_nhat_vi_tri` (khác
+  `goi_khach` ở `d4d94a41`), nên bỏ nút cũ không rơi việc gì.
+- Nợ biết trước: cổng là `VITALS_ROLES` (vai), cùng cổng với `record_vitals`,
+  chưa phải capability — preset Lễ tân chưa có gói `sinh_hieu`.
+
 **CÒN NỢ TRƯỚC KHI GỌI "XONG NỀN":**
-- **StartVitals** — màn Đo sinh hiệu còn `[Gọi vào đo]`, chưa có lệnh Bắt đầu
-  để hấp thụ phần việc (`_cap_nhat_vi_tri`). Xem `d4d94a41`.
 - **Chưa bấm thật trên trình duyệt** ở 375 và 1280.
 
 **Bổ sung cùng ngày — LEGO có chuẩn, trách nhiệm có chủ, cache có luật**
