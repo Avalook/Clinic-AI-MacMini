@@ -332,7 +332,7 @@ MODULE: dict[str, Module] = {
                 "payment.refunded",
             ],
             bang=["payment_cycle", "payment_bill_line"],
-            quyen=["payment.service.collect"],
+            quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
         Module(
             ma="result_file",
@@ -408,6 +408,7 @@ MODULE: dict[str, Module] = {
                 "appointment.confirmed_by_call",
             ],
             bang=["appointment", "appointment_doi_lich"],
+            quyen=["booking.create", "booking.manage"],
         ),
         Module(
             ma="doi_tac",
@@ -444,6 +445,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=["medicine.dispensed"],
             bang=["prescription_allocation", "inventory_txn"],
+            quyen=["pharmacy.dispense", "pharmacy.view"],
         ),
     )
 }

@@ -22,16 +22,12 @@ import { VN_OFFSET } from "../../../lib/datetime";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
-  getClinicStaffId,
-  getVaiHomNay,
   vaiLamViec,
 } from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   isDoctorRole,
-  canManageAppt,
   canCheckin,
-  type ClinicRole,
 } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { type PatientKind } from "../../../lib/capacity";
@@ -185,10 +181,8 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Đặt lịch hỏi QUYỀN `booking.create` ở backend (24/09/2026) — không gác vai
+  // ở proxy.
 
   let body: Body;
   try {
@@ -364,45 +358,12 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // Vai LÀM VIỆC hôm nay: vai tài khoản trước (luật bác sĩ chỉ xét vai này —
-  // lịch không bao giờ cấp vai bác sĩ), rồi vai vận hành vị trí hôm nay cấp.
-  const vaiHomNay = await getVaiHomNay();
-  const vaiDuoc = (fn: (r: ClinicRole) => boolean) => vaiHomNay.some(fn);
-  const staffId = await getClinicStaffId();
-
-  // Gate theo nhóm: bác sĩ (own appt) · hủy/phân-lại (CSKH/QL) · không-đến
-  // (front-desk) · check-in/cskh_confirm (intake).
-  if (DOCTOR_ACTIONS.has(action)) {
-    if (!vaiDuoc(isDoctorRole)) {
-      return NextResponse.json(
-        { error: "Chỉ bác sĩ mới xác nhận/từ chối/khám-xong lịch hẹn." },
-        { status: 403 },
-      );
-    }
-    if (!staffId) {
-      return NextResponse.json(
-        { error: "Chưa chọn danh tính bác sĩ." },
-        { status: 403 },
-      );
-    }
-  } else if (MANAGE_ACTIONS.has(action)) {
-    if (!vaiDuoc(canManageAppt)) {
-      return NextResponse.json(
-        { error: "Chỉ CSKH / Quản lý mới hủy hoặc phân lại bác sĩ." },
-        { status: 403 },
-      );
-    }
-  } else if (action === "no_show" || action === "checkin" || action === "undo_checkin") {
-    // Check-in / không đến / huỷ check-in hỏi QUYỀN `reception.checkin.perform`
-    // ở backend, trong chính giao dịch (CORE-B3, 23/09/2026). Không gác vai ở
-    // đây nữa: gác thì người được cấp quyền vẫn ăn 403 ở proxy — hai hệ quyền.
-  } else if (!vaiDuoc(canWriteIntake)) {
-    return NextResponse.json(
-      { error: "Chỉ Lễ tân / CSKH / Quản lý mới xác nhận lịch." },
-      { status: 403 },
-    );
-  }
-
+  // KHÔNG GÁC VAI Ở ĐÂY (24/09/2026). Backend là nơi quyết, trong chính giao
+  // dịch chuyển trạng thái: check-in/không đến hỏi `reception.checkin.perform`,
+  // huỷ/dời/gán bác sĩ hỏi `booking.manage`, xác nhận lịch cũ hỏi
+  // `booking.create`, khám xong theo luật bác sĩ-của-ca (+CSKH/QL/Trưởng ca).
+  // Gác ở proxy từng chặn nhầm: CSKH/QL không đóng được lịch (backend cho), và
+  // người được cấp quyền mà khác vai ăn 403 ở cửa ngoài — hai hệ quyền.
   return proxyJsonToBackend("PATCH", `/api/v1/appointments/${id}`, {
     action,
     cancellation_reason: body.cancellation_reason ?? null,

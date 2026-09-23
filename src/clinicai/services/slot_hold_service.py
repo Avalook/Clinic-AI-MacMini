@@ -27,6 +27,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.permissions.can import can
 
 logger = structlog.get_logger()
 
@@ -44,11 +45,12 @@ HOLD_ROLES: frozenset[ClinicRole] = frozenset(
 )
 
 
-def _assert_may_hold(identity: StaffIdentity) -> None:
-    if not identity.co_vai(HOLD_ROLES):
-        raise ValidationError(
-            f"Vai trò {identity.role.value} không giữ chỗ đặt lịch được."
-        )
+async def _assert_may_hold(conn: asyncpg.Connection, identity: StaffIdentity) -> None:
+    """Giữ chỗ hỏi QUYỀN "Đặt lịch" (24/09/2026) — cùng câu với lệnh đặt lịch.
+
+    `HOLD_ROLES` chỉ còn cho policy RLS của bảng (đọc thẳng từ trình duyệt)."""
+    if not await can(conn, identity, "booking.create"):
+        raise ValidationError("Bạn chưa được cấp quyền đặt lịch — không giữ chỗ được.")
 
 
 class SlotHoldService:
@@ -70,11 +72,11 @@ class SlotHoldService:
         bấm lướt qua năm khung sẽ để lại năm chỗ "đang giữ" mà họ không hề định
         đặt, và màn hình của người bên cạnh đầy cảnh báo giả.
         """
-        _assert_may_hold(identity)
         if slot_end <= slot_start:
             raise ValidationError("Khung giờ không hợp lệ.")
 
         async with self._pool.acquire() as conn:
+            await _assert_may_hold(conn, identity)
             async with conn.transaction():
                 released = await self._release_mine(
                     conn, identity=identity, reason="cancelled", keep=slot_start
@@ -133,8 +135,8 @@ class SlotHoldService:
         self, *, identity: StaffIdentity, reason: str = "cancelled"
     ) -> dict[str, Any]:
         """Thả mọi chỗ người này đang giữ. Bỏ chọn, hoặc rời màn hình."""
-        _assert_may_hold(identity)
         async with self._pool.acquire() as conn:
+            await _assert_may_hold(conn, identity)
             async with conn.transaction():
                 n = await self._release_mine(conn, identity=identity, reason=reason)
         return {"released": n}

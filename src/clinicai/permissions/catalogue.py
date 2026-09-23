@@ -179,6 +179,32 @@ KHOI: dict[str, KhoiCongViec] = {
             "permission",
             "Cấp và thu quyền cho nhân sự",
         ),
+        # 24/09/2026 — thu tiền thuốc, nhà thuốc, lịch hẹn thôi hỏi vai
+        # (migration 20260924000013).
+        KhoiCongViec(
+            "thu_tien_thuoc", "Thu tiền thuốc", "payment", "Thu và huỷ phiếu tiền thuốc"
+        ),
+        KhoiCongViec(
+            "nha_thuoc",
+            "Nhà thuốc",
+            "pharmacy",
+            "Giao thuốc, từ chối, nhập / điều chỉnh / huỷ lô, khách trả thuốc",
+        ),
+        KhoiCongViec(
+            "xem_nha_thuoc",
+            "Xem nhà thuốc",
+            "pharmacy",
+            "Xem hàng chờ quầy thuốc, đơn bán, tồn kho",
+        ),
+        KhoiCongViec(
+            "dat_lich", "Đặt lịch", "booking", "Đặt lịch, giữ chỗ, xác nhận lịch cũ"
+        ),
+        KhoiCongViec(
+            "quan_ly_lich",
+            "Quản lý lịch hẹn",
+            "booking",
+            "Huỷ lịch, dời lịch, gán / đổi bác sĩ cho lịch",
+        ),
     )
 }
 
@@ -380,6 +406,41 @@ QUYEN: dict[str, Quyen] = {
             "permission",
             MucRuiRo.QUAN_TRI,
         ),
+        Quyen(
+            "payment.medicine.collect",
+            "Thu tiền thuốc",
+            "thu_tien_thuoc",
+            "payment",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
+            "pharmacy.dispense",
+            "Giao thuốc và quản lý lô thuốc",
+            "nha_thuoc",
+            "pharmacy",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "pharmacy.view",
+            "Xem quầy thuốc và tồn kho",
+            "xem_nha_thuoc",
+            "pharmacy",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "booking.create",
+            "Đặt lịch và giữ chỗ",
+            "dat_lich",
+            "booking",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "booking.manage",
+            "Huỷ / dời lịch, gán bác sĩ cho lịch",
+            "quan_ly_lich",
+            "booking",
+            MucRuiRo.VAN_HANH,
+        ),
     )
 }
 
@@ -399,7 +460,18 @@ PRESET: dict[str, Sequence[str]] = {
         "duyet_ket_qua",
     ],
     "TKYK": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien", "kham", "ghi_benh_an"],
-    "RECEPTION": ["tiep_don", "chon_dich_vu", "thu_tien_dv", "dieu_phoi"],
+    # Lễ tân kiêm thu ngân + quầy thuốc ở Kim Ngưu (16/09) và đặt lịch khách
+    # vãng lai — khớp `allowed_kinds` / VAI_GHI_NHA_THUOC / INTAKE_ROLES cũ.
+    "RECEPTION": [
+        "tiep_don",
+        "chon_dich_vu",
+        "thu_tien_dv",
+        "dieu_phoi",
+        "thu_tien_thuoc",
+        "nha_thuoc",
+        "xem_nha_thuoc",
+        "dat_lich",
+    ],
     # ĐIỀU DƯỠNG CÓ `chi_dinh` (Tuyền chốt 23/09/2026). Trong nghiệp vụ tạo chỉ
     # định và phát sinh dịch vụ tại phòng, bác sĩ = thư ký y khoa = điều dưỡng;
     # khác nhau chỉ ở chỗ AI THỰC SỰ BẤM, và chuyện đó là việc của nhật ký, không
@@ -415,13 +487,23 @@ PRESET: dict[str, Sequence[str]] = {
         "ket_qua",
         "thuc_hien",
     ],
-    "CASHIER": ["thu_tien_dv", "chon_dich_vu"],
+    "CASHIER": ["thu_tien_dv", "chon_dich_vu", "thu_tien_thuoc"],
     "CASHIER_DV": ["thu_tien_dv", "chon_dich_vu"],
     # Thu ngân nhà thuốc KHÔNG thu tiền dịch vụ (`allowed_kinds`: chỉ "thuoc").
     # Preset cũ có `thu_tien_dv` là lệch — sửa 23/09 khi thu tiền dịch vụ
     # chuyển sang quyền, kẻo vai này tự dưng thu được tiền dịch vụ.
-    "CASHIER_THUOC": [],
-    "TRUONG_CA": ["dieu_phoi", "tiep_don", "chon_dich_vu", "thuc_hien"],
+    "CASHIER_THUOC": ["thu_tien_thuoc", "xem_nha_thuoc"],
+    "TRUONG_CA": [
+        "dieu_phoi",
+        "tiep_don",
+        "chon_dich_vu",
+        "thuc_hien",
+        "xem_nha_thuoc",
+        "dat_lich",
+        "quan_ly_lich",
+    ],
+    "PHARMACIST": ["thu_tien_thuoc", "nha_thuoc", "xem_nha_thuoc"],
+    "CSKH": ["dat_lich", "quan_ly_lich"],
     "ULTRASOUND_DOCTOR": [
         "dieu_phoi",
         "ket_qua",
@@ -443,6 +525,11 @@ PRESET: dict[str, Sequence[str]] = {
         "thuc_hien",
         "danh_muc",
         "quan_tri_quyen",
+        "thu_tien_thuoc",
+        "nha_thuoc",
+        "xem_nha_thuoc",
+        "dat_lich",
+        "quan_ly_lich",
     ],
 }
 
@@ -503,14 +590,27 @@ MAN: dict[str, Man] = {
             "Quản lý",
         ),
         Man("phan_quyen", "Phân quyền", "/phan-quyen", ["quan_tri_quyen"], "Quản lý"),
+        Man(
+            "thu_tien_thuoc",
+            "Thu tiền thuốc + Kho thuốc",
+            "/thu-ngan/thuoc",
+            ["thu_tien_thuoc", "nha_thuoc", "xem_nha_thuoc"],
+            "Dược sĩ (+ Lễ tân)",
+        ),
+        Man(
+            "dat_lich",
+            "Đặt lịch · Quản lý lịch hẹn",
+            "/appointments",
+            ["dat_lich", "quan_ly_lich"],
+            "CSKH",
+        ),
     )
 }
 
 #: Màn còn đi theo VAI (chưa có khối công việc riêng) — hiện trên màn quản lý
 #: cho đủ bức tranh, chưa bật/tắt được. Thêm khối cho chúng là việc sau.
 MAN_THEO_VAI: list[tuple[str, str]] = [
-    ("Thu tiền thuốc + Kho thuốc", "Dược sĩ (+ Lễ tân, Thu ngân)"),
-    ("Đặt lịch · Quản lý khách hàng", "CSKH"),
+    ("Quản lý khách hàng", "CSKH"),
     ("Danh sách bệnh nhân", "CSKH + Lễ tân"),
     ("Đối tác", "Đối tác"),
     ("Hành trình khách hôm nay", "Mọi vai nội bộ"),

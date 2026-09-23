@@ -34,6 +34,7 @@ import asyncpg
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.can import can
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 
@@ -168,9 +169,10 @@ async def man_nha_thuoc(
     pool: asyncpg.Pool, *, identity: StaffIdentity
 ) -> dict[str, Any]:
     hom_nay = now_vn().date()
-    co_quyen_ghi = identity.co_vai(VAI_GHI_NHA_THUOC)
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
     async with pool.acquire() as conn:
+        # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
+        co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
         dong = await conn.fetch(
             f"""
             SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,

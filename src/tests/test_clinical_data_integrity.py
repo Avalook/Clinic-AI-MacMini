@@ -26,6 +26,18 @@ from clinicai.services.ultrasound_service import UltrasoundService
 
 
 @pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kết nối giả không chạy được `v_quyen_hieu_luc` — cửa quyền trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). 24/09: kéo thứ tự / đặt lịch hỏi quyền."""
+    import clinicai.services.booking_service as bk
+    import clinicai.services.thu_tu_kham_service as ttk
+    from tests.quyen_gia import doi_quyen_theo_nhom_mau
+
+    monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+
+
+@pytest.fixture(autouse=True)
 def _cua_quyen_co_bai_kiem_rieng(monkeypatch: pytest.MonkeyPatch) -> None:
     """Cửa quyền `clinical.record.write` (CORE-B3) có bài kiểm trên Postgres thật
     (`test_duong_kham_hoi_quyen_db.py`). Ở đây `conn` là mock đếm từng lần

@@ -8,8 +8,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { isOpsAdmin } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 export async function PATCH(request: Request) {
@@ -19,10 +17,8 @@ export async function PATCH(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await vaiLamViec((r) => isOpsAdmin(r));
-  if (!isOpsAdmin(role)) {
-    return NextResponse.json({ error: "Chỉ Trưởng ca / Quản lý mới được sửa luật đặt lịch." }, { status: 403 });
-  }
+  // Không gác vai ở proxy (24/09/2026): proxy từng cho Trưởng ca qua trong khi
+  // backend chỉ nhận Quản lý — hai luật cho một nút. Backend quyết.
 
   let body: unknown;
   try {

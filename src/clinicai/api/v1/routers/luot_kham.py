@@ -23,6 +23,7 @@ from clinicai.api.identity import (
     require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
@@ -352,7 +353,8 @@ async def cho_quyet(
 async def quyet_yeu_cau(
     requirement_id: UUID,
     body: QuyetYeuCauBody,
-    identity: StaffIdentity = Depends(_DOCTOR_GUARD),
+    # Quyền "Hoàn tất khám" do lệnh hỏi trong chính nó (24/09/2026).
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
@@ -409,9 +411,10 @@ async def save_note(
 
 
 #: Lát CD-01: bác sĩ VÀ thư ký y khoa ngang quyền chỉ định (Tuyền, tin #149).
-#: Đây là cửa của lệnh MỚI; hai endpoint draft/authorize bên dưới là đường cũ,
-#: giữ nguyên cho tới khi mọi màn đã chuyển sang lệnh này.
-_CHI_DINH_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
+#: Cửa theo QUYỀN "Chỉ định dịch vụ" (24/09/2026): trước đây cửa theo vai chặn
+#: người được cấp quyền mà khác vai (điều dưỡng, quản lý ăn 403 ở cửa ngoài
+#: trong khi lệnh bên trong cho phép). Lệnh vẫn tự kiểm lại.
+_CHI_DINH_GUARD = cua_quyen("clinical.order.place")
 
 
 class ChiDinhBody(BaseModel):

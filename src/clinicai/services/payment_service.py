@@ -41,7 +41,8 @@ from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import TienDichVuDaThu, TienThuocDaThu
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.can import can, doi_quyen
+from clinicai.permissions.catalogue import tra_quyen
 from clinicai.services import pos_outbox
 from clinicai.services.bill_service import (
     HoaDon,
@@ -110,6 +111,14 @@ def allowed_kinds(role: ClinicRole) -> frozenset[str]:
     return frozenset()
 
 
+#: Loại tiền → quyền thu / huỷ / xác minh (24/09/2026). `allowed_kinds` bên
+#: trên chỉ còn cho màn thu ngân chọn ô hiển thị theo vai.
+QUYEN_THU: dict[str, str] = {
+    "dich_vu": "payment.service.collect",
+    "thuoc": "payment.medicine.collect",
+}
+
+
 def normalize_amount(raw: object) -> int | None:
     """Round a finite, positive number to an int; anything else → None.
 
@@ -140,13 +149,24 @@ class PaymentService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    def _assert_kind_allowed(self, kind: str, identity: StaffIdentity) -> None:
+    async def _assert_kind_allowed(self, kind: str, identity: StaffIdentity) -> None:
+        """Thu / huỷ / xác minh một loại tiền hỏi QUYỀN của loại ấy (24/09/2026).
+
+        Trước đây theo vai (`allowed_kinds`): người được cấp khối "Thu tiền dịch
+        vụ" mà khác vai thì thu được (lệnh thu hỏi quyền) nhưng không huỷ / xác
+        minh được chính phiếu mình thu. Nay cùng một câu hỏi cho mọi thao tác.
+        """
         if kind not in PAYMENT_KINDS:
             raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
-        duoc_thu = {k for v in identity.cac_vai() for k in allowed_kinds(v)}
-        if kind not in duoc_thu:
-            logger.info("payment_kind_forbidden", role=identity.role.value, kind=kind)
-            raise SafetyGateError("Vai trò của bạn không được thu loại thanh toán này")
+        async with self._pool.acquire() as conn:
+            if not await can(conn, identity, QUYEN_THU[kind]):
+                logger.info(
+                    "payment_kind_forbidden", role=identity.role.value, kind=kind
+                )
+                raise SafetyGateError(
+                    "Bạn chưa được cấp quyền thu loại tiền này"
+                    f" (“{tra_quyen(QUYEN_THU[kind]).ten}”)."
+                )
 
     async def record_payment(
         self,
@@ -178,11 +198,11 @@ class PaymentService:
         if kind == "dich_vu":
             # Tiền DỊCH VỤ hỏi QUYỀN `payment.service.collect` trong chính giao
             # dịch thu (CORE-B3, 23/09/2026) — xem `_thu_dich_vu`. Tiền thuốc
-            # vẫn theo vai (`allowed_kinds`) — ngoài đường khám chính, ghi nợ.
+            # hỏi `payment.medicine.collect` (24/09/2026).
             if kind not in PAYMENT_KINDS:
                 raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
         else:
-            self._assert_kind_allowed(kind, identity)
+            await self._assert_kind_allowed(kind, identity)
         if method not in PAYMENT_METHODS:
             raise ValidationError(f"Phương thức thanh toán không hợp lệ: {method!r}")
 
@@ -726,7 +746,7 @@ class PaymentService:
         Gửi lại cùng mã cho lần đã xác minh → thành công như cũ (idempotent).
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
-        self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity)
         ma = reference.strip() if isinstance(reference, str) else ""
         if not 3 <= len(ma) <= 100:
             raise ValidationError("Nhập mã giao dịch ngân hàng (3–100 ký tự).")
@@ -910,7 +930,7 @@ class PaymentService:
         """Huỷ ĐÚNG lần chuyển khoản/QR chờ xác minh (khách không chuyển / chuyển
         sai). Không phải huỷ phiếu thu — chưa từng thu. Gửi lại cho lần đã huỷ
         → thành công như cũ."""
-        self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity)
         ly_do = normalize_void_reason(reason)
         if ly_do is None:
             raise ValidationError("Lý do huỷ phải có từ 5 đến 500 ký tự")
@@ -983,7 +1003,7 @@ class PaymentService:
         chính người đã thu phiếu đó, hoặc Quản lý. Lệnh cũ đến muộn nhắm A thì
         không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
-        self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
             raise ValidationError("Lý do hoàn tác phải có từ 5 đến 500 ký tự")

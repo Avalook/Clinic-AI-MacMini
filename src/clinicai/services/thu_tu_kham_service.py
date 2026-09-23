@@ -20,6 +20,7 @@ import structlog
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
@@ -91,14 +92,20 @@ class ThuTuKhamService:
         truoc_appointment_id: str | None,
     ) -> dict[str, Any]:
         """Đặt khách vào giữa hai người trong hàng chờ đã check-in."""
-        if not identity.co_vai(VAI_KEO_THU_TU):
-            raise SafetyGateError("Chỉ lễ tân / trưởng ca / quản lý đổi thứ tự khám.")
         ids = [appointment_id] + [
             x for x in (sau_appointment_id, truoc_appointment_id) if x
         ]
         if len(set(ids)) != len(ids):
             raise ValidationError("Không thể kéo một khách vào cạnh chính mình.")
         async with self._pool.acquire() as conn, conn.transaction():
+            # Kéo thứ tự hỏi QUYỀN "Check-in khách" (24/09/2026 — cùng người với
+            # VAI_KEO_THU_TU: lễ tân / trưởng ca / quản lý).
+            await doi_quyen(
+                conn,
+                identity,
+                "reception.checkin.perform",
+                cau="Chỉ lễ tân / trưởng ca / quản lý đổi thứ tự khám.",
+            )
             rows = await conn.fetch(_MOC_SQL, identity.clinic_id, ids)
             theo_id = {r["appointment_id"]: r for r in rows}
             if appointment_id not in theo_id:

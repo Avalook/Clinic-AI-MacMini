@@ -12,6 +12,7 @@ thấy ngay — hết hạn là thụ động, không cần cron dọn.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 
@@ -39,30 +40,41 @@ def _identity(role: ClinicRole) -> StaffIdentity:
 
 
 class TestWhoMayHold:
-    @pytest.mark.parametrize("role", sorted(HOLD_ROLES))
-    def test_anyone_who_can_book_can_hold(self, role: ClinicRole) -> None:
-        """Giữ chỗ là bước đầu của việc đặt lịch.
+    """Giữ chỗ hỏi QUYỀN "Đặt lịch" (`booking.create`) — cùng câu với lệnh đặt
+    lịch (24/09/2026). Trước đây là tập vai HOLD_ROLES chép tay."""
 
-        Hai danh sách quyền lệch nhau nghĩa là có người bấm chọn được khung giờ
-        rồi mới biết mình không đặt được — hoặc đặt được mà không giữ được, và
-        người bên cạnh không thấy gì.
-        """
-        _assert_may_hold(_identity(role))
-
-    def test_the_intake_roles_are_the_same_list_as_booking(self) -> None:
-        """Chép tay danh sách vai là cách một quyền lệch đi mà không test nào
-        đỏ. Policy RLS của bảng cũng chép đúng bốn vai này."""
+    def test_nhom_mau_co_dat_lich_dung_bon_vai_cu(self) -> None:
+        """Chuyển sang quyền không ai được/mất việc: nhóm mẫu có khối "Đặt lịch"
+        đúng là bốn vai cũ (HOLD_ROLES = INTAKE_ROLES; policy RLS chép y vậy)."""
+        from clinicai.permissions.catalogue import PRESET
         from clinicai.services.booking_service import INTAKE_ROLES
 
         assert HOLD_ROLES == INTAKE_ROLES
+        co = {vai for vai, khoi in PRESET.items() if "dat_lich" in khoi}
+        assert co == {r.value for r in HOLD_ROLES}
 
-    def test_a_doctor_does_not_hold_booking_slots(self) -> None:
-        with pytest.raises(ValidationError, match="không giữ chỗ"):
-            _assert_may_hold(_identity(ClinicRole.DOCTOR))
+    @pytest.mark.asyncio
+    async def test_co_quyen_thi_giu_duoc(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import clinicai.services.slot_hold_service as m
 
-    def test_a_cashier_does_not_hold_booking_slots(self) -> None:
+        async def co(*_: Any, **__: Any) -> bool:
+            return True
+
+        monkeypatch.setattr(m, "can", co)
+        await _assert_may_hold(None, _identity(ClinicRole.CSKH))
+
+    @pytest.mark.asyncio
+    async def test_khong_co_quyen_thi_khong_giu(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import clinicai.services.slot_hold_service as m
+
+        async def khong(*_: Any, **__: Any) -> bool:
+            return False
+
+        monkeypatch.setattr(m, "can", khong)
         with pytest.raises(ValidationError, match="không giữ chỗ"):
-            _assert_may_hold(_identity(ClinicRole.CASHIER))
+            await _assert_may_hold(None, _identity(ClinicRole.DOCTOR))
 
 
 class TestHowLongAHoldLasts:

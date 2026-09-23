@@ -2034,7 +2034,15 @@ class LuotKhamService:
         theo dõi có người phụ trách và hạn. Cả hai bắt buộc lý do và ghi nhật
         ký; chỉ bác sĩ phụ trách lượt khám làm được (thư ký không quyết).
         """
-        _require(identity, DOCTOR_ROLES, "Chỉ bác sĩ quyết miễn hoặc theo dõi.")
+        # Hỏi QUYỀN "Hoàn tất khám" (24/09/2026 — cùng người với DOCTOR_ROLES
+        # cũ: chỉ bác sĩ; thư ký không quyết).
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.finalize",
+                cau="Chỉ bác sĩ quyết miễn hoặc theo dõi.",
+            )
         cid = identity.clinic_id
         rid = _uuid(requirement_id, "Mã yêu cầu không hợp lệ.")
         if hanh_dong not in ("WAIVE", "FOLLOW_UP"):
@@ -2223,9 +2231,16 @@ class LuotKhamService:
         mình; thư ký thấy khách của bác sĩ mình đi kèm (chỉ xem — quyết là việc
         của bác sĩ).
         """
-        _require(identity, CONSULT_ROLES, "Chỉ bác sĩ hoặc thư ký xem việc chờ quyết.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            # Hỏi QUYỀN "Khám bệnh" (24/09/2026 — cùng người với CONSULT_ROLES).
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Chỉ bác sĩ hoặc thư ký xem việc chờ quyết.",
+            )
+            duoc_quyet = await can(conn, identity, "clinical.consult.finalize")
             if identity.co_vai(DOCTOR_ROLES):
                 bac_si: list[str] | None = [identity.staff_id]
             else:
@@ -2318,7 +2333,7 @@ class LuotKhamService:
                     "vong": q["round_no"],
                 }
             )
-        return {"viec": viec, "duoc_quyet": identity.co_vai(DOCTOR_ROLES)}
+        return {"viec": viec, "duoc_quyet": duoc_quyet}
 
     async def chi_dinh_hom_nay(self, *args: Any, **kwargs: Any) -> Any:
         """Nay ở `luot_kham_doc.BangLuotKham` (bóc 24/09/2026)."""

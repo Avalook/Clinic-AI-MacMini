@@ -22,26 +22,20 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services import ban_thuoc_service
 from clinicai.services.pharmacy_service import PharmacyService
 
 router = APIRouter()
 
 # ĐỌC mở rộng hơn GHI. Thu ngân thuốc cần thấy đơn để thu tiền, Trưởng ca và
-# Quản lý cần thấy tồn để biết sắp hết gì — nhưng chỉ Dược sĩ (và Quản lý, cho
-# lúc dược sĩ nghỉ) mới được chạm vào kho.
-# Lễ tân kiêm quầy thuốc + kho thuốc ở Kim Ngưu (Tuyền 16/09/2026).
-_DOC = require_role(
-    ClinicRole.RECEPTION,
-    ClinicRole.PHARMACIST,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
-# Một nguồn duy nhất: màn đọc AND tập này vào mọi nút (review CP4 P2).
-_GHI = require_role(*sorted(ban_thuoc_service.VAI_GHI_NHA_THUOC, key=str))
+# Quản lý cần thấy tồn để biết sắp hết gì — nhưng chỉ người giữ khối "Nhà thuốc"
+# mới được chạm vào kho. Hỏi QUYỀN, không hỏi vai (24/09/2026, migration
+# 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
+_DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
+_GHI = cua_quyen("pharmacy.dispense")
 
 
 @router.get("/pharmacy/queue")

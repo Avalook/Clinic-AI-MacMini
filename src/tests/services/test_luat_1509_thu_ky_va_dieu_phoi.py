@@ -15,6 +15,19 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from tests.services.fake_sql import pool
 
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kết nối giả không chạy được `v_quyen_hieu_luc` — cửa quyền trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). 24/09: kéo thứ tự / đặt lịch hỏi quyền."""
+    import clinicai.services.booking_service as bk
+    import clinicai.services.thu_tu_kham_service as ttk
+    from tests.quyen_gia import doi_quyen_theo_nhom_mau
+
+    monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+
+
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 ME = "b0000000-0000-4000-8000-000000000001"
 BS1 = "b0000000-0000-4000-8000-000000000002"

@@ -26,13 +26,13 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
     load_clinic_policy,
@@ -43,7 +43,9 @@ from clinicai.services.slot_hold_service import SlotHoldService
 router = APIRouter()
 
 # Booking is intake work.
-_BOOKING_GUARD = require_role(*INTAKE_ROLES)
+# Đặt lịch / giữ chỗ hỏi QUYỀN "Đặt lịch" (24/09/2026 — thay INTAKE_ROLES, cùng
+# người: CSKH, Lễ tân, Quản lý, Trưởng ca).
+_BOOKING_GUARD = cua_quyen("booking.create")
 # Bảng chuyển trạng thái trong BookingService quyết từng thao tác: vai, hoặc
 # QUYỀN với check-in / huỷ check-in / vắng mặt (CORE-B3, 23/09/2026). Cửa ngoài
 # chỉ còn "đã đăng nhập" — liệt kê vai ở đây thì người được cấp quyền check-in

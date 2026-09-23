@@ -26,6 +26,7 @@ from clinicai.api.identity import (
     require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.dispatch_service import DispatchService
 from clinicai.services.doi_bac_si_service import DoiBacSiService
 
@@ -33,10 +34,9 @@ router = APIRouter()
 
 # Điều phối là quyết định của ca trực.
 _DISPATCH_WRITE = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
-# Quầy tiếp nhận: Lễ tân là người bấm, Trưởng ca/Quản lý bấm hộ được.
-_RECEPTION_GUARD = require_role(
-    ClinicRole.RECEPTION, ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT
-)
+# Quầy tiếp nhận (check-out): hỏi QUYỀN "Check-in khách" (24/09/2026 — cùng
+# người: Lễ tân bấm, Trưởng ca/Quản lý bấm hộ).
+_RECEPTION_GUARD = cua_quyen("reception.checkin.perform")
 
 
 # ── Đọc ────────────────────────────────────────────────────────────────────

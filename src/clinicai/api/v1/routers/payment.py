@@ -20,29 +20,20 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
 
 router = APIRouter()
 
-# Roles allowed to touch payments at all; the finer kind↔role rule is in the service.
-_CASHIER_GUARD = require_role(
-    # Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
-    ClinicRole.RECEPTION,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-    # Dược sĩ: chỉ tiền THUỐC — `allowed_kinds` trong service giới hạn loại
-    # (Tuyền chốt 23/09; rà quyền nhóm 6, 24/09).
-    ClinicRole.PHARMACIST,
-    ClinicRole.MANAGEMENT,
-)
+# Ai đụng được vào tiền: người giữ một trong hai khối thu tiền (24/09/2026 —
+# thay tập vai cũ, cùng người: Lễ tân, Thu ngân (+DV/+Thuốc), Dược sĩ, Quản lý).
+# Loại tiền nào ai được làm do PaymentService hỏi quyền của đúng loại ấy.
+_CASHIER_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 PaymentKind = Literal["thuoc", "dich_vu"]
 PaymentMethod = Literal["CASH", "TRANSFER", "QR"]

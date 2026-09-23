@@ -198,6 +198,18 @@ khách, tới giờ chuông réo đúng người.
     / xếp phòng / thực hiện dịch vụ không còn phụ thuộc khối Khám.
 43. **Lối cũ OFF = 410 + log người gọi** (cờ `LOI_CU_MO`), không xoá. Giữ lối điều phối cũ
     `/orders/{id}/dispatch` vì chỉ định đời cũ (trước 22/09) chỉ đổi phòng được bằng nó.
+44. **Quyền mới theo đúng tập vai cũ** (migration 20260924000013) — không ai được/mất việc:
+    thu tiền thuốc = CASHIER, CASHIER_THUOC, PHARMACIST, RECEPTION, MANAGEMENT; nhà thuốc
+    (giao) = RECEPTION, PHARMACIST, MANAGEMENT; xem nhà thuốc thêm CASHIER_THUOC, TRUONG_CA;
+    đặt lịch = CSKH, RECEPTION, MANAGEMENT, TRUONG_CA; quản lý lịch = CSKH, MANAGEMENT,
+    TRUONG_CA. Một khác biệt có chủ ý: người ĐỨNG VỊ TRÍ hôm nay (vd điều dưỡng đứng quầy
+    lễ tân) không còn tự có quyền của vị trí — phải được cấp (giống check-in từ 23/09).
+    Còn hỏi vai (chưa chuyển, ghi nợ): bảng lượt khám / hàng chờ (đọc), siêu âm, xét
+    nghiệm nhập tay, bệnh nhân (tạo/sửa), đồng ý, CSKH, lịch trực, giá, báo cáo, ops,
+    quản trị nhân sự, đối tác (giữ vai — là loại tài khoản, không phải quyền).
+45. Giao diện KHÔNG gác vai trên route đã có cửa backend — backend quyết (hai hệ quyền
+    từng làm chặn nhầm ở proxy). Còn gác ở proxy khi route vẫn tự đọc database (sẽ bỏ khi
+    route chuyển sang backend).
 
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**

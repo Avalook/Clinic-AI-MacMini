@@ -27,3 +27,15 @@ async def doi_quyen_theo_nhom_mau(
     if quyen not in quyen_cua_preset(identity.role.value):
         ten = tra_quyen(quyen).ten
         raise SafetyGateError(cau or f"Bạn chưa được cấp quyền “{ten}”.")
+
+
+async def can_theo_nhom_mau(
+    _conn: Any,
+    identity: StaffIdentity,
+    quyen: str,
+    *,
+    phong_id: str | None = None,
+) -> bool:
+    """Như `can` thật, trả lời theo nhóm mẫu của vai (xem đầu file)."""
+    tra_quyen(quyen)
+    return quyen in quyen_cua_preset(identity.role.value)

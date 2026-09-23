@@ -328,8 +328,17 @@ TRANSITIONS: dict[str, Transition] = {
         frozenset({"SCHEDULED"}),
         INTAKE_ROLES,
         "appointment.cskh_confirmed",
+        quyen="booking.create",
     ),
-    "cancel": Transition("CANCELLED", _ALIVE, MANAGE_ROLES, "appointment.cancelled"),
+    # Huỷ / đổi bác sĩ / gán bác sĩ / dời lịch hỏi QUYỀN "Quản lý lịch hẹn"
+    # (24/09/2026, migration 20260924000013 — cùng người với MANAGE_ROLES cũ).
+    "cancel": Transition(
+        "CANCELLED",
+        _ALIVE,
+        MANAGE_ROLES,
+        "appointment.cancelled",
+        quyen="booking.manage",
+    ),
     "no_show": Transition(
         "NO_SHOW",
         _PRE_ARRIVAL,
@@ -345,6 +354,7 @@ TRANSITIONS: dict[str, Transition] = {
         frozenset({"DOCTOR_DECLINED"}),
         MANAGE_ROLES,
         "appointment.reassigned",
+        quyen="booking.manage",
     ),
     # GÁN BÁC SĨ cho một lịch đã đặt mà chưa có bác sĩ.
     #
@@ -360,10 +370,15 @@ TRANSITIONS: dict[str, Transition] = {
         _ALIVE,
         MANAGE_ROLES,
         "appointment.doctor_assigned",
+        quyen="booking.manage",
     ),
     # Rescheduling keeps whatever status the appointment already had.
     "reschedule": Transition(
-        KEEP_STATUS, _ALIVE, MANAGE_ROLES, "appointment.rescheduled"
+        KEEP_STATUS,
+        _ALIVE,
+        MANAGE_ROLES,
+        "appointment.rescheduled",
+        quyen="booking.manage",
     ),
 }
 
