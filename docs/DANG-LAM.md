@@ -13,6 +13,14 @@ lịch sử hội thoại.
 
 ---
 
+## DB local đồng nhất với VPS (24/09)
+
+- Stack local `clinicai_thu_db` tụt 8 migration vì bật API/worker/web bằng tay. Đã
+  `scripts/dev-up.sh --reset` → 214/214 migration, seed + demo, 12 tài khoản thử đăng nhập được.
+- **Luật từ nay:** có migration mới → `scripts/dev-up.sh` (không reset): nó áp phần còn thiếu
+  bằng `apply-pending-migrations.sh` — đúng công cụ áp lên prod. `--reset` khi muốn sạch hẳn.
+  Local chỉ có dữ liệu giả; không chép dữ liệu prod về máy.
+
 ## Quản lý có đủ khối — đọc/sửa y khoa theo QUYỀN (24/09 — CHƯA deploy)
 
 Tuyền chốt: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó có cả",
