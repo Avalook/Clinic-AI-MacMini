@@ -137,6 +137,7 @@ MODULE: dict[str, Module] = {
                 "result.ready",
                 "result.corrected",
                 "result.reviewed",
+                "result.viewed",
             ],
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
@@ -210,6 +211,8 @@ MODULE: dict[str, Module] = {
                 "result_file.viewed",
                 "result_file.sent_to_patient",
                 "result.reviewed",
+                "result.viewed",
+                "lab_result.arrived",
                 "appointment.booked",
                 "appointment.rescheduled",
                 "appointment.cancelled",
@@ -353,7 +356,7 @@ MODULE: dict[str, Module] = {
             ten="Chuông thông báo",
             # CHỈ NGHE. Ai nhận chuông cho sự kiện nào là DỮ LIỆU
             # (`day_nhan_thong_bao`) — quản lý chỉnh trên màn (nhóm 5).
-            nghe=["result_file.uploaded", "result.ready"],
+            nghe=["result_file.uploaded", "result.ready", "lab_result.arrived"],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
         ),
@@ -388,6 +391,13 @@ MODULE: dict[str, Module] = {
             lenh=["LogContact"],
             phat=["patient.contacted"],
             bang=["tuong_tac_cskh"],
+        ),
+        Module(
+            ma="lab",
+            ten="Xét nghiệm nhập tay",
+            lenh=["EnterLabResult"],
+            phat=["lab_result.arrived"],
+            bang=["lab_result"],
         ),
         Module(
             ma="pharmacy",

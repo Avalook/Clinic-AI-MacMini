@@ -81,6 +81,7 @@ class NhacViecService:
                 loai=HEN_NHAC,
                 sau=max(luc - bay_gio, timedelta(0)),
                 ve_cai_gi=str(ma),
+                chi_tiet={"nguoi_goi": identity.staff_id},
             )
         return {"ok": True, "id": ma, "nhac_luc": luc.isoformat()}
 

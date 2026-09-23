@@ -447,6 +447,102 @@ PRESET: dict[str, Sequence[str]] = {
 }
 
 
+# ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
+# "Quyền đi theo MÀN (màn = khối lego; xem/sửa/xoá đi theo màn, không chi tiết
+# hơn). Ô quản lý quyền: chọn vai → các màn MẶC ĐỊNH hiện ra, thêm/sửa/xoá thoải
+# mái." Một màn = những khối công việc cần để làm việc trên màn ấy; bật màn cho
+# một nhóm = thêm các khối ấy vào nhóm. Bảng "màn mặc định cho vai" ở ghi chú.
+
+
+@dataclass(frozen=True)
+class Man:
+    ma: str
+    ten: str
+    duong: str
+    khoi: Sequence[str]
+    mac_dinh_cho: str
+
+
+MAN: dict[str, Man] = {
+    m.ma: m
+    for m in (
+        Man("tiep_don", "Tiếp đón", "/reception/queue", ["tiep_don"], "Lễ tân"),
+        Man(
+            "do_sinh_hieu", "Đo sinh hiệu", "/do-sinh-hieu", ["sinh_hieu"], "Điều dưỡng"
+        ),
+        Man("tu_van", "Bàn khám tư vấn", "/tu-van", ["tu_van"], "Bác sĩ tư vấn"),
+        Man(
+            "ban_kham",
+            "Bàn khám",
+            "/ban-kham",
+            ["kham", "chi_dinh", "ghi_benh_an"],
+            "Bác sĩ chính + Thư ký y khoa",
+        ),
+        Man(
+            "phong",
+            "Phòng dịch vụ (siêu âm · thủ thuật)",
+            "/phong",
+            ["thuc_hien", "ket_qua"],
+            "BS siêu âm / thủ thuật + Điều dưỡng",
+        ),
+        Man(
+            "thu_tien_dv",
+            "Thu tiền dịch vụ",
+            "/thu-ngan/dich-vu",
+            ["thu_tien_dv", "chon_dich_vu"],
+            "Lễ tân",
+        ),
+        Man("dieu_phoi", "Điều phối ca · TV", "/truong-ca", ["dieu_phoi"], "Trưởng ca"),
+        Man(
+            "duyet_ket_qua",
+            "Duyệt kết quả (không bắt buộc)",
+            "/duyet-ket-qua",
+            ["duyet_ket_qua"],
+            "Bác sĩ",
+        ),
+        Man(
+            "cai_dat",
+            "Danh mục · Dây nối nghiệp vụ",
+            "/settings/day-noi",
+            ["danh_muc"],
+            "Quản lý",
+        ),
+        Man("phan_quyen", "Phân quyền", "/phan-quyen", ["quan_tri_quyen"], "Quản lý"),
+    )
+}
+
+#: Màn còn đi theo VAI (chưa có khối công việc riêng) — hiện trên màn quản lý
+#: cho đủ bức tranh, chưa bật/tắt được. Thêm khối cho chúng là việc sau.
+MAN_THEO_VAI: list[tuple[str, str]] = [
+    ("Thu tiền thuốc + Kho thuốc", "Dược sĩ (+ Lễ tân, Thu ngân)"),
+    ("Đặt lịch · Quản lý khách hàng", "CSKH"),
+    ("Danh sách bệnh nhân", "CSKH + Lễ tân"),
+    ("Đối tác", "Đối tác"),
+    ("Hành trình khách hôm nay", "Mọi vai nội bộ"),
+]
+
+
+def man_dang_bat(khoi: Sequence[str]) -> list[str]:
+    """Màn nào đang bật với một tập khối: đủ MỌI khối của màn ấy."""
+    co = set(khoi)
+    return [m.ma for m in MAN.values() if set(m.khoi) <= co]
+
+
+def khoi_sau_khi_doi_man(khoi: Sequence[str], ma_man: str, bat: bool) -> list[str]:
+    """Tập khối mới khi bật/tắt một màn. Tắt thì chỉ gỡ khối KHÔNG còn màn nào
+    khác đang bật cần tới — tắt "Phòng dịch vụ" không được lấy mất khối mà
+    "Bàn khám" còn dùng."""
+    man = MAN[ma_man]
+    co = set(khoi)
+    if bat:
+        return sorted(co | set(man.khoi))
+    con_can: set[str] = set()
+    for khac in man_dang_bat(khoi):
+        if khac != ma_man:
+            con_can |= set(MAN[khac].khoi)
+    return sorted(co - (set(man.khoi) - con_can))
+
+
 def quyen_cua_khoi(ma_khoi: str) -> list[str]:
     """Mọi quyền con nằm trong một khối."""
     return [q.ma for q in QUYEN.values() if q.khoi == ma_khoi]

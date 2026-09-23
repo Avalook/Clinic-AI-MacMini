@@ -54,6 +54,7 @@ VAI_NHAN_DUOC: tuple[str, ...] = (
 NHAN_CHUONG: dict[str, str] = {
     "result_file.uploaded": "Tệp kết quả về",
     "result.ready": "Phòng hoàn tất phiếu kết quả",
+    "lab_result.arrived": "Kết quả xét nghiệm nhập tay về",
 }
 
 

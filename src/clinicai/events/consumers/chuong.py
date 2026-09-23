@@ -35,6 +35,8 @@ class DayNhan:
 MAC_DINH: dict[str, DayNhan] = {
     "result_file.uploaded": DayNhan(["CSKH", "TKYK", "NURSE_ULTRASOUND"], True),
     "result.ready": DayNhan(["TKYK"], True),
+    # Kết quả xét nghiệm nhập tay (trước 24/09 gọi thẳng: CSKH + bác sĩ).
+    "lab_result.arrived": DayNhan(["CSKH"], True),
 }
 
 #: Màn mở ra khi bấm chuông, theo vai nhận.
@@ -70,25 +72,31 @@ async def _khach_va_bac_si(
     sĩ chính của lượt. Tệp chưa gắn lượt thì đi qua chính tệp."""
     visit_id = su_kien.payload.get("visit_id")
     tep_id = su_kien.payload.get("tep_id")
+    lab_id = su_kien.payload.get("lab_result_id")
     return await conn.fetchrow(
         """
         SELECT p.clinic_patient_id::text AS pid, p.full_name, p.patient_code,
                coalesce(v.attending_doctor_id, a.doctor_id)::text AS bac_si_id
-          FROM (SELECT $2::uuid AS visit_id, $3::uuid AS tep_id) k
+          FROM (SELECT $2::uuid AS visit_id, $3::uuid AS tep_id,
+                       $4::uuid AS lab_id) k
           LEFT JOIN visit v
             ON v.clinic_id = $1::uuid AND v.visit_id = k.visit_id
           LEFT JOIN tep_ket_qua t
             ON t.clinic_id = $1::uuid AND t.id = k.tep_id
+          LEFT JOIN lab_result l
+            ON l.clinic_id = $1::uuid AND l.lab_result_id = k.lab_id
           LEFT JOIN appointment a
             ON a.clinic_id = $1::uuid
-           AND a.id = coalesce(v.appointment_id, t.appointment_id)
+           AND a.id = coalesce(v.appointment_id, t.appointment_id, l.appointment_id)
           JOIN patient p
             ON p.clinic_id = $1::uuid
-           AND p.clinic_patient_id = coalesce(v.clinic_patient_id, t.clinic_patient_id)
+           AND p.clinic_patient_id = coalesce(
+                   v.clinic_patient_id, t.clinic_patient_id, l.clinic_patient_id)
         """,
         su_kien.clinic_id,
         visit_id,
         tep_id,
+        lab_id,
     )
 
 
@@ -113,6 +121,9 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             if su_kien.payload.get("cho_xac_nhan")
             else "Kết quả đã vào hồ sơ khách — mở là tự ghi đã xem."
         )
+    elif su_kien.event_type == "lab_result.arrived":
+        tieu_de = f"Kết quả xét nghiệm của {ten} đã về"
+        noi_dung = "Gửi cho khách được ngay; bác sĩ xem khi cần."
     else:
         tieu_de = f"Có kết quả mới của {ten}"
         noi_dung = "Phòng đã hoàn tất phiếu kết quả."

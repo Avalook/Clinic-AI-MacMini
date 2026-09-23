@@ -57,7 +57,10 @@ def dang_o(luot: dict[str, Any], hang: list[dict[str, Any]]) -> str:
 
 
 def con_cho(
-    hang: list[dict[str, Any]], chi_dinh: list[dict[str, Any]], tep_chua_xem: int
+    hang: list[dict[str, Any]],
+    chi_dinh: list[dict[str, Any]],
+    tep_chua_xem: int,
+    phieu_chua_xem: int = 0,
 ) -> list[str]:
     """Những việc còn chờ của một khách — hàm thuần."""
     out: list[str] = []
@@ -88,6 +91,8 @@ def con_cho(
                 out.append(f"Chờ kết quả đối tác: {ten}")
     if tep_chua_xem:
         out.append(f"{tep_chua_xem} tệp kết quả chưa bác sĩ nào xem")
+    if phieu_chua_xem:
+        out.append(f"{phieu_chua_xem} phiếu kết quả chưa bác sĩ nào xem")
     return out
 
 
@@ -189,6 +194,22 @@ class BangHanhTrinhService:
                     ids,
                 )
             }
+            phieu = {
+                r["visit_id"]: int(r["so"])
+                for r in await conn.fetch(
+                    """
+                    SELECT o.visit_id::text AS visit_id, count(DISTINCT o.id) AS so
+                      FROM service_order o
+                      JOIN form_instance f
+                        ON f.service_order_id = o.id AND f.clinic_id = o.clinic_id
+                     WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+                       AND f.trang_thai = 'READY' AND o.da_xem_ket_qua_luc IS NULL
+                     GROUP BY o.visit_id
+                    """,
+                    cid,
+                    ids,
+                )
+            }
             xong: dict[str, list[dict[str, Any]]] = defaultdict(list)
             for r in await conn.fetch(
                 """
@@ -229,6 +250,7 @@ class BangHanhTrinhService:
                         hang[x["visit_id"]],
                         chi_dinh[x["visit_id"]],
                         tep.get(x["visit_id"], 0),
+                        phieu.get(x["visit_id"], 0),
                     ),
                     "da_ve": x["closed_at"] is not None,
                 }

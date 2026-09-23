@@ -56,6 +56,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "result_file.viewed": [],
     "result_file.sent_to_patient": ["kenh"],
     "result.reviewed": [],
+    "result.viewed": [],
+    "lab_result.arrived": [],
     "visit.checked_out": ["con_vuong"],
     "visit.left_early": [],
     "payment.refunded": ["so_tien"],

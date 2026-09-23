@@ -13,6 +13,21 @@ lịch sử hội thoại.
 
 ---
 
+## Nợ còn lại sau nhóm 6 — đã trả (CHƯA deploy, CHƯA bấm thật)
+
+- **Phiếu kết quả dạng phiếu:** bác sĩ mở "Xem phiếu kết quả" ở Bàn khám (chỉ đọc) →
+  hệ thống tự ghi đã xem (`service_order.da_xem_ket_qua_*`, sự kiện `result.viewed`).
+  H6 và bảng hành trình đếm cả phiếu chưa xem.
+- **Xét nghiệm nhập tay** đi qua sự kiện `lab_result.arrived` (lần đầu mới phát; sửa
+  lại không phát nữa) → chuông CSKH qua khối Chuông, chỉnh được ở `/settings/day-noi`.
+- **Hẹn giờ hỏng hẳn** (`hen_gio` CHET) → chuông KHẨN trưởng ca + quản lý
+  (`nguon = hen_gio_hong`). Kèm sửa LỖI CÓ SẴN: đường CHET ghi `lam_luc` → vi phạm
+  `hen_gio_xong_co_gio` → worker văng thay vì đánh dấu chết.
+- **Quyền theo màn:** tab "Theo màn" ở `/phan-quyen` — bật/tắt một màn cho một người;
+  tắt màn không lấy mất khối mà màn khác của người ấy còn cần.
+- Trưởng ca có link "Hành trình khách hôm nay →".
+- **Deploy phải làm thêm:** migration `20260924000006_da_xem_phieu_ket_qua.sql`.
+
 ## Nhóm 6 — rà quyền + trách nhiệm không rơi (CHƯA deploy, CHƯA bấm thật)
 
 - Dược sĩ: `allowed_kinds` = {thuốc}; vào `/thu-ngan/thuoc`; router payment + bảng thu ngân

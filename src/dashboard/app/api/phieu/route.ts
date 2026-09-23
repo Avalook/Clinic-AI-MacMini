@@ -26,7 +26,18 @@ const THEO_PHIEU: Record<string, (id: string) => string> = {
   "huy-sua": (id) => `/api/v1/phieu/${id}/huy-sua`,
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Xem phiếu ĐÃ HOÀN TẤT của một chỉ định — chỉ đọc (Bàn khám, nhóm 3 nợ).
+  const xem = new URL(request.url).searchParams.get("xem") ?? "";
+  if (xem) {
+    if (!UUID_RE.test(xem)) {
+      return NextResponse.json(
+        { error: "BAD_REQUEST", message: "Mã chỉ định không hợp lệ." },
+        { status: 400 },
+      );
+    }
+    return proxyJsonToBackend("GET", `/api/v1/phieu/xem/${xem}`, undefined);
+  }
   return proxyJsonToBackend("GET", "/api/v1/bieu-mau", undefined);
 }
 

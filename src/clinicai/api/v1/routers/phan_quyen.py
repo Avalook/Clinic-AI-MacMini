@@ -103,6 +103,33 @@ async def luu_nhom(
     )
 
 
+@router.get("/phan-quyen/man")
+async def quyen_theo_man(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Quyền THEO MÀN (Tuyền chốt 23/09): mỗi nhóm mẫu đang bật màn nào."""
+    return await PermissionService(pool).theo_man(identity=identity)
+
+
+class DoiManBody(BaseModel):
+    nhom: str = Field(min_length=1, max_length=64)
+    man: str = Field(min_length=1, max_length=64)
+    bat: bool
+
+
+@router.post("/phan-quyen/man")
+async def doi_man(
+    body: DoiManBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật/tắt một màn cho một nhóm mẫu (quyền `permission.manage`)."""
+    return await PermissionService(pool).doi_man(
+        ma_nhom=body.nhom, ma_man=body.man, bat=body.bat, identity=identity
+    )
+
+
 @router.post("/phan-quyen/nhom/{ma}/xoa")
 async def xoa_nhom(
     ma: str,

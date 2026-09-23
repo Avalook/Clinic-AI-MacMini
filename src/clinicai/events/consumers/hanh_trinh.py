@@ -214,7 +214,13 @@ async def _bao_ve_con_viec(
                                  AND o.clinic_id = t.clinic_id
             WHERE t.clinic_id = $1::uuid AND o.visit_id = $2::uuid
               AND t.da_xem_luc IS NULL
-              AND coalesce(t.xac_nhan_trang_thai, 'HOP_LE') = 'HOP_LE') AS chua_xem,
+              AND coalesce(t.xac_nhan_trang_thai, 'HOP_LE') = 'HOP_LE')
+          + (SELECT count(DISTINCT o.id) FROM service_order o
+               JOIN form_instance f
+                 ON f.service_order_id = o.id AND f.clinic_id = o.clinic_id
+              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+                AND f.trang_thai = 'READY' AND o.da_xem_ket_qua_luc IS NULL)
+            AS chua_xem,
           (SELECT count(*) FROM service_order o
             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
               AND o.selection_status = 'SELECTED'
@@ -227,7 +233,7 @@ async def _bao_ve_con_viec(
     if con["cho_ket_qua"]:
         viec.append(f"{con['cho_ket_qua']} kết quả đối tác chưa về")
     if con["chua_xem"]:
-        viec.append(f"{con['chua_xem']} tệp kết quả chưa bác sĩ xem")
+        viec.append(f"{con['chua_xem']} kết quả chưa bác sĩ xem")
     if con["chua_lam"]:
         viec.append(f"{con['chua_lam']} dịch vụ đã chọn chưa làm")
     bo_ve = su_kien.event_type == "visit.left_early"

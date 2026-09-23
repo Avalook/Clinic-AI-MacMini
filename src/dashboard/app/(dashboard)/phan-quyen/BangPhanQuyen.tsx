@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import NhomQuyenMau from "./NhomQuyenMau";
+import QuyenTheoMan from "./QuyenTheoMan";
 
 interface Nguoi {
   id: string;
@@ -65,7 +66,7 @@ export default function BangPhanQuyen({
   // Hai việc khác nhau trên cùng một màn: cấp quyền CHO MỘT NGƯỜI, và sửa các
   // NHÓM MẪU dùng để cấp cho nhanh. Gộp vào một danh sách là mời người dùng
   // tưởng sửa nhóm thì quyền của người cũng đổi theo.
-  const [tab, setTab] = useState<"nguoi" | "nhom">("nguoi");
+  const [tab, setTab] = useState<Tab>("nguoi");
 
   useEffect(() => {
     let huy = false;
@@ -164,6 +165,15 @@ export default function BangPhanQuyen({
   const hienRa = nhanSu.filter((n) =>
     n.ten.toLocaleLowerCase("vi").includes(tim.trim().toLocaleLowerCase("vi")),
   );
+
+  if (tab === "man") {
+    return (
+      <div className="grid gap-4">
+        <ThanhChon tab={tab} onDoi={setTab} />
+        <QuyenTheoMan />
+      </div>
+    );
+  }
 
   if (tab === "nhom") {
     return (
@@ -317,14 +327,10 @@ export default function BangPhanQuyen({
 }
 
 /** Đổi giữa "cấp cho một người" và "sửa nhóm mẫu". */
-function ThanhChon({
-  tab,
-  onDoi,
-}: {
-  tab: "nguoi" | "nhom";
-  onDoi: (t: "nguoi" | "nhom") => void;
-}) {
-  const nut = (ma: "nguoi" | "nhom", chu: string) => (
+type Tab = "nguoi" | "nhom" | "man";
+
+function ThanhChon({ tab, onDoi }: { tab: Tab; onDoi: (t: Tab) => void }) {
+  const nut = (ma: Tab, chu: string) => (
     <button
       type="button"
       onClick={() => onDoi(ma)}
@@ -341,6 +347,7 @@ function ThanhChon({
   return (
     <div className="flex flex-wrap gap-2">
       {nut("nguoi", "Quyền của từng người")}
+      {nut("man", "Theo màn")}
       {nut("nhom", "Nhóm quyền mẫu")}
     </div>
   );

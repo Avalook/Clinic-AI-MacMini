@@ -32,7 +32,16 @@ from clinicai.events.catalogue import KhoiQuyenDaCap, KhoiQuyenDaThu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
-from clinicai.permissions.catalogue import KHOI, PRESET, QUYEN, quyen_cua_khoi
+from clinicai.permissions.catalogue import (
+    KHOI,
+    MAN,
+    MAN_THEO_VAI,
+    PRESET,
+    QUYEN,
+    khoi_sau_khi_doi_man,
+    man_dang_bat,
+    quyen_cua_khoi,
+)
 
 #: Vai lâm sàng — dùng làm bằng chứng tạm thời cho "có chứng chỉ hành nghề".
 #:
@@ -380,6 +389,62 @@ class PermissionService:
                 identity.staff_id,
             )
         return {"ok": True, "ma": ma, "khoi": sorted(khoi), "moi": cu is None}
+
+    async def theo_man(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Quyền THEO MÀN: mỗi nhóm mẫu đang bật những màn nào."""
+        nhom = (await self.danh_sach_nhom(identity=identity))["nhom"]
+        return {
+            "man": [
+                {
+                    "ma": m.ma,
+                    "ten": m.ten,
+                    "duong": m.duong,
+                    "khoi": list(m.khoi),
+                    "mac_dinh_cho": m.mac_dinh_cho,
+                }
+                for m in MAN.values()
+            ],
+            "man_theo_vai": [
+                {"ten": ten, "mac_dinh_cho": ai} for ten, ai in MAN_THEO_VAI
+            ],
+            "nhom": [
+                {
+                    "ma": n["ma"],
+                    "ten": n["ten"],
+                    "active": n["active"],
+                    "man_bat": man_dang_bat(list(n["khoi"] or [])),
+                }
+                for n in nhom
+            ],
+        }
+
+    async def doi_man(
+        self, *, ma_nhom: str, ma_man: str, bat: bool, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Bật/tắt MỘT MÀN cho một nhóm mẫu = thêm/gỡ các khối của màn ấy, qua
+        đúng lệnh `SaveRolePreset` (cùng quyền, cùng luật: sửa nhóm KHÔNG đổi
+        quyền người đã cấp)."""
+        if ma_man not in MAN:
+            raise ValidationError(f"Không có màn “{ma_man}”.")
+        ma_nhom = ma_nhom.strip().upper()
+        async with self._pool.acquire() as conn:
+            dong = await conn.fetchrow(
+                "SELECT ten, khoi, mo_ta FROM quyen_preset"
+                " WHERE clinic_id = $1::uuid AND ma = $2",
+                identity.clinic_id,
+                ma_nhom,
+            )
+        if dong is None:
+            raise ValidationError(f"Không có nhóm quyền mẫu “{ma_nhom}”.")
+        moi = khoi_sau_khi_doi_man(list(dong["khoi"] or []), ma_man, bat)
+        kq = await self.luu_nhom(
+            ma=ma_nhom,
+            ten=dong["ten"],
+            khoi=moi,
+            mo_ta=dong["mo_ta"],
+            identity=identity,
+        )
+        return {**kq, "man_bat": man_dang_bat(moi)}
 
     async def xoa_nhom(self, *, ma: str, identity: StaffIdentity) -> dict[str, Any]:
         """`RemoveRolePreset` — bỏ một nhóm mẫu khỏi màn.

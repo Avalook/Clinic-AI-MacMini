@@ -7,6 +7,8 @@
 
 import Link from "next/link";
 
+import { buttonClass } from "@/components/ui/Button";
+
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { loadLive } from "./load";
 import OverviewClient from "./OverviewClient";
@@ -39,12 +41,22 @@ export default async function Page() {
             nằm ở Quản lý khách hàng. Trưởng ca vốn đã có quyền mở màn ấy, nhưng
             nó nằm lẫn giữa mười ba mục trong thanh bên nên không ai tìm ra
             (Tuyền 16/09: "cần bê quản lý khách hàng của cskh sang"). */}
-        <Link
-          href="/customers"
-          className="inline-flex min-h-10 items-center rounded-control border border-line bg-surface px-3 text-sm font-medium text-ink"
-        >
-          Quản lý khách hàng →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {/* Bảng hành trình chung (nhóm 3, 24/09): mỗi khách đang ở đâu /
+              đã xong gì / còn chờ gì — "bảng tổng ở màn Trưởng ca". */}
+          <Link
+            href="/hanh-trinh"
+            className={buttonClass("secondary", "lg")}
+          >
+            Hành trình khách hôm nay →
+          </Link>
+          <Link
+            href="/customers"
+            className="inline-flex min-h-10 items-center rounded-control border border-line bg-surface px-3 text-sm font-medium text-ink"
+          >
+            Quản lý khách hàng →
+          </Link>
+        </div>
       </header>
       <OverviewClient initial={live} />
       <ChiDinhHomNay />

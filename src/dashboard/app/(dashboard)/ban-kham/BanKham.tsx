@@ -50,6 +50,7 @@ import {
   type PhongHomNay,
 } from "../_lam-viec/api";
 import KhungTep from "../_lam-viec/KhungTep";
+import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import Button from "@/components/ui/Button";
@@ -82,6 +83,9 @@ interface ChiDinh {
   version: number;
   nguoi_ghi: string | null;
   ket_qua: string | null;
+  /** Có phiếu kết quả đã hoàn tất để mở đọc (chỉ đọc; mở là tự ghi đã xem). */
+  co_phieu?: boolean;
+  da_xem_ket_qua_luc?: string | null;
   ly_do_khong_lam: string | null;
   /** Lần làm gần nhất ở phòng (23/09/2026): giờ phòng bấm Bắt đầu / xong. */
   lam_bat_dau_luc?: string | null;
@@ -966,6 +970,7 @@ function ChiDinhPanel({
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [moKetQua, setMoKetQua] = useState<string | null>(null);
+  const [moPhieu, setMoPhieu] = useState<string | null>(null);
 
   const dsChon = chon.id === dong?.id ? chon.ma : [];
   const dangKham = dong?.trang_thai === "serving";
@@ -1077,6 +1082,24 @@ function ChiDinhPanel({
                 >
                   {moKetQua === c.id ? "Ẩn tệp kết quả" : "Xem tệp kết quả"}
                 </button>
+              ) : null}
+              {c.co_phieu ? (
+                <button
+                  type="button"
+                  onClick={() => setMoPhieu(moPhieu === c.id ? null : c.id)}
+                  className="mt-1 ml-3 text-label font-semibold text-brand-700 hover:underline"
+                >
+                  {moPhieu === c.id
+                    ? "Ẩn phiếu kết quả"
+                    : c.da_xem_ket_qua_luc
+                      ? "Xem phiếu kết quả"
+                      : "Xem phiếu kết quả (mới)"}
+                </button>
+              ) : null}
+              {moPhieu === c.id ? (
+                <div className="mt-2">
+                  <XemPhieuKetQua serviceOrderId={c.id} />
+                </div>
               ) : null}
               {moKetQua === c.id ? (
                 <div className="mt-2">

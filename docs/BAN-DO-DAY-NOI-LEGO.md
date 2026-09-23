@@ -122,6 +122,12 @@ khách, tới giờ chuông réo đúng người.
 16. H7 mặc định 3 ngày, tính từ lúc dịch vụ đối tác làm xong / đối tác lấy mẫu.
 17. Vị trí trực không xoá — chỉ tắt (lịch trực cũ còn trỏ tới); mã nội bộ tự sinh.
 
+**Chỗ Claude tự chốt ở phần nợ sau nhóm 6:**
+18. Bác sĩ MỞ phiếu kết quả = đã xem (giống tệp). Không có nút "đánh dấu đã xem" riêng.
+19. Xét nghiệm: chỉ LẦN ĐẦU có kết quả mới réo; sửa chính tả sau đó không réo lại.
+20. Danh sách "màn theo vai" mặc định nằm trong code (`permissions/catalogue.py` `MAN_THEO_VAI`);
+    quản lý chỉnh theo TỪNG NGƯỜI, chưa chỉnh được bảng mặc định theo vai.
+
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
   không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).

@@ -163,3 +163,15 @@ async def xuat_ban(
     return await FormEngineService(pool).xuat_ban(
         form_id=form_id, khung=body.khung, identity=identity
     )
+
+
+@router.get("/phieu/xem/{service_order_id}")
+async def xem_ket_qua(
+    service_order_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phiếu kết quả ĐÃ HOÀN TẤT — chỉ đọc; mở lần đầu là tự ghi "đã xem"."""
+    return await FormEngineService(pool).xem_ket_qua(
+        service_order_id=str(service_order_id), identity=identity
+    )

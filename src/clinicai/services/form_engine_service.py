@@ -36,13 +36,34 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
-from clinicai.events.catalogue import KetQuaDaSua, KetQuaSanSang, PhieuDaHoanTat
+from clinicai.events.catalogue import (
+    KetQuaDaSua,
+    KetQuaSanSang,
+    PhieuDaHoanTat,
+    PhieuKetQuaDaXem,
+)
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 
 QUYEN_DIEN = "result.form.fill"
+
+#: Ai ĐỌC được phiếu đã hoàn tất (chỉ đọc) — vai làm chuyên môn + điều phối.
+DOC_KET_QUA: frozenset[ClinicRole] = frozenset(
+    {
+        ClinicRole.DOCTOR,
+        ClinicRole.TKYK,
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.NURSE_ULTRASOUND,
+        ClinicRole.TRUONG_CA,
+        ClinicRole.MANAGEMENT,
+    }
+)
+#: Mở là "đã xem" (cùng tập với tệp kết quả, tep_ket_qua_service.XEM_LA_DA_XEM).
+XEM_LA_DA_XEM: frozenset[ClinicRole] = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
+)
 QUYEN_SUA_MAU = "catalogue.form_template.edit"
 QUYEN_XUAT_BAN = "catalogue.form_template.publish"
 
@@ -122,6 +143,71 @@ class FormEngineService:
                 identity.staff_id,
             )
         return self._tra_phieu(moi, khung)
+
+    # ------------------------------------------------------------------
+    # Xem kết quả (chỉ đọc) — bác sĩ chính / thư ký ở Bàn khám
+    # ------------------------------------------------------------------
+    async def xem_ket_qua(
+        self, *, service_order_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Phiếu kết quả ĐÃ HOÀN TẤT của một chỉ định — CHỈ ĐỌC.
+
+        Trước 24/09 phiếu chỉ mở được ở phòng làm (lệnh `mo_phieu` đòi quyền
+        ĐIỀN), nên bác sĩ chính không đọc được kết quả dạng phiếu trên Bàn khám.
+        Đọc là bản CHÍNH THỨC (`du_lieu`), không phải bản đang sửa dở.
+
+        "Đã xem" (Tuyền chốt 24/09: duyệt không bắt buộc, mở kết quả là tự ghi):
+        bác sĩ / thư ký y khoa / BS siêu âm mở lần đầu → `service_order
+        .da_xem_ket_qua_*` + sự kiện `result.viewed`.
+        """
+        if not identity.co_vai(DOC_KET_QUA):
+            raise SafetyGateError("Vai của bạn không đọc phiếu kết quả.")
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            rows = await conn.fetch(
+                "SELECT * FROM form_instance WHERE clinic_id = $1::uuid"
+                "   AND service_order_id = $2::uuid AND trang_thai = 'READY'"
+                " ORDER BY form_id",
+                cid,
+                service_order_id,
+            )
+            phieu = []
+            for r in rows:
+                khung = await self._khung(conn, cid, r["form_id"], r["version"])
+                phieu.append(
+                    {
+                        "id": str(r["id"]),
+                        "form_id": r["form_id"],
+                        "khung": khung,
+                        "du_lieu": json.loads(r["du_lieu"]),
+                        "dang_sua": bool(r["dang_sua"]),
+                    }
+                )
+            if phieu and identity.co_vai(XEM_LA_DA_XEM):
+                vid = await conn.fetchval(
+                    "UPDATE service_order SET da_xem_ket_qua_luc = now(),"
+                    "       da_xem_ket_qua_boi = $3::uuid"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                    "   AND da_xem_ket_qua_luc IS NULL"
+                    " RETURNING visit_id::text",
+                    cid,
+                    service_order_id,
+                    identity.staff_id,
+                )
+                if vid is not None:
+                    await emit_event(
+                        conn,
+                        ten="result.viewed",
+                        clinic_id=cid,
+                        aggregate_id=service_order_id,
+                        so_ke_tiep=True,
+                        payload=PhieuKetQuaDaXem(
+                            service_order_id=service_order_id, visit_id=vid
+                        ),
+                        boi=nguoi(identity),
+                        correlation_id=vid,
+                    )
+        return {"phieu": phieu}
 
     # ------------------------------------------------------------------
     # Tự lưu

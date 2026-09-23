@@ -192,6 +192,21 @@ class KetQuaDaGuiKhach(PayloadSuKien):
     kenh: str
 
 
+class KetQuaXetNghiemVe(PayloadSuKien):
+    """`lab_result.arrived` — kết quả xét nghiệm NHẬP TAY vừa về LẦN ĐẦU (sửa
+    lại không phát lần nữa). Trước 24/09 lệnh nhập gọi thẳng chuông."""
+
+    lab_result_id: str
+    visit_id: str | None = None
+
+
+class PhieuKetQuaDaXem(PayloadSuKien):
+    """`result.viewed` — lần ĐẦU người làm chuyên môn mở PHIẾU kết quả (tự ghi)."""
+
+    service_order_id: str
+    visit_id: str | None = None
+
+
 class KetQuaDaDuyet(PayloadSuKien):
     """`result.reviewed` — bác sĩ bấm duyệt (không bắt buộc) một chỉ định."""
 
@@ -726,6 +741,25 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="lab_result.arrived",
+            version=1,
+            aggregate_type="lab_result",
+            source_module="lab",
+            payload=KetQuaXetNghiemVe,
+            nhan="Kết quả xét nghiệm đã về",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+        ),
+        SuKien(
+            ten="result.viewed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="result",
+            payload=PhieuKetQuaDaXem,
+            nhan="Bác sĩ đã xem phiếu kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
             ten="result.reviewed",
             version=1,
             aggregate_type="service_order",
@@ -967,6 +1001,8 @@ __all__ = [
     "TepKetQuaDaXem",
     "KetQuaDaGuiKhach",
     "KetQuaDaDuyet",
+    "PhieuKetQuaDaXem",
+    "KetQuaXetNghiemVe",
     "LichDaDat",
     "LichDaDoi",
     "LichDaHuy",

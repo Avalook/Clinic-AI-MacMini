@@ -29,7 +29,8 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
+from clinicai.events.catalogue import KetQuaXetNghiemVe
+from clinicai.events.emit import emit_event, nguoi
 
 logger = structlog.get_logger()
 
@@ -206,6 +207,22 @@ class LabOrderService:
                         "Không tìm thấy kết quả xét nghiệm hoặc kết quả đã chốt"
                     )
 
+                if updated["lan_dau"]:
+                    # Kết quả vừa về LẦN ĐẦU → sự kiện; khối Chuông báo người
+                    # nhận theo dây (mặc định CSKH + bác sĩ chính). Sửa lại
+                    # không phát lần nữa.
+                    await emit_event(
+                        conn,
+                        ten="lab_result.arrived",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=updated["lab_result_id"],
+                        payload=KetQuaXetNghiemVe(
+                            lab_result_id=updated["lab_result_id"],
+                            visit_id=updated["visit_id"],
+                        ),
+                        boi=nguoi(identity),
+                        correlation_id=updated["visit_id"],
+                    )
                 await _log(
                     conn,
                     event_type="lab_result.entered",
@@ -216,18 +233,6 @@ class LabOrderService:
                     identity=identity,
                     origin="api:lab-entry",
                 )
-
-        if updated["lan_dau"]:
-            # Kết quả vừa về lần đầu (sửa lại không báo lần nữa) → CSKH + bác sĩ.
-            await bao_ket_qua_ve(
-                self._pool,
-                identity=identity,
-                loai="xet_nghiem",
-                ref_id=updated["lab_result_id"],
-                clinic_patient_id=updated["clinic_patient_id"],
-                appointment_id=updated["appointment_id"],
-                visit_id=updated["visit_id"],
-            )
 
         logger.info(
             "lab_result_entered",

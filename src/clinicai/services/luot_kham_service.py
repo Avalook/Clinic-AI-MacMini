@@ -1442,7 +1442,14 @@ class LuotKhamService:
                            lam.started_at AS lam_bat_dau_luc,
                            lam.ended_at AS lam_xong_luc,
                            lam.status AS lam_trang_thai,
-                           lam.phong AS lam_phong
+                           lam.phong AS lam_phong,
+                           -- Có phiếu kết quả đã hoàn tất để bác sĩ mở đọc
+                           -- (nhóm 3 nợ, 24/09) + đã có ai chuyên môn xem chưa.
+                           EXISTS (SELECT 1 FROM form_instance f
+                                    WHERE f.clinic_id = o.clinic_id
+                                      AND f.service_order_id = o.id
+                                      AND f.trang_thai = 'READY') AS co_phieu,
+                           o.da_xem_ket_qua_luc
                       FROM service_order o
                       LEFT JOIN node_definition nd
                         ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
@@ -1646,6 +1653,8 @@ class LuotKhamService:
                     "lam_xong_luc": _iso(o.get("lam_xong_luc")),
                     "lam_trang_thai": o.get("lam_trang_thai"),
                     "lam_phong": o.get("lam_phong"),
+                    "co_phieu": bool(o.get("co_phieu")),
+                    "da_xem_ket_qua_luc": _iso(o.get("da_xem_ket_qua_luc")),
                     "routing_revision": o.get("routing_revision"),
                     "doi_phong_duoc": rules.doi_phong_duoc(
                         selection_status=o.get("selection_status"),
@@ -4467,6 +4476,15 @@ class LuotKhamService:
             "UPDATE tep_ket_qua SET da_xem_luc = now(), da_xem_boi_staff_id = $3::uuid"
             " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
             "   AND da_xem_luc IS NULL",
+            identity.clinic_id,
+            oid,
+            identity.staff_id,
+        )
+        await conn.execute(
+            "UPDATE service_order SET da_xem_ket_qua_luc = now(),"
+            "       da_xem_ket_qua_boi = $3::uuid"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+            "   AND da_xem_ket_qua_luc IS NULL",
             identity.clinic_id,
             oid,
             identity.staff_id,

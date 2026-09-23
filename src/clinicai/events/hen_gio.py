@@ -146,7 +146,7 @@ async def lam_mot_hen(pool: asyncpg.Pool) -> bool:
     if xu_ly is None:
         # Loại hẹn không ai nhận: dừng có tiếng, đừng nuốt.
         await pool.execute(
-            "UPDATE hen_gio SET trang_thai = 'CHET', lam_luc = now(),"
+            "UPDATE hen_gio SET trang_thai = 'CHET',"
             "       loi_gan_nhat = 'khong co ai xu ly loai hen nay'"
             " WHERE id = $1::uuid",
             cai_hen.id,
@@ -173,7 +173,8 @@ async def lam_mot_hen(pool: asyncpg.Pool) -> bool:
             "       den_gio = CASE WHEN $2 = 'CHO'"
             "                      THEN now() + make_interval(secs => $3)"
             "                      ELSE den_gio END,"
-            "       lam_luc = CASE WHEN $2 = 'CHET' THEN now() END,"
+            # CHET không mang lam_luc — ràng buộc hen_gio_xong_co_gio chỉ
+            # cho XONG/BO_QUA có giờ làm.
             "       thue_den = NULL, loi_gan_nhat = $4"
             " WHERE id = $1::uuid",
             cai_hen.id,
@@ -184,7 +185,43 @@ async def lam_mot_hen(pool: asyncpg.Pool) -> bool:
         logger.warning(
             "hen_gio_hong", loai=cai_hen.loai, chet=het_luot, loi=str(loi)[:200]
         )
+        if het_luot:
+            await _bao_nguoi_truc_khi_chet(pool, cai_hen)
     return True
+
+
+async def _bao_nguoi_truc_khi_chet(pool: asyncpg.Pool, cai_hen: HenDenHan) -> None:
+    """Một lời nhắc đã hẹn KHÔNG BAO GIỜ tới được (nhóm 6 — trách nhiệm không
+    rơi): réo trưởng ca + quản lý. Cần người gọi (`chi_tiet.nguoi_goi`) vì
+    `thong_bao` bắt buộc; không có thì chỉ còn log. Nuốt lỗi."""
+    nguoi_goi = cai_hen.chi_tiet.get("nguoi_goi")
+    if not nguoi_goi:
+        return
+    try:
+        for vai in ("TRUONG_CA", "MANAGEMENT"):
+            await pool.execute(
+                """
+                INSERT INTO thong_bao
+                    (clinic_id, vai_nhan, muc_do, tieu_de, noi_dung, nguon,
+                     nguon_id, duong_dan, nguoi_goi_staff_id)
+                VALUES ($1::uuid, $2, 'KHAN', $3, $4, 'hen_gio_hong', $5, $6,
+                        $7::uuid)
+                ON CONFLICT (clinic_id, nguon, nguon_id, vai_nhan)
+                    WHERE da_xu_ly_luc IS NULL AND nguon_id IS NOT NULL
+                      AND vai_nhan IS NOT NULL
+                DO NOTHING
+                """,
+                cai_hen.clinic_id,
+                vai,
+                f"Lời nhắc tự động hỏng: {cai_hen.loai}",
+                f"Đã thử {cai_hen.so_lan_thu} lần không được — việc cần nhắc có"
+                " thể đang bị bỏ quên. Kiểm tra bảng hành trình; báo kỹ thuật.",
+                cai_hen.id,
+                "/hanh-trinh",
+                str(nguoi_goi),
+            )
+    except Exception:  # noqa: BLE001 — xem docstring
+        logger.exception("bao_hen_gio_chet_hong", hen_id=cai_hen.id)
 
 
 async def thu_hoi_hen_treo(pool: asyncpg.Pool) -> int:

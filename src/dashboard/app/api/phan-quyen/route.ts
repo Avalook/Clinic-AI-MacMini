@@ -31,6 +31,10 @@ export async function GET(request: Request) {
   if (q.get("nhom") !== null) {
     return proxyJsonToBackend("GET", "/api/v1/phan-quyen/nhom", undefined);
   }
+  // Quyền THEO MÀN (Tuyền chốt 23/09): nhóm mẫu nào đang bật màn nào.
+  if (q.get("man") !== null) {
+    return proxyJsonToBackend("GET", "/api/v1/phan-quyen/man", undefined);
+  }
   const staff = q.get("staff");
   if (staff === null) {
     return proxyJsonToBackend("GET", "/api/v1/phan-quyen/danh-muc", undefined);
@@ -67,6 +71,9 @@ export async function POST(request: Request) {
 
   // Nhóm quyền mẫu: mã nhóm do người đặt nên KHÔNG phải UUID — kiểm hình dạng
   // chặt ở đây để một chuỗi tự do không nối được vào URL backend.
+  if (ten === "doi-man") {
+    return proxyJsonToBackend("POST", "/api/v1/phan-quyen/man", than.du_lieu ?? {});
+  }
   if (ten === "luu-nhom") {
     return proxyJsonToBackend("POST", "/api/v1/phan-quyen/nhom", than.du_lieu ?? {});
   }
