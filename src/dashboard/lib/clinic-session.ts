@@ -10,6 +10,7 @@ import {
   departmentToRole,
   canReadClinical,
   canSeeNav,
+  quyenMoDuocMan,
   type ClinicRole,
 } from "./roles";
 import { getSupabaseServer } from "./supabase-server";
@@ -60,6 +61,18 @@ export async function vaiLamViec(
   return ds.find(dieuKien) ?? ds[0] ?? null;
 }
 
+/** QUYỀN ĐANG CÓ của người đăng nhập (capability, không phải vai).
+ *
+ *  Máy chủ tính; ở đây chỉ đọc. Hỏng thì trả rỗng — nghĩa là chỉ còn cửa vai,
+ *  y như trước khi có mô hình quyền. Một lần mạng chập không được làm cả phòng
+ *  khám mất thanh bên.
+ *
+ *  `cache()` theo lượt dựng trang: một lần mở /home hỏi đúng một lần. */
+export const getQuyenCuaToi = cache(async (): Promise<string[]> => {
+  const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
+  return d?.quyen ?? [];
+});
+
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ
  *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn role để chặn cả truy cập trực tiếp. */
@@ -67,11 +80,13 @@ export async function requireNavAccess(href: string): Promise<void> {
   // Vào được nếu MỘT trong các vai hôm nay vào được — vai tài khoản vẫn nằm
   // trong tập này, nên không ai mất lối vào cũ.
   const vai = await getVaiHomNay();
-  if (vai.length === 0) {
-    if (!canSeeNav(null, href)) redirect("/home");
-    return;
-  }
-  if (!vai.some((r) => canSeeNav(r, href))) redirect("/home");
+  if (vai.some((r) => canSeeNav(r, href))) return;
+  // CỬA THỨ HAI: quản lý cấp khối Siêu âm cho lễ tân thì lễ tân vào được màn
+  // siêu âm, dù NAV_ROLES không có vai ấy. Mở thêm, không thay — ai vào được
+  // theo vai thì đã về ở dòng trên.
+  if (quyenMoDuocMan(await getQuyenCuaToi(), href)) return;
+  if (vai.length === 0 && canSeeNav(null, href)) return;
+  redirect("/home");
 }
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền

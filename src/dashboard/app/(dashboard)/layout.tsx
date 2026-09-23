@@ -7,7 +7,11 @@ import RealtimeRefresher from "./RealtimeRefresher";
 import { logout } from "../(auth)/login/actions";
 import { getSupabaseServer } from "../../lib/supabase-server";
 import { getCurrentStaff } from "../../lib/current-staff";
-import { getVaiHomNay, getViTriHomNay } from "../../lib/clinic-session";
+import {
+  getQuyenCuaToi,
+  getVaiHomNay,
+  getViTriHomNay,
+} from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
 import { fmtDayTime, vnTodayRangeUtc } from "../../lib/datetime";
 import { getBookingPolicy } from "../../lib/booking-policy";
@@ -87,7 +91,8 @@ export default async function DashboardLayout({
   // `getClinicId()` ĐÃ BỎ khỏi khối này (06/08/2026): nó chỉ tồn tại để
   // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
   // token. Một truy vấn ít đi trên MỌI lần dựng trang.
-  const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri] = await Promise.all([
+  const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri, quyen] =
+    await Promise.all([
     vaiHomNay.some(canWriteIntake) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
     getFeatureMode(),
@@ -104,6 +109,9 @@ export default async function DashboardLayout({
     // theo vai, không làm hỏng trang.
     // Cùng một lời gọi `getVaiHomNay` đã dùng (cache theo lượt render).
     getViTriHomNay(),
+    // Quyền THẬT của người này. Đi cùng vòng, không nối đuôi: layout chạy lại
+    // ở mọi lần chuyển trang. Hỏng thì rỗng → thanh bên rơi về theo vai.
+    getQuyenCuaToi(),
   ]);
   const viTriHomNay = viTri?.vi_tri ?? [];
   const thuKyChuaPhan =
@@ -126,6 +134,7 @@ export default async function DashboardLayout({
           identity={identity}
           featureMode={featureMode}
           viTriHomNay={viTriHomNay}
+          quyen={quyen}
           leaveAction={logout}
         >
           {thuKyChuaPhan && (

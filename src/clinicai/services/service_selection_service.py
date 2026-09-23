@@ -22,7 +22,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
 from clinicai.services.luot_kham_service import (
@@ -31,7 +31,6 @@ from clinicai.services.luot_kham_service import (
     LuotKhamValidationError,
     _uuid,
 )
-from clinicai.services.payment_service import allowed_kinds
 
 ORIGIN = "api:service-selection"
 ACTION = "service_selection.confirm"
@@ -56,15 +55,21 @@ _LEGACY_EXECUTION_LOCK = frozenset(
 # ---------------------------------------------------------------------------
 
 
-def can_confirm_service_selection(identity: StaffIdentity) -> bool:
-    """Capability ``service.selection.confirm``.
+#: Quyền thật, khai trong `permissions/catalogue.py`, thuộc khối "Khách chọn
+#: dịch vụ". Trước đây chỗ này tạm mượn ánh xạ vai của người thu tiền vì mô hình
+#: quyền chưa có; nay đã có, nên hỏi thẳng.
+QUYEN_CHON_DICH_VU = "service_selection.confirm"
 
-    OPEN (SELECTION §14): ánh xạ vai cuối cùng chưa chốt. Tạm dùng ĐÚNG ánh xạ
-    đang có của người thu tiền dịch vụ (``allowed_kinds``) — lựa chọn của khách
-    hôm nay được ghi nhận ở quầy thu dịch vụ — chứ không đặt vai mới. Khi có
-    checkpoint quyền, chỉ đổi hàm này.
+
+async def can_confirm_service_selection(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> bool:
+    """Người này có được xác nhận lựa chọn dịch vụ của khách không?
+
+    Hỏi capability, KHÔNG hỏi vai: quản lý muốn cho ai làm việc này thì tick một
+    ô, không cần ai sửa dòng code này.
     """
-    return any("dich_vu" in allowed_kinds(v) for v in identity.cac_vai())
+    return await can(conn, identity, QUYEN_CHON_DICH_VU)
 
 
 # ---------------------------------------------------------------------------
@@ -278,8 +283,6 @@ class ServiceSelectionService:
         identity: StaffIdentity,
         idempotency_key: str | None,
     ) -> dict[str, Any]:
-        if not can_confirm_service_selection(identity):
-            raise SafetyGateError("Vai trò của bạn không xác nhận lựa chọn dịch vụ.")
         inp = validate_input(
             visit_id=visit_id,
             order_ids_seen=order_ids_seen,
@@ -290,6 +293,14 @@ class ServiceSelectionService:
         payload = inp.payload()
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
+            # Kiểm quyền trong CHÍNH giao dịch này: quyền vừa bị thu ở lệnh
+            # trước thì lệnh này phải thấy ngay.
+            await doi_quyen(
+                conn,
+                identity,
+                QUYEN_CHON_DICH_VU,
+                cau="Bạn chưa được cấp quyền xác nhận lựa chọn dịch vụ.",
+            )
             await LuotKhamService._lock_visit(conn, cid, inp.visit_id)
             # Gửi lại trước khi xét revision: lần trước đã commit mà mất phản hồi
             # thì revision nay đã tăng, nhưng gửi lại vẫn phải nhận đúng kết quả.

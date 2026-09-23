@@ -17,6 +17,7 @@ from clinicai.schemas.staff import (
     StaffUpdateDTO,
 )
 from clinicai.services.audit import record_event
+from clinicai.services.permission_service import cap_preset_mac_dinh
 
 logger = structlog.get_logger()
 
@@ -133,6 +134,14 @@ class StaffService:
                     row["id"],
                     data.primary_department.value,
                     data.is_active,
+                )
+                # Người mới có quyền theo preset của vai NGAY, trong cùng giao
+                # dịch. Quản lý sửa lại từng khối trên màn phân quyền.
+                await cap_preset_mac_dinh(
+                    conn,
+                    clinic_id=str(self._clinic_id),
+                    staff_id=str(row["id"]),
+                    vai=data.primary_department.value,
                 )
                 await self._audit(
                     conn,

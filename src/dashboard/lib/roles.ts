@@ -401,6 +401,11 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
   // quyết định chuyên môn; thư ký không có nút Duyệt — Notion v1.0.0).
   "/duyet-ket-qua": ["DOCTOR", "ULTRASOUND_DOCTOR", "MANAGEMENT"],
+  // Khớp actor_roles của hai node OPS-* trong danh mục (migration 20260923000007).
+  "/viec-can-xu-ly": ["MANAGEMENT", "CASHIER", "TRUONG_CA", "DOCTOR"],
+  // Vào được màn không có nghĩa là cấp được quyền: backend đòi capability
+  // `permission.manage`, nên người không có nó chỉ xem chứ bấm là bị từ chối.
+  "/phan-quyen": ["MANAGEMENT"],
   // Xác nhận tệp kết quả external — phân quyền bằng capability ket_qua.xac_nhan.
   // Không giới hạn role ở đây; backend API và page fail-closed bằng capability.
   "/xac-nhan-ket-qua": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
@@ -481,7 +486,12 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
 export function hienTrenThanhBen(
   role: ClinicRole | null,
   href: string,
+  /** Capability người này đang có. Màn nào quyền mở được thì bày ra, dù vai
+   *  không có trong `NAV_ROLES` — chốt "sidebar dựng theo quyền của từng
+   *  người". Bỏ trống = chỉ xét vai, y như trước. */
+  quyen: readonly string[] = [],
 ): boolean {
+  if (quyenMoDuocMan(quyen, href)) return true;
   // MENU theo LUẬT GỐC, không theo công tắc mở quyền.
   //
   // Hai câu hỏi khác nhau: "được VÀO màn này không" (canSeeNav — đang mở tạm
@@ -534,6 +544,51 @@ function moTheoCongTac(href: string): boolean {
   return !KHONG_MO_THEO_CONG_TAC.some(
     (p) => href === p || href.startsWith(`${p}/`),
   );
+}
+
+
+/** Cửa THỨ HAI: capability mở màn, không cần vai.
+ *
+ *  Chốt của Tuyền: *"Quản lý cấp được bất kỳ khối nào cho bất kỳ ai, kể cả cho
+ *  lễ tân màn siêu âm"* và *"Sidebar dựng theo quyền của từng người"*. Bảng
+ *  `NAV_ROLES` ở trên chỉ biết VAI, nên một lễ tân được cấp khối Siêu âm vẫn
+ *  không nhìn thấy màn — quyền có mà lối vào thì không.
+ *
+ *  Bảng này là cửa thứ hai, mở THÊM chứ không thay: ai vào được theo vai thì
+ *  vẫn vào, ai có quyền thì cũng vào. Không ai mất lối cũ trong lúc chuyển.
+ *
+ *  Đây là bước strangler: mỗi lần một màn chuyển hẳn sang quyền thì xoá vai của
+ *  nó khỏi `NAV_ROLES`. Danh sách vai chỉ được phép NGẮN ĐI.
+ *
+ *  VÀO ĐƯỢC MÀN ≠ LÀM ĐƯỢC VIỆC. Mọi lệnh vẫn hỏi capability ở backend; bảng
+ *  này chỉ quyết cái màn có hiện trong thanh bên hay không. */
+const NAV_QUYEN: Record<string, string[]> = {
+  "/reception/queue": ["reception.checkin.perform"],
+  "/reception/checkout": ["reception.checkin.perform"],
+  "/do-sinh-hieu": ["vitals.measure"],
+  "/ban-kham": ["clinical.order.place"],
+  "/truong-ca": ["service.routing.view"],
+  "/phong": ["service.execute.start"],
+  "/duyet-ket-qua": ["result.form.fill"],
+  "/viec-can-xu-ly": ["service.routing.view"],
+  "/phan-quyen": ["permission.manage"],
+  "/thu-ngan/dich-vu": ["payment.service.collect"],
+  "/thu-ngan/thuoc": ["payment.service.collect"],
+};
+
+/** Màn theo phòng (`/phong/KN-SA1`) dùng chung quyền của `/phong`. */
+function quyenCuaMan(href: string): string[] {
+  if (NAV_QUYEN[href]) return NAV_QUYEN[href];
+  for (const [duong, quyen] of Object.entries(NAV_QUYEN)) {
+    if (href.startsWith(`${duong}/`)) return quyen;
+  }
+  return [];
+}
+
+/** Có quyền nào mở được màn này không. `quyen` là danh sách capability đang có. */
+export function quyenMoDuocMan(quyen: readonly string[], href: string): boolean {
+  const can = quyenCuaMan(href);
+  return can.length > 0 && can.some((q) => quyen.includes(q));
 }
 
 /** Luật gốc của NAV_ROLES, bỏ qua công tắc mở quyền. Chỉ dùng cho MENU. */

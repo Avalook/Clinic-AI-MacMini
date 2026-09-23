@@ -20,11 +20,14 @@ export default function BottomNav({
   onMenu,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  quyen = [],
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
   featureMode?: string;
   viTriHomNay?: readonly string[];
+  /** Cùng luật với thanh bên — hai thanh lệch nhau là người dùng mất màn. */
+  quyen?: readonly string[];
 }) {
   const pathname = usePathname();
   // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.
@@ -34,7 +37,7 @@ export default function BottomNav({
   // còn điện thoại vẫn hiện lối vào. Hai thanh phải nói cùng một chuyện.
   const visible = mucHienRa(
     role,
-    hienTrenThanhBen,
+    (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,

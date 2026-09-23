@@ -22,10 +22,13 @@ export default function Nav({
   isCollapsed = false,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  quyen = [],
 }: {
   role: ClinicRole | null;
   /** Mã vị trí hôm nay — thanh bên đi theo việc thật (xem `mucHienRa`). */
   viTriHomNay?: readonly string[];
+  /** Capability đang có. Màn nào quyền mở được thì bày, dù vai không có. */
+  quyen?: readonly string[];
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;
@@ -41,7 +44,7 @@ export default function Nav({
   // Nhóm theo VAI hôm nay + "Việc khác" — `nhomThanhBen` lọc qua `mucHienRa`.
   const { dau, nhom, khac } = nhomThanhBen(
     role,
-    hienTrenThanhBen,
+    (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,
