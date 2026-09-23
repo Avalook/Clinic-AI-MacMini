@@ -13,13 +13,12 @@ import { hienTrenThanhBen, quyenMoDuocMan } from "../lib/roles.ts";
 const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
 test("quyền mở được màn mà vai không có", () => {
-  // Lễ tân không nằm trong NAV_ROLES của /phong/*.
-  assert.equal(hienTrenThanhBen("RECEPTION", "/phong/KN-SA1"), false);
+  // Lễ tân không nằm trong NAV_ROLES của /phong/* (một luật cho mọi room_id).
+  const phong = "/phong/5f0c7a2e-0000-4000-8000-000000000001";
+  assert.equal(hienTrenThanhBen("RECEPTION", phong), false);
+  assert.equal(hienTrenThanhBen("RECEPTION", "/phong"), false);
   // Được cấp khối Thực hiện dịch vụ thì thấy.
-  assert.equal(
-    hienTrenThanhBen("RECEPTION", "/phong/KN-SA1", ["service.execute.start"]),
-    true,
-  );
+  assert.equal(hienTrenThanhBen("RECEPTION", phong, ["service.execute.start"]), true);
 });
 
 test("mở THÊM chứ không thay — không ai mất lối vào cũ", () => {

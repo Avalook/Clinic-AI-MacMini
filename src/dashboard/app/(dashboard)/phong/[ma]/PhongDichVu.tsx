@@ -95,7 +95,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setLoi(kq.loi);
         return;
       }
-      const p = kq.data.tat_ca_phong.find((x) => x.code === ma) ?? null;
+      // `room_id` là định danh (CORE-C, 23/09/2026); mã phòng cũ vẫn mở được
+      // để link đã lưu trước đó không gãy.
+      const p =
+        kq.data.tat_ca_phong.find((x) => x.id === ma || x.code === ma) ?? null;
       setPhong(p);
       setKhongCo(p === null);
     });

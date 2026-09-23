@@ -29,7 +29,13 @@ export async function getClinicRole(): Promise<ClinicRole | null> {
  *  chỉ ghép, không tự suy vai từ mã vị trí. Không bao giờ chứa vai bác sĩ mà
  *  tài khoản không có. */
 export const getViTriHomNay = cache(() =>
-  fetchFromBackend<{ vi_tri: string[]; ca: string[]; vai?: string[] }>(
+  fetchFromBackend<{
+    vi_tri: string[];
+    ca: string[];
+    vai?: string[];
+    /** Phòng của từng vị trí (theo `room_id`, CORE-C 23/09/2026). */
+    phong?: Record<string, { room_id: string; ten: string }>;
+  }>(
     "/api/v1/me/vi-tri-hom-nay",
   ),
 );

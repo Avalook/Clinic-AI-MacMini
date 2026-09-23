@@ -1,4 +1,5 @@
-/** Bàn khám của MỘT phòng: /ban-kham/KN-NOITIET. Xem ../page.tsx. */
+/** Bàn khám của MỘT phòng: /ban-kham/<room_id> (mã phòng cũ vẫn mở được).
+ *  Xem ../page.tsx. */
 
 import { getClinicStaffId, requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 

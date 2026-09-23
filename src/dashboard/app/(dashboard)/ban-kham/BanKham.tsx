@@ -152,7 +152,7 @@ export default function BanKham({
   vai,
   staffId = null,
 }: {
-  /** Mã phòng trên đường dẫn (/ban-kham/KN-NOITIET). Rỗng = khách của tôi. */
+  /** room_id (hoặc mã phòng cũ) trên đường dẫn. Rỗng = khách của tôi. */
   phongMa: string | null;
   vai: string | null;
   staffId?: string | null;
@@ -187,7 +187,9 @@ export default function BanKham({
     [phongs],
   );
   const maPhong = phongMa;
-  const phong = phongKham.find((p) => p.code === maPhong) ?? null;
+  // `room_id` là định danh; mã phòng cũ vẫn khớp để link đã lưu không gãy.
+  const phong =
+    phongKham.find((p) => p.id === maPhong || p.code === maPhong) ?? null;
 
   useEffect(() => {
     if (phongs === null) return;
@@ -295,7 +297,7 @@ export default function BanKham({
         </label>
         <select
           id="chon-phong"
-          value={maPhong ?? ""}
+          value={phong?.id ?? ""}
           onChange={(e) => {
             setChonId(null);
             router.push(
@@ -308,7 +310,7 @@ export default function BanKham({
         >
           <option value="">Khách của tôi (mọi phòng)</option>
           {phongKham.map((p) => (
-            <option key={p.id} value={p.code}>
+            <option key={p.id} value={p.id}>
               {p.ten}
               {p.tang ? ` · ${p.tang}` : ""}
               {phongs?.phong_cua_toi.some((m) => m.id === p.id) ? " · hôm nay" : ""}

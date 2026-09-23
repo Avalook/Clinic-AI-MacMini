@@ -134,6 +134,7 @@ export default async function DashboardLayout({
           identity={identity}
           featureMode={featureMode}
           viTriHomNay={viTriHomNay}
+          phong={viTri?.phong ?? {}}
           quyen={quyen}
           leaveAction={logout}
         >

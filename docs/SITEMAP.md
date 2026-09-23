@@ -34,7 +34,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | Route | Ai vào | Việc | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | `/login` · `/forgot-password` · `/reset-password` | chưa đăng nhập | Đăng nhập, quên và đặt lại mật khẩu | GIỮ | |
-| `/` | mọi vai | Chuyển tới trang đích theo vai (`roleLanding`) | GIỮ | Bác sĩ và thư ký → `/ban-kham`. Bác sĩ siêu âm → `/phong/KN-SA-T1`. Đối tác → `/doi-tac`. Trưởng ca → `/truong-ca`. Còn lại → `/home`. |
+| `/` | mọi vai | Chuyển tới trang đích theo vai (`roleLanding`) | GIỮ | Bác sĩ và thư ký → `/ban-kham`. Bác sĩ siêu âm → `/phong` (danh sách phòng, 23/09). Đối tác → `/doi-tac`. Trưởng ca → `/truong-ca`. Còn lại → `/home`. |
 | `/home` | mọi vai | Trang chủ: lịch tuần (**chỉ xem**), trạng thái buổi, lịch làm việc | GIỮ | **Không check-in ở đây** (18/09). Bấm tên khách mở biểu mẫu **chỉ xem**, có nút "Mở ở Bàn khám". Vai check-in thấy nút "Check-in ở Tiếp đón khách". |
 
 ### Lễ tân và điều dưỡng
@@ -44,13 +44,14 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/reception/queue` | Lễ tân, ĐD, QL | Tiếp đón khách | GIỮ | **Nơi DUY NHẤT check-in.** Trên cùng là "Lịch hẹn hôm nay", có Check-in / Không đến / Hoàn tác. Bên dưới là hàng đợi người đã check-in. |
 | `/reception/checkout` | Lễ tân, QL | Check-out lượt khám | GIỮ | |
 | `/do-sinh-hieu` | ĐD, Lễ tân, BS, QL | Đo sinh hiệu | GIỮ | **Nơi DUY NHẤT ghi sinh hiệu.** Máy chủ từ chối đường cũ từ `6976513`. |
-| `/phong/[ma]` | theo từng phòng trong `NAV_ROLES` | Lấy mẫu XN · 3 phòng SA · 4 phòng thủ thuật/dịch vụ | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. |
+| `/phong` | BS, BS SA, ĐD, TKYK, QL + ai có quyền `service.execute.start` | Phòng dịch vụ | GIỮ (mới 23/09) | **Danh sách phòng dịch vụ đọc từ `clinic_room`** (phòng đang bật, không phải phòng khám), phòng mình đứng hôm nay lên đầu. Thay chín mục `/phong/KN-*` viết cứng. |
+| `/phong/[ma]` | MỘT luật `/phong` cho mọi phòng | Tên phòng thật (theo lịch trực hôm nay) | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. **23/09: `[ma]` là `room_id`**; mã phòng cũ (`KN-SA1`…) vẫn mở được. Ngày có ca, thanh bên dựng mục theo `vi_tri_lam_viec.room_id`, tên = `clinic_room.name`. |
 
 ### Bác sĩ và thư ký
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL | Bàn khám (khách của tôi) · Bàn khám · Phòng … | GIỮ | **Nơi DUY NHẤT sửa bệnh án.** 23/09: trên chỉ còn `[Bắt đầu khám]`; `[Hoàn tất]` ở CUỐI hồ sơ (→ `kham-xong`). **Không còn Ký bệnh án** (`POST /clinical/{id}/sign` trả 410); Hoàn tất KHÔNG khoá, bệnh án sửa tiếp được. Khung `HoSoHoanTatPanel`: `[Cho phép CSKH gửi]` (sau Hoàn tất), `[Đính chính]` (chỉ lượt cũ đã ký). |
+| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL (một luật cho mọi phòng) | Bàn khám (khách của tôi) · Bàn khám · <tên phòng> | GIỮ | 23/09: `[phong]` là `room_id` (mã cũ vẫn mở được), ô chọn phòng đi theo `room_id`. **Nơi DUY NHẤT sửa bệnh án.** 23/09: trên chỉ còn `[Bắt đầu khám]`; `[Hoàn tất]` ở CUỐI hồ sơ (→ `kham-xong`). **Không còn Ký bệnh án** (`POST /clinical/{id}/sign` trả 410); Hoàn tất KHÔNG khoá, bệnh án sửa tiếp được. Khung `HoSoHoanTatPanel`: `[Cho phép CSKH gửi]` (sau Hoàn tất), `[Đính chính]` (chỉ lượt cũ đã ký). |
 | `/phan-quyen` | QL | Phân quyền | MỚI 23/09 | Chọn người → bật/tắt **khối công việc**; `[+ Thêm preset <vai>]` cấp nhanh theo vai; "▾ Chi tiết" bung quyền con. Đọc `GET /api/phan-quyen`; đổi bằng `POST` (`cap`/`thu`/`them-preset`). Cửa thật là capability `permission.manage` ở backend. |
 | `/viec-can-xu-ly` | QL, Thu ngân, Trưởng ca, BS | Việc cần xử lý | MỚI 23/09 | Việc sinh ra từ SỰ KIỆN: khách đã trả tiền mà dịch vụ không làm được (`OPS-FINANCIAL-RESOLUTION`), dịch vụ dừng giữa chừng (`OPS-SERVICE-INTERRUPTED`). Đọc `GET /api/work-items?workspace=khu_van_hanh`; đóng việc bằng lệnh kernel `complete`. |
 | `/duyet-ket-qua` | BS, BS SA, QL | Duyệt kết quả | GIỮ | Thông báo "có kết quả về" trỏ thẳng vào đây (`bao_ket_qua_ve.py`). |
@@ -112,7 +113,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route cũ | Chuyển tới | Gộp ngày |
 |---|---|---|
-| `/tasks` | **theo vai:** thu ngân → `/thu-ngan/dich-vu` · BS SA → `/phong/KN-SA-T1` · BS/TKYK → `/ban-kham` · ĐD → `/do-sinh-hieu` · Lễ tân → `/reception/queue` · QL/CSKH → `/customers` · còn lại → `/home` | 18/09 |
+| `/tasks` | **theo vai:** thu ngân → `/thu-ngan/dich-vu` · BS SA → `/phong` · BS/TKYK → `/ban-kham` · ĐD → `/do-sinh-hieu` · Lễ tân → `/reception/queue` · QL/CSKH → `/customers` · còn lại → `/home` | 18/09 |
 | `/queue` | `/reception/queue` | 18/09 |
 | `/cashier/board` | `/thu-ngan/dich-vu` | 18/09 |
 | `/cskh-tasks` | `/customers` (bảng `cskh_action` 0 dòng trên prod) | 18/09 |
@@ -121,9 +122,9 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/portal` | `/ops?tab=toan-canh` | 18/09 |
 | `/ops/telemetry` | `/ops?tab=api` | 18/09 |
 | `/doctor/board` · `/doctor/orders/[visitId]` · `/kham/[loai]` · `/luot-kham` | `/ban-kham` | 16/09 |
-| `/lab-queue` | `/phong/KN-LAYMAU` | 16/09 |
-| `/service-queue` | `/phong/KN-THUTHUAT` | 16/09 |
-| `/sieu-am` · `/sono` | `/phong/KN-SA-T1` | 16/09 |
+| `/lab-queue` | `/phong` (23/09; trước là `/phong/KN-LAYMAU`) | 16/09 |
+| `/service-queue` | `/phong` (23/09; trước là `/phong/KN-THUTHUAT`) | 16/09 |
+| `/sieu-am` · `/sono` | `/phong` (23/09; trước là `/phong/KN-SA-T1`) | 16/09 |
 | `/result-review` | `/duyet-ket-qua` | 16/09 |
 | `/cashier` | `/cashier/thuoc` | |
 

@@ -189,3 +189,30 @@ async def test_buoc_chua_co_phong_bao_config_missing(pool: asyncpg.Pool) -> None
     assert "DICHVU-DXA" in thieu
     assert all(t["loi"] == "CONFIG_MISSING" for t in ov["config_missing"])
     assert "DICHVU-SIEUAM" not in thieu
+
+
+async def test_thanh_ben_nhan_ten_phong_moi_theo_room_id(pool: asyncpg.Pool) -> None:
+    """C2/C3: `/me/vi-tri-hom-nay` trả phòng của từng vị trí theo room_id — đổi
+    tên là thanh bên đổi theo; tắt phòng là vị trí ấy không còn trỏ vào nó."""
+    from clinicai.api.v1.routers.identity import vi_tri_hom_nay
+
+    rid = await _tao(pool, "Siêu âm 1")
+    ma = f"T-{uuid.uuid4().hex[:6]}"
+    await pool.execute(
+        "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, room_id)"
+        " VALUES ($1::uuid, $2, 'Siêu âm — test', $3::uuid)",
+        CLINIC,
+        ma,
+        rid,
+    )
+    await ClinicConfigService(pool).rename_room(
+        identity=_quan_ly(), room_id=rid, name="Phòng Hoa"
+    )
+    kq = await vi_tri_hom_nay(identity=_quan_ly(), pool=pool)
+    assert kq["phong"][ma] == {"room_id": rid, "ten": "Phòng Hoa"}  # type: ignore[index]
+
+    await ClinicConfigService(pool).set_room_active(
+        identity=_quan_ly(), room_id=rid, is_active=False
+    )
+    kq = await vi_tri_hom_nay(identity=_quan_ly(), pool=pool)
+    assert ma not in kq["phong"]  # type: ignore[operator]

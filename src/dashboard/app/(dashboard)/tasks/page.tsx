@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
 export default async function TrangCu() {
   const role = await getVaiChinh();
   if (isCashierRole(role)) redirect("/thu-ngan/dich-vu");
-  if (isUltrasoundDoctorRole(role)) redirect("/phong/KN-SA-T1");
+  if (isUltrasoundDoctorRole(role)) redirect("/phong");
   if (isDoctorRole(role)) redirect("/ban-kham");
   if (isNurseRole(role)) redirect("/do-sinh-hieu");
   if (role === "RECEPTION") redirect("/reception/queue");

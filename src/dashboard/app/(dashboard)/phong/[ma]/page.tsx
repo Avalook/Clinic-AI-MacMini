@@ -1,8 +1,9 @@
 /**
  * Phòng dịch vụ — siêu âm, thủ thuật, lấy mẫu (Tuyền chốt 16/09/2026).
  *
- * Đường dẫn theo MÃ PHÒNG (`/phong/KN-SA1`), không theo mã UUID: thanh bên khai
- * sẵn được, gửi link cho nhau đọc được. Mã phòng khớp `clinic_room.code`.
+ * Đường dẫn theo `room_id` (CORE-C, 23/09/2026): phòng là tài nguyên, tên đổi
+ * tự do mà link không gãy. Mã phòng cũ (`/phong/KN-SA1`) vẫn mở được — link đã
+ * lưu trước ngày ấy không chết. Danh sách phòng: `/phong`.
  *
  * Thay cho: Điều dưỡng siêu âm (/sono), Khám siêu âm (/sieu-am), Làm thủ thuật
  * & dịch vụ (/service-queue), Lấy mẫu xét nghiệm (/lab-queue) — bốn màn đọc bốn

@@ -5,5 +5,5 @@
 import { redirect } from "next/navigation";
 
 export default function TrangCu() {
-  redirect("/phong/KN-THUTHUAT");
+  redirect("/phong");
 }

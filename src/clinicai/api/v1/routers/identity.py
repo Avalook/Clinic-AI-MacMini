@@ -95,8 +95,27 @@ async def vi_tri_hom_nay(
     # TRONG GIỜ CA. Trước đó thanh bên lấy cả ngày và cả dòng chưa duyệt.
     hien_hanh = await doc_vi_tri_hien_hanh(pool, identity.clinic_id, identity.staff_id)
     vi_tri = list(dict.fromkeys(tram for tram, _ca in hien_hanh))
+    # PHÒNG CỦA TỪNG VỊ TRÍ (CORE-C, 23/09/2026) — dữ kiện, theo room_id: thanh
+    # bên dựng `/phong/<room_id>` và ghi TÊN phòng hiện tại, không còn mã phòng
+    # viết cứng trong giao diện. Đổi tên phòng là thanh bên đổi theo. Trả MỌI vị
+    # trí đang dùng (~30 dòng), không chỉ vị trí hôm nay: giao diện còn đổi mã vị
+    # trí đời cũ sang mã mới (`MA_VI_TRI_CU`) rồi mới tra phòng.
+    phong = {
+        r["code"]: {"room_id": r["room_id"], "ten": r["ten"]}
+        for r in await pool.fetch(
+            """
+            SELECT v.code, r.id::text AS room_id, r.name AS ten
+              FROM public.vi_tri_lam_viec v
+              JOIN public.clinic_room r
+                ON r.id = v.room_id AND r.clinic_id = v.clinic_id AND r.is_active
+             WHERE v.clinic_id = $1::uuid AND v.is_active
+            """,
+            identity.clinic_id,
+        )
+    }
     return {
         "vi_tri": vi_tri,
+        "phong": phong,
         "ca": sorted({ca for _tram, ca in hien_hanh}),
         # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
         # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.

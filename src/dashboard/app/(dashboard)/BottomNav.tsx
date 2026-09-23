@@ -10,7 +10,13 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
-import { isActiveNav, mucHienRa, mucThanhDuoi, navLabelFor } from "./nav-items";
+import {
+  isActiveNav,
+  mucHienRa,
+  mucThanhDuoi,
+  navLabelFor,
+  type PhongTheoViTri,
+} from "./nav-items";
 
 // How many destinations to surface as tabs before the rest collapse into Menu.
 const MAX_TABS = 4;
@@ -20,12 +26,14 @@ export default function BottomNav({
   onMenu,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  phong = {},
   quyen = [],
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
   featureMode?: string;
   viTriHomNay?: readonly string[];
+  phong?: PhongTheoViTri;
   /** Cùng luật với thanh bên — hai thanh lệch nhau là người dùng mất màn. */
   quyen?: readonly string[];
 }) {
@@ -41,6 +49,7 @@ export default function BottomNav({
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,
+    phong,
   );
   const allHrefs = visible.map((v) => v.href);
   // Có ca hôm nay thì `visible` ĐÃ xếp theo việc của hôm nay — lấy đầu danh sách

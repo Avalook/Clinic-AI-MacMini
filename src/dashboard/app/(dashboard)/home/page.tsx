@@ -38,7 +38,7 @@ import {
   isNurseRole,
 } from "../../../lib/roles";
 import Link from "next/link";
-import { NAV, TEN_NHOM, hrefTheoViTri, nhomTheoViTri } from "../nav-items";
+import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
@@ -159,7 +159,9 @@ export default async function HomePage({
   // dưỡng — hôm nay đứng Lễ tân thì trang chủ là trang chủ Lễ tân (check-in),
   // không phải "Điền sinh hiệu". Không có ca thì vai chính = vai tài khoản.
   const role = await getVaiChinh();
-  const viTriHomNay = (await getViTriHomNay())?.vi_tri ?? [];
+  const viTriDo = await getViTriHomNay();
+  const viTriHomNay = viTriDo?.vi_tri ?? [];
+  const phong = viTriDo?.phong ?? {};
   // "Điền sinh hiệu" là việc của vị trí ĐO CHỈ SỐ, không phải của mọi điều
   // dưỡng: hôm 16/09 Hải Yến đứng Lấy mẫu, Vân Anh đứng ĐD Sàn chậu mà trang chủ
   // vẫn mời cả hai đo sinh hiệu. Không có ca → theo vai như trước.
@@ -167,10 +169,10 @@ export default async function HomePage({
     viTriHomNay.length > 0
       ? hrefTheoViTri(viTriHomNay).includes("/do-sinh-hieu")
       : isNurseRole(role);
-  const viecHomNay = nhomTheoViTri(viTriHomNay, role).map((g) => ({
+  const viecHomNay = nhomTheoViTri(viTriHomNay, role, phong).map((g) => ({
     ten: TEN_NHOM[g.nhom],
     muc: g.hrefs
-      .map((h) => NAV.find((n) => n.href === h))
+      .map((h) => mucPhong(h, phong))
       .filter((n): n is NonNullable<typeof n> => n !== undefined)
       .map((n) => ({ href: n.href, label: n.label })),
   }));
