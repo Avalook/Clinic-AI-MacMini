@@ -31,6 +31,7 @@ from clinicai.api.identity import (
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -239,9 +240,16 @@ async def cho_xep_bac_si(
             identity.clinic_id,
         )
     da_co = {r["id"] for r in rows}
+    # HAI câu, mỗi câu trần 500. Chạm trần ở câu nào cũng là "còn lịch mất bác
+    # sĩ mà màn không hiện" — và đó đúng là thứ khách nhớ rất lâu.
+    bi_cat = canh_bao_neu_day("lich.chua_xep_bac_si", len(rows), 500) or (
+        canh_bao_neu_day("lich.vuot_suc_chua", len(vuot), 500)
+    )
     return {
         "items": [dict(r) for r in rows]
-        + [dict(r) for r in vuot if r["id"] not in da_co]
+        + [dict(r) for r in vuot if r["id"] not in da_co],
+        "bi_cat": bi_cat,
+        "tran": 500,
     }
 
 

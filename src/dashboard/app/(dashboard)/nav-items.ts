@@ -74,6 +74,11 @@ export const NAV: NavItem[] = [
   { href: "/ban-kham/KN-SAN-BIO", label: "Bàn khám · Phòng Sản - Biofeedback", icon: Stethoscope },
   { href: "/xac-nhan-ket-qua", label: "Xác nhận kết quả", icon: ClipboardCheck },
   { href: "/duyet-ket-qua", label: "Duyệt kết quả", icon: CheckCheck },
+  // Việc sinh ra từ sự kiện: khách đã trả tiền mà không làm được dịch vụ, và
+  // dịch vụ bị dừng giữa chừng. Mở việc mà không màn nào hiện thì vẫn là rơi.
+  { href: "/viec-can-xu-ly", label: "Việc cần xử lý", icon: ClipboardCheck },
+  // Quản lý tự bật/tắt khối công việc cho từng người — không cần ai sửa code.
+  { href: "/phan-quyen", label: "Phân quyền", icon: KeyRound },
   // PHÒNG DỊCH VỤ — mã phòng khớp `clinic_room.code` (migration 20260917000001).
   { href: "/phong/KN-LAYMAU", label: "Lấy mẫu xét nghiệm", icon: FlaskConical },
   // Không ghi tầng (Tuyền 17/09/2026): quản lý đã xếp ai ngồi phòng nào, người

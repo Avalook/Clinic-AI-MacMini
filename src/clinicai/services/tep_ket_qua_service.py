@@ -35,6 +35,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.audit import record_event
 from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
 from clinicai.services.media_service import (
@@ -755,6 +756,11 @@ class TepKetQuaService:
             identity.clinic_id,
             clinic_patient_id,
         )
+        # 200 tệp của MỘT khách: trần này gần như không bao giờ chạm, nhưng
+        # chạm thì phải kêu — hàm trả về list nên không gắn `bi_cat` vào được.
+        canh_bao_neu_day(
+            "tep_ket_qua.cua_mot_khach", len(rows), 200, khach=clinic_patient_id
+        )
         return [dict(r) for r in rows]
 
     async def duong_dan_de_doc(
@@ -966,6 +972,8 @@ class TepKetQuaService:
             """,
             identity.clinic_id,
         )
+        # Hàng tồn "chờ cho phép gửi": chạm trần nghĩa là còn tệp chưa ai thấy.
+        canh_bao_neu_day("tep_ket_qua.cho_cho_phep_gui", len(rows), 200)
         return [dict(r) for r in rows]
 
     async def cho_xac_nhan(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
@@ -1027,4 +1035,5 @@ class TepKetQuaService:
                 else None
             )
             res.append(d)
+        canh_bao_neu_day("tep_ket_qua.cho_xac_nhan", len(rows), 100)
         return res

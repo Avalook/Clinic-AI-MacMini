@@ -44,6 +44,7 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -235,6 +236,7 @@ class CheckoutService:
                 _vn_day_start(),
             )
 
+        canh_bao_neu_day("thu_ngan.cho_dong_luot", len(rows), 300)
         out: list[dict[str, Any]] = []
         for r in rows:
             blockers = build_blockers(dict(r))

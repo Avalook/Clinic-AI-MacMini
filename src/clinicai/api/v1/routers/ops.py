@@ -45,3 +45,40 @@ async def get_telemetry(
     snapshot = telemetry.snapshot(window_s=window_s or None)
     snapshot["slow_threshold_ms"] = SLOW_REQUEST_MS
     return snapshot
+
+
+@router.get("/ops/su-kien")
+async def suc_khoe_su_kien(
+    response: Response,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Sức khoẻ đường đưa tin — bốn số, không hơn.
+
+    Google SRE: số đo nào không có người nhìn hoặc không gắn với cảnh báo thì bỏ.
+    Bốn số ở đây là bốn kiểu hỏng khác nhau, không phải bốn cách nói một chuyện:
+
+        cho_lam   tin chưa giao được — tắc ở đâu đó
+        chet      đã thử hết lượt, có người phải xử lý tay
+        dang_lam  đang giao; số này treo cao nghĩa là worker chết giữa chừng
+        cho_lau_giay  tin cũ nhất đã chờ bao lâu — thứ nói "có đang tắc không"
+
+    Hai số đầu đáng bắn Telegram. Hai số sau để nhìn trên bảng.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT consumer, cho_lam, chet, dang_lam,"
+            " EXTRACT(EPOCH FROM tuoi_dong_cu_nhat)::int AS cho_lau_giay"
+            "  FROM v_event_delivery_suc_khoe ORDER BY consumer"
+        )
+        tong_su_kien = await conn.fetchval("SELECT count(*) FROM domain_event")
+    ben_nhan = [dict(r) for r in rows]
+    return {
+        "ben_nhan": ben_nhan,
+        "tong_su_kien": tong_su_kien,
+        # Một cờ để Uptime Kuma hỏi mà không phải hiểu từng con số.
+        "on": all(
+            (b["chet"] or 0) == 0 and (b["cho_lau_giay"] or 0) < 300 for b in ben_nhan
+        ),
+    }

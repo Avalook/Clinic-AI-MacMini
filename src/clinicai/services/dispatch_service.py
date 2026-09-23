@@ -23,6 +23,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.gate_rule_service import enforce as gate_enforce
 
 logger = structlog.get_logger()
@@ -195,6 +196,9 @@ class DispatchService:
         """Mỗi bệnh nhân đang trong phòng khám là một dòng."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(_OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES))
+        # Mỗi dòng là một người đang ở trong phòng khám. Cắt im lặng ở đây nghĩa
+        # là có người đứng đó mà bảng điều phối không thấy.
+        canh_bao_neu_day("dieu_phoi.tong_quan", len(rows), 400, clinic_id=clinic_id)
         return [_overview_row(r) for r in rows]
 
     async def chi_dinh(self, *, clinic_id: str, visit_id: str) -> list[dict[str, Any]]:

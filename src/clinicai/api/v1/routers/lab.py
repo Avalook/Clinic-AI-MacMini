@@ -36,6 +36,7 @@ from clinicai.api.nghi_huu import CHI_DINH_MOI, KET_QUA_MOI, bao_da_nghi
 from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.graphs.lab_triage import build_lab_triage_subgraph
 from clinicai.graphs.lab_triage.state import LabTriageState
 from clinicai.llm.anthropic_client import AnthropicClient
@@ -174,7 +175,13 @@ async def ket_qua_cho_duyet(
             "phone_primary": d.pop("phone_primary"),
         }
         items.append(d)
-    return {"items": items}
+    # Trần 100 kết quả chờ duyệt. Chạm trần là có kết quả bất thường nằm ngoài
+    # trang mà bác sĩ không biết.
+    return {
+        "items": items,
+        "bi_cat": canh_bao_neu_day("xet_nghiem.cho_duyet", len(rows), 100),
+        "tran": 100,
+    }
 
 
 @router.post(

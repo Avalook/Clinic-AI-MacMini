@@ -26,6 +26,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import (
     bac_si_cua_thu_ky,
@@ -247,7 +248,11 @@ class UltrasoundBoardService:
             bac_si,
             await bac_si_sieu_am_trong(self._pool, identity.clinic_id, bac_si or []),
         )
-        return {"items": [_queue_row(r, i) for i, r in enumerate(rows, start=1)]}
+        return {
+            "items": [_queue_row(r, i) for i, r in enumerate(rows, start=1)],
+            "bi_cat": canh_bao_neu_day("sieu_am.hang_cho", len(rows), 300),
+            "tran": 300,
+        }
 
     async def nhan_ca(
         self,
@@ -480,7 +485,11 @@ class UltrasoundBoardService:
             since,
             await khach_duoc_xem(self._pool, identity),
         )
-        return {"items": [_record_row(r) for r in rows]}
+        return {
+            "items": [_record_row(r) for r in rows],
+            "bi_cat": canh_bao_neu_day("sieu_am.ban_ghi", len(rows), 300, da_ky=signed),
+            "tran": 300,
+        }
 
 
 def _queue_row(r: asyncpg.Record, stt: int) -> dict[str, Any]:

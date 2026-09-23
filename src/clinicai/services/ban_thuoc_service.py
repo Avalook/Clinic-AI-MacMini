@@ -33,6 +33,7 @@ import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 
@@ -226,6 +227,9 @@ async def man_nha_thuoc(
             identity.clinic_id,
             dau_ngay,
         )
+        # Trần 300 đơn/ngày. Chạm trần là quầy thuốc đang nhìn một bảng THIẾU
+        # đơn — phải nói ra, không để im.
+        don_bi_cat = canh_bao_neu_day("nha_thuoc.don_hom_nay", len(dong), 300)
         luot_ids = sorted({r["visit_id"] for r in dong})
         rx_ids = [r["id"] for r in dong]
         lan_thu_rows = await conn.fetch(
@@ -449,6 +453,8 @@ async def man_nha_thuoc(
         "danh_muc": [dict(d) for d in danh_muc],
         "hom_nay": hom_nay.isoformat(),
         "co_quyen_ghi": co_quyen_ghi,
+        "bi_cat": don_bi_cat,
+        "tran": 300,
     }
 
 

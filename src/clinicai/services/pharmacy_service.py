@@ -43,6 +43,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
@@ -118,6 +119,9 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
             )
+        # Hàng đợi cấp thuốc mà cắt im lặng là có người đứng đợi mà không ai
+        # thấy tên. Trần giữ nguyên; điều đổi là nó kêu lên khi chạm.
+        canh_bao_neu_day("nha_thuoc.hang_doi", len(rows), 300)
         return [dict(r) for r in rows]
 
     async def ton_kho(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
