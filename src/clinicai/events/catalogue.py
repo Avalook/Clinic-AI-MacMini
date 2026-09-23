@@ -720,7 +720,9 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result_file",
             payload=TepKetQuaDaXacNhan,
             nhan="Đã xác nhận tệp kết quả",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            # Chuông (23/09 khuya): tệp đối tác HỢP LỆ = kết quả chính thức về
+            # → báo bác sĩ chính + CSKH. Trước đó chỉ có chuông lúc TẢI LÊN.
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
         ),
         SuKien(
             ten="result_file.viewed",

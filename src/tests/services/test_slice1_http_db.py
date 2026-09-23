@@ -32,6 +32,16 @@ from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
+
+
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 KET: list[tuple[str, bool, str]] = []
 HIEN_TAI: dict[str, StaffIdentity] = {}

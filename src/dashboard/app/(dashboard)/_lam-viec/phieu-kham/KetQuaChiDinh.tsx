@@ -187,9 +187,19 @@ export default function KetQuaChiDinh({
 
 function MotKetQua({ k }: { k: KetQuaMotChiDinh }) {
   if (k.loai === "TEP") {
+    // Tệp (kể cả của đối tác) mở thẳng ở tab mới — không bước xác nhận
+    // (Tuyền 23/09 khuya: "hiện ra đó luôn là được"). Mở = tự ghi đã xem.
     return (
       <p className="text-body text-ink">
-        Tệp {k.loai_tep}: {k.ten ?? "(không tên)"}
+        Tệp {k.loai_tep}:{" "}
+        <a
+          href={`/api/cskh/ket-qua/${k.tep_id}/noi-dung`}
+          target="_blank"
+          rel="noopener"
+          className="font-medium text-brand-700 underline underline-offset-4"
+        >
+          {k.ten ?? "(không tên)"}
+        </a>
       </p>
     );
   }

@@ -13,6 +13,25 @@ lịch sử hội thoại.
 
 ---
 
+## Phòng thủ thuật + đối tác (24/09 rạng sáng — CHƯA deploy, ĐÃ bấm thật BS A)
+
+- Thủ thuật không mẫu (tháo vòng…) / phòng lấy mẫu: [Làm thủ thuật xong] / [Đã lấy mẫu]
+  là đường chính, phiếu tuỳ chọn (lỗi thụt lùi của lần trước: 18 mẫu dự phòng làm mất
+  nút Xong). Phiếu khám mục C: làm xong không phiếu → "Đã làm".
+- **Bước xác nhận tệp đối tác OFF** (Tuyền: "không cần nút xác nhận kết quả, cho vào
+  luôn phiếu khám bác sĩ"): cờ `XAC_NHAN_TEP_DOI_TAC = False` trong
+  `tep_ket_qua_service.py` — tệp đối tác ghi HỢP LỆ ngay lúc tải lên (người tải = người
+  xác nhận, lý do "Tự động…"), vòng đọc bác sĩ mở ngay, chuông "đã vào hồ sơ" tới bác sĩ
+  chính. Màn `/xac-nhan-ket-qua` gỡ khỏi thanh bên (route còn). Test luồng cũ bật cờ.
+- Luồng cũ (khi bật lại): xác nhận HỢP LỆ → chuông bác sĩ chính + CSKH; TỪ CHỐI tệp duy
+  nhất → gỡ `ket_qua_luc` (chỉ định không còn "đã gửi kết quả").
+- Mục C: tên tệp mở thẳng tệp (`/api/cskh/ket-qua/{id}/noi-dung`).
+- Bấm thật: XN máu → phòng Lấy mẫu [Đã lấy mẫu] → đối tác (script) nhận mẫu + tải PDF giả
+  → tệp HỢP LỆ tự động → phiếu khám bác sĩ "Có kết quả", mở tệp 200 application/pdf.
+- Local: đã cấp `result.file.confirm` cho "BS A local" để thử luồng cũ.
+- Chưa: đối tác tự lấy mẫu (`doi_tac_lay_mau`) không cập nhật `execution_status` (hai
+  cột lệch) — ghi nợ.
+
 ## Phòng siêu âm điền kết quả (23/09 khuya — CHƯA deploy, ĐÃ bấm thật BS A)
 
 - Phòng chưa gắn mẫu → trước đây "chưa gắn mẫu kết quả nào", không điền được. Nay

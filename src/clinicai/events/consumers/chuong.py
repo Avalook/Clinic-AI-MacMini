@@ -34,6 +34,8 @@ class DayNhan:
 #: Mặc định khi phòng khám chưa chỉnh (cùng giá trị migration đã gieo).
 MAC_DINH: dict[str, DayNhan] = {
     "result_file.uploaded": DayNhan(["CSKH", "TKYK", "NURSE_ULTRASOUND"], True),
+    # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.
+    "result_file.confirmed": DayNhan(["CSKH"], True),
     "result.ready": DayNhan(["TKYK"], True),
     # Kết quả xét nghiệm nhập tay (trước 24/09 gọi thẳng: CSKH + bác sĩ).
     "lab_result.arrived": DayNhan(["CSKH"], True),
@@ -103,6 +105,13 @@ async def _khach_va_bac_si(
 async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
+    # Xác nhận tệp: chỉ HỢP LỆ là tin đáng réo — TỪ CHỐI là việc của người
+    # xác nhận với đối tác, không phải của bác sĩ.
+    if (
+        su_kien.event_type == "result_file.confirmed"
+        and su_kien.payload.get("trang_thai") != "HOP_LE"
+    ):
+        return
     day = await day_nhan(conn, su_kien.clinic_id, su_kien.event_type)
     if day is None or not day.bat:
         return
@@ -121,6 +130,9 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             if su_kien.payload.get("cho_xac_nhan")
             else "Kết quả đã vào hồ sơ khách — mở là tự ghi đã xem."
         )
+    elif su_kien.event_type == "result_file.confirmed":
+        tieu_de = f"Kết quả đối tác của {ten} đã xác nhận"
+        noi_dung = "Tệp hợp lệ, đã vào hồ sơ — bác sĩ đọc, CSKH gửi khách được."
     elif su_kien.event_type == "lab_result.arrived":
         tieu_de = f"Kết quả xét nghiệm của {ten} đã về"
         noi_dung = "Gửi cho khách được ngay; bác sĩ xem khi cần."

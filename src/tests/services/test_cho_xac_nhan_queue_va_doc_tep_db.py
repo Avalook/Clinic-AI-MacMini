@@ -50,6 +50,15 @@ from tests.services.test_xac_nhan_tep_ket_qua_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
+
+
 @pytest_asyncio.fixture
 async def pool() -> Any:
     url = os.environ.get("DATABASE_URL") or os.environ.get("DATABASE_URL_TEST") or ""

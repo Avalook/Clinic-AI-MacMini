@@ -160,6 +160,13 @@ khách, tới giờ chuông réo đúng người.
 32. Phiếu kết quả đã Hoàn tất = có kết quả (result.ready, báo bác sĩ chính) khi dịch vụ
     chưa cấu hình `result_mode`; chỉ im lặng khi quản lý cấu hình rõ NONE / LATER.
 
+**Chỗ Claude tự chốt ở thủ thuật + đối tác (24/09 rạng sáng):**
+33. Bỏ xác nhận = tệp đối tác TỰ HỢP LỆ lúc tải lên (ghi rõ lý do tự động), không phải
+    bỏ trạng thái — giữ nguyên mọi logic "kết quả hợp lệ", bật lại được bằng cờ.
+34. Phòng lấy mẫu không bao giờ có phiếu kết quả (kết quả do đối tác gửi tệp); thủ thuật
+    không có mẫu gợi ý thì phiếu là tuỳ chọn.
+35. Thủ thuật đã làm mà không có phiếu hiện "Đã làm" ở mục C (không treo "Chưa có kết quả").
+
 **Nhóm 6 — rà quyền + trách nhiệm không rơi (đã làm):**
 - Đối chiếu bảng "màn mặc định theo vai" với quyền thật: lệch duy nhất là **Dược sĩ**
   không vào được quầy thu tiền thuốc và không thu được tiền thuốc → đã mở (chỉ tiền thuốc).

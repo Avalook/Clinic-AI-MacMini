@@ -103,6 +103,15 @@ MEDIA_MIN_FREE_BYTES = int(
 
 KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
 
+#: BƯỚC XÁC NHẬN TỆP ĐỐI TÁC — OFF (Tuyền 23/09/2026 khuya: "không cần nút xác
+#: nhận kết quả, nó phải cho vào luôn trong phiếu khám của bác sĩ… không cần
+#: xác nhận làm gì, hiện ra đó luôn là được"). Tắt: tệp đối tác được ghi HỢP LỆ
+#: ngay lúc tải lên (người tải = người xác nhận, lý do ghi rõ là tự động) → mọi
+#: chỗ đọc "kết quả hợp lệ" chạy y như cũ, vòng đọc của bác sĩ mở ngay. Bật lại
+#: (True) là về luồng CHO_XAC_NHAN → màn Xác nhận kết quả. Không xoá đường cũ.
+XAC_NHAN_TEP_DOI_TAC = False
+LY_DO_TU_XAC_NHAN = "Tự động — phòng khám không dùng bước xác nhận tệp đối tác"
+
 #: Ai được cho phép gửi tệp kết quả cho khách (Tuyền chốt 15/09/2026).
 BAC_SI_CHO_PHEP_GUI = frozenset({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
 
@@ -407,7 +416,10 @@ class TepKetQuaService:
                 # Internal / non-order: NULL (không áp dụng).
                 # Giữ behavior trước #174: uploader BAC_SI thì
                 # tự cho phép gửi ngay.
-                xac_nhan_state = "CHO_XAC_NHAN" if is_external else None
+                tu_hop_le = is_external and not XAC_NHAN_TEP_DOI_TAC
+                xac_nhan_state = (
+                    ("HOP_LE" if tu_hop_le else "CHO_XAC_NHAN") if is_external else None
+                )
                 # Internal files: giữ auto cho_phep_gui nếu bác sĩ tải lên.
                 auto_gui = not is_external and identity.co_vai(TU_CHO_PHEP_GUI)
                 row_id = await conn.fetchval(
@@ -417,12 +429,16 @@ class TepKetQuaService:
                          ten_hien_thi, loai_tep, mime, so_byte, sha256,
                          tai_len_boi_staff_id,
                          cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
-                         service_order_id, xac_nhan_trang_thai)
+                         service_order_id, xac_nhan_trang_thai,
+                         xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
                             CASE WHEN $12 THEN now() ELSE NULL END,
                             CASE WHEN $12 THEN $10::uuid ELSE NULL END,
-                            $11::uuid, $13)
+                            $11::uuid, $13,
+                            CASE WHEN $14 THEN now() END,
+                            CASE WHEN $14 THEN $10::uuid END,
+                            CASE WHEN $14 THEN $15 END)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -438,6 +454,8 @@ class TepKetQuaService:
                     service_order_id,
                     auto_gui,
                     xac_nhan_state,
+                    tu_hop_le,
+                    LY_DO_TU_XAC_NHAN,
                 )
                 if service_order_id:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
@@ -466,7 +484,7 @@ class TepKetQuaService:
                         tep_id=str(row_id),
                         visit_id=luot_tep,
                         service_order_id=service_order_id,
-                        cho_xac_nhan=is_external,
+                        cho_xac_nhan=is_external and XAC_NHAN_TEP_DOI_TAC,
                     ),
                     boi=nguoi(identity),
                     correlation_id=luot_tep,
@@ -483,7 +501,7 @@ class TepKetQuaService:
             bytes=so_byte,
             by_staff_id=identity.staff_id,
         )
-        if service_order_id and not is_external:
+        if service_order_id and (not is_external or not XAC_NHAN_TEP_DOI_TAC):
             # Chỉ tự động chạy lại vòng đọc cho nội bộ (lam_ben_ngoai = false).
             # Đối với đối tác ngoài, tệp tải lên bắt đầu ở CHO_XAC_NHAN,
             # KHÔNG phải VALID_RESULT nên KHÔNG được mở REVIEW.
@@ -592,6 +610,23 @@ class TepKetQuaService:
                 },
             )
             so_id = str(tep["service_order_id"]) if tep["service_order_id"] else None
+            if trang_thai == "TU_CHOI" and so_id:
+                # Tệp bị từ chối mà chỉ định không còn tệp nào đang chờ / hợp
+                # lệ → CHƯA có kết quả. Không gỡ mốc thì chỉ định vẫn hiện "đối
+                # tác đã gửi kết quả", rơi khỏi danh sách "Cần làm" của đối tác
+                # và nhắc quá hạn (H7) coi như xong (rà 23/09 khuya).
+                await conn.execute(
+                    "UPDATE service_order SET ket_qua_luc = NULL"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                    "   AND NOT EXISTS (SELECT 1 FROM tep_ket_qua t"
+                    "        WHERE t.clinic_id = $1::uuid"
+                    "          AND t.service_order_id = $2::uuid"
+                    "          AND t.thu_hoi_luc IS NULL"
+                    "          AND t.xac_nhan_trang_thai"
+                    "              IN ('CHO_XAC_NHAN', 'HOP_LE'))",
+                    cid,
+                    so_id,
+                )
             luot_tep = await _luot_cua_tep(conn, cid, so_id, None)
             await emit_event(
                 conn,

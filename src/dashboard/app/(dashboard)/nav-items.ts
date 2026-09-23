@@ -71,7 +71,9 @@ export const NAV: NavItem[] = [
   // theo dịch vụ khách đặt, không do mục thanh bên quyết.
   { href: "/tu-van", label: "Bàn khám tư vấn", icon: Stethoscope },
   { href: "/ban-kham", label: "Bàn khám (khách của tôi)", icon: Stethoscope },
-  { href: "/xac-nhan-ket-qua", label: "Xác nhận kết quả", icon: ClipboardCheck },
+  // "Xác nhận kết quả" OFF (Tuyền 23/09/2026 khuya: "không cần nút xác nhận kết
+  // quả… cho vào luôn trong phiếu khám của bác sĩ"). Tệp đối tác HỢP LỆ ngay khi
+  // tải lên (cờ XAC_NHAN_TEP_DOI_TAC). Route còn giữ, chỉ gỡ khỏi thanh bên.
   // "Duyệt kết quả" OFF (Tuyền 23/09/2026 tối: "không cần cái duyệt kết quả nữa,
   // duyệt làm gì khi ta có thể tự điền vào đây") — bác sĩ đọc/điền kết quả ngay
   // trong phiếu khám (mục C). Route /duyet-ket-qua còn giữ, chỉ gỡ khỏi thanh bên.

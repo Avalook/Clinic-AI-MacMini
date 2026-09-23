@@ -356,7 +356,12 @@ MODULE: dict[str, Module] = {
             ten="Chuông thông báo",
             # CHỈ NGHE. Ai nhận chuông cho sự kiện nào là DỮ LIỆU
             # (`day_nhan_thong_bao`) — quản lý chỉnh trên màn (nhóm 5).
-            nghe=["result_file.uploaded", "result.ready", "lab_result.arrived"],
+            nghe=[
+                "result_file.uploaded",
+                "result_file.confirmed",
+                "result.ready",
+                "lab_result.arrived",
+            ],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
         ),

@@ -13,18 +13,11 @@ const tepKetQuaSource = read("app/(dashboard)/customers/TepKetQua.tsx");
 const rolesSource = read("lib/roles.ts");
 const navItemsSource = read("app/(dashboard)/nav-items.ts");
 
-test("NAV: có /xac-nhan-ket-qua; /duyet-ket-qua đã OFF khỏi thanh bên (23/09 tối)", () => {
-  assert.match(
-    navItemsSource,
-    /\{\s*href:\s*"\/xac-nhan-ket-qua",\s*label:\s*"Xác nhận kết quả",\s*icon:\s*ClipboardCheck\s*\}/,
-    "nav-items.ts thiếu NAV item { href: '/xac-nhan-ket-qua', label: 'Xác nhận kết quả', icon: ClipboardCheck }",
-  );
-  assert.ok(navItemsSource.indexOf('href: "/xac-nhan-ket-qua"') > 0);
-  assert.equal(
-    navItemsSource.indexOf('href: "/duyet-ket-qua"'),
-    -1,
-    "/duyet-ket-qua đã OFF khỏi thanh bên — bác sĩ đọc/điền kết quả trong phiếu khám",
-  );
+test("NAV: /xac-nhan-ket-qua và /duyet-ket-qua đều OFF khỏi thanh bên (23/09 khuya)", () => {
+  // Tệp đối tác vào thẳng phiếu khám (không bước xác nhận); bác sĩ đọc/điền
+  // kết quả trong phiếu. Hai route còn giữ, chỉ gỡ khỏi thanh bên.
+  assert.equal(navItemsSource.indexOf('href: "/xac-nhan-ket-qua"'), -1);
+  assert.equal(navItemsSource.indexOf('href: "/duyet-ket-qua"'), -1);
 });
 
 test("NAV_ROLES: chặn PARTNER và DISPLAY, mở cho nội bộ, fail-closed ở backend capability", () => {
