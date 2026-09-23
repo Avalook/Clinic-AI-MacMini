@@ -5,9 +5,10 @@ rule lives in the backend instead of the frontend. Rules preserved 1:1:
 
 * Two payment kinds per visit — ``thuoc`` (pharmacy) + ``dich_vu`` (services),
   unique per ``(visit_id, kind)``. Recording is an upsert (status ``PAID``).
-* A payment may only be recorded once the doctor has finished the exam —
-  ``visit.exam_completed_at`` (legacy: appointment ``COMPLETED``), see
-  ``moc_kham_xong`` → otherwise 409. Void is NOT gated.
+* TIỀN THUỐC chỉ thu được khi bác sĩ đã khám xong — ``visit.exam_completed_at``
+  (legacy: appointment ``COMPLETED``), see ``moc_kham_xong`` → otherwise 409.
+  TIỀN DỊCH VỤ thu được ngay khi có chỉ định (Tuyền 24/09/2026 — khách trả
+  tiền rồi đi làm, phiên bác sĩ còn mở). Void is NOT gated.
 * Role → kinds: CASHIER_THUOC ⟶ {thuoc}, CASHIER_DV ⟶ {dich_vu},
   CASHIER/MANAGEMENT ⟶ both. Coarse role gate is done at the router with
   ``require_role``; this finer kind↔role check lives here.
@@ -38,6 +39,8 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.events.catalogue import TienDichVuDaThu
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import pos_outbox
 from clinicai.services.bill_service import (
@@ -475,7 +478,9 @@ class PaymentService:
                     )
                     if cached is not None:
                         return cached
-                    patient_id = _kiem_luot_thu(status_row, clinic_patient_id)
+                    patient_id = _kiem_luot_thu(
+                        status_row, clinic_patient_id, can_kham_xong=False
+                    )
                     kq = await self._ghi_lan_thu_dich_vu(
                         conn,
                         visit_id=visit_id,
@@ -608,6 +613,15 @@ class PaymentService:
             payment_cycle_id=cycle_id,
             hoa_don=hoa_don,
         )
+        if not dien_tu:
+            await _phat_da_thu_dich_vu(
+                conn,
+                cycle_id=cycle_id,
+                visit_id=visit_id,
+                amount=hoa_don.tong,
+                method=method,
+                identity=identity,
+            )
         if dien_tu:
             await _log_payment_event(
                 conn,
@@ -824,6 +838,15 @@ class PaymentService:
                     can_doi_soat,
                     ly_do_doi_soat,
                 )
+                if kind == "dich_vu":
+                    await _phat_da_thu_dich_vu(
+                        conn,
+                        cycle_id=payment_cycle_id,
+                        visit_id=visit_id,
+                        amount=int(lan["amount"]),
+                        method=str(lan["method"]),
+                        identity=identity,
+                    )
                 if (
                     kind == "thuoc"
                     and bool(phan_lo)
@@ -1138,6 +1161,14 @@ async def _khoa_luot_thu(
         f"""
         SELECT
             {kham_xong_sql("v")} AS kham_xong,
+            -- Đã có chỉ định chính thức — cùng luật hiện khách ở quầy dịch vụ
+            -- (cashier_board_service), để màn và lệnh nói cùng một câu.
+            EXISTS (
+                SELECT 1 FROM service_order so
+                 WHERE so.clinic_id = v.clinic_id AND so.visit_id = v.visit_id
+                   AND so.selection_status IS NOT NULL
+                   AND so.exec_status NOT IN ('draft', 'cancelled')
+            ) AS co_chi_dinh,
             (v.appointment_id IS NULL OR a.id IS NOT NULL) AS hen_khop,
             v.clinic_patient_id,
             EXISTS (
@@ -1166,9 +1197,20 @@ async def _khoa_luot_thu(
 
 
 def _kiem_luot_thu(
-    status_row: asyncpg.Record | None, clinic_patient_id: str | None
+    status_row: asyncpg.Record | None,
+    clinic_patient_id: str | None,
+    *,
+    can_kham_xong: bool = True,
 ) -> str:
-    """Các chốt trước khi thu; trả mã bệnh nhân chuẩn của lượt."""
+    """Các chốt trước khi thu; trả mã bệnh nhân chuẩn của lượt.
+
+    ``can_kham_xong=False`` cho TIỀN DỊCH VỤ (Tuyền chốt 23–24/09/2026): chỉ
+    định đi làm ở phòng khác là "đợi quay lại", không phải khám xong — khách
+    xuống lễ tân trả tiền dịch vụ ngay lúc phiên bác sĩ còn mở. Chỉ cần lượt
+    ĐÃ CÓ chỉ định (chưa có gì ngoài tiền khám thì vẫn đợi khám xong — bác sĩ
+    còn có thể chỉ định thêm). Tiền thuốc vẫn giữ mốc khám xong tới nhóm 4
+    (đơn còn đang kê).
+    """
     if status_row is None or not status_row["hen_khop"]:
         raise NotFoundError("Không tìm thấy lượt khám để thu tiền")
     if not status_row["staff_in_clinic"]:
@@ -1177,7 +1219,13 @@ def _kiem_luot_thu(
     if clinic_patient_id is not None and clinic_patient_id != authoritative_patient_id:
         raise ValidationError("Lượt khám không thuộc bệnh nhân thanh toán này")
     if not status_row["kham_xong"]:
-        raise ConflictError("Bác sĩ chưa khám xong lượt này — chưa thể thu tiền")
+        if can_kham_xong:
+            raise ConflictError("Bác sĩ chưa khám xong lượt này — chưa thể thu tiền")
+        if not status_row["co_chi_dinh"]:
+            raise ConflictError(
+                "Bác sĩ chưa khám xong lượt này và chưa có chỉ định dịch vụ nào"
+                " — chưa thể thu tiền"
+            )
     return authoritative_patient_id
 
 
@@ -1471,6 +1519,49 @@ async def _ghi_anh_hoa_don(
             )
             for d in hoa_don.dong
         ],
+    )
+
+
+async def _phat_da_thu_dich_vu(
+    conn: asyncpg.Connection,
+    *,
+    cycle_id: str,
+    visit_id: str,
+    amount: int,
+    method: str,
+    identity: StaffIdentity,
+) -> None:
+    """`payment.service_collected` vào sổ sự kiện — CÙNG giao dịch với lần thu.
+
+    Gọi SAU khi ảnh chụp hoá đơn đã ghi (các dòng `payment_bill_line`), để sự
+    kiện kể đúng lần thu này phủ những chỉ định nào. Khối Hành trình nghe nó để
+    xếp phòng (dây H4); dòng thời gian ghi "đã thu".
+    """
+    order_ids = [
+        str(r["source_id"])
+        for r in await conn.fetch(
+            "SELECT source_id FROM payment_bill_line"
+            " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+            "   AND source_type = 'service_order' AND billing_owner = 'CLINIC'"
+            " ORDER BY source_id",
+            identity.clinic_id,
+            cycle_id,
+        )
+    ]
+    await emit_event(
+        conn,
+        ten="payment.service_collected",
+        clinic_id=identity.clinic_id,
+        aggregate_id=cycle_id,
+        payload=TienDichVuDaThu(
+            visit_id=visit_id,
+            payment_cycle_id=cycle_id,
+            so_tien=int(amount),
+            phuong_thuc=method,
+            order_ids=order_ids,
+        ),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
     )
 
 

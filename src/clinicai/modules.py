@@ -61,8 +61,10 @@ MODULE: dict[str, Module] = {
         Module(
             ma="service_order",
             ten="Chỉ định dịch vụ",
-            lenh=["PlaceServiceOrders"],
-            phat=["service_order.placed"],
+            # CarryOverUnfinishedOrders: khối Hành trình gọi lúc check-in (H2) —
+            # chỉ định chưa làm ĐI THEO KHÁCH sang lượt mới.
+            lenh=["PlaceServiceOrders", "CarryOverUnfinishedOrders"],
+            phat=["service_order.placed", "service_order.carried_over"],
             bang=["service_order"],
             quyen=["clinical.order.place"],
         ),
@@ -78,11 +80,17 @@ MODULE: dict[str, Module] = {
         Module(
             ma="service_routing",
             ten="Điều phối khách",
-            lenh=["AssignServiceRoom", "InvalidateServiceRouting"],
+            # AutoAssignPaidOrders: khối Hành trình gọi sau khi thu tiền (H4) —
+            # cùng lõi với AssignServiceRoom, bằng quyền của người vừa thu.
+            lenh=[
+                "AssignServiceRoom",
+                "InvalidateServiceRouting",
+                "AutoAssignPaidOrders",
+            ],
             # Huỷ xếp phòng là sự thật nghiệp vụ, không chỉ là dòng nhật ký:
             # phòng mất thì phải có người xếp lại, và người ấy nhận việc qua
             # sự kiện này (ChatGPT tin 112).
-            phat=["service.routing_invalidated"],
+            phat=["service.routed", "service.routing_invalidated"],
             bang=["queue_entry"],
             quyen=[
                 "service.routing.view",
@@ -190,6 +198,9 @@ MODULE: dict[str, Module] = {
                 "consultation.started",
                 "consultation.handed_over",
                 "consultation.completed",
+                "service.routed",
+                "service_order.carried_over",
+                "payment.service_collected",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -233,12 +244,19 @@ MODULE: dict[str, Module] = {
             # module khác. Không ghi bảng của ai. Dây H1…H8 —
             # docs/BAN-DO-DAY-NOI-LEGO.md.
             phat=["visit.routed"],
-            nghe=["visit.checked_in", "vitals.recorded", "consultation.handed_over"],
+            nghe=[
+                "visit.checked_in",
+                "vitals.recorded",
+                "consultation.handed_over",
+                "payment.service_collected",
+            ],
             ben_nhan=["hanh_trinh_luot_kham"],
             goi_dong_bo=[
                 "consultation.RouteAfterCheckIn",
                 "consultation.OpenIntakeQueue",
                 "consultation.HandToPrimaryDoctor",
+                "service_order.CarryOverUnfinishedOrders",
+                "service_routing.AutoAssignPaidOrders",
             ],
         ),
         Module(
@@ -276,6 +294,9 @@ MODULE: dict[str, Module] = {
             ma="payment",
             ten="Thu tiền dịch vụ",
             lenh=["CollectServicePayment"],
+            # Tiền thật đã nhận (tiền mặt, hoặc chuyển khoản đã xác minh) —
+            # khối Hành trình nghe để xếp phòng (H4).
+            phat=["payment.service_collected"],
             bang=["payment_cycle", "payment_bill_line"],
             quyen=["payment.service.collect"],
         ),

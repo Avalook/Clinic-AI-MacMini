@@ -51,6 +51,7 @@ from clinicai.events import worker as nguoi_dua_tin  # noqa: E402
 from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT, HANH_TRINH  # noqa: E402
 from clinicai.events.consumers import dong_thoi_gian, trach_nhiem  # noqa: E402,F401
 from clinicai.services.booking_service import BookingService  # noqa: E402
+from clinicai.services.checkout_service import CheckoutService  # noqa: E402
 from clinicai.services.chi_dinh_service import ChiDinhService  # noqa: E402
 from clinicai.services.luot_kham_service import LuotKhamService  # noqa: E402
 from clinicai.services.payment_service import PaymentService  # noqa: E402
@@ -81,13 +82,18 @@ class Khach:
     visit: str = ""
     consultation: str = ""
     orders: list[str]
+    #: Mọi lượt của khách (lượt hôm nay + lượt quay lại làm thủ thuật).
+    visits: list[str]
 
     def __init__(self) -> None:
         self.orders = []
+        self.visits = []
 
     def ma_goc(self) -> list[str]:
-        return [x for x in (self.patient, self.appointment, self.visit) if x] + list(
-            self.orders
+        return (
+            [x for x in (self.patient, self.appointment, self.visit) if x]
+            + list(self.visits)
+            + list(self.orders)
         )
 
 
@@ -243,6 +249,21 @@ async def _node_thay_gi(pool: asyncpg.Pool, k: Khach) -> list[str]:
         )
         for t in tien:
             dong.append(f"  ◦ Thu ngân: {t['kind']} {t['status']}")
+        for o in await pool.fetch(
+            """
+            SELECT o.service_name, o.selection_status, o.routing_status,
+                   o.visit_id::text = $2 AS luot_nay, r.name AS phong
+              FROM service_order o LEFT JOIN clinic_room r ON r.id = o.room_id
+             WHERE o.id = ANY($1::uuid[]) ORDER BY o.created_at
+            """,
+            k.orders,
+            k.visit,
+        ):
+            dong.append(
+                f"  ◦ Chỉ định {o['service_name']}: chọn={o['selection_status']}"
+                f" · phòng={o['phong'] or o['routing_status']}"
+                + ("" if o["luot_nay"] else " (ở lượt cũ)")
+            )
     viec = await pool.fetch(
         "SELECT trang_thai FROM v_viec_cskh WHERE clinic_patient_id = $1::uuid",
         k.patient,
@@ -278,17 +299,63 @@ async def main(bo_sinh_hieu: bool) -> int:
             dd = await _nguoi(conn, loc, "NURSE_ULTRASOUND")
             bs = await _nguoi(conn, loc, "DOCTOR")
             bs_tu_van = await _nguoi(conn, loc, "DOCTOR")
-            # Loại khám QUA TƯ VẤN nếu có (5 loại lõi), không thì loại bất kỳ.
+            # BẢNG GIÁ RIÊNG của khách giả: bảng giá thật còn trống (chưa có
+            # giá thì quầy từ chối thu — đúng luật), nên khách giả tự dựng một
+            # loại khám QUA TƯ VẤN + giá khám + siêu âm + thủ thuật có giá.
+            duoi = uuid.uuid4().hex[:6]
+            ten_kham = f"[khach-gia] Khám giả {duoi}"
             dv_kham = await conn.fetchval(
-                "SELECT id::text FROM service_type WHERE is_active"
-                " ORDER BY qua_tu_van DESC, code LIMIT 1"
+                "INSERT INTO service_type (clinic_id, code, name, is_active,"
+                " qua_tu_van) VALUES ($1::uuid, $2, $3, true, true)"
+                " RETURNING id::text",
+                CLINIC,
+                f"KG-KHAM-{duoi}",
+                ten_kham,
             )
-            ma_sa = await conn.fetchval(
-                "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid"
-                " AND active AND node_code = 'DICHVU-SIEUAM'"
-                " ORDER BY service_code LIMIT 1",
+            ma_sa, ma_tt = f"KG-SA-{duoi}", f"KG-TT-{duoi}"
+            for ma, ten, gia, node in (
+                (f"KG-GK-{duoi}", ten_kham, 200000, None),
+                (ma_sa, f"[khach-gia] Siêu âm {duoi}", 350000, "DICHVU-SIEUAM"),
+                (ma_tt, f"[khach-gia] Thủ thuật {duoi}", 800000, "DICHVU-THUTHUAT"),
+            ):
+                await conn.execute(
+                    "INSERT INTO service_price (clinic_id, service_code, name,"
+                    ' "group", unit_price, node_code) VALUES ($1::uuid, $2, $3,'
+                    " 'dich_vu', $4, $5)",
+                    CLINIC,
+                    ma,
+                    ten,
+                    gia,
+                    node,
+                )
+            # Lịch "đi thẳng phòng" (dây H2) — THU_THUAT bật sẵn ở migration.
+            dv_thu_thuat = await conn.fetchval(
+                "SELECT id::text FROM service_type WHERE clinic_id = $1::uuid"
+                " AND di_thang_phong AND is_active ORDER BY code LIMIT 1",
                 CLINIC,
             )
+            # Có phòng làm thủ thuật chưa; chưa thì dựng một phòng giả.
+            if not await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM clinic_room r JOIN clinic_room_node n"
+                " ON n.room_id = r.id WHERE r.clinic_id = $1::uuid AND r.is_active"
+                " AND r.accepting AND n.node_code = 'DICHVU-THUTHUAT')",
+                CLINIC,
+            ):
+                rid = await conn.fetchval(
+                    "INSERT INTO clinic_room (clinic_id, location_id, code, name,"
+                    " node_code) VALUES ($1::uuid, $2::uuid, $3, $4,"
+                    " 'DICHVU-THUTHUAT') RETURNING id::text",
+                    CLINIC,
+                    loc,
+                    f"KG-TT-{duoi}",
+                    "[khach-gia] Phòng thủ thuật",
+                )
+                await conn.execute(
+                    "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+                    " VALUES ($1::uuid, $2::uuid, 'DICHVU-THUTHUAT')",
+                    CLINIC,
+                    rid,
+                )
             k.patient = await conn.fetchval(
                 "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
                 " VALUES ($1::uuid, $2, $3, $4::uuid)"
@@ -321,6 +388,7 @@ async def main(bo_sinh_hieu: bool) -> int:
                 "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid",
                 k.appointment,
             )
+            k.visits.append(k.visit)
 
         async def do_sinh_hieu() -> None:
             svc = LuotKhamService(pool)
@@ -355,9 +423,10 @@ async def main(bo_sinh_hieu: bool) -> int:
             )
 
         async def chi_dinh() -> None:
+            # Siêu âm làm hôm nay + thủ thuật hẹn hôm khác (dây H2 ở bước 12).
             kq = await ChiDinhService(pool).dat_chi_dinh(
                 consultation_id=k.consultation,
-                service_codes=[ma_sa],
+                service_codes=[ma_sa, ma_tt],
                 identity=bs,
                 idempotency_key=_khoa(),
             )
@@ -375,10 +444,11 @@ async def main(bo_sinh_hieu: bool) -> int:
                 " WHERE visit_id = $1::uuid), 0)",
                 k.visit,
             )
+            # Khách làm siêu âm hôm nay; thủ thuật hẹn hôm khác = bỏ tick.
             await ServiceSelectionService(pool).confirm(
                 visit_id=k.visit,
                 order_ids_seen=k.orders,
-                selected_order_ids=k.orders,
+                selected_order_ids=k.orders[:1],
                 expected_selection_revision=int(rev),
                 identity=le_tan,
                 idempotency_key=_khoa(),
@@ -401,7 +471,7 @@ async def main(bo_sinh_hieu: bool) -> int:
                 k.orders[0],
             )
             if o["room_id"] is not None:
-                print("  (đã có phòng — không cần xếp tay)")
+                print("  (đã có phòng — khối Hành trình tự xếp sau khi thu tiền, H4)")
                 return
             g = await ServiceRoutingService(pool).recommend(
                 order_id=k.orders[0], identity=le_tan
@@ -454,6 +524,61 @@ async def main(bo_sinh_hieu: bool) -> int:
                 consultation_id=k.consultation, identity=bs
             )
 
+        async def ve() -> None:
+            await CheckoutService(pool).close(
+                identity=le_tan,
+                visit_id=k.visit,
+                override_reason="[khach-gia] khách về, hẹn làm thủ thuật hôm khác",
+            )
+
+        async def quay_lai_lam_thu_thuat() -> None:
+            if dv_thu_thuat is None:
+                raise RuntimeError("chưa có loại lịch nào bật di_thang_phong")
+            bd = datetime.now(UTC) + timedelta(minutes=40)
+            kq = await BookingService(pool).create(
+                clinic_patient_id=k.patient,
+                service_type_id=dv_thu_thuat,
+                location_id=loc,
+                slot_start=bd,
+                slot_end=bd + timedelta(minutes=15),
+                identity=cskh,
+                doctor_id=bs.staff_id,
+                notes="[khach-gia] hẹn thủ thuật",
+            )
+            k.appointment = kq["appointment_id"]
+            await BookingService(pool).apply_action(
+                appointment_id=k.appointment, action="checkin", identity=le_tan
+            )
+            k.visit = await pool.fetchval(
+                "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid",
+                k.appointment,
+            )
+            k.visits.append(k.visit)
+
+        async def tra_tien_thu_thuat() -> None:
+            await _chay_nguoi_dua_tin(pool)  # để chỉ định kịp mang sang
+            rev = await pool.fetchval(
+                "SELECT coalesce((SELECT revision FROM service_selection_state"
+                " WHERE visit_id = $1::uuid), 0)",
+                k.visit,
+            )
+            await ServiceSelectionService(pool).confirm(
+                visit_id=k.visit,
+                order_ids_seen=[k.orders[1]],
+                selected_order_ids=[k.orders[1]],
+                expected_selection_revision=int(rev),
+                identity=le_tan,
+                idempotency_key=_khoa(),
+            )
+            await PaymentService(pool).record_payment(
+                visit_id=k.visit,
+                kind="dich_vu",
+                amount=None,
+                clinic_patient_id=k.patient,
+                identity=le_tan,
+                idempotency_key=_khoa(),
+            )
+
         buoc: list[tuple[str, Callable[[], Awaitable[None]]]] = [
             ("1. CSKH đặt lịch", dat_lich),
             ("4. Lễ tân check-in", check_in),
@@ -469,6 +594,9 @@ async def main(bo_sinh_hieu: bool) -> int:
             ("8. Phòng siêu âm Bắt đầu → Xong", phong_lam),
             ("11. Tệp kết quả về", ket_qua_ve),
             ("9. Bác sĩ chính Khám xong", kham_xong),
+            ("10. Lễ tân check-out (thủ thuật hẹn hôm khác)", ve),
+            ("12. Hôm sau: check-in lịch THỦ THUẬT (dây H2)", quay_lai_lam_thu_thuat),
+            ("12b. Lễ tân thu tiền thủ thuật → tự xếp phòng (H4)", tra_tien_thu_thuat),
         ]
 
         print(f"\nKHÁCH GIẢ {k.patient} — luồng chuẩn 23/09/2026\n")

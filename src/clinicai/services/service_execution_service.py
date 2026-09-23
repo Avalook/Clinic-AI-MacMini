@@ -177,12 +177,45 @@ class ServiceExecutionService:
                 identity.staff_id,
             )
 
+            if await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM queue_entry"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                "   AND status = 'serving' AND reason = 'SERVICE'"
+                "   AND ref_id <> $3::uuid)",
+                cid,
+                vid,
+                order_id,
+            ):
+                # Đang làm ở phòng khác thì không giành khách giữa chừng — phòng
+                # kia bấm Xong (hay Dừng) trước.
+                raise LuotKhamConflictError(
+                    "PATIENT_BUSY", "Khách đang làm dịch vụ ở phòng khác."
+                )
             moi = await self._doi_trang_thai(conn, cid, order_id, "IN_PROGRESS")
+            # KHÁCH RỜI CHỖ CŨ SANG PHÒNG NÀY. Luồng chuẩn (Tuyền 23/09/2026):
+            # "chỉ định đi chỗ khác = ĐỢI QUAY LẠI, không phải khám xong" — bác
+            # sĩ chính còn mở phiên trong lúc khách đi siêu âm. Chỗ đang phục vụ
+            # ở bàn bác sĩ (và mọi chỗ đang chờ khác) chuyển "đợi quay lại"
+            # (blocked); phiên khám KHÔNG đổi. Làm xong ở phòng thì mở lại
+            # (`_dong_hang_cho`). Trước bản này phòng không Bắt đầu được khi
+            # phiên bác sĩ còn mở: Postgres chỉ cho MỘT chỗ 'serving' mỗi lượt.
+            await conn.execute(
+                "UPDATE queue_entry SET status = 'blocked',"
+                "       version = version + 1, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                "   AND status IN ('waiting', 'called', 'serving')"
+                "   AND NOT (reason = 'SERVICE' AND ref_id = $3::uuid)",
+                cid,
+                vid,
+                order_id,
+            )
             # Khách đang ở trong phòng này: hàng chờ của phòng chuyển sang
             # "đang làm". Chỉ MỘT chỗ chờ được 'serving' trong một lượt — chính
-            # Postgres giữ luật ấy, không phải Python.
+            # Postgres giữ luật ấy, không phải Python. Chỗ chờ còn "đợi" (khách
+            # vừa ở bàn bác sĩ, chưa có giờ vào hàng) lấy giờ vào hàng = bây giờ.
             await conn.execute(
                 "UPDATE queue_entry SET status = 'serving', serving_at = now(),"
+                "       eligible_at = coalesce(eligible_at, now()),"
                 "       version = version + 1, updated_at = now()"
                 " WHERE clinic_id = $1::uuid AND ref_id = $2::uuid"
                 "   AND reason = 'SERVICE'"
@@ -206,7 +239,7 @@ class ServiceExecutionService:
                 ten="service.started",
                 clinic_id=cid,
                 aggregate_id=order_id,
-                aggregate_version=moi,
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=DichVuDaBatDau(
                     visit_id=vid,
                     service_order_id=order_id,
@@ -283,7 +316,7 @@ class ServiceExecutionService:
                 ten="service.completed",
                 clinic_id=cid,
                 aggregate_id=order_id,
-                aggregate_version=moi,
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=DichVuDaXong(
                     visit_id=vid,
                     service_order_id=order_id,
@@ -372,7 +405,7 @@ class ServiceExecutionService:
                 ten="service.not_performed",
                 clinic_id=cid,
                 aggregate_id=order_id,
-                aggregate_version=moi,
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=DichVuKhongLam(
                     visit_id=vid,
                     service_order_id=order_id,
@@ -459,7 +492,7 @@ class ServiceExecutionService:
                 ten="service.interrupted",
                 clinic_id=cid,
                 aggregate_id=order_id,
-                aggregate_version=moi,
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=DichVuGianDoan(
                     visit_id=vid,
                     service_order_id=order_id,
@@ -543,7 +576,7 @@ class ServiceExecutionService:
                 ten="service.retry_prepared",
                 clinic_id=cid,
                 aggregate_id=order_id,
-                aggregate_version=moi,
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=DichVuSanSangLamLai(
                     visit_id=vid,
                     service_order_id=order_id,
@@ -726,7 +759,18 @@ class ServiceExecutionService:
     async def _dong_hang_cho(
         conn: asyncpg.Connection, clinic_id: str, order_id: str
     ) -> None:
-        """Đóng chỗ chờ của chỉ định này; các chỗ chờ khác của lượt tự mở lại."""
+        """Đóng chỗ chờ của chỉ định này; các chỗ chờ khác của lượt mở lại.
+
+        Khách rời phòng → quay lại hàng bác sĩ chính (và các phòng khác đang
+        đợi), tính giờ từ lúc quay lại — "đợi quay lại" của `bat_dau` kết thúc
+        ở đây (Tuyền 23/09/2026).
+        """
+        vid = await conn.fetchval(
+            "SELECT visit_id::text FROM service_order"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            clinic_id,
+            order_id,
+        )
         await conn.execute(
             "UPDATE queue_entry SET status = 'done', done_at = now(),"
             "       version = version + 1, updated_at = now()"
@@ -735,6 +779,8 @@ class ServiceExecutionService:
             clinic_id,
             order_id,
         )
+        if vid is not None:
+            await LuotKhamService._release_blocked(conn, clinic_id, vid)
 
 
 __all__ = [

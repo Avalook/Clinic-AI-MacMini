@@ -265,6 +265,74 @@ SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
 _ALLOCATION_UNKNOWN_SQL = THU_CU_KHONG_TRUY_DUOC_SQL
 
 
+_CHO_QUYET_SQL = """
+SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
+       o.exec_status, o.selection_status, o.routing_status, o.execution_status,
+       o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang,
+       (SELECT min(pr.unit_price) FROM service_price pr
+         WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+           AND pr.active AND pr."group" = 'dich_vu') AS gia,
+       EXISTS (
+           SELECT 1
+             FROM payment_bill_line bl
+             JOIN payment_cycle c
+               ON c.clinic_id = bl.clinic_id
+              AND c.payment_cycle_id = bl.payment_cycle_id
+            WHERE bl.clinic_id = o.clinic_id
+              AND bl.source_type = 'service_order'
+              AND bl.source_id = o.id::text
+              AND bl.billing_owner = 'CLINIC'
+              AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
+       ) AS financially_committed,
+       coalesce(s.revision, 0) AS revision
+  FROM service_order o
+  LEFT JOIN service_selection_state s
+    ON s.clinic_id = o.clinic_id AND s.visit_id = o.visit_id
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+ ORDER BY o.created_at, o.id
+"""
+
+
+async def cho_khach_quyet(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Màn thu ngân hỏi: lượt nào còn chỉ định để khách chọn làm hay không.
+
+    CHỈ ĐỌC. Cùng luật khoá với lệnh (``lock_of`` / ``decision_ids``) — màn
+    không tự suy "cái nào còn chọn được". Trả, theo lượt: ``revision`` (gửi lại
+    đúng số này khi xác nhận) và các chỉ định đang ở giai đoạn khách quyết.
+    Lượt không còn gì để quyết thì không có trong kết quả.
+    """
+    if not visit_ids:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for r in await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids):
+        facts = OrderFacts(
+            id=r["id"],
+            exec_status=r["exec_status"],
+            selection_status=r["selection_status"],
+            routing_status=r["routing_status"],
+            execution_status=r["execution_status"],
+            version=int(r["version"]),
+            financially_committed=bool(r["financially_committed"]),
+        )
+        if not decision_ids([facts]):
+            continue
+        luot = out.setdefault(
+            r["visit_id"], {"revision": int(r["revision"]), "chi_dinh": []}
+        )
+        luot["chi_dinh"].append(
+            {
+                "id": r["id"],
+                "ten": r["service_name"],
+                "selection_status": r["selection_status"],
+                "gia": int(r["gia"]) if r["gia"] is not None else None,
+                "mang_sang": bool(r["mang_sang"]),
+            }
+        )
+    return out
+
+
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 

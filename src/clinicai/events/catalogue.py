@@ -91,6 +91,35 @@ class ChiDinhDaDat(PayloadSuKien):
     billing_status: str
 
 
+class ChiDinhMangSang(PayloadSuKien):
+    """`service_order.carried_over` — chỉ định chưa làm ở lượt trước được mang
+    sang lượt này (dây H2). Đã trả tiền thì không thu lại."""
+
+    visit_id: str
+    service_order_id: str
+    tu_visit_id: str
+    service_code: str
+    da_thu_tien: bool
+
+
+# ── payment ─────────────────────────────────────────────────────────────────
+
+
+class TienDichVuDaThu(PayloadSuKien):
+    """`payment.service_collected` — tiền DỊCH VỤ đã thật sự nhận đủ.
+
+    Tiền mặt: lúc bấm "Đã nhận đủ". Chuyển khoản/QR: lúc xác minh, KHÔNG phải
+    lúc khách quét mã. Đây là mốc khối Hành trình nghe để tự xếp phòng (H4).
+    """
+
+    visit_id: str
+    payment_cycle_id: str
+    so_tien: int
+    phuong_thuc: str
+    #: Chỉ định phòng khám thu trong lần thu này (không có tên, không có giá).
+    order_ids: list[str] = []
+
+
 # ── permission ──────────────────────────────────────────────────────────────
 
 
@@ -185,7 +214,8 @@ class KhachDaToi(PayloadSuKien):
 class DaXepDuongDi(PayloadSuKien):
     """`visit.routed` — khối Hành trình đã quyết khách đi đâu tiếp.
 
-    `dich`: TU_VAN (hàng bác sĩ tư vấn) · PRIMARY (hàng bác sĩ chính).
+    `dich`: TU_VAN (hàng bác sĩ tư vấn) · PRIMARY (hàng bác sĩ chính) ·
+    SERVICES (lịch đi thẳng phòng — làm chỉ định mang sang, dây H2).
     """
 
     visit_id: str
@@ -285,6 +315,22 @@ class DichVuGianDoan(PayloadSuKien):
     attempt_no: int
     ly_do: str
     execution_revision: int
+
+
+class DaXepPhong(PayloadSuKien):
+    """`service.routed` — chỉ định đã có phòng (xếp lần đầu, hoặc đổi phòng).
+
+    `tu_dong` = khối Hành trình xếp thay người vừa thu tiền (H4); False = người
+    bấm. Lần sau đè lần trước — ai có quyền điều phối đổi lại được.
+    """
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    from_room_id: str | None = None
+    routing_revision: int
+    ly_do: str
+    tu_dong: bool = False
 
 
 class XepPhongDaHuy(PayloadSuKien):
@@ -460,6 +506,38 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         SuKien(
+            ten="service.routed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=DaXepPhong,
+            nhan="Đã xếp phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=True,
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service_order.carried_over",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhMangSang,
+            nhan="Mang chỉ định từ lượt trước sang",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            # Tiền là chuyện nội bộ: AI/Zalo/đối tác không nghe sự kiện này.
+            ten="payment.service_collected",
+            version=1,
+            aggregate_type="payment_cycle",
+            source_module="payment",
+            payload=TienDichVuDaThu,
+            nhan="Đã thu tiền dịch vụ",
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            is_public=False,
+        ),
+        SuKien(
             ten="service.routing_invalidated",
             version=1,
             aggregate_type="service_order",
@@ -547,7 +625,10 @@ def moi_consumer() -> frozenset[str]:
 __all__ = [
     "DANH_MUC",
     "HANH_TRINH",
+    "ChiDinhMangSang",
     "DaXepDuongDi",
+    "DaXepPhong",
+    "TienDichVuDaThu",
     "KhamXong",
     "PhienKhamBatDau",
     "TuVanXong",

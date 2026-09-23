@@ -423,17 +423,28 @@ async def _kham(
     kham_row = await conn.fetchrow(
         """
         SELECT st.id::text AS st_id, st.name,
-               (vi.appointment_id IS NULL) AS khong_hen
+               (vi.appointment_id IS NULL) AS khong_hen,
+               -- Dây H2 (24/09/2026): lịch "đi thẳng phòng" mà khách đi thẳng
+               -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
+               -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ
+               -- chính (không có chỉ định mang sang) thì vẫn tính như lượt khám.
+               (coalesce(st.di_thang_phong, false)
+                AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
+                   AS khong_kham
           FROM public.visit vi
           LEFT JOIN public.appointment a
             ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
           LEFT JOIN public.service_type st
             ON st.id = coalesce(vi.service_type_id, a.service_type_id)
+          LEFT JOIN public.encounter_flow ef
+            ON ef.clinic_id = vi.clinic_id AND ef.visit_id = vi.visit_id
          WHERE vi.clinic_id = $1::uuid AND vi.visit_id = $2::uuid
         """,
         clinic_id,
         visit_id,
     )
+    if kham_row is not None and kham_row["khong_kham"]:
+        return None
     return dong_kham(kham_row, gia_dv)
 
 

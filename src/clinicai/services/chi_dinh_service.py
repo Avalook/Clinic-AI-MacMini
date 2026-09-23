@@ -30,9 +30,10 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.events.catalogue import ChiDinhDaDat
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhMangSang
+from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.services import finance_gate
 from clinicai.services.audit import record_event
 from clinicai.services.luot_kham_service import (
     LuotKhamConflictError,
@@ -48,6 +49,12 @@ from clinicai.services.luot_kham_service import (
 #: khoa có sẵn trong preset (Tuyền, tin #149); quản lý cấp thêm cho ai là việc
 #: của màn phân quyền, không phải việc của file này.
 QUYEN_CHI_DINH = "clinical.order.place"
+
+#: Chỉ định chưa trả mang sang được (lịch đi thẳng phòng): còn phải thu,
+#: khách chưa chọn, hoặc miễn phí. Có dấu vết tiền bất thường thì không đụng.
+_CHUA_THU_MANG_DUOC = frozenset(
+    {finance_gate.DUE, finance_gate.NOT_APPLICABLE, finance_gate.NOT_REQUIRED}
+)
 
 ACTION = "chi_dinh.dat"
 ORIGIN = "api:chi-dinh"
@@ -170,6 +177,140 @@ class ChiDinhService:
                 result,
             )
         return result
+
+    @staticmethod
+    async def mang_sang_luot_moi(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Lệnh `CarryOverUnfinishedOrders` — dây H2 (Tuyền chốt 24/09/2026).
+
+        Khách check-in một lượt mới; chỉ định của các lượt TRƯỚC mà chưa làm:
+          * ĐÃ TRẢ TIỀN → mang sang, không thu lại (mọi loại lịch);
+          * lịch "đi thẳng phòng" (thủ thuật / sàn chậu, `service_type
+            .di_thang_phong`) → mang sang cả chỉ định CHƯA TRẢ, kể cả cái hôm
+            trước khách không làm — ngoài đời "hẹn hôm khác làm" và "không làm"
+            là cùng một cú bỏ tick ở quầy. Cái khách không làm được HỎI LẠI
+            (về "chờ quyết"); lễ tân thu rồi H4 xếp phòng.
+
+        Chỉ định ĐI THEO KHÁCH, không đi theo lượt: dời `visit_id` sang lượt mới,
+        giữ nguyên mã — dấu vết tiền (payment_bill_line) trỏ theo mã chỉ định nên
+        FinanceGate vẫn thấy "đã trả". Nguồn cũ ghi ở `mang_tu_visit_id` + sự kiện
+        `service_order.carried_over`. Phòng cũ (nếu có) bỏ: lượt mới xếp lại.
+
+        Không mang: đã làm/đang làm/kết thúc, chưa trả mà lượt mới là lượt
+        khám thường, còn chỗ chờ sống ở lượt cũ, cũ quá 180 ngày, của chính
+        lượt đang mở hôm nay. Chạy lại được: chỉ định đã ở lượt mới thì không
+        còn là "của lượt trước". Người gọi (khối Hành trình) đã khoá lượt mới.
+        """
+        moi = await conn.fetchrow(
+            """
+            SELECT v.clinic_patient_id::text AS pid, v.created_at,
+                   coalesce(st.di_thang_phong, false) AS di_thang_phong
+              FROM visit v
+              LEFT JOIN appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+              LEFT JOIN service_type st
+                ON st.id = coalesce(v.service_type_id, a.service_type_id)
+             WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+            """,
+            clinic_id,
+            visit_id,
+        )
+        if moi is None:
+            return []
+        cu = await conn.fetch(
+            """
+            SELECT o.id::text AS id, o.visit_id::text AS tu_visit_id,
+                   o.service_code, o.selection_status
+              FROM service_order o
+              JOIN visit v ON v.clinic_id = o.clinic_id AND v.visit_id = o.visit_id
+             WHERE o.clinic_id = $1::uuid
+               AND v.clinic_patient_id = $3::uuid
+               AND o.visit_id <> $2::uuid
+               AND v.created_at < $4
+               -- Lượt cũ đã đóng, hoặc từ hôm trước (lượt hôm nay còn mở là
+               -- chính khách đang ở đây — không kéo việc của nó đi).
+               AND (v.closed_at IS NOT NULL
+                    OR v.created_at < date_trunc('day', $4 AT TIME ZONE
+                                                  'Asia/Ho_Chi_Minh')
+                                      AT TIME ZONE 'Asia/Ho_Chi_Minh')
+               AND o.created_at >= $4 - interval '180 days'
+               AND o.exec_status IN ('authorized', 'assigned')
+               AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+               AND o.selection_status IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM queue_entry q
+                    WHERE q.clinic_id = o.clinic_id AND q.reason = 'SERVICE'
+                      AND q.ref_id = o.id
+                      AND q.status IN ('blocked', 'waiting', 'called', 'serving'))
+             ORDER BY o.created_at, o.id
+               FOR UPDATE OF o
+            """,
+            clinic_id,
+            visit_id,
+            moi["pid"],
+            moi["created_at"],
+        )
+        if not cu:
+            return []
+        tai_chinh = await finance_gate.states_for_orders(
+            conn, clinic_id, [o["id"] for o in cu]
+        )
+        mang: list[dict[str, Any]] = []
+        for o in cu:
+            quyet = tai_chinh.get(o["id"])
+            da_thu = quyet is not None and quyet.finance_state == finance_gate.PAID
+            chua_thu_duoc_mang = (
+                moi["di_thang_phong"]
+                and quyet is not None
+                and quyet.finance_state in _CHUA_THU_MANG_DUOC
+            )
+            if not (da_thu or chua_thu_duoc_mang):
+                continue
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET mang_tu_visit_id = visit_id, visit_id = $3::uuid,
+                       mang_sang_luc = now(), hold_until_round = NULL,
+                       routing_status = CASE WHEN routing_status IS NULL
+                                             THEN NULL ELSE 'UNASSIGNED' END,
+                       routing_revision = routing_revision + 1,
+                       room_id = NULL, assigned_by = NULL, assigned_at = NULL,
+                       exec_status = 'authorized',
+                       -- Hôm trước khách không làm → hỏi lại hôm nay.
+                       selection_status = CASE
+                           WHEN selection_status = 'NOT_SELECTED' THEN 'PENDING'
+                           ELSE selection_status END,
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                clinic_id,
+                o["id"],
+                visit_id,
+            )
+            await emit_event(
+                conn,
+                ten="service_order.carried_over",
+                clinic_id=clinic_id,
+                aggregate_id=o["id"],
+                so_ke_tiep=True,
+                payload=ChiDinhMangSang(
+                    visit_id=visit_id,
+                    service_order_id=o["id"],
+                    tu_visit_id=o["tu_visit_id"],
+                    service_code=o["service_code"],
+                    da_thu_tien=da_thu,
+                ),
+                boi=HE_THONG,
+                correlation_id=visit_id,
+                causation_id=causation_id,
+            )
+            mang.append({"id": o["id"], "da_thu_tien": da_thu})
+        return mang
 
 
 __all__ = ["ACTION", "QUYEN_CHI_DINH", "ChiDinhService", "LuotKhamConflictError"]

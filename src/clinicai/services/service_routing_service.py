@@ -29,8 +29,8 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.identity import StaffIdentity
-from clinicai.events.catalogue import XepPhongDaHuy
+from clinicai.api.identity import StaffIdentity, danh_tinh_nhan_vien
+from clinicai.events.catalogue import DaXepPhong, XepPhongDaHuy
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
@@ -354,116 +354,261 @@ class ServiceRoutingService:
             )
             if cached is not None:
                 return cached
-            o = await conn.fetchrow(_ORDER_SQL, cid, oid)
-            assert o is not None  # _visit_of đã thấy trong cùng giao dịch
-            if int(o["routing_revision"]) != rev:
-                raise _loi(
-                    "ROUTING_REVISION_CONFLICT",
-                    "Chỉ định vừa được điều phối bởi người khác — tải lại.",
-                )
-            if o["exec_status"] in ("draft", "cancelled") or not o["authorized_by"]:
-                raise _loi(
-                    "SERVICE_ROUTING_NOT_ALLOWED",
-                    "Chỉ định chưa được bác sĩ duyệt hoặc đã huỷ.",
-                )
-            _kiem_thuc_hien(o)
-            if o["selection_status"] != "SELECTED":
-                raise _loi("SERVICE_NOT_SELECTED", "Khách chưa chọn làm dịch vụ này.")
-            tai_chinh = await finance_gate.can_start(conn, cid, oid)
-            if tai_chinh is None or not tai_chinh.financially_ready:
-                raise RoutingFinanceNotReadyError(
-                    tai_chinh.reason_code if tai_chinh else None
-                )
-            flow = await self._luot._lock_flow(conn, cid, vid)
-            closed = {
-                int(r["round_no"])
-                for r in await conn.fetch(
-                    "SELECT round_no FROM review_round WHERE clinic_id = $1::uuid"
-                    " AND visit_id = $2::uuid AND status = 'closed'",
-                    cid,
-                    vid,
-                )
-            }
-            giu = rules.routing_hold_block(
-                source=o["source"],
-                route_decision=flow["route_decision"],
-                vitals_recorded=flow["vitals_status"] == "recorded",
-                hold_until_round=o["hold_until_round"],
-                closed_rounds=closed,
+            result = await self._gan(
+                conn,
+                identity,
+                vid=vid,
+                oid=oid,
+                rid=rid,
+                rev=rev,
+                ly_do=ly_do,
+                ref=ref,
+                tu_dong=False,
             )
-            if giu:
-                raise _loi(giu, f"Chưa điều phối được ({giu}).")
-            await self._kiem_phong(conn, cid, rid, str(o["node_code"]))
-
-            hien = _routing_hieu_luc(o)
-            q = await conn.fetchrow(
-                """
-                SELECT id::text AS id, status, room_id::text AS room_id
-                  FROM queue_entry
-                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                   AND reason = 'SERVICE' AND ref_id = $3::uuid
-                   AND status NOT IN ('done', 'left', 'cancelled')
-                   FOR UPDATE
-                """,
-                cid,
-                vid,
-                oid,
-            )
-            if hien == ASSIGNED and o["room_id"] == rid:
-                # Cùng phòng: không đổi gì, không tăng revision, không sự kiện.
-                result = self._ket_qua(
-                    oid,
-                    False,
-                    ASSIGNED,
-                    rid,
-                    int(o["routing_revision"]),
-                    q["status"] if q else None,
-                    ref,
-                )
-            else:
-                queue_status = await self._xep_hang(conn, cid, vid, oid, rid, q)
-                moi = await conn.fetchval(
-                    """
-                    UPDATE service_order
-                       SET routing_status = 'ASSIGNED', room_id = $3::uuid,
-                           routing_revision = routing_revision + 1,
-                           assigned_by = $4::uuid, assigned_at = now(),
-                           -- Hình chiếu cho reader cũ tới Slice 6; sự thật
-                           -- routing là routing_status + routing_revision.
-                           exec_status = 'assigned',
-                           version = version + 1, updated_at = now()
-                     WHERE clinic_id = $1::uuid AND id = $2::uuid
-                    RETURNING routing_revision
-                    """,
-                    cid,
-                    oid,
-                    rid,
-                    identity.staff_id,
-                )
-                await self._luot._cap_nhat_vi_tri(conn, cid, vid)
-                await record_event(
-                    conn,
-                    event_type=EVENT_ROUTED,
-                    aggregate_type="service_order",
-                    aggregate_id=oid,
-                    identity=identity,
-                    origin=ORIGIN,
-                    payload={
-                        "visit_id": vid,
-                        "from_room_id": o["room_id"] if hien == ASSIGNED else None,
-                        "to_room_id": rid,
-                        "routing_revision": int(moi),
-                        "reason_code": ly_do,
-                        "recommendation_ref": ref,
-                    },
-                )
-                result = self._ket_qua(
-                    oid, True, ASSIGNED, rid, int(moi), queue_status, ref
-                )
             await self._luot._receipt_put(
                 conn, identity, ACTION_ASSIGN, key, payload, oid, result
             )
         return result
+
+    async def _gan(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        *,
+        vid: str,
+        oid: str,
+        rid: str,
+        rev: int,
+        ly_do: str,
+        ref: str | None,
+        tu_dong: bool,
+    ) -> dict[str, Any]:
+        """Lõi AssignServiceRoom — người gọi đã kiểm quyền và khoá lượt.
+
+        Người bấm (``assign``) và khối Hành trình (``tu_xep_da_thu``, dây H4) đi
+        CHUNG đường này: cùng mọi điều kiện, cùng một sự kiện. Không có lối tắt
+        "hệ thống được xếp bừa".
+        """
+        cid = identity.clinic_id
+        o = await conn.fetchrow(_ORDER_SQL, cid, oid)
+        assert o is not None  # _visit_of đã thấy trong cùng giao dịch
+        if int(o["routing_revision"]) != rev:
+            raise _loi(
+                "ROUTING_REVISION_CONFLICT",
+                "Chỉ định vừa được điều phối bởi người khác — tải lại.",
+            )
+        if o["exec_status"] in ("draft", "cancelled") or not o["authorized_by"]:
+            raise _loi(
+                "SERVICE_ROUTING_NOT_ALLOWED",
+                "Chỉ định chưa được bác sĩ duyệt hoặc đã huỷ.",
+            )
+        _kiem_thuc_hien(o)
+        if o["selection_status"] != "SELECTED":
+            raise _loi("SERVICE_NOT_SELECTED", "Khách chưa chọn làm dịch vụ này.")
+        tai_chinh = await finance_gate.can_start(conn, cid, oid)
+        if tai_chinh is None or not tai_chinh.financially_ready:
+            raise RoutingFinanceNotReadyError(
+                tai_chinh.reason_code if tai_chinh else None
+            )
+        flow = await self._luot._lock_flow(conn, cid, vid)
+        closed = {
+            int(r["round_no"])
+            for r in await conn.fetch(
+                "SELECT round_no FROM review_round WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid AND status = 'closed'",
+                cid,
+                vid,
+            )
+        }
+        giu = rules.routing_hold_block(
+            source=o["source"],
+            route_decision=flow["route_decision"],
+            vitals_recorded=flow["vitals_status"] == "recorded",
+            hold_until_round=o["hold_until_round"],
+            closed_rounds=closed,
+        )
+        if giu:
+            raise _loi(giu, f"Chưa điều phối được ({giu}).")
+        await self._kiem_phong(conn, cid, rid, str(o["node_code"]))
+
+        hien = _routing_hieu_luc(o)
+        q = await conn.fetchrow(
+            """
+            SELECT id::text AS id, status, room_id::text AS room_id
+              FROM queue_entry
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND reason = 'SERVICE' AND ref_id = $3::uuid
+               AND status NOT IN ('done', 'left', 'cancelled')
+               FOR UPDATE
+            """,
+            cid,
+            vid,
+            oid,
+        )
+        if hien == ASSIGNED and o["room_id"] == rid:
+            # Cùng phòng: không đổi gì, không tăng revision, không sự kiện.
+            return self._ket_qua(
+                oid,
+                False,
+                ASSIGNED,
+                rid,
+                int(o["routing_revision"]),
+                q["status"] if q else None,
+                ref,
+            )
+        queue_status = await self._xep_hang(conn, cid, vid, oid, rid, q)
+        moi = await conn.fetchval(
+            """
+            UPDATE service_order
+               SET routing_status = 'ASSIGNED', room_id = $3::uuid,
+                   routing_revision = routing_revision + 1,
+                   assigned_by = $4::uuid, assigned_at = now(),
+                   -- Hình chiếu cho reader cũ tới Slice 6; sự thật
+                   -- routing là routing_status + routing_revision.
+                   exec_status = 'assigned',
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND id = $2::uuid
+            RETURNING routing_revision
+            """,
+            cid,
+            oid,
+            rid,
+            identity.staff_id,
+        )
+        await self._luot._cap_nhat_vi_tri(conn, cid, vid)
+        tu_phong = o["room_id"] if hien == ASSIGNED else None
+        # Sổ sự kiện nghiệp vụ (dòng thời gian, bảng hành trình) — cùng giao
+        # dịch với việc xếp. Người gây ra là người bấm, hoặc người vừa thu tiền
+        # khi khối Hành trình xếp thay (tu_dong).
+        await emit_event(
+            conn,
+            ten="service.routed",
+            clinic_id=cid,
+            aggregate_id=oid,
+            so_ke_tiep=True,
+            payload=DaXepPhong(
+                visit_id=vid,
+                service_order_id=oid,
+                room_id=rid,
+                from_room_id=str(tu_phong) if tu_phong else None,
+                routing_revision=int(moi),
+                ly_do=ly_do,
+                tu_dong=tu_dong,
+            ),
+            boi=nguoi(identity),
+            correlation_id=vid,
+        )
+        await record_event(
+            conn,
+            event_type=EVENT_ROUTED,
+            aggregate_type="service_order",
+            aggregate_id=oid,
+            identity=identity,
+            origin=ORIGIN,
+            payload={
+                "visit_id": vid,
+                "from_room_id": tu_phong,
+                "to_room_id": rid,
+                "routing_revision": int(moi),
+                "reason_code": ly_do,
+                "recommendation_ref": ref,
+            },
+        )
+        return self._ket_qua(oid, True, ASSIGNED, rid, int(moi), queue_status, ref)
+
+    async def tu_xep_da_thu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        staff_id: str | None,
+        causation_id: str,
+    ) -> list[str]:
+        """Dây H4: tiền dịch vụ đã nhận → xếp phòng vắng nhất THAY người vừa thu.
+
+        Tuyền chốt 24/09/2026: "thu tiền xong → hệ thống xếp phòng thay cho người
+        vừa thu tiền, dùng quyền của người ấy; ai có quyền điều phối đổi lại
+        được, lần sau đè lần trước".
+
+        Chỉ xếp chỉ định CHƯA có phòng (UNASSIGNED). Phòng cũ bị huỷ
+        (REASSIGNMENT_REQUIRED) là việc của một NGƯỜI — đã có việc
+        OPS-ROUTING-REASSIGN, không tự đẩy khách sang phòng khác (ChatGPT tin
+        112). Người thu không có quyền xếp phòng, hay không phòng nào làm được →
+        để nguyên, người có quyền xếp tay. Không bao giờ ném lỗi làm hỏng việc
+        giao tin: mỗi chỉ định một điểm lưu (savepoint), hỏng cái nào bỏ cái ấy.
+
+        Trả mã các chỉ định đã xếp. Chạy lại được: chỉ định đã có phòng thì bỏ.
+        """
+        if not staff_id:
+            return []
+        nguoi_thu = await danh_tinh_nhan_vien(
+            conn, clinic_id=clinic_id, staff_id=staff_id
+        )
+        if nguoi_thu is None or not await can(conn, nguoi_thu, QUYEN_XEP):
+            return []
+        # Khoá lượt như mọi lệnh điều phối. Lượt đã đóng / khách đã về thì
+        # thôi — không ném lỗi (ném là người đưa tin thử lại mãi một việc vô
+        # nghĩa); chỉ định đã trả mà chưa làm sẽ được mang sang lượt sau (H2).
+        trang_thai = await conn.fetchval(
+            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        # INCOMPLETE (khách bỏ về) / FINALIZED / AMENDED: không xếp phòng.
+        if trang_thai not in ("OPEN", "IN_PROGRESS"):
+            return []
+        orders = await conn.fetch(
+            """
+            SELECT o.id::text AS id, o.node_code, o.routing_revision
+              FROM service_order o
+             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+               AND o.selection_status = 'SELECTED'
+               AND coalesce(o.routing_status, 'UNASSIGNED') = 'UNASSIGNED'
+               AND o.exec_status = 'authorized'
+               AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+               -- Đối tác tự lấy mẫu: khách không xếp hàng ở phòng nào của
+               -- phòng khám (cùng luật với _tu_xep_phong cũ).
+               AND NOT EXISTS (
+                   SELECT 1 FROM service_price sp
+                    WHERE sp.clinic_id = o.clinic_id
+                      AND sp.service_code = o.service_code
+                      AND sp.doi_tac_lay_mau)
+             ORDER BY o.created_at, o.id
+            """,
+            clinic_id,
+            visit_id,
+        )
+        tai_chinh = await finance_gate.states_for_orders(
+            conn, clinic_id, [o["id"] for o in orders]
+        )
+        da_xep: list[str] = []
+        for o in orders:
+            quyet = tai_chinh.get(o["id"])
+            if quyet is None or not quyet.financially_ready:
+                continue
+            ung_vien = rank_rooms(await eligible_rooms(conn, clinic_id, o["node_code"]))
+            if not ung_vien:
+                continue
+            try:
+                async with conn.transaction():
+                    kq = await self._gan(
+                        conn,
+                        nguoi_thu,
+                        vid=visit_id,
+                        oid=o["id"],
+                        rid=ung_vien[0]["room_id"],
+                        rev=int(o["routing_revision"]),
+                        ly_do="INITIAL_ASSIGNMENT",
+                        ref=f"{ADVISOR}:hanh-trinh:{causation_id}",
+                        tu_dong=True,
+                    )
+            except LuotKhamConflictError:
+                continue
+            if kq["changed"]:
+                da_xep.append(o["id"])
+        return da_xep
 
     async def invalidate(
         self,
@@ -562,7 +707,7 @@ class ServiceRoutingService:
                 ten="service.routing_invalidated",
                 clinic_id=cid,
                 aggregate_id=oid,
-                aggregate_version=int(moi),
+                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
                 payload=XepPhongDaHuy(
                     visit_id=vid,
                     service_order_id=oid,

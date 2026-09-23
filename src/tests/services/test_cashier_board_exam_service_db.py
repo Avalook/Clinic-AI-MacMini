@@ -232,7 +232,8 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_hoan_tat_thu_tien(
         q.visit_id,
     )
 
-    # TRƯỚC KHI HOÀN TẤT (không còn bước ký riêng, CORE-A 23/09/2026):
+    # TRƯỚC KHI HOÀN TẤT (không còn bước ký riêng, CORE-A 23/09/2026) và
+    # CHƯA CÓ CHỈ ĐỊNH nào (có chỉ định thì thu được ngay — nhóm 2, 24/09):
     # - cashier board CHƯA có bệnh nhân
     # - PaymentService chưa cho thu
     board_chua_xong = await CashierBoardService(q.pool).board(

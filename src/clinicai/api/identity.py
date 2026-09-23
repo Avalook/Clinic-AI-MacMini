@@ -499,6 +499,52 @@ async def _resolve_identity(
     return identity
 
 
+async def danh_tinh_nhan_vien(
+    conn: asyncpg.Connection, *, clinic_id: str, staff_id: str
+) -> StaffIdentity | None:
+    """Danh tính của MỘT nhân viên để khối hệ thống làm THAY người ấy.
+
+    Dây H4 (Tuyền chốt 24/09/2026): thu tiền xong, khối Hành trình xếp phòng
+    thay cho người vừa thu — bằng đúng quyền của người ấy, không bằng quyền
+    "hệ thống" vô hạn. Không qua JWT (không có yêu cầu HTTP nào ở đây).
+
+    Không tính vai theo vị trí trực: mọi lệnh gọi từ đây hỏi CAPABILITY
+    (`can`/`doi_quyen`), không hỏi vai. Nhân viên đã nghỉ, hay không còn thuộc
+    phòng khám này → None: bên gọi bỏ qua, để người thật làm tay.
+    """
+    row = await conn.fetchrow(
+        """
+        SELECT s.id::text AS id, s.auth_user_id::text AS auth_user_id,
+               s.full_name, s.short_name, s.primary_department,
+               m.role AS membership_role,
+               s.primary_location_id::text AS location_id,
+               l.name AS location_name
+          FROM staff s
+          JOIN clinic_membership m
+            ON m.staff_id = s.id AND m.clinic_id = $1::uuid AND m.is_active
+          LEFT JOIN clinic_location l ON l.id = s.primary_location_id
+         WHERE s.id = $2::uuid AND s.is_active IS NOT FALSE
+         ORDER BY m.created_at, m.id
+         LIMIT 1
+        """,
+        clinic_id,
+        staff_id,
+    )
+    if row is None or row["location_id"] is None:
+        return None
+    return StaffIdentity(
+        staff_id=row["id"],
+        auth_user_id=row["auth_user_id"] or "",
+        full_name=row["full_name"] or "",
+        department=row["primary_department"],
+        role=role_from_department(row["membership_role"]),
+        clinic_id=clinic_id,
+        location_id=row["location_id"],
+        location_name=row["location_name"] or "",
+        short_name=row["short_name"] or "",
+    )
+
+
 async def get_current_identity(
     identity: StaffIdentity = Depends(_resolve_identity),
 ) -> StaffIdentity:

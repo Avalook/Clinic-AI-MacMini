@@ -84,6 +84,7 @@ async def emit_event(
     correlation_id: str | None = None,
     causation_id: str | None = None,
     replay_id: str | None = None,
+    so_ke_tiep: bool = False,
 ) -> str:
     """Ghi một sự kiện + dòng giao cho từng bên nhận. Trả về `event_id`.
 
@@ -95,8 +96,30 @@ async def emit_event(
     `causation_id`       lệnh/sự kiện nào gây ra chuyện này
     `replay_id`          có giá trị = phát lại/nhập lịch sử, bên nhận không được
                          gửi thông báo ra ngoài
+    `so_ke_tiep`         True = sổ tự lấy số kế tiếp của đối tượng (lớn nhất + 1)
+                         thay cho `aggregate_version`
+
+    VÌ SAO CÓ `so_ke_tiep` (24/09/2026). Một chỉ định có BA bộ đếm nghiệp vụ:
+    đặt (1), thực hiện (`execution_revision`), điều phối (`routing_revision`).
+    Dùng thẳng một bộ đếm làm số thứ tự trong sổ thì hai bộ đụng nhau — "đã chỉ
+    định" mang số 1 và lần "bắt đầu làm" đầu tiên cũng mang số 1, Postgres chặn
+    (`uq_domain_event_aggregate_version`) và phòng không bấm Bắt đầu được. Số
+    thứ tự trong sổ là MỘT dãy của đối tượng; bộ đếm nghiệp vụ nằm trong payload.
+    An toàn khi người gọi đã khoá đối tượng (mọi lệnh của chỉ định khoá LƯỢT
+    trước); chỉ mục duy nhất vẫn là lưới cuối nếu có ai quên khoá.
     """
     su_kien = tra(ten)
+    if so_ke_tiep:
+        aggregate_version = int(
+            await conn.fetchval(
+                "SELECT coalesce(max(aggregate_version), 0) + 1 FROM domain_event"
+                " WHERE clinic_id = $1::uuid AND aggregate_type = $2"
+                "   AND aggregate_id = $3::uuid",
+                clinic_id,
+                su_kien.aggregate_type,
+                aggregate_id,
+            )
+        )
 
     if not isinstance(payload, su_kien.payload):
         raise TypeError(
