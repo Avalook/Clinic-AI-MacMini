@@ -45,6 +45,11 @@ function soQuay(item: WorklistItem): string {
   return item.queue_number ?? "—";
 }
 
+/** SỐ BOOKING cấp lúc đặt (23/09/2026) — đứng cạnh số quầy. */
+function soDat(item: WorklistItem): string {
+  return item.so_booking != null ? `#${item.so_booking}` : "—";
+}
+
 function time(value: string | null): string {
   return value
     ? new Date(value).toLocaleTimeString("vi-VN", {
@@ -195,6 +200,7 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
         item.patient.patient_code,
         item.queue_number,
         item.so_tiep_don != null ? String(item.so_tiep_don) : null,
+        item.so_booking != null ? `#${item.so_booking}` : null,
       ]
         .filter(Boolean)
         .join(" ")
@@ -414,6 +420,7 @@ function PatientDetail({ item }: { item: WorklistItem }) {
         </div>
         <dl className="border-l border-line pl-4 text-xs">
           <Field label="Số tiếp đón" value={soQuay(item)} />
+          <Field label="Số booking" value={soDat(item)} />
           <Field label="Ngày sinh" value={item.patient.date_of_birth ? new Date(item.patient.date_of_birth).toLocaleDateString("vi-VN") : "—"} />
           <div className="mt-2 flex items-start gap-1.5 text-ink-muted">
             <MapPin size={13} className="mt-0.5 shrink-0" aria-hidden />

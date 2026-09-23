@@ -52,6 +52,7 @@ _SQL = (
     """
 WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
+           a.so_booking, a.so_tiep_don,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
            a.created_at, a.bac_si_da_go_id
       FROM appointment a
@@ -95,6 +96,7 @@ som_nhat AS (
      GROUP BY a.clinic_patient_id
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
+       t.so_booking, t.so_tiep_don,
        t.booking_channel,
        -- LỊCH NÀY VỪA MẤT BÁC SĨ: có người phụ trách, nhưng người ấy không còn
        -- ca KHÁM vào đúng ngày khám.
@@ -251,6 +253,10 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "slot_start": r["slot_start"].isoformat(),
         "status": r["status"],
         "queue_number": r["queue_number"],
+        # Số booking (cấp lúc đặt) đứng cạnh số quầy (cấp lúc check-in) —
+        # luồng chuẩn bước 4, 23/09/2026.
+        "so_booking": r.get("so_booking"),
+        "so_tiep_don": r.get("so_tiep_don"),
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "booking_channel": r["booking_channel"],
         "phan_loai": r["phan_loai"],

@@ -1154,7 +1154,7 @@ class LuotKhamService:
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
                        f.vitals_started_at, bd.full_name AS vitals_started_by,
-                       ap.so_tiep_don
+                       ap.so_tiep_don, ap.so_booking
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -1364,6 +1364,7 @@ class LuotKhamService:
                 "goi_do_luc": _iso(v["goi_do_luc"]),
                 "goi_do_boi": v["goi_do_boi"],
                 "so_tiep_don": v["so_tiep_don"],
+                "so_booking": v.get("so_booking"),
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
                 "sinh_hieu": None,

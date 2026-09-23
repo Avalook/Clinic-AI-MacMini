@@ -45,6 +45,10 @@ export interface WeekApptRow {
   slot_start: string;
   status: string;
   queue_number: string | null;
+  /** Số booking — cấp NGAY lúc đặt, theo ngày hẹn (luồng chuẩn bước 4). */
+  so_booking?: number | null;
+  /** Số quầy — cấp lúc check-in. Đứng cạnh số booking. */
+  so_tiep_don?: number | null;
   doctor_id: string | null;
   booking_channel: string | null;
   /** Giá trị BACKEND trả: "Tái khám" | "Khám lần đầu" | "". Chữ hiện lên
@@ -557,6 +561,8 @@ export default function WeeklyAppointmentsTable({
                                   </span>
                                 )}
                                 <span className="block font-mono text-label text-ink-muted">
+                                  {a.so_booking != null ? `Đặt #${a.so_booking} · ` : ""}
+                                  {a.so_tiep_don != null ? `Quầy ${a.so_tiep_don} · ` : ""}
                                   {a.patient?.patient_code}
                                   {a.patient?.phone_primary
                                     ? ` · ${a.patient.phone_primary}`

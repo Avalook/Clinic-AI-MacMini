@@ -38,6 +38,8 @@ interface Luot {
   bat_dau_do_boi: string | null;
   /** Số tiếp đón chung của quầy — số điều dưỡng đọc khi gọi. */
   so_tiep_don: number | null;
+  /** Số booking cấp lúc đặt lịch (23/09/2026). */
+  so_booking?: number | null;
   sinh_hieu: SinhHieu | null;
 }
 
@@ -337,6 +339,7 @@ export default function BangDoSinhHieu() {
               <div className="min-w-0">
               <p className="text-lg font-semibold text-ink">
                 {dangChon.so_tiep_don != null ? `Số ${dangChon.so_tiep_don} · ` : ""}
+                {dangChon.so_booking != null ? `Đặt #${dangChon.so_booking} · ` : ""}
                 {dangChon.ten}
               </p>
               <p className="text-meta text-ink-muted">
