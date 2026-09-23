@@ -65,6 +65,7 @@ from clinicai.services.luot_kham_service import (
 )
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.payment_service import PaymentService
+from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from tests.services.test_luot_kham_service_db import dieu_phoi_cu
@@ -126,6 +127,8 @@ async def _tao_nhan_vien(
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),

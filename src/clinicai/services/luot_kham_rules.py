@@ -222,12 +222,20 @@ def dispatch_block(
 def vitals_routing_block(*, vitals_recorded: bool) -> str | None:
     """SEAM có tên cho luật "sinh hiệu có chặn điều phối không".
 
-    OPEN (ROUTING §5): code cũ chặn khi chưa đo huyết áp; khảo sát phòng khám mới
-    nói sinh hiệu không phải chốt cứng. Chưa có quyết định PM/phòng khám nên ở
-    đây GIỮ hành vi hiện tại để tương thích — đây KHÔNG phải luật đã duyệt. Khi
-    có quyết định, chỉ đổi hàm này; không rải kiểm sinh hiệu ở chỗ khác.
+    ĐÃ CHỐT 23/09/2026 — Tuyền: **KHÔNG chặn**. Chưa đo sinh hiệu vẫn đưa khách
+    vào phòng dịch vụ được; màn hình chỉ nhắc.
+
+    Vì sao đổi: code cũ chặn khi chưa đo huyết áp, nhưng đó là giả định của phần
+    mềm chứ không phải luật của phòng khám — khách đi thẳng làm siêu âm hay thủ
+    thuật là chuyện thường ngày, và chặn ở đây biến một lời nhắc thành một cánh
+    cửa khoá giữa giờ cao điểm.
+
+    Hàm giữ nguyên (không xoá) vì nó là chỗ DUY NHẤT trả lời câu hỏi ấy: ngày nào
+    phòng khám muốn chặn lại thì sửa đúng một chỗ này, không phải đi tìm những
+    lần kiểm sinh hiệu rải rác.
     """
-    return None if vitals_recorded else "VITALS_REQUIRED"
+    _ = vitals_recorded  # giữ chữ ký: người gọi vẫn truyền, luật đổi ở đây
+    return None
 
 
 def routing_hold_block(

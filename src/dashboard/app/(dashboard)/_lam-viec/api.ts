@@ -143,3 +143,61 @@ export function gioVn(iso: string | null): string {
     timeZone: "Asia/Ho_Chi_Minh",
   });
 }
+
+// ── Thực hiện dịch vụ (Lifecycle v1 Slice 5) ───────────────────────────────
+// Màn phòng đọc cái này TRƯỚC khi bấm, vì mỗi lệnh phải kèm đúng số revision
+// đang thấy: bấm bằng số cũ nghĩa là đang ghi đè việc người khác vừa làm, và
+// máy chủ từ chối thay vì im lặng nhận.
+
+export interface LanLam {
+  id: string;
+  attempt_no: number;
+  status: "IN_PROGRESS" | "COMPLETED" | "INTERRUPTED";
+  started_at: string | null;
+  completed_at: string | null;
+  interrupted_at: string | null;
+  interruption_reason_code: string | null;
+  bat_dau_boi: string | null;
+  xong_boi: string | null;
+}
+
+export interface ThucHien {
+  order_id: string;
+  service_code: string;
+  service_name: string | null;
+  selection_status: string;
+  billing_status: string;
+  routing_status: string;
+  execution_status: string;
+  execution_revision: number;
+  routing_revision: number;
+  room_id: string | null;
+  visit_id: string;
+  lan_dang_chay: LanLam | null;
+  /** Lần làm gần nhất, và nó đã dừng giữa chừng — nút "Làm lại" trỏ vào đây. */
+  lan_da_dung: LanLam | null;
+  cac_lan: LanLam[];
+  mau_ket_qua: { ma: string; ten: string; nhom: string | null }[];
+  phieu: {
+    id: string;
+    form_id: string;
+    trang_thai: string;
+    revision: number;
+    hoan_tat_luc: string | null;
+  }[];
+  ly_do_khong_lam: string[];
+  ly_do_gian_doan: string[];
+}
+
+/** Mã lý do → câu người đọc được. Mã lạ thì hiện nguyên mã, không giấu. */
+export const LY_DO_TIENG_VIET: Record<string, string> = {
+  PATIENT_DECLINED_AT_ROOM: "Khách từ chối ngay tại phòng",
+  CLINICAL_CONTRAINDICATION_BEFORE_START: "Chống chỉ định — phát hiện trước khi làm",
+  EQUIPMENT_UNAVAILABLE_BEFORE_START: "Máy/dụng cụ không dùng được",
+  STAFF_UNAVAILABLE: "Không có người làm",
+  EQUIPMENT_FAILURE: "Máy hỏng giữa chừng",
+  PATIENT_REQUEST: "Khách xin dừng",
+  CLINICAL_SAFETY: "Lý do an toàn cho khách",
+  TECHNICAL_FAILURE: "Trục trặc kỹ thuật",
+  OTHER: "Lý do khác",
+};

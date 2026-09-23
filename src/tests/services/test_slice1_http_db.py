@@ -27,6 +27,7 @@ import pytest
 from clinicai.api.identity import ClinicRole, StaffIdentity, _resolve_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
+from clinicai.services.permission_service import cap_preset_mac_dinh
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -64,6 +65,8 @@ async def nguoi(conn: asyncpg.Connection, loc: str, role: str) -> StaffIdentity:
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),

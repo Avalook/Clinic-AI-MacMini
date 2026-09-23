@@ -67,6 +67,8 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
+from clinicai.events.catalogue import KhachDaToi
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.slot_hold_service import release_on_booking
 
@@ -890,6 +892,23 @@ class BookingService:
                         doctor_id=effective_doctor_id,
                         identity=identity,
                     )
+                    if visit_vua_mo:
+                        # Sự kiện nghiệp vụ mở đầu hành trình, CÙNG giao dịch
+                        # với việc mở lượt. Payload không có tên, tuổi hay số
+                        # điện thoại — màn nào cần thì hỏi bảng bệnh nhân, nơi
+                        # có quyền đọc riêng.
+                        await emit_event(
+                            conn,
+                            ten="visit.checked_in",
+                            clinic_id=identity.clinic_id,
+                            aggregate_id=visit_vua_mo,
+                            payload=KhachDaToi(
+                                visit_id=visit_vua_mo,
+                                appointment_id=appointment_id,
+                            ),
+                            boi=nguoi(identity),
+                            correlation_id=visit_vua_mo,
+                        )
                     if cach_xac_minh:
                         await self._ghi_xac_minh(
                             conn,

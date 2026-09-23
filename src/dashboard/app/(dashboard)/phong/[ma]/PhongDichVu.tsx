@@ -3,13 +3,35 @@
 // MỘT PHÒNG DỊCH VỤ: siêu âm, thủ thuật, lấy mẫu (Tuyền chốt 16/09/2026).
 //
 // Trái: hàng chờ của phòng. Phải: khách đang chọn —
-//   Bắt đầu  → khách vào phòng (giờ vào)
-//   ghi kết quả + gửi ảnh/video/PDF vào ô (xem ngay tại chỗ)
-//   Xong     → khách ra phòng (giờ ra), sang bước tiếp theo
+//   Bắt đầu  → mở một LẦN LÀM (giờ vào)
+//   phiếu kết quả + gửi ảnh/video/PDF vào ô (xem ngay tại chỗ)
+//   Xong     → đóng lần làm ấy, khách sang bước tiếp theo
 //
-// Ai bấm được là do MÁY CHỦ quyết theo bước của chỉ định: siêu âm — bác sĩ hoặc
-// điều dưỡng siêu âm; thủ thuật — CHỈ bác sĩ (điều dưỡng, thư ký hỗ trợ); lấy
-// mẫu — điều dưỡng. Màn này không tự đoán, chỉ hiện câu từ chối của máy chủ.
+// MỘT NÚT CHÍNH, NHIỀU SỰ THẬT PHÍA SAU (ChatGPT tin số 156, Tuyền tin số 157: *"chỉ cần
+// 1 nút bắt đầu … xử lý thông minh phía sau, nút chỉ 1"*). Người làm thấy đúng
+// hai nút trong cả ca: [Bắt đầu] rồi [Hoàn tất]. Bấm [Hoàn tất] một lần, hệ
+// thống ghi cả ba việc: xác nhận toàn bộ phiếu · đóng dịch vụ
+// (`service.completed`) · phát "đã có kết quả" (`result.ready`) nếu dịch vụ
+// này có kết quả ngay tại phòng.
+//
+// Dịch vụ KHÔNG có phiếu kết quả (lấy mẫu gửi đi) thì [Hoàn tất] gọi thẳng
+// lệnh đóng dịch vụ — vẫn một nút, vẫn một chỗ bấm.
+//
+// BA NGOẠI LỆ nằm ở hàng phụ, không phải nút chính: Không làm được (chưa bắt
+// đầu) · Dừng giữa chừng (đã bắt đầu) · Làm lại. Đời thật có máy hỏng lúc
+// 10:05 và khách đổi ý ở cửa phòng — nhưng đó là ngoại lệ, và giao diện không
+// được bày ngoại lệ ngang hàng với việc thường. Bốn thứ KHÔNG BAO GIỜ tự động
+// khi dừng: không tự hoàn tiền, không tự đánh dấu xong, không tự mở lần mới,
+// không tự đổi phòng.
+//
+// Ai bấm được là do MÁY CHỦ quyết — nay theo QUYỀN (khối "Thực hiện dịch vụ"),
+// không theo vai. Màn này không tự đoán, chỉ hiện câu từ chối của máy chủ.
+// Ẩn nút không phải bảo mật: mỗi lệnh vẫn tự hỏi quyền của nó khi bấm.
+//
+// KẾT QUẢ KHÔNG NẰM TRONG LỆNH "XONG" nữa. "Đã làm xong" và "đã có kết quả" là
+// hai sự thật khác nhau — kết quả đi qua phiếu (`PhieuKetQua`), có vòng đời và
+// người chịu trách nhiệm riêng. Hoàn tất phiếu lúc dịch vụ còn đang làm dở thì
+// máy chủ đóng hộ dịch vụ và NÓI RA là đã đóng hay chưa.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -18,12 +40,15 @@ import {
   guiThaoTac,
   gioVn,
   soPhutTu,
+  LY_DO_TIENG_VIET,
   type DongHangCho,
   type Phong,
   type PhongHomNay,
+  type ThucHien,
 } from "../../_lam-viec/api";
 import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
+import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import Button from "@/components/ui/Button";
 
@@ -38,13 +63,6 @@ function loaiCua(node: string | null): LoaiPhong {
   }
   return "KHAC";
 }
-
-const NHAN_KET_QUA: Record<LoaiPhong, string> = {
-  SIEU_AM: "Kết quả siêu âm (mô tả, kết luận)",
-  THU_THUAT: "Ghi thực hiện thủ thuật",
-  LAY_MAU: "Ghi chú lấy mẫu (nếu có)",
-  KHAC: "Ghi kết quả",
-};
 
 const NUT_XONG: Record<LoaiPhong, string> = {
   SIEU_AM: "Siêu âm xong",
@@ -179,14 +197,33 @@ function KhachTrongPhong({
   onDaBam: () => void;
 }) {
   const loai = loaiCua(dong.node_code);
-  const [ketQua, setKetQua] = useState("");
+  const [th, setTh] = useState<ThucHien | null>(null);
+  const [moLyDo, setMoLyDo] = useState<"khong-lam" | "gian-doan" | null>(null);
   const [lyDo, setLyDo] = useState("");
-  const [moKhongLam, setMoKhongLam] = useState(false);
+  const [ghiChu, setGhiChu] = useState("");
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [bao, setBao] = useState<string | null>(null);
   const [xemLuot, setXemLuot] = useState(false);
+  const [lanDoc, setLanDoc] = useState(0);
 
-  const bam = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
+  // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
+  // hai số revision, mà thiếu chúng thì mọi lệnh đều phải đoán.
+  useEffect(() => {
+    let huy = false;
+    void docBang<ThucHien>("thuc-hien", { chi_dinh: dong.ref_id }).then((kq) => {
+      if (huy) return;
+      if (kq.ok) setTh(kq.data);
+      else setLoi(kq.loi);
+    });
+    return () => {
+      huy = true;
+    };
+  }, [dong.ref_id, lanDoc]);
+
+  const docLai = () => setLanDoc((n) => n + 1);
+
+  const bamCu = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
     setDangGui(true);
     setLoi(null);
     const kq = await guiThaoTac(
@@ -199,9 +236,30 @@ function KhachTrongPhong({
     else onDaBam();
   };
 
-  const dangLam = dong.trang_thai === "serving";
+  /** Một lệnh thực hiện. Xong thì đọc lại trạng thái VÀ nạp lại hàng chờ. */
+  const lenh = async (thaoTac: string, duLieu: Record<string, unknown>) => {
+    setDangGui(true);
+    setLoi(null);
+    setBao(null);
+    const kq = await guiThaoTac(thaoTac, dong.ref_id, duLieu);
+    setDangGui(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    setMoLyDo(null);
+    setLyDo("");
+    setGhiChu("");
+    docLai();
+    onDaBam();
+  };
+
   const dangCho = dong.trang_thai === "waiting" || dong.trang_thai === "called";
-  const daXong = dong.trang_thai === "done";
+  const trangThai = th?.execution_status ?? null;
+  const dangLam = trangThai === "IN_PROGRESS" && th?.lan_dang_chay != null;
+  const daDung = trangThai === "INTERRUPTED" && th?.lan_da_dung != null;
+  const daXong = trangThai === "COMPLETED" || trangThai === "NOT_PERFORMED";
+  const chuaLam = trangThai === "PENDING";
 
   return (
     <section
@@ -223,62 +281,125 @@ function KhachTrongPhong({
             {daXong
               ? `Xong lúc ${gioVn(dong.xong_luc)}`
               : dangLam
-                ? `Bắt đầu ${gioVn(dong.bat_dau_luc)} · đã làm ${soPhutTu(dong.bat_dau_luc)}`
-                : dong.trang_thai === "blocked"
-                  ? "Khách đang ở một bước khác — chưa gọi vào được."
-                  : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`}
+                ? `Lần làm #${th?.lan_dang_chay?.attempt_no} · bắt đầu ${gioVn(
+                    th?.lan_dang_chay?.started_at ?? null,
+                  )} · đã làm ${soPhutTu(th?.lan_dang_chay?.started_at ?? null)}`
+                : daDung
+                  ? `Lần làm #${th?.lan_da_dung?.attempt_no} đã dừng${
+                      th?.lan_da_dung?.interruption_reason_code
+                        ? ` — ${nhanLyDo(th.lan_da_dung.interruption_reason_code)}`
+                        : ""
+                    }`
+                  : dong.trang_thai === "blocked"
+                    ? "Khách đang ở một bước khác — chưa gọi vào được."
+                    : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {dangCho ? (
-            <button
-              type="button"
+            <Button
+              size="lg"
+              variant="secondary"
               disabled={dangGui}
-              onClick={() => void bam("goi-khach")}
-              className="inline-flex min-h-11 items-center rounded-control border border-brand-600 px-5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              onClick={() => void bamCu("goi-khach")}
             >
               {dong.trang_thai === "called"
                 ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
                 : "Gọi vào"}
-            </button>
+            </Button>
           ) : null}
-          {dangCho ? (
-            <button
-              type="button"
+          {chuaLam && th ? (
+            <Button
+              size="lg"
+              variant="primary"
               disabled={dangGui}
-              onClick={() => void bam("bat-dau-dich-vu")}
-              className="inline-flex min-h-11 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+              onClick={() =>
+                void lenh("bat-dau-v1", {
+                  expected_execution_revision: th.execution_revision,
+                  expected_routing_revision: th.routing_revision,
+                })
+              }
             >
               {dangGui ? "Đang ghi…" : "Bắt đầu"}
-            </button>
+            </Button>
+          ) : null}
+          {daDung && th?.lan_da_dung ? (
+            <Button
+              size="lg"
+              variant="primary"
+              disabled={dangGui}
+              onClick={() =>
+                void lenh("lam-lai-v1", {
+                  interrupted_attempt_id: th.lan_da_dung!.id,
+                  expected_execution_revision: th.execution_revision,
+                })
+              }
+            >
+              {dangGui ? "Đang ghi…" : "Làm lại"}
+            </Button>
           ) : null}
         </div>
       </header>
 
       {loi ? (
-        <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger"
+        >
           {loi}
         </p>
       ) : null}
+      {bao ? (
+        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-sm text-warning">
+          {bao}
+        </p>
+      ) : null}
 
-      {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09) — người làm, kết
-          quả đã ghi (chỉ vai lâm sàng nhận được chữ), lý do không làm. */}
+      {/* Lịch sử các lần làm: máy hỏng lúc 10:05 rồi làm lại 10:18 là chuyện
+          phải đọc được, không phải chuyện bị ghi đè. */}
+      {th && th.cac_lan.length > 1 ? (
+        <ol className="space-y-1 rounded-control bg-surface-muted px-3 py-2 text-xs text-ink-soft">
+          {th.cac_lan.map((l) => (
+            <li key={l.id}>
+              Lần #{l.attempt_no} · {gioVn(l.started_at)}
+              {l.status === "COMPLETED"
+                ? ` → xong ${gioVn(l.completed_at)}`
+                : l.status === "INTERRUPTED"
+                  ? ` → dừng ${gioVn(l.interrupted_at)}${
+                      l.interruption_reason_code
+                        ? ` (${nhanLyDo(l.interruption_reason_code)})`
+                        : ""
+                    }`
+                  : " → đang làm"}
+              {l.bat_dau_boi ? ` · ${l.bat_dau_boi}` : ""}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09). */}
       {daXong ? (
         <div className="rounded-control bg-surface-muted px-3 py-2 text-sm">
           <p className="text-ink">
-            {dong.exec_status === "not_performed" ? "Không làm được" : "Đã làm"}
+            {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
             {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
           </p>
           {dong.ly_do_khong_lam ? (
-            <p className="text-xs text-warning">Lý do: {dong.ly_do_khong_lam}</p>
+            <p className="text-xs text-warning">
+              Lý do: {nhanLyDo(dong.ly_do_khong_lam)}
+            </p>
           ) : null}
-          {dong.ket_qua_ghi ? (
-            <p className="mt-1 whitespace-pre-line text-xs text-ink-soft">Kết quả đã ghi: {dong.ket_qua_ghi}</p>
-          ) : null}
-          <Button size="sm" variant="ghost" className="mt-1 -ml-3" onClick={() => setXemLuot(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="mt-1 -ml-3"
+            onClick={() => setXemLuot(true)}
+          >
             Xem lại cả lượt
           </Button>
-          {xemLuot ? <XemLuot visitId={dong.visit_id} onDong={() => setXemLuot(false)} /> : null}
+          {xemLuot ? (
+            <XemLuot visitId={dong.visit_id} onDong={() => setXemLuot(false)} />
+          ) : null}
         </div>
       ) : null}
 
@@ -291,71 +412,129 @@ function KhachTrongPhong({
         />
       ) : null}
 
-      {dangLam ? (
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">{NHAN_KET_QUA[loai]}</span>
-            <textarea
-              value={ketQua}
-              onChange={(e) => setKetQua(e.target.value)}
-              rows={loai === "LAY_MAU" ? 2 : 6}
-              className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink"
-              placeholder={
-                loai === "SIEU_AM"
-                  ? "Tử cung, nội mạc, buồng trứng P/T, kết luận…"
-                  : loai === "THU_THUAT"
-                    ? "Thủ thuật đã làm, diễn biến, dặn dò…"
-                    : ""
-              }
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
+      {/* Phiếu kết quả: mở được ngay khi đang làm, và vẫn xem/điền được sau khi
+          dịch vụ đã đóng — kết quả về muộn là chuyện thường. */}
+      {th && (dangLam || daXong) ? (
+        <PhieuKetQua
+          serviceOrderId={dong.ref_id}
+          mau={th.mau_ket_qua}
+          onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
+            setBao(
+              laLanSua
+                ? "Đã ghi bản sửa của kết quả."
+                : daDongDichVu
+                  ? "Đã hoàn tất phiếu, đóng dịch vụ và báo có kết quả."
+                  : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${viSao ?? "không rõ lý do"}.`,
+            );
+            docLai();
+            onDaBam();
+          }}
+        />
+      ) : null}
+
+      {/* HÀNG PHỤ: ba ngoại lệ. Không nút chính nào ở đây — nút chính là
+          [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}
+      {th && (chuaLam || dangLam) ? (
+        <div className="space-y-3 border-t border-line pt-3">
+          {dangLam && th.lan_dang_chay && th.mau_ket_qua.length === 0 ? (
+            // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi): [Hoàn tất] gọi
+            // thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
+            <Button
+              size="lg"
+              variant="primary"
               disabled={dangGui}
               onClick={() =>
-                void bam("xong-dich-vu", { performed: true, result_note: ketQua })
+                void lenh("xong-v1", {
+                  attempt_id: th.lan_dang_chay!.id,
+                  expected_execution_revision: th.execution_revision,
+                })
               }
-              className="inline-flex min-h-11 items-center rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
             >
               {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMoKhongLam((v) => !v)}
-              className="inline-flex min-h-11 items-center rounded-control border border-line px-4 text-sm text-ink-soft hover:bg-surface-muted"
-            >
-              Không làm được…
-            </button>
-          </div>
-          {moKhongLam ? (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="min-w-60 flex-1">
-                <span className="text-xs font-semibold text-ink">Lý do không làm được</span>
-                <input
+            </Button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() =>
+              setMoLyDo((v) => (v ? null : dangLam ? "gian-doan" : "khong-lam"))
+            }
+            className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
+          >
+            {dangLam ? "Phải dừng giữa chừng?" : "Không làm được?"}
+          </button>
+
+          {moLyDo ? (
+            <div className="space-y-2 rounded-control border border-line bg-surface-muted p-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-ink">
+                  {moLyDo === "gian-doan"
+                    ? "Vì sao phải dừng giữa chừng"
+                    : "Vì sao không làm được"}
+                </span>
+                <select
                   value={lyDo}
                   onChange={(e) => setLyDo(e.target.value)}
+                  className="mt-1 min-h-10 w-full max-w-md rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                >
+                  <option value="">— chọn lý do —</option>
+                  {(moLyDo === "gian-doan"
+                    ? th.ly_do_gian_doan
+                    : th.ly_do_khong_lam
+                  ).map((m) => (
+                    <option key={m} value={m}>
+                      {nhanLyDo(m)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-ink">
+                  Ghi chú (không bắt buộc)
+                </span>
+                <input
+                  value={ghiChu}
+                  onChange={(e) => setGhiChu(e.target.value)}
                   className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
                 />
               </label>
-              <button
-                type="button"
-                disabled={dangGui || !lyDo.trim()}
+              <p className="text-label text-ink-muted">
+                Ghi xong KHÔNG tự hoàn tiền, không tự mở lần làm mới, không tự
+                đổi phòng — mỗi việc ấy là một quyết định riêng.
+              </p>
+              <Button
+                size="md"
+                variant="danger"
+                disabled={dangGui || !lyDo}
                 onClick={() =>
-                  void bam("xong-dich-vu", {
-                    performed: false,
-                    reason: lyDo,
-                    result_note: ketQua,
-                  })
+                  void lenh(
+                    moLyDo === "gian-doan" ? "gian-doan-v1" : "khong-lam-v1",
+                    moLyDo === "gian-doan"
+                      ? {
+                          attempt_id: th.lan_dang_chay?.id,
+                          expected_execution_revision: th.execution_revision,
+                          ly_do: lyDo,
+                          ghi_chu: ghiChu || null,
+                        }
+                      : {
+                          expected_execution_revision: th.execution_revision,
+                          ly_do: lyDo,
+                          ghi_chu: ghiChu || null,
+                        },
+                  )
                 }
-                className="inline-flex min-h-10 items-center rounded-control border border-danger px-4 text-sm font-semibold text-danger disabled:opacity-50"
               >
-                Ghi không làm được
-              </button>
+                {moLyDo === "gian-doan" ? "Ghi dừng giữa chừng" : "Ghi không làm được"}
+              </Button>
             </div>
           ) : null}
         </div>
       ) : null}
     </section>
   );
+}
+
+/** Mã lý do → câu người đọc được. Mã lạ hiện nguyên mã, không giấu đi. */
+function nhanLyDo(ma: string): string {
+  return LY_DO_TIENG_VIET[ma] ?? ma;
 }

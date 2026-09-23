@@ -128,6 +128,9 @@ EVENT_LABELS: dict[str, str] = {
     "clinical_record.saved": "Lưu bệnh án",
     "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
     "prescription.corrected": "Bác sĩ đính chính đơn thuốc",
+    # Lát CD-01 (23/09): một lệnh thay hai bước; bác sĩ và thư ký y khoa ngang
+    # quyền. Ba mã draft_* bên dưới là đường cũ, còn sống tới khi hết bản nháp.
+    "service_order.placed": "Chỉ định dịch vụ",
     "service_order.draft_saved": "Thư ký nhập chỉ định nháp",
     "service_order.draft_approved": "Bác sĩ duyệt chỉ định thư ký nhập",
     "service_order.draft_discarded": "Bỏ chỉ định nháp",
@@ -269,6 +272,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
+    "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
@@ -316,6 +320,13 @@ AGGREGATE_LABELS: dict[str, str] = {
     "visit": "Lượt khám",
     # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
     "service_order": "Chỉ định dịch vụ",
+    # Phiếu kết quả là đối tượng riêng (Form Template Engine, 23/09) — không
+    # phải một mặt của chỉ định, nên nó có tên riêng trên màn nhật ký.
+    "form_instance": "Phiếu kết quả",
+    # KẾT QUẢ tách khỏi PHIẾU: phiếu là tờ giấy người ta điền, kết quả là thứ
+    # bác sĩ đọc và có thể được sửa lại về sau. Hai vòng đời, hai chuỗi số —
+    # nên trên nhật ký cũng phải là hai tên khác nhau.
+    "ket_qua": "Kết quả cận lâm sàng",
     "pregnancy": "Thai kỳ",
     "episode": "Đợt điều trị",
     "work_item": "Bước trong quy trình",

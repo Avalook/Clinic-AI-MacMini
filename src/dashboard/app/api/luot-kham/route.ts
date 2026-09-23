@@ -22,6 +22,10 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "goi-do": (id) => `/api/v1/luot-kham/visits/${id}/goi-do`,
   "nhan-kham": (id) => `/api/v1/luot-kham/consultations/${id}/start`,
   "ghi-chu": (id) => `/api/v1/luot-kham/consultations/${id}/notes`,
+  // Lát CD-01: MỘT lệnh thay cho nhập-nháp rồi duyệt. Bác sĩ và thư ký y khoa
+  // ngang quyền (Tuyền, tin số 149). Khoá gửi lại bắt buộc.
+  // Hai đường cũ bên dưới còn sống cho tới khi mọi màn đã chuyển sang đây.
+  "chi-dinh": (id) => `/api/v1/luot-kham/consultations/${id}/service-orders`,
   "nhap-chi-dinh": (id) =>
     `/api/v1/luot-kham/consultations/${id}/draft-orders`,
   "duyet-chi-dinh": (id) =>
@@ -42,6 +46,13 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // id là LƯỢT KHÁM. Khoá gửi lại là bắt buộc; backend từ chối nếu thiếu.
   "chon-dich-vu": (id) =>
     `/api/v1/luot-kham/visits/${id}/service-selection/confirm`,
+  // Thực hiện dịch vụ (Lifecycle v1 Slice 5) — id là CHỈ ĐỊNH. Khoá gửi lại
+  // bắt buộc; "xong" và "gián đoạn" phải kèm attempt_id trong thân.
+  "bat-dau-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/bat-dau`,
+  "xong-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/xong`,
+  "khong-lam-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/khong-lam`,
+  "gian-doan-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/gian-doan`,
+  "lam-lai-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/lam-lai`,
   // Điều phối chính thức (Lifecycle v1 Slice 4) — id là CHỈ ĐỊNH. Khoá gửi lại
   // bắt buộc. Màn hình chuyển sang dùng ở Slice 6.
   "xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/assign`,
@@ -65,6 +76,14 @@ function duongDoc(url: URL): string | null {
   if (xem === "goi-y-phong") {
     const cd = url.searchParams.get("chi_dinh") ?? "";
     return UUID_RE.test(cd) ? `/api/v1/luot-kham/orders/${cd}/routing/recommendation` : null;
+  }
+  // Một chỉ định trong phòng: trạng thái thực hiện + hai revision + mẫu kết
+  // quả. Màn phòng đọc cái này trước khi bấm 5 lệnh thực hiện.
+  if (xem === "thuc-hien") {
+    const cd = url.searchParams.get("chi_dinh") ?? "";
+    return UUID_RE.test(cd)
+      ? `/api/v1/luot-kham/orders/${cd}/execution`
+      : null;
   }
   if (xem === "hang-cho") {
     const phong = url.searchParams.get("phong") ?? "";

@@ -160,8 +160,11 @@ def test_da_lam_xong_khong_dieu_phoi_lai() -> None:
     assert _block(exec_status="performed") == "ORDER_NOT_DISPATCHABLE"
 
 
-def test_ke_hoach_ap_truoc_khi_do_sinh_hieu_bi_chan_dung_ly_do() -> None:
-    # T-P9: nhánh kế hoạch, chưa đo huyết áp.
+def test_chua_do_sinh_hieu_khong_con_chan_xep_phong() -> None:
+    """Tuyền chốt 23/09/2026: sinh hiệu KHÔNG phải cửa chặn.
+
+    Chưa đo vẫn đưa khách vào phòng được; chốt chặn còn lại là đích của lượt.
+    """
     assert (
         _block(
             source="PRIOR_PLAN",
@@ -169,7 +172,7 @@ def test_ke_hoach_ap_truoc_khi_do_sinh_hieu_bi_chan_dung_ly_do() -> None:
             route_decision=None,
             vitals_recorded=False,
         )
-        == "VITALS_REQUIRED"
+        == "ROUTE_NOT_DECIDED"
     )
 
 

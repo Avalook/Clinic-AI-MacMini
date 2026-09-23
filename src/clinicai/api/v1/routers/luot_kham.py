@@ -17,11 +17,14 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
+    get_current_identity,
     require_role,
     require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
 
@@ -330,6 +333,33 @@ async def save_note(
     )
 
 
+#: Lát CD-01: bác sĩ VÀ thư ký y khoa ngang quyền chỉ định (Tuyền, tin #149).
+#: Đây là cửa của lệnh MỚI; hai endpoint draft/authorize bên dưới là đường cũ,
+#: giữ nguyên cho tới khi mọi màn đã chuyển sang lệnh này.
+_CHI_DINH_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
+
+
+class ChiDinhBody(BaseModel):
+    service_codes: list[str] = Field(min_length=1, max_length=30)
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/service-orders")
+async def dat_chi_dinh(
+    consultation_id: UUID,
+    body: ChiDinhBody,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """`PlaceServiceOrders` — xem `docs/slices/CD-01-bac-si-chi-dinh-dich-vu.md`."""
+    return await ChiDinhService(pool).dat_chi_dinh(
+        consultation_id=str(consultation_id),
+        service_codes=body.service_codes,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/draft-orders")
 async def propose_orders(
     consultation_id: UUID,
@@ -364,16 +394,11 @@ async def authorize_orders(
     )
 
 
-#: Cửa ngoài của ConfirmServiceSelection. Ánh xạ vai cuối cùng còn OPEN
-#: (SELECTION §14): tạm dùng đúng các vai đang thu được tiền dịch vụ
-#: (``payment_service.allowed_kinds``). Cửa thật là capability trong service.
-#: KHÔNG mở theo công tắc — đây là bước ngay trước tiền.
-_SELECTION_GUARD = require_role(
-    ClinicRole.RECEPTION,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_DV,
-    ClinicRole.MANAGEMENT,
-)
+#: Cửa ngoài của ConfirmServiceSelection và hai lệnh điều phối: từ 23/09/2026
+#: quyền thật là CAPABILITY, kiểm trong service và trong chính giao dịch của
+#: lệnh. Router chỉ còn hỏi "đã đăng nhập chưa" — giữ thêm một danh sách vai ở
+#: đây là giữ bản luật thứ hai, và hai bản luật thì sẽ có ngày nói ngược nhau.
+_SELECTION_GUARD = get_current_identity
 
 
 class ServiceSelectionBody(BaseModel):
@@ -442,8 +467,9 @@ class InvalidateRoutingBody(BaseModel):
 
 
 # Lifecycle v1 Slice 4 — Routing chính thức. Cửa ngoài giữ đúng cửa điều phối
-# cũ (trưởng ca / quản lý, theo công tắc mở quyền); ánh xạ vai cuối cùng còn
-# OPEN — cửa thật là capability trong ServiceRoutingService.
+# TỪ 23/09/2026: cửa thật là CAPABILITY trong ServiceRoutingService, kiểm trong
+# chính giao dịch của lệnh. Router không giữ danh sách vai nữa — hai bản luật thì
+# sẽ có ngày nói ngược nhau.
 @router.post("/luot-kham/orders/{order_id}/routing/assign")
 async def assign_service_room(
     order_id: UUID,
@@ -467,7 +493,7 @@ async def assign_service_room(
 async def invalidate_service_routing(
     order_id: UUID,
     body: InvalidateRoutingBody,
-    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
@@ -483,7 +509,7 @@ async def invalidate_service_routing(
 @router.get("/luot-kham/orders/{order_id}/routing/recommendation")
 async def recommend_service_room(
     order_id: UUID,
-    identity: StaffIdentity = Depends(_DISPATCH_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     return await ServiceRoutingService(pool).recommend(
@@ -532,4 +558,142 @@ async def complete_service(
         reason=body.reason,
         result_note=body.result_note,
         identity=identity,
+    )
+
+
+# ── Thực hiện dịch vụ (Lifecycle v1 Slice 5) ────────────────────────────────
+# Cửa là capability, không phải vai: ai được cấp khối "Thực hiện dịch vụ" thì
+# bấm được. Hai endpoint cũ `/orders/{id}/start` và `/complete` vẫn sống cho tới
+# khi màn hình chuyển hết sang đây.
+
+
+class BatDauBody(BaseModel):
+    expected_execution_revision: int = Field(ge=0)
+    expected_routing_revision: int = Field(ge=0)
+
+
+class XongBody(BaseModel):
+    attempt_id: UUID
+    expected_execution_revision: int = Field(ge=0)
+
+
+class KhongLamBody(BaseModel):
+    expected_execution_revision: int = Field(ge=0)
+    ly_do: str = Field(min_length=1, max_length=64)
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+class GianDoanBody(BaseModel):
+    attempt_id: UUID
+    expected_execution_revision: int = Field(ge=0)
+    ly_do: str = Field(min_length=1, max_length=64)
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+class LamLaiBody(BaseModel):
+    interrupted_attempt_id: UUID
+    expected_execution_revision: int = Field(ge=0)
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+@router.get("/luot-kham/orders/{order_id}/execution")
+async def execution_xem(
+    order_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Trạng thái thực hiện + hai số revision + mẫu kết quả gắn cho dịch vụ."""
+    return await ServiceExecutionService(pool).xem(
+        order_id=str(order_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/bat-dau")
+async def execution_bat_dau(
+    order_id: UUID,
+    body: BatDauBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceExecutionService(pool).bat_dau(
+        order_id=str(order_id),
+        expected_execution_revision=body.expected_execution_revision,
+        expected_routing_revision=body.expected_routing_revision,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/xong")
+async def execution_xong(
+    order_id: UUID,
+    body: XongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """`attempt_id` bắt buộc: request cũ không được đóng lần làm mới."""
+    return await ServiceExecutionService(pool).xong(
+        order_id=str(order_id),
+        attempt_id=str(body.attempt_id),
+        expected_execution_revision=body.expected_execution_revision,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/khong-lam")
+async def execution_khong_lam(
+    order_id: UUID,
+    body: KhongLamBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceExecutionService(pool).khong_lam(
+        order_id=str(order_id),
+        expected_execution_revision=body.expected_execution_revision,
+        ly_do=body.ly_do,
+        ghi_chu=body.ghi_chu,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/gian-doan")
+async def execution_gian_doan(
+    order_id: UUID,
+    body: GianDoanBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await ServiceExecutionService(pool).gian_doan(
+        order_id=str(order_id),
+        attempt_id=str(body.attempt_id),
+        expected_execution_revision=body.expected_execution_revision,
+        ly_do=body.ly_do,
+        ghi_chu=body.ghi_chu,
+        identity=identity,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/lam-lai")
+async def execution_lam_lai(
+    order_id: UUID,
+    body: LamLaiBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Làm lại là QUYẾT ĐỊNH riêng, không phải hệ quả tự động của gián đoạn."""
+    return await ServiceExecutionService(pool).chuan_bi_lam_lai(
+        order_id=str(order_id),
+        interrupted_attempt_id=str(body.interrupted_attempt_id),
+        expected_execution_revision=body.expected_execution_revision,
+        ghi_chu=body.ghi_chu,
+        identity=identity,
+        idempotency_key=idempotency_key,
     )

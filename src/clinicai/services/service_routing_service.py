@@ -29,13 +29,14 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.identity import VAI_LAM_VIEC, StaffIdentity, mo_quyen_tam_thoi
-from clinicai.core.exceptions import SafetyGateError
+from clinicai.api.identity import StaffIdentity
+from clinicai.events.catalogue import XepPhongDaHuy
+from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
 from clinicai.services.luot_kham_service import (
-    DISPATCH_ROLES,
     LuotKhamConflictError,
     LuotKhamService,
     LuotKhamValidationError,
@@ -89,28 +90,27 @@ _KET_THUC_CU = frozenset({"performed", "not_performed", "cancelled"})
 # ---------------------------------------------------------------------------
 
 
-def _vai_dieu_phoi(identity: StaffIdentity) -> bool:
-    """Tạm dùng ĐÚNG luật điều phối cũ (``DISPATCH_ROLES`` + công tắc mở quyền
-    tạm thời như ``_require``) — không thêm TKYK / điều dưỡng / lễ tân. Khi có
-    checkpoint quyền, chỉ đổi ở đây."""
-    if mo_quyen_tam_thoi() and identity.co_vai(VAI_LAM_VIEC):
-        return True
-    return identity.co_vai(DISPATCH_ROLES)
+#: Ba quyền riêng trong MỘT khối "Điều phối khách": quản lý bật cả khối, còn
+#: tầng kỹ thuật vẫn tách được "xem gợi ý" khỏi "xếp phòng" khi cần siết.
+QUYEN_XEM = "service.routing.view"
+QUYEN_XEP = "service.routing.assign"
+QUYEN_HUY = "service.routing.invalidate"
 
 
-def can_route_recommend(identity: StaffIdentity) -> bool:
-    """Capability ``service.route.recommend``."""
-    return _vai_dieu_phoi(identity)
+async def can_route_recommend(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> bool:
+    return await can(conn, identity, QUYEN_XEM)
 
 
-def can_route_assign(identity: StaffIdentity) -> bool:
-    """Capability ``service.route.assign``."""
-    return _vai_dieu_phoi(identity)
+async def can_route_assign(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
+    return await can(conn, identity, QUYEN_XEP)
 
 
-def can_route_invalidate(identity: StaffIdentity) -> bool:
-    """Capability ``service.route.invalidate``."""
-    return _vai_dieu_phoi(identity)
+async def can_route_invalidate(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> bool:
+    return await can(conn, identity, QUYEN_HUY)
 
 
 # ---------------------------------------------------------------------------
@@ -285,11 +285,15 @@ class ServiceRoutingService:
         self, *, order_id: Any, identity: StaffIdentity
     ) -> dict[str, Any]:
         """Gợi ý phòng. Không ghi gì, không phát sự kiện, không gọi lệnh gán."""
-        if not can_route_recommend(identity):
-            raise SafetyGateError("Vai trò của bạn không xem được gợi ý điều phối.")
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                QUYEN_XEM,
+                cau="Bạn chưa được cấp quyền xem gợi ý điều phối.",
+            )
             node = await conn.fetchval(
                 "SELECT node_code FROM service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
@@ -320,8 +324,6 @@ class ServiceRoutingService:
         recommendation_ref: str | None = None,
     ) -> dict[str, Any]:
         """AssignServiceRoom — lệnh DUY NHẤT xếp / đổi phòng chính thức."""
-        if not can_route_assign(identity):
-            raise SafetyGateError("Vai trò của bạn không điều phối phòng được.")
         key = _can_khoa(idempotency_key)
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         rid = _uuid(room_id, "Mã phòng không hợp lệ.")
@@ -341,6 +343,10 @@ class ServiceRoutingService:
         }
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
+            # Kiểm quyền trong chính giao dịch của lệnh.
+            await doi_quyen(
+                conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
+            )
             vid = await self._luot._visit_of(conn, "service_order", cid, oid)
             await self._luot._lock_visit(conn, cid, vid)
             cached = await self._luot._receipt_get(
@@ -469,8 +475,6 @@ class ServiceRoutingService:
         idempotency_key: str | None,
     ) -> dict[str, Any]:
         """InvalidateServiceRouting — phân phòng mất hiệu lực TRƯỚC khi bắt đầu."""
-        if not can_route_invalidate(identity):
-            raise SafetyGateError("Vai trò của bạn không huỷ điều phối được.")
         key = _can_khoa(idempotency_key)
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         rev = _revision(expected_routing_revision)
@@ -482,6 +486,10 @@ class ServiceRoutingService:
         }
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
+            # Kiểm quyền trong chính giao dịch của lệnh.
+            await doi_quyen(
+                conn, identity, QUYEN_HUY, cau="Bạn chưa được cấp quyền huỷ xếp phòng."
+            )
             vid = await self._luot._visit_of(conn, "service_order", cid, oid)
             await self._luot._lock_visit(conn, cid, vid)
             cached = await self._luot._receipt_get(
@@ -547,6 +555,24 @@ class ServiceRoutingService:
                 oid,
             )
             await self._luot._cap_nhat_vi_tri(conn, cid, vid)
+            # Sổ sự kiện nghiệp vụ, cùng giao dịch: phòng vừa mất thì phải có
+            # người xếp lại, và người ấy nhận việc qua đây chứ không qua ai nhớ.
+            await emit_event(
+                conn,
+                ten="service.routing_invalidated",
+                clinic_id=cid,
+                aggregate_id=oid,
+                aggregate_version=int(moi),
+                payload=XepPhongDaHuy(
+                    visit_id=vid,
+                    service_order_id=oid,
+                    from_room_id=str(o["room_id"]) if o["room_id"] else None,
+                    routing_revision=int(moi),
+                    ly_do=ly_do,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
             await record_event(
                 conn,
                 event_type=EVENT_INVALIDATED,

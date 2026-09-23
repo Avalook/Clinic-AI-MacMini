@@ -49,10 +49,13 @@ from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
+from clinicai.api.v1.routers.mau_ket_qua import router as mau_ket_qua_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
+from clinicai.api.v1.routers.phan_quyen import router as phan_quyen_router
 from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
+from clinicai.api.v1.routers.phieu import router as phieu_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -280,6 +283,18 @@ app.include_router(
 # Chạy song song với luồng điều phối cũ; xem migration 20260911000001.
 app.include_router(
     luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
+)
+# Biểu mẫu: điền phiếu kết quả, xuất bản bản mẫu mới.
+app.include_router(
+    phieu_router, prefix="/api/v1", tags=["phieu"], dependencies=_GUARDED
+)
+# Mẫu kết quả: đọc cho mọi vai, gắn/gỡ cần capability quản lý danh mục.
+app.include_router(
+    mau_ket_qua_router, prefix="/api/v1", tags=["mau-ket-qua"], dependencies=_GUARDED
+)
+# Phân quyền: cửa là capability `permission.manage`, không phải vai MANAGEMENT.
+app.include_router(
+    phan_quyen_router, prefix="/api/v1", tags=["phan-quyen"], dependencies=_GUARDED
 )
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)

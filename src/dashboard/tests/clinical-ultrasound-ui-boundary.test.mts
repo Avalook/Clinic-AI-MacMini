@@ -22,6 +22,8 @@ const biometry = read("../app/(dashboard)/tasks/SonoBiometry.tsx");
 const phong = read("../app/(dashboard)/phong/[ma]/PhongDichVu.tsx");
 const banKham = read("../app/(dashboard)/ban-kham/BanKham.tsx");
 const khungTep = read("../app/(dashboard)/_lam-viec/KhungTep.tsx");
+// Một màn điền cho MỌI biểu mẫu — vẽ theo `khung` máy chủ trả về (23/09/2026).
+const phieuKetQua = read("../app/(dashboard)/_lam-viec/PhieuKetQua.tsx");
 const hangCho = read("../app/(dashboard)/_lam-viec/HangChoCot.tsx");
 const lamViecApi = read("../app/(dashboard)/_lam-viec/api.ts");
 const statCard = read("../app/(dashboard)/StatCard.tsx");
@@ -49,6 +51,7 @@ test("the refreshed clinical and ultrasound screens use only shared visual token
     banKham,
     khungTep,
     hangCho,
+    phieuKetQua,
   ]) {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}/iu);
     assert.doesNotMatch(source, /pink|rose|fuchsia/iu);
@@ -67,12 +70,19 @@ test("redesigning does not replace the established mutation contracts", () => {
   }
 });
 
-test("phòng dịch vụ: Bắt đầu → ghi kết quả + tệp → Xong / Không làm được", () => {
-  assert.match(phong, /guiThaoTac|bam\("bat-dau-dich-vu"\)/);
-  assert.match(phong, /"bat-dau-dich-vu"/);
-  assert.match(phong, /"xong-dich-vu", \{ performed: true/);
-  assert.match(phong, /performed: false,\s*reason: lyDo/);
+test("phòng dịch vụ: Bắt đầu → phiếu kết quả + tệp → Xong / Không làm được", () => {
+  // 23/09/2026: hai lệnh thành NĂM (Lifecycle v1 Slice 5), và nội dung kết quả
+  // rời khỏi lệnh "Xong" sang phiếu. Bài kiểm này đổi theo, KHÔNG nới: đường đi
+  // vẫn phải là guiThaoTac, và ô tệp vẫn phải có mặt ngay lúc đang làm.
+  assert.match(phong, /guiThaoTac/);
+  assert.match(phong, /"bat-dau-v1"/);
+  assert.match(phong, /"xong-v1"/);
+  assert.match(phong, /"khong-lam-v1"/);
+  assert.match(phong, /"gian-doan-v1"/);
+  assert.match(phong, /"lam-lai-v1"/);
+  assert.match(phong, /ly_do: lyDo/);
   assert.match(phong, /<KhungTep/);
+  assert.match(phong, /<PhieuKetQua/);
 });
 
 test("financial, patient, and ultrasound status fallbacks remain fail-safe", () => {

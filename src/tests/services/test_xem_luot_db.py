@@ -199,3 +199,31 @@ async def test_lich_tiep_theo_khong_tinh_lich_da_check_in(kb: KichBan) -> None:
     await hen(48, "CONFIRMED")
     kq = await svc.doc(visit_id=kb.visit_id, identity=kb.le_tan)
     assert kq["hanh_chinh"]["lich_tiep_theo"] is not None
+
+
+async def test_bang_truong_ca_noi_that_khi_bi_cat(kb: KichBan) -> None:
+    """Cắt bớt mà im lặng là nói dối bằng cách im lặng.
+
+    Bảng chỉ định hôm nay có trần 500 dòng — có trần là đúng, nhưng trưởng ca
+    phải biết mình đang nhìn một bảng thiếu, thay vì tự phát hiện bằng cách
+    không tìm thấy khách của mình.
+    """
+    from clinicai.services import luot_kham_service as lks
+
+    phien = await _vao_kham(kb)
+    await _chi_dinh(kb, phien, kb.ma_mau, kb.ma_sa)
+
+    goc = lks._TRAN_CHI_DINH_HOM_NAY
+    try:
+        lks._TRAN_CHI_DINH_HOM_NAY = 1
+        kq = await kb.svc.chi_dinh_hom_nay(identity=kb.truong_ca)
+    finally:
+        lks._TRAN_CHI_DINH_HOM_NAY = goc
+
+    assert len(kq["chi_dinh"]) == 1
+    assert kq["bi_cat"] is True
+    assert kq["tong"] >= 2
+
+    # Không cắt thì không báo động thừa.
+    du = await kb.svc.chi_dinh_hom_nay(identity=kb.truong_ca)
+    assert du["bi_cat"] is False

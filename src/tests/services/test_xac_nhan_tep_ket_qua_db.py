@@ -119,6 +119,7 @@ async def _tao_staff(
                 sid,
                 c,
             )
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),

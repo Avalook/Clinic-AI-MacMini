@@ -29,6 +29,7 @@ from clinicai.services.luot_kham_service import (
     LuotKhamService,
     LuotKhamValidationError,
 )
+from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -77,6 +78,8 @@ async def _nguoi(conn: asyncpg.Connection, loc: str, role: str) -> StaffIdentity
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),
@@ -512,10 +515,13 @@ async def test_17_chi_dinh_luot_khac_khong_bao_gio_bi_sua(kb: KB) -> None:
     await _loi(_confirm(kb, [a, la], [a, la], 0), "SELECTION_ORDER_SET_CHANGED")
     assert (await _trang_thai(kb, la))[la] == ("PENDING", 1)
     # Lượt của phòng khám khác không mở được dưới danh tính phòng khám này.
+    # Từ 23/09/2026 lời từ chối đến SỚM HƠN: quyền cấp theo TỪNG phòng khám nên
+    # người này không có quyền nào ở phòng khám lạ — chặn ngay ở cửa quyền, chưa
+    # đọc tới lượt khám. Vẫn là từ chối, và ranh giới vẫn nguyên.
     khac = dataclasses.replace(kb.thu_ngan, clinic_id=str(uuid.uuid4()))
     with pytest.raises(Exception) as exc:
         await _confirm(kb, [a], [a], 0, who=khac)
-    assert "Không tìm thấy" in str(exc.value)
+    assert "Không tìm thấy" in str(exc.value) or "chưa được cấp quyền" in str(exc.value)
     assert (await _trang_thai(kb, a))[a] == ("PENDING", 1)
 
 

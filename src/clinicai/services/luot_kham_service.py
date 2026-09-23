@@ -40,6 +40,9 @@ from clinicai.api.identity import (
     mo_quyen_tam_thoi,
 )
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import SinhHieuDaDo
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
@@ -47,6 +50,11 @@ from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 logger = structlog.get_logger()
 
 ORIGIN = "api:luot-kham"
+
+#: Trần số chỉ định trả về cho bảng trưởng ca trong một lần đọc. Có trần là đúng
+#: (một ngày hỏng dữ liệu không được kéo sập màn), nhưng cắt mà không báo thì
+#: sai — xem `bi_cat` trong `chi_dinh_hom_nay`.
+_TRAN_CHI_DINH_HOM_NAY = 500
 
 BOARD_ROLES = frozenset(
     {
@@ -102,6 +110,9 @@ _CAU_CHAN_DIEU_PHOI = {
     "NO_VALID_ORDER": "Chỉ định này chưa được bác sĩ duyệt — chưa điều phối được.",
     "ORDER_NOT_DISPATCHABLE": "Chỉ định này không còn ở trạng thái điều phối được.",
     "PLAN_NOT_APPLIED": "Kế hoạch trước chưa được áp hợp lệ cho lượt khám này.",
+    # KHÔNG CÒN PHÁT từ 23/09/2026 (Tuyền chốt: sinh hiệu không chặn xếp phòng).
+    # Giữ lại để đọc được nhật ký cũ — một bản ghi kiểm toán không đọc lại được
+    # là một bản ghi vô dụng.
     "VITALS_REQUIRED": (
         "Khách chưa được đo huyết áp — đo sinh hiệu trước khi điều phối."
     ),
@@ -2140,6 +2151,18 @@ class LuotKhamService:
                 origin=ORIGIN,
                 payload={"visit_id": vid},
             )
+            # Sự kiện nghiệp vụ, CÙNG giao dịch với việc ghi sinh hiệu. Payload
+            # KHÔNG mang chỉ số: huyết áp là dữ liệu lâm sàng, còn sổ sự kiện
+            # thì không xoá được.
+            await emit_event(
+                conn,
+                ten="vitals.recorded",
+                clinic_id=identity.clinic_id,
+                aggregate_id=vid,
+                payload=SinhHieuDaDo(visit_id=vid),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
             route = await self._decide_route(conn, identity, visit)
             await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             result = {"ok": True, "visit_id": vid, "route": route}
@@ -3113,6 +3136,8 @@ class LuotKhamService:
                 cid,
                 bac_si,
             )
+        # Hàng "chờ bác sĩ quyết": cắt im lặng là một yêu cầu chờ mãi.
+        canh_bao_neu_day("bac_si.cho_quyet", len(rows), 200, clinic_id=cid)
         viec = []
         for q in rows:
             trang_thai = rules.requirement_state(self._view(q))
@@ -3189,7 +3214,20 @@ class LuotKhamService:
                AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                    = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
              ORDER BY o.created_at, o.id
-             LIMIT 500
+             LIMIT $2
+            """,
+            identity.clinic_id,
+            _TRAN_CHI_DINH_HOM_NAY,
+        )
+        # Cắt bớt mà không nói là nói dối bằng cách im lặng: trưởng ca nhìn một
+        # bảng thiếu người mà tưởng đã hết. Đếm tổng để màn hình báo được.
+        tong = await self._pool.fetchval(
+            """
+            SELECT count(*) FROM service_order o
+             WHERE o.clinic_id = $1::uuid
+               AND o.exec_status NOT IN ('draft', 'cancelled')
+               AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
             """,
             identity.clinic_id,
         )
@@ -3222,7 +3260,11 @@ class LuotKhamService:
                     "ket_qua_luc": _iso(r["ket_qua_luc"]),
                 }
                 for r in rows
-            ]
+            ],
+            "tong": int(tong or 0),
+            # True = bảng đang thiếu; màn hình phải nói ra, đừng để người dùng
+            # tự phát hiện bằng cách không tìm thấy khách của mình.
+            "bi_cat": int(tong or 0) > len(rows),
         }
 
     async def sau_khi_co_ket_qua(

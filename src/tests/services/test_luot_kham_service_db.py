@@ -32,6 +32,7 @@ from clinicai.services.luot_kham_service import (
     LuotKhamService,
     LuotKhamValidationError,
 )
+from clinicai.services.permission_service import cap_preset_mac_dinh
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -86,6 +87,8 @@ async def _nguoi(conn: asyncpg.Connection, loc: str, role: str) -> StaffIdentity
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),

@@ -883,13 +883,20 @@ function ChiDinhPanel({
     if (dsChon.length === 0 && !(laBacSi && nhap.length > 0)) return;
     setDangGui(true);
     setLoi(null);
-    const kq = laBacSi
-      ? await guiThaoTac("duyet-chi-dinh", dong.ref_id, {
-          service_codes: dsChon,
-          draft_order_ids: nhap.map((c) => c.id),
-          expected_versions: Object.fromEntries(nhap.map((c) => [c.id, c.version])),
-        })
-      : await guiThaoTac("nhap-chi-dinh", dong.ref_id, { service_codes: dsChon });
+    // Lát CD-01: một lệnh cho cả bác sĩ lẫn thư ký y khoa — chỉ định là chỉ
+    // định luôn, không có bước duyệt (Tuyền, tin số 149).
+    //
+    // Đường cũ chỉ còn dùng cho các bản NHÁP có từ trước: chúng vẫn nằm trong
+    // database và chỉ bác sĩ mới dọn được. Khi không còn bản nháp nào, đường ấy
+    // bị xoá.
+    const kq =
+      dsChon.length > 0
+        ? await guiThaoTac("chi-dinh", dong.ref_id, { service_codes: dsChon })
+        : await guiThaoTac("duyet-chi-dinh", dong.ref_id, {
+            service_codes: [],
+            draft_order_ids: nhap.map((c) => c.id),
+            expected_versions: Object.fromEntries(nhap.map((c) => [c.id, c.version])),
+          });
     setDangGui(false);
     if (!kq.ok) {
       setLoi(kq.loi);
@@ -971,7 +978,7 @@ function ChiDinhPanel({
           ) : (
             <>
               <label className="text-xs font-semibold text-ink" htmlFor="go-dich-vu">
-                {laBacSi ? "Chỉ định thêm" : "Ghi nháp chỉ định (bác sĩ duyệt)"}
+                Chỉ định thêm
               </label>
               <input
                 id="go-dich-vu"
@@ -1018,17 +1025,13 @@ function ChiDinhPanel({
                 <ClipboardPlus className="size-4" aria-hidden="true" />
                 {dangGui
                   ? "Đang ghi…"
-                  : laBacSi
-                    ? nhap.length > 0 && dsChon.length === 0
-                      ? `Duyệt ${nhap.length} chỉ định nháp`
-                      : "Duyệt chỉ định"
-                    : "Ghi nháp chỉ định"}
+                  : dsChon.length > 0
+                    ? `Xác nhận ${dsChon.length} chỉ định`
+                    : `Duyệt ${nhap.length} chỉ định nháp (bản cũ)`}
               </button>
-              {laBacSi ? (
-                <p className="mt-1 text-label text-ink-muted">
-                  Duyệt xong khách tự vào hàng chờ phòng làm dịch vụ.
-                </p>
-              ) : null}
+              <p className="mt-1 text-label text-ink-muted">
+                Xác nhận xong khách tự vào hàng chờ phòng làm dịch vụ.
+              </p>
               {loi ? (
                 <p role="alert" className="mt-2 text-xs text-danger">
                   {loi}

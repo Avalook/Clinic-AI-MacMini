@@ -497,8 +497,10 @@ async def test_9_hai_nguoi_cung_revision_mot_nguoi_thang(rb: RB) -> None:
 
 async def test_10_chi_dinh_hoac_phong_khac_phong_kham(rb: RB) -> None:
     oid = await _cd(rb)
+    # Quyền cấp theo từng phòng khám: người của phòng khám lạ bị chặn ngay ở
+    # cửa quyền, trước cả khi đọc chỉ định. Ranh giới không đổi.
     khac = dataclasses.replace(rb.truong_ca, clinic_id=str(uuid.uuid4()))
-    with pytest.raises(Exception, match="Không tìm thấy"):
+    with pytest.raises(Exception, match="Không tìm thấy|chưa được cấp quyền"):
         await _assign(rb, oid, rb.sa1, 0, who=khac)
     await _loi(_assign(rb, oid, str(uuid.uuid4()), 0), "ROOM_NOT_FOUND")
     o = await _o(rb, oid)
@@ -712,7 +714,28 @@ async def test_24_tap_phong_mot_truy_van(rb: RB) -> None:
 
 
 async def test_quyen_goi_y_va_xep(rb: RB) -> None:
+    """Xếp phòng là QUYỀN, và quyền thu được thì mất ngay.
+
+    Trước 23/09 bài này dựa vào "bác sĩ không nằm trong danh sách vai điều
+    phối". Nay preset của bác sĩ CÓ khối "Điều phối khách" (Tuyền chốt: bác sĩ
+    được xếp phòng), nên bài kiểm phải hỏi đúng câu nó muốn hỏi: **thu quyền
+    thì không xếp được nữa**, chứ không phải "vai này thì cấm".
+    """
+    from clinicai.services.permission_service import PermissionService
+
     oid = await _cd(rb)
+    # Quản lý thu khối Điều phối của bác sĩ.
+    async with rb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " SELECT $1::uuid, $2::uuid, ma, work_pack FROM capability"
+            " WHERE work_pack = 'quan_tri_quyen' ON CONFLICT DO NOTHING",
+            CLINIC,
+            rb.truong_ca.staff_id,
+        )
+    await PermissionService(rb.pool).thu_khoi(
+        staff_id=rb.bac_si.staff_id, khoi="dieu_phoi", identity=rb.truong_ca
+    )
     with pytest.raises(SafetyGateError):
         await _assign(rb, oid, rb.sa1, 0, who=rb.bac_si)
 
@@ -780,22 +803,24 @@ async def test_unassigned_co_phong_doi_tac_khong_thanh_phan_phong(rb: RB) -> Non
 
 
 # ---------------------------------------------------------------------------
-# 29. Sinh hiệu: hành vi TƯƠNG THÍCH sau seam — không phải luật đã duyệt
+# 29. Sinh hiệu KHÔNG chặn xếp phòng (Tuyền chốt 23/09/2026)
 # ---------------------------------------------------------------------------
 
 
-async def test_29_sinh_hieu_qua_seam_tuong_thich(rb: RB) -> None:
+async def test_29_chua_do_sinh_hieu_van_xep_phong_duoc(rb: RB) -> None:
+    """Khách đi thẳng làm siêu âm là chuyện thường ngày — không khoá cửa."""
     from clinicai.services import luot_kham_rules as rules
 
-    # Seam có tên, một chỗ duy nhất: hôm nay giữ hành vi cũ (OPEN — ROUTING §5).
-    assert rules.vitals_routing_block(vitals_recorded=False) == "VITALS_REQUIRED"
+    # Seam vẫn là chỗ DUY NHẤT trả lời câu hỏi này; hôm nay nó trả lời "không chặn".
+    assert rules.vitals_routing_block(vitals_recorded=False) is None
     assert rules.vitals_routing_block(vitals_recorded=True) is None
     oid = await _cd(rb)
     await rb.pool.execute(
         "UPDATE encounter_flow SET vitals_status = 'pending' WHERE visit_id = $1::uuid",
         rb.visit_id,
     )
-    await _loi(_assign(rb, oid, rb.sa1, 0), "VITALS_REQUIRED")
+    kq = await _assign(rb, oid, rb.sa1, 0)
+    assert kq["routing_status"] == "ASSIGNED"
 
 
 # ---------------------------------------------------------------------------
