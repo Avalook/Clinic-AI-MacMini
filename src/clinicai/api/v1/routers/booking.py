@@ -44,18 +44,11 @@ router = APIRouter()
 
 # Booking is intake work.
 _BOOKING_GUARD = require_role(*INTAKE_ROLES)
-# Any role that appears in the transition table may reach the action endpoint;
-# the table then decides. Cashiers never move an appointment.
-_ACTION_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.RECEPTION,
-    ClinicRole.CSKH,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
+# Bảng chuyển trạng thái trong BookingService quyết từng thao tác: vai, hoặc
+# QUYỀN với check-in / huỷ check-in / vắng mặt (CORE-B3, 23/09/2026). Cửa ngoài
+# chỉ còn "đã đăng nhập" — liệt kê vai ở đây thì người được cấp quyền check-in
+# mà không thuộc danh sách vẫn ăn 403 ở cửa ngoài.
+_ACTION_GUARD = get_current_identity
 
 
 class BookingRequest(BaseModel):

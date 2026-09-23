@@ -13,6 +13,18 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.clinical_records import ClinicalRecordSaveRequest
 from clinicai.services.clinical_record_service import ClinicalRecordService
 
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_co_bai_kiem_rieng(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cửa quyền `clinical.record.write` (CORE-B3) có bài kiểm trên Postgres thật
+    (`test_duong_kham_hoi_quyen_db.py`). Ở đây `conn` là mock đếm từng lần
+    fetchval, nên cửa quyền không được tiêu mất một lần của phép kiểm thứ tự."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_record_service.doi_quyen",
+        AsyncMock(return_value=None),
+    )
+
+
 VISIT = "10000000-0000-0000-0000-000000000001"
 CLINIC = "20000000-0000-0000-0000-000000000001"
 PATIENT = "30000000-0000-0000-0000-000000000001"

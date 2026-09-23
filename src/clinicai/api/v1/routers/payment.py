@@ -19,7 +19,12 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
@@ -72,7 +77,9 @@ class PaymentVoidRequest(BaseModel):
 @router.post("/payments")
 async def record_payment(
     body: PaymentRecordRequest,
-    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    # Cửa ngoài chỉ "đã đăng nhập": tiền dịch vụ hỏi QUYỀN, tiền thuốc hỏi vai —
+    # cả hai trong PaymentService (CORE-B3). Các lệnh khác vẫn qua _CASHIER_GUARD.
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),

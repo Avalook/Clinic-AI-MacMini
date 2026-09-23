@@ -139,6 +139,34 @@ KHOI: dict[str, KhoiCongViec] = {
             "result",
             "Xác nhận hoặc từ chối tệp kết quả đối tác gửi về",
         ),
+        # ── Đường khám (CORE-B3, 23/09/2026) — tách khối theo đúng ranh giới
+        # vai đang có, để chuyển sang quyền mà không ai được/mất việc gì:
+        # gọi-bắt đầu-khám xong là bác sĩ + thư ký; ghi bệnh án thêm bác sĩ siêu
+        # âm; HOÀN TẤT (khoá hồ sơ) và DUYỆT kết quả là quyết định chuyên môn.
+        KhoiCongViec(
+            "kham",
+            "Khám bệnh",
+            "consultation",
+            "Gọi khách vào, bắt đầu khám, khám xong chuyển bước",
+        ),
+        KhoiCongViec(
+            "ghi_benh_an",
+            "Ghi bệnh án",
+            "consultation",
+            "Ghi ghi chú khám và bệnh án",
+        ),
+        KhoiCongViec(
+            "hoan_tat_kham",
+            "Hoàn tất khám",
+            "consultation",
+            "Hoàn tất lượt khám — khoá hồ sơ; sửa sau đó phải đính chính",
+        ),
+        KhoiCongViec(
+            "duyet_ket_qua",
+            "Duyệt kết quả",
+            "result",
+            "Bác sĩ duyệt kết quả cận lâm sàng",
+        ),
         KhoiCongViec(
             "quan_tri_quyen",
             "Phân quyền",
@@ -284,6 +312,36 @@ QUYEN: dict[str, Quyen] = {
             "result",
             MucRuiRo.LAM_SANG,
         ),
+        Quyen(
+            "clinical.consult.perform",
+            "Gọi khách, bắt đầu khám, khám xong",
+            "kham",
+            "consultation",
+            MucRuiRo.LAM_SANG,
+        ),
+        Quyen(
+            "clinical.record.write",
+            "Ghi ghi chú khám và bệnh án",
+            "ghi_benh_an",
+            "consultation",
+            MucRuiRo.LAM_SANG,
+        ),
+        Quyen(
+            "clinical.consult.finalize",
+            "Hoàn tất khám (khoá hồ sơ)",
+            "hoan_tat_kham",
+            "consultation",
+            MucRuiRo.LAM_SANG,
+            chung_chi_lam_sang=True,
+        ),
+        Quyen(
+            "result.review.approve",
+            "Duyệt kết quả cận lâm sàng",
+            "duyet_ket_qua",
+            "result",
+            MucRuiRo.LAM_SANG,
+            chung_chi_lam_sang=True,
+        ),
         # Chuyển từ `staff_capability` (`ket_qua.xac_nhan`) sang đây 23/09/2026:
         # chỉ còn MỘT hệ quyền.
         Quyen(
@@ -307,8 +365,17 @@ QUYEN: dict[str, Quyen] = {
 # ── Preset theo vai — GỢI Ý, không phải trần quyền ──────────────────────────
 # Quản lý tick gì thì người đó có nấy; preset chỉ để cấp cho nhanh (#133).
 PRESET: dict[str, Sequence[str]] = {
-    "DOCTOR": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien"],
-    "TKYK": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien"],
+    "DOCTOR": [
+        "chi_dinh",
+        "dieu_phoi",
+        "ket_qua",
+        "thuc_hien",
+        "kham",
+        "ghi_benh_an",
+        "hoan_tat_kham",
+        "duyet_ket_qua",
+    ],
+    "TKYK": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien", "kham", "ghi_benh_an"],
     "RECEPTION": ["tiep_don", "chon_dich_vu", "thu_tien_dv", "dieu_phoi"],
     # ĐIỀU DƯỠNG CÓ `chi_dinh` (Tuyền chốt 23/09/2026). Trong nghiệp vụ tạo chỉ
     # định và phát sinh dịch vụ tại phòng, bác sĩ = thư ký y khoa = điều dưỡng;
@@ -327,11 +394,33 @@ PRESET: dict[str, Sequence[str]] = {
     ],
     "CASHIER": ["thu_tien_dv", "chon_dich_vu"],
     "CASHIER_DV": ["thu_tien_dv", "chon_dich_vu"],
-    "CASHIER_THUOC": ["thu_tien_dv"],
+    # Thu ngân nhà thuốc KHÔNG thu tiền dịch vụ (`allowed_kinds`: chỉ "thuoc").
+    # Preset cũ có `thu_tien_dv` là lệch — sửa 23/09 khi thu tiền dịch vụ
+    # chuyển sang quyền, kẻo vai này tự dưng thu được tiền dịch vụ.
+    "CASHIER_THUOC": [],
     "TRUONG_CA": ["dieu_phoi", "tiep_don", "chon_dich_vu", "thuc_hien"],
-    "ULTRASOUND_DOCTOR": ["dieu_phoi", "ket_qua", "thuc_hien"],
-    # Quản lý là người chỉnh cao nhất: có phân quyền và mọi khối vận hành.
-    "MANAGEMENT": list(KHOI),
+    "ULTRASOUND_DOCTOR": [
+        "dieu_phoi",
+        "ket_qua",
+        "thuc_hien",
+        "ghi_benh_an",
+        "duyet_ket_qua",
+    ],
+    # Quản lý: phân quyền + mọi khối VẬN HÀNH. Liệt kê rõ, không `list(KHOI)`:
+    # thế là tự nhận luôn các khối chuyên môn (hoàn tất khám, duyệt kết quả)
+    # mỗi khi có khối mới. Quản lý vẫn tự cấp thêm được nếu cần.
+    "MANAGEMENT": [
+        "tiep_don",
+        "sinh_hieu",
+        "chi_dinh",
+        "chon_dich_vu",
+        "thu_tien_dv",
+        "dieu_phoi",
+        "ket_qua",
+        "thuc_hien",
+        "danh_muc",
+        "quan_tri_quyen",
+    ],
 }
 
 

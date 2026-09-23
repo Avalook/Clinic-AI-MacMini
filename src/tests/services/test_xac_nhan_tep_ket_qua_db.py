@@ -109,6 +109,14 @@ async def _tao_staff(
         sid,
         role,
     )
+    # Người thật vào hệ thống được cấp quyền theo vai (CORE-B1) — thiếu dòng này
+    # thì bác sĩ không duyệt được kết quả, dù vai đúng.
+    await conn.fetch(
+        "SELECT public.cap_quyen_theo_preset($1::uuid, $2::uuid, $3)",
+        clinic_id,
+        sid,
+        role,
+    )
     if caps:
         # MỘT hệ quyền (23/09/2026): `ket_qua.xac_nhan` cũ = `result.file.confirm`
         # trong `capability_grant`, theo từng phòng khám.

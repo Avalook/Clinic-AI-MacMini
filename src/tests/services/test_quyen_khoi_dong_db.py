@@ -97,8 +97,8 @@ async def _nguoi(
         department=role,
         role=ClinicRole(role),
         clinic_id=clinic_id,
-        location_id=None,
-        location_name="",
+        location_id=str(loc),
+        location_name="Cơ sở test",
     )
 
 

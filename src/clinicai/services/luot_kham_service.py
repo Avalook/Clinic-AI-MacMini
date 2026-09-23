@@ -44,6 +44,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import SinhHieuBatDau, SinhHieuDaDo
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
@@ -1843,10 +1844,11 @@ class LuotKhamService:
                 ):
                     raise SafetyGateError("Vai của bạn không làm bước này.")
             else:
-                _require(
+                await doi_quyen(
+                    conn,
                     identity,
-                    CONSULT_ROLES,
-                    "Chỉ bác sĩ hoặc thư ký đi kèm gọi khách vào khám được.",
+                    "clinical.consult.perform",
+                    cau="Bạn chưa được cấp quyền gọi khách vào khám.",
                 )
                 await self._thu_ky_cua_bac_si(conn, identity, q["doctor_id"])
             trang_thai = await conn.fetchval(
@@ -1903,14 +1905,15 @@ class LuotKhamService:
         âm làm xong là đủ. ``ke_hoach`` = {mã chỉ định: PERFORMED|VALID_RESULT|
         FOLLOW_UP} để bác sĩ đổi từng dịch vụ (FOLLOW_UP chỉ bác sĩ).
         """
-        _require(
-            identity,
-            CONSULT_ROLES,
-            "Chỉ bác sĩ hoặc thư ký đi kèm kết thúc phiên khám được.",
-        )
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Bạn chưa được cấp quyền kết thúc phiên khám.",
+            )
             c = await conn.fetchrow(
                 "SELECT kind, visit_id::text AS visit_id FROM consultation"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
@@ -1966,7 +1969,8 @@ class LuotKhamService:
         identity: StaffIdentity,
         xac_minh_cach: str | None = None,
     ) -> dict[str, Any]:
-        _require(identity, CHECKIN_ROLES, "Chỉ lễ tân hoặc quản lý check-in được.")
+        # Quyền check-in (`reception.checkin.perform`) do BookingService hỏi
+        # trong chính giao dịch chuyển trạng thái lịch hẹn.
         from clinicai.services.booking_service import BookingService
 
         result = await BookingService(self._pool).apply_action(
@@ -1986,10 +1990,10 @@ class LuotKhamService:
     ) -> dict[str, Any]:
         """Điều dưỡng GỌI khách vào đo sinh hiệu (Tuyền 17/09/2026: *"điều
         dưỡng gọi và đo sinh hiệu"*). Gọi lại thì cập nhật giờ gọi."""
-        _require(identity, VITALS_ROLES, "Vai của bạn không gọi đo sinh hiệu được.")
         cid = identity.clinic_id
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "vitals.measure")
             await self._lock_visit(conn, cid, vid)
             flow = await self._lock_flow(conn, cid, vid)
             if flow["vitals_status"] == "recorded":
@@ -2052,10 +2056,10 @@ class LuotKhamService:
         chưa có khối Sinh hiệu). Chuyển cả hai sang `vitals.measure` là một
         bước riêng.
         """
-        _require(identity, VITALS_ROLES, "Vai của bạn không đo sinh hiệu được.")
         cid = identity.clinic_id
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "vitals.measure")
             await self._lock_visit(conn, cid, vid)
             flow = await self._lock_flow(conn, cid, vid)
             if flow["vitals_status"] == "recorded":
@@ -2190,7 +2194,6 @@ class LuotKhamService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        _require(identity, VITALS_ROLES, "Vai của bạn không ghi sinh hiệu được.")
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         vitals, loi = rules.parse_vitals(raw)
         if vitals is None:
@@ -2200,6 +2203,7 @@ class LuotKhamService:
             **{k: str(v) if v is not None else None for k, v in asdict(vitals).items()},
         }
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "vitals.measure")
             visit = await self._lock_visit(conn, identity.clinic_id, vid)
             cached = await self._receipt_get(
                 conn, identity, "vitals.record", idempotency_key, payload
@@ -2304,14 +2308,15 @@ class LuotKhamService:
     async def start_consultation(
         self, *, consultation_id: str, identity: StaffIdentity
     ) -> dict[str, Any]:
-        _require(
-            identity,
-            CONSULT_ROLES,
-            "Chỉ bác sĩ hoặc thư ký đi kèm nhận khách vào khám được.",
-        )
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Bạn chưa được cấp quyền nhận khách vào khám.",
+            )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
             c = await conn.fetchrow(
@@ -2419,9 +2424,6 @@ class LuotKhamService:
     async def save_note(
         self, *, consultation_id: str, body: str, identity: StaffIdentity
     ) -> dict[str, Any]:
-        _require(
-            identity, NOTE_ROLES, "Chỉ bác sĩ hoặc thư ký y khoa ghi chú khám được."
-        )
         text = (body or "").strip() if isinstance(body, str) else ""
         if not text:
             raise ValidationError("Ghi chú đang trống.")
@@ -2430,6 +2432,7 @@ class LuotKhamService:
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "clinical.record.write")
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
             await self._consultation_in_progress(conn, cid, con_id)
@@ -2717,11 +2720,6 @@ class LuotKhamService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        _require(
-            identity,
-            CONSULT_ROLES,
-            "Chỉ bác sĩ hoặc thư ký đi kèm kết thúc phiên khám được.",
-        )
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         plan: list[tuple[str, str]] = []
@@ -2747,11 +2745,6 @@ class LuotKhamService:
                         )
                     theo_doi_cau_hinh[oid] = item
         reqs, theo_doi = rules.tach_ke_hoach(plan)
-        if theo_doi and not identity.co_vai(DOCTOR_ROLES):
-            # Cho khách về trước khi có kết quả là quyết định chuyên môn.
-            raise SafetyGateError(
-                "Chỉ bác sĩ quyết cho khách về trước và theo dõi kết quả sau."
-            )
         payload = {
             "consultation_id": con_id,
             "outcome": outcome,
@@ -2773,6 +2766,21 @@ class LuotKhamService:
             )
             if cached is not None:
                 return cached
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.perform",
+                cau="Bạn chưa được cấp quyền kết thúc phiên khám.",
+            )
+            if theo_doi:
+                # Cho khách về trước khi có kết quả là quyết định chuyên môn —
+                # cùng quyền với Hoàn tất khám.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.consult.finalize",
+                    cau="Chỉ bác sĩ quyết cho khách về trước và theo dõi kết quả sau.",
+                )
             c = await self._consultation_in_progress(conn, cid, con_id)
             await self._thu_ky_cua_bac_si(conn, identity, c["doctor_id"])
             if not rules.outcome_allowed(c["kind"], outcome):
@@ -2886,8 +2894,10 @@ class LuotKhamService:
                             " bác sĩ miễn (ghi lý do) hoặc chuyển theo dõi trước.",
                         )
             if outcome in ("NO_SERVICES", "DONE"):
+                # HOÀN TẤT KHÁM (CORE-A, 23/09/2026): mốc khoá hồ sơ. Cần quyền
+                # `clinical.consult.finalize` VÀ là bác sĩ phụ trách phiên này.
                 if (
-                    not identity.co_vai(DOCTOR_ROLES)
+                    not await can(conn, identity, "clinical.consult.finalize")
                     or identity.staff_id != c["doctor_id"]
                 ):
                     raise SafetyGateError(
@@ -3692,9 +3702,9 @@ class LuotKhamService:
         chỉnh): tệp mới không thừa hưởng lần duyệt cũ, nên phải quay lại đây —
         nếu không nó nằm im mãi, CSKH không bao giờ thấy (smoke 18/09).
         """
-        _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            await doi_quyen(conn, identity, "result.review.approve")
             rows = await conn.fetch(
                 """
                 SELECT o.id::text AS id, o.service_name, o.node_code,
@@ -3807,13 +3817,13 @@ class LuotKhamService:
         chỗ ghi Đánh giá của bác sĩ"*. Duyệt xong thì mọi tệp của chỉ định ấy
         được phép gửi — CSKH thấy "Đã có kết quả".
         """
-        _require(identity, REVIEW_ROLES, "Chỉ bác sĩ duyệt kết quả.")
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         ghi = (danh_gia or "").strip() if isinstance(danh_gia, str) else ""
         if len(ghi) > 5000:
             raise ValidationError("Đánh giá quá dài.")
         async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "result.review.approve")
             vid = await self._visit_of(conn, "service_order", cid, oid)
             # KẾT QUẢ MUỘN về sau khi bác sĩ đã ký bệnh án (FINALIZED) hay quầy
             # đã đóng lượt vẫn phải duyệt được — đó chính là việc theo dõi.

@@ -38,6 +38,7 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services import pos_outbox
 from clinicai.services.bill_service import (
     HoaDon,
@@ -167,7 +168,14 @@ class PaymentService:
         NotFoundError (404) if the visit/appointment is missing, and
         ConflictError (409) if the doctor has not finished the exam yet.
         """
-        self._assert_kind_allowed(kind, identity)
+        if kind == "dich_vu":
+            # Tiền DỊCH VỤ hỏi QUYỀN `payment.service.collect` trong chính giao
+            # dịch thu (CORE-B3, 23/09/2026) — xem `_thu_dich_vu`. Tiền thuốc
+            # vẫn theo vai (`allowed_kinds`) — ngoài đường khám chính, ghi nợ.
+            if kind not in PAYMENT_KINDS:
+                raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
+        else:
+            self._assert_kind_allowed(kind, identity)
         if method not in PAYMENT_METHODS:
             raise ValidationError(f"Phương thức thanh toán không hợp lệ: {method!r}")
 
@@ -460,6 +468,7 @@ class PaymentService:
         async with self._pool.acquire() as conn:
             try:
                 async with conn.transaction():
+                    await doi_quyen(conn, identity, "payment.service.collect")
                     status_row = await _khoa_luot_thu(conn, visit_id, identity)
                     cached = await LuotKhamService._receipt_get(
                         conn, identity, _THU_DICH_VU, idempotency_key, payload

@@ -69,6 +69,7 @@ from clinicai.core.shifts import (
 )
 from clinicai.events.catalogue import KhachDaToi
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.slot_hold_service import release_on_booking
 
@@ -230,6 +231,10 @@ class Transition:
     event_type: str
     # confirm/decline/complete are the doctor's own calls on their own list.
     owner_only: bool = False
+    # Có mã quyền thì QUYỀN quyết (hỏi `capability_grant` trong chính giao dịch),
+    # `allowed_roles` chỉ còn để ghi nhật ký đúng vai. CORE-B3 23/09/2026:
+    # check-in là bước đầu của đường khám chính.
+    quyen: str | None = None
 
 
 _ALIVE = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"})
@@ -292,13 +297,18 @@ TRANSITIONS: dict[str, Transition] = {
     # D21: reception checks in directly from any live appointment. The doctor's
     # accept/decline is no longer a precondition for the patient being seen.
     "checkin": Transition(
-        "CHECKED_IN", _PRE_ARRIVAL, CHECKIN_ROLES, "appointment.checked_in"
+        "CHECKED_IN",
+        _PRE_ARRIVAL,
+        CHECKIN_ROLES,
+        "appointment.checked_in",
+        quyen="reception.checkin.perform",
     ),
     "undo_checkin": Transition(
         "CONFIRMED",
         frozenset({"CHECKED_IN"}),
         CHECKIN_ROLES,
         "appointment.checkin_undone",
+        quyen="reception.checkin.perform",
     ),
     # BƯỚC CŨ, GIỮ LẠI CHỈ ĐỂ DỌN LỊCH CŨ.
     #
@@ -314,7 +324,11 @@ TRANSITIONS: dict[str, Transition] = {
     ),
     "cancel": Transition("CANCELLED", _ALIVE, MANAGE_ROLES, "appointment.cancelled"),
     "no_show": Transition(
-        "NO_SHOW", _PRE_ARRIVAL, CHECKIN_ROLES, "appointment.no_show"
+        "NO_SHOW",
+        _PRE_ARRIVAL,
+        CHECKIN_ROLES,
+        "appointment.no_show",
+        quyen="reception.checkin.perform",
     ),
     # Bác sĩ từ chối thì lịch quay lại hàng chờ — và quay lại ở trạng thái CHẮC,
     # vì thoả thuận với bệnh nhân không mất đi khi một bác sĩ bận. Đổi bác sĩ là
@@ -487,10 +501,6 @@ class BookingService:
         # the slot is today — otherwise a future booking, or one phoned in
         # without a channel, would be checked in for a patient who is not here.
         auto_checkin = raw_channel.upper() == "WALK_IN" and self._is_today(slot_start)
-        if auto_checkin and not identity.co_vai(CHECKIN_ROLES):
-            # Khách trực tiếp đặt xong là check-in luôn — việc của lễ tân tại
-            # quầy (Tuyền chốt 15/09/2026). CSKH đặt trước cho ngày khác được.
-            raise SafetyGateError("Khách trực tiếp do lễ tân đặt và check-in tại quầy.")
         status = initial_status(auto_checkin)
         cach_xac_minh = cach_xac_minh_bat_buoc(xac_minh_cach) if auto_checkin else None
 
@@ -507,6 +517,16 @@ class BookingService:
                 await self._chan_dat_ngoai_khung_ca(
                     conn, slot_start=slot_start, identity=identity
                 )
+                if auto_checkin:
+                    # Khách trực tiếp đặt xong là check-in luôn — việc của lễ
+                    # tân tại quầy (Tuyền chốt 15/09/2026), nên cần đúng quyền
+                    # check-in. CSKH đặt trước cho ngày khác thì không cần.
+                    await doi_quyen(
+                        conn,
+                        identity,
+                        "reception.checkin.perform",
+                        cau="Khách trực tiếp do lễ tân đặt và check-in tại quầy.",
+                    )
 
                 warnings: list[str] = []
 
@@ -726,7 +746,7 @@ class BookingService:
             cach_xac_minh_bat_buoc(xac_minh_cach) if action == "checkin" else None
         )
 
-        if not identity.co_vai(transition.allowed_roles):
+        if transition.quyen is None and not identity.co_vai(transition.allowed_roles):
             raise SafetyGateError(
                 f"Vai trò của bạn không được phép '{action}' lịch hẹn"
             )
@@ -737,6 +757,10 @@ class BookingService:
         visit_vua_mo: str | None = None
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                if transition.quyen is not None:
+                    # Đứng vị trí Lễ tân hôm nay KHÔNG tự cấp quyền check-in:
+                    # người đó phải được cấp quyền (CORE-B3).
+                    await doi_quyen(conn, identity, transition.quyen)
                 appt = await conn.fetchrow(
                     """
                     SELECT

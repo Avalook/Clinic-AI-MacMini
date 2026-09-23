@@ -15,12 +15,7 @@ import {
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { fetchFromBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { vaiLamViec } from "../../../lib/clinic-session";
-import {
-  canReadClinical,
-  isDoctorRole,
-  isNurseRole,
-  isThuKyRole,
-} from "../../../lib/roles";
+import { canReadClinical } from "../../../lib/roles";
 
 interface ClinicalRecordRow {
   revision: number;
@@ -313,33 +308,9 @@ export async function POST(request: Request) {
   }
   const vitalsOnly = body.vitalsOnly === true;
 
-  const role = await vaiLamViec(
-    (r) =>
-      isDoctorRole(r) ||
-      isThuKyRole(r) ||
-      isNurseRole(r) ||
-      (vitalsOnly && r === "RECEPTION"),
-  );
-  // GHI LÂM SÀNG = Bác sĩ + Thư ký Y khoa (nhập hộ) ghi FULL hồ sơ; ĐIỀU DƯỠNG
-  // (vitalsOnly) chỉ ghi Sinh hiệu + lý do khám. Lễ tân/Quản lý KHÔNG ghi lâm sàng
-  // (check-in/hành chính tách riêng ở /api/appointments — vẫn canCheckin).
-  // TKYK + Điều dưỡng được NHẬP hồ sơ như bác sĩ (mở quyền 29/6); finalize vẫn gate riêng.
-  // RECEPTION chỉ được ghi sinh hiệu (vitalsOnly) lúc check-in.
-  const allowed =
-    isDoctorRole(role) ||
-    isThuKyRole(role) ||
-    isNurseRole(role) ||
-    (vitalsOnly && role === "RECEPTION");
-  if (!allowed) {
-    return NextResponse.json(
-      {
-        error: vitalsOnly
-          ? "Chỉ bác sĩ / điều dưỡng / lễ tân mới ghi sinh hiệu + lý do khám."
-          : "Chỉ bác sĩ mới ghi hồ sơ khám.",
-      },
-      { status: 403 },
-    );
-  }
+  // Ai ghi được bệnh án là QUYỀN `clinical.record.write`, backend hỏi trong
+  // chính giao dịch ghi (CORE-B3, 23/09/2026). Proxy không gác vai nữa — gác ở
+  // đây là hệ quyền thứ hai, và là luật nghiệp vụ trong TSX.
 
   const appointmentId = (body.appointmentId ?? "").trim();
   const clinicPatientId = (body.clinicPatientId ?? "").trim();

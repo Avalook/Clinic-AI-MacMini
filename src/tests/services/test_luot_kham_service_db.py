@@ -920,7 +920,10 @@ async def test_luot_kham_cua_phong_kham_khac_khong_thay(kb: KichBan) -> None:
     )
     # Bắt đầu bằng người THẬT, để lỗi chắc chắn đến từ bước lưu của người lạ.
     await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
-    with pytest.raises(NotFoundError):
+    # Người phòng khám khác không có quyền ở phòng khám này → bị chặn ngay ở cửa
+    # quyền (CORE-B3), trước cả bước tìm lượt. Không lộ gì: câu báo không nhắc
+    # tới lượt khám.
+    with pytest.raises((NotFoundError, SafetyGateError)):
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": 120, "diastolic": 80}, identity=la
         )

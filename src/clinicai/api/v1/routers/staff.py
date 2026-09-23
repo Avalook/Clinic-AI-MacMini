@@ -182,7 +182,7 @@ async def get_staff_capabilities_endpoint(
         endpoint="GET /staff/{id}/capabilities",
         identity=identity,
         thay_bang=QUYEN_O_PHAN_QUYEN,
-        staff_id=id,
+        nhan_su_id=id,
     )
 
 
@@ -196,7 +196,7 @@ async def grant_staff_capability(
         endpoint="POST /staff/{id}/capabilities",
         identity=identity,
         thay_bang=QUYEN_O_PHAN_QUYEN,
-        staff_id=id,
+        nhan_su_id=id,
     )
 
 
@@ -211,7 +211,7 @@ async def revoke_staff_capability_path(
         endpoint="DELETE /staff/{id}/capabilities/{capability}",
         identity=identity,
         thay_bang=QUYEN_O_PHAN_QUYEN,
-        staff_id=id,
+        nhan_su_id=id,
     )
 
 
@@ -226,5 +226,5 @@ async def revoke_staff_capability_query(
         endpoint="DELETE /staff/{id}/capabilities",
         identity=identity,
         thay_bang=QUYEN_O_PHAN_QUYEN,
-        staff_id=id,
+        nhan_su_id=id,
     )

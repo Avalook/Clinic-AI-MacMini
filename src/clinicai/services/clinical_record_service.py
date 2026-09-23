@@ -44,6 +44,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.clinical_prescription_service import (
     prepare_prescription_write,
@@ -121,13 +122,6 @@ VITALS_ONLY_EXTRA_ROLES: frozenset[ClinicRole] = frozenset(
 ON_BEHALF_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND}
 )  # ĐD vẫn ở đây: đo sinh hiệu cho khách của bác sĩ khác là việc bình thường.
-
-
-def may_write(role: ClinicRole, *, vitals_only: bool) -> bool:
-    """Whether this role may write in this mode."""
-    if role in FULL_RECORD_ROLES:
-        return True
-    return vitals_only and role in VITALS_ONLY_EXTRA_ROLES
 
 
 def as_obj(value: Any) -> dict[str, Any]:
@@ -259,15 +253,16 @@ class ClinicalRecordService:
             raise ValidationError(
                 "Sinh hiệu đo ở màn Đo sinh hiệu — mở menu Điều dưỡng → Đo sinh hiệu."
             )
-        if not any(may_write(v, vitals_only=vitals_only) for v in identity.cac_vai()):
-            raise SafetyGateError(
-                "Chỉ bác sĩ / điều dưỡng / lễ tân mới ghi sinh hiệu + lý do khám."
-                if vitals_only
-                else "Chỉ bác sĩ mới ghi hồ sơ khám."
-            )
-
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # QUYỀN, không vai (CORE-B3, 23/09/2026): `clinical.record.write`,
+                # hỏi trong chính giao dịch ghi.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.record.write",
+                    cau="Bạn chưa được cấp quyền ghi bệnh án.",
+                )
                 appointment = await conn.fetchrow(
                     """
                     SELECT

@@ -105,21 +105,34 @@ async def test_cua_cua_bac_si_khong_bi_noi(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
-    """Năm cửa của màn lượt khám mở theo công tắc; ba cửa lâm sàng thì không."""
+    """Ba cửa vận hành còn theo vai thì mở theo công tắc; cửa lâm sàng thì không.
+
+    Từ CORE-B3 (23/09/2026) check-in, sinh hiệu, khám, ghi chú, duyệt kết quả
+    hỏi QUYỀN trong hàm dịch vụ — cửa router chỉ còn "đã đăng nhập", và công
+    tắc mở quyền tạm thời KHÔNG nới được chúng: muốn ai làm thì quản lý cấp
+    quyền. Việc lâm sàng vì thế vẫn không bao giờ mở theo công tắc.
+    """
+    from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import luot_kham
 
-    for ten in (
-        "_BANG_GUARD",
-        "_CHECKIN_GUARD",
-        "_VITALS_GUARD",
-        "_DISPATCH_GUARD",
-        "_PERFORMER_GUARD",
-    ):
+    for ten in ("_BANG_GUARD", "_DISPATCH_GUARD", "_PERFORMER_GUARD"):
         assert isinstance(getattr(luot_kham, ten), RoleGuardCoTheMo), (
             f"{ten} phải nới được theo công tắc — Tuyền cần mọi vai thao tác được."
         )
 
-    for ten in ("_DOCTOR_GUARD", "_NOTE_GUARD", "_TKYK_GUARD"):
+    for ten in (
+        "_CHECKIN_GUARD",
+        "_VITALS_GUARD",
+        "_NOTE_GUARD",
+        "_CONSULT_GUARD",
+        "_REVIEW_GUARD",
+    ):
+        assert getattr(luot_kham, ten) is get_current_identity, (
+            f"{ten}: quyền nằm ở hàm dịch vụ;"
+            " cửa router không được là hệ quyền thứ hai."
+        )
+
+    for ten in ("_DOCTOR_GUARD", "_TKYK_GUARD"):
         cua = getattr(luot_kham, ten)
         assert not isinstance(cua, RoleGuardCoTheMo), (
             f"{ten} KHÔNG được nới: khám, ghi bệnh án và duyệt chỉ định là việc "

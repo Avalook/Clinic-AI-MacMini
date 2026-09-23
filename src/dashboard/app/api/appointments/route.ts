@@ -393,13 +393,9 @@ export async function PATCH(request: Request) {
       );
     }
   } else if (action === "no_show" || action === "checkin" || action === "undo_checkin") {
-    // Check-in là việc của lễ tân (Tuyền chốt 15/09/2026) — CSKH không.
-    if (!vaiDuoc(canCheckin)) {
-      return NextResponse.json(
-        { error: "Chỉ Lễ tân / Quản lý mới check-in hoặc đánh không đến." },
-        { status: 403 },
-      );
-    }
+    // Check-in / không đến / huỷ check-in hỏi QUYỀN `reception.checkin.perform`
+    // ở backend, trong chính giao dịch (CORE-B3, 23/09/2026). Không gác vai ở
+    // đây nữa: gác thì người được cấp quyền vẫn ăn 403 ở proxy — hai hệ quyền.
   } else if (!vaiDuoc(canWriteIntake)) {
     return NextResponse.json(
       { error: "Chỉ Lễ tân / CSKH / Quản lý mới xác nhận lịch." },

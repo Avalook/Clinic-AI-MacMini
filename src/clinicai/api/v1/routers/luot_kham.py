@@ -43,10 +43,13 @@ _BANG_GUARD = require_role_co_the_mo(
     ClinicRole.TRUONG_CA,
     ClinicRole.MANAGEMENT,
 )
-_CHECKIN_GUARD = require_role_co_the_mo(ClinicRole.RECEPTION, ClinicRole.MANAGEMENT)
-_VITALS_GUARD = require_role_co_the_mo(
-    ClinicRole.NURSE_ULTRASOUND, ClinicRole.RECEPTION, ClinicRole.DOCTOR
-)
+# ĐƯỜNG KHÁM CHÍNH HỎI QUYỀN (CORE-B3, 23/09/2026): check-in, sinh hiệu, khám,
+# ghi chú, duyệt kết quả — cửa ở router chỉ còn "đã đăng nhập"; quyền thật
+# (`capability_grant`) do hàm dịch vụ hỏi trong chính giao dịch. Để lại cửa
+# vai ở đây là còn hai hệ quyền: người được cấp quyền vẫn ăn 403 ở cửa ngoài.
+# Công tắc mở quyền tạm thời KHÔNG nới các việc này nữa — quản lý cấp quyền.
+_CHECKIN_GUARD = get_current_identity
+_VITALS_GUARD = get_current_identity
 _DISPATCH_GUARD = require_role_co_the_mo(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
 _PERFORMER_GUARD = require_role_co_the_mo(
     ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
@@ -56,11 +59,11 @@ _PERFORMER_GUARD = require_role_co_the_mo(
 # định là việc của bác sĩ — ranh giới ấy có luật hành nghề đứng sau, không
 # phải một quy ước nội bộ để nới cho tiện.
 _DOCTOR_GUARD = require_role(ClinicRole.DOCTOR)
-_NOTE_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
+_NOTE_GUARD = get_current_identity
 _TKYK_GUARD = require_role(ClinicRole.TKYK)
 #: Bắt đầu / kết thúc phiên khám: bác sĩ hoặc thư ký đi kèm (Tuyền 16/09/2026).
 #: Cũng KHÔNG mở theo công tắc — vẫn là cửa của ê-kíp bác sĩ.
-_CONSULT_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.TKYK)
+_CONSULT_GUARD = get_current_identity
 
 
 class CheckInBody(BaseModel):
@@ -235,7 +238,7 @@ class DuyetKetQuaBody(BaseModel):
 
 
 #: Duyệt kết quả là quyết định chuyên môn — không mở theo công tắc.
-_REVIEW_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
+_REVIEW_GUARD = get_current_identity
 
 
 @router.get("/luot-kham/ket-qua-cho-duyet")

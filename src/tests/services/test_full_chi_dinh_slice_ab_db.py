@@ -944,6 +944,15 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         location_id=kban.location_id,
         location_name="Cơ sở test",
     )
+    # Gắn nhãn vai CASHIER KHÔNG cho quyền thu (CORE-B3): quản lý cấp thật.
+    async with kban.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($1::uuid, $2::uuid, 'payment.service.collect', 'thu_tien_dv')"
+            " ON CONFLICT DO NOTHING",
+            CLINIC,
+            thu_ngan.staff_id,
+        )
     # Lifecycle v1 (Slice 2–3): khách CHỌN dịch vụ trước, rồi mới có hoá đơn.
     await ServiceSelectionService(kban.pool).confirm(
         visit_id=kban.visit_id,
@@ -1105,13 +1114,12 @@ async def test_partner_security_negative_suite(
     assert "patient_id" not in sig.parameters
 
     # 3. PARTNER không đọc và không ghi clinical_record:
-    from clinicai.services.clinical_record_service import (
-        ClinicalRecordService,
-        may_write,
-    )
+    # Ghi bệnh án là QUYỀN `clinical.record.write` (CORE-B3); nhóm mẫu đối tác
+    # không có khối ấy, và lệnh ghi hỏi quyền trong chính giao dịch.
+    from clinicai.permissions.catalogue import PRESET
+    from clinicai.services.clinical_record_service import ClinicalRecordService
 
-    assert not may_write(doi_tac.role, vitals_only=False)
-    assert not may_write(doi_tac.role, vitals_only=True)
+    assert "ghi_benh_an" not in PRESET.get("PARTNER", [])
     with pytest.raises(SafetyGateError):
         await ClinicalRecordService(kban.pool).save(
             appointment_id=str(uuid.uuid4()),

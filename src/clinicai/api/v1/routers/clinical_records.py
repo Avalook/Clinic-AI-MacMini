@@ -14,20 +14,15 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.services.clinical_record_service import ClinicalRecordService
 
 router = APIRouter()
 
-_RECORD_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.NURSE_ULTRASOUND,
-    # Reception reaches this only with vitals_only=true; the service enforces it.
-    ClinicRole.RECEPTION,
-)
+# Ai ghi được bệnh án là QUYỀN `clinical.record.write`, hỏi trong hàm dịch vụ
+# (CORE-B3, 23/09/2026). Cửa ngoài chỉ còn "đã đăng nhập".
+_RECORD_GUARD = get_current_identity
 
 
 class PrescriptionItem(BaseModel):

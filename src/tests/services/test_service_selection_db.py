@@ -609,6 +609,16 @@ async def test_20_duyet_chi_dinh_moi_khong_tu_xep_phong(kb: KB) -> None:
             pid,
             kb.bac_si.staff_id,
         )
+    # Sinh hiệu chỉ là bước dựng. Nhóm mẫu bác sĩ không có khối Sinh hiệu
+    # (CORE-B3: quyền, không vai) — quản lý cấp thêm cho bác sĩ này.
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($1::uuid, $2::uuid, 'vitals.measure', 'sinh_hieu')"
+            " ON CONFLICT DO NOTHING",
+            CLINIC,
+            kb.bac_si.staff_id,
+        )
     await luot.bat_dau_do_sinh_hieu(visit_id=vid, identity=kb.bac_si)
     await luot.record_vitals(
         visit_id=vid, raw={"systolic": 118, "diastolic": 76}, identity=kb.bac_si
