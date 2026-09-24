@@ -35,6 +35,15 @@ MIGRATION = (
 
 
 async def _ap_migration(pool: asyncpg.Pool) -> None:  # noqa: F811
+    # Như prod: phòng khám đã tính tiền khám bằng dòng KHAM_* (migration chỉ
+    # thêm giá khám cho phòng khám như vậy). Dòng mốc TẮT — không vào hoá đơn.
+    await pool.execute(
+        'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+        " unit_price, active) VALUES ($1::uuid, 'KHAM_MOC_KIEM',"
+        " 'Mốc kiểm giá khám (test)', 'dich_vu', 1, false)"
+        ' ON CONFLICT (clinic_id, "group", service_code) DO NOTHING',
+        CLINIC,
+    )
     await pool.execute(MIGRATION.read_text(encoding="utf-8"))
 
 
