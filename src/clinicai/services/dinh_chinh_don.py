@@ -830,9 +830,12 @@ async def _ma_kho(
     )
     if co is not None:
         return str(co)
+    # Chỉ thêm khi phòng khám có thật (bài kiểm SQL dùng mã phòng khám giả
+    # trên bảng tạm — không có thì giữ như cũ: dòng chưa gắn mã).
     moi = await conn.fetchval(
         "INSERT INTO public.drug_catalog (clinic_id, name_raw, name_base, needs_review)"
-        " VALUES ($1::uuid, $2, $2, true)"
+        " SELECT $1::uuid, $2, $2, true"
+        " WHERE EXISTS (SELECT 1 FROM public.clinic WHERE id = $1::uuid)"
         " ON CONFLICT (clinic_id, name_raw) DO UPDATE SET is_active = true"
         " RETURNING id::text",
         clinic_id,
