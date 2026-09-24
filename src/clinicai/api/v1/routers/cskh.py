@@ -48,6 +48,8 @@ _RECALL_GUARD = require_role(
     ClinicRole.CSKH,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
+    # Lễ tân có lại màn Quản lý khách hàng, đủ quyền (Tuyền 24/09/2026).
+    ClinicRole.RECEPTION,
 )
 
 # SÁU vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
@@ -64,6 +66,8 @@ _MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
+    # 24/09/2026: Tuyền "kéo nút quản lý khách hàng full quyền sang màn lễ tân".
+    ClinicRole.RECEPTION,
     ClinicRole.CASHIER,
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,

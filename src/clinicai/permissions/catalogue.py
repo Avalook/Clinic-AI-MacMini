@@ -467,6 +467,8 @@ PRESET: dict[str, Sequence[str]] = {
         "nha_thuoc",
         "xem_nha_thuoc",
         "dat_lich",
+        # Màn Quản lý khách hàng đủ quyền (Tuyền 24/09/2026): đổi / huỷ lịch.
+        "quan_ly_lich",
     ],
     # ĐIỀU DƯỠNG CÓ `chi_dinh` (Tuyền chốt 23/09/2026). Trong nghiệp vụ tạo chỉ
     # định và phát sinh dịch vụ tại phòng, bác sĩ = thư ký y khoa = điều dưỡng;

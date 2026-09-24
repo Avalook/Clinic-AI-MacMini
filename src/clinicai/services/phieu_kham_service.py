@@ -321,15 +321,22 @@ class PhieuKhamService:
                     cid,
                 )
             }
-            thuoc = {
-                r["name_raw"]: (str(r["id"]), r["unit_price"])
-                for r in await conn.fetch(
-                    "SELECT DISTINCT ON (name_raw) id, name_raw, unit_price"
-                    "  FROM drug_catalog WHERE clinic_id = $1::uuid AND is_active"
-                    " ORDER BY name_raw, created_at",
-                    cid,
-                )
-            }
+            dong_kho = await conn.fetch(
+                "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price"
+                "  FROM drug_catalog WHERE clinic_id = $1::uuid AND is_active"
+                " ORDER BY name_raw, created_at",
+                cid,
+            )
+            thuoc = {r["name_raw"]: (str(r["id"]), r["unit_price"]) for r in dong_kho}
+            # Gắn theo TÊN trùng khít khi bảng ghép viết tay thiếu (24/09/2026:
+            # "thuốc quy chuẩn về, đừng đẻ cái kiểu chưa gắn kho").
+            theo_ten: dict[str, tuple[str, Any]] = {}
+            for r in dong_kho:
+                for t in (r["name_raw"], r["name_base"]):
+                    if t:
+                        theo_ten.setdefault(
+                            " ".join(t.split()).lower(), (str(r["id"]), r["unit_price"])
+                        )
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
@@ -346,6 +353,8 @@ class PhieuKhamService:
         for m in tc["mau_thuoc"]:
             ten_kho = ax.THUOC.get(m["ma"])
             id_gia = thuoc.get(ten_kho) if ten_kho else None
+            if id_gia is None and m.get("nhan_nguon"):
+                id_gia = theo_ten.get(" ".join(str(m["nhan_nguon"]).split()).lower())
             mau.append(
                 {
                     **m,

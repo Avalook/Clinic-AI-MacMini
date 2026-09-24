@@ -25,6 +25,7 @@ _EPISODE_GUARD = require_role(
     ClinicRole.CSKH,
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
+    ClinicRole.RECEPTION,
 )
 
 

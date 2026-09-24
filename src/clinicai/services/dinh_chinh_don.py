@@ -475,7 +475,7 @@ async def ap_dung_don_da_ky(
             _chu(item.get("caution")),
         )
     for old, item in kh.sua_thuoc:
-        catalog_id = _chu(item.get("drug_catalog_id"))
+        catalog_id = await _ma_kho(conn, clinic_id=clinic_id, item=item)
         catalog_name = await _ten_thuoc_catalog(
             conn,
             clinic_id=clinic_id,
@@ -703,7 +703,7 @@ async def luu_don_chua_ky(
     for r, m in kh.sua_thuoc:
         # Mức A: nhà thuốc chưa làm gì ngoài (có thể) xác định thuốc kho — đổi
         # thuốc thì xác định lại từ đầu.
-        catalog_id = _chu(m.get("drug_catalog_id"))
+        catalog_id = await _ma_kho(conn, clinic_id=clinic_id, item=m)
         catalog_name = await _ten_thuoc_catalog(
             conn,
             clinic_id=clinic_id,
@@ -803,6 +803,47 @@ async def luu_don_chua_ky(
     }
 
 
+async def _ma_kho(
+    conn: asyncpg.Connection, *, clinic_id: str | None, item: dict[str, Any]
+) -> str | None:
+    """Mã thuốc KHO của một dòng đơn — không bao giờ để "chưa gắn kho".
+
+    Tuyền 24/09/2026: "kho thuốc chỉ tập trung 1 kho, thuốc quy chuẩn về, đừng
+    đẻ cái kiểu chưa gắn kho". Màn gửi mã thì dùng mã. Không có mã (thuốc mẫu
+    của phiếu chưa có dòng ghép, hay tên gõ tay) → tìm theo TÊN trùng khít
+    trong danh mục; vẫn không có → THÊM vào danh mục kho, đánh dấu cần soát
+    (`needs_review`) để dược sĩ nhập giá. Một kho, một danh mục.
+    """
+    ma = _chu(item.get("drug_catalog_id"))
+    if ma is not None or clinic_id is None:
+        return ma
+    ten = " ".join((_chu(item.get("drug_name")) or "").split())
+    if not ten:
+        return None
+    co = await conn.fetchval(
+        "SELECT id::text FROM public.drug_catalog WHERE clinic_id = $1::uuid"
+        " AND is_active"
+        " AND (lower(name_raw) = lower($2) OR lower(name_base) = lower($2))"
+        " ORDER BY created_at, id LIMIT 1",
+        clinic_id,
+        ten,
+    )
+    if co is not None:
+        return str(co)
+    # Chỉ thêm khi phòng khám có thật (bài kiểm SQL dùng mã phòng khám giả
+    # trên bảng tạm — không có thì giữ như cũ: dòng chưa gắn mã).
+    moi = await conn.fetchval(
+        "INSERT INTO public.drug_catalog (clinic_id, name_raw, name_base, needs_review)"
+        " SELECT $1::uuid, $2, $2, true"
+        " WHERE EXISTS (SELECT 1 FROM public.clinic WHERE id = $1::uuid)"
+        " ON CONFLICT (clinic_id, name_raw) DO UPDATE SET is_active = true"
+        " RETURNING id::text",
+        clinic_id,
+        ten,
+    )
+    return str(moi) if moi else None
+
+
 async def _ten_thuoc_catalog(
     conn: asyncpg.Connection,
     *,
@@ -840,7 +881,13 @@ async def _chen(
     lan: str | None,
     row_id: str | None = None,
 ) -> Any:
-    catalog_id = _chu(item.get("drug_catalog_id"))
+    # Dòng THAY THẾ của lần đính chính phải bắt đầu trống (trigger
+    # prescription_dinh_chinh_guard) — chỉ tự gắn thuốc kho cho dòng thường.
+    catalog_id = (
+        await _ma_kho(conn, clinic_id=clinic_id, item=item)
+        if lan is None
+        else _chu(item.get("drug_catalog_id"))
+    )
     catalog_name = await _ten_thuoc_catalog(
         conn,
         clinic_id=clinic_id,

@@ -155,7 +155,8 @@ Action = Literal[
 # is DOCTOR_DESK_ROLES, not the narrower PHYSICIAN_ROLES that gates lab orders.
 DOCTOR_ROLES: frozenset[ClinicRole] = DOCTOR_DESK_ROLES
 MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
-    {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA}
+    # Lễ tân đổi / huỷ lịch ở màn Quản lý khách hàng (24/09/2026).
+    {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA, ClinicRole.RECEPTION}
 )
 #: owner_only chỉ so staff_id với người CÓ ca của mình — tức bác sĩ thật.
 PHYSICIAN_ONLY_OWNER_CHECK: frozenset[ClinicRole] = frozenset(

@@ -60,6 +60,29 @@ def trang_thai_doi_tac(
     return "CHO_LAY_MAU"
 
 
+async def _ghi_chu_doi_tac(
+    conn: asyncpg.Connection, cid: str, oid: str, cot: str, ghi_chu: str | None
+) -> None:
+    """Ghi chú của đối tác vào dòng nhận việc (bảng của khối Đối tác)."""
+    ghi = (ghi_chu or "").strip() or None
+    if ghi is None:
+        return
+    if len(ghi) > 2000:
+        raise LuotKhamConflictError(
+            "NOTE_TOO_LONG", "Ghi chú quá dài (tối đa 2.000 ký tự)."
+        )
+    sql = {
+        "ghi_chu_lay_mau": "UPDATE doi_tac_nhan_viec SET ghi_chu_lay_mau = $3",
+        "ghi_chu_tai_lieu": "UPDATE doi_tac_nhan_viec SET ghi_chu_tai_lieu = $3",
+    }[cot]
+    await conn.execute(
+        sql + " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        cid,
+        oid,
+        ghi,
+    )
+
+
 class DoiTacService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -90,7 +113,8 @@ class DoiTacService:
                    p.clinic_patient_id::text AS clinic_patient_id,
                    v.appointment_id::text AS appointment_id,
                    o.created_at, o.finished_at, o.ket_qua_luc,
-                   o.doi_tac_cho_tai_lieu_luc
+                   o.doi_tac_cho_tai_lieu_luc,
+                   nv.ghi_chu_lay_mau, nv.ghi_chu_tai_lieu
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p
@@ -152,6 +176,8 @@ class DoiTacService:
                     "lay_mau_luc": _iso(r["finished_at"]),
                     "cho_tai_lieu_luc": _iso(r["doi_tac_cho_tai_lieu_luc"]),
                     "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                    "ghi_chu_lay_mau": r["ghi_chu_lay_mau"],
+                    "ghi_chu_tai_lieu": r["ghi_chu_tai_lieu"],
                 }
             )
         con_viec = sum(1 for r in rows if r["ket_qua_luc"] is None)
@@ -162,7 +188,7 @@ class DoiTacService:
         return {"khach": ds, "so_viec": con_viec}
 
     async def doi_tac_cho_tai_lieu(
-        self, *, order_id: str, identity: StaffIdentity
+        self, *, order_id: str, identity: StaffIdentity, ghi_chu: str | None = None
     ) -> dict[str, Any]:
         """Đối tác bấm "Chờ tài liệu": đã nhận mẫu, đang làm, sẽ gửi tài liệu.
 
@@ -193,6 +219,8 @@ class DoiTacService:
                 raise SafetyGateError(
                     "Không tìm thấy việc này trong danh sách của bạn."
                 )
+            # Ghi chú đối tác (24/09/2026) — lưu cả khi bấm lại để bổ sung.
+            await _ghi_chu_doi_tac(conn, cid, oid, "ghi_chu_tai_lieu", ghi_chu)
             if o["ket_qua_luc"] is not None or o["doi_tac_cho_tai_lieu_luc"]:
                 return {"ok": True, "already": True}
             if o["exec_status"] != "performed":
@@ -223,7 +251,7 @@ class DoiTacService:
         return {"ok": True, "already": False}
 
     async def doi_tac_da_lay_mau(
-        self, *, order_id: str, identity: StaffIdentity
+        self, *, order_id: str, identity: StaffIdentity, ghi_chu: str | None = None
     ) -> dict[str, Any]:
         """Đối tác bấm "Đã lấy mẫu" cho xét nghiệm họ tự lấy."""
         if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
@@ -252,6 +280,7 @@ class DoiTacService:
                     "Không tìm thấy việc này trong danh sách của bạn."
                 )
             await khoa_luot(conn, cid, vid)
+            await _ghi_chu_doi_tac(conn, cid, oid, "ghi_chu_lay_mau", ghi_chu)
             trang_thai = await conn.fetchval(
                 "SELECT exec_status FROM service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",

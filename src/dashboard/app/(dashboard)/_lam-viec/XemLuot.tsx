@@ -34,6 +34,8 @@ interface DichVu {
   so_tep: number;
   ly_do_khong_lam: string | null;
   ket_qua_ghi: string | null;
+  /** Ghi chú khi bấm Xong / Đã lấy mẫu — phòng, điều dưỡng, đối tác (24/09). */
+  ghi_chu?: string[];
   moc: Moc[];
 }
 interface SinhHieu {
@@ -111,6 +113,7 @@ const TRANG_THAI_DV: Record<string, string> = {
   performed: "Đã làm",
   not_performed: "Không làm được",
   cancelled: "Đã huỷ",
+  khach_khong_lam: "Khách không làm",
 };
 const THANH_TOAN: Record<string, string> = { PAID: "Đã thu", VOIDED: "Đã huỷ" };
 const THEO_DOI: Record<string, string> = {
@@ -358,11 +361,22 @@ export default function XemLuot({
             ) : null}
 
             <Muc tieuDe="Chỉ định & dịch vụ">
-              {dl.dich_vu.length === 0 ? (
+              {/* Chỉ định khách BỎ ở quầy không nằm trong danh sách việc — chỉ
+                  một dòng ghi lại cho khỏi mất dấu (24/09/2026). */}
+              {dl.dich_vu.some((d) => d.trang_thai === "khach_khong_lam") ? (
+                <p className="mb-2 text-xs text-ink-muted">
+                  Khách không làm:{" "}
+                  {dl.dich_vu
+                    .filter((d) => d.trang_thai === "khach_khong_lam")
+                    .map((d) => d.dich_vu)
+                    .join(", ")}
+                </p>
+              ) : null}
+              {dl.dich_vu.every((d) => d.trang_thai === "khach_khong_lam") ? (
                 <p className="text-xs text-ink-muted">Không có chỉ định.</p>
               ) : (
                 <ul className="grid gap-2">
-                  {dl.dich_vu.map((d) => (
+                  {dl.dich_vu.filter((d) => d.trang_thai !== "khach_khong_lam").map((d) => (
                     <li key={d.id} className="rounded-control bg-surface-muted px-3 py-2">
                       <p className="text-sm font-medium text-ink">
                         {d.dich_vu}{" "}
@@ -376,6 +390,11 @@ export default function XemLuot({
                         <p className="text-xs text-warning">Lý do không làm: {d.ly_do_khong_lam}</p>
                       ) : null}
                       {d.ket_qua_ghi ? <p className="text-xs text-ink">Kết quả: {d.ket_qua_ghi}</p> : null}
+                      {(d.ghi_chu ?? []).map((g) => (
+                        <p key={g} className="whitespace-pre-wrap text-xs text-ink-soft">
+                          Ghi chú: {g}
+                        </p>
+                      ))}
                       {d.doi_phong_duoc ? (
                         <DoiPhong
                           orderId={d.id}

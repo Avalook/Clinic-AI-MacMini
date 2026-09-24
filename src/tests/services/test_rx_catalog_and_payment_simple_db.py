@@ -345,10 +345,12 @@ async def test_6_thuoc_ngoai_danh_muc_chua_thu_duoc_khong_tinh_0d(q: Quay) -> No
             conn, clinic_id=CLINIC, visit_id=q.visit_id, kind="thuoc"
         )
         assert hd.thu_duoc is False
-        assert any("thuốc chưa có trong danh mục giá" in v for v in hd.van_de)
+        # 24/09/2026: thuốc gõ tay được THÊM vào danh mục kho (cần soát, chưa
+        # giá) thay vì "chưa gắn kho" — vẫn KHÔNG thu được, không tính 0đ.
+        assert any("chưa có giá" in v for v in hd.van_de)
 
     ps = PaymentService(q.pool)
-    with pytest.raises(ValidationError, match="thuốc chưa có trong danh mục giá"):
+    with pytest.raises(ValidationError, match="chưa có giá"):
         await ps.record_payment(
             identity=q.thu_ngan,
             visit_id=q.visit_id,

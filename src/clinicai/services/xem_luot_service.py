@@ -333,7 +333,14 @@ class XemLuotService:
                    (SELECT q.called_at FROM queue_entry q
                      WHERE q.clinic_id = o.clinic_id AND q.ref_id = o.id
                        AND q.reason = 'SERVICE'
-                     ORDER BY q.created_at DESC LIMIT 1)      AS goi_luc
+                     ORDER BY q.created_at DESC LIMIT 1)      AS goi_luc,
+                   -- Ghi chú khi bấm Xong / Đã lấy mẫu (24/09/2026).
+                   (SELECT a.ghi_chu FROM service_execution_attempt a
+                     WHERE a.clinic_id = o.clinic_id AND a.service_order_id = o.id
+                       AND a.ghi_chu IS NOT NULL
+                     ORDER BY a.attempt_no DESC LIMIT 1)      AS ghi_chu_lam,
+                   nv.ghi_chu_lay_mau AS ghi_chu_doi_tac_lay_mau,
+                   nv.ghi_chu_tai_lieu AS ghi_chu_doi_tac_tai_lieu
               FROM service_order o
               LEFT JOIN staff rb ON rb.id = o.recorded_by
               LEFT JOIN staff ab ON ab.id = o.authorized_by
@@ -344,6 +351,8 @@ class XemLuotService:
                 ON rm.id = o.room_id AND rm.clinic_id = o.clinic_id
               LEFT JOIN node_definition nd
                 ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
+              LEFT JOIN doi_tac_nhan_viec nv
+                ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
              ORDER BY o.created_at, o.id
             """,
@@ -355,7 +364,13 @@ class XemLuotService:
                 "id": r["id"],
                 "dich_vu": r["service_name"],
                 "node": r["node_code"],
-                "trang_thai": r["exec_status"],
+                # Khách đã BỎ chỉ định ở quầy (Tuyền 24/09/2026: "xoá rác đo mật
+                # độ xương chỉ định đã huỷ") — không còn là "chờ xếp phòng".
+                "trang_thai": (
+                    "khach_khong_lam"
+                    if r.get("selection_status") == "NOT_SELECTED"
+                    else r["exec_status"]
+                ),
                 "phong": r["phong"],
                 # Đổi phòng ngay trong màn xem lượt (23/09/2026) — lệnh vẫn tự
                 # kiểm quyền + cổng tiền; đây chỉ để biết có bày nút không.
@@ -371,6 +386,17 @@ class XemLuotService:
                 "ly_do_khong_lam": r["not_performed_reason"],
                 "ly_do_huy": r["cancel_reason"],
                 "ket_qua_ghi": r["result_note"] if noi_dung else None,
+                # Ghi chú vận hành (không phải kết quả lâm sàng) — ai xem lượt
+                # cũng thấy: điều dưỡng lấy mẫu, phòng, đối tác.
+                "ghi_chu": [
+                    g
+                    for g in (
+                        r.get("ghi_chu_lam"),
+                        r.get("ghi_chu_doi_tac_lay_mau"),
+                        r.get("ghi_chu_doi_tac_tai_lieu"),
+                    )
+                    if g
+                ],
                 # Dòng thời gian: BS chỉ định → trưởng ca xếp phòng → phòng gọi
                 # → bắt đầu → xong → có kết quả → bác sĩ duyệt.
                 "moc": _moc_dich_vu(r),

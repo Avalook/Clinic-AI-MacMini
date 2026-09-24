@@ -1876,6 +1876,10 @@ class LuotKhamService:
                     SELECT count(*) FROM service_order
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND exec_status IN ('authorized', 'assigned', 'in_progress')
+                       -- Khách đã BỎ ở quầy thì không còn là việc (24/09/2026:
+                       -- "Đo mật độ xương" khách không làm chặn Hoàn tất). Cùng
+                       -- luật với danh sách "còn việc" nút Hoàn tất dùng.
+                       AND selection_status IS DISTINCT FROM 'NOT_SELECTED'
                     """,
                     cid,
                     vid,
@@ -2741,6 +2745,7 @@ class LuotKhamService:
                     cid,
                     o["node_code"],
                     await co_so_cua_luot(conn, cid, visit_id=vid),
+                    tru_luot=vid,
                 )
             )
             rid = xep[0]["room_id"] if xep else None

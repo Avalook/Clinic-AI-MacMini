@@ -44,6 +44,9 @@ interface Viec {
   lay_mau_luc: string | null;
   cho_tai_lieu_luc: string | null;
   ket_qua_luc: string | null;
+  /** Ghi chú đối tác đã ghi (24/09/2026). */
+  ghi_chu_lay_mau?: string | null;
+  ghi_chu_tai_lieu?: string | null;
 }
 
 interface Khach {
@@ -110,12 +113,12 @@ async function docDanhSach(): Promise<KetQua> {
   }
 }
 
-async function bamViec(duong: string, id: string): Promise<string | null> {
+async function bamViec(duong: string, id: string, ghiChu: string): Promise<string | null> {
   try {
     const r = await fetch(duong, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chi_dinh_id: id }),
+      body: JSON.stringify({ chi_dinh_id: id, ghi_chu: ghiChu.trim() || undefined }),
     });
     if (r.ok) return null;
     const d = (await r.json().catch(() => null)) as { error?: string; message?: string } | null;
@@ -190,11 +193,11 @@ export default function BangDoiTac() {
   );
 
   const lamViec = useCallback(
-    async (duong: string, v: Viec, k: Khach, bao: string) => {
+    async (duong: string, v: Viec, k: Khach, bao: string, ghiChu = "") => {
       setDangLam(v.chi_dinh_id);
       setLoi(null);
       setXong(null);
-      const l = await bamViec(duong, v.chi_dinh_id);
+      const l = await bamViec(duong, v.chi_dinh_id, ghiChu);
       if (l) setLoi(l);
       else setXong(`${bao} — ${v.ten_dich_vu} của ${k.ten_khach}.`);
       await tai();
@@ -350,9 +353,17 @@ export default function BangDoiTac() {
                     viec={v}
                     dangLam={dangLam === v.chi_dinh_id}
                     tienDo={tienDo?.id === v.chi_dinh_id ? tienDo : null}
-                    onLayMau={() => void lamViec("/api/doi-tac/da-lay-mau", v, k, "Đã ghi lấy mẫu")}
-                    onChoTaiLieu={() =>
-                      void lamViec("/api/doi-tac/cho-tai-lieu", v, k, "Đã nhận mẫu, chuyển sang chờ tài liệu")
+                    onLayMau={(g) =>
+                      void lamViec("/api/doi-tac/da-lay-mau", v, k, "Đã ghi lấy mẫu", g)
+                    }
+                    onChoTaiLieu={(g) =>
+                      void lamViec(
+                        "/api/doi-tac/cho-tai-lieu",
+                        v,
+                        k,
+                        "Đã nhận mẫu, chuyển sang chờ tài liệu",
+                        g,
+                      )
                     }
                     onGui={(tep) => void gui(v, k, tep)}
                   />
@@ -377,11 +388,13 @@ function MotViec({
   viec: Viec;
   dangLam: boolean;
   tienDo: { pt: number; ten: string } | null;
-  onLayMau: () => void;
-  onChoTaiLieu: () => void;
+  onLayMau: (ghiChu: string) => void;
+  onChoTaiLieu: (ghiChu: string) => void;
   onGui: (tep: File) => void;
 }) {
   const oTep = useRef<HTMLInputElement>(null);
+  // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu · chờ tài liệu" (24/09/2026).
+  const [ghiChu, setGhiChu] = useState("");
   const tt = viec.trang_thai;
   const viTri = BUOC.findIndex((b) => b.ma === tt);
   const nhanTt = NHAN_TRANG_THAI[tt];
@@ -440,12 +453,39 @@ function MotViec({
         </div>
       ) : null}
 
+      {viec.ghi_chu_lay_mau || viec.ghi_chu_tai_lieu ? (
+        <div className="space-y-0.5 text-meta text-ink-soft">
+          {viec.ghi_chu_lay_mau ? (
+            <p className="whitespace-pre-wrap">Ghi chú lấy mẫu: {viec.ghi_chu_lay_mau}</p>
+          ) : null}
+          {viec.ghi_chu_tai_lieu ? (
+            <p className="whitespace-pre-wrap">Ghi chú nhận mẫu: {viec.ghi_chu_tai_lieu}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {tt === "CHO_LAY_MAU" || tt === "DA_LAY_MAU" ? (
+        <label className="block">
+          <span className="text-label font-semibold text-ink-muted">
+            Ghi chú (tuỳ chọn)
+          </span>
+          <textarea
+            value={ghiChu}
+            onChange={(e) => setGhiChu(e.target.value)}
+            rows={2}
+            maxLength={2000}
+            placeholder="VD: lấy mẫu lúc 10h, mẫu đủ; hẹn trả kết quả sau 3 ngày…"
+            className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
+          />
+        </label>
+      ) : null}
+
       <div className="flex flex-wrap justify-end gap-2">
         {tt === "CHO_LAY_MAU" ? (
           <button
             type="button"
             disabled={dangLam}
-            onClick={onLayMau}
+            onClick={() => onLayMau(ghiChu)}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             <FlaskConical className="size-4" aria-hidden="true" />
@@ -456,7 +496,7 @@ function MotViec({
           <button
             type="button"
             disabled={dangLam}
-            onClick={onChoTaiLieu}
+            onClick={() => onChoTaiLieu(ghiChu)}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             <Hourglass className="size-4" aria-hidden="true" />

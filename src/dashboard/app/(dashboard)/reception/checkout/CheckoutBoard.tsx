@@ -118,7 +118,9 @@ export default function CheckoutBoard({
   }
 
   async function close(row: CheckoutRow, khamDo = false) {
-    const needReason = khamDo || row.blockers.length > 0;
+    // Còn việc dở vẫn cho về (24/09/2026): lý do TUỲ CHỌN — không gõ thì máy
+    // chủ tự ghi kèm danh sách việc còn dở. "Khách về giữa chừng" vẫn bắt lý do.
+    const needReason = khamDo;
     if (needReason && !reason.trim()) return;
     setBusy(true);
     const res = await fetch("/api/reception/checkout", {
@@ -126,7 +128,7 @@ export default function CheckoutBoard({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         visit_id: row.visit_id,
-        override_reason: khamDo ? null : needReason ? reason.trim() : null,
+        override_reason: khamDo ? null : reason.trim() || null,
         incomplete: khamDo,
         incomplete_reason: khamDo ? reason.trim() : null,
       }),
@@ -319,7 +321,7 @@ export default function CheckoutBoard({
               <div className="rounded-card border border-line bg-surface p-4 shadow-card">
                 {chon.blockers.length > 0 && (
                   <label className="block text-xs text-ink-muted">
-                    Lý do đóng khi còn việc chưa xong (bắt buộc)
+                    Lý do đóng khi còn việc chưa xong (không bắt buộc — để trống máy tự ghi)
                     <textarea
                       rows={2}
                       value={reason}
@@ -332,9 +334,7 @@ export default function CheckoutBoard({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={
-                      busy || (chon.blockers.length > 0 && !reason.trim())
-                    }
+                    disabled={busy}
                     onClick={() => void close(chon)}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
                   >

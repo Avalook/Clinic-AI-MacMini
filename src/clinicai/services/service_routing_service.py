@@ -135,9 +135,17 @@ SELECT r.id::text AS room_id, r.code, r.sort,
               AND w.status <> 'REJECTED'
               AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
        ) AS co_nguoi_truc,
-       (SELECT count(*) FROM queue_entry q
+       -- SỐ NGƯỜI THẬT (Tuyền 24/09/2026: "số người đang chờ phải là số người
+       -- thực tế đã được chỉ định"): mỗi khách một lần, chỉ lượt check-in HÔM
+       -- NAY (lượt bỏ dở hôm trước không tính), và KHÔNG tính chính khách đang
+       -- được xếp ($4) — trước đây khách thấy mình trong "1 đang chờ".
+       (SELECT count(DISTINCT q.visit_id) FROM queue_entry q
+          JOIN visit vq ON vq.visit_id = q.visit_id AND vq.clinic_id = q.clinic_id
          WHERE q.clinic_id = r.clinic_id AND q.room_id = r.id
-           AND q.status IN ('blocked', 'waiting', 'called', 'serving'))::int AS tai
+           AND q.status IN ('blocked', 'waiting', 'called', 'serving')
+           AND (vq.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           AND ($4::uuid IS NULL OR q.visit_id <> $4::uuid))::int AS tai
   FROM clinic_room r
   JOIN clinic_room_node rn ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
  WHERE r.clinic_id = $1::uuid AND rn.node_code = $2
@@ -200,11 +208,13 @@ async def eligible_rooms(
     clinic_id: str,
     node_code: str,
     location_id: str | None = None,
+    tru_luot: str | None = None,
 ) -> list[RoomCandidate]:
     """EligibleRoomQuery — tập phòng hợp lệ của một node, một truy vấn.
 
     `location_id` = cơ sở của lượt khám; truyền vào thì chỉ lấy phòng cùng cơ
-    sở (None = không lọc — chỉ dùng cho màn cấu hình)."""
+    sở (None = không lọc — chỉ dùng cho màn cấu hình). `tru_luot` = lượt của
+    khách đang được xếp: không đếm chính họ vào số người chờ."""
     return [
         RoomCandidate(
             room_id=r["room_id"],
@@ -213,7 +223,9 @@ async def eligible_rooms(
             co_nguoi_truc=bool(r["co_nguoi_truc"]),
             tai=int(r["tai"]),
         )
-        for r in await conn.fetch(_ELIGIBLE_SQL, clinic_id, node_code, location_id)
+        for r in await conn.fetch(
+            _ELIGIBLE_SQL, clinic_id, node_code, location_id, tru_luot
+        )
     ]
 
 
@@ -478,7 +490,16 @@ class ServiceRoutingService:
                 raise _loi("ORDER_NOT_FOUND", "Không tìm thấy chỉ định này.")
             ung_vien = rank_rooms(
                 await eligible_rooms(
-                    conn, cid, str(node), await co_so_cua_luot(conn, cid, order_id=oid)
+                    conn,
+                    cid,
+                    str(node),
+                    await co_so_cua_luot(conn, cid, order_id=oid),
+                    tru_luot=await conn.fetchval(
+                        "SELECT visit_id::text FROM service_order"
+                        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                        cid,
+                        oid,
+                    ),
                 )
             )
         luc = datetime.now(timezone.utc).isoformat()
@@ -773,7 +794,9 @@ class ServiceRoutingService:
             if quyet is None or not quyet.financially_ready:
                 continue
             ung_vien = rank_rooms(
-                await eligible_rooms(conn, clinic_id, o["node_code"], co_so)
+                await eligible_rooms(
+                    conn, clinic_id, o["node_code"], co_so, tru_luot=visit_id
+                )
             )
             if not ung_vien:
                 continue
