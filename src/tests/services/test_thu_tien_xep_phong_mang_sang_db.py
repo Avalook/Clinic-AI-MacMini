@@ -22,6 +22,7 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
+from clinicai.permissions import cache
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.booking_service import BookingService
 from clinicai.services.cashier_board_service import CashierBoardService
@@ -333,12 +334,40 @@ async def test_h4_tra_tien_luc_bac_si_con_kham_roi_tu_xep_phong(
     assert so == [1, 2, 3]  # placed · routed · started
 
 
+async def _thu_khoi_dieu_phoi(pool: asyncpg.Pool, ai: StaffIdentity) -> None:  # noqa: F811
+    """Quản lý tắt khối Điều phối của một người (dòng cũ giữ, chỉ đóng lại)."""
+    await pool.execute(
+        "UPDATE capability_grant SET revoked_at = now(), revoked_by = $2::uuid,"
+        " ly_do = 'Thử: tắt khối' WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+        " AND tu_khoi = 'dieu_phoi' AND revoked_at IS NULL",
+        CLINIC,
+        ai.staff_id,
+    )
+    cache.quen(CLINIC, ai.staff_id)
+
+
+async def test_thu_ngan_mac_dinh_co_dieu_phoi_thu_xong_tu_xep_phong(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền chốt 24/09/2026: thu ngân thu như lễ tân thu — khách tự vào phòng."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    await chay_hanh_trinh(pool)
+    d = await _don(pool, order)
+    assert d["routing_status"] == "ASSIGNED"
+    assert d["assigned_by"] == ca.thu_ngan.staff_id
+
+
 async def test_nguoi_thu_khong_co_quyen_dieu_phoi_thi_de_nguyen(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    """Thu ngân (preset CASHIER) không có khối Điều phối → Hành trình không xếp
-    thay — để người có quyền xếp tay, không mượn quyền "hệ thống"."""
+    """Người thu bị quản lý tắt khối Điều phối → Hành trình không xếp thay —
+    để người có quyền xếp tay, không mượn quyền "hệ thống"."""
     ca = await _dung(pool)
+    await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     await _chon(pool, ca, visit, [order])
@@ -442,7 +471,8 @@ async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
     cu = await _check_in(pool, ca, pid, ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, cu)
     await _chon(pool, ca, cu, [order])
-    await _thu(pool, cu, ca.thu_ngan)  # thu ngân: không tự xếp
+    await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)
+    await _thu(pool, cu, ca.thu_ngan)  # người thu không có Điều phối: không tự xếp
     await chay_hanh_trinh(pool)
     await _dong_luot(pool, cu)  # khách về, chưa làm siêu âm
 

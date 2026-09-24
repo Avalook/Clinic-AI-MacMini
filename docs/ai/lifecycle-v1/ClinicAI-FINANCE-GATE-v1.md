@@ -146,7 +146,7 @@ Không thể xác định giá/owner một cách chắc chắn:
 
 Có lịch sử tiền nhưng ordinary flow không được tự suy:
 - service line bị partial refund;
-- PAID rồi VOIDED mà chưa có resolution rõ;
+- ~~PAID rồi VOIDED mà chưa có resolution rõ;~~ (bỏ 24/09/2026 — xem §16)
 - cùng service_order có nhiều financial coverage bất thường;
 - payment history tồn tại nhưng allocation không đủ chắc;
 - các invariant tài chính lịch sử mâu thuẫn.
@@ -357,7 +357,7 @@ Cycle `CANCELLED` chưa từng nhận tiền (`paid_at IS NULL`) không giữ fi
 
 Cycle đã từng nhận tiền (`paid_at IS NOT NULL`) là lịch sử tài chính thật, kể cả current status đã thành `VOIDED`.
 
-Không tự cho VOIDED quay lại DUE.
+~~Không tự cho VOIDED quay lại DUE.~~ **Sửa 24/09/2026 (Tuyền chốt):** phiếu `VOIDED` vẫn lưu nguyên để đối chiếu nhưng KHÔNG còn giữ phủ — khoản quay lại DUE theo giá hiện hành, thu lại được; bản mới nhất thắng. Phiếu đã có hoàn tiền thì không huỷ được.
 
 ---
 
@@ -492,7 +492,7 @@ SLO `<300ms P95` cho core command vẫn là mục tiêu staging, chưa phải ru
 6. Pending refund → REFUND_PENDING.
 7. Full refund completed → REFUNDED.
 8. Partial refund → FINANCIAL_REVIEW_REQUIRED.
-9. PAID→VOIDED without explicit financial resolution → FINANCIAL_REVIEW_REQUIRED.
+9. ~~PAID→VOIDED without explicit financial resolution → FINANCIAL_REVIEW_REQUIRED.~~ PAID→VOIDED → footprint lưu trữ, không phủ → theo giá hiện hành (DUE / đã bắt đầu thì EXECUTED_WITHOUT_PAYMENT).
 10. Cancelled pending cycle, never paid → DUE again.
 11. Duplicate historical coverage → FINANCIAL_REVIEW_REQUIRED.
 12. Missing price → FINANCIAL_DATA_INCOMPLETE.
@@ -544,7 +544,7 @@ ExecutionService
 ## 16. Chưa chốt
 
 - Exact external-partner payment confirmation contract.
-- Business policy for PAID→VOIDED resolution.
+- ~~Business policy for PAID→VOIDED resolution.~~ **CHỐT 24/09/2026 (Tuyền):** thu nhầm → huỷ phiếu → thu lại được; phiếu huỷ lưu để đối chiếu, dùng bản mới nhất. Áp ở `finance_gate`, `bill_service._DA_PHU`, `service_selection_service`, trigger `payment_bill_line_mot_lan_phu` (migration 20260925000001).
 - Business policy for full refund then recollect.
 - Whether fractional service refunds should be forbidden at write-time.
 - Exact DB query/CTE/index after benchmark.
@@ -559,7 +559,7 @@ AI implementing FinanceGate must not:
 - duplicate BillService price rules;
 - infer paid from `payment.status` alone;
 - infer paid from visit-level payment existence;
-- auto-rebill VOIDED/REFUNDED service;
+- auto-rebill REFUNDED service (VOIDED: được thu lại từ 24/09/2026 — §16);
 - treat external partner as free;
 - call external APIs in `can_start`;
 - loop one query per order.

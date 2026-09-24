@@ -420,6 +420,223 @@ class ClinicConfigService:
         )
         return {"ok": True, "room_id": room_id, "is_active": is_active}
 
+    async def set_room_flags(
+        self,
+        *,
+        identity: StaffIdentity,
+        room_id: str,
+        la_doi_tac: bool | None = None,
+        accepting: bool | None = None,
+    ) -> dict[str, Any]:
+        """Phòng là phòng ĐỐI TÁC hay không · phòng đang NHẬN khách hay tạm ngừng.
+
+        Trước 24/09/2026 hai cờ này chỉ đổi được bằng SQL (mô phỏng buổi khám bắt
+        được). Tạm ngừng ≠ tắt phòng: tạm ngừng chỉ thôi nhận khách MỚI (tự xếp
+        bỏ qua phòng này), khách đang chờ vẫn làm tiếp; tắt phòng mới cần hàng
+        chờ trống.
+        """
+        assert_may_configure(identity)
+        if la_doi_tac is None and accepting is None:
+            raise ValidationError("Không có gì để đổi.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            room = await conn.fetchrow(
+                "SELECT la_doi_tac, accepting FROM public.clinic_room"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                room_id,
+                identity.clinic_id,
+            )
+            if room is None:
+                raise ValidationError("Không tìm thấy phòng này.")
+            moi = {
+                "la_doi_tac": room["la_doi_tac"] if la_doi_tac is None else la_doi_tac,
+                "accepting": room["accepting"] if accepting is None else accepting,
+            }
+            await conn.execute(
+                "UPDATE public.clinic_room SET la_doi_tac = $3, accepting = $4,"
+                " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                room_id,
+                identity.clinic_id,
+                moi["la_doi_tac"],
+                moi["accepting"],
+            )
+        await self._ghi_nhat_ky(
+            identity, loai="room_flags", doi_tuong_id=room_id, payload=moi
+        )
+        return {"ok": True, "room_id": room_id, **moi}
+
+    # ── Cơ sở ─────────────────────────────────────────────────────────────
+    async def create_location(
+        self, *, identity: StaffIdentity, name: str, address: str | None = None
+    ) -> dict[str, Any]:
+        """Thêm cơ sở. Tên tự do; mã nội bộ tự sinh, không ai phải gõ."""
+        assert_may_configure(identity)
+        ten = " ".join((name or "").split())
+        if not ten or len(ten) > 120:
+            raise ValidationError("Tên cơ sở phải có, tối đa 120 ký tự.")
+        dia_chi = " ".join((address or "").split()) or None
+        loc_id = await self._pool.fetchval(
+            """
+            INSERT INTO public.clinic_location (clinic_id, code, name, address,
+                                                is_active)
+            VALUES ($1::uuid,
+                    'CS-' || upper(substr(md5(gen_random_uuid()::text), 1, 8)),
+                    $2, $3, true)
+            RETURNING id::text
+            """,
+            identity.clinic_id,
+            ten,
+            dia_chi,
+        )
+        await self._ghi_nhat_ky(
+            identity,
+            loai="location_created",
+            doi_tuong_id=str(loc_id),
+            payload={"name": ten, "address": dia_chi},
+        )
+        return {"ok": True, "location_id": str(loc_id), "name": ten}
+
+    async def update_location(
+        self,
+        *,
+        identity: StaffIdentity,
+        location_id: str,
+        name: str | None = None,
+        address: str | None = None,
+        is_active: bool | None = None,
+    ) -> dict[str, Any]:
+        """Đổi tên / địa chỉ / bật-tắt cơ sở. Tắt chứ không xoá — lịch sử khám
+        còn trỏ vào nó. Không tắt được khi cơ sở còn phòng đang bật."""
+        assert_may_configure(identity)
+        async with self._pool.acquire() as conn, conn.transaction():
+            cu = await conn.fetchrow(
+                "SELECT name, address, is_active FROM public.clinic_location"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                location_id,
+                identity.clinic_id,
+            )
+            if cu is None:
+                raise ValidationError("Không tìm thấy cơ sở này.")
+            ten = cu["name"] if name is None else " ".join(name.split())
+            if not ten or len(ten) > 120:
+                raise ValidationError("Tên cơ sở phải có, tối đa 120 ký tự.")
+            dia_chi = (
+                cu["address"]
+                if address is None
+                else (" ".join(address.split()) or None)
+            )
+            bat = bool(cu["is_active"]) if is_active is None else is_active
+            if not bat:
+                con_phong = await conn.fetchval(
+                    "SELECT count(*) FROM public.clinic_room"
+                    " WHERE clinic_id = $1::uuid AND location_id = $2::uuid"
+                    "   AND is_active",
+                    identity.clinic_id,
+                    location_id,
+                )
+                if con_phong:
+                    raise ValidationError(
+                        f"Cơ sở còn {con_phong} phòng đang bật — tắt các phòng"
+                        " trước khi tắt cơ sở."
+                    )
+            await conn.execute(
+                "UPDATE public.clinic_location SET name = $3, address = $4,"
+                " is_active = $5 WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                location_id,
+                identity.clinic_id,
+                ten,
+                dia_chi,
+                bat,
+            )
+        moi = {"name": ten, "address": dia_chi, "is_active": bat}
+        await self._ghi_nhat_ky(
+            identity, loai="location_updated", doi_tuong_id=location_id, payload=moi
+        )
+        return {"ok": True, "location_id": location_id, **moi}
+
+    # ── Loại dịch vụ khám (service_type) ─────────────────────────────────
+    async def create_service_type(
+        self,
+        *,
+        identity: StaffIdentity,
+        name: str,
+        default_duration_minutes: int | None = None,
+    ) -> dict[str, Any]:
+        """Thêm loại khám. Qua tư vấn / đi thẳng phòng chỉnh ở màn Dây nối."""
+        assert_may_configure(identity)
+        ten = " ".join((name or "").split())
+        if not ten or len(ten) > 120:
+            raise ValidationError("Tên dịch vụ phải có, tối đa 120 ký tự.")
+        st_id = await self._pool.fetchval(
+            """
+            INSERT INTO public.service_type (clinic_id, code, name,
+                                             default_duration_minutes, is_active)
+            VALUES ($1::uuid,
+                    'DV-' || upper(substr(md5(gen_random_uuid()::text), 1, 8)),
+                    $2, $3, true)
+            RETURNING id::text
+            """,
+            identity.clinic_id,
+            ten,
+            default_duration_minutes,
+        )
+        await self._ghi_nhat_ky(
+            identity,
+            loai="service_type_created",
+            doi_tuong_id=str(st_id),
+            payload={"name": ten, "default_duration_minutes": default_duration_minutes},
+        )
+        return {"ok": True, "service_type_id": str(st_id), "name": ten}
+
+    async def update_service_type(
+        self,
+        *,
+        identity: StaffIdentity,
+        service_type_id: str,
+        name: str | None = None,
+        default_duration_minutes: int | None = None,
+        is_active: bool | None = None,
+    ) -> dict[str, Any]:
+        """Đổi tên / thời lượng / bật-tắt loại khám. Tắt chứ không xoá: lịch
+        hẹn cũ vẫn trỏ vào nó; tắt rồi thì không đặt lịch MỚI được."""
+        assert_may_configure(identity)
+        async with self._pool.acquire() as conn, conn.transaction():
+            cu = await conn.fetchrow(
+                "SELECT name, default_duration_minutes, is_active"
+                "  FROM public.service_type"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                service_type_id,
+                identity.clinic_id,
+            )
+            if cu is None:
+                raise ValidationError("Không tìm thấy dịch vụ này.")
+            ten = cu["name"] if name is None else " ".join(name.split())
+            if not ten or len(ten) > 120:
+                raise ValidationError("Tên dịch vụ phải có, tối đa 120 ký tự.")
+            phut = (
+                cu["default_duration_minutes"]
+                if default_duration_minutes is None
+                else default_duration_minutes
+            )
+            bat = bool(cu["is_active"]) if is_active is None else is_active
+            await conn.execute(
+                "UPDATE public.service_type SET name = $3,"
+                " default_duration_minutes = $4, is_active = $5"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                service_type_id,
+                identity.clinic_id,
+                ten,
+                phut,
+                bat,
+            )
+        moi = {"name": ten, "default_duration_minutes": phut, "is_active": bat}
+        await self._ghi_nhat_ky(
+            identity,
+            loai="service_type_updated",
+            doi_tuong_id=service_type_id,
+            payload=moi,
+        )
+        return {"ok": True, "service_type_id": service_type_id, **moi}
+
     async def set_room_nodes(
         self, *, identity: StaffIdentity, room_id: str, node_codes: list[str]
     ) -> dict[str, Any]:

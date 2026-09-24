@@ -338,10 +338,11 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
 
 
 #: Một nguồn (tiền khám / chỉ định) đang được PHÒNG KHÁM giữ phủ: dòng phòng
-#: khám thu nằm trong lần thu đang chờ xác minh, hoặc lần thu đã TỪNG nhận tiền
-#: (kể cả nay đã huỷ phiếu / đã hoàn — không tự thu lại). Lần chờ đã huỷ mà chưa
-#: từng nhận tiền không giữ phủ. Cùng luật với chốt DB
-#: ``payment_bill_line_mot_lan_phu`` (20260922000003).
+#: khám thu nằm trong lần thu đang chờ xác minh hoặc đang PAID (kể cả đã hoàn
+#: một phần/đủ — hoàn không đổi trạng thái lần thu, không tự thu lại). Phiếu đã
+#: HUỶ (VOIDED) thì KHÔNG còn giữ phủ: Tuyền chốt 24/09/2026 "thu nhầm → huỷ →
+#: thu lại được; phiếu huỷ lưu lại để đối chiếu, dùng bản mới nhất". Cùng luật
+#: với chốt DB ``payment_bill_line_mot_lan_phu`` (20260925000001).
 _DA_PHU = """
 EXISTS (
     SELECT 1
@@ -352,7 +353,7 @@ EXISTS (
        AND bl.source_type = {loai}
        AND bl.source_id = {nguon}
        AND bl.billing_owner = 'CLINIC'
-       AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL))
+       AND c.status IN ('PENDING_VERIFICATION', 'PAID'))
 """
 
 #: Tiền dịch vụ của lượt mà KHÔNG truy được tới từng dòng: lần thu đang chờ
@@ -364,7 +365,7 @@ SELECT EXISTS (
            SELECT 1 FROM public.payment_cycle c
             WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
               AND c.kind = 'dich_vu'
-              AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
+              AND c.status IN ('PENDING_VERIFICATION', 'PAID')
               AND NOT EXISTS (
                   SELECT 1 FROM public.payment_bill_line bl
                    WHERE bl.clinic_id = c.clinic_id

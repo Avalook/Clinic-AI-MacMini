@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { phut, soatLoi, type GioMoCua, type Khung, type MaCa } from "./soat-gio-ca.ts";
+import {
+  phut,
+  soatGioMoCua,
+  soatLoi,
+  type GioMoCua,
+  type Khung,
+  type MaCa,
+} from "./soat-gio-ca.ts";
 
 const MO_CUA: GioMoCua = Object.fromEntries(
   Array.from({ length: 7 }, (_, t) => [String(t), { mo: "07:00", dong: "22:00" }]),
@@ -98,4 +105,19 @@ test("hai ô sai thì báo cả hai cùng lúc", () => {
   const loi = soatLoi(ca, MO_CUA);
   assert.ok(loi.some((x) => x.includes("Ca sáng")), loi.join(" | "));
   assert.ok(loi.some((x) => x.includes("Ca tối")), loi.join(" | "));
+});
+
+test("giờ mở cửa: đủ bảy ngày, đóng sau mở — mở sớm 05:00 là hợp lệ", () => {
+  assert.deepEqual(soatGioMoCua(MO_CUA), []);
+  const som: GioMoCua = { ...MO_CUA, "1": { mo: "05:00", dong: "22:00" } };
+  assert.deepEqual(soatGioMoCua(som), []);
+});
+
+test("giờ mở cửa: thiếu ngày, giờ rác, đóng trước mở đều bị báo", () => {
+  const { "0": _cn, ...thieuCn } = MO_CUA;
+  assert.ok(soatGioMoCua(thieuCn).some((x) => x.includes("Chủ nhật")));
+  const rac: GioMoCua = { ...MO_CUA, "2": { mo: "7h", dong: "22:00" } };
+  assert.ok(soatGioMoCua(rac).some((x) => x.includes("Thứ Ba")));
+  const nguoc: GioMoCua = { ...MO_CUA, "6": { mo: "22:00", dong: "07:00" } };
+  assert.ok(soatGioMoCua(nguoc).some((x) => x.includes("Thứ Bảy")));
 });

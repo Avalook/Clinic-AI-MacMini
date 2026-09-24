@@ -112,12 +112,13 @@ def dung(nk: NhatKyThaoTac) -> dict[str, Any]:
             if phu:
                 nk.lam("ql", "cấu hình", f"gán dịch vụ cho {ten}", lambda r=r, node=node, phu=phu: ql.goi(
                     "PUT", "/clinic-config/room-nodes", json={"room_id": r["room_id"], "node_codes": [node, *phu]}))
-    # Phòng đối tác: KHÔNG tạo được qua API (la_doi_tac chỉ SQL) → dùng phòng có sẵn.
+    # Phòng đối tác: dùng phòng có sẵn vì tài khoản đối tác local gắn với nó
+    # (cờ la_doi_tac sửa được qua PUT /clinic-config/room-flags từ 24/09/2026).
     dt_phong = sql("select id from clinic_room where la_doi_tac and clinic_id=(select clinic_id from clinic_location"
                    f" where id='{KIM_NGUU}') limit 1")
     if dt_phong:
         ket["phong"]["doitac"] = dt_phong[0][0]
-        nk.lam("ql", "cấu hình", "bật lại phòng đối tác (có sẵn — API không tạo được phòng đối tác)",
+        nk.lam("ql", "cấu hình", "bật lại phòng đối tác (có sẵn)",
                lambda: ql.goi("PUT", "/clinic-config/room-active", json={"room_id": dt_phong[0][0], "is_active": True}))
         nk.lam("ql", "cấu hình", "chuyển phòng đối tác lên Tầng 3", lambda: ql.goi(
             "PUT", "/clinic-config/room-floor", json={"room_id": dt_phong[0][0], "floor": "Tầng 3"}))

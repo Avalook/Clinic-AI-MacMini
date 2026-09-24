@@ -25,6 +25,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers import config as router_config
 from clinicai.api.v1.routers.config import (
     CaLamViecRequest,
+    GioMoCuaRequest,
     KhungCaRequest,
     doc_ca_lam_viec,
     sua_ca_lam_viec,
@@ -136,6 +137,10 @@ class _Conn:
 
     async def execute(self, sql: str, *args: object) -> None:
         self.da_ghi.append((sql, args))
+
+    @asynccontextmanager
+    async def transaction(self):  # type: ignore[no-untyped-def]
+        yield
 
 
 class _Pool:
@@ -285,3 +290,47 @@ async def test_ghi_ra_dang_nao_thi_doc_lai_dung_dang_ay() -> None:
         "đọc ra ĐÚNG giờ mặc định nghĩa là bản đọc đã bỏ qua thứ vừa ghi — "
         "phép đo này không phân biệt được nếu giờ khai trùng giờ mặc định"
     )
+
+
+def _gio(**doi: tuple[str, str]) -> dict[str, GioMoCuaRequest]:
+    cum = {str(t): ("07:00", "22:00") for t in range(7)}
+    cum.update(doi)
+    return {t: GioMoCuaRequest(mo=m, dong=d) for t, (m, d) in cum.items()}
+
+
+@pytest.mark.asyncio
+async def test_mo_ca_som_cung_luc_noi_gio_mo_cua_thi_luu_ca_hai() -> None:
+    """Tuyền 24/09/2026: muốn mở ca sáng 05:00 phải nới cửa CÙNG một lần lưu."""
+    conn = _Conn({})
+    body = _yeu_cau(SANG={"bat_dau": "05:00", "ket_thuc": "13:00"})
+    body.gio_mo_cua = {
+        t: GioMoCuaRequest(mo="05:00", dong="22:00") for t in map(str, range(7))
+    }
+    kq = await sua_ca_lam_viec(body, _ai(), _Pool(conn))
+    ghi_gio = [a for sql, a in conn.da_ghi if "'{hours}'" in sql]
+    assert len(ghi_gio) == 1
+    assert json.loads(ghi_gio[0][1])["1"] == {"open": "05:00", "close": "22:00"}
+    assert kq["gio_mo_cua"]["0"] == {"mo": "05:00", "dong": "22:00"}  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_mo_ca_som_ma_khong_noi_gio_cua_thi_tu_choi() -> None:
+    conn = _Conn({})
+    body = _yeu_cau(SANG={"bat_dau": "05:00", "ket_thuc": "13:00"})
+    with pytest.raises(ValidationError):
+        await sua_ca_lam_viec(body, _ai(), _Pool(conn))
+    assert conn.da_ghi == []
+
+
+@pytest.mark.asyncio
+async def test_gio_mo_cua_sai_hay_thieu_ngay_thi_khong_ghi_gi() -> None:
+    for gio in (
+        _gio(**{"3": ("22:00", "07:00")}),
+        {k: v for k, v in _gio().items() if k != "0"},
+    ):
+        conn = _Conn({})
+        body = _yeu_cau()
+        body.gio_mo_cua = gio
+        with pytest.raises(ValidationError):
+            await sua_ca_lam_viec(body, _ai(), _Pool(conn))
+        assert conn.da_ghi == []

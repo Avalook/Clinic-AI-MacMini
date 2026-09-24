@@ -140,15 +140,20 @@ def derive_finance_state(f: OrderFinanceFacts) -> FinanceDecision:
         return _quyet(
             f, FINANCIAL_REVIEW_REQUIRED, required=True, reason="ALLOCATION_UNKNOWN"
         )
-    if len(f.footprints) > 1:
+    # Phiếu đã HUỶ chỉ còn là bản lưu để đối chiếu — không giữ phủ; bản mới
+    # nhất thắng (Tuyền chốt 24/09/2026: thu nhầm → huỷ → thu lại được). Phiếu
+    # đã có hoàn tiền thì không huỷ được (``void_payment``), nên ở đây không có
+    # phiếu huỷ nào mang khoản hoàn.
+    song = tuple(fp for fp in f.footprints if fp.cycle_status != "VOIDED")
+    if len(song) > 1:
         return _quyet(
             f,
             FINANCIAL_REVIEW_REQUIRED,
             required=True,
             reason="MULTIPLE_SERVICE_COVERAGE",
         )
-    if f.footprints:
-        fp = f.footprints[0]
+    if song:
+        fp = song[0]
         # 3. Có khoản hoàn đang chờ.
         if fp.refund_pending_qty > 0:
             return _quyet(f, REFUND_PENDING, required=True, cycle=fp.cycle_id)
@@ -163,15 +168,8 @@ def derive_finance_state(f: OrderFinanceFacts) -> FinanceDecision:
                     cycle=fp.cycle_id,
                 )
             return _quyet(f, REFUNDED, required=True, cycle=fp.cycle_id)
-        # 6. Đã từng nhận tiền rồi huỷ phiếu — không tự quay lại DUE.
-        if fp.paid and fp.cycle_status != "PAID":
-            return _quyet(
-                f,
-                FINANCIAL_REVIEW_REQUIRED,
-                required=True,
-                reason="PAID_THEN_VOIDED",
-                cycle=fp.cycle_id,
-            )
+        # 6. (Bỏ 24/09/2026) "đã thu rồi huỷ → bắt đối soát": phiếu huỷ nay
+        #    không giữ phủ, khoản quay lại DUE theo giá hiện hành bên dưới.
         # 7. Đang chờ xác minh.
         if fp.cycle_status == PENDING_VERIFICATION:
             return _quyet(f, PENDING_VERIFICATION, required=True, cycle=fp.cycle_id)
@@ -259,7 +257,7 @@ luot_mo_ho AS (
                SELECT 1 FROM public.payment_cycle c
                 WHERE c.clinic_id = $1::uuid AND c.visit_id = v.visit_id
                   AND c.kind = 'dich_vu'
-                  AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
+                  AND c.status IN ('PENDING_VERIFICATION', 'PAID')
                   AND NOT EXISTS (
                       SELECT 1 FROM public.payment_bill_line bl
                        WHERE bl.clinic_id = c.clinic_id

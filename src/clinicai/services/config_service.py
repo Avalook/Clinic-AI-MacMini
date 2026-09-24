@@ -798,6 +798,42 @@ class RosterService:
                 week_start=mon, so_lich_cho=int(cho_xep), identity=identity
             )
 
+        # LỊCH MẤT BÁC SĨ vì công bố (Tuyền chốt 24/09/2026). Khách đặt lúc tuần
+        # chưa có lịch trực, chọn bác sĩ A; quản lý công bố tuần mà A nghỉ đúng
+        # ngày ấy → lịch vẫn giữ A nhưng A không có ca. Màn "Chờ xếp bác sĩ" đã
+        # thấy (MAT_BAC_SI), nhưng CHUÔNG chỉ báo "vượt sức chứa" — CSKH không
+        # biết phải gọi khách. Cùng luật "mất bác sĩ" với màn ấy (booking.py).
+        mat = await self._pool.fetch(
+            """
+            SELECT a.slot_start, bs.full_name AS bac_si, p.full_name AS khach
+              FROM public.appointment a
+              LEFT JOIN public.staff bs ON bs.id = a.doctor_id
+              LEFT JOIN public.patient p
+                ON p.clinic_patient_id = a.clinic_patient_id
+               AND p.clinic_id = a.clinic_id
+             WHERE a.clinic_id = $1::uuid
+               AND a.doctor_id IS NOT NULL
+               AND a.slot_start >= now()
+               AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                    'COMPLETED')
+               AND (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                     BETWEEN $2 AND $2 + 6
+               AND NOT EXISTS (
+                     SELECT 1 FROM public.work_roster w
+                      WHERE w.clinic_id = a.clinic_id
+                        AND w.staff_id = a.doctor_id
+                        AND w.work_date =
+                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
+             ORDER BY a.slot_start
+            """,
+            identity.clinic_id,
+            mon,
+        )
+        if mat:
+            await self._bao_lich_mat_bac_si(
+                week_start=mon, mat=list(mat), identity=identity
+            )
+
         # ĐỐI SOÁT LÚC CÔNG BỐ (CONTEXT v1.0). Trước khi công bố, trần không
         # chặn lịch hẹn (20260915000001), nên có thể có khung vượt trần. Giữ
         # hết lịch; liệt kê khung vượt và giao cho Trưởng ca xử lý với khách.
@@ -895,6 +931,61 @@ class RosterService:
             except Exception:  # noqa: BLE001 — xem docstring
                 logger.warning(
                     "bao_vuot_tran_that_bai",
+                    vai=vai,
+                    week_start=week_start.isoformat(),
+                    exc_info=True,
+                )
+
+    async def _bao_lich_mat_bac_si(
+        self, *, week_start: date, mat: list[Any], identity: StaffIdentity
+    ) -> None:
+        """Báo CSKH (gọi khách đổi bác sĩ/giờ) và Trưởng ca (xếp lại bác sĩ).
+
+        Nuốt lỗi cùng lý do với `_bao_truong_ca_vuot_tran`: lịch trực đã áp và
+        commit; lịch mất bác sĩ vẫn nằm ở màn Chờ xếp bác sĩ.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        dong = [
+            f"{r['slot_start'].astimezone(CLINIC_TZ):%H:%M %d/%m} "
+            f"{r['khach'] or 'khách'} (BS {r['bac_si'] or '?'} nghỉ)"
+            for r in mat[:8]
+        ]
+        them = f" và {len(mat) - 8} lịch khác" if len(mat) > 8 else ""
+        het = week_start + timedelta(days=6)
+        tieu_de = (
+            f"Tuần {week_start:%d/%m}–{het:%d/%m}: {len(mat)} lịch hẹn mất bác "
+            "sĩ sau khi công bố lịch trực"
+        )
+        ds = "; ".join(dong) + them + "."
+        for vai, noi_dung, duong_dan in (
+            (
+                ClinicRole.CSKH.value,
+                "Bác sĩ khách đã chọn không có ca ngày đó. Lịch KHÔNG bị huỷ — "
+                "gọi khách đổi bác sĩ hoặc đổi ngày: " + ds,
+                "/customers",
+            ),
+            (
+                ClinicRole.TRUONG_CA.value,
+                "Bác sĩ của các lịch này không có ca ngày đó — xếp bác sĩ khác "
+                "ở màn Chờ xếp bác sĩ; CSKH đang gọi khách: " + ds,
+                "/appointments/cho-xep-bac-si",
+            ),
+        ):
+            try:
+                await ThongBaoService(self._pool).goi(
+                    identity=identity,
+                    vai_nhan=vai,
+                    nguon="lich_mat_bac_si",
+                    nguon_id=f"{week_start.isoformat()}:{vai}",
+                    muc_do="KHAN",
+                    tieu_de=tieu_de,
+                    noi_dung=noi_dung,
+                    duong_dan=duong_dan,
+                )
+            except Exception:  # noqa: BLE001 — xem docstring
+                logger.warning(
+                    "bao_lich_mat_bac_si_that_bai",
                     vai=vai,
                     week_start=week_start.isoformat(),
                     exc_info=True,

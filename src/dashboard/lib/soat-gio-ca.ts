@@ -18,7 +18,7 @@ export const NHAN: Record<MaCa, string> = {
   CHIEU: "Ca chiều",
   TOI: "Ca tối",
 };
-const NHAN_THU: Record<string, string> = {
+export const NHAN_THU: Record<string, string> = {
   "0": "Chủ nhật",
   "1": "Thứ Hai",
   "2": "Thứ Ba",
@@ -27,6 +27,9 @@ const NHAN_THU: Record<string, string> = {
   "5": "Thứ Sáu",
   "6": "Thứ Bảy",
 };
+
+/** Thứ tự hiện trên màn: Thứ Hai → Chủ nhật (khoá "0" = Chủ nhật, như Postgres). */
+export const CAC_NGAY = ["1", "2", "3", "4", "5", "6", "0"] as const;
 
 export type Khung = { bat_dau: string; ket_thuc: string };
 export type GioMoCua = Record<string, { mo: string; dong: string }>;
@@ -110,3 +113,24 @@ export function soatLoi(ca: Record<MaCa, Khung>, gio: GioMoCua): string[] {
   return loi;
 }
 
+
+/** Giờ mở cửa từng ngày có đọc được không, đóng có sau mở không. Máy chủ vẫn chốt. */
+export function soatGioMoCua(gio: GioMoCua): string[] {
+  const loi: string[] = [];
+  for (const thu of CAC_NGAY) {
+    const g = gio[thu];
+    const ten = NHAN_THU[thu] ?? `thứ ${thu}`;
+    if (!g) {
+      loi.push(`${ten}: chưa có giờ mở cửa.`);
+      continue;
+    }
+    const lo = phut(g.mo);
+    const hi = phut(g.dong);
+    if (lo === null || hi === null) {
+      loi.push(`${ten}: giờ mở cửa phải dạng HH:MM.`);
+    } else if (hi <= lo) {
+      loi.push(`${ten}: giờ đóng cửa phải sau giờ mở.`);
+    }
+  }
+  return loi;
+}

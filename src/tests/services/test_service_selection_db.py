@@ -422,16 +422,24 @@ async def test_10_dang_cho_xac_minh_thi_khoa(kb: KB) -> None:
     assert (await _trang_thai(kb, a))[a][0] == "SELECTED"
 
 
-@pytest.mark.parametrize("status", ["PAID", "VOIDED"])
-async def test_11_da_tung_nhan_tien_thi_khoa(kb: KB, status: str) -> None:
+async def test_11_da_nhan_tien_thi_khoa(kb: KB) -> None:
     a, b = await _chi_dinh(kb), await _chi_dinh(kb)
     await _confirm(kb, [a, b], [a, b], 0)
-    await _lan_thu(kb, [a], status=status, paid=True)
+    await _lan_thu(kb, [a], status="PAID", paid=True)
     await _loi(_confirm(kb, [a, b], [b], 1), "SELECTION_FINANCIAL_LOCKED")
     # Chỉ định đã khoá không còn là chỉ định để quyết: bỏ nó khỏi danh sách
     # thì chỉ định còn lại vẫn đổi được.
     r = await _confirm(kb, [b], [], 1)
     assert r["not_selected_order_ids"] == [b]
+
+
+async def test_11b_phieu_da_huy_khong_khoa_nua(kb: KB) -> None:
+    """Tuyền chốt 24/09/2026: phiếu huỷ chỉ còn để đối chiếu — khách chọn lại được."""
+    a = await _chi_dinh(kb)
+    await _confirm(kb, [a], [a], 0)
+    await _lan_thu(kb, [a], status="VOIDED", paid=True)
+    r = await _confirm(kb, [a], [], 1)
+    assert r["changed_order_ids"] == [a]
 
 
 async def test_12_lan_cho_da_huy_chua_nhan_tien_khong_khoa(kb: KB) -> None:

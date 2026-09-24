@@ -216,3 +216,83 @@ async def test_thanh_ben_nhan_ten_phong_moi_theo_room_id(pool: asyncpg.Pool) -> 
     )
     kq = await vi_tri_hom_nay(identity=_quan_ly(), pool=pool)
     assert ma not in kq["phong"]  # type: ignore[operator]
+
+
+# ── API cấu hình thêm 24/09/2026 (mô phỏng buổi khám: chỉ sửa được bằng SQL) ──
+
+
+async def test_co_phong_doi_tac_va_tam_ngung_nhan_khach(pool: asyncpg.Pool) -> None:
+    from clinicai.services.service_routing_service import eligible_rooms
+
+    rid = await _tao(pool, f"Phòng cờ {uuid.uuid4().hex[:4]}")
+    svc = ClinicConfigService(pool)
+
+    async def duoc_xep() -> bool:
+        async with pool.acquire() as conn:
+            ds = await eligible_rooms(conn, CLINIC, "DICHVU-SIEUAM")
+        return rid in {r.room_id for r in ds}
+
+    assert await duoc_xep()
+    kq = await svc.set_room_flags(identity=_quan_ly(), room_id=rid, accepting=False)
+    assert (kq["accepting"], kq["la_doi_tac"]) == (False, False)
+    assert not await duoc_xep()  # tạm ngừng: tự xếp bỏ qua
+    await svc.set_room_flags(
+        identity=_quan_ly(), room_id=rid, accepting=True, la_doi_tac=True
+    )
+    assert not await duoc_xep()  # phòng đối tác: tự xếp không đưa khách vào
+    await svc.set_room_flags(identity=_quan_ly(), room_id=rid, la_doi_tac=False)
+    assert await duoc_xep()
+    with pytest.raises(ValidationError):
+        await svc.set_room_flags(identity=_quan_ly(), room_id=rid)
+
+
+async def test_them_sua_tat_co_so(pool: asyncpg.Pool) -> None:
+    svc = ClinicConfigService(pool)
+    kq = await svc.create_location(identity=_quan_ly(), name="  Cơ sở   Thử  ")
+    loc = kq["location_id"]
+    r = await pool.fetchrow(
+        "SELECT name, code, is_active FROM clinic_location WHERE id = $1::uuid", loc
+    )
+    assert r["name"] == "Cơ sở Thử" and r["code"].startswith("CS-") and r["is_active"]
+    await svc.update_location(
+        identity=_quan_ly(), location_id=loc, name="Cơ sở Hoa", address="12 Láng"
+    )
+    # Còn phòng đang bật thì không tắt được cơ sở.
+    await svc.create_room(
+        identity=_quan_ly(), location_id=loc, name="P1", node_code="DICHVU-SIEUAM"
+    )
+    with pytest.raises(ValidationError, match="phòng đang bật"):
+        await svc.update_location(identity=_quan_ly(), location_id=loc, is_active=False)
+    await pool.execute(
+        "UPDATE clinic_room SET is_active = false WHERE location_id = $1::uuid", loc
+    )
+    kq = await svc.update_location(
+        identity=_quan_ly(), location_id=loc, is_active=False
+    )
+    assert (kq["name"], kq["address"], kq["is_active"]) == (
+        "Cơ sở Hoa",
+        "12 Láng",
+        False,
+    )
+
+
+async def test_them_sua_tat_loai_kham(pool: asyncpg.Pool) -> None:
+    svc = ClinicConfigService(pool)
+    kq = await svc.create_service_type(
+        identity=_quan_ly(), name="Khám thử API", default_duration_minutes=20
+    )
+    st = kq["service_type_id"]
+    kq = await svc.update_service_type(
+        identity=_quan_ly(), service_type_id=st, name="Khám đổi tên", is_active=False
+    )
+    assert kq == {
+        "ok": True,
+        "service_type_id": st,
+        "name": "Khám đổi tên",
+        "default_duration_minutes": 20,
+        "is_active": False,
+    }
+    with pytest.raises(ValidationError):
+        await svc.update_service_type(
+            identity=_quan_ly(), service_type_id=str(uuid.uuid4()), name="x"
+        )

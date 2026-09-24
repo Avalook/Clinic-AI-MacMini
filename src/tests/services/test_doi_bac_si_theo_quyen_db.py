@@ -54,3 +54,21 @@ async def test_chi_nguoi_kham_va_hoan_tat_duoc_moi_nhan_khach(
     ds = {r["id"] for r in await svc.bac_si_trong_phong_kham(identity=tc)}
     assert sa.staff_id in ds
     await svc.doi(identity=tc, visit_id=vid, bac_si_moi_id=sa.staff_id, ly_do="quá tải")
+
+
+async def test_danh_sach_chia_nhom_quan_ly_rieng_khong_bi_an(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 24/09/2026: quản lý có đủ khối nên có mặt, nhưng nằm nhóm riêng."""
+    ca = await _dung(pool)
+    async with pool.acquire() as conn:
+        ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
+        tc = await _nguoi(conn, ca.loc, "TRUONG_CA")
+    ds = await DoiBacSiService(pool).bac_si_trong_phong_kham(identity=tc)
+    nhom = {r["id"]: r["nhom"] for r in ds}
+    assert nhom[ql.staff_id] == "QUAN_LY"
+    assert nhom[ca.bac_si.staff_id] in ("TRUC_HOM_NAY", "BAC_SI_KHAC")
+    thu_tu = [r["nhom"] for r in ds]
+    assert thu_tu == sorted(
+        thu_tu, key=["TRUC_HOM_NAY", "BAC_SI_KHAC", "QUAN_LY"].index
+    )

@@ -483,8 +483,11 @@ PRESET: dict[str, Sequence[str]] = {
         "ket_qua",
         "thuc_hien",
     ],
-    "CASHIER": ["thu_tien_dv", "chon_dich_vu", "thu_tien_thuoc"],
-    "CASHIER_DV": ["thu_tien_dv", "chon_dich_vu"],
+    # Thu ngân có `dieu_phoi` (Tuyền chốt 24/09/2026): thu tiền xong khách tự
+    # được xếp phòng như khi lễ tân thu (dây H4 hỏi quyền người thu) — thu ngân
+    # là một nút của quầy lễ tân, quyền đi theo khối, không theo tên vai.
+    "CASHIER": ["thu_tien_dv", "chon_dich_vu", "dieu_phoi", "thu_tien_thuoc"],
+    "CASHIER_DV": ["thu_tien_dv", "chon_dich_vu", "dieu_phoi"],
     # Thu ngân nhà thuốc KHÔNG thu tiền dịch vụ (`allowed_kinds`: chỉ "thuoc").
     # Preset cũ có `thu_tien_dv` là lệch — sửa 23/09 khi thu tiền dịch vụ
     # chuyển sang quyền, kẻo vai này tự dưng thu được tiền dịch vụ.

@@ -13,6 +13,35 @@ lịch sử hội thoại.
 
 ---
 
+## Tuyền chốt 6 câu hỏi sau buổi khám giả lập (24/09 sáng — CHƯA deploy)
+
+1. **Thu nhầm → huỷ phiếu → THU LẠI được** (FINANCE-GATE §16 hết "Chưa chốt"). Phiếu
+   VOIDED lưu nguyên để đối chiếu, KHÔNG giữ phủ nữa, bản mới nhất thắng. Sửa đồng bộ 4
+   chỗ: trigger `payment_bill_line_mot_lan_phu` (migration **20260925000001**),
+   `bill_service._DA_PHU` + cờ tiền cũ, `finance_gate` (bỏ `PAID_THEN_VOIDED`),
+   `service_selection_service` (phiếu huỷ không khoá lựa chọn). Chốt mới: phiếu DỊCH VỤ
+   đã có hoàn tiền thì KHÔNG huỷ được (kẻo trả tiền hai lần); tiền thuốc giữ luật R7.
+   Đã bắt đầu làm rồi mới huỷ phiếu → vẫn đi đối soát (EXECUTED_WITHOUT_PAYMENT).
+2. **Thu ngân có khối Điều phối** (migration **20260925000002** + PRESET CASHIER /
+   CASHIER_DV) → thu ngân thu xong khách tự vào phòng như lễ tân thu. Người bị quản lý tắt
+   khối thì vẫn không tự xếp.
+3. **Danh sách "đổi sang bác sĩ" chia nhóm**: Đang trực hôm nay · Bác sĩ khác · Quản lý
+   (có quyền khám). Không ẩn ai — người nhận vẫn do QUYỀN. ⚠ Tôi hiểu "tách thành các
+   khối nhỏ" = chia nhóm hiển thị; Tuyền soát.
+4. **Khách quen** — Tuyền xác nhận đúng 3 loại (lịch tái khám · đặt từ lượt trước · từng
+   được chính BS ấy khám xong).
+5. **Giờ mở cửa sửa được** ở `/settings/booking-policy`, lưu CÙNG giờ ca một giao dịch.
+6. **Chuông "lịch mất bác sĩ"** khi công bố lịch trực (nguồn `lich_mat_bac_si`): CSKH gọi
+   khách, Trưởng ca xếp lại.
+7. **API cấu hình mới** (chưa có màn): `PUT /clinic-config/room-flags` (phòng đối tác /
+   tạm ngừng nhận khách) · `POST /clinic-config/locations` + `PUT /clinic-config/location`
+   · `POST /clinic-config/service-types` + `PUT /clinic-config/service-type`. **Việc tiếp:**
+   thêm nút ở `/settings/clinic-config` cho các API này (tự làm ở batch sau).
+
+Deploy: thêm migration 20260925000001→02 (sau 20260924000001→15) + restart worker.
+
+---
+
 ## Buổi khám giả lập 3 tầng — 9 lỗ hổng đã sửa (24/09 rạng sáng — CHƯA deploy)
 
 Tuyền: "coi như một buổi khám thật, nhiều CSKH đặt cùng lúc, tìm lỗ hổng chứ không đi

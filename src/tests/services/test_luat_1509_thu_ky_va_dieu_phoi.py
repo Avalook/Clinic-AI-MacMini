@@ -227,7 +227,7 @@ async def test_doi_bac_si_thanh_cong_doi_ca_bon_cho() -> None:
     ds = await DoiBacSiService(p).bac_si_trong_phong_kham(
         identity=who(ClinicRole.TRUONG_CA)
     )
-    assert ds == [{"id": BS2, "full_name": "BS Hai"}]
+    assert ds == [{"id": BS2, "full_name": "BS Hai", "nhom": "BAC_SI_KHAC"}]
 
 
 # ── thu_tu_kham_service ───────────────────────────────────────────────────

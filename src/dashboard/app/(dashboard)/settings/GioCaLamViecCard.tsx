@@ -1,6 +1,10 @@
 "use client";
 
-// Giờ ba ca làm việc — quản lý tự sửa.
+// Giờ mở cửa + giờ ba ca làm việc — quản lý tự sửa.
+//
+// GIỜ MỞ CỬA LƯU CÙNG GIỜ CA (Tuyền 24/09/2026). Ca bị kẹp trong giờ mở cửa,
+// nên muốn mở ca sáng từ 05:00 phải nới cửa CÙNG LÚC — lưu riêng thì lần nào
+// cũng vướng lần kia. Trước đó giờ mở cửa không có màn nào sửa, chỉ migration.
 //
 // VÌ SAO Ở CÀI ĐẶT CHỨ KHÔNG Ở LỊCH LÀM VIỆC. Màn Lịch làm việc xếp AI trực ca
 // nào; đây định nghĩa CA LÀ GÌ. Hai việc khác nhau, và cái sau là cấu hình của
@@ -23,7 +27,10 @@ import { Clock, TriangleAlert } from "lucide-react";
 
 import {
   CAC_CA,
+  CAC_NGAY,
   NHAN,
+  NHAN_THU,
+  soatGioMoCua,
   soatLoi,
   type Khung,
   type GioMoCua,
@@ -77,7 +84,26 @@ export default function GioCaLamViecCard() {
     };
   }, []);
 
-  const loi = useMemo(() => (ca ? soatLoi(ca, gio) : []), [ca, gio]);
+  const loi = useMemo(
+    () => (ca ? [...soatGioMoCua(gio), ...soatLoi(ca, gio)] : []),
+    [ca, gio],
+  );
+
+  function suaGio(thu: string, o: "mo" | "dong", v: string) {
+    setXong(false);
+    setLoiLuu(null);
+    setGio((cu) => ({
+      ...cu,
+      [thu]: { mo: cu[thu]?.mo ?? "", dong: cu[thu]?.dong ?? "", [o]: v },
+    }));
+  }
+
+  function chepThuHai() {
+    const mau = gio["1"];
+    if (!mau) return;
+    setXong(false);
+    setGio(Object.fromEntries(CAC_NGAY.map((t) => [t, { ...mau }])));
+  }
 
   function sua(ma: MaCa, o: keyof Khung, v: string) {
     setXong(false);
@@ -94,7 +120,7 @@ export default function GioCaLamViecCard() {
       const res = await fetch("/api/ca-lam-viec", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ca_lam_viec: ca }),
+        body: JSON.stringify({ ca_lam_viec: ca, gio_mo_cua: gio }),
       });
       if (!res.ok) {
         const d = (await res.json().catch(() => null)) as {
@@ -120,11 +146,12 @@ export default function GioCaLamViecCard() {
     <section className="space-y-4 rounded-card border border-line bg-surface p-4 shadow-card">
       <header className="space-y-1">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <Clock size={16} /> Giờ ca làm việc
+          <Clock size={16} /> Giờ mở cửa &amp; giờ ca làm việc
         </h2>
         <p className="text-xs text-ink-muted">
-          Một ngày chia làm ba ca. Phòng khám chỉ nhận đặt lịch trong các khung
-          này — ngoài ca thì lưới không mời, và máy chủ từ chối.
+          Một ngày chia làm ba ca, và ca phải nằm trong giờ mở cửa. Phòng khám
+          chỉ nhận đặt lịch trong các khung này — ngoài ca thì lưới không mời,
+          và máy chủ từ chối. Hai phần lưu cùng một lần.
         </p>
       </header>
 
@@ -138,6 +165,41 @@ export default function GioCaLamViecCard() {
       {ca && (
         <>
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold text-ink-soft">Giờ mở cửa</h3>
+              <button
+                type="button"
+                onClick={chepThuHai}
+                disabled={!gio["1"]}
+                className="rounded-control border border-line px-2 py-1 text-xs text-ink-soft disabled:opacity-50"
+              >
+                Chép giờ Thứ Hai cho cả tuần
+              </button>
+            </div>
+            {CAC_NGAY.map((thu) => (
+              <div key={thu} className="flex items-center gap-3">
+                <span className="w-20 text-sm text-ink-soft">{NHAN_THU[thu]}</span>
+                <input
+                  className={O}
+                  value={gio[thu]?.mo ?? ""}
+                  onChange={(e) => suaGio(thu, "mo", e.target.value)}
+                  placeholder="07:00"
+                  aria-label={`${NHAN_THU[thu]} mở cửa`}
+                />
+                <span className="text-ink-faint">→</span>
+                <input
+                  className={O}
+                  value={gio[thu]?.dong ?? ""}
+                  onChange={(e) => suaGio(thu, "dong", e.target.value)}
+                  placeholder="22:00"
+                  aria-label={`${NHAN_THU[thu]} đóng cửa`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-ink-soft">Giờ ca</h3>
             {CAC_CA.map((ma) => (
               <div key={ma} className="flex items-center gap-3">
                 <span className="w-20 text-sm text-ink-soft">{NHAN[ma]}</span>
@@ -189,7 +251,7 @@ export default function GioCaLamViecCard() {
             disabled={dangLuu || loi.length > 0}
             className="rounded-control bg-brand px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {dangLuu ? "Đang lưu…" : "Lưu giờ ca"}
+            {dangLuu ? "Đang lưu…" : "Lưu giờ mở cửa & giờ ca"}
           </button>
         </>
       )}

@@ -1026,6 +1026,21 @@ class PaymentService:
                     raise ConflictError(
                         "Lần thu này chưa phải phiếu đã thu — không huỷ phiếu được."
                     )
+                # Phiếu DỊCH VỤ huỷ không còn giữ phủ (thu lại được — 24/09/2026),
+                # nên phiếu đã có khoản hoàn (đang chờ hoặc đã xong) không được
+                # huỷ: huỷ thêm nữa là trả tiền khách hai lần. Tiền thuốc giữ
+                # luật CP5 R7 riêng (đã hoàn vẫn huỷ được).
+                if kind == "dich_vu" and await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM payment_refund"
+                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+                    " AND status IN ('PENDING', 'COMPLETED'))",
+                    identity.clinic_id,
+                    payment_cycle_id,
+                ):
+                    raise ConflictError(
+                        "Phiếu này đã có khoản hoàn tiền — không huỷ phiếu được. "
+                        "Xử lý tiếp theo đường hoàn tiền."
+                    )
                 if kind == "dich_vu":
                     payment = await _huy_hinh_chieu_dich_vu(
                         conn,

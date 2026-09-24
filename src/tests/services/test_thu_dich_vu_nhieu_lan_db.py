@@ -445,7 +445,8 @@ async def test_xac_minh_van_bat_doi_soat_khi_chinh_nguon_da_chup_doi_gia(
 # ---------------------------------------------------------------------------
 
 
-async def test_huy_phieu_thi_can_doi_soat_khong_tu_no_lai(q: Quay) -> None:
+async def test_huy_phieu_roi_thu_lai_duoc_phieu_huy_luu_doi_chieu(q: Quay) -> None:
+    """Tuyền chốt 24/09/2026: thu nhầm → huỷ → thu lại; bản mới nhất thắng."""
     sa = await _cd(q, "SA")
     c1 = (await _thu(q))["payment_cycle_id"]
     await PaymentService(q.pool).void_payment(
@@ -456,9 +457,34 @@ async def test_huy_phieu_thi_can_doi_soat_khong_tu_no_lai(q: Quay) -> None:
         identity=q.thu_ngan,
     )
     g = (await _gate(q, sa))[sa]
-    assert g.finance_state == "FINANCIAL_REVIEW_REQUIRED"
-    assert g.reason_code == "PAID_THEN_VOIDED" and g.needs_human_review
-    assert (await _hd(q)).dong == []  # khám và SA không tự "nợ" lại
+    assert g.finance_state == "DUE" and not g.needs_human_review
+    assert (await _hd(q)).tong > 0  # khám + SA quay lại hoá đơn phải thu
+    c2 = (await _thu(q))["payment_cycle_id"]
+    assert c2 != c1
+    g = (await _gate(q, sa))[sa]
+    assert (g.finance_state, g.coverage_cycle_id) == ("PAID", c2)
+    # Phiếu huỷ vẫn nằm nguyên trong sổ để đối chiếu.
+    assert (
+        await q.pool.fetchval(
+            "SELECT status FROM payment_cycle WHERE payment_cycle_id = $1::uuid", c1
+        )
+        == "VOIDED"
+    )
+
+
+async def test_phieu_da_co_hoan_tien_thi_khong_huy_duoc(q: Quay) -> None:
+    ql = await _quan_ly(q)
+    sa = await _cd(q, "SA")
+    c1 = (await _thu(q))["payment_cycle_id"]
+    await _hoan(q, ql, c1, await _dong_sa(q, c1, sa), 1, "CASH")
+    with pytest.raises(ConflictError, match="hoàn tiền"):
+        await PaymentService(q.pool).void_payment(
+            payment_cycle_id=c1,
+            visit_id=q.visit_id,
+            kind="dich_vu",
+            reason="Muốn huỷ sau khi hoàn",
+            identity=ql,
+        )
 
 
 async def test_huy_lan_cu_giu_nghia_lan_paid_khac_va_dung_lai_hinh_chieu(
@@ -489,7 +515,7 @@ async def test_huy_lan_cu_giu_nghia_lan_paid_khac_va_dung_lai_hinh_chieu(
     assert await proj() == (c2, "PAID")
     g = await _gate(q, sa, xn)
     assert g[xn].finance_state == "PAID"
-    assert g[sa].finance_state == "FINANCIAL_REVIEW_REQUIRED"
+    assert g[sa].finance_state == "DUE"  # phiếu huỷ → thu lại được (24/09/2026)
     # Huỷ lần đang được trỏ khi không còn lần PAID nào khác → VOIDED.
     await svc.void_payment(
         payment_cycle_id=c2,

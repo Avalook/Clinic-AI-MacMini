@@ -407,6 +407,18 @@ function DetailPanel({
   );
 }
 
+type BacSiNhan = {
+  id: string;
+  full_name: string;
+  nhom?: "TRUC_HOM_NAY" | "BAC_SI_KHAC" | "QUAN_LY";
+};
+
+const NHOM_BAC_SI: [NonNullable<BacSiNhan["nhom"]>, string][] = [
+  ["TRUC_HOM_NAY", "Đang trực hôm nay"],
+  ["BAC_SI_KHAC", "Bác sĩ khác"],
+  ["QUAN_LY", "Quản lý (có quyền khám)"],
+];
+
 /** Bác sĩ chính nghỉ giữa chừng → chuyển lượt cho bác sĩ khác (Tuyền chốt
  *  15/09/2026). Dùng chung ô "Lý do điều phối" phía trên — backend bắt buộc. */
 function DoiBacSi({
@@ -418,9 +430,7 @@ function DoiBacSi({
   reason: string;
   onAct: ActFn;
 }) {
-  const [bacSi, setBacSi] = useState<{ id: string; full_name: string }[] | null>(
-    null,
-  );
+  const [bacSi, setBacSi] = useState<BacSiNhan[] | null>(null);
   const [chon, setChon] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -428,7 +438,7 @@ function DoiBacSi({
     if (bacSi !== null) return;
     const res = await fetch("/api/dispatch-read?what=bac-si", { cache: "no-store" });
     const json = (await res.json().catch(() => ({}))) as {
-      items?: { id: string; full_name: string }[];
+      items?: BacSiNhan[];
     };
     setBacSi(json.items ?? []);
   }
@@ -446,13 +456,24 @@ function DoiBacSi({
           style={{ flex: 1 }}
         >
           <option value="">-- Chọn bác sĩ nhận --</option>
-          {(bacSi ?? []).map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.full_name}
-            </option>
-          ))}
+          {/* Chia nhóm (Tuyền 24/09/2026): quản lý có đủ khối nên có mặt,
+              nhưng nằm nhóm riêng cho khỏi lẫn với bác sĩ đang trực. */}
+          {NHOM_BAC_SI.map(([nhom, nhan]) => {
+            const ds = (bacSi ?? []).filter((b) => (b.nhom ?? "BAC_SI_KHAC") === nhom);
+            if (ds.length === 0) return null;
+            return (
+              <optgroup key={nhom} label={nhan}>
+                {ds.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.full_name}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
         <button
+          type="button"
           className="btn btn-primary"
           disabled={busy || !chon || !reason.trim()}
           onClick={async () => {

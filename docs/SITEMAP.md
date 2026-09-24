@@ -86,7 +86,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái |
 |---|---|---|---|
-| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ | Có link "Hành trình khách hôm nay →" sang `/hanh-trinh`. 24/09: khối "Bác sĩ chỉ định gì" (`truong-ca/ChiDinhCuaBacSi.tsx`) đổi phòng chỉ định đời mới bằng khối chung `_lam-viec/DoiPhong.tsx` (`xep-phong-v1`, cùng luật Bàn khám / Xem lượt); chỉ định đời cũ vẫn ô chọn phòng cũ (`xep-phong` → `/orders/{id}/dispatch`). |
+| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ | 24/09: ô "Chuyển bác sĩ" chia nhóm (Đang trực hôm nay · Bác sĩ khác · Quản lý có quyền khám) — `/api/dispatch-read?what=bac-si` → `/api/v1/dispatch/bac-si` trả `nhom`. Có link "Hành trình khách hôm nay →" sang `/hanh-trinh`. 24/09: khối "Bác sĩ chỉ định gì" (`truong-ca/ChiDinhCuaBacSi.tsx`) đổi phòng chỉ định đời mới bằng khối chung `_lam-viec/DoiPhong.tsx` (`xep-phong-v1`, cùng luật Bàn khám / Xem lượt); chỉ định đời cũ vẫn ô chọn phòng cũ (`xep-phong` → `/orders/{id}/dispatch`). |
 | `/truong-ca/hang-doi` | trưởng ca, QL | Hàng đợi theo trạm | GIỮ |
 | `/truong-ca/lich-su` | trưởng ca, QL | Lịch sử điều phối | GIỮ |
 | `/truong-ca/tv` | trưởng ca, QL | TV phòng chờ | GIỮ |
@@ -102,7 +102,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/audit-log` | CSKH, QL | Lịch sử thao tác | GIỮ | |
 | `/nhan-su` | QL | Quản lý nhân sự | GIỮ | **Không quản quyền** (23/09): ô "Được xác nhận tệp kết quả" (hệ `staff_capability` cũ) đã gỡ; nút `[Mở Phân quyền cho người này]` → `/phan-quyen?nguoi=<id>`. `/api/staff/{id}/capabilities` trả 410. |
 | `/settings` | QL | Cài đặt | GIỮ | |
-| `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | |
+| `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | 24/09: card "Giờ mở cửa & giờ ca làm việc" (`settings/GioCaLamViecCard.tsx`) sửa được GIỜ MỞ CỬA từng ngày + [Chép giờ Thứ Hai cho cả tuần]; lưu cùng giờ ca một lần → `/api/ca-lam-viec` PATCH `{ca_lam_viec, gio_mo_cua}` → `/api/v1/ca-lam-viec`. |
 | `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | 23/09 (CORE-C): phòng là tài nguyên, định danh `room_id`. `[+ Thêm phòng]` (tên tự do + làm việc gì + tầng; mã nội bộ tự sinh, không hiện) · sửa tên tại chỗ · `[Tắt phòng]/[Bật phòng]` (chặn khi còn khách chờ) · dải cảnh báo bước chưa có phòng (`CONFIG_MISSING`). |
 | `/settings/day-noi` | QL (+ ai có quyền `config.wiring.manage`) | Dây nối nghiệp vụ | MỚI 24/09 (nhóm 5) | Khối chỉnh dây: bật/tắt tự xếp phòng (H4), báo CSKH khi khách về còn việc (H6), số ngày kết quả đối tác quá hạn (H7), số phút nhắc check-out (H8); loại khám qua tư vấn / đi thẳng phòng; ai nhận chuông; vị trí trực (thêm, đổi tên, gắn phòng, tắt). `settings/day-noi/DayNoiBoard.tsx` → `/api/day-noi` → `/api/v1/day-noi*`. |
 | `/settings/tai-khoan` | QL | Thiết lập tài khoản cho nhân viên | GIỮ | |

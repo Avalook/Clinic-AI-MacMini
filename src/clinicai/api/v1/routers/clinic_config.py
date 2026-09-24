@@ -170,6 +170,111 @@ async def set_room_active(
     )
 
 
+class RoomFlagsRequest(BaseModel):
+    room_id: UUID
+    #: Phòng của đối tác (xét nghiệm ngoài…) — tự xếp không đưa khách vào.
+    la_doi_tac: bool | None = None
+    #: false = tạm ngừng nhận khách MỚI (khách đang chờ vẫn làm tiếp).
+    accepting: bool | None = None
+
+
+@router.put("/clinic-config/room-flags")
+async def set_room_flags(
+    body: RoomFlagsRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phòng đối tác hay không · đang nhận khách hay tạm ngừng."""
+    return await ClinicConfigService(pool).set_room_flags(
+        identity=identity,
+        room_id=str(body.room_id),
+        la_doi_tac=body.la_doi_tac,
+        accepting=body.accepting,
+    )
+
+
+class LocationCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    address: str | None = Field(default=None, max_length=300)
+
+
+@router.post("/clinic-config/locations")
+async def create_location(
+    body: LocationCreateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm cơ sở. Mã nội bộ tự sinh."""
+    return await ClinicConfigService(pool).create_location(
+        identity=identity, name=body.name, address=body.address
+    )
+
+
+class LocationUpdateRequest(BaseModel):
+    location_id: UUID
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    address: str | None = Field(default=None, max_length=300)
+    is_active: bool | None = None
+
+
+@router.put("/clinic-config/location")
+async def update_location(
+    body: LocationUpdateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi tên / địa chỉ / bật-tắt cơ sở (tắt chứ không xoá)."""
+    return await ClinicConfigService(pool).update_location(
+        identity=identity,
+        location_id=str(body.location_id),
+        name=body.name,
+        address=body.address,
+        is_active=body.is_active,
+    )
+
+
+class ServiceTypeCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    default_duration_minutes: int | None = Field(default=None, ge=5, le=480)
+
+
+@router.post("/clinic-config/service-types")
+async def create_service_type(
+    body: ServiceTypeCreateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm loại khám. Qua tư vấn / đi thẳng phòng chỉnh ở màn Dây nối."""
+    return await ClinicConfigService(pool).create_service_type(
+        identity=identity,
+        name=body.name,
+        default_duration_minutes=body.default_duration_minutes,
+    )
+
+
+class ServiceTypeUpdateRequest(BaseModel):
+    service_type_id: UUID
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    default_duration_minutes: int | None = Field(default=None, ge=5, le=480)
+    is_active: bool | None = None
+
+
+@router.put("/clinic-config/service-type")
+async def update_service_type(
+    body: ServiceTypeUpdateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi tên / thời lượng / bật-tắt loại khám (tắt chứ không xoá)."""
+    return await ClinicConfigService(pool).update_service_type(
+        identity=identity,
+        service_type_id=str(body.service_type_id),
+        name=body.name,
+        default_duration_minutes=body.default_duration_minutes,
+        is_active=body.is_active,
+    )
+
+
 class NodesRequest(BaseModel):
     #: Danh sách ĐẦY ĐỦ, không phải phần thêm. Rỗng = không phục vụ bước nào.
     node_codes: list[str] = Field(default_factory=list)

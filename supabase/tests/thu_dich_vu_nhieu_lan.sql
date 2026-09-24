@@ -98,6 +98,7 @@ DECLARE
     c_huy uuid := gen_random_uuid();
     c_a   uuid := gen_random_uuid();
     c_b   uuid := gen_random_uuid();
+    c_c   uuid := gen_random_uuid();
 BEGIN
     -- Lần chờ đã huỷ, CHƯA từng nhận tiền: không giữ phủ.
     INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,
@@ -147,18 +148,29 @@ BEGIN
         RAISE EXCEPTION 'thu lại tiền khám lẽ ra bị chặn';
     EXCEPTION WHEN unique_violation THEN NULL;
     END;
-    -- Kể cả khi A đã huỷ phiếu (từng nhận tiền), vẫn không phủ lại được.
+    -- A đã HUỶ phiếu (thu nhầm) → B phủ lại ĐƯỢC (Tuyền chốt 24/09/2026,
+    -- migration 20260925000001): phiếu huỷ chỉ còn để đối chiếu.
     UPDATE public.payment_cycle
        SET status = 'VOIDED', closed_at = now(), closed_by = v_staff,
            close_reason = 'Huỷ để kiểm thử'
      WHERE payment_cycle_id = c_a;
+    INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id, visit_id,
+        kind, source_type, source_id, name_snapshot, quantity, unit_price,
+        line_total, billing_owner)
+    VALUES (v_clinic, c_b, v_visit, 'dich_vu', 'service_order', v_nguon, 'SA',
+            1, 1000, 1000, 'CLINIC');
+    -- Nhưng B đang PAID thì lần thu thứ ba vẫn KHÔNG phủ trùng được.
+    INSERT INTO public.payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,
+        amount, bill_revision, method, status, created_by, paid_at, confirmed_by)
+    VALUES (c_c, v_clinic, v_visit, 'dich_vu', 1000, 'r', 'CASH', 'PAID', v_staff,
+            now(), v_staff);
     BEGIN
         INSERT INTO public.payment_bill_line (clinic_id, payment_cycle_id, visit_id,
             kind, source_type, source_id, name_snapshot, quantity, unit_price,
             line_total, billing_owner)
-        VALUES (v_clinic, c_b, v_visit, 'dich_vu', 'service_order', v_nguon, 'SA',
+        VALUES (v_clinic, c_c, v_visit, 'dich_vu', 'service_order', v_nguon, 'SA',
                 1, 1000, 1000, 'CLINIC');
-        RAISE EXCEPTION 'phủ lại sau huỷ phiếu lẽ ra bị chặn';
+        RAISE EXCEPTION 'phủ trùng lần PAID mới lẽ ra bị chặn';
     EXCEPTION WHEN unique_violation THEN NULL;
     END;
     -- Dòng đối tác tự thu không phải phủ của phòng khám.

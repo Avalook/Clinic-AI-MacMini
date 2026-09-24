@@ -254,9 +254,9 @@ SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
               -- Ảnh chụp hoá đơn lưu cả dòng đối tác tự thu (không cộng vào tổng
               -- tiền phòng khám) — lần thu của phòng khám không khoá dịch vụ đó.
               AND bl.billing_owner = 'CLINIC'
-              -- Đang chờ xác minh, hoặc ĐÃ TỪNG nhận tiền (kể cả nay VOIDED).
-              -- Lần chờ đã huỷ mà chưa từng nhận tiền thì không khoá.
-              AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
+              -- Đang chờ xác minh hoặc đang PAID. Phiếu đã huỷ không khoá nữa
+              -- (Tuyền 24/09/2026: huỷ rồi thu lại / chọn lại được).
+              AND c.status IN ('PENDING_VERIFICATION', 'PAID')
        ) AS financially_committed
   FROM service_order o
  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
@@ -286,7 +286,7 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
               AND bl.source_type = 'service_order'
               AND bl.source_id = o.id::text
               AND bl.billing_owner = 'CLINIC'
-              AND (c.status = 'PENDING_VERIFICATION' OR c.paid_at IS NOT NULL)
+              AND c.status IN ('PENDING_VERIFICATION', 'PAID')
        ) AS financially_committed,
        coalesce(s.revision, 0) AS revision
   FROM service_order o

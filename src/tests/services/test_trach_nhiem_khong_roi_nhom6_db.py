@@ -35,6 +35,7 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _dung,
     _kham_va_chi_dinh,
     _thu,
+    _thu_khoi_dieu_phoi,
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -55,7 +56,8 @@ async def test_thu_ngan_da_thu_ma_chua_co_phong_bang_noi_thang(
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     await _chon(pool, ca, visit, [order])
-    await _thu(pool, visit, ca.thu_ngan)  # thu ngân không có quyền điều phối
+    await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)
+    await _thu(pool, visit, ca.thu_ngan)  # người thu đã bị tắt khối Điều phối
     await chay_hanh_trinh(pool)
     b = await BangHanhTrinhService(pool).hom_nay(identity=ca.le_tan)
     [luot] = [x for x in b["luot"] if x["visit_id"] == visit]

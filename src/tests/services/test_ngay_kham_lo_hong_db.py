@@ -372,3 +372,47 @@ async def test_truong_ca_duoc_bao_khong_phong_nao_o_co_so_nay_lam_duoc(
     kq = await BangLuotKham(pool).chi_dinh_hom_nay(identity=truong_ca)
     dong = next(d for d in kq["chi_dinh"] if d["id"] == don)
     assert dong["khong_co_phong"] is True
+
+
+async def test_cong_bo_lich_truc_bac_si_nghi_thi_chuong_cskh_va_truong_ca(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền chốt 24/09/2026: lịch mất bác sĩ sau công bố phải có chuông riêng."""
+    from clinicai.services.config_service import RosterService
+
+    ca = await _dung(pool)
+    hom_nay = dt.datetime.now(CLINIC_TZ).date()
+    tuan = 30 + uuid.uuid4().int % 400
+    thu2 = hom_nay + dt.timedelta(days=7 * tuan - hom_nay.weekday())
+    thu5 = thu2 + dt.timedelta(days=3)
+    await pool.execute(
+        "INSERT INTO work_roster (clinic_id, work_date, week_start, shift, station,"
+        " staff_id, staff_name, status) VALUES ($1::uuid, $2, $2, 'FULL',"
+        " 'LICH_KHAM', $3::uuid, 'BS thử', 'APPROVED')",
+        CLINIC,
+        thu2,
+        ca.bac_si.staff_id,
+    )
+    bd = dt.datetime.combine(thu5, dt.time(9, 0), tzinfo=CLINIC_TZ)
+    await pool.execute(
+        "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+        " service_type_id, slot_start, slot_end, doctor_id, status)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid,"
+        " 'CONFIRMED')",
+        CLINIC,
+        await _benh_nhan(pool, ca),
+        ca.loc,
+        ca.loai_kham,
+        bd,
+        bd + dt.timedelta(minutes=15),
+        ca.bac_si.staff_id,
+    )
+    await RosterService(pool).apply_week(week_start=thu2, identity=ca.le_tan)
+    chuong = await pool.fetch(
+        "SELECT vai_nhan, tieu_de FROM thong_bao WHERE clinic_id = $1::uuid"
+        " AND nguon = 'lich_mat_bac_si' AND nguon_id LIKE $2",
+        CLINIC,
+        f"{thu2.isoformat()}:%",
+    )
+    assert {r["vai_nhan"] for r in chuong} == {"CSKH", "TRUONG_CA"}
+    assert all("1 lịch hẹn mất bác sĩ" in r["tieu_de"] for r in chuong)

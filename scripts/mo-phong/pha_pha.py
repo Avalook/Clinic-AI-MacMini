@@ -230,6 +230,52 @@ def chay(nk: NhatKyThaoTac, nhan_su: dict[str, str]) -> dict[str, Any]:
             ket["P8_truong_ca_thay"] = {x: dong.get(x) for x in ("nhom", "khong_co_phong")}
             nk.lam("he-thong", "P8", "trưởng ca/QL được báo 'không có phòng làm được'",
                    lambda: dong.get("khong_co_phong") or (_ for _ in ()).throw(AssertionError(str(dong)[:300])), khach="P8")
+    # P11 — thu nhầm → huỷ phiếu → THU LẠI được (Tuyền chốt 24/09/2026)
+    print("\n▶ P11 — thu tiền dịch vụ, huỷ phiếu vì thu nhầm, rồi thu lại", flush=True)
+    k = _khach_moi(nk, "P11", "bs.a", 710)
+    if k.vid:
+        pk.do_sinh_hieu(nk, k)
+        pk.tu_van(nk, k)
+        if pk.bs_chinh_kham(nk, k, [pk.SA]):
+            pk.le_tan_thu(nk, k)
+            c1 = sql(f"select payment_cycle_id from payment_cycle where visit_id='{k.vid}'"
+                     " and kind='dich_vu' and status='PAID' limit 1")
+            if c1:
+                nk.lam("letan", "P11", "huỷ phiếu vừa thu (thu nhầm)", lambda: b.ai("letan").goi(
+                    "DELETE", "/payments", json={"payment_cycle_id": c1[0][0], "visit_id": k.vid,
+                                                 "kind": "dich_vu", "reason": "Thu nhầm, thu lại"}), khach="P11")
+                nk.lam("letan", "P11", "thu lại sau khi huỷ phiếu", lambda: b.thu(k.vid, "dich_vu", "letan"),
+                       khach="P11")
+                so = sql(f"select status, count(*) from payment_cycle where visit_id='{k.vid}'"
+                         " and kind='dich_vu' group by 1 order by 1")
+                ket["P11"] = so
+                nk.lam("he-thong", "P11", "sổ còn đủ phiếu huỷ (đối chiếu) + phiếu mới PAID",
+                       lambda: dict((a, int(n)) for a, n in so) == {"PAID": 1, "VOIDED": 1}
+                       or (_ for _ in ()).throw(AssertionError(str(so))), khach="P11")
+
+    # P12 — THU NGÂN thu thì khách cũng tự được xếp phòng (Tuyền 24/09/2026)
+    print("\n▶ P12 — thu ngân (không phải lễ tân) thu tiền → khách tự vào phòng", flush=True)
+    k = _khach_moi(nk, "P12", "bs.a", 720)
+    if k.vid:
+        pk.do_sinh_hieu(nk, k)
+        pk.tu_van(nk, k)
+        if pk.bs_chinh_kham(nk, k, [pk.SA]) and k.chi_dinh:
+            bang = b.ai("thungan").get("/cashier/board?modes=dich_vu")
+            dong = next((x for x in bang.get("items", []) if x.get("visit_id") == k.vid), None)
+            cd = (dong or {}).get("chon_dich_vu") or {}
+            ds = [c["id"] for c in cd.get("chi_dinh", []) if c.get("selection_status") in (None, "PENDING")]
+            if ds:
+                nk.lam("thungan", "P12", "thu ngân chốt khách chọn dịch vụ", lambda: b.ai("thungan").post(
+                    f"/luot-kham/visits/{k.vid}/service-selection/confirm",
+                    {"order_ids_seen": ds, "selected_order_ids": ds,
+                     "expected_selection_revision": int(cd.get("revision") or 0)},
+                    headers=pk.khoa()), khach="P12")
+            nk.lam("thungan", "P12", "thu ngân thu tiền dịch vụ", lambda: b.thu(k.vid, "dich_vu", "thungan"),
+                   khach="P12")
+            nk.lam("he-thong", "P12", "thu ngân thu xong → chỉ định tự được xếp phòng",
+                   lambda: b.cho(lambda: b.chi_dinh(k.vid, k.chi_dinh[0])["phong_id"], giay=15,
+                                 mo_ta="thu ngân thu → tự xếp"), khach="P12")
+
     return ket
 
 

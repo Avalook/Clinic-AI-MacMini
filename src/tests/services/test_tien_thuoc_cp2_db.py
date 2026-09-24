@@ -240,20 +240,22 @@ async def test_17_thu_a_huy_a_thu_b_lich_su_du_ca_hai(q: Quay) -> None:
         reason="Bấm nhầm khách",
         identity=q.thu_ngan,
     )
-    # Đổi vì Lifecycle v1 Slice 3: huỷ phiếu KHÔNG làm tiền khám "nợ" lại (cần
-    # đối soát tài chính, không thu lại ở quầy). Lần thu B nay thu một chỉ định
-    # MỚI khách vừa chọn — lịch sử vẫn phải đủ cả A lẫn B.
-    assert (await _hd(q, "dich_vu")).dong == []
+    # Tuyền chốt 24/09/2026: huỷ phiếu (thu nhầm) → tiền khám QUAY LẠI hoá đơn,
+    # thu lại được; phiếu A giữ nguyên để đối chiếu. Lần thu B gồm tiền khám thu
+    # lại + chỉ định MỚI khách vừa chọn — lịch sử vẫn phải đủ cả A lẫn B.
+    assert [d.source_type for d in (await _hd(q, "dich_vu")).dong] == ["exam"]
     moi = await _chi_dinh(q, f"KHAM-{q.duoi}", "Chỉ định mới")
     b = await _thu_pt(q, "CASH")
-    assert {
+    dong_b = {
         (r["source_type"], r["source_id"])
         for r in await q.pool.fetch(
             "SELECT source_type, source_id FROM payment_bill_line"
             " WHERE payment_cycle_id = $1::uuid",
             b["payment_cycle_id"],
         )
-    } == {("service_order", moi)}
+    }
+    assert ("service_order", moi) in dong_b
+    assert {t for t, _ in dong_b} == {"exam", "service_order"}
     cs = await _cycles(q)
     assert [(c["payment_cycle_id"], c["status"]) for c in cs] == [
         (a["payment_cycle_id"], "VOIDED"),

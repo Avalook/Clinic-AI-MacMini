@@ -29,7 +29,7 @@ import pha_dat_lich as pa  # noqa: E402
 import pha_kham as pk  # noqa: E402
 import pha_pha as pp  # noqa: E402
 from do_luong import NhatKyThaoTac, SoGoi, giao_tin_sau, moc_seq, su_kien_sau  # noqa: E402
-from ket_noi import REPO, ghi_sql, kiem_chi_local, sql  # noqa: E402
+from ket_noi import REPO, kiem_chi_local, sql  # noqa: E402
 from theo_doi import TheoDoi  # noqa: E402
 
 TRANG_THAI_KEYS = ("trang_thai", "status", "dich", "vong", "nhom", "dang_o", "exec_status",
@@ -104,21 +104,17 @@ def main() -> int:
         ph["sa1"]: ("bs.sa", "dd.sa"), ph["sa2"]: ("bs.sa2", "dd.sa2"),
         ph["tt1"]: ("bs.tt1", "dd.tt1"), ph["tt2"]: ("bs.tt2", "dd.tt2"),
     })
-    ca_cu = b.ai("ql").get("/ca-lam-viec")
-    ca_cu = ca_cu.get("ca_lam_viec", ca_cu)
-    CLINIC = sql(f"select clinic_id from clinic_location where id='{b.KIM_NGUU}'")[0][0]
-    gio_cu = sql(f"select settings->'hours' from clinic where id='{CLINIC}'")[0][0]
-    # Buổi giả lập chạy lúc sáng sớm → phải mở cửa sớm. Giờ mở cửa KHÔNG có
-    # API/màn nào sửa (chỉ migration) → ghi thẳng DB, và đó là một PHÁT HIỆN.
-    ghi_sql(
-        "update clinic set settings = jsonb_set(settings, '{hours}', (select"
-        " jsonb_object_agg(k, jsonb_build_object('open','04:00','close','22:00'))"
-        f" from jsonb_object_keys(settings->'hours') k)) where id='{CLINIC}'",
-        ly_do="giờ mở cửa 04:00 — không có API sửa clinic.settings.hours",
-    )
+    doc = b.ai("ql").get("/ca-lam-viec")
+    ca_cu = {m: {"bat_dau": k["bat_dau"], "ket_thuc": k["ket_thuc"]}
+             for m, k in doc["ca_lam_viec"].items()}
+    gio_cu = doc["gio_mo_cua"]
+    # Buổi giả lập chạy lúc sáng sớm → mở cửa + ca sáng từ 04:00, CÙNG một lần
+    # lưu (API có từ 24/09/2026 — trước đó phải ghi thẳng DB).
     ca_moi = {**ca_cu, "SANG": {"bat_dau": "04:00", "ket_thuc": "13:00"}}
-    nk.lam("ql", "cấu hình", "mở ca sáng từ 04:00 (buổi khám giả lập chạy lúc sáng sớm)",
-           lambda: b.ai("ql").goi("PATCH", "/ca-lam-viec", json={"ca_lam_viec": ca_moi}))
+    gio_moi = {t: {"mo": "04:00", "dong": g["dong"]} for t, g in gio_cu.items()}
+    nk.lam("ql", "cấu hình", "mở cửa + ca sáng từ 04:00 (buổi giả lập chạy lúc sáng sớm)",
+           lambda: b.ai("ql").goi("PATCH", "/ca-lam-viec",
+                                  json={"ca_lam_viec": ca_moi, "gio_mo_cua": gio_moi}))
     nk.lam("ql", "cấu hình", "dây H8: nhắc check-out sau 1 phút (để thử hẹn giờ)",
            lambda: b.ai("ql").goi("PATCH", "/day-noi/day", json={"ma": "h8_nhac_check_out_phut", "gia_tri": 1}))
 
@@ -231,9 +227,7 @@ def main() -> int:
     time.sleep(4)
     td.dung()
     b.ai("ql").goi("PATCH", "/day-noi/day", json={"ma": "h8_nhac_check_out_phut", "gia_tri": 60})
-    b.ai("ql").goi("PATCH", "/ca-lam-viec", json={"ca_lam_viec": ca_cu})
-    ghi_sql(f"update clinic set settings = jsonb_set(settings, '{{hours}}', '{gio_cu}'::jsonb)"
-            f" where id='{CLINIC}'", ly_do="trả giờ mở cửa cũ")
+    b.ai("ql").goi("PATCH", "/ca-lam-viec", json={"ca_lam_viec": ca_cu, "gio_mo_cua": gio_cu})
 
     # ── KIỂM CUỐI ──────────────────────────────────────────────────────────
     ket["kiem_cuoi"] = kiem_cuoi(seq0, khach, ph)

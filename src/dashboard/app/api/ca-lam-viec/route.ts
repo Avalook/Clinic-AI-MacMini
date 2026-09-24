@@ -1,7 +1,8 @@
 // Giờ ba ca làm việc — quản lý tự sửa, không phải gọi người viết code.
 //
 //   GET   → giờ từng ca + giờ mở cửa từng thứ (để màn hình cảnh báo tại chỗ)
-//   PATCH { ca_lam_viec: { SANG: {bat_dau, ket_thuc}, … } }
+//   PATCH { ca_lam_viec: { SANG: {bat_dau, ket_thuc}, … },
+//           gio_mo_cua?: { "0".."6": {mo, dong} } }   ← lưu cùng một giao dịch
 //
 // Đi qua FastAPI. `clinic.settings` KHÔNG mở đường ghi cho client — cột ấy đã
 // bị gỡ khỏi GRANT của `authenticated` (A.5) vì từng chứa credential POS.
