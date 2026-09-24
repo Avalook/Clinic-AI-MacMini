@@ -280,6 +280,7 @@ class CashierBoardService:
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
         from clinicai.services.bill_service import tinh_hoa_don
+        from clinicai.services.service_routing_service import da_tra_cho_vao_phong
         from clinicai.services.service_selection_service import cho_khach_quyet
 
         da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
@@ -337,6 +338,12 @@ class CashierBoardService:
                 )
                 for item in out["items"]:
                     item["chon_dich_vu"] = chon.get(item["visit_id"])
+                # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
+                phong = await da_tra_cho_vao_phong(
+                    conn, identity.clinic_id, [i["visit_id"] for i in out["items"]]
+                )
+                for item in out["items"]:
+                    item["xep_phong"] = phong.get(item["visit_id"], [])
         if want_svc:
             khac = [p for p in out["paid"] if p["kind"] != "dich_vu"]
             out["paid"] = khac + [

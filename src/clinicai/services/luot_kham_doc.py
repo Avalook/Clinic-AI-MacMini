@@ -582,6 +582,12 @@ class BangLuotKham:
                 )
                 if phong is None:
                     raise NotFoundError("Không tìm thấy phòng này.")
+            # Khách đã trả mà chưa xếp phòng — mọi phòng làm được đều thấy để
+            # nhận (Tuyền 24/09/2026: "không chỉ định thì khách vẫn xuất hiện ở
+            # hàng đợi và có thể khám ở các dịch vụ khả thi").
+            from clinicai.services.service_routing_service import cho_nhan_vao_phong
+
+            chua_xep = await cho_nhan_vao_phong(conn, cid, rid) if rid else []
             # Bác sĩ có lượt khám chính trong hàng chờ này.
             if rid is not None:
                 bac_si = await conn.fetch(
@@ -808,6 +814,7 @@ class BangLuotKham:
                 else None
             ),
             "hang_cho": now_rows,
+            "chua_xep_phong": chua_xep,
             "sap_toi": [
                 {
                     "visit_id": r["visit_id"],
