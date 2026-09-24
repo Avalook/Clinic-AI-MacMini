@@ -694,6 +694,28 @@ class BangLuotKham:
                                   -- kiểm 16/09/2026).
                                   OR (q.doctor_staff_id IS NULL
                                       AND cardinality($3::text[]) > 0)))
+                     -- KHÁCH ĐẶT THỦ THUẬT / SÀN CHẬU (loại khám "đi thẳng
+                     -- phòng") — MỞ (Tuyền 24/09/2026: "khách chọn khám sàn chậu
+                     -- hay thủ thuật thì open cho họ, họ có thể được event ở các
+                     -- phòng thủ thuật hay sàn chậu này"): lượt khám chính hiện
+                     -- ở MỌI phòng làm thủ thuật, dù đã gắn bác sĩ nào. Ai ở
+                     -- phòng ấy bấm Bắt đầu khám là nhận.
+                     OR ($2::uuid IS NOT NULL AND NOT $5::boolean
+                         AND q.lane = 'DOCTOR'
+                         AND EXISTS (
+                             SELECT 1 FROM service_type dt
+                               LEFT JOIN appointment da
+                                 ON da.id = v.appointment_id
+                                AND da.clinic_id = v.clinic_id
+                              WHERE dt.clinic_id = v.clinic_id
+                                AND dt.id = coalesce(v.service_type_id,
+                                                     da.service_type_id)
+                                AND dt.di_thang_phong)
+                         AND EXISTS (
+                             SELECT 1 FROM clinic_room_node rn
+                              WHERE rn.clinic_id = q.clinic_id
+                                AND rn.room_id = $2::uuid
+                                AND rn.node_code = 'DICHVU-THUTHUAT'))
                    )
                  ORDER BY
                    CASE q.status WHEN 'serving' THEN 0 WHEN 'called' THEN 1

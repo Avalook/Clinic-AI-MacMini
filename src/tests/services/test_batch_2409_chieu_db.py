@@ -143,3 +143,36 @@ async def test_luu_don_bang_ten_tu_gan_ma_kho(
     assert ma[co_san]["ma"] == id_co_san  # gắn đúng thuốc có sẵn
     assert ma[chua_co]["needs_review"] is True  # thuốc mới vào danh mục, cần soát
     assert len(rows) == 2, "không còn dòng chưa gắn kho"
+
+
+async def test_khach_thu_thuat_san_chau_hien_o_moi_phong_thu_thuat(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 24/09/2026: khách đặt Thủ thuật / Sàn chậu → hiện ở hàng chờ các
+    phòng làm thủ thuật (dù lịch đã gắn bác sĩ khác); khách khám thường thì không.
+    """
+    from clinicai.services.luot_kham_doc import BangLuotKham
+
+    ca = await _dung(pool)
+    async with pool.acquire() as conn:
+        phong = await conn.fetchval(
+            "INSERT INTO clinic_room (clinic_id, location_id, code, name, node_code,"
+            " is_active, accepting, sort) VALUES ($1::uuid, $2::uuid, $3,"
+            " 'Phòng thủ thuật thử', 'DICHVU-THUTHUAT', true, true, 0)"
+            " RETURNING id::text",
+            CLINIC,
+            ca.loc,
+            f"TT-{uuid.uuid4().hex[:6]}",
+        )
+        await conn.execute(
+            "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+            " VALUES ($1::uuid, $2::uuid, 'DICHVU-THUTHUAT')",
+            CLINIC,
+            phong,
+        )
+    tt = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_thu_thuat)
+    thuong = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    kq = await BangLuotKham(pool).hang_cho(identity=ca.dd, room_id=phong)
+    luot = {d["visit_id"] for d in kq["hang_cho"]}
+    assert tt in luot, "khách Thủ thuật/Sàn chậu phải hiện ở phòng thủ thuật"
+    assert thuong not in luot, "khách khám thường không lạc sang phòng thủ thuật"
