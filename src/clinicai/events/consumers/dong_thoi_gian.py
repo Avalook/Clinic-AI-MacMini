@@ -56,6 +56,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
     # Nhóm 3 (24/09/2026).
     "result_file.uploaded": ["cho_xac_nhan"],
+    "partner.order_received": ["service_name", "ly_do"],
     "result_file.confirmed": ["trang_thai"],
     "result_file.viewed": [],
     "result_file.sent_to_patient": ["kenh"],

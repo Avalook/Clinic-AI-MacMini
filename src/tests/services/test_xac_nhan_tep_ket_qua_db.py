@@ -1065,7 +1065,10 @@ async def test_scenario_r_partner_status_da_gui_tep(
         service_order_id=oid,
     )
 
-    # Đối tác xem việc của mình
+    # Đối tác xem việc của mình (bàn chỉ hiện việc đã nhận — 24/09/2026)
+    from tests.chay_nguoi_dua_tin import danh_dau_doi_tac_da_nhan
+
+    await danh_dau_doi_tac_da_nhan(pool, oid)
     res_dt = await svc_lk.viec_doi_tac(identity=partner)
     khach_list = res_dt["khach"]
     khach_item = next((k for k in khach_list if k["clinic_patient_id"] == pid), None)

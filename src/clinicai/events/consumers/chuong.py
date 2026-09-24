@@ -39,6 +39,8 @@ MAC_DINH: dict[str, DayNhan] = {
     "result.ready": DayNhan(["TKYK"], True),
     # Kết quả xét nghiệm nhập tay (trước 24/09 gọi thẳng: CSKH + bác sĩ).
     "lab_result.arrived": DayNhan(["CSKH"], True),
+    # Việc mới sang bàn đối tác (24/09/2026).
+    "partner.order_received": DayNhan(["PARTNER"], False),
 }
 
 #: Màn mở ra khi bấm chuông, theo vai nhận.
@@ -47,6 +49,7 @@ _DUONG_DAN: dict[str, str] = {
     "TKYK": "/ban-kham",
     "DOCTOR": "/ban-kham",
     "NURSE_ULTRASOUND": "/xac-nhan-ket-qua",
+    "PARTNER": "/doi-tac",
 }
 
 
@@ -136,6 +139,14 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     elif su_kien.event_type == "lab_result.arrived":
         tieu_de = f"Kết quả xét nghiệm của {ten} đã về"
         noi_dung = "Gửi cho khách được ngay; bác sĩ xem khi cần."
+    elif su_kien.event_type == "partner.order_received":
+        dv = su_kien.payload.get("service_name") or "chỉ định"
+        tieu_de = f"Việc mới: {dv} — {ten}"
+        noi_dung = (
+            "Khách đã thanh toán — đối tác đến lấy mẫu."
+            if su_kien.payload.get("ly_do") == "DA_THU_TIEN"
+            else "Phòng đã lấy mẫu xong — đối tác nhận mẫu, trả kết quả."
+        )
     else:
         tieu_de = f"Có kết quả mới của {ten}"
         noi_dung = "Phòng đã hoàn tất phiếu kết quả."
@@ -150,7 +161,11 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             vai=vai,
             tieu_de=tieu_de,
             noi_dung=noi_dung,
-            nguon="ket_qua_ve",
+            nguon=(
+                "doi_tac_viec"
+                if su_kien.event_type == "partner.order_received"
+                else "ket_qua_ve"
+            ),
             nguon_id=nguon_id,
             duong_dan=duong,
             nguoi_goi=su_kien.actor_staff_id,

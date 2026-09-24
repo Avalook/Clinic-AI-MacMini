@@ -274,6 +274,10 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.exec_status, o.selection_status, o.routing_status, o.execution_status,
        o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang,
        o.node_code, o.phong_du_kien_id::text AS phong_du_kien_id,
+       -- Làm bên ngoài (đối tác): quầy nói ra "Đối tác làm" (24/09/2026).
+       EXISTS (SELECT 1 FROM node_definition n
+                WHERE n.clinic_id = o.clinic_id AND n.code = o.node_code
+                  AND n.lam_ben_ngoai) AS doi_tac,
        (SELECT min(pr.unit_price) FROM service_price pr
          WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
            AND pr.active AND pr."group" = 'dich_vu') AS gia,
@@ -369,6 +373,7 @@ async def cho_khach_quyet(
                 "gia": int(r["gia"]) if r["gia"] is not None else None,
                 "mang_sang": bool(r["mang_sang"]),
                 "phong_du_kien_id": r["phong_du_kien_id"],
+                "doi_tac": bool(r["doi_tac"]),
                 "phong_chon_duoc": await phong_chon_duoc(r["node_code"], r["visit_id"]),
             }
         )

@@ -14,7 +14,7 @@ from typing import Any
 import asyncpg
 
 import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận
-from clinicai.events.catalogue import HANH_TRINH
+from clinicai.events.catalogue import DOI_TAC_NHAN_VIEC, HANH_TRINH
 from clinicai.events.worker import lam_mot_dong
 
 
@@ -50,6 +50,24 @@ async def chay_ben_nhan(pool: asyncpg.Pool, *ben_nhan: str) -> None:
     """Chạy một vòng cho các bên nhận chỉ định (vd khối Chuông, dòng thời gian)."""
     for ten in ben_nhan:
         await chay_het(pool, ten)
+
+
+async def doi_tac_nhan(pool: asyncpg.Pool) -> None:
+    """Chạy bên nhận "đối tác nhận việc" (nghe đã thu tiền / lấy mẫu xong)."""
+    await chay_het(pool, DOI_TAC_NHAN_VIEC)
+
+
+async def danh_dau_doi_tac_da_nhan(pool: asyncpg.Pool, *order_ids: str) -> None:
+    """Bài kiểm BÀN đối tác (trạng thái, tệp, quyền) — không phải bài kiểm đường
+    nhận việc: coi như các chỉ định đã sang bàn (24/09/2026, bàn chỉ hiện việc
+    đã nhận qua sự kiện). Đường nhận thật: test_doi_tac_nhan_viec_db.py."""
+    for oid in order_ids:
+        await pool.execute(
+            "INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do)"
+            " SELECT clinic_id, id, 'BU_DU_LIEU' FROM service_order"
+            " WHERE id = $1::uuid ON CONFLICT DO NOTHING",
+            oid,
+        )
 
 
 def vong_doc_chay_ngay_sau_lenh_tep(monkeypatch: Any) -> None:

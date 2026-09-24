@@ -33,7 +33,10 @@ from clinicai.services.luot_kham_service import (
     LuotKhamValidationError,
 )
 from clinicai.services.permission_service import cap_preset_mac_dinh
-from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.chay_nguoi_dua_tin import (
+    chay_hanh_trinh,
+    danh_dau_doi_tac_da_nhan,
+)
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -1258,6 +1261,9 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         # Đối tác tự lấy → không xếp vào phòng Lấy mẫu của điều dưỡng.
         assert trang_thai == "authorized"
         await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
+        # Chưa trả tiền → chưa sang bàn đối tác (24/09/2026); coi như đã nhận.
+        assert _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id) is None
+        await danh_dau_doi_tac_da_nhan(kb.pool, mau_id)
 
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
         assert viec is not None and viec["trang_thai"] == "CHO_LAY_MAU"
@@ -1417,6 +1423,9 @@ async def test_dieu_duong_lay_mau_thi_doi_tac_chi_thay_sau_khi_lay(
         result_note=None,
         identity=kb.dieu_duong,
     )
+    # Lối phòng CŨ (`complete_service`) không phát `service.completed` — màn
+    # phòng dùng lối mới (xong-v1). Đường nhận thật: test_doi_tac_nhan_viec_db.
+    await danh_dau_doi_tac_da_nhan(kb.pool, mau_id)
     viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
     assert viec is not None and viec["trang_thai"] == "DA_LAY_MAU"
 
