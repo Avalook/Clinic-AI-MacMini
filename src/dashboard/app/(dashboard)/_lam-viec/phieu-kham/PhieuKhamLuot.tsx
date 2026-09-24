@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
 import {
   donTuDong,
@@ -351,6 +351,18 @@ export default function PhieuKhamLuot({
         duLieu={phieu.du_lieu}
         cheDo={choGhi ? "editable" : "finalized_locked"}
         dauPhieu={dau}
+        nutIn={
+          // In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân
+          // đâu?"). Mở tab riêng, ngoài thanh bên → in sạch khổ A4.
+          <a
+            href={`/print/phieu-kham/${visitId}`}
+            target="_blank"
+            rel="noopener"
+            className={buttonClass("ghost", "sm")}
+          >
+            In phiếu khám
+          </a>
+        }
         ketQuaChiDinh={ketQua}
         onLuu={onLuu}
         thamChieuNgoai={tc}
