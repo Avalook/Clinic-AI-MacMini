@@ -9,6 +9,8 @@ Thứ tự:
   2. Chưa gắn: mẫu GỢI Ý của phiếu v5 (nhãn nguồn → `form_id_ket_qua`, ghép qua
      bảng mã viết tay `anh_xa_danh_muc`) đứng đầu và được chọn sẵn, kèm 18 mẫu
      dự phòng ("Mở nhanh 18 biểu mẫu" của v5) để chọn mẫu khác.
+  3. Không gắn, không gợi ý: mẫu CHUNG (nhập tự do) chọn sẵn — Tuyền 24/09/2026
+     "form nào tài liệu chưa có thì cũng phải có ô để họ nhập".
 Không tự GẮN gì vào `dich_vu_mau_ket_qua` — gợi ý chỉ là lựa chọn mặc định lúc
 mở phiếu; gắn chính thức vẫn là việc của quản lý.
 """
@@ -22,6 +24,10 @@ import asyncpg
 
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
 from clinicai.phieu_kham.khung import tham_chieu_nguon
+
+#: Mẫu nhập tự do (migration 20260925000008) — không thuộc dịch vụ nào, nên
+#: không bao giờ bị cảnh báo "mẫu của dịch vụ khác".
+MAU_CHUNG = "CHUNG"
 
 
 @cache
@@ -81,8 +87,14 @@ async def mau_cho_dich_vu(
     goi_y = ma_mau_goi_y(service_code)
     if goi_y and any(m["ma"] == goi_y for m in tat_ca):
         tat_ca.sort(key=lambda m: m["ma"] != goi_y)
-        return [{**m, "cua_dich_vu": m["ma"] == goi_y} for m in tat_ca], goi_y
-    return [{**m, "cua_dich_vu": True} for m in tat_ca], None
+        return [
+            {**m, "cua_dich_vu": m["ma"] in (goi_y, MAU_CHUNG)} for m in tat_ca
+        ], goi_y
+    co_chung = any(m["ma"] == MAU_CHUNG for m in tat_ca)
+    tat_ca.sort(key=lambda m: m["ma"] != MAU_CHUNG)
+    return [{**m, "cua_dich_vu": True} for m in tat_ca], (
+        MAU_CHUNG if co_chung else None
+    )
 
 
-__all__ = ["ma_mau_goi_y", "mau_cho_dich_vu"]
+__all__ = ["MAU_CHUNG", "ma_mau_goi_y", "mau_cho_dich_vu"]

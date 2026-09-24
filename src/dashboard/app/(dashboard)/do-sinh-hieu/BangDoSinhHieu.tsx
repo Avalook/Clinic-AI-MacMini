@@ -4,7 +4,7 @@
 // người đo làm việc theo hàng, không phải theo từng hồ sơ, và bắt họ bấm lại vào
 // danh sách sau mỗi người là thêm một thao tác thừa cho mỗi khách trong ngày.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 
@@ -98,6 +98,8 @@ export default function BangDoSinhHieu() {
   const [xong, setXong] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
   const [dangBatDau, setDangBatDau] = useState(false);
+  // Lượt đã gửi lệnh bắt đầu (tự gửi ở lần gõ đầu tiên) — gửi MỘT lần / lượt.
+  const daGuiBatDau = useRef<string | null>(null);
 
   const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {
     if ("loi" in kq) {
@@ -165,7 +167,13 @@ export default function BangDoSinhHieu() {
     setGia(cu);
   };
 
-  // [BẮT ĐẦU] ĐO — thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026: `Gọi vào →
+  // KHÔNG CÒN NÚT [BẮT ĐẦU] (Tuyền 24/09/2026: "không cần ấn bắt đầu đo nữa, cứ
+  // nhập thông tin vào sẽ phát sinh event từ lúc nhập vào đầu tiên và đo xong
+  // lúc ấn đo xong"). Lần GÕ ĐẦU TIÊN tự gửi lệnh bắt đầu (mốc bắt đầu = lúc
+  // gõ); [Đo xong] = lưu. Máy chủ vẫn giữ cổng VITALS_NOT_STARTED — lỡ bấm Đo
+  // xong trước khi lệnh bắt đầu kịp đi thì `luu` tự gửi bắt đầu trước.
+  //
+  // (Cũ) [BẮT ĐẦU] ĐO — thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026: `Gọi vào →
   // Bắt đầu` là hai bước cho một việc). Máy chủ chuyển `pending → in_progress`
   // và ghi ai bắt đầu, lúc nào. Bấm lại chính mình thì không sao; người khác đã
   // bắt đầu thì máy chủ từ chối kèm tên — câu ấy hiện nguyên văn ở đây.
@@ -174,11 +182,11 @@ export default function BangDoSinhHieu() {
   // "đã đo" mà không biết bắt đầu lúc nào. Máy chủ là cửa chặn thật
   // (VITALS_NOT_STARTED); ở đây khoá nút Lưu và nói rõ lý do để khỏi ăn lỗi.
   // Ô nhập VẪN gõ được: gõ chưa phải lưu, bấm Bắt đầu xong số vẫn còn.
-  const batDau = async () => {
-    if (!dangChon) return;
+  const batDau = async (): Promise<boolean> => {
+    if (!dangChon) return false;
+    daGuiBatDau.current = dangChon.visit_id;
     setDangBatDau(true);
     setLoi(null);
-    setXong(null);
     try {
       const r = await fetch("/api/luot-kham", {
         method: "POST",
@@ -187,13 +195,16 @@ export default function BangDoSinhHieu() {
       });
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
       if (!r.ok) {
+        daGuiBatDau.current = null;
         setLoi(d?.message ?? d?.error ?? "Không bắt đầu đo được.");
-        return;
+        return false;
       }
-      setXong(`Bắt đầu đo cho ${dangChon.ten}.`);
       nhan(await docBang());
+      return true;
     } catch {
+      daGuiBatDau.current = null;
       setLoi("Mất kết nối — CHƯA bắt đầu đo.");
+      return false;
     } finally {
       setDangBatDau(false);
     }
@@ -201,6 +212,8 @@ export default function BangDoSinhHieu() {
 
   const luu = async () => {
     if (!dangChon) return;
+    const chuaBd = !dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending";
+    if (chuaBd && daGuiBatDau.current !== dangChon.visit_id && !(await batDau())) return;
     setDangLuu(true);
     setLoi(null);
     try {
@@ -246,7 +259,7 @@ export default function BangDoSinhHieu() {
     );
   }
 
-  // Chưa ai bấm [Bắt đầu] cho khách đang mở: hiện nút Bắt đầu, khoá nút Lưu.
+  // Chưa có mốc bắt đầu cho khách đang mở — lần gõ đầu tiên sẽ tạo nó.
   const chuaBatDau =
     !!dangChon && !dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending";
 
@@ -364,18 +377,6 @@ export default function BangDoSinhHieu() {
               ) : null}
               {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
               </div>
-              {/* Chỉ hiện khi CHƯA ai bắt đầu. Đang đo rồi thì không bày nút —
-                  bấm lại cũng chỉ nhận "đã bắt đầu", không có việc gì mới. */}
-              {chuaBatDau ? (
-                <Button
-                  size="md"
-                  variant="primary"
-                  onClick={() => void batDau()}
-                  disabled={dangBatDau}
-                >
-                  {dangBatDau ? "Đang bắt đầu…" : "Bắt đầu"}
-                </Button>
-              ) : null}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {O.map((o) => (
@@ -388,7 +389,17 @@ export default function BangDoSinhHieu() {
                   <input
                     inputMode="decimal"
                     value={gia[o.gui] ?? ""}
-                    onChange={(e) => setGia((g) => ({ ...g, [o.gui]: e.target.value }))}
+                    onChange={(e) => {
+                      setGia((g) => ({ ...g, [o.gui]: e.target.value }));
+                      // Gõ đầu tiên = bắt đầu đo (một lần / lượt).
+                      if (
+                        chuaBatDau &&
+                        !dangBatDau &&
+                        daGuiBatDau.current !== dangChon.visit_id
+                      ) {
+                        void batDau();
+                      }
+                    }}
                     className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
                   />
                 </label>
@@ -417,16 +428,13 @@ export default function BangDoSinhHieu() {
                   {xong}
                 </p>
               ) : null}
-              {chuaBatDau ? (
-                <p className="text-meta text-ink-muted">Bấm [Bắt đầu] trước khi lưu.</p>
-              ) : null}
               <button
                 type="button"
                 onClick={luu}
-                disabled={dangLuu || chuaBatDau}
+                disabled={dangLuu}
                 className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {dangLuu ? "Đang lưu…" : "Lưu sinh hiệu"}
+                {dangLuu ? "Đang lưu…" : "Đo xong"}
               </button>
             </div>
           </>

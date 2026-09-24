@@ -523,6 +523,10 @@ export default function VungLamViecKhach({
   const [loiGhiLoiRa, setLoiGhiLoiRa] = useState<
     { ma: string; cau: string } | null
   >(null);
+  // GHI CHÚ KHI GỌI — khách dặn dò gì (Tuyền 24/09/2026: "kèm thêm cái ghi chú
+  // thêm nếu khách có dặn dò gì để CSKH nhìn vào mà xem lại được"). Đi cùng cú
+  // bấm vòng tròn kế tiếp, hiện lại dưới ô ấy (`lan.noi_dung`).
+  const [ghiChuGoi, setGhiChuGoi] = useState("");
   const [dangDongHen, setDangDongHen] = useState<string | null>(null);
   const [loiDongHen, setLoiDongHen] = useState<string | null>(null);
   const [loiDongHenChu, setLoiDongHenChu] = useState<string | null>(null);
@@ -620,12 +624,15 @@ export default function VungLamViecKhach({
         // GHI CHÚ NGƯỜI DÙNG GÕ THẮNG nội dung mặc định. Mặc định chỉ là câu
         // mô tả việc ("Đã gọi xác nhận lịch"); thứ người trực gõ tay bao giờ
         // cũng nói được nhiều hơn ("khách đang họp, gọi lại sau 5h").
-        noi_dung: ghiChu.trim() || v.noiDung.trim() || null,
+        noi_dung: ghiChuGoi.trim() || ghiChu.trim() || v.noiDung.trim() || null,
         trang_thai_ma: ma,
       }),
     });
     setDangGhiLoiRa(null);
-    if (res.ok) onGhiChuXong?.();
+    if (res.ok) {
+      setGhiChuGoi("");
+      onGhiChuXong?.();
+    }
     if (!res.ok) {
       const d = (await res.json().catch(() => null)) as {
         error?: string;
@@ -996,6 +1003,44 @@ export default function VungLamViecKhach({
                 }
                 loi={loiGhiLoiRa?.ma === "CHO_XAC_NHAN" ? loiGhiLoiRa.cau : null}
               />
+              {/* NHẮC HẸN — mở lại (Tuyền 24/09/2026: "mấy cái nút đã gọi nhắc
+                  hẹn … sao tự nhiên ẩn đâu mất rồi"). 16/09 ô này bị gỡ khỏi
+                  dòng trạng thái; nay là ô CSKH bấm vòng tròn như "Xác nhận". */}
+              <OBuoc
+                ten="Đã gọi nhắc hẹn"
+                viec="Gọi nhắc khách trước ngày hẹn, xong bấm vòng tròn để ghi lại"
+                xong={Boolean(lanCuoi("NHAC_HEN_MAI"))}
+                dang={dangO("NHAC_HEN_MAI")}
+                lan={lanCuoi("NHAC_HEN_MAI")}
+                dangGhi={
+                  dangGhiLoiRa === "NHAC_HEN_MAI" ||
+                  dangHoanTac === lanCuoi("NHAC_HEN_MAI")?.id
+                }
+                onBam={() =>
+                  bamO(lanCuoi("NHAC_HEN_MAI"), () =>
+                    ghiMotCham("NHAC_HEN_MAI", {
+                      loai: "NHAC_HEN",
+                      ketQua: "DA_LIEN_HE",
+                      noiDung: "Đã gọi nhắc hẹn",
+                      khoa: "NHAC_HEN_MAI",
+                    }),
+                  )
+                }
+                loi={loiGhiLoiRa?.ma === "NHAC_HEN_MAI" ? loiGhiLoiRa.cau : null}
+              />
+              <label className="block space-y-1">
+                <span className="text-label font-semibold text-ink-muted">
+                  Ghi chú khi gọi — khách dặn dò gì
+                </span>
+                <textarea
+                  value={ghiChuGoi}
+                  onChange={(e) => setGhiChuGoi(e.target.value)}
+                  rows={2}
+                  maxLength={1000}
+                  placeholder="VD: chị dặn gọi sau 17h; muốn khám với BS nữ… (lưu kèm lần bấm vòng tròn kế tiếp)"
+                  className="w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
+                />
+              </label>
               <div className="grid gap-x-3 sm:grid-cols-2">
                 <OBuoc
                   ten="Hẹn gọi lại"

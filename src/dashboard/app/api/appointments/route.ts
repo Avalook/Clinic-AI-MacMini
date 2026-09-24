@@ -229,6 +229,10 @@ interface PatchBody {
   slot_start?: string; // cho action "reschedule" (ISO UTC)
   slot_end?: string; // cho action "reschedule" (ISO UTC)
   xac_minh_cach?: string; // BẮT BUỘC khi action = "checkin" — backend canh
+  // "reschedule" mở (24/09/2026): đổi được dịch vụ / kênh / người giới thiệu.
+  service_type_id?: string;
+  booking_channel?: string;
+  nguoi_gioi_thieu?: string;
 }
 
 // "complete" = bác sĩ chốt KHÁM XONG (lịch → COMPLETED). KHÔNG đụng visit
@@ -294,5 +298,10 @@ export async function PATCH(request: Request) {
     slot_start: body.slot_start ?? null,
     slot_end: body.slot_end ?? null,
     xac_minh_cach: body.xac_minh_cach ?? null,
+    ...(body.service_type_id ? { service_type_id: body.service_type_id } : {}),
+    ...(body.booking_channel !== undefined
+      ? { booking_channel: body.booking_channel || null }
+      : {}),
+    ...(body.nguoi_gioi_thieu ? { nguoi_gioi_thieu: body.nguoi_gioi_thieu } : {}),
   });
 }

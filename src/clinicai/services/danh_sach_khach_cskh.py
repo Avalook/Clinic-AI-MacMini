@@ -30,7 +30,36 @@ from clinicai.core.clock import CLINIC_TZ
 KHACH_MOT_TRANG = 50
 _LICH_CHET = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]
 
-_COT = """
+#: Kênh đặt · người giới thiệu · lần ĐỔI / HUỶ lịch gần nhất kèm lý do (Tuyền
+#: 24/09/2026: "cần đồng bộ hiện ở những chỗ này CSKH mới biết được"). Dùng
+#: chung cho danh sách khách CSKH và danh sách bệnh nhân. Alias `p` = patient.
+COT_KENH_DOI_HUY = """
+    p.nguoi_gioi_thieu,
+    (SELECT a.booking_channel FROM appointment a
+      WHERE a.clinic_id = p.clinic_id
+        AND a.clinic_patient_id = p.clinic_patient_id
+      ORDER BY a.created_at DESC LIMIT 1) AS kenh_dat,
+    (SELECT json_build_object('loai', x.loai, 'ly_do', x.ly_do, 'ma', x.ma,
+                              'luc', x.luc)
+       FROM (
+            SELECT 'DOI' AS loai, d.ly_do, NULL::text AS ma, d.doi_luc AS luc
+              FROM appointment_doi_lich d
+              JOIN appointment a
+                ON a.id = d.appointment_id AND a.clinic_id = d.clinic_id
+             WHERE d.clinic_id = p.clinic_id
+               AND a.clinic_patient_id = p.clinic_patient_id
+            UNION ALL
+            SELECT 'HUY', a.cancellation_reason, a.ly_do_huy_ma, a.cancelled_at
+              FROM appointment a
+             WHERE a.clinic_id = p.clinic_id
+               AND a.clinic_patient_id = p.clinic_patient_id
+               AND a.status = 'CANCELLED'
+       ) x
+      ORDER BY x.luc DESC NULLS LAST LIMIT 1) AS doi_huy_gan_nhat
+"""
+
+_COT = (
+    """
     p.clinic_patient_id::text AS clinic_patient_id, p.patient_code, p.full_name,
     p.date_of_birth, p.birth_year, p.phone_primary, p.phone_secondary, p.gender,
     p.ethnicity, p.nationality, p.occupation, p.patient_objection, p.address,
@@ -41,8 +70,10 @@ _COT = """
                                           'loai', t.loai))
           FROM patient_sdt_them t
          WHERE t.clinic_patient_id = p.clinic_patient_id
-    ), '[]'::json) AS patient_sdt_them
+    ), '[]'::json) AS patient_sdt_them,
 """
+    + COT_KENH_DOI_HUY
+)
 
 
 def cua_so(ky: str | None, bay_gio: datetime) -> tuple[datetime, datetime] | None:
@@ -81,6 +112,8 @@ def _dong(r: asyncpg.Record) -> dict[str, Any]:
             continue
         if k == "patient_sdt_them":
             d[k] = json.loads(v) if isinstance(v, str) else (v or [])
+        elif k == "doi_huy_gan_nhat":
+            d[k] = json.loads(v) if isinstance(v, str) else v
         elif isinstance(v, (datetime, date)):
             d[k] = v.isoformat()
         else:

@@ -73,6 +73,7 @@ export default function PhieuKhamLuot({
   datChiDinh,
   onDaDat,
   onTrangThai,
+  chiMuc,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -82,6 +83,8 @@ export default function PhieuKhamLuot({
   onDaDat: () => void;
   /** Báo cho nút Hoàn tất: còn đang lưu dở / lỗi lưu thì nói ra. */
   onTrangThai?: (g: ClinicalCompletionGate) => void;
+  /** Chỉ vẽ các mục này của phiếu (bàn tư vấn: `["B"]`). */
+  chiMuc?: string[];
 }) {
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
   const [phieu, setPhieu] = useState<PhieuLuot | null>(null);
@@ -350,6 +353,7 @@ export default function PhieuKhamLuot({
         dinhNghia={phieu}
         duLieu={phieu.du_lieu}
         cheDo={choGhi ? "editable" : "finalized_locked"}
+        chiMuc={chiMuc}
         dauPhieu={dau}
         nutIn={
           // In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân

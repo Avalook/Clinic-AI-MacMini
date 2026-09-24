@@ -1,4 +1,5 @@
-// Màn Đo sinh hiệu: [Bắt đầu] thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026).
+// Màn Đo sinh hiệu: [Bắt đầu] thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026);
+// 24/09/2026: bỏ luôn nút [Bắt đầu] — gõ đầu tiên là bắt đầu, [Đo xong] là lưu.
 //
 // Các bất biến dưới đây canh những cách làm sai dễ gặp nhất khi gỡ một nút:
 // gỡ nút mà vẫn đọc cột cũ làm trạng thái, gọi nhầm đường cũ, và để lưu lần
@@ -36,14 +37,20 @@ test('"Đang đo" đọc từ trạng thái thật, không suy từ giờ gọi'
   assert.match(ma, /sinh_hieu_trang_thai === "in_progress"/);
 });
 
-test("chưa [Bắt đầu] thì khoá nút Lưu và nói lý do — nhưng KHÔNG khoá ô nhập", () => {
-  // Chốt 23/09/2026: lần lưu đầu phải sau [Bắt đầu]. Máy chủ là cửa chặn thật
-  // (VITALS_NOT_STARTED); màn chỉ đỡ cho người dùng khỏi ăn lỗi.
+test("không còn nút [Bắt đầu]: gõ đầu tiên là bắt đầu, [Đo xong] không khoá", () => {
+  // Tuyền 24/09/2026: "không cần ấn bắt đầu đo nữa, cứ nhập thông tin vào sẽ
+  // phát sinh event từ lúc nhập vào đầu tiên và đo xong lúc ấn đo xong". Máy
+  // chủ vẫn là cửa chặn (VITALS_NOT_STARTED) — màn tự gửi lệnh bắt đầu.
   const ma = chiMa(MAN);
+  assert.doesNotMatch(ma, /"Bắt đầu"|Bấm \[Bắt đầu\]/, "không còn nút / lời nhắc Bắt đầu");
   assert.match(ma, /sinh_hieu_trang_thai === "pending"/);
-  assert.match(ma, /disabled=\{dangLuu \|\| chuaBatDau\}/, "nút Lưu khoá khi chưa bắt đầu");
-  assert.match(ma, /Bấm \[Bắt đầu\] trước khi lưu\./, "phải nói rõ vì sao không lưu được");
-  // Ô nhập không có `disabled` nào: gõ chưa phải lưu.
+  // Gõ vào ô → tự gửi bắt đầu (một lần / lượt).
+  assert.match(ma, /onChange=\{\(e\) => \{[\s\S]*?void batDau\(\);/);
+  // Bấm Đo xong khi chưa có mốc bắt đầu → gửi bắt đầu TRƯỚC khi lưu.
+  assert.match(ma, /if \(chuaBd[\s\S]*?await batDau\(\)/);
+  assert.match(ma, /"Đo xong"/);
+  assert.match(ma, /disabled=\{dangLuu\}/, "nút Đo xong không khoá theo mốc bắt đầu");
+  // Ô nhập không có `disabled` nào.
   const oNhap = ma.match(/<input[\s\S]*?\/>/g) ?? [];
   assert.ok(oNhap.length > 0);
   for (const o of oNhap) assert.doesNotMatch(o, /disabled/);

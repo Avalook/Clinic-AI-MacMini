@@ -464,7 +464,8 @@ function NhomThu({
   const [ma, setMa] = useState("");
   const [lyDo, setLyDo] = useState("");
   if (cho) {
-    // CHỜ XÁC MINH (contract A2): khách quét mã không phải bằng chứng đã trả.
+    // CHỜ XÁC MINH: bấm "Đã nhận tiền" là xong. Mã giao dịch TUỲ CHỌN (Tuyền
+    // 24/09/2026: "không được bắt buộc điền mã mới cho thanh toán xong, open đi").
     return (
       <div className="border-b border-line px-4 py-3 last:border-b-0">
         <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
@@ -477,17 +478,17 @@ function NhomThu({
           <input
             value={ma}
             onChange={(e) => setMa(e.target.value)}
-            placeholder="Mã giao dịch ngân hàng"
-            aria-label="Mã giao dịch ngân hàng"
+            placeholder="Mã giao dịch (không bắt buộc)"
+            aria-label="Mã giao dịch ngân hàng (không bắt buộc)"
             className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
           />
           <button
             type="button"
-            disabled={dangThu || ma.trim().length < 3}
+            disabled={dangThu}
             onClick={() => onXacMinh(ma.trim())}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
-            Đã nhận tiền — xác minh
+            Đã nhận tiền
           </button>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">

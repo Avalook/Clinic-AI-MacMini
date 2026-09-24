@@ -801,6 +801,10 @@ class BookingService:
         slot_start: datetime | None = None,
         slot_end: datetime | None = None,
         xac_minh_cach: str | None = None,
+        service_type_id: str | None = None,
+        booking_channel: str | None = None,
+        booking_channel_provided: bool = False,
+        nguoi_gioi_thieu: str | None = None,
     ) -> dict[str, Any]:
         """Run one lifecycle action. Returns the resulting status.
 
@@ -940,6 +944,9 @@ class BookingService:
                         slot_start=slot_start,
                         slot_end=slot_end,
                         identity=identity,
+                        service_type_id=service_type_id,
+                        booking_channel=booking_channel,
+                        booking_channel_provided=booking_channel_provided,
                     )
                     updated = await self._update(
                         conn,
@@ -957,6 +964,18 @@ class BookingService:
                     # Somebody moved it between our read and our write.
                     raise ConflictError(
                         "Lịch hẹn vừa được người khác cập nhật, hãy tải lại."
+                    )
+
+                # Đổi lịch kèm người giới thiệu → HỒ SƠ khách (cùng luật với đặt
+                # mới: để trống thì giữ tên đã có, không xoá).
+                gioi_thieu = " ".join((nguoi_gioi_thieu or "").split())[:200]
+                if action == "reschedule" and gioi_thieu:
+                    await conn.execute(
+                        "UPDATE patient SET nguoi_gioi_thieu = $3, updated_at = now()"
+                        " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
+                        identity.clinic_id,
+                        str(appt["clinic_patient_id"]),
+                        gioi_thieu,
                     )
 
                 await _log(
@@ -1336,6 +1355,9 @@ class BookingService:
         slot_start: datetime | None,
         slot_end: datetime | None,
         identity: StaffIdentity,
+        service_type_id: str | None = None,
+        booking_channel: str | None = None,
+        booking_channel_provided: bool = False,
     ) -> dict[str, Any]:
         patch: dict[str, Any] = {"status": new_status}
 
@@ -1424,6 +1446,24 @@ class BookingService:
             )
             patch["slot_start"] = slot_start
             patch["slot_end"] = slot_end
+            # KHÔNG KHOÁ DỊCH VỤ CŨ (Tuyền 24/09/2026: "open cho chọn cái khác
+            # cũng được"). Dịch vụ mới phải thuộc phòng khám và đang bật.
+            if service_type_id and service_type_id != str(
+                appt["service_type_id"] or ""
+            ):
+                if not await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM service_type WHERE id = $1::uuid"
+                    " AND clinic_id = $2::uuid AND is_active)",
+                    service_type_id,
+                    identity.clinic_id,
+                ):
+                    raise ValidationError("Dịch vụ không hợp lệ hoặc đã tắt.")
+                patch["service_type_id"] = service_type_id
+            # Kênh đặt đổi được; `is_walkin` luôn đi theo kênh (CHECK ở DB).
+            if booking_channel_provided:
+                kenh = (booking_channel or "").strip() or None
+                patch["booking_channel"] = kenh
+                patch["is_walkin"] = (kenh or "").upper() == "WALK_IN"
             # Only touch the doctor when the field was actually sent; an absent
             # field means "leave them", an empty one means "unassign".
             if doctor_id_provided:
@@ -1438,7 +1478,7 @@ class BookingService:
                 doctor_id=target_doctor,
                 slot_start=slot_start,
                 slot_end=slot_end,
-                channel=appt["booking_channel"],
+                channel=patch.get("booking_channel", appt["booking_channel"]),
                 exclude_id=str(appt["id"]),
                 identity=identity,
             )

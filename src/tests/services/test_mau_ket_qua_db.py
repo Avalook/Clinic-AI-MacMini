@@ -71,10 +71,16 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 
 async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
-        "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active",
+        "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active"
+        " AND ma <> 'CHUNG'",
         CLINIC,
     )
     assert so == 18
+    # + mẫu CHUNG nhập tự do (24/09/2026) cho dịch vụ chưa có mẫu riêng.
+    assert await pool.fetchval(
+        "SELECT active FROM ket_qua_mau WHERE clinic_id = $1::uuid AND ma = 'CHUNG'",
+        CLINIC,
+    )
 
 
 async def test_migration_khong_tu_gan_mau_cho_dich_vu_nao(pool: asyncpg.Pool) -> None:

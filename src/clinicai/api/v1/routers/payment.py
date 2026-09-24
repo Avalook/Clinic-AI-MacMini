@@ -144,7 +144,8 @@ class XacMinhRequest(BaseModel):
     payment_cycle_id: UUID
     visit_id: UUID
     kind: PaymentKind
-    reference: str = Field(min_length=3, max_length=100)
+    #: Tuỳ chọn (24/09/2026) — thu QR/chuyển khoản xong không bắt nhập mã.
+    reference: str | None = Field(default=None, max_length=100)
 
 
 @router.post("/payments/xac-minh")

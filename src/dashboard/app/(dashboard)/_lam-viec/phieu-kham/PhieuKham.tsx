@@ -89,6 +89,7 @@ export default function PhieuKham({
   thamChieuNgoai,
   ketQua,
   nutIn,
+  chiMuc,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -120,6 +121,8 @@ export default function PhieuKham({
   };
   /** Nút mở bản in của phiếu — shell biết lượt nào nên shell dựng. */
   nutIn?: ReactNode;
+  /** Chỉ vẽ các mục này (vd `["B"]` ở bàn tư vấn). Bỏ trống = cả phiếu. */
+  chiMuc?: string[];
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
   const [thamChieu, setThamChieu] = useState<ThamChieu | null>(null);
@@ -230,7 +233,7 @@ export default function PhieuKham({
         </ul>
       ) : null}
 
-      {dinhNghia.khung.map((m) => (
+      {(chiMuc ? dinhNghia.khung.filter((m) => chiMuc.includes(m.ma)) : dinhNghia.khung).map((m) => (
         <div key={m.ma} className="space-y-3">
           {m.ma !== "HANH_CHINH" ? (
             <h3 className="border-b border-hairline pb-1 text-emph font-semibold text-ink">

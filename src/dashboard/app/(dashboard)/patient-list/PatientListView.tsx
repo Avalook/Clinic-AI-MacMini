@@ -23,6 +23,7 @@ import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
+import KenhDoiHuy, { type CoKenhDoiHuy } from "../customers/KenhDoiHuy";
 import SplitPane from "../SplitPane";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 
@@ -30,7 +31,7 @@ import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 type PatientFull = NonNullable<DoctorApptRow["patient"]> & {
   /** Các số gắn THÊM — embed từ patient_sdt_them (15/08/2026). */
   patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
-};
+} & CoKenhDoiHuy;
 
 /** Một lần khám trong quá khứ — đủ để liệt kê, không kèm dữ liệu lâm sàng. */
 export interface VisitSummary {
@@ -336,6 +337,7 @@ export default function PatientListView({
                     <span className="mt-1 block truncate font-mono text-label text-ink-muted">
                       {row.patient_code}
                     </span>
+                    <KenhDoiHuy k={row.hoso} gon />
                     <span className="mt-1 flex items-center justify-between gap-2 text-label text-ink-muted">
                       <span className="truncate">{row.phone_primary ?? "Chưa có SĐT"}</span>
                       <span className="shrink-0 tabular-nums">
@@ -373,6 +375,7 @@ export default function PatientListView({
                 <div className="min-w-0">
                   <h2 className="truncate text-lg font-semibold text-ink">{selected.full_name}</h2>
                   <p className="mt-0.5 truncate font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <KenhDoiHuy k={selected.hoso} />
                 </div>
               </div>
               <PatientKind value={selected.phan_loai} />
@@ -739,6 +742,7 @@ export default function PatientListView({
                       <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
                         {row.patient_code}
                       </span>
+                      <KenhDoiHuy k={row.hoso} gon />
                     </span>
                     <span className="truncate text-xs text-ink-soft">
                       {row.phone_primary ?? "—"}

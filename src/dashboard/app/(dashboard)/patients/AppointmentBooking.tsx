@@ -13,7 +13,6 @@ import { INPUT, LABEL, BTN, CHANNELS_CHON, KENH_GIOI_THIEU } from "../form-ui";
 import { unaccentVi } from "../../../lib/validation";
 import Time24Input from "../Time24Input";
 import DateField from "../DateField";
-import { LINH_VUC_OPTIONS } from "../../../lib/linh-vuc";
 import CinemaSlotPicker from "./CinemaSlotPicker";
 import {
   buildSlotUsage,
@@ -43,27 +42,6 @@ const CELL_UI: Record<string, { label: string; className: string }> = {
   full: { label: "Đã đầy", className: "bg-danger-bg text-danger" },
 };
 
-function findServiceIdByLinhVuc(code: string, services: Option[]): string {
-  if (!code) return "";
-  const nameMap: Record<string, string[]> = {
-    PK: ["Phụ khoa", "PHU_KHOA"],
-    SK: ["Sản 1", "Sản khoa", "Sản", "SAN_1"],
-    NT: ["Nội tiết - Tình dục", "Nội tiết", "NOI_TIET_TINH_DUC"],
-    HMVS: ["Hiếm muộn", "Hiếm muộn - Vô sinh", "HIEM_MUON"],
-    NK: ["Nam khoa", "NAM_KHOA"],
-  };
-  const targets = nameMap[code] ?? [];
-  for (const t of targets) {
-    const found = services.find((s) => s.label.toLowerCase() === t.toLowerCase());
-    if (found) return found.id;
-  }
-  for (const t of targets) {
-    const found = services.find((s) => s.label.toLowerCase().includes(t.toLowerCase()));
-    if (found) return found.id;
-  }
-  return services[0]?.id ?? "";
-}
-
 export interface Option {
   id: string;
   label: string;
@@ -80,12 +58,15 @@ export interface BookingInitial {
   patientKind?: string;
   needSono?: boolean;
   channel?: string;
+  /** Người giới thiệu đã lưu ở hồ sơ khách (kênh Giới thiệu) — điền sẵn. */
+  gioiThieu?: string;
 }
 
 /** Chế độ SỬA lịch đã có (Thông tin khách hàng → bấm ô "Lịch hẹn sắp tới").
- *  Khi set: form ĐIỀN SẴN lịch cũ; nút → PATCH reschedule (đổi giờ + bác sĩ),
- *  CHỈ bật khi đã đổi ngày/giờ; Dịch vụ hiển thị read-only (reschedule không
- *  đổi dịch vụ). */
+ *  Khi set: form ĐIỀN SẴN lịch cũ; nút → PATCH reschedule. MỞ (Tuyền
+ *  24/09/2026): đổi được giờ, bác sĩ, DỊCH VỤ, kênh đặt, người giới thiệu, kèm
+ *  ô "Lý do đổi lịch" (lưu vào lịch sử đổi lịch). Nút bật khi có ít nhất một
+ *  thứ đổi. */
 export interface BookingEdit {
   appointmentId: string;
   origDate: string; // VN "YYYY-MM-DD"
@@ -128,13 +109,9 @@ export default function AppointmentBooking({
   initial?: BookingInitial;
   /** TÁI KHÁM: khoá cứng dịch vụ theo lượt khám trước, hiện read-only.
    *
-   *  KHÔNG dùng `initial.serviceId` cho việc này. Ô "Dịch vụ" là dropdown LĨNH
-   *  VỰC, và `linhVuc` không đọc `initial` — nên `initial.serviceId` đặt được
-   *  giá trị ngầm nhưng ô vẫn hiện "— Chọn dịch vụ —". Người dùng thấy chưa
-   *  chọn gì mà nút Đặt lịch lại sáng; chọn lại thì `findServiceIdByLinhVuc`
-   *  chạy, và hàm ấy kết thúc bằng `services[0]?.id` — IM LẶNG chọn dịch vụ
-   *  đầu danh sách nếu không khớp tên. Tái khám mà lặng lẽ đổi sang dịch vụ
-   *  khác là hỏng đúng thứ nút Tái khám sinh ra để bảo toàn. */
+   *  Khác `initial.serviceId` (chỉ là giá trị điền sẵn, đổi được): tái khám
+   *  mà lặng lẽ đổi sang dịch vụ khác là hỏng đúng thứ nút Tái khám sinh ra để
+   *  bảo toàn, nên ô này hiện read-only. */
   khoaDichVu?: { serviceId: string; label: string };
   /** Lịch hẹn mà lịch sắp đặt là TÁI KHÁM của nó. Xem 20260810000007. */
   lichTruocId?: string;
@@ -154,7 +131,6 @@ export default function AppointmentBooking({
   const [locationId, setLocationId] = useState(
     initial?.locationId ?? defaultLocationId ?? locations[0]?.id ?? "",
   );
-  const [linhVuc, setLinhVuc] = useState("");
   const [apptDate, setApptDate] = useState(initial?.apptDate ?? "");
   const [apptTime, setApptTime] = useState(initial?.apptTime ?? "");
   // Luật đặt lịch của phòng khám (độ dài khung + số chỗ). `null` = chưa đọc
@@ -195,7 +171,9 @@ export default function AppointmentBooking({
     }[]
   >([]);
   const [channel, setChannel] = useState(initial?.channel ?? "");
-  const [gioiThieu, setGioiThieu] = useState("");
+  const [gioiThieu, setGioiThieu] = useState(initial?.gioiThieu ?? "");
+  // Lý do đổi lịch (chế độ SỬA) → `appointment_doi_lich.ly_do`.
+  const [lyDoDoi, setLyDoDoi] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -321,7 +299,12 @@ export default function AppointmentBooking({
   // KHÔNG cần chọn kênh.
   // Chế độ SỬA: chỉ cho lưu khi ĐÃ đổi ngày/giờ (không đổi thì lưu vô nghĩa).
   const changed =
-    !edit || apptDate !== edit.origDate || apptTime !== edit.origTime;
+    !edit ||
+    apptDate !== edit.origDate ||
+    apptTime !== edit.origTime ||
+    serviceId !== (initial?.serviceId ?? "") ||
+    channel !== (initial?.channel ?? "") ||
+    gioiThieu.trim() !== (initial?.gioiThieu ?? "").trim();
   const canBook =
     serviceId &&
     locationId &&
@@ -381,6 +364,12 @@ export default function AppointmentBooking({
           slot_start: start.toISOString(),
           slot_end: end.toISOString(),
           doctor_id: doctorId, // "" = bỏ phân bác sĩ
+          service_type_id: serviceId || undefined,
+          booking_channel: channel,
+          nguoi_gioi_thieu:
+            channel === KENH_GIOI_THIEU ? gioiThieu.trim() || undefined : undefined,
+          // Lý do đổi → lịch sử đổi lịch (cùng trường lý do của lệnh).
+          cancellation_reason: lyDoDoi.trim() || undefined,
         }),
       });
       const json = await res.json();
@@ -442,14 +431,7 @@ export default function AppointmentBooking({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className={LABEL}>Dịch vụ *</label>
-          {edit ? (
-            // Sửa lịch: dịch vụ giữ nguyên (reschedule không đổi dịch vụ) → chỉ hiển thị.
-            <div
-              className={INPUT + " flex items-center bg-surface-muted text-ink-soft"}
-            >
-              {edit.serviceLabel || "—"}
-            </div>
-          ) : khoaDichVu ? (
+          {khoaDichVu ? (
             // TÁI KHÁM: dịch vụ lấy theo lượt khám trước, không đổi được ở đây.
             // Đổi dịch vụ thì nó không còn là tái khám nữa — đó là "Đặt lịch
             // khám mới", và có nút riêng cho việc ấy.
@@ -460,20 +442,19 @@ export default function AppointmentBooking({
               {khoaDichVu.label || "—"}
             </div>
           ) : (
+            // Chọn THẲNG từ danh mục dịch vụ đang bật (24/09/2026) — trước đây
+            // là 5 "lĩnh vực" viết cứng nên Thủ thuật / Sàn chậu không chọn được.
+            // Đổi lịch cũng chọn lại được (không khoá dịch vụ cũ).
             <select
-              value={linhVuc}
-              onChange={(e) => {
-                const code = e.target.value;
-                setLinhVuc(code);
-                const svcId = findServiceIdByLinhVuc(code, services);
-                setServiceId(svcId);
-              }}
+              value={serviceId}
+              onChange={(e) => setServiceId(e.target.value)}
               className={INPUT}
+              aria-label="Dịch vụ"
             >
               <option value="">— Chọn dịch vụ —</option>
-              {LINH_VUC_OPTIONS.map((o) => (
-                <option key={o.code} value={o.code}>
-                  {o.label}
+              {services.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label.replace(/^[*#\s]+/, "").trim()}
                 </option>
               ))}
             </select>
@@ -667,6 +648,23 @@ export default function AppointmentBooking({
         </div>
       </div>
 
+      {edit ? (
+        <div className="space-y-1">
+          <label className={LABEL} htmlFor="ly-do-doi-lich">
+            Lý do đổi lịch
+          </label>
+          <textarea
+            id="ly-do-doi-lich"
+            value={lyDoDoi}
+            onChange={(e) => setLyDoDoi(e.target.value)}
+            maxLength={1000}
+            rows={2}
+            placeholder="Vì sao khách đổi? (vd: chị bận đột xuất, xin dời sang tuần sau)"
+            className={INPUT}
+          />
+        </div>
+      ) : null}
+
       {error && (
         <p className="rounded bg-danger-bg px-3 py-2 text-sm text-danger">
           {error}
@@ -674,7 +672,12 @@ export default function AppointmentBooking({
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button onClick={book} disabled={!canBook || submitting} className={BTN}>
+        <button
+          type="button"
+          onClick={book}
+          disabled={!canBook || submitting}
+          className={BTN}
+        >
           {submitting
             ? edit
               ? "Đang đổi..."

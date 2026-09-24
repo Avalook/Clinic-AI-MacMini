@@ -739,10 +739,11 @@ class PaymentService:
         reference: object,
         identity: StaffIdentity,
     ) -> dict[str, Any]:
-        """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN, kèm mã giao dịch → PAID.
+        """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN → PAID.
 
-        Khách quét mã không phải bằng chứng; mã giao dịch ngân hàng người xác
-        minh nhập mới là bằng chứng (contract A2).
+        Mã giao dịch ngân hàng là TUỲ CHỌN (Tuyền 24/09/2026: "không được bắt
+        buộc điền mã mới cho thanh toán xong, open đi"). Có mã thì lưu làm bằng
+        chứng; không có thì người bấm (`confirmed_by`) là dấu vết.
 
         GẮN VỚI ẢNH CHỤP CỦA LẦN THU (review CP2 #3): tiền khách chuyển là cho
         đúng hoá đơn đã chụp lúc tạo lần chờ, với đúng số tiền ấy. Hoá đơn hiện
@@ -753,9 +754,9 @@ class PaymentService:
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
         await self._assert_kind_allowed(kind, identity)
-        ma = reference.strip() if isinstance(reference, str) else ""
-        if not 3 <= len(ma) <= 100:
-            raise ValidationError("Nhập mã giao dịch ngân hàng (3–100 ký tự).")
+        ma = (reference.strip() if isinstance(reference, str) else "") or None
+        if ma is not None and len(ma) > 100:
+            raise ValidationError("Mã giao dịch ngân hàng dài quá 100 ký tự.")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 lan, phan_lo = await self._khoa_lan_thu(
@@ -766,7 +767,8 @@ class PaymentService:
                     identity=identity,
                 )
                 if lan["status"] == "PAID":
-                    if lan["reference"] == ma:
+                    # Gửi lại (mất phản hồi) — không mã, hay cùng mã → như cũ.
+                    if ma is None or lan["reference"] == ma:
                         return {
                             "payment_cycle_id": payment_cycle_id,
                             "status": "PAID",
