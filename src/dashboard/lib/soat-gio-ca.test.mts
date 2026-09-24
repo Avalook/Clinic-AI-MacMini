@@ -114,7 +114,9 @@ test("giờ mở cửa: đủ bảy ngày, đóng sau mở — mở sớm 05:00 
 });
 
 test("giờ mở cửa: thiếu ngày, giờ rác, đóng trước mở đều bị báo", () => {
-  const { "0": _cn, ...thieuCn } = MO_CUA;
+  const thieuCn: GioMoCua = Object.fromEntries(
+    Object.entries(MO_CUA).filter(([t]) => t !== "0"),
+  );
   assert.ok(soatGioMoCua(thieuCn).some((x) => x.includes("Chủ nhật")));
   const rac: GioMoCua = { ...MO_CUA, "2": { mo: "7h", dong: "22:00" } };
   assert.ok(soatGioMoCua(rac).some((x) => x.includes("Thứ Ba")));
