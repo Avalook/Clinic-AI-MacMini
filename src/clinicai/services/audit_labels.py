@@ -276,6 +276,7 @@ SOURCE_LABELS: dict[str, str] = {
     "dashboard": "Màn hình quản trị",
     "system": "Hệ thống",
     "api:dispatch": "Điều phối trong ngày",
+    "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
     "api:theo-doi-thu-thuat": "Bác sĩ — theo dõi sau thủ thuật",
     "api:ket-qua": "Kết quả xét nghiệm về",

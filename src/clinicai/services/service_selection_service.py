@@ -273,6 +273,7 @@ _CHO_QUYET_SQL = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.exec_status, o.selection_status, o.routing_status, o.execution_status,
        o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang,
+       o.node_code, o.phong_du_kien_id::text AS phong_du_kien_id,
        (SELECT min(pr.unit_price) FROM service_price pr
          WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
            AND pr.active AND pr."group" = 'dich_vu') AS gia,
@@ -309,6 +310,41 @@ async def cho_khach_quyet(
     """
     if not visit_ids:
         return {}
+    # Phòng chọn được cho từng chỉ định (Tuyền 24/09/2026: quầy chọn phòng khách
+    # làm TRƯỚC khi chốt + thu). Đúng tập của dây H4 — cùng cơ sở, còn nhận
+    # khách, làm được bước này — xếp theo gợi ý (vắng nhất lên đầu).
+    from clinicai.services.service_routing_service import (
+        co_so_cua_luot,
+        eligible_rooms,
+        rank_rooms,
+    )
+
+    ten_phong: dict[str, str] = {
+        r["id"]: r["name"]
+        for r in await conn.fetch(
+            "SELECT id::text AS id, name FROM clinic_room"
+            " WHERE clinic_id = $1::uuid AND is_active",
+            clinic_id,
+        )
+    }
+    phong_theo: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+
+    async def phong_chon_duoc(node: str | None, vid: str) -> list[dict[str, Any]]:
+        if not node:
+            return []
+        co_so = await co_so_cua_luot(conn, clinic_id, visit_id=vid)
+        khoa = (node, co_so)
+        if khoa not in phong_theo:
+            phong_theo[khoa] = [
+                {
+                    "id": u["room_id"],
+                    "ten": ten_phong.get(u["room_id"], "Phòng"),
+                    "dang_cho": u["queue_load"],
+                }
+                for u in rank_rooms(await eligible_rooms(conn, clinic_id, node, co_so))
+            ]
+        return phong_theo[khoa]
+
     out: dict[str, dict[str, Any]] = {}
     for r in await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids):
         facts = OrderFacts(
@@ -332,6 +368,8 @@ async def cho_khach_quyet(
                 "selection_status": r["selection_status"],
                 "gia": int(r["gia"]) if r["gia"] is not None else None,
                 "mang_sang": bool(r["mang_sang"]),
+                "phong_du_kien_id": r["phong_du_kien_id"],
+                "phong_chon_duoc": await phong_chon_duoc(r["node_code"], r["visit_id"]),
             }
         )
     return out

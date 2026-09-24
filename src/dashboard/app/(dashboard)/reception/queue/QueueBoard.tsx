@@ -17,13 +17,10 @@ import { useMemo, useState, useTransition } from "react";
 
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import ThanhTab from "@/components/ui/ThanhTab";
 
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
-import {
-  STATUS_PRESENTATION,
-  minutesPastDue,
-  resolveStatus,
-} from "@/lib/work-item-status";
+import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import {
   patientLine,
   waitedMinutes,
@@ -33,6 +30,18 @@ import NutCheckIn from "@/components/ui/NutCheckIn";
 import { useThuTuKham } from "./dung-thu-tu-kham";
 import { choTruoc } from "./thu-tu-chen";
 import type { MaXacMinh } from "@/lib/xac-minh";
+import type { WeekApptRow } from "../../home/WeeklyAppointmentsTable";
+
+/** Nút "Vào khám" (mở rồi đóng bước tiếp nhận của kernel cũ) — OFF 24/09/2026.
+ *  Tuyền: "bấm check-in là tính luôn rồi" — sau check-in khối Hành trình tự
+ *  xếp khách (dây H1/H2), bước tiếp nhận cũ không đẩy ai đi đâu nữa (buổi khám
+ *  giả lập 585 thao tác chưa từng bấm nó). Giữ code, tắt bằng cờ này. */
+const NUT_VAO_KHAM = false;
+
+type TabDanhSach = "cho" | "da";
+
+/** Khung cuộn của danh sách — hai tab dùng CHUNG một chiều cao. */
+const KHUNG_CUON = "max-h-[610px] overflow-y-auto px-1";
 
 type KernelCommand = "start" | "complete";
 
@@ -89,9 +98,7 @@ function Row({
   onKeoXong: () => void;
   onTha: () => void;
 }) {
-  const tone = resolveStatus(item);
   const waited = waitedMinutes(item);
-  const late = minutesPastDue(item);
 
   return (
     // KÉO THẢ NGAY TRONG DANH SÁCH (Tuyền 16/09/2026) — bảng "Thứ tự khám hôm
@@ -135,9 +142,12 @@ function Row({
     >
       <span className="grid grid-cols-[34px_minmax(0,1fr)_44px] items-start gap-2">
         {/* SỐ THỨ TỰ: bỏ ô viền (Tuyền 16/09/2026) — nó chiếm ba phía chỉ để
-            đóng khung hai chữ số. Màu thương hiệu đọc nhanh hơn viền. */}
-        <span className="pt-0.5 text-center text-sm font-bold tabular-nums text-brand-700">
-          {soQuay(item)}
+            đóng khung hai chữ số. Màu thương hiệu đọc nhanh hơn viền.
+            SỐ BOOKING ngay dưới số check-in (Tuyền 24/09/2026), cùng cột —
+            không thêm cột độ rộng tự chế. */}
+        <span className="pt-0.5 text-center tabular-nums">
+          <span className="block text-sm font-bold text-brand-700">{soQuay(item)}</span>
+          <span className="block text-label font-semibold text-ink-soft">{soDat(item)}</span>
         </span>
         <span className="min-w-0">
           <span className="flex min-w-0 items-center gap-1.5">
@@ -153,22 +163,19 @@ function Row({
           <span className="block truncate text-xs text-ink-muted">
             {patientLine(item.patient) || item.patient.patient_code || "Chưa đủ thông tin"}
           </span>
-          <span className="mt-2 flex items-center justify-between gap-2 text-label">
-            <StatusChip
-              tone={STATUS_PRESENTATION[tone].token as StatusTone}
-              label={STATUS_PRESENTATION[tone].label}
-            />
+          <span className="mt-1 flex items-center justify-between gap-2 text-label">
+            <span className="truncate text-ink-muted">
+              Check-in {time(item.checked_in_at)}
+            </span>
             <span className="truncate text-ink-muted">
               {item.booking_channel === "WALK_IN" ? "Đến trực tiếp" : "Đặt hẹn"}
             </span>
           </span>
         </span>
-        <span
-          className={`pt-1 text-right text-xs font-semibold tabular-nums ${
-            late !== null && late > 0 ? "text-status-overdue" : "text-warning"
-          }`}
-        >
-          {late !== null && late > 0 ? `${late}′ quá` : `${waited}′`}
+        {/* CHỜ = phút từ lúc check-in. Không tô "quá SLA" nữa: hạn ấy là của
+            bước tiếp nhận cũ (nút "Vào khám" đã tắt), không còn ai đóng nó. */}
+        <span className="pt-1 text-right text-xs font-semibold tabular-nums text-warning">
+          {`${waited}′`}
         </span>
       </span>
     </button>
@@ -176,7 +183,73 @@ function Row({
   );
 }
 
-export default function QueueBoard({ items }: { items: WorklistItem[] }) {
+/** Một dòng "Chờ check-in": lịch hẹn hôm nay, khách chưa tới — bấm là check-in.
+ *  Cùng đường với bảng Lịch hẹn hôm nay (`PATCH /api/appointments`
+ *  action=checkin): hai đường check-in là hai luật cấp số lệch nhau. */
+function ChuaDenRow({ a, choCheckIn }: { a: WeekApptRow; choCheckIn: boolean }) {
+  const router = useRouter();
+  const [dang, startTransition] = useTransition();
+  const [loi, setLoi] = useState<string | null>(null);
+
+  async function checkIn() {
+    setLoi(null);
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: a.id, action: "checkin" }),
+    });
+    if (!res.ok) {
+      const b = (await res.json().catch(() => null)) as { error?: string } | null;
+      setLoi(b?.error ?? `Không check-in được (HTTP ${res.status})`);
+      return;
+    }
+    startTransition(() => router.refresh());
+  }
+
+  return (
+    <div className="border-b border-line px-2 py-2 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <span className="w-10 shrink-0 text-center text-sm font-bold tabular-nums text-ink-soft">
+          {a.so_booking != null ? `#${a.so_booking}` : "—"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ink">
+            {a.patient?.full_name ?? "Chưa rõ tên"}
+          </span>
+          <span className="block truncate text-xs text-ink-muted">
+            Hẹn {time(a.slot_start)}
+            {a.booking_channel === "WALK_IN" ? " · đến trực tiếp" : ""}
+          </span>
+        </span>
+        {choCheckIn ? (
+          <NutCheckIn size="sm" disabled={dang} onChon={() => checkIn()}>
+            {dang ? "…" : "Check-in"}
+          </NutCheckIn>
+        ) : (
+          <span />
+        )}
+      </div>
+      {loi ? (
+        <p className="mt-1 rounded-control bg-danger-bg px-2 py-1 text-label text-danger">
+          {loi}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export default function QueueBoard({
+  items,
+  chuaDen = [],
+  choCheckIn = false,
+}: {
+  items: WorklistItem[];
+  /** Lịch hẹn hôm nay chưa check-in (Tuyền 24/09/2026: check-in ngay ở đây). */
+  chuaDen?: WeekApptRow[];
+  /** Cùng cổng với bảng Lịch hẹn hôm nay (`canCheckin`) — vai khác chỉ xem. */
+  choCheckIn?: boolean;
+}) {
+  const [tab, setTab] = useState<TabDanhSach>(chuaDen.length > 0 ? "cho" : "da");
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
   const [query, setQuery] = useState("");
   const [dangKeo, setDangKeo] = useState<string | null>(null);
@@ -236,7 +309,25 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
     filtered[0] ??
     null;
 
-  if (items.length === 0) {
+  const soDaCheckIn = items.filter((x) => x.checked_in_at).length;
+  const kim = query.trim().toLocaleLowerCase("vi-VN");
+  const chuaDenXep = chuaDen
+    .filter(
+      (a) =>
+        !kim ||
+        [
+          a.patient?.full_name,
+          a.patient?.patient_code,
+          a.so_booking != null ? `#${a.so_booking}` : null,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase("vi-VN")
+          .includes(kim),
+    )
+    .sort((a, b) => new Date(a.slot_start).getTime() - new Date(b.slot_start).getTime());
+
+  if (items.length === 0 && chuaDen.length === 0) {
     return (
       <div className="rounded-card border border-line bg-surface p-10 text-center">
         <p className="font-medium text-ink">Hàng đợi trống</p>
@@ -248,7 +339,13 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
   }
 
   return (
-    <div className="grid items-start gap-3 xl:grid-cols-[minmax(280px,0.9fr)_minmax(380px,1.25fr)_minmax(240px,0.8fr)]">
+    <div
+      className={`grid items-start gap-3 ${
+        tab === "da"
+          ? "xl:grid-cols-[minmax(280px,0.9fr)_minmax(380px,1.25fr)_minmax(240px,0.8fr)]"
+          : "xl:max-w-3xl"
+      }`}
+    >
       <section
         aria-label="Danh sách hàng đợi"
         className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
@@ -257,9 +354,23 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-ink">Danh sách hàng đợi</h2>
             <p className="text-label text-ink-muted">
-              Theo giờ check-in · kéo tay cầm để đổi thứ tự
+              {tab === "cho"
+                ? "Theo giờ hẹn · bấm Check-in khi khách đến"
+                : "Theo giờ check-in · kéo tay cầm để đổi thứ tự"}
             </p>
           </div>
+          {/* HAI DANH SÁCH (Tuyền 24/09/2026): check-in ngay ở đây; ai check-in
+              rồi sang danh sách "Đã check-in". */}
+          <ThanhTab
+            className="mt-3"
+            nhan="Danh sách tiếp đón"
+            muc={[
+              { ma: "cho", nhan: `Chờ check-in (${chuaDen.length})` },
+              { ma: "da", nhan: `Đã check-in (${soDaCheckIn})` },
+            ]}
+            chon={tab}
+            onChon={setTab}
+          />
           {/* BA Ô LỌC ĐÃ BỎ (Tuyền 16/09/2026): tab "Khách ưu tiên" — dấu sao
               trên từng dòng đã nói rồi; tab "Cần xác minh" — nó dò một mã bước
               viết cứng trong giao diện; và hai ô "Bộ lọc" / "Sắp xếp" — hàng
@@ -283,13 +394,35 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
           )}
         </header>
 
+        {tab === "cho" ? (
+          <>
+            <div className="flex gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-faint">
+              <span className="w-10 shrink-0">Đặt</span>
+              <span className="min-w-0 flex-1">Người bệnh</span>
+            </div>
+            <div className={KHUNG_CUON}>
+              {chuaDenXep.length > 0 ? (
+                chuaDenXep.map((a) => (
+                  <ChuaDenRow key={a.id} a={a} choCheckIn={choCheckIn} />
+                ))
+              ) : (
+                <p className="px-4 py-10 text-center text-sm text-ink-muted">
+                  {kim
+                    ? "Không có khách nào khớp từ khoá."
+                    : "Khách hẹn hôm nay đã check-in hết."}
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
         <div className="grid grid-cols-[28px_34px_minmax(0,1fr)_44px] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-faint">
           <span />
-          <span>STT</span>
+          <span title="Số check-in · số đặt">STT</span>
           <span>Người bệnh</span>
           <span className="text-right">Chờ</span>
         </div>
-        <div className="max-h-[610px] overflow-y-auto px-1">
+        <div className={KHUNG_CUON}>
           {filtered.length > 0 ? (
             filtered.map((item) => (
               <Row
@@ -352,10 +485,12 @@ export default function QueueBoard({ items }: { items: WorklistItem[] }) {
             </button>
           )}
         </footer>
+          </>
+        )}
       </section>
 
-      {selected ? <PatientDetail item={selected} /> : null}
-      {selected ? (
+      {tab === "da" && selected ? <PatientDetail item={selected} /> : null}
+      {tab === "da" && selected ? (
         <CounterPanel
           item={selected}
           onSkip={() => {
@@ -627,6 +762,7 @@ function CounterPanel({
       >
         <UserRoundX size={15} /> Chưa đến — gọi người tiếp theo
       </button>
+      {NUT_VAO_KHAM && (
       <button
         type="button"
         disabled={!canAct || finished || pending}
@@ -636,6 +772,7 @@ function CounterPanel({
         <CheckCircle2 size={19} />
         {pending ? "Đang lưu…" : "Vào khám"}
       </button>
+      )}
     </aside>
   );
 }

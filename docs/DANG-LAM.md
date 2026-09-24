@@ -13,6 +13,31 @@ lịch sử hội thoại.
 
 ---
 
+## Giao diện 4 việc Tuyền chỉ trên màn (24/09 chiều — CHƯA deploy)
+
+1. **Bàn tư vấn = MỘT ô chữ tự do** (`ban-kham/ONhapTuVan.tsx`, cờ `TU_VAN_O_TU_DO`),
+   tự lưu → `POST /luot-kham/consultations/{id}/noi-dung-tu-van` (lệnh `RecordIntakeNote`,
+   quyền `clinical.intake.perform`, mỗi lần lưu thêm một dòng `consultation_note`). Mục
+   "Dữ liệu mang sang…" của bác sĩ chính (`phieu_kham/mang_sang.py`) nay đọc bản MỚI NHẤT
+   của phiên TU_VAN — trước đó chỉ đọc PRIMARY nên tư vấn ghi gì bác sĩ chính không thấy.
+2. **Quầy chọn phòng trước khi chốt + thu**: ô "Làm ở phòng" trong `ChonDichVu.tsx`; lệnh
+   `PlanServiceRoom` (`/routing/phong-du-kien`, cột `service_order.phong_du_kien_id`,
+   migration **20260925000003**); dây H4 thu xong xếp đúng phòng ấy (phòng hỏng → vắng nhất).
+   Bỏ tích dịch vụ đã có sẵn.
+3. **Lễ tân**: hai tab Chờ check-in (check-in ngay trên dòng) / Đã check-in; STT + số đặt.
+   Nút "Vào khám" OFF (`NUT_VAO_KHAM`). **Lỗi có sẵn bắt được khi bấm thật:** schema
+   `WorklistItem` thiếu `so_tiep_don`/`so_booking` → FastAPI lọc bỏ → màn lễ tân hiện số
+   riêng của bác sĩ và "Số booking —" từ 23/09. Đã thêm + test.
+4. **dev-up không tắt được API cũ**: tiến trình nạp-lại bỏ qua SIGTERM, tiến trình con mồ
+   côi vẫn nghe 8100 → mọi sửa backend không chạy mà /health vẫn xanh. `stop_services` nay
+   buộc tắt tiến trình của venv repo đang giữ cổng.
+
+Đã bấm thật ở pane (tài khoản Điều dưỡng của Tuyền): lễ tân 1280 + 375; ô tư vấn hiện +
+báo đúng "chưa được cấp quyền khám tư vấn". Lưu tư vấn thành công + đọc phía bác sĩ chính:
+kiểm qua API thật (bs.tuvan / bs.a). Quầy chọn phòng: test DB + P12 mô phỏng.
+
+---
+
 ## Tuyền chốt 6 câu hỏi sau buổi khám giả lập (24/09 sáng — CHƯA deploy)
 
 1. **Thu nhầm → huỷ phiếu → THU LẠI được** (FINANCE-GATE §16 hết "Chưa chốt"). Phiếu

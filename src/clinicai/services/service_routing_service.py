@@ -620,7 +620,8 @@ class ServiceRoutingService:
             return []
         orders = await conn.fetch(
             """
-            SELECT o.id::text AS id, o.node_code, o.routing_revision
+            SELECT o.id::text AS id, o.node_code, o.routing_revision,
+                   o.phong_du_kien_id::text AS phong_du_kien
               FROM service_order o
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                AND o.selection_status = 'SELECTED'
@@ -653,6 +654,13 @@ class ServiceRoutingService:
             )
             if not ung_vien:
                 continue
+            # Phòng khách chọn ở quầy (phong_du_kien) thắng — nếu nó vẫn đủ điều
+            # kiện (đúng cơ sở, còn nhận khách, làm được bước này). Không thì
+            # phòng vắng nhất như cũ: ý định cũ không được làm khách kẹt.
+            chon = next(
+                (u for u in ung_vien if u["room_id"] == o["phong_du_kien"]),
+                ung_vien[0],
+            )
             try:
                 async with conn.transaction():
                     kq = await self._gan(
@@ -660,7 +668,7 @@ class ServiceRoutingService:
                         nguoi_thu,
                         vid=visit_id,
                         oid=o["id"],
-                        rid=ung_vien[0]["room_id"],
+                        rid=chon["room_id"],
                         rev=int(o["routing_revision"]),
                         ly_do="INITIAL_ASSIGNMENT",
                         ref=f"{ADVISOR}:hanh-trinh:{causation_id}",
@@ -671,6 +679,57 @@ class ServiceRoutingService:
             if kq["changed"]:
                 da_xep.append(o["id"])
         return da_xep
+
+    async def dat_phong_du_kien(
+        self,
+        *,
+        order_id: Any,
+        room_id: Any,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """PlanServiceRoom — ghi phòng khách sẽ làm, TRƯỚC khi thu tiền.
+
+        Không xếp phòng chính thức (FinanceGate chặn khi chưa trả tiền), không
+        vào hàng chờ phòng: chỉ là ý định cho dây H4 dùng khi thu xong. Cùng
+        quyền với xếp phòng. ``room_id`` rỗng = bỏ chọn (để hệ thống tự chọn).
+        """
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        rid = (
+            None if room_id in (None, "") else _uuid(room_id, "Mã phòng không hợp lệ.")
+        )
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
+            )
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await khoa_luot(conn, cid, vid)
+            o = await conn.fetchrow(_ORDER_SQL, cid, oid)
+            assert o is not None
+            if o["exec_status"] in ("draft", "cancelled"):
+                raise _loi("SERVICE_ROUTING_NOT_ALLOWED", "Chỉ định đã huỷ.")
+            _kiem_thuc_hien(o)
+            if _routing_hieu_luc(o) == "ASSIGNED":
+                raise _loi(
+                    "ROUTING_ALREADY_ASSIGNED",
+                    "Chỉ định đã được xếp phòng — đổi phòng ở Điều phối.",
+                )
+            if rid is not None:
+                await self._kiem_phong(
+                    conn,
+                    cid,
+                    rid,
+                    str(o["node_code"]),
+                    await co_so_cua_luot(conn, cid, visit_id=vid),
+                )
+            await conn.execute(
+                "UPDATE service_order SET phong_du_kien_id = $3::uuid"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                oid,
+                rid,
+            )
+        return {"ok": True, "order_id": oid, "phong_du_kien_id": rid}
 
     async def invalidate(
         self,

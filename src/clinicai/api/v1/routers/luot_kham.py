@@ -393,6 +393,25 @@ async def xong_tu_van(
     )
 
 
+class NoiDungTuVanBody(BaseModel):
+    noi_dung: str = Field(default="", max_length=20000)
+
+
+@router.post("/luot-kham/consultations/{consultation_id}/noi-dung-tu-van")
+async def luu_noi_dung_tu_van(
+    consultation_id: UUID,
+    body: NoiDungTuVanBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô chữ tự do của bác sĩ tư vấn (24/09/2026) — sang mục "mang sang"."""
+    return await LuotKhamService(pool).luu_noi_dung_tu_van(
+        consultation_id=str(consultation_id),
+        noi_dung=body.noi_dung,
+        identity=identity,
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/notes")
 async def save_note(
     consultation_id: UUID,
@@ -577,6 +596,26 @@ async def assign_service_room(
         recommendation_ref=body.recommendation_ref,
         identity=identity,
         idempotency_key=idempotency_key,
+    )
+
+
+class PhongDuKienBody(BaseModel):
+    #: Rỗng = bỏ chọn, để hệ thống tự chọn phòng vắng nhất sau khi thu tiền.
+    room_id: UUID | None = None
+
+
+@router.post("/luot-kham/orders/{order_id}/routing/phong-du-kien")
+async def plan_service_room(
+    order_id: UUID,
+    body: PhongDuKienBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Quầy chọn phòng khách sẽ làm, trước khi thu tiền (Tuyền 24/09/2026)."""
+    return await ServiceRoutingService(pool).dat_phong_du_kien(
+        order_id=str(order_id),
+        room_id=str(body.room_id) if body.room_id else None,
+        identity=identity,
     )
 
 

@@ -314,6 +314,11 @@ class WorklistItem(BaseModel):
     started_at: datetime | None = None
     patient: WorklistPatient
     queue_number: str | None = None
+    # Số tiếp đón chung + số booking (23/09/2026). THIẾU hai trường này thì
+    # response_model LỌC BỎ dù service đã trả: màn lễ tân hiện số riêng của bác
+    # sĩ thay số tiếp đón, và "Số booking" luôn "—" (bắt được 24/09 khi bấm thật).
+    so_tiep_don: int | None = None
+    so_booking: int | None = None
     slot_start: datetime | None = None
     booking_channel: str | None = None
     # Khách ưu tiên/VIP (cờ hồ sơ + lý do, Tuyền chốt 15/09/2026).

@@ -28,6 +28,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Bác sĩ tư vấn bấm Xong → khối Hành trình chuyển khách sang bác sĩ chính (H3).
   "xong-tu-van": (id) => `/api/v1/luot-kham/consultations/${id}/xong-tu-van`,
   "ghi-chu": (id) => `/api/v1/luot-kham/consultations/${id}/notes`,
+  // Ô chữ tự do của bác sĩ tư vấn (24/09/2026) — id là PHIÊN TƯ VẤN.
+  "noi-dung-tu-van": (id) =>
+    `/api/v1/luot-kham/consultations/${id}/noi-dung-tu-van`,
   // Lát CD-01: MỘT lệnh thay cho nhập-nháp rồi duyệt. Bác sĩ và thư ký y khoa
   // ngang quyền (Tuyền, tin số 149). Khoá gửi lại bắt buộc.
   // Hai đường cũ bên dưới còn sống cho tới khi mọi màn đã chuyển sang đây.
@@ -63,6 +66,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // bắt buộc. Màn hình chuyển sang dùng ở Slice 6.
   "xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/assign`,
   "huy-xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/invalidate`,
+  // Phòng khách chọn ở quầy TRƯỚC khi thu tiền (24/09/2026) — id là CHỈ ĐỊNH.
+  // Không phải xếp phòng chính thức: thu xong dây H4 xếp đúng phòng này.
+  "phong-du-kien": (id) => `/api/v1/luot-kham/orders/${id}/routing/phong-du-kien`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

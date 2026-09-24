@@ -1350,6 +1350,77 @@ class LuotKhamService:
             )
         return {"ok": True, "consultation_id": con_id}
 
+    async def luu_noi_dung_tu_van(
+        self, *, consultation_id: str, noi_dung: object, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Bác sĩ tư vấn ghi MỘT ô chữ tự do (Tuyền 24/09/2026).
+
+        "Chỗ bác sĩ tư vấn chỉ cần 1 ô vuông to để điền tự do — để còn đồng bộ
+        sang Dữ liệu mang sang từ phần khám/tư vấn ban đầu của bác sĩ chính".
+        Mỗi lần lưu THÊM một dòng ``consultation_note`` (giữ lịch sử, không sửa
+        dòng cũ); phiếu bác sĩ chính đọc bản MỚI NHẤT (``mang_sang``). Sửa được
+        cả sau khi đã chuyển bác sĩ chính, tới khi lượt đóng.
+        """
+        text = noi_dung if isinstance(noi_dung, str) else ""
+        text = text.strip()
+        if len(text) > 20000:
+            raise ValidationError("Nội dung tư vấn quá dài.")
+        cid = identity.clinic_id
+        con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.intake.perform",
+                cau="Bạn chưa được cấp quyền khám tư vấn.",
+            )
+            vid = await self._visit_of(conn, "consultation", cid, con_id)
+            await self._lock_visit(conn, cid, vid)
+            c = await conn.fetchrow(
+                "SELECT c.kind, c.status, v.status AS luot"
+                "  FROM consultation c JOIN visit v"
+                "    ON v.clinic_id = c.clinic_id AND v.visit_id = c.visit_id"
+                " WHERE c.clinic_id = $1::uuid AND c.id = $2::uuid",
+                cid,
+                con_id,
+            )
+            assert c is not None
+            if c["kind"] != "TU_VAN":
+                raise LuotKhamConflictError(
+                    "NOT_INTAKE", "Đây không phải phiên tư vấn."
+                )
+            if c["luot"] not in ("OPEN", "IN_PROGRESS") or c["status"] == "cancelled":
+                raise LuotKhamConflictError(
+                    "CONSULTATION_NOT_OPEN", "Lượt khám đã đóng — không sửa được."
+                )
+            cu = await conn.fetchval(
+                "SELECT body FROM consultation_note"
+                " WHERE clinic_id = $1::uuid AND consultation_id = $2::uuid"
+                " ORDER BY created_at DESC, id DESC LIMIT 1",
+                cid,
+                con_id,
+            )
+            if (cu or "") == text:
+                return {"ok": True, "consultation_id": con_id, "doi": False}
+            await conn.execute(
+                "INSERT INTO consultation_note (clinic_id, consultation_id, body,"
+                " recorded_by) VALUES ($1::uuid, $2::uuid, $3, $4::uuid)",
+                cid,
+                con_id,
+                text,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="consult.note_saved",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin="api:tu-van",
+                payload={"consultation_id": con_id, "do_dai": len(text)},
+            )
+        return {"ok": True, "consultation_id": con_id, "doi": True}
+
     async def xong_tu_van(
         self, *, consultation_id: str, identity: StaffIdentity
     ) -> dict[str, Any]:

@@ -270,11 +270,27 @@ def chay(nk: NhatKyThaoTac, nhan_su: dict[str, str]) -> dict[str, Any]:
                     {"order_ids_seen": ds, "selected_order_ids": ds,
                      "expected_selection_revision": int(cd.get("revision") or 0)},
                     headers=pk.khoa()), khach="P12")
+            # Quầy CHỌN PHÒNG trước khi thu (Tuyền 24/09/2026): chọn phòng THỨ HAI
+            # trong danh sách (không phải phòng vắng nhất) để chứng minh H4 nghe quầy.
+            bang2 = b.ai("thungan").get("/cashier/board?modes=dich_vu")
+            dong2 = next((x for x in bang2.get("items", []) if x.get("visit_id") == k.vid), None)
+            cd2 = next((c for c in ((dong2 or {}).get("chon_dich_vu") or {}).get("chi_dinh", [])
+                        if c["id"] == k.chi_dinh[0]), None)
+            phong_ds = (cd2 or {}).get("phong_chon_duoc") or []
+            chon_phong = phong_ds[1]["id"] if len(phong_ds) > 1 else (phong_ds[0]["id"] if phong_ds else None)
+            ket["P12_phong_chon_duoc"] = [p["ten"] for p in phong_ds]
+            if chon_phong:
+                nk.lam("thungan", "P12", "quầy chọn phòng khách làm (trước khi thu)", lambda: b.ai("thungan").post(
+                    f"/luot-kham/orders/{k.chi_dinh[0]}/routing/phong-du-kien", {"room_id": chon_phong}), khach="P12")
             nk.lam("thungan", "P12", "thu ngân thu tiền dịch vụ", lambda: b.thu(k.vid, "dich_vu", "thungan"),
                    khach="P12")
-            nk.lam("he-thong", "P12", "thu ngân thu xong → chỉ định tự được xếp phòng",
-                   lambda: b.cho(lambda: b.chi_dinh(k.vid, k.chi_dinh[0])["phong_id"], giay=15,
-                                 mo_ta="thu ngân thu → tự xếp"), khach="P12")
+            xep = nk.lam("he-thong", "P12", "thu ngân thu xong → chỉ định tự được xếp phòng",
+                         lambda: b.cho(lambda: b.chi_dinh(k.vid, k.chi_dinh[0])["phong_id"], giay=15,
+                                       mo_ta="thu ngân thu → tự xếp"), khach="P12")
+            if chon_phong:
+                nk.lam("he-thong", "P12", "khách vào ĐÚNG phòng quầy đã chọn",
+                       lambda: str(xep) == chon_phong or (_ for _ in ()).throw(
+                           AssertionError(f"xếp {xep} ≠ chọn {chon_phong}")), khach="P12")
 
     return ket
 

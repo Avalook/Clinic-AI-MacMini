@@ -54,6 +54,7 @@ import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
+import ONhapTuVan from "./ONhapTuVan";
 import Button from "@/components/ui/Button";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
@@ -124,6 +125,10 @@ const LA_PHONG_KHAM = (p: Phong) => p.nodes.some((n) => n.startsWith("KHAM-"));
  *  bệnh án `ClinicalRecordForm` có nút Lưu) để OFF, KHÔNG xoá, tới khi Tuyền
  *  bấm thật xong. Lượt CŨ (xem lại) vẫn đọc bằng đường cũ. */
 const PHIEU_V5 = true;
+/** Bàn TƯ VẤN dùng MỘT ô chữ tự do (Tuyền 24/09/2026) thay cho phiếu khám v5 —
+ *  nội dung sang mục "Dữ liệu mang sang" của bác sĩ chính. `false` = về phiếu
+ *  v5 như trước (OFF, không xoá). */
+const TU_VAN_O_TU_DO = true;
 
 function initials(name: string | null): string {
   if (!name) return "BN";
@@ -868,6 +873,14 @@ function HoSo({
               readOnly
             />
           </div>
+        ) : TU_VAN_O_TU_DO && dong.loai === "TU_VAN" ? (
+          <ONhapTuVan
+            key={dong.ref_id}
+            visitId={dong.visit_id}
+            consultationId={dong.ref_id}
+            choGhi={choBam}
+            onTrangThai={baoGate}
+          />
         ) : PHIEU_V5 && (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
           // Bàn khám tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt
           // 24/09) — bác sĩ chính mở ra thấy ngay phần tư vấn đã điền.

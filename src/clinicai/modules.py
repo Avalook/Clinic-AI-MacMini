@@ -102,6 +102,8 @@ MODULE: dict[str, Module] = {
                 "AssignServiceRoom",
                 "InvalidateServiceRouting",
                 "AutoAssignPaidOrders",
+                # Phòng khách chọn ở quầy trước khi thu (24/09/2026) — H4 dùng.
+                "PlanServiceRoom",
             ],
             # Huỷ xếp phòng là sự thật nghiệp vụ, không chỉ là dòng nhật ký:
             # phòng mất thì phải có người xếp lại, và người ấy nhận việc qua
@@ -328,6 +330,8 @@ MODULE: dict[str, Module] = {
                 "ReleaseRecord",
                 "StartIntake",
                 "CompleteIntake",
+                # Ô chữ tự do của bác sĩ tư vấn (24/09/2026) → mục "mang sang".
+                "RecordIntakeNote",
                 # Lệnh nội bộ khối Hành trình gọi (xếp hàng theo đường đi).
                 "RouteAfterCheckIn",
                 "OpenIntakeQueue",

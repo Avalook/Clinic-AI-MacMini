@@ -129,16 +129,35 @@ async def doc_dau_phieu(
         clinic_id,
         visit_id,
     )
-    # "A. Khám của bác sĩ tư vấn": ghi chú của phiên khám BAN ĐẦU. Ghi chú chỉ
-    # thêm không sửa, nên đọc nguyên văn theo thứ tự đã ghi.
+    # "A. Khám của bác sĩ tư vấn". Hai nguồn:
+    #  · phiên TƯ VẤN (24/09/2026 — ô chữ tự do của bác sĩ tư vấn): mỗi lần lưu
+    #    thêm một dòng, nên chỉ lấy BẢN MỚI NHẤT của mỗi phiên;
+    #  · ghi chú cũ của phiên khám BAN ĐẦU (PRIMARY, lối ghi chú đã tắt): giữ
+    #    nguyên văn theo thứ tự đã ghi, cho lượt cũ.
+    # Trước 24/09 chỉ đọc PRIMARY — bác sĩ tư vấn ghi gì bác sĩ chính cũng
+    # không thấy ở mục này.
     ghi_chu = await conn.fetch(
-        "SELECT n.body, n.created_at, c.round_no"
-        "  FROM consultation_note n"
-        "  JOIN consultation c"
-        "    ON c.clinic_id = n.clinic_id AND c.id = n.consultation_id"
-        " WHERE n.clinic_id = $1::uuid AND c.visit_id = $2::uuid"
-        "   AND c.kind = 'PRIMARY'"
-        " ORDER BY n.created_at, n.id",
+        """
+        SELECT body, created_at, round_no, consultation_id FROM (
+            SELECT DISTINCT ON (c.id)
+                   n.body, n.created_at, c.round_no, c.id::text AS consultation_id
+              FROM consultation_note n
+              JOIN consultation c
+                ON c.clinic_id = n.clinic_id AND c.id = n.consultation_id
+             WHERE n.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+               AND c.kind = 'TU_VAN'
+             ORDER BY c.id, n.created_at DESC, n.id DESC
+        ) tv
+        WHERE body <> ''
+        UNION ALL
+        SELECT n.body, n.created_at, c.round_no, c.id::text
+          FROM consultation_note n
+          JOIN consultation c
+            ON c.clinic_id = n.clinic_id AND c.id = n.consultation_id
+         WHERE n.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+           AND c.kind = 'PRIMARY'
+        ORDER BY created_at
+        """,
         clinic_id,
         visit_id,
     )
@@ -155,6 +174,7 @@ async def doc_dau_phieu(
                 "noi_dung": r["body"],
                 "luc": r["created_at"].isoformat(),
                 "vong": r["round_no"],
+                "consultation_id": r["consultation_id"],
             }
             for r in ghi_chu
         ],

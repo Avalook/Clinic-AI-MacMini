@@ -7,15 +7,15 @@
  * this file.
  */
 
-import { Hourglass, UsersRound, Activity } from "lucide-react";
+import { CalendarClock, UsersRound, Star } from "lucide-react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import { requireNavAccess } from "@/lib/clinic-session";
 import { fetchWorklist } from "@/lib/worklist-server";
-import { isOverdue } from "@/lib/work-item-status";
 
 import { fetchFromBackend } from "@/lib/backend-proxy";
 import { getClinicStaffId, getVaiChinh } from "@/lib/clinic-session";
+import { canCheckin } from "@/lib/roles";
 import { currentWeekStartVn, todayVn } from "@/lib/roster";
 import QueueBoard from "./QueueBoard";
 import LiveBoardSync from "../../LiveBoardSync";
@@ -45,6 +45,11 @@ export default async function ReceptionQueuePage() {
   const homNay = todayVn();
   const { apptDays, dutyByDate } = dungLichHenTuan(goi, tuan);
   const lichHomNay = apptDays.filter((d) => d.date === homNay);
+  // Khách hẹn hôm nay CHƯA tới — check-in ngay ở danh sách tiếp đón (Tuyền
+  // 24/09/2026). Cùng tập trạng thái mà bảng Lịch hẹn cho bấm Check-in.
+  const chuaDen = lichHomNay
+    .flatMap((d) => d.items)
+    .filter((a) => ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status));
 
   return (
     <>
@@ -97,31 +102,34 @@ export default async function ReceptionQueuePage() {
         </div>
       ) : (
         <>
+          {/* Ba thẻ đếm theo CHECK-IN (24/09/2026). Bản cũ đếm theo bước tiếp
+              nhận của kernel ("đang xử lý", "quá SLA") — bước ấy chỉ đóng khi
+              bấm "Vào khám", nút nay đã tắt nên các số ấy thành vô nghĩa. */}
           <StatRow>
             <StatCard
-              label="Đang chờ tiếp nhận"
-              value={result.items.filter((i) => i.status === "PENDING").length}
+              label="Chờ check-in"
+              value={chuaDen.length}
               tone="brand"
+              icon={<CalendarClock size={23} />}
+            />
+            <StatCard
+              label="Đã check-in"
+              value={result.items.filter((i) => i.checked_in_at).length}
+              tone="neutral"
               icon={<UsersRound size={23} />}
             />
             <StatCard
-              label="Đang xử lý"
-              value={result.items.filter((i) => i.status === "IN_PROGRESS").length}
-              tone="neutral"
-              icon={<Activity size={23} />}
-            />
-            <StatCard
-              label="Quá SLA"
-              value={result.items.filter((i) => isOverdue(i)).length}
+              label="Khách ưu tiên"
+              value={result.items.filter((i) => i.checked_in_at && i.khach_uu_tien).length}
               tone="danger"
-              icon={<Hourglass size={23} />}
+              icon={<Star size={23} />}
             />
           </StatRow>
 
           {/* Thứ tự do QueueBoard tự xếp theo `call_order` của backend — cùng
               nguồn với bảng gọi số, và chính nó là thứ lễ tân kéo. Xếp sẵn ở
               đây theo "chờ lâu nhất" chỉ tạo một thứ tự thứ hai. */}
-          <QueueBoard items={result.items} />
+          <QueueBoard items={result.items} chuaDen={chuaDen} choCheckIn={canCheckin(role)} />
         </>
       )}
     </main>

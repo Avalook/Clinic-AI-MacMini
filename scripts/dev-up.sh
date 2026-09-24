@@ -97,6 +97,17 @@ stop_services() {
         fi
         sleep 1
     done
+    # API CŨ KHÔNG CHỊU TẮT (24/09/2026): tiến trình nạp-lại của uvicorn bỏ qua
+    # SIGTERM, còn tiến trình con (`multiprocessing.spawn`, không có chữ
+    # "uvicorn" trên dòng lệnh) mồ côi và VẪN nghe cổng. API mới lên cùng cổng,
+    # /health xanh nhờ bản CŨ, và mọi sửa backend không chạy — mất cả buổi mới
+    # biết. Còn tiến trình nào của venv repo này giữ cổng thì buộc tắt.
+    for pid in $(lsof -tiTCP:"${API_PORT}" -sTCP:LISTEN 2>/dev/null); do
+        if ps -o command= -p "$pid" 2>/dev/null | grep -q "$REPO/.venv/"; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    done
+    sleep 1
     if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
         owner="$(port_owner "$API_PORT")"
         red "  cổng $API_PORT vẫn bị chiếm bởi $owner — dừng thủ công hoặc chọn API_PORT khác"

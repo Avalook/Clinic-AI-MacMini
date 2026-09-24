@@ -10,6 +10,12 @@
 //
 // Màn KHÔNG tự suy cái gì còn chọn được: danh sách, trạng thái và `revision`
 // đều do máy chủ trả (`chon_dich_vu` trên bảng thu ngân), cùng luật với lệnh.
+//
+// CHỌN PHÒNG TRƯỚC KHI CHỐT (Tuyền 24/09/2026): "phải cho chọn phòng để chỉ
+// định xem khách đó khám ở đâu rồi mới chốt và thanh toán". Xếp phòng chính
+// thức vẫn chỉ sau khi thu (máy chủ chặn khi chưa trả tiền) — ô này ghi PHÒNG
+// DỰ KIẾN (`phong-du-kien`), thu xong dây H4 xếp đúng phòng đó. Danh sách phòng
+// cũng do máy chủ trả (`phong_chon_duoc`, cùng tập H4 dùng).
 
 import { useState } from "react";
 
@@ -18,12 +24,20 @@ import Chip from "@/components/ui/Chip";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 
+export interface PhongChonDuoc {
+  id: string;
+  ten: string;
+  dang_cho: number;
+}
+
 export interface ChiDinhChoQuyet {
   id: string;
   ten: string;
   selection_status: "PENDING" | "SELECTED" | "NOT_SELECTED" | null;
   gia: number | null;
   mang_sang: boolean;
+  phong_du_kien_id?: string | null;
+  phong_chon_duoc?: PhongChonDuoc[];
 }
 
 export interface ChoKhachQuyet {
@@ -55,6 +69,10 @@ export default function ChonDichVu({
           .filter((c) => c.selection_status !== "NOT_SELECTED")
           .map((c) => c.id),
       ),
+  );
+  // "" = để hệ thống tự chọn phòng vắng nhất lúc thu xong.
+  const [phong, setPhong] = useState<Record<string, string>>(() =>
+    Object.fromEntries(cho.chi_dinh.map((c) => [c.id, c.phong_du_kien_id ?? ""])),
   );
   const [dang, setDang] = useState(false);
 
@@ -103,6 +121,31 @@ export default function ChonDichVu({
         | null;
       if (r.ok) {
         xongThaoTac(thaoTac);
+        // Ghi phòng khách chọn cho từng dịch vụ khách làm (chỉ cái đổi).
+        const loiPhong: string[] = [];
+        for (const c of cho.chi_dinh) {
+          const muon = phong[c.id] ?? "";
+          if (!chon.has(c.id) || muon === (c.phong_du_kien_id ?? "")) continue;
+          const rp = await fetch("/api/luot-kham", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              thao_tac: "phong-du-kien",
+              id: c.id,
+              du_lieu: { room_id: muon || null },
+            }),
+          });
+          if (!rp.ok) {
+            const dp = (await rp.json().catch(() => null)) as
+              | { message?: string; error?: string }
+              | null;
+            loiPhong.push(`${c.ten}: ${dp?.message ?? dp?.error ?? "không ghi được phòng"}`);
+          }
+        }
+        if (loiPhong.length) {
+          await onXong(null, "Đã chốt dịch vụ nhưng CHƯA ghi được phòng — " + loiPhong.join("; "));
+          return;
+        }
         await onXong(
           daChon.length
             ? `Đã chốt ${daChon.length} dịch vụ khách làm — hoá đơn đã cập nhật.`
@@ -151,6 +194,23 @@ export default function ChonDichVu({
                 {c.gia !== null ? tien(c.gia) : "chưa có giá"}
               </span>
             </label>
+            {chon.has(c.id) && (c.phong_chon_duoc?.length ?? 0) > 0 ? (
+              <label className="ml-7 flex flex-wrap items-center gap-2 pb-1">
+                <span className="text-meta text-ink-muted">Làm ở phòng</span>
+                <select
+                  value={phong[c.id] ?? ""}
+                  onChange={(e) => setPhong({ ...phong, [c.id]: e.target.value })}
+                  className="min-h-10 rounded-control border border-line bg-surface px-2 text-body text-ink"
+                >
+                  <option value="">Tự chọn phòng vắng nhất</option>
+                  {(c.phong_chon_duoc ?? []).map((ph) => (
+                    <option key={ph.id} value={ph.id}>
+                      {ph.ten} · {ph.dang_cho} người chờ
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
           </li>
         ))}
       </ul>
