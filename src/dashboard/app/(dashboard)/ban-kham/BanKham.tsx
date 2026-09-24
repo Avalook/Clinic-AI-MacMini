@@ -129,6 +129,10 @@ const PHIEU_V5 = true;
  *  nội dung sang mục "Dữ liệu mang sang" của bác sĩ chính. `false` = về phiếu
  *  v5 như trước (OFF, không xoá). */
 const TU_VAN_O_TU_DO = true;
+/** Hỏi lại "Hoàn tất lượt khám này…? [Hoàn tất] [Thôi]" trước khi gửi. OFF
+ *  (Tuyền 24/09/2026: "khi ấn hoàn tất là ok rồi chứ đừng bắt ấn thêm lần nữa")
+ *  — hồ sơ không khoá, bấm nhầm vẫn sửa tiếp được. Giữ code, chưa xoá. */
+const HOI_LAI_KHI_HOAN_TAT = false;
 
 function initials(name: string | null): string {
   if (!name) return "BN";
@@ -719,7 +723,7 @@ function HoSo({
         return;
       }
 
-      if (thaoTac === "kham-xong") {
+      if (thaoTac === "kham-xong" && HOI_LAI_KHI_HOAN_TAT) {
         setLoi(null);
         setHoiHoanTat(dong.id);
         return;

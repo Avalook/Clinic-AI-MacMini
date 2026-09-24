@@ -38,7 +38,14 @@ class TestEpisodeGuard:
     """The gate must stay in step with canManageAppt in roles.ts."""
 
     @pytest.mark.parametrize(
-        "role", [ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA]
+        "role",
+        [
+            ClinicRole.CSKH,
+            ClinicRole.MANAGEMENT,
+            ClinicRole.TRUONG_CA,
+            # Lễ tân có màn Quản lý khách hàng đủ quyền (24/09/2026).
+            ClinicRole.RECEPTION,
+        ],
     )
     def test_allowed_roles(self, role: ClinicRole) -> None:
         assert role in _EPISODE_GUARD.allowed_roles
@@ -48,7 +55,6 @@ class TestEpisodeGuard:
         [
             ClinicRole.DOCTOR,
             ClinicRole.ULTRASOUND_DOCTOR,
-            ClinicRole.RECEPTION,
             ClinicRole.CASHIER,
             ClinicRole.CASHIER_THUOC,
             ClinicRole.CASHIER_DV,

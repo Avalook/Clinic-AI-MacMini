@@ -55,6 +55,7 @@ from clinicai.services.finance_gate import can_start
 from clinicai.services.hang_cho import cap_nhat_vi_tri, mo_cho_bi_chan
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
+    LuotKhamValidationError,
     bien_nhan_doc,
     bien_nhan_ghi,
     khoa_luot,
@@ -291,14 +292,23 @@ class ServiceExecutionService:
         expected_execution_revision: int,
         identity: StaffIdentity,
         idempotency_key: str | None = None,
+        ghi_chu: str | None = None,
     ) -> dict[str, Any]:
         """`CompleteService` — lần làm này đã xong.
+
+        `ghi_chu` (tuỳ chọn, 24/09/2026): điều dưỡng lấy mẫu / phòng bấm Xong ghi
+        lại gì đó ("khách khó lấy ven, lấy lần 2") — lưu vào CHÍNH lần làm.
 
         KHÔNG nhận nội dung kết quả: `service.completed` ≠ `result.ready`. Kết
         quả là việc của biểu mẫu (`form_instance`), một vòng đời riêng.
         """
         cid = identity.clinic_id
         payload = {"order_id": order_id, "attempt_id": attempt_id}
+        ghi = (ghi_chu or "").strip() or None
+        if ghi is not None and len(ghi) > 2000:
+            raise LuotKhamValidationError(
+                "NOTE_TOO_LONG", "Ghi chú quá dài (tối đa 2.000 ký tự)."
+            )
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_XONG)
             don, vid = await self._khoa_don(conn, cid, order_id)
@@ -318,11 +328,13 @@ class ServiceExecutionService:
             await conn.execute(
                 "UPDATE service_execution_attempt"
                 "   SET status = 'COMPLETED', completed_by = $3::uuid,"
-                "       completed_at = now(), updated_at = now()"
+                "       completed_at = now(), updated_at = now(),"
+                "       ghi_chu = coalesce($4, ghi_chu)"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 cid,
                 lan["id"],
                 identity.staff_id,
+                ghi,
             )
             moi = await self._doi_trang_thai(
                 conn, cid, order_id, "COMPLETED", nguoi_lam=identity.staff_id

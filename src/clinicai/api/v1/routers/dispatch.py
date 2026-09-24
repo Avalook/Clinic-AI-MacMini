@@ -397,6 +397,9 @@ async def checkout(
         override_reason=body.override_reason,
         incomplete=body.incomplete,
         incomplete_reason=body.incomplete_reason,
+        # MỞ (Tuyền 24/09/2026: "chưa thực hiện dịch vụ thì vẫn cho thanh toán
+        # đi về được"): lễ tân không gõ lý do thì máy ghi hộ, kèm việc còn dở.
+        ly_do_tu_dong="Lễ tân cho khách về.",
     )
 
 

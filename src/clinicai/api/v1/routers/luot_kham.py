@@ -715,6 +715,8 @@ class BatDauBody(BaseModel):
 class XongBody(BaseModel):
     attempt_id: UUID
     expected_execution_revision: int = Field(ge=0)
+    #: Ghi chú của lần làm (lấy mẫu / phòng bấm Xong) — tuỳ chọn, 24/09/2026.
+    ghi_chu: str | None = Field(default=None, max_length=2000)
 
 
 class KhongLamBody(BaseModel):
@@ -780,6 +782,7 @@ async def execution_xong(
         expected_execution_revision=body.expected_execution_revision,
         identity=identity,
         idempotency_key=idempotency_key,
+        ghi_chu=body.ghi_chu,
     )
 
 

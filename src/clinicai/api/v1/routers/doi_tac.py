@@ -30,6 +30,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_partner_identity
 from clinicai.core.database import get_db_pool
@@ -56,9 +57,15 @@ async def viec_cua_doi_tac(
     return await DoiTacService(pool).viec_doi_tac(identity=identity)
 
 
+class GhiChuDoiTac(BaseModel):
+    #: Ghi chú của đối tác khi bấm (24/09/2026) — tuỳ chọn.
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
 @router.post("/doi-tac/viec/{chi_dinh_id}/da-lay-mau")
 async def da_lay_mau(
     chi_dinh_id: UUID,
+    body: GhiChuDoiTac | None = None,
     identity: StaffIdentity = Depends(get_partner_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -66,13 +73,16 @@ async def da_lay_mau(
     from clinicai.services.doi_tac_service import DoiTacService
 
     return await DoiTacService(pool).doi_tac_da_lay_mau(
-        order_id=str(chi_dinh_id), identity=identity
+        order_id=str(chi_dinh_id),
+        identity=identity,
+        ghi_chu=body.ghi_chu if body else None,
     )
 
 
 @router.post("/doi-tac/viec/{chi_dinh_id}/cho-tai-lieu")
 async def cho_tai_lieu(
     chi_dinh_id: UUID,
+    body: GhiChuDoiTac | None = None,
     identity: StaffIdentity = Depends(get_partner_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -80,7 +90,9 @@ async def cho_tai_lieu(
     from clinicai.services.doi_tac_service import DoiTacService
 
     return await DoiTacService(pool).doi_tac_cho_tai_lieu(
-        order_id=str(chi_dinh_id), identity=identity
+        order_id=str(chi_dinh_id),
+        identity=identity,
+        ghi_chu=body.ghi_chu if body else None,
     )
 
 

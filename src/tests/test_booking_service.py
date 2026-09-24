@@ -151,6 +151,8 @@ class TestRoleGates:
                 # là tài khoản Quản lý đang chạy thử.
                 ClinicRole.MANAGEMENT,
                 ClinicRole.TRUONG_CA,
+                # Lễ tân có màn Quản lý khách hàng đủ quyền (24/09/2026).
+                ClinicRole.RECEPTION,
             }
         )
         assert transition.owner_only

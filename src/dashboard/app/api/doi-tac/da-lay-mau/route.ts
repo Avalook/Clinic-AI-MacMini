@@ -11,6 +11,7 @@ const UUID_RE =
 export async function POST(request: Request) {
   const than = (await request.json().catch(() => null)) as {
     chi_dinh_id?: unknown;
+    ghi_chu?: unknown;
   } | null;
   const id = typeof than?.chi_dinh_id === "string" ? than.chi_dinh_id : "";
   if (!UUID_RE.test(id)) {
@@ -22,6 +23,9 @@ export async function POST(request: Request) {
   return proxyJsonToBackend(
     "POST",
     `/api/v1/doi-tac/viec/${encodeURIComponent(id)}/da-lay-mau`,
-    {},
+    // Ghi chú của đối tác (24/09/2026) — tuỳ chọn.
+    typeof than?.ghi_chu === "string" && than.ghi_chu.trim()
+      ? { ghi_chu: than.ghi_chu.trim() }
+      : {},
   );
 }

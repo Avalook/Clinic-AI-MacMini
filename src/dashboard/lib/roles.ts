@@ -175,7 +175,13 @@ export function canCheckin(role: ClinicRole | null): boolean {
 /** Roles quản trị vòng đời lịch hẹn: HỦY lịch + PHÂN LẠI bác sĩ (CSKH + Quản lý
  *  + Trưởng ca — vận hành, xử lý phát sinh). */
 export function canManageAppt(role: ClinicRole | null): boolean {
-  return role === "CSKH" || role === "MANAGEMENT" || role === "TRUONG_CA";
+  // Lễ tân: màn Quản lý khách hàng đủ quyền (Tuyền 24/09/2026) — đổi / huỷ lịch.
+  return (
+    role === "CSKH" ||
+    role === "MANAGEMENT" ||
+    role === "TRUONG_CA" ||
+    role === "RECEPTION"
+  );
 }
 
 /** Roles được SỬA thông tin hành chính BN (mục I): nhóm intake (CSKH/Lễ tân/QL/ĐD)
@@ -343,10 +349,13 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // việc của họ là đón, xếp hàng, đóng lượt. Quyền GHI ở backend giữ nguyên
   // (`cskh_service.INTAKE_ROLES` vẫn có RECEPTION) — bỏ ở đây là bỏ khỏi tầm
   // mắt, không bỏ khả năng; trả lại chỉ là thêm một dòng.
+  // 24/09/2026: LỄ TÂN VÀO LẠI, đủ quyền (Tuyền: "kéo nút quản lý khách hàng
+  // full quyền thêm sang màn lễ tân").
   "/customers": [
     "CSKH",
     "MANAGEMENT",
     "TRUONG_CA",
+    "RECEPTION",
     "CASHIER",
     "CASHIER_THUOC",
     "CASHIER_DV",

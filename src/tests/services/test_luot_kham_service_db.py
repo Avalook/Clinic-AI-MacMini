@@ -531,6 +531,29 @@ async def test_khong_dich_vu_khi_con_chi_dinh_da_duyet(kb: KichBan) -> None:
     assert e.value.error_code == "ORDERS_PENDING"
 
 
+async def test_chi_dinh_khach_bo_khong_chan_hoan_tat(kb: KichBan) -> None:
+    """Tuyền 24/09/2026: chỉ định khách BỎ ở quầy (NOT_SELECTED, vẫn `authorized`)
+    không được chặn "khám xong — không cần dịch vụ"."""
+    phien = await _vao_kham(kb)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    await kb.pool.execute(
+        "UPDATE service_order SET selection_status = 'NOT_SELECTED'"
+        " WHERE id = ANY($1::uuid[])",
+        duyet["order_ids"],
+    )
+    await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="NO_SERVICES",
+        requirements=None,
+        identity=kb.bac_si,
+    )
+
+
 async def test_ket_thuc_sai_loai_phien(kb: KichBan) -> None:
     # T-C4
     phien = await _vao_kham(kb)

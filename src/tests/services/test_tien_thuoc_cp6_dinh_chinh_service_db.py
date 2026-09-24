@@ -98,10 +98,14 @@ async def test_a_sua_tai_cho_giu_id_doi_thuoc_xoa_viec_nha_thuoc(q: Quay) -> Non
     await _luu_don(q, [_i(rx, "thuoc go tay", "10 viên", "Sáng 1")])
     r = await _dong(q, rx)
     assert r["dosage_instructions"] == "Sáng 1" and r["drug_catalog_id"] is not None
+    cu = r["drug_catalog_id"]
     await _luu_don(q, [_i(rx, "Thuốc khác", "6 viên", "Sáng 1")])
     r = await _dong(q, rx)
     assert (r["drug_name_raw"], r["quantity"]) == ("Thuốc khác", "6 viên")
-    assert r["drug_catalog_id"] is None and r["purchased_qty"] is None
+    # Đổi thuốc: bỏ mã kho CŨ; 24/09/2026 tự gắn mã kho theo tên thuốc MỚI
+    # (một kho, không còn "chưa gắn kho") — số mua vẫn xoá.
+    assert r["drug_catalog_id"] is not None and r["drug_catalog_id"] != cu
+    assert r["purchased_qty"] is None
     assert r["removed_at"] is None
     assert await q.pool.fetchval(
         "SELECT (quantity_num, unit) = (6::numeric, 'viên') FROM prescription"

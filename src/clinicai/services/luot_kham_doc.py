@@ -894,6 +894,8 @@ class BangLuotKham:
               LEFT JOIN staff pb ON pb.id = o.performed_by
              WHERE o.clinic_id = $1::uuid
                AND o.exec_status NOT IN ('draft', 'cancelled')
+               -- Khách BỎ ở quầy không còn là việc của ai (24/09/2026).
+               AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
                AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                    = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
              ORDER BY o.created_at, o.id
@@ -909,6 +911,9 @@ class BangLuotKham:
             SELECT count(*) FROM service_order o
              WHERE o.clinic_id = $1::uuid
                AND o.exec_status NOT IN ('draft', 'cancelled')
+               -- Cùng điều kiện với danh sách (khách BỎ không tính) — lệch là
+               -- báo nhầm "bảng đang bị cắt".
+               AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
                AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                    = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
             """,

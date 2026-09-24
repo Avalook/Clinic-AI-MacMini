@@ -331,13 +331,13 @@ async def cho_khach_quyet(
             clinic_id,
         )
     }
-    phong_theo: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+    phong_theo: dict[tuple[str, str | None, str], list[dict[str, Any]]] = {}
 
     async def phong_chon_duoc(node: str | None, vid: str) -> list[dict[str, Any]]:
         if not node:
             return []
         co_so = await co_so_cua_luot(conn, clinic_id, visit_id=vid)
-        khoa = (node, co_so)
+        khoa = (node, co_so, vid)
         if khoa not in phong_theo:
             phong_theo[khoa] = [
                 {
@@ -345,7 +345,9 @@ async def cho_khach_quyet(
                     "ten": ten_phong.get(u["room_id"], "Phòng"),
                     "dang_cho": u["queue_load"],
                 }
-                for u in rank_rooms(await eligible_rooms(conn, clinic_id, node, co_so))
+                for u in rank_rooms(
+                    await eligible_rooms(conn, clinic_id, node, co_so, tru_luot=vid)
+                )
             ]
         return phong_theo[khoa]
 

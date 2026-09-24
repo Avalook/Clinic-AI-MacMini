@@ -654,10 +654,11 @@ async def test_smoke_3_unlisted_drug_free_text_blocked_at_payment_e2e(
         # Kiểm tra hóa đơn
         hd = await tinh_hoa_don(conn, clinic_id=CLINIC_A, visit_id=vid, kind="thuoc")
         assert hd.thu_duoc is False
-        assert any("chưa có trong danh mục giá" in v for v in hd.van_de)
+        # 24/09/2026: thuốc gõ tay vào danh mục kho (cần soát, CHƯA GIÁ).
+        assert any("chưa có giá" in v for v in hd.van_de)
 
-    # Thử thu tiền -> bị chặn bởi ValidationError vì thuốc chưa có trong danh mục giá
-    with pytest.raises(ValidationError, match="chưa có trong danh mục giá"):
+    # Thử thu tiền -> bị chặn vì thuốc chưa có giá (không tính 0đ)
+    with pytest.raises(ValidationError, match="chưa có giá"):
         await svc_pay.record_payment(
             identity=reception,
             visit_id=vid,

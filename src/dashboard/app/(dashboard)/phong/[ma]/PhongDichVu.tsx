@@ -228,6 +228,7 @@ function KhachTrongPhong({
   const [xemLuot, setXemLuot] = useState(false);
   const [lanDoc, setLanDoc] = useState(0);
   const [moPhieuPhu, setMoPhieuPhu] = useState(false);
+  const [ghiChuXong, setGhiChuXong] = useState("");
 
   // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
   // hai số revision, mà thiếu chúng thì mọi lệnh đều phải đoán.
@@ -454,19 +455,41 @@ function KhachTrongPhong({
           {dangLam && th.lan_dang_chay && !coPhieuChinh ? (
             // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi, thủ thuật không
             // mẫu): nút này gọi thẳng lệnh đóng dịch vụ. Vẫn đúng một nút kết thúc.
-            <Button
-              size="lg"
-              variant="primary"
-              disabled={dangGui}
-              onClick={() =>
-                void lenh("xong-v1", {
-                  attempt_id: th.lan_dang_chay!.id,
-                  expected_execution_revision: th.execution_revision,
-                })
-              }
-            >
-              {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
-            </Button>
+            // GHI CHÚ (Tuyền 24/09/2026: "không để chỉ cho ấn đã lấy mẫu là xong,
+            // phải có ghi chú lại chứ") — lưu vào chính lần làm.
+            <div className="space-y-2">
+              <label className="block">
+                <span className="text-xs font-semibold text-ink">
+                  Ghi chú {loai === "LAY_MAU" ? "lấy mẫu" : "khi làm"} (tuỳ chọn)
+                </span>
+                <textarea
+                  value={ghiChuXong}
+                  onChange={(e) => setGhiChuXong(e.target.value)}
+                  rows={2}
+                  maxLength={2000}
+                  placeholder={
+                    loai === "LAY_MAU"
+                      ? "VD: lấy 2 ống, khách khó lấy ven, mẫu gửi đối tác lúc 10h…"
+                      : "Ghi lại điều cần lưu ý…"
+                  }
+                  className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
+                />
+              </label>
+              <Button
+                size="lg"
+                variant="primary"
+                disabled={dangGui}
+                onClick={() =>
+                  void lenh("xong-v1", {
+                    attempt_id: th.lan_dang_chay!.id,
+                    expected_execution_revision: th.execution_revision,
+                    ghi_chu: ghiChuXong.trim() || undefined,
+                  })
+                }
+              >
+                {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
+              </Button>
+            </div>
           ) : null}
 
           {/* "Phải dừng giữa chừng? / Không làm được?" — OFF (Tuyền 24/09/2026:

@@ -139,6 +139,12 @@ async def test_doi_tac_tu_lay_mau_chi_nhan_sau_khi_khach_tra_tien(
     # Chạy lại bên nhận không nhận trùng.
     await doi_tac_nhan(pool)
     assert await _so_su_kien(pool, order) == 1
+    # Đối tác bấm "Đã lấy mẫu" kèm ghi chú → hiện trên bàn (24/09/2026).
+    await DoiTacService(pool).doi_tac_da_lay_mau(
+        order_id=order, identity=doi_tac, ghi_chu="Lấy mẫu 10h, mẫu đủ"
+    )
+    viec = _tren_ban(await DoiTacService(pool).viec_doi_tac(identity=doi_tac), order)
+    assert viec is not None and viec["ghi_chu_lay_mau"] == "Lấy mẫu 10h, mẫu đủ"
 
 
 async def test_dieu_duong_lay_mau_xong_thi_doi_tac_nhan_viec(

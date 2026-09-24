@@ -360,8 +360,8 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
             </>
           ) : (
             <>
-              <b>Còn {d.blockers.length} việc chưa xong.</b> Vẫn đóng được, nhưng
-              phải ghi lý do:
+              <b>Còn {d.blockers.length} việc chưa xong.</b> Vẫn cho khách về
+              được — việc còn dở được ghi lại:
               <ul className="mt-1 list-disc pl-5">
                 {d.blockers.map((b) => (
                   <li key={b.type}>{b.message}</li>
