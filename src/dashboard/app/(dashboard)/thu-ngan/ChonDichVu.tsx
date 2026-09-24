@@ -16,6 +16,11 @@
 // thức vẫn chỉ sau khi thu (máy chủ chặn khi chưa trả tiền) — ô này ghi PHÒNG
 // DỰ KIẾN (`phong-du-kien`), thu xong dây H4 xếp đúng phòng đó. Danh sách phòng
 // cũng do máy chủ trả (`phong_chon_duoc`, cùng tập H4 dùng).
+//
+// BỎ TICK LÀ TRỪ TIỀN NGAY (Tuyền 24/09/2026): "bỏ tick dịch vụ không làm mà
+// tổng vẫn tính". Hoá đơn do máy chủ tính theo lựa chọn ĐÃ LƯU; trước đây ô tick
+// chỉ đổi trên màn, phải bấm "Chốt" tổng mới trừ. Giờ mỗi lần tích / bỏ tick /
+// đổi phòng là lưu luôn (cùng lệnh chốt) rồi nạp lại hoá đơn.
 
 import { useState } from "react";
 
@@ -89,10 +94,13 @@ export default function ChonDichVu({
     );
   }
 
-  const chot = async () => {
+  const chot = async (
+    chonMoi: Set<string> = chon,
+    phongMoi: Record<string, string> = phong,
+  ) => {
     setDang(true);
     const ds = cho.chi_dinh.map((c) => c.id);
-    const daChon = ds.filter((id) => chon.has(id));
+    const daChon = ds.filter((id) => chonMoi.has(id));
     const thaoTac = dinhDanhThaoTac(
       "chon-dich-vu",
       visitId,
@@ -124,8 +132,8 @@ export default function ChonDichVu({
         // Ghi phòng khách chọn cho từng dịch vụ khách làm (chỉ cái đổi).
         const loiPhong: string[] = [];
         for (const c of cho.chi_dinh) {
-          const muon = phong[c.id] ?? "";
-          if (!chon.has(c.id) || muon === (c.phong_du_kien_id ?? "")) continue;
+          const muon = phongMoi[c.id] ?? "";
+          if (!chonMoi.has(c.id) || muon === (c.phong_du_kien_id ?? "")) continue;
           const rp = await fetch("/api/luot-kham", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -148,14 +156,19 @@ export default function ChonDichVu({
         }
         await onXong(
           daChon.length
-            ? `Đã chốt ${daChon.length} dịch vụ khách làm — hoá đơn đã cập nhật.`
+            ? `Đã lưu ${daChon.length} dịch vụ khách làm — tổng tiền đã cập nhật.`
             : "Đã ghi: khách không làm dịch vụ nào.",
           null,
         );
       } else {
+        // Không lưu được → trả ô tick về như cũ, khỏi hiện sai với hoá đơn.
+        setChon(chon);
+        setPhong(phong);
         await onXong(null, d?.message ?? d?.error ?? "Không chốt được dịch vụ.");
       }
     } catch {
+      setChon(chon);
+      setPhong(phong);
       await onXong(null, "Mất kết nối — CHƯA chốt được dịch vụ khách làm.");
     } finally {
       setDang(false);
@@ -175,11 +188,13 @@ export default function ChonDichVu({
                 type="checkbox"
                 className="size-4 accent-brand-600"
                 checked={chon.has(c.id)}
+                disabled={dang}
                 onChange={(e) => {
                   const moi = new Set(chon);
                   if (e.target.checked) moi.add(c.id);
                   else moi.delete(c.id);
                   setChon(moi);
+                  void chot(moi, phong);
                 }}
               />
               <span className="min-w-0 flex-1 text-body text-ink">
@@ -199,7 +214,12 @@ export default function ChonDichVu({
                 <span className="text-meta text-ink-muted">Làm ở phòng</span>
                 <select
                   value={phong[c.id] ?? ""}
-                  onChange={(e) => setPhong({ ...phong, [c.id]: e.target.value })}
+                  disabled={dang}
+                  onChange={(e) => {
+                    const moi = { ...phong, [c.id]: e.target.value };
+                    setPhong(moi);
+                    void chot(chon, moi);
+                  }}
                   className="min-h-10 rounded-control border border-line bg-surface px-2 text-body text-ink"
                 >
                   <option value="">Tự chọn phòng vắng nhất</option>
@@ -214,15 +234,23 @@ export default function ChonDichVu({
           </li>
         ))}
       </ul>
+      <p className="mt-2 text-meta text-ink-muted">
+        {dang
+          ? "Đang lưu…"
+          : conCho
+            ? "Bỏ tick cái khách không làm — lưu và trừ tiền ngay. Khách làm hết thì bấm Chốt."
+            : "Bỏ tick / tích lại là lưu và tính lại tổng ngay."}
+      </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button variant="primary" size="lg" disabled={dang} onClick={() => void chot()}>
-          Chốt dịch vụ khách làm
-        </Button>
-        {!conCho ? (
-          <Button size="lg" variant="ghost" disabled={dang} onClick={() => setMo(false)}>
-            Để nguyên
+        {conCho ? (
+          <Button variant="primary" size="lg" disabled={dang} onClick={() => void chot()}>
+            Chốt dịch vụ khách làm
           </Button>
-        ) : null}
+        ) : (
+          <Button size="lg" variant="ghost" disabled={dang} onClick={() => setMo(false)}>
+            Xong
+          </Button>
+        )}
       </div>
     </div>
   );

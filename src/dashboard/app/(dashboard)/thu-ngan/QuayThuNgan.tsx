@@ -289,8 +289,10 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
             {quay !== "thuoc" && l.chon_dich_vu ? (
               <ChonDichVu
-                // Revision đổi = danh sách đổi: dựng lại ô để lấy mặc định mới.
-                key={`${l.visit_id}:${l.chon_dich_vu.revision}:${l.chon_dich_vu.chi_dinh.length}`}
+                // Danh sách chỉ định đổi thì dựng lại ô để lấy mặc định mới. KHÔNG
+                // gắn revision: mỗi lần tick là một lần lưu (revision tăng) — dựng
+                // lại sẽ thu gọn ô giữa lúc lễ tân đang bỏ tick tiếp.
+                key={`${l.visit_id}:${l.chon_dich_vu.chi_dinh.map((c) => c.id).join(",")}`}
                 visitId={l.visit_id}
                 cho={l.chon_dich_vu}
                 onXong={async (cau, loiMoi) => {
