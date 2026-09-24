@@ -9,7 +9,6 @@ import {
   Phone,
   Search,
   ShieldCheck,
-  UserRoundX,
   UsersRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -140,16 +139,18 @@ function Row({
       aria-current={selected ? "true" : undefined}
       className="min-w-0 flex-1 px-1 py-2 text-left"
     >
-      <span className="grid grid-cols-[34px_minmax(0,1fr)_44px] items-start gap-2">
+      <span className="flex items-start gap-2">
         {/* SỐ THỨ TỰ: bỏ ô viền (Tuyền 16/09/2026) — nó chiếm ba phía chỉ để
             đóng khung hai chữ số. Màu thương hiệu đọc nhanh hơn viền.
-            SỐ BOOKING ngay dưới số check-in (Tuyền 24/09/2026), cùng cột —
-            không thêm cột độ rộng tự chế. */}
-        <span className="pt-0.5 text-center tabular-nums">
-          <span className="block text-sm font-bold text-brand-700">{soQuay(item)}</span>
-          <span className="block text-label font-semibold text-ink-soft">{soDat(item)}</span>
+            SỐ BOOKING NGAY CẠNH số check-in (Tuyền 24/09/2026). Độ rộng cột
+            lấy từ thang (w-9 / w-10 / w-11), không [..px] tự chế. */}
+        <span className="w-9 shrink-0 pt-0.5 text-center text-sm font-bold tabular-nums text-brand-700">
+          {soQuay(item)}
         </span>
-        <span className="min-w-0">
+        <span className="w-10 shrink-0 pt-0.5 text-center text-xs font-semibold tabular-nums text-ink-soft">
+          {soDat(item)}
+        </span>
+        <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-semibold text-ink">
               {item.patient.full_name ?? "Chưa rõ tên"}
@@ -174,7 +175,7 @@ function Row({
         </span>
         {/* CHỜ = phút từ lúc check-in. Không tô "quá SLA" nữa: hạn ấy là của
             bước tiếp nhận cũ (nút "Vào khám" đã tắt), không còn ai đóng nó. */}
-        <span className="pt-1 text-right text-xs font-semibold tabular-nums text-warning">
+        <span className="w-11 shrink-0 pt-1 text-right text-xs font-semibold tabular-nums text-warning">
           {`${waited}′`}
         </span>
       </span>
@@ -186,7 +187,7 @@ function Row({
 /** Một dòng "Chờ check-in": lịch hẹn hôm nay, khách chưa tới — bấm là check-in.
  *  Cùng đường với bảng Lịch hẹn hôm nay (`PATCH /api/appointments`
  *  action=checkin): hai đường check-in là hai luật cấp số lệch nhau. */
-function ChuaDenRow({ a, choCheckIn }: { a: WeekApptRow; choCheckIn: boolean }) {
+function ChuaDenRow({ a }: { a: WeekApptRow }) {
   const router = useRouter();
   const [dang, startTransition] = useTransition();
   const [loi, setLoi] = useState<string | null>(null);
@@ -221,13 +222,11 @@ function ChuaDenRow({ a, choCheckIn }: { a: WeekApptRow; choCheckIn: boolean }) 
             {a.booking_channel === "WALK_IN" ? " · đến trực tiếp" : ""}
           </span>
         </span>
-        {choCheckIn ? (
-          <NutCheckIn size="sm" disabled={dang} onChon={() => checkIn()}>
-            {dang ? "…" : "Check-in"}
-          </NutCheckIn>
-        ) : (
-          <span />
-        )}
+        {/* NÚT CHECK-IN Ở MỌI DÒNG (Tuyền 24/09/2026). Ai được check-in do máy
+            chủ quyết theo khối quyền — không ẩn theo tên vai ở đây. */}
+        <NutCheckIn size="sm" disabled={dang} onChon={() => checkIn()}>
+          {dang ? "…" : "Check-in"}
+        </NutCheckIn>
       </div>
       {loi ? (
         <p className="mt-1 rounded-control bg-danger-bg px-2 py-1 text-label text-danger">
@@ -241,13 +240,10 @@ function ChuaDenRow({ a, choCheckIn }: { a: WeekApptRow; choCheckIn: boolean }) 
 export default function QueueBoard({
   items,
   chuaDen = [],
-  choCheckIn = false,
 }: {
   items: WorklistItem[];
   /** Lịch hẹn hôm nay chưa check-in (Tuyền 24/09/2026: check-in ngay ở đây). */
   chuaDen?: WeekApptRow[];
-  /** Cùng cổng với bảng Lịch hẹn hôm nay (`canCheckin`) — vai khác chỉ xem. */
-  choCheckIn?: boolean;
 }) {
   const [tab, setTab] = useState<TabDanhSach>(chuaDen.length > 0 ? "cho" : "da");
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null);
@@ -403,7 +399,7 @@ export default function QueueBoard({
             <div className={KHUNG_CUON}>
               {chuaDenXep.length > 0 ? (
                 chuaDenXep.map((a) => (
-                  <ChuaDenRow key={a.id} a={a} choCheckIn={choCheckIn} />
+                  <ChuaDenRow key={a.id} a={a} />
                 ))
               ) : (
                 <p className="px-4 py-10 text-center text-sm text-ink-muted">
@@ -416,11 +412,12 @@ export default function QueueBoard({
           </>
         ) : (
           <>
-        <div className="grid grid-cols-[28px_34px_minmax(0,1fr)_44px] gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-faint">
-          <span />
-          <span title="Số check-in · số đặt">STT</span>
-          <span>Người bệnh</span>
-          <span className="text-right">Chờ</span>
+        <div className="flex gap-2 border-b border-line bg-surface-muted px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-faint">
+          <span className="w-7 shrink-0" />
+          <span className="w-9 shrink-0 text-center">STT</span>
+          <span className="w-10 shrink-0 text-center">Đặt</span>
+          <span className="min-w-0 flex-1">Người bệnh</span>
+          <span className="w-11 shrink-0 text-right">Chờ</span>
         </div>
         <div className={KHUNG_CUON}>
           {filtered.length > 0 ? (
@@ -491,17 +488,7 @@ export default function QueueBoard({
 
       {tab === "da" && selected ? <PatientDetail item={selected} /> : null}
       {tab === "da" && selected ? (
-        <CounterPanel
-          item={selected}
-          onSkip={() => {
-            // Chuyển sang người KẾ TIẾP trong danh sách đang hiển thị. Không
-            // đụng dữ liệu: người bị bỏ qua vẫn ở nguyên trong hàng đợi, và
-            // vẫn check-in được khi họ tới.
-            const i = filtered.findIndex((x) => x.id === selected.id);
-            const ke = filtered[i + 1] ?? filtered[0];
-            if (ke) setSelectedId(ke.id);
-          }}
-        />
+        <CounterPanel item={selected} />
       ) : null}
     </div>
   );
@@ -603,14 +590,7 @@ function PatientDetail({ item }: { item: WorklistItem }) {
   );
 }
 
-function CounterPanel({
-  item,
-  onSkip,
-}: {
-  item: WorklistItem;
-  /** Bỏ qua lượt này, chuyển sang người tiếp theo trong hàng. */
-  onSkip: () => void;
-}) {
+function CounterPanel({ item }: { item: WorklistItem }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -745,23 +725,6 @@ function CounterPanel({
         </NutCheckIn>
       )}
 
-      {/* CHƯA ĐẾN → GỌI NGƯỜI TIẾP THEO, không phải "đánh dấu vắng mặt".
-          
-          Người chưa có mặt lúc Lễ tân gọi vẫn Ở TRONG hàng đợi: họ chỉ bị bỏ
-          qua lượt này để quầy phục vụ người khác. Đến sau vẫn check-in được, và
-          LUẬT ĐẾN MUỘN tự áp dụng — check-in trong khung giờ của mình thì vẫn
-          giữ suất đã đặt, ngoài khung thì xuống làn "đến sau", xếp theo giờ đến
-          (services/queue_order.py).
-          
-          Vì thế KHÔNG có nút "vắng mặt" ở đây: đánh dấu vắng mặt là một kết
-          luận, mà lúc này chưa ai kết luận được điều gì. */}
-      <button
-        type="button"
-        onClick={onSkip}
-        className="flex w-full items-center justify-center gap-2 rounded-control border border-line bg-surface px-4 py-2 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
-      >
-        <UserRoundX size={15} /> Chưa đến — gọi người tiếp theo
-      </button>
       {NUT_VAO_KHAM && (
       <button
         type="button"

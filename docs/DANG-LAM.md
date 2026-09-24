@@ -13,6 +13,25 @@ lịch sử hội thoại.
 
 ---
 
+## Dọn giao diện đợt 2 + đồng bộ hồ sơ khám (24/09 chiều — CHƯA deploy)
+
+- Phiếu kết quả: bỏ "Còn N mục chưa điền…" và "Hoàn tất = xác nhận…". Chọn mẫu của dịch
+  vụ KHÁC → báo "khách chưa thanh toán dịch vụ này", không đổi phiếu (máy chủ gắn cờ
+  `cua_dich_vu` trong `mau_goi_y.mau_cho_dich_vu`).
+- Phòng: link "Phải dừng giữa chừng? / Không làm được?" OFF (`NUT_NGOAI_LE`); cột hàng
+  chờ "Đang trong phòng" → "Đang khám" (`HangChoCot`, dùng chung).
+- Lễ tân: xoá "Chưa đến — gọi người tiếp theo"; Check-in ở mọi dòng; STT + Đặt cạnh nhau
+  bằng w-9/w-10/w-11 (trần [..px] 61 → 59).
+- Thanh bên "Bàn khám (khách của tôi)" → "Bàn khám"; nút tư vấn → "Xong tư vấn".
+- Kênh đặt (3 lối: BookingHub · NewPatientForm · AppointmentBooking): bỏ Website + Hotline
+  khỏi lựa chọn (`CHANNELS_CHON`; lịch cũ vẫn hiện tên); kênh Giới thiệu có ô ghi người
+  giới thiệu → `patient.nguoi_gioi_thieu` (migration **20260925000004**).
+- Hồ sơ khám (dải hành chính) nay hiện ĐỦ thông tin hồ sơ đọc thẳng từ `patient`: ngày
+  sinh, giới tính, SĐT, SĐT người nhà, CCCD, dân tộc, quốc tịch, nghề nghiệp, địa chỉ,
+  người giám hộ, cơ sở, người giới thiệu, vấn đề đi khám (`mang_sang.TRUONG_HO_SO`).
+
+---
+
 ## Giao diện 4 việc Tuyền chỉ trên màn (24/09 chiều — CHƯA deploy)
 
 1. **Bàn tư vấn = MỘT ô chữ tự do** (`ban-kham/ONhapTuVan.tsx`, cờ `TU_VAN_O_TU_DO`),

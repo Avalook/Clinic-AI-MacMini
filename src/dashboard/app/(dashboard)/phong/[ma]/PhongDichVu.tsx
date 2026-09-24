@@ -60,6 +60,9 @@ import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import Button from "@/components/ui/Button";
 
+/** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
+const NUT_NGOAI_LE = false;
+
 type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "KHAC";
 
 function loaiCua(node: string | null): LoaiPhong {
@@ -459,15 +462,19 @@ function KhachTrongPhong({
             </Button>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() =>
-              setMoLyDo((v) => (v ? null : dangLam ? "gian-doan" : "khong-lam"))
-            }
-            className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
-          >
-            {dangLam ? "Phải dừng giữa chừng?" : "Không làm được?"}
-          </button>
+          {/* "Phải dừng giữa chừng? / Không làm được?" — OFF (Tuyền 24/09/2026:
+              "bỏ mấy cái thừa này đi"). Giữ code, bật lại bằng cờ. */}
+          {NUT_NGOAI_LE ? (
+            <button
+              type="button"
+              onClick={() =>
+                setMoLyDo((v) => (v ? null : dangLam ? "gian-doan" : "khong-lam"))
+              }
+              className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
+            >
+              {dangLam ? "Phải dừng giữa chừng?" : "Không làm được?"}
+            </button>
+          ) : null}
 
           {moLyDo ? (
             <div className="space-y-2 rounded-control border border-line bg-surface-muted p-3">

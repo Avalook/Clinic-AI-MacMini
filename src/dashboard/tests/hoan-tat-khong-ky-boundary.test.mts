@@ -39,7 +39,9 @@ test("trên chỉ còn Bắt đầu khám; Hoàn tất là nút duy nhất khép
     BAN_KHAM.match(/bam\((?:tuVan \? "xong-tu-van" : )?"kham-xong"\)/g) ?? [];
   assert.equal(hoanTat.length, 1, "đúng MỘT nút gọi kham-xong");
   assert.match(BAN_KHAM, /"Hoàn tất"/);
-  assert.match(BAN_KHAM, /"Xong tư vấn — chuyển bác sĩ chính"/);
+  // Tuyền 24/09/2026: "xoá - chuyển bác sĩ chính đi" → nút chỉ còn "Xong tư vấn".
+  assert.match(BAN_KHAM, /"Xong tư vấn"/);
+  assert.doesNotMatch(BAN_KHAM, /"Xong tư vấn — chuyển bác sĩ chính"/);
 });
 
 test("Hoàn tất không khoá: khách đã khám xong vẫn sửa bệnh án/phiếu được", () => {

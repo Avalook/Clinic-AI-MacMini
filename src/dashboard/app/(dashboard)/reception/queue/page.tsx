@@ -15,7 +15,6 @@ import { fetchWorklist } from "@/lib/worklist-server";
 
 import { fetchFromBackend } from "@/lib/backend-proxy";
 import { getClinicStaffId, getVaiChinh } from "@/lib/clinic-session";
-import { canCheckin } from "@/lib/roles";
 import { currentWeekStartVn, todayVn } from "@/lib/roster";
 import QueueBoard from "./QueueBoard";
 import LiveBoardSync from "../../LiveBoardSync";
@@ -129,7 +128,7 @@ export default async function ReceptionQueuePage() {
           {/* Thứ tự do QueueBoard tự xếp theo `call_order` của backend — cùng
               nguồn với bảng gọi số, và chính nó là thứ lễ tân kéo. Xếp sẵn ở
               đây theo "chờ lâu nhất" chỉ tạo một thứ tự thứ hai. */}
-          <QueueBoard items={result.items} chuaDen={chuaDen} choCheckIn={canCheckin(role)} />
+          <QueueBoard items={result.items} chuaDen={chuaDen} />
         </>
       )}
     </main>

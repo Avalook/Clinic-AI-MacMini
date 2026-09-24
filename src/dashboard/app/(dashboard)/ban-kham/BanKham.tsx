@@ -993,7 +993,7 @@ function HoSo({
               className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
             >
               <CheckCircle2 className="size-4" aria-hidden="true" />
-              {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn — chuyển bác sĩ chính" : "Hoàn tất"}
+              {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn" : "Hoàn tất"}
             </button>
             {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
               <p className="text-xs text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>

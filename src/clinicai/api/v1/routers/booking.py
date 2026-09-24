@@ -86,6 +86,9 @@ class BookingRequest(BaseModel):
     lich_truoc_id: UUID | None = None
     #: TUỲ CHỌN (Tuyền chốt 15/09/2026): vãng lai tự check-in có thể ghi cách xác minh.
     xac_minh_cach: str | None = Field(default=None, max_length=32)
+    #: Kênh "Giới thiệu": ai giới thiệu khách tới — ghi vào HỒ SƠ khách (Tuyền
+    #: 24/09/2026), hiện ở phiếu khám.
+    nguoi_gioi_thieu: str | None = Field(default=None, max_length=200)
 
 
 class ActionRequest(BaseModel):
@@ -418,6 +421,7 @@ async def create_booking(
             notes=body.notes,
             lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
             xac_minh_cach=body.xac_minh_cach,
+            nguoi_gioi_thieu=body.nguoi_gioi_thieu,
         )
         payload = {"ok": True, **result}
         await idem.save(pool, payload, status_code=201)

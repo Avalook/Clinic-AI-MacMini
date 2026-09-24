@@ -66,17 +66,21 @@ test("hành động ở quầy nói đúng việc Lễ tân thật sự làm", (
   // hai luật cấp số thứ tự chờ ngày lệch nhau.
   assert.match(board, /action: "checkin"/);
 
-  // CHƯA ĐẾN ≠ VẮNG MẶT. Người chưa có mặt vẫn ở trong hàng đợi, chỉ bị bỏ qua
-  // lượt này; đến sau vẫn check-in được và luật đến-muộn tự áp dụng.
-  assert.match(board, /Chưa đến — gọi người tiếp theo/);
+  // "Chưa đến — gọi người tiếp theo" ĐÃ XOÁ (Tuyền 24/09/2026: "giờ vô nghĩa" —
+  // khách chưa tới nằm ở tab "Chờ check-in", không ở hàng đợi). Vẫn KHÔNG có
+  // nút "vắng mặt": chưa ai kết luận được điều gì lúc khách chưa có mặt.
+  assert.doesNotMatch(maThucThi, /Chưa đến — gọi người tiếp theo/);
   for (const nhanCu of ["Đánh dấu vắng mặt", "Tạm giữ", "Xử lý ngoại lệ"]) {
     assert.doesNotMatch(maThucThi, new RegExp(nhanCu));
   }
+  // Check-in NGAY TRÊN DÒNG của tab "Chờ check-in" (24/09/2026).
+  assert.match(board, /Chờ check-in \(/);
+  assert.match(board, /Đã check-in \(/);
 
-  // MỘT NÚT "VÀO KHÁM" thay cho cặp "Bắt đầu xử lý" + "Xong tiếp nhận" (Tuyền
-  // 16/09/2026) — ở quầy hai nút ấy luôn bấm liền nhau. Nhưng vẫn gửi ĐỦ hai
-  // lệnh xuống kernel: bỏ lệnh `complete` là bước tiếp nhận không bao giờ đóng
-  // và khách kẹt ở quầy.
+  // "VÀO KHÁM" — OFF từ 24/09/2026 (bấm check-in là đủ), giữ code sau cờ. Khi
+  // bật lại vẫn phải gửi ĐỦ hai lệnh xuống kernel: bỏ `complete` là bước tiếp
+  // nhận không bao giờ đóng.
+  assert.match(board, /const NUT_VAO_KHAM = false;/);
   assert.match(board, /"Vào khám"/);
   assert.match(maThucThi, /issue\("start", v\)/);
   assert.match(maThucThi, /issue\("complete", v\)/);

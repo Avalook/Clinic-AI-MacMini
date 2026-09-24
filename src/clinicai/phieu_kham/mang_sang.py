@@ -45,6 +45,58 @@ TRUONG_HANH_CHINH: tuple[tuple[str, str], ...] = (
     ("encounter.date", "Ngày khám"),
 )
 
+#: THÔNG TIN HỒ SƠ đồng bộ sang phiếu khám (Tuyền 24/09/2026: "các thông tin
+#: trong form khách hàng mới phải thực sự đồng bộ cho hồ sơ khám"). Đọc THẲNG
+#: từ bảng `patient` mỗi lần mở phiếu — sửa hồ sơ là phiếu thấy ngay, không có
+#: bản chép thứ hai. Thứ tự = thứ tự hiện trên phiếu.
+TRUONG_HO_SO: tuple[tuple[str, str], ...] = (
+    ("patient.date_of_birth", "Ngày sinh"),
+    ("patient.gender", "Giới tính"),
+    ("patient.phone", "SĐT"),
+    ("patient.phone_family", "SĐT người nhà"),
+    ("patient.national_id", "CCCD"),
+    ("patient.ethnicity", "Dân tộc"),
+    ("patient.nationality", "Quốc tịch"),
+    ("patient.occupation", "Nghề nghiệp"),
+    ("patient.address", "Địa chỉ"),
+    ("patient.guardian", "Người giám hộ"),
+    ("patient.location", "Cơ sở"),
+    ("patient.referrer", "Người giới thiệu"),
+    ("patient.reason", "Vấn đề đi khám"),
+)
+
+_GIOI_TINH = {"F": "Nữ", "M": "Nam", "FEMALE": "Nữ", "MALE": "Nam", "O": "Khác"}
+
+
+def _dia_chi(bn: Mapping[str, Any]) -> str | None:
+    """Địa chỉ có cấu trúc (chi tiết · phường · tỉnh) — rơi về ô tự do cũ."""
+    phan = [bn.get("address_detail"), bn.get("ward_name"), bn.get("province_name")]
+    co = [str(x).strip() for x in phan if x and str(x).strip()]
+    return ", ".join(co) if co else (bn.get("address") or None)
+
+
+def dung_ho_so(benh_nhan: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Các ô hồ sơ. Thiếu gì để None — màn in "—", không bịa."""
+    bn = benh_nhan or {}
+    ngay = bn.get("date_of_birth")
+    gt = bn.get("gender")
+    return {
+        "patient.date_of_birth": ngay.strftime("%d/%m/%Y") if ngay else None,
+        "patient.gender": _GIOI_TINH.get(str(gt).upper(), gt) if gt else None,
+        "patient.phone": bn.get("phone_primary"),
+        "patient.phone_family": bn.get("phone_secondary"),
+        "patient.national_id": bn.get("national_id_number"),
+        "patient.ethnicity": bn.get("ethnicity"),
+        "patient.nationality": bn.get("nationality"),
+        "patient.occupation": bn.get("occupation"),
+        "patient.address": _dia_chi(bn),
+        "patient.guardian": bn.get("guardian_name"),
+        "patient.location": bn.get("location_name"),
+        "patient.referrer": bn.get("nguoi_gioi_thieu"),
+        "patient.reason": bn.get("van_de_di_kham"),
+    }
+
+
 #: `vital_measurement` → khoá nguồn. Huyết áp ghép riêng.
 _COT_SINH_HIEU = {
     "vitals.pulse": "pulse",
@@ -112,10 +164,16 @@ async def doc_dau_phieu(
     """
     bn = await conn.fetchrow(
         "SELECT p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
+        "       p.gender, p.phone_primary, p.phone_secondary, p.national_id_number,"
+        "       p.ethnicity, p.nationality, p.occupation, p.address,"
+        "       p.address_detail, p.ward_name, p.province_name, p.guardian_name,"
+        "       p.nguoi_gioi_thieu, p.van_de_di_kham, l.name AS location_name,"
         "       v.checked_in_at"
         "  FROM visit v"
         "  JOIN patient p"
         "    ON p.clinic_id = v.clinic_id AND p.clinic_patient_id = v.clinic_patient_id"
+        "  LEFT JOIN clinic_location l"
+        "    ON l.id = p.location_id AND l.clinic_id = p.clinic_id"
         " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
         clinic_id,
         visit_id,
@@ -163,10 +221,15 @@ async def doc_dau_phieu(
     )
     return {
         # Nhãn đi kèm dữ liệu: màn không giữ bản chép thứ hai của "HA", "CN"…
-        "nhan": dict(TRUONG_HANH_CHINH + TRUONG_SINH_HIEU),
-        "hanh_chinh": dung_hanh_chinh(
-            dict(bn) if bn else None, vao_luc=bn["checked_in_at"] if bn else None
-        ),
+        "nhan": dict(TRUONG_HANH_CHINH + TRUONG_SINH_HIEU + TRUONG_HO_SO),
+        "hanh_chinh": {
+            **dung_hanh_chinh(
+                dict(bn) if bn else None, vao_luc=bn["checked_in_at"] if bn else None
+            ),
+            **dung_ho_so(dict(bn) if bn else None),
+        },
+        # Thứ tự các ô HỒ SƠ hiện thêm dưới dải hành chính của khung phiếu.
+        "ho_so": [k for k, _ in TRUONG_HO_SO],
         "sinh_hieu": dung_sinh_hieu(dict(do) if do else None),
         "sinh_hieu_luc": do["created_at"].isoformat() if do else None,
         "tu_van": [

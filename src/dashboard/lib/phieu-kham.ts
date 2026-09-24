@@ -117,6 +117,8 @@ export interface DauPhieu {
   sinh_hieu: Record<string, string | number | null>;
   sinh_hieu_luc: string | null;
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
+  /** Ô HỒ SƠ đồng bộ từ bảng khách (24/09/2026) — thứ tự hiện. */
+  ho_so?: string[];
 }
 
 /** Khung của MỘT phiên bản — phiếu đã điền ghim phiên bản của nó. */

@@ -45,6 +45,8 @@ interface Body {
   notes?: string;
   /** Lịch hẹn mà lịch này là tái khám của nó. Xem migration 20260810000007. */
   lich_truoc_id?: string;
+  /** Kênh "Giới thiệu": người giới thiệu → hồ sơ khách (24/09/2026). */
+  nguoi_gioi_thieu?: string;
 }
 
 export async function GET(request: Request) {
@@ -201,6 +203,7 @@ export async function POST(request: Request) {
       lich_truoc_id: (body.lich_truoc_id ?? "").trim() || null,
       // Vãng lai trong ngày tự check-in → backend bắt buộc cách xác minh.
       xac_minh_cach: (body.xac_minh_cach ?? "").trim() || null,
+      nguoi_gioi_thieu: (body.nguoi_gioi_thieu ?? "").trim().slice(0, 200) || null,
     },
     idempotencyKey,
   );

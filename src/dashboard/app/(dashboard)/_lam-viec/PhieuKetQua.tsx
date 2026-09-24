@@ -39,6 +39,8 @@ export interface MauKetQua {
   ma: string;
   ten: string;
   nhom?: string | null;
+  /** Mẫu của CHÍNH dịch vụ đang làm (máy chủ tính). false = của dịch vụ khác. */
+  cua_dich_vu?: boolean;
 }
 
 interface O {
@@ -136,6 +138,9 @@ export default function PhieuKetQua({
   const [dangLuu, setDangLuu] = useState(false);
   const [dangHoanTat, setDangHoanTat] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Chọn mẫu của dịch vụ KHÁC (Tuyền 24/09/2026): không chuyển phiếu, báo khách
+  // chưa thanh toán dịch vụ ấy — muốn làm thì bác sĩ chỉ định + khách trả tiền.
+  const [baoKhacDv, setBaoKhacDv] = useState<string | null>(null);
 
   // Revision giữ trong ref: mỗi lần tự lưu phải gửi số MỚI NHẤT, không phải số
   // mà closure của lần gõ trước nhìn thấy.
@@ -347,7 +352,19 @@ export default function PhieuKetQua({
             <span className="sr-only">Chọn mẫu kết quả</span>
             <select
               value={chonMau ?? ""}
-              onChange={(e) => setChonMau(e.target.value || null)}
+              onChange={(e) => {
+                const ma = e.target.value || null;
+                const m = mau.find((x) => x.ma === ma);
+                if (m && m.cua_dich_vu === false) {
+                  setBaoKhacDv(
+                    `“${m.ten}” là dịch vụ khác — khách chưa thanh toán dịch vụ này. ` +
+                      "Muốn làm thì bác sĩ chỉ định và khách thanh toán trước.",
+                  );
+                  return;
+                }
+                setBaoKhacDv(null);
+                setChonMau(ma);
+              }}
               className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
             >
               <option value="">— chọn mẫu —</option>
@@ -375,6 +392,14 @@ export default function PhieuKetQua({
         ) : null}
       </div>
 
+      {baoKhacDv ? (
+        <p
+          role="alert"
+          className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-sm text-warning"
+        >
+          {baoKhacDv}
+        </p>
+      ) : null}
       {loi ? (
         <p
           role="alert"
@@ -523,14 +548,6 @@ export default function PhieuKetQua({
             >
               In phiếu
             </a>
-            {phieu.con_trong.length > 0 ? (
-              <span className="text-label text-warning">
-                Còn {phieu.con_trong.length} mục chưa điền — vẫn hoàn tất được.
-              </span>
-            ) : null}
-            <span className="text-label text-ink-muted">
-              Hoàn tất = xác nhận toàn bộ nội dung đang thấy, kể cả câu điền sẵn.
-            </span>
           </div>
         </div>
       )}

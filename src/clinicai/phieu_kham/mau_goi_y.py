@@ -48,7 +48,14 @@ def ma_mau_goi_y(service_code: str) -> str | None:
 async def mau_cho_dich_vu(
     conn: asyncpg.Connection, *, clinic_id: str, service_code: str
 ) -> tuple[list[dict[str, Any]], str | None]:
-    """(danh sách mẫu để chọn, mẫu chọn sẵn)."""
+    """(danh sách mẫu để chọn, mẫu chọn sẵn).
+
+    Mỗi mẫu kèm ``cua_dich_vu`` — mẫu này có phải của CHÍNH dịch vụ đang làm
+    không (Tuyền 24/09/2026: chọn mẫu của dịch vụ khác thì báo "khách chưa
+    thanh toán dịch vụ này", không chuyển phiếu). Mẫu đã gắn: đều của dịch vụ.
+    Chưa gắn: chỉ mẫu gợi ý là của dịch vụ; không có gợi ý thì không biết —
+    để mọi mẫu chọn được như trước.
+    """
     da_gan = [
         dict(r)
         for r in await conn.fetch(
@@ -62,7 +69,7 @@ async def mau_cho_dich_vu(
         )
     ]
     if da_gan:
-        return da_gan, da_gan[0]["ma"]
+        return [{**m, "cua_dich_vu": True} for m in da_gan], da_gan[0]["ma"]
     tat_ca = [
         dict(r)
         for r in await conn.fetch(
@@ -74,8 +81,8 @@ async def mau_cho_dich_vu(
     goi_y = ma_mau_goi_y(service_code)
     if goi_y and any(m["ma"] == goi_y for m in tat_ca):
         tat_ca.sort(key=lambda m: m["ma"] != goi_y)
-        return tat_ca, goi_y
-    return tat_ca, None
+        return [{**m, "cua_dich_vu": m["ma"] == goi_y} for m in tat_ca], goi_y
+    return [{**m, "cua_dich_vu": True} for m in tat_ca], None
 
 
 __all__ = ["ma_mau_goi_y", "mau_cho_dich_vu"]

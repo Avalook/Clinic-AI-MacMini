@@ -449,6 +449,7 @@ class BookingService:
         notes: str | None = None,
         lich_truoc_id: str | None = None,
         xac_minh_cach: str | None = None,
+        nguoi_gioi_thieu: str | None = None,
     ) -> dict[str, Any]:
         """Book one appointment. Returns its id and the status it landed in.
 
@@ -670,6 +671,18 @@ class BookingService:
                     appointment_id=str(appointment_id),
                     slot_start=slot_start,
                 )
+
+                # NGƯỜI GIỚI THIỆU → HỒ SƠ khách (Tuyền 24/09/2026), cùng giao
+                # dịch với lịch hẹn. Để trống thì giữ tên đã có, không xoá.
+                gioi_thieu = " ".join((nguoi_gioi_thieu or "").split())[:200]
+                if gioi_thieu:
+                    await conn.execute(
+                        "UPDATE patient SET nguoi_gioi_thieu = $3, updated_at = now()"
+                        " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
+                        identity.clinic_id,
+                        clinic_patient_id,
+                        gioi_thieu,
+                    )
 
                 await self._attach_episode(
                     conn,

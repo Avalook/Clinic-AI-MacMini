@@ -152,3 +152,77 @@ async def test_o_chu_tu_van_sang_muc_mang_sang_ban_moi_nhat(
             await svc.luu_noi_dung_tu_van(
                 consultation_id=chinh, noi_dung="x", identity=ca.bac_si
             )
+
+
+async def test_gioi_thieu_va_ho_so_dong_bo_sang_phieu_kham(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Kênh Giới thiệu ghi người giới thiệu vào HỒ SƠ; phiếu khám đọc đủ hồ sơ."""
+    import datetime as dt
+
+    from clinicai.core.clock import CLINIC_TZ
+    from clinicai.services.booking_service import BookingService
+
+    ca = await _dung(pool)
+    pid = await _benh_nhan(pool, ca)
+    await pool.execute(
+        "UPDATE patient SET gender = 'Nữ', phone_secondary = '0911222333',"
+        " occupation = 'Giáo viên', ethnicity = 'Kinh'"
+        " WHERE clinic_patient_id = $1::uuid",
+        pid,
+    )
+    bd = dt.datetime.now(CLINIC_TZ).replace(
+        hour=9, minute=0, second=0, microsecond=0
+    ) + dt.timedelta(days=7 * (60 + uuid.uuid4().int % 300))
+    await BookingService(pool).create(
+        clinic_patient_id=pid,
+        service_type_id=ca.loai_kham,
+        location_id=ca.loc,
+        slot_start=bd,
+        slot_end=bd + dt.timedelta(minutes=15),
+        identity=ca.le_tan,
+        booking_channel="REFERRAL",
+        nguoi_gioi_thieu="  Chị   Hoa (khách cũ) ",
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT nguoi_gioi_thieu FROM patient WHERE clinic_patient_id = $1::uuid",
+            pid,
+        )
+        == "Chị Hoa (khách cũ)"
+    )
+    visit = await _check_in(pool, ca, pid, ca.loai_kham)
+    async with pool.acquire() as conn:
+        dau = await doc_dau_phieu(conn, clinic_id=CLINIC, visit_id=visit)
+    hc = dau["hanh_chinh"]
+    assert hc["patient.referrer"] == "Chị Hoa (khách cũ)"
+    assert hc["patient.gender"] == "Nữ"
+    assert hc["patient.phone_family"] == "0911222333"
+    assert hc["patient.occupation"] == "Giáo viên"
+    assert "patient.referrer" in dau["ho_so"] and dau["nhan"]["patient.referrer"]
+
+
+async def test_mau_ket_qua_danh_dau_mau_cua_dich_vu(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.phieu_kham.mau_goi_y import ma_mau_goi_y, mau_cho_dich_vu
+
+    ma_dv = next(
+        (
+            c
+            for c in ("CLS_SIEU_AM_2D_TC_BT", "CLS_SOI_CO_TU_CUNG", "CLS_THAO_VONG")
+            if ma_mau_goi_y(c)
+        ),
+        None,
+    )
+    if ma_dv is None:
+        pytest.skip("không có dịch vụ nào có mẫu gợi ý")
+    async with pool.acquire() as conn:
+        mau, goi_y = await mau_cho_dich_vu(conn, clinic_id=CLINIC, service_code=ma_dv)
+    if not mau:
+        pytest.skip("DB thử chưa có mẫu kết quả")
+    cua = [m["ma"] for m in mau if m["cua_dich_vu"]]
+    if goi_y:
+        assert cua == [goi_y]
+    else:
+        assert len(cua) == len(mau)

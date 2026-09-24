@@ -25,7 +25,12 @@ export function KhoiHanhChinh({
   dau: DauPhieu;
   truong: string[];
 }) {
-  const hanhChinh = truong.filter((k) => !k.startsWith("vitals."));
+  // Ô của khung phiếu + ô HỒ SƠ đồng bộ từ form khách (Tuyền 24/09/2026:
+  // "các thông tin trong này phải thực sự đồng bộ cho hồ sơ khám").
+  const hanhChinh = [
+    ...truong.filter((k) => !k.startsWith("vitals.")),
+    ...(dau.ho_so ?? []).filter((k) => !truong.includes(k)),
+  ];
   const sinhHieu = truong.filter((k) => k.startsWith("vitals."));
   return (
     <div className="space-y-2 rounded-card border border-hairline bg-surface-muted p-3">

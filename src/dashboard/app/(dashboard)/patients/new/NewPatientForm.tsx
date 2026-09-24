@@ -59,7 +59,8 @@ import {
   BTN,
   BTN_GHOST,
   CARD,
-  CHANNELS,
+  CHANNELS_CHON,
+  KENH_GIOI_THIEU,
 } from "../../form-ui";
 import { useKhoangCa } from "../dung-khoang-ca";
 
@@ -611,6 +612,7 @@ export default function NewPatientForm({
   const [needSono, setNeedSono] = useState(false);
   // Kênh đặt = NHẬP TỰ DO (feedback: "cho điền thôi, sau tự tính"). Để trống được.
   const [channel, setChannel] = useState("");
+  const [gioiThieu, setGioiThieu] = useState("");
   // Số khám (queue_number) — feedback B5#8.
   const [queueNumber, setQueueNumber] = useState("");
 
@@ -834,6 +836,8 @@ export default function NewPatientForm({
         // Ghế đến trực tiếp (ô xanh) → phải là WALK_IN để server xếp đúng
         // ghế (nếu không sẽ đội lên BN1/BN2 và bị chặn cứng cap 2).
         booking_channel: walkin || gheTrucTiep ? "WALK_IN" : channel,
+        nguoi_gioi_thieu:
+          channel === KENH_GIOI_THIEU ? gioiThieu.trim() || undefined : undefined,
         queue_number: queueNumber,
         patient_kind: patientKind,
         need_sono: needSono,
@@ -1664,7 +1668,7 @@ export default function NewPatientForm({
               {/* "Trực tiếp" chỉ hiện với vai được check-in (Lễ tân, Quản lý):
                   kênh ấy kéo theo tự check-in, và backend từ chối thẳng nếu
                   người đặt không được check-in (luật Tuyền 15/09/2026). */}
-              {CHANNELS.filter(
+              {CHANNELS_CHON.filter(
                 (c) => c.id !== "WALK_IN" || canCheckin(role ?? null),
               ).map((c) => (
                 <option key={c.id} value={c.id}>
@@ -1672,6 +1676,16 @@ export default function NewPatientForm({
                 </option>
               ))}
             </select>
+            {channel === KENH_GIOI_THIEU ? (
+              <input
+                value={gioiThieu}
+                onChange={(e) => setGioiThieu(e.target.value)}
+                maxLength={200}
+                placeholder="Ai giới thiệu? (lưu vào hồ sơ khám)"
+                aria-label="Người giới thiệu"
+                className={`${INPUT} mt-2`}
+              />
+            ) : null}
           </div>
           {/* Ô "Tìm bác sĩ" ĐÃ BỎ — bác sĩ chọn bằng cách bấm một ô trong SƠ ĐỒ
               KHUNG GIỜ ngay dưới đây (`onPick` set thẳng `doctorId`).
