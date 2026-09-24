@@ -58,6 +58,7 @@ import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
+import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
@@ -86,6 +87,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [phong, setPhong] = useState<Phong | null>(null);
   const [khongCo, setKhongCo] = useState(false);
   const [hang, setHang] = useState<DongHangCho[] | null>(null);
+  const [chuaXep, setChuaXep] = useState<KhachChuaXep[]>([]);
   const [loi, setLoi] = useState<string | null>(null);
   const [chonId, setChonId] = useState<string | null>(null);
   const [lanNap, setLanNap] = useState(0);
@@ -114,13 +116,17 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     if (!phong) return;
     let huy = false;
     const nap = async () => {
-      const kq = await docBang<{ hang_cho: DongHangCho[] }>("hang-cho", {
+      const kq = await docBang<{
+        hang_cho: DongHangCho[];
+        chua_xep_phong?: KhachChuaXep[];
+      }>("hang-cho", {
         phong: phong.id,
       });
       if (huy) return;
       if (kq.ok) {
         setLoi(null);
         setHang(kq.data.hang_cho.filter((d) => d.loai === "DICH_VU"));
+        setChuaXep(kq.data.chua_xep_phong ?? []);
       } else setLoi(kq.loi);
     };
     void nap();
@@ -168,7 +174,8 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       </header>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
-        <aside aria-label="Hàng chờ phòng">
+        <aside aria-label="Hàng chờ phòng" className="space-y-3">
+          {phong ? <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} /> : null}
           {hang === null ? (
             <p className="text-sm text-ink-muted">Đang tải hàng chờ…</p>
           ) : (

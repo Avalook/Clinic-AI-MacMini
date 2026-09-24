@@ -24,6 +24,7 @@ import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
+import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 
 interface Dong {
   id: string;
@@ -63,6 +64,8 @@ interface Luot {
   hoa_don?: { dich_vu?: HoaDon; thuoc?: HoaDon };
   /** Chỉ định còn chờ khách quyết làm hay không (máy chủ tính). */
   chon_dich_vu?: ChoKhachQuyet | null;
+  /** Đã trả, chưa bắt đầu — xếp / đổi phòng sau khi thu (máy chủ tính). */
+  xep_phong?: DaTraChoPhong[];
 }
 
 interface DaThu {
@@ -236,6 +239,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
+  const daThuChoPhong =
+    quay === "thuoc"
+      ? []
+      : ds.filter((l) => !conCho.includes(l) && (l.xep_phong?.length ?? 0) > 0);
+
   return (
     <section className="space-y-3">
       <p className="text-body font-semibold text-ink">
@@ -342,6 +350,10 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               />
             ) : null}
 
+            {quay !== "thuoc" ? (
+              <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
+            ) : null}
+
             {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick,
                 số lượng, lấy thêm thuốc. Thu rồi (hoặc đang chờ xác minh) thì
                 khoá — huỷ phiếu thu trước rồi mới chỉnh. */}
@@ -400,6 +412,31 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           </article>
         ))
       )}
+
+      {/* Thu đủ rồi thì lượt rời danh sách chờ thu — nhưng khách chưa vào phòng
+          vẫn cần chỗ để xếp / đổi phòng (Tuyền 24/09/2026). */}
+      {daThuChoPhong.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-body font-semibold text-ink">
+            Đã thu — chờ vào phòng ({daThuChoPhong.length})
+          </p>
+          {daThuChoPhong.map((l) => (
+            <article
+              key={l.visit_id}
+              className="rounded-card border border-line bg-surface shadow-card"
+            >
+              <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-body font-semibold text-ink">{l.full_name ?? "—"}</p>
+                  <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
+                </div>
+                <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình" />
+              </header>
+              <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
+            </article>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

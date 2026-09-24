@@ -244,6 +244,129 @@ def rank_rooms(rooms: Sequence[RoomCandidate]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Đọc: chỉ định ĐÃ TRẢ TIỀN chờ vào phòng (Tuyền 24/09/2026)
+# ---------------------------------------------------------------------------
+#
+# "Thanh toán xong vẫn chỉ định [phòng] được bình thường" + "kể cả lễ tân không
+# chỉ định thì khách vẫn xuất hiện ở hàng đợi và có thể khám ở các dịch vụ khả
+# thi". Hai câu đọc dưới cùng MỘT điều kiện "đã trả, khách làm, chưa bắt đầu";
+# xếp / đổi phòng vẫn đi qua lệnh `assign` (quyền, cổng tiền, revision, cơ sở).
+
+_DA_TRA_CHUA_LAM = """
+       o.selection_status = 'SELECTED'
+   AND o.exec_status IN ('authorized', 'assigned')
+   AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+   AND v.status IN ('OPEN', 'IN_PROGRESS')
+   -- Đối tác tự lấy mẫu: khách không vào phòng nào của phòng khám.
+   AND NOT EXISTS (
+       SELECT 1 FROM service_price sp
+        WHERE sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+          AND sp.doi_tac_lay_mau)
+   -- Phòng đã gọi / đang làm thì không đổi được nữa (lệnh cũng từ chối).
+   AND NOT EXISTS (
+       SELECT 1 FROM queue_entry q
+        WHERE q.clinic_id = o.clinic_id AND q.reason = 'SERVICE'
+          AND q.ref_id = o.id AND q.status IN ('called', 'serving'))
+"""
+
+
+async def _loc_da_tra(
+    conn: asyncpg.Connection, clinic_id: str, rows: Sequence[asyncpg.Record]
+) -> list[asyncpg.Record]:
+    tai_chinh = await finance_gate.states_for_orders(
+        conn, clinic_id, [r["id"] for r in rows]
+    )
+    return [
+        r
+        for r in rows
+        if (q := tai_chinh.get(r["id"])) is not None and q.financially_ready
+    ]
+
+
+async def da_tra_cho_vao_phong(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """Quầy thu: theo lượt, chỉ định đã trả chưa bắt đầu + phòng hiện tại —
+    để lễ tân xếp / đổi phòng SAU khi thu (trước: thu xong là mất chỗ chọn)."""
+    if not visit_ids:
+        return {}
+    rows = await conn.fetch(
+        f"""
+        SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
+               o.routing_revision, o.room_id::text AS room_id, r.name AS phong,
+               coalesce(o.routing_status, 'UNASSIGNED') AS routing_status
+          FROM service_order o
+          JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+          LEFT JOIN clinic_room r ON r.id = o.room_id AND r.clinic_id = o.clinic_id
+         WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+           AND {_DA_TRA_CHUA_LAM}
+         ORDER BY o.created_at, o.id
+        """,
+        clinic_id,
+        visit_ids,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in await _loc_da_tra(conn, clinic_id, rows):
+        out.setdefault(r["visit_id"], []).append(
+            {
+                "id": r["id"],
+                "ten": r["service_name"],
+                "room_id": r["room_id"] if r["routing_status"] == ASSIGNED else None,
+                "phong": r["phong"] if r["routing_status"] == ASSIGNED else None,
+                "routing_revision": int(r["routing_revision"]),
+            }
+        )
+    return out
+
+
+async def cho_nhan_vao_phong(
+    conn: asyncpg.Connection, clinic_id: str, room_id: str
+) -> list[dict[str, Any]]:
+    """Phòng: khách ĐÃ TRẢ mà CHƯA XẾP PHÒNG, phòng này làm được, cùng cơ sở —
+    hiện ở MỌI phòng như vậy để phòng nào rảnh bấm nhận (không để khách kẹt khi
+    người thu không xếp, hay dây H4 không tự xếp được)."""
+    rows = await conn.fetch(
+        f"""
+        SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
+               o.routing_revision, p.full_name, p.patient_code,
+               v.checked_in_at
+          FROM clinic_room pr
+          JOIN clinic_room_node rn
+            ON rn.room_id = pr.id AND rn.clinic_id = pr.clinic_id
+          JOIN service_order o
+            ON o.clinic_id = pr.clinic_id AND o.node_code = rn.node_code
+          JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+          JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id
+          LEFT JOIN appointment a
+            ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+         WHERE pr.clinic_id = $1::uuid AND pr.id = $2::uuid
+           AND pr.is_active AND pr.accepting AND NOT pr.la_doi_tac
+           AND coalesce(o.routing_status, 'UNASSIGNED') = 'UNASSIGNED'
+           AND (pr.location_id IS NULL
+                OR coalesce(v.location_id, a.location_id) IS NULL
+                OR pr.location_id = coalesce(v.location_id, a.location_id))
+           AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           AND {_DA_TRA_CHUA_LAM}
+         ORDER BY v.checked_in_at, o.created_at, o.id
+        """,
+        clinic_id,
+        room_id,
+    )
+    return [
+        {
+            "id": r["id"],
+            "visit_id": r["visit_id"],
+            "ten": r["service_name"],
+            "khach": r["full_name"],
+            "ma_khach": r["patient_code"],
+            "routing_revision": int(r["routing_revision"]),
+        }
+        for r in await _loc_da_tra(conn, clinic_id, rows)
+    ]
+
+
+# ---------------------------------------------------------------------------
 # Lệnh
 # ---------------------------------------------------------------------------
 
