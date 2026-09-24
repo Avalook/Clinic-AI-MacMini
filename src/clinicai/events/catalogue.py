@@ -485,6 +485,32 @@ class DichVuDaBatDau(PayloadSuKien):
     execution_revision: int
 
 
+class ThuocQuayDaChinh(PayloadSuKien):
+    """`medicine.counter_changed` — quầy thuốc vừa chỉnh đơn BÁN trước khi thu
+    (Tuyền 24/09/2026): bỏ tick / tích lại / đổi số lượng / thêm / sửa / bỏ
+    dòng quầy thêm. Chỉ hành động + mã dòng — không tên thuốc, không liều."""
+
+    visit_id: str
+    prescription_id: str
+    #: BO_CHON | CHON_LAI | SO_LUONG | THEM | SUA | BO_DONG_THEM
+    hanh_dong: str
+    nguon: str
+    so_luong: str | None = None
+
+
+class ThuocBiBo(PayloadSuKien):
+    """`medicine.declined` — ở BẢN CUỐI CÙNG THANH TOÁN, dòng thuốc này khách
+    không lấy (so_mua = 0) hoặc lấy bớt (so_mua < so_ke). Phát đúng lúc tiền
+    thuốc thật sự nhận, so đơn với ảnh chụp hoá đơn của lần thu ấy."""
+
+    visit_id: str
+    prescription_id: str
+    payment_cycle_id: str
+    nguon: str
+    so_ke: str | None = None
+    so_mua: str
+
+
 class DonThuocDaLuu(PayloadSuKien):
     """`prescription.saved` — bác sĩ vừa kê / sửa đơn thuốc của lượt (đơn chưa
     ký, bản đang dùng). Chỉ số dòng — không tên thuốc, không liều."""
@@ -678,6 +704,24 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Bắt đầu làm dịch vụ",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="medicine.counter_changed",
+            version=1,
+            aggregate_type="visit",
+            source_module="pharmacy",
+            payload=ThuocQuayDaChinh,
+            nhan="Quầy thuốc chỉnh đơn bán",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="medicine.declined",
+            version=1,
+            aggregate_type="visit",
+            source_module="payment",
+            payload=ThuocBiBo,
+            nhan="Khách bỏ / lấy bớt thuốc (bản thanh toán cuối)",
+            consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
             ten="prescription.saved",

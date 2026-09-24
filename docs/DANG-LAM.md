@@ -13,7 +13,34 @@ lịch sử hội thoại.
 
 ---
 
-## Dọn giao diện đợt 2 + đồng bộ hồ sơ khám (24/09 chiều — CHƯA deploy)
+## Quầy thu tiền thuốc chỉnh đơn bán (24/09 tối)
+
+- Cột `prescription.nguon` (BAC_SI | QUAY, migration **20260925000005**). Đơn bác sĩ
+  (phiếu khám `doc_don_thuoc`, `luu_don_chua_ky`, đính chính đã ký, ký bệnh án) CHỈ đọc
+  dòng BAC_SI → bác sĩ lưu lại đơn không "xoá" dòng quầy thêm.
+- `services/quay_thuoc_service.py` + router `/quay-thuoc/*` (quyền `payment.medicine.collect`):
+  tích/bỏ tick (bỏ = số mua 0, KHÔNG gỡ dòng — ràng buộc DB chỉ cho gỡ qua đính chính),
+  số lượng (bác sĩ kê ≤ số kê; quầy thêm đổi thẳng), lấy thêm (thuốc phải có trong danh
+  mục). Mỗi thay đổi: event_log `pharmacy.counter_changed` + `medicine.counter_changed`.
+- Thu tiền thuốc xong (tiền mặt: sau khi ghi ảnh chụp hoá đơn; QR: lúc xác minh) → mỗi
+  dòng bỏ / lấy bớt phát `medicine.declined` {so_ke, so_mua} — so với bản thanh toán cuối.
+- Màn: `thu-ngan/ChinhDonQuay.tsx` trên ô "Thuốc đã kê". Test: `test_quay_thuoc_db.py`.
+
+---
+
+## ĐÃ DEPLOY PROD 24/09/2026 ~09:28 — `9e56dd5a` (main, gộp PR #178)
+
+Tuyền chốt deploy ngay (ngoại lệ ngoài khung 1h–4h). Mọi mục "CHƯA deploy" bên dưới tới
+`c6a2fe71` nay ĐÃ lên prod. Quy trình đã chạy: đếm lượt mở (0) → sao lưu 092234 (verify) →
+diễn tập 46 migration trên bản sao `pg_dumpall` của prod (khớp số dòng) → áp prod (sổ 219)
+→ `NOTIFY pgrst` → `deploy-backend.sh prod` (all healthy, verified) → smoke chỉ-đọc trong
+container API 11/11. Worker `su-kien` chạy (5 bên nhận). Runner CD vẫn offline.
+**Chưa làm trên prod:** bấm thật bằng tài khoản thật (cần Tuyền đăng nhập). ⚠ Mật khẩu DB
+prod đã hiện trong kết quả công cụ của phiên deploy (bash -x) — Tuyền quyết có xoay không.
+
+---
+
+## Dọn giao diện đợt 2 + đồng bộ hồ sơ khám (24/09 chiều — ĐÃ deploy 24/09)
 
 - Phiếu kết quả: bỏ "Còn N mục chưa điền…" và "Hoàn tất = xác nhận…". Chọn mẫu của dịch
   vụ KHÁC → báo "khách chưa thanh toán dịch vụ này", không đổi phiếu (máy chủ gắn cờ

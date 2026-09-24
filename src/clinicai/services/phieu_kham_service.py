@@ -368,7 +368,7 @@ class PhieuKhamService:
                 "       dosage_instructions, caution"
                 "  FROM prescription"
                 " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                "   AND removed_at IS NULL"
+                "   AND removed_at IS NULL AND nguon = 'BAC_SI'"
                 " ORDER BY created_at, id",
                 identity.clinic_id,
                 visit_id,

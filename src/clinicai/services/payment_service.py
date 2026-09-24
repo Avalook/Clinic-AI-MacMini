@@ -39,7 +39,7 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.events.catalogue import TienDichVuDaThu, TienThuocDaThu
+from clinicai.events.catalogue import ThuocBiBo, TienDichVuDaThu, TienThuocDaThu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.catalogue import tra_quyen
@@ -416,6 +416,12 @@ class PaymentService:
                     payment_cycle_id=cycle_id,
                     hoa_don=hoa_don,
                 )
+                if kind == "thuoc" and payment_id is not None:
+                    # Tiền mặt: đã nhận VÀ ảnh chụp hoá đơn đã ghi → so bản
+                    # thanh toán cuối với đơn (Tuyền 24/09/2026).
+                    await _phat_thuoc_bi_bo(
+                        conn, identity=identity, visit_id=visit_id, cycle_id=cycle_id
+                    )
                 if phan_lo:
                     # Chờ xác minh: phân lô thành phần GIỮ của lần thu này.
                     # Tiền mặt: PAID ngay → bán luôn, cùng giao dịch.
@@ -873,6 +879,15 @@ class PaymentService:
                         method=str(lan["method"]),
                         identity=identity,
                     )
+                if kind == "thuoc":
+                    # Chuyển khoản / QR vừa xác minh: ảnh chụp hoá đơn đã ghi từ
+                    # lúc tạo lần chờ — giờ tiền mới thật sự nhận.
+                    await _phat_thuoc_bi_bo(
+                        conn,
+                        identity=identity,
+                        visit_id=visit_id,
+                        cycle_id=payment_cycle_id,
+                    )
                 if (
                     kind == "thuoc"
                     and bool(phan_lo)
@@ -1279,6 +1294,63 @@ def _kiem_luot_thu(
                 " — chưa thể thu tiền"
             )
     return authoritative_patient_id
+
+
+async def _phat_thuoc_bi_bo(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    cycle_id: str,
+) -> None:
+    """``medicine.declined`` cho từng dòng thuốc khách BỎ / LẤY BỚT ở BẢN CUỐI CÙNG
+    THANH TOÁN (Tuyền 24/09/2026). So đơn hiện hành với ảnh chụp hoá đơn của
+    chính lần thu này (``payment_bill_line``) — không suy từ trạng thái nào khác.
+    Cùng giao dịch với lần thu: tiền nhận ⇔ sự kiện có.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT r.id::text AS id, r.nguon, r.quantity_num,
+               coalesce(sum(bl.quantity), 0) AS da_thu
+          FROM public.prescription r
+          LEFT JOIN public.payment_bill_line bl
+            ON bl.clinic_id = r.clinic_id AND bl.payment_cycle_id = $3::uuid
+           AND bl.source_type = 'prescription' AND bl.source_id = r.id::text
+         WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
+           AND r.removed_at IS NULL
+         GROUP BY r.id, r.nguon, r.quantity_num
+        """,
+        identity.clinic_id,
+        visit_id,
+        cycle_id,
+    )
+    for r in rows:
+        ke = r["quantity_num"]
+        da_thu = Decimal(str(r["da_thu"]))
+        # Bỏ hẳn (0) hoặc lấy bớt so với số kê. Số kê không rõ mà vẫn thu thì
+        # không có gì để so — bỏ qua.
+        if (ke is None and da_thu > 0) or (
+            ke is not None and da_thu >= Decimal(str(ke))
+        ):
+            continue
+        await emit_event(
+            conn,
+            ten="medicine.declined",
+            clinic_id=identity.clinic_id,
+            aggregate_id=visit_id,
+            payload=ThuocBiBo(
+                visit_id=visit_id,
+                prescription_id=r["id"],
+                payment_cycle_id=cycle_id,
+                nguon=r["nguon"],
+                so_ke=format(Decimal(str(ke)).normalize(), "f")
+                if ke is not None
+                else None,
+                so_mua=format(da_thu.normalize(), "f"),
+            ),
+            boi=nguoi(identity),
+            correlation_id=visit_id,
+        )
 
 
 async def _huy_hinh_chieu_dich_vu(

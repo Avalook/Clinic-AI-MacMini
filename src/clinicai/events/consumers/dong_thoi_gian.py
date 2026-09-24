@@ -33,6 +33,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.placed": ["service_code", "service_name"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
     "prescription.saved": ["so_dong"],
+    "medicine.counter_changed": ["hanh_dong", "so_luong"],
+    "medicine.declined": ["so_ke", "so_mua"],
     # Số ô còn trống là thông tin vận hành, không phải chữ lâm sàng.
     "result_form.completed": ["form_id", "so_o_con_trong"],
     # "Đã có kết quả" là mốc khách và bác sĩ chờ — nó phải nằm trên dòng thời

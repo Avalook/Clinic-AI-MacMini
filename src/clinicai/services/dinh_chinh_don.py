@@ -314,6 +314,8 @@ async def chuan_bi_don_da_ky(
               FROM public.prescription r
              WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
                AND r.removed_at IS NULL
+               -- Chỉ đơn của BÁC SĨ; dòng quầy thêm không thuộc đính chính.
+               AND r.nguon = 'BAC_SI'
              ORDER BY r.id
                FOR UPDATE OF r
             """,
@@ -602,6 +604,9 @@ async def luu_don_chua_ky(
               FROM prescription r
              WHERE r.visit_id = $1::uuid AND r.clinic_id = $2::uuid
                AND r.removed_at IS NULL
+               -- Dòng QUẦY thêm (24/09/2026) không thuộc đơn bác sĩ: không so,
+               -- không coi là "bị xoá" khi bác sĩ lưu lại đơn.
+               AND r.nguon = 'BAC_SI'
              ORDER BY r.id
                FOR UPDATE OF r
             """,
