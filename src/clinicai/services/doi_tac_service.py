@@ -73,6 +73,11 @@ class DoiTacService:
           * ĐIỀU DƯỠNG LẤY — chỉ hiện SAU khi điều dưỡng bấm xong ở phòng Lấy
             mẫu; trước đó ống máu còn chưa có, đối tác chẳng có gì để nhận.
         Có kết quả (tệp đầu tiên) là rời bàn — duyệt và gửi là việc bác sĩ, CSKH.
+
+        NHẬN QUA SỰ KIỆN (24/09/2026): bàn chỉ hiện chỉ định ĐÃ NHẬN
+        (`doi_tac_nhan_viec`, ghi bởi bên nhận cùng tên khi nghe "đã thu tiền"
+        / "lấy mẫu xong") — không còn hiện việc tự-lấy-mẫu trước khi khách
+        chọn làm và trả tiền.
         """
         if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
             raise SafetyGateError("Màn này chỉ dành cho đối tác.")
@@ -94,6 +99,8 @@ class DoiTacService:
               JOIN node_definition n
                 ON n.clinic_id = o.clinic_id AND n.code = o.node_code
                AND n.lam_ben_ngoai
+              JOIN doi_tac_nhan_viec nv
+                ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
               LEFT JOIN LATERAL (
                    SELECT s.name, s.doi_tac_lay_mau FROM service_price s
                     WHERE s.clinic_id = o.clinic_id
@@ -106,11 +113,8 @@ class DoiTacService:
                     OR (o.ket_qua_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
                AND o.created_at > now() - interval '60 days'
-               AND (
-                    o.exec_status = 'performed'
-                 OR (coalesce(sp.doi_tac_lay_mau, false)
-                     AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
-               )
+               AND o.exec_status IN ('authorized', 'assigned', 'in_progress',
+                                     'performed')
              -- Việc CHƯA gửi trước, mới nhất trước: trần 300 dòng không bao giờ
              -- được cắt mất một chỉ định vừa gửi sang chỉ vì còn tồn việc cũ.
              ORDER BY (o.ket_qua_luc IS NOT NULL), o.created_at DESC, o.id

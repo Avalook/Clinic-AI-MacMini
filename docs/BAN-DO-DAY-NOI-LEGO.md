@@ -37,6 +37,11 @@ Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội t
   mà còn kết quả chưa ai xem / kết quả chưa về → mở việc theo dõi cho CSKH.
 - **H7 — Kết quả đối tác quá hạn → CSKH.** Quá hạn chưa về → việc CSKH gọi đối tác/khách.
 - **H8 — Trả tiền xong quá 1 giờ chưa check-out → nhắc lễ tân** (chỉ nhắc, không tự đóng lượt).
+- **H9 — Đối tác nhận việc (24/09 chiều).** Chỉ định làm bên ngoài: loại ĐỐI TÁC TỰ LẤY
+  MẪU sang bàn đối tác khi khách đã chọn làm + trả tiền (`payment.service_collected`);
+  loại ĐIỀU DƯỠNG LẤY MẪU sang bàn khi phòng bấm Xong (`service.completed`). Khối Đối tác
+  ghi `doi_tac_nhan_viec`, phát `partner.order_received` → dòng thời gian + chuông vai
+  Đối tác. Trước đó bàn đối tác tự đọc bảng và hiện việc ngay lúc bác sĩ chỉ định.
 
 **Chỉnh được trên màn (dây nghiệp vụ):** loại khám nào qua tư vấn (H1/H2) · bật/tắt tự
 xếp phòng (H4) · các thời hạn (H6/H7: mấy ngày, H8: mấy giờ) · ai nhận chuông cho event

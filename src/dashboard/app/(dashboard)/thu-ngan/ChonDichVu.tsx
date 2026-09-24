@@ -43,6 +43,8 @@ export interface ChiDinhChoQuyet {
   mang_sang: boolean;
   phong_du_kien_id?: string | null;
   phong_chon_duoc?: PhongChonDuoc[];
+  /** Làm bên ngoài — thu xong, việc tự sang bàn đối tác (sự kiện). */
+  doi_tac?: boolean;
 }
 
 export interface ChoKhachQuyet {
@@ -202,6 +204,11 @@ export default function ChonDichVu({
                 {c.mang_sang ? (
                   <span className="ml-2">
                     <Chip tone="brand">hẹn từ lượt trước</Chip>
+                  </span>
+                ) : null}
+                {c.doi_tac ? (
+                  <span className="ml-2" title="Thu tiền xong, việc tự sang bàn đối tác">
+                    <Chip tone="neutral">Đối tác làm</Chip>
                   </span>
                 ) : null}
               </span>

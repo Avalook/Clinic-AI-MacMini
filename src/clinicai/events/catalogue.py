@@ -60,6 +60,10 @@ CHUONG = "chuong_thong_bao"
 #: Khối VÒNG ĐỌC: kết quả/dịch vụ vừa xong → mở vòng đọc cho bác sĩ chính và
 #: khép lượt khi không còn gì phải chờ (phát `visit.exam_completed`).
 VONG_DOC = "vong_doc_luot_kham"
+#: Khối ĐỐI TÁC nhận việc (Tuyền 24/09/2026: "bác sĩ chỉ định sinh event đối tác
+#: nhận chưa"): nghe "đã thu tiền dịch vụ" (đối tác tự lấy mẫu) và "dịch vụ đã
+#: làm xong" (mẫu điều dưỡng lấy) → việc sang bàn đối tác + réo chuông đối tác.
+DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
 
 
 @dataclass(frozen=True)
@@ -298,6 +302,18 @@ class DoiTacDaLayMau(PayloadSuKien):
 
     visit_id: str
     service_order_id: str
+
+
+class DoiTacNhanViec(PayloadSuKien):
+    """`partner.order_received` — một chỉ định làm bên ngoài vừa sang bàn đối tác.
+
+    `ly_do`: DA_THU_TIEN (đối tác tự lấy mẫu, khách đã trả) · DA_LAY_MAU (điều
+    dưỡng lấy mẫu xong ở phòng)."""
+
+    visit_id: str
+    service_order_id: str
+    service_name: str | None = None
+    ly_do: str
 
 
 class CskhDaLienHe(PayloadSuKien):
@@ -752,7 +768,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaXong,
             nhan="Đã làm xong dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC, DOI_TAC_NHAN_VIEC],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -985,6 +1001,16 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="partner.order_received",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacNhanViec,
+            nhan="Đối tác đã nhận việc",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+            is_public=True,
+        ),
+        SuKien(
             ten="partner.sample_collected",
             version=1,
             aggregate_type="service_order",
@@ -1031,7 +1057,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienDichVuDaThu,
             nhan="Đã thu tiền dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, DOI_TAC_NHAN_VIEC],
             is_public=False,
         ),
         SuKien(

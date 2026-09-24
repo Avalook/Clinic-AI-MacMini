@@ -202,6 +202,7 @@ MODULE: dict[str, Module] = {
             ten="Hành trình lượt khám",
             # Không có lệnh: đây là module CHỈ NGHE. Thêm nó không đụng ai.
             nghe=[
+                "partner.order_received",
                 "visit.checked_in",
                 "vitals.started",
                 "vitals.recorded",
@@ -445,6 +446,7 @@ MODULE: dict[str, Module] = {
                 "result_file.confirmed",
                 "result.ready",
                 "lab_result.arrived",
+                "partner.order_received",
             ],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
@@ -473,7 +475,12 @@ MODULE: dict[str, Module] = {
             ma="doi_tac",
             ten="Đối tác",
             lenh=["MarkSampleCollected", "MarkAwaitingDocuments"],
-            phat=["partner.sample_collected"],
+            phat=["partner.sample_collected", "partner.order_received"],
+            # Nhận việc bằng sự kiện (24/09/2026): đã thu tiền (đối tác tự lấy
+            # mẫu) / dịch vụ lấy mẫu xong (điều dưỡng lấy) → sang bàn đối tác.
+            nghe=["payment.service_collected", "service.completed"],
+            ben_nhan=["doi_tac_nhan_viec"],
+            bang=["doi_tac_nhan_viec"],
         ),
         Module(
             ma="cskh",

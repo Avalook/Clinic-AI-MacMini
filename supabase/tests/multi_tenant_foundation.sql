@@ -135,7 +135,9 @@ DECLARE
     -- nhac_viec_ca_nhan (index (clinic_id, staff_id, nhac_luc)) — 20260924000005.
     -- 108 → 109 (23/09/2026 tối): phieu_kham_luot (phiếu khám v5 theo lượt,
     -- unique (clinic_id, visit_id, form_id)) — 20260924000008.
-    expected_tenant_tables constant integer := 109;
+    -- 109 → 110 (24/09/2026 chiều): doi_tac_nhan_viec (PK (clinic_id,
+    -- service_order_id), đối tác nhận việc qua sự kiện) — 20260925000009.
+    expected_tenant_tables constant integer := 110;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

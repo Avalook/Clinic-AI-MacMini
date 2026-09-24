@@ -170,8 +170,10 @@ BEGIN
     -- (20260924000004), cùng khuôn `clinic_id IN (current_clinic_ids())`.
     -- 78 → 80 (24/09/2026, nhóm 5): day_nghiep_vu · nhac_viec_ca_nhan.
     -- 80 → 81 (23/09/2026 tối): phieu_kham_luot (20260924000008).
-    IF scoped_count <> 81 THEN
-        RAISE EXCEPTION 'expected 81 tenant-scoped read policies, found %', scoped_count;
+    -- 81 → 82 (24/09/2026 chiều): doi_tac_nhan_viec (20260925000009, đối tác
+    -- nhận việc qua sự kiện).
+    IF scoped_count <> 82 THEN
+        RAISE EXCEPTION 'expected 82 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

@@ -3,6 +3,7 @@ trong danh mục sự kiện. KHÔNG sửa module phát."""
 
 from clinicai.events.consumers import (
     chuong,
+    doi_tac,
     dong_thoi_gian,
     hanh_trinh,
     nhac_viec,
@@ -12,6 +13,7 @@ from clinicai.events.consumers import (
 
 __all__ = [
     "chuong",
+    "doi_tac",
     "dong_thoi_gian",
     "hanh_trinh",
     "nhac_viec",

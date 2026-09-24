@@ -68,7 +68,10 @@ from clinicai.services.payment_service import PaymentService
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.chay_nguoi_dua_tin import (
+    chay_hanh_trinh,
+    danh_dau_doi_tac_da_nhan,
+)
 from tests.services.test_luot_kham_service_db import dieu_phoi_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -1172,6 +1175,8 @@ async def test_partner_security_negative_suite(
         code_to_id = {r["service_code"]: r["id"] for r in rows}
     id_noi_bo = code_to_id[kban.ma_sa]
     id_doi_tac = code_to_id[kban.ma_mau_doi_tac]
+    # Bàn đối tác chỉ hiện việc đã nhận qua sự kiện (24/09/2026).
+    await danh_dau_doi_tac_da_nhan(kban.pool, id_doi_tac)
 
     viec_dt = await kban.svc.viec_doi_tac(identity=doi_tac)
     cac_chi_dinh_dt_thay = [
@@ -1380,6 +1385,8 @@ async def test_partner_two_types_of_orders(
     )
 
     # --- Kiểm tra Loại 1 (Đối tác tự lấy) ---
+    # Bàn đối tác chỉ hiện việc đã nhận qua sự kiện (24/09/2026).
+    await danh_dau_doi_tac_da_nhan(kban.pool, id_tu_lay)
     viec_dt = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
     v1 = next(
         (
@@ -1430,6 +1437,8 @@ async def test_partner_two_types_of_orders(
 
     # Sau khi điều dưỡng lấy mẫu xong ->
     # Việc loại 2 xuất hiện trên bàn đối tác ở trạng thái DA_LAY_MAU
+    # Lối phòng CŨ không phát `service.completed` (màn phòng dùng xong-v1).
+    await danh_dau_doi_tac_da_nhan(kban.pool, id_pk_lay)
     viec_dt_sau = await kban.svc.viec_doi_tac(identity=kban.doi_tac)
     v2_sau = next(
         (
