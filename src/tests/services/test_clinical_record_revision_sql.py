@@ -89,7 +89,9 @@ async def chart_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 drug_mapped_at timestamptz, purchased_qty numeric,
                 created_by uuid, removed_at timestamptz, removed_by uuid,
                 removal_reason text, removed_in_correction_id uuid,
-                superseded_by_id uuid, created_in_correction_id uuid
+                superseded_by_id uuid, created_in_correction_id uuid,
+                -- 24/09/2026: nguồn dòng (bác sĩ kê / quầy thêm).
+                nguon text NOT NULL DEFAULT 'BAC_SI'
             );
             CREATE TEMP TABLE clinic_membership (
                 staff_id uuid, clinic_id uuid, is_active boolean, role text
