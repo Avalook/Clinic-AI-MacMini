@@ -206,6 +206,8 @@ MODULE: dict[str, Module] = {
                 "vitals.started",
                 "vitals.recorded",
                 "prescription.saved",
+                "medicine.counter_changed",
+                "medicine.declined",
                 "service_selection.confirmed",
                 "service_order.placed",
                 "service.started",
@@ -384,6 +386,8 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "payment.refunded",
+                # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
+                "medicine.declined",
             ],
             bang=["payment_cycle", "payment_bill_line"],
             quyen=["payment.service.collect", "payment.medicine.collect"],
@@ -512,12 +516,14 @@ MODULE: dict[str, Module] = {
             lenh=[
                 "MapDrug",
                 "SetPurchasedQty",
+                # Quầy chỉnh đơn bán trước khi thu (24/09/2026).
+                "AdjustSaleAtCounter",
                 "AllocateLots",
                 "DispenseMedicine",
                 "RefuseLine",
                 "CloseLine",
             ],
-            phat=["medicine.dispensed"],
+            phat=["medicine.dispensed", "medicine.counter_changed"],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view"],
         ),

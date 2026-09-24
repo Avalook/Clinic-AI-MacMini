@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
+import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 
 interface Dong {
@@ -336,6 +337,23 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                     "Đã huỷ lần chờ xác minh.",
                   )
                 }
+              />
+            ) : null}
+
+            {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick,
+                số lượng, lấy thêm thuốc. Thu rồi (hoặc đang chờ xác minh) thì
+                khoá — huỷ phiếu thu trước rồi mới chỉnh. */}
+            {quay !== "dich_vu" &&
+            l.drugs.length > 0 &&
+            !daThuCua(l.visit_id, "thuoc") &&
+            !choCua(l.visit_id, "thuoc") ? (
+              <ChinhDonQuay
+                visitId={l.visit_id}
+                onDoi={async (cau, loiMoi) => {
+                  setXong(cau);
+                  setLoi(loiMoi);
+                  await tai();
+                }}
               />
             ) : null}
 

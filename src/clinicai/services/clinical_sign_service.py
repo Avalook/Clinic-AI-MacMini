@@ -162,7 +162,7 @@ class ClinicalSignService:
                                    dosage_instructions, caution
                               FROM public.prescription
                              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                               AND removed_at IS NULL
+                               AND removed_at IS NULL AND nguon = 'BAC_SI'
                              ORDER BY id
                             """,
                             identity.clinic_id,

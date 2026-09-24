@@ -57,6 +57,7 @@ from clinicai.api.v1.routers.phan_quyen import router as phan_quyen_router
 from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
 from clinicai.api.v1.routers.phieu import router as phieu_router
 from clinicai.api.v1.routers.phieu_kham import router as phieu_kham_router
+from clinicai.api.v1.routers.quay_thuoc import router as quay_thuoc_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -331,6 +332,9 @@ app.include_router(home_router, prefix="/api/v1", tags=["home"], dependencies=_G
 app.include_router(cskh_router, prefix="/api/v1", tags=["cskh"], dependencies=_GUARDED)
 app.include_router(
     pharmacy_router, prefix="/api/v1", tags=["pharmacy"], dependencies=_GUARDED
+)
+app.include_router(
+    quay_thuoc_router, prefix="/api/v1", tags=["quay-thuoc"], dependencies=_GUARDED
 )
 app.include_router(
     booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
