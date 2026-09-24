@@ -152,6 +152,7 @@ function tomTatTuongTac(ds: DongLichSu[] | undefined): string | undefined {
   const kq = d.ket_qua ? ` · ${NHAN_KQ_NGAN[d.ket_qua] ?? d.ket_qua}` : "";
   return `${ngay} · ${NHAN_LOAI_NGAN[d.loai] ?? d.loai}${kq}`;
 }
+import KenhDoiHuy, { cauDoiHuy, nhanKenh, type DoiHuyGanNhat } from "./KenhDoiHuy";
 import AppointmentEditModal, { type EditableAppt } from "./AppointmentEditModal";
 
 export interface CustomerRow {
@@ -180,6 +181,10 @@ export interface CustomerRow {
   /** Các số gắn THÊM (patient_sdt_them) — hai cột cũ vẫn là số chính thức.
    *  CHINH vẽ dưới "SĐT chính", NGUOI_NHA vẽ dưới "SĐT người nhà". */
   patient_sdt_them?: { so_dien_thoai: string; loai: string }[] | null;
+  /** Kênh đặt gần nhất · người giới thiệu · lần đổi/huỷ gần nhất (24/09). */
+  nguoi_gioi_thieu?: string | null;
+  kenh_dat?: string | null;
+  doi_huy_gan_nhat?: DoiHuyGanNhat | null;
 }
 
 /** Một dòng trong bảng "khách này đang có mấy lịch". Đủ để nhận ra lịch nào là
@@ -1528,6 +1533,7 @@ export default function CustomersView({
                           <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
                             {row.patient_code}
                           </span>
+                          <KenhDoiHuy k={row} gon />
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
                           {/* CỘT HẸP CHỈ TRẢ LỜI "AI", KHÔNG TRẢ LỜI "ĐANG Ở
@@ -2103,6 +2109,12 @@ export default function CustomersView({
                   </>
                 ) : (
                   <dl className="space-y-2 text-sm">
+                    <DetailRow label="Kênh đặt gần nhất" value={nhanKenh(selected.kenh_dat)} />
+                    <DetailRow label="Người giới thiệu" value={selected.nguoi_gioi_thieu ?? null} />
+                    <DetailRow
+                      label="Đổi / huỷ gần nhất"
+                      value={cauDoiHuy(selected.doi_huy_gan_nhat)}
+                    />
                     <DetailRow label="Ngày sinh" value={dobDisplay(selected)} />
                     <DetailRow label="Giới tính" value={selected.gender} />
                     <DetailRow label="SĐT chính" value={selected.phone_primary} />
@@ -2166,6 +2178,7 @@ export default function CustomersView({
           appt={selectedAppt.appt}
           patientName={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
+          gioiThieu={selected.nguoi_gioi_thieu ?? ""}
           services={services}
           doctors={doctors}
           locations={locations}

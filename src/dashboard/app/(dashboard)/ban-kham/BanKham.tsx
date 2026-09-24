@@ -874,13 +874,36 @@ function HoSo({
             />
           </div>
         ) : TU_VAN_O_TU_DO && dong.loai === "TU_VAN" ? (
-          <ONhapTuVan
-            key={dong.ref_id}
-            visitId={dong.visit_id}
-            consultationId={dong.ref_id}
-            choGhi={choBam}
-            onTrangThai={baoGate}
-          />
+          <div className="space-y-3">
+            <ONhapTuVan
+              key={dong.ref_id}
+              visitId={dong.visit_id}
+              consultationId={dong.ref_id}
+              choGhi={choBam}
+              onTrangThai={baoGate}
+            />
+            {/* MỤC B CỦA PHIẾU BÁC SĨ CHÍNH (Tuyền 24/09/2026: "form bác sĩ tư
+                vấn thêm cả phần B. Phiếu khám / đánh giá chuyên khoa của bác sĩ
+                chính vào, cho cả 2 bác sĩ đều thêm sửa xoá được, hồ sơ là
+                open"). CHÍNH phiếu khám của lượt — cùng một bản ghi bác sĩ
+                chính mở, tự lưu + chống ghi đè (409) như phiếu thường. */}
+            {PHIEU_V5 && dong.form_code ? (
+              <PhieuKhamLuot
+                key={`b-${dong.visit_id}`}
+                visitId={dong.visit_id}
+                clinicPatientId={dong.clinic_patient_id}
+                choGhi={choBam}
+                chiMuc={["B"]}
+                datChiDinh={async (codes) => {
+                  const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
+                    service_codes: codes,
+                  });
+                  return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
+                }}
+                onDaDat={onDaBam}
+              />
+            ) : null}
+          </div>
         ) : PHIEU_V5 && (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
           // Bàn khám tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt
           // 24/09) — bác sĩ chính mở ra thấy ngay phần tư vấn đã điền.

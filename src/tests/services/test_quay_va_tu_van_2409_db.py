@@ -223,6 +223,7 @@ async def test_mau_ket_qua_danh_dau_mau_cua_dich_vu(
         pytest.skip("DB thử chưa có mẫu kết quả")
     cua = [m["ma"] for m in mau if m["cua_dich_vu"]]
     if goi_y:
-        assert cua == [goi_y]
+        # Mẫu gợi ý + mẫu CHUNG nhập tự do (không thuộc dịch vụ nào khác).
+        assert sorted(cua) == sorted([goi_y, "CHUNG"])
     else:
         assert len(cua) == len(mau)

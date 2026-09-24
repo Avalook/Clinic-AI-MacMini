@@ -224,6 +224,72 @@ async def test_doi_lich_luu_lich_su(pool: asyncpg.Pool) -> None:  # noqa: F811
     )
 
 
+async def test_doi_lich_mo_doi_dich_vu_kenh_gioi_thieu_va_ly_do_hien_o_danh_sach(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 24/09/2026: đổi lịch không khoá dịch vụ cũ; kênh / người giới thiệu
+    đổi được; lý do đổi hiện ở danh sách khách CSKH + danh sách bệnh nhân."""
+    from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
+    from clinicai.services.danh_sach_khach_cskh import danh_sach_khach
+
+    ca = await _dung(pool)
+    pid = await _benh_nhan(pool, ca)
+    ngay = (datetime.now(CLINIC_TZ) + timedelta(days=3)).date()
+    bd = datetime(ngay.year, ngay.month, ngay.day, 9, 0, tzinfo=CLINIC_TZ)
+    appt = await pool.fetchval(
+        "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+        " service_type_id, slot_start, slot_end, status, booking_channel)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, 'CONFIRMED',"
+        " 'DIEN_THOAI') RETURNING id::text",
+        CLINIC,
+        pid,
+        ca.loc,
+        ca.loai_kham,
+        bd,
+        bd + timedelta(minutes=15),
+    )
+    async with pool.acquire() as conn:
+        cskh = await _nguoi(conn, ca.loc, "CSKH")
+    # Cùng giờ, CHỈ đổi dịch vụ + kênh + người giới thiệu — vẫn đổi được.
+    await BookingService(pool).apply_action(
+        appointment_id=appt,
+        action="reschedule",
+        identity=cskh,
+        slot_start=bd,
+        slot_end=bd + timedelta(minutes=15),
+        cancellation_reason="Chị bận đột xuất, xin đổi sang thủ thuật",
+        service_type_id=ca.loai_thu_thuat,
+        booking_channel="REFERRAL",
+        booking_channel_provided=True,
+        nguoi_gioi_thieu="  Chị   Mai ",
+    )
+    a = await pool.fetchrow(
+        "SELECT service_type_id::text AS dv, booking_channel, is_walkin"
+        " FROM appointment WHERE id = $1::uuid",
+        appt,
+    )
+    assert (a["dv"], a["booking_channel"], a["is_walkin"]) == (
+        ca.loai_thu_thuat,
+        "REFERRAL",
+        False,
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT nguoi_gioi_thieu FROM patient WHERE clinic_patient_id = $1::uuid",
+            pid,
+        )
+        == "Chị Mai"
+    )
+    kq = await danh_sach_khach(pool, identity=cskh, chon=pid)
+    [dong] = [d for d in kq["rows"] if d["clinic_patient_id"] == pid]
+    assert dong["nguoi_gioi_thieu"] == "Chị Mai" and dong["kenh_dat"] == "REFERRAL"
+    assert dong["doi_huy_gan_nhat"]["loai"] == "DOI"
+    assert "bận đột xuất" in dong["doi_huy_gan_nhat"]["ly_do"]
+    bn = await DanhSachBenhNhanService(pool).lay(identity=cskh)
+    [h] = [d["ho_so"] for d in bn["dong"] if d["ho_so"]["clinic_patient_id"] == pid]
+    assert h["doi_huy_gan_nhat"]["loai"] == "DOI"
+
+
 async def test_check_out_phat_su_kien_va_bang_hanh_trinh_bao_da_ve(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:

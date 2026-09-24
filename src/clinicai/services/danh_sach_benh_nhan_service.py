@@ -21,12 +21,14 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.danh_sach_khach_cskh import COT_KENH_DOI_HUY
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
 TRAN_HO_SO = 5000
 TRAN_LUOT = 20000
 
-_HO_SO_SQL = """
+_HO_SO_SQL = (
+    """
 SELECT p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
        p.full_name, p.date_of_birth, p.phone_primary, p.phone_secondary,
        p.gender, p.ethnicity, p.nationality, p.occupation, p.patient_objection,
@@ -36,7 +38,10 @@ SELECT p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
                                              'loai', t.loai))
              FROM patient_sdt_them t
             WHERE t.clinic_patient_id = p.clinic_patient_id
-       ), '[]'::json) AS patient_sdt_them
+       ), '[]'::json) AS patient_sdt_them,
+"""
+    + COT_KENH_DOI_HUY
+    + """
   FROM patient p
  WHERE p.clinic_id = $1::uuid
    AND p.clinic_patient_id::text
@@ -44,6 +49,7 @@ SELECT p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
  ORDER BY p.created_at DESC
  LIMIT $3
 """
+)
 
 _LUOT_SQL = """
 SELECT a.id::text AS id, a.clinic_patient_id::text AS clinic_patient_id,
@@ -142,4 +148,6 @@ def _ho_so(r: asyncpg.Record) -> dict[str, Any]:
     d["date_of_birth"] = r["date_of_birth"].isoformat() if r["date_of_birth"] else None
     sdt = r["patient_sdt_them"]
     d["patient_sdt_them"] = json.loads(sdt) if isinstance(sdt, str) else (sdt or [])
+    dh = d.get("doi_huy_gan_nhat")
+    d["doi_huy_gan_nhat"] = json.loads(dh) if isinstance(dh, str) else dh
     return d

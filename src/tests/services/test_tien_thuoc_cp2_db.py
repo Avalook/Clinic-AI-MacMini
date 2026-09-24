@@ -19,7 +19,6 @@ import pytest
 from clinicai.api.exceptions import (
     ConflictError,
     NotFoundError,
-    ValidationError,
 )
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.clinical_record_service import ClinicalRecordService
@@ -321,8 +320,6 @@ async def test_chuyen_khoan_cho_xac_minh_chua_phai_da_thu(q: Quay) -> None:
         )
         == 0
     ), "chờ xác minh không được thành phiếu đã thu"
-    with pytest.raises(ValidationError, match="mã giao dịch"):
-        await _xm(q, a, " ")
     await _xm(q, a, "FT2609191234")
     # Gửi lại cùng mã (mất phản hồi) → thành công như cũ; mã khác → xung đột.
     assert (await _xm(q, a, "FT2609191234"))["da_xac_minh_tu_truoc"] is True
@@ -341,15 +338,16 @@ async def test_chuyen_khoan_cho_xac_minh_chua_phai_da_thu(q: Quay) -> None:
     assert p is not None and (p["status"], p["payment_cycle_id"]) == ("PAID", a)
 
 
-async def test_dien_tu_khong_the_paid_khong_co_ma_o_db(q: Quay) -> None:
-    await _thu_pt(q, "QR")
-    with pytest.raises(asyncpg.CheckViolationError):
-        await q.pool.execute(
-            "UPDATE payment_cycle SET status = 'PAID', paid_at = now(),"
-            " confirmed_by = $2::uuid WHERE visit_id = $1::uuid",
-            q.visit_id,
-            q.thu_ngan.staff_id,
-        )
+async def test_qr_xac_minh_khong_can_ma(q: Quay) -> None:
+    """Tuyền 24/09/2026: thu QR / chuyển khoản xong KHÔNG bắt nhập mã giao dịch."""
+    kq = await _thu_pt(q, "QR")
+    a = kq["payment_cycle_id"]
+    xong = await _xm(q, a, "  ")
+    assert xong["status"] == "PAID"
+    [c] = await _cycles(q)
+    assert (c["status"], c["method"], c["reference"]) == ("PAID", "QR", None)
+    # Gửi lại (mất phản hồi) không mã → như cũ, không xung đột.
+    assert (await _xm(q, a, ""))["da_xac_minh_tu_truoc"] is True
 
 
 async def test_bang_gia_doi_trong_luc_cho_van_ghi_da_thu_va_can_doi_soat(

@@ -73,7 +73,8 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 async def test_18_mau_deu_co_khung_dang_dung(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
         "SELECT count(*) FROM form_definition WHERE clinic_id = $1::uuid"
-        " AND trang_thai = 'PUBLISHED' AND form_id LIKE 'KQ_%'",
+        " AND trang_thai = 'PUBLISHED' AND form_id LIKE 'KQ_%'"
+        " AND form_id <> 'KQ_CHUNG'",
         CLINIC,
     )
     assert so == 18

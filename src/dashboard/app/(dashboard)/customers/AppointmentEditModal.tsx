@@ -32,6 +32,7 @@ export default function AppointmentEditModal({
   appt,
   patientName,
   clinicPatientId,
+  gioiThieu = "",
   services,
   doctors,
   locations,
@@ -40,6 +41,8 @@ export default function AppointmentEditModal({
   appt: EditableAppt;
   patientName: string;
   clinicPatientId: string;
+  /** Người giới thiệu đã lưu ở hồ sơ khách — điền sẵn ô kênh Giới thiệu. */
+  gioiThieu?: string;
   services: Option[];
   doctors: Option[];
   locations: Option[];
@@ -127,6 +130,7 @@ export default function AppointmentEditModal({
     apptDate: origDate,
     apptTime: origTime,
     channel: appt.booking_channel ?? "",
+    gioiThieu,
   };
   const edit: BookingEdit = {
     appointmentId: appt.id,
@@ -177,8 +181,8 @@ export default function AppointmentEditModal({
           {appt.doctor_name ? ` · ${appt.doctor_name}` : ""}
           {appt.service_name ? ` · ${appt.service_name}` : ""}
           <span className="mt-1 block text-xs text-brand-800/80">
-            Chọn ngày/giờ mới bên dưới rồi bấm “Đổi lịch hẹn”. Chưa đổi thì nút
-            vẫn khoá.
+            Đổi ngày/giờ, dịch vụ, bác sĩ hay kênh đặt bên dưới, ghi lý do đổi
+            rồi bấm “Đổi lịch hẹn”.
           </span>
         </div>
 
