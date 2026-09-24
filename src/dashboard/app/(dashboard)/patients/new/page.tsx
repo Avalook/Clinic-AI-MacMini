@@ -4,7 +4,8 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
+import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
 import { vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
@@ -52,34 +53,28 @@ export default async function NewPatientPage({
   // `?mode=` nên phải là MỘT câu đúng cho cả hai luồng. Hai nút chọn luồng bên
   // dưới đã nói rõ người dùng đang ở luồng nào.
 
-  const supabase = await getSupabaseServer();
-  const [locRes, svcRes, docRes, provRes] = await Promise.all([
-    supabase.from("clinic_location").select("id, name").order("name"),
-    supabase.from("service_type").select("id, name").eq("is_active", true).order("name"),
+  // Danh mục qua backend (24/09/2026 — trang từng đọc thẳng 3 bảng bằng
+  // Supabase). Phường/xã load runtime theo tỉnh (/api/wards).
+  const [coSo, dichVu, docRes, tinh] = await Promise.all([
+    layCoSo(),
+    layDichVu(),
     listBookableDoctors(),
-    // 34 tỉnh/thành sau sáp nhập — phường/xã load runtime theo tỉnh (/api/wards).
-    // Trước đây phải đọc bằng service-role vì province bật RLS mà không có policy
-    // SELECT nào; 20260730000002 đã thêm policy (ADR-0012).
-    supabase.from("province").select("code, name, full_name").order("name"),
+    fetchFromBackend<{ code: string; name: string; full_name: string }[]>(
+      "/api/v1/catalog/provinces",
+    ),
   ]);
 
-  const locations: Option[] = (locRes.data ?? []).map((r) => ({
-    id: r.id as string,
-    label: r.name as string,
-  }));
+  const locations: Option[] = coSo.map((r) => ({ id: r.id, label: r.name }));
   // Lọc bỏ dịch vụ rác "FREE" (option import từ Notion) khỏi dropdown đặt lịch
   // — feedback B5#3 ("tại sao có chữ free trong dịch vụ khám").
-  const services: Option[] = (svcRes.data ?? [])
-    .filter((r) => (r.name as string)?.trim().toUpperCase() !== "FREE")
-    .map((r) => ({
-      id: r.id as string,
-      label: r.name as string,
-    }));
+  const services: Option[] = dichVu
+    .filter((r) => r.name.trim().toUpperCase() !== "FREE")
+    .map((r) => ({ id: r.id, label: r.name }));
   const doctors: Option[] = docRes;
-  const provinces: ProvinceOpt[] = (provRes.data ?? []).map((r) => ({
-    code: r.code as string,
-    name: r.name as string,
-    fullName: r.full_name as string,
+  const provinces: ProvinceOpt[] = (tinh ?? []).map((r) => ({
+    code: r.code,
+    name: r.name,
+    fullName: r.full_name,
   }));
 
   return (

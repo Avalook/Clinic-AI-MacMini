@@ -34,16 +34,22 @@ import {
   type ClinicRole,
   canCheckin,
   canSeeNav,
-  canWriteClinical,
   isNurseRole,
 } from "../../../lib/roles";
 import Link from "next/link";
-import { NAV, TEN_NHOM, hrefTheoViTri, nhomTheoViTri } from "../nav-items";
+import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { docDuocYKhoa } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
-import { currentWeekStartVn, todayVn, weekDates, weekStartOf } from "../../../lib/roster";
+import {
+  currentWeekStartVn,
+  todayVn,
+  viTriTuDb,
+  weekDates,
+  weekStartOf,
+} from "../../../lib/roster";
 import WeekNav from "../WeekNav";
 import WeeklyAppointmentsTable, { type WeekApptRow } from "./WeeklyAppointmentsTable";
 import { dungLichHenTuan } from "./lich-hen-ngay";
@@ -159,7 +165,9 @@ export default async function HomePage({
   // dưỡng — hôm nay đứng Lễ tân thì trang chủ là trang chủ Lễ tân (check-in),
   // không phải "Điền sinh hiệu". Không có ca thì vai chính = vai tài khoản.
   const role = await getVaiChinh();
-  const viTriHomNay = (await getViTriHomNay())?.vi_tri ?? [];
+  const viTriDo = await getViTriHomNay();
+  const viTriHomNay = viTriDo?.vi_tri ?? [];
+  const phong = viTriDo?.phong ?? {};
   // "Điền sinh hiệu" là việc của vị trí ĐO CHỈ SỐ, không phải của mọi điều
   // dưỡng: hôm 16/09 Hải Yến đứng Lấy mẫu, Vân Anh đứng ĐD Sàn chậu mà trang chủ
   // vẫn mời cả hai đo sinh hiệu. Không có ca → theo vai như trước.
@@ -167,10 +175,10 @@ export default async function HomePage({
     viTriHomNay.length > 0
       ? hrefTheoViTri(viTriHomNay).includes("/do-sinh-hieu")
       : isNurseRole(role);
-  const viecHomNay = nhomTheoViTri(viTriHomNay, role).map((g) => ({
+  const viecHomNay = nhomTheoViTri(viTriHomNay, role, phong).map((g) => ({
     ten: TEN_NHOM[g.nhom],
     muc: g.hrefs
-      .map((h) => NAV.find((n) => n.href === h))
+      .map((h) => mucPhong(h, phong))
       .filter((n): n is NonNullable<typeof n> => n !== undefined)
       .map((n) => ({ href: n.href, label: n.label })),
   }));
@@ -179,8 +187,9 @@ export default async function HomePage({
   // CHECK-IN KHÔNG CÒN Ở TRANG CHỦ (Tuyền chốt 18/09/2026): cả ô check-in của
   // Quản lý lẫn cột check-in của Lễ tân chuyển sang Tiếp đón khách
   // (/reception/queue) — một việc, một chỗ. Bảng lịch ở đây chỉ để xem.
-  // CHỈ Bác sĩ + Điều dưỡng ghi lâm sàng; Lễ tân/QL check-in nhưng xem chỉ-đọc.
-  const writeClinical = canWriteClinical(role);
+  // Mở hồ sơ lâm sàng từ bảng lịch: theo QUYỀN (khối khám / kết quả), không
+  // theo vai — quản lý có đủ khối nên mở được (Tuyền chốt 24/09/2026).
+  const writeClinical = await docDuocYKhoa();
   const isReception = role === "RECEPTION"; // bảng trạng thái buổi khám: chỉ Lễ tân
 
   // 2 bảng có tuần ĐỘC LẬP: weekAppt cho Lịch hẹn khám, weekRoster cho Lịch làm
@@ -426,7 +435,12 @@ async function KhoiDuLieu({
 }) {
   const rosterDates = weekDates(weekRoster);
 
-  const goi = await goiTrangChu(weekAppt, weekRoster);
+  // Danh mục vị trí từ database (C4) — cùng lời gọi layout đã làm (cache theo
+  // lượt dựng trang), không thêm vòng mạng.
+  const [goi, viTri] = await Promise.all([
+    goiTrangChu(weekAppt, weekRoster),
+    getViTriHomNay(),
+  ]);
   // Backend im thì các bảng cùng rỗng — phải NÓI RA. Một trang chủ trống trơn
   // trông y hệt "hôm nay chưa có gì", và người trực sẽ tin nó (cùng luật với
   // goiLoi ở màn Quản lý khách hàng, Lát 2).
@@ -551,6 +565,7 @@ async function KhoiDuLieu({
           />
         </div>
         <WorkRosterTable
+          stations={viTriTuDb(viTri?.danh_muc)}
           dates={rosterDates}
           rows={rosterRows}
           dong={goi?.dong_ca ?? []}

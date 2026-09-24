@@ -7,17 +7,10 @@ export const CLINICAL_HREFS = new Set([
   "/reception/queue",
   "/do-sinh-hieu",
   "/ban-kham",
-  "/ban-kham/KN-NOITIET",
-  "/ban-kham/KN-SANCHAU",
-  "/ban-kham/KN-SAN-BIO",
-  "/phong/KN-LAYMAU",
-  "/phong/KN-SA-T1",
-  "/phong/KN-SA1",
-  "/phong/KN-SA2",
-  "/phong/KN-THUTHUAT",
-  "/phong/KN-TTNG",
-  "/phong/KN-SANCHAU",
-  "/phong/KN-SAN-BIO",
+  "/tu-van",
+  // Mọi màn theo phòng (`/phong/<room_id>`, `/ban-kham/<room_id>`) cũng là màn
+  // lâm sàng — `laManLamSang` ở nav-items.ts khớp theo tiền tố (CORE-C).
+  "/phong",
   "/duyet-ket-qua",
   // /cashier/board gộp vào hai quầy dưới đây 18/09/2026 (docs/SITEMAP.md).
   "/thu-ngan/dich-vu",

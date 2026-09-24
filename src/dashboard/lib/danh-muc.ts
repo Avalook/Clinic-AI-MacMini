@@ -9,7 +9,7 @@
 
 import { getClinicId } from "./clinic-session";
 import { nhoTheoPhongKham } from "./bo-nho-tam";
-import { getSupabaseServer } from "./supabase-server";
+import { fetchFromBackend } from "./backend-proxy";
 
 export interface MucDanhMuc {
   id: string;
@@ -19,16 +19,11 @@ export interface MucDanhMuc {
 /** Cơ sở của phòng khám đang đăng nhập, sắp theo tên. */
 export async function layCoSo(): Promise<MucDanhMuc[]> {
   const clinicId = await getClinicId();
+  // 24/09/2026: đọc qua backend `GET /api/v1/catalog/locations` (lọc phòng khám
+  // ở máy chủ) thay vì đọc thẳng `clinic_location` bằng Supabase.
   return nhoTheoPhongKham("co-so", clinicId ?? "", async () => {
-    const supabase = await getSupabaseServer();
-    const { data, error } = await supabase
-      .from("clinic_location")
-      .select("id, name")
-      .order("name");
-    // Lỗi thì trả rỗng — `nhoTheoPhongKham` cố ý KHÔNG nhớ mảng rỗng, nên lượt
-    // sau vẫn hỏi lại thay vì khoá cứng một ô chọn trống suốt hạn giờ.
-    if (error) return [];
-    return (data ?? []) as MucDanhMuc[];
+    const data = await fetchFromBackend<MucDanhMuc[]>("/api/v1/catalog/locations");
+    return data ?? [];
   });
 }
 
@@ -37,14 +32,15 @@ export async function layCoSo(): Promise<MucDanhMuc[]> {
  *  CSKH hiện đủ 14 dịch vụ cũ (FREE, Sản 2/3, Tiền hôn nhân…). */
 export async function layDichVu(): Promise<MucDanhMuc[]> {
   const clinicId = await getClinicId();
+  // 24/09/2026: đọc qua backend `GET /api/v1/catalog/service-types` (chỉ loại
+  // đang bật của phòng khám người gọi).
   return nhoTheoPhongKham("dich-vu", clinicId ?? "", async () => {
-    const supabase = await getSupabaseServer();
-    const { data, error } = await supabase
-      .from("service_type")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("name");
-    if (error) return [];
-    return (data ?? []) as MucDanhMuc[];
+    const data = await fetchFromBackend<
+      { id: string; name: string; is_active: boolean | null }[]
+    >("/api/v1/catalog/service-types");
+    return (data ?? [])
+      .filter((d) => d.is_active !== false)
+      .map(({ id, name }) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
   });
 }

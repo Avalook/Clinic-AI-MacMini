@@ -19,7 +19,7 @@ import pytest
 
 from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.api.v1.routers import brief, lab, tools
+from clinicai.api.v1.routers import lab, tools
 
 
 def _request(client: Any) -> Any:
@@ -28,7 +28,8 @@ def _request(client: Any) -> Any:
     )
 
 
-@pytest.mark.parametrize("module", [brief, lab, tools])
+# `brief` (AI tóm tắt trước khám) đã gỡ 24/09/2026.
+@pytest.mark.parametrize("module", [lab, tools])
 def test_khong_co_client_ai_thi_503(module: Any) -> None:
     with pytest.raises(AIDisabledError):
         module.get_llm_client(_request(None))

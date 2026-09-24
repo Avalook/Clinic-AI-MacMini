@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from clinicai.api.identity import ClinicRole, StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
+from tests.quyen_gia import cua_router_theo_nhom_mau
 
 CLINIC_ID = UUID("a0000000-0000-4000-8000-000000000001")
 PATIENT_ID = uuid4()
@@ -49,6 +50,13 @@ def _pool_with(rows: list[dict[str, object] | None]) -> MagicMock:
 def client() -> Iterator[TestClient]:
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_gia(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Duyệt kết quả hỏi QUYỀN `result.review.approve` (24/09/2026) — trả lời
+    theo nhóm mẫu: bác sĩ có, lễ tân không."""
+    cua_router_theo_nhom_mau(monkeypatch)
 
 
 def test_lab_review_is_doctor_only(client: TestClient) -> None:

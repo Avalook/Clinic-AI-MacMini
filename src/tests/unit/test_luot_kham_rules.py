@@ -15,12 +15,13 @@ T0 = datetime(2026, 9, 11, 18, 0, tzinfo=timezone.utc)
 # --- D1: đích sau check-in -------------------------------------------------
 
 
-def test_chua_do_sinh_hieu_thi_chua_co_dich() -> None:
+def test_chua_do_sinh_hieu_van_vao_bac_si_chinh() -> None:
+    """Sinh hiệu KHÔNG chặn (luồng chuẩn bước 6, Tuyền chốt 23/09/2026)."""
     assert (
         rules.decide_route(
             vitals_recorded=False, plan_status="none", current_route=None
         )
-        is None
+        == rules.PRIMARY
     )
 
 
@@ -160,8 +161,11 @@ def test_da_lam_xong_khong_dieu_phoi_lai() -> None:
     assert _block(exec_status="performed") == "ORDER_NOT_DISPATCHABLE"
 
 
-def test_ke_hoach_ap_truoc_khi_do_sinh_hieu_bi_chan_dung_ly_do() -> None:
-    # T-P9: nhánh kế hoạch, chưa đo huyết áp.
+def test_chua_do_sinh_hieu_khong_con_chan_xep_phong() -> None:
+    """Tuyền chốt 23/09/2026: sinh hiệu KHÔNG phải cửa chặn.
+
+    Chưa đo vẫn đưa khách vào phòng được; chốt chặn còn lại là đích của lượt.
+    """
     assert (
         _block(
             source="PRIOR_PLAN",
@@ -169,7 +173,7 @@ def test_ke_hoach_ap_truoc_khi_do_sinh_hieu_bi_chan_dung_ly_do() -> None:
             route_decision=None,
             vitals_recorded=False,
         )
-        == "VITALS_REQUIRED"
+        == "ROUTE_NOT_DECIDED"
     )
 
 
@@ -293,3 +297,31 @@ def test_bmi_client_gui_len_bi_bo_qua_luon_tu_tinh() -> None:
 def test_bmi_client_gui_ma_thieu_can_hoac_cao_thi_rong() -> None:
     v, loi = rules.parse_vitals({"systolic": 118, "diastolic": 76, "bmi": 22})
     assert loi is None and v is not None and v.bmi is None
+
+
+# --- Đổi phòng dịch vụ (23/09/2026) ----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("chon", "thuc_hien", "cu", "doi_tac", "duoc"),
+    [
+        ("SELECTED", "PENDING", "assigned", False, True),
+        ("SELECTED", None, "ordered", False, True),
+        ("PENDING", "PENDING", "ordered", False, False),  # khách chưa chọn
+        ("SELECTED", "IN_PROGRESS", "assigned", False, False),  # đang làm
+        ("SELECTED", "COMPLETED", "performed", False, False),  # xong rồi
+        ("SELECTED", "PENDING", "assigned", True, False),  # đối tác làm
+    ],
+)
+def test_doi_phong_duoc(
+    chon: str, thuc_hien: str | None, cu: str, doi_tac: bool, duoc: bool
+) -> None:
+    assert (
+        rules.doi_phong_duoc(
+            selection_status=chon,
+            execution_status=thuc_hien,
+            exec_status=cu,
+            doi_tac=doi_tac,
+        )
+        is duoc
+    )

@@ -43,6 +43,9 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import ThuocDaGiao
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 
@@ -73,6 +76,14 @@ def _so(value: Any, *, ten: str) -> Decimal:
 def _don_vi(value: str | None) -> str:
     """Chỉ chuẩn hoá cách viết; hộp, vỉ, viên luôn là các đơn vị khác nhau."""
     return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
+
+
+def _so_chu(v: Any) -> str | None:
+    return None if v is None else str(v)
+
+
+#: Luật cũ "nhà thuốc đợi Khám xong" — OFF từ 24/09/2026 (xem `_bat_buoc_kham_xong`).
+_CHO_KHAM_XONG = False
 
 
 class PharmacyService:
@@ -118,6 +129,67 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
             )
+        # Hàng đợi cấp thuốc mà cắt im lặng là có người đứng đợi mà không ai
+        # thấy tên. Trần giữ nguyên; điều đổi là nó kêu lên khi chạm.
+        canh_bao_neu_day("nha_thuoc.hang_doi", len(rows), 300)
+        return [dict(r) for r in rows]
+
+    async def lich_su_giao(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Dòng thuốc ĐÃ GIAO (mới nhất trước, tối đa 200) — kèm ba con số của
+        một dòng: bác sĩ KÊ (`quantity_num`), khách CHỐT MUA (`purchased_qty`,
+        trống = như kê) và ĐÃ GIAO (`dispensed_qty`).
+
+        24/09/2026: trang Lịch sử bàn giao từng đọc thẳng `prescription` bằng
+        Supabase và chỉ hiện số đã giao — nợ "đơn kê vs khách thực mua".
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id::text, r.source_ref, r.drug_name_raw,
+                       r.dosage_instructions, r.quantity, r.quantity_note,
+                       r.quantity_num, r.purchased_qty, r.dispensed_qty, r.unit,
+                       r.dispense_status, r.dispensed_at, r.created_at,
+                       p.full_name, p.phone_primary
+                  FROM public.prescription r
+                  LEFT JOIN public.patient p
+                    ON p.clinic_patient_id = r.clinic_patient_id
+                   AND p.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = $1::uuid AND r.dispensed_qty > 0
+                 -- rx:gom-ca-lich-su: thuốc ĐÃ GIAO tay khách là sự thật, kể cả
+                 -- dòng bác sĩ đính chính sau khi giao — lịch sử phải còn nó.
+                 ORDER BY r.dispensed_at DESC NULLS LAST
+                 LIMIT 200
+                """,
+                identity.clinic_id,
+            )
+        canh_bao_neu_day(
+            "nha_thuoc.lich_su", len(rows), 200, clinic_id=identity.clinic_id
+        )
+        return [dict(r) for r in rows]
+
+    async def cho_tu_van(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Dòng thuốc còn việc (chưa chốt, chưa bị đính chính) — màn Tư vấn dùng
+        thuốc. Chuyển từ trang đọc thẳng Supabase (24/09/2026)."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id::text, r.source_ref, r.drug_name_raw,
+                       r.dosage_instructions, r.quantity, r.quantity_note,
+                       r.caution, r.created_at, p.full_name, p.phone_primary
+                  FROM public.prescription r
+                  LEFT JOIN public.patient p
+                    ON p.clinic_patient_id = r.clinic_patient_id
+                   AND p.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = $1::uuid
+                   AND r.closed_at IS NULL AND r.removed_at IS NULL
+                 ORDER BY r.created_at DESC
+                 LIMIT 100
+                """,
+                identity.clinic_id,
+            )
+        canh_bao_neu_day(
+            "nha_thuoc.cho_tu_van", len(rows), 100, clinic_id=identity.clinic_id
+        )
         return [dict(r) for r in rows]
 
     async def ton_kho(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
@@ -285,7 +357,10 @@ class PharmacyService:
           * Chưa thu tiền thuốc → không giao.
           * Lần thu cũ (`payment_cycle.legacy`, trước CP3, không có phân lô) →
             giữ nguyên luồng cũ `_cap_phat_cu`.
-          * Lần thu mới → chỉ giao từ đúng lô đã phân, không vượt phần chưa giao.
+          * Lần thu mới ĐÃ gắn lô → chỉ giao từ đúng lô đã phân, không vượt phần
+            chưa giao.
+          * Lần thu mới KHÔNG gắn lô (thu không chờ kho) → giao thẳng như lần
+            thu cũ.
 
         Một thao tác, hai sổ, MỘT GIAO DỊCH: kho và số đã cấp của đơn.
         """
@@ -313,7 +388,21 @@ class PharmacyService:
                         "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
                         "rồi mới giao thuốc."
                     )
-                if lan["legacy"]:
+                # Lần thu KHÔNG gắn lô nào (thu không chờ kho — công tắc
+                # CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY tắt, Tuyền chốt
+                # 20/09/2026) đi đường giao thẳng từ lô như lần thu cũ. Trước
+                # 24/09 nó rơi vào nhánh "giao đúng lô đã bán" và KHÔNG giao
+                # được gì (bộ mô phỏng 20 khách bắt được). Quyết theo DỮ LIỆU,
+                # không đọc công tắc: lần thu nào đã bán lô thì vẫn phải giao
+                # đúng lô ấy, dù công tắc sau đó đổi.
+                giao_thang = bool(lan["legacy"]) or not await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
+                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+                    " AND released_at IS NULL)",
+                    identity.clinic_id,
+                    lan["payment_cycle_id"],
+                )
+                if giao_thang:
                     moi = await self._cap_phat_cu(
                         conn,
                         identity=identity,
@@ -331,6 +420,23 @@ class PharmacyService:
                         cycle_id=lan["payment_cycle_id"],
                         luong=luong,
                     )
+                # Dòng thời gian: kê ↔ khách mua ↔ đã giao (hai bản đơn). Số kê
+                # và số mua đọc từ dòng đã khoá ở trên — giao không đổi hai số ấy.
+                await emit_event(
+                    conn,
+                    ten="medicine.dispensed",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=prescription_id,
+                    payload=ThuocDaGiao(
+                        visit_id=str(don["visit_id"]),
+                        prescription_id=prescription_id,
+                        so_ke=_so_chu(don.get("quantity_num")),
+                        so_mua=_so_chu(don.get("purchased_qty")),
+                        so_da_giao=str(moi["dispensed_qty"]),
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=str(don["visit_id"]),
+                )
 
         logger.info(
             "pharmacy_dispensed",
@@ -488,7 +594,8 @@ class PharmacyService:
         drug_batch_id: str,
         luong: Decimal,
     ) -> asyncpg.Record:
-        """Luồng cấp phát TRƯỚC CP3, chỉ cho lần thu cũ (`legacy`).
+        """Giao thẳng từ lô: lần thu cũ (`legacy`, trước CP3) và lần thu KHÔNG gắn
+        lô (thu không chờ kho, 24/09/2026).
 
         Đơn có đơn vị chỉ cấp từ lô cùng đơn vị; chưa có quy đổi bao bì đã xác
         minh nên không đoán số viên/hộp. Đơn cũ thiếu đơn vị giữ hành vi cũ:
@@ -727,13 +834,18 @@ class PharmacyService:
     async def _bat_buoc_kham_xong(
         conn: asyncpg.Connection, identity: StaffIdentity, visit_id: Any
     ) -> None:
-        """Mọi lệnh làm đổi dòng thuốc chỉ chạy SAU khi bác sĩ bấm Khám xong.
+        """OFF từ 24/09/2026 — nhà thuốc KHÔNG còn đợi bác sĩ bấm Khám xong.
 
-        Review CP4 P1 #1: màn đọc đã "chỉ xem" trước Khám xong, nhưng lệnh gọi
-        thẳng vẫn xác định thuốc / khai số mua / từ chối / chốt được — và chốt
-        hay từ chối cũng khoá dòng khỏi nút Lưu bệnh án khi bác sĩ còn sửa đơn.
-        Muốn "dược sĩ chuẩn bị trước" thì nới ở đây, có chủ ý.
+        Tuyền chốt: "tiền thuốc không cần khám xong"; Khám xong là mốc thời gian,
+        không phải cửa khoá (luồng chuẩn bước 9–10). Đơn đổi SAU khi nhà thuốc đã
+        đụng dòng thì đi đường ĐÍNH CHÍNH (dinh_chinh_don: dòng cũ giữ lịch sử,
+        dòng mới thay) — không cần chặn nhà thuốc để giữ đơn đứng yên.
+
+        Giữ hàm (không xoá, Tuyền bấm thật xong mới dọn): bật lại luật cũ =
+        đổi `_CHO_KHAM_XONG` thành True.
         """
+        if not _CHO_KHAM_XONG:
+            return
         # Mốc chung của Nhà thuốc / Thu ngân / Payment (moc_kham_xong): trạng
         # thái của LƯỢT, không phụ thuộc lượt có lịch hẹn hay không.
         if not await conn.fetchval(

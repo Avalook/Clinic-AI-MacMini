@@ -33,6 +33,13 @@ export interface NodeDef {
   name: string;
 }
 
+/** Bước dịch vụ không có phòng ĐANG BẬT nào phục vụ (CORE-C, 23/09/2026). */
+export interface ConfigMissing {
+  code: string;
+  name: string;
+  loi: "CONFIG_MISSING";
+}
+
 export interface ConfigStaff {
   staff_id: string;
   full_name: string;

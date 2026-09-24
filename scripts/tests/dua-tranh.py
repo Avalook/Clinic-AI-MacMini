@@ -478,6 +478,10 @@ async def main() -> int:
             )
             if luot:
                 visit2 = luot["visit_id"]
+                # Lần lưu đầu phải sau [Bắt đầu] (chốt 23/09/2026).
+                await phien["dieuduong"].goi(
+                    "POST", f"/api/v1/luot-kham/visits/{visit2}/vitals/start"
+                ) if "dieuduong" in phien else None
                 await phien["dieuduong"].goi(
                     "POST",
                     f"/api/v1/luot-kham/visits/{visit2}/vitals",

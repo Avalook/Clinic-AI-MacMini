@@ -810,7 +810,8 @@ import sys
 services = json.load(sys.stdin)["services"]
 expected = {
     "api", "caddy", "cloudflared", "dashboard", "dozzle", "media-quyen",
-    "notification-relay", "pos-relay", "rabbitmq", "uptime-kuma", "worker",
+    "notification-relay", "pos-relay", "rabbitmq", "su-kien", "uptime-kuma",
+    "worker",
 }
 assert set(services) == expected, set(services)
 for name, service in services.items():
@@ -864,6 +865,96 @@ test_runbook_installs_the_real_launchdaemon_template() {
   fi
 }
 
+
+# ── Chốt pre-commit: dữ liệu bệnh nhân và bí mật không được vào git ──────────
+#
+# BÀI NÀY PHẢI CHẠY TRONG CI. Một chốt an toàn không có bài kiểm chạy thật thì
+# chỉ là một file bash người ta tin là đang chạy. Và nó phải thử ĐÚNG cái lối
+# lọt đã tìm ra ngày 23/09/2026: stage bản bẩn rồi sửa sạch trên đĩa.
+
+kho_thu() {
+  # Một kho git thật, dùng một lần. `commit.gpgsign=false` và `user.*` đặt cứng
+  # để bài kiểm không phụ thuộc cấu hình máy người chạy.
+  local d="$1"
+  mkdir -p "$d"
+  git -C "$d" init -q
+  git -C "$d" config user.email "test@dr4women.local"
+  git -C "$d" config user.name "Test"
+  git -C "$d" config commit.gpgsign false
+  git -C "$d" config core.hooksPath "$ROOT/scripts/git-hooks"
+  # Cần một commit gốc thì `git diff --cached` mới so được.
+  : > "$d/.gitkeep"
+  git -C "$d" add .gitkeep
+  git -C "$d" commit -q -m "gốc"
+}
+
+# Trả 0 nếu hook CHẶN, 1 nếu hook cho qua.
+hook_chan() {
+  local d="$1"
+  if git -C "$d" commit -q -m "thử" >/dev/null 2>&1; then
+    return 1
+  fi
+  return 0
+}
+
+test_hook_chan_du_lieu_benh_nhan_va_bi_mat() {
+  local d
+
+  # (1) LỐI LỌT ĐÃ TÌM RA: stage bản bẩn, rồi sửa sạch trên ĐĨA mà không stage.
+  #     Git commit bản ĐANG STAGE, nên hook phải soi bản ấy chứ không soi đĩa.
+  d="$TMP_ROOT/hook1"; kho_thu "$d"
+  printf "INSERT INTO public.patient (full_name) VALUES ('Nguyen A');\n" > "$d/x.sql"
+  git -C "$d" add x.sql
+  printf -- "-- đã dọn, không còn gì\n" > "$d/x.sql"   # đĩa sạch, KHÔNG stage
+  hook_chan "$d" || fail "hook đọc file trên đĩa: bản staged có dữ liệu bệnh nhân vẫn lọt"
+
+  # (2) Ngược lại: bản staged sạch thì không được chặn, dù đĩa đang bẩn.
+  #     Một chốt kêu oan sẽ bị gõ --no-verify cho quen tay.
+  d="$TMP_ROOT/hook2"; kho_thu "$d"
+  printf -- "-- seed sạch\n" > "$d/x.sql"
+  git -C "$d" add x.sql
+  printf "INSERT INTO public.patient (full_name) VALUES ('Nguyen B');\n" > "$d/x.sql"
+  hook_chan "$d" && fail "hook chặn oan: bản đang commit vốn sạch"
+
+  # (3) Đổi tên KÈM thêm dữ liệu — trạng thái R, bản trước bỏ qua hoàn toàn.
+  d="$TMP_ROOT/hook3"; kho_thu "$d"
+  printf -- "-- vô hại\n" > "$d/cu.sql"
+  git -C "$d" add cu.sql && git -C "$d" commit -q -m "thêm"
+  git -C "$d" mv cu.sql moi.sql
+  printf "INSERT INTO public.lab_result (test_code) VALUES ('X');\n" >> "$d/moi.sql"
+  git -C "$d" add moi.sql
+  hook_chan "$d" || fail "hook bỏ qua file đổi tên kèm thêm dữ liệu xét nghiệm"
+
+  # (4) Seed danh mục vẫn phải qua: 21 migration trong kho có dạng này.
+  d="$TMP_ROOT/hook4"; kho_thu "$d"
+  printf "INSERT INTO public.node_definition (code) VALUES ('X');\n" > "$d/seed.sql"
+  git -C "$d" add seed.sql
+  hook_chan "$d" && fail "hook chặn oan seed danh mục"
+
+  # (5) Bài kiểm lược đồ được phép tạo người giả — nếu không thì không chứng
+  #     minh được RLS chặn ai.
+  d="$TMP_ROOT/hook5b"; kho_thu "$d"
+  mkdir -p "$d/supabase/tests"
+  printf "INSERT INTO public.staff (full_name) VALUES ('RLS test A');\n" \
+    > "$d/supabase/tests/rls.sql"
+  git -C "$d" add supabase/tests/rls.sql
+  hook_chan "$d" && fail "hook chặn oan bài kiểm lược đồ tạo người giả"
+
+  # (6) …nhưng THẢ MỘT BẢN DUMP vào đó thì không lách được.
+  d="$TMP_ROOT/hook5c"; kho_thu "$d"
+  mkdir -p "$d/supabase/tests"
+  printf -- "-- PostgreSQL database dump\nCOPY public.patient (id) FROM stdin;\n" \
+    > "$d/supabase/tests/len-lut.sql"
+  git -C "$d" add supabase/tests/len-lut.sql
+  hook_chan "$d" || fail "giấu dump trong supabase/tests/ vẫn lọt"
+
+  # (7) Bản dump thật vẫn phải chặn ở mọi loại file.
+  d="$TMP_ROOT/hook7"; kho_thu "$d"
+  printf -- "-- PostgreSQL database dump\nCOPY public.staff (id) FROM stdin;\n" > "$d/dump.sql"
+  git -C "$d" add dump.sql
+  hook_chan "$d" || fail "hook để lọt một bản dump database"
+}
+
 test_backup_rejects_failed_dump
 test_backup_rejects_structurally_incomplete_dump
 test_backup_creates_verified_archive
@@ -889,4 +980,5 @@ test_runbook_installs_the_real_launchdaemon_template
 # chuyện khác hẳn.
 test_backup_includes_media_files
 test_backup_bo_qua_media_tren_kho_ngoai_may
+test_hook_chan_du_lieu_benh_nhan_va_bi_mat
 echo "infra safety smoke tests: PASS"

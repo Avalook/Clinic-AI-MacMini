@@ -1,51 +1,42 @@
-// Nhà thuốc — Tư vấn dùng thuốc (image_11).
-// Dược sĩ hướng dẫn người bệnh cách dùng thuốc trước khi bàn giao.
+// Tư vấn dùng thuốc — dòng thuốc còn việc. Đọc qua backend
+// `GET /api/v1/pharmacy/cho-tu-van` (24/09/2026; trước đọc thẳng `prescription`
+// bằng Supabase). Chỉ dòng chưa chốt, chưa bị đính chính (CP6).
 
-import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { motBanGhi } from "../../../../lib/postgrest-embed";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import ConsultBoard from "./ConsultBoard";
 
 export const dynamic = "force-dynamic";
 
+interface DongChoTuVan {
+  id: string;
+  source_ref: string | null;
+  drug_name_raw: string | null;
+  dosage_instructions: string | null;
+  quantity: string | null;
+  quantity_note: string | null;
+  caution: string | null;
+  created_at: string | null;
+  full_name: string | null;
+  phone_primary: string | null;
+}
+
 export default async function PharmacyConsultPage() {
   await requireNavAccess("/pharmacy/consult");
-  const supabase = await getSupabaseServer();
-
-  const { data: records, error } = await supabase
-    .from("prescription")
-    .select(
-      `id, source_ref, drug_name_raw, dosage_instructions, quantity, quantity_note, caution, created_at,
-       patient:clinic_patient_id(full_name, phone_primary)`,
-    )
-    // CHỜ TƯ VẤN = còn việc. Bản trước đọc cả bảng không lọc, nên đơn từ nhiều
-    // tháng trước nằm mãi trong danh sách "chờ" — và danh sách chờ nào cũng
-    // chỉ dài thêm thì không ai còn nhìn nó nữa.
-    .is("closed_at", null)
-    // CP6: dòng đã được bác sĩ đính chính không còn chờ tư vấn.
-    .is("removed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (error) {
+  const data = await fetchFromBackend<{ items: DongChoTuVan[] }>(
+    "/api/v1/pharmacy/cho-tu-van",
+  );
+  if (!data) {
     return (
       <div className="p-6 text-sm text-danger">
-        Không đọc được đơn thuốc: {error.message}
+        Không đọc được đơn thuốc (máy chủ không trả lời hoặc tài khoản chưa có quyền xem
+        nhà thuốc).
       </div>
     );
   }
-
-  interface PatientRaw {
-    full_name: string | null;
-    phone_primary: string | null;
-  }
-  type Raw = Omit<(typeof records)[number], "patient"> & {
-    patient: PatientRaw[] | null;
-  };
-  const normalized = (records ?? []).map((r: Raw) => ({
+  const records = data.items.map(({ full_name, phone_primary, ...r }) => ({
     ...r,
-    patient: motBanGhi(r.patient),
+    patient: { full_name, phone_primary },
   }));
-
-  return <ConsultBoard records={normalized} />;
+  return <ConsultBoard records={records} />;
 }

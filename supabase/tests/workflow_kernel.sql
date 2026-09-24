@@ -20,8 +20,17 @@ BEGIN
     SELECT count(*) INTO total FROM public.node_definition WHERE clinic_id = dr4women;
     -- 37 nodes of docs §13 + THUOC-01..04, the nhà thuốc chain added by
     -- migration 20260802000001 (soạn → kiểm tra → tư vấn → bàn giao).
-    IF total <> 41 THEN
-        RAISE EXCEPTION 'expected the 41 nodes of docs §13 + nhà thuốc, found %', total;
+    --
+    -- 41 → 44 (23/09/2026, migration 20260923000007): ba nút VẬN HÀNH, không
+    -- nằm trên đường đi của khách mà là trách nhiệm còn mở của nhân viên. Tên
+    -- lấy đúng từ thiết kế đã chốt, không tự đặt:
+    --   OPS-ROUTING-REASSIGN      phòng cũ hỏng, cần xếp lại
+    --   OPS-SERVICE-INTERRUPTED   dịch vụ dừng giữa chừng, ai quyết làm lại
+    --   OPS-FINANCIAL-RESOLUTION  khách đã trả tiền mà dịch vụ không làm
+    -- Nút tài chính KHÔNG giao trưởng ca hay điều dưỡng: họ điều phối phòng và
+    -- người, không đối soát sổ tiền của khách.
+    IF total <> 44 THEN
+        RAISE EXCEPTION 'expected the 44 nodes of docs §13 + nhà thuốc + 3 nút vận hành, found %', total;
     END IF;
 
     -- Spot-check one node per flow group, so a wholesale re-seed cannot quietly

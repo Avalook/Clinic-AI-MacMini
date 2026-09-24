@@ -32,10 +32,14 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.audit_labels import action_label
+from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
 GOI_DUOC = frozenset(
     {
+        # CSKH xem được hành trình (bảng hành trình chung — nhóm 3, 24/09/2026:
+        # "mở được từ mọi màn"). Nội dung lâm sàng vẫn cắt theo `muc_duoc_xem`.
+        ClinicRole.CSKH,
         ClinicRole.DOCTOR,
         ClinicRole.TKYK,
         ClinicRole.ULTRASOUND_DOCTOR,
@@ -153,6 +157,39 @@ def muc_duoc_xem(identity: StaffIdentity) -> dict[str, bool]:
     }
 
 
+async def dong_thoi_gian_luot(
+    conn: asyncpg.Connection, cid: str, visit_id: str
+) -> list[dict[str, Any]]:
+    """Dòng thời gian của một lượt — đọc PROJECTION `luot_dong_thoi_gian` (dựng
+    từ sổ sự kiện, dựng lại được bằng phát lại). Không có nội dung lâm sàng:
+    chi tiết là whitelist của bên nhận (`dong_thoi_gian.CHI_TIET_HIEN`)."""
+    rows = await conn.fetch(
+        """
+        SELECT d.occurred_at, d.event_type, d.nhan, d.chi_tiet,
+               d.actor_type, s.full_name AS ai
+          FROM luot_dong_thoi_gian d
+          LEFT JOIN staff s ON s.id = d.actor_staff_id
+         WHERE d.clinic_id = $1::uuid AND d.visit_id = $2::uuid
+         ORDER BY d.occurred_at, d.thu_tu
+         LIMIT 300
+        """,
+        cid,
+        visit_id,
+    )
+    return [
+        {
+            "luc": _iso(r["occurred_at"]),
+            "su_kien": r["event_type"],
+            "nhan": r["nhan"],
+            "chi_tiet": json.loads(r["chi_tiet"])
+            if isinstance(r["chi_tiet"], str)
+            else (r["chi_tiet"] or {}),
+            "ai": r["ai"] or ("Hệ thống" if r["actor_type"] == "SYSTEM" else None),
+        }
+        for r in rows
+    ]
+
+
 class XemLuotService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -208,6 +245,7 @@ class XemLuotService:
                 "hanh_chinh": await self._hanh_chinh(conn, cid, v),
                 "dich_vu": await self._dich_vu(conn, cid, visit_id, muc["lam_sang"]),
                 "su_kien": await self._su_kien(conn, cid, v),
+                "dong_thoi_gian": await dong_thoi_gian_luot(conn, cid, visit_id),
                 "lich_su": await self._lich_su(conn, cid, v),
             }
             if muc["sinh_hieu"]:
@@ -282,6 +320,9 @@ class XemLuotService:
                    rb.full_name AS nguoi_ghi, ab.full_name AS nguoi_duyet,
                    sb.full_name AS nguoi_xep, pb.full_name AS nguoi_lam,
                    db.full_name AS nguoi_duyet_ket_qua, rm.name AS phong,
+                   o.selection_status, o.execution_status, o.routing_revision,
+                   o.room_id::text AS room_id,
+                   coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
                    (SELECT count(*) FROM tep_ket_qua t
                      WHERE t.clinic_id = o.clinic_id AND t.service_order_id = o.id)
                                                               AS so_tep,
@@ -301,6 +342,8 @@ class XemLuotService:
               LEFT JOIN staff db ON db.id = o.duyet_boi
               LEFT JOIN clinic_room rm
                 ON rm.id = o.room_id AND rm.clinic_id = o.clinic_id
+              LEFT JOIN node_definition nd
+                ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
              ORDER BY o.created_at, o.id
             """,
@@ -314,6 +357,16 @@ class XemLuotService:
                 "node": r["node_code"],
                 "trang_thai": r["exec_status"],
                 "phong": r["phong"],
+                # Đổi phòng ngay trong màn xem lượt (23/09/2026) — lệnh vẫn tự
+                # kiểm quyền + cổng tiền; đây chỉ để biết có bày nút không.
+                "phong_id": r.get("room_id"),
+                "routing_revision": r.get("routing_revision"),
+                "doi_phong_duoc": doi_phong_duoc(
+                    selection_status=r.get("selection_status"),
+                    execution_status=r.get("execution_status"),
+                    exec_status=r["exec_status"],
+                    doi_tac=bool(r.get("doi_tac")),
+                ),
                 "so_tep": int(r["so_tep"] or 0),
                 "ly_do_khong_lam": r["not_performed_reason"],
                 "ly_do_huy": r["cancel_reason"],

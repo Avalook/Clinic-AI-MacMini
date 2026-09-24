@@ -4,7 +4,7 @@
 // SERVICE_ROLE_KEY never leaves the dashboard process.
 
 import { redirect } from "next/navigation";
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import {
   hasServiceRoleKey,
   SERVICE_ROLE_ENV,
@@ -33,14 +33,13 @@ export default async function NewUserPage() {
   const role = await vaiLamViec(isAdminRole);
   if (!isAdminRole(role)) redirect("/home");
 
-  const supabase = await getSupabaseServer();
-  const { data, error } = await supabase
-    .from("staff")
-    .select("id, full_name, short_name, primary_department")
-    .is("auth_user_id", null)
-    .eq("is_active", true)
-    .order("full_name", { ascending: true });
-
+  // 24/09/2026: đọc qua backend `GET /api/v1/staff/tai-khoan` (Quản lý); lọc
+  // "chưa nối tài khoản, còn làm" ở đây chỉ là chọn dòng để hiện.
+  const tatCa = await fetchFromBackend<
+    (UnlinkedStaff & { is_active: boolean; auth_user_id: string | null })[]
+  >("/api/v1/staff/tai-khoan");
+  const error = tatCa === null ? { message: "Không đọc được danh sách nhân viên." } : null;
+  const data = (tatCa ?? []).filter((s) => s.is_active && s.auth_user_id === null);
   const unlinked = (data as UnlinkedStaff[] | null) ?? [];
   const options = unlinked.map((s) => ({
     id: s.id,

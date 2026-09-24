@@ -10,6 +10,7 @@ làm `_replace_prescriptions` xoá rồi chèn lại dòng đơn chưa cấp. �
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import asyncpg
@@ -28,6 +29,7 @@ from clinicai.services.pharmacy_service import PharmacyService
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import (
     Quay,
+    _chi_dinh,
     _don,
     _du_lo,
     _hd,
@@ -209,6 +211,7 @@ async def _thu_pt(q: Quay, method: str, kind: str = "dich_vu") -> dict[str, Any]
     return await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind=kind,
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=None,
         clinic_patient_id=None,
         identity=q.thu_ngan,
@@ -237,7 +240,22 @@ async def test_17_thu_a_huy_a_thu_b_lich_su_du_ca_hai(q: Quay) -> None:
         reason="Bấm nhầm khách",
         identity=q.thu_ngan,
     )
+    # Tuyền chốt 24/09/2026: huỷ phiếu (thu nhầm) → tiền khám QUAY LẠI hoá đơn,
+    # thu lại được; phiếu A giữ nguyên để đối chiếu. Lần thu B gồm tiền khám thu
+    # lại + chỉ định MỚI khách vừa chọn — lịch sử vẫn phải đủ cả A lẫn B.
+    assert [d.source_type for d in (await _hd(q, "dich_vu")).dong] == ["exam"]
+    moi = await _chi_dinh(q, f"KHAM-{q.duoi}", "Chỉ định mới")
     b = await _thu_pt(q, "CASH")
+    dong_b = {
+        (r["source_type"], r["source_id"])
+        for r in await q.pool.fetch(
+            "SELECT source_type, source_id FROM payment_bill_line"
+            " WHERE payment_cycle_id = $1::uuid",
+            b["payment_cycle_id"],
+        )
+    }
+    assert ("service_order", moi) in dong_b
+    assert {t for t, _ in dong_b} == {"exam", "service_order"}
     cs = await _cycles(q)
     assert [(c["payment_cycle_id"], c["status"]) for c in cs] == [
         (a["payment_cycle_id"], "VOIDED"),
@@ -374,12 +392,25 @@ async def test_hoa_don_khong_doi_thi_khong_can_doi_soat(q: Quay) -> None:
 
 
 async def test_huy_cho_roi_thu_lai_duoc(q: Quay) -> None:
+    rev_a = await _rev(q)
     a = (await _thu_pt(q, "TRANSFER"))["payment_cycle_id"]
     # Đang chờ: thu phương thức khác bị chặn cho tới khi huỷ/xác minh.
     with pytest.raises(ConflictError, match="chờ xác minh"):
         await _thu_pt(q, "CASH")
-    # Gửi lại đúng lần chờ (cùng hoá đơn, cùng phương thức) → idempotent.
-    lai = await _thu_pt(q, "TRANSFER")
+    # Gửi lại đúng lần chờ (cùng hoá đơn ĐÃ THẤY, cùng phương thức) → idempotent.
+    # Đổi vì Lifecycle v1 Slice 3: hoá đơn còn nợ hiện tại đã rỗng (lần chờ đang
+    # phủ các dòng), nên "cùng hoá đơn" là dấu client đã thấy lúc bấm, không
+    # phải dấu tính lại bây giờ.
+    lai = await PaymentService(q.pool).record_payment(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
+        amount=None,
+        clinic_patient_id=None,
+        identity=q.thu_ngan,
+        bill_revision=rev_a,
+        method="TRANSFER",
+    )
     assert (lai["status"], lai["payment_cycle_id"]) == ("PENDING_VERIFICATION", a)
     await _huy_cho(q, a)
     assert (await _huy_cho(q, a))["da_huy_tu_truoc"] is True
@@ -404,6 +435,9 @@ async def test_lenh_cu_nham_a_den_muon_khong_dung_b_cho_xac_minh(q: Quay) -> Non
 async def test_huy_phieu_a_den_muon_khong_huy_b(q: Quay) -> None:
     a = (await _thu_pt(q, "CASH"))["payment_cycle_id"]
     await _huy_phieu(q, a)
+    # Đổi vì Lifecycle v1 Slice 3: sau huỷ phiếu không thu lại chính khoản ấy —
+    # lần thu B thu một chỉ định mới khách vừa chọn.
+    await _chi_dinh(q, f"KHAM-{q.duoi}", "Chỉ định mới")
     b = (await _thu_pt(q, "CASH"))["payment_cycle_id"]
     kq = await _huy_phieu(q, a)  # lệnh huỷ A cũ đến muộn
     assert kq["da_huy_tu_truoc"] is True
@@ -598,6 +632,7 @@ async def test_19_hai_thu_ngan_bam_cung_luc_chi_mot_lan_thu(q: Quay) -> None:
             PaymentService(q.pool).record_payment(
                 visit_id=q.visit_id,
                 kind="dich_vu",
+                idempotency_key=f"test-{uuid.uuid4().hex}",
                 amount=None,
                 clinic_patient_id=None,
                 identity=q.thu_ngan,

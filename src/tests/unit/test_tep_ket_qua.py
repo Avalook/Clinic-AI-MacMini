@@ -169,6 +169,10 @@ class FakePool:
     async def execute(self, sql: str, *a: Any) -> None:
         self.calls.append((sql, a))
 
+    async def executemany(self, sql: str, *a: Any) -> None:
+        # emit_event: dòng giao cho bên nhận (khối Chuông, dòng thời gian).
+        self.calls.append((sql, a))
+
     def acquire(self) -> "FakePool":
         return self
 

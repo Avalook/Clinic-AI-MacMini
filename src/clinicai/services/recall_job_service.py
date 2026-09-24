@@ -39,6 +39,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.tran import canh_bao_neu_day
 
 # `clinic_today` sống ở cskh_service — cùng một "ngày làm việc" mà toàn bộ nhật
 # ký CSKH đóng dấu, nên dùng lại chứ không tự tính giờ Việt Nam lần nữa.
@@ -127,9 +128,13 @@ class RecallJobService:
                 hom_nay,
             )
 
+        # Trần 500 việc gọi. Chạm trần là có khách cần gọi mà không ai thấy.
+        bi_cat = canh_bao_neu_day("nhac_tai_kham.cho_goi", len(rows), 500)
         viec = [dict(r) for r in rows]
         return {
             "ngay": hom_nay.isoformat(),
+            "bi_cat": bi_cat,
+            "tran": 500,
             "cua_so_ngay": CUA_SO_NGAY,
             "luot1": [v for v in viec if v["luot_goi"] == 1],
             "luot2": [v for v in viec if v["luot_goi"] == 2],

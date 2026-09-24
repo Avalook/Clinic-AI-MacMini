@@ -21,10 +21,9 @@ from pydantic import ValidationError as PydanticValidationError
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.api.v1.routers.clinical_sign import AmendRequest
-from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.catalogue import PRESET, QUYEN
 from clinicai.services.clinical_sign_service import (
     REQUIRED_SOAP,
-    _assert_doctor,
     missing_fields,
 )
 from clinicai.services.dinh_chinh_don import (
@@ -47,36 +46,33 @@ def _identity(role: ClinicRole) -> StaffIdentity:
     )
 
 
-class TestOnlyDoctorsSign:
-    def test_a_doctor_may_sign(self) -> None:
-        _assert_doctor(_identity(ClinicRole.DOCTOR))
+class TestOnlyDoctorsFinalize:
+    """Không còn "Ký bệnh án" (CORE-A, 23/09/2026) — mốc khoá là HOÀN TẤT KHÁM,
+    quyền `clinical.consult.finalize` (khối `hoan_tat_kham`). Luật cũ giữ
+    nguyên ý nghĩa: người khoá hồ sơ là người chịu trách nhiệm chuyên môn."""
 
-    def test_ultrasound_doctor_may_not_sign_main_clinical_record(self) -> None:
-        """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không ký bệnh án khám."""
-        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
-            _assert_doctor(_identity(ClinicRole.ULTRASOUND_DOCTOR))
+    def test_a_doctor_may_finalize(self) -> None:
+        assert "hoan_tat_kham" in PRESET["DOCTOR"]
+        # Hàng rào chứng chỉ đã bỏ 24/09/2026 — khối được cấp là đủ.
+        assert not QUYEN["clinical.consult.finalize"].chung_chi_lam_sang
 
-    def test_the_medical_secretary_may_not_sign(self) -> None:
-        """TKYK nhập hộ bệnh án được (Notion cho phép), nhưng KHÔNG ký.
+    def test_ultrasound_doctor_may_not_finalize_main_clinical_record(self) -> None:
+        """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không khoá bệnh án khám."""
+        assert "hoan_tat_kham" not in PRESET["ULTRASOUND_DOCTOR"]
 
-        Người ký là người chịu trách nhiệm chuyên môn. Để TKYK ký là ghi sai
-        người vào một chữ ký có giá trị pháp lý.
-        """
-        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
-            _assert_doctor(_identity(ClinicRole.TKYK))
+    def test_the_medical_secretary_may_not_finalize(self) -> None:
+        """TKYK nhập hộ bệnh án được, nhưng KHÔNG khoá: người khoá là người chịu
+        trách nhiệm chuyên môn."""
+        assert "hoan_tat_kham" not in PRESET["TKYK"]
 
-    def test_management_may_not_sign(self) -> None:
-        """Quyết định của Quang: *"chỉ bác sĩ được ký vì bác sĩ làm mà"*.
+    def test_management_has_every_pack_including_finalize(self) -> None:
+        """ĐỔI 24/09/2026 — Tuyền chốt (và xác nhận lại khi được hỏi về câu cũ
+        của Quang "chỉ bác sĩ được ký"): quản lý có MỌI khối; hệ thống để MỞ,
+        phòng khám khác cần chặt hơn thì chỉnh nhóm mẫu của họ sau."""
+        assert "hoan_tat_kham" in PRESET["MANAGEMENT"]
 
-        Quản lý có mọi quyền hành chính khác — nhưng ký bệnh án không phải
-        quyền hành chính.
-        """
-        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
-            _assert_doctor(_identity(ClinicRole.MANAGEMENT))
-
-    def test_a_nurse_may_not_sign(self) -> None:
-        with pytest.raises(SafetyGateError, match="Chỉ bác sĩ"):
-            _assert_doctor(_identity(ClinicRole.NURSE_ULTRASOUND))
+    def test_a_nurse_may_not_finalize(self) -> None:
+        assert "hoan_tat_kham" not in PRESET["NURSE_ULTRASOUND"]
 
 
 class TestPrescriptionFingerprint:

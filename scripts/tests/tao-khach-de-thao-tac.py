@@ -343,6 +343,11 @@ async def main() -> int:
                 None,
             )
             if luot:
+                # Lần lưu đầu phải sau [Bắt đầu] (chốt 23/09/2026).
+                await phien["dieuduong"].goi(
+                    "POST",
+                    f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals/start",
+                )
                 await phien["dieuduong"].goi(
                     "POST",
                     f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
@@ -430,6 +435,11 @@ async def main() -> int:
             )
             if not luot:
                 continue
+            # Lần lưu đầu phải sau [Bắt đầu] (chốt 23/09/2026).
+            await phien["dieuduong"].goi(
+                "POST",
+                f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals/start",
+            )
             await phien["dieuduong"].goi(
                 "POST",
                 f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",
@@ -557,6 +567,11 @@ async def main() -> int:
         if not luot:
             print(f"    {ten}: không thấy trong bảng lượt khám")
             return None
+        # Lần lưu đầu phải sau [Bắt đầu] (chốt 23/09/2026).
+        await phien["dieuduong"].goi(
+            "POST",
+            f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals/start",
+        )
         await phien["dieuduong"].goi(
             "POST",
             f"/api/v1/luot-kham/visits/{luot['visit_id']}/vitals",

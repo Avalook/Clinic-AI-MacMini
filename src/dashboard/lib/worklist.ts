@@ -36,6 +36,8 @@ export interface WorklistItem {
   queue_number: string | null;
   /** Số tiếp đón CHUNG của quầy trong ngày (cấp lúc check-in). `queue_number` là số riêng theo bác sĩ. */
   so_tiep_don?: number | null;
+  /** Số booking — cấp lúc đặt lịch, đứng cạnh số quầy (luồng chuẩn bước 4). */
+  so_booking?: number | null;
   slot_start: string | null;
   booking_channel: string | null;
   /** Khách ưu tiên/VIP — dấu trên hồ sơ, không tự đổi thứ tự (15/09/2026). */

@@ -5,7 +5,12 @@ from __future__ import annotations
 import pytest
 
 from clinicai.services.theo_doi_thu_thuat_service import TheoDoiThuThuatService
-from tests.services.test_luot_kham_service_db import CLINIC, KichBan, _vao_kham
+from tests.services.test_luot_kham_service_db import (
+    CLINIC,
+    KichBan,
+    _vao_kham,
+    dieu_phoi_cu,
+)
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -45,8 +50,12 @@ async def test_thu_thuat_tren_rail_moi_co_han_goi_hoi_tham(kb: KichBan) -> None:
         )
         == "authorized"
     ):
-        await kb.svc.dispatch_order(
-            order_id=tt, room_id=phong, expected_version=None, identity=kb.truong_ca
+        await dieu_phoi_cu(
+            kb.svc,
+            order_id=tt,
+            room_id=phong,
+            expected_version=None,
+            identity=kb.truong_ca,
         )
     await kb.svc.start_service(order_id=tt, identity=kb.bac_si)
     await kb.svc.complete_service(

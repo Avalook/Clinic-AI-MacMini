@@ -27,12 +27,46 @@ import pytest
 from clinicai.api.identity import ClinicRole, StaffIdentity, _resolve_identity
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
+from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+    # Bài này đi trọn LUỒNG CŨ qua HTTP (nháp → điều phối → /start → /complete):
+    # các cửa ấy tắt 410 từ 24/09 — bật lại cho riêng bài canh luồng cũ.
+    import clinicai.api.v1.routers.luot_kham as r_luot_kham
+
+    monkeypatch.setattr(r_luot_kham, "LOI_CU_MO", True)
+
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
+
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 KET: list[tuple[str, bool, str]] = []
 HIEN_TAI: dict[str, StaffIdentity] = {}
+
+
+# Lifecycle v1 Slice 4 §D: /dispatch cũ chỉ còn cho dòng legacy — smoke này
+# kiểm rail Slice 1 qua HTTP, không kiểm Routing, nên đưa chỉ định về dạng
+# legacy trước khi gọi. Routing chính thức: test_service_routing_db.py.
+_VE_LEGACY = (
+    "UPDATE service_order SET selection_status = NULL, routing_status = NULL"
+    " WHERE id = $1::uuid"
+)
 
 
 def kiem(ten: str, dung: bool, chi_tiet: Any = "") -> None:
@@ -55,6 +89,8 @@ async def nguoi(conn: asyncpg.Connection, loc: str, role: str) -> StaffIdentity:
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),
@@ -167,13 +203,29 @@ async def _chay(pool: asyncpg.Pool) -> None:
         )
         kiem("check-in 200", r.status_code == 200, r.text)
         vid = await luot_cua(hen)
+        sinh_hieu = {
+            "systolic": 118,
+            "diastolic": 76,
+            "weight_kg": 55,
+            "height_cm": 160,
+        }
+        # Chưa bấm [Bắt đầu] thì không lưu lần đầu được (chốt 23/09/2026).
+        r = await goi(dd, "POST", f"/luot-kham/visits/{vid}/vitals", json=sinh_hieu)
+        kiem(
+            "lưu khi chưa Bắt đầu → 409 VITALS_NOT_STARTED",
+            r.status_code == 409 and r.json().get("error") == "VITALS_NOT_STARTED",
+            r.text,
+        )
+        r = await goi(dd, "POST", f"/luot-kham/visits/{vid}/vitals/start")
+        kiem("bắt đầu đo 200", r.status_code == 200, r.text)
         r = await goi(
             dd,
             "POST",
             f"/luot-kham/visits/{vid}/vitals",
-            json={"systolic": 118, "diastolic": 76, "weight_kg": 55, "height_cm": 160},
+            json=sinh_hieu,
         )
         kiem("đo sinh hiệu 200", r.status_code == 200, r.text)
+        await chay_hanh_trinh(pool)  # khối Hành trình xếp hàng (worker ở máy thật)
         phien = (await bang(bs, vid))["phien"][0]["id"]
         r = await goi(bs, "POST", f"/luot-kham/consultations/{phien}/start")
         kiem("bác sĩ bắt đầu khám", r.status_code == 200, r.text)
@@ -233,6 +285,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
                 CLINIC,
                 room_node,
             )
+            await pool.execute(_VE_LEGACY, oid)
             await goi(
                 tc, "POST", f"/luot-kham/orders/{oid}/dispatch", json={"room_id": room}
             )
@@ -311,9 +364,11 @@ async def _chay(pool: asyncpg.Pool) -> None:
 
     # Cấp capability ket_qua.xac_nhan và xác nhận HOP_LE qua HTTP
     await pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         tc.staff_id,
+        tc.clinic_id,
     )
     r = await goi(
         tc,
@@ -372,6 +427,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             " 'DICHVU-SIEUAM' AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
             CLINIC,
         )
+        await pool.execute(_VE_LEGACY, sa2)
         await goi(
             tc, "POST", f"/luot-kham/orders/{sa2}/dispatch", json={"room_id": room}
         )

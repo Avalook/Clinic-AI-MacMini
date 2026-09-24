@@ -167,6 +167,20 @@ class PatientService:
                     ly_do_trung = ""
 
             # 2) Phone soft block — warn, let the operator force (feedback #9).
+            #
+            # KHOÁ THEO (phòng khám, số điện thoại) TRƯỚC khi kiểm trùng. Không
+            # có khoá thì hai quầy / hai CSKH tạo cùng một khách CÙNG LÚC đều
+            # "chưa thấy ai" rồi cùng thêm → hai hồ sơ trùng (bộ mô phỏng ngày
+            # khám bắt được 24/09/2026). Khoá sống tới hết giao dịch: người thứ
+            # hai chờ, rồi thấy hồ sơ người thứ nhất vừa tạo và nhận cảnh báo
+            # trùng như thường. Không chặn cứng — số dùng chung vẫn tạo được
+            # bằng `force`, đúng luật cũ.
+            if data.phone_primary:
+                khoa_so = sorted(_phone_variants(data.phone_primary))[0]
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    f"patient-phone:{clinic_id}:{khoa_so}",
+                )
             if data.phone_primary and not data.force:
                 variants = _phone_variants(data.phone_primary)
                 dupes = await conn.fetch(

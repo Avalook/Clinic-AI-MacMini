@@ -21,6 +21,8 @@ import structlog
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ as GIO_VN
+from clinicai.events.catalogue import CskhDaLienHe
+from clinicai.events.emit import emit_event, nguoi
 
 logger = structlog.get_logger()
 
@@ -269,6 +271,20 @@ class TuongTacCskhService:
                     kenh,
                     ket_qua,
                     identity.staff_id,
+                )
+                # Sổ sự kiện (nhóm 3): "CSKH đã liên hệ khách" — một trong 7 sự
+                # kiện Tuyền chốt thêm 24/09. Không mang nội dung cuộc gọi.
+                await emit_event(
+                    conn,
+                    ten="patient.contacted",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=clinic_patient_id,
+                    payload=CskhDaLienHe(
+                        clinic_patient_id=clinic_patient_id,
+                        loai=loai,
+                        ket_qua=ket_qua,
+                    ),
+                    boi=nguoi(identity),
                 )
 
         logger.info(

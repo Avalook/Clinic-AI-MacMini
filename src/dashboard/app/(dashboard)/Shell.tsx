@@ -7,6 +7,7 @@ import { X, LogOut } from "lucide-react";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
 import { type ClinicRole } from "../../lib/roles";
+import { type PhongTheoViTri } from "./nav-items";
 
 interface ShellProps {
   role: ClinicRole;
@@ -14,6 +15,10 @@ interface ShellProps {
   featureMode?: string;
   /** Mã vị trí người này đứng hôm nay (GET /me/vi-tri-hom-nay). */
   viTriHomNay?: readonly string[];
+  /** Phòng của từng vị trí hôm nay (theo `room_id`). */
+  phong?: PhongTheoViTri;
+  /** Capability đang có — thanh bên bày thêm màn mà quyền mở được. */
+  quyen?: readonly string[];
   leaveAction: () => void | Promise<void>;
   children: React.ReactNode;
 }
@@ -25,6 +30,8 @@ export default function Shell({
   identity,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  phong = {},
+  quyen = [],
   leaveAction,
   children,
 }: ShellProps) {
@@ -153,6 +160,8 @@ export default function Shell({
             isCollapsed={collapsed}
             featureMode={featureMode}
             viTriHomNay={viTriHomNay}
+            phong={phong}
+            quyen={quyen}
           />
         </div>
 
@@ -242,6 +251,8 @@ export default function Shell({
         onMenu={openDrawer}
         featureMode={featureMode}
         viTriHomNay={viTriHomNay}
+        phong={phong}
+        quyen={quyen}
       />
     </div>
   );

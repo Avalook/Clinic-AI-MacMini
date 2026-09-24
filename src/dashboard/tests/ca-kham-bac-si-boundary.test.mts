@@ -14,8 +14,16 @@ test("mã ca khám bác sĩ ở giao diện KHỚP bản máy chủ", () => {
   assert.deepEqual([...MA_CA_KHAM_BAC_SI].sort(), maPy);
 });
 
-test("màn đặt lịch không đọc bảng vi_tri_lam_viec qua PostgREST (bị 403)", () => {
+test("màn đặt lịch không đọc bảng lịch trực qua PostgREST — hỏi backend", () => {
+  // 24/09/2026: `/api/roster?date=` chuyển sang `GET /api/v1/roster/bac-si-ngay`;
+  // lọc theo mã ca khám bác sĩ nằm ở `RosterService.bac_si_trong_ngay`.
   const route = readFileSync(new URL("../app/api/roster/route.ts", import.meta.url), "utf8");
   assert.doesNotMatch(route, /from\("vi_tri_lam_viec"\)/);
-  assert.match(route, /\.in\("station", \[\.\.\.MA_CA_KHAM_BAC_SI\]\)/);
+  assert.doesNotMatch(route, /from\("work_roster"\)/);
+  assert.match(route, /\/api\/v1\/roster\/bac-si-ngay/);
+  const py = readFileSync(
+    new URL("../../clinicai/services/config_service.py", import.meta.url),
+    "utf8",
+  );
+  assert.match(py, /station = ANY\(\$3::text\[\]\)[\s\S]*?sorted\(MA_CA_KHAM_BAC_SI\)/);
 });

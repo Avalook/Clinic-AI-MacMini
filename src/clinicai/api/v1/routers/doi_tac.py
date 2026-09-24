@@ -51,9 +51,9 @@ async def viec_cua_doi_tac(
     nay — và để nó nằm trong danh sách chỉ làm danh sách dài ra rồi không ai
     đọc.
     """
-    from clinicai.services.luot_kham_service import LuotKhamService
+    from clinicai.services.doi_tac_service import DoiTacService
 
-    return await LuotKhamService(pool).viec_doi_tac(identity=identity)
+    return await DoiTacService(pool).viec_doi_tac(identity=identity)
 
 
 @router.post("/doi-tac/viec/{chi_dinh_id}/da-lay-mau")
@@ -63,9 +63,9 @@ async def da_lay_mau(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Đối tác xác nhận đã lấy mẫu cho xét nghiệm họ tự lấy."""
-    from clinicai.services.luot_kham_service import LuotKhamService
+    from clinicai.services.doi_tac_service import DoiTacService
 
-    return await LuotKhamService(pool).doi_tac_da_lay_mau(
+    return await DoiTacService(pool).doi_tac_da_lay_mau(
         order_id=str(chi_dinh_id), identity=identity
     )
 
@@ -77,9 +77,9 @@ async def cho_tai_lieu(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Đối tác nhận việc: mẫu đã có, đang làm, sẽ gửi tài liệu kết quả."""
-    from clinicai.services.luot_kham_service import LuotKhamService
+    from clinicai.services.doi_tac_service import DoiTacService
 
-    return await LuotKhamService(pool).doi_tac_cho_tai_lieu(
+    return await DoiTacService(pool).doi_tac_cho_tai_lieu(
         order_id=str(chi_dinh_id), identity=identity
     )
 

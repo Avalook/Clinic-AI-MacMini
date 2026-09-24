@@ -47,7 +47,11 @@ async def location_id(db_pool: asyncpg.Pool) -> UUID:
             "SELECT id FROM clinic ORDER BY created_at LIMIT 1;"
         )
         row = await conn.fetchrow(
-            "SELECT id FROM clinic_location WHERE clinic_id = $1 LIMIT 1;",
+            # `LIMIT 1` không có bộ lọc là bốc trúng cơ sở ĐÃ NGỪNG hoạt động
+            # (seed có "Hào Nam" is_active = false), và service từ chối đúng
+            # luật → test đỏ tuỳ thứ tự dòng trả về.
+            "SELECT id FROM clinic_location WHERE clinic_id = $1 AND is_active"
+            " ORDER BY created_at, id LIMIT 1;",
             clinic_id,
         )
         if row:

@@ -658,16 +658,34 @@ async def test_da_thu_giao_giu_sale_dispense_va_release_renotify(q: Quay) -> Non
     )
 
 
+async def _cap_quyen_hoan_tat(q: Quay, staff_id: str) -> None:
+    """Cho một người KHÁC bác sĩ chính quyền hoàn tất — để lỗi đến từ luật
+    "chỉ bác sĩ chính", không phải từ thiếu quyền."""
+    await q.pool.execute(
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($1::uuid, $2::uuid, 'clinical.consult.finalize', 'hoan_tat_kham')"
+        " ON CONFLICT DO NOTHING",
+        CLINIC,
+        staff_id,
+    )
+
+
 @pytest.mark.parametrize("other_doctor", [False, True])
 async def test_ultrasound_only_va_doctor_khac_bi_chan(
     q: Quay, other_doctor: bool
 ) -> None:
     await _don(q)
     await _ky(q)
+    # Hệ quyền mới (CORE-A/B3): NHÃN VAI không cho/lấy quyền — hỏi quyền của
+    # CON NGƯỜI. "Bác sĩ siêu âm" = người không có `clinical.consult.finalize`
+    # (chặn ở cửa quyền); "bác sĩ khác" = có quyền nhưng không phải bác sĩ
+    # chính (chặn ở luật bác sĩ chính).
+    if other_doctor:
+        await _cap_quyen_hoan_tat(q, q.duoc_si.staff_id)
     identity = dataclasses.replace(
         q.bac_si,
         role=ClinicRole.ULTRASOUND_DOCTOR if not other_doctor else ClinicRole.DOCTOR,
-        staff_id=q.duoc_si.staff_id if other_doctor else q.bac_si.staff_id,
+        staff_id=q.duoc_si.staff_id,
         vai_tai_khoan=None,
     )
     with pytest.raises(SafetyGateError):
@@ -797,13 +815,16 @@ async def test_release_bi_chan_cho_sieu_am_va_bac_si_khac(
     """ULTRASOUND_DOCTOR và bác sĩ khác đều không release được."""
     await _don(q)
     await _ky(q)
+    # Như bài trên: nhãn vai không quyết — người thật và quyền của họ quyết.
     if role_case == "ultrasound":
         identity = dataclasses.replace(
             q.bac_si,
             role=ClinicRole.ULTRASOUND_DOCTOR,
+            staff_id=q.duoc_si.staff_id,
             vai_tai_khoan=None,
         )
     else:
+        await _cap_quyen_hoan_tat(q, q.duoc_si.staff_id)
         identity = dataclasses.replace(
             q.bac_si,
             role=ClinicRole.DOCTOR,

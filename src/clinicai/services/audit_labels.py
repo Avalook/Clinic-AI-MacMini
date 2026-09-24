@@ -54,6 +54,12 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.reassigned": "Đổi bác sĩ phụ trách",
     "appointment.reminder": "Nhắc lịch hẹn",
     "appointment.checked_in": "Tiếp nhận (check-in)",
+    # Sổ sự kiện nghiệp vụ, nhóm 3 (24/09/2026).
+    "visit.checked_out": "Khách đã về (check-out)",
+    "visit.left_early": "Khách bỏ về giữa chừng",
+    "patient.contacted": "CSKH đã liên hệ khách",
+    # Khối chỉnh dây (nhóm 5, 24/09/2026).
+    "config.wiring_changed": "Đổi dây nối nghiệp vụ",
     "appointment.checkin_undone": "Huỷ tiếp nhận",
     "appointment.completed": "Khám xong",
     # Giữ chỗ tồn tại trong lúc CSKH đang chọn khung giờ, để hai người không
@@ -88,6 +94,7 @@ EVENT_LABELS: dict[str, str] = {
     "thong_bao.bac_si_da_xep": "Báo CSKH lịch đã có bác sĩ",
     "thong_bao.tuan_lich_truc": "Báo CSKH tuần đã chốt lịch trực",
     "thong_bao.xung_dot_suc_chua": "Báo Trưởng ca khung vượt trần khi công bố",
+    "thong_bao.lich_mat_bac_si": "Báo CSKH và Trưởng ca lịch mất bác sĩ khi công bố",
     "thong_bao.ket_qua_ve": "Báo CSKH và bác sĩ kết quả vừa về",
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
@@ -109,6 +116,14 @@ EVENT_LABELS: dict[str, str] = {
     "patient.updated": "Sửa hồ sơ khách",
     "clinic_config.service_form": "Quản lý đổi phiếu khám của dịch vụ",
     "clinic_config.room_floor": "Quản lý đổi tầng phòng",
+    "clinic_config.room_created": "Quản lý thêm phòng",
+    "clinic_config.room_renamed": "Quản lý đổi tên phòng",
+    "clinic_config.room_active": "Quản lý bật/tắt phòng",
+    "clinic_config.room_flags": "Quản lý đổi phòng đối tác / tạm ngừng nhận khách",
+    "clinic_config.location_created": "Quản lý thêm cơ sở",
+    "clinic_config.location_updated": "Quản lý sửa cơ sở",
+    "clinic_config.service_type_created": "Quản lý thêm loại khám",
+    "clinic_config.service_type_updated": "Quản lý sửa loại khám",
     "clinic_config.room_nodes": "Quản lý đổi bước phòng phục vụ",
     "clinic_config.staff_nodes": "Quản lý đổi bước nhân sự làm được",
     "clinic_config.thu_ky_bac_si": "Quản lý phân thư ký theo bác sĩ",
@@ -126,15 +141,19 @@ EVENT_LABELS: dict[str, str] = {
     "clinical_data_consent.revoked": "Thu hồi đồng ý chia sẻ",
     # ── Khám & bệnh án ──────────────────────────────────────────────────────
     "clinical_record.saved": "Lưu bệnh án",
+    "clinical_record.opened": "Mở hồ sơ y khoa",
     "prescription.draft_approved": "Bác sĩ duyệt đơn thuốc thư ký nhập",
     "prescription.corrected": "Bác sĩ đính chính đơn thuốc",
+    # Lát CD-01 (23/09): một lệnh thay hai bước; bác sĩ và thư ký y khoa ngang
+    # quyền. Ba mã draft_* bên dưới là đường cũ, còn sống tới khi hết bản nháp.
+    "service_order.placed": "Chỉ định dịch vụ",
     "service_order.draft_saved": "Thư ký nhập chỉ định nháp",
     "service_order.draft_approved": "Bác sĩ duyệt chỉ định thư ký nhập",
     "service_order.draft_discarded": "Bỏ chỉ định nháp",
     "tep_ket_qua.cho_phep_gui": "Bác sĩ cho phép gửi tệp kết quả",
     "clinical_record.vitals_saved": "Ghi sinh hiệu",
     "clinical_form.saved": "Lưu phiếu khám chuyên khoa",
-    "clinical.signed": "Ký bệnh án",
+    "clinical.signed": "Ký bệnh án (cách cũ, trước 23/09/2026)",
     "clinical.released": "Cho phép gửi kết quả",
     "clinical.amended": "Đính chính bệnh án",
     "episode.closed": "Đóng đợt điều trị",
@@ -152,7 +171,9 @@ EVENT_LABELS: dict[str, str] = {
     # nay bài kiểm đọc được cả f-string, xem `_FSTRING` bên đó.
     "service_log.started": "Bắt đầu làm dịch vụ",
     "service_log.finished": "Xong dịch vụ",
+    # Tên cũ (trước 22/09/2026) — giữ để đọc lịch sử.
     "payment.recorded": "Ghi nhận thanh toán",
+    "payment.confirmed": "Đã nhận tiền",
     "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
     "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
     "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",
@@ -195,12 +216,16 @@ EVENT_LABELS: dict[str, str] = {
     "orders.authorized": "Bác sĩ duyệt chỉ định",
     "consult.completed": "Kết thúc phiên khám",
     "dispatch.assigned": "Xếp phòng cho chỉ định",
+    # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
+    "service.routed": "Xếp phòng chính thức cho dịch vụ",
+    "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
     "result.approved": "Bác sĩ duyệt kết quả, cho phép gửi khách",
     "queue.called": "Gọi khách vào phòng",
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
+    "vitals.started": "Điều dưỡng bắt đầu đo sinh hiệu",
     "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
     # Slice 1 (18/09/2026): kết quả / theo dõi trên rail mới.
@@ -251,6 +276,7 @@ SOURCE_LABELS: dict[str, str] = {
     "dashboard": "Màn hình quản trị",
     "system": "Hệ thống",
     "api:dispatch": "Điều phối trong ngày",
+    "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
     "api:theo-doi-thu-thuat": "Bác sĩ — theo dõi sau thủ thuật",
     "api:ket-qua": "Kết quả xét nghiệm về",
@@ -264,6 +290,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:roster": "Lịch làm việc",
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
+    "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
+    "api:day-noi": "Cài đặt — dây nối nghiệp vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
@@ -309,6 +337,16 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    "consultation": "Phiên khám",
+    # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
+    "service_order": "Chỉ định dịch vụ",
+    # Phiếu kết quả là đối tượng riêng (Form Template Engine, 23/09) — không
+    # phải một mặt của chỉ định, nên nó có tên riêng trên màn nhật ký.
+    "form_instance": "Phiếu kết quả",
+    # KẾT QUẢ tách khỏi PHIẾU: phiếu là tờ giấy người ta điền, kết quả là thứ
+    # bác sĩ đọc và có thể được sửa lại về sau. Hai vòng đời, hai chuỗi số —
+    # nên trên nhật ký cũng phải là hai tên khác nhau.
+    "ket_qua": "Kết quả cận lâm sàng",
     "pregnancy": "Thai kỳ",
     "episode": "Đợt điều trị",
     "work_item": "Bước trong quy trình",
@@ -321,6 +359,8 @@ AGGREGATE_LABELS: dict[str, str] = {
     "staff": "Nhân sự",
     "lab_result": "Kết quả xét nghiệm",
     "payment": "Thanh toán",
+    "payment_cycle": "Lần thu tiền",
+    "payment_refund": "Hoàn tiền",
     "service_log": "Dịch vụ đã dùng",
     "clinical_record": "Bệnh án",
     "clinical_form_response": "Phiếu khám chuyên khoa",

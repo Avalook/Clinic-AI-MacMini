@@ -51,10 +51,10 @@ class ToolRegistry:
 
     Toolsets are loaded *lazily* on first read (``get``/``list_*``/
     ``to_anthropic_tools``) rather than at ``clinicai.tools`` import time.
-    This avoids an import cycle: ``services.patient_context_service`` imports
-    ``tools._common.context``, which would otherwise pull every toolset
-    (incl. ``brief`` → back into that half-imported service) the moment any
-    ``clinicai.tools.*`` submodule is touched. Lazy loading defers toolset
+    This avoids an import cycle: a service importing ``tools._common.context``
+    would otherwise pull every toolset back into itself the moment any
+    ``clinicai.tools.*`` submodule is touched (the old ``brief`` toolset, gỡ
+    24/09/2026, did). Lazy loading defers toolset
     imports until the service graph has settled.
     """
 

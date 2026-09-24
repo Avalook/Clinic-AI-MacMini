@@ -36,9 +36,11 @@ test("kết quả gắn với mã khách, và chỉ dùng khi khớp khách đan
 });
 
 test("API trả lịch TỪ BÂY GIỜ trở đi và bỏ lịch đã huỷ", () => {
-  assert.match(route, /clinic_patient_id/);
-  assert.match(route, /\.gte\("slot_start", new Date\(\)\.toISOString\(\)\)/);
-  assert.match(route, /CANCELLED,NO_SHOW,DOCTOR_DECLINED/);
+  // 24/09/2026: câu đọc chuyển về backend (services/lich_hen_doc.py).
+  assert.match(route, /\/api\/v1\/appointments\/sap-toi\?clinic_patient_id=/);
+  const py = read("../../clinicai/services/lich_hen_doc.py");
+  assert.match(py, /slot_start >= now\(\)/);
+  assert.match(py, /"CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"/);
 });
 
 // ── So giờ ────────────────────────────────────────────────────────────────

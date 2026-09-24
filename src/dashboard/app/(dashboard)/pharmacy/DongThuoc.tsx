@@ -195,6 +195,14 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
           ) : (
             <div className="text-body text-ink">
               {fmtSo(dong.purchased_qty ?? dong.quantity_num)} {dong.unit ?? ""}
+              {/* Hai bản đơn (Tuyền 24/09): bác sĩ kê ↔ khách chốt mua. */}
+              {dong.purchased_qty !== null &&
+              dong.quantity_num !== null &&
+              dong.purchased_qty !== dong.quantity_num ? (
+                <span className="ml-2 text-meta text-warning">
+                  khác số kê {fmtSo(dong.quantity_num)}
+                </span>
+              ) : null}
             </div>
           )}
         </div>

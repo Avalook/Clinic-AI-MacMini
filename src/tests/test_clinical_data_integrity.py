@@ -9,6 +9,7 @@ boundary, where the backend is operating with owner privileges.
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -22,6 +23,30 @@ from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.lab_order_service import LabOrderService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.ultrasound_service import UltrasoundService
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kết nối giả không chạy được `v_quyen_hieu_luc` — cửa quyền trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). 24/09: kéo thứ tự / đặt lịch hỏi quyền."""
+    import clinicai.services.booking_service as bk
+    import clinicai.services.thu_tu_kham_service as ttk
+    from tests.quyen_gia import doi_quyen_theo_nhom_mau
+
+    monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_co_bai_kiem_rieng(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cửa quyền `clinical.record.write` (CORE-B3) có bài kiểm trên Postgres thật
+    (`test_duong_kham_hoi_quyen_db.py`). Ở đây `conn` là mock đếm từng lần
+    fetchval, nên cửa quyền không được tiêu mất một lần của phép kiểm thứ tự."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_record_service.doi_quyen",
+        AsyncMock(return_value=None),
+    )
+
 
 CLINIC_ID = "a0000000-0000-4000-8000-000000000001"
 PATIENT_ID = "a2000000-0000-4000-8000-000000000001"
@@ -352,6 +377,9 @@ async def test_finalized_lab_result_cannot_be_changed() -> None:
 
 @pytest.mark.asyncio
 async def test_payment_rejects_patient_not_owned_by_visit() -> None:
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     pool, conn, _ = _pool_and_conn()
     relation = {
         "kham_xong": True,
@@ -366,7 +394,8 @@ async def test_payment_rejects_patient_not_owned_by_visit() -> None:
     with pytest.raises(ValidationError, match="bệnh nhân"):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=100_000,
             clinic_patient_id=PATIENT_ID,
             identity=_identity(ClinicRole.CASHIER),
@@ -390,6 +419,7 @@ async def test_payment_rejects_invalid_amount_before_touching_db(
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
             kind="dich_vu",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=amount,
             clinic_patient_id=PATIENT_ID,
             identity=_identity(ClinicRole.CASHIER),
@@ -423,6 +453,9 @@ def _hoa_don_dich_vu(tong: int) -> Any:
 
 @pytest.mark.asyncio
 async def test_payment_derives_patient_from_locked_visit() -> None:
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     pool, conn, _ = _pool_and_conn()
     payment_id = "a9000000-0000-4000-8000-000000000001"
     cycle_id = "aa000000-0000-4000-8000-000000000001"
@@ -451,7 +484,8 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=100_000,
             clinic_patient_id=None,
             identity=_identity(ClinicRole.CASHIER),
@@ -461,7 +495,10 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     assert payment_write.args[2] == PATIENT_ID
     # CP2: mã lần thu là CHÍNH dòng payment_cycle vừa ghi, không sinh ngầm.
     assert "payment_cycle_id  = EXCLUDED.payment_cycle_id" in payment_write.args[0]
-    assert "WHERE payment.status = 'VOIDED'" in payment_write.args[0]
+    # Chỉ đè hình chiếu khi nó đã VOIDED (thuốc) — và luôn trong đúng phòng khám
+    # (tenant-scope audit: upsert không được ghi đè dòng của phòng khám khác).
+    assert "WHERE payment.clinic_id = EXCLUDED.clinic_id" in payment_write.args[0]
+    assert "payment.status = 'VOIDED'" in payment_write.args[0]
     lan_thu = next(
         c
         for c in conn.execute.await_args_list
@@ -475,12 +512,15 @@ async def test_payment_derives_patient_from_locked_visit() -> None:
     assert enqueue_call.kwargs["payload"]["clinic_reference"] == ma_lan_thu
     assert enqueue_call.kwargs["payload"]["payment_id"] == payment_id
     assert any(
-        call.args[1] == "payment.recorded" for call in conn.execute.await_args_list
+        call.args[1] == "payment.confirmed" for call in conn.execute.await_args_list
     )
 
 
 @pytest.mark.asyncio
 async def test_paid_amount_change_requires_void_first() -> None:
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     pool, conn, _ = _pool_and_conn()
     conn.fetchrow.side_effect = [
         {
@@ -510,7 +550,8 @@ async def test_paid_amount_change_requires_void_first() -> None:
     ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=120_000,
             clinic_patient_id=PATIENT_ID,
             identity=_identity(ClinicRole.CASHIER),
@@ -522,6 +563,9 @@ async def test_paid_amount_change_requires_void_first() -> None:
 
 @pytest.mark.asyncio
 async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     pool, conn, _ = _pool_and_conn()
     conn.fetchrow.side_effect = [
         {
@@ -551,7 +595,8 @@ async def test_paid_row_for_wrong_patient_requires_void_first() -> None:
     ):
         await PaymentService(pool).record_payment(
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=100_000,
             clinic_patient_id=PATIENT_ID,
             identity=_identity(ClinicRole.CASHIER),
@@ -675,6 +720,9 @@ async def test_cancel_can_repair_appointment_with_stale_doctor() -> None:
 
 @pytest.mark.asyncio
 async def test_void_is_auditable_soft_reversal_not_a_delete() -> None:
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     pool, conn, _ = _pool_and_conn()
     payment_id = "a9000000-0000-4000-8000-000000000001"
     cycle_id = "aa000000-0000-4000-8000-000000000001"
@@ -699,7 +747,7 @@ async def test_void_is_auditable_soft_reversal_not_a_delete() -> None:
         await PaymentService(pool).void_payment(
             payment_cycle_id=cycle_id,
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
             reason="Khách đổi phương thức thanh toán",
             identity=_identity(ClinicRole.CASHIER),
         )
@@ -737,6 +785,9 @@ async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu() -> None:
     """Tuyền chốt 15/09/2026: chính thu ngân đã thu tự gạch phiếu bấm nhầm; thu
     ngân khác không gạch được (trước đây được). Câu UPDATE lọc người thu; không
     khớp mà phiếu vẫn PAID thì báo rõ, không im lặng trả ok."""
+    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
+    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
+    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
     from clinicai.core.exceptions import SafetyGateError
     from clinicai.services.payment_service import PaymentService
 
@@ -751,7 +802,7 @@ async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu() -> None:
         await PaymentService(pool).void_payment(
             payment_cycle_id="aa000000-0000-4000-8000-000000000001",
             visit_id=VISIT_ID,
-            kind="dich_vu",
+            kind="thuoc",
             reason="Bấm nhầm số tiền",
             identity=_identity(ClinicRole.CASHIER),
         )

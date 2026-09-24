@@ -61,35 +61,34 @@ test("Enter tìm ngay, không đợi hết hoãn", () => {
   assert.match(ma, /huyHoanTim\(\)/, "Enter phải huỷ lần hoãn đang chờ");
 });
 
+const napKhach = readFileSync(
+  new URL("../../clinicai/services/danh_sach_khach_cskh.py", import.meta.url),
+  "utf8",
+);
+
 test("máy chủ vẫn tìm bằng đủ BỐN cách, gồm tên không dấu", () => {
   // Đây là phần vốn đã đúng — canh để đừng ai rút bớt khi sửa chỗ khác.
-  const ma = boChuThich(page);
+  // 24/09/2026: truy vấn chuyển về backend (danh_sach_khach_cskh.py).
   for (const cot of [
-    "full_name.ilike",
-    "patient_code.ilike",
-    // 15/08/2026: phone_primary.ilike → sdt_tim_kiem.ilike — cột gộp MỌI số
-    // (chính + người nhà + số thêm, migration 20260815000002). Quay về cột lẻ
-    // là màn này mù số thêm trong khi các màn khác thấy.
-    "sdt_tim_kiem.ilike",
-    "full_name_unaccent.ilike",
+    "p.full_name ILIKE",
+    "p.patient_code ILIKE",
+    // 15/08/2026: phone_primary → sdt_tim_kiem — cột gộp MỌI số (chính +
+    // người nhà + số thêm, migration 20260815000002). Quay về cột lẻ là màn
+    // này mù số thêm trong khi các màn khác thấy.
+    "p.sdt_tim_kiem ILIKE",
+    "p.full_name_unaccent ILIKE",
   ]) {
-    assert.ok(ma.includes(cot), `mất cách tìm: ${cot}`);
+    assert.ok(napKhach.includes(cot), `mất cách tìm: ${cot}`);
   }
 });
 
 test("danh sách luôn bị CẮT TRANG — nên đường máy chủ là BẮT BUỘC, không phải tuỳ chọn", () => {
-  // VIẾT LẠI 22/08/2026 (Luật 12.5): bản cũ canh `.limit(300)` — mốc cắt cứng
-  // trước khi có phân trang. Nay truy vấn cắt bằng `.range()` theo trang 50
-  // khách, tiền đề của bài kiểm MẠNH HƠN chứ không mất đi: trình duyệt chỉ
-  // cầm một trang, nên tìm kiếm/lọc phải chạy ở máy chủ. Thứ bài này canh là
-  // "truy vấn patient PHẢI có mốc cắt" — mất cả range lẫn limit nghĩa là ai đó
-  // vừa quay lại kéo nguyên bảng khách về trình duyệt.
+  // Trình duyệt chỉ cầm một trang, nên tìm kiếm/lọc phải chạy ở máy chủ. Thứ
+  // bài này canh là "truy vấn patient PHẢI có mốc cắt" — mất nó nghĩa là ai đó
+  // vừa quay lại kéo nguyên bảng khách về.
+  assert.match(napKhach, /OFFSET \$\d+ LIMIT \$\d+/, "truy vấn khách mất mốc cắt");
+  assert.match(napKhach, /KHACH_MOT_TRANG = 50/, "mất hằng số phân trang");
   const ma = boChuThich(page);
-  assert.match(
-    ma,
-    /\.from\("patient"\)[\s\S]{0,400}?\.(range|limit)\(/,
-    "truy vấn danh sách khách không còn mốc cắt nào — sẽ kéo nguyên bảng",
-  );
-  // Và mốc cắt phải là PHÂN TRANG thật, không phải một limit to tướng.
-  assert.match(ma, /KHACH_MOT_TRANG/, "mất hằng số phân trang");
+  assert.doesNotMatch(ma, /\.from\("patient"\)/, "trang không tự đọc bảng patient nữa");
+  assert.match(ma, /KHACH_MOT_TRANG/, "trang vẫn cần hằng số để tính số trang");
 });

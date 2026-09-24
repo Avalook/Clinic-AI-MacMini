@@ -24,6 +24,15 @@ CYCLE = "60000000-0000-0000-0000-000000000001"
 pytestmark = [pytest.mark.asyncio, pytest.mark.db]
 
 
+@pytest.fixture(autouse=True)
+def _khong_so_su_kien(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bài này dựng bảng TẠM (không có `domain_event`) và kiểm ĐƠN VỊ thuốc.
+    Giao thuốc nay phát `medicine.dispensed` (nhóm 4) — thay bằng hàm giả."""
+    monkeypatch.setattr(
+        "clinicai.services.pharmacy_service.emit_event", AsyncMock(return_value="x")
+    )
+
+
 @pytest_asyncio.fixture
 async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
     target = urlsplit(test_db_url)

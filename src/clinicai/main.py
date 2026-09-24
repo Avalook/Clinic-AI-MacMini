@@ -27,7 +27,6 @@ from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
 from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
-from clinicai.api.v1.routers.brief import router as brief_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
 from clinicai.api.v1.routers.clinic_config import router as clinic_config_router
@@ -40,6 +39,7 @@ from clinicai.api.v1.routers.config import router as config_router
 from clinicai.api.v1.routers.consent import router as consent_router
 from clinicai.api.v1.routers.console import router as console_router
 from clinicai.api.v1.routers.cskh import router as cskh_router
+from clinicai.api.v1.routers.day_noi import router as day_noi_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
@@ -49,10 +49,14 @@ from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
+from clinicai.api.v1.routers.mau_ket_qua import router as mau_ket_qua_router
 from clinicai.api.v1.routers.ops import router as ops_router
 from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
+from clinicai.api.v1.routers.phan_quyen import router as phan_quyen_router
 from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
+from clinicai.api.v1.routers.phieu import router as phieu_router
+from clinicai.api.v1.routers.phieu_kham import router as phieu_kham_router
 from clinicai.api.v1.routers.queue import router as queue_router
 from clinicai.api.v1.routers.reports import router as reports_router
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
@@ -281,15 +285,32 @@ app.include_router(
 app.include_router(
     luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
 )
+# Biểu mẫu: điền phiếu kết quả, xuất bản bản mẫu mới.
+app.include_router(
+    phieu_router, prefix="/api/v1", tags=["phieu"], dependencies=_GUARDED
+)
+# Bảy phiếu khám — chỉ đường ĐỌC; quyền mặc định CHẶN TẤT cho tới khi hệ phân
+# quyền của CORE nối vào (`phieu_kham.lay_kiem_quyen`).
+app.include_router(
+    phieu_kham_router, prefix="/api/v1", tags=["phieu-kham"], dependencies=_GUARDED
+)
+# Mẫu kết quả: đọc cho mọi vai, gắn/gỡ cần capability quản lý danh mục.
+app.include_router(
+    mau_ket_qua_router, prefix="/api/v1", tags=["mau-ket-qua"], dependencies=_GUARDED
+)
+# Phân quyền: cửa là capability `permission.manage`, không phải vai MANAGEMENT.
+app.include_router(
+    phan_quyen_router, prefix="/api/v1", tags=["phan-quyen"], dependencies=_GUARDED
+)
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
-app.include_router(brief_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(xem_luot_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(day_noi_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED
@@ -431,6 +452,31 @@ async def unique_violation_handler(
         content={
             "error": "CONFLICT_ERROR",
             "message": message,
+        },
+    )
+
+
+@app.exception_handler(asyncpg.exceptions.ForeignKeyViolationError)
+async def foreign_key_violation_handler(
+    request: Request, exc: asyncpg.exceptions.ForeignKeyViolationError
+) -> JSONResponse:
+    """Mã tham chiếu KHÔNG TỒN TẠI (khoá ngoại) → 422, không phải 500.
+
+    Bộ mô phỏng ngày khám (24/09/2026) bắt được: mở phiếu kết quả cho một chỉ
+    định không có thật làm sập 500 vì câu INSERT vấp khoá ngoại mà không ai bắt.
+    Đây là lỗi của DỮ LIỆU người gửi (mã sai / đã xoá), không phải của máy chủ.
+    Câu trả lời không nêu tên bảng hay ràng buộc (cùng lý do như 409 ở trên).
+    """
+    logger.warning(
+        "foreign_key_violation",
+        constraint=getattr(exc, "constraint_name", None) or "",
+        path=request.url.path,
+    )
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "VALIDATION_ERROR",
+            "message": "Mã tham chiếu không tồn tại (hoặc không thuộc phòng khám này).",
         },
     )
 

@@ -4,7 +4,7 @@ from typing import Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
@@ -14,17 +14,13 @@ from clinicai.api.identity import (
     get_current_identity,
     require_role,
 )
+from clinicai.api.nghi_huu import bao_da_nghi
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
     ResourceNotFoundError as CoreResourceNotFoundError,
 )
 from clinicai.core.exceptions import (
     ValidationError as CoreValidationError,
-)
-from clinicai.schemas.staff import (
-    CapabilityRequest,
-    StaffCapabilitiesResponse,
-    StaffCapabilityDTO,
 )
 from clinicai.schemas.staff import (
     StaffCreateDTO as StaffCreate,
@@ -38,9 +34,6 @@ from clinicai.schemas.staff import (
 from clinicai.services.audit import record_event
 from clinicai.services.staff_service import (
     StaffService,
-    add_capability,
-    get_staff_capabilities,
-    revoke_capability,
 )
 
 router = APIRouter()
@@ -63,6 +56,76 @@ async def create_staff(
         return await service.create_staff(data)
     except CoreValidationError as exc:
         raise ValidationError(exc.message) from exc
+
+
+# ── Đọc nhẹ cho màn đặt lịch / lịch trực (24/09/2026) ─────────────────────
+# Hai helper giao diện (`lib/doctors-server.ts`, `lib/roster-names.ts`) từng đọc
+# thẳng bảng `staff` bằng Supabase. Khai TRƯỚC `/staff/{id}`: đường ấy nuốt mọi
+# chữ đứng sau `/staff/` rồi đòi UUID.
+
+
+@router.get("/staff/bac-si-dat-duoc")
+async def bac_si_dat_duoc(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, str | None]]:
+    """Bác sĩ nhận được lịch hẹn (DOCTOR, ULTRASOUND_DOCTOR) đang làm, theo tên."""
+    rows = await pool.fetch(
+        """
+        SELECT DISTINCT s.id::text AS id, s.full_name
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id AND m.is_active
+         WHERE m.clinic_id = $1::uuid AND s.is_active
+           AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+         ORDER BY s.full_name
+        """,
+        identity.clinic_id,
+    )
+    return [dict(r) for r in rows]
+
+
+@router.get("/staff/tai-khoan")
+async def danh_sach_tai_khoan(
+    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, object]]:
+    """Nhân sự + đã nối tài khoản đăng nhập chưa — màn Thiết lập tài khoản /
+    Thêm tài khoản (Quản lý). Trước đọc thẳng `staff` bằng Supabase (24/09)."""
+    rows = await pool.fetch(
+        """
+        SELECT DISTINCT s.id::text AS id, s.full_name, s.short_name,
+               s.primary_department, s.employment_type, s.is_active,
+               s.auth_user_id::text AS auth_user_id
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id
+         WHERE m.clinic_id = $1::uuid
+         ORDER BY s.primary_department, s.full_name
+        """,
+        identity.clinic_id,
+    )
+    return [dict(r) for r in rows]
+
+
+@router.get("/staff/ten")
+async def ten_nhan_vien(
+    ids: list[UUID] = Query(default_factory=list, max_length=500),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, str]:
+    """Tên chuẩn theo mã nhân viên (cùng phòng khám) — ghép tên lịch trực."""
+    if not ids:
+        return {}
+    rows = await pool.fetch(
+        """
+        SELECT s.id::text AS id, s.full_name
+          FROM staff s
+          JOIN clinic_membership m ON m.staff_id = s.id
+         WHERE m.clinic_id = $1::uuid AND s.id = ANY($2::uuid[])
+        """,
+        identity.clinic_id,
+        [str(x) for x in ids],
+    )
+    return {r["id"]: r["full_name"] for r in rows if r["full_name"]}
 
 
 @router.get("/staff/{id}", response_model=StaffRead)
@@ -145,7 +208,6 @@ async def ghi_nhat_ky_tai_khoan(
     trị GoTrue (backend chưa giữ khoá ấy) và trước đây KHÔNG để lại dấu vết nào.
     Route gọi đây sau mỗi thao tác thành công. Không bao giờ nhận mật khẩu.
     """
-    from clinicai.services.audit import record_event
 
     async with pool.acquire() as conn, conn.transaction():
         ten = await conn.fetchval(
@@ -169,131 +231,70 @@ async def ghi_nhat_ky_tai_khoan(
     return {"ok": True}
 
 
-@router.get("/staff/{id}/capabilities", response_model=StaffCapabilitiesResponse)
+# ── Quyền kiểu cũ (`staff_capability`) — ĐÃ NGHỈ 23/09/2026 ──────────────────
+#
+# Chỉ còn MỘT hệ quyền: `capability_grant`, quản ở màn Phân quyền. Bốn endpoint
+# dưới vẫn trả lời (410, không ghi gì, ghi log người gọi) để biết còn ai dùng
+# trước khi xoá hẳn — cùng mẫu với các lối ghi cũ của Slice 1.
+QUYEN_O_PHAN_QUYEN = (
+    "Quyền nay quản ở màn Phân quyền (/phan-quyen). Xác nhận tệp kết quả là khối"
+    " “Xác nhận tệp kết quả”."
+)
+
+
+@router.get("/staff/{id}/capabilities")
 async def get_staff_capabilities_endpoint(
     id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> StaffCapabilitiesResponse:
-    """Retrieve capabilities for a staff member in the current clinic."""
-    try:
-        dtos = await get_staff_capabilities(pool, id, str(identity.clinic_id))
-        return StaffCapabilitiesResponse(
-            staff_id=id,
-            capabilities=[dto.capability for dto in dtos],
-        )
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
+) -> None:
+    """ĐÃ NGHỈ — xem `QUYEN_O_PHAN_QUYEN`."""
+    bao_da_nghi(
+        endpoint="GET /staff/{id}/capabilities",
+        identity=identity,
+        thay_bang=QUYEN_O_PHAN_QUYEN,
+        nhan_su_id=id,
+    )
 
 
-@router.post(
-    "/staff/{id}/capabilities",
-    response_model=StaffCapabilityDTO,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/staff/{id}/capabilities")
 async def grant_staff_capability(
     id: UUID,
-    body: CapabilityRequest,
     identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> StaffCapabilityDTO:
-    """Grant a capability to a staff member (MANAGEMENT only)."""
-    if str(identity.staff_id) == str(id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Quản lý không được tự cấp quyền cho chính mình.",
-        )
-    try:
-        dto = await add_capability(
-            pool,
-            staff_id=id,
-            capability=body.capability,
-            clinic_id=str(identity.clinic_id),
-            proficiency_level=body.proficiency_level,
-        )
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
-
-    async with pool.acquire() as conn:
-        await record_event(
-            conn,
-            event_type="staff.capability_granted",
-            aggregate_type="staff",
-            aggregate_id=str(id),
-            identity=identity,
-            origin="api:staff-capability",
-            payload={"staff_id": str(id), "capability": body.capability},
-        )
-    return dto
-
-
-OPERABLE_CAPABILITY = "ket_qua.xac_nhan"
-
-
-async def _do_revoke_capability(
-    id: UUID,
-    capability: str,
-    identity: StaffIdentity,
-    pool: asyncpg.Pool,
 ) -> None:
-    if capability != OPERABLE_CAPABILITY:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Chỉ hỗ trợ thao tác thu hồi capability "
-                f"'{OPERABLE_CAPABILITY}' trên endpoint này."
-            ),
-        )
-    if str(identity.staff_id) == str(id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Quản lý không được tự thu hồi quyền của chính mình.",
-        )
-    try:
-        await revoke_capability(
-            pool,
-            staff_id=id,
-            capability=capability,
-            clinic_id=str(identity.clinic_id),
-        )
-    except CoreResourceNotFoundError as exc:
-        raise NotFoundError(exc.message) from exc
-
-    async with pool.acquire() as conn:
-        await record_event(
-            conn,
-            event_type="staff.capability_revoked",
-            aggregate_type="staff",
-            aggregate_id=str(id),
-            identity=identity,
-            origin="api:staff-capability",
-            payload={"staff_id": str(id), "capability": capability},
-        )
+    """ĐÃ NGHỈ — xem `QUYEN_O_PHAN_QUYEN`."""
+    bao_da_nghi(
+        endpoint="POST /staff/{id}/capabilities",
+        identity=identity,
+        thay_bang=QUYEN_O_PHAN_QUYEN,
+        nhan_su_id=id,
+    )
 
 
-@router.delete(
-    "/staff/{id}/capabilities/{capability:path}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/staff/{id}/capabilities/{capability:path}")
 async def revoke_staff_capability_path(
     id: UUID,
     capability: str,
     identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> None:
-    """Revoke a capability from a staff member via path parameter (MANAGEMENT only)."""
-    await _do_revoke_capability(id, capability, identity, pool)
+    """ĐÃ NGHỈ — xem `QUYEN_O_PHAN_QUYEN`."""
+    bao_da_nghi(
+        endpoint="DELETE /staff/{id}/capabilities/{capability}",
+        identity=identity,
+        thay_bang=QUYEN_O_PHAN_QUYEN,
+        nhan_su_id=id,
+    )
 
 
-@router.delete(
-    "/staff/{id}/capabilities",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
+@router.delete("/staff/{id}/capabilities")
 async def revoke_staff_capability_query(
     id: UUID,
     capability: str = Query(...),
     identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> None:
-    """Revoke a capability from a staff member via query parameter (MANAGEMENT only)."""
-    await _do_revoke_capability(id, capability, identity, pool)
+    """ĐÃ NGHỈ — xem `QUYEN_O_PHAN_QUYEN`."""
+    bao_da_nghi(
+        endpoint="DELETE /staff/{id}/capabilities",
+        identity=identity,
+        thay_bang=QUYEN_O_PHAN_QUYEN,
+        nhan_su_id=id,
+    )

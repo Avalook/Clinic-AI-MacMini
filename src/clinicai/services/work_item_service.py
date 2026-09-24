@@ -475,6 +475,7 @@ class WorkItemService:
                    p.phone_primary,
                    a.queue_number,
                    a.so_tiep_don,
+                   a.so_booking,
                    a.slot_start,
                    a.booking_channel,
                    -- Cờ khách ưu tiên trên HỒ SƠ (20260915000016) — thay
@@ -593,7 +594,8 @@ class WorkItemService:
                     "phone_primary": r["phone_primary"],
                 },
                 "queue_number": r["queue_number"],
-                "so_tiep_don": r["so_tiep_don"],
+                "so_tiep_don": r.get("so_tiep_don"),
+                "so_booking": r.get("so_booking"),
                 "slot_start": r["slot_start"],
                 "booking_channel": r["booking_channel"],
                 "khach_uu_tien": bool(r["khach_uu_tien"]),

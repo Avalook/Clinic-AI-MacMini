@@ -9,6 +9,7 @@ import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import ClinicConfigBoard from "./ClinicConfigBoard";
 import type {
   ConfigLocation,
+  ConfigMissing,
   ConfigService,
   ConfigStaff,
   FormDef,
@@ -21,7 +22,11 @@ export default async function ClinicConfigPage() {
   await requireNavAccess("/settings/clinic-config");
 
   const [overview, staff, services] = await Promise.all([
-    fetchFromBackend<{ locations: ConfigLocation[]; nodes: NodeDef[] }>(
+    fetchFromBackend<{
+      locations: ConfigLocation[];
+      nodes: NodeDef[];
+      config_missing?: ConfigMissing[];
+    }>(
       "/api/v1/clinic-config/overview",
     ),
     fetchFromBackend<{ items: ConfigStaff[] }>("/api/v1/clinic-config/staff"),
@@ -47,6 +52,7 @@ export default async function ClinicConfigPage() {
         initialLocations={overview?.locations ?? []}
         initialStaff={staff?.items ?? []}
         nodes={overview?.nodes ?? []}
+        configMissing={overview?.config_missing ?? []}
         initialServices={services?.items ?? []}
         forms={services?.forms ?? []}
         // `null` = backend không trả lời. Nói ra, thay vì hiện một sơ đồ trống

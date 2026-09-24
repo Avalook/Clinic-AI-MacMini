@@ -14,7 +14,7 @@ import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
 import { toHref } from "../../../lib/url";
 import { INPUT, LABEL } from "../form-ui";
 import PatientAdminEditor from "../PatientAdminEditor";
-import ClinicalSignPanel from "./ClinicalSignPanel";
+import HoSoHoanTatPanel from "./HoSoHoanTatPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
@@ -307,11 +307,7 @@ export default function ClinicalRecordForm({
   /** canEditAdmin = cho SỬA mục I Hành chính (PATCH /api/patients) — độc lập với
    *  readOnly (Lễ tân chỉ-đọc lâm sàng nhưng vẫn sửa được hành chính). */
   canEditAdmin?: boolean;
-  /** showPreVisitBrief = hiện nút "Xem tóm tắt trước khám" (gọi-và-hiện, read-only).
-   *  Chỉ BÁC SĨ (isDoctorRole) bật từ server. ĐỘC LẬP với readOnly — nút chỉ đọc
-   *  nên vẫn hiện khi form khóa ghi. */
-  showPreVisitBrief?: boolean;
-  /** canSign = BÁC SĨ (DOCTOR / ULTRASOUND_DOCTOR): hiện khối ký bệnh án, cho
+  /** canSign = BÁC SĨ (DOCTOR / ULTRASOUND_DOCTOR): hiện nút cho phép gửi / đính chính, cho
    *  phép gửi và đính chính. Backend cũng chặn theo vai — cờ này chỉ để không
    *  bày ra một cái nút mà người bấm chắc chắn nhận 403. Quản lý và TKYK KHÔNG
    *  có: ký là trách nhiệm chuyên môn, không phải quyền hành chính. */
@@ -366,6 +362,10 @@ export default function ClinicalRecordForm({
   const [closing, setClosing] = useState(false);
   const [completedExplicit, setCompletedExplicit] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Đơn đã có dấu vết ở nhà thuốc / thu ngân: máy chủ đòi LÝ DO ĐÍNH CHÍNH
+  // (dinh_chinh_don). Trước 24/09 màn không có ô gõ lý do → bác sĩ kẹt ở 409.
+  const [canLyDoDinhChinh, setCanLyDoDinhChinh] = useState(false);
+  const [lyDoDinhChinh, setLyDoDinhChinh] = useState("");
   // D26 — đã bấm lưu mà thiếu trường sinh hiệu bắt buộc → bật viền đỏ inline.
   const [vitalsTried, setVitalsTried] = useState(false);
   // Tab đang chọn (gom 4 mục). Đón-khám (vitalsOnly) mặc định mở tab "Khám" (1)
@@ -761,6 +761,9 @@ export default function ClinicalRecordForm({
         },
         expectedRevision: data.revision,
         approvePrescriptionDraft,
+        ...(lyDoDinhChinh.trim()
+          ? { prescriptionCorrectionReason: lyDoDinhChinh.trim() }
+          : {}),
         prescriptions: canSign && data.prescription_draft
           ? data.prescriptions.map((r) => ({
               id: r.id,
@@ -778,9 +781,16 @@ export default function ClinicalRecordForm({
     });
     if (!res.ok) {
       setSaving(false);
-      setMsg((await res.json()).error ?? "Lỗi lưu hồ sơ.");
+      const loi = (await res.json().catch(() => null)) as
+        | { error?: string; message?: string }
+        | null;
+      if (loi?.error === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDoDinhChinh(true);
+      // Câu của máy chủ, không phải mã lỗi.
+      setMsg(loi?.message ?? loi?.error ?? "Lỗi lưu hồ sơ.");
       return; // GIỮ bản gõ dở: lưu hỏng đúng là lúc cần nó nhất.
     }
+    setCanLyDoDinhChinh(false);
+    setLyDoDinhChinh("");
     // Đã nằm trên máy chủ → bản trên máy trạm hết việc. Xoá ngay, và dời mốc
     // "đã lưu" để cảnh báo đóng tab không còn kêu oan.
     if (khoaGoDo && typeof window !== "undefined") xoaNhap(window.localStorage, khoaGoDo);
@@ -803,11 +813,11 @@ export default function ClinicalRecordForm({
     setLoading(true);
     setReloadEpoch((n) => n + 1);
     setSaving(false);
+    // Thư ký y khoa = bác sĩ về đơn thuốc (Tuyền 24/09/2026): đơn lưu là tới
+    // nhà thuốc ngay, không còn "chờ bác sĩ duyệt".
     setMsg(approvePrescriptionDraft
       ? "Đã duyệt đơn thuốc thư ký nhập; nhà thuốc có thể tiếp nhận."
-      : canSign
-        ? "Đã lưu nháp hồ sơ. Kết thúc lượt khám là thao tác riêng sau khi hoàn tất chỉ định."
-        : "Đã lưu nháp. Đơn thuốc cần bác sĩ duyệt trước khi nhà thuốc tiếp nhận.");
+      : "Đã lưu hồ sơ — đơn thuốc đã tới nhà thuốc. Bấm Khám xong khi xong (không bấm cũng được).");
     router.refresh();
   }
 
@@ -1437,9 +1447,22 @@ export default function ClinicalRecordForm({
 
         {(tab === 3 || showAll) && !vitalsOnly && (
           <Section no="IX" title="Đơn thuốc">
+            {canLyDoDinhChinh && (
+              <label className="mb-3 block rounded-card border border-warning bg-warning-bg p-3 text-meta text-ink">
+                Đơn này nhà thuốc / thu ngân đã đụng tới — ghi lý do đính chính rồi bấm Lưu lại
+                (dòng cũ giữ trong lịch sử, dòng mới thay).
+                <input
+                  className={`${INPUT} mt-2`}
+                  value={lyDoDinhChinh}
+                  onChange={(e) => setLyDoDinhChinh(e.target.value)}
+                  placeholder="Vd: đổi liều theo kết quả xét nghiệm"
+                  aria-label="Lý do đính chính đơn thuốc"
+                />
+              </label>
+            )}
             {data?.prescription_draft && (
               <div className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Đơn thuốc nháp — chưa chuyển sang nhà thuốc.
+                Đơn thuốc nháp (bản cũ trước 24/09) — chưa chuyển sang nhà thuốc.
                 {canSign && !viewingPast && !readOnly && (
                   <button type="button" disabled={saving || loading || remoteChanged || locked}
                     onClick={() => void save(true)} className="ml-2 font-semibold underline">
@@ -1677,7 +1700,7 @@ export default function ClinicalRecordForm({
       <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
         <span
           className={
-            "text-xs " +
+            "min-w-0 text-xs " +
             (viewingPast
               ? "text-brand-800"
               : readOnly && !vitalsOnly
@@ -1689,7 +1712,9 @@ export default function ClinicalRecordForm({
         >
           {viewingPast ? "" : readOnly && !vitalsOnly ? "👁 Hồ sơ lâm sàng chỉ xem." : (msg ?? "")}
         </span>
-        <div className="flex gap-2">
+        {/* shrink-0: câu báo dài (vd "đơn thuốc đã tới nhà thuốc…") từng bóp nút
+            "Lưu hồ sơ" gãy thành 3 dòng — bấm thật 23/09. */}
+        <div className="flex shrink-0 gap-2">
           {/* Lễ tân chỉ-đọc / đang xem lượt cũ: ẨN nút Lưu hoàn toàn (không chỉ disable). */}
           {vitalsOnly && !viewingPast ? (
             <a
@@ -1701,6 +1726,7 @@ export default function ClinicalRecordForm({
           ) : null}
           {!readOnly && !vitalsOnly && !viewingPast && (
             <button
+              type="button"
               onClick={() => void save()}
               disabled={ro}
               className="min-h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
@@ -1739,11 +1765,11 @@ export default function ClinicalRecordForm({
         </div>
       </div>
 
-      {/* KÝ BỆNH ÁN — đặt DƯỚI nút Lưu, đúng thứ tự thao tác: điền → lưu → ký.
-          Không hiện khi đang xem lượt cũ hoặc chỉ nhập sinh hiệu: hai trường
-          hợp đó người dùng không phải người ký. */}
+      {/* HỒ SƠ ĐÃ HOÀN TẤT — cho phép gửi + đính chính. Không còn nút ký:
+          mốc khoá là Hoàn tất khám ở Bàn khám (23/09/2026). Không hiện khi đang
+          xem lượt cũ hoặc chỉ nhập sinh hiệu. */}
       {!viewingPast && !vitalsOnly && (
-        <ClinicalSignPanel
+        <HoSoHoanTatPanel
           visitId={data?.visit?.visit_id ?? null}
           revision={data?.revision ?? null}
           isDoctor={canSign}

@@ -20,6 +20,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+import NutXemLuot from "../_lam-viec/NutXemLuot";
+import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
+
 interface Dong {
   id: string;
   name: string;
@@ -56,6 +60,8 @@ interface Luot {
   services: Dong[];
   drugs: Dong[];
   hoa_don?: { dich_vu?: HoaDon; thuoc?: HoaDon };
+  /** Chỉ định còn chờ khách quyết làm hay không (máy chủ tính). */
+  chon_dich_vu?: ChoKhachQuyet | null;
 }
 
 interface DaThu {
@@ -143,16 +149,26 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
   /** Gửi một lệnh thu ngân; trả `true` nếu máy chủ nhận. Luôn tải lại sau đó. */
   const gui = useCallback(
-    async (khoa: string, noiDung: Record<string, unknown>, xongCau: string) => {
+    async (
+      khoa: string,
+      noiDung: Record<string, unknown>,
+      xongCau: string,
+      thaoTac?: string,
+    ) => {
       setDangThu(khoa);
       setLoi(null);
       setXong(null);
       try {
+        // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
+        // khoá cũ, máy chủ trả kết quả lần đầu thay vì thu lần hai.
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (thaoTac) headers["Idempotency-Key"] = khoaThaoTac(thaoTac);
         const r = await fetch("/api/payment", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(noiDung),
         });
+        if (r.ok && thaoTac) xongThaoTac(thaoTac);
         const d = (await r.json().catch(() => null)) as
           | { error?: string; message?: string; status?: string }
           | null;
@@ -189,6 +205,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           method: pt,
         },
         `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) của ${l.full_name ?? "khách"}.`,
+        dinhDanhThaoTac("thu", l.visit_id, kind, hd.revision, pt, String(hd.tong)),
       ),
     [gui],
   );
@@ -209,9 +226,12 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const choCua = (visitId: string, kind: string) =>
     cho.find((p) => p.visit_id === visitId && p.kind === kind);
 
+  const choQuyet = (l: Luot) =>
+    Boolean(l.chon_dich_vu?.chi_dinh.some((c) => c.selection_status === "PENDING"));
   const conCho = ds.filter(
     (l) =>
-      (quay !== "thuoc" && l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) ||
+      (quay !== "thuoc" &&
+        ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) || choQuyet(l))) ||
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
@@ -244,7 +264,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         <div className="rounded-card border border-line bg-surface p-6 text-center shadow-card">
           <p className="text-body text-ink">Không có ai đang chờ thu.</p>
           <p className="mt-1 text-meta text-ink-muted">
-            Khách hiện ở đây sau khi bác sĩ khám xong.
+            Khách hiện ở đây ngay khi bác sĩ chỉ định dịch vụ (tiền thuốc: sau khi
+            khám xong).
           </p>
         </div>
       ) : (
@@ -260,11 +281,28 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
               </div>
+              {/* Thu xong, hệ thống tự xếp phòng (dây H4): lễ tân mở đây để
+                  báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
+              <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
             </header>
+
+            {quay !== "thuoc" && l.chon_dich_vu ? (
+              <ChonDichVu
+                // Revision đổi = danh sách đổi: dựng lại ô để lấy mặc định mới.
+                key={`${l.visit_id}:${l.chon_dich_vu.revision}:${l.chon_dich_vu.chi_dinh.length}`}
+                visitId={l.visit_id}
+                cho={l.chon_dich_vu}
+                onXong={async (cau, loiMoi) => {
+                  setXong(cau);
+                  setLoi(loiMoi);
+                  await tai();
+                }}
+              />
+            ) : null}
 
             {quay !== "thuoc" && l.services.length > 0 ? (
               <NhomThu
-                tieu_de="Dịch vụ đã khám"
+                tieu_de="Tiền dịch vụ"
                 hd={l.hoa_don?.dich_vu}
                 daThu={daThuCua(l.visit_id, "dich_vu")}
                 cho={choCua(l.visit_id, "dich_vu")}
@@ -421,7 +459,7 @@ function NhomThu({
         {tieu_de}
       </p>
       {daThu ? (
-        <p className="mt-2 text-meta text-ink-muted">Khoản này đã thu.</p>
+        <p className="mt-2 text-meta text-ink-muted">Không còn khoản nào phải thu.</p>
       ) : !hd ? (
         <p className="mt-2 text-meta text-ink-muted">Đang tính hoá đơn…</p>
       ) : (

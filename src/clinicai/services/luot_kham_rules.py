@@ -32,15 +32,18 @@ def decide_route(
 ) -> str | None:
     """Đích MỚI cần ghi, hoặc None khi chưa đủ điều kiện hay đã có đích.
 
-    Chạy lại bao nhiêu lần cũng ra cùng kết quả, nên xác minh kế hoạch và ghi
-    sinh hiệu đến theo thứ tự nào cũng được (T-P1, T-P2). Đích chỉ ghi một lần
-    (I10): kế hoạch hợp lệ đến muộn không kéo khách đã vào bác sĩ sang dịch vụ.
+    Chạy lại bao nhiêu lần cũng ra cùng kết quả. Đích chỉ ghi một lần (I10):
+    kế hoạch hợp lệ đến muộn không kéo khách đã vào bác sĩ sang dịch vụ.
+
+    SINH HIỆU KHÔNG CÒN LÀ CỬA (luồng chuẩn bước 6, Tuyền chốt 23/09/2026):
+    *"có đo cũng chả sao, vẫn có event phát ra cho điều dưỡng, không làm cũng
+    không sai"*. Đích quyết ngay lúc check-in; điều dưỡng vẫn thấy khách ở hàng
+    đo sinh hiệu. `vitals_recorded` giữ trong chữ ký để người gọi cũ không vỡ.
     """
+    _ = vitals_recorded
     if plan_status not in PLAN_STATUSES:
         raise ValueError(f"plan_check_status không hợp lệ: {plan_status!r}")
     if current_route is not None:
-        return None
-    if not vitals_recorded:
         return None
     if plan_status == "pending":
         return None
@@ -71,6 +74,10 @@ class RequirementView:
     status: str
     exec_status: str
     has_valid_result: bool = False
+    #: Khách KHÔNG chọn làm (SELECTION v1) — như chỉ định không thực hiện: không
+    #: bao giờ tự đạt, trả về bác sĩ quyết (24/09/2026, bộ mô phỏng bắt được
+    #: vòng đọc treo mãi khi khách bỏ bớt chỉ định).
+    selection_status: str | None = None
 
 
 def requirement_met(req: RequirementView) -> bool:
@@ -88,12 +95,13 @@ def requirement_state(req: RequirementView) -> str:
     """Một yêu cầu đang ở đâu: ``satisfied`` | ``open`` | ``needs_decision`` |
     ``waived`` | ``follow_up``.
 
-    ``needs_decision``: chỉ định trỏ tới đã KHÔNG THỰC HIỆN (hay bị huỷ). Nó
-    không bao giờ tự đạt — bác sĩ phải miễn (có lý do) hoặc chuyển theo dõi.
+    ``needs_decision``: chỉ định trỏ tới đã KHÔNG THỰC HIỆN (hay bị huỷ), hoặc
+    KHÁCH KHÔNG CHỌN làm. Nó không bao giờ tự đạt — bác sĩ phải miễn (có lý do)
+    hoặc chuyển theo dõi. Không tự bỏ qua kết quả (CONTEXT v1.0).
     """
     if req.status in ("waived", "follow_up"):
         return req.status
-    if req.exec_status in KHONG_THUC_HIEN:
+    if req.exec_status in KHONG_THUC_HIEN or req.selection_status == "NOT_SELECTED":
         return "needs_decision"
     return "satisfied" if requirement_met(req) else "open"
 
@@ -210,8 +218,51 @@ def dispatch_block(
         return "ORDER_NOT_DISPATCHABLE"
     if source == "PRIOR_PLAN" and not plan_applied:
         return "PLAN_NOT_APPLIED"
-    if not vitals_recorded:
-        return "VITALS_REQUIRED"
+    return routing_hold_block(
+        source=source,
+        route_decision=route_decision,
+        vitals_recorded=vitals_recorded,
+        hold_until_round=hold_until_round,
+        closed_rounds=closed_rounds,
+    )
+
+
+def vitals_routing_block(*, vitals_recorded: bool) -> str | None:
+    """SEAM có tên cho luật "sinh hiệu có chặn điều phối không".
+
+    ĐÃ CHỐT 23/09/2026 — Tuyền: **KHÔNG chặn**. Chưa đo sinh hiệu vẫn đưa khách
+    vào phòng dịch vụ được; màn hình chỉ nhắc.
+
+    Vì sao đổi: code cũ chặn khi chưa đo huyết áp, nhưng đó là giả định của phần
+    mềm chứ không phải luật của phòng khám — khách đi thẳng làm siêu âm hay thủ
+    thuật là chuyện thường ngày, và chặn ở đây biến một lời nhắc thành một cánh
+    cửa khoá giữa giờ cao điểm.
+
+    Hàm giữ nguyên (không xoá) vì nó là chỗ DUY NHẤT trả lời câu hỏi ấy: ngày nào
+    phòng khám muốn chặn lại thì sửa đúng một chỗ này, không phải đi tìm những
+    lần kiểm sinh hiệu rải rác.
+    """
+    _ = vitals_recorded  # giữ chữ ký: người gọi vẫn truyền, luật đổi ở đây
+    return None
+
+
+def routing_hold_block(
+    *,
+    source: str,
+    route_decision: str | None,
+    vitals_recorded: bool,
+    hold_until_round: int | None,
+    closed_rounds: set[int],
+) -> str | None:
+    """Chốt giữ (hold) chuyên môn / vận hành trước khi xếp phòng — MỘT chính sách
+    có tên, dùng chung cho điều phối cũ và AssignServiceRoom (ROUTING §5).
+
+    Thứ tự giữ như ``dispatch_block``: sinh hiệu (seam) → đích của lượt → kế
+    hoạch trước → dặn làm sau vòng đọc.
+    """
+    vitals = vitals_routing_block(vitals_recorded=vitals_recorded)
+    if vitals:
+        return vitals
     if route_decision is None:
         return "ROUTE_NOT_DECIDED"
     if source == "PRIOR_PLAN" and route_decision != SERVICES:
@@ -419,3 +470,40 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
         ),
         None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Đổi phòng dịch vụ — ai có quyền điều phối cũng làm được (23/09/2026)
+# ---------------------------------------------------------------------------
+
+_DA_LAM_HOAC_XONG = frozenset(
+    {"in_progress", "performed", "not_performed", "cancelled"}
+)
+_THUC_HIEN_KHONG_DOI = frozenset(
+    {"IN_PROGRESS", "COMPLETED", "CANCELLED", "NOT_PERFORMED"}
+)
+
+
+def doi_phong_duoc(
+    *,
+    selection_status: str | None,
+    execution_status: str | None,
+    exec_status: str | None,
+    doi_tac: bool,
+) -> bool:
+    """Chỉ định này đổi phòng được không — để màn hình biết có bày nút.
+
+    Luồng chuẩn bước 7 (Tuyền chốt 23/09/2026): khách trả tiền dịch vụ thực làm
+    xong, phòng còn ổn thì đi, đầy thì lễ tân (hay điều dưỡng, thư ký, bác sĩ —
+    ai có quyền điều phối) đổi sang phòng vắng hơn cùng chức năng.
+
+    Chỉ là GỢI Ý hiển thị: lệnh `AssignServiceRoom` vẫn tự kiểm đủ (đã chọn, đã
+    qua cổng tiền, chưa bắt đầu, revision) và nói lý do nếu từ chối.
+    """
+    if doi_tac:
+        return False  # đối tác làm — không có phòng của phòng khám để xếp
+    if selection_status != "SELECTED":
+        return False  # khách chưa chọn làm dịch vụ này (chưa qua quầy)
+    if (execution_status or "") in _THUC_HIEN_KHONG_DOI:
+        return False
+    return (exec_status or "") not in _DA_LAM_HOAC_XONG

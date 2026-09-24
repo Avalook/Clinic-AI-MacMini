@@ -5,6 +5,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { laRouteDaTat } from "./lib/route-da-tat";
 import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
 const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
@@ -15,6 +16,14 @@ const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 if (process.env.NODE_ENV === "development") PUBLIC_PATHS.push("/design-system");
 
 export async function proxy(request: NextRequest) {
+  // Route cũ đã tắt (lib/route-da-tat.ts) — trả 410, không đụng tới phiên.
+  if (laRouteDaTat(request.nextUrl.pathname)) {
+    return NextResponse.json(
+      { error: "ENDPOINT_RETIRED", message: "Đường cũ đã tắt — màn hiện tại không dùng nữa." },
+      { status: 410 },
+    );
+  }
+
   let response = NextResponse.next({ request });
 
   // ĐỊA CHỈ NỘI BỘ TRƯỚC. Proxy này chạy TRONG container và gọi Supabase cho

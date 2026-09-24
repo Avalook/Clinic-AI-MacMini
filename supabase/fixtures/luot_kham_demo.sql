@@ -158,3 +158,7 @@ SELECT u.email, s.primary_department
   FROM public.staff s JOIN auth.users u ON u.id = s.auth_user_id
  WHERE u.email IN ('thuky@dr4women.local', 'truongca@dr4women.local')
  ORDER BY u.email;
+
+-- Người vừa tạo phải làm được việc ngay: cấp quyền theo vai (migration
+-- 20260923000016). Không có dòng này thì mọi tài khoản thử có 0 quyền.
+SELECT public.cap_quyen_cho_moi_thanh_vien();

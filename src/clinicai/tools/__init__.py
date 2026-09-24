@@ -2,13 +2,13 @@
 
 Each toolset self-registers into the global ``REGISTRY`` when its package is
 imported (see ``tools/<toolset>/__init__.py``). :func:`load_all` imports all
-eight toolsets to trigger that registration.
+seven toolsets to trigger that registration.
 
 Loading is driven lazily by ``REGISTRY`` on first read rather than eagerly at
-this module's import time: ``services.patient_context_service`` imports the
-foundational ``tools._common.context``, and eager loading here would re-enter
-that service mid-import (via the ``brief`` toolset) — a circular import. The
-registry calls :func:`load_all` the first time it is queried instead.
+this module's import time: a service importing ``tools._common.context`` must
+not pull every toolset back into itself mid-import (the old ``brief`` toolset —
+gỡ 24/09/2026 — did exactly that). The registry calls :func:`load_all` the
+first time it is queried instead.
 """
 
 from clinicai.tools.registry import REGISTRY, ToolMeta, ToolRegistry
@@ -18,7 +18,6 @@ _TOOLSETS = (
     "lab",
     "patient",
     "task",
-    "brief",
     "event_log",
     "kb",
     "communication",

@@ -19,12 +19,13 @@ from clinicai.api.v1.routers.lab import _ORDER_GUARD, _RESULT_GUARD
 from clinicai.api.v1.routers.ultrasound import _SONOGRAPHER_GUARD
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.exceptions import ValidationError as CoreValidationError
+from clinicai.permissions.catalogue import KHOI, PRESET, QUYEN
+from clinicai.permissions.y_khoa import QUYEN_GHI_Y_KHOA, cua_ghi_y_khoa
 from clinicai.services.clinical_record_service import (
     ARRIVED_APPOINTMENT_STATUSES as ARRIVED,
 )
 from clinicai.services.clinical_record_service import (
     RECORD_LOCK,
-    may_write,
     merge_objective,
     merge_vitals_only,
 )
@@ -159,18 +160,14 @@ class TestGuards:
             {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
         )
 
-    def test_reception_and_management_may_not_enter_results(self) -> None:
-        # Entering a lab result is clinical work — decided 2026-06-17.
-        assert ClinicRole.RECEPTION not in _RESULT_GUARD.allowed_roles
-        assert ClinicRole.MANAGEMENT not in _RESULT_GUARD.allowed_roles
-        assert _RESULT_GUARD.allowed_roles == frozenset(
-            {
-                ClinicRole.DOCTOR,
-                ClinicRole.ULTRASOUND_DOCTOR,
-                ClinicRole.TKYK,
-                ClinicRole.NURSE_ULTRASOUND,
-            }
-        )
+    def test_results_are_entered_by_permission_not_role(self) -> None:
+        # 24/09/2026 (Tuyền chốt): nhập kết quả hỏi QUYỀN — khối ghi bệnh án /
+        # điền kết quả — không hỏi vai. Lễ tân không có khối nào trong đó theo
+        # nhóm mẫu; quản lý có (quản lý có mọi khối trừ khối cần chứng chỉ).
+        assert _RESULT_GUARD is cua_ghi_y_khoa
+        khoi_ghi = {QUYEN[q].khoi for q in QUYEN_GHI_Y_KHOA}
+        assert not khoi_ghi & set(PRESET["RECEPTION"])
+        assert khoi_ghi & set(PRESET["MANAGEMENT"])
 
     def test_ultrasound_stays_narrow(self) -> None:
         # Deliberately not widened to doctors in general.
@@ -180,49 +177,39 @@ class TestGuards:
 
 
 class TestClinicalRecordWriteRoles:
+    """Ai ghi được bệnh án — nay là QUYỀN `clinical.record.write` (khối
+    `ghi_benh_an`), cấp theo nhóm mẫu của vai (CORE-B3, 23/09/2026). Ý nghĩa giữ
+    nguyên: điều dưỡng và lễ tân chỉ đo sinh hiệu (Tuyền chốt 16/09/2026) —
+    bệnh sử, tiền sử, khám, chẩn đoán là phần chịu trách nhiệm chuyên môn của
+    bác sĩ; thư ký nhập hộ được. Quản lý CÓ từ 24/09/2026 (Tuyền: "quản lý
+    quyền cao nhất — có module đó thì mọi quyền của nó có cả") — mọi khối.
+    """
+
+    @pytest.mark.parametrize("vai", ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"])
+    def test_nguoi_ghi_benh_an_co_khoi_trong_nhom_mau(self, vai: str) -> None:
+        assert "ghi_benh_an" in PRESET[vai]
+
     @pytest.mark.parametrize(
-        "role",
+        "vai",
         [
-            ClinicRole.DOCTOR,
-            ClinicRole.ULTRASOUND_DOCTOR,
-            ClinicRole.TKYK,
+            "RECEPTION",
+            "NURSE_ULTRASOUND",
+            "CASHIER",
+            "CASHIER_THUOC",
+            "CASHIER_DV",
+            "TRUONG_CA",
         ],
     )
-    def test_clinical_writers_may_write_the_full_record(self, role: ClinicRole) -> None:
-        assert may_write(role, vitals_only=False)
-        assert may_write(role, vitals_only=True)
+    def test_nguoi_khac_khong_co(self, vai: str) -> None:
+        assert "ghi_benh_an" not in PRESET.get(vai, [])
 
-    @pytest.mark.parametrize(
-        "role", [ClinicRole.RECEPTION, ClinicRole.NURSE_ULTRASOUND]
-    )
-    def test_vitals_only_roles_write_vitals_and_nothing_else(
-        self, role: ClinicRole
-    ) -> None:
-        """Lễ tân VÀ điều dưỡng chỉ ghi sinh hiệu (Tuyền chốt 16/09/2026).
+    def test_quan_ly_co_tat_ca_khoi_va_khong_con_chung_chi(self) -> None:
+        # Tuyền 24/09/2026: bỏ chứng chỉ; quản lý có mọi khối, không loại trừ.
+        assert not [q for q in QUYEN.values() if q.chung_chi_lam_sang]
+        assert set(PRESET["MANAGEMENT"]) == set(KHOI)
 
-        Điều dưỡng được mở ghi trọn hồ sơ từ 29/6; đảo lại sau khi đối chiếu
-        tài liệu bàn giao chuyên môn: bệnh sử — tiền sử — khám — chẩn đoán là
-        phần chịu trách nhiệm chuyên môn của bác sĩ, thư ký nhập hộ được nhưng
-        bác sĩ vẫn phải duyệt.
-        """
-        assert may_write(role, vitals_only=True)
-        assert not may_write(role, vitals_only=False)
-
-    @pytest.mark.parametrize(
-        "role",
-        [
-            ClinicRole.CASHIER,
-            ClinicRole.CASHIER_THUOC,
-            ClinicRole.CASHIER_DV,
-            ClinicRole.CSKH,
-            ClinicRole.MANAGEMENT,
-            ClinicRole.TRUONG_CA,
-        ],
-    )
-    def test_nobody_else_touches_a_clinical_record(self, role: ClinicRole) -> None:
-        # Management included: being in charge is not the same as being clinical.
-        assert not may_write(role, vitals_only=False)
-        assert not may_write(role, vitals_only=True)
+    def test_quyen_ghi_benh_an_nam_trong_khoi_ay(self) -> None:
+        assert QUYEN["clinical.record.write"].khoi == "ghi_benh_an"
 
 
 class TestObjectiveMerge:

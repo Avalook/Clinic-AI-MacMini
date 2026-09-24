@@ -86,6 +86,7 @@ port_owner() {
 
 stop_services() {
     pkill -f "uvicorn clinicai.main.*--port ${API_PORT}" 2>/dev/null || true
+    pkill -f "clinicai.worker --su-kien" 2>/dev/null || true
     pkill -f "next start -p ${WEB_PORT}" 2>/dev/null || true
     pkill -f "next dev -p ${WEB_PORT}" 2>/dev/null || true
     # Đợi cổng được giải phóng — uvicorn/next có thể mất vài giây để shutdown sạch.
@@ -96,6 +97,17 @@ stop_services() {
         fi
         sleep 1
     done
+    # API CŨ KHÔNG CHỊU TẮT (24/09/2026): tiến trình nạp-lại của uvicorn bỏ qua
+    # SIGTERM, còn tiến trình con (`multiprocessing.spawn`, không có chữ
+    # "uvicorn" trên dòng lệnh) mồ côi và VẪN nghe cổng. API mới lên cùng cổng,
+    # /health xanh nhờ bản CŨ, và mọi sửa backend không chạy — mất cả buổi mới
+    # biết. Còn tiến trình nào của venv repo này giữ cổng thì buộc tắt.
+    for pid in $(lsof -tiTCP:"${API_PORT}" -sTCP:LISTEN 2>/dev/null); do
+        if ps -o command= -p "$pid" 2>/dev/null | grep -q "$REPO/.venv/"; then
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+    done
+    sleep 1
     if lsof -nP -iTCP:"${API_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
         owner="$(port_owner "$API_PORT")"
         red "  cổng $API_PORT vẫn bị chiếm bởi $owner — dừng thủ công hoặc chọn API_PORT khác"
@@ -348,6 +360,26 @@ CHECKPOINTER_BACKEND=memory APP_ENV=staging POS_ADAPTER=none \
 wait_for_http "http://127.0.0.1:${API_PORT}/health" "API" \
     && green "  healthy on ${API_PORT}" \
     || { red "  API did not come up — see $LOG_DIR/api.log"; tail -20 "$LOG_DIR/api.log"; exit 1; }
+
+# NGƯỜI ĐƯA TIN SỰ KIỆN (24/09/2026). Thiếu nó thì khách check-in xong KHÔNG vào
+# hàng nào: khối Hành trình (xếp hàng tư vấn / bác sĩ chính) chạy ở đây, không
+# chạy trong API. Cùng biến môi trường với API — chỉ cần Postgres.
+pkill -f "clinicai.worker --su-kien" 2>/dev/null || true
+PYTHONPATH=src \
+DATABASE_URL="postgresql+asyncpg://postgres:${SUPABASE_DB_PASSWORD}@127.0.0.1:${SUPABASE_DB_PORT}/postgres" \
+SUPABASE_URL="http://127.0.0.1:${SUPABASE_API_PORT}" \
+SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
+SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+SUPABASE_JWT_SECRET="$SUPABASE_JWT_SECRET" \
+ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-local-not-real}" \
+CHECKPOINTER_BACKEND=memory APP_ENV=staging POS_ADAPTER=none \
+    nohup poetry run python -m clinicai.worker --su-kien >"$LOG_DIR/su-kien.log" 2>&1 &
+sleep 2
+if pgrep -f "clinicai.worker --su-kien" >/dev/null 2>&1; then
+    green "  người đưa tin sự kiện đang chạy (log: $LOG_DIR/su-kien.log)"
+else
+    red "  người đưa tin sự kiện KHÔNG chạy — xem $LOG_DIR/su-kien.log"; tail -20 "$LOG_DIR/su-kien.log"; exit 1
+fi
 
 # ---- 4. dashboard -----------------------------------------------------------
 blue "4/5  Next.js dashboard"

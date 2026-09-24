@@ -45,17 +45,16 @@ test("cửa sổ một ngày chỉ được tính SAU khi đã chắc có `date`
   );
 });
 
-test("Invalid Date bị bắt TRƯỚC khi gọi toISOString", () => {
-  // Trên Invalid Date thì chính `toISOString()` là thứ ném lỗi; mọi câu kiểm
-  // đặt sau nó không bao giờ chạy tới.
-  const iKiem = route.indexOf("Number.isNaN(dauNgay.getTime())");
-  const iGoi = route.indexOf("dauNgay.toISOString()");
+test("Invalid Date bị bắt TRƯỚC khi gọi backend (và không còn toISOString)", () => {
+  // 24/09/2026: route thôi tự tính mốc ngày — backend nhận chuỗi ngày và trả
+  // rỗng khi rác (services/lich_hen_doc.doc_ngay). Route vẫn chặn ngày gõ sai
+  // bằng 400 trước khi gọi đi.
+  const iKiem = route.indexOf("Number.isNaN(new Date(`${date}T00:00:00${VN_OFFSET}`).getTime())");
+  const iGoi = route.indexOf("/api/v1/appointments/lich-ngay");
   assert.ok(iKiem > 0, "không thấy câu kiểm Invalid Date");
-  assert.ok(iGoi > 0, "không thấy lời gọi toISOString");
-  assert.ok(
-    iKiem < iGoi,
-    "Câu kiểm Invalid Date đang nằm SAU toISOString — nó sẽ không bao giờ chạy.",
-  );
+  assert.ok(iGoi > 0, "không thấy lời gọi backend theo ngày");
+  assert.ok(iKiem < iGoi, "Câu kiểm Invalid Date phải đứng TRƯỚC lời gọi backend.");
+  assert.doesNotMatch(route, /dauNgay\.toISOString\(\)/);
 });
 
 test("thiếu `date` ở nhánh theo ngày trả 400, không nổ 500", () => {

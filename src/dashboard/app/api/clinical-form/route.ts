@@ -2,7 +2,7 @@
 //   GET  ?visitId=&serviceCode=         → form_data đã lưu (hoặc {} nếu chưa có).
 //   POST { visitId, serviceCode, form_data }  → tạo/cập nhật (upsert) form_data.
 //   PATCH = alias POST (cùng upsert).
-// Gate: ai có quyền ghi lâm sàng (canWriteClinical: BS, BS siêu âm, TKYK, Điều dưỡng)
+// Gate: backend hỏi QUYỀN (khối ghi bệnh án / điền kết quả) — permissions/y_khoa.py
 // mới ghi. service_code phải có trong registry.
 //
 // ⚠️ SAFETY GATE FINALIZED (migration 043 append-only đang PENDING → ép Ở APP LAYER):
@@ -12,18 +12,15 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { canWriteClinical } from "../../../lib/roles";
 import { getFormSchema } from "../../../lib/form-schemas";
-import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { docTuBackend, proxyJsonToBackend } from "../../../lib/backend-proxy";
 import {
-  COT_SINH_HIEU,
   sinhHieuHienThi,
   sinhHieuPhieuCu,
   type DongSinhHieu,
 } from "@/lib/sinh-hieu-dong-bo";
 
-// GET: đọc qua RLS (caller). Không cần quyền ghi.
+// GET: đọc qua backend (cửa đọc theo quyền, 24/09/2026). Không cần quyền ghi.
 export async function GET(request: Request) {
   const caller = await getSupabaseServer();
   const {
@@ -38,27 +35,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Thiếu visitId / serviceCode." }, { status: 400 });
   }
 
-  const { data } = await caller
-    .from("clinical_form_response")
-    .select("form_data, updated_at")
-    .eq("visit_id", visitId)
-    .eq("service_code", serviceCode.toUpperCase())
-    .maybeSingle();
-
-  // SINH HIỆU LÀ KHỐI RIÊNG, CHỈ XEM (S0-3, 18/09/2026). Trước đó số đo điều
-  // dưỡng được TRỘN vào form_data rồi tự lưu ngược vào phiếu — một số đo nằm
-  // hai nơi, và ô trên phiếu sửa được nên hai nơi lệch nhau. form_data giờ trả
-  // nguyên như đã lưu; phiếu cũ còn ô sinh hiệu thì chỉ đọc lại khi lượt không
-  // có số đo.
+  // 24/09/2026: đọc qua backend (`GET /api/v1/clinical-forms`, lọc đúng phòng
+  // khám + cửa đọc theo quyền) thay vì đọc thẳng `clinical_form_response` /
+  // `vital_measurement` bằng Supabase. Ở đây chỉ còn DỰNG Ô HIỂN THỊ.
+  const q = new URLSearchParams({ visit_id: visitId, service_code: serviceCode });
+  const doc = await docTuBackend<{
+    form_data: Record<string, unknown> | null;
+    updated_at: string | null;
+    sinh_hieu_moi: (DongSinhHieu & { created_at?: string }) | null;
+  }>(`/api/v1/clinical-forms?${q.toString()}`);
+  if (!doc.ok) return doc.res;
+  const data = doc.data;
   const formData = (data?.form_data as Record<string, unknown> | null) ?? {};
-  const { data: do_ } = await caller
-    .from("vital_measurement")
-    .select(COT_SINH_HIEU)
-    .eq("visit_id", visitId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const doMoi = (do_ as (DongSinhHieu & { created_at?: string }) | null) ?? null;
+  const doMoi = data.sinh_hieu_moi ?? null;
   const tuDo = sinhHieuHienThi(doMoi);
   const sinh_hieu =
     tuDo.length > 0
@@ -89,13 +78,9 @@ async function write(request: Request) {
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await vaiLamViec((r) => canWriteClinical(r));
-  if (!canWriteClinical(role)) {
-    return NextResponse.json(
-      { error: "Bạn không có quyền điền phiếu khám chuyên khoa." },
-      { status: 403 },
-    );
-  }
+  // Quyền do BACKEND quyết (khối ghi bệnh án / điền kết quả —
+  // permissions/y_khoa.py, 24/09/2026). Giao diện không gác vai nữa: hai hệ
+  // quyền từng chặn nhầm người đã được cấp (BAN-DO mục 45).
 
   let body: WriteBody;
   try {

@@ -30,6 +30,8 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.events.catalogue import DaHoanTien
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.phan_lo_service import so
 
 #: AI ĐƯỢC HOÀN TIỀN — TẠM THỜI, CHỜ DR4WOMEN DUYỆT (HOLD J4).
@@ -181,6 +183,8 @@ class HoanTienService:
                         for ma, sl, tien in ghi
                     ],
                 )
+                if tien_mat:
+                    await _phat_da_hoan(conn, identity, visit_id, refund_id, int(tong))
                 await _log(
                     conn,
                     identity,
@@ -233,6 +237,15 @@ class HoanTienService:
                     identity.clinic_id,
                     ma,
                     identity.staff_id,
+                )
+                vid_hoan = await conn.fetchval(
+                    "SELECT visit_id::text FROM public.payment_refund"
+                    " WHERE refund_id = $1::uuid AND clinic_id = $2::uuid",
+                    refund_id,
+                    identity.clinic_id,
+                )
+                await _phat_da_hoan(
+                    conn, identity, str(vid_hoan), refund_id, int(hoan["amount"])
                 )
                 await _log(
                     conn,
@@ -301,6 +314,25 @@ class HoanTienService:
                     },
                 )
         return {"refund_id": refund_id, "status": trang_thai}
+
+
+async def _phat_da_hoan(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    refund_id: str,
+    so_tien: int,
+) -> None:
+    """`payment.refunded` vào sổ sự kiện khi tiền hoàn đã thật sự trả khách."""
+    await emit_event(
+        conn,
+        ten="payment.refunded",
+        clinic_id=identity.clinic_id,
+        aggregate_id=refund_id,
+        payload=DaHoanTien(visit_id=visit_id, refund_id=refund_id, so_tien=so_tien),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
+    )
 
 
 async def _khoa_luot(

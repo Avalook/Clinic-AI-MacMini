@@ -1,4 +1,13 @@
-"""Ký bệnh án, cho phép gửi kết quả, và đính chính bản đã ký.
+"""Hồ sơ đã hoàn tất: cho phép gửi và đính chính. (Ký kết quả SIÊU ÂM vẫn ở đây.)
+
+KHÔNG CÒN "KÝ BỆNH ÁN" từ 23/09/2026 (CORE-A). Tuyền chốt: Hoàn tất = khám
+xong, KHÔNG khoá — bệnh án vẫn sửa trực tiếp sau đó. Nên:
+  * "Cho phép gửi" dựa vào KHÁM ĐÃ HOÀN TẤT (phiên cuối kết thúc NO_SERVICES /
+    DONE), không dựa vào khoá. Trạng thái nội bộ vẫn tên `SIGNED` = "đã hoàn tất,
+    chưa cho phép gửi" để API không đổi hình.
+  * "Đính chính" chỉ còn cho lượt CŨ đã từng ký (FINALIZED/AMENDED) — lượt mới
+    không khoá thì sửa thẳng, không cần đính chính.
+
 
 BA HÀNH VI, MỘT CHIỀU, KHÔNG QUAY LẠI ĐƯỢC BẰNG NÚT XOÁ.
 
@@ -38,6 +47,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.dinh_chinh_don import (
     ap_dung_don_da_ky,
     chuan_bi_don_da_ky,
@@ -90,7 +100,7 @@ class ClinicalSignService:
     # ── Đọc ────────────────────────────────────────────────────────────
 
     async def status(self, *, identity: StaffIdentity, visit_id: str) -> dict[str, Any]:
-        """Trạng thái hồ sơ + những gì còn thiếu để ký được."""
+        """Trạng thái hồ sơ (chưa hoàn tất / đã hoàn tất / đã cho gửi / đính chính)."""
         async with self._pool.acquire() as conn:
             # Hai câu đọc phải cùng một MVCC snapshot: nếu amendment commit giữa
             # chúng, không được trả state/amendment cũ cùng fingerprint Rx mới.
@@ -119,8 +129,19 @@ class ClinicalSignService:
                                AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
                            EXISTS (SELECT 1 FROM public.vital_measurement m
                                     WHERE m.visit_id = st.visit_id
-                                      AND m.clinic_id = st.clinic_id) AS co_sinh_hieu
+                                      AND m.clinic_id = st.clinic_id) AS co_sinh_hieu,
+                           ht.completed_at AS hoan_tat_luc,
+                           ht.hoan_tat_boi
                       FROM public.v_clinical_status st
+                      LEFT JOIN LATERAL (
+                           SELECT c.completed_at, sc.full_name AS hoan_tat_boi
+                             FROM public.consultation c
+                             LEFT JOIN public.staff sc ON sc.id = c.completed_by
+                            WHERE c.clinic_id = st.clinic_id
+                              AND c.visit_id = st.visit_id
+                              AND c.status = 'completed'
+                              AND c.outcome IN ('NO_SERVICES', 'DONE')
+                            ORDER BY c.completed_at DESC LIMIT 1) ht ON true
                       LEFT JOIN public.clinical_record cr
                              ON cr.visit_id = st.visit_id
                             AND cr.clinic_id = st.clinic_id
@@ -158,6 +179,11 @@ class ClinicalSignService:
         # View lịch sử ưu tiên AMENDED, nhưng một amendment đã được cho phép gửi
         # lại phải là RELEASED để release() idempotent và UI không nói sai.
         state = "RELEASED" if row["released_at"] is not None else row["clinical_state"]
+        # Khám đã hoàn tất (không khoá) = "đã hoàn tất, chưa cho phép gửi".
+        hoan_tat_luc = _optional_row_value(row, "hoan_tat_luc")
+        if state == "DRAFT" and hoan_tat_luc is not None:
+            state = "SIGNED"
+        moc = row["finalized_at"] or hoan_tat_luc
         return {
             "visit_id": str(row["visit_id"]),
             "patient_name": row["patient_name"],
@@ -168,10 +194,10 @@ class ClinicalSignService:
             "record_revision": row["record_revision"],
             "expected_rx": prescription_fingerprint(rx_rows),
             "last_amendment_id": _optional_row_value(row, "last_amendment_id"),
-            "signed_at": (
-                row["finalized_at"].isoformat() if row["finalized_at"] else None
-            ),
-            "signed_by_name": row["signed_by_name"],
+            # Giờ + người HOÀN TẤT (lượt cũ đã ký: giờ + người ký).
+            "signed_at": moc.isoformat() if moc else None,
+            "signed_by_name": row["signed_by_name"]
+            or _optional_row_value(row, "hoan_tat_boi"),
             "released_at": (
                 row["released_at"].isoformat() if row["released_at"] else None
             ),
@@ -180,189 +206,21 @@ class ClinicalSignService:
                 row["last_amended_at"].isoformat() if row["last_amended_at"] else None
             ),
             "missing": missing,
-            "can_sign": state == "DRAFT" and not missing,
-            # Cho phép gửi CHỈ sau khi ký. Đây là chốt chặn mà Quang muốn:
-            # bệnh án nguy hiểm thì bác sĩ giữ lại, CSKH không thấy nút gửi.
+            # Không còn nút ký — giữ khoá cho API không đổi hình.
+            "can_sign": False,
+            # Cho phép gửi CHỈ sau khi khám hoàn tất. Đây là chốt chặn Quang
+            # muốn: bệnh án nguy hiểm thì bác sĩ giữ lại, CSKH không thấy nút gửi.
             "can_release": state in ("SIGNED", "AMENDED"),
-            "can_amend": state in ("SIGNED", "RELEASED", "AMENDED"),
+            # Đính chính chỉ cho lượt CŨ đã khoá; lượt mới sửa thẳng.
+            "can_amend": _optional_row_value(row, "visit_status")
+            in ("FINALIZED", "AMENDED"),
         }
 
     # ── Ghi ────────────────────────────────────────────────────────────
 
-    async def sign(
-        self,
-        *,
-        identity: StaffIdentity,
-        visit_id: str,
-        expected_revision: int | None = None,
-    ) -> dict[str, Any]:
-        """Bác sĩ ký bệnh án. Sau bước này nội dung bị khoá.
-
-        KÝ ĐÚNG BẢN ĐANG XEM (15/09/2026): bác sĩ + thư ký xem song song, bác sĩ
-        bấm xác nhận là chốt BẢN ĐÓ. Gửi `expected_revision` thì phiên bản được
-        kiểm NGAY TRONG câu UPDATE — thư ký sửa giữa lúc bác sĩ đọc và bấm ký thì
-        từ chối, bác sĩ tải lại xem bản mới.
-        """
-        if expected_revision is None or expected_revision < 0:
-            raise ValidationError(
-                "Thiếu expected_revision — tải lại bệnh án trước khi ký."
-            )
-
-        _assert_doctor(identity)
-
-        state = await self.status(identity=identity, visit_id=visit_id)
-        if state["state"] != "DRAFT":
-            raise ValidationError(
-                f"Hồ sơ đang ở trạng thái {state['state']}, không ký lại được. "
-                "Muốn sửa thì dùng đính chính."
-            )
-        if state["missing"]:
-            raise ValidationError(
-                "Chưa ký được, còn thiếu: " + ", ".join(state["missing"])
-            )
-
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                # 1. Khóa visit để bảo vệ khỏi race condition và giữ attending_doctor_id
-                locked_visit = await conn.fetchval(
-                    "SELECT visit_id FROM public.visit"
-                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                    " FOR UPDATE",
-                    identity.clinic_id,
-                    visit_id,
-                )
-                if locked_visit is None:
-                    raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
-
-                # 2. Đọc đầy đủ dữ liệu quyết định ký sau khi đã giữ lock:
-                # - status, attending_doctor_id, current_revision
-                # - SOAP fields từ clinical_record
-                # - chief_complaint_at_visit
-                # - phieu_chuyen_khoa từ clinical_form_response
-                # - co_sinh_hieu từ vital_measurement
-                locked = await conn.fetchrow(
-                    """
-                    SELECT v.status,
-                           v.attending_doctor_id::text,
-                           coalesce(cr.revision, 0) AS current_revision,
-                           cr.soap_subjective,
-                           cr.soap_objective,
-                           cr.soap_assessment,
-                           cr.soap_plan,
-                           cr.chief_complaint_at_visit,
-                           (SELECT jsonb_object_agg(k, v)
-                              FROM public.clinical_form_response f,
-                                   jsonb_each(f.form_data) AS e(k, v)
-                             WHERE f.visit_id = v.visit_id
-                               AND f.clinic_id = v.clinic_id) AS phieu_chuyen_khoa,
-                           EXISTS (SELECT 1 FROM public.vital_measurement m
-                                    WHERE m.visit_id = v.visit_id
-                                      AND m.clinic_id = v.clinic_id) AS co_sinh_hieu
-                      FROM public.visit v
-                      LEFT JOIN public.clinical_record cr
-                             ON cr.visit_id = v.visit_id
-                            AND cr.clinic_id = v.clinic_id
-                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
-                    """,
-                    identity.clinic_id,
-                    visit_id,
-                )
-                assert locked is not None
-
-                # 3. Kiểm tra attending_doctor_id TRƯỚC HẾT (Fail-closed)
-                # - attending_doctor_id NULL => 403/SafetyGateError
-                # - attending_doctor_id != identity.staff_id => 403/SafetyGateError
-                # Phải kiểm tra trước khi xử lý status để bác sĩ khác không bao giờ
-                # nhận được already_signed=True khi đua lệnh với bác sĩ chính.
-                attending_id = locked["attending_doctor_id"]
-                if attending_id is None:
-                    raise SafetyGateError(
-                        "Lượt chưa có bác sĩ chính — chưa thể cho phép ký bệnh án."
-                    )
-                if attending_id != identity.staff_id:
-                    raise SafetyGateError(
-                        "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt "
-                        "mới được ký bệnh án."
-                    )
-
-                # 4. Sau khi quyền đúng mới xử lý status
-                # - FINALIZED: idempotent chỉ cho đúng bác sĩ chính
-                # - AMENDED: đã đính chính, tuyệt đối không cho phép ký lại
-                # - Chỉ các trạng thái được phép ký (OPEN, IN_PROGRESS) mới đi tiếp
-                status = locked["status"]
-                if status == "FINALIZED":
-                    return {"ok": True, "already_signed": True}
-                if status == "AMENDED":
-                    raise ValidationError("Bệnh án này đã đính chính, không ký lại.")
-                if status not in ("OPEN", "IN_PROGRESS"):
-                    raise ValidationError(
-                        f"Không thể ký lượt khám ở trạng thái {status} "
-                        "(chỉ cho phép OPEN hoặc IN_PROGRESS)."
-                    )
-
-                # 5. Kiểm tra revision trước khi update
-                if locked["current_revision"] != expected_revision:
-                    raise ConflictError(
-                        "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
-                        "bản mới rồi ký."
-                    )
-
-                # 6. Kiểm tra lại tính đầy đủ của hồ sơ (SOAP + phiếu + sinh hiệu)
-                # NGAY TRONG TRANSACTION ĐÃ GIỮ LOCK, chống race condition khi
-                # phiếu bị sửa/xoá.
-                missing = missing_fields(dict(locked))
-                if missing:
-                    raise ValidationError(
-                        "Chưa ký được, còn thiếu: " + ", ".join(missing)
-                    )
-
-                # 7. Ký bệnh án — khóa chặt điều kiện status IN ('OPEN', 'IN_PROGRESS')
-                signed = await conn.fetchval(
-                    """
-                    UPDATE public.visit
-                       SET status = 'FINALIZED', finalized_at = now(),
-                           finalized_by = $3::uuid, updated_at = now()
-                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                        AND status IN ('OPEN', 'IN_PROGRESS')
-                        AND coalesce((SELECT cr.revision FROM public.clinical_record cr
-                                       WHERE cr.clinic_id = $1::uuid
-                                         AND cr.visit_id = $2::uuid), 0) = $4::int
-                     RETURNING visit_id
-                    """,
-                    identity.clinic_id,
-                    visit_id,
-                    identity.staff_id,
-                    expected_revision,
-                )
-                if signed is None:
-                    da_ky = await conn.fetchval(
-                        "SELECT status = 'FINALIZED' FROM public.visit"
-                        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
-                        identity.clinic_id,
-                        visit_id,
-                    )
-                    if not da_ky:
-                        raise ConflictError(
-                            "Bệnh án vừa được sửa sau khi bạn mở — tải lại xem "
-                            "bản mới rồi ký."
-                        )
-                    return {"ok": True, "already_signed": True}
-
-                await _log(
-                    conn,
-                    identity,
-                    visit_id,
-                    "clinical.signed",
-                    {"version": state["version"]},
-                )
-
-        logger.info(
-            "clinical_signed",
-            visit_id=visit_id,
-            clinic_id=identity.clinic_id,
-            by_staff_id=identity.staff_id,
-        )
-        return {"ok": True, "state": "SIGNED"}
+    # `sign()` ĐÃ GỠ 23/09/2026 (CORE-A): không còn bước "Ký bệnh án". Mốc khoá
+    # là HOÀN TẤT KHÁM — `LuotKhamService._khoa_ho_so_khi_hoan_tat`, chạy trong
+    # chính giao dịch bác sĩ phụ trách bấm Hoàn tất (hồ sơ đã được kiểm đủ).
 
     async def release(
         self,
@@ -380,11 +238,20 @@ class ClinicalSignService:
         expected_amendment_id: nếu hồ sơ ở AMENDED, bác sĩ phải gửi
         last_amendment_id đang nhìn. Không khớp ⇒ 409 (tải lại trước).
         """
-        _assert_release_authority(identity)
-
+        # QUYỀN HỎI ĐẦU TIÊN, trước khi tìm lượt (luật chung của CORE-B3): người
+        # không có quyền nhận câu "chưa được cấp quyền", không phải "không tìm
+        # thấy". Hỏi lại trong giao dịch ghi bên dưới — quyền có thể bị thu
+        # giữa hai lần.
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "clinical.consult.finalize",
+                cau="Bạn chưa được cấp quyền cho phép gửi hồ sơ.",
+            )
         state = await self.status(identity=identity, visit_id=visit_id)
         if state["state"] == "DRAFT":
-            raise ValidationError("Phải ký bệnh án trước khi cho phép gửi.")
+            raise ValidationError("Phải hoàn tất khám trước khi cho phép gửi.")
         if state["state"] == "RELEASED":
             return {"ok": True, "already_released": True}
 
@@ -417,7 +284,14 @@ class ClinicalSignService:
                              WHERE a.clinic_id = v.clinic_id
                                AND a.visit_id = v.visit_id
                              ORDER BY a.amended_at DESC, a.amendment_id DESC
-                             LIMIT 1) AS latest_amendment_id
+                             LIMIT 1) AS latest_amendment_id,
+                           EXISTS (
+                               SELECT 1 FROM public.consultation c
+                                WHERE c.clinic_id = v.clinic_id
+                                  AND c.visit_id = v.visit_id
+                                  AND c.status = 'completed'
+                                  AND c.outcome IN ('NO_SERVICES', 'DONE')
+                           ) AS kham_hoan_tat
                       FROM public.visit v
                      WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
                     """,
@@ -425,6 +299,14 @@ class ClinicalSignService:
                     visit_id,
                 )
                 assert locked is not None
+                # QUYỀN (không vai, CORE-A/B3): cho phép gửi hồ sơ là việc của
+                # người được Hoàn tất khám — cùng quyền `clinical.consult.finalize`.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.consult.finalize",
+                    cau="Bạn chưa được cấp quyền cho phép gửi hồ sơ.",
+                )
                 # Bác sĩ chính: kiểm SAU lock vì attending_doctor_id có thể
                 # đổi giữa lúc status() đọc và lúc lock xong.
                 _assert_release_doctor_is_attending(
@@ -436,6 +318,12 @@ class ClinicalSignService:
                     else (
                         ("AMENDED" if locked["latest_amendment_id"] else "SIGNED")
                         if locked["status"] == "FINALIZED"
+                        # Lượt CŨ đã đính chính giữ nguyên AMENDED; lượt mới
+                        # không khoá thì "khám đã hoàn tất" = SIGNED.
+                        else "AMENDED"
+                        if locked["status"] == "AMENDED"
+                        else "SIGNED"
+                        if _optional_row_value(locked, "kham_hoan_tat")
                         else locked["status"]
                     )
                 )
@@ -523,6 +411,13 @@ class ClinicalSignService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Quyền hỏi ĐẦU TIÊN trong giao dịch, trước khi tìm lượt.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.consult.finalize",
+                    cau="Bạn chưa được cấp quyền đính chính hồ sơ.",
+                )
                 # Tách statement khóa khỏi statement đọc revision/release.
                 # Ở READ COMMITTED, join/subquery trong chính SELECT FOR UPDATE
                 # có thể giữ snapshot cũ sau khi chờ transaction trước commit.
@@ -559,7 +454,7 @@ class ClinicalSignService:
                 _assert_amend_authority(identity, visit["attending_doctor_id"])
                 if visit["status"] not in ("FINALIZED", "AMENDED"):
                     raise ValidationError(
-                        "Hồ sơ chưa ký thì sửa trực tiếp, không cần đính chính."
+                        "Hồ sơ chưa hoàn tất thì sửa trực tiếp, không cần đính chính."
                     )
                 if visit["record_revision"] != expected_revision:
                     raise ConflictError(
@@ -894,21 +789,10 @@ def _optional_row_value(row: Any, key: str) -> Any:
         return None
 
 
-def _assert_doctor(identity: StaffIdentity) -> None:
-    """Chỉ bác sĩ khám mới ký được bệnh án chính (không gồm bác sĩ siêu âm)."""
-    if not identity.co_vai({ClinicRole.DOCTOR}):
-        raise SafetyGateError(
-            "Chỉ bác sĩ mới ký được bệnh án. Thư ký Y khoa nhập hộ được, nhưng "
-            "người ký phải là bác sĩ chịu trách nhiệm chuyên môn."
-        )
-
-
 def _assert_amend_authority(
     identity: StaffIdentity, attending_doctor_id: str | None
 ) -> None:
-    """Đính chính bệnh án chính hẹp hơn quyền ký kết quả siêu âm."""
-    if not identity.co_vai({ClinicRole.DOCTOR}):
-        raise SafetyGateError("Chỉ bác sĩ chính của lượt mới được đính chính bệnh án.")
+    """Chỉ bác sĩ chính của lượt đính chính (quyền đã hỏi bằng `doi_quyen`)."""
     if attending_doctor_id is None:
         raise SafetyGateError(
             "Lượt chưa có bác sĩ chính — chưa thể xác định quyền đính chính."
@@ -917,16 +801,6 @@ def _assert_amend_authority(
         raise SafetyGateError(
             "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt được đính chính."
         )
-
-
-def _assert_release_authority(identity: StaffIdentity) -> None:
-    """Cho phép gửi bệnh án: CHỈ BÁC SĨ, KHÔNG gồm bác sĩ siêu âm.
-
-    Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH — nhưng cho phép gửi toàn bộ
-    bệnh án (bao gồm SOAP, chẩn đoán) là trách nhiệm bác sĩ khám.
-    """
-    if not identity.co_vai({ClinicRole.DOCTOR}):
-        raise SafetyGateError("Chỉ bác sĩ chính của lượt mới cho phép gửi bệnh án.")
 
 
 def _assert_release_doctor_is_attending(

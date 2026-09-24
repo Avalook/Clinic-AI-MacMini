@@ -3,7 +3,7 @@
 
 import { cache } from "react";
 
-import { getSupabaseServer } from "./supabase-server";
+import { fetchFromBackend } from "./backend-proxy";
 
 export type FeatureMode = "CSKH_ONLY" | "FULL_CLINIC";
 
@@ -16,19 +16,12 @@ const VALID: FeatureMode[] = ["CSKH_ONLY", "FULL_CLINIC"];
 // cache() = gọi một lần cho cả lượt render. Layout và sidebar cùng hỏi chế độ
 // hiển thị; mỗi lần hỏi là một lượt mạng ~180ms sang Seoul.
 export const getFeatureMode = cache(async (): Promise<FeatureMode> => {
-  try {
-    const supabase = await getSupabaseServer();
-    const { data } = await supabase
-      .from("clinic")
-      .select("settings")
-      .limit(1)
-      .maybeSingle();
-    const raw = (data?.settings as Record<string, unknown>)?.feature_mode;
-    if (typeof raw === "string" && VALID.includes(raw as FeatureMode)) {
-      return raw as FeatureMode;
-    }
-  } catch {
-    // Graceful fallback — DB may not have clinic table yet.
+  // 24/09/2026: đọc qua backend `GET /api/v1/feature-mode` thay vì đọc thẳng
+  // `clinic.settings` bằng Supabase. Không đọc được → mặc định FULL_CLINIC.
+  const data = await fetchFromBackend<{ mode?: string }>("/api/v1/feature-mode");
+  const raw = data?.mode;
+  if (typeof raw === "string" && VALID.includes(raw as FeatureMode)) {
+    return raw as FeatureMode;
   }
   return "FULL_CLINIC";
 });

@@ -27,6 +27,15 @@ from tests.services.test_clinical_record_revision import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _duong_cu_ho_so_ghi_sinh_hieu(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bài này canh ĐƯỜNG CŨ (lưu bệnh án kèm sinh hiệu → ghi số đo). Từ 24/09
+    đường ấy OFF (`HO_SO_GHI_SINH_HIEU = False`) — bật lại cho riêng bài canh."""
+    import clinicai.services.clinical_record_service as crs
+
+    monkeypatch.setattr(crs, "HO_SO_GHI_SINH_HIEU", True)
+
+
 def test_huyet_ap_chuoi_tach_thanh_hai_so() -> None:
     so = sinh_hieu_tu_ho_so(
         {"huyet_ap": " 120 / 80 ", "mach": "72", "nhiet_do": "36,8"}, co_thai=False
@@ -263,3 +272,16 @@ async def test_duong_don_kham_cu_bi_tu_choi() -> None:
             objective={"vitals": {"huyet_ap": "120/80"}},
         )
     conn.execute.assert_not_awaited()
+
+
+def test_mac_dinh_luu_benh_an_khong_ghi_sinh_hieu() -> None:
+    """Một đường ghi sinh hiệu (24/09): mặc định lưu bệnh án không ghi số đo.
+
+    Đọc mã nguồn vì fixture của file này bật cờ lên cho các bài đường cũ."""
+    import pathlib
+
+    import clinicai.services.clinical_record_service as crs
+
+    assert "\nHO_SO_GHI_SINH_HIEU = False\n" in pathlib.Path(crs.__file__).read_text(
+        encoding="utf-8"
+    )

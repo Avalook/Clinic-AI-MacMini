@@ -1,0 +1,304 @@
+-- RUỘT 18 MẪU KẾT QUẢ — xuất bản bản v2 (Tuyền 23/09/2026 khuya: "các form này
+-- lặp lại, họ muốn mặc định là điền sẵn, sửa lại rồi lưu rồi in được và đồng bộ
+-- sang bác sĩ chính").
+--
+-- Nguồn: 16 PDF mẫu kết quả phòng khám đang dùng (Notion) + chi-dinh.html cho ô
+-- chọn và 3 mẫu xét nghiệm. Dựng bằng scripts/phieu-kham/dung-mau-ket-qua.py →
+-- src/clinicai/phieu_kham/mau_ket_qua.json (cùng dữ liệu với migration này).
+--
+-- Câu bình thường điền sẵn (`mac_dinh`); SỐ ĐO và kết quả XÉT NGHIỆM không điền
+-- sẵn (an toàn lâm sàng — xem docstring script).
+--
+-- Chỉ thay bản v1 do HỆ THỐNG dựng (xuat_ban_boi NULL, chưa có bản nào mới hơn):
+-- phòng khám đã tự xuất bản thì không đè. v1 → RETIRED, v2 PUBLISHED trong cùng
+-- một câu. Phiếu đã điền ghim v1 vẫn đọc đúng v1 (khoá ngoại 3 cột).
+--
+-- Chạy lại được.
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_OBUNG' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_OBUNG', 2, 'Kết quả siêu âm ổ bụng', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh", "block": [{"ma": "gan", "ten": "Gan", "kieu": "doan_van", "mac_dinh": "Kích thước bình thường, nhu mô đều, không có hình khối khu trú bất thường. Tĩnh mạch cửa không giãn, không có huyết khối. Đường mật trong và ngoài gan không giãn."}, {"ma": "tui_mat", "ten": "Túi mật", "kieu": "text", "mac_dinh": "Không giãn, thành mỏng, dịch mật trong, không có sỏi."}, {"ma": "tuy", "ten": "Tụy", "kieu": "text", "mac_dinh": "Kích thước bình thường, nhu mô đều, ống tụy không giãn."}, {"ma": "lach", "ten": "Lách", "kieu": "text", "mac_dinh": "Kích thước bình thường, nhu mô đều, không có khối."}, {"ma": "than_phai", "ten": "Thận phải", "kieu": "doan_van", "mac_dinh": "Kích thước bình thường, nhu mô đều và dày bình thường. Đài bể thận không giãn, niệu quản không giãn, không có sỏi."}, {"ma": "than_trai", "ten": "Thận trái", "kieu": "doan_van", "mac_dinh": "Kích thước bình thường, nhu mô đều và dày bình thường. Đài bể thận không giãn, niệu quản không giãn, không có sỏi."}, {"ma": "bang_quang", "ten": "Bàng quang", "kieu": "text", "mac_dinh": "Thành mỏng, không có sỏi."}, {"ma": "tieu_khung", "ten": "Tiểu khung", "kieu": "text", "mac_dinh": "Không thấy khối bất thường."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường trên hình ảnh siêu âm ổ bụng."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_VU' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_VU', 2, 'Kết quả siêu âm tuyến vú', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh tuyến vú", "block": [{"ma": "trai_nhu_mo", "ten": "Bên trái — Nhu mô", "kieu": "text", "mac_dinh": "Nhu mô đều. Không thấy khối khu trú."}, {"ma": "trai_tuoi_mau", "ten": "Bên trái — Tưới máu", "kieu": "text", "mac_dinh": "Không thấy bất thường tưới máu."}, {"ma": "phai_nhu_mo", "ten": "Bên phải — Nhu mô", "kieu": "text", "mac_dinh": "Nhu mô đều. Không thấy khối khu trú."}, {"ma": "phai_tuoi_mau", "ten": "Bên phải — Tưới máu", "kieu": "text", "mac_dinh": "Không thấy bất thường tưới máu."}, {"ma": "ho_nach", "ten": "Hố nách hai bên", "kieu": "text", "mac_dinh": "Không thấy hạch to bất thường."}, {"ma": "birads", "ten": "Phân loại BI-RADS", "kieu": "chon", "chon": ["BI-RADS 1: Bình thường", "BI-RADS 2: Tổn thương lành tính", "BI-RADS 3: Khả năng lành tính (>98%)", "BI-RADS 4: Nghi ngờ ác tính"], "mac_dinh": "BI-RADS 1: Bình thường"}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường hình ảnh tuyến vú."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_GIAP' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_GIAP', 2, 'Kết quả siêu âm tuyến giáp', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh tuyến giáp", "block": [{"ma": "trai_nhu_mo", "ten": "Thùy trái — Nhu mô", "kieu": "text", "mac_dinh": "Nhu mô đều. Không thấy khối khu trú."}, {"ma": "trai_tuoi_mau", "ten": "Thùy trái — Tưới máu", "kieu": "text", "mac_dinh": "Không thấy bất thường tưới máu."}, {"ma": "phai_nhu_mo", "ten": "Thùy phải — Nhu mô", "kieu": "text", "mac_dinh": "Nhu mô đều. Không thấy khối khu trú."}, {"ma": "phai_tuoi_mau", "ten": "Thùy phải — Tưới máu", "kieu": "text", "mac_dinh": "Không thấy bất thường tưới máu."}, {"ma": "eo", "ten": "Eo tuyến", "kieu": "text", "mac_dinh": "Nhu mô đều, không thấy khối khu trú."}, {"ma": "hach_co", "ten": "Hạch cổ hai bên", "kieu": "text", "mac_dinh": "Không thấy hạch to bất thường."}, {"ma": "tirads", "ten": "Phân loại TIRADS", "kieu": "chon", "chon": ["TIRADS 1: Tuyến giáp bình thường", "TIRADS 2: Lành tính", "TIRADS 3: Khả năng lành tính", "TIRADS 4: Nghi ngờ"], "mac_dinh": "TIRADS 1: Tuyến giáp bình thường"}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường hình ảnh tuyến giáp."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_MACH_CANH' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_MACH_CANH', 2, 'Kết quả siêu âm động mạch cảnh', doi.nhom, $khung$[{"ma": "trai", "ten": "Bên trái", "block": [{"ma": "trai_cca", "ten": "Bên trái — Động mạch cảnh chung (CCA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "trai_hanh_canh", "ten": "Bên trái — Hành cảnh", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "trai_ica", "ten": "Bên trái — Động mạch cảnh trong (ICA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "trai_va", "ten": "Bên trái — Động mạch đốt sống (VA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}]}, {"ma": "phai", "ten": "Bên phải", "block": [{"ma": "phai_cca", "ten": "Bên phải — Động mạch cảnh chung (CCA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "phai_hanh_canh", "ten": "Bên phải — Hành cảnh", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "phai_ica", "ten": "Bên phải — Động mạch cảnh trong (ICA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}, {"ma": "phai_va", "ten": "Bên phải — Động mạch đốt sống (VA)", "kieu": "text", "mac_dinh": "Tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại hình ảnh phổ sóng và tốc độ dòng chảy hệ thống động mạch cảnh hai bên trong giới hạn bình thường."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_MACH_THAN' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_MACH_THAN', 2, 'Kết quả siêu âm động mạch thận', doi.nhom, $khung$[{"ma": "trai", "ten": "Động mạch thận trái", "block": [{"ma": "trai_goc_psv", "ten": "Động mạch thận trái — Đoạn gốc — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_goc_edv", "ten": "Động mạch thận trái — Đoạn gốc — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_goc_ri", "ten": "Động mạch thận trái — Đoạn gốc — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "trai_ron_psv", "ten": "Động mạch thận trái — Đoạn rốn thận — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_ron_edv", "ten": "Động mạch thận trái — Đoạn rốn thận — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_ron_ri", "ten": "Động mạch thận trái — Đoạn rốn thận — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "trai_nhu_mo_psv", "ten": "Động mạch thận trái — Đoạn nhu mô — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_nhu_mo_edv", "ten": "Động mạch thận trái — Đoạn nhu mô — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_nhu_mo_ri", "ten": "Động mạch thận trái — Đoạn nhu mô — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "trai_thanh_mach", "ten": "Động mạch thận trái — Thành mạch", "kieu": "text", "mac_dinh": "Không thấy mảng vữa xơ, không thấy huyết khối bám thành. Thành mạch liên tục, không thấy lóc tách."}]}, {"ma": "phai", "ten": "Động mạch thận phải", "block": [{"ma": "phai_goc_psv", "ten": "Động mạch thận phải — Đoạn gốc — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_goc_edv", "ten": "Động mạch thận phải — Đoạn gốc — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_goc_ri", "ten": "Động mạch thận phải — Đoạn gốc — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "phai_ron_psv", "ten": "Động mạch thận phải — Đoạn rốn thận — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_ron_edv", "ten": "Động mạch thận phải — Đoạn rốn thận — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_ron_ri", "ten": "Động mạch thận phải — Đoạn rốn thận — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "phai_nhu_mo_psv", "ten": "Động mạch thận phải — Đoạn nhu mô — PSV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_nhu_mo_edv", "ten": "Động mạch thận phải — Đoạn nhu mô — EDV", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_nhu_mo_ri", "ten": "Động mạch thận phải — Đoạn nhu mô — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "phai_thanh_mach", "ten": "Động mạch thận phải — Thành mạch", "kieu": "text", "mac_dinh": "Không thấy mảng vữa xơ, không thấy huyết khối bám thành. Thành mạch liên tục, không thấy lóc tách."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại hình ảnh phổ sóng và tốc độ dòng chảy hệ thống động mạch thận hai bên trong giới hạn bình thường."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_DOPPLER_AM_VAT' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_DOPPLER_AM_VAT', 2, 'Siêu âm Doppler âm vật', doi.nhom, $khung$[{"ma": "am_vat", "ten": "Siêu âm âm vật", "block": [{"ma": "cau_truc", "ten": "Cấu trúc", "kieu": "text", "mac_dinh": "Không thấy bất thường cấu trúc quy đầu âm vật, thân âm vật, hành tiền đình và thể hang âm vật."}, {"ma": "vat_hang_phai", "ten": "Vật hang — bên phải", "kieu": "text", "goi_y": "… x … mm"}, {"ma": "vat_hang_trai", "ten": "Vật hang — bên trái", "kieu": "text", "goi_y": "… x … mm"}, {"ma": "vat_xop_phai", "ten": "Vật xốp — bên phải", "kieu": "text", "goi_y": "… x … mm"}, {"ma": "vat_xop_trai", "ten": "Vật xốp — bên trái", "kieu": "text", "goi_y": "… x … mm"}, {"ma": "than_am_vat", "ten": "Thân âm vật", "kieu": "text", "goi_y": "… x … mm"}]}, {"ma": "dm_vat_hang", "ten": "ĐM vật hang", "block": [{"ma": "phai_vmax", "ten": "Bên phải — Vmax", "kieu": "text", "goi_y": "cm/s"}, {"ma": "phai_ri", "ten": "Bên phải — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "phai_pho", "ten": "Bên phải — Phổ Doppler", "kieu": "text", "mac_dinh": "Dạng một pha đỉnh nhọn."}, {"ma": "trai_vmax", "ten": "Bên trái — Vmax", "kieu": "text", "goi_y": "cm/s"}, {"ma": "trai_ri", "ten": "Bên trái — RI", "kieu": "text", "goi_y": "0.xx"}, {"ma": "trai_pho", "ten": "Bên trái — Phổ Doppler", "kieu": "text", "mac_dinh": "Dạng một pha đỉnh nhọn."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Cấu trúc giải phẫu và tuần hoàn âm vật trong giới hạn bình thường."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_TINH_HOAN' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_TINH_HOAN', 2, 'Kết quả siêu âm tinh hoàn', doi.nhom, $khung$[{"ma": "trai", "ten": "Tinh hoàn trái", "block": [{"ma": "trai_kich_thuoc", "ten": "Tinh hoàn trái — Kích thước", "kieu": "text", "goi_y": "… x … x … mm"}, {"ma": "trai_mao_tinh", "ten": "Tinh hoàn trái — Mào tinh hoàn", "kieu": "text", "mac_dinh": "Không thấy bất thường."}, {"ma": "trai_nhu_mo", "ten": "Tinh hoàn trái — Nhu mô", "kieu": "text", "mac_dinh": "Đồng nhất, không thấy khối khu trú."}, {"ma": "trai_tm_truoc", "ten": "Tinh hoàn trái — TM thừng tinh trước Valsalva", "kieu": "text", "goi_y": "mm"}, {"ma": "trai_tm_sau", "ten": "Tinh hoàn trái — TM thừng tinh sau Valsalva", "kieu": "text", "goi_y": "mm"}, {"ma": "trai_trao_nguoc", "ten": "Tinh hoàn trái — Dòng trào ngược", "kieu": "text", "mac_dinh": "Không thấy dòng trào ngược."}]}, {"ma": "phai", "ten": "Tinh hoàn phải", "block": [{"ma": "phai_kich_thuoc", "ten": "Tinh hoàn phải — Kích thước", "kieu": "text", "goi_y": "… x … x … mm"}, {"ma": "phai_mao_tinh", "ten": "Tinh hoàn phải — Mào tinh hoàn", "kieu": "text", "mac_dinh": "Không thấy bất thường."}, {"ma": "phai_nhu_mo", "ten": "Tinh hoàn phải — Nhu mô", "kieu": "text", "mac_dinh": "Đồng nhất, không thấy khối khu trú."}, {"ma": "phai_tm_truoc", "ten": "Tinh hoàn phải — TM thừng tinh trước Valsalva", "kieu": "text", "goi_y": "mm"}, {"ma": "phai_tm_sau", "ten": "Tinh hoàn phải — TM thừng tinh sau Valsalva", "kieu": "text", "goi_y": "mm"}, {"ma": "phai_trao_nguoc", "ten": "Tinh hoàn phải — Dòng trào ngược", "kieu": "text", "mac_dinh": "Không thấy dòng trào ngược."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hình ảnh siêu âm tinh hoàn hai bên hiện tại không thấy bất thường."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_TC_BT' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_TC_BT', 2, 'Kết quả siêu âm tử cung buồng trứng', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh", "block": [{"ma": "buong_trung_trai", "ten": "Buồng trứng trái", "kieu": "text", "mac_dinh": "Sơ bộ chưa thấy bất thường."}, {"ma": "buong_trung_phai", "ten": "Buồng trứng phải", "kieu": "text", "mac_dinh": "Sơ bộ chưa thấy bất thường."}, {"ma": "hinh_thai_tc", "ten": "Hình thái tử cung", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "tu_the", "ten": "Tư thế tử cung", "kieu": "chon", "chon": ["Ngả trước", "Ngả sau", "Trung gian"], "mac_dinh": "Ngả trước"}, {"ma": "co_tc", "ten": "Cơ tử cung", "kieu": "text", "mac_dinh": "Tương đối đồng nhất, không thấy khối bất thường."}, {"ma": "niem_mac", "ten": "Niêm mạc tử cung", "kieu": "text", "goi_y": "mm"}, {"ma": "douglas", "ten": "Túi cùng Douglas", "kieu": "text", "mac_dinh": "Không có dịch."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường hình ảnh tử cung buồng trứng."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_TC_PP' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_TC_PP', 2, 'Kết quả siêu âm tử cung phần phụ', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh", "block": [{"ma": "tu_the", "ten": "Tư thế tử cung", "kieu": "chon", "chon": ["Ngả trước", "Ngả sau", "Trung gian"], "mac_dinh": "Ngả trước"}, {"ma": "hinh_thai_tc", "ten": "Hình thái tử cung", "kieu": "text", "mac_dinh": "Bình thường, kích thước không to."}, {"ma": "co_tc", "ten": "Cơ tử cung", "kieu": "text", "mac_dinh": "Tương đối đồng nhất, không thấy khối bất thường."}, {"ma": "niem_mac", "ten": "Niêm mạc tử cung", "kieu": "text", "goi_y": "mm"}, {"ma": "buong_trung_phai", "ten": "Buồng trứng phải", "kieu": "text", "mac_dinh": "Sơ bộ chưa thấy bất thường."}, {"ma": "buong_trung_trai", "ten": "Buồng trứng trái", "kieu": "text", "mac_dinh": "Sơ bộ chưa thấy bất thường."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Túi cùng Douglas không có dịch."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường hình ảnh tử cung phần phụ."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_THAI_SOM' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_THAI_SOM', 2, 'Kết quả siêu âm thai sớm (dưới 11 tuần)', doi.nhom, $khung$[{"ma": "mo_ta", "ten": "Mô tả hình ảnh", "block": [{"ma": "so_luong_thai", "ten": "Số lượng thai trong buồng tử cung", "kieu": "text", "mac_dinh": "01 thai"}, {"ma": "crl", "ten": "Chiều dài đầu mông (CRL)", "kieu": "text", "goi_y": "mm"}, {"ma": "ga", "ten": "Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "edd", "ten": "Dự kiến sinh", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "fhr", "ten": "Tim thai (FHR)", "kieu": "text", "mac_dinh": "Dương tính"}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Không thấy tụ dịch dưới màng nuôi."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hình ảnh 01 thai trong buồng tử cung, tương đương … tuần … ngày. Tim thai dương tính."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_THAI_QUY_1' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_THAI_QUY_1', 2, 'Kết quả siêu âm thai quý I', doi.nhom, $khung$[{"ma": "tham_so", "ten": "Tham số sinh học", "block": [{"ma": "so_luong_thai", "ten": "Số lượng thai trong buồng tử cung", "kieu": "text", "mac_dinh": "01 thai"}, {"ma": "crl", "ten": "Chiều dài đầu mông (CRL)", "kieu": "text", "goi_y": "mm"}, {"ma": "ga", "ten": "Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "edd", "ten": "Dự kiến sinh", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "fhr", "ten": "Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "nt", "ten": "Độ mờ da gáy (NT)", "kieu": "text", "goi_y": "mm"}, {"ma": "bpd", "ten": "Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "hc", "ten": "Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "ac", "ten": "Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "fl", "ten": "Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "efw", "ten": "Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± … grams"}, {"ma": "nbl", "ten": "Độ dài xương mũi (NBL)", "kieu": "text", "goi_y": "mm"}]}, {"ma": "hinh_thai", "ten": "Hình thái thai nhi", "block": [{"ma": "dau_mat_co", "ten": "Đầu mặt cổ", "kieu": "doan_van", "mac_dinh": "Đường giữa cân đối. Đám rối mạch mạc lấp đầy não thất bên. Hố sau bình thường. Không có khuyết hàm trên."}, {"ma": "nguc_bung_tu_chi", "ten": "Ngực - bụng và tứ chi", "kieu": "doan_van", "mac_dinh": "Lồng ngực cân đối. Mỏm tim quay trái. Thành bụng liên tục. Đủ 4 chi."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Nhau thai bám rộng. Khảo sát Doppler không thấy bất thường."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hình ảnh 01 thai trong buồng tử cung, tương đương … tuần … ngày. Tim thai dương tính, cử động thai tốt."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_THAI_QUY_23' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_THAI_QUY_23', 2, 'Kết quả siêu âm thai quý II - III', doi.nhom, $khung$[{"ma": "tham_so", "ten": "Tham số sinh học", "block": [{"ma": "so_luong_thai", "ten": "Số lượng thai trong buồng tử cung", "kieu": "text", "mac_dinh": "01 thai"}, {"ma": "ga", "ten": "Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "edd", "ten": "Dự kiến sinh (theo quý I)", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "fhr", "ten": "Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "ngoi_thai", "ten": "Ngôi thai", "kieu": "text"}, {"ma": "bpd", "ten": "Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "hc", "ten": "Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "ac", "ten": "Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "fl", "ten": "Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "efw", "ten": "Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± … grams"}]}, {"ma": "hinh_thai", "ten": "Hình thái thai nhi", "block": [{"ma": "vp", "ten": "Kích thước não thất bên (Vp)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "tieu_nao", "ten": "Đường kính tiểu não (Cerebellum)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "ho_sau", "ten": "Hố sau (CM)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "bod", "ten": "Đường kính hai hốc mắt (BOD)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "nbl", "ten": "Độ dài xương mũi (NBL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "hl", "ten": "Độ dài xương cánh tay (HL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "dau_mat_co", "ten": "Đầu mặt cổ", "kieu": "doan_van", "mac_dinh": "Hai bán cầu đại não cân đối. Hộp vách trong suốt rõ. Xương vòm sọ liên tục. Môi trên liên tục. Nhãn cầu cân đối, thủy tinh thể rõ."}, {"ma": "tim_long_nguc", "ten": "Tim và lồng ngực", "kieu": "doan_van", "mac_dinh": "Lồng ngực cân đối. Mỏm tim quay trái, đủ 4 buồng tim, đại động mạch bắt chéo."}, {"ma": "o_bung", "ten": "Ổ bụng", "kieu": "text", "mac_dinh": "Bóng dạ dày rõ. Quan sát thấy thận hai bên."}, {"ma": "tu_chi", "ten": "Tứ chi", "kieu": "text", "mac_dinh": "Đủ 4 chi. Bàn tay tư thế nắm. Sơ bộ chưa thấy bất thường trục chi."}]}, {"ma": "phan_phu", "ten": "Phần phụ thai nhi", "block": [{"ma": "nhau_thai", "ten": "Nhau thai", "kieu": "text", "mac_dinh": "Không thấy máu tụ sau nhau. Độ dày bình thường."}, {"ma": "day_ron", "ten": "Dây rốn", "kieu": "text", "mac_dinh": "2 động mạch, 1 tĩnh mạch, hiện tại chưa thấy bất thường."}, {"ma": "nuoc_oi", "ten": "Nước ối", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Khảo sát Doppler chưa thấy bất thường."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hình ảnh 01 thai trong buồng tử cung. Tim thai dương tính, cử động thai tốt."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_SONG_THAI_QUY_1' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_SONG_THAI_QUY_1', 2, 'Kết quả siêu âm song thai quý I', doi.nhom, $khung$[{"ma": "chung", "ten": "Mô tả hình ảnh", "block": [{"ma": "so_luong_thai", "ten": "Số lượng thai trong buồng tử cung", "kieu": "text", "mac_dinh": "02 thai"}, {"ma": "loai_song_thai", "ten": "Loại song thai", "kieu": "chon", "chon": ["1 bánh nhau - 2 buồng ối (MCDA)", "2 bánh nhau - 2 buồng ối (DCDA)", "1 bánh nhau - 1 buồng ối (MCMA)"]}]}, {"ma": "thai_a", "ten": "Thai A", "block": [{"ma": "a_crl", "ten": "Thai A — Chiều dài đầu mông (CRL)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_ga", "ten": "Thai A — Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "a_edd", "ten": "Thai A — Dự kiến sinh", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "a_fhr", "ten": "Thai A — Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "a_nt", "ten": "Thai A — Độ mờ da gáy (NT)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_bpd", "ten": "Thai A — Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_hc", "ten": "Thai A — Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_ac", "ten": "Thai A — Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_fl", "ten": "Thai A — Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_efw", "ten": "Thai A — Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± 200 grams"}, {"ma": "a_dau_mat_co", "ten": "Thai A — Đầu mặt cổ", "kieu": "doan_van", "mac_dinh": "Xương sọ bình thường. Đường giữa bình thường. Đám rối mạch mạc lấp đầy não thất bên. Quan sát rõ các cấu trúc Thalamus, Midbrain, Brainstem. Hố sau bình thường. Chỉ số BS/BSOB < 1. Không có khuyết hàm trên. Độ dài xương mũi (NBL) bình thường. Góc FMF < 85°. Chỉ số PT/NBL < 0.6. IT (não thất IV) < 2.5 mm."}, {"ma": "a_lung_nguc_bung_chi", "ten": "Thai A — Vùng lưng, ngực - bụng và tứ chi", "kieu": "doan_van", "mac_dinh": "Cột sống bình thường. Da vùng lưng liên tục. Hai trường phổi cân đối. Không thấy mass lồng ngực. Không thấy tràn dịch vùng ngực. Hình dạ dày góc trên trái. Thành bụng liên tục. Không thấy thoát vị thành bụng. Đủ 4 chi. Mỗi chi đủ 3 đoạn."}]}, {"ma": "thai_b", "ten": "Thai B", "block": [{"ma": "b_crl", "ten": "Thai B — Chiều dài đầu mông (CRL)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_ga", "ten": "Thai B — Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "b_edd", "ten": "Thai B — Dự kiến sinh", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "b_fhr", "ten": "Thai B — Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "b_nt", "ten": "Thai B — Độ mờ da gáy (NT)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_bpd", "ten": "Thai B — Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_hc", "ten": "Thai B — Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_ac", "ten": "Thai B — Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_fl", "ten": "Thai B — Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_efw", "ten": "Thai B — Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± 200 grams"}, {"ma": "b_dau_mat_co", "ten": "Thai B — Đầu mặt cổ", "kieu": "doan_van", "mac_dinh": "Xương sọ bình thường. Đường giữa bình thường. Đám rối mạch mạc lấp đầy não thất bên. Quan sát rõ các cấu trúc Thalamus, Midbrain, Brainstem. Hố sau bình thường. Chỉ số BS/BSOB < 1. Không có khuyết hàm trên. Độ dài xương mũi (NBL) bình thường. Góc FMF < 85°. Chỉ số PT/NBL < 0.6. IT (não thất IV) < 2.5 mm."}, {"ma": "b_lung_nguc_bung_chi", "ten": "Thai B — Vùng lưng, ngực - bụng và tứ chi", "kieu": "doan_van", "mac_dinh": "Cột sống bình thường. Da vùng lưng liên tục. Hai trường phổi cân đối. Không thấy mass lồng ngực. Không thấy tràn dịch vùng ngực. Hình dạ dày góc trên trái. Thành bụng liên tục. Không thấy thoát vị thành bụng. Đủ 4 chi. Mỗi chi đủ 3 đoạn."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van", "mac_dinh": "Nhau thai bám rộng."}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Song thai sống phát triển đồng đều, NT trong giới hạn bình thường."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SA_SONG_THAI_QUY_23' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SA_SONG_THAI_QUY_23', 2, 'Kết quả siêu âm song thai quý II - III', doi.nhom, $khung$[{"ma": "chung", "ten": "Mô tả hình ảnh", "block": [{"ma": "so_luong_thai", "ten": "Số lượng thai trong buồng tử cung", "kieu": "text", "mac_dinh": "02 thai"}]}, {"ma": "thai_a", "ten": "Thai A", "block": [{"ma": "a_ga", "ten": "Thai A — Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "a_edd", "ten": "Thai A — Dự kiến sinh (theo quý I)", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "a_fhr", "ten": "Thai A — Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "a_bpp", "ten": "Thai A — Trắc đồ sinh vật lý (BPP)", "kieu": "text", "goi_y": "…/8"}, {"ma": "a_ngoi_thai", "ten": "Thai A — Ngôi thai", "kieu": "text"}, {"ma": "a_bpd", "ten": "Thai A — Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_hc", "ten": "Thai A — Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_ac", "ten": "Thai A — Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_fl", "ten": "Thai A — Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "a_efw", "ten": "Thai A — Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± 300 grams"}, {"ma": "a_vp", "ten": "Thai A — Kích thước não thất bên (Vp)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_tieu_nao", "ten": "Thai A — Đường kính tiểu não (Cerebellum)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_ho_sau", "ten": "Thai A — Hố sau (CM)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_bod", "ten": "Thai A — Đường kính hai hốc mắt (BOD)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_nbl", "ten": "Thai A — Độ dài xương mũi (NBL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_hl", "ten": "Thai A — Độ dài xương cánh tay (HL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "a_foot", "ten": "Thai A — Độ dài bàn chân (Foot)", "kieu": "text", "mac_dinh": "Bình thường."}]}, {"ma": "thai_b", "ten": "Thai B", "block": [{"ma": "b_ga", "ten": "Thai B — Tuổi thai ước tính (GA)", "kieu": "text", "goi_y": "… tuần … ngày"}, {"ma": "b_edd", "ten": "Thai B — Dự kiến sinh (theo quý I)", "kieu": "text", "goi_y": "dd/mm/yyyy"}, {"ma": "b_fhr", "ten": "Thai B — Tim thai (FHR)", "kieu": "text", "goi_y": "… chu kỳ/phút"}, {"ma": "b_bpp", "ten": "Thai B — Trắc đồ sinh vật lý (BPP)", "kieu": "text", "goi_y": "…/8"}, {"ma": "b_ngoi_thai", "ten": "Thai B — Ngôi thai", "kieu": "text"}, {"ma": "b_bpd", "ten": "Thai B — Đường kính lưỡng đỉnh (BPD)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_hc", "ten": "Thai B — Chu vi vòng đầu (HC)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_ac", "ten": "Thai B — Chu vi vòng bụng (AC)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_fl", "ten": "Thai B — Chiều dài xương đùi (FL)", "kieu": "text", "goi_y": "mm"}, {"ma": "b_efw", "ten": "Thai B — Cân nặng ước tính (EFW)", "kieu": "text", "goi_y": "… ± 300 grams"}, {"ma": "b_vp", "ten": "Thai B — Kích thước não thất bên (Vp)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_tieu_nao", "ten": "Thai B — Đường kính tiểu não (Cerebellum)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_ho_sau", "ten": "Thai B — Hố sau (CM)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_bod", "ten": "Thai B — Đường kính hai hốc mắt (BOD)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_nbl", "ten": "Thai B — Độ dài xương mũi (NBL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_hl", "ten": "Thai B — Độ dài xương cánh tay (HL)", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "b_foot", "ten": "Thai B — Độ dài bàn chân (Foot)", "kieu": "text", "mac_dinh": "Bình thường."}]}, {"ma": "hinh_thai", "ten": "Hình thái thai nhi", "block": [{"ma": "dau_mat_co", "ten": "Đầu mặt cổ hai thai", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}, {"ma": "tim_long_nguc", "ten": "Tim và lồng ngực", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}, {"ma": "o_bung", "ten": "Ổ bụng", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}, {"ma": "tu_chi", "ten": "Tứ chi", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}]}, {"ma": "phan_phu", "ten": "Phần phụ thai nhi", "block": [{"ma": "nhau_thai", "ten": "Nhau thai", "kieu": "text", "mac_dinh": "Không thấy máu tụ sau nhau. Độ dày bình thường."}, {"ma": "day_ron", "ten": "Dây rốn hai thai", "kieu": "text", "mac_dinh": "2 động mạch, 1 tĩnh mạch, hiện tại chưa thấy bất thường."}, {"ma": "nuoc_oi", "ten": "Nước ối", "kieu": "text", "mac_dinh": "Chưa thấy bất thường."}, {"ma": "doppler", "ten": "Khảo sát Doppler", "kieu": "text", "mac_dinh": "Sơ bộ chưa thấy bất thường."}]}, {"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "block": [{"ma": "hinh_anh_khac", "ten": "Hình ảnh khác", "kieu": "doan_van"}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van", "mac_dinh": "Hiện tại không thấy bất thường ở tuần thai này."}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_SOI_AM_HO' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_SOI_AM_HO', 2, 'Phiếu soi âm hộ', doi.nhom, $khung$[{"ma": "ket_qua", "ten": "Kết quả soi âm hộ", "block": [{"ma": "quy_dau_am_vat", "ten": "Quy đầu âm vật", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "tien_dinh_am_ho", "ten": "Tiền đình âm hộ", "kieu": "text", "mac_dinh": "Bình thường."}, {"ma": "test_ran", "ten": "Test rặn", "kieu": "text", "mac_dinh": "Không sa."}, {"ma": "oxford", "ten": "Cơ lực âm đạo theo Oxford cải tiến", "kieu": "chon", "chon": ["Độ 0", "Độ 1", "Độ 2", "Độ 3", "Độ 4", "Độ 5"]}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_XN_HPV' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_XN_HPV', 2, 'Kết quả xét nghiệm HPV Genotype', doi.nhom, $khung$[{"ma": "ket_qua", "ten": "Kết quả", "block": [{"ma": "hpv_16", "ten": "HPV type 16", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}, {"ma": "hpv_18", "ten": "HPV type 18", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}, {"ma": "nguy_co_cao_khac", "ten": "18 type HPV nguy cơ cao khác", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}, {"ma": "hpv_6", "ten": "HPV type 6", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}, {"ma": "hpv_11", "ten": "HPV type 11", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}, {"ma": "nguy_co_thap_khac", "ten": "18 type HPV nguy cơ thấp khác", "kieu": "chon", "chon": ["ÂM TÍNH", "DƯƠNG TÍNH"]}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_XN_PCR_STDS' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_XN_PCR_STDS', 2, 'KQXN PCR 13 tác nhân gây bệnh lây truyền tình dục', doi.nhom, $khung$[{"ma": "ket_qua", "ten": "Kết quả", "block": [{"ma": "ket_qua_chi_tiet", "ten": "Kết quả 13 tác nhân", "kieu": "doan_van", "goi_y": "Ghi từng tác nhân dương tính; tệp của đối tác đính kèm ở Ảnh · tệp"}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;
+
+WITH doi AS (
+    UPDATE public.form_definition d
+       SET trang_thai = 'RETIRED'
+     WHERE d.form_id = 'KQ_XN_TONG_QUAT' AND d.version = 1 AND d.trang_thai = 'PUBLISHED'
+       AND d.xuat_ban_boi IS NULL
+       AND NOT EXISTS (SELECT 1 FROM public.form_definition n
+                        WHERE n.clinic_id = d.clinic_id AND n.form_id = d.form_id
+                          AND n.version > 1)
+    RETURNING d.clinic_id, d.nhom
+)
+INSERT INTO public.form_definition
+    (clinic_id, form_id, version, ten, nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)
+SELECT doi.clinic_id, 'KQ_XN_TONG_QUAT', 2, 'Phiếu kết quả xét nghiệm Tổng Quát (TrueMedicine)', doi.nhom, $khung$[{"ma": "ket_qua", "ten": "Kết quả", "block": [{"ma": "ket_qua_chi_tiet", "ten": "Kết quả chi tiết", "kieu": "doan_van", "goi_y": "Tệp của đối tác đính kèm ở Ảnh · tệp; ghi chỉ số bất thường"}]}, {"ma": "ket_luan", "ten": "Kết luận", "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"}]}, {"ma": "de_nghi", "ten": "Đề nghị", "block": [{"ma": "de_nghi", "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}]}]$khung$::jsonb,
+       'PUBLISHED', NULL, now()
+  FROM doi;

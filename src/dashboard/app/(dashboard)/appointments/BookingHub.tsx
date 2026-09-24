@@ -37,7 +37,7 @@ import LichSapToiCuaKhach, {
   type TrangThaiTra,
 } from "./LichSapToiCuaKhach";
 import BangBacSiTuan from "./BangBacSiTuan";
-import { CHANNELS } from "../form-ui";
+import { CHANNELS_CHON, KENH_GIOI_THIEU } from "../form-ui";
 import { canCheckin, type ClinicRole } from "../../../lib/roles";
 import { useGiuCho } from "./dung-giu-cho";
 import { type ThongTinKhung } from "./cho-trong";
@@ -499,6 +499,7 @@ export default function BookingHub({
   /** Kênh khách liên hệ đặt lịch (Tuyền chốt danh sách 16/09/2026). Trước đây
    *  mọi lịch CSKH đặt đều gán cứng "HOTLINE". */
   const [kenhDat, setKenhDat] = useState("DIEN_THOAI");
+  const [gioiThieu, setGioiThieu] = useState("");
   const [confirmedMsg, setConfirmedMsg] = useState<string | null>(null);
   // ĐẶT XONG THÌ PHẢI THẤY NGAY TẠI CHỖ VỪA BẤM.
   //
@@ -794,6 +795,8 @@ export default function BookingHub({
           // backend mặc định "WALK_IN", nên mọi lịch CSKH đặt đều ăn vào ô để
           // dành cho khách đến thẳng quầy, còn ô đặt trước thì trống. Nói rõ ra.
           booking_channel: kenhDat,
+          nguoi_gioi_thieu:
+            kenhDat === KENH_GIOI_THIEU ? gioiThieu.trim() || undefined : undefined,
           notes: note,
         }),
       });
@@ -1499,7 +1502,7 @@ export default function BookingHub({
                   onChange={(e) => setKenhDat(e.target.value)}
                   className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
                 >
-                  {CHANNELS.filter(
+                  {CHANNELS_CHON.filter(
                     (c) => c.id !== "WALK_IN" || canCheckin(vai),
                   ).map((c) => (
                     <option key={c.id} value={c.id}>
@@ -1507,6 +1510,16 @@ export default function BookingHub({
                     </option>
                   ))}
                 </select>
+                {kenhDat === KENH_GIOI_THIEU ? (
+                  <input
+                    value={gioiThieu}
+                    onChange={(e) => setGioiThieu(e.target.value)}
+                    maxLength={200}
+                    placeholder="Ai giới thiệu? (lưu vào hồ sơ khám)"
+                    aria-label="Người giới thiệu"
+                    className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
+                  />
+                ) : null}
               </div>
 
               {/* Note */}

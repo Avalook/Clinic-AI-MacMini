@@ -13,8 +13,10 @@
 
 import { useState, useTransition } from "react";
 import { Layers, DoorOpen, Users, Check, AlertTriangle, ClipboardList } from "lucide-react";
+import Button from "@/components/ui/Button";
 import type {
   ConfigLocation,
+  ConfigMissing,
   ConfigService,
   ConfigStaff,
   FormDef,
@@ -30,11 +32,13 @@ export default function ClinicConfigBoard({
   nodes,
   forms,
   ok,
+  configMissing,
 }: {
   initialLocations: ConfigLocation[];
   initialStaff: ConfigStaff[];
   initialServices: ConfigService[];
   nodes: NodeDef[];
+  configMissing: ConfigMissing[];
   forms: FormDef[];
   ok: boolean;
 }) {
@@ -61,6 +65,69 @@ export default function ClinicConfigBoard({
       // "Lưu thất bại" — câu chung chung không cho biết phải sửa gì.
       throw new Error(body.detail ?? body.error ?? "Không lưu được.");
     }
+  }
+
+  // ── Phòng là TÀI NGUYÊN (CORE-C, 23/09/2026) ──────────────────────────────
+  // Định danh là room_id; tên đổi tự do. Sau mỗi lệnh thêm/đổi/bật-tắt thì đọc
+  // lại sơ đồ từ máy chủ — không tự đoán trạng thái sau khi tạo phòng mới.
+  const [thieu, setThieu] = useState(configMissing);
+  const [moi, setMoi] = useState<Record<string, { ten: string; buoc: string; tang: string }>>({});
+
+  async function docLai() {
+    const r = await fetch("/api/clinic-config?what=overview", { cache: "no-store" });
+    const d = (await r.json().catch(() => null)) as {
+      locations?: ConfigLocation[];
+      config_missing?: ConfigMissing[];
+    } | null;
+    if (d?.locations) setLocations(d.locations);
+    if (d?.config_missing) setThieu(d.config_missing);
+  }
+
+  function lamRoiDocLai(viec: () => Promise<void>, khoa: string) {
+    setErr(null);
+    startTransition(async () => {
+      try {
+        await viec();
+        await docLai();
+        setSaved(khoa);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
+  function doiTenPhong(roomId: string, ten: string) {
+    lamRoiDocLai(() => send("room-name", { room_id: roomId, name: ten }), roomId);
+  }
+
+  function batTatPhong(roomId: string, bat: boolean) {
+    lamRoiDocLai(() => send("room-active", { room_id: roomId, is_active: bat }), roomId);
+  }
+
+  function themPhong(locationId: string) {
+    const f = moi[locationId];
+    if (!f?.ten.trim() || !f.buoc) {
+      setErr("Nhập tên phòng và chọn phòng làm việc gì.");
+      return;
+    }
+    lamRoiDocLai(async () => {
+      const res = await fetch("/api/clinic-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          what: "room-create",
+          location_id: locationId,
+          name: f.ten.trim(),
+          node_code: f.buoc,
+          floor: f.tang.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { detail?: string; error?: string };
+        throw new Error(body.detail ?? body.error ?? "Không thêm được phòng.");
+      }
+      setMoi((m) => ({ ...m, [locationId]: { ten: "", buoc: "", tang: "" } }));
+    }, locationId);
   }
 
   function saveRoomFloor(roomId: string, floor: string) {
@@ -198,6 +265,20 @@ export default function ClinicConfigBoard({
         </div>
       )}
 
+      {thieu.length > 0 && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-card border border-warning bg-warning-bg px-4 py-3 text-sm text-warning"
+        >
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            <b>Chưa có phòng nào làm:</b> {thieu.map((t) => t.name).join(" · ")}. Chỉ
+            định vào các bước này sẽ không xếp được phòng — thêm phòng hoặc gắn
+            bước vào một phòng có sẵn.
+          </span>
+        </div>
+      )}
+
       {/* ── Sơ đồ: cơ sở → tầng → phòng ─────────────────────────────────── */}
       {locations.map((loc) => (
         <section
@@ -242,15 +323,35 @@ export default function ClinicConfigBoard({
                       className="rounded-lg border border-line bg-brand-50/40 p-3"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-ink">{r.code}</span>
-                        {r.name && r.name !== r.code && (
-                          <span className="text-sm text-ink-soft">{r.name}</span>
-                        )}
+                        {/* TÊN là dữ liệu hiển thị — đổi tự do, room_id giữ
+                            nguyên. Mã nội bộ (r.code) không hiện: nó không mang
+                            nghĩa nghiệp vụ nào (CORE-C, 23/09/2026). */}
+                        <input
+                          type="text"
+                          aria-label="Tên phòng"
+                          defaultValue={r.name ?? ""}
+                          maxLength={80}
+                          disabled={isPending}
+                          onBlur={(e) => {
+                            const ten = e.target.value.trim();
+                            if (ten && ten !== (r.name ?? "")) doiTenPhong(r.room_id, ten);
+                          }}
+                          className="min-w-0 flex-1 rounded-control border border-line bg-surface px-2 py-1 font-medium text-ink disabled:opacity-60"
+                        />
                         {!r.is_active && (
                           <span className="text-label text-ink-muted">
-                            (ngừng)
+                            (đang tắt)
                           </span>
                         )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={r.is_active ? "ghost" : "secondary"}
+                          disabled={isPending}
+                          onClick={() => batTatPhong(r.room_id, !r.is_active)}
+                        >
+                          {r.is_active ? "Tắt phòng" : "Bật phòng"}
+                        </Button>
                         {saved === r.room_id && !isPending && (
                           <Check size={14} className="text-success" />
                         )}
@@ -311,6 +412,80 @@ export default function ClinicConfigBoard({
                 Cơ sở này chưa khai phòng nào.
               </p>
             )}
+            {/* THÊM PHÒNG: tên tự do + phòng làm việc gì (bước chính, bắt buộc)
+                + tầng. Thêm bước khác sau bằng các nút bước của phòng. */}
+            <div className="flex flex-wrap items-end gap-2 px-4 py-3">
+              <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-ink-muted">
+                Tên phòng mới
+                <input
+                  type="text"
+                  maxLength={80}
+                  placeholder="VD: Phòng 201 · Siêu âm 1 · Phòng Hoa"
+                  value={moi[loc.location_id]?.ten ?? ""}
+                  onChange={(e) =>
+                    setMoi((m) => ({
+                      ...m,
+                      [loc.location_id]: {
+                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
+                        ten: e.target.value,
+                      },
+                    }))
+                  }
+                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ink-muted">
+                Làm việc gì
+                <select
+                  value={moi[loc.location_id]?.buoc ?? ""}
+                  onChange={(e) =>
+                    setMoi((m) => ({
+                      ...m,
+                      [loc.location_id]: {
+                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
+                        buoc: e.target.value,
+                      },
+                    }))
+                  }
+                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
+                >
+                  <option value="">— chọn —</option>
+                  {nodes.map((n) => (
+                    <option key={n.code} value={n.code}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-ink-muted">
+                Tầng
+                <input
+                  type="text"
+                  maxLength={40}
+                  placeholder="1 · Trệt"
+                  value={moi[loc.location_id]?.tang ?? ""}
+                  onChange={(e) =>
+                    setMoi((m) => ({
+                      ...m,
+                      [loc.location_id]: {
+                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
+                        tang: e.target.value,
+                      },
+                    }))
+                  }
+                  className="w-24 rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
+                />
+              </label>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                disabled={isPending}
+                onClick={() => themPhong(loc.location_id)}
+              >
+                + Thêm phòng
+              </Button>
+            </div>
           </div>
         </section>
       ))}

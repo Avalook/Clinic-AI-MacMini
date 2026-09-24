@@ -2,7 +2,7 @@
 // ngày: trạng thái đến/XN, phân loại KQ, tình trạng chăm sóc, hẹn tiếp, ghi chú.
 // An toàn khi bảng chưa tồn tại (migration chưa áp) → ẩn section.
 
-import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { fmtDate } from "../../../../lib/datetime";
 
 interface CskhRow {
@@ -30,19 +30,13 @@ function groupColor(g: string | null): string {
 }
 
 export default async function PatientCskhLog({ id }: { id: string }) {
-  const supabase = await getSupabaseServer();
-  const { data, error } = await supabase
-    .from("cskh_log")
-    .select(
-      "id, work_date, slot_time, visit_type, arrived, has_test, tests, result_group, cskh_status, cskh_followup, last_cskh_date, cskh_by, note",
-    )
-    .eq("clinic_patient_id", id)
-    .order("work_date", { ascending: false })
-    .limit(30);
-
-  // Bảng chưa tồn tại / chưa có log cho BN này → ẩn hẳn (không làm rối hồ sơ).
-  if (error) return null;
-  const rows = (data as CskhRow[] | null) ?? [];
+  // 24/09/2026: đọc qua backend `GET /api/v1/ho-so-khach/{id}/cskh` thay vì đọc
+  // thẳng `cskh_log` bằng Supabase. Không đọc được / chưa có → ẩn khối.
+  const doc = await fetchFromBackend<{ items: CskhRow[] }>(
+    `/api/v1/ho-so-khach/${encodeURIComponent(id)}/cskh`,
+  );
+  if (!doc) return null;
+  const rows = doc.items;
   if (rows.length === 0) return null;
 
   return (

@@ -18,10 +18,12 @@ test("đường cũ chỉ còn chuyển hướng, không còn thân màn", () =>
     ["../app/(dashboard)/doctor/board/page.tsx", "/ban-kham"],
     ["../app/(dashboard)/kham/[loai]/page.tsx", "/ban-kham"],
     ["../app/(dashboard)/doctor/orders/[visitId]/page.tsx", "/ban-kham"],
-    ["../app/(dashboard)/sono/page.tsx", "/phong/KN-SA-T1"],
-    ["../app/(dashboard)/sieu-am/page.tsx", "/phong/KN-SA-T1"],
-    ["../app/(dashboard)/service-queue/page.tsx", "/phong/KN-THUTHUAT"],
-    ["../app/(dashboard)/lab-queue/page.tsx", "/phong/KN-LAYMAU"],
+    // Phòng là tài nguyên (CORE-C, 23/09/2026): về danh sách phòng, không về
+    // một mã phòng đoán sẵn.
+    ["../app/(dashboard)/sono/page.tsx", "/phong"],
+    ["../app/(dashboard)/sieu-am/page.tsx", "/phong"],
+    ["../app/(dashboard)/service-queue/page.tsx", "/phong"],
+    ["../app/(dashboard)/lab-queue/page.tsx", "/phong"],
     ["../app/(dashboard)/result-review/page.tsx", "/duyet-ket-qua"],
     ["../app/(dashboard)/luot-kham/page.tsx", "/ban-kham"],
   ] as const) {
@@ -51,7 +53,10 @@ test("mọi mục bàn khám / phòng / duyệt kết quả đều có luật va
   const moi = [...nav.matchAll(/href: "(\/(?:ban-kham|phong|duyet-ket-qua)[^"]*)"/g)].map(
     (m) => m[1],
   );
-  assert.ok(moi.length >= 13, `chỉ thấy ${moi.length} mục mới`);
+  // Hai mục cố định: Bàn khám, Phòng dịch vụ. "Duyệt kết quả" OFF khỏi thanh bên
+  // 23/09/2026 tối (kết quả đọc/điền trong phiếu khám). Mục của từng phòng dựng
+  // từ database theo room_id (CORE-C) — không còn khai trong NAV.
+  assert.deepEqual(moi.sort(), ["/ban-kham", "/phong"]);
   for (const href of moi) {
     assert.match(roles, new RegExp(`"${href}": \\[`), `${href} thiếu luật vai`);
   }

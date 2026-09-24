@@ -798,6 +798,42 @@ class RosterService:
                 week_start=mon, so_lich_cho=int(cho_xep), identity=identity
             )
 
+        # LỊCH MẤT BÁC SĨ vì công bố (Tuyền chốt 24/09/2026). Khách đặt lúc tuần
+        # chưa có lịch trực, chọn bác sĩ A; quản lý công bố tuần mà A nghỉ đúng
+        # ngày ấy → lịch vẫn giữ A nhưng A không có ca. Màn "Chờ xếp bác sĩ" đã
+        # thấy (MAT_BAC_SI), nhưng CHUÔNG chỉ báo "vượt sức chứa" — CSKH không
+        # biết phải gọi khách. Cùng luật "mất bác sĩ" với màn ấy (booking.py).
+        mat = await self._pool.fetch(
+            """
+            SELECT a.slot_start, bs.full_name AS bac_si, p.full_name AS khach
+              FROM public.appointment a
+              LEFT JOIN public.staff bs ON bs.id = a.doctor_id
+              LEFT JOIN public.patient p
+                ON p.clinic_patient_id = a.clinic_patient_id
+               AND p.clinic_id = a.clinic_id
+             WHERE a.clinic_id = $1::uuid
+               AND a.doctor_id IS NOT NULL
+               AND a.slot_start >= now()
+               AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
+                                    'COMPLETED')
+               AND (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                     BETWEEN $2 AND $2 + 6
+               AND NOT EXISTS (
+                     SELECT 1 FROM public.work_roster w
+                      WHERE w.clinic_id = a.clinic_id
+                        AND w.staff_id = a.doctor_id
+                        AND w.work_date =
+                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
+             ORDER BY a.slot_start
+            """,
+            identity.clinic_id,
+            mon,
+        )
+        if mat:
+            await self._bao_lich_mat_bac_si(
+                week_start=mon, mat=list(mat), identity=identity
+            )
+
         # ĐỐI SOÁT LÚC CÔNG BỐ (CONTEXT v1.0). Trước khi công bố, trần không
         # chặn lịch hẹn (20260915000001), nên có thể có khung vượt trần. Giữ
         # hết lịch; liệt kê khung vượt và giao cho Trưởng ca xử lý với khách.
@@ -900,6 +936,61 @@ class RosterService:
                     exc_info=True,
                 )
 
+    async def _bao_lich_mat_bac_si(
+        self, *, week_start: date, mat: list[Any], identity: StaffIdentity
+    ) -> None:
+        """Báo CSKH (gọi khách đổi bác sĩ/giờ) và Trưởng ca (xếp lại bác sĩ).
+
+        Nuốt lỗi cùng lý do với `_bao_truong_ca_vuot_tran`: lịch trực đã áp và
+        commit; lịch mất bác sĩ vẫn nằm ở màn Chờ xếp bác sĩ.
+        """
+        from clinicai.services.thong_bao_service import ThongBaoService
+
+        dong = [
+            f"{r['slot_start'].astimezone(CLINIC_TZ):%H:%M %d/%m} "
+            f"{r['khach'] or 'khách'} (BS {r['bac_si'] or '?'} nghỉ)"
+            for r in mat[:8]
+        ]
+        them = f" và {len(mat) - 8} lịch khác" if len(mat) > 8 else ""
+        het = week_start + timedelta(days=6)
+        tieu_de = (
+            f"Tuần {week_start:%d/%m}–{het:%d/%m}: {len(mat)} lịch hẹn mất bác "
+            "sĩ sau khi công bố lịch trực"
+        )
+        ds = "; ".join(dong) + them + "."
+        for vai, noi_dung, duong_dan in (
+            (
+                ClinicRole.CSKH.value,
+                "Bác sĩ khách đã chọn không có ca ngày đó. Lịch KHÔNG bị huỷ — "
+                "gọi khách đổi bác sĩ hoặc đổi ngày: " + ds,
+                "/customers",
+            ),
+            (
+                ClinicRole.TRUONG_CA.value,
+                "Bác sĩ của các lịch này không có ca ngày đó — xếp bác sĩ khác "
+                "ở màn Chờ xếp bác sĩ; CSKH đang gọi khách: " + ds,
+                "/appointments/cho-xep-bac-si",
+            ),
+        ):
+            try:
+                await ThongBaoService(self._pool).goi(
+                    identity=identity,
+                    vai_nhan=vai,
+                    nguon="lich_mat_bac_si",
+                    nguon_id=f"{week_start.isoformat()}:{vai}",
+                    muc_do="KHAN",
+                    tieu_de=tieu_de,
+                    noi_dung=noi_dung,
+                    duong_dan=duong_dan,
+                )
+            except Exception:  # noqa: BLE001 — xem docstring
+                logger.warning(
+                    "bao_lich_mat_bac_si_that_bai",
+                    vai=vai,
+                    week_start=week_start.isoformat(),
+                    exc_info=True,
+                )
+
     async def _bao_cskh_tuan_da_co_lich(
         self, *, week_start: date, so_lich_cho: int, identity: StaffIdentity
     ) -> None:
@@ -968,6 +1059,115 @@ class RosterService:
             )
         return [r["week_start"].isoformat() for r in rows]
 
+    async def lich_tuan(self, *, identity: StaffIdentity, tuan: date) -> dict[str, Any]:
+        """Dữ liệu màn Lịch làm việc (/schedule) cho một tuần.
+
+        24/09/2026: trang từng tự đọc 5 bảng bằng Supabase (work_roster, staff,
+        vai_duoc_vao_tram, vi_tri_dong_ca, roster_week). Danh sách nhân sự + trạm
+        theo vai chỉ trả cho người xếp lịch (ROSTER_ROLES) — ô "+" chỉ bày cho họ.
+        `ten_chuan` = `staff.full_name` theo `staff_id` (dòng nhập tay không nối
+        được ai giữ nguyên `staff_name`); giao diện rút gọn tên để hiển thị.
+        """
+        dau = week_start_of(tuan)
+        cuoi = dau + timedelta(days=6)
+        la_quan_ly = identity.co_vai(ROSTER_ROLES)
+        async with self._pool.acquire() as conn:
+            dong = await conn.fetch(
+                """
+                SELECT w.id::text, w.work_date, w.shift, w.station,
+                       w.staff_id::text, w.staff_name, w.status, w.reject_reason,
+                       s.full_name AS ten_chuan
+                  FROM work_roster w
+                  LEFT JOIN staff s ON s.id = w.staff_id
+                 WHERE w.clinic_id = $1::uuid AND w.week_start = $2
+                 ORDER BY w.sort, w.id
+                """,
+                identity.clinic_id,
+                dau,
+            )
+            dong_ca = await conn.fetch(
+                """
+                SELECT work_date, shift, station, ly_do FROM vi_tri_dong_ca
+                 WHERE clinic_id = $1::uuid AND work_date BETWEEN $2 AND $3
+                """,
+                identity.clinic_id,
+                dau,
+                cuoi,
+            )
+            da_ap_dung = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM roster_week"
+                " WHERE clinic_id = $1::uuid AND week_start = $2)",
+                identity.clinic_id,
+                dau,
+            )
+            nhan_su: list[asyncpg.Record] = []
+            tram: list[asyncpg.Record] = []
+            if la_quan_ly:
+                nhan_su = await conn.fetch(
+                    """
+                    SELECT DISTINCT s.id::text, s.full_name, s.short_name,
+                           s.primary_department
+                      FROM staff s
+                      JOIN clinic_membership m ON m.staff_id = s.id
+                     WHERE m.clinic_id = $1::uuid AND s.is_active
+                     ORDER BY s.full_name
+                    """,
+                    identity.clinic_id,
+                )
+                tram = await conn.fetch(
+                    "SELECT vai, tram_ma FROM vai_duoc_vao_tram"
+                    " WHERE clinic_id = $1::uuid AND is_active",
+                    identity.clinic_id,
+                )
+
+        def _d(r: asyncpg.Record) -> dict[str, Any]:
+            return {
+                k: (v.isoformat() if isinstance(v, date) else v) for k, v in r.items()
+            }
+
+        return {
+            "tuan": dau.isoformat(),
+            "da_ap_dung": bool(da_ap_dung),
+            "la_quan_ly": la_quan_ly,
+            "dong": [_d(r) for r in dong],
+            "dong_ca": [_d(r) for r in dong_ca],
+            "nhan_su": [dict(r) for r in nhan_su],
+            "tram_theo_vai": [dict(r) for r in tram],
+        }
+
+    async def bac_si_trong_ngay(
+        self, *, identity: StaffIdentity, ngay: date
+    ) -> dict[str, Any]:
+        """Bác sĩ có ca khám trong ngày (lưới đặt lịch) + tuần đã chốt chưa.
+
+        Chuyển từ route giao diện `/api/roster?date=` (24/09/2026) — nó từng đọc
+        thẳng `roster_week` / `work_roster` bằng Supabase. Luật giữ nguyên (Quang
+        10/08): CÓ phân công thì trả về; tuần chưa áp dụng chỉ là `du_kien`
+        (câu nói thêm), không phải cái khoá.
+        """
+        async with self._pool.acquire() as conn:
+            da_ap_dung = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM roster_week"
+                " WHERE clinic_id = $1::uuid AND week_start = $2)",
+                identity.clinic_id,
+                week_start_of(ngay),
+            )
+            rows = await conn.fetch(
+                """
+                SELECT DISTINCT ON (staff_id) staff_id::text AS id,
+                       coalesce(staff_name, '') AS name
+                  FROM work_roster
+                 WHERE clinic_id = $1::uuid AND work_date = $2
+                   AND station = ANY($3::text[]) AND status = 'APPROVED'
+                   AND staff_id IS NOT NULL
+                 ORDER BY staff_id, created_at
+                """,
+                identity.clinic_id,
+                ngay,
+                sorted(MA_CA_KHAM_BAC_SI),
+            )
+        return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
+
 
 class PriceListService:
     """Maintain the service and medicine price list."""
@@ -998,6 +1198,42 @@ class PriceListService:
             )
             return [dict(r) for r in rows]
 
+    @staticmethod
+    async def _dong_bo_gia_danh_muc_thuoc(
+        conn: asyncpg.Connection, clinic_id: str, ten: str, gia: Any
+    ) -> int:
+        """Giá thuốc sửa ở màn Bảng giá thuốc → danh mục thuốc CÙNG TÊN CHUẨN.
+
+        Hoá đơn (`bill_service`, HOLD J5) lấy giá ở CẢ HAI nguồn — lệch nhau là
+        dòng thuốc "mâu thuẫn giá", không thu được. Màn chỉ sửa `service_price`,
+        nên sửa ở đây mà danh mục không theo là tự khoá quầy (24/09). Ghép tên
+        đúng cách hoá đơn ghép (`norm_name` của name_base / name_raw).
+        """
+        from clinicai.services.cashier_board_service import norm_name
+
+        khoa = norm_name(ten)
+        if not khoa:
+            return 0
+        ids = [
+            r["id"]
+            for r in await conn.fetch(
+                "SELECT id, name_base, name_raw FROM drug_catalog"
+                " WHERE clinic_id = $1::uuid",
+                clinic_id,
+            )
+            if khoa in {norm_name(r["name_base"]), norm_name(r["name_raw"])}
+        ]
+        if ids:
+            await conn.execute(
+                "UPDATE drug_catalog SET unit_price = $2"
+                " WHERE clinic_id = $3::uuid AND id = ANY($1::uuid[])"
+                " AND unit_price IS DISTINCT FROM $2",
+                ids,
+                gia,
+                clinic_id,
+            )
+        return len(ids)
+
     async def add(
         self,
         *,
@@ -1013,7 +1249,7 @@ class PriceListService:
             raise ValidationError("Thiếu mã hoặc tên dịch vụ")
 
         price = parse_price(unit_price)
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
             try:
                 row_id = await conn.fetchval(
                     """
@@ -1030,6 +1266,10 @@ class PriceListService:
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(f"Mã {code} đã có trong nhóm {group}.") from exc
+            if group == "thuoc" and price is not None:
+                await self._dong_bo_gia_danh_muc_thuoc(
+                    conn, identity.clinic_id, label, price
+                )
         return str(row_id)
 
     async def update(
@@ -1054,19 +1294,27 @@ class PriceListService:
 
         columns = list(patch)
         assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
-        async with self._pool.acquire() as conn:
-            updated = await conn.fetchval(
+        async with self._pool.acquire() as conn, conn.transaction():
+            updated = await conn.fetchrow(
                 f"""
                 UPDATE service_price SET {assignments}, updated_at = now()
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
-                RETURNING id
+                RETURNING id, "group", name, unit_price
                 """,
                 price_id,
                 identity.clinic_id,
                 *[patch[c] for c in columns],
             )
-        if updated is None:
-            raise NotFoundError("Không tìm thấy dòng giá")
+            if updated is None:
+                raise NotFoundError("Không tìm thấy dòng giá")
+            if (
+                updated["group"] == "thuoc"
+                and unit_price_provided
+                and updated["unit_price"] is not None
+            ):
+                await self._dong_bo_gia_danh_muc_thuoc(
+                    conn, identity.clinic_id, updated["name"], updated["unit_price"]
+                )
 
     async def remove(self, *, price_id: str, identity: StaffIdentity) -> None:
         async with self._pool.acquire() as conn:

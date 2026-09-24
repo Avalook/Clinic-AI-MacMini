@@ -10,7 +10,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 /** Thao tác cho phép → đường backend. */
@@ -42,18 +41,9 @@ export async function POST(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  // Backend chặn lần nữa (require_role PHARMACIST/MANAGEMENT). Chặn ở đây để
-  // người không có quyền đọc được một câu tiếng Việt thay vì 403 trần.
-  // Lễ tân kiêm quầy thuốc ở Kim Ngưu (Tuyền 16/09/2026) — khớp `_GHI` ở máy chủ.
-  const role = await vaiLamViec(
-    (r) => r === "PHARMACIST" || r === "MANAGEMENT" || r === "RECEPTION",
-  );
-  if (role !== "PHARMACIST" && role !== "MANAGEMENT" && role !== "RECEPTION") {
-    return NextResponse.json(
-      { error: "Chỉ Dược sĩ / Quản lý mới được thao tác kho thuốc." },
-      { status: 403 },
-    );
-  }
+  // Không gác vai ở proxy (24/09/2026): backend hỏi QUYỀN "Nhà thuốc"
+  // (`pharmacy.dispense`) — người được cấp khối trên màn Phân quyền làm được
+  // ngay, không ăn 403 ở cửa ngoài.
 
   const { action } = await params;
   const path = ACTIONS[action];

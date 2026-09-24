@@ -40,6 +40,9 @@ export async function GET(request: Request) {
 // với ba hình dạng riêng — gộp ở đây chỉ để màn hình không phải nhớ ba URL.
 const WRITE_PATHS: Record<string, string> = {
   "room-floor": "/api/v1/clinic-config/room-floor",
+  // Phòng là tài nguyên (23/09/2026): đổi tên / bật-tắt theo room_id.
+  "room-name": "/api/v1/clinic-config/room-name",
+  "room-active": "/api/v1/clinic-config/room-active",
   "room-nodes": "/api/v1/clinic-config/room-nodes",
   "staff-nodes": "/api/v1/clinic-config/staff-nodes",
   "service-form": "/api/v1/clinic-config/service-form",
@@ -64,4 +67,19 @@ export async function PUT(request: Request) {
     );
   }
   return proxyJsonToBackend("PUT", path, payload);
+}
+
+// Thêm phòng (23/09/2026) — POST vì tạo mới; backend tự sinh mã nội bộ.
+export async function POST(request: Request) {
+  if (!(await requireUser()))
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const { what, ...payload } = body;
+  if (what !== "room-create") {
+    return NextResponse.json(
+      { ok: false, error: `Không rõ cần tạo gì: ${String(what)}` },
+      { status: 400 },
+    );
+  }
+  return proxyJsonToBackend("POST", "/api/v1/clinic-config/rooms", payload);
 }

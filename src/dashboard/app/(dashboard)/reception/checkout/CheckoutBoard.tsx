@@ -182,9 +182,11 @@ export default function CheckoutBoard({
       key: "san_sang" as const,
       nhan: `Đủ điều kiện (${pending.filter((r) => r.can_close).length})`,
     },
+    // "Còn việc", không phải "Bị chặn" (Claude chốt 24/09, câu hỏi để ngỏ từ
+    // 23/09): lượt còn việc vẫn đóng được — ghi lý do là xong (không khoá).
     {
       key: "bi_chan" as const,
-      nhan: `Bị chặn (${pending.filter((r) => !r.can_close).length})`,
+      nhan: `Còn việc (${pending.filter((r) => !r.can_close).length})`,
     },
   ];
 

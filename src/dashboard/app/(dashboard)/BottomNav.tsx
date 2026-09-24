@@ -10,7 +10,13 @@ import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
-import { isActiveNav, mucHienRa, mucThanhDuoi, navLabelFor } from "./nav-items";
+import {
+  isActiveNav,
+  mucHienRa,
+  mucThanhDuoi,
+  navLabelFor,
+  type PhongTheoViTri,
+} from "./nav-items";
 
 // How many destinations to surface as tabs before the rest collapse into Menu.
 const MAX_TABS = 4;
@@ -20,11 +26,16 @@ export default function BottomNav({
   onMenu,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  phong = {},
+  quyen = [],
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
   featureMode?: string;
   viTriHomNay?: readonly string[];
+  phong?: PhongTheoViTri;
+  /** Cùng luật với thanh bên — hai thanh lệch nhau là người dùng mất màn. */
+  quyen?: readonly string[];
 }) {
   const pathname = usePathname();
   // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.
@@ -34,10 +45,11 @@ export default function BottomNav({
   // còn điện thoại vẫn hiện lối vào. Hai thanh phải nói cùng một chuyện.
   const visible = mucHienRa(
     role,
-    hienTrenThanhBen,
+    (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,
+    phong,
   );
   const allHrefs = visible.map((v) => v.href);
   // Có ca hôm nay thì `visible` ĐÃ xếp theo việc của hôm nay — lấy đầu danh sách
@@ -49,7 +61,9 @@ export default function BottomNav({
 
   const tabClass = (active: boolean) =>
     [
-      "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium transition-colors duration-150",
+      // min-w-0: nút flex mặc định không co dưới TỪ dài nhất — "(khách của tôi)"
+      // của bác sĩ đẩy nút Menu ra ngoài màn 375 (bấm thật 23/09).
+      "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium transition-colors duration-150",
       active ? "text-brand-600" : "text-ink-muted active:text-ink",
     ].join(" ");
 
@@ -69,7 +83,7 @@ export default function BottomNav({
                   người dùng học "Danh sách bệnh nhân" trên máy tính rồi tìm
                   mãi không thấy nó trên điện thoại vì ở đó nó tên "BN đã khám".
                   Không cắt cụt bằng "…" — "Quản lý khá…" còn tệ hơn xuống dòng. */}
-              <span className="px-0.5 text-center leading-tight">
+              <span className="max-w-full break-words px-0.5 text-center leading-tight">
                 {navLabelFor(item, role)}
               </span>
           </Link>
@@ -79,7 +93,7 @@ export default function BottomNav({
         type="button"
         onClick={onMenu}
         aria-label="Mở menu đầy đủ"
-        className="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium text-ink-muted transition-colors duration-150 active:text-ink"
+        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-label font-medium text-ink-muted transition-colors duration-150 active:text-ink"
       >
         <Menu size={20} strokeWidth={2} />
         <span className="leading-none">Menu</span>

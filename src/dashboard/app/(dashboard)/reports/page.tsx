@@ -1,42 +1,17 @@
 // Báo cáo vận hành (admin-only, defense-in-depth gate giữ nguyên).
-// KPI thật từ Supabase: hôm nay / ngày mai / theo bác sĩ / 30 ngày /
+// KPI thật đọc qua backend (/reports/*): hôm nay / ngày mai / theo bác sĩ / 30 ngày /
 // 7 ngày gần nhất / nguồn đặt lịch. Read-only, KHÔNG hiển thị CCCD.
-// Ô số dùng count query (head: true); chỉ fetch rows thật cho bảng theo
-// bác sĩ + biểu đồ 7 ngày (giới hạn cột cần thiết).
 
 import { redirect } from "next/navigation";
 import StatCard from "../StatCard";
-import { getSupabaseServer } from "../../../lib/supabase-server";
 import { Fragment } from "react";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
-import { vnTodayRangeUtc, fmtDate, VN_TZ } from "../../../lib/datetime";
+import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
 
 export const dynamic = "force-dynamic";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// "Đã xác nhận" cho lịch ngày mai = CSKH_CONFIRMED trở lên trong workflow
-// (CSKH đã gọi hoặc đã đi xa hơn trong quy trình).
-const CONFIRMED_PLUS = [
-  "CSKH_CONFIRMED",
-  "CONFIRMED",
-  "CHECKED_IN",
-  "COMPLETED",
-];
-
-interface DoctorApptRow {
-  doctor_id: string | null;
-  status: string;
-  doctor: { full_name: string } | null;
-}
-
-interface SlotRow {
-  slot_start: string;
-}
-
 
 function pct(n: number, total: number): string {
   if (total <= 0) return "—";
@@ -49,123 +24,46 @@ export default async function ReportsPage() {
   const role = await vaiLamViec(isOpsAdmin);
   if (!isOpsAdmin(role)) redirect("/home");
 
-  const supabase = await getSupabaseServer();
-
-  // Mọi mốc ngày tính theo giờ Việt Nam (UTC+7) — cùng cách với các trang khác.
-  const { startUtc: dayStart, endUtc: dayEnd } = vnTodayRangeUtc();
-  const tomorrowEnd = new Date(new Date(dayEnd).getTime() + DAY_MS).toISOString();
-  const start7 = new Date(new Date(dayEnd).getTime() - 7 * DAY_MS).toISOString();
-  const start30 = new Date(
-    new Date(dayEnd).getTime() - 30 * DAY_MS,
-  ).toISOString();
-
-  const apptCount = (start: string, end: string) =>
-    supabase
-      .from("appointment")
-      .select("*", { count: "exact", head: true })
-      .gte("slot_start", start)
-      .lt("slot_start", end);
-
-  const [
-    // Khối 1 — Hôm nay
-    todayTotalRes,
-    todayDoneRes,
-    todayWaitingRes,
-    todayUnconfirmedRes,
-    todayNoShowRes,
-    // Khối 2 — Ngày mai
-    tmrTotalRes,
-    tmrConfirmedRes,
-    // Khối 3 — theo bác sĩ (rows hôm nay, chỉ cột cần thiết)
-    byDoctorRes,
-    // Khối 4 — 30 ngày
-    doneThirtyRes,
-    noShowThirtyRes,
-    newPatientThirtyRes,
-    // Khối 5 — 7 ngày gần nhất (chỉ slot_start)
-    weekRowsRes,
-    // Khối 6 (nguồn đặt lịch) nay do FastAPI trả cả danh mục lẫn số đếm trong
-    // một lượt — không cần đọc riêng bảng danh mục ở đây nữa.
-  ] = await Promise.all([
-    apptCount(dayStart, dayEnd),
-    apptCount(dayStart, dayEnd).eq("status", "COMPLETED"),
-    apptCount(dayStart, dayEnd).in("status", ["CONFIRMED", "CHECKED_IN"]),
-    apptCount(dayStart, dayEnd).eq("status", "SCHEDULED"),
-    apptCount(dayStart, dayEnd).eq("status", "NO_SHOW"),
-    apptCount(dayEnd, tomorrowEnd),
-    apptCount(dayEnd, tomorrowEnd).in("status", CONFIRMED_PLUS),
-    supabase
-      .from("appointment")
-      .select("doctor_id, status, doctor:staff!doctor_id ( full_name )")
-      .gte("slot_start", dayStart)
-      .lt("slot_start", dayEnd)
-      .limit(500),
-    apptCount(start30, dayEnd).eq("status", "COMPLETED"),
-    apptCount(start30, dayEnd).eq("status", "NO_SHOW"),
-    supabase
-      .from("patient")
-      .select("*", { count: "exact", head: true })
-      .gte("created_at", start30),
-    supabase
-      .from("appointment")
-      .select("slot_start")
-      .gte("slot_start", start7)
-      .lt("slot_start", dayEnd)
-      .limit(2000),
-  ]);
+  // 24/09/2026: mọi ô đếm đọc qua backend MỘT lượt (`/reports/tong-quan`) —
+  // trang từng bắn 12 truy vấn Supabase rời ở 12 thời điểm khác nhau.
+  const tq = await fetchFromBackend<{
+    hom_nay: number;
+    hom_nay_xong: number;
+    hom_nay_cho: number;
+    hom_nay_chua_xn: number;
+    hom_nay_khong_den: number;
+    ngay_mai: number;
+    ngay_mai_xn: number;
+    xong_30: number;
+    khong_den_30: number;
+    khach_moi_30: number;
+    theo_bac_si: { name: string; total: number; done: number; waiting: number }[];
+    theo_ngay: { ngay: string; count: number }[];
+  }>(`/api/v1/reports/tong-quan`);
 
   // ---- Khối 1 + 2 ----
-  const todayTotal = todayTotalRes.count ?? 0;
-  const tmrTotal = tmrTotalRes.count ?? 0;
-  const tmrConfirmed = tmrConfirmedRes.count ?? 0;
+  const todayTotal = tq?.hom_nay ?? 0;
+  const tmrTotal = tq?.ngay_mai ?? 0;
+  const tmrConfirmed = tq?.ngay_mai_xn ?? 0;
 
-  // ---- Khối 3: gom theo bác sĩ ----
-  const doctorRows = (byDoctorRes.data as unknown as DoctorApptRow[] | null) ?? [];
-  const byDoctor = new Map<
-    string,
-    { name: string; total: number; done: number; waiting: number }
-  >();
-  for (const r of doctorRows) {
-    const key = r.doctor_id ?? "__none__";
-    const entry = byDoctor.get(key) ?? {
-      name: r.doctor?.full_name ?? "Chưa phân bác sĩ",
-      total: 0,
-      done: 0,
-      waiting: 0,
-    };
-    entry.total += 1;
-    if (r.status === "COMPLETED") entry.done += 1;
-    if (r.status === "CONFIRMED" || r.status === "CHECKED_IN")
-      entry.waiting += 1;
-    byDoctor.set(key, entry);
-  }
-  const doctorStats = [...byDoctor.values()].sort((a, b) => b.total - a.total);
+  // ---- Khối 3: theo bác sĩ (backend đã gom) ----
+  const doctorStats = tq?.theo_bac_si ?? [];
 
   // ---- Khối 4: 30 ngày ----
-  const done30 = doneThirtyRes.count ?? 0;
-  const noShow30 = noShowThirtyRes.count ?? 0;
+  const done30 = tq?.xong_30 ?? 0;
+  const noShow30 = tq?.khong_den_30 ?? 0;
 
   // ---- Khối 5: đếm lịch hẹn từng ngày (7 ngày gần nhất, theo ngày VN) ----
-  const weekRows = (weekRowsRes.data as SlotRow[] | null) ?? [];
-  const t7 = new Date(start7).getTime();
-  const dayBuckets = Array.from({ length: 7 }, (_, i) => {
-    const s = t7 + i * DAY_MS;
-    const e = s + DAY_MS;
-    const count = weekRows.filter((r) => {
-      const t = new Date(r.slot_start).getTime();
-      return t >= s && t < e;
-    }).length;
-    const d = new Date(s + DAY_MS / 2); // giữa ngày VN, an toàn khi format
-    return {
-      label: d.toLocaleDateString("vi-VN", {
-        timeZone: VN_TZ,
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-      }),
-      count,
-    };
-  });
+  const dayBuckets = (tq?.theo_ngay ?? []).map((b) => ({
+    // Giữa ngày VN, an toàn khi format.
+    label: new Date(`${b.ngay}T12:00:00+07:00`).toLocaleDateString("vi-VN", {
+      timeZone: VN_TZ,
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    }),
+    count: b.count,
+  }));
   const maxDay = Math.max(1, ...dayBuckets.map((b) => b.count));
 
   // ---- Khối 6: nguồn đặt lịch 30 ngày ----
@@ -215,9 +113,7 @@ export default async function ReportsPage() {
   // Số đếm nguồn đặt lịch nay do FastAPI trả; `chan === null` nghĩa là backend
   // không trả lời — cũng là một lỗi đọc, phải hiện ra như các lỗi kia.
   const queryError =
-    todayTotalRes.error ??
-    byDoctorRes.error ??
-    weekRowsRes.error ??
+    (tq ? null : { message: "Không đọc được số liệu báo cáo từ máy chủ." }) ??
     (chan ? null : { message: "Không đọc được nguồn đặt lịch từ máy chủ." });
 
   return (
@@ -252,8 +148,8 @@ export default async function ReportsPage() {
       <Section title="Hôm nay">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Tổng lịch hẹn" value={todayTotal} />
-          <StatCard label="Đã khám xong" value={todayDoneRes.count ?? 0} />
-          <StatCard label="Đang chờ" value={todayWaitingRes.count ?? 0} />
+          <StatCard label="Đã khám xong" value={tq?.hom_nay_xong ?? 0} />
+          <StatCard label="Đang chờ" value={tq?.hom_nay_cho ?? 0} />
           {/* Ô này đếm status = SCHEDULED, mà từ 04/08/2026 lịch mới vào
               thẳng CONFIRMED — vòng gọi-xác-nhận đã bỏ. Nên nó chỉ còn đếm
               LỊCH CŨ đặt trước ngày đó, và sẽ về 0 khi đám cũ khám xong.
@@ -262,9 +158,9 @@ export default async function ReportsPage() {
               "phép đếm này đã hết ý nghĩa". */}
           <StatCard
             label="Lịch cũ chờ xác nhận"
-            value={todayUnconfirmedRes.count ?? 0}
+            value={tq?.hom_nay_chua_xn ?? 0}
           />
-          <StatCard label="Không đến" value={todayNoShowRes.count ?? 0} />
+          <StatCard label="Không đến" value={tq?.hom_nay_khong_den ?? 0} />
         </div>
       </Section>
 
@@ -425,7 +321,7 @@ export default async function ReportsPage() {
           />
           <StatCard
             label="Bệnh nhân mới"
-            value={newPatientThirtyRes.count ?? 0}
+            value={tq?.khach_moi_30 ?? 0}
           />
         </div>
       </Section>

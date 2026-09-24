@@ -1,4 +1,8 @@
-"""Secretary prescriptions remain pending until a physician approves a snapshot."""
+"""Kê đơn: thư ký y khoa ghi THẲNG như bác sĩ (Tuyền chốt 24/09/2026).
+
+Trước 24/09 đơn thư ký nhập là NHÁP chờ bác sĩ duyệt. Nháp cũ còn treo vẫn duyệt
+được (OFF, không xoá); một lần ghi thẳng mới thay nháp.
+"""
 
 from __future__ import annotations
 
@@ -11,12 +15,25 @@ import pytest
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole
 from clinicai.core.exceptions import SafetyGateError
+from tests.quyen_gia import doi_quyen_theo_nhom_mau
 from tests.services.test_clinical_record_revision import (
     STAFF,
     identity,
     save,
     setup_service,
 )
+
+
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`conn` là mock đếm từng lần fetchval — cửa quyền thật (CORE-B3) không
+    chạy được ở đây. Cửa giả trả lời theo nhóm mẫu của vai: điều dưỡng không có
+    "Ghi bệnh án" nên vẫn bị chặn ngay ở cổng, đúng như bài kiểm canh."""
+    monkeypatch.setattr(
+        "clinicai.services.clinical_record_service.doi_quyen",
+        doi_quyen_theo_nhom_mau,
+    )
+
 
 ITEM = {
     "id": None,
@@ -36,10 +53,8 @@ def pending_service() -> tuple[Any, AsyncMock]:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("items", [[ITEM]])
-async def test_secretary_rx_is_stored_as_pending_and_never_written_live(
-    items: list[dict[str, Any]],
-) -> None:
+@pytest.mark.parametrize("items", [[ITEM], []])
+async def test_thu_ky_ghi_thang_don_nhu_bac_si(items: list[dict[str, Any]]) -> None:
     service, conn = setup_service(2)
     conn.fetch.return_value = []
     await save(
@@ -48,48 +63,11 @@ async def test_secretary_rx_is_stored_as_pending_and_never_written_live(
         expected_revision=2,
         prescriptions=items,
     )
-    service._replace_prescriptions.assert_not_awaited()
-    assert "prescription_draft" in conn.fetchval.await_args.args[0]
-    draft = json.loads(conn.fetchval.await_args.args[8])
-    assert draft == {"items": items, "recorded_by": STAFF}
-
-
-@pytest.mark.asyncio
-async def test_secretary_empty_rx_does_not_open_draft() -> None:
-    service, conn = setup_service(2)
-    conn.fetch.return_value = []
-    await save(
-        service,
-        identity=identity(ClinicRole.TKYK),
-        expected_revision=2,
-        prescriptions=[],
-    )
-    service._replace_prescriptions.assert_not_awaited()
-    assert conn.fetchval.await_args.args[8] is None
-
-
-@pytest.mark.asyncio
-async def test_secretary_unchanged_approved_rx_does_not_open_draft() -> None:
-    service, conn = setup_service(2)
-    row_id = "70000000-0000-0000-0000-000000000001"
-    conn.fetch.return_value = [
-        {
-            "id": row_id,
-            "drug_name_raw": "Drug A",
-            "quantity": "10 viên",
-            "dosage_instructions": "Morning",
-            "caution": None,
-        }
-    ]
-    await save(
-        service,
-        identity=identity(ClinicRole.TKYK),
-        expected_revision=2,
-        prescriptions=[{**ITEM, "id": row_id}],
-        assessment={"diagnosis": "Updated chart only"},
-    )
-    service._replace_prescriptions.assert_not_awaited()
-    assert conn.fetchval.await_args.args[8] is None
+    service._replace_prescriptions.assert_awaited_once()
+    kw = service._replace_prescriptions.await_args.kwargs
+    assert kw["prescriptions"] == items
+    assert kw["created_by"] == STAFF  # người nhập
+    assert conn.fetchval.await_args.args[8] is None  # không mở nháp
 
 
 @pytest.mark.asyncio
@@ -113,7 +91,11 @@ async def test_physician_approval_promotes_exact_stored_draft_and_clears_pending
         )
     service._replace_prescriptions.assert_awaited_once()
     assert service._replace_prescriptions.await_args.kwargs["prescriptions"] == [ITEM]
-    assert service._replace_prescriptions.await_args.kwargs["created_by"] == STAFF
+    # Người nhập là thư ký đã gõ nháp, không phải bác sĩ bấm duyệt.
+    assert (
+        service._replace_prescriptions.await_args.kwargs["created_by"]
+        == DRAFT["recorded_by"]
+    )
     assert conn.fetchval.await_args.args[8] is None
     event = next(
         call.kwargs
@@ -126,14 +108,15 @@ async def test_physician_approval_promotes_exact_stored_draft_and_clears_pending
 
 
 @pytest.mark.asyncio
-async def test_pending_draft_blocks_physician_changes_to_approved_rx() -> None:
+@pytest.mark.parametrize("role", [ClinicRole.DOCTOR, ClinicRole.TKYK])
+async def test_ghi_thang_thay_nhap_cu(role: ClinicRole) -> None:
     service, conn = pending_service()
     conn.fetch.return_value = []
-    with pytest.raises(ConflictError) as raised:
-        await save(service, expected_revision=2, prescriptions=[ITEM])
-    assert raised.value.error_code == "PRESCRIPTION_DRAFT_PENDING"
-    conn.fetchval.assert_not_awaited()
-    service._replace_prescriptions.assert_not_awaited()
+    await save(
+        service, identity=identity(role), expected_revision=2, prescriptions=[ITEM]
+    )
+    service._replace_prescriptions.assert_awaited_once()
+    assert conn.fetchval.await_args.args[8] is None  # nháp cũ bị thay
 
 
 @pytest.mark.asyncio
@@ -179,34 +162,7 @@ async def test_approval_without_pending_draft_is_rejected() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "items",
-    [
-        [{**ITEM, "id": "70000000-0000-0000-0000-000000000001"}],
-        [{**ITEM, "id": STAFF}, {**ITEM, "id": STAFF}],
-    ],
-)
-async def test_pending_draft_invalid_identities_return_pending_conflict(
-    items: list[dict[str, Any]],
-) -> None:
-    service, conn = pending_service()
-    conn.fetch.return_value = [
-        {
-            "id": STAFF,
-            "drug_name_raw": "Drug A",
-            "quantity": "10 viên",
-            "dosage_instructions": "Morning",
-            "caution": None,
-        }
-    ]
-    with pytest.raises(ConflictError) as raised:
-        await save(service, expected_revision=2, prescriptions=items)
-    assert raised.value.error_code == "PRESCRIPTION_DRAFT_PENDING"
-    conn.fetchval.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_secretary_draft_rejects_foreign_live_prescription_id() -> None:
+async def test_thu_ky_khong_ghi_duoc_dong_cua_luot_khac() -> None:
     service, conn = setup_service(2)
     conn.fetch.return_value = []
     from clinicai.api.exceptions import ValidationError

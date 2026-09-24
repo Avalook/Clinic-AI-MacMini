@@ -57,6 +57,7 @@ def connection(rx_unit: str | None, batch_unit: str | None) -> Any:
         ]
     )
     conn.execute = AsyncMock()
+    conn.executemany = AsyncMock()  # emit_event: dòng giao cho bên nhận
     return conn
 
 

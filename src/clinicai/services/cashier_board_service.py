@@ -18,11 +18,10 @@ LUẬT ĐI THEO, KHÔNG Ở LẠI.
 Ba luật vốn nằm trong TSX được chuyển xuống cùng, đúng nguyên tắc của dự án
 (logic ở backend, TSX chỉ vẽ):
 
-  1. CHỈ hiện bệnh nhân khi BÁC SĨ ĐÃ KHÁM XONG — cùng mốc với Payment và
-     Nhà thuốc (`moc_kham_xong`: `visit.exam_completed_at`, nhánh tương thích
-     lịch hẹn COMPLETED). Lượt không có lịch hẹn vẫn hiện (review CP4). Trước
-     đây còn nhận "phiên khám chính đã kết thúc" dù lượt chưa khép — những
-     lượt ấy lệnh thu vẫn từ chối, nên chỉ là dòng hiện ra mà không thu được.
+  1. Khách hiện khi BÁC SĨ ĐÃ KHÁM XONG (`moc_kham_xong`), HOẶC ngay khi có
+     chỉ định (ô dịch vụ) / có đơn thuốc (ô thuốc) — Tuyền chốt 24/09/2026:
+     khách trả tiền trong lúc phiên bác sĩ còn mở. Cùng luật với lệnh thu
+     (`payment_service._kiem_luot_thu(can_kham_xong=False)`).
   2. Tên dịch vụ/thuốc phải CHUẨN HOÁ trước khi tra bảng giá — bỏ đường link
      dính trong tên, gộp khoảng trắng, bỏ ngoặc. Không chuẩn hoá thì "Siêu âm
      (https://...)" không khớp dòng giá nào và thu ngân thấy giá trống.
@@ -53,6 +52,8 @@ CASHIER_ROLES: frozenset[ClinicRole] = frozenset(
         ClinicRole.CASHIER,
         ClinicRole.CASHIER_THUOC,
         ClinicRole.CASHIER_DV,
+        # Dược sĩ đứng quầy thu tiền thuốc (Tuyền chốt 23/09, rà quyền nhóm 6).
+        ClinicRole.PHARMACIST,
         ClinicRole.MANAGEMENT,
     }
 )
@@ -91,7 +92,10 @@ WITH v AS (
            p.patient_code,
            p.phone_primary,
            a.status                AS appt_status,
-           st.name                 AS exam_service_name
+           st.name                 AS exam_service_name,
+           """
+    + kham_xong_sql("vi")
+    + """                    AS kham_xong
       FROM public.visit vi
       LEFT JOIN public.appointment a
              ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
@@ -102,10 +106,21 @@ WITH v AS (
              ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
        AND vi.created_at >= $2 AND vi.created_at < $3
-       -- Luật 1: chỉ khi bác sĩ đã khám xong (moc_kham_xong).
-       AND """
+       -- Luật 1: đã khám xong (ô thuốc + dịch vụ), HOẶC đã có chỉ định chính
+       -- thức (ô dịch vụ — trả tiền trong lúc phiên bác sĩ còn mở).
+       AND ("""
     + kham_xong_sql("vi")
     + """
+            OR EXISTS (
+                SELECT 1 FROM public.service_order so
+                 WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
+                   AND so.selection_status IS NOT NULL
+                   AND so.exec_status NOT IN ('draft', 'cancelled'))
+            -- Ô THUỐC: đã có đơn (nhóm 4, 24/09 — không đợi khám xong).
+            OR EXISTS (
+                SELECT 1 FROM public.prescription rx
+                 WHERE rx.clinic_id = vi.clinic_id AND rx.visit_id = vi.visit_id
+                   AND rx.removed_at IS NULL))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -265,6 +280,7 @@ class CashierBoardService:
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
         from clinicai.services.bill_service import tinh_hoa_don
+        from clinicai.services.service_selection_service import cho_khach_quyet
 
         da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
         cho_rows = await self._pool.fetch(
@@ -291,21 +307,44 @@ class CashierBoardService:
         ]
         cho = {(r["visit_id"], r["kind"]) for r in cho_rows}
         loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
+        # Tiền dịch vụ thu được NHIỀU lần (Slice 3): bác sĩ chỉ định thêm sau
+        # lần thu đầu thì còn khoản mới. "Đã thu" của ô dịch vụ = hoá đơn CÒN
+        # NỢ rỗng, không phải "từng có một phiếu thu" — tính lại ở dưới.
+        con_no_dv: set[str] = set()
         async with self._pool.acquire() as conn:
             for item in out["items"]:
                 hd: dict[str, Any] = {}
                 for k in loai:
-                    if (item["visit_id"], k) in da_thu or (item["visit_id"], k) in cho:
+                    if (item["visit_id"], k) in cho:
                         continue
-                    hd[k] = (
-                        await tinh_hoa_don(
-                            conn,
-                            clinic_id=identity.clinic_id,
-                            visit_id=item["visit_id"],
-                            kind=k,
-                        )
-                    ).cho_api()
+                    if k == "thuoc" and (item["visit_id"], k) in da_thu:
+                        continue
+                    tinh = await tinh_hoa_don(
+                        conn,
+                        clinic_id=identity.clinic_id,
+                        visit_id=item["visit_id"],
+                        kind=k,
+                    )
+                    if k == "dich_vu" and not tinh.dong:
+                        continue
+                    if k == "dich_vu":
+                        con_no_dv.add(item["visit_id"])
+                    hd[k] = tinh.cho_api()
                 item["hoa_don"] = hd
+            if want_svc:
+                chon = await cho_khach_quyet(
+                    conn, identity.clinic_id, [i["visit_id"] for i in out["items"]]
+                )
+                for item in out["items"]:
+                    item["chon_dich_vu"] = chon.get(item["visit_id"])
+        if want_svc:
+            khac = [p for p in out["paid"] if p["kind"] != "dich_vu"]
+            out["paid"] = khac + [
+                {"visit_id": i["visit_id"], "kind": "dich_vu"}
+                for i in out["items"]
+                if i["visit_id"] not in con_no_dv
+                and (i["visit_id"], "dich_vu") not in cho
+            ]
         return out
 
 
@@ -399,6 +438,7 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 "phone": v.get("phone_primary"),
                 "appt_status": v.get("appt_status"),
                 "services": services,
+                # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
                 "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],
             }
         )

@@ -114,6 +114,7 @@ async def _thu(q: Quay, method: str = "CASH") -> dict[str, Any]:
     return await PaymentService(q.pool).record_payment(
         visit_id=q.visit_id,
         kind="thuoc",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=None,
         clinic_patient_id=None,
         identity=q.thu_ngan,

@@ -1,17 +1,16 @@
 """Anthropic Message Batches API wrapper — chạy LLM offline ở 50% giá.
 
-DÙNG CHO: workload KHÔNG nhạy độ trễ, chịu được tới 24h. Ví dụ điển hình:
-sinh `pre_visit_brief` HÀNG LOẠT cho lịch hẹn ngày mai (cron đêm) — bác sĩ
-không cần ngay, nên 50% giá là "tiền rơi". Batch + prompt caching cộng dồn
-(tới ~95% tiết kiệm trên phần prefix lặp).
+DÙNG CHO: workload KHÔNG nhạy độ trễ, chịu được tới 24h (vd sinh hàng loạt
+ban đêm cho lịch ngày mai — bác sĩ không cần ngay, nên 50% giá là "tiền rơi").
+AI tóm tắt trước khám từng là ứng viên đầu tiên — đã gỡ 24/09/2026.
+Batch + prompt caching cộng dồn (tới ~95% tiết kiệm trên phần prefix lặp).
 
 KHÔNG dùng cho:
 - `lab_triage` safety path: GROUP_C có SLA 4h → phân loại an toàn phải
   real-time qua AnthropicClient.chat(), TUYỆT ĐỐI không nhét vào batch 24h.
 - Bất kỳ luồng nào bệnh nhân/bác sĩ đang chờ trả lời ngay.
 
-Đây là PRIMITIVE tái dùng. Việc nối vào cron đêm sinh brief = bước riêng
-(P13), cần có traffic thật mới sinh tiết kiệm; module này chỉ cung cấp khả năng.
+Đây là PRIMITIVE tái dùng; module này chỉ cung cấp khả năng.
 """
 
 from __future__ import annotations

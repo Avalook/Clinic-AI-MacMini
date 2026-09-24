@@ -1,4 +1,4 @@
-"""Prescription row identity and physician approval of secretary drafts."""
+"""Ghi đơn thuốc: bác sĩ và thư ký y khoa ghi thẳng; nháp cũ của thư ký (OFF)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 
 
 def _prescription_key(name: Any, quantity: Any) -> tuple[str, str]:
@@ -111,10 +112,21 @@ async def prepare_prescription_write(
     items: list[dict[str, Any]] | None,
     approve: bool,
 ) -> PrescriptionWrite:
-    """Choose draft or live write using the locked chart snapshot."""
+    """Ghi đơn thuốc THẲNG — thư ký y khoa ngang bác sĩ (Tuyền chốt 24/09/2026).
+
+    "Kê đơn: thư ký = bác sĩ, không nháp, không duyệt (phòng khám cho phép).
+    Đơn ghi đúng người nhập, kèm bác sĩ chính của lượt." Người nhập nằm ở
+    `prescription.created_by`, bác sĩ chính ở `prescription.bac_si_chinh_id`
+    (trigger điền từ lượt khám, migration 20260924000003).
+
+    NHÁP CŨ (trước 24/09) — OFF, không xoá: nháp còn treo vẫn duyệt được
+    (`approve`) để dữ liệu cũ không kẹt; một lần ghi thẳng mới THAY nháp (nháp
+    bị xoá). Lưu hồ sơ không đụng đơn thì nháp giữ nguyên.
+    """
     physician = identity.co_vai({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
-    if not physician and not identity.co_vai({ClinicRole.TKYK}) and items is not None:
-        raise SafetyGateError("Chỉ bác sĩ kê thuốc hoặc thư ký nhập đơn thuốc nháp")
+    ke_don = physician or identity.co_vai({ClinicRole.TKYK})
+    if not ke_don and items is not None:
+        raise SafetyGateError("Chỉ bác sĩ hoặc thư ký y khoa kê thuốc")
     if approve:
         if not physician:
             raise SafetyGateError("Chỉ bác sĩ mới duyệt đơn thuốc thư ký đã nhập")
@@ -131,14 +143,16 @@ async def prepare_prescription_write(
                 "Lượt khám này thuộc bác sĩ khác — không thể duyệt đơn"
             )
         return PrescriptionWrite(None, draft["items"], str(draft["recorded_by"]))
-    if identity.co_vai({ClinicRole.TKYK}) and items is not None:
-        # The mature form sends all displayed rows on every chart save. Merely
-        # saving SOAP must not create a new pending prescription when these are
-        # still the physician-approved rows. Preserve an existing pending draft.
-        if await _approved_rows_unchanged(
-            conn, visit_id=visit_id, clinic_id=identity.clinic_id, items=items
-        ):
-            return PrescriptionWrite(draft, None)
+    if items is None:
+        return PrescriptionWrite(draft, None)
+    if draft and await _approved_rows_unchanged(
+        conn, visit_id=visit_id, clinic_id=identity.clinic_id, items=items
+    ):
+        # Form gửi lại mọi dòng đang hiện mỗi lần lưu hồ sơ: đơn không đổi thì
+        # không ghi gì, nháp cũ giữ nguyên.
+        return PrescriptionWrite(draft, None)
+    if identity.co_vai({ClinicRole.TKYK}) and not physician:
+        # Mã dòng thư ký gửi phải thuộc đúng lượt này (giữ chốt cũ).
         rows = await conn.fetch(
             "SELECT id FROM prescription "
             "WHERE visit_id = $1::uuid AND clinic_id = $2::uuid "
@@ -146,19 +160,30 @@ async def prepare_prescription_write(
             visit_id,
             identity.clinic_id,
         )
-        safe_items = _validated_prescription_items(
-            items, {str(row["id"]) for row in rows}
-        )
-        return PrescriptionWrite(
-            {"items": safe_items, "recorded_by": identity.staff_id}, None
-        )
-    if draft and items is not None:
-        if not await _approved_rows_unchanged(
-            conn, visit_id=visit_id, clinic_id=identity.clinic_id, items=items
-        ):
-            raise PrescriptionDraftPendingError(
-                "Có đơn thuốc thư ký nhập chờ duyệt — "
-                "bác sĩ cần duyệt trước khi sửa đơn"
-            )
-        return PrescriptionWrite(draft, None)
-    return PrescriptionWrite(draft, items)
+        items = _validated_prescription_items(items, {str(row["id"]) for row in rows})
+    # Ghi thẳng; nháp cũ (nếu có) bị thay.
+    return PrescriptionWrite(None, items)
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+
+async def don_thuoc_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Các dòng đơn thuốc CÒN HIỆU LỰC của lượt đang xem."""
+    if not ngu_canh.visit_id:
+        return {"prescriptions": []}
+    rows = await conn.fetch(
+        """
+        SELECT id::text, drug_catalog_id::text, drug_name_raw, quantity,
+               dosage_instructions, caution
+          FROM prescription
+         WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
+           AND removed_at IS NULL
+         ORDER BY created_at
+        """,
+        ngu_canh.visit_id,
+        ngu_canh.clinic_id,
+    )
+    return {"prescriptions": [dong(r) for r in rows]}

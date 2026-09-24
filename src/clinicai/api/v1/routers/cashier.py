@@ -11,16 +11,18 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
-from clinicai.api.identity import StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.cashier_board_service import (
-    CASHIER_ROLES,
     CashierBoardService,
 )
 
 router = APIRouter()
 
-_GUARD = require_role(*CASHIER_ROLES)
+# Bảng thu ngân: người giữ một trong hai khối thu tiền (24/09/2026 — thay
+# CASHIER_ROLES, cùng người).
+_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 
 @router.get("/cashier/board")

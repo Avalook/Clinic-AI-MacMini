@@ -9,7 +9,7 @@
 import { useState, useMemo, useEffect, type ReactNode } from "react";
 import { vnLocalToUtcISO, nowMs } from "../../../lib/datetime";
 import { todayVn, clinicHoursForDate, clinicHoursError } from "../../../lib/roster";
-import { INPUT, LABEL, BTN, CHANNELS } from "../form-ui";
+import { INPUT, LABEL, BTN, CHANNELS_CHON, KENH_GIOI_THIEU } from "../form-ui";
 import { unaccentVi } from "../../../lib/validation";
 import Time24Input from "../Time24Input";
 import DateField from "../DateField";
@@ -195,6 +195,7 @@ export default function AppointmentBooking({
     }[]
   >([]);
   const [channel, setChannel] = useState(initial?.channel ?? "");
+  const [gioiThieu, setGioiThieu] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -404,6 +405,8 @@ export default function AppointmentBooking({
         slot_end: end.toISOString(),
         // Vãng lai (Lễ tân) → WALK_IN để vào đúng ghế đến trực tiếp.
         booking_channel: walkin ? "WALK_IN" : channel,
+        nguoi_gioi_thieu:
+          !walkin && channel === KENH_GIOI_THIEU ? gioiThieu.trim() || undefined : undefined,
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
         need_sono: needSono,
@@ -633,13 +636,23 @@ export default function AppointmentBooking({
               className={INPUT}
             >
               <option value="">— Chọn kênh —</option>
-              {CHANNELS.filter((c) => c.id !== "WALK_IN").map((c) => (
+              {CHANNELS_CHON.filter((c) => c.id !== "WALK_IN").map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
             </select>
           )}
+          {!walkin && channel === KENH_GIOI_THIEU ? (
+            <input
+              value={gioiThieu}
+              onChange={(e) => setGioiThieu(e.target.value)}
+              maxLength={200}
+              placeholder="Ai giới thiệu? (lưu vào hồ sơ khám)"
+              aria-label="Người giới thiệu"
+              className={INPUT}
+            />
+          ) : null}
         </div>
         <div className="space-y-1">
           <label className={LABEL}>Siêu âm</label>

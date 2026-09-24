@@ -5,13 +5,15 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
+import { docDuocYKhoa } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
-  canReadClinical,
   canSeeNav,
+  quyenMoDuocMan,
   type ClinicRole,
 } from "./roles";
+import { type ViTriDb } from "./roster";
 import { getSupabaseServer } from "./supabase-server";
 
 export const ROLE_COOKIE = "clinic_role";
@@ -28,7 +30,15 @@ export async function getClinicRole(): Promise<ClinicRole | null> {
  *  chỉ ghép, không tự suy vai từ mã vị trí. Không bao giờ chứa vai bác sĩ mà
  *  tài khoản không có. */
 export const getViTriHomNay = cache(() =>
-  fetchFromBackend<{ vi_tri: string[]; ca: string[]; vai?: string[] }>(
+  fetchFromBackend<{
+    vi_tri: string[];
+    ca: string[];
+    vai?: string[];
+    /** Phòng của từng vị trí (theo `room_id`, CORE-C 23/09/2026). */
+    phong?: Record<string, { room_id: string; ten: string }>;
+    /** Danh mục vị trí của phòng khám (`vi_tri_lam_viec`, CORE-C4). */
+    danh_muc?: ViTriDb[];
+  }>(
     "/api/v1/me/vi-tri-hom-nay",
   ),
 );
@@ -60,6 +70,18 @@ export async function vaiLamViec(
   return ds.find(dieuKien) ?? ds[0] ?? null;
 }
 
+/** QUYỀN ĐANG CÓ của người đăng nhập (capability, không phải vai).
+ *
+ *  Máy chủ tính; ở đây chỉ đọc. Hỏng thì trả rỗng — nghĩa là chỉ còn cửa vai,
+ *  y như trước khi có mô hình quyền. Một lần mạng chập không được làm cả phòng
+ *  khám mất thanh bên.
+ *
+ *  `cache()` theo lượt dựng trang: một lần mở /home hỏi đúng một lần. */
+export const getQuyenCuaToi = cache(async (): Promise<string[]> => {
+  const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
+  return d?.quyen ?? [];
+});
+
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ
  *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn role để chặn cả truy cập trực tiếp. */
@@ -67,11 +89,13 @@ export async function requireNavAccess(href: string): Promise<void> {
   // Vào được nếu MỘT trong các vai hôm nay vào được — vai tài khoản vẫn nằm
   // trong tập này, nên không ai mất lối vào cũ.
   const vai = await getVaiHomNay();
-  if (vai.length === 0) {
-    if (!canSeeNav(null, href)) redirect("/home");
-    return;
-  }
-  if (!vai.some((r) => canSeeNav(r, href))) redirect("/home");
+  if (vai.some((r) => canSeeNav(r, href))) return;
+  // CỬA THỨ HAI: quản lý cấp khối Siêu âm cho lễ tân thì lễ tân vào được màn
+  // siêu âm, dù NAV_ROLES không có vai ấy. Mở thêm, không thay — ai vào được
+  // theo vai thì đã về ở dòng trên.
+  if (quyenMoDuocMan(await getQuyenCuaToi(), href)) return;
+  if (vai.length === 0 && canSeeNav(null, href)) return;
+  redirect("/home");
 }
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền
@@ -90,10 +114,12 @@ export async function requireClinicRole(): Promise<ClinicRole> {
   return role;
 }
 
-/** Guard a surface that renders the medical note, not merely operational PII. */
+/** Guard a surface that renders the medical note, not merely operational PII.
+ *  24/09/2026: hỏi QUYỀN (có khối khám / kết quả), không hỏi vai — quản lý có
+ *  đủ khối nên mở được (Tuyền chốt). Backend vẫn tự kiểm lại. */
 export async function requireClinicalRole(): Promise<ClinicRole> {
   const role = await requireClinicRole();
-  if (!canReadClinical(role)) redirect("/home");
+  if (!(await docDuocYKhoa())) redirect("/home");
   return role;
 }
 

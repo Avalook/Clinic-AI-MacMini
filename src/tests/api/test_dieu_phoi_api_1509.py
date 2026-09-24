@@ -254,7 +254,8 @@ def test_truong_ca_chuyen_bac_si(db: list[SqlConn]) -> None:
     _as(ClinicRole.TRUONG_CA)
     db[0] = pool(
         (
-            "m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR') ORDER BY",
+            # 24/09/2026: danh sách theo QUYỀN (khám + hoàn tất khám), không vai.
+            "'clinical.consult.finalize')) = 2",
             [{"id": BS1, "full_name": "BS B", "role": "DOCTOR"}],
         )
     )

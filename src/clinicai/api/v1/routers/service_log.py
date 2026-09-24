@@ -13,12 +13,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    CLINICAL_WRITE_ROLES,
     StaffIdentity,
     require_role,
 )
 from clinicai.api.nghi_huu import CHI_DINH_MOI, LAM_O_PHONG, bao_da_nghi
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import cua_ghi_y_khoa
 from clinicai.services.service_log_service import (
     SONO_ROLES,
     Milestone,
@@ -30,7 +30,7 @@ router = APIRouter()
 
 # Recording a service is clinical work — reception and management excluded
 # (decided 2026-06-17, same as lab results).
-_SERVICE_GUARD = require_role(*CLINICAL_WRITE_ROLES)
+_SERVICE_GUARD = cua_ghi_y_khoa
 # The sono queue belongs to the ultrasound nurse.
 _SONO_GUARD = require_role(*SONO_ROLES)
 

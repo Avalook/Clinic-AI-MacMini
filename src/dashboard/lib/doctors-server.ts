@@ -36,7 +36,7 @@
 import { getClinicId } from "./clinic-session";
 import { nhoTheoPhongKham } from "./bo-nho-tam";
 import { doctorName } from "./doctor-name";
-import { getSupabaseServer } from "./supabase-server";
+import { fetchFromBackend } from "./backend-proxy";
 
 /** Vai KHÁM BỆNH — người nhận được một lịch hẹn.
  *
@@ -72,26 +72,10 @@ export async function listBookableDoctors(): Promise<DoctorOption[]> {
 // tháng, không phải vài lần một phút. Gói qua bộ nhớ tạm có hạn giờ để cắt một
 // vòng gọi khỏi MỌI trang có ô chọn bác sĩ (xem `bo-nho-tam.ts`).
 async function _listBookableDoctors(): Promise<DoctorOption[]> {
-  const supabase = await getSupabaseServer();
-
-  // `clinic_membership!inner(...)` = INNER JOIN: chỉ giữ staff CÓ membership
-  // khớp điều kiện. Không có `!inner` thì PostgREST làm LEFT JOIN và các bộ lọc
-  // trên bảng nhúng chỉ lọc phần nhúng, còn dòng staff vẫn ở lại — tức mọi nhân
-  // viên đều lọt vào danh sách bác sĩ.
-  const { data, error } = await supabase
-    .from("staff")
-    .select("id, full_name, clinic_membership!inner(role, is_active)")
-    .in("clinic_membership.role", BOOKABLE_DOCTOR_ROLES as readonly string[])
-    .eq("clinic_membership.is_active", true)
-    .eq("is_active", true)
-    .order("full_name");
-
-  if (error) return [];
-
-  // TÊN HIỂN THỊ CHUẨN HOÁ NGAY TẠI NGUỒN. Mọi màn dùng danh sách này (lưới
-  // đặt lịch, modal đổi lịch, ô lọc bác sĩ) vì thế nói cùng một cái tên — thay
-  // vì mỗi màn tự gọi doctorName() và một màn nào đó quên.
-  return ((data as DoctorRow[] | null) ?? []).map((r) => ({
+  // 24/09/2026: đọc qua backend `GET /api/v1/staff/bac-si-dat-duoc` (lọc vai +
+  // phòng khám ở máy chủ) thay vì đọc thẳng `staff` bằng Supabase.
+  const data = await fetchFromBackend<DoctorRow[]>("/api/v1/staff/bac-si-dat-duoc");
+  return (data ?? []).map((r) => ({
     id: r.id,
     label: doctorName(r.full_name) || "—",
   }));

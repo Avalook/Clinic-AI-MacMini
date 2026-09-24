@@ -47,7 +47,7 @@ test("/tasks đưa từng vai về màn chuẩn của vai ấy", () => {
   const src = read("../app/(dashboard)/tasks/page.tsx");
   // Đích tuỳ vai ⇒ trang phải động, không thì build đông cứng vai null → /home.
   assert.match(src, /export const dynamic = "force-dynamic"/);
-  for (const dich of ["/thu-ngan/dich-vu", "/phong/KN-SA-T1", "/ban-kham", "/do-sinh-hieu", "/reception/queue", "/customers"]) {
+  for (const dich of ["/thu-ngan/dich-vu", "/phong", "/ban-kham", "/do-sinh-hieu", "/reception/queue", "/customers"]) {
     assert.ok(src.includes(`redirect("${dich}")`), `/tasks thiếu nhánh về ${dich}`);
   }
 });
@@ -58,17 +58,21 @@ test("đăng nhập xong không ai bị đưa về màn cũ", () => {
   assert.match(read("../app/page.tsx"), /export const dynamic = "force-dynamic"/);
   assert.equal(roleLanding("DOCTOR"), "/ban-kham");
   assert.equal(roleLanding("TKYK"), "/ban-kham");
-  assert.equal(roleLanding("ULTRASOUND_DOCTOR"), "/phong/KN-SA-T1");
+  // Không còn mã phòng viết cứng (CORE-C): vào danh sách phòng rồi chọn.
+  assert.equal(roleLanding("ULTRASOUND_DOCTOR"), "/phong");
   // Và nơi đến phải là nơi vai ấy được vào theo luật gốc.
   assert.equal(canSeeNavGoc("DOCTOR", "/ban-kham"), true);
   assert.equal(canSeeNavGoc("TKYK", "/ban-kham"), true);
-  assert.equal(canSeeNavGoc("ULTRASOUND_DOCTOR", "/phong/KN-SA-T1"), true);
+  assert.equal(canSeeNavGoc("ULTRASOUND_DOCTOR", "/phong"), true);
 });
 
-test("thông báo kết quả về trỏ thẳng màn Duyệt kết quả, không qua đường cũ", () => {
+// 23/09/2026 tối: "Duyệt kết quả" OFF khỏi thanh bên — bác sĩ đọc/điền kết quả
+// trong phiếu khám (Bàn khám, mục C), nên chuông trỏ Bàn khám.
+test("thông báo kết quả về trỏ Bàn khám, không qua đường cũ", () => {
   const py = read("../../clinicai/services/bao_ket_qua_ve.py");
   assert.doesNotMatch(py, /\/result-review/);
-  assert.match(py, /duong_dan="\/duyet-ket-qua"/);
+  assert.doesNotMatch(py, /duong_dan="\/duyet-ket-qua"/);
+  assert.match(py, /duong_dan="\/ban-kham"/);
 });
 
 test("check-in chỉ ở Tiếp đón khách — Trang chủ không bật cột check-in", () => {

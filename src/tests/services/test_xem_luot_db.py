@@ -99,6 +99,17 @@ async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
     assert "lam_sang" in tk
 
 
+@pytest.fixture
+def khong_tran(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bài kiểm CÁCH NHÓM, không kiểm trần 500 dòng: database thử dùng chung
+    cả bộ có thể đã quá 500 chỉ định "hôm nay" (24/09: 732 sau khi thêm nhóm
+    2) — khi đó chỉ định của chính bài bị cắt khỏi bảng và bài đỏ oan."""
+    from clinicai.services import luot_kham_doc as lks
+
+    monkeypatch.setattr(lks, "_TRAN_CHI_DINH_HOM_NAY", 1_000_000)
+
+
+@pytest.mark.usefixtures("khong_tran")
 async def test_truong_ca_thay_chi_dinh_theo_nhom(kb: KichBan) -> None:
     phien = await _vao_kham(kb)
     mau, sa = await _chi_dinh(kb, phien, kb.ma_mau, kb.ma_sa)
@@ -199,3 +210,35 @@ async def test_lich_tiep_theo_khong_tinh_lich_da_check_in(kb: KichBan) -> None:
     await hen(48, "CONFIRMED")
     kq = await svc.doc(visit_id=kb.visit_id, identity=kb.le_tan)
     assert kq["hanh_chinh"]["lich_tiep_theo"] is not None
+
+
+async def test_bang_truong_ca_noi_that_khi_bi_cat(kb: KichBan) -> None:
+    """Cắt bớt mà im lặng là nói dối bằng cách im lặng.
+
+    Bảng chỉ định hôm nay có trần 500 dòng — có trần là đúng, nhưng trưởng ca
+    phải biết mình đang nhìn một bảng thiếu, thay vì tự phát hiện bằng cách
+    không tìm thấy khách của mình.
+    """
+    from clinicai.services import luot_kham_doc as lks
+
+    phien = await _vao_kham(kb)
+    await _chi_dinh(kb, phien, kb.ma_mau, kb.ma_sa)
+
+    goc = lks._TRAN_CHI_DINH_HOM_NAY
+    try:
+        lks._TRAN_CHI_DINH_HOM_NAY = 1
+        kq = await kb.svc.chi_dinh_hom_nay(identity=kb.truong_ca)
+    finally:
+        # Trần đủ lớn cho cả database thử dùng chung (xem `khong_tran`).
+        lks._TRAN_CHI_DINH_HOM_NAY = max(goc, 1_000_000)
+
+    assert len(kq["chi_dinh"]) == 1
+    assert kq["bi_cat"] is True
+    assert kq["tong"] >= 2
+
+    # Không cắt thì không báo động thừa.
+    try:
+        du = await kb.svc.chi_dinh_hom_nay(identity=kb.truong_ca)
+    finally:
+        lks._TRAN_CHI_DINH_HOM_NAY = goc
+    assert du["bi_cat"] is False

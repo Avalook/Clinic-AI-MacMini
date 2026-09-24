@@ -37,18 +37,55 @@ class DoiBacSiService:
     async def bac_si_trong_phong_kham(
         self, *, identity: StaffIdentity
     ) -> list[dict[str, Any]]:
+        """Ai nhận được lượt, CHIA NHÓM để trưởng ca chọn nhanh (Tuyền 24/09/2026).
+
+        Quản lý có đủ mọi khối nên có mặt — đúng luật "quyền theo khối", không
+        ẩn. Nhưng trộn chung thì trông lạ, nên chia ba nhóm: ``TRUC_HOM_NAY``
+        (có ca hôm nay) · ``BAC_SI_KHAC`` · ``QUAN_LY`` (chỉ có vai quản lý, không
+        trực hôm nay). Nhóm chỉ để HIỂN THỊ — người được nhận vẫn do QUYỀN quyết.
+        """
         rows = await self._pool.fetch(
             """
-            SELECT s.id::text AS id, s.full_name, m.role
+            SELECT s.id::text AS id, s.full_name,
+                   EXISTS (
+                     SELECT 1 FROM work_roster w
+                      WHERE w.clinic_id = $1::uuid AND w.staff_id = s.id
+                        AND w.work_date =
+                            (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   ) AS truc_hom_nay,
+                   bool_and(m.role = 'MANAGEMENT') AS chi_quan_ly
               FROM clinic_membership m
               JOIN staff s ON s.id = m.staff_id AND s.is_active
              WHERE m.clinic_id = $1::uuid AND m.is_active
-               AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+               -- Nhận làm BÁC SĨ PHỤ TRÁCH = khám được VÀ khép được lượt (quyền
+               -- "Khám bệnh" + "Hoàn tất khám"), không phải có tên vai bác sĩ
+               -- (24/09/2026: bác sĩ siêu âm thiếu khối bị đưa vào danh sách,
+               -- đổi sang là khách kẹt — mô phỏng 20 khách bắt được).
+               AND (SELECT count(DISTINCT q.capability) FROM v_quyen_hieu_luc q
+                     WHERE q.clinic_id = m.clinic_id AND q.staff_id = m.staff_id
+                       AND q.capability IN ('clinical.consult.perform',
+                                            'clinical.consult.finalize')) = 2
+             GROUP BY s.id, s.full_name
              ORDER BY s.full_name
             """,
             identity.clinic_id,
         )
-        return [dict(r) for r in rows]
+        thu_tu = {"TRUC_HOM_NAY": 0, "BAC_SI_KHAC": 1, "QUAN_LY": 2}
+        ds = [
+            {
+                "id": r["id"],
+                "full_name": r["full_name"],
+                "nhom": (
+                    "TRUC_HOM_NAY"
+                    if r.get("truc_hom_nay")
+                    else "QUAN_LY"
+                    if r.get("chi_quan_ly")
+                    else "BAC_SI_KHAC"
+                ),
+            }
+            for r in rows
+        ]
+        return sorted(ds, key=lambda x: thu_tu[x["nhom"]])
 
     async def doi(
         self,
@@ -94,13 +131,21 @@ class DoiBacSiService:
                       JOIN staff s ON s.id = m.staff_id AND s.is_active
                      WHERE m.clinic_id = $1::uuid AND m.staff_id = $2::uuid
                        AND m.is_active
-                       AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR'))
+                       AND (SELECT count(DISTINCT q.capability)
+                              FROM v_quyen_hieu_luc q
+                             WHERE q.clinic_id = m.clinic_id
+                               AND q.staff_id = m.staff_id
+                               AND q.capability IN ('clinical.consult.perform',
+                                                    'clinical.consult.finalize')) = 2)
                 """,
                 identity.clinic_id,
                 bac_si_moi_id,
             )
             if not la_bac_si:
-                raise ValidationError("Người nhận không phải bác sĩ đang làm ở đây.")
+                raise ValidationError(
+                    "Người nhận chưa được cấp đủ khối Khám bệnh + Hoàn tất khám"
+                    " (hoặc không làm ở đây) — đổi sang người khám được."
+                )
 
             await conn.execute(
                 """

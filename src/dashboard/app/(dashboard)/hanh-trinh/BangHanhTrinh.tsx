@@ -1,0 +1,165 @@
+"use client";
+
+// Bảng hành trình chung — CHỈ VẼ. Mọi câu "đang ở đâu / còn chờ gì" do máy chủ
+// tính (bang_hanh_trinh_service.py); màn không tự suy trạng thái.
+
+import { useCallback, useEffect, useState } from "react";
+
+import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
+
+import NutXemLuot from "../_lam-viec/NutXemLuot";
+import { docBang, gioVn } from "../_lam-viec/api";
+
+interface Luot {
+  visit_id: string;
+  ten: string;
+  ma: string | null;
+  so_booking: number | null;
+  so_quay: number | null;
+  loai_kham: string | null;
+  bac_si: string | null;
+  check_in_luc: string | null;
+  dang_o: string;
+  da_xong: { nhan: string; luc: string }[];
+  con_cho: string[];
+  da_ve: boolean;
+}
+
+interface Bang {
+  luot: Luot[];
+  bi_cat: boolean;
+}
+
+export default function BangHanhTrinh() {
+  const [bang, setBang] = useState<Bang | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [anDaVe, setAnDaVe] = useState(true);
+  const [tim, setTim] = useState("");
+
+  const tai = useCallback(async () => {
+    const kq = await docBang<Bang>("hanh-trinh");
+    if (kq.ok) {
+      setBang(kq.data);
+      setLoi(null);
+    } else {
+      setLoi(kq.loi);
+    }
+  }, []);
+
+  useEffect(() => {
+    let huy = false;
+    void docBang<Bang>("hanh-trinh").then((kq) => {
+      if (huy) return;
+      if (kq.ok) setBang(kq.data);
+      else setLoi(kq.loi);
+    });
+    const t = setInterval(() => void tai(), 20_000);
+    return () => {
+      huy = true;
+      clearInterval(t);
+    };
+  }, [tai]);
+
+  if (loi && !bang) {
+    return (
+      <p role="alert" className="text-body text-danger">
+        {loi}
+      </p>
+    );
+  }
+  if (!bang) return <p className="text-body text-ink-muted">Đang tải…</p>;
+
+  const q = tim.trim().toLowerCase();
+  const ds = bang.luot.filter(
+    (l) =>
+      (!anDaVe || !l.da_ve) &&
+      (!q || l.ten.toLowerCase().includes(q) || (l.ma ?? "").toLowerCase().includes(q)),
+  );
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={tim}
+          onChange={(e) => setTim(e.target.value)}
+          placeholder="Tìm tên / mã khách"
+          aria-label="Tìm khách"
+          className="min-h-10 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
+        />
+        <Button size="lg" variant="secondary" onClick={() => setAnDaVe((v) => !v)}>
+          {anDaVe ? "Hiện cả khách đã về" : "Ẩn khách đã về"}
+        </Button>
+        <Button size="lg" variant="ghost" onClick={() => void tai()}>
+          Tải lại
+        </Button>
+      </div>
+      {bang.bi_cat ? (
+        <p className="text-meta text-warning">
+          Bảng chỉ hiện 300 lượt đầu trong ngày — tìm theo tên để thấy khách khác.
+        </p>
+      ) : null}
+      <p className="text-meta text-ink-muted">{ds.length} khách</p>
+      <ul className="space-y-2">
+        {ds.map((l) => (
+          <li
+            key={l.visit_id}
+            className="rounded-card border border-line bg-surface p-3 shadow-card"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-emph font-semibold text-ink">
+                  {l.ten}
+                  {l.ma ? <span className="ml-2 text-meta text-ink-muted">{l.ma}</span> : null}
+                </p>
+                <p className="text-meta text-ink-muted">
+                  {l.so_booking ? `Đặt #${l.so_booking}` : ""}
+                  {l.so_quay ? ` · Quầy ${l.so_quay}` : ""}
+                  {l.loai_kham ? ` · ${l.loai_kham}` : ""}
+                  {l.bac_si ? ` · BS ${l.bac_si}` : ""}
+                  {l.check_in_luc ? ` · tới ${gioVn(l.check_in_luc)}` : ""}
+                </p>
+              </div>
+              <Chip tone={l.da_ve ? "neutral" : "brand"}>{l.dang_o}</Chip>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div>
+                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                  Đã xong
+                </p>
+                {l.da_xong.length === 0 ? (
+                  <p className="text-meta text-ink-faint">—</p>
+                ) : (
+                  <ol className="text-meta text-ink">
+                    {l.da_xong.map((x, i) => (
+                      <li key={i}>
+                        <span className="text-ink-muted">{gioVn(x.luc)}</span> {x.nhan}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+              <div>
+                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                  Còn chờ
+                </p>
+                {l.con_cho.length === 0 ? (
+                  <p className="text-meta text-ink-faint">Không còn gì chờ</p>
+                ) : (
+                  <ul className="text-meta text-ink">
+                    {l.con_cho.map((x, i) => (
+                      <li key={i}>• {x}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="mt-1">
+              <NutXemLuot visitId={l.visit_id} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

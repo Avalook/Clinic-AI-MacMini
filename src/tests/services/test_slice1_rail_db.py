@@ -21,10 +21,32 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
-from tests.services.test_luot_kham_service_db import KichBan, _cua, _vao_kham
+from tests.services.test_luot_kham_service_db import (
+    KichBan,
+    _cua,
+    _vao_kham,
+    dieu_phoi_cu,
+)
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
 
 
 async def _chi_dinh(kb: KichBan, phien: str, *ma: str) -> list[str]:
@@ -46,7 +68,8 @@ async def _lam(kb: KichBan, oid: str, *, performed: bool = True, **kw: Any) -> N
         node = await kb.pool.fetchval(
             "SELECT node_code FROM service_order WHERE id = $1::uuid", oid
         )
-        await kb.svc.dispatch_order(
+        await dieu_phoi_cu(
+            kb.svc,
             order_id=oid,
             room_id=kb.phong_sa if node == "DICHVU-SIEUAM" else kb.phong_mau,
             expected_version=None,
@@ -133,9 +156,11 @@ async def test_lay_mau_xong_chua_du_phai_co_ket_qua(kb: KichBan) -> None:
 
     # Xác nhận HOP_LE (yêu cầu capability ket_qua.xac_nhan) -> vòng SẴN SÀNG
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,
@@ -290,9 +315,11 @@ async def test_ket_qua_muon_chuyen_theo_doi_roi_duyet_sau_khi_ky(
         service_order_id=mau,
     )
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,
@@ -340,8 +367,18 @@ async def test_khong_thuc_hien_khong_tu_dat_bac_si_phai_quyet(kb: KichBan) -> No
     # Khách được đưa về bác sĩ (không kẹt ở "đang thu")…
     assert await _cho_doc(kb) == ["waiting"]
     [vong] = await _vong(kb)
-    # Trạng thái lưu vẫn là "open" — không thực hiện KHÔNG thành "satisfied".
-    assert {y["trang_thai"] for y in vong["yeu_cau"]} == {"satisfied", "open"}
+    # Không thực hiện KHÔNG thành "satisfied". Từ 24/09/2026 bảng nói rõ
+    # "bác sĩ cần quyết" (cùng luật `requirement_state`) thay vì "open" chung
+    # chung; trạng thái LƯU trong bảng yêu cầu vẫn là "open".
+    assert {y["trang_thai"] for y in vong["yeu_cau"]} == {"satisfied", "needs_decision"}
+    assert (
+        await kb.pool.fetchval(
+            "SELECT count(*) FROM round_requirement WHERE round_id = $1::uuid"
+            " AND status = 'open'",
+            vong["id"],
+        )
+        == 1
+    )
     # …nhưng không đóng vòng được khi chưa quyết.
     await kb.svc.start_consultation(consultation_id=phien2, identity=kb.bac_si)
     with pytest.raises(LuotKhamConflictError) as e:
@@ -498,7 +535,7 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
             "SELECT trang_thai, han_xu_ly::text AS han FROM v_viec_cskh v"
             " JOIN visit vi ON vi.clinic_patient_id = v.clinic_patient_id"
             " WHERE vi.visit_id = $1::uuid"
-            " AND trang_thai IN ('CHO_KQ_XN', 'CHO_BAC_SI')",
+            " AND trang_thai IN ('CHO_KQ_XN', 'CHO_BAC_SI', 'KQ_CHUA_GUI')",
             kb.visit_id,
         )
         return sorted((r["trang_thai"], r["han"]) for r in rows)
@@ -518,7 +555,8 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
         mau,
     )
     assert await viec() == [("CHO_KQ_XN", han)]
-    # Tệp kết quả về và được xác nhận HOP_LE: sang "chờ bác sĩ duyệt".
+    # Tệp kết quả về và được xác nhận HOP_LE: CSKH gửi được NGAY — không còn
+    # "chờ bác sĩ duyệt" (Tuyền chốt 23/09/2026, migration 20260923000021).
     khach = await kb.pool.fetchval(
         "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid",
         kb.visit_id,
@@ -531,17 +569,25 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
         service_order_id=mau,
     )
     await kb.pool.execute(
-        "INSERT INTO staff_capability (staff_id, capability) "
-        "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+        " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+        " ON CONFLICT DO NOTHING",
         kb.truong_ca.staff_id,
+        kb.truong_ca.clinic_id,
     )
     await TepKetQuaService(kb.pool).xac_nhan_tep(
         identity=kb.truong_ca,
         tep_id=str(tep["id"]),
         trang_thai="HOP_LE",
     )
-    assert [t for t, _ in await viec()] == ["CHO_BAC_SI"]
+    assert [t for t, _ in await viec()] == ["KQ_CHUA_GUI"]
+    # Bác sĩ duyệt vẫn làm được (việc chuyên môn của bác sĩ) nhưng không đổi
+    # việc của CSKH: tệp chưa gửi thì vẫn là việc "chưa gửi".
     await kb.svc.duyet_ket_qua(order_id=mau, danh_gia=None, identity=kb.bac_si)
+    assert [t for t, _ in await viec()] == ["KQ_CHUA_GUI"]
+    await TepKetQuaService(kb.pool).danh_dau_da_gui(
+        identity=kb.truong_ca, tep_id=str(tep["id"]), kenh="ZALO"
+    )
     assert await viec() == []
 
 

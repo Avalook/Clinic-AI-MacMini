@@ -11,12 +11,15 @@ import structlog
 from clinicai.api.identity import StaffIdentity, invalidate_identity_cache
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.schemas.staff import (
-    StaffCapabilityDTO,
     StaffCreateDTO,
     StaffDTO,
     StaffUpdateDTO,
 )
 from clinicai.services.audit import record_event
+from clinicai.services.permission_service import (
+    cap_preset_mac_dinh,
+    giu_nguoi_cap_quyen,
+)
 
 logger = structlog.get_logger()
 
@@ -133,6 +136,14 @@ class StaffService:
                     row["id"],
                     data.primary_department.value,
                     data.is_active,
+                )
+                # Người mới có quyền theo preset của vai NGAY, trong cùng giao
+                # dịch. Quản lý sửa lại từng khối trên màn phân quyền.
+                await cap_preset_mac_dinh(
+                    conn,
+                    clinic_id=str(self._clinic_id),
+                    staff_id=str(row["id"]),
+                    vai=data.primary_department.value,
                 )
                 await self._audit(
                     conn,
@@ -333,6 +344,7 @@ class StaffService:
                         )
                     else:
                         await self._deactivate_global_if_orphaned(conn, staff_id)
+                        await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
 
                 await self._audit(
                     conn,
@@ -387,6 +399,7 @@ class StaffService:
                 )
                 if row is not None:
                     await self._deactivate_global_if_orphaned(conn, staff_id)
+                    await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
                     await self._audit(
                         conn,
                         event_type="staff.deactivated",
@@ -488,218 +501,5 @@ class StaffService:
             )
 
 
-# ---------------------------------------------------------------------------
-# P9.6 — staff_capability helpers
-# ---------------------------------------------------------------------------
-#
-# Two free functions sit alongside the StaffService class. They take the
-# pool directly to match the rest of the new graph/tool layer (see
-# tools/scheduling/find_work_sessions etc.) — service classes are kept for
-# CRUD endpoints, but capability flows are graph-internal so the leaner
-# function signature reads better at call sites.
-
-
-_ADD_CAPABILITY_SQL = """
-    INSERT INTO staff_capability (staff_id, capability, proficiency_level)
-    SELECT $1, $2, $3
-    WHERE EXISTS (
-        SELECT 1
-        FROM clinic_membership
-        WHERE staff_id = $1 AND clinic_id = $4::uuid
-    )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM clinic_membership
-        WHERE staff_id = $1 AND clinic_id <> $4::uuid
-    )
-    ON CONFLICT (staff_id, capability) DO UPDATE
-        SET proficiency_level = EXCLUDED.proficiency_level
-    RETURNING id, staff_id, capability, proficiency_level, created_at
-"""
-
-_GET_BY_CAPABILITY_SQL = """
-    SELECT
-        s.id                  AS staff_id,
-        s.full_name           AS full_name,
-        s.short_name          AS short_name,
-        s.primary_department  AS primary_department,
-        sc.capability         AS capability,
-        sc.proficiency_level  AS proficiency_level
-    FROM staff s
-    JOIN staff_capability sc ON sc.staff_id = s.id
-    JOIN work_session_staff wss ON wss.staff_id = s.id
-    JOIN work_session ws ON ws.id = wss.work_session_id
-    WHERE sc.capability = $1
-      AND ws.location_id = $2
-      AND s.is_active = TRUE
-      AND (NOT $3::boolean OR s.is_training = FALSE)
-      AND ws.clinic_id = $4::uuid
-"""
-
-
-async def add_capability(
-    pool: asyncpg.Pool,
-    staff_id: UUID | str,
-    capability: str,
-    clinic_id: str,
-    proficiency_level: str = "COMPETENT",
-) -> StaffCapabilityDTO:
-    """Upsert a capability for a staff member owned only by this clinic.
-
-    On the (staff_id, capability) conflict we update proficiency_level so
-    callers can promote / demote without a separate code path. The
-    `capability` value is enforced at the application layer
-    (see clinicai.schemas.staff.Capability); the DB column is TEXT (D019).
-    Shared multi-clinic profiles require a system-admin path because this table
-    has no clinic_id and any write would otherwise affect another tenant.
-    """
-    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            _ADD_CAPABILITY_SQL,
-            staff_uuid,
-            capability,
-            proficiency_level,
-            clinic_id,
-        )
-    if row is None:
-        raise ResourceNotFoundError(f"Staff {staff_id} not found")
-
-    logger.info(
-        "staff_capability_upserted",
-        staff_id=str(staff_id),
-        clinic_id=clinic_id,
-        capability=capability,
-        proficiency_level=proficiency_level,
-    )
-    return StaffCapabilityDTO.model_validate(dict(row))
-
-
-async def get_staff_by_capability(
-    pool: asyncpg.Pool,
-    capability: str,
-    location_id: UUID,
-    clinic_id: str,
-    exclude_training: bool = True,
-) -> list[dict[str, object]]:
-    """Return on-duty staff at `location_id` who hold `capability`.
-
-    On-duty = has a row in work_session_staff for a work_session at the
-    given location. Inactive staff (`is_active=FALSE`) are always
-    excluded; trainees (`is_training=TRUE`) are excluded when
-    `exclude_training=True` (default, per D023).
-    """
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            _GET_BY_CAPABILITY_SQL,
-            capability,
-            location_id,
-            exclude_training,
-            clinic_id,
-        )
-    return [dict(row) for row in rows]
-
-
-_REVOKE_CAPABILITY_CHECK_SQL = """
-    SELECT
-        EXISTS (
-            SELECT 1
-            FROM clinic_membership
-            WHERE staff_id = $1 AND clinic_id = $2::uuid
-        ) AS in_clinic,
-        EXISTS (
-            SELECT 1
-            FROM clinic_membership
-            WHERE staff_id = $1 AND clinic_id <> $2::uuid
-        ) AS multi_clinic
-"""
-
-_REVOKE_CAPABILITY_SQL = """
-    DELETE FROM staff_capability sc
-    USING clinic_membership cm
-    WHERE sc.staff_id = $1
-      AND sc.capability = $2
-      AND cm.staff_id = sc.staff_id
-      AND cm.clinic_id = $3::uuid
-      AND NOT EXISTS (
-          SELECT 1
-          FROM clinic_membership cm2
-          WHERE cm2.staff_id = sc.staff_id
-            AND cm2.clinic_id <> $3::uuid
-      )
-"""
-
-_GET_STAFF_CAPABILITIES_SQL = """
-    SELECT
-        sc.id,
-        sc.staff_id,
-        sc.capability,
-        sc.proficiency_level,
-        sc.created_at
-    FROM staff_capability sc
-    JOIN clinic_membership cm ON cm.staff_id = sc.staff_id
-    WHERE sc.staff_id = $1
-      AND cm.clinic_id = $2::uuid
-    ORDER BY sc.capability
-"""
-
-
-async def revoke_capability(
-    pool: asyncpg.Pool,
-    staff_id: UUID | str,
-    capability: str,
-    clinic_id: str,
-) -> bool:
-    """Revoke a capability for a staff member owned only by this clinic.
-
-    Fails closed if the staff does not belong to clinic_id or is multi-clinic.
-    Idempotent: returns True if staff is valid, even if capability was already absent.
-    """
-    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
-    async with pool.acquire() as conn:
-        check = await conn.fetchrow(
-            _REVOKE_CAPABILITY_CHECK_SQL,
-            staff_uuid,
-            clinic_id,
-        )
-        if not check or not check["in_clinic"] or check["multi_clinic"]:
-            raise ResourceNotFoundError(f"Staff {staff_id} not found")
-
-        await conn.execute(
-            _REVOKE_CAPABILITY_SQL,
-            staff_uuid,
-            capability,
-            clinic_id,
-        )
-
-    logger.info(
-        "staff_capability_revoked",
-        staff_id=str(staff_id),
-        clinic_id=clinic_id,
-        capability=capability,
-    )
-    return True
-
-
-async def get_staff_capabilities(
-    pool: asyncpg.Pool,
-    staff_id: UUID | str,
-    clinic_id: str,
-) -> list[StaffCapabilityDTO]:
-    """Return all capabilities granted to a staff member in this clinic."""
-    staff_uuid = UUID(str(staff_id)) if isinstance(staff_id, str) else staff_id
-    async with pool.acquire() as conn:
-        in_clinic = await conn.fetchval(
-            """
-            SELECT EXISTS (
-                SELECT 1 FROM clinic_membership
-                WHERE staff_id = $1 AND clinic_id = $2::uuid
-            )
-            """,
-            staff_uuid,
-            clinic_id,
-        )
-        if not in_clinic:
-            raise ResourceNotFoundError(f"Staff {staff_id} not found")
-        rows = await conn.fetch(_GET_STAFF_CAPABILITIES_SQL, staff_uuid, clinic_id)
-    return [StaffCapabilityDTO.model_validate(dict(row)) for row in rows]
+# `staff_capability` (quyền kiểu cũ) ĐÃ NGHỈ 23/09/2026 — quyền thật ở
+# `capability_grant`, cấp/thu qua PermissionService (màn Phân quyền).

@@ -44,6 +44,8 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.clinical_prescription_service import (
     prepare_prescription_write,
@@ -121,13 +123,6 @@ VITALS_ONLY_EXTRA_ROLES: frozenset[ClinicRole] = frozenset(
 ON_BEHALF_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND}
 )  # ĐD vẫn ở đây: đo sinh hiệu cho khách của bác sĩ khác là việc bình thường.
-
-
-def may_write(role: ClinicRole, *, vitals_only: bool) -> bool:
-    """Whether this role may write in this mode."""
-    if role in FULL_RECORD_ROLES:
-        return True
-    return vitals_only and role in VITALS_ONLY_EXTRA_ROLES
 
 
 def as_obj(value: Any) -> dict[str, Any]:
@@ -225,6 +220,12 @@ def merge_vitals_only(previous: Any, incoming: Any) -> dict[str, Any]:
     return {**as_obj(previous), "vitals": as_obj(incoming).get("vitals") or {}}
 
 
+#: Lưu bệnh án có kèm sinh hiệu thì ghi `vital_measurement` + đẩy bước sinh hiệu
+#: sang "đã đo" (đường cũ 17/09). OFF từ 24/09: một đường ghi duy nhất là màn
+#: Đo sinh hiệu. Xem chú thích tại chỗ dùng trong `save`.
+HO_SO_GHI_SINH_HIEU = False
+
+
 class ClinicalRecordService:
     """Create or update the clinical record attached to an appointment's visit."""
 
@@ -259,15 +260,16 @@ class ClinicalRecordService:
             raise ValidationError(
                 "Sinh hiệu đo ở màn Đo sinh hiệu — mở menu Điều dưỡng → Đo sinh hiệu."
             )
-        if not any(may_write(v, vitals_only=vitals_only) for v in identity.cac_vai()):
-            raise SafetyGateError(
-                "Chỉ bác sĩ / điều dưỡng / lễ tân mới ghi sinh hiệu + lý do khám."
-                if vitals_only
-                else "Chỉ bác sĩ mới ghi hồ sơ khám."
-            )
-
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # QUYỀN, không vai (CORE-B3, 23/09/2026): `clinical.record.write`,
+                # hỏi trong chính giao dịch ghi.
+                await doi_quyen(
+                    conn,
+                    identity,
+                    "clinical.record.write",
+                    cau="Bạn chưa được cấp quyền ghi bệnh án.",
+                )
                 appointment = await conn.fetchrow(
                     """
                     SELECT
@@ -384,7 +386,13 @@ class ClinicalRecordService:
                             **non_empty(as_obj(as_obj(objective).get("vitals"))),
                         }
                     )
-                if vitals_only or vitals_moi != vitals_cu:
+                # MỘT ĐƯỜNG GHI SINH HIỆU (24/09/2026, nợ "Single write path for
+                # vitals"): lưu bệnh án KHÔNG tạo số đo, KHÔNG hoàn tất bước sinh
+                # hiệu nữa — số đo chỉ vào từ màn Đo sinh hiệu ([Bắt đầu] →
+                # lưu), để mốc "ai đo, lúc nào" luôn thật. Bệnh án vẫn lưu bình
+                # thường (ô sinh hiệu nằm trong nội dung hồ sơ). Cũ thì OFF:
+                # bật lại bằng `HO_SO_GHI_SINH_HIEU = True`.
+                if HO_SO_GHI_SINH_HIEU and (vitals_only or vitals_moi != vitals_cu):
                     if identity.co_vai({ClinicRole.TKYK}):
                         kiem_thu_ky_duoc_lam(
                             await bac_si_cua_thu_ky(conn, identity), bac_si_lich
@@ -492,11 +500,9 @@ class ClinicalRecordService:
                         clinic_patient_id=clinic_patient_id,
                         prescriptions=prescription_write.items,
                         clinic_id=identity.clinic_id,
-                        created_by=identity.staff_id
-                        if identity.co_vai(
-                            {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
-                        )
-                        else None,
+                        # NGƯỜI NHẬP (Tuyền 24/09: ghi đúng người nhập, thư ký =
+                        # bác sĩ). Duyệt nháp cũ: người nhập là thư ký đã gõ.
+                        created_by=prescription_write.recorded_by or identity.staff_id,
                         identity=identity,
                         ly_do_dinh_chinh=prescription_correction_reason,
                     )
@@ -654,9 +660,9 @@ class ClinicalRecordService:
         self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str
     ) -> None:
         """Đẩy lượt khám sang bước kế tiếp sau khi sinh hiệu lưu qua bệnh án."""
-        from clinicai.services.luot_kham_service import LuotKhamService
+        from clinicai.services.sinh_hieu_service import SinhHieuService
 
-        await LuotKhamService(self._pool).dong_bo_sinh_hieu_tu_ho_so(
+        await SinhHieuService(self._pool).dong_bo_sinh_hieu_tu_ho_so(
             conn, identity, visit_id
         )
 
@@ -829,3 +835,116 @@ class ClinicalRecordService:
 
 def _json_or_none(value: Any) -> str | None:
     return None if value is None else json.dumps(value)
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+#: Vai được thấy đơn thuốc NHÁP của thư ký (đường cũ, OFF từ 23/09 — còn đọc
+#: được cho lượt cũ). Khớp hàm SQL `read_prescription_draft`.
+_VAI_THAY_DON_NHAP = frozenset(
+    {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.TKYK}
+)
+_COT_BENH_AN_JSON = (
+    "soap_subjective",
+    "soap_objective",
+    "soap_assessment",
+    "soap_plan",
+    "prescription_draft",
+)
+
+
+async def ho_so_y_te_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Tiền sử, dị ứng, bệnh mạn, thuốc đang dùng… của khách."""
+    r = await conn.fetchrow(
+        """
+        SELECT blood_type, allergies, chronic_diseases, current_medications,
+               surgical_history, family_history, notes
+          FROM patient_medical_profile
+         WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+    )
+    return {"profile": dong(r)}
+
+
+async def benh_an_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """Bệnh án (SOAP) của lượt đang xem + revision để lưu không đè nhau."""
+    lt = None
+    if ngu_canh.visit_id:
+        lt = dong(
+            await conn.fetchrow(
+                """
+                SELECT v.visit_id::text, v.status, v.created_at,
+                       r.revision, r.chief_complaint_at_visit, r.soap_subjective,
+                       r.soap_objective, r.soap_assessment, r.soap_plan,
+                       r.prescription_draft
+                  FROM visit v
+                  LEFT JOIN clinical_record r
+                    ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
+                 WHERE v.visit_id = $1::uuid AND v.clinic_id = $2::uuid
+                """,
+                ngu_canh.visit_id,
+                ngu_canh.clinic_id,
+            ),
+            _COT_BENH_AN_JSON,
+        )
+    g = lt or {}
+    return {
+        "revision": g.get("revision") or 0,
+        "prescription_draft": (
+            g.get("prescription_draft")
+            if ngu_canh.identity.co_vai(_VAI_THAY_DON_NHAP)
+            else None
+        ),
+        "visit": (
+            {
+                "visit_id": g["visit_id"],
+                "status": g["status"],
+                "created_at": g["created_at"],
+            }
+            if lt
+            else None
+        ),
+        "draft": {
+            "chief_complaint": g.get("chief_complaint_at_visit") or "",
+            "subjective": g.get("soap_subjective"),
+            "objective": g.get("soap_objective"),
+            "assessment": g.get("soap_assessment"),
+            "plan": g.get("soap_plan"),
+        },
+    }
+
+
+async def lich_su_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """8 lượt khám gần nhất (bỏ chính lượt của lịch đang mở)."""
+    rows = await conn.fetch(
+        """
+        SELECT v.visit_id::text, v.status, v.created_at,
+               v.appointment_id::text, st.name AS service, s.full_name AS doctor,
+               r.chief_complaint_at_visit, r.soap_assessment
+          FROM visit v
+          LEFT JOIN service_type st ON st.id = v.service_type_id
+          LEFT JOIN staff s ON s.id = v.attending_doctor_id
+          LEFT JOIN clinical_record r
+            ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
+         WHERE v.clinic_patient_id = $1::uuid AND v.clinic_id = $2::uuid
+         ORDER BY v.created_at DESC LIMIT 8
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+    )
+    appt = ngu_canh.appointment_id
+    return {
+        "history_raw": [
+            dong(r, ["soap_assessment"])
+            for r in rows
+            if appt is None or r["appointment_id"] != appt
+        ]
+    }

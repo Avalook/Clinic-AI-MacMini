@@ -12,7 +12,13 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { hienTrenThanhBen, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
-import { isActiveNav, navLabelFor, nhomThanhBen, type NavItem } from "./nav-items";
+import {
+  isActiveNav,
+  navLabelFor,
+  nhomThanhBen,
+  type NavItem,
+  type PhongTheoViTri,
+} from "./nav-items";
 import { useNotifications } from "./NotificationContext";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
 
@@ -22,10 +28,16 @@ export default function Nav({
   isCollapsed = false,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
+  phong = {},
+  quyen = [],
 }: {
   role: ClinicRole | null;
+  /** Phòng của từng vị trí hôm nay — mục phòng mang tên phòng thật. */
+  phong?: PhongTheoViTri;
   /** Mã vị trí hôm nay — thanh bên đi theo việc thật (xem `mucHienRa`). */
   viTriHomNay?: readonly string[];
+  /** Capability đang có. Màn nào quyền mở được thì bày, dù vai không có. */
+  quyen?: readonly string[];
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;
@@ -41,10 +53,11 @@ export default function Nav({
   // Nhóm theo VAI hôm nay + "Việc khác" — `nhomThanhBen` lọc qua `mucHienRa`.
   const { dau, nhom, khac } = nhomThanhBen(
     role,
-    hienTrenThanhBen,
+    (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
     CLINICAL_HREFS,
     viTriHomNay,
+    phong,
   );
   const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);

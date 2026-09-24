@@ -53,6 +53,9 @@ NGUON: dict[str, tuple[str, str]] = {
     # Công bố tuần mà có khung vượt trần (lịch nhận lúc chưa công bố) → Trưởng
     # ca xử lý: đổi bác sĩ/giờ với khách. Không lịch nào bị huỷ (CONTEXT v1.0).
     "xung_dot_suc_chua": ("thong_bao.xung_dot_suc_chua", "config.roster"),
+    # Công bố tuần mà bác sĩ khách đã chọn không có ca ngày ấy → CSKH gọi khách
+    # đổi bác sĩ/ngày, Trưởng ca xếp lại (Tuyền chốt 24/09/2026).
+    "lich_mat_bac_si": ("thong_bao.lich_mat_bac_si", "config.roster"),
     # CSKH tự hẹn "gọi lại lúc 17:00" → mẩu giấy dán màn hình cho chính vai CSKH.
     "hen_goi_lai": ("thong_bao.hen_goi_lai", "cskh.customers"),
     # Kết quả xét nghiệm / tệp kết quả của đối tác vừa về (Tuyền chốt 15/09/2026)

@@ -13,20 +13,11 @@ const tepKetQuaSource = read("app/(dashboard)/customers/TepKetQua.tsx");
 const rolesSource = read("lib/roles.ts");
 const navItemsSource = read("app/(dashboard)/nav-items.ts");
 
-test("NAV và điều hướng: có /xac-nhan-ket-qua và đặt trước /duyet-ket-qua", () => {
-  assert.match(
-    navItemsSource,
-    /\{\s*href:\s*"\/xac-nhan-ket-qua",\s*label:\s*"Xác nhận kết quả",\s*icon:\s*ClipboardCheck\s*\}/,
-    "nav-items.ts thiếu NAV item { href: '/xac-nhan-ket-qua', label: 'Xác nhận kết quả', icon: ClipboardCheck }",
-  );
-  const xacNhanIdx = navItemsSource.indexOf('href: "/xac-nhan-ket-qua"');
-  const duyetKetQuaIdx = navItemsSource.indexOf('href: "/duyet-ket-qua"');
-  assert.ok(xacNhanIdx > 0, "Không tìm thấy /xac-nhan-ket-qua trong nav-items.ts");
-  assert.ok(duyetKetQuaIdx > 0, "Không tìm thấy /duyet-ket-qua trong nav-items.ts");
-  assert.ok(
-    xacNhanIdx < duyetKetQuaIdx,
-    "/xac-nhan-ket-qua phải đặt trước /duyet-ket-qua để luồng nhìn thành: Xác nhận kết quả -> Duyệt kết quả bác sĩ",
-  );
+test("NAV: /xac-nhan-ket-qua và /duyet-ket-qua đều OFF khỏi thanh bên (23/09 khuya)", () => {
+  // Tệp đối tác vào thẳng phiếu khám (không bước xác nhận); bác sĩ đọc/điền
+  // kết quả trong phiếu. Hai route còn giữ, chỉ gỡ khỏi thanh bên.
+  assert.equal(navItemsSource.indexOf('href: "/xac-nhan-ket-qua"'), -1);
+  assert.equal(navItemsSource.indexOf('href: "/duyet-ket-qua"'), -1);
 });
 
 test("NAV_ROLES: chặn PARTNER và DISPLAY, mở cho nội bộ, fail-closed ở backend capability", () => {

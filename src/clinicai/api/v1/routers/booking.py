@@ -26,12 +26,14 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
-from clinicai.services.booking_service import INTAKE_ROLES, Action, BookingService
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services import lich_hen_doc, man_dat_lich_doc
+from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
     load_clinic_policy,
@@ -42,19 +44,14 @@ from clinicai.services.slot_hold_service import SlotHoldService
 router = APIRouter()
 
 # Booking is intake work.
-_BOOKING_GUARD = require_role(*INTAKE_ROLES)
-# Any role that appears in the transition table may reach the action endpoint;
-# the table then decides. Cashiers never move an appointment.
-_ACTION_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.RECEPTION,
-    ClinicRole.CSKH,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
+# Đặt lịch / giữ chỗ hỏi QUYỀN "Đặt lịch" (24/09/2026 — thay INTAKE_ROLES, cùng
+# người: CSKH, Lễ tân, Quản lý, Trưởng ca).
+_BOOKING_GUARD = cua_quyen("booking.create")
+# Bảng chuyển trạng thái trong BookingService quyết từng thao tác: vai, hoặc
+# QUYỀN với check-in / huỷ check-in / vắng mặt (CORE-B3, 23/09/2026). Cửa ngoài
+# chỉ còn "đã đăng nhập" — liệt kê vai ở đây thì người được cấp quyền check-in
+# mà không thuộc danh sách vẫn ăn 403 ở cửa ngoài.
+_ACTION_GUARD = get_current_identity
 
 
 class BookingRequest(BaseModel):
@@ -89,6 +86,9 @@ class BookingRequest(BaseModel):
     lich_truoc_id: UUID | None = None
     #: TUỲ CHỌN (Tuyền chốt 15/09/2026): vãng lai tự check-in có thể ghi cách xác minh.
     xac_minh_cach: str | None = Field(default=None, max_length=32)
+    #: Kênh "Giới thiệu": ai giới thiệu khách tới — ghi vào HỒ SƠ khách (Tuyền
+    #: 24/09/2026), hiện ở phiếu khám.
+    nguoi_gioi_thieu: str | None = Field(default=None, max_length=200)
 
 
 class ActionRequest(BaseModel):
@@ -103,6 +103,84 @@ class ActionRequest(BaseModel):
     slot_end: datetime | None = None
     #: TUỲ CHỌN với action = "checkin" — xem `cach_xac_minh_bat_buoc`.
     xac_minh_cach: str | None = Field(default=None, max_length=32)
+
+
+# ── ĐỌC lịch hẹn cho màn đặt lịch (24/09/2026) ─────────────────────────────
+# Route giao diện `/api/appointments` (GET) và `/api/appointments/service-history`
+# từng đọc thẳng bảng bằng Supabase — nay đọc ở đây (services/lich_hen_doc.py).
+# Cửa: ai làm việc với lịch — đặt lịch, check-in, hoặc khám (cùng người với
+# cửa vai cũ ở proxy: CSKH/Lễ tân/QL/Trưởng ca + bác sĩ/thư ký).
+_DOC_LICH_GUARD = cua_quyen(
+    "booking.create", "reception.checkin.perform", "clinical.consult.perform"
+)
+
+
+@router.get("/appointments/hub-dat-lich")
+async def hub_dat_lich(
+    identity: StaffIdentity = Depends(
+        cua_quyen("booking.create", "reception.checkin.perform")
+    ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu màn Đặt lịch (CSKH + Lễ tân) — kèm "khách khám lần mấy"."""
+    return await man_dat_lich_doc.hub_dat_lich(pool, identity=identity)
+
+
+@router.get("/appointments/bac-si-tu-choi")
+async def lich_bac_si_tu_choi(
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch bác sĩ từ chối từ hôm nay — thông báo ở khung trang cho CSKH."""
+    return {"items": await lich_hen_doc.lich_bac_si_tu_choi(pool, identity=identity)}
+
+
+@router.get("/appointments/lich-ngay")
+async def lich_ngay(
+    ngay: str,
+    doctor_id: UUID | None = None,
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch hẹn một ngày; ngày rác → danh sách rỗng (không 500)."""
+    return {
+        "appointments": await lich_hen_doc.lich_trong_ngay(
+            pool,
+            identity=identity,
+            ngay=ngay,
+            doctor_id=str(doctor_id) if doctor_id else None,
+        )
+    }
+
+
+@router.get("/appointments/sap-toi")
+async def lich_sap_toi(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch còn sống sắp tới của một khách."""
+    return {
+        "appointments": await lich_hen_doc.lich_sap_toi(
+            pool, identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+@router.get("/appointments/lich-su-dich-vu")
+async def lich_su_dich_vu(
+    clinic_patient_id: UUID,
+    service_type_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách đã đặt dịch vụ này bao nhiêu lần + đợt khám còn sống."""
+    return await lich_hen_doc.lich_su_dich_vu(
+        pool,
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        service_type_id=str(service_type_id),
+    )
 
 
 @router.get("/appointments/cho-xep-bac-si")
@@ -239,9 +317,16 @@ async def cho_xep_bac_si(
             identity.clinic_id,
         )
     da_co = {r["id"] for r in rows}
+    # HAI câu, mỗi câu trần 500. Chạm trần ở câu nào cũng là "còn lịch mất bác
+    # sĩ mà màn không hiện" — và đó đúng là thứ khách nhớ rất lâu.
+    bi_cat = canh_bao_neu_day("lich.chua_xep_bac_si", len(rows), 500) or (
+        canh_bao_neu_day("lich.vuot_suc_chua", len(vuot), 500)
+    )
     return {
         "items": [dict(r) for r in rows]
-        + [dict(r) for r in vuot if r["id"] not in da_co]
+        + [dict(r) for r in vuot if r["id"] not in da_co],
+        "bi_cat": bi_cat,
+        "tran": 500,
     }
 
 
@@ -336,6 +421,7 @@ async def create_booking(
             notes=body.notes,
             lich_truoc_id=str(body.lich_truoc_id) if body.lich_truoc_id else None,
             xac_minh_cach=body.xac_minh_cach,
+            nguoi_gioi_thieu=body.nguoi_gioi_thieu,
         )
         payload = {"ok": True, **result}
         await idem.save(pool, payload, status_code=201)

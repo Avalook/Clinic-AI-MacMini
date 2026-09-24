@@ -44,6 +44,10 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
+from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_SQL
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -51,7 +55,8 @@ logger = structlog.get_logger()
 # Bước "Đóng lượt khám" trong node_definition.
 CLOSE_NODE = "LUOTKHAM-15"
 
-_READINESS_SQL = """
+_READINESS_SQL = (
+    """
 SELECT
     v.visit_id,
     v.status                       AS visit_status,
@@ -70,9 +75,13 @@ SELECT
     --    không bao giờ thấy chỉ định còn dở hay kết quả bác sĩ còn chờ đọc.
     --
     -- ① Chỉ định bác sĩ đã duyệt mà chưa làm (nháp của thư ký không tính).
+    --    Khách ĐÃ BỎ, hoặc bác sĩ đã miễn / chuyển theo dõi → không còn là việc
+    --    dở (cùng luật `kham_xong`, 24/09/2026).
     coalesce((SELECT count(*) FROM public.service_order o
                WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
-                 AND o.exec_status IN ('authorized', 'assigned', 'in_progress')),
+                 AND """
+    + CHI_DINH_CON_VIEC_SQL
+    + """),
              0)                                                AS svc_open,
     -- ② Kết quả bác sĩ còn chờ để đọc lại trong lượt: yêu cầu "cần kết quả"
     --    chưa đạt của vòng đọc chưa đóng. Kết quả đã CHUYỂN THEO DÕI không
@@ -111,6 +120,7 @@ SELECT
   LEFT JOIN public.clinic_room r ON r.id = v.current_room_id
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid
 """
+)
 
 
 _BUOC_WORK_ITEM_SQL = """
@@ -235,6 +245,7 @@ class CheckoutService:
                 _vn_day_start(),
             )
 
+        canh_bao_neu_day("thu_ngan.cho_dong_luot", len(rows), 300)
         out: list[dict[str, Any]] = []
         for r in rows:
             blockers = build_blockers(dict(r))
@@ -707,6 +718,28 @@ class CheckoutService:
                     ),
                     "visit.closed_incomplete" if incomplete else "dispatch.checkout",
                 )
+                # Sổ sự kiện nghiệp vụ (nhóm 3, 24/09/2026): khách về / bỏ về giữa
+                # chừng — dòng thời gian + (sau này) theo dõi sau khám H6.
+                if incomplete:
+                    await emit_event(
+                        conn,
+                        ten="visit.left_early",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=visit_id,
+                        payload=KhachBoVeGiuaChung(visit_id=visit_id),
+                        boi=nguoi(identity),
+                        correlation_id=visit_id,
+                    )
+                else:
+                    await emit_event(
+                        conn,
+                        ten="visit.checked_out",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=visit_id,
+                        payload=KhachDaVe(visit_id=visit_id, con_vuong=len(blockers)),
+                        boi=nguoi(identity),
+                        correlation_id=visit_id,
+                    )
 
         logger.info(
             "visit_checked_out",

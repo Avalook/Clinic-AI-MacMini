@@ -21,18 +21,6 @@
 import { VN_OFFSET } from "../../../lib/datetime";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import {
-  getClinicStaffId,
-  getVaiHomNay,
-  vaiLamViec,
-} from "../../../lib/clinic-session";
-import {
-  canWriteIntake,
-  isDoctorRole,
-  canManageAppt,
-  canCheckin,
-  type ClinicRole,
-} from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { type PatientKind } from "../../../lib/capacity";
 
@@ -57,6 +45,8 @@ interface Body {
   notes?: string;
   /** Lịch hẹn mà lịch này là tái khám của nó. Xem migration 20260810000007. */
   lich_truoc_id?: string;
+  /** Kênh "Giới thiệu": người giới thiệu → hồ sơ khách (24/09/2026). */
+  nguoi_gioi_thieu?: string;
 }
 
 export async function GET(request: Request) {
@@ -86,97 +76,24 @@ export async function GET(request: Request) {
   // Lịch hẹn là dữ liệu vận hành: những vai nhìn thấy nó trên màn hình là nhóm
   // đặt lịch/tiếp nhận + bàn khám. Cùng ranh giới mà /appointments và /tasks
   // đang dùng, chỉ là ở đây nói thành lời.
-  const role = await vaiLamViec(
-    (r) => canWriteIntake(r) || isDoctorRole(r) || canCheckin(r),
-  );
-  if (!canWriteIntake(role) && !isDoctorRole(role) && !canCheckin(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // LỊCH SẮP TỚI CỦA MỘT NGƯỜI — để màn Đặt lịch nói được "người này đã có
-  // lịch rồi" TRƯỚC khi CSKH bấm đặt thêm.
-  //
-  // Quang 09/08/2026: *"ấn vào 1 bệnh nhân đã đặt lịch rồi thì trang bên phải
-  // phải hiện cái lịch đã đặt ra chứ, để người ta còn biết người này đặt rồi
-  // chứ đặt trùng liên tục à"*.
-  //
-  // KHÔNG lọc theo ngày đang xem: đặt trùng hay xảy ra nhất khi lịch cũ nằm ở
-  // một ngày khác — đúng cái mà lưới trước mặt không hiện. Chỉ lấy từ BÂY GIỜ
-  // trở đi; lịch đã qua không ngăn ai đặt thêm.
+  // 24/09/2026: đọc qua backend (services/lich_hen_doc.py) thay vì đọc thẳng
+  // bảng `appointment` bằng Supabase. Ai được đọc do backend quyết.
   if (benhNhan) {
-    const { data, error } = await caller
-      .from("appointment")
-      .select("id, slot_start, status, doctor_id, service_type_id")
-      .eq("clinic_patient_id", benhNhan)
-      .gte("slot_start", new Date().toISOString())
-      .not("status", "in", "(CANCELLED,NO_SHOW,DOCTOR_DECLINED)")
-      .order("slot_start")
-      .limit(20);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ appointments: data ?? [] });
+    return proxyJsonToBackend(
+      "GET",
+      `/api/v1/appointments/sap-toi?clinic_patient_id=${encodeURIComponent(benhNhan)}`,
+      undefined,
+    );
   }
-
-  // CỬA SỔ MỘT NGÀY — TÍNH Ở ĐÂY, SAU KHI ĐÃ CHẮC CÓ `date`.
-  //
-  // LỖI 10/08/2026, và nó là một lỗi 500 CÂM. Hai dòng này vốn nằm ngay dưới
-  // khối kiểm tham số, chạy VÔ ĐIỀU KIỆN. Nhưng điều kiện ở trên là
-  // `!date && !benhNhan` — nghĩa là hỏi theo BỆNH NHÂN (không kèm ngày) đi qua
-  // được, rồi `new Date("nullT00:00:00+07:00")` cho một Invalid Date và
-  // `.toISOString()` ném `RangeError: Invalid time value`.
-  //
-  // Tức là nhánh "khách này đã có lịch gì" — thứ sinh ra để chặn đặt trùng —
-  // CHƯA TỪNG chạy được lần nào. Nó luôn 500.
-  //
-  // Ba triệu chứng tưởng rời nhau, thật ra là một:
-  //   · log dashboard rải rác `⨯ RangeError: Invalid time value` (không có
-  //     stack component vì lỗi ném trong route handler, không phải trong render)
-  //   · panel Đặt lịch rơi vào nhánh `kind: "hong"` của `LichSapToiCuaKhach`
-  //   · và bài kiểm `booking-double-check-boundary` cảnh báo đúng chuyện ấy:
-  //     hỏi hỏng mà im lặng thì người trực đọc thành "khách chưa có lịch".
-  //
-  // Nhánh bệnh nhân ở trên đã `return` trước khi tới đây, nên tới dòng này thì
-  // `date` chắc chắn có. Ép kiểu bằng một câu kiểm thật thay vì tin vào luồng:
-  // luồng đổi được, câu kiểm thì không.
   if (!date) {
-    return NextResponse.json(
-      { error: "Missing date parameter" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Missing date parameter" }, { status: 400 });
   }
-  // KIỂM TRƯỚC KHI GỌI `toISOString()`, không phải sau: trên một Invalid Date
-  // thì chính `toISOString()` là thứ NÉM lỗi, nên mọi câu kiểm đặt sau nó đều
-  // không bao giờ chạy tới. Đó đúng là hình dạng của lỗi vừa sửa.
-  const dauNgay = new Date(`${date}T00:00:00${VN_OFFSET}`);
-  const cuoiNgay = new Date(`${date}T23:59:59${VN_OFFSET}`);
-  if (Number.isNaN(dauNgay.getTime()) || Number.isNaN(cuoiNgay.getTime())) {
-    return NextResponse.json(
-      { error: `Ngày không hợp lệ: ${date}` },
-      { status: 400 },
-    );
+  if (Number.isNaN(new Date(`${date}T00:00:00${VN_OFFSET}`).getTime())) {
+    return NextResponse.json({ error: `Ngày không hợp lệ: ${date}` }, { status: 400 });
   }
-  const startOfDay = dauNgay.toISOString();
-  const endOfDay = cuoiNgay.toISOString();
-
-  let query = caller
-    .from("appointment")
-    .select("id, slot_start, queue_number, status, doctor_id, booking_channel")
-    .gte("slot_start", startOfDay)
-    .lte("slot_start", endOfDay)
-    .not("status", "eq", "CANCELLED")
-    .not("status", "eq", "NO_SHOW")
-    // Một ngày của Dr4Women vào khoảng 40–60 lượt; 500 là trần an toàn để một
-    // ngày bất thường không kéo cả trang xuống mà vẫn không cắt mất dữ liệu thật.
-    .order("slot_start")
-    .limit(500);
-
-  if (doctorId) {
-    query = query.eq("doctor_id", doctorId);
-  }
-
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  return NextResponse.json({ appointments: data });
+  const q = new URLSearchParams({ ngay: date });
+  if (doctorId) q.set("doctor_id", doctorId);
+  return proxyJsonToBackend("GET", `/api/v1/appointments/lich-ngay?${q.toString()}`, undefined);
 }
 
 export async function POST(request: Request) {
@@ -185,10 +102,8 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Đặt lịch hỏi QUYỀN `booking.create` ở backend (24/09/2026) — không gác vai
+  // ở proxy.
 
   let body: Body;
   try {
@@ -288,6 +203,7 @@ export async function POST(request: Request) {
       lich_truoc_id: (body.lich_truoc_id ?? "").trim() || null,
       // Vãng lai trong ngày tự check-in → backend bắt buộc cách xác minh.
       xac_minh_cach: (body.xac_minh_cach ?? "").trim() || null,
+      nguoi_gioi_thieu: (body.nguoi_gioi_thieu ?? "").trim().slice(0, 200) || null,
     },
     idempotencyKey,
   );
@@ -364,49 +280,12 @@ export async function PATCH(request: Request) {
     );
   }
 
-  // Vai LÀM VIỆC hôm nay: vai tài khoản trước (luật bác sĩ chỉ xét vai này —
-  // lịch không bao giờ cấp vai bác sĩ), rồi vai vận hành vị trí hôm nay cấp.
-  const vaiHomNay = await getVaiHomNay();
-  const vaiDuoc = (fn: (r: ClinicRole) => boolean) => vaiHomNay.some(fn);
-  const staffId = await getClinicStaffId();
-
-  // Gate theo nhóm: bác sĩ (own appt) · hủy/phân-lại (CSKH/QL) · không-đến
-  // (front-desk) · check-in/cskh_confirm (intake).
-  if (DOCTOR_ACTIONS.has(action)) {
-    if (!vaiDuoc(isDoctorRole)) {
-      return NextResponse.json(
-        { error: "Chỉ bác sĩ mới xác nhận/từ chối/khám-xong lịch hẹn." },
-        { status: 403 },
-      );
-    }
-    if (!staffId) {
-      return NextResponse.json(
-        { error: "Chưa chọn danh tính bác sĩ." },
-        { status: 403 },
-      );
-    }
-  } else if (MANAGE_ACTIONS.has(action)) {
-    if (!vaiDuoc(canManageAppt)) {
-      return NextResponse.json(
-        { error: "Chỉ CSKH / Quản lý mới hủy hoặc phân lại bác sĩ." },
-        { status: 403 },
-      );
-    }
-  } else if (action === "no_show" || action === "checkin" || action === "undo_checkin") {
-    // Check-in là việc của lễ tân (Tuyền chốt 15/09/2026) — CSKH không.
-    if (!vaiDuoc(canCheckin)) {
-      return NextResponse.json(
-        { error: "Chỉ Lễ tân / Quản lý mới check-in hoặc đánh không đến." },
-        { status: 403 },
-      );
-    }
-  } else if (!vaiDuoc(canWriteIntake)) {
-    return NextResponse.json(
-      { error: "Chỉ Lễ tân / CSKH / Quản lý mới xác nhận lịch." },
-      { status: 403 },
-    );
-  }
-
+  // KHÔNG GÁC VAI Ở ĐÂY (24/09/2026). Backend là nơi quyết, trong chính giao
+  // dịch chuyển trạng thái: check-in/không đến hỏi `reception.checkin.perform`,
+  // huỷ/dời/gán bác sĩ hỏi `booking.manage`, xác nhận lịch cũ hỏi
+  // `booking.create`, khám xong theo luật bác sĩ-của-ca (+CSKH/QL/Trưởng ca).
+  // Gác ở proxy từng chặn nhầm: CSKH/QL không đóng được lịch (backend cho), và
+  // người được cấp quyền mà khác vai ăn 403 ở cửa ngoài — hai hệ quyền.
   return proxyJsonToBackend("PATCH", `/api/v1/appointments/${id}`, {
     action,
     cancellation_reason: body.cancellation_reason ?? null,

@@ -20,6 +20,7 @@ from clinicai.api.identity import (
     get_current_identity,
     require_role,
 )
+from clinicai.api.nghi_huu import bao_da_nghi
 from clinicai.core.database import get_db_pool
 from clinicai.services.clinical_sign_service import ClinicalSignService
 from clinicai.services.dinh_chinh_don import (
@@ -34,10 +35,11 @@ router = APIRouter()
 
 # Quản lý KHÔNG có ở đây, có chủ ý: ký là trách nhiệm chuyên môn, không phải
 # quyền hành chính.
-_SIGN_GUARD = require_role(ClinicRole.DOCTOR)
 _ULTRASOUND_SIGN_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
-_RELEASE_GUARD = require_role(ClinicRole.DOCTOR)
-_AMEND_GUARD = require_role(ClinicRole.DOCTOR)
+# Cho phép gửi / đính chính hỏi QUYỀN `clinical.consult.finalize` + bác sĩ chính
+# trong hàm dịch vụ (CORE-A, 23/09/2026) — cửa ngoài chỉ "đã đăng nhập".
+_RELEASE_GUARD = get_current_identity
+_AMEND_GUARD = get_current_identity
 
 
 @router.get("/clinical/{visit_id:uuid}/status")
@@ -56,23 +58,20 @@ async def clinical_status(
     )
 
 
-class SignRequest(BaseModel):
-    #: Phiên bản bệnh án bác sĩ đang xem (status.record_revision).
-    expected_revision: int = Field(..., ge=0)
-
-
-@router.post("/clinical/{visit_id:uuid}/sign", status_code=201)
+@router.post("/clinical/{visit_id:uuid}/sign")
 async def sign(
     visit_id: UUID,
-    body: SignRequest,
-    identity: StaffIdentity = Depends(_SIGN_GUARD),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, Any]:
-    """Ký bệnh án. Sau bước này nội dung bị khoá (TT13/2011/TT-BYT)."""
-    return await ClinicalSignService(pool).sign(
+    identity: StaffIdentity = Depends(get_current_identity),
+) -> None:
+    """ĐÃ NGHỈ 23/09/2026 — không còn "Ký bệnh án". Trả 410, không ghi gì."""
+    bao_da_nghi(
+        endpoint="POST /clinical/{visit_id}/sign",
         identity=identity,
-        visit_id=str(visit_id),
-        expected_revision=body.expected_revision,
+        thay_bang=(
+            "Không còn bước Ký bệnh án. Bác sĩ bấm Hoàn tất khám ở Bàn khám —"
+            " đó là mốc khoá hồ sơ; sửa sau đó đi qua Đính chính."
+        ),
+        visit_id=visit_id,
     )
 
 

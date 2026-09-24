@@ -199,3 +199,179 @@ class ReportsService:
             "unset": extra["chua_khai"],
             "unknown": extra["ngoai_danh_muc"],
         }
+
+
+#: "Đã xác nhận" cho lịch ngày mai = CSKH đã gọi hoặc đã đi xa hơn.
+_DA_XAC_NHAN = ("CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN", "COMPLETED")
+
+
+async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str, Any]:
+    """Số liệu các ô của trang /reports (24/09/2026) — trang từng bắn 12 truy
+    vấn Supabase rời. Ở đây MỘT lượt đếm có lọc (FILTER) nên các ô cùng một thời
+    điểm, tổng các phần luôn khớp tổng. Mốc ngày theo giờ Việt Nam."""
+    cid = identity.clinic_id
+    dau_ngay = datetime.now(CLINIC_TZ).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    cuoi_ngay = dau_ngay + timedelta(days=1)
+    cuoi_mai = cuoi_ngay + timedelta(days=1)
+    dau_7 = cuoi_ngay - timedelta(days=7)
+    dau_30 = cuoi_ngay - timedelta(days=30)
+    async with pool.acquire() as conn:
+        o = await conn.fetchrow(
+            """
+            SELECT
+              count(*) FILTER (WHERE slot_start >= $2 AND slot_start < $3) AS hom_nay,
+              count(*) FILTER (WHERE slot_start >= $2 AND slot_start < $3
+                                 AND status = 'COMPLETED') AS hom_nay_xong,
+              count(*) FILTER (WHERE slot_start >= $2 AND slot_start < $3
+                                 AND status IN ('CONFIRMED', 'CHECKED_IN'))
+                AS hom_nay_cho,
+              count(*) FILTER (WHERE slot_start >= $2 AND slot_start < $3
+                                 AND status = 'SCHEDULED') AS hom_nay_chua_xn,
+              count(*) FILTER (WHERE slot_start >= $2 AND slot_start < $3
+                                 AND status = 'NO_SHOW') AS hom_nay_khong_den,
+              count(*) FILTER (WHERE slot_start >= $3 AND slot_start < $4) AS ngay_mai,
+              count(*) FILTER (WHERE slot_start >= $3 AND slot_start < $4
+                                 AND status = ANY($6::text[])) AS ngay_mai_xn,
+              count(*) FILTER (WHERE slot_start >= $5 AND slot_start < $3
+                                 AND status = 'COMPLETED') AS xong_30,
+              count(*) FILTER (WHERE slot_start >= $5 AND slot_start < $3
+                                 AND status = 'NO_SHOW') AS khong_den_30
+              FROM appointment
+             WHERE clinic_id = $1::uuid AND slot_start >= $5 AND slot_start < $4
+            """,
+            cid,
+            dau_ngay,
+            cuoi_ngay,
+            cuoi_mai,
+            dau_30,
+            list(_DA_XAC_NHAN),
+        )
+        khach_moi = await conn.fetchval(
+            "SELECT count(*) FROM patient WHERE clinic_id = $1::uuid"
+            " AND created_at >= $2",
+            cid,
+            dau_30,
+        )
+        theo_bs = await conn.fetch(
+            """
+            SELECT coalesce(s.full_name, 'Chưa phân bác sĩ') AS name,
+                   count(*) AS total,
+                   count(*) FILTER (WHERE a.status = 'COMPLETED') AS done,
+                   count(*) FILTER (WHERE a.status IN ('CONFIRMED', 'CHECKED_IN'))
+                     AS waiting
+              FROM appointment a
+              LEFT JOIN staff s ON s.id = a.doctor_id
+             WHERE a.clinic_id = $1::uuid AND a.slot_start >= $2 AND a.slot_start < $3
+             GROUP BY a.doctor_id, s.full_name
+             ORDER BY total DESC
+            """,
+            cid,
+            dau_ngay,
+            cuoi_ngay,
+        )
+        theo_ngay = await conn.fetch(
+            """
+            SELECT d AS moc,
+                   (SELECT count(*) FROM appointment a
+                     WHERE a.clinic_id = $1::uuid
+                       AND a.slot_start >= d AND a.slot_start < d + interval '1 day')
+                     AS count
+              FROM generate_series($2::timestamptz, $3::timestamptz - interval '1 day',
+                                   interval '1 day') AS d
+             ORDER BY d
+            """,
+            cid,
+            dau_7,
+            cuoi_ngay,
+        )
+    so = dict(o) if o else {}
+    return {
+        **{k: int(v or 0) for k, v in so.items()},
+        "khach_moi_30": int(khach_moi or 0),
+        "theo_bac_si": [
+            {
+                "name": r["name"],
+                "total": int(r["total"]),
+                "done": int(r["done"]),
+                "waiting": int(r["waiting"]),
+            }
+            for r in theo_bs
+        ],
+        "theo_ngay": [
+            {
+                "ngay": r["moc"].astimezone(CLINIC_TZ).date().isoformat(),
+                "count": int(r["count"]),
+            }
+            for r in theo_ngay
+        ],
+    }
+
+
+#: "10 sự kiện mới nhất" là TOP-N chủ ý của ô Toàn cảnh, không phải trần cắt
+#: một danh sách (không cần `canh_bao_neu_day` — nó luôn đủ 10 khi sổ đủ dài).
+_SO_SU_KIEN_GAN = 10
+
+
+async def toan_canh(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str, Any]:
+    """Tab "Toàn cảnh" của /ops (24/09/2026): danh sách nhân sự, bốn con số
+    hôm nay, 10 sự kiện mới nhất. Tab từng đọc thẳng 6 bảng bằng Supabase — và
+    tính "hôm nay" theo nửa đêm UTC (lệch 7 giờ). Ở đây theo giờ Việt Nam."""
+    cid = identity.clinic_id
+    dau_ngay = datetime.now(CLINIC_TZ).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    cuoi_ngay = dau_ngay + timedelta(days=1)
+    async with pool.acquire() as conn:
+        nhan_su = await conn.fetch(
+            """
+            SELECT id::text, full_name, short_name, primary_department,
+                   employment_type, is_active, auth_user_id::text
+              FROM staff s
+             WHERE EXISTS (SELECT 1 FROM clinic_membership m
+                            WHERE m.staff_id = s.id AND m.clinic_id = $1::uuid)
+             ORDER BY primary_department, full_name
+            """,
+            cid,
+        )
+        so = await conn.fetchrow(
+            """
+            SELECT
+              (SELECT count(*) FROM appointment WHERE clinic_id = $1::uuid
+                  AND slot_start >= $2 AND slot_start < $3) AS appointments_today,
+              (SELECT count(*) FROM patient WHERE clinic_id = $1::uuid
+                  AND created_at >= $2 AND created_at < $3) AS patients_today,
+              (SELECT count(*) FROM visit WHERE clinic_id = $1::uuid
+                  AND created_at >= $2 AND created_at < $3) AS visits_today,
+              (SELECT count(*) FROM work_item WHERE clinic_id = $1::uuid
+                  AND status IN ('PENDING', 'IN_PROGRESS')) AS pending_tasks
+            """,
+            cid,
+            dau_ngay,
+            cuoi_ngay,
+        )
+        su_kien = await conn.fetch(
+            """
+            SELECT event_id::text, event_type, aggregate_type, source, occurred_at
+              FROM event_log
+             WHERE clinic_id = $1::uuid
+             ORDER BY occurred_at DESC
+             LIMIT $2
+            """,
+            cid,
+            _SO_SU_KIEN_GAN,
+        )
+    s = dict(so) if so else {}
+    return {
+        "staff": [dict(r) for r in nhan_su],
+        "counts": {
+            "appointmentsToday": int(s.get("appointments_today") or 0),
+            "patientsToday": int(s.get("patients_today") or 0),
+            "visitsToday": int(s.get("visits_today") or 0),
+            "pendingTasks": int(s.get("pending_tasks") or 0),
+        },
+        "recentEvents": [
+            {**dict(r), "occurred_at": r["occurred_at"].isoformat()} for r in su_kien
+        ],
+    }

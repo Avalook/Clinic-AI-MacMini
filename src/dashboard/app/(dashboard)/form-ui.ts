@@ -75,4 +75,13 @@ export const CHANNELS = [
   { id: "REFERRAL", label: "Giới thiệu" },
 ];
 
+/** Kênh CHỌN ĐƯỢC khi đặt lịch mới (Tuyền 24/09/2026: bỏ Website và Hotline).
+ *  `CHANNELS` giữ đủ để lịch cũ ghi kênh ấy vẫn hiện đúng tên. */
+export const CHANNELS_CHON = CHANNELS.filter(
+  (c) => c.id !== "HOTLINE" && c.id !== "WEBSITE",
+);
+
+/** Kênh "Giới thiệu": ô ghi người giới thiệu → lưu vào HỒ SƠ khách (hiện ở phiếu khám). */
+export const KENH_GIOI_THIEU = "REFERRAL";
+
 export const DURATIONS = [15, 30, 45, 60];

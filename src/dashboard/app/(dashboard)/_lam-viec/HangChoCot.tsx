@@ -9,7 +9,7 @@ import { Star } from "lucide-react";
 import { type DongHangCho, gioVn, soPhutTu } from "./api";
 
 const NHOM: { ten: string; co: (d: DongHangCho) => boolean }[] = [
-  { ten: "Đang trong phòng", co: (d) => d.trang_thai === "serving" },
+  { ten: "Đang khám", co: (d) => d.trang_thai === "serving" },
   {
     ten: "Đang chờ",
     co: (d) => d.trang_thai === "waiting" || d.trang_thai === "called",

@@ -48,6 +48,9 @@ const VONG: Record<string, string> = {
 
 export default function ChiDinhHomNay() {
   const [ds, setDs] = useState<ChiDinh[] | null>(null);
+  // Backend cắt bảng ở một trần (500 dòng). Cắt mà không nói là để trưởng ca
+  // nhìn một bảng thiếu người mà tưởng đã hết — nên màn phải nói ra.
+  const [biCat, setBiCat] = useState<{ tong: number; hien: number } | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [tab, setTab] = useState<ChiDinh["nhom"]>("can_dieu_phoi");
   const [xem, setXem] = useState<string | null>(null);
@@ -55,10 +58,17 @@ export default function ChiDinhHomNay() {
   useEffect(() => {
     let huy = false;
     const nap = () =>
-      void docBang<{ chi_dinh: ChiDinh[] }>("chi-dinh-hom-nay").then((kq) => {
+      void docBang<{ chi_dinh: ChiDinh[]; tong?: number; bi_cat?: boolean }>(
+        "chi-dinh-hom-nay",
+      ).then((kq) => {
         if (huy) return;
         if (kq.ok) {
           setDs(kq.data.chi_dinh);
+          setBiCat(
+            kq.data.bi_cat
+              ? { tong: kq.data.tong ?? 0, hien: kq.data.chi_dinh.length }
+              : null,
+          );
           setLoi(null);
         } else setLoi(kq.loi);
       });
@@ -75,6 +85,12 @@ export default function ChiDinhHomNay() {
   return (
     <section aria-label="Chỉ định hôm nay" className="rounded-card border border-line bg-surface p-3 shadow-card">
       <h2 className="text-sm font-semibold text-ink">Chỉ định hôm nay</h2>
+      {biCat ? (
+        <p role="status" className="mt-1 text-label text-warning">
+          Bảng đang hiện {biCat.hien}/{biCat.tong} chỉ định của hôm nay. Lọc theo
+          phòng hoặc xử lý bớt để thấy phần còn lại.
+        </p>
+      ) : null}
       <div role="tablist" aria-label="Nhóm chỉ định" className="mt-2 flex flex-wrap gap-1">
         {NHOM.map((n) => {
           const so = (ds ?? []).filter((c) => c.nhom === n.ma).length;

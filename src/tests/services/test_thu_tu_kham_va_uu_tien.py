@@ -20,6 +20,18 @@ from clinicai.services.thu_tu_kham_service import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Kết nối giả không chạy được `v_quyen_hieu_luc` — cửa quyền trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). 24/09: kéo thứ tự / đặt lịch hỏi quyền."""
+    import clinicai.services.booking_service as bk
+    import clinicai.services.thu_tu_kham_service as ttk
+    from tests.quyen_gia import doi_quyen_theo_nhom_mau
+
+    monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+
+
 def _identity(role: ClinicRole) -> StaffIdentity:
     x = "a0000000-0000-4000-8000-000000000001"
     return StaffIdentity(
@@ -58,13 +70,31 @@ def test_vai_keo_thu_tu_la_quay_va_dieu_phoi_khong_co_cskh() -> None:
 
 @pytest.mark.asyncio
 async def test_cskh_keo_thu_tu_bi_chan_truoc_khi_cham_db() -> None:
+    """CSKH không có quyền "Check-in khách" → chặn ngay khi hỏi quyền, trước
+    mọi câu đọc/ghi dữ liệu (24/09: hỏi quyền thay vì hỏi vai)."""
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock
+
+    conn = AsyncMock()
+
+    class _Pool:
+        @asynccontextmanager
+        async def acquire(self):  # type: ignore[no-untyped-def]
+            @asynccontextmanager
+            async def tx():  # type: ignore[no-untyped-def]
+                yield None
+
+            conn.transaction = tx
+            yield conn
+
     with pytest.raises(SafetyGateError):
-        await ThuTuKhamService(None).keo(
+        await ThuTuKhamService(_Pool()).keo(
             identity=_identity(ClinicRole.CSKH),
             appointment_id="a",
             sau_appointment_id=None,
             truoc_appointment_id="b",
         )
+    assert not conn.fetch.await_args_list
 
 
 @pytest.mark.asyncio

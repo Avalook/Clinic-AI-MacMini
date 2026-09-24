@@ -11,7 +11,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import (
@@ -19,22 +19,21 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    StaffIdentity,
+    get_current_identity,
+)
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
 
 router = APIRouter()
 
-# Roles allowed to touch payments at all; the finer kind↔role rule is in the service.
-_CASHIER_GUARD = require_role(
-    # Lễ tân kiêm thu ngân (Tuyền 16/09/2026).
-    ClinicRole.RECEPTION,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-    ClinicRole.MANAGEMENT,
-)
+# Ai đụng được vào tiền: người giữ một trong hai khối thu tiền (24/09/2026 —
+# thay tập vai cũ, cùng người: Lễ tân, Thu ngân (+DV/+Thuốc), Dược sĩ, Quản lý).
+# Loại tiền nào ai được làm do PaymentService hỏi quyền của đúng loại ấy.
+_CASHIER_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 PaymentKind = Literal["thuoc", "dich_vu"]
 PaymentMethod = Literal["CASH", "TRANSFER", "QR"]
@@ -72,11 +71,31 @@ class PaymentVoidRequest(BaseModel):
 @router.post("/payments")
 async def record_payment(
     body: PaymentRecordRequest,
-    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    # Cửa ngoài chỉ "đã đăng nhập": tiền dịch vụ hỏi QUYỀN, tiền thuốc hỏi vai —
+    # cả hai trong PaymentService (CORE-B3). Các lệnh khác vẫn qua _CASHIER_GUARD.
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Một lần thu. Tiền mặt → PAID; chuyển khoản/QR → chờ xác minh."""
+    if body.kind == "dich_vu":
+        # Lifecycle v1 Slice 3: tiền dịch vụ dùng BIÊN NHẬN TRONG CÙNG giao dịch
+        # (command_receipt) — một cơ chế chống trùng, khoá bắt buộc. Không đi
+        # qua IdempotencyGuard: biên nhận của nó lưu SAU giao dịch nghiệp vụ.
+        lan_thu = await PaymentService(pool).record_payment(
+            visit_id=str(body.visit_id),
+            kind=body.kind,
+            amount=body.amount,
+            clinic_patient_id=(
+                str(body.clinic_patient_id) if body.clinic_patient_id else None
+            ),
+            bill_revision=body.bill_revision,
+            method=body.method,
+            identity=identity,
+            idempotency_key=idempotency_key,
+        )
+        return {"ok": True, **lan_thu}
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]

@@ -4,7 +4,7 @@
 // Đặt NGOÀI nhóm (dashboard) nên KHÔNG có sidebar → in sạch khổ A4.
 
 import { notFound } from "next/navigation";
-import { getSupabaseServer } from "../../../lib/supabase-server";
+import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireClinicalRole } from "../../../lib/clinic-session";
 import { VN_TZ, isVnMidnight } from "../../../lib/datetime";
 import MedicalSummaryPrint, { type FormData } from "./MedicalSummaryPrint";
@@ -88,12 +88,6 @@ interface ClinRow {
   soap_assessment: unknown;
   soap_plan: unknown;
 }
-interface VisitRow {
-  visit_id: string;
-  status: string;
-  created_at: string;
-  clinical_record: ClinRow | ClinRow[] | null;
-}
 interface ProfileRow {
   allergies: string[] | null;
   chronic_diseases: string[] | null;
@@ -115,64 +109,39 @@ export default async function PrintMedicalSummaryPage({
 }: {
   params: Promise<{ appointmentId: string }>;
 }) {
-  await requireClinicalRole(); // phiếu chứa hồ sơ khám: chỉ 4 vai lâm sàng
+  await requireClinicalRole(); // phiếu chứa hồ sơ khám: ai có khối khám / kết quả
   const { appointmentId } = await params;
-  const supabase = await getSupabaseServer();
+  // 24/09/2026: đọc qua backend `GET /api/v1/clinical-records/in-theo-lich/{id}`
+  // (vai lâm sàng, lọc phòng khám) thay vì đọc thẳng 4 bảng bằng Supabase.
+  const doc = await fetchFromBackend<{
+    appointment: PatientRow & {
+      id: string;
+      slot_start: string;
+      status: string;
+      doctor_name: string | null;
+      service_name: string | null;
+      location_name: string | null;
+    };
+    visit: (ClinRow & { visit_id: string; status: string; created_at: string }) | null;
+    profile: ProfileRow | null;
+    labs: LabRow[];
+  }>(`/api/v1/clinical-records/in-theo-lich/${encodeURIComponent(appointmentId)}`);
+  if (!doc) notFound();
+  const a = doc.appointment;
+  const p: PatientRow = a;
+  const appt: ApptRow = {
+    id: a.id,
+    slot_start: a.slot_start,
+    status: a.status,
+    patient: p,
+    doctor: a.doctor_name ? { full_name: a.doctor_name } : null,
+    service: a.service_name ? { name: a.service_name } : null,
+    location: a.location_name ? { name: a.location_name } : null,
+  };
+  const cr = doc.visit;
+  const profile = doc.profile;
+  const labs = doc.labs;
 
-  const { data: apptData } = await supabase
-    .from("appointment")
-    .select(
-      `id, slot_start, status,
-       patient:patient!clinic_patient_id (
-         clinic_patient_id, patient_code, full_name, date_of_birth, gender,
-         ethnicity, nationality, occupation, patient_objection, address,
-         guardian_name, phone_primary ),
-       doctor:staff!doctor_id ( full_name ),
-       service:service_type!service_type_id ( name ),
-       location:clinic_location!location_id ( name )`,
-    )
-    .eq("id", appointmentId)
-    .maybeSingle();
-
-  const appt = (apptData as ApptRow | null) ?? null;
-  const p = one(appt?.patient);
-  if (!appt || !p) notFound();
-
-  // Hồ sơ khám của lịch này + tiền sử/thai/XN của BN (đọc qua RLS).
-  const [visitRes, profileRes, labRes] = await Promise.all([
-    supabase
-      .from("visit")
-      .select(
-        "visit_id, status, created_at, clinical_record ( chief_complaint_at_visit, soap_subjective, soap_objective, soap_assessment, soap_plan )",
-      )
-      .eq("appointment_id", appointmentId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("patient_medical_profile")
-      .select(
-        "allergies, chronic_diseases, current_medications, surgical_history, family_history, notes",
-      )
-      .eq("clinic_patient_id", p.clinic_patient_id)
-      .maybeSingle(),
-    supabase
-      .from("lab_result")
-      .select("test_name, result_value, result_numeric, result_unit, flag")
-      // CHỈ XN của ĐÚNG lịch hẹn này — không kéo XN của lượt khám khác vào phiếu
-      // (in lại phiếu cũ sẽ gắn nhầm KQ của lần khám sau).
-      .eq("clinic_patient_id", p.clinic_patient_id)
-      .eq("appointment_id", appointmentId)
-      .order("result_received_at", { ascending: false })
-      .limit(20),
-  ]);
-
-  const visit = (visitRes.data as VisitRow | null) ?? null;
-  const cr = one(visit?.clinical_record);
-  const profile = (profileRes.data as ProfileRow | null) ?? null;
-  const labs = (labRes.data as LabRow[] | null) ?? [];
-
-  // Bóc JSONB SOAP → các trường form.
   const subj = objOf(cr?.soap_subjective);
   const obj = objOf(cr?.soap_objective);
   const vitals = objOf(obj.vitals);
@@ -271,7 +240,7 @@ export default async function PrintMedicalSummaryPage({
     huongXuLy: [str(plan.loi_dan), taiKhamLine].filter(Boolean).join("\n"),
     thanhPho: "",
     nguoiKy: doctorName,
-    ngayKyDuyet: fmtVnDateTime(visit?.created_at ?? appt.slot_start),
+    ngayKyDuyet: fmtVnDateTime(cr?.created_at ?? appt.slot_start),
   };
 
   return <MedicalSummaryPrint initial={initial} />;

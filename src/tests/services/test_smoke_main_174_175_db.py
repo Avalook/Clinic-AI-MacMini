@@ -45,6 +45,7 @@ from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_xac_nhan_tep_ket_qua_db import (
     CLINIC_A,
     CLINIC_B,
@@ -56,6 +57,23 @@ from tests.services.test_xac_nhan_tep_ket_qua_db import (
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
 
 
 @pytest_asyncio.fixture
@@ -132,35 +150,42 @@ async def test_smoke_1_external_result_capability_and_audit_events_e2e(
             with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
                 await tep_svc.cho_xac_nhan(identity=nurse)
 
-            # 2. MANAGEMENT cấp capability ket_qua.xac_nhan qua API
+            # 2. MANAGEMENT cấp khối "Xác nhận tệp kết quả" qua màn Phân quyền —
+            # MỘT hệ quyền (23/09/2026). Đường cũ /staff/{id}/capabilities đã
+            # nghỉ: trả 410, không ghi gì.
             app.dependency_overrides[get_current_identity] = lambda: mgr
-            res_grant = await client.post(
+            res_cu = await client.post(
                 f"/api/v1/staff/{nurse.staff_id}/capabilities",
                 json={"capability": "ket_qua.xac_nhan"},
             )
-            assert res_grant.status_code == 201
+            assert res_cu.status_code == 410
+            res_grant = await client.post(
+                f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}/cap",
+                json={"khoi": "xac_nhan_ket_qua"},
+            )
+            assert res_grant.status_code == 200, res_grant.text
 
             # 3. Read-back xác nhận quyền
-            res_get = await client.get(f"/api/v1/staff/{nurse.staff_id}/capabilities")
+            res_get = await client.get(f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}")
             assert res_get.status_code == 200
-            assert "ket_qua.xac_nhan" in res_get.json()["capabilities"]
+            assert any(
+                q["quyen"] == "result.file.confirm"
+                for k in res_get.json()["khoi"]
+                for q in k["quyen"]
+            )
 
-            # Kiểm tra audit log 'staff.capability_granted'
+            # Sự kiện cấp quyền có tên người cấp
             async with pool.acquire() as conn:
                 granted_event = await conn.fetchrow(
-                    """
-                    SELECT event_type, source, payload
-                      FROM event_log
-                     WHERE clinic_id = $1::uuid
-                       AND event_type = 'staff.capability_granted'
-                       AND aggregate_id = $2
-                     ORDER BY recorded_at DESC, event_id DESC LIMIT 1
-                    """,
+                    "SELECT actor_staff_id::text AS ai FROM domain_event"
+                    " WHERE clinic_id = $1::uuid AND event_type = 'capability.granted'"
+                    "   AND aggregate_id = $2::uuid"
+                    " ORDER BY seq DESC LIMIT 1",
                     CLINIC_A,
                     nurse.staff_id,
                 )
                 assert granted_event is not None
-                assert granted_event["source"] == "api:staff-capability"
+                assert granted_event["ai"] == mgr.staff_id
 
             # 4. Partner upload file kết quả ngoài
             res_up = await tep_svc.tai_len(
@@ -212,34 +237,31 @@ async def test_smoke_1_external_result_capability_and_audit_events_e2e(
             res_allow = await tep_svc.cho_phep_gui(tep_id=tep_id, identity=doc)
             assert res_allow["ok"] is True
 
-            # 6. MANAGEMENT thu hồi capability của nurse qua API
+            # 6. MANAGEMENT thu khối qua màn Phân quyền
             app.dependency_overrides[get_current_identity] = lambda: mgr
-            res_rev = await client.delete(
-                f"/api/v1/staff/{nurse.staff_id}/capabilities/ket_qua.xac_nhan"
+            res_rev = await client.post(
+                f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}/thu",
+                json={"khoi": "xac_nhan_ket_qua"},
             )
-            assert res_rev.status_code == 204
+            assert res_rev.status_code == 200, res_rev.text
 
             # Read-back xác nhận đã mất quyền
-            res_get2 = await client.get(f"/api/v1/staff/{nurse.staff_id}/capabilities")
+            res_get2 = await client.get(f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}")
             assert res_get2.status_code == 200
-            assert "ket_qua.xac_nhan" not in res_get2.json()["capabilities"]
-
-            # Kiểm tra audit log 'staff.capability_revoked'
+            assert not any(
+                q["quyen"] == "result.file.confirm"
+                for k in res_get2.json()["khoi"]
+                for q in k["quyen"]
+            )
             async with pool.acquire() as conn:
-                rev_event = await conn.fetchrow(
-                    """
-                    SELECT event_type, source, payload
-                      FROM event_log
-                     WHERE clinic_id = $1::uuid
-                       AND event_type = 'staff.capability_revoked'
-                       AND aggregate_id = $2
-                     ORDER BY recorded_at DESC, event_id DESC LIMIT 1
-                    """,
+                rev_event = await conn.fetchval(
+                    "SELECT count(*) FROM domain_event"
+                    " WHERE clinic_id = $1::uuid AND event_type = 'capability.revoked'"
+                    "   AND aggregate_id = $2::uuid",
                     CLINIC_A,
                     nurse.staff_id,
                 )
-                assert rev_event is not None
-                assert rev_event["source"] == "api:staff-capability"
+                assert rev_event >= 1
 
             # 7. Nurse vào lại queue -> lại bị 403 / SafetyGateError
             with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
@@ -356,11 +378,13 @@ async def test_smoke_2_cross_feature_handoff_terminal_catalog_rx_and_payment_e2e
     svc_pay = PaymentService(pool)
 
     # 1. Điều dưỡng ghi sinh hiệu để đưa lượt vào hàng chờ khám (PRIMARY)
+    await svc_lk.bat_dau_do_sinh_hieu(visit_id=vid, identity=nurse)
     await svc_lk.record_vitals(
         visit_id=vid,
         raw={"systolic": 120, "diastolic": 80},
         identity=nurse,
     )
+    await chay_hanh_trinh(pool)
     board = await svc_lk.bang(identity=doc)
     luot = next(v for v in board["luot"] if v["visit_id"] == vid)
     cid_primary = luot["phien"][0]["id"]
@@ -535,6 +559,7 @@ async def test_smoke_2_cross_feature_handoff_terminal_catalog_rx_and_payment_e2e
         identity=reception,
         visit_id=vid,
         kind="thuoc",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         amount=expected_total,
         clinic_patient_id=pid,
         method="CASH",
@@ -637,6 +662,7 @@ async def test_smoke_3_unlisted_drug_free_text_blocked_at_payment_e2e(
             identity=reception,
             visit_id=vid,
             kind="thuoc",
+            idempotency_key=f"test-{uuid.uuid4().hex}",
             amount=None,
             clinic_patient_id=pid,
             method="CASH",
@@ -647,15 +673,14 @@ async def test_smoke_3_unlisted_drug_free_text_blocked_at_payment_e2e(
 async def test_smoke_4_capability_security_guards_matrix_http(
     pool: asyncpg.Pool,
 ) -> None:
-    """Luồng 5: Ma trận chốt an toàn quyền tại lớp HTTP API.
+    """Luồng 5: Ma trận chốt an toàn quyền tại lớp HTTP API — hệ quyền MỚI.
 
-    Kiểm tra:
-    - non-MANAGEMENT grant/revoke -> 403
-    - self-grant / self-revoke -> 400
-    - wrong clinic -> fail-closed (404)
-    - multi-clinic -> fail-closed (404)
-    - POST capability khác ket_qua.xac_nhan -> 422
-    - DELETE capability khác ket_qua.xac_nhan -> 400
+    Từ 23/09/2026 chỉ còn một hệ quyền (`capability_grant`, màn Phân quyền).
+    - đường cũ /staff/{id}/capabilities: 410 với mọi thao tác, không ghi gì
+    - không có permission.manage mà cấp/thu -> 403
+    - khối không tồn tại -> 422
+    - người ngoài phòng khám -> bị từ chối
+    - người làm ở 2 phòng khám: quyền theo TỪNG phòng khám — cấp ở A được
     """
     app.dependency_overrides[get_db_pool] = lambda: pool
 
@@ -688,60 +713,67 @@ async def test_smoke_4_capability_security_guards_matrix_http(
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            # 1. non-MANAGEMENT (cashier) grant -> 403
+            # 0. Đường cũ đã nghỉ: kể cả quản lý cũng nhận 410, không ghi gì.
+            app.dependency_overrides[get_current_identity] = lambda: mgr
+            for method, url in (
+                ("POST", f"/api/v1/staff/{nurse.staff_id}/capabilities"),
+                ("GET", f"/api/v1/staff/{nurse.staff_id}/capabilities"),
+                (
+                    "DELETE",
+                    f"/api/v1/staff/{nurse.staff_id}/capabilities/ket_qua.xac_nhan",
+                ),
+            ):
+                r = await client.request(
+                    method, url, json={"capability": "ket_qua.xac_nhan"}
+                )
+                assert r.status_code == 410, (method, url, r.text)
+
+            # 1. Không có permission.manage (thu ngân) cấp / thu -> 403
             app.dependency_overrides[get_current_identity] = lambda: cashier
-            r = await client.post(
-                f"/api/v1/staff/{nurse.staff_id}/capabilities",
-                json={"capability": "ket_qua.xac_nhan"},
-            )
-            assert r.status_code == 403
+            for hanh_dong in ("cap", "thu"):
+                r = await client.post(
+                    f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}/{hanh_dong}",
+                    json={"khoi": "xac_nhan_ket_qua"},
+                )
+                assert r.status_code == 403, r.text
 
-            # non-MANAGEMENT revoke -> 403
-            r = await client.delete(
-                f"/api/v1/staff/{nurse.staff_id}/capabilities/ket_qua.xac_nhan"
-            )
-            assert r.status_code == 403
-
-            # 2. self-grant -> 400
+            # 2. Khối không tồn tại -> 422
             app.dependency_overrides[get_current_identity] = lambda: mgr
             r = await client.post(
-                f"/api/v1/staff/{mgr.staff_id}/capabilities",
-                json={"capability": "ket_qua.xac_nhan"},
+                f"/api/v1/phan-quyen/nhan-su/{nurse.staff_id}/cap",
+                json={"khoi": "DOCTOR_CONSULTATION"},
             )
-            assert r.status_code == 400
+            assert r.status_code == 422, r.text
 
-            # self-revoke -> 400
-            r = await client.delete(
-                f"/api/v1/staff/{mgr.staff_id}/capabilities/ket_qua.xac_nhan"
-            )
-            assert r.status_code == 400
-
-            # 3. POST capability khác ket_qua.xac_nhan -> 422
+            # 3. Người ngoài phòng khám (chỉ ở CLINIC_B) -> bị từ chối, không ghi
             r = await client.post(
-                f"/api/v1/staff/{nurse.staff_id}/capabilities",
-                json={"capability": "DOCTOR_CONSULTATION"},
+                f"/api/v1/phan-quyen/nhan-su/{staff_b.staff_id}/cap",
+                json={"khoi": "xac_nhan_ket_qua"},
             )
-            assert r.status_code in (400, 422)
+            assert r.status_code in (403, 404, 422), r.text
+            async with pool.acquire() as conn:
+                assert not await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM capability_grant"
+                    " WHERE staff_id = $1::uuid"
+                    "   AND capability = 'result.file.confirm')",
+                    staff_b.staff_id,
+                )
 
-            # 4. DELETE capability khác ket_qua.xac_nhan -> 400
-            r = await client.delete(
-                f"/api/v1/staff/{nurse.staff_id}/capabilities/DOCTOR_CONSULTATION"
-            )
-            assert r.status_code in (400, 422)
-
-            # 5. Wrong clinic (Staff B ở CLINIC_B nhưng gọi từ context CLINIC_A) -> 404
+            # 4. Làm ở 2 phòng khám: quyền theo từng phòng khám -> cấp ở A được,
+            # và chỉ có hiệu lực ở A.
             r = await client.post(
-                f"/api/v1/staff/{staff_b.staff_id}/capabilities",
-                json={"capability": "ket_qua.xac_nhan"},
+                f"/api/v1/phan-quyen/nhan-su/{staff_multi.staff_id}/cap",
+                json={"khoi": "xac_nhan_ket_qua"},
             )
-            assert r.status_code == 404
-
-            # 6. Multi-clinic -> fail-closed (404)
-            r = await client.post(
-                f"/api/v1/staff/{staff_multi.staff_id}/capabilities",
-                json={"capability": "ket_qua.xac_nhan"},
-            )
-            assert r.status_code == 404
+            assert r.status_code == 200, r.text
+            async with pool.acquire() as conn:
+                pk = await conn.fetch(
+                    "SELECT clinic_id::text FROM capability_grant"
+                    " WHERE staff_id = $1::uuid AND capability = 'result.file.confirm'"
+                    "   AND revoked_at IS NULL",
+                    staff_multi.staff_id,
+                )
+                assert [x["clinic_id"] for x in pk] == [CLINIC_A]
     finally:
         app.dependency_overrides.pop(get_current_identity, None)
         app.dependency_overrides.pop(get_db_pool, None)

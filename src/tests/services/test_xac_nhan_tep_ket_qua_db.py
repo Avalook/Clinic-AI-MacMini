@@ -11,6 +11,7 @@ Target:
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import pathlib
 import uuid
@@ -39,6 +40,23 @@ PDF_DUMMY = (
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
 
 
 @pytest_asyncio.fixture
@@ -108,17 +126,31 @@ async def _tao_staff(
         sid,
         role,
     )
+    # Người thật vào hệ thống được cấp quyền theo vai (CORE-B1) — thiếu dòng này
+    # thì bác sĩ không duyệt được kết quả, dù vai đúng.
+    await conn.fetch(
+        "SELECT public.cap_quyen_theo_preset($1::uuid, $2::uuid, $3)",
+        clinic_id,
+        sid,
+        role,
+    )
     if caps:
+        # MỘT hệ quyền (23/09/2026): `ket_qua.xac_nhan` cũ = `result.file.confirm`
+        # trong `capability_grant`, theo từng phòng khám.
         for c in caps:
+            ma = "result.file.confirm" if c == "ket_qua.xac_nhan" else c
             await conn.execute(
                 """
-                INSERT INTO staff_capability (staff_id, capability, proficiency_level)
-                VALUES ($1::uuid, $2, 'COMPETENT')
-                ON CONFLICT (staff_id, capability) DO NOTHING
+                INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)
+                SELECT $1::uuid, $2::uuid, c.ma, c.work_pack
+                  FROM capability c WHERE c.ma = $3
+                ON CONFLICT DO NOTHING
                 """,
+                clinic_id,
                 sid,
-                c,
+                ma,
             )
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),
@@ -678,11 +710,14 @@ async def test_scenarios_f_g_h_l_capability_fail_closed(
             identity=staff_with_cap, tep_id=t_self["id"], trang_thai="HOP_LE"
         )
 
-    # L: Multi-clinic staff có global capability vẫn FAIL-CLOSED
-    with pytest.raises(SafetyGateError, match="thuộc nhiều phòng khám"):
-        await svc_tep.xac_nhan_tep(
-            identity=staff_multi_clinic, tep_id=tep_id, trang_thai="HOP_LE"
-        )
+    # L: Quyền THEO TỪNG PHÒNG KHÁM (23/09/2026, một hệ quyền). Bảng cũ không có
+    # clinic_id nên người làm ≥2 phòng khám bị chặn hết; giờ quyền cấp ở A chỉ
+    # có hiệu lực ở A — sang B vẫn bị chặn, dù cùng một người.
+    async with pool.acquire() as conn:
+        await kiem_tra_quyen_xac_nhan(conn, identity=staff_multi_clinic)
+        o_b = dataclasses.replace(staff_multi_clinic, clinic_id=CLINIC_B)
+        with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+            await kiem_tra_quyen_xac_nhan(conn, identity=o_b)
 
 
 # ==============================================================================
@@ -1689,22 +1724,19 @@ async def test_t10_internal_direct_tamper_rejected_at_db(
                 tep_id,
             )
 
-        # Direct SQL attempt to set gui_luc without doctor approval -> rejected
-        with pytest.raises(
-            (asyncpg.RaiseError, asyncpg.CheckViolationError),
-            match="Bác sĩ chưa cho phép gửi",
-        ):
-            await conn.execute(
-                """
-                UPDATE tep_ket_qua
-                   SET gui_luc = now(),
-                       gui_boi_staff_id = $1::uuid,
-                       gui_kenh = 'ZALO'
-                 WHERE id = $2::uuid
-                """,
-                doc.staff_id,
-                tep_id,
-            )
+        # Tệp NỘI BỘ gửi được mà không cần bác sĩ cho phép (Tuyền chốt
+        # 23/09/2026 — luật 15/09 đã tắt ở migration 20260923000021).
+        await conn.execute(
+            """
+            UPDATE tep_ket_qua
+               SET gui_luc = now(),
+                   gui_boi_staff_id = $1::uuid,
+                   gui_kenh = 'ZALO'
+             WHERE id = $2::uuid
+            """,
+            doc.staff_id,
+            tep_id,
+        )
 
         # Cleanup
         await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)

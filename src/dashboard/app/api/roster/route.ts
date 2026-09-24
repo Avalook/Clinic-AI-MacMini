@@ -10,7 +10,6 @@
 // Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
 
 import { NextResponse } from "next/server";
-import { MA_CA_KHAM_BAC_SI } from "@/lib/ca-kham-bac-si";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import {
@@ -77,25 +76,23 @@ export async function GET(request: Request) {
 
   // Nhánh 1: khoảng tuần → trả về những tuần ĐÃ ÁP DỤNG, để lưới lịch biết tuần
   // nào còn là dự kiến.
+  // Ca của CHÍNH người gọi — chuông "ca được chấp nhận / bị từ chối" (24/09/2026:
+  // trình duyệt thôi tự đọc `work_roster` bằng Supabase).
+  if (sp.get("ca_cua_toi") === "1") {
+    return proxyJsonToBackend("GET", "/api/v1/roster/ca-cua-toi", undefined);
+  }
+
   const tu = (sp.get("tu") ?? "").trim();
   const den = (sp.get("den") ?? "").trim();
   if (tu && den) {
-    const { data, error } = await caller
-      .from("roster_week")
-      .select("week_start")
-      .gte("week_start", tu)
-      .lte("week_start", den);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({
-      weeks: ((data as { week_start: string }[] | null) ?? []).map(
-        (r) => r.week_start,
-      ),
-    });
+    // Tuần nào đã áp dụng — backend (24/09/2026: thôi đọc thẳng `roster_week`).
+    return proxyJsonToBackend(
+      "GET",
+      `/api/v1/roster/weeks/applied?tu=${encodeURIComponent(tu)}&den=${encodeURIComponent(den)}`,
+      undefined,
+    );
   }
 
-  // Nhánh 2: vị trí hợp lệ của MỘT nhân viên. Đi qua FastAPI vì cùng câu trả
-  // lời ấy là thứ `add_shift` dùng để từ chối — hỏi hai nguồn là sớm muộn giao
-  // diện sẽ mời một vị trí mà backend không nhận.
   const nhanSu = (sp.get("staff_id") ?? "").trim();
   if (nhanSu) {
     // CHUYỂN NGUYÊN mã trạng thái và câu lỗi của backend, đừng gộp thành 503.
@@ -142,37 +139,20 @@ export async function GET(request: Request) {
   // đổi". Chặn đặt lịch thì KHÔNG đổi: `capacity_service.roster_known` vẫn đòi
   // tuần đã áp dụng, vì ở đó cờ này quyết định có TỪ CHỐI khách hay không —
   // và từ chối dựa trên một bản nháp là hướng sai duy nhất không sửa lại được.
-  const tuan = weekStartOf(date);
-  if (tuan === null) {
+  if (weekStartOf(date) === null) {
     return NextResponse.json(
       { error: `Ngày không hợp lệ: ${date}` },
       { status: 400 },
     );
   }
-  const { data: daApDung } = await caller
-    .from("roster_week")
-    .select("week_start")
-    .eq("week_start", tuan)
-    .maybeSingle();
-
-  const { data, error } = await caller
-    .from("work_roster")
-    .select("staff_id, staff_name")
-    .eq("work_date", date)
-    .in("station", [...MA_CA_KHAM_BAC_SI])
-    .eq("status", "APPROVED")
-    .not("staff_id", "is", null);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // 1 bác sĩ có thể có nhiều dòng (SANG + CHIEU) → khử trùng theo staff_id.
-  const seen = new Set<string>();
-  const doctors: { id: string; name: string }[] = [];
-  for (const r of (data as { staff_id: string; staff_name: string | null }[] | null) ?? []) {
-    if (seen.has(r.staff_id)) continue;
-    seen.add(r.staff_id);
-    doctors.push({ id: r.staff_id, name: r.staff_name ?? "" });
-  }
-  return NextResponse.json({ doctors, du_kien: !daApDung });
+  // Luật "có phân công thì trả về, tuần chưa chốt chỉ là du_kien" nay ở backend
+  // (`RosterService.bac_si_trong_ngay`, 24/09/2026) — route này thôi đọc thẳng
+  // `roster_week` / `work_roster`.
+  return proxyJsonToBackend(
+    "GET",
+    `/api/v1/roster/bac-si-ngay?ngay=${encodeURIComponent(date)}`,
+    undefined,
+  );
 }
 
 interface PostBody {

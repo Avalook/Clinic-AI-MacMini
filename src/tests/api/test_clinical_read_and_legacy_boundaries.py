@@ -6,9 +6,9 @@ import pytest
 from fastapi.routing import APIRoute
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import CLINICAL_WRITE_ROLES, ClinicRole, RoleGuard
-from clinicai.api.v1.routers.brief import router as brief_router
+from clinicai.api.identity import ClinicRole, RoleGuard
 from clinicai.api.v1.routers.clinical_forms import router as form_router
+from clinicai.api.v1.routers.clinical_records import router as record_router
 from clinicai.api.v1.routers.orchestrator import (
     router as orchestrator_router,
 )
@@ -16,6 +16,8 @@ from clinicai.api.v1.routers.orchestrator import (
     scoped_thread_id,
 )
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
+from clinicai.permissions.catalogue import PRESET, QUYEN
+from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, cua_y_khoa
 from clinicai.services.clinical_form_service import WRITABLE_VISIT_STATUSES
 from clinicai.services.clinical_record_service import validated_profile
 
@@ -43,28 +45,53 @@ def _role_guards(route: APIRoute) -> list[RoleGuard]:
     return guards
 
 
-def test_medical_form_read_and_ai_brief_require_a_clinical_role() -> None:
-    """Neither route may be reachable by a non-clinical role.
+def _calls(route: APIRoute) -> list[object]:
+    ra: list[object] = []
 
-    Asserted as a SUBSET, not equality. The property that matters is the one in
-    this test's name: reception, the cashier and management must not get in
-    (ROLE-02). A route is free to be stricter — /brief is DOCTOR_ROLES + TKYK
-    because the AI pre-visit summary is for whoever runs the consultation, and a
-    sonographer nurse has no use for it. Demanding equality would have forced
-    that guard to be widened to satisfy a test, which is backwards.
+    def visit(dependant: object) -> None:
+        for dependency in getattr(dependant, "dependencies", ()):
+            ra.append(dependency.call)
+            visit(dependency)
+
+    visit(route.dependant)
+    return ra
+
+
+def test_medical_reads_ask_a_permission_not_a_role() -> None:
+    """Đọc nội dung y khoa hỏi QUYỀN (24/09/2026, Tuyền chốt: "quản lý quyền
+    cao nhất — có module đó thì mọi quyền của nó có cả").
+
+    Thứ phải giữ của ROLE-02: KHÔNG MẶC ĐỊNH cho người làm vận hành. Lễ tân, thu
+    ngân, CSKH, dược sĩ, trưởng ca không nhận khối khám / kết quả nào theo nhóm
+    mẫu, nên không mở được — trừ khi quản lý cấp. Quản lý có đủ khối nên mở được.
     """
     for route in (
         _route(form_router, "/clinical-forms", "GET"),
-        _route(brief_router, "/brief/{clinic_patient_id}", "POST"),
+        _route(record_router, "/clinical-records/doc", "GET"),
+        _route(record_router, "/clinical-records/in-theo-lich/{appointment_id}", "GET"),
     ):
-        guards = _role_guards(route)
-        assert len(guards) == 1
-        allowed = guards[0].allowed_roles
-        assert allowed, f"{route.path} has an empty role guard"
-        assert allowed <= CLINICAL_WRITE_ROLES, (
-            f"{route.path} admits non-clinical roles: "
-            f"{sorted(r.value for r in allowed - CLINICAL_WRITE_ROLES)}"
-        )
+        assert cua_y_khoa in _calls(route), route.path
+        assert not _role_guards(route), f"{route.path} vẫn gác theo vai"
+
+    khoi_y_khoa = {QUYEN[q].khoi for q in QUYEN_Y_KHOA}
+    for vai in (
+        "RECEPTION",
+        "CASHIER",
+        "CASHIER_DV",
+        "CASHIER_THUOC",
+        "CSKH",
+        "PHARMACIST",
+        "TRUONG_CA",
+    ):
+        assert not khoi_y_khoa & set(PRESET[vai]), vai
+    for vai in (
+        "DOCTOR",
+        "ULTRASOUND_DOCTOR",
+        "TKYK",
+        "NURSE_ULTRASOUND",
+        "MANAGEMENT",
+    ):
+        assert khoi_y_khoa & set(PRESET[vai]), vai
 
 
 def test_legacy_scheduling_mutations_cannot_bypass_canonical_services() -> None:

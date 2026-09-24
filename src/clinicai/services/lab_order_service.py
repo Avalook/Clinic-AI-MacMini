@@ -29,7 +29,10 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.services.bao_ket_qua_ve import bao_ket_qua_ve
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.events.catalogue import KetQuaXetNghiemVe
+from clinicai.events.emit import emit_event, nguoi
+from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 
 logger = structlog.get_logger()
 
@@ -206,6 +209,22 @@ class LabOrderService:
                         "Không tìm thấy kết quả xét nghiệm hoặc kết quả đã chốt"
                     )
 
+                if updated["lan_dau"]:
+                    # Kết quả vừa về LẦN ĐẦU → sự kiện; khối Chuông báo người
+                    # nhận theo dây (mặc định CSKH + bác sĩ chính). Sửa lại
+                    # không phát lần nữa.
+                    await emit_event(
+                        conn,
+                        ten="lab_result.arrived",
+                        clinic_id=identity.clinic_id,
+                        aggregate_id=updated["lab_result_id"],
+                        payload=KetQuaXetNghiemVe(
+                            lab_result_id=updated["lab_result_id"],
+                            visit_id=updated["visit_id"],
+                        ),
+                        boi=nguoi(identity),
+                        correlation_id=updated["visit_id"],
+                    )
                 await _log(
                     conn,
                     event_type="lab_result.entered",
@@ -216,18 +235,6 @@ class LabOrderService:
                     identity=identity,
                     origin="api:lab-entry",
                 )
-
-        if updated["lan_dau"]:
-            # Kết quả vừa về lần đầu (sửa lại không báo lần nữa) → CSKH + bác sĩ.
-            await bao_ket_qua_ve(
-                self._pool,
-                identity=identity,
-                loai="xet_nghiem",
-                ref_id=updated["lab_result_id"],
-                clinic_patient_id=updated["clinic_patient_id"],
-                appointment_id=updated["appointment_id"],
-                visit_id=updated["visit_id"],
-            )
 
         logger.info(
             "lab_result_entered",
@@ -268,3 +275,30 @@ async def _log(
         origin,
         identity.clinic_id,
     )
+
+
+# ── CỔNG ĐỌC cho hồ sơ khám (cách B, 24/09/2026 — `ho_so/cong_doc.py`) ──────
+
+_TRAN_XN_HO_SO = 20
+
+
+async def xet_nghiem_cho_ho_so(
+    conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
+) -> dict[str, Any]:
+    """20 kết quả xét nghiệm gần nhất của khách."""
+    rows = await conn.fetch(
+        """
+        SELECT test_name, result_value, result_numeric, result_unit, flag,
+               external_ref, triage_group, result_received_at
+          FROM lab_result
+         WHERE clinic_patient_id = $1::uuid AND clinic_id = $2::uuid
+         ORDER BY result_received_at DESC NULLS LAST LIMIT $3
+        """,
+        ngu_canh.khach,
+        ngu_canh.clinic_id,
+        _TRAN_XN_HO_SO,
+    )
+    canh_bao_neu_day(
+        "ho_so_xet_nghiem", len(rows), _TRAN_XN_HO_SO, clinic_id=ngu_canh.clinic_id
+    )
+    return {"labs": [dong(r) for r in rows]}

@@ -223,3 +223,41 @@ export async function fetchFromBackend<T>(path: string): Promise<T | null> {
     return null;
   }
 }
+/** Đọc JSON từ backend cho route cần BIẾN ĐỔI dữ liệu trước khi trả — giữ
+ * nguyên mã lỗi và câu lỗi của backend (khác `fetchFromBackend` trả null).
+ *
+ * Thêm 24/09/2026 khi chuyển các route còn đọc thẳng database sang backend:
+ * route nào chỉ định dạng lại (ghép ô hiển thị…) dùng hàm này; route chỉ
+ * chuyển nguyên thì dùng `proxyJsonToBackend("GET", …)`.
+ */
+export async function docTuBackend<T>(
+  path: string,
+): Promise<{ ok: true; data: T } | { ok: false; res: NextResponse }> {
+  const loi = (error: string, status: number) => ({
+    ok: false as const,
+    res: NextResponse.json({ error }, { status }),
+  });
+  if (!API_BASE) return loi("CLINIC_API_URL chưa được cấu hình trên server.", 503);
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return loi("Chưa đăng nhập", 401);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
+  } catch {
+    return loi("Không kết nối được máy chủ xử lý", 502);
+  }
+  const text = await res.text();
+  let payload: unknown = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = {};
+  }
+  if (!res.ok) {
+    const p = (payload ?? {}) as { message?: string; error?: string; detail?: unknown };
+    const cau =
+      p.message ?? (typeof p.detail === "string" ? p.detail : undefined) ?? p.error ?? "Lỗi xử lý";
+    return loi(cau, res.status);
+  }
+  return { ok: true, data: payload as T };
+}

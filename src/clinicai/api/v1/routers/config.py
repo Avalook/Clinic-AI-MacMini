@@ -10,10 +10,16 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    get_current_identity,
+    require_role,
+)
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import (
     CAC_CA,
@@ -22,6 +28,7 @@ from clinicai.core.shifts import (
     kiem_cau_hinh_ca,
     phut_tu_gio,
 )
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.clinic_settings_service import ClinicSettingsService
 from clinicai.services.config_service import (
     PRICE_ROLES,
@@ -221,6 +228,52 @@ async def applied_weeks(
             identity=identity, tu=tu, den=den
         )
     }
+
+
+@router.get("/roster/ca-cua-toi")
+async def ca_cua_toi(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ca của CHÍNH người gọi (tối đa 200) — chuông "ca được chấp nhận / bị từ
+    chối" (24/09/2026: trình duyệt từng tự đọc `work_roster` bằng Supabase)."""
+    rows = await pool.fetch(
+        """
+        SELECT id::text, work_date, station, shift, status, reject_reason
+          FROM work_roster
+         WHERE clinic_id = $1::uuid AND staff_id = $2::uuid
+         ORDER BY work_date DESC
+         LIMIT 200
+        """,
+        identity.clinic_id,
+        identity.staff_id,
+    )
+    canh_bao_neu_day(
+        "lich_truc.ca_cua_toi", len(rows), 200, clinic_id=identity.clinic_id
+    )
+    return {
+        "items": [{**dict(r), "work_date": r["work_date"].isoformat()} for r in rows]
+    }
+
+
+@router.get("/roster/lich-tuan")
+async def lich_tuan(
+    tuan: date,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu màn Lịch làm việc cho một tuần (mọi nhân sự xem được lịch)."""
+    return await RosterService(pool).lich_tuan(identity=identity, tuan=tuan)
+
+
+@router.get("/roster/bac-si-ngay")
+async def bac_si_trong_ngay(
+    ngay: date,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bác sĩ có ca khám trong ngày — lưới đặt lịch của CSKH / lễ tân đọc."""
+    return await RosterService(pool).bac_si_trong_ngay(identity=identity, ngay=ngay)
 
 
 @router.delete("/roster/shifts/{roster_id}")
@@ -558,8 +611,31 @@ class KhungCaRequest(BaseModel):
     ket_thuc: str = Field(pattern=r"^\d{2}:\d{2}$")
 
 
+class GioMoCuaRequest(BaseModel):
+    mo: str = Field(pattern=r"^\d{2}:\d{2}$")
+    dong: str = Field(pattern=r"^\d{2}:\d{2}$")
+
+
+#: Khoá ngày trong ``clinic.settings.hours`` — thứ trong tuần của Postgres
+#: (0 = Chủ nhật … 6 = Thứ Bảy), khớp ``clinic_hours_for_date``.
+CAC_NGAY = ("0", "1", "2", "3", "4", "5", "6")
+TEN_NGAY = {
+    "0": "Chủ nhật",
+    "1": "Thứ Hai",
+    "2": "Thứ Ba",
+    "3": "Thứ Tư",
+    "4": "Thứ Năm",
+    "5": "Thứ Sáu",
+    "6": "Thứ Bảy",
+}
+
+
 class CaLamViecRequest(BaseModel):
     ca_lam_viec: dict[str, KhungCaRequest]
+    #: Giờ mở cửa từng ngày — tuỳ chọn. Gửi kèm thì lưu CÙNG giờ ca trong một
+    #: giao dịch: giờ ca bị kẹp trong giờ mở cửa, nên muốn mở ca 05:00 phải nới
+    #: cửa cùng lúc (Tuyền 24/09/2026 — trước đó giờ mở cửa không có màn nào sửa).
+    gio_mo_cua: dict[str, GioMoCuaRequest] | None = None
 
 
 @router.get("/ca-lam-viec")
@@ -630,18 +706,44 @@ async def sua_ca_lam_viec(
             continue
         ca[ma] = (lo, hi)
 
-    async with pool.acquire() as conn:
-        gio_rows = await conn.fetch(
-            """
-            SELECT key::int AS thu, value ->> 'open' AS mo, value ->> 'close' AS dong
-              FROM clinic c, jsonb_each(c.settings -> 'hours')
-             WHERE c.id = $1::uuid
-            """,
+    gio_moi: dict[str, tuple[str, str]] | None = None
+    if body.gio_mo_cua is not None:
+        gio_moi = {}
+        thieu = [TEN_NGAY[d] for d in CAC_NGAY if d not in body.gio_mo_cua]
+        if thieu:
+            xau_gio.append("Thiếu giờ mở cửa: " + ", ".join(thieu) + ".")
+        for thu, g in body.gio_mo_cua.items():
+            if thu not in CAC_NGAY:
+                raise ValidationError(f"Không có ngày {thu!r}.")
+            lo, hi = phut_tu_gio(g.mo), phut_tu_gio(g.dong)
+            if lo is None or hi is None:
+                xau_gio.append(f"{TEN_NGAY[thu]}: giờ mở cửa không đọc được.")
+            elif hi <= lo:
+                xau_gio.append(f"{TEN_NGAY[thu]}: giờ đóng cửa phải sau giờ mở.")
+            else:
+                gio_moi[thu] = (g.mo, g.dong)
+
+    async with pool.acquire() as conn, conn.transaction():
+        # Khoá dòng phòng khám: hai quản lý cùng lưu thì người sau kiểm trên
+        # giờ mở cửa người trước vừa ghi, không kiểm trên bản cũ.
+        await conn.fetchval(
+            "SELECT 1 FROM public.clinic WHERE id = $1::uuid FOR UPDATE",
             identity.clinic_id,
         )
-        loi = xau_gio + kiem_cau_hinh_ca(
-            ca, {str(r["thu"]): (r["mo"], r["dong"]) for r in gio_rows}
-        )
+        if gio_moi is None:
+            gio_rows = await conn.fetch(
+                """
+                SELECT key::int AS thu, value ->> 'open' AS mo,
+                       value ->> 'close' AS dong
+                  FROM clinic c, jsonb_each(c.settings -> 'hours')
+                 WHERE c.id = $1::uuid
+                """,
+                identity.clinic_id,
+            )
+            gio_kiem = {str(r["thu"]): (r["mo"], r["dong"]) for r in gio_rows}
+        else:
+            gio_kiem = gio_moi
+        loi = xau_gio + kiem_cau_hinh_ca(ca, gio_kiem)
         if loi:
             # GỘP MỌI LỖI vào một câu, ngăn bằng xuống dòng: người nhập sai hai
             # ô phải thấy cả hai, chứ không phải sửa một ô rồi bấm Lưu để biết
@@ -664,7 +766,30 @@ async def sua_ca_lam_viec(
             identity.clinic_id,
             json.dumps(moi, ensure_ascii=False),
         )
-    return {"ok": True, "ca_lam_viec": moi}
+        if gio_moi is not None:
+            await conn.execute(
+                """
+                UPDATE public.clinic
+                   SET settings = jsonb_set(
+                           coalesce(settings, '{}'::jsonb), '{hours}', $2::jsonb,
+                           true),
+                       updated_at = now()
+                 WHERE id = $1::uuid
+                """,
+                identity.clinic_id,
+                json.dumps(
+                    {t: {"open": m, "close": d} for t, (m, d) in gio_moi.items()}
+                ),
+            )
+    return {
+        "ok": True,
+        "ca_lam_viec": moi,
+        "gio_mo_cua": (
+            {t: {"mo": m, "dong": d} for t, (m, d) in gio_moi.items()}
+            if gio_moi is not None
+            else None
+        ),
+    }
 
 
 # ── Luật bắt buộc bác sĩ ────────────────────────────────────────────────────
@@ -681,6 +806,27 @@ class LuatBacSiRequest(BaseModel):
     chan_han: bool = True
     is_active: bool = True
     ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.get("/booking-rules/thoi-luong-do")
+async def thoi_luong_kham_do_duoc(
+    identity: StaffIdentity = Depends(_BOOKING_POLICY_READ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thời lượng khám ĐO ĐƯỢC (view thống kê) — 40 khung nhiều ca nhất, đặt
+    cạnh chỗ chỉnh số chỗ. Trang từng đọc thẳng view bằng Supabase (24/09)."""
+    rows = await pool.fetch(
+        """
+        SELECT doctor_id::text, vn_weekday, vn_hour, patient_kind, sample_count,
+               median_minutes, p90_minutes
+          FROM v_consultation_duration_stats
+         WHERE clinic_id = $1::uuid
+         ORDER BY sample_count DESC
+         LIMIT 40
+        """,
+        identity.clinic_id,
+    )
+    return {"items": jsonable_encoder([dict(r) for r in rows])}
 
 
 @router.get("/booking-rules/doctor")

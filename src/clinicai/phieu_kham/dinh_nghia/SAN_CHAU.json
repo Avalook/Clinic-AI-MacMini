@@ -1,0 +1,167 @@
+{
+ "form_id": "SAN_CHAU",
+ "ten": "Phiếu sàn chậu chuyên sâu",
+ "nhom": "PHIEU_KHAM",
+ "nguon": {
+  "tai_lieu": "ClinicAI-7-phieu-v5-final-review.html",
+  "sha256": "5628ad40bcfe5e0eef4f0e247f2f71b141610f82cc4456e6cbf4131cdca8069f",
+  "ghi_chu": [
+   "Các trường có cấu trúc dưới đây lấy từ “Phiếu soi âm hộ & Đánh giá sàn chậu” trong chi-dinh.html; phần chưa có cấu trúc giữ ô nhập tự do."
+  ]
+ },
+ "khung": [
+  {
+   "ma": "HANH_CHINH",
+   "ten": "Hành chính & sinh hiệu",
+   "lien_ket": {
+    "loai": "mang_sang",
+    "truong": [
+     "patient.name",
+     "patient.birth_year",
+     "patient.code",
+     "encounter.date",
+     "vitals.blood_pressure",
+     "vitals.pulse",
+     "vitals.weight",
+     "vitals.height",
+     "vitals.temperature",
+     "vitals.spo2",
+     "vitals.bmi",
+     "vitals.respiratory_rate",
+     "vitals.pain_score"
+    ]
+   },
+   "block": []
+  },
+  {
+   "ma": "A",
+   "ten": "A. Khám của bác sĩ tư vấn",
+   "block": [
+    {
+     "ma": "san_chau_a_note",
+     "ten": "Ghi chú bổ sung (nếu cần)",
+     "kieu": "doan_van"
+    }
+   ],
+   "lien_ket": {
+    "loai": "mang_sang",
+    "nguon": "doctor-consultation"
+   }
+  },
+  {
+   "ma": "B",
+   "ten": "B. Phiếu khám / đánh giá chuyên khoa",
+   "block": [
+    {
+     "ma": "sc_reason",
+     "ten": "Lý do khám / triệu chứng",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_clitoris",
+     "ten": "Quy đầu âm vật",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_vestibule",
+     "ten": "Tiền đình âm hộ",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_valsalva",
+     "ten": "Nghiệm pháp rặn (Valsalva test)",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_oxford",
+     "ten": "Cơ lực âm đạo theo thang điểm Oxford cải tiến",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_other_exam",
+     "ten": "Đánh giá khác",
+     "kieu": "doan_van"
+    }
+   ]
+  },
+  {
+   "ma": "C",
+   "ten": "C. Chỉ định cận lâm sàng",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_cls",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "D",
+   "ten": "D. Chẩn đoán và xử lý",
+   "block": [
+    {
+     "ma": "sc_dx",
+     "ten": "Chẩn đoán",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_plan",
+     "ten": "Hướng xử trí / định hướng điều trị",
+     "kieu": "doan_van"
+    }
+   ]
+  },
+  {
+   "ma": "E",
+   "ten": "E. Chỉ định điều trị",
+   "block": [
+    {
+     "ma": "san_chau_treatment_other",
+     "ten": "Điều trị khác / thuốc ngoài danh mục",
+     "kieu": "doan_van",
+     "goi_y": "Nhập tự do nếu chưa có trong danh mục",
+     "khoa_tu": "name"
+    },
+    {
+     "ma": "san_chau_treatment_note",
+     "ten": "Lời dặn điều trị chung",
+     "kieu": "doan_van",
+     "goi_y": "Lời dặn chung cho bệnh nhân",
+     "khoa_tu": "name"
+    }
+   ],
+   "lien_ket": {
+    "loai": "don_thuoc",
+    "rang_buoc": "prescription.drug_catalog_id"
+   }
+  },
+  {
+   "ma": "F",
+   "ten": "F. Chỉ định thủ thuật",
+   "block": [],
+   "lien_ket": {
+    "loai": "chi_dinh_thu_thuat",
+    "rang_buoc": "service_order_id"
+   }
+  },
+  {
+   "ma": "G",
+   "ten": "G. Theo dõi và tái khám",
+   "block": [
+    {
+     "ma": "sc_follow_date",
+     "ten": "Ngày tái khám",
+     "kieu": "ngay"
+    },
+    {
+     "ma": "sc_follow",
+     "ten": "Kế hoạch theo dõi",
+     "kieu": "doan_van"
+    },
+    {
+     "ma": "sc_advice",
+     "ten": "Lời dặn",
+     "kieu": "doan_van"
+    }
+   ]
+  }
+ ]
+}

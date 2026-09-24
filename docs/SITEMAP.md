@@ -34,24 +34,30 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | Route | Ai vào | Việc | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | `/login` · `/forgot-password` · `/reset-password` | chưa đăng nhập | Đăng nhập, quên và đặt lại mật khẩu | GIỮ | |
-| `/` | mọi vai | Chuyển tới trang đích theo vai (`roleLanding`) | GIỮ | Bác sĩ và thư ký → `/ban-kham`. Bác sĩ siêu âm → `/phong/KN-SA-T1`. Đối tác → `/doi-tac`. Trưởng ca → `/truong-ca`. Còn lại → `/home`. |
+| `/` | mọi vai | Chuyển tới trang đích theo vai (`roleLanding`) | GIỮ | Bác sĩ và thư ký → `/ban-kham`. Bác sĩ siêu âm → `/phong` (danh sách phòng, 23/09). Đối tác → `/doi-tac`. Trưởng ca → `/truong-ca`. Còn lại → `/home`. |
 | `/home` | mọi vai | Trang chủ: lịch tuần (**chỉ xem**), trạng thái buổi, lịch làm việc | GIỮ | **Không check-in ở đây** (18/09). Bấm tên khách mở biểu mẫu **chỉ xem**, có nút "Mở ở Bàn khám". Vai check-in thấy nút "Check-in ở Tiếp đón khách". |
 
 ### Lễ tân và điều dưỡng
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/reception/queue` | Lễ tân, ĐD, QL | Tiếp đón khách | GIỮ | **Nơi DUY NHẤT check-in.** Trên cùng là "Lịch hẹn hôm nay", có Check-in / Không đến / Hoàn tác. Bên dưới là hàng đợi người đã check-in. |
+| `/reception/queue` | Lễ tân, ĐD, QL | Tiếp đón khách | GIỮ | **Nơi DUY NHẤT check-in.** Trên cùng là "Lịch hẹn hôm nay", có Check-in / Không đến / Hoàn tác. Bên dưới "Danh sách hàng đợi" — **24/09:** hai tab `[Chờ check-in (n)]` (lịch hôm nay chưa tới, `[Check-in]` ngay trên dòng — cùng `PATCH /api/appointments` action=checkin, cùng cổng `canCheckin`) · `[Đã check-in (n)]` (STT = số tiếp đón + cột **Đặt** = số booking, kéo đổi thứ tự). Nút **"Vào khám" OFF** (cờ `NUT_VAO_KHAM`) — check-in là đủ. Nút "Chưa đến — gọi người tiếp theo" **ĐÃ XOÁ** (24/09). Nút `[Check-in]` hiện ở mọi dòng tab Chờ (máy chủ quyết ai được bấm). STT và cột Đặt đứng cạnh nhau. Ba thẻ số đếm theo check-in (Chờ check-in · Đã check-in · Khách ưu tiên). |
 | `/reception/checkout` | Lễ tân, QL | Check-out lượt khám | GIỮ | |
 | `/do-sinh-hieu` | ĐD, Lễ tân, BS, QL | Đo sinh hiệu | GIỮ | **Nơi DUY NHẤT ghi sinh hiệu.** Máy chủ từ chối đường cũ từ `6976513`. |
-| `/phong/[ma]` | theo từng phòng trong `NAV_ROLES` | Lấy mẫu XN · 3 phòng SA · 4 phòng thủ thuật/dịch vụ | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. |
+| `/phong` | BS, BS SA, ĐD, TKYK, QL + ai có quyền `service.execute.start` | Phòng dịch vụ | GIỮ (mới 23/09) | **Danh sách phòng dịch vụ đọc từ `clinic_room`** (phòng đang bật, không phải phòng khám), phòng mình đứng hôm nay lên đầu. Thay chín mục `/phong/KN-*` viết cứng. |
+| `/phong/[ma]` | MỘT luật `/phong` cho mọi phòng | Tên phòng thật (theo lịch trực hôm nay) | GIỮ | Một component (`PhongDichVu`) cho mọi phòng. **23/09: `[ma]` là `room_id`**; mã phòng cũ (`KN-SA1`…) vẫn mở được. Ngày có ca, thanh bên dựng mục theo `vi_tri_lam_viec.room_id`, tên = `clinic_room.name`. 23/09 khuya: phiếu kết quả mở được cả khi dịch vụ chưa gắn mẫu (mẫu gợi ý v5 chọn sẵn + 18 mẫu dự phòng, `mau_goi_y` từ `thuc-hien`); [In phiếu] → `/print/ket-qua/[orderId]`; [Bắt đầu] hiện cả khi `execution_status` NULL. |
 
 ### Bác sĩ và thư ký
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL | Bàn khám (khách của tôi) · Bàn khám · Phòng … | GIỮ | **Nơi DUY NHẤT sửa bệnh án.** |
-| `/duyet-ket-qua` | BS, BS SA, QL | Duyệt kết quả | GIỮ | Thông báo "có kết quả về" trỏ thẳng vào đây (`bao_ket_qua_ve.py`). |
+| `/tu-van` | BS, QL + ai có quyền `clinical.intake.perform` | Bàn khám tư vấn | GIỮ (mới 24/09) | **Hàng tư vấn CHUNG** (dây H1): khách 5 loại khám lõi check-in → đo sinh hiệu → hàng này. `[Bắt đầu tư vấn]` (nhận được cả khách chưa đo — không khoá) → **24/09 chiều: MỘT ô chữ tự do** (`ban-kham/ONhapTuVan.tsx`, tự lưu → `noi-dung-tu-van` → `POST /api/v1/luot-kham/consultations/{id}/noi-dung-tu-van`) → hiện ở mục "Dữ liệu mang sang từ phần khám/tư vấn ban đầu" của phiếu bác sĩ chính (bản mới nhất). Phiếu khám v5 cho bàn tư vấn OFF (cờ `TU_VAN_O_TU_DO`) → `[Xong tư vấn — chuyển bác sĩ chính]` (`xong-tu-van`, đợi phiếu lưu xong) → khối Hành trình xếp khách vào hàng bác sĩ chính (H3). Cùng component `BanKham` chế độ `tu_van`. Vị trí trực "Hỏi bệnh ban đầu" mở màn này. |
+| `/ban-kham` · `/ban-kham/[phong]` | BS, TKYK, QL (một luật cho mọi phòng) | Bàn khám (24/09: bỏ chữ "khách của tôi") · Bàn khám · <tên phòng> | GIỮ | 23/09: `[phong]` là `room_id` (mã cũ vẫn mở được), ô chọn phòng đi theo `room_id`. **Nơi DUY NHẤT sửa bệnh án** (cùng `/tu-van`, chung component). 24/09: thêm mục **"Sắp tới — đang ở tư vấn"** (chỉ xem). 23/09: trên chỉ còn `[Bắt đầu khám]`; `[Hoàn tất]` ở CUỐI hồ sơ (→ dải xác nhận tại chỗ `XacNhanTaiCho` → `kham-xong`; 24/09 bỏ `window.confirm`). **Không còn Ký bệnh án** (`POST /clinical/{id}/sign` trả 410); Hoàn tất KHÔNG khoá, bệnh án sửa tiếp được. Khung `HoSoHoanTatPanel`: `[Cho phép CSKH gửi]` (sau Hoàn tất), `[Đính chính]` (chỉ lượt cũ đã ký). Nợ sau nhóm 6: mỗi chỉ định có phiếu kết quả có nút `[Xem phiếu kết quả]` (`_lam-viec/XemPhieuKetQua.tsx` → `GET /api/phieu?xem=<order>` → `/api/v1/phieu/xem/{order}`), mở là tự ghi đã xem. |
+| `/phan-quyen` | QL | Phân quyền | MỚI 23/09 | Chọn người → bật/tắt **khối công việc**; `[+ Thêm preset <vai>]` cấp nhanh theo vai; "▾ Chi tiết" bung quyền con. Đọc `GET /api/phan-quyen`; đổi bằng `POST` (`cap`/`thu`/`them-preset`). Cửa thật là capability `permission.manage` ở backend. Nợ sau nhóm 6: tab **"Theo màn"** (`QuyenTheoMan.tsx` → `GET /api/phan-quyen?man=1`, `POST` `doi-man`) chọn nhóm (vai) → bật/tắt từng màn cho nhóm ấy; không đổi quyền người đã cấp. |
+| `/viec-can-xu-ly` | QL, Thu ngân, Trưởng ca, BS | Việc cần xử lý | MỚI 23/09 | Việc sinh ra từ SỰ KIỆN: khách đã trả tiền mà dịch vụ không làm được (`OPS-FINANCIAL-RESOLUTION`), dịch vụ dừng giữa chừng (`OPS-SERVICE-INTERRUPTED`). Đọc `GET /api/work-items?workspace=khu_van_hanh`; đóng việc bằng lệnh kernel `complete`. |
+| `/hanh-trinh` | Mọi vai nội bộ (CSKH, lễ tân, trưởng ca, QL, BS, TKYK, BS SA, ĐD, thu ngân, dược sĩ) | Hành trình khách hôm nay | MỚI 24/09 (nhóm 3) | **Bảng hành trình chung**: mỗi khách hôm nay — đang ở đâu / đã xong gì / còn chờ gì. `hanh-trinh/BangHanhTrinh.tsx` → `?xem=hanh-trinh` → `GET /api/v1/hanh-trinh/hom-nay` (`bang_hanh_trinh_service.py`). "Đã xong" đọc dòng thời gian sự kiện. Mỗi dòng có nút Xem hành trình. |
+| `/duyet-ket-qua` | BS, BS SA, QL | Duyệt kết quả | **OFF khỏi thanh bên 23/09 tối** | Tuyền: "không cần cái duyệt kết quả nữa, duyệt làm gì khi ta có thể tự điền vào đây". Bác sĩ đọc/điền kết quả trong phiếu khám (Bàn khám, mục C). Route còn giữ (mở thẳng được); gỡ khỏi `NAV_ITEMS`, `MAN_THEO_VI_TRI`, tab "Theo màn". Chuông "có kết quả về" (`bao_ket_qua_ve.py`) nay trỏ `/ban-kham`. |
+| `/xac-nhan-ket-qua` | nội bộ (trừ đối tác, TV) + quyền `result.file.confirm` | Xác nhận kết quả | **OFF khỏi thanh bên 24/09** | Tuyền: "không cần nút xác nhận kết quả, cho vào luôn phiếu khám bác sĩ". Tệp đối tác HỢP LỆ ngay khi tải lên (cờ `XAC_NHAN_TEP_DOI_TAC` trong `tep_ket_qua_service.py`); bác sĩ đọc ở `/ban-kham` mục C (tên tệp mở thẳng tệp). Route còn giữ, bật cờ là về luồng xác nhận. |
 | `/patient-list` | gần như mọi vai trong phòng | Danh sách bệnh nhân | GIỮ | Tra cứu chung. Bệnh án mở ở đây **chỉ xem** (`readOnly`). |
 | `/patients/[id]` | theo quyền trong trang | (không có mục) | GIỮ | Hồ sơ một bệnh nhân. |
 | `/patients/new` | Lễ tân, QL | Tạo bệnh nhân / Thêm khách hàng / Nhập thông tin khách hàng mới | GIỮ | Cùng `NewPatientForm` với tab "Thêm" trong `/appointments`. Một nút mang 3 tên theo vai (`navLabelFor`). |
@@ -60,17 +66,17 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/thu-ngan/dich-vu` · `/thu-ngan/thuoc` | Lễ tân, thu ngân, QL | Thu tiền dịch vụ · Thu tiền thuốc | GIỮ | **Màn thu tiền duy nhất.** `thu-ngan/QuayThuNgan.tsx`, nút "Đã nhận đủ". |
+| `/thu-ngan/dich-vu` · `/thu-ngan/thuoc` | Lễ tân, thu ngân, QL | Thu tiền dịch vụ · Thu tiền thuốc | GIỮ | **Màn thu tiền duy nhất.** `thu-ngan/QuayThuNgan.tsx`, nút "Đã nhận đủ". **Nhóm 2 (24/09):** ô dịch vụ hiện khách NGAY KHI có chỉ định (không đợi khám xong), thu được nhiều lần; khối `ChonDichVu.tsx` "Khách làm dịch vụ nào?" (bỏ tích = khách không làm) + **ô "Làm ở phòng" từng dịch vụ** (24/09 chiều — `phong_chon_duoc` do máy chủ trả; chốt xong gửi `phong-du-kien` → `/api/v1/luot-kham/orders/{id}/routing/phong-du-kien`; thu xong dây H4 xếp đúng phòng này, phòng hỏng thì phòng vắng nhất) → `[Chốt dịch vụ khách làm]`; thu xong hệ thống tự xếp phòng (dây H4), nút "Xem hành trình · đổi phòng" để báo/đổi phòng. Ô thuốc vẫn đợi khám xong (nhóm 4). |
 | `/cashier/thuoc` · `/cashier/dich-vu` | Lễ tân, thu ngân, QL | Bảng giá thuốc · Bảng giá dịch vụ | GIỮ | Là **bảng giá**, không phải thu tiền. Sẽ đụng khi làm lại kho thuốc (hai nguồn giá). |
 | `/pharmacy` | Lễ tân, dược sĩ, QL | Cấp thuốc | GIỮ | **Làm lại 19/09 (contract tiền–thuốc CP4):** theo lượt, đọc qua `GET /api/v1/pharmacy/ban-thuoc` (không còn đọc thẳng Supabase). `PharmacyBoard.tsx` + `DongThuoc.tsx` (thay `ThaoTacCapPhat.tsx`): xác định thuốc kho · số mua · chọn/bỏ/đổi lô · giao thuốc — nút theo `thao_tac` máy chủ trả. |
 | `/pharmacy/inventory` | Lễ tân, dược sĩ, QL | Kho thuốc | GIỮ | Như trên. |
-| `/pharmacy/history` · `/pharmacy/consult` | dược sĩ, QL | Lịch sử bàn giao · Tư vấn dùng thuốc | CẦN QUYẾT | Còn gắn badge "Mới". |
+| `/pharmacy/history` · `/pharmacy/consult` | dược sĩ, QL | Lịch sử bàn giao · Tư vấn dùng thuốc | GIỮ (Claude chốt 24/09 — Tuyền soát) | Còn gắn badge "Mới". 24/09: đọc qua backend `/pharmacy/lich-su` · `/pharmacy/cho-tu-van` (thôi đọc thẳng Supabase). |
 
 ### CSKH và lịch hẹn
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
-| `/customers` | CSKH, QL, trưởng ca, thu ngân | Quản lý khách hàng | GIỮ | Màn chuẩn của CSKH. |
+| `/customers` | CSKH, QL, trưởng ca, thu ngân | Quản lý khách hàng | GIỮ | Màn chuẩn của CSKH. 24/09: danh sách khách (lọc kỳ / theo hẹn / tìm không dấu / phân trang) đọc qua `/cskh/danh-sach-khach`. |
 | `/appointments` | CSKH, Lễ tân, QL | Đặt lịch | GIỮ | Đặt "Trực tiếp" hôm nay thì tự check-in (luật máy chủ). |
 | `/appointments/cho-xep-bac-si` | QL, CSKH | Chờ xếp bác sĩ | GIỮ | Thông báo từ máy chủ trỏ vào đây. |
 | `/nhac-tai-kham` | QL | Nhắc tái khám | GIỮ | Cùng API với khối nhắc tái khám trong `/customers`. |
@@ -80,7 +86,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 
 | Route | Ai vào | Nhãn thanh bên | Trạng thái |
 |---|---|---|---|
-| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ |
+| `/truong-ca` | trưởng ca, QL | Điều phối ca | GIỮ | 24/09: ô "Chuyển bác sĩ" chia nhóm (Đang trực hôm nay · Bác sĩ khác · Quản lý có quyền khám) — `/api/dispatch-read?what=bac-si` → `/api/v1/dispatch/bac-si` trả `nhom`. Có link "Hành trình khách hôm nay →" sang `/hanh-trinh`. 24/09: khối "Bác sĩ chỉ định gì" (`truong-ca/ChiDinhCuaBacSi.tsx`) đổi phòng chỉ định đời mới bằng khối chung `_lam-viec/DoiPhong.tsx` (`xep-phong-v1`, cùng luật Bàn khám / Xem lượt); chỉ định đời cũ vẫn ô chọn phòng cũ (`xep-phong` → `/orders/{id}/dispatch`). |
 | `/truong-ca/hang-doi` | trưởng ca, QL | Hàng đợi theo trạm | GIỮ |
 | `/truong-ca/lich-su` | trưởng ca, QL | Lịch sử điều phối | GIỮ |
 | `/truong-ca/tv` | trưởng ca, QL | TV phòng chờ | GIỮ |
@@ -92,25 +98,27 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | `/schedule` | mọi vai trừ CSKH, đối tác, TV | Lịch làm việc | GIỮ | |
-| `/reports` | QL | Báo cáo | GIỮ | |
+| `/reports` | QL | Báo cáo | GIỮ | 24/09: các ô đếm đọc qua `/reports/tong-quan` (một lượt, theo ngày VN). |
 | `/audit-log` | CSKH, QL | Lịch sử thao tác | GIỮ | |
-| `/nhan-su` | QL | Quản lý nhân sự | GIỮ | |
+| `/nhan-su` | QL | Quản lý nhân sự | GIỮ | **Không quản quyền** (23/09): ô "Được xác nhận tệp kết quả" (hệ `staff_capability` cũ) đã gỡ; nút `[Mở Phân quyền cho người này]` → `/phan-quyen?nguoi=<id>`. `/api/staff/{id}/capabilities` trả 410. |
 | `/settings` | QL | Cài đặt | GIỮ | |
-| `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | |
-| `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | |
+| `/settings/booking-policy` | QL | Luật đặt lịch | GIỮ | 24/09: card "Giờ mở cửa & giờ ca làm việc" (`settings/GioCaLamViecCard.tsx`) sửa được GIỜ MỞ CỬA từng ngày + [Chép giờ Thứ Hai cho cả tuần]; lưu cùng giờ ca một lần → `/api/ca-lam-viec` PATCH `{ca_lam_viec, gio_mo_cua}` → `/api/v1/ca-lam-viec`. |
+| `/settings/clinic-config` | QL | Cấu trúc phòng khám | GIỮ | 23/09 (CORE-C): phòng là tài nguyên, định danh `room_id`. `[+ Thêm phòng]` (tên tự do + làm việc gì + tầng; mã nội bộ tự sinh, không hiện) · sửa tên tại chỗ · `[Tắt phòng]/[Bật phòng]` (chặn khi còn khách chờ) · dải cảnh báo bước chưa có phòng (`CONFIG_MISSING`). |
+| `/settings/day-noi` | QL (+ ai có quyền `config.wiring.manage`) | Dây nối nghiệp vụ | MỚI 24/09 (nhóm 5) | Khối chỉnh dây: bật/tắt tự xếp phòng (H4), báo CSKH khi khách về còn việc (H6), số ngày kết quả đối tác quá hạn (H7), số phút nhắc check-out (H8); loại khám qua tư vấn / đi thẳng phòng; ai nhận chuông; vị trí trực (thêm, đổi tên, gắn phòng, tắt). `settings/day-noi/DayNoiBoard.tsx` → `/api/day-noi` → `/api/v1/day-noi*`. |
 | `/settings/tai-khoan` | QL | Thiết lập tài khoản cho nhân viên | GIỮ | |
 | `/settings/new-user` | QL | (không có mục; mở từ `/settings/tai-khoan`) | GIỮ | |
-| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |
+| `/ops` | QL | Vận hành hệ thống | GIỮ | **Ba tab:** Hệ thống (`OpsCenter`) · Sức khoẻ API (`SucKhoeApi`, `?tab=api`) · Toàn cảnh (`ToanCanh` → `PortalBoard`, `?tab=toan-canh`, đọc qua `/reports/toan-canh` từ 24/09; tiêu đề trong tab cũng là "Toàn cảnh"). Thanh trên cùng của trang không có tiêu đề riêng lấy tên nút thanh bên (`GlobalHeader` ← `NAV`). |
 | `/console` | | | DEV | `notFound()` khi `APP_ENV=production`. |
 | `/design-system` | | | DEV | `notFound()` khi không phải `development`. |
-| `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | |
-| `/print/sono/[id]` | | | CẦN QUYẾT | **Không chỗ nào dẫn tới** (grep 0 kết quả). |
+| `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | 24/09: đọc qua `/clinical-records/in-theo-lich/{id}` (cửa ROLE-02 như hồ sơ lâm sàng). |
+| `/print/sono/[id]` | | | **OFF 24/09** (Claude chốt — Tuyền soát) | Không chỗ nào dẫn tới. Trang chỉ còn câu báo tắt; phiếu in kết quả hiện hành là `/print/ket-qua/[orderId]`. Bản cũ nằm trong git. |
+| `/print/ket-qua/[orderId]` | BS, TKYK, BS SA, ĐD SA, trưởng ca, QL, CSKH + ai có `result.form.fill` | In phiếu kết quả | MỚI 23/09 khuya | Mở từ `[In phiếu]` của `PhieuKetQua` (phòng dịch vụ + phiếu khám mục C) và `[In]` ở dòng kết quả mục C. Đọc `GET /api/phieu?in=` → `/api/v1/phieu/in/{order}`. Bản chưa Hoàn tất in kèm "BẢN NHÁP". |
 
 ### Đã chuyển hướng (không còn giao diện)
 
 | Route cũ | Chuyển tới | Gộp ngày |
 |---|---|---|
-| `/tasks` | **theo vai:** thu ngân → `/thu-ngan/dich-vu` · BS SA → `/phong/KN-SA-T1` · BS/TKYK → `/ban-kham` · ĐD → `/do-sinh-hieu` · Lễ tân → `/reception/queue` · QL/CSKH → `/customers` · còn lại → `/home` | 18/09 |
+| `/tasks` | **theo vai:** thu ngân → `/thu-ngan/dich-vu` · BS SA → `/phong` · BS/TKYK → `/ban-kham` · ĐD → `/do-sinh-hieu` · Lễ tân → `/reception/queue` · QL/CSKH → `/customers` · còn lại → `/home` | 18/09 |
 | `/queue` | `/reception/queue` | 18/09 |
 | `/cashier/board` | `/thu-ngan/dich-vu` | 18/09 |
 | `/cskh-tasks` | `/customers` (bảng `cskh_action` 0 dòng trên prod) | 18/09 |
@@ -119,15 +127,24 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/portal` | `/ops?tab=toan-canh` | 18/09 |
 | `/ops/telemetry` | `/ops?tab=api` | 18/09 |
 | `/doctor/board` · `/doctor/orders/[visitId]` · `/kham/[loai]` · `/luot-kham` | `/ban-kham` | 16/09 |
-| `/lab-queue` | `/phong/KN-LAYMAU` | 16/09 |
-| `/service-queue` | `/phong/KN-THUTHUAT` | 16/09 |
-| `/sieu-am` · `/sono` | `/phong/KN-SA-T1` | 16/09 |
+| `/lab-queue` | `/phong` (23/09; trước là `/phong/KN-LAYMAU`) | 16/09 |
+| `/service-queue` | `/phong` (23/09; trước là `/phong/KN-THUTHUAT`) | 16/09 |
+| `/sieu-am` · `/sono` | `/phong` (23/09; trước là `/phong/KN-SA-T1`) | 16/09 |
 | `/result-review` | `/duyet-ket-qua` | 16/09 |
 | `/cashier` | `/cashier/thuoc` | |
 
 Thư mục `app/(dashboard)/tasks/` vẫn giữ **component dùng chung**:
 `ClinicalRecordForm`, `ServiceFormEngine`, `DoctorApptRow`… Chỉ `page.tsx` là
 chuyển hướng.
+
+**Route `/api` đã tắt (24/09/2026, trả 410 ở `proxy.ts`, danh sách ở
+`lib/route-da-tat.ts`)** — không màn nào gọi: `dispatch/alerts-call`,
+`cskh/ket-qua/[tepId]/cho-phep-gui`, `cskh/zalo`, `lab-result` (gốc; `/review`
+và `/triage` vẫn chạy), `sono`, `service-log`, `ultrasound/image`,
+`visits/[id]/charges`, `visits/[id]/service-orders` (+ `current`, `draft`,
+`draft/approve`, `draft/discard`, `duplicates`, `remove`),
+`work-items/[id]/blockers`, `patients/check-phone`. File giữ nguyên; bỏ dòng ở
+danh sách là bật lại.
 
 ---
 
@@ -138,21 +155,26 @@ chuyển hướng.
 | **Bệnh án** (`ClinicalRecordForm`) | `ban-kham/BanKham.tsx` | **ghi** |
 | | `home/WeeklyAppointmentsTable.tsx` | chỉ xem (`readOnly` + `vitalsOnly`) |
 | | `patient-list/PatientListView.tsx` | chỉ xem (`readOnly`) |
-| **Phiếu khám theo dịch vụ** (`ServiceFormEngine`) | `ban-kham/BanKham.tsx` · `tasks/ClinicalRecordForm.tsx` | ghi ở Bàn khám |
-| **Check-in / Không đến / Hoàn tác** | `reception/queue/page.tsx` → `WeeklyAppointmentsTable` với `choCheckIn` | chỉ ở đây |
+| **Phiếu khám theo dịch vụ** (`ServiceFormEngine`) | `ban-kham/BanKham.tsx` · `tasks/ClinicalRecordForm.tsx` | ghi ở Bàn khám — **OFF cho lượt KHÁM từ 23/09 tối** (cờ `PHIEU_V5`), chỉ còn đọc lượt cũ (`LuotKhamTruoc`) và bàn khám tư vấn |
+| **Phiếu khám v5 (bảy phiếu NT/HMVS/PK/SK/NK/Thủ thuật/Sàn chậu)** — 23/09 khuya: tab "Chỉ định & kết quả" + cột `ChiDinhPanel` ở `/ban-kham` **OFF** (cờ `PHIEU_V5`); tệp kết quả mở ở mục C `[Ảnh · tệp]` (`KhungTep`) | `ban-kham/BanKham.tsx` → `_lam-viec/phieu-kham/PhieuKhamLuot.tsx` (→ `PhieuKham`, `DanhMucChiDinh`, `KetQuaChiDinh`, `DonThuocPhieu`) → `/api/phieu-kham` (GET `?visit_id&xem=phieu|dau-phieu|don-thuoc`, PUT `luu-phieu`/`luu-don`) → `/api/v1/phieu-kham/*` | **23/09 tối.** Tự lưu (không nút Lưu hồ sơ). Mục C/F: danh mục có giá → chỉ định thật (`chi-dinh`). Mục C: [Xem kết quả] (tự ghi đã xem) · [Điền kết quả] (`PhieuKetQua`, cùng engine phòng). Mục E: đơn thuốc tự lưu → `luu_don_chua_ky` → nhà thuốc. Bệnh án cũ `ClinicalRecordForm` OFF cho lượt khám (cờ `PHIEU_V5`). |
+| **Check-in / Không đến / Hoàn tác** | `reception/queue/page.tsx` → `WeeklyAppointmentsTable` với `choCheckIn` · **Check-in** còn ở `reception/queue/QueueBoard.tsx` tab "Chờ check-in" (24/09, cùng API + cùng cổng `canCheckin`) | cùng một màn `/reception/queue` |
 | | đặt lịch "Trực tiếp" hôm nay (`/appointments`) | máy chủ tự check-in |
 | **Bảng lịch hẹn** (`WeeklyAppointmentsTable` + `home/lich-hen-ngay.ts`) | `/home` (cả tuần, xem) · `/reception/queue` (hôm nay, check-in) | cùng một phép dựng |
 | **Hàng chờ tiếp đón** (`QueueBoard`) | `/reception/queue` | |
 | **Ghi sinh hiệu** | `/do-sinh-hieu` | biểu mẫu bệnh án chỉ xem + nút dẫn sang |
 | **Chọn lô / giao thuốc** (`/api/pharmacy/{phan-lo,bo-phan-lo,doi-lo,dispense,…}`) | `pharmacy/DongThuoc.tsx` (qua `/pharmacy`) | **chỉ ở đây** (contract tiền–thuốc CP4) |
 | **Thu tiền** (`POST /api/payment`) | `thu-ngan/QuayThuNgan.tsx` (qua `/thu-ngan/dich-vu`, `/thu-ngan/thuoc`) | chỉ ở đây |
+| **Khách chọn làm dịch vụ nào** (`chon-dich-vu` → `POST /luot-kham/visits/{id}/service-selection/confirm`) | `thu-ngan/ChonDichVu.tsx` (trong `QuayThuNgan.tsx`) | **chỉ ở đây** — nhóm 2, 24/09. Trước đó lệnh có mà không màn nào gọi, nên chỉ định mới không vào được hoá đơn |
 | **Tạo bệnh nhân** (`NewPatientForm`) | `/patients/new` · tab "Thêm" trong `/appointments` | cùng component |
 | **Đặt / sửa lịch** (`AppointmentBooking`) | `customers/AppointmentEditModal.tsx` · `customers/DatLichModal.tsx` · `patients/[id]/PatientBooking.tsx` | `/appointments` dùng `BookingHub` riêng — CẦN QUYẾT |
 | **Nhắc tái khám** (`/api/recall-jobs`) | `customers/NhacTaiKham.tsx` · `customers/VungLamViecKhach.tsx` · `nhac-tai-kham/ViecGoiNhac.tsx` | cùng API |
 | **Tệp kết quả** (`/api/cskh/ket-qua`) | `customers/TepKetQua.tsx` · `_lam-viec/KhungTep.tsx` · `tasks/TepCuaLuotKham.tsx` | |
-| **Chỉ định dịch vụ / cận lâm sàng** (`service_order`) | `ban-kham/BanKham.tsx` → `ChiDinhPanel` (thư ký ghi nháp, bác sĩ duyệt) | **chỉ ở đây.** Ô "Chỉ định CLS" gõ tự do trong bệnh án (ghi `lab_result`) đã gỡ 18/09 — Slice 1 |
+| **Chỉ định dịch vụ / cận lâm sàng** (`service_order`) | `ban-kham/BanKham.tsx` → `ChiDinhPanel`. **23/09: bác sĩ VÀ thư ký y khoa cùng bấm `[Xác nhận N chỉ định]` → lệnh `PlaceServiceOrders` (`chi-dinh` → `POST /luot-kham/consultations/{id}/service-orders`), không còn bước duyệt.** Nút `[Duyệt … (bản cũ)]` chỉ hiện khi lượt còn bản nháp cũ. Lát `docs/slices/CD-01-bac-si-chi-dinh-dich-vu.md` | **chỉ ở đây.** Ô "Chỉ định CLS" gõ tự do trong bệnh án (ghi `lab_result`) đã gỡ 18/09 — Slice 1 |
+| **Thực hiện dịch vụ trong phòng** (`/luot-kham/orders/{id}/execution/*`) | `phong/[ma]/PhongDichVu.tsx` | **chỉ ở đây.** 23/09: backend có NĂM lệnh, nhưng màn chỉ bày **hai nút chính — [Bắt đầu] rồi [Hoàn tất]** (ChatGPT tin 156, Tuyền tin 157). Ba ngoại lệ (không làm được · dừng giữa chừng · làm lại) nằm ở hàng phụ. Trạng thái + hai `revision` đọc qua `?xem=thuc-hien`. Hai đường cũ `bat-dau-dich-vu`/`xong-dich-vu` còn trong danh sách trắng nhưng **không màn nào gọi**. Lát `docs/slices/TH-01-thuc-hien-dich-vu.md` |
+| **Điền phiếu kết quả** (`/api/phieu` → Form Template Engine) | `_lam-viec/PhieuKetQua.tsx`, mở từ `phong/[ma]/PhongDichVu.tsx` | Một màn cho MỌI biểu mẫu: máy chủ trả `khung`, màn vẽ đúng khung ấy. **[Hoàn tất] là nút kết thúc DUY NHẤT**: nó đóng luôn dịch vụ và phát `result.ready` nếu dịch vụ có kết quả ngay tại phòng. **Hoàn tất rồi vẫn sửa được** — [Sửa lại] → [Xác nhận sửa] → `result.corrected`. Ruột 18 mẫu phòng khám đưa sau — không phải sửa TSX. Lát `docs/slices/BM-01-form-template-engine.md` |
+| **Nhóm quyền mẫu** (`/api/phan-quyen?nhom=1`) | `phan-quyen/NhomQuyenMau.tsx` (tab trong `/phan-quyen`) | Quản lý thêm · sửa · xoá nhóm mà không cần deploy. Nhóm **không phải quyền**: sửa nhóm không đổi quyền người đã cấp. Nhóm dựng sẵn thì tắt chứ không xoá mất dấu. |
 | **Bác sĩ quyết kết quả chờ / dịch vụ không làm được** (`/luot-kham/cho-quyet`, `quyet-yeu-cau`) | `ban-kham/ChoBacSiQuyet.tsx` | bác sĩ quyết; thư ký chỉ xem — Slice 1 |
-| **Xem lại một lượt khám** (`/xem-luot/{visit}`, chỉ đọc, máy chủ cắt theo vai) | `_lam-viec/XemLuot.tsx` (+ `NutXemLuot.tsx`) mở từ: `ban-kham/BanKham.tsx` · `do-sinh-hieu/BangDoSinhHieu.tsx` · `phong/[ma]/PhongDichVu.tsx` · `truong-ca/ChiDinhHomNay.tsx` · `reception/queue/QueueBoard.tsx` · `thu-ngan/GiaoDich.tsx` · `pharmacy/PharmacyBoard.tsx` | batch pilot 18/09 |
+| **Xem lại một lượt khám** (`/xem-luot/{visit}`, chỉ đọc, máy chủ cắt theo vai) | `_lam-viec/XemLuot.tsx` (+ `NutXemLuot.tsx`) mở từ: `ban-kham/BanKham.tsx` · `do-sinh-hieu/BangDoSinhHieu.tsx` · `phong/[ma]/PhongDichVu.tsx` · `truong-ca/ChiDinhHomNay.tsx` · `reception/queue/QueueBoard.tsx` · `thu-ngan/GiaoDich.tsx` · `thu-ngan/QuayThuNgan.tsx` (nhóm 2 — đổi phòng sau khi thu) · `hanh-trinh/BangHanhTrinh.tsx` (nhóm 3) · `pharmacy/PharmacyBoard.tsx`. Nhóm 3: thêm mục "Hành trình (sự kiện)" đọc `luot_dong_thoi_gian`; CSKH xem được. Nhóm 5: thêm "Tự nhắc tôi về khách này" (`_lam-viec/TuNhac.tsx` → `/api/nhac-viec`) | batch pilot 18/09 |
 | **Thai kỳ** (`/api/thai-ky`) | `ban-kham/ThaiKy.tsx` (cạnh phiếu Sản) | bác sĩ ghi; vai lâm sàng khác chỉ xem |
 | **Giao dịch thu ngân đã ghi** (`/api/cashier?xem=giao-dich`) | `thu-ngan/TabThuNgan.tsx` → `GiaoDich.tsx` (tab Đã thanh toán hôm nay · Lịch sử) | chỉ đọc |
 | **Chuyển phòng** | `truong-ca/ChiDinhCuaBacSi.tsx` (từng chỉ định — luồng mới) · `truong-ca/OverviewClient.tsx` (cả lượt — chỉ lượt đời cũ; lượt luồng mới bị ẩn + máy chủ từ chối) | Slice 1 |

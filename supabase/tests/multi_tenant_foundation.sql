@@ -107,7 +107,35 @@ DECLARE
     -- clinic, clinic_id đứng đầu mọi index.
     -- 89 → 90 (20/09/2026): prescription_correction (20260920000002, contract
     -- tiền–thuốc CP6 bước 4a — một lần bác sĩ đính chính đơn).
-    expected_tenant_tables constant integer := 90;
+    -- 90 → 92 (22/09/2026): service_selection_state, service_execution_attempt
+    -- (20260922000001, Service Lifecycle v1 Slice 1). clinic_id NOT NULL, FK tới
+    -- clinic, clinic_id đứng đầu PK / uq_service_execution_attempt_clinic_id.
+    -- 92 → 102 (23/09/2026): MƯỜI bảng tenant mới. Cả mười đều `clinic_id`
+    -- NOT NULL, có khoá ngoại thẳng tới clinic (bảy cái thêm ở
+    -- 20260923000012), `clinic_id` đứng đầu ít nhất một index, và bật RLS:
+    --   domain_event · event_delivery        (20260923000001, sổ sự kiện)
+    --   luot_dong_thoi_gian                  (…0002, projection hành trình)
+    --   capability_grant                     (…0003, quyền đã cấp cho từng người)
+    --   ket_qua_mau · dich_vu_mau_ket_qua    (…0004, danh mục mẫu kết quả)
+    --   form_definition · form_instance      (…0005, Form Template Engine)
+    --   hen_gio                              (…0008, hẹn kiểm lại)
+    --   quyen_preset                         (…0011, nhóm quyền mẫu)
+    -- `capability` và `work_pack` (…0003) KHÔNG có `clinic_id` và KHÔNG được
+    -- tính: chúng là danh mục của phần mềm, giống nhau ở mọi phòng khám. Đặt
+    -- clinic_id lên chúng là mời mỗi phòng khám định nghĩa lại "quyền
+    -- clinical.order.place nghĩa là gì".
+    -- 102 → 104 (23/09/2026): result_correction · form_result_release
+    -- (20260923000014, sửa kết quả mà không mất bản cũ). clinic_id NOT NULL, FK
+    -- thẳng tới clinic, clinic_id đứng đầu index của cả hai.
+    -- 104 → 106 (24/09/2026, nhóm 3): day_nhan_thong_bao (dây nối chuông,
+    -- PK (clinic_id, su_kien)) · appointment_doi_lich (lịch sử đổi lịch, index
+    -- (clinic_id, appointment_id, doi_luc)) — 20260924000004. clinic_id NOT
+    -- NULL, FK thẳng tới clinic, bật RLS.
+    -- 106 → 108 (24/09/2026, nhóm 5): day_nghiep_vu (PK (clinic_id, ma)) ·
+    -- nhac_viec_ca_nhan (index (clinic_id, staff_id, nhac_luc)) — 20260924000005.
+    -- 108 → 109 (23/09/2026 tối): phieu_kham_luot (phiếu khám v5 theo lượt,
+    -- unique (clinic_id, visit_id, form_id)) — 20260924000008.
+    expected_tenant_tables constant integer := 109;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

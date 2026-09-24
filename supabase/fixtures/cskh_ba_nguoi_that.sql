@@ -272,3 +272,7 @@ SELECT primary_department AS bo_phan, short_name AS ten_goi, full_name AS hien_t
    AND (primary_department IN ('DOCTOR', 'ULTRASOUND_DOCTOR', 'CSKH')
         OR short_name IN ('Thủy Tiên', 'Tiên'))
  ORDER BY primary_department, short_name;
+
+-- Người vừa tạo phải làm được việc ngay: cấp quyền theo vai (migration
+-- 20260923000016). Không có dòng này thì mọi tài khoản thử có 0 quyền.
+SELECT public.cap_quyen_cho_moi_thanh_vien();

@@ -10,6 +10,12 @@ Mode 2 (relay): Notification outbox relay — polls ``event_log`` and delivers
   Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
         TELEGRAM_CLINIC_ID
 
+Mode 4 (su-kien): Giao sự kiện nghiệp vụ — đọc ``event_delivery``, gọi từng bên
+  nhận, đánh dấu xong trong cùng giao dịch. Chạy trên Postgres, không cần broker.
+  Cùng vòng ấy xử lý những cái HẸN đã tới giờ (`hen_gio`).
+  Run:  python -m clinicai.worker --su-kien [tên_bên_nhận ...]
+  Env:  DATABASE_URL
+
 Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
   and stock movements to whichever POS the clinic configured (ADR-0010). With
   the default null adapter, rows are dead-lettered rather than falsely marked
@@ -224,6 +230,69 @@ async def _run_pos_relay() -> None:
         logger.info("pos_relay_stopped")
 
 
+async def _run_su_kien() -> None:
+    """Chế độ 4 (--su-kien): giao sự kiện nghiệp vụ cho các bên nhận.
+
+    Đọc `event_delivery`, gọi bên nhận, đánh dấu xong — tất cả trên Postgres,
+    không cần broker. Khác ba chế độ trên ở một chỗ quan trọng: mỗi (sự kiện ×
+    bên nhận) là một dòng riêng, nên một bên nhận hỏng không chặn các bên còn
+    lại. Xem `clinicai/events/worker.py`.
+
+        python -m clinicai.worker --su-kien              # mọi bên nhận đã khai
+        python -m clinicai.worker --su-kien dong_thoi_gian_luot
+    """
+    import clinicai.events.consumers  # noqa: F401 — đăng ký bên nhận
+    from clinicai.core.database import close_pool, create_pool
+    from clinicai.events.catalogue import moi_consumer
+    from clinicai.events.hen_gio import lam_mot_hen, thu_hoi_hen_treo
+    from clinicai.events.worker import lam_mot_dong, thu_hoi_thue
+
+    chi_dinh = [a for a in sys.argv[1:] if not a.startswith("--")]
+    consumers = chi_dinh or sorted(moi_consumer())
+    if not consumers:
+        raise SystemExit("Chưa khai bên nhận nào trong danh mục sự kiện.")
+
+    pool = await create_pool()
+    stop = asyncio.Event()
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+
+    ten_worker = f"{os.environ.get('HOSTNAME', 'worker')}:{os.getpid()}"
+    logger.info("su_kien_worker_started", consumers=consumers, ten=ten_worker)
+
+    try:
+        while not stop.is_set():
+            try:
+                # Thu hồi trước: worker chết ở lần chạy trước để lại dòng treo.
+                await thu_hoi_thue(pool)
+                for consumer in consumers:
+                    while await lam_mot_dong(pool, consumer, ten_worker=ten_worker):
+                        if stop.is_set():
+                            break
+                # Cùng tiến trình, cùng nhịp: những cái HẸN đã tới giờ. Tách
+                # thành một tiến trình nữa chỉ để chạy một vòng lặp là thêm một
+                # thứ phải trông mà không được gì.
+                await thu_hoi_hen_treo(pool)
+                while await lam_mot_hen(pool):
+                    if stop.is_set():
+                        break
+                _beat()
+            except Exception:
+                # Một bên nhận hỏng không được làm chết vòng giao tin.
+                logger.exception("su_kien_worker_loi")
+
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=1.0)
+                break
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        await close_pool(pool)
+        logger.info("su_kien_worker_stopped")
+
+
 async def _run_rabbitmq() -> None:
     """Run the RabbitMQ consumer (legacy mode)."""
     from clinicai.event_bus.consumer import ConsumerConnectionError, RabbitMQConsumer
@@ -287,7 +356,9 @@ async def _run_rabbitmq() -> None:
 
 
 def main() -> None:
-    if "--pos-relay" in sys.argv:
+    if "--su-kien" in sys.argv:
+        asyncio.run(_run_su_kien())
+    elif "--pos-relay" in sys.argv:
         asyncio.run(_run_pos_relay())
     elif "--relay" in sys.argv:
         asyncio.run(_run_relay())

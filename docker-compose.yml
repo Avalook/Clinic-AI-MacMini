@@ -262,6 +262,34 @@ services:
       start_period: 90s
     networks: [internal, supabase]
 
+  # NGƯỜI ĐƯA TIN SỰ KIỆN (24/09/2026) — BẮT BUỘC, không nằm trong profile.
+  # Đọc `event_delivery` trên Postgres và gọi các bên nhận: dòng thời gian,
+  # trách nhiệm không rơi, và khối HÀNH TRÌNH (xếp khách vào hàng tư vấn / bác
+  # sĩ chính sau check-in, sinh hiệu, tư vấn xong). Thiếu service này thì khách
+  # check-in xong KHÔNG vào hàng nào. Không cần broker — chỉ Postgres.
+  su-kien:
+    <<: *clinic-service-defaults
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    mem_limit: ${SU_KIEN_MEMORY_LIMIT:-256m}
+    pids_limit: 128
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
+    command: ["python", "-m", "clinicai.worker", "--su-kien"]
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # Vòng lặp CÓ QUAY (file nhịp tim), không chỉ tiến trình còn sống.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 120"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks: [internal, supabase]
+
   # Lightweight notification outbox relay. It polls Supabase directly and does
   # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
   # `notifications` profile can run this service on its own.

@@ -33,6 +33,8 @@ import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
+from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.can import can
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 
@@ -78,7 +80,10 @@ def giai_doan(
         if lan_thu.legacy:
             return DA_THU_CU
         return CAN_DOI_SOAT if co_phan_lo_chua_ban else DA_THU
-    return SAN_SANG if kham_xong else CHUA_SAN_SANG
+    # Tiền thuốc không cần Khám xong (Tuyền 24/09/2026): chưa thu thì luôn làm
+    # được. CHUA_SAN_SANG giữ lại (OFF) — không đường nào trả về nữa.
+    _ = kham_xong
+    return SAN_SANG
 
 
 def thao_tac_dong(
@@ -164,9 +169,10 @@ async def man_nha_thuoc(
     pool: asyncpg.Pool, *, identity: StaffIdentity
 ) -> dict[str, Any]:
     hom_nay = now_vn().date()
-    co_quyen_ghi = identity.co_vai(VAI_GHI_NHA_THUOC)
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
     async with pool.acquire() as conn:
+        # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
+        co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
         dong = await conn.fetch(
             f"""
             SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,
@@ -226,6 +232,9 @@ async def man_nha_thuoc(
             identity.clinic_id,
             dau_ngay,
         )
+        # Trần 300 đơn/ngày. Chạm trần là quầy thuốc đang nhìn một bảng THIẾU
+        # đơn — phải nói ra, không để im.
+        don_bi_cat = canh_bao_neu_day("nha_thuoc.don_hom_nay", len(dong), 300)
         luot_ids = sorted({r["visit_id"] for r in dong})
         rx_ids = [r["id"] for r in dong]
         lan_thu_rows = await conn.fetch(
@@ -449,6 +458,8 @@ async def man_nha_thuoc(
         "danh_muc": [dict(d) for d in danh_muc],
         "hom_nay": hom_nay.isoformat(),
         "co_quyen_ghi": co_quyen_ghi,
+        "bi_cat": don_bi_cat,
+        "tran": 300,
     }
 
 

@@ -31,12 +31,15 @@ interface Luot {
   ten: string;
   bac_si: string | null;
   check_in_luc: string | null;
+  /** `pending` · `in_progress` · `recorded` — trạng thái THẬT, máy chủ giữ. */
   sinh_hieu_trang_thai: string;
-  /** Lần gần nhất điều dưỡng bấm "Gọi vào đo". */
-  goi_do_luc: string | null;
-  goi_do_boi: string | null;
+  /** Lúc bấm [Bắt đầu] đo. Trống nếu lưu thẳng mà không ai bấm Bắt đầu. */
+  bat_dau_do_luc: string | null;
+  bat_dau_do_boi: string | null;
   /** Số tiếp đón chung của quầy — số điều dưỡng đọc khi gọi. */
   so_tiep_don: number | null;
+  /** Số booking cấp lúc đặt lịch (23/09/2026). */
+  so_booking?: number | null;
   sinh_hieu: SinhHieu | null;
 }
 
@@ -94,7 +97,7 @@ export default function BangDoSinhHieu() {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
-  const [dangGoi, setDangGoi] = useState(false);
+  const [dangBatDau, setDangBatDau] = useState(false);
 
   const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {
     if ("loi" in kq) {
@@ -129,11 +132,14 @@ export default function BangDoSinhHieu() {
     const ds = [...(luot ?? [])].sort((a, b) =>
       (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""),
     );
-    // "Đang đo" = đã gọi vào mà chưa lưu số (batch pilot 18/09): tách khỏi
-    // hàng chờ để người đo thấy mình đang dở với ai.
+    // "ĐANG ĐO" ĐỌC TỪ TRẠNG THÁI THẬT (23/09/2026), không suy từ giờ gọi.
+    // Bản trước lấy `goi_do_luc` làm "đang đo" — tức "đã gọi" bị đọc thành
+    // "đã bắt đầu đo", hai chuyện khác nhau. Giờ máy chủ giữ `in_progress`.
+    const dangDoThat = (l: Luot) =>
+      !l.sinh_hieu && l.sinh_hieu_trang_thai === "in_progress";
     return {
-      choDo: ds.filter((l) => !l.sinh_hieu && !l.goi_do_luc),
-      dangDo: ds.filter((l) => !l.sinh_hieu && l.goi_do_luc),
+      choDo: ds.filter((l) => !l.sinh_hieu && !dangDoThat(l)),
+      dangDo: ds.filter(dangDoThat),
       daDo: ds.filter((l) => l.sinh_hieu),
     };
   }, [luot]);
@@ -159,30 +165,37 @@ export default function BangDoSinhHieu() {
     setGia(cu);
   };
 
-  // GỌI VÀO ĐO (Tuyền 17/09/2026): khách ngồi ngoài cần biết tới lượt mình.
-  // Gọi lại thì máy chủ cập nhật giờ gọi — không có trạng thái nào bị khoá.
-  const goi = async () => {
+  // [BẮT ĐẦU] ĐO — thay cho [Gọi vào đo] (Tuyền chốt 23/09/2026: `Gọi vào →
+  // Bắt đầu` là hai bước cho một việc). Máy chủ chuyển `pending → in_progress`
+  // và ghi ai bắt đầu, lúc nào. Bấm lại chính mình thì không sao; người khác đã
+  // bắt đầu thì máy chủ từ chối kèm tên — câu ấy hiện nguyên văn ở đây.
+  //
+  // LẦN LƯU ĐẦU PHẢI SAU [Bắt đầu] (chốt 23/09/2026) — không thì lại có lượt
+  // "đã đo" mà không biết bắt đầu lúc nào. Máy chủ là cửa chặn thật
+  // (VITALS_NOT_STARTED); ở đây khoá nút Lưu và nói rõ lý do để khỏi ăn lỗi.
+  // Ô nhập VẪN gõ được: gõ chưa phải lưu, bấm Bắt đầu xong số vẫn còn.
+  const batDau = async () => {
     if (!dangChon) return;
-    setDangGoi(true);
+    setDangBatDau(true);
     setLoi(null);
     setXong(null);
     try {
       const r = await fetch("/api/luot-kham", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": khoaGuiLai() },
-        body: JSON.stringify({ thao_tac: "goi-do", id: dangChon.visit_id, du_lieu: {} }),
+        body: JSON.stringify({ thao_tac: "bat-dau-do", id: dangChon.visit_id, du_lieu: {} }),
       });
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
       if (!r.ok) {
-        setLoi(d?.message ?? d?.error ?? "Không gọi được khách.");
+        setLoi(d?.message ?? d?.error ?? "Không bắt đầu đo được.");
         return;
       }
-      setXong(`Đã gọi ${dangChon.ten} vào đo sinh hiệu.`);
+      setXong(`Bắt đầu đo cho ${dangChon.ten}.`);
       nhan(await docBang());
     } catch {
-      setLoi("Mất kết nối — CHƯA gọi được khách.");
+      setLoi("Mất kết nối — CHƯA bắt đầu đo.");
     } finally {
-      setDangGoi(false);
+      setDangBatDau(false);
     }
   };
 
@@ -233,6 +246,10 @@ export default function BangDoSinhHieu() {
     );
   }
 
+  // Chưa ai bấm [Bắt đầu] cho khách đang mở: hiện nút Bắt đầu, khoá nút Lưu.
+  const chuaBatDau =
+    !!dangChon && !dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending";
+
   const MotDong = ({ l, stt }: { l: Luot; stt: number }) => (
     <li>
       <button
@@ -256,9 +273,9 @@ export default function BangDoSinhHieu() {
           <span className="shrink-0 rounded-chip bg-success-bg px-2 py-0.5 text-meta text-success">
             Đã đo
           </span>
-        ) : l.goi_do_luc ? (
+        ) : l.sinh_hieu_trang_thai === "in_progress" ? (
           <span className="shrink-0 rounded-chip bg-brand-50 px-2 py-0.5 text-meta text-brand-700">
-            Đã gọi {gio(l.goi_do_luc)}
+            Đang đo {gio(l.bat_dau_do_luc)}
           </span>
         ) : (
           <span className="shrink-0 rounded-chip bg-warning-bg px-2 py-0.5 text-meta text-warning">
@@ -322,6 +339,7 @@ export default function BangDoSinhHieu() {
               <div className="min-w-0">
               <p className="text-lg font-semibold text-ink">
                 {dangChon.so_tiep_don != null ? `Số ${dangChon.so_tiep_don} · ` : ""}
+                {dangChon.so_booking != null ? `Đặt #${dangChon.so_booking} · ` : ""}
                 {dangChon.ten}
               </p>
               <p className="text-meta text-ink-muted">
@@ -329,8 +347,8 @@ export default function BangDoSinhHieu() {
                 {dangChon.sinh_hieu?.nguoi_do
                   ? ` · lần đo trước: ${dangChon.sinh_hieu.nguoi_do} lúc ${gio(dangChon.sinh_hieu.luc)}`
                   : ""}
-                {dangChon.goi_do_luc && !dangChon.sinh_hieu
-                  ? ` · đã gọi lúc ${gio(dangChon.goi_do_luc)}${dangChon.goi_do_boi ? ` (${dangChon.goi_do_boi})` : ""}`
+                {dangChon.bat_dau_do_luc && !dangChon.sinh_hieu
+                  ? ` · bắt đầu đo lúc ${gio(dangChon.bat_dau_do_luc)}${dangChon.bat_dau_do_boi ? ` (${dangChon.bat_dau_do_boi})` : ""}`
                   : ""}
               </p>
               {/* Đã đo: xem lại mọi lần đo (người đo, giờ) và lượt trước. */}
@@ -346,15 +364,17 @@ export default function BangDoSinhHieu() {
               ) : null}
               {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
               </div>
-              {!dangChon.sinh_hieu ? (
-                <button
-                  type="button"
-                  onClick={goi}
-                  disabled={dangGoi}
-                  className="inline-flex min-h-10 shrink-0 items-center rounded-control border border-brand-500 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+              {/* Chỉ hiện khi CHƯA ai bắt đầu. Đang đo rồi thì không bày nút —
+                  bấm lại cũng chỉ nhận "đã bắt đầu", không có việc gì mới. */}
+              {chuaBatDau ? (
+                <Button
+                  size="md"
+                  variant="primary"
+                  onClick={() => void batDau()}
+                  disabled={dangBatDau}
                 >
-                  {dangGoi ? "Đang gọi…" : dangChon.goi_do_luc ? "Gọi lại" : "Gọi vào đo"}
-                </button>
+                  {dangBatDau ? "Đang bắt đầu…" : "Bắt đầu"}
+                </Button>
               ) : null}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -386,7 +406,7 @@ export default function BangDoSinhHieu() {
               </div>
             </div>
             {/* Thông báo nằm DƯỚI ô nhập, cạnh nút Lưu (17/09/2026): đặt trên đầu
-                thì bấm "Gọi vào đo" xong cả khối ô nhập tụt xuống, bấm lệch ô. */}
+                thì bấm [Bắt đầu] xong cả khối ô nhập tụt xuống, bấm lệch ô. */}
             <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
               {loi ? (
                 <p role="alert" className="mr-auto rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -397,10 +417,13 @@ export default function BangDoSinhHieu() {
                   {xong}
                 </p>
               ) : null}
+              {chuaBatDau ? (
+                <p className="text-meta text-ink-muted">Bấm [Bắt đầu] trước khi lưu.</p>
+              ) : null}
               <button
                 type="button"
                 onClick={luu}
-                disabled={dangLuu}
+                disabled={dangLuu || chuaBatDau}
                 className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {dangLuu ? "Đang lưu…" : "Lưu sinh hiệu"}

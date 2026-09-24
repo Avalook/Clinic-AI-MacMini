@@ -2,7 +2,12 @@
 // Cấp dữ liệu cho chú thích đặt lịch BN cũ (T-20260629-EPI-01): BN này đã khám DỊCH VỤ
 // này bao nhiêu lần + có đợt khám nào còn SỐNG không. Frontend dùng để (a) hiện hint, (b)
 // đặt mặc định thông minh NEW/RETURN. Chỉ đọc.
+//
+// 24/09/2026: đọc qua backend `GET /api/v1/appointments/lich-su-dich-vu` thay vì
+// đọc thẳng `appointment` / `care_episode` bằng Supabase.
+
 import { NextResponse } from "next/server";
+import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
 
 export async function GET(request: Request) {
@@ -21,53 +26,10 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-
-  // Read with the caller's own session. This used to need service-role because
-  // appointment and care_episode had no usable SELECT policy; since
-  // 20260730000004 both are readable by members of the owning clinic, so the
-  // count is now scoped to the caller's clinic instead of every clinic's
-  // (ADR-0012).
-  const db = caller;
-
-  // Số lượt đã đặt cho dịch vụ này (bỏ huỷ / không đến) — chỉ cần đếm.
-  const { count: serviceVisitCount } = await db
-    .from("appointment")
-    .select("id", { count: "exact", head: true })
-    .eq("clinic_patient_id", clinic_patient_id)
-    .eq("service_type_id", service_type_id)
-    .not("status", "eq", "CANCELLED")
-    .not("status", "eq", "NO_SHOW");
-
-  // Đợt còn SỐNG (OPEN / PENDING_CLOSE) cho (BN, dịch vụ) — partial unique ⇒ ≤ 1.
-  // Bảng care_episode có thể CHƯA migrate trên DB này → bắt lỗi, coi như không có đợt.
-  let liveEpisode: {
-    id: string;
-    status: string;
-    opened_at: string;
-    last_visit_at: string | null;
-  } | null = null;
-  try {
-    const { data } = await db
-      .from("care_episode")
-      .select("id, status, opened_at, last_visit_at")
-      .eq("clinic_patient_id", clinic_patient_id)
-      .eq("service_type_id", service_type_id)
-      .neq("status", "CLOSED")
-      .limit(1)
-      .maybeSingle();
-    liveEpisode =
-      (data as {
-        id: string;
-        status: string;
-        opened_at: string;
-        last_visit_at: string | null;
-      } | null) ?? null;
-  } catch {
-    liveEpisode = null;
-  }
-
-  return NextResponse.json({
-    serviceVisitCount: serviceVisitCount ?? 0,
-    liveEpisode,
-  });
+  const q = new URLSearchParams({ clinic_patient_id, service_type_id });
+  return proxyJsonToBackend(
+    "GET",
+    `/api/v1/appointments/lich-su-dich-vu?${q.toString()}`,
+    undefined,
+  );
 }

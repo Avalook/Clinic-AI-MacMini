@@ -13,7 +13,8 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
 import { proxyJsonToBackend, fetchFromBackend } from "../../../../../lib/backend-proxy";
 
-const ACTIONS = new Set(["sign", "release", "amend"]);
+// "sign" đã gỡ 23/09/2026 — không còn Ký bệnh án; Hoàn tất khám là mốc khoá.
+const ACTIONS = new Set(["release", "amend"]);
 
 export async function GET(
   _req: Request,

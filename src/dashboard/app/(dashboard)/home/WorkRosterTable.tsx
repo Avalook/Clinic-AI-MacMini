@@ -59,10 +59,13 @@ export function gomDong(dong: DongCaRow[]) {
 }
 
 export default function WorkRosterTable({
+  stations,
   dates,
   rows,
   dong = [],
 }: {
+  /** Danh mục vị trí từ database — xem `viTriTuDb`. */
+  stations: readonly Station[];
   dates: string[];
   rows: RosterRow[];
   dong?: DongCaRow[];
@@ -86,6 +89,7 @@ export default function WorkRosterTable({
         <RosterGridHead cot={cot} minWidth={104} />
         <tbody>
           <RosterViTriRows
+            stations={stations}
             cot={cot}
             thongTin={thongTin}
             veO={(s, c, rs) => {

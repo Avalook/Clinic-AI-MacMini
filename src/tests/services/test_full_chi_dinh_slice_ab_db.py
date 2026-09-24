@@ -37,7 +37,6 @@ from __future__ import annotations
 import os
 import uuid
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -54,11 +53,9 @@ from clinicai.api.identity import (
 )
 from clinicai.api.v1.routers.doi_tac import _gui_ket_qua
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services import finance_gate
 from clinicai.services.bill_service import (
     CLINIC as BO_CLINIC,
-)
-from clinicai.services.bill_service import (
-    EXTERNAL as BO_EXTERNAL,
 )
 from clinicai.services.bill_service import (
     tinh_hoa_don,
@@ -68,12 +65,33 @@ from clinicai.services.luot_kham_service import (
 )
 from clinicai.services.nhan_tep_luong import TepDaNhan
 from clinicai.services.payment_service import PaymentService
+from clinicai.services.permission_service import cap_preset_mac_dinh
+from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.services.test_luot_kham_service_db import dieu_phoi_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 CLINIC_2 = "a0000000-0000-4000-8000-000000000002"
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _vong_doc_chay_ngay(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tệp kết quả → khối VÒNG ĐỌC (sự kiện, 24/09): chạy ngay như worker."""
+    from tests.chay_nguoi_dua_tin import vong_doc_chay_ngay_sau_lenh_tep
+
+    vong_doc_chay_ngay_sau_lenh_tep(monkeypatch)
+
+
+@pytest.fixture(autouse=True)
+def _bat_buoc_xac_nhan_tep_doi_tac(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bước xác nhận tệp đối tác OFF từ 23/09/2026 khuya (tệp vào thẳng phiếu
+    khám). Bài này canh ĐƯỜNG CŨ (còn giữ, bật lại được) nên bật cờ."""
+    import clinicai.services.tep_ket_qua_service as tep_mod
+
+    monkeypatch.setattr(tep_mod, "XAC_NHAN_TEP_DOI_TAC", True)
 
 
 @pytest_asyncio.fixture
@@ -127,6 +145,8 @@ async def _tao_nhan_vien(
         sid,
         role,
     )
+    await cap_preset_mac_dinh(conn, clinic_id=CLINIC, staff_id=sid, vai=role)
+
     return StaffIdentity(
         staff_id=sid,
         auth_user_id=str(uuid.uuid4()),
@@ -312,11 +332,13 @@ async def kban(pool: asyncpg.Pool) -> BoKichBan:
 
 async def _bat_dau_kham_primary(kb: BoKichBan) -> str:
     """Ghi sinh hiệu và bắt đầu khám PRIMARY."""
+    await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
     await kb.svc.record_vitals(
         visit_id=kb.visit_id,
         raw={"systolic": 120, "diastolic": 80},
         identity=kb.dieu_duong,
     )
+    await chay_hanh_trinh(kb.pool)
     board = await kb.svc.bang(identity=kb.bac_si)
     luot = next(v for v in board["luot"] if v["visit_id"] == kb.visit_id)
     phien = luot["phien"][0]["id"]
@@ -436,7 +458,8 @@ async def test_mixed_orders_slice_ab_progression(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
         )
         if st_a == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_a,
                 room_id=kban.phong_sa,
                 expected_version=None,
@@ -470,7 +493,8 @@ async def test_mixed_orders_slice_ab_progression(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_b
         )
         if st_b == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_b,
                 room_id=kban.phong_mau,
                 expected_version=None,
@@ -553,9 +577,11 @@ async def test_mixed_orders_slice_ab_progression(
         assert round_row["ready_at"] is None
         # Cấp capability xác nhận kết quả cho điều dưỡng
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) "
-            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+            " ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
+            kban.dieu_duong.clinic_id,
         )
 
     # Điều dưỡng xác nhận HOP_LE
@@ -755,7 +781,8 @@ async def test_late_result_follow_up_scenario(
             "SELECT exec_status FROM service_order WHERE id = $1::uuid", id_a
         )
         if st_a == "authorized":
-            await kban.svc.dispatch_order(
+            await dieu_phoi_cu(
+                kban.svc,
                 order_id=id_a,
                 room_id=kban.phong_sa,
                 expected_version=None,
@@ -847,9 +874,11 @@ async def test_late_result_follow_up_scenario(
     # 3. Điều dưỡng có capability xác nhận HOP_LE cho tệp muộn
     async with kban.pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO staff_capability (staff_id, capability) "
-            "VALUES ($1::uuid, 'ket_qua.xac_nhan') ON CONFLICT DO NOTHING",
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($2::uuid, $1::uuid, 'result.file.confirm', 'xac_nhan_ket_qua')"
+            " ON CONFLICT DO NOTHING",
             kban.dieu_duong.staff_id,
+            kban.dieu_duong.clinic_id,
         )
     await TepKetQuaService(kban.pool).xac_nhan_tep(
         identity=kban.dieu_duong,
@@ -918,11 +947,39 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         )
 
     phien = await _bat_dau_kham_primary(kban)
-    await kban.svc.authorize_orders(
+    duyet = await kban.svc.authorize_orders(
         consultation_id=phien,
         service_codes=[kban.ma_mau_noi_bo, kban.ma_mau_doi_tac],
         draft_order_ids=None,
         identity=kban.bac_si,
+    )
+    thu_ngan = StaffIdentity(
+        staff_id=kban.truong_ca.staff_id,
+        auth_user_id=kban.truong_ca.auth_user_id,
+        full_name=kban.truong_ca.full_name,
+        department="CASHIER",
+        role=ClinicRole.CASHIER,
+        clinic_id=CLINIC,
+        location_id=kban.location_id,
+        location_name="Cơ sở test",
+    )
+    # Gắn nhãn vai CASHIER KHÔNG cho quyền thu (CORE-B3): quản lý cấp thật.
+    async with kban.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($1::uuid, $2::uuid, 'payment.service.collect', 'thu_tien_dv')"
+            " ON CONFLICT DO NOTHING",
+            CLINIC,
+            thu_ngan.staff_id,
+        )
+    # Lifecycle v1 (Slice 2–3): khách CHỌN dịch vụ trước, rồi mới có hoá đơn.
+    await ServiceSelectionService(kban.pool).confirm(
+        visit_id=kban.visit_id,
+        order_ids_seen=duyet["order_ids"],
+        selected_order_ids=duyet["order_ids"],
+        expected_selection_revision=0,
+        identity=thu_ngan,
+        idempotency_key=f"test-{uuid.uuid4().hex}",
     )
 
     # Đọc hóa đơn dịch vụ qua tinh_hoa_don
@@ -931,14 +988,23 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
             conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu"
         )
 
-    # Hóa đơn có cả dòng khám / dịch vụ
+    # Đổi vì Lifecycle v1 Slice 3 (Outstanding Bill): dòng đối tác tự thu
+    # KHÔNG phải khoản phòng khám thu — không vào hoá đơn thu (trước: hiện ra
+    # nhưng không cộng). Nó được FinanceGate báo riêng, không bị coi là miễn phí.
     cac_ben = {d.ben_thu for d in hd.dong}
-    assert BO_CLINIC in cac_ben
-    assert BO_EXTERNAL in cac_ben
-
-    dong_external = [d for d in hd.dong if d.ben_thu == BO_EXTERNAL]
-    assert len(dong_external) == 1
-    assert dong_external[0].thanh_tien == Decimal(900_000)
+    assert cac_ben == {BO_CLINIC}
+    [ma_doi_tac] = [
+        o
+        for o in duyet["order_ids"]
+        if await kban.pool.fetchval(
+            "SELECT service_code FROM service_order WHERE id = $1::uuid", o
+        )
+        == kban.ma_mau_doi_tac
+    ]
+    async with kban.pool.acquire() as conn:
+        g = await finance_gate.states_for_orders(conn, CLINIC, [ma_doi_tac])
+    assert g[ma_doi_tac].finance_state == "EXTERNAL_PAYMENT_UNRESOLVED"
+    assert not g[ma_doi_tac].financially_ready
 
     dong_clinic = [d for d in hd.dong if d.ben_thu == BO_CLINIC]
     tong_clinic_tinh_tay = sum(
@@ -961,20 +1027,12 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
     thu_res = await pay_svc.record_payment(
         visit_id=kban.visit_id,
         kind="dich_vu",
+        idempotency_key=f"test-{uuid.uuid4().hex}",
         method="CASH",
         amount=hd.tong,
         clinic_patient_id=kban.patient_id,
         bill_revision=hd.revision,
-        identity=StaffIdentity(
-            staff_id=kban.truong_ca.staff_id,
-            auth_user_id=kban.truong_ca.auth_user_id,
-            full_name=kban.truong_ca.full_name,
-            department="CASHIER",
-            role=ClinicRole.CASHIER,
-            clinic_id=CLINIC,
-            location_id=kban.location_id,
-            location_name="Cơ sở test",
-        ),
+        identity=thu_ngan,
     )
     assert thu_res["status"] == "PAID"
     cycle_id = thu_res["payment_cycle_id"]
@@ -988,21 +1046,23 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         assert pay_row["amount"] == hd.tong
         assert pay_row["status"] == "PAID"
 
-        # payment_bill_line snapshot đủ 3 dòng
+        # Ảnh chụp lần thu chỉ gồm dòng phòng khám thu (khám + nội bộ).
         lines = await conn.fetch(
             "SELECT name_snapshot, line_total, billing_owner "
             "FROM payment_bill_line WHERE payment_cycle_id = $1::uuid",
             cycle_id,
         )
         owners = {line["billing_owner"] for line in lines}
-        assert BO_CLINIC in owners
-        assert BO_EXTERNAL in owners
+        assert owners == {BO_CLINIC} and len(lines) == 2
 
-        ext_line = next(line for line in lines if line["billing_owner"] == BO_EXTERNAL)
-        assert ext_line["line_total"] == Decimal(900_000)
-
-    # Negative: thay đổi billing_owner làm revision thay đổi
-    rev_goc = hd.revision
+    # Negative: thay đổi billing_owner làm hoá đơn còn nợ (revision) thay đổi —
+    # dịch vụ C chuyển sang phòng khám thu thì thành khoản phải thu.
+    async with kban.pool.acquire() as conn:
+        rev_goc = (
+            await tinh_hoa_don(
+                conn, clinic_id=CLINIC, visit_id=kban.visit_id, kind="dich_vu"
+            )
+        ).revision
     async with kban.pool.acquire() as conn:
         await conn.execute(
             "UPDATE service_price SET billing_owner = 'CLINIC' "
@@ -1073,13 +1133,12 @@ async def test_partner_security_negative_suite(
     assert "patient_id" not in sig.parameters
 
     # 3. PARTNER không đọc và không ghi clinical_record:
-    from clinicai.services.clinical_record_service import (
-        ClinicalRecordService,
-        may_write,
-    )
+    # Ghi bệnh án là QUYỀN `clinical.record.write` (CORE-B3); nhóm mẫu đối tác
+    # không có khối ấy, và lệnh ghi hỏi quyền trong chính giao dịch.
+    from clinicai.permissions.catalogue import PRESET
+    from clinicai.services.clinical_record_service import ClinicalRecordService
 
-    assert not may_write(doi_tac.role, vitals_only=False)
-    assert not may_write(doi_tac.role, vitals_only=True)
+    assert "ghi_benh_an" not in PRESET.get("PARTNER", [])
     with pytest.raises(SafetyGateError):
         await ClinicalRecordService(kban.pool).save(
             appointment_id=str(uuid.uuid4()),
@@ -1351,7 +1410,8 @@ async def test_partner_two_types_of_orders(
         await kban.svc.doi_tac_da_lay_mau(order_id=id_pk_lay, identity=kban.doi_tac)
 
     # Trưởng ca điều phối việc loại 2 vào phòng Lấy mẫu
-    await kban.svc.dispatch_order(
+    await dieu_phoi_cu(
+        kban.svc,
         order_id=id_pk_lay,
         room_id=kban.phong_mau,
         expected_version=None,

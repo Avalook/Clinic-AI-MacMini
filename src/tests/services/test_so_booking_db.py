@@ -1,0 +1,112 @@
+"""Số booking cấp NGAY lúc đặt (luồng chuẩn bước 4, Tuyền chốt 23/09/2026).
+
+    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55500/postgres \\
+        poetry run pytest src/tests/services/test_so_booking_db.py
+
+"Khi khách đặt online thì lập tức có 1 số thứ tự booking theo thời gian thực,
+khi đến phòng khám thì số này được đứng cạnh số check-in của khách."
+"""
+
+from __future__ import annotations
+
+import random
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import asyncpg
+import pytest
+
+from tests.services.test_phong_la_tai_nguyen_db import CLINIC, pool  # noqa: F401
+
+pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+async def _ngay_rieng() -> datetime:
+    """Một ngày xa, chưa ai đặt (tuần chưa công bố lịch trực → không có trần)."""
+    return datetime.now(UTC).replace(hour=2, minute=0, second=0, microsecond=0) + (
+        timedelta(days=random.randint(400, 4000))
+    )
+
+
+async def _dat(pool: asyncpg.Pool, luc: datetime) -> str:  # noqa: F811
+    async with pool.acquire() as conn:
+        loc, dv = await conn.fetchrow(
+            "SELECT (SELECT id FROM clinic_location WHERE clinic_id = $1::uuid"
+            "        AND is_active ORDER BY created_at, id LIMIT 1),"
+            "       (SELECT id FROM service_type WHERE clinic_id = $1::uuid"
+            "        ORDER BY id LIMIT 1)",
+            CLINIC,
+        )
+        pid = await conn.fetchval(
+            "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
+            " VALUES ($1::uuid, $2, 'BN số booking', $3) RETURNING clinic_patient_id",
+            CLINIC,
+            f"SB-{uuid.uuid4().hex[:8]}",
+            loc,
+        )
+        return str(
+            await conn.fetchval(
+                "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+                " service_type_id, slot_start, slot_end, status)"
+                " VALUES ($1::uuid, $2, $3, $4, $5, $6, 'SCHEDULED') RETURNING id",
+                CLINIC,
+                pid,
+                loc,
+                dv,
+                luc,
+                luc + timedelta(minutes=15),
+            )
+        )
+
+
+async def _so(pool: asyncpg.Pool, appt: str) -> int | None:  # noqa: F811
+    v = await pool.fetchval(
+        "SELECT so_booking FROM appointment WHERE id = $1::uuid", appt
+    )
+    return int(v) if v is not None else None
+
+
+async def test_dat_lich_co_so_ngay_theo_thu_tu_dat(pool: asyncpg.Pool) -> None:  # noqa: F811
+    ngay = await _ngay_rieng()
+    # Đặt khung MUỘN trước, khung SỚM sau: số theo thứ tự ĐẶT, không theo giờ hẹn.
+    a = await _dat(pool, ngay + timedelta(hours=5))
+    b = await _dat(pool, ngay + timedelta(hours=1))
+    c = await _dat(pool, ngay + timedelta(hours=3))
+    assert [await _so(pool, x) for x in (a, b, c)] == [1, 2, 3]
+
+
+async def test_doi_gio_cung_ngay_giu_so_doi_sang_ngay_khac_nhan_so_moi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ngay = await _ngay_rieng()
+    a = await _dat(pool, ngay + timedelta(hours=1))
+    b = await _dat(pool, ngay + timedelta(hours=2))
+    await pool.execute(
+        "UPDATE appointment SET slot_start = slot_start + interval '3 hours',"
+        " slot_end = slot_end + interval '3 hours' WHERE id = $1::uuid",
+        a,
+    )
+    assert await _so(pool, a) == 1  # cùng ngày: giữ số
+
+    ngay_khac = ngay + timedelta(days=1)
+    c = await _dat(pool, ngay_khac + timedelta(hours=1))
+    await pool.execute(
+        "UPDATE appointment SET slot_start = $2, slot_end = $3 WHERE id = $1::uuid",
+        b,
+        ngay_khac + timedelta(hours=2),
+        ngay_khac + timedelta(hours=2, minutes=15),
+    )
+    assert await _so(pool, c) == 1
+    assert await _so(pool, b) == 2  # ngày mới: số tiếp theo của ngày ấy
+
+
+async def test_huy_lich_giu_so_khong_cap_lai(pool: asyncpg.Pool) -> None:  # noqa: F811
+    ngay = await _ngay_rieng()
+    a = await _dat(pool, ngay + timedelta(hours=1))
+    await pool.execute(
+        "UPDATE appointment SET status = 'CANCELLED', ly_do_huy_ma = 'BAO_KHI_XAC_NHAN'"
+        " WHERE id = $1::uuid",
+        a,
+    )
+    b = await _dat(pool, ngay + timedelta(hours=1))
+    assert (await _so(pool, a), await _so(pool, b)) == (1, 2)

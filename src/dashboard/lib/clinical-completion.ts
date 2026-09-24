@@ -33,7 +33,7 @@ export function clinicalCompletionGate(
     return {
       ok: false,
       code: "FORM_NOT_READY",
-      message: "Hồ sơ đang tải hoặc đang lưu. Chờ hoàn tất rồi bấm Khám xong.",
+      message: "Hồ sơ đang tải hoặc đang lưu. Chờ lưu xong rồi bấm Hoàn tất.",
     };
   }
 
@@ -42,7 +42,7 @@ export function clinicalCompletionGate(
       ok: false,
       code: "REMOTE_CHANGED",
       message:
-        "Hồ sơ vừa được người khác cập nhật. Tải và đối chiếu bản mới trước khi Khám xong.",
+        "Hồ sơ vừa được người khác cập nhật. Tải và đối chiếu bản mới trước khi Hoàn tất.",
     };
   }
 
@@ -50,7 +50,7 @@ export function clinicalCompletionGate(
     return {
       ok: false,
       code: "UNSAVED_CHANGES",
-      message: "Bạn còn nội dung chưa lưu. Lưu hồ sơ trước khi Khám xong.",
+      message: "Bạn còn nội dung chưa lưu. Lưu hồ sơ trước khi Hoàn tất.",
     };
   }
 
