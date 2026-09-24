@@ -288,6 +288,9 @@ done
 if [ "$MOI" = 1 ]; then
     psql_db <"$REPO/supabase/migrations/20260807000007_nam_dich_vu_kham.sql" >"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
         red "  chạy lại 20260807000007_nam_dich_vu_kham hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
+    # …rồi bật lại Thủ thuật + Sàn chậu chuyên sâu (24/09) mà câu trên vừa tắt.
+    psql_db <"$REPO/supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
+        red "  chạy lại 20260925000006_dat_lich_thu_thuat_san_chau hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
 fi
 # PostgREST giữ lược đồ trong bộ nhớ từ lúc khởi động; migration vừa áp không tự
 # vào đó (gặp thật trên staging 07/08).

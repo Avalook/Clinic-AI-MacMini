@@ -77,7 +77,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | Route | Ai vào | Nhãn thanh bên | Trạng thái | Ghi chú |
 |---|---|---|---|---|
 | `/customers` | CSKH, QL, trưởng ca, thu ngân | Quản lý khách hàng | GIỮ | Màn chuẩn của CSKH. 24/09: danh sách khách (lọc kỳ / theo hẹn / tìm không dấu / phân trang) đọc qua `/cskh/danh-sach-khach`. |
-| `/appointments` | CSKH, Lễ tân, QL | Đặt lịch | GIỮ | Đặt "Trực tiếp" hôm nay thì tự check-in (luật máy chủ). |
+| `/appointments` | CSKH, Lễ tân, QL | Đặt lịch | GIỮ | Đặt "Trực tiếp" hôm nay thì tự check-in (luật máy chủ). 24/09: loại khám = 7 (5 lõi + **Thủ thuật** + **Sàn chậu chuyên sâu**, migration 20260925000006; hai loại sau đi thẳng phòng — dây H2). |
 | `/appointments/cho-xep-bac-si` | QL, CSKH | Chờ xếp bác sĩ | GIỮ | Thông báo từ máy chủ trỏ vào đây. |
 | `/nhac-tai-kham` | QL | Nhắc tái khám | GIỮ | Cùng API với khối nhắc tái khám trong `/customers`. |
 | `/lich-do-ve` | QL | Lịch đổ về | GIỮ | |
@@ -112,6 +112,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 | `/design-system` | | | DEV | `notFound()` khi không phải `development`. |
 | `/print/[appointmentId]` | | (nút In phiếu) | GIỮ | 24/09: đọc qua `/clinical-records/in-theo-lich/{id}` (cửa ROLE-02 như hồ sơ lâm sàng). |
 | `/print/sono/[id]` | | | **OFF 24/09** (Claude chốt — Tuyền soát) | Không chỗ nào dẫn tới. Trang chỉ còn câu báo tắt; phiếu in kết quả hiện hành là `/print/ket-qua/[orderId]`. Bản cũ nằm trong git. |
+| `/print/phieu-kham/[visitId]` | BS, TKYK, QL + ai có khối khám/kết quả (`requireClinicalRole`) | In phiếu khám | MỚI 24/09 | Tuyền: "chỗ cho in phiếu khám của bệnh nhân đâu?". Mở từ `[In phiếu khám]` ở đầu phiếu khám v5 (`PhieuKhamLuot` → `PhieuKham`, Bàn khám). Bản in CHỈ ĐỌC, chữ thường thay ô nhập; đọc đúng 5 nguồn Bàn khám đọc qua `/api/phieu-kham` (phiếu · đầu phiếu · chỉ định+kết quả · đơn thuốc · tham chiếu). Lượt chưa mở phiếu → báo "chưa có gì để in". Khác `/print/[appointmentId]` (Tóm tắt khám bệnh đời cũ, mở từ `/home`). |
 | `/print/ket-qua/[orderId]` | BS, TKYK, BS SA, ĐD SA, trưởng ca, QL, CSKH + ai có `result.form.fill` | In phiếu kết quả | MỚI 23/09 khuya | Mở từ `[In phiếu]` của `PhieuKetQua` (phòng dịch vụ + phiếu khám mục C) và `[In]` ở dòng kết quả mục C. Đọc `GET /api/phieu?in=` → `/api/v1/phieu/in/{order}`. Bản chưa Hoàn tất in kèm "BẢN NHÁP". |
 
 ### Đã chuyển hướng (không còn giao diện)

@@ -164,9 +164,12 @@ if [ "${1:-}" = "--gieo" ]; then
     docker exec "$DB" psql -q -U postgres -d postgres -f "/sb/${f}" >/dev/null 2>&1 \
       && echo "    OK  $f" || echo "    bỏ qua  $f"
   done
-  # Seed bật lại toàn bộ danh mục dịch vụ; thu về đúng năm loại khám.
+  # Seed bật lại toàn bộ danh mục dịch vụ; thu về đúng các loại khám đang dùng.
   docker exec "$DB" psql -q -U postgres -d postgres \
     -f /sb/migrations/20260807000007_nam_dich_vu_kham.sql >/dev/null
+  # …rồi bật lại Thủ thuật + Sàn chậu chuyên sâu (24/09) mà câu trên vừa tắt.
+  docker exec "$DB" psql -q -U postgres -d postgres \
+    -f /sb/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql >/dev/null
   docker exec "$DB" rm -rf /sb >/dev/null 2>&1 || true
 
   echo "==> [2c] bảo PostgREST đọc lại lược đồ sau khi gieo"

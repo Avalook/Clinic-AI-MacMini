@@ -88,6 +88,7 @@ export default function PhieuKham({
   oThuThuat,
   thamChieuNgoai,
   ketQua,
+  nutIn,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -117,6 +118,8 @@ export default function PhieuKham({
     clinicPatientId?: string;
     onDoi: () => void;
   };
+  /** Nút mở bản in của phiếu — shell biết lượt nào nên shell dựng. */
+  nutIn?: ReactNode;
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
   const [thamChieu, setThamChieu] = useState<ThamChieu | null>(null);
@@ -213,6 +216,7 @@ export default function PhieuKham({
         <span className="ml-auto text-meta text-ink-muted">
           {dangLuu ? "Đang lưu…" : luuLuc ? `Đã lưu ${gioVn(luuLuc)}` : "Tự lưu khi gõ"}
         </span>
+        {nutIn}
       </header>
 
       {loi ? <p className="text-body text-danger">{loi}</p> : null}
