@@ -1,9 +1,12 @@
-// Kho thuốc — tồn theo lô. Đọc qua backend `GET /api/v1/pharmacy/inventory`
-// (24/09/2026; trước đọc thẳng `drug_batch` bằng Supabase).
+// Kho thuốc — danh mục thuốc + tồn theo lô. Đọc qua backend
+// `GET /api/v1/pharmacy/danh-muc` và `GET /api/v1/pharmacy/inventory`
+// (24/09/2026; trước đọc thẳng `drug_batch` bằng Supabase). 25/09: thêm tab
+// Danh mục (sửa tên/giá/hướng dẫn) và nhập lô / điều chỉnh / huỷ.
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
-import InventoryBoard from "./InventoryBoard";
+import type { ThuocKho } from "./DanhMucKho";
+import KhoThuoc from "./KhoThuoc";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +25,11 @@ interface LoTon {
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
-  const data = await fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory");
-  if (!data) {
+  const [data, dm] = await Promise.all([
+    fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory"),
+    fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
+  ]);
+  if (!data || !dm) {
     return (
       <div className="p-6 text-sm text-danger">
         Không đọc được kho (máy chủ không trả lời hoặc tài khoản chưa có quyền xem nhà
@@ -37,5 +43,11 @@ export default async function PharmacyInventoryPage() {
       ...b,
       drug: { name_base, name_raw: name_base, variant },
     }));
-  return <InventoryBoard batches={batches} />;
+  const thuoc = dm.items.map((t) => ({
+    ...t,
+    gia: t.gia == null ? null : Number(t.gia),
+    ton: Number(t.ton),
+    so_lo: Number(t.so_lo),
+  }));
+  return <KhoThuoc batches={batches} thuoc={thuoc} />;
 }

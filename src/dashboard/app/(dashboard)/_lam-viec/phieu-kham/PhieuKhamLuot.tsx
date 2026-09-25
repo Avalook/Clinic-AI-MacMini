@@ -375,6 +375,7 @@ export default function PhieuKhamLuot({
           <DanhMucChiDinh
             nhom={tc?.chi_dinh_cls ?? []}
             daDat={daDat}
+            daChiDinh={ketQua}
             onDat={dat}
             chiDoc={!choGhi}
           />
@@ -383,6 +384,7 @@ export default function PhieuKhamLuot({
           <DanhMucChiDinh
             nhom={nhomThuThuat}
             daDat={daDat}
+            daChiDinh={ketQua}
             onDat={dat}
             chiDoc={!choGhi}
           />

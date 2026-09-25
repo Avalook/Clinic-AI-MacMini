@@ -3725,3 +3725,5 @@ SELECT public.map_services_to_nodes();
 -- Giá trống điền theo bảng giá phòng khám (migration 20260924000012) — gọi lại ở
 -- đây vì migration chạy khi bảng giá/danh mục thuốc còn rỗng trên DB dựng mới.
 SELECT public.dien_gia_trong_theo_phieu_v5();
+-- Danh mục thuốc chuẩn KiotViet + hướng dẫn phiếu v5 (20260925000014).
+SELECT public.chuan_hoa_danh_muc_thuoc_kiotviet();

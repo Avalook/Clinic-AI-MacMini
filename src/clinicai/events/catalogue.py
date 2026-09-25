@@ -485,6 +485,10 @@ class SinhHieuDaDo(PayloadSuKien):
 
     visit_id: str
     qua_duong: str = "man_do_sinh_hieu"
+    # Điều dưỡng tick "Bỏ qua bác sĩ tư vấn" lúc bấm [Đo xong] (Tuyền 25/09/2026)
+    # → Hành trình xếp khách thẳng hàng bác sĩ chính. Mặc định False: sự kiện
+    # cũ (không có trường này) đọc lại vẫn đúng nghĩa.
+    bo_qua_tu_van: bool = False
 
 
 # ── execution (thực hiện dịch vụ) ───────────────────────────────────────────

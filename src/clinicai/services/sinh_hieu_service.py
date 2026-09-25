@@ -274,6 +274,7 @@ class SinhHieuService:
         raw: Any,
         identity: StaffIdentity,
         idempotency_key: str | None = None,
+        bo_qua_tu_van: bool = False,
     ) -> dict[str, Any]:
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         vitals, loi = rules.parse_vitals(raw)
@@ -282,6 +283,7 @@ class SinhHieuService:
         payload = {
             "visit_id": vid,
             **{k: str(v) if v is not None else None for k, v in asdict(vitals).items()},
+            "bo_qua_tu_van": bool(bo_qua_tu_van),
         }
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "vitals.measure")
@@ -370,7 +372,9 @@ class SinhHieuService:
                 ten="vitals.recorded",
                 clinic_id=identity.clinic_id,
                 aggregate_id=vid,
-                payload=SinhHieuDaDo(visit_id=vid),
+                # Tick "Bỏ qua bác sĩ tư vấn" đi CÙNG sự thật "đã đo": khối
+                # Hành trình đọc nó để xếp thẳng bác sĩ chính (Tuyền 25/09).
+                payload=SinhHieuDaDo(visit_id=vid, bo_qua_tu_van=bool(bo_qua_tu_van)),
                 boi=nguoi(identity),
                 correlation_id=vid,
             )

@@ -29,6 +29,8 @@ const ACTIONS: Record<string, string> = {
   // CP5: huỷ phần đã bán chưa giao (cần căn cứ), khách trả thuốc (chưa xử lý).
   "huy-phan-chua-giao": "/api/v1/pharmacy/huy-phan-chua-giao",
   "khach-tra": "/api/v1/pharmacy/khach-tra",
+  // 25/09: Kho thuốc — thêm / sửa thuốc trong danh mục (tên, giá, hướng dẫn).
+  "luu-thuoc": "/api/v1/pharmacy/danh-muc",
 };
 
 export async function POST(

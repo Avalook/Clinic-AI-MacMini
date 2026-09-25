@@ -98,6 +98,12 @@ async def kiem_quyen_core(
     raise SafetyGateError("Bạn chưa được cấp quyền xem phiếu khám.")
 
 
+def _khoa_ten(t: str) -> str:
+    """Khoá so tên thuốc: bỏ hoa/thường và MỌI dấu cách ("Dunium/ Fetogard" =
+    "Dunium/Fetogard")."""
+    return "".join(t.split()).lower()
+
+
 class PhieuKhamService:
     def __init__(self, pool: asyncpg.Pool, *, kiem_quyen: KiemQuyen) -> None:
         self._pool = pool
@@ -322,21 +328,20 @@ class PhieuKhamService:
                 )
             }
             dong_kho = await conn.fetch(
-                "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price"
+                "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price,"
+                "       don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc"
                 "  FROM drug_catalog WHERE clinic_id = $1::uuid AND is_active"
                 " ORDER BY name_raw, created_at",
                 cid,
             )
-            thuoc = {r["name_raw"]: (str(r["id"]), r["unit_price"]) for r in dong_kho}
-            # Gắn theo TÊN trùng khít khi bảng ghép viết tay thiếu (24/09/2026:
-            # "thuốc quy chuẩn về, đừng đẻ cái kiểu chưa gắn kho").
-            theo_ten: dict[str, tuple[str, Any]] = {}
+            kho = {r["name_raw"]: r for r in dong_kho}
+            # Gắn theo TÊN (bỏ qua hoa/thường, dấu cách) khi bảng ghép viết tay
+            # thiếu (24/09/2026: "thuốc quy chuẩn về, đừng đẻ cái kiểu chưa gắn kho").
+            theo_ten: dict[str, asyncpg.Record] = {}
             for r in dong_kho:
                 for t in (r["name_raw"], r["name_base"]):
                     if t:
-                        theo_ten.setdefault(
-                            " ".join(t.split()).lower(), (str(r["id"]), r["unit_price"])
-                        )
+                        theo_ten.setdefault(_khoa_ten(t), r)
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
@@ -349,18 +354,43 @@ class PhieuKhamService:
         tc["thu_thuat"] = [
             {**t, **gan(ax.THU_THUAT.get(t["ma"]))} for t in tc["thu_thuat"]
         ]
+
+        # KHO LÀ NGUỒN (Tuyền 25/09/2026): tên, giá, đơn vị, cách dùng, lưu ý đọc
+        # từ danh mục kho — dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Nhãn
+        # phiếu chỉ còn là chỗ bác sĩ quen tìm. Mặt hàng kho không có trên phiếu
+        # (Ozempic, King Seal…) cũng chọn được, kèm hướng dẫn.
+        def tu_kho(m: dict[str, Any], r: asyncpg.Record | None) -> dict[str, Any]:
+            if r is None:
+                return {**m, "drug_catalog_id": None, "gia": None}
+            return {
+                **m,
+                "brand": r["biet_duoc"] or m.get("brand") or "",
+                "type": r["duong_dung"] or m.get("type") or "",
+                "dosage": r["cach_dung"] or m.get("dosage") or "",
+                "note": r["luu_y"] or m.get("note") or "",
+                "unit": r["don_vi_ban"] or m.get("unit") or "",
+                "drug_catalog_id": str(r["id"]),
+                "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
+            }
+
         mau = []
+        da_gan: set[str] = set()
         for m in tc["mau_thuoc"]:
             ten_kho = ax.THUOC.get(m["ma"])
-            id_gia = thuoc.get(ten_kho) if ten_kho else None
-            if id_gia is None and m.get("nhan_nguon"):
-                id_gia = theo_ten.get(" ".join(str(m["nhan_nguon"]).split()).lower())
+            r = kho.get(ten_kho) if ten_kho else None
+            if r is None and m.get("nhan_nguon"):
+                r = theo_ten.get(_khoa_ten(str(m["nhan_nguon"])))
+            if r is not None:
+                da_gan.add(str(r["id"]))
+            mau.append(tu_kho(m, r))
+        for r in dong_kho:
+            if str(r["id"]) in da_gan:
+                continue
             mau.append(
-                {
-                    **m,
-                    "drug_catalog_id": id_gia[0] if id_gia else None,
-                    "gia": int(id_gia[1]) if id_gia and id_gia[1] is not None else None,
-                }
+                tu_kho(
+                    {"ma": f"kho:{r['id']}", "nhan_nguon": r["name_raw"]},
+                    r,
+                )
             )
         tc["mau_thuoc"] = mau
         return tc
