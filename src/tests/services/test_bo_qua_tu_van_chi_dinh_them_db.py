@@ -16,6 +16,7 @@ import pytest
 from clinicai.phieu_kham.ket_qua_chi_dinh import doc_ket_qua_theo_chi_dinh
 from clinicai.services.booking_service import BookingService
 from clinicai.services.chi_dinh_service import ChiDinhService
+from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.sinh_hieu_service import SinhHieuService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
@@ -195,3 +196,49 @@ async def test_chi_dinh_them_mang_lan_theo_vong(
     assert lan[lan_2] == 2, "chỉ định thêm ở vòng sau là lần 2 của CÙNG lượt"
     assert all(d["chi_dinh_luc"] for d in ds)
     assert not any(d["mang_sang"] for d in ds)
+
+
+async def test_o_tick_ap_ngay_va_bo_tick_la_ve_tu_van(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền 25/09 (ca Lê Hoài Thu): tick là áp ngay vào vị trí khách, bỏ tick là
+    khách về lại hàng tư vấn; tư vấn xong vẫn sang bác sĩ chính như thường."""
+    ca = await _dung(pool)
+    await _qua_tu_van(pool, ca)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    await _do(pool, ca, visit, bo_qua=False)
+    svc = LuotKhamService(pool)
+
+    await svc.doi_duong_tu_van(visit_id=visit, bo_qua=True, identity=ca.dd)
+    assert await _duong(pool, visit) == "PRIMARY"
+    await svc.doi_duong_tu_van(visit_id=visit, bo_qua=True, identity=ca.dd)  # lặp: êm
+
+    await svc.doi_duong_tu_van(visit_id=visit, bo_qua=False, identity=ca.dd)
+    assert await _duong(pool, visit) == "TU_VAN"
+    hang = await pool.fetch(
+        "SELECT lane, status FROM queue_entry WHERE visit_id = $1::uuid"
+        " AND status NOT IN ('done', 'left', 'cancelled')",
+        visit,
+    )
+    assert [(r["lane"], r["status"]) for r in hang] == [("TU_VAN", "waiting")]
+
+    # Tư vấn nhận khách → không bỏ qua được nữa; xong tư vấn → bác sĩ chính.
+    tu_van = await pool.fetchval(
+        "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+        " AND kind = 'TU_VAN'",
+        visit,
+    )
+    await svc.start_consultation(consultation_id=tu_van, identity=ca.bac_si)
+    with pytest.raises(LuotKhamConflictError):
+        await svc.doi_duong_tu_van(visit_id=visit, bo_qua=True, identity=ca.dd)
+    await svc.xong_tu_van(consultation_id=tu_van, identity=ca.bac_si)
+    await chay_hanh_trinh(pool)  # H3: tư vấn xong → hàng bác sĩ chính
+    assert (
+        await pool.fetchval(
+            "SELECT status FROM consultation WHERE visit_id = $1::uuid"
+            " AND kind = 'PRIMARY'",
+            visit,
+        )
+        == "queued"
+    )

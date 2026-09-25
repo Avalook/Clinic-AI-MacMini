@@ -349,6 +349,24 @@ class BangLuotKham:
                     "ghi_chu": notes_by.get(c["id"], []),
                 }
             )
+        # Ô tick "Bỏ qua bác sĩ tư vấn" ở màn đo sinh hiệu đọc TRẠNG THÁI THẬT
+        # (25/09/2026): phiên tư vấn huỷ = đang bỏ qua; đổi được khi bên nhận chưa
+        # bắt đầu. Lượt không qua tư vấn → None (không hiện ô).
+        for item in by_visit.values():
+            tv = next((p for p in item["phien"] if p["loai"] == "TU_VAN"), None)
+            chinh = next((p for p in item["phien"] if p["loai"] == "PRIMARY"), None)
+            if tv is None:
+                item["tu_van"] = None
+                continue
+            bo_qua = tv["trang_thai"] == "cancelled"
+            item["tu_van"] = {
+                "bo_qua": bo_qua,
+                "doi_duoc": (
+                    chinh is None or chinh["trang_thai"] in ("queued", "cancelled")
+                )
+                if bo_qua
+                else tv["trang_thai"] == "queued",
+            }
         for o in chi_dinh:
             by_visit[o["visit_id"]]["chi_dinh"].append(
                 {

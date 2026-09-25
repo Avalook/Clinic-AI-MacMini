@@ -41,6 +41,8 @@ interface Luot {
   /** Số booking cấp lúc đặt lịch (23/09/2026). */
   so_booking?: number | null;
   sinh_hieu: SinhHieu | null;
+  /** Lượt qua tư vấn: đang bỏ qua chưa, đổi được không. null = không qua tư vấn. */
+  tu_van?: { bo_qua: boolean; doi_duoc: boolean } | null;
 }
 
 /** Ô nhập — khoá gửi backend, nhãn, đơn vị, khoá đọc lại từ `sinh_hieu`. */
@@ -98,9 +100,7 @@ export default function BangDoSinhHieu() {
   const [xong, setXong] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
   const [dangBatDau, setDangBatDau] = useState(false);
-  // "Bỏ qua bác sĩ tư vấn" (Tuyền 25/09/2026) — gắn theo LƯỢT đang mở: chuyển
-  // sang khách khác thì ô tự bỏ tick, không lỡ tay mang sang người kế tiếp.
-  const [boQua, setBoQua] = useState<{ id: string; co: boolean }>({ id: "", co: false });
+  const [dangDoiTuVan, setDangDoiTuVan] = useState(false);
   // Lượt đã gửi lệnh bắt đầu (tự gửi ở lần gõ đầu tiên) — gửi MỘT lần / lượt.
   const daGuiBatDau = useRef<string | null>(null);
 
@@ -220,10 +220,8 @@ export default function BangDoSinhHieu() {
     setDangLuu(true);
     setLoi(null);
     try {
-      const du_lieu: Record<string, string | boolean> = {};
+      const du_lieu: Record<string, string> = {};
       for (const o of O) if (gia[o.gui]?.trim()) du_lieu[o.gui] = gia[o.gui].trim();
-      const boQuaTuVan = boQua.id === dangChon.visit_id && boQua.co;
-      if (boQuaTuVan) du_lieu.bo_qua_tu_van = true;
       const r = await fetch("/api/luot-kham", {
         method: "POST",
         headers: {
@@ -240,12 +238,8 @@ export default function BangDoSinhHieu() {
       const ten = dangChon.ten;
       const kq = await docBang();
       nhan(kq);
-      setXong(
-        boQuaTuVan
-          ? `Đã lưu sinh hiệu cho ${ten} — bỏ qua tư vấn, vào thẳng bác sĩ chính.`
-          : `Đã lưu sinh hiệu cho ${ten}.`,
-      );
-      // Sang NGƯỜI KẾ TIẾP còn chờ đo.
+      // Sang NGƯỜI KẾ TIẾP còn chờ đo — báo SAU khi chuyển (moKhach xoá báo cũ,
+      // trước đây câu "đã lưu" biến mất ngay nên người đo không kịp thấy).
       if ("luot" in kq) {
         const ke = [...kq.luot]
           .sort((a, b) => (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""))
@@ -253,10 +247,49 @@ export default function BangDoSinhHieu() {
         if (ke) moKhach(ke);
         else setChon(null);
       }
+      setXong(`Đã lưu sinh hiệu cho ${ten}.`);
     } catch {
       setLoi("Mất kết nối — sinh hiệu CHƯA được lưu.");
     } finally {
       setDangLuu(false);
+    }
+  };
+
+  // Ô "Bỏ qua bác sĩ tư vấn" — ÁP NGAY vào vị trí khách (Tuyền 25/09/2026: "là
+  // lựa chọn và áp luôn cho vị trí của khách"): tick → hàng bác sĩ chính, bỏ
+  // tick → về hàng tư vấn. Ô đọc trạng thái THẬT từ máy chủ, nên lỡ tay thì bỏ
+  // tick là khách về lại (khi bên nhận chưa bắt đầu).
+  const doiTuVan = async (boQua: boolean) => {
+    if (!dangChon) return;
+    const ten = dangChon.ten;
+    setDangDoiTuVan(true);
+    setLoi(null);
+    setXong(null);
+    try {
+      const r = await fetch("/api/luot-kham", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": khoaGuiLai() },
+        body: JSON.stringify({
+          thao_tac: "bo-qua-tu-van",
+          id: dangChon.visit_id,
+          du_lieu: { bo_qua: boQua },
+        }),
+      });
+      const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+      if (!r.ok) {
+        setLoi(d?.message ?? d?.error ?? "Không đổi được.");
+        return;
+      }
+      nhan(await docBang());
+      setXong(
+        boQua
+          ? `${ten}: bỏ qua tư vấn — đã chuyển sang hàng bác sĩ chính.`
+          : `${ten}: đã đưa lại vào hàng tư vấn.`,
+      );
+    } catch {
+      setLoi("Mất kết nối — CHƯA đổi.");
+    } finally {
+      setDangDoiTuVan(false);
     }
   };
 
@@ -437,17 +470,26 @@ export default function BangDoSinhHieu() {
                   {xong}
                 </p>
               ) : null}
-              {/* Tick = khách không qua bác sĩ tư vấn, vào thẳng hàng bác sĩ chính
-                  (Tuyền 25/09/2026). Máy chủ chỉ bỏ khi tư vấn CHƯA nhận khách. */}
-              <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  className="size-4 accent-brand-600"
-                  checked={boQua.id === dangChon.visit_id && boQua.co}
-                  onChange={(e) => setBoQua({ id: dangChon.visit_id, co: e.target.checked })}
-                />
-                Bỏ qua bác sĩ tư vấn — vào thẳng bác sĩ chính
-              </label>
+              {/* Tick = khách không qua bác sĩ tư vấn, vào thẳng hàng bác sĩ chính;
+                  bỏ tick = về lại hàng tư vấn. ÁP NGAY, không đợi [Đo xong]
+                  (Tuyền 25/09/2026). Lượt không qua tư vấn thì không hiện ô. */}
+              {dangChon.tu_van ? (
+                <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-brand-600"
+                    checked={dangChon.tu_van.bo_qua}
+                    disabled={dangDoiTuVan || !dangChon.tu_van.doi_duoc}
+                    onChange={(e) => void doiTuVan(e.target.checked)}
+                  />
+                  Bỏ qua bác sĩ tư vấn — vào thẳng bác sĩ chính
+                  {!dangChon.tu_van.doi_duoc ? (
+                    <span className="text-meta text-ink-muted">
+                      ({dangChon.tu_van.bo_qua ? "bác sĩ chính đã khám" : "tư vấn đã nhận khách"})
+                    </span>
+                  ) : null}
+                </label>
+              ) : null}
               <button
                 type="button"
                 onClick={luu}
