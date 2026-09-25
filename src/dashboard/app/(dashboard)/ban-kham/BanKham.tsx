@@ -898,9 +898,10 @@ function HoSo({
                 clinicPatientId={dong.clinic_patient_id}
                 choGhi={choBam}
                 chiMuc={["B"]}
-                datChiDinh={async (codes) => {
+                datChiDinh={async (codes, batBuoc) => {
                   const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
                     service_codes: codes,
+                    bat_buoc_codes: batBuoc,
                   });
                   return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
                 }}
@@ -917,9 +918,10 @@ function HoSo({
               visitId={dong.visit_id}
               clinicPatientId={dong.clinic_patient_id}
               choGhi={choBam}
-              datChiDinh={async (codes) => {
+              datChiDinh={async (codes, batBuoc) => {
                 const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
                   service_codes: codes,
+                  bat_buoc_codes: batBuoc,
                 });
                 return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
               }}

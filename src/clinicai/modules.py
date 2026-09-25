@@ -78,8 +78,16 @@ MODULE: dict[str, Module] = {
             ten="Chỉ định dịch vụ",
             # CarryOverUnfinishedOrders: khối Hành trình gọi lúc check-in (H2) —
             # chỉ định chưa làm ĐI THEO KHÁCH sang lượt mới.
-            lenh=["PlaceServiceOrders", "CarryOverUnfinishedOrders"],
-            phat=["service_order.placed", "service_order.carried_over"],
+            lenh=[
+                "PlaceServiceOrders",
+                "CarryOverUnfinishedOrders",
+                "SetServiceOrderRequired",
+            ],
+            phat=[
+                "service_order.placed",
+                "service_order.carried_over",
+                "service_order.required_changed",
+            ],
             bang=["service_order"],
             quyen=["clinical.order.place"],
         ),

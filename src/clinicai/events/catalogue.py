@@ -88,6 +88,15 @@ class SuKien:
 # ── service_order ───────────────────────────────────────────────────────────
 
 
+class ChiDinhDoiBatBuoc(PayloadSuKien):
+    """`service_order.required_changed` — người chỉ định bật / tắt "Bắt buộc"
+    (Tuyền 25/09/2026). Chỉ khi dịch vụ CHƯA thu tiền."""
+
+    visit_id: str
+    service_order_id: str
+    bat_buoc: bool
+
+
 class ChiDinhDaDat(PayloadSuKien):
     """`service_order.placed` — bác sĩ/thư ký y khoa đã chốt một chỉ định."""
 
@@ -631,6 +640,15 @@ class DichVuSanSangLamLai(PayloadSuKien):
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
+        SuKien(
+            ten="service_order.required_changed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhDoiBatBuoc,
+            nhan="Đổi dịch vụ bắt buộc",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
         SuKien(
             ten="service_order.placed",
             version=1,

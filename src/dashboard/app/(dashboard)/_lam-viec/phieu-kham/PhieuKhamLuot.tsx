@@ -27,6 +27,7 @@ import {
   type NhomCls,
   type ONhap,
 } from "@/lib/phieu-kham";
+import { guiThaoTac } from "../api";
 import DanhMucChiDinh from "./DanhMucChiDinh";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 
@@ -79,7 +80,11 @@ export default function PhieuKhamLuot({
   clinicPatientId: string;
   /** Người đang mở được ghi (bác sĩ / thư ký của lượt) — máy chủ vẫn kiểm lại. */
   choGhi: boolean;
-  datChiDinh: (codes: string[]) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  datChiDinh: (
+    codes: string[],
+    /** Mã dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026). */
+    batBuoc: string[],
+  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
   onDaDat: () => void;
   /** Báo cho nút Hoàn tất: còn đang lưu dở / lỗi lưu thì nói ra. */
   onTrangThai?: (g: ClinicalCompletionGate) => void;
@@ -263,13 +268,20 @@ export default function PhieuKhamLuot({
     return ra;
   }, [tc]);
 
-  const dat = async (codes: string[]) => {
-    const kq = await datChiDinh(codes);
+  const dat = async (codes: string[], batBuoc: string[]) => {
+    const kq = await datChiDinh(codes, batBuoc);
     if (kq.ok) {
       onDaDat();
       void napKetQua();
     }
     return kq;
+  };
+
+  // Bật / tắt "Bắt buộc" của chỉ định đã đặt (chưa thu tiền) — 25/09/2026.
+  const doiBatBuoc = async (orderId: string, batBuoc: boolean) => {
+    const kq = await guiThaoTac("bat-buoc", orderId, { bat_buoc: batBuoc });
+    if (kq.ok) void napKetQua();
+    return kq.ok ? ({ ok: true } as const) : ({ ok: false, loi: kq.loi } as const);
   };
 
   if (chonDuoc) {
@@ -377,6 +389,7 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
+            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }
@@ -386,6 +399,7 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
+            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }

@@ -91,6 +91,8 @@ export interface ChiDinhVaKetQua {
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
+  /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
+  bat_buoc?: boolean;
 }
 
 /** Một mẫu kết quả (18 mẫu KQ_*): `ma` không kèm tiền tố `KQ_`. */
