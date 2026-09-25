@@ -34,6 +34,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
@@ -44,6 +45,8 @@ CONFIG_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
 
 
 def assert_may_configure(identity: StaffIdentity) -> None:
+    """(Cũ — OFF 25/09/2026, thay bằng quyền `config.clinic.manage` của lego
+    "Cài đặt phòng khám"; xem `ClinicConfigService._duoc_cau_hinh`.)"""
     if not identity.co_vai(CONFIG_ROLES):
         raise ValidationError(
             f"Vai {identity.role.value} không sửa được cấu hình phòng khám."
@@ -89,6 +92,17 @@ SELECT s.id, s.full_name, s.short_name, s.is_active, m.role,
 
 
 class ClinicConfigService:
+    async def _duoc_cau_hinh(self, identity: StaffIdentity) -> None:
+        """Lego 18 "Cài đặt phòng khám" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi
+        vai — thu lego là thôi sửa cấu hình ngay."""
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "config.clinic.manage",
+                cau="Bạn chưa được bật lego “Cài đặt phòng khám”.",
+            )
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
@@ -200,7 +214,7 @@ class ClinicConfigService:
         hay tư vấn vốn không cần phiếu chuyên khoa, và màn bác sĩ nói ra điều
         đó thay vì để trống.
         """
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         nu = (form_code or "").strip().upper() or None
         nam = (form_code_nam or "").strip().upper() or None
         if nam and not nu:
@@ -258,7 +272,7 @@ class ClinicConfigService:
         self, *, identity: StaffIdentity, room_id: str, floor: str | None
     ) -> dict[str, Any]:
         """Đặt tầng cho một phòng. Chuỗi trắng = chưa khai, không phải tầng ''."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         clean = (floor or "").strip() or None
         updated = await self._pool.fetchval(
             """
@@ -294,7 +308,7 @@ class ClinicConfigService:
     ) -> dict[str, Any]:
         """Thêm phòng. Phải chọn luôn bước chính (bảng bắt buộc): "phòng này làm
         việc gì" — thêm bước khác sau ở danh sách bước phục vụ."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         ten = " ".join((name or "").split())
         if not ten or len(ten) > 80:
             raise ValidationError("Tên phòng phải có, tối đa 80 ký tự.")
@@ -351,7 +365,7 @@ class ClinicConfigService:
     ) -> dict[str, Any]:
         """Đổi TÊN hiển thị. `room_id` giữ nguyên nên lịch trực, hàng chờ, chỉ
         định đã xếp vào phòng này không mất gì."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         ten = " ".join((name or "").split())
         if not ten or len(ten) > 80:
             raise ValidationError("Tên phòng phải có, tối đa 80 ký tự.")
@@ -382,7 +396,7 @@ class ClinicConfigService:
     ) -> dict[str, Any]:
         """Bật/tắt phòng. Tắt chứ không xoá: lịch sử khám ở phòng này còn trỏ
         vào nó. Không tắt được khi còn khách đang chờ/đang làm trong phòng."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
             room = await conn.fetchrow(
                 "SELECT id FROM public.clinic_room"
@@ -435,7 +449,7 @@ class ClinicConfigService:
         bỏ qua phòng này), khách đang chờ vẫn làm tiếp; tắt phòng mới cần hàng
         chờ trống.
         """
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         if la_doi_tac is None and accepting is None:
             raise ValidationError("Không có gì để đổi.")
         async with self._pool.acquire() as conn, conn.transaction():
@@ -469,7 +483,7 @@ class ClinicConfigService:
         self, *, identity: StaffIdentity, name: str, address: str | None = None
     ) -> dict[str, Any]:
         """Thêm cơ sở. Tên tự do; mã nội bộ tự sinh, không ai phải gõ."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         ten = " ".join((name or "").split())
         if not ten or len(ten) > 120:
             raise ValidationError("Tên cơ sở phải có, tối đa 120 ký tự.")
@@ -506,7 +520,7 @@ class ClinicConfigService:
     ) -> dict[str, Any]:
         """Đổi tên / địa chỉ / bật-tắt cơ sở. Tắt chứ không xoá — lịch sử khám
         còn trỏ vào nó. Không tắt được khi cơ sở còn phòng đang bật."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
             cu = await conn.fetchrow(
                 "SELECT name, address, is_active FROM public.clinic_location"
@@ -562,7 +576,7 @@ class ClinicConfigService:
         default_duration_minutes: int | None = None,
     ) -> dict[str, Any]:
         """Thêm loại khám. Qua tư vấn / đi thẳng phòng chỉnh ở màn Dây nối."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         ten = " ".join((name or "").split())
         if not ten or len(ten) > 120:
             raise ValidationError("Tên dịch vụ phải có, tối đa 120 ký tự.")
@@ -598,7 +612,7 @@ class ClinicConfigService:
     ) -> dict[str, Any]:
         """Đổi tên / thời lượng / bật-tắt loại khám. Tắt chứ không xoá: lịch
         hẹn cũ vẫn trỏ vào nó; tắt rồi thì không đặt lịch MỚI được."""
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
             cu = await conn.fetchrow(
                 "SELECT name, default_duration_minutes, is_active"
@@ -646,7 +660,7 @@ class ClinicConfigService:
         màn cấu hình gửi trạng thái người dùng nhìn thấy, và ghép từng thao tác
         lẻ là cách để hai bên lệch nhau khi mạng chập giữa chừng.
         """
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
             room = await conn.fetchrow(
                 "SELECT code, node_code FROM public.clinic_room"
@@ -693,7 +707,7 @@ class ClinicConfigService:
         (lễ tân, thu ngân). Đừng đọc nó thành "chưa khai" — nếu không thì không
         ai gỡ được năng lực đã khai nhầm.
         """
-        assert_may_configure(identity)
+        await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
             name = await conn.fetchval(
                 "SELECT s.full_name FROM public.staff s"

@@ -15,8 +15,9 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.reports_service import (
     ReportsService,
     toan_canh,
@@ -25,10 +26,12 @@ from clinicai.services.reports_service import (
 
 router = APIRouter()
 
-_READ_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Lego 17 "Báo cáo" (25/09/2026): hỏi quyền, không hỏi vai.
+_READ_GUARD = cua_quyen("report.view")
 #: Các ô đếm tổng (không tên khách, không so người với người) — cùng tập vai
 #: trang /reports đang mở (`isOpsAdmin` = quản lý + trưởng ca).
-_TONG_QUAN_GUARD = require_role(ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA)
+# Toàn cảnh: tab của Vận hành (/ops) và báo cáo.
+_TONG_QUAN_GUARD = cua_quyen("report.view", "ops.view")
 
 
 @router.get("/reports/booking-channels")

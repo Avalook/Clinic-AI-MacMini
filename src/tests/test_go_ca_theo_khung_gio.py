@@ -18,8 +18,19 @@ import asyncio
 from datetime import date
 from typing import Any
 
+import pytest
+
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.config_service import RosterService
+
+
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21 lego (25/09/2026): service hỏi QUYỀN qua DB — pool giả trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). Cửa thật: test_lego_21_db.py."""
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
 
 
 def _identity() -> StaffIdentity:

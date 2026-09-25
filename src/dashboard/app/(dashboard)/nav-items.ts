@@ -667,7 +667,8 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // Dược sĩ: đơn chờ cấp → kho → tư vấn.
   PHARMACIST: ["/home", "/pharmacy", "/pharmacy/inventory", "/pharmacy/consult"],
   CASHIER: ["/home", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/cashier/dich-vu"],
-  CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/cashier/thuoc", "/customers"],
+  // 25/09: Bảng giá thuốc OFF khỏi thanh bên (giá thuốc sửa ở Kho thuốc).
+  CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/patient-list", "/customers"],
   CASHIER_DV: ["/home", "/thu-ngan/dich-vu", "/cashier/dich-vu", "/customers"],
 };
 

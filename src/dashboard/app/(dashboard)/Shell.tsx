@@ -18,7 +18,7 @@ interface ShellProps {
   /** Phòng của từng vị trí hôm nay (theo `room_id`). */
   phong?: PhongTheoViTri;
   /** Capability đang có — thanh bên bày thêm màn mà quyền mở được. */
-  quyen?: readonly string[];
+  quyen?: readonly string[] | null;
   leaveAction: () => void | Promise<void>;
   children: React.ReactNode;
 }
@@ -31,7 +31,7 @@ export default function Shell({
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
   phong = {},
-  quyen = [],
+  quyen = null,
   leaveAction,
   children,
 }: ShellProps) {

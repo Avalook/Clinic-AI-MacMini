@@ -33,6 +33,7 @@ from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.permissions.catalogue import (
     KHOI,
+    LUON_BAT,
     MAN,
     MAN_THEO_VAI,
     PRESET,
@@ -299,6 +300,123 @@ class PermissionService:
                 )
             )
         return {"ok": True, "vai": vai, "khoi": [k["khoi"] for k in ket_qua]}
+
+    # ------------------------------------------------------------------
+    # LEGO theo người (Tuyền 25/09/2026): 21 công tắc = 21 node thanh bên
+    # ------------------------------------------------------------------
+    async def lego_cua_nguoi(
+        self, *, staff_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Người này đang bật lego nào. Bật = có ĐỦ mọi khối của lego; có một
+        phần = vài khối (thường vì khối ấy nằm trong lego khác đang bật)."""
+        async with self._pool.acquire() as conn:
+            await doi_quyen(conn, identity, "permission.manage")
+            await self._phai_cung_phong_kham(conn, identity, staff_id)
+            rows = await conn.fetch(
+                "SELECT DISTINCT work_pack, scope_type, scope_id::text AS scope_id"
+                "  FROM v_quyen_hieu_luc"
+                " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
+                identity.clinic_id,
+                staff_id,
+            )
+            phong = await conn.fetch(
+                "SELECT id::text AS id, name AS ten FROM clinic_room"
+                " WHERE clinic_id = $1::uuid AND is_active ORDER BY sort, name",
+                identity.clinic_id,
+            )
+        co = {r["work_pack"] for r in rows}
+        ds = []
+        for m in MAN.values():
+            du = set(m.khoi) <= co
+            muc: dict[str, Any] = {
+                "ma": m.ma,
+                "ten": m.ten,
+                "cac_duong": list(m.cac_duong),
+                "khoi": [{"ma": k, "ten": KHOI[k].ten} for k in m.khoi],
+                "bat": du,
+                "mot_phan": not du and bool(set(m.khoi) & co),
+                "mac_dinh_cho": m.mac_dinh_cho,
+            }
+            if m.khoi_theo_phong:
+                pv = [r for r in rows if r["work_pack"] == m.khoi_theo_phong]
+                muc["tat_ca_phong"] = any(r["scope_type"] == "CLINIC" for r in pv)
+                muc["phong_ids"] = sorted(
+                    r["scope_id"] for r in pv if r["scope_type"] == "ROOM"
+                )
+            ds.append(muc)
+        return {
+            "staff_id": staff_id,
+            "lego": ds,
+            "luon_bat": [{"ten": t, "duong": d} for t, d in LUON_BAT],
+            "phong": [dict(r) for r in phong],
+        }
+
+    async def doi_lego(
+        self,
+        *,
+        staff_id: str,
+        ma: str,
+        bat: bool,
+        identity: StaffIdentity,
+        phong_ids: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Bật / tắt MỘT lego cho một người — qua đúng `cap_khoi` / `thu_khoi`.
+
+        Tắt chỉ gỡ khối KHÔNG còn lego nào khác đang bật cần (Tắt Phòng dịch vụ
+        không lấy mất Ghi bệnh án của Bàn khám). Lego theo phòng (Phòng dịch vụ):
+        `phong_ids` rỗng / None = tất cả phòng (phạm vi CLINIC).
+        """
+        if ma not in MAN:
+            raise ValidationError(f"Không có lego “{ma}”.")
+        lego = MAN[ma]
+        hien = await self.lego_cua_nguoi(staff_id=staff_id, identity=identity)
+        async with self._pool.acquire() as conn:
+            co = [
+                r["work_pack"]
+                for r in await conn.fetch(
+                    "SELECT DISTINCT work_pack FROM v_quyen_hieu_luc"
+                    " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
+                    identity.clinic_id,
+                    staff_id,
+                )
+            ]
+        if not bat:
+            con = set(khoi_sau_khi_doi_man(co, ma, False))
+            for k in sorted(set(co) - con):
+                await self.thu_khoi(
+                    staff_id=staff_id, khoi=k, identity=identity, ly_do=f"Tắt lego {ma}"
+                )
+            return {"ok": True, "ma": ma, "bat": False}
+
+        phong_hop_le = {p["id"] for p in hien["phong"]}
+        chon = sorted(set(phong_ids or []))
+        la = [p for p in chon if p not in phong_hop_le]
+        if la:
+            raise ValidationError("Có phòng không thuộc phòng khám (hoặc đã tắt).")
+        for k in lego.khoi:
+            if k == lego.khoi_theo_phong:
+                # Đổi phạm vi = thu hết rồi cấp lại đúng phòng đã chọn.
+                await self.thu_khoi(
+                    staff_id=staff_id,
+                    khoi=k,
+                    identity=identity,
+                    ly_do=f"Đổi phòng {ma}",
+                )
+                pham_vi: list[str | None] = list(chon) or [None]
+                for p in pham_vi:
+                    await self.cap_khoi(
+                        staff_id=staff_id,
+                        khoi=k,
+                        identity=identity,
+                        scope_type="ROOM" if p else "CLINIC",
+                        scope_id=p,
+                        ly_do=f"Bật lego {ma}",
+                    )
+            else:
+                await self.cap_khoi(
+                    staff_id=staff_id, khoi=k, identity=identity, ly_do=f"Bật lego {ma}"
+                )
+        return {"ok": True, "ma": ma, "bat": True, "phong_ids": chon}
 
     # ------------------------------------------------------------------
     # Nhóm quyền mẫu — quản lý tự thêm, sửa, xoá (Tuyền 23/09/2026)

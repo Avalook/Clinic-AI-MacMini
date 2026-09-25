@@ -29,7 +29,7 @@ export default function Nav({
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
   phong = {},
-  quyen = [],
+  quyen = null,
 }: {
   role: ClinicRole | null;
   /** Phòng của từng vị trí hôm nay — mục phòng mang tên phòng thật. */
@@ -37,7 +37,7 @@ export default function Nav({
   /** Mã vị trí hôm nay — thanh bên đi theo việc thật (xem `mucHienRa`). */
   viTriHomNay?: readonly string[];
   /** Capability đang có. Màn nào quyền mở được thì bày, dù vai không có. */
-  quyen?: readonly string[];
+  quyen?: readonly string[] | null;
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;

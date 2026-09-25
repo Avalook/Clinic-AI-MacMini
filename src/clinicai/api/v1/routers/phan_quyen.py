@@ -42,6 +42,15 @@ class ThuKhoiBody(BaseModel):
     ly_do: str | None = Field(default=None, max_length=500)
 
 
+class LegoBody(BaseModel):
+    """Bật / tắt một lego (node thanh bên) cho một người."""
+
+    ma: str = Field(min_length=1, max_length=64)
+    bat: bool
+    #: Lego theo phòng (Phòng dịch vụ): trống = tất cả phòng.
+    phong_ids: list[UUID] | None = None
+
+
 class PresetBody(BaseModel):
     vai: str = Field(min_length=1, max_length=64)
 
@@ -207,4 +216,33 @@ async def them_preset(
     """Thêm nhanh một nhóm khối theo vai. Vẫn sửa được từng khối sau đó."""
     return await PermissionService(pool).them_preset(
         staff_id=str(staff_id), vai=body.vai, identity=identity
+    )
+
+
+@router.get("/phan-quyen/nhan-su/{staff_id}/lego")
+async def lego_cua_nguoi(
+    staff_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """21 lego của một người (Tuyền 25/09/2026) — bật / một phần / tắt."""
+    return await PermissionService(pool).lego_cua_nguoi(
+        staff_id=str(staff_id), identity=identity
+    )
+
+
+@router.post("/phan-quyen/nhan-su/{staff_id}/lego")
+async def doi_lego(
+    staff_id: UUID,
+    body: LegoBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật / tắt một lego cho một người (+ chọn phòng với Phòng dịch vụ)."""
+    return await PermissionService(pool).doi_lego(
+        staff_id=str(staff_id),
+        ma=body.ma,
+        bat=body.bat,
+        identity=identity,
+        phong_ids=[str(p) for p in body.phong_ids] if body.phong_ids else None,
     )

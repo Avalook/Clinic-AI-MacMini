@@ -60,3 +60,25 @@ def cua_router_theo_nhom_mau(monkeypatch: Any) -> None:
     mẫu của vai — dùng cho bài kiểm router chạy trên pool giả."""
     monkeypatch.setattr("clinicai.permissions.cua_quyen.can", can_theo_nhom_mau)
     monkeypatch.setattr("clinicai.permissions.y_khoa.can", can_theo_nhom_mau)
+
+
+def dich_vu_theo_nhom_mau(monkeypatch: Any) -> None:
+    """Chỗ hỏi quyền ở TẦNG SERVICE (21 lego, 25/09/2026) trả lời theo nhóm mẫu
+    của vai — dùng cho bài kiểm service chạy trên pool giả (FakePool). Cửa thật
+    có bài kiểm Postgres: `services/test_lego_21_db.py`."""
+    from clinicai.services.clinic_config_service import ClinicConfigService
+    from clinicai.services.config_service import RosterService
+    from clinicai.services.doi_bac_si_service import DoiBacSiService
+
+    async def _cau_hinh(_self: Any, identity: StaffIdentity) -> None:
+        await doi_quyen_theo_nhom_mau(None, identity, "config.clinic.manage")
+
+    async def _xep_lich(_self: Any, identity: StaffIdentity) -> bool:
+        return await can_theo_nhom_mau(None, identity, "config.clinic.manage")
+
+    async def _doi_bac_si(_self: Any, identity: StaffIdentity) -> None:
+        await doi_quyen_theo_nhom_mau(None, identity, "dispatch.manage")
+
+    monkeypatch.setattr(ClinicConfigService, "_duoc_cau_hinh", _cau_hinh)
+    monkeypatch.setattr(RosterService, "_xep_lich", _xep_lich)
+    monkeypatch.setattr(DoiBacSiService, "_duoc_doi_bac_si", _doi_bac_si)

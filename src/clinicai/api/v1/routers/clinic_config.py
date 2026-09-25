@@ -24,22 +24,22 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinic_config_service import ClinicConfigService
 from clinicai.services.thu_ky_bac_si import dat_bac_si_cho_thu_ky
 
 router = APIRouter()
 
-_WRITE_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Lego 18 "Cài đặt phòng khám" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.
+_WRITE_GUARD = cua_quyen("config.clinic.manage")
 # Cùng mức với _WRITE_GUARD nhưng là hằng RIÊNG: hai câu hỏi khác nhau ("ai đổi
 # được sơ đồ" và "ai đọc được danh sách nhân sự") tình cờ cùng đáp án hôm nay.
 # Dùng chung một hằng thì ngày nới một bên sẽ nới luôn bên kia mà không ai thấy.
-_STAFF_READ_GUARD = require_role(ClinicRole.MANAGEMENT)
+_STAFF_READ_GUARD = cua_quyen("config.clinic.manage")
 
 
 @router.get("/clinic-config/overview")
