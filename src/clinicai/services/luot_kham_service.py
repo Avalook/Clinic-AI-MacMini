@@ -393,6 +393,59 @@ class LuotKhamService:
         )
         return str(tag) != "UPDATE 0"
 
+    async def bo_qua_tu_van(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> bool:
+        """`SkipIntake` — điều dưỡng tick "Bỏ qua bác sĩ tư vấn" lúc [Đo xong]
+        (Tuyền 25/09/2026): khách rời hàng tư vấn, vào thẳng hàng bác sĩ chính.
+
+        Chỉ khi phiên tư vấn CHƯA bắt đầu (`queued`). Bác sĩ tư vấn đã nhận
+        khách thì để nguyên — xong tư vấn khách vẫn sang bác sĩ chính như cũ.
+        Lượt không đi qua tư vấn thì không có gì để bỏ. Chạy lại được.
+        """
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        tu_van = await conn.fetchval(
+            "SELECT id::text FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'TU_VAN' AND status = 'queued'",
+            clinic_id,
+            visit_id,
+        )
+        if tu_van is None:
+            return False
+        await conn.execute(
+            "UPDATE consultation SET status = 'cancelled', version = version + 1,"
+            " updated_at = now() WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            clinic_id,
+            tu_van,
+        )
+        await conn.execute(
+            """
+            UPDATE queue_entry
+               SET status = 'cancelled', version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND lane = 'TU_VAN'
+               AND status NOT IN ('done', 'left', 'cancelled')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        return await self.chuyen_bac_si_chinh(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            causation_id=causation_id,
+            ly_do="điều dưỡng cho bỏ qua tư vấn — vào thẳng bác sĩ chính",
+        )
+
     async def chuyen_bac_si_chinh(
         self,
         conn: asyncpg.Connection,
@@ -400,6 +453,7 @@ class LuotKhamService:
         clinic_id: str,
         visit_id: str,
         causation_id: str | None = None,
+        ly_do: str = "tư vấn xong — chuyển bác sĩ chính",
     ) -> bool:
         """`HandToPrimaryDoctor` — dây H3: tư vấn xong → hàng bác sĩ chính."""
         await conn.execute(
@@ -425,14 +479,14 @@ class LuotKhamService:
             """,
             clinic_id,
             visit_id,
-            "tư vấn xong — chuyển bác sĩ chính",
+            ly_do,
         )
         await self._phat_da_xep(
             conn,
             clinic_id=clinic_id,
             visit_id=visit_id,
             dich=rules.PRIMARY,
-            ly_do="tư vấn xong — chuyển bác sĩ chính",
+            ly_do=ly_do,
             causation_id=causation_id,
         )
         return True

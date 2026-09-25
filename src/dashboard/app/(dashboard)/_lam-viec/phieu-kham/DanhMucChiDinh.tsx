@@ -9,16 +9,23 @@
 //
 // Mã dịch vụ và giá do MÁY CHỦ gắn (bảng ghép viết tay `anh_xa_danh_muc.py`) —
 // màn này không so tên. Mục chưa có mã (phòng khám chưa có dịch vụ ấy) khoá lại.
+//
+// CHỈ ĐỊNH THÊM (Tuyền 25/09/2026): trong CÙNG một lượt khám bác sĩ chỉ định
+// được 2, 3 lần — mỗi lần vẫn đi thanh toán rồi làm như lần đầu. Lượt đã có chỉ
+// định thì trên cùng là ghi chú "Lần 1 · 09:40 — …" (khỏi mở lại danh mục cũ để
+// nhớ), danh mục gập sau nút [+ Chỉ định thêm (lần N)].
 
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import { tienVn, type NhomCls } from "@/lib/phieu-kham";
+import { fmtTime } from "@/lib/datetime";
+import { tienVn, type ChiDinhVaKetQua, type NhomCls } from "@/lib/phieu-kham";
 
 export default function DanhMucChiDinh({
   nhom,
   daDat,
+  daChiDinh = [],
   onDat,
   chiDoc,
   nhanNut = "Chỉ định",
@@ -26,6 +33,8 @@ export default function DanhMucChiDinh({
   nhom: NhomCls[];
   /** service_code đã có chỉ định (chưa huỷ) trong lượt. */
   daDat: ReadonlySet<string>;
+  /** Mọi chỉ định (chưa huỷ) của lượt — để ghi chú "lần trước đã chỉ định gì". */
+  daChiDinh?: readonly ChiDinhVaKetQua[];
   onDat: (codes: string[]) => Promise<{ ok: true } | { ok: false; loi: string }>;
   chiDoc: boolean;
   nhanNut?: string;
@@ -34,6 +43,21 @@ export default function DanhMucChiDinh({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
+  const [moThem, setMoThem] = useState(false);
+
+  // Chỉ định CỦA MỤC NÀY (C: cận lâm sàng · F: thủ thuật), gom theo lần.
+  const maMuc = new Set(nhom.flatMap((n) => n.muc).flatMap((m) => (m.service_code ? [m.service_code] : [])));
+  const cuaMuc = daChiDinh.filter((c) => maMuc.has(c.service_code));
+  const lanCua = new Map(cuaMuc.map((c) => [c.service_code, c.lan ?? null]));
+  const theoLan = new Map<string, ChiDinhVaKetQua[]>();
+  for (const c of cuaMuc) {
+    const khoa = c.mang_sang || c.lan == null ? "Mang sang từ lượt trước" : `Lần ${c.lan}`;
+    theoLan.set(khoa, [...(theoLan.get(khoa) ?? []), c]);
+  }
+  const lanCuoi = Math.max(0, ...daChiDinh.map((c) => c.lan ?? 0));
+  // Lượt đã có chỉ định → danh mục gập sau nút [+ Chỉ định thêm].
+  const coTruoc = daChiDinh.length > 0;
+  const hienDanhMuc = !coTruoc || moThem || chon.length > 0;
 
   const giaCua = new Map(
     nhom.flatMap((n) => n.muc).flatMap((m) => (m.service_code ? [[m.service_code, m.gia]] : [])),
@@ -55,11 +79,32 @@ export default function DanhMucChiDinh({
     }
     setBao(`Đã chỉ định ${chon.length} mục — khách vào hàng chờ phòng sau khi thu tiền.`);
     setChon([]);
+    setMoThem(false);
   };
 
   return (
     <div className="space-y-2">
-      {nhom.map((n) => {
+      {theoLan.size > 0 ? (
+        <div className="rounded-control border border-hairline bg-surface-muted px-3 py-2">
+          <p className="text-meta font-semibold text-ink">Đã chỉ định</p>
+          <ul className="mt-1 space-y-1">
+            {[...theoLan.entries()].map(([lan, ds]) => (
+              <li key={lan} className="text-meta text-ink-muted">
+                <span className="font-semibold text-ink">{lan}</span>
+                {ds[0]?.chi_dinh_luc ? ` · ${fmtTime(ds[0].chi_dinh_luc)}` : ""}
+                {" — "}
+                {ds.map((c) => c.ten_hien_thi).join(", ")}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {coTruoc && !chiDoc && !hienDanhMuc ? (
+        <Button type="button" variant="secondary" onClick={() => setMoThem(true)}>
+          + Chỉ định thêm (lần {lanCuoi + 1})
+        </Button>
+      ) : null}
+      {hienDanhMuc ? nhom.map((n) => {
         const coChon = n.muc.filter((m) => m.service_code && chon.includes(m.service_code)).length;
         const coDat = n.muc.filter((m) => m.service_code && daDat.has(m.service_code)).length;
         return (
@@ -90,7 +135,11 @@ export default function DanhMucChiDinh({
                       <span className="text-meta tabular-nums text-ink">
                         {ma ? tienVn(m.gia) : ""}
                       </span>
-                      {da ? <Chip tone="success">Đã chỉ định</Chip> : null}
+                      {da ? (
+                        <Chip tone="success">
+                          {lanCua.get(ma ?? "") ? `Đã chỉ định · lần ${lanCua.get(ma ?? "")}` : "Đã chỉ định"}
+                        </Chip>
+                      ) : null}
                       {!ma ? <Chip tone="warning">Chưa có trong danh mục</Chip> : null}
                     </label>
                   </li>
@@ -99,8 +148,8 @@ export default function DanhMucChiDinh({
             </ul>
           </details>
         );
-      })}
-      {!chiDoc ? (
+      }) : null}
+      {!chiDoc && hienDanhMuc ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -111,9 +160,14 @@ export default function DanhMucChiDinh({
             {dang
               ? "Đang ghi…"
               : chon.length > 0
-                ? `${nhanNut} ${chon.length} mục · ${tienVn(tong)}`
-                : `Tick mục cần ${nhanNut.toLowerCase()}`}
+                ? `${coTruoc ? "Chỉ định thêm" : nhanNut} ${chon.length} mục · ${tienVn(tong)}`
+                : `Tick mục cần ${(coTruoc ? "chỉ định thêm" : nhanNut).toLowerCase()}`}
           </Button>
+          {coTruoc && chon.length === 0 ? (
+            <Button type="button" variant="ghost" onClick={() => setMoThem(false)}>
+              Thu gọn
+            </Button>
+          ) : null}
           {loi ? (
             <p role="alert" className="text-meta text-danger">
               {loi}

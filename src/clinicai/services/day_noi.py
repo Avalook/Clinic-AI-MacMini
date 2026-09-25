@@ -34,7 +34,10 @@ DAY: dict[str, Day] = {
             "h1_khach_quen_vao_thang_bs",
             "Khách quen của bác sĩ chính (tái khám / từng được bác sĩ ấy khám)"
             " → vào thẳng bác sĩ chính, không qua tư vấn",
-            True,
+            # TẮT từ 25/09/2026 (Tuyền: "cứ qua bác sĩ tư vấn như bình thường,
+            # nào điều dưỡng ấn bỏ qua thì vào bác sĩ chính luôn"). Cũ thì OFF,
+            # không xoá — quản lý bật lại được ở Cài đặt → Dây nối.
+            False,
             "bat_tat",
         ),
         Day(

@@ -23,6 +23,10 @@ Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội t
   5 loại khám lõi → vào hàng chờ **bác sĩ tư vấn** (hàng chung, bác sĩ tư vấn nào rảnh
   thì nhận). Bác sĩ chính của chị thấy chị ngay nhưng ở dạng **"sắp tới — đang ở tư
   vấn"** (chỉ xem, không gọi được). Điều dưỡng thấy chị ở hàng đo sinh hiệu.
+  **25/09:** điều dưỡng tick **"Bỏ qua bác sĩ tư vấn"** lúc [Đo xong] → `vitals.recorded`
+  mang `bo_qua_tu_van=true` → khối Hành trình gửi lệnh `bo_qua_tu_van` (tư vấn CHƯA nhận
+  khách thì huỷ phiên tư vấn, khách vào thẳng hàng bác sĩ chính). Khách quen KHÔNG còn tự
+  vào thẳng (dây `h1_khach_quen_vao_thang_bs` TẮT — bật lại được ở Dây nối).
 - **H2 — Check-in thủ thuật / sàn chậu → phòng.** Nếu lịch là thủ thuật hoặc sàn chậu:
   không qua tư vấn. Hệ thống tạo sẵn chỉ định theo lịch. Đã trả tiền ở lượt trước mà
   chưa làm → mang sang, vào thẳng hàng của phòng. Chưa trả → chờ lễ tân thu tiền (H4).
@@ -300,7 +304,7 @@ khách, tới giờ chuông réo đúng người.
 
 | Dây | Nghe | Điều kiện | Gửi lệnh (của khối khác) | Hiện trạng |
 |---|---|---|---|---|
-| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, mặc định BẬT) | Xếp khách vào hàng **bác sĩ tư vấn**; khách quen → thẳng bác sĩ chính | ✅ |
+| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, **mặc định TẮT từ 25/09**) · `vitals.recorded` có `bo_qua_tu_van` (điều dưỡng tick) | Xếp khách vào hàng **bác sĩ tư vấn**; điều dưỡng tick bỏ qua → thẳng bác sĩ chính | ✅ |
 | H2 | `visit.checked_in` | không có bước tư vấn | Xếp khách vào hàng **bác sĩ chính** | 🟡 gọi thẳng (F2) |
 | H3 | `consultation.handed_over` | — | Xếp khách vào hàng bác sĩ chính | ❌ |
 | H4 | `visit.checked_in` | lịch hẹn là THỦ THUẬT/dịch vụ (đặt từ lượt trước) | Tạo sẵn chỉ định theo lịch → chờ thu tiền | ❌ |

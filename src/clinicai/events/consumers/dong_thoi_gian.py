@@ -74,7 +74,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "consultation.handed_over": [],
     "consultation.completed": ["loai", "ket_qua"],
     "vitals.started": [],
-    "vitals.recorded": ["qua_duong"],
+    "vitals.recorded": ["qua_duong", "bo_qua_tu_van"],
 }
 
 

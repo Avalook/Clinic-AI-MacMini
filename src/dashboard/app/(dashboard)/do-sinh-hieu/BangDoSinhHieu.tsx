@@ -98,6 +98,9 @@ export default function BangDoSinhHieu() {
   const [xong, setXong] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
   const [dangBatDau, setDangBatDau] = useState(false);
+  // "Bỏ qua bác sĩ tư vấn" (Tuyền 25/09/2026) — gắn theo LƯỢT đang mở: chuyển
+  // sang khách khác thì ô tự bỏ tick, không lỡ tay mang sang người kế tiếp.
+  const [boQua, setBoQua] = useState<{ id: string; co: boolean }>({ id: "", co: false });
   // Lượt đã gửi lệnh bắt đầu (tự gửi ở lần gõ đầu tiên) — gửi MỘT lần / lượt.
   const daGuiBatDau = useRef<string | null>(null);
 
@@ -217,8 +220,10 @@ export default function BangDoSinhHieu() {
     setDangLuu(true);
     setLoi(null);
     try {
-      const du_lieu: Record<string, string> = {};
+      const du_lieu: Record<string, string | boolean> = {};
       for (const o of O) if (gia[o.gui]?.trim()) du_lieu[o.gui] = gia[o.gui].trim();
+      const boQuaTuVan = boQua.id === dangChon.visit_id && boQua.co;
+      if (boQuaTuVan) du_lieu.bo_qua_tu_van = true;
       const r = await fetch("/api/luot-kham", {
         method: "POST",
         headers: {
@@ -235,7 +240,11 @@ export default function BangDoSinhHieu() {
       const ten = dangChon.ten;
       const kq = await docBang();
       nhan(kq);
-      setXong(`Đã lưu sinh hiệu cho ${ten}.`);
+      setXong(
+        boQuaTuVan
+          ? `Đã lưu sinh hiệu cho ${ten} — bỏ qua tư vấn, vào thẳng bác sĩ chính.`
+          : `Đã lưu sinh hiệu cho ${ten}.`,
+      );
       // Sang NGƯỜI KẾ TIẾP còn chờ đo.
       if ("luot" in kq) {
         const ke = [...kq.luot]
@@ -428,6 +437,17 @@ export default function BangDoSinhHieu() {
                   {xong}
                 </p>
               ) : null}
+              {/* Tick = khách không qua bác sĩ tư vấn, vào thẳng hàng bác sĩ chính
+                  (Tuyền 25/09/2026). Máy chủ chỉ bỏ khi tư vấn CHƯA nhận khách. */}
+              <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-brand-600"
+                  checked={boQua.id === dangChon.visit_id && boQua.co}
+                  onChange={(e) => setBoQua({ id: dangChon.visit_id, co: e.target.checked })}
+                />
+                Bỏ qua bác sĩ tư vấn — vào thẳng bác sĩ chính
+              </label>
               <button
                 type="button"
                 onClick={luu}

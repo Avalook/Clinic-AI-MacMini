@@ -115,6 +115,9 @@ class VitalsBody(BaseModel):
     spo2: Any = None
     bmi: Any = None
     pain_score: Any = None
+    # Điều dưỡng tick "Bỏ qua bác sĩ tư vấn" (Tuyền 25/09/2026) → khách vào thẳng
+    # hàng bác sĩ chính. Không phải chỉ số — tách khỏi `raw` trước parse_vitals.
+    bo_qua_tu_van: bool = False
 
 
 class NoteBody(BaseModel):
@@ -205,9 +208,10 @@ async def record_vitals(
 ) -> dict[str, Any]:
     return await SinhHieuService(pool).record_vitals(
         visit_id=str(visit_id),
-        raw=body.model_dump(),
+        raw=body.model_dump(exclude={"bo_qua_tu_van"}),
         identity=identity,
         idempotency_key=idempotency_key,
+        bo_qua_tu_van=body.bo_qua_tu_van,
     )
 
 

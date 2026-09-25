@@ -9,7 +9,9 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
     H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính /
                                     thẳng dịch vụ (lịch đi thẳng phòng)
         vitals.recorded           → hàng tư vấn: "chờ đo sinh hiệu" → "chờ tư vấn"
-                                    (lượt chưa có đường đi thì xếp luôn — tự chữa)
+                                    (lượt chưa có đường đi thì xếp luôn — tự chữa);
+                                    điều dưỡng tick "bỏ qua tư vấn" → thẳng bác sĩ
+                                    chính (25/09)
     H3  consultation.handed_over  → hàng chờ khám thật của bác sĩ chính
     H4  payment.service_collected → xếp phòng vắng nhất THAY người vừa thu tiền,
                                     bằng quyền của người ấy (dây bật/tắt được)
@@ -120,9 +122,17 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             visit_id=visit_id,
             causation_id=su_kien.event_id,
         )
-        await LuotKhamService.mo_hang_tu_van(
-            conn, clinic_id=su_kien.clinic_id, visit_id=visit_id
-        )
+        if su_kien.payload.get("bo_qua_tu_van"):
+            await luot.bo_qua_tu_van(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                visit_id=visit_id,
+                causation_id=su_kien.event_id,
+            )
+        else:
+            await LuotKhamService.mo_hang_tu_van(
+                conn, clinic_id=su_kien.clinic_id, visit_id=visit_id
+            )
     elif su_kien.event_type == "consultation.handed_over":
         await luot.chuyen_bac_si_chinh(
             conn,
