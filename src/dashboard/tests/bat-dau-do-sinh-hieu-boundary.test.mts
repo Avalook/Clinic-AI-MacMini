@@ -50,8 +50,12 @@ test("không còn nút [Bắt đầu]: gõ đầu tiên là bắt đầu, [Đo x
   assert.match(ma, /if \(chuaBd[\s\S]*?await batDau\(\)/);
   assert.match(ma, /"Đo xong"/);
   assert.match(ma, /disabled=\{dangLuu\}/, "nút Đo xong không khoá theo mốc bắt đầu");
-  // Ô nhập không có `disabled` nào.
-  const oNhap = ma.match(/<input[\s\S]*?\/>/g) ?? [];
+  // Ô nhập SINH HIỆU không có `disabled` nào. (Ô tick "Bỏ qua bác sĩ tư vấn",
+  // 25/09, khoá có chủ ý khi tư vấn đã nhận / bác sĩ chính đã khám — không
+  // phải ô nhập chỉ số, nên loại ra.)
+  const oNhap = (ma.match(/<input[\s\S]*?\/>/g) ?? []).filter(
+    (o) => !o.includes('type="checkbox"'),
+  );
   assert.ok(oNhap.length > 0);
   for (const o of oNhap) assert.doesNotMatch(o, /disabled/);
 });

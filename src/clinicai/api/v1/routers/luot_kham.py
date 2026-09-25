@@ -215,6 +215,24 @@ async def record_vitals(
     )
 
 
+class BoQuaTuVanBody(BaseModel):
+    bo_qua: bool
+
+
+@router.post("/luot-kham/visits/{visit_id}/bo-qua-tu-van")
+async def doi_duong_tu_van(
+    visit_id: UUID,
+    body: BoQuaTuVanBody,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô tick "Bỏ qua bác sĩ tư vấn" (màn đo sinh hiệu) — áp ngay vào vị trí khách:
+    tick → hàng bác sĩ chính, bỏ tick → về hàng tư vấn (Tuyền 25/09/2026)."""
+    return await LuotKhamService(pool).doi_duong_tu_van(
+        visit_id=str(visit_id), bo_qua=body.bo_qua, identity=identity
+    )
+
+
 @router.post("/luot-kham/visits/{visit_id}/vitals/start")
 async def bat_dau_do_sinh_hieu(
     visit_id: UUID,
