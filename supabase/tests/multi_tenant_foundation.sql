@@ -137,7 +137,9 @@ DECLARE
     -- unique (clinic_id, visit_id, form_id)) — 20260924000008.
     -- 109 → 110 (24/09/2026 chiều): doi_tac_nhan_viec (PK (clinic_id,
     -- service_order_id), đối tác nhận việc qua sự kiện) — 20260925000009.
-    expected_tenant_tables constant integer := 110;
+    -- 110 → 111 (25/09/2026): phieu_kham_lich_su (lịch sử sửa phiếu khám, P4A —
+    --   clinic_id NOT NULL, RLS chỉ đọc trong phòng khám của mình).
+    expected_tenant_tables constant integer := 111;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

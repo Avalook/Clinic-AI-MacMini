@@ -333,7 +333,7 @@ class PhieuKhamService:
                 "  LEFT JOIN staff s ON s.id = h.sua_boi"
                 " WHERE h.clinic_id = $1::uuid AND h.visit_id = $2::uuid"
                 "   AND ($3::text IS NULL OR h.form_id = $3)"
-                " ORDER BY h.sua_luc DESC LIMIT 200",
+                " ORDER BY h.sua_luc DESC",
                 cid,
                 visit_id,
                 form_id,
