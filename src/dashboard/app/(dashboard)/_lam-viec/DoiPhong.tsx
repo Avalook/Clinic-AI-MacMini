@@ -36,6 +36,7 @@ export default function DoiPhong({
   routingRevision,
   choDoi,
   onDaDoi,
+  nguon = "khac",
 }: {
   orderId: string;
   /** Phòng đang xếp (nếu có). */
@@ -44,6 +45,9 @@ export default function DoiPhong({
   /** Máy chủ nói đổi phòng được không (đã chọn, chưa bắt đầu, không phải đối tác). */
   choDoi: boolean;
   onDaDoi?: () => void;
+  /** Màn gọi (P3, 25/09/2026): quầy thu · trưởng ca · khác. Trưởng ca đã xếp thì
+   *  nguồn khác không đổi được — máy chủ chặn, câu báo hiện ngay dưới ô. */
+  nguon?: "quay_thu" | "truong_ca" | "khac";
 }) {
   const [goiY, setGoiY] = useState<GoiY | null>(null);
   const [ten, setTen] = useState<Record<string, string>>({});
@@ -93,6 +97,7 @@ export default function DoiPhong({
       expected_routing_revision: routingRevision,
       reason_code: phongHienTaiId ? "LOAD_BALANCE" : "INITIAL_ASSIGNMENT",
       recommendation_ref: goiY?.recommendation_ref,
+      nguon,
     });
     setDangGui(false);
     if (!kq.ok) {
