@@ -27,6 +27,8 @@ hành, lịch sử thao tác, điều phối ca, CSKH, danh sách/thêm bệnh n
   `patients.py` sdt-them / sửa hồ sơ / ưu tiên, `work_items.py` `_WORK_ITEM_GUARD`,
   `doi_tac` backend (`get_partner_identity` PARTNER + MANAGEMENT), ~100 bộ vai trong
   service (bản đồ đầy đủ: báo cáo trợ lý dò 25/09 — tìm `require_role`, `_ROLES = {`).
+- Bàn khám: nút ghi (Bắt đầu khám, chỉ định, sửa phiếu) còn hỏi VAI `DOCTOR`/thư ký
+  (`BanKham.tsx` `laBacSi`, `choBam`) — Quản lý bật đủ lego vẫn chỉ xem (bấm thật 25/09).
 - Ngày có ca trực: thanh bên dựng theo VỊ TRÍ (`hrefTheoViTri`), chưa lọc theo lego.
 - `MO_QUYEN_TAM_THOI` còn bật: cửa TRANG (gõ URL) vẫn mở cho mọi vai nội bộ; thanh
   bên + lệnh backend đã theo lego.
