@@ -71,6 +71,19 @@ ASSIGN_REASONS = frozenset(
         "OTHER",
     }
 )
+
+# NGUỒN của lần xếp (Tuyền 25/09/2026, migration 20260925000016). Trưởng ca cao
+# nhất: lần xếp hiệu lực do trưởng ca làm thì nguồn khác không đổi được.
+NGUON_QUAY_THU = "quay_thu"
+NGUON_TRUONG_CA = "truong_ca"
+NGUON_TU_DONG = "tu_dong"
+NGUON_KHAC = "khac"
+NGUON_TU_NGUOI = frozenset({NGUON_QUAY_THU, NGUON_TRUONG_CA, NGUON_KHAC})
+#: Nguồn → quyền của lego gọi lệnh (ngoài quyền xếp phòng chung).
+QUYEN_THEO_NGUON = {
+    NGUON_QUAY_THU: "payment.service.collect",
+    NGUON_TRUONG_CA: "dispatch.manage",
+}
 INVALIDATE_REASONS = frozenset(
     {
         "ROOM_UNAVAILABLE",
@@ -306,7 +319,8 @@ async def da_tra_cho_vao_phong(
         f"""
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                o.routing_revision, o.room_id::text AS room_id, r.name AS phong,
-               coalesce(o.routing_status, 'UNASSIGNED') AS routing_status
+               coalesce(o.routing_status, 'UNASSIGNED') AS routing_status,
+               o.routing_nguon
           FROM service_order o
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           LEFT JOIN clinic_room r ON r.id = o.room_id AND r.clinic_id = o.clinic_id
@@ -326,6 +340,9 @@ async def da_tra_cho_vao_phong(
                 "room_id": r["room_id"] if r["routing_status"] == ASSIGNED else None,
                 "phong": r["phong"] if r["routing_status"] == ASSIGNED else None,
                 "routing_revision": int(r["routing_revision"]),
+                # Trưởng ca đã xếp → quầy thu không đổi được (màn khoá ô chọn).
+                "truong_ca_da_xep": r["routing_status"] == ASSIGNED
+                and r["routing_nguon"] == NGUON_TRUONG_CA,
             }
         )
     return out
@@ -439,7 +456,7 @@ _ORDER_SQL = """
 SELECT id::text AS id, visit_id::text AS visit_id, exec_status, source,
        authorized_by::text AS authorized_by, hold_until_round, node_code,
        selection_status, routing_status, routing_revision, execution_status,
-       room_id::text AS room_id
+       room_id::text AS room_id, routing_nguon
   FROM service_order
  WHERE clinic_id = $1::uuid AND id = $2::uuid
    FOR UPDATE
@@ -461,6 +478,26 @@ def _kiem_thuc_hien(o: asyncpg.Record) -> None:
         )
     if ex in _KET_THUC or cu in _KET_THUC_CU:
         raise _loi("SERVICE_EXECUTION_TERMINAL", "Dịch vụ đã kết thúc.")
+
+
+def _nguon(value: Any) -> str:
+    n = value if isinstance(value, str) and value else NGUON_KHAC
+    if n not in NGUON_TU_NGUOI:
+        raise LuotKhamValidationError("ROUTING_NGUON_INVALID", "Nguồn xếp phòng lạ.")
+    return n
+
+
+def _kiem_truong_ca(o: asyncpg.Record, nguon: str) -> None:
+    """Trưởng ca đã xếp (lần xếp HIỆU LỰC) thì chỉ trưởng ca đổi được."""
+    if (
+        _routing_hieu_luc(o) == ASSIGNED
+        and o["routing_nguon"] == NGUON_TRUONG_CA
+        and nguon != NGUON_TRUONG_CA
+    ):
+        raise _loi(
+            "ROUTING_TRUONG_CA_DA_XEP",
+            "Trưởng ca đã xếp phòng này — muốn đổi báo trưởng ca.",
+        )
 
 
 class ServiceRoutingService:
@@ -521,8 +558,14 @@ class ServiceRoutingService:
         identity: StaffIdentity,
         idempotency_key: str | None,
         recommendation_ref: str | None = None,
+        nguon: Any = None,
     ) -> dict[str, Any]:
-        """AssignServiceRoom — lệnh DUY NHẤT xếp / đổi phòng chính thức."""
+        """AssignServiceRoom — lệnh DUY NHẤT xếp / đổi phòng chính thức.
+
+        `nguon` = màn gọi lệnh (quầy thu / trưởng ca / khác): mỗi nguồn hỏi thêm
+        quyền của lego ấy; trưởng ca đã xếp thì nguồn khác không đổi được (P3).
+        """
+        ng = _nguon(nguon)
         key = _can_khoa(idempotency_key)
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         rid = _uuid(room_id, "Mã phòng không hợp lệ.")
@@ -539,6 +582,7 @@ class ServiceRoutingService:
             "expected_routing_revision": rev,
             "reason_code": ly_do,
             "recommendation_ref": ref,
+            "nguon": ng,
         }
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
@@ -546,6 +590,8 @@ class ServiceRoutingService:
             await doi_quyen(
                 conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
             )
+            if ng in QUYEN_THEO_NGUON:
+                await doi_quyen(conn, identity, QUYEN_THEO_NGUON[ng])
             vid = await luot_cua(conn, "service_order", cid, oid)
             await khoa_luot(conn, cid, vid)
             cached = await bien_nhan_doc(conn, identity, ACTION_ASSIGN, key, payload)
@@ -561,6 +607,7 @@ class ServiceRoutingService:
                 ly_do=ly_do,
                 ref=ref,
                 tu_dong=False,
+                nguon=ng,
             )
             await bien_nhan_ghi(
                 conn, identity, ACTION_ASSIGN, key, payload, oid, result
@@ -579,6 +626,7 @@ class ServiceRoutingService:
         ly_do: str,
         ref: str | None,
         tu_dong: bool,
+        nguon: str = NGUON_KHAC,
     ) -> dict[str, Any]:
         """Lõi AssignServiceRoom — người gọi đã kiểm quyền và khoá lượt.
 
@@ -659,6 +707,9 @@ class ServiceRoutingService:
                 q["status"] if q else None,
                 ref,
             )
+        # Kiểm SAU khoá dòng (FOR UPDATE ở _ORDER_SQL + khoá lượt) — hai người
+        # đổi cùng lúc thì người sau đọc đúng nguồn người trước vừa ghi.
+        _kiem_truong_ca(o, nguon)
         queue_status = await self._xep_hang(conn, cid, vid, oid, rid, q)
         moi = await conn.fetchval(
             """
@@ -666,6 +717,7 @@ class ServiceRoutingService:
                SET routing_status = 'ASSIGNED', room_id = $3::uuid,
                    routing_revision = routing_revision + 1,
                    assigned_by = $4::uuid, assigned_at = now(),
+                   routing_nguon = $5,
                    -- Hình chiếu cho reader cũ tới Slice 6; sự thật
                    -- routing là routing_status + routing_revision.
                    exec_status = 'assigned',
@@ -677,6 +729,7 @@ class ServiceRoutingService:
             oid,
             rid,
             identity.staff_id,
+            nguon,
         )
         await cap_nhat_vi_tri(conn, cid, vid)
         tu_phong = o["room_id"] if hien == ASSIGNED else None
@@ -697,6 +750,7 @@ class ServiceRoutingService:
                 routing_revision=int(moi),
                 ly_do=ly_do,
                 tu_dong=tu_dong,
+                nguon=nguon,
             ),
             boi=nguoi(identity),
             correlation_id=vid,
@@ -715,6 +769,7 @@ class ServiceRoutingService:
                 "routing_revision": int(moi),
                 "reason_code": ly_do,
                 "recommendation_ref": ref,
+                "nguon": nguon,
             },
         )
         return self._ket_qua(oid, True, ASSIGNED, rid, int(moi), queue_status, ref)
@@ -819,6 +874,7 @@ class ServiceRoutingService:
                         ly_do="INITIAL_ASSIGNMENT",
                         ref=f"{ADVISOR}:hanh-trinh:{causation_id}",
                         tu_dong=True,
+                        nguon=NGUON_TU_DONG,
                     )
             except LuotKhamConflictError:
                 continue
@@ -848,6 +904,8 @@ class ServiceRoutingService:
             await doi_quyen(
                 conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
             )
+            # Ô "Làm ở phòng" là của quầy thu (lego Thanh toán dịch vụ).
+            await doi_quyen(conn, identity, QUYEN_THEO_NGUON[NGUON_QUAY_THU])
             vid = await luot_cua(conn, "service_order", cid, oid)
             await khoa_luot(conn, cid, vid)
             o = await conn.fetchrow(_ORDER_SQL, cid, oid)
@@ -855,11 +913,35 @@ class ServiceRoutingService:
             if o["exec_status"] in ("draft", "cancelled"):
                 raise _loi("SERVICE_ROUTING_NOT_ALLOWED", "Chỉ định đã huỷ.")
             _kiem_thuc_hien(o)
-            if _routing_hieu_luc(o) == "ASSIGNED":
-                raise _loi(
-                    "ROUTING_ALREADY_ASSIGNED",
-                    "Chỉ định đã được xếp phòng — đổi phòng ở Điều phối.",
+            if _routing_hieu_luc(o) == ASSIGNED:
+                # Quầy thu đổi phòng LÚC NÀO CŨNG ĐƯỢC (Tuyền 25/09/2026) — đã xếp
+                # rồi thì đổi thẳng phòng thật (cùng lõi `_gan`, nguồn quầy thu),
+                # TRỪ khi trưởng ca đã xếp.
+                if rid is None:
+                    raise _loi(
+                        "ROUTING_ALREADY_ASSIGNED",
+                        "Đã xếp phòng — chọn phòng khác để đổi, không bỏ trống được.",
+                    )
+                kq = await self._gan(
+                    conn,
+                    identity,
+                    vid=vid,
+                    oid=oid,
+                    rid=rid,
+                    rev=int(o["routing_revision"]),
+                    ly_do="MANUAL_CORRECTION",
+                    ref=None,
+                    tu_dong=False,
+                    nguon=NGUON_QUAY_THU,
                 )
+                await conn.execute(
+                    "UPDATE service_order SET phong_du_kien_id = $3::uuid"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    cid,
+                    oid,
+                    rid,
+                )
+                return {**kq, "ok": True, "order_id": oid, "phong_du_kien_id": rid}
             if rid is not None:
                 await self._kiem_phong(
                     conn,

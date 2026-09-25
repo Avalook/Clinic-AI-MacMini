@@ -7,6 +7,9 @@
 // Danh sách = chỉ định đã trả, khách làm, chưa bắt đầu (máy chủ trả trong
 // `xep_phong` của bảng thu ngân). Chọn phòng dùng lại ĐÚNG khối `DoiPhong` của
 // Bàn khám / Xem lượt: phòng làm được + số người chờ, lệnh xếp phòng thường.
+//
+// P3 (Tuyền 25/09/2026): quầy thu đổi phòng LÚC NÀO CŨNG ĐƯỢC (nguồn `quay_thu`),
+// TRỪ khi trưởng ca đã xếp — khi ấy ô chọn khoá, ghi "Trưởng ca đã xếp".
 
 import DoiPhong from "../_lam-viec/DoiPhong";
 
@@ -16,6 +19,8 @@ export interface DaTraChoPhong {
   room_id: string | null;
   phong: string | null;
   routing_revision: number;
+  /** Trưởng ca đã xếp → quầy thu không đổi được (P3, 25/09/2026). */
+  truong_ca_da_xep?: boolean;
 }
 
 export default function XepPhongDaThu({
@@ -40,13 +45,20 @@ export default function XepPhongDaThu({
                 {" "}
                 · {c.phong ?? "chưa xếp phòng"}
               </span>
+              {c.truong_ca_da_xep ? (
+                <span className="text-meta text-ink-muted">
+                  {" "}
+                  · Trưởng ca đã xếp — muốn đổi báo trưởng ca
+                </span>
+              ) : null}
             </p>
             <DoiPhong
               orderId={c.id}
               phongHienTaiId={c.room_id}
               routingRevision={c.routing_revision}
-              choDoi
+              choDoi={!c.truong_ca_da_xep}
               onDaDoi={onDoi}
+              nguon="quay_thu"
             />
           </li>
         ))}

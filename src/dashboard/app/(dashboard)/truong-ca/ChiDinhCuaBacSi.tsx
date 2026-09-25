@@ -219,6 +219,7 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                     routingRevision={x.routing_revision}
                     choDoi={x.doi_phong_duoc}
                     onDaDoi={() => setLan((n) => n + 1)}
+                    nguon="truong_ca"
                   />
                 ) : null
               ) : !x.xong && !x.doi_tac && chuyenDuoc(x) && x.phong_lam_duoc.length > 1 && (

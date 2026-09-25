@@ -588,6 +588,8 @@ class AssignRoomBody(BaseModel):
     expected_routing_revision: Any
     reason_code: Any
     recommendation_ref: str | None = Field(default=None, max_length=300)
+    #: Màn gọi lệnh: quay_thu · truong_ca · khac (mặc định). Trưởng ca đè quầy thu.
+    nguon: str | None = Field(default=None, max_length=20)
 
 
 class InvalidateRoutingBody(BaseModel):
@@ -618,6 +620,7 @@ async def assign_service_room(
         recommendation_ref=body.recommendation_ref,
         identity=identity,
         idempotency_key=idempotency_key,
+        nguon=body.nguon,
     )
 
 

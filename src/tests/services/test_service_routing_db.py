@@ -371,6 +371,8 @@ async def test_2_da_thu_tien_xep_phong_thanh_cong(rb: RB) -> None:
         "routing_revision": 1,
         "reason_code": "INITIAL_ASSIGNMENT",
         "recommendation_ref": None,
+        # P3 (25/09/2026): nguồn của lần xếp — không truyền nguồn = "khac".
+        "nguon": "khac",
     }
 
 

@@ -599,6 +599,9 @@ class DaXepPhong(PayloadSuKien):
     routing_revision: int
     ly_do: str
     tu_dong: bool = False
+    #: Nguồn lần xếp (25/09/2026): quay_thu · truong_ca · tu_dong · khac — để
+    #: Lịch sử điều phối hiện "ai đổi, từ màn nào". Sự kiện cũ không có → None.
+    nguon: str | None = None
 
 
 class XepPhongDaHuy(PayloadSuKien):
