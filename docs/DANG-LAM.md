@@ -36,6 +36,18 @@ hành, lịch sử thao tác, điều phối ca, CSKH, danh sách/thêm bệnh n
   (trưởng ca). Đọc `/dispatch/*` vẫn mở; thao tác vốn chỉ trưởng ca/quản lý.
 - Chưa bấm trình duyệt (375/1280): cấp/thu lego cho tài khoản không phải quản lý, F5.
 
+**P2–P4 cùng ngày (đã lên prod):**
+- P3 `0c8679a` (#191): nguồn xếp phòng — quầy thu xếp lúc nào cũng được, trưởng ca đè
+  (`service_order.routing_nguon`, mig 16).
+- P2 `aab9dab` (#192): tick "Bắt buộc" khi chỉ định (`service_order.bat_buoc`, mig 17) —
+  quầy thu không bỏ được (`SERVICE_REQUIRED`), bỏ tick khi chưa thu.
+- P4 `3cf1fe0` (#193): lịch sử sửa phiếu khám (trigger → `phieu_kham_lich_su`, mig 18,
+  gộp cùng người 10 phút; nút [Lịch sử sửa]) · 2 mốc Hoàn tất / Check-out đã tách sẵn
+  (không code) · "Chỉ lưu hồ sơ — chưa đặt lịch" ở `NewPatientForm`.
+- NỢ chung: chưa bấm trình duyệt 375/1280 cho P2/P3/P4; chưa chạy `scripts/mo-phong`
+  sau đợt này. Lịch sử sửa chỉ phủ phiếu v5 (`phieu_kham_luot`), chưa phủ phiếu kết quả
+  (`form_instance`) — phiếu kết quả đã có cờ đang sửa + `result.corrected`.
+
 ## Quầy thu tiền thuốc chỉnh đơn bán (24/09 tối)
 
 - Cột `prescription.nguon` (BAC_SI | QUAY, migration **20260925000005**). Đơn bác sĩ
