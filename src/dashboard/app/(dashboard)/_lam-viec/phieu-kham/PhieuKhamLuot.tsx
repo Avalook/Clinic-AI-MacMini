@@ -29,6 +29,7 @@ import {
 } from "@/lib/phieu-kham";
 import { guiThaoTac } from "../api";
 import DanhMucChiDinh from "./DanhMucChiDinh";
+import LichSuSuaPhieu from "./LichSuSuaPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 
 interface PhieuLuot extends DinhNghiaPhieu {
@@ -368,8 +369,10 @@ export default function PhieuKhamLuot({
         chiMuc={chiMuc}
         dauPhieu={dau}
         nutIn={
-          // In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân
-          // đâu?"). Mở tab riêng, ngoài thanh bên → in sạch khổ A4.
+          <>
+          <LichSuSuaPhieu visitId={visitId} dinhNghia={phieu} />
+          {/* In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân
+              đâu?"). Mở tab riêng, ngoài thanh bên → in sạch khổ A4. */}
           <a
             href={`/print/phieu-kham/${visitId}`}
             target="_blank"
@@ -378,6 +381,7 @@ export default function PhieuKhamLuot({
           >
             In phiếu khám
           </a>
+          </>
         }
         ketQuaChiDinh={ketQua}
         onLuu={onLuu}

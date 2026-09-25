@@ -309,6 +309,63 @@ class PhieuKhamService:
         return {"ok": True, "revision": int(moi), "canh_bao": canh_bao}
 
     # ------------------------------------------------------------------
+    async def lich_su(
+        self, *, visit_id: str, form_id: str | None, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Lịch sử sửa phiếu của lượt (P4A, 25/09/2026) — mới nhất trước.
+
+        Trigger `ghi_lich_su_phieu_kham` ghi; ở đây chỉ đọc. Mỗi dòng: ai, từ lúc
+        nào tới lúc nào, các ô đổi (giá trị trước → sau), và có phải sửa SAU khi
+        bác sĩ đã Hoàn tất khám không.
+        """
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_phieu")
+            dong = await conn.fetch(
+                "SELECT h.id::text AS id, h.form_id, h.bat_dau, h.sua_luc,"
+                "       h.tu_revision, h.den_revision, h.truoc, h.sau,"
+                "       s.full_name AS sua_boi_ten,"
+                "       (v.exam_completed_at IS NOT NULL"
+                "        AND h.sua_luc > v.exam_completed_at) AS sau_hoan_tat"
+                "  FROM phieu_kham_lich_su h"
+                "  JOIN visit v ON v.clinic_id = h.clinic_id"
+                "   AND v.visit_id = h.visit_id"
+                "  LEFT JOIN staff s ON s.id = h.sua_boi"
+                " WHERE h.clinic_id = $1::uuid AND h.visit_id = $2::uuid"
+                "   AND ($3::text IS NULL OR h.form_id = $3)"
+                " ORDER BY h.sua_luc DESC LIMIT 200",
+                cid,
+                visit_id,
+                form_id,
+            )
+
+        def gia(o: Any) -> Any:
+            return o.get("gia_tri") if isinstance(o, dict) else o
+
+        def goi(o: Any) -> dict[str, Any]:
+            return json.loads(o) if isinstance(o, str) else dict(o)
+
+        ra: list[dict[str, Any]] = []
+        for r in dong:
+            truoc, sau = goi(r["truoc"]), goi(r["sau"])
+            ra.append(
+                {
+                    "id": r["id"],
+                    "form_id": r["form_id"],
+                    "sua_boi": r["sua_boi_ten"],
+                    "bat_dau": r["bat_dau"].isoformat(),
+                    "sua_luc": r["sua_luc"].isoformat(),
+                    "tao_moi": int(r["tu_revision"]) == 0,
+                    "sau_hoan_tat": bool(r["sau_hoan_tat"]),
+                    "thay_doi": [
+                        {"ma": k, "truoc": gia(truoc.get(k)), "sau": gia(sau.get(k))}
+                        for k in sorted(sau)
+                    ],
+                }
+            )
+        return ra
+
+    # ------------------------------------------------------------------
     async def tham_chieu_that(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Danh mục C / F / thuốc của nguồn, GẮN mã thật của phòng khám này.
 
