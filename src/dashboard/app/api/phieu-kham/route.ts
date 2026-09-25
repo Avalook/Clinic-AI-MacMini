@@ -7,6 +7,7 @@
 //   GET /api/phieu-kham?visit_id=…               → kết quả CLS theo từng chỉ định
 //   GET /api/phieu-kham?visit_id=…&xem=phieu[&form_id=NT] → phiếu của lượt
 //   GET /api/phieu-kham?visit_id=…&xem=don-thuoc → đơn thuốc của lượt
+//   GET /api/phieu-kham?visit_id=…&xem=lich-su[&chon=NT] → lịch sử sửa phiếu (P4A)
 //   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, du_lieu, expected_revision}
 //   PUT /api/phieu-kham {thao_tac: "luu-don", visit_id, dong, ly_do?}
 //
@@ -54,6 +55,12 @@ export async function GET(request: Request) {
       if (f !== null && !FORM_RE.test(f)) return sai("Mã phiếu không hợp lệ.");
       const hoi = f ? `?form_id=${f}` : "";
       return proxyJsonToBackend("GET", `/api/v1/phieu-kham/luot/${visitId}/phieu` + hoi, undefined);
+    }
+    if (xem === "lich-su") {
+      const f = q.get("chon");
+      if (f !== null && !FORM_RE.test(f)) return sai("Mã phiếu không hợp lệ.");
+      const hoi = f ? `?form_id=${f}` : "";
+      return proxyJsonToBackend("GET", `/api/v1/phieu-kham/luot/${visitId}/lich-su` + hoi, undefined);
     }
     const duoi =
       xem === "dau-phieu" ? "dau-phieu" : xem === "don-thuoc" ? "don-thuoc" : "ket-qua-chi-dinh";

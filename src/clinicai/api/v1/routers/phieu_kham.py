@@ -20,7 +20,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
@@ -158,6 +158,22 @@ async def luu_phieu_cua_luot(
         expected_revision=body.expected_revision,
         identity=identity,
     )
+
+
+@router.get("/phieu-kham/luot/{visit_id}/lich-su")
+async def lich_su_phieu(
+    visit_id: UUID,
+    form_id: str | None = Query(default=None, pattern=r"^[A-Z][A-Z_]{1,31}$"),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+) -> dict[str, Any]:
+    """Lịch sử sửa phiếu (P4A): ai · lúc nào · ô nào · trước → sau."""
+    return {
+        "lich_su": await PhieuKhamService(pool, kiem_quyen=kiem_quyen).lich_su(
+            visit_id=str(visit_id), form_id=form_id, identity=identity
+        )
+    }
 
 
 @router.get("/phieu-kham/luot/{visit_id}/don-thuoc")

@@ -172,8 +172,10 @@ BEGIN
     -- 80 → 81 (23/09/2026 tối): phieu_kham_luot (20260924000008).
     -- 81 → 82 (24/09/2026 chiều): doi_tac_nhan_viec (20260925000009, đối tác
     -- nhận việc qua sự kiện).
-    IF scoped_count <> 82 THEN
-        RAISE EXCEPTION 'expected 82 tenant-scoped read policies, found %', scoped_count;
+    -- 82 → 83 (25/09/2026): phieu_kham_lich_su (20260925000018, lịch sử sửa
+    -- phiếu khám — P4A).
+    IF scoped_count <> 83 THEN
+        RAISE EXCEPTION 'expected 83 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
