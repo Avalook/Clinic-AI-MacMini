@@ -823,7 +823,12 @@ async def _ma_kho(
     co = await conn.fetchval(
         "SELECT id::text FROM public.drug_catalog WHERE clinic_id = $1::uuid"
         " AND is_active"
-        " AND (lower(name_raw) = lower($2) OR lower(name_base) = lower($2))"
+        # Bỏ qua hoa/thường và MỌI dấu cách — "Dunium/Fetogard" trên phiếu
+        # phải khớp "Dunium/ Fetogard" của kho, không đẻ thêm dòng (25/09).
+        " AND (regexp_replace(lower(name_raw), '\\s', '', 'g')"
+        "      = regexp_replace(lower($2), '\\s', '', 'g')"
+        "   OR regexp_replace(lower(name_base), '\\s', '', 'g')"
+        "      = regexp_replace(lower($2), '\\s', '', 'g'))"
         " ORDER BY created_at, id LIMIT 1",
         clinic_id,
         ten,

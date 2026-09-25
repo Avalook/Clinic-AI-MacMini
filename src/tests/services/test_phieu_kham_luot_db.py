@@ -168,7 +168,10 @@ async def test_danh_muc_c_f_gan_ma_that_va_gia(
                 " AND active)",
                 m["service_code"],
             )
-    assert len(tc["thu_thuat"]) == 15 and len(tc["mau_thuoc"]) == 73
+    assert len(tc["thu_thuat"]) == 15
+    # 73 thuốc của phiếu + mặt hàng kho không có trên phiếu (mã "kho:…", 25/09).
+    phieu = [m for m in tc["mau_thuoc"] if not str(m["ma"]).startswith("kho:")]
+    assert len(phieu) == 73
 
 
 async def test_don_thuoc_muc_e_ghi_va_sua_khong_tao_trung(

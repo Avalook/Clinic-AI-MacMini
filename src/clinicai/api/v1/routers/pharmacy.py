@@ -95,6 +95,56 @@ async def cho_tu_van(
     }
 
 
+@router.get("/pharmacy/danh-muc")
+async def danh_muc_thuoc(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh mục thuốc kho (kể cả thuốc đang tắt) + tổng tồn — màn Kho thuốc."""
+    return {
+        "items": jsonable_encoder(
+            await PharmacyService(pool).danh_muc(identity=identity)
+        )
+    }
+
+
+class ThuocRequest(BaseModel):
+    # Không có mã = thêm thuốc mới.
+    drug_catalog_id: UUID | None = None
+    ten: str = Field(min_length=1, max_length=300)
+    # Any: luật đọc số nằm ở service và trả câu tiếng Việt.
+    gia: Any = None
+    ma_hang: str | None = Field(default=None, max_length=100)
+    don_vi_ban: str | None = Field(default=None, max_length=50)
+    duong_dung: str | None = Field(default=None, max_length=100)
+    cach_dung: str | None = Field(default=None, max_length=4000)
+    luu_y: str | None = Field(default=None, max_length=4000)
+    biet_duoc: str | None = Field(default=None, max_length=300)
+    dang_dung: bool = True
+
+
+@router.post("/pharmacy/danh-muc")
+async def luu_thuoc(
+    body: ThuocRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm / sửa một thuốc: tên, giá bán, đơn vị, hướng dẫn sử dụng, bật/tắt."""
+    return await PharmacyService(pool).luu_thuoc(
+        identity=identity,
+        drug_catalog_id=str(body.drug_catalog_id) if body.drug_catalog_id else None,
+        ten=body.ten,
+        gia=body.gia,
+        ma_hang=body.ma_hang,
+        don_vi_ban=body.don_vi_ban,
+        duong_dung=body.duong_dung,
+        cach_dung=body.cach_dung,
+        luu_y=body.luu_y,
+        biet_duoc=body.biet_duoc,
+        dang_dung=body.dang_dung,
+    )
+
+
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
     so_luong: float = Field(gt=0)
