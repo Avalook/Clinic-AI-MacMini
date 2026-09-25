@@ -11,8 +11,8 @@
 #   2. dừng các container đang GHI (api, worker, su-kien, pos-relay,
 #      notification-relay) — dashboard vẫn chạy, chỉ báo lỗi tạm vài giây
 #   3. chạy scripts/don-prod-truoc-ban-giao.sql trong MỘT giao dịch
-#   4. chuyển tệp kết quả / ảnh siêu âm của khách sang thư mục sao lưu
-#      (chuyển, không xoá — lỡ tay thì chép lại được)
+#   4. chuyển tệp kết quả / ảnh siêu âm của khách sang thư mục cách ly nằm
+#      cạnh kho media, cùng ổ (chuyển, không xoá — lỡ tay thì chuyển về được)
 #   5. bật lại đúng các container đã dừng
 # Bước 3 hỏng thì cả giao dịch cuộn lại và bước 5 vẫn chạy (trap).
 
@@ -79,15 +79,26 @@ echo "   đã dừng: $DUNG"
 echo "== 3/5 Xoá dữ liệu khách (một giao dịch) =="
 chay_sql 1
 
-echo "== 4/5 Chuyển tệp kết quả / siêu âm sang sao lưu =="
-ssh "$HOST" "cd $DIR && M=\$(grep -E '^MEDIA_DIR=' .env.prod | cut -d= -f2-); M=\${M:-./.media}; \
-  M=\$(cd \"\$M\" 2>/dev/null && pwd)/production; \
-  [ -d \"\$M\" ] || { echo '   không có thư mục media — bỏ qua'; exit 0; }; \
-  docker run --rm --entrypoint sh -v \"\$M\":/m -v $BK:/b postgres:17 -c ' \
-    set -e; D=/b/media-truoc-ban-giao-$TS; n=0; \
-    for d in /m/*/ket-qua /m/*/ultrasound; do \
-      [ -d \"\$d\" ] || continue; \
-      dich=\"\$D/\${d#/m/}\"; mkdir -p \"\$(dirname \"\$dich\")\"; mv \"\$d\" \"\$dich\"; n=\$((n+1)); \
-    done; echo \"   đã chuyển \$n thư mục sang \$D\"'"
+echo "== 4/5 Chuyển tệp kết quả / siêu âm sang thư mục cách ly (cùng ổ) =="
+# Kho media ở prod nằm trên ổ Viettel (MEDIA_DIR=/mnt/viettel-cfs/...). Chuyển
+# trong CÙNG ổ = đổi tên, tức thì; chép về ổ VPS là kéo vài GB qua mạng.
+ssh "$HOST" bash -s -- "$DIR" "$TS" <<'TU_XA'
+set -euo pipefail
+cd "$1"
+M="$(grep -E '^MEDIA_DIR=' .env.prod | cut -d= -f2- || true)"
+M="${M:-./.media}"
+M="$(cd "$M" 2>/dev/null && pwd || true)"
+[ -n "$M" ] && [ -d "$M/production" ] || { echo "   không có thư mục media — bỏ qua"; exit 0; }
+D="$(dirname "$M")/$(basename "$M")-truoc-ban-giao-$2"
+n=0
+for d in "$M"/production/*/ket-qua "$M"/production/*/ultrasound; do
+  [ -d "$d" ] || continue
+  dich="$D/${d#"$M"/}"
+  mkdir -p "$(dirname "$dich")"
+  mv "$d" "$dich"
+  n=$((n + 1))
+done
+echo "   đã chuyển $n thư mục sang $D"
+TU_XA
 
 echo "Xong phần xoá. Mở https://dr4women.io.vn kiểm lại: danh sách bệnh nhân, lịch hẹn, hàng đợi phải trống."
