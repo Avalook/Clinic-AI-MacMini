@@ -26,6 +26,10 @@ def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
     monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    # 21 lego (25/09): đổi bác sĩ / cấu hình / lịch trực hỏi quyền ở service.
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
 
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"

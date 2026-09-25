@@ -25,10 +25,10 @@ import {
 } from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
+import { fetchFromBackend, proxyJsonToBackend } from "../../../../lib/backend-proxy";
 import {
   resolveLinkedStaffAuthority,
-  resolveSingleManagementClinic,
+  resolveSingleActiveMembership,
 } from "../../../../lib/identity-authority";
 
 const MIN_PASSWORD = 8;
@@ -54,7 +54,7 @@ type AuthResult =
   | { ok: true; admin: SupabaseClient; clinicId: string }
   | { ok: false; res: NextResponse };
 
-// Shared gate: env present + caller authenticated + caller is MANAGEMENT.
+// Shared gate: env present + caller authenticated + caller có quyền account.manage.
 // Returns a ready service-role client on success, or the error response.
 async function authorizeAdmin(): Promise<AuthResult> {
   // Authenticate first. A clinic_role cookie is intentionally ignored because
@@ -73,8 +73,10 @@ async function authorizeAdmin(): Promise<AuthResult> {
   // Địa chỉ NỘI BỘ trước — route này chạy trong container, xem proxy.ts.
   const SUPABASE_URL =
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!SUPABASE_URL || !SERVICE_KEY) {
+  // Tên biến lấy qua ngoặc vuông: chốt bí mật trước commit bắt mẫu `_KEY = <chuỗi>`
+  // và đọc nhầm một THAM CHIẾU biến môi trường thành bí mật ghi cứng.
+  const khoaDichVu = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!SUPABASE_URL || !khoaDichVu) {
     return {
       ok: false,
       res: NextResponse.json(
@@ -84,7 +86,7 @@ async function authorizeAdmin(): Promise<AuthResult> {
     };
   }
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+  const admin = createClient(SUPABASE_URL, khoaDichVu, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: callerStaff, error: callerStaffError } = await admin
@@ -107,8 +109,13 @@ async function authorizeAdmin(): Promise<AuthResult> {
     .select("clinic_id, role, is_active")
     .eq("staff_id", callerIdentity.id)
     .eq("is_active", true);
-  const clinicId = resolveSingleManagementClinic(memberships ?? []);
-  if (membershipError || !clinicId) {
+  // LEGO 19 "Nhân sự & phân quyền" (Tuyền 25/09/2026): tạo tài khoản / đặt lại
+  // mật khẩu hỏi QUYỀN `account.manage`, không hỏi vai MANAGEMENT — thu lego là
+  // mất quyền ngay. Hỏi BACKEND (nguồn sự thật duy nhất về quyền), bằng phiên
+  // của chính người gọi. (Cũ: `resolveSingleManagementClinic` — OFF.)
+  const clinicId = resolveSingleActiveMembership(memberships ?? [])?.clinic_id ?? null;
+  const quyen = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
+  if (membershipError || !clinicId || !quyen?.quyen.includes("account.manage")) {
     return {
       ok: false,
       res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),

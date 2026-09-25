@@ -27,7 +27,7 @@ export default function BottomNav({
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
   phong = {},
-  quyen = [],
+  quyen = null,
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
@@ -35,7 +35,7 @@ export default function BottomNav({
   viTriHomNay?: readonly string[];
   phong?: PhongTheoViTri;
   /** Cùng luật với thanh bên — hai thanh lệch nhau là người dùng mất màn. */
-  quyen?: readonly string[];
+  quyen?: readonly string[] | null;
 }) {
   const pathname = usePathname();
   // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.

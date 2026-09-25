@@ -17,6 +17,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.patient import (
     PatientCreateDTO,
     PatientDTO,
@@ -36,6 +37,9 @@ _INTAKE_GUARD = require_role_co_the_mo(
     ClinicRole.MANAGEMENT,
     ClinicRole.TRUONG_CA,
 )
+# Lego 11 "Thêm bệnh nhân" (25/09/2026): tạo hồ sơ hỏi QUYỀN. Cửa phụ (thêm số
+# điện thoại, ưu tiên) còn theo vai — NỢ chuyển dần.
+_TAO_BENH_NHAN_GUARD = cua_quyen("patient.create", "booking.create", "crm.manage")
 _PATIENT_EDIT_GUARD = require_role_co_the_mo(
     ClinicRole.CSKH,
     ClinicRole.RECEPTION,
@@ -54,7 +58,7 @@ _PATIENT_EDIT_GUARD = require_role_co_the_mo(
 )
 async def create_patient(
     data: PatientCreateDTO,
-    identity: StaffIdentity = Depends(_INTAKE_GUARD),
+    identity: StaffIdentity = Depends(_TAO_BENH_NHAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> PatientDTO | JSONResponse:
     """Register a patient with MPI dedup. Three outcomes:
@@ -272,19 +276,9 @@ async def get_patient_by_id(
 # làm việc còn lại, và trưởng ca thì đã được tạo lẫn sửa hồ sơ bệnh nhân qua hai
 # cửa ngay phía trên. Hệ quả đo được 16/09/2026: bấm "Quản lý khách hàng" từ màn
 # Toàn cảnh điều phối thì màn báo "Không đọc được dữ liệu chăm sóc".
-_DANH_SACH_GUARD = require_role_co_the_mo(
-    ClinicRole.RECEPTION,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.CSKH,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-    ClinicRole.TKYK,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-)
+# Lego 13 "Danh sách bệnh nhân" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.
+# Migration 20260925000015 cấp lego này cho đúng 11 vai trước đây vào được.
+_DANH_SACH_GUARD = cua_quyen("patient.list.view")
 
 
 @router.get("/patients/danh-sach")

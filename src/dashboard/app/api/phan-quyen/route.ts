@@ -2,6 +2,7 @@
 //
 //   GET  /api/phan-quyen                     → danh mục khối + quyền + preset
 //   GET  /api/phan-quyen?staff=<uuid>        → người này đang có khối nào
+//   GET  /api/phan-quyen?lego=<uuid>         → 21 lego của người này (25/09)
 //   GET  /api/phan-quyen?nhom=1              → nhóm quyền mẫu của phòng khám
 //   POST /api/phan-quyen                     → { thao_tac, staff_id, ... }
 //
@@ -24,6 +25,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   cap: (id) => `/api/v1/phan-quyen/nhan-su/${id}/cap`,
   thu: (id) => `/api/v1/phan-quyen/nhan-su/${id}/thu`,
   "them-preset": (id) => `/api/v1/phan-quyen/nhan-su/${id}/them-preset`,
+  // 21 lego theo node thanh bên (25/09/2026): bật / tắt một lego.
+  "doi-lego": (id) => `/api/v1/phan-quyen/nhan-su/${id}/lego`,
 };
 
 export async function GET(request: Request) {
@@ -34,6 +37,17 @@ export async function GET(request: Request) {
   // Quyền THEO MÀN (Tuyền chốt 23/09): nhóm mẫu nào đang bật màn nào.
   if (q.get("man") !== null) {
     return proxyJsonToBackend("GET", "/api/v1/phan-quyen/man", undefined);
+  }
+  // Lego của một người (25/09/2026).
+  const lego = q.get("lego");
+  if (lego !== null) {
+    if (!UUID_RE.test(lego)) {
+      return NextResponse.json(
+        { error: "BAD_REQUEST", message: "Mã nhân sự không hợp lệ." },
+        { status: 400 },
+      );
+    }
+    return proxyJsonToBackend("GET", `/api/v1/phan-quyen/nhan-su/${lego}/lego`, undefined);
   }
   const staff = q.get("staff");
   if (staff === null) {

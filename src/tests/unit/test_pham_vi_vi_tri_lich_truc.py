@@ -27,6 +27,16 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.config_service import RosterService
 
+
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21 lego (25/09/2026): service hỏi QUYỀN qua DB — pool giả trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). Cửa thật: test_lego_21_db.py."""
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
+
+
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
 

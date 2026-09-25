@@ -77,9 +77,11 @@ export async function vaiLamViec(
  *  khám mất thanh bên.
  *
  *  `cache()` theo lượt dựng trang: một lần mở /home hỏi đúng một lần. */
-export const getQuyenCuaToi = cache(async (): Promise<string[]> => {
+/** Quyền của người đang đăng nhập. `null` = máy chủ không trả lời (khác với
+ *  `[]` = biết chắc không có quyền nào) — thanh bên dựng theo lego cần phân biệt. */
+export const getQuyenCuaToi = cache(async (): Promise<string[] | null> => {
   const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
-  return d?.quyen ?? [];
+  return d?.quyen ?? null;
 });
 
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
@@ -93,7 +95,7 @@ export async function requireNavAccess(href: string): Promise<void> {
   // CỬA THỨ HAI: quản lý cấp khối Siêu âm cho lễ tân thì lễ tân vào được màn
   // siêu âm, dù NAV_ROLES không có vai ấy. Mở thêm, không thay — ai vào được
   // theo vai thì đã về ở dòng trên.
-  if (quyenMoDuocMan(await getQuyenCuaToi(), href)) return;
+  if (quyenMoDuocMan((await getQuyenCuaToi()) ?? [], href)) return;
   if (vai.length === 0 && canSeeNav(null, href)) return;
   redirect("/home");
 }

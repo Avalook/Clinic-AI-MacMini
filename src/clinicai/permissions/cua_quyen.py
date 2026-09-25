@@ -42,6 +42,8 @@ def cua_quyen(
         ten = " hoặc ".join(f"“{tra_quyen(q).ten}”" for q in quyen)
         raise SafetyGateError(cau or f"Bạn chưa được cấp quyền {ten}.")
 
+    # Để bài kiểm đọc được cửa này gác bằng quyền nào (không phải để chạy).
+    _cua.quyen = tuple(quyen)  # type: ignore[attr-defined]
     return _cua
 
 

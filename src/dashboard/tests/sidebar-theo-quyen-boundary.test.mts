@@ -21,23 +21,49 @@ test("quyền mở được màn mà vai không có", () => {
   assert.equal(hienTrenThanhBen("RECEPTION", phong, ["service.execute.start"]), true);
 });
 
-test("mở THÊM chứ không thay — không ai mất lối vào cũ", () => {
-  // Bác sĩ vẫn thấy bàn khám kể cả khi danh sách quyền rỗng (backend im).
-  assert.equal(hienTrenThanhBen("DOCTOR", "/ban-kham", []), true);
+test("21 lego (25/09): biết quyền thì thanh bên đi CHẶT theo lego", () => {
+  // Tuyền 25/09/2026: quyền theo TÀI KHOẢN — thu lego là mất mục, dù vai có.
+  assert.equal(hienTrenThanhBen("DOCTOR", "/ban-kham", []), false);
+  assert.equal(
+    hienTrenThanhBen("DOCTOR", "/ban-kham", ["clinical.consult.perform"]),
+    true,
+  );
+  // Cấp lego ngoài vai: lễ tân được bật Báo cáo thì thấy Báo cáo.
+  assert.equal(hienTrenThanhBen("RECEPTION", "/reports", ["report.view"]), true);
+  assert.equal(hienTrenThanhBen("RECEPTION", "/reports", []), false);
+  // Màn luôn bật (không thuộc lego) vẫn theo luật cũ.
+  assert.equal(hienTrenThanhBen("RECEPTION", "/home", []), true);
+});
+
+test("backend im (null) thì rơi về luật vai — không để thanh bên trống trơn", () => {
+  assert.equal(hienTrenThanhBen("DOCTOR", "/ban-kham", null), true);
+});
+
+test("Chờ xếp bác sĩ + Bảng giá thuốc tắt khỏi thanh bên cho mọi người", () => {
+  for (const href of ["/appointments/cho-xep-bac-si", "/cashier/thuoc"]) {
+    assert.equal(hienTrenThanhBen("MANAGEMENT", href, null), false);
+  }
+});
+
+test("Thu tiền thuốc mở bằng quyền THU TIỀN THUỐC (sửa gắn nhầm 25/09)", () => {
+  assert.equal(quyenMoDuocMan(["payment.medicine.collect"], "/thu-ngan/thuoc"), true);
+  assert.equal(quyenMoDuocMan(["payment.service.collect"], "/thu-ngan/thuoc"), false);
 });
 
 test("màn không khai quyền thì quyền không mở bừa", () => {
-  // Không có quyền nào trỏ tới /settings → giữ nguyên luật vai.
+  // Quyền của lego khác không mở /settings; /home không thuộc lego nào.
   assert.equal(quyenMoDuocMan(["permission.manage"], "/settings"), false);
   assert.equal(quyenMoDuocMan([], "/phan-quyen"), false);
+  assert.equal(quyenMoDuocMan(["permission.manage"], "/home"), false);
 });
 
 test("cửa trang cũng mở theo quyền, không chỉ thanh bên", () => {
   // Ẩn mục trong menu mà gõ thẳng URL vẫn bị đá về /home thì quyền vô dụng.
   const guard = doc("../lib/clinic-session.ts");
-  assert.match(guard, /quyenMoDuocMan\(await getQuyenCuaToi\(\), href\)/);
-  // Backend im thì rơi về luật vai, không khoá cả phòng khám.
-  assert.match(guard, /return d\?\.quyen \?\? \[\]/);
+  assert.match(guard, /quyenMoDuocMan\(\(await getQuyenCuaToi\(\)\) \?\? \[\], href\)/);
+  // Backend im → null (khác [] = biết chắc không có quyền) → thanh bên rơi về
+  // luật vai, không khoá cả phòng khám.
+  assert.match(guard, /return d\?\.quyen \?\? null/);
 });
 
 test("thanh bên và thanh dưới dùng chung một luật", () => {

@@ -9,10 +9,8 @@ from pydantic import BaseModel
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.api.nghi_huu import bao_da_nghi
 from clinicai.core.database import get_db_pool
@@ -22,6 +20,7 @@ from clinicai.core.exceptions import (
 from clinicai.core.exceptions import (
     ValidationError as CoreValidationError,
 )
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.staff import (
     StaffCreateDTO as StaffCreate,
 )
@@ -37,7 +36,10 @@ from clinicai.services.staff_service import (
 )
 
 router = APIRouter()
-_STAFF_MANAGEMENT_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Lego 19 "Nhân sự & phân quyền" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai —
+# thu lego là mất quyền thêm nhân sự / tạo tài khoản / đặt lại mật khẩu ngay.
+_STAFF_MANAGEMENT_GUARD = cua_quyen("staff.manage")
+_TAI_KHOAN_GUARD = cua_quyen("account.manage")
 
 
 @router.post(
@@ -86,7 +88,7 @@ async def bac_si_dat_duoc(
 
 @router.get("/staff/tai-khoan")
 async def danh_sach_tai_khoan(
-    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
+    identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> list[dict[str, object]]:
     """Nhân sự + đã nối tài khoản đăng nhập chưa — màn Thiết lập tài khoản /
@@ -199,7 +201,7 @@ class NhatKyTaiKhoanRequest(BaseModel):
 async def ghi_nhat_ky_tai_khoan(
     id: UUID,
     body: NhatKyTaiKhoanRequest,
-    identity: StaffIdentity = Depends(_STAFF_MANAGEMENT_GUARD),
+    identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Ghi nhật ký thao tác TÀI KHOẢN ĐĂNG NHẬP của nhân sự (15/09/2026).

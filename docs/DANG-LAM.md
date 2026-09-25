@@ -13,6 +13,29 @@ lịch sử hội thoại.
 
 ---
 
+## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)
+
+Xong: danh mục 21 lego (`MAN`, `permissions/catalogue.py`) + 13 khối / 14 quyền mới
+(migration 20260925000015, bổ sung theo ĐÚNG tập vai hôm nay → không ai mất việc);
+màn `/phan-quyen` 21 công tắc + chọn phòng cho Phòng dịch vụ; thanh bên chặt theo
+lego (`NAV_QUYEN` phủ 21 lego, sửa `/thu-ngan/thuoc` gắn nhầm quyền); cửa quản trị
+(nhân sự, tài khoản `/api/admin/users`, cài đặt, lịch trực, bảng giá, báo cáo, vận
+hành, lịch sử thao tác, điều phối ca, CSKH, danh sách/thêm bệnh nhân) hỏi QUYỀN.
+
+**NỢ (chưa làm, cố ý để lượt sau):**
+- Cửa phụ còn theo vai: `cskh.py` `_INTAKE_GUARD` (tương tác CSKH dùng chung Đặt lịch),
+  `patients.py` sdt-them / sửa hồ sơ / ưu tiên, `work_items.py` `_WORK_ITEM_GUARD`,
+  `doi_tac` backend (`get_partner_identity` PARTNER + MANAGEMENT), ~100 bộ vai trong
+  service (bản đồ đầy đủ: báo cáo trợ lý dò 25/09 — tìm `require_role`, `_ROLES = {`).
+- Ngày có ca trực: thanh bên dựng theo VỊ TRÍ (`hrefTheoViTri`), chưa lọc theo lego.
+- `MO_QUYEN_TAM_THOI` còn bật: cửa TRANG (gõ URL) vẫn mở cho mọi vai nội bộ; thanh
+  bên + lệnh backend đã theo lego.
+- `catalogue.form_template.edit`: không lệnh nào kiểm (chưa dựng tính năng).
+- Người có khối Điều phối (lễ tân, điều dưỡng, thu ngân…) trước XEM được `/truong-ca`
+  trên thanh bên (qua quyền xem điều phối); nay màn này thuộc lego Điều phối khách
+  (trưởng ca). Đọc `/dispatch/*` vẫn mở; thao tác vốn chỉ trưởng ca/quản lý.
+- Chưa bấm trình duyệt (375/1280): cấp/thu lego cho tài khoản không phải quản lý, F5.
+
 ## Quầy thu tiền thuốc chỉnh đơn bán (24/09 tối)
 
 - Cột `prescription.nguon` (BAC_SI | QUAY, migration **20260925000005**). Đơn bác sĩ

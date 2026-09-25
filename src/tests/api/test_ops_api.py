@@ -33,6 +33,10 @@ class _Pool:
 @pytest.fixture(autouse=True)
 def overrides(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     monkeypatch.setenv("OPS_STATUS_FILE", str(tmp_path / "missing.json"))
+    # Lego 20 (25/09/2026): cửa hỏi QUYỀN ops.view — pool giả trả lời theo nhóm mẫu.
+    from tests.quyen_gia import cua_router_theo_nhom_mau
+
+    cua_router_theo_nhom_mau(monkeypatch)
     app.dependency_overrides[get_db_pool] = lambda: _Pool()
     yield
     app.dependency_overrides.clear()

@@ -1,13 +1,14 @@
 "use client";
 
-// Danh sách người bên trái, khối công việc bên phải.
-//
-// BẬT CẢ KHỐI, không tick từng quyền (Tuyền #133). Quyền con vẫn nằm dưới
-// "▾ Chi tiết" để ai cần biết thì xem, nhưng không bắt quản lý phải hiểu.
+// Danh sách người bên trái, 21 LEGO bên phải (Tuyền 25/09/2026): lego = node
+// thanh bên, một công tắc mỗi dòng — quyền theo TÀI KHOẢN, vai chỉ là gói mẫu.
+// (Cũ: bật từng khối kỹ thuật bằng nút "Đang bật — tắt" — thay bằng lego.)
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { ROLE_LABEL, isClinicRole } from "@/lib/roles";
+import LegoCuaNguoi from "./LegoCuaNguoi";
 import NhomQuyenMau from "./NhomQuyenMau";
 import QuyenTheoMan from "./QuyenTheoMan";
 
@@ -36,17 +37,6 @@ interface DanhMuc {
   preset: Record<string, string[]>;
 }
 
-interface QuyenCuaNguoi {
-  khoi: { ma: string; ten: string; quyen: { quyen: string; ten: string }[] }[];
-}
-
-const MUC_RUI_RO: Record<string, string> = {
-  operational: "vận hành",
-  financial: "đụng tiền",
-  clinical: "lâm sàng",
-  admin: "quản trị",
-};
-
 export default function BangPhanQuyen({
   nhanSu,
   chonTruoc,
@@ -58,8 +48,6 @@ export default function BangPhanQuyen({
   const [chon, setChon] = useState<Nguoi | null>(
     nhanSu.find((n) => n.id === chonTruoc) ?? nhanSu[0] ?? null,
   );
-  const [dangCo, setDangCo] = useState<Set<string>>(new Set());
-  const [bung, setBung] = useState<Set<string>>(new Set());
   const [dangLam, setDangLam] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [tim, setTim] = useState("");
@@ -82,65 +70,8 @@ export default function BangPhanQuyen({
     };
   }, []);
 
-  const doc = useCallback(async (id: string): Promise<Set<string> | null> => {
-    const r = await fetch(`/api/phan-quyen?staff=${id}`, { cache: "no-store" });
-    if (!r.ok) return null;
-    const kq = (await r.json()) as QuyenCuaNguoi;
-    return new Set(kq.khoi.map((k) => k.ma));
-  }, []);
-
-  const docQuyen = useCallback(
-    async (nguoi: Nguoi) => {
-      const kq = await doc(nguoi.id);
-      if (kq === null) {
-        setLoi("Không đọc được quyền của người này.");
-        return;
-      }
-      setLoi(null);
-      setDangCo(kq);
-    },
-    [doc],
-  );
-
-  useEffect(() => {
-    if (!chon) return;
-    let huy = false;
-    void doc(chon.id).then((kq) => {
-      if (huy) return;
-      if (kq === null) setLoi("Không đọc được quyền của người này.");
-      else {
-        setLoi(null);
-        setDangCo(kq);
-      }
-    });
-    return () => {
-      huy = true;
-    };
-  }, [chon, doc]);
-
-  const doiKhoi = async (khoi: Khoi, bat: boolean) => {
-    if (!chon) return;
-    setDangLam(khoi.ma);
-    const r = await fetch("/api/phan-quyen", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        thao_tac: bat ? "cap" : "thu",
-        staff_id: chon.id,
-        du_lieu: { khoi: khoi.ma },
-      }),
-    });
-    setDangLam(null);
-    if (!r.ok) {
-      const chi_tiet = (await r.json().catch(() => null)) as {
-        message?: string;
-        detail?: string;
-      } | null;
-      setLoi(chi_tiet?.message ?? chi_tiet?.detail ?? "Không đổi được quyền.");
-      return;
-    }
-    await docQuyen(chon);
-  };
+  // Đổi key để khung lego đọc lại sau khi thêm gói mẫu.
+  const [lanDoc, setLanDoc] = useState(0);
 
   const themPreset = async (vai: string) => {
     if (!chon) return;
@@ -156,11 +87,13 @@ export default function BangPhanQuyen({
     });
     setDangLam(null);
     if (!r.ok) {
-      setLoi("Không thêm được preset.");
+      setLoi("Không thêm được gói mẫu.");
       return;
     }
-    await docQuyen(chon);
+    setLanDoc((n) => n + 1);
   };
+
+  const tenVai = (vai: string) => (isClinicRole(vai) ? ROLE_LABEL[vai] : vai);
 
   const hienRa = nhanSu.filter((n) =>
     n.ten.toLocaleLowerCase("vi").includes(tim.trim().toLocaleLowerCase("vi")),
@@ -215,24 +148,21 @@ export default function BangPhanQuyen({
                 }`}
               >
                 {n.ten}
-                <span className="block text-label text-ink-muted">{n.vai}</span>
+                <span className="block text-label text-ink-muted">{tenVai(n.vai)}</span>
               </button>
             </li>
           ))}
         </ul>
       </section>
 
-      <section
-        aria-label="Khối công việc"
-        className="rounded-card bg-surface-muted p-3.5 shadow-card"
-      >
+      <section aria-label="Lego" className="rounded-card bg-surface-muted p-3.5 shadow-card">
         {loi ? (
           <p role="alert" className="mb-2 text-sm text-danger">
             {loi}
           </p>
         ) : null}
 
-        {chon === null || danhMuc === null ? (
+        {chon === null ? (
           <p className="text-sm text-ink-muted">Chọn một người để xem quyền.</p>
         ) : (
           <>
@@ -240,7 +170,8 @@ export default function BangPhanQuyen({
               <div>
                 <h2 className="text-sm font-semibold text-ink">{chon.ten}</h2>
                 <p className="text-label text-ink-muted">
-                  Vai {chon.vai} — vai chỉ là gợi ý, không phải giới hạn.
+                  {tenVai(chon.vai)} — vai chỉ là gói mẫu. Có lego nào làm được việc lego
+                  ấy.
                 </p>
               </div>
               <Button
@@ -249,76 +180,10 @@ export default function BangPhanQuyen({
                 disabled={dangLam !== null}
                 onClick={() => void themPreset(chon.vai)}
               >
-                {dangLam === "preset"
-                  ? "Đang thêm…"
-                  : `+ Thêm preset ${chon.vai}`}
+                {dangLam === "preset" ? "Đang thêm…" : `+ Thêm gói mẫu ${tenVai(chon.vai)}`}
               </Button>
             </div>
-
-            <ul className="mt-3 flex flex-col gap-2">
-              {danhMuc.khoi.map((k) => {
-                const co = dangCo.has(k.ma);
-                const daBung = bung.has(k.ma);
-                return (
-                  <li
-                    key={k.ma}
-                    className="rounded-control border border-line bg-surface px-3 py-2.5"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-ink">{k.ten}</p>
-                        <p className="text-label text-ink-muted">{k.mo_ta}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setBung((cu) => {
-                              const moi = new Set(cu);
-                              if (moi.has(k.ma)) moi.delete(k.ma);
-                              else moi.add(k.ma);
-                              return moi;
-                            })
-                          }
-                          className="rounded-chip px-2 py-1 text-label text-ink-muted hover:bg-surface-muted"
-                        >
-                          {daBung ? "▴ Thu gọn" : "▾ Chi tiết"}
-                        </button>
-                        <Button
-                          type="button"
-                          variant={co ? "secondary" : "primary"}
-                          disabled={dangLam !== null}
-                          onClick={() => void doiKhoi(k, !co)}
-                        >
-                          {dangLam === k.ma
-                            ? "Đang lưu…"
-                            : co
-                              ? "Đang bật — tắt"
-                              : "Bật khối này"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {daBung ? (
-                      <ul className="mt-2 flex flex-col gap-1 border-t border-line pt-2">
-                        {k.quyen.map((q) => (
-                          <li key={q.ma} className="text-label text-ink-muted">
-                            {q.ten}
-                            <span className="ml-1 text-ink-muted">
-                              ({MUC_RUI_RO[q.rui_ro] ?? q.rui_ro}
-                              {q.chung_chi_lam_sang
-                                ? " · cần chứng chỉ hành nghề"
-                                : ""}
-                              )
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
+            <LegoCuaNguoi key={`${chon.id}-${lanDoc}`} staffId={chon.id} onLoi={setLoi} />
           </>
         )}
       </section>

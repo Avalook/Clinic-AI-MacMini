@@ -69,6 +69,15 @@ from clinicai.services.ultrasound_service import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21 lego (25/09/2026): service hỏi QUYỀN qua DB — pool giả trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). Cửa thật: test_lego_21_db.py."""
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
+
+
 class TestNormalizeLink:
     def test_a_pasted_host_gets_a_scheme(self) -> None:
         # Without this the href resolves against our own domain and whoever

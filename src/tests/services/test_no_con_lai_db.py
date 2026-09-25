@@ -189,11 +189,20 @@ async def test_hen_gio_hong_han_thi_reo_truong_ca_va_quan_ly(
 
 
 async def test_tat_man_khong_lay_mat_khoi_man_khac_con_can() -> None:
-    bac_si = ["kham", "chi_dinh", "ghi_benh_an", "thuc_hien", "ket_qua"]
+    bac_si = [
+        "kham",
+        "chi_dinh",
+        "ghi_benh_an",
+        "hoan_tat_kham",
+        "thuc_hien",
+        "ket_qua",
+    ]
     assert set(man_dang_bat(bac_si)) >= {"ban_kham", "phong"}
-    # Tắt "Phòng dịch vụ": gỡ thuc_hien + ket_qua; Bàn khám vẫn còn nguyên.
+    # Tắt lego "Phòng dịch vụ": gỡ thuc_hien; ket_qua + ghi_benh_an Bàn khám còn
+    # cần nên GIỮ (lego 25/09/2026: một khối nằm được trong nhiều lego).
     sau = khoi_sau_khi_doi_man(bac_si, "phong", False)
     assert "ban_kham" in man_dang_bat(sau) and "phong" not in man_dang_bat(sau)
+    assert {"ket_qua", "ghi_benh_an"} <= set(sau) and "thuc_hien" not in sau
     # Bật "Thu tiền dịch vụ": thêm đủ hai khối của màn ấy.
     assert set(MAN["thu_tien_dv"].khoi) <= set(
         khoi_sau_khi_doi_man(bac_si, "thu_tien_dv", True)
