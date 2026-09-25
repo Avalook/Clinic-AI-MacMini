@@ -88,9 +88,12 @@ function Board({
     return [...out].sort((a, b) => b.wait_minutes - a.wait_minutes);
   }, [live.patients, q, room, doctor]);
 
+  // Dưới `lg` xếp DỌC (bảng trên, cột điều phối dưới): hai cột ngang ở màn
+  // điện thoại làm cột phải 320px ăn hết chỗ, bảng co còn 2px và biến mất
+  // (bấm thật 25/09/2026 ở khung ~400px).
   return (
-    <div style={{ display: "flex", gap: 16 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="min-w-0 flex-1">
         <div
           style={{
             display: "flex",
@@ -236,7 +239,7 @@ function Board({
         /* CHƯA CHỌN AI thì cột phải là bàn điều phối: việc cần xử lý ngay, và
            phòng nào đang kẹt. Chọn một người thì chỗ ấy thành panel thao tác —
            một cột, hai nhiệm vụ, không phải hai cột tranh chỗ. */
-        <div className="w-80 shrink-0 space-y-3">
+        <div className="w-full shrink-0 space-y-3 lg:w-80">
           <DieuPhoiNhanh alerts={live.alerts} />
           <SoDoPhong rooms={live.rooms} />
         </div>
@@ -300,10 +303,7 @@ function DetailPanel({
 
 
   return (
-    <aside
-      className="card slide-in-right"
-      style={{ flex: "0 0 320px", padding: 16, alignSelf: "flex-start" }}
-    >
+    <aside className="card slide-in-right w-full shrink-0 self-start p-4 lg:w-80">
       <div
         style={{
           display: "flex",
