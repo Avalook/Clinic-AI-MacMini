@@ -460,6 +460,12 @@ _CHI_DINH_GUARD = cua_quyen("clinical.order.place")
 
 class ChiDinhBody(BaseModel):
     service_codes: list[str] = Field(min_length=1, max_length=30)
+    #: Dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được.
+    bat_buoc_codes: list[str] = Field(default_factory=list, max_length=30)
+
+
+class BatBuocBody(BaseModel):
+    bat_buoc: bool
 
 
 @router.post("/luot-kham/consultations/{consultation_id}/service-orders")
@@ -476,6 +482,20 @@ async def dat_chi_dinh(
         service_codes=body.service_codes,
         identity=identity,
         idempotency_key=idempotency_key,
+        bat_buoc_codes=body.bat_buoc_codes,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/bat-buoc")
+async def doi_bat_buoc(
+    order_id: UUID,
+    body: BatBuocBody,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật / tắt "Bắt buộc" của một chỉ định (chưa thu tiền) — Tuyền 25/09/2026."""
+    return await ChiDinhService(pool).doi_bat_buoc(
+        order_id=str(order_id), bat_buoc=body.bat_buoc, identity=identity
     )
 
 

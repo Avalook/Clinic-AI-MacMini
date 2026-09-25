@@ -30,7 +30,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhMangSang
+from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhDoiBatBuoc, ChiDinhMangSang
 from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import finance_gate
@@ -77,8 +77,13 @@ class ChiDinhService:
         service_codes: list[str],
         identity: StaffIdentity,
         idempotency_key: str | None = None,
+        bat_buoc_codes: list[str] | None = None,
     ) -> dict[str, Any]:
-        """Chốt một loạt chỉ định cho phiên khám. Trả về danh sách id đã tạo."""
+        """Chốt một loạt chỉ định cho phiên khám. Trả về danh sách id đã tạo.
+
+        `bat_buoc_codes`: dịch vụ bác sĩ tick "Bắt buộc" (Tuyền 25/09/2026) —
+        quầy thu không bỏ được.
+        """
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         codes = [c.strip() for c in service_codes if isinstance(c, str) and c.strip()]
@@ -87,7 +92,12 @@ class ChiDinhService:
         # Bấm nhầm hai lần cùng một dịch vụ trong một lần gửi: coi là một.
         codes = list(dict.fromkeys(codes))
 
-        payload_bien_nhan = {"consultation_id": con_id, "codes": sorted(codes)}
+        bat_buoc = {c.strip() for c in (bat_buoc_codes or []) if isinstance(c, str)}
+        payload_bien_nhan = {
+            "consultation_id": con_id,
+            "codes": sorted(codes),
+            "bat_buoc": sorted(bat_buoc & set(codes)),
+        }
         luot_kham = LuotKhamService(self._pool)
 
         async with self._pool.acquire() as conn, conn.transaction():
@@ -113,10 +123,10 @@ class ChiDinhService:
                         (clinic_id, visit_id, consultation_id, service_code,
                          service_name, node_code, exec_status, recorded_by,
                          authorized_by, authorized_at, selection_status,
-                         routing_status)
+                         routing_status, bat_buoc)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6,
                             'authorized', $7::uuid, $7::uuid, now(),
-                            'PENDING', 'UNASSIGNED')
+                            'PENDING', 'UNASSIGNED', $8)
                     RETURNING id::text
                     """,
                     cid,
@@ -126,6 +136,7 @@ class ChiDinhService:
                     s["name"],
                     s["node_code"],
                     identity.staff_id,
+                    s["service_code"] in bat_buoc,
                 )
                 ids.append(order_id)
 
@@ -182,6 +193,74 @@ class ChiDinhService:
                 result,
             )
         return result
+
+    async def doi_bat_buoc(
+        self, *, order_id: str, bat_buoc: bool, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """`SetServiceOrderRequired` — người chỉ định bật / tắt "Bắt buộc" sau khi
+        đã chỉ định (Tuyền 25/09/2026). Chỉ khi dịch vụ CHƯA thu tiền.
+
+        Khoá dòng chỉ định (FOR UPDATE) — cùng dòng quầy thu khoá khi chốt lựa
+        chọn, nên hai lệnh chạy nối tiếp: không có kẽ "bác sĩ vừa tick đúng lúc
+        quầy thu vừa bỏ".
+        """
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, QUYEN_CHI_DINH)
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await khoa_luot(conn, cid, vid)
+            o = await conn.fetchrow(
+                """
+                SELECT o.exec_status, o.bat_buoc,
+                       EXISTS (
+                           SELECT 1 FROM payment_bill_line bl
+                             JOIN payment_cycle c
+                               ON c.clinic_id = bl.clinic_id
+                              AND c.payment_cycle_id = bl.payment_cycle_id
+                            WHERE bl.clinic_id = o.clinic_id
+                              AND bl.source_type = 'service_order'
+                              AND bl.source_id = o.id::text
+                              AND bl.billing_owner = 'CLINIC'
+                              AND c.status IN ('PENDING_VERIFICATION', 'PAID')
+                       ) AS da_thu
+                  FROM service_order o
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                   FOR UPDATE OF o
+                """,
+                cid,
+                oid,
+            )
+            if o is None or o["exec_status"] in ("draft", "cancelled"):
+                raise LuotKhamConflictError(
+                    "ORDER_NOT_ACTIVE", "Chỉ định không còn hiệu lực."
+                )
+            if o["da_thu"]:
+                raise LuotKhamConflictError(
+                    "SERVICE_ALREADY_PAID",
+                    "Dịch vụ đã thu tiền — không đổi “bắt buộc” được nữa.",
+                )
+            if bool(o["bat_buoc"]) == bool(bat_buoc):
+                return {"ok": True, "order_id": oid, "bat_buoc": bool(bat_buoc)}
+            await conn.execute(
+                "UPDATE service_order SET bat_buoc = $3, version = version + 1,"
+                " updated_at = now() WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                oid,
+                bool(bat_buoc),
+            )
+            await emit_event(
+                conn,
+                ten="service_order.required_changed",
+                clinic_id=cid,
+                aggregate_id=oid,
+                payload=ChiDinhDoiBatBuoc(
+                    visit_id=vid, service_order_id=oid, bat_buoc=bool(bat_buoc)
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+        return {"ok": True, "order_id": oid, "bat_buoc": bool(bat_buoc)}
 
     @staticmethod
     async def mang_sang_luot_moi(

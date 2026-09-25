@@ -155,6 +155,8 @@ class OrderFacts:
     execution_status: str | None
     version: int
     financially_committed: bool
+    #: Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy không bỏ được.
+    bat_buoc: bool = False
 
 
 def lock_of(o: OrderFacts) -> str | None:
@@ -229,6 +231,12 @@ def plan(inp: SelectionInput, orders: list[OrderFacts]) -> dict[str, str]:
     changes: dict[str, str] = {}
     for oid in inp.order_ids_seen:
         new = SELECTED if oid in chosen else NOT_SELECTED
+        if new == NOT_SELECTED and by_id[oid].bat_buoc:
+            raise LuotKhamConflictError(
+                "SERVICE_REQUIRED",
+                "Dịch vụ này bác sĩ đánh dấu bắt buộc — muốn bỏ phải quay lại"
+                " người chỉ định.",
+            )
         if by_id[oid].selection_status != new:
             changes[oid] = new
     return changes
@@ -240,7 +248,7 @@ def plan(inp: SelectionInput, orders: list[OrderFacts]) -> dict[str, str]:
 
 _ORDERS_SQL = """
 SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
-       o.execution_status, o.version,
+       o.execution_status, o.version, o.bat_buoc,
        EXISTS (
            SELECT 1
              FROM payment_bill_line bl
@@ -272,7 +280,7 @@ _ALLOCATION_UNKNOWN_SQL = THU_CU_KHONG_TRUY_DUOC_SQL
 _CHO_QUYET_SQL = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.exec_status, o.selection_status, o.routing_status, o.execution_status,
-       o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang,
+       o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang, o.bat_buoc,
        o.node_code, o.phong_du_kien_id::text AS phong_du_kien_id,
        -- Làm bên ngoài (đối tác): quầy nói ra "Đối tác làm" (24/09/2026).
        EXISTS (SELECT 1 FROM node_definition n
@@ -374,6 +382,7 @@ async def cho_khach_quyet(
                 "selection_status": r["selection_status"],
                 "gia": int(r["gia"]) if r["gia"] is not None else None,
                 "mang_sang": bool(r["mang_sang"]),
+                "bat_buoc": bool(r["bat_buoc"]),
                 "phong_du_kien_id": r["phong_du_kien_id"],
                 "doi_tac": bool(r["doi_tac"]),
                 "phong_chon_duoc": await phong_chon_duoc(r["node_code"], r["visit_id"]),
@@ -448,6 +457,7 @@ class ServiceSelectionService:
                     execution_status=r["execution_status"],
                     version=int(r["version"]),
                     financially_committed=bool(r["financially_committed"]),
+                    bat_buoc=bool(r["bat_buoc"]),
                 )
                 for r in await conn.fetch(_ORDERS_SQL, cid, inp.visit_id)
             ]

@@ -27,6 +27,7 @@ export default function DanhMucChiDinh({
   daDat,
   daChiDinh = [],
   onDat,
+  onDoiBatBuoc,
   chiDoc,
   nhanNut = "Chỉ định",
 }: {
@@ -35,7 +36,17 @@ export default function DanhMucChiDinh({
   daDat: ReadonlySet<string>;
   /** Mọi chỉ định (chưa huỷ) của lượt — để ghi chú "lần trước đã chỉ định gì". */
   daChiDinh?: readonly ChiDinhVaKetQua[];
-  onDat: (codes: string[]) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  onDat: (
+    codes: string[],
+    /** Mã tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
+    batBuoc: string[],
+  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  /** Bật / tắt "Bắt buộc" của chỉ định đã đặt (chưa thu tiền). Không truyền =
+   *  chỉ xem. */
+  onDoiBatBuoc?: (
+    orderId: string,
+    batBuoc: boolean,
+  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
   chiDoc: boolean;
   nhanNut?: string;
 }) {
@@ -44,6 +55,8 @@ export default function DanhMucChiDinh({
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
   const [moThem, setMoThem] = useState(false);
+  // DỊCH VỤ BẮT BUỘC (Tuyền 25/09/2026): mặc định KHÔNG tick.
+  const [batBuoc, setBatBuoc] = useState<string[]>([]);
 
   // Chỉ định CỦA MỤC NÀY (C: cận lâm sàng · F: thủ thuật), gom theo lần.
   const maMuc = new Set(nhom.flatMap((n) => n.muc).flatMap((m) => (m.service_code ? [m.service_code] : [])));
@@ -64,14 +77,26 @@ export default function DanhMucChiDinh({
   );
   const tong = chon.reduce((t, c) => t + (giaCua.get(c) ?? 0), 0);
 
-  const bat = (ma: string, co: boolean) =>
+  const bat = (ma: string, co: boolean) => {
     setChon((cu) => (co ? [...cu, ma] : cu.filter((x) => x !== ma)));
+    if (!co) setBatBuoc((cu) => cu.filter((x) => x !== ma));
+  };
+
+  const doiBatBuocDaDat = async (c: ChiDinhVaKetQua, co: boolean) => {
+    if (!onDoiBatBuoc) return;
+    setLoi(null);
+    const kq = await onDoiBatBuoc(c.service_order_id, co);
+    if (!kq.ok) setLoi(kq.loi);
+  };
 
   const dat = async () => {
     setDang(true);
     setLoi(null);
     setBao(null);
-    const kq = await onDat(chon);
+    const kq = await onDat(
+      chon,
+      batBuoc.filter((c) => chon.includes(c)),
+    );
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
@@ -79,6 +104,7 @@ export default function DanhMucChiDinh({
     }
     setBao(`Đã chỉ định ${chon.length} mục — khách vào hàng chờ phòng sau khi thu tiền.`);
     setChon([]);
+    setBatBuoc([]);
     setMoThem(false);
   };
 
@@ -93,7 +119,27 @@ export default function DanhMucChiDinh({
                 <span className="font-semibold text-ink">{lan}</span>
                 {ds[0]?.chi_dinh_luc ? ` · ${fmtTime(ds[0].chi_dinh_luc)}` : ""}
                 {" — "}
-                {ds.map((c) => c.ten_hien_thi).join(", ")}
+                {ds.map((c, i) => (
+                  <span key={c.service_order_id}>
+                    {i > 0 ? ", " : ""}
+                    {c.ten_hien_thi}
+                    {onDoiBatBuoc ? (
+                      <label className="ml-1 inline-flex items-center gap-1 align-middle">
+                        <input
+                          type="checkbox"
+                          className="size-3.5 accent-brand-600"
+                          checked={Boolean(c.bat_buoc)}
+                          onChange={(e) => void doiBatBuocDaDat(c, e.target.checked)}
+                        />
+                        bắt buộc
+                      </label>
+                    ) : c.bat_buoc ? (
+                      <span className="ml-1">
+                        <Chip tone="warning">bắt buộc</Chip>
+                      </span>
+                    ) : null}
+                  </span>
+                ))}
               </li>
             ))}
           </ul>
@@ -142,6 +188,21 @@ export default function DanhMucChiDinh({
                       ) : null}
                       {!ma ? <Chip tone="warning">Chưa có trong danh mục</Chip> : null}
                     </label>
+                    {ma && !da && !chiDoc && chon.includes(ma) ? (
+                      <label className="ml-10 flex min-h-10 items-center gap-2 pb-1.5 text-meta text-ink">
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-brand-600"
+                          checked={batBuoc.includes(ma)}
+                          onChange={(e) =>
+                            setBatBuoc((cu) =>
+                              e.target.checked ? [...cu, ma] : cu.filter((x) => x !== ma),
+                            )
+                          }
+                        />
+                        Bắt buộc — quầy thu không bỏ được
+                      </label>
+                    ) : null}
                   </li>
                 );
               })}

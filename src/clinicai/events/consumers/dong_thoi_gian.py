@@ -48,6 +48,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.retry_prepared": [],
     "service.routing_invalidated": ["ly_do"],
     "service.routed": ["room_id", "ly_do", "tu_dong", "nguon"],
+    "service_order.required_changed": ["bat_buoc"],
     "service_order.carried_over": ["service_code", "da_thu_tien"],
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.
     "payment.service_collected": ["so_tien", "phuong_thuc"],

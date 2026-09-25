@@ -72,7 +72,7 @@ async def doc_ket_qua_theo_chi_dinh(
     # Chỉ định mang sang từ lượt trước không thuộc vòng nào của lượt này.
     don = await conn.fetch(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
-        "       o.execution_status, o.created_at, o.mang_tu_visit_id,"
+        "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
         "       CASE WHEN c.visit_id = o.visit_id THEN c.round_no END AS vong"
         "  FROM service_order o"
         "  LEFT JOIN consultation c"
@@ -175,6 +175,7 @@ async def doc_ket_qua_theo_chi_dinh(
                     r["created_at"].isoformat() if r["created_at"] else None
                 ),
                 "mang_sang": r["mang_tu_visit_id"] is not None,
+                "bat_buoc": bool(r["bat_buoc"]),
             }
         )
     return kq
