@@ -109,14 +109,12 @@ def dung_khung(m: dict) -> list[dict]:
             if dvi:
                 o["goi_y"] = dvi
             mac = (t.get("mac") or "").strip()
-            if (
-                mac
-                and not dvi
-                and not doi_tac
-                and t["kieu"] != "am_duong"
-                and not muc.get("cot")
-            ):
-                o["mac_dinh"] = mac
+            if mac and not dvi and not doi_tac and t["kieu"] != "am_duong":
+                # Ô bảng: câu bình thường điền sẵn CHO MỖI CỘT ({trai: …, phai: …})
+                # — như bản v2; số đo (có đơn vị) vẫn không điền sẵn.
+                o["mac_dinh"] = (
+                    {c["ma"]: mac for c in muc_ra["cot"]} if muc.get("cot") else mac
+                )
             muc_ra["block"].append(o)
         khung.append(muc_ra)
     # Mục cuối "Đề nghị" như bản v2 — phòng dịch vụ dặn thêm.

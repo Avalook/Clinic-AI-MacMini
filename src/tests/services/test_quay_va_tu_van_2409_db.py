@@ -222,7 +222,20 @@ async def test_mau_ket_qua_danh_dau_mau_cua_dich_vu(
     if not mau:
         pytest.skip("DB thử chưa có mẫu kết quả")
     cua = [m["ma"] for m in mau if m["cua_dich_vu"]]
-    if goi_y:
+    da_gan = [
+        r["mau"]
+        for r in await pool.fetch(
+            "SELECT mau FROM dich_vu_mau_ket_qua WHERE clinic_id = $1::uuid"
+            " AND service_code = $2",
+            CLINIC,
+            ma_dv,
+        )
+    ]
+    if da_gan:
+        # Dịch vụ đã gắn mẫu (26/09/2026, theo mã phòng khám của PDF): mẫu của
+        # dịch vụ = đúng các mẫu đã gắn.
+        assert sorted(cua) == sorted(da_gan)
+    elif goi_y:
         # Mẫu gợi ý + mẫu CHUNG nhập tự do (không thuộc dịch vụ nào khác).
         assert sorted(cua) == sorted([goi_y, "CHUNG"])
     else:

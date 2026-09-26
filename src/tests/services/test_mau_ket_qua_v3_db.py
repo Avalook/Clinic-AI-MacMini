@@ -43,11 +43,14 @@ async def test_mau_v3_co_muc_bang_va_khong_dien_san_so_do(
     song = await _khung(pool, "KQ_SA_SONG_THAI_QUY_1")
     bang = [m for m in song if m.get("cot")]
     assert bang and [c["ten"] for c in bang[0]["cot"]] == ["Thai A", "Thai B"]
-    # Số đo (có đơn vị) và ô trong bảng không điền sẵn.
-    assert not any(b.get("mac_dinh") for m in bang for b in m["block"])
+    # Số đo (có đơn vị) không điền sẵn — kể cả trong bảng.
     assert not any(
         b.get("mac_dinh") for m in song for b in m["block"] if b.get("goi_y")
     )
+    # Câu bình thường trong bảng điền sẵn CHO MỖI CỘT (như v2).
+    vu = next(m for m in await _khung(pool, "KQ_SA_VU") if m.get("cot"))
+    mo_ta = [b for b in vu["block"] if b.get("mac_dinh")]
+    assert mo_ta and set(mo_ta[0]["mac_dinh"]) == {c["ma"] for c in vu["cot"]}
     # Mẫu Gemini (BI-RADS) không còn trong v3.
     vu = await _khung(pool, "KQ_SA_VU")
     assert "birads" not in {b["ma"] for m in vu for b in m["block"]}

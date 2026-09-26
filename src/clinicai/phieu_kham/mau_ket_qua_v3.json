@@ -526,12 +526,20 @@
       {
        "ma": "dau_mat_co",
        "ten": "Đầu mặt cổ",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "mac_dinh": {
+        "thai_a": "Xương sọ bình thường. Đường giữa bình thường. Đám rối mạch mạc lấp đầy não thất bên. Quan sát rõ các cấu trúc Thalamus, Midbrain, Brainstem. Hố sau bình thường. Chỉ số BS/BSOB <1. Không có khuyết hàm trên. Độ dài xương mũi (NBL): bình thường .Góc FMF < 85°. Chỉ số PT/NBL: < 0.6. IT (não thất IV): <2.5mm",
+        "thai_b": "Xương sọ bình thường. Đường giữa bình thường. Đám rối mạch mạc lấp đầy não thất bên. Quan sát rõ các cấu trúc Thalamus, Midbrain, Brainstem. Hố sau bình thường. Chỉ số BS/BSOB <1. Không có khuyết hàm trên. Độ dài xương mũi (NBL): bình thường .Góc FMF < 85°. Chỉ số PT/NBL: < 0.6. IT (não thất IV): <2.5mm"
+       }
       },
       {
        "ma": "vung_lung_nguc_bung_va_tu_chi",
        "ten": "Vùng lưng, ngực - bụng và tứ chi",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "mac_dinh": {
+        "thai_a": "Cột sống bình thường. Da vùng lưng liên tục. Hai trường phổi cân đối. Không thấy mass lồng ngực. Không thấy tràn dịch vùng ngực. Hình dạ dày góc trên trái. Thành bụng liên tục. Không thấy thoát vị thành bụng. Đủ 4 chi. Mỗi chi đủ 3 đoạn",
+        "thai_b": "Cột sống bình thường. Da vùng lưng liên tục. Hai trường phổi cân đối. Không thấy mass lồng ngực. Không thấy tràn dịch vùng ngực. Hình dạ dày góc trên trái. Thành bụng liên tục. Không thấy thoát vị thành bụng. Đủ 4 chi. Mỗi chi đủ 3 đoạn"
+       }
       }
      ],
      "cot": [
@@ -667,37 +675,65 @@
       {
        "ma": "kich_thuoc_nao_that_ben",
        "ten": "Kích thước não thất bên (Vp)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "duong_kinh_tieu_nao",
        "ten": "Đường kính tiểu não (Cerebellum)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "ho_sau",
        "ten": "Hố sau (CM)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "duong_kinh_hai_hoc_mat",
        "ten": "Đường kính hai hốc mắt (BOD)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "do_dai_xuong_mui",
        "ten": "Độ dài xương mũi (NBL)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "do_dai_xuong_canh_tay",
        "ten": "Độ dài xương cánh tay (HL)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       },
       {
        "ma": "do_dai_ban_chan",
        "ten": "Độ dài bàn chân (Foot)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thai_a": "bình thường",
+        "thai_b": "bình thường"
+       }
       }
      ],
      "cot": [
@@ -997,12 +1033,20 @@
       {
        "ma": "nhu_mo",
        "ten": "Nhu mô",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "Nhu mô đều. Không thấy khối khu trú",
+        "ben_phai": "Nhu mô đều. Không thấy khối khu trú"
+       }
       },
       {
        "ma": "tuoi_mau",
        "ten": "Tưới máu",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "Không thấy bất thường tưới máu",
+        "ben_phai": "Không thấy bất thường tưới máu"
+       }
       }
      ],
      "cot": [
@@ -1068,12 +1112,20 @@
       {
        "ma": "nhu_mo",
        "ten": "Nhu mô",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thuy_trai": "Nhu mô đều. Không thấy khối khu trú",
+        "thuy_phai": "Nhu mô đều. Không thấy khối khu trú"
+       }
       },
       {
        "ma": "tuoi_mau",
        "ten": "Tưới máu",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "thuy_trai": "Không thấy bất thường tưới máu",
+        "thuy_phai": "Không thấy bất thường tưới máu"
+       }
       }
      ],
      "cot": [
@@ -1254,12 +1306,20 @@
       {
        "ma": "mao_tinh_hoan",
        "ten": "Mào tinh hoàn",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "tinh_hoan_trai": "không thấy bất thường",
+        "tinh_hoan_phai": "không thấy bất thường"
+       }
       },
       {
        "ma": "nhu_mo_tinh_hoan",
        "ten": "Nhu mô tinh hoàn",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "tinh_hoan_trai": "đồng nhất, không thấy khối khu trú.",
+        "tinh_hoan_phai": "đồng nhất, không thấy khối khu trú."
+       }
       },
       {
        "ma": "duong_kinh_tinh_mach_thung_tinh_truoc_ng",
@@ -1276,7 +1336,11 @@
       {
        "ma": "dong_trao_nguoc",
        "ten": "Dòng trào ngược",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "tinh_hoan_trai": "Không thấy dòng trào ngược.",
+        "tinh_hoan_phai": "Không thấy dòng trào ngược."
+       }
       }
      ],
      "cot": [
@@ -1342,22 +1406,38 @@
       {
        "ma": "dong_mach_canh_chung",
        "ten": "Động mạch cảnh chung (CCA)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ.",
+        "ben_phai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."
+       }
       },
       {
        "ma": "hanh_canh",
        "ten": "Hành cảnh",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ.",
+        "ben_phai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."
+       }
       },
       {
        "ma": "dong_mach_canh_trong",
        "ten": "Động mạch cảnh trong (ICA)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ.",
+        "ben_phai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."
+       }
       },
       {
        "ma": "dong_mach_dot_song",
        "ten": "Động mạch đốt sống (VA)",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_trai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ.",
+        "ben_phai": "tốc độ dòng chảy trong giới hạn bình thường, không có mảng vữa xơ."
+       }
       },
       {
        "ma": "ghi_nhan_them",
@@ -1433,7 +1513,11 @@
       {
        "ma": "mo_ta_thanh_mach",
        "ten": "Mô tả thành mạch",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "mac_dinh": {
+        "dong_mach_than_trai": "Không thấy mảng vữa xơ, không thấy huyết khối bám thành. Thành mạch liên tục, không thấy lóc tách.",
+        "dong_mach_than_phai": "Không thấy mảng vữa xơ, không thấy huyết khối bám thành. Thành mạch liên tục, không thấy lóc tách."
+       }
       }
      ],
      "cot": [
@@ -1539,7 +1623,11 @@
       {
        "ma": "pho_doppler",
        "ten": "Phổ Doppler",
-       "kieu": "text"
+       "kieu": "text",
+       "mac_dinh": {
+        "ben_phai": "có phổ Doppler dạng một pha đỉnh nhọn",
+        "ben_trai": "có phổ Doppler dạng một pha đỉnh nhọn"
+       }
       }
      ],
      "cot": [
