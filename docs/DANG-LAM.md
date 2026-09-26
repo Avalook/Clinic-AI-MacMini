@@ -22,7 +22,15 @@ lego (`NAV_QUYEN` phủ 21 lego, sửa `/thu-ngan/thuoc` gắn nhầm quyền); 
 (nhân sự, tài khoản `/api/admin/users`, cài đặt, lịch trực, bảng giá, báo cáo, vận
 hành, lịch sử thao tác, điều phối ca, CSKH, danh sách/thêm bệnh nhân) hỏi QUYỀN.
 
-**NỢ (chưa làm, cố ý để lượt sau):**
+**ĐÃ ĐÓNG 26/09 (PR #197, prod 51caf62, công tắc TẮT):** mọi cửa còn hỏi vai giờ đọc
+vai SUY TỪ LEGO đang bật đủ (`StaffIdentity.vai_theo_lego`, bảng `VAI_THEO_LEGO` ở
+`permissions/catalogue.py`) — Bàn khám "chỉ cần lego" (Tuyền chốt); thư ký cả phòng
+trừ khi đã xếp theo bác sĩ; `MO_QUYEN_TAM_THOI=0` trong `.env.prod` (sao lưu tệp cũ
+`.env.prod.truoc-tat-mo-quyen-*`), nửa giao diện nay được truyền lúc build. Đo trên
+prod trước khi tắt: 72 nhân sự, 0 người mất vai tài khoản. Bật lại khi cần: đặt
+`MO_QUYEN_TAM_THOI=1` rồi `deploy-backend.sh prod`.
+
+**NỢ cũ (ghi lại để đối chiếu — các dòng về cửa theo vai, Bàn khám, công tắc đã đóng ở trên):**
 - Cửa phụ còn theo vai: `cskh.py` `_INTAKE_GUARD` (tương tác CSKH dùng chung Đặt lịch),
   `patients.py` sdt-them / sửa hồ sơ / ưu tiên, `work_items.py` `_WORK_ITEM_GUARD`,
   `doi_tac` backend (`get_partner_identity` PARTNER + MANAGEMENT), ~100 bộ vai trong
