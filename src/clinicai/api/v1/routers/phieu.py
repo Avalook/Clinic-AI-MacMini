@@ -46,6 +46,9 @@ class HoanTatBody(BaseModel):
 
 class XuatBanBody(BaseModel):
     khung: list[dict[str, Any]] = Field(min_length=1)
+    #: Bản đang sửa — lệch bản đang dùng thì 409 (27/09/2026).
+    expected_version: int | None = Field(default=None, ge=1)
+    ten: str | None = Field(default=None, max_length=200)
 
 
 @router.get("/bieu-mau")
@@ -161,7 +164,23 @@ async def xuat_ban(
 ) -> dict[str, Any]:
     """Bản mới thành bản đang dùng. Phiếu đã điền giữ nguyên bản cũ."""
     return await FormEngineService(pool).xuat_ban(
-        form_id=form_id, khung=body.khung, identity=identity
+        form_id=form_id,
+        khung=body.khung,
+        identity=identity,
+        expected_version=body.expected_version,
+        ten=body.ten,
+    )
+
+
+@router.get("/bieu-mau/{form_id}")
+async def doc_bieu_mau(
+    form_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khung đang dùng của một mẫu — màn sửa mẫu đọc cái này."""
+    return await FormEngineService(pool).doc_bieu_mau(
+        form_id=form_id, identity=identity
     )
 
 

@@ -29,6 +29,7 @@ import {
   Building2,
   PhoneCall,
   Route,
+  FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
 import { type ClinicRole } from "../../lib/roles";
@@ -235,6 +236,12 @@ export const NAV: NavItem[] = [
     href: "/settings/day-noi",
     label: "Dây nối nghiệp vụ",
     icon: Route,
+  },
+  // Mẫu kết quả (27/09/2026): gắn mẫu cho dịch vụ, sửa / tạo mẫu kết quả.
+  {
+    href: "/settings/mau-ket-qua",
+    label: "Mẫu kết quả",
+    icon: FileSpreadsheet,
   },
   // Hồ sơ CON NGƯỜI, tách khỏi "Cấu trúc phòng khám" ở trên — màn kia gán nhân
   // viên vào trạm công việc, màn này là tên/vai/cơ sở/hợp đồng của từng người.

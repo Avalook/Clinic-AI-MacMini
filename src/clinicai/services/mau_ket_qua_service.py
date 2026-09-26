@@ -14,16 +14,29 @@ lúc trả kết quả. Vì vậy mỗi lần gắn/gỡ đều ghi ai làm, lú
 
 from __future__ import annotations
 
+import json
+import re
 import unicodedata
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.exceptions import ValidationError
-from clinicai.permissions.can import doi_quyen
+from clinicai.core.exceptions import SafetyGateError, ValidationError
+from clinicai.permissions.can import can, doi_quyen
 
 QUYEN_GAN_MAU = "catalogue.result_template.manage"
+QUYEN_SUA_MAU = "catalogue.form_template.edit"
+QUYEN_XUAT_BAN = "catalogue.form_template.publish"
+
+#: Mẫu mới để trống: một mục Kết luận — phòng dịch vụ luôn có chỗ ghi kết luận.
+_KHUNG_TRONG: list[dict[str, Any]] = [
+    {
+        "ma": "ket_luan",
+        "ten": "Kết luận",
+        "block": [{"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"}],
+    }
+]
 
 
 class MauKetQuaService:
@@ -62,6 +75,141 @@ class MauKetQuaService:
                 for m in mau
             ]
         }
+
+    async def bang_gan(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Màn "Mẫu kết quả" (27/09/2026): dịch vụ nào đang gắn mẫu nào.
+
+        Chỉ dịch vụ CÓ PHÒNG LÀM (cận lâm sàng, thủ thuật) — phí khám không có
+        kết quả để điền. Kèm quyền của người xem để màn tắt nút họ không bấm
+        được (máy chủ vẫn kiểm lại ở từng lệnh).
+        """
+        async with self._pool.acquire() as conn:
+            quyen = {
+                "gan": await can(conn, identity, QUYEN_GAN_MAU),
+                "sua": await can(conn, identity, QUYEN_SUA_MAU),
+                "xuat_ban": await can(conn, identity, QUYEN_XUAT_BAN),
+            }
+            if not any(quyen.values()):
+                raise SafetyGateError("Bạn chưa được cấp quyền quản lý mẫu kết quả.")
+            mau = await conn.fetch(
+                "SELECT m.ma, m.nhom, m.ten, d.version, d.xuat_ban_luc"
+                "  FROM ket_qua_mau m"
+                "  LEFT JOIN form_definition d"
+                "    ON d.clinic_id = m.clinic_id AND d.form_id = 'KQ_' || m.ma"
+                "   AND d.trang_thai = 'PUBLISHED'"
+                " WHERE m.clinic_id = $1::uuid AND m.active"
+                " ORDER BY m.nhom, m.ten",
+                identity.clinic_id,
+            )
+            dich_vu = await conn.fetch(
+                "SELECT p.service_code, p.ma_kiotviet, p.name,"
+                "       coalesce(n.name, p.node_code) AS phong,"
+                "       coalesce(array_agg(g.mau ORDER BY g.mau)"
+                "                FILTER (WHERE g.mau IS NOT NULL), '{}') AS mau"
+                "  FROM service_price p"
+                "  LEFT JOIN node_definition n"
+                "    ON n.clinic_id = p.clinic_id AND n.code = p.node_code"
+                "  LEFT JOIN dich_vu_mau_ket_qua g"
+                "    ON g.clinic_id = p.clinic_id AND g.service_code = p.service_code"
+                " WHERE p.clinic_id = $1::uuid AND p.active"
+                "   AND p.\"group\" = 'dich_vu' AND p.node_code IS NOT NULL"
+                " GROUP BY p.service_code, p.ma_kiotviet, p.name, n.name, p.node_code"
+                " ORDER BY phong, p.name",
+                identity.clinic_id,
+            )
+        return {
+            "quyen": quyen,
+            "mau": [
+                {
+                    "ma": m["ma"],
+                    "nhom": m["nhom"],
+                    "ten": m["ten"],
+                    "form_id": f"KQ_{m['ma']}",
+                    "version": m["version"],
+                    "xuat_ban_luc": m["xuat_ban_luc"].isoformat()
+                    if m["xuat_ban_luc"]
+                    else None,
+                }
+                for m in mau
+            ],
+            "dich_vu": [
+                {
+                    "service_code": d["service_code"],
+                    "ma_kiotviet": d["ma_kiotviet"],
+                    "ten": d["name"],
+                    "phong": d["phong"],
+                    "mau": list(d["mau"]),
+                }
+                for d in dich_vu
+            ],
+        }
+
+    async def tao_mau(
+        self,
+        *,
+        ten: str,
+        nhom: str,
+        identity: StaffIdentity,
+        chep_tu: str | None = None,
+    ) -> dict[str, Any]:
+        """Tạo mẫu kết quả MỚI (bản 1, xuất bản ngay) — trống (một mục Kết luận)
+        hoặc CHÉP khung của mẫu có sẵn rồi sửa. Mã mẫu sinh từ tên, không trùng.
+        """
+        ten = (ten or "").strip()
+        nhom = (nhom or "").strip() or "Khác"
+        if not ten or len(ten) > 200:
+            raise ValidationError("Tên mẫu phải có, tối đa 200 ký tự.")
+        if len(nhom) > 80:
+            raise ValidationError("Nhóm mẫu tối đa 80 ký tự.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, QUYEN_XUAT_BAN)
+            khung: Any = _KHUNG_TRONG
+            if chep_tu:
+                raw = await conn.fetchval(
+                    "SELECT khung FROM form_definition"
+                    " WHERE clinic_id = $1::uuid AND form_id = $2"
+                    "   AND trang_thai = 'PUBLISHED'",
+                    identity.clinic_id,
+                    chep_tu,
+                )
+                if raw is None:
+                    raise ValidationError(f"Không có mẫu “{chep_tu}” để chép.")
+                khung = json.loads(raw)
+            goc = _ma_tu_ten(ten)
+            ma = goc
+            so = 2
+            while await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM ket_qua_mau"
+                " WHERE clinic_id = $1::uuid AND ma = $2)"
+                " OR EXISTS (SELECT 1 FROM form_definition"
+                " WHERE clinic_id = $1::uuid AND form_id = 'KQ_' || $2)",
+                identity.clinic_id,
+                ma,
+            ):
+                ma = f"{goc[:40]}_{so}"
+                so += 1
+            await conn.execute(
+                "INSERT INTO ket_qua_mau (clinic_id, ma, nhom, ten)"
+                " VALUES ($1::uuid, $2, $3, $4)",
+                identity.clinic_id,
+                ma,
+                nhom,
+                ten,
+            )
+            await conn.execute(
+                "INSERT INTO form_definition"
+                " (clinic_id, form_id, version, ten, nhom, khung, trang_thai,"
+                "  tao_boi, xuat_ban_boi, xuat_ban_luc)"
+                " VALUES ($1::uuid, $2, 1, $3, $4, $5::jsonb, 'PUBLISHED',"
+                "         $6::uuid, $6::uuid, now())",
+                identity.clinic_id,
+                f"KQ_{ma}",
+                ten,
+                nhom,
+                json.dumps(khung, ensure_ascii=False),
+                identity.staff_id,
+            )
+        return {"ok": True, "ma": ma, "form_id": f"KQ_{ma}", "version": 1}
 
     async def mau_cua_dich_vu(
         self, *, service_code: str, identity: StaffIdentity
@@ -181,6 +329,18 @@ _BO_QUA = frozenset(
 )
 
 
+def _ma_tu_ten(ten: str) -> str:
+    """ "Siêu âm tuyến vú (2 bên)" → "SIEU_AM_TUYEN_VU_2_BEN" (tối đa 44 ký tự,
+    để "KQ_" + mã + hậu tố vẫn gọn)."""
+    khong_dau = "".join(
+        c
+        for c in unicodedata.normalize("NFD", ten.replace("đ", "d").replace("Đ", "D"))
+        if unicodedata.category(c) != "Mn"
+    )
+    ma = re.sub(r"[^A-Za-z0-9]+", "_", khong_dau).strip("_").upper()[:44]
+    return ma or "MAU_MOI"
+
+
 def _tu_khoa(ten: str) -> frozenset[str]:
     """Tách tên thành các từ có nghĩa để so, bỏ dấu và bỏ từ đệm."""
     khong_dau = "".join(
@@ -192,4 +352,4 @@ def _tu_khoa(ten: str) -> frozenset[str]:
     return frozenset(t for t in tu if len(t) >= 2 and t not in _BO_QUA)
 
 
-__all__ = ["QUYEN_GAN_MAU", "MauKetQuaService"]
+__all__ = ["QUYEN_GAN_MAU", "MauKetQuaService", "_ma_tu_ten"]

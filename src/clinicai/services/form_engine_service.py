@@ -36,6 +36,7 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import (
@@ -46,6 +47,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
+from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 
 QUYEN_DIEN = "result.form.fill"
 
@@ -905,17 +907,88 @@ class FormEngineService:
     # ------------------------------------------------------------------
     # Sửa và xuất bản bản mẫu
     # ------------------------------------------------------------------
+    async def doc_bieu_mau(
+        self, *, form_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Khung ĐANG DÙNG của một mẫu — cho màn sửa mẫu (27/09/2026).
+
+        Ai sửa được hoặc xuất bản được mẫu thì đọc được; `version` gửi lại khi
+        xuất bản để không đè lên bản người khác vừa xuất bản.
+        """
+        async with self._pool.acquire() as conn:
+            if not (
+                await can(conn, identity, QUYEN_SUA_MAU)
+                or await can(conn, identity, QUYEN_XUAT_BAN)
+            ):
+                raise SafetyGateError("Bạn chưa được cấp quyền sửa biểu mẫu.")
+            r = await conn.fetchrow(
+                "SELECT form_id, version, ten, nhom, khung, xuat_ban_luc"
+                "  FROM form_definition"
+                " WHERE clinic_id = $1::uuid AND form_id = $2"
+                "   AND trang_thai = 'PUBLISHED'",
+                identity.clinic_id,
+                form_id,
+            )
+            if r is None:
+                raise ValidationError(f"Chưa có biểu mẫu “{form_id}”.")
+            so_phieu = await conn.fetchval(
+                "SELECT count(*) FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND form_id = $2",
+                identity.clinic_id,
+                form_id,
+            )
+        return {
+            "form_id": r["form_id"],
+            "version": r["version"],
+            "ten": r["ten"],
+            "nhom": r["nhom"],
+            "khung": json.loads(r["khung"]),
+            "xuat_ban_luc": r["xuat_ban_luc"].isoformat()
+            if r["xuat_ban_luc"]
+            else None,
+            # Phiếu đã điền (mọi bản) — màn nói rõ "N phiếu cũ giữ bản cũ".
+            "so_phieu_da_dien": int(so_phieu),
+        }
+
     async def xuat_ban(
-        self, *, form_id: str, khung: list[dict[str, Any]], identity: StaffIdentity
+        self,
+        *,
+        form_id: str,
+        khung: list[dict[str, Any]],
+        identity: StaffIdentity,
+        expected_version: int | None = None,
+        ten: str | None = None,
     ) -> dict[str, Any]:
         """`PublishFormVersion` — bản mới thành bản đang dùng, bản cũ về hưu.
 
         Phiếu đã điền KHÔNG đổi: chúng ghim phiên bản của chúng.
+
+        27/09/2026 (màn sửa mẫu): khung được KIỂM (`kiem_khung_mau`) trước khi
+        ghi; khoá dòng mẫu nên hai người xuất bản cùng lúc chạy nối tiếp, và
+        `expected_version` lệch thì 409 — không lặng lẽ đè bản người kia vừa
+        xuất bản. `ten` đổi tên mẫu (cả danh mục `ket_qua_mau` nếu là mẫu KQ).
         """
-        if not isinstance(khung, list) or not khung:
-            raise ValidationError("Khung biểu mẫu trống.")
+        ten_moi = (ten or "").strip() or None
         async with self._pool.acquire() as conn, conn.transaction():
+            # Quyền TRƯỚC khung: người không có quyền không nhận được lời chỉ
+            # dẫn sửa khung cho đúng.
             await doi_quyen(conn, identity, QUYEN_XUAT_BAN)
+            # Luật khung chỉ cho MẪU KẾT QUẢ (`KQ_*`). Hàm này còn xuất bản bảy
+            # phiếu khám (NT, PK…) — khung của chúng khác hẳn (`lien_ket`, nhóm,
+            # bảng hàng×cột) và có luật riêng ở `phieu_kham/khung.py`.
+            if form_id.startswith("KQ_"):
+                khung = kiem_khung_mau(khung)
+            if ten_moi is not None and len(ten_moi) > 200:
+                raise ValidationError("Tên mẫu dài quá 200 ký tự.")
+            # Khoá theo MẪU trước khi đọc bản mới nhất. `FOR UPDATE` trên dòng
+            # bản mới nhất không đủ: người đến sau chờ xong vẫn thấy đúng dòng
+            # cũ (bản N), qua kiểm rồi chèn N+1 trùng khoá chính → 500.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock("
+                "hashtext('bieu_mau:' || $1 || ':' || $2))",
+                identity.clinic_id,
+                form_id,
+            )
             hien = await conn.fetchrow(
                 "SELECT version, ten, nhom FROM form_definition"
                 " WHERE clinic_id = $1::uuid AND form_id = $2"
@@ -925,6 +998,13 @@ class FormEngineService:
             )
             if hien is None:
                 raise ValidationError(f"Chưa có biểu mẫu “{form_id}”.")
+            if expected_version is not None and int(hien["version"]) != int(
+                expected_version
+            ):
+                raise ConflictError(
+                    f"Mẫu vừa được xuất bản bản {hien['version']} trong lúc bạn "
+                    "sửa — tải lại để xem bản mới rồi sửa tiếp."
+                )
 
             await conn.execute(
                 "UPDATE form_definition SET trang_thai = 'RETIRED'"
@@ -943,11 +1023,20 @@ class FormEngineService:
                 identity.clinic_id,
                 form_id,
                 ban_moi,
-                hien["ten"],
+                ten_moi or hien["ten"],
                 hien["nhom"],
                 json.dumps(khung, ensure_ascii=False),
                 identity.staff_id,
             )
+            if ten_moi and form_id.startswith("KQ_"):
+                # Danh mục mẫu (chọn mẫu ở phòng, gắn mẫu) đọc tên ở đây.
+                await conn.execute(
+                    "UPDATE ket_qua_mau SET ten = $3, updated_at = now()"
+                    " WHERE clinic_id = $1::uuid AND ma = $2",
+                    identity.clinic_id,
+                    form_id.removeprefix("KQ_"),
+                    ten_moi,
+                )
         return {"ok": True, "form_id": form_id, "version": ban_moi}
 
     # ------------------------------------------------------------------

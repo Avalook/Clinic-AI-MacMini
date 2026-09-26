@@ -461,6 +461,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Khối chỉnh dây nối nghiệp vụ (nhóm 5, 24/09/2026) — quản lý; ai được cấp
   // quyền `config.wiring.manage` cũng vào được qua NAV_QUYEN.
   "/settings/day-noi": ["MANAGEMENT"],
+  // Mẫu kết quả (27/09/2026) — quản lý; ai được cấp quyền gắn / sửa / xuất bản
+  // mẫu cũng vào được qua NAV_QUYEN.
+  "/settings/mau-ket-qua": ["MANAGEMENT"],
   // Cài đặt (tạo user / cấu hình hệ thống) = CHỈ Quản lý — ranh giới "thấp hơn
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
@@ -629,6 +632,11 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/settings/booking-policy": ["config.clinic.manage"],
   "/settings/clinic-config": ["config.clinic.manage"],
   "/settings/day-noi": ["config.wiring.manage"],
+  "/settings/mau-ket-qua": [
+    "catalogue.result_template.manage",
+    "catalogue.form_template.edit",
+    "catalogue.form_template.publish",
+  ],
   "/nhan-su": ["staff.manage"], // 19 Nhân sự & phân quyền
   "/settings/tai-khoan": ["account.manage"],
   "/settings/new-user": ["account.manage"],

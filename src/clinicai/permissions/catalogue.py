@@ -912,6 +912,8 @@ MAN: dict[str, Man] = {
                 "/settings/booking-policy",
                 "/settings/clinic-config",
                 "/settings/day-noi",
+                # Mẫu kết quả (27/09/2026): gắn mẫu cho dịch vụ, sửa / tạo mẫu.
+                "/settings/mau-ket-qua",
             ],
             ["cai_dat", "danh_muc"],
             "Quản lý",
