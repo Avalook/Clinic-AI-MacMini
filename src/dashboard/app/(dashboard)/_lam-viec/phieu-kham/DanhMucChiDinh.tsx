@@ -14,6 +14,10 @@
 // được 2, 3 lần — mỗi lần vẫn đi thanh toán rồi làm như lần đầu. Lượt đã có chỉ
 // định thì trên cùng là ghi chú "Lần 1 · 09:40 — …" (khỏi mở lại danh mục cũ để
 // nhớ), danh mục gập sau nút [+ Chỉ định thêm (lần N)].
+//
+// CHỈ ĐỊNH LẠI (26/09/2026 — lát 4): dịch vụ đã chỉ định ở lần trước vẫn tick
+// được ở lần mới (vd siêu âm lại sau thủ thuật) — dòng tô xanh, ghi "đã chỉ định ·
+// lần n" để bác sĩ biết mình đang chỉ định lần hai. Số lần do máy chủ gán.
 
 import { useState } from "react";
 
@@ -61,7 +65,11 @@ export default function DanhMucChiDinh({
   // Chỉ định CỦA MỤC NÀY (C: cận lâm sàng · F: thủ thuật), gom theo lần.
   const maMuc = new Set(nhom.flatMap((n) => n.muc).flatMap((m) => (m.service_code ? [m.service_code] : [])));
   const cuaMuc = daChiDinh.filter((c) => maMuc.has(c.service_code));
-  const lanCua = new Map(cuaMuc.map((c) => [c.service_code, c.lan ?? null]));
+  // Một dịch vụ có thể đã chỉ định ở nhiều lần → nhớ lần GẦN nhất.
+  const lanCua = new Map<string, number>();
+  for (const c of cuaMuc) {
+    if (c.lan != null) lanCua.set(c.service_code, Math.max(c.lan, lanCua.get(c.service_code) ?? 0));
+  }
   const theoLan = new Map<string, ChiDinhVaKetQua[]>();
   for (const c of cuaMuc) {
     const khoa = c.mang_sang || c.lan == null ? "Mang sang từ lượt trước" : `Lần ${c.lan}`;
@@ -165,15 +173,16 @@ export default function DanhMucChiDinh({
               {n.muc.map((m) => {
                 const ma = m.service_code;
                 const da = ma ? daDat.has(ma) : false;
-                const khoa = chiDoc || !ma || da;
+                const khoa = chiDoc || !ma;
+                const lan = ma ? lanCua.get(ma) : undefined;
                 return (
-                  <li key={m.nhan}>
+                  <li key={m.nhan} className={da ? "bg-success-bg" : undefined}>
                     <label className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5">
                       <input
                         type="checkbox"
                         className="size-4 accent-brand-600"
                         disabled={khoa}
-                        checked={da || (ma ? chon.includes(ma) : false)}
+                        checked={ma ? chon.includes(ma) : false}
                         onChange={(e) => ma && bat(ma, e.target.checked)}
                       />
                       <span className="min-w-0 flex-1 text-body text-ink">{m.nhan}</span>
@@ -183,12 +192,12 @@ export default function DanhMucChiDinh({
                       </span>
                       {da ? (
                         <Chip tone="success">
-                          {lanCua.get(ma ?? "") ? `Đã chỉ định · lần ${lanCua.get(ma ?? "")}` : "Đã chỉ định"}
+                          {lan ? `Đã chỉ định · lần ${lan}` : "Đã chỉ định"}
                         </Chip>
                       ) : null}
                       {!ma ? <Chip tone="warning">Chưa có trong danh mục</Chip> : null}
                     </label>
-                    {ma && !da && !chiDoc && chon.includes(ma) ? (
+                    {ma && !chiDoc && chon.includes(ma) ? (
                       <label className="ml-10 flex min-h-10 items-center gap-2 pb-1.5 text-meta text-ink">
                         <input
                           type="checkbox"

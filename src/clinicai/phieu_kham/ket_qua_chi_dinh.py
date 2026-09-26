@@ -25,6 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
+from clinicai.services.doi_tac_service import trang_thai_doi_tac
 
 #: Bảy phiếu khám KHÔNG phải kết quả CLS — chúng là nơi ĐỌC kết quả, và gắn vào
 #: consultation/visit chứ không vào chỉ định. Chỉ phiếu kết quả dịch vụ (18 mẫu
@@ -67,16 +68,18 @@ async def doc_ket_qua_theo_chi_dinh(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> list[dict[str, Any]]:
     """Mỗi chỉ định (chưa huỷ) của lượt + kết quả của CHÍNH nó."""
-    # `vong` = vòng khám (phiên) đã ra chỉ định — nguồn của "LẦN chỉ định"
-    # (Tuyền 25/09/2026: "chỉ định thêm 2, 3 lượt trong CÙNG một lần khám").
-    # Chỉ định mang sang từ lượt trước không thuộc vòng nào của lượt này.
+    # "LẦN chỉ định" (Tuyền 25/09/2026: "chỉ định thêm 2, 3 lượt trong CÙNG một
+    # lần khám") = cột `lan_chi_dinh`, trigger gán mỗi lần bấm chốt (26/09 — lát 4).
+    # Trước đó lần suy từ vòng khám nên chỉ định thêm trong CÙNG phiên vẫn là
+    # "Lần 1". Chỉ định mang sang từ lượt trước không có lần.
     don = await conn.fetch(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
-        "       CASE WHEN c.visit_id = o.visit_id THEN c.round_no END AS vong"
+        "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
+        "       coalesce(n.lam_ben_ngoai, false) AS ben_ngoai"
         "  FROM service_order o"
-        "  LEFT JOIN consultation c"
-        "    ON c.id = o.consultation_id AND c.clinic_id = o.clinic_id"
+        "  LEFT JOIN node_definition n"
+        "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
         " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
         "   AND o.exec_status <> 'cancelled'"
         "   AND coalesce(o.execution_status, '') <> 'CANCELLED'"
@@ -84,13 +87,6 @@ async def doc_ket_qua_theo_chi_dinh(
         clinic_id,
         visit_id,
     )
-    # Vòng → lần 1, 2, 3… theo thứ tự các vòng CÓ chỉ định (tư vấn là vòng 0).
-    lan_cua_vong = {
-        v: i
-        for i, v in enumerate(
-            sorted({r["vong"] for r in don if r["vong"] is not None}), start=1
-        )
-    }
     if not don:
         return []
     ids = [r["id"] for r in don]
@@ -170,12 +166,23 @@ async def doc_ket_qua_theo_chi_dinh(
                 ),
                 "ket_qua": cua_no,
                 "mau_ket_qua": gan_mau.get(r["service_code"], []),
-                "lan": lan_cua_vong.get(r["vong"]),
+                "lan": r["lan_chi_dinh"],
                 "chi_dinh_luc": (
                     r["created_at"].isoformat() if r["created_at"] else None
                 ),
                 "mang_sang": r["mang_tu_visit_id"] is not None,
                 "bat_buoc": bool(r["bat_buoc"]),
+                # Làm ở ĐỐI TÁC (phòng `lam_ben_ngoai`): trạng thái bàn đối tác —
+                # cùng một hàm với màn đối tác và CSKH (lát 4c, 26/09/2026).
+                "doi_tac": (
+                    trang_thai_doi_tac(
+                        exec_status=r["exec_status"],
+                        cho_tai_lieu=r["doi_tac_cho_tai_lieu_luc"] is not None,
+                        co_ket_qua=r["ket_qua_luc"] is not None,
+                    )
+                    if r["ben_ngoai"]
+                    else None
+                ),
             }
         )
     return kq

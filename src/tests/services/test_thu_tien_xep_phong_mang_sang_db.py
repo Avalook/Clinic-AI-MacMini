@@ -487,6 +487,13 @@ async def test_h2_da_tra_chua_lam_mang_sang_luot_moi_khong_thu_lai(
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
     assert order not in [x.source_id for x in hd.dong]  # không thu lại
+    # Lần chỉ định của lượt cũ không theo sang (lát 4, 26/09/2026).
+    assert (
+        await pool.fetchval(
+            "SELECT lan_chi_dinh FROM service_order WHERE id = $1::uuid", order
+        )
+        is None
+    )
 
 
 async def test_h2_lich_thu_thuat_mang_chi_dinh_chua_tra_di_thang_dich_vu(

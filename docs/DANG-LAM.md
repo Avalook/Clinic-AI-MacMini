@@ -22,15 +22,23 @@ lệch trên main f2542b5: CẢ 11 VẪN ĐÚNG (chi tiết: quầy chặn giá 
 `payment_service.py:331,591`; đã có API gắn mẫu `routers/mau_ket_qua.py:56` nhưng chưa proxy/màn;
 "chỉ định thêm" trong cùng phiên dùng chung `round_no`; đối tác có thêm `BU_DU_LIEU`).
 
-1. **Danh mục — ĐANG LÀM:** `service_price.ma_kiotviet` + `chuan_hoa_danh_muc_dich_vu_kiotviet()`
+1. **Danh mục — XONG (prod 751ca5f):** `service_price.ma_kiotviet` + `chuan_hoa_danh_muc_dich_vu_kiotviet()`
    (mig 20260926000001): 39 mã cũ gắn mã KV + giá KV, 45 dịch vụ mới `KV_<mã>` (9 chưa có giá →
    trống). 8 câu chờ → theo nguồn chuẩn: ghế ĐTT 3tr (KV), PCR 1,1tr (viết tay), ThinPrep giữ 650k
    (KV 0đ, giấy không ghi), HPV 900k, Nong ÂV = SP000162, SA 3D sàn chậu GIỮ riêng (không gộp
    4D), dịch vụ chỉ hệ thống có GIỮ (quản lý tắt ở Bảng giá nếu không bán). Phí khám (11 mã KV) →
    lát 2. Mục C phiếu khám có thêm nhóm "… (danh mục phòng khám)". Bảng giá: mã phòng khám + phòng làm.
-2. Phiếu khám v2 (3 khối, giữ `ma`, lưu theo ô, công tắc tư vấn, hẹn → nhắc tái khám, phí khám).
-3. Mẫu kết quả v3 theo 17 PDF + tệp (`ben`, video, ảnh nhỏ, Tải về, màn sửa/gắn mẫu).
-4. Lần chỉ định (phiên mới, bỏ khoá dòng) + realtime `form_instance` + đối tác theo chỉ định.
+2. **XONG (prod 8ca47b8)** Phiếu khám v2 (3 khối, giữ `ma`, lưu theo ô, công tắc tư vấn, hẹn → nhắc tái khám, phí khám).
+3. **XONG phần lõi (prod d602e02)** Mẫu kết quả v3 theo 17 PDF + tệp (`ben`, Tải về). CÒN: màn
+   sửa/gắn mẫu (API `routers/mau_ket_qua.py` có, thiếu proxy + màn), video (chờ Tuyền OK), ảnh nhỏ.
+4. **4a+4b XONG 26/09:** `service_order.lan_chi_dinh` do TRIGGER gán (mig 20260926000006 — mỗi
+   lần bấm chốt = một lần, KHÔNG mở phiên mới như bản mẫu gợi ý vì mở phiên đẩy khách ra hàng
+   chờ; nháp nhận số lúc duyệt; mang sang = NULL), mục đã chỉ định tô xanh vẫn tick lại được;
+   tin `form_instance` (chỉ khi đổi trạng thái) + `luot_dong_thoi_gian` (mig 20260926000007),
+   phiếu khám tự nạp lại danh sách kết quả. **4c XONG:** điểm lệch 7 của bản bàn giao đọc
+   `lab_result` đời cũ — đối tác ĐÃ gửi kết quả theo chỉ định (`tep_ket_qua.service_order_id`,
+   `ket_qua_luc`, 4 trạng thái `trang_thai_doi_tac`); chỗ thiếu thật là phiếu khám không hiện
+   trạng thái đó → nay có chip "Đối tác · …" ở mục C.
 5. Giao diện + in A4 theo bản mẫu bằng component thật (Lightbox/Dropzone/Timeline vào `components/ui`).
 
 ## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)
