@@ -98,3 +98,13 @@ def test_vi_tri_hom_nay_van_cap_vai_khi_lego_tat() -> None:
     assert dd.co_vai({D.RECEPTION})
     assert not dd.co_vai({D.NURSE_ULTRASOUND})
     assert dung_vai(dd, {D.RECEPTION}).role is D.RECEPTION
+
+
+def test_quan_ly_co_lego_ban_kham_mo_ho_so_van_ghi_nhat_ky() -> None:
+    """Nhật ký "ai ngoài đội chuyên môn xem hồ sơ" xét VAI TÀI KHOẢN: quản lý
+    bật lego Bàn khám vẫn bị ghi (mô phỏng K14, công tắc tắt, 26/09)."""
+    from clinicai.api.identity import CLINICAL_WRITE_ROLES
+
+    ql = _nguoi(D.MANAGEMENT, frozenset({D.DOCTOR}))
+    assert ql.co_vai(CLINICAL_WRITE_ROLES), "qua cửa lâm sàng nhờ lego"
+    assert ql.vai_goc not in CLINICAL_WRITE_ROLES, "nhưng vẫn ghi nhật ký mở hồ sơ"
