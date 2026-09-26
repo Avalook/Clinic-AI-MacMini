@@ -148,9 +148,10 @@ class _FakePool:
         self.args: tuple[object, ...] = ()
 
     async def fetch(self, query: str, *args: object) -> list[object]:
-        if "work_roster" in query:
-            # Vị trí theo lịch (S0-7) là truy vấn riêng; các test ở đây hỏi vai
-            # tài khoản nên lịch hôm nay rỗng.
+        if "work_roster" in query or "v_quyen_hieu_luc" in query:
+            # Vị trí theo lịch (S0-7) và vai theo lego (26/09) là truy vấn riêng;
+            # các test ở đây hỏi vai tài khoản nên cả hai rỗng (lego rỗng = luật
+            # cũ theo vai tài khoản).
             return []
         self.query = query
         self.args = args

@@ -956,6 +956,41 @@ def man_dang_bat(khoi: Sequence[str]) -> list[str]:
     return [m.ma for m in MAN.values() if set(m.khoi) <= co]
 
 
+#: VAI CŨ DO LEGO QUYẾT (Tuyền chốt 26/09/2026: khám, chỉ định, kê đơn "chỉ cần
+#: lego"). Còn ~100 chỗ trong mã hỏi VAI (`require_role`, `co_vai`) — sửa từng
+#: chỗ là dễ sót. Thay vào đó vai của các chỗ ấy SUY TỪ LEGO ĐANG BẬT ĐỦ: bật
+#: Bàn khám thì qua mọi cửa của vai Bác sĩ; tắt thì mất, dù tài khoản là bác sĩ.
+#:
+#: "Bật đủ", không phải "có một khối": thư ký có khối Khám nhưng không có Hoàn
+#: tất — tính theo một khối là thư ký thành bác sĩ.
+#:
+#: Vai KHÔNG có ở đây (Quản lý, Thư ký, BS siêu âm, Đối tác, TV) vẫn theo tài
+#: khoản: chưa lego nào nói trọn việc của chúng.
+VAI_THEO_LEGO: dict[str, str] = {
+    "ban_kham": "DOCTOR",
+    "do_sinh_hieu": "NURSE_ULTRASOUND",
+    "tiep_don": "RECEPTION",
+    "thu_tien_dv": "CASHIER_DV",
+    "thu_tien_thuoc": "CASHIER_THUOC",
+    "dieu_phoi": "TRUONG_CA",
+    "kho_thuoc": "PHARMACIST",
+    "cham_soc_khach": "CSKH",
+}
+
+#: Vai tài khoản mà lego quyết — tài khoản mang vai này mà lego tắt thì KHÔNG
+#: còn vai ấy. Thu ngân gộp = bật đủ cả hai lego thu tiền.
+VAI_DO_LEGO: frozenset[str] = frozenset({*VAI_THEO_LEGO.values(), "CASHIER"})
+
+
+def vai_tu_lego(khoi: Sequence[str]) -> frozenset[str]:
+    """Vai (mã chuỗi) mà tập khối của một người mang lại."""
+    bat = set(man_dang_bat(khoi))
+    vai = {VAI_THEO_LEGO[m] for m in bat if m in VAI_THEO_LEGO}
+    if {"thu_tien_dv", "thu_tien_thuoc"} <= bat:
+        vai.add("CASHIER")
+    return frozenset(vai)
+
+
 def khoi_sau_khi_doi_man(khoi: Sequence[str], ma_man: str, bat: bool) -> list[str]:
     """Tập khối mới khi bật/tắt một màn. Tắt thì chỉ gỡ khối KHÔNG còn màn nào
     khác đang bật cần tới — tắt "Phòng dịch vụ" không được lấy mất khối mà
@@ -998,6 +1033,8 @@ __all__ = [
     "MAN",
     "PRESET",
     "QUYEN",
+    "VAI_DO_LEGO",
+    "VAI_THEO_LEGO",
     "KhoiCongViec",
     "MucRuiRo",
     "PhamVi",
@@ -1005,4 +1042,5 @@ __all__ = [
     "quyen_cua_khoi",
     "quyen_cua_preset",
     "tra_quyen",
+    "vai_tu_lego",
 ]

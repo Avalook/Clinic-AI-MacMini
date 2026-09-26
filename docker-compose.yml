@@ -100,6 +100,9 @@ services:
         # dùng Supabase cloud, sai khi tự dựng; Dockerfile chặn nốt vế sai.
         NEXT_PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL}}}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+        # Cùng MỘT biến với máy chủ (26/09/2026): tắt MO_QUYEN_TAM_THOI trong
+        # .env.prod là tắt cả hai nửa — thanh bên/cửa trang và cửa gác API.
+        NEXT_PUBLIC_MO_QUYEN_TAM_THOI: ${MO_QUYEN_TAM_THOI:-1}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # 4 tiến trình × ~85MiB đo được lúc tải + phần dựng trang. 512m cũ vừa đủ

@@ -85,7 +85,16 @@ async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
     tn = await svc.doc(visit_id=kb.visit_id, identity=_ai(ClinicRole.CASHIER, kb))
     assert tn["tai_chinh"] == [] and "lam_sang" not in tn
 
-    # Thư ký chưa được phân bác sĩ này → bị chặn.
+    # Thư ký CHƯA xếp theo ai thấy cả phòng; đã xếp theo bác sĩ KHÁC → bị chặn
+    # (Tuyền chốt 26/09/2026).
+    assert "lam_sang" in await svc.doc(visit_id=kb.visit_id, identity=kb.thu_ky)
+    await kb.pool.execute(
+        "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+        kb.bac_si.clinic_id,
+        kb.thu_ky.staff_id,
+        kb.dieu_duong.staff_id,
+    )
     with pytest.raises(SafetyGateError):
         await svc.doc(visit_id=kb.visit_id, identity=kb.thu_ky)
     await kb.pool.execute(

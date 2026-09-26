@@ -143,21 +143,27 @@ def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
 async def test_thu_ky_chua_phan_bac_si_van_lam_viec_duoc(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Chính triệu chứng Tuyền gặp: thư ký thấy 0 lượt, điều dưỡng thấy 19.
+    """Chính triệu chứng Tuyền gặp 16/09: thư ký thấy 0 lượt, điều dưỡng 19.
 
-    `bac_si_cua_thu_ky` trả `None` = "không lọc theo luật này". Khi công tắc
-    bật, nó phải trả `None` NGAY, không đọc bảng phân công.
+    Từ 26/09 luật không còn phụ thuộc công tắc: CHƯA được xếp theo bác sĩ nào
+    thì `None` ("không lọc") dù công tắc bật hay tắt; đã xếp thì chỉ khách của
+    bác sĩ ấy (Tuyền chốt 26/09/2026).
     """
     from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
-    class KhongDuocHoi:
+    class ChuaPhan:
         async def fetchval(self, *a: object, **k: object) -> object:
-            raise AssertionError(
-                "Công tắc đang bật thì không được tra bảng phân công nữa."
-            )
+            return None
 
-    monkeypatch.setenv("MO_QUYEN_TAM_THOI", "1")
-    assert await bac_si_cua_thu_ky(KhongDuocHoi(), _danh_tinh(ClinicRole.TKYK)) is None
+    class DaPhan:
+        async def fetchval(self, *a: object, **k: object) -> object:
+            return ["bs-1"]
+
+    for cong_tac in ("1", "0"):
+        monkeypatch.setenv("MO_QUYEN_TAM_THOI", cong_tac)
+        tk = _danh_tinh(ClinicRole.TKYK)
+        assert await bac_si_cua_thu_ky(ChuaPhan(), tk) is None
+        assert await bac_si_cua_thu_ky(DaPhan(), tk) == ["bs-1"]
 
 
 def test_cua_trong_ham_dich_vu_cung_noi_theo_cong_tac(

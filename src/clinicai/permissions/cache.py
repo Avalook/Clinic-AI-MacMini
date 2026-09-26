@@ -64,6 +64,11 @@ def quen(clinic_id: str, staff_id: str | None = None) -> None:
     Thu quyền mà còn nhớ bản cũ là lỗ hổng, nên chỗ nào đổi quyền cũng phải gọi
     hàm này TRONG cùng luồng, đừng trông vào hạn giờ.
     """
+    # Vai theo lego (26/09/2026) nằm trong danh tính cache 30 giây — đổi quyền
+    # mà không quên nó thì tắt lego vẫn còn vai tới nửa phút.
+    from clinicai.api.identity import invalidate_identity_cache
+
+    invalidate_identity_cache()
     if staff_id is not None:
         _BO_NHO.pop((clinic_id, staff_id), None)
         return
