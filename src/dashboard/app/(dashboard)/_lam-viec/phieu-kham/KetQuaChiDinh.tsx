@@ -24,6 +24,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import {
   giaTriDoc,
+  NHAN_DOI_TAC,
   NHAN_KET_QUA,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
@@ -91,6 +92,11 @@ export default function KetQuaChiDinh({
                   {NHAN_KET_QUA[d.ket_qua_trang_thai]}
                 </Chip>
               )}
+              {d.doi_tac && d.ket_qua_trang_thai !== "CO_KET_QUA" ? (
+                <Chip tone={d.doi_tac === "CHO_TAI_LIEU" ? "warning" : "neutral"}>
+                  {NHAN_DOI_TAC[d.doi_tac]}
+                </Chip>
+              ) : null}
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}

@@ -151,3 +151,40 @@ async def test_trigger_nhap_nhan_so_luc_duyet_mang_sang_khong_so(
     }
     assert so[nhap] == 2, "nháp nhận số lúc được duyệt"
     assert so[mang] is None, "mang sang từ lượt trước không thuộc lần nào"
+
+
+async def test_chi_dinh_lam_o_doi_tac_mang_trang_thai_ban_doi_tac(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Lát 4c: phiếu khám thấy việc ở đối tác tới đâu — cùng hàm với bàn đối tác."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    _con, don = await _kham_va_chi_dinh(pool, ca, visit)
+
+    async def doi_tac() -> str | None:
+        async with pool.acquire() as conn:
+            ds = await doc_ket_qua_theo_chi_dinh(conn, clinic_id=CLINIC, visit_id=visit)
+        [d] = [d for d in ds if d["service_order_id"] == don]
+        return d["doi_tac"]
+
+    assert await doi_tac() is None, "làm tại phòng khám: không có trạng thái đối tác"
+    ngoai = await pool.fetchval(
+        "SELECT code FROM node_definition WHERE clinic_id = $1::uuid"
+        " AND lam_ben_ngoai LIMIT 1",
+        CLINIC,
+    )
+    assert ngoai, "seed cần một phòng làm bên ngoài"
+    await pool.execute(
+        "UPDATE service_order SET node_code = $2 WHERE id = $1::uuid", don, ngoai
+    )
+    assert await doi_tac() == "CHO_LAY_MAU"
+    await pool.execute(
+        "UPDATE service_order SET doi_tac_cho_tai_lieu_luc = now() WHERE id = $1::uuid",
+        don,
+    )
+    assert await doi_tac() == "CHO_TAI_LIEU"
+    await pool.execute(
+        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", don
+    )
+    assert await doi_tac() == "DA_GUI_KET_QUA"

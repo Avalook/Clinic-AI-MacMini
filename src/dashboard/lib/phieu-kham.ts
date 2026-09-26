@@ -88,14 +88,25 @@ export interface ChiDinhVaKetQua {
   ket_qua: KetQuaMotChiDinh[];
   /** Mẫu kết quả đã gắn cho dịch vụ (Danh mục & biểu mẫu). */
   mau_ket_qua?: MauKetQuaNgan[];
-  /** Lần chỉ định trong lượt (1, 2, 3… theo vòng khám). null = mang sang. */
+  /** Lần chỉ định trong lượt (1, 2, 3… mỗi lần bấm chốt). null = mang sang. */
   lan?: number | null;
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
   /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
   bat_buoc?: boolean;
+  /** Làm ở đối tác: trạng thái bàn đối tác. null = làm tại phòng khám. */
+  doi_tac?: TrangThaiDoiTac | null;
 }
+
+export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+
+export const NHAN_DOI_TAC: Record<TrangThaiDoiTac, string> = {
+  CHO_LAY_MAU: "Đối tác · chờ lấy mẫu",
+  DA_LAY_MAU: "Đối tác · đã lấy mẫu",
+  CHO_TAI_LIEU: "Đối tác · chờ tài liệu",
+  DA_GUI_KET_QUA: "Đối tác · đã gửi kết quả",
+};
 
 /** Một mẫu kết quả (18 mẫu KQ_*): `ma` không kèm tiền tố `KQ_`. */
 export interface MauKetQuaNgan {

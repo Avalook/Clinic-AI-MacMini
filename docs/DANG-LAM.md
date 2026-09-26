@@ -35,8 +35,10 @@ lệch trên main f2542b5: CẢ 11 VẪN ĐÚNG (chi tiết: quầy chặn giá 
    lần bấm chốt = một lần, KHÔNG mở phiên mới như bản mẫu gợi ý vì mở phiên đẩy khách ra hàng
    chờ; nháp nhận số lúc duyệt; mang sang = NULL), mục đã chỉ định tô xanh vẫn tick lại được;
    tin `form_instance` (chỉ khi đổi trạng thái) + `luot_dong_thoi_gian` (mig 20260926000007),
-   phiếu khám tự nạp lại danh sách kết quả. CÒN 4c: đối tác theo chỉ định (`lab_result` chưa
-   có `service_order_id`; `doi_tac_nhan_viec` thiếu đã gửi / chờ KQ / đã trả).
+   phiếu khám tự nạp lại danh sách kết quả. **4c XONG:** điểm lệch 7 của bản bàn giao đọc
+   `lab_result` đời cũ — đối tác ĐÃ gửi kết quả theo chỉ định (`tep_ket_qua.service_order_id`,
+   `ket_qua_luc`, 4 trạng thái `trang_thai_doi_tac`); chỗ thiếu thật là phiếu khám không hiện
+   trạng thái đó → nay có chip "Đối tác · …" ở mục C.
 5. Giao diện + in A4 theo bản mẫu bằng component thật (Lightbox/Dropzone/Timeline vào `components/ui`).
 
 ## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)

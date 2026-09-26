@@ -25,6 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
+from clinicai.services.doi_tac_service import trang_thai_doi_tac
 
 #: Bảy phiếu khám KHÔNG phải kết quả CLS — chúng là nơi ĐỌC kết quả, và gắn vào
 #: consultation/visit chứ không vào chỉ định. Chỉ phiếu kết quả dịch vụ (18 mẫu
@@ -74,8 +75,11 @@ async def doc_ket_qua_theo_chi_dinh(
     don = await conn.fetch(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
-        "       o.lan_chi_dinh"
+        "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
+        "       coalesce(n.lam_ben_ngoai, false) AS ben_ngoai"
         "  FROM service_order o"
+        "  LEFT JOIN node_definition n"
+        "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
         " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
         "   AND o.exec_status <> 'cancelled'"
         "   AND coalesce(o.execution_status, '') <> 'CANCELLED'"
@@ -168,6 +172,17 @@ async def doc_ket_qua_theo_chi_dinh(
                 ),
                 "mang_sang": r["mang_tu_visit_id"] is not None,
                 "bat_buoc": bool(r["bat_buoc"]),
+                # Làm ở ĐỐI TÁC (phòng `lam_ben_ngoai`): trạng thái bàn đối tác —
+                # cùng một hàm với màn đối tác và CSKH (lát 4c, 26/09/2026).
+                "doi_tac": (
+                    trang_thai_doi_tac(
+                        exec_status=r["exec_status"],
+                        cho_tai_lieu=r["doi_tac_cho_tai_lieu_luc"] is not None,
+                        co_ket_qua=r["ket_qua_luc"] is not None,
+                    )
+                    if r["ben_ngoai"]
+                    else None
+                ),
             }
         )
     return kq
