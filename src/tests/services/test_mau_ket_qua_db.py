@@ -83,14 +83,29 @@ async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     )
 
 
-async def test_migration_khong_tu_gan_mau_cho_dich_vu_nao(pool: asyncpg.Pool) -> None:
-    """Gắn theo tên là gắn nhầm — migration để trống, người gắn."""
-    so = await pool.fetchval(
-        "SELECT count(*) FROM dich_vu_mau_ket_qua WHERE clinic_id = $1::uuid"
-        " AND gan_boi IS NULL",
+async def test_migration_chi_gan_theo_ma_phong_kham_cua_pdf(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Gắn theo TÊN là gắn nhầm. Từ 26/09/2026 (Tuyền duyệt: theo nguồn chuẩn)
+    migration tự gắn — nhưng CHỈ theo mã phòng khám (KiotViet) ghi trên từng PDF
+    mẫu (`mau_ket_qua_v3.json`), không cặp nào ngoài bảng ấy."""
+    import json
+    from pathlib import Path
+
+    import clinicai.phieu_kham as pk
+
+    ghep = json.loads(
+        (Path(pk.__file__).parent / "mau_ket_qua_v3.json").read_text(encoding="utf-8")
+    )["mau"]
+    hop_le = {(mau, kv) for mau, m in ghep.items() for kv in m["kv"]}
+    dong = await pool.fetch(
+        "SELECT g.mau, p.ma_kiotviet FROM dich_vu_mau_ket_qua g"
+        " JOIN service_price p ON p.clinic_id = g.clinic_id"
+        "  AND p.service_code = g.service_code AND p.\"group\" = 'dich_vu'"
+        " WHERE g.clinic_id = $1::uuid AND g.gan_boi IS NULL",
         CLINIC,
     )
-    assert so == 0
+    assert all((r["mau"], r["ma_kiotviet"]) in hop_le for r in dong)
 
 
 async def test_quan_ly_gan_duoc_va_bac_si_doc_duoc(pool: asyncpg.Pool) -> None:

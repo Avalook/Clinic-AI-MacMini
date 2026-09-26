@@ -17,6 +17,8 @@ interface Muc {
   ma: string;
   ten: string;
   block: O[];
+  /** Mục dạng bảng (mẫu v3) — giá trị ô là {ma_cột: giá trị}. */
+  cot?: { ma: string; ten: string }[];
 }
 interface Phieu {
   form_id: string;
@@ -46,7 +48,18 @@ interface DuLieuIn {
 function chuO(v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
   if (Array.isArray(v)) return v.length ? v.join(", ") : "—";
+  if (typeof v === "object") {
+    const ds = Object.values(v as Record<string, unknown>).filter((x) => x !== "" && x != null);
+    return ds.length ? ds.join(" · ") : "—";
+  }
   return String(v);
+}
+
+/** Một ô của mục dạng BẢNG (mẫu v3): {ma_cột: giá trị}. */
+function oBang(v: unknown, cot: string): string {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return "—";
+  const x = (v as Record<string, unknown>)[cot];
+  return x === "" || x == null ? "—" : String(x);
 }
 
 function ngayVn(iso: string | number | null): string {
@@ -144,6 +157,32 @@ export default function InKetQua({ orderId }: { orderId: string }) {
               }
             >
               <h2 className="text-emph font-semibold text-ink">{m.ten}</h2>
+              {m.cot ? (
+                <table className="mt-1 w-full border-collapse text-body">
+                  <thead>
+                    <tr>
+                      <th className="border border-line px-2 py-1 text-left font-semibold" />
+                      {m.cot.map((c) => (
+                        <th key={c.ma} className="border border-line px-2 py-1 text-left font-semibold">
+                          {c.ten}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {m.block.map((o) => (
+                      <tr key={o.ma} className="break-inside-avoid">
+                        <td className="border border-line px-2 py-1 text-ink-muted">{o.ten}</td>
+                        {m.cot?.map((c) => (
+                          <td key={c.ma} className="border border-line px-2 py-1 whitespace-pre-wrap">
+                            {oBang(p.du_lieu[o.ma]?.gia_tri, c.ma)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
               <dl className="mt-1 space-y-1">
                 {m.block.map((o) =>
                   m.block.length === 1 && o.ten === m.ten ? (
@@ -158,6 +197,7 @@ export default function InKetQua({ orderId }: { orderId: string }) {
                   ),
                 )}
               </dl>
+              )}
             </section>
           ))}
           <footer className="mt-10 flex justify-end">

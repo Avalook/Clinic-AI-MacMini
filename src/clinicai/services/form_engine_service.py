@@ -1082,7 +1082,11 @@ def _con_trong(khung: list[dict[str, Any]], du_lieu: dict[str, Any]) -> list[str
     for muc in khung:
         for block in muc.get("block", []):
             o = du_lieu.get(block["ma"])
-            if o is None or o.get("gia_tri") in (None, "", []):
+            g = None if o is None else o.get("gia_tri")
+            # Ô mục BẢNG (mẫu v3): {ma_cột: giá trị} — trống khi mọi cột trống.
+            if isinstance(g, dict):
+                g = [v for v in g.values() if v not in (None, "")]
+            if g in (None, "", []):
                 trong.append(block.get("ten", block["ma"]))
     return trong
 

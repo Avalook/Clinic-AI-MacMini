@@ -24,6 +24,8 @@ interface Tep {
   tai_len_luc: string;
   tai_len_boi: string | null;
   service_order_id: string | null;
+  /** Bên trong mẫu hai bên (Thai A=0, Thai B=1…); null = tệp chung / tệp cũ. */
+  ben?: number | null;
 }
 
 const coChu = doCoTep;
@@ -107,6 +109,7 @@ export default function KhungTep({
   choTaiLen = true,
   tieuDe = "Ảnh · video · phiếu kết quả",
   onDaTaiLen,
+  ben,
 }: {
   clinicPatientId: string;
   serviceOrderId: string;
@@ -114,6 +117,9 @@ export default function KhungTep({
   choTaiLen?: boolean;
   tieuDe?: string;
   onDaTaiLen?: () => void;
+  /** Mẫu hai bên (26/09/2026): ô tải của MỘT bên — tệp gửi lên gắn `ben`, danh
+   *  sách chỉ hiện tệp của bên ấy (tệp cũ chưa gắn bên xếp vào bên đầu). */
+  ben?: { so: number; ten: string };
 }) {
   const [teps, setTeps] = useState<Tep[] | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -121,6 +127,8 @@ export default function KhungTep({
   const [keoVao, setKeoVao] = useState(false);
   const [phongTo, setPhongTo] = useState<Tep | null>(null);
   const [lanNap, setLanNap] = useState(0);
+  // Số nguyên, không phải object: cha tạo object `ben` mới mỗi lần vẽ.
+  const benSo = ben?.so;
   const oChon = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -141,6 +149,12 @@ export default function KhungTep({
         setTeps(
           (d?.items ?? [])
             .filter((t) => t.service_order_id === serviceOrderId)
+            .filter(
+              (t) =>
+                benSo === undefined ||
+                t.ben === benSo ||
+                (benSo === 0 && (t.ben === null || t.ben === undefined)),
+            )
             // Cũ trước: đọc theo thứ tự đã chụp.
             .sort((a, b) => a.tai_len_luc.localeCompare(b.tai_len_luc)),
         );
@@ -151,7 +165,7 @@ export default function KhungTep({
     return () => {
       huy = true;
     };
-  }, [clinicPatientId, serviceOrderId, lanNap]);
+  }, [clinicPatientId, serviceOrderId, lanNap, benSo]);
 
   const taiLen = useCallback(
     async (files: FileList | File[] | null) => {
@@ -168,6 +182,7 @@ export default function KhungTep({
         const fd = new FormData();
         fd.append("clinic_patient_id", clinicPatientId);
         fd.append("service_order_id", serviceOrderId);
+        if (benSo !== undefined) fd.append("ben", String(benSo));
         fd.append("file", f);
         try {
           const r = await guiTepCoTienDo("/api/cskh/ket-qua", fd, (pt) =>
@@ -190,8 +205,20 @@ export default function KhungTep({
       setLanNap((n) => n + 1);
       onDaTaiLen?.();
     },
-    [clinicPatientId, serviceOrderId, onDaTaiLen],
+    [clinicPatientId, serviceOrderId, onDaTaiLen, benSo],
   );
+
+  /** Tải về từng tệp một (không nén) — trình duyệt hỏi một lần cho nhiều tệp. */
+  const taiTatCa = useCallback(() => {
+    for (const t of teps ?? []) {
+      const a = document.createElement("a");
+      a.href = `${duongXem(t.id)}?tai=1`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+  }, [teps]);
 
   const coTep = (teps?.length ?? 0) > 0;
 
@@ -215,9 +242,20 @@ export default function KhungTep({
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink">{tieuDe}</h3>
+        <h3 className="text-sm font-semibold text-ink">{ben ? ben.ten : tieuDe}</h3>
         {coTep ? (
-          <span className="text-label text-ink-muted">{teps!.length} tệp đã lưu</span>
+          <span className="flex items-center gap-2 text-label text-ink-muted">
+            {teps!.length} tệp đã lưu
+            {teps!.length > 1 ? (
+              <button
+                type="button"
+                onClick={taiTatCa}
+                className="font-semibold text-brand-700 underline underline-offset-4"
+              >
+                Tải tất cả
+              </button>
+            ) : null}
+          </span>
         ) : null}
       </div>
 
@@ -314,10 +352,18 @@ export default function KhungTep({
                   <span className="text-label font-semibold">Mở phiếu PDF</span>
                 </button>
               )}
-              <p className="truncate px-2 py-1.5 text-label text-ink-muted">
-                {t.ten_hien_thi ?? "(không tên)"} · {coChu(t.so_byte)} ·{" "}
-                {gio(t.tai_len_luc)}
-                {t.tai_len_boi ? ` · ${t.tai_len_boi}` : ""}
+              <p className="flex items-center gap-2 px-2 py-1.5 text-label text-ink-muted">
+                <span className="min-w-0 flex-1 truncate">
+                  {t.ten_hien_thi ?? "(không tên)"} · {coChu(t.so_byte)} ·{" "}
+                  {gio(t.tai_len_luc)}
+                  {t.tai_len_boi ? ` · ${t.tai_len_boi}` : ""}
+                </span>
+                <a
+                  href={`${duongXem(t.id)}?tai=1`}
+                  className="shrink-0 font-semibold text-brand-700 underline underline-offset-4"
+                >
+                  Tải về
+                </a>
               </p>
             </li>
           ))}

@@ -219,7 +219,7 @@ function MotKetQua({ k }: { k: KetQuaMotChiDinh }) {
             <div key={o.ma} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
               <dt className="text-meta text-ink-muted sm:w-40 sm:shrink-0">{o.ten}</dt>
               <dd className="whitespace-pre-wrap text-body text-ink">
-                {giaTriDoc(o, duLieu[o.ma])}
+                {giaTriDoc(o, duLieu[o.ma], m.cot)}
               </dd>
             </div>
           )),
