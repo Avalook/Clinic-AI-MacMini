@@ -102,9 +102,26 @@ def tao_khach(ten: str) -> str:
     return str(p["clinic_patient_id"])
 
 
+#: Kịch bản xa nhất đặt cách mốc khoảng 300 phút.
+_TAM_XA_NHAT = 300
+
+
 def gio_hom_nay(phut_tu_8h: int) -> dt.datetime:
-    goc = dt.datetime.now(VN).replace(hour=8, minute=0, second=0, microsecond=0)
-    return goc + dt.timedelta(minutes=phut_tu_8h)
+    """Giờ hẹn = mốc + `phut_tu_8h` phút, tròn 15 phút.
+
+    Mốc = max(8:00, bây giờ + 15 phút). Ghim cứng 8:00 thì chạy sau trưa mọi
+    khung đầu đã qua → thử khung kế liên tục → dính chặn 429 (26/09, 17:27).
+    Cuối ngày không đủ chỗ thì NÉN các khung cho vừa trước 21:45.
+    """
+    now = dt.datetime.now(VN)
+    tam = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    som = now.replace(second=0, microsecond=0) + dt.timedelta(minutes=15)
+    som += dt.timedelta(minutes=(15 - som.minute % 15) % 15)
+    goc = max(tam, som)
+    het = now.replace(hour=21, minute=45, second=0, microsecond=0)
+    con = (het - goc).total_seconds() / 60
+    phut = phut_tu_8h if con >= _TAM_XA_NHAT else phut_tu_8h * max(con, 0) / _TAM_XA_NHAT
+    return goc + dt.timedelta(minutes=int(phut // 15) * 15)
 
 
 def dat_lich(
@@ -118,7 +135,7 @@ def dat_lich(
     # Khung đầy (409 sức chứa) hoặc rơi giờ nghỉ trưa (422) → khung kế tiếp,
     # đúng như CSKH chọn lại giờ.
     for thu_lai in range(60):
-        s = gio_hom_nay(phut + 15 * thu_lai)
+        s = gio_hom_nay(phut) + dt.timedelta(minutes=15 * thu_lai)
         try:
             r = ai("cskh").post(
                 "/appointments/bookings",
