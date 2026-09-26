@@ -113,6 +113,11 @@ const LIVE_TABLES = [
   "tep_ket_qua",
   "phan_hoi_khach",
   "hen_goi_lai",
+  // Lát 4 bản giao diện mẫu (26/09/2026): phiếu kết quả đổi trạng thái (phòng
+  // nhập xong → bàn bác sĩ thấy) và dòng hành trình người đưa tin ghi SAU giao
+  // dịch gốc. Trigger ở 20260926000007 — form_instance chỉ báo khi đổi trạng thái.
+  "form_instance",
+  "luot_dong_thoi_gian",
 ] as const;
 
 // PROP `clinicId` ĐÃ BỎ (06/08/2026). Nó từng dùng để bảo Supabase Realtime
