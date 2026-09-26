@@ -48,9 +48,10 @@ async def test_mau_v3_co_muc_bang_va_khong_dien_san_so_do(
         b.get("mac_dinh") for m in song for b in m["block"] if b.get("goi_y")
     )
     # Câu bình thường trong bảng điền sẵn CHO MỖI CỘT (như v2).
-    vu = next(m for m in await _khung(pool, "KQ_SA_VU") if m.get("cot"))
-    mo_ta = [b for b in vu["block"] if b.get("mac_dinh")]
-    assert mo_ta and set(mo_ta[0]["mac_dinh"]) == {c["ma"] for c in vu["cot"]}
+    bang_vu = next(m for m in await _khung(pool, "KQ_SA_VU") if m.get("cot"))
+    mo_ta = [b for b in bang_vu["block"] if b.get("mac_dinh")]
+    assert mo_ta
+    assert set(mo_ta[0]["mac_dinh"]) == {c["ma"] for c in bang_vu["cot"]}
     # Mẫu Gemini (BI-RADS) không còn trong v3.
     vu = await _khung(pool, "KQ_SA_VU")
     assert "birads" not in {b["ma"] for m in vu for b in m["block"]}
