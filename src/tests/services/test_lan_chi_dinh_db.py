@@ -166,7 +166,8 @@ async def test_chi_dinh_lam_o_doi_tac_mang_trang_thai_ban_doi_tac(
         async with pool.acquire() as conn:
             ds = await doc_ket_qua_theo_chi_dinh(conn, clinic_id=CLINIC, visit_id=visit)
         [d] = [d for d in ds if d["service_order_id"] == don]
-        return d["doi_tac"]
+        tt = d["doi_tac"]
+        return None if tt is None else str(tt)
 
     assert await doi_tac() is None, "làm tại phòng khám: không có trạng thái đối tác"
     ngoai = await pool.fetchval(
