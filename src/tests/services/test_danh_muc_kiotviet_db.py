@@ -112,3 +112,26 @@ async def test_them_sua_ma_phong_kham_va_phong_lam(
     )
     d = await _dong(pool, f"KV_{ma}")
     assert d is not None and d["ma_kiotviet"] is None, "rỗng = gỡ mã"
+
+
+async def test_muc_c_khong_co_tien_kham(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Tiền khám có mã phòng khám nhưng không phòng làm → không chỉ định được."""
+    from clinicai.services.phieu_kham_service import PhieuKhamService
+
+    ma = f"T{uuid.uuid4().hex[:8].upper()}"
+    await pool.execute(
+        'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+        " unit_price, active, ma_kiotviet) VALUES ($1::uuid, $2, 'Tiền khám thử',"
+        " 'dich_vu', 300000, true, $3)",
+        CLINIC_A,
+        f"KHAM_{ma}",
+        ma,
+    )
+    svc = PhieuKhamService(pool, kiem_quyen=_cho_qua)
+    tc = await svc.tham_chieu_that(identity=_ai())
+    ds = [m["service_code"] for n in tc["chi_dinh_cls"] for m in n["muc"]]
+    assert f"KHAM_{ma}" not in ds
+
+
+async def _cho_qua(*_a: Any, **_k: Any) -> None:
+    return None

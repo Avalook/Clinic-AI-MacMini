@@ -108,3 +108,14 @@ def test_quan_ly_co_lego_ban_kham_mo_ho_so_van_ghi_nhat_ky() -> None:
     ql = _nguoi(D.MANAGEMENT, frozenset({D.DOCTOR}))
     assert ql.co_vai(CLINICAL_WRITE_ROLES), "qua cửa lâm sàng nhờ lego"
     assert ql.vai_goc not in CLINICAL_WRITE_ROLES, "nhưng vẫn ghi nhật ký mở hồ sơ"
+
+
+def test_gia_bang_gia_khong_hien_kieu_khoa_hoc() -> None:
+    """asyncpg trả Decimal('9.0E+5') — Bảng giá hiện nguyên "9.0E+5" (26/09)."""
+    from decimal import Decimal
+
+    from clinicai.services.config_service import _gia_thuong
+
+    assert str(_gia_thuong(Decimal("9.0E+5"))) == "900000"
+    assert str(_gia_thuong(Decimal("2.0E+5"))) == "200000"
+    assert _gia_thuong(None) is None

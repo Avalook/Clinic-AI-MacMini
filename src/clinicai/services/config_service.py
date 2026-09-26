@@ -1179,6 +1179,16 @@ class RosterService:
         return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
 
 
+def _gia_thuong(v: Any) -> Any:
+    """Decimal('9.0E+5') → Decimal('900000'); None giữ None."""
+    if v is None:
+        return None
+    try:
+        return v.quantize(1) if v == v.to_integral_value() else v.normalize()
+    except (AttributeError, ArithmeticError):
+        return v
+
+
 _MA_KV = re.compile(r"^[A-Z0-9_-]{1,32}$")
 
 
@@ -1220,7 +1230,12 @@ class PriceListService:
                 identity.clinic_id,
                 group,
             )
-            return [dict(r) for r in rows]
+            # asyncpg giải numeric có số 0 cuối thành Decimal('9.0E+5') — màn Bảng
+            # giá hiện nguyên "9.0E+5" trong ô đơn giá (bấm thật 26/09/2026).
+            # Tiền đồng luôn là số nguyên: trả dạng thường.
+            return [
+                {**dict(r), "unit_price": _gia_thuong(r["unit_price"])} for r in rows
+            ]
 
     @staticmethod
     async def _dong_bo_gia_danh_muc_thuoc(

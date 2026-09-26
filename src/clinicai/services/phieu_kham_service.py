@@ -460,7 +460,10 @@ class PhieuKhamService:
         } | {t["service_code"] for t in tc["thu_thuat"] if t.get("service_code")}
         them: dict[str, list[dict[str, Any]]] = {}
         for r in dong_dv:
-            if not r["ma_kiotviet"] or r["service_code"] in da_co:
+            # Không phòng làm = không phải dịch vụ chỉ định được (tiền khám
+            # `KHAM_*` có mã phòng khám từ 26/09 nhưng thu theo loại khám — lọt
+            # vào mục C là bác sĩ tick được "Hiếm muộn / Vô sinh" như một CLS).
+            if not r["ma_kiotviet"] or not r["node_code"] or r["service_code"] in da_co:
                 continue
             nhom_ten = _NHOM_THEO_NODE.get(r["node_code"] or "", "Khác")
             gia_dv = r["unit_price"]
