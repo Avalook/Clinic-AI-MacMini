@@ -228,6 +228,8 @@ function KhachTrongPhong({
   const [xemLuot, setXemLuot] = useState(false);
   const [lanDoc, setLanDoc] = useState(0);
   const [moPhieuPhu, setMoPhieuPhu] = useState(false);
+  /** Tên các bên của mẫu đang mở (mẫu hai bên) — null = một ô tải. */
+  const [cacBen, setCacBen] = useState<string[] | null>(null);
   const [ghiChuXong, setGhiChuXong] = useState("");
 
   // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
@@ -415,11 +417,25 @@ function KhachTrongPhong({
 
       {/* Ô TỆP: có ngay từ lúc khách đang làm, để gửi ảnh/video ngay khi chụp. */}
       {(dangLam || daXong) && loai !== "LAY_MAU" ? (
-        <KhungTep
-          clinicPatientId={dong.clinic_patient_id}
-          serviceOrderId={dong.ref_id}
-          tieuDe={loai === "SIEU_AM" ? "Ảnh & video siêu âm" : "Ảnh · video · phiếu"}
-        />
+        cacBen ? (
+          // Mẫu HAI BÊN (26/09/2026): mỗi bên một ô tải — tệp gắn `ben`.
+          <div className="grid gap-3 md:grid-cols-2">
+            {cacBen.map((ten, so) => (
+              <KhungTep
+                key={so}
+                clinicPatientId={dong.clinic_patient_id}
+                serviceOrderId={dong.ref_id}
+                ben={{ so, ten }}
+              />
+            ))}
+          </div>
+        ) : (
+          <KhungTep
+            clinicPatientId={dong.clinic_patient_id}
+            serviceOrderId={dong.ref_id}
+            tieuDe={loai === "SIEU_AM" ? "Ảnh & video siêu âm" : "Ảnh · video · phiếu"}
+          />
+        )
       ) : null}
 
       {/* Phiếu kết quả: mở được ngay khi đang làm, và vẫn xem/điền được sau khi
@@ -434,6 +450,7 @@ function KhachTrongPhong({
           serviceOrderId={dong.ref_id}
           mau={th.mau_ket_qua}
           mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
+          onCacBen={setCacBen}
           onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
             setBao(
               laLanSua

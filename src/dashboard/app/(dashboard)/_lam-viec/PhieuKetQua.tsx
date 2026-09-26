@@ -56,6 +56,44 @@ interface Muc {
   ma: string;
   ten: string;
   block: O[];
+  /** Mục dạng BẢNG (mẫu v3, 26/09/2026): Thai A | Thai B, trái | phải… Giá trị
+   *  một ô là {ma_cột: giá trị} — lưu theo `ma`, không theo vị trí. */
+  cot?: { ma: string; ten: string }[];
+}
+
+/** Khoá phẳng của một ô bảng trong trạng thái màn hình. */
+const KHOA_BANG = "::";
+
+/** Máy chủ → màn: ô bảng {cột: giá trị} tách thành các khoá `ma::cột`. */
+function tachGiaTri(
+  duLieu: Record<string, { gia_tri: unknown; nguon: string }>,
+): Record<string, string> {
+  const ra: Record<string, string> = {};
+  for (const [k, v] of Object.entries(duLieu)) {
+    const g = v.gia_tri;
+    if (g && typeof g === "object" && !Array.isArray(g)) {
+      for (const [c, x] of Object.entries(g as Record<string, unknown>)) {
+        ra[`${k}${KHOA_BANG}${c}`] = x == null ? "" : String(x);
+      }
+    } else ra[k] = g == null ? "" : String(g);
+  }
+  return ra;
+}
+
+/** Màn → máy chủ: gộp `ma::cột` về {ma: {gia_tri: {cột: giá trị}}}; bỏ ô rỗng. */
+function gopGiaTri(
+  moi: Record<string, string>,
+): Record<string, { gia_tri: unknown; nguon: string }> {
+  const ra: Record<string, { gia_tri: unknown; nguon: string }> = {};
+  const bang: Record<string, Record<string, string>> = {};
+  for (const [k, v] of Object.entries(moi)) {
+    if (v === "") continue;
+    const i = k.indexOf(KHOA_BANG);
+    if (i < 0) ra[k] = { gia_tri: v, nguon: "USER" };
+    else (bang[k.slice(0, i)] ??= {})[k.slice(i + KHOA_BANG.length)] = v;
+  }
+  for (const [k, cot] of Object.entries(bang)) ra[k] = { gia_tri: cot, nguon: "USER" };
+  return ra;
 }
 
 interface Phieu {
@@ -66,7 +104,7 @@ interface Phieu {
   dang_sua: boolean;
   revision: number;
   khung: Muc[];
-  du_lieu: Record<string, { gia_tri: string; nguon: string }>;
+  du_lieu: Record<string, { gia_tri: unknown; nguon: string }>;
   con_trong: string[];
   /** Người thực hiện của BẢN ĐANG SỬA — tải lại trang không mất lựa chọn. */
   thuc_hien_boi: string | null;
@@ -106,12 +144,16 @@ export default function PhieuKetQua({
   mauMacDinh,
   nguoiCoThe,
   onHoanTat,
+  onCacBen,
 }: {
   serviceOrderId: string;
   /** Mẫu kết quả đã gắn cho dịch vụ này. Rỗng = chưa ai gắn. */
   mau: MauKetQua[];
   /** Mẫu chọn sẵn (phiếu đang điền dở, hoặc mẫu gợi ý của phiếu khám v5). */
   mauMacDinh?: string | null;
+  /** Mẫu HAI BÊN (mục bảng đầu tiên: Thai A | Thai B, trái | phải…) → tên các
+   *  bên, để màn phòng dựng hai ô tải riêng (26/09/2026). null = mẫu một bên. */
+  onCacBen?: (ben: string[] | null) => void;
   /** Danh sách chọn "người thực hiện". Bỏ trống thì mặc định là người gõ. */
   nguoiCoThe?: { id: string; ten: string }[];
   /** Phiếu vừa hoàn tất — màn cha nạp lại hàng chờ. */
@@ -153,12 +195,13 @@ export default function PhieuKetQua({
     // Máy chủ là nguồn: đang sửa thì trả lựa chọn của bản nháp, chưa sửa thì
     // trả lựa chọn của bản chính thức.
     setThucHienBoi(p.thuc_hien_boi ?? "");
-    setGia(
-      Object.fromEntries(
-        Object.entries(p.du_lieu).map(([k, v]) => [k, v.gia_tri ?? ""]),
-      ),
-    );
+    setGia(tachGiaTri(p.du_lieu));
   }, []);
+
+  useEffect(() => {
+    const bang = phieu?.khung.find((m) => m.cot && m.cot.length > 1);
+    onCacBen?.(bang?.cot ? bang.cot.map((c) => c.ten) : null);
+  }, [phieu, onCacBen]);
 
   useEffect(() => {
     if (!chonMau) return;
@@ -197,11 +240,7 @@ export default function PhieuKetQua({
           du_lieu: {
             expected_revision: revision.current,
             thuc_hien_boi: nguoi || null,
-            du_lieu: Object.fromEntries(
-              Object.entries(moi)
-                .filter(([, v]) => v !== "")
-                .map(([k, v]) => [k, { gia_tri: v, nguon: "USER" }]),
-            ),
+            du_lieu: gopGiaTri(moi),
           },
         }).then((kq) => {
           setDangLuu(false);
@@ -424,7 +463,11 @@ export default function PhieuKetQua({
                 <div key={o.ma}>
                   <dt className="text-xs font-semibold text-ink-muted">{o.ten}</dt>
                   <dd className="whitespace-pre-line text-ink">
-                    {gia[o.ma] || "—"}
+                    {muc.cot
+                      ? muc.cot
+                          .map((c) => `${c.ten}: ${gia[`${o.ma}${KHOA_BANG}${c.ma}`] || "—"}`)
+                          .join(" · ")
+                      : gia[o.ma] || "—"}
                   </dd>
                 </div>
               )),
@@ -458,17 +501,21 @@ export default function PhieuKetQua({
               <legend className="text-sm font-semibold text-ink">
                 {muc.ten}
               </legend>
-              <div className="mt-1 space-y-3">
-                {(muc.block ?? []).map((o) => (
-                  <OPhieu
-                    key={o.ma}
-                    o={o}
-                    giaTri={gia[o.ma] ?? ""}
-                    nguon={phieu.du_lieu[o.ma]?.nguon ?? null}
-                    onDoi={(v) => doi(o.ma, v)}
-                  />
-                ))}
-              </div>
+              {muc.cot ? (
+                <BangMuc muc={muc} cot={muc.cot} gia={gia} onDoi={doi} />
+              ) : (
+                <div className="mt-1 space-y-3">
+                  {(muc.block ?? []).map((o) => (
+                    <OPhieu
+                      key={o.ma}
+                      o={o}
+                      giaTri={gia[o.ma] ?? ""}
+                      nguon={phieu.du_lieu[o.ma]?.nguon ?? null}
+                      onDoi={(v) => doi(o.ma, v)}
+                    />
+                  ))}
+                </div>
+              )}
             </fieldset>
           ))}
 
@@ -613,13 +660,104 @@ function OPhieu({
   return (
     <label className="block">
       {nhan}
-      <input
-        type={o.kieu === "so" ? "number" : o.kieu === "ngay" ? "date" : "text"}
-        value={giaTri}
-        onChange={(e) => onDoi(e.target.value)}
-        placeholder={o.goi_y ?? ""}
-        className="mt-1 min-h-10 w-full max-w-md rounded-control border border-line bg-surface px-3 text-sm text-ink"
-      />
+      <span className="mt-1 flex max-w-md items-center gap-2">
+        <input
+          type={o.kieu === "so" ? "number" : o.kieu === "ngay" ? "date" : "text"}
+          value={giaTri}
+          onChange={(e) => onDoi(e.target.value)}
+          placeholder={o.goi_y ?? ""}
+          className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+        />
+        {o.goi_y && o.goi_y.length <= 16 ? (
+          <span className="shrink-0 text-meta text-ink-muted">{o.goi_y}</span>
+        ) : null}
+      </span>
     </label>
+  );
+}
+
+/** Mục dạng BẢNG (mẫu v3): hàng = ô của mục, cột = Thai A | Thai B, trái | phải… */
+function BangMuc({
+  muc,
+  cot,
+  gia,
+  onDoi,
+}: {
+  muc: Muc;
+  cot: { ma: string; ten: string }[];
+  gia: Record<string, string>;
+  onDoi: (ma: string, v: string) => void;
+}) {
+  const oNhap = (o: O, c: { ma: string; ten: string }) => {
+    const khoa = `${o.ma}${KHOA_BANG}${c.ma}`;
+    const nhanO = `${o.ten} — ${c.ten}`;
+    if (o.kieu === "chon" && Array.isArray(o.chon)) {
+      return (
+        <select
+          aria-label={nhanO}
+          value={gia[khoa] ?? ""}
+          onChange={(e) => onDoi(khoa, e.target.value)}
+          className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-sm text-ink"
+        >
+          <option value="">—</option>
+          {o.chon.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    if (o.kieu === "doan_van") {
+      return (
+        <textarea
+          aria-label={nhanO}
+          value={gia[khoa] ?? ""}
+          onChange={(e) => onDoi(khoa, e.target.value)}
+          rows={2}
+          className="w-full rounded-control border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+        />
+      );
+    }
+    return (
+      <input
+        aria-label={nhanO}
+        value={gia[khoa] ?? ""}
+        onChange={(e) => onDoi(khoa, e.target.value)}
+        placeholder={o.goi_y ?? ""}
+        className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-sm text-ink"
+      />
+    );
+  };
+  return (
+    <div className="mt-1 overflow-x-auto">
+      <table className="w-full min-w-[28rem] border-collapse text-sm">
+        <thead>
+          <tr className="text-left text-xs text-ink-muted">
+            <th className="py-1.5 pr-3 font-medium">{muc.ten}</th>
+            {cot.map((c) => (
+              <th key={c.ma} className="py-1.5 pr-3 font-medium">
+                {c.ten}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {(muc.block ?? []).map((o) => (
+            <tr key={o.ma}>
+              <td className="py-1.5 pr-3 align-top text-ink">
+                {o.ten}
+                {o.goi_y ? <span className="ml-1 text-meta text-ink-muted">({o.goi_y})</span> : null}
+              </td>
+              {cot.map((c) => (
+                <td key={c.ma} className="py-1.5 pr-3 align-top">
+                  {oNhap(o, c)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

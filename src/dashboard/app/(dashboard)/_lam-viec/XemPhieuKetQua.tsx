@@ -16,6 +16,8 @@ interface Muc {
   ma: string;
   ten: string;
   block: O[];
+  /** Mục dạng bảng (mẫu v3) — giá trị ô là {ma_cột: giá trị}. */
+  cot?: { ma: string; ten: string }[];
 }
 interface Phieu {
   id: string;
@@ -76,7 +78,20 @@ export default function XemPhieuKetQua({ serviceOrderId }: { serviceOrderId: str
               </p>
               <dl className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
                 {m.block.map((o) => {
-                  const v = p.du_lieu[o.ma]?.gia_tri ?? "";
+                  const g: unknown = p.du_lieu[o.ma]?.gia_tri ?? "";
+                  // Mục dạng BẢNG (mẫu v3): {ma_cột: giá trị} → "Thai A: … · Thai B: …".
+                  const v =
+                    g && typeof g === "object" && !Array.isArray(g)
+                      ? (m.cot ?? [])
+                          .map((c) => {
+                            const x = (g as Record<string, unknown>)[c.ma];
+                            return x === "" || x == null ? "" : `${c.ten}: ${String(x)}`;
+                          })
+                          .filter(Boolean)
+                          .join(" · ")
+                      : Array.isArray(g)
+                        ? g.join(", ")
+                        : String(g);
                   return (
                     <div key={o.ma} className="flex gap-2 text-meta">
                       <dt className="text-ink-muted">{o.ten}:</dt>

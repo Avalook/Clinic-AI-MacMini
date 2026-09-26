@@ -49,6 +49,8 @@ export type LoaiLienKet =
 export interface MucPhieu {
   ma: string;
   ten: string;
+  /** Mục dạng BẢNG của mẫu kết quả v3 (26/09/2026) — giá trị ô {ma_cột: giá trị}. */
+  cot?: { ma: string; ten: string }[];
   lien_ket?: { loai: LoaiLienKet; truong?: string[]; rang_buoc?: string };
   block: OPhieu[];
 }
@@ -394,8 +396,22 @@ export function hienThi(v: string | number | null | undefined): string {
 }
 
 /** Giá trị một ô của phiếu kết quả, đọc theo KHOÁ lựa chọn → nhãn. */
-export function giaTriDoc(o: OPhieu, nhap: ONhap | undefined): string {
-  if (!nhap || rong(nhap.gia_tri)) return "—";
+export function giaTriDoc(
+  o: OPhieu,
+  nhap: ONhap | undefined,
+  cot?: { ma: string; ten: string }[],
+): string {
+  if (!nhap) return "—";
+  const g: unknown = nhap.gia_tri;
+  // Ô mục BẢNG (mẫu kết quả v3): {ma_cột: giá trị}. Trả thẳng object cho React
+  // vẽ là sập cả khối kết quả.
+  if (g && typeof g === "object" && !Array.isArray(g)) {
+    const ds = Object.entries(g as Record<string, unknown>)
+      .filter(([, v]) => v !== "" && v != null)
+      .map(([c, v]) => `${cot?.find((x) => x.ma === c)?.ten ?? c}: ${String(v)}`);
+    return ds.length ? ds.join(" · ") : "—";
+  }
+  if (rong(nhap.gia_tri)) return "—";
   if (Array.isArray(nhap.gia_tri)) {
     const nhan = new Map((o.lua_chon ?? []).map((l) => [l.ma, l.ten]));
     return nhap.gia_tri.map((m) => nhan.get(m) ?? m).join(", ");

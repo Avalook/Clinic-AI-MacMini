@@ -3729,3 +3729,5 @@ SELECT public.dien_gia_trong_theo_phieu_v5();
 SELECT public.chuan_hoa_danh_muc_thuoc_kiotviet();
 -- Danh mục dịch vụ theo KiotViet (26/09/2026) — cùng hàm migration 20260926000001.
 SELECT public.chuan_hoa_danh_muc_dich_vu_kiotviet();
+-- Gắn 17 mẫu kết quả v3 vào dịch vụ theo mã phòng khám (20260926000004).
+SELECT public.gan_mau_ket_qua_theo_kiotviet();

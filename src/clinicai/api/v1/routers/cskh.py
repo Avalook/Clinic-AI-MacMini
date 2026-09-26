@@ -541,6 +541,27 @@ _TEP_TAI_LEN_GUARD = require_role(
 )
 
 
+def _cach_mo_tep(ten: str | None, tai: bool) -> str:
+    """`inline` để xem; `attachment; filename*=…` để tải về đúng tên."""
+    if not tai:
+        return "inline"
+    from urllib.parse import quote
+
+    goc = (ten or "ket-qua").replace("\r", " ").replace("\n", " ").strip() or "ket-qua"
+    ascii_ten = goc.encode("ascii", "ignore").decode().replace('"', "") or "ket-qua"
+    return f"attachment; filename=\"{ascii_ten}\"; filename*=UTF-8''{quote(goc)}"
+
+
+def _ben_tep(v: object) -> int | None:
+    """Bên của tệp (mẫu hai bên): rỗng → None; "0".."7" → số; rác → 422."""
+    s = str(v or "").strip()
+    if not s:
+        return None
+    if s.isdigit() and int(s) <= 7:
+        return int(s)
+    raise ValidationError("Bên của tệp không hợp lệ.")
+
+
 @router.post("/cskh/ket-qua/tep", status_code=201)
 async def tai_len_ket_qua(
     request: Request,
@@ -575,6 +596,7 @@ async def tai_len_ket_qua(
             service_order_id=uuid_hoac_loi(
                 truong.get("service_order_id"), "Mã chỉ định", bat_buoc=False
             ),
+            ben=_ben_tep(truong.get("ben")),
         )
     finally:
         # Đã đổi tên về chỗ ở thật thì tệp tạm không còn; bị từ chối thì dọn.
@@ -721,6 +743,7 @@ async def danh_sach_ket_qua(
 async def doc_tep_ket_qua(
     tep_id: UUID,
     request: Request,
+    tai: bool = False,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
@@ -742,7 +765,9 @@ async def doc_tep_ket_qua(
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         "Accept-Ranges": "bytes",
-        "Content-Disposition": "inline",
+        # `?tai=1` (26/09/2026, nút Tải về): trình duyệt LƯU tệp với đúng tên
+        # hiển thị (RFC 5987 giữ dấu tiếng Việt); mặc định vẫn xem tại chỗ.
+        "Content-Disposition": _cach_mo_tep(ten, tai),
     }
 
     from clinicai.services.media_service import phan_tich_range

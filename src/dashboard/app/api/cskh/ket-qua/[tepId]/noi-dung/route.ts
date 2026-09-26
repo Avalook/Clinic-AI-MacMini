@@ -41,7 +41,9 @@ export async function GET(
   let res: Response;
   try {
     res = await fetch(
-      `${API_BASE}/api/v1/cskh/ket-qua/tep/${encodeURIComponent(id)}/noi-dung`,
+      `${API_BASE}/api/v1/cskh/ket-qua/tep/${encodeURIComponent(id)}/noi-dung${
+        new URL(request.url).searchParams.get("tai") === "1" ? "?tai=1" : ""
+      }`,
       { headers, cache: "no-store" },
     );
   } catch {

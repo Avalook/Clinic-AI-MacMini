@@ -235,8 +235,12 @@ class TepKetQuaService:
         ten_hien_thi: str | None = None,
         appointment_id: str | None = None,
         service_order_id: str | None = None,
+        ben: int | None = None,
     ) -> dict[str, Any]:
         """Nhận một tệp kết quả và cất nó lên đĩa.
+
+        `ben` (26/09/2026): bên của tệp trong mẫu hai bên (Thai A=0, Thai B=1,
+        trái=0, phải=1…); None = tệp chung.
 
         `service_order_id`: tệp là kết quả của CHỈ ĐỊNH nào (siêu âm, xét
         nghiệm…). Có nó thì kết quả đi đúng đường duyệt của chỉ định ấy; thiếu
@@ -431,7 +435,8 @@ class TepKetQuaService:
                          tai_len_boi_staff_id,
                          cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
                          service_order_id, xac_nhan_trang_thai,
-                         xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do)
+                         xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do,
+                         ben)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
                             CASE WHEN $12 THEN now() ELSE NULL END,
@@ -439,7 +444,8 @@ class TepKetQuaService:
                             $11::uuid, $13,
                             CASE WHEN $14 THEN now() END,
                             CASE WHEN $14 THEN $10::uuid END,
-                            CASE WHEN $14 THEN $15 END)
+                            CASE WHEN $14 THEN $15 END,
+                            $16)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -457,6 +463,7 @@ class TepKetQuaService:
                     xac_nhan_state,
                     tu_hop_le,
                     LY_DO_TU_XAC_NHAN,
+                    ben,
                 )
                 if service_order_id:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
@@ -767,7 +774,7 @@ class TepKetQuaService:
         """Tệp kết quả của một khách, mới nhất trước."""
         rows = await self._pool.fetch(
             """
-            SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
+            SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.ben,
                    t.tai_len_luc, t.gui_luc, t.gui_kenh,
                    t.cho_phep_gui_luc, t.appointment_id::text,
                    t.service_order_id::text,

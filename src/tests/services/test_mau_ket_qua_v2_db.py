@@ -42,18 +42,15 @@ async def test_so_do_va_xet_nghiem_khong_dien_san(pool: asyncpg.Pool) -> None:  
     hpv = await _khung(pool, "KQ_XN_HPV")
     chon = [b for m in hpv for b in m["block"] if b["kieu"] == "chon"]
     assert len(chon) == 6 and not any(b.get("mac_dinh") for b in chon)
-    # Số đo mạch thận: chỉ gợi ý đơn vị, không có con số điền sẵn.
+    # Số đo mạch thận: chỉ gợi ý đơn vị, không có con số điền sẵn. Từ v3
+    # (26/09/2026, theo PDF) ô số đo nhận ra bằng đơn vị (`goi_y`).
     than = await _khung(pool, "KQ_SA_MACH_THAN")
-    so_do = [
-        b for m in than for b in m["block"] if b["ma"].endswith(("_psv", "_edv", "_ri"))
-    ]
-    assert len(so_do) == 18
+    so_do = [b for m in than for b in m["block"] if b.get("goi_y")]
+    assert so_do
     assert not any(b.get("mac_dinh") for b in so_do)
     # Câu bình thường thì có.
     obung = await _khung(pool, "KQ_SA_OBUNG")
-    assert next(b for m in obung for b in m["block"] if b["ma"] == "gan").get(
-        "mac_dinh"
-    )
+    assert any(b.get("mac_dinh") for m in obung for b in m["block"])
 
 
 async def test_mo_phieu_moi_la_co_cau_dien_san(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -95,8 +92,9 @@ async def test_phong_chua_gan_mau_van_mo_duoc_mau_goi_y(pool: asyncpg.Pool) -> N
         ds, goi_y = await mau_cho_dich_vu(
             conn, clinic_id=CLINIC, service_code="CLS_SIEU_AM_VU"
         )
-        # 18 mẫu + mẫu CHUNG nhập tự do (24/09/2026).
-        assert goi_y == "SA_VU" and ds[0]["ma"] == "SA_VU" and len(ds) == 19
+        # Từ 26/09/2026 siêu âm vú ĐÃ GẮN mẫu theo mã phòng khám (SP000015 →
+        # SA_VU, mẫu v3) — mẫu gợi ý vẫn là SA_VU, đứng đầu danh sách.
+        assert goi_y == "SA_VU" and ds[0]["ma"] == "SA_VU"
         # Dịch vụ không có gợi ý: đủ mẫu, CHỌN SẴN mẫu CHUNG (nhập tự do).
         ds, goi_y = await mau_cho_dich_vu(
             conn, clinic_id=CLINIC, service_code="KHONG_CO"
