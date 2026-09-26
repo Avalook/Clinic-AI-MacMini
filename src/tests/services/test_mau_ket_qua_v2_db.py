@@ -82,6 +82,27 @@ async def test_in_phieu_ai_in_duoc_va_ban_nhap_ghi_ro(pool: asyncpg.Pool) -> Non
     with pytest.raises(SafetyGateError):
         await svc.in_ket_qua(service_order_id=order, identity=le_tan)
 
+    # Lát 5: bản in kèm ẢNH của chỉ định; tệp CHƯA xác nhận không in; PDF chỉ đếm.
+    them = (
+        "INSERT INTO tep_ket_qua (clinic_id, clinic_patient_id, service_order_id,"
+        " khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id, ten_hien_thi,"
+        " xac_nhan_trang_thai)"
+        " SELECT o.clinic_id, v.clinic_patient_id, o.id, $2 || o.id::text, $3,"
+        "        $4, 10, $2 || o.id::text, $5::uuid, $2, $6"
+        "   FROM service_order o JOIN visit v ON v.visit_id = o.visit_id"
+        "  WHERE o.id = $1::uuid"
+    )
+    async with pool.acquire() as conn:
+        for ten, loai, mime, xn in (
+            ("anh-1", "ANH", "image/jpeg", None),
+            ("phieu-1", "PDF", "application/pdf", None),
+            ("anh-cho", "ANH", "image/jpeg", "CHO_XAC_NHAN"),
+        ):
+            await conn.execute(them, order, ten, loai, mime, bs.staff_id, xn)
+    ban = await svc.in_ket_qua(service_order_id=order, identity=bs)
+    assert [a["ten"] for a in ban["anh"]] == ["anh-1"]
+    assert ban["so_tep_khac"] == 1
+
 
 async def test_phong_chua_gan_mau_van_mo_duoc_mau_goi_y(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Phòng siêu âm mở ra là điền được: chưa gắn mẫu thì mẫu gợi ý v5 chọn sẵn

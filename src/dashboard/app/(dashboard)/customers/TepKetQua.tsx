@@ -15,6 +15,10 @@ import { nhanLoi } from "@/lib/loi-api";
 import { useRouter } from "next/navigation";
 import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
+import Lightbox from "@/components/ui/Lightbox";
+
+import { tepXem } from "../_lam-viec/AnhKetQua";
+
 export interface TepKetQuaRow {
   id: string;
   appointment_id: string | null;
@@ -97,7 +101,8 @@ export default function TepKetQua({
   const [loi, setLoi] = useState<string | null>(null);
   const [xem, setXem] = useState<string | null>(null);
   const [dangGui, setDangGui] = useState<string | null>(null);
-  const [phongTo, setPhongTo] = useState<TepKetQuaRow | null>(null);
+  // Hộp xem chung (lát 5, 26/09/2026): lật qua MỌI ảnh / video của khách.
+  const [phongTo, setPhongTo] = useState<number | null>(null);
 
   async function taiLen(files: FileList | null) {
     if (!appointmentId) {
@@ -150,6 +155,7 @@ export default function TepKetQua({
   }
 
   const chuaGui = items.filter((t) => !t.gui_luc).length;
+  const media = items.filter((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO");
 
   return (
     <div className="border-t border-line px-4 py-3">
@@ -212,17 +218,15 @@ export default function TepKetQua({
       {/* XEM LẠI NGAY TRONG MÀN. Ảnh hiện thành ô xem nhanh; video hiện thành ô
           có biểu tượng — không tải trước nội dung video, chỉ khi bấm mở. Bấm vào
           là mở khung xem lớn ngay trên màn, không mở tab mới. */}
-      {items.some((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO") && (
+      {media.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
-          {items
-            .filter((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO")
-            .map((t) => {
+          {media.map((t, i) => {
               const url = `/api/cskh/ket-qua/${t.id}/noi-dung`;
               return (
                 <button
                   key={`nhanh-${t.id}`}
                   type="button"
-                  onClick={() => setPhongTo(t)}
+                  onClick={() => setPhongTo(i)}
                   title={t.ten_hien_thi ?? "Xem"}
                   className="relative size-24 overflow-hidden rounded-lg border border-line bg-surface-sunken"
                 >
@@ -247,47 +251,20 @@ export default function TepKetQua({
         </div>
       )}
 
-      {phongTo && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={phongTo.ten_hien_thi ?? "Xem tệp"}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/80 p-4"
-          onClick={() => setPhongTo(null)}
-        >
-          <div
-            className="flex max-h-full w-full max-w-4xl flex-col gap-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-2 text-white">
-              <p className="min-w-0 truncate text-sm font-semibold">
-                {phongTo.ten_hien_thi ?? "(không tên)"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setPhongTo(null)}
-                className="rounded-control bg-surface px-3 py-1 text-sm font-semibold text-ink"
-              >
-                Đóng
-              </button>
-            </div>
-            {phongTo.loai_tep === "VIDEO" ? (
-              <video
-                src={`/api/cskh/ket-qua/${phongTo.id}/noi-dung`}
-                controls
-                autoPlay
-                className="max-h-[80vh] w-full rounded-lg bg-black"
-              />
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={`/api/cskh/ket-qua/${phongTo.id}/noi-dung`}
-                alt={phongTo.ten_hien_thi ?? "Ảnh"}
-                className="max-h-[80vh] w-full rounded-lg object-contain"
-              />
-            )}
-          </div>
-        </div>
+      {phongTo !== null && (
+        <Lightbox
+          tieuDe="Kết quả của khách"
+          tep={media.map((t) =>
+            tepXem({
+              id: t.id,
+              ten: t.ten_hien_thi,
+              loai_tep: t.loai_tep,
+              phu: gio(t.tai_len_luc),
+            }),
+          )}
+          batDau={phongTo}
+          onDong={() => setPhongTo(null)}
+        />
       )}
 
       {items.length === 0 ? (

@@ -39,7 +39,13 @@ lệch trên main f2542b5: CẢ 11 VẪN ĐÚNG (chi tiết: quầy chặn giá 
    `lab_result` đời cũ — đối tác ĐÃ gửi kết quả theo chỉ định (`tep_ket_qua.service_order_id`,
    `ket_qua_luc`, 4 trạng thái `trang_thai_doi_tac`); chỗ thiếu thật là phiếu khám không hiện
    trạng thái đó → nay có chip "Đối tác · …" ở mục C.
-5. Giao diện + in A4 theo bản mẫu bằng component thật (Lightbox/Dropzone/Timeline vào `components/ui`).
+5. **XONG 26/09 (lát 5):** `components/ui` thêm `Timeline` · `Lightbox` · `Dropzone`; dải "Hành trình
+   hôm nay" đầu phiếu khám (mốc tính ở `phieu_kham/hanh_trinh.py`, khoảng chờ tính ở `lib/hanh-trinh.ts`);
+   ảnh tại dòng chỉ định + hộp chia đôi; in A4 (`app/print/KieuInA4.tsx`) cho phiếu khám (3 khối, ẩn ô
+   trống, bỏ tư vấn) và phiếu kết quả (ảnh 4 tấm/hàng). In PDF thật bằng Chrome: chân trang + số trang
+   ra đúng. CÒN: dải hành chính của bản in vẫn in "—" (khối dùng chung với màn); timeline chưa có bảng
+   "Từng dịch vụ" như bản mẫu (mục C đã liệt kê); ô số lăn chuột chỉ khi đã bấm vào (trình duyệt đã
+   làm vậy với ô number — chưa soi riêng).
 
 ## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)
 

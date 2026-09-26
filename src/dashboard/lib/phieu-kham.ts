@@ -401,6 +401,26 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 // Hiển thị
 // ---------------------------------------------------------------------------
 /** Ô trống in "—" (DESIGN.md §6.5), không bỏ trắng. */
+/** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
+ *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
+ *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
+export const KHOI_PHIEU: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
+  { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
+  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
+  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
+];
+
+/** Ô đã có dữ liệu? (rỗng · mảng rỗng · bảng mọi cột rỗng = chưa) — bản in ẩn ô trống. */
+export function coNhap(nhap: ONhap | undefined): boolean {
+  const g: unknown = nhap?.gia_tri;
+  if (g === null || g === undefined) return false;
+  if (Array.isArray(g)) return g.length > 0;
+  if (typeof g === "object") {
+    return Object.values(g as Record<string, unknown>).some((v) => v !== "" && v != null);
+  }
+  return String(g).trim() !== "";
+}
+
 export function hienThi(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
   return String(v);

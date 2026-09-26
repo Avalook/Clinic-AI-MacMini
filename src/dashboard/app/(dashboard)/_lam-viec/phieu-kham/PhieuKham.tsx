@@ -28,6 +28,7 @@ import {
   ghiDuoc,
   giaTriBanDau,
   gomNhom,
+  KHOI_PHIEU,
   type CheDoPhieu,
   type ChiDinhVaKetQua,
   type DauPhieu,
@@ -68,14 +69,8 @@ const NHAN_CHE_DO: Record<CheDoPhieu, { ten: string; tone: "neutral" | "warning"
   amendment_mode: { ten: "Đang đính chính", tone: "warning" },
 };
 
-/** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
- *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
- *  hành chính luôn nằm trên, ngoài các khối. */
-const KHOI: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
-  { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
-  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
-  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
-];
+/** Ba khối — định nghĩa ở lib/phieu-kham (dùng chung với bản in). */
+const KHOI = KHOI_PHIEU;
 
 function coGiaTri(v: GiaTriO | undefined): boolean {
   return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());

@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 import asyncpg
 
-from clinicai.api.exceptions import ConflictError
+from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import DonThuocDaLuu
@@ -34,6 +34,7 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
 from clinicai.phieu_kham.che_do import doi_ghi_duoc
+from clinicai.phieu_kham.hanh_trinh import doc_hanh_trinh
 from clinicai.phieu_kham.ket_qua_chi_dinh import (
     doc_ket_qua_theo_chi_dinh,
     doc_mau_du_phong,
@@ -617,6 +618,19 @@ class PhieuKhamService:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
             return await doc_mau_du_phong(conn, clinic_id=identity.clinic_id)
+
+    async def hanh_trinh(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Dải mốc hành trình ở đầu phiếu khám (lát 5) — cùng quyền đọc phiếu."""
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_phieu")
+            kq = await doc_hanh_trinh(
+                conn, clinic_id=identity.clinic_id, visit_id=visit_id
+            )
+        if kq is None:
+            raise NotFoundError("Không tìm thấy lượt khám.")
+        return kq
 
     async def ket_qua_chi_dinh(
         self, *, visit_id: str, identity: StaffIdentity
