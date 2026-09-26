@@ -236,6 +236,20 @@ function rong(v: GiaTriO | undefined): boolean {
  * Ô không đổi giữ NGUỒN CŨ (vd `PATIENT_CONTEXT`); ô đổi thành `USER`.
  * Ô rỗng mà gốc cũng không có thì không gửi — không đẻ khoá rỗng vô nghĩa.
  */
+/** CHỈ các ô khác bản đã lưu gần nhất (lát 2, 26/09/2026) — gửi phần này thay
+ *  cho cả phiếu: hai người sửa hai ô khác nhau không còn 409 / mất chữ đang gõ. */
+export function phanThayDoi(
+  goi: Record<string, ONhap>,
+  daLuu: Record<string, ONhap>,
+): Record<string, ONhap> {
+  const ra: Record<string, ONhap> = {};
+  for (const [ma, o] of Object.entries(goi)) {
+    const cu = daLuu[ma];
+    if (!cu || !giongNhau(cu.gia_tri, o.gia_tri) || cu.nguon !== o.nguon) ra[ma] = o;
+  }
+  return ra;
+}
+
 export function dungGoiLuu(
   dangCo: Record<string, GiaTriO>,
   goc: Record<string, ONhap>,

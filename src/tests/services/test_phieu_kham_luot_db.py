@@ -14,7 +14,7 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError
-from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.phieu_kham.khung import cac_o, dinh_nghia
 from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
 from tests.services.test_phieu_kham_db import (
@@ -199,3 +199,107 @@ async def test_don_thuoc_muc_e_ghi_va_sua_khong_tao_trung(
     await svc.luu_don_thuoc(visit_id=luot["visit"], dong=dong, ly_do=None, identity=bs)
     doc2 = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
     assert len(doc2) == 1 and doc2[0]["quantity"] == "3 hộp"
+
+
+async def test_luu_theo_o_hai_nguoi_hai_o_khong_409(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Lát 2 (26/09/2026): gửi CHỈ ô vừa đổi — bác sĩ và thư ký sửa hai ô khác
+    nhau cùng lúc đều được lưu, không ai 409 / mất chữ đang gõ."""
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        tk = await _nguoi(conn, "TKYK")
+        luot = await _luot(conn, bs)
+    svc = _svc(pool)
+    o_van = [
+        ma
+        for ma, o in cac_o(dinh_nghia("PK")["khung"]).items()
+        if o["kieu"] == "doan_van"
+    ]
+    a, b = o_van[0], o_van[1]
+    v = luot["visit"]
+    await svc.luu_luot(
+        visit_id=v,
+        form_id="PK",
+        du_lieu=None,
+        expected_revision=0,
+        thay_doi={a: _o("bác sĩ gõ")},
+        identity=bs,
+    )
+    # Thư ký cầm revision cũ (0) vẫn lưu được ô KHÁC.
+    await svc.luu_luot(
+        visit_id=v,
+        form_id="PK",
+        du_lieu=None,
+        expected_revision=0,
+        thay_doi={b: _o("thư ký gõ")},
+        identity=tk,
+    )
+    kq = await svc.doc_luot(visit_id=v, form_id="PK", identity=bs)
+    assert kq["du_lieu"][a]["gia_tri"] == "bác sĩ gõ"
+    assert kq["du_lieu"][b]["gia_tri"] == "thư ký gõ"
+    # Xoá ô = gửi rỗng.
+    await svc.luu_luot(
+        visit_id=v,
+        form_id="PK",
+        du_lieu=None,
+        expected_revision=0,
+        thay_doi={a: _o("")},
+        identity=bs,
+    )
+    kq = await svc.doc_luot(visit_id=v, form_id="PK", identity=bs)
+    assert kq["du_lieu"][a]["gia_tri"] == ""
+    assert kq["du_lieu"][b]["gia_tri"] == "thư ký gõ"
+    # Ô lạ vẫn bị chặn như cũ.
+    with pytest.raises(ValidationError):
+        await svc.luu_luot(
+            visit_id=v,
+            form_id="PK",
+            du_lieu=None,
+            expected_revision=0,
+            thay_doi={"o_khong_co": _o("x")},
+            identity=bs,
+        )
+
+
+async def test_hen_tren_phieu_v5_sinh_nhac_tai_kham(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Lát 2 (26/09/2026): ngày tái khám ở mục G phiếu v5 (`*_follow_date`)
+    phải sinh việc gọi nhắc — trước đó chỉ bệnh án cũ được đọc."""
+    import datetime as dt
+
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        luot = await _luot(conn, bs)
+    v = luot["visit"]
+    o_hen = next(
+        ma for ma in cac_o(dinh_nghia("PK")["khung"]) if ma.endswith("_follow_date")
+    )
+    hom_nay = dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).date()
+    await _svc(pool).luu_luot(
+        visit_id=v,
+        form_id="PK",
+        du_lieu=None,
+        expected_revision=0,
+        thay_doi={o_hen: _o((hom_nay + dt.timedelta(days=3)).isoformat())},
+        identity=bs,
+    )
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE visit SET status = 'FINALIZED' WHERE visit_id = $1::uuid", v
+        )
+        clinic, khach = await conn.fetchrow(
+            "SELECT clinic_id, clinic_patient_id FROM visit WHERE visit_id = $1::uuid",
+            v,
+        )
+        await conn.fetch(
+            "SELECT * FROM public.sinh_viec_nhac_tai_kham($1, $2)", clinic, hom_nay
+        )
+        viec = await conn.fetch(
+            "SELECT luot_goi, ngay_hen FROM nhac_tai_kham WHERE clinic_patient_id = $1",
+            khach,
+        )
+    assert [(r["luot_goi"], r["ngay_hen"]) for r in viec] == [
+        (1, hom_nay + dt.timedelta(days=3))
+    ]

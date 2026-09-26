@@ -236,15 +236,25 @@ class PhieuKhamService:
         *,
         visit_id: str,
         form_id: str,
-        du_lieu: dict[str, Any],
+        du_lieu: dict[str, Any] | None,
         expected_revision: int,
         identity: StaffIdentity,
+        thay_doi: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Tự lưu một lần: qua cổng `kiem_luu` rồi ghi, có chống đè.
+        """Tự lưu một lần: qua cổng `kiem_luu` rồi ghi.
 
-        Hai người cùng gõ (bác sĩ + thư ký) mà người kia vừa lưu → 409, màn tải
-        lại chứ không đè im lặng.
+        Hai cách:
+        * `thay_doi` (lát 2, 26/09/2026) — CHỈ các ô vừa đổi, gộp vào bản đang
+          có dưới khoá dòng. Hai người (bác sĩ + thư ký, tư vấn + bác sĩ chính)
+          sửa hai ô khác nhau đều được lưu; cùng một ô thì lần sau đè lần trước
+          — lịch sử sửa (trigger) giữ đủ vết.
+        * `du_lieu` (cũ) — cả gói, có chống đè bằng `revision`: người kia vừa
+          lưu → 409, màn tải lại chứ không đè im lặng.
         """
+        la_va = thay_doi is not None
+        goi_vao = thay_doi if la_va else du_lieu
+        if goi_vao is None:
+            raise ValidationError("Thiếu dữ liệu phiếu.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             ban = await conn.fetchval(
@@ -263,7 +273,7 @@ class PhieuKhamService:
         sach, canh_bao = await self.kiem_luu(
             form_id=form_id,
             version=int(ban),
-            du_lieu=du_lieu,
+            du_lieu=goi_vao,
             che_do=CHE_DO_MO,
             identity=identity,
         )
@@ -284,7 +294,7 @@ class PhieuKhamService:
             )
             goi = json.dumps(sach, ensure_ascii=False)
             if dong is None:
-                if expected_revision != 0:
+                if expected_revision != 0 and not la_va:
                     raise ConflictError("Phiếu này không còn — tải lại trang.")
                 moi = await conn.fetchval(
                     "INSERT INTO phieu_kham_luot (clinic_id, visit_id, form_id,"
@@ -304,6 +314,21 @@ class PhieuKhamService:
                     raise ConflictError(
                         "Có người vừa mở phiếu này cùng lúc — tải lại để không đè."
                     )
+            elif la_va:
+                if not sach:
+                    return {
+                        "ok": True,
+                        "revision": int(dong["revision"]),
+                        "canh_bao": canh_bao,
+                    }
+                moi = await conn.fetchval(
+                    "UPDATE phieu_kham_luot SET du_lieu = du_lieu || $2::jsonb,"
+                    " revision = revision + 1, sua_boi = $3::uuid, sua_luc = now()"
+                    " WHERE id = $1::uuid RETURNING revision",
+                    dong["id"],
+                    goi,
+                    identity.staff_id,
+                )
             else:
                 if int(dong["revision"]) != expected_revision:
                     raise ConflictError(

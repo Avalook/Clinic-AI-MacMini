@@ -57,8 +57,13 @@ class LuuDon(BaseModel):
 
 class LuuPhieu(BaseModel):
     form_id: str = Field(min_length=1, max_length=40)
-    du_lieu: dict[str, Any]
-    expected_revision: int = Field(ge=0)
+    #: Cả gói (cách cũ) — kèm `expected_revision`, lệch là 409.
+    du_lieu: dict[str, Any] | None = None
+    expected_revision: int = Field(default=0, ge=0)
+    #: CHỈ các ô vừa đổi (26/09/2026, lát 2): máy chủ gộp vào dưới khoá dòng —
+    #: hai người sửa hai ô khác nhau không còn 409 / mất chữ đang gõ. Xoá ô =
+    #: gửi ô ấy với giá trị rỗng.
+    thay_doi: dict[str, Any] | None = None
 
 
 @router.get("/phieu-kham/dinh-nghia")
@@ -157,6 +162,7 @@ async def luu_phieu_cua_luot(
         du_lieu=body.du_lieu,
         expected_revision=body.expected_revision,
         identity=identity,
+        thay_doi=body.thay_doi,
     )
 
 

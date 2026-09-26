@@ -18,6 +18,7 @@ import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
 import {
   donTuDong,
   dongTuDon,
+  phanThayDoi,
   type ChiDinhVaKetQua,
   type DauPhieu,
   type DinhNghiaPhieu,
@@ -105,6 +106,8 @@ export default function PhieuKhamLuot({
   const [canLyDo, setCanLyDo] = useState(false);
   const [lyDo, setLyDo] = useState("");
   const revision = useRef(0);
+  /** Bản đã lưu gần nhất — tự lưu chỉ gửi phần khác bản này (lát 2). */
+  const daLuu = useRef<Record<string, ONhap>>({});
   const henDon = useRef<ReturnType<typeof setTimeout> | null>(null);
   const soLanSuaDon = useRef(0);
 
@@ -123,6 +126,7 @@ export default function PhieuKhamLuot({
         return;
       }
       revision.current = d.revision;
+      daLuu.current = d.du_lieu ?? {};
       setChonDuoc(null);
       setPhieu(d);
     },
@@ -178,12 +182,13 @@ export default function PhieuKhamLuot({
   const onLuu = useCallback(
     async (goi: Record<string, ONhap>): Promise<KetQuaLuu> => {
       if (!phieu) return { ok: false, loi: "Chưa mở phiếu." };
+      const thayDoi = phanThayDoi(goi, daLuu.current);
+      if (Object.keys(thayDoi).length === 0) return { ok: true };
       const kq = await ghi({
         thao_tac: "luu-phieu",
         visit_id: visitId,
         form_id: phieu.form_id,
-        du_lieu: goi,
-        expected_revision: revision.current,
+        thay_doi: thayDoi,
       });
       if (!kq.ok) {
         const cau =
@@ -196,6 +201,7 @@ export default function PhieuKhamLuot({
       }
       setLoi(null);
       revision.current = Number(kq.d?.revision ?? revision.current + 1);
+      daLuu.current = { ...daLuu.current, ...thayDoi };
       const canhBao = (kq.d?.canh_bao ?? []) as { ma: string; ten: string; loi: string }[];
       return { ok: true, canh_bao: canhBao };
     },

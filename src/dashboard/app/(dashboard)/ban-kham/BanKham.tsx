@@ -54,6 +54,7 @@ import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
+import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
 import ONhapTuVan from "./ONhapTuVan";
 import Button from "@/components/ui/Button";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
@@ -891,22 +892,26 @@ function HoSo({
                 chính vào, cho cả 2 bác sĩ đều thêm sửa xoá được, hồ sơ là
                 open"). CHÍNH phiếu khám của lượt — cùng một bản ghi bác sĩ
                 chính mở, tự lưu + chống ghi đè (409) như phiếu thường. */}
+            {/* 25/09/2026 (bản giao diện mẫu): mục B nằm sau công tắc "Thông tin
+                cơ bản", MẶC ĐỊNH ĐÓNG — bàn tư vấn chỉ còn một ô chữ to. */}
             {PHIEU_V5 && dong.form_code ? (
-              <PhieuKhamLuot
-                key={`b-${dong.visit_id}`}
-                visitId={dong.visit_id}
-                clinicPatientId={dong.clinic_patient_id}
-                choGhi={choBam}
-                chiMuc={["B"]}
-                datChiDinh={async (codes, batBuoc) => {
-                  const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
-                    service_codes: codes,
-                    bat_buoc_codes: batBuoc,
-                  });
-                  return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
-                }}
-                onDaDat={onDaBam}
-              />
+              <CongTacThongTinCoBan>
+                <PhieuKhamLuot
+                  key={`b-${dong.visit_id}`}
+                  visitId={dong.visit_id}
+                  clinicPatientId={dong.clinic_patient_id}
+                  choGhi={choBam}
+                  chiMuc={["B"]}
+                  datChiDinh={async (codes, batBuoc) => {
+                    const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
+                      service_codes: codes,
+                      bat_buoc_codes: batBuoc,
+                    });
+                    return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
+                  }}
+                  onDaDat={onDaBam}
+                />
+              </CongTacThongTinCoBan>
             ) : null}
           </div>
         ) : PHIEU_V5 && (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
