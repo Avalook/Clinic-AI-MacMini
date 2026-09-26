@@ -140,4 +140,8 @@ async def vi_tri_hom_nay(
         # Vai vận hành lịch hôm nay cấp thêm — cùng luật cửa gác dùng
         # (`identity.vai_tu_vi_tri`), để giao diện không tự suy lại.
         "vai": vai_theo_thu_tu(vi_tri, identity.role),
+        # MỌI vai hiệu lực — gồm vai lego đang bật mang lại, và KHÔNG gồm vai
+        # tài khoản mà lego đã tắt (Tuyền chốt 26/09/2026). Giao diện dựng cửa
+        # trang và nút Bàn khám từ tập này, cùng luật với cửa gác máy chủ.
+        "vai_hieu_luc": identity.ds_vai(),
     }

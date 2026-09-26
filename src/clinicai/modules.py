@@ -78,8 +78,17 @@ MODULE: dict[str, Module] = {
             ten="Chỉ định dịch vụ",
             # CarryOverUnfinishedOrders: khối Hành trình gọi lúc check-in (H2) —
             # chỉ định chưa làm ĐI THEO KHÁCH sang lượt mới.
-            lenh=["PlaceServiceOrders", "CarryOverUnfinishedOrders"],
-            phat=["service_order.placed", "service_order.carried_over"],
+            lenh=[
+                "PlaceServiceOrders",
+                "CarryOverUnfinishedOrders",
+                "SetServiceOrderRequired",
+            ],
+            phat=[
+                "service_order.placed",
+                "service_order.carried_over",
+                "service_order.required_changed",
+                "service_order.required_changed",
+            ],
             bang=["service_order"],
             quyen=["clinical.order.place"],
         ),
@@ -114,6 +123,7 @@ MODULE: dict[str, Module] = {
                 "service.routing.view",
                 "service.routing.assign",
                 "service.routing.invalidate",
+                "dispatch.manage",
             ],
         ),
         Module(
@@ -179,6 +189,8 @@ MODULE: dict[str, Module] = {
                 "catalogue.form_template.edit",
                 "catalogue.form_template.publish",
                 "config.wiring.manage",
+                "price.service.manage",
+                "config.clinic.manage",
             ],
         ),
         Module(
@@ -195,7 +207,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=["capability.granted", "capability.revoked"],
             bang=["capability_grant", "quyen_preset"],
-            quyen=["permission.manage"],
+            quyen=["permission.manage", "staff.manage", "account.manage"],
         ),
         Module(
             ma="journey",
@@ -227,6 +239,7 @@ MODULE: dict[str, Module] = {
                 "consultation.completed",
                 "service.routed",
                 "service_order.carried_over",
+                "service_order.required_changed",
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "medicine.dispensed",
@@ -255,6 +268,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="trach_nhiem",
             ten="Trách nhiệm không được rơi",
+            quyen=["worklist.handle"],
             # Module CHỈ NGHE. Không lệnh, không state riêng ngoài việc nó mở.
             # Có dùng hẹn giờ (`hen_gio`) để kiểm lại khi tới hạn — hẹn ghi
             # trong CÙNG giao dịch với việc.
@@ -474,6 +488,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="doi_tac",
             ten="Đối tác",
+            quyen=["partner.work"],
             lenh=["MarkSampleCollected", "MarkAwaitingDocuments"],
             phat=["partner.sample_collected", "partner.order_received"],
             # Nhận việc bằng sự kiện (24/09/2026): đã thu tiền (đối tác tự lấy
@@ -485,6 +500,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="cskh",
             ten="Chăm sóc khách hàng",
+            quyen=["crm.manage", "patient.create", "patient.list.view"],
             lenh=["LogContact"],
             phat=["patient.contacted"],
             bang=["tuong_tac_cskh"],
@@ -533,6 +549,18 @@ MODULE: dict[str, Module] = {
             phat=["medicine.dispensed", "medicine.counter_changed"],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view"],
+        ),
+        # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /
+        # Vận hành hệ thống và lego Lịch làm việc.
+        Module(
+            ma="van_hanh",
+            ten="Vận hành, báo cáo, lịch sử thao tác",
+            quyen=["report.view", "ops.view", "audit.view"],
+        ),
+        Module(
+            ma="lich_truc",
+            ten="Lịch làm việc",
+            quyen=["roster.view"],
         ),
     )
 }

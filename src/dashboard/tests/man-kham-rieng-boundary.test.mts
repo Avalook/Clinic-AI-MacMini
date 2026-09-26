@@ -88,5 +88,6 @@ test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một th
 
 test("menu dự phòng theo LUẬT GỐC, không theo công tắc mở quyền", () => {
   const i = roles.indexOf("export function hienTrenThanhBen");
-  assert.match(roles.slice(i, i + 1400), /canSeeNavGoc\(role, href\)/);
+  // (25/09: hàm dài thêm phần lego — nới cửa sổ tìm.)
+  assert.match(roles.slice(i, i + 3000), /canSeeNavGoc\(role, href\)/);
 });

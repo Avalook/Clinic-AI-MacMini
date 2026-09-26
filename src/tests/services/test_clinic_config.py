@@ -19,6 +19,7 @@ import pytest
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinic_config_service import (
     CONFIG_ROLES,
     ClinicConfigService,
@@ -26,6 +27,15 @@ from clinicai.services.clinic_config_service import (
     assert_may_configure,
 )
 from tests.services.fake_pool import FakePool
+
+
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21 lego (25/09/2026): service hỏi QUYỀN qua DB — pool giả trả lời theo
+    nhóm mẫu của vai (tests/quyen_gia.py). Cửa thật: test_lego_21_db.py."""
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
 
 
 def _run(coro: Any) -> Any:
@@ -165,7 +175,7 @@ class TestSetRoomFloorIO:
 
     def test_a_refused_role_never_reaches_the_database(self) -> None:
         pool = FakePool("SA1")
-        with pytest.raises(ValidationError):
+        with pytest.raises(SafetyGateError):
             _run(
                 ClinicConfigService(pool).set_room_floor(
                     identity=_who(ClinicRole.TRUONG_CA), room_id="r-1", floor="2"
@@ -360,7 +370,7 @@ class TestServiceFormIO:
 
     def test_vai_khac_bi_chan_truoc_khi_cham_db(self) -> None:
         pool = FakePool("Phụ khoa")
-        with pytest.raises(ValidationError):
+        with pytest.raises(SafetyGateError):
             _run(
                 ClinicConfigService(pool).set_service_form(
                     identity=_who(ClinicRole.TRUONG_CA),

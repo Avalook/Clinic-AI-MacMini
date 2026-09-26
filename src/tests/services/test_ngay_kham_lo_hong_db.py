@@ -158,6 +158,26 @@ async def test_tuan_da_cong_bo_ngay_khong_ai_truc_thi_khong_dat_duoc(
 
 
 async def test_khach_quen_vao_thang_bac_si_chinh(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Dây H1 "khách quen vào thẳng" — TẮT mặc định từ 25/09/2026; quản lý BẬT
+    thì khách tái khám vào thẳng bác sĩ chính (mặc định: xem
+    test_bo_qua_tu_van_chi_dinh_them_db)."""
+    await pool.execute(
+        "INSERT INTO day_nghiep_vu (clinic_id, ma, gia_tri)"
+        " VALUES ($1::uuid, 'h1_khach_quen_vao_thang_bs', 'true'::jsonb)"
+        " ON CONFLICT (clinic_id, ma) DO UPDATE SET gia_tri = 'true'::jsonb",
+        CLINIC,
+    )
+    try:
+        await _khach_quen_khi_bat_day(pool)
+    finally:
+        await pool.execute(
+            "DELETE FROM day_nghiep_vu WHERE clinic_id = $1::uuid"
+            " AND ma = 'h1_khach_quen_vao_thang_bs'",
+            CLINIC,
+        )
+
+
+async def _khach_quen_khi_bat_day(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     await pool.execute(
         "UPDATE service_type SET qua_tu_van = true WHERE id = $1::uuid", ca.loai_kham

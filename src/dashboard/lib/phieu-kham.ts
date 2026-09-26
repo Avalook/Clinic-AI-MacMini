@@ -86,6 +86,13 @@ export interface ChiDinhVaKetQua {
   ket_qua: KetQuaMotChiDinh[];
   /** Mẫu kết quả đã gắn cho dịch vụ (Danh mục & biểu mẫu). */
   mau_ket_qua?: MauKetQuaNgan[];
+  /** Lần chỉ định trong lượt (1, 2, 3… theo vòng khám). null = mang sang. */
+  lan?: number | null;
+  chi_dinh_luc?: string | null;
+  /** Chỉ định mang sang từ lượt trước. */
+  mang_sang?: boolean;
+  /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
+  bat_buoc?: boolean;
 }
 
 /** Một mẫu kết quả (18 mẫu KQ_*): `ma` không kèm tiền tố `KQ_`. */

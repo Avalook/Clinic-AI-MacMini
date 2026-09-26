@@ -12,16 +12,18 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
-from clinicai.api.identity import StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
-from clinicai.services.audit_log_service import AUDIT_ROLES, MAX_ROWS, AuditLogService
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.audit_log_service import MAX_ROWS, AuditLogService
 
 router = APIRouter()
 
 # Nhật ký cho biết ai đã đọc/sửa hồ sơ của ai — bản thân nó là thông tin nhạy
 # cảm. Ba vai này khớp đúng policy `event_log_select_ops`; backend chạy service
 # role và bỏ qua RLS, nên danh sách phải tự khớp chứ không được tin RLS.
-_GUARD = require_role(*sorted(AUDIT_ROLES))
+# Lego 20 — "Lịch sử thao tác" (25/09/2026): hỏi quyền, không hỏi vai.
+_GUARD = cua_quyen("audit.view")
 
 
 @router.get("/audit/events")

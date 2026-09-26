@@ -71,7 +71,10 @@ async def ghi_mo_ho_so(
     Chỉ ghi MÃ khách + tên màn (`services/audit.py`: không bao giờ ghi nội dung).
     Không làm hỏng lượt đọc: ghi lỗi thì chỉ log cảnh báo.
     """
-    if identity.co_vai(CLINICAL_WRITE_ROLES):
+    # Theo VAI TÀI KHOẢN, không theo vai lego (26/09/2026): quản lý bật lego Bàn
+    # khám thì qua cửa bác sĩ, nhưng vẫn là người ngoài đội chuyên môn khi hỏi
+    # "ai đã xem hồ sơ" — điều kiện Tuyền đặt khi mở quyền đọc cho quản lý.
+    if identity.vai_goc in CLINICAL_WRITE_ROLES:
         return
     from clinicai.services.audit import record_event
 

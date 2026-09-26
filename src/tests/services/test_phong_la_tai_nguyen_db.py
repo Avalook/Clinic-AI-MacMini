@@ -37,6 +37,15 @@ async def pool() -> Any:
     await p.close()
 
 
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Danh tính quản lý ở đây là GIẢ (không có dòng cấp quyền) — cấu hình phòng
+    hỏi quyền theo nhóm mẫu của vai. Cửa thật: test_lego_21_db.py."""
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
+
+
 def _quan_ly() -> StaffIdentity:
     return StaffIdentity(
         staff_id=str(uuid.uuid4()),

@@ -23,9 +23,9 @@ from clinicai.api.identity import (
     StaffIdentity,
     get_current_identity,
     require_role,
-    require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.cskh_service import (
     INTAKE_ROLES,
     CskhService,
@@ -44,13 +44,8 @@ from clinicai.services.tuong_tac_cskh_service import (
 router = APIRouter()
 
 _INTAKE_GUARD = require_role(*INTAKE_ROLES)
-_RECALL_GUARD = require_role(
-    ClinicRole.CSKH,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-    # Lễ tân có lại màn Quản lý khách hàng, đủ quyền (Tuyền 24/09/2026).
-    ClinicRole.RECEPTION,
-)
+# Lego 12 "Chăm sóc khách hàng" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.
+_RECALL_GUARD = cua_quyen("crm.manage")
 
 # SÁU vai được vào màn Quản lý khách hàng — GƯƠNG của roles.ts "/customers".
 # Lễ tân đã rời danh sách 16/09/2026 (Tuyền: *"quản lý khách hàng… vì thừa"*) —
@@ -62,16 +57,7 @@ _RECALL_GUARD = require_role(
 # test_man_khach_hang.py; đổi bên nào thì đổi cả hai + test.
 # Dữ liệu chăm sóc khách là thông tin VẬN HÀNH — lịch hẹn, trạng thái, sổ gọi
 # điện — không phải bệnh án. Nới theo công tắc mở quyền tạm thời.
-_MAN_KHACH_HANG_GUARD = require_role_co_the_mo(
-    ClinicRole.CSKH,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-    # 24/09/2026: Tuyền "kéo nút quản lý khách hàng full quyền sang màn lễ tân".
-    ClinicRole.RECEPTION,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-)
+_MAN_KHACH_HANG_GUARD = cua_quyen("crm.manage")
 
 
 @router.get("/cskh/danh-sach-khach")

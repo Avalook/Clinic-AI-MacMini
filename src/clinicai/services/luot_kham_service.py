@@ -196,7 +196,10 @@ class LuotKhamService:
                 INSERT INTO consultation
                     (clinic_id, visit_id, round_no, kind, status, doctor_staff_id)
                 VALUES ($1::uuid, $2::uuid, 1, 'PRIMARY', 'queued', $3::uuid)
-                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
+                -- Phiên đã HUỶ (khách được đưa lại về tư vấn, 25/09) thì mở lại.
+                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now(),
+                    status = CASE WHEN consultation.status = 'cancelled'
+                                  THEN 'queued' ELSE consultation.status END
                 RETURNING id::text
                 """,
                 clinic_id,
@@ -393,6 +396,197 @@ class LuotKhamService:
         )
         return str(tag) != "UPDATE 0"
 
+    async def doi_duong_tu_van(
+        self, *, visit_id: str, bo_qua: bool, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Ô tick "Bỏ qua bác sĩ tư vấn" ở màn đo sinh hiệu — ÁP NGAY vào vị trí
+        của khách (Tuyền 25/09/2026: "là lựa chọn và áp luôn cho vị trí của
+        khách"). Tick → hàng bác sĩ chính; bỏ tick → về lại hàng tư vấn.
+
+        Chỉ đổi được khi bên nhận chưa bắt đầu: tư vấn chưa nhận khách (khi bỏ
+        qua), bác sĩ chính chưa bắt đầu khám (khi đưa lại).
+        """
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, "vitals.measure")
+            if bo_qua:
+                doi = await self.bo_qua_tu_van(
+                    conn, clinic_id=identity.clinic_id, visit_id=vid
+                )
+                loi = "Bác sĩ tư vấn đã nhận khách (hoặc lượt không qua tư vấn)."
+            else:
+                doi = await self.tra_ve_tu_van(
+                    conn, clinic_id=identity.clinic_id, visit_id=vid
+                )
+                loi = "Bác sĩ chính đã bắt đầu khám — không đưa về tư vấn được."
+            if not doi:
+                trang_thai = await conn.fetchval(
+                    "SELECT status FROM consultation WHERE clinic_id = $1::uuid"
+                    " AND visit_id = $2::uuid AND kind = 'TU_VAN'",
+                    identity.clinic_id,
+                    vid,
+                )
+                # Đã đúng như tick rồi (bấm hai lần) → không phải lỗi.
+                da_dung = (trang_thai == "cancelled") == bo_qua and trang_thai
+                if not da_dung:
+                    raise LuotKhamConflictError("TU_VAN_KHONG_DOI_DUOC", loi)
+        return {"ok": True, "visit_id": vid, "bo_qua_tu_van": bo_qua}
+
+    async def tra_ve_tu_van(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> bool:
+        """Đưa khách ĐÃ bỏ qua tư vấn về lại hàng tư vấn (bỏ tick). Chỉ khi bác
+        sĩ chính CHƯA bắt đầu khám. Chạy lại được."""
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        tu_van = await conn.fetchval(
+            "SELECT id::text FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'TU_VAN' AND status = 'cancelled'",
+            clinic_id,
+            visit_id,
+        )
+        if tu_van is None:
+            return False
+        if await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'PRIMARY'"
+            " AND status NOT IN ('queued', 'cancelled'))",
+            clinic_id,
+            visit_id,
+        ):
+            return False
+        await conn.execute(
+            "UPDATE consultation SET status = 'cancelled', version = version + 1,"
+            " updated_at = now() WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " AND kind = 'PRIMARY' AND status = 'queued'",
+            clinic_id,
+            visit_id,
+        )
+        await conn.execute(
+            """
+            UPDATE queue_entry
+               SET status = 'cancelled', version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND lane = 'DOCTOR'
+               AND reason = 'PRIMARY' AND status NOT IN ('done', 'left', 'cancelled')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        await conn.execute(
+            "UPDATE consultation SET status = 'queued', version = version + 1,"
+            " updated_at = now() WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            clinic_id,
+            tu_van,
+        )
+        flow = await self._lock_flow(conn, clinic_id, visit_id)
+        da_do = flow["vitals_status"] == "recorded"
+        await conn.execute(
+            """
+            INSERT INTO queue_entry
+                (clinic_id, visit_id, lane, reason, ref_id, status, eligible_at)
+            VALUES ($1::uuid, $2::uuid, 'TU_VAN', 'TU_VAN', $3::uuid, $4,
+                    CASE WHEN $4 = 'waiting' THEN now() END)
+            ON CONFLICT (visit_id, reason, ref_id)
+                WHERE status NOT IN ('done', 'left', 'cancelled')
+            DO NOTHING
+            """,
+            clinic_id,
+            visit_id,
+            tu_van,
+            "waiting" if da_do else "blocked",
+        )
+        ly_do = "điều dưỡng đưa lại vào hàng tư vấn"
+        await conn.execute(
+            """
+            UPDATE encounter_flow
+               SET route_decision = 'TU_VAN', route_reason = $3,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+            """,
+            clinic_id,
+            visit_id,
+            ly_do,
+        )
+        await self._phat_da_xep(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            dich="TU_VAN",
+            ly_do=ly_do,
+            causation_id=causation_id,
+        )
+        return True
+
+    async def bo_qua_tu_van(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> bool:
+        """`SkipIntake` — điều dưỡng tick "Bỏ qua bác sĩ tư vấn" lúc [Đo xong]
+        (Tuyền 25/09/2026): khách rời hàng tư vấn, vào thẳng hàng bác sĩ chính.
+
+        Chỉ khi phiên tư vấn CHƯA bắt đầu (`queued`). Bác sĩ tư vấn đã nhận
+        khách thì để nguyên — xong tư vấn khách vẫn sang bác sĩ chính như cũ.
+        Lượt không đi qua tư vấn thì không có gì để bỏ. Chạy lại được.
+        """
+        await conn.execute(
+            "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        # Dây H1 (`visit.checked_in` → xếp đường) chạy NỀN. Check-in xong đo ngay
+        # (vãng lai) thì lúc tick lượt có thể CHƯA được xếp đường — chưa có phiên
+        # tư vấn nào để bỏ, tick bị từ chối và khách vẫn sang tư vấn (mô phỏng
+        # 26/09/2026). Xếp ngay trong giao dịch này bằng đúng luật H1; H1 tới sau
+        # thấy đã có đường thì thôi (chạy lại được).
+        await self.xep_sau_check_in(
+            conn, clinic_id=clinic_id, visit_id=visit_id, causation_id=causation_id
+        )
+        tu_van = await conn.fetchval(
+            "SELECT id::text FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'TU_VAN' AND status = 'queued'",
+            clinic_id,
+            visit_id,
+        )
+        if tu_van is None:
+            return False
+        await conn.execute(
+            "UPDATE consultation SET status = 'cancelled', version = version + 1,"
+            " updated_at = now() WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            clinic_id,
+            tu_van,
+        )
+        await conn.execute(
+            """
+            UPDATE queue_entry
+               SET status = 'cancelled', version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND lane = 'TU_VAN'
+               AND status NOT IN ('done', 'left', 'cancelled')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        return await self.chuyen_bac_si_chinh(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            causation_id=causation_id,
+            ly_do="điều dưỡng cho bỏ qua tư vấn — vào thẳng bác sĩ chính",
+        )
+
     async def chuyen_bac_si_chinh(
         self,
         conn: asyncpg.Connection,
@@ -400,6 +594,7 @@ class LuotKhamService:
         clinic_id: str,
         visit_id: str,
         causation_id: str | None = None,
+        ly_do: str = "tư vấn xong — chuyển bác sĩ chính",
     ) -> bool:
         """`HandToPrimaryDoctor` — dây H3: tư vấn xong → hàng bác sĩ chính."""
         await conn.execute(
@@ -410,7 +605,7 @@ class LuotKhamService:
         )
         if await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
-            " AND visit_id = $2::uuid AND kind = 'PRIMARY')",
+            " AND visit_id = $2::uuid AND kind = 'PRIMARY' AND status <> 'cancelled')",
             clinic_id,
             visit_id,
         ):
@@ -425,14 +620,14 @@ class LuotKhamService:
             """,
             clinic_id,
             visit_id,
-            "tư vấn xong — chuyển bác sĩ chính",
+            ly_do,
         )
         await self._phat_da_xep(
             conn,
             clinic_id=clinic_id,
             visit_id=visit_id,
             dich=rules.PRIMARY,
-            ly_do="tư vấn xong — chuyển bác sĩ chính",
+            ly_do=ly_do,
             causation_id=causation_id,
         )
         return True

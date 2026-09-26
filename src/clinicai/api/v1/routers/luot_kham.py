@@ -115,6 +115,9 @@ class VitalsBody(BaseModel):
     spo2: Any = None
     bmi: Any = None
     pain_score: Any = None
+    # Điều dưỡng tick "Bỏ qua bác sĩ tư vấn" (Tuyền 25/09/2026) → khách vào thẳng
+    # hàng bác sĩ chính. Không phải chỉ số — tách khỏi `raw` trước parse_vitals.
+    bo_qua_tu_van: bool = False
 
 
 class NoteBody(BaseModel):
@@ -205,9 +208,28 @@ async def record_vitals(
 ) -> dict[str, Any]:
     return await SinhHieuService(pool).record_vitals(
         visit_id=str(visit_id),
-        raw=body.model_dump(),
+        raw=body.model_dump(exclude={"bo_qua_tu_van"}),
         identity=identity,
         idempotency_key=idempotency_key,
+        bo_qua_tu_van=body.bo_qua_tu_van,
+    )
+
+
+class BoQuaTuVanBody(BaseModel):
+    bo_qua: bool
+
+
+@router.post("/luot-kham/visits/{visit_id}/bo-qua-tu-van")
+async def doi_duong_tu_van(
+    visit_id: UUID,
+    body: BoQuaTuVanBody,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô tick "Bỏ qua bác sĩ tư vấn" (màn đo sinh hiệu) — áp ngay vào vị trí khách:
+    tick → hàng bác sĩ chính, bỏ tick → về hàng tư vấn (Tuyền 25/09/2026)."""
+    return await LuotKhamService(pool).doi_duong_tu_van(
+        visit_id=str(visit_id), bo_qua=body.bo_qua, identity=identity
     )
 
 
@@ -438,6 +460,12 @@ _CHI_DINH_GUARD = cua_quyen("clinical.order.place")
 
 class ChiDinhBody(BaseModel):
     service_codes: list[str] = Field(min_length=1, max_length=30)
+    #: Dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được.
+    bat_buoc_codes: list[str] = Field(default_factory=list, max_length=30)
+
+
+class BatBuocBody(BaseModel):
+    bat_buoc: bool
 
 
 @router.post("/luot-kham/consultations/{consultation_id}/service-orders")
@@ -454,6 +482,20 @@ async def dat_chi_dinh(
         service_codes=body.service_codes,
         identity=identity,
         idempotency_key=idempotency_key,
+        bat_buoc_codes=body.bat_buoc_codes,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/bat-buoc")
+async def doi_bat_buoc(
+    order_id: UUID,
+    body: BatBuocBody,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật / tắt "Bắt buộc" của một chỉ định (chưa thu tiền) — Tuyền 25/09/2026."""
+    return await ChiDinhService(pool).doi_bat_buoc(
+        order_id=str(order_id), bat_buoc=body.bat_buoc, identity=identity
     )
 
 
@@ -566,6 +608,8 @@ class AssignRoomBody(BaseModel):
     expected_routing_revision: Any
     reason_code: Any
     recommendation_ref: str | None = Field(default=None, max_length=300)
+    #: Màn gọi lệnh: quay_thu · truong_ca · khac (mặc định). Trưởng ca đè quầy thu.
+    nguon: str | None = Field(default=None, max_length=20)
 
 
 class InvalidateRoutingBody(BaseModel):
@@ -596,6 +640,7 @@ async def assign_service_room(
         recommendation_ref=body.recommendation_ref,
         identity=identity,
         idempotency_key=idempotency_key,
+        nguon=body.nguon,
     )
 
 

@@ -85,6 +85,16 @@ DOC = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
+    """21 lego (25/09/2026): cửa router + đổi bác sĩ hỏi QUYỀN — pool giả trả lời
+    theo nhóm mẫu của vai (tests/quyen_gia.py)."""
+    from tests.quyen_gia import cua_router_theo_nhom_mau, dich_vu_theo_nhom_mau
+
+    cua_router_theo_nhom_mau(monkeypatch)
+    dich_vu_theo_nhom_mau(monkeypatch)
+
+
 @pytest.fixture
 def db() -> Iterator[list[SqlConn]]:
     holder: list[SqlConn] = [pool(*DOC)]

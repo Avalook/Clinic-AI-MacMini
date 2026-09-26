@@ -506,12 +506,24 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
 export function hienTrenThanhBen(
   role: ClinicRole | null,
   href: string,
-  /** Capability người này đang có. Màn nào quyền mở được thì bày ra, dù vai
-   *  không có trong `NAV_ROLES` — chốt "sidebar dựng theo quyền của từng
-   *  người". Bỏ trống = chỉ xét vai, y như trước. */
-  quyen: readonly string[] = [],
+  /** Capability người này đang có. `null` = CHƯA BIẾT (máy chủ chưa trả lời)
+   *  → xét vai như trước, không để thanh bên trống trơn vì một lần lỗi mạng. */
+  quyen: readonly string[] | null = null,
 ): boolean {
-  if (quyenMoDuocMan(quyen, href)) return true;
+  if (TAT_KHOI_THANH_BEN.has(href)) return false;
+  // THANH BÊN DỰNG THEO LEGO CỦA TÀI KHOẢN (Tuyền 25/09/2026): màn thuộc một
+  // lego thì hiện KHI VÀ CHỈ KHI có quyền mở nó — thu lego là mất mục, cấp là
+  // có, không phụ thuộc vai. Người ngoài phòng khám (DISPLAY, PARTNER) và màn
+  // không thuộc lego nào (Trang chủ, Hành trình — luôn bật) vẫn xét như cũ.
+  if (
+    quyen !== null &&
+    role !== "DISPLAY" &&
+    role !== "PARTNER" &&
+    quyenCuaMan(href).length > 0
+  ) {
+    return quyenMoDuocMan(quyen, href);
+  }
+  if (quyen !== null && quyenMoDuocMan(quyen, href)) return true;
   // MENU theo LUẬT GỐC, không theo công tắc mở quyền.
   //
   // Hai câu hỏi khác nhau: "được VÀO màn này không" (canSeeNav — đang mở tạm
@@ -583,20 +595,55 @@ function moTheoCongTac(href: string): boolean {
  *  VÀO ĐƯỢC MÀN ≠ LÀM ĐƯỢC VIỆC. Mọi lệnh vẫn hỏi capability ở backend; bảng
  *  này chỉ quyết cái màn có hiện trong thanh bên hay không. */
 const NAV_QUYEN: Record<string, string[]> = {
-  "/reception/queue": ["reception.checkin.perform"],
+  // ── 21 LEGO theo node thanh bên (Tuyền 25/09/2026) — khớp `MAN` trong
+  // `src/clinicai/permissions/catalogue.py`. Mỗi MÀN một (vài) quyền mở nó;
+  // người có một phần lego vẫn thấy đúng màn mình dùng.
+  "/reception/queue": ["reception.checkin.perform"], //  1 Tiếp đón khách
   "/reception/checkout": ["reception.checkin.perform"],
-  "/do-sinh-hieu": ["vitals.measure"],
-  "/ban-kham": ["clinical.order.place"],
-  "/tu-van": ["clinical.intake.perform"],
+  "/do-sinh-hieu": ["vitals.measure"], //  2 Đo sinh hiệu
+  "/tu-van": ["clinical.intake.perform"], //  3 Khám tư vấn
+  "/ban-kham": ["clinical.consult.perform"], //  4 Bàn khám
+  "/phong": ["service.execute.start"], //  5 Phòng dịch vụ
+  "/thu-ngan/dich-vu": ["payment.service.collect"], //  6 Thanh toán dịch vụ
+  // Sửa 25/09: trước gắn nhầm `payment.service.collect`.
+  "/thu-ngan/thuoc": ["payment.medicine.collect"], //  7 Thu tiền thuốc
+  "/viec-can-xu-ly": ["worklist.handle"], //  8 Việc cần xử lý
+  "/truong-ca": ["dispatch.manage"], //  9 Điều phối khách
+  "/truong-ca/hang-doi": ["dispatch.manage"],
+  "/truong-ca/lich-su": ["dispatch.manage"],
+  "/truong-ca/tv": ["dispatch.manage"],
+  "/appointments": ["booking.create"], // 10 Đặt lịch
+  "/patients/new": ["patient.create"], // 11 Thêm bệnh nhân
+  "/customers": ["crm.manage"], // 12 Chăm sóc khách hàng
+  "/nhac-tai-kham": ["crm.manage"],
+  "/patient-list": ["patient.list.view"], // 13 Danh sách bệnh nhân
+  "/pharmacy": ["pharmacy.view", "pharmacy.dispense"], // 14 Kho thuốc
+  "/pharmacy/inventory": ["pharmacy.view", "pharmacy.dispense"],
+  "/pharmacy/history": ["pharmacy.view", "pharmacy.dispense"],
+  "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
+  "/schedule": ["roster.view"], // 15 Lịch làm việc
+  "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  "/reports": ["report.view"], // 17 Báo cáo
+  "/lich-do-ve": ["report.view"],
+  "/settings": ["config.clinic.manage"], // 18 Cài đặt phòng khám
+  "/settings/booking-policy": ["config.clinic.manage"],
+  "/settings/clinic-config": ["config.clinic.manage"],
   "/settings/day-noi": ["config.wiring.manage"],
-  "/truong-ca": ["service.routing.view"],
-  "/phong": ["service.execute.start"],
-  "/duyet-ket-qua": ["result.form.fill"],
-  "/viec-can-xu-ly": ["service.routing.view"],
+  "/nhan-su": ["staff.manage"], // 19 Nhân sự & phân quyền
+  "/settings/tai-khoan": ["account.manage"],
+  "/settings/new-user": ["account.manage"],
   "/phan-quyen": ["permission.manage"],
-  "/thu-ngan/dich-vu": ["payment.service.collect"],
-  "/thu-ngan/thuoc": ["payment.service.collect"],
+  "/ops": ["ops.view"], // 20 Vận hành hệ thống
+  "/audit-log": ["audit.view"],
+  "/doi-tac": ["partner.work"], // 21 Đối tác
+  // (Cũ, OFF khỏi thanh bên) `/duyet-ket-qua` — route còn giữ.
+  "/duyet-ket-qua": ["result.form.fill"],
 };
+
+/** TẮT khỏi thanh bên cho MỌI người (route còn giữ, mở thẳng được):
+ *  Chờ xếp bác sĩ (Tuyền 25/09: tạm tắt) · Bảng giá thuốc (giá thuốc sửa ở Kho
+ *  thuốc từ 25/09 — một nguồn giá). */
+const TAT_KHOI_THANH_BEN = new Set(["/appointments/cho-xep-bac-si", "/cashier/thuoc"]);
 
 /** Màn theo phòng (`/phong/<room_id>`) dùng chung quyền của `/phong`. */
 function quyenCuaMan(href: string): string[] {

@@ -34,6 +34,8 @@ export const getViTriHomNay = cache(() =>
     vi_tri: string[];
     ca: string[];
     vai?: string[];
+    /** Mọi vai hiệu lực, đã tính lego đang bật (26/09/2026). */
+    vai_hieu_luc?: string[];
     /** Phòng của từng vị trí (theo `room_id`, CORE-C 23/09/2026). */
     phong?: Record<string, { room_id: string; ten: string }>;
     /** Danh mục vị trí của phòng khám (`vi_tri_lam_viec`, CORE-C4). */
@@ -51,7 +53,16 @@ export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
   // Trưởng ca; có thể gồm cả vai trùng vai tài khoản). Vai tài khoản đứng cuối
   // nếu hôm nay không vị trí nào mang nó — vẫn còn đó cho mọi quyền vốn có.
   const theo = (d?.vai ?? []) as ClinicRole[];
-  return theo.includes(goc) ? theo : [...theo, goc];
+  const hieuLuc = d?.vai_hieu_luc as ClinicRole[] | undefined;
+  // Máy chủ cũ chưa trả vai hiệu lực: giữ luật cũ.
+  if (!hieuLuc) return theo.includes(goc) ? theo : [...theo, goc];
+  // VAI THEO LEGO (Tuyền chốt 26/09/2026 — "chỉ cần lego"): thứ tự = vị trí
+  // hôm nay, rồi vai tài khoản (nếu lego còn giữ nó), rồi vai lego mang lại.
+  // Vai tài khoản mà lego đã tắt KHÔNG còn ở đây — cùng luật cửa gác máy chủ.
+  const ra = theo.filter((v) => hieuLuc.includes(v));
+  if (hieuLuc.includes(goc) && !ra.includes(goc)) ra.push(goc);
+  for (const v of hieuLuc) if (!ra.includes(v)) ra.push(v);
+  return ra;
 });
 
 /** VAI CHÍNH HÔM NAY — vai quyết định HIỂN THỊ (trang chủ, nhãn vai, bảng việc).
@@ -77,9 +88,11 @@ export async function vaiLamViec(
  *  khám mất thanh bên.
  *
  *  `cache()` theo lượt dựng trang: một lần mở /home hỏi đúng một lần. */
-export const getQuyenCuaToi = cache(async (): Promise<string[]> => {
+/** Quyền của người đang đăng nhập. `null` = máy chủ không trả lời (khác với
+ *  `[]` = biết chắc không có quyền nào) — thanh bên dựng theo lego cần phân biệt. */
+export const getQuyenCuaToi = cache(async (): Promise<string[] | null> => {
   const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
-  return d?.quyen ?? [];
+  return d?.quyen ?? null;
 });
 
 /** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
@@ -93,7 +106,7 @@ export async function requireNavAccess(href: string): Promise<void> {
   // CỬA THỨ HAI: quản lý cấp khối Siêu âm cho lễ tân thì lễ tân vào được màn
   // siêu âm, dù NAV_ROLES không có vai ấy. Mở thêm, không thay — ai vào được
   // theo vai thì đã về ở dòng trên.
-  if (quyenMoDuocMan(await getQuyenCuaToi(), href)) return;
+  if (quyenMoDuocMan((await getQuyenCuaToi()) ?? [], href)) return;
   if (vai.length === 0 && canSeeNav(null, href)) return;
   redirect("/home");
 }

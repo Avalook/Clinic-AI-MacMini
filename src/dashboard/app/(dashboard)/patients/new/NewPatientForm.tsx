@@ -1,7 +1,8 @@
 "use client";
 
 // Single-step intake: patient details + (optional) first appointment on ONE
-// form. One submit creates the patient (MPI dup-check) then books the
+// form. Ô "Chỉ lưu hồ sơ — chưa đặt lịch" (Tuyền 25/09/2026, P4C) cho lưu khách
+// mà không bắt dịch vụ/ngày/giờ — trước đó bản `full` bắt đủ lịch mới lưu được. One submit creates the patient (MPI dup-check) then books the
 // appointment if a service + date + time were filled, and finally lands on the
 // patient's profile. No more two-screen flow.
 
@@ -458,6 +459,9 @@ export default function NewPatientForm({
   // CSKH khai thác lúc đặt lịch: vấn đề khiến đi khám + lĩnh vực (chuyên khoa).
   const [vanDe, setVanDe] = useState("");
   const [linhVuc, setLinhVuc] = useState("");
+  // P4C (25/09/2026): lưu hồ sơ khách, CHƯA đặt lịch. Mặc định KHÔNG tick —
+  // luồng đặt lịch như cũ; tick thì bỏ khối lịch và bỏ kiểm dịch vụ/ngày/giờ.
+  const [chuaDatLich, setChuaDatLich] = useState(false);
 
   // ── BẢN NHẬP DỞ (Tuyền 17/08: "mất mạng hay refresh thì có lưu lại
   // không?"). Cùng cơ chế đã chạy ở màn bệnh án (lib/luu-nhap): localStorage
@@ -793,7 +797,7 @@ export default function NewPatientForm({
   // dịch vụ + ngày + giờ.
   const wantsAppointment = walkin
     ? !!serviceId
-    : !!(serviceId && apptDate && apptTime);
+    : !chuaDatLich && !!(serviceId && apptDate && apptTime);
   // Bắt buộc trước khi lưu: Họ tên + SĐT + Giới tính + Cơ sở (Ngày sinh kiểm
   // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
   // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
@@ -1016,8 +1020,8 @@ export default function NewPatientForm({
       }
     }
     // BẮT BUỘC (khách thường, không vãng lai): Dịch vụ + Bác sĩ + Ngày + Giờ khám
-    // + Kênh đặt — đủ thì mới tạo được lượt khám.
-    if (!walkin) {
+    // + Kênh đặt — đủ thì mới tạo được lượt khám. Tick "Chỉ lưu hồ sơ" thì bỏ qua.
+    if (!walkin && !chuaDatLich) {
       if (!serviceId) {
         setError("Vui lòng chọn dịch vụ khám.");
         return;
@@ -1626,7 +1630,21 @@ export default function NewPatientForm({
           title="Lịch hẹn khám"
           hint="Mục có dấu * là bắt buộc (Dịch vụ, Bác sĩ, Ngày, Giờ, Kênh đặt)."
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className="mb-3 flex min-h-10 items-center gap-2 text-body text-ink">
+          <input
+            type="checkbox"
+            className="size-4 accent-brand-600"
+            checked={chuaDatLich}
+            onChange={(e) => setChuaDatLich(e.target.checked)}
+          />
+          Chỉ lưu hồ sơ — chưa đặt lịch
+        </label>
+        {chuaDatLich ? (
+          <p className="text-meta text-ink-muted">
+            Lưu khách vào hệ thống, không tạo lịch hẹn. Đặt lịch sau ở màn Đặt lịch.
+          </p>
+        ) : null}
+        <div className={chuaDatLich ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
           <div className={`sm:col-span-2 ${HANG}`}>
             <label className={HANG_LABEL}>
               Dịch vụ khám <Req />

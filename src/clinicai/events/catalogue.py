@@ -88,6 +88,15 @@ class SuKien:
 # ── service_order ───────────────────────────────────────────────────────────
 
 
+class ChiDinhDoiBatBuoc(PayloadSuKien):
+    """`service_order.required_changed` — người chỉ định bật / tắt "Bắt buộc"
+    (Tuyền 25/09/2026). Chỉ khi dịch vụ CHƯA thu tiền."""
+
+    visit_id: str
+    service_order_id: str
+    bat_buoc: bool
+
+
 class ChiDinhDaDat(PayloadSuKien):
     """`service_order.placed` — bác sĩ/thư ký y khoa đã chốt một chỉ định."""
 
@@ -485,6 +494,10 @@ class SinhHieuDaDo(PayloadSuKien):
 
     visit_id: str
     qua_duong: str = "man_do_sinh_hieu"
+    # Điều dưỡng tick "Bỏ qua bác sĩ tư vấn" lúc bấm [Đo xong] (Tuyền 25/09/2026)
+    # → Hành trình xếp khách thẳng hàng bác sĩ chính. Mặc định False: sự kiện
+    # cũ (không có trường này) đọc lại vẫn đúng nghĩa.
+    bo_qua_tu_van: bool = False
 
 
 # ── execution (thực hiện dịch vụ) ───────────────────────────────────────────
@@ -595,6 +608,9 @@ class DaXepPhong(PayloadSuKien):
     routing_revision: int
     ly_do: str
     tu_dong: bool = False
+    #: Nguồn lần xếp (25/09/2026): quay_thu · truong_ca · tu_dong · khac — để
+    #: Lịch sử điều phối hiện "ai đổi, từ màn nào". Sự kiện cũ không có → None.
+    nguon: str | None = None
 
 
 class XepPhongDaHuy(PayloadSuKien):
@@ -624,6 +640,15 @@ class DichVuSanSangLamLai(PayloadSuKien):
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
+        SuKien(
+            ten="service_order.required_changed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhDoiBatBuoc,
+            nhan="Đổi dịch vụ bắt buộc",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
         SuKien(
             ten="service_order.placed",
             version=1,

@@ -26,6 +26,10 @@ def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(ttk, "doi_quyen", doi_quyen_theo_nhom_mau)
     monkeypatch.setattr(bk, "doi_quyen", doi_quyen_theo_nhom_mau)
+    # 21 lego (25/09): đổi bác sĩ / cấu hình / lịch trực hỏi quyền ở service.
+    from tests.quyen_gia import dich_vu_theo_nhom_mau
+
+    dich_vu_theo_nhom_mau(monkeypatch)
 
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -73,9 +77,12 @@ async def test_khong_phai_thu_ky_thi_khong_loc() -> None:
 
 
 @pytest.mark.asyncio
-async def test_thu_ky_chua_phan_khong_thay_ai() -> None:
+async def test_thu_ky_chua_phan_thay_ca_phong_kham() -> None:
+    """Tuyền chốt 26/09/2026: thư ký CHƯA được xếp theo bác sĩ nào thì thấy cả
+    phòng khám (luật 15/09 "chưa phân = không thấy ai" OFF — 16/09 thư ký thấy
+    0 lượt vì chưa ai phân)."""
     from clinicai.services.thu_ky_bac_si import (
-        CHUA_PHAN,
+        bac_si_cua_thu_ky,
         khach_duoc_xem,
         kiem_khach,
         kiem_thu_ky_duoc_lam,
@@ -84,12 +91,10 @@ async def test_thu_ky_chua_phan_khong_thay_ai() -> None:
 
     p = pool(("FROM public.thu_ky_bac_si", None))
     tk = who(ClinicRole.TKYK)
-    assert await khach_duoc_xem(p, tk) == []
-    with pytest.raises(SafetyGateError, match="chưa được phân"):
-        await kiem_khach(p, tk, KHACH)
-    with pytest.raises(SafetyGateError) as e:
-        kiem_thu_ky_duoc_lam([], BS1)
-    assert str(e.value) == CHUA_PHAN
+    assert await bac_si_cua_thu_ky(p, tk) is None
+    assert await khach_duoc_xem(p, tk) is None
+    await kiem_khach(p, tk, KHACH)
+    kiem_thu_ky_duoc_lam(await bac_si_cua_thu_ky(p, tk), BS1)
     assert await pham_vi(p, tk) == {"la_thu_ky": True, "bac_si": []}
 
 

@@ -43,6 +43,7 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
+from clinicai.permissions.can import can
 
 logger = structlog.get_logger()
 
@@ -122,6 +123,13 @@ def parse_price(raw: Any) -> int | None:
 
 
 class RosterService:
+    async def _xep_lich(self, identity: StaffIdentity) -> bool:
+        """Người XẾP lịch trực = lego 18 "Cài đặt phòng khám" (Tuyền 25/09/2026:
+        xem lịch là lego 15, xếp lịch ở lego 18). Hỏi quyền, không hỏi vai —
+        `ROSTER_ADMIN_ROLES` cũ giữ làm bản OFF."""
+        async with self._pool.acquire() as conn:
+            return await can(conn, identity, "config.clinic.manage")
+
     """Sign up for shifts, approve them, remove them."""
 
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -143,7 +151,7 @@ class RosterService:
         if not station:
             raise ValidationError("Thiếu vị trí")
 
-        is_admin = identity.co_vai(ROSTER_ADMIN_ROLES)
+        is_admin = await self._xep_lich(identity)
         # Only management may name somebody else. For everyone else the client's
         # value is ignored entirely rather than checked.
         assigning_other = is_admin and bool(staff_id)
@@ -415,7 +423,7 @@ class RosterService:
         xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
         trước đó không có.
         """
-        if not identity.co_vai(ROSTER_ADMIN_ROLES):
+        if not await self._xep_lich(identity):
             raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
         tram_ma = (tram_ma or "").strip()
         vai = (vai or "").strip()
@@ -455,7 +463,7 @@ class RosterService:
         identity: StaffIdentity,
     ) -> None:
         """Approve or reject a self-registered shift. Management only."""
-        if not identity.co_vai(ROSTER_ADMIN_ROLES):
+        if not await self._xep_lich(identity):
             raise SafetyGateError("Chỉ quản lý được duyệt ca")
 
         status = "APPROVED" if decision == "approve" else "REJECTED"
@@ -528,7 +536,7 @@ class RosterService:
                 if row is None:
                     raise NotFoundError("Không tìm thấy ca trực")
 
-                if not identity.co_vai(ROSTER_ADMIN_ROLES) and (
+                if not await self._xep_lich(identity) and (
                     str(row["staff_id"] or "") != identity.staff_id
                 ):
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")
@@ -1070,7 +1078,7 @@ class RosterService:
         """
         dau = week_start_of(tuan)
         cuoi = dau + timedelta(days=6)
-        la_quan_ly = identity.co_vai(ROSTER_ROLES)
+        la_quan_ly = await self._xep_lich(identity)
         async with self._pool.acquire() as conn:
             dong = await conn.fetch(
                 """

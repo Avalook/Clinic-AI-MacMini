@@ -20,10 +20,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -33,7 +31,8 @@ from clinicai.services.doi_bac_si_service import DoiBacSiService
 router = APIRouter()
 
 # Điều phối là quyết định của ca trực.
-_DISPATCH_WRITE = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+# Lego 9 "Điều phối khách" (25/09/2026): hỏi quyền, không hỏi vai.
+_DISPATCH_WRITE = cua_quyen("dispatch.manage")
 # Quầy tiếp nhận (check-out): hỏi QUYỀN "Check-in khách" (24/09/2026 — cùng
 # người: Lễ tân bấm, Trưởng ca/Quản lý bấm hộ).
 _RECEPTION_GUARD = cua_quyen("reception.checkin.perform")

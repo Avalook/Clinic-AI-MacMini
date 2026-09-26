@@ -150,3 +150,6 @@ scripts/maintenance/backups/
 # Email công việc của từng nhân viên (provision-staff-logins.sh). Dữ liệu cá
 # nhân, và cũng là danh sách mục tiêu phishing hoàn chỉnh cho một phòng khám.
 scripts/staff-emails.csv
+
+# CI chạy trên máy (scripts/ci-may.sh) — log từng job
+.ci-may/

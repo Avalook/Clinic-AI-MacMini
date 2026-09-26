@@ -19,6 +19,8 @@ const UUID_RE =
 const THAO_TAC: Record<string, (id: string) => string> = {
   "check-in": () => "/api/v1/luot-kham/check-in",
   "sinh-hieu": (id) => `/api/v1/luot-kham/visits/${id}/vitals`,
+  // 25/09: ô "Bỏ qua bác sĩ tư vấn" — áp ngay vào vị trí khách.
+  "bo-qua-tu-van": (id) => `/api/v1/luot-kham/visits/${id}/bo-qua-tu-van`,
   // [Bắt đầu] đo sinh hiệu (23/09/2026) — thay [Gọi vào đo]. `goi-do` còn trong
   // danh sách trắng cho tới khi chắc không màn nào gọi, nhưng màn Đo sinh hiệu
   // đã thôi dùng.
@@ -69,6 +71,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Phòng khách chọn ở quầy TRƯỚC khi thu tiền (24/09/2026) — id là CHỈ ĐỊNH.
   // Không phải xếp phòng chính thức: thu xong dây H4 xếp đúng phòng này.
   "phong-du-kien": (id) => `/api/v1/luot-kham/orders/${id}/routing/phong-du-kien`,
+  // 25/09: bật / tắt "Bắt buộc" của một chỉ định (chưa thu tiền).
+  "bat-buoc": (id) => `/api/v1/luot-kham/orders/${id}/bat-buoc`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

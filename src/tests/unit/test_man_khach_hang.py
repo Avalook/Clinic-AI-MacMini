@@ -34,26 +34,25 @@ _GOC = Path(__file__).resolve().parents[2]
 
 class TestGuongVaiHaiChieu:
     def test_guard_khop_tung_vai_voi_roles_ts(self) -> None:
-        """Nguồn frontend: src/dashboard/lib/roles.ts, khối "/customers"."""
+        """Web và API gác màn Quản lý khách hàng bằng CÙNG một quyền.
+
+        21 lego (Tuyền 25/09/2026): quyền theo tài khoản, không theo vai — gương
+        hai chiều nay là QUYỀN (`NAV_QUYEN["/customers"]` ↔ `cua_quyen(...)` của
+        `_MAN_KHACH_HANG_GUARD`), không còn là tập vai. Lệch là một người thấy màn
+        mà dữ liệu trống (API chặn), hoặc ngược lại.
+        """
         roles_ts = (_GOC / "dashboard" / "lib" / "roles.ts").read_text(encoding="utf-8")
-        khoi = re.search(r'"/customers": \[([^\]]+)\]', roles_ts)
-        assert khoi, "không tìm thấy khối /customers trong roles.ts"
-        ben_web = set(re.findall(r'"([A-Z_]+)"', khoi.group(1)))
+        khoi = re.search(r'const NAV_QUYEN[\s\S]*?"/customers": \[([^\]]+)\]', roles_ts)
+        assert khoi, "không tìm thấy /customers trong NAV_QUYEN (roles.ts)"
+        ben_web = set(re.findall(r'"([a-z_.]+)"', khoi.group(1)))
 
         nguon = inspect.getsource(router_cskh)
-        # Nhận CẢ `require_role` lẫn `require_role_co_the_mo`. Bất biến ở đây là
-        # "tập vai hai bên khớp nhau", không phải "cửa gác dùng đúng hàm nào" —
-        # và `require_role_co_the_mo` vẫn giữ nguyên tập gốc trong `allowed_roles`,
-        # cố ý, để chính bài kiểm này còn đọc được ý định của cửa.
-        khai = re.search(
-            r"_MAN_KHACH_HANG_GUARD = require_role(?:_co_the_mo)?\(([^)]+)\)", nguon
-        )
-        assert khai, "không tìm thấy guard của màn khách hàng"
-        ben_api = set(re.findall(r"ClinicRole\.([A-Z_]+)", khai.group(1)))
+        khai = re.search(r"_MAN_KHACH_HANG_GUARD = cua_quyen\(([^)]+)\)", nguon)
+        assert khai, "không tìm thấy guard (cua_quyen) của màn khách hàng"
+        ben_api = set(re.findall(r'"([a-z_.]+)"', khai.group(1)))
 
-        assert ben_api == ben_web, (
-            f"hai bên lệch nhau — chỉ web có: {ben_web - ben_api}, "
-            f"chỉ api có: {ben_api - ben_web}. Đổi bên nào phải đổi cả hai."
+        assert ben_api == ben_web == {"crm.manage"}, (
+            f"hai bên lệch nhau — web: {ben_web}, api: {ben_api}."
         )
 
 

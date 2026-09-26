@@ -19,7 +19,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
@@ -87,6 +87,17 @@ class DoiBacSiService:
         ]
         return sorted(ds, key=lambda x: thu_tu[x["nhom"]])
 
+    async def _duoc_doi_bac_si(self, identity: StaffIdentity) -> None:
+        """Lego 9 "Điều phối khách" (25/09/2026): hỏi QUYỀN, không hỏi vai
+        (`VAI_DOI_BAC_SI` cũ giữ làm bản OFF)."""
+        async with self._pool.acquire() as c:
+            await doi_quyen(
+                c,
+                identity,
+                "dispatch.manage",
+                cau="Chỉ người có lego “Điều phối khách” chuyển bác sĩ giữa lượt.",
+            )
+
     async def doi(
         self,
         *,
@@ -95,8 +106,7 @@ class DoiBacSiService:
         bac_si_moi_id: str,
         ly_do: str,
     ) -> dict[str, Any]:
-        if not identity.co_vai(VAI_DOI_BAC_SI):
-            raise SafetyGateError("Chỉ trưởng ca / quản lý chuyển bác sĩ giữa lượt.")
+        await self._duoc_doi_bac_si(identity)
         ly_do_sach = (ly_do or "").strip()
         if not ly_do_sach:
             raise ValidationError("Chuyển bác sĩ giữa lượt phải ghi lý do.")

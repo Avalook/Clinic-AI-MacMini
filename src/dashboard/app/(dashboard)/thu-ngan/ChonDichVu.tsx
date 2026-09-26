@@ -45,6 +45,8 @@ export interface ChiDinhChoQuyet {
   phong_chon_duoc?: PhongChonDuoc[];
   /** Làm bên ngoài — thu xong, việc tự sang bàn đối tác (sự kiện). */
   doi_tac?: boolean;
+  /** Bác sĩ đánh dấu BẮT BUỘC (25/09/2026) — quầy không bỏ được (máy chủ chặn). */
+  bat_buoc?: boolean;
 }
 
 export interface ChoKhachQuyet {
@@ -190,7 +192,9 @@ export default function ChonDichVu({
                 type="checkbox"
                 className="size-4 accent-brand-600"
                 checked={chon.has(c.id)}
-                disabled={dang}
+                // Bắt buộc: khoá bỏ chọn — khách không chịu thì quay lại người
+                // chỉ định bỏ tick (máy chủ chặn `SERVICE_REQUIRED`).
+                disabled={dang || (Boolean(c.bat_buoc) && chon.has(c.id))}
                 onChange={(e) => {
                   const moi = new Set(chon);
                   if (e.target.checked) moi.add(c.id);
@@ -201,6 +205,14 @@ export default function ChonDichVu({
               />
               <span className="min-w-0 flex-1 text-body text-ink">
                 {c.ten}
+                {c.bat_buoc ? (
+                  <span
+                    className="ml-2"
+                    title="Bác sĩ đánh dấu bắt buộc — muốn bỏ phải quay lại người chỉ định"
+                  >
+                    <Chip tone="warning">Bắt buộc</Chip>
+                  </span>
+                ) : null}
                 {c.mang_sang ? (
                   <span className="ml-2">
                     <Chip tone="brand">hẹn từ lượt trước</Chip>

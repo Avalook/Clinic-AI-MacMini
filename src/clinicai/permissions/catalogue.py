@@ -203,6 +203,65 @@ KHOI: dict[str, KhoiCongViec] = {
             "booking",
             "Huỷ lịch, dời lịch, gán / đổi bác sĩ cho lịch",
         ),
+        # ── 21 lego theo thanh bên (Tuyền 25/09/2026) — khối cho những màn trước
+        # đây còn gác theo VAI (migration 20260925000015).
+        KhoiCongViec(
+            "viec_can_xu_ly",
+            "Việc cần xử lý",
+            "worklist",
+            "Xem và xử lý việc được giao",
+        ),
+        KhoiCongViec(
+            "truong_ca",
+            "Điều phối ca",
+            "dispatch",
+            "Điều phối ca, chuyển khách, đổi bác sĩ, ngưỡng cảnh báo — xếp phòng"
+            " cao nhất",
+        ),
+        KhoiCongViec(
+            "them_benh_nhan",
+            "Thêm bệnh nhân",
+            "patient",
+            "Thêm hồ sơ bệnh nhân mới, không cần đặt lịch",
+        ),
+        KhoiCongViec(
+            "cham_soc_khach",
+            "Chăm sóc khách hàng",
+            "crm",
+            "Quản lý khách hàng, nhắc tái khám",
+        ),
+        KhoiCongViec(
+            "ds_benh_nhan", "Danh sách bệnh nhân", "patient", "Xem danh sách bệnh nhân"
+        ),
+        KhoiCongViec(
+            "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
+        ),
+        KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        KhoiCongViec("bao_cao", "Báo cáo", "report", "Báo cáo, lịch đổ về"),
+        KhoiCongViec(
+            "cai_dat",
+            "Cài đặt phòng khám",
+            "config",
+            "Luật đặt lịch, cấu trúc phòng khám, xếp lịch trực",
+        ),
+        KhoiCongViec(
+            "nhan_su",
+            "Nhân sự & tài khoản",
+            "staff",
+            "Thêm nhân sự, tạo tài khoản đăng nhập, đặt lại mật khẩu",
+        ),
+        KhoiCongViec(
+            "van_hanh", "Vận hành hệ thống", "ops", "Theo dõi tình trạng hệ thống"
+        ),
+        KhoiCongViec(
+            "lich_su_thao_tac", "Lịch sử thao tác", "ops", "Xem nhật ký thao tác"
+        ),
+        KhoiCongViec(
+            "doi_tac",
+            "Đối tác",
+            "partner",
+            "Khách được phân cho mình, điền thông tin, gửi tài liệu",
+        ),
     )
 }
 
@@ -437,6 +496,104 @@ QUYEN: dict[str, Quyen] = {
             "booking",
             MucRuiRo.VAN_HANH,
         ),
+        Quyen(
+            "worklist.handle",
+            "Xem và xử lý việc cần xử lý",
+            "viec_can_xu_ly",
+            "worklist",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "dispatch.manage",
+            "Điều phối ca — chuyển khách, đổi bác sĩ, xếp phòng cao nhất",
+            "truong_ca",
+            "dispatch",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "patient.create",
+            "Thêm bệnh nhân mới",
+            "them_benh_nhan",
+            "patient",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "crm.manage",
+            "Quản lý khách hàng và nhắc tái khám",
+            "cham_soc_khach",
+            "crm",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "patient.list.view",
+            "Xem danh sách bệnh nhân",
+            "ds_benh_nhan",
+            "patient",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "roster.view",
+            "Xem lịch làm việc",
+            "lich_lam_viec",
+            "roster",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "price.service.manage",
+            "Sửa bảng giá dịch vụ",
+            "bang_gia",
+            "catalogue",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
+            "report.view",
+            "Xem báo cáo",
+            "bao_cao",
+            "report",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "config.clinic.manage",
+            "Cài đặt phòng khám (luật đặt lịch, cấu trúc, lịch trực)",
+            "cai_dat",
+            "config",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "staff.manage",
+            "Thêm / sửa / nghỉ việc nhân sự",
+            "nhan_su",
+            "staff",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "account.manage",
+            "Tạo tài khoản đăng nhập, đặt lại mật khẩu",
+            "nhan_su",
+            "staff",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "ops.view",
+            "Xem vận hành hệ thống",
+            "van_hanh",
+            "ops",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "audit.view",
+            "Xem lịch sử thao tác",
+            "lich_su_thao_tac",
+            "ops",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "partner.work",
+            "Làm việc đối tác (khách được phân, gửi tài liệu)",
+            "doi_tac",
+            "partner",
+            MucRuiRo.VAN_HANH,
+        ),
     )
 }
 
@@ -515,11 +672,73 @@ PRESET: dict[str, Sequence[str]] = {
 }
 
 
+# 21 LEGO (Tuyền 25/09/2026): khối mới vào nhóm mẫu theo ĐÚNG tập vai hôm nay
+# đang được vào màn ấy (NAV_ROLES + cửa backend) — không ai mất việc khi chuyển
+# sang quyền. Migration 20260925000015 thêm y hệt vào `quyen_preset`.
+_THEM_THEO_LEGO: dict[str, list[str]] = {
+    "DOCTOR": ["viec_can_xu_ly", "ds_benh_nhan", "lich_lam_viec"],
+    # "Việc cần xử lý": ai có khối Điều phối (quyền xem điều phối) vốn THẤY màn
+    # này trên thanh bên từ 24/09 — giữ nguyên, không ai mất việc.
+    "TKYK": ["viec_can_xu_ly", "ds_benh_nhan", "lich_lam_viec"],
+    "RECEPTION": [
+        "viec_can_xu_ly",
+        "them_benh_nhan",
+        "cham_soc_khach",
+        "ds_benh_nhan",
+        "lich_lam_viec",
+        "bang_gia",
+    ],
+    "NURSE_ULTRASOUND": ["viec_can_xu_ly", "ds_benh_nhan", "lich_lam_viec"],
+    "CASHIER": [
+        "viec_can_xu_ly",
+        "cham_soc_khach",
+        "ds_benh_nhan",
+        "lich_lam_viec",
+        "bang_gia",
+    ],
+    "CASHIER_DV": [
+        "viec_can_xu_ly",
+        "cham_soc_khach",
+        "ds_benh_nhan",
+        "lich_lam_viec",
+        "bang_gia",
+    ],
+    "CASHIER_THUOC": ["cham_soc_khach", "ds_benh_nhan", "lich_lam_viec", "bang_gia"],
+    "TRUONG_CA": [
+        "viec_can_xu_ly",
+        "truong_ca",
+        "them_benh_nhan",
+        "cham_soc_khach",
+        "ds_benh_nhan",
+        "lich_lam_viec",
+        "bang_gia",
+        "bao_cao",
+        "lich_su_thao_tac",
+    ],
+    "PHARMACIST": ["lich_lam_viec"],
+    # CSKH có Lịch làm việc (Tuyền 25/09: "cả CSKH cũng phải có") — XEM lịch;
+    # xếp lịch trực là lego Cài đặt.
+    "CSKH": [
+        "them_benh_nhan",
+        "cham_soc_khach",
+        "ds_benh_nhan",
+        "lich_lam_viec",
+        "lich_su_thao_tac",
+    ],
+    "ULTRASOUND_DOCTOR": ["viec_can_xu_ly", "ds_benh_nhan", "lich_lam_viec"],
+}
+for _vai, _them in _THEM_THEO_LEGO.items():
+    PRESET[_vai] = [*PRESET[_vai], *(k for k in _them if k not in PRESET[_vai])]
+# Tài khoản đối tác CHỈ có lego Đối tác (backend vẫn chặn PARTNER ở mọi cửa khác).
+PRESET["PARTNER"] = ["doi_tac"]
+
+
 # Quản lý có TẤT CẢ các khối — mặc định, không liệt kê, không loại trừ. Tuyền
 # chốt 24/09/2026: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó
 # có cả". Khối mới thêm sau này tự vào (migration thêm khối phải thêm cả vào
 # nhóm này — `test_danh_muc_quyen_db` so hai bên).
 PRESET["MANAGEMENT"] = list(KHOI)
+# `doi_tac` là việc của người ngoài; quản lý vẫn có (xem hộ đối tác) như trước.
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
@@ -531,84 +750,245 @@ PRESET["MANAGEMENT"] = list(KHOI)
 
 @dataclass(frozen=True)
 class Man:
+    """Một LEGO = một node thanh bên (Tuyền 25/09/2026). Bật lego = có đủ mọi
+    khối của nó; một khối có thể nằm trong nhiều lego (Ghi bệnh án ở Tư vấn, Bàn
+    khám, Phòng dịch vụ)."""
+
     ma: str
     ten: str
     duong: str
     khoi: Sequence[str]
     mac_dinh_cho: str
+    #: Mọi màn (đường dẫn thanh bên) thuộc lego này.
+    cac_duong: Sequence[str] = field(default_factory=list)
+    #: Lego to / lego nhỏ: bật rồi chọn PHÒNG (phạm vi ROOM của khối này).
+    khoi_theo_phong: str | None = None
 
 
+def _lego(
+    ma: str,
+    ten: str,
+    cac_duong: Sequence[str],
+    khoi: Sequence[str],
+    mac_dinh_cho: str,
+    khoi_theo_phong: str | None = None,
+) -> Man:
+    return Man(ma, ten, cac_duong[0], khoi, mac_dinh_cho, cac_duong, khoi_theo_phong)
+
+
+# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 21 dòng, mỗi dòng một công tắc.
 MAN: dict[str, Man] = {
     m.ma: m
     for m in (
-        Man("tiep_don", "Tiếp đón", "/reception/queue", ["tiep_don"], "Lễ tân"),
-        Man(
-            "do_sinh_hieu", "Đo sinh hiệu", "/do-sinh-hieu", ["sinh_hieu"], "Điều dưỡng"
-        ),
-        Man("tu_van", "Bàn khám tư vấn", "/tu-van", ["tu_van"], "Bác sĩ tư vấn"),
-        Man(
-            "ban_kham",
-            "Bàn khám",
-            "/ban-kham",
-            ["kham", "chi_dinh", "ghi_benh_an"],
-            "Bác sĩ chính + Thư ký y khoa",
-        ),
-        Man(
-            "phong",
-            "Phòng dịch vụ (siêu âm · thủ thuật)",
-            "/phong",
-            ["thuc_hien", "ket_qua"],
-            "BS siêu âm / thủ thuật + Điều dưỡng",
-        ),
-        Man(
-            "thu_tien_dv",
-            "Thu tiền dịch vụ",
-            "/thu-ngan/dich-vu",
-            ["thu_tien_dv", "chon_dich_vu"],
+        _lego(
+            "tiep_don",
+            "Tiếp đón khách",
+            ["/reception/queue", "/reception/checkout"],
+            ["tiep_don"],
             "Lễ tân",
         ),
-        Man("dieu_phoi", "Điều phối ca · TV", "/truong-ca", ["dieu_phoi"], "Trưởng ca"),
-        # "Duyệt kết quả" OFF 23/09/2026 tối — bác sĩ đọc/điền kết quả trong phiếu
-        # khám (mục C). Khối `duyet_ket_qua` vẫn còn, chỉ không còn là một màn.
-        Man(
-            "cai_dat",
-            "Danh mục · Dây nối nghiệp vụ",
-            "/settings/day-noi",
-            ["danh_muc"],
-            "Quản lý",
+        _lego(
+            "do_sinh_hieu",
+            "Đo sinh hiệu",
+            ["/do-sinh-hieu"],
+            ["sinh_hieu"],
+            "Điều dưỡng",
         ),
-        Man("phan_quyen", "Phân quyền", "/phan-quyen", ["quan_tri_quyen"], "Quản lý"),
-        Man(
+        _lego(
+            "tu_van",
+            "Khám tư vấn",
+            ["/tu-van"],
+            ["tu_van", "ghi_benh_an"],
+            "Bác sĩ tư vấn",
+        ),
+        _lego(
+            "ban_kham",
+            "Bàn khám",
+            ["/ban-kham"],
+            ["kham", "chi_dinh", "ghi_benh_an", "hoan_tat_kham", "ket_qua"],
+            "Bác sĩ chính + Thư ký y khoa",
+        ),
+        _lego(
+            "phong",
+            "Phòng dịch vụ",
+            ["/phong"],
+            ["thuc_hien", "ket_qua", "ghi_benh_an"],
+            "BS siêu âm / thủ thuật + Điều dưỡng",
+            khoi_theo_phong="thuc_hien",
+        ),
+        _lego(
+            "thu_tien_dv",
+            "Thanh toán dịch vụ",
+            ["/thu-ngan/dich-vu"],
+            ["thu_tien_dv", "chon_dich_vu", "dieu_phoi"],
+            "Lễ tân, thu ngân",
+        ),
+        _lego(
             "thu_tien_thuoc",
-            "Thu tiền thuốc + Kho thuốc",
-            "/thu-ngan/thuoc",
-            ["thu_tien_thuoc", "nha_thuoc", "xem_nha_thuoc"],
-            "Dược sĩ (+ Lễ tân)",
+            "Thu tiền thuốc",
+            ["/thu-ngan/thuoc"],
+            ["thu_tien_thuoc"],
+            "Lễ tân, thu ngân, dược sĩ",
         ),
-        Man(
+        _lego(
+            "viec_can_xu_ly",
+            "Việc cần xử lý",
+            ["/viec-can-xu-ly"],
+            ["viec_can_xu_ly"],
+            "Quản lý, trưởng ca",
+        ),
+        _lego(
+            "dieu_phoi",
+            "Điều phối khách",
+            [
+                "/truong-ca",
+                "/truong-ca/hang-doi",
+                "/truong-ca/lich-su",
+                "/truong-ca/tv",
+            ],
+            ["truong_ca", "dieu_phoi"],
+            "Trưởng ca",
+        ),
+        _lego(
             "dat_lich",
-            "Đặt lịch · Quản lý lịch hẹn",
-            "/appointments",
+            "Đặt lịch",
+            ["/appointments"],
             ["dat_lich", "quan_ly_lich"],
+            "CSKH, lễ tân",
+        ),
+        _lego(
+            "them_benh_nhan",
+            "Thêm bệnh nhân",
+            ["/patients/new"],
+            ["them_benh_nhan"],
+            "Lễ tân, CSKH",
+        ),
+        _lego(
+            "cham_soc_khach",
+            "Chăm sóc khách hàng",
+            ["/customers", "/nhac-tai-kham"],
+            ["cham_soc_khach"],
             "CSKH",
         ),
+        _lego(
+            "ds_benh_nhan",
+            "Danh sách bệnh nhân",
+            ["/patient-list"],
+            ["ds_benh_nhan"],
+            "CSKH, lễ tân",
+        ),
+        _lego(
+            "kho_thuoc",
+            "Kho thuốc",
+            [
+                "/pharmacy",
+                "/pharmacy/inventory",
+                "/pharmacy/history",
+                "/pharmacy/consult",
+            ],
+            ["nha_thuoc", "xem_nha_thuoc"],
+            "Dược sĩ (+ lễ tân)",
+        ),
+        _lego(
+            "lich_lam_viec",
+            "Lịch làm việc",
+            ["/schedule"],
+            ["lich_lam_viec"],
+            "Mọi người",
+        ),
+        # Giá THUỐC sửa ở Kho thuốc (một nguồn giá, 25/09) — lego này chỉ còn
+        # bảng giá dịch vụ.
+        _lego(
+            "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
+        ),
+        _lego(
+            "bao_cao", "Báo cáo", ["/reports", "/lich-do-ve"], ["bao_cao"], "Quản lý"
+        ),
+        _lego(
+            "cai_dat",
+            "Cài đặt phòng khám",
+            [
+                "/settings",
+                "/settings/booking-policy",
+                "/settings/clinic-config",
+                "/settings/day-noi",
+            ],
+            ["cai_dat", "danh_muc"],
+            "Quản lý",
+        ),
+        _lego(
+            "nhan_su",
+            "Nhân sự & phân quyền",
+            ["/nhan-su", "/settings/tai-khoan", "/settings/new-user", "/phan-quyen"],
+            ["nhan_su", "quan_tri_quyen"],
+            "Quản lý",
+        ),
+        _lego(
+            "van_hanh",
+            "Vận hành hệ thống",
+            ["/ops", "/audit-log"],
+            ["van_hanh", "lich_su_thao_tac"],
+            "Quản lý",
+        ),
+        _lego("doi_tac", "Đối tác", ["/doi-tac"], ["doi_tac"], "Đối tác"),
     )
 }
 
-#: Màn còn đi theo VAI (chưa có khối công việc riêng) — hiện trên màn quản lý
-#: cho đủ bức tranh, chưa bật/tắt được. Thêm khối cho chúng là việc sau.
-MAN_THEO_VAI: list[tuple[str, str]] = [
-    ("Quản lý khách hàng", "CSKH"),
-    ("Danh sách bệnh nhân", "CSKH + Lễ tân"),
-    ("Đối tác", "Đối tác"),
-    ("Hành trình khách hôm nay", "Mọi vai nội bộ"),
+#: Luôn bật — không gắn khối nào, vẫn HIỆN trên màn Phân quyền (hàng khoá) để
+#: quản lý theo dõi; sau này có thể cho tắt.
+LUON_BAT: list[tuple[str, str]] = [
+    ("Trang chủ", "/home"),
+    ("Hành trình khách hôm nay", "/hanh-trinh"),
 ]
+
+#: (Cũ — thay bằng lego 11–13, 21 và LUON_BAT từ 25/09/2026.) Giữ tên để màn
+#: "Theo màn" cũ không vỡ; không còn màn nào đi theo vai.
+MAN_THEO_VAI: list[tuple[str, str]] = []
+
+#: Khối KHÔNG bày trên màn Phân quyền (Tuyền 25/09): Duyệt kết quả, Xác nhận tệp
+#: (OFF 23–24/09, giữ code sau cờ). Ghi bệnh án đi kèm lego có ô ghi (3, 4, 5).
+KHOI_AN: frozenset[str] = frozenset({"duyet_ket_qua", "xac_nhan_ket_qua"})
 
 
 def man_dang_bat(khoi: Sequence[str]) -> list[str]:
     """Màn nào đang bật với một tập khối: đủ MỌI khối của màn ấy."""
     co = set(khoi)
     return [m.ma for m in MAN.values() if set(m.khoi) <= co]
+
+
+#: VAI CŨ DO LEGO QUYẾT (Tuyền chốt 26/09/2026: khám, chỉ định, kê đơn "chỉ cần
+#: lego"). Còn ~100 chỗ trong mã hỏi VAI (`require_role`, `co_vai`) — sửa từng
+#: chỗ là dễ sót. Thay vào đó vai của các chỗ ấy SUY TỪ LEGO ĐANG BẬT ĐỦ: bật
+#: Bàn khám thì qua mọi cửa của vai Bác sĩ; tắt thì mất, dù tài khoản là bác sĩ.
+#:
+#: "Bật đủ", không phải "có một khối": thư ký có khối Khám nhưng không có Hoàn
+#: tất — tính theo một khối là thư ký thành bác sĩ.
+#:
+#: Vai KHÔNG có ở đây (Quản lý, Thư ký, BS siêu âm, Đối tác, TV) vẫn theo tài
+#: khoản: chưa lego nào nói trọn việc của chúng.
+VAI_THEO_LEGO: dict[str, str] = {
+    "ban_kham": "DOCTOR",
+    "do_sinh_hieu": "NURSE_ULTRASOUND",
+    "tiep_don": "RECEPTION",
+    "thu_tien_dv": "CASHIER_DV",
+    "thu_tien_thuoc": "CASHIER_THUOC",
+    "dieu_phoi": "TRUONG_CA",
+    "kho_thuoc": "PHARMACIST",
+    "cham_soc_khach": "CSKH",
+}
+
+#: Vai tài khoản mà lego quyết — tài khoản mang vai này mà lego tắt thì KHÔNG
+#: còn vai ấy. Thu ngân gộp = bật đủ cả hai lego thu tiền.
+VAI_DO_LEGO: frozenset[str] = frozenset({*VAI_THEO_LEGO.values(), "CASHIER"})
+
+
+def vai_tu_lego(khoi: Sequence[str]) -> frozenset[str]:
+    """Vai (mã chuỗi) mà tập khối của một người mang lại."""
+    bat = set(man_dang_bat(khoi))
+    vai = {VAI_THEO_LEGO[m] for m in bat if m in VAI_THEO_LEGO}
+    if {"thu_tien_dv", "thu_tien_thuoc"} <= bat:
+        vai.add("CASHIER")
+    return frozenset(vai)
 
 
 def khoi_sau_khi_doi_man(khoi: Sequence[str], ma_man: str, bat: bool) -> list[str]:
@@ -648,8 +1028,13 @@ def tra_quyen(ma: str) -> Quyen:
 
 __all__ = [
     "KHOI",
+    "KHOI_AN",
+    "LUON_BAT",
+    "MAN",
     "PRESET",
     "QUYEN",
+    "VAI_DO_LEGO",
+    "VAI_THEO_LEGO",
     "KhoiCongViec",
     "MucRuiRo",
     "PhamVi",
@@ -657,4 +1042,5 @@ __all__ = [
     "quyen_cua_khoi",
     "quyen_cua_preset",
     "tra_quyen",
+    "vai_tu_lego",
 ]

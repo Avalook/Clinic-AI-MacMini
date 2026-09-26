@@ -853,5 +853,9 @@ SELECT o.id::text,
        ORDER BY q1.created_at DESC LIMIT 1
   ) q ON TRUE
  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+   -- Khách đã bỏ ở quầy thu (NOT_SELECTED) không còn là việc phải làm — trước
+   -- 26/09/2026 nó vẫn hiện "Đã duyệt · chờ xếp phòng" và bị đếm vào "còn N
+   -- việc chưa làm" (bấm thật trên prod).
+   AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
  ORDER BY o.created_at
 """

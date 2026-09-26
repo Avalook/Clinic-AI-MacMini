@@ -792,3 +792,19 @@ async def test_truong_ca_thay_chi_dinh_doi_moi_doi_phong_duoc_bang_khoi_chung(
     assert dong["selection_status"] == "SELECTED"
     assert dong["doi_phong_duoc"] is True
     assert dong["routing_revision"] >= 1
+
+
+async def test_truong_ca_khong_thay_dich_vu_khach_da_bo(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Quầy thu bỏ tick (NOT_SELECTED) → ngăn "Bác sĩ chỉ định gì" của trưởng
+    ca không còn liệt kê nó là việc phải làm (bấm thật trên prod 26/09)."""
+    from clinicai.services.dispatch_service import DispatchService
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    ds = await DispatchService(pool).chi_dinh(clinic_id=CLINIC, visit_id=visit)
+    assert [d["id"] for d in ds] == [order], "chưa quyết thì vẫn hiện"
+    await _chon(pool, ca, visit, [])
+    assert await DispatchService(pool).chi_dinh(clinic_id=CLINIC, visit_id=visit) == []

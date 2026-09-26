@@ -13,6 +13,51 @@ lịch sử hội thoại.
 
 ---
 
+## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)
+
+Xong: danh mục 21 lego (`MAN`, `permissions/catalogue.py`) + 13 khối / 14 quyền mới
+(migration 20260925000015, bổ sung theo ĐÚNG tập vai hôm nay → không ai mất việc);
+màn `/phan-quyen` 21 công tắc + chọn phòng cho Phòng dịch vụ; thanh bên chặt theo
+lego (`NAV_QUYEN` phủ 21 lego, sửa `/thu-ngan/thuoc` gắn nhầm quyền); cửa quản trị
+(nhân sự, tài khoản `/api/admin/users`, cài đặt, lịch trực, bảng giá, báo cáo, vận
+hành, lịch sử thao tác, điều phối ca, CSKH, danh sách/thêm bệnh nhân) hỏi QUYỀN.
+
+**ĐÃ ĐÓNG 26/09 (PR #197, prod 51caf62, công tắc TẮT):** mọi cửa còn hỏi vai giờ đọc
+vai SUY TỪ LEGO đang bật đủ (`StaffIdentity.vai_theo_lego`, bảng `VAI_THEO_LEGO` ở
+`permissions/catalogue.py`) — Bàn khám "chỉ cần lego" (Tuyền chốt); thư ký cả phòng
+trừ khi đã xếp theo bác sĩ; `MO_QUYEN_TAM_THOI=0` trong `.env.prod` (sao lưu tệp cũ
+`.env.prod.truoc-tat-mo-quyen-*`), nửa giao diện nay được truyền lúc build. Đo trên
+prod trước khi tắt: 72 nhân sự, 0 người mất vai tài khoản. Bật lại khi cần: đặt
+`MO_QUYEN_TAM_THOI=1` rồi `deploy-backend.sh prod`.
+
+**NỢ cũ (ghi lại để đối chiếu — các dòng về cửa theo vai, Bàn khám, công tắc đã đóng ở trên):**
+- Cửa phụ còn theo vai: `cskh.py` `_INTAKE_GUARD` (tương tác CSKH dùng chung Đặt lịch),
+  `patients.py` sdt-them / sửa hồ sơ / ưu tiên, `work_items.py` `_WORK_ITEM_GUARD`,
+  `doi_tac` backend (`get_partner_identity` PARTNER + MANAGEMENT), ~100 bộ vai trong
+  service (bản đồ đầy đủ: báo cáo trợ lý dò 25/09 — tìm `require_role`, `_ROLES = {`).
+- Bàn khám: nút ghi (Bắt đầu khám, chỉ định, sửa phiếu) còn hỏi VAI `DOCTOR`/thư ký
+  (`BanKham.tsx` `laBacSi`, `choBam`) — Quản lý bật đủ lego vẫn chỉ xem (bấm thật 25/09).
+- Ngày có ca trực: thanh bên dựng theo VỊ TRÍ (`hrefTheoViTri`), chưa lọc theo lego.
+- `MO_QUYEN_TAM_THOI` còn bật: cửa TRANG (gõ URL) vẫn mở cho mọi vai nội bộ; thanh
+  bên + lệnh backend đã theo lego.
+- `catalogue.form_template.edit`: không lệnh nào kiểm (chưa dựng tính năng).
+- Người có khối Điều phối (lễ tân, điều dưỡng, thu ngân…) trước XEM được `/truong-ca`
+  trên thanh bên (qua quyền xem điều phối); nay màn này thuộc lego Điều phối khách
+  (trưởng ca). Đọc `/dispatch/*` vẫn mở; thao tác vốn chỉ trưởng ca/quản lý.
+- Chưa bấm trình duyệt (375/1280): cấp/thu lego cho tài khoản không phải quản lý, F5.
+
+**P2–P4 cùng ngày (đã lên prod):**
+- P3 `0c8679a` (#191): nguồn xếp phòng — quầy thu xếp lúc nào cũng được, trưởng ca đè
+  (`service_order.routing_nguon`, mig 16).
+- P2 `aab9dab` (#192): tick "Bắt buộc" khi chỉ định (`service_order.bat_buoc`, mig 17) —
+  quầy thu không bỏ được (`SERVICE_REQUIRED`), bỏ tick khi chưa thu.
+- P4 `3cf1fe0` (#193): lịch sử sửa phiếu khám (trigger → `phieu_kham_lich_su`, mig 18,
+  gộp cùng người 10 phút; nút [Lịch sử sửa]) · 2 mốc Hoàn tất / Check-out đã tách sẵn
+  (không code) · "Chỉ lưu hồ sơ — chưa đặt lịch" ở `NewPatientForm`.
+- NỢ chung: chưa bấm trình duyệt 375/1280 cho P2/P3/P4; chưa chạy `scripts/mo-phong`
+  sau đợt này. Lịch sử sửa chỉ phủ phiếu v5 (`phieu_kham_luot`), chưa phủ phiếu kết quả
+  (`form_instance`) — phiếu kết quả đã có cờ đang sửa + `result.corrected`.
+
 ## Quầy thu tiền thuốc chỉnh đơn bán (24/09 tối)
 
 - Cột `prescription.nguon` (BAC_SI | QUAY, migration **20260925000005**). Đơn bác sĩ
@@ -165,6 +210,18 @@ có test). 0 lỗi 5xx, giao tin p50 ~520–620 ms / max ~1,1 s, màn hình p50 
 
 ---
 
+## Mô phỏng chạy lại sau lego / P2–P4 (26/09) — 21/22
+
+- Lỗi THẬT: tick "Bỏ qua bác sĩ tư vấn" khi dây H1 (chạy nền) chưa kịp xếp
+  đường (check-in xong đo ngay) → 409, khách vẫn sang tư vấn. Sửa: `bo_qua_tu_van`
+  gọi `xep_sau_check_in` trong cùng giao dịch trước (test kiểm ngược đỏ khi gỡ vá).
+- Bộ mô phỏng cũ: chờ phiên `INTAKE` (nay `TU_VAN`); K03 giả định thu ngân không
+  có điều phối (đã có từ 24/09); K11 bắt BS siêu âm làm cả tư vấn. Thêm K21 (bỏ qua
+  tư vấn) · K22 (chỉ định bắt buộc) · K03 phủ P3 (trưởng ca đè quầy thu).
+- LỆCH local ↔ prod: `dev-up.sh --reset` dựng phòng ở cơ sở "Phòng khám Dr4Women",
+  prod dồn phòng về Kim Ngưu (script 24/09). Mô phỏng nay tự chọn cơ sở có phòng.
+- Còn đỏ: K13 "huỷ phiếu thu rồi thu lại" — CHỜ TUYỀN CHỐT chính sách (không tự chốt).
+
 ## Mô phỏng 20 khách qua API thật + 6 lỗi thật đã sửa (24/09 — CHƯA deploy)
 
 Tuyền: "chạy dữ liệu thật cho 10–20 khách, đủ mọi trường hợp, xem log rồi check".
@@ -193,12 +250,11 @@ Kèm: câu báo "Chỉ bác sĩ phụ trách…" tách thành hai câu (thiếu 
 bác sĩ phụ trách); bộ mô phỏng hết in mật khẩu DB trong log lỗi.
 
 **Chờ Tuyền quyết (không tự chốt):**
-- **Thu nhầm → huỷ phiếu thu dịch vụ → không thu lại được** (FINANCE-GATE v1: PAID→VOIDED
-  = "cần xem xét tài chính", cách xử lý ghi "Chưa chốt"). Lượt treo: chưa trả tiền nên
-  không xếp phòng. Tiền thuốc thì huỷ rồi thu lại được — hai khoản đang cư xử khác nhau.
-- **Thu ngân thu tiền → không tự xếp phòng** (nhóm mẫu Thu ngân không có khối Điều phối;
-  luật "xếp bằng quyền người vừa thu"). Lễ tân thu thì tự xếp. Giữ hay cho Thu ngân khối
-  Điều phối / cho dây H4 chạy bằng quyền hệ thống?
+- ~~Thu nhầm → huỷ phiếu thu dịch vụ → không thu lại được~~ — ĐÃ CHỐT 26/09 (Tuyền
+  giao "tự thao tác nốt"): THU LẠI ĐƯỢC như tiền thuốc; mô phỏng K13 canh chỉ còn MỘT
+  phiếu PAID và thu xong tự xếp phòng.
+- ~~Thu ngân thu tiền → không tự xếp phòng~~ — xong từ 24/09 (Thu ngân mặc định có
+  Điều phối); K03 phủ cả trưởng ca đè quầy thu.
 - **Mã phiếu kết quả "KQ_" + mã mẫu** do giao diện tự ghép (PhieuKetQua.tsx) — nợ: backend
   nên trả thẳng mã phiếu.
 - **Đơn kê ở phiếu v5 không có đơn vị** → khi bật lại kho thuốc, dược sĩ không chọn lô được.

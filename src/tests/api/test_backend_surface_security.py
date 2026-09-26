@@ -85,38 +85,43 @@ def test_tools_http_bodies_never_accept_a_caller_supplied_clinic_id() -> None:
         assert "clinic_id" not in body.type_.model_fields, path
 
 
+def _quyen_cua(calls: list[Any]) -> set[str]:
+    """Quyền mà các cửa `cua_quyen` của một route gác (21 lego, 25/09/2026)."""
+    return {q for c in calls for q in getattr(c, "quyen", ())}
+
+
 def test_staff_reads_require_identity_and_writes_require_management() -> None:
-    """All staff access is authenticated; mutations are MANAGEMENT-only."""
+    """All staff access is authenticated; mutations hỏi QUYỀN lego 19 (Tuyền
+    25/09/2026: theo tài khoản, không theo vai) — không còn cửa theo vai."""
     for route in _routes(staff_router):
         calls = _dependency_calls(route)
         assert get_current_identity in calls, (route.path, route.methods)
 
         if route.methods & {"POST", "PATCH", "DELETE"}:
-            guards = [call for call in calls if isinstance(call, RoleGuard)]
-            assert len(guards) == 1, (route.path, route.methods)
-            assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT})
+            assert not [c for c in calls if isinstance(c, RoleGuard)], route.path
+            assert _quyen_cua(calls) & {"staff.manage", "account.manage"}, (
+                route.path,
+                route.methods,
+            )
 
 
 def test_reports_and_the_staff_roster_are_management_only_reads() -> None:
-    """Quang chốt 2026-08-06: báo cáo và danh sách nhân sự chỉ Quản lý đọc.
+    """Quang chốt 2026-08-06: báo cáo và danh sách nhân sự không mở cho mọi người.
 
-    Cả hai màn vốn đã chỉ hiện cho MANAGEMENT trên menu, nhưng endpoint phía sau
-    không gác vai nào — ai đăng nhập cũng gọi thẳng đường dẫn mà lấy được. Menu
-    quyết định người ta THẤY gì, không ngăn được ai gõ URL.
-
-    Chốt ở đây để lần nới quyền sau là một quyết định có người ký, không phải
-    một dòng bị xoá nhầm. Sơ đồ phòng (overview) và dịch vụ (services) CỐ Ý
-    không nằm trong danh sách này: bảng điều phối và màn đặt lịch cần đọc chúng.
+    25/09/2026 (21 lego): gác bằng QUYỀN của lego Báo cáo / Cài đặt phòng khám,
+    không bằng vai — thu lego là mất quyền đọc. Sơ đồ phòng (overview) và dịch vụ
+    (services) CỐ Ý không nằm trong danh sách này: bảng điều phối và màn đặt lịch
+    cần đọc chúng.
     """
-    management_only = {
-        "/reports/booking-channels": reports_router,
-        "/clinic-config/staff": clinic_config_router,
+    can_quyen = {
+        "/reports/booking-channels": (reports_router, "report.view"),
+        "/clinic-config/staff": (clinic_config_router, "config.clinic.manage"),
     }
-    for path, router in management_only.items():
+    for path, (router, quyen) in can_quyen.items():
         route = next(r for r in _routes(router) if r.path == path)
-        guards = [c for c in _dependency_calls(route) if isinstance(c, RoleGuard)]
-        assert len(guards) == 1, path
-        assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT}), path
+        calls = _dependency_calls(route)
+        assert not [c for c in calls if isinstance(c, RoleGuard)], path
+        assert _quyen_cua(calls) == {quyen}, path
 
 
 def _identity() -> StaffIdentity:

@@ -48,8 +48,11 @@ class TestLopGac:
         dong = next(
             d for d in nguon.splitlines() if d.startswith("_BOOKING_POLICY_GUARD =")
         )
-        assert ClinicRole.MANAGEMENT.name in dong
-        for cam in ("TRUONG_CA", "RECEPTION", "CSKH", "DOCTOR"):
+        # 21 lego (25/09/2026): sửa giờ ca = lego "Cài đặt phòng khám" — hỏi
+        # QUYỀN, không mở theo vai nào (trưởng ca, lễ tân, CSKH không có lego này
+        # trong gói mẫu).
+        assert 'cua_quyen("config.clinic.manage")' in dong
+        for cam in ("TRUONG_CA", "RECEPTION", "CSKH", "DOCTOR", "require_role"):
             assert cam not in dong, f"{cam} không được sửa giờ ca của phòng khám"
 
 

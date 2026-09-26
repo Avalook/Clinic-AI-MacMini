@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Response
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services.ops_status import OpsStatusService
 
 router = APIRouter()
-_MANAGEMENT_GUARD = require_role(ClinicRole.MANAGEMENT)
+# Lego 20 "Vận hành hệ thống" (25/09/2026): hỏi quyền, không hỏi vai.
+_MANAGEMENT_GUARD = cua_quyen("ops.view")
 
 
 @router.get("/ops/status", response_model=OpsStatusResponse)

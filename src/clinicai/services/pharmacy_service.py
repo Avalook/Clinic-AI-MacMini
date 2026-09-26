@@ -62,13 +62,16 @@ HUY = "DISCARD"
 TRA_NHAN = "RETURN_RECEIVED"
 
 
-def _so(value: Any, *, ten: str) -> Decimal:
-    """Ép về số dương. Câu từ chối nói rõ ô nào sai, không nói 'invalid input'."""
+def _so(value: Any, *, ten: str, cho_0: bool = False) -> Decimal:
+    """Ép về số dương (`cho_0`: được bằng 0 — giá tặng kèm). Câu từ chối nói rõ
+    ô nào sai, không nói 'invalid input'."""
     try:
         so = Decimal(str(value))
     except Exception as exc:  # noqa: BLE001 — mọi kiểu rác đều về một câu
         raise ValidationError(f"{ten} phải là một con số.") from exc
-    if so <= 0:
+    if not so.is_finite():
+        raise ValidationError(f"{ten} phải là một con số.")
+    if so < 0 or (so == 0 and not cho_0):
         raise ValidationError(f"{ten} phải lớn hơn 0.")
     return so
 
@@ -219,6 +222,113 @@ class PharmacyService:
                 identity.clinic_id,
             )
         return [dict(r) for r in rows]
+
+    async def danh_muc(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
+        """Danh mục thuốc kho (cả thuốc đang tắt) kèm tổng tồn — màn Kho thuốc.
+
+        Tuyền 25/09/2026: tên, giá, hướng dẫn nạp sẵn theo KiotViet; lô, hạn,
+        nhập/xuất nhà thuốc tự làm ở đây.
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT c.id::text, c.name_raw AS ten, c.ma_hang, c.unit_price AS gia,
+                       c.don_vi_ban, c.duong_dung, c.cach_dung, c.luu_y, c.biet_duoc,
+                       c.is_active AS dang_dung, c.needs_review AS can_soat,
+                       coalesce(sum(b.quantity_on_hand), 0) AS ton,
+                       count(b.id) FILTER (WHERE b.quantity_on_hand > 0) AS so_lo
+                  FROM public.drug_catalog c
+                  LEFT JOIN public.drug_batch b
+                    ON b.drug_catalog_id = c.id AND b.clinic_id = c.clinic_id
+                 WHERE c.clinic_id = $1::uuid
+                 GROUP BY c.id
+                 ORDER BY c.is_active DESC, lower(c.name_raw)
+                """,
+                identity.clinic_id,
+            )
+        return [dict(r) for r in rows]
+
+    async def luu_thuoc(
+        self,
+        *,
+        identity: StaffIdentity,
+        drug_catalog_id: str | None,
+        ten: str,
+        gia: Any = None,
+        ma_hang: str | None = None,
+        don_vi_ban: str | None = None,
+        duong_dung: str | None = None,
+        cach_dung: str | None = None,
+        luu_y: str | None = None,
+        biet_duoc: str | None = None,
+        dang_dung: bool = True,
+    ) -> dict[str, Any]:
+        """Thêm (không có mã) hoặc sửa MỘT thuốc trong danh mục kho.
+
+        Dược sĩ lưu = đã soát: bỏ cờ `needs_review`. Giá ở đây là giá bán duy
+        nhất (khép HOLD J5, migration 20260925000014) — quầy thu đọc thẳng.
+        """
+        ten_sach = " ".join((ten or "").split())
+        if not ten_sach:
+            raise ValidationError("Nhập tên thuốc.")
+        gia_so = None if gia in (None, "") else _so(gia, ten="Giá bán", cho_0=True)
+
+        def _chu(v: str | None) -> str | None:
+            v = (v or "").strip()
+            return v or None
+
+        async with self._pool.acquire() as conn, conn.transaction():
+            trung = await conn.fetchval(
+                "SELECT id::text FROM public.drug_catalog"
+                " WHERE clinic_id = $1::uuid AND lower(name_raw) = lower($2)"
+                "   AND ($3::uuid IS NULL OR id <> $3::uuid)",
+                identity.clinic_id,
+                ten_sach,
+                drug_catalog_id,
+            )
+            if trung is not None:
+                raise ConflictError(f"Đã có thuốc tên “{ten_sach}” trong danh mục.")
+            gia_tri = (
+                identity.clinic_id,
+                ten_sach,
+                gia_so,
+                _chu(ma_hang),
+                _chu(don_vi_ban),
+                _chu(duong_dung),
+                _chu(cach_dung),
+                _chu(luu_y),
+                _chu(biet_duoc),
+                bool(dang_dung),
+            )
+            if drug_catalog_id is None:
+                ma = await conn.fetchval(
+                    """
+                    INSERT INTO public.drug_catalog
+                        (clinic_id, name_raw, name_base, unit_price, ma_hang,
+                         don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc,
+                         is_active, needs_review)
+                    VALUES ($1::uuid, $2, $2, $3, $4, $5, $6, $7, $8, $9, $10, false)
+                    RETURNING id::text
+                    """,
+                    *gia_tri,
+                )
+            else:
+                ma = await conn.fetchval(
+                    """
+                    UPDATE public.drug_catalog
+                       SET name_raw = $2, name_base = $2, unit_price = $3,
+                           ma_hang = $4, don_vi_ban = $5, duong_dung = $6,
+                           cach_dung = $7, luu_y = $8, biet_duoc = $9,
+                           is_active = $10, needs_review = false
+                     WHERE clinic_id = $1::uuid AND id = $11::uuid
+                    RETURNING id::text
+                    """,
+                    *gia_tri,
+                    drug_catalog_id,
+                )
+                if ma is None:
+                    raise NotFoundError("Không tìm thấy thuốc này trong danh mục.")
+        return {"ok": True, "id": ma}
 
     # ── Ghi ────────────────────────────────────────────────────────────────
 

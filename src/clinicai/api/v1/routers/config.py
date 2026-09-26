@@ -29,10 +29,9 @@ from clinicai.core.shifts import (
     phut_tu_gio,
 )
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinic_settings_service import ClinicSettingsService
 from clinicai.services.config_service import (
-    PRICE_ROLES,
-    ROSTER_ROLES,
     PriceGroup,
     PriceListService,
     RosterDecision,
@@ -44,18 +43,24 @@ router = APIRouter()
 
 # Everyone works a shift, so everyone may sign up for one; the service decides
 # who may schedule somebody else.
-_ROSTER_GUARD = require_role(*ROSTER_ROLES)
-_PRICE_GUARD = require_role(*PRICE_ROLES)
+# 21 lego (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai. Xếp lịch trực thuộc
+# lego 18 "Cài đặt phòng khám"; bảng giá dịch vụ là lego 16.
+_ROSTER_GUARD = cua_quyen("config.clinic.manage")
+_PRICE_GUARD = cua_quyen("price.service.manage")
 # Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
-_PRICE_READ_GUARD = require_role(*PRICE_ROLES, ClinicRole.RECEPTION)
+# Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá).
+_PRICE_READ_GUARD = cua_quyen(
+    "price.service.manage", "payment.service.collect", "payment.medicine.collect"
+)
 # Chỉ QUẢN LÝ được đổi luật đặt lịch (khung giờ / số khách online + trực tiếp
 # từng bác sĩ) của phòng khám — Tuyền chốt 15/09/2026: "để luật đó cho quản lý
 # phòng khám họ đặt", cùng nhóm với công bố lịch trực (chỉ Quản lý). Trước đó
 # Trưởng ca cũng sửa được. Người khác thấy luật nhưng không sửa.
-_BOOKING_POLICY_GUARD = require_role(ClinicRole.MANAGEMENT)
+_BOOKING_POLICY_GUARD = cua_quyen("config.clinic.manage")
 # Trưởng ca vẫn ĐỌC luật (điều phối cần biết mỗi bác sĩ nhận bao nhiêu khách)
 # và vẫn chỉnh cài đặt màn TV như trước.
-_BOOKING_POLICY_READ = require_role(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+# Đọc luật đặt lịch: người cài đặt + trưởng ca (điều phối cần đọc).
+_BOOKING_POLICY_READ = cua_quyen("config.clinic.manage", "dispatch.manage")
 
 
 class ShiftRequest(BaseModel):
@@ -508,7 +513,7 @@ _FEATURE_MODE_READ = require_role(
     ClinicRole.CASHIER_DV,
     ClinicRole.PHARMACIST,
 )
-_FEATURE_MODE_WRITE = require_role(ClinicRole.MANAGEMENT)
+_FEATURE_MODE_WRITE = cua_quyen("config.clinic.manage")
 
 
 class FeatureModeUpdateRequest(BaseModel):
