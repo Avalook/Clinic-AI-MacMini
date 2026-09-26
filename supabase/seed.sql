@@ -3727,3 +3727,5 @@ SELECT public.map_services_to_nodes();
 SELECT public.dien_gia_trong_theo_phieu_v5();
 -- Danh mục thuốc chuẩn KiotViet + hướng dẫn phiếu v5 (20260925000014).
 SELECT public.chuan_hoa_danh_muc_thuoc_kiotviet();
+-- Danh mục dịch vụ theo KiotViet (26/09/2026) — cùng hàm migration 20260926000001.
+SELECT public.chuan_hoa_danh_muc_dich_vu_kiotviet();

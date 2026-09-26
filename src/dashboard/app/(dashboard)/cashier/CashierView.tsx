@@ -20,7 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type PriceGroup = "thuoc" | "dich_vu";
 
@@ -31,6 +31,15 @@ export interface PriceRow {
   group: PriceGroup;
   unit_price: number | null;
   active: boolean;
+  /** Mã phòng khám (mã SP KiotViet) — mã chuẩn để tra / nhập / hiển thị (26/09/2026). */
+  ma_kiotviet?: string | null;
+  /** Phòng làm (node) của dịch vụ. */
+  node_code?: string | null;
+}
+
+interface PhongLam {
+  ma: string;
+  ten: string;
 }
 
 type CatalogFilter = "ALL" | "ACTIVE" | "INACTIVE" | "UNPRICED";
@@ -68,7 +77,26 @@ export default function CashierView({
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [maKv, setMaKv] = useState("");
+  const [node, setNode] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [draftMa, setDraftMa] = useState<Record<string, string>>({});
+  const [phongLam, setPhongLam] = useState<PhongLam[]>([]);
+  const laDichVu = view === "dich_vu";
+
+  useEffect(() => {
+    if (!laDichVu) return;
+    let huy = false;
+    void fetch("/api/service-price?xem=phong-lam", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<PhongLam[]>) : []))
+      .then((ds) => {
+        if (!huy) setPhongLam(ds);
+      })
+      .catch(() => undefined);
+    return () => {
+      huy = true;
+    };
+  }, [laDichVu]);
 
   const activeCount = rows.filter((row) => row.active).length;
   const missingPriceCount = rows.filter((row) => row.unit_price === null).length;
@@ -81,6 +109,7 @@ export default function CashierView({
       const matchesQuery =
         needle.length === 0 ||
         row.service_code.toLocaleLowerCase("vi").includes(needle) ||
+        (row.ma_kiotviet ?? "").toLocaleLowerCase("vi").includes(needle) ||
         row.name.toLocaleLowerCase("vi").includes(needle);
       const matchesFilter =
         filter === "ALL" ||
@@ -118,8 +147,8 @@ export default function CashierView({
   }
 
   async function add() {
-    if (!code.trim() || !name.trim()) {
-      setError("Mã và tên là hai trường bắt buộc.");
+    if ((!code.trim() && !maKv.trim()) || !name.trim()) {
+      setError("Cần mã phòng khám (hoặc mã danh mục) và tên.");
       return;
     }
     const ok = await send("POST", {
@@ -127,11 +156,25 @@ export default function CashierView({
       name: name.trim(),
       group: view,
       unit_price: price.trim() === "" ? null : price.trim(),
+      ...(laDichVu ? { ma_kiotviet: maKv.trim(), node_code: node || null } : {}),
     });
     if (ok) {
       setCode("");
       setName("");
       setPrice("");
+      setMaKv("");
+      setNode("");
+    }
+  }
+
+  async function saveMa(id: string) {
+    const raw = draftMa[id];
+    if (raw === undefined) return;
+    const ok = await send("PATCH", { id, ma_kiotviet: raw.trim() });
+    if (ok) {
+      setDraftMa((current) =>
+        Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)),
+      );
     }
   }
 
@@ -240,8 +283,13 @@ export default function CashierView({
             <table className="w-full min-w-[720px] border-collapse text-sm">
               <thead className="bg-surface-muted text-xs text-ink-muted">
                 <tr>
-                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">Mã danh mục</th>
+                  <th className="border-b border-line px-4 py-2.5 text-left font-medium">
+                    {laDichVu ? "Mã phòng khám" : "Mã danh mục"}
+                  </th>
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Tên thuốc / dịch vụ</th>
+                  {laDichVu ? (
+                    <th className="border-b border-line px-4 py-2.5 text-left font-medium">Phòng làm</th>
+                  ) : null}
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Đơn giá</th>
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Trạng thái</th>
                   <th className="border-b border-line px-4 py-2.5 text-right font-medium">Thao tác</th>
@@ -250,7 +298,7 @@ export default function CashierView({
               <tbody className="divide-y divide-line">
                 {visible.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-12 text-center text-sm text-ink-muted" colSpan={5}>
+                    <td className="px-4 py-12 text-center text-sm text-ink-muted" colSpan={laDichVu ? 6 : 5}>
                       Không có dòng bảng giá phù hợp.
                     </td>
                   </tr>
@@ -261,9 +309,58 @@ export default function CashierView({
                     return (
                       <tr key={row.id} className="hover:bg-surface-muted">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-ink-soft">
-                          {row.service_code}
+                          {laDichVu ? (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  aria-label={`Mã phòng khám ${row.name}`}
+                                  className="h-8 w-28 rounded-control border border-line bg-surface px-2 font-mono text-xs text-ink outline-none placeholder:text-ink-faint focus:border-brand-500"
+                                  value={draftMa[row.id] ?? row.ma_kiotviet ?? ""}
+                                  placeholder="Chưa có mã"
+                                  maxLength={32}
+                                  disabled={busy}
+                                  onChange={(event) =>
+                                    setDraftMa((current) => ({ ...current, [row.id]: event.target.value }))
+                                  }
+                                />
+                                {draftMa[row.id] !== undefined ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => saveMa(row.id)}
+                                    disabled={busy}
+                                    className="rounded-control bg-brand-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
+                                  >
+                                    Lưu
+                                  </button>
+                                ) : null}
+                              </div>
+                              <span className="text-ink-faint">{row.service_code}</span>
+                            </div>
+                          ) : (
+                            row.service_code
+                          )}
                         </td>
                         <td className="px-4 py-3 text-ink">{row.name}</td>
+                        {laDichVu ? (
+                          <td className="px-4 py-3">
+                            <select
+                              aria-label={`Phòng làm ${row.name}`}
+                              value={row.node_code ?? ""}
+                              disabled={busy}
+                              onChange={(event) => void send("PATCH", { id: row.id, node_code: event.target.value })}
+                              className="h-9 max-w-48 rounded-control border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-500"
+                            >
+                              <option value="" disabled>
+                                Chưa chọn phòng
+                              </option>
+                              {phongLam.map((p) => (
+                                <option key={p.ma} value={p.ma}>
+                                  {p.ten}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        ) : null}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <input
@@ -341,14 +438,24 @@ export default function CashierView({
           </header>
 
           <div className="space-y-4 p-4">
-            <Field label="Mã danh mục" required>
+            {laDichVu ? (
+              <Field label="Mã phòng khám (mã KiotViet)" required>
+                <input
+                  className={inputClass}
+                  value={maKv}
+                  onChange={(event) => setMaKv(event.target.value)}
+                  placeholder="VD: SP000214"
+                  maxLength={32}
+                />
+              </Field>
+            ) : null}
+            <Field label={laDichVu ? "Mã danh mục (bỏ trống = tự sinh)" : "Mã danh mục"} required={!laDichVu}>
               <input
                 className={inputClass}
                 value={code}
                 onChange={(event) => setCode(event.target.value)}
-                placeholder={view === "thuoc" ? "VD: MED001" : "VD: DV001"}
+                placeholder={view === "thuoc" ? "VD: MED001" : "Tự sinh KV_<mã phòng khám>"}
                 maxLength={64}
-                required
               />
             </Field>
             <Field label={view === "thuoc" ? "Tên thuốc" : "Tên dịch vụ"} required>
@@ -361,6 +468,22 @@ export default function CashierView({
                 required
               />
             </Field>
+            {laDichVu ? (
+              <Field label="Phòng làm">
+                <select
+                  className={inputClass}
+                  value={node}
+                  onChange={(event) => setNode(event.target.value)}
+                >
+                  <option value="">Chưa chọn — xếp phòng tay</option>
+                  {phongLam.map((p) => (
+                    <option key={p.ma} value={p.ma}>
+                      {p.ten}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
             <Field label="Đơn giá (₫)">
               <input
                 className={inputClass}
@@ -384,7 +507,7 @@ export default function CashierView({
             <button
               type="button"
               onClick={add}
-              disabled={busy || !code.trim() || !name.trim()}
+              disabled={busy || (!code.trim() && !maKv.trim()) || !name.trim()}
               className="flex w-full items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
             >
               <Plus aria-hidden className="size-4" />

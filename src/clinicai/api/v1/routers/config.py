@@ -79,16 +79,23 @@ class RosterDecisionRequest(BaseModel):
 
 
 class PriceCreateRequest(BaseModel):
-    service_code: str = Field(min_length=1, max_length=64)
+    #: Bỏ trống được khi có mã phòng khám — mã ẩn tự sinh `KV_<mã>` (26/09/2026).
+    service_code: str = Field(default="", max_length=64)
     name: str = Field(min_length=1, max_length=300)
     group: PriceGroup
     unit_price: float | str | None = None
+    #: Mã phòng khám (mã SP KiotViet) — mã chuẩn để tra/nhập/hiển thị.
+    ma_kiotviet: str | None = Field(default=None, max_length=32)
+    #: Phòng làm (node) — dịch vụ mới phải biết xếp vào phòng nào.
+    node_code: str | None = Field(default=None, max_length=64)
 
 
 class PriceUpdateRequest(BaseModel):
     name: str | None = Field(default=None, max_length=300)
     unit_price: float | str | None = None
     active: bool | None = None
+    ma_kiotviet: str | None = Field(default=None, max_length=32)
+    node_code: str | None = Field(default=None, max_length=64)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -310,6 +317,17 @@ class PriceRow(BaseModel):
     #: đó thì thu ngân sẽ thu đúng con số bịa ấy.
     unit_price: Decimal | None
     active: bool
+    ma_kiotviet: str | None = None
+    node_code: str | None = None
+
+
+@router.get("/service-prices/phong-lam")
+async def list_phong_lam(
+    identity: StaffIdentity = Depends(_PRICE_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, str]]:
+    """Các phòng làm (node dịch vụ) để chọn khi thêm / sửa một dịch vụ."""
+    return await PriceListService(pool).phong_lam(identity=identity)
 
 
 @router.get("/service-prices", response_model=list[PriceRow])
@@ -341,6 +359,8 @@ async def add_price(
         group=body.group,
         unit_price=body.unit_price,
         identity=identity,
+        ma_kiotviet=body.ma_kiotviet,
+        node_code=body.node_code,
     )
     return {"ok": True, "id": price_id}
 
@@ -361,6 +381,9 @@ async def update_price(
         # Absent means "leave the price"; explicit null means "clear it".
         unit_price_provided="unit_price" in body.model_fields_set,
         active=body.active,
+        ma_kiotviet=body.ma_kiotviet,
+        ma_kiotviet_provided="ma_kiotviet" in body.model_fields_set,
+        node_code=body.node_code,
     )
     return {"ok": True}
 

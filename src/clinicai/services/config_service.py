@@ -24,8 +24,10 @@ rather than a second row nobody notices.
 
 from __future__ import annotations
 
+import builtins
 import json
 import math
+import re
 from datetime import date, timedelta
 from typing import Any, Literal
 
@@ -1177,6 +1179,19 @@ class RosterService:
         return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
 
 
+_MA_KV = re.compile(r"^[A-Z0-9_-]{1,32}$")
+
+
+def _ma_kiotviet(v: str | None) -> str | None:
+    """Mã phòng khám: bỏ khoảng trắng, viết hoa; rỗng → None; ký tự lạ → 422."""
+    ma = (v or "").strip().upper()
+    if not ma:
+        return None
+    if not _MA_KV.match(ma):
+        raise ValidationError("Mã phòng khám chỉ gồm chữ, số, gạch — tối đa 32 ký tự.")
+    return ma
+
+
 class PriceListService:
     """Maintain the service and medicine price list."""
 
@@ -1195,10 +1210,11 @@ class PriceListService:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT id, service_code, name, "group", unit_price, active
+                SELECT id, service_code, name, "group", unit_price, active,
+                       ma_kiotviet, node_code
                   FROM service_price
                  WHERE clinic_id = $1::uuid AND "group" = $2
-                 ORDER BY service_code
+                 ORDER BY coalesce(ma_kiotviet, service_code)
                  LIMIT 1000
                 """,
                 identity.clinic_id,
@@ -1250,20 +1266,25 @@ class PriceListService:
         group: PriceGroup,
         unit_price: Any,
         identity: StaffIdentity,
+        ma_kiotviet: str | None = None,
+        node_code: str | None = None,
     ) -> str:
-        code = (service_code or "").strip()
+        ma_kv = _ma_kiotviet(ma_kiotviet)
+        code = (service_code or "").strip() or (f"KV_{ma_kv}" if ma_kv else "")
         label = (name or "").strip()
         if not code or not label:
             raise ValidationError("Thiếu mã hoặc tên dịch vụ")
 
         price = parse_price(unit_price)
         async with self._pool.acquire() as conn, conn.transaction():
+            node = await self._phong_hop_le(conn, identity.clinic_id, node_code)
             try:
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO service_price
-                        (clinic_id, service_code, name, "group", unit_price)
-                    VALUES ($1::uuid, $2, $3, $4, $5)
+                        (clinic_id, service_code, name, "group", unit_price,
+                         ma_kiotviet, node_code)
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -1271,9 +1292,13 @@ class PriceListService:
                     label,
                     group,
                     price,
+                    ma_kv,
+                    node,
                 )
             except asyncpg.UniqueViolationError as exc:
-                raise ConflictError(f"Mã {code} đã có trong nhóm {group}.") from exc
+                raise ConflictError(
+                    f"Mã {ma_kv or code} đã có trong bảng giá — tìm dòng ấy mà sửa."
+                ) from exc
             if group == "thuoc" and price is not None:
                 await self._dong_bo_gia_danh_muc_thuoc(
                     conn, identity.clinic_id, label, price
@@ -1289,6 +1314,9 @@ class PriceListService:
         unit_price: Any = None,
         unit_price_provided: bool = False,
         active: bool | None = None,
+        ma_kiotviet: str | None = None,
+        ma_kiotviet_provided: bool = False,
+        node_code: str | None = None,
     ) -> None:
         patch: dict[str, Any] = {}
         if name is not None and name.strip():
@@ -1297,22 +1325,34 @@ class PriceListService:
             patch["unit_price"] = parse_price(unit_price)
         if active is not None:
             patch["active"] = active
-        if not patch:
+        if ma_kiotviet_provided:
+            # Rỗng = gỡ mã (dịch vụ chỉ có trên hệ thống).
+            patch["ma_kiotviet"] = _ma_kiotviet(ma_kiotviet)
+        if not patch and node_code is None:
             raise ValidationError("Không có gì để sửa")
 
-        columns = list(patch)
-        assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
         async with self._pool.acquire() as conn, conn.transaction():
-            updated = await conn.fetchrow(
-                f"""
-                UPDATE service_price SET {assignments}, updated_at = now()
-                 WHERE id = $1::uuid AND clinic_id = $2::uuid
-                RETURNING id, "group", name, unit_price
-                """,
-                price_id,
-                identity.clinic_id,
-                *[patch[c] for c in columns],
-            )
+            if node_code is not None:
+                patch["node_code"] = await self._phong_hop_le(
+                    conn, identity.clinic_id, node_code
+                )
+            columns = list(patch)
+            assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
+            try:
+                updated = await conn.fetchrow(
+                    f"""
+                    UPDATE service_price SET {assignments}, updated_at = now()
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                    RETURNING id, "group", name, unit_price
+                    """,
+                    price_id,
+                    identity.clinic_id,
+                    *[patch[c] for c in columns],
+                )
+            except asyncpg.UniqueViolationError as exc:
+                raise ConflictError(
+                    f"Mã {patch.get('ma_kiotviet')} đã gắn cho dịch vụ khác."
+                ) from exc
             if updated is None:
                 raise NotFoundError("Không tìm thấy dòng giá")
             if (
@@ -1323,6 +1363,36 @@ class PriceListService:
                 await self._dong_bo_gia_danh_muc_thuoc(
                     conn, identity.clinic_id, updated["name"], updated["unit_price"]
                 )
+
+    async def phong_lam(
+        self, *, identity: StaffIdentity
+    ) -> builtins.list[dict[str, str]]:
+        """Phòng làm (node dịch vụ đang bật) để chọn cho một dịch vụ."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT code, name FROM node_definition"
+                " WHERE clinic_id = $1::uuid AND code LIKE 'DICHVU-%'"
+                " ORDER BY name",
+                identity.clinic_id,
+            )
+        return [{"ma": r["code"], "ten": r["name"]} for r in rows]
+
+    @staticmethod
+    async def _phong_hop_le(
+        conn: asyncpg.Connection, clinic_id: str, node_code: str | None
+    ) -> str | None:
+        """Rỗng = chưa chọn phòng; mã lạ → 422 (không để khoá ngoại ném 500)."""
+        ma = (node_code or "").strip()
+        if not ma:
+            return None
+        if not await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM node_definition"
+            " WHERE clinic_id = $1::uuid AND code = $2)",
+            clinic_id,
+            ma,
+        ):
+            raise ValidationError("Phòng làm không hợp lệ.")
+        return ma
 
     async def remove(self, *, price_id: str, identity: StaffIdentity) -> None:
         async with self._pool.acquire() as conn:
