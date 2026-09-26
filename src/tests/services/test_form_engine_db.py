@@ -71,13 +71,24 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 
 
 async def test_18_mau_deu_co_khung_dang_dung(pool: asyncpg.Pool) -> None:
+    # Từ 27/09/2026 quản lý TẠO được mẫu mới trên màn Mẫu kết quả, nên không
+    # đếm cứng 18 nữa: bất biến là mẫu nào đang bật cũng có khung đang dùng,
+    # và 18 mẫu gốc vẫn còn.
     so = await pool.fetchval(
         "SELECT count(*) FROM form_definition WHERE clinic_id = $1::uuid"
         " AND trang_thai = 'PUBLISHED' AND form_id LIKE 'KQ_%'"
         " AND form_id <> 'KQ_CHUNG'",
         CLINIC,
     )
-    assert so == 18
+    assert so >= 18
+    thieu = await pool.fetch(
+        "SELECT m.ma FROM ket_qua_mau m WHERE m.clinic_id = $1::uuid AND m.active"
+        " AND NOT EXISTS (SELECT 1 FROM form_definition d"
+        "   WHERE d.clinic_id = m.clinic_id AND d.form_id = 'KQ_' || m.ma"
+        "     AND d.trang_thai = 'PUBLISHED')",
+        CLINIC,
+    )
+    assert not thieu, f"mẫu đang bật mà không có khung: {[r['ma'] for r in thieu]}"
 
 
 async def test_khung_v1_rong_ve_huu_v2_co_ruot_dien_san(pool: asyncpg.Pool) -> None:

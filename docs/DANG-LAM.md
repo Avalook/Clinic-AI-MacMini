@@ -29,8 +29,13 @@ lệch trên main f2542b5: CẢ 11 VẪN ĐÚNG (chi tiết: quầy chặn giá 
    4D), dịch vụ chỉ hệ thống có GIỮ (quản lý tắt ở Bảng giá nếu không bán). Phí khám (11 mã KV) →
    lát 2. Mục C phiếu khám có thêm nhóm "… (danh mục phòng khám)". Bảng giá: mã phòng khám + phòng làm.
 2. **XONG (prod 8ca47b8)** Phiếu khám v2 (3 khối, giữ `ma`, lưu theo ô, công tắc tư vấn, hẹn → nhắc tái khám, phí khám).
-3. **XONG phần lõi (prod d602e02)** Mẫu kết quả v3 theo 17 PDF + tệp (`ben`, Tải về). CÒN: màn
-   sửa/gắn mẫu (API `routers/mau_ket_qua.py` có, thiếu proxy + màn), video (chờ Tuyền OK), ảnh nhỏ.
+3. **XONG (prod d602e02 + màn 27/09)** Mẫu kết quả v3 theo 17 PDF + tệp (`ben`, Tải về). **27/09:** màn
+   `/settings/mau-ket-qua` (lego 18): gắn/gỡ mẫu cho dịch vụ có phòng làm + đề xuất của máy; sửa / tạo
+   mẫu, xuất bản bản mới kèm `expected_version` (409 khi người khác vừa xuất bản; khoá tư vấn theo mẫu);
+   máy chủ KIỂM khung (`phieu_kham/kiem_khung_mau.py` — 19/19 mẫu đang chạy qua); đổi tên ô giữ mã, ô
+   mới nhận mã từ tên lúc xuất bản. KHÔNG bắt buộc mục Kết luận (5 mẫu theo PDF không có). CÒN: video
+   (chờ Tuyền OK), ảnh thu nhỏ phía máy chủ, tắt/bật mẫu (chưa có nút — mẫu thừa hiện vẫn nằm trong
+   danh sách chọn).
 4. **4a+4b XONG 26/09:** `service_order.lan_chi_dinh` do TRIGGER gán (mig 20260926000006 — mỗi
    lần bấm chốt = một lần, KHÔNG mở phiên mới như bản mẫu gợi ý vì mở phiên đẩy khách ra hàng
    chờ; nháp nhận số lúc duyệt; mang sang = NULL), mục đã chỉ định tô xanh vẫn tick lại được;
