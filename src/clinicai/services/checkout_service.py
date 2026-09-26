@@ -662,6 +662,28 @@ class CheckoutService:
                     identity.clinic_id,
                     visit_id,
                 )
+                # KHÁCH VỀ THÌ RỜI MỌI HÀNG CHỜ (27/09/2026). Trước đây đóng lượt
+                # chỉ huỷ `work_item` (hàng đời cũ); `queue_entry` (hàng đời mới —
+                # bàn khám, phòng dịch vụ, tư vấn) để nguyên "waiting". Đo trên
+                # prod 27/09: 4 chỗ chờ của khách đã về vẫn nằm trong hàng bác sĩ
+                # / phòng — phòng gọi người không còn ở đó, và số khách chờ dùng
+                # để chọn "phòng vắng nhất" đếm cả họ. Trạng thái `left` có sẵn
+                # từ lát 1 cho đúng việc này mà chưa đường nào gán.
+                roi_hang = await conn.fetchval(
+                    """
+                    WITH roi AS (
+                        UPDATE public.queue_entry
+                           SET status = 'left', updated_at = now(),
+                               version = version + 1
+                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                           AND status IN ('blocked', 'waiting', 'called', 'serving')
+                        RETURNING id
+                    )
+                    SELECT count(*)::int FROM roi
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
                 if incomplete:
                     # Ghi trạng thái khám dở. WHERE giới hạn ở hai trạng thái
                     # ĐANG SỐNG: một hồ sơ đã ký không được kéo ngược về đây.
@@ -703,6 +725,8 @@ class CheckoutService:
                             "incomplete": incomplete,
                             # Việc kết quả còn mở được GIỮ lại khi đóng lượt.
                             "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
+                            # Chỗ chờ còn mở lúc khách về — đã chuyển `left`.
+                            "hang_cho_roi": int(roi_hang or 0),
                             "incomplete_reason": ly_do_do or None,
                         },
                         ensure_ascii=False,
