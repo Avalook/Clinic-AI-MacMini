@@ -117,7 +117,11 @@ async def test_trigger_nhap_nhan_so_luc_duyet_mang_sang_khong_so(
         " recorded_by, authorized_by, authorized_at)"
         " SELECT $1::uuid, $2::uuid, $3::uuid, $4, 'x', o.node_code, $5, $6::uuid,"
         "        o.recorded_by, o.authorized_by, o.authorized_at"
-        "   FROM service_order o WHERE o.visit_id = $2::uuid LIMIT 1"
+        # Chép từ chỉ định ĐÃ DUYỆT của lượt — không ORDER thì LIMIT 1 có lúc
+        # nhặt đúng dòng nháp vừa tạo (chưa người duyệt) → vi phạm CHECK.
+        "   FROM service_order o WHERE o.visit_id = $2::uuid"
+        "    AND o.exec_status = 'authorized' AND o.authorized_by IS NOT NULL"
+        "  ORDER BY o.created_at LIMIT 1"
         " RETURNING id::text"
     )
     nhap = await pool.fetchval(

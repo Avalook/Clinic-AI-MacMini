@@ -31,6 +31,7 @@ import {
 } from "@/lib/phieu-kham";
 import { guiThaoTac } from "../api";
 import DanhMucChiDinh from "./DanhMucChiDinh";
+import HanhTrinhLuot from "./HanhTrinhLuot";
 import LichSuSuaPhieu from "./LichSuSuaPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 
@@ -366,6 +367,8 @@ export default function PhieuKhamLuot({
 
   return (
     <div className="space-y-2">
+      {/* Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính. */}
+      {chiMuc ? null : <HanhTrinhLuot visitId={visitId} />}
       {loiDon ? (
         <div role="alert" className="space-y-2 rounded-control bg-danger-bg p-3 text-body text-danger">
           <p>Đơn thuốc: {loiDon}</p>

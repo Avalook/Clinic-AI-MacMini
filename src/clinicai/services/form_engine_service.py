@@ -278,7 +278,25 @@ class FormEngineService:
                         ),
                     }
                 )
+            # ẢNH in kèm phiếu (lát 5, 26/09/2026 — bản mẫu: 4 tấm/hàng). Tệp đã
+            # thu hồi / bị đánh dấu không hợp lệ không in. Video, tài liệu chỉ
+            # đếm — giấy không phát được video.
+            tep = await conn.fetch(
+                "SELECT id::text AS id, ten_hien_thi, loai_tep FROM tep_ket_qua"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND thu_hoi_luc IS NULL"
+                "   AND coalesce(xac_nhan_trang_thai, 'HOP_LE') = 'HOP_LE'"
+                " ORDER BY tai_len_luc, id",
+                cid,
+                service_order_id,
+            )
         return {
+            "anh": [
+                {"id": t["id"], "ten": t["ten_hien_thi"]}
+                for t in tep
+                if t["loai_tep"] == "ANH"
+            ],
+            "so_tep_khac": sum(1 for t in tep if t["loai_tep"] != "ANH"),
             "phong_kham": {"ten": dau["phong_kham"], "dia_chi": dau["dia_chi_pk"]},
             "benh_nhan": {
                 "ho_ten": dau["full_name"],

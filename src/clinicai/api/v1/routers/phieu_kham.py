@@ -114,6 +114,19 @@ async def dau_phieu(
     )
 
 
+@router.get("/phieu-kham/luot/{visit_id}/hanh-trinh")
+async def hanh_trinh(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+) -> dict[str, Any]:
+    """Dải mốc hành trình + "đang ở đâu" ở đầu phiếu khám — chỉ đọc."""
+    return await PhieuKhamService(pool, kiem_quyen=kiem_quyen).hanh_trinh(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
 @router.get("/phieu-kham/luot/{visit_id}/ket-qua-chi-dinh")
 async def ket_qua_chi_dinh(
     visit_id: UUID,

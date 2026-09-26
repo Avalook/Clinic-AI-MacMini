@@ -8,6 +8,7 @@
 //   GET /api/phieu-kham?visit_id=…&xem=phieu[&form_id=NT] → phiếu của lượt
 //   GET /api/phieu-kham?visit_id=…&xem=don-thuoc → đơn thuốc của lượt
 //   GET /api/phieu-kham?visit_id=…&xem=lich-su[&chon=NT] → lịch sử sửa phiếu (P4A)
+//   GET /api/phieu-kham?visit_id=…&xem=hanh-trinh → dải mốc hành trình (lát 5)
 //   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, thay_doi}  (chỉ ô vừa đổi — lát 2)
 //   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, du_lieu, expected_revision}  (cả gói — cũ)
 //   PUT /api/phieu-kham {thao_tac: "luu-don", visit_id, dong, ly_do?}
@@ -64,7 +65,13 @@ export async function GET(request: Request) {
       return proxyJsonToBackend("GET", `/api/v1/phieu-kham/luot/${visitId}/lich-su` + hoi, undefined);
     }
     const duoi =
-      xem === "dau-phieu" ? "dau-phieu" : xem === "don-thuoc" ? "don-thuoc" : "ket-qua-chi-dinh";
+      xem === "dau-phieu"
+        ? "dau-phieu"
+        : xem === "don-thuoc"
+          ? "don-thuoc"
+          : xem === "hanh-trinh"
+            ? "hanh-trinh"
+            : "ket-qua-chi-dinh";
     return proxyJsonToBackend(
       "GET",
       `/api/v1/phieu-kham/luot/${visitId}/${duoi}`,

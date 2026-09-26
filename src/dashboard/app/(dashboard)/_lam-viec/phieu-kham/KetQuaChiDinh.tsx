@@ -19,9 +19,12 @@
 import { useState } from "react";
 
 import KhungTep from "../KhungTep";
+import AnhKetQua, { tepXem } from "../AnhKetQua";
 import PhieuKetQua from "../PhieuKetQua";
 import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
+import Lightbox from "@/components/ui/Lightbox";
+import { fmtTime } from "@/lib/datetime";
 import {
   giaTriDoc,
   NHAN_DOI_TAC,
@@ -36,6 +39,22 @@ const TONE: Record<ChiDinhVaKetQua["ket_qua_trang_thai"], ChipTone> = {
   DANG_NHAP: "warning",
   CHUA_CO: "neutral",
 };
+
+/** Tệp kết quả của một chỉ định → mục xem (ảnh / video / tài liệu). */
+function tepCua(d: ChiDinhVaKetQua) {
+  // Thứ tự CHỤP (cũ trước) — máy chủ trả mới nhất trước cho danh sách kết quả.
+  return d.ket_qua
+    .filter((k) => k.loai === "TEP" && k.tep_id)
+    .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""))
+    .map((k) =>
+      tepXem({
+        id: k.tep_id!,
+        ten: k.ten,
+        loai_tep: k.loai_tep ?? "",
+        phu: k.tai_len_luc ? fmtTime(k.tai_len_luc) : undefined,
+      }),
+    );
+}
 
 function ghiDaXem(orderId: string) {
   // Chỉ để máy chủ ghi "đã xem" (bác sĩ / thư ký / BS siêu âm); nội dung đã có
@@ -65,6 +84,8 @@ export default function KetQuaChiDinh({
   const [mo, setMo] = useState<string | null>(null);
   const [dien, setDien] = useState<string | null>(null);
   const [tep, setTep] = useState<string | null>(null);
+  // Hộp xem CHIA ĐÔI (lát 5): kết quả trái, ảnh phải — mở từ ảnh nhỏ hoặc ⤢.
+  const [hop, setHop] = useState<{ id: string; i: number; luoi: boolean } | null>(null);
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
     const g = goiYMau[d.service_code];
@@ -74,7 +95,35 @@ export default function KetQuaChiDinh({
   if (ds.length === 0) {
     return <p className="text-body text-ink-faint">Chưa có chỉ định nào trong lượt này.</p>;
   }
+  const moHop = (d: ChiDinhVaKetQua, i: number, luoi: boolean) => {
+    // Mở hộp là XEM kết quả — cùng nghĩa với nút "Xem kết quả".
+    if (d.ket_qua_trang_thai === "CO_KET_QUA") ghiDaXem(d.service_order_id);
+    setHop({ id: d.service_order_id, i, luoi });
+  };
+  const dHop = hop ? ds.find((d) => d.service_order_id === hop.id) : undefined;
   return (
+    <>
+    {dHop && hop ? (
+      <Lightbox
+        tieuDe={dHop.ten_hien_thi}
+        phuDe={NHAN_KET_QUA[dHop.ket_qua_trang_thai]}
+        tep={tepCua(dHop)}
+        batDau={hop.i}
+        luoiBanDau={hop.luoi}
+        trai={
+          <div className="space-y-3">
+            {dHop.ket_qua.some((k) => k.loai === "PHIEU") ? (
+              dHop.ket_qua
+                .filter((k) => k.loai === "PHIEU")
+                .map((k) => <MotKetQua key={k.phieu_id} k={k} />)
+            ) : (
+              <p className="text-body text-ink-muted">Chưa có phiếu kết quả — chỉ có tệp.</p>
+            )}
+          </div>
+        }
+        onDong={() => setHop(null)}
+      />
+    ) : null}
     <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface">
       {ds.map((d) => {
         const dangMo = mo === d.service_order_id;
@@ -101,6 +150,18 @@ export default function KetQuaChiDinh({
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}
               <span className="ml-auto" />
+              {d.ket_qua.length > 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Xem kết quả và ảnh cạnh nhau — ${d.ten_hien_thi}`}
+                  title="Kết quả trái, ảnh phải"
+                  onClick={() => moHop(d, 0, false)}
+                >
+                  ⤢
+                </Button>
+              ) : null}
               {d.ket_qua.length > 0 ? (
                 <Button
                   type="button"
@@ -154,6 +215,12 @@ export default function KetQuaChiDinh({
                 </Button>
               ) : null}
             </div>
+            {/* Khung tệp đang mở thì nó đã hiện đủ ảnh — không vẽ hai lần. */}
+            {tepCua(d).length > 0 && tep !== d.service_order_id ? (
+              <div className="mt-2">
+                <AnhKetQua tep={tepCua(d)} onMo={(i, luoi) => moHop(d, i, Boolean(luoi))} />
+              </div>
+            ) : null}
             {tep === d.service_order_id && clinicPatientId ? (
               <div className="mt-2">
                 <KhungTep
@@ -188,6 +255,7 @@ export default function KetQuaChiDinh({
         );
       })}
     </ul>
+    </>
   );
 }
 
