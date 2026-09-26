@@ -206,13 +206,30 @@ class StaffIdentity:
     #: vai tài khoản gốc. Nhật ký thao tác ghi cả hai ("Minh Thư, tài khoản Điều
     #: dưỡng, làm với vai Lễ tân") — không thì mất dấu ai thật sự đã bấm.
     vai_tai_khoan: ClinicRole | None = None
+    #: VAI THEO LEGO ĐANG BẬT ĐỦ (Tuyền chốt 26/09/2026 — "chỉ cần lego"). None =
+    #: CHƯA TÍNH (danh tính dựng tay trong test, người chưa có dòng quyền nào):
+    #: giữ nguyên luật cũ theo vai tài khoản. Có giá trị thì các vai do lego quyết
+    #: (`VAI_DO_LEGO`) CHỈ đến từ đây — tài khoản bác sĩ tắt lego Bàn khám thì
+    #: không còn vai bác sĩ ở các cửa cũ.
+    vai_theo_lego: frozenset[ClinicRole] | None = None
 
     def cac_vai(self) -> frozenset[ClinicRole]:
-        """MỌI vai người này làm được HÔM NAY: vai đang dùng, vai tài khoản gốc
-        (nếu cửa gác đã thay), và vai vận hành mà vị trí trong lịch cấp."""
-        vai = {self.role, *self.vai_theo_vi_tri}
-        if self.vai_tai_khoan is not None:
-            vai.add(self.vai_tai_khoan)
+        """MỌI vai người này làm được HÔM NAY: vai vận hành vị trí trong lịch cấp,
+        vai lego đang bật mang lại, vai tài khoản gốc (trừ vai do lego quyết khi
+        đã tính lego), và vai cửa gác đã thay vào."""
+        vai = set(self.vai_theo_vi_tri)
+        goc = self.vai_goc
+        if self.vai_theo_lego is None:
+            vai.update((self.role, goc))
+            return frozenset(vai)
+        from clinicai.permissions.catalogue import VAI_DO_LEGO
+
+        vai |= self.vai_theo_lego
+        if goc.value not in VAI_DO_LEGO:
+            vai.add(goc)
+        if self.role != goc:
+            # Cửa gác đã thay vai (theo vị trí hoặc theo lego) — vai hợp lệ.
+            vai.add(self.role)
         return frozenset(vai)
 
     @property
@@ -235,13 +252,13 @@ class StaffIdentity:
         return not self.cac_vai().isdisjoint(roles)
 
     def can_write_clinical(self) -> bool:
-        return self.role in CLINICAL_WRITE_ROLES
+        return self.co_vai(CLINICAL_WRITE_ROLES)
 
     def is_doctor(self) -> bool:
-        return self.role in PHYSICIAN_ROLES
+        return self.co_vai(PHYSICIAN_ROLES)
 
     def is_cashier(self) -> bool:
-        return self.role in CASHIER_ROLES
+        return self.co_vai(CASHIER_ROLES)
 
 
 # --------------------------------------------------------------------------- #
@@ -477,6 +494,9 @@ async def _resolve_identity(
     # thanh bên (`/me/vi-tri-hom-nay`). Cache 30 giây ở dưới nghĩa là vai đổi
     # chậm tối đa 30 giây sau giờ đổi ca.
     vi_tri_hien_hanh = await doc_vi_tri_hien_hanh(pool, str(clinic_id), str(row["id"]))
+    vai_lego = await doc_vai_theo_lego(
+        pool, str(clinic_id), str(row["id"]), vai_tai_khoan
+    )
     identity = StaffIdentity(
         staff_id=str(row["id"]),
         auth_user_id=str(row["auth_user_id"]),
@@ -491,6 +511,7 @@ async def _resolve_identity(
         vai_theo_vi_tri=vai_tu_vi_tri(
             [tram for tram, _ca in vi_tri_hien_hanh], vai_tai_khoan
         ),
+        vai_theo_lego=vai_lego,
     )
     # Only the success path is cached. A 403 stays uncached so a staff member
     # who has just been granted a membership gets in on their next request
@@ -616,24 +637,23 @@ class RoleGuard:
         self,
         identity: StaffIdentity = Depends(get_current_identity),
     ) -> StaffIdentity:
-        if identity.role not in self.allowed_roles:
-            # Vai tài khoản không được, nhưng VỊ TRÍ HÔM NAY cho phép: yêu cầu đi
-            # tiếp dưới vai của vị trí. Thay `role` ngay tại cửa (thay vì thêm
-            # một tập vai) để MỌI kiểm tra phía sau — loại thanh toán được thu,
-            # vai được đọc hàng chờ… — tự đúng mà không phải sửa 41 chỗ.
-            for vai in sorted(identity.vai_theo_vi_tri, key=lambda r: r.value):
-                if vai in self.allowed_roles:
-                    logger.info(
-                        "role_theo_vi_tri",
-                        vai_tai_khoan=identity.role.value,
-                        vai_hom_nay=vai.value,
-                        staff_id=identity.staff_id,
-                    )
-                    return replace(
-                        identity,
-                        role=vai,
-                        vai_tai_khoan=identity.vai_tai_khoan or identity.role,
-                    )
+        co = identity.cac_vai()
+        if identity.role not in self.allowed_roles or identity.role not in co:
+            # Vai đang dùng không qua (hoặc là vai do lego quyết mà lego đã tắt),
+            # nhưng VỊ TRÍ HÔM NAY hay LEGO ĐANG BẬT cho phép: yêu cầu đi tiếp dưới
+            # vai ấy. Thay `role` ngay tại cửa (thay vì thêm một tập vai) để MỌI
+            # kiểm tra phía sau — loại thanh toán được thu, vai được đọc hàng
+            # chờ… — tự đúng mà không phải sửa 41 chỗ.
+            for vai in sorted(co & self.allowed_roles, key=lambda r: r.value):
+                logger.info(
+                    "role_theo_vi_tri"
+                    if vai in identity.vai_theo_vi_tri
+                    else "role_theo_lego",
+                    vai_tai_khoan=identity.vai_goc.value,
+                    vai_hom_nay=vai.value,
+                    staff_id=identity.staff_id,
+                )
+                return replace(identity, role=vai, vai_tai_khoan=identity.vai_goc)
             logger.info(
                 "role_forbidden",
                 role=identity.role.value,
@@ -658,15 +678,11 @@ def dung_vai(identity: StaffIdentity, allowed: Iterable[ClinicRole]) -> StaffIde
     `vai_tai_khoan` — `record_event` ghi cả hai.
     """
     duoc = frozenset(allowed)
-    if identity.role in duoc:
+    co = identity.cac_vai()
+    if identity.role in duoc and identity.role in co:
         return identity
-    for vai in sorted(identity.vai_theo_vi_tri, key=lambda r: r.value):
-        if vai in duoc:
-            return replace(
-                identity,
-                role=vai,
-                vai_tai_khoan=identity.vai_tai_khoan or identity.role,
-            )
+    for vai in sorted(co & duoc, key=lambda r: r.value):
+        return replace(identity, role=vai, vai_tai_khoan=identity.vai_goc)
     return identity
 
 
@@ -736,6 +752,35 @@ VAI_KHONG_CAP_QUA_LICH: frozenset[ClinicRole] = frozenset(
         ClinicRole.DISPLAY,
     }
 )
+
+
+async def doc_vai_theo_lego(
+    pool: asyncpg.Pool, clinic_id: str, staff_id: str, vai_tai_khoan: ClinicRole
+) -> frozenset[ClinicRole] | None:
+    """Vai mà lego đang bật đủ mang lại (Tuyền chốt 26/09/2026).
+
+    None — giữ luật cũ theo vai tài khoản — khi: tài khoản ngoài phòng khám
+    (Đối tác, TV), hoặc người CHƯA CÓ dòng quyền nào. Vế sau là lưới an toàn: một
+    phòng khám chưa cấp quyền (hay một bản sao lỗi) không được làm mọi người mất
+    vai trong im lặng. Migration 15 đã cấp gói mẫu cho mọi thành viên.
+    """
+    if vai_tai_khoan in (ClinicRole.PARTNER, ClinicRole.DISPLAY):
+        return None
+    from clinicai.permissions.catalogue import vai_tu_lego
+
+    khoi = [
+        r["work_pack"]
+        for r in await pool.fetch(
+            "SELECT DISTINCT work_pack FROM v_quyen_hieu_luc"
+            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+            "   AND scope_type = 'CLINIC'",
+            clinic_id,
+            staff_id,
+        )
+    ]
+    if not khoi:
+        return None
+    return frozenset(ClinicRole(v) for v in vai_tu_lego(khoi))
 
 
 def vai_tu_vi_tri(
@@ -935,7 +980,7 @@ class RoleGuardCoTheMo(RoleGuard):
         # Vai theo vị trí hôm nay đi TRƯỚC công tắc: người đứng Lễ tân thì làm
         # việc dưới vai Lễ tân, để kiểm tra phía sau đọc đúng vai.
         if identity.role not in self.allowed_roles and any(
-            v in self.allowed_roles for v in identity.vai_theo_vi_tri
+            v in self.allowed_roles for v in identity.cac_vai()
         ):
             return await super().__call__(identity)
         if mo_quyen_tam_thoi() and identity.role in VAI_LAM_VIEC:

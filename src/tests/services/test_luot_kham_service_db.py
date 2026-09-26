@@ -992,7 +992,17 @@ async def test_thu_ky_bam_bat_dau_bac_si_van_duyet_duoc(kb: KichBan) -> None:
     )
     await _hanh_trinh(kb.pool)
     phien = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)["phien"][0]
-    # Chưa được phân đi kèm bác sĩ này → không bấm được.
+    # Đã được xếp theo bác sĩ KHÁC → không bấm được khách của bác sĩ này
+    # (Tuyền chốt 26/09/2026: chưa xếp ai thì thấy cả phòng; đã xếp thì chỉ
+    # khách của bác sĩ ấy).
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid) ON CONFLICT DO NOTHING",
+            CLINIC,
+            kb.thu_ky.staff_id,
+            kb.dieu_duong.staff_id,
+        )
     with pytest.raises(SafetyGateError):
         await kb.svc.start_consultation(consultation_id=phien["id"], identity=kb.thu_ky)
     async with kb.pool.acquire() as conn:

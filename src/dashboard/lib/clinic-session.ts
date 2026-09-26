@@ -34,6 +34,8 @@ export const getViTriHomNay = cache(() =>
     vi_tri: string[];
     ca: string[];
     vai?: string[];
+    /** Mọi vai hiệu lực, đã tính lego đang bật (26/09/2026). */
+    vai_hieu_luc?: string[];
     /** Phòng của từng vị trí (theo `room_id`, CORE-C 23/09/2026). */
     phong?: Record<string, { room_id: string; ten: string }>;
     /** Danh mục vị trí của phòng khám (`vi_tri_lam_viec`, CORE-C4). */
@@ -51,7 +53,16 @@ export const getVaiHomNay = cache(async (): Promise<ClinicRole[]> => {
   // Trưởng ca; có thể gồm cả vai trùng vai tài khoản). Vai tài khoản đứng cuối
   // nếu hôm nay không vị trí nào mang nó — vẫn còn đó cho mọi quyền vốn có.
   const theo = (d?.vai ?? []) as ClinicRole[];
-  return theo.includes(goc) ? theo : [...theo, goc];
+  const hieuLuc = d?.vai_hieu_luc as ClinicRole[] | undefined;
+  // Máy chủ cũ chưa trả vai hiệu lực: giữ luật cũ.
+  if (!hieuLuc) return theo.includes(goc) ? theo : [...theo, goc];
+  // VAI THEO LEGO (Tuyền chốt 26/09/2026 — "chỉ cần lego"): thứ tự = vị trí
+  // hôm nay, rồi vai tài khoản (nếu lego còn giữ nó), rồi vai lego mang lại.
+  // Vai tài khoản mà lego đã tắt KHÔNG còn ở đây — cùng luật cửa gác máy chủ.
+  const ra = theo.filter((v) => hieuLuc.includes(v));
+  if (hieuLuc.includes(goc) && !ra.includes(goc)) ra.push(goc);
+  for (const v of hieuLuc) if (!ra.includes(v)) ra.push(v);
+  return ra;
 });
 
 /** VAI CHÍNH HÔM NAY — vai quyết định HIỂN THỊ (trang chủ, nhãn vai, bảng việc).
