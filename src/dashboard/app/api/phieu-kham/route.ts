@@ -8,7 +8,8 @@
 //   GET /api/phieu-kham?visit_id=…&xem=phieu[&form_id=NT] → phiếu của lượt
 //   GET /api/phieu-kham?visit_id=…&xem=don-thuoc → đơn thuốc của lượt
 //   GET /api/phieu-kham?visit_id=…&xem=lich-su[&chon=NT] → lịch sử sửa phiếu (P4A)
-//   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, du_lieu, expected_revision}
+//   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, thay_doi}  (chỉ ô vừa đổi — lát 2)
+//   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, du_lieu, expected_revision}  (cả gói — cũ)
 //   PUT /api/phieu-kham {thao_tac: "luu-don", visit_id, dong, ly_do?}
 //
 // Chỗ lưu: bảng `phieu_kham_luot` (migration 20260924000008). Tầng này chỉ kiểm

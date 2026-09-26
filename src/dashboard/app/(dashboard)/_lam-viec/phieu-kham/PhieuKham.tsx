@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import {
   dungGoiLuu,
@@ -66,6 +67,19 @@ const NHAN_CHE_DO: Record<CheDoPhieu, { ten: string; tone: "neutral" | "warning"
   finalized_locked: { ten: "Chỉ xem", tone: "neutral" },
   amendment_mode: { ten: "Đang đính chính", tone: "warning" },
 };
+
+/** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
+ *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
+ *  hành chính luôn nằm trên, ngoài các khối. */
+const KHOI: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
+  { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
+  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
+  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
+];
+
+function coGiaTri(v: GiaTriO | undefined): boolean {
+  return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());
+}
 
 function gioVn(d: Date): string {
   return d.toLocaleTimeString("vi-VN", {
@@ -125,6 +139,7 @@ export default function PhieuKham({
   chiMuc?: string[];
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
+  const [khoi, setKhoi] = useState<1 | 2 | 3>(1);
   const [thamChieu, setThamChieu] = useState<ThamChieu | null>(null);
   const [luuLuc, setLuuLuc] = useState<Date | null>(null);
   const [canhBao, setCanhBao] = useState<CanhBaoO[]>([]);
@@ -208,6 +223,24 @@ export default function PhieuKham({
   const nhanCheDo =
     cheDo in NHAN_CHE_DO ? NHAN_CHE_DO[cheDo] : { ten: "Chế độ lạ — chỉ đọc", tone: "neutral" as const };
 
+  // Tóm tắt trên nút khối — như bản mẫu: số ô đã điền · chỉ định & kết quả ·
+  // thuốc & hẹn.
+  const oTheoMuc = (ds: string[]) =>
+    dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
+  const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTri(gia[ma])).length;
+  const coKq = ketQuaChiDinh.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
+  const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
+  const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTri(gia[ma]));
+  const tomTat: Record<1 | 2 | 3, string> = {
+    1: `${soDien} ô đã điền`,
+    2: ketQuaChiDinh.length
+      ? `${ketQuaChiDinh.length} chỉ định · ${coKq} có KQ`
+      : "chưa chỉ định",
+    3:
+      [soThuoc ? `${soThuoc} thuốc` : "", coHen ? "có hẹn" : ""].filter(Boolean).join(" · ") ||
+      "chưa có gì",
+  };
+
   return (
     <section className="space-y-4 rounded-card border border-hairline bg-surface p-4">
       <header className="flex flex-wrap items-center gap-2">
@@ -233,7 +266,33 @@ export default function PhieuKham({
         </ul>
       ) : null}
 
-      {(chiMuc ? dinhNghia.khung.filter((m) => chiMuc.includes(m.ma)) : dinhNghia.khung).map((m) => (
+      {!chiMuc ? (
+        <nav
+          aria-label="Ba khối của phiếu"
+          className="flex gap-2 overflow-x-auto lg:hidden"
+        >
+          {KHOI.map((k) => (
+            <button
+              key={k.so}
+              type="button"
+              aria-pressed={khoi === k.so}
+              onClick={() => setKhoi(k.so)}
+              className={buttonClass(khoi === k.so ? "primary" : "secondary", "sm")}
+            >
+              {k.so} · {k.ten}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      <div className={chiMuc ? "space-y-4" : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]"}>
+      <div className="min-w-0 space-y-4">
+      {(chiMuc
+        ? dinhNghia.khung.filter((m) => chiMuc.includes(m.ma))
+        : dinhNghia.khung.filter(
+            (m) => m.ma === "HANH_CHINH" || (KHOI[khoi - 1]?.muc ?? []).includes(m.ma),
+          )
+      ).map((m) => (
         <div key={m.ma} className="space-y-3">
           {m.ma !== "HANH_CHINH" ? (
             <h3 className="border-b border-hairline pb-1 text-emph font-semibold text-ink">
@@ -273,6 +332,60 @@ export default function PhieuKham({
           {veO(m)}
         </div>
       ))}
+      {!chiMuc ? (
+        <div className="flex justify-between gap-2 border-t border-hairline pt-3">
+          {khoi > 1 ? (
+            <button
+              type="button"
+              className={buttonClass("ghost", "sm")}
+              onClick={() => setKhoi((khoi - 1) as 1 | 2)}
+            >
+              ← {KHOI[khoi - 2]?.ten}
+            </button>
+          ) : (
+            <span />
+          )}
+          {khoi < 3 ? (
+            <button
+              type="button"
+              className={buttonClass("secondary", "sm")}
+              onClick={() => setKhoi((khoi + 1) as 2 | 3)}
+            >
+              Sang: {KHOI[khoi]?.ten} →
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      </div>
+
+      {!chiMuc ? (
+        <aside className="hidden lg:block">
+          <nav aria-label="Ba khối của phiếu" className="sticky top-4 space-y-2">
+            {KHOI.map((k) => (
+              <button
+                key={k.so}
+                type="button"
+                aria-pressed={khoi === k.so}
+                onClick={() => setKhoi(k.so)}
+                className={`flex w-full items-start gap-2 rounded-control border px-3 py-2 text-left ${
+                  khoi === k.so
+                    ? "border-brand-600 bg-brand-50"
+                    : "border-line bg-surface hover:bg-surface-muted"
+                }`}
+              >
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-meta font-semibold text-white">
+                  {k.so}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-body font-medium text-ink">{k.ten}</span>
+                  <span className="block text-meta text-ink-muted">{tomTat[k.so]}</span>
+                </span>
+              </button>
+            ))}
+          </nav>
+        </aside>
+      ) : null}
+      </div>
     </section>
   );
 }

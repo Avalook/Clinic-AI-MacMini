@@ -2223,11 +2223,23 @@ class LuotKhamService:
                 boi=nguoi(identity),
                 correlation_id=vid,
             )
-            # Bác sĩ hẹn tái khám (mục X bệnh án) — sự thật chốt lúc Khám xong.
+            # Bác sĩ hẹn tái khám — sự thật chốt lúc Khám xong. Phiếu v5 (mục G
+            # "Ngày tái khám", ô `*_follow_date`) trước, bệnh án cũ sau: trước
+            # 26/09 ngày hẹn trên phiếu v5 KHÔNG ai đọc, nên hẹn không sinh nhắc.
             ngay_tai_kham = await conn.fetchval(
-                "SELECT nullif(btrim(soap_plan #>> '{tai_kham,ngay}'), '')"
-                " FROM clinical_record WHERE clinic_id = $1::uuid"
-                " AND visit_id = $2::uuid",
+                """
+                SELECT coalesce(
+                  (SELECT max(nullif(btrim(o.value ->> 'gia_tri'), ''))
+                     FROM phieu_kham_luot p,
+                          jsonb_each(p.du_lieu) AS o
+                    WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid
+                      AND right(o.key, 12) = '_follow_date'
+                      AND nullif(btrim(o.value ->> 'gia_tri'), '')
+                          ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'),
+                  (SELECT nullif(btrim(soap_plan #>> '{tai_kham,ngay}'), '')
+                     FROM clinical_record WHERE clinic_id = $1::uuid
+                      AND visit_id = $2::uuid))
+                """,
                 cid,
                 vid,
             )
