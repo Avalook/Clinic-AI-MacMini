@@ -973,7 +973,11 @@ class FormEngineService:
             # Quyền TRƯỚC khung: người không có quyền không nhận được lời chỉ
             # dẫn sửa khung cho đúng.
             await doi_quyen(conn, identity, QUYEN_XUAT_BAN)
-            khung = kiem_khung_mau(khung)
+            # Luật khung chỉ cho MẪU KẾT QUẢ (`KQ_*`). Hàm này còn xuất bản bảy
+            # phiếu khám (NT, PK…) — khung của chúng khác hẳn (`lien_ket`, nhóm,
+            # bảng hàng×cột) và có luật riêng ở `phieu_kham/khung.py`.
+            if form_id.startswith("KQ_"):
+                khung = kiem_khung_mau(khung)
             if ten_moi is not None and len(ten_moi) > 200:
                 raise ValidationError("Tên mẫu dài quá 200 ký tự.")
             # Khoá theo MẪU trước khi đọc bản mới nhất. `FOR UPDATE` trên dòng
