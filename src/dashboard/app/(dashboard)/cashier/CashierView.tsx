@@ -340,7 +340,7 @@ export default function CashierView({
                             row.service_code
                           )}
                         </td>
-                        <td className="px-4 py-3 text-ink">{row.name}</td>
+                        <td className="min-w-48 px-4 py-3 text-ink">{row.name}</td>
                         {laDichVu ? (
                           <td className="px-4 py-3">
                             <select
@@ -348,7 +348,7 @@ export default function CashierView({
                               value={row.node_code ?? ""}
                               disabled={busy}
                               onChange={(event) => void send("PATCH", { id: row.id, node_code: event.target.value })}
-                              className="h-9 max-w-48 rounded-control border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-500"
+                              className="h-9 w-36 rounded-control border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-500"
                             >
                               <option value="" disabled>
                                 Chưa chọn phòng
