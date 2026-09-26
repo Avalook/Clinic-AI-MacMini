@@ -140,9 +140,14 @@ def k02(k: Khach) -> None:
 def k03(k: Khach) -> None:
     ph = _den_kham(k, 30)
     (sa,) = _chi_dinh_va_thu(k, ph, [SA], nguoi_thu="thungan")[:1] or (None,)
-    k.lam("thu ngân thu → KHÔNG tự xếp (thu ngân không có khối điều phối)",
-          lambda: time.sleep(4) or (b.chi_dinh(k.vid, sa)["phong_id"] is None or (_ for _ in ()).throw(AssertionError("đã tự xếp"))))
-    k.lam("trưởng ca xếp phòng tay", lambda: b.xep_tay(sa))
+    # Thu ngân MẶC ĐỊNH có điều phối (Tuyền 24/09) → thu xong tự xếp (H4).
+    k.lam("thu ngân thu → hệ thống tự xếp phòng", lambda: b.cho_phong(k.vid, sa))
+    k.lam("quầy thu đổi phòng sau khi thu (P3)",
+          lambda: b.xep_tay(sa, "thungan", nguon="quay_thu", doi_phong=True))
+    k.lam("trưởng ca đổi phòng tay — đè quầy thu",
+          lambda: b.xep_tay(sa, nguon="truong_ca", doi_phong=True))
+    k.lam("quầy thu đổi SAU trưởng ca → bị chặn",
+          lambda: b.xep_tay(sa, "thungan", nguon="quay_thu", doi_phong=True), mong_loi=409)
     k.lam("BS siêu âm làm + phiếu", lambda: b.lam_tron(sa))
     _ket_thuc(k, thuoc=False)
 
@@ -389,10 +394,45 @@ def k20(k: Khach) -> None:
     k.lam("check-out ngay khi chưa khám (khách đổi ý)", lambda: b.checkout(k.vid, bo_ve="Khách đổi ý không khám"))
 
 
+def k21(k: Khach) -> None:
+    """Điều dưỡng tick "Bỏ qua bác sĩ tư vấn" → khách vào thẳng bác sĩ chính."""
+    k.pid = k.lam("tạo khách", lambda: b.tao_khach(f"Mô Phỏng {k.ma}"))
+    k.aid = k.lam("CSKH đặt lịch", lambda: b.dat_lich(k.pid, phut=45))
+    k.vid = k.lam("lễ tân check-in", lambda: b.check_in(k.aid))
+    k.lam("điều dưỡng đo sinh hiệu", lambda: b.do_sinh_hieu(k.vid))
+    k.lam("điều dưỡng tick BỎ QUA tư vấn", lambda: b.bo_qua_tu_van(k.vid))
+    ph = k.lam("vào thẳng bác sĩ chính (không qua phiên TU_VAN)", lambda: (
+        b.cho(lambda: b._phien_cho(k.vid, {"PRIMARY"}), mo_ta="phiên chính vào hàng")
+        and b.bat_dau_kham(k.vid)))
+    k.lam("bác sĩ Hoàn tất — không chỉ định", lambda: b.kham_xong(ph))
+    k.lam("thu tiền khám", lambda: b.thu(k.vid))
+    k.lam("check-out", lambda: b.checkout(k.vid))
+
+
+def k22(k: Khach) -> None:
+    """Chỉ định "Bắt buộc": quầy thu bỏ → bị chặn; bác sĩ bỏ tick → bỏ được;
+    thu xong → không đổi bắt buộc được nữa."""
+    ph = _den_kham(k, 60)
+    sa, xn = k.lam("chỉ định SA (BẮT BUỘC) + XN", lambda: b.dat_chi_dinh(
+        ph, [SA, XN_DOI_TAC], bat_buoc=[SA])) or (None, None)
+    k.lam("bác sĩ Hoàn tất", lambda: b.kham_xong(ph))
+    k.lam("quầy thu BỎ dịch vụ bắt buộc → bị chặn",
+          lambda: b.chon_dv(k.vid, [xn]), mong_loi=409)
+    k.lam("bác sĩ bỏ tick bắt buộc", lambda: b.doi_bat_buoc(sa, False))
+    k.lam("bác sĩ tick lại bắt buộc", lambda: b.doi_bat_buoc(sa, True))
+    k.lam("quầy thu bỏ XN (không bắt buộc) — được", lambda: b.chon_dv(k.vid, [sa]))
+    k.lam("thu tiền dịch vụ", lambda: b.thu(k.vid, "dich_vu", "letan"))
+    k.lam("đã thu → đổi bắt buộc bị chặn",
+          lambda: b.doi_bat_buoc(sa, False), mong_loi=409)
+    k.lam("hệ thống tự xếp phòng siêu âm", lambda: b.cho_phong(k.vid, sa))
+    k.lam("BS siêu âm làm + phiếu", lambda: b.lam_tron(sa))
+    _ket_thuc(k, thuoc=False)
+
+
 KICH_BAN: dict[str, tuple[str, Callable[[Khach], None]]] = {
     "K01": ("Luồng đủ: SA + XN đối tác → đọc KQ → thuốc → về", k01),
     "K02": ("Khám không chỉ định", k02),
-    "K03": ("Thu ngân thu → trưởng ca xếp phòng tay", k03),
+    "K03": ("Thu ngân thu → tự xếp → trưởng ca đè, quầy thu bị khoá", k03),
     "K04": ("Khách bỏ bớt 1 chỉ định", k04),
     "K05": ("Gián đoạn → làm lại", k05),
     "K06": ("Đã thu tiền nhưng không làm", k06),
@@ -410,6 +450,8 @@ KICH_BAN: dict[str, tuple[str, Callable[[Khach], None]]] = {
     "K18": ("Chỉ định thêm ở vòng đọc", k18),
     "K19": ("Một người đa vai: tiếp đón + đo + thu", k19),
     "K20": ("Check-in hai lần · khách đổi ý về", k20),
+    "K21": ("Điều dưỡng bỏ qua tư vấn → thẳng bác sĩ chính", k21),
+    "K22": ("Chỉ định bắt buộc: quầy thu không bỏ được", k22),
 }
 
 

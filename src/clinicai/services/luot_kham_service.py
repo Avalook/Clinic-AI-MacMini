@@ -547,6 +547,14 @@ class LuotKhamService:
             clinic_id,
             visit_id,
         )
+        # Dây H1 (`visit.checked_in` → xếp đường) chạy NỀN. Check-in xong đo ngay
+        # (vãng lai) thì lúc tick lượt có thể CHƯA được xếp đường — chưa có phiên
+        # tư vấn nào để bỏ, tick bị từ chối và khách vẫn sang tư vấn (mô phỏng
+        # 26/09/2026). Xếp ngay trong giao dịch này bằng đúng luật H1; H1 tới sau
+        # thấy đã có đường thì thôi (chạy lại được).
+        await self.xep_sau_check_in(
+            conn, clinic_id=clinic_id, visit_id=visit_id, causation_id=causation_id
+        )
         tu_van = await conn.fetchval(
             "SELECT id::text FROM consultation WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid AND kind = 'TU_VAN' AND status = 'queued'",

@@ -242,3 +242,60 @@ async def test_o_tick_ap_ngay_va_bo_tick_la_ve_tu_van(
         )
         == "queued"
     )
+
+
+async def _check_in_chua_h1(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811
+    """Check-in mà KHÔNG chạy người đưa tin — dây H1 chưa kịp xếp đường."""
+    bd = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=30)
+    appt = await pool.fetchval(
+        "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+        " service_type_id, slot_start, slot_end, doctor_id, status)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid,"
+        " 'CONFIRMED') RETURNING id::text",
+        CLINIC,
+        await _benh_nhan(pool, ca),
+        ca.loc,
+        ca.loai_kham,
+        bd,
+        bd + dt.timedelta(minutes=15),
+        ca.bac_si.staff_id,
+    )
+    await BookingService(pool).apply_action(
+        appointment_id=appt, action="checkin", identity=ca.le_tan
+    )
+    return str(
+        await pool.fetchval(
+            "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid", appt
+        )
+    )
+
+
+async def test_tick_bo_qua_truoc_khi_h1_xep_duong_van_vao_thang(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Check-in xong đo NGAY, dây H1 (chạy nền) chưa kịp xếp đường: tick "bỏ
+    qua" vẫn phải đưa khách vào thẳng bác sĩ chính — trước 26/09 bị 409 và
+    khách vẫn sang tư vấn (mô phỏng K21). H1 tới sau không đẻ lại tư vấn."""
+    ca = await _dung(pool)
+    await _qua_tu_van(pool, ca)
+    o_tick = await _check_in_chua_h1(pool, ca)
+    do_xong = await _check_in_chua_h1(pool, ca)
+    assert await _duong(pool, o_tick) is None, "H1 chưa chạy"
+
+    # Ô tick (áp ngay) — KHÔNG chạy người đưa tin trước.
+    await LuotKhamService(pool).doi_duong_tu_van(
+        visit_id=o_tick, bo_qua=True, identity=ca.dd
+    )
+    # Nút Đo xong kèm tick — cũng trước khi H1 chạy (`_do` chạy người đưa tin
+    # SAU khi lệnh đo đã xong).
+    await _do(pool, ca, do_xong, bo_qua=True)
+
+    for v in (o_tick, do_xong):
+        assert await _duong(pool, v) == "PRIMARY"
+        kinds = {
+            r["kind"]: r["status"]
+            for r in await pool.fetch(
+                "SELECT kind, status FROM consultation WHERE visit_id = $1::uuid", v
+            )
+        }
+        assert kinds == {"TU_VAN": "cancelled", "PRIMARY": "queued"}

@@ -202,6 +202,18 @@ có test). 0 lỗi 5xx, giao tin p50 ~520–620 ms / max ~1,1 s, màn hình p50 
 
 ---
 
+## Mô phỏng chạy lại sau lego / P2–P4 (26/09) — 21/22
+
+- Lỗi THẬT: tick "Bỏ qua bác sĩ tư vấn" khi dây H1 (chạy nền) chưa kịp xếp
+  đường (check-in xong đo ngay) → 409, khách vẫn sang tư vấn. Sửa: `bo_qua_tu_van`
+  gọi `xep_sau_check_in` trong cùng giao dịch trước (test kiểm ngược đỏ khi gỡ vá).
+- Bộ mô phỏng cũ: chờ phiên `INTAKE` (nay `TU_VAN`); K03 giả định thu ngân không
+  có điều phối (đã có từ 24/09); K11 bắt BS siêu âm làm cả tư vấn. Thêm K21 (bỏ qua
+  tư vấn) · K22 (chỉ định bắt buộc) · K03 phủ P3 (trưởng ca đè quầy thu).
+- LỆCH local ↔ prod: `dev-up.sh --reset` dựng phòng ở cơ sở "Phòng khám Dr4Women",
+  prod dồn phòng về Kim Ngưu (script 24/09). Mô phỏng nay tự chọn cơ sở có phòng.
+- Còn đỏ: K13 "huỷ phiếu thu rồi thu lại" — CHỜ TUYỀN CHỐT chính sách (không tự chốt).
+
 ## Mô phỏng 20 khách qua API thật + 6 lỗi thật đã sửa (24/09 — CHƯA deploy)
 
 Tuyền: "chạy dữ liệu thật cho 10–20 khách, đủ mọi trường hợp, xem log rồi check".

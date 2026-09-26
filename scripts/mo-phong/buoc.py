@@ -18,6 +18,25 @@ from ket_noi import LoiApi, NguoiDung, sql
 
 VN = dt.timezone(dt.timedelta(hours=7))
 KIM_NGUU = "fe45d9f6-0d67-428d-9d16-5ba5c36befff"
+_CO_SO: list[str] = []
+
+
+def co_so_kham() -> str:
+    """Cơ sở đặt lịch = cơ sở ĐANG CÓ phòng bật nhiều nhất.
+
+    Prod dồn phòng về Kim Ngưu (script 24/09), còn `dev-up.sh --reset` dựng lại
+    từ seed — phòng nằm ở cơ sở khác. Ghim cứng Kim Ngưu thì khách đặt vào cơ sở
+    0 phòng, thu xong không phòng nào xếp được (mô phỏng 26/09: 10 lượt).
+    """
+    if not _CO_SO:
+        _CO_SO.append(
+            id_mot(
+                "select coalesce((select r.location_id from clinic_room r"
+                " where r.is_active group by 1 order by count(*) desc limit 1),"
+                f" '{KIM_NGUU}'::uuid)"
+            )
+        )
+    return _CO_SO[0]
 
 _NGUOI: dict[str, NguoiDung] = {}
 
@@ -74,7 +93,7 @@ def tao_khach(ten: str) -> str:
         "/patients",
         {
             "full_name": ten,
-            "location_id": KIM_NGUU,
+            "location_id": co_so_kham(),
             "phone_primary": f"09{random.randint(10**7, 10**8 - 1)}",
             "gender": "F",
             "birth_year": random.randint(1975, 2003),
@@ -106,7 +125,7 @@ def dat_lich(
                 {
                     "clinic_patient_id": pid,
                     "service_type_id": st,
-                    "location_id": KIM_NGUU,
+                    "location_id": co_so_kham(),
                     "slot_start": s.isoformat(),
                     "slot_end": (s + dt.timedelta(minutes=15)).isoformat(),
                     "doctor_id": bs,
@@ -148,12 +167,20 @@ def _phien_cho(vid: str, loai: set[str]) -> dict[str, Any] | None:
     )
 
 
-def bat_dau_kham(vid: str, nguoi: str = "bs.a") -> str:
-    """Khám chính: nếu loại khám qua tư vấn thì tư vấn xong trước."""
-    p = cho(lambda: _phien_cho(vid, {"PRIMARY", "INTAKE"}), mo_ta="phiên khám vào hàng")
-    if p["loai"] == "INTAKE":
-        ai(nguoi).post(f"/luot-kham/consultations/{p['id']}/start")
-        ai(nguoi).post(f"/luot-kham/consultations/{p['id']}/xong-tu-van")
+def bat_dau_kham(vid: str, nguoi: str = "bs.a", *, nguoi_tu_van: str = "bs.a") -> str:
+    """Khám chính: nếu lượt đang ở hàng tư vấn thì BS tư vấn làm xong trước.
+
+    Từ 25/09/2026 (H1 khách quen TẮT) đo sinh hiệu xong MỌI khách sang bác sĩ
+    tư vấn (phiên `TU_VAN`), trừ khi điều dưỡng tick "bỏ qua" (`bo_qua_tu_van`).
+    """
+    p = cho(
+        lambda: _phien_cho(vid, {"PRIMARY", "INTAKE", "TU_VAN"}),
+        mo_ta="phiên khám vào hàng",
+    )
+    if p["loai"] in ("INTAKE", "TU_VAN"):
+        # Tư vấn là việc của BÁC SĨ TƯ VẤN, không phải bác sĩ chính của lượt.
+        ai(nguoi_tu_van).post(f"/luot-kham/consultations/{p['id']}/start")
+        ai(nguoi_tu_van).post(f"/luot-kham/consultations/{p['id']}/xong-tu-van")
         p = cho(lambda: _phien_cho(vid, {"PRIMARY"}), mo_ta="bàn giao bác sĩ chính")
     ai(nguoi).post(f"/luot-kham/consultations/{p['id']}/start")
     return str(p["id"])
@@ -164,6 +191,27 @@ def chi_dinh_dv(phien: str, ma: list[str], nguoi: str = "bs.a") -> list[str]:
         f"/luot-kham/consultations/{phien}/authorize-orders", {"service_codes": ma}
     )
     return list(r["order_ids"])
+
+
+def bo_qua_tu_van(vid: str, bo_qua: bool = True, nguoi: str = "dd.sa") -> Any:
+    """Ô tick "Bỏ qua bác sĩ tư vấn" ở màn đo sinh hiệu (25/09/2026)."""
+    return ai(nguoi).post(f"/luot-kham/visits/{vid}/bo-qua-tu-van", {"bo_qua": bo_qua})
+
+
+def dat_chi_dinh(
+    phien: str, ma: list[str], *, bat_buoc: list[str] | None = None, nguoi: str = "bs.a"
+) -> list[str]:
+    """Lối chỉ định của phiếu v5 (`PlaceServiceOrders`) — có tick "Bắt buộc"."""
+    r = ai(nguoi).post(
+        f"/luot-kham/consultations/{phien}/service-orders",
+        {"service_codes": ma, "bat_buoc_codes": bat_buoc or []},
+        headers=khoa(),
+    )
+    return list(r["order_ids"])
+
+
+def doi_bat_buoc(oid: str, bat_buoc: bool, nguoi: str = "bs.a") -> Any:
+    return ai(nguoi).post(f"/luot-kham/orders/{oid}/bat-buoc", {"bat_buoc": bat_buoc})
 
 
 def kham_xong(phien: str, nguoi: str = "bs.a") -> Any:
@@ -217,18 +265,27 @@ def cho_phong(vid: str, oid: str, giay: float = 15) -> str:
     )
 
 
-def xep_tay(oid: str, nguoi: str = "truongca") -> str:
+def xep_tay(
+    oid: str, nguoi: str = "truongca", *, nguon: str | None = None, doi_phong: bool = False
+) -> str:
+    """Xếp phòng tay. `doi_phong` = chọn phòng KHÁC phòng đang xếp (đổi lại);
+    `nguon` = màn gọi (quay_thu / truong_ca — P3, 25/09/2026)."""
     u = ai(nguoi)
     rec = u.get(f"/luot-kham/orders/{oid}/routing/recommendation")
     ex = u.get(f"/luot-kham/orders/{oid}/execution")
-    phong = rec["candidates"][0]["room_id"]
+    dang = ex.get("room_id")
+    ung_vien = [c["room_id"] for c in rec["candidates"]]
+    if doi_phong:
+        ung_vien = [r for r in ung_vien if r != dang] or ung_vien
+    phong = ung_vien[0]
     u.post(
         f"/luot-kham/orders/{oid}/routing/assign",
         {
             "room_id": phong,
             "expected_routing_revision": ex["routing_revision"],
-            "reason_code": "INITIAL_ASSIGNMENT",
+            "reason_code": "MANUAL_CORRECTION" if dang else "INITIAL_ASSIGNMENT",
             "recommendation_ref": rec["recommendation_ref"],
+            **({"nguon": nguon} if nguon else {}),
         },
         headers=khoa(),
     )
