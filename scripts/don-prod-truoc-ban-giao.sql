@@ -61,7 +61,7 @@ INSERT INTO bang_xoa (ten) VALUES
   ('visit'), ('visit_amendment'), ('visit_route'), ('visit_gate_override'),
   ('encounter_flow'), ('queue_entry'), ('consultation'), ('consultation_note'),
   ('clinical_record'), ('clinical_form_response'), ('clinical_release'),
-  ('phieu_kham_luot'), ('ultrasound_record'), ('lab_result'),
+  ('phieu_kham_luot'), ('phieu_kham_lich_su'), ('ultrasound_record'), ('lab_result'),
   ('vital_measurement'), ('form_instance'), ('form_result_release'),
   ('result_correction'),
   -- Chỉ định, đối tác, tệp kết quả
