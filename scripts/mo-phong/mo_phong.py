@@ -283,9 +283,15 @@ def k13(k: Khach) -> None:
     r = k.lam("thu tiền", lambda: b.thu(k.vid))
     k.lam("HUỶ phiếu thu (thu nhầm)", lambda: b.ai("letan").goi("DELETE", "/payments", json={
         "payment_cycle_id": r["payment_cycle_id"], "visit_id": k.vid, "kind": "dich_vu", "reason": "Thu nhầm số"}))
-    # FINANCE-GATE v1: PAID→VOIDED → "cần xem xét tài chính", KHÔNG tự thu lại.
-    # Cách xử lý sau đó hợp đồng ghi "Chưa chốt" — chờ Tuyền quyết.
-    k.lam("thu lại phải bị chặn (chờ chính sách xử lý phiếu huỷ)", lambda: b.thu(k.vid), mong_loi=422)
+    # Chốt 26/09/2026 (Tuyền giao "tự thao tác nốt"): thu nhầm → huỷ → THU LẠI
+    # ĐƯỢC, cùng cách với tiền thuốc — chặn là để lượt treo (chưa trả nên không
+    # xếp phòng). Điều phải canh: không tính tiền hai lần.
+    k.lam("thu lại sau khi huỷ", lambda: b.thu(k.vid))
+    k.lam("chỉ MỘT phiếu thu dịch vụ còn hiệu lực", lambda: int(sql(
+        "select count(*) from payment_cycle where kind='dich_vu' and status='PAID'"
+        f" and visit_id='{k.vid}'")[0][0]) == 1 or (_ for _ in ()).throw(AssertionError("thu hai lần")))
+    k.lam("thu xong tự xếp phòng", lambda: b.cho_phong(k.vid, b.id_mot(
+        f"select id from service_order where visit_id='{k.vid}' limit 1")))
 
 
 def k14(k: Khach) -> None:
@@ -442,7 +448,7 @@ KICH_BAN: dict[str, tuple[str, Callable[[Khach], None]]] = {
     "K10": ("Dời lịch rồi đến khám", k10),
     "K11": ("Trưởng ca đổi bác sĩ", k11),
     "K12": ("Thư ký nhập phiếu khám thay bác sĩ", k12),
-    "K13": ("Thu nhầm → huỷ phiếu thu → thu lại", k13),
+    "K13": ("Thu nhầm → huỷ phiếu thu → thu lại (một phiếu hiệu lực)", k13),
     "K14": ("Quản lý mở hồ sơ (nhật ký) · lễ tân bị chặn", k14),
     "K15": ("Khách mua ít thuốc hơn kê", k15),
     "K16": ("Đính chính kết quả", k16),

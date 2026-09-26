@@ -250,12 +250,11 @@ Kèm: câu báo "Chỉ bác sĩ phụ trách…" tách thành hai câu (thiếu 
 bác sĩ phụ trách); bộ mô phỏng hết in mật khẩu DB trong log lỗi.
 
 **Chờ Tuyền quyết (không tự chốt):**
-- **Thu nhầm → huỷ phiếu thu dịch vụ → không thu lại được** (FINANCE-GATE v1: PAID→VOIDED
-  = "cần xem xét tài chính", cách xử lý ghi "Chưa chốt"). Lượt treo: chưa trả tiền nên
-  không xếp phòng. Tiền thuốc thì huỷ rồi thu lại được — hai khoản đang cư xử khác nhau.
-- **Thu ngân thu tiền → không tự xếp phòng** (nhóm mẫu Thu ngân không có khối Điều phối;
-  luật "xếp bằng quyền người vừa thu"). Lễ tân thu thì tự xếp. Giữ hay cho Thu ngân khối
-  Điều phối / cho dây H4 chạy bằng quyền hệ thống?
+- ~~Thu nhầm → huỷ phiếu thu dịch vụ → không thu lại được~~ — ĐÃ CHỐT 26/09 (Tuyền
+  giao "tự thao tác nốt"): THU LẠI ĐƯỢC như tiền thuốc; mô phỏng K13 canh chỉ còn MỘT
+  phiếu PAID và thu xong tự xếp phòng.
+- ~~Thu ngân thu tiền → không tự xếp phòng~~ — xong từ 24/09 (Thu ngân mặc định có
+  Điều phối); K03 phủ cả trưởng ca đè quầy thu.
 - **Mã phiếu kết quả "KQ_" + mã mẫu** do giao diện tự ghép (PhieuKetQua.tsx) — nợ: backend
   nên trả thẳng mã phiếu.
 - **Đơn kê ở phiếu v5 không có đơn vị** → khi bật lại kho thuốc, dược sĩ không chọn lô được.
