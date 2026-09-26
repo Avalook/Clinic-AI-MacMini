@@ -13,6 +13,26 @@ lịch sử hội thoại.
 
 ---
 
+## Bản giao diện mẫu → hệ thống thật (26/09 — 5 lát)
+
+Nguồn: `~/Downloads/Dr4women-giao-dien-mau/BAN-GIAO-CHO-PHIEN-CHINH.md` (đọc hết trước khi
+làm), bản mẫu chạy `python3 -m http.server 8791` trong thư mục đó. Tuyền 26/09: "áp vào các
+trang của hệ thống, cái nào xung đột cứ nhìn nguồn chuẩn là các file tôi đưa". Soi lại 11 điểm
+lệch trên main f2542b5: CẢ 11 VẪN ĐÚNG (chi tiết: quầy chặn giá trống ở
+`payment_service.py:331,591`; đã có API gắn mẫu `routers/mau_ket_qua.py:56` nhưng chưa proxy/màn;
+"chỉ định thêm" trong cùng phiên dùng chung `round_no`; đối tác có thêm `BU_DU_LIEU`).
+
+1. **Danh mục — ĐANG LÀM:** `service_price.ma_kiotviet` + `chuan_hoa_danh_muc_dich_vu_kiotviet()`
+   (mig 20260926000001): 39 mã cũ gắn mã KV + giá KV, 45 dịch vụ mới `KV_<mã>` (9 chưa có giá →
+   trống). 8 câu chờ → theo nguồn chuẩn: ghế ĐTT 3tr (KV), PCR 1,1tr (viết tay), ThinPrep giữ 650k
+   (KV 0đ, giấy không ghi), HPV 900k, Nong ÂV = SP000162, SA 3D sàn chậu GIỮ riêng (không gộp
+   4D), dịch vụ chỉ hệ thống có GIỮ (quản lý tắt ở Bảng giá nếu không bán). Phí khám (11 mã KV) →
+   lát 2. Mục C phiếu khám có thêm nhóm "… (danh mục phòng khám)". Bảng giá: mã phòng khám + phòng làm.
+2. Phiếu khám v2 (3 khối, giữ `ma`, lưu theo ô, công tắc tư vấn, hẹn → nhắc tái khám, phí khám).
+3. Mẫu kết quả v3 theo 17 PDF + tệp (`ben`, video, ảnh nhỏ, Tải về, màn sửa/gắn mẫu).
+4. Lần chỉ định (phiên mới, bỏ khoá dòng) + realtime `form_instance` + đối tác theo chỉ định.
+5. Giao diện + in A4 theo bản mẫu bằng component thật (Lightbox/Dropzone/Timeline vào `components/ui`).
+
 ## Phân quyền = 21 lego theo node thanh bên (25/09 — P1 của 4 prompt)
 
 Xong: danh mục 21 lego (`MAN`, `permissions/catalogue.py`) + 13 khối / 14 quyền mới

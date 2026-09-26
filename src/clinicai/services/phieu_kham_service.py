@@ -104,6 +104,17 @@ def _khoa_ten(t: str) -> str:
     return "".join(t.split()).lower()
 
 
+#: Nhóm hiển thị của dịch vụ danh mục phòng khám theo phòng làm (node).
+_NHOM_THEO_NODE = {
+    "DICHVU-SIEUAM": "Siêu âm",
+    "DICHVU-THUTHUAT": "Thủ thuật",
+    "DICHVU-LAYMAU-MAU": "Xét nghiệm",
+    "DICHVU-LAYMAU-AMDAO": "Xét nghiệm",
+    "DICHVU-LAYMAU-NUOCTIEU": "Xét nghiệm",
+    "DICHVU-SANGLOC-COTUCUNG": "Sàng lọc cổ tử cung",
+}
+
+
 class PhieuKhamService:
     def __init__(self, pool: asyncpg.Pool, *, kiem_quyen: KiemQuyen) -> None:
         self._pool = pool
@@ -376,14 +387,14 @@ class PhieuKhamService:
         tc = tham_chieu_nguon()
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
-            dv = {
-                r["service_code"]: r["unit_price"]
-                for r in await conn.fetch(
-                    "SELECT service_code, unit_price FROM service_price"
-                    " WHERE clinic_id = $1::uuid AND active AND \"group\" = 'dich_vu'",
-                    cid,
-                )
-            }
+            dong_dv = await conn.fetch(
+                "SELECT service_code, unit_price, name, node_code, ma_kiotviet"
+                "  FROM service_price"
+                " WHERE clinic_id = $1::uuid AND active AND \"group\" = 'dich_vu'"
+                " ORDER BY name",
+                cid,
+            )
+            dv = {r["service_code"]: r["unit_price"] for r in dong_dv}
             dong_kho = await conn.fetch(
                 "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price,"
                 "       don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc"
@@ -411,6 +422,37 @@ class PhieuKhamService:
         tc["thu_thuat"] = [
             {**t, **gan(ax.THU_THUAT.get(t["ma"]))} for t in tc["thu_thuat"]
         ]
+
+        # DANH MỤC PHÒNG KHÁM (KiotViet, 26/09/2026): dịch vụ đang bật có mã phòng
+        # khám mà phiếu chưa liệt kê (NIPT, LEEP, IUI, PRP, phần tách của HPV /
+        # soi BTC…) vẫn chỉ định được — thêm thành nhóm theo phòng làm, như màn
+        # kê đơn thêm thuốc kho không có trên phiếu.
+        da_co = {
+            m["service_code"]
+            for nhom in tc["chi_dinh_cls"]
+            for m in nhom["muc"]
+            if m.get("service_code")
+        } | {t["service_code"] for t in tc["thu_thuat"] if t.get("service_code")}
+        them: dict[str, list[dict[str, Any]]] = {}
+        for r in dong_dv:
+            if not r["ma_kiotviet"] or r["service_code"] in da_co:
+                continue
+            nhom_ten = _NHOM_THEO_NODE.get(r["node_code"] or "", "Khác")
+            gia_dv = r["unit_price"]
+            them.setdefault(nhom_ten, []).append(
+                {
+                    "nhan": r["name"],
+                    "cach_tra_ket_qua": "",
+                    "form_id_ket_qua": None,
+                    "service_code": r["service_code"],
+                    "gia": int(gia_dv) if gia_dv is not None else None,
+                    "ma_kiotviet": r["ma_kiotviet"],
+                }
+            )
+        for ten, muc in them.items():
+            tc["chi_dinh_cls"].append(
+                {"nhom": f"{ten} (danh mục phòng khám)", "muc": muc}
+            )
 
         # KHO LÀ NGUỒN (Tuyền 25/09/2026): tên, giá, đơn vị, cách dùng, lưu ý đọc
         # từ danh mục kho — dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Nhãn
