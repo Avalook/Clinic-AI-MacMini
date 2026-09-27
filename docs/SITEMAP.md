@@ -36,6 +36,9 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 > quyền ở backend (`cua_quyen` / `doi_quyen`), không còn `require_role(MANAGEMENT)`.
 > Cột "Ai" của các dòng dưới là GÓI MẪU mặc định; quản lý bật/tắt lego ở `/phan-quyen`.
 
+
+> **Thanh bên kiểu A (27/09/2026 tối, Tuyền chọn):** ngày không có lịch, mục chia 7 nhóm công việc (`nav-items.ts` `NHOM_CONG_VIEC`: Hôm nay · Tiếp đón & thu · Khám & dịch vụ · Khách hàng · Nhà thuốc · Điều hành · Quản trị; mục lạ → "Khác"); ngày có lịch vẫn nhóm theo vị trí hôm nay + "Việc khác" (gập sẵn). Nhóm gập/mở (nhớ `localStorage`), dòng 36px, mục mở = nền nhạt (bỏ vạch trái), mục con thụt + đường kẻ dọc. Icon mỗi mục biến hình khi rê chuột / tiêu điểm (`nav-bien-hinh.ts`, gói `morphicons` + `lucide` dữ liệu; `reducedMotion="user"`). Không đổi route / quyền — ai thấy mục nào vẫn do lego.
+
 ## A. Các trang
 
 ### Đăng nhập và điểm vào
