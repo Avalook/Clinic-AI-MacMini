@@ -32,23 +32,23 @@ khi tin.
 3. ✅ (27/09, đợt 1) **Tiêu đề khối có số + thẻ con + cột phải** (M). Thêm: Bàn khám gập cột hàng chờ khi mở phiếu (<1536px) — nút "☰ Hàng chờ". Ô số 32 vuông bo 8 brand-600 +
    h2 22px + câu gợi ý; mỗi mục một thẻ trắng; cột phải có khung, ô số vuông, chip "N
    mới", In + Hoàn tất ở chân; màn hẹp: thanh nút dính trên.
-4. ☐ **Danh mục tick kiểu phiếu giấy** (M). Luôn mở, lưới 3/2/1 cột; dòng 20px|1fr|auto;
+4. ✅ (27/09, đợt 2) **Danh mục tick kiểu phiếu giấy** (M). Luôn mở, lưới 3/2/1 cột; dòng 20px|1fr|auto;
    giá + chip mẫu; đã chỉ định lần trước tô brand đậm; nhóm "(danh mục phòng khám)" gom
    vào một `<details>` "Dịch vụ khác trong bảng giá".
-5. ☐ **Ô số `components/ui/OSo`** (S) — text + inputMode decimal, lăn chuột chỉ khi
+5. ✅ (27/09, đợt 2) **Ô số `components/ui/OSo`** (S) — text + inputMode decimal, lăn chuột chỉ khi
    focus (hiện `type=number` chặn "12 x 8", bước 1 làm "36.6" sai).
-6. ☐ Ô nhập khối 1: chip tick / chip radio, ô ghi kèm cột phải, lưới 3 cột, ô số 96 +
+6. ✅ (27/09, đợt 2) Ô nhập khối 1: chip tick / chip radio, ô ghi kèm cột phải, lưới 3 cột, ô số 96 +
    đơn vị (cần `don_vi` trong khung).
-7. ☐ Bản in: phiếu khám đầu trang 2 bên + khối bệnh nhân riêng + in tóm tắt kết quả +
+7. ✅ (27/09, đợt 2) Bản in: phiếu khám đầu trang 2 bên + khối bệnh nhân riêng + in tóm tắt kết quả +
    tên bác sĩ ký; phiếu kết quả ẩn ô trống, ảnh trước, chia bên, giờ/chẩn đoán/mã.
-8. ☐ Bàn tư vấn: TheKhach, "✎ Bác sĩ tư vấn · tự lưu", chip "N ô đã điền" + "đồng bộ
+8. ✅ (27/09, đợt 2) Bàn tư vấn: TheKhach, "✎ Bác sĩ tư vấn · tự lưu", chip "N ô đã điền" + "đồng bộ
    bác sĩ chính", thanh dính đáy "Xong tư vấn — chuyển bác sĩ chính".
-9. ☐ Đơn thuốc: cột Đơn giá, ĐVT chữ, dòng gõ tự do, chip hẹn 1 tuần/2 tuần/1 tháng/3 tháng.
-10. ☐ Timeline: tông bản mẫu, nhãn viên, lăn/kéo/mờ mép/tự cuộn, bảng "Từng dịch vụ".
-11. ☐ Phòng dịch vụ: thang chữ DESIGN, đầu dịch vụ (mã · giá · phút), form 2 cột.
-12. ☐ Bác sĩ chính sửa ô tư vấn (quyền ở máy chủ).
-13. ☐ Chip xem lại lần chỉ định cũ (chỉ xem).
-14. ☐ Lightbox thành hộp giữa màn bo 16.
+9. ✅ (27/09, đợt 2) Đơn thuốc: cột Đơn giá, ĐVT chữ, dòng gõ tự do, chip hẹn 1 tuần/2 tuần/1 tháng/3 tháng.
+10. ✅ (27/09, đợt 2) Timeline: tông bản mẫu, nhãn viên, lăn/kéo/mờ mép/tự cuộn, bảng "Từng dịch vụ".
+11. ✅ (27/09, đợt 2) Phòng dịch vụ: thang chữ DESIGN, đầu dịch vụ (mã · giá · phút), form 2 cột.
+12. ✅ (27/09, đợt 2) Bác sĩ chính sửa ô tư vấn (quyền ở máy chủ).
+13. ✅ (27/09, đợt 2) Chip xem lại lần chỉ định cũ (chỉ xem).
+14. ✅ (27/09, đợt 2) Lightbox thành hộp giữa màn bo 16.
 
 Mỗi mục: tra SITEMAP, sửa đủ lối (`/ban-kham`, `/tu-van`, `/print/phieu-kham`, `/phong`,
 `/print/ket-qua`), bấm thật 375/768/1280, đối chiếu cạnh bản mẫu (mở `python3 -m

@@ -82,6 +82,7 @@ export default function PhieuKhamLuot({
   onTrangThai,
   chiMuc,
   chanRay,
+  onTomTat,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -99,6 +100,8 @@ export default function PhieuKhamLuot({
   chiMuc?: string[];
   /** Nút Hoàn tất của bàn khám — vẽ ở chân cột phải (Tuyền 27/09/2026). */
   chanRay?: ReactNode;
+  /** Bàn tư vấn: số ô đã điền của các mục `chiMuc` + tên phiếu (chip công tắc). */
+  onTomTat?: (soDien: number, tenPhieu: string) => void;
 }) {
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
   const [phieu, setPhieu] = useState<PhieuLuot | null>(null);
@@ -262,7 +265,10 @@ export default function PhieuKhamLuot({
       const moi = await napDon();
       if (!moi) return;
       if (soLanSuaDon.current === lan) {
-        setDon(moi);
+        // Dòng CHƯA có tên (vừa bấm "+ Thuốc ngoài danh mục") không gửi lên
+        // máy chủ — giữ lại, không thì nạp lại xoá mất dòng trước khi kịp gõ.
+        const chuaTen = dong.filter((d) => !d.ten_thuoc.trim());
+        setDon(chuaTen.length ? [...moi, ...chuaTen] : moi);
         return;
       }
       setDon((cu) => {
@@ -418,6 +424,7 @@ export default function PhieuKhamLuot({
         // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
         dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
         chanRay={chanRay}
+        onTomTat={onTomTat}
         nutIn={
           <>
           {/* In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân
@@ -444,7 +451,6 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
-            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }
@@ -454,7 +460,6 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
-            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }
@@ -463,6 +468,8 @@ export default function PhieuKhamLuot({
           mauDuPhong,
           goiYMau,
           nhanGiay,
+          // Ô "bắt buộc" của chỉ định đã đặt: nay ở thẻ từng chỉ định (27/09).
+          onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
           choDien: choGhi,
           clinicPatientId,
           onDoi: () => {

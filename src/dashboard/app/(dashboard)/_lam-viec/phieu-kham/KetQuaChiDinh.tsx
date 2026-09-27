@@ -19,6 +19,13 @@
 //
 // BÁC SĨ ĐIỀN KẾT QUẢ NGAY ĐÂY (Tuyền 23/09/2026): [Mở phiếu kết quả] mở đúng
 // phiếu của chỉ định (cùng engine như phòng dịch vụ).
+//
+// XEM LẠI LẦN CŨ (bản mẫu `nutLuotMoi` · `.chip-luot` · `data-act="xem-luot"`, làm
+// 27/09/2026 — mục 13): lượt có từ hai lần chỉ định trở lên thì hiện hàng chip
+// "Lần 1 · Lần 2 …". Mặc định là LẦN HIỆN TẠI (mới nhất); bấm lần cũ = chỉ hiện
+// chỉ định của lần đó, CHỈ XEM (không mở phiếu kết quả để sửa, không tải tệp) +
+// dải "Đang xem lần k — [Về lần n (đang mở)]". Lần cũ có kết quả chưa xem thì chip
+// có chấm nhắc. "Đã xem" chỉ ghi cho chỉ định đang HIỆN.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -27,6 +34,7 @@ import AnhKetQua, { tepXem } from "../AnhKetQua";
 import PhieuKetQua from "../PhieuKetQua";
 import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
+import ChipLoc from "@/components/ui/ChipLoc";
 import Lightbox from "@/components/ui/Lightbox";
 import { fmtTime } from "@/lib/datetime";
 import {
@@ -138,8 +146,15 @@ export default function KetQuaChiDinh({
   clinicPatientId,
   onDoi,
   nhanGiay = {},
+  onDoiBatBuoc,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Bật / tắt "Bắt buộc" của chỉ định CHƯA thu tiền (25/09/2026; 27/09 chuyển
+   *  từ hộp tóm tắt ở đầu danh mục vào đây). Không truyền = chỉ xem chip. */
+  onDoiBatBuoc?: (
+    orderId: string,
+    batBuoc: boolean,
+  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
   /** 18 mẫu kết quả đang bật — khi dịch vụ chưa gắn mẫu nào. */
   mauDuPhong?: MauKetQuaNgan[];
   /** service_code → mã mẫu gợi ý từ phiếu v5 (không kèm `KQ_`). */
@@ -156,17 +171,37 @@ export default function KetQuaChiDinh({
   const [tep, setTep] = useState<string | null>(null);
   // Hộp xem CHIA ĐÔI: kết quả trái, ảnh phải — mở từ ảnh nhỏ hoặc ⤢.
   const [hop, setHop] = useState<{ id: string; i: number; luoi: boolean } | null>(null);
+  const [loiBatBuoc, setLoiBatBuoc] = useState<{ id: string; loi: string } | null>(null);
+  const doiBatBuoc = async (d: ChiDinhVaKetQua, co: boolean) => {
+    if (!onDoiBatBuoc) return;
+    setLoiBatBuoc(null);
+    const kq = await onDoiBatBuoc(d.service_order_id, co);
+    if (!kq.ok) setLoiBatBuoc({ id: d.service_order_id, loi: kq.loi });
+  };
+  /** Lần đang xem; null = lần hiện tại (mới nhất). */
+  const [xemLan, setXemLan] = useState<number | null>(null);
   const daGhi = useRef(new Set<string>());
 
-  // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem.
+  // Các lần — lần mới nhất lên đầu; chỉ định mang sang (lần 0) để cuối.
+  const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => (b || -1) - (a || -1));
+  const nhieuLan = cacLan.length > 1;
+  const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
+  const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
+  const chiXem = nhieuLan && lanXem !== lanHienTai;
+  const dsHien = nhieuLan ? ds.filter((d) => (d.lan ?? 0) === lanXem) : ds;
+  const choSua = choDien && !chiXem;
+
+  // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem
+  // — chỉ những chỉ định đang HIỆN (lần cũ chưa bấm xem thì chưa tính là xem).
   useEffect(() => {
     for (const d of ds) {
+      if (nhieuLan && (d.lan ?? 0) !== lanXem) continue;
       if (d.ket_qua_trang_thai !== "CO_KET_QUA" || d.da_xem_luc) continue;
       if (daGhi.current.has(d.service_order_id)) continue;
       daGhi.current.add(d.service_order_id);
       ghiDaXem(d.service_order_id);
     }
-  }, [ds]);
+  }, [ds, nhieuLan, lanXem]);
 
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
@@ -178,10 +213,7 @@ export default function KetQuaChiDinh({
     return <p className="text-body text-ink-faint">Chưa có chỉ định nào trong lượt này.</p>;
   }
   const dHop = hop ? ds.find((d) => d.service_order_id === hop.id) : undefined;
-
-  // Gom theo lần — lần mới nhất lên trên; chỉ định mang sang để cuối.
-  const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => b - a);
-  const nhieuLan = cacLan.length > 1;
+  const tenLan = (lan: number) => (lan ? `Lần ${lan}` : "Mang sang");
 
   const theChiDinh = (d: ChiDinhVaKetQua) => {
     const tt = trangThai(d);
@@ -205,12 +237,31 @@ export default function KetQuaChiDinh({
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}
-              {d.bat_buoc ? <Chip tone="warning">bắt buộc</Chip> : null}
+              {/* Chưa thu tiền: bác sĩ bật/tắt được (máy chủ chặn khi đã thu —
+                  SERVICE_ALREADY_PAID). Đã thu: chỉ còn chip. */}
+              {onDoiBatBuoc && !d.da_thu ? (
+                <label className="inline-flex min-h-8 items-center gap-1 text-meta text-ink">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-brand-600"
+                    checked={Boolean(d.bat_buoc)}
+                    onChange={(e) => void doiBatBuoc(d, e.target.checked)}
+                  />
+                  bắt buộc
+                </label>
+              ) : d.bat_buoc ? (
+                <Chip tone="warning">bắt buộc</Chip>
+              ) : null}
               <span className="text-meta text-ink-muted">{d.gia != null ? tienVn(d.gia) : "chưa có giá"}</span>
             </div>
+            {loiBatBuoc?.id === d.service_order_id ? (
+              <p role="alert" className="mt-1 text-meta text-danger">
+                {loiBatBuoc.loi}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap justify-end gap-1">
-            {choDien ? (
+            {choSua ? (
               <Button
                 type="button"
                 size="sm"
@@ -278,7 +329,7 @@ export default function KetQuaChiDinh({
             <KhungTep
               clinicPatientId={clinicPatientId}
               serviceOrderId={d.service_order_id}
-              choTaiLen={choDien}
+              choTaiLen={choSua}
               onDaTaiLen={() => onDoi?.()}
             />
           </div>
@@ -314,23 +365,43 @@ export default function KetQuaChiDinh({
         />
       ) : null}
       <div className="space-y-2">
-        {cacLan.map((lan) => {
-          const nhom = ds.filter((d) => (d.lan ?? 0) === lan);
-          const gui = nhom.map((d) => d.chi_dinh_luc).filter(Boolean).sort()[0];
-          return (
-            <div key={lan} className="space-y-2">
-              {nhieuLan ? (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Chip tone="brand">{lan ? `Lần ${lan}` : "Mang sang"}</Chip>
-                  <span className="text-meta text-ink-muted">
-                    {gui ? `gửi ${fmtTime(gui)}` : "chưa gửi"} · {nhom.length} chỉ định
-                  </span>
-                </div>
-              ) : null}
-              <ul className="space-y-2">{nhom.map((d) => theChiDinh(d))}</ul>
-            </div>
-          );
-        })}
+        {nhieuLan ? (
+          <ChipLoc
+            nhan="Xem theo lần chỉ định"
+            chon={lanXem}
+            onChon={(l) => setXemLan(l === lanHienTai ? null : l)}
+            muc={[...cacLan].reverse().map((l) => ({
+              ma: l,
+              nhan: tenLan(l),
+              title: l === lanHienTai ? "Lần đang mở" : `Xem lại ${tenLan(l).toLowerCase()} (chỉ xem)`,
+              nhac:
+                l !== lanHienTai &&
+                ds.some(
+                  (d) =>
+                    (d.lan ?? 0) === l && d.ket_qua_trang_thai === "CO_KET_QUA" && !d.da_xem_luc,
+                ),
+            }))}
+          />
+        ) : null}
+        {chiXem ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-control bg-warning-bg px-3 py-2 text-body text-warning">
+            <span>
+              Đang xem <b>{tenLan(lanXem).toLowerCase()}</b> — chỉ xem, không sửa được.
+            </span>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setXemLan(null)}>
+              Về {tenLan(lanHienTai).toLowerCase()} (đang mở)
+            </Button>
+          </div>
+        ) : null}
+        {nhieuLan ? (
+          <p className="text-meta text-ink-muted">
+            {(() => {
+              const gui = dsHien.map((d) => d.chi_dinh_luc).filter(Boolean).sort()[0];
+              return `${tenLan(lanXem)} · ${gui ? `gửi ${fmtTime(gui)}` : "chưa gửi"} · ${dsHien.length} chỉ định`;
+            })()}
+          </p>
+        ) : null}
+        <ul className="space-y-2">{dsHien.map((d) => theChiDinh(d))}</ul>
       </div>
     </>
   );

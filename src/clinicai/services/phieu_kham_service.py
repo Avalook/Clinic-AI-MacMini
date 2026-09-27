@@ -535,17 +535,30 @@ class PhieuKhamService:
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_phieu")
+            # Đơn giá + ĐVT của KHO (27/09/2026, bản giao diện mẫu: cột "Đơn
+            # giá", ĐVT là chữ khi danh mục có). Đọc từ `drug_catalog` — cùng
+            # giá quầy thu dùng (`quay_thuoc_service`); dòng ngoài danh mục → null.
             rows = await conn.fetch(
-                "SELECT id::text, drug_catalog_id::text, drug_name_raw, quantity,"
-                "       dosage_instructions, caution"
-                "  FROM prescription"
-                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                "   AND removed_at IS NULL AND nguon = 'BAC_SI'"
-                " ORDER BY created_at, id",
+                "SELECT p.id::text, p.drug_catalog_id::text, p.drug_name_raw,"
+                "       p.quantity, p.dosage_instructions, p.caution,"
+                "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho"
+                "  FROM prescription p"
+                "  LEFT JOIN drug_catalog c"
+                "    ON c.id = p.drug_catalog_id AND c.clinic_id = p.clinic_id"
+                " WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid"
+                "   AND p.removed_at IS NULL AND p.nguon = 'BAC_SI'"
+                " ORDER BY p.created_at, p.id",
                 identity.clinic_id,
                 visit_id,
             )
-        return [dict(r) for r in rows]
+        return [
+            {
+                **dict(r),
+                "don_gia": int(r["don_gia"]) if r["don_gia"] is not None else None,
+                "dvt_kho": (r["dvt_kho"] or "").strip() or None,
+            }
+            for r in rows
+        ]
 
     async def luu_don_thuoc(
         self,

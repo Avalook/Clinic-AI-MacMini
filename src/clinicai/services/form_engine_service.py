@@ -38,6 +38,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import (
     KetQuaDaSua,
@@ -48,6 +49,7 @@ from clinicai.events.catalogue import (
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
+from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
 
 QUYEN_DIEN = "result.form.fill"
 
@@ -232,17 +234,32 @@ class FormEngineService:
             ):
                 raise SafetyGateError("Vai của bạn không in phiếu kết quả.")
             dau = await conn.fetchrow(
-                "SELECT o.service_name, o.visit_id::text AS visit_id,"
+                "SELECT o.service_name, o.service_code, o.visit_id::text AS visit_id,"
                 "       c.name AS phong_kham, c.address AS dia_chi_pk,"
                 "       p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
                 "       p.gender, p.phone_primary, p.address,"
-                "       bs.full_name AS bac_si_chi_dinh"
+                "       p.address_detail, p.ward_name, p.province_name,"
+                "       bs.full_name AS bac_si_chi_dinh,"
+                # Đầu trang HAI BÊN (27/09/2026 — bản mẫu): cơ sở của LƯỢT +
+                # địa chỉ; mã dịch vụ (mã phòng khám), số booking / check-in.
+                "       lv.name AS co_so, lv.address AS dia_chi_co_so,"
+                "       v.checked_in_at, a.so_booking, a.so_tiep_don,"
+                "       sp.ma_kiotviet"
                 "  FROM service_order o"
                 "  JOIN visit v"
                 "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
                 "  JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id"
                 "   AND p.clinic_id = v.clinic_id"
                 "  JOIN clinic c ON c.id = o.clinic_id"
+                "  LEFT JOIN clinic_location lv"
+                "    ON lv.id = v.location_id AND lv.clinic_id = v.clinic_id"
+                "  LEFT JOIN appointment a"
+                "    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+                "  LEFT JOIN LATERAL ("
+                "       SELECT s.ma_kiotviet FROM service_price s"
+                "        WHERE s.clinic_id = o.clinic_id"
+                "          AND s.service_code = o.service_code"
+                "        ORDER BY s.active DESC LIMIT 1) sp ON true"
                 "  LEFT JOIN staff bs ON bs.id = o.recorded_by"
                 " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
                 cid,
@@ -250,6 +267,20 @@ class FormEngineService:
             )
             if dau is None:
                 raise ValidationError("Không tìm thấy chỉ định.")
+            # Giờ làm + người làm: LẦN LÀM gần nhất (làm lại sau khi dừng thì
+            # lần mới là lần có kết quả).
+            lan = await conn.fetchrow(
+                "SELECT a.started_at, a.completed_at, s.full_name AS nguoi_lam"
+                "  FROM service_execution_attempt a"
+                "  LEFT JOIN staff s ON s.id = coalesce(a.completed_by, a.started_by)"
+                " WHERE a.clinic_id = $1::uuid AND a.service_order_id = $2::uuid"
+                " ORDER BY a.attempt_no DESC LIMIT 1",
+                cid,
+                service_order_id,
+            )
+            chan_doan = await doc_chan_doan(
+                conn, clinic_id=cid, visit_id=dau["visit_id"]
+            )
             rows = await conn.fetch(
                 "SELECT i.*, d.ten AS ten_mau, th.full_name AS thuc_hien_ten,"
                 "       ht.full_name AS hoan_tat_ten"
@@ -299,7 +330,31 @@ class FormEngineService:
                 if t["loai_tep"] == "ANH"
             ],
             "so_tep_khac": sum(1 for t in tep if t["loai_tep"] != "ANH"),
-            "phong_kham": {"ten": dau["phong_kham"], "dia_chi": dau["dia_chi_pk"]},
+            "phong_kham": {
+                "ten": dau["phong_kham"],
+                "dia_chi": dau["dia_chi_co_so"] or dau["dia_chi_pk"],
+                "co_so": dau["co_so"],
+            },
+            "ma_dich_vu": dau["ma_kiotviet"] or dau["service_code"],
+            "so_booking": dau["so_booking"],
+            "so_tiep_don": dau["so_tiep_don"],
+            "ngay_kham": (
+                dau["checked_in_at"].astimezone(CLINIC_TZ).date().isoformat()
+                if dau["checked_in_at"]
+                else None
+            ),
+            "gio_lam": (
+                {
+                    "bat_dau": lan["started_at"].isoformat(),
+                    "xong": (
+                        lan["completed_at"].isoformat() if lan["completed_at"] else None
+                    ),
+                    "nguoi_lam": lan["nguoi_lam"],
+                }
+                if lan
+                else None
+            ),
+            "chan_doan": chan_doan,
             "benh_nhan": {
                 "ho_ten": dau["full_name"],
                 "ma_bn": dau["patient_code"],
@@ -310,7 +365,7 @@ class FormEngineService:
                 ),
                 "gioi_tinh": dau["gender"],
                 "dien_thoai": dau["phone_primary"],
-                "dia_chi": dau["address"],
+                "dia_chi": dia_chi_benh_nhan(dict(dau)),
             },
             "dich_vu": dau["service_name"],
             "bac_si_chi_dinh": dau["bac_si_chi_dinh"],

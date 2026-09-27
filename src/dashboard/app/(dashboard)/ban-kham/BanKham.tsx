@@ -54,14 +54,14 @@ import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
-import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
-import ONhapTuVan from "./ONhapTuVan";
+import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
+import { useNgheBang } from "../dung-nghe-bang";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -263,7 +263,9 @@ export default function BanKham({
     };
     void nap();
     // Làm mới đều: người khác (điều dưỡng đo xong, thư ký bấm) đổi hàng chờ.
-    const t = setInterval(() => void nap(), 15000);
+    // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+    // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+    const t = setInterval(() => void nap(), 60000);
     return () => {
       huy = true;
       clearInterval(t);
@@ -271,6 +273,10 @@ export default function BanKham({
   }, [phongs, phong, lanNap, tuVan]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+  useNgheBang(
+    ["queue_entry", "consultation", "visit", "encounter_flow", "service_order", "form_instance", "tep_ket_qua", "vital_measurement"],
+    napLai,
+  );
 
   const hienRa = useMemo(() => {
     const kim = query.trim().toLocaleLowerCase("vi");
@@ -774,6 +780,10 @@ function HoSo({
   // thẻ sinh hiệu nằm TRONG phiếu, Hoàn tất ở chân cột phải — Bàn khám chỉ giữ
   // một thanh công việc gọn (trạng thái · số thứ tự · giờ · Bắt đầu khám).
   const laPhieuMoi = PHIEU_V5 && dong.loai === "KHAM" && !dangXem && Boolean(dong.form_code);
+  // BÀN TƯ VẤN theo bản giao diện mẫu (27/09/2026, mục 8): thẻ khách + sinh hiệu
+  // dùng chung với phiếu bác sĩ chính, [Xong tư vấn] ở thanh dính đáy.
+  const laTuVanMoi = TU_VAN_O_TU_DO && dong.loai === "TU_VAN" && !dangXem;
+  const gon = laPhieuMoi || laTuVanMoi;
   const nutHoanTat =
     choBam && dong.trang_thai === "serving" ? (
       <div className="flex flex-col gap-2">
@@ -783,10 +793,10 @@ function HoSo({
           variant="primary"
           disabled={dangGui}
           onClick={() => void bam(tuVan ? "xong-tu-van" : "kham-xong")}
-          className={laPhieuMoi ? "lg:w-full" : ""}
+          className={laPhieuMoi ? "lg:w-full" : tuVan ? "w-full sm:w-auto" : ""}
         >
           <CheckCircle2 className="size-4" aria-hidden="true" />
-          {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn" : "Hoàn tất"}
+          {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn — chuyển bác sĩ chính" : "Hoàn tất"}
         </Button>
         {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
           <p className="text-meta text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
@@ -822,23 +832,23 @@ function HoSo({
     <section
       aria-label="Hồ sơ khám bệnh"
       className={
-        laPhieuMoi ? "min-w-0 space-y-3" : "min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+        gon ? "min-w-0 space-y-3" : "min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
       }
     >
       <header
         className={
-          laPhieuMoi ? "rounded-card border border-hairline bg-surface px-4 py-3" : "px-4 py-3"
+          gon ? "rounded-card border border-hairline bg-surface px-4 py-3" : "px-4 py-3"
         }
       >
         <div className="flex flex-wrap items-center gap-3">
-          {laPhieuMoi ? null : (
+          {gon ? null : (
             <span className="grid size-11 place-items-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-soft">
               {initials(dong.ten)}
             </span>
           )}
           <div className="min-w-44 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              {laPhieuMoi ? null : (
+              {gon ? null : (
                 <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
               )}
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
@@ -928,7 +938,7 @@ function HoSo({
           </div>
         ) : null}
 
-        {laPhieuMoi ? null : (
+        {gon ? null : (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-line bg-surface-muted px-3 py-2 text-xs text-ink-soft">
           <HeartPulse className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
           {sh ? (
@@ -961,7 +971,7 @@ function HoSo({
         ) : null}
       </header>
 
-      <div className={laPhieuMoi ? "space-y-3" : "p-3 pt-0"}>
+      <div className={gon ? "space-y-3" : "p-3 pt-0"}>
         <LuotKhamTruoc
           clinicPatientId={dong.clinic_patient_id}
           visitIdHienTai={dong.visit_id}
@@ -977,42 +987,28 @@ function HoSo({
               readOnly
             />
           </div>
-        ) : TU_VAN_O_TU_DO && dong.loai === "TU_VAN" ? (
-          <div className="space-y-3">
-            <ONhapTuVan
-              key={dong.ref_id}
-              visitId={dong.visit_id}
-              consultationId={dong.ref_id}
-              choGhi={choBam}
-              onTrangThai={baoGate}
-            />
-            {/* MỤC B CỦA PHIẾU BÁC SĨ CHÍNH (Tuyền 24/09/2026: "form bác sĩ tư
-                vấn thêm cả phần B. Phiếu khám / đánh giá chuyên khoa của bác sĩ
-                chính vào, cho cả 2 bác sĩ đều thêm sửa xoá được, hồ sơ là
-                open"). CHÍNH phiếu khám của lượt — cùng một bản ghi bác sĩ
-                chính mở, tự lưu + chống ghi đè (409) như phiếu thường. */}
-            {/* 25/09/2026 (bản giao diện mẫu): mục B nằm sau công tắc "Thông tin
-                cơ bản", MẶC ĐỊNH ĐÓNG — bàn tư vấn chỉ còn một ô chữ to. */}
-            {PHIEU_V5 && dong.form_code ? (
-              <CongTacThongTinCoBan>
-                <PhieuKhamLuot
-                  key={`b-${dong.visit_id}`}
-                  visitId={dong.visit_id}
-                  clinicPatientId={dong.clinic_patient_id}
-                  choGhi={choBam}
-                  chiMuc={["B"]}
-                  datChiDinh={async (codes, batBuoc) => {
-                    const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
-                      service_codes: codes,
-                      bat_buoc_codes: batBuoc,
-                    });
-                    return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
-                  }}
-                  onDaDat={onDaBam}
-                />
-              </CongTacThongTinCoBan>
-            ) : null}
-          </div>
+        ) : laTuVanMoi ? (
+          // Ô chữ tư vấn + mục B của CHÍNH phiếu khám lượt (Tuyền 24/09: "cho cả 2
+          // bác sĩ đều thêm sửa xoá được, hồ sơ là open") sau công tắc "Thông tin
+          // cơ bản" (25/09, mặc định đóng) + thanh dính đáy [Xong tư vấn] (27/09).
+          <BanTuVan
+            key={dong.ref_id}
+            visitId={dong.visit_id}
+            consultationId={dong.ref_id}
+            clinicPatientId={dong.clinic_patient_id}
+            coPhieu={PHIEU_V5 && Boolean(dong.form_code)}
+            choGhi={choBam}
+            onTrangThai={baoGate}
+            datChiDinh={async (codes, batBuoc) => {
+              const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
+                service_codes: codes,
+                bat_buoc_codes: batBuoc,
+              });
+              return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
+            }}
+            onDaDat={onDaBam}
+            nutXong={nutHoanTat}
+          />
         ) : PHIEU_V5 && (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
           // Bàn khám tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt
           // 24/09) — bác sĩ chính mở ra thấy ngay phần tư vấn đã điền.
@@ -1118,7 +1114,7 @@ function HoSo({
             xong bệnh án và chỉ định rồi mới bấm (Tuyền chốt 23/09/2026). Phiên
             cuối thì khép lượt khám; còn chỉ định thì khách sang phòng. Không
             khoá hồ sơ — bệnh án vẫn sửa được sau khi hoàn tất. */}
-        {!laPhieuMoi && nutHoanTat ? (
+        {!gon && nutHoanTat ? (
           <div className="mt-3 border-t border-line pt-3">{nutHoanTat}</div>
         ) : null}
       </div>

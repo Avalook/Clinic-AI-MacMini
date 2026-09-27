@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { doanNoi, gioMoc, khoang, type MocMayChu } from "./hanh-trinh.ts";
+import {
+  doanNoi,
+  gioMoc,
+  khoang,
+  phutDichVu,
+  type DichVuHanhTrinh,
+  type MocMayChu,
+} from "./hanh-trinh.ts";
 
 // 08:00 giờ VN = 01:00 UTC.
 const luc = (phut: number) => new Date(Date.UTC(2026, 8, 26, 1, phut)).toISOString();
@@ -54,4 +61,52 @@ test("gửi chỉ định nhiều lần: một mốc, ghi từng lần", () => {
   };
   assert.equal(gioMoc(m), "Lần 1 08:40 · Lần 2 09:20");
   assert.equal(gioMoc(moc("TU_VAN", 20, 35, "xong")), "08:20 → 08:35");
+});
+
+// --- Bảng "Từng dịch vụ" (27/09/2026) ---------------------------------------
+const dv = (
+  tt: DichVuHanhTrinh["trang_thai"],
+  gui: number,
+  thu: number | null,
+  batDau: number | null,
+  xong: number | null,
+): DichVuHanhTrinh => ({
+  id: "o1",
+  ten: "Siêu âm",
+  lan: 1,
+  noi: "Phòng siêu âm",
+  trang_thai: tt,
+  gui: luc(gui),
+  thu: thu == null ? null : luc(thu),
+  bat_dau: batDau == null ? null : luc(batDau),
+  xong: xong == null ? null : luc(xong),
+});
+const bayGio = (phut: number) => new Date(luc(phut)).getTime();
+
+test("dịch vụ đã xong: chờ từ lúc thu tới lúc bắt đầu, làm tới lúc xong", () => {
+  const p = phutDichVu(dv("XONG", 40, 45, 60, 80), bayGio(200));
+  assert.equal(p.moc, "Gửi 08:40 · Thu 08:45 · Bắt đầu 09:00 · Xong 09:20");
+  assert.deepEqual([p.cho, p.lam, p.tong, p.dangChay], [15, 20, 40, false]);
+});
+
+test("đang làm và đang chờ nhích theo đồng hồ", () => {
+  const dang = phutDichVu(dv("DANG_LAM", 40, 45, 60, null), bayGio(72));
+  assert.deepEqual([dang.cho, dang.lam, dang.tong, dang.dangChay], [15, 12, 32, true]);
+  const cho = phutDichVu(dv("CHO_LAM", 40, 50, null, null), bayGio(58));
+  assert.deepEqual([cho.cho, cho.lam, cho.tong], [8, null, 18]);
+  // Chưa thu: chờ tính từ lúc gửi.
+  const chuaThu = phutDichVu(dv("CHO_THU", 40, null, null, null), bayGio(47));
+  assert.equal(chuaThu.cho, 7);
+  assert.equal(chuaThu.moc, "Gửi 08:40");
+});
+
+test("khách bỏ không đếm giờ; giờ lệch không ra số âm", () => {
+  const bo = phutDichVu(dv("BO", 40, null, null, null), bayGio(90));
+  assert.deepEqual([bo.cho, bo.lam, bo.tong, bo.dangChay], [null, null, null, false]);
+  const lech = phutDichVu(dv("CHO_THU", 40, null, null, null), bayGio(39));
+  assert.equal(lech.cho, 0);
+  assert.equal(lech.tong, 0);
+  // Xong mà không có giờ bắt đầu (dịch vụ không qua bước bắt đầu): không bịa giờ chờ.
+  const khongBatDau = phutDichVu(dv("XONG", 40, 45, null, 70), bayGio(100));
+  assert.deepEqual([khongBatDau.cho, khongBatDau.lam, khongBatDau.tong], [null, null, 30]);
 });

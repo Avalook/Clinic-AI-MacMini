@@ -89,17 +89,22 @@ def chi_dinh(vid: str, oid: str) -> dict[str, Any]:
 
 
 def tao_khach(ten: str) -> str:
-    p = ai("letan").post(
-        "/patients",
-        {
-            "full_name": ten,
-            "location_id": co_so_kham(),
-            "phone_primary": f"09{random.randint(10**7, 10**8 - 1)}",
-            "gender": "F",
-            "birth_year": random.randint(1975, 2003),
-        },
-    )
-    return str(p["clinic_patient_id"])
+    # Số ngẫu nhiên trùng khách có sẵn (DB không --reset) → API trả 200
+    # `duplicate`, không tạo; đổi số rồi thử lại.
+    for _ in range(5):
+        p = ai("letan").post(
+            "/patients",
+            {
+                "full_name": ten,
+                "location_id": co_so_kham(),
+                "phone_primary": f"09{random.randint(10**7, 10**8 - 1)}",
+                "gender": "F",
+                "birth_year": random.randint(1975, 2003),
+            },
+        )
+        if not p.get("duplicate"):
+            return str(p["clinic_patient_id"])
+    raise RuntimeError(f"tạo khách {ten}: 5 lần liền trùng số điện thoại")
 
 
 #: Kịch bản xa nhất đặt cách mốc khoảng 300 phút.

@@ -1,9 +1,13 @@
 "use client";
 
 // Bản in phiếu khám v5 — CHỈ ĐỌC, chữ thường thay cho ô nhập (ô nhập bị khoá in
-// ra mờ và cắt chữ đoạn văn dài). Khung, nhãn, giá trị lấy nguyên từ máy chủ;
-// dải hành chính + sinh hiệu dùng lại ĐÚNG khối của Bàn khám để giấy in và màn
-// hình không lệch nhau.
+// ra mờ và cắt chữ đoạn văn dài). Khung, nhãn, giá trị lấy nguyên từ máy chủ.
+//
+// ĐẦU TRANG (27/09/2026 — Y HỆT bản mẫu `manIn`): HAI BÊN (trái phòng khám +
+// cơ sở + địa chỉ; phải tên phiếu, mã khách, Booking / Check-in, ngày khám), rồi
+// khối BỆNH NHÂN gọn (họ tên, năm sinh + tuổi, giới, SĐT, địa chỉ) và MỘT dòng
+// sinh hiệu. Trước đó in lại cả dải hành chính dài của màn khám (CCCD, dân tộc,
+// nghề nghiệp…). Chân ký có TÊN bác sĩ của lượt.
 //
 // LÁT 5 (26/09/2026 — bản giao diện mẫu Tuyền duyệt): A4 (KieuInA4), ẨN ô /
 // nhóm / mục trống (trước in "—" cho từng ô, một phiếu vài chục dòng gạch) và
@@ -43,7 +47,7 @@ import {
 } from "@/lib/phieu-kham";
 
 import { duongXemTep } from "../../../(dashboard)/_lam-viec/AnhKetQua";
-import { KhoiHanhChinh } from "../../../(dashboard)/_lam-viec/phieu-kham/KhoiDauPhieu";
+import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, ngayIn } from "../../KhoiIn";
 import KieuInA4 from "../../KieuInA4";
 
 interface PhieuLuot extends DinhNghiaPhieu {
@@ -186,7 +190,7 @@ function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
 }
 
 /** Trang ẢNH — ảnh kết quả CLS theo từng chỉ định, 2 ảnh / hàng. */
-function TrangAnh({ ds }: { ds: ChiDinhVaKetQua[] }) {
+function TrangAnh({ ds, khach }: { ds: ChiDinhVaKetQua[]; khach: string | null }) {
   const coAnh = ds.map((c) => ({ c, anh: anhInDuoc(c) })).filter((x) => x.anh.length > 0);
   if (coAnh.length === 0) return null;
   return (
@@ -194,6 +198,8 @@ function TrangAnh({ ds }: { ds: ChiDinhVaKetQua[] }) {
       <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
         Hình ảnh kết quả cận lâm sàng
       </h2>
+      {/* Trang rời vẫn biết của ai. */}
+      {khach ? <p className="text-meta text-ink-muted">{khach}</p> : null}
       {coAnh.map(({ c, anh }) => (
         <div key={c.service_order_id} className="space-y-2">
           <h3 className="font-semibold text-ink">{c.ten_hien_thi}</h3>
@@ -306,6 +312,16 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
   const cls = dl.chiDinh.filter((c) => !dl.maThuThuat.has(c.service_code));
   const thuThuat = dl.chiDinh.filter((c) => dl.maThuThuat.has(c.service_code));
   const ngayKham = dau?.hanh_chinh["encounter.date"] ?? null;
+  const tk = dau?.the_khach;
+  const hc = dau?.hanh_chinh;
+  const namSinh = typeof hc?.["patient.birth_year"] === "number" ? hc["patient.birth_year"] : null;
+  const tuoi =
+    namSinh !== null
+      ? (typeof ngayKham === "string" ? Number(ngayKham.slice(0, 4)) : new Date().getFullYear()) -
+        namSinh
+      : null;
+  // Sinh hiệu MỘT dòng, chỉ chỉ số đã đo (bản mẫu `in-sh`).
+  const sinhHieu = (dau?.the_sinh_hieu ?? []).filter((x) => x.gia_tri);
 
   // I. TÓM TẮT BỆNH ÁN = mọi mục của phiếu có dữ liệu, TRỪ danh sách chỉ định
   // CLS (sang mục III) và đơn thuốc (mục II). Thủ thuật ở lại mục I.
@@ -333,7 +349,6 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
     phieu.khung
       .filter((m) => m.lien_ket?.loai === loai)
       .map((m) => <KhoiO key={m.ma} m={m} duLieu={phieu.du_lieu} />);
-  const hanhChinh = phieu.khung.find((m) => m.ma === "HANH_CHINH");
 
   return (
     <main className="in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
@@ -348,28 +363,34 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       </div>
 
       {/* ── TRANG THÔNG TIN ── */}
-      <header className="border-b border-line pb-3">
-        {dau?.the_khach?.co_so ? (
-          <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-            {dau.the_khach.co_so}
-          </p>
-        ) : null}
-        <h1 className="mt-1 text-title font-bold text-ink">{phieu.ten}</h1>
-        {dau?.the_khach?.so_booking != null || dau?.the_khach?.so_tiep_don != null ? (
-          <p className="text-meta text-ink-muted">
-            {[
-              dau?.the_khach?.so_booking != null ? `Booking #${dau.the_khach.so_booking}` : null,
-              dau?.the_khach?.so_tiep_don != null ? `Check-in ${dau.the_khach.so_tiep_don}` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        ) : null}
-      </header>
-      {hanhChinh && dau ? (
-        <section className="mt-4">
-          <KhoiHanhChinh dau={dau} truong={hanhChinh.lien_ket?.truong ?? []} />
-        </section>
+      {/* Đầu trang HAI BÊN + khối BỆNH NHÂN gọn (27/09/2026 — bản mẫu `manIn`):
+          không lặp dải hành chính dài của màn khám; sinh hiệu một dòng. */}
+      <DauTrangIn
+        phongKham={tk?.phong_kham}
+        trai={[tk?.co_so, tk?.dia_chi_co_so]}
+        tieuDe={phieu.ten}
+        phai={[
+          hc?.["patient.code"] ? `Mã khách ${hc["patient.code"]}` : null,
+          dongSoLuot(tk?.so_booking, tk?.so_tiep_don),
+          ngayIn(ngayKham) ? `Ngày khám ${ngayIn(ngayKham)}` : null,
+        ]}
+      />
+      <KhoiBenhNhanIn
+        dong={[
+          { nhan: "Họ tên", gia: hc?.["patient.name"] ? <b>{hc["patient.name"]}</b> : null },
+          {
+            nhan: "Năm sinh",
+            gia: namSinh ? `${namSinh}${tuoi !== null ? ` (${tuoi} tuổi)` : ""}` : null,
+          },
+          { nhan: "Giới", gia: hc?.["patient.gender"] as string | null },
+          { nhan: "Điện thoại", gia: hc?.["patient.phone"] as string | null },
+          { nhan: "Địa chỉ", gia: hc?.["patient.address"] as string | null, rong: true },
+        ]}
+      />
+      {sinhHieu.length ? (
+        <p className="in-giu mt-2 border-y border-hairline py-2 text-meta tabular-nums text-ink">
+          {sinhHieu.map((x) => `${x.nhan} ${x.gia_tri}`).join(" · ")}
+        </p>
       ) : null}
 
       <Muc so="I" ten="Tóm tắt bệnh án">
@@ -384,20 +405,21 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
         {oCua("chi_dinh_cls")}
       </Muc>
 
-      <footer className="in-giu mt-10 flex justify-end">
-        <div className="text-center">
-          <p className="text-meta text-ink-muted">
-            {ngayKham
-              ? `Ngày khám ${hienThi(ngayKham).replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1")}`
-              : "Ngày …/…/……"}
-          </p>
-          <p className="font-semibold">Bác sĩ khám</p>
-          <p className="mt-12">&nbsp;</p>
+      {/* Chân ký: TÊN bác sĩ của lượt (`the_khach.bac_si`), chừa chỗ ký tay. */}
+      <footer className="in-giu mt-8 flex justify-end">
+        <div className="min-w-48 text-center">
+          <p className="text-ink-muted">Bác sĩ khám</p>
+          <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
         </div>
       </footer>
 
       {/* ── TRANG ẢNH ── */}
-      <TrangAnh ds={cls} />
+      <TrangAnh
+        ds={cls}
+        khach={
+          [hc?.["patient.name"], hc?.["patient.code"]].filter(Boolean).join(" · ") || null
+        }
+      />
     </main>
   );
 }

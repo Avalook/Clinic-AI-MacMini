@@ -16,6 +16,7 @@ ai xác nhận, rồi in lên phiếu như thể điều dưỡng đã đo.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
@@ -68,7 +69,7 @@ TRUONG_HO_SO: tuple[tuple[str, str], ...] = (
 _GIOI_TINH = {"F": "Nữ", "M": "Nam", "FEMALE": "Nữ", "MALE": "Nam", "O": "Khác"}
 
 
-def _dia_chi(bn: Mapping[str, Any]) -> str | None:
+def dia_chi_benh_nhan(bn: Mapping[str, Any]) -> str | None:
     """Địa chỉ có cấu trúc (chi tiết · phường · tỉnh) — rơi về ô tự do cũ."""
     phan = [bn.get("address_detail"), bn.get("ward_name"), bn.get("province_name")]
     co = [str(x).strip() for x in phan if x and str(x).strip()]
@@ -89,7 +90,7 @@ def dung_ho_so(benh_nhan: Mapping[str, Any] | None) -> dict[str, Any]:
         "patient.ethnicity": bn.get("ethnicity"),
         "patient.nationality": bn.get("nationality"),
         "patient.occupation": bn.get("occupation"),
-        "patient.address": _dia_chi(bn),
+        "patient.address": dia_chi_benh_nhan(bn),
         "patient.guardian": bn.get("guardian_name"),
         "patient.location": bn.get("location_name"),
         "patient.referrer": bn.get("nguoi_gioi_thieu"),
@@ -198,6 +199,49 @@ def dung_sinh_hieu(do: Mapping[str, Any] | None) -> dict[str, Any]:
     return kq
 
 
+#: Ô "Chẩn đoán" của từng loại phiếu khám v5 (mục D) — khoá ổn định của nguồn,
+#: theo thứ tự ưu tiên khi một lượt có hơn một phiếu. Bản in phiếu kết quả ghi
+#: "Chẩn đoán lâm sàng" từ đây (bản mẫu 27/09/2026); chưa ghi thì bỏ dòng ấy.
+MA_CHAN_DOAN: tuple[str, ...] = (
+    "pk_dx",
+    "nt_dx",
+    "nk_dx",
+    "sc_dx",
+    "sk_conclusion",
+    "hmvs_dx_w",
+    "hmvs_dx_m",
+    "hmvs_dx_mix",
+)
+
+
+def chan_doan_tu_phieu(du_lieu: Mapping[str, Any] | None) -> str | None:
+    """Câu chẩn đoán đầu tiên CÓ CHỮ trong dữ liệu một phiếu khám (hoặc None)."""
+    for ma in MA_CHAN_DOAN:
+        o = (du_lieu or {}).get(ma)
+        gt = o.get("gia_tri") if isinstance(o, Mapping) else None
+        if isinstance(gt, str) and gt.strip():
+            return gt.strip()
+    return None
+
+
+async def doc_chan_doan(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+) -> str | None:
+    """Chẩn đoán bác sĩ chính đã ghi trên phiếu khám của lượt — chỉ đọc."""
+    rows = await conn.fetch(
+        "SELECT du_lieu FROM phieu_kham_luot"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid ORDER BY tao_luc",
+        clinic_id,
+        visit_id,
+    )
+    for r in rows:
+        dl = r["du_lieu"]
+        cd = chan_doan_tu_phieu(json.loads(dl) if isinstance(dl, str) else dl)
+        if cd:
+            return cd
+    return None
+
+
 async def doc_dau_phieu(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> dict[str, Any]:
@@ -214,6 +258,11 @@ async def doc_dau_phieu(
         "       p.nguoi_gioi_thieu, p.van_de_di_kham, l.name AS location_name,"
         "       v.checked_in_at, lv.name AS co_so_luot, st.name AS loai_kham,"
         "       bc.name AS kenh_dat, a.so_booking, a.so_tiep_don,"
+        # Đầu trang bản in (27/09/2026): tên phòng khám + địa chỉ CƠ SỞ của lượt
+        # (cơ sở chưa ghi địa chỉ thì rơi về địa chỉ phòng khám).
+        "       ck.name AS phong_kham,"
+        "       coalesce(nullif(btrim(lv.address), ''), nullif(btrim(l.address), ''),"
+        "                ck.address) AS dia_chi_co_so,"
         # Bác sĩ của LƯỢT; lượt chưa gán thì bác sĩ phiên khám chính đầu tiên.
         "       coalesce(d.full_name, ("
         "           SELECT s.full_name FROM consultation c"
@@ -228,6 +277,7 @@ async def doc_dau_phieu(
         "    ON l.id = p.location_id AND l.clinic_id = p.clinic_id"
         "  LEFT JOIN clinic_location lv"
         "    ON lv.id = v.location_id AND lv.clinic_id = v.clinic_id"
+        "  JOIN clinic ck ON ck.id = v.clinic_id"
         "  LEFT JOIN service_type st ON st.id = v.service_type_id"
         "  LEFT JOIN staff d ON d.id = v.attending_doctor_id"
         "  LEFT JOIN appointment a"
@@ -281,6 +331,27 @@ async def doc_dau_phieu(
         clinic_id,
         visit_id,
     )
+    # MỌI phiên tư vấn của lượt + bản ghi MỚI NHẤT (kể cả chưa ghi / đã xoá
+    # trắng) — để ô sửa tại chỗ của bác sĩ chính (27/09/2026, mục 12) luôn có
+    # chỗ ghi, không phụ thuộc phiên đã có chữ hay chưa.
+    phien_tu_van = await conn.fetch(
+        """
+        SELECT c.id::text AS consultation_id, c.round_no,
+               n.body, n.created_at, s.full_name AS nguoi
+          FROM consultation c
+          LEFT JOIN LATERAL (
+                SELECT body, created_at, recorded_by FROM consultation_note
+                 WHERE clinic_id = c.clinic_id AND consultation_id = c.id
+                 ORDER BY created_at DESC, id DESC LIMIT 1
+          ) n ON true
+          LEFT JOIN staff s ON s.id = n.recorded_by
+         WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+           AND c.kind = 'TU_VAN' AND c.status <> 'cancelled'
+         ORDER BY c.round_no, c.created_at
+        """,
+        clinic_id,
+        visit_id,
+    )
     return {
         # Nhãn đi kèm dữ liệu: màn không giữ bản chép thứ hai của "HA", "CN"…
         "nhan": dict(TRUONG_HANH_CHINH + TRUONG_SINH_HIEU + TRUONG_HO_SO),
@@ -303,6 +374,8 @@ async def doc_dau_phieu(
             # Số booking + số check-in ở MỌI khâu khám (Tuyền 27/09).
             "so_booking": bn["so_booking"] if bn else None,
             "so_tiep_don": bn["so_tiep_don"] if bn else None,
+            "phong_kham": bn["phong_kham"] if bn else None,
+            "dia_chi_co_so": bn["dia_chi_co_so"] if bn else None,
         },
         "the_sinh_hieu": dung_the_sinh_hieu(dung_sinh_hieu(dict(do) if do else None)),
         "sinh_hieu_nguoi": do["nguoi_do"] if do else None,
@@ -315,13 +388,27 @@ async def doc_dau_phieu(
             }
             for r in ghi_chu
         ],
+        "phien_tu_van": [
+            {
+                "consultation_id": r["consultation_id"],
+                "vong": r["round_no"],
+                "noi_dung": r["body"] or "",
+                "luc": r["created_at"].isoformat() if r["created_at"] else None,
+                "nguoi": r["nguoi"],
+            }
+            for r in phien_tu_van
+        ],
     }
 
 
 __all__ = [
+    "MA_CHAN_DOAN",
     "THE_SINH_HIEU",
     "TRUONG_HANH_CHINH",
     "TRUONG_SINH_HIEU",
+    "chan_doan_tu_phieu",
+    "dia_chi_benh_nhan",
+    "doc_chan_doan",
     "doc_dau_phieu",
     "dung_hanh_chinh",
     "dung_the_sinh_hieu",

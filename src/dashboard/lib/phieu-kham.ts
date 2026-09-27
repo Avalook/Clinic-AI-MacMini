@@ -32,6 +32,9 @@ export interface OPhieu {
   kieu: KieuO;
   nhom?: string;
   goi_y?: string;
+  /** Đơn vị ô số ("ngày", "mm"…) — khung chưa có thì màn tách từ nhãn
+   *  (`lib/o-so.ts::nhanVaDonVi`), chỉ để hiển thị. */
+  don_vi?: string;
   lua_chon?: LuaChon[];
   bang?: BangCuaO;
   hang?: string;
@@ -132,11 +135,51 @@ export interface MucCls {
   /** null = phòng khám chưa có dịch vụ này → ô khoá. */
   service_code: string | null;
   gia?: number | null;
+  /** Mã phòng khám (KiotViet) — dòng "Dịch vụ khác trong bảng giá". */
+  ma_kiotviet?: string | null;
 }
 
 export interface NhomCls {
   nhom: string;
   muc: MucCls[];
+}
+
+/** Hậu tố máy chủ gắn cho nhóm dịch vụ có trong bảng giá mà phiếu giấy không
+ *  liệt kê (`phieu_kham_service.py`, 26/09/2026). */
+export const HAU_TO_DANH_MUC_PK = " (danh mục phòng khám)";
+
+/**
+ * Tách danh mục mục C/F như bản giao diện mẫu (27/09/2026): nhóm theo PHIẾU
+ * GIẤY (luôn mở) và MỘT danh sách "Dịch vụ khác trong bảng giá" (gập) — mỗi
+ * dòng kèm tên nhóm gốc (đã bỏ hậu tố) để bác sĩ biết phòng làm.
+ */
+export function tachDanhMucKhac(ds: readonly NhomCls[]): {
+  chinh: NhomCls[];
+  khac: (MucCls & { nhom_goc: string })[];
+} {
+  const chinh: NhomCls[] = [];
+  const khac: (MucCls & { nhom_goc: string })[] = [];
+  for (const n of ds ?? []) {
+    if (!n || !Array.isArray(n.muc)) continue;
+    if (typeof n.nhom === "string" && n.nhom.endsWith(HAU_TO_DANH_MUC_PK)) {
+      const goc = n.nhom.slice(0, -HAU_TO_DANH_MUC_PK.length);
+      for (const m of n.muc) khac.push({ ...m, nhom_goc: goc });
+    } else {
+      chinh.push(n);
+    }
+  }
+  return { chinh, khac };
+}
+
+/** Chip mẫu kết quả ở dòng danh mục (bản mẫu `badgeMau`): đối tác · mẫu PDF ·
+ *  tự do. Chỉ đọc cờ máy chủ đã gắn (`cach_tra_ket_qua`, `form_id_ket_qua`). */
+export function chipMauDanhMuc(m: Pick<MucCls, "cach_tra_ket_qua" | "form_id_ket_qua">): {
+  nhan: string;
+  tone: "info" | "brand" | "neutral";
+} {
+  if (m.cach_tra_ket_qua === "Đối tác") return { nhan: "đối tác", tone: "info" };
+  if (m.form_id_ket_qua && m.form_id_ket_qua !== "KQ_CHUNG") return { nhan: "mẫu PDF", tone: "brand" };
+  return { nhan: "tự do", tone: "neutral" };
 }
 
 export interface DauPhieu {
@@ -146,6 +189,15 @@ export interface DauPhieu {
   sinh_hieu: Record<string, string | number | null>;
   sinh_hieu_luc: string | null;
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
+  /** MỌI phiên tư vấn của lượt + bản mới nhất (kể cả chưa ghi / đã xoá trắng) —
+   *  chỗ sửa tại chỗ của bác sĩ tư vấn và bác sĩ chính (27/09/2026, mục 12). */
+  phien_tu_van?: {
+    consultation_id: string;
+    vong: number;
+    noi_dung: string;
+    luc: string | null;
+    nguoi: string | null;
+  }[];
   /** Ô HỒ SƠ đồng bộ từ bảng khách (24/09/2026) — thứ tự hiện. */
   ho_so?: string[];
   /** Thẻ khách Y HỆT bản giao diện mẫu (27/09/2026). */
@@ -157,6 +209,9 @@ export interface DauPhieu {
     /** Số booking (lúc đặt) + số check-in (quầy cấp) — `components/ui/SoLuot`. */
     so_booking?: number | null;
     so_tiep_don?: number | null;
+    /** Đầu trang bản in (27/09/2026): tên phòng khám + địa chỉ cơ sở của lượt. */
+    phong_kham?: string | null;
+    dia_chi_co_so?: string | null;
   };
   /** Chín ô thẻ sinh hiệu: nhãn đầy đủ + giá trị đã kèm đơn vị. */
   the_sinh_hieu?: { khoa: string; nhan: string; gia_tri: string | null }[];
@@ -345,10 +400,16 @@ export interface DongThuoc {
   luu_y: string;
   /** Mẫu cách dùng đã điền sẵn dòng này (nếu có) — để còn biết chữ từ đâu ra. */
   mau_ma: string | null;
+  /** Đơn giá KHO (máy chủ, `drug_catalog.unit_price`) — chỉ để HIỂN THỊ; tiền
+   *  thật do quầy thu tính. null = ngoài danh mục kho / kho chưa có giá. */
+  don_gia?: number | null;
+  /** ĐVT của kho (`don_vi_ban`) — có thì ĐVT là CHỮ, không phải ô gõ. */
+  dvt_kho?: string | null;
 }
 
 /** Chọn một thuốc từ danh mục gợi ý → dòng đơn điền sẵn, bác sĩ sửa được. */
 export function dongTuMau(m: MauThuoc): DongThuoc {
+  const dvtKho = m.drug_catalog_id ? m.unit.trim() || null : null;
   return {
     drug_catalog_id: m.drug_catalog_id,
     ten_thuoc: m.nhan_nguon,
@@ -358,7 +419,52 @@ export function dongTuMau(m: MauThuoc): DongThuoc {
     cach_dung: m.dosage,
     luu_y: m.note,
     mau_ma: m.ma,
+    don_gia: m.drug_catalog_id ? (m.gia ?? null) : null,
+    dvt_kho: dvtKho,
   };
+}
+
+/** "+ Thuốc ngoài danh mục": dòng trống, bác sĩ gõ tên / ĐVT tự do. Chưa có tên
+ *  thì chưa lưu (`luuDon` bỏ dòng không tên). */
+export function dongNgoaiDanhMuc(): DongThuoc {
+  return {
+    drug_catalog_id: null,
+    ten_thuoc: "",
+    duong_dung: "",
+    so_luong: "",
+    don_vi: "",
+    cach_dung: "",
+    luu_y: "",
+    mau_ma: null,
+    don_gia: null,
+    dvt_kho: null,
+  };
+}
+
+/**
+ * Số lượng đọc được từ chữ bác sĩ gõ — CÙNG luật với máy chủ
+ * (`public.so_luong_tu_van_ban`): "30", "1,5", "2 viên" → số; "1/2", "uống đến
+ * hết", "0" → null (không đoán).
+ */
+export function soLuongTuChu(s: string): number | null {
+  const t = s.trim();
+  if (!/^[0-9]+(?:[.,][0-9]+)?\s*(?:$|[^0-9/.,].*$)/.test(t)) return null;
+  const n = Number(/^[0-9]+(?:[.,][0-9]+)?/.exec(t)![0].replace(",", "."));
+  return n > 0 ? n : null;
+}
+
+/**
+ * Thành tiền dự tính của một dòng — CHỈ để bác sĩ nhìn, quầy thu mới là nơi
+ * tính tiền. null khi thiếu giá, số lượng không đọc được, hoặc ĐVT gõ khác ĐVT
+ * kho (giá kho tính theo ĐVT kho — "2 hộp" nhân giá một viên là sai).
+ */
+export function thanhTienDong(d: DongThuoc): number | null {
+  if (d.don_gia == null) return null;
+  const sl = soLuongTuChu(d.so_luong);
+  if (sl == null) return null;
+  const bo = (x: string) => x.trim().toLowerCase();
+  if (d.dvt_kho && d.don_vi.trim() && bo(d.don_vi) !== bo(d.dvt_kho)) return null;
+  return Math.round(d.don_gia * sl);
 }
 
 // Đơn thuốc ↔ bảng `prescription`. Bảng không có cột đường dùng / đơn vị
@@ -371,6 +477,9 @@ export interface DongDonMayChu {
   quantity: string | null;
   dosage_instructions: string | null;
   caution: string | null;
+  /** Đơn giá + ĐVT của kho (27/09/2026) — máy chủ cũ chưa trả thì thiếu. */
+  don_gia?: number | null;
+  dvt_kho?: string | null;
 }
 
 const NOI = " — ";
@@ -388,10 +497,15 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     // Không bắt đầu bằng số (vd lần tự lưu đầu khi mới chọn thuốc: "hộp") →
     // cả chuỗi là ĐƠN VỊ. Bấm thật 23/09: nhét vào số lượng thì gõ "2" thành "hộp2".
     so_luong: m ? m[1] : "",
-    don_vi: m ? m[2] : sl,
+    // Đơn cũ chưa ghi đơn vị mà kho có → lấy ĐVT kho (ô ĐVT giờ là chữ của kho).
+    // Đơn đã ghi đơn vị thì GIỮ chữ đã ghi — không lặng lẽ đổi "2 hộp" thành
+    // "2 viên" ở lần tự lưu sau.
+    don_vi: (m ? m[2] : sl) || (r.dvt_kho ?? ""),
     cach_dung: i > 0 ? cd.slice(i + NOI.length) : cd,
     luu_y: r.caution ?? "",
     mau_ma: null,
+    don_gia: r.don_gia ?? null,
+    dvt_kho: r.dvt_kho ?? null,
   };
 }
 
@@ -472,6 +586,9 @@ export function giaTriDoc(
   if (o.kieu === "chon") {
     return o.lua_chon?.find((l) => l.ma === nhap.gia_tri)?.ten ?? nhap.gia_tri;
   }
+  // Ô ngày lưu "YYYY-MM-DD" (giá trị của <input type=date>); đọc/in theo kiểu VN.
+  const ngay = o.kieu === "ngay" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(nhap.gia_tri.trim()) : null;
+  if (ngay) return `${ngay[3]}/${ngay[2]}/${ngay[1]}`;
   return nhap.gia_tri;
 }
 
@@ -530,3 +647,38 @@ export const NHAN_KET_QUA: Record<ChiDinhVaKetQua["ket_qua_trang_thai"], string>
   DANG_NHAP: "Đang nhập kết quả",
   CHUA_CO: "Chưa có kết quả",
 };
+
+// ---------------------------------------------------------------------------
+// Hẹn tái khám — chip chọn nhanh ở mục G (27/09/2026, bản giao diện mẫu)
+// ---------------------------------------------------------------------------
+/** Ô "Ngày tái khám" của mọi phiếu: `pk_follow_date`, `hmvs_follow_date`… —
+ *  CÙNG quy ước máy chủ dùng để sinh nhắc tái khám (`right(key, 12) = '_follow_date'`). */
+export function laONgayTaiKham(ma: string): boolean {
+  return ma.endsWith("_follow_date");
+}
+
+export const HEN_NHANH = [
+  { nhan: "1 tuần", ngay: 7, thang: 0 },
+  { nhan: "2 tuần", ngay: 14, thang: 0 },
+  { nhan: "1 tháng", ngay: 0, thang: 1 },
+  { nhan: "3 tháng", ngay: 0, thang: 3 },
+] as const;
+
+/**
+ * Ngày hẹn = hôm nay (giờ VN, "YYYY-MM-DD" — lấy bằng `vnYmd()`) cộng khoảng.
+ * Tháng là tháng LỊCH ("1 tháng" từ 15/09 là 15/10, không phải +30 ngày); ngày
+ * không có ở tháng đích thì lùi về ngày cuối tháng (31/01 + 1 tháng = 28 hoặc
+ * 29/02). Đầu vào rác → "" (không ném — luật ngày/giờ của CLAUDE.md).
+ */
+export function ngayHenTaiKham(homNay: string, khoang: { ngay: number; thang: number }): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(homNay.trim());
+  if (!m) return "";
+  const [nam, thang, ngay] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const goc = new Date(Date.UTC(nam, thang - 1, ngay));
+  if (goc.getUTCMonth() !== thang - 1 || goc.getUTCDate() !== ngay) return "";
+  const cuoiThangDich = new Date(Date.UTC(nam, thang - 1 + khoang.thang + 1, 0)).getUTCDate();
+  const d = new Date(
+    Date.UTC(nam, thang - 1 + khoang.thang, Math.min(ngay, cuoiThangDich) + khoang.ngay),
+  );
+  return d.toISOString().slice(0, 10);
+}

@@ -666,8 +666,17 @@ class ServiceExecutionService:
                 "       so.selection_status, so.routing_status,"
                 "       so.execution_status, so.execution_revision,"
                 "       so.routing_revision, so.room_id::text AS room_id,"
-                "       so.visit_id::text AS visit_id"
+                "       so.visit_id::text AS visit_id,"
+                # Đầu dịch vụ ở phòng (27/09/2026 — bản mẫu): mã phòng khám
+                # (mã SP KiotViet) · giá bảng giá. Giá chỉ để NHÌN — tiền
+                # thật vẫn đọc ở sổ thanh toán.
+                "       sp.ma_kiotviet, sp.unit_price AS gia"
                 "  FROM service_order so"
+                "  LEFT JOIN LATERAL ("
+                "       SELECT s.ma_kiotviet, s.unit_price FROM service_price s"
+                "        WHERE s.clinic_id = so.clinic_id"
+                "          AND s.service_code = so.service_code"
+                "        ORDER BY s.active DESC LIMIT 1) sp ON true"
                 " WHERE so.clinic_id = $1::uuid AND so.id = $2::uuid",
                 cid,
                 order_id,
@@ -706,6 +715,7 @@ class ServiceExecutionService:
         cuoi = lan[-1] if lan else None
         return {
             **{k: don[k] for k in don.keys()},
+            "gia": int(don["gia"]) if don["gia"] is not None else None,
             "lan_dang_chay": dict(dang_chay) if dang_chay is not None else None,
             # Làm lại phải chỉ đúng lần đã dừng — màn không được tự đoán.
             "lan_da_dung": (
