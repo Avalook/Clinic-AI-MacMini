@@ -7,7 +7,7 @@ import { Tv } from "lucide-react";
 import { buttonClass } from "@/components/ui/Button";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import { loadLive } from "../load";
-import { tenPhong } from "../shared";
+import { tenPhong } from "../ten-phong";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +37,7 @@ export default async function Page() {
             <li key={r.id} className="flex items-center justify-between gap-2 rounded-card border border-line bg-surface p-3 shadow-card">
               <div className="min-w-0">
                 <p className="truncate text-body font-semibold text-ink">{ten}</p>
-                <p className="truncate text-meta text-ink-muted">
-                  {r.floor ?? "—"} · {r.waiting} chờ
-                </p>
+                <p className="truncate text-meta text-ink-muted">{r.waiting} đang chờ</p>
               </div>
               <Link href={href} target="_blank" className={`${buttonClass("soft", "sm")} shrink-0 gap-1.5`}>
                 <Tv className="size-4" aria-hidden="true" /> Mở TV
