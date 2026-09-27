@@ -19,6 +19,7 @@ Ký hiệu: ✅ xong · ⏳ đang code · ❓ chờ phòng khám/Tuyền trả l
 | 7a Gác quyền theo lego | `claude/dot3-quyen-lego` | Bảng việc: "thừa thiếu nút như ở bác sĩ tư vấn"; mọi vai xem hành trình; "Việc cần xử lý" lỗi; lễ tân + thu ngân hỗ trợ nhau | ⏳ |
 | 7b Thoát / trang chủ / check-out | `claude/dot3-thoat-trang-chu` | Nút Thoát góc trên phải; trang chủ đặt lịch theo ngày; check-out đang ở bước nào | ⏳ |
 | 7c Tầng / lịch trực / sắp xếp | `claude/dot3-lich-tang` | Ẩn số tầng; đổi tên phòng Thủ thuật; lịch trực kèm tên + vai; danh sách BN gần nhất lên trên | ⏳ |
+| 9 Đối tác tự thu + giá tạm | `claude/dot3-doi-tac-tu-thu` | Q1: khách trả thẳng đối tác, màn đối tác ghi nhận thanh toán; Q2: quản lý sửa phí khám sau (chip "giá tạm") | ⏳ |
 | 8 Quầy / xếp phòng / kho / dọn | `claude/dot3-quay-kho` | Thêm khách hàng lên trước; không xếp được phòng; tự động điều phối (dây bật/tắt); đầu dò; chụp phim 0đ; làm sạch dữ liệu + 17 lượt treo | ⏳ |
 
 ## Phát hiện khi soát (gốc rễ)
@@ -34,6 +35,14 @@ Ký hiệu: ✅ xong · ⏳ đang code · ❓ chờ phòng khám/Tuyền trả l
   dù đã Hoàn tất (prod có ca thật: SA 4D TC-BT).
 - Ảnh Doppler âm vật trên prod: CÓ, gắn đúng chỉ định, tải được — hiện được ở bản
   a7711b7. Vẫn sửa: quyền xem ảnh theo lego, DICOM, ảnh tải ở Khách hàng không gắn chỉ định.
+
+## Tuyền đã chốt 27/09
+
+- **Chỉ dùng lego** để gác mọi màn và nút — bỏ gác theo vai (gói 7a mở rộng).
+- **Q1:** dịch vụ đối tác khách **trả trực tiếp đối tác**; bill phòng khám không cộng; màn đối tác ghi nhận thanh toán (gói 9). Gói 8 bỏ việc "chụp phim 0đ".
+- **Q2:** giá phí khám để **quản lý tự điều chỉnh** sau (gói 9 gắn chip "giá tạm").
+- **Q5:** khách check-out rồi quay lại trong ngày → **thu phí khám mới** (giữ hoá đơn như hiện tại).
+- **Q9:** làm sạch = **xoá hết để bàn giao mới tinh** (script `scripts/don-prod-truoc-ban-giao.sh --that`, Tuyền chạy lúc bàn giao; gói 8 vá bảng thiếu).
 
 ## Chờ phòng khám / Tuyền trả lời (chưa code)
 
