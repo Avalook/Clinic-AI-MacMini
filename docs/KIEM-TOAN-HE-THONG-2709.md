@@ -3,11 +3,7 @@
 Phạm vi: repo (main `809feb8`), stack local và VPS prod `clinic-vps-moi` (prod đang chạy `87ae7d1`).
 Cách làm: 4 agent quét song song, chỉ đọc. Trên prod chỉ lấy số đếm, không đọc dữ liệu bệnh nhân. Các phát hiện quan trọng tôi kiểm lại bằng tay.
 
-Báo cáo gốc của từng phần (bảng chi tiết, dòng code cụ thể) ở cùng thư mục:
-- `audit_A_file_thua.md`: file thừa, file cũ;
-- `audit_B_kien_truc.md`: kiến trúc, kèm `endpoints.tsv` phân loại 370 endpoint;
-- `audit_C_vps.md`: máy chủ prod;
-- `audit_D_chuc_nang.md`: chức năng, màn × tài khoản, tốc độ local.
+Bản gốc chi tiết của 4 agent (có dòng code cụ thể và số đo cấu hình máy chủ) không đưa vào repo; các ý chính được tóm ở dưới.
 
 ---
 
