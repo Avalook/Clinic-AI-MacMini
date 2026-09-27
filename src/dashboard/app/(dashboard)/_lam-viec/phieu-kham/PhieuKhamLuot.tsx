@@ -11,7 +11,7 @@
 //   · Mục E: đơn thuốc tự lưu qua đường đơn bệnh án sẵn có → tới nhà thuốc.
 //   · KHÔNG KHOÁ: chế độ luôn "editable"; Hoàn tất ở Bàn khám chỉ là mốc giờ.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
 import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
@@ -81,6 +81,7 @@ export default function PhieuKhamLuot({
   onDaDat,
   onTrangThai,
   chiMuc,
+  chanRay,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -96,6 +97,8 @@ export default function PhieuKhamLuot({
   onTrangThai?: (g: ClinicalCompletionGate) => void;
   /** Chỉ vẽ các mục này của phiếu (bàn tư vấn: `["B"]`). */
   chiMuc?: string[];
+  /** Nút Hoàn tất của bàn khám — vẽ ở chân cột phải (Tuyền 27/09/2026). */
+  chanRay?: ReactNode;
 }) {
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
   const [phieu, setPhieu] = useState<PhieuLuot | null>(null);
@@ -282,6 +285,19 @@ export default function PhieuKhamLuot({
   };
 
   const daDat = useMemo(() => new Set(ketQua.map((k) => k.service_code)), [ketQua]);
+  // "Trên phiếu giấy: SÂ 2D TC-BT" — nhãn phiếu chỉ định giấy của từng mã (27/09).
+  const nhanGiay = useMemo(() => {
+    const ra: Record<string, string> = {};
+    for (const n of tc?.chi_dinh_cls ?? []) {
+      for (const m of n.muc) if (m.service_code && !ra[m.service_code]) ra[m.service_code] = m.nhan;
+    }
+    return ra;
+  }, [tc]);
+  // Mã thủ thuật — kết quả của chúng hiện ở khối 3, không lẫn vào khối 2.
+  const maThuThuat = useMemo(
+    () => new Set((tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : []))),
+    [tc],
+  );
   const goiYMau = useMemo(() => {
     const ra: Record<string, string> = {};
     for (const n of tc?.chi_dinh_cls ?? []) {
@@ -368,7 +384,6 @@ export default function PhieuKhamLuot({
   return (
     <div className="space-y-2">
       {/* Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính. */}
-      {chiMuc ? null : <HanhTrinhLuot visitId={visitId} />}
       {loiDon ? (
         <div role="alert" className="space-y-2 rounded-control bg-danger-bg p-3 text-body text-danger">
           <p>Đơn thuốc: {loiDon}</p>
@@ -400,19 +415,23 @@ export default function PhieuKhamLuot({
         cheDo={choGhi ? "editable" : "finalized_locked"}
         chiMuc={chiMuc}
         dauPhieu={dau}
+        // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
+        dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
+        chanRay={chanRay}
         nutIn={
           <>
-          <LichSuSuaPhieu visitId={visitId} dinhNghia={phieu} />
           {/* In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân
-              đâu?"). Mở tab riêng, ngoài thanh bên → in sạch khổ A4. */}
+              đâu?"). Mở tab riêng, ngoài thanh bên → in sạch khổ A4. Bản mẫu:
+              nút ở CHÂN CỘT PHẢI, trên Hoàn tất (27/09). */}
           <a
             href={`/print/phieu-kham/${visitId}`}
             target="_blank"
             rel="noopener"
-            className={buttonClass("ghost", "sm")}
+            className={`${buttonClass("secondary", "md")} lg:w-full`}
           >
             In phiếu khám
           </a>
+          <LichSuSuaPhieu visitId={visitId} dinhNghia={phieu} />
           </>
         }
         ketQuaChiDinh={ketQua}
@@ -439,9 +458,11 @@ export default function PhieuKhamLuot({
             chiDoc={!choGhi}
           />
         }
+        maThuThuat={maThuThuat}
         ketQua={{
           mauDuPhong,
           goiYMau,
+          nhanGiay,
           choDien: choGhi,
           clinicPatientId,
           onDoi: () => {

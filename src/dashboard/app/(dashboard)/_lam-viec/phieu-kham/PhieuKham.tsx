@@ -19,7 +19,7 @@
 //   · mục liên kết (C, E, F) dữ liệu thật ở chỗ khác (chỉ định, đơn thuốc);
 //                            shell cắm màn thật vào qua props.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -44,7 +44,8 @@ import {
 import ChiDinhThuThuat from "./ChiDinhThuThuat";
 import DonThuocPhieu from "./DonThuocPhieu";
 import KetQuaChiDinh from "./KetQuaChiDinh";
-import { KhoiHanhChinh, KhoiTuVan } from "./KhoiDauPhieu";
+import { KhoiTuVan } from "./KhoiDauPhieu";
+import { TheKhach, TheSinhHieu } from "./TheKhach";
 import { NhomOPhieu } from "./ONhapPhieu";
 
 /** Khoảng lặng trước khi tự lưu — gõ liên tục thì không bắn từng phím. */
@@ -99,6 +100,9 @@ export default function PhieuKham({
   ketQua,
   nutIn,
   chiMuc,
+  dauTrang,
+  chanRay,
+  maThuThuat,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -127,11 +131,18 @@ export default function PhieuKham({
     choDien: boolean;
     clinicPatientId?: string;
     onDoi: () => void;
+    nhanGiay?: Record<string, string>;
   };
+  /** Mã dịch vụ thủ thuật — kết quả của chúng hiện ở khối 3 (bản mẫu). */
+  maThuThuat?: ReadonlySet<string>;
   /** Nút mở bản in của phiếu — shell biết lượt nào nên shell dựng. */
   nutIn?: ReactNode;
   /** Chỉ vẽ các mục này (vd `["B"]` ở bàn tư vấn). Bỏ trống = cả phiếu. */
   chiMuc?: string[];
+  /** Đầu cột trái — dải "Hành trình hôm nay" (bản mẫu: timeline đứng trên thẻ khách). */
+  dauTrang?: ReactNode;
+  /** Chân cột phải dưới "In phiếu khám" — nút Hoàn tất của bàn khám (Tuyền 27/09). */
+  chanRay?: ReactNode;
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
   const [khoi, setKhoi] = useState<1 | 2 | 3>(1);
@@ -223,116 +234,186 @@ export default function PhieuKham({
   const oTheoMuc = (ds: string[]) =>
     dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
   const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTri(gia[ma])).length;
-  const coKq = ketQuaChiDinh.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
+  const laTT = (c: ChiDinhVaKetQua) => Boolean(maThuThuat?.has(c.service_code));
+  const ketQuaCls = ketQuaChiDinh.filter((c) => !laTT(c));
+  const ketQuaTT = ketQuaChiDinh.filter(laTT);
+  const coKq = ketQuaCls.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
+  // Chip "N mới" trên nút khối 2: kết quả đã về mà chưa ai xem.
+  const coKqMoi = ketQuaCls.filter(
+    (c) => c.ket_qua_trang_thai === "CO_KET_QUA" && !c.da_xem_luc,
+  ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTri(gia[ma]));
   const tomTat: Record<1 | 2 | 3, string> = {
     1: `${soDien} ô đã điền`,
-    2: ketQuaChiDinh.length
-      ? `${ketQuaChiDinh.length} chỉ định · ${coKq} có KQ`
-      : "chưa chỉ định",
+    2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
     3:
-      [soThuoc ? `${soThuoc} thuốc` : "", coHen ? "có hẹn" : ""].filter(Boolean).join(" · ") ||
-      "chưa có gì",
+      [soThuoc ? `${soThuoc} thuốc` : "", ketQuaTT.length ? `${ketQuaTT.length} dịch vụ` : "", coHen ? "có hẹn" : ""]
+        .filter(Boolean)
+        .join(" · ") || "chưa có gì",
   };
 
+  const trangThaiLuu = dangLuu ? "Đang lưu…" : luuLuc ? `Đã lưu ${gioVn(luuLuc)}` : "Tự lưu khi gõ";
+
+  // THẺ CON của từng mục — tên + câu phụ Y HỆT bản giao diện mẫu (`manKham`,
+  // M/app.js:401-448). `ma` ô không đổi; chỉ đổi cách trình bày.
+  const tieuDeMuc: Record<string, { ten: string; phu?: ReactNode }> = {
+    A: { ten: "Bác sĩ tư vấn ghi", phu: "mang sang từ Bàn tư vấn" },
+    B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
+    C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
+    D: { ten: "Chẩn đoán và xử lý" },
+    E: { ten: "Đơn thuốc", phu: "xếp như phiếu giấy · giá KiotViet" },
+    F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
+    G: { ten: "Hẹn khám" },
+  };
+  const GOI_Y_KHOI: Record<1 | 2 | 3, string | null> = {
+    1: null,
+    2: "tick là thêm · kết quả về tự hiện bên dưới",
+    3: null,
+  };
+
+  const theMuc = (m: MucPhieu) => {
+    const td = tieuDeMuc[m.ma] ?? { ten: m.ten };
+    const noiDung = (
+      <>
+        {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} /> : null}
+        {m.lien_ket?.loai === "chi_dinh_cls" ? oChiDinhCls : null}
+        {m.lien_ket?.loai === "don_thuoc" ? (
+          <DonThuocPhieu
+            dong={donThuoc?.dong ?? []}
+            mauThuoc={tc?.mau_thuoc ?? []}
+            onDoi={ghi ? donThuoc?.onDoi : undefined}
+          />
+        ) : null}
+        {m.lien_ket?.loai === "chi_dinh_thu_thuat" && oThuThuat ? oThuThuat : null}
+        {m.lien_ket?.loai === "chi_dinh_thu_thuat" && ketQuaTT.length > 0 ? (
+          <KetQuaChiDinh ds={ketQuaTT} {...(ketQua ?? {})} />
+        ) : null}
+        {m.lien_ket?.loai === "chi_dinh_thu_thuat" && !oThuThuat ? (
+          <ChiDinhThuThuat
+            ds={tc?.thu_thuat ?? []}
+            daChon={thuThuat?.daChon ?? []}
+            onChon={ghi ? thuThuat?.onChon : undefined}
+          />
+        ) : null}
+        {veO(m)}
+      </>
+    );
+    return (
+      <Fragment key={m.ma}>
+        {/* Khối 2: "Đã chỉ định & kết quả" đứng TRÊN danh mục (bản mẫu). */}
+        {m.lien_ket?.loai === "chi_dinh_cls" && ketQuaCls.length > 0 ? (
+          <TheCon ten="Đã chỉ định & kết quả">
+            <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} />
+          </TheCon>
+        ) : null}
+        <TheCon ten={td.ten} phu={td.phu}>
+          {noiDung}
+        </TheCon>
+      </Fragment>
+    );
+  };
+
+  if (chiMuc) {
+    // Bàn tư vấn: chỉ các mục được mở (vd B) — không đầu phiếu, không cột phải.
+    return (
+      <div className="space-y-4">
+        {loi ? <p className="text-body text-danger">{loi}</p> : null}
+        {dinhNghia.khung.filter((m) => chiMuc.includes(m.ma)).map((m) => theMuc(m))}
+        <p className="text-meta text-ink-muted">{trangThaiLuu}</p>
+      </div>
+    );
+  }
+
+  const hanhChinh = dinhNghia.khung.find((m) => m.ma === "HANH_CHINH");
+  const mucKhoi = dinhNghia.khung.filter((m) => (KHOI[khoi - 1]?.muc ?? []).includes(m.ma));
+
   return (
-    <section className="space-y-4 rounded-card border border-hairline bg-surface p-4">
-      <header className="flex flex-wrap items-center gap-2">
-        <h2 className="text-title text-ink">{dinhNghia.ten}</h2>
-        <span className="text-meta text-ink-faint">
-          {dinhNghia.form_id} · bản {dinhNghia.version}
-        </span>
-        {nhanCheDo ? <Chip tone={nhanCheDo.tone}>{nhanCheDo.ten}</Chip> : null}
-        <span className="ml-auto text-meta text-ink-muted">
-          {dangLuu ? "Đang lưu…" : luuLuc ? `Đã lưu ${gioVn(luuLuc)}` : "Tự lưu khi gõ"}
-        </span>
-        {nutIn}
-      </header>
-
-      {loi ? <p className="text-body text-danger">{loi}</p> : null}
-      {canhBao.length > 0 ? (
-        <ul className="space-y-1 rounded-control bg-warning-bg p-3 text-body text-warning">
-          {canhBao.map((c) => (
-            <li key={c.ma}>
-              {c.ten}: {c.loi}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {!chiMuc ? (
-        <nav
-          aria-label="Ba khối của phiếu"
-          className="flex gap-2 overflow-x-auto lg:hidden"
-        >
-          {KHOI.map((k) => (
-            <button
-              key={k.so}
-              type="button"
-              aria-pressed={khoi === k.so}
-              onClick={() => setKhoi(k.so)}
-              className={buttonClass(khoi === k.so ? "primary" : "secondary", "sm")}
-            >
-              {k.so} · {k.ten}
-            </button>
-          ))}
-        </nav>
-      ) : null}
-
-      <div className={chiMuc ? "space-y-4" : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]"}>
-      <div className="min-w-0 space-y-4">
-      {(chiMuc
-        ? dinhNghia.khung.filter((m) => chiMuc.includes(m.ma))
-        : dinhNghia.khung.filter(
-            (m) => m.ma === "HANH_CHINH" || (KHOI[khoi - 1]?.muc ?? []).includes(m.ma),
-          )
-      ).map((m) => (
-        <div key={m.ma} className="space-y-3">
-          {m.ma !== "HANH_CHINH" ? (
-            <h3 className="border-b border-hairline pb-1 text-emph font-semibold text-ink">
-              {m.ten}
-            </h3>
-          ) : null}
-
-          {m.ma === "HANH_CHINH" && dauPhieu ? (
-            <KhoiHanhChinh dau={dauPhieu} truong={m.lien_ket?.truong ?? []} />
-          ) : null}
-          {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} /> : null}
-
-          {m.lien_ket?.loai === "chi_dinh_cls" ? (
-            <>
-              {oChiDinhCls}
-              <KetQuaChiDinh ds={ketQuaChiDinh} {...(ketQua ?? {})} />
-            </>
-          ) : null}
-
-          {m.lien_ket?.loai === "don_thuoc" ? (
-            <DonThuocPhieu
-              dong={donThuoc?.dong ?? []}
-              mauThuoc={tc?.mau_thuoc ?? []}
-              onDoi={ghi ? donThuoc?.onDoi : undefined}
-            />
-          ) : null}
-
-          {m.lien_ket?.loai === "chi_dinh_thu_thuat" && oThuThuat ? oThuThuat : null}
-          {m.lien_ket?.loai === "chi_dinh_thu_thuat" && !oThuThuat ? (
-            <ChiDinhThuThuat
-              ds={tc?.thu_thuat ?? []}
-              daChon={thuThuat?.daChon ?? []}
-              onChon={ghi ? thuThuat?.onChon : undefined}
-            />
-          ) : null}
-
-          {veO(m)}
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
+      {/* CỘT PHẢI — ba nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
+          Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang. */}
+      <aside className="sticky top-16 z-10 min-w-0 lg:order-last lg:top-20">
+        <div className="flex gap-2 overflow-x-auto rounded-card border border-hairline bg-surface p-2 lg:flex-col lg:overflow-visible lg:p-3">
+          {KHOI.map((k) => {
+            const dang = khoi === k.so;
+            const moi = k.so === 2 ? coKqMoi : 0;
+            return (
+              <button
+                key={k.so}
+                type="button"
+                aria-pressed={dang}
+                onClick={() => setKhoi(k.so)}
+                className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
+                  dang ? "bg-surface-selected ring-brand-100" : "bg-surface ring-line hover:bg-surface-sunken"
+                }`}
+              >
+                <span
+                  className={`grid size-8 place-items-center rounded-control font-semibold ${
+                    dang ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-muted"
+                  }`}
+                >
+                  {k.so}
+                </span>
+                <span className="min-w-0 pr-1">
+                  <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
+                    {k.ten}
+                  </b>
+                  <small className="block text-meta text-ink-muted">{tomTat[k.so]}</small>
+                </span>
+                {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
+              </button>
+            );
+          })}
+          <div className="flex shrink-0 items-center gap-2 border-l border-hairline pl-2 lg:mt-2 lg:flex-col lg:items-stretch lg:border-l-0 lg:border-t lg:pl-0 lg:pt-3">
+            {nutIn}
+            {chanRay}
+            <span className="hidden text-center text-meta text-ink-muted lg:block">
+              {nhanCheDo ? `${nhanCheDo.ten} · ` : ""}
+              {trangThaiLuu}
+            </span>
+          </div>
         </div>
-      ))}
-      {!chiMuc ? (
-        <div className="flex justify-between gap-2 border-t border-hairline pt-3">
+      </aside>
+
+      <div className="min-w-0 space-y-4">
+        {dauTrang}
+        {loi ? <p role="alert" className="text-body text-danger">{loi}</p> : null}
+        {canhBao.length > 0 ? (
+          <ul className="space-y-1 rounded-control bg-warning-bg p-3 text-body text-warning">
+            {canhBao.map((c) => (
+              <li key={c.ma}>
+                {c.ten}: {c.loi}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {/* Thẻ khách + thẻ sinh hiệu Y HỆT bản giao diện mẫu (27/09/2026). */}
+        {dauPhieu ? (
+          <>
+            <TheKhach dau={dauPhieu} />
+            <TheSinhHieu dau={dauPhieu} />
+          </>
+        ) : null}
+        {hanhChinh ? veO(hanhChinh) : null}
+
+        <div className="flex scroll-mt-20 items-center gap-3 pt-4">
+          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-600 text-emph font-semibold text-white">
+            {khoi}
+          </span>
+          <h2 className="text-title font-semibold text-ink sm:text-hero">{KHOI[khoi - 1]?.ten}</h2>
+          {GOI_Y_KHOI[khoi] ? (
+            <span className="ml-auto hidden text-meta text-ink-muted sm:inline">{GOI_Y_KHOI[khoi]}</span>
+          ) : null}
+        </div>
+
+        {mucKhoi.map((m) => theMuc(m))}
+
+        <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (
             <button
               type="button"
-              className={buttonClass("ghost", "sm")}
+              className={buttonClass("ghost", "md")}
               onClick={() => setKhoi((khoi - 1) as 1 | 2)}
             >
               ← {KHOI[khoi - 2]?.ten}
@@ -343,44 +424,27 @@ export default function PhieuKham({
           {khoi < 3 ? (
             <button
               type="button"
-              className={buttonClass("secondary", "sm")}
+              className={buttonClass("secondary", "md")}
               onClick={() => setKhoi((khoi + 1) as 2 | 3)}
             >
               Sang: {KHOI[khoi]?.ten} →
             </button>
           ) : null}
         </div>
-      ) : null}
       </div>
+    </div>
+  );
+}
 
-      {!chiMuc ? (
-        <aside className="hidden lg:block">
-          <nav aria-label="Ba khối của phiếu" className="sticky top-4 space-y-2">
-            {KHOI.map((k) => (
-              <button
-                key={k.so}
-                type="button"
-                aria-pressed={khoi === k.so}
-                onClick={() => setKhoi(k.so)}
-                className={`flex w-full items-start gap-2 rounded-control border px-3 py-2 text-left ${
-                  khoi === k.so
-                    ? "border-brand-600 bg-brand-50"
-                    : "border-line bg-surface hover:bg-surface-muted"
-                }`}
-              >
-                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-600 text-meta font-semibold text-white">
-                  {k.so}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-body font-medium text-ink">{k.ten}</span>
-                  <span className="block text-meta text-ink-muted">{tomTat[k.so]}</span>
-                </span>
-              </button>
-            ))}
-          </nav>
-        </aside>
-      ) : null}
+/** Thẻ con của một mục — bản mẫu `.card` + `.card-h` (tiêu đề 14/600 trái, câu phụ phải). */
+function TheCon({ ten, phu, children }: { ten: string; phu?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-card border border-hairline bg-surface p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-emph font-semibold text-ink">{ten}</span>
+        {phu ? <span className="text-meta text-ink-muted">{phu}</span> : null}
       </div>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }

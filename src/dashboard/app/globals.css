@@ -11,7 +11,10 @@
  *     text colour that holds WCAG AA on it, and StatusChip always renders a
  *     label beside the dot.
  *   - No pink/blue gender coding. The previous pink scrollbar is gone for that
- *     reason, not for taste.
+ *     reason, not for taste. NGOẠI LỆ DUY NHẤT (Tuyền chốt 27/09/2026 — "y hệt
+ *     bản giao diện mẫu"): avatar của thẻ khách ở phiếu khám (nam: `info`), và
+ *     giới tính luôn ghi bằng CHỮ ngay cạnh — màu không bao giờ là tín hiệu duy
+ *     nhất.
  * ------------------------------------------------------------------------- */
 
 :root {
@@ -90,6 +93,11 @@
   --color-status-ready-bg: #d3f4ee;
   --color-status-assigned: #0369a1;
   --color-status-assigned-bg: #e0f2fe;
+  /* Tông "info" của bản giao diện mẫu (cùng giá trị status-assigned) — avatar
+     khách nam ở thẻ khách (ngoại lệ 27/09/2026, xem đầu tệp). */
+  --color-info: #0369a1;
+  --color-info-bg: #e0f2fe;
+  --color-info-ring: #bae0fd;
   --color-status-called: #1d4ed8;
   --color-status-called-bg: #dbeafe;
   --color-status-in-progress: #1d4ed8;
@@ -161,6 +169,11 @@
   --text-emph--line-height: 20px;
   --text-title: 16px;
   --text-title--line-height: 22px;
+  /* NGOẠI LỆ theo bản giao diện mẫu (Tuyền 27/09/2026): tên khách ở thẻ khách
+     + tiêu đề khối phiếu khám. Chỉ hai chỗ ấy — xem DESIGN.md §3. */
+  --text-hero: 22px;
+  --text-hero--line-height: 28px;
+  --text-hero--letter-spacing: -0.01em;
 
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04),
     0 1px 3px 0 rgb(15 23 42 / 0.06);

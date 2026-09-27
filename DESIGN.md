@@ -55,6 +55,11 @@ Font: system stack hiện tại (SF trên macOS/iOS, Segoe/Roboto nơi khác). S
 
 Cấm: mọi `text-[..px]` ngoài 5 bậc trên. 8 cỡ hiện hành (9→15, 28) gom về đây.
 
+**Ngoại lệ theo bản giao diện mẫu (Tuyền chốt 27/09/2026 — "y hệt bản mẫu"):**
+bậc `hero` 22px/600 (−0.01em) CHỈ cho tên khách ở thẻ khách và tiêu đề khối phiếu
+khám; đệm thẻ khách 20px, khe 10px ở viên thông tin; avatar khách nam tông `info`
+(giới tính luôn ghi bằng chữ cạnh đó). Mọi chỗ khác vẫn theo thang trên.
+
 ## 4. Khoảng cách & bo góc — lưới 4px
 
 Khoảng cách chỉ dùng: **4 / 8 / 12 / 16 / 24 / 32**. Bo góc chỉ dùng:

@@ -16,20 +16,20 @@ khi tin.
 
 ## Thứ tự làm (tác động thấy được trước) — ✅ xong · ⏳ đang · ☐ chưa
 
-1. ☐ **Thẻ khách + thẻ sinh hiệu dùng chung, bỏ lặp** (M). `TheKhach`: avatar 56 tròn
+1. ✅ (27/09, đợt 1) **Thẻ khách + thẻ sinh hiệu dùng chung, bỏ lặp** (M). Bàn tư vấn chưa dùng (mục 8). `TheKhach`: avatar 56 tròn
    (nữ brand-50/brand-700, nam xanh), tên 22px/600 HOA + chip loại khám, "Nữ • 42 tuổi
    (1984)", 3 viên (Mã khách · SĐT · Khám dd/mm/yyyy), ô Cơ sở phải, 4 ô icon (Địa chỉ ·
    Bác sĩ · Kênh đặt · Người giới thiệu). `TheSinhHieu`: lưới ô surface-muted, nhãn đầy
    đủ + ĐƠN VỊ, đầu thẻ "Đo lúc HH:MM · người đo · chỉ xem (sửa ở Đo sinh hiệu)". Dùng
    ở phiếu khám + bàn tư vấn; bỏ đầu thẻ / dải sinh hiệu trùng ở Bàn khám.
    Máy chủ `doc_dau_phieu`: bác sĩ, kênh đặt, cơ sở của LƯỢT, người đo, nhãn + đơn vị.
-2. ☐ **Dòng kết quả khối 2** (L). Mỗi chỉ định một thẻ: tên 600 + mã SP; "Trên phiếu
+2. ✅ (27/09, đợt 1) **Dòng kết quả khối 2** (L). Chữ "Lần n" thay "Lượt n" (lượt = lượt khám). Mỗi chỉ định một thẻ: tên 600 + mã SP; "Trên phiếu
    giấy: …"; chip một trục (Chờ thu · Đã thu — chờ làm · Đang làm · Có KQ) + chip mẫu
    (mẫu PDF / tự do / đối tác); giá; nút "Mở phiếu kết quả". **Tóm tắt LUÔN hiện** khi
    có KQ (2 cột, bỏ ô rỗng, ≤14 dòng), **hộp KẾT LUẬN** brand-50, ⤢ ở góc, khối "ẢNH ·
    VIDEO" có đếm, chồng giấy xoay. Gom theo lần (mới trên), đặt TRÊN danh mục, lọc bỏ
    thủ thuật. Máy chủ `ket_qua_chi_dinh`: ma_kiotviet, gia, da_thu, da_xem_luc.
-3. ☐ **Tiêu đề khối có số + thẻ con + cột phải** (M). Ô số 32 vuông bo 8 brand-600 +
+3. ✅ (27/09, đợt 1) **Tiêu đề khối có số + thẻ con + cột phải** (M). Thêm: Bàn khám gập cột hàng chờ khi mở phiếu (<1536px) — nút "☰ Hàng chờ". Ô số 32 vuông bo 8 brand-600 +
    h2 22px + câu gợi ý; mỗi mục một thẻ trắng; cột phải có khung, ô số vuông, chip "N
    mới", In + Hoàn tất ở chân; màn hẹp: thanh nút dính trên.
 4. ☐ **Danh mục tick kiểu phiếu giấy** (M). Luôn mở, lưới 3/2/1 cột; dòng 20px|1fr|auto;

@@ -76,10 +76,23 @@ async def doc_ket_qua_theo_chi_dinh(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
         "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
-        "       coalesce(n.lam_ben_ngoai, false) AS ben_ngoai"
+        "       coalesce(n.lam_ben_ngoai, false) AS ben_ngoai,"
+        # Dòng kết quả Y HỆT bản mẫu (27/09/2026): mã SP · giá · đã thu · đã xem.
+        "       o.da_xem_ket_qua_luc, sp.ma_kiotviet, sp.unit_price,"
+        "       EXISTS (SELECT 1 FROM payment_bill_line bl"
+        "                 JOIN payment_cycle pc ON pc.clinic_id = bl.clinic_id"
+        "                  AND pc.payment_cycle_id = bl.payment_cycle_id"
+        "                WHERE bl.clinic_id = o.clinic_id"
+        "                  AND bl.source_type = 'service_order'"
+        "                  AND bl.source_id = o.id::text AND pc.status = 'PAID')"
+        "         AS da_thu"
         "  FROM service_order o"
         "  LEFT JOIN node_definition n"
         "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
+        "  LEFT JOIN LATERAL ("
+        "       SELECT s.ma_kiotviet, s.unit_price FROM service_price s"
+        "        WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code"
+        "        ORDER BY s.active DESC LIMIT 1) sp ON true"
         " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
         "   AND o.exec_status <> 'cancelled'"
         "   AND coalesce(o.execution_status, '') <> 'CANCELLED'"
@@ -172,6 +185,14 @@ async def doc_ket_qua_theo_chi_dinh(
                 ),
                 "mang_sang": r["mang_tu_visit_id"] is not None,
                 "bat_buoc": bool(r["bat_buoc"]),
+                "ma_kiotviet": r["ma_kiotviet"],
+                "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
+                "da_thu": bool(r["da_thu"]),
+                "da_xem_luc": (
+                    r["da_xem_ket_qua_luc"].isoformat()
+                    if r["da_xem_ket_qua_luc"]
+                    else None
+                ),
                 # Làm ở ĐỐI TÁC (phòng `lam_ben_ngoai`): trạng thái bàn đối tác —
                 # cùng một hàm với màn đối tác và CSKH (lát 4c, 26/09/2026).
                 "doi_tac": (

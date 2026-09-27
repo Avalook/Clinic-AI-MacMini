@@ -193,3 +193,25 @@ async def test_chi_dinh_lam_o_doi_tac_mang_trang_thai_ban_doi_tac(
         "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", don
     )
     assert await doi_tac() == "DA_GUI_KET_QUA"
+
+
+async def test_dong_ket_qua_co_ma_sp_gia_da_thu_da_xem_va_the_khach(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Dữ liệu cho giao diện y hệt bản mẫu (27/09/2026)."""
+    from clinicai.phieu_kham.mang_sang import doc_dau_phieu
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    _con, don = await _kham_va_chi_dinh(pool, ca, visit)
+    async with pool.acquire() as conn:
+        ds = await doc_ket_qua_theo_chi_dinh(conn, clinic_id=CLINIC, visit_id=visit)
+        dau = await doc_dau_phieu(conn, clinic_id=CLINIC, visit_id=visit)
+    [d] = [x for x in ds if x["service_order_id"] == don]
+    assert d["da_thu"] is False and d["da_xem_luc"] is None
+    assert "gia" in d and "ma_kiotviet" in d
+    tk = dau["the_khach"]
+    assert tk["bac_si"], "bác sĩ của lượt (hoặc phiên khám chính)"
+    assert tk["co_so"] and tk["loai_kham"]
+    assert len(dau["the_sinh_hieu"]) == 9
