@@ -9,6 +9,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { nhanLoi } from "@/lib/loi-api";
+
+import NutXemLuot from "../_lam-viec/NutXemLuot";
 import { useNgheBang } from "../dung-nghe-bang";
 
 interface Viec {
@@ -20,13 +23,20 @@ interface Viec {
   visit_id: string | null;
   created_at: string | null;
   actionable_by_me: boolean;
-  patient: { ten?: string | null; ma_bn?: string | null } | null;
+  /** Khớp `WorklistPatient` ở routers/work_items.py (27/09 đợt 3: trước đây
+   *  màn đọc `ten`/`ma_bn` — không có trong API — nên tên khách luôn trống). */
+  patient: { full_name?: string | null; patient_code?: string | null } | null;
 }
 
+/** Nhãn của ba node khu vận hành — mã THẬT ở migration 20260923000007 (đợt 3
+ *  sửa: bản trước dùng hai mã tự đặt không tồn tại). Mã lạ → tên node. */
 const NHAN: Record<string, string> = {
-  "OPS-DOI-SOAT-TIEN": "Đối soát tiền — khách đã trả mà không làm",
-  "OPS-QUYET-LAM-LAI": "Quyết định làm lại — dịch vụ bị dừng giữa chừng",
+  "OPS-FINANCIAL-RESOLUTION": "Đối soát tiền — khách đã trả mà không làm",
+  "OPS-SERVICE-INTERRUPTED": "Quyết định làm lại — dịch vụ bị dừng giữa chừng",
+  "OPS-ROUTING-REASSIGN": "Điều phối lại — phòng cũ không còn dùng được",
 };
+
+type KetQua = { ok: true; ds: Viec[] } | { ok: false; loi: string };
 
 function gio(iso: string | null): string {
   if (!iso) return "";
@@ -39,21 +49,27 @@ export default function BangViecCanXuLy() {
   const [loi, setLoi] = useState<string | null>(null);
   const [dangDong, setDangDong] = useState<string | null>(null);
 
-  const doc = useCallback(async (): Promise<Viec[] | null> => {
-    const r = await fetch("/api/work-items?workspace=khu_van_hanh", {
-      cache: "no-store",
-    });
-    return r.ok ? ((await r.json()) as Viec[]) : null;
+  const doc = useCallback(async (): Promise<KetQua> => {
+    try {
+      const r = await fetch("/api/work-items?workspace=khu_van_hanh", {
+        cache: "no-store",
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không đọc được danh sách việc.") };
+      return { ok: true, ds: (d ?? []) as Viec[] };
+    } catch {
+      return { ok: false, loi: "Mất kết nối tới máy chủ." };
+    }
   }, []);
 
   const nap = useCallback(async () => {
     const kq = await doc();
-    if (kq === null) {
-      setLoi("Không đọc được danh sách việc.");
+    if (!kq.ok) {
+      setLoi(kq.loi);
       return;
     }
     setLoi(null);
-    setDs(kq);
+    setDs(kq.ds);
   }, [doc]);
 
   useEffect(() => {
@@ -61,10 +77,10 @@ export default function BangViecCanXuLy() {
     const lay = () => {
       void doc().then((kq) => {
         if (huy) return;
-        if (kq === null) setLoi("Không đọc được danh sách việc.");
+        if (!kq.ok) setLoi(kq.loi);
         else {
           setLoi(null);
-          setDs(kq);
+          setDs(kq.ds);
         }
       });
     };
@@ -81,23 +97,61 @@ export default function BangViecCanXuLy() {
 
   useNgheBang(["work_item", "work_item_event", "staff_task"], () => void nap());
 
+  // "Đã xử lý" = [start nếu việc còn chờ] → complete. Máy trạng thái của kernel
+  // chỉ cho `complete` từ IN_PROGRESS — việc mới mở luôn ở PENDING, nên bản cũ
+  // chỉ gửi `complete` thì LUÔN 409 (đợt 3, 27/09/2026). Máy chủ vẫn quyết từng
+  // lệnh; màn chỉ gửi đúng thứ tự hai lệnh có sẵn.
+  const lenh = async (
+    id: string,
+    thaoTac: "start" | "complete",
+    version: number,
+  ): Promise<{ ok: true; version: number } | { ok: false; loi: string }> => {
+    try {
+      const r = await fetch(`/api/work-items/${id}/commands/${thaoTac}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected_version: version }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) {
+        return { ok: false, loi: nhanLoi(d, "Đóng việc không thành công — tải lại rồi thử lại.") };
+      }
+      return { ok: true, version: (d as { version?: number } | null)?.version ?? version };
+    } catch {
+      return { ok: false, loi: "Mất kết nối — việc CHƯA được đóng." };
+    }
+  };
+
   const dong = async (v: Viec) => {
     setDangDong(v.id);
-    const r = await fetch(`/api/work-items/${v.id}/commands/complete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expected_version: v.version }),
-    });
+    let version = v.version;
+    if (v.status === "PENDING") {
+      const bd = await lenh(v.id, "start", version);
+      if (!bd.ok) {
+        setDangDong(null);
+        setLoi(bd.loi);
+        return;
+      }
+      version = bd.version;
+    }
+    const kq = await lenh(v.id, "complete", version);
     setDangDong(null);
-    if (!r.ok) {
-      setLoi("Đóng việc không thành công — tải lại rồi thử lại.");
+    if (!kq.ok) {
+      setLoi(kq.loi);
       return;
     }
     await nap();
   };
 
+  // Lần nạp đầu lỗi → nói rõ lỗi, không đứng "Đang tải…" mãi (đợt 3, 27/09).
   if (ds === null) {
-    return <p className="text-sm text-ink-muted">Đang tải…</p>;
+    return loi ? (
+      <p role="alert" className="text-sm text-danger">
+        {loi}
+      </p>
+    ) : (
+      <p className="text-sm text-ink-muted">Đang tải…</p>
+    );
   }
 
   return (
@@ -125,11 +179,16 @@ export default function BangViecCanXuLy() {
                   <p className="text-sm font-semibold text-ink">
                     {NHAN[v.node_code] ?? v.node_name ?? v.node_code}
                   </p>
-                  <p className="mt-0.5 text-label text-ink-muted">
-                    {v.patient?.ten ? `${v.patient.ten} · ` : ""}
-                    {v.patient?.ma_bn ?? ""}
-                    {v.created_at ? ` · mở lúc ${gio(v.created_at)}` : ""}
+                  <p className="mt-0.5 text-meta text-ink-muted">
+                    {[
+                      v.patient?.full_name,
+                      v.patient?.patient_code,
+                      v.created_at ? `mở lúc ${gio(v.created_at)}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
+                  {v.visit_id ? <NutXemLuot visitId={v.visit_id} nhan="Xem lượt" /> : null}
                 </div>
                 <Button
                   type="button"

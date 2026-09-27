@@ -79,7 +79,12 @@ export default function Nav({
     quyen,
   );
   // Node con (Nhắc tái khám) đứng ngay dưới node cha (Quản lý khách hàng).
-  const [dau, khac, ...mucNhom] = xepNodeCon([tho.dau, tho.khac, ...tho.nhom.map((g) => g.muc)]);
+  // Mục "lego đang bật" (7a, 27/09) nằm chung — kiểu A tự xếp theo nhóm công việc.
+  const [dau, khac, ...mucNhom] = xepNodeCon([
+    tho.dau,
+    [...tho.lego, ...tho.khac],
+    ...tho.nhom.map((g) => g.muc),
+  ]);
   const nhom = tho.nhom.map((g, i) => ({ ...g, muc: mucNhom[i] }));
   const laCon = (item: NavItem) =>
     Boolean(item.cha) && [...dau, ...khac, ...mucNhom.flat()].some((m) => m.href === item.cha);

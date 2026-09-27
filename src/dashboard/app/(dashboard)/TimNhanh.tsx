@@ -41,7 +41,7 @@ export default function TimNhanh({
 
   const man = useMemo(() => {
     const t = nhomThanhBen(role, (r, href) => hienTrenThanhBen(r, href, quyen), featureMode, CLINICAL_HREFS, [], {}, quyen);
-    return nhomTheoCongViec([...t.dau, ...t.nhom.flatMap((g) => g.muc), ...t.khac]).flatMap((g) =>
+    return nhomTheoCongViec([...t.dau, ...t.nhom.flatMap((g) => g.muc), ...t.lego, ...t.khac]).flatMap((g) =>
       g.muc.map((m) => ({ href: m.href, ten: navLabelFor(m, role), nhom: g.ten, Icon: m.icon })),
     );
   }, [role, quyen, featureMode]);

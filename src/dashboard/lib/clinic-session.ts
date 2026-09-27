@@ -7,7 +7,14 @@ import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
 import { docDuocYKhoa, inDuocPhieu } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
-import { departmentToRole, vaoDuocMan, type ClinicRole } from "./roles";
+import {
+  departmentToRole,
+  luonBatChoVaiGoc,
+  nutBanKham,
+  vaoDuocMan,
+  type ClinicRole,
+  type NutBanKham,
+} from "./roles";
 import { type ViTriDb } from "./roster";
 import { getSupabaseServer } from "./supabase-server";
 
@@ -68,24 +75,22 @@ export async function getVaiChinh(): Promise<ClinicRole | null> {
   return (await getVaiHomNay())[0] ?? null;
 }
 
+/** Nút ở Bàn khám / Bàn tư vấn — theo LEGO của tài khoản (đợt 3, 27/09/2026).
+ *  Vai chỉ còn là đường lùi khi máy chủ chưa trả lời quyền (`nutBanKham`). */
+export async function getNutBanKham(): Promise<NutBanKham> {
+  const [quyen, vai] = await Promise.all([
+    getQuyenCuaToi(),
+    vaiLamViec((r) => r === "DOCTOR" || r === "TKYK"),
+  ]);
+  return nutBanKham(quyen, vai);
+}
+
 /** Vai đầu tiên trong vai làm việc hôm nay thoả `dieuKien`, hoặc vai tài khoản. */
 export async function vaiLamViec(
   dieuKien: (r: ClinicRole) => boolean,
 ): Promise<ClinicRole | null> {
   const ds = await getVaiHomNay();
   return ds.find(dieuKien) ?? ds[0] ?? null;
-}
-
-/** "Vai" cho nút bấm ở Bàn khám / Bàn khám tư vấn — theo QUYỀN (Tuyền 28/09/2026:
- *  thư ký, bác sĩ, điều dưỡng xếp cùng phòng "bản chất node giống nhau, thao
- *  tác như nhau, song song"). Có quyền chỉ định → dùng như bác sĩ; chỉ có quyền
- *  khám → như thư ký; không có → vai tài khoản như trước. Máy chủ vẫn tự kiểm
- *  quyền ở mọi lệnh — đây chỉ là để không khoá nút của người có quyền. */
-export async function vaiBanKham(): Promise<ClinicRole | null> {
-  const quyen = await getQuyenCuaToi();
-  if (quyen?.includes("clinical.order.place")) return "DOCTOR";
-  if (quyen?.includes("clinical.consult.perform")) return "TKYK";
-  return vaiLamViec((r) => r === "DOCTOR" || r === "TKYK");
 }
 
 /** QUYỀN ĐANG CÓ của người đăng nhập (capability, không phải vai).
@@ -117,8 +122,19 @@ export async function requireNavAccess(href: string): Promise<void> {
  *  cho chỗ cần HỎI (vd ô số ở trang chủ chỉ gắn link khi đích mở được). */
 export async function moDuocMan(href: string): Promise<boolean> {
   const [vai, quyen] = await Promise.all([getVaiHomNay(), getQuyenCuaToi()]);
-  return vaoDuocMan(href, vai, quyen);
+  return vaoDuocMan(href, vai, quyen) || luonBatChoVaiGoc(href, await getClinicRole());
 }
+
+/** Vai để DỰNG KHUNG TRANG (nhãn vai, thanh bên dự phòng). Như `getVaiHomNay`,
+ *  nhưng tài khoản nội bộ đã tắt MỌI lego mang vai (vai hôm nay rỗng) vẫn còn vai
+ *  tài khoản để hiển thị — không thì layout tưởng máy chủ hỏng và hiện trang lỗi
+ *  thay vì Trang chủ / Hành trình (luôn bật). Không dùng để quyết "được làm". */
+export const getVaiHienThi = cache(async (): Promise<ClinicRole[]> => {
+  const ds = await getVaiHomNay();
+  if (ds.length > 0) return ds;
+  const goc = await getClinicRole();
+  return goc ? [goc] : [];
+});
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền
  *  KHÔNG chạy. Bắt buộc: (1) có phiên Supabase thật (auth.getUser), (2) đã chọn

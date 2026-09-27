@@ -19,12 +19,16 @@ from clinicai.api.identity import (
 )
 from clinicai.core.clock import now_vn
 from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.doc_bang import (
+    QUYEN_BANG_LUOT,
+    doi_mot_quyen,
+    quyen_doc_hang_cho,
+)
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
-    BOARD_ROLES,
     CHECKIN_ROLES,
     DISPATCH_ROLES,
     NOTE_ROLES,
@@ -50,9 +54,12 @@ class BangLuotKham:
         self._pool = pool
 
     async def bang(self, *, identity: StaffIdentity) -> dict[str, Any]:
-        _require(identity, BOARD_ROLES, "Vai của bạn không dùng màn lượt khám.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            # Theo LEGO, không theo vai (đợt 3, 27/09/2026) — `permissions/doc_bang`.
+            await doi_mot_quyen(
+                conn, identity, QUYEN_BANG_LUOT, cau="Bạn chưa được cấp lego dùng bảng."
+            )
             # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
             doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
             visits = await conn.fetch(
@@ -616,10 +623,17 @@ class BangLuotKham:
         THỨ TỰ: giờ vào hàng chờ, tức giờ đo sinh hiệu xong hoặc giờ được chỉ
         định; số thứ tự trong ngày là thứ tự CHECK-IN, như phiếu lễ tân phát.
         """
-        _require(identity, BOARD_ROLES, "Vai của bạn không dùng hàng chờ phòng.")
         cid = identity.clinic_id
         rid = _uuid(room_id, "Mã phòng không hợp lệ.") if room_id else None
         async with self._pool.acquire() as conn:
+            # Hàng nào cần lego nào (đợt 3, 27/09/2026) — `permissions/doc_bang`.
+            await doi_mot_quyen(
+                conn,
+                identity,
+                quyen_doc_hang_cho(tu_van=tu_van, co_phong=rid is not None),
+                phong_id=rid if rid is not None and not tu_van else None,
+                cau="Bạn chưa được cấp lego dùng hàng chờ này.",
+            )
             # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
             doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
             phong = None

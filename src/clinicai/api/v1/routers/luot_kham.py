@@ -57,19 +57,15 @@ def _tat_loi_cu(identity: StaffIdentity, endpoint: str, thay: str) -> None:
     )
 
 
-# NĂM CỬA DƯỚI ĐÂY MỞ THEO CÔNG TẮC (Tuyền 16/09/2026: "tất cả các tài khoản
+# BẢNG LƯỢT KHÁM · HÀNG CHỜ · PHÒNG HÔM NAY hỏi LEGO (đợt 3, 27/09/2026): cửa
+# router chỉ còn "đã đăng nhập"; hàm dịch vụ tự hỏi quyền của lego dùng bảng ấy
+# (`permissions/doc_bang.py`). Trước đây là danh sách VAI — tài khoản chỉ bật
+# lego Khám tư vấn bị 403 ở hàng chờ tư vấn của chính mình.
+_BANG_GUARD = get_current_identity
+# HAI CỬA DƯỚI ĐÂY MỞ THEO CÔNG TẮC (Tuyền 16/09/2026: "tất cả các tài khoản
 # đều có thể thao tác đã… trừ bác sĩ ra thui"). Khi `MO_QUYEN_TAM_THOI` bật,
 # chúng nhận MỌI vai làm việc trong phòng khám; tắt đi là về đúng danh sách
 # đang viết ở đây. Xem `identity.mo_quyen_tam_thoi`.
-_BANG_GUARD = require_role_co_the_mo(
-    ClinicRole.RECEPTION,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
 # ĐƯỜNG KHÁM CHÍNH HỎI QUYỀN (CORE-B3, 23/09/2026): check-in, sinh hiệu, khám,
 # ghi chú, duyệt kết quả — cửa ở router chỉ còn "đã đăng nhập"; quyền thật
 # (`capability_grant`) do hàm dịch vụ hỏi trong chính giao dịch. Để lại cửa

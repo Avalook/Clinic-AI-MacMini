@@ -709,6 +709,41 @@ VAI_LAM_VIEC: frozenset[ClinicRole] = frozenset(ClinicRole) - {
 }
 
 
+def la_noi_bo(identity: StaffIdentity) -> bool:
+    """Thành viên NỘI BỘ đang hoạt động — xét VAI TÀI KHOẢN, không xét lego.
+
+    Đợt 3 (27/09/2026): màn "luôn bật" (Trang chủ, Hành trình, Xem lượt) và hàng
+    việc chung không được mất chỉ vì lego mang vai đã tắt. Trước đây chúng gác
+    bằng `co_vai(...)` — mà `cac_vai()` bỏ vai tài khoản khi lego tương ứng tắt,
+    nên lễ tân tắt lego Tiếp đón là mất cả Hành trình.
+    """
+    return identity.vai_goc in VAI_LAM_VIEC
+
+
+class CuaNoiBo:
+    """Cửa router: mọi thành viên nội bộ đang hoạt động (theo vai tài khoản).
+
+    Không thay `role` như `RoleGuard` — việc hỏi quyền thật nằm ở hàm dịch vụ
+    (capability). Giữ `allowed_roles` để bài kiểm đọc lại được tập vai.
+    """
+
+    allowed_roles: frozenset[ClinicRole] = VAI_LAM_VIEC
+
+    async def __call__(
+        self,
+        identity: StaffIdentity = Depends(get_current_identity),
+    ) -> StaffIdentity:
+        if not la_noi_bo(identity):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Tài khoản này không phải thành viên nội bộ phòng khám",
+            )
+        return identity
+
+
+cua_noi_bo = CuaNoiBo()
+
+
 #: Vị trí trong lịch → vai VẬN HÀNH mà người đứng đó được dùng hôm nay.
 #:
 #: CHỈ VAI VẬN HÀNH. Lịch cấp quyền lễ tân, điều dưỡng, trưởng ca; KHÔNG cấp

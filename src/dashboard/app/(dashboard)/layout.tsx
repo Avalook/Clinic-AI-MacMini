@@ -9,7 +9,7 @@ import { maTraVeBackend } from "../../lib/backend-proxy";
 import { getCurrentStaff } from "../../lib/current-staff";
 import {
   getQuyenCuaToi,
-  getVaiHomNay,
+  getVaiHienThi,
   getViTriHomNay,
 } from "../../lib/clinic-session";
 import { ROLE_LABEL, canWriteIntake } from "../../lib/roles";
@@ -40,7 +40,8 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Vai hôm nay: vai theo vị trí trong lịch đứng trước, vai tài khoản đứng cuối.
-  const vaiHomNay = await getVaiHomNay();
+  // Tắt hết lego mang vai → vẫn còn vai tài khoản để dựng khung (đợt 3, 27/09).
+  const vaiHomNay = await getVaiHienThi();
   const vaiTaiKhoan = vaiHomNay[vaiHomNay.length - 1] ?? null;
   // Vai CHÍNH quyết định nhãn vai + thanh bên dự phòng + mọi thứ "vẽ màn nào".
   const role = vaiHomNay[0] ?? null;

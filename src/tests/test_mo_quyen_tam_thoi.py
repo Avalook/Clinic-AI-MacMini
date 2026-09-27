@@ -122,12 +122,15 @@ def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
     from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import luot_kham
 
-    for ten in ("_BANG_GUARD", "_DISPATCH_GUARD", "_PERFORMER_GUARD"):
+    for ten in ("_DISPATCH_GUARD", "_PERFORMER_GUARD"):
         assert isinstance(getattr(luot_kham, ten), RoleGuardCoTheMo), (
             f"{ten} phải nới được theo công tắc — Tuyền cần mọi vai thao tác được."
         )
 
+    # Đợt 3 (27/09/2026): bảng lượt khám / hàng chờ hỏi LEGO trong hàm dịch vụ
+    # (`permissions/doc_bang.py`) — không còn danh sách vai ở cửa router.
     for ten in (
+        "_BANG_GUARD",
         "_CHECKIN_GUARD",
         "_VITALS_GUARD",
         "_NOTE_GUARD",

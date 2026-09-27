@@ -6,15 +6,16 @@ phối, lễ tân xem hành trình, thu ngân xem giao dịch. Thay vì mỗi m�
 lịch sử riêng, tất cả đọc từ NGUỒN CANONICAL (visit, vital_measurement,
 consultation, clinical_record, clinical_form_response, service_order,
 review_round, prescription, payment, follow_up_case, event_log) qua MỘT hàm, và
-hàm này quyết vai nào thấy mục nào:
+hàm này quyết ai thấy mục nào — theo QUYỀN (lego), không theo vai (đợt 3,
+27/09/2026):
 
-  * hành chính, dòng thời gian sự kiện, lượt trước: mọi vai được gọi;
-  * sinh hiệu: vai lâm sàng + điều dưỡng;
+  * hành chính, dòng thời gian sự kiện, lượt trước: mọi thành viên nội bộ;
+  * sinh hiệu: quyền y khoa hoặc đo sinh hiệu;
   * lâm sàng (bệnh án, phiếu, ký, đơn thuốc, theo dõi, vòng đọc) và NỘI DUNG
-    kết quả: bác sĩ, thư ký y khoa (chỉ khách của bác sĩ mình), bác sĩ siêu âm;
-  * dịch vụ: mọi vai thấy trạng thái + mốc thời gian (không thấy nội dung);
-  * tài chính: thu ngân, lễ tân, trưởng ca, quản lý;
-  * cấp thuốc: nhà thuốc, thu ngân thuốc, vai lâm sàng.
+    kết quả: quyền y khoa (`QUYEN_Y_KHOA`); thư ký chỉ khách của bác sĩ mình;
+  * dịch vụ: mọi người thấy trạng thái + mốc thời gian (không thấy nội dung);
+  * tài chính: thu tiền dịch vụ / thuốc, tiếp đón, điều phối;
+  * cấp thuốc: nhà thuốc, thu tiền thuốc, quyền y khoa.
 
 Không ghi gì. Mọi câu khoá theo clinic_id.
 """
@@ -22,6 +23,7 @@ Không ghi gì. Mọi câu khoá theo clinic_id.
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -29,9 +31,10 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import VAI_LAM_VIEC, ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.permissions.y_khoa import doc_duoc_in_phieu
+from clinicai.permissions.can import quyen_hieu_luc
+from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, doc_duoc_in_phieu
 from clinicai.services.audit_labels import action_label
 from clinicai.services.luot_kham_rules import (
     doi_phong_duoc,
@@ -41,37 +44,34 @@ from clinicai.services.luot_kham_rules import (
 from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
-GOI_DUOC = frozenset(
-    {
-        # CSKH xem được hành trình (bảng hành trình chung — nhóm 3, 24/09/2026:
-        # "mở được từ mọi màn"). Nội dung lâm sàng vẫn cắt theo `muc_duoc_xem`.
-        ClinicRole.CSKH,
-        ClinicRole.DOCTOR,
-        ClinicRole.TKYK,
-        ClinicRole.ULTRASOUND_DOCTOR,
-        ClinicRole.NURSE_ULTRASOUND,
-        ClinicRole.RECEPTION,
-        ClinicRole.TRUONG_CA,
-        ClinicRole.MANAGEMENT,
-        ClinicRole.CASHIER,
-        ClinicRole.CASHIER_DV,
-        ClinicRole.CASHIER_THUOC,
-        ClinicRole.PHARMACIST,
-    }
+#: AI GỌI ĐƯỢC Xem lượt / bảng Hành trình: MỌI thành viên nội bộ đang hoạt động
+#: — theo VAI TÀI KHOẢN, không theo lego (đợt 3, 27/09/2026). Hành trình là màn
+#: "luôn bật" (`catalogue.LUON_BAT`); trước đây hỏi `co_vai(...)`, nên tắt lego
+#: mang vai (vd lễ tân tắt Tiếp đón) là mất luôn màn này. Nội dung vẫn cắt theo
+#: QUYỀN ở `muc_duoc_xem`.
+GOI_DUOC: frozenset[ClinicRole] = VAI_LAM_VIEC
+
+#: Mục nào mở theo quyền nào (đợt 3, 27/09/2026 — thay các tập VAI cũ). Lâm sàng
+#: = đúng cửa y khoa chung (`permissions/y_khoa.QUYEN_Y_KHOA`): ai mở được phiếu
+#: khám thì thấy phần lâm sàng của lượt; ai không có thì KHÔNG lộ chữ bác sĩ viết.
+QUYEN_SINH_HIEU: tuple[str, ...] = (*QUYEN_Y_KHOA, "vitals.measure")
+QUYEN_TAI_CHINH: tuple[str, ...] = (
+    "payment.service.collect",
+    "payment.medicine.collect",
+    "reception.checkin.perform",
+    "dispatch.manage",
 )
-LAM_SANG = frozenset({ClinicRole.DOCTOR, ClinicRole.TKYK, ClinicRole.ULTRASOUND_DOCTOR})
-SINH_HIEU = LAM_SANG | {ClinicRole.NURSE_ULTRASOUND}
-TAI_CHINH = frozenset(
-    {
-        ClinicRole.CASHIER,
-        ClinicRole.CASHIER_DV,
-        ClinicRole.CASHIER_THUOC,
-        ClinicRole.RECEPTION,
-        ClinicRole.TRUONG_CA,
-        ClinicRole.MANAGEMENT,
-    }
+QUYEN_THUOC: tuple[str, ...] = (
+    *QUYEN_Y_KHOA,
+    "pharmacy.dispense",
+    "pharmacy.view",
+    "payment.medicine.collect",
 )
-THUOC = LAM_SANG | {ClinicRole.PHARMACIST, ClinicRole.CASHIER_THUOC}
+
+
+def goi_duoc(identity: StaffIdentity) -> bool:
+    """Được mở Xem lượt / Hành trình: thành viên nội bộ (vai tài khoản)."""
+    return identity.vai_goc in GOI_DUOC
 
 
 def _iso(v: Any) -> str | None:
@@ -149,17 +149,22 @@ def _moc_dich_vu(r: Any) -> list[dict[str, Any]]:
     return [{"viec": v, "luc": _iso(luc), "ai": ai} for v, luc, ai in moc if luc]
 
 
-def muc_duoc_xem(identity: StaffIdentity) -> dict[str, bool]:
-    """Vai này thấy mục nào — thuần, test được không cần database."""
+def muc_duoc_xem(quyen: Collection[str]) -> dict[str, bool]:
+    """Người có các quyền này thấy mục nào — thuần, test được không cần DB."""
+    co = set(quyen)
+
+    def mot(ds: tuple[str, ...]) -> bool:
+        return not co.isdisjoint(ds)
+
     return {
         "hanh_chinh": True,
         "su_kien": True,
         "lich_su": True,
         "dich_vu": True,
-        "sinh_hieu": identity.co_vai(SINH_HIEU),
-        "lam_sang": identity.co_vai(LAM_SANG),
-        "tai_chinh": identity.co_vai(TAI_CHINH),
-        "thuoc": identity.co_vai(THUOC),
+        "sinh_hieu": mot(QUYEN_SINH_HIEU),
+        "lam_sang": mot(QUYEN_Y_KHOA),
+        "tai_chinh": mot(QUYEN_TAI_CHINH),
+        "thuoc": mot(QUYEN_THUOC),
     }
 
 
@@ -201,11 +206,11 @@ class XemLuotService:
         self._pool = pool
 
     async def doc(self, *, visit_id: str, identity: StaffIdentity) -> dict[str, Any]:
-        if not identity.co_vai(GOI_DUOC):
-            raise SafetyGateError("Vai của bạn không xem lại lượt khám.")
+        if not goi_duoc(identity):
+            raise SafetyGateError("Tài khoản của bạn không xem lại lượt khám.")
         cid = identity.clinic_id
-        muc = muc_duoc_xem(identity)
         async with self._pool.acquire() as conn:
+            muc = muc_duoc_xem(await quyen_hieu_luc(conn, identity))
             v = await conn.fetchrow(
                 """
                 SELECT v.visit_id::text AS visit_id, v.status, v.checked_in_at,

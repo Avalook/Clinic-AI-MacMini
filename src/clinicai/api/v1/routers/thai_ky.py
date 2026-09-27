@@ -1,4 +1,4 @@
-"""Thai kỳ — đọc cho vai lâm sàng, ghi chỉ bác sĩ (``ThaiKyService`` gác lần hai)."""
+"""Thai kỳ — đọc theo quyền y khoa, ghi theo quyền Hoàn tất khám (``ThaiKyService``)."""
 
 from __future__ import annotations
 
@@ -9,21 +9,18 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import cua_y_khoa
 from clinicai.services.thai_ky_service import ThaiKyService
 
 router = APIRouter()
 
-_DOC_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.NURSE_ULTRASOUND,
-)
-# Ghi thai kỳ: QUYỀN ghi bệnh án, không vai (28/09/2026).
-_GHI_GUARD = cua_quyen("clinical.record.write")
+# THEO LEGO, không theo vai (đợt 3, 27/09/2026): đọc = cửa y khoa chung; ghi =
+# quyền Hoàn tất khám, do `ThaiKyService` hỏi trong chính lệnh. Trước đây
+# `require_role(DOCTOR)` — tài khoản bật đủ lego Bàn khám mà vai khác vẫn 403.
+_DOC_GUARD = cua_y_khoa
+_GHI_GUARD = get_current_identity
 
 
 class TaoThaiKyBody(BaseModel):

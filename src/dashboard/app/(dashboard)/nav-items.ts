@@ -31,7 +31,12 @@ import {
   FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
-import { legoChoHien, type ClinicRole } from "../../lib/roles";
+import {
+  laManLego,
+  legoChoHien,
+  quyenMoDuocMan,
+  type ClinicRole,
+} from "../../lib/roles";
 
 export interface NavItem {
   href: string;
@@ -593,14 +598,21 @@ export function mucHienRa(
   return NAV.filter((item) => hienTrenThanhBen(role, item.href) && conLai(item));
 }
 
-// THANH BÊN: các NHÓM VAI hôm nay + "Việc khác" (gập sẵn).
+// THANH BÊN: các NHÓM VAI hôm nay + "Lego đang bật" + "Việc khác" (gập sẵn).
 //
 // Chỉ ẩn thì hỏng đúng chuyện thường ngày trong lịch Kim Ngưu: đứng thay nhau
 // giữa ca. Người đứng Đo sinh hiệu được gọi sang lấy mẫu vẫn phải có lối vào,
 // chỉ là không bày ra chen với việc chính.
 //
-// Không có ca (hoặc là Quản lý) → `nhom` rỗng, `khac` là menu theo vai, và
-// thanh bên vẽ một danh sách phẳng như trước.
+// Đợt 3 (27/09/2026): Trang chủ + Hành trình (luôn bật) đứng đầu (`dau`); lego
+// ĐANG BẬT của chính tài khoản không gập (`lego`) — lễ tân và thu ngân hỗ trợ
+// nhau bằng cách BẬT THÊM LEGO ở /phan-quyen, không dùng chung tài khoản. "Việc
+// khác" chỉ còn những màn ngoài lego.
+//
+// Không có ca (hoặc là Quản lý) → `nhom`, `lego` rỗng, `khac` là menu theo vai,
+// và thanh bên vẽ một danh sách phẳng như trước.
+export const TEN_NHOM_LEGO = "Lego đang bật";
+
 export function nhomThanhBen(
   role: ClinicRole | null,
   hienTrenThanhBen: (r: ClinicRole | null, href: string) => boolean,
@@ -609,7 +621,7 @@ export function nhomThanhBen(
   viTriHomNay: readonly string[] = [],
   phong: PhongTheoViTri = {},
   quyen: readonly string[] | null = null,
-): { dau: NavItem[]; nhom: NhomThanhBen[]; khac: NavItem[] } {
+): { dau: NavItem[]; nhom: NhomThanhBen[]; lego: NavItem[]; khac: NavItem[] } {
   // Cùng một phép lọc với thanh dưới — `mucHienRa` — để hai thanh không lệch.
   const theoVai = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, []);
   const homNay = mucHienRa(
@@ -617,7 +629,7 @@ export function nhomThanhBen(
   );
   const coCa = role !== "MANAGEMENT" && hrefTheoViTri(viTriHomNay).length > 0;
   if (!coCa) {
-    return { dau: [], nhom: [], khac: theoVai };
+    return { dau: [], nhom: [], lego: [], khac: theoVai };
   }
   const choPhep = new Map(homNay.map((i) => [i.href, i]));
   const nhom: NhomThanhBen[] = nhomTheoViTri(viTriHomNay, role, phong)
@@ -630,14 +642,20 @@ export function nhomThanhBen(
     }))
     .filter((g) => g.muc.length > 0);
   const daCo = new Set(nhom.flatMap((g) => g.muc.map((i) => i.href)));
-  const dau = homNay.filter((i) => i.href === "/home");
+  const dau = [
+    ...homNay.filter((i) => i.href === "/home"),
+    ...theoVai.filter((i) => i.href === "/hanh-trinh" && !daCo.has(i.href)),
+  ];
+  for (const i of dau) daCo.add(i.href);
   daCo.add("/home");
-  const khac = theoVai.filter((i) => !daCo.has(i.href));
-  if (!khac.some((i) => i.href === "/schedule") && legoChoHien(quyen, "/schedule")) {
+  const conLai = theoVai.filter((i) => !daCo.has(i.href));
+  if (!conLai.some((i) => i.href === "/schedule") && legoChoHien(quyen, "/schedule")) {
     const lich = NAV.find((i) => i.href === "/schedule");
-    if (lich) khac.push(lich);
+    if (lich) conLai.push(lich);
   }
-  return { dau, nhom, khac };
+  const dangBat = (i: NavItem) =>
+    quyen !== null && laManLego(i.href) && quyenMoDuocMan(quyen, i.href);
+  return { dau, nhom, lego: conLai.filter(dangBat), khac: conLai.filter((i) => !dangBat(i)) };
 }
 
 // THANH DƯỚI TRÊN ĐIỆN THOẠI — bốn nút cho mỗi vai, chọn theo VIỆC CỦA VAI ẤY.

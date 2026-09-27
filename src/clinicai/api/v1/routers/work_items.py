@@ -26,7 +26,7 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import ClinicRole, StaffIdentity, cua_noi_bo, require_role
 from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
@@ -41,20 +41,13 @@ VN_TZ = _CLINIC_TZ
 
 # Every clinical and front-desk role works the flow; the node's own actor list
 # is what narrows it per station.
-_WORK_ITEM_GUARD = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.TKYK,
-    ClinicRole.RECEPTION,
-    ClinicRole.CSKH,
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-    ClinicRole.PHARMACIST,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
+#
+# THEO VAI TÀI KHOẢN, không theo vai lego (đợt 3, 27/09/2026): trước đây là
+# `require_role(...)` xét `cac_vai()` — lễ tân tắt lego Tiếp đón mà không còn
+# lego mang vai nào khác thì 403 ở cả "Việc cần xử lý" dù có quyền
+# `worklist.handle`. Khu vận hành hỏi đúng quyền ấy (`QUYEN_THEO_KHU`); các khu
+# khác vẫn hỏi actor_roles của node trong hàm dịch vụ.
+_WORK_ITEM_GUARD = cua_noi_bo
 
 # A worklist is a patient-data surface.  The general work-item guard admits
 # every role that can participate somewhere in the workflow, but that does not
