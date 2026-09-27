@@ -268,7 +268,7 @@ export default function GlobalHeader({
       return { title: "Lịch sử thao tác", subtitle: "Tra cứu ai đã thực hiện thay đổi, vào thời điểm nào và dữ liệu nào bị ảnh hưởng" };
     }
     if (pathname.startsWith("/do-sinh-hieu")) {
-      return { title: "Đo sinh hiệu", subtitle: "Khách theo thứ tự đến — bấm vào một người để nhập chỉ số đo được" };
+      return { title: "Đo sinh hiệu" };
     }
     if (pathname.startsWith("/reception/checkout")) {
       return {

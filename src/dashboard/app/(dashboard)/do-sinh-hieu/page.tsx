@@ -21,9 +21,6 @@ export default async function TrangDoSinhHieu() {
     <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
       <header>
         <h1 className="text-2xl font-semibold text-ink">Đo sinh hiệu</h1>
-        <p className="text-sm text-ink-muted">
-          Khách đã check-in hôm nay, theo thứ tự đến. Bấm vào khách để điền.
-        </p>
       </header>
       <BangDoSinhHieu />
     </main>

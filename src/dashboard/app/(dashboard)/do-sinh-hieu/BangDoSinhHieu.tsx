@@ -32,6 +32,7 @@ import Button from "@/components/ui/Button";
 import OSo from "@/components/ui/OSo";
 
 import XemLuot from "../_lam-viec/XemLuot";
+import ChipLoc from "@/components/ui/ChipLoc";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
 
@@ -218,9 +219,13 @@ export default function BangDoSinhHieu() {
 
   // THỨ TỰ = GIỜ CHECK-IN, người đến trước lên trước (Tuyền 15/09: "hàng chờ =
   // giờ check-in"). Chưa đo đứng trên, đã đo xuống dưới.
+  // Tuyền 27/09 tối: chọn xếp theo số check-in hay số booking (chỉ tăng dần —
+  // hàng chờ luôn cần người trước lên trước). Số thiếu xuống cuối.
+  const [xepTheo, setXepTheo] = useState<"checkin" | "booking">("checkin");
   const { choDo, dangDo, daDo } = useMemo(() => {
-    const ds = [...(luot ?? [])].sort((a, b) =>
-      (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""),
+    const khoa = (l: Luot) => (xepTheo === "booking" ? l.so_booking : l.so_tiep_don) ?? Number.MAX_SAFE_INTEGER;
+    const ds = [...(luot ?? [])].sort(
+      (a, b) => khoa(a) - khoa(b) || (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""),
     );
     // "ĐANG ĐO" ĐỌC TỪ TRẠNG THÁI THẬT (23/09/2026), không suy từ giờ gọi.
     // Bản trước lấy `goi_do_luc` làm "đang đo" — tức "đã gọi" bị đọc thành
@@ -232,7 +237,7 @@ export default function BangDoSinhHieu() {
       dangDo: ds.filter(dangDoThat),
       daDo: ds.filter((l) => l.sinh_hieu),
     };
-  }, [luot]);
+  }, [luot, xepTheo]);
 
   const dangChon = (luot ?? []).find((l) => l.visit_id === chon) ?? null;
 
@@ -473,16 +478,16 @@ export default function BangDoSinhHieu() {
             chon === l.visit_id ? "bg-brand-50" : ""
           }`}
         >
+          <SoLuot dang="tron" booking={l.so_booking} checkin={l.so_tiep_don} />
+          {/* Tên + số LUÔN đủ ở mọi cỡ màn (Tuyền 27/09 tối): tên xuống dòng chứ
+              không cắt; trạng thái (chờ bao lâu / ai đang đo) nằm ở dòng phụ. */}
           <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5">
-              <span className="truncate font-semibold text-ink">{l.ten}</span>
-              <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
-            </span>
-            <span className="block truncate text-meta text-ink-muted">
-              {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || l.ma_bn}
+            <span className="block break-words font-semibold text-ink">{l.ten}</span>
+            <span className="flex flex-wrap items-baseline gap-x-2 text-meta text-ink-muted">
+              <span>{[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || l.ma_bn}</span>
+              {phai}
             </span>
           </span>
-          {phai ? <span className="shrink-0 text-right">{phai}</span> : null}
         </button>
       </li>
     );
@@ -529,9 +534,18 @@ export default function BangDoSinhHieu() {
             </ul>
           </>
         ) : null}
-        <p className="border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
-          Chờ đo ({choDo.length})
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-y border-line bg-surface-muted px-3 py-2">
+          <p className="text-sm font-semibold text-ink">Chờ đo ({choDo.length})</p>
+          <ChipLoc
+            nhan="Xếp theo"
+            muc={[
+              { ma: "checkin", nhan: "Check-in" },
+              { ma: "booking", nhan: "Booking" },
+            ]}
+            chon={xepTheo}
+            onChon={setXepTheo}
+          />
+        </div>
         <ul>
           {choDo.length === 0 ? (
             <li className="px-3 py-4 text-meta text-ink-muted">Không còn ai chờ đo.</li>
