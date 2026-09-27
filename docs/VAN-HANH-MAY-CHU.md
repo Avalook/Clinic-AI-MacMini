@@ -11,7 +11,7 @@ Sổ tay cho người có sudo (Tuyền/Quang). Viết 27/09/2026 sau kiểm to�
 | Ai làm gì, lúc nào, mất bao lâu | `/ops` tab **Nhật ký vận hành** (chọn ngày, tìm khách; ô cam = chậm gấp đôi trung vị) |
 | Nhanh từ máy Mac | `bash scripts/suc-khoe.sh` (prod /health, người đưa tin, container, đĩa, sao lưu) |
 | Bản sao lưu ở Mac | `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` → phải "BÌNH THƯỜNG", tuổi < 30 giờ |
-| Log một lỗi cụ thể (có "mã lỗi" 8 ký tự) | `ssh clinic-vps-moi` rồi `journalctl CONTAINER_NAME=clinicai_prod-api-1 --since "2 hours ago" \| grep <mã>` (log giữ qua deploy từ 27/09) |
+| Log một lỗi cụ thể (có "mã lỗi" 8 ký tự) | `ssh clinic-vps-moi` rồi `sudo journalctl CONTAINER_NAME=clinicai_prod-api-1 --since "2 hours ago" \| grep <mã>` — log giữ qua deploy từ 27/09 (đã chuyển journald). Container đang chạy thì `docker logs clinicai_prod-api-1` cũng được. Muốn bỏ `sudo`: `sudo usermod -aG systemd-journal clinicai` (đăng nhập lại) |
 
 Cảnh báo tự gửi Telegram khi đặt `TELEGRAM_OPS_CHAT_ID` (id nhóm Telegram
 riêng cho kỹ thuật) vào `.env.prod`, rồi deploy lại. Không đặt thì cảnh báo vẫn
