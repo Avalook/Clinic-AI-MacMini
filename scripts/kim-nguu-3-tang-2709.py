@@ -394,6 +394,10 @@ async def pha_lego(
             muon = LEGO_THEO_VAI.get(vai)
             if muon is None:
                 continue
+        if vai != "PARTNER":
+            # Mọi nhân viên nội bộ tự đăng ký ca (Tuyền 27/09 tối: "bật lại node
+            # lịch làm việc cho nhân viên") — chạy lại script không được tắt nó.
+            muon = muon | {"lich_lam_viec"}
         tat = sorted(co - muon)
         ghi_phong = ""
         if "phong" in muon:
