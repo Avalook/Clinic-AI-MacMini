@@ -8,9 +8,14 @@
 // Giá trị luôn là MÃ: ô nhiều-chọn lưu `nt_endo_hist_2`, không lưu chữ "Tuyến
 // giáp". Nhãn chỉ để in ra.
 
+import Button from "@/components/ui/Button";
+import { vnYmd } from "@/lib/datetime";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import {
   batTatLuaChon,
+  HEN_NHANH,
+  laONgayTaiKham,
+  ngayHenTaiKham,
   type GiaTriO,
   type NhomVe,
   type OPhieu,
@@ -184,7 +189,7 @@ export function ONhap({
     );
   }
 
-  return (
+  const oNhap = (
     <label className="block">
       {nhan}
       <input
@@ -196,5 +201,34 @@ export function ONhap({
         className={INPUT}
       />
     </label>
+  );
+  if (o.kieu !== "ngay" || !laONgayTaiKham(o.ma) || chiDoc) return oNhap;
+
+  // Mục G "Ngày tái khám": chip chọn nhanh (bản giao diện mẫu 27/09/2026). Ngày
+  // tính ở hàm thuần theo HÔM NAY giờ VN — không theo đồng hồ múi giờ máy.
+  const homNay = vnYmd();
+  return (
+    <div className="space-y-2">
+      {oNhap}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-meta text-ink-muted">Chọn nhanh</span>
+        {HEN_NHANH.map((h) => {
+          const ngay = ngayHenTaiKham(homNay, h);
+          return (
+            <Button
+              key={h.nhan}
+              type="button"
+              size="sm"
+              variant={ngay && ngay === chu(gia) ? "soft" : "secondary"}
+              aria-pressed={ngay !== "" && ngay === chu(gia)}
+              disabled={!ngay}
+              onClick={() => onDoi(o.ma, ngay)}
+            >
+              {h.nhan}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
