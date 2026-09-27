@@ -310,6 +310,29 @@ if [ "$UP_OK" != "1" ]; then
   echo "!! compose up FAILED for the new release"
 fi
 
+# CADDYFILE MỚI PHẢI THẬT SỰ ĐƯỢC NẠP (27/09/2026). Caddyfile gắn vào container
+# dạng MỘT FILE: git thay file = inode mới, container vẫn đọc inode CŨ; `up -d`
+# không tạo lại Caddy vì cấu hình compose không đổi; `admin off` nên không
+# `caddy reload` được. Nghĩa là sửa Caddyfile rồi deploy "xong" mà Caddy vẫn chạy
+# bản cũ tới lần khởi động lại tình cờ nào đó. So nội dung Caddy ĐANG THẤY với
+# file trong repo; khác thì kiểm bản mới bằng chính env của container rồi mới
+# restart (chập chờn ~1 giây). Bản mới hỏng thì GIỮ bản cũ đang chạy.
+if [ "$UP_OK" = "1" ]; then
+  caddy_cid="$("${COMPOSE[@]}" ps -q caddy 2>/dev/null || true)"
+  caddy_file="$(env_value CADDY_FILE)"
+  caddy_file="${caddy_file:-./caddy/Caddyfile}"
+  if [ -n "$caddy_cid" ] && [ -f "$caddy_file" ] && \
+     ! docker exec "$caddy_cid" cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - "$caddy_file"; then
+    echo "==> [4a] Caddyfile đổi — kiểm rồi nạp lại Caddy"
+    if docker cp "$caddy_file" "$caddy_cid:/tmp/Caddyfile.moi" >/dev/null && \
+       docker exec "$caddy_cid" caddy validate --config /tmp/Caddyfile.moi --adapter caddyfile >/dev/null 2>&1; then
+      "${COMPOSE[@]}" restart caddy || echo "!! restart caddy failed"
+    else
+      echo "!! Caddyfile mới KHÔNG hợp lệ — giữ bản đang chạy; sửa rồi deploy lại"
+    fi
+  fi
+fi
+
 # RELAY THÔNG BÁO SỐNG QUA DEPLOY. `up -d` chỉ dựng profile mặc định; relay
 # nằm trong profile `notifications` nên MỖI lần deploy nó bị bỏ rơi — đo được
 # 17/08/2026: sau deploy, relay biến mất và 57 sự kiện xếp hàng câm lặng cho
