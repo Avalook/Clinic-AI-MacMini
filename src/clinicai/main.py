@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from clinicai.api.auth import api_key_middleware
 from clinicai.api.identity import mo_quyen_tam_thoi
 from clinicai.api.middleware import (
+    REQUEST_ID_HEADER,
     CskhUploadSizeLimitMiddleware,
     DbErrorMiddleware,
     RequestIdMiddleware,
@@ -512,10 +513,24 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         "unhandled_exception",
         reason=str(exc),
     )
+    # MÃ LỖI cho người dùng (27/09/2026). Lỗi 500 được xử lý ở tầng NGOÀI CÙNG
+    # (ServerErrorMiddleware), tức là ngoài RequestIdMiddleware — response này
+    # không đi qua chỗ gắn header, và `request_id_ctx` đã bị reset. Nhưng
+    # structlog contextvars vẫn còn (cùng task), và đó cũng là mã nằm trên
+    # dòng log `unhandled_exception` ngay trên. Người dùng đọc 8 ký tự đầu cho
+    # kỹ thuật → tra đúng dòng log, không phải đoán theo giờ.
+    rid = structlog.contextvars.get_contextvars().get("request_id")
+    ma = str(rid)[:8] if rid else None
     return JSONResponse(
         status_code=500,
         content={
             "error": "INTERNAL_SERVER_ERROR",
-            "message": "An internal server error occurred.",
+            "message": (
+                "Máy chủ gặp lỗi chưa lường trước"
+                + (f" (mã lỗi {ma})" if ma else "")
+                + ". Thử lại; nếu vẫn lỗi, báo mã này cho kỹ thuật."
+            ),
+            "request_id": rid,
         },
+        headers={REQUEST_ID_HEADER: str(rid)} if rid else None,
     )

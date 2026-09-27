@@ -146,6 +146,24 @@ def add_static_fields(
     }
 
 
+class CatTruyVanUvicorn(logging.Filter):
+    """Cắt chuỗi truy vấn (``?…``) khỏi dòng access log của uvicorn.
+
+    Ô tìm khách gửi SĐT / tên qua query (``?q=``, ``?phone=``). Bộ che
+    ``_redact_text`` chỉ bắt được SĐT, không bắt được TÊN — nên cắt cả chuỗi,
+    giống bộ lọc log của Caddy (27/09/2026). Đường dẫn vẫn giữ để lần lỗi.
+    ``record.args`` của uvicorn: (client, method, full_path, http_version, status).
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+            path = args[2]
+            if "?" in path:
+                record.args = (*args[:2], path.split("?", 1)[0] + "?…", *args[3:])
+        return True
+
+
 def setup_logging() -> None:
     """Configure structlog and standard library logging for structured JSON output."""
     log_level_str = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -183,6 +201,9 @@ def setup_logging() -> None:
         log = logging.getLogger(logger_name)
         log.handlers = []
         log.propagate = True
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(x, CatTruyVanUvicorn) for x in access.filters):
+        access.addFilter(CatTruyVanUvicorn())
 
     structlog.configure(
         processors=shared_processors

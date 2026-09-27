@@ -75,3 +75,42 @@ def test_scrubs_contact_data_even_when_stdlib_log_message_becomes_event() -> Non
     )
 
     assert scrubbed["event"] == f"Could not notify {REDACTED} at {REDACTED}"
+
+
+def test_uvicorn_access_log_drops_query_string_but_keeps_path() -> None:
+    """Tên khách trong ``?q=`` không bị bộ che SĐT bắt — phải cắt cả chuỗi truy vấn."""
+    import logging
+
+    from clinicai.core.logging import CatTruyVanUvicorn
+
+    record = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        '%s - "%s %s HTTP/%s" %d',
+        (
+            "10.0.0.1:5000",
+            "GET",
+            "/api/v1/patients?q=Nguyen%20Van%20A&phone=0901234567",
+            "1.1",
+            200,
+        ),
+        None,
+    )
+    assert CatTruyVanUvicorn().filter(record) is True
+    line = record.getMessage()
+    assert "Nguyen" not in line and "0901234567" not in line
+    assert "/api/v1/patients?…" in line and "200" in line
+
+    plain = logging.LogRecord(
+        "uvicorn.access",
+        logging.INFO,
+        __file__,
+        1,
+        "%s %s %s",
+        ("a", "GET", "/health"),
+        None,
+    )
+    CatTruyVanUvicorn().filter(plain)
+    assert plain.getMessage() == "a GET /health"

@@ -65,6 +65,7 @@ const SERVICE_IDS = new Set([
   "api",
   "dashboard",
   "caddy",
+  "su-kien",
   "worker",
   "notification-relay",
   "rabbitmq",

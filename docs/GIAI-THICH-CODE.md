@@ -1021,7 +1021,7 @@ thì broker **thoát mã 78** thay vì khởi động bằng mật khẩu mặc 
 | `KUMA_PORT` / `DOZZLE_PORT` | Cổng ghim `127.0.0.1` cho hai màn theo dõi |
 | `DOZZLE_AUTH_PROVIDER` | Chế độ đăng nhập Dozzle (`none` — vì đã ghim localhost) |
 | `OPS_KUMA_PUBLIC_URL` · `OPS_DOZZLE_PUBLIC_URL` · `OPS_SENTRY_PUBLIC_URL` | Đường dẫn màn `/ops` hiển thị |
-| `SENTRY_DSN` | Nơi nhận báo lỗi. ⚠️ **Chưa cài `sentry-sdk`** ⇒ lỗi của người dùng thật hiện **không báo về đâu cả** (`SO-LUAT` Luật 8.3) |
+| `SENTRY_DSN` | Để trống — **không dùng Sentry** (chốt 27/09/2026, dữ liệu y tế). Lỗi gom trong Postgres theo `docs/KE-HOACH-THEO-DOI-LOI.md`; người dùng thấy **mã lỗi** để báo lại (`SO-LUAT` Luật 8.3) |
 | `API_MEMORY_LIMIT` · `DASHBOARD_MEMORY_LIMIT` · `CADDY_MEMORY_LIMIT` · `WORKER_MEMORY_LIMIT` · `NOTIFICATION_RELAY_MEMORY_LIMIT` · `POS_RELAY_MEMORY_LIMIT` · `RABBITMQ_MEMORY_LIMIT` · `KUMA_MEMORY_LIMIT` · `DOZZLE_MEMORY_LIMIT` · `CLOUDFLARED_MEMORY_LIMIT` | Trần RAM từng container (ADR-0006). **Vì sao:** không có trần thì **một container rò rỉ ăn cả máy và đè prod** |
 
 **Tích hợp khác**

@@ -95,6 +95,7 @@ const SERVICE_LABELS: Record<string, string> = {
   api: "FastAPI", // Dịch vụ API backend
   dashboard: "Dashboard", // Dịch vụ dashboard
   caddy: "Caddy ingress", // Dịch vụ Caddy (proxy)
+  "su-kien": "Người đưa tin sự kiện", // Giao sự kiện: xếp hàng, dòng thời gian
   worker: "Worker", // Dịch vụ worker
   "notification-relay": "Notification relay", // Dịch vụ chuyển tiếp thông báo
   rabbitmq: "RabbitMQ", // Dịch vụ message queue

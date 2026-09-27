@@ -17,13 +17,14 @@ SERVICE_IDS = (
     "api",
     "dashboard",
     "caddy",
+    "su-kien",
     "worker",
     "notification-relay",
     "rabbitmq",
     "dozzle",
     "uptime-kuma",
 )
-CORE_SERVICES = frozenset({"api", "dashboard", "caddy"})
+CORE_SERVICES = frozenset({"api", "dashboard", "caddy", "su-kien"})
 LOOPBACK_IPS = frozenset({"127.0.0.1", "::1"})
 
 

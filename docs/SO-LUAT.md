@@ -242,8 +242,11 @@ vận hành — những người không được mở bệnh án.
 Mỗi lượt bấm nút có một mã; mã đó có mặt trong **mọi dòng log** của lượt đó và
 trong báo cáo lỗi. Từ một lỗi → lấy mã → kéo ra toàn bộ hành trình, không cần
 tái hiện lỗi trên máy mình.
-*Hiện trạng:* `request_id` đã có trong log. **Chưa gắn được vào báo cáo lỗi vì
-`sentry-sdk` chưa được cài** — nên hiện tại lỗi của người dùng thật không báo về đâu cả.
+*Hiện trạng (27/09/2026):* `request_id` có trong mọi dòng log; lỗi 500 trả **mã lỗi**
+(8 ký tự đầu) cho người dùng và header `X-Request-ID`; proxy Next đặt mã từ phía nó nên
+lỗi hai tầng tra chung một mã. **Không dùng Sentry** (Tuyền chốt 27/09: dữ liệu y tế,
+Nghị định 13/2023) — kho gom lỗi tự dựng trong Postgres là Pha 1 của
+`docs/KE-HOACH-THEO-DOI-LOI.md`. Trước khi có kho ấy, lỗi chỉ nằm trong log container.
 
 ---
 

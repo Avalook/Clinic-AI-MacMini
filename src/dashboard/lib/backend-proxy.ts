@@ -119,6 +119,11 @@ export async function proxyJsonToBackend(
   if (apiKey) headers["X-API-Key"] = apiKey;
   // Backend chỉ đọc header này khi nó CÓ; thiếu thì request chạy như cũ.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  // Mã yêu cầu do PHÍA NÀY đặt (27/09/2026): API dùng lại nó cho mọi dòng log
+  // của lượt gọi, nên lỗi ở hai tầng tra chung một mã. Không có nó thì lúc API
+  // không trả lời (502 dưới đây) người dùng không có gì để báo lại.
+  const requestId = crypto.randomUUID();
+  headers["X-Request-ID"] = requestId;
 
   let res: Response;
   try {
@@ -129,9 +134,17 @@ export async function proxyJsonToBackend(
       ...(method === "GET" ? {} : { body: JSON.stringify(body) }),
       cache: "no-store",
     });
-  } catch {
+  } catch (err) {
+    // Chỉ đường dẫn, bỏ `?…`: truy vấn có thể mang SĐT / tên khách.
+    console.error("backend_unreachable", {
+      request_id: requestId,
+      path: path.split("?")[0],
+      reason: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
-      { error: "Không kết nối được máy chủ xử lý" },
+      {
+        error: `Không kết nối được máy chủ xử lý (mã lỗi ${requestId.slice(0, 8)})`,
+      },
       { status: 502 },
     );
   }

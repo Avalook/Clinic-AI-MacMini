@@ -47,6 +47,22 @@
       "notification_channels": ["ops-telegram"]
     },
     {
+      "name": "Người đưa tin sự kiện — có đang giao không",
+      "type": "http",
+      "url": "http://api:8000/health/su-kien",
+      "interval_seconds": 60,
+      "retries": 2,
+      "accepted_status_codes": ["200"],
+      "why": [
+        "Thêm 27/09/2026. Service su-kien chết / treo thì khách check-in xong",
+        "KHÔNG vào hàng nào — mà mọi màn vẫn xanh. Healthcheck container chỉ",
+        "biết vòng lặp còn quay; điểm đo này hỏi DB: có tin tới hạn quá 3 phút",
+        "chưa ai giao, tin tồn quá 15 phút, tin / hẹn giờ chết trong 24 giờ",
+        "không. Trả 503 kèm lý do (chỉ số đếm, không dữ liệu khách)."
+      ],
+      "notification_channels": ["ops-telegram"]
+    },
+    {
       "name": "Relay thông báo — vòng lặp còn quay",
       "type": "docker",
       "docker_container": "clinicai_prod-notification-relay-1",

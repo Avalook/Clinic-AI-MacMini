@@ -1,0 +1,51 @@
+# Log container vào journald của máy chủ — GIỮ ĐƯỢC QUA DEPLOY (27/09/2026).
+#
+# Vì sao: driver json-file ghi log vào thư mục của CHÍNH container; deploy
+# dựng lại container là log cũ bị xoá theo. Lỗi 500 lúc 10h, deploy lúc 11h
+# → 11h05 không còn dòng nào để tra (đo 27/09: log api chỉ còn từ lần deploy
+# gần nhất). journald giữ log theo máy, không theo container:
+#     journalctl CONTAINER_NAME=clinicai_prod-api-1 --since '2 hours ago'
+# `docker logs` và Dozzle vẫn đọc được (Docker ≥ 20.10).
+#
+# KHÔNG ghi thẳng vào docker-compose.yml: Docker Desktop (máy dev, CI trên máy)
+# không có journald — container sẽ không lên. `deploy-backend.sh` chỉ gắn file
+# này khi máy chủ có journal LƯU BỀN (/var/log/journal); journal chỉ nằm trong
+# RAM thì mất khi khởi động lại và trần rất thấp — không đáng đổi.
+# Trần dung lượng đặt ở máy chủ: /etc/systemd/journald.conf.d/clinicai.conf
+# (SystemMaxUse=2G) — xem docs/KE-HOACH-THEO-DOI-LOI.md.
+#
+# Khác driver thì compose THAY HẲN khối logging (không trộn max-size của
+# json-file vào — journald sẽ từ chối tuỳ chọn lạ). Thêm service mới vào
+# docker-compose.yml → thêm vào đây (test_theo_doi_du_moi_service kiểm).
+
+x-log-journald: &log-journald
+  logging:
+    driver: journald
+    options:
+      tag: "{{.Name}}"
+
+services:
+  caddy:
+    <<: *log-journald
+  dashboard:
+    <<: *log-journald
+  media-quyen:
+    <<: *log-journald
+  api:
+    <<: *log-journald
+  worker:
+    <<: *log-journald
+  pos-relay:
+    <<: *log-journald
+  su-kien:
+    <<: *log-journald
+  notification-relay:
+    <<: *log-journald
+  rabbitmq:
+    <<: *log-journald
+  uptime-kuma:
+    <<: *log-journald
+  dozzle:
+    <<: *log-journald
+  cloudflared:
+    <<: *log-journald

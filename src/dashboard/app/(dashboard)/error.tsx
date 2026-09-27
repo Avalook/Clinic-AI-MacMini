@@ -29,8 +29,8 @@ export default function DashboardError({
   unstable_retry: () => void;
 }) {
   useEffect(() => {
-    // Vào log container — nơi duy nhất còn nhìn được, vì Sentry chưa cài
-    // (`sentry-sdk` thiếu trong pyproject.toml, xem docs/DANG-LAM.md §4).
+    // Vào log container. Không dùng Sentry (chốt 27/09/2026 — dữ liệu y tế);
+    // kho gom lỗi tự dựng là Pha 1 của docs/KE-HOACH-THEO-DOI-LOI.md.
     console.error("[dashboard] lỗi khi dựng trang:", error);
   }, [error]);
 
