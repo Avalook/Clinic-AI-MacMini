@@ -23,6 +23,7 @@ import json
 import math
 import os
 import uuid
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -49,7 +50,7 @@ from clinicai.services.bill_service import (
     hoa_don_theo_anh_chup,
     tinh_hoa_don,
 )
-from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi
+from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi, khoa_luot
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
@@ -60,6 +61,12 @@ from clinicai.services.phan_lo_service import (
     go_va_giu_ke_hoach,
     khoa_ban_thuoc,
     van_de_phan_lo,
+)
+from clinicai.services.service_selection_service import (
+    QUYEN_CHON_DICH_VU,
+    SelectionInput,
+    ap_lua_chon,
+    validate_input,
 )
 
 logger = structlog.get_logger()
@@ -81,6 +88,8 @@ PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
 DIEN_TU: frozenset[str] = frozenset({"TRANSFER", "QR"})
 CHO_XAC_MINH = "PENDING_VERIFICATION"
+#: Lệnh thu gộp đã chốt lựa chọn nhưng không còn khoản nào phòng khám thu.
+KHONG_CON_KHOAN = "KHONG_CON_KHOAN"
 #: Hành động trong command_receipt của lệnh thu tiền dịch vụ.
 _THU_DICH_VU = "payment.record.dich_vu"
 # Mã nguyên nhân cần đối soát (CP6) — đúng hai mã DB chấp nhận
@@ -179,6 +188,7 @@ class PaymentService:
         bill_revision: str | None = None,
         method: str = "CASH",
         idempotency_key: str | None = None,
+        chon: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Một LẦN THU (payment_cycle) cho ``(visit_id, kind)``.
 
@@ -190,6 +200,12 @@ class PaymentService:
         dựng lại trong chính giao dịch này (`bill_service.tinh_hoa_don`);
         ``amount`` và ``bill_revision`` của trình duyệt chỉ để ĐỐI CHIẾU — lệch
         thì từ chối (BILL_CHANGED), không bao giờ ghi số trình duyệt gửi.
+
+        ``chon`` (chỉ tiền dịch vụ — quầy MỘT hoá đơn, 27/09/2026): lựa chọn
+        dịch vụ khách đang nhìn ``{order_ids_seen, selected_order_ids,
+        expected_selection_revision}``. Có thì bấm Thu = MÁY CHỦ chốt lựa chọn
+        (bỏ tick → NOT_SELECTED) rồi ghi sổ trong CÙNG một giao dịch — hỏng một
+        bước thì không bước nào được ghi.
 
         Raises SafetyGateError (403) if the kind is not allowed for the role,
         NotFoundError (404) if the visit/appointment is missing, and
@@ -221,7 +237,10 @@ class PaymentService:
                 method=method,
                 so_trinh_duyet=so_trinh_duyet,
                 idempotency_key=idempotency_key,
+                chon=chon,
             )
+        if chon is not None:
+            raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -473,6 +492,7 @@ class PaymentService:
         method: str,
         so_trinh_duyet: int | None,
         idempotency_key: str | None,
+        chon: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Một lần thu TIỀN DỊCH VỤ theo OUTSTANDING BILL (Lifecycle v1 Slice 3).
 
@@ -492,7 +512,7 @@ class PaymentService:
                 "Thiếu Idempotency-Key — mỗi lần bấm thu tiền dịch vụ phải mang"
                 " một khoá (gửi lại cùng thao tác thì dùng lại khoá cũ)."
             )
-        payload = {
+        payload: dict[str, Any] = {
             "visit_id": visit_id,
             "kind": "dich_vu",
             "clinic_patient_id": clinic_patient_id,
@@ -500,6 +520,21 @@ class PaymentService:
             "method": method,
             "amount": so_trinh_duyet,
         }
+        lua_chon = None
+        if chon is not None:
+            # Kiểm hình dạng TRƯỚC khi mở giao dịch — cùng luật lệnh xác nhận.
+            lua_chon = validate_input(
+                visit_id=visit_id,
+                order_ids_seen=chon.get("order_ids_seen"),
+                selected_order_ids=chon.get("selected_order_ids"),
+                expected_selection_revision=chon.get("expected_selection_revision"),
+                idempotency_key=idempotency_key,
+            )
+            if lua_chon.order_ids_seen:
+                # Chỉ thêm khi có: payload cũ (không lựa chọn) giữ nguyên dấu băm.
+                payload["chon"] = lua_chon.payload()
+            else:
+                lua_chon = None
         async with self._pool.acquire() as conn:
             try:
                 async with conn.transaction():
@@ -513,6 +548,9 @@ class PaymentService:
                     patient_id = _kiem_luot_thu(
                         status_row, clinic_patient_id, can_kham_xong=False
                     )
+                    kq_chon: dict[str, Any] | None = None
+                    if lua_chon is not None:
+                        kq_chon = await _chot_lua_chon(conn, identity, lua_chon)
                     kq = await self._ghi_lan_thu_dich_vu(
                         conn,
                         visit_id=visit_id,
@@ -521,7 +559,10 @@ class PaymentService:
                         bill_revision=bill_revision,
                         method=method,
                         so_trinh_duyet=so_trinh_duyet,
+                        chi_chot_khi_rong=kq_chon is not None,
                     )
+                    if kq_chon is not None:
+                        kq["chon"] = kq_chon
                     await bien_nhan_ghi(
                         conn,
                         identity,
@@ -557,6 +598,7 @@ class PaymentService:
         bill_revision: str | None,
         method: str,
         so_trinh_duyet: int | None,
+        chi_chot_khi_rong: bool = False,
     ) -> dict[str, Any]:
         cho = await conn.fetchrow(
             """
@@ -590,6 +632,16 @@ class PaymentService:
         )
         if hoa_don.van_de:
             raise ValidationError("Chưa thu được — " + "; ".join(hoa_don.van_de))
+        if hoa_don.tong <= 0 and chi_chot_khi_rong:
+            # Lệnh thu gộp mà sau khi chốt không còn khoản nào (khách bỏ hết,
+            # hay chỉ còn dịch vụ khách trả đối tác): lựa chọn VẪN được lưu —
+            # đó chính là việc cần làm (đối tác nhận việc khi khách chốt).
+            if bill_revision is not None and bill_revision != hoa_don.revision:
+                raise BillChangedError(
+                    "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) —"
+                    " tải lại rồi thu theo hoá đơn mới."
+                )
+            return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
         if hoa_don.tong <= 0:
             if hoa_don.chi_doi_tac_thu:
                 # Đối tác tự thu (27/09/2026): không phải lỗi của quầy — nói
@@ -1210,6 +1262,34 @@ class PaymentService:
             by_staff_id=identity.staff_id,
         )
         return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
+
+
+async def _chot_lua_chon(
+    conn: asyncpg.Connection, identity: StaffIdentity, inp: SelectionInput
+) -> dict[str, Any]:
+    """Chốt lựa chọn dịch vụ TRONG giao dịch thu (quầy một hoá đơn, 27/09/2026).
+
+    Cùng hàm ghi với lệnh xác nhận riêng (`ap_lua_chon`): revision, tập chỉ
+    định, khoá, "Bắt buộc" — mọi luật giữ nguyên. Lựa chọn không đổi (lễ tân
+    đã tick-lưu từng dòng) thì không ghi gì và không cần quyền chọn dịch vụ;
+    đổi thì hỏi quyền ấy và lượt phải còn mở (như lệnh xác nhận).
+    """
+
+    async def _truoc_khi_ghi() -> None:
+        await doi_quyen(
+            conn,
+            identity,
+            QUYEN_CHON_DICH_VU,
+            cau="Bạn chưa được cấp quyền xác nhận lựa chọn dịch vụ.",
+        )
+        await khoa_luot(conn, identity.clinic_id, inp.visit_id)
+
+    kq = await ap_lua_chon(conn, identity, inp, truoc_khi_ghi=_truoc_khi_ghi)
+    return {
+        "changed": kq["changed"],
+        "selection_revision": kq["selection_revision"],
+        "not_selected_order_ids": kq["not_selected_order_ids"],
+    }
 
 
 async def _khoa_luot_thu(

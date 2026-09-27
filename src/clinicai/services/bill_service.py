@@ -498,7 +498,11 @@ def _chi_dinh(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def hoa_don_con_no(
-    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    coi_nhu_chon: Sequence[str] = (),
 ) -> HoaDon:
     """OUTSTANDING BILL dịch vụ (Lifecycle v1 Slice 3).
 
@@ -508,6 +512,12 @@ async def hoa_don_con_no(
     Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, đã
     bắt đầu hoặc bị gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu
     (kể cả đã huỷ phiếu hay đã hoàn — không tự thu lại).
+
+    ``coi_nhu_chon`` (quầy thu một hoá đơn, 27/09/2026): các chỉ định CÒN CHỜ
+    KHÁCH QUYẾT được tính NHƯ ĐÃ CHỌN — hoá đơn DỰ KIẾN nếu khách làm đúng như
+    mặc định của quầy. Cùng một câu SQL, cùng luật giá, nên sau khi lệnh thu
+    gộp chốt đúng lựa chọn ấy, hoá đơn thật có đúng ``revision`` này. Chỉ đọc —
+    không ghi gì. Rỗng = hoá đơn thật (mọi nơi khác gọi như cũ).
     """
     unknown = bool(await conn.fetchval(THU_CU_KHONG_TRUY_DUOC_SQL, clinic_id, visit_id))
     kham = await _kham(conn, clinic_id, visit_id)
@@ -519,13 +529,15 @@ async def hoa_don_con_no(
     rows = await conn.fetch(
         _GIA_CHI_DINH.format(
             dieu_kien=f"""
-            o.selection_status = 'SELECTED'
+            (o.selection_status = 'SELECTED'
+             OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
             AND {_CON_TINH_TIEN}
             AND NOT {_DA_PHU.format(loai="'service_order'", nguon="o.id::text")}
             """
         ),
         clinic_id,
         visit_id,
+        sorted({str(i) for i in coi_nhu_chon}),
     )
     hd = ghep_dich_vu(visit_id, None if exam_phu else kham, _chi_dinh(rows))
     # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu,
