@@ -201,3 +201,54 @@ export function moDongTheoHien(cong: CongCuDong): Go {
  * quyết làm gì với tin, không ai bị ép dựng lại trang.
  */
 export const SU_KIEN_BANG = "clinicai:bang-doi";
+
+/**
+ * Tình trạng dòng SSE, cho các chỉ báo "cập nhật liên tục / mất kết nối".
+ *
+ * VÌ SAO CÓ (27/09/2026). Hai chỉ báo ở trang chủ và lịch hẹn từng đọc tình
+ * trạng websocket của Supabase Realtime qua một kênh rỗng. Nhưng tin thật của
+ * hệ thống không đi đường ấy từ 06/08 — nó đi LISTEN/NOTIFY → SSE. Chấm xanh
+ * khi ấy nói về một kết nối không chở tin nào của mình: kênh này có thể sống
+ * trong lúc dòng SSE đã chết, và ngược lại. Nay chỉ báo đọc đúng dòng đang
+ * chở tin.
+ *
+ * - `dang-noi`: chưa mở, hoặc đang mở lại (tab vừa hiện).
+ * - `song`: dòng đang mở, tin tới được.
+ * - `rot`: dòng lỗi và chưa nối lại được sau một quãng ân hạn.
+ */
+export type TrangThaiDong = "dang-noi" | "song" | "rot";
+
+export interface KhoTrangThai<T> {
+  doc: () => T;
+  dat: (moi: T) => void;
+  /** Đăng ký nghe đổi. Trả hàm thôi nghe — đúng hình `useSyncExternalStore`. */
+  nghe: (fn: () => void) => Go;
+}
+
+/** Một ô giá trị có người nghe. Tách thành hàm để test không đụng bản dùng chung. */
+export function taoKhoTrangThai<T>(dau: T): KhoTrangThai<T> {
+  let hienTai = dau;
+  const nguoiNghe = new Set<() => void>();
+  return {
+    doc: () => hienTai,
+    dat(moi) {
+      // Không đổi thì không báo — mỗi lời báo là một lượt render ở người nghe.
+      if (Object.is(moi, hienTai)) return;
+      hienTai = moi;
+      for (const fn of [...nguoiNghe]) fn();
+    },
+    nghe(fn) {
+      nguoiNghe.add(fn);
+      return () => {
+        nguoiNghe.delete(fn);
+      };
+    },
+  };
+}
+
+/** Bản dùng chung cho cả tab. `RealtimeRefresher` là người GHI duy nhất. */
+export const trangThaiDong = taoKhoTrangThai<TrangThaiDong>("dang-noi");
+
+/** Lỗi dòng bao lâu mới báo "mất kết nối". EventSource tự nối lại sau ~3 giây;
+ *  báo ngay mỗi lần chớp là dạy người ta lờ đi lời báo thật. */
+export const AN_HAN_ROT_MS = 5_000;

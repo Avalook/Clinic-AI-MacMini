@@ -5,8 +5,9 @@
 // sẻ qua context cho 2 nơi tiêu thụ:
 //   - RosterBell (chỉ render ở Trang chủ): chuông + dropdown + popup ngắn.
 //   - Nav (sidebar): chấm "!" đỏ nhấp nháy trên mục Trang chủ khi đang ở trang khác.
-// Phát hiện bằng realtime (UPDATE work_roster của staff_id mình) + poll 20s dự
-// phòng. Lần nạp đầu chỉ ghi nhận trạng thái (không báo) để khỏi spam ca cũ.
+// Phát hiện bằng dòng SSE chung (bảng `work_roster` và `thong_bao` bắn tin qua
+// LISTEN/NOTIFY → RealtimeRefresher) + poll 20s dự phòng. Lần nạp đầu chỉ ghi
+// nhận trạng thái (không báo) để khỏi spam ca cũ.
 
 import {
   createContext,
@@ -16,8 +17,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "../../lib/supabase-browser";
+import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
+import { useNgheBang } from "./dung-nghe-bang";
 import {
   SHIFT_LABEL,
   dayShort,
@@ -28,6 +29,8 @@ import {
 const POLL_MS = 20_000;
 const TRANSIENT_MS = 7000;
 const MAX_KEEP = 40;
+/** Bảng mà chuông nghe qua dòng SSE chung — cần trigger `trg_notify_*`. */
+const BANG_THONG_BAO = ["thong_bao"] as const;
 
 export interface Notif {
   key: string;
@@ -90,7 +93,6 @@ export function NotificationProvider({
   tenViTri?: Readonly<Record<string, string>>;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   // Qua ref: layout dựng lại ở mỗi lần chuyển trang nên object này luôn mới —
   // đưa thẳng vào deps thì kênh realtime đóng/mở lại mỗi lần bấm menu.
   const tenViTriRef = useRef(tenViTri);
@@ -176,6 +178,13 @@ export function NotificationProvider({
     };
   }, [docThongBao]);
 
+  // THÔNG BÁO MỚI HIỆN NGAY, không đợi nhịp 20 giây (27/09/2026). Trưởng ca
+  // gọi bộ phận là việc KHẨN — 20 giây là quá lâu cho một chuông đỏ. Bảng
+  // `thong_bao` bắn tin qua trigger `trg_notify_thong_bao` (migration
+  // 20260927000002); tin chỉ có tên bảng + phòng khám, nội dung vẫn đọc qua API
+  // có kiểm người nhận. Nhịp 20 giây ở trên giữ làm lưới an toàn.
+  useNgheBang(BANG_THONG_BAO, () => void docThongBao());
+
   // shownKeys = các quyết định ĐÃ ghi nhận ("id:status"). LƯU localStorage theo
   // staffId để thông báo SỐNG SÓT reload/đổi vai và bắt được cả quyết định xảy ra
   // lúc người dùng không mở app (so sánh với tập đã thấy, không chỉ diff trong phiên).
@@ -188,7 +197,6 @@ export function NotificationProvider({
 
   useEffect(() => {
     if (!staffId) return;
-    const supabase = getSupabaseBrowser();
     let stopped = false;
     // Hydrate ở lần poll ĐẦU (trong callback async, không setState đồng bộ trong
     // thân effect) → tránh cảnh báo lint + lệch SSR/hydration.
@@ -268,7 +276,7 @@ export function NotificationProvider({
         hydrateFromStore();
         hydratedOnce = true;
       }
-      // Qua backend (24/09/2026) — ca của chính mình; realtime bên dưới giữ nguyên.
+      // Qua backend (24/09/2026) — ca của chính mình.
       const res = await fetch("/api/roster?ca_cua_toi=1", { cache: "no-store" }).catch(
         () => null,
       );
@@ -293,30 +301,24 @@ export function NotificationProvider({
     void poll();
     const timer = setInterval(poll, POLL_MS);
 
-    const channel = supabase
-      .channel("roster-my-decisions")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "work_roster",
-          filter: `staff_id=eq.${staffId}`,
-        },
-        (payload) => {
-          const r = payload.new as MyRow;
-          notify(r);
-          router.refresh();
-        },
-      )
-      .subscribe();
+    // QUYẾT ĐỊNH CA của mình: nghe chuông "ca trực vừa đổi" (SU_KIEN_DOI_CA) do
+    // RealtimeRefresher rung khi bảng `work_roster` bắn tin qua dòng SSE chung —
+    // đã gộp nhịp, và tab ẩn thì không rung. Tin chỉ nói "bảng đổi", không nói
+    // ca của ai, nên hỏi lại đúng ca của mình qua API như lượt poll.
+    //
+    // Trước 27/09 chỗ này mở `postgres_changes` của Supabase Realtime lọc theo
+    // staff_id — đường ấy chết từ lâu (Postgres từ chối plugin wal2json) nên
+    // chuông chỉ sống nhờ nhịp 20 giây. Trang cũng không cần tự refresh ở đây:
+    // `work_roster` nằm trong LIVE_TABLES, RealtimeRefresher đã làm việc đó.
+    const khiDoiCa = () => void poll();
+    window.addEventListener(SU_KIEN_DOI_CA, khiDoiCa);
 
     return () => {
       stopped = true;
       clearInterval(timer);
-      void supabase.removeChannel(channel);
+      window.removeEventListener(SU_KIEN_DOI_CA, khiDoiCa);
     };
-  }, [staffId, router]);
+  }, [staffId]);
 
   // Lưu localStorage mỗi khi lịch sử / số chưa đọc đổi — CHỈ sau khi hydrate xong
   // (tránh ghi đè dữ liệu cũ bằng state rỗng lúc mới mount). Chỉ ghi, không setState.

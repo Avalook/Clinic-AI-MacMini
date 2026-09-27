@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   moDongTheoHien,
+  taoKhoTrangThai,
   taoNhipLamMoi,
   TRE_MAC_DINH,
   type Go,
   type Hen,
+  type TrangThaiDong,
 } from "./nhip-lam-moi.ts";
 
 // ---------------------------------------------------------------- đồ giả ----
@@ -331,4 +333,24 @@ test("gỡ bỏ: đóng dòng và THÔI NGHE tầm nhìn", () => {
   man.doiHien(true);
   man.doiHien(false);
   assert.equal(dong.soDaMo(), 1, "gỡ rồi thì chuyển tab không được mở dòng mới");
+});
+
+test("kho trạng thái dòng: đổi mới báo, trùng thì im, thôi nghe là thôi", () => {
+  const kho = taoKhoTrangThai<TrangThaiDong>("dang-noi");
+  let soLanBao = 0;
+  const thoi = kho.nghe(() => {
+    soLanBao += 1;
+  });
+
+  kho.dat("song");
+  assert.equal(kho.doc(), "song");
+  assert.equal(soLanBao, 1);
+
+  kho.dat("song");
+  assert.equal(soLanBao, 1, "giá trị không đổi thì không bắt người nghe render lại");
+
+  thoi();
+  kho.dat("rot");
+  assert.equal(kho.doc(), "rot");
+  assert.equal(soLanBao, 1, "đã thôi nghe thì không được gọi nữa");
 });
