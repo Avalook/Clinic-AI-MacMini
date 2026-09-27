@@ -53,6 +53,8 @@ export interface LiveData {
   ok: boolean;
   /** Số giây kể từ lần đọc THÀNH CÔNG gần nhất. */
   staleSeconds: number;
+  /** Đọc lại ngay (sau một thao tác trên chính màn này). */
+  lamMoi: () => Promise<void>;
 }
 
 /**
@@ -120,7 +122,7 @@ export function useDispatchLive(initial: {
     return () => clearInterval(t);
   }, [fetchedAt]);
 
-  return { ...data, staleSeconds };
+  return { ...data, staleSeconds, lamMoi: pull };
 }
 
 /** Gọi một thao tác điều phối, kèm thông báo và làm mới trang. */
