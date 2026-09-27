@@ -21,6 +21,7 @@ class HostServiceSnapshot(StrictModel):
         "api",
         "dashboard",
         "caddy",
+        "su-kien",
         "worker",
         "notification-relay",
         "rabbitmq",

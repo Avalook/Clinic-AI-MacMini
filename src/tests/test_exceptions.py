@@ -127,6 +127,24 @@ async def test_unhandled_exception_handling() -> None:
     assert response.status_code == 500
     data = response.json()
     assert data["error"] == "INTERNAL_SERVER_ERROR"
-    assert data["message"] == "An internal server error occurred."
+    # Có mã lỗi để người dùng báo lại; mã khớp header và dòng log.
+    rid = data["request_id"]
+    assert rid and response.headers["X-Request-ID"] == rid
+    assert f"mã lỗi {rid[:8]}" in data["message"]
     assert "ValueError" not in str(data)
     assert "Unhandled value error" not in str(data)
+
+
+@pytest.mark.asyncio
+async def test_ma_yeu_cau_tu_ngoai_chi_nhan_khi_dung_dang() -> None:
+    """X-Request-ID ai gửi cũng được và đi vào mọi dòng log — rác thì thay mã mới."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        tot = await client.get("/health", headers={"X-Request-ID": "abcd1234-ef"})
+        rac = await client.get(
+            "/health", headers={"X-Request-ID": 'x" injected\\n{"level":"error"}'}
+        )
+    assert tot.headers["X-Request-ID"] == "abcd1234-ef"
+    assert "injected" not in rac.headers["X-Request-ID"]
+    assert len(rac.headers["X-Request-ID"]) == 36

@@ -18,8 +18,15 @@
 #   suc-khoe.sh (này)    — cái nhìn NHANH hằng ngày cho người vận hành
 set -euo pipefail
 
-HOST="${CLINIC_HOST:-clinic-vps}"
-IP="${CLINIC_IP:-222.255.215.219}"
+# VPS mới từ 16/09/2026 — máy 222.255.215.219 (`clinic-vps`) đã chết; để mặc
+# định trỏ về đó thì script chạy "được" mà đo nhầm máy / báo sập giả.
+HOST="${CLINIC_HOST:-clinic-vps-moi}"
+IP="${CLINIC_IP:-222.255.214.133}"
+# Prod chạy tên miền + HTTPS: gọi http://IP thì Caddy trả 308 (chuyển hướng) —
+# script cũ in "308 ✗ KHÔNG KHOẺ" cho một hệ thống đang khoẻ. VPS mới không có
+# staging; đặt CLINIC_STAGING_URL khi nào có lại.
+URL="${CLINIC_URL:-https://dr4women.io.vn}"
+STAGING_URL="${CLINIC_STAGING_URL:-}"
 
 do_mau() { # $1 = mã http; in kèm nhãn đọc được
   if [ "$1" = "200" ]; then printf "200 ✓"; else printf "%s ✗ (KHÔNG KHOẺ)" "$1"; fi
@@ -27,8 +34,23 @@ do_mau() { # $1 = mã http; in kèm nhãn đọc được
 
 phan_health() {
   echo "── Nhịp thở ──────────────────────────────────────────"
-  printf "  prod    (:80)   /health: %s\n" "$(do_mau "$(curl -s -o /dev/null -m 8 -w '%{http_code}' "http://$IP/health" || echo 000)")"
-  printf "  staging (:8080) /health: %s\n" "$(do_mau "$(curl -s -o /dev/null -m 8 -w '%{http_code}' "http://$IP:8080/health" || echo 000)")"
+  printf "  prod    %s/health: %s\n" "$URL" "$(do_mau "$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$URL/health" || echo 000)")"
+  if [ -n "$STAGING_URL" ]; then
+    printf "  staging %s/health: %s\n" "$STAGING_URL" "$(do_mau "$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$STAGING_URL/health" || echo 000)")"
+  fi
+  # Người đưa tin sự kiện (xếp hàng sau check-in): chỉ gọi được từ trong máy.
+  # shellcheck disable=SC2016
+  printf "  sự kiện (trong máy):  %s\n" "$(ssh "$HOST" 'docker exec clinicai_prod-api-1 curl -s -m 8 localhost:8000/health/su-kien' | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("? không đọc được (bản cũ chưa có /health/su-kien?)"); sys.exit()
+if "status" not in d:
+    print("? bản đang chạy chưa có /health/su-kien")
+else:
+    print("ok ✓" if d["status"] == "ok" else "✗ " + "; ".join(d.get("ly_do", [])))
+')"
 }
 
 phan_container() {
@@ -47,7 +69,8 @@ phan_kenh() {
   echo "── Uptime Kuma (1 = Up) ──────────────────────────────"
   ssh "$HOST" 'docker exec clinicai_prod-uptime-kuma-1 sqlite3 /app/data/kuma.db \
     "SELECT m.name, h.status, h.time FROM monitor m JOIN heartbeat h ON h.id=(SELECT max(id) FROM heartbeat WHERE monitor_id=m.id) ORDER BY m.id"' \
-    | awk -F'|' '{ ok = ($2=="1") ? "✓" : "✗ DOWN"; printf "  %s %-28s lần cuối %s\n", ok, $1, $3 }'
+    | awk -F'|' '{ n++; ok = ($2=="1") ? "✓" : "✗ DOWN"; printf "  %s %-28s lần cuối %s\n", ok, $1, $3 }
+      END { if (n == 0) print "  ✗ Kuma KHÔNG có monitor nào — không ai canh hệ thống (dựng lại theo monitoring/monitors.json)" }'
 }
 
 phan_tai_nguyen() {
@@ -59,7 +82,7 @@ phan_tai_nguyen() {
 
 phan_sao_luu() {
   echo "── Sao lưu gần nhất ──────────────────────────────────"
-  ssh "$HOST" 'ls -lht /home/clinicai/backups 2>/dev/null | head -4' | sed 's/^/  /'
+  ssh "$HOST" 'ls -lht /home/clinicai/backups/clinicai 2>/dev/null | head -4' | sed 's/^/  /'
   echo "  (luật nhà: bản sao lưu chưa phục hồi thử = chưa phải sao lưu → scripts/restore-drill.sh)"
 }
 

@@ -23,7 +23,7 @@ Telegram riêng** `TELEGRAM_OPS_CHAT_ID` (Tuyền/Quang tạo nhóm và đặt b
 | Lượt treo | 35 lượt mở quá 24h (FINALIZED chưa check-out, IN_PROGRESS 17–25/09) — không gì nhắc chốt ngày |
 | Log | log API mất mỗi lần deploy (còn 35 dòng) |
 | Sentry | tắt (đúng quyết định) |
-| Kuma | chưa kiểm được monitor (container không có sqlite3); không token push backup |
+| **Kuma** | **RỖNG HOÀN TOÀN** (đo lại 27/09 bằng sqlite3 trong container): 0 monitor, 0 tài khoản, 0 kênh báo — từ ngày chuyển VPS mới (16/09) **không có gì canh hệ thống**. `monitors.json` chỉ nằm trên giấy. Dựng lại cần tạo tài khoản quản trị → **Tuyền làm** (Claude không tạo tài khoản) |
 | Collector `/ops` | không có lịch trên VPS mới → tab Hệ thống cũ mãi |
 | Tài khoản thử | 3 tài khoản `@dr4women.local` còn trên prod (mật khẩu trong git) — dọn khi bàn giao |
 | **Hạn hợp đồng** | **Viettel CFS 16/10/2026** (nơi lưu ảnh/video kết quả) · DBaaS 07/11/2026 · tên miền 16/09/2027 |
@@ -37,15 +37,31 @@ rớt (chỉ lộ khi tải lên) · WAL bị slot giữ · query chậm · hợ
 
 ## Pha 0 — một ngày  (✅ xong · ☐ chưa)
 
-- ☐ `GET /health/su-kien` (503 khi tin chờ >5', DEAD mới 24h, worker không giao >3')
-  + monitor Kuma + `su-kien` vào `health_ok` của deploy + `SERVICE_IDS` collector +
-  test CI: mọi service có healthcheck phải nằm trong health_ok và monitors.json.
-- ☐ Mã lỗi (`request_id`) tới người dùng: body/header 500, proxy Next chuyển tiếp,
-  câu lỗi hiện "Mã lỗi: …".
-- ☐ journald + lọc query Caddy + `check-phone` / `check-duplicate` sang POST.
-- ☐ Dọn công cụ nói sai: `suc-khoe.sh` host mới, bật monitor TLS, sửa câu "Sentry chưa
-  cài" ở SO-LUAT 8.3 / GIAI-THICH-CODE / error.tsx.
-- ☐ Kiểm sau deploy: `deploy-status.sha` == HEAD, container vừa tạo lại (bẫy 27/09).
+- ✅ `GET /health/su-kien` — 503 khi tin TỚI HẠN quá 3' chưa ai giao (đo theo tới hạn,
+  không theo "lần giao cuối": giờ vắng worker im cả tiếng là bình thường), tin tồn >15',
+  DEAD / hẹn giờ chết 24h, hẹn giờ trễ. Chỉ số đếm. + monitor trong `monitors.json` +
+  `su-kien` vào `health_ok` của deploy + collector / schema / màn /ops +
+  `test_theo_doi_du_moi_service.py` (thêm service có healthcheck mà thiếu một chỗ → đỏ).
+- ✅ Mã lỗi: 500 trả "… (mã lỗi abcd1234) …" + `request_id` + header `X-Request-ID`
+  (handler 500 nằm NGOÀI RequestIdMiddleware — lấy mã từ structlog contextvars); proxy
+  Next đặt mã từ phía nó (502 "không kết nối được" cũng có mã); mã từ ngoài chỉ nhận khi
+  đúng dạng `[A-Za-z0-9-]{8,64}` (chống chèn rác vào log).
+- ✅ Lọc log: Caddy cắt NGUYÊN `?…` khỏi `request>uri` và `Referer` ở CẢ access log lẫn
+  log lỗi (`log default` — dòng "dial dashboard hỏng" in nguyên uri, đo thật bằng
+  container); uvicorn access cũng cắt `?…` (bộ che cũ bắt SĐT, không bắt TÊN).
+  **Không đổi `check-phone` / `check-duplicate` sang POST**: lọc ở hai tầng log là đủ —
+  Next không ghi log request, `fetch()` không vào lịch sử trình duyệt.
+- ✅ journald: `docker-compose.journald.yml`, deploy chỉ gắn khi máy chủ có
+  `/var/log/journal` (Docker Desktop không có journald). ☐ **Bước máy chủ** (sudo):
+  bật journal lưu bền + `SystemMaxUse=2G` + `RateLimitBurst` rộng — chạy riêng, có xem.
+- ✅ Dọn công cụ nói sai: `suc-khoe.sh` trỏ VPS mới + HTTPS (cũ in "308 ✗" cho hệ thống
+  khoẻ), bỏ dòng staging (máy mới không có), nói thẳng "Kuma KHÔNG có monitor nào",
+  đọc đúng thư mục sao lưu, thêm dòng `/health/su-kien`; sửa câu Sentry ở SO-LUAT 8.3 /
+  GIAI-THICH-CODE / error.tsx. ☐ Monitor TLS: đi cùng lúc Tuyền dựng lại Kuma.
+- ✅ Kiểm sau deploy: `deploy-status.sha` == HEAD, container vừa tạo lại (bẫy 27/09).
+- ☐ Lịch cho collector `/ops` trên VPS (systemd timer) — cùng bước máy chủ ở trên.
+- ☐ Relay thông báo: đổi monitor docker (cần mount docker.sock — KHÔNG) sang điểm đo
+  HTTP đọc hàng `event_log` chưa giao.
 
 ## Pha 1 — một tuần
 

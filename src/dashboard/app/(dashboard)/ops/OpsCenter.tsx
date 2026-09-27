@@ -31,6 +31,7 @@ const SERVICE_LABELS: Record<string, string> = {
   api: "FastAPI",
   dashboard: "Dashboard",
   caddy: "Caddy ingress",
+  "su-kien": "Người đưa tin sự kiện",
   worker: "Worker",
   "notification-relay": "Notification relay",
   rabbitmq: "RabbitMQ",

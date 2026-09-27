@@ -7,6 +7,19 @@
 #                            (direct-domain mode; open CADDY_HTTPS_PORT=443).
 {
 	admin off
+	# Log LỖI của Caddy (dial dashboard hỏng, upstream timeout…) cũng in
+	# nguyên `request>uri` — đi qua bộ ghi mặc định này, không qua khối `log`
+	# của site bên dưới. Cắt `?…` y như access log (xem giải thích ở đó).
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ?…
+				request>headers>Referer regexp \?.*$ ?…
+			}
+		}
+	}
 }
 
 # ĐƯỜNG SỐNG-CHẾT CHO HEALTHCHECK, CHỈ NGHE TRONG MÁY.
@@ -56,7 +69,18 @@ http://localhost, http://127.0.0.1 {
 	# Caddy vẫn ra stderr, hai dòng không trộn.
 	log {
 		output stdout
-		format json
+		# Cắt NGUYÊN chuỗi truy vấn (`?…`) khỏi đường dẫn và Referer (27/09/2026):
+		# ô tìm khách gửi SĐT / tên qua `?phone=` `?q=`… — log không được giữ
+		# dữ liệu bệnh nhân (Nghị định 13/2023). Cắt cả chuỗi chứ không liệt kê
+		# tên tham số: thêm một ô tìm mới là quên thêm vào danh sách.
+		# Cookie / Authorization Caddy đã tự che sẵn.
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ?…
+				request>headers>Referer regexp \?.*$ ?…
+			}
+		}
 	}
 
 	# --- Security headers (OWASP best-practices) ---

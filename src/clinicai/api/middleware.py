@@ -35,6 +35,7 @@ the buffer would say 500 for something the client received as 503.
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from contextvars import ContextVar
@@ -52,6 +53,7 @@ from clinicai.services.media_service import MAX_BYTES_KET_QUA_UPLOAD
 logger = structlog.get_logger()
 
 REQUEST_ID_HEADER = "X-Request-ID"
+_MA_HOP_LE = re.compile(r"[A-Za-z0-9-]{8,64}")
 
 # Multipart adds boundaries and the UUID form fields around the actual file.
 # Keep that bounded too; otherwise an attacker can stay below the file cap while
@@ -172,7 +174,10 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        # Mã từ ngoài chỉ nhận khi đúng dạng mã (chữ, số, gạch; 8–64 ký tự):
+        # header này ai gửi cũng được, và nó đi thẳng vào mọi dòng log.
+        goi_kem = request.headers.get(REQUEST_ID_HEADER) or ""
+        request_id = goi_kem if _MA_HOP_LE.fullmatch(goi_kem) else str(uuid.uuid4())
 
         # Bind to structlog context for the duration of this request.
         structlog.contextvars.clear_contextvars()

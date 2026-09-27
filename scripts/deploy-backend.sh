@@ -111,7 +111,20 @@ if [ ! -f "$ENV_FILE" ]; then
   mv "${ENV_FILE}.tmp" "$ENV_FILE"
 fi
 export CLINIC_ENV_FILE="$ENV_FILE"
-COMPOSE=(docker compose --env-file "$ENV_FILE" -p "$PROJECT")
+
+# Log vào journald — GIỮ ĐƯỢC QUA DEPLOY (27/09/2026, xem đầu
+# docker-compose.journald.yml). Chỉ khi máy chủ có journal LƯU BỀN; máy dev /
+# Docker Desktop không có journald nên giữ json-file. Gọi lại ở đường rollback
+# vì thư mục bản cũ có thể chưa có file này.
+file_log() {
+  LOG_FILES=()
+  if [ -d /var/log/journal ] && [ -f docker-compose.journald.yml ]; then
+    LOG_FILES=(-f docker-compose.yml -f docker-compose.journald.yml)
+  fi
+}
+file_log
+COMPOSE=(docker compose --env-file "$ENV_FILE" -p "$PROJECT" ${LOG_FILES[@]+"${LOG_FILES[@]}"})
+echo "==> log container: $([ ${#LOG_FILES[@]} -gt 0 ] && echo journald || echo json-file)"
 
 env_value() {
   local key="$1"
@@ -312,7 +325,7 @@ fi
 echo "==> [5/6] health check (up to ~120s)"
 health_ok() {
   local svc cid st
-  for svc in api dashboard caddy; do
+  for svc in api dashboard caddy su-kien; do
     cid="$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null || true)"
     [ -n "$cid" ] || { echo "   $svc: no container"; return 1; }
     st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"
@@ -365,7 +378,8 @@ if [ "${DEPLOY_OK:-0}" != "1" ]; then
     export CLINIC_ENV_FILE="$PREVIOUS_ENV_FILE"
     ENABLED_PROFILES="$PREVIOUS_PROFILES"
     if [ -n "$ENABLED_PROFILES" ]; then export COMPOSE_PROFILES="$ENABLED_PROFILES"; else unset COMPOSE_PROFILES 2>/dev/null || true; fi
-    COMPOSE=(docker compose --env-file "$PREVIOUS_ENV_FILE" -p "$PROJECT")
+    file_log
+    COMPOSE=(docker compose --env-file "$PREVIOUS_ENV_FILE" -p "$PROJECT" ${LOG_FILES[@]+"${LOG_FILES[@]}"})
     remove_disabled_services
     # Same reason as the release `up` above: if the ROLLBACK cannot start
     # either, `set -e` would kill the script mid-recovery and the operator would
