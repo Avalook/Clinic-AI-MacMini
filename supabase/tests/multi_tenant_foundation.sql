@@ -144,7 +144,9 @@ DECLARE
     --   là bảng HỆ THỐNG, không có clinic_id nên không tính.
     -- 112 → 113 (27/09/2026 đợt 3): doi_tac_thanh_toan (đối tác ghi nhận đã
     -- thu tiền khách, 20260928000091).
-    expected_tenant_tables constant integer := 113;
+    -- 113 → 115 (28/09/2026): ky_nang + nhan_su_ky_nang (phân quyền theo kỹ
+    -- năng — khối Phân quyền, có clinic_id).
+    expected_tenant_tables constant integer := 115;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

@@ -234,7 +234,9 @@ async def test_theo_doi_khong_mo_vong_doc_va_khep_khi_lam_xong(kb: KichBan) -> N
         kb.bac_si.staff_id,
     )
     assert f["due_at"] is not None
-    assert not await _da_khep(kb)  # mẫu chưa lấy
+    # Việc làm BÊN NGOÀI (đối tác) không giữ lượt (Tuyền 28/09/2026: nút đối
+    # tác chỉ ghi sự kiện) — theo dõi xong là lượt khép, mẫu lấy lúc nào cũng được.
+    assert await _da_khep(kb)
     await _lam(kb, mau)
     assert await _da_khep(kb)  # không chờ kết quả
     assert await _cho_doc(kb) == []
@@ -442,7 +444,8 @@ async def test_checkout_doc_rail_moi(kb: KichBan) -> None:
     phien = await _vao_kham(kb)
     [mau] = await _chi_dinh(kb, phien, kb.ma_mau)
     loai, _ = await vuong()
-    assert {"service_open", "exam_open"} <= loai
+    # Việc đối tác không phải "dịch vụ chưa làm" giữ lượt (28/09/2026).
+    assert "exam_open" in loai and "service_open" not in loai
     await kb.svc.kham_xong(consultation_id=phien, identity=kb.bac_si)
     await _lam(kb, mau)
     loai, _ = await vuong()
