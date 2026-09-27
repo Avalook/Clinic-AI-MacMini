@@ -10,6 +10,7 @@ kỹ năng → lego + phòng) và ai có kỹ năng nào. Quyền từng ngườ
     docker cp ky-nang.json <api>:/tmp/ky-nang.json
     docker exec <api> python /tmp/kn2.py --ky-nang /tmp/ky-nang.json          # THỬ KHÔ
     docker exec <api> python /tmp/kn2.py --ky-nang /tmp/ky-nang.json --that   # làm thật
+    # Người MỚI tạo tài khoản: thêm --cap-quyen = tick qua KyNangService (bật lego).
 
 Local: PYTHONPATH=src DATABASE_URL=... .venv/bin/python scripts/ky-nang-tu-file.py …
 
@@ -56,6 +57,55 @@ BI_DANH: dict[str, tuple[str, ...]] = {
     "Phan Thị Minh Hằng": ("Phan Thị Minh Hằng", "ĐD Hằng"),
     "Nguyễn Vân Anh": ("TL Vân Anh",),
 }
+
+
+async def _cap_quyen(cid: str, gan: list[tuple[str, str, str]]) -> int:
+    from clinicai.api.identity import ClinicRole, StaffIdentity
+    from clinicai.services.ky_nang_service import KyNangService
+
+    pool = await asyncpg.create_pool(_dsn())
+    try:
+        ql = await pool.fetchrow(
+            """
+            SELECT s.id::text AS id, s.auth_user_id::text AS au, s.full_name,
+                   s.primary_location_id::text AS lid
+              FROM staff s JOIN clinic_membership m ON m.staff_id = s.id
+               AND m.is_active AND m.clinic_id = $1::uuid
+             WHERE m.role = 'MANAGEMENT' AND s.is_active
+             ORDER BY (s.full_name = 'Quản lý hệ thống') DESC LIMIT 1
+            """,
+            cid,
+        )
+        ident = StaffIdentity(
+            staff_id=ql["id"],
+            auth_user_id=ql["au"] or "",
+            full_name=ql["full_name"],
+            department="MANAGEMENT",
+            role=ClinicRole.MANAGEMENT,
+            clinic_id=cid,
+            location_id=ql["lid"],
+            location_name=None,
+        )
+        co = {
+            (r["staff_id"], r["ky_nang_ma"])
+            for r in await pool.fetch(
+                "SELECT staff_id::text AS staff_id, ky_nang_ma FROM nhan_su_ky_nang"
+                " WHERE clinic_id = $1::uuid",
+                cid,
+            )
+        }
+        svc = KyNangService(pool)
+        so = 0
+        for sid, tk, ma in gan:
+            if (sid, ma) in co:
+                continue
+            await svc.doi(staff_id=sid, ma=ma, bat=True, identity=ident)
+            print(f"    + {tk}: {ma}")
+            so += 1
+        print(f"  ✓ cấp quyền {so} lượt gán mới (thao tác dưới tên {ql['full_name']})")
+        return 0
+    finally:
+        await pool.close()
 
 
 def _dsn() -> str:
@@ -147,6 +197,11 @@ async def main() -> int:
                     [phong[c] for c in ps],
                 )
             them = 0
+            if "--cap-quyen" in sys.argv:
+                # Người MỚI (chưa có lượt gán): tick qua KyNangService — ghi
+                # thành viên + bật đúng lego của kỹ năng, cùng đường màn Phân quyền.
+                print("  (cấp quyền theo kỹ năng cho lượt gán mới — sau giao dịch)")
+                return await _cap_quyen(cid, gan)
             for sid, _tk, ma in gan:
                 kq = await conn.execute(
                     "INSERT INTO nhan_su_ky_nang (clinic_id, staff_id, ky_nang_ma)"
