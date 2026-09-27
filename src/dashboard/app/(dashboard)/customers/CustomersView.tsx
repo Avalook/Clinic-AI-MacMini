@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
-  ChevronDown,
   ExternalLink,
   Search,
   UserPlus,
@@ -40,6 +39,9 @@ import DauUuTien from "./DauUuTien";
 import KhungBao from "./KhungBao";
 import { dungKhungBao } from "./khung-bao";
 import { todayVn } from "@/lib/roster";
+import ThanhNgay from "@/components/ui/ThanhNgay";
+import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
+import KhungKhach from "../_lam-viec/KhungKhach";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
@@ -465,13 +467,6 @@ type CustomerTab =
   | "qua_sla"
   | "cho_xac_nhan";
 
-const PERIODS: { key: Period; label: string }[] = [
-  { key: "today", label: "Hôm nay" },
-  { key: "week", label: "Tuần này" },
-  { key: "month", label: "Tháng này" },
-  { key: "all", label: "Tất cả" },
-];
-
 // LỌC BẰNG CHÍNH BỐN Ô SỐ Ở TRÊN — không có hàng tab riêng nữa.
 //
 // Trước đây màn này có cả hai, và bốn nhãn tab KHÔNG khớp bốn con số: tab ghi
@@ -483,132 +478,68 @@ const PERIODS: { key: Period; label: string }[] = [
 // đang hiện 29 thì thấy đúng 29 dòng ấy. Không còn tab "Tất cả khách hàng":
 // mặc định đã là tất cả, và bỏ lọc bằng cách bấm lại ô đang chọn.
 
-/** "Bộ lọc" — MỘT nút, mở ra mọi thứ thu hẹp được danh sách.
+/** THANH NGÀY + "TÍNH THEO" — một khối, đọc cùng nhau.
  *
- *  Gộp hai điều khiển trước đây đứng rời nhau ở hai đầu màn hình: ô chọn
- *  "lọc theo ngày tạo / ngày hẹn" và bốn nút kỳ (Hôm nay → Tất cả). Chúng luôn
- *  đọc cùng nhau — "tuần này" một mình không có nghĩa, phải biết tuần này
- *  THEO ngày tạo hay theo ngày hẹn — nên tách chúng ra hai đầu là bắt người
- *  dùng ghép lại bằng mắt.
+ *  Tuyền 27/09/2026: "mở rộng khung thời gian tra cứu: xem khách hôm qua, hôm
+ *  kia, tuần trước…; hiện lịch ra như thanh ngang mà bấm cũng tiện". Thay bốn
+ *  nút kỳ (Hôm nay/Tuần này/Tháng này/Tất cả) giấu trong nút "Bộ lọc" bằng thanh
+ *  ngày ngang (`components/ui/ThanhNgay`) luôn hiện.
+ *
+ *  GIỮ luật của "Bộ lọc" cũ (Quang 09/08/2026): khoảng ngày và "tính theo ngày
+ *  tạo / ngày hẹn" đứng CẠNH nhau — "hôm qua" một mình không có nghĩa, phải
+ *  biết hôm qua THEO ngày hẹn hay theo ngày tạo hồ sơ.
  */
-function BoLoc({
-  period,
+function BoLocNgay({
+  khoang,
   by,
+  dangTai,
   onChon,
 }: {
-  period: Period;
+  khoang: Khoang | null;
   by: ByDim;
-  onChon: (period: Period, by: ByDim) => void;
+  dangTai: boolean;
+  onChon: (khoang: Khoang | null, by: ByDim) => void;
 }) {
-  const [mo, setMo] = useState(false);
-  const dangLoc = period !== "all";
-  const nhanKy = PERIODS.find((p) => p.key === period)?.label ?? "Tất cả";
-
   return (
-    <div className="relative">
-      {/* CHỈ CÒN MŨI TÊN, nằm sát mép phải ô tìm kiếm (Quang chốt 09/08/2026).
-          Chữ "Bộ lọc" chiếm chỗ cho một thứ chỉ thỉnh thoảng mới mở.
-          NHƯNG khi ĐANG lọc thì vẫn phải nói ra: một mũi tên trông y hệt lúc
-          lọc và lúc không là cách để người dùng nhìn một danh sách đã bị cắt mà
-          tưởng đó là tất cả. Nên lúc ấy mũi tên đổi màu và có chấm báo. */}
-      <button
-        type="button"
-        onClick={() => setMo((v) => !v)}
-        aria-expanded={mo}
-        aria-label={dangLoc ? `Bộ lọc — đang lọc ${nhanKy}` : "Bộ lọc"}
-        title={
-          dangLoc
-            ? `Đang lọc: ${nhanKy}${by === "appt" ? " · theo ngày hẹn" : ""}`
-            : "Bộ lọc"
-        }
-        className={`relative grid size-8 place-items-center rounded-lg transition-colors ${
-          dangLoc
-            ? "bg-brand-50 text-brand-700"
-            : "text-ink-muted hover:bg-surface-muted hover:text-ink"
-        }`}
-      >
-        <ChevronDown
-          className={`size-4 transition-transform ${mo ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-        {dangLoc && (
-          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-brand-600" />
-        )}
-      </button>
-
-      {mo && (
-        <>
-          {/* Bấm ra ngoài là đóng. Thiếu lớp này thì bảng lọc chỉ đóng khi bấm
-              đúng cái nút đã mở nó. */}
-          <button
-            type="button"
-            aria-label="Đóng bộ lọc"
-            onClick={() => setMo(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div className="absolute right-0 top-full z-50 mt-2 w-64 space-y-3 rounded-2xl border border-line bg-surface p-3 shadow-lg">
-            <div className="space-y-1.5">
-              <span className="block text-label font-semibold uppercase tracking-wide text-ink-faint">
-                Khoảng thời gian
-              </span>
-              <div className="grid grid-cols-2 gap-1" role="group">
-                {PERIODS.map((entry) => (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    onClick={() => onChon(entry.key, by)}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                      entry.key === period
-                        ? "bg-brand-600 font-bold text-white"
-                        : "bg-surface-sunken text-ink-muted hover:text-ink"
-                    }`}
-                  >
-                    {entry.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5 border-t border-line pt-2.5">
-              <span className="block text-label font-semibold uppercase tracking-wide text-ink-faint">
-                Tính theo
-              </span>
-              <div className="grid grid-cols-2 gap-1" role="group">
-                {(
-                  [
-                    ["created", "Ngày tạo"],
-                    ["appt", "Ngày hẹn"],
-                  ] as [ByDim, string][]
-                ).map(([ma, nhan]) => (
-                  <button
-                    key={ma}
-                    type="button"
-                    onClick={() => onChon(period, ma)}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                      by === ma
-                        ? "bg-brand-600 font-bold text-white"
-                        : "bg-surface-sunken text-ink-muted hover:text-ink"
-                    }`}
-                  >
-                    {nhan}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {dangLoc && (
-              <button
-                type="button"
-                onClick={() => onChon("all", by)}
-                className="w-full rounded-lg border border-line py-1.5 text-xs font-semibold text-ink-soft hover:bg-surface-muted"
-              >
-                Bỏ lọc thời gian
-              </button>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+    <section
+      aria-label="Lọc theo ngày"
+      className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-surface p-3 shadow-card"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+          Tính theo
+        </span>
+        <div className="flex gap-1" role="group" aria-label="Tính theo ngày nào">
+          {(
+            [
+              ["appt", "Ngày hẹn"],
+              ["created", "Ngày tạo hồ sơ"],
+            ] as [ByDim, string][]
+          ).map(([ma, nhan]) => (
+            <button
+              key={ma}
+              type="button"
+              aria-pressed={by === ma}
+              onClick={() => onChon(khoang, ma)}
+              className={`inline-flex min-h-10 items-center rounded-control px-3 text-body font-medium md:min-h-8 ${
+                by === ma
+                  ? "bg-brand-600 text-white"
+                  : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+              }`}
+            >
+              {nhan}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ThanhNgay
+        khoang={khoang}
+        homNay={todayVn()}
+        dangTai={dangTai}
+        nhan="Khoảng ngày tra cứu khách"
+        onChon={(k) => onChon(k, by)}
+      />
+    </section>
   );
 }
 
@@ -669,6 +600,7 @@ export default function CustomersView({
   q,
   period,
   by,
+  khoang = null,
   initialSelected,
   initialViec = null,
   initialLuot = null,
@@ -707,6 +639,8 @@ export default function CustomersView({
   q: string;
   period: Period;
   by: ByDim;
+  /** Khoảng của thanh ngày ngang (`?tu&den`); null = theo `period`. */
+  khoang?: Khoang | null;
   initialSelected: string | null;
   /** Trạng thái CSKH mở sẵn ở cột phải (`?viec=`). Chuông thông báo đặt nó. */
   initialViec?: string | null;
@@ -720,6 +654,8 @@ export default function CustomersView({
   doctors?: Opt[];
 }) {
   const router = useRouter();
+  /** Khoảng đang tô trên thanh ngày: khoảng tự chọn, hoặc kỳ cũ đổi ra khoảng. */
+  const khoangHien = khoang ?? khoangTuKy(period, todayVn());
   const [tab, setTab] = useState<CustomerTab>("all");
   /** Khách đang mở bảng "mấy lịch trùng" (clinic_patient_id), null = đang đóng. */
   const [xemTrung, setXemTrung] = useState<string | null>(null);
@@ -827,7 +763,12 @@ export default function CustomersView({
     }, 350);
   }
 
-  function go(nextPeriod: Period, nextQ: string, nextBy: ByDim) {
+  function go(
+    nextPeriod: Period,
+    nextQ: string,
+    nextBy: ByDim,
+    nextKhoang: Khoang | null = khoang,
+  ) {
     // DỰNG PARAMS MỚI TINH, KHÔNG chép từ URL hiện tại — và đó là chủ ý:
     // đổi bộ lọc thì `trang` phải rơi về 1. Đứng ở trang 3 rồi gõ tìm kiếm mà
     // còn giữ `trang=3` là nhận về trang 3 CỦA KẾT QUẢ MỚI — thường là rỗng,
@@ -835,7 +776,12 @@ export default function CustomersView({
     // "giữ nguyên mọi param" là dẫm đúng cái bẫy ấy.
     const params = new URLSearchParams();
     if (nextQ.trim()) params.set("q", nextQ.trim());
-    if (nextPeriod !== "all") params.set("period", nextPeriod);
+    // Khoảng của thanh ngày thắng kỳ cũ (`period` còn nhận để đường dẫn cũ
+    // — chuông, link gửi ca sau — vẫn mở đúng).
+    if (nextKhoang) {
+      params.set("tu", nextKhoang.tu);
+      params.set("den", nextKhoang.den);
+    } else if (nextPeriod !== "all") params.set("period", nextPeriod);
     if (nextBy !== "created") params.set("by", nextBy);
     if (selectedId) params.set("selected", selectedId);
     // Lượt và việc đi theo đường dẫn, để F5 và một link gửi cho ca sau vẫn mở
@@ -1430,12 +1376,15 @@ export default function CustomersView({
           placeholder="Tìm theo tên, số điện thoại, mã khách hàng"
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
         />
-        <BoLoc
-          period={period}
-          by={by}
-          onChon={(kyMoi, chieuMoi) => go(kyMoi, term, chieuMoi)}
-        />
       </div>
+
+      {/* THANH NGÀY NGANG (27/09/2026) — thay bốn nút kỳ trong "Bộ lọc". */}
+      <BoLocNgay
+        khoang={khoangHien}
+        by={by}
+        dangTai={isPending}
+        onChon={(k, chieuMoi) => go("all", term, chieuMoi, k)}
+      />
 
       {/* TÊN NÚT ĐỔI 13/08/2026: "Ghi nhận khách quan tâm" → "Thêm khách hàng mới"
           (Tuyền chọn khi nghiệm thu). Chữ cũ mô tả HOÀN CẢNH của khách, nên người
@@ -2052,6 +2001,15 @@ export default function CustomersView({
                   </div>
 
                 </div>
+                )}
+
+                {/* KHUNG KHÁCH (Tuyền 27/09/2026): ghi chú chung · tự nhắc tôi ·
+                    mọi thứ của khách — CÙNG component với Tiếp đón. */}
+                {canOperateCskh && (
+                  <KhungKhach
+                    key={selected.clinic_patient_id}
+                    clinicPatientId={selected.clinic_patient_id}
+                  />
                 )}
 
                 {canEdit && !selectedAppt?.upcoming ? (

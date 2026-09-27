@@ -19,6 +19,7 @@ import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import ThanhTab from "@/components/ui/ThanhTab";
 
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
+import KhungKhach from "../../_lam-viec/KhungKhach";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import {
   patientLine,
@@ -724,6 +725,15 @@ function CounterPanel({ item }: { item: WorklistItem }) {
           {pending ? "Đang lưu…" : "Check-in — khách đã đến"}
         </NutCheckIn>
       )}
+
+      {/* KHUNG KHÁCH (Tuyền 27/09/2026: "Lễ tân cũng nên có"): ghi chú chung ·
+          tự nhắc tôi · mọi thứ của khách — CÙNG component với Quản lý khách hàng. */}
+      {item.patient.clinic_patient_id ? (
+        <KhungKhach
+          key={item.patient.clinic_patient_id}
+          clinicPatientId={item.patient.clinic_patient_id}
+        />
+      ) : null}
 
       {NUT_VAO_KHAM && (
       <button
