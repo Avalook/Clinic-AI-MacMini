@@ -706,8 +706,7 @@ async def tai_len_ket_qua(
 #: tải lên được thì phải mở lại được thứ mình vừa tải, nếu không thì không có
 #: cách nào kiểm tra mình có tải nhầm tệp của người khác hay không.
 _KET_QUA_DOC_GUARD = _TEP_TAI_LEN_GUARD
-# Duyệt / cho gửi kết quả: QUYỀN, không vai (28/09/2026).
-_BAC_SI_GUARD = cua_quyen("result.review.approve")
+_BAC_SI_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 
 
 @router.get("/cskh/ho-so-kham/{appointment_id}")

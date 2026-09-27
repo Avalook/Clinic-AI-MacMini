@@ -1947,12 +1947,7 @@ class LuotKhamService:
         expected_versions: dict[str, int] | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        # QUYỀN, không vai (28/09/2026): ai có "Chỉ định dịch vụ" — bác sĩ hay thư
-        # ký cùng phòng — duyệt được. Thư ký vẫn chỉ cho khách bác sĩ mình đi kèm.
-        async with self._pool.acquire() as c0:
-            await doi_quyen(
-                c0, identity, "clinical.order.place", cau="Bạn chưa có quyền chỉ định."
-            )
+        _require(identity, DOCTOR_ROLES, "Chỉ bác sĩ duyệt chỉ định được.")
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         codes = list(service_codes or [])

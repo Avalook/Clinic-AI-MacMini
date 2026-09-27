@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.thai_ky_service import ThaiKyService
 
 router = APIRouter()
@@ -22,8 +21,7 @@ _DOC_GUARD = require_role(
     ClinicRole.ULTRASOUND_DOCTOR,
     ClinicRole.NURSE_ULTRASOUND,
 )
-# Ghi thai kỳ: QUYỀN ghi bệnh án, không vai (28/09/2026).
-_GHI_GUARD = cua_quyen("clinical.record.write")
+_GHI_GUARD = require_role(ClinicRole.DOCTOR)
 
 
 class TaoThaiKyBody(BaseModel):

@@ -635,13 +635,10 @@ class ClinicalSignService:
         self, *, identity: StaffIdentity, ultrasound_id: str
     ) -> dict[str, Any]:
         """Bác sĩ siêu âm ký kết quả CỦA MÌNH."""
+        if not identity.co_vai(ULTRASOUND_SIGNING_ROLES):
+            raise ValidationError("Chỉ bác sĩ mới ký được kết quả siêu âm.")
+
         async with self._pool.acquire() as conn:
-            await doi_quyen(
-                conn,
-                identity,
-                "result.review.approve",
-                cau="Bạn chưa có quyền ký kết quả.",
-            )
             row = await conn.fetchrow(
                 "SELECT performed_by, signed_at FROM public.ultrasound_record"
                 " WHERE ultrasound_id = $1::uuid AND clinic_id = $2::uuid",

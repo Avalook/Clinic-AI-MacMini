@@ -15,12 +15,13 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clinicai.api.identity import (
+    ClinicRole,
     StaffIdentity,
     get_current_identity,
+    require_role,
 )
 from clinicai.api.nghi_huu import bao_da_nghi
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinical_sign_service import ClinicalSignService
 from clinicai.services.dinh_chinh_don import (
     MAX_CAUTION_LENGTH,
@@ -34,9 +35,7 @@ router = APIRouter()
 
 # Quản lý KHÔNG có ở đây, có chủ ý: ký là trách nhiệm chuyên môn, không phải
 # quyền hành chính.
-# Ký kết quả siêu âm: QUYỀN duyệt kết quả, không vai (28/09/2026) — ai làm ở
-# phòng ấy có quyền thì ký phiếu CỦA MÌNH (service vẫn kiểm "của mình").
-_ULTRASOUND_SIGN_GUARD = cua_quyen("result.review.approve")
+_ULTRASOUND_SIGN_GUARD = require_role(ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR)
 # Cho phép gửi / đính chính hỏi QUYỀN `clinical.consult.finalize` + bác sĩ chính
 # trong hàm dịch vụ (CORE-A, 23/09/2026) — cửa ngoài chỉ "đã đăng nhập".
 _RELEASE_GUARD = get_current_identity

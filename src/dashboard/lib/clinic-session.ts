@@ -76,18 +76,6 @@ export async function vaiLamViec(
   return ds.find(dieuKien) ?? ds[0] ?? null;
 }
 
-/** "Vai" cho nút bấm ở Bàn khám / Bàn khám tư vấn — theo QUYỀN (Tuyền 28/09/2026:
- *  thư ký, bác sĩ, điều dưỡng xếp cùng phòng "bản chất node giống nhau, thao
- *  tác như nhau, song song"). Có quyền chỉ định → dùng như bác sĩ; chỉ có quyền
- *  khám → như thư ký; không có → vai tài khoản như trước. Máy chủ vẫn tự kiểm
- *  quyền ở mọi lệnh — đây chỉ là để không khoá nút của người có quyền. */
-export async function vaiBanKham(): Promise<ClinicRole | null> {
-  const quyen = await getQuyenCuaToi();
-  if (quyen?.includes("clinical.order.place")) return "DOCTOR";
-  if (quyen?.includes("clinical.consult.perform")) return "TKYK";
-  return vaiLamViec((r) => r === "DOCTOR" || r === "TKYK");
-}
-
 /** QUYỀN ĐANG CÓ của người đăng nhập (capability, không phải vai).
  *
  *  Máy chủ tính; ở đây chỉ đọc. Hỏng thì trả rỗng — nghĩa là chỉ còn cửa vai,

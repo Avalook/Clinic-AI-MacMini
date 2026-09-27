@@ -9,7 +9,7 @@
  * Vào được bằng vai (bác sĩ) hoặc bằng QUYỀN "Khám tư vấn" quản lý cấp.
  */
 
-import { getClinicStaffId, requireNavAccess, vaiBanKham } from "@/lib/clinic-session";
+import { getClinicStaffId, requireNavAccess, vaiLamViec } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../LiveBoardSync";
 import BanKham from "../ban-kham/BanKham";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TuVanPage() {
   await requireNavAccess("/tu-van");
-  const vai = await vaiBanKham();
+  const vai = await vaiLamViec((r) => r === "DOCTOR" || r === "TKYK");
   return (
     <>
       <LiveBoardSync />

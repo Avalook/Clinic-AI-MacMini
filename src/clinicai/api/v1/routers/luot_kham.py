@@ -85,9 +85,7 @@ _PERFORMER_GUARD = require_role_co_the_mo(
 # BA CỬA NÀY KHÔNG MỞ, kể cả khi công tắc bật. Khám, ghi bệnh án, duyệt chỉ
 # định là việc của bác sĩ — ranh giới ấy có luật hành nghề đứng sau, không
 # phải một quy ước nội bộ để nới cho tiện.
-# Duyệt chỉ định: hỏi QUYỀN chỉ định, không hỏi vai (Tuyền 28/09/2026: thư ký
-# và bác sĩ cùng phòng "bản chất node giống nhau, thao tác như nhau, song song").
-_DOCTOR_GUARD = cua_quyen("clinical.order.place")
+_DOCTOR_GUARD = require_role(ClinicRole.DOCTOR)
 _NOTE_GUARD = get_current_identity
 _TKYK_GUARD = require_role(ClinicRole.TKYK)
 #: Bắt đầu / kết thúc phiên khám: bác sĩ hoặc thư ký đi kèm (Tuyền 16/09/2026).
