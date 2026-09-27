@@ -46,6 +46,7 @@ import DonThuocPhieu from "./DonThuocPhieu";
 import KetQuaChiDinh from "./KetQuaChiDinh";
 import { KhoiTuVan } from "./KhoiDauPhieu";
 import { TheKhach, TheSinhHieu } from "./TheKhach";
+import TieuDeKhoi from "./TieuDeKhoi";
 import { NhomOPhieu } from "./ONhapPhieu";
 
 /** Khoảng lặng trước khi tự lưu — gõ liên tục thì không bắn từng phím. */
@@ -103,6 +104,7 @@ export default function PhieuKham({
   dauTrang,
   chanRay,
   maThuThuat,
+  onTomTat,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -148,6 +150,9 @@ export default function PhieuKham({
   dauTrang?: ReactNode;
   /** Chân cột phải dưới "In phiếu khám" — nút Hoàn tất của bàn khám (Tuyền 27/09). */
   chanRay?: ReactNode;
+  /** Chế độ `chiMuc` (bàn tư vấn): báo số ô đã điền của các mục đang vẽ + tên
+   *  phiếu — chip "N ô đã điền" của công tắc Thông tin cơ bản (bản mẫu). */
+  onTomTat?: (soDien: number, tenPhieu: string) => void;
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
   const [khoi, setKhoi] = useState<1 | 2 | 3>(1);
@@ -239,6 +244,13 @@ export default function PhieuKham({
   const oTheoMuc = (ds: string[]) =>
     dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
   const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTri(gia[ma])).length;
+  const khoaChiMuc = chiMuc?.join(",") ?? "";
+  const soDienChiMuc = khoaChiMuc
+    ? oTheoMuc(khoaChiMuc.split(",")).filter((ma) => coGiaTri(gia[ma])).length
+    : 0;
+  useEffect(() => {
+    if (khoaChiMuc) onTomTat?.(soDienChiMuc, dinhNghia.ten.replace(/^Phiếu\s+/i, ""));
+  }, [khoaChiMuc, soDienChiMuc, dinhNghia.ten, onTomTat]);
   const laTT = (c: ChiDinhVaKetQua) => Boolean(maThuThuat?.has(c.service_code));
   const ketQuaCls = ketQuaChiDinh.filter((c) => !laTT(c));
   const ketQuaTT = ketQuaChiDinh.filter(laTT);
@@ -263,7 +275,10 @@ export default function PhieuKham({
   // THẺ CON của từng mục — tên + câu phụ Y HỆT bản giao diện mẫu (`manKham`,
   // M/app.js:401-448). `ma` ô không đổi; chỉ đổi cách trình bày.
   const tieuDeMuc: Record<string, { ten: string; phu?: ReactNode }> = {
-    A: { ten: "Bác sĩ tư vấn ghi", phu: "mang sang từ Bàn tư vấn" },
+    A: {
+      ten: "Bác sĩ tư vấn ghi",
+      phu: ghi ? "mang sang từ Bàn tư vấn · bác sĩ chính sửa tiếp được" : "mang sang từ Bàn tư vấn",
+    },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
     C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
     D: { ten: "Chẩn đoán và xử lý" },
@@ -281,7 +296,7 @@ export default function PhieuKham({
     const td = tieuDeMuc[m.ma] ?? { ten: m.ten };
     const noiDung = (
       <>
-        {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} /> : null}
+        {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} choSua={ghi} /> : null}
         {m.lien_ket?.loai === "chi_dinh_cls" ? oChiDinhCls : null}
         {m.lien_ket?.loai === "don_thuoc" ? (
           <DonThuocPhieu
@@ -402,15 +417,7 @@ export default function PhieuKham({
         ) : null}
         {hanhChinh ? veO(hanhChinh) : null}
 
-        <div className="flex scroll-mt-20 items-center gap-3 pt-4">
-          <span className="grid size-8 shrink-0 place-items-center rounded-control bg-brand-600 text-emph font-semibold text-white">
-            {khoi}
-          </span>
-          <h2 className="text-title font-semibold text-ink sm:text-hero">{KHOI[khoi - 1]?.ten}</h2>
-          {GOI_Y_KHOI[khoi] ? (
-            <span className="ml-auto hidden text-meta text-ink-muted sm:inline">{GOI_Y_KHOI[khoi]}</span>
-          ) : null}
-        </div>
+        <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
         {mucKhoi.map((m) => theMuc(m))}
 
