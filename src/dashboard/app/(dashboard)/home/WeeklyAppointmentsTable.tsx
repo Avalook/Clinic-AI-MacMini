@@ -10,7 +10,7 @@
 // giữ nguyên như bản trước.
 
 import { useState, Fragment } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, MoreHorizontal, X } from "lucide-react";
 import {
@@ -38,6 +38,8 @@ import { buttonClass } from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 import NutCheckIn from "@/components/ui/NutCheckIn";
+import ChipLoc from "@/components/ui/ChipLoc";
+import { CA_TUAN, chipNgay, locTheoNgay, ngayDangChon } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
 
 export interface WeekApptRow {
@@ -324,6 +326,7 @@ export default function WeeklyAppointmentsTable({
   dutyByDate = {},
   choDoSinhHieu,
   choCheckIn = false,
+  chonNgay = false,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
@@ -337,8 +340,28 @@ export default function WeeklyAppointmentsTable({
    *  (Tuyền chốt 18/09/2026: check-in bỏ khỏi Trang chủ — một việc, một chỗ).
    *  Trang chủ không truyền → bảng chỉ để xem. */
   choCheckIn?: boolean;
+  /** Hàng chip T2…CN + "Cả tuần" lọc bảng còn MỘT ngày, giữ trên `?ngay=`
+   *  (27/09/2026, đợt 3). CHỈ Trang chủ bật — Tiếp đón khách đã vẽ riêng hôm
+   *  nay nên không truyền. */
+  chonNgay?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // Ngày đang chọn đọc THẲNG từ thanh địa chỉ mỗi lần vẽ, không giữ state riêng:
+  // bấm "Tuần sau" / "Về tuần này" (Link của WeekNav) là URL đổi và lựa chọn
+  // đi theo — state riêng thì giữ nhầm ngày của tuần cũ khi đổi tuần.
+  const ngayChon = chonNgay
+    ? ngayDangChon(searchParams.get("ngay"), days.map((d) => d.date), todayVn())
+    : null;
+  const daysHien = chonNgay ? locTheoNgay(days, ngayChon) : days;
+  /** Đổi ngày: chỉ ghi lại URL (không tải lại trang, không gọi máy chủ) — dữ
+   *  liệu cả tuần đã có sẵn trên màn. */
+  function chonNgayMoi(ma: string) {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("ngay", ma);
+    window.history.replaceState(null, "", `${pathname}?${sp.toString()}`);
+  }
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selAppt, setSelAppt] = useState<WeekApptRow | null>(null);
@@ -410,17 +433,27 @@ export default function WeeklyAppointmentsTable({
           {error}
         </div>
       )}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {chonNgay ? (
+          <div className="mr-auto">
+            <ChipLoc
+              nhan="Chọn ngày xem lịch hẹn"
+              muc={chipNgay(days)}
+              chon={ngayChon ?? CA_TUAN}
+              onChon={chonNgayMoi}
+            />
+          </div>
+        ) : null}
         <button
           type="button"
-          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, true])))}
+          onClick={() => setMoTay(Object.fromEntries(daysHien.map((d) => [d.date, true])))}
           className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
         >
           Mở tất cả
         </button>
         <button
           type="button"
-          onClick={() => setMoTay(Object.fromEntries(days.map((d) => [d.date, false])))}
+          onClick={() => setMoTay(Object.fromEntries(daysHien.map((d) => [d.date, false])))}
           className="rounded-control px-2 py-1 text-label text-ink-soft ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
         >
           Đóng tất cả
@@ -444,7 +477,7 @@ export default function WeeklyAppointmentsTable({
             </tr>
           </thead>
           <tbody>
-            {days.map((day) => {
+            {daysHien.map((day) => {
               const rows = buildDayRows(
                 day,
                 dutyByDate[day.date] ?? [],

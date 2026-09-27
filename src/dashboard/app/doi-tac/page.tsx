@@ -44,7 +44,12 @@ export default async function TrangDoiTac() {
 
   return (
     <NotificationProvider staffId={staff?.id ?? null}>
-      <Shell role={role} identity={identity} leaveAction={logout}>
+      <Shell
+        role={role}
+        identity={identity}
+        tenNguoi={staff?.full_name ?? staff?.short_name ?? undefined}
+        leaveAction={logout}
+      >
         <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
           <header>
             <h1 className="text-2xl font-semibold text-ink">Việc của đối tác</h1>

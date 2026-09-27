@@ -145,6 +145,7 @@ export default async function DashboardLayout({
         <Shell
           role={role}
           identity={identity}
+          tenNguoi={who || undefined}
           featureMode={featureMode}
           viTriHomNay={viTriHomNay}
           phong={viTri?.phong ?? {}}

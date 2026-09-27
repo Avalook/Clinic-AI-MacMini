@@ -12,6 +12,9 @@ import { type PhongTheoViTri } from "./nav-items";
 interface ShellProps {
   role: ClinicRole;
   identity: string;
+  /** Tên người đang đăng nhập cho thẻ tên ở đầu trang. Không truyền thì đoán
+   *  từ `identity` như trước (đoán sai khi `identity` có cơ sở ở cuối). */
+  tenNguoi?: string;
   featureMode?: string;
   /** Mã vị trí người này đứng hôm nay (GET /me/vi-tri-hom-nay). */
   viTriHomNay?: readonly string[];
@@ -24,10 +27,12 @@ interface ShellProps {
 }
 
 import GlobalHeader from "./GlobalHeader";
+import { QuyenProvider } from "./QuyenContext";
 
 export default function Shell({
   role,
   identity,
+  tenNguoi,
   featureMode = "FULL_CLINIC",
   viTriHomNay = [],
   phong = {},
@@ -165,6 +170,9 @@ export default function Shell({
           />
         </div>
 
+        {/* LỐI PHỤ. Lối chính là thẻ tên ở góc phải đầu trang (27/09/2026, đợt
+            3 — "log out cho lên trên bên phải"): trên điện thoại nút này nằm
+            trong ngăn Menu, phải mở rồi cuộn mới thấy. */}
         <div className="shrink-0 space-y-2 border-t border-line/70 px-2 pt-3 pb-2">
           <form action={leaveAction}>
             <button
@@ -227,7 +235,9 @@ export default function Shell({
           onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
           isCollapsed={isCollapsed}
           identity={identity}
+          tenNguoi={tenNguoi}
           role={role}
+          leaveAction={leaveAction}
         />
         <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-8">
           {/* key={pathname} PHẢI Ở ĐÂY. Bỏ nó đi thì React coi cây con của hai
@@ -238,7 +248,9 @@ export default function Shell({
               lỗi không được phép có. Nó cũng là thứ khiến animation `page-in`
               chạy lại mỗi lần chuyển trang thay vì chỉ một lần khi mount. */}
           <div key={pathname} className="page-in">
-            {children}
+            {/* Quyền cho component client (nút Check-out…) — cùng danh sách
+                thanh bên đang dùng, không gọi mạng thêm. */}
+            <QuyenProvider value={quyen}>{children}</QuyenProvider>
           </div>
         </main>
       </div>
