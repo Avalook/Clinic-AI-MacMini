@@ -201,6 +201,17 @@ async def lam_mot_dong(
             chet=het_luot,
             loi=str(loi)[:200],
         )
+        # Kho lỗi (27/09/2026): mỗi KIỂU hỏng của bên nhận thành một dòng
+        # `loi_nhom` (cộng dồn) — /ops thấy "bên nhận X hỏng Y lần" mà không cần
+        # mở log. Không bao giờ ném.
+        from clinicai.services.kho_loi import ghi_loi
+
+        await ghi_loi(
+            pool,
+            nguon="worker",
+            vi_tri=f"{consumer} ← {su_kien.event_type}",
+            exc=loi,
+        )
         if het_luot:
             await _bao_nguoi_truc_khi_chet(pool, su_kien, consumer)
         return True

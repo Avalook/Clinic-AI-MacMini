@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
+from clinicai.services import canh_gac, kho_loi, nhat_ky_van_hanh
 from clinicai.services.ops_status import OpsStatusService
 
 router = APIRouter()
@@ -84,3 +89,93 @@ async def suc_khoe_su_kien(
             (b["chet"] or 0) == 0 and (b["cho_lau_giay"] or 0) < 300 for b in ben_nhan
         ),
     }
+
+
+# ── Theo dõi lỗi Pha 1 (27/09/2026): kho lỗi · cảnh báo · nhật ký vận hành ──────
+
+
+@router.get("/ops/loi")
+async def ds_loi(
+    response: Response,
+    chi_mo: bool = Query(default=False),
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Các KIỂU lỗi đã gom (api / worker / web), mới nhất trước. Không dữ liệu
+    khách — thông điệp đã qua bộ che (services/kho_loi.py)."""
+    response.headers["Cache-Control"] = "no-store"
+    return {"loi": await kho_loi.danh_sach(pool, chi_mo=chi_mo)}
+
+
+class DoiTrangThaiLoi(BaseModel):
+    trang_thai: str
+
+
+@router.post("/ops/loi/{loi_id}/trang-thai")
+async def doi_trang_thai_loi(
+    loi_id: UUID,
+    body: DoiTrangThaiLoi,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đánh dấu MOI → DA_BIET / DA_SUA / BO_QUA (đã sửa mà tái diễn thì tự mở lại)."""
+    if body.trang_thai not in kho_loi.TRANG_THAI:
+        raise ValidationError("Trạng thái lỗi không hợp lệ.")
+    ok = await kho_loi.doi_trang_thai(
+        pool,
+        loi_id=str(loi_id),
+        trang_thai=body.trang_thai,
+        staff_id=identity.staff_id,
+    )
+    if not ok:
+        raise NotFoundError("Không tìm thấy lỗi này.")
+    return {"ok": True}
+
+
+@router.get("/ops/canh-bao")
+async def ds_canh_bao(
+    response: Response,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Cảnh báo của bộ canh gác: đang mở trước, rồi mới đóng gần đây."""
+    response.headers["Cache-Control"] = "no-store"
+    return {"canh_bao": await canh_gac.danh_sach(pool)}
+
+
+@router.get("/ops/nhat-ky")
+async def nhat_ky(
+    response: Response,
+    ngay: str | None = None,
+    tim: str | None = None,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Nhật ký vận hành một ngày: ai làm gì, lúc nào, cách bước trước bao lâu;
+    chỉ số chờ theo lượt + trung vị cả ngày. Ngày rác → hôm nay."""
+    response.headers["Cache-Control"] = "no-store"
+    return await nhat_ky_van_hanh.doc_nhat_ky(
+        pool, clinic_id=identity.clinic_id, ngay=ngay, tim=tim
+    )
+
+
+class LoiTrinhDuyet(BaseModel):
+    vi_tri: str = Field(default="", max_length=300)
+    kieu: str = Field(default="Error", max_length=100)
+    thong_diep: str = Field(default="", max_length=1000)
+
+
+@router.post("/loi-trinh-duyet")
+async def loi_trinh_duyet(
+    body: LoiTrinhDuyet,
+    _identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Lỗi giao diện (trang lỗi React, lỗi server Next) gửi về kho lỗi.
+
+    Ai đăng nhập cũng gửi được — lỗi xảy ra ở mọi vai. Thân ≤ 1KB, qua bộ che.
+    """
+    await kho_loi.ghi_loi_web(
+        pool, vi_tri=body.vi_tri, kieu=body.kieu, thong_diep=body.thong_diep
+    )
+    return {"ok": True}

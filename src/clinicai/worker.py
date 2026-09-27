@@ -261,6 +261,13 @@ async def _run_su_kien() -> None:
 
     ten_worker = f"{os.environ.get('HOSTNAME', 'worker')}:{os.getpid()}"
     logger.info("su_kien_worker_started", consumers=consumers, ten=ten_worker)
+    # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
+    # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
+    # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
+    from clinicai.services import canh_gac
+
+    canh = not chi_dinh
+    lan_canh = 0.0
 
     try:
         while not stop.is_set():
@@ -278,6 +285,9 @@ async def _run_su_kien() -> None:
                 while await lam_mot_hen(pool):
                     if stop.is_set():
                         break
+                if canh and time.monotonic() - lan_canh >= canh_gac.NHIP_GIAY:
+                    lan_canh = time.monotonic()
+                    await canh_gac.mot_vong(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.

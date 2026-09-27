@@ -5,7 +5,7 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
-import { docDuocYKhoa } from "./quyen-cua-toi";
+import { docDuocYKhoa, inDuocPhieu } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
 import {
   departmentToRole,
@@ -133,6 +133,14 @@ export async function requireClinicRole(): Promise<ClinicRole> {
 export async function requireClinicalRole(): Promise<ClinicRole> {
   const role = await requireClinicRole();
   if (!(await docDuocYKhoa())) redirect("/home");
+  return role;
+}
+
+/** Cửa trang IN PHIẾU KHÁM: đọc được y khoa, hoặc làm một khâu quầy (tiếp đón /
+ *  thu tiền / nhà thuốc) — in cho khách ở mọi khâu (Tuyền 27/09/2026). */
+export async function requireInPhieu(): Promise<ClinicRole> {
+  const role = await requireClinicRole();
+  if (!(await inDuocPhieu())) redirect("/home");
   return role;
 }
 

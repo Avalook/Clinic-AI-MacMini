@@ -32,6 +32,16 @@ export default function DashboardError({
     // Vào log container. Không dùng Sentry (chốt 27/09/2026 — dữ liệu y tế);
     // kho gom lỗi tự dựng là Pha 1 của docs/KE-HOACH-THEO-DOI-LOI.md.
     console.error("[dashboard] lỗi khi dựng trang:", error);
+    // Gửi về KHO LỖI (27/09/2026) — /ops tab "Lỗi & cảnh báo". Hỏng thì im.
+    void fetch("/api/loi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vi_tri: window.location.pathname,
+        kieu: error.name || "Error",
+        thong_diep: `${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
+      }),
+    }).catch(() => undefined);
   }, [error]);
 
   return (

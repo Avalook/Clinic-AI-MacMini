@@ -85,6 +85,7 @@ from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
+from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
 # Initialize structured JSON logging
@@ -521,6 +522,17 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     # kỹ thuật → tra đúng dòng log, không phải đoán theo giờ.
     rid = structlog.contextvars.get_contextvars().get("request_id")
     ma = str(rid)[:8] if rid else None
+    # KHO LỖI (27/09/2026): gom theo kiểu vào `loi_nhom` — log container mất khi
+    # deploy, còn kho này thì không. Vị trí = route TEMPLATE (không id khách).
+    # Trần 0,5 giây, không bao giờ ném (services/kho_loi.py).
+    route = request.scope.get("route")
+    await ghi_loi(
+        getattr(request.app.state, "db_pool", None),
+        nguon="api",
+        vi_tri=f"{request.method} {getattr(route, 'path', None) or 'khong-ro-route'}",
+        exc=exc,
+        ma_yeu_cau=str(rid) if rid else None,
+    )
     return JSONResponse(
         status_code=500,
         content={

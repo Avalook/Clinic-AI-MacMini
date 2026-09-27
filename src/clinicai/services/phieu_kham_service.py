@@ -32,6 +32,7 @@ from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import DonThuocDaLuu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
+from clinicai.permissions.y_khoa import QUYEN_IN_PHIEU
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
 from clinicai.phieu_kham.che_do import doi_ghi_duoc
 from clinicai.phieu_kham.hanh_trinh import doc_hanh_trinh
@@ -68,12 +69,14 @@ QUYEN_GHI = "clinical.record.write"
 #: Bác sĩ tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt 24/09: "tư vấn
 #: ghi vào chính bệnh án") — người chỉ có khối Tư vấn cũng ghi được.
 QUYEN_GHI_THEM: frozenset[str] = frozenset({"clinical.intake.perform"})
-#: Đọc: ai đang khám / ghi bệnh án / điền kết quả của lượt.
+#: Đọc: ai đang khám / ghi bệnh án / điền kết quả của lượt — và (27/09/2026)
+#: các khâu quầy để IN phiếu cho khách (`QUYEN_IN_PHIEU`, chỉ đọc).
 QUYEN_DOC = (
     "clinical.record.write",
     "clinical.consult.perform",
     "clinical.intake.perform",
     "result.form.fill",
+    *QUYEN_IN_PHIEU,
 )
 
 #: Không khoá (Tuyền chốt 23/09/2026): Hoàn tất chỉ là mốc giờ, phiếu sửa tiếp

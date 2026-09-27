@@ -844,7 +844,13 @@ class TepKetQuaService:
         duoc_doc = False
         if identity.co_vai(NORMAL_READ_ROLES):
             duoc_doc = True
-        elif await co_quyen_xac_nhan(self._pool, identity):
+        else:
+            # Quầy in phiếu cho khách (27/09/2026) — trang ẢNH của bản in.
+            from clinicai.permissions.y_khoa import doc_duoc_in_phieu
+
+            async with self._pool.acquire() as conn:
+                duoc_doc = await doc_duoc_in_phieu(conn, identity)
+        if not duoc_doc and await co_quyen_xac_nhan(self._pool, identity):
             if (
                 row["xac_nhan_trang_thai"] == "CHO_XAC_NHAN"
                 and row["service_order_id"] is not None
