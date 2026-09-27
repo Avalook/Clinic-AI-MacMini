@@ -385,6 +385,40 @@ export interface ThuThuatNguon {
   /** null = danh mục chưa gắn mã dịch vụ → chưa tạo được chỉ định. */
   service_code: string | null;
   gia?: number | null;
+  /** Nhóm như bản giao diện mẫu (`CHI_DINH_DT`, 27/09/2026): "Thủ thuật",
+   *  "Sàn chậu — trải nghiệm 5 phút ghế ĐTT", "Sàn chậu — định hướng điều trị". */
+  nhom?: string | null;
+}
+
+/** Nhóm mặc định khi máy chủ (bản cũ) chưa gửi `nhom` của thủ thuật. */
+export const NHOM_THU_THUAT_MAC_DINH = "Thủ thuật / kỹ thuật điều trị";
+
+/**
+ * Danh mục khối 3 (thủ thuật · điều trị) theo NHÓM của máy chủ, giữ thứ tự
+ * xuất hiện — cùng hình `NhomCls` với khối 2 để dùng chung `DanhMucChiDinh`.
+ * Chỉ trình bày: nhóm nào, dòng nào là việc của `tham_chieu_nguon.json`.
+ */
+export function nhomThuThuat(ds: readonly ThuThuatNguon[] | null | undefined): NhomCls[] {
+  const ra: NhomCls[] = [];
+  const theoTen = new Map<string, NhomCls>();
+  for (const t of ds ?? []) {
+    if (!t || typeof t.nhan !== "string") continue;
+    const ten = typeof t.nhom === "string" && t.nhom.trim() ? t.nhom.trim() : NHOM_THU_THUAT_MAC_DINH;
+    let n = theoTen.get(ten);
+    if (!n) {
+      n = { nhom: ten, muc: [] };
+      theoTen.set(ten, n);
+      ra.push(n);
+    }
+    n.muc.push({
+      nhan: t.nhan,
+      cach_tra_ket_qua: t.form_id_ket_qua ? "Có biểu mẫu" : "",
+      form_id_ket_qua: t.form_id_ket_qua,
+      service_code: t.service_code,
+      gia: t.gia ?? null,
+    });
+  }
+  return ra;
 }
 
 /** Một dòng đơn thuốc trên phiếu — hình của contract `prescription`. */

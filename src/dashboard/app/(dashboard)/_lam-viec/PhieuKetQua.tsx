@@ -33,6 +33,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
+import { tenMucHien } from "@/lib/sua-mau";
 import Button, { buttonClass } from "@/components/ui/Button";
 import OSo from "@/components/ui/OSo";
 
@@ -505,9 +506,12 @@ export default function PhieuKetQua({
         <div className="space-y-4">
           {phieu.khung.map((muc) => (
             <fieldset key={muc.ma} className="min-w-0">
-              <legend className="text-body font-semibold text-ink">
-                {muc.ten}
-              </legend>
+              {/* Tên mục giữ chỗ / rỗng (mẫu cũ) thì không vẽ tiêu đề — 27/09. */}
+              {tenMucHien(muc.ten) ? (
+                <legend className="text-body font-semibold text-ink">
+                  {tenMucHien(muc.ten)}
+                </legend>
+              ) : null}
               {muc.cot ? (
                 <BangMuc muc={muc} cot={muc.cot} gia={gia} onDoi={doi} />
               ) : (

@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Trích 7 phiếu khám từ tài liệu nguồn đã chốt → khung JSON của Form Engine.
 
+⚠ TỪ 27/09/2026 (đợt 3): `tham_chieu_nguon.json` (danh mục chỉ định mục C/F)
+ĐƯỢC SỬA TAY theo nguồn chuẩn = bản giao diện mẫu (`Dr4women-giao-dien-mau/
+data.js`: CHI_DINH_CLS / CHI_DINH_DT) + phiếu chỉ định giấy — nhãn sạch, nhóm
+theo bản mẫu, soi CTC / soi âm hộ ở CLS, bỏ hai dòng tiêu đề. KHÔNG chạy lại
+script này để đè lên file ấy: script đã thôi ghi `tham_chieu_nguon.json` (chỉ
+ghi 7 khung phiếu). Nhãn là khoá của `anh_xa_danh_muc.CLS` — sửa nhãn thì sửa
+khoá ở đó cùng lúc.
+
     python3 scripts/phieu-kham/trich-tu-html.py \\
         ~/Downloads/ClinicAI-7-phieu-v5-final-review.html
 
@@ -409,8 +417,14 @@ def main(duong: str) -> None:
         x["ma"] = f"procedure_{i}"  # hậu tố chung của `<form>_procedure_<i>`
         x["form_id_ket_qua"] = form_kq(x.pop("mau_ket_qua_nguon"))
         x["service_code"] = None
-    (DICH / "tham_chieu_nguon.json").write_text(
-        json.dumps(tham_chieu, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    # 27/09/2026: KHÔNG ghi `tham_chieu_nguon.json` nữa — file ấy sửa tay theo
+    # nguồn chuẩn (xem đầu file). Bản trích chỉ in số dòng để đối chiếu.
+    print(
+        "Bỏ qua tham_chieu_nguon.json (sửa tay theo bản mẫu):",
+        sum(len(g["muc"]) for g in tham_chieu["chi_dinh_cls"]),
+        "dòng CLS,",
+        len(tham_chieu["thu_thuat"]),
+        "thủ thuật trong nguồn HTML.",
     )
 
 
