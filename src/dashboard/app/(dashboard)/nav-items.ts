@@ -18,7 +18,6 @@ import {
   Tag,
   ScanLine,
   ClipboardCheck,
-  LayoutDashboard,
   Rows3,
   History,
   Tv,
@@ -147,7 +146,7 @@ export const NAV: NavItem[] = [
   {
     href: "/truong-ca",
     label: "Điều phối ca",
-    icon: LayoutDashboard,
+    icon: Rows3,
   },
   // BẢNG HÀNH TRÌNH CHUNG (nhóm 3, 24/09/2026) — mọi vai nội bộ.
   {
@@ -160,11 +159,6 @@ export const NAV: NavItem[] = [
     href: "/doi-tac",
     label: "Việc của đối tác",
     icon: FlaskConical,
-  },
-  {
-    href: "/truong-ca/hang-doi",
-    label: "Hàng đợi theo trạm",
-    icon: Rows3,
   },
   {
     href: "/truong-ca/lich-su",
@@ -398,7 +392,7 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   T4_SAN_DD: [PHONG],
   T4_BIO_DD: [PHONG],
 
-  DIEU_PHOI: ["/truong-ca", "/truong-ca/hang-doi", "/customers"],
+  DIEU_PHOI: ["/truong-ca", "/customers"],
 
   // Thư ký đi kèm từng bác sĩ (17/09/2026).
   T1_TT_TK: [PHONG],
@@ -668,7 +662,7 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   MANAGEMENT: ["/home", "/lich-do-ve", "/reports", "/truong-ca"],
   // Trưởng ca: toàn cảnh trước, rồi hàng đợi, rồi khách hàng — đúng thứ tự họ
   // nhìn khi phòng chờ đông.
-  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/hang-doi", "/customers"],
+  TRUONG_CA: ["/home", "/truong-ca", "/truong-ca/lich-su", "/customers"],
   // Điều dưỡng, ngày không có ca: ba việc hay đứng nhất.
   NURSE_ULTRASOUND: ["/home", "/do-sinh-hieu", "/phong", "/schedule"],
   // Bác sĩ và thư ký: bàn khám là màn chính. Ngày có ca, thanh dưới đi theo
