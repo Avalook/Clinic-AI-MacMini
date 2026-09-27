@@ -19,6 +19,7 @@ import {
   ngayVN,
 } from "../../../lib/datetime";
 import { weekStartOf } from "../../../lib/roster";
+import { docKhoang } from "../../../lib/thanh-ngay";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
 import type { TepKetQuaRow } from "./TepKetQua";
@@ -68,6 +69,9 @@ export default async function CustomersPage({
     luot?: string;
     /** Trang danh sách, đếm từ 1. Thiếu/hỏng = trang 1. */
     trang?: string;
+    /** Khoảng của thanh ngày ngang (yyyy-mm-dd, giờ VN) — thắng `period`. */
+    tu?: string;
+    den?: string;
   }>;
 }) {
   await requireNavAccess("/customers");
@@ -86,6 +90,8 @@ export default async function CustomersPage({
     ? sp.period
     : "all") as Period;
   const by: ByDim = sp.by === "appt" ? "appt" : "created";
+  // Rác → null (không ném) — cùng luật với `cua_so_khoang` phía máy chủ.
+  const khoang = docKhoang(sp.tu, sp.den);
   const selected = (sp.selected ?? "").trim() || null;
   // VIỆC VÀ LƯỢT ĐI TỪ URL VÀO MÀN.
   //
@@ -116,6 +122,10 @@ export default async function CustomersPage({
   });
   if (q) thamSo.set("q", q);
   if (selected) thamSo.set("selected", selected);
+  if (khoang) {
+    thamSo.set("tu", khoang.tu);
+    thamSo.set("den", khoang.den);
+  }
 
   const [patRes, locRes, svcRes, docRes] = await Promise.all([
     fetchFromBackend<{ rows: CustomerRow[]; total: number }>(
@@ -1060,6 +1070,7 @@ type LichHenRaw = {
           q={q}
           period={period}
           by={by}
+          khoang={khoang}
           initialSelected={selected}
           initialViec={viec}
           initialLuot={luot}
@@ -1112,7 +1123,10 @@ type LichHenRaw = {
   function duongTrang(sang: number): string {
     const qs = new URLSearchParams();
     if (q) qs.set("q", q);
-    if (period !== "all") qs.set("period", period);
+    if (khoang) {
+      qs.set("tu", khoang.tu);
+      qs.set("den", khoang.den);
+    } else if (period !== "all") qs.set("period", period);
     if (by !== "created") qs.set("by", by);
     if (selected) qs.set("selected", selected);
     if (viec) qs.set("viec", viec);

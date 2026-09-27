@@ -503,7 +503,8 @@ MODULE: dict[str, Module] = {
             quyen=["crm.manage", "patient.create", "patient.list.view"],
             lenh=["LogContact"],
             phat=["patient.contacted"],
-            bang=["tuong_tac_cskh"],
+            # Sổ ghi chú chung về khách (27/09/2026) — khung phải CSKH/Tiếp đón.
+            bang=["tuong_tac_cskh", "ghi_chu_khach"],
         ),
         Module(
             ma="lab",

@@ -32,6 +32,10 @@ from clinicai.services.cskh_service import (
     clinic_today,
 )
 from clinicai.services.danh_sach_khach_cskh import danh_sach_khach
+from clinicai.services.ghi_chu_khach_service import (
+    QUYEN_KHUNG_KHACH,
+    GhiChuKhachService,
+)
 from clinicai.services.man_khach_hang_service import ManKhachHangService
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
@@ -67,12 +71,86 @@ async def danh_sach_khach_cskh(
     by: str | None = None,
     trang: int = 1,
     selected: str | None = None,
+    tu: str | None = None,
+    den: str | None = None,
     identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Một trang khách (50) của màn Quản lý khách hàng + tổng số khớp bộ lọc."""
+    """Một trang khách (50) của màn Quản lý khách hàng + tổng số khớp bộ lọc.
+
+    ``tu``/``den`` (yyyy-mm-dd, giờ VN) = khoảng của thanh ngày ngang; có thì
+    thắng ``period``. Rác → bỏ qua, không 422 (`cua_so_khoang`)."""
     return await danh_sach_khach(
-        pool, identity=identity, q=q, ky=period, theo=by, trang=trang, chon=selected
+        pool,
+        identity=identity,
+        q=q,
+        ky=period,
+        theo=by,
+        trang=trang,
+        chon=selected,
+        tu=tu,
+        den=den,
+    )
+
+
+# ── Khung phải của một khách: ghi chú + tóm tắt (27/09/2026) ──────────────
+# Hai màn dùng: Quản lý khách hàng (CSKH) và Tiếp đón (lễ tân) — nên cửa là
+# "một trong hai quyền". Service kiểm lại (luật ở service, router mỏng).
+_KHUNG_KHACH_GUARD = cua_quyen(*QUYEN_KHUNG_KHACH)
+
+
+@router.get("/cskh/khach/{clinic_patient_id}/tom-tat")
+async def tom_tat_khach(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi thứ của một khách trên một khung: lịch sắp tới / đã qua, lượt gần
+    nhất, chỉ định chưa làm, tiền đã trả / còn phải thu, hẹn tái khám, số ghi chú."""
+    return await GhiChuKhachService(pool).tom_tat(
+        identity=identity, clinic_patient_id=str(clinic_patient_id)
+    )
+
+
+@router.get("/cskh/khach/{clinic_patient_id}/ghi-chu")
+async def ghi_chu_cua_khach(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return {
+        "items": await GhiChuKhachService(pool).danh_sach(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        )
+    }
+
+
+class GhiChuKhachBody(BaseModel):
+    noi_dung: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/cskh/khach/{clinic_patient_id}/ghi-chu", status_code=201)
+async def ghi_chu_moi(
+    clinic_patient_id: UUID,
+    body: GhiChuKhachBody,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await GhiChuKhachService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        noi_dung=body.noi_dung,
+    )
+
+
+@router.post("/cskh/ghi-chu/{ghi_chu_id}/go")
+async def go_ghi_chu(
+    ghi_chu_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await GhiChuKhachService(pool).go(
+        identity=identity, ghi_chu_id=str(ghi_chu_id)
     )
 
 
