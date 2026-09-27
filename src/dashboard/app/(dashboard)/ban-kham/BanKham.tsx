@@ -104,6 +104,8 @@ interface ChiDinh {
   /** Việc gửi đối tác làm — không có phòng nào của phòng khám để xếp. */
   doi_tac?: boolean;
   trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA" | null;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026): đối tác đã thu chưa. */
+  doi_tac_thu_tien?: "DA_THU" | "CHUA_THU" | null;
 }
 interface Luot {
   visit_id: string;
@@ -1242,6 +1244,11 @@ function ChiDinhPanel({
                     ? " · đang làm"
                     : ""}
                 {c.ly_do_khong_lam ? ` · ${c.ly_do_khong_lam}` : ""}
+                {c.doi_tac_thu_tien === "DA_THU"
+                  ? " · Đối tác đã thu"
+                  : c.doi_tac_thu_tien === "CHUA_THU"
+                    ? " · Khách trả đối tác — chưa thu"
+                    : ""}
               </p>
               {c.ket_qua ? (
                 <p className="mt-1 whitespace-pre-line text-xs text-ink">{c.ket_qua}</p>

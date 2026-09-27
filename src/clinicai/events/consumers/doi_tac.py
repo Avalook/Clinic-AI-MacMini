@@ -5,10 +5,19 @@ Trước đây bàn đối tác là một câu truy vấn tự đọc bảng ch�
 lấy mẫu hiện NGAY lúc bác sĩ chỉ định — trước cả khi khách chọn làm và trả tiền
 (trái luồng chuẩn bước 7: "khách xuống lễ tân TRẢ TIỀN dịch vụ thực làm"). Nay:
 
+    service_selection.confirmed → chỉ định làm bên ngoài, ĐỐI TÁC TỰ LẤY MẪU và
+                                TỰ THU TIỀN (billing_owner EXTERNAL_PARTNER —
+                                Tuyền chốt 27/09/2026: khách trả trực tiếp cho
+                                đối tác), khách vừa chốt làm → nhận việc, KHÔNG
+                                chờ phòng khám thu (không có lần thu nào cả)
     payment.service_collected → chỉ định làm bên ngoài, ĐỐI TÁC TỰ LẤY MẪU, khách
                                 đã chọn làm + đủ điều kiện tài chính → nhận việc
+                                (dịch vụ phòng khám vẫn thu hộ)
     service.completed         → chỉ định làm bên ngoài do ĐIỀU DƯỠNG lấy mẫu,
                                 vừa làm xong ở phòng Lấy mẫu → nhận việc
+
+Cả ba sự kiện cùng một luật: "chỉ định đã đủ điều kiện nhận chưa?" đọc từ
+trạng thái HIỆN TẠI (FinanceGate), nên sự kiện nào tới trước cũng ra một kết quả.
 
 "Nhận việc" = một dòng `doi_tac_nhan_viec` (bảng CỦA khối này) + phát
 `partner.order_received` (dòng thời gian lượt + chuông vai Đối tác). Bàn đối
@@ -83,11 +92,16 @@ async def nhan_viec_doi_tac(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> 
     boi = NguoiGayRa(actor_type=su_kien.actor_type, staff_id=su_kien.actor_staff_id)
     for r in rows:
         if r["tu_lay_mau"]:
-            # Đối tác tự lấy mẫu: chỉ nhận khi khách ĐÃ trả (hoặc đối tác tự thu).
+            # Đối tác tự lấy mẫu: chỉ nhận khi khách ĐÃ trả phòng khám, hoặc
+            # đối tác tự thu (khách chốt làm là đủ — 27/09/2026).
             q = tai_chinh.get(r["id"])
             if q is None or not q.financially_ready:
                 continue
-            ly_do = "DA_THU_TIEN"
+            ly_do = (
+                "KHACH_DA_CHON"
+                if q.finance_state == finance_gate.PARTNER_COLLECTS
+                else "DA_THU_TIEN"
+            )
         else:
             ly_do = "DA_LAY_MAU"
         moi = await conn.fetchval(

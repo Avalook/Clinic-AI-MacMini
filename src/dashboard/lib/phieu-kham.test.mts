@@ -8,6 +8,7 @@ import {
   anhInDuoc,
   chipMauDanhMuc,
   dongKetQua,
+  tongPhongKham,
   dongNgoaiDanhMuc,
   dongTuDon,
   dongTuMau,
@@ -215,4 +216,26 @@ test("ô ngày đọc / in kiểu VN; giá trị lạ để nguyên", () => {
   assert.equal(giaTriDoc(o, { gia_tri: "", nguon: "BS" }), "—");
   const chu = { ma: "x", ten: "X", kieu: "text" } as OPhieu;
   assert.equal(giaTriDoc(chu, { gia_tri: "2026-10-27", nguon: "BS" }), "2026-10-27");
+});
+
+// Đối tác tự thu (27/09/2026): nút "Chỉ định N mục · tổng" ở bàn khám chỉ cộng
+// phần phòng khám — mục khách trả trực tiếp đối tác (cờ máy chủ) không cộng.
+test("tongPhongKham bỏ mục đối tác tự thu và mục chưa có giá", () => {
+  const muc = [
+    { nhan: "Khám", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "KHAM", gia: 250000 },
+    {
+      nhan: "HPV",
+      cach_tra_ket_qua: "",
+      form_id_ket_qua: null,
+      service_code: "HPV",
+      gia: 900000,
+      doi_tac_thu: true,
+    },
+    { nhan: "Chưa giá", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "X", gia: null },
+    { nhan: "Không mã", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: null, gia: 5 },
+  ];
+  assert.equal(tongPhongKham(["KHAM", "HPV"], muc), 250000);
+  assert.equal(tongPhongKham(["HPV"], muc), 0);
+  assert.equal(tongPhongKham(["X", "KHONG_CO"], muc), 0);
+  assert.equal(tongPhongKham([], muc), 0);
 });

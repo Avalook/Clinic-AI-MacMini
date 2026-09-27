@@ -142,9 +142,13 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     elif su_kien.event_type == "partner.order_received":
         dv = su_kien.payload.get("service_name") or "chỉ định"
         tieu_de = f"Việc mới: {dv} — {ten}"
+        ly_do = su_kien.payload.get("ly_do")
         noi_dung = (
             "Khách đã thanh toán — đối tác đến lấy mẫu."
-            if su_kien.payload.get("ly_do") == "DA_THU_TIEN"
+            if ly_do == "DA_THU_TIEN"
+            # Đối tác tự thu (27/09/2026): khách trả trực tiếp khi lấy mẫu.
+            else "Khách đã chốt làm — đối tác đến lấy mẫu và thu tiền khách."
+            if ly_do == "KHACH_DA_CHON"
             else "Phòng đã lấy mẫu xong — đối tác nhận mẫu, trả kết quả."
         )
     else:

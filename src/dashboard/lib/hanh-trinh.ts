@@ -40,6 +40,9 @@ export interface DichVuHanhTrinh {
   thu: string | null;
   bat_dau: string | null;
   xong: string | null;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026): đối tác đã thu chưa.
+   *  null/thiếu = phòng khám thu. */
+  doi_tac_thu_tien?: "DA_THU" | "CHUA_THU" | null;
 }
 
 export interface HanhTrinh {

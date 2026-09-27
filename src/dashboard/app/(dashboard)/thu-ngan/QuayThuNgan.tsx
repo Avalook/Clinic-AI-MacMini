@@ -25,6 +25,7 @@ import NutXemLuot from "../_lam-viec/NutXemLuot";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 
 interface Dong {
@@ -46,12 +47,21 @@ interface DongHoaDon {
   van_de: string | null;
 }
 
+interface DongDoiTac extends DongHoaDon {
+  /** Đối tác đã ghi nhận thu tiền khách (bàn đối tác) — null = chưa. */
+  doi_tac_da_thu?: { so_tien: number; hinh_thuc: string; luc: string } | null;
+}
+
 interface HoaDon {
   tong: number;
   revision: string;
   thu_duoc: boolean;
   van_de: string[];
   dong: DongHoaDon[];
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026): hiện, không cộng. */
+  dong_doi_tac?: DongDoiTac[];
+  /** Phòng khám không còn khoản nào — chỉ còn dịch vụ khách trả đối tác. */
+  chi_doi_tac_thu?: boolean;
 }
 
 interface Luot {
@@ -523,7 +533,11 @@ function NhomThu({
       <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
         {tieu_de}
       </p>
-      {daThu ? (
+      {hd?.chi_doi_tac_thu ? (
+        <p className="mt-2 text-meta text-ink-muted">
+          Phòng khám không còn khoản nào — dịch vụ dưới đây khách trả trực tiếp đối tác.
+        </p>
+      ) : daThu ? (
         <p className="mt-2 text-meta text-ink-muted">Không còn khoản nào phải thu.</p>
       ) : !hd ? (
         <p className="mt-2 text-meta text-ink-muted">Đang tính hoá đơn…</p>
@@ -559,6 +573,10 @@ function NhomThu({
         </ul>
       )}
 
+      {hd && (hd.dong_doi_tac?.length ?? 0) > 0 ? (
+        <DongDoiTacThu ds={hd.dong_doi_tac ?? []} />
+      ) : null}
+
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
         <div>
           <p className="text-body font-semibold text-ink">
@@ -572,9 +590,9 @@ function NhomThu({
             </p>
           ) : null}
         </div>
-        {daThu ? (
+        {daThu || hd?.chi_doi_tac_thu ? (
           <span className="inline-flex min-h-10 items-center rounded-control border border-success bg-success-bg px-4 text-sm font-semibold text-success">
-            Đã thu
+            {hd?.chi_doi_tac_thu ? "Không còn khoản thu" : "Đã thu"}
           </span>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
@@ -605,6 +623,38 @@ function NhomThu({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Dịch vụ khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026): hiện giá
+ *  tham khảo + đối tác đã thu hay chưa. Không cộng vào tổng — máy chủ đã tách
+ *  (`dong_doi_tac`), màn chỉ đọc. */
+function DongDoiTacThu({ ds }: { ds: DongDoiTac[] }) {
+  return (
+    <div className="mt-2 rounded-control bg-surface-muted px-3 py-2">
+      <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+        Khách trả trực tiếp đối tác — không cộng
+      </p>
+      <ul className="mt-1 space-y-1">
+        {ds.map((d) => (
+          <li key={d.source_id} className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="min-w-0 text-body text-ink">
+              {d.ten}
+              <span className="ml-2">
+                {d.doi_tac_da_thu ? (
+                  <Chip tone="success">Đối tác đã thu {tien(d.doi_tac_da_thu.so_tien)}</Chip>
+                ) : (
+                  <Chip tone="neutral">Đối tác chưa thu</Chip>
+                )}
+              </span>
+            </span>
+            <span className="shrink-0 text-meta tabular-nums text-ink-muted">
+              {d.thanh_tien !== null ? `tham khảo ${tien(d.thanh_tien)}` : "chưa có giá"}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -55,9 +55,15 @@ from clinicai.services.luot_kham_service import LuotKhamService
 QUYEN_CHI_DINH = "clinical.order.place"
 
 #: Chỉ định chưa trả mang sang được (lịch đi thẳng phòng): còn phải thu,
-#: khách chưa chọn, hoặc miễn phí. Có dấu vết tiền bất thường thì không đụng.
+#: khách chưa chọn, miễn phí, hoặc đối tác tự thu. Có dấu vết tiền bất thường
+#: thì không đụng.
 _CHUA_THU_MANG_DUOC = frozenset(
-    {finance_gate.DUE, finance_gate.NOT_APPLICABLE, finance_gate.NOT_REQUIRED}
+    {
+        finance_gate.DUE,
+        finance_gate.NOT_APPLICABLE,
+        finance_gate.NOT_REQUIRED,
+        finance_gate.PARTNER_COLLECTS,
+    }
 )
 
 ACTION = "chi_dinh.dat"

@@ -328,9 +328,12 @@ class CashierBoardService:
                         visit_id=item["visit_id"],
                         kind=k,
                     )
-                    if k == "dich_vu" and not tinh.dong:
+                    if k == "dich_vu" and not tinh.dong and not tinh.dong_doi_tac:
                         continue
-                    if k == "dich_vu":
+                    # Chỉ còn dịch vụ ĐỐI TÁC TỰ THU (27/09/2026): hiện để lễ tân
+                    # nói "khách trả trực tiếp cho đối tác", nhưng KHÔNG tính là
+                    # còn nợ — lượt không kẹt ở quầy.
+                    if k == "dich_vu" and tinh.dong:
                         con_no_dv.add(item["visit_id"])
                     hd[k] = tinh.cho_api()
                 item["hoa_don"] = hd

@@ -419,13 +419,17 @@ class PhieuKhamService:
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             dong_dv = await conn.fetch(
-                "SELECT service_code, unit_price, name, node_code, ma_kiotviet"
+                "SELECT service_code, unit_price, name, node_code, ma_kiotviet,"
+                "       billing_owner = 'EXTERNAL_PARTNER' AS doi_tac_thu"
                 "  FROM service_price"
                 " WHERE clinic_id = $1::uuid AND active AND \"group\" = 'dich_vu'"
                 " ORDER BY name",
                 cid,
             )
             dv = {r["service_code"]: r["unit_price"] for r in dong_dv}
+            # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): nút "Chỉ định N mục
+            # · tổng" ở bàn khám chỉ cộng phần phòng khám — cờ do máy chủ nói.
+            dt_thu = {r["service_code"] for r in dong_dv if r["doi_tac_thu"]}
             dong_kho = await conn.fetch(
                 "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price,"
                 "       don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc"
@@ -444,9 +448,13 @@ class PhieuKhamService:
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
-                return {"service_code": None, "gia": None}
+                return {"service_code": None, "gia": None, "doi_tac_thu": False}
             gia = dv[d.ma]
-            return {"service_code": d.ma, "gia": int(gia) if gia is not None else None}
+            return {
+                "service_code": d.ma,
+                "gia": int(gia) if gia is not None else None,
+                "doi_tac_thu": d.ma in dt_thu,
+            }
 
         for nhom in tc["chi_dinh_cls"]:
             nhom["muc"] = [{**m, **gan(ax.CLS.get(m["nhan"]))} for m in nhom["muc"]]
@@ -481,6 +489,7 @@ class PhieuKhamService:
                     "service_code": r["service_code"],
                     "gia": int(gia_dv) if gia_dv is not None else None,
                     "ma_kiotviet": r["ma_kiotviet"],
+                    "doi_tac_thu": bool(r["doi_tac_thu"]),
                 }
             )
         for ten, muc in them.items():

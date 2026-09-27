@@ -85,12 +85,21 @@ async def doc_ket_qua_theo_chi_dinh(
         "                WHERE bl.clinic_id = o.clinic_id"
         "                  AND bl.source_type = 'service_order'"
         "                  AND bl.source_id = o.id::text AND pc.status = 'PAID')"
-        "         AS da_thu"
+        "         AS da_thu,"
+        # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): chip "Khách trả đối
+        # tác" thay "Chờ thu tiền"; đối tác đã ghi nhận thu chưa.
+        "       coalesce(sp.billing_owner = 'EXTERNAL_PARTNER', false)"
+        "         AS doi_tac_thu,"
+        "       EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt"
+        "                WHERE tt.clinic_id = o.clinic_id"
+        "                  AND tt.service_order_id = o.id AND tt.huy_luc IS NULL)"
+        "         AS doi_tac_da_thu"
         "  FROM service_order o"
         "  LEFT JOIN node_definition n"
         "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
         "  LEFT JOIN LATERAL ("
-        "       SELECT s.ma_kiotviet, s.unit_price FROM service_price s"
+        "       SELECT s.ma_kiotviet, s.unit_price, s.billing_owner"
+        "         FROM service_price s"
         "        WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code"
         "        ORDER BY s.active DESC LIMIT 1) sp ON true"
         " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
@@ -188,6 +197,8 @@ async def doc_ket_qua_theo_chi_dinh(
                 "ma_kiotviet": r["ma_kiotviet"],
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
                 "da_thu": bool(r["da_thu"]),
+                "doi_tac_thu": bool(r["doi_tac_thu"]),
+                "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
                 "da_xem_luc": (
                     r["da_xem_ket_qua_luc"].isoformat()
                     if r["da_xem_ket_qua_luc"]

@@ -43,8 +43,11 @@ export interface ChiDinhChoQuyet {
   mang_sang: boolean;
   phong_du_kien_id?: string | null;
   phong_chon_duoc?: PhongChonDuoc[];
-  /** Làm bên ngoài — thu xong, việc tự sang bàn đối tác (sự kiện). */
+  /** Làm bên ngoài — việc tự sang bàn đối tác (sự kiện). */
   doi_tac?: boolean;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026, máy chủ nói) — giá chỉ để
+   *  tham khảo, không cộng vào tiền phòng khám. */
+  doi_tac_thu?: boolean;
   /** Bác sĩ đánh dấu BẮT BUỘC (25/09/2026) — quầy không bỏ được (máy chủ chặn). */
   bat_buoc?: boolean;
 }
@@ -219,13 +222,22 @@ export default function ChonDichVu({
                   </span>
                 ) : null}
                 {c.doi_tac ? (
-                  <span className="ml-2" title="Thu tiền xong, việc tự sang bàn đối tác">
+                  <span className="ml-2" title="Việc tự sang bàn đối tác">
                     <Chip tone="neutral">Đối tác làm</Chip>
+                  </span>
+                ) : null}
+                {c.doi_tac_thu ? (
+                  <span className="block text-meta text-ink-muted">
+                    Khách trả trực tiếp đối tác — không cộng
                   </span>
                 ) : null}
               </span>
               <span className="text-body text-ink-muted">
-                {c.gia !== null ? tien(c.gia) : "chưa có giá"}
+                {c.gia !== null
+                  ? c.doi_tac_thu
+                    ? `tham khảo ${tien(c.gia)}`
+                    : tien(c.gia)
+                  : "chưa có giá"}
               </span>
             </label>
             {chon.has(c.id) && (c.phong_chon_duoc?.length ?? 0) > 0 ? (

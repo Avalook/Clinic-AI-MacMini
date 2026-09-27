@@ -63,6 +63,8 @@ TENANT_TABLES = {
     "encounter_flow", "vital_measurement", "consultation", "consultation_note",
     "service_order", "review_round", "round_requirement", "queue_entry",
     "command_receipt",
+    # Đối tác ghi nhận đã thu tiền khách (20260928000091)
+    "doi_tac_thanh_toan",
 }
 
 STATEMENT = re.compile(
