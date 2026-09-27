@@ -694,3 +694,24 @@ def nhan_nguon_sinh_hieu(*, nguon_visit_id: Any, visit_id: Any) -> str | None:
     if not nguon_visit_id or not visit_id:
         return None
     return None if str(nguon_visit_id) == str(visit_id) else "lượt trước"
+
+
+#: Chờ đo sinh hiệu quá ngần này phút thì màn tô cam để điều dưỡng ưu tiên
+#: (Tuyền 27/09/2026 — màn đo sinh hiệu thiết kế lại). Chỉ nhắc, không chặn.
+CHO_DO_LAU_PHUT = 20
+
+
+def phut_cho(check_in: Any, bay_gio: Any) -> int | None:
+    """HÀM THUẦN: số phút đã chờ kể từ check-in. Rác / thiếu / giờ ngược → None."""
+    if not isinstance(check_in, datetime) or not isinstance(bay_gio, datetime):
+        return None
+    try:
+        giay = (bay_gio - check_in).total_seconds()
+    except TypeError:  # một bên có múi giờ, một bên không
+        return None
+    return int(giay // 60) if giay >= 0 else None
+
+
+def cho_do_lau(phut: int | None) -> bool:
+    """HÀM THUẦN: đã chờ đo quá ngưỡng `CHO_DO_LAU_PHUT` chưa."""
+    return phut is not None and phut >= CHO_DO_LAU_PHUT

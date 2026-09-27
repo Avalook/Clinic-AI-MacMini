@@ -17,6 +17,7 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
 )
+from clinicai.core.clock import now_vn
 from clinicai.permissions.can import doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
@@ -62,7 +63,7 @@ class BangLuotKham:
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
                        f.vitals_started_at, bd.full_name AS vitals_started_by,
-                       ap.so_tiep_don, ap.so_booking
+                       ap.so_tiep_don, ap.so_booking, lk.name AS loai_kham
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -74,6 +75,9 @@ class BangLuotKham:
                   LEFT JOIN staff bd ON bd.id = f.vitals_started_by
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
+                  LEFT JOIN service_type lk
+                    ON lk.clinic_id = v.clinic_id
+                   AND lk.id = coalesce(v.service_type_id, ap.service_type_id)
                  WHERE v.clinic_id = $1::uuid
                    -- INCOMPLETE cố ý không hiện: khách đã về.
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
@@ -274,6 +278,7 @@ class BangLuotKham:
                 )
 
         by_visit: dict[str, dict[str, Any]] = {}
+        bay_gio = now_vn()
         for v in visits:
             by_visit[v["visit_id"]] = {
                 "visit_id": v["visit_id"],
@@ -293,6 +298,11 @@ class BangLuotKham:
                 "goi_do_boi": v["goi_do_boi"],
                 "so_tiep_don": v["so_tiep_don"],
                 "so_booking": v.get("so_booking"),
+                # Màn đo sinh hiệu (27/09 tối): loại khám + phút chờ + cờ chờ lâu
+                # — ngưỡng ở luot_kham_rules, màn chỉ tô màu.
+                "loai_kham": v.get("loai_kham"),
+                "cho_phut": (cho := rules.phut_cho(v["checked_in_at"], bay_gio)),
+                "cho_lau": rules.cho_do_lau(cho),
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
                 "sinh_hieu": None,

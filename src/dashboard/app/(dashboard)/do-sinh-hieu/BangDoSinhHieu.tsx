@@ -67,6 +67,11 @@ interface Luot {
   so_tiep_don: number | null;
   /** Số booking cấp lúc đặt lịch (23/09/2026). */
   so_booking?: number | null;
+  /** Loại khám của lượt (27/09 tối). */
+  loai_kham?: string | null;
+  /** Phút đã chờ từ check-in + cờ "chờ lâu" — máy chủ tính, màn chỉ tô màu. */
+  cho_phut?: number | null;
+  cho_lau?: boolean;
   sinh_hieu: SinhHieu | null;
   /** Lượt qua tư vấn: đang bỏ qua chưa, đổi được không. null = không qua tư vấn. */
   tu_van?: { bo_qua: boolean; doi_duoc: boolean } | null;
@@ -100,6 +105,19 @@ const O: readonly {
   { gui: "spo2", nhan: "SpO₂", don_vi: "%", doc: "spo2", nguyen: true },
   { gui: "pain_score", nhan: "Mức độ đau", don_vi: "0–10", doc: "muc_do_dau", nguyen: true, motDong: true },
 ];
+
+/** Tóm tắt số đang gõ ở thanh dưới — chỉ HIỂN THỊ chữ đã gõ, không kiểm gì. */
+function tomTatSo(gia: Readonly<Record<string, string>>): string {
+  const v = (k: string) => (gia[k] ?? "").trim();
+  const phan: string[] = [];
+  if (v("systolic") || v("diastolic")) phan.push(`HA ${v("systolic") || "—"}/${v("diastolic") || "—"}`);
+  if (v("pulse")) phan.push(`Mạch ${v("pulse")}`);
+  if (v("temperature")) phan.push(`${v("temperature")}°C`);
+  if (v("spo2")) phan.push(`SpO₂ ${v("spo2")}%`);
+  const trong = O.filter((o) => !v(o.gui)).length;
+  if (trong > 0) phan.push(`còn trống ${trong} ô`);
+  return phan.length ? phan.join(" · ") : "Chưa nhập chỉ số nào";
+}
 
 /** Khách kế tiếp còn chờ đo — theo giờ check-in (cùng thứ tự danh sách). */
 function keTiep(ds: readonly Luot[]): Luot | null {
@@ -428,47 +446,47 @@ export default function BangDoSinhHieu() {
   const chuaBatDau =
     !!dangChon && !dangChon.sinh_hieu && dangChon.sinh_hieu_trang_thai === "pending";
 
-  const MotDong = ({ l, stt }: { l: Luot; stt: number }) => (
-    <li>
-      <button
-        type="button"
-        onClick={() => moKhach(l)}
-        className={`flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left hover:bg-brand-50 ${
-          chon === l.visit_id ? "bg-brand-50" : ""
-        }`}
-      >
-        <span
-          title="Số check-in"
-          className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold tabular-nums text-ink"
+  // Dòng khách (Tuyền 27/09 tối): bỏ ô số tròn + chip trạng thái lặp tên mục;
+  // hai số ghép một viên (SoLuot); bên phải là thông tin CÓ ÍCH: chờ bao lâu
+  // (cam khi máy chủ báo chờ lâu) / ai đang đo / đo lúc nào.
+  const MotDong = ({ l }: { l: Luot }) => {
+    const phai = l.sinh_hieu ? (
+      <span className="text-meta text-success">
+        đo {gio(l.sinh_hieu.luc)}
+        {l.sinh_hieu.nguon ? ` (${l.sinh_hieu.nguon})` : ""}
+      </span>
+    ) : l.sinh_hieu_trang_thai === "in_progress" ? (
+      <span className="text-meta text-brand-700">
+        {chon === l.visit_id ? "đang mở" : `${l.bat_dau_do_boi ?? "Có người"} đang đo`}
+      </span>
+    ) : l.cho_phut != null ? (
+      <span className={`text-meta tabular-nums ${l.cho_lau ? "font-semibold text-warning" : "text-ink-muted"}`}>
+        chờ {l.cho_phut >= 60 ? `${Math.floor(l.cho_phut / 60)}g${String(l.cho_phut % 60).padStart(2, "0")}′` : `${l.cho_phut}′`}
+      </span>
+    ) : null;
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={() => moKhach(l)}
+          className={`flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left hover:bg-brand-50 ${
+            chon === l.visit_id ? "bg-brand-50" : ""
+          }`}
         >
-          {l.so_tiep_don ?? stt}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5">
-            <span className="truncate font-semibold text-ink">{l.ten}</span>
-            <SoLuot booking={l.so_booking} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate font-semibold text-ink">{l.ten}</span>
+              <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
+            </span>
+            <span className="block truncate text-meta text-ink-muted">
+              {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || l.ma_bn}
+            </span>
           </span>
-          <span className="block text-meta text-ink-muted">
-            {l.ma_bn} · check-in {gio(l.check_in_luc)}
-            {l.bac_si ? ` · ${l.bac_si}` : ""}
-          </span>
-        </span>
-        {l.sinh_hieu ? (
-          <span className="shrink-0 rounded-chip bg-success-bg px-2 py-0.5 text-meta text-success">
-            Đã đo{l.sinh_hieu.nguon ? ` (${l.sinh_hieu.nguon})` : ""}
-          </span>
-        ) : l.sinh_hieu_trang_thai === "in_progress" ? (
-          <span className="shrink-0 rounded-chip bg-brand-50 px-2 py-0.5 text-meta text-brand-700">
-            Đang đo {gio(l.bat_dau_do_luc)}
-          </span>
-        ) : (
-          <span className="shrink-0 rounded-chip bg-warning-bg px-2 py-0.5 text-meta text-warning">
-            Chờ đo
-          </span>
-        )}
-      </button>
-    </li>
-  );
+          {phai ? <span className="shrink-0 text-right">{phai}</span> : null}
+        </button>
+      </li>
+    );
+  };
 
   const oCanhBao = new Set(canhBao.map((c) => c.truong));
   const khachKe = dangChon
@@ -505,8 +523,8 @@ export default function BangDoSinhHieu() {
               Đang đo ({dangDo.length})
             </p>
             <ul>
-              {dangDo.map((l, i) => (
-                <MotDong key={l.visit_id} l={l} stt={i + 1} />
+              {dangDo.map((l) => (
+                <MotDong key={l.visit_id} l={l} />
               ))}
             </ul>
           </>
@@ -518,7 +536,7 @@ export default function BangDoSinhHieu() {
           {choDo.length === 0 ? (
             <li className="px-3 py-4 text-meta text-ink-muted">Không còn ai chờ đo.</li>
           ) : (
-            choDo.map((l, i) => <MotDong key={l.visit_id} l={l} stt={i + 1} />)
+            choDo.map((l) => <MotDong key={l.visit_id} l={l} />)
           )}
         </ul>
         {/* GẬP SẴN (27/09/2026, đợt 3): danh sách đã đo dài dần trong ngày và
@@ -532,8 +550,8 @@ export default function BangDoSinhHieu() {
               </span>
             </summary>
             <ul>
-              {daDo.map((l, i) => (
-                <MotDong key={l.visit_id} l={l} stt={i + 1} />
+              {daDo.map((l) => (
+                <MotDong key={l.visit_id} l={l} />
               ))}
             </ul>
           </details>
@@ -644,6 +662,11 @@ export default function BangDoSinhHieu() {
                 iPhone); ≥md dính sát đáy khung. Thông báo nằm TRONG thanh —
                 17/09: đặt trên đầu thì khối ô nhập tụt xuống, bấm lệch ô. */}
             <div className="sticky bottom-tren-thanh-duoi z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-card border border-line bg-surface p-3 shadow-panel md:bottom-3">
+              {/* Tên + tóm tắt số vừa gõ (27/09 tối): soát một chỗ trước khi lưu. */}
+              <div className="min-w-0 flex-1 basis-full sm:basis-auto">
+                <p className="truncate text-body font-semibold text-ink">{dangChon.ten}</p>
+                <p className="truncate text-meta text-ink-muted">{tomTatSo(gia)}</p>
+              </div>
               {loi || loiBang ? (
                 <p role="alert" className="w-full rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger sm:mr-auto sm:w-auto">
                   {loi ?? loiBang}
@@ -690,7 +713,7 @@ export default function BangDoSinhHieu() {
                 onClick={luu}
                 disabled={dangLuu}
               >
-                {dangLuu ? "Đang lưu…" : "Đo xong"}
+                {dangLuu ? "Đang lưu…" : khachKe && canhBao.length === 0 ? "Đo xong → khách kế" : "Đo xong"}
               </Button>
             </div>
           </>

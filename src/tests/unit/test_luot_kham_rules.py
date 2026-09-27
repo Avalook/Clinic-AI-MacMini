@@ -451,3 +451,20 @@ def test_doi_phong_duoc(
         )
         is duoc
     )
+
+
+# --- Màn đo sinh hiệu (27/09/2026 tối): phút chờ + chờ lâu -------------------
+def test_phut_cho_va_cho_lau() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    vn = timezone(timedelta(hours=7))
+    ci = datetime(2026, 9, 27, 8, 0, tzinfo=vn)
+    assert rules.phut_cho(ci, ci + timedelta(minutes=19, seconds=59)) == 19
+    assert rules.cho_do_lau(19) is False
+    assert rules.cho_do_lau(rules.phut_cho(ci, ci + timedelta(minutes=20))) is True
+    # Rác / thiếu / giờ ngược / lệch múi giờ → None, không ném.
+    assert rules.phut_cho(None, ci) is None
+    assert rules.phut_cho("08:00", ci) is None
+    assert rules.phut_cho(ci + timedelta(minutes=5), ci) is None
+    assert rules.phut_cho(datetime(2026, 9, 27, 8, 0), ci) is None
+    assert rules.cho_do_lau(None) is False
