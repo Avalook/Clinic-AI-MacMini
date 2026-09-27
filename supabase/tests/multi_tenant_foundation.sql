@@ -139,7 +139,10 @@ DECLARE
     -- service_order_id), đối tác nhận việc qua sự kiện) — 20260925000009.
     -- 110 → 111 (25/09/2026): phieu_kham_lich_su (lịch sử sửa phiếu khám, P4A —
     --   clinic_id NOT NULL, RLS chỉ đọc trong phòng khám của mình).
-    expected_tenant_tables constant integer := 111;
+    -- 111 → 112 (27/09/2026): ghi_chu_khach (ghi chú về khách của CSKH / lễ
+    --   tân, chỉ thêm — 20260927000003). loi_nhom / canh_bao (20260927000004)
+    --   là bảng HỆ THỐNG, không có clinic_id nên không tính.
+    expected_tenant_tables constant integer := 112;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
