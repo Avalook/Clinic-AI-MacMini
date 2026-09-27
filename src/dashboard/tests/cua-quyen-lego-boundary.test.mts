@@ -13,6 +13,7 @@ import test from "node:test";
 // gác bằng VAI nên cấp lego rồi vẫn bị đá về /home.
 
 import {
+  GIU_LOI_VAO_CU,
   laManLego,
   legoChoHien,
   quyenMoDuocMan,
@@ -143,10 +144,22 @@ const O_LOT: [string, ClinicRole[], string[]][] = [
 ];
 
 test("chiều LỌT: màn thuộc lego đang tắt thì gõ URL cũng không vào", () => {
-  const lot = O_LOT.filter(([href, vai, quyen]) => vaoDuocMan(href, vai, quyen)).map(
-    ([href, vai]) => `${vai[0]} → ${href}`,
-  );
+  // Trừ đúng các cặp GIỮ LỐI VÀO CŨ (ngoại lệ tạm có đếm prod, chờ Tuyền chốt).
+  const giu = (href: string, vai: ClinicRole[]) =>
+    vai.some((r) => (GIU_LOI_VAO_CU[href] ?? []).includes(r));
+  const lot = O_LOT.filter(
+    ([href, vai, quyen]) => vaoDuocMan(href, vai, quyen) && !giu(href, vai),
+  ).map(([href, vai]) => `${vai[0]} → ${href}`);
   assert.deepEqual(lot, [], `còn lọt: ${lot.join(" · ")}`);
+});
+
+test("ngoại lệ giữ lối vào cũ: đúng 3 cặp, không hơn", () => {
+  assert.deepEqual(
+    Object.entries(GIU_LOI_VAO_CU).flatMap(([h, v]) => v.map((r) => `${r} → ${h}`)).sort(),
+    ["DOCTOR → /do-sinh-hieu", "NURSE_ULTRASOUND → /reception/queue", "RECEPTION → /do-sinh-hieu"],
+  );
+  assert.equal(vaoDuocMan("/reception/queue", ["NURSE_ULTRASOUND"], ["vitals.measure"]), true);
+  assert.equal(vaoDuocMan("/phong", ["RECEPTION"], ["reception.checkin.perform"]), false);
 });
 
 // ── 3. Chiều CHẶN NHẦM: cấp lego là vào được, bất kể vai ───────────────────

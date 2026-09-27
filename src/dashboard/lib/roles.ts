@@ -705,13 +705,29 @@ export function legoChoHien(quyen: readonly string[] | null, href: string): bool
  *  Backend vẫn tự kiểm quyền ở mọi lệnh.
  *
  *  Màn KHÔNG thuộc lego (Trang chủ, Hành trình, màn đã tắt…) giữ luật vai cũ. */
+/** GIỮ LỐI VÀO ĐANG DÙNG THẬT — NGOẠI LỆ TẠM (27/09/2026), chờ Tuyền chốt.
+ *
+ *  Đếm trên prod trước khi đổi cửa sang lego thuần: 11 ĐD siêu âm vào Tiếp đón
+ *  (bước xác minh), 12 bác sĩ + 10 lễ tân vào Đo sinh hiệu — đều qua luật vai
+ *  cũ, KHÔNG có lego tương ứng. Tuyền dặn "cái nào làm hệ thống hạn chế thì cứ
+ *  mở": giữ đúng 3 cặp này (không thêm), các lối lọt khác của kiểm toán vẫn
+ *  đóng. Muốn bỏ: cấp lego tương ứng cho các tài khoản ấy rồi xoá bảng này. */
+export const GIU_LOI_VAO_CU: Readonly<Record<string, readonly ClinicRole[]>> = {
+  "/do-sinh-hieu": ["DOCTOR", "RECEPTION"],
+  "/reception/queue": ["NURSE_ULTRASOUND"],
+};
+
 export function vaoDuocMan(
   href: string,
   vai: readonly ClinicRole[],
   quyen: readonly string[] | null,
 ): boolean {
   if (laManLego(href)) {
-    if (quyen !== null) return quyenMoDuocMan(quyen, href);
+    if (quyen !== null) {
+      if (quyenMoDuocMan(quyen, href)) return true;
+      const giu = GIU_LOI_VAO_CU[href];
+      return giu !== undefined && vai.some((r) => giu.includes(r));
+    }
     return vai.some((r) => canSeeNavGoc(r, href));
   }
   if (vai.length === 0) return canSeeNav(null, href);
