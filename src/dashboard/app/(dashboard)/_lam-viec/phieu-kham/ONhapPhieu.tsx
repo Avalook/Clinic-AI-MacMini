@@ -36,6 +36,27 @@ import {
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 
 type Doi = (ma: string, v: GiaTriO) => void;
+/** Câu lỗi máy chủ trả theo từng ô (`canh_bao` khi lưu) — mã ô → câu. */
+type LoiO = Readonly<Record<string, string>>;
+
+/** Mã phần tử DOM của một ô phiếu khám — link "tới ô" cuộn về đây. */
+export const idOPhieu = (ma: string) => `pk-o-${ma}`;
+const idLoi = (ma: string) => `pk-o-${ma}-loi`;
+
+/** Thuộc tính a11y cho ô đang có lỗi (viền danger qua `aria-invalid:`). */
+function a11yLoi(ma: string, loi: string | undefined) {
+  return loi ? ({ "aria-invalid": true, "aria-describedby": idLoi(ma) } as const) : {};
+}
+
+/** Câu lỗi NGAY DƯỚI ô (góp ý B8, đợt 3 — trước đây là danh sách ở đầu cột). */
+function CauLoi({ ma, loi }: { ma: string; loi: string | undefined }) {
+  if (!loi) return null;
+  return (
+    <p id={idLoi(ma)} className="mt-1 text-meta text-danger">
+      {loi}
+    </p>
+  );
+}
 
 /** Nhãn ô — bản mẫu `.f > span`: 12px, chữ phụ. */
 const NHAN = "mb-1 block text-meta text-ink-muted";
@@ -47,11 +68,13 @@ export function NhomOPhieu({
   gia,
   onDoi,
   chiDoc,
+  loiO,
 }: {
   nhom: NhomVe;
   gia: Record<string, GiaTriO>;
   onDoi: Doi;
   chiDoc: boolean;
+  loiO?: LoiO;
 }) {
   const oLe = nhom.don_vi.flatMap((d) => (d.loai === "o" ? [d.o] : []));
   const oChon = oLe.filter(laChon);
@@ -77,19 +100,27 @@ export function NhomOPhieu({
           >
             <div className="space-y-3">
               {oChon.map((o) => (
-                <ONhap key={o.ma} o={o} gia={gia[o.ma]} onDoi={onDoi} chiDoc={chiDoc} anNhan={anNhan(o)} />
+                <ONhap
+                  key={o.ma}
+                  o={o}
+                  gia={gia[o.ma]}
+                  onDoi={onDoi}
+                  chiDoc={chiDoc}
+                  anNhan={anNhan(o)}
+                  loi={loiO?.[o.ma]}
+                />
               ))}
             </div>
             {kem.length > 0 ? (
               <div className="flex min-w-0 flex-col gap-2">
                 {kem.map((o) => (
-                  <ONhap key={o.ma} o={o} gia={gia[o.ma]} onDoi={onDoi} chiDoc={chiDoc} />
+                  <ONhap key={o.ma} o={o} gia={gia[o.ma]} onDoi={onDoi} chiDoc={chiDoc} loi={loiO?.[o.ma]} />
                 ))}
               </div>
             ) : null}
           </div>
           {bang.map((d) => (
-            <BangO key={d.bang.ma} d={d} gia={gia} onDoi={onDoi} chiDoc={chiDoc} />
+            <BangO key={d.bang.ma} d={d} gia={gia} onDoi={onDoi} chiDoc={chiDoc} loiO={loiO} />
           ))}
         </div>
       ) : (
@@ -97,11 +128,11 @@ export function NhomOPhieu({
           {nhom.don_vi.map((d) =>
             d.loai === "o" ? (
               <div key={d.o.ma} className={d.o.kieu === "doan_van" ? "col-span-full" : "min-w-0"}>
-                <ONhap o={d.o} gia={gia[d.o.ma]} onDoi={onDoi} chiDoc={chiDoc} />
+                <ONhap o={d.o} gia={gia[d.o.ma]} onDoi={onDoi} chiDoc={chiDoc} loi={loiO?.[d.o.ma]} />
               </div>
             ) : (
               <div key={d.bang.ma} className="col-span-full">
-                <BangO d={d} gia={gia} onDoi={onDoi} chiDoc={chiDoc} />
+                <BangO d={d} gia={gia} onDoi={onDoi} chiDoc={chiDoc} loiO={loiO} />
               </div>
             ),
           )}
@@ -118,11 +149,13 @@ function BangO({
   gia,
   onDoi,
   chiDoc,
+  loiO,
 }: {
   d: Extract<DonViVe, { loai: "bang" }>;
   gia: Record<string, GiaTriO>;
   onDoi: Doi;
   chiDoc: boolean;
+  loiO?: LoiO;
 }) {
   return (
     <div className={`overflow-x-auto ${TBL_WRAP}`}>
@@ -146,10 +179,11 @@ function BangO({
                 {h.hang}
               </th>
               {h.o.map((o, i) => (
-                <td key={o?.ma ?? i} className="px-3 py-1.5">
+                <td key={o?.ma ?? i} id={o ? idOPhieu(o.ma) : undefined} className="px-3 py-1.5">
                   {o && o.kieu === "so" ? (
                     <OSo
                       aria-label={o.ten}
+                      {...a11yLoi(o.ma, loiO?.[o.ma])}
                       rong="day"
                       value={chu(gia[o.ma])}
                       disabled={chiDoc}
@@ -158,6 +192,7 @@ function BangO({
                   ) : o ? (
                     <input
                       aria-label={o.ten}
+                      {...a11yLoi(o.ma, loiO?.[o.ma])}
                       type={o.kieu === "ngay" ? "date" : "text"}
                       value={chu(gia[o.ma])}
                       disabled={chiDoc}
@@ -165,6 +200,7 @@ function BangO({
                       className={INPUT}
                     />
                   ) : null}
+                  {o ? <CauLoi ma={o.ma} loi={loiO?.[o.ma]} /> : null}
                 </td>
               ))}
             </tr>
@@ -185,6 +221,7 @@ export function ONhap({
   onDoi,
   chiDoc,
   anNhan = false,
+  loi,
 }: {
   o: OPhieu;
   gia: GiaTriO | undefined;
@@ -192,7 +229,10 @@ export function ONhap({
   chiDoc: boolean;
   /** Nhãn chỉ cho trình đọc màn hình (đã có tiêu đề nhóm cùng chữ). */
   anNhan?: boolean;
+  /** Câu lỗi máy chủ trả cho ô này (vd số không đọc được → lưu rỗng). */
+  loi?: string;
 }) {
+  const loiA11y = a11yLoi(o.ma, loi);
   const tamNhan = o.ten_tu_dat ? (
     <span className="ml-1 font-normal text-ink-faint">(nhãn tạm)</span>
   ) : null;
@@ -202,7 +242,7 @@ export function ONhap({
     const dsChon = Array.isArray(gia) ? gia : [];
     const motChon = chu(gia);
     return (
-      <fieldset className="min-w-0">
+      <fieldset id={idOPhieu(o.ma)} className="min-w-0">
         <legend className={anNhan ? "sr-only" : NHAN}>
           {o.ten}
           {tamNhan}
@@ -224,18 +264,20 @@ export function ONhap({
             </ChipChon>
           ))}
         </div>
+        <CauLoi ma={o.ma} loi={loi} />
       </fieldset>
     );
   }
 
   if (o.kieu === "doan_van") {
     return (
-      <label className="block">
+      <label id={idOPhieu(o.ma)} className="block">
         <span className={NHAN}>
           {o.ten}
           {tamNhan}
         </span>
         <textarea
+          {...loiA11y}
           value={chu(gia)}
           rows={3}
           disabled={chiDoc}
@@ -243,6 +285,7 @@ export function ONhap({
           onChange={(e) => onDoi(o.ma, e.target.value)}
           className={INPUT}
         />
+        <CauLoi ma={o.ma} loi={loi} />
       </label>
     );
   }
@@ -250,29 +293,32 @@ export function ONhap({
   if (o.kieu === "so") {
     const { nhan, donVi } = nhanVaDonVi(o.ten, o.don_vi);
     return (
-      <label className="block">
+      <label id={idOPhieu(o.ma)} className="block">
         <span className={NHAN}>
           {nhan}
           {tamNhan}
         </span>
         <OSo
+          {...loiA11y}
           value={chu(gia)}
           donVi={donVi}
           disabled={chiDoc}
           placeholder={o.goi_y ?? ""}
           onChange={(v) => onDoi(o.ma, v)}
         />
+        <CauLoi ma={o.ma} loi={loi} />
       </label>
     );
   }
 
   const oNhap = (
-    <label className="block">
+    <label id={idOPhieu(o.ma)} className="block">
       <span className={NHAN}>
         {o.ten}
         {tamNhan}
       </span>
       <input
+        {...loiA11y}
         type={o.kieu === "ngay" ? "date" : "text"}
         value={chu(gia)}
         disabled={chiDoc}
@@ -280,6 +326,7 @@ export function ONhap({
         onChange={(e) => onDoi(o.ma, e.target.value)}
         className={INPUT}
       />
+      <CauLoi ma={o.ma} loi={loi} />
     </label>
   );
   if (o.kieu !== "ngay" || !laONgayTaiKham(o.ma) || chiDoc) return oNhap;

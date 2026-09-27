@@ -23,7 +23,8 @@
     "test:sua-mau": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/sua-mau.test.mts",
     "test:phieu-kham": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/phieu-kham.test.mts",
     "test:thanh-ngay": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/thanh-ngay.test.mts",
-    "test:o-so": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/o-so.test.mts"
+    "test:o-so": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/o-so.test.mts",
+    "test:tu-luu": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/tu-luu.test.mts lib/phieu-ket-qua.test.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

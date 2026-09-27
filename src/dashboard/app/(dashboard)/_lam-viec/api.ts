@@ -111,7 +111,11 @@ export async function guiThaoTac(
   thaoTac: string,
   id: string,
   duLieu: Record<string, unknown> = {},
-): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; loi: string }> {
+): Promise<
+  | { ok: true; data: Record<string, unknown> }
+  // `status` 0 = không tới được máy chủ (tự lưu dùng để quyết có thử lại).
+  | { ok: false; loi: string; status: number }
+> {
   try {
     const r = await fetch("/api/luot-kham", {
       method: "POST",
@@ -122,10 +126,10 @@ export async function guiThaoTac(
       body: JSON.stringify({ thao_tac: thaoTac, id, du_lieu: duLieu }),
     });
     const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Thao tác không thành công.") };
+    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Thao tác không thành công."), status: r.status };
     return { ok: true, data: (d ?? {}) as Record<string, unknown> };
   } catch {
-    return { ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi." };
+    return { ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi.", status: 0 };
   }
 }
 

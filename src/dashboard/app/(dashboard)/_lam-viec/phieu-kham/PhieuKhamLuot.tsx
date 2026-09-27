@@ -10,12 +10,19 @@
 //   · Kết quả: hiện ngay dưới mục C; bác sĩ [Điền kết quả] tại chỗ.
 //   · Mục E: đơn thuốc tự lưu qua đường đơn bệnh án sẵn có → tới nhà thuốc.
 //   · KHÔNG KHOÁ: chế độ luôn "editable"; Hoàn tất ở Bàn khám chỉ là mốc giờ.
+//   · TỰ LƯU CHẮC CHẮN (đợt 3, 27/09/2026 — góp ý B9): phiếu và đơn thuốc đi
+//     hàng đợi chung `lib/use-tu-luu` (tuần tự, lưu nốt khi đổi khách / đóng
+//     tab, lỗi mạng tự thử lại). Cổng Hoàn tất mang `luuNot`: bấm Hoàn tất khi
+//     còn chữ chưa lưu thì Bàn khám lưu nốt rồi mới gửi.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
-import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
+import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
 import { SU_KIEN_BANG } from "@/lib/nhip-lam-moi";
+import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@/lib/tu-luu";
+import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
   dongTuDon,
@@ -54,12 +61,17 @@ async function doc<T>(url: string): Promise<T | null> {
   return (await r.json().catch(() => null)) as T | null;
 }
 
-async function ghi(than: unknown): Promise<{ ok: boolean; status: number; d: Record<string, unknown> | null }> {
+async function ghi(
+  than: unknown,
+  keepalive = false,
+): Promise<{ ok: boolean; status: number; d: Record<string, unknown> | null }> {
   try {
     const r = await fetch("/api/phieu-kham", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(than),
+      // Trang đang đóng: trình duyệt giữ yêu cầu sống sau khi trang chết.
+      keepalive,
     });
     const d = (await r.json().catch(() => null)) as Record<string, unknown> | null;
     return { ok: r.ok, status: r.status, d };
@@ -111,15 +123,22 @@ export default function PhieuKhamLuot({
   const [mauDuPhong, setMauDuPhong] = useState<MauKetQuaNgan[]>([]);
   const [tc, setTc] = useState<ThamChieuDu | null>(null);
   const [don, setDon] = useState<DongThuoc[]>([]);
+  /** Lỗi NẠP phiếu (lỗi lưu nằm ở hàng đợi tự lưu). */
   const [loi, setLoi] = useState<string | null>(null);
-  const [loiDon, setLoiDon] = useState<string | null>(null);
   const [canLyDo, setCanLyDo] = useState(false);
   const [lyDo, setLyDo] = useState("");
   const revision = useRef(0);
   /** Bản đã lưu gần nhất — tự lưu chỉ gửi phần khác bản này (lát 2). */
   const daLuu = useRef<Record<string, ONhap>>({});
-  const henDon = useRef<ReturnType<typeof setTimeout> | null>(null);
   const soLanSuaDon = useRef(0);
+  /** Đơn MỚI NHẤT — hàng đợi đọc lúc gửi (kèm mã dòng lần lưu trước vừa gắn). */
+  const donRef = useRef<DongThuoc[]>([]);
+  /** Lý do đính chính gửi kèm lần lưu KẾ TIẾP (nút "Lưu đơn kèm lý do"). */
+  const lyDoRef = useRef<string | null>(null);
+  const datDon = useCallback((d: DongThuoc[]) => {
+    donRef.current = d;
+    setDon(d);
+  }, []);
 
   const napPhieu = useCallback(
     async (formId: string | null) => {
@@ -173,13 +192,12 @@ export default function PhieuKhamLuot({
       if (huy) return;
       setDau(dp);
       setTc(t);
-      if (dn) setDon(dn);
+      if (dn) datDon(dn);
     })();
     return () => {
       huy = true;
-      if (henDon.current) clearTimeout(henDon.current);
     };
-  }, [visitId, napPhieu, napKetQua, napDon]);
+  }, [visitId, napPhieu, napKetQua, napDon, datDon]);
 
   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`
   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối
@@ -201,94 +219,128 @@ export default function PhieuKhamLuot({
     };
   }, [napKetQua]);
 
-  useEffect(() => {
-    onTrangThai?.(
-      loi || loiDon
-        ? { ok: false, code: null, message: loi ?? loiDon }
-        : { ok: true, code: null, message: null },
-    );
-  }, [loi, loiDon, onTrangThai]);
-
   const onLuu = useCallback(
-    async (goi: Record<string, ONhap>): Promise<KetQuaLuu> => {
-      if (!phieu) return { ok: false, loi: "Chưa mở phiếu." };
+    async (goi: Record<string, ONhap>, keepalive: boolean): Promise<KetQuaLuu> => {
+      if (!phieu) return { ok: false, loi: "Chưa mở phiếu.", thuLai: false };
       const thayDoi = phanThayDoi(goi, daLuu.current);
-      if (Object.keys(thayDoi).length === 0) return { ok: true };
-      const kq = await ghi({
-        thao_tac: "luu-phieu",
-        visit_id: visitId,
-        form_id: phieu.form_id,
-        thay_doi: thayDoi,
-      });
+      const daGui = Object.keys(thayDoi);
+      if (daGui.length === 0) return { ok: true };
+      const kq = await ghi(
+        {
+          thao_tac: "luu-phieu",
+          visit_id: visitId,
+          form_id: phieu.form_id,
+          thay_doi: thayDoi,
+        },
+        keepalive,
+      );
       if (!kq.ok) {
-        const cau =
-          kq.status === 0
-            ? "Mất kết nối — nội dung CHƯA được lưu."
-            : cauLoi(kq.d, "Không lưu được phiếu.");
-        setLoi(cau);
-        if (kq.status === 409) void napPhieu(phieu.form_id);
-        return { ok: false, loi: cau };
+        return {
+          ok: false,
+          loi: kq.status === 0 ? LOI_MAT_KET_NOI : cauLoi(kq.d, "Không lưu được phiếu."),
+          // 409 ở đường "chỉ ô vừa đổi" = hai người cùng MỞ phiếu lần đầu (dòng
+          // phiếu vừa được người kia tạo). Gửi lại phần đổi là GỘP vào bản của
+          // họ, không đè — nên thử lại, KHÔNG nạp lại (nạp lại xoá chữ vừa gõ).
+          thuLai: kq.status === 409 || nenThuLai(kq.status),
+        };
       }
-      setLoi(null);
       revision.current = Number(kq.d?.revision ?? revision.current + 1);
       daLuu.current = { ...daLuu.current, ...thayDoi };
-      const canhBao = (kq.d?.canh_bao ?? []) as { ma: string; ten: string; loi: string }[];
-      return { ok: true, canh_bao: canhBao };
+      return { ok: true, canh_bao: kq.d?.canh_bao, da_gui: daGui };
     },
-    [phieu, visitId, napPhieu],
+    [phieu, visitId],
   );
 
-  const luuDon = useCallback(
-    async (dong: DongThuoc[], lyDoGui: string | null) => {
+  // ĐƠN THUỐC mục E — cùng hàng đợi. Gửi đọc `donRef` lúc gửi, nên lần sau luôn
+  // mang MÃ dòng mà lần trước vừa tạo (hai lần lưu song song từng đẻ dòng trùng).
+  const guiDon = useCallback(
+    async (keepalive: boolean): Promise<KetQuaGui> => {
       const lan = soLanSuaDon.current;
-      const kq = await ghi({
-        thao_tac: "luu-don",
-        visit_id: visitId,
-        dong: dong.filter((d) => d.ten_thuoc.trim()).map(donTuDong),
-        ly_do: lyDoGui,
-      });
+      const dong = donRef.current;
+      const lyDoGui = lyDoRef.current;
+      const kq = await ghi(
+        {
+          thao_tac: "luu-don",
+          visit_id: visitId,
+          dong: dong.filter((d) => d.ten_thuoc.trim()).map(donTuDong),
+          ly_do: lyDoGui,
+        },
+        keepalive,
+      );
       if (!kq.ok) {
         if (kq.d?.error === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDo(true);
-        setLoiDon(
-          kq.status === 0
-            ? "Mất kết nối — đơn thuốc CHƯA được lưu."
-            : cauLoi(kq.d, "Không lưu được đơn thuốc."),
-        );
-        return;
+        return {
+          ok: false,
+          loi:
+            kq.status === 0
+              ? "Mất kết nối — đơn thuốc CHƯA được lưu."
+              : `Đơn thuốc: ${cauLoi(kq.d, "Không lưu được đơn thuốc.")}`,
+          thuLai: nenThuLai(kq.status),
+        };
       }
-      setLoiDon(null);
+      lyDoRef.current = null;
       setCanLyDo(false);
       setLyDo("");
+      if (keepalive) return { ok: true };
       // Nạp lại để dòng mới có MÃ — lần lưu sau không tạo trùng. Chưa gõ thêm
       // thì lấy nguyên bản máy chủ; đã gõ thêm thì chỉ gắn mã theo thứ tự dòng
       // có tên (máy chủ trả theo thứ tự tạo), không đè chữ vừa gõ.
       const moi = await napDon();
-      if (!moi) return;
+      if (!moi) return { ok: true };
       if (soLanSuaDon.current === lan) {
         // Dòng CHƯA có tên (vừa bấm "+ Thuốc ngoài danh mục") không gửi lên
         // máy chủ — giữ lại, không thì nạp lại xoá mất dòng trước khi kịp gõ.
         const chuaTen = dong.filter((d) => !d.ten_thuoc.trim());
-        setDon(chuaTen.length ? [...moi, ...chuaTen] : moi);
-        return;
+        datDon(chuaTen.length ? [...moi, ...chuaTen] : moi);
+        return { ok: true };
       }
-      setDon((cu) => {
-        let k = 0;
-        return cu.map((d) => {
+      let k = 0;
+      datDon(
+        donRef.current.map((d) => {
           if (!d.ten_thuoc.trim()) return d;
           const may = moi[k++];
           return d.id || !may ? d : { ...d, id: may.id };
-        });
-      });
+        }),
+      );
+      return { ok: true };
     },
-    [visitId, napDon],
+    [visitId, napDon, datDon],
+  );
+  const tuLuuDon = useTuLuu({ gui: guiDon, choMs: CHO_LUU_DON_MS, tat: !choGhi });
+  const tuLuuKem = useMemo(
+    () => ({ trangThai: tuLuuDon.trangThai, luuNgay: tuLuuDon.luuNgay }),
+    [tuLuuDon.trangThai, tuLuuDon.luuNgay],
   );
 
   const doiDon = (dong: DongThuoc[]) => {
     soLanSuaDon.current += 1;
-    setDon(dong);
-    if (henDon.current) clearTimeout(henDon.current);
-    henDon.current = setTimeout(() => void luuDon(dong, null), CHO_LUU_DON_MS);
+    datDon(dong);
+    tuLuuDon.danhDau();
   };
+
+  // CỔNG HOÀN TẤT: phiếu + đơn đã lưu hết chưa. Còn chữ chưa lưu → kèm `luuNot`
+  // để Bàn khám lưu nốt rồi gửi (không bắt bấm lại).
+  const [luuPhieu, setLuuPhieu] = useState<{
+    tt: TrangThaiLuu;
+    luuNgay: () => Promise<boolean>;
+  } | null>(null);
+  const baoLuu = useCallback(
+    (tt: TrangThaiLuu, luuNgay: () => Promise<boolean>) => setLuuPhieu({ tt, luuNgay }),
+    [],
+  );
+  const phieuDangVe = Boolean(phieu) && !chonDuoc;
+  useEffect(() => {
+    if (!onTrangThai) return;
+    if (!phieuDangVe) {
+      onTrangThai(loi ? { ok: false, code: null, message: loi } : { ok: true, code: null, message: null });
+      return;
+    }
+    onTrangThai(
+      luuPhieu
+        ? congTuLuu(luuPhieu.tt, luuPhieu.luuNgay)
+        : congTuLuu(tuLuuDon.trangThai, tuLuuDon.luuNgay, "Đơn thuốc"),
+    );
+  }, [phieuDangVe, loi, luuPhieu, tuLuuDon.trangThai, tuLuuDon.luuNgay, onTrangThai]);
 
   const daDat = useMemo(() => new Set(ketQua.map((k) => k.service_code)), [ketQua]);
   // "Trên phiếu giấy: SÂ 2D TC-BT" — nhãn phiếu chỉ định giấy của từng mã (27/09).
@@ -389,31 +441,6 @@ export default function PhieuKhamLuot({
 
   return (
     <div className="space-y-2">
-      {/* Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính. */}
-      {loiDon ? (
-        <div role="alert" className="space-y-2 rounded-control bg-danger-bg p-3 text-body text-danger">
-          <p>Đơn thuốc: {loiDon}</p>
-          {canLyDo ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                value={lyDo}
-                onChange={(e) => setLyDo(e.target.value)}
-                placeholder="Lý do đính chính đơn (đơn đã thu tiền / đã cấp)"
-                aria-label="Lý do đính chính đơn thuốc"
-                className="min-h-10 min-w-0 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
-              />
-              <Button
-                type="button"
-                variant="primary"
-                disabled={!lyDo.trim()}
-                onClick={() => void luuDon(don, lyDo.trim())}
-              >
-                Lưu đơn kèm lý do
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
       <PhieuKham
         key={`${phieu.form_id}-${phieu.version}`}
         dinhNghia={phieu}
@@ -425,6 +452,43 @@ export default function PhieuKhamLuot({
         dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
         chanRay={chanRay}
         onTomTat={onTomTat}
+        tuLuuKem={tuLuuKem}
+        onTrangThaiLuu={baoLuu}
+        // Lỗi lưu đơn thuốc NGAY TRONG mục E, cạnh chỗ gõ (góp ý B8, đợt 3) —
+        // trước đợt 3 nó ở đầu phiếu, xa mục E.
+        baoLoiDon={
+          tuLuuDon.trangThai.loi ? (
+            <BaoLoiCanhNut className="space-y-2">
+              <p>{tuLuuDon.trangThai.loi}</p>
+              {canLyDo ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={lyDo}
+                    onChange={(e) => setLyDo(e.target.value)}
+                    placeholder="Lý do đính chính đơn (đơn đã thu tiền / đã cấp)"
+                    aria-label="Lý do đính chính đơn thuốc"
+                    className="min-h-10 min-w-0 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={!lyDo.trim()}
+                    onClick={() => {
+                      lyDoRef.current = lyDo.trim();
+                      void tuLuuDon.luuNgay();
+                    }}
+                  >
+                    Lưu đơn kèm lý do
+                  </Button>
+                </div>
+              ) : (
+                <Button type="button" size="sm" variant="danger" onClick={() => void tuLuuDon.luuNgay()}>
+                  Thử lại
+                </Button>
+              )}
+            </BaoLoiCanhNut>
+          ) : null
+        }
         nutIn={
           <>
           {/* In phiếu khám (Tuyền 24/09/2026: "chỗ cho in phiếu khám của bệnh nhân

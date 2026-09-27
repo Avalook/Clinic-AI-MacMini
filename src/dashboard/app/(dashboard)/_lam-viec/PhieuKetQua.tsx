@@ -29,12 +29,28 @@
 // là sự thật chứ không còn là lời hứa: tự lưu ghi vào `du_lieu_dang_sua`, bản
 // chính thức `du_lieu` đứng yên tới lúc chốt. Trước đó tự lưu ghi thẳng vào
 // bản chính thức, nên câu trên màn sai ngay từ phím đầu tiên.
+//
+// TỰ LƯU CHẮC CHẮN (đợt 3, 27/09/2026 — góp ý B8/B9):
+//   · Hàng đợi chung `lib/use-tu-luu`: TUẦN TỰ, revision luôn lấy từ lần lưu
+//     vừa xong. Trước đây mạng chậm >1,5s thì lần lưu sau mang revision cũ →
+//     máy chủ báo "người khác vừa lưu" dù chính mình vừa lưu.
+//   · Rời màn / đóng tab → lưu nốt; lỗi mạng tự thử lại; dòng trạng thái có
+//     [Lưu ngay] / [Thử lại].
+//   · [Hoàn tất] lưu nốt TRƯỚC (cùng hàng đợi, gộp đúng ô bảng `ma::cột`); lưu
+//     không được thì KHÔNG hoàn tất và nói lý do NGAY TRÊN nút.
+//   · Hoàn tất xong còn ô trống → "Còn N mục trống: …" cạnh nút, mỗi tên là
+//     link tới ô. Chỉ nhắc, không chặn (quyết định cũ, giữ nguyên).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
+import { ghepConTrong, gopGiaTri, KHOA_BANG, tachGiaTri } from "@/lib/phieu-ket-qua";
+import { LOI_MAT_KET_NOI, nenThuLai } from "@/lib/tu-luu";
+import { useTuLuu } from "@/lib/use-tu-luu";
+import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
 import OSo from "@/components/ui/OSo";
+import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
 
 export interface MauKetQua {
   ma: string;
@@ -68,40 +84,8 @@ function lopCot(o: { kieu: string }, laBang: boolean): string {
   return o.kieu === "doan_van" || laBang ? "md:col-span-2" : "";
 }
 
-/** Khoá phẳng của một ô bảng trong trạng thái màn hình. */
-const KHOA_BANG = "::";
-
-/** Máy chủ → màn: ô bảng {cột: giá trị} tách thành các khoá `ma::cột`. */
-function tachGiaTri(
-  duLieu: Record<string, { gia_tri: unknown; nguon: string }>,
-): Record<string, string> {
-  const ra: Record<string, string> = {};
-  for (const [k, v] of Object.entries(duLieu)) {
-    const g = v.gia_tri;
-    if (g && typeof g === "object" && !Array.isArray(g)) {
-      for (const [c, x] of Object.entries(g as Record<string, unknown>)) {
-        ra[`${k}${KHOA_BANG}${c}`] = x == null ? "" : String(x);
-      }
-    } else ra[k] = g == null ? "" : String(g);
-  }
-  return ra;
-}
-
-/** Màn → máy chủ: gộp `ma::cột` về {ma: {gia_tri: {cột: giá trị}}}; bỏ ô rỗng. */
-function gopGiaTri(
-  moi: Record<string, string>,
-): Record<string, { gia_tri: unknown; nguon: string }> {
-  const ra: Record<string, { gia_tri: unknown; nguon: string }> = {};
-  const bang: Record<string, Record<string, string>> = {};
-  for (const [k, v] of Object.entries(moi)) {
-    if (v === "") continue;
-    const i = k.indexOf(KHOA_BANG);
-    if (i < 0) ra[k] = { gia_tri: v, nguon: "USER" };
-    else (bang[k.slice(0, i)] ??= {})[k.slice(i + KHOA_BANG.length)] = v;
-  }
-  for (const [k, cot] of Object.entries(bang)) ra[k] = { gia_tri: cot, nguon: "USER" };
-  return ra;
-}
+/** Mã phần tử DOM của một ô — link "còn trống" cuộn về đây. */
+const idO = (phieuId: string, ma: string) => `kq-${phieuId}-${ma}`;
 
 interface Phieu {
   id: string;
@@ -122,27 +106,21 @@ const CHO_TU_LUU_MS = 1500;
 
 async function goi<T>(
   than: Record<string, unknown>,
-): Promise<{ ok: true; data: T } | { ok: false; loi: string }> {
+  keepalive = false,
+): Promise<{ ok: true; data: T } | { ok: false; loi: string; status: number }> {
   try {
     const r = await fetch("/api/phieu", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(than),
+      keepalive,
     });
     const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không lưu được phiếu.") };
+    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không lưu được phiếu."), status: r.status };
     return { ok: true, data: d as T };
   } catch {
-    return { ok: false, loi: "Mất kết nối — nội dung CHƯA được lưu." };
+    return { ok: false, loi: LOI_MAT_KET_NOI, status: 0 };
   }
-}
-
-function gioVn(iso: string): string {
-  return new Date(iso).toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  });
 }
 
 export default function PhieuKetQua({
@@ -168,6 +146,8 @@ export default function PhieuKetQua({
     daDongDichVu: boolean;
     viSao: string | null;
     laLanSua: boolean;
+    /** Tên các ô còn trống — chỉ để nhắc. */
+    conTrong: string[];
   }) => void;
 }) {
   const [chonMau, setChonMau] = useState<string | null>(
@@ -183,27 +163,64 @@ export default function PhieuKetQua({
   // Sửa một kết quả ĐÃ IN RA GIẤY VÀ GIAO CHO KHÁCH mà không nói vì sao là để
   // lại một câu hỏi không ai trả lời được. Máy chủ cũng từ chối nếu bỏ trống.
   const [lyDoSua, setLyDoSua] = useState("");
-  const [luuLuc, setLuuLuc] = useState<string | null>(null);
-  const [dangLuu, setDangLuu] = useState(false);
   const [dangHoanTat, setDangHoanTat] = useState(false);
+  /** Lỗi MỞ phiếu — ở đầu phiếu, cạnh ô chọn mẫu. */
   const [loi, setLoi] = useState<string | null>(null);
+  /** Lỗi của [Hoàn tất] / [Sửa lại] / [Huỷ sửa] — NGAY TRÊN hàng nút (B8). */
+  const [loiNut, setLoiNut] = useState<string | null>(null);
+  /** Ô còn trống sau Hoàn tất — nhắc cạnh nút, không chặn. */
+  const [conTrong, setConTrong] = useState<{ ma: string; ten: string }[]>([]);
   // Chọn mẫu của dịch vụ KHÁC (Tuyền 24/09/2026): không chuyển phiếu, báo khách
   // chưa thanh toán dịch vụ ấy — muốn làm thì bác sĩ chỉ định + khách trả tiền.
   const [baoKhacDv, setBaoKhacDv] = useState<string | null>(null);
 
   // Revision giữ trong ref: mỗi lần tự lưu phải gửi số MỚI NHẤT, không phải số
-  // mà closure của lần gõ trước nhìn thấy.
+  // mà closure của lần gõ trước nhìn thấy. Hàng đợi tuần tự bảo đảm "mới nhất"
+  // là số của lần lưu VỪA XONG (không có lần nào đang bay song song).
   const revision = useRef(0);
-  const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bản mới nhất cho hàng đợi đọc lúc gửi.
+  const phieuRef = useRef<Phieu | null>(null);
+  const giaRef = useRef<Record<string, string>>({});
+  const nguoiRef = useRef("");
 
-  const nhan = useCallback((p: Phieu) => {
-    revision.current = p.revision;
-    setPhieu(p);
-    // Máy chủ là nguồn: đang sửa thì trả lựa chọn của bản nháp, chưa sửa thì
-    // trả lựa chọn của bản chính thức.
-    setThucHienBoi(p.thuc_hien_boi ?? "");
-    setGia(tachGiaTri(p.du_lieu));
+  const guiLuu = useCallback(async (keepalive: boolean) => {
+    const p = phieuRef.current;
+    if (!p) return { ok: true } as const;
+    const kq = await goi<{ revision: number; luu_luc: string }>(
+      {
+        thao_tac: "luu",
+        phieu_id: p.id,
+        du_lieu: {
+          expected_revision: revision.current,
+          thuc_hien_boi: nguoiRef.current || null,
+          du_lieu: gopGiaTri(giaRef.current),
+        },
+      },
+      keepalive,
+    );
+    if (!kq.ok) return { ok: false, loi: kq.loi, thuLai: nenThuLai(kq.status) } as const;
+    revision.current = kq.data.revision;
+    return { ok: true } as const;
   }, []);
+  const tuLuu = useTuLuu({ gui: guiLuu, choMs: CHO_TU_LUU_MS });
+  const lamSach = tuLuu.lamSach;
+
+  const nhan = useCallback(
+    (p: Phieu) => {
+      revision.current = p.revision;
+      phieuRef.current = p;
+      setPhieu(p);
+      // Máy chủ là nguồn: đang sửa thì trả lựa chọn của bản nháp, chưa sửa thì
+      // trả lựa chọn của bản chính thức.
+      nguoiRef.current = p.thuc_hien_boi ?? "";
+      setThucHienBoi(nguoiRef.current);
+      giaRef.current = tachGiaTri(p.du_lieu);
+      setGia(giaRef.current);
+      // Bản máy chủ vừa về thay cho màn — không còn gì "chưa lưu".
+      lamSach();
+    },
+    [lamSach],
+  );
 
   useEffect(() => {
     const bang = phieu?.khung.find((m) => m.cot && m.cot.length > 1);
@@ -228,75 +245,39 @@ export default function PhieuKetQua({
     };
   }, [chonMau, serviceOrderId, nhan]);
 
-  // Gỡ hẹn khi rời màn: một lần tự lưu bắn sau khi component đã chết là một
-  // lần ghi đè mà không ai nhìn thấy kết quả.
-  useEffect(() => {
-    return () => {
-      if (hen.current) clearTimeout(hen.current);
-    };
-  }, []);
-
-  const tuLuu = useCallback(
-    (moi: Record<string, string>, p: Phieu, nguoi: string) => {
-      if (hen.current) clearTimeout(hen.current);
-      hen.current = setTimeout(() => {
-        setDangLuu(true);
-        void goi<{ revision: number; luu_luc: string }>({
-          thao_tac: "luu",
-          phieu_id: p.id,
-          du_lieu: {
-            expected_revision: revision.current,
-            thuc_hien_boi: nguoi || null,
-            du_lieu: gopGiaTri(moi),
-          },
-        }).then((kq) => {
-          setDangLuu(false);
-          if (!kq.ok) {
-            setLoi(kq.loi);
-            return;
-          }
-          setLoi(null);
-          revision.current = kq.data.revision;
-          setLuuLuc(kq.data.luu_luc);
-        });
-      }, CHO_TU_LUU_MS);
-    },
-    [],
-  );
+  // (Trước đợt 3: hẹn lưu bị XOÁ lúc rời màn — gõ xong đóng khung ngay là mất
+  // chữ. Nay `useTuLuu` lưu nốt khi rời màn / đóng tab.)
 
   const doi = (maO: string, v: string) => {
     if (!phieu) return;
-    const moi = { ...gia, [maO]: v };
+    const moi = { ...giaRef.current, [maO]: v };
+    giaRef.current = moi;
     setGia(moi);
-    tuLuu(moi, phieu, thucHienBoi);
+    tuLuu.danhDau();
+  };
+
+  const denO = (ma: string) => {
+    if (!phieu) return;
+    const el = document.getElementById(idO(phieu.id, ma));
+    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    el?.querySelector<HTMLElement>("input, textarea, select")?.focus({ preventScroll: true });
   };
 
   const hoanTat = async () => {
     if (!phieu) return;
-    if (hen.current) clearTimeout(hen.current);
     setDangHoanTat(true);
-    setLoi(null);
-    // Lưu lần cuối trước khi chốt: nội dung vừa gõ chưa kịp tới máy chủ mà
-    // bấm Hoàn tất thì phiếu chốt thiếu đúng câu vừa viết.
-    const luu = await goi<{ revision: number; luu_luc: string }>({
-      thao_tac: "luu",
-      phieu_id: phieu.id,
-      du_lieu: {
-        expected_revision: revision.current,
-        thuc_hien_boi: thucHienBoi || null,
-        du_lieu: Object.fromEntries(
-          Object.entries(gia)
-            .filter(([, v]) => v !== "")
-            .map(([k, v]) => [k, { gia_tri: v, nguon: "USER" }]),
-        ),
-      },
-    });
-    if (!luu.ok) {
+    setLoiNut(null);
+    setConTrong([]);
+    // LƯU NỐT trước khi chốt, qua CHÍNH hàng đợi tự lưu: đợi lần đang bay, gửi
+    // phần còn lại, revision lấy từ lần vừa xong. Lưu không được thì KHÔNG chốt
+    // — chốt thiếu đúng câu vừa viết là tệ hơn chưa chốt.
+    if (!(await tuLuu.luuNgay())) {
       setDangHoanTat(false);
-      setLoi(luu.loi);
+      setLoiNut(
+        "Nội dung vừa gõ CHƯA lưu được nên phiếu CHƯA hoàn tất. Xem lý do ở dòng trạng thái lưu, bấm [Thử lại] rồi bấm lại.",
+      );
       return;
     }
-    revision.current = luu.data.revision;
 
     const kq = await goi<{
       con_trong: string[];
@@ -308,26 +289,33 @@ export default function PhieuKetQua({
       phieu_id: phieu.id,
       du_lieu: {
         expected_revision: revision.current,
-        thuc_hien_boi: thucHienBoi || null,
+        thuc_hien_boi: nguoiRef.current || null,
         ly_do_sua: lyDoSua.trim() || null,
       },
     });
     setDangHoanTat(false);
     if (!kq.ok) {
-      setLoi(kq.loi);
+      setLoiNut(kq.loi);
       return;
     }
     revision.current = kq.data.revision;
-    setPhieu({
+    const xong: Phieu = {
       ...phieu,
       trang_thai: "READY",
       dang_sua: false,
       revision: kq.data.revision,
-    });
+    };
+    phieuRef.current = xong;
+    setPhieu(xong);
+    const trong = ghepConTrong(phieu.khung, kq.data.con_trong);
+    setConTrong(trong);
     onHoanTat?.({
       daDongDichVu: kq.data.dich_vu?.da_dong ?? false,
       viSao: kq.data.dich_vu?.vi_sao ?? null,
       laLanSua: kq.data.la_lan_sua ?? false,
+      conTrong: (Array.isArray(kq.data.con_trong) ? kq.data.con_trong : []).filter(
+        (x): x is string => typeof x === "string",
+      ),
     });
   };
 
@@ -340,11 +328,12 @@ export default function PhieuKetQua({
   const moSua = async () => {
     if (!phieu) return;
     setDangHoanTat(true);
-    setLoi(null);
+    setLoiNut(null);
+    setConTrong([]);
     const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id });
     setDangHoanTat(false);
     if (!kq.ok) {
-      setLoi(kq.loi);
+      setLoiNut(kq.loi);
       return;
     }
     nhan(kq.data);
@@ -352,9 +341,11 @@ export default function PhieuKetQua({
 
   const huySua = async () => {
     if (!phieu) return;
-    if (hen.current) clearTimeout(hen.current);
     setDangHoanTat(true);
-    setLoi(null);
+    setLoiNut(null);
+    // Đợi lần lưu đang bay (nếu có) để revision là số mới nhất — huỷ bằng số
+    // cũ là máy chủ từ chối oan.
+    await tuLuu.luuNgay();
     const kq = await goi<{ revision: number }>({
       thao_tac: "huy-sua",
       phieu_id: phieu.id,
@@ -363,7 +354,7 @@ export default function PhieuKetQua({
     });
     setDangHoanTat(false);
     if (!kq.ok) {
-      setLoi(kq.loi);
+      setLoiNut(kq.loi);
       return;
     }
     revision.current = kq.data.revision;
@@ -409,7 +400,12 @@ export default function PhieuKetQua({
                   return;
                 }
                 setBaoKhacDv(null);
-                setChonMau(ma);
+                // Lưu nốt phiếu đang điền TRƯỚC khi mở mẫu khác — mở mẫu mới
+                // là nạp bản máy chủ, phần chưa lưu của phiếu cũ sẽ mất.
+                void tuLuu.luuNgay().then((ok) => {
+                  if (ok) setChonMau(ma);
+                  else setLoi("Phiếu đang điền CHƯA lưu được — chưa đổi mẫu. Bấm [Thử lại] ở dòng trạng thái lưu.");
+                });
               }}
               className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
             >
@@ -429,12 +425,12 @@ export default function PhieuKetQua({
             Đang sửa lại — bản cũ vẫn là kết quả chính thức
           </span>
         ) : null}
-        {dangLuu ? (
-          <span className="text-label text-ink-muted">Đang lưu…</span>
-        ) : luuLuc && !daChot ? (
-          <span className="text-label text-ink-muted">
-            Đã lưu {gioVn(luuLuc)} · nháp, chưa phải kết quả
-          </span>
+        {phieu && !daChot ? (
+          <TrangThaiLuu
+            tt={tuLuu.trangThai}
+            onLuuNgay={() => void tuLuu.luuNgay()}
+            phu="nháp, chưa phải kết quả"
+          />
         ) : null}
       </div>
 
@@ -467,7 +463,7 @@ export default function PhieuKetQua({
           <dl className="grid gap-x-4 gap-y-2 rounded-control bg-surface-muted px-3 py-2 text-body md:grid-cols-2">
             {phieu.khung.map((muc) =>
               (muc.block ?? []).map((o) => (
-                <div key={o.ma} className={lopCot(o, !!muc.cot)}>
+                <div key={o.ma} id={idO(phieu.id, o.ma)} className={lopCot(o, !!muc.cot)}>
                   <dt className="text-meta font-semibold text-ink-muted">{o.ten}</dt>
                   <dd className="whitespace-pre-line text-ink">
                     {muc.cot
@@ -480,6 +476,21 @@ export default function PhieuKetQua({
               )),
             )}
           </dl>
+          {conTrong.length > 0 ? (
+            <BaoLoiCanhNut muc="nhac">
+              Còn {conTrong.length} mục trống:{" "}
+              {conTrong.map((o, i) => (
+                <span key={o.ma}>
+                  {i > 0 ? ", " : ""}
+                  <button type="button" className="font-semibold underline" onClick={() => denO(o.ma)}>
+                    {o.ten}
+                  </button>
+                </span>
+              ))}
+              . Chỉ nhắc — phiếu đã hoàn tất; cần bổ sung thì bấm [Sửa lại].
+            </BaoLoiCanhNut>
+          ) : null}
+          <BaoLoiCanhNut>{loiNut}</BaoLoiCanhNut>
           <Button
             size="md"
             variant="secondary"
@@ -517,6 +528,7 @@ export default function PhieuKetQua({
                   {(muc.block ?? []).map((o) => (
                     <OPhieu
                       key={o.ma}
+                      id={idO(phieu.id, o.ma)}
                       o={o}
                       giaTri={gia[o.ma] ?? ""}
                       nguon={phieu.du_lieu[o.ma]?.nguon ?? null}
@@ -537,11 +549,12 @@ export default function PhieuKetQua({
                 value={thucHienBoi}
                 onChange={(e) => {
                   const ai = e.target.value;
+                  nguoiRef.current = ai;
                   setThucHienBoi(ai);
                   // Người thực hiện là DỮ LIỆU NGHIỆP VỤ, không phải trạng
                   // thái màn hình. Không lưu thì đổi lựa chọn rồi tải lại
                   // trang là mất — tự lưu mới lưu nửa cái phiếu.
-                  if (phieu) tuLuu(gia, phieu, ai);
+                  tuLuu.danhDau();
                 }}
                 className="mt-1 min-h-10 w-full max-w-sm rounded-control border border-line bg-surface px-3 text-body text-ink"
               >
@@ -555,6 +568,14 @@ export default function PhieuKetQua({
             </label>
           ) : null}
 
+          {/* Trạng thái lưu + lỗi của nút NGAY TRÊN hàng nút (B8/B9, đợt 3) — người
+              bấm ở cuối phiếu thấy ngay, không phải cuộn lên đầu. */}
+          <TrangThaiLuu
+            tt={tuLuu.trangThai}
+            onLuuNgay={() => void tuLuu.luuNgay()}
+            phu="nháp, chưa phải kết quả"
+          />
+          <BaoLoiCanhNut>{loiNut}</BaoLoiCanhNut>
           <div className="flex flex-wrap items-center gap-3">
             {dangSuaLai ? (
               <label className="w-full">
@@ -612,11 +633,14 @@ export default function PhieuKetQua({
 }
 
 function OPhieu({
+  id,
   o,
   giaTri,
   nguon,
   onDoi,
 }: {
+  /** Mã DOM để link "còn trống" cuộn tới. */
+  id: string;
   o: O;
   giaTri: string;
   nguon: string | null;
@@ -633,7 +657,7 @@ function OPhieu({
 
   if (o.kieu === "chon" && Array.isArray(o.chon)) {
     return (
-      <label className="block min-w-0">
+      <label id={id} className="block min-w-0">
         {nhan}
         <select
           value={giaTri}
@@ -653,7 +677,7 @@ function OPhieu({
 
   if (o.kieu === "doan_van") {
     return (
-      <label className="block min-w-0 md:col-span-2">
+      <label id={id} className="block min-w-0 md:col-span-2">
         {nhan}
         <textarea
           value={giaTri}
@@ -672,7 +696,7 @@ function OPhieu({
   if (o.kieu === "so") {
     const donVi = o.goi_y && o.goi_y.length <= 16 ? o.goi_y : null;
     return (
-      <label className="block">
+      <label id={id} className="block">
         {nhan}
         <span className="mt-1 flex">
           <OSo
@@ -688,7 +712,7 @@ function OPhieu({
   }
 
   return (
-    <label className="block min-w-0">
+    <label id={id} className="block min-w-0">
       {nhan}
       <span className="mt-1 flex items-center gap-2">
         <input

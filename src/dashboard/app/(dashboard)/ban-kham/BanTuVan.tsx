@@ -14,9 +14,9 @@
 //
 // Màn chỉ vẽ. Ai ghi được, ai bấm Xong được là việc của máy chủ.
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
+import { gopCong, type ClinicalCompletionGate } from "@/lib/clinical-completion";
 
 import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
@@ -55,6 +55,14 @@ export default function BanTuVan({
     setSoDien(n);
     setTenPhieu(ten);
   }, []);
+  // [Xong tư vấn] đợi CẢ ô tư vấn lẫn mục B lưu xong (đợt 3, 27/09/2026) —
+  // trước đây mục B không báo cổng, gõ mục B rồi bấm Xong ngay là lỡ chữ.
+  const [congTuVan, setCongTuVan] = useState<ClinicalCompletionGate | null>(null);
+  const [congPhieu, setCongPhieu] = useState<ClinicalCompletionGate | null>(null);
+  useEffect(() => {
+    const g = gopCong(congTuVan, congPhieu);
+    if (g) onTrangThai(g);
+  }, [congTuVan, congPhieu, onTrangThai]);
 
   return (
     <div className="space-y-4">
@@ -62,7 +70,7 @@ export default function BanTuVan({
         visitId={visitId}
         consultationId={consultationId}
         choGhi={choGhi}
-        onTrangThai={onTrangThai}
+        onTrangThai={setCongTuVan}
       />
       {coPhieu ? (
         <CongTacThongTinCoBan tenPhieu={tenPhieu} soDien={soDien}>
@@ -75,6 +83,7 @@ export default function BanTuVan({
             datChiDinh={datChiDinh}
             onDaDat={onDaDat}
             onTomTat={baoTomTat}
+            onTrangThai={setCongPhieu}
           />
         </CongTacThongTinCoBan>
       ) : null}
