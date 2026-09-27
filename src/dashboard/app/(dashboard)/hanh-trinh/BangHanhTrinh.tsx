@@ -11,6 +11,7 @@ import Chip from "@/components/ui/Chip";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import { docBang, gioVn } from "../_lam-viec/api";
 import SoLuot from "@/components/ui/SoLuot";
+import { useNgheBang } from "../dung-nghe-bang";
 
 interface Luot {
   visit_id: string;
@@ -55,12 +56,16 @@ export default function BangHanhTrinh() {
       if (kq.ok) setBang(kq.data);
       else setLoi(kq.loi);
     });
-    const t = setInterval(() => void tai(), 20_000);
+    // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+    // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+    const t = setInterval(() => void tai(), 60_000);
     return () => {
       huy = true;
       clearInterval(t);
     };
   }, [tai]);
+
+  useNgheBang(["luot_dong_thoi_gian", "visit", "queue_entry"], () => void tai());
 
   if (loi && !bang) {
     return (

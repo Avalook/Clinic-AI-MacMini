@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { useNgheBang } from "../dung-nghe-bang";
 
 interface Viec {
   id: string;
@@ -68,14 +69,17 @@ export default function BangViecCanXuLy() {
       });
     };
     lay();
-    // Việc sinh ra từ sự kiện chạy nền, nên màn phải tự làm mới. 20 giây là đủ
-    // cho loại việc mà hạn xử lý tính bằng giờ.
-    const t = setInterval(lay, 20000);
+    // Việc sinh ra từ sự kiện chạy nền, nên màn phải tự làm mới.
+    // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+    // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+    const t = setInterval(lay, 60000);
     return () => {
       huy = true;
       clearInterval(t);
     };
   }, [doc]);
+
+  useNgheBang(["work_item", "work_item_event", "staff_task"], () => void nap());
 
   const dong = async (v: Viec) => {
     setDangDong(v.id);

@@ -60,6 +60,7 @@ import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
+import { useNgheBang } from "../../dung-nghe-bang";
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
@@ -130,7 +131,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       } else setLoi(kq.loi);
     };
     void nap();
-    const t = setInterval(() => void nap(), 15000);
+    // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+    // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+    const t = setInterval(() => void nap(), 60000);
     return () => {
       huy = true;
       clearInterval(t);
@@ -138,6 +141,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   }, [phong, lanNap]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+  useNgheBang(["queue_entry", "service_order", "visit", "form_instance", "tep_ket_qua"], napLai);
 
   if (khongCo) {
     return (

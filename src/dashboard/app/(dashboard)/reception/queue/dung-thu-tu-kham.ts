@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { homNayVn } from "@/lib/validation";
+import { useNgheBang } from "../../dung-nghe-bang";
 
 export interface DongThuTu {
   /** = appointment_id, khoá để ghép với hàng việc tiếp nhận. */
@@ -23,7 +24,7 @@ export interface DongThuTu {
   call_order: number;
 }
 
-const LAM_MOI_MS = 30_000;
+const LAM_MOI_MS = 60_000;
 
 export interface ThuTuKham {
   /** appointment_id → thứ tự gọi (1, 2, 3…). Rỗng khi chưa tải được. */
@@ -54,6 +55,10 @@ export function useThuTuKham(): ThuTuKham {
     setLoi(null);
     setThuTu(new Map((json.rows ?? []).map((r) => [r.id, r.call_order])));
   }, []);
+
+  // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+  // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+  useNgheBang(["queue_entry", "visit", "consultation"], () => void tai());
 
   useEffect(() => {
     let huy = false;

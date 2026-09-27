@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 import { docBang, gioVn } from "../_lam-viec/api";
 import XemLuot from "../_lam-viec/XemLuot";
+import { useNgheBang } from "../dung-nghe-bang";
 
 interface ChiDinh {
   id: string;
@@ -54,6 +55,12 @@ export default function ChiDinhHomNay() {
   const [loi, setLoi] = useState<string | null>(null);
   const [tab, setTab] = useState<ChiDinh["nhom"]>("can_dieu_phoi");
   const [xem, setXem] = useState<string | null>(null);
+  // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+  // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+  const [lanNghe, setLanNghe] = useState(0);
+  useNgheBang(["service_order", "queue_entry", "payment", "visit"], () =>
+    setLanNghe((n) => n + 1),
+  );
 
   useEffect(() => {
     let huy = false;
@@ -73,12 +80,12 @@ export default function ChiDinhHomNay() {
         } else setLoi(kq.loi);
       });
     nap();
-    const t = setInterval(nap, 20000);
+    const t = setInterval(nap, 60000);
     return () => {
       huy = true;
       clearInterval(t);
     };
-  }, []);
+  }, [lanNghe]);
 
   const trongTab = (ds ?? []).filter((c) => c.nhom === tab);
 

@@ -10,6 +10,7 @@ import Button from "@/components/ui/Button";
 
 import XemLuot from "../_lam-viec/XemLuot";
 import SoLuot from "@/components/ui/SoLuot";
+import { useNgheBang } from "../dung-nghe-bang";
 
 interface SinhHieu {
   tam_thu: number | null;
@@ -113,6 +114,12 @@ export default function BangDoSinhHieu() {
     setLoi(null);
     setLuot(kq.luot);
   }, []);
+  // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+  // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+  const [lanNghe, setLanNghe] = useState(0);
+  useNgheBang(["visit", "encounter_flow", "vital_measurement", "queue_entry"], () =>
+    setLanNghe((n) => n + 1),
+  );
 
   useEffect(() => {
     let huy = false;
@@ -125,12 +132,12 @@ export default function BangDoSinhHieu() {
       void docBang().then((kq) => {
         if (!huy) nhan(kq);
       });
-    }, 20000);
+    }, 60000);
     return () => {
       huy = true;
       clearInterval(t);
     };
-  }, [nhan]);
+  }, [nhan, lanNghe]);
 
   // THỨ TỰ = GIỜ CHECK-IN, người đến trước lên trước (Tuyền 15/09: "hàng chờ =
   // giờ check-in"). Chưa đo đứng trên, đã đo xuống dưới.

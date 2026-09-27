@@ -62,6 +62,7 @@ import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
+import { useNgheBang } from "../dung-nghe-bang";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -263,7 +264,9 @@ export default function BanKham({
     };
     void nap();
     // Làm mới đều: người khác (điều dưỡng đo xong, thư ký bấm) đổi hàng chờ.
-    const t = setInterval(() => void nap(), 15000);
+    // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
+    // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
+    const t = setInterval(() => void nap(), 60000);
     return () => {
       huy = true;
       clearInterval(t);
@@ -271,6 +274,10 @@ export default function BanKham({
   }, [phongs, phong, lanNap, tuVan]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+  useNgheBang(
+    ["queue_entry", "consultation", "visit", "encounter_flow", "service_order", "form_instance", "tep_ket_qua", "vital_measurement"],
+    napLai,
+  );
 
   const hienRa = useMemo(() => {
     const kim = query.trim().toLocaleLowerCase("vi");
