@@ -11,6 +11,7 @@ import {
   dongNgoaiDanhMuc,
   dongTuDon,
   dongTuMau,
+  giaTriDoc,
   HEN_NHANH,
   laONgayTaiKham,
   ngayHenTaiKham,
@@ -20,6 +21,7 @@ import {
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
   type MauThuoc,
+  type OPhieu,
   type NhomCls,
 } from "./phieu-kham.ts";
 
@@ -204,4 +206,13 @@ test("ô ngày tái khám nhận theo quy ước tên ô của máy chủ", () =
   assert.equal(laONgayTaiKham("pk_follow_date"), true);
   assert.equal(laONgayTaiKham("hmvs_follow_date"), true);
   assert.equal(laONgayTaiKham("pk_ngay_kinh_cuoi"), false);
+});
+
+test("ô ngày đọc / in kiểu VN; giá trị lạ để nguyên", () => {
+  const o = { ma: "pk_follow_date", ten: "Ngày tái khám", kieu: "ngay" } as OPhieu;
+  assert.equal(giaTriDoc(o, { gia_tri: "2026-10-27", nguon: "BS" }), "27/10/2026");
+  assert.equal(giaTriDoc(o, { gia_tri: "tuần sau", nguon: "BS" }), "tuần sau");
+  assert.equal(giaTriDoc(o, { gia_tri: "", nguon: "BS" }), "—");
+  const chu = { ma: "x", ten: "X", kieu: "text" } as OPhieu;
+  assert.equal(giaTriDoc(chu, { gia_tri: "2026-10-27", nguon: "BS" }), "2026-10-27");
 });

@@ -265,7 +265,10 @@ export default function PhieuKhamLuot({
       const moi = await napDon();
       if (!moi) return;
       if (soLanSuaDon.current === lan) {
-        setDon(moi);
+        // Dòng CHƯA có tên (vừa bấm "+ Thuốc ngoài danh mục") không gửi lên
+        // máy chủ — giữ lại, không thì nạp lại xoá mất dòng trước khi kịp gõ.
+        const chuaTen = dong.filter((d) => !d.ten_thuoc.trim());
+        setDon(chuaTen.length ? [...moi, ...chuaTen] : moi);
         return;
       }
       setDon((cu) => {

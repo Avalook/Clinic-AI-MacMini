@@ -586,6 +586,9 @@ export function giaTriDoc(
   if (o.kieu === "chon") {
     return o.lua_chon?.find((l) => l.ma === nhap.gia_tri)?.ten ?? nhap.gia_tri;
   }
+  // Ô ngày lưu "YYYY-MM-DD" (giá trị của <input type=date>); đọc/in theo kiểu VN.
+  const ngay = o.kieu === "ngay" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(nhap.gia_tri.trim()) : null;
+  if (ngay) return `${ngay[3]}/${ngay[2]}/${ngay[1]}`;
   return nhap.gia_tri;
 }
 
