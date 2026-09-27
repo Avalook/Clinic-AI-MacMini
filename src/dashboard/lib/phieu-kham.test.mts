@@ -3,7 +3,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { anhInDuoc, dongKetQua, type ChiDinhVaKetQua, type KetQuaMotChiDinh } from "./phieu-kham.ts";
+import {
+  anhInDuoc,
+  chipMauDanhMuc,
+  dongKetQua,
+  tachDanhMucKhac,
+  type ChiDinhVaKetQua,
+  type KetQuaMotChiDinh,
+  type NhomCls,
+} from "./phieu-kham.ts";
 
 const tep = (id: string, loai_tep: string, xac: string | null, luc: string): KetQuaMotChiDinh => ({
   loai: "TEP",
@@ -55,4 +63,31 @@ test("dongKetQua: bỏ ô trống, tách Kết luận, gắn đơn vị cho số
   const { dong, ketLuan } = dongKetQua(k);
   assert.deepEqual(dong, [{ nhan: "Tử cung", gia: "45 mm" }]);
   assert.equal(ketLuan, "Bình thường");
+});
+
+test("tachDanhMucKhac: nhóm phiếu giấy giữ nguyên, nhóm bảng giá gom một danh sách", () => {
+  const m = (nhan: string) => ({ nhan, cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: nhan });
+  const ds: NhomCls[] = [
+    { nhom: "Siêu âm thai", muc: [m("SA1")] },
+    { nhom: "Thủ thuật (danh mục phòng khám)", muc: [m("LEEP"), m("PRP")] },
+    { nhom: "Xét nghiệm", muc: [m("XN1")] },
+    { nhom: "Xét nghiệm (danh mục phòng khám)", muc: [m("NIPT")] },
+  ];
+  const { chinh, khac } = tachDanhMucKhac(ds);
+  assert.deepEqual(chinh.map((n) => n.nhom), ["Siêu âm thai", "Xét nghiệm"]);
+  assert.deepEqual(khac.map((x) => [x.nhan, x.nhom_goc]), [
+    ["LEEP", "Thủ thuật"],
+    ["PRP", "Thủ thuật"],
+    ["NIPT", "Xét nghiệm"],
+  ]);
+  // Rác từ máy chủ không làm sập danh mục.
+  assert.deepEqual(tachDanhMucKhac(null as unknown as NhomCls[]), { chinh: [], khac: [] });
+  assert.deepEqual(tachDanhMucKhac([null, { nhom: "x" }] as unknown as NhomCls[]), { chinh: [], khac: [] });
+});
+
+test("chipMauDanhMuc: đối tác · mẫu PDF · tự do", () => {
+  assert.equal(chipMauDanhMuc({ cach_tra_ket_qua: "Đối tác", form_id_ket_qua: "KQ_X" }).nhan, "đối tác");
+  assert.equal(chipMauDanhMuc({ cach_tra_ket_qua: "Siêu âm", form_id_ket_qua: "KQ_SA" }).nhan, "mẫu PDF");
+  assert.equal(chipMauDanhMuc({ cach_tra_ket_qua: "", form_id_ket_qua: "KQ_CHUNG" }).nhan, "tự do");
+  assert.equal(chipMauDanhMuc({ cach_tra_ket_qua: "Nội bộ", form_id_ket_qua: null }).nhan, "tự do");
 });

@@ -132,6 +132,11 @@ export default function PhieuKham({
     clinicPatientId?: string;
     onDoi: () => void;
     nhanGiay?: Record<string, string>;
+    /** Ô "bắt buộc" ở thẻ từng chỉ định chưa thu (27/09: chuyển từ danh mục). */
+    onDoiBatBuoc?: (
+      orderId: string,
+      batBuoc: boolean,
+    ) => Promise<{ ok: true } | { ok: false; loi: string }>;
   };
   /** Mã dịch vụ thủ thuật — kết quả của chúng hiện ở khối 3 (bản mẫu). */
   maThuThuat?: ReadonlySet<string>;

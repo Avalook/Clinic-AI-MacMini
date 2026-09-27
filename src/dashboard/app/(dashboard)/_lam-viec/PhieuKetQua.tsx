@@ -34,6 +34,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
 import Button, { buttonClass } from "@/components/ui/Button";
+import OSo from "@/components/ui/OSo";
 
 export interface MauKetQua {
   ma: string;
@@ -657,12 +658,33 @@ function OPhieu({
     );
   }
 
+  // Ô số (27/09/2026, `components/ui/OSo`): trước là `type="number"` — chặn
+  // "12 x 8", lăn chuột lướt qua đổi số, bước 1 làm sai số thập phân. Phiếu kết
+  // quả lưu chữ nguyên văn nên cho gõ kích thước.
+  if (o.kieu === "so") {
+    const donVi = o.goi_y && o.goi_y.length <= 16 ? o.goi_y : null;
+    return (
+      <label className="block">
+        {nhan}
+        <span className="mt-1 flex">
+          <OSo
+            kichThuoc
+            value={giaTri}
+            onChange={onDoi}
+            donVi={donVi}
+            placeholder={donVi ? undefined : (o.goi_y ?? "")}
+          />
+        </span>
+      </label>
+    );
+  }
+
   return (
     <label className="block">
       {nhan}
       <span className="mt-1 flex max-w-md items-center gap-2">
         <input
-          type={o.kieu === "so" ? "number" : o.kieu === "ngay" ? "date" : "text"}
+          type={o.kieu === "ngay" ? "date" : "text"}
           value={giaTri}
           onChange={(e) => onDoi(e.target.value)}
           placeholder={o.goi_y ?? ""}
@@ -716,6 +738,17 @@ function BangMuc({
           onChange={(e) => onDoi(khoa, e.target.value)}
           rows={2}
           className="w-full rounded-control border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+        />
+      );
+    }
+    if (o.kieu === "so") {
+      return (
+        <OSo
+          kichThuoc
+          rong="day"
+          aria-label={nhanO}
+          value={gia[khoa] ?? ""}
+          onChange={(v) => onDoi(khoa, v)}
         />
       );
     }

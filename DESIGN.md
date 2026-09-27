@@ -93,6 +93,23 @@ thoại, hành động chính). Đệm ngang 12/14/16. Bo `r-control`. Mỗi mà
 Chip: cao 20px, đệm ngang 7px, bo `r-chip`, chữ `label` không uppercase, nền
 nhạt + chữ đậm cùng họ màu — **không viền**.
 
+**Ngoại lệ theo bản giao diện mẫu (27/09/2026, "y hệt bản mẫu" — mục 4–6):**
+- **Chip chọn** (`components/ui/ChipChon`, bản mẫu `.tk`) là một ĐIỀU KHIỂN, không
+  phải nhãn: ô tick (nhiều lựa chọn) / radio (một lựa chọn) nằm trong chip; cao
+  32px (40px dưới 640px — §7), bo `r-control`, đệm ngang 10px, chữ `body`, viền
+  bằng ring 1px `line`; đang chọn: nền `surface-selected`, ring `brand-100`, chữ
+  `brand-700` 500. Không dùng cho nhãn trạng thái.
+- **Ô số** (`components/ui/OSo`, bản mẫu `.in.so`): rộng cố định 96px, số căn
+  phải, đơn vị chữ `meta` màu `ink-faint` bên phải.
+- **Ô nhập khối 1 phiếu khám**: nhóm có ô chọn → chip dồn trái (tối đa 35rem),
+  ô ghi kèm cột phải (tối thiểu 17.5rem), khe cột 32px; nhóm không có ô chọn →
+  lưới 3 cột, mỗi cột tối đa 16.25rem (260px), khe cột 24px. Nhãn ô chữ `meta`
+  màu `ink-muted`.
+- **Danh mục chỉ định kiểu phiếu giấy**: dòng `20px | 1fr | auto`, cao 32px
+  (40px điện thoại), chỉ kẻ ngang `hairline`; dịch vụ đã chỉ định ở lần trước
+  tô `brand-700` đậm + dòng `label` `brand-600` "đã chỉ định ở lần n" (màu
+  thương hiệu dùng để ĐÁNH DẤU, không báo trạng thái cần hành động).
+
 Ô nhập bị khoá (chỉ xem): nền `surface-sunken`, chữ `ink-soft`, bỏ bóng, con
 trỏ "cấm" — khai MỘT lần trong `INPUT` (`app/(dashboard)/form-ui.ts`). Ô khoá mà
 vẫn trắng như ô gõ được là nói dối người dùng (Tuyền 18/09/2026: bệnh án chỉ

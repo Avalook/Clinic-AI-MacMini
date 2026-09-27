@@ -32,6 +32,9 @@ export interface OPhieu {
   kieu: KieuO;
   nhom?: string;
   goi_y?: string;
+  /** Đơn vị ô số ("ngày", "mm"…) — khung chưa có thì màn tách từ nhãn
+   *  (`lib/o-so.ts::nhanVaDonVi`), chỉ để hiển thị. */
+  don_vi?: string;
   lua_chon?: LuaChon[];
   bang?: BangCuaO;
   hang?: string;
@@ -132,11 +135,51 @@ export interface MucCls {
   /** null = phòng khám chưa có dịch vụ này → ô khoá. */
   service_code: string | null;
   gia?: number | null;
+  /** Mã phòng khám (KiotViet) — dòng "Dịch vụ khác trong bảng giá". */
+  ma_kiotviet?: string | null;
 }
 
 export interface NhomCls {
   nhom: string;
   muc: MucCls[];
+}
+
+/** Hậu tố máy chủ gắn cho nhóm dịch vụ có trong bảng giá mà phiếu giấy không
+ *  liệt kê (`phieu_kham_service.py`, 26/09/2026). */
+export const HAU_TO_DANH_MUC_PK = " (danh mục phòng khám)";
+
+/**
+ * Tách danh mục mục C/F như bản giao diện mẫu (27/09/2026): nhóm theo PHIẾU
+ * GIẤY (luôn mở) và MỘT danh sách "Dịch vụ khác trong bảng giá" (gập) — mỗi
+ * dòng kèm tên nhóm gốc (đã bỏ hậu tố) để bác sĩ biết phòng làm.
+ */
+export function tachDanhMucKhac(ds: readonly NhomCls[]): {
+  chinh: NhomCls[];
+  khac: (MucCls & { nhom_goc: string })[];
+} {
+  const chinh: NhomCls[] = [];
+  const khac: (MucCls & { nhom_goc: string })[] = [];
+  for (const n of ds ?? []) {
+    if (!n || !Array.isArray(n.muc)) continue;
+    if (typeof n.nhom === "string" && n.nhom.endsWith(HAU_TO_DANH_MUC_PK)) {
+      const goc = n.nhom.slice(0, -HAU_TO_DANH_MUC_PK.length);
+      for (const m of n.muc) khac.push({ ...m, nhom_goc: goc });
+    } else {
+      chinh.push(n);
+    }
+  }
+  return { chinh, khac };
+}
+
+/** Chip mẫu kết quả ở dòng danh mục (bản mẫu `badgeMau`): đối tác · mẫu PDF ·
+ *  tự do. Chỉ đọc cờ máy chủ đã gắn (`cach_tra_ket_qua`, `form_id_ket_qua`). */
+export function chipMauDanhMuc(m: Pick<MucCls, "cach_tra_ket_qua" | "form_id_ket_qua">): {
+  nhan: string;
+  tone: "info" | "brand" | "neutral";
+} {
+  if (m.cach_tra_ket_qua === "Đối tác") return { nhan: "đối tác", tone: "info" };
+  if (m.form_id_ket_qua && m.form_id_ket_qua !== "KQ_CHUNG") return { nhan: "mẫu PDF", tone: "brand" };
+  return { nhan: "tự do", tone: "neutral" };
 }
 
 export interface DauPhieu {
