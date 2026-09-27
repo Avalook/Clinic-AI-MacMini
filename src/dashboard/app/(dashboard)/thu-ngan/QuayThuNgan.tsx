@@ -26,6 +26,7 @@ import NutCheckOut from "../_lam-viec/NutCheckOut";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 
@@ -80,6 +81,11 @@ interface Luot {
   chon_dich_vu?: ChoKhachQuyet | null;
   /** Đã trả, chưa bắt đầu — xếp / đổi phòng sau khi thu (máy chủ tính). */
   xep_phong?: DaTraChoPhong[];
+  /** Quầy một hoá đơn (27/09): hoá đơn dịch vụ dựng sẵn ở máy chủ. */
+  quay_thu?: QuayThu | null;
+  loai_kham?: string | null;
+  bac_si?: string | null;
+  cho_tu?: string | null;
 }
 
 interface DaThu {
@@ -123,6 +129,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
+  const [chonVisit, setChonVisit] = useState<string | null>(null);
   // Lượt vừa thu xong — để mời Check-out ngay dưới câu "Đã thu…" (27/09/2026,
   // đợt 3). Nút tự ẩn nếu tài khoản không có quyền đóng lượt.
   // Gắn với ĐÚNG câu báo của lần thu ấy (`cau`): câu báo đổi sang việc khác
@@ -245,6 +252,32 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     [gui],
   );
 
+  /** Thu một lệnh: máy chủ chốt lựa chọn dịch vụ + ghi sổ (quầy một hoá đơn). */
+  const thuMot = useCallback(
+    async (l: Luot, p: LenhThuMot) => {
+      const cau =
+        p.amount === undefined
+          ? `Đã chốt dịch vụ của ${l.full_name ?? "khách"} (không có khoản thu tại quầy).`
+          : `Đã thu ${tien(p.tong)} (${TEN_PT[p.method]}) của ${l.full_name ?? "khách"}.`;
+      const ok = await gui(
+        `${l.visit_id}:dich_vu`,
+        {
+          visitId: l.visit_id,
+          clinicPatientId: l.clinic_patient_id,
+          kind: "dich_vu",
+          billRevision: p.billRevision,
+          amount: p.amount,
+          method: p.method,
+          chon: p.chon,
+        },
+        cau,
+        dinhDanhThaoTac(l.visit_id, p.khoa),
+      );
+      if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
+    },
+    [gui],
+  );
+
   /** "Đã nhận tiền" của lần chờ xác minh — cũng là lúc tiền đã đủ. */
   const xacMinh = useCallback(
     async (l: Luot, kind: "dich_vu" | "thuoc", ma: string) => {
@@ -291,6 +324,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) || choQuyet(l))) ||
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
+
+  const dangXem = conCho.find((l) => l.visit_id === chonVisit) ?? conCho[0] ?? null;
 
   const daThuChoPhong =
     quay === "thuoc"
@@ -342,7 +377,40 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           </p>
         </div>
       ) : (
-        conCho.map((l) => (
+        <div className="grid items-start gap-3 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
+          <ul
+            aria-label="Khách chờ thu"
+            className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+          >
+            {conCho.map((l) => {
+              const on = l.visit_id === dangXem?.visit_id;
+              const soTien = l.quay_thu?.tong ?? l.hoa_don?.dich_vu?.tong ?? l.hoa_don?.thuoc?.tong ?? null;
+              return (
+                <li key={l.visit_id} className="border-b border-line last:border-b-0">
+                  <button
+                    type="button"
+                    aria-current={on ? "true" : undefined}
+                    onClick={() => setChonVisit(l.visit_id)}
+                    className={`flex w-full items-center gap-2.5 border-l-3 px-2.5 py-2.5 text-left ${
+                      on ? "border-l-brand-500 bg-surface-selected" : "border-l-transparent hover:bg-surface-sunken"
+                    }`}
+                  >
+                    <SoLuot dang="tron" checkin={l.so_tiep_don} booking={l.so_booking} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-emph font-semibold text-ink">{l.full_name ?? "—"}</span>
+                      <span className="block truncate text-meta text-ink-muted">
+                        {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
+                      </span>
+                    </span>
+                    {soTien != null ? (
+                      <span className="shrink-0 text-body font-semibold tabular-nums text-ink">{tien(soTien)}</span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        {(dangXem ? [dangXem] : []).map((l) => (
           <article
             key={l.visit_id}
             className="rounded-card border border-line bg-surface shadow-card"
@@ -360,6 +428,19 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
             </header>
 
+            {quay !== "thuoc" &&
+            l.quay_thu &&
+            !daThuCua(l.visit_id, "dich_vu") &&
+            !choCua(l.visit_id, "dich_vu") ? (
+              <HoaDonMot
+                key={`${l.visit_id}:${l.quay_thu.revision ?? ""}:${l.quay_thu.lua_chon.revision}`}
+                qt={l.quay_thu}
+                dangThu={dangThu === `${l.visit_id}:dich_vu`}
+                onThu={(p) => void thuMot(l, p)}
+                onDoiPhong={() => void tai()}
+              />
+            ) : (
+            <>
             {quay !== "thuoc" && l.chon_dich_vu ? (
               <ChonDichVu
                 // Danh sách chỉ định đổi thì dựng lại ô để lấy mặc định mới. KHÔNG
@@ -401,6 +482,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 }
               />
             ) : null}
+            </>
+            )}
 
             {quay !== "thuoc" ? (
               <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
@@ -449,7 +532,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               />
             ) : null}
           </article>
-        ))
+        ))}
+        </div>
       )}
 
       {/* Thu đủ rồi thì lượt rời danh sách chờ thu — nhưng khách chưa vào phòng
