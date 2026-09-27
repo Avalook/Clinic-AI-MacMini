@@ -66,31 +66,64 @@
      "ma": "nk_children",
      "ten": "Tiền sử có con trước",
      "kieu": "doan_van",
-     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu"
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "thu_gon": true
     },
     {
      "ma": "nk_gu",
      "ten": "Bệnh lý sinh dục / tiết niệu",
      "kieu": "doan_van",
-     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu"
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "thu_gon": true
     },
     {
      "ma": "nk_surgery",
      "ten": "Phẫu thuật vùng bìu / bẹn / tuyến tiền liệt",
      "kieu": "doan_van",
-     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu"
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "thu_gon": true
     },
     {
      "ma": "nk_mumps",
      "ten": "Tiền sử quai bị có biến chứng",
      "kieu": "doan_van",
-     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu"
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "thu_gon": true
     },
     {
      "ma": "nk_exposure",
      "ten": "Nghề nghiệp / tiếp xúc hóa chất / nhiệt độ cao",
      "kieu": "doan_van",
-     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu"
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "thu_gon": true
+    },
+    {
+     "ma": "nk_allergy_co",
+     "ten": "Dị ứng thuốc",
+     "kieu": "chon",
+     "lua_chon": [
+      {
+       "ma": "nk_allergy_co_1",
+       "ten": "Có"
+      },
+      {
+       "ma": "nk_allergy_co_2",
+       "ten": "Không"
+      }
+     ],
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "them_sau_nguon": "27/09/2026 — góp ý phòng khám: dị ứng thuốc Có/Không"
+    },
+    {
+     "ma": "nk_allergy",
+     "ten": "Chi tiết dị ứng thuốc",
+     "kieu": "doan_van",
+     "nhom": "Tiền sử nam khoa / sinh dục – tiết niệu",
+     "hien_khi": {
+      "o": "nk_allergy_co",
+      "la": "nk_allergy_co_1"
+     },
+     "them_sau_nguon": "27/09/2026 — góp ý phòng khám: dị ứng thuốc Có/Không"
     },
     {
      "ma": "nk_exam_1",
@@ -165,7 +198,8 @@
      },
      "hang": "Tinh dịch đồ",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     },
     {
      "ma": "nk_cls_2",
@@ -180,7 +214,8 @@
      },
      "hang": "Siêu âm tinh hoàn / Doppler",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     },
     {
      "ma": "nk_cls_3",
@@ -195,7 +230,8 @@
      },
      "hang": "Y-chromosome microdeletion (Nam)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     },
     {
      "ma": "nk_cls_4",
@@ -210,7 +246,8 @@
      },
      "hang": "Testosterone tổng",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     },
     {
      "ma": "nk_cls_5",
@@ -225,7 +262,8 @@
      },
      "hang": "FSH",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     },
     {
      "ma": "nk_cls_6",
@@ -240,7 +278,8 @@
      },
      "hang": "LH",
      "cot": "Kết quả / Mô tả",
-     "nhom": "Cận lâm sàng liên quan"
+     "nhom": "Cận lâm sàng liên quan",
+     "gap": true
     }
    ]
   },

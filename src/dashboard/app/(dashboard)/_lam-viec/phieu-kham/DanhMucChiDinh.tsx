@@ -27,6 +27,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import NganGap from "@/components/ui/NganGap";
 import {
   chipMauDanhMuc,
   tachDanhMucKhac,
@@ -189,18 +190,14 @@ export default function DanhMucChiDinh({
             ))}
           </div>
           {khac.length > 0 ? (
-            <details className="group">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 text-meta text-ink-muted sm:min-h-8 [&::-webkit-details-marker]:hidden">
-                <span aria-hidden className="transition-transform group-open:rotate-90">
-                  ▸
-                </span>
-                Dịch vụ khác trong bảng giá — không có trên phiếu giấy ({khac.length})
-                {chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
-              </summary>
-              <ul className="mt-2">
+            <NganGap
+              tieuDe={`Dịch vụ khác trong bảng giá — không có trên phiếu giấy (${khac.length})`}
+              chip={chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
+            >
+              <ul>
                 {khac.map((m) => dong(m, [m.nhom_goc, m.ma_kiotviet].filter(Boolean).join(" · ")))}
               </ul>
-            </details>
+            </NganGap>
           ) : null}
         </>
       ) : null}

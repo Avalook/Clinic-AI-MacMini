@@ -31,6 +31,10 @@ LUẬT TRÍCH
     nhãn nào được dùng làm định danh.
 
 Ghi ra `src/clinicai/phieu_kham/dinh_nghia/`.
+
+LƯU Ý (27/09/2026): script này ra khung v1. JSON trong repo là v2 (thu gọn tiền
+sử, dị ứng Có/Không, bảng CLS gập) — trích lại xong thì chạy tiếp
+`scripts/phieu-kham/dung-phieu-v2.py`.
 """
 
 from __future__ import annotations

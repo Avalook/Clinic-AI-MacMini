@@ -4,9 +4,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { vnYmd } from "./datetime.ts";
+import { docNhoGap, ghiNhoGap, moBanDau, type KhoNho } from "./ngan-gap.ts";
 import {
   anhInDuoc,
   chipMauDanhMuc,
+  coGiaTriO,
+  gomNhom,
+  oCuaNhom,
+  oDangHien,
+  oThuGonDangAn,
+  soODaDien,
   dongKetQua,
   dongNgoaiDanhMuc,
   dongTuDon,
@@ -215,4 +222,135 @@ test("ô ngày đọc / in kiểu VN; giá trị lạ để nguyên", () => {
   assert.equal(giaTriDoc(o, { gia_tri: "", nguon: "BS" }), "—");
   const chu = { ma: "x", ten: "X", kieu: "text" } as OPhieu;
   assert.equal(giaTriDoc(chu, { gia_tri: "2026-10-27", nguon: "BS" }), "2026-10-27");
+});
+
+// ── Đợt 3 (27/09/2026): ô nào đang hiện — thu_gon · hien_khi · gap ──────────
+const TG = (ma: string): OPhieu => ({ ma, ten: ma, kieu: "text", nhom: "Tiền sử", thu_gon: true });
+const CO: OPhieu = {
+  ma: "x_co",
+  ten: "Dị ứng thuốc",
+  kieu: "chon",
+  nhom: "Tiền sử",
+  lua_chon: [
+    { ma: "x_co_1", ten: "Có" },
+    { ma: "x_co_2", ten: "Không" },
+  ],
+};
+const CT: OPhieu = {
+  ma: "x_ct",
+  ten: "Chi tiết dị ứng thuốc",
+  kieu: "doan_van",
+  nhom: "Tiền sử",
+  hien_khi: { o: "x_co", la: "x_co_1" },
+};
+const KHONG = new Set<string>();
+
+test("thu_gon: ẩn cho tới khi bấm chip; bấm rồi thì hiện", () => {
+  assert.equal(oDangHien(TG("a"), {}, KHONG), false);
+  assert.equal(oDangHien(TG("a"), {}, new Set(["a"])), true);
+  assert.equal(oDangHien(TG("a"), {}, new Set(["b"])), false);
+});
+
+test("ô có giá trị LUÔN hiện — tải lại phiếu không giấu chữ đã gõ", () => {
+  assert.equal(oDangHien(TG("a"), { a: "1001" }, KHONG), true);
+  // chỉ khoảng trắng = chưa điền
+  assert.equal(oDangHien(TG("a"), { a: "   " }, KHONG), false);
+  // Chi tiết dị ứng đã có chữ mà ô Có/Không đang "Không" (hoặc phiếu cũ chưa chọn)
+  assert.equal(oDangHien(CT, { x_ct: "Penicillin", x_co: "x_co_2" }, KHONG), true);
+  assert.equal(oDangHien(CT, { x_ct: "Penicillin" }, KHONG), true);
+});
+
+test("hien_khi: chỉ hiện khi ô chọn kia đang chọn đúng mã", () => {
+  assert.equal(oDangHien(CT, {}, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "" }, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "x_co_2" }, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "x_co_1" }, KHONG), true);
+  // ô điều khiển nhiều-chọn: hiện khi mảng có mã
+  const nhieu: OPhieu = { ...CT, hien_khi: { o: "y", la: "y_3" } };
+  assert.equal(oDangHien(nhieu, { y: ["y_1", "y_3"] }, KHONG), true);
+  assert.equal(oDangHien(nhieu, { y: ["y_1"] }, KHONG), false);
+  // bấm chip không mở được ô hien_khi (không phải ô thu gọn)
+  assert.equal(oDangHien(CT, {}, new Set(["x_ct"])), false);
+});
+
+test("ô thường (không khai gì) luôn hiện — phiếu v1 vẽ đủ như cũ", () => {
+  assert.equal(oDangHien({ ma: "a", ten: "A", kieu: "text" }, {}, KHONG), true);
+  assert.equal(oDangHien(CO, {}, KHONG), true);
+});
+
+test("chip thu gọn = ô thu_gon CHƯA hiện, đúng thứ tự khung", () => {
+  const [nhom] = gomNhom([TG("a"), TG("b"), CO, CT, TG("c")]);
+  assert.deepEqual(
+    oThuGonDangAn(nhom, {}, KHONG).map((o) => o.ma),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    oThuGonDangAn(nhom, { b: "x" }, new Set(["c"])).map((o) => o.ma),
+    ["a"],
+  );
+});
+
+test("gap là của NHÓM: mọi ô khai gap mới gập", () => {
+  const cls = (ma: string, gap = true): OPhieu => ({ ma, ten: ma, kieu: "text", nhom: "CLS", gap });
+  const [a, b] = gomNhom([TG("t"), cls("c1"), cls("c2")]);
+  assert.equal(a.gap, false);
+  assert.equal(b.gap, true);
+  const [nua] = gomNhom([cls("c1"), cls("c2", false)]);
+  assert.equal(nua.gap, false);
+});
+
+test("đếm ô đã điền của nhóm — tính cả ô trong bảng", () => {
+  const bang = { ma: "kq", ten: "Xét nghiệm", cot: ["Kết quả"] };
+  const [n] = gomNhom([
+    { ma: "b1", ten: "AMH", kieu: "text", nhom: "CLS", gap: true, bang, hang: "AMH", cot: "Kết quả" },
+    { ma: "b2", ten: "FSH", kieu: "text", nhom: "CLS", gap: true, bang, hang: "FSH", cot: "Kết quả" },
+  ]);
+  assert.deepEqual(oCuaNhom(n).map((o) => o.ma), ["b1", "b2"]);
+  assert.equal(soODaDien(oCuaNhom(n), { b2: "3.1" }), 1);
+  assert.equal(soODaDien(oCuaNhom(n), {}), 0);
+});
+
+test("coGiaTriO: rỗng · trắng · mảng rỗng = chưa điền", () => {
+  assert.equal(coGiaTriO(undefined), false);
+  assert.equal(coGiaTriO(""), false);
+  assert.equal(coGiaTriO("  "), false);
+  assert.equal(coGiaTriO([]), false);
+  assert.equal(coGiaTriO(["a"]), true);
+  assert.equal(coGiaTriO("0"), true);
+});
+
+// ── Ngăn gập nhớ theo người dùng ────────────────────────────────────────────
+test("mở lúc đầu: đã nhớ thì theo nhớ, rác/không có thì theo mặc định", () => {
+  assert.equal(moBanDau("1", false), true);
+  assert.equal(moBanDau("0", true), false);
+  assert.equal(moBanDau(null, true), true);
+  assert.equal(moBanDau(undefined, false), false);
+  assert.equal(moBanDau("rác", false), false);
+  assert.equal(moBanDau("true", true), true);
+});
+
+test("đọc/ghi nhớ gập: kho hỏng hay không có kho thì không ném", () => {
+  const bang = new Map<string, string>();
+  const kho: KhoNho = {
+    getItem: (k) => bang.get(k) ?? null,
+    setItem: (k, v) => void bang.set(k, v),
+  };
+  ghiNhoGap("phieu-kham:NT:B", false, kho);
+  assert.equal(docNhoGap("phieu-kham:NT:B", kho), "0");
+  ghiNhoGap("phieu-kham:NT:B", true, kho);
+  assert.equal(moBanDau(docNhoGap("phieu-kham:NT:B", kho), false), true);
+
+  const hong: KhoNho = {
+    getItem: () => {
+      throw new Error("SecurityError");
+    },
+    setItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+  };
+  assert.equal(docNhoGap("x", hong), null);
+  assert.doesNotThrow(() => ghiNhoGap("x", true, hong));
+  assert.equal(docNhoGap("x", null), null);
+  assert.doesNotThrow(() => ghiNhoGap("x", true, null));
+  assert.equal(docNhoGap("", kho), null);
 });

@@ -23,12 +23,15 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 
 import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import NganGap from "@/components/ui/NganGap";
 import {
+  coGiaTriO,
   dungGoiLuu,
   ghiDuoc,
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
+  soODaDien,
   type CheDoPhieu,
   type ChiDinhVaKetQua,
   type DauPhieu,
@@ -73,10 +76,6 @@ const NHAN_CHE_DO: Record<CheDoPhieu, { ten: string; tone: "neutral" | "warning"
 
 /** Ba khối — định nghĩa ở lib/phieu-kham (dùng chung với bản in). */
 const KHOI = KHOI_PHIEU;
-
-function coGiaTri(v: GiaTriO | undefined): boolean {
-  return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());
-}
 
 function gioVn(d: Date): string {
   return d.toLocaleTimeString("vi-VN", {
@@ -243,10 +242,10 @@ export default function PhieuKham({
   // thuốc & hẹn.
   const oTheoMuc = (ds: string[]) =>
     dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
-  const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTri(gia[ma])).length;
+  const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTriO(gia[ma])).length;
   const khoaChiMuc = chiMuc?.join(",") ?? "";
   const soDienChiMuc = khoaChiMuc
-    ? oTheoMuc(khoaChiMuc.split(",")).filter((ma) => coGiaTri(gia[ma])).length
+    ? oTheoMuc(khoaChiMuc.split(",")).filter((ma) => coGiaTriO(gia[ma])).length
     : 0;
   useEffect(() => {
     if (khoaChiMuc) onTomTat?.(soDienChiMuc, dinhNghia.ten.replace(/^Phiếu\s+/i, ""));
@@ -260,7 +259,7 @@ export default function PhieuKham({
     (c) => c.ket_qua_trang_thai === "CO_KET_QUA" && !c.da_xem_luc,
   ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
-  const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTri(gia[ma]));
+  const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<1 | 2 | 3, string> = {
     1: `${soDien} ô đã điền`,
     2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
@@ -292,8 +291,31 @@ export default function PhieuKham({
     3: null,
   };
 
-  const theMuc = (m: MucPhieu) => {
+  // B4 (đợt 3, 27/09/2026 — góp ý bác sĩ + thư ký y khoa): mỗi thẻ mục GẬP/MỞ
+  // được. Mặc định mở nếu là mục LÀM VIỆC đầu của khối (bỏ qua mục mang sang
+  // như A — phiếu mới thì B "Khai thác & khám" mở sẵn) hoặc đã có dữ liệu, đóng
+  // nếu trống; lần bấm cuối được nhớ theo người dùng (localStorage — NganGap).
+  const coTuVan = (dauPhieu?.tu_van ?? []).some((t) => t.noi_dung.trim());
+  const coLienKet = (m: MucPhieu): boolean => {
+    switch (m.lien_ket?.loai) {
+      case "chi_dinh_cls":
+        return ketQuaCls.length > 0;
+      case "don_thuoc":
+        return soThuoc > 0;
+      case "chi_dinh_thu_thuat":
+        return ketQuaTT.length > 0 || (thuThuat?.daChon.length ?? 0) > 0;
+      case "mang_sang":
+        return m.ma === "A" && coTuVan;
+      default:
+        return false;
+    }
+  };
+  const nho = (ma: string) => `phieu-kham:${dinhNghia.form_id}:${ma}`;
+  const mucDau = (ds: MucPhieu[]) => ds.find((m) => m.lien_ket?.loai !== "mang_sang")?.ma;
+
+  const theMuc = (m: MucPhieu, laDau: boolean) => {
     const td = tieuDeMuc[m.ma] ?? { ten: m.ten };
+    const soDienMuc = soODaDien(m.block, gia);
     const noiDung = (
       <>
         {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} choSua={ghi} /> : null}
@@ -323,11 +345,17 @@ export default function PhieuKham({
       <Fragment key={m.ma}>
         {/* Khối 2: "Đã chỉ định & kết quả" đứng TRÊN danh mục (bản mẫu). */}
         {m.lien_ket?.loai === "chi_dinh_cls" && ketQuaCls.length > 0 ? (
-          <TheCon ten="Đã chỉ định & kết quả">
+          <TheCon ten="Đã chỉ định & kết quả" moSan nhoKhoa={nho("KET_QUA")}>
             <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} />
           </TheCon>
         ) : null}
-        <TheCon ten={td.ten} phu={td.phu}>
+        <TheCon
+          ten={td.ten}
+          phu={td.phu}
+          chip={soDienMuc > 0 ? <Chip tone="neutral">{soDienMuc} ô đã điền</Chip> : null}
+          moSan={laDau || soDienMuc > 0 || coLienKet(m)}
+          nhoKhoa={nho(m.ma)}
+        >
           {noiDung}
         </TheCon>
       </Fragment>
@@ -335,11 +363,12 @@ export default function PhieuKham({
   };
 
   if (chiMuc) {
+    const mucChi = dinhNghia.khung.filter((m) => chiMuc.includes(m.ma));
     // Bàn tư vấn: chỉ các mục được mở (vd B) — không đầu phiếu, không cột phải.
     return (
       <div className="space-y-4">
         {loi ? <p className="text-body text-danger">{loi}</p> : null}
-        {dinhNghia.khung.filter((m) => chiMuc.includes(m.ma)).map((m) => theMuc(m))}
+        {mucChi.map((m) => theMuc(m, m.ma === mucDau(mucChi)))}
         <p className="text-meta text-ink-muted">{trangThaiLuu}</p>
       </div>
     );
@@ -419,7 +448,7 @@ export default function PhieuKham({
 
         <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
-        {mucKhoi.map((m) => theMuc(m))}
+        {mucKhoi.map((m) => theMuc(m, m.ma === mucDau(mucKhoi)))}
 
         <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (
@@ -448,15 +477,29 @@ export default function PhieuKham({
   );
 }
 
-/** Thẻ con của một mục — bản mẫu `.card` + `.card-h` (tiêu đề 14/600 trái, câu phụ phải). */
-function TheCon({ ten, phu, children }: { ten: string; phu?: ReactNode; children: ReactNode }) {
+/** Thẻ con của một mục — bản mẫu `.card` + `.card-h` (tiêu đề 14/600 trái, câu
+ *  phụ phải). Đợt 3 (27/09/2026): đầu thẻ là nút gập/mở (`NganGap`, bàn phím
+ *  được), kèm chip "N ô đã điền". */
+function TheCon({
+  ten,
+  phu,
+  chip,
+  moSan,
+  nhoKhoa,
+  children,
+}: {
+  ten: string;
+  phu?: ReactNode;
+  chip?: ReactNode;
+  moSan: boolean;
+  nhoKhoa: string;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-card border border-hairline bg-surface p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-emph font-semibold text-ink">{ten}</span>
-        {phu ? <span className="text-meta text-ink-muted">{phu}</span> : null}
-      </div>
-      <div className="space-y-3">{children}</div>
+      <NganGap co="the" tieuDe={ten} phu={phu} chip={chip} moSan={moSan} nhoKhoa={nhoKhoa}>
+        {children}
+      </NganGap>
     </section>
   );
 }

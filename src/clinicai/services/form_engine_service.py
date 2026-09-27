@@ -1033,6 +1033,12 @@ class FormEngineService:
             # bảng hàng×cột) và có luật riêng ở `phieu_kham/khung.py`.
             if form_id.startswith("KQ_"):
                 khung = kiem_khung_mau(khung)
+            else:
+                # Nạp muộn: `phieu_kham.khung` nhập NGUON từ tệp này.
+                from clinicai.phieu_kham.khung import kiem_khung, la_phieu_kham
+
+                if la_phieu_kham(form_id):
+                    kiem_khung(khung, form_id=form_id)
             if ten_moi is not None and len(ten_moi) > 200:
                 raise ValidationError("Tên mẫu dài quá 200 ký tự.")
             # Khoá theo MẪU trước khi đọc bản mới nhất. `FOR UPDATE` trên dòng
