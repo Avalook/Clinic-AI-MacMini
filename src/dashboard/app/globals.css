@@ -157,6 +157,12 @@
   --radius-control: 8px;
   --radius-chip: 6px; /* the designs use a soft rectangle, not a pill */
 
+  /* Thanh hành động DÍNH ĐÁY trên điện thoại (27/09/2026, đợt 3): đứng ngay
+   * trên BottomNav (<md, cao 4rem) CỘNG vùng an toàn iPhone — BottomNav tự đệm
+   * `env(safe-area-inset-bottom)` nên `bottom-16` trần bị nó che mất ~34px ở
+   * máy có thanh home. Dùng: `sticky bottom-tren-thanh-duoi md:bottom-3`. */
+  --inset-tren-thanh-duoi: calc(4rem + env(safe-area-inset-bottom));
+
   /* Thang chữ 5 bậc — DESIGN.md §3. Đây là NĂM cỡ duy nhất được phép;
    * text-[..px] tuỳ ý đang bị ratchet đếm và chỉ được giảm. */
   --text-label: 11px;
