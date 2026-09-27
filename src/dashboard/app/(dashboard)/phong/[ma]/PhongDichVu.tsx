@@ -60,6 +60,7 @@ import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
+import { tienVn } from "@/lib/phieu-kham";
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
@@ -141,7 +142,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
   if (khongCo) {
     return (
-      <p className="rounded-card border border-danger bg-danger-bg p-4 text-sm text-danger">
+      <p className="rounded-card border border-danger bg-danger-bg p-4 text-body text-danger">
         Không có phòng “{ma}”, hoặc phòng đã tắt.
       </p>
     );
@@ -157,17 +158,17 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   return (
     <div className="grid gap-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="text-xl font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
-        {phong?.tang ? <p className="text-sm text-ink-muted">{phong.tang}</p> : null}
+        <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
+        {phong?.tang ? <p className="text-body text-ink-muted">{phong.tang}</p> : null}
         {hang ? (
-          <p className="text-sm text-ink-muted">
+          <p className="text-body text-ink-muted">
             {ds.filter((d) => d.trang_thai === "waiting" || d.trang_thai === "called").length}{" "}
             đang chờ · {ds.filter((d) => d.trang_thai === "serving").length} đang làm ·{" "}
             {ds.filter((d) => d.trang_thai === "done").length} đã xong
           </p>
         ) : null}
         {loi ? (
-          <p role="alert" className="text-sm text-danger">
+          <p role="alert" className="text-body text-danger">
             {loi}
           </p>
         ) : null}
@@ -177,7 +178,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         <aside aria-label="Hàng chờ phòng" className="space-y-3">
           {phong ? <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} /> : null}
           {hang === null ? (
-            <p className="text-sm text-ink-muted">Đang tải hàng chờ…</p>
+            <p className="text-body text-ink-muted">Đang tải hàng chờ…</p>
           ) : (
             <HangChoCot
               dong={ds}
@@ -201,7 +202,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         {chon ? (
           <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} />
         ) : (
-          <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-sm text-ink-muted shadow-card">
+          <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-body text-ink-muted shadow-card">
             Chọn một khách trong hàng chờ.
           </section>
         )}
@@ -292,31 +293,46 @@ function KhachTrongPhong({
       className="min-w-0 space-y-4 rounded-card bg-surface p-4 shadow-card"
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
+        {/* ĐẦU DỊCH VỤ (27/09/2026 — bản mẫu `manPhong`): tên dịch vụ, rồi
+            "mã phòng khám · giá · thời gian đã làm / đã chờ"; dòng dưới là
+            khách. Mã + giá do máy chủ trả trong `thuc-hien`. */}
         <div className="min-w-0">
           <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
             Số {dong.so_thu_tu}
           </p>
-          <h2 className="text-lg font-semibold text-ink">{dong.ten}</h2>
-          <p className="text-sm text-ink-muted">
-            {dong.ma_bn} · {dong.viec ?? "—"}
-            {dong.bac_si ? ` · BS chỉ định: ${dong.bac_si}` : ""}
+          <h2 className="text-title font-semibold text-ink">
+            {dong.viec ?? th?.service_name ?? "—"}
+          </h2>
+          <p className="text-meta tabular-nums text-ink-muted">
+            {[
+              th?.ma_kiotviet ?? null,
+              th ? tienVn(th.gia) : null,
+              daXong
+                ? `Xong lúc ${gioVn(dong.xong_luc)}`
+                : dangLam
+                  ? `Lần làm #${th?.lan_dang_chay?.attempt_no} · bắt đầu ${gioVn(
+                      th?.lan_dang_chay?.started_at ?? null,
+                    )} · đã làm ${soPhutTu(th?.lan_dang_chay?.started_at ?? null)}`
+                  : daDung
+                    ? `Lần làm #${th?.lan_da_dung?.attempt_no} đã dừng${
+                        th?.lan_da_dung?.interruption_reason_code
+                          ? ` — ${nhanLyDo(th.lan_da_dung.interruption_reason_code)}`
+                          : ""
+                      }`
+                    : dong.trang_thai === "blocked"
+                      ? "Khách đang ở một bước khác — chưa làm bước này được."
+                      : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
-          <p className="mt-1 text-label text-ink-muted">
-            {daXong
-              ? `Xong lúc ${gioVn(dong.xong_luc)}`
-              : dangLam
-                ? `Lần làm #${th?.lan_dang_chay?.attempt_no} · bắt đầu ${gioVn(
-                    th?.lan_dang_chay?.started_at ?? null,
-                  )} · đã làm ${soPhutTu(th?.lan_dang_chay?.started_at ?? null)}`
-                : daDung
-                  ? `Lần làm #${th?.lan_da_dung?.attempt_no} đã dừng${
-                      th?.lan_da_dung?.interruption_reason_code
-                        ? ` — ${nhanLyDo(th.lan_da_dung.interruption_reason_code)}`
-                        : ""
-                    }`
-                  : dong.trang_thai === "blocked"
-                    ? "Khách đang ở một bước khác — chưa làm bước này được."
-                    : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`}
+          <p className="mt-1 text-body text-ink">
+            <b className="text-emph font-semibold">{dong.ten}</b>
+            <span className="text-ink-muted">
+              {" "}
+              · {dong.ma_bn}
+              {dong.bac_si ? ` · BS chỉ định: ${dong.bac_si}` : ""}
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -356,13 +372,13 @@ function KhachTrongPhong({
       {loi ? (
         <p
           role="alert"
-          className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger"
+          className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-body text-danger"
         >
           {loi}
         </p>
       ) : null}
       {bao ? (
-        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-sm text-warning">
+        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-body text-warning">
           {bao}
         </p>
       ) : null}
@@ -370,7 +386,7 @@ function KhachTrongPhong({
       {/* Lịch sử các lần làm: máy hỏng lúc 10:05 rồi làm lại 10:18 là chuyện
           phải đọc được, không phải chuyện bị ghi đè. */}
       {th && th.cac_lan.length > 1 ? (
-        <ol className="space-y-1 rounded-control bg-surface-muted px-3 py-2 text-xs text-ink-soft">
+        <ol className="space-y-1 rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
           {th.cac_lan.map((l) => (
             <li key={l.id}>
               Lần #{l.attempt_no} · {gioVn(l.started_at)}
@@ -391,13 +407,13 @@ function KhachTrongPhong({
 
       {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09). */}
       {daXong ? (
-        <div className="rounded-control bg-surface-muted px-3 py-2 text-sm">
+        <div className="rounded-control bg-surface-muted px-3 py-2 text-body">
           <p className="text-ink">
             {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
             {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
           </p>
           {dong.ly_do_khong_lam ? (
-            <p className="text-xs text-warning">
+            <p className="text-meta text-warning">
               Lý do: {nhanLyDo(dong.ly_do_khong_lam)}
             </p>
           ) : null}
@@ -476,7 +492,7 @@ function KhachTrongPhong({
             // phải có ghi chú lại chứ") — lưu vào chính lần làm.
             <div className="space-y-2">
               <label className="block">
-                <span className="text-xs font-semibold text-ink">
+                <span className="text-meta font-semibold text-ink">
                   Ghi chú {loai === "LAY_MAU" ? "lấy mẫu" : "khi làm"} (tuỳ chọn)
                 </span>
                 <textarea
@@ -517,7 +533,7 @@ function KhachTrongPhong({
               onClick={() =>
                 setMoLyDo((v) => (v ? null : dangLam ? "gian-doan" : "khong-lam"))
               }
-              className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
+              className="text-body text-ink-muted underline underline-offset-4 hover:text-ink"
             >
               {dangLam ? "Phải dừng giữa chừng?" : "Không làm được?"}
             </button>
@@ -526,7 +542,7 @@ function KhachTrongPhong({
           {moLyDo ? (
             <div className="space-y-2 rounded-control border border-line bg-surface-muted p-3">
               <label className="block">
-                <span className="text-xs font-semibold text-ink">
+                <span className="text-meta font-semibold text-ink">
                   {moLyDo === "gian-doan"
                     ? "Vì sao phải dừng giữa chừng"
                     : "Vì sao không làm được"}
@@ -534,7 +550,7 @@ function KhachTrongPhong({
                 <select
                   value={lyDo}
                   onChange={(e) => setLyDo(e.target.value)}
-                  className="mt-1 min-h-10 w-full max-w-md rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                  className="mt-1 min-h-10 w-full max-w-md rounded-control border border-line bg-surface px-3 text-body text-ink"
                 >
                   <option value="">— chọn lý do —</option>
                   {(moLyDo === "gian-doan"
@@ -548,13 +564,13 @@ function KhachTrongPhong({
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs font-semibold text-ink">
+                <span className="text-meta font-semibold text-ink">
                   Ghi chú (không bắt buộc)
                 </span>
                 <input
                   value={ghiChu}
                   onChange={(e) => setGhiChu(e.target.value)}
-                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
                 />
               </label>
               <p className="text-label text-ink-muted">

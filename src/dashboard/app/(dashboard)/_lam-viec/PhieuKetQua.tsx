@@ -61,6 +61,12 @@ interface Muc {
   cot?: { ma: string; ten: string }[];
 }
 
+/** Ô chiếm nửa hàng hay trọn hàng trong lưới hai cột: đoạn văn và ô bảng
+ *  (nhiều cột ghép một dòng) chiếm trọn hàng. */
+function lopCot(o: { kieu: string }, laBang: boolean): string {
+  return o.kieu === "doan_van" || laBang ? "md:col-span-2" : "";
+}
+
 /** Khoá phẳng của một ô bảng trong trạng thái màn hình. */
 const KHOA_BANG = "::";
 
@@ -372,7 +378,7 @@ export default function PhieuKetQua({
 
   if (mau.length === 0) {
     return (
-      <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm text-ink-soft">
+      <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-body text-ink-soft">
         Dịch vụ này chưa gắn mẫu kết quả nào. Quản lý gắn ở màn danh mục mẫu,
         rồi phiếu sẽ hiện ở đây.
       </p>
@@ -385,9 +391,9 @@ export default function PhieuKetQua({
   return (
     <section aria-label="Phiếu kết quả" className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-ink">Phiếu kết quả</h3>
+        <h3 className="text-body font-semibold text-ink">Phiếu kết quả</h3>
         {mau.length > 1 ? (
-          <label className="text-sm">
+          <label className="text-body">
             <span className="sr-only">Chọn mẫu kết quả</span>
             <select
               value={chonMau ?? ""}
@@ -404,7 +410,7 @@ export default function PhieuKetQua({
                 setBaoKhacDv(null);
                 setChonMau(ma);
               }}
-              className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
+              className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
             >
               <option value="">— chọn mẫu —</option>
               {mau.map((m) => (
@@ -415,7 +421,7 @@ export default function PhieuKetQua({
             </select>
           </label>
         ) : (
-          <span className="text-sm text-ink-muted">{mau[0].ten}</span>
+          <span className="text-body text-ink-muted">{mau[0].ten}</span>
         )}
         {dangSuaLai ? (
           <span className="text-label font-semibold text-warning">
@@ -434,7 +440,7 @@ export default function PhieuKetQua({
       {baoKhacDv ? (
         <p
           role="alert"
-          className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-sm text-warning"
+          className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-body text-warning"
         >
           {baoKhacDv}
         </p>
@@ -442,26 +448,26 @@ export default function PhieuKetQua({
       {loi ? (
         <p
           role="alert"
-          className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-sm text-danger"
+          className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-body text-danger"
         >
           {loi}
         </p>
       ) : null}
 
       {!chonMau ? (
-        <p className="text-sm text-ink-muted">Chọn mẫu để bắt đầu điền.</p>
+        <p className="text-body text-ink-muted">Chọn mẫu để bắt đầu điền.</p>
       ) : phieu === null ? (
-        <p className="text-sm text-ink-muted">Đang mở phiếu…</p>
+        <p className="text-body text-ink-muted">Đang mở phiếu…</p>
       ) : daChot ? (
         <div className="space-y-2">
-          <p className="rounded-control border border-success bg-success-bg px-3 py-2 text-sm text-success">
+          <p className="rounded-control border border-success bg-success-bg px-3 py-2 text-body text-success">
             Phiếu đã hoàn tất — đây là kết quả chính thức.
           </p>
-          <dl className="space-y-2 rounded-control bg-surface-muted px-3 py-2 text-sm">
+          <dl className="grid gap-x-4 gap-y-2 rounded-control bg-surface-muted px-3 py-2 text-body md:grid-cols-2">
             {phieu.khung.map((muc) =>
               (muc.block ?? []).map((o) => (
-                <div key={o.ma}>
-                  <dt className="text-xs font-semibold text-ink-muted">{o.ten}</dt>
+                <div key={o.ma} className={lopCot(o, !!muc.cot)}>
+                  <dt className="text-meta font-semibold text-ink-muted">{o.ten}</dt>
                   <dd className="whitespace-pre-line text-ink">
                     {muc.cot
                       ? muc.cot
@@ -498,13 +504,15 @@ export default function PhieuKetQua({
         <div className="space-y-4">
           {phieu.khung.map((muc) => (
             <fieldset key={muc.ma} className="min-w-0">
-              <legend className="text-sm font-semibold text-ink">
+              <legend className="text-body font-semibold text-ink">
                 {muc.ten}
               </legend>
               {muc.cot ? (
                 <BangMuc muc={muc} cot={muc.cot} gia={gia} onDoi={doi} />
               ) : (
-                <div className="mt-1 space-y-3">
+                // HAI CỘT ở màn rộng, MỘT cột ở 375 (27/09/2026 — bản mẫu
+                // `luoi hai`); đoạn văn chiếm trọn hàng.
+                <div className="mt-1 grid gap-3 md:grid-cols-2">
                   {(muc.block ?? []).map((o) => (
                     <OPhieu
                       key={o.ma}
@@ -521,7 +529,7 @@ export default function PhieuKetQua({
 
           {nguoiCoThe && nguoiCoThe.length > 0 ? (
             <label className="block">
-              <span className="text-xs font-semibold text-ink">
+              <span className="text-meta font-semibold text-ink">
                 Người thực hiện (khác người đang gõ thì chọn lại)
               </span>
               <select
@@ -534,7 +542,7 @@ export default function PhieuKetQua({
                   // trang là mất — tự lưu mới lưu nửa cái phiếu.
                   if (phieu) tuLuu(gia, phieu, ai);
                 }}
-                className="mt-1 min-h-10 w-full max-w-sm rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                className="mt-1 min-h-10 w-full max-w-sm rounded-control border border-line bg-surface px-3 text-body text-ink"
               >
                 <option value="">— tôi, người đang gõ —</option>
                 {nguoiCoThe.map((n) => (
@@ -549,14 +557,14 @@ export default function PhieuKetQua({
           <div className="flex flex-wrap items-center gap-3">
             {dangSuaLai ? (
               <label className="w-full">
-                <span className="text-xs font-semibold text-ink">
+                <span className="text-meta font-semibold text-ink">
                   Vì sao sửa kết quả này
                 </span>
                 <input
                   value={lyDoSua}
                   onChange={(e) => setLyDoSua(e.target.value)}
                   placeholder="Ví dụ: nhầm bên phải/trái khi gõ kết luận"
-                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
                 />
               </label>
             ) : null}
@@ -614,7 +622,7 @@ function OPhieu({
   onDoi: (v: string) => void;
 }) {
   const nhan = (
-    <span className="text-xs font-semibold text-ink">
+    <span className="text-meta font-semibold text-ink">
       {o.ten}
       {nguon === "TEMPLATE_DEFAULT" ? (
         <span className="ml-2 font-normal text-ink-muted">(câu điền sẵn)</span>
@@ -624,12 +632,12 @@ function OPhieu({
 
   if (o.kieu === "chon" && Array.isArray(o.chon)) {
     return (
-      <label className="block">
+      <label className="block min-w-0">
         {nhan}
         <select
           value={giaTri}
           onChange={(e) => onDoi(e.target.value)}
-          className="mt-1 min-h-10 w-full max-w-sm rounded-control border border-line bg-surface px-3 text-sm text-ink"
+          className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
         >
           <option value="">— chưa chọn —</option>
           {o.chon.map((c) => (
@@ -644,29 +652,29 @@ function OPhieu({
 
   if (o.kieu === "doan_van") {
     return (
-      <label className="block">
+      <label className="block min-w-0 md:col-span-2">
         {nhan}
         <textarea
           value={giaTri}
           onChange={(e) => onDoi(e.target.value)}
           rows={4}
           placeholder={o.goi_y ?? ""}
-          className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink"
+          className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
         />
       </label>
     );
   }
 
   return (
-    <label className="block">
+    <label className="block min-w-0">
       {nhan}
-      <span className="mt-1 flex max-w-md items-center gap-2">
+      <span className="mt-1 flex items-center gap-2">
         <input
           type={o.kieu === "so" ? "number" : o.kieu === "ngay" ? "date" : "text"}
           value={giaTri}
           onChange={(e) => onDoi(e.target.value)}
           placeholder={o.goi_y ?? ""}
-          className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+          className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
         />
         {o.goi_y && o.goi_y.length <= 16 ? (
           <span className="shrink-0 text-meta text-ink-muted">{o.goi_y}</span>
@@ -697,7 +705,7 @@ function BangMuc({
           aria-label={nhanO}
           value={gia[khoa] ?? ""}
           onChange={(e) => onDoi(khoa, e.target.value)}
-          className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-sm text-ink"
+          className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-body text-ink"
         >
           <option value="">—</option>
           {o.chon.map((x) => (
@@ -715,7 +723,7 @@ function BangMuc({
           value={gia[khoa] ?? ""}
           onChange={(e) => onDoi(khoa, e.target.value)}
           rows={2}
-          className="w-full rounded-control border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+          className="w-full rounded-control border border-line bg-surface px-2 py-1.5 text-body text-ink"
         />
       );
     }
@@ -725,15 +733,15 @@ function BangMuc({
         value={gia[khoa] ?? ""}
         onChange={(e) => onDoi(khoa, e.target.value)}
         placeholder={o.goi_y ?? ""}
-        className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-sm text-ink"
+        className="min-h-10 w-full rounded-control border border-line bg-surface px-2 text-body text-ink"
       />
     );
   };
   return (
     <div className="mt-1 overflow-x-auto">
-      <table className="w-full min-w-[28rem] border-collapse text-sm">
+      <table className="w-full min-w-[28rem] border-collapse text-body">
         <thead>
-          <tr className="text-left text-xs text-ink-muted">
+          <tr className="text-left text-meta text-ink-muted">
             <th className="py-1.5 pr-3 font-medium">{muc.ten}</th>
             {cot.map((c) => (
               <th key={c.ma} className="py-1.5 pr-3 font-medium">

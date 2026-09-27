@@ -157,6 +157,9 @@ export interface DauPhieu {
     /** Số booking (lúc đặt) + số check-in (quầy cấp) — `components/ui/SoLuot`. */
     so_booking?: number | null;
     so_tiep_don?: number | null;
+    /** Đầu trang bản in (27/09/2026): tên phòng khám + địa chỉ cơ sở của lượt. */
+    phong_kham?: string | null;
+    dia_chi_co_so?: string | null;
   };
   /** Chín ô thẻ sinh hiệu: nhãn đầy đủ + giá trị đã kèm đơn vị. */
   the_sinh_hieu?: { khoa: string; nhan: string; gia_tri: string | null }[];
