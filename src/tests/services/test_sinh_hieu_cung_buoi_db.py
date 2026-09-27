@@ -468,7 +468,7 @@ async def test_chay_h1_hai_lan_va_phat_lai_khong_nhan_doi(
         l2.visit,
     )
     async with pool.acquire() as conn, conn.transaction():
-        again = await LuotKhamService(pool=None).xep_sau_check_in(  # type: ignore[arg-type]
+        again = await LuotKhamService(pool=None).xep_sau_check_in(
             conn, clinic_id=CLINIC, visit_id=l2.visit
         )
     assert again is None
