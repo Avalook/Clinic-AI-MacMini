@@ -11,25 +11,21 @@
 //
 // Tự lưu: dừng gõ ~1 giây hoặc rời ô. Trạng thái lưu báo lên qua `onTrangThai`
 // để nút "Xong tư vấn" đợi chữ lưu xong.
+//
+// Đợt 3 (27/09/2026): ô này là CHUẨN cho mọi màn tự lưu, nay đi chung hàng đợi
+// `lib/use-tu-luu` — thêm lưu nốt khi rời màn / đóng tab, lỗi mạng tự thử lại,
+// [Lưu ngay] / [Thử lại], và cổng mang `luuNot` (Xong tư vấn tự lưu nốt).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { ClinicalCompletionGate } from "@/lib/clinical-completion";
+import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
+import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
+import { nenThuLai } from "@/lib/tu-luu";
+import { useTuLuu } from "@/lib/use-tu-luu";
 import { INPUT } from "../../form-ui";
 import { guiThaoTac } from "../api";
 
-type TrangThai = "da-luu" | "chua-luu" | "dang-luu" | "loi";
-
 const CHO_LUU_MS = 1000;
-
-function gio(d: Date): string {
-  return d.toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Ho_Chi_Minh",
-  });
-}
 
 export default function OTuVanTuLuu({
   consultationId,
@@ -54,60 +50,24 @@ export default function OTuVanTuLuu({
   placeholder?: string;
 }) {
   const [chu, setChu] = useState(banDau);
-  const [tt, setTt] = useState<TrangThai>("da-luu");
-  const [luuLuc, setLuuLuc] = useState<Date | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
   const daLuu = useRef(banDau);
-  const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chuRef = useRef(banDau);
+
+  const gui = useCallback(async () => {
+    const noiDung = chuRef.current;
+    if (noiDung === daLuu.current) return { ok: true } as const;
+    const kq = await guiThaoTac("noi-dung-tu-van", consultationId, { noi_dung: noiDung });
+    if (!kq.ok) {
+      return { ok: false, loi: kq.loi, thuLai: nenThuLai(kq.status) } as const;
+    }
+    daLuu.current = noiDung;
+    return { ok: true } as const;
+  }, [consultationId]);
+  const tuLuu = useTuLuu({ gui, choMs: CHO_LUU_MS, tat: !choGhi });
 
   useEffect(() => {
-    if (!onTrangThai) return;
-    const ok = tt === "da-luu";
-    onTrangThai({
-      ok,
-      code: ok ? null : "UNSAVED_CHANGES",
-      message: ok ? null : "Nội dung tư vấn chưa lưu xong — đợi chữ “Đã lưu” rồi bấm lại.",
-    });
-  }, [tt, onTrangThai]);
-
-  useEffect(
-    () => () => {
-      if (hen.current) clearTimeout(hen.current);
-    },
-    [],
-  );
-
-  const luu = useCallback(
-    async (noiDung: string) => {
-      if (noiDung === daLuu.current) {
-        setTt("da-luu");
-        return;
-      }
-      setTt("dang-luu");
-      setLoi(null);
-      const kq = await guiThaoTac("noi-dung-tu-van", consultationId, { noi_dung: noiDung });
-      if (!kq.ok) {
-        setTt("loi");
-        setLoi(kq.loi);
-        return;
-      }
-      daLuu.current = noiDung;
-      setLuuLuc(new Date());
-      setTt("da-luu");
-    },
-    [consultationId],
-  );
-
-  const chuTrangThai =
-    tt === "dang-luu"
-      ? "Đang lưu…"
-      : tt === "chua-luu"
-        ? "Chưa lưu"
-        : tt === "da-luu"
-          ? luuLuc
-            ? `Đã lưu ${gio(luuLuc)}`
-            : "Tự lưu khi gõ"
-          : null;
+    onTrangThai?.(congTuLuu(tuLuu.trangThai, tuLuu.luuNgay, "Nội dung tư vấn"));
+  }, [tuLuu.trangThai, tuLuu.luuNgay, onTrangThai]);
 
   return (
     <div className="space-y-2">
@@ -116,29 +76,17 @@ export default function OTuVanTuLuu({
         aria-label={nhan}
         disabled={!choGhi}
         onChange={(e) => {
-          const v = e.target.value;
-          setChu(v);
-          setTt("chua-luu");
-          if (hen.current) clearTimeout(hen.current);
-          hen.current = setTimeout(() => void luu(v), CHO_LUU_MS);
+          chuRef.current = e.target.value;
+          setChu(e.target.value);
+          tuLuu.danhDau();
         }}
         onBlur={() => {
-          if (hen.current) clearTimeout(hen.current);
-          void luu(chu);
+          if (tuLuu.trangThai.chua_luu) void tuLuu.luuNgay();
         }}
         placeholder={placeholder}
         className={`${INPUT} resize-y leading-relaxed ${to ? "min-h-60 sm:min-h-60" : "min-h-40 sm:min-h-40"}`}
       />
-      {chuTrangThai ? (
-        <p className="text-meta text-ink-muted" aria-live="polite">
-          {chuTrangThai}
-        </p>
-      ) : null}
-      {loi ? (
-        <p role="alert" className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">
-          {loi}
-        </p>
-      ) : null}
+      {choGhi ? <TrangThaiLuu tt={tuLuu.trangThai} onLuuNgay={() => void tuLuu.luuNgay()} /> : null}
     </div>
   );
 }

@@ -362,6 +362,42 @@ export function giaTriBanDau(duLieu: Record<string, ONhap>): Record<string, GiaT
   return Object.fromEntries(Object.entries(duLieu).map(([k, v]) => [k, v.gia_tri]));
 }
 
+/** Cảnh báo từng ô máy chủ trả khi lưu (số / ngày không đọc được → lưu RỖNG). */
+export interface CanhBaoO {
+  ma: string;
+  ten: string;
+  loi: string;
+}
+
+function laCanhBao(x: unknown): x is CanhBaoO {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return typeof o.ma === "string" && o.ma !== "" && typeof o.ten === "string" && typeof o.loi === "string";
+}
+
+/**
+ * Gộp cảnh báo sau một lần tự lưu (đợt 3, 27/09/2026). Tự lưu chỉ gửi các ô
+ * VỪA ĐỔI (`phanThayDoi`), nên `canh_bao` máy chủ trả chỉ nói về các ô ấy: ô
+ * vừa gửi lấy cảnh báo mới (hoặc hết cảnh báo), ô khác GIỮ cảnh báo cũ — nếu
+ * không, lưu một ô khác là xoá mất câu "“28-30” không phải số — ô để trống".
+ * `moi` từ mạng: rác → coi như không có cảnh báo.
+ */
+export function gopCanhBao(
+  cu: readonly CanhBaoO[],
+  daGui: readonly string[],
+  moi: unknown,
+): CanhBaoO[] {
+  const gui = new Set(daGui);
+  const ra = cu.filter((c) => !gui.has(c.ma));
+  const co = new Set(ra.map((c) => c.ma));
+  for (const c of Array.isArray(moi) ? moi : []) {
+    if (!laCanhBao(c) || co.has(c.ma)) continue;
+    co.add(c.ma);
+    ra.push({ ma: c.ma, ten: c.ten, loi: c.loi });
+  }
+  return ra;
+}
+
 // ---------------------------------------------------------------------------
 // Tham chiếu nguồn (mục E, F) — nhãn CHỜ ÁNH XẠ, chưa phải định danh
 // ---------------------------------------------------------------------------

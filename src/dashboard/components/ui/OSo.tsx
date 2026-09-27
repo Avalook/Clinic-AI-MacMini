@@ -76,7 +76,8 @@ export default function OSo({
       inputMode="decimal"
       autoComplete="off"
       value={value}
-      aria-invalid={chuan === null ? true : undefined}
+      // Lỗi tại chỗ (chữ không đọc được) HOẶC lỗi máy chủ báo về ô này (đợt 3).
+      aria-invalid={chuan === null || rest["aria-invalid"] ? true : undefined}
       title={rest.title ?? "Bấm vào ô rồi lăn chuột để tăng / giảm"}
       onChange={(e) => onChange(locKhiGo(e.target.value))}
       onBlur={(e) => {

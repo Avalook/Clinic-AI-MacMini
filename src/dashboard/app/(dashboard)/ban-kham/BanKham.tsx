@@ -758,11 +758,29 @@ function HoSo({
       }
 
       if (!completionGate.ok) {
-        setLoi({
-          id: dong.id,
-          cau: completionGate.message ?? "Hồ sơ chưa sẵn sàng để Hoàn tất.",
-        });
-        return;
+        // Còn chữ chưa lưu (đợt 3, 27/09/2026 — góp ý B9): KHÔNG bắt người
+        // dùng đợi "Đã lưu" rồi bấm lại — lưu nốt ngay, xong mới gửi. Lưu
+        // không được thì không gửi và nói lý do ngay dưới nút.
+        if (completionGate.code === "UNSAVED_CHANGES" && completionGate.luuNot) {
+          setDangGui(true);
+          setLoi(null);
+          const daLuu = await completionGate.luuNot();
+          setDangGui(false);
+          if (!daLuu) {
+            setLoi({
+              id: dong.id,
+              cau:
+                "Nội dung vừa gõ CHƯA lưu được nên chưa Hoàn tất. Xem dòng trạng thái lưu, bấm [Thử lại] rồi bấm lại.",
+            });
+            return;
+          }
+        } else {
+          setLoi({
+            id: dong.id,
+            cau: completionGate.message ?? "Hồ sơ chưa sẵn sàng để Hoàn tất.",
+          });
+          return;
+        }
       }
 
       if (thaoTac === "kham-xong" && HOI_LAI_KHI_HOAN_TAT) {

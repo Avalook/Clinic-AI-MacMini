@@ -18,6 +18,7 @@ import {
   soLuongTuChu,
   tachDanhMucKhac,
   thanhTienDong,
+  gopCanhBao,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
   type MauThuoc,
@@ -215,4 +216,30 @@ test("ô ngày đọc / in kiểu VN; giá trị lạ để nguyên", () => {
   assert.equal(giaTriDoc(o, { gia_tri: "", nguon: "BS" }), "—");
   const chu = { ma: "x", ten: "X", kieu: "text" } as OPhieu;
   assert.equal(giaTriDoc(chu, { gia_tri: "2026-10-27", nguon: "BS" }), "2026-10-27");
+});
+
+test("gopCanhBao: ô vừa gửi lấy cảnh báo mới, ô khác giữ cảnh báo cũ (đợt 3)", () => {
+  const cu = [
+    { ma: "so_1", ten: "Chu kỳ", loi: "“28-30” không phải số — ô được để trống." },
+    { ma: "ngay_1", ten: "Ngày KCC", loi: "Ngày không đọc được." },
+  ];
+  // Lưu ô khác (text) — không có cảnh báo mới → hai cảnh báo cũ còn nguyên.
+  assert.deepEqual(gopCanhBao(cu, ["ghi_chu"], []), cu);
+  // Sửa ô số cho đúng → hết cảnh báo ô ấy, ô ngày vẫn còn.
+  assert.deepEqual(gopCanhBao(cu, ["so_1"], []), [cu[1]]);
+  // Gửi lại ô số vẫn sai → cảnh báo mới thay cũ, không nhân đôi.
+  const moi = [{ ma: "so_1", ten: "Chu kỳ", loi: "“abc” không phải số — ô được để trống." }];
+  assert.deepEqual(gopCanhBao(cu, ["so_1"], moi), [cu[1], moi[0]]);
+  // Trùng mã trong phản hồi → một.
+  assert.equal(gopCanhBao([], ["so_1"], [moi[0], moi[0]]).length, 1);
+});
+
+test("gopCanhBao: phản hồi rác không ném, bỏ phần tử hỏng", () => {
+  const cu = [{ ma: "a", ten: "A", loi: "x" }];
+  assert.deepEqual(gopCanhBao(cu, [], null), cu);
+  assert.deepEqual(gopCanhBao(cu, [], "loi"), cu);
+  assert.deepEqual(gopCanhBao([], [], [null, 1, { ma: "", ten: "t", loi: "l" }, { ma: "b" }]), []);
+  assert.deepEqual(gopCanhBao([], [], [{ ma: "b", ten: "B", loi: "hỏng", thua: 1 }]), [
+    { ma: "b", ten: "B", loi: "hỏng" },
+  ]);
 });
