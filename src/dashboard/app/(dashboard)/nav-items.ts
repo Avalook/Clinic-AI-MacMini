@@ -32,7 +32,7 @@ import {
   FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
-import { type ClinicRole } from "../../lib/roles";
+import { legoChoHien, type ClinicRole } from "../../lib/roles";
 
 export interface NavItem {
   href: string;
@@ -564,6 +564,8 @@ export function mucHienRa(
   viTriHomNay: readonly string[] = [],
   /** Phòng của từng vị trí hôm nay (máy chủ tính từ `room_id`). */
   phong: PhongTheoViTri = {},
+  /** Quyền (capability) của tài khoản. `null` = máy chủ chưa trả lời. */
+  quyen: readonly string[] | null = null,
 ): NavItem[] {
   const conLai = (item: NavItem) =>
     !(featureMode === "CSKH_ONLY" && laManLamSang(item.href, clinicalHrefs));
@@ -580,7 +582,11 @@ export function mucHienRa(
   const theoViTri = role !== "MANAGEMENT" ? hrefTheoViTri(viTriHomNay, phong) : [];
   if (theoViTri.length > 0) {
     const thuTu = ["/home", ...theoViTri, "/schedule"];
+    // VỊ TRÍ quyết màn nào bày hôm nay, LEGO quyết màn nào được bày (kiểm toán
+    // 27/09/2026): đứng Lễ tân mà lego Tiếp đón đang tắt thì không hiện mục
+    // Tiếp đón — trước đây nhánh này trả thẳng, bỏ qua lego.
     return thuTu
+      .filter((h) => legoChoHien(quyen, h))
       .map((h) => mucPhong(h, phong))
       .filter((item): item is NavItem => item !== undefined && conLai(item));
   }
@@ -603,11 +609,12 @@ export function nhomThanhBen(
   clinicalHrefs: ReadonlySet<string>,
   viTriHomNay: readonly string[] = [],
   phong: PhongTheoViTri = {},
+  quyen: readonly string[] | null = null,
 ): { dau: NavItem[]; nhom: NhomThanhBen[]; khac: NavItem[] } {
   // Cùng một phép lọc với thanh dưới — `mucHienRa` — để hai thanh không lệch.
   const theoVai = mucHienRa(role, hienTrenThanhBen, featureMode, clinicalHrefs, []);
   const homNay = mucHienRa(
-    role, hienTrenThanhBen, featureMode, clinicalHrefs, viTriHomNay, phong,
+    role, hienTrenThanhBen, featureMode, clinicalHrefs, viTriHomNay, phong, quyen,
   );
   const coCa = role !== "MANAGEMENT" && hrefTheoViTri(viTriHomNay).length > 0;
   if (!coCa) {
@@ -627,7 +634,7 @@ export function nhomThanhBen(
   const dau = homNay.filter((i) => i.href === "/home");
   daCo.add("/home");
   const khac = theoVai.filter((i) => !daCo.has(i.href));
-  if (!khac.some((i) => i.href === "/schedule")) {
+  if (!khac.some((i) => i.href === "/schedule") && legoChoHien(quyen, "/schedule")) {
     const lich = NAV.find((i) => i.href === "/schedule");
     if (lich) khac.push(lich);
   }

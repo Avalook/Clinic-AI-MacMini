@@ -3,14 +3,13 @@
 // actual create+link happens server-side (app/api/admin/users) so the
 // SERVICE_ROLE_KEY never leaves the dashboard process.
 
-import { redirect } from "next/navigation";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import {
   hasServiceRoleKey,
   SERVICE_ROLE_ENV,
 } from "../../../../lib/supabase-service";
-import { vaiLamViec } from "../../../../lib/clinic-session";
-import { isAdminRole, ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
+import { requireNavAccess } from "../../../../lib/clinic-session";
+import { ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
 import NewUserForm from "./NewUserForm";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +29,8 @@ interface UnlinkedStaff {
 // chép tay là một bảng nhãn sẽ thiếu vai tiếp theo.
 
 export default async function NewUserPage() {
-  const role = await vaiLamViec(isAdminRole);
-  if (!isAdminRole(role)) redirect("/home");
+  // Lego 19 "Nhân sự & phân quyền" (27/09/2026) — trước gác vai Quản lý.
+  await requireNavAccess("/settings/new-user");
 
   // 24/09/2026: đọc qua backend `GET /api/v1/staff/tai-khoan` (Quản lý); lọc
   // "chưa nối tài khoản, còn làm" ở đây chỉ là chọn dòng để hiện.

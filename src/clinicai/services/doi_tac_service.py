@@ -13,16 +13,14 @@ from typing import Any
 import asyncpg
 import structlog
 
-from clinicai.api.identity import (
-    ClinicRole,
-    StaffIdentity,
-)
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     DoiTacDaLayMau,
 )
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
@@ -87,6 +85,14 @@ class DoiTacService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def _doi_quyen_doi_tac(self, identity: StaffIdentity, cau: str) -> None:
+        """Lego 21 "Đối tác" (quyền `partner.work`) — cùng câu router hỏi
+        (`get_partner_identity`). Trước 27/09/2026 hỏi vai PARTNER/MANAGEMENT,
+        nên quyền này là nhãn: thu lego không mất gì."""
+        async with self._pool.acquire() as conn:
+            if not await can(conn, identity, "partner.work"):
+                raise SafetyGateError(cau)
+
     async def viec_doi_tac(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Việc trên bàn đối tác, gom theo khách.
 
@@ -102,8 +108,7 @@ class DoiTacService:
         / "lấy mẫu xong") — không còn hiện việc tự-lấy-mẫu trước khi khách
         chọn làm và trả tiền.
         """
-        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
-            raise SafetyGateError("Màn này chỉ dành cho đối tác.")
+        await self._doi_quyen_doi_tac(identity, "Màn này chỉ dành cho đối tác.")
         rows = await self._pool.fetch(
             """
             SELECT o.id::text AS chi_dinh_id, o.service_code, o.exec_status,
@@ -196,8 +201,7 @@ class DoiTacService:
         vậy trạng thái mới đồng bộ về cho cskh"*. Chỉ bấm được khi mẫu đã có
         (performed); bấm lại không đổi mốc đầu tiên.
         """
-        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
-            raise SafetyGateError("Chỉ đối tác bấm được việc này.")
+        await self._doi_quyen_doi_tac(identity, "Chỉ đối tác bấm được việc này.")
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã việc không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
@@ -254,8 +258,7 @@ class DoiTacService:
         self, *, order_id: str, identity: StaffIdentity, ghi_chu: str | None = None
     ) -> dict[str, Any]:
         """Đối tác bấm "Đã lấy mẫu" cho xét nghiệm họ tự lấy."""
-        if not identity.co_vai((ClinicRole.PARTNER, ClinicRole.MANAGEMENT)):
-            raise SafetyGateError("Chỉ đối tác bấm được việc này.")
+        await self._doi_quyen_doi_tac(identity, "Chỉ đối tác bấm được việc này.")
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã việc không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():

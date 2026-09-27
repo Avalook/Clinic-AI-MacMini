@@ -7,10 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
-
-const VAI_DUOC_GHI = new Set(["CSKH", "MANAGEMENT", "TRUONG_CA"]);
 
 export async function POST(
   request: Request,
@@ -22,13 +19,8 @@ export async function POST(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await vaiLamViec((r) => VAI_DUOC_GHI.has(r));
-  if (!role || !VAI_DUOC_GHI.has(role)) {
-    return NextResponse.json(
-      { error: "Chỉ CSKH / Trưởng ca / Quản lý mới ghi được kết quả cuộc gọi." },
-      { status: 403 },
-    );
-  }
+  // Cửa quyền là việc của BACKEND (crm.manage — lego Chăm sóc khách hàng) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   const { id } = await params;
   let body: unknown;

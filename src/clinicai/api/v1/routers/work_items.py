@@ -30,8 +30,9 @@ from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
 from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.service_order_service import ServiceOrderService
-from clinicai.services.work_item_service import WorkItemService
+from clinicai.services.work_item_service import QUYEN_THEO_KHU, WorkItemService
 
 router = APIRouter()
 
@@ -72,6 +73,13 @@ async def require_workspace_read_access(
     pool: asyncpg.Pool,
 ) -> None:
     """Fail closed before a workspace query can expose another station's PII."""
+    # Khu do LEGO quyết (27/09/2026): chỉ hỏi quyền của khu — kể cả quản lý và
+    # trưởng ca. Thu lego "Việc cần xử lý" là mất khu, bất kể vai.
+    quyen_khu = QUYEN_THEO_KHU.get(workspace)
+    if quyen_khu is not None:
+        async with pool.acquire() as conn:
+            await doi_quyen(conn, identity, quyen_khu)
+        return
     if identity.co_vai(_WORKSPACE_COORDINATOR_ROLES):
         return
 
@@ -360,6 +368,8 @@ async def worklist(
         day=day,
         identity=identity,
         mine_only=mine_only,
+        # Đã qua cửa quyền của khu ở trên → thấy cả khu.
+        ca_khu=workspace in QUYEN_THEO_KHU,
     )
     return [WorklistItem(**row) for row in rows]  # type: ignore[arg-type]
 

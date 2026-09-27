@@ -110,8 +110,9 @@ def pytest_collection_modifyitems(
 def _siet_quyen_khi_kiem(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bộ kiểm chạy ở chế độ SIẾT, kể cả khi bản chạy thật đang mở quyền.
 
-    `MO_QUYEN_TAM_THOI` mặc định BẬT (Tuyền chốt 16/09/2026, xem
-    `identity.mo_quyen_tam_thoi`). Nếu bộ kiểm cũng chạy ở chế độ mở thì mọi
+    `MO_QUYEN_TAM_THOI` mặc định TẮT từ 27/09/2026 (xem
+    `identity.mo_quyen_tam_thoi`), nhưng máy chạy thử có thể đang đặt biến này
+    trong môi trường. Nếu bộ kiểm cũng chạy ở chế độ mở thì mọi
     bài kiểm phân quyền đều xanh vì ai cũng qua được — và ngày tắt công tắc,
     không còn gì bảo đảm các luật gốc vẫn đúng.
 

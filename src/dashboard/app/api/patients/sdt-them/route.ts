@@ -10,8 +10,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../lib/clinic-session";
-import { canWriteIntake } from "../../../../lib/roles";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 export async function POST(request: Request) {
@@ -23,10 +21,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
   // Cùng vai với màn tạo bệnh nhân — nơi duy nhất có nút này.
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Cửa quyền là việc của BACKEND (/patients/sdt-them) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   const body = (await request.json().catch(() => null)) as {
     clinic_patient_id?: string;
@@ -56,10 +52,8 @@ export async function DELETE(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Cửa quyền là việc của BACKEND (/patients/sdt-them) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   const sp = new URL(request.url).searchParams;
   const benhNhan = sp.get("clinic_patient_id")?.trim();

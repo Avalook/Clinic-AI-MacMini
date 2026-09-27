@@ -61,9 +61,11 @@ import { useRouter } from "next/navigation";
 
 import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
 import {
+  AN_HAN_ROT_MS,
   moDongTheoHien,
   SU_KIEN_BANG,
   taoNhipLamMoi,
+  trangThaiDong,
 } from "../../lib/nhip-lam-moi";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
@@ -118,6 +120,9 @@ const LIVE_TABLES = [
   // dịch gốc. Trigger ở 20260926000007 — form_instance chỉ báo khi đổi trạng thái.
   "form_instance",
   "luot_dong_thoi_gian",
+  // CỐ Ý KHÔNG CÓ `thong_bao` (27/09/2026): chuông tự hỏi lại danh sách của nó
+  // qua `useNgheBang` — dựng lại cả trang cho mỗi cuộc gọi của trưởng ca là
+  // việc thừa. Cùng lý do `slot_hold` không nằm đây.
 ] as const;
 
 // PROP `clinicId` ĐÃ BỎ (06/08/2026). Nó từng dùng để bảo Supabase Realtime
@@ -169,6 +174,20 @@ export default function RealtimeRefresher({
     const goDong = moDongTheoHien({
       moDong: (nhanTin) => {
         const es = new EventSource("/api/events/stream");
+        // TÌNH TRẠNG DÒNG cho các chỉ báo (xem `trangThaiDong`). Lỗi chưa báo
+        // ngay: EventSource tự nối lại sau vài giây, và một lần chớp không
+        // đáng một dòng chữ vàng "mất kết nối".
+        let henRot: ReturnType<typeof setTimeout> | undefined;
+        trangThaiDong.dat("dang-noi");
+        es.addEventListener("open", () => {
+          clearTimeout(henRot);
+          henRot = undefined;
+          trangThaiDong.dat("song");
+        });
+        es.addEventListener("error", () => {
+          if (henRot !== undefined) return;
+          henRot = setTimeout(() => trangThaiDong.dat("rot"), AN_HAN_ROT_MS);
+        });
         es.addEventListener("change", (ev) => {
           try {
             const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
@@ -183,7 +202,11 @@ export default function RealtimeRefresher({
         });
         // KHÔNG tự nối lại ở đây: EventSource đã tự làm, và viết thêm một vòng
         // nối lại của mình sẽ chạy song song với vòng của trình duyệt.
-        return () => es.close();
+        return () => {
+          clearTimeout(henRot);
+          es.close();
+          trangThaiDong.dat("dang-noi");
+        };
       },
 
       dangAn,
@@ -210,6 +233,10 @@ export default function RealtimeRefresher({
       khiMoLai: () => {
         nhip.batKip();
         chuongCa.batKip();
+        // Màn tự fetch (chuông, trưởng ca, check-out…) cũng mù suốt quãng ẩn,
+        // và router.refresh() không với tới state của chúng. `null` = "không
+        // rõ bảng nào đổi" — mọi người nghe SU_KIEN_BANG đều coi là phải hỏi lại.
+        window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: null }));
       },
     });
 

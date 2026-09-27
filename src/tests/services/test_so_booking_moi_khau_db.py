@@ -62,3 +62,19 @@ async def test_hai_so_co_o_moi_nguon_doc(pool: asyncpg.Pool) -> None:  # noqa: F
     assert (xem["khach"]["so_booking"], xem["khach"]["so_tiep_don"]) == mong
     # Bác sĩ đọc được hồ sơ khám → Xem lượt hiện [In phiếu khám].
     assert xem["in_phieu"] is True
+
+
+async def test_quay_thu_tien_in_duoc_phieu(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Tuyền 27/09: in phiếu ở MỌI khâu — thu ngân / lễ tân đọc được để in."""
+    from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    for ai in (ca.thu_ngan, ca.le_tan):
+        xem = await XemLuotService(pool).doc(visit_id=visit, identity=ai)
+        assert xem["in_phieu"] is True
+        dau = await PhieuKhamService(pool, kiem_quyen=kiem_quyen_core).dau_phieu(
+            visit_id=visit, identity=ai
+        )
+        assert "the_khach" in dau

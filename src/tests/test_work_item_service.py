@@ -413,3 +413,106 @@ async def test_nhat_ky_ghi_vai_da_dung_de_qua_cua(
     event_args = conn.execute.await_args.args
     assert event_args[7] == vai_ghi
     assert json.loads(event_args[9])["vai_tai_khoan"] == "NURSE_ULTRASOUND"
+
+
+# ── Khu do LEGO quyết: "Việc cần xử lý" hỏi worklist.handle (27/09/2026) ─────
+
+
+def _pool_khu_van_hanh(actor_roles: list[str], membership_role: str) -> MagicMock:
+    pool = MagicMock()
+    conn = AsyncMock()
+    acquire = AsyncMock()
+    acquire.__aenter__.return_value = conn
+    pool.acquire.return_value = acquire
+    transaction = MagicMock()
+    transaction.__aenter__ = AsyncMock(return_value=None)
+    transaction.__aexit__ = AsyncMock(return_value=None)
+    conn.transaction = MagicMock(return_value=transaction)
+    conn.fetchrow.side_effect = [
+        {
+            "id": "10000000-0000-4000-8000-000000000009",
+            "status": PENDING,
+            "version": 1,
+            "node_code": "OPS-FINANCIAL-RESOLUTION",
+            "clinic_id": "a0000000-0000-4000-8000-000000000001",
+            "actor_roles": actor_roles,
+            "membership_role": membership_role,
+            "node_name": "Đối soát tiền",
+            "flow_group": "van_hanh",
+            "workspace": "khu_van_hanh",
+        },
+        {"version": 2},
+    ]
+    conn.fetch.return_value = []
+    return pool
+
+
+def _danh_tinh(vai: ClinicRole) -> StaffIdentity:
+    return StaffIdentity(
+        staff_id="20000000-0000-4000-8000-000000000009",
+        auth_user_id="30000000-0000-4000-8000-000000000009",
+        full_name="Người thử",
+        department=vai.value,
+        role=vai,
+        clinic_id="a0000000-0000-4000-8000-000000000001",
+        location_id="fe45d9f6-0d67-428d-9d16-5ba5c36befff",
+        location_name="Kim Ngưu",
+    )
+
+
+@pytest.mark.asyncio
+async def test_viec_can_xu_ly_lego_tat_thi_vai_dung_cung_bi_chan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Quản lý có tên trong actor_roles nhưng lego "Việc cần xử lý" đã thu → chặn."""
+    monkeypatch.setattr(
+        "clinicai.services.work_item_service.can", AsyncMock(return_value=False)
+    )
+    pool = _pool_khu_van_hanh(["MANAGEMENT", "CASHIER"], "MANAGEMENT")
+    with pytest.raises(SafetyGateError, match="chưa được cấp quyền"):
+        await WorkItemService(pool).issue(
+            work_item_id="10000000-0000-4000-8000-000000000009",
+            command="start",
+            identity=_danh_tinh(ClinicRole.MANAGEMENT),
+        )
+
+
+@pytest.mark.asyncio
+async def test_viec_can_xu_ly_co_lego_thi_lam_duoc_du_vai_khong_co_ten(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lễ tân không có trong actor_roles (người dự phòng), nhưng có lego → làm được."""
+    can = AsyncMock(return_value=True)
+    monkeypatch.setattr("clinicai.services.work_item_service.can", can)
+    pool = _pool_khu_van_hanh(["MANAGEMENT", "CASHIER"], "RECEPTION")
+    ket = await WorkItemService(pool).issue(
+        work_item_id="10000000-0000-4000-8000-000000000009",
+        command="start",
+        identity=_danh_tinh(ClinicRole.RECEPTION),
+    )
+    assert ket["status"] == IN_PROGRESS
+    assert can.await_args is not None
+    assert can.await_args.args[2] == "worklist.handle"
+
+
+@pytest.mark.asyncio
+async def test_doc_khu_van_hanh_hoi_quyen_ke_ca_quan_ly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cửa ĐỌC khu cũng hỏi lego — quản lý/trưởng ca không còn đi tắt theo vai."""
+    from clinicai.api.v1.routers import work_items
+
+    doi = AsyncMock(side_effect=SafetyGateError("Bạn chưa được cấp quyền"))
+    monkeypatch.setattr(work_items, "doi_quyen", doi)
+    pool = MagicMock()
+    acquire = AsyncMock()
+    acquire.__aenter__.return_value = AsyncMock()
+    pool.acquire.return_value = acquire
+    with pytest.raises(SafetyGateError):
+        await work_items.require_workspace_read_access(
+            workspace="khu_van_hanh",
+            identity=_danh_tinh(ClinicRole.MANAGEMENT),
+            pool=pool,
+        )
+    assert doi.await_args is not None
+    assert doi.await_args.args[2] == "worklist.handle"

@@ -11,8 +11,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../lib/clinic-session";
-import { canWriteIntake } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 
 const EMPTY = { exists: false, matches: [] as unknown[] };
@@ -24,9 +22,9 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json(EMPTY, { status: 401 });
 
-  // Chỉ vai được tạo hồ sơ mới thấy danh sách này — nó là dữ liệu bệnh nhân.
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) return NextResponse.json(EMPTY, { status: 403 });
+  // Danh sách này là dữ liệu bệnh nhân: backend gác bằng CÙNG quyền với tạo hồ
+  // sơ (patient.create / booking.create / crm.manage — kiểm toán 27/09/2026).
+  // Proxy chỉ kiểm đăng nhập; backend từ chối thì trả rỗng như backend im.
 
   const sp = new URL(request.url).searchParams;
   const qs = new URLSearchParams();

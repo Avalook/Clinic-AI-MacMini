@@ -555,8 +555,14 @@ export function hienTrenThanhBen(
 // `NEXT_PUBLIC_*` vào mã trình duyệt khi build, nên đổi nó phải DỰNG LẠI ảnh
 // dashboard — khác với backend, chỉ cần khởi động lại container. Khác biệt ấy
 // đáng nhớ: tắt một nửa là quyền lệch nhau giữa hai tầng.
-const MO_QUYEN_TAM_THOI =
-  (process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI ?? "1").toLowerCase() !== "0";
+//
+// MẶC ĐỊNH TẮT (kiểm toán 27/09/2026, Tuyền: "xử lý đi, đừng để vậy"): thiếu
+// biến thì ĐÓNG, không mở. Trước đó mặc định "1" — biến rơi rụng lúc chuyển máy
+// là cả hệ tự mở quyền trong im lặng. Prod đã đặt 0 từ 26/09 nên không đổi hành
+// vi prod. Chỉ đúng "1" / "true" / "yes" mới bật.
+const MO_QUYEN_TAM_THOI = ["1", "true", "yes"].includes(
+  (process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI ?? "0").trim().toLowerCase(),
+);
 
 //: Màn KHÔNG mở theo công tắc. Không phải vì bí mật — backend vẫn gác chúng —
 //: mà vì chúng không phải "thao tác" của ai cả: cổng quản trị, cấu hình hệ
@@ -666,6 +672,66 @@ function quyenCuaMan(href: string): string[] {
 export function quyenMoDuocMan(quyen: readonly string[], href: string): boolean {
   const can = quyenCuaMan(href);
   return can.length > 0 && can.some((q) => quyen.includes(q));
+}
+
+/** Màn này thuộc một lego (có dòng `NAV_QUYEN`, kể cả màn theo phòng). */
+export function laManLego(href: string): boolean {
+  return quyenCuaMan(href).length > 0;
+}
+
+/** Mục này có được HIỆN theo lego không — lọc cho thanh bên ngày có ca (dựng
+ *  theo vị trí) và ô việc hôm nay ở trang chủ. Màn không thuộc lego, hoặc máy
+ *  chủ chưa trả lời quyền (`null`), thì không lọc: vị trí hôm nay quyết. */
+export function legoChoHien(quyen: readonly string[] | null, href: string): boolean {
+  if (quyen === null || !laManLego(href)) return true;
+  return quyenMoDuocMan(quyen, href);
+}
+
+/** CỬA TRANG — MỘT luật cho mọi `page.tsx` (kiểm toán 27/09/2026).
+ *
+ *  Màn THUỘC LEGO: chỉ hỏi lego của TÀI KHOẢN. Có quyền mở màn → vào; không
+ *  có → không, bất kể vai. Trước đây cửa này là "vai HOẶC quyền", mà vai lại
+ *  gồm cả vai SUY TỪ LEGO KHÁC (`vai_theo_lego`): lễ tân bật lego Đo sinh hiệu
+ *  thành "điều dưỡng", và `NAV_ROLES` của `/phong` có điều dưỡng — nên gõ URL
+ *  là vào được Phòng dịch vụ dù lego ấy đang TẮT (16 ô lệch khi quét).
+ *
+ *  KHÔNG có ngoại lệ "Quản lý luôn vào": mô hình quyền không có đường vòng ấy
+ *  (xem `permissions/can.py`) — quản lý mạnh vì preset có mọi khối và vì họ tự
+ *  cấp lại được qua màn Phân quyền.
+ *
+ *  Máy chủ chưa trả lời quyền (`null` — mạng chập, 429, tài khoản đối tác vốn
+ *  bị `/phan-quyen/toi` từ chối) → rơi về LUẬT GỐC theo vai (`canSeeNavGoc`,
+ *  không qua công tắc mở tạm), để một lần lỗi mạng không khoá cả phòng khám.
+ *  Backend vẫn tự kiểm quyền ở mọi lệnh.
+ *
+ *  Màn KHÔNG thuộc lego (Trang chủ, Hành trình, màn đã tắt…) giữ luật vai cũ. */
+/** GIỮ LỐI VÀO ĐANG DÙNG THẬT — NGOẠI LỆ TẠM (27/09/2026), chờ Tuyền chốt.
+ *
+ *  Đếm trên prod trước khi đổi cửa sang lego thuần: 11 ĐD siêu âm vào Tiếp đón
+ *  (bước xác minh), 12 bác sĩ + 10 lễ tân vào Đo sinh hiệu — đều qua luật vai
+ *  cũ, KHÔNG có lego tương ứng. Tuyền dặn "cái nào làm hệ thống hạn chế thì cứ
+ *  mở": giữ đúng 3 cặp này (không thêm), các lối lọt khác của kiểm toán vẫn
+ *  đóng. Muốn bỏ: cấp lego tương ứng cho các tài khoản ấy rồi xoá bảng này. */
+export const GIU_LOI_VAO_CU: Readonly<Record<string, readonly ClinicRole[]>> = {
+  "/do-sinh-hieu": ["DOCTOR", "RECEPTION"],
+  "/reception/queue": ["NURSE_ULTRASOUND"],
+};
+
+export function vaoDuocMan(
+  href: string,
+  vai: readonly ClinicRole[],
+  quyen: readonly string[] | null,
+): boolean {
+  if (laManLego(href)) {
+    if (quyen !== null) {
+      if (quyenMoDuocMan(quyen, href)) return true;
+      const giu = GIU_LOI_VAO_CU[href];
+      return giu !== undefined && vai.some((r) => giu.includes(r));
+    }
+    return vai.some((r) => canSeeNavGoc(r, href));
+  }
+  if (vai.length === 0) return canSeeNav(null, href);
+  return vai.some((r) => canSeeNav(r, href));
 }
 
 /** Luật của một đường dẫn. `/phong/<room_id>` và `/ban-kham/<room_id>` dùng luật

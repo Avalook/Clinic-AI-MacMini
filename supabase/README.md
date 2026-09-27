@@ -60,12 +60,19 @@ baseline → seed apply cleanly). The remaining 31 domain tables are all referen
 by the app — no further tables were safe to drop.
 
 ## Apply to a project
-```bash
-# preferred — Supabase CLI
-supabase link --project-ref <ref>
-supabase db push
+Prod is the self-hosted stack on the VPS (container `clinicai_db`). There is no
+Supabase cloud project and `supabase db push` is **not** used (27/09/2026).
 
-# or raw psql to a fresh project
+```bash
+# prod / any existing database — computes pending migrations from the ledger,
+# applies each one together with its ledger row in one transaction
+CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh          # dry run
+CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply
+docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
+
+# local dev: scripts/dev-up.sh applies them with the same tool
+
+# raw psql to a fresh, empty database
 for migration in migrations/*.sql; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
 done
@@ -84,9 +91,9 @@ are intentionally excluded — this is a structure-only clone.
 
 ## Add a change later
 ```bash
-supabase migration new <describe_change>   # creates a timestamped empty file
-# edit the SQL, commit, then:
-supabase db push
+supabase migration new <describe_change>   # creates a timestamped empty file (or name it by hand)
+# edit the SQL, commit, run ./scripts/ci-may.sh (applies migrations for real),
+# then on the VPS: back up, rehearse on a copy, apply-pending-migrations.sh --apply
 ```
 
 Database assertions must target a disposable database and roll back their own

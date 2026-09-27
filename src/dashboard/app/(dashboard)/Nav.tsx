@@ -58,6 +58,8 @@ export default function Nav({
     CLINICAL_HREFS,
     viTriHomNay,
     phong,
+    // Ngày có ca, thanh bên dựng theo vị trí — vẫn phải lọc theo lego.
+    quyen,
   );
   const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);

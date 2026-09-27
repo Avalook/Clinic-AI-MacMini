@@ -16,14 +16,12 @@
 // `node_definition.lam_ben_ngoai`. Gọi PostgREST từ đây là mở cho một tài khoản
 // NGOÀI phòng khám một đường đọc bảng, và đó đúng là thứ vai này không được có.
 
-import { redirect } from "next/navigation";
-
 import { logout } from "../(auth)/login/actions";
 import Shell from "../(dashboard)/Shell";
 import { NotificationProvider } from "../(dashboard)/NotificationContext";
-import { requireClinicRole } from "../../lib/clinic-session";
+import { requireClinicRole, requireNavAccess } from "../../lib/clinic-session";
 import { getCurrentStaff } from "../../lib/current-staff";
-import { ROLE_LABEL, canSeeNav } from "../../lib/roles";
+import { ROLE_LABEL } from "../../lib/roles";
 import BangDoiTac from "./BangDoiTac";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +29,10 @@ export const metadata = { title: "Việc của đối tác · ClinicAI" };
 
 export default async function TrangDoiTac() {
   const role = await requireClinicRole();
-  if (!canSeeNav(role, "/doi-tac")) redirect("/home");
+  // Lego 21 "Đối tác" (27/09/2026): cùng cửa trang với mọi màn lego. Tài khoản
+  // đối tác bị `/phan-quyen/toi` từ chối (hai chiều khoá) nên rơi về luật vai
+  // gốc — vẫn vào; backend `get_partner_identity` nay đòi thêm `partner.work`.
+  await requireNavAccess("/doi-tac");
   const staff = await getCurrentStaff();
   const identity = [
     ROLE_LABEL[role],

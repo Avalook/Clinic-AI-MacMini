@@ -20,6 +20,7 @@ reports it but the hard assertion is on the first.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -162,3 +163,79 @@ def test_moi_bang_duoc_nghe_deu_co_trigger_bao_tin() -> None:
         "thì im lặng — không lỗi, không cảnh báo, chỉ là màn hình chỉ tự mới sau "
         "nhịp dự phòng 60 giây."
     )
+
+
+_DASHBOARD = _REPO / "src/dashboard"
+
+
+def _moi_file_giao_dien() -> list[Path]:
+    """Mọi file .ts/.tsx của dashboard — tỉa node_modules/.next ngay khi duyệt."""
+    ra: list[Path] = []
+    for goc, thu_muc, ten_file in os.walk(_DASHBOARD):
+        thu_muc[:] = [
+            d for d in thu_muc if d != "node_modules" and not d.startswith(".")
+        ]
+        ra.extend(Path(goc) / f for f in ten_file if f.endswith((".ts", ".tsx")))
+    return ra
+
+
+def _bang_nghe_ke() -> dict[str, set[str]]:
+    """Bảng mà từng màn nghe qua ``useNgheBang(TEN_MANG, …)``.
+
+    Mảng được khai là hằng trong CÙNG file (``const TEN = [ … ] as const;``) —
+    khuôn của NotificationContext, CheckoutBoard và truong-ca/shared.
+    """
+    ra: dict[str, set[str]] = {}
+    for path in _moi_file_giao_dien():
+        text = path.read_text(encoding="utf-8")
+        for ten in re.findall(r"useNgheBang\(\s*(\w+)\s*,", text):
+            m = re.search(rf"const {ten} = \[(.*?)\] as const;", text, re.DOTALL)
+            assert m, f"{path.name}: useNgheBang({ten}) nhưng không thấy mảng hằng"
+            body = re.sub(r"//[^\n]*", "", m.group(1))
+            ra.setdefault(str(path.relative_to(_DASHBOARD)), set()).update(
+                re.findall(r'"(\w+)"', body)
+            )
+    return ra
+
+
+@pytest.mark.skipif(not _CLIENT.exists(), reason="dashboard sources not present")
+def test_bang_cac_man_nghe_ke_deu_co_trigger_bao_tin() -> None:
+    """Màn tự fetch nghe ké dòng SSE — bảng nó nghe cũng phải phát tin.
+
+    27/09/2026: chuông, trưởng ca, check-out chuyển từ `postgres_changes` sang
+    `useNgheBang`. Cùng bẫy với LIVE_TABLES: nghe một bảng không có trigger
+    `trg_notify_*` thì im lặng vĩnh viễn — chính là lỗi vừa sửa (`thong_bao`).
+    """
+    nghe = _bang_nghe_ke()
+    assert nghe, "không tìm thấy màn nào dùng useNgheBang — bộ đọc đã lệch khuôn?"
+    co_trigger = _tables_with_notify_trigger()
+    thieu = {
+        man: sorted(bang - co_trigger)
+        for man, bang in nghe.items()
+        if bang - co_trigger
+    }
+    assert not thieu, (
+        f"Màn nghe bảng không phát tin: {thieu}. Thêm migration gắn trigger "
+        "`trg_notify_*` (khuôn 20260927000002)."
+    )
+
+
+@pytest.mark.skipif(not _CLIENT.exists(), reason="dashboard sources not present")
+def test_giao_dien_khong_con_dang_ky_supabase_realtime() -> None:
+    """Không màn nào được mở kênh Supabase Realtime nữa.
+
+    `postgres_changes` bắt Realtime mở replication slot với plugin wal2json, và
+    Postgres của mình từ chối — mỗi lần thử là một dòng ERROR (~8.600/ngày đo
+    trên prod 27/09) mà màn vẫn không nhận được gì. Tin đi LISTEN/NOTIFY → SSE;
+    nghe bảng thì dùng `useNgheBang`, xem trạng thái kết nối thì dùng
+    `useTrangThaiDong`.
+    """
+    vi_pham = []
+    for path in _moi_file_giao_dien():
+        ma = path.read_text(encoding="utf-8")
+        # Bỏ chú thích: lời giải thích lịch sử được phép nhắc tên cũ.
+        ma = re.sub(r"/\*.*?\*/", "", ma, flags=re.DOTALL)
+        ma = re.sub(r"//[^\n]*", "", ma)
+        if re.search(r"postgres_changes|\.channel\(|removeChannel\(", ma):
+            vi_pham.append(str(path.relative_to(_DASHBOARD)))
+    assert not vi_pham, f"Còn đăng ký Supabase Realtime ở: {sorted(vi_pham)}"

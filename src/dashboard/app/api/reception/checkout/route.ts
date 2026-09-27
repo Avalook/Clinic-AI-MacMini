@@ -2,14 +2,11 @@
 //
 // Đóng lượt KHÔNG đụng `visit.status`: đó là khoá hồ sơ bệnh án theo
 // TT13/2011/TT-BYT. Toàn bộ luật nằm ở checkout_service.py; route này chỉ
-// chuyển tiếp và gác quyền.
+// chuyển tiếp; backend gác quyền.
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend, fetchFromBackend } from "../../../../lib/backend-proxy";
-
-const ALLOWED = ["RECEPTION", "TRUONG_CA", "MANAGEMENT"];
 
 async function guard() {
   const supabase = await getSupabaseServer();
@@ -17,10 +14,8 @@ async function guard() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return "Chưa đăng nhập";
-  const role = await vaiLamViec((r) => ALLOWED.includes(r));
-  if (!role || !ALLOWED.includes(role)) {
-    return "Chỉ Lễ tân / Trưởng ca / Quản lý mới đóng được lượt khám.";
-  }
+  // Quyền đóng lượt là việc của BACKEND (reception.checkin.perform — lego Tiếp
+  // đón khách). Cửa vai cũ ở đây chặn người đã được cấp lego (27/09/2026).
   return null;
 }
 

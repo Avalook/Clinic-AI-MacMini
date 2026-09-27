@@ -2,11 +2,10 @@
 // appointment. Writes go through /api/patients + /api/appointments
 // (service-role); this page only loads the dropdown options.
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
-import { vaiLamViec } from "../../../../lib/clinic-session";
+import { requireNavAccess, vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
@@ -28,9 +27,13 @@ export default async function NewPatientPage({
   // ?date&time&doctor để điền sẵn khung + bác sĩ cho khách vãng lai.
   const { date: qDate, time: qTime, doctor: qDoctor, mode: qMode } =
     await searchParams;
-  // Vai LÀM VIỆC hôm nay: điều dưỡng đứng Lễ tân thì mở đúng màn lễ tân.
+  // Cửa = lego 11 "Thêm bệnh nhân" (27/09/2026) — trước gác vai canWriteIntake,
+  // nên người được cấp lego mà khác vai bị đá về, còn thu ngân mang vai CSKH
+  // suy từ lego Chăm sóc khách thì lọt dù lego này tắt.
+  await requireNavAccess("/patients/new");
+  // Vai LÀM VIỆC hôm nay — chỉ để chọn LUỒNG biểu mẫu (điều dưỡng đứng Lễ tân
+  // thì mở đúng màn lễ tân), không còn quyết được vào hay không.
   const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) redirect("/home");
   const nurse = isNurseRole(role);
   // Trưởng ca + Quản lý làm được CẢ hai luồng: online (full — như CSKH, chọn ô đỏ
   // BN1/BN2) và vãng lai (walkin — như Lễ tân, chọn ô xanh). Chuyển bằng ?mode=walkin.

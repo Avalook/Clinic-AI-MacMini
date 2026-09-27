@@ -93,6 +93,45 @@ def cua_so(ky: str | None, bay_gio: datetime) -> tuple[datetime, datetime] | Non
     return None
 
 
+#: Khoảng ngày tự chọn dài nhất (thanh ngày ngang, 27/09/2026). Quá thì cắt
+#: về ``den`` − 366 ngày — không ném.
+KHOANG_TOI_DA_NGAY = 366
+
+
+def _ngay(v: Any) -> date | None:
+    if not isinstance(v, str) or not v.strip():
+        return None
+    try:
+        return date.fromisoformat(v.strip()[:10])
+    except ValueError:
+        return None
+
+
+def cua_so_khoang(tu: Any, den: Any) -> tuple[datetime, datetime] | None:
+    """[đầu ngày ``tu``, đầu ngày sau ``den``) theo giờ VN — khoảng tuỳ chọn của
+    thanh ngày ngang (Tuyền 27/09: "xem khách hôm qua, hôm kia, tuần trước…").
+
+    Thuần; rác → rỗng, KHÔNG ném (CLAUDE.md: ba lần 500 vì hàm ngày ném):
+      * cả hai rác / rỗng → None (= không lọc theo khoảng, dùng ``ky``);
+      * thiếu một đầu → khoảng một ngày của đầu còn lại;
+      * ``den`` trước ``tu`` → đổi chỗ;
+      * dài quá ``KHOANG_TOI_DA_NGAY`` → cắt, giữ ``den``.
+    """
+    a, b = _ngay(tu), _ngay(den)
+    if a is None and b is None:
+        return None
+    a = a or b
+    b = b or a
+    assert a is not None and b is not None
+    if b < a:
+        a, b = b, a
+    if (b - a).days > KHOANG_TOI_DA_NGAY:
+        a = b - timedelta(days=KHOANG_TOI_DA_NGAY)
+    dau = datetime(a.year, a.month, a.day, tzinfo=CLINIC_TZ)
+    cuoi = datetime(b.year, b.month, b.day, tzinfo=CLINIC_TZ) + timedelta(days=1)
+    return dau, cuoi
+
+
 def _chuoi_tim(q: str | None) -> str:
     """Bỏ ký tự đặc biệt của ILIKE (và của bộ lọc cũ) — rác → rỗng."""
     return re.sub(r"[,()%*_\\]", " ", (q or "")).strip()
@@ -130,10 +169,13 @@ async def danh_sach_khach(
     theo: str | None = None,
     trang: int = 1,
     chon: str | None = None,
+    tu: str | None = None,
+    den: str | None = None,
 ) -> dict[str, Any]:
     cid = identity.clinic_id
     trang = max(1, trang)
-    win = cua_so(ky, datetime.now(CLINIC_TZ))
+    # Khoảng tự chọn (``tu``/``den``) thắng kỳ đặt sẵn (``ky``); rác → dùng ``ky``.
+    win = cua_so_khoang(tu, den) or cua_so(ky, datetime.now(CLINIC_TZ))
     theo_hen = theo == "appt"
     t = _chuoi_tim(q)
     mau = f"%{t}%" if t else None
@@ -142,7 +184,8 @@ async def danh_sach_khach(
         SELECT {_COT}, count(*) OVER () AS tong
           FROM patient p
          WHERE p.clinic_id = $1::uuid
-           AND ($2::timestamptz IS NULL OR $4 OR p.created_at >= $2)
+           AND ($2::timestamptz IS NULL OR $4
+                OR (p.created_at >= $2 AND p.created_at < $3))
            AND (NOT $4 OR $2::timestamptz IS NULL OR EXISTS (
                  SELECT 1 FROM appointment a
                   WHERE a.clinic_id = p.clinic_id
@@ -183,4 +226,10 @@ async def danh_sach_khach(
     return {"rows": dong, "total": tong}
 
 
-__all__ = ["KHACH_MOT_TRANG", "cua_so", "danh_sach_khach"]
+__all__ = [
+    "KHACH_MOT_TRANG",
+    "KHOANG_TOI_DA_NGAY",
+    "cua_so",
+    "cua_so_khoang",
+    "danh_sach_khach",
+]

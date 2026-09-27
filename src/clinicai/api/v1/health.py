@@ -65,6 +65,46 @@ def danh_gia_su_kien(so: dict[str, Any]) -> list[str]:
     return ly_do
 
 
+async def do_su_kien(conn: asyncpg.Connection) -> dict[str, Any]:
+    """Số đếm sức khoẻ người đưa tin — dùng CHUNG cho điểm đo và bộ canh gác
+    (`services/canh_gac.py`): hai nơi đo một cách."""
+    r = await conn.fetchrow(
+        """
+        SELECT
+          count(*) FILTER (WHERE status IN ('PENDING', 'RETRY')) AS dang_cho,
+          count(*) FILTER (WHERE
+            (status IN ('PENDING', 'RETRY')
+              AND coalesce(next_attempt_at, created_at)
+                  < now() - make_interval(mins => $1))
+            OR (status = 'IN_PROGRESS'
+              AND lease_expires_at < now() - make_interval(mins => $1)))
+            AS tre_giao,
+          count(*) FILTER (WHERE status IN ('PENDING', 'RETRY', 'IN_PROGRESS')
+            AND created_at < now() - make_interval(mins => $2)) AS ton_lau,
+          count(*) FILTER (WHERE status = 'DEAD'
+            AND created_at > now() - interval '24 hours') AS chet_24h
+          FROM event_delivery
+        """,
+        TRE_GIAO_PHUT,
+        TON_LAU_PHUT,
+    )
+    h = await conn.fetchrow(
+        """
+        SELECT
+          count(*) FILTER (WHERE
+            (trang_thai = 'CHO' AND den_gio < now() - make_interval(mins => $1))
+            OR (trang_thai = 'DANG_LAM'
+              AND thue_den < now() - make_interval(mins => $1)))
+            AS hen_gio_tre,
+          count(*) FILTER (WHERE trang_thai = 'CHET'
+            AND den_gio > now() - interval '24 hours') AS hen_gio_chet_24h
+          FROM hen_gio
+        """,
+        TRE_GIAO_PHUT,
+    )
+    return {**dict(r), **dict(h)}
+
+
 @router.get("/health/su-kien")
 async def health_su_kien(pool: asyncpg.Pool = Depends(get_db_pool)) -> Any:
     """Người đưa tin sự kiện có đang giao không (Kuma gọi mỗi phút).
@@ -74,41 +114,7 @@ async def health_su_kien(pool: asyncpg.Pool = Depends(get_db_pool)) -> Any:
     Không có service ``su-kien`` thì khách check-in xong không vào hàng nào.
     """
     async with pool.acquire() as conn:
-        r = await conn.fetchrow(
-            """
-            SELECT
-              count(*) FILTER (WHERE status IN ('PENDING', 'RETRY')) AS dang_cho,
-              count(*) FILTER (WHERE
-                (status IN ('PENDING', 'RETRY')
-                  AND coalesce(next_attempt_at, created_at)
-                      < now() - make_interval(mins => $1))
-                OR (status = 'IN_PROGRESS'
-                  AND lease_expires_at < now() - make_interval(mins => $1)))
-                AS tre_giao,
-              count(*) FILTER (WHERE status IN ('PENDING', 'RETRY', 'IN_PROGRESS')
-                AND created_at < now() - make_interval(mins => $2)) AS ton_lau,
-              count(*) FILTER (WHERE status = 'DEAD'
-                AND created_at > now() - interval '24 hours') AS chet_24h
-              FROM event_delivery
-            """,
-            TRE_GIAO_PHUT,
-            TON_LAU_PHUT,
-        )
-        h = await conn.fetchrow(
-            """
-            SELECT
-              count(*) FILTER (WHERE
-                (trang_thai = 'CHO' AND den_gio < now() - make_interval(mins => $1))
-                OR (trang_thai = 'DANG_LAM'
-                  AND thue_den < now() - make_interval(mins => $1)))
-                AS hen_gio_tre,
-              count(*) FILTER (WHERE trang_thai = 'CHET'
-                AND den_gio > now() - interval '24 hours') AS hen_gio_chet_24h
-              FROM hen_gio
-            """,
-            TRE_GIAO_PHUT,
-        )
-    so = {**dict(r), **dict(h)}
+        so = await do_su_kien(conn)
     ly_do = danh_gia_su_kien(so)
     than = {"status": "degraded" if ly_do else "ok", "so": so, "ly_do": ly_do}
     return JSONResponse(than, status_code=503 if ly_do else 200)

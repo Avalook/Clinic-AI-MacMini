@@ -66,8 +66,18 @@ test("operational roles cannot open a clinical-record popup", () => {
     weeklyAppointmentsSource,
     /\{canWriteClinical && selAppt && \(/,
   );
-  const fe = read("../lib/quyen-cua-toi.ts");
-  const py = read("../../clinicai/permissions/y_khoa.py");
+  // CHỈ danh sách QUYEN_Y_KHOA (mở bệnh án). Từ 27/09/2026 cùng file có thêm
+  // QUYEN_IN_PHIEU — quầy ĐỌC để IN phiếu cho khách (Tuyền "in ở mọi khâu") —
+  // danh sách riêng, không bao giờ mở popup bệnh án / ghi y khoa.
+  const khoi = (src: string) => {
+    const i = src.indexOf("QUYEN_Y_KHOA");
+    return src.slice(i, src.indexOf("]", i) + 1) || src.slice(i, src.indexOf(")", i) + 1);
+  };
+  const fe = khoi(read("../lib/quyen-cua-toi.ts"));
+  const pyGoc = read("../../clinicai/permissions/y_khoa.py");
+  const py = pyGoc.slice(pyGoc.indexOf("QUYEN_Y_KHOA"), pyGoc.indexOf(")", pyGoc.indexOf("QUYEN_Y_KHOA")) + 1);
+  assert.match(fe, /clinical\.record\.write/, "bắt được đúng khối QUYEN_Y_KHOA");
+  assert.match(py, /clinical\.record\.write/, "bắt được đúng khối QUYEN_Y_KHOA");
   for (const src of [fe, py]) {
     for (const vanHanh of [
       "reception.checkin.perform",

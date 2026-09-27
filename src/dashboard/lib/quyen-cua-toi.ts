@@ -28,3 +28,17 @@ export async function docDuocYKhoa(): Promise<boolean> {
   const q = await quyenCuaToi();
   return QUYEN_Y_KHOA.some((x) => q.has(x));
 }
+
+/** Quầy in phiếu khám cho khách (27/09/2026). Khớp `QUYEN_IN_PHIEU` ở
+ *  `permissions/y_khoa.py`: tiếp đón, thu tiền DV, thu tiền thuốc, giao thuốc. */
+export const QUYEN_IN_PHIEU = [
+  "reception.checkin.perform",
+  "payment.service.collect",
+  "payment.medicine.collect",
+  "pharmacy.dispense",
+] as const;
+
+export async function inDuocPhieu(): Promise<boolean> {
+  const q = await quyenCuaToi();
+  return [...QUYEN_Y_KHOA, ...QUYEN_IN_PHIEU].some((x) => q.has(x));
+}

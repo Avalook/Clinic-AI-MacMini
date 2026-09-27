@@ -14,19 +14,22 @@ const history = read("app/(dashboard)/patients/[id]/PatientHistory.tsx");
 const patientPage = read("app/(dashboard)/patients/[id]/page.tsx");
 const releaseRule = read("lib/lab-release.ts");
 
-test("both lab safety proxies require a real doctor role", () => {
+test("both lab safety proxies require login and leave authority to the backend", () => {
+  // 27/09/2026 (kiểm toán cửa quyền): proxy KHÔNG còn tự gác bằng vai "bác sĩ".
+  // Cửa vai ở đây chặn người đã được cấp khối duyệt kết quả, trong khi backend
+  // vốn đã hỏi QUYỀN — hai cửa, hai luật, lệch nhau. Nay proxy chỉ kiểm đăng
+  // nhập; quyền là của lab.py (bài dưới canh backend vẫn gác).
   for (const source of [triageProxy, reviewProxy]) {
     assert.match(source, /auth\.getUser\(\)/);
-    // Chốt nay CHẶT HƠN, không lỏng hơn.
-    //
-    // `isPhysicianRole` hẹp hơn `isDoctorRole`: nó KHÔNG gồm TKYK (thư ký y
-    // khoa nhập hộ bệnh án nhưng không duyệt kết quả xét nghiệm). Bài kiểm này
-    // canh "phải là bác sĩ thật"; nhận cả hai tên hàm thì nó vẫn canh đúng điều
-    // đó mà không bắt code phải lỏng lại đúng bằng lúc nó được viết.
-    assert.match(source, /is(Doctor|Physician)Role\(role\)/);
-    assert.match(source, /status:\s*403/);
+    assert.doesNotMatch(source, /vaiLamViec|is(Doctor|Physician)Role\(/);
     assert.doesNotMatch(source, /getSupabaseService|SUPABASE_SERVICE_ROLE_KEY/);
   }
+  const lab = readFileSync(join(ROOT, "../clinicai/api/v1/routers/lab.py"), "utf8");
+  // Duyệt = quyền duyệt kết quả; phân loại = quyền ghi y khoa.
+  assert.match(lab, /_REVIEW_GUARD = cua_quyen\(\s*"result\.review\.approve"/);
+  assert.match(lab, /_TRIAGE_GUARD = cua_ghi_y_khoa/);
+  assert.match(lab, /Depends\(_REVIEW_GUARD\)/);
+  assert.match(lab, /Depends\(_TRIAGE_GUARD\)/);
 });
 
 test("Next proxies expose only triage and patient-bound review contracts", () => {

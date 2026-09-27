@@ -22,6 +22,16 @@ export default function GocError({
 }) {
   useEffect(() => {
     console.error("[goc] lỗi khi dựng trang:", error);
+    // Gửi về KHO LỖI (27/09/2026) — /ops tab "Lỗi & cảnh báo". Hỏng thì im.
+    void fetch("/api/loi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vi_tri: window.location.pathname,
+        kieu: error.name || "Error",
+        thong_diep: `${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
+      }),
+    }).catch(() => undefined);
   }, [error]);
 
   return (

@@ -5,14 +5,9 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { fetchFromBackend } from "./backend-proxy";
-import { docDuocYKhoa } from "./quyen-cua-toi";
+import { docDuocYKhoa, inDuocPhieu } from "./quyen-cua-toi";
 import { getCurrentStaff } from "./current-staff";
-import {
-  departmentToRole,
-  canSeeNav,
-  quyenMoDuocMan,
-  type ClinicRole,
-} from "./roles";
+import { departmentToRole, vaoDuocMan, type ClinicRole } from "./roles";
 import { type ViTriDb } from "./roster";
 import { getSupabaseServer } from "./supabase-server";
 
@@ -95,20 +90,22 @@ export const getQuyenCuaToi = cache(async (): Promise<string[] | null> => {
   return d?.quyen ?? null;
 });
 
-/** Server-side guard cho 1 trang theo nav href: role không được phép → về /home.
+/** Server-side guard cho 1 trang theo nav href: không được vào → về /home.
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ
- *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn role để chặn cả truy cập trực tiếp. */
+ *  PII/kết quả lab. Gọi ĐẦU mỗi page bị giới hạn để chặn cả truy cập trực tiếp.
+ *
+ *  Luật nằm ở `vaoDuocMan` (lib/roles.ts, hàm thuần — có bài kiểm): màn thuộc
+ *  lego CHỈ hỏi lego của tài khoản (27/09/2026), màn ngoài lego giữ luật vai. */
 export async function requireNavAccess(href: string): Promise<void> {
-  // Vào được nếu MỘT trong các vai hôm nay vào được — vai tài khoản vẫn nằm
-  // trong tập này, nên không ai mất lối vào cũ.
-  const vai = await getVaiHomNay();
-  if (vai.some((r) => canSeeNav(r, href))) return;
-  // CỬA THỨ HAI: quản lý cấp khối Siêu âm cho lễ tân thì lễ tân vào được màn
-  // siêu âm, dù NAV_ROLES không có vai ấy. Mở thêm, không thay — ai vào được
-  // theo vai thì đã về ở dòng trên.
-  if (quyenMoDuocMan((await getQuyenCuaToi()) ?? [], href)) return;
-  if (vai.length === 0 && canSeeNav(null, href)) return;
+  if (await moDuocMan(href)) return;
   redirect("/home");
+}
+
+/** Người đang đăng nhập mở được màn này không — cùng luật với `requireNavAccess`,
+ *  cho chỗ cần HỎI (vd ô số ở trang chủ chỉ gắn link khi đích mở được). */
+export async function moDuocMan(href: string): Promise<boolean> {
+  const [vai, quyen] = await Promise.all([getVaiHomNay(), getQuyenCuaToi()]);
+  return vaoDuocMan(href, vai, quyen);
 }
 
 /** Guard cho trang NGOÀI nhóm (dashboard) (vd /print/*) — nơi layout gác quyền
@@ -133,6 +130,14 @@ export async function requireClinicRole(): Promise<ClinicRole> {
 export async function requireClinicalRole(): Promise<ClinicRole> {
   const role = await requireClinicRole();
   if (!(await docDuocYKhoa())) redirect("/home");
+  return role;
+}
+
+/** Cửa trang IN PHIẾU KHÁM: đọc được y khoa, hoặc làm một khâu quầy (tiếp đón /
+ *  thu tiền / nhà thuốc) — in cho khách ở mọi khâu (Tuyền 27/09/2026). */
+export async function requireInPhieu(): Promise<ClinicRole> {
+  const role = await requireClinicRole();
+  if (!(await inDuocPhieu())) redirect("/home");
   return role;
 }
 

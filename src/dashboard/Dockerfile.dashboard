@@ -18,7 +18,8 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 # Nửa GIAO DIỆN của công tắc mở quyền tạm thời — nung vào bundle lúc build.
 # Trước 26/09/2026 không ai truyền biến này: nửa giao diện luôn BẬT dù .env.prod
 # ghi gì. Compose lấy chung từ MO_QUYEN_TAM_THOI của máy chủ để hai nửa khớp.
-ARG NEXT_PUBLIC_MO_QUYEN_TAM_THOI=1
+# Mặc định TẮT từ 27/09/2026 (hỏng thì đóng).
+ARG NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_PUBLIC_MO_QUYEN_TAM_THOI=$NEXT_PUBLIC_MO_QUYEN_TAM_THOI \

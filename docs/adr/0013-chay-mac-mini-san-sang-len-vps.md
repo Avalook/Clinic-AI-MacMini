@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-07-30 |
 | **Deciders** | Quang — "xây để sẵn sàng bê lên VPS luôn, nhưng chưa thuê nên dùng tạm trên Mac mini đã" |
-| **Liên quan** | ADR-0005 (không thêm hạ tầng có trạng thái), ADR-0006 (ngân sách tài nguyên Mac mini), DOD "Cloud VPS", `docs/deploy-mac-mini.md` |
+| **Liên quan** | ADR-0005 (không thêm hạ tầng có trạng thái), ADR-0006 (ngân sách tài nguyên Mac mini), DOD "Cloud VPS", `docs/legacy/deploy-mac-mini.md` |
 
 ## Context
 DOD ghi đích là Cloud VPS. Thực tế hiện chạy Mac mini 48GB tại chỗ vì chưa thuê VPS.
@@ -43,7 +43,7 @@ cứng, phụ thuộc Docker Desktop, model chạy local) rồi lúc chuyển ph
 CI Linux còn bắt sớm lỗi phụ thuộc nền tảng.
 **Tiêu cực:** build multi-arch chậm hơn; không tận dụng được vài tối ưu riêng của Apple
 Silicon.
-**Việc kéo theo:** thêm job CI build/chạy amd64; rà `docs/deploy-mac-mini.md` tách rõ
+**Việc kéo theo:** thêm job CI build/chạy amd64; rà `docs/legacy/deploy-mac-mini.md` tách rõ
 phần "riêng Mac" và phần "chung mọi môi trường".
 
 ## Trạng thái thực hiện (cập nhật 2026-07-30, W6)

@@ -101,7 +101,11 @@ test("existing authorization and mutation boundaries stay in place", () => {
   assert.match(sources.register, /fetch\("\/api\/roster"/);
   assert.match(sources.account, /\/api\/admin\/users/);
   assert.match(sources.newUserForm, /\/api\/admin\/users/);
-  assert.match(sources.settings, /isAdminRole\(role\)/);
-  assert.match(sources.taiKhoan, /isAdminRole\(role\)/);
-  assert.match(sources.reports, /isOpsAdmin\(role\)/);
+  // Cửa theo LEGO của tài khoản, không theo vai (kiểm toán 27/09/2026).
+  assert.match(sources.settings, /requireNavAccess\("\/settings"\)/);
+  assert.match(sources.taiKhoan, /requireNavAccess\("\/settings\/tai-khoan"\)/);
+  assert.match(sources.reports, /requireNavAccess\("\/reports"\)/);
+  for (const src of [sources.settings, sources.taiKhoan, sources.reports]) {
+    assert.doesNotMatch(src, /isAdminRole\(role\)|isOpsAdmin\(role\)/);
+  }
 });

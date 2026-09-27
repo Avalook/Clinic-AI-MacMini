@@ -268,7 +268,7 @@ menu bên trái) — vì nó luôn thuộc về **một lượt khám cụ thể
 ### Production
 
 Bản đang chạy cho phòng khám **không phải** bản này — repo khác, schema cũ.
-Chi tiết: `docs/prod-cutover-findings.md`. Còn 2 việc chờ quyết định (hotfix
+Chi tiết: `docs/legacy/prod-cutover-findings.md`. Còn 2 việc chờ quyết định (hotfix
 `f_unaccent`, và 5 dòng payment 0đ).
 
 ---

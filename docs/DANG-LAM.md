@@ -1,6 +1,15 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **24/09/2026 rạng sáng (05:30)**, buổi khám giả lập 3 tầng + 9 lỗ hổng đã sửa (mục đầu tiên dưới đây là mới nhất; các mục dưới là nền, đọc kèm).
+Cập nhật: **27/09/2026** — kiểm toán + dọn hạ tầng (mục "27/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
+
+## 27/09/2026 — HIỆN TRẠNG (đọc mục này trước, nó đè mọi mô tả hạ tầng cũ bên dưới)
+
+- **Máy:** CHỈ prod trên `clinic-vps-moi` (222.255.214.133), https://dr4women.io.vn. KHÔNG staging, KHÔNG CD. `clinic-vps` (222.255.215.219) đã chết — mọi lệnh `ssh clinic-vps` bên dưới là lịch sử.
+- **CI:** `./scripts/ci-may.sh --bao-github` trên máy dev. **Deploy:** tay trên VPS, sao lưu trước, migration diễn tập trên bản sao rồi mới áp thật (CLAUDE.md "Đưa code lên máy chủ"). Sổ tay máy chủ: `docs/VAN-HANH-MAY-CHU.md`.
+- **Kiểm toán toàn hệ thống:** `docs/KIEM-TOAN-HE-THONG-2709.md` — mục 6 là các quyết định; Tuyền 27/09 đã chốt: dựng lại VPS trên **Ubuntu 24.04 LTS** (khung đêm có người xem), mở in phiếu cho quầy, xử lý hết lego/realtime/dọn file.
+- **Đã làm 27/09:** theo dõi lỗi Pha 0 + Pha 1 (kho lỗi `loi_nhom`, bộ canh gác `canh_bao` mỗi phút trong su-kien, /ops tab Lỗi & cảnh báo + Nhật ký vận hành); journal lưu bền + lịch collector (sudo đã chạy); sao lưu kéo về Mac chạy lại; Realtime bỏ Supabase → SSE của mình (`useNgheBang`); khung khách (ghi chú · tự nhắc · mọi thứ của khách) ở /customers + /reception/queue, thanh ngày ngang; quầy in được phiếu khám; dọn file thừa → `docs/legacy/`.
+- **CHỜ TUYỀN (cần sudo / tài khoản):** `sudo ./scripts/may-chu/cung-co-may-chu.sh` (swap, SSH chỉ khoá, fail2ban — bộ kiểm tự động chặn Claude chạy); dựng Kuma; nhóm Telegram ops + `TELEGRAM_OPS_CHAT_ID`; VPS mới 24.04 LTS; gia hạn Viettel CFS trước 16/10.
+- **CHỜ TUYỀN CHỐT (thiết kế):** liệu trình điều trị nhiều buổi; form đặt Thủ thuật / Sàn chậu chuyên sâu có mục con; luật "thu trước rồi mới làm" (đề xuất cờ `service_type.thu_truoc`) — xem báo cáo tiến độ 27/09.
 
 File này giữ trạng thái đang dở của dự án. Nó tồn tại vì một phiên dài đọc lại
 ngữ cảnh tốn nhiều hơn cả việc làm; cách chữa đã chốt với Quang là **chia thành
@@ -2398,7 +2407,7 @@ nghiệp vụ có tên khách + mã BN).
 
 | | |
 |---|---|
-| Máy chủ | Vietnix VPS, `ssh clinic-vps` (222.255.215.219) |
+| Máy chủ | ~~Vietnix VPS, `ssh clinic-vps` (222.255.215.219)~~ **ĐÃ CHẾT** — nay `ssh clinic-vps-moi` (222.255.214.133), xem mục 27/09 |
 | Prod | nhánh `main`, cổng 80, project `clinicai_prod` + database `clinicai_db` |
 | Staging | cổng 8080, project `clinicai_staging` + database `clinicai_stg_db` |
 | Migration mới nhất | `20260821000001_ba_ca_lam_viec` — đã áp cả hai (chưa ghi sổ, xem mục 0) |
@@ -2467,7 +2476,7 @@ nhập**, đặt lại mật khẩu, gỡ tài khoản.
 - Sinh tài liệu / lưu trữ tệp: "Hồ sơ trả bệnh nhân", tệp đính kèm nhân sự.
 - **208 dòng `event_log` chưa ai xử lý** — relay không chạy.
 - `visit_gate_rule` chưa được thi hành ở đâu.
-- ~~CD tắt~~ **CD ĐÃ CHẠY (21/08)**: runner `vps-clinicai` online. Tag `staging-*` → staging tự động; prod bấm `gh workflow run cd.yml`, chỉ khung 1h–4h (ngoài khung phải điền `ly_do_vuot_khung_gio`).
+- **[LỊCH SỬ — runner chết cùng VPS cũ, nay deploy tay]** ~~CD tắt~~ **CD ĐÃ CHẠY (21/08)**: runner `vps-clinicai` online. Tag `staging-*` → staging tự động; prod bấm `gh workflow run cd.yml`, chỉ khung 1h–4h (ngoài khung phải điền `ly_do_vuot_khung_gio`).
 
 ## 6. Cạm bẫy đã trả giá để biết
 

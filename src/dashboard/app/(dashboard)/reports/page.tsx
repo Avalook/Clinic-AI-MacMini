@@ -2,12 +2,10 @@
 // KPI thật đọc qua backend (/reports/*): hôm nay / ngày mai / theo bác sĩ / 30 ngày /
 // 7 ngày gần nhất / nguồn đặt lịch. Read-only, KHÔNG hiển thị CCCD.
 
-import { redirect } from "next/navigation";
 import StatCard from "../StatCard";
 import { Fragment } from "react";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { isOpsAdmin } from "../../../lib/roles";
+import { requireNavAccess } from "../../../lib/clinic-session";
 import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
 
@@ -19,10 +17,9 @@ function pct(n: number, total: number): string {
 }
 
 export default async function ReportsPage() {
-  // Defense-in-depth: server-side gate even though Nav only renders the
-  // link for admins.
-  const role = await vaiLamViec(isOpsAdmin);
-  if (!isOpsAdmin(role)) redirect("/home");
+  // Cửa theo LEGO Báo cáo (27/09/2026) — trước gác vai isOpsAdmin, nên cấp
+  // lego cho người khác vai thì mục hiện trên thanh bên mà bấm vào bị đá về.
+  await requireNavAccess("/reports");
 
   // 24/09/2026: mọi ô đếm đọc qua backend MỘT lượt (`/reports/tong-quan`) —
   // trang từng bắn 12 truy vấn Supabase rời ở 12 thời điểm khác nhau.

@@ -279,9 +279,12 @@ async def test_duong_dan_de_doc_authorizations(
         doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
         cskh = await _tao_staff(conn, CLINIC_A, "CSKH")
         partner = await _tao_staff(conn, CLINIC_A, "PARTNER")
-        plain_cashier = await _tao_staff(conn, CLINIC_A, "CASHIER")
+        # 27/09/2026: thu ngân ĐỌC được tệp để IN phiếu (QUYEN_IN_PHIEU) — ca
+        # "không vai đọc, không quyền" nay dùng tài khoản tivi (DISPLAY).
+        thu_ngan = await _tao_staff(conn, CLINIC_A, "CASHIER")
+        plain_cashier = await _tao_staff(conn, CLINIC_A, "DISPLAY")
         cap_cashier = await _tao_staff(
-            conn, CLINIC_A, "CASHIER", caps=[Capability.KET_QUA_XAC_NHAN.value]
+            conn, CLINIC_A, "DISPLAY", caps=[Capability.KET_QUA_XAC_NHAN.value]
         )
         pid_a, aid_a, vid_a = await _tao_benh_nhan_va_visit(
             conn, CLINIC_A, doc.staff_id
@@ -341,6 +344,10 @@ async def test_duong_dan_de_doc_authorizations(
 
     p_cskh, _, _, _ = await svc.duong_dan_de_doc(identity=cskh, tep_id=tep_int_id)
     assert p_cskh.exists()
+
+    # 1b. Thu ngân đọc được để in (27/09/2026, QUYEN_IN_PHIEU)
+    p_tn, _, _, _ = await svc.duong_dan_de_doc(identity=thu_ngan, tep_id=tep_int_id)
+    assert p_tn.exists()
 
     # 2. Nhân viên không có vai đọc cũ và không capability (plain_cashier) -> 403
     with pytest.raises(SafetyGateError):

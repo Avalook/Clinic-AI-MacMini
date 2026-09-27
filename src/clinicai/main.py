@@ -85,6 +85,7 @@ from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
+from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
 # Initialize structured JSON logging
@@ -99,8 +100,8 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
     # KÊU TO KHI QUYỀN ĐANG MỞ. Chế độ này nới quyền của mọi vai không phải bác
-    # sĩ, và nó mặc định BẬT — nên thứ duy nhất giữ cho nó không thành vĩnh viễn
-    # là một dòng log mỗi lần khởi động. Đừng hạ mức xuống info.
+    # sĩ. Từ 27/09/2026 nó mặc định TẮT; ai bật nó lên thì thứ duy nhất giữ cho
+    # nó không thành vĩnh viễn là dòng log này mỗi lần khởi động. Đừng hạ mức.
     if mo_quyen_tam_thoi():
         logger.warning(
             "mo_quyen_tam_thoi_dang_bat",
@@ -521,6 +522,17 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     # kỹ thuật → tra đúng dòng log, không phải đoán theo giờ.
     rid = structlog.contextvars.get_contextvars().get("request_id")
     ma = str(rid)[:8] if rid else None
+    # KHO LỖI (27/09/2026): gom theo kiểu vào `loi_nhom` — log container mất khi
+    # deploy, còn kho này thì không. Vị trí = route TEMPLATE (không id khách).
+    # Trần 0,5 giây, không bao giờ ném (services/kho_loi.py).
+    route = request.scope.get("route")
+    await ghi_loi(
+        getattr(request.app.state, "db_pool", None),
+        nguon="api",
+        vi_tri=f"{request.method} {getattr(route, 'path', None) or 'khong-ro-route'}",
+        exc=exc,
+        ma_yeu_cau=str(rid) if rid else None,
+    )
     return JSONResponse(
         status_code=500,
         content={

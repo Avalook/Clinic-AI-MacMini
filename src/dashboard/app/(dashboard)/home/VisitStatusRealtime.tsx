@@ -18,27 +18,24 @@
 // đứng im vì "không có gì đổi" và một bảng đứng im vì "mất kết nối" trông giống
 // hệt nhau.
 
-import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "../../../lib/supabase-browser";
+import type { TrangThaiDong } from "../../../lib/nhip-lam-moi";
+import { useTrangThaiDong } from "../dung-nghe-bang";
 
 type Health = "connecting" | "live" | "down";
 
-export default function VisitStatusRealtime() {
-  const [health, setHealth] = useState<Health>("connecting");
+const THEO_TRANG_THAI = {
+  "dang-noi": "connecting",
+  song: "live",
+  rot: "down",
+} as const satisfies Record<TrangThaiDong, Health>;
 
-  useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    // Kênh rỗng, không đăng ký bảng nào: chỉ để đọc trạng thái websocket. Đăng
-    // ký thêm bảng ở đây là quay lại đúng chỗ vừa gỡ bỏ.
-    const channel = supabase.channel("visit-status-heartbeat").subscribe((status) => {
-      if (status === "SUBSCRIBED") setHealth("live");
-      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setHealth("down");
-      else if (status === "CLOSED") setHealth("connecting");
-    });
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, []);
+export default function VisitStatusRealtime() {
+  // ĐỌC ĐÚNG DÒNG ĐANG CHỞ TIN (27/09/2026). Bản trước mở một kênh rỗng của
+  // Supabase Realtime chỉ để đọc tình trạng websocket — một kết nối KHÔNG chở
+  // tin nào của hệ thống (tin đi LISTEN/NOTIFY → SSE từ 06/08). Chấm xanh khi
+  // ấy có thể sáng trong lúc dòng SSE đã chết. Nay đọc tình trạng dòng SSE mà
+  // RealtimeRefresher giữ — không mở thêm kết nối nào.
+  const health: Health = THEO_TRANG_THAI[useTrangThaiDong()];
 
   if (health === "down") {
     return (

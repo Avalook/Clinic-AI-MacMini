@@ -9,8 +9,13 @@
 //                                     (0 đợt PENDING_CLOSE trên prod, không
 //                                     code nào còn tạo ra). Xoá 18/09/2026.
 //
+//   appointments/AppointmentsRealtime → không file nào import; nó chỉ mở một
+//                                     kênh Supabase Realtime rỗng để đọc tình
+//                                     trạng websocket. Xoá 27/09/2026 cùng đợt
+//                                     bỏ Realtime (xem dong-su-kien-boundary).
+//
 // Các màn còn lại trong file này vẫn được canh nguyên: customers,
-// AppointmentsRealtime, AppointmentEditModal, StatCard.
+// AppointmentEditModal, StatCard.
 //
 // Bỏ một bài kiểm an ninh phải là quyết định có chủ ý. Ở đây nó canh MỘT MÀN
 // KHÔNG CÒN TỒN TẠI — giữ lại thì nó chỉ đọc chuỗi rỗng rồi báo đỏ mãi, và một
@@ -26,7 +31,6 @@ const read = (path: string) =>
 const customersPage = read("../app/(dashboard)/customers/page.tsx");
 const customers = read("../app/(dashboard)/customers/CustomersView.tsx");
 const appointmentsPage = read("../app/(dashboard)/appointments/page.tsx");
-const realtime = read("../app/(dashboard)/appointments/AppointmentsRealtime.tsx");
 const appointmentEdit = read("../app/(dashboard)/customers/AppointmentEditModal.tsx");
 const statCard = read("../components/ui/StatCard.tsx");
 
@@ -155,7 +159,6 @@ test("CSKH redesign uses the shared ClinicAI tokens instead of an extra palette"
     customersPage,
     customers,
     appointmentsPage,
-    realtime,
     appointmentEdit,
   ]) {
     assert.doesNotMatch(source, /#[0-9a-f]{3,8}/iu);

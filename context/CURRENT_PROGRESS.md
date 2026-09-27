@@ -23,7 +23,7 @@
 - **Chưa nối Vercel** (Quang dặn chưa đụng): khi muốn dashboard dùng backend Mac → set trên Vercel `CLINIC_API_URL=https://mac-mini-ca-quang.tailc94236.ts.net` + `BACKEND_API_KEY` (khớp .env server) → redeploy. Chưa set thì dashboard vẫn ghi thẳng Supabase (fallback).
 - **Chưa test reboot thật** (log xác nhận daemon chạy đúng, nhưng chưa reboot để chốt).
 - **FileVault chưa bật** (nên bật — mã hóa đĩa cho PII).
-- Nâng cấp tương lai (đã plan, chưa làm): domain riêng→Cloudflare Tunnel; local-LLM native (Qwen/MLX) cho voice/giảm chi phí; workers/cron. Xem `docs/deploy-mac-mini.md` + `~/.claude/plans/ok-hi-n-l-m-nh-replicated-panda.md`.
+- Nâng cấp tương lai (đã plan, chưa làm): domain riêng→Cloudflare Tunnel; local-LLM native (Qwen/MLX) cho voice/giảm chi phí; workers/cron. Xem `docs/legacy/deploy-mac-mini.md` + `~/.claude/plans/ok-hi-n-l-m-nh-replicated-panda.md`.
 
 ---
 

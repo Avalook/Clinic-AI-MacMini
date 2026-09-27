@@ -50,6 +50,8 @@ export default function BottomNav({
     CLINICAL_HREFS,
     viTriHomNay,
     phong,
+    // Ngày có ca, thanh bên dựng theo vị trí — vẫn phải lọc theo lego.
+    quyen,
   );
   const allHrefs = visible.map((v) => v.href);
   // Có ca hôm nay thì `visible` ĐÃ xếp theo việc của hôm nay — lấy đầu danh sách

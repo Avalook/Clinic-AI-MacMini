@@ -1,52 +1,40 @@
-# AGENTS.md — Dr4Women-MacMini (self-host)
+# AGENTS.md — ClinicAI (Dr4Women)
 
-Clean, single-source deployment of ClinicAI: the **whole app runs on the Mac mini**
-via Docker Compose, data stays in **Supabase cloud**. Target spec: `docs/spec-clinic.md`.
+**Read `CLAUDE.md` first** — it is the source of truth for architecture, rules and
+commands, and applies to every agent (Claude, Codex, others). Then
+`docs/SO-LUAT.md` (rules), `docs/DANG-LAM.md` (work in progress). Reply to the
+team in Vietnamese.
 
-This folder replaces the old tangle (2 web links / 2 branches / 2 Supabase / manual
-DB paste). Here there is **one** of each.
+## Where it runs (27/09/2026)
+- **One VPS** `clinic-vps-moi` (222.255.214.133), https://dr4women.io.vn,
+  prod at `/home/clinicai/clinicai` on branch `main`.
+- Database: **self-hosted Supabase on that VPS** (`docker-compose.supabase.yml`:
+  Postgres + GoTrue + PostgREST + Realtime + gateway). The Mac only receives backups.
+- **Dead — do not use or reintroduce:** old VPS `clinic-vps` (222.255.215.219),
+  staging (:8080, `/home/clinicai/staging`), Mac mini hosting, Vercel, Supabase
+  cloud, Cloudflare Tunnel, Tailscale, Sentry, GitHub Actions CD, `supabase db push`.
+  Docs from that era live in `docs/legacy/`.
 
 ## Architecture
 ```
-client → Caddy (TLS/ingress) → dashboard (Next.js, UI only) → api (FastAPI, all logic) → Supabase
-                                             worker ← RabbitMQ (opt-in)
-         Uptime Kuma + Dozzle = monitoring/logs (localhost-bound, private via Tailscale)
+client → Caddy (TLS) → dashboard (Next.js, UI only) → api (FastAPI, all logic) → Postgres
+                       su-kien (event worker)         self-hosted Supabase (auth + realtime)
 ```
-- **Frontend = UI only.** All business logic belongs in the FastAPI backend (or SQL).
-  Frontend talks to Supabase directly ONLY for auth + realtime.
-- **Everything is containerised + env-driven** (no hardcoded URLs/keys) → lift-and-shift to a VPS later.
+- **Frontend = UI only.** Business rules belong in FastAPI services or SQL. The
+  frontend talks to Supabase directly ONLY for auth + realtime.
+- Everything is containerised + env-driven (no hardcoded URLs/keys).
 
-## Environments & branches
-- `main` → **prod** stack → Supabase **prod**.
-- `staging` → **staging** stack → Supabase **staging** (fake/anonymised data only).
-- Both run side-by-side on the Mac (different project names + Caddy ports).
-- CI runs on every PR + push (ruff/mypy/pytest + tsc/lint/build). CD auto-deploys on
-  merge to `main`/`staging` via the self-hosted runner (build → up → health → rollback).
-
-## Database — Supabase CLI ONLY
-- Schema = `supabase/migrations/*.sql` (git-tracked). Apply with `supabase db push`.
-- **Never** edit schema by hand in the dashboard. See `supabase/README.md`.
-
-## Key commands
-```
-./scripts/deploy-backend.sh prod          # or staging
-docker compose --env-file .env -p clinicai_prod ps
-docker compose --env-file .env -p clinicai_prod logs -f
-supabase db push                          # apply schema migrations
-```
+## CI / deploy
+- CI runs **on the dev machine**: `./scripts/ci-may.sh --bao-github` (GitHub
+  Actions is down — billing). Green before merge, green before deploy.
+- No automatic CD. Deploy by hand on the VPS: backup → (migrations: rehearse on a
+  copy, then `scripts/apply-pending-migrations.sh --apply`) →
+  `git checkout -B main origin/main` → `./scripts/deploy-backend.sh prod`.
+- Only `main` is long-lived; work branches live ≤ 2 days.
 
 ## Rules
-- Secrets only in `.env.prod` / `.env.staging` (gitignored) + GitHub Actions secrets. Never in code.
+- Secrets only in `.env.prod` on the VPS (gitignored). Never in code or chat.
 - Router thin; logic in service functions (pure Python, testable). No business rules in TSX.
-- Don't run migrations inside the deploy; schema changes are a separate reviewed `db push`.
-- Keep the old Vercel build running in parallel until the Mac stack is proven (spec §8).
-
-## Status (see docs/spec-clinic.md for phases)
-- **Done:** clean folder, consolidated+optimised Supabase schema (32 tables, validated),
-  parameterized prod/staging compose, Caddy ingress, worker, Uptime Kuma + Dozzle,
-  `/health` on api + dashboard, CI (mypy + frontend) + CD (rollback), runbook.
-- **Pending — Phase 4 (biggest):** move remaining business logic out of `src/dashboard`
-  (slot 2+1, capacity CAP-01, queue call-order, roles/auth, MPI dedup, form schemas)
-  into FastAPI services / SQL. See the audit worklist.
-- **Ops (do on the Mac):** FileVault, PITR/backup + test restore, self-hosted runner
-  registration, Cloudflare Tunnel or Tailscale Funnel, reboot test.
+- Schema only via `supabase/migrations/*.sql`; migrations are a separate, watched
+  step — never inside the deploy.
+- UI changes: follow `DESIGN.md` and the "Sửa giao diện" procedure in `CLAUDE.md`.

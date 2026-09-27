@@ -36,6 +36,18 @@ QUYEN_Y_KHOA: tuple[str, ...] = (
 #: Quyền GHI nội dung y khoa (bệnh án, phiếu cũ, đọc giọng nói, kết quả).
 QUYEN_GHI_Y_KHOA: tuple[str, ...] = ("clinical.record.write", "result.form.fill")
 
+#: IN PHIẾU KHÁM CHO KHÁCH ở quầy (Tuyền 27/09/2026: "in ở mọi khâu — mở đi"):
+#: tiếp đón, thu tiền dịch vụ, thu tiền thuốc, giao thuốc được ĐỌC phiếu khám +
+#: kết quả + ảnh của lượt để IN (không ghi). Là quyền của lego đang có, không
+#: phải khối mới — thêm khối vào lego sẽ làm lego của mọi tài khoản đang bật
+#: thành "bật một phần".
+QUYEN_IN_PHIEU: tuple[str, ...] = (
+    "reception.checkin.perform",
+    "payment.service.collect",
+    "payment.medicine.collect",
+    "pharmacy.dispense",
+)
+
 _CAU = "Bạn chưa được cấp khối khám / kết quả nên chưa mở được nội dung y khoa."
 
 cua_y_khoa = cua_quyen(*QUYEN_Y_KHOA, cau=_CAU)
@@ -47,6 +59,16 @@ cua_ghi_y_khoa = cua_quyen(
 
 async def doc_duoc_y_khoa(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
     for q in QUYEN_Y_KHOA:
+        if await can(conn, identity, q):
+            return True
+    return False
+
+
+async def doc_duoc_in_phieu(conn: asyncpg.Connection, identity: StaffIdentity) -> bool:
+    """Được in phiếu khám: đọc được y khoa, HOẶC làm một khâu quầy."""
+    if await doc_duoc_y_khoa(conn, identity):
+        return True
+    for q in QUYEN_IN_PHIEU:
         if await can(conn, identity, q):
             return True
     return False
