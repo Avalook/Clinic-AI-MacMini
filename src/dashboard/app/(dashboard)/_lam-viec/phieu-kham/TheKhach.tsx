@@ -22,6 +22,7 @@ import {
 
 import type { DauPhieu } from "@/lib/phieu-kham";
 import SoLuot from "@/components/ui/SoLuot";
+import { useTomTatLuot } from "./TomTatLuot";
 
 /** "2026-09-25" → "25/09/2026". */
 function ngayVn(iso: string | number | null | undefined): string | null {
@@ -98,18 +99,25 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
   const loai = tk?.loai_kham || loaiKham || null;
   const nam = gioi === "Nam";
   const icon = "size-4";
+  const tomTat = useTomTatLuot();
 
   return (
     <section aria-label="Thông tin khách" className="rounded-card border border-hairline bg-surface p-4 sm:p-5">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
-        <div
-          aria-hidden
-          className={`grid size-11 place-items-center rounded-full text-emph font-semibold tracking-wide ring-1 ring-inset sm:size-14 sm:text-title ${
-            nam ? "bg-info-bg text-info ring-info-ring" : "bg-brand-50 text-brand-700 ring-brand-100"
-          }`}
-        >
-          {chuDau(ten)}
-        </div>
+        {/* Tuyền 27/09 tối: số check-in + booking THAY ô chữ viết tắt — số
+            là thứ quầy/bác sĩ gọi khách. Lượt chưa có số nào thì giữ chữ đầu. */}
+        {tk?.so_tiep_don != null || tk?.so_booking != null ? (
+          <SoLuot dang="tron" booking={tk?.so_booking} checkin={tk?.so_tiep_don} />
+        ) : (
+          <div
+            aria-hidden
+            className={`grid size-11 place-items-center rounded-full text-emph font-semibold tracking-wide ring-1 ring-inset sm:size-14 sm:text-title ${
+              nam ? "bg-info-bg text-info ring-info-ring" : "bg-brand-50 text-brand-700 ring-brand-100"
+            }`}
+          >
+            {chuDau(ten)}
+          </div>
+        )}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-title font-semibold uppercase text-ink sm:text-hero">{ten || "—"}</h2>
@@ -118,7 +126,6 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
                 {loai}
               </span>
             ) : null}
-            <SoLuot booking={tk?.so_booking} checkin={tk?.so_tiep_don} />
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-emph text-ink">
             {gioi ? <b className="font-semibold">{gioi}</b> : null}
@@ -149,6 +156,7 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
           <b className="font-semibold text-ink">{tk?.co_so || String(hc["patient.location"] ?? "—")}</b>
         </div>
       </div>
+      {tomTat ? <div className="mt-4 border-t border-hairline pt-3">{tomTat}</div> : null}
       <div className="mt-4 grid grid-cols-2 gap-1.5 border-t border-hairline pt-4 sm:gap-2 xl:grid-cols-4">
         <OThongTin icon={<MapPin className={icon} />} nhan="Địa chỉ" gia_tri={(hc["patient.address"] as string | null) ?? null} />
         <OThongTin icon={<UserRound className={icon} />} nhan="Bác sĩ" gia_tri={tk?.bac_si ?? null} />
@@ -166,7 +174,7 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
 export function TheSinhHieu({ dau }: { dau: DauPhieu }) {
   const o = dau.the_sinh_hieu ?? [];
   const meta = dau.sinh_hieu_luc
-    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""} · chỉ xem (sửa ở Đo sinh hiệu)`
+    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguon ? ` (${dau.sinh_hieu_nguon})` : ""}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""} · chỉ xem (sửa ở Đo sinh hiệu)`
     : "Chưa đo sinh hiệu · sửa ở Đo sinh hiệu";
   return (
     <section aria-label="Sinh hiệu" className="rounded-card border border-hairline bg-surface px-4 py-3">

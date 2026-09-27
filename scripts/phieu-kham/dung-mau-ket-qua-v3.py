@@ -59,6 +59,14 @@ GHEP = {
 
 AM_DUONG = ["Âm tính", "Dương tính"]
 
+#: Tên mục CHỖ GIỮ của bản mẫu (PDF không có tiêu đề mục) → tên hiện cho người
+#: dùng. Chỉ đổi TÊN; `ma` vẫn sinh từ tên gốc ("o") nên dữ liệu đã điền giữ
+#: nguyên. 27/09/2026 (đợt 3 — B6b): "(không có tiêu đề mục)" hiện nguyên văn ở
+#: phiếu kết quả / bản in; xuất bản lại bằng migration 20260928000002.
+TEN_MUC_THAY: dict[tuple[str, str], str] = {
+    ("SOI-AM-HO", "(không có tiêu đề mục)"): "Kết quả soi",
+}
+
 
 def slug(s: str) -> str:
     s = s.split("—")[0]  # "Chiều dài đầu mông — Crown-rump…" → phần tiếng Việt
@@ -69,7 +77,7 @@ def slug(s: str) -> str:
     return s[:40].strip("_") or "o"
 
 
-def dung_khung(m: dict) -> list[dict]:
+def dung_khung(m: dict, mid: str = "") -> list[dict]:
     doi_tac = m.get("loai") == "doi_tac"
     # Mã MỤC và mã Ô đếm trùng RIÊNG (như v2: mục "ket_luan" chứa ô "ket_luan");
     # mã ô phải duy nhất trong cả phiếu vì `du_lieu` phẳng theo mã ô.
@@ -91,7 +99,11 @@ def dung_khung(m: dict) -> list[dict]:
     for muc in m["muc"]:
         ten_muc = muc["ten"]
         ma_muc = "ket_luan" if slug(ten_muc) == "ket_luan" else slug(ten_muc)
-        muc_ra: dict = {"ma": duy_nhat(ma_muc, muc_dung), "ten": ten_muc, "block": []}
+        muc_ra: dict = {
+            "ma": duy_nhat(ma_muc, muc_dung),
+            "ten": TEN_MUC_THAY.get((mid, ten_muc), ten_muc),
+            "block": [],
+        }
         if muc.get("cot"):
             muc_ra["cot"] = [{"ma": slug(c), "ten": c} for c in muc["cot"]]
         for t in muc["truong"]:
@@ -145,7 +157,7 @@ def main() -> None:
             "ten": m["ten"],
             "nguon_pdf": m.get("file"),
             "kv": kv_theo_mau.get(mid) or m.get("kv") or [],
-            "khung": dung_khung(m),
+            "khung": dung_khung(m, mid),
         }
     (REPO / "src/clinicai/phieu_kham/mau_ket_qua_v3.json").write_text(
         json.dumps({"mau": ra}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
@@ -218,7 +230,13 @@ $fn$;
 
 SELECT public.gan_mau_ket_qua_theo_kiotviet();
 """)
-    (REPO / "supabase/migrations" / MIGRATION).write_text("\n".join(L), encoding="utf-8")
+    # Migration đã áp thì KHÔNG sửa (luật: lược đồ/dữ liệu chỉ qua migration MỚI).
+    # Khung đổi sau ngày ấy → viết migration mới theo cùng khuôn (vd 20260928000002).
+    dich = REPO / "supabase/migrations" / MIGRATION
+    if dich.exists():
+        print(f"Giữ nguyên {MIGRATION} (đã áp) — chỉ ghi mau_ket_qua_v3.json.")
+    else:
+        dich.write_text("\n".join(L), encoding="utf-8")
     so_bang = sum(1 for m in ra.values() for mm in m["khung"] if mm.get("cot"))
     so_o = sum(len(mm["block"]) for m in ra.values() for mm in m["khung"])
     print(f"{len(ra)} mẫu · {so_o} ô · {so_bang} mục bảng · {len(gan)} cặp gắn")

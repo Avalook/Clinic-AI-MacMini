@@ -43,8 +43,11 @@ export interface ChiDinhChoQuyet {
   mang_sang: boolean;
   phong_du_kien_id?: string | null;
   phong_chon_duoc?: PhongChonDuoc[];
-  /** Làm bên ngoài — thu xong, việc tự sang bàn đối tác (sự kiện). */
+  /** Làm bên ngoài — việc tự sang bàn đối tác (sự kiện). */
   doi_tac?: boolean;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026, máy chủ nói) — giá chỉ để
+   *  tham khảo, không cộng vào tiền phòng khám. */
+  doi_tac_thu?: boolean;
   /** Bác sĩ đánh dấu BẮT BUỘC (25/09/2026) — quầy không bỏ được (máy chủ chặn). */
   bat_buoc?: boolean;
 }
@@ -181,10 +184,7 @@ export default function ChonDichVu({
 
   return (
     <div className="border-b border-line px-4 py-3">
-      <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-        Khách làm dịch vụ nào?
-      </p>
-      <ul className="mt-2 space-y-1">
+      <ul className="space-y-1">
         {cho.chi_dinh.map((c) => (
           <li key={c.id}>
             <label className="flex min-h-10 items-center gap-3">
@@ -219,13 +219,22 @@ export default function ChonDichVu({
                   </span>
                 ) : null}
                 {c.doi_tac ? (
-                  <span className="ml-2" title="Thu tiền xong, việc tự sang bàn đối tác">
+                  <span className="ml-2" title="Việc tự sang bàn đối tác">
                     <Chip tone="neutral">Đối tác làm</Chip>
+                  </span>
+                ) : null}
+                {c.doi_tac_thu ? (
+                  <span className="block text-meta text-ink-muted">
+                    Khách trả trực tiếp đối tác — không cộng
                   </span>
                 ) : null}
               </span>
               <span className="text-body text-ink-muted">
-                {c.gia !== null ? tien(c.gia) : "chưa có giá"}
+                {c.gia !== null
+                  ? c.doi_tac_thu
+                    ? `tham khảo ${tien(c.gia)}`
+                    : tien(c.gia)
+                  : "chưa có giá"}
               </span>
             </label>
             {chon.has(c.id) && (c.phong_chon_duoc?.length ?? 0) > 0 ? (
@@ -253,13 +262,8 @@ export default function ChonDichVu({
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-meta text-ink-muted">
-        {dang
-          ? "Đang lưu…"
-          : conCho
-            ? "Bỏ tick cái khách không làm — lưu và trừ tiền ngay. Khách làm hết thì bấm Chốt."
-            : "Bỏ tick / tích lại là lưu và tính lại tổng ngay."}
-      </p>
+      {/* Tuyền 27/09 (đợt 3): bỏ tiêu đề + câu hướng dẫn — chỉ báo lúc đang lưu. */}
+      {dang ? <p className="mt-2 text-meta text-ink-muted">Đang lưu…</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {conCho ? (
           <Button variant="primary" size="lg" disabled={dang} onClick={() => void chot()}>

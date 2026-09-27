@@ -11,6 +11,8 @@ Luật giữ nguyên:
   * kỳ theo giờ Việt Nam; tuần bắt đầu thứ Hai;
   * khách được chuông trỏ tới (`selected`) mà nằm ngoài trang thì vẫn nạp riêng
     và đặt lên đầu.
+  * XẾP THEO HOẠT ĐỘNG GẦN NHẤT (27/09/2026 đợt 3, A6), không theo ngày tạo hồ
+    sơ — xem ``HOAT_DONG_GAN_NHAT``.
 Đầu vào rác (kỳ lạ, trang âm, mã khách hỏng) → mặc định, không ném.
 """
 
@@ -74,6 +76,39 @@ _COT = (
 """
     + COT_KENH_DOI_HUY
 )
+
+
+#: HOẠT ĐỘNG GẦN NHẤT của một khách (alias `p` = patient) — khoá xếp của màn
+#: Quản lý khách hàng (27/09/2026 đợt 3, A6).
+#:
+#: Phòng khám: *"Danh sách BN nên hiển thị ngày gần nhất bên trên"*. Bản cũ xếp
+#: theo `p.created_at`: khách tạo hồ sơ từ tháng trước, hôm nay quay lại khám,
+#: nằm tít trang sau. Nay lấy mốc MỚI NHẤT trong:
+#:   * ngày tạo hồ sơ;
+#:   * lúc ĐẶT lịch gần nhất (`appointment.created_at`) — khách vừa gọi đặt lịch
+#:     hôm nay là hoạt động hôm nay, dù ngày hẹn là tuần sau;
+#:   * GIỜ HẸN gần nhất ĐÃ QUA và không chết (huỷ / không đến / BS từ chối) —
+#:     giờ hẹn TƯƠNG LAI không tính: một lịch tái khám ba tháng tới không được
+#:     ghim khách lên đầu suốt ba tháng;
+#:   * lượt khám gần nhất (`visit.created_at`).
+#: `greatest` bỏ qua NULL, nên khách mới chưa có lịch/lượt rơi về ngày tạo.
+#: Mỗi câu con đi index `idx_appointment_patient` / `idx_visit_patient`.
+HOAT_DONG_GAN_NHAT = """
+    greatest(
+        p.created_at,
+        (SELECT max(a.created_at) FROM appointment a
+          WHERE a.clinic_id = p.clinic_id
+            AND a.clinic_patient_id = p.clinic_patient_id),
+        (SELECT max(a.slot_start) FROM appointment a
+          WHERE a.clinic_id = p.clinic_id
+            AND a.clinic_patient_id = p.clinic_patient_id
+            AND a.slot_start <= now()
+            AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED')),
+        (SELECT max(v.created_at) FROM visit v
+          WHERE v.clinic_id = p.clinic_id
+            AND v.clinic_patient_id = p.clinic_patient_id)
+    )
+"""
 
 
 def cua_so(ky: str | None, bay_gio: datetime) -> tuple[datetime, datetime] | None:
@@ -181,8 +216,9 @@ async def danh_sach_khach(
     mau = f"%{t}%" if t else None
     rows = await pool.fetch(
         f"""
-        SELECT {_COT}, count(*) OVER () AS tong
+        SELECT {_COT}, hd.luc AS hoat_dong_gan_nhat, count(*) OVER () AS tong
           FROM patient p
+          CROSS JOIN LATERAL (SELECT {HOAT_DONG_GAN_NHAT} AS luc) hd
          WHERE p.clinic_id = $1::uuid
            AND ($2::timestamptz IS NULL OR $4
                 OR (p.created_at >= $2 AND p.created_at < $3))
@@ -198,7 +234,9 @@ async def danh_sach_khach(
                 OR p.full_name_unaccent ILIKE
                    '%' || lower(replace(replace(f_unaccent($7), 'đ', 'd'), 'Đ', 'D'))
                    || '%')
-         ORDER BY p.created_at DESC
+         -- Hoạt động gần nhất lên trên; mã khách là khoá phụ để hai khách cùng
+         -- mốc không đổi chỗ giữa hai lần tải → phân trang không lặp / sót.
+         ORDER BY hd.luc DESC, p.clinic_patient_id
          OFFSET $8 LIMIT $9
         """,
         cid,
@@ -227,6 +265,7 @@ async def danh_sach_khach(
 
 
 __all__ = [
+    "HOAT_DONG_GAN_NHAT",
     "KHACH_MOT_TRANG",
     "KHOANG_TOI_DA_NGAY",
     "cua_so",

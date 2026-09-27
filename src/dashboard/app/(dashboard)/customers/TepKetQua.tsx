@@ -10,8 +10,9 @@
 //   · "Gửi" vẫn là NGƯỜI xác nhận đã gửi, không phải hệ thống tự gửi —
 //     send_zalo.py luôn trả delivered=False. Nhãn nút nói đúng như vậy.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { nhanLoi } from "@/lib/loi-api";
+import { laDicom } from "@/lib/phieu-kham";
 import { useRouter } from "next/navigation";
 import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 
@@ -22,6 +23,8 @@ import { tepXem } from "../_lam-viec/AnhKetQua";
 export interface TepKetQuaRow {
   id: string;
   appointment_id: string | null;
+  /** Tệp là kết quả của chỉ định nào (null = chưa gắn — tải từ màn Khách hàng). */
+  service_order_id?: string | null;
   ten_hien_thi: string | null;
   loai_tep: string;
   mime: string;
@@ -75,6 +78,40 @@ export function coTheGui(t: { xac_nhan_trang_thai?: string | null }): boolean {
   return t.xac_nhan_trang_thai == null || t.xac_nhan_trang_thai === "HOP_LE";
 }
 
+/** Một chỉ định của lượt — ô "Kết quả của chỉ định nào" (27/09/2026, đợt 3). */
+interface ChiDinhCuaLuot {
+  service_order_id: string;
+  service_name: string | null;
+  service_code: string;
+  lan: number | null;
+}
+
+/** Chỉ định của lượt đang chọn, đọc từ máy chủ. null = chưa đọc / đọc hỏng
+ *  (tải lên vẫn được, tệp vào mục "chưa gắn chỉ định"). */
+function useChiDinhCuaLuot(appointmentId: string | null, bat: boolean) {
+  // Nhớ kèm KHOÁ lượt: đổi lượt thì danh sách cũ tự thành "chưa đọc" — không
+  // bao giờ cho chọn chỉ định của lượt khác.
+  const [doc, setDoc] = useState<{ khoa: string; ds: ChiDinhCuaLuot[] | null } | null>(null);
+  useEffect(() => {
+    if (!bat || !appointmentId) return;
+    let song = true;
+    void fetch(`/api/cskh/ket-qua/chi-dinh?appointment_id=${encodeURIComponent(appointmentId)}`, {
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: ChiDinhCuaLuot[] } | null) => {
+        if (song) setDoc({ khoa: appointmentId, ds: d?.items ?? null });
+      })
+      .catch(() => {
+        if (song) setDoc({ khoa: appointmentId, ds: null });
+      });
+    return () => {
+      song = false;
+    };
+  }, [appointmentId, bat]);
+  return bat && appointmentId && doc?.khoa === appointmentId ? doc.ds : null;
+}
+
 export default function TepKetQua({
   clinicPatientId,
   appointmentId,
@@ -103,6 +140,17 @@ export default function TepKetQua({
   const [dangGui, setDangGui] = useState<string | null>(null);
   // Hộp xem chung (lát 5, 26/09/2026): lật qua MỌI ảnh / video của khách.
   const [phongTo, setPhongTo] = useState<number | null>(null);
+  // Tệp là kết quả của CHỈ ĐỊNH nào (27/09/2026, đợt 3 — "Doppler âm vật không
+  // hiển thị ảnh"): tệp tải ở đây trước kia chỉ mang lịch hẹn, không vào dòng
+  // chỉ định nào ở phiếu khám. Không bắt buộc: lượt chưa có chỉ định vẫn tải
+  // được, tệp hiện ở mục "chưa gắn chỉ định". Máy chủ kiểm chỉ định thuộc lượt.
+  const chiDinh = useChiDinhCuaLuot(appointmentId, !readOnly);
+  const [chonTho, setChiDinhChon] = useState("");
+  // Chỉ giữ lựa chọn còn nằm trong danh sách của lượt ĐANG chọn.
+  const chiDinhChon = (chiDinh ?? []).some((c) => c.service_order_id === chonTho) ? chonTho : "";
+  const tenChiDinh = new Map(
+    (chiDinh ?? []).map((c) => [c.service_order_id, c.service_name ?? c.service_code]),
+  );
 
   async function taiLen(files: FileList | null) {
     if (!appointmentId) {
@@ -116,6 +164,7 @@ export default function TepKetQua({
       const fd = new FormData();
       fd.append("clinic_patient_id", clinicPatientId);
       fd.append("appointment_id", appointmentId);
+      if (chiDinhChon) fd.append("service_order_id", chiDinhChon);
       fd.append("file", f);
       const res = await fetch("/api/cskh/ket-qua", { method: "POST", body: fd });
       if (!res.ok) {
@@ -155,7 +204,10 @@ export default function TepKetQua({
   }
 
   const chuaGui = items.filter((t) => !t.gui_luc).length;
-  const media = items.filter((t) => t.loai_tep === "ANH" || t.loai_tep === "VIDEO");
+  // DICOM không vẽ được bằng thẻ img — không vào ô xem nhanh (đợt 3).
+  const media = items.filter(
+    (t) => (t.loai_tep === "ANH" && !laDicom(t.mime)) || t.loai_tep === "VIDEO",
+  );
 
   return (
     <div className="border-t border-line px-4 py-3">
@@ -191,7 +243,7 @@ export default function TepKetQua({
               type="file"
               multiple
               disabled={dangTai || !appointmentId}
-              accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
+              accept="image/*,.dcm,application/dicom,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
               className="hidden"
               onChange={(e) => {
                 void taiLen(e.target.files);
@@ -207,8 +259,30 @@ export default function TepKetQua({
             </p>
           )}
 
+          {appointmentId && chiDinh && chiDinh.length > 0 ? (
+            <label className="mt-2 block">
+              <span className="text-label font-semibold text-ink-soft">
+                Kết quả của chỉ định nào
+              </span>
+              <select
+                value={chiDinhChon}
+                onChange={(e) => setChiDinhChon(e.target.value)}
+                disabled={dangTai}
+                className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-1.5 text-label text-ink"
+              >
+                <option value="">— Chưa gắn chỉ định —</option>
+                {chiDinh.map((c) => (
+                  <option key={c.service_order_id} value={c.service_order_id}>
+                    {c.service_name ?? c.service_code}
+                    {c.lan ? ` · lần ${c.lan}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
           <p className="mt-1 text-label leading-snug text-ink-faint">
-            Nhận ảnh JPG/PNG/DICOM, video MP4/MOV/WebM, phiếu PDF.
+            Nhận ảnh JPG/PNG, DICOM (chỉ tải về), video MP4/MOV/WebM, phiếu PDF.
           </p>
         </>
       )}
@@ -259,6 +333,7 @@ export default function TepKetQua({
               id: t.id,
               ten: t.ten_hien_thi,
               loai_tep: t.loai_tep,
+              mime: t.mime,
               phu: gio(t.tai_len_luc),
             }),
           )}
@@ -306,6 +381,11 @@ export default function TepKetQua({
                 <p className="mt-0.5 text-label text-ink-muted">
                   {gio(t.tai_len_luc)}
                   {t.tai_len_boi && ` · ${t.tai_len_boi}`}
+                  {t.service_order_id
+                    ? tenChiDinh.has(t.service_order_id)
+                      ? ` · ${tenChiDinh.get(t.service_order_id)}`
+                      : ""
+                    : " · chưa gắn chỉ định"}
                   {t.gui_luc && (
                     <span className="ml-1 inline-flex items-center gap-0.5 text-success">
                       <Check className="size-3" strokeWidth={3} />
@@ -326,7 +406,7 @@ export default function TepKetQua({
                         preload="none"
                         className="max-h-64 w-full rounded-lg bg-black"
                       />
-                    ) : t.loai_tep === "ANH" ? (
+                    ) : t.loai_tep === "ANH" && !laDicom(t.mime) ? (
                       /* eslint-disable-next-line @next/next/no-img-element --
                          ảnh đi qua route XÁC THỰC của chính mình, không phải
                          nguồn tĩnh: next/image sẽ đi lấy nó bằng tiến trình
@@ -340,12 +420,14 @@ export default function TepKetQua({
                       />
                     ) : (
                       <a
-                        href={url}
-                        target="_blank"
+                        href={laDicom(t.mime) ? `${url}?tai=1` : url}
+                        target={laDicom(t.mime) ? undefined : "_blank"}
                         rel="noreferrer"
                         className="text-label font-semibold text-brand-700 hover:underline"
                       >
-                        Mở phiếu trong tab mới →
+                        {laDicom(t.mime)
+                          ? "DICOM — Tải về (không xem trước được trên trình duyệt)"
+                          : "Mở phiếu trong tab mới →"}
                       </a>
                     )}
                   </div>

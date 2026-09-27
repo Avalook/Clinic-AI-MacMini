@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { donKhung, ganMaMoi, maMoi, maOTrongMau, nhacTruocXuatBan, slugMa, type MucMau } from "./sua-mau.ts";
+import { donKhung, ganMaMoi, maMoi, maOTrongMau, nhacTruocXuatBan, slugMa, tenMucHien, type MucMau } from "./sua-mau.ts";
 
 const MAU: MucMau[] = [
   {
@@ -61,4 +61,20 @@ test("ô / mục / cột mới nhận mã từ tên cuối cùng, không trùng;
   assert.equal(r[0].cot![1].ma, "thai_b");
   assert.equal(r[2].ma, "mo_ta_2");
   assert.equal(r[2].block[0].ma, "nhau_thai");
+});
+
+test("tenMucHien: tên giữ chỗ / rỗng / rác → không vẽ tiêu đề mục", () => {
+  assert.equal(tenMucHien("Kết quả soi"), "Kết quả soi");
+  assert.equal(tenMucHien("  Đề nghị  "), "Đề nghị");
+  assert.equal(tenMucHien("(không có tiêu đề mục)"), null);
+  assert.equal(tenMucHien(" (Không có tiêu đề mục) "), null);
+  assert.equal(tenMucHien("(không có tiêu đề mục)".normalize("NFD")), null);
+  assert.equal(tenMucHien("không có tiêu đề"), null);
+  assert.equal(tenMucHien(""), null);
+  assert.equal(tenMucHien("   "), null);
+  assert.equal(tenMucHien(null), null);
+  assert.equal(tenMucHien(undefined), null);
+  assert.equal(tenMucHien(42), null);
+  // Tên thật có chữ "tiêu đề" vẫn giữ.
+  assert.equal(tenMucHien("Tiêu đề phụ"), "Tiêu đề phụ");
 });

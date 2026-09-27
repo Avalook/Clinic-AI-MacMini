@@ -39,7 +39,7 @@ import DauUuTien from "./DauUuTien";
 import KhungBao from "./KhungBao";
 import { dungKhungBao } from "./khung-bao";
 import { todayVn } from "@/lib/roster";
-import ThanhNgay from "@/components/ui/ThanhNgay";
+import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
 import KhungKhach from "../_lam-viec/KhungKhach";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
@@ -500,58 +500,43 @@ function BoLocNgay({
   dangTai: boolean;
   onChon: (khoang: Khoang | null, by: ByDim) => void;
 }) {
+  // 27/09/2026 (Tuyền: "gọn tinh tế lại"): MỘT hàng — công tắc ngày hẹn / ngày
+  // tạo hồ sơ + ô lịch thả xuống (`LichKhoangNgay`, cùng dáng lịch thanh trên)
+  // thay cho khung thẻ + dải 3 tuần ngày ngang.
   return (
-    <section
-      aria-label="Lọc theo ngày"
-      className="flex min-w-0 flex-col gap-2 rounded-card border border-line bg-surface p-3 shadow-card"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-          Tính theo
-        </span>
-        <div className="flex gap-1" role="group" aria-label="Tính theo ngày nào">
-          {(
-            [
-              ["appt", "Ngày hẹn"],
-              ["created", "Ngày tạo hồ sơ"],
-            ] as [ByDim, string][]
-          ).map(([ma, nhan]) => (
-            <button
-              key={ma}
-              type="button"
-              aria-pressed={by === ma}
-              onClick={() => onChon(khoang, ma)}
-              className={`inline-flex min-h-10 items-center rounded-control px-3 text-body font-medium md:min-h-8 ${
-                by === ma
-                  ? "bg-brand-600 text-white"
-                  : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
-              }`}
-            >
-              {nhan}
-            </button>
-          ))}
-        </div>
+    <div aria-label="Lọc theo ngày" role="group" className="flex min-w-0 flex-wrap items-center gap-2">
+      <div
+        className="inline-flex rounded-control bg-surface-muted p-0.5"
+        role="group"
+        aria-label="Tính theo ngày nào"
+      >
+        {(
+          [
+            ["appt", "Ngày hẹn"],
+            ["created", "Ngày tạo hồ sơ"],
+          ] as [ByDim, string][]
+        ).map(([ma, nhan]) => (
+          <button
+            key={ma}
+            type="button"
+            aria-pressed={by === ma}
+            onClick={() => onChon(khoang, ma)}
+            className={`inline-flex h-7 items-center rounded-control px-3 text-meta font-medium ${
+              by === ma ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {nhan}
+          </button>
+        ))}
       </div>
-      <ThanhNgay
+      <LichKhoangNgay
         khoang={khoang}
         homNay={todayVn()}
         dangTai={dangTai}
         nhan="Khoảng ngày tra cứu khách"
         onChon={(k) => onChon(k, by)}
       />
-    </section>
-  );
-}
-
-function initials(name: string): string {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(-2)
-      .map((word) => word[0]?.toLocaleUpperCase("vi-VN") ?? "")
-      .join("") || "KH"
+    </div>
   );
 }
 
@@ -1360,7 +1345,9 @@ export default function CustomersView({
           Nên nút này trỏ tới /patients/new KHÔNG kèm ?date/?time — đó chính là
           điều làm nó khác nút cũ. Nút cũ mở một luồng ĐẶT LỊCH; nút này mở một
           luồng GHI NHẬN. Đừng gộp lại: gộp là mất đúng tình huống vừa vá. */}
-      <div className="flex min-h-10 min-w-60 max-w-md items-center gap-2 rounded-xl border border-line bg-surface pl-3 pr-1.5 text-ink-muted shadow-card focus-within:border-brand-500">
+      {/* 27/09/2026: tìm · lọc ngày · thêm khách trên MỘT hàng (Tuyền: "gọn tinh tế"). */}
+      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex h-9 min-w-60 flex-1 items-center gap-2 rounded-control border border-line bg-surface pl-3 pr-1.5 text-ink-muted focus-within:border-brand-500 sm:max-w-md">
         <Search className="size-4 shrink-0" aria-hidden="true" />
         <input
           value={term}
@@ -1404,13 +1391,14 @@ export default function CustomersView({
       {canEdit && (
         <Link
           href="/patients/new"
-          className={`${buttonClass("secondary", "lg")} shrink-0`}
+          className={`${buttonClass("secondary", "md")} ml-auto shrink-0 gap-1.5`}
           title="Khách mới gọi hỏi nhưng chưa chốt ngày khám — ghi lại để còn gọi lại, không cần đặt lịch ngay."
         >
           <UserPlus className="size-4 shrink-0" aria-hidden="true" />
           Thêm khách hàng mới
         </Link>
       )}
+      </div>
 
       {/* BA CỘT KHI ĐANG CHỌN MỘT KHÁCH: danh sách hẹp — VÙNG LÀM VIỆC rộng —
           hồ sơ.
@@ -1471,7 +1459,7 @@ export default function CustomersView({
                         // trị trên điện thoại mang `hidden md:block`.
                         className={`flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors cursor-pointer md:grid md:items-center ${
                           selected
-                            ? "md:grid-cols-[minmax(0,1fr)_auto]"
+                            ? "md:grid-cols-1" /* chip dưới tên (27/09) */
                             : "md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
@@ -1760,10 +1748,8 @@ export default function CustomersView({
           >
           {selected ? (
             <>
+              {/* Bỏ vòng tròn chữ tắt cạnh tên (Tuyền 27/09/2026). */}
               <div className="flex items-start gap-3 border-b border-line pb-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-surface-sunken text-sm font-semibold text-ink-soft">
-                  {initials(selected.full_name)}
-                </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
                   <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
@@ -2107,7 +2093,7 @@ export default function CustomersView({
 
                 {selectedAppt?.examined ? (
                   <Link
-                    href={`/patients/${selected.clinic_patient_id}`}
+                    href={`/patient-list?chon=${selected.clinic_patient_id}`}
                     className="flex min-h-10 items-center justify-center gap-2 rounded-control border border-brand-500 bg-surface px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"
                   >
                     <ExternalLink className="size-4" aria-hidden="true" />

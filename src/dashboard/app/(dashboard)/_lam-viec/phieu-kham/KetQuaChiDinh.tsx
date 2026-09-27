@@ -43,13 +43,18 @@ import {
   dongKetQua,
   tienVn,
   type ChiDinhVaKetQua,
+  type KetQuaMotChiDinh,
   type MauKetQuaNgan,
 } from "@/lib/phieu-kham";
 
 /** Tệp kết quả của một chỉ định → mục xem (ảnh / video / tài liệu). */
 function tepCua(d: ChiDinhVaKetQua) {
+  return tepXemTu(d.ket_qua);
+}
+
+function tepXemTu(ds: KetQuaMotChiDinh[]) {
   // Thứ tự CHỤP (cũ trước) — máy chủ trả mới nhất trước cho danh sách kết quả.
-  return d.ket_qua
+  return ds
     .filter((k) => k.loai === "TEP" && k.tep_id)
     .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""))
     .map((k) =>
@@ -57,6 +62,7 @@ function tepCua(d: ChiDinhVaKetQua) {
         id: k.tep_id!,
         ten: k.ten,
         loai_tep: k.loai_tep ?? "",
+        mime: k.mime,
         phu: k.tai_len_luc ? fmtTime(k.tai_len_luc) : undefined,
       }),
     );
@@ -80,6 +86,13 @@ function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
   }
   if (d.da_thu) {
     return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "info" } : { nhan: "Đã thu — chờ làm", tone: "info" };
+  }
+  // Khách trả TRỰC TIẾP cho đối tác (27/09/2026, cờ máy chủ): không có gì để
+  // quầy thu — nói đúng thay vì "Chờ thu tiền".
+  if (d.doi_tac_thu) {
+    return d.doi_tac_da_thu
+      ? { nhan: "Đối tác đã thu", tone: "info" }
+      : { nhan: "Khách trả đối tác", tone: "info" };
   }
   return { nhan: "Chờ thu tiền", tone: "warning" };
 }
@@ -134,6 +147,45 @@ function NoiDungKetQua({ d, gioiHan }: { d: ChiDinhVaKetQua; gioiHan: number }) 
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * TỆP CHƯA GẮN CHỈ ĐỊNH (27/09/2026, đợt 3 — "Doppler âm vật không có hiển thị
+ * ảnh"): tệp tải ở màn Khách hàng chỉ mang lịch hẹn, không thuộc dòng chỉ định
+ * nào nên trước đây không hiện ở đây. KHÔNG tự ghép theo tên dịch vụ (máy chủ
+ * cấm — xem `ket_qua_chi_dinh.py`); hiện riêng một dòng, bấm mở hộp xem.
+ */
+export function TepChuaGan({ tep }: { tep: KetQuaMotChiDinh[] }) {
+  const [mo, setMo] = useState<{ i: number; luoi: boolean } | null>(null);
+  const xem = tepXemTu(tep);
+  if (xem.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-card border border-dashed border-line bg-surface p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <span className="font-semibold text-ink">{xem.length} tệp chưa gắn chỉ định</span>
+          <div className="text-meta text-ink-muted">
+            Tải ở màn Khách hàng, chưa chọn “kết quả của chỉ định nào”.
+          </div>
+        </div>
+        <Button type="button" size="sm" variant="ghost" onClick={() => setMo({ i: 0, luoi: xem.length > 1 })}>
+          Xem
+        </Button>
+      </div>
+      <div className="mt-2">
+        <AnhKetQua tep={xem} onMo={(i, luoi) => setMo({ i, luoi: Boolean(luoi) })} />
+      </div>
+      {mo ? (
+        <Lightbox
+          tieuDe="Tệp chưa gắn chỉ định"
+          tep={xem}
+          batDau={mo.i}
+          luoiBanDau={mo.luoi}
+          onDong={() => setMo(null)}
+        />
+      ) : null}
     </div>
   );
 }

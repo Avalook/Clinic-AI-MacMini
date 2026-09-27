@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 
 import NutXemLuot from "../_lam-viec/NutXemLuot";
+import NutCheckOut from "../_lam-viec/NutCheckOut";
 import { docBang, gioVn } from "../_lam-viec/api";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
@@ -163,8 +164,19 @@ export default function BangHanhTrinh() {
                 )}
               </div>
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-wrap items-start gap-2">
               <NutXemLuot visitId={l.visit_id} />
+              {/* Check-out ngay trên dòng khách (27/09/2026, đợt 3): chỉ tài
+                  khoản có quyền đóng lượt thấy; máy chủ quyết, xong thì nạp
+                  lại để mốc "đã về" đổi ngay. */}
+              {!l.da_ve ? (
+                <NutCheckOut
+                  key={l.visit_id}
+                  visitId={l.visit_id}
+                  ten={l.ten}
+                  onXong={() => void tai()}
+                />
+              ) : null}
             </div>
           </li>
         ))}

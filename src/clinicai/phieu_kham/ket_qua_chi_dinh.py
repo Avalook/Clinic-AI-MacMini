@@ -59,6 +59,8 @@ def _tom_tat_tep(r: asyncpg.Record) -> dict[str, Any]:
         "tep_id": str(r["id"]),
         "ten": r["ten_hien_thi"],
         "loai_tep": r["loai_tep"],
+        # Màn cần mime để nhận ra DICOM (không vẽ được, chỉ tải về — đợt 3).
+        "mime": r["mime"],
         "tai_len_luc": r["tai_len_luc"].isoformat(),
         "xac_nhan_trang_thai": r["xac_nhan_trang_thai"],
     }
@@ -85,12 +87,21 @@ async def doc_ket_qua_theo_chi_dinh(
         "                WHERE bl.clinic_id = o.clinic_id"
         "                  AND bl.source_type = 'service_order'"
         "                  AND bl.source_id = o.id::text AND pc.status = 'PAID')"
-        "         AS da_thu"
+        "         AS da_thu,"
+        # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): chip "Khách trả đối
+        # tác" thay "Chờ thu tiền"; đối tác đã ghi nhận thu chưa.
+        "       coalesce(sp.billing_owner = 'EXTERNAL_PARTNER', false)"
+        "         AS doi_tac_thu,"
+        "       EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt"
+        "                WHERE tt.clinic_id = o.clinic_id"
+        "                  AND tt.service_order_id = o.id AND tt.huy_luc IS NULL)"
+        "         AS doi_tac_da_thu"
         "  FROM service_order o"
         "  LEFT JOIN node_definition n"
         "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
         "  LEFT JOIN LATERAL ("
-        "       SELECT s.ma_kiotviet, s.unit_price FROM service_price s"
+        "       SELECT s.ma_kiotviet, s.unit_price, s.billing_owner"
+        "         FROM service_price s"
         "        WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code"
         "        ORDER BY s.active DESC LIMIT 1) sp ON true"
         " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
@@ -122,7 +133,7 @@ async def doc_ket_qua_theo_chi_dinh(
         _PHIEU_KHONG_PHAI_KET_QUA,
     )
     tep = await conn.fetch(
-        "SELECT id, service_order_id, ten_hien_thi, loai_tep, tai_len_luc,"
+        "SELECT id, service_order_id, ten_hien_thi, loai_tep, mime, tai_len_luc,"
         "       xac_nhan_trang_thai"
         "  FROM tep_ket_qua"
         " WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])"
@@ -188,6 +199,8 @@ async def doc_ket_qua_theo_chi_dinh(
                 "ma_kiotviet": r["ma_kiotviet"],
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
                 "da_thu": bool(r["da_thu"]),
+                "doi_tac_thu": bool(r["doi_tac_thu"]),
+                "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
                 "da_xem_luc": (
                     r["da_xem_ket_qua_luc"].isoformat()
                     if r["da_xem_ket_qua_luc"]
@@ -209,6 +222,33 @@ async def doc_ket_qua_theo_chi_dinh(
     return kq
 
 
+async def doc_tep_chua_gan(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+) -> list[dict[str, Any]]:
+    """Tệp của CÙNG khách + CÙNG lịch hẹn của lượt mà CHƯA gắn chỉ định nào.
+
+    Tệp tải ở màn Khách hàng trước 27/09 (đợt 3) chỉ mang `appointment_id` —
+    không lọt vào dòng chỉ định nào, nên khối 2 không hiện, bác sĩ tưởng mất
+    ảnh. KHÔNG tự ghép vào chỉ định theo tên (xem đầu tệp): chỉ hiện riêng là
+    "n tệp chưa gắn chỉ định". Tệp thu hồi không hiện.
+    """
+    rows = await conn.fetch(
+        "SELECT t.id, t.service_order_id, t.ten_hien_thi, t.loai_tep, t.mime,"
+        "       t.tai_len_luc, t.xac_nhan_trang_thai"
+        "  FROM tep_ket_qua t"
+        "  JOIN visit v ON v.clinic_id = t.clinic_id"
+        "   AND v.appointment_id = t.appointment_id"
+        "   AND v.clinic_patient_id = t.clinic_patient_id"
+        " WHERE t.clinic_id = $1::uuid AND v.visit_id = $2::uuid"
+        "   AND t.service_order_id IS NULL"
+        "   AND t.thu_hoi_luc IS NULL"
+        " ORDER BY t.tai_len_luc",
+        clinic_id,
+        visit_id,
+    )
+    return [_tom_tat_tep(r) for r in rows]
+
+
 async def doc_mau_du_phong(
     conn: asyncpg.Connection, *, clinic_id: str
 ) -> list[dict[str, Any]]:
@@ -223,4 +263,4 @@ async def doc_mau_du_phong(
     ]
 
 
-__all__ = ["doc_ket_qua_theo_chi_dinh", "doc_mau_du_phong"]
+__all__ = ["doc_ket_qua_theo_chi_dinh", "doc_mau_du_phong", "doc_tep_chua_gan"]

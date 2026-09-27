@@ -7,6 +7,8 @@
 
 import { useEffect, useState } from "react";
 
+import { tenMucHien } from "@/lib/sua-mau";
+
 interface O {
   ma: string;
   ten: string;
@@ -73,9 +75,11 @@ export default function XemPhieuKetQua({ serviceOrderId }: { serviceOrderId: str
           ) : null}
           {p.khung.map((m) => (
             <div key={m.ma} className="mb-2">
-              <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-                {m.ten}
-              </p>
+              {tenMucHien(m.ten) ? (
+                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                  {tenMucHien(m.ten)}
+                </p>
+              ) : null}
               <dl className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
                 {m.block.map((o) => {
                   const g: unknown = p.du_lieu[o.ma]?.gia_tri ?? "";

@@ -19,6 +19,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
+import Chip from "@/components/ui/Chip";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -35,6 +36,10 @@ export interface PriceRow {
   ma_kiotviet?: string | null;
   /** Phòng làm (node) của dịch vụ. */
   node_code?: string | null;
+  /** Giá giả định chờ xác nhận (Tuyền 27/09/2026, Q2) — sửa đơn giá là máy chủ bỏ cờ. */
+  gia_tam?: boolean;
+  /** EXTERNAL_PARTNER = khách trả trực tiếp đối tác (theo phòng làm, máy chủ quyết). */
+  billing_owner?: "CLINIC" | "EXTERNAL_PARTNER";
 }
 
 interface PhongLam {
@@ -392,6 +397,16 @@ export default function CashierView({
                               </span>
                             )}
                           </div>
+                          {row.gia_tam || row.billing_owner === "EXTERNAL_PARTNER" ? (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {row.gia_tam ? (
+                                <Chip tone="warning">Giá tạm — cần xác nhận</Chip>
+                              ) : null}
+                              {row.billing_owner === "EXTERNAL_PARTNER" ? (
+                                <Chip tone="neutral">Khách trả đối tác</Chip>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-ink-soft">

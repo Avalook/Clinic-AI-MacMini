@@ -19,6 +19,8 @@ import {
   gomNhom,
   hienThi,
   locMauThuoc,
+  oDangHien,
+  oThuGonDangAn,
   type MauThuoc,
   type MucPhieu,
   type OPhieu,
@@ -180,5 +182,67 @@ test("đơn thuốc: ghép rồi tách lại đúng ô, kể cả khi chưa có 
     assert.equal(doc.don_vi, "hộp");
     assert.equal(doc.duong_dung, "Uống");
     assert.equal(doc.cach_dung, "Ngày 2 lần");
+  }
+});
+
+// ── Khung v2 (đợt 3, 27/09/2026) trên CHÍNH JSON máy chủ nạp ───────────────
+test("hien_khi của mọi phiếu trỏ một ô chọn có thật, đúng mã lựa chọn", () => {
+  for (const f of FORM_IDS) {
+    const o = new Map(khung(f).flatMap((m) => m.block.map((b) => [b.ma, b] as const)));
+    for (const b of o.values()) {
+      if (!b.hien_khi) continue;
+      const dich = o.get(b.hien_khi.o);
+      assert.ok(dich && (dich.kieu === "chon" || dich.kieu === "nhieu_chon"), `${f}.${b.ma}`);
+      assert.ok(dich.lua_chon?.some((l) => l.ma === b.hien_khi!.la), `${f}.${b.ma}`);
+    }
+  }
+});
+
+test("phiếu mới NT: tiền sử chỉ còn chip, dị ứng chỉ còn Có/Không, bảng CLS gập", () => {
+  const b = khung("NT").find((m) => m.ma === "B")!;
+  const nhom = gomNhom(b.block);
+  const tienSu = nhom.find((n) => n.tieu_de === "2. Tiền sử phụ khoa và sản khoa")!;
+  const rong = new Set<string>();
+  assert.equal(oThuGonDangAn(tienSu, {}, rong).length, 7);
+  assert.equal(
+    tienSu.don_vi.filter((d) => d.loai === "o" && oDangHien(d.o, {}, rong)).length,
+    0,
+  );
+  const noiTiet = nhom.find((n) => n.tieu_de === "3. Tiền sử nội tiết")!;
+  const hien = (gia: Record<string, string | string[]>) =>
+    noiTiet.don_vi.flatMap((d) => (d.loai === "o" && oDangHien(d.o, gia, rong) ? [d.o.ma] : []));
+  assert.deepEqual(hien({}), ["nt_endo_hist", "nt_endo_detail", "nt_allergy_co"]);
+  assert.deepEqual(hien({ nt_allergy_co: "nt_allergy_co_2" }), [
+    "nt_endo_hist",
+    "nt_endo_detail",
+    "nt_allergy_co",
+  ]);
+  assert.ok(hien({ nt_allergy_co: "nt_allergy_co_1" }).includes("nt_allergy"));
+  // Phiếu cũ đã gõ dị ứng bằng chữ (chưa có ô Có/Không): chữ vẫn hiện.
+  assert.ok(hien({ nt_allergy: "Penicillin" }).includes("nt_allergy"));
+  assert.equal(nhom.find((n) => n.tieu_de === "6. Cận lâm sàng")!.gap, true);
+  assert.equal(nhom.filter((n) => n.gap).length, 1);
+});
+
+test("bản in đọc ô Có/Không dị ứng ra chữ — 'Dị ứng thuốc: Không'", () => {
+  for (const f of ["NT", "HMVS", "PK", "SK", "NK"]) {
+    const t = f.toLowerCase();
+    const o = khung(f)
+      .flatMap((m) => m.block)
+      .find((b) => b.ma === `${t}_allergy_co`)!;
+    assert.equal(o.ten, "Dị ứng thuốc");
+    assert.equal(giaTriDoc(o, { gia_tri: `${t}_allergy_co_2`, nguon: "USER" }), "Không");
+    assert.equal(giaTriDoc(o, { gia_tri: `${t}_allergy_co_1`, nguon: "USER" }), "Có");
+  }
+});
+
+test("hai phiếu không đổi (Thủ thuật, Sàn chậu) không có ô nào bị giấu", () => {
+  for (const f of ["THU_THUAT", "SAN_CHAU"]) {
+    for (const m of khung(f)) {
+      for (const n of gomNhom(m.block)) {
+        assert.equal(n.gap, false);
+        for (const d of n.don_vi) if (d.loai === "o") assert.ok(oDangHien(d.o, {}, new Set()));
+      }
+    }
   }
 });

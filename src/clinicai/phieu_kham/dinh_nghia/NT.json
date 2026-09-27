@@ -60,43 +60,50 @@
      "ma": "nt_para",
      "ten": "PARA",
      "kieu": "text",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_menarche",
      "ten": "Tuổi lần đầu thấy kinh",
      "kieu": "so",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_cycle",
      "ten": "Chu kỳ kinh nguyệt (ngày)",
      "kieu": "so",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_marriage_age",
      "ten": "Tuổi lấy chồng",
      "kieu": "so",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_contraception",
      "ten": "Biện pháp tránh thai đang dùng",
      "kieu": "text",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_gyn_disease",
      "ten": "Các bệnh phụ khoa đang điều trị",
      "kieu": "doan_van",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_gyn_surgery",
      "ten": "Phẫu thuật phụ khoa",
      "kieu": "doan_van",
-     "nhom": "2. Tiền sử phụ khoa và sản khoa"
+     "nhom": "2. Tiền sử phụ khoa và sản khoa",
+     "thu_gon": true
     },
     {
      "ma": "nt_endo_hist",
@@ -153,10 +160,31 @@
      "nhom": "3. Tiền sử nội tiết"
     },
     {
-     "ma": "nt_allergy",
+     "ma": "nt_allergy_co",
      "ten": "Dị ứng thuốc",
+     "kieu": "chon",
+     "lua_chon": [
+      {
+       "ma": "nt_allergy_co_1",
+       "ten": "Có"
+      },
+      {
+       "ma": "nt_allergy_co_2",
+       "ten": "Không"
+      }
+     ],
+     "nhom": "3. Tiền sử nội tiết",
+     "them_sau_nguon": "27/09/2026 — góp ý phòng khám: dị ứng thuốc Có/Không"
+    },
+    {
+     "ma": "nt_allergy",
+     "ten": "Chi tiết dị ứng thuốc",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử nội tiết"
+     "nhom": "3. Tiền sử nội tiết",
+     "hien_khi": {
+      "o": "nt_allergy_co",
+      "la": "nt_allergy_co_1"
+     }
     },
     {
      "ma": "nt_family",
@@ -217,7 +245,8 @@
      },
      "hang": "CTM (HC, BC, TC, Hb, HCT)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_2",
@@ -232,7 +261,8 @@
      },
      "hang": "Glucose máu đói",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_3",
@@ -247,7 +277,8 @@
      },
      "hang": "HbA1c",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_4",
@@ -262,7 +293,8 @@
      },
      "hang": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_5",
@@ -277,7 +309,8 @@
      },
      "hang": "Chức năng gan (AST, ALT, GGT)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_6",
@@ -292,7 +325,8 @@
      },
      "hang": "Chức năng thận (Ure, Creatinin)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_7",
@@ -307,7 +341,8 @@
      },
      "hang": "Điện giải đồ (Na, K, Ca, P)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_blood_8",
@@ -322,7 +357,8 @@
      },
      "hang": "CRP / Procalcitonin (nếu cần)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_1",
@@ -337,7 +373,8 @@
      },
      "hang": "FSH (mIU/mL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_2",
@@ -352,7 +389,8 @@
      },
      "hang": "LH (mIU/mL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_3",
@@ -367,7 +405,8 @@
      },
      "hang": "Estradiol E2 (pg/mL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_4",
@@ -382,7 +421,8 @@
      },
      "hang": "Progesterone (ng/mL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_5",
@@ -397,7 +437,8 @@
      },
      "hang": "Testosterone tổng (ng/dL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_6",
@@ -412,7 +453,8 @@
      },
      "hang": "DHEA-S (µg/dL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_7",
@@ -427,7 +469,8 @@
      },
      "hang": "Prolactin (ng/mL)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_8",
@@ -442,7 +485,8 @@
      },
      "hang": "TSH / FT4 (tuyến giáp)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_9",
@@ -457,7 +501,8 @@
      },
      "hang": "AMH (ng/mL) — nếu chỉ định",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_hormone_10",
@@ -472,7 +517,8 @@
      },
      "hang": "Inhibin B (nếu chỉ định)",
      "cot": "Kết quả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_1",
@@ -487,7 +533,8 @@
      },
      "hang": "Siêu âm PTTC (TA/DA)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_2",
@@ -502,7 +549,8 @@
      },
      "hang": "Nội mạc tử cung (mm)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_3",
@@ -517,7 +565,8 @@
      },
      "hang": "Kích thước buồng trứng T/P",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_4",
@@ -532,7 +581,8 @@
      },
      "hang": "Nang noãn / AFC (số nang 2-10mm)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_5",
@@ -547,7 +597,8 @@
      },
      "hang": "PAP smear / HPV test",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_6",
@@ -562,7 +613,8 @@
      },
      "hang": "Mammography / SA vú",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_7",
@@ -577,7 +629,8 @@
      },
      "hang": "Đo mật độ xương DXA (T-score)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_8",
@@ -592,7 +645,8 @@
      },
      "hang": "Điện tim (ECG)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "nt_imaging_9",
@@ -607,7 +661,8 @@
      },
      "hang": "Sinh thiết NM tử cung (nếu chỉ định)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "6. Cận lâm sàng"
+     "nhom": "6. Cận lâm sàng",
+     "gap": true
     }
    ]
   },

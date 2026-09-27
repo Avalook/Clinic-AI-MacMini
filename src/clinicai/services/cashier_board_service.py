@@ -95,10 +95,31 @@ WITH v AS (
            a.so_booking,
            a.so_tiep_don,
            st.name                 AS exam_service_name,
+           bs.full_name            AS bac_si,
+           -- CHỜ Ở QUẦY TỪ LÚC NÀO (27/09/2026): chỉ định còn nợ sớm nhất (lúc
+           -- bác sĩ chỉ định); không có chỉ định thì lúc khám xong, rồi check-in.
+           coalesce(
+               (SELECT min(coalesce(so.authorized_at, so.created_at))
+                  FROM public.service_order so
+                 WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
+                   AND so.selection_status IN ('PENDING', 'SELECTED')
+                   AND so.exec_status = 'authorized'
+                   AND coalesce(so.execution_status, 'PENDING') = 'PENDING'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.payment_bill_line bl
+                         JOIN public.payment_cycle c
+                           ON c.clinic_id = bl.clinic_id
+                          AND c.payment_cycle_id = bl.payment_cycle_id
+                        WHERE bl.clinic_id = so.clinic_id
+                          AND bl.source_type = 'service_order'
+                          AND bl.source_id = so.id::text
+                          AND c.status IN ('PENDING_VERIFICATION', 'PAID'))),
+               vi.exam_completed_at, vi.checked_in_at, vi.created_at) AS cho_tu,
            """
     + kham_xong_sql("vi")
     + """                    AS kham_xong
       FROM public.visit vi
+      LEFT JOIN public.staff bs ON bs.id = vi.attending_doctor_id
       LEFT JOIN public.appointment a
              ON a.id = vi.appointment_id AND a.clinic_id = vi.clinic_id
       LEFT JOIN public.patient p
@@ -281,7 +302,8 @@ class CashierBoardService:
         # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
-        from clinicai.services.bill_service import tinh_hoa_don
+        from clinicai.services.bill_service import HoaDon, tinh_hoa_don
+        from clinicai.services.quay_thu_service import PhongQuay
         from clinicai.services.service_routing_service import da_tra_cho_vao_phong
         from clinicai.services.service_selection_service import cho_khach_quyet
 
@@ -314,9 +336,18 @@ class CashierBoardService:
         # lần thu đầu thì còn khoản mới. "Đã thu" của ô dịch vụ = hoá đơn CÒN
         # NỢ rỗng, không phải "từng có một phiếu thu" — tính lại ở dưới.
         con_no_dv: set[str] = set()
+        vids = [i["visit_id"] for i in out["items"]]
         async with self._pool.acquire() as conn:
+            chon: dict[str, dict[str, Any]] = {}
+            phong: dict[str, list[dict[str, Any]]] = {}
+            pq = PhongQuay(conn, identity.clinic_id)
+            if want_svc:
+                chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
+                # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
+                phong = await da_tra_cho_vao_phong(conn, identity.clinic_id, vids)
             for item in out["items"]:
                 hd: dict[str, Any] = {}
+                tinh_dv: HoaDon | None = None
                 for k in loai:
                     if (item["visit_id"], k) in cho:
                         continue
@@ -328,24 +359,46 @@ class CashierBoardService:
                         visit_id=item["visit_id"],
                         kind=k,
                     )
-                    if k == "dich_vu" and not tinh.dong:
-                        continue
                     if k == "dich_vu":
+                        tinh_dv = tinh
+                    if k == "dich_vu" and not tinh.dong and not tinh.dong_doi_tac:
+                        continue
+                    # Chỉ còn dịch vụ ĐỐI TÁC TỰ THU (27/09/2026): hiện để lễ tân
+                    # nói "khách trả trực tiếp cho đối tác", nhưng KHÔNG tính là
+                    # còn nợ — lượt không kẹt ở quầy.
+                    if k == "dich_vu" and tinh.dong:
                         con_no_dv.add(item["visit_id"])
                     hd[k] = tinh.cho_api()
                 item["hoa_don"] = hd
-            if want_svc:
-                chon = await cho_khach_quyet(
-                    conn, identity.clinic_id, [i["visit_id"] for i in out["items"]]
-                )
-                for item in out["items"]:
+                if want_svc:
                     item["chon_dich_vu"] = chon.get(item["visit_id"])
-                # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
-                phong = await da_tra_cho_vao_phong(
-                    conn, identity.clinic_id, [i["visit_id"] for i in out["items"]]
-                )
-                for item in out["items"]:
-                    item["xep_phong"] = phong.get(item["visit_id"], [])
+                    # Ô phòng trên dòng (27/09/2026): phòng chọn được, vắng
+                    # nhất lên đầu — cùng tập dây H4.
+                    item["xep_phong"] = [
+                        {
+                            **{k: v for k, v in x.items() if k != "node_code"},
+                            "phong_chon_duoc": await pq.cua(
+                                x.get("node_code"), item["visit_id"]
+                            ),
+                        }
+                        for x in phong.get(item["visit_id"], [])
+                    ]
+                    if (item["visit_id"], "dich_vu") not in cho:
+                        item["quay_thu"] = await _quay_thu(
+                            conn,
+                            identity.clinic_id,
+                            item["visit_id"],
+                            tinh_dv,
+                            chon.get(item["visit_id"]),
+                        )
+        if want_svc:
+            _xep_hang_cho_thu(out, cho={v for v, k in cho if k == "dich_vu"})
+            out["dem"] = {
+                "cho_thu": len(out["ds_cho_thu"]),
+                "da_thu_hom_nay": await _dem_da_thu_hom_nay(
+                    self._pool, identity.clinic_id
+                ),
+            }
         if want_svc:
             khac = [p for p in out["paid"] if p["kind"] != "dich_vu"]
             out["paid"] = khac + [
@@ -355,6 +408,102 @@ class CashierBoardService:
                 and (i["visit_id"], "dich_vu") not in cho
             ]
         return out
+
+
+async def _quay_thu(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+    tinh_dv: Any,
+    chon: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Hoá đơn MỘT khách của quầy (27/09/2026): hoá đơn còn nợ DỰ KIẾN — chỉ
+    định còn chờ khách quyết tính như khách làm (mặc định của quầy) — ghép với
+    danh sách chỉ định chờ quyết. Lệnh thu gộp chốt đúng lựa chọn ấy rồi dựng
+    lại hoá đơn thật: cùng dòng, cùng ``revision``."""
+    from clinicai.services.bill_service import hoa_don_con_no
+    from clinicai.services.quay_thu_service import dung_hoa_don_quay
+
+    cho_quyet = [
+        c["id"]
+        for c in (chon or {}).get("chi_dinh", [])
+        if c.get("selection_status") == "PENDING"
+    ]
+    if cho_quyet or tinh_dv is None:
+        tinh_dv = await hoa_don_con_no(
+            conn, clinic_id=clinic_id, visit_id=visit_id, coi_nhu_chon=cho_quyet
+        )
+    return dung_hoa_don_quay(tinh_dv.cho_api(), chon)
+
+
+def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
+    """Ai đang CHỜ THU ở quầy dịch vụ + thứ tự (chờ lâu nhất lên đầu) + phút chờ.
+
+    Máy chủ quyết (trước đây TSX tự lọc): đang chờ xác minh chuyển khoản/QR;
+    còn dòng phòng khám thu (kể cả dòng chưa thu được vì thiếu giá — cần người
+    xử lý); hoặc còn chỉ định chờ khách quyết (kể cả chỉ dịch vụ đối tác).
+    """
+    from clinicai.services.luot_kham_rules import cho_thu_lau, phut_cho
+
+    bay_gio = datetime.now(CLINIC_TZ)
+    ds: list[dict[str, Any]] = []
+    for item in out["items"]:
+        qt = item.get("quay_thu") or {}
+        cho_quyet = any(
+            c.get("selection_status") == "PENDING"
+            for c in (item.get("chon_dich_vu") or {}).get("chi_dinh", [])
+        )
+        dang_cho = (
+            item["visit_id"] in cho
+            or any(r.get("chon") for r in qt.get("phong_kham", []))
+            or cho_quyet
+        )
+        cho_tu = _doc_luc(item.pop("cho_tu", None))
+        phut = phut_cho(cho_tu, bay_gio)
+        item["cho_phut"] = phut
+        item["cho_lau"] = cho_thu_lau(phut)
+        item["cho_thu"] = dang_cho
+        if dang_cho:
+            ds.append({"visit_id": item["visit_id"], "cho_tu": cho_tu})
+    ds.sort(key=lambda x: (x["cho_tu"] is None, x["cho_tu"] or bay_gio))
+    out["ds_cho_thu"] = [x["visit_id"] for x in ds]
+
+
+def _doc_luc(v: Any) -> datetime | None:
+    """Mốc giờ trong JSON của Postgres (chuỗi ISO) → datetime; rác → None."""
+    if isinstance(v, datetime):
+        return v
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        return datetime.fromisoformat(v)
+    except ValueError:
+        return None
+
+
+async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str) -> int:
+    """Số khách ở tab "Đã thu hôm nay" — cùng tập với sổ gom theo khách
+    (``QuayThuService.lich_su`` hôm nay): lần thu đã thu hoặc khoản hoàn hôm nay."""
+    return int(
+        await pool.fetchval(
+            """
+            SELECT count(DISTINCT visit_id) FROM (
+                SELECT visit_id FROM payment_cycle
+                 WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
+                   AND paid_at IS NOT NULL
+                   AND (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                UNION ALL
+                SELECT visit_id FROM payment_refund
+                 WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
+                   AND status IN ('PENDING', 'COMPLETED')
+                   AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) x
+            """,
+            clinic_id,
+        )
+        or 0
+    )
 
 
 def doc_khoang_ngay(tu: Any, den: Any, *, mac_dinh_ngay: int = 0) -> tuple[date, date]:
@@ -449,6 +598,10 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 # Số booking + số check-in đứng cạnh tên ở MỌI khâu (Tuyền 27/09).
                 "so_booking": v.get("so_booking"),
                 "so_tiep_don": v.get("so_tiep_don"),
+                # Dòng phụ của quầy (27/09/2026): loại khám · bác sĩ · chờ N′.
+                "loai_kham": clean_name(v.get("exam_service_name")) or None,
+                "bac_si": v.get("bac_si"),
+                "cho_tu": v.get("cho_tu"),
                 "services": services,
                 # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
                 "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],

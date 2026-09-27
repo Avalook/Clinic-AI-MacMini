@@ -1,4 +1,4 @@
-"""Hai đường của ĐỐI TÁC — và chỉ hai đường này.
+"""Đường của ĐỐI TÁC — và chỉ những đường này.
 
 Đối tác là người NGOÀI phòng khám: lab chạy xét nghiệm, nơi chụp MRI, phòng
 chụp tử cung–vòi trứng. Họ vào để làm đúng một việc — gửi lại kết quả họ vừa
@@ -93,6 +93,52 @@ async def cho_tai_lieu(
         order_id=str(chi_dinh_id),
         identity=identity,
         ghi_chu=body.ghi_chu if body else None,
+    )
+
+
+class DaThuTienKhach(BaseModel):
+    #: Đối tác tự thu (27/09/2026). Kiểu thô — máy chủ tự đọc (rác → 422 có câu).
+    so_tien: int | str | None = None
+    hinh_thuc: str | None = None
+    ghi_chu: str | None = Field(default=None, max_length=2000)
+
+
+class HuyDaThu(BaseModel):
+    ly_do: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/da-thu-tien")
+async def da_thu_tien(
+    chi_dinh_id: UUID,
+    body: DaThuTienKhach,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đối tác ghi nhận ĐÃ THU tiền khách cho một việc (khách trả trực tiếp cho
+    đối tác — Tuyền chốt 27/09/2026). Không phải tiền phòng khám."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    return await DoiTacService(pool).ghi_nhan_da_thu(
+        order_id=str(chi_dinh_id),
+        identity=identity,
+        so_tien=body.so_tien,
+        hinh_thuc=body.hinh_thuc,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/huy-da-thu")
+async def huy_da_thu(
+    chi_dinh_id: UUID,
+    body: HuyDaThu,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Huỷ ghi nhận đã thu (bắt buộc lý do) — sửa số = huỷ rồi ghi lại."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    return await DoiTacService(pool).huy_da_thu(
+        order_id=str(chi_dinh_id), identity=identity, ly_do=body.ly_do
     )
 
 

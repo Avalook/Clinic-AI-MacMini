@@ -2,6 +2,26 @@
 
 Cập nhật: **27/09/2026** — kiểm toán + dọn hạ tầng (mục "27/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
 
+## 27/09/2026 TỐI — ĐỢT 3 ĐANG DỞ (phiên mới đọc mục này TRƯỚC)
+
+**Nhánh:** `claude/feedback-dot-3` (worktree `.claude/worktrees/multi-camera-patient-tracking-5d5157`), CHƯA merge `main`, CHƯA lên prod (prod = `a7711b7`). Kế hoạch + quyết định: `docs/KE-HOACH-DOT-3.md`; memory `quyet-dinh-dot-3-2709`.
+
+**Đã gộp vào nhánh:** gói 1 (danh mục chỉ định theo bản mẫu), 2 (tự lưu chắc chắn), 3 (phiếu khám gọn — khung v2), 4 (sinh hiệu theo buổi), 5 (đo sinh hiệu trên điện thoại), 6 (bản in chỉ in phiếu Hoàn tất + ảnh), 7b (Thoát góc phải, trang chủ theo ngày, Check-out tại chỗ), 7c (ẩn tầng, lịch trực kèm vai, sắp xếp danh sách), 9 (dịch vụ đối tác khách trả thẳng + /doi-tac ghi nhận + chip giá tạm). Cộng các sửa bấm cùng Tuyền: bỏ chữ ở quầy thu; `SoLuot` (viên `#booking|check-in`, dạng `tron` = vòng tròn check-in + ô vuông booking xanh dương); màn đo sinh hiệu làm lại (số to, tên đủ, chờ N′, xếp Check-in/Booking, bỏ 2 dòng mô tả); thẻ khách tư vấn + bác sĩ chính: số thay chữ viết tắt, tóm tắt lượt gộp vào thẻ (`TomTatLuot`).
+
+**Tối 27/09 (phiên sau khi dừng agent) — XONG, đã commit trên nhánh:**
+- `eaae4e66` hàng chờ tư vấn + bác sĩ chính theo bản mẫu (nút [Bắt đầu …] nhỏ ở dòng chờ).
+- `bcd51753` gom phần dở 2 agent (nhánh `wip/dot3-thu-ngan-tiep-don`, đã kiểm: unit 40/40, DB 7/7, 733 test cũ xanh): danh sách Tiếp đón theo bản mẫu + máy chủ quầy một hoá đơn. BỎ kéo-đổi-thứ-tự ở tiếp đón (bản mẫu không có) — **chờ Tuyền xác nhận**.
+- `4646a230` quầy thu: danh sách trái + hoá đơn một khách phải, [Thu] = chốt + ghi sổ một lệnh.
+- `12d92f0e` tab Lịch sử gom theo khách + Xuất Excel + `/print/phieu-thu/[id]`.
+- CHƯA làm (cố ý, tiết kiệm): tab "Đã thanh toán hôm nay" vẫn là `GiaoDich` cũ (có hoàn tiền); nút [Bắt đầu tư vấn] ở `/tu-van` chưa bấm thật (local không có khách chờ tư vấn — cùng lệnh với `/ban-kham` đã bấm được). 1 test smoke `test_smoke_4_capability_security_guards_matrix_http` lỗi FK dữ liệu DB thử `clinicai_quaythu_db` — CI đầy đủ xem lại.
+- Thêm sau đó (27/09 tối, đã commit + bấm thật): `6af24fd3`/`d12ba924` Quản lý khách hàng gọn (lịch thả xuống, chip dưới tên, Nhắc tái khám node con chung ô, bỏ /patients/[id] → /patient-list?chon=); `90ed4d63`/`60940f06` Hàng đợi theo trạm điều phối được (popup đổi phòng) + TV từng phòng `/display?phong=`; `f1615e80`/`3d86fe1e` Cấu trúc phòng khám gọn — thêm/sửa cơ sở, phòng một dòng, **nhân sự của phòng = LỊCH của phòng** (memory `phong-la-lich-quyen-theo-lich-2709`).
+- **CHỜ TUYỀN DUYỆT THIẾT KẾ — quyền theo lịch** (Tuyền chốt: được xếp vị trí nào hôm nay → có quyền node của phòng/vị trí ấy; lego = trần). Đã có: `identity.doc_vi_tri_hien_hanh` (S0-7, ca APPROVED + trong giờ → vai), thanh bên theo vị trí hôm nay. Thiếu: `permissions/can.py` chưa xét lịch. Đề xuất: (1) khi hỏi quyền CÓ phòng (`can(..., phong_id=X)`) thì cần lego (CLINIC hoặc ROOM X) **VÀ** hôm nay đang có ca ở một vị trí thuộc phòng X; hỏi không phòng giữ nguyên; (2) công tắc dây nối `quyen_theo_lich` mặc định TẮT, bật khi lịch tuần đã xếp đủ; (3) Quản lý/Trưởng ca miễn; (4) thay ca đột xuất = trưởng ca xếp nhanh ở Cấu trúc phòng khám; (5) DB test: có/không ca, ngoài giờ ca, trưởng ca, cache không nhớ câu trả lời có-phòng. Câu hỏi mở: ngoài giờ ca / chưa có lịch → chặn hay cho (đề xuất: chặn khi công tắc bật, kèm câu báo "chưa được xếp lịch ở phòng này").
+- Còn: `./scripts/ci-may.sh --bao-github` → PR → deploy (script Tuyền chạy). Xoá 3 thư mục `public/ban-mau-*` trước PR.
+- Gói 7a (chỉ dùng lego — bảng/hàng chờ/Xem lượt/Hành trình/nút) dừng dở: worktree `.claude/worktrees/agent-a4892b811e1cd1f47` có commit `d09da258` + 17 tệp chưa commit. Gói 8 (quầy/xếp phòng/đầu dò/dọn dữ liệu/lượt treo) dừng dở: worktree `agent-ac1c2a17e2413564a` 24 tệp chưa commit (bỏ việc 5 chụp phim 0đ).
+- Xong hết: `./scripts/ci-may.sh --bao-github` (chạy tách phiên: `nohup … &`, CI trước đó bị ngắt 2 lần), PR, deploy bằng script `~/Projects/ClinicAI-Backups/ban-giao-dot3/deploy_dot3.sh` (Tuyền chạy: scp + ssh, KHÔNG `bash -s <`). Migration mới: 20260928000002, …020, …031, …091, …092 (+ của 2 agent nếu có). Xoá 3 thư mục `public/ban-mau-*` trước khi PR.
+
+**Cách làm việc Tuyền chốt:** code + xem trên LOCAL trước (web chế độ dev — `~/Projects/ClinicAI-Backups/ban-giao-dot3/web-dev.sh <đường-dẫn-worktree>`, sửa là thấy), kiểm nhanh (tsc/lint/test phần sửa), CI đầy đủ chỉ MỘT lần trước deploy. Duyệt giao diện bằng bản mẫu HTML mở trong khung trình duyệt (widget hình không hiện bên Tuyền).
+
 ## 27/09/2026 — HIỆN TRẠNG (đọc mục này trước, nó đè mọi mô tả hạ tầng cũ bên dưới)
 
 - **Máy:** CHỈ prod trên `clinic-vps-moi` (222.255.214.133), https://dr4women.io.vn. KHÔNG staging, KHÔNG CD. `clinic-vps` (222.255.215.219) đã chết — mọi lệnh `ssh clinic-vps` bên dưới là lịch sử.

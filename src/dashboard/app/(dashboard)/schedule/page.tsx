@@ -1,5 +1,5 @@
 // Lịch làm việc — 2 BẢNG MA TRẬN tuần (đồng bộ mọi vai trò: cùng layout với
-// "Lịch làm việc · tuần này" trên Trang chủ — ngày × trạm, gom theo tầng):
+// "Lịch làm việc · tuần này" trên Trang chủ — ngày × trạm, gom theo phòng):
 //  1. "Lịch làm việc" (read-only): chỉ ca ĐÃ DUYỆT — lịch chung chính thức.
 //  2. "Đăng ký lịch làm việc" (tương tác): click 1 ô → tự đăng ký ca CỦA MÌNH,
 //     thấy luôn đăng ký của người khác + trạng thái để tự liệu. Đăng ký → PENDING.
@@ -27,6 +27,8 @@ import OfficialRosterTable, {
   type OfficialRosterRow,
 } from "./OfficialRosterTable";
 import ApDungTuan from "./ApDungTuan";
+import LichTheoNguoi from "./LichTheoNguoi";
+import TabLichLamViec from "./TabLichLamViec";
 import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
@@ -166,11 +168,20 @@ export default async function SchedulePage({
       {/* BẢNG 1 — Lịch làm việc chính thức (chỉ ca ĐÃ DUYỆT). */}
       <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
         <h2 className="font-semibold text-ink">Lịch làm việc chính thức</h2>
-        <OfficialRosterTable
-          stations={stations}
-          dates={dates}
-          rows={approvedRows}
-          dong={dong}
+        {/* Hai góc nhìn (27/09/2026 đợt 3, A9): theo vị trí (bảng Excel) và
+            theo người — tên · vai · từng ngày đứng đâu. */}
+        <TabLichLamViec
+          theoViTri={
+            <OfficialRosterTable
+              stations={stations}
+              dates={dates}
+              rows={approvedRows}
+              dong={dong}
+            />
+          }
+          theoNguoi={
+            <LichTheoNguoi stations={stations} dates={dates} rows={approvedRows} />
+          }
         />
       </section>
 

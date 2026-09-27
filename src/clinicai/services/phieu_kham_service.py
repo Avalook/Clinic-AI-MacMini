@@ -39,6 +39,7 @@ from clinicai.phieu_kham.hanh_trinh import doc_hanh_trinh
 from clinicai.phieu_kham.ket_qua_chi_dinh import (
     doc_ket_qua_theo_chi_dinh,
     doc_mau_du_phong,
+    doc_tep_chua_gan,
 )
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
@@ -419,13 +420,17 @@ class PhieuKhamService:
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             dong_dv = await conn.fetch(
-                "SELECT service_code, unit_price, name, node_code, ma_kiotviet"
+                "SELECT service_code, unit_price, name, node_code, ma_kiotviet,"
+                "       billing_owner = 'EXTERNAL_PARTNER' AS doi_tac_thu"
                 "  FROM service_price"
                 " WHERE clinic_id = $1::uuid AND active AND \"group\" = 'dich_vu'"
                 " ORDER BY name",
                 cid,
             )
             dv = {r["service_code"]: r["unit_price"] for r in dong_dv}
+            # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): nút "Chỉ định N mục
+            # · tổng" ở bàn khám chỉ cộng phần phòng khám — cờ do máy chủ nói.
+            dt_thu = {r["service_code"] for r in dong_dv if r["doi_tac_thu"]}
             dong_kho = await conn.fetch(
                 "SELECT DISTINCT ON (name_raw) id, name_raw, name_base, unit_price,"
                 "       don_vi_ban, duong_dung, cach_dung, luu_y, biet_duoc"
@@ -444,9 +449,13 @@ class PhieuKhamService:
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
-                return {"service_code": None, "gia": None}
+                return {"service_code": None, "gia": None, "doi_tac_thu": False}
             gia = dv[d.ma]
-            return {"service_code": d.ma, "gia": int(gia) if gia is not None else None}
+            return {
+                "service_code": d.ma,
+                "gia": int(gia) if gia is not None else None,
+                "doi_tac_thu": d.ma in dt_thu,
+            }
 
         for nhom in tc["chi_dinh_cls"]:
             nhom["muc"] = [{**m, **gan(ax.CLS.get(m["nhan"]))} for m in nhom["muc"]]
@@ -469,7 +478,14 @@ class PhieuKhamService:
             # Không phòng làm = không phải dịch vụ chỉ định được (tiền khám
             # `KHAM_*` có mã phòng khám từ 26/09 nhưng thu theo loại khám — lọt
             # vào mục C là bác sĩ tick được "Hiếm muộn / Vô sinh" như một CLS).
-            if not r["ma_kiotviet"] or not r["node_code"] or r["service_code"] in da_co:
+            # Dòng TIÊU ĐỀ của phiếu giấy ("*XN dịch âm đạo", "• Laser") không
+            # bao giờ hiện lại ở đây, kể cả khi sau này được gắn mã phòng khám.
+            if (
+                not r["ma_kiotviet"]
+                or not r["node_code"]
+                or r["service_code"] in da_co
+                or r["service_code"] in ax.KHONG_LIET_KE
+            ):
                 continue
             nhom_ten = _NHOM_THEO_NODE.get(r["node_code"] or "", "Khác")
             gia_dv = r["unit_price"]
@@ -481,6 +497,7 @@ class PhieuKhamService:
                     "service_code": r["service_code"],
                     "gia": int(gia_dv) if gia_dv is not None else None,
                     "ma_kiotviet": r["ma_kiotviet"],
+                    "doi_tac_thu": bool(r["doi_tac_thu"]),
                 }
             )
         for ten, muc in them.items():
@@ -656,6 +673,16 @@ class PhieuKhamService:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
             return await doc_ket_qua_theo_chi_dinh(
+                conn, clinic_id=identity.clinic_id, visit_id=visit_id
+            )
+
+    async def tep_chua_gan(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Tệp của lượt chưa gắn chỉ định (đợt 3, 27/09) — cùng quyền khối 2."""
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
+            return await doc_tep_chua_gan(
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id
             )
 

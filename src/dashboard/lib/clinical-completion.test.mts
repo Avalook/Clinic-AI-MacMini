@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clinicalCompletionGate,
+  congTuLuu,
+  gopCong,
   type ClinicalCompletionInput,
 } from "./clinical-completion.ts";
 
@@ -88,6 +90,41 @@ test("blocks when loading, saving, or no data", () => {
     clinicalCompletionGate({ ...BASE_INPUT, hasData: false }).code,
     "FORM_NOT_READY",
   );
+});
+
+// ---- Đợt 3 (27/09/2026): cổng từ trạng thái tự lưu + gộp hai phần ----
+const SACH = { dang_luu: false, chua_luu: false, loi: null };
+const luuOk = async () => true;
+const luuHong = async () => false;
+
+test("congTuLuu: sạch → mở; còn chữ / đang lưu / lỗi → UNSAVED_CHANGES kèm luuNot", async () => {
+  assert.equal(congTuLuu(SACH, luuOk).ok, true);
+  const chua = congTuLuu({ ...SACH, chua_luu: true }, luuOk, "Đơn thuốc");
+  assert.equal(chua.ok, false);
+  assert.equal(chua.code, "UNSAVED_CHANGES");
+  assert.match(chua.message ?? "", /Đơn thuốc còn nội dung chưa lưu/);
+  assert.equal(await chua.luuNot?.(), true);
+  assert.equal(congTuLuu({ ...SACH, dang_luu: true }, luuOk).code, "UNSAVED_CHANGES");
+  const loi = congTuLuu({ ...SACH, chua_luu: true, loi: "Mất kết nối" }, luuOk);
+  assert.match(loi.message ?? "", /chưa lưu được: Mất kết nối/);
+});
+
+test("gopCong: null / mở / chưa sẵn sàng thắng / cả hai chưa lưu thì lưu nốt cả hai", async () => {
+  const mo = congTuLuu(SACH, luuOk);
+  const chuaA = congTuLuu({ ...SACH, chua_luu: true }, luuOk, "A");
+  const chuaB = congTuLuu({ ...SACH, chua_luu: true }, luuHong, "B");
+  const dangTai = { ok: false, code: "FORM_NOT_READY" as const, message: "Đang tải…" };
+  assert.equal(gopCong(null, null), null);
+  assert.equal(gopCong(null, mo), mo);
+  assert.equal(gopCong(mo, mo)?.ok, true);
+  assert.equal(gopCong(mo, chuaA), chuaA);
+  assert.equal(gopCong(chuaA, mo), chuaA);
+  assert.equal(gopCong(chuaA, dangTai), dangTai);
+  assert.equal(gopCong(dangTai, chuaA), dangTai);
+  const ca = gopCong(chuaA, chuaB);
+  assert.equal(ca?.code, "UNSAVED_CHANGES");
+  assert.equal(await ca?.luuNot?.(), false, "một phần lưu hỏng thì cả cổng không mở");
+  assert.equal(await gopCong(chuaA, congTuLuu({ ...SACH, chua_luu: true }, luuOk))?.luuNot?.(), true);
 });
 
 test("blocks when remote changed", () => {

@@ -392,6 +392,31 @@ def _number(value: Any) -> Decimal | None:
     return num if num.is_finite() else None
 
 
+def _o(*ten: str) -> tuple[str, ...]:
+    """Bộ tên ô lỗi. Hàm thay cho tuple một phần tử viết tay: bài canh SQL nối
+    hụt (``test_sql_trong_service_cu_phap_dung``) bắt dấu phẩy liền ngoặc đóng
+    trên mọi dòng, kể cả mã Python."""
+    return ten
+
+
+def truong_thieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> tuple[str, ...]:
+    """Tên ô còn thiếu khi khách đang có thai (luật ``thieu_sinh_hieu_khi_co_thai``).
+
+    Màn đo tô đúng ô ấy (27/09/2026, đợt 3) — câu lỗi thôi chưa đủ để người
+    đo trên điện thoại biết phải cuộn tới ô nào.
+    """
+    if not co_thai:
+        return ()
+    return tuple(
+        truong
+        for truong, gia_tri in (
+            ("height_cm", vitals.height_cm),
+            ("weight_kg", vitals.weight_kg),
+        )
+        if gia_tri is None
+    )
+
+
 def thieu_sinh_hieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> str | None:
     """Câu nhắc khi khách đang có thai mà thiếu chiều cao/cân nặng; đủ → None.
 
@@ -399,16 +424,8 @@ def thieu_sinh_hieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> str | None:
     "Báo sốt thì đo nhiệt độ" CHƯA ép: chưa có dữ kiện "khách báo sốt" có cấu
     trúc, và không đoán từ chữ lý do khám.
     """
-    if not co_thai:
-        return None
-    thieu = [
-        nhan
-        for gia_tri, nhan in (
-            (vitals.height_cm, "chiều cao"),
-            (vitals.weight_kg, "cân nặng"),
-        )
-        if gia_tri is None
-    ]
+    nhan = {"height_cm": "chiều cao", "weight_kg": "cân nặng"}
+    thieu = [nhan[t] for t in truong_thieu_khi_co_thai(vitals, co_thai=co_thai)]
     if not thieu:
         return None
     return "Khách đang có thai — sinh hiệu cần thêm " + " và ".join(thieu) + "."
@@ -419,27 +436,53 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
 
     Huyết áp bắt buộc cho MỌI lượt (I8, tiêu chí "100% BN đc đo huyết áp").
     Các chỉ số khác tuỳ chọn; bộ bắt buộc theo dịch vụ còn chờ chốt (O5).
+    Cần biết Ô NÀO lỗi thì gọi ``parse_vitals_co_truong``.
+    """
+    vitals, loi, _ = parse_vitals_co_truong(raw)
+    return vitals, loi
+
+
+def parse_vitals_co_truong(
+    raw: Any,
+) -> tuple[Vitals | None, str | None, tuple[str, ...]]:
+    """Như ``parse_vitals``, kèm TÊN Ô lỗi (khoá gửi lên: ``systolic``…).
+
+    27/09/2026 (đợt 3, màn đo trên điện thoại): câu lỗi một dòng không nói ô
+    nào — người đo phải đọc rồi dò 9 ô. Màn tô đúng các ô trong ``truong``.
+    Lỗi không gắn được với ô nào (thân không phải object) → ``()``.
+
+    Giữ ``parse_vitals`` hai phần tử làm vỏ: nó có người gọi khác (hồ sơ khám
+    cũ, test) — đổi chữ ký là vỡ họ mà họ không cần tên ô.
     """
     if not isinstance(raw, dict):
-        return None, "Dữ liệu sinh hiệu không đúng dạng."
+        return None, "Dữ liệu sinh hiệu không đúng dạng.", ()
     values: dict[str, Decimal | None] = {}
     for field, (label, low, high) in _RANGES.items():
         given = raw.get(field)
         num = _number(given)
         if given not in (None, "") and num is None:
-            return None, f"{label} phải là một con số."
+            return None, f"{label} phải là một con số.", _o(field)
         if num is not None and not (low <= num <= high):
-            return None, f"{label} phải trong khoảng {low}–{high}."
+            return None, f"{label} phải trong khoảng {low}–{high}.", _o(field)
         values[field] = num
     systolic, diastolic = values["systolic"], values["diastolic"]
     if systolic is None or diastolic is None:
-        return None, "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám."
+        thieu = tuple(t for t in ("systolic", "diastolic") if values[t] is None)
+        return (
+            None,
+            "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám.",
+            thieu,
+        )
     for field in _NGUYEN:
         num = values[field]
         if num is not None and num != num.to_integral_value():
-            return None, f"{_RANGES[field][0]} phải là số nguyên."
+            return None, f"{_RANGES[field][0]} phải là số nguyên.", _o(field)
     if systolic <= diastolic:
-        return None, "Huyết áp tâm thu phải lớn hơn tâm trương."
+        return (
+            None,
+            "Huyết áp tâm thu phải lớn hơn tâm trương.",
+            ("systolic", "diastolic"),
+        )
 
     def _int(ten: str) -> int | None:
         num = values[ten]
@@ -469,7 +512,69 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
             pain_score=_int("pain_score"),
         ),
         None,
+        (),
     )
+
+
+#: Ngưỡng NHẮC (27/09/2026, đợt 3). Không chặn lưu — Tuyền 15/09: "báo sốt
+#: không bắt buộc", đo gì ghi nấy; máy chỉ nhắc người đo nhìn lại / báo bác sĩ.
+#: Ngưỡng ở ĐÂY, không ở TSX: màn chỉ tô ô theo ``truong`` máy chủ trả.
+HA_TAM_THU_CAO = 140
+HA_TAM_TRUONG_CAO = 90
+SPO2_THAP = 94
+NHIET_SOT = Decimal(38)
+MACH_CHAM = 50
+MACH_NHANH = 120
+
+
+def canh_bao_sinh_hieu(vitals: Any) -> list[dict[str, str]]:
+    """Chỉ số bất thường cần NHẮC — ``[{truong, cau}]``; không có → ``[]``.
+
+    Hàm thuần, không ném: đầu vào không phải ``Vitals`` → ``[]``.
+    """
+    if not isinstance(vitals, Vitals):
+        return []
+    ra: list[dict[str, str]] = []
+    if vitals.systolic >= HA_TAM_THU_CAO:
+        ra.append(
+            {
+                "truong": "systolic",
+                "cau": f"Huyết áp tâm thu {vitals.systolic} mmHg — cao "
+                f"(≥ {HA_TAM_THU_CAO}).",
+            }
+        )
+    if vitals.diastolic >= HA_TAM_TRUONG_CAO:
+        ra.append(
+            {
+                "truong": "diastolic",
+                "cau": f"Huyết áp tâm trương {vitals.diastolic} mmHg — cao "
+                f"(≥ {HA_TAM_TRUONG_CAO}).",
+            }
+        )
+    if vitals.pulse is not None and not (MACH_CHAM <= vitals.pulse <= MACH_NHANH):
+        cham = vitals.pulse < MACH_CHAM
+        ra.append(
+            {
+                "truong": "pulse",
+                "cau": f"Mạch {vitals.pulse} lần/phút — "
+                + (f"chậm (< {MACH_CHAM})." if cham else f"nhanh (> {MACH_NHANH})."),
+            }
+        )
+    if vitals.temperature is not None and vitals.temperature >= NHIET_SOT:
+        ra.append(
+            {
+                "truong": "temperature",
+                "cau": f"Nhiệt độ {vitals.temperature} °C — sốt (≥ {NHIET_SOT}).",
+            }
+        )
+    if vitals.spo2 is not None and vitals.spo2 < SPO2_THAP:
+        ra.append(
+            {
+                "truong": "spo2",
+                "cau": f"SpO₂ {vitals.spo2}% — thấp (< {SPO2_THAP}).",
+            }
+        )
+    return ra
 
 
 # ---------------------------------------------------------------------------
@@ -507,3 +612,116 @@ def doi_phong_duoc(
     if (execution_status or "") in _THUC_HIEN_KHONG_DOI:
         return False
     return (exec_status or "") not in _DA_LAM_HOAC_XONG
+
+
+# ---------------------------------------------------------------------------
+# H1 — đường đi sau check-in, và "BUỔI KHÁM" (27/09/2026, đợt 3)
+# ---------------------------------------------------------------------------
+#
+# Góp ý phòng khám 27/09: *"BN sau khi đăng kí thêm dịch vụ lần 2 trong buổi
+# khám bị auto chuyển sang Đo sinh hiệu → không cần đo sinh hiệu, có thể chuyển
+# sang phòng chuyên môn luôn"*. Lỗi chỉ ở chỗ "đăng ký thêm" tạo LƯỢT MỚI cùng
+# ngày: mọi thứ sinh hiệu tính theo `visit_id`, nên lượt 2 như khách mới đến.
+#
+# BUỔI = cùng khách + cùng NGÀY giờ Việt Nam. Số đo KHÔNG chép sang lượt mới
+# (một con số một chỗ sửa — `phieu_kham/mang_sang.py`): lượt mới ĐỌC lần đo mới
+# nhất của buổi (`services/sinh_hieu_buoi.py`) và ghi lại lượt nguồn để truy vết
+# (`encounter_flow.vitals_tu_visit_id`).
+
+TU_VAN = "TU_VAN"
+
+
+def duong_sau_check_in(
+    *,
+    qua_tu_van: bool,
+    di_thang_phong: bool,
+    cung_buoi_da_kham: bool,
+    co_mang_sang: bool,
+    quen_vao_thang: bool,
+) -> tuple[str, str]:
+    """(Đích, lý do) của dây H1 cho một lượt vừa check-in.
+
+    * ``(di_thang_phong OR cung_buoi_da_kham) AND co_mang_sang`` → DỊCH VỤ:
+      có việc cụ thể đã chỉ định sẵn thì đi làm, không qua tư vấn / bác sĩ.
+      ``cung_buoi_da_kham`` = khách đã được bác sĩ chính khám ở một lượt khác
+      trong CÙNG buổi (người gọi đưa False khi dây
+      ``h1_cung_buoi_thang_dich_vu`` tắt).
+    * Loại khám qua tư vấn (trừ khách quen khi dây khách quen bật) → TƯ VẤN.
+    * Còn lại → bác sĩ chính (kể cả lịch đi thẳng phòng mà không có chỉ định
+      mang sang: phải có người quyết làm gì).
+    """
+    if co_mang_sang and (di_thang_phong or cung_buoi_da_kham):
+        return SERVICES, (
+            "lịch đi thẳng phòng — làm chỉ định hẹn từ lượt trước"
+            if di_thang_phong
+            else "cùng buổi đã khám — làm luôn chỉ định mang sang"
+        )
+    if qua_tu_van and not quen_vao_thang:
+        return TU_VAN, "loại khám qua bác sĩ tư vấn"
+    if di_thang_phong:
+        return PRIMARY, (
+            "lịch đi thẳng phòng nhưng không có chỉ định mang sang — bác sĩ chính quyết"
+        )
+    if quen_vao_thang:
+        return PRIMARY, "khách quen của bác sĩ chính — vào thẳng"
+    return PRIMARY, "loại khám không qua tư vấn"
+
+
+def sinh_hieu_buoi_dung_duoc(*, co_thai: bool, can_nang: Any, chieu_cao: Any) -> bool:
+    """Lần đo của buổi có dùng lại cho lượt mới được không.
+
+    Khách đang có thai phải có cân nặng + chiều cao (cùng luật lưu sinh hiệu,
+    ``thieu_sinh_hieu_khi_co_thai``): lần đo cũ thiếu thì lượt mới vẫn "chờ đo".
+    """
+    if not co_thai:
+        return True
+    return can_nang is not None and chieu_cao is not None
+
+
+def hien_so_do_buoi(*, vitals_status: str | None, co_so_do_luot_nay: bool) -> bool:
+    """Màn Đo sinh hiệu có coi lượt này là "đã đo" (và hiện số của buổi) không.
+
+    Theo TRẠNG THÁI THẬT của luồng: ``recorded`` (tự đo, hoặc H1 đã nhận lần đo
+    của buổi) — hoặc lượt có số đo riêng (dữ liệu cũ chưa đồng bộ trạng thái).
+    Buổi có số mà lượt còn ``pending`` (dây tắt / lượt kia đo SAU khi lượt này
+    check-in) → vẫn "Chờ đo", khớp với hàng tư vấn còn chờ đo.
+    """
+    return vitals_status == "recorded" or co_so_do_luot_nay
+
+
+def nhan_nguon_sinh_hieu(*, nguon_visit_id: Any, visit_id: Any) -> str | None:
+    """Nhãn nguồn số đo cho màn hình: đo ở lượt khác cùng buổi → "lượt trước"."""
+    if not nguon_visit_id or not visit_id:
+        return None
+    return None if str(nguon_visit_id) == str(visit_id) else "lượt trước"
+
+
+#: Chờ đo sinh hiệu quá ngần này phút thì màn tô cam để điều dưỡng ưu tiên
+#: (Tuyền 27/09/2026 — màn đo sinh hiệu thiết kế lại). Chỉ nhắc, không chặn.
+CHO_DO_LAU_PHUT = 20
+
+
+def phut_cho(check_in: Any, bay_gio: Any) -> int | None:
+    """HÀM THUẦN: số phút đã chờ kể từ check-in. Rác / thiếu / giờ ngược → None."""
+    if not isinstance(check_in, datetime) or not isinstance(bay_gio, datetime):
+        return None
+    try:
+        giay = (bay_gio - check_in).total_seconds()
+    except TypeError:  # một bên có múi giờ, một bên không
+        return None
+    return int(giay // 60) if giay >= 0 else None
+
+
+def cho_do_lau(phut: int | None) -> bool:
+    """HÀM THUẦN: đã chờ đo quá ngưỡng `CHO_DO_LAU_PHUT` chưa."""
+    return phut is not None and phut >= CHO_DO_LAU_PHUT
+
+
+#: Chờ ở QUẦY THU quá ngần này phút thì dòng khách tô cam (27/09/2026 — quầy
+#: một hoá đơn). Ngưỡng riêng: khách đã khám xong, đứng quầy lâu là phàn nàn.
+CHO_THU_LAU_PHUT = 15
+
+
+def cho_thu_lau(phut: int | None) -> bool:
+    """HÀM THUẦN: đã chờ ở quầy thu quá ngưỡng `CHO_THU_LAU_PHUT` chưa."""
+    return phut is not None and phut >= CHO_THU_LAU_PHUT

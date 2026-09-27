@@ -26,6 +26,8 @@ import {
   Inbox,
 } from "lucide-react";
 
+import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
 import {
   EmptyWorkspace,
@@ -47,6 +49,29 @@ interface Viec {
   /** Ghi chú đối tác đã ghi (24/09/2026). */
   ghi_chu_lay_mau?: string | null;
   ghi_chu_tai_lieu?: string | null;
+  /** Khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026). */
+  doi_tac_thu?: boolean;
+  /** Giá tham khảo trong bảng giá phòng khám. */
+  gia_tham_khao?: number | null;
+  /** Ghi nhận "đã thu tiền khách" còn hiệu lực — null = chưa thu. */
+  da_thu?: DaThu | null;
+}
+
+interface DaThu {
+  id: string;
+  so_tien: number;
+  hinh_thuc: "CASH" | "TRANSFER";
+  ghi_chu: string | null;
+  luc: string | null;
+}
+
+const TEN_HINH_THUC: Record<DaThu["hinh_thuc"], string> = {
+  CASH: "Tiền mặt",
+  TRANSFER: "Chuyển khoản",
+};
+
+function tienVnd(n: number): string {
+  return `${n.toLocaleString("vi-VN")}đ`;
 }
 
 interface Khach {
@@ -113,12 +138,17 @@ async function docDanhSach(): Promise<KetQua> {
   }
 }
 
-async function bamViec(duong: string, id: string, ghiChu: string): Promise<string | null> {
+async function bamViec(
+  duong: string,
+  id: string,
+  ghiChu: string,
+  them: Record<string, unknown> = {},
+): Promise<string | null> {
   try {
     const r = await fetch(duong, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chi_dinh_id: id, ghi_chu: ghiChu.trim() || undefined }),
+      body: JSON.stringify({ chi_dinh_id: id, ghi_chu: ghiChu.trim() || undefined, ...them }),
     });
     if (r.ok) return null;
     const d = (await r.json().catch(() => null)) as { error?: string; message?: string } | null;
@@ -193,15 +223,23 @@ export default function BangDoiTac() {
   );
 
   const lamViec = useCallback(
-    async (duong: string, v: Viec, k: Khach, bao: string, ghiChu = "") => {
+    async (
+      duong: string,
+      v: Viec,
+      k: Khach,
+      bao: string,
+      ghiChu = "",
+      them: Record<string, unknown> = {},
+    ): Promise<boolean> => {
       setDangLam(v.chi_dinh_id);
       setLoi(null);
       setXong(null);
-      const l = await bamViec(duong, v.chi_dinh_id, ghiChu);
+      const l = await bamViec(duong, v.chi_dinh_id, ghiChu, them);
       if (l) setLoi(l);
       else setXong(`${bao} — ${v.ten_dich_vu} của ${k.ten_khach}.`);
       await tai();
       setDangLam(null);
+      return l === null;
     },
     [tai],
   );
@@ -366,6 +404,17 @@ export default function BangDoiTac() {
                       )
                     }
                     onGui={(tep) => void gui(v, k, tep)}
+                    onDaThu={(soTien, hinhThuc, g) =>
+                      lamViec("/api/doi-tac/da-thu-tien", v, k, "Đã ghi nhận thu tiền khách", g, {
+                        so_tien: soTien,
+                        hinh_thuc: hinhThuc,
+                      })
+                    }
+                    onHuyThu={(lyDo) =>
+                      lamViec("/api/doi-tac/huy-da-thu", v, k, "Đã huỷ ghi nhận thu tiền", "", {
+                        ly_do: lyDo,
+                      })
+                    }
                   />
                 ))}
               </ul>
@@ -384,6 +433,8 @@ function MotViec({
   onLayMau,
   onChoTaiLieu,
   onGui,
+  onDaThu,
+  onHuyThu,
 }: {
   viec: Viec;
   dangLam: boolean;
@@ -391,6 +442,8 @@ function MotViec({
   onLayMau: (ghiChu: string) => void;
   onChoTaiLieu: (ghiChu: string) => void;
   onGui: (tep: File) => void;
+  onDaThu: (soTien: string, hinhThuc: DaThu["hinh_thuc"], ghiChu: string) => Promise<boolean>;
+  onHuyThu: (lyDo: string) => Promise<boolean>;
 }) {
   const oTep = useRef<HTMLInputElement>(null);
   // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu · chờ tài liệu" (24/09/2026).
@@ -464,6 +517,10 @@ function MotViec({
         </div>
       ) : null}
 
+      {viec.doi_tac_thu ? (
+        <ThuTienKhach viec={viec} dangLam={dangLam} onDaThu={onDaThu} onHuyThu={onHuyThu} />
+      ) : null}
+
       {tt === "CHO_LAY_MAU" || tt === "DA_LAY_MAU" ? (
         <label className="block">
           <span className="text-label font-semibold text-ink-muted">
@@ -533,5 +590,150 @@ function MotViec({
         ) : null}
       </div>
     </li>
+  );
+}
+
+/** Khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026, Q1): đối tác ghi
+ *  nhận đã thu (số tiền mặc định = giá tham khảo, hình thức, ghi chú) và huỷ có
+ *  lý do. Máy chủ kiểm số tiền / hình thức / lý do; màn chỉ gửi. */
+function ThuTienKhach({
+  viec,
+  dangLam,
+  onDaThu,
+  onHuyThu,
+}: {
+  viec: Viec;
+  dangLam: boolean;
+  onDaThu: (soTien: string, hinhThuc: DaThu["hinh_thuc"], ghiChu: string) => Promise<boolean>;
+  onHuyThu: (lyDo: string) => Promise<boolean>;
+}) {
+  const [mo, setMo] = useState<"thu" | "huy" | null>(null);
+  const [soTien, setSoTien] = useState(
+    viec.gia_tham_khao != null ? String(viec.gia_tham_khao) : "",
+  );
+  const [hinhThuc, setHinhThuc] = useState<DaThu["hinh_thuc"]>("CASH");
+  const [ghiChu, setGhiChu] = useState("");
+  const [lyDo, setLyDo] = useState("");
+  const da = viec.da_thu;
+
+  return (
+    <div className="space-y-2 rounded-control bg-surface-muted px-3 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-meta text-ink-muted">
+          Khách trả trực tiếp đối tác
+          {viec.gia_tham_khao != null ? ` · tham khảo ${tienVnd(viec.gia_tham_khao)}` : ""}
+        </p>
+        {da ? (
+          <Chip tone="success">
+            Đã thu {tienVnd(da.so_tien)} · {TEN_HINH_THUC[da.hinh_thuc]}
+          </Chip>
+        ) : (
+          <Chip tone="warning">Chưa thu</Chip>
+        )}
+      </div>
+      {da?.ghi_chu ? <p className="whitespace-pre-wrap text-meta text-ink-soft">Ghi chú: {da.ghi_chu}</p> : null}
+      {da?.luc ? <p className="text-label text-ink-faint">Ghi lúc {gioVn(da.luc)}</p> : null}
+
+      {mo === "thu" && !da ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-label font-semibold text-ink-muted">Số tiền (đồng)</span>
+            <input
+              value={soTien}
+              onChange={(e) => setSoTien(e.target.value)}
+              inputMode="numeric"
+              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body tabular-nums text-ink"
+            />
+          </label>
+          <label className="block">
+            <span className="text-label font-semibold text-ink-muted">Hình thức</span>
+            <select
+              value={hinhThuc}
+              onChange={(e) => setHinhThuc(e.target.value as DaThu["hinh_thuc"])}
+              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
+            >
+              <option value="CASH">Tiền mặt</option>
+              <option value="TRANSFER">Chuyển khoản</option>
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-label font-semibold text-ink-muted">Ghi chú (tuỳ chọn)</span>
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              maxLength={2000}
+              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
+            />
+          </label>
+        </div>
+      ) : null}
+
+      {mo === "huy" && da ? (
+        <label className="block">
+          <span className="text-label font-semibold text-ink-muted">Lý do huỷ ghi nhận</span>
+          <input
+            value={lyDo}
+            onChange={(e) => setLyDo(e.target.value)}
+            maxLength={2000}
+            placeholder="VD: ghi nhầm số tiền"
+            className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
+          />
+        </label>
+      ) : null}
+
+      <div className="flex flex-wrap justify-end gap-2">
+        {mo === null && !da ? (
+          <Button variant="soft" size="lg" disabled={dangLam} onClick={() => setMo("thu")}>
+            Đã thu tiền khách
+          </Button>
+        ) : null}
+        {mo === null && da ? (
+          <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo("huy")}>
+            Huỷ ghi nhận
+          </Button>
+        ) : null}
+        {mo === "thu" && !da ? (
+          <>
+            <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo(null)}>
+              Thôi
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              disabled={dangLam || !soTien.trim()}
+              onClick={() =>
+                void onDaThu(soTien, hinhThuc, ghiChu).then((ok) => {
+                  if (ok) setMo(null);
+                })
+              }
+            >
+              {dangLam ? "Đang ghi…" : "Ghi nhận đã thu"}
+            </Button>
+          </>
+        ) : null}
+        {mo === "huy" && da ? (
+          <>
+            <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo(null)}>
+              Thôi
+            </Button>
+            <Button
+              variant="danger"
+              size="lg"
+              disabled={dangLam || lyDo.trim().length < 3}
+              onClick={() =>
+                void onHuyThu(lyDo).then((ok) => {
+                  if (ok) {
+                    setMo(null);
+                    setLyDo("");
+                  }
+                })
+              }
+            >
+              {dangLam ? "Đang ghi…" : "Huỷ ghi nhận"}
+            </Button>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }

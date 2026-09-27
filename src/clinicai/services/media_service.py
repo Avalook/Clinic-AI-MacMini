@@ -196,9 +196,11 @@ def sniff_ket_qua(data: bytes) -> tuple[str, str, str]:
             "Tệp nén (ZIP) không nhận. Tài liệu chỉ nhận Word (.docx) hoặc Excel "
             "(.xlsx)."
         )
-    # DICOM: chữ ký nằm ở byte 128.
+    # DICOM: chữ ký nằm ở byte 128. Loại TAI_LIEU, không phải ANH (27/09/2026,
+    # đợt 3): trình duyệt không vẽ được DICOM — coi là ảnh thì ô xem nhanh và
+    # trang ảnh của bản in thành khung trống. Nhận để lưu + tải về.
     if len(data) > 132 and data[128:132] == b"DICM":
-        return "application/dicom", ".dcm", "ANH"
+        return "application/dicom", ".dcm", "TAI_LIEU"
     # MP4/MOV: `ftyp` ở byte 4, nhãn con ở byte 8.
     if len(data) > 12 and data[4:8] == b"ftyp":
         if data[8:12] in _FTYP_ANH_KHONG_XEM_DUOC:

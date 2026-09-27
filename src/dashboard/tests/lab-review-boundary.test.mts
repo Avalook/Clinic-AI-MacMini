@@ -9,9 +9,6 @@ const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 
 const triageProxy = read("app/api/lab-result/[id]/triage/route.ts");
 const reviewProxy = read("app/api/lab-result/[id]/review/route.ts");
-const actions = read("app/(dashboard)/patients/[id]/LabReviewActions.tsx");
-const history = read("app/(dashboard)/patients/[id]/PatientHistory.tsx");
-const patientPage = read("app/(dashboard)/patients/[id]/page.tsx");
 const releaseRule = read("lib/lab-release.ts");
 
 test("both lab safety proxies require login and leave authority to the backend", () => {
@@ -44,18 +41,8 @@ test("Next proxies expose only triage and patient-bound review contracts", () =>
   assert.match(reviewProxy, /clinic_patient_id:\s*clinicPatientId/);
 });
 
-test("doctor UI cannot fabricate or edit a laboratory result", () => {
-  assert.match(actions, /Phân loại an toàn/);
-  assert.match(actions, /Duyệt & hoàn tất/);
-  assert.match(actions, /window\.confirm/);
-  assert.doesNotMatch(
-    actions,
-    /result_value|result_numeric|result_link|external_ref|<input|<textarea/,
-  );
-  assert.match(history, /<LabReviewActions/);
-  assert.match(history, /canReviewLabs/);
-  assert.match(patientPage, /canReviewLabs=\{is(Doctor|Physician)Role\(role\)\}/);
-});
+// "doctor UI cannot fabricate…" gỡ 27/09/2026: trang /patients/[id] (nơi duy nhất
+// có LabReviewActions) đã gộp vào Danh sách bệnh nhân.
 
 test("CSKH release remains finalized GROUP_A only", () => {
   assert.match(releaseRule, /triageGroup === "GROUP_A" && isFinalized/);

@@ -119,6 +119,10 @@ test("the shared workspace grid still defers three columns until there is room",
 test("clinical editor mutations recover from network failures", () => {
   // Mất mạng giữa chừng không được để nút kẹt "Đang ghi…" và phải nói rõ
   // thao tác CHƯA được ghi.
-  assert.match(lamViecApi, /catch \{\s*return \{ ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi\." \}/);
+  // Đợt 3: kèm `status: 0` để tự lưu biết đây là lỗi mạng (thử lại).
+  assert.match(
+    lamViecApi,
+    /catch \{\s*return \{ ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi\.", status: 0 \}/,
+  );
   assert.match(khungTep, /CHƯA được lưu/);
 });

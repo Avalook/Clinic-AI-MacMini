@@ -12,8 +12,9 @@
 // giao diện thì mỗi ô tick giật một nhịp.
 
 import { useState, useTransition } from "react";
-import { Layers, DoorOpen, Users, Check, AlertTriangle, ClipboardList } from "lucide-react";
-import Button from "@/components/ui/Button";
+
+import CoSoPhong from "./CoSoPhong";
+import { Users, Check, AlertTriangle, ClipboardList } from "lucide-react";
 import type {
   ConfigLocation,
   ConfigMissing,
@@ -22,8 +23,6 @@ import type {
   FormDef,
   NodeDef,
 } from "./types";
-
-const CHUA_KHAI = "— chưa khai tầng —";
 
 export default function ClinicConfigBoard({
   initialLocations,
@@ -71,7 +70,6 @@ export default function ClinicConfigBoard({
   // Định danh là room_id; tên đổi tự do. Sau mỗi lệnh thêm/đổi/bật-tắt thì đọc
   // lại sơ đồ từ máy chủ — không tự đoán trạng thái sau khi tạo phòng mới.
   const [thieu, setThieu] = useState(configMissing);
-  const [moi, setMoi] = useState<Record<string, { ten: string; buoc: string; tang: string }>>({});
 
   async function docLai() {
     const r = await fetch("/api/clinic-config?what=overview", { cache: "no-store" });
@@ -83,87 +81,11 @@ export default function ClinicConfigBoard({
     if (d?.config_missing) setThieu(d.config_missing);
   }
 
-  function lamRoiDocLai(viec: () => Promise<void>, khoa: string) {
-    setErr(null);
-    startTransition(async () => {
-      try {
-        await viec();
-        await docLai();
-        setSaved(khoa);
-      } catch (e) {
-        setErr(e instanceof Error ? e.message : String(e));
-      }
-    });
-  }
 
-  function doiTenPhong(roomId: string, ten: string) {
-    lamRoiDocLai(() => send("room-name", { room_id: roomId, name: ten }), roomId);
-  }
 
-  function batTatPhong(roomId: string, bat: boolean) {
-    lamRoiDocLai(() => send("room-active", { room_id: roomId, is_active: bat }), roomId);
-  }
 
-  function themPhong(locationId: string) {
-    const f = moi[locationId];
-    if (!f?.ten.trim() || !f.buoc) {
-      setErr("Nhập tên phòng và chọn phòng làm việc gì.");
-      return;
-    }
-    lamRoiDocLai(async () => {
-      const res = await fetch("/api/clinic-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          what: "room-create",
-          location_id: locationId,
-          name: f.ten.trim(),
-          node_code: f.buoc,
-          floor: f.tang.trim() || null,
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { detail?: string; error?: string };
-        throw new Error(body.detail ?? body.error ?? "Không thêm được phòng.");
-      }
-      setMoi((m) => ({ ...m, [locationId]: { ten: "", buoc: "", tang: "" } }));
-    }, locationId);
-  }
 
-  function saveRoomFloor(roomId: string, floor: string) {
-    const truoc = locations;
-    setLocations(moveRoomToFloor(locations, roomId, floor.trim() || null));
-    setErr(null);
-    startTransition(async () => {
-      try {
-        await send("room-floor", { room_id: roomId, floor });
-        setSaved(roomId);
-      } catch (e) {
-        setLocations(truoc);
-        setErr(e instanceof Error ? e.message : String(e));
-      }
-    });
-  }
 
-  function toggleRoomNode(roomId: string, code: string) {
-    const truoc = locations;
-    const room = findRoom(locations, roomId);
-    if (!room) return;
-    const next = room.serves.includes(code)
-      ? room.serves.filter((c) => c !== code)
-      : [...room.serves, code].sort();
-    setLocations(setRoomServes(locations, roomId, next));
-    setErr(null);
-    startTransition(async () => {
-      try {
-        await send("room-nodes", { room_id: roomId, node_codes: next });
-        setSaved(roomId);
-      } catch (e) {
-        setLocations(truoc);
-        setErr(e instanceof Error ? e.message : String(e));
-      }
-    });
-  }
 
   function saveServiceForm(
     id: string,
@@ -279,216 +201,14 @@ export default function ClinicConfigBoard({
         </div>
       )}
 
-      {/* ── Sơ đồ: cơ sở → tầng → phòng ─────────────────────────────────── */}
-      {locations.map((loc) => (
-        <section
-          key={loc.location_id}
-          className="rounded-card border border-line bg-surface shadow-card"
-        >
-          <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-            <DoorOpen size={18} className="shrink-0 text-brand-600" />
-            <h2 className="text-base font-semibold text-ink">{loc.name}</h2>
-            <span className="text-xs text-ink-muted">{loc.code}</span>
-            {!loc.is_active && (
-              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-label text-ink-muted">
-                ngừng hoạt động
-              </span>
-            )}
-            <span className="ml-auto text-xs text-ink-muted">
-              {loc.floors.length} tầng ·{" "}
-              {loc.floors.reduce((n, f) => n + f.rooms.length, 0)} phòng
-            </span>
-          </header>
-
-          <div className="divide-y divide-brand-100">
-            {loc.floors.map((f) => (
-              <div key={f.floor ?? "__chua_khai__"} className="px-4 py-3">
-                <div className="mb-2 flex items-center gap-1.5">
-                  <Layers size={14} className="shrink-0 text-ink-muted" />
-                  <span
-                    className={
-                      f.floor === null
-                        ? "text-sm font-medium text-warning"
-                        : "text-sm font-medium text-ink"
-                    }
-                  >
-                    {f.floor === null ? CHUA_KHAI : `Tầng ${f.floor}`}
-                  </span>
-                </div>
-
-                <ul className="space-y-2">
-                  {f.rooms.map((r) => (
-                    <li
-                      key={r.room_id}
-                      className="rounded-lg border border-line bg-brand-50/40 p-3"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* TÊN là dữ liệu hiển thị — đổi tự do, room_id giữ
-                            nguyên. Mã nội bộ (r.code) không hiện: nó không mang
-                            nghĩa nghiệp vụ nào (CORE-C, 23/09/2026). */}
-                        <input
-                          type="text"
-                          aria-label="Tên phòng"
-                          defaultValue={r.name ?? ""}
-                          maxLength={80}
-                          disabled={isPending}
-                          onBlur={(e) => {
-                            const ten = e.target.value.trim();
-                            if (ten && ten !== (r.name ?? "")) doiTenPhong(r.room_id, ten);
-                          }}
-                          className="min-w-0 flex-1 rounded-control border border-line bg-surface px-2 py-1 font-medium text-ink disabled:opacity-60"
-                        />
-                        {!r.is_active && (
-                          <span className="text-label text-ink-muted">
-                            (đang tắt)
-                          </span>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={r.is_active ? "ghost" : "secondary"}
-                          disabled={isPending}
-                          onClick={() => batTatPhong(r.room_id, !r.is_active)}
-                        >
-                          {r.is_active ? "Tắt phòng" : "Bật phòng"}
-                        </Button>
-                        {saved === r.room_id && !isPending && (
-                          <Check size={14} className="text-success" />
-                        )}
-                        <label className="ml-auto flex items-center gap-1.5 text-xs text-ink-muted">
-                          Tầng
-                          <input
-                            type="text"
-                            defaultValue={f.floor ?? ""}
-                            placeholder="1 · Trệt · B1"
-                            maxLength={40}
-                            disabled={isPending}
-                            onBlur={(e) => {
-                              if ((e.target.value.trim() || null) !== f.floor)
-                                saveRoomFloor(r.room_id, e.target.value);
-                            }}
-                            className="w-28 rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink disabled:opacity-60"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {nodes.map((n) => {
-                          const on = r.serves.includes(n.code);
-                          const isPrimary = r.primary_node === n.code;
-                          return (
-                            <button
-                              key={n.code}
-                              type="button"
-                              disabled={isPending}
-                              onClick={() => toggleRoomNode(r.room_id, n.code)}
-                              title={
-                                isPrimary
-                                  ? "Bước chính của phòng — đổi bước chính trước khi bỏ"
-                                  : n.code
-                              }
-                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors duration-150 disabled:opacity-60 ${
-                                on
-                                  ? "border-brand-400 bg-brand-100 text-brand-800"
-                                  : "border-line bg-surface text-ink-muted hover:bg-brand-50"
-                              }`}
-                            >
-                              {isPrimary && "★ "}
-                              {n.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </li>
-                  ))}
-                  {f.rooms.length === 0 && (
-                    <li className="text-sm text-ink-muted">Chưa có phòng.</li>
-                  )}
-                </ul>
-              </div>
-            ))}
-            {loc.floors.length === 0 && (
-              <p className="px-4 py-6 text-center text-sm text-ink-muted">
-                Cơ sở này chưa khai phòng nào.
-              </p>
-            )}
-            {/* THÊM PHÒNG: tên tự do + phòng làm việc gì (bước chính, bắt buộc)
-                + tầng. Thêm bước khác sau bằng các nút bước của phòng. */}
-            <div className="flex flex-wrap items-end gap-2 px-4 py-3">
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-ink-muted">
-                Tên phòng mới
-                <input
-                  type="text"
-                  maxLength={80}
-                  placeholder="VD: Phòng 201 · Siêu âm 1 · Phòng Hoa"
-                  value={moi[loc.location_id]?.ten ?? ""}
-                  onChange={(e) =>
-                    setMoi((m) => ({
-                      ...m,
-                      [loc.location_id]: {
-                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
-                        ten: e.target.value,
-                      },
-                    }))
-                  }
-                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-ink-muted">
-                Làm việc gì
-                <select
-                  value={moi[loc.location_id]?.buoc ?? ""}
-                  onChange={(e) =>
-                    setMoi((m) => ({
-                      ...m,
-                      [loc.location_id]: {
-                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
-                        buoc: e.target.value,
-                      },
-                    }))
-                  }
-                  className="rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
-                >
-                  <option value="">— chọn —</option>
-                  {nodes.map((n) => (
-                    <option key={n.code} value={n.code}>
-                      {n.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-ink-muted">
-                Tầng
-                <input
-                  type="text"
-                  maxLength={40}
-                  placeholder="1 · Trệt"
-                  value={moi[loc.location_id]?.tang ?? ""}
-                  onChange={(e) =>
-                    setMoi((m) => ({
-                      ...m,
-                      [loc.location_id]: {
-                        ...(m[loc.location_id] ?? { ten: "", buoc: "", tang: "" }),
-                        tang: e.target.value,
-                      },
-                    }))
-                  }
-                  className="w-24 rounded-control border border-line bg-surface px-2 py-1 text-sm text-ink"
-                />
-              </label>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                disabled={isPending}
-                onClick={() => themPhong(loc.location_id)}
-              >
-                + Thêm phòng
-              </Button>
-            </div>
-          </div>
-        </section>
-      ))}
+      {/* ── Cơ sở → phòng: gọn, bấm mới mở (27/09/2026) — xem CoSoPhong.tsx. */}
+      <CoSoPhong
+        locations={locations}
+        nodes={nodes}
+        staff={staff}
+        onDocLai={docLai}
+        onLoi={setErr}
+      />
 
       {/* ── Dịch vụ nào dùng phiếu khám nào ─────────────────────────────── */}
       <section className="rounded-card border border-line bg-surface shadow-card">
@@ -691,60 +411,4 @@ export default function ClinicConfigBoard({
       </section>
     </div>
   );
-}
-
-// ── Sửa cây cơ sở → tầng → phòng tại chỗ ───────────────────────────────────
-//
-// Đổi tầng là DI CHUYỂN phòng sang nhóm khác, không phải đổi một chữ. Viết
-// riêng để phần giao diện ở trên không phải lồng ba vòng lặp.
-
-function findRoom(locs: ConfigLocation[], roomId: string) {
-  for (const l of locs)
-    for (const f of l.floors) {
-      const r = f.rooms.find((x) => x.room_id === roomId);
-      if (r) return r;
-    }
-  return null;
-}
-
-function setRoomServes(
-  locs: ConfigLocation[],
-  roomId: string,
-  serves: string[],
-): ConfigLocation[] {
-  return locs.map((l) => ({
-    ...l,
-    floors: l.floors.map((f) => ({
-      ...f,
-      rooms: f.rooms.map((r) => (r.room_id === roomId ? { ...r, serves } : r)),
-    })),
-  }));
-}
-
-function moveRoomToFloor(
-  locs: ConfigLocation[],
-  roomId: string,
-  floor: string | null,
-): ConfigLocation[] {
-  return locs.map((l) => {
-    const room = l.floors.flatMap((f) => f.rooms).find((r) => r.room_id === roomId);
-    if (!room) return l;
-
-    const goc = l.floors
-      .map((f) => ({ ...f, rooms: f.rooms.filter((r) => r.room_id !== roomId) }))
-      // Tầng rỗng sau khi chuyển đi thì BỎ — trừ "chưa khai", vì ô đó là lời
-      // nhắc còn việc phải làm và biến mất sẽ đọc thành "đã khai xong".
-      .filter((f) => f.rooms.length > 0 || f.floor === null);
-
-    const dich = goc.find((f) => f.floor === floor);
-    if (dich) {
-      return {
-        ...l,
-        floors: goc.map((f) =>
-          f === dich ? { ...f, rooms: [...f.rooms, room] } : f,
-        ),
-      };
-    }
-    return { ...l, floors: [...goc, { floor, rooms: [room] }] };
-  });
 }

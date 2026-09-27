@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { tenMucHien } from "@/lib/sua-mau";
 
 import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, gioIn, ngayIn } from "../../KhoiIn";
 import KieuInA4 from "../../KieuInA4";
@@ -251,7 +252,9 @@ export default function InKetQua({ orderId }: { orderId: string }) {
                     : "in-giu mt-4"
                 }
               >
-                <h3 className="font-semibold text-ink">{m.ten}</h3>
+                {tenMucHien(m.ten) ? (
+                  <h3 className="font-semibold text-ink">{tenMucHien(m.ten)}</h3>
+                ) : null}
                 {m.cot ? (
                   <table className="mt-1 w-full border-collapse">
                     <thead>

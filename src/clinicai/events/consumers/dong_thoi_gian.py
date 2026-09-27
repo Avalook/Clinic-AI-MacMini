@@ -58,6 +58,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # Nhóm 3 (24/09/2026).
     "result_file.uploaded": ["cho_xac_nhan"],
     "partner.order_received": ["service_name", "ly_do"],
+    # Đối tác tự thu (27/09/2026) — số tiền là thông tin vận hành.
+    "partner.payment_recorded": ["so_tien", "hinh_thuc"],
+    "partner.payment_voided": ["so_tien"],
     "result_file.confirmed": ["trang_thai"],
     "result_file.viewed": [],
     "result_file.sent_to_patient": ["kenh"],

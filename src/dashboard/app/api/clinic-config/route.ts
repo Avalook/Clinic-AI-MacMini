@@ -19,10 +19,16 @@ export async function GET(request: Request) {
   if (!(await requireUser()))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const what = new URL(request.url).searchParams.get("what") ?? "overview";
+  const url = new URL(request.url);
+  const what = url.searchParams.get("what") ?? "overview";
+  const tuan = (url.searchParams.get("tuan") ?? "").slice(0, 10);
+  // Rác / rỗng → máy chủ tự hiểu là tuần này (`lich_phong_service.doc_tuan`).
+  const tuanHopLe = /^\d{4}-\d{2}-\d{2}$/.test(tuan) ? tuan : "";
   const data = await fetchFromBackend<Record<string, unknown>>(
     what === "staff"
       ? "/api/v1/clinic-config/staff"
+      : what === "lich-phong"
+        ? `/api/v1/clinic-config/lich-phong?tuan=${tuanHopLe}`
       : what === "services"
         ? "/api/v1/clinic-config/services"
         : "/api/v1/clinic-config/overview",
@@ -48,6 +54,8 @@ const WRITE_PATHS: Record<string, string> = {
   "service-form": "/api/v1/clinic-config/service-form",
   // Thư ký đi cùng bác sĩ nào (Tuyền chốt 15/09/2026).
   "thu-ky-bac-si": "/api/v1/clinic-config/thu-ky-bac-si",
+  // Cơ sở (27/09/2026, màn Cấu trúc phòng khám làm lại).
+  location: "/api/v1/clinic-config/location",
 };
 
 export async function PUT(request: Request) {
@@ -75,6 +83,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const { what, ...payload } = body;
+  if (what === "location-create") {
+    return proxyJsonToBackend("POST", "/api/v1/clinic-config/locations", payload);
+  }
   if (what !== "room-create") {
     return NextResponse.json(
       { ok: false, error: `Không rõ cần tạo gì: ${String(what)}` },

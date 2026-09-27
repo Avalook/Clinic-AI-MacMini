@@ -60,6 +60,7 @@ import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 
@@ -163,7 +164,6 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     <div className="grid gap-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
-        {phong?.tang ? <p className="text-body text-ink-muted">{phong.tang}</p> : null}
         {hang ? (
           <p className="text-body text-ink-muted">
             {ds.filter((d) => d.trang_thai === "waiting" || d.trang_thai === "called").length}{" "}
@@ -416,6 +416,13 @@ function KhachTrongPhong({
             {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
             {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
           </p>
+          {/* Dịch vụ đã đóng mà phiếu kết quả mới là nháp (máy chủ quyết —
+              27/09 đợt 3): bản in lúc này vẫn ghi BẢN NHÁP. */}
+          {th?.phieu_chua_hoan_tat ? (
+            <Chip tone="warning" className="mt-1">
+              Phiếu kết quả chưa Hoàn tất
+            </Chip>
+          ) : null}
           {dong.ly_do_khong_lam ? (
             <p className="text-meta text-warning">
               Lý do: {nhanLyDo(dong.ly_do_khong_lam)}
@@ -471,13 +478,18 @@ function KhachTrongPhong({
           mau={th.mau_ket_qua}
           mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
           onCacBen={setCacBen}
-          onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
+          onHoanTat={({ daDongDichVu, viSao, laLanSua, conTrong }) => {
+            // Đợt 3: dịch vụ đóng xong thì dòng này rời hàng chờ và phiếu đóng
+            // lại — nhắc "còn trống" phải đi theo câu báo, không mất cùng phiếu.
+            const nhacTrong = conTrong.length
+              ? ` Còn ${conTrong.length} mục trống: ${conTrong.join(", ")} (chỉ nhắc).`
+              : "";
             setBao(
-              laLanSua
+              (laLanSua
                 ? "Đã ghi bản sửa của kết quả."
                 : daDongDichVu
                   ? "Đã hoàn tất phiếu, đóng dịch vụ và báo có kết quả."
-                  : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${viSao ?? "không rõ lý do"}.`,
+                  : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${viSao ?? "không rõ lý do"}.`) + nhacTrong,
             );
             docLai();
             onDaBam();

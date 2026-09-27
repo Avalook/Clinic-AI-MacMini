@@ -621,16 +621,20 @@ async def test_finance_gate_theo_cau_hinh_gia(q: Quay) -> None:
     due = await _cd(q, "DUE", 100_000)
     chua = await _cd(q, "CHUA", selection="PENDING")
     g = await _gate(q, dt, free, thieu, due, chua)
-    assert g[dt].finance_state == "EXTERNAL_PAYMENT_UNRESOLVED"
-    assert not g[dt].financially_ready  # đối tác KHÔNG phải miễn phí
+    # Đối tác tự thu (Tuyền chốt 27/09/2026, Q1): khách trả TRỰC TIẾP cho đối
+    # tác → về phía phòng khám không có gì phải thu → sẵn sàng (trước:
+    # EXTERNAL_PAYMENT_UNRESOLVED chặn mãi, không lệnh nào gỡ).
+    assert g[dt].finance_state == "PARTNER_COLLECTS"
+    assert g[dt].financially_ready
+    assert not g[dt].payment_required_by_clinic
     assert g[free].finance_state == "NOT_REQUIRED" and g[free].financially_ready
     assert g[thieu].finance_state == "FINANCIAL_DATA_INCOMPLETE"
     assert g[due].finance_state == "DUE"
     assert g[due].reason_code == "SERVICE_PAYMENT_REQUIRED"
     assert g[chua].finance_state == "NOT_APPLICABLE"
     assert g[chua].reason_code == "SERVICE_NOT_SELECTED"
-    # Chỉ PAID / NOT_REQUIRED mở cửa.
-    assert {o for o, d in g.items() if d.financially_ready} == {free}
+    # Chỉ PAID / NOT_REQUIRED / PARTNER_COLLECTS mở cửa.
+    assert {o for o, d in g.items() if d.financially_ready} == {free, dt}
 
 
 def test_gia_hoac_ben_thu_mau_thuan_la_chua_du_du_lieu() -> None:

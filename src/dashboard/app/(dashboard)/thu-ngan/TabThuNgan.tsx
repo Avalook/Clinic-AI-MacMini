@@ -7,6 +7,7 @@
 import { useState } from "react";
 
 import GiaoDich from "./GiaoDich";
+import LichSuThu from "./LichSuThu";
 import QuayThuNgan from "./QuayThuNgan";
 
 const TAB = [
@@ -35,7 +36,14 @@ export default function TabThuNgan({ quay }: { quay: "dich_vu" | "thuoc" }) {
           </button>
         ))}
       </div>
-      {tab === "cho" ? <QuayThuNgan quay={quay} /> : <GiaoDich key={tab} lichSu={tab === "lich_su"} />}
+      {tab === "cho" ? (
+        <QuayThuNgan quay={quay} />
+      ) : tab === "lich_su" && quay === "dich_vu" ? (
+        // Quầy dịch vụ (27/09, đợt 3): lịch sử gom theo khách + CSV + phiếu thu.
+        <LichSuThu />
+      ) : (
+        <GiaoDich key={tab} lichSu={tab === "lich_su"} />
+      )}
     </div>
   );
 }

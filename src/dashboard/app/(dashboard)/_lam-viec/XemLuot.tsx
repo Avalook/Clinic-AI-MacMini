@@ -71,6 +71,8 @@ interface DuLieuXem {
     dich_vu_kham: string | null;
     bac_si: string | null;
     da_do_sinh_hieu: boolean;
+    /** "lượt trước" khi số đo của lượt khác cùng buổi (máy chủ trả). */
+    sinh_hieu_nguon?: string | null;
     kham_xong_luc: string | null;
     dang_o: string | null;
     da_thu_dich_vu: boolean;
@@ -282,7 +284,14 @@ export default function XemLuot({
                   <Truong nhan="Check-in" gia={ngayGio(hc.check_in_luc)} />
                   <Truong nhan="Loại khám" gia={hc.dich_vu_kham ?? "—"} />
                   <Truong nhan="Bác sĩ" gia={hc.bac_si ?? "—"} />
-                  <Truong nhan="Sinh hiệu" gia={hc.da_do_sinh_hieu ? "Đã đo" : "Chưa đo"} />
+                  <Truong
+                    nhan="Sinh hiệu"
+                    gia={
+                      hc.da_do_sinh_hieu
+                        ? `Đã đo${hc.sinh_hieu_nguon ? ` (${hc.sinh_hieu_nguon})` : ""}`
+                        : "Chưa đo"
+                    }
+                  />
                   <Truong nhan="Khám xong" gia={ngayGio(hc.kham_xong_luc)} />
                   <Truong nhan="Đang ở" gia={hc.dong_luot_luc ? "Đã về" : (hc.dang_o ?? "—")} />
                   <Truong nhan="Thu dịch vụ" gia={hc.da_thu_dich_vu ? "Đã thu" : "Chưa thu"} />

@@ -101,6 +101,20 @@ LY_DO_GIAN_DOAN = frozenset(
 )
 
 
+def phieu_chua_hoan_tat(
+    execution_status: str | None, trang_thai_phieu: list[str | None]
+) -> bool:
+    """Dịch vụ ĐÃ LÀM XONG nhưng phiếu kết quả mới là nháp (27/09/2026, đợt 3).
+
+    Đúng khi: dịch vụ COMPLETED, có ít nhất một phiếu, và không phiếu nào
+    READY. Không phiếu nào (dịch vụ không dùng phiếu, chỉ tải ảnh) → False: đó
+    không phải chuyện "quên Hoàn tất". Giá trị lạ → False (không báo động giả).
+    """
+    if execution_status != "COMPLETED" or not trang_thai_phieu:
+        return False
+    return all(t != "READY" for t in trang_thai_phieu)
+
+
 class ServiceExecutionService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -702,11 +716,17 @@ class ServiceExecutionService:
             mau, mau_goi_y = await mau_cho_dich_vu(
                 conn, clinic_id=cid, service_code=don["service_code"]
             )
+            # READY TRƯỚC (27/09/2026, đợt 3 — B11): màn phòng mở lại khách lấy
+            # `phieu[0]` làm mẫu chọn sẵn. Xếp theo giờ tạo thì phiếu nháp cũ
+            # (mẫu chọn sẵn lúc mới mở khách) đứng đầu → mở lại ra phiếu nháp
+            # thay vì phiếu đã Hoàn tất. Cùng thứ tự với khối 2
+            # (`ket_qua_chi_dinh`): hoàn tất mới nhất trước, rồi mới tạo trước.
             phieu = await conn.fetch(
                 "SELECT id::text, form_id, trang_thai, revision, hoan_tat_luc"
                 "  FROM form_instance"
                 " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
-                " ORDER BY tao_luc",
+                " ORDER BY (trang_thai = 'READY') DESC,"
+                "          hoan_tat_luc DESC NULLS LAST, tao_luc DESC",
                 cid,
                 order_id,
             )
@@ -727,6 +747,11 @@ class ServiceExecutionService:
             "mau_ket_qua": mau,
             "mau_goi_y": mau_goi_y,
             "phieu": [dict(d) for d in phieu],
+            # Dịch vụ đã đóng mà phiếu kết quả chưa ai Hoàn tất (chỉ có nháp):
+            # màn phòng hiện chip nhắc — bản in lúc này vẫn ghi BẢN NHÁP.
+            "phieu_chua_hoan_tat": phieu_chua_hoan_tat(
+                don["execution_status"], [d["trang_thai"] for d in phieu]
+            ),
             "ly_do_khong_lam": sorted(LY_DO_KHONG_LAM),
             "ly_do_gian_doan": sorted(LY_DO_GIAN_DOAN),
         }

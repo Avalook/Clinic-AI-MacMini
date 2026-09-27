@@ -11,7 +11,9 @@ export const INPUT =
   // Ô KHOÁ PHẢI TRÔNG KHOÁ (18/09/2026, DESIGN.md §5): trước đây ô disabled
   // trắng y ô gõ được — bệnh án chỉ xem ở Trang chủ trông như sửa được.
   "disabled:cursor-not-allowed disabled:bg-surface-sunken " +
-  "disabled:text-ink-soft disabled:shadow-none";
+  "disabled:text-ink-soft disabled:shadow-none " +
+  // Ô máy chủ báo lỗi (đợt 3, 27/09/2026 — góp ý B8): viền danger ngay tại ô.
+  "aria-invalid:border-danger";
 
 export const LABEL = "mb-1 block text-[13px] font-medium text-ink-soft";
 

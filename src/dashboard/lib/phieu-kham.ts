@@ -41,6 +41,16 @@ export interface OPhieu {
   cot?: string;
   /** Nhãn do người trích đặt, không có trong tài liệu nguồn. */
   ten_tu_dat?: boolean;
+  /** Đợt 3 (27/09/2026, bản v2): ô ẩn sau một chip tên ô — bấm chip mới hiện.
+   *  Ô đã có giá trị LUÔN hiện (thu gọn không giấu dữ liệu). */
+  thu_gon?: boolean;
+  /** Chỉ hiện khi ô chọn `o` đang chọn mã `la` ("Chi tiết dị ứng thuốc" khi
+   *  "Dị ứng thuốc: Có"). Ô đã có giá trị LUÔN hiện. */
+  hien_khi?: { o: string; la: string };
+  /** Cả nhóm nằm trong ngăn gập — mặc định đóng, tự mở khi có ô điền. */
+  gap?: boolean;
+  /** Ô thêm sau khi trích nguồn — lý do (chỉ để đối chiếu). */
+  them_sau_nguon?: string;
 }
 
 export type LoaiLienKet =
@@ -77,6 +87,8 @@ export interface KetQuaMotChiDinh {
   hoan_tat_luc?: string | null;
   tai_len_luc?: string;
   loai_tep?: string;
+  /** Tệp: kiểu thật (máy chủ dò bằng nội dung). DICOM = không vẽ được, chỉ tải về. */
+  mime?: string | null;
   /** Tệp: NULL/HOP_LE = in được; CHO_XAC_NHAN / TU_CHOI thì KHÔNG in. */
   xac_nhan_trang_thai?: string | null;
   khung?: MucPhieu[] | null;
@@ -103,6 +115,10 @@ export interface ChiDinhVaKetQua {
   gia?: number | null;
   /** Đã thu tiền dịch vụ này (phiếu thu PAID). */
   da_thu?: boolean;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026) — phòng khám không thu. */
+  doi_tac_thu?: boolean;
+  /** Đối tác đã ghi nhận thu tiền khách (bàn đối tác). */
+  doi_tac_da_thu?: boolean;
   /** Bác sĩ đã xem kết quả lúc nào — chưa xem thì đếm "N mới". */
   da_xem_luc?: string | null;
   /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
@@ -137,6 +153,9 @@ export interface MucCls {
   gia?: number | null;
   /** Mã phòng khám (KiotViet) — dòng "Dịch vụ khác trong bảng giá". */
   ma_kiotviet?: string | null;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026, máy chủ nói): giá chỉ tham
+   *  khảo, không cộng vào tổng phòng khám. */
+  doi_tac_thu?: boolean;
 }
 
 export interface NhomCls {
@@ -188,6 +207,8 @@ export interface DauPhieu {
   hanh_chinh: Record<string, string | number | null>;
   sinh_hieu: Record<string, string | number | null>;
   sinh_hieu_luc: string | null;
+  /** "lượt trước" khi số đo của lượt khác cùng buổi (máy chủ trả); null = lượt này. */
+  sinh_hieu_nguon?: string | null;
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
   /** MỌI phiên tư vấn của lượt + bản mới nhất (kể cả chưa ghi / đã xoá trắng) —
    *  chỗ sửa tại chỗ của bác sĩ tư vấn và bác sĩ chính (27/09/2026, mục 12). */
@@ -255,6 +276,8 @@ export type DonViVe =
 export interface NhomVe {
   tieu_de: string | null;
   don_vi: DonViVe[];
+  /** Mọi ô của nhóm khai `gap` → cả nhóm vào ngăn gập. */
+  gap: boolean;
 }
 
 /** Ô liền nhau cùng `nhom` → một nhóm; ô liền nhau cùng `bang.ma` → một bảng. */
@@ -264,9 +287,10 @@ export function gomNhom(block: OPhieu[]): NhomVe[] {
     const tieuDe = o.nhom ?? null;
     let nhom = ra[ra.length - 1];
     if (!nhom || nhom.tieu_de !== tieuDe) {
-      nhom = { tieu_de: tieuDe, don_vi: [] };
+      nhom = { tieu_de: tieuDe, don_vi: [], gap: Boolean(o.gap) };
       ra.push(nhom);
     }
+    nhom.gap = nhom.gap && Boolean(o.gap);
     if (!o.bang) {
       nhom.don_vi.push({ loai: "o", o });
       continue;
@@ -289,6 +313,59 @@ export function gomNhom(block: OPhieu[]): NhomVe[] {
     hang.o[viTri] = o;
   }
   return ra;
+}
+
+// ---------------------------------------------------------------------------
+// 1b. Ô nào đang hiện (đợt 3, 27/09/2026 — góp ý phòng khám, khung v2)
+// ---------------------------------------------------------------------------
+/** Ô đã có giá trị? (chuỗi trắng · mảng rỗng = chưa). */
+export function coGiaTriO(v: GiaTriO | undefined): boolean {
+  return Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "";
+}
+
+/**
+ * Ô có đang hiện trên màn không. Luật ĐỌC TỪ KHUNG, không so tên nhóm:
+ *   · có giá trị → luôn hiện (không bao giờ giấu dữ liệu, kể cả phiếu cũ);
+ *   · `hien_khi` → hiện khi ô chọn kia đang chọn đúng mã;
+ *   · `thu_gon`  → hiện khi người dùng đã bấm chip của nó (`daMo` — trạng thái
+ *                  màn, không lưu);
+ *   · còn lại    → hiện.
+ */
+export function oDangHien(
+  o: OPhieu,
+  gia: Readonly<Record<string, GiaTriO>>,
+  daMo: ReadonlySet<string>,
+): boolean {
+  if (coGiaTriO(gia[o.ma])) return true;
+  if (o.hien_khi) {
+    const v = gia[o.hien_khi.o];
+    return Array.isArray(v) ? v.includes(o.hien_khi.la) : v === o.hien_khi.la;
+  }
+  if (o.thu_gon) return daMo.has(o.ma);
+  return true;
+}
+
+/** Ô `thu_gon` của nhóm CHƯA hiện — mỗi ô một chip "+ tên ô". */
+export function oThuGonDangAn(
+  nhom: NhomVe,
+  gia: Readonly<Record<string, GiaTriO>>,
+  daMo: ReadonlySet<string>,
+): OPhieu[] {
+  return nhom.don_vi.flatMap((d) =>
+    d.loai === "o" && d.o.thu_gon && !oDangHien(d.o, gia, daMo) ? [d.o] : [],
+  );
+}
+
+/** Mọi ô của một nhóm (kể cả ô trong bảng). */
+export function oCuaNhom(nhom: NhomVe): OPhieu[] {
+  return nhom.don_vi.flatMap((d) =>
+    d.loai === "o" ? [d.o] : d.hang.flatMap((h) => h.o.filter((o): o is OPhieu => o !== null)),
+  );
+}
+
+/** Số ô đã điền trong một danh sách ô — chip "N ô đã điền". */
+export function soODaDien(ds: readonly OPhieu[], gia: Readonly<Record<string, GiaTriO>>): number {
+  return ds.filter((o) => coGiaTriO(gia[o.ma])).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -362,6 +439,42 @@ export function giaTriBanDau(duLieu: Record<string, ONhap>): Record<string, GiaT
   return Object.fromEntries(Object.entries(duLieu).map(([k, v]) => [k, v.gia_tri]));
 }
 
+/** Cảnh báo từng ô máy chủ trả khi lưu (số / ngày không đọc được → lưu RỖNG). */
+export interface CanhBaoO {
+  ma: string;
+  ten: string;
+  loi: string;
+}
+
+function laCanhBao(x: unknown): x is CanhBaoO {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return typeof o.ma === "string" && o.ma !== "" && typeof o.ten === "string" && typeof o.loi === "string";
+}
+
+/**
+ * Gộp cảnh báo sau một lần tự lưu (đợt 3, 27/09/2026). Tự lưu chỉ gửi các ô
+ * VỪA ĐỔI (`phanThayDoi`), nên `canh_bao` máy chủ trả chỉ nói về các ô ấy: ô
+ * vừa gửi lấy cảnh báo mới (hoặc hết cảnh báo), ô khác GIỮ cảnh báo cũ — nếu
+ * không, lưu một ô khác là xoá mất câu "“28-30” không phải số — ô để trống".
+ * `moi` từ mạng: rác → coi như không có cảnh báo.
+ */
+export function gopCanhBao(
+  cu: readonly CanhBaoO[],
+  daGui: readonly string[],
+  moi: unknown,
+): CanhBaoO[] {
+  const gui = new Set(daGui);
+  const ra = cu.filter((c) => !gui.has(c.ma));
+  const co = new Set(ra.map((c) => c.ma));
+  for (const c of Array.isArray(moi) ? moi : []) {
+    if (!laCanhBao(c) || co.has(c.ma)) continue;
+    co.add(c.ma);
+    ra.push({ ma: c.ma, ten: c.ten, loi: c.loi });
+  }
+  return ra;
+}
+
 // ---------------------------------------------------------------------------
 // Tham chiếu nguồn (mục E, F) — nhãn CHỜ ÁNH XẠ, chưa phải định danh
 // ---------------------------------------------------------------------------
@@ -385,6 +498,40 @@ export interface ThuThuatNguon {
   /** null = danh mục chưa gắn mã dịch vụ → chưa tạo được chỉ định. */
   service_code: string | null;
   gia?: number | null;
+  /** Nhóm như bản giao diện mẫu (`CHI_DINH_DT`, 27/09/2026): "Thủ thuật",
+   *  "Sàn chậu — trải nghiệm 5 phút ghế ĐTT", "Sàn chậu — định hướng điều trị". */
+  nhom?: string | null;
+}
+
+/** Nhóm mặc định khi máy chủ (bản cũ) chưa gửi `nhom` của thủ thuật. */
+export const NHOM_THU_THUAT_MAC_DINH = "Thủ thuật / kỹ thuật điều trị";
+
+/**
+ * Danh mục khối 3 (thủ thuật · điều trị) theo NHÓM của máy chủ, giữ thứ tự
+ * xuất hiện — cùng hình `NhomCls` với khối 2 để dùng chung `DanhMucChiDinh`.
+ * Chỉ trình bày: nhóm nào, dòng nào là việc của `tham_chieu_nguon.json`.
+ */
+export function nhomThuThuat(ds: readonly ThuThuatNguon[] | null | undefined): NhomCls[] {
+  const ra: NhomCls[] = [];
+  const theoTen = new Map<string, NhomCls>();
+  for (const t of ds ?? []) {
+    if (!t || typeof t.nhan !== "string") continue;
+    const ten = typeof t.nhom === "string" && t.nhom.trim() ? t.nhom.trim() : NHOM_THU_THUAT_MAC_DINH;
+    let n = theoTen.get(ten);
+    if (!n) {
+      n = { nhom: ten, muc: [] };
+      theoTen.set(ten, n);
+      ra.push(n);
+    }
+    n.muc.push({
+      nhan: t.nhan,
+      cach_tra_ket_qua: t.form_id_ket_qua ? "Có biểu mẫu" : "",
+      form_id_ket_qua: t.form_id_ket_qua,
+      service_code: t.service_code,
+      gia: t.gia ?? null,
+    });
+  }
+  return ra;
 }
 
 /** Một dòng đơn thuốc trên phiếu — hình của contract `prescription`. */
@@ -629,7 +776,16 @@ export function dongKetQua(k: KetQuaMotChiDinh): {
   return { dong, ketLuan };
 }
 
-/** Ảnh IN ĐƯỢC của một chỉ định: ảnh, đã xác nhận hợp lệ (hoặc tải ở phòng). */
+export const MIME_DICOM = "application/dicom";
+
+/** Tệp DICOM (máy siêu âm xuất thẳng): trình duyệt KHÔNG vẽ được bằng thẻ img —
+ *  coi là tài liệu tải về, không phải ảnh (27/09/2026, đợt 3). Rác → false. */
+export function laDicom(mime: unknown): boolean {
+  return typeof mime === "string" && mime.trim().toLowerCase() === MIME_DICOM;
+}
+
+/** Ảnh IN ĐƯỢC của một chỉ định: ảnh trình duyệt vẽ được (không DICOM), đã xác
+ *  nhận hợp lệ (hoặc tải ở phòng). */
 export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
   return d.ket_qua
     .filter(
@@ -637,6 +793,7 @@ export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
         k.loai === "TEP" &&
         k.tep_id &&
         k.loai_tep === "ANH" &&
+        !laDicom(k.mime) &&
         (k.xac_nhan_trang_thai ?? "HOP_LE") === "HOP_LE",
     )
     .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""));
@@ -681,4 +838,17 @@ export function ngayHenTaiKham(homNay: string, khoang: { ngay: number; thang: nu
     Date.UTC(nam, thang - 1 + khoang.thang, Math.min(ngay, cuoiThangDich) + khoang.ngay),
   );
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Tổng tiền PHÒNG KHÁM của các mục đang chọn ở danh mục chỉ định: bỏ mục khách
+ * trả trực tiếp cho đối tác (`doi_tac_thu` — cờ máy chủ, 27/09/2026) và mục
+ * chưa có giá. Thuần.
+ */
+export function tongPhongKham(chon: readonly string[], muc: readonly MucCls[]): number {
+  const gia = new Map<string, number>();
+  for (const m of muc) {
+    if (m.service_code && !m.doi_tac_thu && typeof m.gia === "number") gia.set(m.service_code, m.gia);
+  }
+  return chon.reduce((t, c) => t + (gia.get(c) ?? 0), 0);
 }

@@ -45,7 +45,8 @@ test("không còn nút [Bắt đầu]: gõ đầu tiên là bắt đầu, [Đo x
   assert.doesNotMatch(ma, /"Bắt đầu"|Bấm \[Bắt đầu\]/, "không còn nút / lời nhắc Bắt đầu");
   assert.match(ma, /sinh_hieu_trang_thai === "pending"/);
   // Gõ vào ô → tự gửi bắt đầu (một lần / lượt).
-  assert.match(ma, /onChange=\{\(e\) => \{[\s\S]*?void batDau\(\);/);
+  // (27/09 đợt 3: ô là `components/ui/OSo` — onChange nhận chuỗi, không nhận event.)
+  assert.match(ma, /onChange=\{\(\w+\) => \{[\s\S]*?void batDau\(\);/);
   // Bấm Đo xong khi chưa có mốc bắt đầu → gửi bắt đầu TRƯỚC khi lưu.
   assert.match(ma, /if \(chuaBd[\s\S]*?await batDau\(\)/);
   assert.match(ma, /"Đo xong"/);
@@ -53,7 +54,7 @@ test("không còn nút [Bắt đầu]: gõ đầu tiên là bắt đầu, [Đo x
   // Ô nhập SINH HIỆU không có `disabled` nào. (Ô tick "Bỏ qua bác sĩ tư vấn",
   // 25/09, khoá có chủ ý khi tư vấn đã nhận / bác sĩ chính đã khám — không
   // phải ô nhập chỉ số, nên loại ra.)
-  const oNhap = (ma.match(/<input[\s\S]*?\/>/g) ?? []).filter(
+  const oNhap = (ma.match(/<(?:input|OSo)\b[\s\S]*?\/>/g) ?? []).filter(
     (o) => !o.includes('type="checkbox"'),
   );
   assert.ok(oNhap.length > 0);

@@ -56,7 +56,9 @@ export default async function DanhSachPhongPage() {
           >
             <span className="text-emph font-semibold text-ink">{p.ten}</span>
             <span className="text-meta text-ink-muted">
-              {cuaToi.has(p.id) ? "Hôm nay bạn đứng phòng này" : p.tang ? `Tầng ${p.tang}` : " "}
+              {/* Không in tầng (27/09/2026 đợt 3): phòng khám đổi bố cục phòng liên tục.
+                  Bản cũ còn in "Tầng Tầng 1" vì dữ liệu vốn đã có chữ "Tầng". */}
+              {cuaToi.has(p.id) ? "Hôm nay bạn đứng phòng này" : " "}
             </span>
           </Link>
         </li>

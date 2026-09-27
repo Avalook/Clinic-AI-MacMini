@@ -83,10 +83,21 @@ test("đọc trạng thái thực hiện đi qua danh sách trắng, mã phải 
 test("phiếu lưu lần cuối trước khi chốt, và khai rõ nguồn giá trị", () => {
   // Gõ xong bấm ngay [Hoàn tất] trong khoảng lặng tự lưu thì câu vừa viết chưa
   // tới máy chủ — chốt xong là mất đúng câu ấy.
-  const viTriLuu = PHIEU.indexOf('thao_tac: "luu"', PHIEU.indexOf("const hoanTat"));
-  const viTriChot = PHIEU.indexOf('thao_tac: "hoan-tat"');
+  //
+  // Đợt 3 (27/09/2026): lưu nốt qua CHÍNH hàng đợi tự lưu (`tuLuu.luuNgay()`) —
+  // đợi lần đang bay, revision lấy từ lần vừa xong; lưu hỏng thì KHÔNG chốt.
+  const hoanTat = PHIEU.slice(PHIEU.indexOf("const hoanTat"));
+  const viTriLuu = hoanTat.indexOf("await tuLuu.luuNgay()");
+  const viTriChot = hoanTat.indexOf('thao_tac: "hoan-tat"');
   assert.ok(viTriLuu > 0 && viTriLuu < viTriChot, "phải lưu trước khi hoàn tất");
-  assert.match(PHIEU, /nguon: "USER"/);
+  assert.match(
+    hoanTat.slice(viTriLuu - 20, viTriChot),
+    /if \(!\(await tuLuu\.luuNgay\(\)\)\) \{[\s\S]*?return;/,
+    "lưu không được thì không chốt",
+  );
+  // Gói lưu (kể cả ô bảng `ma::cột`) dựng bằng `gopGiaTri`, nguồn USER.
+  assert.match(PHIEU, /thao_tac: "luu"[\s\S]{0,200}du_lieu: gopGiaTri\(giaRef\.current\)/);
+  assert.match(doc("../lib/phieu-ket-qua.ts"), /nguon: "USER"/);
   // "Hoàn tất = xác nhận toàn bộ" phải nói ra trên màn, không chỉ nằm trong
   // tài liệu — đây là lúc người nhận trách nhiệm.
   assert.match(PHIEU, /xác nhận toàn bộ/i);
@@ -169,7 +180,9 @@ test("đổi người thực hiện thì tự lưu ngay", () => {
   // Người thực hiện là dữ liệu nghiệp vụ, không phải trạng thái màn hình.
   const i = PHIEU.indexOf("setThucHienBoi(ai)");
   assert.ok(i > 0, "onChange phải giữ lựa chọn");
-  assert.match(PHIEU.slice(i, i + 500), /tuLuu\(gia, phieu, ai\)/);
+  // Đợt 3: ghi ref lựa chọn (hàng đợi đọc lúc gửi) + đánh dấu có thay đổi.
+  assert.match(PHIEU.slice(i - 200, i + 500), /nguoiRef\.current = ai/);
+  assert.match(PHIEU.slice(i, i + 500), /tuLuu\.danhDau\(\)/);
 });
 
 test("nút Xác nhận sửa KHÔNG khoá vì chưa gõ lý do", () => {

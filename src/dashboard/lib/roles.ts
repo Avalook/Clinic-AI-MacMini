@@ -368,7 +368,6 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // lời hứa "họ chỉ thấy việc của họ" ngoài cách mượn tài khoản đối tác.
   "/doi-tac": ["PARTNER", "MANAGEMENT"],
   "/truong-ca": ["TRUONG_CA", "MANAGEMENT"],
-  "/truong-ca/hang-doi": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/lich-su": ["TRUONG_CA", "MANAGEMENT"],
   "/truong-ca/tv": ["TRUONG_CA", "MANAGEMENT"],
   // Danh sách bệnh nhân ĐÃ KHÁM (lần đầu / tái khám) — CSKH/Lễ tân/QL + BÁC SĨ.
@@ -618,7 +617,6 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/thu-ngan/thuoc": ["payment.medicine.collect"], //  7 Thu tiền thuốc
   "/viec-can-xu-ly": ["worklist.handle"], //  8 Việc cần xử lý
   "/truong-ca": ["dispatch.manage"], //  9 Điều phối khách
-  "/truong-ca/hang-doi": ["dispatch.manage"],
   "/truong-ca/lich-su": ["dispatch.manage"],
   "/truong-ca/tv": ["dispatch.manage"],
   "/appointments": ["booking.create"], // 10 Đặt lịch

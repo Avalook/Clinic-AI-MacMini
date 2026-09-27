@@ -315,6 +315,9 @@ def _mot_dong(
         "queue_number": r["queue_number"],
         "zone_key": _khu_vuc(r["service_name"], zones, r["room_code"]),
         "room_name": r["room_name"],
+        # Mã phòng (địa điểm, không định danh ai) — TV từng phòng lọc theo nó
+        # (`/display?phong=<mã>`, Tuyền 27/09/2026).
+        "room_code": r["room_code"],
         "call_order": d.call_order if d else None,
         "call_reason": d.call_reason if d else None,
         # "Đang gọi" đọc từ TRẠNG THÁI LƯỢT KHÁM, không từ trạng thái lịch hẹn.

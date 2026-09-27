@@ -30,6 +30,7 @@ from clinicai.api.identity import (
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinic_config_service import ClinicConfigService
+from clinicai.services.lich_phong_service import LichPhongService
 from clinicai.services.thu_ky_bac_si import dat_bac_si_cho_thu_ky
 
 router = APIRouter()
@@ -330,3 +331,17 @@ async def set_thu_ky_bac_si(
         thu_ky_staff_id=str(body.thu_ky_staff_id),
         bac_si_staff_ids=[str(x) for x in body.bac_si_staff_ids],
     )
+
+
+# ── Lịch của từng phòng (Tuyền 27/09/2026 tối: phòng và lịch là MỘT) ──────
+# Chỉ ĐỌC ở đây; ghi đi các lệnh lịch / vị trí sẵn có — không đường thứ hai.
+
+
+@router.get("/clinic-config/lich-phong")
+async def lich_phong(
+    tuan: str | None = None,
+    identity: StaffIdentity = Depends(_STAFF_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Vị trí của từng phòng + ai được xếp theo ngày/ca trong tuần `tuan`."""
+    return await LichPhongService(pool).tuan(identity=identity, tuan=tuan)

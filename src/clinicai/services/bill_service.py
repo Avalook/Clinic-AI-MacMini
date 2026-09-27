@@ -69,6 +69,13 @@ class HoaDon:
     dong: list[DongHoaDon] = field(default_factory=list)
     # Vấn đề của CẢ LƯỢT, không thuộc dòng nào (vd tiền cũ không truy được).
     van_de_luot: list[str] = field(default_factory=list)
+    # ĐỐI TÁC TỰ THU (Tuyền chốt 27/09/2026, Q1): dịch vụ khách trả TRỰC TIẾP
+    # cho đối tác. Quầy HIỆN (kèm giá tham khảo) nhưng không cộng, không vào
+    # dấu hoá đơn, không vào ảnh chụp lần thu — nó không phải khoản của phòng
+    # khám. Chỉ hoá đơn CÒN NỢ điền phần này.
+    dong_doi_tac: list[DongHoaDon] = field(default_factory=list)
+    # Đối tác đã ghi nhận thu tiền cho chỉ định nào (source_id → ghi nhận).
+    doi_tac_da_thu: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def dong_thu(self) -> list[DongHoaDon]:
@@ -88,6 +95,12 @@ class HoaDon:
     @property
     def thu_duoc(self) -> bool:
         return not self.van_de and self.tong > 0
+
+    @property
+    def chi_doi_tac_thu(self) -> bool:
+        """Phòng khám không còn khoản nào, chỉ còn dịch vụ khách trả trực tiếp
+        cho đối tác — quầy KHÔNG kẹt: nói "Khách trả trực tiếp cho đối tác"."""
+        return not self.dong and bool(self.dong_doi_tac)
 
     @property
     def revision(self) -> str:
@@ -119,18 +132,36 @@ class HoaDon:
             "revision": self.revision,
             "thu_duoc": self.thu_duoc,
             "van_de": self.van_de,
-            "dong": [
+            "dong": [_dong_api(d) for d in self.dong],
+            "chi_doi_tac_thu": self.chi_doi_tac_thu,
+            "dong_doi_tac": [
                 {
-                    **{k: v for k, v in asdict(d).items()},
-                    "so_luong": float(d.so_luong),
-                    "don_gia": float(d.don_gia) if d.don_gia is not None else None,
-                    "thanh_tien": (
-                        float(d.thanh_tien) if d.thanh_tien is not None else None
-                    ),
+                    **_dong_api(d),
+                    "doi_tac_da_thu": self.doi_tac_da_thu.get(d.source_id),
                 }
-                for d in self.dong
+                for d in self.dong_doi_tac
             ],
         }
+
+
+def _dong_api(d: DongHoaDon) -> dict[str, Any]:
+    return {
+        **{k: v for k, v in asdict(d).items()},
+        "so_luong": float(d.so_luong),
+        "don_gia": float(d.don_gia) if d.don_gia is not None else None,
+        "thanh_tien": (float(d.thanh_tien) if d.thanh_tien is not None else None),
+    }
+
+
+def tach_doi_tac(hd: HoaDon) -> HoaDon:
+    """Tách dòng ĐỐI TÁC TỰ THU ra khỏi phần phòng khám thu. Thuần.
+
+    Dòng đối tác không vào tổng, không vào dấu hoá đơn, không vào ảnh chụp lần
+    thu — chỉ để quầy hiện "khách trả trực tiếp cho đối tác" + giá tham khảo.
+    """
+    hd.dong_doi_tac = [d for d in hd.dong if d.ben_thu == EXTERNAL]
+    hd.dong = [d for d in hd.dong if d.ben_thu == CLINIC]
+    return hd
 
 
 def _tien(don_gia: Decimal, so_luong: Decimal) -> Decimal:
@@ -467,7 +498,11 @@ def _chi_dinh(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def hoa_don_con_no(
-    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    coi_nhu_chon: Sequence[str] = (),
 ) -> HoaDon:
     """OUTSTANDING BILL dịch vụ (Lifecycle v1 Slice 3).
 
@@ -477,6 +512,12 @@ async def hoa_don_con_no(
     Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, đã
     bắt đầu hoặc bị gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu
     (kể cả đã huỷ phiếu hay đã hoàn — không tự thu lại).
+
+    ``coi_nhu_chon`` (quầy thu một hoá đơn, 27/09/2026): các chỉ định CÒN CHỜ
+    KHÁCH QUYẾT được tính NHƯ ĐÃ CHỌN — hoá đơn DỰ KIẾN nếu khách làm đúng như
+    mặc định của quầy. Cùng một câu SQL, cùng luật giá, nên sau khi lệnh thu
+    gộp chốt đúng lựa chọn ấy, hoá đơn thật có đúng ``revision`` này. Chỉ đọc —
+    không ghi gì. Rỗng = hoá đơn thật (mọi nơi khác gọi như cũ).
     """
     unknown = bool(await conn.fetchval(THU_CU_KHONG_TRUY_DUOC_SQL, clinic_id, visit_id))
     kham = await _kham(conn, clinic_id, visit_id)
@@ -488,20 +529,88 @@ async def hoa_don_con_no(
     rows = await conn.fetch(
         _GIA_CHI_DINH.format(
             dieu_kien=f"""
-            o.selection_status = 'SELECTED'
+            (o.selection_status = 'SELECTED'
+             OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
             AND {_CON_TINH_TIEN}
             AND NOT {_DA_PHU.format(loai="'service_order'", nguon="o.id::text")}
             """
         ),
         clinic_id,
         visit_id,
+        sorted({str(i) for i in coi_nhu_chon}),
     )
     hd = ghep_dich_vu(visit_id, None if exam_phu else kham, _chi_dinh(rows))
-    # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu.
-    hd.dong = [d for d in hd.dong if d.ben_thu == CLINIC]
+    # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu,
+    # nhưng vẫn HIỆN ở quầy (27/09/2026).
+    tach_doi_tac(hd)
+    if hd.dong_doi_tac:
+        hd.doi_tac_da_thu = await doi_tac_da_thu(
+            conn, clinic_id, [d.source_id for d in hd.dong_doi_tac]
+        )
     if unknown:
         hd.van_de_luot.append(THU_CU_KHONG_TRUY_DUOC)
     return hd
+
+
+async def doi_tac_da_thu(
+    conn: asyncpg.Connection, clinic_id: str, order_ids: Sequence[str]
+) -> dict[str, dict[str, Any]]:
+    """Ghi nhận ĐỐI TÁC ĐÃ THU còn hiệu lực của các chỉ định (bảng của khối Đối
+    tác, `doi_tac_thanh_toan`) — để quầy / Xem lượt nói "Đối tác đã thu"."""
+    ids = sorted({str(i) for i in order_ids if i})
+    if not ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT service_order_id::text AS id, so_tien, hinh_thuc, ghi_luc
+          FROM public.doi_tac_thanh_toan
+         WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])
+           AND huy_luc IS NULL
+        """,
+        clinic_id,
+        ids,
+    )
+    return {
+        r["id"]: {
+            "so_tien": int(r["so_tien"]),
+            "hinh_thuc": r["hinh_thuc"],
+            "luc": r["ghi_luc"].isoformat(),
+        }
+        for r in rows
+    }
+
+
+async def chi_doi_tac_thu_luot(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
+) -> bool:
+    """Lượt KHÔNG có khoản nào phòng khám phải thu, và có dịch vụ khách trả trực
+    tiếp cho đối tác (27/09/2026) — check-out không đòi phiếu thu dịch vụ.
+
+    Đúng hoá đơn còn nợ của quầy; dịch vụ đối tác đã làm xong thì rời hoá đơn
+    còn nợ, nên hỏi thêm "lượt có chỉ định đối tác thu mà khách đã chọn".
+    """
+    hd = await hoa_don_con_no(conn, clinic_id=clinic_id, visit_id=visit_id)
+    if hd.dong or hd.van_de_luot:
+        return False
+    if hd.dong_doi_tac:
+        return True
+    return bool(
+        await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM public.service_order o
+                  JOIN public.service_price pr
+                    ON pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+                   AND pr.active AND pr."group" = 'dich_vu'
+                   AND pr.billing_owner = 'EXTERNAL_PARTNER'
+                 WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+                   AND o.selection_status = 'SELECTED'
+                   AND o.exec_status NOT IN ('draft', 'cancelled'))
+            """,
+            clinic_id,
+            visit_id,
+        )
+    )
 
 
 async def hoa_don_theo_anh_chup(

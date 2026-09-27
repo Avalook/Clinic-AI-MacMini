@@ -14,10 +14,6 @@ const intake = readFileSync(
   new URL("../app/(dashboard)/patients/new/NewPatientForm.tsx", import.meta.url),
   "utf8",
 );
-const profile = readFileSync(
-  new URL("../app/(dashboard)/patients/[id]/PatientDetail.tsx", import.meta.url),
-  "utf8",
-);
 const formUi = readFileSync(
   new URL("../app/(dashboard)/form-ui.ts", import.meta.url),
   "utf8",
@@ -38,7 +34,7 @@ const workRoster = readFileSync(
   new URL("../app/(dashboard)/home/WorkRosterTable.tsx", import.meta.url),
   "utf8",
 );
-// Màu viền theo TẦNG đã chuyển vào khung dùng chung của ba bảng lịch làm việc.
+// Màu nền theo PHÒNG nằm ở khung dùng chung của ba bảng lịch làm việc.
 const rosterGrid = readFileSync(
   new URL("../app/(dashboard)/RosterGrid.tsx", import.meta.url),
   "utf8",
@@ -53,14 +49,6 @@ const booking = readFileSync(
 );
 const doctorLoad = readFileSync(
   new URL("../app/(dashboard)/patients/DoctorLoadBoard.tsx", import.meta.url),
-  "utf8",
-);
-const cskhLog = readFileSync(
-  new URL("../app/(dashboard)/patients/[id]/PatientCskhLog.tsx", import.meta.url),
-  "utf8",
-);
-const patientHistory = readFileSync(
-  new URL("../app/(dashboard)/patients/[id]/PatientHistory.tsx", import.meta.url),
   "utf8",
 );
 
@@ -112,12 +100,6 @@ test("intake makes the real patient-and-appointment flow legible", () => {
   assert.match(intake, /\/api\/appointments/);
 });
 
-test("the patient profile keeps administrative and appointment data distinct", () => {
-  assert.match(profile, /aria-label="Thông tin hành chính bệnh nhân"/);
-  assert.match(profile, /aria-label="Lịch sử lịch hẹn"/);
-  assert.doesNotMatch(profile.replace(/\/\/.*$/gm, ""), /national_id_number/);
-});
-
 // "Số thứ tự gọi khám" (/queue, ẩn từ 03/07) gộp vào Tiếp đón khách
 // 18/09/2026 — bài kiểm "trang chỉ còn chuyển hướng" ở man-da-gop-boundary.
 
@@ -132,8 +114,6 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
     booking,
     doctorLoad,
     intake,
-    cskhLog,
-    patientHistory,
     rosterGrid,
   ].join("\n");
 
@@ -142,8 +122,9 @@ test("reception and patient surfaces use the shared color and shadow tokens", ()
   assert.doesNotMatch(sources, /rgba\(/i);
   assert.match(formUi, /shadow-card/);
   assert.match(booking, /ui\.className/);
-  // Bảng lịch lấy màu qua MAU_PHONG — token `--color-lich-*` mang đúng mã màu
-  // file Excel (16/09/2026). Trước đó là viền tầng FLOOR_BORDER. Thứ canh vẫn
-  // là một: màu đi qua bảng token dùng chung, không có mã hex nằm trong TSX.
-  assert.match(rosterGrid, /MAU_PHONG/);
+  // Bảng lịch lấy màu qua `mauPhong` (bảng MAU_PHONG khoá theo MÃ phòng, 27/09
+  // đợt 3) — token `--color-lich-*` mang đúng mã màu file Excel (16/09/2026).
+  // Thứ canh vẫn là một: màu đi qua bảng token dùng chung, không có mã hex
+  // nằm trong TSX.
+  assert.match(rosterGrid, /mauPhong\(/);
 });

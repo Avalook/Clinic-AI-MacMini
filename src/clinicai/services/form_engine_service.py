@@ -32,6 +32,7 @@ TỰ LƯU KHÔNG PHÁT SỰ KIỆN (#150). Nháp là nháp. Chỉ `[Hoàn tất]
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import asyncpg
@@ -52,6 +53,7 @@ from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
 
 QUYEN_DIEN = "result.form.fill"
+MIME_DICOM = "application/dicom"
 
 #: Ai ĐỌC được phiếu đã hoàn tất (chỉ đọc) — vai làm chuyên môn + điều phối.
 DOC_KET_QUA: frozenset[ClinicRole] = frozenset(
@@ -83,6 +85,39 @@ NGUON = frozenset(
         "AI_SUGGESTION",  # AI gợi ý — luôn là nháp
     }
 )
+
+
+def chon_phieu_de_in(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Phiếu nào của một chỉ định được IN (27/09/2026, đợt 3 — B11).
+
+    Góp ý phòng khám: *"In phiếu vẫn thấy báo Dịch vụ chưa hoàn tất dù xong
+    rồi"*. Gốc: mở khách ở phòng tự tạo phiếu nháp của mẫu chọn sẵn (vd
+    `KQ_CHUNG`); đổi sang mẫu siêu âm rồi Hoàn tất thì phiếu nháp cũ vẫn nằm đó,
+    và bản in in cả hai — trang nháp mang dòng "BẢN NHÁP".
+
+    Luật: có phiếu READY thì CHỈ in READY (mới hoàn tất trước) — nháp bỏ qua
+    nhưng KHÔNG xoá. Chưa có READY thì in nháp (mới tạo trước), bản in vẫn ghi
+    BẢN NHÁP. READY đang sửa lại vẫn là READY: in bản chính thức.
+    """
+    xong = [r for r in rows if r["trang_thai"] == "READY"]
+    if xong:
+        return sorted(
+            xong,
+            key=lambda r: (r["hoan_tat_luc"] is not None, r["hoan_tat_luc"] or 0),
+            reverse=True,
+        )
+    return sorted(rows, key=lambda r: r["tao_luc"], reverse=True)
+
+
+def la_anh_xem_duoc(loai_tep: str | None, mime: str | None) -> bool:
+    """Tệp là ẢNH trình duyệt vẽ được (in được, xem nhanh được).
+
+    DICOM từng được nhận là ANH (máy siêu âm xuất thẳng DICOM) nhưng không
+    trình duyệt nào vẽ nó bằng thẻ img: bản in ra khung trống. Từ 27/09 (đợt 3)
+    tệp DICOM mới lưu là TAI_LIEU; kiểm cả mime để dòng cũ lỡ mang ANH cũng
+    không lọt vào trang ảnh.
+    """
+    return loai_tep == "ANH" and (mime or "") != MIME_DICOM
 
 
 class FormEngineService:
@@ -281,6 +316,10 @@ class FormEngineService:
             chan_doan = await doc_chan_doan(
                 conn, clinic_id=cid, visit_id=dau["visit_id"]
             )
+            # Bảy phiếu khám không phải kết quả của chỉ định — cùng bộ lọc với
+            # khối 2 (`ket_qua_chi_dinh._PHIEU_KHONG_PHAI_KET_QUA`).
+            from clinicai.phieu_kham.khung import FORM_IDS
+
             rows = await conn.fetch(
                 "SELECT i.*, d.ten AS ten_mau, th.full_name AS thuc_hien_ten,"
                 "       ht.full_name AS hoan_tat_ten"
@@ -290,12 +329,14 @@ class FormEngineService:
                 "  LEFT JOIN staff th ON th.id = coalesce(i.thuc_hien_boi, i.nhap_boi)"
                 "  LEFT JOIN staff ht ON ht.id = i.hoan_tat_boi"
                 " WHERE i.clinic_id = $1::uuid AND i.service_order_id = $2::uuid"
+                "   AND NOT (i.form_id = ANY($3::text[]))"
                 " ORDER BY i.tao_luc",
                 cid,
                 service_order_id,
+                list(FORM_IDS),
             )
             phieu = []
-            for r in rows:
+            for r in chon_phieu_de_in(rows):
                 khung = await self._khung(conn, cid, r["form_id"], r["version"])
                 phieu.append(
                     {
@@ -313,9 +354,10 @@ class FormEngineService:
                 )
             # ẢNH in kèm phiếu (lát 5, 26/09/2026 — bản mẫu: 4 tấm/hàng). Tệp đã
             # thu hồi / bị đánh dấu không hợp lệ không in. Video, tài liệu chỉ
-            # đếm — giấy không phát được video.
+            # đếm — giấy không phát được video. DICOM (27/09 đợt 3) cũng chỉ
+            # đếm: trình duyệt không vẽ được, in ra là một khung trống.
             tep = await conn.fetch(
-                "SELECT id::text AS id, ten_hien_thi, loai_tep FROM tep_ket_qua"
+                "SELECT id::text AS id, ten_hien_thi, loai_tep, mime FROM tep_ket_qua"
                 " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
                 "   AND thu_hoi_luc IS NULL"
                 "   AND coalesce(xac_nhan_trang_thai, 'HOP_LE') = 'HOP_LE'"
@@ -327,9 +369,11 @@ class FormEngineService:
             "anh": [
                 {"id": t["id"], "ten": t["ten_hien_thi"]}
                 for t in tep
-                if t["loai_tep"] == "ANH"
+                if la_anh_xem_duoc(t["loai_tep"], t["mime"])
             ],
-            "so_tep_khac": sum(1 for t in tep if t["loai_tep"] != "ANH"),
+            "so_tep_khac": sum(
+                1 for t in tep if not la_anh_xem_duoc(t["loai_tep"], t["mime"])
+            ),
             "phong_kham": {
                 "ten": dau["phong_kham"],
                 "dia_chi": dau["dia_chi_co_so"] or dau["dia_chi_pk"],
@@ -1033,6 +1077,12 @@ class FormEngineService:
             # bảng hàng×cột) và có luật riêng ở `phieu_kham/khung.py`.
             if form_id.startswith("KQ_"):
                 khung = kiem_khung_mau(khung)
+            else:
+                # Nạp muộn: `phieu_kham.khung` nhập NGUON từ tệp này.
+                from clinicai.phieu_kham.khung import kiem_khung, la_phieu_kham
+
+                if la_phieu_kham(form_id):
+                    kiem_khung(khung, form_id=form_id)
             if ten_moi is not None and len(ten_moi) > 200:
                 raise ValidationError("Tên mẫu dài quá 200 ký tự.")
             # Khoá theo MẪU trước khi đọc bản mới nhất. `FOR UPDATE` trên dòng

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -299,6 +300,131 @@ def test_bmi_client_gui_ma_thieu_can_hoac_cao_thi_rong() -> None:
     assert loi is None and v is not None and v.bmi is None
 
 
+# --- Sinh hiệu: tên ô lỗi + nhắc chỉ số bất thường (27/09/2026, đợt 3) -----
+
+
+@pytest.mark.parametrize(
+    ("raw", "truong"),
+    [
+        (None, ()),
+        ("abc", ()),
+        ([], ()),
+        ({}, ("systolic", "diastolic")),
+        ({"systolic": 120}, ("diastolic",)),
+        ({"systolic": "", "diastolic": ""}, ("systolic", "diastolic")),
+        ({"systolic": "mười", "diastolic": 80}, ("systolic",)),
+        ({"systolic": True, "diastolic": 80}, ("systolic",)),
+        ({"systolic": 120, "diastolic": 80, "pulse": "nhanh"}, ("pulse",)),
+        ({"systolic": 999, "diastolic": 80}, ("systolic",)),
+        ({"systolic": 80, "diastolic": 120}, ("systolic", "diastolic")),
+        ({"systolic": 120, "diastolic": 120}, ("systolic", "diastolic")),
+        ({"systolic": 120.5, "diastolic": 80}, ("systolic",)),
+        ({"systolic": "NaN", "diastolic": 80}, ("systolic",)),
+        (
+            {"systolic": 120, "diastolic": 80, "temperature": "Infinity"},
+            ("temperature",),
+        ),
+        ({"systolic": 120, "diastolic": 80, "spo2": "98,5"}, ("spo2",)),
+        ({"systolic": 120, "diastolic": 80, "weight_kg": {"x": 1}}, ("weight_kg",)),
+    ],
+)
+def test_sinh_hieu_loi_noi_dung_o_nao(raw: object, truong: tuple[str, ...]) -> None:
+    v, loi, ten_o = rules.parse_vitals_co_truong(raw)
+    assert v is None
+    assert isinstance(loi, str) and loi
+    assert ten_o == truong
+    # Vỏ hai phần tử nói cùng một câu.
+    assert rules.parse_vitals(raw) == (None, loi)
+
+
+def test_sinh_hieu_hop_le_khong_co_o_loi() -> None:
+    v, loi, ten_o = rules.parse_vitals_co_truong(
+        {"systolic": "120", "diastolic": 80, "temperature": "36,6"}
+    )
+    assert v is not None and loi is None and ten_o == ()
+    assert v.temperature == Decimal("36.6")
+
+
+def test_co_thai_thieu_can_cao_noi_dung_o() -> None:
+    v = rules.Vitals(systolic=110, diastolic=70)
+    assert rules.truong_thieu_khi_co_thai(v, co_thai=False) == ()
+    assert rules.truong_thieu_khi_co_thai(v, co_thai=True) == ("height_cm", "weight_kg")
+    du = rules.Vitals(
+        systolic=110, diastolic=70, weight_kg=Decimal(55), height_cm=Decimal(158)
+    )
+    assert rules.truong_thieu_khi_co_thai(du, co_thai=True) == ()
+    chi_can = rules.Vitals(systolic=110, diastolic=70, weight_kg=Decimal(55))
+    assert rules.truong_thieu_khi_co_thai(chi_can, co_thai=True) == ("height_cm",)
+    assert rules.thieu_sinh_hieu_khi_co_thai(chi_can, co_thai=True) == (
+        "Khách đang có thai — sinh hiệu cần thêm chiều cao."
+    )
+    assert rules.thieu_sinh_hieu_khi_co_thai(v, co_thai=True) == (
+        "Khách đang có thai — sinh hiệu cần thêm chiều cao và cân nặng."
+    )
+
+
+def _truong_canh_bao(**kw: Any) -> list[str]:
+    v = rules.Vitals(**{"systolic": 118, "diastolic": 76, **kw})
+    return [c["truong"] for c in rules.canh_bao_sinh_hieu(v)]
+
+
+def test_canh_bao_binh_thuong_rong() -> None:
+    assert (
+        _truong_canh_bao(
+            pulse=72, temperature=Decimal("36.6"), spo2=98, respiratory_rate=18
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    ("kw", "truong"),
+    [
+        ({"systolic": 139, "diastolic": 89}, []),
+        ({"systolic": 140, "diastolic": 80}, ["systolic"]),
+        ({"systolic": 130, "diastolic": 90}, ["diastolic"]),
+        ({"systolic": 160, "diastolic": 100}, ["systolic", "diastolic"]),
+        ({"spo2": 94}, []),
+        ({"spo2": 93}, ["spo2"]),
+        ({"temperature": Decimal("37.9")}, []),
+        ({"temperature": Decimal("38")}, ["temperature"]),
+        ({"pulse": 50}, []),
+        ({"pulse": 49}, ["pulse"]),
+        ({"pulse": 120}, []),
+        ({"pulse": 121}, ["pulse"]),
+    ],
+)
+def test_canh_bao_nguong(kw: dict[str, Any], truong: list[str]) -> None:
+    assert _truong_canh_bao(**kw) == truong
+
+
+def test_canh_bao_co_cau_cho_nguoi_doc() -> None:
+    v = rules.Vitals(systolic=150, diastolic=95, pulse=130, spo2=90)
+    ds = rules.canh_bao_sinh_hieu(v)
+    assert all(isinstance(c["cau"], str) and c["cau"] for c in ds)
+    assert "150" in ds[0]["cau"] and "nhanh" in ds[2]["cau"]
+
+
+@pytest.mark.parametrize("rac", [None, "abc", {}, [], 120, {"systolic": 200}])
+def test_canh_bao_dau_vao_rac_tra_rong(rac: object) -> None:
+    assert rules.canh_bao_sinh_hieu(rac) == []
+
+
+def test_canh_bao_khong_chan_luu() -> None:
+    """Chỉ số bất thường vẫn ĐỌC ĐƯỢC — nhắc, không chặn (Tuyền 15/09)."""
+    v, loi, _ = rules.parse_vitals_co_truong(
+        {
+            "systolic": 180,
+            "diastolic": 110,
+            "spo2": 88,
+            "temperature": "39,5",
+            "pulse": 140,
+        }
+    )
+    assert loi is None and v is not None
+    assert len(rules.canh_bao_sinh_hieu(v)) == 5
+
+
 # --- Đổi phòng dịch vụ (23/09/2026) ----------------------------------------
 
 
@@ -325,3 +451,20 @@ def test_doi_phong_duoc(
         )
         is duoc
     )
+
+
+# --- Màn đo sinh hiệu (27/09/2026 tối): phút chờ + chờ lâu -------------------
+def test_phut_cho_va_cho_lau() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    vn = timezone(timedelta(hours=7))
+    ci = datetime(2026, 9, 27, 8, 0, tzinfo=vn)
+    assert rules.phut_cho(ci, ci + timedelta(minutes=19, seconds=59)) == 19
+    assert rules.cho_do_lau(19) is False
+    assert rules.cho_do_lau(rules.phut_cho(ci, ci + timedelta(minutes=20))) is True
+    # Rác / thiếu / giờ ngược / lệch múi giờ → None, không ném.
+    assert rules.phut_cho(None, ci) is None
+    assert rules.phut_cho("08:00", ci) is None
+    assert rules.phut_cho(ci + timedelta(minutes=5), ci) is None
+    assert rules.phut_cho(datetime(2026, 9, 27, 8, 0), ci) is None
+    assert rules.cho_do_lau(None) is False

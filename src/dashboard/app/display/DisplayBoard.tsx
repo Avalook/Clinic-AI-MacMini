@@ -46,6 +46,8 @@ export interface DisplayItem {
   promoted_note: string | null;
   /** Tên PHÒNG, để chỉ đường cho người vừa được gọi. */
   room_name: string | null;
+  /** Mã phòng khách đang ở — TV từng phòng lọc theo mã này. */
+  room_code?: string | null;
 }
 
 interface Props {
@@ -72,7 +74,9 @@ export default function DisplayBoard({
   clinicName,
   footerText,
   footerInfo,
-}: Props) {
+  phong = null,
+  tenPhong = null,
+}: Props & { phong?: string | null; tenPhong?: string | null }) {
   const router = useRouter();
   const [now, setNow] = useState(() => new Date());
 
@@ -86,7 +90,7 @@ export default function DisplayBoard({
     return () => clearInterval(t);
   }, [router]);
 
-  const dangCho = items.filter((m) => m.waiting);
+  const dangCho = items.filter((m) => m.waiting && (!phong || m.room_code === phong));
   const theoKhu = (key: string) => dangCho.filter((m) => m.zone_key === key);
 
   const gio = now.toLocaleTimeString("vi-VN", {
@@ -131,6 +135,12 @@ export default function DisplayBoard({
         </div>
       </header>
 
+      {phong ? (
+        <PhongMotMan
+          ten={items.find((m) => m.room_code === phong)?.room_name ?? tenPhong ?? phong}
+          rows={dangCho}
+        />
+      ) : (
       <main className="grid flex-1 grid-cols-2 gap-4 p-5 md:grid-cols-3 xl:grid-cols-6">
         {zones.map((z) => {
           const rows = theoKhu(z.key);
@@ -227,6 +237,7 @@ export default function DisplayBoard({
           );
         })}
       </main>
+      )}
 
       <footer className="border-t border-slate-200 bg-white px-8 py-3">
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-slate-500">
@@ -240,5 +251,49 @@ export default function DisplayBoard({
         </div>
       </footer>
     </div>
+  );
+}
+
+/** TV MỘT PHÒNG — chữ rất to, đọc được từ cuối phòng chờ (27/09/2026). Cùng
+ *  dữ liệu đã lọc danh tính của `/display`, chỉ khác là lọc theo mã phòng. */
+function PhongMotMan({ ten, rows }: { ten: string; rows: DisplayItem[] }) {
+  const dangGoi = rows.find((m) => m.is_current) ?? rows[0] ?? null;
+  const conLai = rows.filter((m) => m !== dangGoi);
+  const goi = (m: DisplayItem | null) => (m ? (m.patient_name ?? soHienThi(m.queue_number)) : "—");
+  return (
+    <main className="flex flex-1 flex-col gap-5 p-8">
+      <h2 className="text-center text-4xl font-bold uppercase tracking-wide text-teal-700">{ten}</h2>
+      <section className="rounded-3xl border border-slate-200 bg-teal-50/60 px-8 py-10 text-center shadow-sm">
+        <div className="text-xl font-semibold tracking-widest text-slate-500">MỜI VÀO</div>
+        <div className="mt-3 break-words text-7xl font-bold leading-tight text-teal-700">{goi(dangGoi)}</div>
+        {dangGoi?.patient_name && dangGoi.queue_number ? (
+          <div className="mt-2 text-2xl font-semibold tabular-nums text-slate-400">
+            {soHienThi(dangGoi.queue_number)}
+          </div>
+        ) : null}
+      </section>
+      <section className="flex-1 rounded-3xl border border-slate-200 bg-white px-8 py-6 shadow-sm">
+        <div className="text-xl font-semibold tracking-widest text-slate-400">
+          ĐANG CHỜ ({conLai.length})
+        </div>
+        {conLai.length === 0 ? (
+          <div className="mt-4 text-3xl text-slate-300">—</div>
+        ) : (
+          <ol className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3">
+            {conLai.slice(0, 12).map((m, i) => (
+              <li
+                key={`${m.queue_number ?? "?"}-${i}`}
+                className={`truncate rounded-2xl px-5 py-3 text-3xl font-semibold ${
+                  i === 0 ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                <span className="mr-3 tabular-nums text-slate-400">{i + 1}.</span>
+                {goi(m)}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </main>
   );
 }

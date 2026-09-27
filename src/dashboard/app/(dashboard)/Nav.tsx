@@ -16,6 +16,7 @@ import {
   isActiveNav,
   navLabelFor,
   nhomThanhBen,
+  xepNodeCon,
   type NavItem,
   type PhongTheoViTri,
 } from "./nav-items";
@@ -51,7 +52,7 @@ export default function Nav({
   // Cùng hàm với thanh dưới (BottomNav) — xem `mucHienRa`. Trước đây mỗi bên
   // tự lọc và hai bên đã lệch nhau ở chế độ CSKH_ONLY.
   // Nhóm theo VAI hôm nay + "Việc khác" — `nhomThanhBen` lọc qua `mucHienRa`.
-  const { dau, nhom, khac } = nhomThanhBen(
+  const tho = nhomThanhBen(
     role,
     (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
@@ -61,6 +62,11 @@ export default function Nav({
     // Ngày có ca, thanh bên dựng theo vị trí — vẫn phải lọc theo lego.
     quyen,
   );
+  // Node con (Nhắc tái khám) đứng ngay dưới node cha (Quản lý khách hàng).
+  const [dau, khac, ...mucNhom] = xepNodeCon([tho.dau, tho.khac, ...tho.nhom.map((g) => g.muc)]);
+  const nhom = tho.nhom.map((g, i) => ({ ...g, muc: mucNhom[i] }));
+  const laCon = (item: NavItem) =>
+    Boolean(item.cha) && [...dau, ...khac, ...mucNhom.flat()].some((m) => m.href === item.cha);
   const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);
   const coHaiPhan = nhom.length > 0;
@@ -88,7 +94,7 @@ export default function Nav({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const veMuc = (item: NavItem) => {
+  const veLink = (item: NavItem) => {
         const { href, badge, icon: Icon } = item;
         const active = isActiveNav(href, pathname, hrefs);
         const label = navLabelFor(item, role);
@@ -131,11 +137,11 @@ export default function Nav({
               );
             }}
             title={isCollapsed ? label : undefined}
-            className={
+            className={`${laCon(item) && !isCollapsed ? "ml-5 !py-1.5 !text-meta" : ""} ${
               active
                 ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors`
                 : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-transparent px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken`
-            }
+            }`}
           >
             <span className="relative shrink-0">
               <Icon size={16} strokeWidth={2} className="shrink-0" />
@@ -162,6 +168,23 @@ export default function Nav({
           </Link>
         );
       };
+
+  // Node cha + node con chung MỘT ô (Tuyền 27/09/2026): ô nền brand nhạt bọc
+  // cả "Quản lý khách hàng" lẫn "Nhắc tái khám" khi đang ở một trong hai.
+  const tatCa = [...dau, ...khac, ...mucNhom.flat()];
+  const veMuc = (item: NavItem) => {
+    if (laCon(item)) return null;
+    const con = tatCa.filter((m) => m.cha === item.href);
+    if (con.length === 0) return veLink(item);
+    if (isCollapsed) return [item, ...con].map(veLink);
+    const dangO = [item, ...con].some((m) => isActiveNav(m.href, pathname, hrefs));
+    return (
+      <div key={item.href} className={`rounded-control ${dangO ? "bg-brand-50 pb-1" : ""}`}>
+        {veLink(item)}
+        {con.map(veLink)}
+      </div>
+    );
+  };
 
   return (
     <nav className="space-y-0.5">

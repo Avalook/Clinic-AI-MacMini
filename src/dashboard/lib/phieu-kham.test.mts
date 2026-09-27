@@ -4,25 +4,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { vnYmd } from "./datetime.ts";
+import { docNhoGap, ghiNhoGap, moBanDau, type KhoNho } from "./ngan-gap.ts";
 import {
   anhInDuoc,
   chipMauDanhMuc,
+  coGiaTriO,
+  gomNhom,
+  oCuaNhom,
+  oDangHien,
+  oThuGonDangAn,
+  soODaDien,
   dongKetQua,
+  tongPhongKham,
   dongNgoaiDanhMuc,
   dongTuDon,
   dongTuMau,
   giaTriDoc,
   HEN_NHANH,
+  laDicom,
   laONgayTaiKham,
   ngayHenTaiKham,
+  nhomThuThuat,
+  NHOM_THU_THUAT_MAC_DINH,
   soLuongTuChu,
   tachDanhMucKhac,
   thanhTienDong,
+  gopCanhBao,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
   type MauThuoc,
   type OPhieu,
   type NhomCls,
+  type ThuThuatNguon,
 } from "./phieu-kham.ts";
 
 const tep = (id: string, loai_tep: string, xac: string | null, luc: string): KetQuaMotChiDinh => ({
@@ -49,6 +62,27 @@ test("anhInDuoc: chỉ ẢNH hợp lệ (NULL = tải ở phòng), theo thứ t�
     anhInDuoc(cd).map((k) => k.tep_id),
     ["a1", "a2"],
   );
+});
+
+test("anhInDuoc: DICOM không vào trang ảnh (trình duyệt không vẽ được) — đợt 3", () => {
+  const dicomCu = { ...tep("dcm-cu", "ANH", null, "2026-09-27T09:01:00Z"), mime: "application/dicom" };
+  const dicomMoi = { ...tep("dcm", "TAI_LIEU", null, "2026-09-27T09:02:00Z"), mime: "application/dicom" };
+  const jpg = { ...tep("jpg", "ANH", null, "2026-09-27T09:03:00Z"), mime: "image/jpeg" };
+  const cd = { ket_qua: [dicomCu, dicomMoi, jpg] } as unknown as ChiDinhVaKetQua;
+  assert.deepEqual(
+    anhInDuoc(cd).map((k) => k.tep_id),
+    ["jpg"],
+  );
+});
+
+test("laDicom: đúng mime, không phân biệt hoa thường; rác → false", () => {
+  assert.equal(laDicom("application/dicom"), true);
+  assert.equal(laDicom(" Application/DICOM "), true);
+  assert.equal(laDicom("image/jpeg"), false);
+  assert.equal(laDicom(null), false);
+  assert.equal(laDicom(undefined), false);
+  assert.equal(laDicom(42), false);
+  assert.equal(laDicom(""), false);
 });
 
 test("dongKetQua: bỏ ô trống, tách Kết luận, gắn đơn vị cho số", () => {
@@ -215,4 +249,222 @@ test("ô ngày đọc / in kiểu VN; giá trị lạ để nguyên", () => {
   assert.equal(giaTriDoc(o, { gia_tri: "", nguon: "BS" }), "—");
   const chu = { ma: "x", ten: "X", kieu: "text" } as OPhieu;
   assert.equal(giaTriDoc(chu, { gia_tri: "2026-10-27", nguon: "BS" }), "2026-10-27");
+});
+
+test("gopCanhBao: ô vừa gửi lấy cảnh báo mới, ô khác giữ cảnh báo cũ (đợt 3)", () => {
+  const cu = [
+    { ma: "so_1", ten: "Chu kỳ", loi: "“28-30” không phải số — ô được để trống." },
+    { ma: "ngay_1", ten: "Ngày KCC", loi: "Ngày không đọc được." },
+  ];
+  // Lưu ô khác (text) — không có cảnh báo mới → hai cảnh báo cũ còn nguyên.
+  assert.deepEqual(gopCanhBao(cu, ["ghi_chu"], []), cu);
+  // Sửa ô số cho đúng → hết cảnh báo ô ấy, ô ngày vẫn còn.
+  assert.deepEqual(gopCanhBao(cu, ["so_1"], []), [cu[1]]);
+  // Gửi lại ô số vẫn sai → cảnh báo mới thay cũ, không nhân đôi.
+  const moi = [{ ma: "so_1", ten: "Chu kỳ", loi: "“abc” không phải số — ô được để trống." }];
+  assert.deepEqual(gopCanhBao(cu, ["so_1"], moi), [cu[1], moi[0]]);
+  // Trùng mã trong phản hồi → một.
+  assert.equal(gopCanhBao([], ["so_1"], [moi[0], moi[0]]).length, 1);
+});
+
+test("gopCanhBao: phản hồi rác không ném, bỏ phần tử hỏng", () => {
+  const cu = [{ ma: "a", ten: "A", loi: "x" }];
+  assert.deepEqual(gopCanhBao(cu, [], null), cu);
+  assert.deepEqual(gopCanhBao(cu, [], "loi"), cu);
+  assert.deepEqual(gopCanhBao([], [], [null, 1, { ma: "", ten: "t", loi: "l" }, { ma: "b" }]), []);
+  assert.deepEqual(gopCanhBao([], [], [{ ma: "b", ten: "B", loi: "hỏng", thua: 1 }]), [
+    { ma: "b", ten: "B", loi: "hỏng" },
+  ]);
+});
+
+// ── Đợt 3 (27/09/2026): ô nào đang hiện — thu_gon · hien_khi · gap ──────────
+const TG = (ma: string): OPhieu => ({ ma, ten: ma, kieu: "text", nhom: "Tiền sử", thu_gon: true });
+const CO: OPhieu = {
+  ma: "x_co",
+  ten: "Dị ứng thuốc",
+  kieu: "chon",
+  nhom: "Tiền sử",
+  lua_chon: [
+    { ma: "x_co_1", ten: "Có" },
+    { ma: "x_co_2", ten: "Không" },
+  ],
+};
+const CT: OPhieu = {
+  ma: "x_ct",
+  ten: "Chi tiết dị ứng thuốc",
+  kieu: "doan_van",
+  nhom: "Tiền sử",
+  hien_khi: { o: "x_co", la: "x_co_1" },
+};
+const KHONG = new Set<string>();
+
+test("thu_gon: ẩn cho tới khi bấm chip; bấm rồi thì hiện", () => {
+  assert.equal(oDangHien(TG("a"), {}, KHONG), false);
+  assert.equal(oDangHien(TG("a"), {}, new Set(["a"])), true);
+  assert.equal(oDangHien(TG("a"), {}, new Set(["b"])), false);
+});
+
+test("ô có giá trị LUÔN hiện — tải lại phiếu không giấu chữ đã gõ", () => {
+  assert.equal(oDangHien(TG("a"), { a: "1001" }, KHONG), true);
+  // chỉ khoảng trắng = chưa điền
+  assert.equal(oDangHien(TG("a"), { a: "   " }, KHONG), false);
+  // Chi tiết dị ứng đã có chữ mà ô Có/Không đang "Không" (hoặc phiếu cũ chưa chọn)
+  assert.equal(oDangHien(CT, { x_ct: "Penicillin", x_co: "x_co_2" }, KHONG), true);
+  assert.equal(oDangHien(CT, { x_ct: "Penicillin" }, KHONG), true);
+});
+
+test("hien_khi: chỉ hiện khi ô chọn kia đang chọn đúng mã", () => {
+  assert.equal(oDangHien(CT, {}, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "" }, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "x_co_2" }, KHONG), false);
+  assert.equal(oDangHien(CT, { x_co: "x_co_1" }, KHONG), true);
+  // ô điều khiển nhiều-chọn: hiện khi mảng có mã
+  const nhieu: OPhieu = { ...CT, hien_khi: { o: "y", la: "y_3" } };
+  assert.equal(oDangHien(nhieu, { y: ["y_1", "y_3"] }, KHONG), true);
+  assert.equal(oDangHien(nhieu, { y: ["y_1"] }, KHONG), false);
+  // bấm chip không mở được ô hien_khi (không phải ô thu gọn)
+  assert.equal(oDangHien(CT, {}, new Set(["x_ct"])), false);
+});
+
+test("ô thường (không khai gì) luôn hiện — phiếu v1 vẽ đủ như cũ", () => {
+  assert.equal(oDangHien({ ma: "a", ten: "A", kieu: "text" }, {}, KHONG), true);
+  assert.equal(oDangHien(CO, {}, KHONG), true);
+});
+
+test("chip thu gọn = ô thu_gon CHƯA hiện, đúng thứ tự khung", () => {
+  const [nhom] = gomNhom([TG("a"), TG("b"), CO, CT, TG("c")]);
+  assert.deepEqual(
+    oThuGonDangAn(nhom, {}, KHONG).map((o) => o.ma),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    oThuGonDangAn(nhom, { b: "x" }, new Set(["c"])).map((o) => o.ma),
+    ["a"],
+  );
+});
+
+test("gap là của NHÓM: mọi ô khai gap mới gập", () => {
+  const cls = (ma: string, gap = true): OPhieu => ({ ma, ten: ma, kieu: "text", nhom: "CLS", gap });
+  const [a, b] = gomNhom([TG("t"), cls("c1"), cls("c2")]);
+  assert.equal(a.gap, false);
+  assert.equal(b.gap, true);
+  const [nua] = gomNhom([cls("c1"), cls("c2", false)]);
+  assert.equal(nua.gap, false);
+});
+
+test("đếm ô đã điền của nhóm — tính cả ô trong bảng", () => {
+  const bang = { ma: "kq", ten: "Xét nghiệm", cot: ["Kết quả"] };
+  const [n] = gomNhom([
+    { ma: "b1", ten: "AMH", kieu: "text", nhom: "CLS", gap: true, bang, hang: "AMH", cot: "Kết quả" },
+    { ma: "b2", ten: "FSH", kieu: "text", nhom: "CLS", gap: true, bang, hang: "FSH", cot: "Kết quả" },
+  ]);
+  assert.deepEqual(oCuaNhom(n).map((o) => o.ma), ["b1", "b2"]);
+  assert.equal(soODaDien(oCuaNhom(n), { b2: "3.1" }), 1);
+  assert.equal(soODaDien(oCuaNhom(n), {}), 0);
+});
+
+test("coGiaTriO: rỗng · trắng · mảng rỗng = chưa điền", () => {
+  assert.equal(coGiaTriO(undefined), false);
+  assert.equal(coGiaTriO(""), false);
+  assert.equal(coGiaTriO("  "), false);
+  assert.equal(coGiaTriO([]), false);
+  assert.equal(coGiaTriO(["a"]), true);
+  assert.equal(coGiaTriO("0"), true);
+});
+
+// ── Ngăn gập nhớ theo người dùng ────────────────────────────────────────────
+test("mở lúc đầu: đã nhớ thì theo nhớ, rác/không có thì theo mặc định", () => {
+  assert.equal(moBanDau("1", false), true);
+  assert.equal(moBanDau("0", true), false);
+  assert.equal(moBanDau(null, true), true);
+  assert.equal(moBanDau(undefined, false), false);
+  assert.equal(moBanDau("rác", false), false);
+  assert.equal(moBanDau("true", true), true);
+});
+
+test("đọc/ghi nhớ gập: kho hỏng hay không có kho thì không ném", () => {
+  const bang = new Map<string, string>();
+  const kho: KhoNho = {
+    getItem: (k) => bang.get(k) ?? null,
+    setItem: (k, v) => void bang.set(k, v),
+  };
+  ghiNhoGap("phieu-kham:NT:B", false, kho);
+  assert.equal(docNhoGap("phieu-kham:NT:B", kho), "0");
+  ghiNhoGap("phieu-kham:NT:B", true, kho);
+  assert.equal(moBanDau(docNhoGap("phieu-kham:NT:B", kho), false), true);
+
+  const hong: KhoNho = {
+    getItem: () => {
+      throw new Error("SecurityError");
+    },
+    setItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+  };
+  assert.equal(docNhoGap("x", hong), null);
+  assert.doesNotThrow(() => ghiNhoGap("x", true, hong));
+  assert.equal(docNhoGap("x", null), null);
+  assert.doesNotThrow(() => ghiNhoGap("x", true, null));
+  assert.equal(docNhoGap("", kho), null);
+});
+
+test("nhomThuThuat: chia nhóm theo máy chủ, giữ thứ tự; thiếu nhóm → nhóm mặc định", () => {
+  const tt = (ma: string, nhan: string, nhom?: string | null, form: string | null = null): ThuThuatNguon => ({
+    ma,
+    nhan,
+    nhom,
+    form_id_ket_qua: form,
+    service_code: `CLS_${ma}`,
+    gia: 1000,
+  });
+  const ds = [
+    tt("p1", "Đặt vòng nội tiết", "Thủ thuật"),
+    tt("p16", "Yếu cơ", "Sàn chậu — trải nghiệm 5 phút ghế ĐTT"),
+    tt("p9", "Nong bao quy đầu ÂV", "Thủ thuật"),
+    tt("p11", "Biofeedback", "Sàn chậu — định hướng điều trị", "KQ_X"),
+  ];
+  const r = nhomThuThuat(ds);
+  assert.deepEqual(
+    r.map((n) => [n.nhom, n.muc.map((m) => m.nhan)]),
+    [
+      ["Thủ thuật", ["Đặt vòng nội tiết", "Nong bao quy đầu ÂV"]],
+      ["Sàn chậu — trải nghiệm 5 phút ghế ĐTT", ["Yếu cơ"]],
+      ["Sàn chậu — định hướng điều trị", ["Biofeedback"]],
+    ],
+  );
+  assert.equal(r[2].muc[0].cach_tra_ket_qua, "Có biểu mẫu");
+  assert.equal(r[0].muc[0].cach_tra_ket_qua, "");
+  assert.equal(r[0].muc[0].service_code, "CLS_p1");
+  assert.equal(r[0].muc[0].gia, 1000);
+  // Máy chủ bản cũ (không có `nhom`) → một nhóm như trước.
+  assert.deepEqual(
+    nhomThuThuat([tt("a", "A"), tt("b", "B", "  ")]).map((n) => [n.nhom, n.muc.length]),
+    [[NHOM_THU_THUAT_MAC_DINH, 2]],
+  );
+  // Rác → rỗng / bỏ dòng hỏng, không ném.
+  assert.deepEqual(nhomThuThuat(null), []);
+  assert.deepEqual(nhomThuThuat(undefined), []);
+  assert.deepEqual(nhomThuThuat([null as unknown as ThuThuatNguon, { ma: "x" } as ThuThuatNguon]), []);
+});
+
+// Đối tác tự thu (27/09/2026): nút "Chỉ định N mục · tổng" ở bàn khám chỉ cộng
+// phần phòng khám — mục khách trả trực tiếp đối tác (cờ máy chủ) không cộng.
+test("tongPhongKham bỏ mục đối tác tự thu và mục chưa có giá", () => {
+  const muc = [
+    { nhan: "Khám", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "KHAM", gia: 250000 },
+    {
+      nhan: "HPV",
+      cach_tra_ket_qua: "",
+      form_id_ket_qua: null,
+      service_code: "HPV",
+      gia: 900000,
+      doi_tac_thu: true,
+    },
+    { nhan: "Chưa giá", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "X", gia: null },
+    { nhan: "Không mã", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: null, gia: 5 },
+  ];
+  assert.equal(tongPhongKham(["KHAM", "HPV"], muc), 250000);
+  assert.equal(tongPhongKham(["HPV"], muc), 0);
+  assert.equal(tongPhongKham(["X", "KHONG_CO"], muc), 0);
+  assert.equal(tongPhongKham([], muc), 0);
 });

@@ -13,6 +13,12 @@
 // chưa, và KHÔNG có nút chốt — chốt là việc của shell. Nó chỉ tự lưu theo nhịp
 // gõ và gửi gói `{khoá: {gia_tri, nguon}}` giữ đúng nguồn của từng ô.
 //
+// TỰ LƯU CHẮC CHẮN (đợt 3, 27/09/2026 — góp ý B9): hàng đợi chung
+// `lib/use-tu-luu` — tuần tự, lưu nốt khi rời màn / đóng tab, lỗi mạng tự thử
+// lại, trạng thái "Đang lưu… / Đã lưu hh:mm / Chưa lưu — [Lưu ngay] / Lưu lỗi —
+// [Thử lại]" hiện ở MỌI cỡ màn (dòng dính cùng thanh khối). Ô máy chủ báo lỗi
+// (số/ngày không đọc được → lưu RỖNG) hiện lỗi NGAY DƯỚI ô, không ở đầu cột.
+//
 // BA LOẠI MỤC
 //   · mục có ô (B, D, G…)    gõ tại đây.
 //   · mục mang sang          hành chính, sinh hiệu, ghi chú tư vấn — chỉ đọc.
@@ -23,14 +29,22 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 
 import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
+import { gopTrangThai, LOI_MAT_KET_NOI, type TrangThaiLuu as TTLuu } from "@/lib/tu-luu";
+import { useTuLuu } from "@/lib/use-tu-luu";
+import NganGap from "@/components/ui/NganGap";
 import {
+  coGiaTriO,
   dungGoiLuu,
+  gopCanhBao,
   ghiDuoc,
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
+  soODaDien,
   type CheDoPhieu,
   type ChiDinhVaKetQua,
+  type KetQuaMotChiDinh,
   type DauPhieu,
   type DinhNghiaPhieu,
   type DongThuoc,
@@ -40,25 +54,26 @@ import {
   type MucPhieu,
   type ONhap,
   type ThuThuatNguon,
+  type CanhBaoO,
 } from "@/lib/phieu-kham";
 import ChiDinhThuThuat from "./ChiDinhThuThuat";
 import DonThuocPhieu from "./DonThuocPhieu";
-import KetQuaChiDinh from "./KetQuaChiDinh";
+import KetQuaChiDinh, { TepChuaGan } from "./KetQuaChiDinh";
 import { KhoiTuVan } from "./KhoiDauPhieu";
 import { TheKhach, TheSinhHieu } from "./TheKhach";
 import TieuDeKhoi from "./TieuDeKhoi";
-import { NhomOPhieu } from "./ONhapPhieu";
+import { idOPhieu, NhomOPhieu } from "./ONhapPhieu";
 
 /** Khoảng lặng trước khi tự lưu — gõ liên tục thì không bắn từng phím. */
 const CHO_TU_LUU_MS = 1500;
 
-export interface CanhBaoO {
-  ma: string;
-  ten: string;
-  loi: string;
-}
+export type { CanhBaoO } from "@/lib/phieu-kham";
 
-export type KetQuaLuu = { ok: true; canh_bao?: CanhBaoO[] } | { ok: false; loi: string };
+/** Kết quả một lần lưu phiếu. `da_gui` = mã các ô vừa gửi (cảnh báo của ô
+ *  khác giữ nguyên). `thuLai` = lỗi mạng/máy chủ tạm, hàng đợi tự thử lại. */
+export type KetQuaLuu =
+  | { ok: true; canh_bao?: unknown; da_gui?: string[] }
+  | { ok: false; loi: string; thuLai: boolean };
 
 export interface ThamChieu {
   thu_thuat: ThuThuatNguon[];
@@ -74,24 +89,13 @@ const NHAN_CHE_DO: Record<CheDoPhieu, { ten: string; tone: "neutral" | "warning"
 /** Ba khối — định nghĩa ở lib/phieu-kham (dùng chung với bản in). */
 const KHOI = KHOI_PHIEU;
 
-function coGiaTri(v: GiaTriO | undefined): boolean {
-  return Array.isArray(v) ? v.length > 0 : Boolean(v && String(v).trim());
-}
-
-function gioVn(d: Date): string {
-  return d.toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  });
-}
-
 export default function PhieuKham({
   dinhNghia,
   duLieu,
   cheDo,
   dauPhieu,
   ketQuaChiDinh,
+  tepChuaGan = [],
   onLuu,
   donThuoc,
   thuThuat,
@@ -105,6 +109,9 @@ export default function PhieuKham({
   chanRay,
   maThuThuat,
   onTomTat,
+  tuLuuKem,
+  onTrangThaiLuu,
+  baoLoiDon,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -114,8 +121,19 @@ export default function PhieuKham({
   cheDo: CheDoPhieu;
   dauPhieu: DauPhieu | null;
   ketQuaChiDinh: ChiDinhVaKetQua[];
-  /** Shell ghi xuống chỗ lưu (sau khi qua cổng `kiem_luu` ở máy chủ). */
-  onLuu: (goi: Record<string, ONhap>) => Promise<KetQuaLuu>;
+  /** Tệp của lượt CHƯA gắn chỉ định (tải ở màn Khách hàng) — hiện riêng ở khối
+   *  2, không ghép vào chỉ định nào (27/09/2026, đợt 3). */
+  tepChuaGan?: KetQuaMotChiDinh[];
+  /** Shell ghi xuống chỗ lưu (sau khi qua cổng `kiem_luu` ở máy chủ).
+   *  `keepalive` = trang đang đóng. */
+  onLuu: (goi: Record<string, ONhap>, keepalive: boolean) => Promise<KetQuaLuu>;
+  /** Hàng đợi tự lưu KHÁC của cùng màn (đơn thuốc mục E) — gộp vào một dòng
+   *  trạng thái, [Lưu ngay] lưu cả hai. */
+  tuLuuKem?: { trangThai: TTLuu; luuNgay: () => Promise<boolean> };
+  /** Báo trạng thái tự lưu (đã gộp) + hàm lưu nốt — shell dựng cổng Hoàn tất. */
+  onTrangThaiLuu?: (tt: TTLuu, luuNgay: () => Promise<boolean>) => void;
+  /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
+  baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
   donThuoc?: { dong: DongThuoc[]; onDoi?: (d: DongThuoc[]) => void };
   /** Mục F: thủ thuật đang có chỉ định + lệnh tạo chỉ định. */
@@ -157,13 +175,18 @@ export default function PhieuKham({
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
   const [khoi, setKhoi] = useState<1 | 2 | 3>(1);
   const [thamChieu, setThamChieu] = useState<ThamChieu | null>(null);
-  const [luuLuc, setLuuLuc] = useState<Date | null>(null);
   const [canhBao, setCanhBao] = useState<CanhBaoO[]>([]);
-  const [dangLuu, setDangLuu] = useState(false);
-  const [loi, setLoi] = useState<string | null>(null);
-  const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ghi = ghiDuoc(cheDo);
+
+  // Tự lưu đọc BẢN MỚI NHẤT lúc gửi (hàng đợi tuần tự — lần sau thấy kết quả
+  // lần trước). `doi` cập nhật ref ngay trong sự kiện gõ.
+  const giaRef = useRef(gia);
+  const duLieuRef = useRef(duLieu);
+  useEffect(() => {
+    giaRef.current = gia;
+    duLieuRef.current = duLieu;
+  }, [gia, duLieu]);
 
   // Shell nạp lại dữ liệu (đổi lượt, tải lại) → màn theo bản mới. Chỉnh ngay
   // lúc render thay vì trong effect: không vẽ một nhịp bằng dữ liệu cũ.
@@ -188,39 +211,56 @@ export default function PhieuKham({
   }, [thamChieuNgoai]);
   const tc = thamChieuNgoai ?? thamChieu;
 
-  // Gỡ hẹn khi rời màn: một lần tự lưu bắn sau khi màn đã đóng là một lần ghi
-  // mà không ai nhìn thấy kết quả.
-  useEffect(
-    () => () => {
-      if (hen.current) clearTimeout(hen.current);
-    },
-    [],
-  );
-
-  const luu = useCallback(
-    async (moi: Record<string, GiaTriO>) => {
-      setDangLuu(true);
-      const kq = await onLuu(dungGoiLuu(moi, duLieu)).catch(
-        (): KetQuaLuu => ({ ok: false, loi: "Mất kết nối — nội dung CHƯA được lưu." }),
+  // Trước đợt 3: hẹn lưu bị XOÁ lúc rời màn mà không lưu nốt — đổi khách trong
+  // 1,5 giây sau phím cuối là mất chữ. Nay `useTuLuu` lưu nốt khi rời màn.
+  const gui = useCallback(
+    async (keepalive: boolean) => {
+      const kq = await onLuu(dungGoiLuu(giaRef.current, duLieuRef.current), keepalive).catch(
+        (): KetQuaLuu => ({ ok: false, loi: LOI_MAT_KET_NOI, thuLai: true }),
       );
-      setDangLuu(false);
-      if (!kq.ok) {
-        setLoi(kq.loi);
-        return;
-      }
-      setLoi(null);
-      setLuuLuc(new Date());
-      setCanhBao(kq.canh_bao ?? []);
+      if (!kq.ok) return kq;
+      setCanhBao((cu) => gopCanhBao(cu, kq.da_gui ?? [], kq.canh_bao));
+      return { ok: true } as const;
     },
-    [onLuu, duLieu],
+    [onLuu],
   );
+  const tuLuu = useTuLuu({ gui, choMs: CHO_TU_LUU_MS, tat: !ghi });
+  const ttPhieu = tuLuu.trangThai;
+  const ttKem = tuLuuKem?.trangThai;
+  const ttLuu = useMemo(() => (ttKem ? gopTrangThai(ttPhieu, ttKem) : ttPhieu), [ttPhieu, ttKem]);
+  const luuPhieu = tuLuu.luuNgay;
+  const luuKem = tuLuuKem?.luuNgay;
+  const luuCaHai = useCallback(async () => {
+    const [a, b] = await Promise.all([luuPhieu(), luuKem ? luuKem() : Promise.resolve(true)]);
+    return a && b;
+  }, [luuPhieu, luuKem]);
+  useEffect(() => {
+    onTrangThaiLuu?.(ttLuu, luuCaHai);
+  }, [ttLuu, luuCaHai, onTrangThaiLuu]);
 
   const doi = (ma: string, v: GiaTriO) => {
     if (!ghi) return;
-    const moi = { ...gia, [ma]: v };
+    const moi = { ...giaRef.current, [ma]: v };
+    giaRef.current = moi;
     setGia(moi);
-    if (hen.current) clearTimeout(hen.current);
-    hen.current = setTimeout(() => void luu(moi), CHO_TU_LUU_MS);
+    tuLuu.danhDau();
+  };
+
+  const loiO = useMemo(
+    () => Object.fromEntries(canhBao.map((c) => [c.ma, c.loi] as const)),
+    [canhBao],
+  );
+
+  // [link] tới một ô: mở đúng khối chứa ô rồi cuộn + đặt con trỏ vào ô.
+  const denO = (ma: string) => {
+    const muc = dinhNghia.khung.find((m) => m.block.some((o) => o.ma === ma));
+    const k = KHOI.find((x) => muc && x.muc.includes(muc.ma));
+    if (k) setKhoi(k.so);
+    setTimeout(() => {
+      const el = document.getElementById(idOPhieu(ma));
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.querySelector<HTMLElement>("input, textarea, button")?.focus({ preventScroll: true });
+    }, 0);
   };
 
   const nhomTheoMuc = useMemo(
@@ -231,7 +271,7 @@ export default function PhieuKham({
 
   const veO = (m: MucPhieu) =>
     (nhomTheoMuc[m.ma] ?? []).map((n, i) => (
-      <NhomOPhieu key={`${m.ma}-${i}`} nhom={n} gia={gia} onDoi={doi} chiDoc={!ghi} />
+      <NhomOPhieu key={`${m.ma}-${i}`} nhom={n} gia={gia} onDoi={doi} chiDoc={!ghi} loiO={loiO} />
     ));
 
   // `editable` CỐ Ý không có nhãn (null) — `??` sẽ coi null là "thiếu" và vẽ
@@ -243,10 +283,10 @@ export default function PhieuKham({
   // thuốc & hẹn.
   const oTheoMuc = (ds: string[]) =>
     dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
-  const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTri(gia[ma])).length;
+  const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTriO(gia[ma])).length;
   const khoaChiMuc = chiMuc?.join(",") ?? "";
   const soDienChiMuc = khoaChiMuc
-    ? oTheoMuc(khoaChiMuc.split(",")).filter((ma) => coGiaTri(gia[ma])).length
+    ? oTheoMuc(khoaChiMuc.split(",")).filter((ma) => coGiaTriO(gia[ma])).length
     : 0;
   useEffect(() => {
     if (khoaChiMuc) onTomTat?.(soDienChiMuc, dinhNghia.ten.replace(/^Phiếu\s+/i, ""));
@@ -260,7 +300,7 @@ export default function PhieuKham({
     (c) => c.ket_qua_trang_thai === "CO_KET_QUA" && !c.da_xem_luc,
   ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
-  const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTri(gia[ma]));
+  const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<1 | 2 | 3, string> = {
     1: `${soDien} ô đã điền`,
     2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
@@ -270,7 +310,29 @@ export default function PhieuKham({
         .join(" · ") || "chưa có gì",
   };
 
-  const trangThaiLuu = dangLuu ? "Đang lưu…" : luuLuc ? `Đã lưu ${gioVn(luuLuc)}` : "Tự lưu khi gõ";
+  const dongTrangThai = (
+    <TrangThaiLuu
+      tt={ttLuu}
+      onLuuNgay={() => void luuCaHai()}
+      chuaGo={ghi ? "Tự lưu khi gõ" : "Chỉ xem"}
+    />
+  );
+  // Tóm tắt NGẮN các ô máy chủ vừa để trống — mỗi tên là link tới đúng ô (câu
+  // lỗi đầy đủ nằm dưới chính ô).
+  const tomTatLoiO =
+    canhBao.length > 0 ? (
+      <p role="alert" className="text-meta text-danger">
+        {canhBao.length} ô chưa lưu được giá trị:{" "}
+        {canhBao.map((c, i) => (
+          <Fragment key={c.ma}>
+            {i > 0 ? ", " : ""}
+            <button type="button" className="font-semibold underline" onClick={() => denO(c.ma)}>
+              {c.ten}
+            </button>
+          </Fragment>
+        ))}
+      </p>
+    ) : null;
 
   // THẺ CON của từng mục — tên + câu phụ Y HỆT bản giao diện mẫu (`manKham`,
   // M/app.js:401-448). `ma` ô không đổi; chỉ đổi cách trình bày.
@@ -292,12 +354,36 @@ export default function PhieuKham({
     3: null,
   };
 
-  const theMuc = (m: MucPhieu) => {
+  // B4 (đợt 3, 27/09/2026 — góp ý bác sĩ + thư ký y khoa): mỗi thẻ mục GẬP/MỞ
+  // được. Mặc định mở nếu là mục LÀM VIỆC đầu của khối (bỏ qua mục mang sang
+  // như A — phiếu mới thì B "Khai thác & khám" mở sẵn) hoặc đã có dữ liệu, đóng
+  // nếu trống; lần bấm cuối được nhớ theo người dùng (localStorage — NganGap).
+  const coTuVan = (dauPhieu?.tu_van ?? []).some((t) => t.noi_dung.trim());
+  const coLienKet = (m: MucPhieu): boolean => {
+    switch (m.lien_ket?.loai) {
+      case "chi_dinh_cls":
+        return ketQuaCls.length > 0;
+      case "don_thuoc":
+        return soThuoc > 0;
+      case "chi_dinh_thu_thuat":
+        return ketQuaTT.length > 0 || (thuThuat?.daChon.length ?? 0) > 0;
+      case "mang_sang":
+        return m.ma === "A" && coTuVan;
+      default:
+        return false;
+    }
+  };
+  const nho = (ma: string) => `phieu-kham:${dinhNghia.form_id}:${ma}`;
+  const mucDau = (ds: MucPhieu[]) => ds.find((m) => m.lien_ket?.loai !== "mang_sang")?.ma;
+
+  const theMuc = (m: MucPhieu, laDau: boolean) => {
     const td = tieuDeMuc[m.ma] ?? { ten: m.ten };
+    const soDienMuc = soODaDien(m.block, gia);
     const noiDung = (
       <>
         {m.ma === "A" && dauPhieu ? <KhoiTuVan dau={dauPhieu} choSua={ghi} /> : null}
         {m.lien_ket?.loai === "chi_dinh_cls" ? oChiDinhCls : null}
+        {m.lien_ket?.loai === "don_thuoc" ? baoLoiDon : null}
         {m.lien_ket?.loai === "don_thuoc" ? (
           <DonThuocPhieu
             dong={donThuoc?.dong ?? []}
@@ -322,12 +408,19 @@ export default function PhieuKham({
     return (
       <Fragment key={m.ma}>
         {/* Khối 2: "Đã chỉ định & kết quả" đứng TRÊN danh mục (bản mẫu). */}
-        {m.lien_ket?.loai === "chi_dinh_cls" && ketQuaCls.length > 0 ? (
-          <TheCon ten="Đã chỉ định & kết quả">
-            <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} />
+        {m.lien_ket?.loai === "chi_dinh_cls" && (ketQuaCls.length > 0 || tepChuaGan.length > 0) ? (
+          <TheCon ten="Đã chỉ định & kết quả" moSan nhoKhoa={nho("KET_QUA")}>
+            {ketQuaCls.length > 0 ? <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} /> : null}
+            <TepChuaGan tep={tepChuaGan} />
           </TheCon>
         ) : null}
-        <TheCon ten={td.ten} phu={td.phu}>
+        <TheCon
+          ten={td.ten}
+          phu={td.phu}
+          chip={soDienMuc > 0 ? <Chip tone="neutral">{soDienMuc} ô đã điền</Chip> : null}
+          moSan={laDau || soDienMuc > 0 || coLienKet(m)}
+          nhoKhoa={nho(m.ma)}
+        >
           {noiDung}
         </TheCon>
       </Fragment>
@@ -335,12 +428,13 @@ export default function PhieuKham({
   };
 
   if (chiMuc) {
+    const mucChi = dinhNghia.khung.filter((m) => chiMuc.includes(m.ma));
     // Bàn tư vấn: chỉ các mục được mở (vd B) — không đầu phiếu, không cột phải.
     return (
       <div className="space-y-4">
-        {loi ? <p className="text-body text-danger">{loi}</p> : null}
-        {dinhNghia.khung.filter((m) => chiMuc.includes(m.ma)).map((m) => theMuc(m))}
-        <p className="text-meta text-ink-muted">{trangThaiLuu}</p>
+        {tomTatLoiO}
+        {mucChi.map((m) => theMuc(m, m.ma === mucDau(mucChi)))}
+        {dongTrangThai}
       </div>
     );
   }
@@ -351,62 +445,56 @@ export default function PhieuKham({
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
       {/* CỘT PHẢI — ba nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
-          Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang. */}
+          Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang; dòng trạng thái
+          lưu nằm NGAY DƯỚI thanh ấy (cùng khối dính) — 375 vẫn thấy (đợt 3). */}
       <aside className="sticky top-16 z-10 min-w-0 lg:order-last lg:top-20">
-        <div className="flex gap-2 overflow-x-auto rounded-card border border-hairline bg-surface p-2 lg:flex-col lg:overflow-visible lg:p-3">
-          {KHOI.map((k) => {
-            const dang = khoi === k.so;
-            const moi = k.so === 2 ? coKqMoi : 0;
-            return (
-              <button
-                key={k.so}
-                type="button"
-                aria-pressed={dang}
-                onClick={() => setKhoi(k.so)}
-                className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
-                  dang ? "bg-surface-selected ring-brand-100" : "bg-surface ring-line hover:bg-surface-sunken"
-                }`}
-              >
-                <span
-                  className={`grid size-8 place-items-center rounded-control font-semibold ${
-                    dang ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-muted"
+        <div className="rounded-card border border-hairline bg-surface">
+          <div className="flex gap-2 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
+            {KHOI.map((k) => {
+              const dang = khoi === k.so;
+              const moi = k.so === 2 ? coKqMoi : 0;
+              return (
+                <button
+                  key={k.so}
+                  type="button"
+                  aria-pressed={dang}
+                  onClick={() => setKhoi(k.so)}
+                  className={`grid min-h-12 shrink-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-control p-2 text-left ring-1 ring-inset lg:min-h-14 lg:w-full ${
+                    dang ? "bg-surface-selected ring-brand-100" : "bg-surface ring-line hover:bg-surface-sunken"
                   }`}
                 >
-                  {k.so}
-                </span>
-                <span className="min-w-0 pr-1">
-                  <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
-                    {k.ten}
-                  </b>
-                  <small className="block text-meta text-ink-muted">{tomTat[k.so]}</small>
-                </span>
-                {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
-              </button>
-            );
-          })}
-          <div className="flex shrink-0 items-center gap-2 border-l border-hairline pl-2 lg:mt-2 lg:flex-col lg:items-stretch lg:border-l-0 lg:border-t lg:pl-0 lg:pt-3">
-            {nutIn}
-            {chanRay}
-            <span className="hidden text-center text-meta text-ink-muted lg:block">
-              {nhanCheDo ? `${nhanCheDo.ten} · ` : ""}
-              {trangThaiLuu}
-            </span>
+                  <span
+                    className={`grid size-8 place-items-center rounded-control font-semibold ${
+                      dang ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-muted"
+                    }`}
+                  >
+                    {k.so}
+                  </span>
+                  <span className="min-w-0 pr-1">
+                    <b className={`block text-emph font-semibold leading-tight ${dang ? "text-brand-700" : "text-ink"}`}>
+                      {k.ten}
+                    </b>
+                    <small className="block text-meta text-ink-muted">{tomTat[k.so]}</small>
+                  </span>
+                  {moi > 0 ? <Chip tone="success">{moi} mới</Chip> : <span />}
+                </button>
+              );
+            })}
+            <div className="flex shrink-0 items-center gap-2 border-l border-hairline pl-2 lg:mt-2 lg:flex-col lg:items-stretch lg:border-l-0 lg:border-t lg:pl-0 lg:pt-3">
+              {nutIn}
+              {chanRay}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 border-t border-hairline px-3 py-1 lg:justify-center">
+            {nhanCheDo ? <span className="text-meta text-ink-muted">{nhanCheDo.ten} ·</span> : null}
+            {dongTrangThai}
           </div>
         </div>
       </aside>
 
       <div className="min-w-0 space-y-4">
         {dauTrang}
-        {loi ? <p role="alert" className="text-body text-danger">{loi}</p> : null}
-        {canhBao.length > 0 ? (
-          <ul className="space-y-1 rounded-control bg-warning-bg p-3 text-body text-warning">
-            {canhBao.map((c) => (
-              <li key={c.ma}>
-                {c.ten}: {c.loi}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        {tomTatLoiO}
 
         {/* Thẻ khách + thẻ sinh hiệu Y HỆT bản giao diện mẫu (27/09/2026). */}
         {dauPhieu ? (
@@ -419,7 +507,7 @@ export default function PhieuKham({
 
         <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
-        {mucKhoi.map((m) => theMuc(m))}
+        {mucKhoi.map((m) => theMuc(m, m.ma === mucDau(mucKhoi)))}
 
         <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (
@@ -448,15 +536,29 @@ export default function PhieuKham({
   );
 }
 
-/** Thẻ con của một mục — bản mẫu `.card` + `.card-h` (tiêu đề 14/600 trái, câu phụ phải). */
-function TheCon({ ten, phu, children }: { ten: string; phu?: ReactNode; children: ReactNode }) {
+/** Thẻ con của một mục — bản mẫu `.card` + `.card-h` (tiêu đề 14/600 trái, câu
+ *  phụ phải). Đợt 3 (27/09/2026): đầu thẻ là nút gập/mở (`NganGap`, bàn phím
+ *  được), kèm chip "N ô đã điền". */
+function TheCon({
+  ten,
+  phu,
+  chip,
+  moSan,
+  nhoKhoa,
+  children,
+}: {
+  ten: string;
+  phu?: ReactNode;
+  chip?: ReactNode;
+  moSan: boolean;
+  nhoKhoa: string;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-card border border-hairline bg-surface p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-emph font-semibold text-ink">{ten}</span>
-        {phu ? <span className="text-meta text-ink-muted">{phu}</span> : null}
-      </div>
-      <div className="space-y-3">{children}</div>
+      <NganGap co="the" tieuDe={ten} phu={phu} chip={chip} moSan={moSan} nhoKhoa={nhoKhoa}>
+        {children}
+      </NganGap>
     </section>
   );
 }

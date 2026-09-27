@@ -33,7 +33,12 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.services.audit_labels import action_label
-from clinicai.services.luot_kham_rules import doi_phong_duoc
+from clinicai.services.luot_kham_rules import (
+    doi_phong_duoc,
+    hien_so_do_buoi,
+    nhan_nguon_sinh_hieu,
+)
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
 GOI_DUOC = frozenset(
@@ -275,8 +280,9 @@ class XemLuotService:
         r = await conn.fetchrow(
             """
             SELECT
-              EXISTS (SELECT 1 FROM vital_measurement m WHERE m.clinic_id = $1::uuid
-                       AND m.visit_id = $2::uuid)                     AS da_do,
+              (SELECT f.vitals_status FROM encounter_flow f
+                WHERE f.clinic_id = $1::uuid AND f.visit_id = $2::uuid)
+                                                             AS vitals_status,
               EXISTS (SELECT 1 FROM payment pm WHERE pm.clinic_id = $1::uuid
                        AND pm.visit_id = $2::uuid AND pm.kind = 'dich_vu'
                        AND pm.status = 'PAID' AND pm.voided_at IS NULL) AS da_thu_dv,
@@ -298,6 +304,12 @@ class XemLuotService:
             v["patient_id"],
         )
         assert r is not None
+        # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): cùng luật màn Đo sinh hiệu.
+        do = await sinh_hieu_cua_buoi(conn, cid, v["visit_id"])
+        da_do = do is not None and hien_so_do_buoi(
+            vitals_status=r["vitals_status"],
+            co_so_do_luot_nay=bool(do["co_so_do_luot_nay"]),
+        )
         return {
             "check_in_luc": _iso(v["checked_in_at"]),
             "trang_thai_luot": v["status"],
@@ -306,7 +318,15 @@ class XemLuotService:
             "ve_giua_chung": v["status"] == "INCOMPLETE",
             "dich_vu_kham": v["dich_vu_kham"],
             "bac_si": v["bac_si"],
-            "da_do_sinh_hieu": r["da_do"],
+            "da_do_sinh_hieu": da_do,
+            # "lượt trước" = số đo của lượt khác cùng buổi (nhãn do máy chủ trả).
+            "sinh_hieu_nguon": (
+                nhan_nguon_sinh_hieu(
+                    nguon_visit_id=do["nguon_visit_id"], visit_id=v["visit_id"]
+                )
+                if da_do and do is not None
+                else None
+            ),
             "kham_xong_luc": _iso(v["exam_completed_at"]),
             "dang_o": v["dang_o_phong"] or v["dang_o_buoc"],
             "da_thu_dich_vu": r["da_thu_dv"],

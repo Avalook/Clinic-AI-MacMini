@@ -45,6 +45,12 @@ export async function POST(request: Request) {
     refundId?: string;
     trangThai?: string;
     dong?: { payment_bill_line_id: string; so_luong: number }[];
+    /** Quầy một hoá đơn (27/09): lựa chọn dịch vụ khách đang nhìn lúc bấm Thu. */
+    chon?: {
+      order_ids_seen: string[];
+      selected_order_ids: string[];
+      expected_selection_revision: number;
+    };
   };
   // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
   if (p.action === "hoan-tien") {
@@ -105,6 +111,7 @@ export async function POST(request: Request) {
       amount: p.amount,
       bill_revision: p.billRevision || null,
       method: p.method || "CASH",
+      ...(p.chon ? { chon: p.chon } : {}),
     },
     request.headers.get("Idempotency-Key") ?? undefined,
   );

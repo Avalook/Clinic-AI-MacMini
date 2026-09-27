@@ -108,6 +108,11 @@
   --color-status-completed-bg: #dcfce7;
   --color-status-cancelled: #627d98;
   --color-status-cancelled-bg: #eef3f8;
+  /* "Đang ở: <nơi>" — khách đang được phục vụ ở một chỗ (danh sách Tiếp đón,
+     bản mẫu Tuyền duyệt 27/09/2026 đợt 3). Tím để tách khỏi xanh lá "đã
+     check-in, đang chờ" và xanh dương của ô số booking. */
+  --color-status-dang-o: #6d28d9;
+  --color-status-dang-o-bg: #ede9fe;
   --color-status-overdue: #b91c1c;
   --color-status-overdue-bg: #fee2e2;
 
@@ -156,6 +161,12 @@
    * "nút thuần vẽ" (bo góc không ăn khớp giữa các control). */
   --radius-control: 8px;
   --radius-chip: 6px; /* the designs use a soft rectangle, not a pill */
+
+  /* Thanh hành động DÍNH ĐÁY trên điện thoại (27/09/2026, đợt 3): đứng ngay
+   * trên BottomNav (<md, cao 4rem) CỘNG vùng an toàn iPhone — BottomNav tự đệm
+   * `env(safe-area-inset-bottom)` nên `bottom-16` trần bị nó che mất ~34px ở
+   * máy có thanh home. Dùng: `sticky bottom-tren-thanh-duoi md:bottom-3`. */
+  --inset-tren-thanh-duoi: calc(4rem + env(safe-area-inset-bottom));
 
   /* Thang chữ 5 bậc — DESIGN.md §3. Đây là NĂM cỡ duy nhất được phép;
    * text-[..px] tuỳ ý đang bị ratchet đếm và chỉ được giảm. */

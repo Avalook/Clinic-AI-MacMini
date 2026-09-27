@@ -11,6 +11,19 @@ mẫu kết quả, nên khung nằm được trong `form_definition` và xuất 
 bỏ qua được: `lua_chon` (mã + nhãn), `nhom` / `bang`
 / `hang` / `cot` (để vẽ lại đúng bố cục), và `lien_ket` ở cấp MỤC.
 
+BA THUỘC TÍNH HIỂN THỊ (đợt 3, 27/09/2026 — góp ý phòng khám, bản v2). Engine
+bỏ qua, màn đọc; khai trong DỮ LIỆU để màn không phải so tên nhóm:
+
+* `thu_gon: true` (ô) — ô ẩn sau một chip tên ô; bấm chip mới hiện. Ô đã có
+  giá trị luôn hiện: thu gọn không bao giờ giấu dữ liệu.
+* `hien_khi: {o, la}` (ô) — ô chỉ hiện khi ô chọn `o` đang chọn mã `la`
+  ("Chi tiết dị ứng thuốc" chỉ hiện khi "Dị ứng thuốc: Có"). Có chữ thì luôn hiện.
+* `gap: true` (mọi ô của MỘT nhóm) — cả nhóm nằm trong ngăn gập, mặc định đóng,
+  tự mở khi đã có ô điền (bảng kết quả CLS gõ tay).
+
+Ô thêm sau khi trích nguồn mang `them_sau_nguon` (lý do) — để bộ đếm "khoá
+của nguồn" vẫn đếm đúng nguồn.
+
 MỤC LIÊN KẾT KHÔNG CÓ Ô. Chỉ định CLS, đơn thuốc, thủ thuật, sinh hiệu đã có chỗ
 giữ riêng (service_order, prescription, vital_measurement). Phiếu chỉ khai "mục
 này đọc từ đâu"; không nhận giá trị — hai nơi giữ cùng một sự thật là hai nơi
@@ -130,6 +143,8 @@ def kiem_khung(khung: Any, *, form_id: str) -> None:
             raise ValidationError(f"{form_id}.{m}: mục chỉ định không được có ô")
         for b in blocks:
             _kiem_o(b, form_id=form_id, ma_o=ma_o)
+        _kiem_gap_theo_nhom(blocks, form_id=form_id, ma_muc=m)
+    _kiem_hien_khi(khung, form_id=form_id)
 
 
 def _kiem_o(b: dict[str, Any], *, form_id: str, ma_o: set[str]) -> None:
@@ -143,6 +158,7 @@ def _kiem_o(b: dict[str, Any], *, form_id: str, ma_o: set[str]) -> None:
         raise ValidationError(f"{form_id}.{ma}: kiểu lạ {b.get('kieu')!r}")
     if not (b.get("ten") or "").strip():
         raise ValidationError(f"{form_id}.{ma}: thiếu nhãn")
+    _kiem_hien_thi(b, form_id=form_id, ma=ma)
     if b["kieu"] in {"chon", "nhieu_chon"}:
         lc = b.get("lua_chon")
         if not isinstance(lc, list) or not lc:
@@ -158,6 +174,74 @@ def _kiem_o(b: dict[str, Any], *, form_id: str, ma_o: set[str]) -> None:
             ma_o.add(om)
             if not (o.get("ten") or "").strip():
                 raise ValidationError(f"{form_id}.{ma}.{om}: lựa chọn thiếu nhãn")
+
+
+def _kiem_hien_thi(b: dict[str, Any], *, form_id: str, ma: str) -> None:
+    """Kiểu của ba thuộc tính hiển thị trên MỘT ô (xem docstring đầu tệp)."""
+    for k in ("thu_gon", "gap"):
+        if k in b and not isinstance(b[k], bool):
+            raise ValidationError(
+                f"{form_id}.{ma}: `{k}` phải là true/false, nhận {b[k]!r}"
+            )
+    if "them_sau_nguon" in b and not (
+        isinstance(b["them_sau_nguon"], str) and b["them_sau_nguon"].strip()
+    ):
+        raise ValidationError(f"{form_id}.{ma}: `them_sau_nguon` phải là một câu lý do")
+    hk = b.get("hien_khi")
+    if hk is not None:
+        if (
+            not isinstance(hk, dict)
+            or set(hk) != {"o", "la"}
+            or not all(isinstance(hk[k], str) and _MA.match(hk[k]) for k in ("o", "la"))
+        ):
+            raise ValidationError(
+                f"{form_id}.{ma}: `hien_khi` phải có dạng"
+                f" {{o: <mã ô>, la: <mã lựa chọn>}}, nhận {hk!r}"
+            )
+    # Ô trong BẢNG vẽ theo hàng × cột: giấu một ô là thủng một lỗ giữa bảng.
+    if b.get("bang") and (b.get("thu_gon") or hk is not None):
+        raise ValidationError(f"{form_id}.{ma}: ô trong bảng không thu gọn / ẩn được")
+    if b.get("thu_gon") and hk is not None:
+        raise ValidationError(
+            f"{form_id}.{ma}: một ô chỉ một cách ẩn (thu_gon HOẶC hien_khi)"
+        )
+
+
+def _kiem_gap_theo_nhom(
+    blocks: list[dict[str, Any]], *, form_id: str, ma_muc: str
+) -> None:
+    """`gap` là của NHÓM (ô liền nhau cùng `nhom` — đúng cách màn gom): mọi ô
+    trong nhóm phải cùng một giá trị, không thì nửa nhóm gập nửa nhóm không."""
+    truoc: tuple[Any, bool] | None = None
+    for b in blocks:
+        cap = (b.get("nhom"), bool(b.get("gap")))
+        if truoc is not None and truoc[0] == cap[0] and truoc[1] != cap[1]:
+            raise ValidationError(
+                f"{form_id}.{ma_muc}: nhóm {cap[0]!r} có ô gập, ô không — `gap` phải"
+                " giống nhau ở mọi ô của nhóm"
+            )
+        truoc = cap
+
+
+def _kiem_hien_khi(khung: list[dict[str, Any]], *, form_id: str) -> None:
+    """`hien_khi` trỏ vào một ô CHỌN có thật trong phiếu và một mã lựa chọn của
+    chính ô ấy — trỏ sai là một ô không bao giờ hiện."""
+    o_theo_ma = cac_o(khung)
+    for ma, b in o_theo_ma.items():
+        hk = b.get("hien_khi")
+        if hk is None:
+            continue
+        dich = o_theo_ma.get(hk["o"])
+        if dich is None or hk["o"] == ma:
+            raise ValidationError(
+                f"{form_id}.{ma}: `hien_khi` trỏ ô không có {hk['o']!r}"
+            )
+        if dich["kieu"] not in {"chon", "nhieu_chon"}:
+            raise ValidationError(f"{form_id}.{ma}: `hien_khi` phải trỏ một ô chọn")
+        if hk["la"] not in {o["ma"] for o in dich["lua_chon"]}:
+            raise ValidationError(
+                f"{form_id}.{ma}: ô {hk['o']} không có lựa chọn {hk['la']!r}"
+            )
 
 
 def cac_o(khung: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:

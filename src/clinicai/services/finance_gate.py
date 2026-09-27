@@ -42,10 +42,15 @@ REFUND_PENDING = "REFUND_PENDING"
 REFUNDED = "REFUNDED"
 FINANCIAL_DATA_INCOMPLETE = "FINANCIAL_DATA_INCOMPLETE"
 FINANCIAL_REVIEW_REQUIRED = "FINANCIAL_REVIEW_REQUIRED"
-EXTERNAL_PAYMENT_UNRESOLVED = "EXTERNAL_PAYMENT_UNRESOLVED"
+#: ĐỐI TÁC TỰ THU (Tuyền chốt 27/09/2026, Q1: "khách trả trực tiếp cho đối
+#: tác"). Trước đây là EXTERNAL_PAYMENT_UNRESOLVED — chặn xếp phòng, chặn bắt
+#: đầu và đối tác không bao giờ nhận việc, mà không có lệnh nào gỡ. Nay: về
+#: phía PHÒNG KHÁM không có gì phải thu → sẵn sàng. Đối tác đã thu hay chưa là
+#: sổ riêng của khối Đối tác (`doi_tac_thanh_toan`), không chặn luồng khách.
+PARTNER_COLLECTS = "PARTNER_COLLECTS"
 
-#: Chỉ hai trạng thái mở cửa bắt đầu (FINANCE-GATE §3).
-READY_STATES = frozenset({PAID, NOT_REQUIRED})
+#: Trạng thái mở cửa bắt đầu (FINANCE-GATE §3 + đối tác tự thu 27/09/2026).
+READY_STATES = frozenset({PAID, NOT_REQUIRED, PARTNER_COLLECTS})
 
 #: Mã lỗi cho StartService (FINANCE-GATE §6).
 START_REASON = {
@@ -56,7 +61,6 @@ START_REASON = {
     REFUNDED: "SERVICE_PAYMENT_REFUNDED",
     FINANCIAL_DATA_INCOMPLETE: "SERVICE_FINANCIAL_DATA_INCOMPLETE",
     FINANCIAL_REVIEW_REQUIRED: "SERVICE_FINANCIAL_REVIEW_REQUIRED",
-    EXTERNAL_PAYMENT_UNRESOLVED: "SERVICE_EXTERNAL_PAYMENT_UNRESOLVED",
 }
 
 #: Chỉ định đã bắt đầu / đã làm / bị gián đoạn (trục mới hoặc exec_status cũ).
@@ -181,7 +185,7 @@ def derive_finance_state(f: OrderFinanceFacts) -> FinanceDecision:
         # Không chứng minh được là KHÔNG phải thu — coi như phải thu.
         return _quyet(f, FINANCIAL_DATA_INCOMPLETE, required=True)
     if ben == EXTERNAL:
-        return _quyet(f, EXTERNAL_PAYMENT_UNRESOLVED, required=False)
+        return _quyet(f, PARTNER_COLLECTS, required=False)
     if van_de or don_gia is None:
         return _quyet(f, FINANCIAL_DATA_INCOMPLETE, required=True)
     if don_gia == 0:

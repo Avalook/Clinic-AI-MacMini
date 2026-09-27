@@ -17,7 +17,15 @@
 
 import type { ReactNode } from "react";
 
-export type ChipTone = "success" | "warning" | "danger" | "brand" | "neutral" | "info" | "run";
+export type ChipTone =
+  | "success"
+  | "warning"
+  | "danger"
+  | "brand"
+  | "neutral"
+  | "info"
+  | "run"
+  | "dang_o";
 
 const TONE: Record<ChipTone, string> = {
   success: "bg-success-bg text-success",
@@ -29,6 +37,8 @@ const TONE: Record<ChipTone, string> = {
   // làm" (info) · "Đang làm" (run) — cùng giá trị token trạng thái sẵn có.
   info: "bg-status-assigned-bg text-status-assigned",
   run: "bg-status-in-progress-bg text-status-in-progress",
+  // "Đang ở: <nơi>" ở danh sách Tiếp đón (bản mẫu 27/09/2026, đợt 3).
+  dang_o: "bg-status-dang-o-bg text-status-dang-o",
 };
 
 /** Vỏ chip cho phần tử KHÔNG phải <span> — ví dụ một chip bấm được phải là

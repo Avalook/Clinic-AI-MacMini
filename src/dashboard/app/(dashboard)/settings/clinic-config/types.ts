@@ -24,6 +24,8 @@ export interface ConfigLocation {
   location_id: string;
   code: string;
   name: string;
+  /** Địa chỉ cơ sở (27/09/2026 — sửa được ở màn Cấu trúc phòng khám). */
+  address?: string | null;
   is_active: boolean;
   floors: ConfigFloor[];
 }

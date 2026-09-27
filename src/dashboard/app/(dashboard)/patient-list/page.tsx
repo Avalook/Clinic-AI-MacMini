@@ -52,7 +52,12 @@ interface DanhSachApi {
   }[];
 }
 
-export default async function PatientListPage() {
+export default async function PatientListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ chon?: string }>;
+}) {
+  const { chon } = await searchParams;
   await requireNavAccess("/patient-list");
   const vaiHomNay = await getVaiHomNay();
   const role = await getVaiChinh();
@@ -127,6 +132,7 @@ export default async function PatientListPage() {
           showRebook={showRebook}
           enableVisitPager={showPager}
           canBook={canManageAppt(role) || canWriteIntake(role)}
+          chonSan={typeof chon === "string" ? chon : null}
         />
       )}
     </div>

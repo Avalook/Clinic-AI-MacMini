@@ -111,7 +111,11 @@ export async function guiThaoTac(
   thaoTac: string,
   id: string,
   duLieu: Record<string, unknown> = {},
-): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; loi: string }> {
+): Promise<
+  | { ok: true; data: Record<string, unknown> }
+  // `status` 0 = không tới được máy chủ (tự lưu dùng để quyết có thử lại).
+  | { ok: false; loi: string; status: number }
+> {
   try {
     const r = await fetch("/api/luot-kham", {
       method: "POST",
@@ -122,10 +126,10 @@ export async function guiThaoTac(
       body: JSON.stringify({ thao_tac: thaoTac, id, du_lieu: duLieu }),
     });
     const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Thao tác không thành công.") };
+    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Thao tác không thành công."), status: r.status };
     return { ok: true, data: (d ?? {}) as Record<string, unknown> };
   } catch {
-    return { ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi." };
+    return { ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi.", status: 0 };
   }
 }
 
@@ -187,6 +191,7 @@ export interface ThucHien {
   mau_ket_qua: { ma: string; ten: string; nhom: string | null }[];
   /** Mẫu chọn sẵn: mẫu đã gắn, hoặc mẫu gợi ý của phiếu v5 (23/09 khuya). */
   mau_goi_y?: string | null;
+  /** Máy chủ xếp READY trước (mở lại khách = mở phiếu đã Hoàn tất — đợt 3). */
   phieu: {
     id: string;
     form_id: string;
@@ -194,6 +199,8 @@ export interface ThucHien {
     revision: number;
     hoan_tat_luc: string | null;
   }[];
+  /** Dịch vụ đã xong mà phiếu kết quả chỉ còn nháp (27/09/2026, đợt 3). */
+  phieu_chua_hoan_tat?: boolean;
   ly_do_khong_lam: string[];
   ly_do_gian_doan: string[];
 }

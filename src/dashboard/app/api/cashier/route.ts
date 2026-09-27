@@ -5,7 +5,7 @@
 // suy ra quyền từ vai, vì thế là viết luật lần thứ hai bằng ngôn ngữ khác.
 
 import { NextResponse } from "next/server";
-import { proxyJsonToBackend } from "../../../lib/backend-proxy";
+import { getCallerAuthHeaders, proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -19,6 +19,48 @@ export async function GET(request: Request) {
       if (NGAY_RE.test(v)) q.set(k, v);
     }
     return proxyJsonToBackend("GET", `/api/v1/cashier/giao-dich?${q.toString()}`, undefined);
+  }
+  // Lịch sử gom theo khách + CSV + phiếu thu (quầy một hoá đơn, 27/09/2026).
+  const xem = url.searchParams.get("xem");
+  if (xem === "lich-su" || xem === "lich-su-csv") {
+    const q = new URLSearchParams();
+    for (const k of ["tu", "den"]) {
+      const v = url.searchParams.get(k) ?? "";
+      if (NGAY_RE.test(v)) q.set(k, v);
+    }
+    for (const k of ["tim", "hinh_thuc", "nguoi_thu"]) {
+      const v = (url.searchParams.get(k) ?? "").slice(0, 200);
+      if (v) q.set(k, v);
+    }
+    if (xem === "lich-su") {
+      return proxyJsonToBackend("GET", `/api/v1/cashier/lich-su?${q.toString()}`, undefined);
+    }
+    const headers = await getCallerAuthHeaders();
+    const base = process.env.CLINIC_API_URL;
+    if (!headers || !base) {
+      return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
+    }
+    const res = await fetch(`${base}/api/v1/cashier/lich-su.csv?${q.toString()}`, {
+      headers,
+      cache: "no-store",
+    });
+    return new NextResponse(res.body, {
+      status: res.status,
+      headers: {
+        "Content-Type": res.headers.get("Content-Type") ?? "text/csv; charset=utf-8",
+        "Content-Disposition":
+          res.headers.get("Content-Disposition") ?? 'attachment; filename="lich-su-thu.csv"',
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+  if (xem === "phieu") {
+    const id = url.searchParams.get("id") ?? "";
+    const loai = url.searchParams.get("loai") === "hoan" ? "hoan" : "thu";
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      return NextResponse.json({ error: "Mã phiếu không hợp lệ" }, { status: 400 });
+    }
+    return proxyJsonToBackend("GET", `/api/v1/cashier/phieu/${id}?loai=${loai}`, undefined);
   }
   const modes = url.searchParams.get("modes") ?? "dich_vu,thuoc";
   // Giữ NGUYÊN mã và câu của máy chủ: bị chặn quyền (403) phải nói là bị chặn,

@@ -316,8 +316,10 @@ async def test_dich_vu_doi_tac_tu_thu_khong_cong_vao_tong(q: Quay) -> None:
     assert hd.tong == 150_000 + 200_000
     # Đổi vì Lifecycle v1 Slice 3 (Outstanding Bill): dòng đối tác tự thu không
     # phải khoản phòng khám thu → không vào hoá đơn, không vào ảnh chụp (trước:
-    # hiện ra nhưng không cộng). FinanceGate báo EXTERNAL_PAYMENT_UNRESOLVED.
+    # hiện ra nhưng không cộng). 27/09/2026: dòng ấy tách sang `dong_doi_tac`
+    # (quầy hiện "khách trả trực tiếp đối tác — không cộng").
     assert {d.ben_thu for d in hd.dong} == {"CLINIC"}
+    assert [d.ben_thu for d in hd.dong_doi_tac] == ["EXTERNAL_PARTNER"]
     await _thu(q, "dich_vu")
     p = await _phieu(q, "dich_vu")
     assert p is not None and p["amount"] == 350_000

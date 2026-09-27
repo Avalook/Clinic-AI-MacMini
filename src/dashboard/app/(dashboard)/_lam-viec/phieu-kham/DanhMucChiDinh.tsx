@@ -27,11 +27,13 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import NganGap from "@/components/ui/NganGap";
 import {
   chipMauDanhMuc,
   tachDanhMucKhac,
   tienVn,
   type ChiDinhVaKetQua,
+  tongPhongKham,
   type MucCls,
   type NhomCls,
 } from "@/lib/phieu-kham";
@@ -78,8 +80,8 @@ export default function DanhMucChiDinh({
   const coTruoc = daChiDinh.length > 0;
   const hienDanhMuc = !coTruoc || moThem || chon.length > 0;
 
-  const giaCua = new Map(moiMuc.flatMap((m) => (m.service_code ? [[m.service_code, m.gia]] : [])));
-  const tong = chon.reduce((t, c) => t + (giaCua.get(c) ?? 0), 0);
+  // Chỉ cộng phần PHÒNG KHÁM thu — mục khách trả đối tác (cờ máy chủ) không cộng.
+  const tong = tongPhongKham(chon, moiMuc);
   const chonTrongKhac = khac.filter((m) => m.service_code && chon.includes(m.service_code)).length;
 
   const bat = (ma: string, co: boolean) => {
@@ -141,6 +143,10 @@ export default function DanhMucChiDinh({
               <span className="text-ink-faint">chưa có trong danh mục</span>
             ) : m.gia == null ? (
               <span className="text-ink-faint">chưa có giá</span>
+            ) : m.doi_tac_thu ? (
+              <span className="tabular-nums" title="Khách trả trực tiếp cho đối tác — không cộng vào tổng">
+                {tienVn(m.gia)} · trả đối tác
+              </span>
             ) : (
               <span className="tabular-nums">{tienVn(m.gia)}</span>
             )}
@@ -189,18 +195,14 @@ export default function DanhMucChiDinh({
             ))}
           </div>
           {khac.length > 0 ? (
-            <details className="group">
-              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1.5 text-meta text-ink-muted sm:min-h-8 [&::-webkit-details-marker]:hidden">
-                <span aria-hidden className="transition-transform group-open:rotate-90">
-                  ▸
-                </span>
-                Dịch vụ khác trong bảng giá — không có trên phiếu giấy ({khac.length})
-                {chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
-              </summary>
-              <ul className="mt-2">
+            <NganGap
+              tieuDe={`Dịch vụ khác trong bảng giá — không có trên phiếu giấy (${khac.length})`}
+              chip={chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
+            >
+              <ul>
                 {khac.map((m) => dong(m, [m.nhom_goc, m.ma_kiotviet].filter(Boolean).join(" · ")))}
               </ul>
-            </details>
+            </NganGap>
           ) : null}
         </>
       ) : null}

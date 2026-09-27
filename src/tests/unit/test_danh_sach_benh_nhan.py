@@ -51,8 +51,11 @@ def test_luot_hom_qua_chua_dong_van_dang_mo() -> None:
     assert dang_mo(_l("a", "2026-09-15", "COMPLETED")) is False
 
 
-def test_gop_dem_tong_va_xep_co_luot_moi_nhat_truoc() -> None:
-    ho_so = [_hs("a", "An"), _hs("b", "Bình"), _hs("c", "Chi")]
+def test_gop_dem_tong_va_giu_thu_tu_hoat_dong_cua_sql() -> None:
+    # Hồ sơ đến đã xếp theo HOẠT ĐỘNG GẦN NHẤT (KHOA_XEP, 27/09 đợt 3): Chi mới
+    # tạo hôm nay (chưa khám) đứng TRƯỚC An khám từ tháng trước. Bản cũ xếp lại
+    # ở đây và dồn mọi khách "Chưa khám" xuống đáy.
+    ho_so = [_hs("c", "Chi"), _hs("b", "Bình"), _hs("a", "An")]
     luot = [  # đã xếp mới → cũ như câu SQL
         _l("b", "2026-09-15", "CHECKED_IN"),
         _l("a", "2026-09-10", "COMPLETED"),
@@ -66,8 +69,15 @@ def test_gop_dem_tong_va_xep_co_luot_moi_nhat_truoc() -> None:
         "tai_kham": 1,
         "chua_kham": 1,
     }
-    assert [d["ho_so"]["full_name"] for d in out["dong"]] == ["Bình", "An", "Chi"]
-    assert out["dong"][1]["so_luot"] == 2 and out["dong"][1]["phan_loai"] == "Tái khám"
+    assert [d["ho_so"]["full_name"] for d in out["dong"]] == ["Chi", "Bình", "An"]
+    assert out["dong"][2]["so_luot"] == 2 and out["dong"][2]["phan_loai"] == "Tái khám"
+    assert out["dong"][0]["phan_loai"] == "Chưa khám"
+
+
+def test_gop_rong_khong_nem() -> None:
+    assert gop([], [])["dong"] == []
+    # Lượt của khách không có trong hồ sơ (ngoài trần) → bỏ qua, không ném.
+    assert gop([], [_l("x", "2026-09-15", "COMPLETED")])["tong"]["ho_so"] == 0
 
 
 @pytest.mark.asyncio

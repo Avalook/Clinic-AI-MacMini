@@ -63,9 +63,14 @@ DEM: dict[str, dict[str, int]] = {
 }
 
 
-def _moi_khoa(dn: dict[str, Any]) -> list[str]:
+def _o_nguon(dn: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Ô CỦA NGUỒN — bỏ ô thêm sau khi trích (`them_sau_nguon`, bản v2 27/09)."""
+    return {m: b for m, b in cac_o(dn["khung"]).items() if not b.get("them_sau_nguon")}
+
+
+def _moi_khoa(dn: dict[str, Any], *, chi_nguon: bool = True) -> list[str]:
     out: list[str] = []
-    for b in cac_o(dn["khung"]).values():
+    for b in (_o_nguon(dn) if chi_nguon else cac_o(dn["khung"])).values():
         if b["kieu"] in {"chon", "nhieu_chon"}:
             out.extend(o["ma"] for o in b["lua_chon"])
         else:
@@ -91,7 +96,7 @@ def test_moi_phieu_dem_dung_tung_con_so(form_id: str) -> None:
         "so_khoa": len(khoa),
         "so_data_field": len(khoa) - len(chi_name),
         "so_chi_name": len(chi_name),
-        "so_o": len(cac_o(dn["khung"])),
+        "so_o": len(_o_nguon(dn)),
     } == DEM[form_id]
 
 
@@ -116,7 +121,7 @@ def test_32_khoa_chi_name_la_dung_hai_loai_da_biet() -> None:
 
 def test_khoa_khong_trung_xuyen_bay_phieu() -> None:
     """Một khoá chỉ có một nghĩa — gộp dữ liệu bảy phiếu cũng không va nhau."""
-    tat = [k for d in tat_ca() for k in _moi_khoa(d)]
+    tat = [k for d in tat_ca() for k in _moi_khoa(d, chi_nguon=False)]
     trung = sorted({k for k in tat if tat.count(k) > 1})
     assert trung == []
 
@@ -410,9 +415,150 @@ def test_tham_chieu_khong_tu_dien_ma_that() -> None:
     assert all(x["service_code"] is None for x in tc["thu_thuat"])
     assert all(x["drug_catalog_id"] is None for x in tc["mau_thuoc"])
     assert len(tc["mau_thuoc"]) == 73
+    # 27/09/2026 (đợt 3): xếp theo bản giao diện mẫu — soi CTC (7) / soi âm hộ
+    # (8) sang CLS, bỏ dòng tiêu đề "• Laser" (13), ghế ĐTT yếu/đau cơ (16/17)
+    # sang khối điều trị.
     assert [x["ma"] for x in tc["thu_thuat"]] == [
-        f"procedure_{i}" for i in range(1, 16)
+        *(f"procedure_{i}" for i in (1, 2, 3, 4, 5, 6, 9, 10)),
+        "procedure_16",
+        "procedure_17",
+        *(f"procedure_{i}" for i in (11, 12, 14, 15)),
     ]
+    assert len({x["ma"] for x in tc["thu_thuat"]}) == len(tc["thu_thuat"])
+
+
+# ── 5b. Danh mục chỉ định theo bản giao diện mẫu (27/09/2026, đợt 3) ────────
+def _moi_nhan(tc: dict[str, Any]) -> list[str]:
+    return [m["nhan"] for g in tc["chi_dinh_cls"] for m in g["muc"]] + [
+        x["nhan"] for x in tc["thu_thuat"]
+    ]
+
+
+def test_nhan_danh_muc_sach_khong_dau_giay() -> None:
+    """Nhãn vừa hiện cho bác sĩ vừa là khoá ánh xạ — không còn "*", "•", "-"."""
+    tc = tham_chieu_nguon()
+    ban = [n for n in _moi_nhan(tc) if n != n.strip() or n[:1] in "*•-"]
+    assert ban == []
+    nhom = [g["nhom"] for g in tc["chi_dinh_cls"]] + [
+        x["nhom"] for x in tc["thu_thuat"]
+    ]
+    assert all(n and n[:1] not in "*•-" for n in nhom)
+
+
+def test_moi_nhan_co_anh_xa_va_moi_anh_xa_co_nhan() -> None:
+    from clinicai.phieu_kham import anh_xa_danh_muc as ax
+
+    tc = tham_chieu_nguon()
+    nhan_cls = [m["nhan"] for g in tc["chi_dinh_cls"] for m in g["muc"]]
+    ma_tt = [x["ma"] for x in tc["thu_thuat"]]
+    assert [n for n in nhan_cls if n not in ax.CLS] == []
+    assert [m for m in ma_tt if m not in ax.THU_THUAT] == []
+    # Không khoá ánh xạ nào mồ côi (đổi nhãn quên đổi khoá = dòng mất mã).
+    assert set(ax.CLS) == set(nhan_cls)
+    assert set(ax.THU_THUAT) == set(ma_tt)
+    # Một dịch vụ chỉ ở MỘT khối — khối 2 hay khối 3 suy ra từ file này.
+    ma_cls = {ax.CLS[n].ma for n in nhan_cls}
+    ma_thu = {ax.THU_THUAT[m].ma for m in ma_tt}
+    assert ma_cls.isdisjoint(ma_thu)
+
+
+def test_nhom_theo_ban_giao_dien_mau() -> None:
+    from clinicai.phieu_kham import anh_xa_danh_muc as ax
+
+    tc = tham_chieu_nguon()
+    cls = {g["nhom"]: [m["nhan"] for m in g["muc"]] for g in tc["chi_dinh_cls"]}
+    assert cls["Soi & xét nghiệm dịch âm đạo"] == [
+        "Soi cổ tử cung",
+        "Soi âm hộ",
+        "HPV",
+        "ThinPrep",
+        "PCR 12 loại VK",
+    ]
+    assert cls["Sàn chậu — đánh giá"] == [
+        "Đo cơ lực âm đạo bằng máy (sàng lọc)",
+        "Khám sàn chậu",
+    ]
+    thu: dict[str, list[str]] = {}
+    for x in tc["thu_thuat"]:
+        thu.setdefault(x["nhom"], []).append(x["nhan"])
+    assert list(thu) == [
+        "Thủ thuật",
+        "Sàn chậu — trải nghiệm 5 phút ghế ĐTT",
+        "Sàn chậu — định hướng điều trị",
+    ]
+    assert "Nong bao quy đầu ÂV" in thu["Thủ thuật"]
+    assert "Tách bao quy đầu ÂV" in thu["Thủ thuật"]
+    assert thu["Sàn chậu — trải nghiệm 5 phút ghế ĐTT"] == ["Yếu cơ", "Đau cơ"]
+    assert "Biofeedback" in thu["Sàn chậu — định hướng điều trị"]
+    # B5: Soi âm hộ ở khối 2 (CLS) → thấy khi chỉ định, kết quả hiện ở khối 2.
+    ma_cls = {ax.CLS[m["nhan"]].ma for g in tc["chi_dinh_cls"] for m in g["muc"]}
+    assert {"CLS_SOI_AM_HO", "CLS_SOI_CO_TU_CUNG"} <= ma_cls
+    assert {"CLS_DO_CO_LUC_AM_DAO", "CLS_KHAM_SAN_CHAU"} <= ma_cls
+
+
+def test_bo_hai_dong_tieu_de_khong_o_tick() -> None:
+    """ "*XN dịch âm đạo" và "• Laser" là tiêu đề trên giấy — không liệt kê."""
+    from clinicai.phieu_kham import anh_xa_danh_muc as ax
+
+    tc = tham_chieu_nguon()
+    ma = {d.ma for d in ax.CLS.values()} | {d.ma for d in ax.THU_THUAT.values()}
+    assert ax.KHONG_LIET_KE == {"CLS_XET_NGHIEM_DICH_AM_DAO", "CLS_LASER"}
+    assert ma.isdisjoint(ax.KHONG_LIET_KE)
+    nhan = " | ".join(_moi_nhan(tc))
+    assert "XN dịch âm đạo" not in nhan
+    assert "Laser" in nhan  # Laser trẻ hoá, Laser ST/SSD vẫn còn
+    assert "procedure_13" not in {x["ma"] for x in tc["thu_thuat"]}
+
+
+def test_mau_goi_y_chi_soi_am_ho_dung_mau_soi_am_ho() -> None:
+    """B6a: tick "Đo cơ lực" từng mở mẫu Soi âm hộ. Đúng bản mẫu: chỉ Soi âm
+    hộ (SP000163) dùng mẫu SOI_AM_HO; còn lại về mẫu CHUNG (không gợi ý)."""
+    from clinicai.phieu_kham import mau_goi_y
+
+    mau_goi_y._goi_y_theo_ma.cache_clear()
+    assert mau_goi_y.ma_mau_goi_y("CLS_SOI_AM_HO") == "SOI_AM_HO"
+    for ma in (
+        "CLS_DO_CO_LUC_AM_DAO",
+        "CLS_KHAM_SAN_CHAU",
+        "CLS_NONG_BAO_QUY_DAU_AV",
+        "CLS_TACH_BAO_QUY_DAU_AV",
+    ):
+        assert mau_goi_y.ma_mau_goi_y(ma) is None, ma
+    assert [
+        ma for ma, mau in mau_goi_y._goi_y_theo_ma().items() if mau == "SOI_AM_HO"
+    ] == ["CLS_SOI_AM_HO"]
+    # Mã rác / rỗng → không gợi ý, không ném.
+    assert mau_goi_y.ma_mau_goi_y("") is None
+    assert mau_goi_y.ma_mau_goi_y("KHONG_CO") is None
+
+
+def test_mau_soi_am_ho_khong_con_ten_muc_giu_cho() -> None:
+    """B6b: "(không có tiêu đề mục)" không được hiện ra — đổi TÊN, giữ `ma`."""
+    import json
+
+    v3 = json.loads(
+        (GOC / "src/clinicai/phieu_kham/mau_ket_qua_v3.json").read_text(
+            encoding="utf-8"
+        )
+    )["mau"]
+    ten_muc = [m["ten"] for mau in v3.values() for m in mau["khung"]]
+    assert not [t for t in ten_muc if "không có tiêu đề" in t or not t.strip()]
+    khung = v3["SOI_AM_HO"]["khung"]
+    assert [(m["ma"], m["ten"]) for m in khung] == [
+        ("o", "Kết quả soi"),
+        ("de_nghi", "Đề nghị"),
+    ]
+    assert [o["ma"] for o in khung[0]["block"]] == [
+        "quy_dau_am_vat",
+        "tien_dinh_am_ho",
+        "test_ran",
+        "co_luc_am_dao_theo_oxford_cai_tien",
+    ]
+    # Migration mới mang ĐÚNG khung của JSON (một nguồn, hai bản chép).
+    sql = (
+        GOC / "supabase/migrations/20260928000002_ten_muc_mau_soi_am_ho.sql"
+    ).read_text(encoding="utf-8")
+    assert sql.count(json.dumps(khung, ensure_ascii=False)) == 2
 
 
 def test_mau_ket_qua_nguon_tro_dung_18_mau_engine() -> None:

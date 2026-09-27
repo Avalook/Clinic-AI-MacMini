@@ -8,7 +8,6 @@ import test from "node:test";
 const CHON_DICH_VU = [
   "../lib/danh-muc.ts",
   "../app/(dashboard)/patients/new/page.tsx",
-  "../app/(dashboard)/patients/[id]/page.tsx",
   "../app/(dashboard)/appointments/page.tsx",
   "../app/(dashboard)/settings/booking-policy/page.tsx",
 ];

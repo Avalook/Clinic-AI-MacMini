@@ -146,3 +146,17 @@ export function donKhung(khung: readonly MucMau[]): MucMau[] {
     }),
   }));
 }
+
+/**
+ * Tên mục để HIỆN ở phiếu kết quả / màn xem / bản in — `null` = không vẽ tiêu
+ * đề. Mẫu dựng từ PDF không có tiêu đề mục từng mang chữ giữ chỗ "(không có
+ * tiêu đề mục)" (Phiếu soi âm hộ v3, 26/09/2026); bản mới đã đặt tên, nhưng
+ * phiếu ghim bản cũ vẫn mang chữ ấy — không in nó ra cho khách đọc.
+ */
+export function tenMucHien(ten: unknown): string | null {
+  if (typeof ten !== "string") return null;
+  const t = ten.normalize("NFC").trim();
+  if (!t) return null;
+  if (/^\(?\s*không có tiêu đề(\s+mục)?\s*\)?$/iu.test(t)) return null;
+  return t;
+}

@@ -304,7 +304,7 @@ khách, tới giờ chuông réo đúng người.
 
 | Dây | Nghe | Điều kiện | Gửi lệnh (của khối khác) | Hiện trạng |
 |---|---|---|---|---|
-| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, **mặc định TẮT từ 25/09**) · `vitals.recorded` có `bo_qua_tu_van` (điều dưỡng tick) | Xếp khách vào hàng **bác sĩ tư vấn**; điều dưỡng tick bỏ qua → thẳng bác sĩ chính | ✅ |
+| H1 | `visit.checked_in` | dịch vụ khám có bước tư vấn, **trừ khách quen** (lịch đánh dấu tái khám / đặt từ lượt trước / từng được chính bác sĩ ấy khám xong — dây `h1_khach_quen_vao_thang_bs`, **mặc định TẮT từ 25/09**) · `vitals.recorded` có `bo_qua_tu_van` (điều dưỡng tick) | Xếp khách vào hàng **bác sĩ tư vấn**; điều dưỡng tick bỏ qua → thẳng bác sĩ chính. **27/09 (đợt 3), dây `h1_cung_buoi_thang_dich_vu` mặc định BẬT (luật RIÊNG, không dính khách quen):** lượt check-in thêm CÙNG BUỔI (cùng khách, cùng ngày VN) nhận lần đo của buổi (không đo lại; `encounter_flow.vitals_tu_visit_id`); đã được bác sĩ chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ (`rules.duong_sau_check_in`) | ✅ |
 | H2 | `visit.checked_in` | không có bước tư vấn | Xếp khách vào hàng **bác sĩ chính** | 🟡 gọi thẳng (F2) |
 | H3 | `consultation.handed_over` | — | Xếp khách vào hàng bác sĩ chính | ❌ |
 | H4 | `visit.checked_in` | lịch hẹn là THỦ THUẬT/dịch vụ (đặt từ lượt trước) | Tạo sẵn chỉ định theo lịch → chờ thu tiền | ❌ |

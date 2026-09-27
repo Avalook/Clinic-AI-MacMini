@@ -292,6 +292,8 @@ async def test_mot_luot_kham_di_het_luong(kb: KichBan) -> None:
     await _hanh_trinh(kb.pool)
     # Xếp hàng do khối Hành trình, không còn trong lệnh ghi (24/09/2026).
     assert r["route"] is None
+    # Chỉ số bình thường → không nhắc gì (27/09/2026, đợt 3).
+    assert r["canh_bao"] == []
     await _hanh_trinh(kb.pool)
 
     luot = _cua(await svc.bang(identity=kb.bac_si), kb.visit_id)
@@ -751,11 +753,13 @@ async def test_bi_giu_toi_khi_doc_xong_moi_dieu_phoi_duoc(kb: KichBan) -> None:
 
 async def test_sinh_hieu_rac_khong_ghi_gi(kb: KichBan) -> None:
     await kb.svc.bat_dau_do_sinh_hieu(visit_id=kb.visit_id, identity=kb.dieu_duong)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as loi:
         await kb.svc.record_vitals(
             visit_id=kb.visit_id, raw={"systolic": "cao"}, identity=kb.dieu_duong
         )
         await _hanh_trinh(kb.pool)
+    # Màn đo tô đúng ô (27/09/2026, đợt 3).
+    assert getattr(loi.value, "truong", None) == ["systolic"]
     luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
     assert luot["sinh_hieu"] is None and luot["dich"] is None
 

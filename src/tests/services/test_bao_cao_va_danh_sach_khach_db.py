@@ -182,3 +182,122 @@ async def test_bon_duong_doc_khung_trang(pool: asyncpg.Pool) -> None:  # noqa: F
     assert isinstance(ca_toi["items"], list)
     do = await thoi_luong_kham_do_duoc(identity=ca.le_tan, pool=pool)
     assert isinstance(do["items"], list)
+
+
+# ── XẾP THEO HOẠT ĐỘNG GẦN NHẤT (27/09/2026 đợt 3, A6) ─────────────────────
+
+
+async def _lui_ngay_tao(pool: asyncpg.Pool, pid: str, ngay: int) -> None:  # noqa: F811
+    await pool.execute(
+        "UPDATE patient SET created_at = now() - make_interval(days => $2)"
+        " WHERE clinic_patient_id = $1::uuid",
+        pid,
+        ngay,
+    )
+
+
+async def _luot_hom_nay(pool: asyncpg.Pool, ca: Ca, pid: str) -> None:  # noqa: F811
+    await pool.execute(
+        "INSERT INTO visit (clinic_id, clinic_patient_id, location_id, status)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid, 'OPEN')",
+        CLINIC,
+        pid,
+        ca.loc,
+    )
+
+
+async def _lich_tuong_lai_dat_tu_lau(
+    pool: asyncpg.Pool,  # noqa: F811
+    ca: Ca,
+    pid: str,
+) -> None:
+    """Lịch hẹn 30 ngày TỚI, đặt từ 40 ngày TRƯỚC."""
+    gio = datetime.combine(
+        now_vn().date() + timedelta(days=30), time(12, 0), tzinfo=CLINIC_TZ
+    )
+    await pool.execute(
+        "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+        " service_type_id, slot_start, slot_end, doctor_id, status, created_at)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid,"
+        " 'CONFIRMED', now() - interval '40 days')",
+        CLINIC,
+        pid,
+        ca.loc,
+        ca.loai_kham,
+        gio,
+        gio + timedelta(minutes=15),
+        ca.bac_si.staff_id,
+    )
+
+
+async def _bon_khach(pool: asyncpg.Pool, ca: Ca, duoi: str) -> dict[str, str]:  # noqa: F811
+    """Bốn khách; thứ tự ĐÚNG sau khi xếp: cu_kham, moi, giua, tuong_lai."""
+    k = {
+        "tuong_lai": await _khach_ten(pool, ca, f"Lê {duoi} Hẹn Xa"),
+        "giua": await _khach_ten(pool, ca, f"Lê {duoi} Giữa"),
+        "moi": await _khach_ten(pool, ca, f"Lê {duoi} Mới Tạo"),
+        "cu_kham": await _khach_ten(pool, ca, f"Lê {duoi} Cũ Khám"),
+    }
+    await _lui_ngay_tao(pool, k["tuong_lai"], 40)
+    await _lich_tuong_lai_dat_tu_lau(pool, ca, k["tuong_lai"])
+    await _lui_ngay_tao(pool, k["giua"], 30)
+    await _lui_ngay_tao(pool, k["cu_kham"], 60)
+    await _luot_hom_nay(pool, ca, k["cu_kham"])  # tạo lâu, KHÁM HÔM NAY
+    return k
+
+
+async def test_danh_sach_khach_xep_theo_hoat_dong_gan_nhat(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    duoi = uuid.uuid4().hex[:8]
+    k = await _bon_khach(pool, ca, duoi)
+
+    # Tìm KHÔNG dấu, không lọc kỳ.
+    kq = await danh_sach_khach(pool, identity=ca.le_tan, q=f"le {duoi}")
+    thu_tu = [r["clinic_patient_id"] for r in kq["rows"]]
+    # Khách tạo 60 ngày trước nhưng vừa khám hôm nay lên ĐẦU; khách mới chưa có
+    # lịch theo ngày tạo; lịch hẹn TƯƠNG LAI không ghim khách lên đầu.
+    assert thu_tu == [k["cu_kham"], k["moi"], k["giua"], k["tuong_lai"]]
+    assert kq["rows"][0]["hoat_dong_gan_nhat"] >= kq["rows"][1]["hoat_dong_gan_nhat"]
+
+    # Gọi lại → đúng thứ tự cũ (phân trang ổn định).
+    lai = await danh_sach_khach(pool, identity=ca.le_tan, q=f"le {duoi}")
+    assert [r["clinic_patient_id"] for r in lai["rows"]] == thu_tu
+
+
+async def test_danh_sach_khach_cung_moc_xep_theo_ma_khong_nhay(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Hai khách cùng mốc hoạt động → khoá phụ mã khách; hai trang liền nhau
+    không lặp, không sót."""
+    ca = await _dung(pool)
+    duoi = uuid.uuid4().hex[:8]
+    a = await _khach_ten(pool, ca, f"Vũ Trùng {duoi} A")
+    b = await _khach_ten(pool, ca, f"Vũ Trùng {duoi} B")
+    await pool.execute(
+        "UPDATE patient SET created_at = '2026-01-01T00:00:00+07'"
+        " WHERE clinic_patient_id = ANY($1::uuid[])",
+        [a, b],
+    )
+    kq = await danh_sach_khach(pool, identity=ca.le_tan, q=f"vu trung {duoi}")
+    assert [r["clinic_patient_id"] for r in kq["rows"]] == sorted([a, b])
+
+
+async def test_danh_sach_benh_nhan_xep_theo_hoat_dong_gan_nhat(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
+
+    ca = await _dung(pool)
+    k = await _bon_khach(pool, ca, uuid.uuid4().hex[:8])
+    out = await DanhSachBenhNhanService(pool).lay(identity=ca.le_tan)
+    cua_toi = set(k.values())
+    thu_tu = [
+        d["ho_so"]["clinic_patient_id"]
+        for d in out["dong"]
+        if d["ho_so"]["clinic_patient_id"] in cua_toi
+    ]
+    # coalesce(lượt, lịch, ngày tạo): khách vừa khám hôm nay lên đầu; lịch
+    # tương lai đặt 40 ngày trước tính theo LÚC ĐẶT, không theo giờ hẹn.
+    assert thu_tu == [k["cu_kham"], k["moi"], k["giua"], k["tuong_lai"]]

@@ -842,7 +842,6 @@ MAN: dict[str, Man] = {
             "Điều phối khách",
             [
                 "/truong-ca",
-                "/truong-ca/hang-doi",
                 "/truong-ca/lich-su",
                 "/truong-ca/tv",
             ],
