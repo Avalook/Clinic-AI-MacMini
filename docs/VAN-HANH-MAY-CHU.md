@@ -43,13 +43,13 @@ tự trả cấu hình SSH cũ.
 
 ufw đã bật (chặn mọi chiều vào, mở 22/80/443) — không cần làm gì.
 
-## 3. Hệ điều hành hết hỗ trợ → dựng lại trên Ubuntu 24.04 LTS
+## 3. Hệ điều hành hết hỗ trợ → dựng lại trên Ubuntu 26.04 LTS
 
 Ubuntu 25.04 hết hỗ trợ 15/01/2026: không còn bản vá bảo mật. Tuyền chốt 27/09:
-**dựng máy mới 24.04 LTS, chuyển dữ liệu, làm trong khung đêm có người xem.**
+**dựng máy mới LTS, chuyển dữ liệu, làm trong khung đêm có người xem.** Chọn **26.04 LTS** (máy báo đã có 26.04.1, hỗ trợ tới ~2031) thay vì 24.04. KHÔNG `do-release-upgrade` trên prod — nâng từ bản đã hết hỗ trợ dễ hỏng giữa chừng, không đường lùi.
 Cách này có đường lùi (máy cũ còn nguyên tới khi máy mới chạy ổn).
 
-1. **Thuê VPS mới** 24.04 LTS cùng cấu hình (4 vCPU, 8G RAM, ≥ 50G) — tài khoản
+1. **Thuê VPS mới** 26.04 LTS cùng cấu hình (4 vCPU, 8G RAM, ≥ 50G) — tài khoản
    nhà cung cấp là của Tuyền/Quang. Gắn ổ Viettel CFS như máy cũ.
 2. **Dựng sẵn ban ngày** (không ảnh hưởng prod): cài Docker, clone repo, chép
    `.env.prod`, `.env.viettel` (qua `scp`, không dán vào chat), chạy
