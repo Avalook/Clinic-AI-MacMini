@@ -2,8 +2,9 @@
 """Dựng lại cấu trúc phòng khám: chỉ còn Kim Ngưu, 3 tầng; gán lego theo vai.
 
     docker cp scripts/kim-nguu-3-tang-2709.py <api>:/tmp/kn.py
-    docker exec <api> python /tmp/kn.py          # THỬ KHÔ (giao dịch rồi ROLLBACK)
-    docker exec <api> python /tmp/kn.py --that   # làm thật
+    docker cp ky-nang.json <api>:/tmp/ky-nang.json   # KHÔNG trong git (tên người thật)
+    docker exec <api> python /tmp/kn.py --ky-nang /tmp/ky-nang.json          # THỬ KHÔ
+    docker exec <api> python /tmp/kn.py --ky-nang /tmp/ky-nang.json --that   # làm thật
 
 Tuyền chốt 27/09/2026 tối (chat):
   * Xoá cơ sở "Phòng khám Dr4Women" và "Hào Nam" — lịch hẹn / lượt khám / khách
@@ -13,7 +14,11 @@ Tuyền chốt 27/09/2026 tối (chat):
     tác. Lấy mẫu làm ở thủ thuật + siêu âm. Mỗi phòng một TV.
     DÙNG LẠI phòng cũ (đổi tên / tầng) để lịch sử lượt khám không mồ côi; phòng
     thừa TẮT, không xoá.
-  * Lego (node thanh bên) THEO VAI — xem `LEGO_THEO_VAI`. Quản lý thêm Điều phối.
+  * Lego (node thanh bên): người có trong file nhân sự của phòng khám ("Sáng Ý -
+    Thông tin nhân sự.xlsx" → `ky-nang.json` {họ tên: [kỹ năng]}) = HỢP các kỹ
+    năng (`KY_NANG`) — trần quyền; lịch làm việc quyết hôm nay đứng đâu. Người
+    không có trong file: THEO VAI (`LEGO_THEO_VAI`). Quản lý thêm Điều phối.
+  * Giữ phòng Sàn chậu + Sản-Biofeedback (Tầng 3) — 17 / 13 người có kỹ năng ấy.
 
 Hai pha: (1) cấu trúc — MỘT giao dịch SQL; (2) lego — qua
 `PermissionService.doi_lego` (cùng cửa màn Phân quyền, có nhật ký), chạy sau khi
@@ -23,6 +28,7 @@ pha 1 đã ghi. Thử khô: pha 1 ROLLBACK, pha 2 chỉ in kế hoạch.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 
@@ -52,7 +58,7 @@ _DT = [
 ]
 
 # code phòng → (tên mới, tầng, sort, việc phục vụ; việc đầu = việc chính)
-PHONG: dict[str, tuple[str, str, int, list[str]]] = {
+PHONG: dict[str, tuple[str, str, int, list[str] | None]] = {
     "KN-TIEPDON": ("Quầy lễ tân", "Tầng 1", 10, ["LUOTKHAM-01", "LUOTKHAM-14"]),
     "KN-DOCHISO": ("Đo sinh hiệu", "Tầng 1", 20, ["LUOTKHAM-03", "DICHVU-DXA"]),
     "KN-QUAYTHUOC": ("Kho thuốc", "Tầng 1", 30, _THUOC),
@@ -62,9 +68,12 @@ PHONG: dict[str, tuple[str, str, int, list[str]]] = {
     "KN-SA1": ("Phòng siêu âm 2", "Tầng 2", 70, _SA),
     "KN-THUTHUAT": ("Phòng thủ thuật 1", "Tầng 3", 80, _TT),
     "KN-TTNG": ("Phòng thủ thuật 2", "Tầng 3", 90, _TT),
+    # Giữ nguyên việc (None) — chỉ chuyển tầng / thứ tự / bật TV.
+    "KN-SANCHAU": ("Phòng Sàn chậu", "Tầng 3", 92, None),
+    "KN-SAN-BIO": ("Phòng Sản - Biofeedback", "Tầng 3", 94, None),
     "KN-DOITAC": ("Phòng đối tác", "Tầng 3", 100, _DT),
 }
-TAT = ("KN-LAYMAU", "KN-SANCHAU", "KN-SAN-BIO", "KN-SA2")
+TAT = ("KN-LAYMAU", "KN-SA2")
 # Vị trí "Hỏi bệnh ban đầu" sang phòng tư vấn mới.
 VI_TRI_SANG = {"T1_HOIBENH": "KN-TUVAN"}
 CHUA_XONG = ("done", "completed", "cancelled", "not_performed")
@@ -97,6 +106,46 @@ LEGO_THEO_VAI: dict[str, set[str]] = {
     "PARTNER": {"doi_tac"},
 }
 PHONG_DD_SA = ("KN-SA-T1", "KN-SA1", "KN-THUTHUAT", "KN-TTNG")
+
+# Kỹ năng trong file nhân sự → (lego, phòng của lego "phong").
+_LE_TAN = {"tiep_don", "ds_benh_nhan", "them_benh_nhan", "thu_tien_dv", "thu_tien_thuoc"}
+_SA, _TTP = ("KN-SA-T1", "KN-SA1"), ("KN-THUTHUAT", "KN-TTNG")
+KY_NANG: dict[str, tuple[set[str], tuple[str, ...]]] = {
+    "Lễ tân": (_LE_TAN, ()),
+    "Đo chỉ số sk": ({"do_sinh_hieu"}, ()),
+    "Hỏi bệnh": ({"tu_van"}, ()),
+    "TKYK": ({"ban_kham"}, ()),
+    "Phụ BS Sản": ({"ban_kham"}, ()),
+    "Phụ SA": ({"phong"}, _SA),
+    "Thủ thuật": ({"phong"}, _TTP),
+    "Lấy mẫu xét nghiệm": ({"phong"}, _SA + _TTP),
+    "Phụ sàn chậu": ({"phong"}, ("KN-SANCHAU",)),
+    "Bio": ({"phong"}, ("KN-SAN-BIO",)),
+    "Thuốc": ({"kho_thuoc"}, ()),
+    "CSKH": ({"cham_soc_khach"}, ()),
+}
+# Tên trong file → (các) tài khoản trên hệ thống khi tên không khớp nguyên văn.
+# Nghi một người hai tài khoản: Tuyền 27/09 — áp kỹ năng cho CẢ HAI.
+BI_DANH: dict[str, tuple[str, ...]] = {
+    "Nguyễn Thị Ngọc Giầu": ("Nguyễn Thị Ngọc Giàu", "ĐD Giầu"),
+    "Vũ Thị Huế": ("ĐD Huế",),
+    "Phùng Thị Minh Thư": ("Phùng Thị Minh Thư", "ĐD Thư"),
+    "Phan Thị Minh Hằng": ("Phan Thị Minh Hằng", "ĐD Hằng"),
+    "Nguyễn Vân Anh": ("TL Vân Anh",),
+}
+
+
+def quyen_tu_ky_nang(ky_nang: list[str]) -> tuple[set[str], list[str]]:
+    """Hợp lego + phòng của các kỹ năng. Kỹ năng lạ → báo, không đoán."""
+    lego: set[str] = set()
+    phong: set[str] = set()
+    for k in ky_nang:
+        if k not in KY_NANG:
+            raise SystemExit(f"✗ Kỹ năng lạ trong file: {k!r} — DỪNG, bổ sung KY_NANG.")
+        lg, ph = KY_NANG[k]
+        lego |= lg
+        phong |= set(ph)
+    return lego, sorted(phong)
 
 
 def so(kq: str) -> int:
@@ -188,6 +237,17 @@ async def pha_cau_truc(conn: asyncpg.Connection, cid: str) -> dict[str, str]:
     # 2. Kim Ngưu: đổi tên / tầng / việc; bật TV mọi phòng.
     for code, (ten, tang, sort, viec) in PHONG.items():
         rid = ma_id[code]
+        if viec is None:
+            await conn.execute(
+                "UPDATE clinic_room SET name=$2, floor=$3, sort=$4, is_active=TRUE,"
+                " show_on_tv=TRUE, updated_at=now() WHERE id=$1::uuid",
+                rid,
+                ten,
+                tang,
+                sort,
+            )
+            print(f"  ✓ {tang} · {ten} ({code}): giữ việc cũ")
+            continue
         await conn.execute(
             "UPDATE clinic_room SET name=$2, floor=$3, sort=$4, node_code=$5, is_active=TRUE,"
             " show_on_tv=TRUE, updated_at=now() WHERE id=$1::uuid",
@@ -266,7 +326,9 @@ async def pha_cau_truc(conn: asyncpg.Connection, cid: str) -> dict[str, str]:
     return ma_id
 
 
-async def pha_lego(pool: asyncpg.Pool, cid: str, ma_id: dict[str, str], that: bool) -> None:
+async def pha_lego(
+    pool: asyncpg.Pool, cid: str, ma_id: dict[str, str], that: bool, ky_nang: dict[str, list[str]]
+) -> None:
     from clinicai.api.identity import ClinicRole, StaffIdentity
     from clinicai.services.permission_service import PermissionService
 
@@ -302,6 +364,14 @@ async def pha_lego(pool: asyncpg.Pool, cid: str, ma_id: dict[str, str], that: bo
         cid,
     )
     phong_dd = sorted(ma_id[c] for c in PHONG_DD_SA)
+    # Tài khoản → kỹ năng (theo họ tên nguyên văn, hoặc bí danh).
+    theo_tk: dict[str, list[str]] = {}
+    for ten, ks in ky_nang.items():
+        for tk in BI_DANH.get(ten, (ten,)):
+            theo_tk.setdefault(tk, []).extend(ks)
+    co_tk = {n["full_name"] for n in nguoi}
+    chua_co = [t for t in ky_nang if not any(tk in co_tk for tk in BI_DANH.get(t, (t,)))]
+    print(f"  người trong file CHƯA có tài khoản ({len(chua_co)}): {', '.join(chua_co) or '—'}")
     for n in nguoi:
         vai = n["role"]
         if vai == "RECEPTION" and n["full_name"].startswith("ĐD "):
@@ -314,11 +384,21 @@ async def pha_lego(pool: asyncpg.Pool, cid: str, ma_id: dict[str, str], that: bo
                 if that:
                     await svc.doi_lego(staff_id=n["id"], ma="dieu_phoi", bat=True, identity=ident)
             continue
-        muon = LEGO_THEO_VAI.get(vai)
-        if muon is None:
-            continue
+        phong_ids: list[str] | None = phong_dd
+        nguon = vai
+        if n["full_name"] in theo_tk:
+            muon, ma_phong = quyen_tu_ky_nang(theo_tk[n["full_name"]])
+            phong_ids = [ma_id[c] for c in ma_phong]
+            nguon = "file"
+        else:
+            muon = LEGO_THEO_VAI.get(vai)
+            if muon is None:
+                continue
         tat = sorted(co - muon)
-        print(f"  {n['full_name']} ({vai}): tắt {tat or '—'} · bật {sorted(muon)}")
+        ghi_phong = ""
+        if "phong" in muon:
+            ghi_phong = " @ " + ",".join(c for c, i in ma_id.items() if i in (phong_ids or []))
+        print(f"  {n['full_name']} ({nguon}): tắt {tat or '—'} · bật {sorted(muon)}{ghi_phong}")
         if not that:
             continue
         for ma in tat:
@@ -329,12 +409,16 @@ async def pha_lego(pool: asyncpg.Pool, cid: str, ma_id: dict[str, str], that: bo
                 ma=ma,
                 bat=True,
                 identity=ident,
-                phong_ids=phong_dd if ma == "phong" else None,
+                phong_ids=phong_ids if ma == "phong" else None,
             )
 
 
 async def main() -> int:
     that = "--that" in sys.argv
+    if "--ky-nang" not in sys.argv:
+        raise SystemExit("✗ Thiếu --ky-nang <tệp JSON {họ tên: [kỹ năng]}>.")
+    with open(sys.argv[sys.argv.index("--ky-nang") + 1], encoding="utf-8") as f:
+        ky_nang: dict[str, list[str]] = json.load(f)
     dsn = os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
     pool = await asyncpg.create_pool(dsn, min_size=1, max_size=4)
     try:
@@ -353,7 +437,7 @@ async def main() -> int:
             else:
                 await tx.rollback()
         print(f"== Pha 2: lego theo vai ({'LÀM THẬT' if that else 'KẾ HOẠCH'})")
-        await pha_lego(pool, cid, ma_id, that)
+        await pha_lego(pool, cid, ma_id, that, ky_nang)
         if not that:
             print("\nĐây là THỬ KHÔ. Thêm --that để làm thật.")
         return 0

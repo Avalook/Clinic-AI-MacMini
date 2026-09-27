@@ -22,11 +22,13 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const what = url.searchParams.get("what") ?? "overview";
   const tuan = (url.searchParams.get("tuan") ?? "").slice(0, 10);
+  // Rác / rỗng → máy chủ tự hiểu là tuần này (`lich_phong_service.doc_tuan`).
+  const tuanHopLe = /^\d{4}-\d{2}-\d{2}$/.test(tuan) ? tuan : "";
   const data = await fetchFromBackend<Record<string, unknown>>(
     what === "staff"
       ? "/api/v1/clinic-config/staff"
       : what === "lich-phong"
-        ? `/api/v1/clinic-config/lich-phong${/^\d{4}-\d{2}-\d{2}$/.test(tuan) ? `?tuan=${tuan}` : ""}`
+        ? `/api/v1/clinic-config/lich-phong?tuan=${tuanHopLe}`
       : what === "services"
         ? "/api/v1/clinic-config/services"
         : "/api/v1/clinic-config/overview",
