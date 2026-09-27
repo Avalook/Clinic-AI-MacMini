@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "../../../../lib/supabase-browser";
+import { useNgheBang } from "../../dung-nghe-bang";
 import ChiTietLuot from "./ChiTietLuot";
 
 export interface Blocker {
@@ -30,6 +30,15 @@ export interface CheckoutRow {
   blockers: Blocker[];
   can_close: boolean;
 }
+
+/** Bảng quyết định danh sách check-out — đều có trigger `trg_notify_*`. */
+const BANG_CHECKOUT = [
+  "visit",
+  "work_item",
+  "payment",
+  "service_order",
+  "consultation",
+] as const;
 
 export default function CheckoutBoard({
   initial,
@@ -63,7 +72,7 @@ export default function CheckoutBoard({
     }
   }, []);
 
-  // ĐỔI Ở ĐÂU THÌ HIỆN NGAY Ở ĐÂY — nghe realtime, không đếm giây.
+  // ĐỔI Ở ĐÂU THÌ HIỆN NGAY Ở ĐÂY — nghe tin thay đổi, không đếm giây.
   //
   // Bản trước poll mỗi 5 giây. Hai cái sai:
   //
@@ -74,42 +83,25 @@ export default function CheckoutBoard({
   //   2. Nó gõ vào server 12 lần mỗi phút cho MỖI tab đang mở, kể cả lúc phòng
   //      khám không có ai. Nhân với số máy ở quầy.
   //
-  // Realtime của Supabase đã publish sẵn đúng ba bảng quyết định danh sách này
-  // (20260803000004): `visit` (đóng lượt), `work_item` (bước còn dở),
-  // `payment` (đã thu chưa). Đăng ký thẳng và tải lại khi có thay đổi thật.
+  // NGUỒN TIN (27/09/2026): dòng SSE chung (LISTEN/NOTIFY → RealtimeRefresher →
+  // SU_KIEN_BANG), không mở kết nối riêng. Bản trước đăng ký `postgres_changes`
+  // của Supabase Realtime — đường ấy chết vì Postgres từ chối plugin wal2json,
+  // nên màn này thật ra chỉ sống bằng lưới 60 giây bên dưới.
   //
-  // KHÔNG dựa vào RealtimeRefresher ở layout: nó gọi router.refresh(), tức là
-  // vẽ lại server component — mà `rows` ở đây là state của client, khởi tạo
-  // MỘT LẦN từ prop `initial`. Server có dữ liệu mới cũng không chảy vào được.
+  // Bảng: `visit` (đóng lượt), `work_item` (bước còn dở), `payment` (đã thu
+  // chưa), cộng `service_order` và `consultation` — vướng mắc của luồng khám
+  // mới (checkout_service.py đọc cả hai).
+  //
+  // KHÔNG dựa vào router.refresh() của RealtimeRefresher: nó vẽ lại server
+  // component — mà `rows` ở đây là state của client, khởi tạo MỘT LẦN từ prop
+  // `initial`. Server có dữ liệu mới cũng không chảy vào được.
+  useNgheBang(BANG_CHECKOUT, () => void reload());
+
   useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    // Gộp một chuỗi thay đổi của cùng một thao tác (đóng lượt đụng vài bảng)
-    // thành một lần tải lại. Cùng nhịp với RealtimeRefresher.
-    const bump = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void reload(), 250);
-    };
-
-    let channel = supabase.channel("reception-checkout");
-    for (const table of ["visit", "work_item", "payment"]) {
-      channel = channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        bump,
-      );
-    }
-    channel.subscribe();
-
-    // Lưới an toàn cho lúc websocket rớt — không phải đường đồng bộ chính, nên
+    // Lưới an toàn cho lúc dòng SSE rớt — không phải đường đồng bộ chính, nên
     // thưa. 60 giây, cùng nhịp với RealtimeRefresher.
     const safety = setInterval(reload, 60_000);
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      clearInterval(safety);
-      void supabase.removeChannel(channel);
-    };
+    return () => clearInterval(safety);
   }, [reload]);
 
   function flash(m: string) {

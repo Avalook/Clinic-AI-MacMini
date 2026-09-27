@@ -55,6 +55,32 @@ test("chỉ RealtimeRefresher được mở EventSource", () => {
   );
 });
 
+test("không màn nào mở kênh Supabase Realtime (27/09/2026)", () => {
+  // `postgres_changes` bắt Supabase Realtime mở replication slot với wal2json,
+  // và Postgres của mình từ chối: ~8.600 dòng ERROR/ngày trên prod mà màn vẫn
+  // không nhận được tin nào. Nghe bảng: `useNgheBang`. Tình trạng kết nối:
+  // `useTrangThaiDong`. Cả hai đọc dòng SSE duy nhất của RealtimeRefresher.
+  // Bỏ thư mục tests/: chính file này chứa mẫu cần tìm.
+  const moKenh = NGUON.filter(
+    (f) =>
+      !f.duong.startsWith("tests/") &&
+      /postgres_changes|\.channel\(|removeChannel\(/.test(f.ma),
+  ).map((f) => f.duong);
+  assert.deepEqual(moKenh, [], "còn đăng ký Supabase Realtime");
+});
+
+test("chỉ RealtimeRefresher được ghi tình trạng dòng", () => {
+  const ghi = NGUON.filter((f) => /trangThaiDong\.dat\(/.test(f.ma)).map(
+    (f) => f.duong,
+  );
+  assert.deepEqual(
+    ghi,
+    ["app/(dashboard)/RealtimeRefresher.tsx"],
+    "chỉ báo 'cập nhật liên tục' phải phản ánh đúng dòng đang chở tin, " +
+      "không phải một nơi khác tự nhận là đã kết nối",
+  );
+});
+
 test("dòng chỉ sống khi tab đang hiện", () => {
   const ma = NGUON.find(
     (f) => f.duong === "app/(dashboard)/RealtimeRefresher.tsx",

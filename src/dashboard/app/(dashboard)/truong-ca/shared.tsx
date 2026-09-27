@@ -8,10 +8,10 @@
 // đúng. Cái giá là ba thứ phải dùng chung: nhịp làm mới, chỉ báo dữ liệu cũ, và
 // đường gọi thao tác — chúng ở đây.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
-import { getSupabaseBrowser } from "../../../lib/supabase-browser";
+import { useNgheBang } from "../dung-nghe-bang";
 
 // Yêu cầu kỹ thuật: dữ liệu trên bảng phải mới trong 2–3 giây.
 //
@@ -19,17 +19,31 @@ import { getSupabaseBrowser } from "../../../lib/supabase-browser";
 // mỗi phút cho MỖI tab đang mở — kể cả buổi chiều không có bệnh nhân nào — và
 // vẫn trễ tới 3 giây.
 //
-// NAY: nghe realtime, đọc lại ngay khi có thay đổi thật (≈0,3s), còn nhịp đếm
-// chỉ còn là MẠCH ĐẬP: 30 giây một lần để (a) đỡ lúc websocket rớt, và (b) giữ
+// NAY: nghe dòng SSE chung, đọc lại ngay khi có thay đổi thật (≈0,3s), còn nhịp
+// đếm chỉ còn là MẠCH ĐẬP: 30 giây một lần để (a) đỡ lúc dòng rớt, và (b) giữ
 // đồng hồ "cũ X giây" nói thật. Không có mạch đập thì một buổi chiều yên ắng
 // sẽ hiện "cũ 600 giây" trong khi màn hình hoàn toàn đúng — báo động giả, và
 // báo động giả lặp lại là cách nhanh nhất để người ta bỏ qua báo động thật.
 const HEARTBEAT_MS = 30_000;
 
-// Bảng quyết định nội dung bảng điều phối. Đều nằm trong publication
-// `supabase_realtime` (20260803000004) — subscribe một bảng chưa publish thì
-// im lặng không bao giờ bắn, nên danh sách này phải khớp.
-const LIVE_TABLES = ["visit", "work_item", "appointment"] as const;
+// Bảng quyết định nội dung bảng điều phối — những bảng `_OVERVIEW_SQL` và
+// `_STATIONS_SQL` (dispatch_service.py) đọc mà có trigger `trg_notify_*`. Ba
+// bảng đầu là luồng cũ; bốn bảng sau là luồng khám mới (lượt, hàng chờ, chỉ
+// định), thiếu chúng thì khách đi luồng mới đổi phòng mà bảng đứng im.
+//
+// 27/09/2026: bỏ `postgres_changes` của Supabase Realtime — đường ấy chết vì
+// Postgres từ chối plugin wal2json, nên màn này chỉ sống bằng mạch đập 30 giây.
+// Nay nghe dòng SSE chung qua `useNgheBang` (LISTEN/NOTIFY, không mở kết nối
+// mới).
+const LIVE_TABLES = [
+  "visit",
+  "work_item",
+  "appointment",
+  "encounter_flow",
+  "consultation",
+  "service_order",
+  "queue_entry",
+] as const;
 
 export interface LiveData {
   patients: DispatchPatient[];
@@ -58,58 +72,45 @@ export function useDispatchLive(initial: {
   const [fetchedAt, setFetchedAt] = useState(() => Date.now());
   const [staleSeconds, setStale] = useState(0);
 
-  useEffect(() => {
-    let alive = true;
-    const pull = async () => {
-      try {
-        const [ov, al] = await Promise.all([
-          fetch("/api/dispatch-read?what=overview").then((r) => r.json()),
-          fetch("/api/dispatch-read?what=alerts").then((r) => r.json()),
-        ]);
-        if (!alive) return;
-        if (!ov.ok) {
-          setData((d) => ({ ...d, ok: false }));
-          return;
-        }
-        setData({
-          patients: ov.patients ?? [],
-          rooms: ov.rooms ?? [],
-          alerts: al.items ?? [],
-          ok: true,
-        });
-        setFetchedAt(Date.now());
-      } catch {
-        if (alive) setData((d) => ({ ...d, ok: false }));
+  // `alive` qua ref: `pull` được cả mạch đập lẫn tin SSE gọi, nên nó sống ngoài
+  // effect. Gỡ màn giữa chừng một lượt đọc thì kết quả bị bỏ, không ghi vào
+  // state của một màn đã đi.
+  const aliveRef = useRef(true);
+  const pull = useCallback(async () => {
+    try {
+      const [ov, al] = await Promise.all([
+        fetch("/api/dispatch-read?what=overview").then((r) => r.json()),
+        fetch("/api/dispatch-read?what=alerts").then((r) => r.json()),
+      ]);
+      if (!aliveRef.current) return;
+      if (!ov.ok) {
+        setData((d) => ({ ...d, ok: false }));
+        return;
       }
-    };
-
-    // Gộp một chuỗi thay đổi của cùng một thao tác (chuyển phòng đụng visit +
-    // work_item) thành một lần đọc.
-    let debounce: ReturnType<typeof setTimeout> | null = null;
-    const bump = () => {
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => void pull(), 250);
-    };
-
-    const supabase = getSupabaseBrowser();
-    let channel = supabase.channel("dispatch-live");
-    for (const table of LIVE_TABLES) {
-      channel = channel.on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        bump,
-      );
+      setData({
+        patients: ov.patients ?? [],
+        rooms: ov.rooms ?? [],
+        alerts: al.items ?? [],
+        ok: true,
+      });
+      setFetchedAt(Date.now());
+    } catch {
+      if (aliveRef.current) setData((d) => ({ ...d, ok: false }));
     }
-    channel.subscribe();
+  }, []);
 
+  useEffect(() => {
+    aliveRef.current = true;
     const beat = setInterval(pull, HEARTBEAT_MS);
     return () => {
-      alive = false;
-      if (debounce) clearTimeout(debounce);
+      aliveRef.current = false;
       clearInterval(beat);
-      void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [pull]);
+
+  // Một thao tác (chuyển phòng đụng visit + work_item) thành MỘT lần đọc — hook
+  // gộp nhịp 250ms và bỏ qua tab đang ẩn.
+  useNgheBang(LIVE_TABLES, () => void pull());
 
   useEffect(() => {
     const t = setInterval(
