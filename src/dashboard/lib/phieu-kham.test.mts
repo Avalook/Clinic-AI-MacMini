@@ -13,6 +13,7 @@ import {
   dongTuMau,
   giaTriDoc,
   HEN_NHANH,
+  laDicom,
   laONgayTaiKham,
   ngayHenTaiKham,
   soLuongTuChu,
@@ -49,6 +50,27 @@ test("anhInDuoc: chỉ ẢNH hợp lệ (NULL = tải ở phòng), theo thứ t�
     anhInDuoc(cd).map((k) => k.tep_id),
     ["a1", "a2"],
   );
+});
+
+test("anhInDuoc: DICOM không vào trang ảnh (trình duyệt không vẽ được) — đợt 3", () => {
+  const dicomCu = { ...tep("dcm-cu", "ANH", null, "2026-09-27T09:01:00Z"), mime: "application/dicom" };
+  const dicomMoi = { ...tep("dcm", "TAI_LIEU", null, "2026-09-27T09:02:00Z"), mime: "application/dicom" };
+  const jpg = { ...tep("jpg", "ANH", null, "2026-09-27T09:03:00Z"), mime: "image/jpeg" };
+  const cd = { ket_qua: [dicomCu, dicomMoi, jpg] } as unknown as ChiDinhVaKetQua;
+  assert.deepEqual(
+    anhInDuoc(cd).map((k) => k.tep_id),
+    ["jpg"],
+  );
+});
+
+test("laDicom: đúng mime, không phân biệt hoa thường; rác → false", () => {
+  assert.equal(laDicom("application/dicom"), true);
+  assert.equal(laDicom(" Application/DICOM "), true);
+  assert.equal(laDicom("image/jpeg"), false);
+  assert.equal(laDicom(null), false);
+  assert.equal(laDicom(undefined), false);
+  assert.equal(laDicom(42), false);
+  assert.equal(laDicom(""), false);
 });
 
 test("dongKetQua: bỏ ô trống, tách Kết luận, gắn đơn vị cho số", () => {

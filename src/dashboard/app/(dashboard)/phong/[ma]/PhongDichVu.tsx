@@ -60,6 +60,7 @@ import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 
@@ -416,6 +417,13 @@ function KhachTrongPhong({
             {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
             {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
           </p>
+          {/* Dịch vụ đã đóng mà phiếu kết quả mới là nháp (máy chủ quyết —
+              27/09 đợt 3): bản in lúc này vẫn ghi BẢN NHÁP. */}
+          {th?.phieu_chua_hoan_tat ? (
+            <Chip tone="warning" className="mt-1">
+              Phiếu kết quả chưa Hoàn tất
+            </Chip>
+          ) : null}
           {dong.ly_do_khong_lam ? (
             <p className="text-meta text-warning">
               Lý do: {nhanLyDo(dong.ly_do_khong_lam)}

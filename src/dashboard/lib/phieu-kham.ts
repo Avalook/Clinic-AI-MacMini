@@ -77,6 +77,8 @@ export interface KetQuaMotChiDinh {
   hoan_tat_luc?: string | null;
   tai_len_luc?: string;
   loai_tep?: string;
+  /** Tệp: kiểu thật (máy chủ dò bằng nội dung). DICOM = không vẽ được, chỉ tải về. */
+  mime?: string | null;
   /** Tệp: NULL/HOP_LE = in được; CHO_XAC_NHAN / TU_CHOI thì KHÔNG in. */
   xac_nhan_trang_thai?: string | null;
   khung?: MucPhieu[] | null;
@@ -629,7 +631,16 @@ export function dongKetQua(k: KetQuaMotChiDinh): {
   return { dong, ketLuan };
 }
 
-/** Ảnh IN ĐƯỢC của một chỉ định: ảnh, đã xác nhận hợp lệ (hoặc tải ở phòng). */
+export const MIME_DICOM = "application/dicom";
+
+/** Tệp DICOM (máy siêu âm xuất thẳng): trình duyệt KHÔNG vẽ được bằng thẻ img —
+ *  coi là tài liệu tải về, không phải ảnh (27/09/2026, đợt 3). Rác → false. */
+export function laDicom(mime: unknown): boolean {
+  return typeof mime === "string" && mime.trim().toLowerCase() === MIME_DICOM;
+}
+
+/** Ảnh IN ĐƯỢC của một chỉ định: ảnh trình duyệt vẽ được (không DICOM), đã xác
+ *  nhận hợp lệ (hoặc tải ở phòng). */
 export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
   return d.ket_qua
     .filter(
@@ -637,6 +648,7 @@ export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
         k.loai === "TEP" &&
         k.tep_id &&
         k.loai_tep === "ANH" &&
+        !laDicom(k.mime) &&
         (k.xac_nhan_trang_thai ?? "HOP_LE") === "HOP_LE",
     )
     .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""));

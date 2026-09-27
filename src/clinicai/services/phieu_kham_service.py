@@ -39,6 +39,7 @@ from clinicai.phieu_kham.hanh_trinh import doc_hanh_trinh
 from clinicai.phieu_kham.ket_qua_chi_dinh import (
     doc_ket_qua_theo_chi_dinh,
     doc_mau_du_phong,
+    doc_tep_chua_gan,
 )
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
@@ -656,6 +657,16 @@ class PhieuKhamService:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
             return await doc_ket_qua_theo_chi_dinh(
+                conn, clinic_id=identity.clinic_id, visit_id=visit_id
+            )
+
+    async def tep_chua_gan(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Tệp của lượt chưa gắn chỉ định (đợt 3, 27/09) — cùng quyền khối 2."""
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
+            return await doc_tep_chua_gan(
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id
             )
 
