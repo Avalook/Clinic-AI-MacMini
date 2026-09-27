@@ -99,25 +99,6 @@ interface GoiTrangChu {
   can_xu_ly?: CanXuLyRow[];
 }
 
-// Chức danh ngắn dùng trong lời chào (vd "Chào bác sĩ Thành").
-const GREET_LABEL: Record<ClinicRole, string> = {
-  DOCTOR: "bác sĩ",
-  ULTRASOUND_DOCTOR: "bác sĩ",
-  NURSE_ULTRASOUND: "điều dưỡng",
-  TKYK: "thư ký y khoa",
-  CSKH: "CSKH",
-  MANAGEMENT: "quản lý",
-  RECEPTION: "lễ tân",
-  CASHIER: "thu ngân",
-  CASHIER_THUOC: "thu ngân thuốc",
-  CASHIER_DV: "thu ngân dịch vụ",
-  TRUONG_CA: "trưởng ca",
-  PHARMACIST: "dược sĩ",
-  // Không bao giờ chào ai: layout đưa vai này thẳng ra /display.
-  DISPLAY: "màn hình",
-  // Cũng không bao giờ chào: đối tác bị đẩy thẳng ra /doi-tac.
-  PARTNER: "đối tác",
-};
 
 // LỜI CHÀO KHÔNG ĐƯỢC LẶP CHỨC DANH.
 //
@@ -132,10 +113,10 @@ function greet(role: ClinicRole | null, staff: ActiveStaff | null): string {
   const goc = staff.full_name ?? staff.short_name;
   const ten = doctorName(goc);
   if (!ten) return "Trang chủ";
-  // Chuỗi gốc có dấu chấm giữa nghĩa là nó đã mang chức danh, và doctorName giữ
-  // lại chức danh ấy. Chỉ khi tên lưu TRẦN mới ghép chức danh — và ghép từ VAI
-  // ĐANG ĐĂNG NHẬP, thứ biết chắc từ phiên, chứ không đoán từ cái tên.
-  return `Xin chào ${/[·•]/.test(goc) ? ten : `${GREET_LABEL[role]} ${ten}`}`;
+  // CHÀO THEO TÊN, KHÔNG THEO VAI (Tuyền 28/09/2026: tài khoản mang tên người,
+  // "không có kiểu điều dưỡng hay lễ tân nữa" — việc của họ là các node trên
+  // thanh bên theo kỹ năng). Tên đã mang chức danh (BS …) thì giữ nguyên.
+  return `Xin chào ${ten}`;
 }
 
 /** Một ô ma đứng chỗ trong lúc dữ liệu đang rót — cùng khung với thẻ thật. */
