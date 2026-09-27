@@ -1,18 +1,16 @@
 "use client";
 
-// BỐN Ô SỐ + ĐIỀU PHỐI NHANH + SƠ ĐỒ PHÒNG THEO TẦNG (bản thiết kế Tuyền gửi
-// 16/09/2026).
+// BỐN Ô SỐ + ĐIỀU PHỐI NHANH + SƠ ĐỒ PHÒNG (bản thiết kế Tuyền gửi 16/09/2026;
+// 27/09/2026 đợt 3 bỏ lọc theo tầng — xem SoDoPhong).
 //
 // Ba khối này đọc CHÍNH gói dữ liệu điều phối màn đã tải — không thêm một lời
 // gọi nào. Riêng `alerts` thì màn vẫn gọi sẵn 30 giây một lần nhưng chưa bao
 // giờ vẽ ra: khối "Điều phối nhanh" nay dùng đúng dữ liệu ấy, nên lời gọi kia
 // hết là lời gọi thừa.
 
-import { useState } from "react";
 import { Activity, DoorOpen, Hourglass, Users } from "lucide-react";
 
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
-import { tenTang } from "./shared";
 
 /** Phòng đang có người: đang khám hoặc đang có người chờ. */
 function dangDung(r: DispatchRoom): boolean {
@@ -130,13 +128,11 @@ export function DieuPhoiNhanh({ alerts }: { alerts: DispatchAlert[] }) {
 }
 
 export function SoDoPhong({ rooms }: { rooms: DispatchRoom[] }) {
-  // TẦNG "CHƯA KHAI" LÀ MỘT TẦNG THẬT trong danh sách này, không bị giấu: một
-  // phòng không khai tầng vẫn nhận bệnh nhân, và giấu nó đi là giấu luôn chỗ
-  // đang quá tải.
-  const tang = [...new Set(rooms.map((r) => r.floor ?? ""))].sort();
-  const [chon, setChon] = useState<string | null>(null);
-  const dangXem = chon ?? tang[0] ?? "";
-  const cua = rooms.filter((r) => (r.floor ?? "") === dangXem);
+  // MỌI PHÒNG, KHÔNG LỌC THEO TẦNG (27/09/2026 đợt 3). Bản trước có dãy chip
+  // "Tầng 1 / Tầng 2 / Tầng 4" và chỉ vẽ phòng của tầng đang chọn. Phòng khám
+  // yêu cầu ẩn số tầng vì bố cục phòng đổi liên tục; và lọc theo tầng còn giấu
+  // mất phòng đang quá tải ở tầng không được chọn. Mười mấy ô vừa một lưới.
+  const cua = rooms;
 
   const mau = (r: DispatchRoom) =>
     !r.accepting
@@ -165,24 +161,6 @@ export function SoDoPhong({ rooms }: { rooms: DispatchRoom[] }) {
         ))}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1">
-        {tang.map((t) => (
-          <button
-            key={t || "chua-khai"}
-            type="button"
-            onClick={() => setChon(t)}
-            aria-pressed={t === dangXem}
-            className={`rounded-chip px-2.5 py-1 text-xs font-semibold ${
-              t === dangXem
-                ? "bg-brand-600 text-white"
-                : "bg-surface-muted text-ink-soft hover:bg-brand-50"
-            }`}
-          >
-            {t ? tenTang(t) : "Chưa khai tầng"}
-          </button>
-        ))}
-      </div>
-
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-2">
         {cua.map((r) => (
           <div key={r.id} className={`rounded-control border px-2.5 py-2 ${mau(r)}`}>
@@ -203,7 +181,7 @@ export function SoDoPhong({ rooms }: { rooms: DispatchRoom[] }) {
         ))}
         {cua.length === 0 && (
           <p className="col-span-full py-4 text-center text-body text-ink-muted">
-            Tầng này chưa có phòng nào.
+            Chưa có phòng nào đang bật.
           </p>
         )}
       </div>

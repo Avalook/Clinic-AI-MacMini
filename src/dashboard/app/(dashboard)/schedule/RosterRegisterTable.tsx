@@ -27,9 +27,12 @@ import {
 import {
   RosterGridHead,
   RosterViTriRows,
+  SO_COT_TRAI,
   nenO,
   type ThongTinO,
 } from "../RosterGrid";
+import Chip from "../../../components/ui/Chip";
+import { vaiKemTen } from "../../../lib/doctor-name";
 import type { DongCaRow } from "../home/WorkRosterTable";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
@@ -42,6 +45,8 @@ export interface RegisterRow {
   staff_name: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   reject_reason: string | null;
+  /** Vai ngắn do máy chủ trả (27/09/2026 đợt 3, A9) — chip cạnh tên. */
+  vai_ngan?: string | null;
 }
 
 /** Một người có thể xếp được, kèm chức danh để lọc theo phạm vi trạm. */
@@ -389,6 +394,7 @@ export default function RosterRegisterTable({
           ) : (
             list.map((r) => {
               const b = STATUS_BADGE[r.status];
+              const vai = vaiKemTen(r.staff_name, r.vai_ngan);
               return (
                 <span
                   key={r.id}
@@ -403,6 +409,7 @@ export default function RosterRegisterTable({
                   }`}
                 >
                   {r.staff_name}
+                  {vai ? <Chip className="ml-1">{vai}</Chip> : null}
                 </span>
               );
             })
@@ -438,7 +445,7 @@ export default function RosterRegisterTable({
           <tbody>
             <tr className="align-middle">
               <td
-                colSpan={3}
+                colSpan={SO_COT_TRAI}
                 className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-2 font-semibold text-ink"
                 title={STATION_LABEL.LICH_KHAM}
               >
@@ -455,7 +462,7 @@ export default function RosterRegisterTable({
             </tr>
             <tr>
               <td
-                colSpan={3}
+                colSpan={SO_COT_TRAI}
                 className="sticky left-0 z-10 border border-line-strong bg-surface px-2 py-1 text-meta text-ink-muted"
               >
                 Số bác sĩ nhận lịch

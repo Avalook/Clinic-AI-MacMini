@@ -163,7 +163,6 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     <div className="grid gap-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
-        {phong?.tang ? <p className="text-body text-ink-muted">{phong.tang}</p> : null}
         {hang ? (
           <p className="text-body text-ink-muted">
             {ds.filter((d) => d.trang_thai === "waiting" || d.trang_thai === "called").length}{" "}

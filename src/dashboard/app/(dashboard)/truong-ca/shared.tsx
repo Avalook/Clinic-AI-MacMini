@@ -229,24 +229,15 @@ export function Toast({ text }: { text: string | null }) {
   return <div className="toast">{text}</div>;
 }
 
-/** "Tầng 2 · SA1" — hoặc chỉ tên phòng khi chưa khai tầng.
+/** Tên phòng để hiện — KHÔNG kèm tầng.
  *
- *  Cơ sở Kim Ngưu có ba tầng và SIÊU ÂM NẰM Ở HAI TẦNG KHÁC NHAU (báo cáo
- *  onsite 23/04: tầng 2 và tầng 4), còn mọi thứ khác ở tầng 1. Nên "sang SA2"
- *  là một câu chưa đủ để chỉ đường — Trưởng ca đang phải tự nhớ phần còn lại,
- *  40–60 lần mỗi buổi.
+ *  17/09/2026 hàm này in "Tầng 2 · SA1" để Trưởng ca chỉ đường (siêu âm nằm ở
+ *  hai tầng). 27/09/2026 (đợt 3) phòng khám yêu cầu ẩn số tầng ở mọi màn: bố
+ *  cục phòng đổi liên tục, cột tầng trong cấu hình không theo kịp, và một tầng
+ *  sai đọc cho bệnh nhân còn tệ hơn không nói tầng. Tên phòng do quản lý đặt ở
+ *  Cấu hình phòng khám — muốn chỉ đường thì đặt tên phòng nói luôn chỗ ấy.
+ *  Cột `floor` vẫn giữ trong dữ liệu (màn cấu hình dùng), chỉ không in ra đây.
  */
-export function roomWithFloor(
-  name: string | null,
-  floor: string | null,
-): string {
-  if (!name) return "—";
-  return floor ? `${tenTang(floor)} · ${name}` : name;
-}
-
-/** "Tầng 1" — dữ liệu phòng có nơi khai "1", có nơi khai sẵn "Tầng 1". Ghép
- *  thẳng "Tầng " + floor ra "Tầng Tầng 1" (17/09/2026). */
-export function tenTang(floor: string): string {
-  const t = floor.trim();
-  return /^tầng\b/i.test(t) ? t.charAt(0).toUpperCase() + t.slice(1) : `Tầng ${t}`;
+export function tenPhong(name: string | null | undefined): string {
+  return name?.trim() || "—";
 }

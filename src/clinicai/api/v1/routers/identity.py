@@ -101,13 +101,20 @@ async def vi_tri_hom_nay(
     #     Đổi tên phòng là thanh bên đổi theo.
     #   * `danh_muc`: bảng lịch làm việc, màn phạm vi vị trí, thông báo ca trực
     #     đọc tên/tầng/phòng của vị trí từ đây (C4).
+    #   * `danh_muc[].phong` = TÊN PHÒNG HIỆN TẠI (`clinic_room.name` theo
+    #     `room_id`), rơi về chữ cũ `v.phong` khi vị trí không gắn phòng đang
+    #     bật (27/09/2026 đợt 3, A5). Trước đó bảng lịch in `v.phong` — chữ tự
+    #     do không màn nào sửa được — nên quản lý đổi "Phòng thủ thuật" thành
+    #     "Thủ thuật/Sàn chậu" ở Cấu hình phòng khám thì thanh bên, /phong,
+    #     /ban-kham đổi theo mà bảng lịch vẫn in tên cũ. `ma_phong` là khoá màu
+    #     (mã phòng không đổi khi đổi tên).
     # Trả MỌI vị trí đang dùng (~35 dòng), không chỉ vị trí hôm nay: giao diện
     # còn đổi mã vị trí đời cũ (`MA_VI_TRI_CU`) rồi mới tra. Đi chung lời gọi
     # này vì layout vốn đã gọi nó ở mọi trang — không thêm một vòng mạng.
     rows = await pool.fetch(
         """
         SELECT v.code, v.ten, v.ten_ngan, v.tang, v.phong, v.nhom_nghe,
-               r.id::text AS room_id, r.name AS ten_phong
+               r.id::text AS room_id, r.name AS ten_phong, r.code AS ma_phong
           FROM public.vi_tri_lam_viec v
           LEFT JOIN public.clinic_room r
             ON r.id = v.room_id AND r.clinic_id = v.clinic_id AND r.is_active
@@ -126,8 +133,10 @@ async def vi_tri_hom_nay(
             "code": r["code"],
             "ten": r["ten"],
             "ten_ngan": r["ten_ngan"] or r["ten"],
+            # Giữ trong dữ liệu (màn cấu hình dùng); bảng lịch không in nữa.
             "tang": r["tang"] or "",
-            "phong": r["phong"] or "",
+            "phong": r["ten_phong"] or r["phong"] or "",
+            "ma_phong": r["ma_phong"] or "",
             "nhom": r["nhom_nghe"],
         }
         for r in rows

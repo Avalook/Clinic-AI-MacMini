@@ -383,7 +383,6 @@ export default function BanKham({
           {phongKham.map((p) => (
             <option key={p.id} value={p.id}>
               {p.ten}
-              {p.tang ? ` · ${p.tang}` : ""}
               {phongs?.phong_cua_toi.some((m) => m.id === p.id) ? " · hôm nay" : ""}
             </option>
           ))}

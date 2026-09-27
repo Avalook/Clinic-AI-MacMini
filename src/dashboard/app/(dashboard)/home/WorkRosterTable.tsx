@@ -15,6 +15,8 @@ import {
   nenO,
   type ThongTinO,
 } from "../RosterGrid";
+import Chip from "../../../components/ui/Chip";
+import { vaiKemTen } from "../../../lib/doctor-name";
 
 export interface RosterRow {
   work_date: string;
@@ -22,6 +24,15 @@ export interface RosterRow {
   staff_id?: string | null;
   staff_name: string | null;
   shift: string;
+  /** Vai đầy đủ / ngắn do máy chủ trả (`clinic_membership.role`, 27/09 đợt 3). */
+  vai?: string | null;
+  vai_ngan?: string | null;
+}
+
+/** Một người trong ô: tên hiển thị + chip vai (rỗng = không in chip). */
+export interface NguoiTrongO {
+  ten: string;
+  vai: string;
 }
 
 export interface DongCaRow {
@@ -37,7 +48,7 @@ const khoaO = (station: string, date: string, shift: string) =>
 /** Ai đứng ô nào. Người trực CẢ NGÀY hiện ở mọi ca của ngày ấy — không thì họ
  *  biến khỏi bảng chỉ vì bảng có cột theo ca còn họ không khai ca nào. */
 export function gomNguoi(rows: RosterRow[], cot: CotLich[]) {
-  const o = new Map<string, string[]>();
+  const o = new Map<string, NguoiTrongO[]>();
   for (const r of rows) {
     if (!r.staff_name) continue;
     const cas =
@@ -47,7 +58,9 @@ export function gomNguoi(rows: RosterRow[], cot: CotLich[]) {
     for (const ca of cas) {
       const k = khoaO(r.station, r.work_date, ca);
       const ds = o.get(k) ?? [];
-      if (!ds.includes(r.staff_name)) ds.push(r.staff_name);
+      if (!ds.some((n) => n.ten === r.staff_name)) {
+        ds.push({ ten: r.staff_name, vai: vaiKemTen(r.staff_name, r.vai_ngan) });
+      }
       o.set(k, ds);
     }
   }
@@ -79,7 +92,10 @@ export default function WorkRosterTable({
     const k = khoaO(s.key, c.date, c.shift);
     return {
       dong: dongO.get(k) ?? null,
-      khoa: [...(nguoi.get(k) ?? [])].sort().join("|"),
+      khoa: (nguoi.get(k) ?? [])
+        .map((n) => n.ten)
+        .sort()
+        .join("|"),
     };
   };
 
@@ -100,8 +116,12 @@ export default function WorkRosterTable({
                   className={`border border-line-strong ${nenO(s)} px-2 py-1 text-center align-middle text-ink`}
                 >
                   {ten.map((n, i) => (
-                    <span key={i} className="block whitespace-nowrap leading-snug">
-                      {n}
+                    <span
+                      key={i}
+                      className="flex items-center justify-center gap-1 whitespace-nowrap leading-snug"
+                    >
+                      {n.ten}
+                      {n.vai ? <Chip>{n.vai}</Chip> : null}
                     </span>
                   ))}
                 </td>

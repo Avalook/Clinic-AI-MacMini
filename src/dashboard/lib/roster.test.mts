@@ -9,7 +9,14 @@ import {
   demBacSiTruc,
   weekDates,
   weekStartOf,
+  gomTheoNguoi,
+  mauPhong,
+  phanPhong,
+  tinhGopDoc,
+  viTriTuDb,
+  type ThongTinO,
 } from "./roster.ts";
+import { coChucDanh, vaiKemTen } from "./doctor-name.ts";
 
 // Hai luật này là chỗ dễ đoán sai nhất của bảng lịch làm việc, và đoán sai thì
 // bảng vẫn vẽ ra bình thường — chỉ nội dung là sai. Nên ghim bằng test.
@@ -130,4 +137,107 @@ test("luật ép ca của /api/roster: ca tối được giữ, ca lạ mới l�
   assert.equal(epCa("NUA_DEM"), "FULL");
   assert.equal(epCa(undefined), "FULL");
   assert.equal(epCa(""), "FULL");
+});
+
+// ── 27/09/2026 đợt 3: bỏ tầng, tên phòng theo cấu hình, vai cạnh tên ──────
+
+const DANH_MUC = viTriTuDb([
+  { code: "T1_LETAN", ten: "Lễ tân", ten_ngan: "", tang: "Tầng 1", phong: "Quầy tiếp đón", ma_phong: "KN-TIEPDON", nhom: "DIEU_DUONG" },
+  { code: "T1_THUNGAN", ten: "Thu ngân", ten_ngan: "", tang: "Tầng 1", phong: "Quầy tiếp đón", ma_phong: "KN-TIEPDON", nhom: "DIEU_DUONG" },
+  { code: "T1_TT_BS", ten: "BS thủ thuật", ten_ngan: "BS", tang: "Tầng 1", phong: "Thủ thuật/Sàn chậu", ma_phong: "KN-THUTHUAT", nhom: "BAC_SI" },
+  // Vị trí KHÔNG tầng, KHÔNG phòng — bản cũ (`phanTang`) lọc bỏ khỏi bảng.
+  { code: "DIEU_PHOI", ten: "Trưởng ca (điều phối)", ten_ngan: "Trưởng ca", tang: "", phong: "", ma_phong: "", nhom: "DIEU_DUONG" },
+  // Vị trí quản lý thêm ở màn Dây nối: mã VT-…, không ô tầng, có phòng.
+  { code: "VT-1a2b3c4d", ten: "Phụ siêu âm", ten_ngan: "", phong: "Phòng siêu âm 1", ma_phong: "KN-SA-T1", nhom: "rác" },
+]);
+
+test("phanPhong: MỌI vị trí có hàng — kể cả Trưởng ca và VT-* không tầng", () => {
+  const nhom = phanPhong(DANH_MUC);
+  const ma = nhom.flatMap((n) => n.stations.map((s) => s.key));
+  assert.deepEqual(ma, ["T1_LETAN", "T1_THUNGAN", "T1_TT_BS", "DIEU_PHOI", "VT-1a2b3c4d"]);
+  // Hai vị trí liền nhau cùng phòng → một nhóm (ô Phòng gộp).
+  assert.equal(nhom[0].stations.length, 2);
+  assert.equal(nhom[0].phong, "Quầy tiếp đón");
+  // Nhóm nghề rác → rơi về DIEU_DUONG, không ném.
+  assert.equal(DANH_MUC[4].nhom, "DIEU_DUONG");
+  assert.deepEqual(phanPhong([]), []);
+});
+
+test("phanPhong: cùng tên phòng mà nằm cách nhau là HAI nhóm (không xáo thứ tự)", () => {
+  const [a, , c] = DANH_MUC;
+  const nhom = phanPhong([a, c, { ...a, key: "X" }]);
+  assert.deepEqual(nhom.map((n) => n.stations.length), [1, 1, 1]);
+});
+
+test("mauPhong: khoá theo MÃ phòng — đổi tên phòng không mất màu", () => {
+  // "Phòng thủ thuật" đã đổi tên thành "Thủ thuật/Sàn chậu" ở cấu hình.
+  assert.equal(mauPhong(DANH_MUC[2].maPhong), "bg-lich-thu-thuat");
+  assert.equal(mauPhong("KN-TIEPDON"), "bg-lich-tiep-don");
+  // Không gắn phòng / mã lạ / rác → nền thẻ, không ném.
+  for (const rac of ["", null, undefined, "KN-KHONG-CO", "constructor", "__proto__"]) {
+    assert.equal(mauPhong(rac), "bg-surface", String(rac));
+  }
+});
+
+const MO = (khoa: string): ThongTinO => ({ dong: null, khoa });
+const NGHI: ThongTinO = { dong: "NGHI", khoa: "" };
+const DEN: ThongTinO = { dong: "DONG", khoa: "" };
+
+test("tinhGopDoc: cùng người liền nhau → một ô; NGHỈ nối nhau → một khối; ô đen không gộp", () => {
+  const span = tinhGopDoc([
+    [MO("Hà"), NGHI, DEN],
+    [MO("Hà"), NGHI, DEN],
+    [MO("Lan"), MO("Hà"), MO("")],
+    [MO(""), MO("Hà"), MO("")],
+  ]);
+  assert.deepEqual(span, [
+    [2, 2, 1],
+    [0, 0, 1],
+    [1, 2, 1],
+    [1, 0, 1],
+  ]);
+  assert.deepEqual(tinhGopDoc([]), []);
+});
+
+test("gomTheoNguoi: mỗi người một dòng, vai từ máy chủ, ngày → chỗ đứng + ca", () => {
+  const nhan = { T1_LETAN: "Lễ tân", T1_THUNGAN: "Thu ngân" };
+  const ds = gomTheoNguoi(
+    [
+      { work_date: "2026-09-28", station: "T1_THUNGAN", shift: "TOI", staff_id: "b", staff_name: "Hà", vai: "Lễ tân" },
+      { work_date: "2026-09-28", station: "T1_LETAN", shift: "SANG", staff_id: "b", staff_name: "Hà", vai: "Lễ tân" },
+      // Trùng dòng → in một lần.
+      { work_date: "2026-09-28", station: "T1_LETAN", shift: "SANG", staff_id: "b", staff_name: "Hà", vai: "Lễ tân" },
+      { work_date: "2026-09-29", station: "MA_LA", shift: "XYZ", staff_id: null, staff_name: "An", vai: null },
+      // Ô chưa xếp (không tên) → bỏ qua.
+      { work_date: "2026-09-29", station: "T1_LETAN", shift: "TOI", staff_id: null, staff_name: "  " },
+    ],
+    nhan,
+  );
+  assert.deepEqual(ds.map((n) => n.ten), ["An", "Hà"]);
+  const ha = ds[1];
+  assert.equal(ha.vai, "Lễ tân");
+  assert.deepEqual(ha.theoNgay["2026-09-28"], [
+    { viTri: "Lễ tân", ca: "Sáng" },
+    { viTri: "Thu ngân", ca: "Tối" },
+  ]);
+  // Mã vị trí lạ / ca lạ → in nguyên mã, không ném.
+  assert.deepEqual(ds[0].theoNgay["2026-09-29"], [{ viTri: "MA_LA", ca: "XYZ" }]);
+  assert.equal(ds[0].vai, "");
+  assert.deepEqual(gomTheoNguoi([], {}), []);
+});
+
+test("vaiKemTen: tên đã có chức danh thì KHÔNG lặp chip vai", () => {
+  assert.equal(vaiKemTen("Quỳnh Anh", "Lễ tân"), "Lễ tân");
+  assert.equal(vaiKemTen("Thư", "ĐD"), "ĐD");
+  assert.equal(vaiKemTen("Bác sĩ Phan Chí Thành", "BS"), "");
+  assert.equal(vaiKemTen("Bác sĩ · BSNT. Lê Thiệu Quyết", "BS"), "");
+  assert.equal(vaiKemTen("BS NAM", "BS"), "");
+  assert.equal(vaiKemTen("ĐD. Thuý", "ĐD"), "");
+  // Rác → rỗng, không ném.
+  assert.equal(vaiKemTen("Hà", ""), "");
+  assert.equal(vaiKemTen(null, null), "");
+  assert.equal(vaiKemTen(undefined, "  "), "");
+  assert.equal(coChucDanh(""), false);
+  assert.equal(coChucDanh("BS"), false, "chỉ viết tắt, không tên → không coi là tên có chức danh");
+  assert.equal(coChucDanh("Thùy Linh"), false);
 });
