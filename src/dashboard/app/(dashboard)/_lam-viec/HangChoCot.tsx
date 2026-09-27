@@ -7,6 +7,7 @@
 
 import { Star } from "lucide-react";
 import { type DongHangCho, gioVn, soPhutTu } from "./api";
+import SoLuot from "@/components/ui/SoLuot";
 
 const NHOM: { ten: string; co: (d: DongHangCho) => boolean }[] = [
   { ten: "Đang khám", co: (d) => d.trang_thai === "serving" },
@@ -69,8 +70,11 @@ export default function HangChoCot({
                           : "border-line bg-surface hover:bg-surface-muted"
                       } ${d.trang_thai === "done" ? "opacity-70" : ""}`}
                     >
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-sunken text-sm font-bold text-ink">
-                        {d.so_thu_tu}
+                      <span
+                        title="Số check-in"
+                        className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-sunken text-sm font-bold text-ink"
+                      >
+                        {d.so_tiep_don ?? d.so_thu_tu}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1">
@@ -87,6 +91,7 @@ export default function HangChoCot({
                           >
                             {d.ten}
                           </span>
+                          <SoLuot booking={d.so_booking} className="shrink-0" />
                         </span>
                         <span className="block truncate text-label text-ink-muted">
                           {d.viec ?? d.dich_vu_kham ?? "—"}

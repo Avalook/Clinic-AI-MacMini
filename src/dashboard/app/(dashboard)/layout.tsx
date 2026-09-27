@@ -5,6 +5,7 @@ import { NotificationProvider } from "./NotificationContext";
 import { BookingPolicyProvider } from "./BookingPolicyContext";
 import RealtimeRefresher from "./RealtimeRefresher";
 import { logout } from "../(auth)/login/actions";
+import { maTraVeBackend } from "../../lib/backend-proxy";
 import { getCurrentStaff } from "../../lib/current-staff";
 import {
   getQuyenCuaToi,
@@ -43,7 +44,15 @@ export default async function DashboardLayout({
   const vaiTaiKhoan = vaiHomNay[vaiHomNay.length - 1] ?? null;
   // Vai CHÍNH quyết định nhãn vai + thanh bên dự phòng + mọi thứ "vẽ màn nào".
   const role = vaiHomNay[0] ?? null;
-  if (!role || !vaiTaiKhoan) redirect("/login");
+  if (!role || !vaiTaiKhoan) {
+    // MÁY CHỦ BẬN ≠ HẾT PHIÊN (kiểm toán 27/09/2026): trước đây `/me` lỗi tạm
+    // (429 bộ chặn dồn dập, 502 lúc deploy, 503 DB treo) cũng đá về /login giữa
+    // ca. Chỉ 401/403 mới là phiên hỏng; còn lại ném lỗi → trang lỗi có nút
+    // "Thử lại", người dùng vẫn đăng nhập.
+    const ma = await maTraVeBackend("/api/v1/me");
+    if (ma === 401 || ma === 403) redirect("/login");
+    throw new Error("Máy chủ đang bận — bấm Thử lại sau vài giây.");
+  }
   // Tài khoản của cái tivi không có việc gì trong bảng điều khiển. Backend đã
   // từ chối vai này ở mọi endpoint (get_current_identity), nên vào đây cũng chỉ
   // thấy một trang lỗi — đưa thẳng ra bảng gọi số là câu trả lời đúng.

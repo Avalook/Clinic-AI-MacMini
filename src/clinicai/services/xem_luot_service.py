@@ -31,6 +31,7 @@ import asyncpg
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services.audit_labels import action_label
 from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.thu_ky_bac_si import kiem_khach
@@ -211,7 +212,8 @@ class XemLuotService:
                        st.name AS dich_vu_kham, st.form_code,
                        d.full_name AS bac_si,
                        n.name AS dang_o_buoc, r.name AS dang_o_phong,
-                       a.slot_start, a.status AS lich_status
+                       a.slot_start, a.status AS lich_status,
+                       a.so_booking, a.so_tiep_don
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -241,7 +243,13 @@ class XemLuotService:
                     "id": v["patient_id"],
                     "ten": v["full_name"],
                     "ma": v["patient_code"],
+                    "so_booking": v["so_booking"],
+                    "so_tiep_don": v["so_tiep_don"],
                 },
+                # Nút [In phiếu khám] ở Xem lượt — mở từ MỌI khâu (Tuyền 27/09).
+                # Cùng luật cửa trang in (`requireClinicalRole` → QUYEN_Y_KHOA):
+                # không có quyền đọc hồ sơ khám thì không hiện nút sẽ bị chặn.
+                "in_phieu": await doc_duoc_y_khoa(conn, identity),
                 "hanh_chinh": await self._hanh_chinh(conn, cid, v),
                 "dich_vu": await self._dich_vu(conn, cid, visit_id, muc["lam_sang"]),
                 "su_kien": await self._su_kien(conn, cid, v),

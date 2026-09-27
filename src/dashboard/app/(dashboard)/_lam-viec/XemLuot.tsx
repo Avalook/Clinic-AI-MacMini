@@ -16,6 +16,8 @@ import Button from "@/components/ui/Button";
 import { docBang, gioVn } from "./api";
 import DoiPhong from "./DoiPhong";
 import TuNhac from "./TuNhac";
+import NutInPhieu from "@/components/ui/NutInPhieu";
+import SoLuot from "@/components/ui/SoLuot";
 
 interface Moc {
   viec: string;
@@ -54,7 +56,15 @@ interface SinhHieu {
 }
 interface DuLieuXem {
   visit_id: string;
-  khach: { id: string; ten: string; ma: string | null };
+  khach: {
+    id: string;
+    ten: string;
+    ma: string | null;
+    so_booking?: number | null;
+    so_tiep_don?: number | null;
+  };
+  /** Người xem đọc được hồ sơ khám → hiện [In phiếu khám] (cùng luật trang in). */
+  in_phieu?: boolean;
   hanh_chinh: {
     check_in_luc: string | null;
     trang_thai_luot: string;
@@ -230,10 +240,19 @@ export default function XemLuot({
             <h2 id="xem-luot-tieu-de" className="text-base font-semibold text-ink">
               Xem lại lượt khám{dl ? ` — ${dl.khach.ten}` : ""}
             </h2>
-            <p className="text-xs text-ink-muted">
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
+              <SoLuot booking={dl?.khach.so_booking} checkin={dl?.khach.so_tiep_don} />
               {dl?.khach.ma ? `${dl.khach.ma} · ` : ""}Chỉ xem — không sửa được ở đây.
             </p>
           </div>
+          {/* IN PHIẾU Ở MỌI KHÂU (Tuyền 27/09/2026): Xem lượt mở được từ tiếp
+              đón, đo sinh hiệu, bàn khám, phòng dịch vụ, quầy thu, nhà thuốc,
+              hành trình, trưởng ca — nên nút in đặt ở ĐÂY là có ở mọi khâu. */}
+          {dl?.in_phieu ? (
+            <NutInPhieu href={`/print/phieu-kham/${visitId}`} size="md">
+              In phiếu khám
+            </NutInPhieu>
+          ) : null}
           <button
             ref={dongRef}
             type="button"

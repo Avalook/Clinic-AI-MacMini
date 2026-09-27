@@ -571,18 +571,21 @@ async def booking_policy(
     Khi ``doctor_id`` và ``date`` được truyền, trả về luật effective (3-tier
     resolve: slot → doctor → clinic). Khi không truyền, trả clinic default.
     """
+    # Ngày / mã bác sĩ RÁC → luật mặc định của phòng khám, không 500 (CLAUDE.md:
+    # "hàm nhận ngày/giờ từ người dùng trả giá trị rỗng thay vì ném"). Kiểm toán
+    # 27/09/2026: `?date=abc` từng sập 500 ở `strptime`, `?doctor_id=abc` ở
+    # Postgres (uuid sai dạng).
+    ngay = lich_hen_doc.doc_ngay(date)
+    try:
+        bac_si = str(UUID(doctor_id)) if doctor_id else None
+    except ValueError:
+        bac_si = None
     async with pool.acquire() as conn:
-        if doctor_id and date:
-            from datetime import datetime as dt
-
-            from clinicai.core.clock import CLINIC_TZ
-
+        if bac_si and ngay:
             # Build a representative slot_start at noon on the date in VN tz.
-            slot_start = dt.strptime(date, "%Y-%m-%d").replace(
-                hour=12, tzinfo=CLINIC_TZ
-            )
+            slot_start = datetime(ngay.year, ngay.month, ngay.day, 12, tzinfo=CLINIC_TZ)
             policy = await load_effective_policy(
-                conn, identity.clinic_id, doctor_id, slot_start
+                conn, identity.clinic_id, bac_si, slot_start
             )
         else:
             policy = await load_clinic_policy(conn, identity.clinic_id)

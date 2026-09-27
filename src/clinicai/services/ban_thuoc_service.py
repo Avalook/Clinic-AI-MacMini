@@ -181,6 +181,7 @@ async def man_nha_thuoc(
                    r.dosage_instructions, r.drug_catalog_id::text,
                    c.name_base AS ten_thuoc_kho, r.created_at,
                    p.full_name AS ten_khach, p.patient_code, p.phone_primary,
+                   ap.so_booking, ap.so_tiep_don,
                    {kham_xong_sql("v")} AS kham_xong,
                    r.removed_at, r.removal_reason,
                    r.superseded_by_id::text AS thay_boi_id
@@ -192,6 +193,8 @@ async def man_nha_thuoc(
                AND p.clinic_id = r.clinic_id
               LEFT JOIN public.drug_catalog c
                 ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
+              LEFT JOIN public.appointment ap
+                ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
              WHERE r.clinic_id = $1::uuid
                AND ((r.removed_at IS NULL
                      AND (r.closed_at IS NULL OR r.closed_at >= $2))
@@ -408,6 +411,8 @@ async def man_nha_thuoc(
                 "ten_khach": r["ten_khach"],
                 "patient_code": r["patient_code"],
                 "phone": r["phone_primary"],
+                "so_booking": r["so_booking"],
+                "so_tiep_don": r["so_tiep_don"],
                 "kham_xong": bool(r["kham_xong"]),
                 "lan_thu": (
                     {

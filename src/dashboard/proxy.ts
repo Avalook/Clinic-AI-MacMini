@@ -91,13 +91,17 @@ export async function proxy(request: NextRequest) {
   // nó phải thật sự chặn: một tài khoản Supabase không có dòng `staff` — tài
   // khoản dùng chung cũ, hay một tài khoản tự đăng ký — nay dừng ở /login thay
   // vì đi tiếp vào giao diện rồi mới rỗng dữ liệu ở từng màn.
-  const { data: staff } = await supabase
+  const { data: staff, error: loiTra } = await supabase
     .from("staff")
     .select("id")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
-  if (!staff) return redirectTo("/login");
+  // TRA HỎNG ≠ KHÔNG PHẢI NHÂN VIÊN (kiểm toán 27/09/2026): DB / PostgREST
+  // chậm một nhịp (lúc deploy, lúc DB treo) thì `data` rỗng kèm `error` — trước
+  // đây cũng bị đá về /login giữa ca dù phiên vẫn còn. Tra hỏng thì cho đi tiếp:
+  // layout và mọi API vẫn tự kiểm danh tính, không có gì mở thêm.
+  if (!staff && !loiTra) return redirectTo("/login");
 
   return response;
 }
@@ -111,6 +115,8 @@ export const config = {
     // `proxyClientMaxBodySize` thì vài video 80MB cùng lúc là tràn bộ nhớ
     // dashboard. Hai route này tự xác thực người gọi (getCallerAuthHeaders);
     // với /api proxy chỉ làm mới cookie, không gác cửa.
-    "/((?!_next/static|_next/image|favicon.ico|api/cskh/ket-qua$|api/doi-tac$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // `manifest.webmanifest` (PWA, 27/09/2026): điện thoại đọc nó TRƯỚC khi
+    // đăng nhập để cài app — qua proxy thì bị đẩy về /login, cài không được.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/cskh/ket-qua$|api/doi-tac$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

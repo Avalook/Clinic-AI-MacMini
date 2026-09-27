@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
+import SoLuot from "@/components/ui/SoLuot";
 import StatusChip from "@/components/ui/StatusChip";
 import XemLuot from "../_lam-viec/XemLuot";
 import DongThuoc, { CHAM } from "./DongThuoc";
@@ -94,8 +95,9 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-emph font-medium text-ink">
+                    <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-emph font-medium text-ink">
                       {l.ten_khach ?? "Chưa có tên"}
+                      <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                     </span>
                     <StatusChip tone={xongHet(l) ? "completed" : gd.tone} label={xongHet(l) ? "Xong" : gd.nhan} />
                   </div>
@@ -116,8 +118,9 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
           <div className="space-y-3 rounded-card border border-line bg-surface p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h3 className="text-title font-semibold text-ink">
+                <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
                   {luot.ten_khach ?? "Chưa có tên"}
+                  <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
                 </h3>
                 <p className="text-meta text-ink-muted">
                   {luot.patient_code ?? "—"} · {luot.phone ?? "—"}

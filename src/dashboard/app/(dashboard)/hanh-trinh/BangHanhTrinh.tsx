@@ -10,6 +10,7 @@ import Chip from "@/components/ui/Chip";
 
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import { docBang, gioVn } from "../_lam-viec/api";
+import SoLuot from "@/components/ui/SoLuot";
 
 interface Luot {
   visit_id: string;
@@ -108,16 +109,19 @@ export default function BangHanhTrinh() {
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-emph font-semibold text-ink">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-emph font-semibold text-ink">
                   {l.ten}
-                  {l.ma ? <span className="ml-2 text-meta text-ink-muted">{l.ma}</span> : null}
+                  {l.ma ? <span className="text-meta font-normal text-ink-muted">{l.ma}</span> : null}
+                  <SoLuot booking={l.so_booking} checkin={l.so_quay} />
                 </p>
                 <p className="text-meta text-ink-muted">
-                  {l.so_booking ? `Đặt #${l.so_booking}` : ""}
-                  {l.so_quay ? ` · Quầy ${l.so_quay}` : ""}
-                  {l.loai_kham ? ` · ${l.loai_kham}` : ""}
-                  {l.bac_si ? ` · BS ${l.bac_si}` : ""}
-                  {l.check_in_luc ? ` · tới ${gioVn(l.check_in_luc)}` : ""}
+                  {[
+                    l.loai_kham,
+                    l.bac_si ? `BS ${l.bac_si}` : null,
+                    l.check_in_luc ? `tới ${gioVn(l.check_in_luc)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
               <Chip tone={l.da_ve ? "neutral" : "brand"}>{l.dang_o}</Chip>

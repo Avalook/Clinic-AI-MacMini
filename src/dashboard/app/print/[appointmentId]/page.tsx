@@ -3,7 +3,7 @@
 // map sang form → MedicalSummaryPrint (client) tự lo nút In/Xuất PDF.
 // Đặt NGOÀI nhóm (dashboard) nên KHÔNG có sidebar → in sạch khổ A4.
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireClinicalRole } from "../../../lib/clinic-session";
 import { VN_TZ, isVnMidnight } from "../../../lib/datetime";
@@ -127,6 +127,15 @@ export default async function PrintMedicalSummaryPage({
     labs: LabRow[];
   }>(`/api/v1/clinical-records/in-theo-lich/${encodeURIComponent(appointmentId)}`);
   if (!doc) notFound();
+  // MỘT BẢN IN CHO MỌI KHÂU (Tuyền 27/09/2026): lượt đã mở phiếu khám mới thì
+  // nút In ở Trang chủ ra ĐÚNG bản in hai trang (thông tin + ảnh) như Bàn khám
+  // và Xem lượt. Chỉ lượt cũ (trước phiếu v5) mới còn in "Tóm tắt khám bệnh".
+  if (doc.visit?.visit_id) {
+    const v5 = await fetchFromBackend<{ form_id: string | null }>(
+      `/api/v1/phieu-kham/luot/${encodeURIComponent(doc.visit.visit_id)}/phieu`,
+    );
+    if (v5?.form_id) redirect(`/print/phieu-kham/${doc.visit.visit_id}`);
+  }
   const a = doc.appointment;
   const p: PatientRow = a;
   const appt: ApptRow = {

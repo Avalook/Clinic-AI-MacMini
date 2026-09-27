@@ -236,6 +236,23 @@ export async function fetchFromBackend<T>(path: string): Promise<T | null> {
     return null;
   }
 }
+/**
+ * Mã trạng thái backend trả cho `path` của người đang đăng nhập — để phân biệt
+ * "phiên hết / không còn là nhân viên" (401 / 403) với "máy chủ đang bận"
+ * (429 / 5xx / không kết nối = 0). Không phiên → 401.
+ */
+export async function maTraVeBackend(path: string): Promise<number> {
+  if (!API_BASE) return 0;
+  const headers = await getCallerAuthHeaders();
+  if (!headers) return 401;
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });
+    return res.status;
+  } catch {
+    return 0;
+  }
+}
+
 /** Đọc JSON từ backend cho route cần BIẾN ĐỔI dữ liệu trước khi trả — giữ
  * nguyên mã lỗi và câu lỗi của backend (khác `fetchFromBackend` trả null).
  *

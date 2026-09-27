@@ -25,6 +25,7 @@ import NutXemLuot from "../_lam-viec/NutXemLuot";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import SoLuot from "@/components/ui/SoLuot";
 
 interface Dong {
   id: string;
@@ -59,6 +60,8 @@ interface Luot {
   full_name: string | null;
   patient_code: string | null;
   phone: string | null;
+  so_booking?: number | null;
+  so_tiep_don?: number | null;
   services: Dong[];
   drugs: Dong[];
   hoa_don?: { dich_vu?: HoaDon; thuoc?: HoaDon };
@@ -285,8 +288,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           >
             <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
               <div className="min-w-0">
-                <p className="text-body font-semibold text-ink">
+                <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
                   {l.full_name ?? "—"}
+                  <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
               </div>
@@ -427,7 +431,10 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             >
               <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-body font-semibold text-ink">{l.full_name ?? "—"}</p>
+                  <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
+                    {l.full_name ?? "—"}
+                    <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
+                  </p>
                   <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
                 </div>
                 <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình" />

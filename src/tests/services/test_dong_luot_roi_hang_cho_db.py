@@ -66,3 +66,43 @@ async def test_dong_luot_thi_khach_roi_moi_hang_cho(
         visit,
     )
     assert json.loads(payload)["hang_cho_roi"] >= 1
+
+
+async def test_thu_tien_roi_ve_ngay_thi_khong_tu_xep_phong(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Thu tiền rồi check-out NGAY, trước khi người đưa tin kịp tự xếp phòng.
+
+    Kiểm toán chức năng 27/09/2026 (L1): lượt check-out vẫn giữ status
+    IN_PROGRESS (chỉ `closed_at` được đặt), nên dây H4 xét status thấy "còn mở"
+    và xếp phòng cho khách đã về → khách ma trong hàng chờ phòng.
+    """
+    from clinicai.services.service_routing_service import ServiceRoutingService
+    from tests.services.test_thu_tien_xep_phong_mang_sang_db import _chon, _thu
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    _con, don = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [don])
+    await _thu(pool, visit, ca.thu_ngan)
+    # Về NGAY — chưa chạy người đưa tin, nên chưa có gì xếp phòng.
+    kq = await CheckoutService(pool).close(
+        identity=ca.le_tan,
+        visit_id=visit,
+        override_reason="Khách xin về trước, hẹn làm sau",
+        incomplete=False,
+        incomplete_reason=None,
+    )
+    assert kq["ok"]
+    async with pool.acquire() as conn, conn.transaction():
+        xep = await ServiceRoutingService(pool).tu_xep_da_thu(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=visit,
+            staff_id=ca.thu_ngan.staff_id,
+            causation_id=visit,
+        )
+    assert xep == []
+    await chay_hanh_trinh(pool)
+    assert await _con_mo(pool, visit) == 0, "khách đã về không bị xếp vào phòng nào"

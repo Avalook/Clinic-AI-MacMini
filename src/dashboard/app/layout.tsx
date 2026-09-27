@@ -18,12 +18,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dr4Women — Dashboard",
   description: "Dashboard nội bộ phòng khám Dr4Women.",
+  applicationName: "Dr4Women ClinicAI",
+  // iPhone: "Thêm vào MH chính" mở như app riêng (không thanh Safari). Thanh
+  // trạng thái "default" = chữ đen trên nền trắng, nội dung KHÔNG chui dưới tai
+  // thỏ — nên không phải đệm safe-area phía trên (phía dưới BottomNav đã đệm).
+  appleWebApp: { capable: true, title: "Dr4Women", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Cùng --color-surface của header — xem app/manifest.ts.
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -33,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="vi"
       suppressHydrationWarning
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
     >

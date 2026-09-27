@@ -5,17 +5,29 @@
 // dải hành chính + sinh hiệu dùng lại ĐÚNG khối của Bàn khám để giấy in và màn
 // hình không lệch nhau.
 //
-// LÁT 5 (26/09/2026 — bản giao diện mẫu Tuyền duyệt): A4 (KieuInA4), in đủ BA
-// KHỐI như màn khám nhưng ẨN ô / nhóm / mục trống (trước in "—" cho từng ô, một
-// phiếu vài chục dòng gạch) và KHÔNG in khối tư vấn.
+// LÁT 5 (26/09/2026 — bản giao diện mẫu Tuyền duyệt): A4 (KieuInA4), ẨN ô /
+// nhóm / mục trống (trước in "—" cho từng ô, một phiếu vài chục dòng gạch) và
+// KHÔNG in khối tư vấn.
+//
+// HAI TRANG, BA MỤC (Tuyền 27/09/2026: "cấu trúc thành 2 trang, một trang in
+// ảnh và một trang in thông tin … tách thành 3 mục: Tóm tắt bệnh án, Đơn
+// thuốc, và kết quả cận lâm sàng (hiển thị luôn ảnh)"):
+//   TRANG THÔNG TIN — I. Tóm tắt bệnh án (mọi mục của phiếu trừ danh sách CLS
+//     và đơn thuốc: khám, chẩn đoán, thủ thuật, hẹn…) · II. Đơn thuốc ·
+//     III. Kết quả cận lâm sàng (từng chỉ định: số đo + KẾT LUẬN).
+//   TRANG ẢNH — ảnh kết quả CLS theo từng chỉ định, 2 ảnh / hàng cho đủ to để
+//     đọc (ảnh chưa xác nhận / bị từ chối / thu hồi KHÔNG in). Không có ảnh thì
+//     không in trang này.
+// Mở từ [In phiếu khám] ở phiếu khám VÀ ở Xem lượt (mọi khâu).
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import Button from "@/components/ui/Button";
 import {
-  KHOI_PHIEU,
   NHAN_KET_QUA,
+  anhInDuoc,
   coNhap,
+  dongKetQua,
   dongTuDon,
   giaTriDoc,
   gomNhom,
@@ -30,6 +42,7 @@ import {
   type ThuThuatNguon,
 } from "@/lib/phieu-kham";
 
+import { duongXemTep } from "../../../(dashboard)/_lam-viec/AnhKetQua";
 import { KhoiHanhChinh } from "../../../(dashboard)/_lam-viec/phieu-kham/KhoiDauPhieu";
 import KieuInA4 from "../../KieuInA4";
 
@@ -125,6 +138,96 @@ function DsChiDinh({ ds }: { ds: ChiDinhVaKetQua[] }) {
   );
 }
 
+/** Mục III — kết quả của từng chỉ định CLS: số đo + kết luận, ghi số ảnh. */
+function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
+  return (
+    <ol className="space-y-3">
+      {ds.map((c, i) => {
+        const phieu = c.ket_qua.filter((k) => k.loai === "PHIEU" && k.trang_thai === "READY" && k.khung);
+        const soAnh = anhInDuoc(c).length;
+        return (
+          <li key={c.service_order_id} className="in-giu space-y-1">
+            <p className="font-semibold text-ink">
+              {i + 1}. {c.ten_hien_thi}
+              <span className="font-normal text-ink-muted">
+                {" "}
+                · {NHAN_KET_QUA[c.ket_qua_trang_thai]}
+                {soAnh ? ` · ${soAnh} ảnh (trang hình ảnh)` : ""}
+              </span>
+            </p>
+            {phieu.map((k) => {
+              const { dong, ketLuan } = dongKetQua(k);
+              return (
+                <div key={k.phieu_id} className="space-y-1 pl-4">
+                  {phieu.length > 1 ? <p className="text-meta text-ink-muted">{k.ten}</p> : null}
+                  {dong.length ? (
+                    <dl className="grid grid-cols-2 gap-x-6 gap-y-0.5">
+                      {dong.map((x, j) => (
+                        <div key={`${x.nhan}-${j}`} className="flex gap-2">
+                          <dt className="shrink-0 text-ink-muted">{x.nhan}</dt>
+                          <dd className="whitespace-pre-wrap">{x.gia}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                  {ketLuan ? (
+                    <p className="whitespace-pre-wrap">
+                      <b>Kết luận:</b> {ketLuan}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Trang ẢNH — ảnh kết quả CLS theo từng chỉ định, 2 ảnh / hàng. */
+function TrangAnh({ ds }: { ds: ChiDinhVaKetQua[] }) {
+  const coAnh = ds.map((c) => ({ c, anh: anhInDuoc(c) })).filter((x) => x.anh.length > 0);
+  if (coAnh.length === 0) return null;
+  return (
+    <section className="mt-10 break-before-page space-y-4 print:mt-0">
+      <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
+        Hình ảnh kết quả cận lâm sàng
+      </h2>
+      {coAnh.map(({ c, anh }) => (
+        <div key={c.service_order_id} className="space-y-2">
+          <h3 className="font-semibold text-ink">{c.ten_hien_thi}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {anh.map((a) => (
+              <figure key={a.tep_id} className="space-y-0.5">
+                {/* eslint-disable-next-line @next/next/no-img-element -- ảnh đi qua cửa XÁC THỰC; bộ tối ưu ảnh không mang cookie phiên. */}
+                <img
+                  src={duongXemTep(a.tep_id!)}
+                  alt={a.ten ?? "Ảnh kết quả"}
+                  className="aspect-4/3 w-full rounded-control border border-line bg-surface-sunken object-contain"
+                />
+                <figcaption className="truncate text-label text-ink-muted">{a.ten}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** Một trong ba mục của trang thông tin (I · II · III). */
+function Muc({ so, ten, children }: { so: string; ten: string; children: ReactNode }) {
+  return (
+    <section className="mt-5 space-y-3">
+      <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
+        {so}. {ten}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 function DonThuoc({ dong }: { dong: DongDonMayChu[] }) {
   return (
     <table className="w-full border-collapse text-body">
@@ -204,42 +307,32 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
   const thuThuat = dl.chiDinh.filter((c) => dl.maThuThuat.has(c.service_code));
   const ngayKham = dau?.hanh_chinh["encounter.date"] ?? null;
 
-  // Một mục: phần liên kết (chỉ định / đơn) + các ô có dữ liệu; rỗng hết = ẩn.
-  const noiDungMuc = (m: MucPhieu) => {
-    const lk = m.lien_ket?.loai;
-    const phan = [
-      lk === "chi_dinh_cls" && cls.length ? <DsChiDinh key="cls" ds={cls} /> : null,
-      lk === "chi_dinh_thu_thuat" && thuThuat.length ? (
-        <DsChiDinh key="tt" ds={thuThuat} />
-      ) : null,
-      lk === "don_thuoc" && dl.don.length ? <DonThuoc key="don" dong={dl.don} /> : null,
-      <KhoiO key="o" m={m} duLieu={phieu.du_lieu} />,
-    ];
-    const coGi =
-      phan.slice(0, 3).some(Boolean) ||
-      m.block.some((o) => coNhap(phieu.du_lieu[o.ma]));
-    return coGi ? phan : null;
-  };
-  const trongKhoi = new Set(KHOI_PHIEU.flatMap((k) => k.muc));
-  const khoi = [
-    ...KHOI_PHIEU.map((k) => ({
-      ten: `${k.so} · ${k.ten}`,
-      muc: phieu.khung.filter((m) => k.muc.includes(m.ma)),
-    })),
-    // Mục không thuộc ba khối (phòng khám thêm sau): vẫn in, không lặng lẽ mất.
-    {
-      ten: "Khác",
-      muc: phieu.khung.filter((m) => m.ma !== "HANH_CHINH" && !trongKhoi.has(m.ma)),
-    },
-  ]
-    .map((k) => ({
-      ten: k.ten,
-      muc: k.muc.flatMap((m) => {
-        const nd = noiDungMuc(m);
-        return nd ? [{ m, nd }] : [];
-      }),
-    }))
-    .filter((k) => k.muc.length > 0);
+  // I. TÓM TẮT BỆNH ÁN = mọi mục của phiếu có dữ liệu, TRỪ danh sách chỉ định
+  // CLS (sang mục III) và đơn thuốc (mục II). Thủ thuật ở lại mục I.
+  const tomTat = phieu.khung
+    .filter(
+      (m) =>
+        m.ma !== "HANH_CHINH" &&
+        m.lien_ket?.loai !== "chi_dinh_cls" &&
+        m.lien_ket?.loai !== "don_thuoc",
+    )
+    .flatMap((m) => {
+      const coThuThuat = m.lien_ket?.loai === "chi_dinh_thu_thuat" && thuThuat.length > 0;
+      const coO = m.block.some((o) => coNhap(phieu.du_lieu[o.ma]));
+      if (!coThuThuat && !coO) return [];
+      return [
+        <div key={m.ma} className="in-giu space-y-1">
+          <h3 className="font-semibold text-ink">{m.ten}</h3>
+          {coThuThuat ? <DsChiDinh ds={thuThuat} /> : null}
+          <KhoiO m={m} duLieu={phieu.du_lieu} />
+        </div>,
+      ];
+    });
+  // Ô ghi thêm của mục CLS / đơn thuốc (nếu phòng khám thêm ô vào đó) vẫn in.
+  const oCua = (loai: string) =>
+    phieu.khung
+      .filter((m) => m.lien_ket?.loai === loai)
+      .map((m) => <KhoiO key={m.ma} m={m} duLieu={phieu.du_lieu} />);
   const hanhChinh = phieu.khung.find((m) => m.ma === "HANH_CHINH");
 
   return (
@@ -253,34 +346,58 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
           Đóng
         </Button>
       </div>
+
+      {/* ── TRANG THÔNG TIN ── */}
       <header className="border-b border-line pb-3">
-        <h1 className="text-title font-bold text-ink">{phieu.ten}</h1>
+        {dau?.the_khach?.co_so ? (
+          <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
+            {dau.the_khach.co_so}
+          </p>
+        ) : null}
+        <h1 className="mt-1 text-title font-bold text-ink">{phieu.ten}</h1>
+        {dau?.the_khach?.so_booking != null || dau?.the_khach?.so_tiep_don != null ? (
+          <p className="text-meta text-ink-muted">
+            {[
+              dau?.the_khach?.so_booking != null ? `Booking #${dau.the_khach.so_booking}` : null,
+              dau?.the_khach?.so_tiep_don != null ? `Check-in ${dau.the_khach.so_tiep_don}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
       </header>
       {hanhChinh && dau ? (
         <section className="mt-4">
           <KhoiHanhChinh dau={dau} truong={hanhChinh.lien_ket?.truong ?? []} />
         </section>
       ) : null}
-      {khoi.map((k) => (
-        <section key={k.ten} className="mt-5 space-y-3">
-          <h2 className="border-b border-line pb-1 text-emph font-bold text-ink">{k.ten}</h2>
-          {k.muc.map(({ m, nd }) => (
-            <div key={m.ma} className="space-y-1">
-              <h3 className="font-semibold text-ink">{m.ten}</h3>
-              {nd}
-            </div>
-          ))}
-        </section>
-      ))}
+
+      <Muc so="I" ten="Tóm tắt bệnh án">
+        {tomTat.length ? tomTat : <p className="text-ink-muted">Chưa ghi nội dung khám.</p>}
+      </Muc>
+      <Muc so="II" ten="Đơn thuốc">
+        {dl.don.length ? <DonThuoc dong={dl.don} /> : <p className="text-ink-muted">Không kê đơn.</p>}
+        {oCua("don_thuoc")}
+      </Muc>
+      <Muc so="III" ten="Kết quả cận lâm sàng">
+        {cls.length ? <KetQuaCls ds={cls} /> : <p className="text-ink-muted">Không chỉ định cận lâm sàng.</p>}
+        {oCua("chi_dinh_cls")}
+      </Muc>
+
       <footer className="in-giu mt-10 flex justify-end">
         <div className="text-center">
           <p className="text-meta text-ink-muted">
-            {ngayKham ? `Ngày khám ${hienThi(ngayKham)}` : "Ngày …/…/……"}
+            {ngayKham
+              ? `Ngày khám ${hienThi(ngayKham).replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1")}`
+              : "Ngày …/…/……"}
           </p>
           <p className="font-semibold">Bác sĩ khám</p>
           <p className="mt-12">&nbsp;</p>
         </div>
       </footer>
+
+      {/* ── TRANG ẢNH ── */}
+      <TrangAnh ds={cls} />
     </main>
   );
 }

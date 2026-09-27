@@ -92,6 +92,8 @@ WITH v AS (
            p.patient_code,
            p.phone_primary,
            a.status                AS appt_status,
+           a.so_booking,
+           a.so_tiep_don,
            st.name                 AS exam_service_name,
            """
     + kham_xong_sql("vi")
@@ -444,6 +446,9 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 "patient_code": v.get("patient_code"),
                 "phone": v.get("phone_primary"),
                 "appt_status": v.get("appt_status"),
+                # Số booking + số check-in đứng cạnh tên ở MỌI khâu (Tuyền 27/09).
+                "so_booking": v.get("so_booking"),
+                "so_tiep_don": v.get("so_tiep_don"),
                 "services": services,
                 # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
                 "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],
