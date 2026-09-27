@@ -15,7 +15,9 @@ import {
   ChevronDown,
   CheckCircle2,
   AlertCircle,
+  LogOut,
 } from "lucide-react";
+import Button from "@/components/ui/Button";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
 import { NAV, navLabelFor } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
@@ -24,20 +26,31 @@ interface GlobalHeaderProps {
   onToggleSidebar: () => void;
   isCollapsed: boolean;
   identity: string;
+  /** Tên người đang đăng nhập (layout truyền). Thiếu thì đoán từ `identity`. */
+  tenNguoi?: string;
   role: ClinicRole;
+  /** Server action thoát — cùng action với nút Thoát ở chân thanh bên. */
+  leaveAction: () => void | Promise<void>;
 }
 
 export default function GlobalHeader({
   onToggleSidebar,
   isCollapsed,
   identity,
+  tenNguoi,
   role,
+  leaveAction,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
+  const theTenRef = useRef<HTMLDivElement>(null);
+  const nutTenRef = useRef<HTMLButtonElement>(null);
 
-  // Extract staff name and initials
-  const staffName = identity.split(" · ").at(-1) ?? identity;
+  // TÊN NGƯỜI ĐĂNG NHẬP. `identity` là "Vai · Tên · Phòng khám · Cơ sở", nên
+  // lấy phần CUỐI (cách cũ) ra tên cơ sở chứ không phải tên người — thẻ tên
+  // từng ghi "Cơ sở …" với chữ tắt của cơ sở. Layout truyền thẳng tên; chỉ
+  // khi thiếu mới đoán như cũ.
+  const staffName = tenNguoi?.trim() || (identity.split(" · ").at(-1) ?? identity);
   const staffInitials = staffName
     .trim()
     .split(/\s+/)
@@ -67,13 +80,20 @@ export default function GlobalHeader({
   // Popover States (Mutually Exclusive)
   const [calOpen, setCalOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // Thẻ tên → ô nhỏ có nút Thoát (27/09/2026, đợt 3).
+  const [theTenOpen, setTheTenOpen] = useState(false);
 
   // Click Outside Listener
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      if (headerRef.current && !headerRef.current.contains(t)) {
         setCalOpen(false);
         setNotifOpen(false);
+      }
+      // Thẻ tên đóng cả khi bấm chỗ khác TRONG đầu trang (chuông, lịch…).
+      if (theTenRef.current && !theTenRef.current.contains(t)) {
+        setTheTenOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -81,17 +101,47 @@ export default function GlobalHeader({
   }, []);
 
   const toggleCal = () => {
-    setCalOpen((prev) => {
-      if (!prev) setNotifOpen(false);
-      return !prev;
-    });
+    const mo = !calOpen;
+    setCalOpen(mo);
+    if (mo) {
+      setNotifOpen(false);
+      setTheTenOpen(false);
+    }
   };
 
   const toggleNotif = () => {
-    setNotifOpen((prev) => {
-      if (!prev) setCalOpen(false);
-      return !prev;
-    });
+    const mo = !notifOpen;
+    setNotifOpen(mo);
+    if (mo) {
+      setCalOpen(false);
+      setTheTenOpen(false);
+    }
+  };
+
+  const toggleTheTen = () => {
+    const mo = !theTenOpen;
+    setTheTenOpen(mo);
+    if (mo) {
+      setCalOpen(false);
+      setNotifOpen(false);
+    }
+  };
+
+  /** Esc đóng và trả tiêu điểm về thẻ tên (bàn phím không bị lạc). */
+  const phimTheTen = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Escape" && theTenOpen) {
+      e.preventDefault();
+      setTheTenOpen(false);
+      nutTenRef.current?.focus();
+    }
+  };
+
+  /** Tab ra khỏi thẻ tên thì đóng. `relatedTarget` rỗng (bấm chuột vào chữ
+   *  trong ô, Safari không đặt tiêu điểm lên nút) KHÔNG đóng — nếu đóng ở đây
+   *  thì cú bấm "Thoát" mất trước khi tới nút; bấm ra ngoài đã có mousedown lo. */
+  const roiTheTen = (e: React.FocusEvent<HTMLDivElement>) => {
+    const toi = e.relatedTarget as Node | null;
+    if (toi && !e.currentTarget.contains(toi)) setTheTenOpen(false);
   };
 
   // Mini Calendar Popover State.
@@ -493,19 +543,57 @@ export default function GlobalHeader({
           )}
         </div>
 
-        {/* Staff Profile Card */}
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface p-1.5 pl-2 shadow-xs">
-          <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
-            {staffInitials}
-          </div>
-          <div className="hidden lg:block min-w-0 pr-1 text-left">
-            <span className="block truncate text-xs font-bold text-ink leading-none">
-              {staffName}
+        {/* THẺ TÊN — BẤM ĐƯỢC, MỞ Ô CÓ NÚT THOÁT (27/09/2026, đợt 3).
+            Góp ý phòng khám: "log out 'chữ Thoát' cho lên trên bên phải". Trước
+            đây Thoát chỉ ở chân thanh bên; điện thoại phải mở Menu rồi cuộn.
+            Nút ở thanh bên vẫn giữ làm lối phụ. Cùng server action. */}
+        <div
+          ref={theTenRef}
+          className="relative"
+          onKeyDown={phimTheTen}
+          onBlur={roiTheTen}
+        >
+          <button
+            ref={nutTenRef}
+            type="button"
+            onClick={toggleTheTen}
+            aria-haspopup="true"
+            aria-expanded={theTenOpen}
+            aria-controls="the-ten-tai-khoan"
+            aria-label={`Tài khoản ${staffName} — bấm để thoát`}
+            className="flex items-center gap-2 rounded-xl border border-line bg-surface p-1.5 pl-2 shadow-xs transition-all hover:bg-surface-muted"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+              {staffInitials}
             </span>
-            <span className="block text-label font-medium text-ink-muted leading-none mt-0.5">
-              {ROLE_LABEL[role]}
+            <span className="hidden lg:block min-w-0 pr-1 text-left">
+              <span className="block truncate text-xs font-bold text-ink leading-none">
+                {staffName}
+              </span>
+              <span className="block text-label font-medium text-ink-muted leading-none mt-0.5">
+                {ROLE_LABEL[role]}
+              </span>
             </span>
-          </div>
+            <ChevronDown size={13} className="hidden text-ink-muted sm:block" aria-hidden />
+          </button>
+
+          {theTenOpen && (
+            <div
+              id="the-ten-tai-khoan"
+              role="group"
+              aria-label="Tài khoản đang đăng nhập"
+              className="absolute right-0 top-11 z-50 w-64 rounded-card border border-line bg-surface p-3 shadow-panel"
+            >
+              <p className="truncate text-emph font-semibold text-ink">{staffName}</p>
+              <p className="mt-0.5 text-meta text-ink-muted">{identity}</p>
+              <form action={leaveAction} className="mt-3 border-t border-line pt-3">
+                <Button type="submit" variant="secondary" size="lg" className="w-full">
+                  <LogOut size={16} aria-hidden />
+                  Thoát
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -20,6 +20,7 @@ import ThanhTab from "@/components/ui/ThanhTab";
 
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
 import KhungKhach from "../../_lam-viec/KhungKhach";
+import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import { STATUS_PRESENTATION, resolveStatus } from "@/lib/work-item-status";
 import {
   patientLine,
@@ -725,6 +726,19 @@ function CounterPanel({ item }: { item: WorklistItem }) {
           {pending ? "Đang lưu…" : "Check-in — khách đã đến"}
         </NutCheckIn>
       )}
+
+      {/* CHECK-OUT NGAY Ở ĐÂY (27/09/2026, đợt 3 — quầy hay quên mở màn
+          Check-out riêng). Cùng lệnh với /reception/checkout, máy chủ quyết;
+          chỉ hiện khi tài khoản có quyền đóng lượt. Xong thì khách rời hàng. */}
+      {item.checked_in_at && item.visit_id ? (
+        <NutCheckOut
+          key={item.visit_id}
+          visitId={item.visit_id}
+          ten={item.patient.full_name}
+          size="lg"
+          onXong={() => startTransition(() => router.refresh())}
+        />
+      ) : null}
 
       {/* KHUNG KHÁCH (Tuyền 27/09/2026: "Lễ tân cũng nên có"): ghi chú chung ·
           tự nhắc tôi · mọi thứ của khách — CÙNG component với Quản lý khách hàng. */}

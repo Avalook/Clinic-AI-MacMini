@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
+import NutCheckOut from "../_lam-viec/NutCheckOut";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
@@ -112,6 +113,15 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
+  // Lượt vừa thu xong — để mời Check-out ngay dưới câu "Đã thu…" (27/09/2026,
+  // đợt 3). Nút tự ẩn nếu tài khoản không có quyền đóng lượt.
+  // Gắn với ĐÚNG câu báo của lần thu ấy (`cau`): câu báo đổi sang việc khác
+  // (chốt dịch vụ, chỉnh đơn…) thì nút tự ẩn, không treo dưới câu của người khác.
+  const [vuaThu, setVuaThu] = useState<{
+    visitId: string;
+    ten: string | null;
+    cau: string;
+  } | null>(null);
 
   const doc = useCallback(async () => {
     try {
@@ -154,17 +164,20 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     };
   }, [doc, nhan]);
 
-  /** Gửi một lệnh thu ngân; trả `true` nếu máy chủ nhận. Luôn tải lại sau đó. */
+  /** Gửi một lệnh thu ngân; trả `true` nếu máy chủ nhận VÀ tiền đã tính là thu
+   *  (không phải "chờ xác minh"). Luôn tải lại sau đó. */
   const gui = useCallback(
     async (
       khoa: string,
       noiDung: Record<string, unknown>,
       xongCau: string,
       thaoTac?: string,
-    ) => {
+    ): Promise<boolean> => {
       setDangThu(khoa);
       setLoi(null);
       setXong(null);
+      setVuaThu(null);
+      let daThuThat = false;
       try {
         // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
         // khoá cũ, máy chủ trả kết quả lần đầu thay vì thu lần hai.
@@ -182,6 +195,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         if (!r.ok) {
           setLoi(d?.message ?? d?.error ?? "Không ghi được.");
         } else {
+          daThuThat = d?.status !== "PENDING_VERIFICATION";
           setXong(
             d?.status === "PENDING_VERIFICATION"
               ? "Đã ghi CHỜ XÁC MINH — chưa tính là đã thu cho tới khi nhập mã giao dịch."
@@ -195,13 +209,15 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       } finally {
         setDangThu(null);
       }
+      return daThuThat;
     },
     [tai],
   );
 
   const thu = useCallback(
-    (l: Luot, kind: "dich_vu" | "thuoc", hd: HoaDon, pt: PhuongThuc) =>
-      gui(
+    async (l: Luot, kind: "dich_vu" | "thuoc", hd: HoaDon, pt: PhuongThuc) => {
+      const cau = `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) của ${l.full_name ?? "khách"}.`;
+      const ok = await gui(
         `${l.visit_id}:${kind}`,
         {
           visitId: l.visit_id,
@@ -211,10 +227,34 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           amount: hd.tong,
           method: pt,
         },
-        `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) của ${l.full_name ?? "khách"}.`,
+        cau,
         dinhDanhThaoTac("thu", l.visit_id, kind, hd.revision, pt, String(hd.tong)),
-      ),
+      );
+      if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
+    },
     [gui],
+  );
+
+  /** "Đã nhận tiền" của lần chờ xác minh — cũng là lúc tiền đã đủ. */
+  const xacMinh = useCallback(
+    async (l: Luot, kind: "dich_vu" | "thuoc", ma: string) => {
+      const cau = `Đã xác minh — khoản này đã thu (${l.full_name ?? "khách"}).`;
+      const ok = await gui(
+        `${l.visit_id}:${kind}`,
+        {
+          action: "xac-minh",
+          // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
+          paymentCycleId: cho.find((p) => p.visit_id === l.visit_id && p.kind === kind)
+            ?.payment_cycle_id,
+          visitId: l.visit_id,
+          kind,
+          reference: ma,
+        },
+        cau,
+      );
+      if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
+    },
+    [gui, cho],
   );
 
   if (loi && ds === null) {
@@ -267,9 +307,20 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         </p>
       ) : null}
       {xong ? (
-        <p className="rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success">
-          {xong}
-        </p>
+        <div className="space-y-2 rounded-control border border-success bg-success-bg px-3 py-2">
+          <p className="text-meta text-success">{xong}</p>
+          {/* SAU "ĐÃ NHẬN ĐỦ" (27/09/2026, đợt 3): khách thường về ngay sau
+              quầy thu — mời check-out tại chỗ thay vì phải nhớ mở màn Check-out.
+              CHỈ tài khoản có quyền đóng lượt thấy nút (NutCheckOut tự ẩn). */}
+          {vuaThu && vuaThu.cau === xong ? (
+            <NutCheckOut
+              key={vuaThu.visitId}
+              visitId={vuaThu.visitId}
+              ten={vuaThu.ten}
+              onXong={() => void tai()}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {conCho.length === 0 ? (
@@ -323,20 +374,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 cho={choCua(l.visit_id, "dich_vu")}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
                 onThu={(hd, pt) => void thu(l, "dich_vu", hd, pt)}
-                onXacMinh={(ma) =>
-                  void gui(
-                    `${l.visit_id}:dich_vu`,
-                    {
-                      action: "xac-minh",
-                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
-                      paymentCycleId: choCua(l.visit_id, "dich_vu")?.payment_cycle_id,
-                      visitId: l.visit_id,
-                      kind: "dich_vu",
-                      reference: ma,
-                    },
-                    "Đã xác minh — khoản này đã thu.",
-                  )
-                }
+                onXacMinh={(ma) => void xacMinh(l, "dich_vu", ma)}
                 onHuyCho={(lyDo) =>
                   void gui(
                     `${l.visit_id}:dich_vu`,
@@ -383,20 +421,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
                 onThu={(hd, pt) => void thu(l, "thuoc", hd, pt)}
-                onXacMinh={(ma) =>
-                  void gui(
-                    `${l.visit_id}:thuoc`,
-                    {
-                      action: "xac-minh",
-                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
-                      paymentCycleId: choCua(l.visit_id, "thuoc")?.payment_cycle_id,
-                      visitId: l.visit_id,
-                      kind: "thuoc",
-                      reference: ma,
-                    },
-                    "Đã xác minh — khoản này đã thu.",
-                  )
-                }
+                onXacMinh={(ma) => void xacMinh(l, "thuoc", ma)}
                 onHuyCho={(lyDo) =>
                   void gui(
                     `${l.visit_id}:thuoc`,

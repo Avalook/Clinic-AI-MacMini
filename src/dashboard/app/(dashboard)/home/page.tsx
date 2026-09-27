@@ -558,6 +558,10 @@ async function KhoiDuLieu({
           canWriteClinical={writeClinical}
           dutyByDate={dutyByDate}
           choDoSinhHieu={choDoSinhHieu}
+          // Chip T2…CN + "Cả tuần", giữ trên `?ngay=` (27/09/2026, đợt 3 —
+          // "check đặt lịch cần hiển thị theo ngày"). Mặc định hôm nay khi
+          // đang xem tuần này.
+          chonNgay
         />
       </section>
 
