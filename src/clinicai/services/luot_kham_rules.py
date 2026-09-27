@@ -715,3 +715,13 @@ def phut_cho(check_in: Any, bay_gio: Any) -> int | None:
 def cho_do_lau(phut: int | None) -> bool:
     """HÀM THUẦN: đã chờ đo quá ngưỡng `CHO_DO_LAU_PHUT` chưa."""
     return phut is not None and phut >= CHO_DO_LAU_PHUT
+
+
+#: Chờ ở QUẦY THU quá ngần này phút thì dòng khách tô cam (27/09/2026 — quầy
+#: một hoá đơn). Ngưỡng riêng: khách đã khám xong, đứng quầy lâu là phàn nàn.
+CHO_THU_LAU_PHUT = 15
+
+
+def cho_thu_lau(phut: int | None) -> bool:
+    """HÀM THUẦN: đã chờ ở quầy thu quá ngưỡng `CHO_THU_LAU_PHUT` chưa."""
+    return phut is not None and phut >= CHO_THU_LAU_PHUT

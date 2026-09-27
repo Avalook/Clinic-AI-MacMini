@@ -22,6 +22,7 @@ export default function SoLuot({
   booking,
   checkin,
   dang = "vien",
+  bookingTruoc = false,
   className = "",
 }: {
   booking?: number | null;
@@ -29,12 +30,16 @@ export default function SoLuot({
   /** `vien` = viên ngang cho chỗ hẹp (đầu thẻ, tiêu đề); `tron` = vòng tròn
    *  to cho DANH SÁCH: số check-in to nền đặc, booking nhỏ ngay dưới. */
   dang?: "vien" | "tron";
+  /** Chỉ cho `tron`: ô booking đứng TRƯỚC vòng check-in (danh sách Tiếp đón —
+   *  bản mẫu Tuyền duyệt 27/09: booking có trước, check-in cấp sau). Mặc định
+   *  giữ thứ tự cũ (vòng check-in trước). */
+  bookingTruoc?: boolean;
   className?: string;
 }) {
   if (booking == null && checkin == null) return null;
   if (dang === "tron") {
     const tieuDe = [
-      checkin != null ? `Check-in ${checkin}` : null,
+      checkin != null ? `Check-in ${checkin}` : "Chưa check-in",
       booking != null ? `Booking #${booking}` : null,
     ]
       .filter(Boolean)
@@ -42,24 +47,36 @@ export default function SoLuot({
     // Hai số KHÁC HÌNH + KHÁC MÀU, cùng cỡ to (Tuyền 27/09 tối): check-in là
     // vòng tròn xanh ngọc; booking — số người ta quan tâm hơn — là ô vuông bo
     // góc xanh dương đứng ngay bên phải.
-    return (
-      <span title={tieuDe} aria-label={tieuDe} className={`flex shrink-0 items-center gap-1 ${className}`}>
+    // CHƯA CHECK-IN mà đã có booking (danh sách Tiếp đón, 27/09 đợt 3): vòng
+    // RỖNG nét đứt — chỗ số check-in sẽ được cấp, chưa có số. Hai số trống thì
+    // đã thoát ở đầu hàm.
+    const vong =
+      checkin != null
+        ? "bg-brand-600 text-emph font-semibold text-white"
+        : booking != null
+          ? "border-2 border-dashed border-line-strong bg-surface text-meta text-ink-faint"
+          : "bg-surface-sunken text-emph font-semibold text-ink-muted";
+    const oVong = (
+      <span
+        aria-hidden
+        className={`grid size-10 place-items-center rounded-full tabular-nums ${vong}`}
+      >
+        {checkin ?? "—"}
+      </span>
+    );
+    const oBooking =
+      booking != null ? (
         <span
           aria-hidden
-          className={`grid size-10 place-items-center rounded-full text-emph font-semibold tabular-nums ${
-            checkin != null ? "bg-brand-600 text-white" : "bg-surface-sunken text-ink-muted"
-          }`}
+          className="grid h-10 min-w-10 place-items-center rounded-control bg-info px-1.5 text-emph font-semibold tabular-nums text-white"
         >
-          {checkin ?? "—"}
+          #{booking}
         </span>
-        {booking != null ? (
-          <span
-            aria-hidden
-            className="grid h-10 min-w-10 place-items-center rounded-control bg-info px-1.5 text-emph font-semibold tabular-nums text-white"
-          >
-            #{booking}
-          </span>
-        ) : null}
+      ) : null;
+    return (
+      <span title={tieuDe} aria-label={tieuDe} className={`flex shrink-0 items-center gap-1 ${className}`}>
+        {bookingTruoc ? oBooking : oVong}
+        {bookingTruoc ? oVong : oBooking}
       </span>
     );
   }

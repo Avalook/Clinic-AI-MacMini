@@ -30,7 +30,8 @@ def _dau_ngay() -> datetime:
     return datetime.now(CLINIC_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def _noi(q: dict[str, Any]) -> str:
+def noi_hang(q: dict[str, Any]) -> str:
+    """Tên chỗ của một dòng hàng chờ — dùng chung cho Hành trình và Tiếp đón."""
     if q["lane"] == "TU_VAN":
         return "bác sĩ tư vấn"
     if q["lane"] == "DOCTOR":
@@ -46,13 +47,13 @@ def dang_o(luot: dict[str, Any], hang: list[dict[str, Any]]) -> str:
         return "Đã về"
     dang = [q for q in hang if q["status"] in ("serving", "called")]
     if dang:
-        return "Đang ở " + _noi(dang[0])
+        return "Đang ở " + noi_hang(dang[0])
     cho = [q for q in hang if q["status"] == "waiting"]
     if cho:
-        return "Chờ " + ", ".join(dict.fromkeys(_noi(q) for q in cho))
+        return "Chờ " + ", ".join(dict.fromkeys(noi_hang(q) for q in cho))
     doi = [q for q in hang if q["status"] == "blocked"]
     if doi:
-        return "Đợi (" + ", ".join(dict.fromkeys(_noi(q) for q in doi)) + ")"
+        return "Đợi (" + ", ".join(dict.fromkeys(noi_hang(q) for q in doi)) + ")"
     return "Ở quầy — chưa vào hàng nào"
 
 
@@ -66,7 +67,7 @@ def con_cho(
     out: list[str] = []
     for q in hang:
         if q["status"] == "waiting":
-            out.append("Chờ " + _noi(q))
+            out.append("Chờ " + noi_hang(q))
     for o in chi_dinh:
         ten = o["ten"]
         if o["selection_status"] == "PENDING":
@@ -260,4 +261,4 @@ class BangHanhTrinhService:
         }
 
 
-__all__ = ["BangHanhTrinhService", "con_cho", "dang_o"]
+__all__ = ["BangHanhTrinhService", "con_cho", "dang_o", "noi_hang"]

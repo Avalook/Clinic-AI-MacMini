@@ -298,6 +298,22 @@ async def resolve_notification(
 # quyền GHI ở đây rộng hơn phần điều phối bên trên.
 
 
+@router.get("/reception/danh-sach")
+async def danh_sach_tiep_don(
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách tiếp đón hôm nay (27/09/2026, đợt 3 — bản mẫu Tuyền duyệt).
+
+    Mỗi lịch hẹn / lượt một dòng, chia buổi; chip trạng thái (Chưa đến · Trễ N′ ·
+    Đã check-in · Đang ở · Đã về) do `tiep_don_service` tính — màn chỉ tô màu.
+    Gác bằng quyền "Check-in khách" (lego 1 Tiếp đón khách), không theo vai.
+    """
+    from clinicai.services.tiep_don_service import TiepDonService
+
+    return {"ok": True, **await TiepDonService(pool).hom_nay(identity=identity)}
+
+
 @router.get("/reception/checkout/ton-dong")
 async def checkout_stale(
     identity: StaffIdentity = Depends(_RECEPTION_GUARD),

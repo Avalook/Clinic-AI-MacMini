@@ -15,6 +15,7 @@ một lượt luôn nối tiếp nhau.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -307,10 +308,14 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
               AND bl.billing_owner = 'CLINIC'
               AND c.status IN ('PENDING_VERIFICATION', 'PAID')
        ) AS financially_committed,
-       coalesce(s.revision, 0) AS revision
+       coalesce(s.revision, 0) AS revision,
+       -- "So với bác sĩ chỉ định" ở quầy (27/09/2026): ai chỉ định, lần mấy, lúc nào.
+       bs.full_name AS bac_si_chi_dinh, o.lan_chi_dinh,
+       coalesce(o.authorized_at, o.created_at) AS chi_dinh_luc
   FROM service_order o
   LEFT JOIN service_selection_state s
     ON s.clinic_id = o.clinic_id AND s.visit_id = o.visit_id
+  LEFT JOIN staff bs ON bs.id = o.authorized_by
  WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
  ORDER BY o.created_at, o.id
 """
@@ -330,40 +335,11 @@ async def cho_khach_quyet(
         return {}
     # Phòng chọn được cho từng chỉ định (Tuyền 24/09/2026: quầy chọn phòng khách
     # làm TRƯỚC khi chốt + thu). Đúng tập của dây H4 — cùng cơ sở, còn nhận
-    # khách, làm được bước này — xếp theo gợi ý (vắng nhất lên đầu).
-    from clinicai.services.service_routing_service import (
-        co_so_cua_luot,
-        eligible_rooms,
-        rank_rooms,
-    )
+    # khách, làm được bước này. 27/09/2026: phòng VẮNG NHẤT lên đầu, có cờ
+    # `vang_nhat` (ô chọn phòng ghi "— vắng nhất").
+    from clinicai.services.quay_thu_service import PhongQuay
 
-    ten_phong: dict[str, str] = {
-        r["id"]: r["name"]
-        for r in await conn.fetch(
-            "SELECT id::text AS id, name FROM clinic_room"
-            " WHERE clinic_id = $1::uuid AND is_active",
-            clinic_id,
-        )
-    }
-    phong_theo: dict[tuple[str, str | None, str], list[dict[str, Any]]] = {}
-
-    async def phong_chon_duoc(node: str | None, vid: str) -> list[dict[str, Any]]:
-        if not node:
-            return []
-        co_so = await co_so_cua_luot(conn, clinic_id, visit_id=vid)
-        khoa = (node, co_so, vid)
-        if khoa not in phong_theo:
-            phong_theo[khoa] = [
-                {
-                    "id": u["room_id"],
-                    "ten": ten_phong.get(u["room_id"], "Phòng"),
-                    "dang_cho": u["queue_load"],
-                }
-                for u in rank_rooms(
-                    await eligible_rooms(conn, clinic_id, node, co_so, tru_luot=vid)
-                )
-            ]
-        return phong_theo[khoa]
+    pq = PhongQuay(conn, clinic_id)
 
     out: dict[str, dict[str, Any]] = {}
     for r in await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids):
@@ -381,7 +357,7 @@ async def cho_khach_quyet(
         luot = out.setdefault(
             r["visit_id"], {"revision": int(r["revision"]), "chi_dinh": []}
         )
-        phong = await phong_chon_duoc(r["node_code"], r["visit_id"])
+        phong = await pq.cua(r["node_code"], r["visit_id"])
         luot["chi_dinh"].append(
             {
                 "id": r["id"],
@@ -399,9 +375,150 @@ async def cho_khach_quyet(
                 # không có ô chọn phòng. Máy chủ quyết, màn chỉ đọc danh sách.
                 "phong_chon_duoc": phong,
                 "can_xep_phong": bool(phong),
+                "bac_si_chi_dinh": r["bac_si_chi_dinh"],
+                "lan_chi_dinh": r["lan_chi_dinh"],
+                "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
             }
         )
     return out
+
+
+async def ap_lua_chon(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    inp: SelectionInput,
+    *,
+    truoc_khi_ghi: Callable[[], Awaitable[None]] | None = None,
+) -> dict[str, Any]:
+    """Phần GHI của lệnh xác nhận — chạy trong giao dịch người gọi đã mở.
+
+    Người gọi đã khoá lượt và đọc biên nhận. Dùng chung cho lệnh xác nhận
+    riêng (`confirm`) và lệnh THU GỘP của quầy (27/09/2026: bấm Thu = máy chủ
+    chốt lựa chọn + ghi sổ trong MỘT giao dịch). ``truoc_khi_ghi`` chạy đúng
+    một lần, chỉ khi lựa chọn THỰC SỰ đổi (lệnh thu gộp hỏi quyền chọn dịch vụ
+    ở đó — thu theo lựa chọn đã lưu thì không cần quyền ấy).
+    """
+    cid = identity.clinic_id
+    state = await conn.fetchrow(
+        "SELECT revision, confirmed_by::text AS confirmed_by, confirmed_at"
+        "  FROM service_selection_state"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
+        cid,
+        inp.visit_id,
+    )
+    revision = int(state["revision"]) if state else 0
+    if inp.expected_selection_revision != revision:
+        raise LuotKhamConflictError(
+            "SELECTION_REVISION_CONFLICT",
+            "Lựa chọn dịch vụ vừa được người khác xác nhận — tải lại.",
+        )
+    orders = [
+        OrderFacts(
+            id=r["id"],
+            exec_status=r["exec_status"],
+            selection_status=r["selection_status"],
+            routing_status=r["routing_status"],
+            execution_status=r["execution_status"],
+            version=int(r["version"]),
+            financially_committed=bool(r["financially_committed"]),
+            bat_buoc=bool(r["bat_buoc"]),
+        )
+        for r in await conn.fetch(_ORDERS_SQL, cid, inp.visit_id)
+    ]
+    unknown = bool(
+        await conn.fetchval(_ALLOCATION_UNKNOWN_SQL, cid, inp.visit_id)
+    )
+    classify(inp, orders, unknown)
+    changes = plan(inp, orders)
+    versions = {o.id: o.version for o in orders}
+    confirmed_by = state["confirmed_by"] if state else None
+    confirmed_at = state["confirmed_at"] if state else None
+    if changes:
+        if truoc_khi_ghi is not None:
+            await truoc_khi_ghi()
+        ids = sorted(changes)
+        for r in await conn.fetch(
+            """
+            UPDATE service_order o
+               SET selection_status = c.status, version = o.version + 1,
+                   updated_at = now()
+              FROM unnest($3::uuid[], $4::text[]) AS c(id, status)
+             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+               AND o.id = c.id
+            RETURNING o.id::text AS id, o.version
+            """,
+            cid,
+            inp.visit_id,
+            ids,
+            [changes[i] for i in ids],
+        ):
+            versions[r["id"]] = int(r["version"])
+        row = await conn.fetchrow(
+            """
+            INSERT INTO service_selection_state
+                (clinic_id, visit_id, revision, confirmed_by, confirmed_at)
+            VALUES ($1::uuid, $2::uuid, 1, $3::uuid, now())
+            ON CONFLICT (clinic_id, visit_id) DO UPDATE
+               SET revision = service_selection_state.revision + 1,
+                   confirmed_by = EXCLUDED.confirmed_by,
+                   confirmed_at = EXCLUDED.confirmed_at,
+                   updated_at = now()
+            RETURNING revision, confirmed_by::text AS confirmed_by,
+                      confirmed_at
+            """,
+            cid,
+            inp.visit_id,
+            identity.staff_id,
+        )
+        assert row is not None
+        revision = int(row["revision"])
+        confirmed_by = row["confirmed_by"]
+        confirmed_at = row["confirmed_at"]
+    chosen = set(inp.selected_order_ids)
+    result = {
+        "ok": True,
+        "visit_id": inp.visit_id,
+        "changed": bool(changes),
+        "selection_revision": revision,
+        "selected_order_ids": sorted(chosen),
+        "not_selected_order_ids": sorted(set(inp.order_ids_seen) - chosen),
+        "changed_order_ids": sorted(changes),
+        "order_versions": {i: versions[i] for i in sorted(inp.order_ids_seen)},
+        "confirmed_at": _iso(confirmed_at),
+        "confirmed_by": confirmed_by,
+    }
+    if changes:
+        await record_event(
+            conn,
+            event_type=EVENT,
+            aggregate_type="visit",
+            aggregate_id=inp.visit_id,
+            identity=identity,
+            origin=ORIGIN,
+            payload={
+                "selection_revision": revision,
+                "selected_order_ids": result["selected_order_ids"],
+                "not_selected_order_ids": result["not_selected_order_ids"],
+                "changed_order_ids": result["changed_order_ids"],
+            },
+        )
+        # Sự kiện NGHIỆP VỤ (không chỉ nhật ký): khối Vòng đọc nghe để
+        # chỉ định khách bỏ không giữ vòng đọc lại (24/09/2026).
+        await emit_event(
+            conn,
+            ten="service_selection.confirmed",
+            clinic_id=identity.clinic_id,
+            aggregate_id=inp.visit_id,
+            payload=KhachDaChonDichVu(
+                visit_id=inp.visit_id,
+                selection_revision=revision,
+                selected_order_ids=sorted(chosen),
+                not_selected_order_ids=sorted(set(inp.order_ids_seen) - chosen),
+            ),
+            boi=nguoi(identity),
+            correlation_id=inp.visit_id,
+        )
+    return result
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -448,123 +565,7 @@ class ServiceSelectionService:
             )
             if cached is not None:
                 return cached
-            state = await conn.fetchrow(
-                "SELECT revision, confirmed_by::text AS confirmed_by, confirmed_at"
-                "  FROM service_selection_state"
-                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
-                cid,
-                inp.visit_id,
-            )
-            revision = int(state["revision"]) if state else 0
-            if inp.expected_selection_revision != revision:
-                raise LuotKhamConflictError(
-                    "SELECTION_REVISION_CONFLICT",
-                    "Lựa chọn dịch vụ vừa được người khác xác nhận — tải lại.",
-                )
-            orders = [
-                OrderFacts(
-                    id=r["id"],
-                    exec_status=r["exec_status"],
-                    selection_status=r["selection_status"],
-                    routing_status=r["routing_status"],
-                    execution_status=r["execution_status"],
-                    version=int(r["version"]),
-                    financially_committed=bool(r["financially_committed"]),
-                    bat_buoc=bool(r["bat_buoc"]),
-                )
-                for r in await conn.fetch(_ORDERS_SQL, cid, inp.visit_id)
-            ]
-            unknown = bool(
-                await conn.fetchval(_ALLOCATION_UNKNOWN_SQL, cid, inp.visit_id)
-            )
-            classify(inp, orders, unknown)
-            changes = plan(inp, orders)
-            versions = {o.id: o.version for o in orders}
-            confirmed_by = state["confirmed_by"] if state else None
-            confirmed_at = state["confirmed_at"] if state else None
-            if changes:
-                ids = sorted(changes)
-                for r in await conn.fetch(
-                    """
-                    UPDATE service_order o
-                       SET selection_status = c.status, version = o.version + 1,
-                           updated_at = now()
-                      FROM unnest($3::uuid[], $4::text[]) AS c(id, status)
-                     WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
-                       AND o.id = c.id
-                    RETURNING o.id::text AS id, o.version
-                    """,
-                    cid,
-                    inp.visit_id,
-                    ids,
-                    [changes[i] for i in ids],
-                ):
-                    versions[r["id"]] = int(r["version"])
-                row = await conn.fetchrow(
-                    """
-                    INSERT INTO service_selection_state
-                        (clinic_id, visit_id, revision, confirmed_by, confirmed_at)
-                    VALUES ($1::uuid, $2::uuid, 1, $3::uuid, now())
-                    ON CONFLICT (clinic_id, visit_id) DO UPDATE
-                       SET revision = service_selection_state.revision + 1,
-                           confirmed_by = EXCLUDED.confirmed_by,
-                           confirmed_at = EXCLUDED.confirmed_at,
-                           updated_at = now()
-                    RETURNING revision, confirmed_by::text AS confirmed_by,
-                              confirmed_at
-                    """,
-                    cid,
-                    inp.visit_id,
-                    identity.staff_id,
-                )
-                assert row is not None
-                revision = int(row["revision"])
-                confirmed_by = row["confirmed_by"]
-                confirmed_at = row["confirmed_at"]
-            chosen = set(inp.selected_order_ids)
-            result = {
-                "ok": True,
-                "visit_id": inp.visit_id,
-                "changed": bool(changes),
-                "selection_revision": revision,
-                "selected_order_ids": sorted(chosen),
-                "not_selected_order_ids": sorted(set(inp.order_ids_seen) - chosen),
-                "changed_order_ids": sorted(changes),
-                "order_versions": {i: versions[i] for i in sorted(inp.order_ids_seen)},
-                "confirmed_at": _iso(confirmed_at),
-                "confirmed_by": confirmed_by,
-            }
-            if changes:
-                await record_event(
-                    conn,
-                    event_type=EVENT,
-                    aggregate_type="visit",
-                    aggregate_id=inp.visit_id,
-                    identity=identity,
-                    origin=ORIGIN,
-                    payload={
-                        "selection_revision": revision,
-                        "selected_order_ids": result["selected_order_ids"],
-                        "not_selected_order_ids": result["not_selected_order_ids"],
-                        "changed_order_ids": result["changed_order_ids"],
-                    },
-                )
-                # Sự kiện NGHIỆP VỤ (không chỉ nhật ký): khối Vòng đọc nghe để
-                # chỉ định khách bỏ không giữ vòng đọc lại (24/09/2026).
-                await emit_event(
-                    conn,
-                    ten="service_selection.confirmed",
-                    clinic_id=identity.clinic_id,
-                    aggregate_id=inp.visit_id,
-                    payload=KhachDaChonDichVu(
-                        visit_id=inp.visit_id,
-                        selection_revision=revision,
-                        selected_order_ids=sorted(chosen),
-                        not_selected_order_ids=sorted(set(inp.order_ids_seen) - chosen),
-                    ),
-                    boi=nguoi(identity),
-                    correlation_id=inp.visit_id,
-                )
+            result = await ap_lua_chon(conn, identity, inp)
             await bien_nhan_ghi(
                 conn, identity, ACTION, idempotency_key, payload, inp.visit_id, result
             )

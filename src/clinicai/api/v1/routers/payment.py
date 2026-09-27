@@ -14,6 +14,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field, field_validator
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.idempotency import (
     IdempotencyGuard,
     idempotency_guard,
@@ -39,6 +40,17 @@ PaymentKind = Literal["thuoc", "dich_vu"]
 PaymentMethod = Literal["CASH", "TRANSFER", "QR"]
 
 
+class LuaChonKhiThu(BaseModel):
+    """Lựa chọn dịch vụ khách đang nhìn lúc bấm Thu (quầy một hoá đơn, 27/09).
+
+    Kiểu lỏng (list/int bất kỳ): luật hình dạng nằm ở ``validate_input`` của
+    lệnh xác nhận — một nơi, cùng mã lỗi ổn định."""
+
+    order_ids_seen: list[Any] = Field(default_factory=list, max_length=100)
+    selected_order_ids: list[Any] = Field(default_factory=list, max_length=100)
+    expected_selection_revision: Any = None
+
+
 class PaymentRecordRequest(BaseModel):
     """Body for recording a payment."""
 
@@ -51,6 +63,8 @@ class PaymentRecordRequest(BaseModel):
     bill_revision: str | None = Field(default=None, max_length=64)
     # Tiền mặt → PAID ngay; chuyển khoản/QR → chờ xác minh (contract A2).
     method: PaymentMethod = "CASH"
+    # Chỉ tiền dịch vụ: bấm Thu = máy chủ chốt lựa chọn + ghi sổ, MỘT giao dịch.
+    chon: LuaChonKhiThu | None = None
 
 
 class PaymentVoidRequest(BaseModel):
@@ -94,8 +108,11 @@ async def record_payment(
             method=body.method,
             identity=identity,
             idempotency_key=idempotency_key,
+            chon=body.chon.model_dump() if body.chon is not None else None,
         )
         return {"ok": True, **lan_thu}
+    if body.chon is not None:
+        raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]

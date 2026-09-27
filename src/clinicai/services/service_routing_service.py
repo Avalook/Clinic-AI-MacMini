@@ -320,7 +320,7 @@ async def da_tra_cho_vao_phong(
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                o.routing_revision, o.room_id::text AS room_id, r.name AS phong,
                coalesce(o.routing_status, 'UNASSIGNED') AS routing_status,
-               o.routing_nguon
+               o.routing_nguon, o.node_code
           FROM service_order o
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           LEFT JOIN clinic_room r ON r.id = o.room_id AND r.clinic_id = o.clinic_id
@@ -343,6 +343,8 @@ async def da_tra_cho_vao_phong(
                 # Trưởng ca đã xếp → quầy thu không đổi được (màn khoá ô chọn).
                 "truong_ca_da_xep": r["routing_status"] == ASSIGNED
                 and r["routing_nguon"] == NGUON_TRUONG_CA,
+                # Quầy thu tính phòng chọn được theo bước này (27/09/2026).
+                "node_code": r["node_code"],
             }
         )
     return out

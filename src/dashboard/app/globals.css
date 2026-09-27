@@ -108,6 +108,11 @@
   --color-status-completed-bg: #dcfce7;
   --color-status-cancelled: #627d98;
   --color-status-cancelled-bg: #eef3f8;
+  /* "Đang ở: <nơi>" — khách đang được phục vụ ở một chỗ (danh sách Tiếp đón,
+     bản mẫu Tuyền duyệt 27/09/2026 đợt 3). Tím để tách khỏi xanh lá "đã
+     check-in, đang chờ" và xanh dương của ô số booking. */
+  --color-status-dang-o: #6d28d9;
+  --color-status-dang-o-bg: #ede9fe;
   --color-status-overdue: #b91c1c;
   --color-status-overdue-bg: #fee2e2;
 

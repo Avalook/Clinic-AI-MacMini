@@ -13,6 +13,9 @@ export interface MucTab<T extends string> {
   nhan: string;
   /** Dấu chấm nhắc "có việc ở tab này" (ví dụ kết quả mới cần đọc). */
   nhac?: boolean;
+  /** Số đếm trong viên tròn cạnh nhãn (danh sách Tiếp đón 27/09 đợt 3:
+   *  "Tất cả ⟨n⟩ · Chưa đến ⟨n⟩ · Đã check-in ⟨n⟩"). Không truyền = không vẽ. */
+  dem?: number;
 }
 
 export default function ThanhTab<T extends string>({
@@ -47,6 +50,15 @@ export default function ThanhTab<T extends string>({
             }`}
           >
             {m.nhan}
+            {m.dem != null ? (
+              <span
+                className={`inline-grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-meta font-semibold tabular-nums ${
+                  dang ? "bg-surface text-brand-700" : "bg-line-strong text-ink-soft"
+                }`}
+              >
+                {m.dem}
+              </span>
+            ) : null}
             {m.nhac ? (
               <span
                 aria-label="có việc cần xem"

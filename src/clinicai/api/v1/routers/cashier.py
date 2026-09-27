@@ -7,9 +7,11 @@ truy vấn PostgREST ~210ms còn một vòng Postgres ~73ms, nên gộp xuống 
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
@@ -17,6 +19,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.cashier_board_service import (
     CashierBoardService,
 )
+from clinicai.services.quay_thu_service import QuayThuService, csv_lich_su
 
 router = APIRouter()
 
@@ -52,3 +55,79 @@ async def cashier_giao_dich(
 ) -> dict[str, Any]:
     """Giao dịch đã ghi trong khoảng ngày (kể cả đã huỷ) — chỉ đọc."""
     return await CashierBoardService(pool).giao_dich(identity=identity, tu=tu, den=den)
+
+
+# ── Quầy thu MỘT hoá đơn (27/09/2026, đợt 3) ───────────────────────────────
+# Cùng cửa với bảng thu ngân. Bộ lọc rác → bỏ qua, không 422: người đứng quầy
+# gõ sai ngày thì vẫn thấy sổ hôm nay, không thấy trang lỗi.
+
+
+@router.get("/cashier/lich-su")
+async def cashier_lich_su(
+    tu: str | None = Query(None, description="YYYY-MM-DD; rỗng/rác = hôm nay"),
+    den: str | None = Query(None, description="YYYY-MM-DD; rỗng/rác = hôm nay"),
+    tim: str | None = Query(None, max_length=200),
+    hinh_thuc: str | None = Query(None, max_length=20),
+    nguoi_thu: str | None = Query(None, max_length=200),
+    kind: str = Query("dich_vu", max_length=20),
+    chi_tiet: bool = Query(False),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Sổ thu / hoàn GOM THEO KHÁCH (tab Đã thu hôm nay · Lịch sử) — chỉ đọc."""
+    return await QuayThuService(pool).lich_su(
+        identity=identity,
+        tu=tu,
+        den=den,
+        tim=tim,
+        hinh_thuc=hinh_thuc,
+        nguoi_thu=nguoi_thu,
+        kind=kind,
+        chi_tiet=chi_tiet,
+    )
+
+
+@router.get("/cashier/lich-su.csv")
+async def cashier_lich_su_csv(
+    tu: str | None = Query(None),
+    den: str | None = Query(None),
+    tim: str | None = Query(None, max_length=200),
+    hinh_thuc: str | None = Query(None, max_length=20),
+    nguoi_thu: str | None = Query(None, max_length=200),
+    kind: str = Query("dich_vu", max_length=20),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """[Xuất Excel]: CSV UTF-8 có BOM — mỗi lần thu / hoàn / huỷ một dòng."""
+    kq = await QuayThuService(pool).lich_su(
+        identity=identity,
+        tu=tu,
+        den=den,
+        tim=tim,
+        hinh_thuc=hinh_thuc,
+        nguoi_thu=nguoi_thu,
+        kind=kind,
+    )
+    ten = f"so-thu-{kq['tu']}_{kq['den']}.csv"
+    return Response(
+        content=csv_lich_su(kq["khach"]).encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/cashier/phieu/{phieu_id}")
+async def cashier_phieu(
+    phieu_id: UUID,
+    loai: str = Query("thu", pattern="^(thu|hoan)$"),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu bản in PHIẾU THU (hoặc PHIẾU HOÀN) — chỉ phiếu của phòng khám mình."""
+    return await QuayThuService(pool).phieu(
+        identity=identity, id_=str(phieu_id), loai=loai
+    )
