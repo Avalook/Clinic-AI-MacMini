@@ -540,18 +540,6 @@ function BoLocNgay({
   );
 }
 
-function initials(name: string): string {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(-2)
-      .map((word) => word[0]?.toLocaleUpperCase("vi-VN") ?? "")
-      .join("") || "KH"
-  );
-}
-
 function appointmentStatus(status: string): { label: string; tone: StatusTone } {
   const known: Record<string, { label: string; tone: StatusTone }> = {
     SCHEDULED: { label: "Chờ xác nhận (lịch cũ)", tone: "ready" },
@@ -1471,9 +1459,7 @@ export default function CustomersView({
                         // trị trên điện thoại mang `hidden md:block`.
                         className={`flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors cursor-pointer md:grid md:items-center ${
                           selected
-                            ? // Cột hẹp: chip trạng thái XUỐNG DÒNG dưới tên
-                              // (Tuyền 27/09) — cạnh tên thì tên bị cắt "Phạm Thuý …".
-                              "md:grid-cols-1 md:gap-1.5"
+                            ? "md:grid-cols-1" /* chip dưới tên (27/09) */
                             : "md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
@@ -1762,10 +1748,8 @@ export default function CustomersView({
           >
           {selected ? (
             <>
+              {/* Bỏ vòng tròn chữ tắt cạnh tên (Tuyền 27/09/2026). */}
               <div className="flex items-start gap-3 border-b border-line pb-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-surface-sunken text-sm font-semibold text-ink-soft">
-                  {initials(selected.full_name)}
-                </span>
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
                   <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
@@ -2109,7 +2093,7 @@ export default function CustomersView({
 
                 {selectedAppt?.examined ? (
                   <Link
-                    href={`/patients/${selected.clinic_patient_id}`}
+                    href={`/patient-list?chon=${selected.clinic_patient_id}`}
                     className="flex min-h-10 items-center justify-center gap-2 rounded-control border border-brand-500 bg-surface px-3 text-sm font-semibold text-brand-700 hover:bg-brand-50"
                   >
                     <ExternalLink className="size-4" aria-hidden="true" />

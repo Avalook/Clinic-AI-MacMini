@@ -147,7 +147,7 @@ test("NutCheckOut: cùng lệnh với màn Check-out, xác nhận tại chỗ, k
 
 test("nút Check-out có mặt ở Tiếp đón (tab Đã check-in), Hành trình, quầy thu", () => {
   const queue = ma("../app/(dashboard)/reception/queue/QueueBoard.tsx");
-  assert.match(queue, /item\.checked_in_at && item\.visit_id \? \(\s*<NutCheckOut/);
+  assert.match(queue, /d\.check_out_duoc && d\.visit_id \? \(\s*<NutCheckOut/);
   assert.match(ma("../app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx"), /!l\.da_ve \? \(\s*<NutCheckOut/);
   const quay = ma("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
   assert.match(quay, /\{vuaThu && vuaThu\.cau === xong \? \(\s*<NutCheckOut/);

@@ -170,6 +170,7 @@ export default function PatientListView({
   showRebook = false,
   enableVisitPager = false,
   canBook = false,
+  chonSan = null,
 }: {
   rows: ExaminedRow[];
   /** Chỉ vai lâm sàng mở phiếu khám thật ở vùng SplitPane. */
@@ -179,6 +180,9 @@ export default function PatientListView({
   enableVisitPager?: boolean;
   /** Vai đặt lịch được: hiện nút "Đặt lịch mới" ở đầu hồ sơ. */
   canBook?: boolean;
+  /** `?chon=<clinic_patient_id>` — mở sẵn hồ sơ khách (link từ Quản lý khách
+   *  hàng, phiếu khám; thay trang /patients/[id] đã gộp 27/09/2026). */
+  chonSan?: string | null;
 }) {
   const router = useRouter();
   const [term, setTerm] = useState("");
@@ -187,7 +191,9 @@ export default function PatientListView({
   // cskh cái danh sách khách hàng sang là được, để tra cứu thôi mà"*). Trước
   // đó màn này tự chọn hồ sơ ĐẦU DANH SÁCH rồi mở luôn ba vùng — người vào tra
   // cứu một cái tên lại phải đọc hồ sơ của một người mình không hỏi.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    chonSan && rows.some((r) => r.clinic_patient_id === chonSan) ? chonSan : null,
+  );
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
   const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
 
@@ -400,12 +406,6 @@ export default function PatientListView({
                   <Phone size={14} /> Gọi
                 </a>
               )}
-              <Link
-                href={`/patients/${selected.clinic_patient_id}`}
-                className="inline-flex h-8 items-center gap-1.5 rounded-control bg-surface px-3 text-body font-medium text-ink ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
-              >
-                <FileText size={14} /> Xem hồ sơ
-              </Link>
             </div>
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
               <span>{selected.date_of_birth ? `Ngày sinh ${selected.date_of_birth}` : "Chưa có ngày sinh"}</span>

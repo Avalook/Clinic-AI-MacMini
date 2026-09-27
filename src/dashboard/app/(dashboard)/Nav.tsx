@@ -94,7 +94,7 @@ export default function Nav({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const veMuc = (item: NavItem) => {
+  const veLink = (item: NavItem) => {
         const { href, badge, icon: Icon } = item;
         const active = isActiveNav(href, pathname, hrefs);
         const label = navLabelFor(item, role);
@@ -168,6 +168,23 @@ export default function Nav({
           </Link>
         );
       };
+
+  // Node cha + node con chung MỘT ô (Tuyền 27/09/2026): ô nền brand nhạt bọc
+  // cả "Quản lý khách hàng" lẫn "Nhắc tái khám" khi đang ở một trong hai.
+  const tatCa = [...dau, ...khac, ...mucNhom.flat()];
+  const veMuc = (item: NavItem) => {
+    if (laCon(item)) return null;
+    const con = tatCa.filter((m) => m.cha === item.href);
+    if (con.length === 0) return veLink(item);
+    if (isCollapsed) return [item, ...con].map(veLink);
+    const dangO = [item, ...con].some((m) => isActiveNav(m.href, pathname, hrefs));
+    return (
+      <div key={item.href} className={`rounded-control ${dangO ? "bg-brand-50 pb-1" : ""}`}>
+        {veLink(item)}
+        {con.map(veLink)}
+      </div>
+    );
+  };
 
   return (
     <nav className="space-y-0.5">

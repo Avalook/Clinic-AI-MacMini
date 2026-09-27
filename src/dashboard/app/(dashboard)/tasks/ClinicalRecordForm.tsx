@@ -1752,7 +1752,7 @@ export default function ClinicalRecordForm({
               onClick={() =>
                 onRebook
                   ? onRebook(p.clinic_patient_id)
-                  : router.push(`/patients/${p.clinic_patient_id}`)
+                  : router.push(`/patient-list?chon=${p.clinic_patient_id}`)
               }
               className="inline-flex min-h-10 items-center gap-1 rounded-control border border-brand-100 bg-surface px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50"
             >

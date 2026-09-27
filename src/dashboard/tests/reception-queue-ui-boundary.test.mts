@@ -20,82 +20,18 @@ const maThucThi = board
   .map((d) => d.split("//")[0])
   .join("\n");
 
-test("the reception queue keeps the reference design's three working regions", () => {
-  assert.match(board, /aria-label="Danh sách hàng đợi"/);
-  assert.match(board, /aria-label="Thông tin người bệnh"/);
-  assert.match(board, /aria-label="Điều phối tại quầy"/);
-  assert.match(
-    board,
-    /xl:grid-cols-\[minmax\(280px,0\.9fr\)_minmax\(380px,1\.25fr\)_minmax\(240px,0\.8fr\)\]/,
-  );
-  assert.doesNotMatch(maThucThi, /Chưa có: điều phối quầy/);
-});
+// 27/09/2026 (đợt 3): danh sách tiếp đón làm lại theo bản mẫu Tuyền duyệt
+// (`tiep-don.html`) — các bài kiểm của thiết kế cũ (ba vùng, không tab, panel
+// một mốc giờ, "Mời <tên>") đã gỡ vì chính thiết kế ấy đã được thay.
 
-test("danh sách hàng đợi chỉ còn ô tìm — không tab, không bộ lọc", () => {
-  // Tuyền 16/09/2026: bỏ tab "Khách ưu tiên" (dấu sao trên từng dòng đã nói),
-  // bỏ "Cần xác minh" (nó dò một mã bước viết cứng), bỏ hai ô "Bộ lọc" /
-  // "Sắp xếp" — hàng đợi chỉ có MỘT thứ tự đúng là thứ tự gọi khám, cho đổi
-  // cách xếp là tạo ra một cái nhìn không khớp với thứ tự thật.
-  assert.match(board, /Tìm tên, mã BN hoặc số thứ tự/);
-  for (const daBo of ["Khách ưu tiên", "Cần xác minh", "Bộ lọc", "Sắp xếp"]) {
-    assert.doesNotMatch(maThucThi, new RegExp(daBo), `"${daBo}" đáng lẽ đã bỏ`);
+test("danh sách tiếp đón: 3 tab, chia buổi, trạng thái do MÁY CHỦ tính", () => {
+  for (const nhan of ["Tất cả", "Chưa đến", "Đã check-in"]) {
+    assert.match(board, new RegExp(`nhan: "${nhan}"`));
   }
-  // Dấu sao ưu tiên PHẢI còn — nó là thứ thay cho cái tab vừa bỏ.
-  assert.match(board, /item\.khach_uu_tien/);
-});
-
-test("panel bệnh nhân: MỘT mốc giờ, không thanh bước", () => {
-  // Tuyền 16/09/2026: *"check-in đồng nghĩa là thời điểm vào hàng đợi rồi mà"*.
-  // Ba dòng "Thời điểm đến / Vào hàng đợi lúc / Bắt đầu xử lý" kể gần như cùng
-  // một chuyện; mốc bắt đầu khám là thời gian CON trong khoảng check-in →
-  // check-out. Thanh bước hai vòng tròn cũng đi theo: nó chỉ vẽ lại đúng hai
-  // thứ mà dòng "Check-in" và nút "Vào khám" đã nói.
-  assert.match(board, /label="Check-in"/);
-  for (const daBo of ["Thời điểm đến", "Vào hàng đợi lúc", "Trạng thái xử lý", "Stepper"]) {
-    assert.doesNotMatch(maThucThi, new RegExp(daBo), `"${daBo}" đáng lẽ đã bỏ`);
-  }
-  assert.match(board, /item\.checked_in_at/);
-});
-
-test("hành động ở quầy nói đúng việc Lễ tân thật sự làm", () => {
-  // CHECK-IN cho khách đặt lịch trước — khách đến trực tiếp đã được check-in
-  // sẵn lúc tạo lịch.
-  assert.match(board, /Check-in — khách đã đến/);
-  assert.match(board, /Đã check-in lúc/);
-  // Đi qua ĐÚNG đường mà nút "Đã đến" ở Trang chủ đi. Hai đường check-in là
-  // hai luật cấp số thứ tự chờ ngày lệch nhau.
-  assert.match(board, /action: "checkin"/);
-
-  // "Chưa đến — gọi người tiếp theo" ĐÃ XOÁ (Tuyền 24/09/2026: "giờ vô nghĩa" —
-  // khách chưa tới nằm ở tab "Chờ check-in", không ở hàng đợi). Vẫn KHÔNG có
-  // nút "vắng mặt": chưa ai kết luận được điều gì lúc khách chưa có mặt.
-  assert.doesNotMatch(maThucThi, /Chưa đến — gọi người tiếp theo/);
-  for (const nhanCu of ["Đánh dấu vắng mặt", "Tạm giữ", "Xử lý ngoại lệ"]) {
-    assert.doesNotMatch(maThucThi, new RegExp(nhanCu));
-  }
-  // Check-in NGAY TRÊN DÒNG của tab "Chờ check-in" (24/09/2026).
-  assert.match(board, /Chờ check-in \(/);
-  assert.match(board, /Đã check-in \(/);
-
-  // "VÀO KHÁM" — OFF từ 24/09/2026 (bấm check-in là đủ), giữ code sau cờ. Khi
-  // bật lại vẫn phải gửi ĐỦ hai lệnh xuống kernel: bỏ `complete` là bước tiếp
-  // nhận không bao giờ đóng.
-  assert.match(board, /const NUT_VAO_KHAM = false;/);
-  assert.match(board, /"Vào khám"/);
-  assert.match(maThucThi, /issue\("start", v\)/);
-  assert.match(maThucThi, /issue\("complete", v\)/);
-  for (const daBo of ["Xong tiếp nhận", "Bắt đầu xử lý"]) {
-    assert.doesNotMatch(maThucThi, new RegExp(daBo));
-  }
-  assert.doesNotMatch(maThucThi, /issue\("skip"/);
-  assert.match(board, /filtered\.find\(\(item\) => item\.id === selectedId\) \?\?/);
-});
-
-test("MỜI TÊN, không mời số", () => {
-  // Ở quầy tiếp nhận, Lễ tân gọi TÊN người bệnh — số thứ tự chỉ để đối chiếu.
-  assert.match(board, /Mời</);
-  assert.match(board, /item\.patient\.full_name/);
-  assert.doesNotMatch(maThucThi, /Mời số</);
+  // Chip trạng thái chỉ đọc chữ + loại máy chủ trả — màn không tự suy ra.
+  assert.match(maThucThi, /d\.trang_thai\.nhan/);
+  assert.match(maThucThi, /locTiepDon\(goi\.buoi, tab, tim\)/);
+  assert.doesNotMatch(maThucThi, /checked_in_at\s*\?\s*"Đã check-in"/);
 });
 
 test("không bịa dữ liệu vận hành", () => {
