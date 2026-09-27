@@ -8,9 +8,10 @@ Giải thích code từ A tới Z (từng file, từng hàm, kèm những bẫy 
 
 > Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy gì**
 > của hệ thống — nó chỉ là chỗ **nhận bản sao lưu**, và đó là chủ ý: bản sao phải
-> nằm ở máy khác với thứ nó sao lưu. (27/09: đường kéo về Mac hỏng từ 12/09 vì
-> script còn trỏ VPS cũ — kiểm toán mục 6, câu 6. Sao lưu đêm 02:15 trên VPS
-> vẫn chạy và đẩy lên Viettel CFS.)
+> nằm ở máy khác với thứ nó sao lưu. Sao lưu đêm 02:15 trên VPS → Viettel CFS;
+> Mac kéo về 0:30 và 6:30 (`~/Projects/ClinicAI-Backups/keo-ve.sh`). Kiểm nhanh:
+> `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG" (từng hỏng
+> 12→27/09 vì script trỏ VPS cũ — đã sửa).
 >
 > **Đã chết, đừng dùng:** VPS cũ `clinic-vps` (222.255.215.219), staging cổng
 > 8080 và `/home/clinicai/staging`, Vercel, Supabase cloud, Cloudflare Tunnel,
@@ -32,8 +33,12 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
 ```
 
 - **Frontend chỉ là giao diện.** Mọi *quyết định* nằm ở FastAPI hoặc SQL. Frontend
-  chỉ nói chuyện thẳng với Supabase (bộ tự dựng) cho **đăng nhập** và **tin thời
-  gian thực**.
+  chỉ nói chuyện thẳng với Supabase (bộ tự dựng) cho **đăng nhập**. Tin thời gian
+  thực đi kênh CỦA MÌNH: Postgres `LISTEN/NOTIFY` → FastAPI SSE → `/api/events/stream`
+  → `RealtimeRefresher` / `useNgheBang` (27/09: bỏ Supabase Realtime — nó hỏng vì
+  Postgres từ chối `wal2json`).
+- **Theo dõi lỗi:** kho lỗi `loi_nhom` + bộ canh gác `canh_bao` (mỗi phút, trong
+  su-kien) + nhật ký vận hành — xem ở `/ops` tab "Lỗi & cảnh báo", "Nhật ký vận hành".
 - **Mọi thứ chạy trong container, cấu hình qua biến môi trường** — không địa chỉ
   hay khoá viết cứng.
 - Tệp kết quả (ảnh/video/PDF) nằm trên ổ Viettel CFS gắn vào VPS
