@@ -181,10 +181,7 @@ export default function ChonDichVu({
 
   return (
     <div className="border-b border-line px-4 py-3">
-      <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-        Khách làm dịch vụ nào?
-      </p>
-      <ul className="mt-2 space-y-1">
+      <ul className="space-y-1">
         {cho.chi_dinh.map((c) => (
           <li key={c.id}>
             <label className="flex min-h-10 items-center gap-3">
@@ -253,13 +250,8 @@ export default function ChonDichVu({
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-meta text-ink-muted">
-        {dang
-          ? "Đang lưu…"
-          : conCho
-            ? "Bỏ tick cái khách không làm — lưu và trừ tiền ngay. Khách làm hết thì bấm Chốt."
-            : "Bỏ tick / tích lại là lưu và tính lại tổng ngay."}
-      </p>
+      {/* Tuyền 27/09 (đợt 3): bỏ tiêu đề + câu hướng dẫn — chỉ báo lúc đang lưu. */}
+      {dang ? <p className="mt-2 text-meta text-ink-muted">Đang lưu…</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {conCho ? (
           <Button variant="primary" size="lg" disabled={dang} onClick={() => void chot()}>
