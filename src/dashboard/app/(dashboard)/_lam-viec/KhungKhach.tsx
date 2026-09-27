@@ -99,6 +99,9 @@ const NHAN_TAI_KHAM: Record<string, [string, ChipTone]> = {
   KHONG_CAN: ["Không cần", "neutral"],
 };
 
+/** Dấu "máy chủ trả 403" — so bằng đúng chuỗi này, không lẫn với câu lỗi. */
+const CAM = "\u0000khong-quyen";
+
 const tien = (n: number) => `${n.toLocaleString("vi-VN")} đ`;
 
 function nhanLuot(l: TomTat["luot_gan_nhat"][number]): [string, ChipTone] {
@@ -131,29 +134,51 @@ export default function KhungKhach({ clinicPatientId }: { clinicPatientId: strin
   const [dang, setDang] = useState(false);
   const [loiGhi, setLoiGhi] = useState<string | null>(null);
   const [goDangHoi, setGoDangHoi] = useState<string | null>(null);
+  const [loiGhiChuDoc, setLoiGhiChuDoc] = useState<string | null>(null);
+  const [khongQuyen, setKhongQuyen] = useState(false);
 
   const duong = `/api/cskh/khach/${clinicPatientId}`;
 
-  const docGhiChu = useCallback(async (): Promise<GhiChu[] | null> => {
-    const r = await fetch(`${duong}?xem=ghi-chu`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as { items?: GhiChu[] } | null;
-    return r.ok ? (d?.items ?? []) : null;
+  // Đọc hỏng (mất mạng, máy chủ lỗi) → câu lỗi thay cho "đang tải" mãi mãi.
+  // 403 → người này không có quyền khung khách (vd điều dưỡng ở Tiếp đón):
+  // ẩn cả khung thay vì bày hai ô lỗi đỏ.
+  const docGhiChu = useCallback(async (): Promise<GhiChu[] | string> => {
+    try {
+      const r = await fetch(`${duong}?xem=ghi-chu`, { cache: "no-store" });
+      if (r.status === 403) return CAM;
+      const d = (await r.json().catch(() => null)) as
+        | { items?: GhiChu[]; message?: string }
+        | null;
+      return r.ok ? (d?.items ?? []) : (d?.message ?? "Không đọc được ghi chú.");
+    } catch {
+      return "Mất kết nối — không đọc được ghi chú.";
+    }
   }, [duong]);
 
   const docTomTat = useCallback(async (): Promise<TomTat | string> => {
-    const r = await fetch(`${duong}?xem=tom-tat`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as
-      | (TomTat & { message?: string; error?: string })
-      | null;
-    if (!r.ok || !d) return d?.message ?? d?.error ?? "Không đọc được dữ liệu khách.";
-    return d;
+    try {
+      const r = await fetch(`${duong}?xem=tom-tat`, { cache: "no-store" });
+      if (r.status === 403) return CAM;
+      const d = (await r.json().catch(() => null)) as
+        | (TomTat & { message?: string; error?: string })
+        | null;
+      if (!r.ok || !d) return d?.message ?? d?.error ?? "Không đọc được dữ liệu khách.";
+      return d;
+    } catch {
+      return "Mất kết nối — không đọc được dữ liệu khách.";
+    }
   }, [duong]);
 
   useEffect(() => {
     let huy = false;
     void Promise.all([docGhiChu(), docTomTat()]).then(([g, t]) => {
       if (huy) return;
-      if (g) setGhiChu(g);
+      if (g === CAM || t === CAM) {
+        setKhongQuyen(true);
+        return;
+      }
+      if (typeof g === "string") setLoiGhiChuDoc(g);
+      else setGhiChu(g);
       if (typeof t === "string") setLoiDoc(t);
       else setTomTat(t);
     });
@@ -174,7 +199,7 @@ export default function KhungKhach({ clinicPatientId }: { clinicPatientId: strin
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
       if (!r.ok) setLoiGhi(d?.message ?? d?.error ?? "Không lưu được.");
       const moi = await docGhiChu();
-      if (moi) setGhiChu(moi);
+      if (typeof moi !== "string") setGhiChu(moi);
       return r.ok;
     } catch {
       setLoiGhi("Mất kết nối — CHƯA lưu.");
@@ -183,6 +208,8 @@ export default function KhungKhach({ clinicPatientId }: { clinicPatientId: strin
       setDang(false);
     }
   };
+
+  if (khongQuyen) return null;
 
   return (
     <div
@@ -218,7 +245,11 @@ export default function KhungKhach({ clinicPatientId }: { clinicPatientId: strin
             {loiGhi}
           </p>
         ) : null}
-        {ghiChu === null ? (
+        {loiGhiChuDoc && ghiChu === null ? (
+          <p role="alert" className="text-meta text-danger">
+            {loiGhiChuDoc}
+          </p>
+        ) : ghiChu === null ? (
           <Trong>Đang tải ghi chú…</Trong>
         ) : ghiChu.length === 0 ? (
           <Trong>Chưa có ghi chú nào.</Trong>
