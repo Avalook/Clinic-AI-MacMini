@@ -57,14 +57,29 @@ def _hd(**kw: Any) -> dict[str, Any]:
         "van_de": [],
         "chi_doi_tac_thu": False,
         "dong": [
-            {"source_type": "exam", "source_id": "exam-v", "ten": "Khám PK",
-             "thanh_tien": 100_000, "van_de": None},
-            {"source_type": "service_order", "source_id": "o1", "ten": "Soi",
-             "thanh_tien": 250_000, "van_de": None},
+            {
+                "source_type": "exam",
+                "source_id": "exam-v",
+                "ten": "Khám PK",
+                "thanh_tien": 100_000,
+                "van_de": None,
+            },
+            {
+                "source_type": "service_order",
+                "source_id": "o1",
+                "ten": "Soi",
+                "thanh_tien": 250_000,
+                "van_de": None,
+            },
         ],
         "dong_doi_tac": [
-            {"source_type": "service_order", "source_id": "o3", "ten": "HPV",
-             "thanh_tien": 900_000, "doi_tac_da_thu": None},
+            {
+                "source_type": "service_order",
+                "source_id": "o3",
+                "ten": "HPV",
+                "thanh_tien": 900_000,
+                "doi_tac_da_thu": None,
+            },
         ],
     }
     base.update(kw)
@@ -79,8 +94,12 @@ def test_mot_hoa_don_moi_dich_vu_mot_dong() -> None:
     chon = {
         "revision": 3,
         "chi_dinh": [
-            _cd("o1", "PENDING", 250_000,
-                phong_chon_duoc=[{"id": "r1", "ten": "TT", "dang_cho": 0}]),
+            _cd(
+                "o1",
+                "PENDING",
+                250_000,
+                phong_chon_duoc=[{"id": "r1", "ten": "TT", "dang_cho": 0}],
+            ),
             _cd("o2", "NOT_SELECTED", 250_000),
             _cd("o3", "SELECTED", 900_000, doi_tac_thu=True),
             _cd("o4", "SELECTED", 50_000, bat_buoc=True),
@@ -118,10 +137,22 @@ def test_mot_hoa_don_rong() -> None:
 def test_so_sanh_chi_dinh_bo_va_doi_tac() -> None:
     ss = so_sanh_chi_dinh(
         [
-            _cd("o1", "SELECTED", 250_000, chi_dinh_luc="2026-09-27T06:00:00+00:00",
-                bac_si_chi_dinh="BS A", lan_chi_dinh=1),
-            _cd("o2", "NOT_SELECTED", 250_000, chi_dinh_luc="2026-09-27T06:22:00+00:00",
-                bac_si_chi_dinh="BS B", lan_chi_dinh=2),
+            _cd(
+                "o1",
+                "SELECTED",
+                250_000,
+                chi_dinh_luc="2026-09-27T06:00:00+00:00",
+                bac_si_chi_dinh="BS A",
+                lan_chi_dinh=1,
+            ),
+            _cd(
+                "o2",
+                "NOT_SELECTED",
+                250_000,
+                chi_dinh_luc="2026-09-27T06:22:00+00:00",
+                bac_si_chi_dinh="BS B",
+                lan_chi_dinh=2,
+            ),
             _cd("o3", "PENDING", 900_000, doi_tac_thu=True),
             _cd("o4", "NOT_SELECTED", 900_000, doi_tac_thu=True),
         ]
@@ -153,8 +184,14 @@ def test_ma_phieu() -> None:
 
 @pytest.mark.parametrize(
     ("vao", "ra"),
-    [("PT-3F2A", "3f2a"), (" ph-3f2a1b9c ", "3f2a1b9c"), ("pt3f2a", "3f2a"),
-     ("Nguyễn", None), ("PT-", None), ("", None)],
+    [
+        ("PT-3F2A", "3f2a"),
+        (" ph-3f2a1b9c ", "3f2a1b9c"),
+        ("pt3f2a", "3f2a"),
+        ("Nguyễn", None),
+        ("PT-", None),
+        ("", None),
+    ],
 )
 def test_tim_theo_ma(vao: str, ra: str | None) -> None:
     assert tim_theo_ma(vao) == ra
@@ -162,8 +199,15 @@ def test_tim_theo_ma(vao: str, ra: str | None) -> None:
 
 @pytest.mark.parametrize(
     ("vao", "ra"),
-    [("cash", "CASH"), (" QR ", "QR"), ("TRANSFER", "TRANSFER"), ("the", None),
-     ("", None), (None, None), (3, None)],
+    [
+        ("cash", "CASH"),
+        (" QR ", "QR"),
+        ("TRANSFER", "TRANSFER"),
+        ("the", None),
+        ("", None),
+        (None, None),
+        (3, None),
+    ],
 )
 def test_doc_hinh_thuc(vao: Any, ra: str | None) -> None:
     assert doc_hinh_thuc(vao) == ra
@@ -192,28 +236,68 @@ R1 = "33333333-0000-4000-8000-000000000003"
 
 def _so_mau() -> list[dict[str, Any]]:
     lan_thu = [
-        {"id": C1, "visit_id": "v1", "status": "PAID", "amount": 600_000,
-         "method": "QR", "paid_at": "2026-09-27T11:05:00+00:00",
-         "nguoi_thu": "Thu ngân Mai"},
-        {"id": C2, "visit_id": "v2", "status": "VOIDED", "amount": 200_000,
-         "method": "CASH", "paid_at": "2026-09-27T10:00:00+00:00",
-         "closed_at": "2026-09-27T10:30:00+00:00", "close_reason": "thu nhầm",
-         "nguoi_thu": "Lễ tân Lan", "nguoi_huy": "QL"},
+        {
+            "id": C1,
+            "visit_id": "v1",
+            "status": "PAID",
+            "amount": 600_000,
+            "method": "QR",
+            "paid_at": "2026-09-27T11:05:00+00:00",
+            "nguoi_thu": "Thu ngân Mai",
+        },
+        {
+            "id": C2,
+            "visit_id": "v2",
+            "status": "VOIDED",
+            "amount": 200_000,
+            "method": "CASH",
+            "paid_at": "2026-09-27T10:00:00+00:00",
+            "closed_at": "2026-09-27T10:30:00+00:00",
+            "close_reason": "thu nhầm",
+            "nguoi_thu": "Lễ tân Lan",
+            "nguoi_huy": "QL",
+        },
     ]
     hoan = [
-        {"refund_id": R1, "visit_id": "v1", "amount": 300_000, "status": "COMPLETED",
-         "method": "CASH", "reason": "khách không làm",
-         "created_at": "2026-09-27T11:10:00+00:00", "nguoi": "QL",
-         "dich_vu": ["Siêu âm thai"]},
+        {
+            "refund_id": R1,
+            "visit_id": "v1",
+            "amount": 300_000,
+            "status": "COMPLETED",
+            "method": "CASH",
+            "reason": "khách không làm",
+            "created_at": "2026-09-27T11:10:00+00:00",
+            "nguoi": "QL",
+            "dich_vu": ["Siêu âm thai"],
+        },
     ]
     khach = {
-        "v1": {"ten": "Vũ Hồng Quyên", "ma_bn": "BN-1", "so_booking": 9, "so_tiep_don": 8},
+        "v1": {
+            "ten": "Vũ Hồng Quyên",
+            "ma_bn": "BN-1",
+            "so_booking": 9,
+            "so_tiep_don": 8,
+        },
         "v2": {"ten": "Lê Mai", "ma_bn": "BN-2", "so_booking": 8, "so_tiep_don": 7},
     }
-    dong = {C1: [{"id": "b1", "source_id": "o1", "ten": "Khám Sản", "so_luong": 1,
-                  "thanh_tien": 300_000},
-                 {"id": "b2", "source_id": "o2", "ten": "Siêu âm thai", "so_luong": 1,
-                  "thanh_tien": 300_000}]}
+    dong = {
+        C1: [
+            {
+                "id": "b1",
+                "source_id": "o1",
+                "ten": "Khám Sản",
+                "so_luong": 1,
+                "thanh_tien": 300_000,
+            },
+            {
+                "id": "b2",
+                "source_id": "o2",
+                "ten": "Siêu âm thai",
+                "so_luong": 1,
+                "thanh_tien": 300_000,
+            },
+        ]
+    }
     return gom_theo_khach(lan_thu, hoan, khach, dong)
 
 
@@ -221,7 +305,11 @@ def test_gom_theo_khach_co_hoan_va_huy() -> None:
     ds = _so_mau()
     assert [g["visit_id"] for g in ds] == ["v1", "v2"]  # mới nhất lên đầu
     v1, v2 = ds
-    assert (v1["tong_goc"], v1["tong_hoan"], v1["con_lai"]) == (600_000, 300_000, 300_000)
+    assert (v1["tong_goc"], v1["tong_hoan"], v1["con_lai"]) == (
+        600_000,
+        300_000,
+        300_000,
+    )
     assert v1["co_hoan"] and v1["so_phieu"] == 1 and v1["ma_phieu_dau"] == "PT-11111111"
     assert [s["loai"] for s in v1["su_kien"]] == ["thu", "hoan"]
     assert v1["su_kien"][1]["so_tien"] == -300_000
@@ -234,15 +322,29 @@ def test_gom_theo_khach_co_hoan_va_huy() -> None:
 
 def test_tong_lich_su() -> None:
     t = tong_lich_su(_so_mau())
-    assert t == {"tong_thu": 800_000, "tien_mat": 200_000, "chuyen_khoan": 0,
-                 "qr": 600_000, "hoan": 500_000}
+    assert t == {
+        "tong_thu": 800_000,
+        "tien_mat": 200_000,
+        "chuyen_khoan": 0,
+        "qr": 600_000,
+        "hoan": 500_000,
+    }
 
 
 def test_hoan_cho_chuyen_khong_tru() -> None:
     ds = gom_theo_khach(
         [],
-        [{"refund_id": R1, "visit_id": "v1", "amount": 100_000, "status": "PENDING",
-          "method": "TRANSFER", "reason": "chờ", "created_at": "2026-09-27T11:10:00+00:00"}],
+        [
+            {
+                "refund_id": R1,
+                "visit_id": "v1",
+                "amount": 100_000,
+                "status": "PENDING",
+                "method": "TRANSFER",
+                "reason": "chờ",
+                "created_at": "2026-09-27T11:10:00+00:00",
+            }
+        ],
         {},
         {},
     )

@@ -254,7 +254,7 @@ def dung_hoa_don_quay(
 
 
 def so_sanh_chi_dinh(chi_dinh: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """"BS chỉ định N dịch vụ · khách làm M · bỏ K (−X đ)" + bảng so. Hàm thuần.
+    """ "BS chỉ định N dịch vụ · khách làm M · bỏ K (−X đ)" + bảng so. Hàm thuần.
 
     N = mọi chỉ định đang hỏi khách (kể cả dịch vụ khách trả đối tác). Tiền bỏ
     chỉ cộng dịch vụ PHÒNG KHÁM thu — dịch vụ đối tác không phải tiền của quầy.
@@ -522,9 +522,10 @@ def loc_khach(
     out: list[dict[str, Any]] = []
     for g in khach:
         if tim_l:
-            trung_ten = tim_l in str(g.get("ten") or "").lower() or tim_l in str(
-                g.get("ma_bn") or ""
-            ).lower()
+            trung_ten = (
+                tim_l in str(g.get("ten") or "").lower()
+                or tim_l in str(g.get("ma_bn") or "").lower()
+            )
             trung_ma = any(
                 tim_l in str(s.get("ma") or "").lower()
                 or (tien_to is not None and str(s.get("id") or "").startswith(tien_to))
@@ -544,8 +545,8 @@ def _gio(iso: str | None) -> str:
     if not iso:
         return ""
     try:
-        return datetime.fromisoformat(iso).astimezone(CLINIC_TZ).strftime(
-            "%d/%m/%Y %H:%M"
+        return (
+            datetime.fromisoformat(iso).astimezone(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")
         )
     except ValueError:
         return ""
@@ -584,8 +585,10 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
             w.writerow(
                 [
                     _o(_gio(s.get("luc"))),
-                    _o(_NHAN_LOAI.get(s["loai"], s["loai"])
-                       + (" (chờ chuyển)" if s.get("cho") else "")),
+                    _o(
+                        _NHAN_LOAI.get(s["loai"], s["loai"])
+                        + (" (chờ chuyển)" if s.get("cho") else "")
+                    ),
                     _o(s.get("ma")),
                     _o(g.get("ten")),
                     _o(g.get("ma_bn")),
@@ -886,8 +889,11 @@ class QuayThuService:
             k = await conn.fetchrow(_KHACH_SQL, cid, [goc["visit_id"]])
             if la_hoan:
                 dong = [
-                    {"ten": r["ten"], "so_luong": float(r["so_luong"]),
-                     "thanh_tien": _so(r["thanh_tien"])}
+                    {
+                        "ten": r["ten"],
+                        "so_luong": float(r["so_luong"]),
+                        "thanh_tien": _so(r["thanh_tien"]),
+                    }
                     for r in await conn.fetch(
                         """
                         SELECT bl.name_snapshot AS ten, rl.quantity AS so_luong,
@@ -906,8 +912,11 @@ class QuayThuService:
                 doi_tac: list[dict[str, Any]] = []
             else:
                 dong = [
-                    {"ten": r["ten"], "so_luong": float(r["so_luong"]),
-                     "thanh_tien": _so(r["thanh_tien"])}
+                    {
+                        "ten": r["ten"],
+                        "so_luong": float(r["so_luong"]),
+                        "thanh_tien": _so(r["thanh_tien"]),
+                    }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]
                 doi_tac = [
@@ -936,4 +945,3 @@ class QuayThuService:
             "ly_do": goc["ly_do"],
             "doi_tac": doi_tac,
         }
-

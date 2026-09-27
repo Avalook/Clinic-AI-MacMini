@@ -133,7 +133,11 @@ async def test_thu_gop_chot_va_thu_mot_giao_dich(pool: asyncpg.Pool) -> None:
         chon=chon,
     )
     assert kq["status"] == "PAID" and kq["chon"]["changed"] is True
-    assert await _trang_thai(q, sa, soi, hpv) == ["SELECTED", "NOT_SELECTED", "SELECTED"]
+    assert await _trang_thai(q, sa, soi, hpv) == [
+        "SELECTED",
+        "NOT_SELECTED",
+        "SELECTED",
+    ]
     tien = await pool.fetchval(
         "SELECT amount FROM payment_cycle WHERE payment_cycle_id = $1::uuid",
         kq["payment_cycle_id"],
@@ -319,9 +323,7 @@ async def test_so_gom_theo_khach_co_hoan_csv_phieu(pool: asyncpg.Pool) -> None:
     assert all(
         q.visit_id != k["visit_id"]
         for k in (
-            await svc.lich_su(
-                identity=q.thu_ngan, tim=f"TT-{q.duoi}", hinh_thuc="QR"
-            )
+            await svc.lich_su(identity=q.thu_ngan, tim=f"TT-{q.duoi}", hinh_thuc="QR")
         )["khach"]
     )
     rac = await svc.lich_su(identity=q.thu_ngan, tu="rác", den="2026-13-45", tim="x")

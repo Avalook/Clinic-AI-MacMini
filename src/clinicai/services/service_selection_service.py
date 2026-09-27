@@ -425,9 +425,7 @@ async def ap_lua_chon(
         )
         for r in await conn.fetch(_ORDERS_SQL, cid, inp.visit_id)
     ]
-    unknown = bool(
-        await conn.fetchval(_ALLOCATION_UNKNOWN_SQL, cid, inp.visit_id)
-    )
+    unknown = bool(await conn.fetchval(_ALLOCATION_UNKNOWN_SQL, cid, inp.visit_id))
     classify(inp, orders, unknown)
     changes = plan(inp, orders)
     versions = {o.id: o.version for o in orders}
