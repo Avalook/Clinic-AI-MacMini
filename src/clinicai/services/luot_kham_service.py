@@ -1555,6 +1555,13 @@ class LuotKhamService:
         Mỗi lần lưu THÊM một dòng ``consultation_note`` (giữ lịch sử, không sửa
         dòng cũ); phiếu bác sĩ chính đọc bản MỚI NHẤT (``mang_sang``). Sửa được
         cả sau khi đã chuyển bác sĩ chính, tới khi lượt đóng.
+
+        AI GHI ĐƯỢC (27/09/2026, bản giao diện mẫu mục 12 — "bác sĩ chính sửa
+        tiếp được"): người có khối Tư vấn (``clinical.intake.perform``) HOẶC
+        người ghi được phiếu khám (``clinical.record.write``). Cùng một cặp quyền
+        với ghi phiếu khám (``phieu_kham_service.kiem_quyen_core``). Lịch sử sửa
+        = chính các dòng ``consultation_note`` (ai, lúc nào, nội dung) + sự kiện
+        ``consult.note_saved`` ghi rõ quyền nào đã cho phép.
         """
         text = noi_dung if isinstance(noi_dung, str) else ""
         text = text.strip()
@@ -1563,12 +1570,14 @@ class LuotKhamService:
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(
-                conn,
-                identity,
-                "clinical.intake.perform",
-                cau="Bạn chưa được cấp quyền khám tư vấn.",
-            )
+            if await can(conn, identity, "clinical.intake.perform"):
+                nguon = "tu_van"
+            elif await can(conn, identity, "clinical.record.write"):
+                nguon = "phieu_kham"
+            else:
+                raise SafetyGateError(
+                    "Bạn chưa được cấp quyền khám tư vấn hoặc ghi phiếu khám."
+                )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
             c = await conn.fetchrow(
@@ -1612,7 +1621,12 @@ class LuotKhamService:
                 aggregate_id=vid,
                 identity=identity,
                 origin="api:tu-van",
-                payload={"consultation_id": con_id, "do_dai": len(text)},
+                payload={
+                    "consultation_id": con_id,
+                    "do_dai": len(text),
+                    # Quyền đã cho ghi: bàn tư vấn hay phiếu bác sĩ chính.
+                    "nguon": nguon,
+                },
             )
         return {"ok": True, "consultation_id": con_id, "doi": True}
 

@@ -146,6 +146,15 @@ export interface DauPhieu {
   sinh_hieu: Record<string, string | number | null>;
   sinh_hieu_luc: string | null;
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
+  /** MỌI phiên tư vấn của lượt + bản mới nhất (kể cả chưa ghi / đã xoá trắng) —
+   *  chỗ sửa tại chỗ của bác sĩ tư vấn và bác sĩ chính (27/09/2026, mục 12). */
+  phien_tu_van?: {
+    consultation_id: string;
+    vong: number;
+    noi_dung: string;
+    luc: string | null;
+    nguoi: string | null;
+  }[];
   /** Ô HỒ SƠ đồng bộ từ bảng khách (24/09/2026) — thứ tự hiện. */
   ho_so?: string[];
   /** Thẻ khách Y HỆT bản giao diện mẫu (27/09/2026). */

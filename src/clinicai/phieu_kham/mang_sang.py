@@ -281,6 +281,27 @@ async def doc_dau_phieu(
         clinic_id,
         visit_id,
     )
+    # MỌI phiên tư vấn của lượt + bản ghi MỚI NHẤT (kể cả chưa ghi / đã xoá
+    # trắng) — để ô sửa tại chỗ của bác sĩ chính (27/09/2026, mục 12) luôn có
+    # chỗ ghi, không phụ thuộc phiên đã có chữ hay chưa.
+    phien_tu_van = await conn.fetch(
+        """
+        SELECT c.id::text AS consultation_id, c.round_no,
+               n.body, n.created_at, s.full_name AS nguoi
+          FROM consultation c
+          LEFT JOIN LATERAL (
+                SELECT body, created_at, recorded_by FROM consultation_note
+                 WHERE clinic_id = c.clinic_id AND consultation_id = c.id
+                 ORDER BY created_at DESC, id DESC LIMIT 1
+          ) n ON true
+          LEFT JOIN staff s ON s.id = n.recorded_by
+         WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+           AND c.kind = 'TU_VAN' AND c.status <> 'cancelled'
+         ORDER BY c.round_no, c.created_at
+        """,
+        clinic_id,
+        visit_id,
+    )
     return {
         # Nhãn đi kèm dữ liệu: màn không giữ bản chép thứ hai của "HA", "CN"…
         "nhan": dict(TRUONG_HANH_CHINH + TRUONG_SINH_HIEU + TRUONG_HO_SO),
@@ -314,6 +335,16 @@ async def doc_dau_phieu(
                 "consultation_id": r["consultation_id"],
             }
             for r in ghi_chu
+        ],
+        "phien_tu_van": [
+            {
+                "consultation_id": r["consultation_id"],
+                "vong": r["round_no"],
+                "noi_dung": r["body"] or "",
+                "luc": r["created_at"].isoformat() if r["created_at"] else None,
+                "nguoi": r["nguoi"],
+            }
+            for r in phien_tu_van
         ],
     }
 
