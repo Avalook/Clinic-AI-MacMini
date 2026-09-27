@@ -74,7 +74,8 @@ def _khoa() -> str:
 
 async def _trang_thai(q: Quay, *ids: str) -> list[str]:
     rows = await q.pool.fetch(
-        "SELECT id::text, selection_status FROM service_order WHERE id = ANY($1::uuid[])",
+        "SELECT id::text, selection_status FROM service_order"
+        " WHERE id = ANY($1::uuid[])",
         list(ids),
     )
     st = {r["id"]: r["selection_status"] for r in rows}
