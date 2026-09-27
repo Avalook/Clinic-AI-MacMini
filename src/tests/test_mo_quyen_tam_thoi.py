@@ -61,7 +61,14 @@ def test_cong_tac_doc_luc_goi_chu_khong_phai_luc_dung(
     assert mo_quyen_tam_thoi() is True
 
 
-@pytest.mark.parametrize("gia_tri", ["0", "false", "no", ""])
+def test_thieu_bien_thi_tat(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hỏng thì ĐÓNG (kiểm toán 27/09/2026): biến rơi rụng lúc chuyển máy không
+    được làm cả hệ tự mở quyền trong im lặng."""
+    monkeypatch.delenv("MO_QUYEN_TAM_THOI", raising=False)
+    assert mo_quyen_tam_thoi() is False
+
+
+@pytest.mark.parametrize("gia_tri", ["0", "false", "no", "", "maybe"])
 def test_cac_cach_tat_cong_tac(monkeypatch: pytest.MonkeyPatch, gia_tri: str) -> None:
     monkeypatch.setenv("MO_QUYEN_TAM_THOI", gia_tri)
     assert mo_quyen_tam_thoi() is False

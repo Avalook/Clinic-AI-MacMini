@@ -26,6 +26,8 @@ import { buttonClass } from "@/components/ui/Button";
 import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
 import {
   getVaiChinh,
+  getVaiHomNay,
+  getQuyenCuaToi,
   getViTriHomNay,
   getActiveStaff,
   getClinicStaffId,
@@ -33,8 +35,9 @@ import {
 import {
   type ClinicRole,
   canCheckin,
-  canSeeNav,
   isNurseRole,
+  legoChoHien,
+  vaoDuocMan,
 } from "../../../lib/roles";
 import Link from "next/link";
 import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
@@ -175,9 +178,13 @@ export default async function HomePage({
     viTriHomNay.length > 0
       ? hrefTheoViTri(viTriHomNay).includes("/do-sinh-hieu")
       : isNurseRole(role);
+  // Việc hôm nay đi theo VỊ TRÍ, nhưng màn thuộc lego đang tắt thì không bày
+  // (cùng phép lọc với thanh bên ngày có ca — kiểm toán 27/09/2026).
+  const quyenHomNay = await getQuyenCuaToi();
   const viecHomNay = nhomTheoViTri(viTriHomNay, role, phong).map((g) => ({
     ten: TEN_NHOM[g.nhom],
     muc: g.hrefs
+      .filter((h) => legoChoHien(quyenHomNay, h))
       .map((h) => mucPhong(h, phong))
       .filter((n): n is NonNullable<typeof n> => n !== undefined)
       .map((n) => ({ href: n.href, label: n.label })),
@@ -249,7 +256,6 @@ export default async function HomePage({
             weekAppt={weekAppt}
             weekRoster={weekRoster}
             isReception={isReception}
-            role={role}
           />
         </Suspense>
       </header>
@@ -318,17 +324,19 @@ async function BaOSo({
   weekAppt,
   weekRoster,
   isReception,
-  role,
 }: {
   weekAppt: string;
   weekRoster: string;
   isReception: boolean;
-  role: ClinicRole | null;
 }) {
   const goi = await goiTrangChu(weekAppt, weekRoster);
   // Ô SỐ BẤM ĐƯỢC, CÓ ICON (ảnh Tuyền 16/09/2026). Chỉ gắn đường dẫn khi vai
   // mở được trang đích — một ô trông bấm được mà dẫn tới 403 tệ hơn ô chữ.
-  const toi = (href: string) => (canSeeNav(role, href) ? href : undefined);
+  // Cùng luật cửa trang (`vaoDuocMan` — lego của tài khoản, 27/09/2026): ô
+  // trỏ tới màn thuộc lego đang tắt thì thành ô chữ, không dẫn vào ngõ cụt.
+  const [vaiHomNay, quyen] = await Promise.all([getVaiHomNay(), getQuyenCuaToi()]);
+  const toi = (href: string) =>
+    vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;
   // BA Ô SỐ CỦA LỄ TÂN KHÁC CỦA CSKH (16/09/2026).
   //
   // Hai ô "Việc đang chờ làm" và "Lịch cần xử lý" đếm việc CHĂM SÓC KHÁCH và

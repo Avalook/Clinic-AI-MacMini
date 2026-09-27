@@ -41,9 +41,13 @@ test("vai theo vị trí đứng TRƯỚC vai tài khoản — việc hôm nay q
 });
 
 test("cửa vào trang xét MỌI vai hôm nay, không chỉ một vai", () => {
+  // Màn NGOÀI lego vẫn xét mọi vai hôm nay; màn thuộc lego hỏi lego (27/09).
   const src = readFileSync(join(goc, "lib/clinic-session.ts"), "utf8");
-  const i = src.indexOf("export async function requireNavAccess");
-  assert.match(src.slice(i, i + 600), /vai\.some\(\(r\) => canSeeNav\(r, href\)\)/);
+  const i = src.indexOf("export async function moDuocMan");
+  assert.match(src.slice(i, i + 300), /getVaiHomNay\(\), getQuyenCuaToi\(\)/);
+  const roles = readFileSync(join(goc, "lib/roles.ts"), "utf8");
+  const j = roles.indexOf("export function vaoDuocMan");
+  assert.match(roles.slice(j, j + 600), /vai\.some\(\(r\) => canSeeNav\(r, href\)\)/);
 });
 
 test("trang chủ và bảng việc chọn màn theo VAI CHÍNH hôm nay", () => {

@@ -1,14 +1,12 @@
 // CSKH ghi TAY 1 việc chăm sóc khách (feedback B4) — bổ sung cho phần tự-ghi
 // (xác nhận lịch / khám xong). Bảng cskh_action chỉ có RLS SELECT → ghi qua
-// service-role. Gate = shared session + intake role (CSKH/Lễ tân/Điều dưỡng/QL).
+// service-role. Gate = phiên đăng nhập; quyền do backend quyết.
 //
 //   POST { category, description, status?, patient_code? }
 //     → { ok: true, id }    | 404 nếu patient_code không khớp BN nào.
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { canWriteIntake } from "../../../lib/roles";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 
 interface Body {
@@ -24,10 +22,8 @@ export async function POST(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await vaiLamViec((r) => canWriteIntake(r));
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // Cửa quyền là việc của BACKEND (/cskh/actions) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   let body: Body;
   try {

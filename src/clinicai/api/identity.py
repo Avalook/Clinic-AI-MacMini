@@ -604,20 +604,29 @@ async def get_display_identity(
 
 async def get_partner_identity(
     identity: StaffIdentity = Depends(_resolve_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> StaffIdentity:
-    """Danh tính cho hai đường của ĐỐI TÁC — và chỉ hai đường ấy.
+    """Danh tính cho các đường của ĐỐI TÁC.
 
-    Nhận đúng vai PARTNER, cộng MANAGEMENT để quản lý xem được đối tác đang
-    nhìn thấy gì (không có đường ấy thì không ai kiểm được lời hứa "họ chỉ thấy
-    việc của họ" ngoài cách tự đăng nhập bằng tài khoản đối tác).
+    CỬA = LEGO 21 "Đối tác" (quyền `partner.work`, kiểm toán 27/09/2026) —
+    trước đây hỏi vai PARTNER/MANAGEMENT nên quyền này không lệnh nào kiểm: thu
+    lego chỉ mất mục trên thanh bên. Tài khoản đối tác có lego này từ preset
+    (migration 20260925000015); quản lý có vì preset có mọi khối — và thu lego
+    của ai thì người ấy mất cửa, kể cả quản lý.
 
-    Mọi vai khác bị từ chối ở đây, và vai PARTNER bị từ chối ở mọi nơi khác —
-    hai chiều khoá lẫn nhau.
+    Chiều kia KHÔNG đổi: vai PARTNER vẫn bị `get_current_identity` từ chối ở mọi
+    nơi khác. Đừng đổi dependency ở đây sang `get_current_identity` — nó từ chối
+    đúng vai mà cửa này mở cho (xem `test_vai_man_hinh.py`).
     """
-    if identity.role not in (ClinicRole.PARTNER, ClinicRole.MANAGEMENT):
+    # Nhập muộn: `permissions.can` nhập ngược module này.
+    from clinicai.permissions.can import can
+
+    async with pool.acquire() as conn:
+        co = await can(conn, identity, "partner.work")
+    if not co:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Đường này dành cho tài khoản đối tác",
+            detail="Bạn chưa được cấp quyền “Đối tác”.",
         )
     return identity
 
@@ -942,19 +951,20 @@ def mo_quyen_tam_thoi() -> bool:
     Xoá chúng đi thì lúc phòng khám hết rối, dựng lại là dựng lại từ đầu, và
     lý do đằng sau từng luật đã mất. Để sau một công tắc thì tắt là về như cũ.
 
-    Mặc định BẬT, và đó là một lựa chọn khó chịu có chủ ý: mặc định tắt nghĩa
-    là chỉ cần một biến môi trường rơi rụng lúc chuyển máy là quyền tự siết
-    lại trong im lặng, và triệu chứng sẽ là "tự nhiên thư ký không thấy khách
-    nào" — thứ mất nửa ngày để lần ra. Bù lại, máy chủ KÊU TO lúc khởi động
-    (xem `main.py`) nên không ai quên được là nó đang bật.
+    MẶC ĐỊNH TẮT — HỎNG THÌ ĐÓNG (kiểm toán 27/09/2026, Tuyền: "xử lý đi,
+    đừng để vậy"). Trước đó mặc định BẬT với lý do "biến rơi rụng thì quyền tự
+    siết lại trong im lặng". Nhưng từ 26/09 quyền đã đi theo LEGO của tài khoản
+    (không còn phụ thuộc lịch), prod đặt `MO_QUYEN_TAM_THOI=0` và mô phỏng xanh
+    — lý do ấy hết đúng, còn chiều ngược lại (biến rơi rụng là cả hệ tự MỞ quyền
+    trong im lặng) thì nguy hiểm hơn. Chỉ đúng "1" / "true" / "yes" mới bật; máy
+    chủ vẫn KÊU TO lúc khởi động khi bật (xem `main.py`).
 
-    Tắt: đặt `MO_QUYEN_TAM_THOI=0` trong `.env.prod` rồi dựng lại container.
+    Bật lại: đặt `MO_QUYEN_TAM_THOI=1` trong `.env.prod` rồi dựng lại container.
     """
-    return os.environ.get("MO_QUYEN_TAM_THOI", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
-        "",
+    return os.environ.get("MO_QUYEN_TAM_THOI", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
     )
 
 

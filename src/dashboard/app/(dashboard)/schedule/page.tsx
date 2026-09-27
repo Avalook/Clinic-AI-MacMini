@@ -8,7 +8,12 @@
 
 import Link from "next/link";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { getViTriHomNay, vaiLamViec } from "../../../lib/clinic-session";
+import {
+  getQuyenCuaToi,
+  getViTriHomNay,
+  requireNavAccess,
+  vaiLamViec,
+} from "../../../lib/clinic-session";
 import { isAdminRole, departmentToRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
@@ -44,18 +49,24 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ week?: string }>;
 }) {
+  // Lego 15 "Lịch làm việc" (27/09/2026). Trước đây trang KHÔNG gác gì — thu
+  // lego chỉ mất mục trên thanh bên, gõ URL vẫn vào.
+  await requireNavAccess("/schedule");
   const { week: rawWeek } = await searchParams;
   // `?week=` là thứ người dùng gõ được. Ngày không đọc được thì rơi về tuần hiện
   // tại — trang vẫn mở. Trước đây nó ném RangeError và cả trang không vào được.
   const week = (rawWeek ? weekStartOf(rawWeek) : null) ?? currentWeekStartVn();
   const dates = weekDates(week);
 
-  const role = await vaiLamViec(isAdminRole);
-  // CHỈ QUẢN LÝ. Trước đây chỗ này dùng isOpsAdmin (gồm cả Trưởng ca) trong khi
-  // đường ghi ở API chỉ nhận Quản lý — nên Trưởng ca bấm "Sửa lịch", xếp cho
-  // người khác, và dòng ghi rơi vào PENDING cho CHÍNH họ, không hiện lại, KHÔNG
-  // BÁO LỖI. Một nút bấm được nhưng không làm gì tệ hơn một nút không có.
-  const isAdmin = isAdminRole(role);
+  // NGƯỜI XẾP LỊCH = có lego 18 "Cài đặt phòng khám" (quyền
+  // `config.clinic.manage`) — ĐÚNG câu backend hỏi (`RosterService._xep_lich`),
+  // không phải vai Quản lý (kiểm toán 27/09/2026). Nút bấm được mà backend từ
+  // chối tệ hơn không có nút. Máy chủ chưa trả lời quyền → rơi về vai như cũ.
+  const quyen = await getQuyenCuaToi();
+  const isAdmin =
+    quyen !== null
+      ? quyen.includes("config.clinic.manage")
+      : isAdminRole(await vaiLamViec(isAdminRole));
 
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.

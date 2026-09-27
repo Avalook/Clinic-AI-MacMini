@@ -5,19 +5,13 @@
 //   POST   { week_start, work_date, … }  → thêm 1 ô
 //   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
 //   DELETE { id }                        → xoá 1 ô
-// Quản lý: xếp cho BẤT KỲ ai. Nhân sự khác (bác sĩ/lễ tân/điều dưỡng): chỉ TỰ
-// đăng ký / xoá ca CỦA MÌNH (staff_id ép = chính mình) — feedback C4.
-// Ghi qua service-role (work_roster chỉ có RLS SELECT, write phải bypass bằng key).
+// Người xếp lịch (quyền config.clinic.manage): xếp cho BẤT KỲ ai. Người khác:
+// chỉ TỰ đăng ký / xoá ca CỦA MÌNH — backend ép (RosterService), route chỉ
+// chuyển tiếp (kiểm toán 27/09/2026: bỏ cửa vai ở đây).
 
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
-import {
-  getClinicStaffId,
-  getActiveStaff,
-  getVaiHomNay,
-} from "../../../lib/clinic-session";
-import { isAdminRole } from "../../../lib/roles";
 // MỘT HÀM, KHÔNG PHẢI HAI. Chỗ này từng có bản `weekStartOf` riêng, đã được vá
 // đúng (trả `null` khi ngày sai) hồi `/api/roster?date=99-99-9999` trả 500. Nhưng
 // `lib/roster.ts` có một hàm CÙNG TÊN chưa vá, và đó là bản mà trang chủ và trang
@@ -27,15 +21,13 @@ import { isAdminRole } from "../../../lib/roles";
 import { SHIFTS, weekStartOf } from "../../../lib/roster";
 
 
-type Auth =
-  | {
-      ok: true;
-      isAdmin: boolean;
-      staffId: string | null;
-      staffName: string;
-    }
-  | { ok: false; res: NextResponse };
+type Auth = { ok: true } | { ok: false; res: NextResponse };
 
+// CHỈ KIỂM "ĐÃ ĐĂNG NHẬP" (kiểm toán 27/09/2026). Ai được xếp lịch cho người
+// khác, chốt tuần, duyệt ca là việc của BACKEND: `/roster/*` gác bằng quyền
+// `config.clinic.manage` (lego 18) và `RosterService._xep_lich` quyết ai được
+// ghi tên người khác. Trước đây route này tự gác bằng VAI Quản lý — cấp lego Cài
+// đặt cho người khác vai thì backend cho mà route chặn.
 async function authorize(): Promise<Auth> {
   const caller = await getSupabaseServer();
   const {
@@ -44,20 +36,7 @@ async function authorize(): Promise<Auth> {
   if (!user) {
     return { ok: false, res: NextResponse.json({ error: "Unauthorised" }, { status: 401 }) };
   }
-  // Quyền "duyệt + tự duyệt + xếp cho người khác" CHỈ thuộc Quản lý hệ thống
-  // (MANAGEMENT). Trưởng ca dưới quản lý → đăng ký ca như nhân viên (PENDING).
-  const isAdmin = (await getVaiHomNay()).some((r) => isAdminRole(r));
-  const staffId = await getClinicStaffId();
-  const staff = await getActiveStaff();
-  const staffName = staff?.full_name ?? staff?.short_name ?? "";
-  // Không phải quản lý mà chưa chọn danh tính → không tự đăng ký ca được.
-  if (!isAdmin && !staffId) {
-    return {
-      ok: false,
-      res: NextResponse.json({ error: "Chưa chọn danh tính nhân viên." }, { status: 403 }),
-    };
-  }
-  return { ok: true, isAdmin, staffId, staffName };
+  return { ok: true };
 }
 
 // Bác sĩ TRỰC CA của một ngày — nuôi sơ đồ đặt chỗ (chỉ hiện bác sĩ trực hôm đó).
@@ -179,14 +158,9 @@ export async function POST(request: Request) {
   }
 
   // Chốt cả tuần — việc khác hẳn với thêm một ô, nên tách nhánh ngay đầu.
+  // Chỉ người có lego Cài đặt chốt được: backend quyết (config.clinic.manage).
   const apply_week = (body.apply_week ?? "").trim();
   if (apply_week) {
-    if (!auth.isAdmin) {
-      return NextResponse.json(
-        { error: "Chỉ quản lý mới áp dụng được lịch trực." },
-        { status: 403 },
-      );
-    }
     return proxyJsonToBackend("POST", "/api/v1/roster/weeks/apply", {
       week_start: apply_week,
     });
@@ -203,22 +177,15 @@ export async function POST(request: Request) {
     ? (body.shift as string)
     : "FULL";
 
-  // Quản lý XẾP CHO NGƯỜI KHÁC khi gửi kèm staff_id (qua /schedule/edit). Mọi
-  // trường hợp còn lại — gồm Quản lý TỰ đăng ký trên bảng (không gửi staff_id) —
-  // ép staff_id/name = chính người gọi. Nhờ vậy bảng đăng ký không cần gửi tên.
-  const assignOther = auth.isAdmin && !!body.staff_id;
-  const staff_id = assignOther ? body.staff_id || null : auth.staffId;
-  const staff_name = assignOther
-    ? (body.staff_name ?? "").trim()
-    : auth.staffName;
-
-  // TÊN không còn nằm trong danh sách bắt buộc: từ 20260809000002 backend đọc
-  // tên và chức danh THẲNG TỪ DATABASE theo staff_id, và bỏ qua chuỗi client
-  // gửi lên. Bắt buộc nó ở đây chỉ tạo ra một lỗi 400 cho một trường không ai
-  // dùng nữa.
-  if (!week_start || !work_date || !station || (assignOther ? !staff_id : !staff_name)) {
+  // XẾP CHO NGƯỜI KHÁC khi gửi kèm staff_id (bảng đăng ký của người xếp lịch).
+  // Không gửi staff_id = tự đăng ký cho chính mình. Được ghi tên người khác hay
+  // không là việc của `RosterService.add_shift`: người không xếp lịch được thì
+  // backend BỎ QUA staff_id và ghi cho chính người gọi — nên chuyển nguyên văn.
+  // Tên và chức danh backend đọc thẳng từ database theo staff_id (20260809000002).
+  const staff_id = (body.staff_id ?? "").trim() || null;
+  if (!week_start || !work_date || !station) {
     return NextResponse.json(
-      { error: "Thiếu tuần / ngày / vị trí / nhân viên." },
+      { error: "Thiếu tuần / ngày / vị trí." },
       { status: 400 },
     );
   }
@@ -230,8 +197,8 @@ export async function POST(request: Request) {
     work_date,
     station,
     shift,
-    staff_id: assignOther ? staff_id : null,
-    staff_name: assignOther ? staff_name : null,
+    staff_id,
+    staff_name: staff_id ? (body.staff_name ?? "").trim() || null : null,
     sort: body.sort ?? 0,
   });
 }
@@ -240,14 +207,9 @@ export async function POST(request: Request) {
 //  - approve → status = APPROVED (hiện lên lịch chung).
 //  - reject  → status = REJECTED (ẩn khỏi lịch chung, lưu lại để đối chiếu).
 export async function PATCH(request: Request) {
+  // Duyệt ca: backend gác bằng quyền `config.clinic.manage` (lego 18).
   const auth = await authorize();
   if (!auth.ok) return auth.res;
-  if (!auth.isAdmin) {
-    return NextResponse.json(
-      { error: "Chỉ quản lý được duyệt ca." },
-      { status: 403 },
-    );
-  }
 
   let body: { id?: string; action?: string; reason?: string };
   try {

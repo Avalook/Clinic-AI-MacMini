@@ -1,6 +1,6 @@
 // CSKH / Lễ tân patient intake. RLS on `patient` only has a SELECT policy, so
 // authenticated INSERTs are denied — we write with the service-role client.
-// Access control = shared session + an intake role cookie (CSKH/RECEPTION/MGMT).
+// Access control = phiên đăng nhập ở đây; quyền do FastAPI quyết (27/09/2026).
 //
 //   POST { full_name, date_of_birth?, phone_primary?, phone_secondary?,
 //          national_id_number?, location_id, force? }
@@ -10,8 +10,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../lib/clinic-session";
-import { canWriteIntake, canEditPatient } from "../../../lib/roles";
 import {
   PHONE_RE,
   CCCD_RE,
@@ -63,16 +61,14 @@ function nn(v: string | undefined): string | null {
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
 export async function POST(request: Request) {
-  // Must hold the shared session AND an intake role.
+  // Phiên đăng nhập ở đây; QUYỀN tạo hồ sơ backend quyết (cua_quyen
+  // patient.create / booking.create / crm.manage — lego 11). Cửa vai
+  // canWriteIntake cũ chặn người đã được cấp lego (kiểm toán 27/09/2026).
   const caller = await getSupabaseServer();
   const {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await vaiLamViec(canWriteIntake);
-  if (!canWriteIntake(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   let body: Body;
   try {
@@ -239,12 +235,8 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const role = await vaiLamViec(canEditPatient);
-  // SỬA hồ sơ hành chính: intake (CSKH/Lễ tân/QL/ĐD) + BÁC SĨ. (Tạo mới = POST
-  // vẫn chỉ canWriteIntake — bác sĩ không tạo BN, chỉ sửa.)
-  if (!canEditPatient(role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  // SỬA hồ sơ hành chính: backend quyết ai sửa được (`_PATIENT_EDIT_GUARD`) —
+  // proxy chỉ kiểm đăng nhập (kiểm toán 27/09/2026).
 
   let body: PatchBody;
   try {

@@ -2,12 +2,8 @@
 // Trang riêng vì /settings (nhân viên + tài khoản) chỉ dành cho MANAGEMENT;
 // Trưởng ca được sửa luật đặt lịch nhưng KHÔNG được tạo user.
 
-// Nhập hàm redirect từ Next.js để chuyển hướng
-import { redirect } from "next/navigation";
 // Vai làm việc hôm nay (xét mọi vai, gồm vai tài khoản)
-import { vaiLamViec } from "../../../../lib/clinic-session";
-// Nhập hàm isOpsAdmin để kiểm tra quyền quản trị vận hành
-import { isOpsAdmin } from "../../../../lib/roles";
+import { requireNavAccess } from "../../../../lib/clinic-session";
 // Nhập các hàm lấy luật đặt lịch và danh sách luật
 import {
   getBookingPolicy, // Hàm lấy luật đặt lịch hiện tại
@@ -34,10 +30,10 @@ export const dynamic = "force-dynamic";
 
 // Component chính của trang luật đặt lịch (server component)
 export default async function BookingPolicyPage() {
-  // Lấy vai trò phòng khám của người dùng
-  const role = await vaiLamViec(isOpsAdmin);
-  // Nếu không phải Trưởng ca hoặc Quản lý thì chuyển hướng về trang chủ
-  if (!isOpsAdmin(role)) redirect("/home");
+  // Lego 18 "Cài đặt phòng khám" (27/09/2026) — trước gác vai isOpsAdmin nên
+  // trưởng ca có lego Cài đặt TẮT vẫn vào được (backend đã đòi
+  // config.clinic.manage: màn mở ra mà lưu gì cũng 403).
+  await requireNavAccess("/settings/booking-policy");
 
   // Chạy song song các truy vấn để tối ưu hiệu năng
   const [bookingPolicy, staffRes, rules, durationRes, svcRes, luatRes] =

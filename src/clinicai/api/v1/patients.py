@@ -114,7 +114,9 @@ async def check_duplicate(
     phone: str | None = None,
     full_name: str | None = None,
     birth_year: int | None = Query(default=None, ge=1900, le=2100),
-    identity: StaffIdentity = Depends(get_current_identity),
+    # CÙNG CỬA với tạo hồ sơ (27/09/2026): trước chỉ cần đăng nhập, và cửa vai
+    # nằm ở proxy Next. Proxy nay chỉ kiểm đăng nhập — quyền ở đây.
+    identity: StaffIdentity = Depends(_TAO_BENH_NHAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Cảnh báo SỚM hồ sơ có thể trùng — CÙNG MỘT LUẬT với lúc lưu.

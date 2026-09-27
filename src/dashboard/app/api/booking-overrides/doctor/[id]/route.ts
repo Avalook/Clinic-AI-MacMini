@@ -2,8 +2,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../../lib/clinic-session";
-import { isOpsAdmin } from "../../../../../lib/roles";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
 
 export async function DELETE(
@@ -16,13 +14,8 @@ export async function DELETE(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const role = await vaiLamViec((r) => isOpsAdmin(r));
-  if (!isOpsAdmin(role)) {
-    return NextResponse.json(
-      { error: "Chỉ Trưởng ca / Quản lý mới được sửa luật đặt lịch." },
-      { status: 403 },
-    );
-  }
+  // Cửa quyền là việc của BACKEND (config.clinic.manage — lego Cài đặt) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   const { id } = await params;
   return proxyJsonToBackend(

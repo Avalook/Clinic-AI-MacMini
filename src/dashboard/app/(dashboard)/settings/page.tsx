@@ -6,11 +6,9 @@
 // chung thì người đi đổi luật đặt lịch phải cuộn qua danh sách nhân viên, và
 // người đi đặt lại mật khẩu phải cuộn qua các thẻ cấu hình.
 
-import { redirect } from "next/navigation";
 
-import { getViTriHomNay, vaiLamViec } from "../../../lib/clinic-session";
+import { getViTriHomNay, requireNavAccess } from "../../../lib/clinic-session";
 import { viTriTuDb } from "../../../lib/roster";
-import { isAdminRole } from "../../../lib/roles";
 import { getBookingPolicy } from "../../../lib/booking-policy";
 import { getFeatureMode } from "../../../lib/feature-mode";
 import BookingPolicyCard from "./BookingPolicyCard";
@@ -21,8 +19,8 @@ import { fetchFromBackend } from "../../../lib/backend-proxy";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const role = await vaiLamViec(isAdminRole);
-  if (!isAdminRole(role)) redirect("/home");
+  // Lego 18 "Cài đặt phòng khám" (27/09/2026) — trước gác vai Quản lý.
+  await requireNavAccess("/settings");
 
   const bookingPolicy = await getBookingPolicy();
   const featureMode = await getFeatureMode();

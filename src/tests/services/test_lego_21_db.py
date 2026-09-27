@@ -180,3 +180,49 @@ async def test_thu_lego_nhan_su_la_mat_quyen_tai_khoan(
     await svc.doi_lego(staff_id=x.staff_id, ma="nhan_su", bat=False, identity=quan_ly)
     with pytest.raises(SafetyGateError):
         await cua(identity=x, pool=pool)
+
+
+# ── Ba lego từng "chỉ là nhãn" (kiểm toán 27/09/2026) ──────────────────────
+
+
+@pytest.mark.parametrize("vai", ["PARTNER", "RECEPTION"])
+async def test_lego_doi_tac_la_cua_that(
+    pool: asyncpg.Pool,  # noqa: F811
+    quan_ly: StaffIdentity,  # noqa: F811
+    vai: str,
+) -> None:
+    """`partner.work` nay là cửa của đường đối tác: không lego thì 403 — kể cả
+    tài khoản đối tác; bật lego thì vào, bất kể vai; thu lại thì mất ngay."""
+    from fastapi import HTTPException
+
+    from clinicai.api.identity import get_partner_identity
+
+    async with pool.acquire() as conn:
+        x = await _nguoi(conn, vai)
+    with pytest.raises(HTTPException) as loi:
+        await get_partner_identity(identity=x, pool=pool)
+    assert loi.value.status_code == 403
+    svc = PermissionService(pool)
+    await svc.doi_lego(staff_id=x.staff_id, ma="doi_tac", bat=True, identity=quan_ly)
+    assert await get_partner_identity(identity=x, pool=pool) is x
+    await svc.doi_lego(staff_id=x.staff_id, ma="doi_tac", bat=False, identity=quan_ly)
+    with pytest.raises(HTTPException):
+        await get_partner_identity(identity=x, pool=pool)
+
+
+async def test_lego_lich_lam_viec_la_cua_doc_lich(
+    pool: asyncpg.Pool,  # noqa: F811
+    quan_ly: StaffIdentity,  # noqa: F811
+) -> None:
+    """`roster.view` gác màn Lịch làm việc (trước chỉ cần đăng nhập)."""
+    from clinicai.api.v1.routers.config import _ROSTER_READ_GUARD
+
+    async with pool.acquire() as conn:
+        x = await _nguoi(conn, "CSKH")
+    with pytest.raises(SafetyGateError):
+        await _ROSTER_READ_GUARD(identity=x, pool=pool)
+    svc = PermissionService(pool)
+    await svc.doi_lego(
+        staff_id=x.staff_id, ma="lich_lam_viec", bat=True, identity=quan_ly
+    )
+    assert await _ROSTER_READ_GUARD(identity=x, pool=pool) is x
