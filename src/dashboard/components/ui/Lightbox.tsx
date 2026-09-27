@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Hộp xem tệp toàn màn hình — ảnh, video, PDF, tài liệu (lát 5, 26/09/2026).
+ * Hộp xem tệp — ảnh, video, PDF, tài liệu (lát 5, 26/09/2026). Từ 27/09 là HỘP
+ * GIỮA MÀN bo 16 (DESIGN.md §4 `r-modal`), không còn phủ kín màn rộng.
  *
  * Bản giao diện mẫu Tuyền duyệt: lật trước/sau (nút + phím ←/→), lưới, dải ảnh
  * nhỏ, Tải về, Tải tất cả, PDF xem trong khung; ở phiếu khám thì CHIA ĐÔI —
@@ -17,7 +18,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, FileText, X } from "lucide-react";
 
-import { buttonClass } from "./Button";
+/** Nút trên nền tối của hộp (bản mẫu `.lb-b`): nền trắng 10%, chữ trắng, cao
+ *  32 bo 8 — cỡ `md` của thang nút; nút sáng của `Button` chói trên nền tối. */
+const NUT =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-control bg-surface/10 px-3 " +
+  "text-meta font-medium text-white transition-colors duration-100 hover:bg-surface/20 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400";
 
 export interface TepXem {
   id: string;
@@ -218,50 +224,64 @@ export default function Lightbox({
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={tieuDe} className="fixed inset-0 z-50 flex flex-col bg-ink p-3 sm:p-4">
-      <div className="flex flex-wrap items-center gap-2 pb-3">
-        {/* Điện thoại: tiêu đề một dòng riêng, không bị cụm nút ép còn "Ản…". */}
-        <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
-          <p className="truncate text-emph font-semibold text-white">{tieuDe}</p>
-          {phuDe || n ? (
-            <p className="truncate text-meta text-white/70">
-              {[phuDe, n ? `${n} tệp` : null].filter(Boolean).join(" · ")}
-            </p>
-          ) : null}
-        </div>
-        {trai !== undefined ? (
-          <button type="button" onClick={() => setHienTrai((x) => !x)} className={buttonClass("secondary", "sm")}>
-            {hienTrai ? "Chỉ xem ảnh" : "Hiện kết quả"}
-          </button>
-        ) : null}
-        {n > 1 ? (
-          <button type="button" onClick={() => setLuoi((x) => !x)} className={buttonClass("secondary", "sm")}>
-            {luoi ? "Xem từng tấm" : `Lưới (${n})`}
-          </button>
-        ) : null}
-        {t && !luoi && t.taiVe ? (
-          <a href={t.taiVe} rel="noopener" className={buttonClass("secondary", "sm")}>
-            Tải về
-          </a>
-        ) : null}
-        {n > 1 ? (
-          <button type="button" onClick={() => taiTep(tep)} className={buttonClass("secondary", "sm")}>
-            Tải tất cả
-          </button>
-        ) : null}
-        <button ref={nutDong} type="button" onClick={onDong} className={buttonClass("secondary", "sm")}>
-          <X className="size-4" aria-hidden /> Đóng
-        </button>
-      </div>
+    // HỘP GIỮA MÀN bo 16 (27/09/2026, Y HỆT bản mẫu `.lb`): màn rộng thấy trang
+    // phía sau qua lớp phủ tối, bấm lớp phủ là đóng; điện thoại (<640) hộp phủ
+    // gần kín màn, không bo — chỗ nào cũng dành cho ảnh.
+    <div role="dialog" aria-modal="true" aria-label={tieuDe} className="fixed inset-0 z-50 flex items-center justify-center sm:p-6">
+      <div aria-hidden className="absolute inset-0 bg-ink/80" onClick={onDong} />
       <div
-        className={`grid min-h-0 flex-1 grid-cols-1 gap-3 ${
-          chia ? "grid-rows-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-1" : ""
+        className={`relative flex h-full w-full flex-col overflow-hidden bg-ink text-white shadow-panel sm:max-h-208 sm:rounded-2xl ${
+          chia ? "sm:max-w-330" : "sm:max-w-275"
         }`}
       >
-        {chia ? (
-          <aside className="min-h-0 min-w-0 overflow-y-auto rounded-card bg-surface p-3 text-body text-ink">{trai}</aside>
-        ) : null}
-        <div className="min-h-0 min-w-0">{xem}</div>
+        <div className="flex flex-wrap items-center gap-2 border-b border-surface/10 px-4 py-3">
+          {/* Điện thoại: tiêu đề một dòng riêng, không bị cụm nút ép còn "Ản…". */}
+          <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+            <p className="truncate text-emph font-semibold">
+              {tieuDe}
+              {phuDe || n ? (
+                <span className="ml-2 text-meta font-normal text-white/70">
+                  {[phuDe, n ? `${n} tệp` : null].filter(Boolean).join(" · ")}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {trai !== undefined ? (
+              <button type="button" onClick={() => setHienTrai((x) => !x)} className={NUT}>
+                {hienTrai ? "Chỉ xem ảnh" : "Hiện kết quả"}
+              </button>
+            ) : null}
+            {n > 1 ? (
+              <button type="button" onClick={() => setLuoi((x) => !x)} className={NUT}>
+                {luoi ? "Xem từng tấm" : `Lưới (${n})`}
+              </button>
+            ) : null}
+            {t && !luoi && t.taiVe ? (
+              <a href={t.taiVe} rel="noopener" className={NUT}>
+                Tải về
+              </a>
+            ) : null}
+            {n > 1 ? (
+              <button type="button" onClick={() => taiTep(tep)} className={NUT}>
+                Tải tất cả
+              </button>
+            ) : null}
+            <button ref={nutDong} type="button" onClick={onDong} aria-label="Đóng" className={`${NUT} w-8 justify-center px-0`}>
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+        <div
+          className={`grid min-h-0 flex-1 grid-cols-1 ${
+            chia ? "grid-rows-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:grid-rows-1" : ""
+          }`}
+        >
+          {chia ? (
+            <aside className="min-h-0 min-w-0 overflow-y-auto bg-surface p-4 text-body text-ink">{trai}</aside>
+          ) : null}
+          <div className="min-h-0 min-w-0 p-3 sm:p-4">{xem}</div>
+        </div>
       </div>
     </div>
   );
