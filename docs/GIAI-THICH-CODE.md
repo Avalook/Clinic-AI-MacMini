@@ -754,7 +754,7 @@ trả về **con số**, không tên, không số điện thoại.
 ├── docs/SO-LUAT.md        ★ SỔ LUẬT — mọi luật của hệ thống, kèm ngưỡng để lật lại
 ├── README.md              Chạy thử trong 1 lệnh + tài khoản mẫu
 ├── DESIGN.md              "Hiến pháp giao diện" — thang kích thước/màu/bo góc (15/08)
-├── AGENTS.md · HANDOFF.md · CHANGELOG.md
+├── AGENTS.md · CHANGELOG.md
 │
 ├── docker-compose.yml           10 service của ứng dụng (xem Phần 3)
 ├── docker-compose.supabase.yml  Supabase TỰ DỰNG: db · auth · rest · realtime · gateway
@@ -809,11 +809,11 @@ trả về **con số**, không tên, không số điện thoại.
 │  ├── backup-db.sh · restore-db.sh · restore-drill.sh · verify-backup.sh
 │  ├── tests/              ★ tenant-scope-audit.py (cổng CI ngưỡng 0) ·
 │  │                          test-infra-safety.sh · e2e-*.sh · do-*.py (đo độ trễ)
-│  └── systemd/ · launchdaemons/ · scheduler/ · maintenance/
+│  └── systemd/ · launchdaemons/ · maintenance/
 │
 ├── monitoring/monitors.json  cấu hình Uptime Kuma dạng file (gắn read-only vào container)
 ├── docs/
-│  ├── SO-LUAT.md · DANG-LAM.md · spec-clinic.md · OPS-RUNBOOK.md
+│  ├── SO-LUAT.md · DANG-LAM.md · OPS-RUNBOOK.md · legacy/ (tài liệu thời hạ tầng cũ)
 │  ├── ClinicAI-Tong-Quan-He-Thong.md   tổng quan theo vai (⚠️ có phần đã cũ)
 │  ├── adr/                ★ 13 quyết định kiến trúc — xem 2.3
 │  ├── database/ERD.md · design/ · forms/

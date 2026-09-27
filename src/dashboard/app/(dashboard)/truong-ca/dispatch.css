@@ -1,6 +1,6 @@
 /* Giao diện điều phối — CSS ĐÓNG GÓI TRONG MỘT PHẠM VI.
  *
- * Prototype (src/truong-ca-prototype) khai token ở `:root` và style cả thẻ trần
+ * Prototype (src/truong-ca-prototype, đã gỡ 27/09/2026 — còn trong lịch sử git) khai token ở `:root` và style cả thẻ trần
  * (`table`, `input`, `body`). Dán thẳng vào dashboard thì nó viết đè lên mọi màn
  * hình khác — một bảng ở màn thu ngân bỗng đổi viền vì ai đó mở màn điều phối.
  *

@@ -1,128 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dashboard ClinicAI (Next.js)
 
-## Getting Started
+Giao diện của ClinicAI. **Chỉ là giao diện**: mọi luật nghiệp vụ nằm ở FastAPI
+(`src/clinicai`) hoặc SQL. Route trong `app/api/*` chỉ chuyển tiếp sang FastAPI;
+dashboard chỉ nói chuyện thẳng với Supabase (bộ **tự dựng**, không phải cloud) cho
+đăng nhập và tin thời gian thực. Luật chung: `CLAUDE.md` và `DESIGN.md` ở gốc repo.
 
-First, run the development server:
+Next.js ở đây là bản mới có thay đổi phá vỡ — đọc `AGENTS.md` trong thư mục này
+trước khi viết code. Không có `middleware.ts`: cổng đăng nhập ở `proxy.ts`.
+
+## Chạy trên máy dev
+
+Cách chuẩn là dựng cả stack từ gốc repo: `scripts/dev-up.sh` (Supabase tự dựng +
+api + dashboard, tự kiểm, in tài khoản thử). Chỉ sửa giao diện thì:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev                                   # http://localhost:3000
+./node_modules/.bin/tsc --noEmit
+npm run lint -- --max-warnings=0
+npm run test:boundary                         # các bài kiểm ranh giới (tests/*boundary.test.mts)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Dùng công cụ trong `node_modules/.bin`, **không** `npx` gói ngoài dự án.
+Build image prod: `Dockerfile.dashboard`, gọi qua `docker compose` trong
+`scripts/deploy-backend.sh` trên VPS — không có Vercel.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Biến môi trường
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
----
-
-# Quản lý tài khoản đăng nhập (Account Management)
-
-Dashboard tự quản lý đăng nhập/đăng ký tài khoản **ngay trong app**, dựa trên
-**Supabase Auth** (KHÔNG thay thế bằng auth tự viết — RLS các bảng PII đang dựa
-trên `auth.uid()` của Supabase). Mỗi tài khoản login = 1 Supabase Auth user, link
-1-1 với 1 dòng `staff` qua cột `staff.auth_user_id`.
-
-## Phân quyền
-
-| Vai trò (`staff.primary_department`) | Thấy gì |
-|---|---|
-| `MANAGEMENT` (Quản lý) | Toàn bộ + **Cài đặt** + **Báo cáo**. Chỉ vai trò này tạo/sửa tài khoản. |
-| `DOCTOR` / `ULTRASOUND_DOCTOR` | Landing `/appointments?scope=me` (lịch của mình) |
-| `CSKH` | Landing `/tasks` |
-| Khác | Landing `/home` |
-
-Cổng auth ở `proxy.ts` (Next 16 — **không** có `middleware.ts`). Vào `(dashboard)/*`
-mà chưa đăng nhập → redirect `/login`. Đăng nhập rồi → `proxy.ts` điều hướng theo
-vai trò. Map user → staff → vai trò ở `lib/current-staff.ts`.
-
-## Cấu hình bắt buộc (1 lần)
-
-### 1. Biến môi trường
-
-`src/dashboard/.env.local`:
+`src/dashboard/.env.local` (máy dev; `scripts/dev-up.sh` tự điền):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_URL=<địa chỉ gateway Supabase tự dựng mà TRÌNH DUYỆT gọi>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-# Bắt buộc để tạo/sửa tài khoản trong app (F3). KHÔNG có prefix NEXT_PUBLIC_
-# (server-only — KHÔNG bao giờ lọt ra client). Lấy từ:
-# Supabase console → Settings → API → Project API keys → service_role (secret).
+# Chỉ phía máy chủ, KHÔNG có prefix NEXT_PUBLIC_. Cần cho /api/admin/users.
 SUPABASE_SERVICE_ROLE_KEY=<service_role key>
 ```
 
-> ⚠️ `SUPABASE_SERVICE_ROLE_KEY` đặt ở **đây** (env của dashboard), KHÔNG phải `.env`
-> gốc (đó là env của backend Python). Thiếu key → `/api/admin/users` trả 503 và
-> trang `/settings/new-user` hiện cảnh báo vàng.
-> Đổi `.env.local` phải **restart `npm run dev`** mới nạp.
+Khoá do `scripts/sinh-khoa-supabase.py` sinh. Trên prod, giá trị nằm trong
+`.env.prod` ở VPS và được truyền lúc build (xem `docker-compose.yml`, service
+`dashboard`). Thiếu `SUPABASE_SERVICE_ROLE_KEY` → `/api/admin/users` trả 503.
 
-### 2. Bootstrap admin đầu tiên (con-gà-quả-trứng)
+## Quyền và điều hướng
 
-Seed staff từ Notion sinh **0 dòng `MANAGEMENT`** → ban đầu chưa ai vào được khu
-admin. Admin **đầu tiên** phải tạo qua console + CLI; sau đó mọi tài khoản khác
-tạo được ngay trong dashboard.
+Quyền theo **lego** (21 khối theo node thanh bên, gán theo tài khoản) — danh mục ở
+`src/clinicai/permissions/catalogue.py`, màn `/phan-quyen`. Route nào là màn chuẩn,
+mọi lối vào của một chức năng: `docs/SITEMAP.md`. Map user → staff ở
+`lib/current-staff.ts`.
 
-```bash
-# (a) Tạo dòng staff MANAGEMENT "Quản trị hệ thống" (idempotent):
-#     apply seed src/migrations/seed/008_management_admin.sql
-#     (giống cách apply các seed 005/006/007)
+## Tài khoản đăng nhập
 
-# (b) Supabase console → Authentication → Users → Add user
-#     → nhập email + mật khẩu, tick "Auto-confirm" → copy UUID.
+Mỗi tài khoản = 1 user GoTrue (Supabase tự dựng), gắn 1-1 với một dòng `staff`
+qua `staff.auth_user_id`. Không có đăng ký công khai.
 
-# (c) Link UUID vào dòng staff vừa tạo (chạy ở repo root):
-poetry run python scripts/seed/link_staff_to_auth.py --map "Quản trị hệ thống=<uuid>"
-```
+- **Cấp hàng loạt cho nhân sự:** `scripts/provision-staff-logins.sh` (mời qua
+  email, người dùng tự đặt mật khẩu) hoặc `scripts/tao-tai-khoan-nhan-su.py`.
+- **Trong app** (`/settings`, `/settings/new-user`): tạo tài khoản, đặt lại mật
+  khẩu, gỡ tài khoản (giữ dòng staff).
+- **Tự phục vụ:** `/forgot-password` → email → `/reset-password`.
 
-> Muốn dùng chính bạn làm admin thay vì dòng generic, bỏ qua (a) và promote 1
-> staff sẵn có: `UPDATE staff SET primary_department='MANAGEMENT' WHERE full_name='<tên>';`
-> rồi link UUID vào dòng đó.
+### API nội bộ — `POST|PATCH /api/admin/users`
 
-Restart dashboard → login bằng admin đó → menu **Cài đặt** xuất hiện.
-
-## Dùng hằng ngày (admin) — tại `/settings`
-
-- **Bảng nhân viên**: vai trò, hợp đồng, active, trạng thái login (🟢 đã link / 🟡 chưa).
-- **+ Thêm tài khoản** (`/settings/new-user`): chọn NV chưa link → nhập email +
-  mật khẩu tạm → tạo Auth user (auto-confirm) + link. NV tự đổi mật khẩu sau
-  (link "Quên mật khẩu?" ở trang login).
-- **Mỗi dòng đã link** có nút:
-  - **Đặt lại mật khẩu** — đặt mật khẩu mới (≥ 8 ký tự) cho NV.
-  - **Gỡ tài khoản** — xoá hẳn Auth user (thu hồi đăng nhập), **giữ** dòng staff
-    → tạo lại login sau được. Cần xác nhận 2 bước.
-
-NV tự phục vụ: **Quên mật khẩu** (`/forgot-password` → email → `/reset-password`).
-Phòng khám **không** mở đăng ký công khai — tài khoản chỉ do admin tạo.
-
-## API nội bộ — `POST|PATCH /api/admin/users`
-
-Mọi method đều kiểm tra caller là `MANAGEMENT`, dùng service-role client server-side.
+Kiểm quyền `account.manage` (lego), dùng service-role client phía máy chủ — đây
+là một trong 2 file được phép giữ khoá service-role (`tests/service-role-boundary.test.mts`).
 
 | Method | Body | Tác dụng |
 |---|---|---|
-| `POST` | `{ email, password, staffId }` | Tạo Auth user + link staff (báo lỗi nếu staff đã link) |
+| `GET` | — | `{ emails: { staffId: email } }` |
+| `POST` | `{ email, password, staffId }` | Tạo user + gắn staff (báo lỗi nếu staff đã gắn) |
 | `PATCH` | `{ staffId, action: "reset_password", password }` | Đặt lại mật khẩu |
-| `PATCH` | `{ staffId, action: "unlink" }` | Null FK + xoá Auth user (giữ staff) |
+| `PATCH` | `{ staffId, action: "change_email", email }` | Đổi tên đăng nhập |
+| `PATCH` | `{ staffId, action: "unlink" }` | Bỏ gắn + xoá user (giữ staff) |
 
-Lỗi: `401` chưa đăng nhập · `403` không phải MANAGEMENT · `503` thiếu service key.
+Nguồn sự thật là chú thích đầu `app/api/admin/users/route.ts`.
+
+Lỗi: `401` chưa đăng nhập · `403` không có quyền · `503` thiếu service key.

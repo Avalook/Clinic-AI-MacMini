@@ -4,7 +4,7 @@
 -- repo's migration lineage (it tracks with public.schema_migrations, 55 rows;
 -- supabase_migrations.schema_migrations does not exist there). `supabase db push`
 -- would try to replay all 31 migrations from baseline_schema onto a database
--- that already has 35 tables — see docs/prod-cutover-findings.md. So this lands
+-- that already has 35 tables — see docs/legacy/prod-cutover-findings.md. So this lands
 -- as one reviewed statement, applied once, rather than through a chain that
 -- does not apply.
 --

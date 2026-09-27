@@ -1,4 +1,4 @@
-// Hồ sơ nhân sự — dựng từ bản mockup quan-ly-nhan-su.html.
+// Hồ sơ nhân sự — dựng từ bản mockup docs/giao-dien-quan-ly-nhan-su.html.
 //
 // KHÁC VỚI /settings/clinic-config. Màn kia gán nhân viên vào TRẠM CÔNG VIỆC
 // (ai đứng ở phòng nào); màn này là HỒ SƠ con người (tên, vai, cơ sở, loại hợp

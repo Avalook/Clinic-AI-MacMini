@@ -131,7 +131,7 @@ Chạy tay khi cần (trước khi làm gì đó lớn):
 ./scripts/backup-db.sh
 ```
 
-Cách khôi phục: [khoi-phuc-du-lieu.md](khoi-phuc-du-lieu.md). **Đọc trước khi
+Cách khôi phục: [khoi-phuc-du-lieu.md](../khoi-phuc-du-lieu.md). **Đọc trước khi
 cần đến nó**, đừng đọc lúc đang hỏng.
 
 ---

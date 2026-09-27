@@ -102,7 +102,7 @@ Theo thứ tự.
 1. Sửa mục 1 ở trên, chạy 2–3 ngày để chắc stack repo này đứng vững một mình.
 2. **Chép bản sao lưu ra khỏi máy Mac.** Hiện bản lưu chỉ nằm trên đúng ổ đĩa
    của máy — Mac hỏng là mất cả hệ thống lẫn bản lưu. Xem
-   [khoi-phuc-du-lieu.md](khoi-phuc-du-lieu.md).
+   [khoi-phuc-du-lieu.md](../khoi-phuc-du-lieu.md).
 3. Diễn tập khôi phục một lần vào project Supabase mới (phần `auth` là phần
    duy nhất chưa được kiểm đầu-cuối).
 
