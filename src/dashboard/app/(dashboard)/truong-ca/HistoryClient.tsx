@@ -17,11 +17,13 @@ export default function HistoryClient({ rows }: { rows: DispatchHistoryRow[] }) 
   );
 }
 
-const EVENT_LABEL: Record<string, string> = {
+export const EVENT_LABEL: Record<string, string> = {
   "dispatch.moved": "Chuyển bước",
   "dispatch.transfer_room": "Chuyển phòng",
   "dispatch.route_applied": "Áp dụng tuyến",
   "dispatch.checkin": "Tiếp nhận",
+  // Xếp / đổi phòng từng chỉ định của luồng mới (28/09/2026).
+  "service.routed": "Xếp phòng",
 };
 
 function HistoryTable({ rows }: { rows: DispatchHistoryRow[] }) {

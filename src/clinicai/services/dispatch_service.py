@@ -29,6 +29,28 @@ from clinicai.services.luot_kham_rules import doi_phong_duoc
 
 logger = structlog.get_logger()
 
+
+#: Lý do xếp phòng của luồng mới, đọc được (`service.routed.reason_code`).
+_LY_DO_XEP = {
+    "INITIAL_ASSIGNMENT": "xếp phòng",
+    "LOAD_BALANCE": "cân tải",
+}
+#: Màn gây ra lần xếp (`nguon`).
+_NGUON_XEP = {"truong_ca": "trưởng ca", "quay_thu": "quầy thu"}
+
+
+def _ly_do_xep_phong(r: Any) -> str | None:
+    """ "Siêu âm 2D · cân tải · trưởng ca" — chỉ cho dòng `service.routed`."""
+    if r["event_type"] != "service.routed":
+        return None
+    phan = [
+        r["dich_vu"],
+        _LY_DO_XEP.get(r["ly_do_ma"] or "", r["ly_do_ma"]),
+        _NGUON_XEP.get(r["nguon"] or ""),
+    ]
+    return " · ".join(x for x in phan if x) or None
+
+
 # Lượt khám còn "trong phòng khám". Đóng lượt rồi thì không còn là việc của
 # Trưởng ca nữa.
 LIVE_VISIT_STATUSES = ("OPEN", "IN_PROGRESS")
@@ -513,14 +535,58 @@ class DispatchService:
     async def history(
         self, *, clinic_id: str, limit: int = 200
     ) -> list[dict[str, Any]]:
+        """Lịch sử điều phối: sổ `dispatch.*` cũ (theo lượt) GỘP với xếp / đổi
+        phòng TỪNG CHỈ ĐỊNH của luồng mới (`service.routed` — Bàn khám, quầy thu,
+        trưởng ca, kéo thả ở Điều phối ca). Thiếu nửa sau thì mọi lần chuyển
+        phòng đời mới không hiện ở đâu cả (bấm thật 28/09/2026). Phòng trả TÊN,
+        không trả mã."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                "SELECT created_at, event_type, visit_id, from_node, to_node,"
-                "       from_room, to_room, reason, actor_name, patient_name,"
-                "       patient_code"
-                "  FROM public.v_dispatch_history"
-                " WHERE clinic_id = $1::uuid"
-                " ORDER BY created_at DESC LIMIT $2",
+                """
+                SELECT * FROM (
+                  SELECT h.created_at, h.event_type, h.visit_id::text AS visit_id,
+                         h.from_node, h.to_node,
+                         coalesce(rf.name, h.from_room) AS from_room,
+                         coalesce(rt.name, h.to_room) AS to_room,
+                         h.reason, h.actor_name, h.patient_name, h.patient_code,
+                         NULL::text AS dich_vu, NULL::text AS ly_do_ma,
+                         NULL::text AS nguon
+                    FROM public.v_dispatch_history h
+                    LEFT JOIN public.clinic_room rf
+                      ON rf.clinic_id = h.clinic_id AND rf.code = h.from_room
+                    LEFT JOIN public.clinic_room rt
+                      ON rt.clinic_id = h.clinic_id AND rt.code = h.to_room
+                   WHERE h.clinic_id = $1::uuid
+                  UNION ALL
+                  SELECT e.occurred_at, e.event_type, e.payload ->> 'visit_id',
+                         NULL, NULL, rf.name, rt.name, NULL, s.full_name,
+                         p.full_name, p.patient_code,
+                         o.service_name, e.payload ->> 'reason_code',
+                         e.payload ->> 'nguon'
+                    FROM public.event_log e
+                    LEFT JOIN public.clinic_room rf
+                      ON rf.clinic_id = e.clinic_id
+                     AND rf.id = NULLIF(e.payload ->> 'from_room_id', '')::uuid
+                    LEFT JOIN public.clinic_room rt
+                      ON rt.clinic_id = e.clinic_id
+                     AND rt.id = NULLIF(e.payload ->> 'to_room_id', '')::uuid
+                    LEFT JOIN public.service_order o
+                      ON o.clinic_id = e.clinic_id AND o.id = e.aggregate_id
+                    LEFT JOIN public.staff s
+                      ON s.auth_user_id =
+                         NULLIF(e.metadata ->> 'actor_auth_user_id', '')::uuid
+                    LEFT JOIN public.visit v
+                      ON v.clinic_id = e.clinic_id
+                     AND v.visit_id = NULLIF(e.payload ->> 'visit_id', '')::uuid
+                    LEFT JOIN public.patient p
+                      ON p.clinic_id = e.clinic_id
+                     AND p.clinic_patient_id = v.clinic_patient_id
+                   WHERE e.clinic_id = $1::uuid
+                     AND e.aggregate_type = 'service_order'
+                     AND e.event_type = 'service.routed'
+                ) x
+                ORDER BY created_at DESC LIMIT $2
+                """,
                 clinic_id,
                 limit,
             )
@@ -528,12 +594,12 @@ class DispatchService:
             {
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
-                "visit_id": str(r["visit_id"]) if r["visit_id"] else None,
+                "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
                 "from_room": r["from_room"],
                 "to_room": r["to_room"],
-                "reason": r["reason"],
+                "reason": r["reason"] or _ly_do_xep_phong(r),
                 "actor_name": r["actor_name"],
                 "patient_name": r["patient_name"],
                 "patient_code": r["patient_code"],
