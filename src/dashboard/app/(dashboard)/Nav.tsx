@@ -7,20 +7,36 @@
 // a gender-coded accent; the icon system explicitly forbids that treatment,
 // and the shared teal token keeps the shell neutral.
 
-import { useState, useTransition } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { ChevronDown as ChevronDownData, ChevronRight as ChevronRightData } from "lucide";
+import { MorphIcon } from "morphicons/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { hienTrenThanhBen, ROLE_LABEL, type ClinicRole } from "../../lib/roles";
+import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import {
   isActiveNav,
   navLabelFor,
+  nhomTheoCongViec,
   nhomThanhBen,
   xepNodeCon,
   type NavItem,
   type PhongTheoViTri,
 } from "./nav-items";
 import { useNotifications } from "./NotificationContext";
+import { BIEN_HINH } from "./nav-bien-hinh";
+
+// Nhóm đã gập — nhớ trên máy người dùng (tiện ích, không phải dữ liệu).
+const KHOA_GAP = "clinicai.nav.nhom-gap";
+function docGap(): string[] {
+  try {
+    const luu = localStorage.getItem(KHOA_GAP);
+    if (luu === null) return ["viec-khac"]; // chưa chỉnh lần nào: "Việc khác" gập
+    const v = JSON.parse(luu);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
 
 export default function Nav({
@@ -70,11 +86,8 @@ export default function Nav({
   const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
   const hrefs = visible.map((v) => v.href);
   const coHaiPhan = nhom.length > 0;
-  // "Việc khác" gập sẵn — nhưng đang đứng ở một màn trong đó thì phải mở, không
-  // thì mục đang mở bị giấu và người dùng không biết mình đang ở đâu.
-  const [moKhac, setMoKhac] = useState(false);
-  const dangOViecKhac = khac.some((i) => isActiveNav(i.href, pathname, hrefs));
-  const hienViecKhac = !coHaiPhan || isCollapsed || moKhac || dangOViecKhac;
+  // "Việc khác" GẬP SẴN (ngày có lịch) — xem `docGap`; đang đứng ở một màn trong
+  // đó thì `veNhom` vẫn mở, không giấu chỗ người dùng đang ở.
 
   // PHẢN HỒI TỨC THÌ KHI BẤM, KHÔNG PHẢI TỰ VẼ TRẠNG THÁI ĐANG-ĐẾN.
   //
@@ -93,6 +106,25 @@ export default function Nav({
   // đang mở giữ nguyên tô sáng; mục đang tới hiện một thanh tiến trình mảnh.
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  // Mục đang rê chuột / đang có tiêu điểm — icon của nó biến hình (nav-bien-hinh).
+  const [re, setRe] = useState<string | null>(null);
+  // Nhóm công việc đang gập (kiểu A, 27/09/2026).
+  const [gap, setGap] = useState<string[]>(["viec-khac"]);
+  useEffect(() => {
+    // Đọc sau khi gắn để máy chủ và trình duyệt vẽ giống nhau lúc đầu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGap(docGap());
+  }, []);
+  const doiGap = (ma: string) =>
+    setGap((g) => {
+      const moi = g.includes(ma) ? g.filter((x) => x !== ma) : [...g, ma];
+      try {
+        localStorage.setItem(KHOA_GAP, JSON.stringify(moi));
+      } catch {
+        /* máy không cho lưu thì chỉ không nhớ */
+      }
+      return moi;
+    });
 
   const veLink = (item: NavItem) => {
         const { href, badge, icon: Icon } = item;
@@ -137,14 +169,31 @@ export default function Nav({
               );
             }}
             title={isCollapsed ? label : undefined}
-            className={`${laCon(item) && !isCollapsed ? "ml-5 !py-1.5 !text-meta" : ""} ${
+            onMouseEnter={() => setRe(href)}
+            onMouseLeave={() => setRe((r) => (r === href ? null : r))}
+            onFocus={() => setRe(href)}
+            onBlur={() => setRe((r) => (r === href ? null : r))}
+            // KIỂU A (27/09/2026): dòng 36px (con 32px), mục đang mở = nền nhạt +
+            // chữ brand, không còn vạch trái.
+            className={`flex ${isCollapsed ? "h-9 justify-center" : `${laCon(item) ? "h-8 text-meta" : "h-9 text-sm"} items-center gap-2.5`} rounded-control px-2.5 transition-colors ${
               active
-                ? `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-brand-600 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 transition-colors`
-                : `flex ${isCollapsed ? "justify-center" : "items-center gap-2.5"} rounded-control border-l-3 border-transparent px-3 py-2.5 text-sm text-ink-soft transition-colors hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken`
+                ? "bg-brand-50 font-medium text-brand-700"
+                : "text-ink-soft hover:bg-surface-sunken hover:text-ink active:bg-surface-sunken"
             }`}
           >
             <span className="relative shrink-0">
-              <Icon size={16} strokeWidth={2} className="shrink-0" />
+              {BIEN_HINH[href] ? (
+                <MorphIcon
+                  icon={re === href ? BIEN_HINH[href].re : BIEN_HINH[href].tinh}
+                  spring={BIEN_HINH[href].lo}
+                  reducedMotion="user"
+                  size={16}
+                  strokeWidth={2}
+                  className="shrink-0"
+                />
+              ) : (
+                <Icon size={16} strokeWidth={2} className="shrink-0" />
+              )}
               {href === "/home" && blinkHome && (
                 <span className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 animate-pulse items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white motion-reduce:animate-none">
                   !
@@ -169,66 +218,68 @@ export default function Nav({
         );
       };
 
-  // Node cha + node con chung MỘT ô (Tuyền 27/09/2026): ô nền brand nhạt bọc
-  // cả "Quản lý khách hàng" lẫn "Nhắc tái khám" khi đang ở một trong hai.
+  // Node con đứng dưới node cha, thụt vào kèm ĐƯỜNG KẺ DỌC mảnh (kiểu A).
   const tatCa = [...dau, ...khac, ...mucNhom.flat()];
   const veMuc = (item: NavItem) => {
     if (laCon(item)) return null;
     const con = tatCa.filter((m) => m.cha === item.href);
     if (con.length === 0) return veLink(item);
     if (isCollapsed) return [item, ...con].map(veLink);
-    const dangO = [item, ...con].some((m) => isActiveNav(m.href, pathname, hrefs));
     return (
-      <div key={item.href} className={`rounded-control ${dangO ? "bg-brand-50 pb-1" : ""}`}>
+      <div key={item.href}>
         {veLink(item)}
-        {con.map(veLink)}
+        <div className="ml-4.5 border-l border-line pl-1.5">{con.map(veLink)}</div>
+      </div>
+    );
+  };
+
+  // Tiêu đề nhóm: chữ hoa nhỏ màu nhạt, bấm để gập/mở, mũi tên BIẾN HÌNH.
+  // Đang đứng ở một mục trong nhóm thì nhóm luôn mở (không giấu chỗ mình đang ở).
+  const veNhom = (g: { ma: string; ten: string; muc: NavItem[] }, coGap = true) => {
+    const dangO = g.muc.some((m) => isActiveNav(m.href, pathname, hrefs));
+    const mo = !coGap || isCollapsed || dangO || !gap.includes(g.ma);
+    return (
+      <div key={g.ma} className="pt-3 first:pt-0">
+        {isCollapsed ? (
+          <div className="mx-2 mb-1 border-t border-line" aria-hidden />
+        ) : (
+          <button
+            type="button"
+            onClick={() => coGap && doiGap(g.ma)}
+            aria-expanded={mo}
+            className="flex w-full items-center gap-1 rounded-control px-2.5 py-1 text-left text-label font-semibold uppercase tracking-wider text-ink-faint hover:text-ink-muted"
+          >
+            <MorphIcon
+              icon={mo ? ChevronDownData : ChevronRightData}
+              spring="snappy"
+              reducedMotion="user"
+              size={12}
+              strokeWidth={2.5}
+            />
+            <span className="truncate">{g.ten}</span>
+          </button>
+        )}
+        {mo ? <div className="space-y-0.5">{g.muc.map(veMuc)}</div> : null}
       </div>
     );
   };
 
   return (
     <nav className="space-y-0.5">
-      {/* Nhãn vai chỉ khi KHÔNG có nhóm hôm nay — có nhóm thì tiêu đề nhóm đã
-          nói vai, in thêm là "LỄ TÂN" hai lần liền nhau (ảnh Tuyền 16/09/2026). */}
-      {!isCollapsed && role && !coHaiPhan ? (
-        <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
-          {ROLE_LABEL[role]}
-        </p>
-      ) : null}
-      {dau.map(veMuc)}
-      {/* MỖI VAI MỘT NHÓM, có tiêu đề (Tuyền 16/09/2026): "điều dưỡng rồi các
-          node điều dưỡng, dưới là lễ tân rồi các node của lễ tân". */}
-      {nhom.map((g) => (
-        <div key={g.nhom} className="pt-2">
-          {isCollapsed ? (
-            <div className="mx-3 mb-1 border-t border-line" aria-hidden />
-          ) : (
-            <p className="px-3 pb-1 text-label font-semibold uppercase tracking-wider text-brand-700">
-              {g.ten}
-            </p>
-          )}
-          {g.muc.map(veMuc)}
-        </div>
-      ))}
       {coHaiPhan ? (
-        isCollapsed ? (
-          <div className="mx-3 my-2 border-t border-line" aria-hidden />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setMoKhac((v) => !v)}
-            aria-expanded={hienViecKhac}
-            className="mt-3 flex w-full items-center justify-between rounded-control px-3 py-2 text-label font-semibold uppercase tracking-wider text-ink-muted hover:bg-surface-sunken"
-          >
-            <span>Việc khác ({khac.length})</span>
-            <ChevronDown
-              size={14}
-              className={hienViecKhac ? "rotate-180 transition-transform" : "transition-transform"}
-            />
-          </button>
-        )
-      ) : null}
-      {hienViecKhac ? khac.map(veMuc) : null}
+        <>
+          {dau.map(veMuc)}
+          {/* MỖI VỊ TRÍ HÔM NAY MỘT NHÓM (Tuyền 16/09/2026) — giữ nguyên, chỉ
+              đổi cách trình bày theo kiểu A; "Việc khác" là một nhóm gập được. */}
+          {nhom.map((g) => veNhom({ ma: `vt-${g.nhom}`, ten: g.ten, muc: g.muc }, false))}
+          {khac.length > 0
+            ? veNhom({ ma: "viec-khac", ten: `Việc khác (${khac.length})`, muc: khac })
+            : null}
+        </>
+      ) : (
+        // KHÔNG có lịch hôm nay: chia theo công việc (nav-items `NHOM_CONG_VIEC`).
+        nhomTheoCongViec([...dau, ...khac]).map((g) => veNhom(g))
+      )}
       {/* CSKH_ONLY mode indicator */}
       {featureMode === "CSKH_ONLY" && !isCollapsed && (
         <div className="mx-3 mt-3 rounded-md border border-brand-200 bg-brand-50 px-2.5 py-1.5 text-label font-medium text-brand-700">
