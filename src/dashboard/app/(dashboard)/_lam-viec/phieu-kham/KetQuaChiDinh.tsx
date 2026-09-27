@@ -1,22 +1,26 @@
 "use client";
 
-// Mục C — KẾT QUẢ CẬN LÂM SÀNG theo từng chỉ định của lượt.
+// Mục C — "ĐÃ CHỈ ĐỊNH & KẾT QUẢ" theo từng chỉ định của lượt.
 //
-// Gắn bằng `service_order_id` (máy chủ đã nối). Hai chỉ định cùng tên là hai
-// dòng riêng, kết quả không bao giờ chạy sang nhau. Tên dịch vụ chỉ để đọc.
+// Y HỆT bản giao diện mẫu (Tuyền chốt 27/09/2026; M/app.js `dongChiDinh`,
+// `tomTatKq`, `noiDungKq`, `dsChiDinh`): mỗi chỉ định một thẻ — tên + mã SP,
+// "Trên phiếu giấy: …", chip trạng thái MỘT trục (Chờ thu tiền → Đã thu — chờ làm
+// → Đang làm → Có kết quả) + chip mẫu + giá. Có kết quả thì TÓM TẮT LUÔN HIỆN (2
+// cột, bỏ ô rỗng, ≤14 dòng), hộp KẾT LUẬN, ⤢ ở góc mở hộp chia đôi, khối "ẢNH ·
+// VIDEO". Gom theo lần chỉ định (lần mới nhất ở trên). Bản mẫu gọi là "Lượt n" —
+// hệ thống thật dùng "Lần n" vì "lượt" ở đây là lượt khám (check-in → check-out).
 //
-// Hai lớp trạng thái đứng cạnh nhau, không gộp: "thực hiện" (đã làm chưa) và
-// "kết quả" (đã có chưa). Nháp kết quả không hiện nội dung — chưa ai chịu
-// trách nhiệm về chữ trong đó.
+// Gắn bằng `service_order_id` (máy chủ đã nối). Tên dịch vụ chỉ để đọc. Nháp kết
+// quả không hiện nội dung — chưa ai chịu trách nhiệm về chữ trong đó.
 //
-// BÁC SĨ ĐIỀN KẾT QUẢ NGAY ĐÂY (Tuyền 23/09/2026 tối: "không cần cái duyệt kết
-// quả nữa, duyệt làm gì khi ta có thể tự điền vào đây"). [Điền kết quả] mở đúng
-// phiếu kết quả của chỉ định (cùng engine, cùng [Hoàn tất] như phòng dịch vụ).
-// Mẫu: mẫu đã gắn cho dịch vụ → mẫu gợi ý của phiếu v5 → 18 mẫu dự phòng.
-// Mở [Xem kết quả] là "đã xem" (như nút ở Bàn khám) — máy chủ ghi, màn không tự
-// quyết ai được tính.
+// ĐÃ XEM: tóm tắt tự hiện ⇒ mở khối 2 là XEM (bản mẫu tự đánh dấu khi mở khối 2).
+// Màn gọi máy chủ ghi một lần cho mỗi kết quả chưa xem; máy chủ tự quyết vai nào
+// được tính (bác sĩ / thư ký / BS siêu âm).
+//
+// BÁC SĨ ĐIỀN KẾT QUẢ NGAY ĐÂY (Tuyền 23/09/2026): [Mở phiếu kết quả] mở đúng
+// phiếu của chỉ định (cùng engine như phòng dịch vụ).
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import KhungTep from "../KhungTep";
 import AnhKetQua, { tepXem } from "../AnhKetQua";
@@ -26,19 +30,15 @@ import Chip, { type ChipTone } from "@/components/ui/Chip";
 import Lightbox from "@/components/ui/Lightbox";
 import { fmtTime } from "@/lib/datetime";
 import {
-  giaTriDoc,
   NHAN_DOI_TAC,
   NHAN_KET_QUA,
+  coNhap,
+  giaTriDoc,
+  tienVn,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
   type MauKetQuaNgan,
 } from "@/lib/phieu-kham";
-
-const TONE: Record<ChiDinhVaKetQua["ket_qua_trang_thai"], ChipTone> = {
-  CO_KET_QUA: "success",
-  DANG_NHAP: "warning",
-  CHUA_CO: "neutral",
-};
 
 /** Tệp kết quả của một chỉ định → mục xem (ảnh / video / tài liệu). */
 function tepCua(d: ChiDinhVaKetQua) {
@@ -57,9 +57,107 @@ function tepCua(d: ChiDinhVaKetQua) {
 }
 
 function ghiDaXem(orderId: string) {
-  // Chỉ để máy chủ ghi "đã xem" (bác sĩ / thư ký / BS siêu âm); nội dung đã có
-  // sẵn ở đây. Hỏng thì thôi — không chặn việc đọc.
+  // Chỉ để máy chủ ghi "đã xem"; nội dung đã có sẵn ở đây. Hỏng thì thôi.
   void fetch(`/api/phieu?xem=${orderId}`, { cache: "no-store" }).catch(() => undefined);
+}
+
+/** Trục trạng thái MỘT chiều của bản mẫu (`TT`). */
+function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
+  if (d.ket_qua_trang_thai === "CO_KET_QUA") return { nhan: "Có kết quả", tone: "success" };
+  const th = (d.thuc_hien ?? "").toUpperCase();
+  if (th === "COMPLETED" || th === "PERFORMED") {
+    // Đối tác: làm xong phần phòng khám (lấy mẫu) nhưng kết quả chưa về.
+    return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "run" } : { nhan: "Đã làm", tone: "success" };
+  }
+  if (d.ket_qua_trang_thai === "DANG_NHAP" || th === "IN_PROGRESS") {
+    return { nhan: d.doi_tac ? "Đã gửi đối tác" : "Đang làm", tone: "run" };
+  }
+  if (d.da_thu) {
+    return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "info" } : { nhan: "Đã thu — chờ làm", tone: "info" };
+  }
+  return { nhan: "Chờ thu tiền", tone: "warning" };
+}
+
+/** Chip mẫu kết quả (`badgeMau`): mẫu PDF · tự do · đối tác · N mẫu. */
+function chipMau(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } | null {
+  if (d.doi_tac) return { nhan: "đối tác · nhập nhanh", tone: "info" };
+  const m = d.mau_ket_qua ?? [];
+  if (m.length === 0) return null;
+  if (m.length > 1) return { nhan: `${m.length} mẫu`, tone: "brand" };
+  return m[0].ma === "CHUNG" ? { nhan: "tự do", tone: "neutral" } : { nhan: "mẫu PDF", tone: "brand" };
+}
+
+const LA_KET_LUAN = (ma: string, ten: string) => ma === "ket_luan" || /^kết luận/i.test(ten.trim());
+
+/** Các dòng CÓ giá trị của một phiếu READY + câu kết luận (tách riêng). */
+function dongCua(k: KetQuaMotChiDinh): { dong: { nhan: string; gia: string }[]; ketLuan: string | null } {
+  const dong: { nhan: string; gia: string }[] = [];
+  let ketLuan: string | null = null;
+  for (const m of k.khung ?? []) {
+    for (const o of m.block) {
+      const nhap = k.du_lieu?.[o.ma];
+      if (!coNhap(nhap)) continue;
+      const g: unknown = nhap?.gia_tri;
+      const donVi = (gia: string) => (o.goi_y && /\d$/.test(gia) ? `${gia} ${o.goi_y}` : gia);
+      if (m.cot && g && typeof g === "object" && !Array.isArray(g)) {
+        for (const c of m.cot) {
+          const v = (g as Record<string, unknown>)[c.ma];
+          if (v === "" || v == null) continue;
+          dong.push({ nhan: `${o.ten} · ${c.ten}`, gia: donVi(String(v)) });
+        }
+        continue;
+      }
+      const gia = giaTriDoc(o, nhap, m.cot);
+      if (LA_KET_LUAN(o.ma, o.ten)) ketLuan = gia;
+      else dong.push({ nhan: o.ten, gia: donVi(gia) });
+    }
+  }
+  return { dong, ketLuan };
+}
+
+function HopKetLuan({ chu }: { chu: string }) {
+  return (
+    <div className="mt-2 rounded-control bg-brand-50 px-3 py-2">
+      <span className="block text-label font-semibold uppercase tracking-wide text-ink-muted">Kết luận</span>
+      <div className="whitespace-pre-wrap text-body text-ink">{chu}</div>
+    </div>
+  );
+}
+
+/** Tóm tắt kết quả (≤ `gioiHan` dòng; 0 = đủ hết, dùng trong hộp xem). */
+function NoiDungKetQua({ d, gioiHan }: { d: ChiDinhVaKetQua; gioiHan: number }) {
+  const phieu = d.ket_qua.filter((k) => k.loai === "PHIEU" && k.trang_thai === "READY" && k.khung);
+  if (phieu.length === 0) {
+    return <p className="text-body text-ink-faint">Phòng chưa ghi phiếu — kết quả là tệp bên dưới.</p>;
+  }
+  return (
+    <div className="space-y-3">
+      {phieu.map((k) => {
+        const { dong, ketLuan } = dongCua(k);
+        const n = gioiHan || dong.length;
+        return (
+          <div key={k.phieu_id}>
+            <p className={phieu.length > 1 ? "mb-2 text-emph font-semibold text-ink" : "mb-1.5 text-meta text-ink-muted"}>
+              {k.ten}
+              {k.ban_thu && k.ban_thu > 1 ? ` · bản ${k.ban_thu}` : ""}
+            </p>
+            <dl className={`grid gap-x-6 gap-y-1 ${gioiHan ? "sm:grid-cols-2" : ""}`}>
+              {dong.slice(0, n).map((x, i) => (
+                <div key={`${x.nhan}-${i}`} className="flex gap-2 py-0.5">
+                  <dt className="max-w-[55%] shrink-0 text-ink-muted">{x.nhan}</dt>
+                  <dd className="whitespace-pre-wrap font-medium text-ink">{x.gia}</dd>
+                </div>
+              ))}
+            </dl>
+            {dong.length > n ? (
+              <p className="text-meta text-ink-muted">+ {dong.length - n} dòng nữa — bấm ⤢ để xem đủ</p>
+            ) : null}
+            {ketLuan ? <HopKetLuan chu={ketLuan} /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function KetQuaChiDinh({
@@ -69,6 +167,7 @@ export default function KetQuaChiDinh({
   choDien = false,
   clinicPatientId,
   onDoi,
+  nhanGiay = {},
 }: {
   ds: ChiDinhVaKetQua[];
   /** 18 mẫu kết quả đang bật — khi dịch vụ chưa gắn mẫu nào. */
@@ -80,12 +179,25 @@ export default function KetQuaChiDinh({
   /** Có thì mở được khung ảnh / video / tệp kết quả của từng chỉ định. */
   clinicPatientId?: string;
   onDoi?: () => void;
+  /** service_code → nhãn trên phiếu chỉ định giấy ("SÂ 2D TC-BT"). */
+  nhanGiay?: Record<string, string>;
 }) {
-  const [mo, setMo] = useState<string | null>(null);
   const [dien, setDien] = useState<string | null>(null);
   const [tep, setTep] = useState<string | null>(null);
-  // Hộp xem CHIA ĐÔI (lát 5): kết quả trái, ảnh phải — mở từ ảnh nhỏ hoặc ⤢.
+  // Hộp xem CHIA ĐÔI: kết quả trái, ảnh phải — mở từ ảnh nhỏ hoặc ⤢.
   const [hop, setHop] = useState<{ id: string; i: number; luoi: boolean } | null>(null);
+  const daGhi = useRef(new Set<string>());
+
+  // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem.
+  useEffect(() => {
+    for (const d of ds) {
+      if (d.ket_qua_trang_thai !== "CO_KET_QUA" || d.da_xem_luc) continue;
+      if (daGhi.current.has(d.service_order_id)) continue;
+      daGhi.current.add(d.service_order_id);
+      ghiDaXem(d.service_order_id);
+    }
+  }, [ds]);
+
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
     const g = goiYMau[d.service_code];
@@ -95,210 +207,167 @@ export default function KetQuaChiDinh({
   if (ds.length === 0) {
     return <p className="text-body text-ink-faint">Chưa có chỉ định nào trong lượt này.</p>;
   }
-  const moHop = (d: ChiDinhVaKetQua, i: number, luoi: boolean) => {
-    // Mở hộp là XEM kết quả — cùng nghĩa với nút "Xem kết quả".
-    if (d.ket_qua_trang_thai === "CO_KET_QUA") ghiDaXem(d.service_order_id);
-    setHop({ id: d.service_order_id, i, luoi });
-  };
   const dHop = hop ? ds.find((d) => d.service_order_id === hop.id) : undefined;
-  return (
-    <>
-    {dHop && hop ? (
-      <Lightbox
-        tieuDe={dHop.ten_hien_thi}
-        phuDe={NHAN_KET_QUA[dHop.ket_qua_trang_thai]}
-        tep={tepCua(dHop)}
-        batDau={hop.i}
-        luoiBanDau={hop.luoi}
-        trai={
-          <div className="space-y-3">
-            {dHop.ket_qua.some((k) => k.loai === "PHIEU") ? (
-              dHop.ket_qua
-                .filter((k) => k.loai === "PHIEU")
-                .map((k) => <MotKetQua key={k.phieu_id} k={k} />)
-            ) : (
-              <p className="text-body text-ink-muted">Chưa có phiếu kết quả — chỉ có tệp.</p>
-            )}
-          </div>
-        }
-        onDong={() => setHop(null)}
-      />
-    ) : null}
-    <ul className="divide-y divide-hairline rounded-card border border-hairline bg-surface">
-      {ds.map((d) => {
-        const dangMo = mo === d.service_order_id;
-        return (
-          <li key={d.service_order_id} className="px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-body font-medium text-ink">{d.ten_hien_thi}</span>
-              {d.ket_qua_trang_thai === "CHUA_CO" &&
-              (d.thuc_hien === "COMPLETED" || d.thuc_hien === "performed") ? (
-                // Thủ thuật không có phiếu kết quả (tháo vòng…): đã làm là xong
-                // việc — đừng treo "Chưa có kết quả" mãi (bấm thật 23/09 khuya).
-                <Chip tone="success">Đã làm</Chip>
-              ) : (
-                <Chip tone={TONE[d.ket_qua_trang_thai]}>
-                  {NHAN_KET_QUA[d.ket_qua_trang_thai]}
-                </Chip>
-              )}
-              {d.doi_tac && d.ket_qua_trang_thai !== "CO_KET_QUA" ? (
-                <Chip tone={d.doi_tac === "CHO_TAI_LIEU" ? "warning" : "neutral"}>
-                  {NHAN_DOI_TAC[d.doi_tac]}
-                </Chip>
-              ) : null}
+
+  // Gom theo lần — lần mới nhất lên trên; chỉ định mang sang để cuối.
+  const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => b - a);
+  const nhieuLan = cacLan.length > 1;
+  const tong = ds.reduce((a, d) => a + (d.gia ?? 0), 0);
+  const chuaGia = ds.filter((d) => d.gia == null).length;
+
+  const theChiDinh = (d: ChiDinhVaKetQua) => {
+    const tt = trangThai(d);
+    const mau = chipMau(d);
+    const giay = nhanGiay[d.service_code];
+    const cacTep = tepCua(d);
+    const coKq = d.ket_qua_trang_thai === "CO_KET_QUA";
+    const coPhieu = d.ket_qua.some((k) => k.loai === "PHIEU");
+    return (
+      <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+          <div className="min-w-0">
+            <span className="font-semibold text-ink">{d.ten_hien_thi}</span>{" "}
+            {d.ma_kiotviet ? <span className="text-meta text-ink-muted">{d.ma_kiotviet}</span> : null}
+            {giay && giay !== d.ten_hien_thi ? (
+              <div className="text-meta text-ink-muted">Trên phiếu giấy: {giay}</div>
+            ) : null}
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <Chip tone={tt.tone}>{tt.nhan}</Chip>
+              {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}
-              <span className="ml-auto" />
-              {d.ket_qua.length > 0 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Xem kết quả và ảnh cạnh nhau — ${d.ten_hien_thi}`}
-                  title="Kết quả trái, ảnh phải"
-                  onClick={() => moHop(d, 0, false)}
-                >
-                  ⤢
-                </Button>
-              ) : null}
-              {d.ket_qua.length > 0 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-expanded={dangMo}
-                  onClick={() => {
-                    if (!dangMo && d.ket_qua_trang_thai === "CO_KET_QUA") {
-                      ghiDaXem(d.service_order_id);
-                    }
-                    setMo(dangMo ? null : d.service_order_id);
-                  }}
-                >
-                  {dangMo ? "Thu gọn" : "Xem kết quả"}
-                </Button>
-              ) : null}
-              {d.ket_qua.some((k) => k.loai === "PHIEU") ? (
-                <a
-                  href={`/print/ket-qua/${d.service_order_id}`}
-                  target="_blank"
-                  rel="noopener"
-                  className={buttonClass("ghost", "sm")}
-                >
-                  In
-                </a>
-              ) : null}
-              {clinicPatientId ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-expanded={tep === d.service_order_id}
-                  onClick={() =>
-                    setTep(tep === d.service_order_id ? null : d.service_order_id)
-                  }
-                >
-                  {tep === d.service_order_id ? "Ẩn ảnh · tệp" : "Ảnh · tệp"}
-                </Button>
-              ) : null}
-              {choDien ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  aria-expanded={dien === d.service_order_id}
-                  onClick={() =>
-                    setDien(dien === d.service_order_id ? null : d.service_order_id)
-                  }
-                >
-                  {dien === d.service_order_id ? "Đóng phiếu kết quả" : "Điền kết quả"}
-                </Button>
-              ) : null}
+              {d.bat_buoc ? <Chip tone="warning">bắt buộc</Chip> : null}
+              <span className="text-meta text-ink-muted">{d.gia != null ? tienVn(d.gia) : "chưa có giá"}</span>
             </div>
-            {/* Khung tệp đang mở thì nó đã hiện đủ ảnh — không vẽ hai lần. */}
-            {tepCua(d).length > 0 && tep !== d.service_order_id ? (
-              <div className="mt-2">
-                <AnhKetQua tep={tepCua(d)} onMo={(i, luoi) => moHop(d, i, Boolean(luoi))} />
-              </div>
+          </div>
+          <div className="flex flex-wrap justify-end gap-1">
+            {choDien ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                aria-expanded={dien === d.service_order_id}
+                onClick={() => setDien(dien === d.service_order_id ? null : d.service_order_id)}
+              >
+                {dien === d.service_order_id ? "Đóng phiếu kết quả" : "Mở phiếu kết quả"}
+              </Button>
             ) : null}
-            {tep === d.service_order_id && clinicPatientId ? (
-              <div className="mt-2">
-                <KhungTep
-                  clinicPatientId={clinicPatientId}
-                  serviceOrderId={d.service_order_id}
-                  choTaiLen={choDien}
-                  onDaTaiLen={() => onDoi?.()}
-                />
-              </div>
+            {coPhieu ? (
+              <a
+                href={`/print/ket-qua/${d.service_order_id}`}
+                target="_blank"
+                rel="noopener"
+                className={buttonClass("ghost", "sm")}
+              >
+                In
+              </a>
             ) : null}
-            {dien === d.service_order_id ? (
-              <div className="mt-2">
-                <PhieuKetQua
-                  serviceOrderId={d.service_order_id}
-                  mau={mauCho(d)}
-                  mauMacDinh={
-                    d.ket_qua.find((k) => k.loai === "PHIEU")?.form_id?.replace(/^KQ_/, "") ??
-                    (d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
-                  }
-                  onHoanTat={() => onDoi?.()}
-                />
-              </div>
+            {clinicPatientId ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-expanded={tep === d.service_order_id}
+                onClick={() => setTep(tep === d.service_order_id ? null : d.service_order_id)}
+              >
+                {tep === d.service_order_id ? "Ẩn tải tệp" : "Ảnh · tệp"}
+              </Button>
             ) : null}
-            {dangMo ? (
-              <div className="mt-2 space-y-3">
-                {d.ket_qua.map((k) => (
-                  <MotKetQua key={k.phieu_id ?? k.tep_id} k={k} />
-                ))}
-              </div>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
-    </>
-  );
-}
+          </div>
+        </div>
 
-function MotKetQua({ k }: { k: KetQuaMotChiDinh }) {
-  if (k.loai === "TEP") {
-    // Tệp (kể cả của đối tác) mở thẳng ở tab mới — không bước xác nhận
-    // (Tuyền 23/09 khuya: "hiện ra đó luôn là được"). Mở = tự ghi đã xem.
-    return (
-      <p className="text-body text-ink">
-        Tệp {k.loai_tep}:{" "}
-        <a
-          href={`/api/cskh/ket-qua/${k.tep_id}/noi-dung`}
-          target="_blank"
-          rel="noopener"
-          className="font-medium text-brand-700 underline underline-offset-4"
-        >
-          {k.ten ?? "(không tên)"}
-        </a>
-      </p>
-    );
-  }
-  if (k.trang_thai !== "READY" || !k.khung || !k.du_lieu) {
-    return <p className="text-body text-ink-muted">{k.ten}: đang nhập kết quả.</p>;
-  }
-  const duLieu = k.du_lieu;
-  return (
-    <div className="rounded-control bg-surface-muted p-3">
-      <p className="text-meta font-semibold text-ink-muted">
-        {k.ten}
-        {k.ban_thu && k.ban_thu > 1 ? ` · bản ${k.ban_thu}` : ""}
-      </p>
-      <dl className="mt-1 space-y-1">
-        {k.khung.flatMap((m) =>
-          m.block.map((o) => (
-            <div key={o.ma} className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
-              <dt className="text-meta text-ink-muted sm:w-40 sm:shrink-0">{o.ten}</dt>
-              <dd className="whitespace-pre-wrap text-body text-ink">
-                {giaTriDoc(o, duLieu[o.ma], m.cot)}
-              </dd>
+        {coKq ? (
+          <div className="relative rounded-b-card border-t border-hairline bg-surface-muted/50 p-3">
+            <button
+              type="button"
+              onClick={() => setHop({ id: d.service_order_id, i: 0, luoi: false })}
+              title="Mở rộng — kết quả bên trái, ảnh/video bên phải"
+              aria-label={`Xem kết quả và ảnh cạnh nhau — ${d.ten_hien_thi}`}
+              className="absolute right-2 top-2 grid size-7 place-items-center rounded-control bg-surface text-ink-muted ring-1 ring-inset ring-line hover:bg-surface-sunken"
+            >
+              ⤢
+            </button>
+            <div className={cacTep.length > 0 ? "grid gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]" : ""}>
+              <div className="min-w-0 pr-9">
+                <NoiDungKetQua d={d} gioiHan={14} />
+              </div>
+              {cacTep.length > 0 && tep !== d.service_order_id ? (
+                <div className="border-t border-dashed border-hairline pt-3 2xl:border-t-0 2xl:pt-0">
+                  <AnhKetQua
+                    dau
+                    tep={cacTep}
+                    onMo={(i, luoi) => setHop({ id: d.service_order_id, i, luoi: Boolean(luoi) })}
+                  />
+                </div>
+              ) : null}
             </div>
-          )),
-        )}
-      </dl>
-    </div>
+          </div>
+        ) : null}
+
+        {tep === d.service_order_id && clinicPatientId ? (
+          <div className="border-t border-hairline p-3">
+            <KhungTep
+              clinicPatientId={clinicPatientId}
+              serviceOrderId={d.service_order_id}
+              choTaiLen={choDien}
+              onDaTaiLen={() => onDoi?.()}
+            />
+          </div>
+        ) : null}
+        {dien === d.service_order_id ? (
+          <div className="border-t border-hairline p-3">
+            <PhieuKetQua
+              serviceOrderId={d.service_order_id}
+              mau={mauCho(d)}
+              mauMacDinh={
+                d.ket_qua.find((k) => k.loai === "PHIEU")?.form_id?.replace(/^KQ_/, "") ??
+                (d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
+              }
+              onHoanTat={() => onDoi?.()}
+            />
+          </div>
+        ) : null}
+      </li>
+    );
+  };
+
+  return (
+    <>
+      {dHop && hop ? (
+        <Lightbox
+          tieuDe={dHop.ten_hien_thi}
+          phuDe={NHAN_KET_QUA[dHop.ket_qua_trang_thai]}
+          tep={tepCua(dHop)}
+          batDau={hop.i}
+          luoiBanDau={hop.luoi}
+          trai={<NoiDungKetQua d={dHop} gioiHan={0} />}
+          onDong={() => setHop(null)}
+        />
+      ) : null}
+      <div className="space-y-2">
+        {cacLan.map((lan) => {
+          const nhom = ds.filter((d) => (d.lan ?? 0) === lan);
+          const gui = nhom.map((d) => d.chi_dinh_luc).filter(Boolean).sort()[0];
+          return (
+            <div key={lan} className="space-y-2">
+              {nhieuLan ? (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Chip tone="brand">{lan ? `Lần ${lan}` : "Mang sang"}</Chip>
+                  <span className="text-meta text-ink-muted">
+                    {gui ? `gửi ${fmtTime(gui)}` : "chưa gửi"} · {nhom.length} chỉ định
+                  </span>
+                </div>
+              ) : null}
+              <ul className="space-y-2">{nhom.map((d) => theChiDinh(d))}</ul>
+            </div>
+          );
+        })}
+        <div className="flex justify-end pt-1 text-meta text-ink-muted">
+          {ds.length} chỉ định · tạm tính&nbsp;<b className="text-ink">{tienVn(tong)}</b>
+          {chuaGia ? ` · ${chuaGia} dòng chưa có giá` : ""}
+        </div>
+      </div>
+    </>
   );
 }

@@ -57,6 +57,7 @@ import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
 import ONhapTuVan from "./ONhapTuVan";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
@@ -327,7 +328,13 @@ export default function BanKham({
   const khungMacDinh: Khung =
     chon?.vong === "REVIEW" && chon.trang_thai !== "done" ? "chi-dinh" : "benh-an";
   const khung = khungChon && khungChon.id === chon?.id ? khungChon.khung : khungMacDinh;
+  // HÀNG CHỜ GẬP khi đang mở phiếu v5 của bác sĩ chính (Tuyền 27/09/2026 — "y hệt
+  // bản giao diện mẫu"): bản mẫu không có cột danh sách, phiếu chiếm trọn chiều
+  // rộng. Dưới 1536px cột ~250px của danh sách bóp phiếu còn ~350px (tên khách vỡ
+  // từng chữ). Mở lại bằng nút "Hàng chờ" ở thanh công việc; chọn khách là gập.
+  const [moHang, setMoHang] = useState(false);
   const chonKhach = useCallback((id: string) => {
+    setMoHang(false);
     setChonId(id);
     // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
     if (window.innerWidth < 1280) {
@@ -336,6 +343,7 @@ export default function BanKham({
       );
     }
   }, []);
+  const gapHang = PHIEU_V5 && !tuVan && Boolean(chon) && !moHang;
 
   return (
     <div className="grid gap-4">
@@ -406,10 +414,16 @@ export default function BanKham({
       {/* Hai cột (hàng chờ · phiếu khám) từ khi bỏ cột "Chỉ định & kết quả"
           (23/09 khuya). Bật lại đường cũ (PHIEU_V5 = false) thì trả cột thứ ba:
           minmax 320px, 1fr. */}
-      <div className="grid items-start gap-4 xl:grid-cols-[auto_minmax(0,1fr)] 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)]">
+      <div
+        className={`grid items-start gap-4 2xl:grid-cols-[minmax(220px,0.55fr)_minmax(0,2.9fr)] ${
+          gapHang ? "" : "xl:grid-cols-[auto_minmax(0,1fr)]"
+        }`}
+      >
         <aside
           aria-label="Hàng chờ khám"
-          className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:w-auto"
+          className={`min-w-0 overflow-hidden rounded-card bg-surface shadow-card xl:w-64 2xl:block 2xl:w-auto ${
+            gapHang ? "hidden" : ""
+          }`}
         >
           <div className="px-3 py-3">
             <label className="flex items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-ink-muted">
@@ -477,6 +491,11 @@ export default function BanKham({
             className={`min-w-0 ${PHIEU_V5 || khung === "benh-an" ? "" : "hidden"} 2xl:block`}
           >
             <HoSo
+              onHangCho={
+                PHIEU_V5 && !tuVan && chon ? () => setMoHang((x) => !x) : undefined
+              }
+              hangMo={!gapHang}
+              soCho={choKham.length + canDoc.length}
               dong={chon}
               daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
               luot={luot}
@@ -625,7 +644,14 @@ function HoSo({
   staffId,
   onDaBam,
   tuVan = false,
+  onHangCho,
+  hangMo = true,
+  soCho = 0,
 }: {
+  /** Mở / gập cột hàng chờ (phiếu v5 bác sĩ chính — 27/09/2026). */
+  onHangCho?: () => void;
+  hangMo?: boolean;
+  soCho?: number;
   dong: DongHangCho | null;
   daKhamLuc: string | null;
   luot: Luot | null;
@@ -735,20 +761,77 @@ function HoSo({
   const t = tone(dong);
   const sh = luot?.sinh_hieu ?? null;
   const loiHienTai = loi?.id === dong.id ? loi.cau : null;
+  // PHIẾU KHÁM BÁC SĨ CHÍNH theo bản giao diện mẫu (Tuyền 27/09/2026): thẻ khách +
+  // thẻ sinh hiệu nằm TRONG phiếu, Hoàn tất ở chân cột phải — Bàn khám chỉ giữ
+  // một thanh công việc gọn (trạng thái · số thứ tự · giờ · Bắt đầu khám).
+  const laPhieuMoi = PHIEU_V5 && dong.loai === "KHAM" && !dangXem && Boolean(dong.form_code);
+  const nutHoanTat =
+    choBam && dong.trang_thai === "serving" ? (
+      <div className="flex flex-col gap-2">
+        <Button
+          type="button"
+          size="lg"
+          variant="primary"
+          disabled={dangGui}
+          onClick={() => void bam(tuVan ? "xong-tu-van" : "kham-xong")}
+          className={laPhieuMoi ? "lg:w-full" : ""}
+        >
+          <CheckCircle2 className="size-4" aria-hidden="true" />
+          {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn" : "Hoàn tất"}
+        </Button>
+        {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
+          <p className="text-meta text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
+        ) : null}
+        {hoiHoanTat === dong.id ? (
+          <XacNhanTaiCho
+            cau={
+              completionMode === "HANDOFF"
+                ? `Hoàn tất lượt khám này cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ. Phiếu vẫn sửa được sau.`
+                : `Hoàn tất khám cho ${dong.ten}? Phiếu vẫn sửa được sau.`
+            }
+            nhanDongY="Hoàn tất"
+            dangGui={dangGui}
+            onDongY={() => void gui("kham-xong")}
+            onThoi={() => setHoiHoanTat(null)}
+          />
+        ) : null}
+        {loiHienTai ? (
+          <p role="alert" className="text-meta text-danger">
+            {loiHienTai}
+          </p>
+        ) : null}
+      </div>
+    ) : dong.da_ky ? (
+      <span className="text-center text-meta text-ink-muted">
+        <Chip tone="success">Đã hoàn tất{dong.ky_luc ? ` ${gioVn(dong.ky_luc)}` : ""}</Chip>
+        <br />
+        vẫn sửa được
+      </span>
+    ) : null;
 
   return (
     <section
       aria-label="Hồ sơ khám bệnh"
-      className="min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+      className={
+        laPhieuMoi ? "min-w-0 space-y-3" : "min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
+      }
     >
-      <header className="px-4 py-3">
+      <header
+        className={
+          laPhieuMoi ? "rounded-card border border-hairline bg-surface px-4 py-3" : "px-4 py-3"
+        }
+      >
         <div className="flex flex-wrap items-center gap-3">
-          <span className="grid size-11 place-items-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-soft">
-            {initials(dong.ten)}
-          </span>
+          {laPhieuMoi ? null : (
+            <span className="grid size-11 place-items-center rounded-full border border-line bg-surface-sunken text-sm font-semibold text-ink-soft">
+              {initials(dong.ten)}
+            </span>
+          )}
           <div className="min-w-44 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
+              {laPhieuMoi ? null : (
+                <h2 className="text-base font-semibold text-ink">{dong.ten}</h2>
+              )}
               <StatusChip tone={t.tone} label={t.nhan} size="md" />
               {dong.vong === "REVIEW" && dong.trang_thai !== "done" ? (
                 <StatusChip
@@ -761,14 +844,16 @@ function HoSo({
             <p className="text-xs text-ink-muted">
               {dong.ma_bn} · {dong.bac_si ?? "Chưa có bác sĩ"}
             </p>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="mt-1 -ml-3"
-              onClick={() => setXemLuot(dong.visit_id)}
-            >
-              Xem lại cả lượt
-            </Button>
+            <div className="mt-1 -ml-3 flex flex-wrap gap-1">
+              {onHangCho ? (
+                <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+                  ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
+                </Button>
+              ) : null}
+              <Button size="sm" variant="ghost" onClick={() => setXemLuot(dong.visit_id)}>
+                Xem lại cả lượt
+              </Button>
+            </div>
             {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
           </div>
           <dl className="grid grid-cols-4 divide-x divide-line text-xs">
@@ -831,6 +916,7 @@ function HoSo({
           </div>
         ) : null}
 
+        {laPhieuMoi ? null : (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-line bg-surface-muted px-3 py-2 text-xs text-ink-soft">
           <HeartPulse className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
           {sh ? (
@@ -854,6 +940,7 @@ function HoSo({
             <span>Chưa có sinh hiệu.</span>
           )}
         </div>
+        )}
         {dong.da_ky ? (
           <p className="mt-2 text-xs font-medium text-ink-soft">
             Hồ sơ đã hoàn tất{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
@@ -862,7 +949,7 @@ function HoSo({
         ) : null}
       </header>
 
-      <div className="p-3 pt-0">
+      <div className={laPhieuMoi ? "space-y-3" : "p-3 pt-0"}>
         <LuotKhamTruoc
           clinicPatientId={dong.clinic_patient_id}
           visitIdHienTai={dong.visit_id}
@@ -932,6 +1019,7 @@ function HoSo({
               }}
               onDaDat={onDaBam}
               onTrangThai={baoGate}
+              chanRay={laPhieuMoi ? nutHoanTat : undefined}
             />
             {dong.form_code === "SK" ? (
               <ThaiKy
@@ -1018,39 +1106,8 @@ function HoSo({
             xong bệnh án và chỉ định rồi mới bấm (Tuyền chốt 23/09/2026). Phiên
             cuối thì khép lượt khám; còn chỉ định thì khách sang phòng. Không
             khoá hồ sơ — bệnh án vẫn sửa được sau khi hoàn tất. */}
-        {choBam && dong.trang_thai === "serving" ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-            <button
-              type="button"
-              disabled={dangGui}
-              onClick={() => void bam(tuVan ? "xong-tu-van" : "kham-xong")}
-              className="inline-flex min-h-11 items-center gap-2 rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              <CheckCircle2 className="size-4" aria-hidden="true" />
-              {dangGui ? "Đang ghi…" : tuVan ? "Xong tư vấn" : "Hoàn tất"}
-            </button>
-            {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
-              <p className="text-xs text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
-            ) : null}
-            {hoiHoanTat === dong.id ? (
-              <XacNhanTaiCho
-                cau={
-                  completionMode === "HANDOFF"
-                    ? `Hoàn tất lượt khám này cho ${dong.ten}? Khách còn chỉ định sẽ sang hàng chờ phòng dịch vụ. Phiếu vẫn sửa được sau.`
-                    : `Hoàn tất khám cho ${dong.ten}? Phiếu vẫn sửa được sau.`
-                }
-                nhanDongY="Hoàn tất"
-                dangGui={dangGui}
-                onDongY={() => void gui("kham-xong")}
-                onThoi={() => setHoiHoanTat(null)}
-              />
-            ) : null}
-            {loiHienTai ? (
-              <p role="alert" className="text-xs text-danger">
-                {loiHienTai}
-              </p>
-            ) : null}
-          </div>
+        {!laPhieuMoi && nutHoanTat ? (
+          <div className="mt-3 border-t border-line pt-3">{nutHoanTat}</div>
         ) : null}
       </div>
     </section>

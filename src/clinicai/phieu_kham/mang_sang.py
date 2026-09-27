@@ -120,6 +120,50 @@ def _so(v: Any) -> int | float | None:
     return None
 
 
+#: Thẻ sinh hiệu (27/09/2026 — Y HỆT bản giao diện mẫu): nhãn ĐẦY ĐỦ + ĐƠN VỊ,
+#: đúng thứ tự bản mẫu. Dải cũ viết tắt (HA, CN…) vẫn giữ cho bản in / màn cũ.
+THE_SINH_HIEU: tuple[tuple[str, str, str], ...] = (
+    ("vitals.pulse", "Mạch", "lần/phút"),
+    ("vitals.temperature", "Nhiệt độ", "°C"),
+    ("vitals.blood_pressure", "Huyết áp", "mmHg"),
+    ("vitals.respiratory_rate", "Nhịp thở", "lần/phút"),
+    ("vitals.spo2", "SpO₂", "%"),
+    ("vitals.weight", "Cân nặng", "kg"),
+    ("vitals.height", "Chiều cao", "cm"),
+    ("vitals.bmi", "BMI", ""),
+    ("vitals.pain_score", "Thang đau", "/10"),
+)
+
+
+def _so_vn(v: Any) -> str:
+    """36.6 → "36,6"; 21.634 → "21,6"; 78 → "78" (dấu phẩy thập phân kiểu Việt)."""
+    if isinstance(v, float) and not v.is_integer():
+        return f"{round(v, 1)}".replace(".", ",")
+    if isinstance(v, float):
+        return str(int(v))
+    return str(v)
+
+
+def dung_the_sinh_hieu(sinh_hieu: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Chín ô của thẻ sinh hiệu: {nhan, gia_tri} — chưa đo thì gia_tri None.
+
+    Thang đau ghép liền "2/10"; đơn vị khác cách một khoảng ("78 lần/phút")."""
+    ra: list[dict[str, Any]] = []
+    for khoa, nhan, don_vi in THE_SINH_HIEU:
+        v = sinh_hieu.get(khoa)
+        if v is None or v == "":
+            gt = None
+        else:
+            chu = v if isinstance(v, str) else _so_vn(v)
+            gt = (
+                f"{chu}{don_vi}"
+                if don_vi.startswith("/")
+                else f"{chu} {don_vi}".strip()
+            )
+        ra.append({"khoa": khoa, "nhan": nhan, "gia_tri": gt})
+    return ra
+
+
 def dung_hanh_chinh(
     benh_nhan: Mapping[str, Any] | None, *, vao_luc: datetime | None
 ) -> dict[str, Any]:
@@ -168,22 +212,40 @@ async def doc_dau_phieu(
         "       p.ethnicity, p.nationality, p.occupation, p.address,"
         "       p.address_detail, p.ward_name, p.province_name, p.guardian_name,"
         "       p.nguoi_gioi_thieu, p.van_de_di_kham, l.name AS location_name,"
-        "       v.checked_in_at"
+        "       v.checked_in_at, lv.name AS co_so_luot, st.name AS loai_kham,"
+        "       bc.name AS kenh_dat,"
+        # Bác sĩ của LƯỢT; lượt chưa gán thì bác sĩ phiên khám chính đầu tiên.
+        "       coalesce(d.full_name, ("
+        "           SELECT s.full_name FROM consultation c"
+        "             JOIN staff s ON s.id = c.doctor_staff_id"
+        "            WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id"
+        "              AND c.kind = 'PRIMARY'"
+        "            ORDER BY c.round_no LIMIT 1)) AS bac_si"
         "  FROM visit v"
         "  JOIN patient p"
         "    ON p.clinic_id = v.clinic_id AND p.clinic_patient_id = v.clinic_patient_id"
         "  LEFT JOIN clinic_location l"
         "    ON l.id = p.location_id AND l.clinic_id = p.clinic_id"
+        "  LEFT JOIN clinic_location lv"
+        "    ON lv.id = v.location_id AND lv.clinic_id = v.clinic_id"
+        "  LEFT JOIN service_type st ON st.id = v.service_type_id"
+        "  LEFT JOIN staff d ON d.id = v.attending_doctor_id"
+        "  LEFT JOIN appointment a"
+        "    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+        "  LEFT JOIN booking_channel bc"
+        "    ON bc.clinic_id = a.clinic_id AND bc.code = a.booking_channel"
         " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
         clinic_id,
         visit_id,
     )
     do = await conn.fetchrow(
-        "SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,"
-        "       spo2, bmi, respiratory_rate, pain_score, created_at"
-        "  FROM vital_measurement"
-        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-        " ORDER BY created_at DESC, id DESC LIMIT 1",
+        "SELECT m.systolic, m.diastolic, m.pulse, m.temperature, m.weight_kg,"
+        "       m.height_cm, m.spo2, m.bmi, m.respiratory_rate, m.pain_score,"
+        "       m.created_at, s.full_name AS nguoi_do"
+        "  FROM vital_measurement m"
+        "  LEFT JOIN staff s ON s.id = m.recorded_by"
+        " WHERE m.clinic_id = $1::uuid AND m.visit_id = $2::uuid"
+        " ORDER BY m.created_at DESC, m.id DESC LIMIT 1",
         clinic_id,
         visit_id,
     )
@@ -232,6 +294,15 @@ async def doc_dau_phieu(
         "ho_so": [k for k, _ in TRUONG_HO_SO],
         "sinh_hieu": dung_sinh_hieu(dict(do) if do else None),
         "sinh_hieu_luc": do["created_at"].isoformat() if do else None,
+        # Thẻ khách + thẻ sinh hiệu Y HỆT bản giao diện mẫu (27/09/2026).
+        "the_khach": {
+            "bac_si": bn["bac_si"] if bn else None,
+            "kenh_dat": bn["kenh_dat"] if bn else None,
+            "co_so": (bn["co_so_luot"] or bn["location_name"]) if bn else None,
+            "loai_kham": bn["loai_kham"] if bn else None,
+        },
+        "the_sinh_hieu": dung_the_sinh_hieu(dung_sinh_hieu(dict(do) if do else None)),
+        "sinh_hieu_nguoi": do["nguoi_do"] if do else None,
         "tu_van": [
             {
                 "noi_dung": r["body"],
@@ -245,9 +316,11 @@ async def doc_dau_phieu(
 
 
 __all__ = [
+    "THE_SINH_HIEU",
     "TRUONG_HANH_CHINH",
     "TRUONG_SINH_HIEU",
     "doc_dau_phieu",
     "dung_hanh_chinh",
+    "dung_the_sinh_hieu",
     "dung_sinh_hieu",
 ]

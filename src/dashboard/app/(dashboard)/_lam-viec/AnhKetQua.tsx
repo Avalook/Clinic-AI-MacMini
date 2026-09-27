@@ -65,81 +65,116 @@ function Mat({ t, gon = false }: { t: TepXem; gon?: boolean }) {
   );
 }
 
+/** "6 ảnh · 2 video · 1 tài liệu" — đầu khối ảnh của bản mẫu. */
+export function demTep(tep: TepXem[]): string {
+  return NHOM.map((g) => {
+    const n = tep.filter((t) => g.loai(t.loai)).length;
+    return n ? `${n} ${g.nhan}` : "";
+  })
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export default function AnhKetQua({
   tep,
   onMo,
   lon = false,
+  dau = false,
 }: {
   tep: TepXem[];
   /** Mở hộp xem ở tấm thứ `i`; `luoi` = mở dạng lưới. */
   onMo: (i: number, luoi?: boolean) => void;
   lon?: boolean;
+  /** Đầu khối "ẢNH · VIDEO" + đếm (bản mẫu `mediaKhoi` ở phiếu khám). */
+  dau?: boolean;
 }) {
   if (tep.length === 0) return null;
-  const co = lon ? "aspect-video w-full" : "size-20";
+
+  const dauKhoi = dau ? (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-label font-semibold uppercase tracking-wide text-ink-muted">Ảnh · video</span>
+      <span className="text-meta text-ink-muted">{demTep(tep)}</span>
+    </div>
+  ) : null;
 
   if (tep.length <= 3) {
     return (
-      <ul className={lon ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "flex flex-wrap gap-2"}>
-        {tep.map((t, i) => (
-          <li key={t.id}>
-            <button
-              type="button"
-              onClick={() => onMo(i)}
-              title="Bấm để xem lớn"
-              className={`block overflow-hidden rounded-control border border-line ${co}`}
-            >
-              <Mat t={t} />
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="space-y-2">
+        {dauKhoi}
+        <ul className={lon ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-3 gap-2 sm:grid-cols-4"}>
+          {tep.map((t, i) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => onMo(i)}
+                title="Bấm để xem lớn"
+                className={`group block w-full cursor-zoom-in overflow-hidden rounded-control bg-ink ring-1 ring-inset ring-hairline ${
+                  lon ? "aspect-video" : "aspect-4/3"
+                }`}
+              >
+                <span className="block h-full w-full transition-transform duration-100 group-hover:scale-105">
+                  <Mat t={t} />
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     );
   }
 
+  // Nhiều tệp: mỗi loại một "chồng giấy" — ba tờ, hai tờ dưới xoay lệch, rê chuột
+  // thì xoè ra (bản mẫu `.md-chong`).
   const chong = NHOM.map((g) => ({
     nhan: g.nhan,
     ds: tep.map((t, i) => [t, i] as const).filter(([t]) => g.loai(t.loai)),
   })).filter((g) => g.ds.length > 0);
+  const XOAY = [
+    "",
+    "-rotate-6 -translate-x-1.5 translate-y-0.5 group-hover:-rotate-12 group-hover:-translate-x-3",
+    "rotate-6 translate-x-2 translate-y-0.5 group-hover:rotate-12 group-hover:translate-x-3.5",
+  ];
 
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      {chong.map((g) => (
-        <button
-          key={g.nhan}
-          type="button"
-          onClick={() => onMo(g.ds[0][1])}
-          title={`Xem ${g.ds.length} ${g.nhan}`}
-          className={`relative ${lon ? "h-28 w-40" : "h-20 w-24"}`}
-        >
-          {g.ds
-            .slice(0, 3)
-            .reverse()
-            .map(([t], k, arr) => {
-              const lech = arr.length - 1 - k;
-              return (
+    <div className="space-y-2">
+      {dauKhoi}
+      <div className="flex flex-wrap gap-6 px-2 pt-2 pb-1">
+        {chong.map((g) => (
+          <button
+            key={g.nhan}
+            type="button"
+            onClick={() => onMo(g.ds[0][1])}
+            title={`Xem ${g.ds.length} ${g.nhan}`}
+            className={`group relative ${lon ? "h-28 w-36" : "h-24 w-28"}`}
+          >
+            {g.ds
+              .slice(0, 3)
+              .reverse()
+              .map(([t], k, arr) => (
                 <span
                   key={t.id}
-                  className={`absolute inset-0 overflow-hidden rounded-control border border-line bg-surface ${
-                    lech === 2 ? "translate-x-2 -translate-y-2" : lech === 1 ? "translate-x-1 -translate-y-1" : ""
+                  className={`absolute inset-x-0 top-0 bottom-3 overflow-hidden rounded-control border-2 border-surface bg-ink transition-transform duration-200 ${
+                    XOAY[arr.length - 1 - k] ?? ""
                   }`}
                 >
                   <Mat t={t} gon />
                 </span>
-              );
-            })}
-          <span className="absolute bottom-1 left-1 rounded-control bg-ink/80 px-1.5 text-label font-semibold text-white">
-            {g.ds.length} {g.nhan}
-          </span>
+              ))}
+            <span className="absolute -bottom-1 left-1/2 grid h-5 -translate-x-1/2 place-items-center whitespace-nowrap rounded-chip bg-ink px-2 text-label font-semibold text-white">
+              {g.ds.length} {g.nhan}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => onMo(0, true)}
+          className="rounded-control px-3 py-1 text-meta font-semibold text-ink-muted hover:bg-surface-sunken"
+        >
+          Xem tất cả {tep.length} →
         </button>
-      ))}
-      <button
-        type="button"
-        onClick={() => onMo(0, true)}
-        className="text-meta font-semibold text-brand-700 underline underline-offset-4"
-      >
-        Xem tất cả {tep.length} →
-      </button>
+      </div>
     </div>
   );
 }

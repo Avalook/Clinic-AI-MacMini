@@ -93,6 +93,13 @@ export interface ChiDinhVaKetQua {
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
+  /** Mã sản phẩm KiotViet (mã phòng khám) — hiện cạnh tên (27/09/2026). */
+  ma_kiotviet?: string | null;
+  gia?: number | null;
+  /** Đã thu tiền dịch vụ này (phiếu thu PAID). */
+  da_thu?: boolean;
+  /** Bác sĩ đã xem kết quả lúc nào — chưa xem thì đếm "N mới". */
+  da_xem_luc?: string | null;
   /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
   bat_buoc?: boolean;
   /** Làm ở đối tác: trạng thái bàn đối tác. null = làm tại phòng khám. */
@@ -139,6 +146,16 @@ export interface DauPhieu {
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
   /** Ô HỒ SƠ đồng bộ từ bảng khách (24/09/2026) — thứ tự hiện. */
   ho_so?: string[];
+  /** Thẻ khách Y HỆT bản giao diện mẫu (27/09/2026). */
+  the_khach?: {
+    bac_si: string | null;
+    kenh_dat: string | null;
+    co_so: string | null;
+    loai_kham: string | null;
+  };
+  /** Chín ô thẻ sinh hiệu: nhãn đầy đủ + giá trị đã kèm đơn vị. */
+  the_sinh_hieu?: { khoa: string; nhan: string; gia_tri: string | null }[];
+  sinh_hieu_nguoi?: string | null;
 }
 
 /** Khung của MỘT phiên bản — phiếu đã điền ghim phiên bản của nó. */
