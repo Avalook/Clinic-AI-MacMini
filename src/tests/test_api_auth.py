@@ -144,3 +144,20 @@ async def test_correct_header_passes(app: FastAPI, patch_env: None) -> None:
         r = await client.get("/api/v1/patients/", headers={API_KEY_HEADER: "secret-D"})
     assert r.status_code == 200
     assert r.json() == {"ok": "yes"}
+
+
+def test_moi_duong_health_cua_app_that_deu_mien_khoa() -> None:
+    """Thêm một /health/* mà quên miễn khoá → Kuma nhận 401 trên prod (27/09/2026:
+    /health/su-kien lên prod trả "Missing X-API-Key" dù test cục bộ xanh)."""
+    from fastapi.routing import APIRoute
+
+    from clinicai.api.auth import _is_exempt
+    from clinicai.main import app as that
+
+    duong = {
+        r.path
+        for r in that.routes
+        if isinstance(r, APIRoute) and r.path.startswith("/health")
+    }
+    assert "/health/su-kien" in duong
+    assert {p for p in duong if not _is_exempt(p)} == set()

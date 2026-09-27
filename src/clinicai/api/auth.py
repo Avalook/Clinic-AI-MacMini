@@ -45,6 +45,10 @@ EXEMPT_PATHS: frozenset[str] = frozenset(
     {
         "/health",
         "/health/db",
+        # Kuma / suc-khoe.sh gọi mỗi phút, không cầm khoá. Chỉ trả SỐ ĐẾM, và API
+        # không mở ra ngoài (Caddy chỉ chuyển /api của dashboard). Thiếu dòng
+        # này thì prod trả 401 — test cục bộ không đặt khoá nên không thấy (27/09).
+        "/health/su-kien",
         "/docs",
         "/openapi.json",
         "/redoc",
