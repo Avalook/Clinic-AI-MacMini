@@ -3,9 +3,8 @@
 -- =====================================================================
 -- Quang, 09/08/2026: *"riêng cái gì của phòng khám đừng xoá, chỉ khách thôi"*.
 --
--- KHÁC `reset_clinical_data.sql` Ở MỘT ĐIỂM SỐNG CÒN: file kia dọn luôn
--- `work_roster`. Chạy nó là mất sạch lịch trực vừa dựng. Đừng dùng file kia cho
--- việc này.
+-- KHÁC `reset_clinical_data.sql` (đã gỡ 27/09/2026) Ở MỘT ĐIỂM SỐNG CÒN: file
+-- kia dọn luôn `work_roster`, chạy nó là mất sạch lịch trực vừa dựng.
 --
 -- 🗑️ ĐI: patient và toàn bộ thứ treo dưới nó — lịch hẹn, lượt khám, bệnh án,
 --        đơn thuốc, thanh toán, siêu âm, xét nghiệm, sổ chăm sóc, nhắc tái

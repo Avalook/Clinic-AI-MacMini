@@ -4,7 +4,7 @@
 <!--
   Thay cho com.dr4women.clinic-backend.plist (trỏ vào ~/clinic-server, dựng
   stack cũ và bật Tailscale Funnel). Xem lý do đầy đủ ở scripts/clinic-boot.sh
-  và docs/len-vps.md.
+  và docs/legacy/len-vps.md.
 
   Cài (cần mật khẩu máy):
     sudo launchctl bootout system /Library/LaunchDaemons/com.dr4women.clinic-backend.plist

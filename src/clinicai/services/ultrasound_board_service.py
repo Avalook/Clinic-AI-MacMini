@@ -1,6 +1,7 @@
 """Bộ phận Siêu âm — bốn màn: hàng chờ, điều phối phòng, soạn kết quả, đã ký.
 
-Bản mẫu giao diện ở `src/truong-ca-prototype` dựng đủ bốn tab bằng dữ liệu giả.
+Bản mẫu giao diện (thư mục `src/truong-ca-prototype`, đã gỡ 27/09/2026 — còn trong
+lịch sử git) dựng đủ bốn tab bằng dữ liệu giả.
 File này là phần thật đứng sau, đọc từ đúng những bảng đang chạy:
 
     work_item (node DICHVU-SIEUAM)  → ai đang chờ siêu âm, ở phòng nào
