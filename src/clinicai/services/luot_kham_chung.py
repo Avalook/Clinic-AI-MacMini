@@ -92,6 +92,30 @@ CHI_DINH_CON_VIEC_SQL = """
            AND q_mien.status IN ('waived', 'follow_up'))
 """
 
+# VIỆC CÒN DỞ GIỮ LƯỢT LẠI — như trên nhưng BỎ việc làm bên ngoài (đối tác).
+#
+# Tuyền chốt 28/09/2026: *"bên đối tác bận việc chưa nhấn cũng được không sao,
+# mình cứ open nhé, cứ coi như thao tác để ghi lại sự kiện để sau này thống kê
+# … quan trọng nhất vẫn là phục vụ khách"*. Nút "Đã lấy mẫu / Nhận mẫu" của đối
+# tác chỉ GHI SỰ KIỆN, không phải cửa của lượt khám. Trước đây đối tác chưa bấm
+# thì chỉ định vẫn "authorized" → lượt không khép (quầy thu, đóng lượt đợi mốc
+# ấy) và quầy đóng lượt báo "còn dịch vụ chưa làm" — kể cả khi kết quả đã về.
+# Việc chờ KẾT QUẢ đối tác vẫn được giữ đúng chỗ của nó: yêu cầu VALID_RESULT
+# của vòng đọc (bác sĩ đọc, hoặc chuyển theo dõi) — không qua nút của đối tác.
+#
+# Chỉ dùng cho hai câu hỏi "lượt còn giữ lại không" (khép lượt, đóng lượt).
+# Lúc bác sĩ kết thúc phiên vẫn dùng CHI_DINH_CON_VIEC_SQL để việc đối tác còn
+# sinh yêu cầu "cần kết quả".
+CHI_DINH_CON_VIEC_GIU_LUOT_SQL = (
+    CHI_DINH_CON_VIEC_SQL
+    + """    AND NOT EXISTS (
+        SELECT 1 FROM public.node_definition n_ngoai
+         WHERE n_ngoai.clinic_id = o.clinic_id
+           AND n_ngoai.code = o.node_code
+           AND n_ngoai.lam_ben_ngoai)
+"""
+)
+
 # Ai đọc được nội dung khám (ghi chú, kết quả). Lễ tân và trưởng ca làm việc
 # với trạng thái, không cần đọc chữ bác sĩ viết.
 CLINICAL_READ_ROLES = frozenset(

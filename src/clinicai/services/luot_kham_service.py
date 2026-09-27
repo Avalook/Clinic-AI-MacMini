@@ -89,6 +89,9 @@ from clinicai.services.luot_kham_chung import (
     CHECKIN_ROLES as CHECKIN_ROLES,
 )
 from clinicai.services.luot_kham_chung import (
+    CHI_DINH_CON_VIEC_GIU_LUOT_SQL as CHI_DINH_CON_VIEC_GIU_LUOT_SQL,
+)
+from clinicai.services.luot_kham_chung import (
     CHI_DINH_CON_VIEC_SQL as CHI_DINH_CON_VIEC_SQL,
 )
 from clinicai.services.luot_kham_chung import (
@@ -994,7 +997,8 @@ class LuotKhamService:
 
         Điều kiện: đã có ít nhất một phiên khám xong; không phiên nào đang chờ
         hay đang khám; không vòng đọc nào còn mở; không chỉ định đã duyệt nào
-        còn chưa làm. Việc theo dõi (follow_up_case) KHÔNG giữ lượt lại.
+        còn chưa làm (việc của ĐỐI TÁC không tính — nút của họ chỉ ghi sự kiện,
+        28/09/2026). Việc theo dõi (follow_up_case) KHÔNG giữ lượt lại.
 
         Khép = ``encounter_flow.finished_at`` + lịch hẹn COMPLETED +
         ``visit.exam_completed_at`` (quầy thu tiền và bước đóng lượt đợi mốc
@@ -1015,7 +1019,7 @@ class LuotKhamService:
                AND NOT EXISTS (SELECT 1 FROM service_order o
                                 WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                                   AND """
-            + CHI_DINH_CON_VIEC_SQL
+            + CHI_DINH_CON_VIEC_GIU_LUOT_SQL
             + """)
             """,
             cid,

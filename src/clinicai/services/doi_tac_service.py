@@ -303,10 +303,8 @@ class DoiTacService:
             await _ghi_chu_doi_tac(conn, cid, oid, "ghi_chu_tai_lieu", ghi_chu)
             if o["ket_qua_luc"] is not None or o["doi_tac_cho_tai_lieu_luc"]:
                 return {"ok": True, "already": True}
-            if o["exec_status"] != "performed":
-                raise LuotKhamConflictError(
-                    "SAMPLE_NOT_READY", "Chưa có mẫu — bấm “Đã lấy mẫu” trước."
-                )
+            # KHÔNG đòi "Đã lấy mẫu" trước (Tuyền 28/09/2026: các nút của đối tác
+            # chỉ ghi sự kiện, bấm sót bước nào cũng không chặn bước sau).
             await conn.execute(
                 """
                 UPDATE service_order

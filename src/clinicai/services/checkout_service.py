@@ -48,7 +48,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_SQL
+from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_GIU_LUOT_SQL
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -77,11 +77,12 @@ SELECT
     --
     -- ① Chỉ định bác sĩ đã duyệt mà chưa làm (nháp của thư ký không tính).
     --    Khách ĐÃ BỎ, hoặc bác sĩ đã miễn / chuyển theo dõi → không còn là việc
-    --    dở (cùng luật `kham_xong`, 24/09/2026).
+    --    dở (cùng luật `kham_xong`, 24/09/2026). Việc của ĐỐI TÁC không tính
+    --    (28/09/2026 — nút của đối tác chỉ ghi sự kiện; chờ kết quả là ②).
     coalesce((SELECT count(*) FROM public.service_order o
                WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
                  AND """
-    + CHI_DINH_CON_VIEC_SQL
+    + CHI_DINH_CON_VIEC_GIU_LUOT_SQL
     + """),
              0)                                                AS svc_open,
     -- ② Kết quả bác sĩ còn chờ để đọc lại trong lượt: yêu cầu "cần kết quả"

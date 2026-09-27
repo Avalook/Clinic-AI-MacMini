@@ -596,8 +596,9 @@ function MotViec({
             if (t) onGui(t);
           }}
         />
-        {tt !== "CHO_LAY_MAU" ? (
-          <button
+        {/* Tải tài liệu MỌI LÚC (Tuyền 28/09/2026): các nút bước chỉ ghi sự
+            kiện — đối tác bận chưa bấm "Đã lấy mẫu" vẫn gửi được kết quả. */}
+        <button
             type="button"
             disabled={dangLam}
             onClick={() => oTep.current?.click()}
@@ -610,7 +611,6 @@ function MotViec({
             <FileUp className="size-4" aria-hidden="true" />
             {dangLam && tienDo ? "Đang gửi…" : tt === "DA_GUI_KET_QUA" ? "Gửi thêm tài liệu" : "Tải tài liệu lên"}
           </button>
-        ) : null}
       </div>
     </li>
   );
