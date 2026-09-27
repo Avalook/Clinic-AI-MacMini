@@ -364,6 +364,7 @@ export default function WeeklyAppointmentsTable({
   choDoSinhHieu,
   choCheckIn = false,
   chonNgay = false,
+  choThemKhach = true,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
@@ -381,6 +382,10 @@ export default function WeeklyAppointmentsTable({
    *  (27/09/2026, đợt 3). CHỈ Trang chủ bật — Tiếp đón khách đã vẽ riêng hôm
    *  nay nên không truyền. */
   chonNgay?: boolean;
+  /** Dòng "+ Thêm khách hàng / Đặt lịch vào đây" dưới từng bác sĩ mỗi khung.
+   *  Trang chủ TẮT (Tuyền 28/09/2026: nhiều bác sĩ thì dòng này lặp khắp bảng;
+   *  đặt lịch làm ở màn Đặt lịch). Tiếp đón khách giữ nguyên. */
+  choThemKhach?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -557,13 +562,13 @@ export default function WeeklyAppointmentsTable({
                 day,
                 dutyByDate[day.date] ?? [],
                 now,
-                canWriteIntake(role),
+                choThemKhach && canWriteIntake(role),
                 policy,
                 // LỄ TÂN ĐI CHUNG ĐƯỜNG VỚI CSKH (Tuyền 16/09/2026): ô trống mở
                 // màn đặt lịch, không còn rẽ sang biểu mẫu vãng lai của riêng
                 // quầy. "Vãng lai" nay chỉ là một KÊNH ĐẶT, không phải một
                 // luồng — nên ngày mai, ngày kia cũng bấm được, không chỉ hôm nay.
-                canManageAppt(role) || canCheckin(role),
+                choThemKhach && (canManageAppt(role) || canCheckin(role)),
               );
               const mo = dangMo(day);
               // Bác sĩ của từng dòng: buildDayRows chỉ gắn nhãn ở dòng ĐẦU nhóm

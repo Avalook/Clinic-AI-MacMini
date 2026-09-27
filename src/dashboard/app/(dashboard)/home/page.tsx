@@ -591,6 +591,8 @@ async function KhoiDuLieu({
           // "check đặt lịch cần hiển thị theo ngày"). Mặc định hôm nay khi
           // đang xem tuần này.
           chonNgay
+          // Không bày dòng "+ Thêm khách hàng" (Tuyền 28/09/2026, chọn a).
+          choThemKhach={false}
         />
       </section>
       <CotTongQuan
