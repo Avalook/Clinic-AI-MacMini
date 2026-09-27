@@ -1,12 +1,15 @@
 #!/bin/bash
-# Deploy the ClinicAI self-host stack on the Mac mini.
-#   ./scripts/deploy-backend.sh prod      # branch main  → prod stack    (Supabase prod)
-#   ./scripts/deploy-backend.sh staging   # tag staging-* → staging stack (Supabase staging)
+# Deploy the ClinicAI stack — chạy NGAY TRÊN VPS prod (clinic-vps-moi,
+# /home/clinicai/clinicai). Script dùng docker của máy gõ lệnh.
+#   ./scripts/deploy-backend.sh prod      # branch main  → prod stack
+#   ./scripts/deploy-backend.sh staging   # tag staging-* → staging stack
+#                                         # (27/09/2026: KHÔNG có staging nào đang chạy)
 #
-# Flow (spec Phase 5/7): verify exact source → build → up → health → rollback.
+# Flow: verify exact source → build → up → health → rollback.
 # CLINIC_ENV_DIR may point at a separate secrets directory (used by CI checkouts).
-# DB migrations are NOT run here — apply schema separately + reviewed via Supabase CLI
-# (`supabase db push`). Decoupling schema from code deploy keeps deploys safe.
+# DB migrations are NOT run here — sao lưu trước, rồi áp riêng bằng
+# scripts/apply-pending-migrations.sh (có người xem). Decoupling schema from code
+# deploy keeps deploys safe.
 set -euo pipefail
 
 ENVN="${1:-}"
