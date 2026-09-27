@@ -444,7 +444,6 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
-            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }
@@ -454,7 +453,6 @@ export default function PhieuKhamLuot({
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}
-            onDoiBatBuoc={choGhi ? doiBatBuoc : undefined}
             chiDoc={!choGhi}
           />
         }
@@ -463,6 +461,8 @@ export default function PhieuKhamLuot({
           mauDuPhong,
           goiYMau,
           nhanGiay,
+          // Ô "bắt buộc" của chỉ định đã đặt: nay ở thẻ từng chỉ định (27/09).
+          onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
           choDien: choGhi,
           clinicPatientId,
           onDoi: () => {

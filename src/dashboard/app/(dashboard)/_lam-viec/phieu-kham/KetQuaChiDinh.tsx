@@ -138,8 +138,15 @@ export default function KetQuaChiDinh({
   clinicPatientId,
   onDoi,
   nhanGiay = {},
+  onDoiBatBuoc,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Bật / tắt "Bắt buộc" của chỉ định CHƯA thu tiền (25/09/2026; 27/09 chuyển
+   *  từ hộp tóm tắt ở đầu danh mục vào đây). Không truyền = chỉ xem chip. */
+  onDoiBatBuoc?: (
+    orderId: string,
+    batBuoc: boolean,
+  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
   /** 18 mẫu kết quả đang bật — khi dịch vụ chưa gắn mẫu nào. */
   mauDuPhong?: MauKetQuaNgan[];
   /** service_code → mã mẫu gợi ý từ phiếu v5 (không kèm `KQ_`). */
@@ -156,6 +163,13 @@ export default function KetQuaChiDinh({
   const [tep, setTep] = useState<string | null>(null);
   // Hộp xem CHIA ĐÔI: kết quả trái, ảnh phải — mở từ ảnh nhỏ hoặc ⤢.
   const [hop, setHop] = useState<{ id: string; i: number; luoi: boolean } | null>(null);
+  const [loiBatBuoc, setLoiBatBuoc] = useState<{ id: string; loi: string } | null>(null);
+  const doiBatBuoc = async (d: ChiDinhVaKetQua, co: boolean) => {
+    if (!onDoiBatBuoc) return;
+    setLoiBatBuoc(null);
+    const kq = await onDoiBatBuoc(d.service_order_id, co);
+    if (!kq.ok) setLoiBatBuoc({ id: d.service_order_id, loi: kq.loi });
+  };
   const daGhi = useRef(new Set<string>());
 
   // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem.
@@ -205,9 +219,28 @@ export default function KetQuaChiDinh({
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
               ) : null}
-              {d.bat_buoc ? <Chip tone="warning">bắt buộc</Chip> : null}
+              {/* Chưa thu tiền: bác sĩ bật/tắt được (máy chủ chặn khi đã thu —
+                  SERVICE_ALREADY_PAID). Đã thu: chỉ còn chip. */}
+              {onDoiBatBuoc && !d.da_thu ? (
+                <label className="inline-flex min-h-8 items-center gap-1 text-meta text-ink">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-brand-600"
+                    checked={Boolean(d.bat_buoc)}
+                    onChange={(e) => void doiBatBuoc(d, e.target.checked)}
+                  />
+                  bắt buộc
+                </label>
+              ) : d.bat_buoc ? (
+                <Chip tone="warning">bắt buộc</Chip>
+              ) : null}
               <span className="text-meta text-ink-muted">{d.gia != null ? tienVn(d.gia) : "chưa có giá"}</span>
             </div>
+            {loiBatBuoc?.id === d.service_order_id ? (
+              <p role="alert" className="mt-1 text-meta text-danger">
+                {loiBatBuoc.loi}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap justify-end gap-1">
             {choDien ? (
