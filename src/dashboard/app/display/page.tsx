@@ -27,7 +27,13 @@ import DisplayBoard, { type DisplayZone, type DisplayItem } from "./DisplayBoard
 
 export const dynamic = "force-dynamic";
 
-export default async function DisplayPage() {
+export default async function DisplayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ phong?: string; ten?: string }>;
+}) {
+  // TV TỪNG PHÒNG (27/09/2026): `?phong=<mã phòng>` — mỗi phòng một màn.
+  const { phong, ten } = await searchParams;
   const data = await fetchFromBackend<{
     zones: DisplayZone[];
     items: DisplayItem[];
@@ -54,6 +60,8 @@ export default async function DisplayPage() {
       clinicName={data.clinic_name}
       footerText={data.footer_text}
       footerInfo={data.footer_info}
+      phong={typeof phong === "string" && phong ? phong : null}
+      tenPhong={typeof ten === "string" ? ten.slice(0, 80) : null}
     />
   );
 }
