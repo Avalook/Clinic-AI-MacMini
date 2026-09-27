@@ -12,7 +12,11 @@
  * thì không vẽ gì.
  */
 
-import Chip from "./Chip";
+// 27/09/2026 tối (Tuyền chốt): hai số GHÉP THÀNH MỘT VIÊN "#5 | 13" — nửa trái
+// xám là booking (giữ dấu #), nửa phải xanh đậm là check-in (số gọi, cần nổi).
+// Chữ đầy đủ nằm ở title + nhãn cho trình đọc màn hình.
+
+const NUA = "inline-flex h-5 items-center px-2 tabular-nums";
 
 export default function SoLuot({
   booking,
@@ -24,17 +28,27 @@ export default function SoLuot({
   className?: string;
 }) {
   if (booking == null && checkin == null) return null;
+  const nhan = [
+    booking != null ? `Booking #${booking}` : null,
+    checkin != null ? `Check-in ${checkin}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <span className={`inline-flex flex-wrap items-center gap-1 ${className}`}>
+    <span
+      title={nhan}
+      aria-label={nhan}
+      className={`inline-flex shrink-0 overflow-hidden whitespace-nowrap rounded-chip text-label ${className}`}
+    >
       {booking != null ? (
-        <Chip tone="neutral" title="Số booking — thứ tự đặt lịch trong ngày">
-          Booking #{booking}
-        </Chip>
+        <span aria-hidden className={`${NUA} bg-surface-sunken text-ink-muted`}>
+          #{booking}
+        </span>
       ) : null}
       {checkin != null ? (
-        <Chip tone="brand" title="Số check-in — số quầy tiếp đón gọi">
-          Check-in {checkin}
-        </Chip>
+        <span aria-hidden className={`${NUA} bg-brand-50 font-semibold text-brand-700`}>
+          {checkin}
+        </span>
       ) : null}
     </span>
   );
