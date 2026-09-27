@@ -99,13 +99,16 @@ export default function QueuesClient({
 
   const soDo = live.patients.filter(quaNguong).length;
   const phongDay = live.rooms.filter((r) => r.state === "critical").length;
-  const tongCho = live.rooms.reduce((s, r) => s + r.waiting, 0);
+  // CÙNG MẪU với "Chờ quá ngưỡng" (Tuyền 28/09/2026): mọi khách đang có lượt ở
+  // bất kỳ bước nào. Bản cũ cộng `rooms.waiting` (chỉ người đứng chờ trong
+  // phòng) nên ra "Đang chờ 4" cạnh "Chờ quá ngưỡng 44" — hai số không so được.
+  const tongKhach = live.patients.length;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <StatRow>
-          <StatCard label="Đang chờ" value={tongCho} tone="brand" />
+          <StatCard label="Khách đang trong phòng khám" value={tongKhach} tone="brand" />
           <StatCard
             label="Chờ quá ngưỡng"
             value={soDo}
