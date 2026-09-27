@@ -619,6 +619,26 @@ _TEP_TAI_LEN_GUARD = require_role(
 )
 
 
+async def _cua_tai_len_tep(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> StaffIdentity:
+    """Cửa TẢI LÊN tệp kết quả: vai cũ (`_TEP_TAI_LEN_GUARD`, giữ nguyên cách đổi
+    vai theo vị trí / lego), HOẶC có khối ghi y khoa theo lego (27/09, đợt 3 —
+    "khám CHỈ CẦN LEGO"): người điền phiếu kết quả gửi được ảnh của kết quả ấy.
+    Kiểm trước khi đọc byte nào của thân."""
+    if identity.co_vai(_TEP_TAI_LEN_GUARD.allowed_roles):
+        return await _TEP_TAI_LEN_GUARD(identity)
+    from clinicai.services.tep_ket_qua_service import tai_len_duoc_tep_ket_qua
+
+    async with pool.acquire() as conn:
+        if await tai_len_duoc_tep_ket_qua(conn, identity):
+            return identity
+    from clinicai.core.exceptions import SafetyGateError
+
+    raise SafetyGateError("Bạn chưa được cấp quyền tải tệp kết quả.")
+
+
 def _cach_mo_tep(ten: str | None, tai: bool) -> str:
     """`inline` để xem; `attachment; filename*=…` để tải về đúng tên."""
     if not tai:
@@ -643,7 +663,7 @@ def _ben_tep(v: object) -> int | None:
 @router.post("/cskh/ket-qua/tep", status_code=201)
 async def tai_len_ket_qua(
     request: Request,
-    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
+    identity: StaffIdentity = Depends(_cua_tai_len_tep),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tải một tệp kết quả lên (multipart: file, clinic_patient_id,
@@ -799,12 +819,32 @@ async def thu_hoi_tep_ket_qua(
     )
 
 
+@router.get("/cskh/ket-qua/chi-dinh-cua-lich/{appointment_id}")
+async def chi_dinh_cua_lich(
+    appointment_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỉ định của lượt (theo lịch hẹn) — ô "Kết quả của chỉ định nào" khi tải
+    tệp ở màn Khách hàng (27/09, đợt 3). Quyền = quyền đọc tệp kết quả (kiểm
+    trong service). Đăng ký TRƯỚC `/cskh/ket-qua/{clinic_patient_id}`."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return {
+        "items": await TepKetQuaService(pool).chi_dinh_cua_lich(
+            identity=identity, appointment_id=str(appointment_id)
+        )
+    }
+
+
 @router.get("/cskh/ket-qua/{clinic_patient_id}")
 async def danh_sach_ket_qua(
     clinic_patient_id: UUID,
     # Ai tải lên được thì phải XEM LẠI được danh sách — bản trước chỉ mở cho
     # vai tiếp nhận, nên bác sĩ, điều dưỡng tải xong không thấy tệp mình vừa gửi.
-    identity: StaffIdentity = Depends(_TEP_TAI_LEN_GUARD),
+    # Từ 27/09 (đợt 3) luật đọc nằm ở service (`doc_duoc_tep_ket_qua`): vai cũ
+    # HOẶC đọc được kết quả theo lego — cùng luật với nội dung tệp.
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tệp kết quả của một khách, kèm đã gửi hay chưa."""

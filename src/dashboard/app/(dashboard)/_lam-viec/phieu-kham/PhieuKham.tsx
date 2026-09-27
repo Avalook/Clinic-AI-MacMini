@@ -41,6 +41,7 @@ import {
   KHOI_PHIEU,
   type CheDoPhieu,
   type ChiDinhVaKetQua,
+  type KetQuaMotChiDinh,
   type DauPhieu,
   type DinhNghiaPhieu,
   type DongThuoc,
@@ -54,7 +55,7 @@ import {
 } from "@/lib/phieu-kham";
 import ChiDinhThuThuat from "./ChiDinhThuThuat";
 import DonThuocPhieu from "./DonThuocPhieu";
-import KetQuaChiDinh from "./KetQuaChiDinh";
+import KetQuaChiDinh, { TepChuaGan } from "./KetQuaChiDinh";
 import { KhoiTuVan } from "./KhoiDauPhieu";
 import { TheKhach, TheSinhHieu } from "./TheKhach";
 import TieuDeKhoi from "./TieuDeKhoi";
@@ -95,6 +96,7 @@ export default function PhieuKham({
   cheDo,
   dauPhieu,
   ketQuaChiDinh,
+  tepChuaGan = [],
   onLuu,
   donThuoc,
   thuThuat,
@@ -120,6 +122,9 @@ export default function PhieuKham({
   cheDo: CheDoPhieu;
   dauPhieu: DauPhieu | null;
   ketQuaChiDinh: ChiDinhVaKetQua[];
+  /** Tệp của lượt CHƯA gắn chỉ định (tải ở màn Khách hàng) — hiện riêng ở khối
+   *  2, không ghép vào chỉ định nào (27/09/2026, đợt 3). */
+  tepChuaGan?: KetQuaMotChiDinh[];
   /** Shell ghi xuống chỗ lưu (sau khi qua cổng `kiem_luu` ở máy chủ).
    *  `keepalive` = trang đang đóng. */
   onLuu: (goi: Record<string, ONhap>, keepalive: boolean) => Promise<KetQuaLuu>;
@@ -381,9 +386,10 @@ export default function PhieuKham({
     return (
       <Fragment key={m.ma}>
         {/* Khối 2: "Đã chỉ định & kết quả" đứng TRÊN danh mục (bản mẫu). */}
-        {m.lien_ket?.loai === "chi_dinh_cls" && ketQuaCls.length > 0 ? (
+        {m.lien_ket?.loai === "chi_dinh_cls" && (ketQuaCls.length > 0 || tepChuaGan.length > 0) ? (
           <TheCon ten="Đã chỉ định & kết quả">
-            <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} />
+            {ketQuaCls.length > 0 ? <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} /> : null}
+            <TepChuaGan tep={tepChuaGan} />
           </TheCon>
         ) : null}
         <TheCon ten={td.ten} phu={td.phu}>

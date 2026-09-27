@@ -10,24 +10,31 @@
 // phiếu khám (`KetQuaChiDinh`, tấm nhỏ). Chỉ hiển thị — mở tệp KHÔNG ghi "đã xem"
 // (việc ấy là lệnh riêng của nút Xem kết quả).
 
-import { FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 
 import type { TepXem } from "@/components/ui/Lightbox";
+import { laDicom } from "@/lib/phieu-kham";
 
 export const duongXemTep = (id: string) => `/api/cskh/ket-qua/${id}/noi-dung`;
+
+/** Loại xem của DICOM (27/09/2026, đợt 3): trình duyệt không vẽ được — ô "Tải
+ *  về", không phải ảnh. Máy chủ lưu DICOM mới là TAI_LIEU; dòng cũ lỡ mang ANH
+ *  nhận ra bằng mime. */
+export const LOAI_DICOM = "DICOM";
 
 /** Tệp máy chủ (tep_ket_qua) → mục xem của Lightbox. */
 export function tepXem(t: {
   id: string;
   ten: string | null;
   loai_tep: string;
+  mime?: string | null;
   phu?: string;
 }): TepXem {
   return {
     id: t.id,
     src: duongXemTep(t.id),
     ten: t.ten ?? "(không tên)",
-    loai: t.loai_tep,
+    loai: laDicom(t.mime) ? LOAI_DICOM : t.loai_tep,
     phu: t.phu,
     taiVe: `${duongXemTep(t.id)}?tai=1`,
   };
@@ -53,6 +60,15 @@ function Mat({ t, gon = false }: { t: TepXem; gon?: boolean }) {
         <span aria-hidden className="absolute inset-0 flex items-center justify-center text-title text-white">
           ▶
         </span>
+      </span>
+    );
+  }
+  if (t.loai === LOAI_DICOM) {
+    return (
+      <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-surface-muted p-2 text-ink-soft">
+        <Download className="size-6" aria-hidden />
+        <span className="text-label font-semibold">DICOM — Tải về</span>
+        {gon ? null : <span className="line-clamp-1 text-center text-label">{t.ten}</span>}
       </span>
     );
   }
@@ -104,18 +120,32 @@ export default function AnhKetQua({
         <ul className={lon ? "grid grid-cols-1 gap-3 sm:grid-cols-2" : "grid grid-cols-3 gap-2 sm:grid-cols-4"}>
           {tep.map((t, i) => (
             <li key={t.id}>
-              <button
-                type="button"
-                onClick={() => onMo(i)}
-                title="Bấm để xem lớn"
-                className={`group block w-full cursor-zoom-in overflow-hidden rounded-control bg-ink ring-1 ring-inset ring-hairline ${
-                  lon ? "aspect-video" : "aspect-4/3"
-                }`}
-              >
-                <span className="block h-full w-full transition-transform duration-100 group-hover:scale-105">
+              {t.loai === LOAI_DICOM && t.taiVe ? (
+                // DICOM: không có gì để "xem lớn" — ô là đường TẢI VỀ luôn.
+                <a
+                  href={t.taiVe}
+                  rel="noopener"
+                  title={`Tải về ${t.ten}`}
+                  className={`block w-full overflow-hidden rounded-control ring-1 ring-inset ring-hairline hover:bg-surface-sunken ${
+                    lon ? "aspect-video" : "aspect-4/3"
+                  }`}
+                >
                   <Mat t={t} />
-                </span>
-              </button>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onMo(i)}
+                  title="Bấm để xem lớn"
+                  className={`group block w-full cursor-zoom-in overflow-hidden rounded-control bg-ink ring-1 ring-inset ring-hairline ${
+                    lon ? "aspect-video" : "aspect-4/3"
+                  }`}
+                >
+                  <span className="block h-full w-full transition-transform duration-100 group-hover:scale-105">
+                    <Mat t={t} />
+                  </span>
+                </button>
+              )}
             </li>
           ))}
         </ul>

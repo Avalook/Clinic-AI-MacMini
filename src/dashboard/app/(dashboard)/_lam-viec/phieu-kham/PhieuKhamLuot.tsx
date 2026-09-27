@@ -28,6 +28,7 @@ import {
   dongTuDon,
   phanThayDoi,
   type ChiDinhVaKetQua,
+  type KetQuaMotChiDinh,
   type DauPhieu,
   type DinhNghiaPhieu,
   type DongDonMayChu,
@@ -120,6 +121,8 @@ export default function PhieuKhamLuot({
   const [chonDuoc, setChonDuoc] = useState<{ form_id: string; ten: string }[] | null>(null);
   const [dau, setDau] = useState<DauPhieu | null>(null);
   const [ketQua, setKetQua] = useState<ChiDinhVaKetQua[]>([]);
+  // Tệp của lượt CHƯA gắn chỉ định (tải ở màn Khách hàng — đợt 3, 27/09).
+  const [tepChuaGan, setTepChuaGan] = useState<KetQuaMotChiDinh[]>([]);
   const [mauDuPhong, setMauDuPhong] = useState<MauKetQuaNgan[]>([]);
   const [tc, setTc] = useState<ThamChieuDu | null>(null);
   const [don, setDon] = useState<DongThuoc[]>([]);
@@ -163,12 +166,15 @@ export default function PhieuKhamLuot({
   );
 
   const napKetQua = useCallback(async () => {
-    const d = await doc<{ chi_dinh: ChiDinhVaKetQua[]; mau_du_phong: MauKetQuaNgan[] }>(
-      `/api/phieu-kham?visit_id=${visitId}`,
-    );
+    const d = await doc<{
+      chi_dinh: ChiDinhVaKetQua[];
+      mau_du_phong: MauKetQuaNgan[];
+      tep_chua_gan?: KetQuaMotChiDinh[];
+    }>(`/api/phieu-kham?visit_id=${visitId}`);
     if (d) {
       setKetQua(d.chi_dinh);
       setMauDuPhong(d.mau_du_phong);
+      setTepChuaGan(d.tep_chua_gan ?? []);
     }
   }, [visitId]);
 
@@ -506,6 +512,7 @@ export default function PhieuKhamLuot({
           </>
         }
         ketQuaChiDinh={ketQua}
+        tepChuaGan={tepChuaGan}
         onLuu={onLuu}
         thamChieuNgoai={tc}
         donThuoc={{ dong: don, onDoi: choGhi ? doiDon : undefined }}

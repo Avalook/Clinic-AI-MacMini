@@ -59,9 +59,13 @@ def test_mp4_va_mov_co_chu_ky_o_byte_thu_tu() -> None:
 
 
 def test_dicom_van_nhan_duoc() -> None:
-    """Máy siêu âm xuất thẳng DICOM là chuyện thường."""
+    """Máy siêu âm xuất thẳng DICOM là chuyện thường.
+
+    Nhận là TAI_LIEU, không phải ANH (27/09/2026, đợt 3): trình duyệt không vẽ
+    được DICOM, coi là ảnh thì ô xem nhanh và trang ảnh bản in thành khung trống.
+    """
     dicom = b"\x00" * 128 + b"DICM" + b"\x00" * 32
-    assert sniff_ket_qua(dicom) == ("application/dicom", ".dcm", "ANH")
+    assert sniff_ket_qua(dicom) == ("application/dicom", ".dcm", "TAI_LIEU")
 
 
 @pytest.mark.parametrize(

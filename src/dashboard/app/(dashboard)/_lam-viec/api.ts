@@ -191,6 +191,7 @@ export interface ThucHien {
   mau_ket_qua: { ma: string; ten: string; nhom: string | null }[];
   /** Mẫu chọn sẵn: mẫu đã gắn, hoặc mẫu gợi ý của phiếu v5 (23/09 khuya). */
   mau_goi_y?: string | null;
+  /** Máy chủ xếp READY trước (mở lại khách = mở phiếu đã Hoàn tất — đợt 3). */
   phieu: {
     id: string;
     form_id: string;
@@ -198,6 +199,8 @@ export interface ThucHien {
     revision: number;
     hoan_tat_luc: string | null;
   }[];
+  /** Dịch vụ đã xong mà phiếu kết quả chỉ còn nháp (27/09/2026, đợt 3). */
+  phieu_chua_hoan_tat?: boolean;
   ly_do_khong_lam: string[];
   ly_do_gian_doan: string[];
 }

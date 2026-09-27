@@ -141,6 +141,71 @@ NORMAL_READ_ROLES: frozenset[ClinicRole] = frozenset(
 )
 
 
+#: Vai tải lên / liệt kê tệp — Y HỆT cửa `_TEP_TAI_LEN_GUARD` của router CSKH
+#: (INTAKE_ROLES + bác sĩ, BS siêu âm, thư ký y khoa, điều dưỡng siêu âm).
+VAI_TAI_LEN: frozenset[ClinicRole] = frozenset(
+    {
+        ClinicRole.CSKH,
+        ClinicRole.RECEPTION,
+        ClinicRole.MANAGEMENT,
+        ClinicRole.TRUONG_CA,
+        ClinicRole.DOCTOR,
+        ClinicRole.ULTRASOUND_DOCTOR,
+        ClinicRole.TKYK,
+        ClinicRole.NURSE_ULTRASOUND,
+    }
+)
+
+
+async def doc_duoc_tep_ket_qua(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> bool:
+    """Người này ĐỌC (xem, liệt kê) được tệp kết quả của phòng khám không?
+
+    Vai cũ (NORMAL_READ_ROLES) giữ nguyên. THÊM theo LEGO (Tuyền chốt 26/09:
+    "khám CHỈ CẦN LEGO"; đợt 3 27/09): ai đọc được phiếu khám / kết quả CLS —
+    đúng hàm quyền của phiếu khám (`kiem_quyen_core`, việc `doc_ket_qua_cls`)
+    — thì đọc được ảnh / tệp gắn chỉ định. Trước đây tài khoản có lego Bàn khám
+    / Phòng dịch vụ mà vai tài khoản không thuộc danh sách thì đọc được phiếu
+    nhưng khung ảnh báo "không đọc được". Giữ thêm cửa quầy in phiếu
+    (`doc_duoc_in_phieu`, 27/09) — trang ảnh của bản in.
+
+    Đối tác không bao giờ qua nhánh quyền này: tệp của họ đi đường riêng.
+    Phạm vi phòng khám do câu truy vấn của nơi gọi giữ (`clinic_id`).
+    """
+    if identity.co_vai(NORMAL_READ_ROLES):
+        return True
+    if identity.co_vai([ClinicRole.PARTNER]):
+        return False
+    from clinicai.permissions.y_khoa import doc_duoc_in_phieu
+    from clinicai.services.phieu_kham_service import kiem_quyen_core
+
+    try:
+        await kiem_quyen_core(conn, identity, "doc_ket_qua_cls")
+        return True
+    except SafetyGateError:
+        pass
+    return await doc_duoc_in_phieu(conn, identity)
+
+
+async def tai_len_duoc_tep_ket_qua(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> bool:
+    """Người này TẢI LÊN được tệp kết quả không? Vai cũ (`VAI_TAI_LEN`), hoặc
+    có khối GHI y khoa (ghi bệnh án / điền kết quả — lego Bàn khám, Phòng dịch
+    vụ): người điền phiếu kết quả phải gửi được ảnh của chính kết quả ấy."""
+    if identity.co_vai(VAI_TAI_LEN):
+        return True
+    if identity.co_vai([ClinicRole.PARTNER]):
+        return False
+    from clinicai.permissions.y_khoa import QUYEN_GHI_Y_KHOA
+
+    for q in QUYEN_GHI_Y_KHOA:
+        if await can(conn, identity, q):
+            return True
+    return False
+
+
 async def _hoi_quyen_xac_nhan(
     conn: asyncpg.Connection | asyncpg.Pool, identity: StaffIdentity
 ) -> bool:
@@ -299,6 +364,16 @@ class TepKetQuaService:
                     or cua_chi_dinh["clinic_patient_id"] != clinic_patient_id
                 ):
                     raise ValidationError("Chỉ định này không phải của khách này.")
+                # Chọn chỉ định ở màn Khách hàng (27/09 đợt 3): chỉ định phải
+                # thuộc ĐÚNG lượt đang chọn, không chỉ đúng khách.
+                if (
+                    appointment_id
+                    and cua_chi_dinh["appointment_id"]
+                    and cua_chi_dinh["appointment_id"] != appointment_id
+                ):
+                    raise ValidationError(
+                        "Chỉ định này không thuộc lượt khám đang chọn."
+                    )
                 appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
                 is_external = bool(cua_chi_dinh["lam_ben_ngoai"])
             if appointment_id:
@@ -341,7 +416,9 @@ class TepKetQuaService:
                     "Báo kỹ thuật mở rộng dung lượng."
                 ) from loi
             raise
-        if loai == "TAI_LIEU":
+        if loai == "TAI_LIEU" and mime != "application/dicom":
+            # Chỉ tài liệu Office (ZIP) mới mở ra xem thư mục bên trong; DICOM
+            # cũng là TAI_LIEU (27/09 đợt 3) nhưng đã nhận bằng chữ ký byte 128.
             that = await asyncio.to_thread(_loai_tai_lieu, tmp)
             if that is None:
                 tmp.unlink(missing_ok=True)
@@ -771,7 +848,15 @@ class TepKetQuaService:
     async def danh_sach(
         self, *, identity: StaffIdentity, clinic_patient_id: str
     ) -> list[dict[str, Any]]:
-        """Tệp kết quả của một khách, mới nhất trước."""
+        """Tệp kết quả của một khách, mới nhất trước.
+
+        Cùng luật đọc với nội dung tệp (`doc_duoc_tep_ket_qua`) — trước 27/09
+        (đợt 3) cửa này chỉ xét vai nên người có lego mở được ảnh mà không
+        liệt kê được ảnh.
+        """
+        async with self._pool.acquire() as conn:
+            if not await doc_duoc_tep_ket_qua(conn, identity):
+                raise SafetyGateError("Không có quyền xem tệp kết quả.")
         rows = await self._pool.fetch(
             """
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.ben,
@@ -805,6 +890,32 @@ class TepKetQuaService:
         )
         return [dict(r) for r in rows]
 
+    async def chi_dinh_cua_lich(
+        self, *, identity: StaffIdentity, appointment_id: str
+    ) -> list[dict[str, Any]]:
+        """Chỉ định (còn hiệu lực) của lượt khám mở từ một lịch hẹn — để người
+        tải tệp ở màn Khách hàng CHỌN tệp là kết quả của chỉ định nào (27/09,
+        đợt 3). Cùng bộ lọc với lúc tải lên (`tai_len`: không nháp, không huỷ),
+        nên chỉ định nào hiện ở đây thì máy chủ nhận. Không tự ghép theo tên.
+        """
+        async with self._pool.acquire() as conn:
+            if not await doc_duoc_tep_ket_qua(conn, identity):
+                raise SafetyGateError("Không có quyền xem tệp kết quả.")
+            rows = await conn.fetch(
+                "SELECT o.id::text AS service_order_id, o.service_name,"
+                "       o.service_code, o.lan_chi_dinh AS lan"
+                "  FROM public.service_order o"
+                "  JOIN public.visit v"
+                "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
+                " WHERE o.clinic_id = $1::uuid AND v.appointment_id = $2::uuid"
+                "   AND o.exec_status NOT IN ('draft', 'cancelled')"
+                "   AND coalesce(o.execution_status, '') <> 'CANCELLED'"
+                " ORDER BY o.created_at, o.id",
+                identity.clinic_id,
+                appointment_id,
+            )
+        return [dict(r) for r in rows]
+
     async def duong_dan_de_doc(
         self, *, identity: StaffIdentity, tep_id: str
     ) -> tuple[Path, str, int, str]:
@@ -814,7 +925,8 @@ class TepKetQuaService:
         một hàm trả `bytes` là một hàm buộc mọi lời gọi phải nạp cả tệp vào RAM.
 
         Quyền đọc:
-        A. caller thuộc nhóm NORMAL_READ_ROLES (_KET_QUA_DOC_GUARD semantics cũ)
+        A. `doc_duoc_tep_ket_qua`: vai NORMAL_READ_ROLES, hoặc đọc được kết quả
+           CLS theo lego (đợt 3, 27/09), hoặc khâu quầy in phiếu
         OR
         B. caller có capability 'ket_qua.xac_nhan'
            AND file cùng clinic
@@ -841,15 +953,9 @@ class TepKetQuaService:
         if row is None:
             raise NotFoundError("Không tìm thấy tệp này.")
 
-        duoc_doc = False
-        if identity.co_vai(NORMAL_READ_ROLES):
-            duoc_doc = True
-        else:
-            # Quầy in phiếu cho khách (27/09/2026) — trang ẢNH của bản in.
-            from clinicai.permissions.y_khoa import doc_duoc_in_phieu
-
-            async with self._pool.acquire() as conn:
-                duoc_doc = await doc_duoc_in_phieu(conn, identity)
+        # Vai cũ, lego đọc phiếu khám / kết quả (đợt 3), quầy in phiếu.
+        async with self._pool.acquire() as conn:
+            duoc_doc = await doc_duoc_tep_ket_qua(conn, identity)
         if not duoc_doc and await co_quyen_xac_nhan(self._pool, identity):
             if (
                 row["xac_nhan_trang_thai"] == "CHO_XAC_NHAN"

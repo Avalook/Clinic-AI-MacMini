@@ -17,6 +17,7 @@ import Dropzone from "@/components/ui/Dropzone";
 import Lightbox, { type TepXem } from "@/components/ui/Lightbox";
 import { doCoTep, guiTepCoTienDo } from "@/lib/gui-tep-co-tien-do";
 import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
+import { laDicom } from "@/lib/phieu-kham";
 
 import AnhKetQua, { duongXemTep, tepXem } from "./AnhKetQua";
 
@@ -58,6 +59,7 @@ function XemTaiLieu({ tep }: { tep: Tep }) {
   const [html, setHtml] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const laWord = tep.mime === MIME_DOCX;
+  const dicom = laDicom(tep.mime);
   useEffect(() => {
     if (!laWord) return;
     let huy = false;
@@ -82,7 +84,11 @@ function XemTaiLieu({ tep }: { tep: Tep }) {
     return (
       <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-surface p-3 text-center text-ink-soft">
         <FileText className="size-10" aria-hidden />
-        <span className="text-label">Bảng tính Excel chưa xem trực tiếp được.</span>
+        <span className="text-label">
+          {dicom
+            ? "Ảnh DICOM không xem trực tiếp được trên trình duyệt — tải về, mở bằng phần mềm DICOM."
+            : "Bảng tính Excel chưa xem trực tiếp được."}
+        </span>
         <a
           href={duongXem(tep.id)}
           className="text-label font-semibold text-brand-700 underline"
@@ -231,6 +237,7 @@ export default function KhungTep({
           id: t.id,
           ten: t.ten_hien_thi,
           loai_tep: t.loai_tep === "TAI_LIEU" ? "TAI_LIEU" : t.loai_tep,
+          mime: t.mime,
           phu: [coChu(t.so_byte), gio(t.tai_len_luc), t.tai_len_boi].filter(Boolean).join(" · "),
         }),
       ),
@@ -263,11 +270,11 @@ export default function KhungTep({
             onChon={(ds) => void taiLen(ds)}
             disabled={dangTai !== null}
             gon={coTep}
-            accept="image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
+            accept="image/*,.dcm,application/dicom,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
             nhan={dangTai ?? "Gửi ảnh, video, PDF, Word vào đây"}
             phu={
               dangTai === null
-                ? "Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/WEBP/GIF/DICOM, video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)"
+                ? "Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/WEBP/GIF, DICOM (chỉ tải về), video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)"
                 : undefined
             }
           />
