@@ -435,6 +435,16 @@ def k22(k: Khach) -> None:
     _ket_thuc(k, thuoc=False)
 
 
+def k23(k: Khach) -> None:
+    """Khách ĐÃ TRẢ TIỀN, ĐÃ ĐƯỢC XẾP PHÒNG rồi về (27/09/2026 — ca đo trên prod):
+    đóng lượt phải đưa khách ra khỏi MỌI hàng chờ. Bất biến
+    `hang_cho_cua_luot_da_dong` ở kiểm cuối bắt nếu còn sót."""
+    ph = _den_kham(k, 75)
+    sa = (_chi_dinh_va_thu(k, ph, [SA]) or [None])[0] if ph else None
+    k.lam("hệ thống tự xếp phòng siêu âm", lambda: b.cho_phong(k.vid, sa))
+    k.lam("lễ tân cho khách về khi còn chờ phòng", lambda: b.checkout(k.vid))
+
+
 KICH_BAN: dict[str, tuple[str, Callable[[Khach], None]]] = {
     "K01": ("Luồng đủ: SA + XN đối tác → đọc KQ → thuốc → về", k01),
     "K02": ("Khám không chỉ định", k02),
@@ -458,6 +468,7 @@ KICH_BAN: dict[str, tuple[str, Callable[[Khach], None]]] = {
     "K20": ("Check-in hai lần · khách đổi ý về", k20),
     "K21": ("Điều dưỡng bỏ qua tư vấn → thẳng bác sĩ chính", k21),
     "K22": ("Chỉ định bắt buộc: quầy thu không bỏ được", k22),
+    "K23": ("Đã thu, đã xếp phòng rồi về → rời mọi hàng chờ", k23),
 }
 
 
@@ -496,7 +507,10 @@ def kiem_cuoi(bat_dau: dt.datetime, khach: list[Khach]) -> dict[str, Any]:
             # Khách về sớm (INCOMPLETE): dịch vụ đã trả mang sang lượt sau — đúng thiết kế.
             " and (select status from visit where visit_id=o.visit_id) <> 'INCOMPLETE'"
             " and not exists (select 1 from service_price sp where sp.clinic_id=o.clinic_id"
-            "   and sp.service_code=o.service_code and sp.doi_tac_lay_mau)"),
+            "   and sp.service_code=o.service_code and sp.doi_tac_lay_mau)"
+            # Làm ở NGOÀI (chụp phim ngoài, đối tác): không có phòng để xếp.
+            " and not exists (select 1 from node_definition n where n.clinic_id=o.clinic_id"
+            "   and n.code=o.node_code and n.lam_ben_ngoai)"),
         "giao_thuoc_vuot_mua": sql(
             "select p.visit_id, p.purchased_qty, coalesce(sum(a.quantity),0) from prescription p"
             " left join prescription_allocation a on a.prescription_id=p.id"
