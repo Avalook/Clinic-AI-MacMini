@@ -65,7 +65,8 @@ async def _kich_ban(pool: asyncpg.Pool) -> tuple[Quay, str, str, str]:
 
 async def _dong(q: Quay) -> dict[str, Any]:
     b = await CashierBoardService(q.pool).board(identity=q.thu_ngan, modes=["dich_vu"])
-    return next(i for i in b["items"] if i["visit_id"] == q.visit_id) | {"_bang": b}
+    dong: dict[str, Any] = next(i for i in b["items"] if i["visit_id"] == q.visit_id)
+    return dong | {"_bang": b}
 
 
 def _khoa() -> str:
@@ -363,4 +364,4 @@ def test_cua_so_thu_va_xuat_theo_quyen_thu() -> None:
     for r in cashier.router.routes:
         if getattr(r, "path", None) in can:
             deps = [d.call for d in r.dependant.dependencies]  # type: ignore[attr-defined]
-            assert cashier._GUARD in deps, r.path  # noqa: SLF001
+            assert cashier._GUARD in deps, getattr(r, "path", "")  # noqa: SLF001

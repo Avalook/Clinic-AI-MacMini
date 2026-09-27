@@ -200,7 +200,11 @@ async def pha_cau_truc(conn: asyncpg.Connection, cid: str) -> dict[str, str]:
         await conn.execute("DELETE FROM clinic_room_node WHERE room_id=$1::uuid", rid)
         for v in viec:
             await conn.execute(
-                "INSERT INTO clinic_room_node (room_id, node_code) VALUES ($1::uuid, $2)", rid, v
+                "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+                " VALUES ($1::uuid, $2::uuid, $3)",
+                cid,
+                rid,
+                v,
             )
         print(f"  ✓ {tang} · {ten} ({code}): {', '.join(viec)}")
 
