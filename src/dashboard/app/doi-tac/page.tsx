@@ -50,14 +50,9 @@ export default async function TrangDoiTac() {
         tenNguoi={staff?.full_name ?? staff?.short_name ?? undefined}
         leaveAction={logout}
       >
-        <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
-          <header>
-            <h1 className="text-2xl font-semibold text-ink">Việc của đối tác</h1>
-            <p className="text-sm text-ink-muted">
-              Phòng khám gửi xét nghiệm, chụp chiếu sang. Lấy mẫu → nhận mẫu, chờ
-              tài liệu → tải tài liệu lên. Mỗi bước bấm xong, phòng khám thấy ngay.
-            </p>
-          </header>
+        <main className="page-in flex flex-col gap-4">
+          {/* Tiêu đề + đếm việc nằm trong BangDoiTac (cùng khuôn màn phòng,
+              28/09/2026). */}
           <BangDoiTac />
         </main>
       </Shell>

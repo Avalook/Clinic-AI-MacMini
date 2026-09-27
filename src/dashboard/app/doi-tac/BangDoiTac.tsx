@@ -13,28 +13,19 @@
 // phòng khám gửi được tệp cho bất kỳ ai — chỉ cần đoán đúng một mã.
 //
 // 17/09/2026 (Tuyền): thêm bước "Chờ tài liệu" giữa lấy mẫu và gửi kết quả, để
-// CSKH thấy đối tác đã nhận việc; giao diện dùng chung khung với các vai khác
-// (thanh chỉ số, thẻ, trạng thái dạng bậc thang).
+// CSKH thấy đối tác đã nhận việc.
+//
+// 28/09/2026 (Tuyền: "thiết kế như các màn thủ thuật, siêu âm, bác sĩ"): cùng
+// khuôn màn phòng — hàng chờ bên trái chia theo bước còn dở, khách đang chọn
+// bên phải với từng việc của họ. Bỏ thanh chỉ số và tab lọc: đầu nhóm đã đếm.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  Clock3,
-  FileUp,
-  FlaskConical,
-  Hourglass,
-  Inbox,
-} from "lucide-react";
+import { FileUp, FlaskConical, Hourglass, Inbox } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
-import {
-  EmptyWorkspace,
-  Monogram,
-  WorkspaceMetric,
-  WorkspaceMetricRow,
-} from "../(dashboard)/tasks/WorkspacePrimitives";
+import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
 
 type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
 
@@ -158,7 +149,27 @@ async function bamViec(
   }
 }
 
-type Loc = "can-lam" | "da-gui";
+// HÀNG CHỜ BÊN TRÁI chia theo BƯỚC ĐẦU TIÊN còn dở của khách (Tuyền 28/09/2026:
+// "thiết kế như các màn thủ thuật, siêu âm, bác sĩ") — cùng khuôn HangChoCot.
+const NHOM: { ma: TrangThai; ten: string }[] = [
+  { ma: "CHO_LAY_MAU", ten: "Chờ lấy mẫu" },
+  { ma: "DA_LAY_MAU", ten: "Có mẫu · chờ nhận" },
+  { ma: "CHO_TAI_LIEU", ten: "Đang chờ tài liệu" },
+  { ma: "DA_GUI_KET_QUA", ten: "Đã gửi hôm nay" },
+];
+const THU_TU: Record<TrangThai, number> = {
+  CHO_LAY_MAU: 0,
+  DA_LAY_MAU: 1,
+  CHO_TAI_LIEU: 2,
+  DA_GUI_KET_QUA: 3,
+};
+/** Khách đứng ở nhóm của việc CHƯA XONG sớm nhất; xong hết → "Đã gửi". */
+function buocCua(k: Khach): TrangThai {
+  return k.viec.reduce<TrangThai>(
+    (m, v) => (THU_TU[v.trang_thai] < THU_TU[m] ? v.trang_thai : m),
+    "DA_GUI_KET_QUA",
+  );
+}
 
 export default function BangDoiTac() {
   const [ds, setDs] = useState<Khach[] | null>(null);
@@ -166,7 +177,7 @@ export default function BangDoiTac() {
   const [dangLam, setDangLam] = useState<string | null>(null);
   const [tienDo, setTienDo] = useState<{ id: string; pt: number; ten: string } | null>(null);
   const [xong, setXong] = useState<string | null>(null);
-  const [loc, setLoc] = useState<Loc>("can-lam");
+  const [chonId, setChonId] = useState<string | null>(null);
 
   const nhan = useCallback((kq: KetQua) => {
     if ("loi" in kq) {
@@ -206,21 +217,6 @@ export default function BangDoiTac() {
     for (const k of ds ?? []) for (const v of k.viec) c[v.trang_thai] += 1;
     return c;
   }, [ds]);
-
-  const hienThi = useMemo(
-    () =>
-      (ds ?? [])
-        .map((k) => ({
-          ...k,
-          viec: k.viec.filter((v) =>
-            loc === "da-gui"
-              ? v.trang_thai === "DA_GUI_KET_QUA"
-              : v.trang_thai !== "DA_GUI_KET_QUA",
-          ),
-        }))
-        .filter((k) => k.viec.length > 0),
-    [ds, loc],
-  );
 
   const lamViec = useCallback(
     async (
@@ -285,63 +281,25 @@ export default function BangDoiTac() {
     return <p className="text-body text-ink-muted">Đang tải…</p>;
   }
 
-  return (
-    <div className="space-y-4">
-      <WorkspaceMetricRow>
-        <WorkspaceMetric
-          label="Chờ lấy mẫu"
-          value={dem.CHO_LAY_MAU}
-          icon={<FlaskConical className="size-5" />}
-          tone={dem.CHO_LAY_MAU ? "warning" : "neutral"}
-        />
-        <WorkspaceMetric
-          label="Có mẫu · chờ nhận"
-          value={dem.DA_LAY_MAU}
-          icon={<Inbox className="size-5" />}
-          tone={dem.DA_LAY_MAU ? "brand" : "neutral"}
-        />
-        <WorkspaceMetric
-          label="Đang chờ tài liệu"
-          value={dem.CHO_TAI_LIEU}
-          icon={<Hourglass className="size-5" />}
-          tone={dem.CHO_TAI_LIEU ? "brand" : "neutral"}
-        />
-        <WorkspaceMetric
-          label="Đã gửi hôm nay"
-          value={dem.DA_GUI_KET_QUA}
-          icon={<CheckCircle2 className="size-5" />}
-          tone={dem.DA_GUI_KET_QUA ? "success" : "neutral"}
-        />
-      </WorkspaceMetricRow>
+  const theoNhom = NHOM.map((n) => ({
+    ...n,
+    khach: ds.filter((k) => buocCua(k) === n.ma),
+  }));
+  // Mặc định chọn khách đầu tiên còn việc dở; khách vừa chọn biến mất (xong,
+  // bị huỷ) thì rơi về mặc định — không để khung phải trỏ vào khoảng không.
+  const macDinh = theoNhom.find((n) => n.ma !== "DA_GUI_KET_QUA" && n.khach.length > 0)?.khach[0];
+  const chon = ds.find((k) => k.clinic_patient_id === chonId) ?? macDinh ?? null;
+  const conDo = dem.CHO_LAY_MAU + dem.DA_LAY_MAU + dem.CHO_TAI_LIEU;
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          role="tablist"
-          aria-label="Lọc việc"
-          className="inline-flex rounded-card border border-line bg-surface p-1 shadow-card"
-        >
-          {(
-            [
-              ["can-lam", `Cần làm (${dem.CHO_LAY_MAU + dem.DA_LAY_MAU + dem.CHO_TAI_LIEU})`],
-              ["da-gui", `Đã gửi hôm nay (${dem.DA_GUI_KET_QUA})`],
-            ] as [Loc, string][]
-          ).map(([ma, nhanTab]) => (
-            <button
-              key={ma}
-              type="button"
-              role="tab"
-              aria-selected={loc === ma}
-              onClick={() => setLoc(ma)}
-              className={`min-h-9 rounded-control px-3 text-sm font-medium ${
-                loc === ma ? "bg-brand-600 text-white" : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {nhanTab}
-            </button>
-          ))}
-        </div>
-        <p className="text-meta text-ink-muted">Tự cập nhật mỗi 20 giây</p>
-      </div>
+  return (
+    <div className="grid gap-4">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 className="text-title font-semibold text-ink">Việc của đối tác</h1>
+        <p className="text-body text-ink-muted">
+          {dem.CHO_LAY_MAU} chờ lấy mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.CHO_TAI_LIEU} chờ
+          tài liệu · {dem.DA_GUI_KET_QUA} đã gửi
+        </p>
+      </header>
 
       {loi ? (
         <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -354,74 +312,139 @@ export default function BangDoiTac() {
         </p>
       ) : null}
 
-      {hienThi.length === 0 ? (
-        <section className="rounded-card border border-line bg-surface p-4 shadow-card">
-          <EmptyWorkspace
-            title={loc === "da-gui" ? "Hôm nay chưa gửi kết quả nào" : "Không có việc nào đang chờ"}
-            detail={
-              loc === "da-gui"
-                ? "Tài liệu gửi xong sẽ hiện ở đây để kiểm lại hoặc gửi thêm."
-                : "Phòng khám chỉ định xét nghiệm / chụp chiếu gửi sang thì khách hiện ở đây."
-            }
-            icon={<Inbox className="size-7" />}
-          />
-        </section>
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {hienThi.map((k) => (
-            <article
-              key={k.clinic_patient_id}
-              className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
-            >
-              <header className="flex items-center gap-3 border-b border-line bg-surface-muted px-4 py-3">
-                <Monogram value={k.ten_khach} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body font-semibold text-ink">{k.ten_khach}</p>
-                  <p className="text-meta text-ink-muted">Mã {k.ma_khach}</p>
-                </div>
-                <p className="flex shrink-0 items-center gap-1 text-meta text-ink-muted">
-                  <Clock3 className="size-3.5" aria-hidden="true" />
-                  {choBaoLau(k.cho_tu) || gioVn(k.cho_tu)}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(15rem,0.6fr)_minmax(0,1.8fr)]">
+        <aside aria-label="Hàng chờ của đối tác" className="space-y-3">
+          {ds.length === 0 ? (
+            <p className="rounded-card border border-line bg-surface p-4 text-sm text-ink-muted">
+              Chưa có khách nào được gửi sang.
+            </p>
+          ) : (
+            theoNhom.map((n) =>
+              n.khach.length === 0 ? null : (
+                <section key={n.ma}>
+                  <h3 className="mb-1 px-1 text-label font-semibold uppercase tracking-wide text-ink-muted">
+                    {n.ten} ({n.khach.length})
+                  </h3>
+                  <ul className="space-y-1">
+                    {n.khach.map((k) => {
+                      const dangChon = chon?.clinic_patient_id === k.clinic_patient_id;
+                      const conViec = k.viec.filter((v) => v.trang_thai !== "DA_GUI_KET_QUA").length;
+                      return (
+                        <li key={k.clinic_patient_id}>
+                          <button
+                            type="button"
+                            aria-pressed={dangChon}
+                            onClick={() => {
+                              setChonId(k.clinic_patient_id);
+                              // Màn hẹp: khung khách nằm DƯỚI danh sách — tự cuộn tới.
+                              if (window.innerWidth < 1024) {
+                                requestAnimationFrame(() =>
+                                  document
+                                    .getElementById("khung-khach-doi-tac")
+                                    ?.scrollIntoView({ block: "start" }),
+                                );
+                              }
+                            }}
+                            className={`flex w-full items-start gap-2 rounded-control border px-2.5 py-2 text-left transition-colors ${
+                              dangChon
+                                ? "border-brand-500 bg-brand-50"
+                                : "border-line bg-surface hover:bg-surface-muted"
+                            } ${n.ma === "DA_GUI_KET_QUA" ? "opacity-70" : ""}`}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-body font-medium text-ink">
+                                {k.ten_khach}
+                              </span>
+                              <span className="block text-meta text-ink-muted">
+                                {k.ma_khach}
+                                {conViec > 0 ? ` · ${conViec} việc` : ""}
+                              </span>
+                            </span>
+                            {n.ma !== "DA_GUI_KET_QUA" ? (
+                              <span className="shrink-0 text-meta tabular-nums text-ink-muted">
+                                {choBaoLau(k.cho_tu)}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ),
+            )
+          )}
+        </aside>
+
+        {chon ? (
+          <section
+            id="khung-khach-doi-tac"
+            aria-label={`Việc của ${chon.ten_khach}`}
+            className="min-w-0 space-y-3 rounded-card bg-surface p-4 shadow-card"
+          >
+            <header className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                  Khách đang chọn
                 </p>
-              </header>
-              <ul className="divide-y divide-line">
-                {k.viec.map((v) => (
+                <h2 className="text-title font-semibold text-ink">{chon.ten_khach}</h2>
+                <p className="text-meta tabular-nums text-ink-muted">
+                  Mã {chon.ma_khach}
+                  {chon.cho_tu ? ` · gửi sang ${gioVn(chon.cho_tu)}` : ""}
+                  {choBaoLau(chon.cho_tu) ? ` · ${choBaoLau(chon.cho_tu)}` : ""}
+                </p>
+              </div>
+              <Chip tone={buocCua(chon) === "DA_GUI_KET_QUA" ? "success" : "warning"}>
+                {NHOM.find((n) => n.ma === buocCua(chon))?.ten}
+              </Chip>
+            </header>
+            <ul className="divide-y divide-line rounded-control border border-line">
+              {[...chon.viec]
+                .sort((x, y) => THU_TU[x.trang_thai] - THU_TU[y.trang_thai])
+                .map((v) => (
                   <MotViec
                     key={v.chi_dinh_id}
                     viec={v}
                     dangLam={dangLam === v.chi_dinh_id}
                     tienDo={tienDo?.id === v.chi_dinh_id ? tienDo : null}
                     onLayMau={(g) =>
-                      void lamViec("/api/doi-tac/da-lay-mau", v, k, "Đã ghi lấy mẫu", g)
+                      void lamViec("/api/doi-tac/da-lay-mau", v, chon, "Đã ghi lấy mẫu", g)
                     }
                     onChoTaiLieu={(g) =>
                       void lamViec(
                         "/api/doi-tac/cho-tai-lieu",
                         v,
-                        k,
+                        chon,
                         "Đã nhận mẫu, chuyển sang chờ tài liệu",
                         g,
                       )
                     }
-                    onGui={(tep) => void gui(v, k, tep)}
+                    onGui={(tep) => void gui(v, chon, tep)}
                     onDaThu={(soTien, hinhThuc, g) =>
-                      lamViec("/api/doi-tac/da-thu-tien", v, k, "Đã ghi nhận thu tiền khách", g, {
+                      lamViec("/api/doi-tac/da-thu-tien", v, chon, "Đã ghi nhận thu tiền khách", g, {
                         so_tien: soTien,
                         hinh_thuc: hinhThuc,
                       })
                     }
                     onHuyThu={(lyDo) =>
-                      lamViec("/api/doi-tac/huy-da-thu", v, k, "Đã huỷ ghi nhận thu tiền", "", {
+                      lamViec("/api/doi-tac/huy-da-thu", v, chon, "Đã huỷ ghi nhận thu tiền", "", {
                         ly_do: lyDo,
                       })
                     }
                   />
                 ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      )}
+            </ul>
+          </section>
+        ) : (
+          <section className="rounded-card bg-surface p-4 shadow-card">
+            <EmptyWorkspace
+              title={conDo === 0 ? "Không có việc nào đang chờ" : "Chọn một khách trong hàng chờ"}
+              detail="Phòng khám chỉ định xét nghiệm / chụp chiếu gửi sang thì khách hiện ở đây."
+              icon={<Inbox className="size-7" />}
+            />
+          </section>
+        )}
+      </div>
     </div>
   );
 }
