@@ -19,12 +19,14 @@ export async function GET(request: Request) {
   if (!(await requireUser()))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  const what = new URL(request.url).searchParams.get("what") ?? "overview";
+  const url = new URL(request.url);
+  const what = url.searchParams.get("what") ?? "overview";
+  const tuan = (url.searchParams.get("tuan") ?? "").slice(0, 10);
   const data = await fetchFromBackend<Record<string, unknown>>(
     what === "staff"
       ? "/api/v1/clinic-config/staff"
-      : what === "room-staff"
-        ? "/api/v1/clinic-config/room-staff"
+      : what === "lich-phong"
+        ? `/api/v1/clinic-config/lich-phong${/^\d{4}-\d{2}-\d{2}$/.test(tuan) ? `?tuan=${tuan}` : ""}`
       : what === "services"
         ? "/api/v1/clinic-config/services"
         : "/api/v1/clinic-config/overview",
@@ -50,9 +52,8 @@ const WRITE_PATHS: Record<string, string> = {
   "service-form": "/api/v1/clinic-config/service-form",
   // Thư ký đi cùng bác sĩ nào (Tuyền chốt 15/09/2026).
   "thu-ky-bac-si": "/api/v1/clinic-config/thu-ky-bac-si",
-  // Cơ sở + nhân sự của phòng (27/09/2026, màn Cấu trúc phòng khám làm lại).
+  // Cơ sở (27/09/2026, màn Cấu trúc phòng khám làm lại).
   location: "/api/v1/clinic-config/location",
-  "room-staff": "/api/v1/clinic-config/room-staff",
 };
 
 export async function PUT(request: Request) {

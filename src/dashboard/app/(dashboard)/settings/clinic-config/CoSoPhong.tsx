@@ -9,33 +9,60 @@
 // phần sửa: tên, tầng, bật/tắt, việc ĐÃ GẮN (★ việc chính không bỏ được) + ô
 // "+ Thêm việc", nhân sự ĐÃ GẮN + ô "+ Thêm người".
 //
-// Nhân sự của phòng = lego Phòng dịch vụ gắn theo phòng — máy chủ
-// (`nhan_su_phong_service`) đọc/ghi qua cùng cửa với màn Phân quyền. Người
-// đang làm được MỌI phòng không thêm/bớt ở đây (máy chủ chặn thu hẹp).
+// NHÂN SỰ CỦA PHÒNG = LỊCH CỦA PHÒNG (Tuyền 27/09 tối: "cấu trúc phòng liên
+// quan đến lịch làm việc, bản chất là 1"). Phòng → vị trí làm việc → ai được
+// xếp theo ngày/ca. Đọc `lich-phong`; ghi thẳng vào lịch (`/api/roster`) và
+// vị trí (`/api/day-noi`) — cùng dữ liệu màn Lịch làm việc, không bảng thứ hai.
 
-import { Building2, ChevronDown, ChevronRight, Star, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronLeft, ChevronRight, Star, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import { todayVn } from "@/lib/roster";
 import type { ConfigLocation, ConfigRoom, ConfigStaff, NodeDef } from "./types";
 
-interface NguoiPhong {
-  staff_id: string;
-  full_name: string;
+interface CaLich {
+  id: string;
+  ngay: string;
+  ca: string;
+  staff_id: string | null;
+  ten: string;
+  duyet: boolean;
 }
-interface GoiNhanSu {
-  phong: Record<string, NguoiPhong[]>;
-  moi_phong: NguoiPhong[];
+interface ViTri {
+  id: string;
+  code: string;
+  ten: string;
+  nhom_nghe: string;
+  ca: CaLich[];
+}
+interface GoiLich {
+  tuan: string;
+  ngay: string[];
+  phong: Record<string, ViTri[]>;
+}
+
+const TEN_CA: Record<string, string> = { SANG: "Sáng", CHIEU: "Chiều", TOI: "Tối", FULL: "Cả ngày" };
+const THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+
+function congNgay(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return t.toISOString().slice(0, 10);
 }
 
 const O = "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
 
 async function goi(method: "PUT" | "POST", what: string, payload: Record<string, unknown>) {
-  const res = await fetch("/api/clinic-config", {
+  await goiUrl("/api/clinic-config", method, { what, ...payload });
+}
+
+async function goiUrl(url: string, method: "PUT" | "POST" | "DELETE", body: Record<string, unknown>) {
+  const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ what, ...payload }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const b = (await res.json().catch(() => ({}))) as { detail?: string; error?: string; message?: string };
@@ -56,7 +83,8 @@ export default function CoSoPhong({
   onDocLai: () => Promise<void>;
   onLoi: (cau: string | null) => void;
 }) {
-  const [nhanSu, setNhanSu] = useState<GoiNhanSu>({ phong: {}, moi_phong: [] });
+  const [lich, setLich] = useState<GoiLich | null>(null);
+  const [tuan, setTuan] = useState<string | null>(null);
   const [dangLam, setDangLam] = useState(false);
   const [moCoSo, setMoCoSo] = useState<string | null>(null); // "moi" | location_id
   const [moPhong, setMoPhong] = useState<string | null>(null);
@@ -66,16 +94,16 @@ export default function CoSoPhong({
   const taiNhanSu = useCallback(async () => setLanNap((n) => n + 1), []);
   useEffect(() => {
     let huy = false;
-    void fetch("/api/clinic-config?what=room-staff", { cache: "no-store" })
+    void fetch(`/api/clinic-config?what=lich-phong${tuan ? `&tuan=${tuan}` : ""}`, { cache: "no-store" })
       .then((r) => r.json())
       .catch(() => null)
-      .then((d: (GoiNhanSu & { ok?: boolean }) | null) => {
-        if (!huy && d?.phong) setNhanSu({ phong: d.phong, moi_phong: d.moi_phong ?? [] });
+      .then((d: (GoiLich & { ok?: boolean }) | null) => {
+        if (!huy && d?.phong) setLich({ tuan: d.tuan, ngay: d.ngay, phong: d.phong });
       });
     return () => {
       huy = true;
     };
-  }, [lanNap]);
+  }, [lanNap, tuan]);
 
   const lam = async (viec: () => Promise<void>, sau?: () => void) => {
     setDangLam(true);
@@ -199,8 +227,9 @@ export default function CoSoPhong({
                         onMo={() => setMoPhong(moPhong === r.room_id ? null : r.room_id)}
                         nodes={nodes}
                         tenBuoc={tenBuoc}
-                        nguoi={nhanSu.phong[r.room_id] ?? []}
-                        moiPhong={nhanSu.moi_phong}
+                        viTri={lich?.phong[r.room_id] ?? []}
+                        lich={lich}
+                        doiTuan={(n) => lich && setTuan(congNgay(lich.tuan, n * 7))}
                         staff={staff}
                         dangLam={dangLam}
                         lam={lam}
@@ -224,8 +253,9 @@ function DongPhong({
   onMo,
   nodes,
   tenBuoc,
-  nguoi,
-  moiPhong,
+  viTri,
+  lich,
+  doiTuan,
   staff,
   dangLam,
   lam,
@@ -236,20 +266,21 @@ function DongPhong({
   onMo: () => void;
   nodes: NodeDef[];
   tenBuoc: (c: string) => string;
-  nguoi: NguoiPhong[];
-  moiPhong: NguoiPhong[];
+  viTri: ViTri[];
+  lich: GoiLich | null;
+  doiTuan: (n: number) => void;
   staff: ConfigStaff[];
   dangLam: boolean;
   lam: (viec: () => Promise<void>, sau?: () => void) => Promise<void>;
 }) {
   const [ten, setTen] = useState(r.name ?? "");
   const [tangMoi, setTangMoi] = useState(tang ?? "");
-  const coNguoi = new Set([...nguoi, ...moiPhong].map((n) => n.staff_id));
   const conLaiViec = nodes.filter((n) => !r.serves.includes(n.code));
-  const conLaiNguoi = staff.filter((s) => !coNguoi.has(s.staff_id));
   const doiViec = (next: string[]) => void lam(() => goi("PUT", "room-nodes", { room_id: r.room_id, node_codes: next }));
-  const doiNguoi = (staffId: string, them: boolean) =>
-    void lam(() => goi("PUT", "room-staff", { room_id: r.room_id, staff_id: staffId, them }));
+  const homNay = todayVn();
+  const nguoiHomNay = new Set(
+    viTri.flatMap((v) => v.ca.filter((c) => c.ngay === homNay).map((c) => c.staff_id ?? c.ten)),
+  ).size;
 
   return (
     <li className="border-t border-line first:border-t-0">
@@ -269,7 +300,7 @@ function DongPhong({
         </span>
         {r.primary_node ? <span className="truncate text-meta text-ink-muted">· {tenBuoc(r.primary_node)}</span> : null}
         <span className="ml-auto shrink-0 text-label text-ink-muted">
-          {r.serves.length} việc · {nguoi.length} người
+          {r.serves.length} việc · {nguoiHomNay} người hôm nay
         </span>
         {!r.is_active ? <Chip tone="neutral">Tắt</Chip> : null}
       </button>
@@ -357,49 +388,15 @@ function DongPhong({
             </div>
           </div>
 
-          <div>
-            <p className="mb-1 text-label font-semibold uppercase text-ink-muted">Nhân sự làm ở phòng này</p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {nguoi.length === 0 ? <span className="text-meta text-ink-faint">Chưa gắn ai riêng.</span> : null}
-              {nguoi.map((n) => (
-                <span
-                  key={n.staff_id}
-                  className="inline-flex h-7 items-center gap-1 rounded-full bg-surface px-2.5 text-meta text-ink ring-1 ring-inset ring-line"
-                >
-                  {n.full_name}
-                  <button
-                    type="button"
-                    aria-label={`Bỏ ${n.full_name} khỏi phòng`}
-                    disabled={dangLam}
-                    onClick={() => doiNguoi(n.staff_id, false)}
-                    className="rounded-full p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-danger"
-                  >
-                    <X className="size-3" aria-hidden="true" />
-                  </button>
-                </span>
-              ))}
-              <select
-                aria-label="Thêm người vào phòng"
-                value=""
-                disabled={dangLam}
-                onChange={(e) => e.target.value && doiNguoi(e.target.value, true)}
-                className={`${O} text-ink-muted`}
-              >
-                <option value="">+ Thêm người…</option>
-                {conLaiNguoi.map((s) => (
-                  <option key={s.staff_id} value={s.staff_id}>
-                    {s.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {moiPhong.length > 0 ? (
-              <details className="mt-1.5 text-label text-ink-muted">
-                <summary className="cursor-pointer">+ {moiPhong.length} người làm được mọi phòng (sửa ở Phân quyền)</summary>
-                <p className="mt-1">{moiPhong.map((n) => n.full_name).join(", ")}</p>
-              </details>
-            ) : null}
-          </div>
+          <LichPhong
+            phong={r}
+            viTri={viTri}
+            lich={lich}
+            doiTuan={doiTuan}
+            staff={staff}
+            dangLam={dangLam}
+            lam={lam}
+          />
         </div>
       ) : null}
     </li>
@@ -492,6 +489,215 @@ function FormThemPhong({
       <Button size="sm" variant="ghost" onClick={onThoi}>
         Thôi
       </Button>
+    </div>
+  );
+}
+
+/** LỊCH CỦA PHÒNG — vị trí × 7 ngày; xếp / bỏ người ghi thẳng vào lịch làm
+ *  việc (`/api/roster`); thêm vị trí cho phòng (`/api/day-noi`). */
+function LichPhong({
+  phong: r,
+  viTri,
+  lich,
+  doiTuan,
+  staff,
+  dangLam,
+  lam,
+}: {
+  phong: ConfigRoom;
+  viTri: ViTri[];
+  lich: GoiLich | null;
+  doiTuan: (n: number) => void;
+  staff: ConfigStaff[];
+  dangLam: boolean;
+  lam: (viec: () => Promise<void>, sau?: () => void) => Promise<void>;
+}) {
+  const homNay = todayVn();
+  const [vt, setVt] = useState("");
+  const [ngay, setNgay] = useState(homNay);
+  const [ca, setCa] = useState("FULL");
+  const [nguoi, setNguoi] = useState("");
+  const [moVt, setMoVt] = useState(false);
+  const [tenVt, setTenVt] = useState("");
+  const [ngheVt, setNgheVt] = useState("DIEU_DUONG");
+  if (!lich) return <p className="text-meta text-ink-muted">Đang tải lịch…</p>;
+  const ngayChon = lich.ngay.includes(ngay) ? ngay : lich.ngay[0];
+  const vtChon = vt || viTri[0]?.code || "";
+  const nv = staff.find((s) => s.staff_id === nguoi);
+
+  return (
+    <div>
+      <div className="mb-1 flex flex-wrap items-center gap-2">
+        <p className="text-label font-semibold uppercase text-ink-muted">Lịch của phòng</p>
+        <div className="flex items-center gap-1 text-meta text-ink-soft">
+          <button type="button" aria-label="Tuần trước" onClick={() => doiTuan(-1)} className="rounded-control p-1 hover:bg-surface-sunken">
+            <ChevronLeft className="size-4" aria-hidden="true" />
+          </button>
+          <span className="tabular-nums">
+            {lich.ngay[0].slice(8, 10)}/{lich.ngay[0].slice(5, 7)} – {lich.ngay[6].slice(8, 10)}/{lich.ngay[6].slice(5, 7)}
+          </span>
+          <button type="button" aria-label="Tuần sau" onClick={() => doiTuan(1)} className="rounded-control p-1 hover:bg-surface-sunken">
+            <ChevronRight className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <span className="text-label text-ink-muted">cùng dữ liệu màn Lịch làm việc</span>
+      </div>
+
+      {viTri.length === 0 ? (
+        <p className="text-meta text-ink-faint">Phòng chưa có vị trí làm việc — thêm vị trí để xếp lịch.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-control border border-line bg-surface">
+          <table className="w-full min-w-160 text-meta">
+            <thead className="bg-surface-muted text-label text-ink-muted">
+              <tr>
+                <th className="px-2 py-1 text-left font-semibold">Vị trí</th>
+                {lich.ngay.map((d, i) => (
+                  <th key={d} className={`px-1 py-1 text-left font-semibold ${d === homNay ? "text-brand-700" : ""}`}>
+                    {THU[i]} {d.slice(8, 10)}/{d.slice(5, 7)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {viTri.map((v) => (
+                <tr key={v.id} className="border-t border-line align-top">
+                  <td className="px-2 py-1.5 font-medium text-ink">{v.ten}</td>
+                  {lich.ngay.map((d) => (
+                    <td key={d} className={`px-1 py-1 ${d === homNay ? "bg-brand-50/60" : ""}`}>
+                      <div className="flex flex-col gap-0.5">
+                        {v.ca
+                          .filter((c) => c.ngay === d)
+                          .map((c) => (
+                            <span
+                              key={c.id}
+                              title={c.duyet ? undefined : "Chờ duyệt"}
+                              className={`inline-flex items-center gap-0.5 rounded-control px-1 ${
+                                c.duyet ? "bg-surface-muted text-ink" : "bg-warning-bg text-warning"
+                              }`}
+                            >
+                              <span className="truncate">{c.ten}</span>
+                              {c.ca !== "FULL" ? <span className="text-ink-muted">· {TEN_CA[c.ca] ?? c.ca}</span> : null}
+                              <button
+                                type="button"
+                                aria-label={`Bỏ ${c.ten} khỏi lịch ${d}`}
+                                disabled={dangLam}
+                                onClick={() => void lam(() => goiUrl("/api/roster", "DELETE", { id: c.id }))}
+                                className="ml-auto rounded-full text-ink-muted hover:text-danger"
+                              >
+                                <X className="size-3" aria-hidden="true" />
+                              </button>
+                            </span>
+                          ))}
+                      </div>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {viTri.length > 0 ? (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <select aria-label="Vị trí" value={vtChon} onChange={(e) => setVt(e.target.value)} className={O}>
+            {viTri.map((v) => (
+              <option key={v.code} value={v.code}>
+                {v.ten}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Ngày" value={ngayChon} onChange={(e) => setNgay(e.target.value)} className={O}>
+            {lich.ngay.map((d, i) => (
+              <option key={d} value={d}>
+                {THU[i]} {d.slice(8, 10)}/{d.slice(5, 7)}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Ca" value={ca} onChange={(e) => setCa(e.target.value)} className={O}>
+            {Object.entries(TEN_CA).map(([k, t]) => (
+              <option key={k} value={k}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Người" value={nguoi} onChange={(e) => setNguoi(e.target.value)} className={`${O} min-w-40`}>
+            <option value="">— chọn người —</option>
+            {staff.map((s) => (
+              <option key={s.staff_id} value={s.staff_id}>
+                {s.full_name}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={dangLam || !nguoi || !vtChon}
+            onClick={() =>
+              void lam(
+                () =>
+                  goiUrl("/api/roster", "POST", {
+                    week_start: lich.tuan,
+                    work_date: ngayChon,
+                    station: vtChon,
+                    shift: ca,
+                    staff_id: nguoi,
+                    staff_name: nv?.full_name ?? "",
+                  }),
+                () => setNguoi(""),
+              )
+            }
+          >
+            Xếp vào lịch
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="mt-2">
+        {moVt ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <input
+              value={tenVt}
+              onChange={(e) => setTenVt(e.target.value)}
+              placeholder="VD: BS siêu âm 2"
+              aria-label="Tên vị trí"
+              className={`${O} min-w-48`}
+            />
+            <select aria-label="Nhóm nghề" value={ngheVt} onChange={(e) => setNgheVt(e.target.value)} className={O}>
+              <option value="BAC_SI">Bác sĩ</option>
+              <option value="DIEU_DUONG">Điều dưỡng / nhân viên</option>
+              <option value="DOI_TAC">Đối tác</option>
+            </select>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={dangLam || !tenVt.trim()}
+              onClick={() =>
+                void lam(
+                  () =>
+                    goiUrl("/api/day-noi", "POST", {
+                      thao_tac: "vi-tri-moi",
+                      du_lieu: { ten: tenVt.trim(), nhom_nghe: ngheVt, room_id: r.room_id },
+                    }),
+                  () => {
+                    setTenVt("");
+                    setMoVt(false);
+                  },
+                )
+              }
+            >
+              Thêm vị trí
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setMoVt(false)}>
+              Thôi
+            </Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="ghost" onClick={() => setMoVt(true)}>
+            + Thêm vị trí cho phòng
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
