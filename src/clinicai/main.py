@@ -2,7 +2,7 @@
 
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 from uuid import UUID
 
 import asyncpg.exceptions
@@ -500,10 +500,12 @@ async def clinicai_exception_handler(
         reason=exc.message,
         status_code=exc.status_code,
     )
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"error": exc.error_code, "message": exc.message},
-    )
+    content: dict[str, Any] = {"error": exc.error_code, "message": exc.message}
+    # Tên ô lỗi (27/09/2026 — màn đo sinh hiệu tô đúng ô). Chỉ có khi lỗi mang nó.
+    truong = getattr(exc, "truong", None)
+    if isinstance(truong, list) and truong:
+        content["truong"] = [str(t) for t in truong]
+    return JSONResponse(status_code=exc.status_code, content=content)
 
 
 @app.exception_handler(Exception)

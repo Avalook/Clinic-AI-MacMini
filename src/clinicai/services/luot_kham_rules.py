@@ -392,6 +392,31 @@ def _number(value: Any) -> Decimal | None:
     return num if num.is_finite() else None
 
 
+def _o(*ten: str) -> tuple[str, ...]:
+    """Bộ tên ô lỗi. Hàm thay cho tuple một phần tử viết tay: bài canh SQL nối
+    hụt (``test_sql_trong_service_cu_phap_dung``) bắt dấu phẩy liền ngoặc đóng
+    trên mọi dòng, kể cả mã Python."""
+    return ten
+
+
+def truong_thieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> tuple[str, ...]:
+    """Tên ô còn thiếu khi khách đang có thai (luật ``thieu_sinh_hieu_khi_co_thai``).
+
+    Màn đo tô đúng ô ấy (27/09/2026, đợt 3) — câu lỗi thôi chưa đủ để người
+    đo trên điện thoại biết phải cuộn tới ô nào.
+    """
+    if not co_thai:
+        return ()
+    return tuple(
+        truong
+        for truong, gia_tri in (
+            ("height_cm", vitals.height_cm),
+            ("weight_kg", vitals.weight_kg),
+        )
+        if gia_tri is None
+    )
+
+
 def thieu_sinh_hieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> str | None:
     """Câu nhắc khi khách đang có thai mà thiếu chiều cao/cân nặng; đủ → None.
 
@@ -399,16 +424,8 @@ def thieu_sinh_hieu_khi_co_thai(vitals: Vitals, *, co_thai: bool) -> str | None:
     "Báo sốt thì đo nhiệt độ" CHƯA ép: chưa có dữ kiện "khách báo sốt" có cấu
     trúc, và không đoán từ chữ lý do khám.
     """
-    if not co_thai:
-        return None
-    thieu = [
-        nhan
-        for gia_tri, nhan in (
-            (vitals.height_cm, "chiều cao"),
-            (vitals.weight_kg, "cân nặng"),
-        )
-        if gia_tri is None
-    ]
+    nhan = {"height_cm": "chiều cao", "weight_kg": "cân nặng"}
+    thieu = [nhan[t] for t in truong_thieu_khi_co_thai(vitals, co_thai=co_thai)]
     if not thieu:
         return None
     return "Khách đang có thai — sinh hiệu cần thêm " + " và ".join(thieu) + "."
@@ -419,27 +436,53 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
 
     Huyết áp bắt buộc cho MỌI lượt (I8, tiêu chí "100% BN đc đo huyết áp").
     Các chỉ số khác tuỳ chọn; bộ bắt buộc theo dịch vụ còn chờ chốt (O5).
+    Cần biết Ô NÀO lỗi thì gọi ``parse_vitals_co_truong``.
+    """
+    vitals, loi, _ = parse_vitals_co_truong(raw)
+    return vitals, loi
+
+
+def parse_vitals_co_truong(
+    raw: Any,
+) -> tuple[Vitals | None, str | None, tuple[str, ...]]:
+    """Như ``parse_vitals``, kèm TÊN Ô lỗi (khoá gửi lên: ``systolic``…).
+
+    27/09/2026 (đợt 3, màn đo trên điện thoại): câu lỗi một dòng không nói ô
+    nào — người đo phải đọc rồi dò 9 ô. Màn tô đúng các ô trong ``truong``.
+    Lỗi không gắn được với ô nào (thân không phải object) → ``()``.
+
+    Giữ ``parse_vitals`` hai phần tử làm vỏ: nó có người gọi khác (hồ sơ khám
+    cũ, test) — đổi chữ ký là vỡ họ mà họ không cần tên ô.
     """
     if not isinstance(raw, dict):
-        return None, "Dữ liệu sinh hiệu không đúng dạng."
+        return None, "Dữ liệu sinh hiệu không đúng dạng.", ()
     values: dict[str, Decimal | None] = {}
     for field, (label, low, high) in _RANGES.items():
         given = raw.get(field)
         num = _number(given)
         if given not in (None, "") and num is None:
-            return None, f"{label} phải là một con số."
+            return None, f"{label} phải là một con số.", _o(field)
         if num is not None and not (low <= num <= high):
-            return None, f"{label} phải trong khoảng {low}–{high}."
+            return None, f"{label} phải trong khoảng {low}–{high}.", _o(field)
         values[field] = num
     systolic, diastolic = values["systolic"], values["diastolic"]
     if systolic is None or diastolic is None:
-        return None, "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám."
+        thieu = tuple(t for t in ("systolic", "diastolic") if values[t] is None)
+        return (
+            None,
+            "Phải đo huyết áp (tâm thu và tâm trương) cho mọi lượt khám.",
+            thieu,
+        )
     for field in _NGUYEN:
         num = values[field]
         if num is not None and num != num.to_integral_value():
-            return None, f"{_RANGES[field][0]} phải là số nguyên."
+            return None, f"{_RANGES[field][0]} phải là số nguyên.", _o(field)
     if systolic <= diastolic:
-        return None, "Huyết áp tâm thu phải lớn hơn tâm trương."
+        return (
+            None,
+            "Huyết áp tâm thu phải lớn hơn tâm trương.",
+            ("systolic", "diastolic"),
+        )
 
     def _int(ten: str) -> int | None:
         num = values[ten]
@@ -469,7 +512,69 @@ def parse_vitals(raw: Any) -> tuple[Vitals | None, str | None]:
             pain_score=_int("pain_score"),
         ),
         None,
+        (),
     )
+
+
+#: Ngưỡng NHẮC (27/09/2026, đợt 3). Không chặn lưu — Tuyền 15/09: "báo sốt
+#: không bắt buộc", đo gì ghi nấy; máy chỉ nhắc người đo nhìn lại / báo bác sĩ.
+#: Ngưỡng ở ĐÂY, không ở TSX: màn chỉ tô ô theo ``truong`` máy chủ trả.
+HA_TAM_THU_CAO = 140
+HA_TAM_TRUONG_CAO = 90
+SPO2_THAP = 94
+NHIET_SOT = Decimal(38)
+MACH_CHAM = 50
+MACH_NHANH = 120
+
+
+def canh_bao_sinh_hieu(vitals: Any) -> list[dict[str, str]]:
+    """Chỉ số bất thường cần NHẮC — ``[{truong, cau}]``; không có → ``[]``.
+
+    Hàm thuần, không ném: đầu vào không phải ``Vitals`` → ``[]``.
+    """
+    if not isinstance(vitals, Vitals):
+        return []
+    ra: list[dict[str, str]] = []
+    if vitals.systolic >= HA_TAM_THU_CAO:
+        ra.append(
+            {
+                "truong": "systolic",
+                "cau": f"Huyết áp tâm thu {vitals.systolic} mmHg — cao "
+                f"(≥ {HA_TAM_THU_CAO}).",
+            }
+        )
+    if vitals.diastolic >= HA_TAM_TRUONG_CAO:
+        ra.append(
+            {
+                "truong": "diastolic",
+                "cau": f"Huyết áp tâm trương {vitals.diastolic} mmHg — cao "
+                f"(≥ {HA_TAM_TRUONG_CAO}).",
+            }
+        )
+    if vitals.pulse is not None and not (MACH_CHAM <= vitals.pulse <= MACH_NHANH):
+        cham = vitals.pulse < MACH_CHAM
+        ra.append(
+            {
+                "truong": "pulse",
+                "cau": f"Mạch {vitals.pulse} lần/phút — "
+                + (f"chậm (< {MACH_CHAM})." if cham else f"nhanh (> {MACH_NHANH})."),
+            }
+        )
+    if vitals.temperature is not None and vitals.temperature >= NHIET_SOT:
+        ra.append(
+            {
+                "truong": "temperature",
+                "cau": f"Nhiệt độ {vitals.temperature} °C — sốt (≥ {NHIET_SOT}).",
+            }
+        )
+    if vitals.spo2 is not None and vitals.spo2 < SPO2_THAP:
+        ra.append(
+            {
+                "truong": "spo2",
+                "cau": f"SpO₂ {vitals.spo2}% — thấp (< {SPO2_THAP}).",
+            }
+        )
+    return ra
 
 
 # ---------------------------------------------------------------------------

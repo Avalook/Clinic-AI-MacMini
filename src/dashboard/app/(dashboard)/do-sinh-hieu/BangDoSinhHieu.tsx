@@ -3,10 +3,33 @@
 // Danh sách chờ đo + ô điền sinh hiệu. Lưu xong TỰ CHUYỂN sang người kế tiếp:
 // người đo làm việc theo hàng, không phải theo từng hồ sơ, và bắt họ bấm lại vào
 // danh sách sau mỗi người là thêm một thao tác thừa cho mỗi khách trong ngày.
+//
+// ĐIỆN THOẠI (27/09/2026, đợt 3 — "giao diện PWA cho điện thoại đối với sinh
+// hiệu"): điều dưỡng cầm máy đứng cạnh khách.
+//   · ô là `components/ui/OSo` (chữ 16px dưới sm → iPhone không tự phóng to khi
+//     chạm; chỉ số đếm được mở bàn phím SỐ); Enter sang ô kế, ô cuối "done";
+//     chọn khách là con trỏ đứng sẵn ở ô tâm thu. KHÔNG tự nhảy ô theo số chữ
+//     số — "36" rồi ".6" là chuyện thường, nhảy sớm là gõ nhầm ô;
+//   · lưới 2 cột theo CẶP ở mọi cỡ (tâm thu/tâm trương, mạch/nhiệt độ, cân/cao,
+//     nhịp thở/SpO₂), mức đau một dòng;
+//   · thanh [Đo xong] DÍNH ĐÁY ngay trên BottomNav (token
+//     `--inset-tren-thanh-duoi`, có đệm thanh home iPhone);
+//   · dưới lg: đã chọn khách thì danh sách thu thành một thanh
+//     "← Danh sách (n chờ)"; "Đã đo hôm nay" gập sẵn;
+//   · ô lỗi / ô bất thường tô theo `truong` MÁY CHỦ trả (`parse_vitals_co_truong`,
+//     `canh_bao_sinh_hieu`) — ngưỡng không nằm ở đây.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import Button from "@/components/ui/Button";
+import OSo from "@/components/ui/OSo";
 
 import XemLuot from "../_lam-viec/XemLuot";
 import SoLuot from "@/components/ui/SoLuot";
@@ -47,24 +70,43 @@ interface Luot {
   tu_van?: { bo_qua: boolean; doi_duoc: boolean } | null;
 }
 
-/** Ô nhập — khoá gửi backend, nhãn, đơn vị, khoá đọc lại từ `sinh_hieu`. */
+/** Máy chủ nhắc chỉ số bất thường sau khi lưu (`canh_bao_sinh_hieu`). */
+interface CanhBao {
+  truong: string;
+  cau: string;
+}
+
+/** Ô nhập — khoá gửi backend, nhãn, đơn vị, khoá đọc lại từ `sinh_hieu`.
+ *  THỨ TỰ = thứ tự Enter đi qua VÀ thứ tự trên lưới 2 cột (đi theo cặp).
+ *  `nguyen` chỉ đổi bàn phím điện thoại; "phải là số nguyên" do máy chủ quyết. */
 const O: readonly {
   gui: string;
   nhan: string;
   don_vi: string;
   doc: keyof SinhHieu;
   batBuoc?: boolean;
+  nguyen?: boolean;
+  motDong?: boolean;
 }[] = [
-  { gui: "systolic", nhan: "Huyết áp tâm thu", don_vi: "mmHg", doc: "tam_thu", batBuoc: true },
-  { gui: "diastolic", nhan: "Huyết áp tâm trương", don_vi: "mmHg", doc: "tam_truong", batBuoc: true },
-  { gui: "pulse", nhan: "Mạch", don_vi: "lần/phút", doc: "mach" },
+  { gui: "systolic", nhan: "Huyết áp tâm thu", don_vi: "mmHg", doc: "tam_thu", batBuoc: true, nguyen: true },
+  { gui: "diastolic", nhan: "Huyết áp tâm trương", don_vi: "mmHg", doc: "tam_truong", batBuoc: true, nguyen: true },
+  { gui: "pulse", nhan: "Mạch", don_vi: "lần/phút", doc: "mach", nguyen: true },
   { gui: "temperature", nhan: "Nhiệt độ", don_vi: "°C", doc: "nhiet_do" },
-  { gui: "respiratory_rate", nhan: "Nhịp thở", don_vi: "lần/phút", doc: "nhip_tho" },
-  { gui: "spo2", nhan: "SpO₂", don_vi: "%", doc: "spo2" },
   { gui: "weight_kg", nhan: "Cân nặng", don_vi: "kg", doc: "can_nang" },
   { gui: "height_cm", nhan: "Chiều cao", don_vi: "cm", doc: "chieu_cao" },
-  { gui: "pain_score", nhan: "Mức độ đau", don_vi: "0–10", doc: "muc_do_dau" },
+  { gui: "respiratory_rate", nhan: "Nhịp thở", don_vi: "lần/phút", doc: "nhip_tho", nguyen: true },
+  { gui: "spo2", nhan: "SpO₂", don_vi: "%", doc: "spo2", nguyen: true },
+  { gui: "pain_score", nhan: "Mức độ đau", don_vi: "0–10", doc: "muc_do_dau", nguyen: true, motDong: true },
 ];
+
+/** Khách kế tiếp còn chờ đo — theo giờ check-in (cùng thứ tự danh sách). */
+function keTiep(ds: readonly Luot[]): Luot | null {
+  return (
+    [...ds]
+      .sort((a, b) => (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""))
+      .find((l) => !l.sinh_hieu) ?? null
+  );
+}
 
 /** Khoá gửi lại cho MỘT lần bấm Lưu. Cùng cách LuotKhamBoard làm — không dùng
  *  crypto.randomUUID vì nó chỉ có trong secure context. Đặt NGOÀI component để
@@ -103,15 +145,30 @@ export default function BangDoSinhHieu() {
   const [dangLuu, setDangLuu] = useState(false);
   const [dangBatDau, setDangBatDau] = useState(false);
   const [dangDoiTuVan, setDangDoiTuVan] = useState(false);
+  // Ô máy chủ báo lỗi (`truong`) — tô đỏ; gõ lại ô ấy thì bỏ tô.
+  const [oLoi, setOLoi] = useState<readonly string[]>([]);
+  // Chỉ số máy chủ NHẮC sau khi lưu — tô vàng, không chặn.
+  const [canhBao, setCanhBao] = useState<readonly CanhBao[]>([]);
+  // Dưới lg: đã chọn khách mà muốn xem lại danh sách (không mất số đang gõ).
+  const [xemDs, setXemDs] = useState(false);
   // Lượt đã gửi lệnh bắt đầu (tự gửi ở lần gõ đầu tiên) — gửi MỘT lần / lượt.
   const daGuiBatDau = useRef<string | null>(null);
+  // Ô nhập theo thứ tự `O` — Enter sang ô kế, chọn khách thì focus ô đầu.
+  const oRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Khoá gửi lại của lần [Đo xong] CHƯA thành công: mất mạng rồi bấm lại cùng
+  // số → cùng khoá → máy chủ trả biên nhận cũ, không ghi hai lần đo.
+  const khoaLuu = useRef<{ visit: string; than: string; khoa: string } | null>(null);
 
+  // Lỗi ĐỌC danh sách tách khỏi lỗi THAO TÁC (27/09/2026, đợt 3 — bấm thật):
+  // lưu hỏng → tin realtime nạp lại bảng → bảng đọc được thì `setLoi(null)` xoá
+  // mất câu "Huyết áp tâm thu phải lớn hơn tâm trương" trước khi người đo kịp đọc.
+  const [loiBang, setLoiBang] = useState<string | null>(null);
   const nhan = useCallback((kq: { luot: Luot[] } | { loi: string }) => {
     if ("loi" in kq) {
-      setLoi(kq.loi);
+      setLoiBang(kq.loi);
       return;
     }
-    setLoi(null);
+    setLoiBang(null);
     setLuot(kq.luot);
   }, []);
   // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
@@ -159,23 +216,41 @@ export default function BangDoSinhHieu() {
 
   const dangChon = (luot ?? []).find((l) => l.visit_id === chon) ?? null;
 
-  const moKhach = (l: Luot) => {
+  const moKhach = (l: Luot, giuBao = false) => {
+    setXemDs(false);
+    // Bấm lại đúng khách đang điền (vd quay ra danh sách rồi vào lại) — giữ số
+    // đang gõ, không nạp lại từ lần đo trước.
+    if (l.visit_id === chon) return;
     setChon(l.visit_id);
-    // Màn hẹp: khung nhập nằm DƯỚI danh sách chờ (có thể vài chục khách) —
-    // chọn xong phải cuộn tay rất xa mới tới ô nhập (smoke 18/09, 375/768).
-    if (typeof window !== "undefined" && window.innerWidth < 1024) {
-      requestAnimationFrame(() =>
-        document.getElementById("khung-do-sinh-hieu")?.scrollIntoView({ block: "start" }),
-      );
-    }
-    setXong(null);
+    // Màn hẹp: danh sách thu lại, khung nhập lên đầu — cuộn về đầu khung rồi
+    // con trỏ đứng sẵn ở ô tâm thu (smoke 18/09: chọn xong phải cuộn tay xa).
+    const hep = typeof window !== "undefined" && window.innerWidth < 1024;
+    requestAnimationFrame(() => {
+      if (hep) {
+        document.getElementById("khung-do-sinh-hieu")?.scrollIntoView({ block: "start" });
+      }
+      oRefs.current[0]?.focus({ preventScroll: hep });
+    });
+    if (!giuBao) setXong(null);
     setLoi(null);
+    setOLoi([]);
+    setCanhBao([]);
     const cu: Record<string, string> = {};
     for (const o of O) {
       const v = l.sinh_hieu?.[o.doc];
       cu[o.gui] = v === null || v === undefined ? "" : String(v);
     }
     setGia(cu);
+  };
+
+  // Enter = sang ô kế (bàn phím điện thoại hiện "Tiếp"); ô cuối = "Xong", cất
+  // bàn phím. KHÔNG lưu bằng Enter: lưu là một quyết định, bấm [Đo xong].
+  const enterSangO = (i: number) => (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    const ke = oRefs.current[i + 1];
+    if (ke) ke.focus();
+    else e.currentTarget.blur();
   };
 
   // KHÔNG CÒN NÚT [BẮT ĐẦU] (Tuyền 24/09/2026: "không cần ấn bắt đầu đo nữa, cứ
@@ -208,6 +283,9 @@ export default function BangDoSinhHieu() {
       if (!r.ok) {
         daGuiBatDau.current = null;
         setLoi(d?.message ?? d?.error ?? "Không bắt đầu đo được.");
+        // Thường là người khác vừa bắt đầu đo khách này: nạp lại để thấy
+        // "Đang đo" — hết `pending` thì các lần gõ sau không gửi lại nữa.
+        nhan(await docBang());
         return false;
       }
       nhan(await docBang());
@@ -227,37 +305,72 @@ export default function BangDoSinhHieu() {
     if (chuaBd && daGuiBatDau.current !== dangChon.visit_id && !(await batDau())) return;
     setDangLuu(true);
     setLoi(null);
+    setOLoi([]);
+    setCanhBao([]);
     try {
       const du_lieu: Record<string, string> = {};
       for (const o of O) if (gia[o.gui]?.trim()) du_lieu[o.gui] = gia[o.gui].trim();
+      const than = JSON.stringify({ thao_tac: "sinh-hieu", id: dangChon.visit_id, du_lieu });
+      const cu = khoaLuu.current;
+      const khoa =
+        cu && cu.visit === dangChon.visit_id && cu.than === than ? cu.khoa : khoaGuiLai();
+      khoaLuu.current = { visit: dangChon.visit_id, than, khoa };
       const r = await fetch("/api/luot-kham", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Idempotency-Key": khoaGuiLai(),
+          "Idempotency-Key": khoa,
         },
-        body: JSON.stringify({ thao_tac: "sinh-hieu", id: dangChon.visit_id, du_lieu }),
+        body: than,
       });
-      const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+      const d = (await r.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+        truong?: unknown;
+        canh_bao?: unknown;
+      } | null;
       if (!r.ok) {
         setLoi(d?.message ?? d?.error ?? "Không lưu được sinh hiệu.");
+        // Máy chủ chỉ ra ô nào (`truong`) → tô đỏ và đưa con trỏ tới ô đầu tiên.
+        const tenO = Array.isArray(d?.truong)
+          ? d.truong.filter((t): t is string => typeof t === "string")
+          : [];
+        setOLoi(tenO);
+        const dau = O.findIndex((o) => tenO.includes(o.gui));
+        if (dau >= 0) oRefs.current[dau]?.focus();
         return;
       }
+      khoaLuu.current = null;
+      const nhac = Array.isArray(d?.canh_bao)
+        ? d.canh_bao.filter(
+            (c): c is CanhBao =>
+              !!c &&
+              typeof c === "object" &&
+              typeof (c as CanhBao).truong === "string" &&
+              typeof (c as CanhBao).cau === "string",
+          )
+        : [];
       const ten = dangChon.ten;
       const kq = await docBang();
       nhan(kq);
+      if (nhac.length > 0) {
+        // Có chỉ số bất thường: ĐÃ LƯU (nhắc, không chặn) nhưng ĐỨNG LẠI ở
+        // khách này để người đo thấy ô tô vàng — tự sang người kế thì lời nhắc
+        // trôi mất. Sang người kế bằng nút [Sang khách kế tiếp].
+        setCanhBao(nhac);
+        setXong(`Đã lưu sinh hiệu cho ${ten} — có chỉ số cần lưu ý.`);
+        return;
+      }
       // Sang NGƯỜI KẾ TIẾP còn chờ đo — báo SAU khi chuyển (moKhach xoá báo cũ,
       // trước đây câu "đã lưu" biến mất ngay nên người đo không kịp thấy).
       if ("luot" in kq) {
-        const ke = [...kq.luot]
-          .sort((a, b) => (a.check_in_luc ?? "").localeCompare(b.check_in_luc ?? ""))
-          .find((l) => !l.sinh_hieu);
-        if (ke) moKhach(ke);
+        const ke = keTiep(kq.luot);
+        if (ke) moKhach(ke, true);
         else setChon(null);
       }
       setXong(`Đã lưu sinh hiệu cho ${ten}.`);
     } catch {
-      setLoi("Mất kết nối — sinh hiệu CHƯA được lưu.");
+      setLoi("Mất kết nối — sinh hiệu CHƯA được lưu. Số vẫn còn, bấm [Đo xong] lại khi có mạng.");
     } finally {
       setDangLuu(false);
     }
@@ -302,8 +415,8 @@ export default function BangDoSinhHieu() {
   };
 
   if (luot === null) {
-    return loi ? (
-      <p role="alert" className="text-body text-danger">{loi}</p>
+    return loiBang ? (
+      <p role="alert" className="text-body text-danger">{loiBang}</p>
     ) : (
       <p className="text-body text-ink-muted">Đang tải…</p>
     );
@@ -355,9 +468,35 @@ export default function BangDoSinhHieu() {
     </li>
   );
 
+  const oCanhBao = new Set(canhBao.map((c) => c.truong));
+  const khachKe = dangChon
+    ? keTiep((luot ?? []).filter((l) => l.visit_id !== dangChon.visit_id))
+    : null;
+  // Dưới lg chỉ một trong hai khung: danh sách (chưa chọn / đang xem lại) hoặc ô nhập.
+  const anDs = !!dangChon && !xemDs;
+
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-      <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+      {/* Dưới lg, đã chọn khách: danh sách thu thành MỘT thanh (27/09/2026,
+          đợt 3) — ô nhập lên đầu màn, không phải cuộn qua vài chục khách. */}
+      {dangChon ? (
+        <div className="lg:hidden">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full justify-start"
+            aria-expanded={xemDs}
+            onClick={() => setXemDs((x) => !x)}
+          >
+            {xemDs ? `→ Quay lại ${dangChon.ten}` : `← Danh sách (${choDo.length} chờ)`}
+          </Button>
+        </div>
+      ) : null}
+      <section
+        className={`overflow-hidden rounded-card border border-line bg-surface shadow-card ${
+          anDs ? "hidden lg:block" : ""
+        }`}
+      >
         {dangDo.length > 0 ? (
           <>
             <p className="border-b border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
@@ -380,23 +519,30 @@ export default function BangDoSinhHieu() {
             choDo.map((l, i) => <MotDong key={l.visit_id} l={l} stt={i + 1} />)
           )}
         </ul>
+        {/* GẬP SẴN (27/09/2026, đợt 3): danh sách đã đo dài dần trong ngày và
+            đẩy hàng chờ ra khỏi màn điện thoại; mở khi cần sửa lại một lần đo. */}
         {daDo.length > 0 ? (
-          <>
-            <p className="border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
               Đã đo hôm nay ({daDo.length})
-            </p>
+              <span aria-hidden className="text-meta text-ink-muted group-open:rotate-180">
+                ▾
+              </span>
+            </summary>
             <ul>
               {daDo.map((l, i) => (
                 <MotDong key={l.visit_id} l={l} stt={i + 1} />
               ))}
             </ul>
-          </>
+          </details>
         ) : null}
       </section>
 
       <section
         id="khung-do-sinh-hieu"
-        className="rounded-card border border-line bg-surface p-4 shadow-card"
+        className={`rounded-card border border-line bg-surface p-4 shadow-card ${
+          !dangChon || xemDs ? "hidden lg:block" : ""
+        }`}
       >
         {!dangChon ? (
           <p className="py-10 text-center text-body text-ink-muted">
@@ -433,19 +579,42 @@ export default function BangDoSinhHieu() {
               {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {O.map((o) => (
-                <label key={o.gui} className="block">
+            {canhBao.length > 0 ? (
+              <ul
+                role="status"
+                className="mb-3 space-y-1 rounded-control border border-warning bg-warning-bg px-3 py-2 text-meta text-warning"
+              >
+                {canhBao.map((c) => (
+                  <li key={c.truong}>{c.cau}</li>
+                ))}
+              </ul>
+            ) : null}
+            {/* HAI CỘT THEO CẶP ở mọi cỡ (27/09/2026, đợt 3) — 375 cũng vậy:
+                tâm thu cạnh tâm trương, mạch cạnh nhiệt độ… đúng thứ tự đo.
+                `items-end`: nhãn dài xuống dòng thì ô vẫn thẳng hàng. */}
+            <div className="grid grid-cols-2 items-end gap-3">
+              {O.map((o, i) => (
+                <label key={o.gui} className={`block min-w-0 ${o.motDong ? "col-span-2" : ""}`}>
                   <span className="mb-1 block text-sm font-medium text-ink">
                     {o.nhan}
                     {o.batBuoc ? <span className="text-danger"> *</span> : null}
                     {o.don_vi ? <span className="ml-1 text-meta text-ink-muted">({o.don_vi})</span> : null}
                   </span>
-                  <input
-                    inputMode="decimal"
+                  <OSo
+                    ref={(el) => {
+                      oRefs.current[i] = el;
+                    }}
+                    rong="day"
+                    nguyen={o.nguyen}
+                    enterKeyHint={i === O.length - 1 ? "done" : "next"}
+                    onKeyDown={enterSangO(i)}
+                    loi={oLoi.includes(o.gui)}
+                    canhBao={oCanhBao.has(o.gui)}
+                    title={o.nhan}
                     value={gia[o.gui] ?? ""}
-                    onChange={(e) => {
-                      setGia((g) => ({ ...g, [o.gui]: e.target.value }));
+                    onChange={(v) => {
+                      setGia((g) => ({ ...g, [o.gui]: v }));
+                      setOLoi((ds) => (ds.includes(o.gui) ? ds.filter((t) => t !== o.gui) : ds));
                       // Gõ đầu tiên = bắt đầu đo (một lần / lượt).
                       if (
                         chuaBatDau &&
@@ -455,31 +624,30 @@ export default function BangDoSinhHieu() {
                         void batDau();
                       }
                     }}
-                    className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
                   />
                 </label>
               ))}
-              {/* BMI KHÔNG có ô nhập (S0-3, 18/09/2026): máy chủ tự tính từ cân
-                  nặng và chiều cao khi lưu, số gõ tay trước đây từng thắng số
-                  tính. Ở đây chỉ hiện lại con số đã lưu. */}
-              <div className="block">
-                <span className="mb-1 block text-sm font-medium text-ink">
-                  BMI <span className="ml-1 text-meta text-ink-muted">(tự tính từ cân nặng, chiều cao khi lưu)</span>
-                </span>
-                <p className="flex min-h-10 items-center rounded-control border border-line bg-surface-sunken px-3 text-body text-ink-soft">
-                  {dangChon.sinh_hieu?.bmi ?? "—"}
-                </p>
-              </div>
             </div>
-            {/* Thông báo nằm DƯỚI ô nhập, cạnh nút Lưu (17/09/2026): đặt trên đầu
-                thì bấm [Bắt đầu] xong cả khối ô nhập tụt xuống, bấm lệch ô. */}
-            <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
-              {loi ? (
-                <p role="alert" className="mr-auto rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
-                  {loi}
+            {/* BMI KHÔNG có ô nhập (S0-3, 18/09/2026): máy chủ tự tính từ cân
+                nặng và chiều cao khi lưu, số gõ tay trước đây từng thắng số
+                tính. Ở đây chỉ hiện lại con số đã lưu. */}
+            <p className="mt-3 text-meta text-ink-muted">
+              BMI (tự tính từ cân nặng, chiều cao khi lưu):{" "}
+              <span className="font-semibold tabular-nums text-ink">
+                {dangChon.sinh_hieu?.bmi ?? "—"}
+              </span>
+            </p>
+            {/* THANH DÍNH ĐÁY (27/09/2026, đợt 3): trên điện thoại [Đo xong]
+                luôn trong tầm ngón cái, ngay trên BottomNav (có đệm thanh home
+                iPhone); ≥md dính sát đáy khung. Thông báo nằm TRONG thanh —
+                17/09: đặt trên đầu thì khối ô nhập tụt xuống, bấm lệch ô. */}
+            <div className="sticky bottom-tren-thanh-duoi z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-card border border-line bg-surface p-3 shadow-panel md:bottom-3">
+              {loi || loiBang ? (
+                <p role="alert" className="w-full rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger sm:mr-auto sm:w-auto">
+                  {loi ?? loiBang}
                 </p>
               ) : xong ? (
-                <p role="status" className="mr-auto rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success">
+                <p role="status" className="w-full rounded-control border border-success bg-success-bg px-3 py-2 text-meta text-success sm:mr-auto sm:w-auto">
                   {xong}
                 </p>
               ) : null}
@@ -487,10 +655,10 @@ export default function BangDoSinhHieu() {
                   bỏ tick = về lại hàng tư vấn. ÁP NGAY, không đợi [Đo xong]
                   (Tuyền 25/09/2026). Lượt không qua tư vấn thì không hiện ô. */}
               {dangChon.tu_van ? (
-                <label className="flex min-h-10 items-center gap-2 text-sm text-ink">
+                <label className="flex min-h-10 w-full items-center gap-2 text-sm text-ink sm:w-auto">
                   <input
                     type="checkbox"
-                    className="size-4 accent-brand-600"
+                    className="size-4 shrink-0 accent-brand-600"
                     checked={dangChon.tu_van.bo_qua}
                     disabled={dangDoiTuVan || !dangChon.tu_van.doi_duoc}
                     onChange={(e) => void doiTuVan(e.target.checked)}
@@ -503,14 +671,25 @@ export default function BangDoSinhHieu() {
                   ) : null}
                 </label>
               ) : null}
-              <button
-                type="button"
+              {canhBao.length > 0 && khachKe ? (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => moKhach(khachKe)}
+                >
+                  Sang khách kế tiếp →
+                </Button>
+              ) : null}
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex-1 sm:flex-none"
                 onClick={luu}
                 disabled={dangLuu}
-                className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {dangLuu ? "Đang lưu…" : "Đo xong"}
-              </button>
+              </Button>
             </div>
           </>
         )}

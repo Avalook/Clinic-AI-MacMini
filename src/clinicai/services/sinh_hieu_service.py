@@ -47,6 +47,17 @@ logger = structlog.get_logger()
 ORIGIN = "api:luot-kham"
 
 
+class LoiSinhHieuError(ValidationError):
+    """422 kèm TÊN Ô lỗi (``truong``) — màn đo tô đúng ô (27/09/2026, đợt 3).
+
+    Bộ xử lý lỗi chung (``main.py``) chép ``truong`` vào thân trả về.
+    """
+
+    def __init__(self, message: str, truong: tuple[str, ...] = ()) -> None:
+        super().__init__(message)
+        self.truong = list(truong)
+
+
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
@@ -277,9 +288,9 @@ class SinhHieuService:
         bo_qua_tu_van: bool = False,
     ) -> dict[str, Any]:
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
-        vitals, loi = rules.parse_vitals(raw)
+        vitals, loi, truong_loi = rules.parse_vitals_co_truong(raw)
         if vitals is None:
-            raise ValidationError(loi or "Sinh hiệu không hợp lệ.")
+            raise LoiSinhHieuError(loi or "Sinh hiệu không hợp lệ.", truong_loi)
         payload = {
             "visit_id": vid,
             **{k: str(v) if v is not None else None for k, v in asdict(vitals).items()},
@@ -320,7 +331,10 @@ class SinhHieuService:
             )
             loi_thai = rules.thieu_sinh_hieu_khi_co_thai(vitals, co_thai=bool(co_thai))
             if loi_thai:
-                raise ValidationError(loi_thai)
+                raise LoiSinhHieuError(
+                    loi_thai,
+                    rules.truong_thieu_khi_co_thai(vitals, co_thai=bool(co_thai)),
+                )
             await conn.execute(
                 """
                 INSERT INTO vital_measurement
@@ -383,7 +397,14 @@ class SinhHieuService:
             await cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             flow_moi = await khoa_flow(conn, identity.clinic_id, vid)
             route = flow_moi["route_decision"]
-            result = {"ok": True, "visit_id": vid, "route": route}
+            # Chỉ số bất thường → NHẮC, không chặn (Tuyền 15/09: đo gì ghi nấy).
+            # Ngưỡng ở `luot_kham_rules`; màn chỉ tô ô theo `truong`.
+            result = {
+                "ok": True,
+                "visit_id": vid,
+                "route": route,
+                "canh_bao": rules.canh_bao_sinh_hieu(vitals),
+            }
             await bien_nhan_ghi(
                 conn, identity, "vitals.record", idempotency_key, payload, vid, result
             )

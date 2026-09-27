@@ -163,8 +163,16 @@ export async function proxyJsonToBackend(
     typeof payload === "object" &&
     "message" in payload
   ) {
-    const msg = (payload as { message?: string }).message;
-    return NextResponse.json({ error: msg ?? "Lỗi xử lý" }, { status: res.status });
+    const { message: msg, truong } = payload as { message?: string; truong?: unknown };
+    // `truong` = tên ô lỗi (27/09/2026 — màn đo sinh hiệu tô đúng ô). Chỉ chép
+    // khi máy chủ gửi; mọi lỗi khác giữ nguyên dạng `{ error }`.
+    const oLoi = Array.isArray(truong)
+      ? truong.filter((t): t is string => typeof t === "string")
+      : [];
+    return NextResponse.json(
+      { error: msg ?? "Lỗi xử lý", ...(oLoi.length > 0 ? { truong: oLoi } : {}) },
+      { status: res.status },
+    );
   }
   return NextResponse.json(payload, { status: res.status });
 }
