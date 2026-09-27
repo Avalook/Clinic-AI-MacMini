@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import type { DauPhieu } from "@/lib/phieu-kham";
+import SoLuot from "@/components/ui/SoLuot";
 
 /** "2026-09-25" → "25/09/2026". */
 function ngayVn(iso: string | number | null | undefined): string | null {
@@ -117,6 +118,7 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
                 {loai}
               </span>
             ) : null}
+            <SoLuot booking={tk?.so_booking} checkin={tk?.so_tiep_don} />
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-emph text-ink">
             {gioi ? <b className="font-semibold">{gioi}</b> : null}

@@ -111,6 +111,8 @@ export const config = {
     // `proxyClientMaxBodySize` thì vài video 80MB cùng lúc là tràn bộ nhớ
     // dashboard. Hai route này tự xác thực người gọi (getCallerAuthHeaders);
     // với /api proxy chỉ làm mới cookie, không gác cửa.
-    "/((?!_next/static|_next/image|favicon.ico|api/cskh/ket-qua$|api/doi-tac$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // `manifest.webmanifest` (PWA, 27/09/2026): điện thoại đọc nó TRƯỚC khi
+    // đăng nhập để cài app — qua proxy thì bị đẩy về /login, cài không được.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|api/cskh/ket-qua$|api/doi-tac$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

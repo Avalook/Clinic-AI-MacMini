@@ -32,11 +32,9 @@ import { fmtTime } from "@/lib/datetime";
 import {
   NHAN_DOI_TAC,
   NHAN_KET_QUA,
-  coNhap,
-  giaTriDoc,
+  dongKetQua,
   tienVn,
   type ChiDinhVaKetQua,
-  type KetQuaMotChiDinh,
   type MauKetQuaNgan,
 } from "@/lib/phieu-kham";
 
@@ -87,34 +85,6 @@ function chipMau(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } | null {
   return m[0].ma === "CHUNG" ? { nhan: "tự do", tone: "neutral" } : { nhan: "mẫu PDF", tone: "brand" };
 }
 
-const LA_KET_LUAN = (ma: string, ten: string) => ma === "ket_luan" || /^kết luận/i.test(ten.trim());
-
-/** Các dòng CÓ giá trị của một phiếu READY + câu kết luận (tách riêng). */
-function dongCua(k: KetQuaMotChiDinh): { dong: { nhan: string; gia: string }[]; ketLuan: string | null } {
-  const dong: { nhan: string; gia: string }[] = [];
-  let ketLuan: string | null = null;
-  for (const m of k.khung ?? []) {
-    for (const o of m.block) {
-      const nhap = k.du_lieu?.[o.ma];
-      if (!coNhap(nhap)) continue;
-      const g: unknown = nhap?.gia_tri;
-      const donVi = (gia: string) => (o.goi_y && /\d$/.test(gia) ? `${gia} ${o.goi_y}` : gia);
-      if (m.cot && g && typeof g === "object" && !Array.isArray(g)) {
-        for (const c of m.cot) {
-          const v = (g as Record<string, unknown>)[c.ma];
-          if (v === "" || v == null) continue;
-          dong.push({ nhan: `${o.ten} · ${c.ten}`, gia: donVi(String(v)) });
-        }
-        continue;
-      }
-      const gia = giaTriDoc(o, nhap, m.cot);
-      if (LA_KET_LUAN(o.ma, o.ten)) ketLuan = gia;
-      else dong.push({ nhan: o.ten, gia: donVi(gia) });
-    }
-  }
-  return { dong, ketLuan };
-}
-
 function HopKetLuan({ chu }: { chu: string }) {
   return (
     <div className="mt-2 rounded-control bg-brand-50 px-3 py-2">
@@ -133,7 +103,7 @@ function NoiDungKetQua({ d, gioiHan }: { d: ChiDinhVaKetQua; gioiHan: number }) 
   return (
     <div className="space-y-3">
       {phieu.map((k) => {
-        const { dong, ketLuan } = dongCua(k);
+        const { dong, ketLuan } = dongKetQua(k);
         const n = gioiHan || dong.length;
         return (
           <div key={k.phieu_id}>

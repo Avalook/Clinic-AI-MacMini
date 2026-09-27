@@ -213,7 +213,7 @@ async def doc_dau_phieu(
         "       p.address_detail, p.ward_name, p.province_name, p.guardian_name,"
         "       p.nguoi_gioi_thieu, p.van_de_di_kham, l.name AS location_name,"
         "       v.checked_in_at, lv.name AS co_so_luot, st.name AS loai_kham,"
-        "       bc.name AS kenh_dat,"
+        "       bc.name AS kenh_dat, a.so_booking, a.so_tiep_don,"
         # Bác sĩ của LƯỢT; lượt chưa gán thì bác sĩ phiên khám chính đầu tiên.
         "       coalesce(d.full_name, ("
         "           SELECT s.full_name FROM consultation c"
@@ -300,6 +300,9 @@ async def doc_dau_phieu(
             "kenh_dat": bn["kenh_dat"] if bn else None,
             "co_so": (bn["co_so_luot"] or bn["location_name"]) if bn else None,
             "loai_kham": bn["loai_kham"] if bn else None,
+            # Số booking + số check-in ở MỌI khâu khám (Tuyền 27/09).
+            "so_booking": bn["so_booking"] if bn else None,
+            "so_tiep_don": bn["so_tiep_don"] if bn else None,
         },
         "the_sinh_hieu": dung_the_sinh_hieu(dung_sinh_hieu(dict(do) if do else None)),
         "sinh_hieu_nguoi": do["nguoi_do"] if do else None,

@@ -28,6 +28,9 @@ export interface DongHangCho {
   clinic_patient_id: string;
   appointment_id: string | null;
   so_thu_tu: number;
+  /** Số booking (lúc đặt) · số check-in (quầy cấp) — hiện bằng `SoLuot`. */
+  so_booking?: number | null;
+  so_tiep_don?: number | null;
   ten: string;
   ma_bn: string;
   uu_tien: boolean;

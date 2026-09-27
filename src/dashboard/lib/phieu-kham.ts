@@ -74,6 +74,8 @@ export interface KetQuaMotChiDinh {
   hoan_tat_luc?: string | null;
   tai_len_luc?: string;
   loai_tep?: string;
+  /** Tệp: NULL/HOP_LE = in được; CHO_XAC_NHAN / TU_CHOI thì KHÔNG in. */
+  xac_nhan_trang_thai?: string | null;
   khung?: MucPhieu[] | null;
   du_lieu?: Record<string, ONhap> | null;
 }
@@ -152,6 +154,9 @@ export interface DauPhieu {
     kenh_dat: string | null;
     co_so: string | null;
     loai_kham: string | null;
+    /** Số booking (lúc đặt) + số check-in (quầy cấp) — `components/ui/SoLuot`. */
+    so_booking?: number | null;
+    so_tiep_don?: number | null;
   };
   /** Chín ô thẻ sinh hiệu: nhãn đầy đủ + giá trị đã kèm đơn vị. */
   the_sinh_hieu?: { khoa: string; nhan: string; gia_tri: string | null }[];
@@ -468,6 +473,56 @@ export function giaTriDoc(
     return o.lua_chon?.find((l) => l.ma === nhap.gia_tri)?.ten ?? nhap.gia_tri;
   }
   return nhap.gia_tri;
+}
+
+/** Ô "Kết luận" của phiếu kết quả — tách riêng khỏi các dòng số đo. */
+export const LA_KET_LUAN = (ma: string, ten: string) =>
+  ma === "ket_luan" || /^kết luận/i.test(ten.trim());
+
+/**
+ * Các dòng CÓ giá trị của một phiếu kết quả READY + câu kết luận (tách riêng).
+ * Dùng chung cho màn khám (mục "Đã chỉ định & kết quả") và bản in phiếu khám —
+ * hai nơi đọc một kết quả phải ra cùng một chữ.
+ */
+export function dongKetQua(k: KetQuaMotChiDinh): {
+  dong: { nhan: string; gia: string }[];
+  ketLuan: string | null;
+} {
+  const dong: { nhan: string; gia: string }[] = [];
+  let ketLuan: string | null = null;
+  for (const m of k.khung ?? []) {
+    for (const o of m.block) {
+      const nhap = k.du_lieu?.[o.ma];
+      if (!coNhap(nhap)) continue;
+      const g: unknown = nhap?.gia_tri;
+      const donVi = (gia: string) => (o.goi_y && /\d$/.test(gia) ? `${gia} ${o.goi_y}` : gia);
+      if (m.cot && g && typeof g === "object" && !Array.isArray(g)) {
+        for (const c of m.cot) {
+          const v = (g as Record<string, unknown>)[c.ma];
+          if (v === "" || v == null) continue;
+          dong.push({ nhan: `${o.ten} · ${c.ten}`, gia: donVi(String(v)) });
+        }
+        continue;
+      }
+      const gia = giaTriDoc(o, nhap, m.cot);
+      if (LA_KET_LUAN(o.ma, o.ten)) ketLuan = gia;
+      else dong.push({ nhan: o.ten, gia: donVi(gia) });
+    }
+  }
+  return { dong, ketLuan };
+}
+
+/** Ảnh IN ĐƯỢC của một chỉ định: ảnh, đã xác nhận hợp lệ (hoặc tải ở phòng). */
+export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
+  return d.ket_qua
+    .filter(
+      (k) =>
+        k.loai === "TEP" &&
+        k.tep_id &&
+        k.loai_tep === "ANH" &&
+        (k.xac_nhan_trang_thai ?? "HOP_LE") === "HOP_LE",
+    )
+    .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""));
 }
 
 export const NHAN_KET_QUA: Record<ChiDinhVaKetQua["ket_qua_trang_thai"], string> = {

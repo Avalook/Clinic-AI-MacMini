@@ -17,7 +17,7 @@ import { useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
+import { INPUT } from "../../form-ui";
 import {
   dongTuMau,
   locMauThuoc,
@@ -25,14 +25,23 @@ import {
   type MauThuoc,
 } from "@/lib/phieu-kham";
 
-const COT: { ma: keyof DongThuoc; ten: string }[] = [
-  { ma: "ten_thuoc", ten: "Thuốc" },
-  { ma: "duong_dung", ten: "Đường dùng" },
-  { ma: "so_luong", ten: "Số lượng" },
-  { ma: "don_vi", ten: "Đơn vị" },
-  { ma: "cach_dung", ten: "Cách dùng" },
-  { ma: "luu_y", ten: "Lưu ý" },
+// CÁCH DÙNG CẦN CHỖ (Tuyền 27/09/2026: "cho thêm không gian cho cách dùng
+// thuốc"). Bảng sáu cột chia đều cắt "Uống 1 viên sau ăn sáng, 1 viên sau ăn
+// tối, trong 7 ngày" còn vài chữ — và cột trái phiếu khám chỉ rộng ~600–780px
+// nên bảng MỘT hàng không bao giờ đủ chỗ. Mỗi thuốc nay HAI hàng: trên là thuốc
+// · đường dùng · số lượng · đơn vị; dưới là Cách dùng (⅔) + Lưu ý (⅓), ô nhiều
+// dòng tự giãn theo chữ. Điện thoại: mọi ô xếp dọc.
+const COT: { ma: keyof DongThuoc; ten: string; o: string; dai?: boolean }[] = [
+  { ma: "ten_thuoc", ten: "Thuốc", o: "sm:col-span-6" },
+  { ma: "duong_dung", ten: "Đường dùng", o: "sm:col-span-2" },
+  { ma: "so_luong", ten: "Số lượng", o: "sm:col-span-2" },
+  { ma: "don_vi", ten: "Đơn vị", o: "sm:col-span-2" },
+  { ma: "cach_dung", ten: "Cách dùng", o: "sm:col-span-8", dai: true },
+  { ma: "luu_y", ten: "Lưu ý", o: "sm:col-span-4", dai: true },
 ];
+
+/** Ô nhiều dòng tự giãn theo chữ (CSS field-sizing) — tối thiểu 2 dòng. */
+const O_DAI = `${INPUT} min-h-16 resize-y [field-sizing:content] sm:min-h-16`;
 
 export default function DonThuocPhieu({
   dong,
@@ -98,96 +107,57 @@ export default function DonThuocPhieu({
       {dong.length === 0 ? (
         <p className="text-body text-ink-faint">Chưa chọn thuốc.</p>
       ) : null}
-      {/* ĐIỆN THOẠI: mỗi thuốc một thẻ. Bảng sáu cột ở khổ 375 kéo cả trang tràn
-          ngang dù đã bọc khung cuộn (bấm thật 23/09) — và sáu ô 40px thì không
-          ai gõ được. Từ sm trở lên vẫn là bảng. */}
       {dong.length > 0 ? (
-        <ul className="space-y-2 sm:hidden">
+        <ol className="space-y-2">
           {dong.map((d, i) => (
             <li
-              key={`the-${d.mau_ma ?? "tu-do"}-${i}`}
-              className="space-y-2 rounded-card border border-hairline bg-surface p-3"
+              key={`${d.mau_ma ?? "tu-do"}-${i}`}
+              className="rounded-card border border-hairline bg-surface p-3"
             >
-              {COT.map((c) => (
-                <label key={c.ma} className="block text-meta text-ink-muted">
-                  {c.ten}
-                  <input
-                    value={String(d[c.ma] ?? "")}
-                    disabled={chiDoc}
-                    onChange={(e) => sua(i, c.ma, e.target.value)}
-                    className={INPUT}
-                  />
-                </label>
-              ))}
-              {!d.drug_catalog_id ? <Chip tone="warning">Chưa gắn thuốc kho</Chip> : null}
-              {!chiDoc ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onDoi?.(dong.filter((_, j) => j !== i))}
-                >
-                  Bỏ thuốc này
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {dong.length === 0 ? null : (
-        <div className={`hidden overflow-x-auto sm:block ${TBL_WRAP}`}>
-          <table className="w-full text-body">
-            <thead className={TBL_HEAD}>
-              <tr>
-                {COT.map((c) => (
-                  <th key={c.ma} scope="col" className="px-3 py-2 text-left">
-                    {c.ten}
-                  </th>
-                ))}
+              <div className="mb-2 flex items-center gap-2">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-50 text-meta font-semibold text-brand-700">
+                  {i + 1}
+                </span>
+                {!d.drug_catalog_id ? <Chip tone="warning">Chưa gắn thuốc kho</Chip> : null}
                 {!chiDoc ? (
-                  <th scope="col" className="px-3 py-2">
-                    <span className="sr-only">Bỏ dòng</span>
-                  </th>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto"
+                    onClick={() => onDoi?.(dong.filter((_, j) => j !== i))}
+                  >
+                    Bỏ thuốc này
+                  </Button>
                 ) : null}
-              </tr>
-            </thead>
-            <tbody className={TBL_DIV}>
-              {dong.map((d, i) => (
-                <tr key={`${d.mau_ma ?? "tu-do"}-${i}`}>
-                  {COT.map((c) => (
-                    <td key={c.ma} className="px-3 py-1.5 align-top">
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+                {COT.map((c) => (
+                  <label key={c.ma} className={`block text-meta text-ink-muted ${c.o}`}>
+                    {c.ten}
+                    {c.dai ? (
+                      <textarea
+                        rows={2}
+                        value={String(d[c.ma] ?? "")}
+                        disabled={chiDoc}
+                        onChange={(e) => sua(i, c.ma, e.target.value)}
+                        className={O_DAI}
+                      />
+                    ) : (
                       <input
-                        aria-label={c.ten}
                         value={String(d[c.ma] ?? "")}
                         disabled={chiDoc}
                         onChange={(e) => sua(i, c.ma, e.target.value)}
                         className={INPUT}
                       />
-                      {c.ma === "ten_thuoc" && !d.drug_catalog_id ? (
-                        <Chip tone="warning" className="mt-1">
-                          Chưa gắn thuốc kho
-                        </Chip>
-                      ) : null}
-                    </td>
-                  ))}
-                  {!chiDoc ? (
-                    <td className="px-3 py-1.5 align-top">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onDoi?.(dong.filter((_, j) => j !== i))}
-                      >
-                        Bỏ
-                      </Button>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    )}
+                  </label>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </div>
   );
 }

@@ -90,6 +90,9 @@ export interface DongDon {
 export interface LuotThuoc {
   visit_id: string;
   ten_khach: string | null;
+  /** Số booking (lúc đặt) + số check-in (quầy cấp) — `components/ui/SoLuot`. */
+  so_booking?: number | null;
+  so_tiep_don?: number | null;
   patient_code: string | null;
   phone: string | null;
   kham_xong: boolean;

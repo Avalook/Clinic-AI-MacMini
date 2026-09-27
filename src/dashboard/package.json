@@ -20,7 +20,8 @@
     "e2e:clinical-sync": "node e2e/clinical-sync-smoke.mjs",
     "test:bo-nho": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/bo-nho-tam.test.mts",
     "test:hanh-trinh": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/hanh-trinh.test.mts",
-    "test:sua-mau": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/sua-mau.test.mts"
+    "test:sua-mau": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/sua-mau.test.mts",
+    "test:phieu-kham": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/phieu-kham.test.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

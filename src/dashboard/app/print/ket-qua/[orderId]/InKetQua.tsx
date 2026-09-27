@@ -112,22 +112,24 @@ function KhoiBenhNhan({ dl }: { dl: DuLieuIn }) {
   );
 }
 
-/** Ảnh của chỉ định, 4 tấm một hàng; video / tài liệu chỉ đếm. */
-function AnhIn({ dl }: { dl: DuLieuIn }) {
+/** Ảnh của chỉ định, 2 tấm một hàng (đủ to để đọc); video / tài liệu chỉ đếm.
+ *  `trangRieng`: ảnh sang TRANG RIÊNG sau trang thông tin (Tuyền 27/09/2026:
+ *  "một trang in ảnh và một trang in thông tin"). */
+function AnhIn({ dl, trangRieng = false }: { dl: DuLieuIn; trangRieng?: boolean }) {
   const anh = dl.anh ?? [];
   return (
     <>
       {anh.length > 0 ? (
-        <section className="mt-4">
-          <h2 className="text-emph font-semibold text-ink">Hình ảnh</h2>
-          <div className="mt-1 grid grid-cols-4 gap-2">
+        <section className={trangRieng ? "mt-10 break-before-page print:mt-0" : "mt-4"}>
+          <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">Hình ảnh kết quả</h2>
+          <div className="mt-2 grid grid-cols-2 gap-3">
             {anh.map((a) => (
               <figure key={a.id} className="space-y-0.5">
                 {/* eslint-disable-next-line @next/next/no-img-element -- ảnh đi qua cửa XÁC THỰC */}
                 <img
                   src={`/api/cskh/ket-qua/${a.id}/noi-dung`}
                   alt={a.ten ?? "Ảnh kết quả"}
-                  className="aspect-video w-full rounded-control border border-line object-cover"
+                  className="aspect-4/3 w-full rounded-control border border-line bg-surface-sunken object-contain"
                 />
                 <figcaption className="truncate text-label text-ink-muted">{a.ten}</figcaption>
               </figure>
@@ -259,7 +261,6 @@ export default function InKetQua({ orderId }: { orderId: string }) {
               )}
             </section>
           ))}
-          {i === 0 ? <AnhIn dl={dl} /> : null}
           <footer className="in-giu mt-10 flex justify-end">
             <div className="text-center">
               <p className="text-meta text-ink-muted">
@@ -271,6 +272,7 @@ export default function InKetQua({ orderId }: { orderId: string }) {
           </footer>
         </article>
       ))}
+      {dl.phieu.length > 0 ? <AnhIn dl={dl} trangRieng /> : null}
     </main>
   );
 }

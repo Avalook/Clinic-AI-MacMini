@@ -61,6 +61,7 @@ import Chip from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
+import SoLuot from "@/components/ui/SoLuot";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -186,6 +187,7 @@ interface SapToi {
   ten: string;
   ma_bn: string | null;
   so_tiep_don: number | null;
+  so_booking?: number | null;
   dang_o: string;
 }
 
@@ -540,7 +542,10 @@ function NhomSapToi({ ds }: { ds: SapToi[] }) {
               {d.so_tiep_don ?? "—"}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-ink">{d.ten}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-ink">{d.ten}</span>
+                <SoLuot booking={d.so_booking} className="shrink-0" />
+              </span>
               <span className="block truncate text-ink-muted">
                 {d.ma_bn ?? ""} · {d.dang_o}
               </span>
@@ -593,8 +598,11 @@ function Nhom({
               }`}
             >
               <span className="flex items-start gap-2.5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-surface-sunken text-xs font-semibold text-ink-soft">
-                  {d.so_thu_tu}
+                <span
+                  title="Số check-in"
+                  className="grid size-9 shrink-0 place-items-center rounded-full border border-line bg-surface-sunken text-xs font-semibold text-ink-soft"
+                >
+                  {d.so_tiep_don ?? d.so_thu_tu}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
@@ -606,6 +614,7 @@ function Nhom({
                         <PriorityChip priority="P0" />
                       </span>
                     ) : null}
+                    <SoLuot booking={d.so_booking} className="shrink-0" />
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-ink-muted">
                     {d.ma_bn} · {d.dich_vu_kham ?? "Chưa gán dịch vụ"}
@@ -857,7 +866,10 @@ function HoSo({
             {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
           </div>
           <dl className="grid grid-cols-4 divide-x divide-line text-xs">
-            <Truong nhan="Số thứ tự" gia={String(dong.so_thu_tu)} />
+            <Truong
+              nhan="Booking · Check-in"
+              gia={`${dong.so_booking != null ? `#${dong.so_booking}` : "—"} · ${dong.so_tiep_don ?? dong.so_thu_tu}`}
+            />
             <Truong
               nhan={dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}
               gia={

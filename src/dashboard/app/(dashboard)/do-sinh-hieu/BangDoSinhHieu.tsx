@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 
 import XemLuot from "../_lam-viec/XemLuot";
+import SoLuot from "@/components/ui/SoLuot";
 
 interface SinhHieu {
   tam_thu: number | null;
@@ -314,11 +315,17 @@ export default function BangDoSinhHieu() {
           chon === l.visit_id ? "bg-brand-50" : ""
         }`}
       >
-        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold tabular-nums text-ink">
+        <span
+          title="Số check-in"
+          className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-semibold tabular-nums text-ink"
+        >
           {l.so_tiep_don ?? stt}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold text-ink">{l.ten}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="truncate font-semibold text-ink">{l.ten}</span>
+            <SoLuot booking={l.so_booking} className="shrink-0" />
+          </span>
           <span className="block text-meta text-ink-muted">
             {l.ma_bn} · check-in {gio(l.check_in_luc)}
             {l.bac_si ? ` · ${l.bac_si}` : ""}
@@ -392,10 +399,9 @@ export default function BangDoSinhHieu() {
           <>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-              <p className="text-lg font-semibold text-ink">
-                {dangChon.so_tiep_don != null ? `Số ${dangChon.so_tiep_don} · ` : ""}
-                {dangChon.so_booking != null ? `Đặt #${dangChon.so_booking} · ` : ""}
+              <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-ink">
                 {dangChon.ten}
+                <SoLuot booking={dangChon.so_booking} checkin={dangChon.so_tiep_don} />
               </p>
               <p className="text-meta text-ink-muted">
                 {dangChon.ma_bn} · check-in {gio(dangChon.check_in_luc)}

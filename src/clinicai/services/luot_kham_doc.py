@@ -663,6 +663,7 @@ class BangLuotKham:
                        q.eligible_at, q.called_at, q.serving_at, q.done_at,
                        q.created_at,
                        stt.so AS so_thu_tu,
+                       ap.so_booking, ap.so_tiep_don,
                        p.clinic_patient_id::text AS clinic_patient_id,
                        p.full_name, p.patient_code, p.uu_tien, p.uu_tien_ly_do,
                        v.appointment_id::text AS appointment_id,
@@ -695,6 +696,8 @@ class BangLuotKham:
                   LEFT JOIN clinic_room r ON r.id = q.room_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                   LEFT JOIN staff fb ON fb.id = v.finalized_by
+                  LEFT JOIN appointment ap
+                    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
                    AND q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
                    AND (
@@ -802,6 +805,10 @@ class BangLuotKham:
                 "clinic_patient_id": r["clinic_patient_id"],
                 "appointment_id": r["appointment_id"],
                 "so_thu_tu": int(r["so_thu_tu"]),
+                # Số booking (cấp lúc đặt) + số check-in (quầy cấp) — hiện cạnh
+                # tên ở MỌI khâu (Tuyền 27/09). `so_thu_tu` giữ để xếp hàng.
+                "so_booking": r["so_booking"],
+                "so_tiep_don": r["so_tiep_don"],
                 "ten": r["full_name"],
                 "ma_bn": r["patient_code"],
                 "uu_tien": bool(r["uu_tien"]),
