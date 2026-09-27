@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { Tv, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Chip from "@/components/ui/Chip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
@@ -31,6 +31,16 @@ export default function QueuesClient({
   const [chon, setChon] = useState<string | null>(null);
   const khach = live.patients.find((p) => p.visit_id === chon) ?? null;
 
+  // Esc đóng hộp điều phối.
+  useEffect(() => {
+    if (!chon) return;
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChon(null);
+    };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [chon]);
+
   const soDo = live.patients.filter(quaNguong).length;
   const phongDay = live.rooms.filter((r) => r.state === "critical").length;
   const tongCho = live.rooms.reduce((s, r) => s + r.waiting, 0);
@@ -47,18 +57,23 @@ export default function QueuesClient({
       </div>
       <ReadFailed ok={live.ok} />
 
-      <div className={`grid items-start gap-3 ${khach ? "lg:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
           {live.rooms.map((r) => (
             <ThePhong key={r.id} phong={r} ds={live.patients} chon={chon} onChon={setChon} />
           ))}
-        </div>
+      </div>
 
-        {khach ? (
-          <aside
-            aria-label="Điều phối khách"
-            className="rounded-card border border-line bg-surface p-4 shadow-card lg:sticky lg:top-4"
-          >
+      {/* POPUP giữa màn (Tuyền 27/09: "popup thôi, không cần mở hẳn sang bên"):
+          lớp phủ mờ, bấm ra ngoài / Esc / ✕ là đóng; lưới phòng giữ nguyên. */}
+      {khach ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Điều phối ${khach.patient_name ?? "khách"}`}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+          <div aria-hidden className="absolute inset-0 bg-ink/40" onClick={() => setChon(null)} />
+          <div className="relative max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-surface p-4 shadow-panel">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-emph font-semibold text-ink">{khach.patient_name ?? "—"}</p>
@@ -85,9 +100,9 @@ export default function QueuesClient({
               Chuyển sang phòng làm được việc này
             </p>
             <ChiDinhCuaBacSi key={khach.visit_id} visitId={khach.visit_id} />
-          </aside>
-        ) : null}
-      </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
