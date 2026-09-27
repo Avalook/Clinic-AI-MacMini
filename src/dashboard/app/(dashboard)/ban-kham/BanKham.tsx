@@ -52,6 +52,7 @@ import {
 import KhungTep from "../_lam-viec/KhungTep";
 import XemPhieuKetQua from "../_lam-viec/XemPhieuKetQua";
 import DoiPhong from "../_lam-viec/DoiPhong";
+import { TomTatLuotContext } from "../_lam-viec/phieu-kham/TomTatLuot";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import BanTuVan from "./BanTuVan";
@@ -702,6 +703,9 @@ function HoSo({
   );
   // Hỏi lại trước khi Hoàn tất — dải xác nhận tại chỗ, theo đúng khách đang mở.
   const [hoiHoanTat, setHoiHoanTat] = useState<string | null>(null);
+  // Thẻ khách (phiếu v5 / bàn tư vấn) đã hiện chưa — hiện rồi thì tóm tắt lượt
+  // vẽ TRONG thẻ, bỏ ô riêng phía trên (Tuyền 27/09 tối).
+  const [coTheKhach, setCoTheKhach] = useState(false);
 
   const conChiDinhDangLam =
     luot?.chi_dinh.some((c) =>
@@ -847,6 +851,74 @@ function HoSo({
       </span>
     ) : null;
 
+  const hanhDong = choBam ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {dong.trang_thai === "waiting" ||
+            dong.trang_thai === "called" ||
+            (tuVan && dong.trang_thai === "blocked") ? (
+              <button
+                type="button"
+                disabled={dangGui}
+                onClick={() => void bam("nhan-kham")}
+                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                <Stethoscope className="size-4" aria-hidden="true" />
+                {dangGui ? "Đang ghi…" : tuVan ? "Bắt đầu tư vấn" : "Bắt đầu khám"}
+              </button>
+            ) : null}
+            {tuVan && dong.trang_thai === "blocked" ? (
+              <p className="text-xs text-warning">
+                Khách chưa đo sinh hiệu — vẫn nhận tư vấn được.
+              </p>
+            ) : null}
+            {!tuVan && dong.trang_thai === "blocked" ? (
+              <p className="text-xs text-warning">
+                Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
+              </p>
+            ) : null}
+            {loiHienTai && dong.trang_thai !== "serving" ? (
+              <p role="alert" className="text-xs text-danger">
+                {loiHienTai}
+              </p>
+            ) : null}
+          </div>
+        ) : null;
+  // Tóm tắt lượt vẽ trong thẻ khách: trạng thái · thời gian · nút. Loại khám và
+  // số booking/check-in đã có sẵn trên thẻ, không lặp.
+  const tomTatGon = gon ? (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip tone={t.tone} label={t.nhan} size="md" />
+        {dong.vong === "REVIEW" && dong.trang_thai !== "done" ? (
+          <StatusChip
+            tone="blocked"
+            label={`Đã khám${daKhamLuc ? ` ${gioVn(daKhamLuc)}` : ""} · có kết quả mới cần đọc`}
+            size="md"
+          />
+        ) : null}
+        <span className="text-meta text-ink-muted">
+          {dong.trang_thai === "serving" ? "Đã khám" : "Đã chờ"}{" "}
+          <b className="text-ink">
+            {(dong.trang_thai === "serving" ? soPhutTu(dong.bat_dau_luc) : soPhutTu(dong.vao_hang_luc)) || "—"}
+          </b>
+          {" · "}Từ lúc check-in <b className="text-ink">{soPhutTu(dong.checkin_luc) || "—"}</b>
+        </span>
+        <span className="ml-auto flex flex-wrap gap-1">
+          {onHangCho ? (
+            <Button size="sm" variant="ghost" aria-expanded={hangMo} onClick={onHangCho}>
+              ☰ {hangMo ? "Ẩn hàng chờ" : `Hàng chờ (${soCho})`}
+            </Button>
+          ) : null}
+          <Button size="sm" variant="ghost" onClick={() => setXemLuot(dong.visit_id)}>
+            Xem lại cả lượt
+          </Button>
+        </span>
+      </div>
+      {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
+      {hanhDong}
+    </div>
+  ) : null;
+
   return (
     <section
       aria-label="Hồ sơ khám bệnh"
@@ -854,6 +926,7 @@ function HoSo({
         gon ? "min-w-0 space-y-3" : "min-w-0 overflow-hidden rounded-card bg-surface shadow-card"
       }
     >
+      {gon && coTheKhach ? null : (
       <header
         className={
           gon ? "rounded-card border border-hairline bg-surface px-4 py-3" : "px-4 py-3"
@@ -924,38 +997,7 @@ function HoSo({
 
             `called_at` trong database giữ nguyên — lượt cũ còn đọc được giờ
             gọi; chỉ thôi ghi mới từ màn này. */}
-        {choBam ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {dong.trang_thai === "waiting" ||
-            dong.trang_thai === "called" ||
-            (tuVan && dong.trang_thai === "blocked") ? (
-              <button
-                type="button"
-                disabled={dangGui}
-                onClick={() => void bam("nhan-kham")}
-                className="inline-flex min-h-11 items-center gap-2 rounded-control bg-brand-600 px-5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-              >
-                <Stethoscope className="size-4" aria-hidden="true" />
-                {dangGui ? "Đang ghi…" : tuVan ? "Bắt đầu tư vấn" : "Bắt đầu khám"}
-              </button>
-            ) : null}
-            {tuVan && dong.trang_thai === "blocked" ? (
-              <p className="text-xs text-warning">
-                Khách chưa đo sinh hiệu — vẫn nhận tư vấn được.
-              </p>
-            ) : null}
-            {!tuVan && dong.trang_thai === "blocked" ? (
-              <p className="text-xs text-warning">
-                Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
-              </p>
-            ) : null}
-            {loiHienTai && dong.trang_thai !== "serving" ? (
-              <p role="alert" className="text-xs text-danger">
-                {loiHienTai}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        {hanhDong}
 
         {gon ? null : (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-line bg-surface-muted px-3 py-2 text-xs text-ink-soft">
@@ -989,7 +1031,9 @@ function HoSo({
           </p>
         ) : null}
       </header>
+      )}
 
+      <TomTatLuotContext.Provider value={gon ? { noiDung: tomTatGon, baoHien: setCoTheKhach } : null}>
       <div className={gon ? "space-y-3" : "p-3 pt-0"}>
         <LuotKhamTruoc
           clinicPatientId={dong.clinic_patient_id}
@@ -1137,6 +1181,7 @@ function HoSo({
           <div className="mt-3 border-t border-line pt-3">{nutHoanTat}</div>
         ) : null}
       </div>
+      </TomTatLuotContext.Provider>
     </section>
   );
 }
