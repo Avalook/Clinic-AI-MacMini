@@ -5,7 +5,19 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from clinicai.phieu_kham.hanh_trinh import CHUA, DANG, XONG, SuKien, dung_moc
+from clinicai.phieu_kham.hanh_trinh import (
+    BO,
+    CHO_LAM,
+    CHO_THU,
+    CHUA,
+    DA_XONG,
+    DANG,
+    DANG_LAM,
+    XONG,
+    SuKien,
+    dung_moc,
+    dung_tung_dich_vu,
+)
 
 T0 = datetime(2026, 9, 26, 1, 0, tzinfo=timezone.utc)  # 08:00 giờ VN
 
@@ -123,3 +135,82 @@ def test_doc_ket_qua_thuoc_va_ve() -> None:
     )
     assert [m["ma"] for m in moc][-3:] == ["DOC_KQ", "THUOC", "VE"]
     assert all(m["trang_thai"] == XONG for m in moc if m["ma"] != "SINH_HIEU")
+
+
+# --- Bảng "Từng dịch vụ" (27/09/2026, bản giao diện mẫu) -------------------
+
+
+def _dong(phut: int, **k: Any) -> dict[str, Any]:
+    them = {
+        "id": k.pop("id", f"o{phut}"),
+        "ten": k.pop("ten", "Siêu âm"),
+        "tra_luc": k.pop("tra_luc", None),
+        "bat_dau_luc": k.pop("bat_dau_luc", None),
+        "xong_luc": k.pop("xong_luc", None),
+    }
+    if "dang_lam" in k:
+        them["dang_lam"] = k.pop("dang_lam")
+    return {**_dv(1, phut, **k), **them}
+
+
+def test_tung_dich_vu_mot_truc_trang_thai_va_thu_tu_gui() -> None:
+    ds = dung_tung_dich_vu(
+        [
+            _dong(40, id="c", da_tra=True, tra_luc=p(45)),
+            _dong(30, id="a"),
+            _dong(
+                35,
+                id="b",
+                da_tra=True,
+                tra_luc=p(38),
+                bat_dau_luc=p(50),
+                xong=True,
+                xong_luc=p(62),
+            ),
+            _dong(36, id="d", da_tra=True, tra_luc=p(38), bat_dau_luc=p(55)),
+            _dong(37, id="e", chon=False),
+        ]
+    )
+    assert [d["id"] for d in ds] == ["a", "b", "d", "e", "c"], "theo giờ gửi"
+    assert {d["id"]: d["trang_thai"] for d in ds} == {
+        "a": CHO_THU,
+        "b": DA_XONG,
+        "c": CHO_LAM,
+        "d": DANG_LAM,
+        "e": BO,
+    }
+    b = ds[1]
+    assert (b["gui"], b["thu"], b["bat_dau"], b["xong"]) == (
+        p(35),
+        p(38),
+        p(50),
+        p(62),
+    )
+    assert ds[0]["thu"] is None and ds[0]["xong"] is None
+
+
+def test_tung_dich_vu_doi_tac_lay_mau_xong_la_dang_lam_chua_xong() -> None:
+    (d,) = dung_tung_dich_vu(
+        [
+            _dong(
+                30,
+                da_tra=True,
+                ngoai=True,
+                bat_dau_luc=p(40),
+                dang_lam=True,
+                xong_luc=p(41),  # giờ lấy mẫu xong — CHƯA phải có kết quả
+            )
+        ]
+    )
+    assert d["noi"] == "Đối tác"
+    assert d["trang_thai"] == DANG_LAM
+    assert d["xong"] is None, "chưa có kết quả thì không ghi giờ xong"
+
+
+def test_tung_dich_vu_bi_ngat_giu_gio_bat_dau_nhung_la_cho_lam() -> None:
+    # INTERRUPTED giữ started_at cũ — cờ dang_lam quyết, không đoán theo giờ.
+    (d,) = dung_tung_dich_vu(
+        [_dong(30, da_tra=True, bat_dau_luc=p(40), dang_lam=False)]
+    )
+    assert d["trang_thai"] == CHO_LAM
+    assert d["bat_dau"] == p(40)

@@ -26,11 +26,29 @@ export interface MocMayChu {
   con_cho?: number;
 }
 
+/** Trục trạng thái một chiều của từng chỉ định — máy chủ quyết (`dung_tung_dich_vu`). */
+export type TrangThaiDichVu = "CHO_THU" | "CHO_LAM" | "DANG_LAM" | "XONG" | "BO";
+
+/** Một dòng bảng "Từng dịch vụ" (27/09/2026) — thời điểm ISO, null = chưa tới. */
+export interface DichVuHanhTrinh {
+  id: string | null;
+  ten: string;
+  lan: number | null;
+  noi: string;
+  trang_thai: TrangThaiDichVu;
+  gui: string;
+  thu: string | null;
+  bat_dau: string | null;
+  xong: string | null;
+}
+
 export interface HanhTrinh {
   dang_o: string;
   moc: MocMayChu[];
   /** Số chỉ định đang ở đối tác (khách không phải có mặt). */
   ngoai_cho: number;
+  /** Máy chủ cũ chưa trả → không có bảng. */
+  tung_dich_vu?: DichVuHanhTrinh[];
 }
 
 export interface Doan {
@@ -92,4 +110,45 @@ export function doanNoi(moc: MocMayChu[], bayGio: number): Doan[] {
     }
     return { nhan: null, trangThai: m.trang_thai === "xong" ? "xong" : "chua" };
   });
+}
+
+export interface PhutDichVu {
+  /** "Gửi 08:45 · Thu 08:50 · Bắt đầu 09:00 · Xong 09:20" — chỉ mốc đã có. */
+  moc: string;
+  /** Phút CHỜ: từ lúc thu (chưa thu thì lúc gửi) tới lúc bắt đầu — hoặc tới
+   *  bây giờ nếu còn đang chờ. null = không nói (khách bỏ; xong mà không có giờ bắt đầu). */
+  cho: number | null;
+  /** Phút LÀM: bắt đầu → xong, hoặc → bây giờ nếu đang làm. */
+  lam: number | null;
+  /** Tổng: gửi → xong, hoặc → bây giờ nếu chưa xong. null = khách bỏ. */
+  tong: number | null;
+  /** Còn chạy theo đồng hồ (chưa xong). */
+  dangChay: boolean;
+}
+
+/**
+ * Số phút của một dòng "Từng dịch vụ": chờ → làm → tổng. Dòng chưa xong tính
+ * tới `bayGio` để nhích theo phút như nhãn trên dải mốc. Không bao giờ âm
+ * (giờ máy lệch vài giây vẫn ra 0).
+ */
+export function phutDichVu(d: DichVuHanhTrinh, bayGio: number): PhutDichVu {
+  const cacMoc: [string, string | null][] = [
+    ["Gửi", d.gui],
+    ["Thu", d.thu],
+    ["Bắt đầu", d.bat_dau],
+    ["Xong", d.xong],
+  ];
+  const moc = cacMoc
+    .flatMap(([a, v]) => (v ? [`${a} ${fmtTime(v)}`] : []))
+    .join(" · ");
+  if (d.trang_thai === "BO") return { moc, cho: null, lam: null, tong: null, dangChay: false };
+  const ms = (v: string) => new Date(v).getTime();
+  const phut = (a: number, b: number) => Math.max(0, Math.floor((b - a) / 60_000));
+  const xong = d.xong ? ms(d.xong) : null;
+  const cuoi = xong ?? bayGio;
+  const tuCho = ms(d.thu ?? d.gui);
+  const batDau = d.bat_dau ? ms(d.bat_dau) : null;
+  const cho = batDau != null ? phut(tuCho, batDau) : xong == null ? phut(tuCho, bayGio) : null;
+  const lam = batDau != null ? phut(batDau, cuoi) : null;
+  return { moc, cho, lam, tong: phut(ms(d.gui), cuoi), dangChay: xong == null };
 }
