@@ -2,17 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { VN_TZ, vnToday } from "../../lib/datetime";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Menu,
-  Calendar as CalendarIcon,
-  Clock,
   Bell,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   CheckCircle2,
   AlertCircle,
   LogOut,
@@ -20,29 +15,40 @@ import {
 import Button from "@/components/ui/Button";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
 import { NAV, navLabelFor } from "./nav-items";
+import { NHOM_CONG_VIEC } from "./nav-items";
+import TimNhanh from "./TimNhanh";
 import { useNotifications } from "./NotificationContext";
 
 interface GlobalHeaderProps {
-  onToggleSidebar: () => void;
-  isCollapsed: boolean;
   identity: string;
   /** Tên người đang đăng nhập (layout truyền). Thiếu thì đoán từ `identity`. */
   tenNguoi?: string;
   role: ClinicRole;
+  /** Quyền + chế độ — cho ô tìm nhanh ⌘K lọc đúng như thanh bên. */
+  quyen?: readonly string[] | null;
+  featureMode?: string;
   /** Server action thoát — cùng action với nút Thoát ở chân thanh bên. */
   leaveAction: () => void | Promise<void>;
 }
 
 export default function GlobalHeader({
-  onToggleSidebar,
-  isCollapsed,
   identity,
   tenNguoi,
   role,
+  quyen = null,
+  featureMode = "FULL_CLINIC",
   leaveAction,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
+  // Đã cuộn trang chưa — thanh trên chỉ hiện đường kẻ dưới khi nội dung trôi qua.
+  const [daCuon, setDaCuon] = useState(false);
+  useEffect(() => {
+    const doi = () => setDaCuon(window.scrollY > 4);
+    doi();
+    window.addEventListener("scroll", doi, { passive: true });
+    return () => window.removeEventListener("scroll", doi);
+  }, []);
   const theTenRef = useRef<HTMLDivElement>(null);
   const nutTenRef = useRef<HTMLButtonElement>(null);
 
@@ -296,54 +302,56 @@ export default function GlobalHeader({
 
   const { title, subtitle } = getPageTitle();
 
+  // Nhóm công việc của trang — phần đầu đường dẫn "Nhóm › Trang".
+  const nhomCuaTrang =
+    NHOM_CONG_VIEC.find((g) =>
+      g.hrefs.some((h) => h !== "/home" && (pathname === h || pathname.startsWith(`${h}/`))),
+    )?.ten ?? null;
+  // "CN 27/09" — gọn, cùng ngày đang chọn ở lịch nhỏ.
+  const ngayGon = `${
+    ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][
+      new Date(selectedDate.toLocaleDateString("en-US", { timeZone: VN_TZ })).getDay()
+    ]
+  } ${shortDateStr.slice(0, 5)}`;
+
   return (
-    <header ref={headerRef} className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-line bg-surface/95 px-4 backdrop-blur-md">
-      {/* Left Section: Hamburger + Logo/Title */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          aria-label={isCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-          className="grid size-9 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition-all hover:bg-surface-muted hover:text-ink shadow-xs"
-        >
-          <Menu size={18} />
-        </button>
-
-        {isCollapsed && (
-          <Image
-            src="/clinicai-logo.svg"
-            alt="ClinicAI"
-            width={120}
-            height={36}
-            priority
-            className="object-contain hidden md:block"
-          />
-        )}
-
-        <div className="hidden sm:block">
-          <h1 className="text-base font-bold text-ink leading-tight">{title}</h1>
-          {subtitle && <p className="text-label text-ink-muted leading-none">{subtitle}</p>}
-        </div>
+    // THANH TRÊN (bản "Đề xuất", Tuyền chốt 27/09/2026 tối): 48px, trong tấm
+    // nội dung, không viền quanh từng món; đường kẻ dưới chỉ hiện khi đã cuộn.
+    <header
+      ref={headerRef}
+      className={`sticky top-0 z-30 flex h-12 w-full items-center justify-between gap-3 bg-surface/85 px-4 backdrop-blur-md transition-[border-color] md:px-6 border-b ${
+        daCuon ? "border-line" : "border-transparent"
+      }`}
+    >
+      {/* Trái: ĐƯỜNG DẪN "Nhóm › Trang" thay tiêu đề to (trang đã có tiêu đề riêng). */}
+      <div className="flex min-w-0 items-center gap-1.5 text-meta" title={subtitle || undefined}>
+        {nhomCuaTrang ? (
+          <>
+            <span className="hidden truncate text-ink-muted sm:inline">{nhomCuaTrang}</span>
+            <ChevronRight size={13} className="hidden shrink-0 text-ink-faint sm:block" aria-hidden />
+          </>
+        ) : null}
+        <h1 className="truncate font-semibold text-ink">{title}</h1>
       </div>
 
       {/* Right Section: Widgets */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Date Dropdown Widget */}
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        <TimNhanh role={role} quyen={quyen} featureMode={featureMode} />
+        {/* Ngày · giờ — MỘT dòng chữ nhạt (bấm vẫn mở lịch nhỏ). */}
         <div className="relative">
           <button
             type="button"
             onClick={toggleCal}
-            className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-xs hover:bg-surface-muted transition-all"
+            title={formattedDateStr}
+            className="h-8 rounded-control px-2 text-meta tabular-nums text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
           >
-            <CalendarIcon size={14} className="text-brand-600 shrink-0" />
-            <span className="hidden md:inline">{formattedDateStr}</span>
+            <span className="hidden md:inline">{ngayGon} · {liveTime || "--:--"}</span>
             <span className="md:hidden">{shortDateStr}</span>
-            <ChevronDown size={13} className="text-ink-muted" />
           </button>
 
           {/* Mini Calendar Popover */}
           {calOpen && (
-            <div className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-line bg-surface p-4 shadow-panel animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-10 z-50 w-72 rounded-2xl border border-line bg-surface p-4 shadow-panel animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-ink">
                   {monthNames[viewMonth]} {viewYear}
@@ -408,23 +416,17 @@ export default function GlobalHeader({
           )}
         </div>
 
-        {/* Live Clock Widget */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-mono font-medium text-ink shadow-xs">
-          <Clock size={14} className="text-brand-600 shrink-0" />
-          <span>{liveTime || "08:30"}</span>
-        </div>
-
         {/* Notification Bell Widget */}
         <div className="relative">
           <button
             type="button"
             onClick={toggleNotif}
             aria-label="Thông báo"
-            className="relative grid size-9 place-items-center rounded-xl border border-line bg-surface text-ink-muted transition-all hover:bg-surface-muted hover:text-ink shadow-xs"
+            className="relative grid size-8 place-items-center rounded-control text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink"
           >
             <Bell size={16} />
             {unreadCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-danger text-label font-bold text-white shadow-xs">
+              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-label font-bold leading-none text-white ring-2 ring-surface">
                 {unreadCount}
               </span>
             )}
@@ -432,7 +434,7 @@ export default function GlobalHeader({
 
           {/* Notifications Popover */}
           {notifOpen && (
-            <div className="absolute right-0 top-11 z-50 w-80 rounded-2xl border border-line bg-surface p-4 shadow-panel space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-line bg-surface p-4 shadow-panel space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="flex items-center justify-between border-b border-line pb-2">
                 <span className="text-xs font-bold text-ink">Thông báo mới</span>
                 {unreadCount > 0 && (
@@ -561,20 +563,13 @@ export default function GlobalHeader({
             aria-expanded={theTenOpen}
             aria-controls="the-ten-tai-khoan"
             aria-label={`Tài khoản ${staffName} — bấm để thoát`}
-            className="flex items-center gap-2 rounded-xl border border-line bg-surface p-1.5 pl-2 shadow-xs transition-all hover:bg-surface-muted"
+            title={`${staffName} · ${ROLE_LABEL[role]}`}
+            className="grid size-8 place-items-center rounded-full transition-shadow hover:ring-2 hover:ring-brand-100"
           >
+            {/* Chỉ ẢNH ĐẠI DIỆN — tên + vai nằm ở đáy thanh bên (bản Đề xuất). */}
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
               {staffInitials}
             </span>
-            <span className="hidden lg:block min-w-0 pr-1 text-left">
-              <span className="block truncate text-xs font-bold text-ink leading-none">
-                {staffName}
-              </span>
-              <span className="block text-label font-medium text-ink-muted leading-none mt-0.5">
-                {ROLE_LABEL[role]}
-              </span>
-            </span>
-            <ChevronDown size={13} className="hidden text-ink-muted sm:block" aria-hidden />
           </button>
 
           {theTenOpen && (
@@ -582,9 +577,10 @@ export default function GlobalHeader({
               id="the-ten-tai-khoan"
               role="group"
               aria-label="Tài khoản đang đăng nhập"
-              className="absolute right-0 top-11 z-50 w-64 rounded-card border border-line bg-surface p-3 shadow-panel"
+              className="absolute right-0 top-10 z-50 w-64 rounded-card border border-line bg-surface p-3 shadow-panel"
             >
               <p className="truncate text-emph font-semibold text-ink">{staffName}</p>
+              <p className="text-meta text-ink-muted">{ROLE_LABEL[role]}</p>
               <p className="mt-0.5 text-meta text-ink-muted">{identity}</p>
               <form action={leaveAction} className="mt-3 border-t border-line pt-3">
                 <Button type="submit" variant="secondary" size="lg" className="w-full">

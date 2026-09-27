@@ -736,3 +736,66 @@ export function xepNodeCon<T extends { href: string; cha?: string }>(ds: T[][]):
       .flatMap((m) => [m, ...con.filter((c) => c.cha === m.href)]),
   );
 }
+
+// ── NHÓM THEO CÔNG VIỆC (Tuyền 27/09/2026: sidebar kiểu A — Linear / Vercel) ──
+// Ngày KHÔNG có nhóm theo vị trí hôm nay, thanh bên chia mục theo dòng đi của
+// khách thay vì một danh sách phẳng 17 mục. Chỉ là TRÌNH BÀY: mục nào hiện vẫn
+// do `mucHienRa` / lego quyết; mục không thuộc nhóm nào rơi vào "Khác".
+export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly string[] }[] = [
+  { ma: "hom-nay", ten: "Hôm nay", hrefs: ["/home", "/viec-can-xu-ly", "/hanh-trinh"] },
+  {
+    ma: "tiep-don",
+    ten: "Tiếp đón & thu",
+    hrefs: ["/reception/queue", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/reception/checkout"],
+  },
+  { ma: "kham", ten: "Khám & dịch vụ", hrefs: ["/do-sinh-hieu", "/tu-van", "/ban-kham", "/phong", "/doi-tac"] },
+  {
+    ma: "khach",
+    ten: "Khách hàng",
+    hrefs: ["/appointments", "/appointments/cho-xep-bac-si", "/customers", "/nhac-tai-kham", "/patient-list", "/patients/new"],
+  },
+  { ma: "thuoc", ten: "Nhà thuốc", hrefs: ["/pharmacy", "/pharmacy/inventory", "/pharmacy/history", "/pharmacy/consult"] },
+  { ma: "dieu-hanh", ten: "Điều hành", hrefs: ["/truong-ca", "/truong-ca/tv", "/truong-ca/lich-su", "/schedule"] },
+  {
+    ma: "quan-tri",
+    ten: "Quản trị",
+    hrefs: [
+      "/phan-quyen",
+      "/nhan-su",
+      "/settings/tai-khoan",
+      "/settings",
+      "/settings/clinic-config",
+      "/settings/day-noi",
+      "/settings/booking-policy",
+      "/settings/mau-ket-qua",
+      "/cashier/dich-vu",
+      "/cashier/thuoc",
+      "/reports",
+      "/lich-do-ve",
+      "/ops",
+      "/audit-log",
+    ],
+  },
+];
+
+/** Chia các mục đang hiện vào nhóm công việc, giữ thứ tự khai trong nhóm; mục
+ *  phòng theo vị trí (`/phong/…`) vào "Khám & dịch vụ"; còn lại vào "Khác".
+ *  Thuần — nhóm rỗng bị bỏ. */
+export function nhomTheoCongViec<T extends { href: string }>(
+  ds: readonly T[],
+): { ma: string; ten: string; muc: T[] }[] {
+  const cuaNhom = (href: string) =>
+    NHOM_CONG_VIEC.find((g) => g.hrefs.includes(href))?.ma ??
+    (href.startsWith("/phong/") ? "kham" : "khac");
+  const out = [...NHOM_CONG_VIEC, { ma: "khac", ten: "Khác", hrefs: [] as readonly string[] }].map(
+    (g) => {
+      const muc = ds.filter((m) => cuaNhom(m.href) === g.ma);
+      const thuTu = (m: T) => {
+        const i = g.hrefs.indexOf(m.href);
+        return i === -1 ? g.hrefs.length + ds.indexOf(m) : i;
+      };
+      return { ma: g.ma, ten: g.ten, muc: [...muc].sort((a, b) => thuTu(a) - thuTu(b)) };
+    },
+  );
+  return out.filter((g) => g.muc.length > 0);
+}

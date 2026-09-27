@@ -1,13 +1,24 @@
 "use client";
 
+// KHUNG ỨNG DỤNG — bản "Đề xuất" Tuyền chốt 27/09/2026 tối (trang mẫu khung.html):
+//
+//   * Nền xám nhạt; nội dung là MỘT TẤM TRẮNG bo góc nổi nhẹ (máy tính) — bỏ
+//     đường kẻ cứng giữa thanh bên, thanh trên và nội dung.
+//   * Thanh bên CÁCH 3: mặc định là thanh icon 60px; rê chuột (dừng 150ms) thì
+//     bung ĐÈ lên nội dung — không đẩy trang; rời 250ms thì thu. 📌 Ghim = luôn
+//     mở và chiếm chỗ như cũ; nhớ trên máy người dùng. Phím `[` ghim / bỏ ghim.
+//   * Đầu thanh bên: dấu logo + tên phòng khám + cơ sở; đáy: người dùng + Thoát.
+//   * Điện thoại: ngăn kéo trượt từ "Menu" của thanh dưới như trước.
+
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { X, LogOut } from "lucide-react";
+import { X, LogOut, Pin, PinOff } from "lucide-react";
 import Nav from "./Nav";
 import BottomNav from "./BottomNav";
-import { type ClinicRole } from "../../lib/roles";
+import { ROLE_LABEL, type ClinicRole } from "../../lib/roles";
 import { type PhongTheoViTri } from "./nav-items";
+import GlobalHeader from "./GlobalHeader";
+import { QuyenProvider } from "./QuyenContext";
 
 interface ShellProps {
   role: ClinicRole;
@@ -26,8 +37,29 @@ interface ShellProps {
   children: React.ReactNode;
 }
 
-import GlobalHeader from "./GlobalHeader";
-import { QuyenProvider } from "./QuyenContext";
+const KHOA_GHIM = "clinicai.sidebar.ghim";
+const TRE_MO = 150;
+const TRE_DONG = 250;
+
+/** Dấu logo (chữ thập) — thay ảnh chữ "ClinicAI" 174×49 cũ, vừa thanh icon. */
+function DauLogo() {
+  return (
+    <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-brand-600 text-white">
+      <svg viewBox="0 0 24 24" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinejoin="round" aria-hidden>
+        <path d="M9 4h6v5h5v6h-5v5H9v-5H4V9h5z" />
+      </svg>
+    </span>
+  );
+}
+
+function viet(s: string) {
+  return s
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((w) => w[0]?.toLocaleUpperCase("vi-VN") ?? "")
+    .join("");
+}
 
 export default function Shell({
   role,
@@ -47,48 +79,63 @@ export default function Shell({
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const menuTriggerRef = useRef<HTMLElement | null>(null);
 
-  // Desktop sidebar resizing and collapse state
-  const [sidebarWidth, setSidebarWidth] = useState(248);
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  // `identity` = "Vai (hôm nay) · Tên · Phòng khám · Cơ sở" — lấy 2 phần cuối.
+  const phan = identity.split(" · ");
+  const tenPhongKham = phan.length >= 4 ? phan[phan.length - 2] : "Dr4Women";
+  const coSo = phan.length >= 3 ? phan[phan.length - 1] : "";
+  const tenToi = tenNguoi?.trim() || (phan.length >= 2 ? phan[1] : identity);
 
-  const startResizing = (mouseDownEvent: React.MouseEvent) => {
-    mouseDownEvent.preventDefault();
-    setIsResizing(true);
-  };
-
+  // ── Thanh bên máy tính: ghim + rê chuột bung ─────────────────────────────
+  const [ghim, setGhim] = useState(false);
+  const [bung, setBung] = useState(false);
+  const hen = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!isResizing) return;
-
-    const doResize = (mouseMoveEvent: MouseEvent) => {
-      const newWidth = mouseMoveEvent.clientX;
-      if (newWidth < 90) {
-        setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
-        if (newWidth >= 160 && newWidth <= 450) {
-          setSidebarWidth(newWidth);
-        } else if (newWidth < 160) {
-          setSidebarWidth(160);
-        } else if (newWidth > 450) {
-          setSidebarWidth(450);
-        }
+    try {
+      // Đọc sau khi gắn: máy chủ và trình duyệt vẽ giống nhau lúc đầu.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGhim(localStorage.getItem(KHOA_GHIM) === "1");
+    } catch {
+      /* không đọc được thì mặc định thanh icon */
+    }
+  }, []);
+  const doiGhim = () =>
+    setGhim((g) => {
+      try {
+        localStorage.setItem(KHOA_GHIM, g ? "0" : "1");
+      } catch {
+        /* chỉ không nhớ */
       }
+      setBung(false);
+      return !g;
+    });
+  // Phím `[` ghim / bỏ ghim — trừ khi đang gõ trong ô nhập.
+  useEffect(() => {
+    const phim = (e: KeyboardEvent) => {
+      if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      doiGhim();
     };
+    window.addEventListener("keydown", phim);
+    return () => window.removeEventListener("keydown", phim);
+  }, []);
+  const vao = () => {
+    if (ghim) return;
+    if (hen.current) clearTimeout(hen.current);
+    hen.current = setTimeout(() => setBung(true), TRE_MO);
+  };
+  const ra = () => {
+    if (hen.current) clearTimeout(hen.current);
+    hen.current = setTimeout(() => setBung(false), TRE_DONG);
+  };
+  // Chuyển trang thì thu lại (bấm một mục xong không để thanh bung đè nội dung).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBung(false);
+  }, [pathname]);
+  const mo = ghim || bung;
 
-    const stopResizing = () => {
-      setIsResizing(false);
-    };
-
-    window.addEventListener("mousemove", doResize);
-    window.addEventListener("mouseup", stopResizing);
-    return () => {
-      window.removeEventListener("mousemove", doResize);
-      window.removeEventListener("mouseup", stopResizing);
-    };
-  }, [isResizing]);
-
-  // Prevent body scroll when the drawer is open.
+  // Lock body scroll + move focus into the drawer while it's open.
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -116,7 +163,6 @@ export default function Shell({
       return;
     }
     if (event.key !== "Tab") return;
-
     const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
@@ -135,30 +181,42 @@ export default function Shell({
   const renderSidebar = (collapsed: boolean, isMobile = false) => {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex-1 min-h-0 space-y-6 overflow-y-auto">
-          <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3`}>
-            <h1 className="flex items-center text-base font-medium text-ink">
-              <Image
-                src="/clinicai-logo.svg"
-                alt="ClinicAI"
-                width={collapsed ? 42 : 174}
-                height={collapsed ? 34 : 49}
-                priority
-                className="object-contain object-left"
-              />
-            </h1>
-            {!collapsed && isMobile && (
-              <button
-                ref={drawerCloseRef}
-                type="button"
-                onClick={closeDrawer}
-                aria-label="Đóng menu"
-                className="-mr-1 inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink md:hidden"
-              >
-                <X size={20} />
-              </button>
-            )}
-          </div>
+        {/* Đầu: dấu logo + phòng khám / cơ sở + 📌 (máy tính) hoặc ✕ (điện thoại). */}
+        <div className="mb-2 flex h-11 shrink-0 items-center gap-2.5 px-1.5">
+          <DauLogo />
+          {!collapsed && (
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-body font-semibold text-ink">{tenPhongKham}</span>
+              {coSo ? <span className="block truncate text-label text-ink-muted">{coSo}</span> : null}
+            </span>
+          )}
+          {!collapsed && !isMobile && (
+            <button
+              type="button"
+              onClick={doiGhim}
+              aria-pressed={ghim}
+              title={ghim ? "Bỏ ghim — thu về thanh icon ( [ )" : "Ghim thanh bên luôn mở ( [ )"}
+              aria-label={ghim ? "Bỏ ghim thanh bên" : "Ghim thanh bên"}
+              className={`grid size-7 shrink-0 place-items-center rounded-control transition-colors hover:bg-surface-sunken ${
+                ghim ? "text-brand-600" : "text-ink-faint hover:text-ink"
+              }`}
+            >
+              {ghim ? <PinOff size={15} /> : <Pin size={15} />}
+            </button>
+          )}
+          {isMobile && (
+            <button
+              ref={drawerCloseRef}
+              type="button"
+              onClick={closeDrawer}
+              aria-label="Đóng menu"
+              className="-mr-1 inline-flex size-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink md:hidden"
+            >
+              <X size={20} />
+            </button>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <Nav
             role={role}
             onNavigate={isMobile ? closeDrawer : undefined}
@@ -169,42 +227,58 @@ export default function Shell({
             quyen={quyen}
           />
         </div>
-
-        {/* LỐI PHỤ. Lối chính là thẻ tên ở góc phải đầu trang (27/09/2026, đợt
-            3 — "log out cho lên trên bên phải"): trên điện thoại nút này nằm
-            trong ngăn Menu, phải mở rồi cuộn mới thấy. */}
-        <div className="shrink-0 space-y-2 border-t border-line/70 px-2 pt-3 pb-2">
-          <form action={leaveAction}>
-            <button
-              type="submit"
-              className={`w-full rounded-xl border border-line bg-surface-muted py-2 text-xs font-medium text-ink-muted transition-all hover:bg-surface-sunken hover:text-ink flex items-center justify-center shadow-xs ${collapsed ? "px-1.5" : "px-3 gap-2"}`}
-              title={collapsed ? "Thoát hệ thống" : undefined}
-            >
-              <LogOut size={15} className="shrink-0 text-ink-muted" />
-              {!collapsed && <span>Thoát</span>}
-            </button>
-          </form>
+        {/* Đáy: người dùng + Thoát. LỐI PHỤ — lối chính là ảnh đại diện ở góc
+            phải thanh trên (27/09/2026, đợt 3 — "log out cho lên trên bên phải"). */}
+        <div className="mt-2 flex shrink-0 items-center gap-2.5 rounded-control px-1.5 py-1.5">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand-100 text-label font-bold text-brand-700">
+            {viet(tenToi) || "NV"}
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-meta font-semibold text-ink">{tenToi}</span>
+              <span className="block truncate text-label text-ink-muted">{ROLE_LABEL[role]}</span>
+            </span>
+          )}
+          {!collapsed && (
+            <form action={leaveAction}>
+              <button
+                type="submit"
+                title="Thoát hệ thống"
+                aria-label="Thoát hệ thống"
+                className="grid size-7 place-items-center rounded-control text-ink-faint transition-colors hover:bg-surface-sunken hover:text-ink"
+              >
+                <LogOut size={15} />
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
   };
 
   return (
-    <div className={`flex min-h-screen bg-surface-muted font-sans ${isResizing ? "select-none" : ""}`}>
-      {/* Desktop sidebar (≥md). */}
-      <aside
-        className="hidden flex-col bg-surface px-3 py-4 md:flex shrink-0 min-h-screen sticky top-0 h-screen relative select-none border-r border-line"
-        style={{ width: isCollapsed ? 68 : sidebarWidth }}
+    <div className="flex min-h-screen bg-surface-sunken font-sans">
+      {/* Máy tính (≥md): ô giữ chỗ (60px, hoặc 248px khi ghim) + thanh bên nổi. */}
+      <div
+        className="relative hidden shrink-0 md:block"
+        style={{ width: ghim ? 248 : 60 }}
       >
-        {renderSidebar(isCollapsed, false)}
-
-        {/* Resize handle */}
-        <div
-          onMouseDown={startResizing}
-          className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-700/50 active:bg-brand-600 transition-colors"
-          style={{ zIndex: 50 }}
-        />
-      </aside>
+        <aside
+          onMouseEnter={vao}
+          onMouseLeave={ra}
+          onFocus={vao}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) ra();
+          }}
+          aria-label="Thanh bên"
+          className={`fixed left-0 top-0 z-40 flex h-screen flex-col px-2 py-2.5 transition-[width,box-shadow] duration-200 ease-out motion-reduce:transition-none ${
+            bung && !ghim ? "bg-surface shadow-panel" : "bg-surface-sunken"
+          }`}
+          style={{ width: mo ? 248 : 60 }}
+        >
+          {renderSidebar(!mo, false)}
+        </aside>
+      </div>
 
       {/* Mobile drawer (<md) */}
       <div
@@ -222,24 +296,25 @@ export default function Shell({
         aria-hidden={!open}
         inert={!open}
         onKeyDown={handleDrawerKeyDown}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] flex-col bg-surface px-3 py-5 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[80vw] flex-col bg-surface px-3 py-4 shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none md:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {renderSidebar(false, true)}
       </aside>
 
-      {/* Main Column with Global Header */}
-      <div className="min-w-0 flex-1 flex flex-col">
+      {/* TẤM NỘI DUNG — trắng, bo góc, nổi nhẹ trên nền xám (máy tính).
+          `overflow-clip` (không phải hidden) để thanh trên vẫn dính khi cuộn. */}
+      <div className="flex min-w-0 flex-1 flex-col bg-surface md:my-2 md:mr-2 md:overflow-clip md:rounded-2xl md:shadow-card md:ring-1 md:ring-line/60">
         <GlobalHeader
-          onToggleSidebar={() => setIsCollapsed(!isCollapsed)}
-          isCollapsed={isCollapsed}
           identity={identity}
           tenNguoi={tenNguoi}
           role={role}
+          quyen={quyen}
+          featureMode={featureMode}
           leaveAction={leaveAction}
         />
-        <main className="min-w-0 flex-1 p-4 pb-24 md:p-6 md:pb-8">
+        <main className="min-w-0 flex-1 p-4 pb-24 md:px-6 md:pb-8 md:pt-4">
           {/* key={pathname} PHẢI Ở ĐÂY. Bỏ nó đi thì React coi cây con của hai
               trang khác nhau là "cùng một chỗ" khi hình dạng trùng nhau, nên nó
               TÁI DÙNG instance component thay vì dựng mới: state chưa kiểm soát
