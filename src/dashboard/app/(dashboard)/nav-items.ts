@@ -50,6 +50,9 @@ export interface NavItem {
   // Thanh dưới cho phép chữ xuống hai dòng thay vì bịa một tên ngắn hơn.
   /** Small tag shown next to the label (e.g. "Đang XD"). */
   badge?: string;
+  /** NODE CON (Tuyền 27/09/2026): href của node cha — thanh bên vẽ mục này
+   *  thụt vào, ngay dưới node cha. Cùng lego với cha (`catalogue.MAN`). */
+  cha?: string;
 }
 
 export const NAV: NavItem[] = [
@@ -102,12 +105,6 @@ export const NAV: NavItem[] = [
     label: "Check-out lượt khám",
     icon: CheckCheck,
   },
-  // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch.
-  {
-    href: "/nhac-tai-kham",
-    label: "Nhắc tái khám",
-    icon: PhoneCall,
-  },
   {
     href: "/appointments/cho-xep-bac-si",
     label: "Chờ xếp bác sĩ",
@@ -122,6 +119,14 @@ export const NAV: NavItem[] = [
     href: "/customers",
     label: "Quản lý khách hàng",
     icon: Contact,
+  },
+  // Nhắc tái khám — người bác sĩ đã hẹn quay lại mà chưa đặt lịch. Node CON của
+  // Quản lý khách hàng (Tuyền 27/09/2026): cùng lego "Chăm sóc khách hàng".
+  {
+    href: "/nhac-tai-kham",
+    label: "Nhắc tái khám",
+    icon: PhoneCall,
+    cha: "/customers",
   },
   {
     href: "/patient-list",
@@ -721,5 +726,19 @@ export function isActiveNav(
       h !== href &&
       h.startsWith(href + "/") &&
       (pathname === h || pathname.startsWith(h + "/")),
+  );
+}
+
+/** Đưa node con về NGAY DƯỚI node cha (27/09/2026). Thanh bên xếp theo nhóm
+ *  việc nên con có thể rơi vào nhóm khác cha; cha không hiện thì con đứng chỗ
+ *  cũ như mục thường. Thuần — nhận các danh sách, trả danh sách mới. */
+export function xepNodeCon<T extends { href: string; cha?: string }>(ds: T[][]): T[][] {
+  const coCha = new Set(ds.flat().map((m) => m.href));
+  const con = ds.flat().filter((m) => m.cha && coCha.has(m.cha));
+  const conHref = new Set(con.map((m) => m.href));
+  return ds.map((list) =>
+    list
+      .filter((m) => !conHref.has(m.href))
+      .flatMap((m) => [m, ...con.filter((c) => c.cha === m.href)]),
   );
 }
