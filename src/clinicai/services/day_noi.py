@@ -52,6 +52,15 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "quyen_theo_lich",
+            "Quyền theo lịch: làm việc tại phòng dịch vụ (bắt đầu / xong / không"
+            " làm…) chỉ khi đang có ca ở phòng ấy theo lịch làm việc (trưởng ca /"
+            " quản lý miễn)",
+            # TẮT mặc định (Tuyền duyệt 27/09/2026): bật khi lịch tuần đã xếp đủ.
+            False,
+            "bat_tat",
+        ),
+        Day(
             "h4_tu_xep_phong",
             "Thu tiền dịch vụ xong → tự xếp phòng vắng nhất (thay người vừa thu)",
             True,

@@ -50,6 +50,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.lich import doi_lich_phong
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services.finance_gate import can_start
 from clinicai.services.hang_cho import cap_nhat_vi_tri, mo_cho_bi_chan
@@ -148,6 +149,8 @@ class ServiceExecutionService:
             )
             if cached is not None:
                 return cached
+            # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
+            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             self._doi_revision(don, expected_routing_revision, "routing_revision")
@@ -331,6 +334,8 @@ class ServiceExecutionService:
             )
             if cached is not None:
                 return cached
+            # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
+            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "IN_PROGRESS":
@@ -421,6 +426,8 @@ class ServiceExecutionService:
             )
             if cached is not None:
                 return cached
+            # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
+            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] not in (None, "PENDING"):
@@ -521,6 +528,8 @@ class ServiceExecutionService:
             )
             if cached is not None:
                 return cached
+            # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
+            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "IN_PROGRESS":
@@ -606,6 +615,8 @@ class ServiceExecutionService:
             )
             if cached is not None:
                 return cached
+            # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
+            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "INTERRUPTED":

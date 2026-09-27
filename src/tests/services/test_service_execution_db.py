@@ -712,3 +712,101 @@ async def test_le_tan_doi_phong_vang_hon_sau_khi_khach_tra_tien(kb: KB) -> None:
 async def _nguoi_quan_ly(kb: KB) -> StaffIdentity:
     async with kb.pool.acquire() as conn:
         return await _nguoi(conn, "MANAGEMENT")
+
+
+# ── Quyền theo lịch (Tuyền duyệt 27/09/2026): dây `quyen_theo_lich` ─────────
+
+
+async def _dat_day_lich(kb: KB, bat: bool) -> None:
+    from clinicai.services.day_noi_service import DayNoiService
+
+    ql = await _nguoi_quan_ly(kb)
+    await DayNoiService(kb.pool).dat_day(identity=ql, ma="quyen_theo_lich", gia_tri=bat)
+
+
+async def _xep_ca(kb: KB, nguoi: StaffIdentity, room_id: str) -> None:
+    """Một vị trí thuộc `room_id` + ca ĐÃ DUYỆT hôm nay (giờ VN) cho `nguoi`."""
+    ma = f"VT-TEST-{uuid.uuid4().hex[:8]}"
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, room_id)"
+            " VALUES ($1::uuid, $2, 'Vị trí test', 'BAC_SI', $3::uuid)",
+            CLINIC,
+            ma,
+            room_id,
+        )
+        await conn.execute(
+            "INSERT INTO work_roster (clinic_id, week_start, work_date, shift, station,"
+            " staff_id, staff_name, status)"
+            " SELECT $1::uuid, d - (extract(isodow FROM d)::int - 1), d, 'FULL', $2,"
+            " $3::uuid, 'Test', 'APPROVED'"
+            " FROM (SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d) x",
+            CLINIC,
+            ma,
+            nguoi.staff_id,
+        )
+
+
+async def _bat_dau(kb: KB, ai: StaffIdentity) -> dict[str, Any]:
+    return await kb.svc.bat_dau(
+        order_id=kb.order_id,
+        expected_execution_revision=0,
+        expected_routing_revision=1,
+        identity=ai,
+        idempotency_key=str(uuid.uuid4()),
+    )
+
+
+async def test_quyen_theo_lich_bat_ma_khong_co_ca_thi_chan_va_noi_ro(kb: KB) -> None:
+    from clinicai.permissions.lich import CAU_CHAN
+
+    await _dat_day_lich(kb, True)
+    try:
+        with pytest.raises(SafetyGateError) as loi:
+            await _bat_dau(kb, kb.bs)
+        assert CAU_CHAN in str(loi.value)
+        assert (await _don(kb))["execution_status"] == "PENDING"
+    finally:
+        await _dat_day_lich(kb, False)
+
+
+async def test_quyen_theo_lich_co_ca_dung_phong_thi_lam_duoc(kb: KB) -> None:
+    await _xep_ca(kb, kb.bs, kb.room_id)
+    await _dat_day_lich(kb, True)
+    try:
+        kq = await _bat_dau(kb, kb.bs)
+        assert kq["attempt_no"] == 1
+    finally:
+        await _dat_day_lich(kb, False)
+
+
+async def test_quyen_theo_lich_co_ca_phong_khac_van_chan(kb: KB) -> None:
+    khac = await kb.pool.fetchval(
+        "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid AND id <> $2::uuid"
+        " ORDER BY created_at, id LIMIT 1",
+        CLINIC,
+        kb.room_id,
+    )
+    await _xep_ca(kb, kb.bs, khac)
+    await _dat_day_lich(kb, True)
+    try:
+        with pytest.raises(SafetyGateError):
+            await _bat_dau(kb, kb.bs)
+    finally:
+        await _dat_day_lich(kb, False)
+
+
+async def test_quyen_theo_lich_nguoi_dieu_phoi_duoc_mien(kb: KB) -> None:
+    ql = await _nguoi_quan_ly(kb)
+    await _dat_day_lich(kb, True)
+    try:
+        kq = await _bat_dau(kb, ql)
+        assert kq["attempt_no"] == 1
+    finally:
+        await _dat_day_lich(kb, False)
+
+
+async def test_quyen_theo_lich_tat_thi_nhu_cu(kb: KB) -> None:
+    await _dat_day_lich(kb, False)
+    kq = await _bat_dau(kb, kb.bs)
+    assert kq["attempt_no"] == 1
