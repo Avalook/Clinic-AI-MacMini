@@ -109,9 +109,61 @@ async def test_danh_muc_tra_theo_thu_tu_excel_kem_nhan_hang(
     # Nhãn hàng ngắn kiểu Excel (migration 20260923000019); trống thì = tên.
     assert theo["T1_TT_BS"]["ten_ngan"] == "BS"
     assert theo["T1_LETAN"]["ten_ngan"] == theo["T1_LETAN"]["ten"]
+    # Tầng vẫn trả (dữ liệu giữ nguyên) dù bảng lịch không in nữa (27/09 đợt 3).
     assert theo["T1_TT_BS"]["tang"] == "Tầng 1"
-    assert theo["T1_TT_BS"]["phong"] == "Phòng thủ thuật"
-    assert theo["DIEU_PHOI"]["tang"] == ""  # không vào bảng lịch
+    # Tên phòng = TÊN PHÒNG HIỆN TẠI theo room_id, không phải chữ `v.phong`.
+    ten_phong = await pool.fetchval(
+        "SELECT name FROM clinic_room"
+        " WHERE clinic_id = $1::uuid AND code = 'KN-THUTHUAT'",
+        CLINIC,
+    )
+    assert theo["T1_TT_BS"]["phong"] == ten_phong
+    assert theo["T1_TT_BS"]["ma_phong"] == "KN-THUTHUAT"
+    # Vị trí không tầng, không phòng (Trưởng ca) VẪN có trong danh mục — bảng
+    # lịch có hàng cho nó (27/09 đợt 3: bản cũ lọc bỏ vị trí không tầng).
+    assert theo["DIEU_PHOI"]["tang"] == ""
+    assert theo["DIEU_PHOI"]["ma_phong"] == ""
+
+
+async def test_doi_ten_phong_o_cau_hinh_thi_lich_doi_theo(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """A5 (27/09 đợt 3): "Phòng thủ thuật" → "Thủ thuật/Sàn chậu" ở Cấu hình
+    phòng khám. Bảng lịch đọc tên phòng từ đây — phải đổi theo, mã màu giữ."""
+    rid = await pool.fetchval(
+        "SELECT id::text FROM clinic_room"
+        " WHERE clinic_id = $1::uuid AND code = 'KN-THUTHUAT'",
+        CLINIC,
+    )
+    cu = await pool.fetchval("SELECT name FROM clinic_room WHERE id = $1::uuid", rid)
+    try:
+        await pool.execute(
+            "UPDATE clinic_room SET name = 'Thủ thuật/Sàn chậu' WHERE id = $1::uuid",
+            rid,
+        )
+        theo = {d["code"]: d for d in await _goi(pool)}
+        assert theo["T1_TT_BS"]["phong"] == "Thủ thuật/Sàn chậu"
+        assert theo["T1_TT_DD"]["phong"] == "Thủ thuật/Sàn chậu"
+        assert theo["T1_TT_BS"]["ma_phong"] == "KN-THUTHUAT"
+    finally:
+        await pool.execute(
+            "UPDATE clinic_room SET name = $2 WHERE id = $1::uuid", rid, cu
+        )
+
+
+async def test_vi_tri_khong_gan_phong_giu_chu_cu(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Vị trí không gắn phòng (hoặc phòng đã tắt) → rơi về chữ `v.phong`."""
+    ma = f"T-{uuid.uuid4().hex[:6]}"
+    await pool.execute(
+        "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, phong, sort)"
+        " VALUES ($1::uuid, $2, 'Không phòng', 'Chữ cũ', 998)",
+        CLINIC,
+        ma,
+    )
+    moi = [d for d in await _goi(pool) if d["code"] == ma]
+    assert moi[0]["phong"] == "Chữ cũ" and moi[0]["ma_phong"] == ""
 
 
 async def test_vi_tri_moi_them_trong_database_hien_ngay(
@@ -133,6 +185,7 @@ async def test_vi_tri_moi_them_trong_database_hien_ngay(
             "ten_ngan": "Vị trí mới",
             "tang": "Tầng 3",
             "phong": "Phòng mới",
+            "ma_phong": "",
             "nhom": "DIEU_DUONG",
         }
     ]

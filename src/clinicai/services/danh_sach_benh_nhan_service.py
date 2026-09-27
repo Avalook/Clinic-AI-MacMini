@@ -12,6 +12,9 @@ Luật ở đây (một chỗ):
   · ĐANG MỞ = CHECKED_IN mà quầy chưa đóng lượt (visit.closed_at NULL).
   · Phân loại: 0 lượt = Chưa khám · 1 = Khám lần đầu · ≥ 2 = Tái khám.
   · Thư ký y khoa chỉ thấy khách của bác sĩ mình (thu_ky_bac_si).
+  · XẾP THEO HOẠT ĐỘNG GẦN NHẤT (27/09/2026 đợt 3, A6) — ``KHOA_XEP``. Trần
+    ``TRAN_HO_SO`` cắt theo CÙNG khoá ấy: bản cũ lấy 5000 hồ sơ MỚI TẠO nhất,
+    nên khi vượt trần, khách cũ vừa khám hôm nay bị cắt khỏi danh sách.
 """
 
 from __future__ import annotations
@@ -27,29 +30,62 @@ from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 TRAN_HO_SO = 5000
 TRAN_LUOT = 20000
 
-_HO_SO_SQL = (
-    """
+#: Khoá xếp danh sách bệnh nhân (alias `p` = patient). Phòng khám 27/09/2026:
+#: *"Danh sách BN nên hiển thị ngày gần nhất bên trên"*.
+#:
+#: coalesce(LƯỢT gần nhất, LỊCH gần nhất, ngày tạo hồ sơ) — màn này là màn
+#: lâm sàng nên lượt khám thật đứng trước:
+#:   * lượt = `visit.created_at`, hoặc giờ hẹn của lịch khách ĐÃ TỚI
+#:     (CHECKED_IN / COMPLETED — đúng định nghĩa "một lượt khám" ở trên);
+#:   * lịch = lúc ĐẶT lịch gần nhất, hoặc giờ hẹn ĐÃ QUA còn sống. Giờ hẹn
+#:     TƯƠNG LAI không tính — tái khám ba tháng tới không ghim khách lên đầu;
+#:   * chưa có gì → ngày tạo hồ sơ (khách mới vẫn lên đầu ngày tạo).
+KHOA_XEP = """
+    coalesce(
+        greatest(
+            (SELECT max(v.created_at) FROM visit v
+              WHERE v.clinic_id = p.clinic_id
+                AND v.clinic_patient_id = p.clinic_patient_id),
+            (SELECT max(a.slot_start) FROM appointment a
+              WHERE a.clinic_id = p.clinic_id
+                AND a.clinic_patient_id = p.clinic_patient_id
+                AND a.status IN ('CHECKED_IN', 'COMPLETED'))
+        ),
+        greatest(
+            (SELECT max(a.created_at) FROM appointment a
+              WHERE a.clinic_id = p.clinic_id
+                AND a.clinic_patient_id = p.clinic_patient_id),
+            (SELECT max(a.slot_start) FROM appointment a
+              WHERE a.clinic_id = p.clinic_id
+                AND a.clinic_patient_id = p.clinic_patient_id
+                AND a.slot_start <= now()
+                AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED'))
+        ),
+        p.created_at
+    )
+"""
+
+_HO_SO_SQL = f"""
 SELECT p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
        p.full_name, p.date_of_birth, p.phone_primary, p.phone_secondary,
        p.gender, p.ethnicity, p.nationality, p.occupation, p.patient_objection,
-       p.address, p.guardian_name,
+       p.address, p.guardian_name, hd.luc AS hoat_dong_gan_nhat,
        coalesce((
            SELECT json_agg(json_build_object('so_dien_thoai', t.so_dien_thoai,
                                              'loai', t.loai))
              FROM patient_sdt_them t
             WHERE t.clinic_patient_id = p.clinic_patient_id
        ), '[]'::json) AS patient_sdt_them,
-"""
-    + COT_KENH_DOI_HUY
-    + """
+{COT_KENH_DOI_HUY}
   FROM patient p
+  CROSS JOIN LATERAL (SELECT {KHOA_XEP} AS luc) hd
  WHERE p.clinic_id = $1::uuid
    AND p.clinic_patient_id::text
        = ANY(coalesce($2::text[], ARRAY[p.clinic_patient_id::text]))
- ORDER BY p.created_at DESC
+ -- Mã khách là khoá phụ: hai khách cùng mốc không đổi chỗ giữa hai lần tải.
+ ORDER BY hd.luc DESC, p.clinic_patient_id
  LIMIT $3
 """
-)
 
 _LUOT_SQL = """
 SELECT a.id::text AS id, a.clinic_patient_id::text AS clinic_patient_id,
@@ -85,7 +121,12 @@ def dang_mo(luot: dict[str, Any]) -> bool:
 
 
 def gop(ho_so: list[dict[str, Any]], luot: list[dict[str, Any]]) -> dict[str, Any]:
-    """Ghép hồ sơ + lượt (đã xếp mới → cũ) thành dòng danh sách + số tổng. Thuần."""
+    """Ghép hồ sơ + lượt (đã xếp mới → cũ) thành dòng danh sách + số tổng. Thuần.
+
+    GIỮ NGUYÊN THỨ TỰ ``ho_so`` — câu SQL đã xếp theo hoạt động gần nhất
+    (``KHOA_XEP``). Bản trước xếp lại ở đây theo lượt mới nhất rồi dồn mọi
+    khách "Chưa khám" xuống đáy theo tên: khách mới tạo hôm nay nằm sau khách
+    khám từ năm ngoái (27/09/2026 đợt 3, A6)."""
     theo_khach: dict[str, list[dict[str, Any]]] = {}
     for x in luot:
         theo_khach.setdefault(x["clinic_patient_id"], []).append(x)
@@ -102,11 +143,6 @@ def gop(ho_so: list[dict[str, Any]], luot: list[dict[str, Any]]) -> dict[str, An
                 "luot": cac,
             }
         )
-    # Có lượt lên trước, lượt mới nhất trước; chưa khám xếp theo tên.
-    dong.sort(key=lambda r: r["ho_so"]["full_name"] or "")
-    dong.sort(
-        key=lambda r: r["luot"][0]["slot_start"] if r["luot"] else "", reverse=True
-    )
     return {
         "tong": {
             "ho_so": len(dong),
@@ -146,6 +182,8 @@ def _ho_so(r: asyncpg.Record) -> dict[str, Any]:
 
     d = dict(r)
     d["date_of_birth"] = r["date_of_birth"].isoformat() if r["date_of_birth"] else None
+    hd = d.get("hoat_dong_gan_nhat")
+    d["hoat_dong_gan_nhat"] = hd.isoformat() if hd is not None else None
     sdt = r["patient_sdt_them"]
     d["patient_sdt_them"] = json.loads(sdt) if isinstance(sdt, str) else (sdt or [])
     dh = d.get("doi_huy_gan_nhat")

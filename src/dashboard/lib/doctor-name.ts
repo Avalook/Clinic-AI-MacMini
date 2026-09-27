@@ -102,3 +102,38 @@ export function doctorName(raw: string | null | undefined): string {
   if (!chucDanh) return phanConLai;
   return `${chucDanh} ${phanConLai}`.replace(/\s+/g, " ").trim();
 }
+
+/** Chức danh viết ĐẦY ĐỦ đứng đầu tên lưu trần ("Bác sĩ Thành", "Điều dưỡng
+ *  Thuý") — `doctorName` để nguyên những tên này, nên phải nhận ra riêng. */
+const CHUC_DANH_DAY_DU =
+  /^(?:bác sĩ|điều dưỡng|trợ lý|dược sĩ|thư ký|cử nhân|kỹ thuật viên|lễ tân)(?:\s|$)/i;
+
+/** Tên đã tự nói chức danh chưa ("Bác sĩ · BSNT. Quyết", "BS NAM", "ĐD. Thuý",
+ *  "Bác sĩ Thành") — để bảng lịch không in thêm chip vai lặp ("Bác sĩ Quyết ·
+ *  BS"). Tên trần ("Quỳnh Anh", "Thư") → false. */
+export function coChucDanh(raw: string | null | undefined): boolean {
+  const goc = (raw ?? "").trim();
+  if (!goc) return false;
+  const tach = goc.split(/\s*[·•]\s*/);
+  if (tach.length > 1 && tach[0].trim()) return true;
+  if (CHUC_DANH_DAY_DU.test(goc)) return true;
+  const khop = goc.match(CUM_VIET_TAT);
+  if (!khop) return false;
+  const cum = khop[0].toUpperCase().replace(/[^A-ZĐ]/g, "");
+  // Cụm phải là viết tắt THẬT và theo sau phải còn tên.
+  return (
+    Object.hasOwn(CHUC_DANH_TU_VIET_TAT, cum) &&
+    goc.slice(khop[0].length).trim() !== ""
+  );
+}
+
+/** Chip vai cạnh tên trong ô lịch (27/09/2026 đợt 3, A9): nhãn NGẮN máy chủ
+ *  trả, trừ khi tên đã mang chức danh. Rỗng = không in chip. */
+export function vaiKemTen(
+  tenGoc: string | null | undefined,
+  vaiNgan: string | null | undefined,
+): string {
+  const vai = (vaiNgan ?? "").trim();
+  if (!vai || coChucDanh(tenGoc)) return "";
+  return vai;
+}

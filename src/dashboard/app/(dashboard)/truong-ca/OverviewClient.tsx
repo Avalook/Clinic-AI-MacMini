@@ -11,7 +11,7 @@ import {
   type LiveData,
   LiveBadge,
   ReadFailed,
-  roomWithFloor,
+  tenPhong,
   Toast,
   useDispatchAction,
   useDispatchLive,
@@ -125,7 +125,7 @@ function Board({
             <option value="all">Mọi phòng</option>
             {live.rooms.map((r) => (
               <option key={r.code} value={r.code}>
-                {roomWithFloor(r.name, r.floor)}
+                {tenPhong(r.name)}
               </option>
             ))}
           </select>
@@ -189,7 +189,7 @@ function Board({
                     <td>{p.specialty ?? "—"}</td>
                     <td>
                       {p.room_name
-                        ? roomWithFloor(p.room_name, p.room_floor)
+                        ? tenPhong(p.room_name)
                         : nodeLabel(p.current_node_code)}
                       {p.doctor_name && (
                         <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
@@ -287,12 +287,9 @@ function DetailPanel({
         room_id: targetRoom,
         reason: reason.trim(),
       },
-      // Câu này Trưởng ca đọc lên cho bệnh nhân. "Đã chuyển phòng" không chỉ
-      // được đường; "lên tầng 4, phòng SA3" thì chỉ được.
-      `✓ Đã chuyển: ${roomWithFloor(
-        rooms.find((r) => r.id === targetRoom)?.name ?? null,
-        rooms.find((r) => r.id === targetRoom)?.floor ?? null,
-      )}`,
+      // Câu này Trưởng ca đọc lên cho bệnh nhân — tên phòng, không kèm tầng
+      // (27/09/2026 đợt 3: bố cục phòng đổi liên tục, xem `tenPhong`).
+      `✓ Đã chuyển: ${tenPhong(rooms.find((r) => r.id === targetRoom)?.name)}`,
     );
     setBusy(false);
     if (ok) {
@@ -335,7 +332,7 @@ function DetailPanel({
         <li style={{ fontWeight: 700 }}>
           {nodeLabel(patient.current_node_code)}
           {patient.room_name
-            ? ` · ${roomWithFloor(patient.room_name, patient.room_floor)}`
+            ? ` · ${tenPhong(patient.room_name)}`
             : ""}{" "}
           — đang chờ{" "}
           {patient.wait_minutes}′
@@ -378,10 +375,7 @@ function DetailPanel({
               <option value="">-- Chọn phòng --</option>
               {sameStepRooms.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {roomWithFloor(r.name, r.floor)} (chờ {r.waiting})
-                  {r.floor && patient.room_floor && r.floor !== patient.room_floor
-                    ? " ↕"
-                    : ""}
+                  {tenPhong(r.name)} (chờ {r.waiting})
                 </option>
               ))}
             </select>

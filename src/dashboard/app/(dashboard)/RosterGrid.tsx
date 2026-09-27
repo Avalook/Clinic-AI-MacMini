@@ -4,30 +4,36 @@
 // Y HỆT FILE EXCEL xếp lịch của PK Kim Ngưu (Tuyền 16/09/2026: "bảng nó phải
 // dạng y hệt như này"):
 //
-//   • ba cột trái  Tầng · Phòng · Vị trí nhân sự
+//   • hai cột trái Phòng · Vị trí nhân sự
 //   • ba hàng đầu  Thứ · ngày · ca     (T2→T6 một ca Tối; T7, CN ba ca)
 //   • nền theo PHÒNG, đúng mã màu Excel
-//   • vạch xanh đậm ngăn giữa các tầng
 //   • ô ĐEN      = vị trí không làm ca ấy   (khác ô trống = cần người, chưa xếp)
-//   • khối NGHỈ  = cả ca phòng khám nghỉ
+//   • khối NGHỈ  = các hàng liền nhau cùng nghỉ ca ấy
 //   • ô GỘP DỌC  = một người đứng hai vị trí liền nhau (Lễ tân + Thu ngân…)
 //
-// GỘP DỌC SUY RA TỪ DỮ LIỆU, không khai tay. Đọc file Excel thì ô gộp dọc chỉ
-// xảy ra ở bốn cặp — Lễ tân+Thu ngân, Xếp thuốc+Tạo đơn, Đo chỉ số+Lấy mẫu, Hỏi
-// bệnh+Thư ký — và nghĩa của nó luôn là "cùng một người đứng cả hai". Nên luật
-// là: hai vị trí LIỀN NHAU trong CÙNG tầng có CÙNG người → một ô. Không cần danh
-// sách cặp; ngày phòng khám gộp một cặp mới, bảng tự gộp theo.
+// BỎ CỘT TẦNG (27/09/2026 đợt 3). Phòng khám: "Bỏ hiển thị tầng 1, 2, 4 ở phần
+// Lịch làm việc vì bố cục phòng thay đổi liên tục". Cùng lúc bỏ vạch xanh ngăn
+// tầng, và bỏ luôn cái LỌC đi kèm: bản cũ chỉ vẽ vị trí có tầng, nên Trưởng ca
+// và mọi vị trí quản lý thêm ở màn Dây nối (không có ô tầng) không có hàng.
+//
+// GỘP DỌC SUY RA TỪ DỮ LIỆU, không khai tay (`tinhGopDoc` ở lib/roster): hai vị
+// trí LIỀN NHAU có CÙNG người → một ô. Không cần danh sách cặp; ngày phòng khám
+// gộp một cặp mới, bảng tự gộp theo.
 
 import { Fragment, type ReactNode } from "react";
 import {
-  MAU_PHONG,
   SHIFT_LABEL,
   dayShort,
-  phanTang,
   fmtDayMonth,
+  mauPhong,
+  phanPhong,
+  tinhGopDoc,
   type CotLich,
   type Station,
+  type ThongTinO,
 } from "../../lib/roster";
+
+export type { ThongTinO, TrangThaiO } from "../../lib/roster";
 
 export const O_TREN = "border-b border-r border-hairline";
 
@@ -41,22 +47,25 @@ const THU_DAY_DU: Record<string, string> = {
   CN: "Chủ nhật",
 };
 
-/** Ba cột trái dính khi cuộn ngang. */
+/** Hai cột trái. Số cột — cho `colSpan` của hàng nằm ngoài lưới vị trí. */
+export const SO_COT_TRAI = 2;
+
+/** Hai cột trái khi cuộn ngang.
+ *
+ *  Ở 375px, hai cột dính cộng lại (160 + 224 = 384px) là cả màn — cuộn ngang
+ *  không thấy được một ô ca nào. Nên dưới `sm` chỉ cột VỊ TRÍ dính (cột định
+ *  danh, DESIGN.md §7) và hẹp lại; cột Phòng trôi đi theo bảng. Từ `sm` cả hai
+ *  dính, cạnh nhau (left-40 = đúng bề rộng cột Phòng). */
 const COT_TRAI = [
-  "sticky left-0 z-10 w-16 min-w-16",
-  "sticky left-16 z-10 w-40 min-w-40",
-  "sticky left-56 z-10 w-56 min-w-56",
+  "w-24 min-w-24 sm:sticky sm:left-0 sm:z-10 sm:w-40 sm:min-w-40",
+  "sticky left-0 z-10 w-32 min-w-32 sm:left-40 sm:w-56 sm:min-w-56",
+];
+/** Cùng hai cột ở tiêu đề — nằm TRÊN ô thân khi cả hai cùng dính. */
+const COT_TRAI_TIEU_DE = [
+  "w-24 min-w-24 sm:sticky sm:left-0 sm:z-20 sm:w-40 sm:min-w-40",
+  "sticky left-0 z-20 w-32 min-w-32 sm:left-40 sm:w-56 sm:min-w-56",
 ];
 const KE = "border border-line-strong";
-
-export type TrangThaiO = "DONG" | "NGHI" | null;
-
-export interface ThongTinO {
-  /** Ô đen / khối nghỉ / bình thường. */
-  dong: TrangThaiO;
-  /** Khoá so sánh để gộp dọc: cùng khoá (khác rỗng) = cùng người. */
-  khoa: string;
-}
 
 /** Ba hàng tiêu đề: Thứ (gộp theo số ca) · ngày (gộp) · ca. */
 export function RosterGridHead({
@@ -69,11 +78,11 @@ export function RosterGridHead({
   return (
     <thead>
       <tr className="bg-surface-muted">
-        {["Tầng", "Phòng", "Vị trí nhân sự"].map((t, i) => (
+        {["Phòng", "Vị trí nhân sự"].map((t, i) => (
           <th
             key={t}
             rowSpan={3}
-            className={`${COT_TRAI[i]} z-20 ${KE} bg-surface-muted px-2 py-2 text-center align-middle font-semibold text-ink`}
+            className={`${COT_TRAI_TIEU_DE[i]} ${KE} bg-surface-muted px-2 py-2 text-center align-middle font-semibold text-ink`}
           >
             {t}
           </th>
@@ -118,7 +127,7 @@ export function RosterGridHead({
   );
 }
 
-/** Thân bảng: mỗi vị trí một hàng, gộp Tầng/Phòng, vạch tầng, ô đen, NGHỈ, gộp dọc.
+/** Thân bảng: mỗi vị trí một hàng, gộp Phòng, ô đen, NGHỈ, gộp dọc.
  *
  *  `thongTin(vị trí, cột)` nói ô ấy đóng hay mở và ai đứng (khoá để gộp).
  *  `veO(vị trí, cột, rowSpan)` vẽ nội dung một ô MỞ — trả về đúng một `<td>`. */
@@ -128,129 +137,79 @@ export function RosterViTriRows({
   thongTin,
   veO,
 }: {
-  /** Danh mục vị trí từ database (`viTriTuDb`), theo thứ tự dòng Excel. */
+  /** Danh mục vị trí từ database (`viTriTuDb`), theo thứ tự dòng Excel. MỌI
+   *  vị trí có hàng — kể cả vị trí không gắn phòng (Trưởng ca). */
   stations: readonly Station[];
   cot: CotLich[];
   thongTin: (station: Station, c: CotLich) => ThongTinO;
   veO: (station: Station, c: CotLich, rowSpan: number) => ReactNode;
 }) {
-  const tongCot = 3 + cot.length;
-  const cacTang = phanTang(stations);
+  const cacPhong = phanPhong(stations);
+  const viTri = cacPhong.flatMap((p) => p.stations);
+  const o = viTri.map((s) => cot.map((c) => thongTin(s, c)));
+  // `span[i][ci]` = rowSpan của ô ở hàng i (0 = ô này đã gộp vào ô trên).
+  const span = tinhGopDoc(o);
+  // Chỉ số hàng đầu của từng nhóm phòng trong `viTri`.
+  const dauNhom = cacPhong.map((_, pi) =>
+    cacPhong.slice(0, pi).reduce((n, p) => n + p.stations.length, 0),
+  );
+
   return (
     <>
-      {cacTang.map((tang, ti) => {
-        const viTri = tang.phongs.flatMap((p) => p.stations);
-
-        // ── Tính trước, theo từng cột: ô nào bị gộp vào ô trên, ô nào dài bao nhiêu.
-        // `span[i][ci]` = rowSpan của ô ở hàng i (0 = ô này đã bị gộp, không vẽ).
-        const span: number[][] = viTri.map(() => cot.map(() => 1));
-        const nghiCaTang: boolean[] = cot.map(
-          (c) => viTri.length > 0 && viTri.every((s) => thongTin(s, c).dong === "NGHI"),
-        );
-        cot.forEach((c, ci) => {
-          if (nghiCaTang[ci]) {
-            span[0][ci] = viTri.length;
-            for (let i = 1; i < viTri.length; i++) span[i][ci] = 0;
-            return;
-          }
-          let dau = 0;
-          for (let i = 1; i < viTri.length; i++) {
-            const tren = thongTin(viTri[dau], c);
-            const duoi = thongTin(viTri[i], c);
-            const gop =
-              tren.dong === null &&
-              duoi.dong === null &&
-              tren.khoa !== "" &&
-              tren.khoa === duoi.khoa;
-            if (gop) {
-              span[dau][ci] += 1;
-              span[i][ci] = 0;
-            } else {
-              dau = i;
-            }
-          }
-        });
-
-        let daInTang = false;
-        let chiSo = -1;
+      {cacPhong.map((phong, pi) => {
+        const mau = mauPhong(phong.maPhong);
         return (
-          <Fragment key={tang.floor}>
-            {tang.phongs.map((phong) => {
-              let daInPhong = false;
-              const mau = MAU_PHONG[phong.phong] ?? "bg-surface";
+          <Fragment key={`${phong.maPhong || phong.phong}-${phong.stations[0].key}`}>
+            {phong.stations.map((s, si) => {
+              const i = dauNhom[pi] + si;
               return (
-                <Fragment key={`${tang.floor}-${phong.phong}-${phong.stations[0].key}`}>
-                  {phong.stations.map((s) => {
-                    chiSo += 1;
-                    const i = chiSo;
-                    const inTang = !daInTang;
-                    const inPhong = !daInPhong;
-                    daInTang = true;
-                    daInPhong = true;
-                    return (
-                      <tr key={s.key} className="align-middle">
-                        {inTang ? (
-                          <td
-                            rowSpan={tang.soViTri}
-                            className={`${COT_TRAI[0]} ${KE} bg-surface px-2 py-2 align-top font-semibold text-ink`}
-                          >
-                            {tang.floor}
-                          </td>
-                        ) : null}
-                        {inPhong ? (
-                          <td
-                            rowSpan={phong.stations.length}
-                            className={`${COT_TRAI[1]} ${KE} ${mau} px-2 py-2 font-semibold text-ink`}
-                          >
-                            {phong.phong}
-                          </td>
-                        ) : null}
+                <tr key={s.key} className="align-middle">
+                  {si === 0 ? (
+                    <td
+                      rowSpan={phong.stations.length}
+                      className={`${COT_TRAI[0]} ${KE} ${mau} px-2 py-2 font-semibold text-ink`}
+                    >
+                      {phong.phong || <span className="font-normal text-ink-faint">—</span>}
+                    </td>
+                  ) : null}
+                  <td
+                    className={`${COT_TRAI[1]} ${KE} ${mau} px-2 py-1 text-ink`}
+                    title={s.label}
+                  >
+                    {s.short}
+                  </td>
+                  {cot.map((c, ci) => {
+                    const rs = span[i][ci];
+                    if (rs === 0) return null;
+                    const k = `${s.key}-${c.date}-${c.shift}`;
+                    const tt = o[i][ci];
+                    if (tt.dong === "NGHI") {
+                      return (
                         <td
-                          className={`${COT_TRAI[2]} ${KE} ${mau} px-2 py-1 text-ink`}
-                          title={s.label}
+                          key={k}
+                          rowSpan={rs}
+                          aria-label="Nghỉ"
+                          className={`${KE} bg-lich-nghi text-center align-middle text-emph font-bold text-warning-bg`}
                         >
-                          {s.short}
+                          {rs > 1 ? "NGHỈ" : null}
                         </td>
-                        {cot.map((c, ci) => {
-                          const rs = span[i][ci];
-                          if (rs === 0) return null;
-                          const k = `${s.key}-${c.date}-${c.shift}`;
-                          if (nghiCaTang[ci]) {
-                            return (
-                              <td
-                                key={k}
-                                rowSpan={rs}
-                                className={`${KE} bg-lich-nghi text-center align-middle text-2xl font-bold text-warning-bg`}
-                              >
-                                NGHỈ
-                              </td>
-                            );
-                          }
-                          const tt = thongTin(s, c);
-                          if (tt.dong) {
-                            return (
-                              <td
-                                key={k}
-                                rowSpan={rs}
-                                className={`${KE} ${tt.dong === "NGHI" ? "bg-lich-nghi" : "bg-lich-dong"}`}
-                                aria-label="Không làm ca này"
-                              />
-                            );
-                          }
-                          return <Fragment key={k}>{veO(s, c, rs)}</Fragment>;
-                        })}
-                      </tr>
-                    );
+                      );
+                    }
+                    if (tt.dong) {
+                      return (
+                        <td
+                          key={k}
+                          rowSpan={rs}
+                          className={`${KE} bg-lich-dong`}
+                          aria-label="Không làm ca này"
+                        />
+                      );
+                    }
+                    return <Fragment key={k}>{veO(s, c, rs)}</Fragment>;
                   })}
-                </Fragment>
+                </tr>
               );
             })}
-            {/* Vạch xanh đậm ngăn tầng — đúng hàng kẻ màu `073763` trong Excel. */}
-            {ti < cacTang.length - 1 ? (
-              <tr aria-hidden="true">
-                <td colSpan={tongCot} className="h-3 bg-lich-vach-tang p-0" />
-              </tr>
-            ) : null}
           </Fragment>
         );
       })}
@@ -258,7 +217,7 @@ export function RosterViTriRows({
   );
 }
 
-/** Nền của một ô MỞ: màu phòng của vị trí ấy, như Excel. */
+/** Nền của một ô MỞ: màu phòng của vị trí ấy (khoá theo mã phòng), như Excel. */
 export function nenO(station: Station): string {
-  return MAU_PHONG[station.phong] ?? "bg-surface";
+  return mauPhong(station.maPhong);
 }

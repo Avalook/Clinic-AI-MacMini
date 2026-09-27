@@ -46,6 +46,7 @@ from clinicai.core.shifts import (
     shift_windows,
 )
 from clinicai.permissions.can import can
+from clinicai.services.nhan_vai import gan_nhan_vai
 
 logger = structlog.get_logger()
 
@@ -1086,7 +1087,13 @@ class RosterService:
                 """
                 SELECT w.id::text, w.work_date, w.shift, w.station,
                        w.staff_id::text, w.staff_name, w.status, w.reject_reason,
-                       s.full_name AS ten_chuan
+                       s.full_name AS ten_chuan,
+                       -- Vai của người đứng (27/09/2026 đợt 3, A9) — cùng câu
+                       -- với gói Trang chủ (`man_trang_chu_service`).
+                       (SELECT m.role FROM clinic_membership m
+                         WHERE m.staff_id = w.staff_id
+                           AND m.clinic_id = w.clinic_id AND m.is_active
+                         ORDER BY m.created_at, m.id LIMIT 1) AS vai_ma
                   FROM work_roster w
                   LEFT JOIN staff s ON s.id = w.staff_id
                  WHERE w.clinic_id = $1::uuid AND w.week_start = $2
@@ -1139,7 +1146,7 @@ class RosterService:
             "tuan": dau.isoformat(),
             "da_ap_dung": bool(da_ap_dung),
             "la_quan_ly": la_quan_ly,
-            "dong": [_d(r) for r in dong],
+            "dong": [gan_nhan_vai(_d(r)) for r in dong],
             "dong_ca": [_d(r) for r in dong_ca],
             "nhan_su": [dict(r) for r in nhan_su],
             "tram_theo_vai": [dict(r) for r in tram],

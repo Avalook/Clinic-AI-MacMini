@@ -16,7 +16,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import DoiPhong from "../_lam-viec/DoiPhong";
 
-import { tenTang } from "./shared";
 
 interface PhongLamDuoc {
   id: string;
@@ -196,7 +195,6 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                 {x.room_name && (
                   <span className="truncate">
                     · {x.room_name}
-                    {x.room_floor ? ` (${tenTang(x.room_floor)})` : ""}
                   </span>
                 )}
                 {!x.xong && x.room_id && (

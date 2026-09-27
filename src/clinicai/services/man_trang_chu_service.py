@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
 from clinicai.services.week_appointments_service import WeekAppointmentsService
 
@@ -108,11 +109,18 @@ class ManTrangChuService:
                 dau_ngay,
             )
             # Lịch làm việc tuần — kèm staff.full_name để frontend đồng bộ tên
-            # (thay truy vấn `staff` phụ của dongBoTenTrucNhat).
+            # (thay truy vấn `staff` phụ của dongBoTenTrucNhat), và VAI của
+            # người đứng (27/09/2026 đợt 3, A9: "tên nhân sự kèm vai trò").
+            # Một người một membership đang bật mỗi phòng khám — cửa đăng nhập
+            # từ chối nếu hai — nên LIMIT 1 theo đúng thứ tự cửa ấy dùng.
             roster = await conn.fetch(
                 """
                 SELECT w.work_date, w.station, w.staff_id, w.staff_name,
-                       w.shift, s.full_name AS ten_staff
+                       w.shift, s.full_name AS ten_staff,
+                       (SELECT m.role FROM clinic_membership m
+                         WHERE m.staff_id = w.staff_id
+                           AND m.clinic_id = w.clinic_id AND m.is_active
+                         ORDER BY m.created_at, m.id LIMIT 1) AS vai_ma
                   FROM work_roster w
                   LEFT JOIN staff s ON s.id = w.staff_id
                  WHERE w.clinic_id = $1::uuid
@@ -198,7 +206,7 @@ class ManTrangChuService:
                 "khach_moi_hom_nay": so_khach_moi,
                 "lich_can_xu_ly": so_lich_can_xu_ly,
             },
-            "roster": [dict(r) for r in roster],
+            "roster": [gan_nhan_vai(dict(r)) for r in roster],
             "dong_ca": [dict(r) for r in dong_ca],
             "truc_ca": [dict(r) for r in truc_ca],
             "trang_thai_kham": trang_thai_kham,
