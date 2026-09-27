@@ -30,6 +30,7 @@ from clinicai.api.identity import (
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinic_config_service import ClinicConfigService
+from clinicai.services.nhan_su_phong_service import NhanSuPhongService
 from clinicai.services.thu_ky_bac_si import dat_bac_si_cho_thu_ky
 
 router = APIRouter()
@@ -329,4 +330,39 @@ async def set_thu_ky_bac_si(
         identity=identity,
         thu_ky_staff_id=str(body.thu_ky_staff_id),
         bac_si_staff_ids=[str(x) for x in body.bac_si_staff_ids],
+    )
+
+
+# ── Nhân sự của từng phòng (Tuyền 27/09/2026) ─────────────────────────────
+# Ghi qua `PermissionService.doi_lego` (lego Phòng dịch vụ theo phòng) — cùng
+# một cửa với màn Phân quyền, không có bảng "nhân sự ↔ phòng" thứ hai.
+
+
+@router.get("/clinic-config/room-staff")
+async def room_staff(
+    identity: StaffIdentity = Depends(_STAFF_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ai làm ở phòng nào (phạm vi ROOM) + ai làm được mọi phòng (CLINIC)."""
+    return await NhanSuPhongService(pool).danh_sach(identity=identity)
+
+
+class RoomStaffRequest(BaseModel):
+    room_id: UUID
+    staff_id: UUID
+    them: bool
+
+
+@router.put("/clinic-config/room-staff")
+async def set_room_staff(
+    body: RoomStaffRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm / bớt MỘT người ở MỘT phòng."""
+    return await NhanSuPhongService(pool).doi(
+        identity=identity,
+        staff_id=str(body.staff_id),
+        room_id=str(body.room_id),
+        them=body.them,
     )

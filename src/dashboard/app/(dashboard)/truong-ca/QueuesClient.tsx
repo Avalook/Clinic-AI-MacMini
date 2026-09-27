@@ -57,7 +57,7 @@ export default function QueuesClient({
       </div>
       <ReadFailed ok={live.ok} />
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {live.rooms.map((r) => (
             <ThePhong key={r.id} phong={r} ds={live.patients} chon={chon} onChon={setChon} />
           ))}
