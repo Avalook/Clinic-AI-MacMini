@@ -177,6 +177,9 @@ export interface ThucHien {
   routing_revision: number;
   room_id: string | null;
   visit_id: string;
+  /** Đầu dịch vụ ở phòng (27/09/2026): mã phòng khám (SP KiotViet) + giá bảng giá. */
+  ma_kiotviet?: string | null;
+  gia?: number | null;
   lan_dang_chay: LanLam | null;
   /** Lần làm gần nhất, và nó đã dừng giữa chừng — nút "Làm lại" trỏ vào đây. */
   lan_da_dung: LanLam | null;

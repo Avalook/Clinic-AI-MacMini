@@ -28,7 +28,7 @@ export default async function DanhSachPhongPage() {
   const d = await fetchFromBackend<PhongHomNay>("/api/v1/luot-kham/phong-hom-nay");
   if (!d) {
     return (
-      <p className="rounded-card border border-danger bg-danger-bg p-4 text-sm text-danger">
+      <p className="rounded-card border border-danger bg-danger-bg p-4 text-body text-danger">
         Chưa đọc được danh sách phòng. Tải lại trang sau ít phút.
       </p>
     );
@@ -40,7 +40,7 @@ export default async function DanhSachPhongPage() {
 
   if (phong.length === 0) {
     return (
-      <p className="rounded-card bg-surface p-4 text-sm text-ink-muted shadow-card">
+      <p className="rounded-card bg-surface p-4 text-body text-ink-muted shadow-card">
         Chưa có phòng dịch vụ nào đang bật. Quản lý thêm phòng ở Cấu hình phòng khám.
       </p>
     );
