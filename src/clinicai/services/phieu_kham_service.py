@@ -51,7 +51,7 @@ from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 
 #: Việc cần hỏi quyền. Đây là NHÃN của lời hỏi gửi sang hệ phân quyền, không
 #: phải capability — ánh xạ sang capability nào là việc của CORE.
-HanhDong = Literal["doc_phieu", "ghi_phieu", "doc_ket_qua_cls"]
+HanhDong = Literal["doc_phieu", "ghi_phieu", "doc_ket_qua_cls", "xem_lich_su"]
 
 #: Hệ phân quyền của CORE: không có quyền thì RAISE (SafetyGateError).
 KiemQuyen = Callable[[asyncpg.Connection, StaffIdentity, HanhDong], Awaitable[None]]
@@ -69,15 +69,17 @@ QUYEN_GHI = "clinical.record.write"
 #: Bác sĩ tư vấn ghi vào CHÍNH phiếu khám của lượt (Tuyền chốt 24/09: "tư vấn
 #: ghi vào chính bệnh án") — người chỉ có khối Tư vấn cũng ghi được.
 QUYEN_GHI_THEM: frozenset[str] = frozenset({"clinical.intake.perform"})
-#: Đọc: ai đang khám / ghi bệnh án / điền kết quả của lượt — và (27/09/2026)
-#: các khâu quầy để IN phiếu cho khách (`QUYEN_IN_PHIEU`, chỉ đọc).
+#: Đọc: ai đang khám / ghi bệnh án / điền kết quả của lượt.
 QUYEN_DOC = (
     "clinical.record.write",
     "clinical.consult.perform",
     "clinical.intake.perform",
     "result.form.fill",
-    *QUYEN_IN_PHIEU,
 )
+#: Đọc ĐỂ IN (27/09/2026, Tuyền "in ở mọi khâu"): thêm các khâu quầy
+#: (`QUYEN_IN_PHIEU`). Chỉ phiếu / đầu phiếu / kết quả / đơn — KHÔNG lịch sử sửa
+#: (ai sửa ô nào lúc nào là chuyện chuyên môn), KHÔNG ghi.
+QUYEN_DOC_DE_IN = (*QUYEN_DOC, *QUYEN_IN_PHIEU)
 
 #: Không khoá (Tuyền chốt 23/09/2026): Hoàn tất chỉ là mốc giờ, phiếu sửa tiếp
 #: được. Chế độ duy nhất shell dùng cho phiếu mới.
@@ -96,7 +98,7 @@ async def kiem_quyen_core(
             conn, identity, QUYEN_GHI, cau="Bạn chưa được cấp quyền ghi phiếu khám."
         )
         return
-    for quyen in QUYEN_DOC:
+    for quyen in QUYEN_DOC if hanh_dong == "xem_lich_su" else QUYEN_DOC_DE_IN:
         if await can(conn, identity, quyen):
             return
     raise SafetyGateError("Bạn chưa được cấp quyền xem phiếu khám.")
@@ -360,7 +362,7 @@ class PhieuKhamService:
         """
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
-            await self._kiem_quyen(conn, identity, "doc_phieu")
+            await self._kiem_quyen(conn, identity, "xem_lich_su")
             dong = await conn.fetch(
                 "SELECT h.id::text AS id, h.form_id, h.bat_dau, h.sua_luc,"
                 "       h.tu_revision, h.den_revision, h.truoc, h.sau,"

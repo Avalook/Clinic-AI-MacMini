@@ -10,8 +10,11 @@ export async function GET(request: Request) {
   const u = new URL(request.url);
   const xem = u.searchParams.get("xem");
   if (xem === "loi") {
-    const chiMo = u.searchParams.get("chi_mo") === "1" ? "?chi_mo=true" : "";
-    return proxyJsonToBackend("GET", `/api/v1/ops/loi${chiMo}`, undefined);
+    return proxyJsonToBackend(
+      "GET",
+      u.searchParams.get("chi_mo") === "1" ? "/api/v1/ops/loi?chi_mo=true" : "/api/v1/ops/loi",
+      undefined,
+    );
   }
   if (xem === "canh-bao") return proxyJsonToBackend("GET", "/api/v1/ops/canh-bao", undefined);
   if (xem === "nhat-ky") {

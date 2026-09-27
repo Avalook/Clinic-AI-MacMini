@@ -101,16 +101,17 @@ async def test_tu_luu_co_chong_de_va_mo_lai_dung_phieu_da_ghi(
     assert kq["du_lieu"][o]["gia_tri"] == "Đau bụng dưới 3 ngày, sốt nhẹ"
 
 
-async def test_le_tan_khong_doc_khong_ghi_phieu_kham(
+async def test_le_tan_doc_de_in_nhung_khong_ghi_phieu_kham(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    """27/09/2026 (Tuyền "in ở mọi khâu"): lễ tân ĐỌC được phiếu để in cho
+    khách (`QUYEN_IN_PHIEU`), nhưng vẫn KHÔNG ghi được."""
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         le_tan = await _nguoi(conn, "RECEPTION")
         luot = await _luot(conn, bs)
     svc = _svc(pool)
-    with pytest.raises(SafetyGateError):
-        await svc.doc_luot(visit_id=luot["visit"], form_id="PK", identity=le_tan)
+    await svc.doc_luot(visit_id=luot["visit"], form_id="PK", identity=le_tan)
     with pytest.raises(SafetyGateError):
         await svc.luu_luot(
             visit_id=luot["visit"],

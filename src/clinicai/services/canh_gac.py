@@ -105,6 +105,8 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
           (SELECT count(*) FROM queue_entry q JOIN visit v ON v.visit_id = q.visit_id
             WHERE q.status IN ('blocked', 'waiting', 'called', 'serving')
               AND v.closed_at IS NOT NULL) AS hang_cho_ma,
+          -- Lượt TREO = còn mở từ hôm trước. INCOMPLETE (khách bỏ về) /
+          -- FINALIZED / AMENDED / KHAM_DO không tính: đã có người chốt số phận.
           (SELECT count(*) FROM visit v
             WHERE v.status IN ('OPEN', 'IN_PROGRESS') AND v.closed_at IS NULL
               AND v.checked_in_at IS NOT NULL
