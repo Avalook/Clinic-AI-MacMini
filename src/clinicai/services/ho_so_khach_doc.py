@@ -44,7 +44,13 @@ def _dong(r: asyncpg.Record) -> dict[str, Any]:
 
 async def duoc_mo(pool: asyncpg.Pool, identity: StaffIdentity, khach: str) -> bool:
     """Luật GIẤY PHÉP mở hồ sơ: thư ký → khách của bác sĩ mình; bác sĩ (khám /
-    siêu âm) → khách có lịch với chính mình; vai khác → được."""
+    siêu âm) → khách có lịch với chính mình; vai khác → được.
+
+    QUẢN LÝ LUÔN ĐƯỢC, xét TRƯỚC nhánh bác sĩ (kiểm toán 27/09/2026, L2): bật
+    lego Bàn khám thì quản lý được cộng vai DOCTOR, rơi vào nhánh "chỉ khách có
+    lịch với mình" và ăn 403 khi mở hồ sơ bất kỳ khách nào."""
+    if identity.co_vai({ClinicRole.MANAGEMENT}):
+        return True
     if identity.co_vai({ClinicRole.TKYK}):
         ids = await khach_duoc_xem(pool, identity)
         return ids is None or khach in ids

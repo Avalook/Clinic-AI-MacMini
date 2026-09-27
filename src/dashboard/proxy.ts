@@ -91,13 +91,17 @@ export async function proxy(request: NextRequest) {
   // nó phải thật sự chặn: một tài khoản Supabase không có dòng `staff` — tài
   // khoản dùng chung cũ, hay một tài khoản tự đăng ký — nay dừng ở /login thay
   // vì đi tiếp vào giao diện rồi mới rỗng dữ liệu ở từng màn.
-  const { data: staff } = await supabase
+  const { data: staff, error: loiTra } = await supabase
     .from("staff")
     .select("id")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
-  if (!staff) return redirectTo("/login");
+  // TRA HỎNG ≠ KHÔNG PHẢI NHÂN VIÊN (kiểm toán 27/09/2026): DB / PostgREST
+  // chậm một nhịp (lúc deploy, lúc DB treo) thì `data` rỗng kèm `error` — trước
+  // đây cũng bị đá về /login giữa ca dù phiên vẫn còn. Tra hỏng thì cho đi tiếp:
+  // layout và mọi API vẫn tự kiểm danh tính, không có gì mở thêm.
+  if (!staff && !loiTra) return redirectTo("/login");
 
   return response;
 }

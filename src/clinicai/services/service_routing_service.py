@@ -808,14 +808,19 @@ class ServiceRoutingService:
         # Khoá lượt như mọi lệnh điều phối. Lượt đã đóng / khách đã về thì
         # thôi — không ném lỗi (ném là người đưa tin thử lại mãi một việc vô
         # nghĩa); chỉ định đã trả mà chưa làm sẽ được mang sang lượt sau (H2).
-        trang_thai = await conn.fetchval(
-            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+        luot = await conn.fetchrow(
+            "SELECT status, closed_at FROM visit WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid FOR UPDATE",
             clinic_id,
             visit_id,
         )
         # INCOMPLETE (khách bỏ về) / FINALIZED / AMENDED: không xếp phòng.
-        if trang_thai not in ("OPEN", "IN_PROGRESS"):
+        # ĐÃ CHECK-OUT (closed_at) cũng thôi — lượt check-out vẫn giữ status
+        # IN_PROGRESS, nên chỉ xét status thì thu tiền rồi về ngay vẫn bị tự xếp
+        # phòng → khách ma trong hàng chờ phòng (kiểm toán chức năng 27/09/2026).
+        if luot is None or luot["status"] not in ("OPEN", "IN_PROGRESS"):
+            return []
+        if luot["closed_at"] is not None:
             return []
         orders = await conn.fetch(
             """
