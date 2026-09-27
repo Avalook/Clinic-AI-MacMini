@@ -108,103 +108,120 @@
      "ma": "hmvs_w_para",
      "ten": "PARA",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_menarche",
      "ten": "Tuổi lần đầu thấy kinh",
      "kieu": "so",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_cycle",
      "ten": "Chu kỳ kinh nguyệt (ngày)",
      "kieu": "so",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_days",
      "ten": "Số ngày hành kinh",
      "kieu": "so",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_flow",
      "ten": "Lượng kinh",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_dysmenorrhea",
      "ten": "Thống kinh (Có/Không, độ)",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_lmp",
      "ten": "Kinh lần cuối (LMP)",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_marriage",
      "ten": "Lấy chồng năm / tuổi",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_contraception",
      "ten": "Biện pháp tránh thai đã/đang dùng",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_unprotected",
      "ten": "Thời gian quan hệ không tránh thai",
      "kieu": "text",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_gyn_disease",
      "ten": "Các bệnh phụ khoa đang điều trị",
      "kieu": "doan_van",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_w_gyn_surgery",
      "ten": "Phẫu thuật phụ khoa",
      "kieu": "doan_van",
-     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)"
+     "nhom": "2. Tiền sử Phụ khoa, Sản khoa (vợ)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_m_children",
      "ten": "Tiền sử có con trước",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử Sản khoa (chồng)"
+     "nhom": "3. Tiền sử Sản khoa (chồng)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_m_gu",
      "ten": "Bệnh lý sinh dục / tiết niệu",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử Sản khoa (chồng)"
+     "nhom": "3. Tiền sử Sản khoa (chồng)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_m_surgery",
      "ten": "Phẫu thuật vùng bìu / bẹn / tuyến tiền liệt",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử Sản khoa (chồng)"
+     "nhom": "3. Tiền sử Sản khoa (chồng)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_m_mumps",
      "ten": "Tiền sử quai bị có biến chứng",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử Sản khoa (chồng)"
+     "nhom": "3. Tiền sử Sản khoa (chồng)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_m_exposure",
      "ten": "Nghề nghiệp / tiếp xúc hóa chất / nhiệt độ cao",
      "kieu": "doan_van",
-     "nhom": "3. Tiền sử Sản khoa (chồng)"
+     "nhom": "3. Tiền sử Sản khoa (chồng)",
+     "thu_gon": true
     },
     {
      "ma": "hmvs_prev_tx",
@@ -311,10 +328,31 @@
      "nhom": "5. Tiền sử nội khoa, nội tiết"
     },
     {
-     "ma": "hmvs_allergy",
+     "ma": "hmvs_allergy_co",
      "ten": "Dị ứng thuốc",
+     "kieu": "chon",
+     "lua_chon": [
+      {
+       "ma": "hmvs_allergy_co_1",
+       "ten": "Có"
+      },
+      {
+       "ma": "hmvs_allergy_co_2",
+       "ten": "Không"
+      }
+     ],
+     "nhom": "5. Tiền sử nội khoa, nội tiết",
+     "them_sau_nguon": "27/09/2026 — góp ý phòng khám: dị ứng thuốc Có/Không"
+    },
+    {
+     "ma": "hmvs_allergy",
+     "ten": "Chi tiết dị ứng thuốc",
      "kieu": "doan_van",
-     "nhom": "5. Tiền sử nội khoa, nội tiết"
+     "nhom": "5. Tiền sử nội khoa, nội tiết",
+     "hien_khi": {
+      "o": "hmvs_allergy_co",
+      "la": "hmvs_allergy_co_1"
+     }
     },
     {
      "ma": "hmvs_family",
@@ -666,7 +704,8 @@
      },
      "hang": "CTM (HC, BC, TC, Hb, HCT)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_2",
@@ -681,7 +720,8 @@
      },
      "hang": "Glucose máu đói",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_3",
@@ -696,7 +736,8 @@
      },
      "hang": "HbA1c",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_4",
@@ -711,7 +752,8 @@
      },
      "hang": "Bộ mỡ máu (Chol, TG, LDL, HDL)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_5",
@@ -726,7 +768,8 @@
      },
      "hang": "Chức năng gan (AST, ALT, GGT)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_6",
@@ -741,7 +784,8 @@
      },
      "hang": "Chức năng thận (Ure, Creatinin)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_7",
@@ -756,7 +800,8 @@
      },
      "hang": "Nhóm máu",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_8",
@@ -771,7 +816,8 @@
      },
      "hang": "Viêm gan B (HBsAg / Anti-HBs)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_9",
@@ -786,7 +832,8 @@
      },
      "hang": "HIV, Giang mai (VDRL/TPHA)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_10",
@@ -801,7 +848,8 @@
      },
      "hang": "Rubella IgG / IgM",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_blood_11",
@@ -816,7 +864,8 @@
      },
      "hang": "Đông máu cơ bản (PT, APTT, Fibrinogen)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_1",
@@ -831,7 +880,8 @@
      },
      "hang": "FSH (mIU/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_2",
@@ -846,7 +896,8 @@
      },
      "hang": "LH (mIU/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_3",
@@ -861,7 +912,8 @@
      },
      "hang": "Estradiol E2 (pg/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_4",
@@ -876,7 +928,8 @@
      },
      "hang": "Progesterone (ng/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_5",
@@ -891,7 +944,8 @@
      },
      "hang": "Prolactin (ng/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_6",
@@ -906,7 +960,8 @@
      },
      "hang": "Testosterone tổng (ng/dL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_7",
@@ -921,7 +976,8 @@
      },
      "hang": "DHEA-S (µg/dL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_8",
@@ -936,7 +992,8 @@
      },
      "hang": "AMH (ng/mL) – dự trữ buồng trứng",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_9",
@@ -951,7 +1008,8 @@
      },
      "hang": "Inhibin B (pg/mL)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_10",
@@ -966,7 +1024,8 @@
      },
      "hang": "TSH / FT4 (tuyến giáp)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_11",
@@ -981,7 +1040,8 @@
      },
      "hang": "Anti-TPO (kháng thể kháng giáp)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_hormone_12",
@@ -996,7 +1056,8 @@
      },
      "hang": "17-OHP (nghi ngờ tăng sản thượng thận)",
      "cot": "Kết quả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_1_1",
@@ -1013,7 +1074,8 @@
      "hang": "Thể tích (mL)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_1_2",
@@ -1030,7 +1092,8 @@
      "hang": "Thể tích (mL)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_2_1",
@@ -1047,7 +1110,8 @@
      "hang": "pH",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_2_2",
@@ -1064,7 +1128,8 @@
      "hang": "pH",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_3_1",
@@ -1081,7 +1146,8 @@
      "hang": "Nồng độ tinh trùng (triệu/mL)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_3_2",
@@ -1098,7 +1164,8 @@
      "hang": "Nồng độ tinh trùng (triệu/mL)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_4_1",
@@ -1115,7 +1182,8 @@
      "hang": "Tổng số tinh trùng (triệu)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_4_2",
@@ -1132,7 +1200,8 @@
      "hang": "Tổng số tinh trùng (triệu)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_5_1",
@@ -1149,7 +1218,8 @@
      "hang": "Tiến tới (PR %)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_5_2",
@@ -1166,7 +1236,8 @@
      "hang": "Tiến tới (PR %)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_6_1",
@@ -1183,7 +1254,8 @@
      "hang": "Bất động (IM %)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_6_2",
@@ -1200,7 +1272,8 @@
      "hang": "Bất động (IM %)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_7_1",
@@ -1217,7 +1290,8 @@
      "hang": "Hình dạng bình thường (Kruger %)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_7_2",
@@ -1234,7 +1308,8 @@
      "hang": "Hình dạng bình thường (Kruger %)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_8_1",
@@ -1251,7 +1326,8 @@
      "hang": "Bạch cầu (triệu/mL)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_8_2",
@@ -1268,7 +1344,8 @@
      "hang": "Bạch cầu (triệu/mL)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_9_1",
@@ -1285,7 +1362,8 @@
      "hang": "Đánh giá (WHO 2021)",
      "cot": "Kết quả lần 1",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_semen_9_2",
@@ -1302,7 +1380,8 @@
      "hang": "Đánh giá (WHO 2021)",
      "cot": "Kết quả lần 2",
      "nhom": "10. Cận lâm sàng",
-     "khoa_tu": "name"
+     "khoa_tu": "name",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_1",
@@ -1317,7 +1396,8 @@
      },
      "hang": "Siêu âm PTTC (TA/DA) – VỢ",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_2",
@@ -1332,7 +1412,8 @@
      },
      "hang": "Chụp buồng tử cung – vòi trứng (HSG)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_3",
@@ -1347,7 +1428,8 @@
      },
      "hang": "Nội soi buồng tử cung",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_4",
@@ -1362,7 +1444,8 @@
      },
      "hang": "Nội soi ổ bụng",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_5",
@@ -1377,7 +1460,8 @@
      },
      "hang": "Siêu âm tinh hoàn / Doppler – CHỒNG",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_6",
@@ -1392,7 +1476,8 @@
      },
      "hang": "PAP smear / HPV test",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_7",
@@ -1407,7 +1492,8 @@
      },
      "hang": "Nhiễm sắc thể đồ (Karyotype) – nếu chỉ định",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_8",
@@ -1422,7 +1508,8 @@
      },
      "hang": "Y-chromosome microdeletion (Nam)",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     },
     {
      "ma": "hmvs_imaging_9",
@@ -1437,7 +1524,8 @@
      },
      "hang": "Đo mật độ xương DXA – nếu chỉ định",
      "cot": "Kết quả / Mô tả",
-     "nhom": "10. Cận lâm sàng"
+     "nhom": "10. Cận lâm sàng",
+     "gap": true
     }
    ]
   },

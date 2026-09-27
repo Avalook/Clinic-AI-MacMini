@@ -9,9 +9,9 @@
 // thì nạp lại; mỗi 30 giây vẽ lại để "đang 12 phút" không đứng yên.
 
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
 
 import Chip, { type ChipTone } from "@/components/ui/Chip";
+import NganGap from "@/components/ui/NganGap";
 import Timeline from "@/components/ui/Timeline";
 import {
   doanNoi,
@@ -110,14 +110,13 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
         doan={doanNoi(ht.moc, bayGio)}
       />
       {tung.length > 0 ? (
-        // `key` theo moSan: có dịch vụ chuyển sang chờ/làm thì bảng tự mở lại.
-        <details key={moSan ? "mo" : "gap"} open={moSan} className="group mt-3">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1 text-meta text-ink-muted [&::-webkit-details-marker]:hidden">
-            <ChevronRight aria-hidden className="size-3.5 transition-transform group-open:rotate-90" />
-            Từng dịch vụ ({tung.length})
-          </summary>
-          <BangTungDichVu ds={tung} bayGio={bayGio} />
-        </details>
+        // `key` theo moSan: có dịch vụ chuyển sang chờ/làm thì bảng tự mở lại,
+        // xong hết thì tự thu (giữ đúng hành vi của `<details>` cũ).
+        <div className="mt-3">
+          <NganGap key={moSan ? "mo" : "gap"} moSan={moSan} tieuDe={`Từng dịch vụ (${tung.length})`}>
+            <BangTungDichVu ds={tung} bayGio={bayGio} />
+          </NganGap>
+        </div>
       ) : null}
     </section>
   );
@@ -135,7 +134,7 @@ const TRANG_THAI: Record<TrangThaiDichVu, { nhan: string; tone: ChipTone }> = {
  *  ngang; cuộn ngang TRONG thẻ ở màn hẹp (DESIGN.md §6, §7). */
 function BangTungDichVu({ ds, bayGio }: { ds: DichVuHanhTrinh[]; bayGio: number }) {
   return (
-    <div className="mt-2 overflow-x-auto">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-160 text-body">
         <thead>
           <tr className="border-b border-hairline bg-surface-muted text-left text-label font-semibold uppercase tracking-wide text-ink-muted">

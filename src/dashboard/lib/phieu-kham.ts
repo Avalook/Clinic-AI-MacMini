@@ -41,6 +41,16 @@ export interface OPhieu {
   cot?: string;
   /** Nhãn do người trích đặt, không có trong tài liệu nguồn. */
   ten_tu_dat?: boolean;
+  /** Đợt 3 (27/09/2026, bản v2): ô ẩn sau một chip tên ô — bấm chip mới hiện.
+   *  Ô đã có giá trị LUÔN hiện (thu gọn không giấu dữ liệu). */
+  thu_gon?: boolean;
+  /** Chỉ hiện khi ô chọn `o` đang chọn mã `la` ("Chi tiết dị ứng thuốc" khi
+   *  "Dị ứng thuốc: Có"). Ô đã có giá trị LUÔN hiện. */
+  hien_khi?: { o: string; la: string };
+  /** Cả nhóm nằm trong ngăn gập — mặc định đóng, tự mở khi có ô điền. */
+  gap?: boolean;
+  /** Ô thêm sau khi trích nguồn — lý do (chỉ để đối chiếu). */
+  them_sau_nguon?: string;
 }
 
 export type LoaiLienKet =
@@ -257,6 +267,8 @@ export type DonViVe =
 export interface NhomVe {
   tieu_de: string | null;
   don_vi: DonViVe[];
+  /** Mọi ô của nhóm khai `gap` → cả nhóm vào ngăn gập. */
+  gap: boolean;
 }
 
 /** Ô liền nhau cùng `nhom` → một nhóm; ô liền nhau cùng `bang.ma` → một bảng. */
@@ -266,9 +278,10 @@ export function gomNhom(block: OPhieu[]): NhomVe[] {
     const tieuDe = o.nhom ?? null;
     let nhom = ra[ra.length - 1];
     if (!nhom || nhom.tieu_de !== tieuDe) {
-      nhom = { tieu_de: tieuDe, don_vi: [] };
+      nhom = { tieu_de: tieuDe, don_vi: [], gap: Boolean(o.gap) };
       ra.push(nhom);
     }
+    nhom.gap = nhom.gap && Boolean(o.gap);
     if (!o.bang) {
       nhom.don_vi.push({ loai: "o", o });
       continue;
@@ -291,6 +304,59 @@ export function gomNhom(block: OPhieu[]): NhomVe[] {
     hang.o[viTri] = o;
   }
   return ra;
+}
+
+// ---------------------------------------------------------------------------
+// 1b. Ô nào đang hiện (đợt 3, 27/09/2026 — góp ý phòng khám, khung v2)
+// ---------------------------------------------------------------------------
+/** Ô đã có giá trị? (chuỗi trắng · mảng rỗng = chưa). */
+export function coGiaTriO(v: GiaTriO | undefined): boolean {
+  return Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "";
+}
+
+/**
+ * Ô có đang hiện trên màn không. Luật ĐỌC TỪ KHUNG, không so tên nhóm:
+ *   · có giá trị → luôn hiện (không bao giờ giấu dữ liệu, kể cả phiếu cũ);
+ *   · `hien_khi` → hiện khi ô chọn kia đang chọn đúng mã;
+ *   · `thu_gon`  → hiện khi người dùng đã bấm chip của nó (`daMo` — trạng thái
+ *                  màn, không lưu);
+ *   · còn lại    → hiện.
+ */
+export function oDangHien(
+  o: OPhieu,
+  gia: Readonly<Record<string, GiaTriO>>,
+  daMo: ReadonlySet<string>,
+): boolean {
+  if (coGiaTriO(gia[o.ma])) return true;
+  if (o.hien_khi) {
+    const v = gia[o.hien_khi.o];
+    return Array.isArray(v) ? v.includes(o.hien_khi.la) : v === o.hien_khi.la;
+  }
+  if (o.thu_gon) return daMo.has(o.ma);
+  return true;
+}
+
+/** Ô `thu_gon` của nhóm CHƯA hiện — mỗi ô một chip "+ tên ô". */
+export function oThuGonDangAn(
+  nhom: NhomVe,
+  gia: Readonly<Record<string, GiaTriO>>,
+  daMo: ReadonlySet<string>,
+): OPhieu[] {
+  return nhom.don_vi.flatMap((d) =>
+    d.loai === "o" && d.o.thu_gon && !oDangHien(d.o, gia, daMo) ? [d.o] : [],
+  );
+}
+
+/** Mọi ô của một nhóm (kể cả ô trong bảng). */
+export function oCuaNhom(nhom: NhomVe): OPhieu[] {
+  return nhom.don_vi.flatMap((d) =>
+    d.loai === "o" ? [d.o] : d.hang.flatMap((h) => h.o.filter((o): o is OPhieu => o !== null)),
+  );
+}
+
+/** Số ô đã điền trong một danh sách ô — chip "N ô đã điền". */
+export function soODaDien(ds: readonly OPhieu[], gia: Readonly<Record<string, GiaTriO>>): number {
+  return ds.filter((o) => coGiaTriO(gia[o.ma])).length;
 }
 
 // ---------------------------------------------------------------------------

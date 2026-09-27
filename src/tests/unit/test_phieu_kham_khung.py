@@ -63,9 +63,14 @@ DEM: dict[str, dict[str, int]] = {
 }
 
 
-def _moi_khoa(dn: dict[str, Any]) -> list[str]:
+def _o_nguon(dn: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Ô CỦA NGUỒN — bỏ ô thêm sau khi trích (`them_sau_nguon`, bản v2 27/09)."""
+    return {m: b for m, b in cac_o(dn["khung"]).items() if not b.get("them_sau_nguon")}
+
+
+def _moi_khoa(dn: dict[str, Any], *, chi_nguon: bool = True) -> list[str]:
     out: list[str] = []
-    for b in cac_o(dn["khung"]).values():
+    for b in (_o_nguon(dn) if chi_nguon else cac_o(dn["khung"])).values():
         if b["kieu"] in {"chon", "nhieu_chon"}:
             out.extend(o["ma"] for o in b["lua_chon"])
         else:
@@ -91,7 +96,7 @@ def test_moi_phieu_dem_dung_tung_con_so(form_id: str) -> None:
         "so_khoa": len(khoa),
         "so_data_field": len(khoa) - len(chi_name),
         "so_chi_name": len(chi_name),
-        "so_o": len(cac_o(dn["khung"])),
+        "so_o": len(_o_nguon(dn)),
     } == DEM[form_id]
 
 
@@ -116,7 +121,7 @@ def test_32_khoa_chi_name_la_dung_hai_loai_da_biet() -> None:
 
 def test_khoa_khong_trung_xuyen_bay_phieu() -> None:
     """Một khoá chỉ có một nghĩa — gộp dữ liệu bảy phiếu cũng không va nhau."""
-    tat = [k for d in tat_ca() for k in _moi_khoa(d)]
+    tat = [k for d in tat_ca() for k in _moi_khoa(d, chi_nguon=False)]
     trung = sorted({k for k in tat if tat.count(k) > 1})
     assert trung == []
 
