@@ -50,16 +50,19 @@ export function locTheoNgay<T extends { date: string }>(
   return ngay === null ? [...days] : days.filter((d) => d.date === ngay);
 }
 
-/** Các chip của hàng chọn ngày: "Cả tuần" rồi T2…CN kèm ngày và số lịch. */
-export function chipNgay(
+/** Các tab của dải chọn ngày: "Cả tuần" rồi T2…CN kèm NGÀY TRONG THÁNG; số
+ *  lịch để riêng (`so`) — dải vẽ nó thành huy hiệu nhạt, không dính vào chữ
+ *  (27/09/2026: "T5 01 3" đọc thành một con số). */
+export function tabNgay(
   days: readonly { date: string; items: readonly unknown[] }[],
-): { ma: string; nhan: string; title?: string }[] {
+): { ma: string; nhan: string; so: number; title?: string }[] {
   return [
-    { ma: CA_TUAN, nhan: "Cả tuần" },
+    { ma: CA_TUAN, nhan: "Cả tuần", so: 0 },
     ...days.map((d) => ({
       ma: d.date,
-      nhan: `${dayShort(d.date)} ${fmtDayMonth(d.date)}${d.items.length > 0 ? ` (${d.items.length})` : ""}`,
-      title: `${d.items.length} lịch hẹn`,
+      nhan: `${dayShort(d.date)} ${d.date.slice(8)}`,
+      so: d.items.length,
+      title: `${fmtDayMonth(d.date)} · ${d.items.length} lịch hẹn`,
     })),
   ];
 }

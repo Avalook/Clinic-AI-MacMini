@@ -34,7 +34,9 @@ class TestKhoaPhongKham:
         # 7 = 6 cũ + ô đen/NGHỈ của bảng lịch (16/09/2026). Con số ghim có chủ ý:
         # câu thứ tám phải là một quyết định có ghi lại, không phải một dòng lén
         # thêm vào đường chạy của MỌI lần mở trang chủ.
-        assert len(cau) == 7, f"phải đúng 7 câu riêng, thấy {len(cau)}"
+        # 13 = 7 + (27/09/2026, Tuyền chốt "bảng A + thống kê B + tải bác sĩ /
+        # cần xử lý của C"): 2 xu hướng 7 ngày + tải bác sĩ + 3 đếm cần xử lý.
+        assert len(cau) == 13, f"phải đúng 13 câu riêng, thấy {len(cau)}"
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá:\n{c[:90]}"
 
@@ -143,8 +145,9 @@ async def test_le_tan_co_bang_trang_thai_vai_khac_khong() -> None:
 @pytest.mark.asyncio
 async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     _, conn = await _goi(ClinicRole.RECEPTION)
-    # 3 đếm + roster + ô đen/NGHỈ + trực ca + bảng trạng thái = 7, cùng một _Conn.
-    assert len(conn.cac_cau) == 7
+    # 3 đếm + 2 xu hướng + tải bác sĩ + 3 cần xử lý + roster + ô đen/NGHỈ
+    # + trực ca + bảng trạng thái = 13, cùng một _Conn.
+    assert len(conn.cac_cau) == 13
 
 
 @pytest.mark.asyncio
@@ -153,6 +156,9 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
     assert sorted(ra) == sorted(
         [
             "so_lieu",
+            "xu_huong",
+            "tai_bac_si",
+            "can_xu_ly",
             "roster",
             "dong_ca",
             "truc_ca",
@@ -166,6 +172,13 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         "khach_moi_hom_nay": 7,
         "lich_can_xu_ly": 7,
     }
+    # Ba dòng cần xử lý luôn có mặt (số 0 thì màn tự ẩn) — màn hình dựa vào mã.
+    assert [x["ma"] for x in ra["can_xu_ly"]] == [
+        "khach_tre",
+        "chua_xep_bac_si",
+        "viec_qua_han",
+    ]
+    assert sorted(ra["xu_huong"]) == ["khach_moi_hom_nay", "ngay", "viec_dang_cho"]
 
 
 class TestHinhDangLuotKham:
