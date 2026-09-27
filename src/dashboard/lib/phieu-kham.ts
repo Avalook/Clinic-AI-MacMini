@@ -188,6 +188,8 @@ export interface DauPhieu {
   hanh_chinh: Record<string, string | number | null>;
   sinh_hieu: Record<string, string | number | null>;
   sinh_hieu_luc: string | null;
+  /** "lượt trước" khi số đo của lượt khác cùng buổi (máy chủ trả); null = lượt này. */
+  sinh_hieu_nguon?: string | null;
   tu_van: { noi_dung: string; luc: string; vong: number; consultation_id?: string }[];
   /** MỌI phiên tư vấn của lượt + bản mới nhất (kể cả chưa ghi / đã xoá trắng) —
    *  chỗ sửa tại chỗ của bác sĩ tư vấn và bác sĩ chính (27/09/2026, mục 12). */

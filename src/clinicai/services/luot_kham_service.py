@@ -31,6 +31,7 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
 )
+from clinicai.core.clock import CLINIC_TZ_NAME
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
@@ -139,6 +140,7 @@ from clinicai.services.luot_kham_chung import (
     _theo_luat_xep_hang as _theo_luat_xep_hang,
 )
 from clinicai.services.luot_kham_doc import BangLuotKham
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 from clinicai.services.sinh_hieu_service import SinhHieuService
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
@@ -259,6 +261,12 @@ class LuotKhamService:
         Lịch đi thẳng phòng mà KHÔNG có chỉ định nào mang sang (hẹn thủ thuật
         nhưng chưa ai chỉ định cụ thể) → hàng bác sĩ chính: phải có người quyết
         làm gì, khách không được đứng im ở một đường không ai nhận.
+
+        CÙNG BUỔI (27/09/2026, dây ``h1_cung_buoi_thang_dich_vu``): lượt thứ hai
+        cùng ngày của cùng khách nhận lần đo sinh hiệu của buổi (không đo lại,
+        chỗ chờ tư vấn là "chờ tư vấn" chứ không "chờ đo"); khách đã được bác sĩ
+        chính khám ở lượt trước + có chỉ định mang sang → thẳng DỊCH VỤ như lịch
+        đi thẳng phòng. Luật đường đi: ``rules.duong_sau_check_in``.
         """
         v = await conn.fetchrow(
             """
@@ -300,15 +308,59 @@ class LuotKhamService:
         flow = await self._lock_flow(conn, clinic_id, visit_id)
         if flow["route_decision"] is not None:
             return None
-        quen_vao_thang = (
+        quen_vao_thang = bool(
             v["qua_tu_van"]
             and v["khach_quen"]
             and await doc_day(conn, clinic_id, "h1_khach_quen_vao_thang_bs")
         )
-        if v["di_thang_phong"] and v["co_mang_sang"]:
-            dich = rules.SERVICES
-            ly_do = "lịch đi thẳng phòng — làm chỉ định hẹn từ lượt trước"
-        elif v["qua_tu_van"] and not quen_vao_thang:
+        # CÙNG BUỔI (27/09/2026, đợt 3 — dây RIÊNG, không dính khách quen):
+        # khách check-in thêm lượt trong ngày thì không đo lại sinh hiệu, và đã
+        # được khám + có chỉ định mang sang thì đi thẳng phòng dịch vụ.
+        cung_buoi_da_kham = False
+        if await doc_day(conn, clinic_id, "h1_cung_buoi_thang_dich_vu"):
+            da_do = await self._nhan_sinh_hieu_cua_buoi(
+                conn, clinic_id, visit_id, flow["vitals_status"]
+            )
+            if da_do:
+                flow = await self._lock_flow(conn, clinic_id, visit_id)
+            cung_buoi_da_kham = bool(
+                await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM visit v
+                          JOIN visit x
+                            ON x.clinic_id = v.clinic_id
+                           AND x.clinic_patient_id = v.clinic_patient_id
+                           AND x.visit_id <> v.visit_id
+                          JOIN consultation c
+                            ON c.clinic_id = x.clinic_id AND c.visit_id = x.visit_id
+                         WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                           AND c.kind = 'PRIMARY'
+                           AND c.status IN ('in_progress', 'completed')
+                           AND coalesce(x.checked_in_at, x.created_at)
+                               < coalesce(v.checked_in_at, v.created_at)
+                           AND (coalesce(x.checked_in_at, x.created_at)
+                                AT TIME ZONE $3)::date
+                               = (coalesce(v.checked_in_at, v.created_at)
+                                  AT TIME ZONE $3)::date)
+                    """,
+                    clinic_id,
+                    visit_id,
+                    CLINIC_TZ_NAME,
+                )
+            )
+        dich, ly_do = rules.duong_sau_check_in(
+            qua_tu_van=bool(v["qua_tu_van"]),
+            di_thang_phong=bool(v["di_thang_phong"]),
+            cung_buoi_da_kham=cung_buoi_da_kham,
+            co_mang_sang=bool(v["co_mang_sang"]),
+            quen_vao_thang=quen_vao_thang,
+        )
+        if dich == rules.SERVICES:
+            # Không vào hàng bác sĩ nào — phòng nhận khách khi chỉ định được
+            # xếp (H4: đã trả thì xếp ngay trong cùng lần giao tin).
+            pass
+        elif dich == rules.TU_VAN:
             con_id = await conn.fetchval(
                 """
                 INSERT INTO consultation
@@ -336,18 +388,8 @@ class LuotKhamService:
                 con_id,
                 "waiting" if da_do else "blocked",
             )
-            dich, ly_do = "TU_VAN", "loại khám qua bác sĩ tư vấn"
         else:
             await self._mo_hang_bac_si_chinh(conn, clinic_id, visit_id)
-            dich = rules.PRIMARY
-            ly_do = (
-                "lịch đi thẳng phòng nhưng không có chỉ định mang sang"
-                " — bác sĩ chính quyết"
-                if v["di_thang_phong"]
-                else "khách quen của bác sĩ chính — vào thẳng"
-                if quen_vao_thang
-                else "loại khám không qua tư vấn"
-            )
         await conn.execute(
             """
             UPDATE encounter_flow
@@ -369,7 +411,75 @@ class LuotKhamService:
             ly_do=ly_do,
             causation_id=causation_id,
         )
+        # CON TRỎ "khách đang ở đâu" rời quầy Đo chỉ số (check-in đặt ở trạm
+        # đầu, `place_visit_at_first_station`) khi lượt KHÔNG cần đo: buổi đã
+        # đo, hay đi thẳng dịch vụ. Lượt chưa đo mà vào hàng bác sĩ chính thì
+        # giữ như cũ — khách vẫn qua điều dưỡng trước (luồng chuẩn, không khoá).
+        # Chưa có chỗ chờ nào (dịch vụ chưa trả, chưa xếp phòng) thì để nguyên:
+        # `cap_nhat_vi_tri` sẽ hiểu "hết chỗ" là bước đóng lượt ở quầy — sai.
+        if (flow["vitals_status"] == "recorded" or dich == rules.SERVICES) and (
+            await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM queue_entry WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid AND status NOT IN"
+                " ('done', 'left', 'cancelled'))",
+                clinic_id,
+                visit_id,
+            )
+        ):
+            await cap_nhat_vi_tri(conn, clinic_id, visit_id)
         return dich
+
+    @staticmethod
+    async def _nhan_sinh_hieu_cua_buoi(
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        visit_id: str,
+        vitals_status: str,
+    ) -> bool:
+        """Lượt chưa đo mà BUỔI đã đo (lượt khác cùng khách, cùng ngày) → coi
+        như đã đo: ``vitals_status = 'recorded'`` + ghi lượt nguồn. KHÔNG chép
+        số đo. Trả True khi vừa nhận.
+
+        Khách đang có thai mà lần đo của buổi thiếu cân nặng/chiều cao → không
+        nhận (lượt vẫn chờ đo, cùng luật lưu sinh hiệu). Chạy lại: đã
+        ``recorded`` / ``in_progress`` thì thôi.
+        """
+        if vitals_status != "pending":
+            return False
+        do = await sinh_hieu_cua_buoi(conn, clinic_id, visit_id)
+        if do is None or do["nguon_visit_id"] == str(visit_id):
+            return False
+        co_thai = await conn.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM pregnancy p JOIN visit v
+                  ON v.clinic_id = p.clinic_id
+                 AND v.clinic_patient_id = p.clinic_patient_id
+               WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                 AND coalesce(p.outcome, 'ONGOING') = 'ONGOING')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        if not rules.sinh_hieu_buoi_dung_duoc(
+            co_thai=bool(co_thai),
+            can_nang=do["weight_kg"],
+            chieu_cao=do["height_cm"],
+        ):
+            return False
+        tag = await conn.execute(
+            """
+            UPDATE encounter_flow
+               SET vitals_status = 'recorded', vitals_tu_visit_id = $3::uuid,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND vitals_status = 'pending'
+            """,
+            clinic_id,
+            visit_id,
+            do["nguon_visit_id"],
+        )
+        return str(tag) != "UPDATE 0"
 
     @staticmethod
     async def mo_hang_tu_van(
@@ -394,7 +504,14 @@ class LuotKhamService:
             clinic_id,
             visit_id,
         )
-        return str(tag) != "UPDATE 0"
+        mo = str(tag) != "UPDATE 0"
+        if mo:
+            # Con trỏ rời quầy Đo chỉ số (27/09/2026): lệnh lưu sinh hiệu dời
+            # con trỏ TRƯỚC khi chỗ chờ tư vấn mở (lúc ấy chỉ còn chỗ "chờ đo"
+            # nên `cap_nhat_vi_tri` giữ nguyên) — trưởng ca thấy khách đã đo
+            # xong vẫn "đang ở Đo chỉ số" tới khi tư vấn nhận.
+            await cap_nhat_vi_tri(conn, clinic_id, visit_id)
+        return mo
 
     async def doi_duong_tu_van(
         self, *, visit_id: str, bo_qua: bool, identity: StaffIdentity

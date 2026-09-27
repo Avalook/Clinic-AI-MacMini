@@ -33,6 +33,7 @@ from clinicai.services.luot_kham_chung import (
     _require,
     _theo_luat_xep_hang,
 )
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi_nhieu
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
@@ -90,7 +91,9 @@ class BangLuotKham:
                 await bac_si_cua_thu_ky(conn, identity),
             )
             ids = [r["visit_id"] for r in visits]
-            vitals: list[asyncpg.Record] = []
+            # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong
+            # ngày thấy lần đo của lượt trước — không hiện "Chờ đo" lần nữa.
+            vitals: dict[str, dict[str, Any]] = {}
             phien: list[asyncpg.Record] = []
             ghi_chu: list[asyncpg.Record] = []
             chi_dinh: list[asyncpg.Record] = []
@@ -98,21 +101,7 @@ class BangLuotKham:
             vong: list[asyncpg.Record] = []
             yeu_cau: list[asyncpg.Record] = []
             if ids:
-                vitals = await conn.fetch(
-                    """
-                    SELECT DISTINCT ON (m.visit_id)
-                           m.visit_id::text AS visit_id, m.systolic, m.diastolic,
-                           m.pulse, m.temperature, m.weight_kg, m.height_cm,
-                           m.respiratory_rate, m.spo2, m.bmi, m.pain_score,
-                           m.created_at, s.full_name AS recorded_by_name
-                      FROM vital_measurement m
-                      LEFT JOIN staff s ON s.id = m.recorded_by
-                     WHERE m.clinic_id = $1::uuid AND m.visit_id = ANY($2::uuid[])
-                     ORDER BY m.visit_id, m.created_at DESC
-                    """,
-                    cid,
-                    ids,
-                )
+                vitals = await sinh_hieu_cua_buoi_nhieu(conn, cid, ids)
                 phien = await conn.fetch(
                     """
                     SELECT c.id::text AS id, c.visit_id::text AS visit_id, c.round_no,
@@ -312,8 +301,16 @@ class BangLuotKham:
                 "hang_cho": [],
                 "vong": [],
             }
-        for m in vitals:
-            by_visit[m["visit_id"]]["sinh_hieu"] = {
+        for vid_, m in vitals.items():
+            item = by_visit[vid_]
+            # Buổi có số mà lượt này còn "chờ đo" (dây tắt / lượt kia đo SAU khi
+            # lượt này check-in) → vẫn Chờ đo, khớp hàng tư vấn.
+            if not rules.hien_so_do_buoi(
+                vitals_status=item["sinh_hieu_trang_thai"],
+                co_so_do_luot_nay=bool(m["co_so_do_luot_nay"]),
+            ):
+                continue
+            item["sinh_hieu"] = {
                 "tam_thu": m["systolic"],
                 "tam_truong": m["diastolic"],
                 "mach": m["pulse"],
@@ -325,7 +322,11 @@ class BangLuotKham:
                 "bmi": _num(m["bmi"]),
                 "muc_do_dau": m["pain_score"],
                 "luc": _iso(m["created_at"]),
-                "nguoi_do": m["recorded_by_name"],
+                "nguoi_do": m["nguoi_do"],
+                # "lượt trước" khi số đo của lượt khác cùng buổi; None = lượt này.
+                "nguon": rules.nhan_nguon_sinh_hieu(
+                    nguon_visit_id=m["nguon_visit_id"], visit_id=vid_
+                ),
             }
         notes_by: dict[str, list[dict[str, Any]]] = {}
         for n in ghi_chu:

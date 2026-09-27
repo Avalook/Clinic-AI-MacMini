@@ -41,6 +41,17 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "h1_cung_buoi_thang_dich_vu",
+            "Khách check-in thêm lượt trong CÙNG BUỔI (cùng ngày) → dùng sinh hiệu"
+            " đã đo trong buổi (không đo lại); đã được khám + có chỉ định mang"
+            " sang → thẳng phòng dịch vụ",
+            # BẬT (góp ý phòng khám 27/09/2026: "đăng kí thêm dịch vụ lần 2 trong
+            # buổi khám bị auto chuyển sang Đo sinh hiệu → không cần"). Luật
+            # RIÊNG, không dính dây khách quen ở trên (vẫn TẮT).
+            True,
+            "bat_tat",
+        ),
+        Day(
             "h4_tu_xep_phong",
             "Thu tiền dịch vụ xong → tự xếp phòng vắng nhất (thay người vừa thu)",
             True,

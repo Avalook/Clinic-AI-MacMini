@@ -166,7 +166,7 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
 export function TheSinhHieu({ dau }: { dau: DauPhieu }) {
   const o = dau.the_sinh_hieu ?? [];
   const meta = dau.sinh_hieu_luc
-    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""} · chỉ xem (sửa ở Đo sinh hiệu)`
+    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguon ? ` (${dau.sinh_hieu_nguon})` : ""}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""} · chỉ xem (sửa ở Đo sinh hiệu)`
     : "Chưa đo sinh hiệu · sửa ở Đo sinh hiệu";
   return (
     <section aria-label="Sinh hiệu" className="rounded-card border border-hairline bg-surface px-4 py-3">

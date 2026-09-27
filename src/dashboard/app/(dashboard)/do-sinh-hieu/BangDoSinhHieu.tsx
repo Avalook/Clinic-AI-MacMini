@@ -25,6 +25,8 @@ interface SinhHieu {
   muc_do_dau: number | null;
   luc: string | null;
   nguoi_do: string | null;
+  /** Nhãn máy chủ trả khi số đo của lượt khác cùng buổi ("lượt trước"); null = lượt này. */
+  nguon?: string | null;
 }
 
 interface Luot {
@@ -340,7 +342,7 @@ export default function BangDoSinhHieu() {
         </span>
         {l.sinh_hieu ? (
           <span className="shrink-0 rounded-chip bg-success-bg px-2 py-0.5 text-meta text-success">
-            Đã đo
+            Đã đo{l.sinh_hieu.nguon ? ` (${l.sinh_hieu.nguon})` : ""}
           </span>
         ) : l.sinh_hieu_trang_thai === "in_progress" ? (
           <span className="shrink-0 rounded-chip bg-brand-50 px-2 py-0.5 text-meta text-brand-700">
@@ -413,7 +415,7 @@ export default function BangDoSinhHieu() {
               <p className="text-meta text-ink-muted">
                 {dangChon.ma_bn} · check-in {gio(dangChon.check_in_luc)}
                 {dangChon.sinh_hieu?.nguoi_do
-                  ? ` · lần đo trước: ${dangChon.sinh_hieu.nguoi_do} lúc ${gio(dangChon.sinh_hieu.luc)}`
+                  ? ` · lần đo trước: ${dangChon.sinh_hieu.nguoi_do} lúc ${gio(dangChon.sinh_hieu.luc)}${dangChon.sinh_hieu.nguon ? ` (${dangChon.sinh_hieu.nguon})` : ""}`
                   : ""}
                 {dangChon.bat_dau_do_luc && !dangChon.sinh_hieu
                   ? ` · bắt đầu đo lúc ${gio(dangChon.bat_dau_do_luc)}${dangChon.bat_dau_do_boi ? ` (${dangChon.bat_dau_do_boi})` : ""}`

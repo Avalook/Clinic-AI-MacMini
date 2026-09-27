@@ -25,6 +25,8 @@ from typing import Any
 import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.luot_kham_rules import nhan_nguon_sinh_hieu
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 
 #: Thứ tự y như dải sinh hiệu trên phiếu nguồn.
 TRUONG_SINH_HIEU: tuple[tuple[str, str], ...] = (
@@ -247,8 +249,10 @@ async def doc_dau_phieu(
 ) -> dict[str, Any]:
     """Đọc phần mang sang cho một lượt. Chỉ ĐỌC — không ghi bảng module nào.
 
-    Sinh hiệu: lần đo MỚI NHẤT của ĐÚNG lượt này. Mỗi lần đo là một dòng không
-    sửa đè, nên "mới nhất" là điều dưỡng sửa lại lần cuối.
+    Sinh hiệu: lần đo MỚI NHẤT của BUỔI (lượt này + lượt check-in trước nó
+    cùng khách cùng ngày — 27/09/2026). Mỗi lần đo là một dòng không sửa đè,
+    nên "mới nhất" là điều dưỡng sửa lại lần cuối. Số của lượt khác kèm nhãn
+    ``sinh_hieu_nguon = "lượt trước"``.
     """
     bn = await conn.fetchrow(
         "SELECT p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
@@ -288,17 +292,9 @@ async def doc_dau_phieu(
         clinic_id,
         visit_id,
     )
-    do = await conn.fetchrow(
-        "SELECT m.systolic, m.diastolic, m.pulse, m.temperature, m.weight_kg,"
-        "       m.height_cm, m.spo2, m.bmi, m.respiratory_rate, m.pain_score,"
-        "       m.created_at, s.full_name AS nguoi_do"
-        "  FROM vital_measurement m"
-        "  LEFT JOIN staff s ON s.id = m.recorded_by"
-        " WHERE m.clinic_id = $1::uuid AND m.visit_id = $2::uuid"
-        " ORDER BY m.created_at DESC, m.id DESC LIMIT 1",
-        clinic_id,
-        visit_id,
-    )
+    # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong ngày
+    # đọc lần đo của lượt trước — không chép số, chỉ đọc (một con số một chỗ).
+    do = await sinh_hieu_cua_buoi(conn, clinic_id, visit_id)
     # "A. Khám của bác sĩ tư vấn". Hai nguồn:
     #  · phiên TƯ VẤN (24/09/2026 — ô chữ tự do của bác sĩ tư vấn): mỗi lần lưu
     #    thêm một dòng, nên chỉ lấy BẢN MỚI NHẤT của mỗi phiên;
@@ -365,6 +361,12 @@ async def doc_dau_phieu(
         "ho_so": [k for k, _ in TRUONG_HO_SO],
         "sinh_hieu": dung_sinh_hieu(dict(do) if do else None),
         "sinh_hieu_luc": do["created_at"].isoformat() if do else None,
+        # "lượt trước" = số đo của lượt khác cùng buổi; None = của lượt này.
+        "sinh_hieu_nguon": (
+            nhan_nguon_sinh_hieu(nguon_visit_id=do["nguon_visit_id"], visit_id=visit_id)
+            if do
+            else None
+        ),
         # Thẻ khách + thẻ sinh hiệu Y HỆT bản giao diện mẫu (27/09/2026).
         "the_khach": {
             "bac_si": bn["bac_si"] if bn else None,
