@@ -612,3 +612,85 @@ def doi_phong_duoc(
     if (execution_status or "") in _THUC_HIEN_KHONG_DOI:
         return False
     return (exec_status or "") not in _DA_LAM_HOAC_XONG
+
+
+# ---------------------------------------------------------------------------
+# H1 — đường đi sau check-in, và "BUỔI KHÁM" (27/09/2026, đợt 3)
+# ---------------------------------------------------------------------------
+#
+# Góp ý phòng khám 27/09: *"BN sau khi đăng kí thêm dịch vụ lần 2 trong buổi
+# khám bị auto chuyển sang Đo sinh hiệu → không cần đo sinh hiệu, có thể chuyển
+# sang phòng chuyên môn luôn"*. Lỗi chỉ ở chỗ "đăng ký thêm" tạo LƯỢT MỚI cùng
+# ngày: mọi thứ sinh hiệu tính theo `visit_id`, nên lượt 2 như khách mới đến.
+#
+# BUỔI = cùng khách + cùng NGÀY giờ Việt Nam. Số đo KHÔNG chép sang lượt mới
+# (một con số một chỗ sửa — `phieu_kham/mang_sang.py`): lượt mới ĐỌC lần đo mới
+# nhất của buổi (`services/sinh_hieu_buoi.py`) và ghi lại lượt nguồn để truy vết
+# (`encounter_flow.vitals_tu_visit_id`).
+
+TU_VAN = "TU_VAN"
+
+
+def duong_sau_check_in(
+    *,
+    qua_tu_van: bool,
+    di_thang_phong: bool,
+    cung_buoi_da_kham: bool,
+    co_mang_sang: bool,
+    quen_vao_thang: bool,
+) -> tuple[str, str]:
+    """(Đích, lý do) của dây H1 cho một lượt vừa check-in.
+
+    * ``(di_thang_phong OR cung_buoi_da_kham) AND co_mang_sang`` → DỊCH VỤ:
+      có việc cụ thể đã chỉ định sẵn thì đi làm, không qua tư vấn / bác sĩ.
+      ``cung_buoi_da_kham`` = khách đã được bác sĩ chính khám ở một lượt khác
+      trong CÙNG buổi (người gọi đưa False khi dây
+      ``h1_cung_buoi_thang_dich_vu`` tắt).
+    * Loại khám qua tư vấn (trừ khách quen khi dây khách quen bật) → TƯ VẤN.
+    * Còn lại → bác sĩ chính (kể cả lịch đi thẳng phòng mà không có chỉ định
+      mang sang: phải có người quyết làm gì).
+    """
+    if co_mang_sang and (di_thang_phong or cung_buoi_da_kham):
+        return SERVICES, (
+            "lịch đi thẳng phòng — làm chỉ định hẹn từ lượt trước"
+            if di_thang_phong
+            else "cùng buổi đã khám — làm luôn chỉ định mang sang"
+        )
+    if qua_tu_van and not quen_vao_thang:
+        return TU_VAN, "loại khám qua bác sĩ tư vấn"
+    if di_thang_phong:
+        return PRIMARY, (
+            "lịch đi thẳng phòng nhưng không có chỉ định mang sang — bác sĩ chính quyết"
+        )
+    if quen_vao_thang:
+        return PRIMARY, "khách quen của bác sĩ chính — vào thẳng"
+    return PRIMARY, "loại khám không qua tư vấn"
+
+
+def sinh_hieu_buoi_dung_duoc(*, co_thai: bool, can_nang: Any, chieu_cao: Any) -> bool:
+    """Lần đo của buổi có dùng lại cho lượt mới được không.
+
+    Khách đang có thai phải có cân nặng + chiều cao (cùng luật lưu sinh hiệu,
+    ``thieu_sinh_hieu_khi_co_thai``): lần đo cũ thiếu thì lượt mới vẫn "chờ đo".
+    """
+    if not co_thai:
+        return True
+    return can_nang is not None and chieu_cao is not None
+
+
+def hien_so_do_buoi(*, vitals_status: str | None, co_so_do_luot_nay: bool) -> bool:
+    """Màn Đo sinh hiệu có coi lượt này là "đã đo" (và hiện số của buổi) không.
+
+    Theo TRẠNG THÁI THẬT của luồng: ``recorded`` (tự đo, hoặc H1 đã nhận lần đo
+    của buổi) — hoặc lượt có số đo riêng (dữ liệu cũ chưa đồng bộ trạng thái).
+    Buổi có số mà lượt còn ``pending`` (dây tắt / lượt kia đo SAU khi lượt này
+    check-in) → vẫn "Chờ đo", khớp với hàng tư vấn còn chờ đo.
+    """
+    return vitals_status == "recorded" or co_so_do_luot_nay
+
+
+def nhan_nguon_sinh_hieu(*, nguon_visit_id: Any, visit_id: Any) -> str | None:
+    """Nhãn nguồn số đo cho màn hình: đo ở lượt khác cùng buổi → "lượt trước"."""
+    if not nguon_visit_id or not visit_id:
+        return None
+    return None if str(nguon_visit_id) == str(visit_id) else "lượt trước"
