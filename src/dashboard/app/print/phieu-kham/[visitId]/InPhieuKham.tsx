@@ -387,7 +387,9 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       <footer className="in-giu mt-10 flex justify-end">
         <div className="text-center">
           <p className="text-meta text-ink-muted">
-            {ngayKham ? `Ngày khám ${hienThi(ngayKham)}` : "Ngày …/…/……"}
+            {ngayKham
+              ? `Ngày khám ${hienThi(ngayKham).replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3/$2/$1")}`
+              : "Ngày …/…/……"}
           </p>
           <p className="font-semibold">Bác sĩ khám</p>
           <p className="mt-12">&nbsp;</p>
