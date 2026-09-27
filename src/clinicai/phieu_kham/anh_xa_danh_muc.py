@@ -28,7 +28,8 @@ class DichVuPhieu:
     loai: str = "Thủ thuật"  # service_price.category khi thêm mới
 
 
-#: Nhãn mục C (đúng chữ trong nguồn) → dịch vụ.
+#: Nhãn mục C (đúng chữ trong `tham_chieu_nguon.json`) → dịch vụ. Từ 27/09/2026
+#: nhãn là nhãn SẠCH theo bản giao diện mẫu (không còn "*", "•", "-" của giấy).
 CLS: dict[str, DichVuPhieu] = {
     "Đo mật độ xương": DichVuPhieu(
         "CLS_DO_MAT_DO_XUONG", "Đo mật độ xương", "DICHVU-DXA", 200000
@@ -42,19 +43,19 @@ CLS: dict[str, DichVuPhieu] = {
     "XN máu": DichVuPhieu(
         "CLS_XET_NGHIEM_MAU", "Xét nghiệm máu", "DICHVU-LAYMAU-MAU", 350000
     ),
-    "*XN dịch âm đạo": DichVuPhieu(
-        "CLS_XET_NGHIEM_DICH_AM_DAO",
-        "Xét nghiệm dịch âm đạo",
-        "DICHVU-LAYMAU-AMDAO",
-        300000,
+    # Soi CTC + soi âm hộ: trên giấy nằm dưới "Thủ thuật", bản mẫu đưa sang
+    # nhóm CLS "Soi & xét nghiệm dịch âm đạo" (27/09/2026, đợt 3 — B5).
+    "Soi cổ tử cung": DichVuPhieu(
+        "CLS_SOI_CO_TU_CUNG", "Soi cổ tử cung", "DICHVU-SANGLOC-COTUCUNG", 400000
     ),
-    "• HPV": DichVuPhieu(
+    "Soi âm hộ": DichVuPhieu("CLS_SOI_AM_HO", "Soi âm hộ", "DICHVU-THUTHUAT", 250000),
+    "HPV": DichVuPhieu(
         "CLS_HPV", "Xét nghiệm HPV", "DICHVU-SANGLOC-COTUCUNG", 950000, "Tầng 1"
     ),
-    "• ThinPrep": DichVuPhieu(
+    "ThinPrep": DichVuPhieu(
         "CLS_THINPREP", "ThinPrep", "DICHVU-SANGLOC-COTUCUNG", 650000, "Tầng 1"
     ),
-    "• PCR 12 loại VK": DichVuPhieu(
+    "PCR 12 loại VK": DichVuPhieu(
         "CLS_PCR_12_VK",
         "PCR 12 loại vi khuẩn",
         "DICHVU-LAYMAU-AMDAO",
@@ -143,20 +144,6 @@ CLS: dict[str, DichVuPhieu] = {
         300000,
         "Sàn chậu",
     ),
-    "• Yếu cơ": DichVuPhieu(
-        "CLS_GHE_DTT_YEU_CO",
-        "Trải nghiệm 5 phút ghế ĐTT — yếu cơ",
-        "DICHVU-THUTHUAT",
-        150000,
-        "Sàn chậu",
-    ),
-    "• Đau cơ": DichVuPhieu(
-        "CLS_GHE_DTT_DAU_CO",
-        "Trải nghiệm 5 phút ghế ĐTT — đau cơ",
-        "DICHVU-THUTHUAT",
-        150000,
-        "Sàn chậu",
-    ),
     "Khám sàn chậu": DichVuPhieu(
         "CLS_KHAM_SAN_CHAU", "Khám sàn chậu", "DICHVU-THUTHUAT", 300000, "Sàn chậu"
     ),
@@ -192,10 +179,6 @@ THU_THUAT: dict[str, DichVuPhieu] = {
     "procedure_6": DichVuPhieu(
         "CLS_HUT_BUONG_TU_CUNG", "Hút buồng tử cung", "DICHVU-THUTHUAT", 2000000
     ),
-    "procedure_7": DichVuPhieu(
-        "CLS_SOI_CO_TU_CUNG", "Soi cổ tử cung", "DICHVU-SANGLOC-COTUCUNG", 400000
-    ),
-    "procedure_8": DichVuPhieu("CLS_SOI_AM_HO", "Soi âm hộ", "DICHVU-THUTHUAT", 250000),
     "procedure_9": DichVuPhieu(
         "CLS_NONG_BAO_QUY_DAU_AV", "Nong bao quy đầu âm vật", "DICHVU-THUTHUAT", 1000000
     ),
@@ -210,16 +193,36 @@ THU_THUAT: dict[str, DichVuPhieu] = {
     "procedure_12": DichVuPhieu(
         "CLS_GHE_DTT", "Ghế điện từ trường (ĐTT)", "DICHVU-THUTHUAT", 500000, "Sàn chậu"
     ),
-    "procedure_13": DichVuPhieu(
-        "CLS_LASER", "Laser sàn chậu", "DICHVU-THUTHUAT", 7000000, "Sàn chậu"
-    ),
     "procedure_14": DichVuPhieu(
         "CLS_LASER_TRE_HOA", "Laser trẻ hoá", "DICHVU-THUTHUAT", 7000000, "Sàn chậu"
     ),
     "procedure_15": DichVuPhieu(
         "CLS_LASER_ST_SSD", "Laser ST/SSD", "DICHVU-THUTHUAT", 15000000, "Sàn chậu"
     ),
+    # Trải nghiệm 5 phút ghế ĐTT: bản mẫu xếp vào khối ĐIỀU TRỊ (27/09/2026) —
+    # mã mục mới, không có trong HTML v5 (ở đó chúng là dòng mục C "• Yếu cơ").
+    "procedure_16": DichVuPhieu(
+        "CLS_GHE_DTT_YEU_CO",
+        "Trải nghiệm 5 phút ghế ĐTT — yếu cơ",
+        "DICHVU-THUTHUAT",
+        150000,
+        "Sàn chậu",
+    ),
+    "procedure_17": DichVuPhieu(
+        "CLS_GHE_DTT_DAU_CO",
+        "Trải nghiệm 5 phút ghế ĐTT — đau cơ",
+        "DICHVU-THUTHUAT",
+        150000,
+        "Sàn chậu",
+    ),
 }
+
+#: Dòng TIÊU ĐỀ trên phiếu giấy (không có ô tick, không có mã phòng khám):
+#: "*XN dịch âm đạo" và "• Laser". Bỏ khỏi danh mục chỉ định 27/09/2026 (đợt 3 —
+#: B10) — KHÔNG tắt dịch vụ trong DB (chỉ định cũ vẫn đọc đúng tên; tắt hay
+#: không là việc Tuyền chốt), chỉ không liệt kê, kể cả ở "Dịch vụ khác trong
+#: bảng giá".
+KHONG_LIET_KE: frozenset[str] = frozenset({"CLS_XET_NGHIEM_DICH_AM_DAO", "CLS_LASER"})
 
 #: Mẫu thuốc nguồn → `drug_catalog.name_raw` NGUYÊN VĂN (không có = tên thô).
 THUOC: dict[str, str] = {
@@ -307,4 +310,11 @@ def tat_ca_dich_vu() -> list[DichVuPhieu]:
     return list(ra.values())
 
 
-__all__ = ["CLS", "THUOC", "THU_THUAT", "DichVuPhieu", "tat_ca_dich_vu"]
+__all__ = [
+    "CLS",
+    "KHONG_LIET_KE",
+    "THUOC",
+    "THU_THUAT",
+    "DichVuPhieu",
+    "tat_ca_dich_vu",
+]

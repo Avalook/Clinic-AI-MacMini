@@ -26,6 +26,7 @@ import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
   dongTuDon,
+  nhomThuThuat,
   phanThayDoi,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
@@ -432,18 +433,9 @@ export default function PhieuKhamLuot({
     );
   }
 
-  const nhomThuThuat: NhomCls[] = [
-    {
-      nhom: "Thủ thuật / kỹ thuật điều trị",
-      muc: (tc?.thu_thuat ?? []).map((t) => ({
-        nhan: t.nhan,
-        cach_tra_ket_qua: t.form_id_ket_qua ? "Có biểu mẫu" : "",
-        form_id_ket_qua: t.form_id_ket_qua,
-        service_code: t.service_code,
-        gia: t.gia ?? null,
-      })),
-    },
-  ];
+  // Khối 3 chia nhóm như bản mẫu (27/09/2026, đợt 3): Thủ thuật · ghế ĐTT ·
+  // định hướng điều trị — nhóm do máy chủ gửi.
+  const dsNhomThuThuat: NhomCls[] = nhomThuThuat(tc?.thu_thuat);
 
   return (
     <div className="space-y-2">
@@ -527,7 +519,7 @@ export default function PhieuKhamLuot({
         }
         oThuThuat={
           <DanhMucChiDinh
-            nhom={nhomThuThuat}
+            nhom={dsNhomThuThuat}
             daDat={daDat}
             daChiDinh={ketQua}
             onDat={dat}

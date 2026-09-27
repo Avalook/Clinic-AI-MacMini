@@ -470,7 +470,14 @@ class PhieuKhamService:
             # Không phòng làm = không phải dịch vụ chỉ định được (tiền khám
             # `KHAM_*` có mã phòng khám từ 26/09 nhưng thu theo loại khám — lọt
             # vào mục C là bác sĩ tick được "Hiếm muộn / Vô sinh" như một CLS).
-            if not r["ma_kiotviet"] or not r["node_code"] or r["service_code"] in da_co:
+            # Dòng TIÊU ĐỀ của phiếu giấy ("*XN dịch âm đạo", "• Laser") không
+            # bao giờ hiện lại ở đây, kể cả khi sau này được gắn mã phòng khám.
+            if (
+                not r["ma_kiotviet"]
+                or not r["node_code"]
+                or r["service_code"] in da_co
+                or r["service_code"] in ax.KHONG_LIET_KE
+            ):
                 continue
             nhom_ten = _NHOM_THEO_NODE.get(r["node_code"] or "", "Khác")
             gia_dv = r["unit_price"]

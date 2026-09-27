@@ -169,10 +169,58 @@ async def test_danh_muc_c_f_gan_ma_that_va_gia(
                 " AND active)",
                 m["service_code"],
             )
-    assert len(tc["thu_thuat"]) == 15
+    # 27/09/2026 (đợt 3): 14 dòng theo bản giao diện mẫu (soi CTC/âm hộ sang
+    # CLS, bỏ "• Laser", ghế ĐTT yếu/đau cơ sang điều trị).
+    assert len(tc["thu_thuat"]) == 14
+    assert muc["Soi âm hộ"]["form_id_ket_qua"] == "KQ_SOI_AM_HO"
+    assert "*Soi âm hộ" not in muc
     # 73 thuốc của phiếu + mặt hàng kho không có trên phiếu (mã "kho:…", 25/09).
     phieu = [m for m in tc["mau_thuoc"] if not str(m["ma"]).startswith("kho:")]
     assert len(phieu) == 73
+
+
+async def test_hai_dong_tieu_de_khong_hien_lai_o_dich_vu_khac(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """ "*XN dịch âm đạo" / "• Laser" bỏ khỏi danh mục (đợt 3) — kể cả khi dịch
+    vụ còn bật và (giả sử) có mã phòng khám thì "Dịch vụ khác trong bảng giá"
+    cũng không kéo chúng lại."""
+    from clinicai.phieu_kham import anh_xa_danh_muc as ax
+
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+    cu = {
+        r["service_code"]: r["ma_kiotviet"]
+        for r in await pool.fetch(
+            "SELECT service_code, ma_kiotviet FROM service_price"
+            " WHERE clinic_id = $1::uuid AND service_code = ANY($2::text[])",
+            bs.clinic_id,
+            sorted(ax.KHONG_LIET_KE),
+        )
+    }
+    try:
+        for ma in cu:
+            await pool.execute(
+                "UPDATE service_price SET ma_kiotviet = $3"
+                " WHERE clinic_id = $1::uuid AND service_code = $2",
+                bs.clinic_id,
+                ma,
+                f"TEST_{ma}",
+            )
+        tc = await _svc(pool).tham_chieu_that(identity=bs)
+    finally:
+        for ma, kv in cu.items():
+            await pool.execute(
+                "UPDATE service_price SET ma_kiotviet = $3"
+                " WHERE clinic_id = $1::uuid AND service_code = $2",
+                bs.clinic_id,
+                ma,
+                kv,
+            )
+    moi_ma = {m.get("service_code") for n in tc["chi_dinh_cls"] for m in n["muc"]} | {
+        t.get("service_code") for t in tc["thu_thuat"]
+    }
+    assert moi_ma.isdisjoint(ax.KHONG_LIET_KE)
 
 
 async def test_don_thuoc_muc_e_ghi_va_sua_khong_tao_trung(

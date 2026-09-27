@@ -23,6 +23,8 @@ import {
   laDicom,
   laONgayTaiKham,
   ngayHenTaiKham,
+  nhomThuThuat,
+  NHOM_THU_THUAT_MAC_DINH,
   soLuongTuChu,
   tachDanhMucKhac,
   thanhTienDong,
@@ -32,6 +34,7 @@ import {
   type MauThuoc,
   type OPhieu,
   type NhomCls,
+  type ThuThuatNguon,
 } from "./phieu-kham.ts";
 
 const tep = (id: string, loai_tep: string, xac: string | null, luc: string): KetQuaMotChiDinh => ({
@@ -402,4 +405,43 @@ test("đọc/ghi nhớ gập: kho hỏng hay không có kho thì không ném", (
   assert.equal(docNhoGap("x", null), null);
   assert.doesNotThrow(() => ghiNhoGap("x", true, null));
   assert.equal(docNhoGap("", kho), null);
+});
+
+test("nhomThuThuat: chia nhóm theo máy chủ, giữ thứ tự; thiếu nhóm → nhóm mặc định", () => {
+  const tt = (ma: string, nhan: string, nhom?: string | null, form: string | null = null): ThuThuatNguon => ({
+    ma,
+    nhan,
+    nhom,
+    form_id_ket_qua: form,
+    service_code: `CLS_${ma}`,
+    gia: 1000,
+  });
+  const ds = [
+    tt("p1", "Đặt vòng nội tiết", "Thủ thuật"),
+    tt("p16", "Yếu cơ", "Sàn chậu — trải nghiệm 5 phút ghế ĐTT"),
+    tt("p9", "Nong bao quy đầu ÂV", "Thủ thuật"),
+    tt("p11", "Biofeedback", "Sàn chậu — định hướng điều trị", "KQ_X"),
+  ];
+  const r = nhomThuThuat(ds);
+  assert.deepEqual(
+    r.map((n) => [n.nhom, n.muc.map((m) => m.nhan)]),
+    [
+      ["Thủ thuật", ["Đặt vòng nội tiết", "Nong bao quy đầu ÂV"]],
+      ["Sàn chậu — trải nghiệm 5 phút ghế ĐTT", ["Yếu cơ"]],
+      ["Sàn chậu — định hướng điều trị", ["Biofeedback"]],
+    ],
+  );
+  assert.equal(r[2].muc[0].cach_tra_ket_qua, "Có biểu mẫu");
+  assert.equal(r[0].muc[0].cach_tra_ket_qua, "");
+  assert.equal(r[0].muc[0].service_code, "CLS_p1");
+  assert.equal(r[0].muc[0].gia, 1000);
+  // Máy chủ bản cũ (không có `nhom`) → một nhóm như trước.
+  assert.deepEqual(
+    nhomThuThuat([tt("a", "A"), tt("b", "B", "  ")]).map((n) => [n.nhom, n.muc.length]),
+    [[NHOM_THU_THUAT_MAC_DINH, 2]],
+  );
+  // Rác → rỗng / bỏ dòng hỏng, không ném.
+  assert.deepEqual(nhomThuThuat(null), []);
+  assert.deepEqual(nhomThuThuat(undefined), []);
+  assert.deepEqual(nhomThuThuat([null as unknown as ThuThuatNguon, { ma: "x" } as ThuThuatNguon]), []);
 });

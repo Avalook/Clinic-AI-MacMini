@@ -31,28 +31,34 @@
    ]
   },
   {
-   "nhom": "Xét nghiệm phụ khoa",
+   "nhom": "Soi & xét nghiệm dịch âm đạo",
    "muc": [
     {
-     "nhan": "*XN dịch âm đạo",
-     "cach_tra_ket_qua": "Đối tác",
-     "form_id_ket_qua": "KQ_XN_PCR_STDS",
+     "nhan": "Soi cổ tử cung",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": null,
      "service_code": null
     },
     {
-     "nhan": "• HPV",
+     "nhan": "Soi âm hộ",
+     "cach_tra_ket_qua": "Nội bộ",
+     "form_id_ket_qua": "KQ_SOI_AM_HO",
+     "service_code": null
+    },
+    {
+     "nhan": "HPV",
      "cach_tra_ket_qua": "Đối tác",
      "form_id_ket_qua": "KQ_XN_HPV",
      "service_code": null
     },
     {
-     "nhan": "• ThinPrep",
+     "nhan": "ThinPrep",
      "cach_tra_ket_qua": "Đối tác",
      "form_id_ket_qua": "KQ_XN_HPV",
      "service_code": null
     },
     {
-     "nhan": "• PCR 12 loại VK",
+     "nhan": "PCR 12 loại VK",
      "cach_tra_ket_qua": "Đối tác",
      "form_id_ket_qua": "KQ_XN_PCR_STDS",
      "service_code": null
@@ -177,27 +183,10 @@
    ]
   },
   {
-   "nhom": "Sàn chậu",
+   "nhom": "Sàn chậu — đánh giá",
    "muc": [
     {
      "nhan": "Đo cơ lực âm đạo bằng máy (sàng lọc)",
-     "cach_tra_ket_qua": "Nội bộ",
-     "form_id_ket_qua": "KQ_SOI_AM_HO",
-     "service_code": null
-    }
-   ]
-  },
-  {
-   "nhom": "Tr.nghiệm 5p ghế ĐTT",
-   "muc": [
-    {
-     "nhan": "• Yếu cơ",
-     "cach_tra_ket_qua": "Nội bộ",
-     "form_id_ket_qua": null,
-     "service_code": null
-    },
-    {
-     "nhan": "• Đau cơ",
      "cach_tra_ket_qua": "Nội bộ",
      "form_id_ket_qua": null,
      "service_code": null
@@ -205,7 +194,7 @@
     {
      "nhan": "Khám sàn chậu",
      "cach_tra_ket_qua": "Nội bộ",
-     "form_id_ket_qua": "KQ_SOI_AM_HO",
+     "form_id_ket_qua": null,
      "service_code": null
     }
    ]
@@ -238,90 +227,98 @@
   {
    "nhan": "Đặt vòng nội tiết",
    "ma": "procedure_1",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
    "nhan": "Tháo vòng",
    "ma": "procedure_2",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
    "nhan": "Cấy que tránh thai",
    "ma": "procedure_3",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
    "nhan": "Tháo que tránh thai",
    "ma": "procedure_4",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
    "nhan": "Soi buồng tử cung",
    "ma": "procedure_5",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
    "nhan": "Hút buồng tử cung",
    "ma": "procedure_6",
+   "nhom": "Thủ thuật",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "*Soi cổ tử cung",
-   "ma": "procedure_7",
-   "form_id_ket_qua": null,
-   "service_code": null
-  },
-  {
-   "nhan": "*Soi âm hộ",
-   "ma": "procedure_8",
-   "form_id_ket_qua": "KQ_SOI_AM_HO",
-   "service_code": null
-  },
-  {
-   "nhan": "*Nong bao quy đầu ÂV",
+   "nhan": "Nong bao quy đầu ÂV",
    "ma": "procedure_9",
-   "form_id_ket_qua": "KQ_SOI_AM_HO",
+   "nhom": "Thủ thuật",
+   "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "*Tách bao quy đầu ÂV",
+   "nhan": "Tách bao quy đầu ÂV",
    "ma": "procedure_10",
-   "form_id_ket_qua": "KQ_SOI_AM_HO",
+   "nhom": "Thủ thuật",
+   "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "• Biofeeback",
+   "nhan": "Yếu cơ",
+   "ma": "procedure_16",
+   "nhom": "Sàn chậu — trải nghiệm 5 phút ghế ĐTT",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Đau cơ",
+   "ma": "procedure_17",
+   "nhom": "Sàn chậu — trải nghiệm 5 phút ghế ĐTT",
+   "form_id_ket_qua": null,
+   "service_code": null
+  },
+  {
+   "nhan": "Biofeedback",
    "ma": "procedure_11",
+   "nhom": "Sàn chậu — định hướng điều trị",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "• Ghế ĐTT",
+   "nhan": "Ghế ĐTT",
    "ma": "procedure_12",
+   "nhom": "Sàn chậu — định hướng điều trị",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "• Laser",
-   "ma": "procedure_13",
-   "form_id_ket_qua": null,
-   "service_code": null
-  },
-  {
-   "nhan": "- Laser trẻ hoá",
+   "nhan": "Laser trẻ hoá",
    "ma": "procedure_14",
+   "nhom": "Sàn chậu — định hướng điều trị",
    "form_id_ket_qua": null,
    "service_code": null
   },
   {
-   "nhan": "- Laser ST/SSD",
+   "nhan": "Laser ST/SSD",
    "ma": "procedure_15",
+   "nhom": "Sàn chậu — định hướng điều trị",
    "form_id_ket_qua": null,
    "service_code": null
   }
