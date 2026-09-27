@@ -726,7 +726,8 @@ async def _dat_day_lich(kb: KB, bat: bool) -> None:
 
 async def _xep_ca(kb: KB, nguoi: StaffIdentity, room_id: str) -> None:
     """Một vị trí thuộc `room_id` + ca ĐÃ DUYỆT hôm nay (giờ VN) cho `nguoi`."""
-    ma = f"VT-TEST-{uuid.uuid4().hex[:8]}"
+    # Mã `T-…`: quy ước vị trí do bài kiểm tạo (test_vi_tri_tu_database_db bỏ qua).
+    ma = f"T-LICH-{uuid.uuid4().hex[:8]}"
     async with kb.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, room_id)"
