@@ -7,7 +7,6 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { vaiLamViec } from "../../../../lib/clinic-session";
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 /** Thao tác cho phép → (phương thức, đường backend). */
@@ -30,15 +29,9 @@ export async function POST(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
 
-  // Backend cũng chặn (require_role TRUONG_CA/MANAGEMENT). Chặn ở đây nữa để
-  // người không có quyền nhận một câu tiếng Việt thay vì 403 trần từ API.
-  const role = await vaiLamViec((r) => r === "TRUONG_CA" || r === "MANAGEMENT");
-  if (role !== "TRUONG_CA" && role !== "MANAGEMENT") {
-    return NextResponse.json(
-      { error: "Chỉ Trưởng ca / Quản lý mới được điều phối." },
-      { status: 403 },
-    );
-  }
+  // Cửa quyền là việc của BACKEND (dispatch.manage — lego Điều phối khách; câu từ chối của
+  // backend đã là tiếng Việt) — proxy chỉ kiểm đã đăng nhập
+  // (kiểm toán 27/09/2026: cửa vai ở đây chặn người đã được cấp lego).
 
   const { action } = await params;
   const target = ACTIONS[action];

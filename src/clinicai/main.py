@@ -99,8 +99,8 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
     # KÊU TO KHI QUYỀN ĐANG MỞ. Chế độ này nới quyền của mọi vai không phải bác
-    # sĩ, và nó mặc định BẬT — nên thứ duy nhất giữ cho nó không thành vĩnh viễn
-    # là một dòng log mỗi lần khởi động. Đừng hạ mức xuống info.
+    # sĩ. Từ 27/09/2026 nó mặc định TẮT; ai bật nó lên thì thứ duy nhất giữ cho
+    # nó không thành vĩnh viễn là dòng log này mỗi lần khởi động. Đừng hạ mức.
     if mo_quyen_tam_thoi():
         logger.warning(
             "mo_quyen_tam_thoi_dang_bat",

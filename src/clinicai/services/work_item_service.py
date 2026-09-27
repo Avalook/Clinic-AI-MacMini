@@ -29,6 +29,8 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import can
+from clinicai.permissions.catalogue import tra_quyen
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
@@ -60,6 +62,14 @@ _TRANSITIONS: dict[str, tuple[frozenset[str], str]] = {
 LENH_CAN_LY_DO: frozenset[str] = frozenset({"skip", "cancel"})
 NHOM_BUOC_DICH_VU: frozenset[str] = frozenset({"dich_vu", "ket_qua"})
 VAI_QUYET_DICH_VU: frozenset[str] = frozenset({"DOCTOR", "ULTRASOUND_DOCTOR"})
+
+#: KHU LÀM VIỆC DO LEGO QUYẾT, không do danh sách vai của node (kiểm toán
+#: 27/09/2026). `khu_van_hanh` là màn "Việc cần xử lý" (lego 8, quyền
+#: `worklist.handle`): `actor_roles` của ba node OPS-* chỉ là NGƯỜI DỰ PHÒNG nhận
+#: việc khi chưa ai được giao đích danh — không phải hàng rào quyền (ghi ngay
+#: trong migration 20260923000007). Trước đây quyền `worklist.handle` không lệnh
+#: nào kiểm: thu lego chỉ mất mục trên thanh bên, API vẫn mở theo vai.
+QUYEN_THEO_KHU: dict[str, str] = {"khu_van_hanh": "worklist.handle"}
 
 # Only start and complete are gated. Skipping and cancelling are how a stuck
 # flow gets unstuck, so a shut gate must never prevent them.
@@ -128,6 +138,7 @@ class WorkItemService:
                     """
                     SELECT w.id, w.status, w.version, w.node_code, w.clinic_id,
                            n.actor_roles, n.name AS node_name, n.flow_group,
+                           n.workspace,
                            m.role AS membership_role
                       FROM work_item w
                       JOIN clinic_membership m
@@ -179,6 +190,16 @@ class WorkItemService:
                     # thực hiện của mình (vd. siêu âm, lấy máu).
                     actor_roles = [*actor_roles, *identity.ds_vai()]
                     vai_mo_cua = list(VAI_QUYET_DICH_VU)
+                # Khu do LEGO quyết: có quyền của khu là đủ, không có thì chặn —
+                # bất kể vai có nằm trong actor_roles hay không.
+                quyen_khu = QUYEN_THEO_KHU.get(item.get("workspace") or "")
+                if quyen_khu is not None:
+                    if not await can(conn, identity, quyen_khu):
+                        raise SafetyGateError(
+                            f"Bạn chưa được cấp quyền “{tra_quyen(quyen_khu).ten}”."
+                        )
+                    actor_roles = [*actor_roles, *identity.ds_vai()]
+                    vai_mo_cua = list(identity.ds_vai())
                 # The catalogue's empty default means "nobody yet", never
                 # "every working role".  Fail closed if configuration is
                 # incomplete or the live node no longer names this role.
@@ -426,8 +447,12 @@ class WorkItemService:
         identity: StaffIdentity,
         day: date | None = None,
         mine_only: bool = False,
+        ca_khu: bool = False,
     ) -> list[dict[str, object]]:
         """One workspace's open work for a day, across every visit.
+
+        ``ca_khu``: người gọi được vào khu bằng QUYỀN của khu (``QUYEN_THEO_KHU``,
+        router đã kiểm) — thấy và làm được mọi việc trong khu, như điều phối.
 
         list_for_visit answers "what is left for this patient"; a front desk
         needs the transpose — "who is waiting for me" — and there was no query
@@ -495,7 +520,8 @@ class WorkItemService:
                    -- Thư ký đã nhập chỉ định chờ bác sĩ duyệt (20260915000008):
                    -- bảng bác sĩ hiện dấu để bác sĩ biết mà duyệt.
                    sd.id IS NOT NULL                    AS co_nhap_chi_dinh,
-                   (n.actor_roles && $8::text[])      AS actionable_by_me,
+                   ($9::boolean OR n.actor_roles && $8::text[])
+                                                        AS actionable_by_me,
                    EXISTS (
                        SELECT 1 FROM work_item_gate_blockers(w.id, 'start')
                    )                                    AS blocked
@@ -538,7 +564,8 @@ class WorkItemService:
                -- must not turn into read access to every other station's
                -- financial or clinical rows.  Coordinators are deliberately
                -- the only cross-node exception.
-               AND ($8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']
+               AND ($9::boolean
+                    OR $8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']
                     OR n.actor_roles && $8::text[])
                AND ($2::date IS NULL
                     OR (w.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2)
@@ -561,6 +588,7 @@ class WorkItemService:
             mine_only,
             await bac_si_cua_thu_ky(self._pool, identity),
             identity.ds_vai(),
+            ca_khu,
         )
 
         return [

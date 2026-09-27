@@ -7,13 +7,11 @@
 // Gộp chung khiến người đi đổi luật đặt lịch phải cuộn qua danh sách chín nhân
 // viên, và người đi đặt lại mật khẩu phải cuộn qua ba thẻ cấu hình.
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../../lib/clinic-session";
+import { requireNavAccess } from "../../../../lib/clinic-session";
 import {
-  isAdminRole,
   ROLE_LABEL,
   type ClinicRole,
 } from "../../../../lib/roles";
@@ -35,8 +33,8 @@ const TH = "px-4 py-2.5 font-medium";
 const TD = "px-4 py-2.5";
 
 export default async function ThietLapTaiKhoanPage() {
-  const role = await vaiLamViec(isAdminRole);
-  if (!isAdminRole(role)) redirect("/home");
+  // Lego 19 "Nhân sự & phân quyền" (27/09/2026) — trước gác vai Quản lý.
+  await requireNavAccess("/settings/tai-khoan");
 
   // 24/09/2026: đọc qua backend `GET /api/v1/staff/tai-khoan` (Quản lý) thay vì
   // đọc thẳng `staff` bằng Supabase.

@@ -199,10 +199,13 @@ async def test_a_workspace_reader_only_receives_nodes_for_its_role() -> None:
         workspace="thu_ngan_dong_luot", identity=reception
     )
 
-    sql, *_ = pool.fetch.call_args.args
-    # Vai hôm nay (tài khoản + vị trí) — Tuyền 16/09/2026.
-    assert "AND ($8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']" in sql
+    sql, *args = pool.fetch.call_args.args
+    # Vai hôm nay (tài khoản + vị trí) — Tuyền 16/09/2026. `$9` = vào khu bằng
+    # QUYỀN của khu (chỉ khu do lego quyết, 27/09/2026) — khu này thì KHÔNG.
+    assert "AND ($9::boolean" in sql
+    assert "OR $8::text[] && ARRAY['MANAGEMENT', 'TRUONG_CA']" in sql
     assert "OR n.actor_roles && $8::text[])" in sql
+    assert args[8] is False
     assert "cardinality(n.actor_roles) = 0" not in sql
     assert "n.actor_roles IS NULL" not in sql
 

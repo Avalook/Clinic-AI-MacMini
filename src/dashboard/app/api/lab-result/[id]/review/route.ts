@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../../../lib/clinic-session";
-import { isPhysicianRole } from "../../../../../lib/roles";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
 
 const UUID_RE =
@@ -23,14 +21,9 @@ export async function POST(
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
-  const role = await vaiLamViec((r) => isPhysicianRole(r));
-  // Mirrors lab.py _REVIEW_GUARD (physicians only — signing off is a licensed act).
-  if (!isPhysicianRole(role)) {
-    return NextResponse.json(
-      { error: "Chỉ bác sĩ mới duyệt kết quả xét nghiệm." },
-      { status: 403 },
-    );
-  }
+  // Cửa quyền là việc của BACKEND (lab.py _REVIEW_GUARD = quyền
+  // result.review.approve) — proxy chỉ kiểm đăng nhập (kiểm toán 27/09/2026:
+  // cửa vai "bác sĩ" ở đây chặn người đã được cấp khối duyệt kết quả).
 
   const { id } = await params;
   let body: ReviewBody;

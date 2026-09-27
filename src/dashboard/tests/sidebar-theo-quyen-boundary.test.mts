@@ -60,7 +60,8 @@ test("màn không khai quyền thì quyền không mở bừa", () => {
 test("cửa trang cũng mở theo quyền, không chỉ thanh bên", () => {
   // Ẩn mục trong menu mà gõ thẳng URL vẫn bị đá về /home thì quyền vô dụng.
   const guard = doc("../lib/clinic-session.ts");
-  assert.match(guard, /quyenMoDuocMan\(\(await getQuyenCuaToi\(\)\) \?\? \[\], href\)/);
+  // 27/09/2026: MỘT luật cho mọi trang — `vaoDuocMan(href, vai, quyen)`.
+  assert.match(guard, /getQuyenCuaToi\(\)\]\);\s*return vaoDuocMan\(href, vai, quyen\)/);
   // Backend im → null (khác [] = biết chắc không có quyền) → thanh bên rơi về
   // luật vai, không khoá cả phòng khám.
   assert.match(guard, /return d\?\.quyen \?\? null/);

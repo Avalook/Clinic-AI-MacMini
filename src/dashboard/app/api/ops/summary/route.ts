@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { vaiLamViec } from "../../../../lib/clinic-session";
 import { buildOpsLinks, emptyOpsSummary, normalizeOpsPayload } from "../../../../lib/ops-summary";
 import { isAdminRole } from "../../../../lib/roles";
@@ -21,8 +22,16 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return json({ error: "Unauthorised" }, 401);
 
-  const role = await vaiLamViec((r) => isAdminRole(r));
-  if (!isAdminRole(role)) return json({ error: "Forbidden" }, 403);
+  // Lego 20 "Vận hành hệ thống" (27/09/2026) — trước gác vai Quản lý. Route này
+  // TỰ trả dữ liệu (đường dẫn Kuma/Dozzle trong `links`), không chỉ chuyển tiếp,
+  // nên nó tự hỏi quyền `ops.view` — cùng câu backend `/ops/status` hỏi. Máy
+  // chủ không trả lời quyền (đang sập — đúng lúc cần link theo dõi nhất) thì rơi
+  // về luật vai gốc, như cửa trang.
+  const quyen = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
+  const duocXem = quyen
+    ? quyen.quyen.includes("ops.view")
+    : isAdminRole(await vaiLamViec((r) => isAdminRole(r)));
+  if (!duocXem) return json({ error: "Forbidden" }, 403);
 
   const {
     data: { session },

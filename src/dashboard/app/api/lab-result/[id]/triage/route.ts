@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../../../lib/clinic-session";
-import { isPhysicianRole } from "../../../../../lib/roles";
 import { getSupabaseServer } from "../../../../../lib/supabase-server";
 
 const UUID_RE =
@@ -19,13 +17,8 @@ export async function POST(
     return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
   }
 
-  const role = await vaiLamViec((r) => isPhysicianRole(r));
-  if (!isPhysicianRole(role)) {
-    return NextResponse.json(
-      { error: "Chỉ bác sĩ mới phân loại kết quả xét nghiệm." },
-      { status: 403 },
-    );
-  }
+  // Cửa quyền là việc của BACKEND (lab.py _TRIAGE_GUARD = quyền ghi y khoa) —
+  // proxy chỉ kiểm đăng nhập (kiểm toán 27/09/2026).
 
   const { id } = await params;
   if (!UUID_RE.test(id)) {

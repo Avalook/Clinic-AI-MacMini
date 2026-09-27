@@ -46,6 +46,10 @@ router = APIRouter()
 # 21 lego (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai. Xếp lịch trực thuộc
 # lego 18 "Cài đặt phòng khám"; bảng giá dịch vụ là lego 16.
 _ROSTER_GUARD = cua_quyen("config.clinic.manage")
+# XEM lịch làm việc = lego 15 (quyền `roster.view`, kiểm toán 27/09/2026 — trước
+# chỉ cần đăng nhập nên thu lego chỉ mất mục trên thanh bên). Người xếp lịch
+# (lego 18) đương nhiên xem được bảng mình xếp.
+_ROSTER_READ_GUARD = cua_quyen("roster.view", "config.clinic.manage")
 _PRICE_GUARD = cua_quyen("price.service.manage")
 # Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
 # Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá).
@@ -271,10 +275,10 @@ async def ca_cua_toi(
 @router.get("/roster/lich-tuan")
 async def lich_tuan(
     tuan: date,
-    identity: StaffIdentity = Depends(get_current_identity),
+    identity: StaffIdentity = Depends(_ROSTER_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dữ liệu màn Lịch làm việc cho một tuần (mọi nhân sự xem được lịch)."""
+    """Dữ liệu màn Lịch làm việc cho một tuần — ai có lego Lịch làm việc."""
     return await RosterService(pool).lich_tuan(identity=identity, tuan=tuan)
 
 
