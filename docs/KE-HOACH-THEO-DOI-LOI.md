@@ -52,14 +52,22 @@ rớt (chỉ lộ khi tải lên) · WAL bị slot giữ · query chậm · hợ
   **Không đổi `check-phone` / `check-duplicate` sang POST**: lọc ở hai tầng log là đủ —
   Next không ghi log request, `fetch()` không vào lịch sử trình duyệt.
 - ✅ journald: `docker-compose.journald.yml`, deploy chỉ gắn khi máy chủ có
-  `/var/log/journal` (Docker Desktop không có journald). ☐ **Bước máy chủ** (sudo):
-  bật journal lưu bền + `SystemMaxUse=2G` + `RateLimitBurst` rộng — chạy riêng, có xem.
+  `/var/log/journal` (Docker Desktop không có journald). ☐ **Bước máy chủ — TUYỀN CHẠY**
+  (cần sudo): `sudo ./scripts/may-chu/bat-theo-doi-may-chu.sh` — journal lưu bền,
+  `SystemMaxUse=2G`, `RateLimitBurst=50000` (mọi container chung một "dịch vụ" trong mắt
+  journald; trần mặc định nuốt log đúng lúc bão lỗi) + lịch collector. Deploy kế tiếp
+  in `==> log container: journald`.
 - ✅ Dọn công cụ nói sai: `suc-khoe.sh` trỏ VPS mới + HTTPS (cũ in "308 ✗" cho hệ thống
   khoẻ), bỏ dòng staging (máy mới không có), nói thẳng "Kuma KHÔNG có monitor nào",
   đọc đúng thư mục sao lưu, thêm dòng `/health/su-kien`; sửa câu Sentry ở SO-LUAT 8.3 /
   GIAI-THICH-CODE / error.tsx. ☐ Monitor TLS: đi cùng lúc Tuyền dựng lại Kuma.
 - ✅ Kiểm sau deploy: `deploy-status.sha` == HEAD, container vừa tạo lại (bẫy 27/09).
-- ☐ Lịch cho collector `/ops` trên VPS (systemd timer) — cùng bước máy chủ ở trên.
+- ✅ Unit `clinicai-ops-status.{service,timer}` (mỗi phút) — cài bằng cùng script máy chủ
+  ở trên (VPS mới chưa từng có `status.json` → tab Hệ thống ở /ops trống từ 16/09).
+- ✅ Deploy tự nạp lại Caddy khi Caddyfile đổi (gắn MỘT file → `up -d` không thấy; trước
+  đây sửa Caddyfile rồi deploy "xong" mà Caddy vẫn chạy bản cũ).
+- ✅ `/health/su-kien` miễn khoá API (prod trả 401 lần đầu — test cục bộ không đặt khoá);
+  test quét mọi route `/health*` của app thật.
 - ☐ Relay thông báo: đổi monitor docker (cần mount docker.sock — KHÔNG) sang điểm đo
   HTTP đọc hàng `event_log` chưa giao.
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=ClinicAI — chụp tình trạng máy chủ cho tab Hệ thống ở /ops
+# Máy Mac có launchd (scripts/launchdaemons/com.dr4women.ops-status.plist);
+# VPS mới (16/09/2026) chưa bao giờ có lịch này → /ops không có số liệu nào
+# về container / đĩa / RAM suốt từ ngày chuyển máy (đo 27/09).
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=clinicai
+WorkingDirectory=/home/clinicai/clinicai
+ExecStart=/usr/bin/python3 /home/clinicai/clinicai/scripts/collect_ops_status.py prod
+StandardOutput=journal
+StandardError=journal
