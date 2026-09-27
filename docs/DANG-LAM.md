@@ -2,6 +2,21 @@
 
 Cập nhật: **27/09/2026** — kiểm toán + dọn hạ tầng (mục "27/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
 
+## 27/09/2026 TỐI — ĐỢT 3 ĐANG DỞ (phiên mới đọc mục này TRƯỚC)
+
+**Nhánh:** `claude/feedback-dot-3` (worktree `.claude/worktrees/multi-camera-patient-tracking-5d5157`), CHƯA merge `main`, CHƯA lên prod (prod = `a7711b7`). Kế hoạch + quyết định: `docs/KE-HOACH-DOT-3.md`; memory `quyet-dinh-dot-3-2709`.
+
+**Đã gộp vào nhánh:** gói 1 (danh mục chỉ định theo bản mẫu), 2 (tự lưu chắc chắn), 3 (phiếu khám gọn — khung v2), 4 (sinh hiệu theo buổi), 5 (đo sinh hiệu trên điện thoại), 6 (bản in chỉ in phiếu Hoàn tất + ảnh), 7b (Thoát góc phải, trang chủ theo ngày, Check-out tại chỗ), 7c (ẩn tầng, lịch trực kèm vai, sắp xếp danh sách), 9 (dịch vụ đối tác khách trả thẳng + /doi-tac ghi nhận + chip giá tạm). Cộng các sửa bấm cùng Tuyền: bỏ chữ ở quầy thu; `SoLuot` (viên `#booking|check-in`, dạng `tron` = vòng tròn check-in + ô vuông booking xanh dương); màn đo sinh hiệu làm lại (số to, tên đủ, chờ N′, xếp Check-in/Booking, bỏ 2 dòng mô tả); thẻ khách tư vấn + bác sĩ chính: số thay chữ viết tắt, tóm tắt lượt gộp vào thẻ (`TomTatLuot`).
+
+**Đang chạy / còn lại:**
+- Agent làm trang **thu ngân** theo bản mẫu `src/dashboard/public/ban-mau-tam/quay-thu.html` (3 tab Chờ thu / Đã thu hôm nay / Lịch sử gom theo khách + popup; một hoá đơn, Thu = chốt+ghi sổ một lệnh, chọn phòng kèm số chờ + vắng nhất, bản in phiếu thu, xuất CSV; KHÔNG Zalo). Thiết kế: scratchpad `thiet-ke-quay-thu-mot-hoa-don.md` (bản sao ý chính trong mẫu HTML).
+- Agent làm lại **danh sách Tiếp đón** (`reception/queue/QueueBoard.tsx`) theo `public/ban-mau-tiep-don/tiep-don.html`; GIỮ bảng "Lịch hẹn hôm nay" ở trên.
+- **Chưa làm:** hàng chờ **Bàn khám tư vấn** theo `public/ban-mau-tu-van/tu-van.html` (Tuyền duyệt; nút [Bắt đầu tư vấn] làm NHỎ, tinh tế hơn bản mẫu) — dùng chung hàng chờ với bác sĩ chính nên đổi cả hai.
+- Gói 7a (chỉ dùng lego — bảng/hàng chờ/Xem lượt/Hành trình/nút) dừng dở: worktree `.claude/worktrees/agent-a4892b811e1cd1f47` có commit `d09da258` + 17 tệp chưa commit. Gói 8 (quầy/xếp phòng/đầu dò/dọn dữ liệu/lượt treo) dừng dở: worktree `agent-ac1c2a17e2413564a` 24 tệp chưa commit (bỏ việc 5 chụp phim 0đ).
+- Xong hết: `./scripts/ci-may.sh --bao-github` (chạy tách phiên: `nohup … &`, CI trước đó bị ngắt 2 lần), PR, deploy bằng script `scratchpad/deploy_dot3.sh` (Tuyền chạy: scp + ssh, KHÔNG `bash -s <`). Migration mới: 20260928000002, …020, …031, …091, …092 (+ của 2 agent nếu có). Xoá 3 thư mục `public/ban-mau-*` trước khi PR.
+
+**Cách làm việc Tuyền chốt:** code + xem trên LOCAL trước (web chế độ dev — `scratchpad/web-dev.sh`, sửa là thấy), kiểm nhanh (tsc/lint/test phần sửa), CI đầy đủ chỉ MỘT lần trước deploy. Duyệt giao diện bằng bản mẫu HTML mở trong khung trình duyệt (widget hình không hiện bên Tuyền).
+
 ## 27/09/2026 — HIỆN TRẠNG (đọc mục này trước, nó đè mọi mô tả hạ tầng cũ bên dưới)
 
 - **Máy:** CHỈ prod trên `clinic-vps-moi` (222.255.214.133), https://dr4women.io.vn. KHÔNG staging, KHÔNG CD. `clinic-vps` (222.255.215.219) đã chết — mọi lệnh `ssh clinic-vps` bên dưới là lịch sử.
