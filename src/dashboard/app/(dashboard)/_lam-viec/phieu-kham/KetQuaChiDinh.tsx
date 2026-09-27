@@ -182,8 +182,6 @@ export default function KetQuaChiDinh({
   // Gom theo lần — lần mới nhất lên trên; chỉ định mang sang để cuối.
   const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => b - a);
   const nhieuLan = cacLan.length > 1;
-  const tong = ds.reduce((a, d) => a + (d.gia ?? 0), 0);
-  const chuaGia = ds.filter((d) => d.gia == null).length;
 
   const theChiDinh = (d: ChiDinhVaKetQua) => {
     const tt = trangThai(d);
@@ -216,7 +214,7 @@ export default function KetQuaChiDinh({
               <Button
                 type="button"
                 size="sm"
-                variant="secondary"
+                variant="soft"
                 aria-expanded={dien === d.service_order_id}
                 onClick={() => setDien(dien === d.service_order_id ? null : d.service_order_id)}
               >
@@ -333,10 +331,6 @@ export default function KetQuaChiDinh({
             </div>
           );
         })}
-        <div className="flex justify-end pt-1 text-meta text-ink-muted">
-          {ds.length} chỉ định · tạm tính&nbsp;<b className="text-ink">{tienVn(tong)}</b>
-          {chuaGia ? ` · ${chuaGia} dòng chưa có giá` : ""}
-        </div>
       </div>
     </>
   );

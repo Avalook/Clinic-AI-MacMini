@@ -84,6 +84,7 @@ cạnh. Cách chữa nằm trong cấu trúc, không phải chỉnh từng nút:
 | **secondary** | trắng | `inset ring 1px line-strong` (không dùng `border`) | ink, 500 |
 | **ghost** | trong suốt, hover `surface-sunken` | không | ink-muted |
 | **danger** | trắng | ring 1px đỏ nhạt | đỏ |
+| **soft** (27/09/2026) | `brand-50`, hover `brand-100` | ring 1px `brand-100` | `brand-700` đậm — hành động hay dùng cần nổi hơn secondary mà không giành chỗ nút chính (VD "Mở phiếu kết quả") |
 
 Cỡ: **sm 28px** (trong bảng) · **md 32px** (mặc định) · **lg 40px** (điện
 thoại, hành động chính). Đệm ngang 12/14/16. Bo `r-control`. Mỗi màn tối đa

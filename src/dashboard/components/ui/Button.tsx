@@ -14,6 +14,9 @@
  *               không bị antialiasing ăn mòn ở góc như border
  *   · ghost     không nền không viền, hover mới hiện nền
  *   · danger    trắng + ring đỏ nhạt — dành cho hành động phá huỷ
+ *   · soft      nền teal nhạt + chữ teal đậm (27/09/2026) — hành động hay
+ *               dùng cần NỔI hơn secondary nhưng không giành chỗ nút chính
+ *               của màn (VD "Mở phiếu kết quả" cạnh [Hoàn tất] primary)
  *
  * Cỡ theo thang: sm 28px (trong bảng) · md 32px (mặc định) · lg 40px (điện
  * thoại / hành động chính — 40px là cỡ ngón tay chạm tin cậy được).
@@ -24,7 +27,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "soft";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
@@ -40,6 +43,9 @@ const VARIANT: Record<ButtonVariant, string> = {
   danger:
     "bg-surface text-danger ring-1 ring-inset ring-danger/30 " +
     "hover:bg-danger-bg/40 disabled:text-ink-faint disabled:ring-line",
+  soft:
+    "bg-brand-50 font-semibold text-brand-700 ring-1 ring-inset ring-brand-100 " +
+    "hover:bg-brand-100 active:bg-brand-200 disabled:text-ink-faint",
 };
 
 const SIZE: Record<ButtonSize, string> = {
