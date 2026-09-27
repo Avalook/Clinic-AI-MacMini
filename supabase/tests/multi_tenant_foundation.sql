@@ -142,7 +142,9 @@ DECLARE
     -- 111 → 112 (27/09/2026): ghi_chu_khach (ghi chú về khách của CSKH / lễ
     --   tân, chỉ thêm — 20260927000003). loi_nhom / canh_bao (20260927000004)
     --   là bảng HỆ THỐNG, không có clinic_id nên không tính.
-    expected_tenant_tables constant integer := 112;
+    -- 112 → 113 (27/09/2026 đợt 3): doi_tac_thanh_toan (đối tác ghi nhận đã
+    -- thu tiền khách, 20260928000091).
+    expected_tenant_tables constant integer := 113;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

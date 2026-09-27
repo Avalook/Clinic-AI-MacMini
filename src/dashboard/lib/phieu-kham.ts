@@ -115,6 +115,10 @@ export interface ChiDinhVaKetQua {
   gia?: number | null;
   /** Đã thu tiền dịch vụ này (phiếu thu PAID). */
   da_thu?: boolean;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026) — phòng khám không thu. */
+  doi_tac_thu?: boolean;
+  /** Đối tác đã ghi nhận thu tiền khách (bàn đối tác). */
+  doi_tac_da_thu?: boolean;
   /** Bác sĩ đã xem kết quả lúc nào — chưa xem thì đếm "N mới". */
   da_xem_luc?: string | null;
   /** Bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
@@ -149,6 +153,9 @@ export interface MucCls {
   gia?: number | null;
   /** Mã phòng khám (KiotViet) — dòng "Dịch vụ khác trong bảng giá". */
   ma_kiotviet?: string | null;
+  /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026, máy chủ nói): giá chỉ tham
+   *  khảo, không cộng vào tổng phòng khám. */
+  doi_tac_thu?: boolean;
 }
 
 export interface NhomCls {
@@ -831,4 +838,17 @@ export function ngayHenTaiKham(homNay: string, khoang: { ngay: number; thang: nu
     Date.UTC(nam, thang - 1 + khoang.thang, Math.min(ngay, cuoiThangDich) + khoang.ngay),
   );
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Tổng tiền PHÒNG KHÁM của các mục đang chọn ở danh mục chỉ định: bỏ mục khách
+ * trả trực tiếp cho đối tác (`doi_tac_thu` — cờ máy chủ, 27/09/2026) và mục
+ * chưa có giá. Thuần.
+ */
+export function tongPhongKham(chon: readonly string[], muc: readonly MucCls[]): number {
+  const gia = new Map<string, number>();
+  for (const m of muc) {
+    if (m.service_code && !m.doi_tac_thu && typeof m.gia === "number") gia.set(m.service_code, m.gia);
+  }
+  return chon.reduce((t, c) => t + (gia.get(c) ?? 0), 0);
 }

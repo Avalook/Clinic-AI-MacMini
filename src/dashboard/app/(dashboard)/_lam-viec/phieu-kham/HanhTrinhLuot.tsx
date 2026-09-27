@@ -148,7 +148,11 @@ function BangTungDichVu({ ds, bayGio }: { ds: DichVuHanhTrinh[]; bayGio: number 
         <tbody>
           {ds.map((d, i) => {
             const p = phutDichVu(d, bayGio);
-            const tt = TRANG_THAI[d.trang_thai];
+            // Khách trả đối tác (máy chủ nói): "chờ làm" không kèm "Đã thu".
+            const tt =
+              d.doi_tac_thu_tien && d.trang_thai === "CHO_LAM"
+                ? { nhan: "Khách trả đối tác — chờ làm", tone: "info" as ChipTone }
+                : TRANG_THAI[d.trang_thai];
             const chi = [
               p.cho != null ? `chờ ${khoang(p.cho)}` : null,
               p.lam != null ? `${p.dangChay ? "đang làm" : "làm"} ${khoang(p.lam)}` : null,
@@ -162,6 +166,11 @@ function BangTungDichVu({ ds, bayGio }: { ds: DichVuHanhTrinh[]; bayGio: number 
                 <td className="px-2 py-2 text-meta text-ink-muted">{d.noi}</td>
                 <td className="px-2 py-2">
                   <Chip tone={tt.tone}>{tt.nhan}</Chip>
+                  {d.doi_tac_thu_tien ? (
+                    <span className="mt-1 block text-meta text-ink-muted">
+                      {d.doi_tac_thu_tien === "DA_THU" ? "Đối tác đã thu" : "Đối tác chưa thu"}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-2 py-2 text-meta tabular-nums text-ink-muted">
                   <p>{p.moc}</p>

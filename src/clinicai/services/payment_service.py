@@ -591,6 +591,13 @@ class PaymentService:
         if hoa_don.van_de:
             raise ValidationError("Chưa thu được — " + "; ".join(hoa_don.van_de))
         if hoa_don.tong <= 0:
+            if hoa_don.chi_doi_tac_thu:
+                # Đối tác tự thu (27/09/2026): không phải lỗi của quầy — nói
+                # đúng việc, không để lễ tân tưởng hệ thống kẹt.
+                raise ValidationError(
+                    "Phòng khám không còn khoản nào — dịch vụ còn lại khách trả"
+                    " trực tiếp cho đối tác."
+                )
             raise ValidationError("Lượt này không còn khoản dịch vụ nào phải thu.")
         if bill_revision is not None and bill_revision != hoa_don.revision:
             raise BillChangedError(

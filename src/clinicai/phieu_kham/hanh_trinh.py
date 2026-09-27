@@ -175,7 +175,9 @@ def dung_moc(
 
         lam = [o for o in chi_dinh if o["chon"]]
         if lam:
-            cho_thu = [o for o in lam if not o["da_tra"]]
+            # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): không phải khoản
+            # quầy thu — không làm mốc "Thu tiền" treo "còn chờ".
+            cho_thu = [o for o in lam if not o["da_tra"] and not o.get("doi_tac_thu")]
             thu = luc("payment.service_collected")
             bat = _dau(thu)
             ket = _cuoi(thu) if not cho_thu else None
@@ -260,7 +262,7 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
             tt = DA_XONG
         elif o.get("dang_lam", o.get("bat_dau_luc") is not None):
             tt = DANG_LAM
-        elif o["da_tra"]:
+        elif o["da_tra"] or o.get("doi_tac_thu"):
             tt = CHO_LAM
         else:
             tt = CHO_THU
@@ -275,6 +277,13 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "thu": o.get("tra_luc") if o["da_tra"] else None,
                 "bat_dau": o.get("bat_dau_luc"),
                 "xong": o.get("xong_luc") if o["xong"] else None,
+                # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): "DA_THU" /
+                # "CHUA_THU" theo sổ của khối Đối tác; None = phòng khám thu.
+                "doi_tac_thu_tien": (
+                    ("DA_THU" if o.get("doi_tac_da_thu") else "CHUA_THU")
+                    if o.get("doi_tac_thu")
+                    else None
+                ),
             }
         )
     return ra
@@ -348,6 +357,8 @@ async def doc_hanh_trinh(
             # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
             # kết quả) thì giờ làm xong.
             "xong_luc": r["ket_qua_luc"] or r["finished_at"],
+            "doi_tac_thu": bool(r["doi_tac_thu"]),
+            "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
         }
         for r in await conn.fetch(
             """
@@ -371,7 +382,17 @@ async def doc_hanh_trinh(
                      WHERE bl.clinic_id = o.clinic_id
                        AND bl.source_type = 'service_order'
                        AND bl.source_id = o.id::text
-                       AND c.status = 'PAID') AS tra_luc
+                       AND c.status = 'PAID') AS tra_luc,
+                   EXISTS (SELECT 1 FROM service_price sp
+                            WHERE sp.clinic_id = o.clinic_id
+                              AND sp.service_code = o.service_code
+                              AND sp.active AND sp."group" = 'dich_vu'
+                              AND sp.billing_owner = 'EXTERNAL_PARTNER')
+                     AS doi_tac_thu,
+                   EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt
+                            WHERE tt.clinic_id = o.clinic_id
+                              AND tt.service_order_id = o.id
+                              AND tt.huy_luc IS NULL) AS doi_tac_da_thu
               FROM service_order o
               LEFT JOIN clinic_room r ON r.id = o.room_id
               LEFT JOIN node_definition n

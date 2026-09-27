@@ -13,11 +13,14 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     DoiTacDaLayMau,
+    DoiTacDaThuTien,
+    DoiTacHuyThuTien,
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
@@ -40,6 +43,50 @@ ORIGIN = "api:luot-kham"
 
 def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
+
+
+#: Hình thức khách trả đối tác (khớp CHECK của `doi_tac_thanh_toan`).
+HINH_THUC_THU = ("CASH", "TRANSFER")
+
+#: Trần một ghi nhận — chặn gõ thừa số 0 (100.000.000 đồng / một việc).
+SO_TIEN_TOI_DA = 100_000_000
+
+
+def doc_so_tien(value: Any) -> int | None:
+    """Số tiền đối tác ghi nhận đã thu. Rác / âm / quá trần → None, không ném.
+
+    Nhận số nguyên, chuỗi có dấu chấm / phẩy / khoảng trắng / "đ" ("900.000đ").
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        so = value
+    elif isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            return None
+        if value != int(value):
+            return None
+        so = int(value)
+    elif isinstance(value, str):
+        chu = value.strip().lower().replace("đ", "").replace("vnd", "")
+        for k in (".", ",", " ", "\u00a0", "_"):
+            chu = chu.replace(k, "")
+        if not chu.isdigit():
+            return None
+        so = int(chu)
+    else:
+        return None
+    if so < 0 or so > SO_TIEN_TOI_DA:
+        return None
+    return so
+
+
+def doc_hinh_thuc(value: Any) -> str | None:
+    """CASH / TRANSFER (không phân biệt hoa thường). Rác → None."""
+    if not isinstance(value, str):
+        return None
+    v = value.strip().upper()
+    return v if v in HINH_THUC_THU else None
 
 
 def trang_thai_doi_tac(
@@ -119,7 +166,14 @@ class DoiTacService:
                    v.appointment_id::text AS appointment_id,
                    o.created_at, o.finished_at, o.ket_qua_luc,
                    o.doi_tac_cho_tai_lieu_luc,
-                   nv.ghi_chu_lay_mau, nv.ghi_chu_tai_lieu
+                   nv.ghi_chu_lay_mau, nv.ghi_chu_tai_lieu,
+                   -- Đối tác tự thu (27/09/2026): giá tham khảo + đã ghi nhận chưa.
+                   sp.unit_price AS gia_tham_khao,
+                   coalesce(sp.billing_owner = 'EXTERNAL_PARTNER', false)
+                     AS doi_tac_thu,
+                   tt.id::text AS thu_id, tt.so_tien AS thu_so_tien,
+                   tt.hinh_thuc AS thu_hinh_thuc, tt.ghi_chu AS thu_ghi_chu,
+                   tt.ghi_luc AS thu_luc
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p
@@ -131,10 +185,14 @@ class DoiTacService:
               JOIN doi_tac_nhan_viec nv
                 ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
               LEFT JOIN LATERAL (
-                   SELECT s.name, s.doi_tac_lay_mau FROM service_price s
+                   SELECT s.name, s.doi_tac_lay_mau, s.unit_price, s.billing_owner
+                     FROM service_price s
                     WHERE s.clinic_id = o.clinic_id
                       AND s.service_code = o.service_code AND s.active
                     ORDER BY (s."group" = 'dich_vu') DESC LIMIT 1) sp ON true
+              LEFT JOIN doi_tac_thanh_toan tt
+                ON tt.clinic_id = o.clinic_id AND tt.service_order_id = o.id
+               AND tt.huy_luc IS NULL
              WHERE o.clinic_id = $1::uuid
                -- Đã gửi kết quả HÔM NAY vẫn ở lại bàn (mục "Đã gửi") để đối
                -- tác thấy mình vừa gửi gì và gửi thêm tài liệu nếu còn thiếu.
@@ -183,6 +241,24 @@ class DoiTacService:
                     "ket_qua_luc": _iso(r["ket_qua_luc"]),
                     "ghi_chu_lay_mau": r["ghi_chu_lay_mau"],
                     "ghi_chu_tai_lieu": r["ghi_chu_tai_lieu"],
+                    # Khách trả TRỰC TIẾP cho đối tác (Q1, 27/09/2026).
+                    "doi_tac_thu": bool(r["doi_tac_thu"]),
+                    "gia_tham_khao": (
+                        int(r["gia_tham_khao"])
+                        if r["gia_tham_khao"] is not None
+                        else None
+                    ),
+                    "da_thu": (
+                        {
+                            "id": r["thu_id"],
+                            "so_tien": int(r["thu_so_tien"]),
+                            "hinh_thuc": r["thu_hinh_thuc"],
+                            "ghi_chu": r["thu_ghi_chu"],
+                            "luc": _iso(r["thu_luc"]),
+                        }
+                        if r["thu_id"]
+                        else None
+                    ),
                 }
             )
         con_viec = sum(1 for r in rows if r["ket_qua_luc"] is None)
@@ -352,3 +428,159 @@ class DoiTacService:
                 payload={"visit_id": vid, "order_id": oid, "doi_tac_lay_mau": True},
             )
         return {"ok": True, "order_id": oid}
+
+    # ------------------------------------------------------------------
+    # ĐỐI TÁC TỰ THU (Tuyền chốt 27/09/2026, Q1): "khách trả trực tiếp cho đối
+    # tác, màn đối tác cũng phải có ghi nhận thanh toán thực hiện". Sổ của khối
+    # Đối tác — KHÔNG phải tiền phòng khám (không vào két, không vào phiếu thu).
+
+    async def ghi_nhan_da_thu(
+        self,
+        *,
+        order_id: str,
+        identity: StaffIdentity,
+        so_tien: Any,
+        hinh_thuc: Any,
+        ghi_chu: str | None = None,
+    ) -> dict[str, Any]:
+        """Đối tác bấm "Đã thu tiền khách" cho một việc đã nhận.
+
+        Một việc — một ghi nhận còn hiệu lực (unique ở Postgres). Bấm lại cùng số
+        tiền + hình thức = trả lại bản cũ (chạy lại được); khác số = phải huỷ bản
+        cũ (có lý do) rồi ghi lại.
+        """
+        await self._doi_quyen_doi_tac(identity, "Chỉ đối tác bấm được việc này.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã việc không hợp lệ.")
+        tien = doc_so_tien(so_tien)
+        if tien is None:
+            raise ValidationError("Số tiền không hợp lệ (số nguyên ≥ 0, đơn vị đồng).")
+        ht = doc_hinh_thuc(hinh_thuc)
+        if ht is None:
+            raise ValidationError("Hình thức phải là Tiền mặt hoặc Chuyển khoản.")
+        ghi = (ghi_chu or "").strip() or None
+        if ghi is not None and len(ghi) > 2000:
+            raise LuotKhamConflictError(
+                "NOTE_TOO_LONG", "Ghi chú quá dài (tối đa 2.000 ký tự)."
+            )
+        async with self._pool.acquire() as conn, conn.transaction():
+            o = await conn.fetchrow(
+                """
+                SELECT o.visit_id::text AS visit_id
+                  FROM service_order o
+                  JOIN doi_tac_nhan_viec nv
+                    ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
+                  JOIN service_price sp
+                    ON sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+                   AND sp.active AND sp."group" = 'dich_vu'
+                   AND sp.billing_owner = 'EXTERNAL_PARTNER'
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                   AND o.exec_status <> 'cancelled'
+                 LIMIT 1
+                 FOR UPDATE OF o
+                """,
+                cid,
+                oid,
+            )
+            if o is None:
+                # Một câu cho "không có" lẫn "không phải việc khách trả đối tác".
+                raise SafetyGateError(
+                    "Không tìm thấy việc này trong danh sách của bạn."
+                )
+            cu = await conn.fetchrow(
+                "SELECT id::text AS id, so_tien, hinh_thuc FROM doi_tac_thanh_toan"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND huy_luc IS NULL",
+                cid,
+                oid,
+            )
+            if cu is not None:
+                if int(cu["so_tien"]) == tien and cu["hinh_thuc"] == ht:
+                    return {"ok": True, "already": True, "id": cu["id"]}
+                raise LuotKhamConflictError(
+                    "PARTNER_PAYMENT_EXISTS",
+                    "Việc này đã ghi nhận đã thu — huỷ ghi nhận cũ (kèm lý do)"
+                    " rồi ghi lại.",
+                )
+            moi = await conn.fetchval(
+                """
+                INSERT INTO doi_tac_thanh_toan
+                    (clinic_id, service_order_id, so_tien, hinh_thuc, ghi_chu,
+                     ghi_boi)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)
+                RETURNING id::text
+                """,
+                cid,
+                oid,
+                tien,
+                ht,
+                ghi,
+                identity.staff_id,
+            )
+            await emit_event(
+                conn,
+                ten="partner.payment_recorded",
+                clinic_id=cid,
+                aggregate_id=oid,
+                so_ke_tiep=True,
+                payload=DoiTacDaThuTien(
+                    visit_id=o["visit_id"],
+                    service_order_id=oid,
+                    so_tien=tien,
+                    hinh_thuc=ht,
+                ),
+                boi=nguoi(identity),
+                correlation_id=o["visit_id"],
+            )
+        return {"ok": True, "already": False, "id": moi}
+
+    async def huy_da_thu(
+        self, *, order_id: str, identity: StaffIdentity, ly_do: Any
+    ) -> dict[str, Any]:
+        """Huỷ ghi nhận "đã thu" đang hiệu lực (ghi nhầm / sửa số) — bắt buộc lý
+        do. Không xoá: dòng cũ giữ lại kèm ai huỷ, lúc nào, vì sao."""
+        await self._doi_quyen_doi_tac(identity, "Chỉ đối tác bấm được việc này.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã việc không hợp lệ.")
+        ly = ly_do.strip() if isinstance(ly_do, str) else ""
+        if not 3 <= len(ly) <= 2000:
+            raise ValidationError("Ghi lý do huỷ (3–2.000 ký tự).")
+        async with self._pool.acquire() as conn, conn.transaction():
+            cu = await conn.fetchrow(
+                """
+                SELECT t.id::text AS id, t.so_tien, o.visit_id::text AS visit_id
+                  FROM doi_tac_thanh_toan t
+                  JOIN service_order o
+                    ON o.clinic_id = t.clinic_id AND o.id = t.service_order_id
+                 WHERE t.clinic_id = $1::uuid AND t.service_order_id = $2::uuid
+                   AND t.huy_luc IS NULL
+                   FOR UPDATE OF t
+                """,
+                cid,
+                oid,
+            )
+            if cu is None:
+                return {"ok": True, "already": True}
+            await conn.execute(
+                "UPDATE doi_tac_thanh_toan SET huy_luc = now(), huy_boi = $3::uuid,"
+                " ly_do_huy = $4 WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                cu["id"],
+                identity.staff_id,
+                ly,
+            )
+            await emit_event(
+                conn,
+                ten="partner.payment_voided",
+                clinic_id=cid,
+                aggregate_id=oid,
+                so_ke_tiep=True,
+                payload=DoiTacHuyThuTien(
+                    visit_id=cu["visit_id"],
+                    service_order_id=oid,
+                    so_tien=int(cu["so_tien"]),
+                ),
+                boi=nguoi(identity),
+                correlation_id=cu["visit_id"],
+            )
+        return {"ok": True, "already": False}

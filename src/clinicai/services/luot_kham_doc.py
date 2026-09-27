@@ -159,7 +159,19 @@ class BangLuotKham:
                                     WHERE f.clinic_id = o.clinic_id
                                       AND f.service_order_id = o.id
                                       AND f.trang_thai = 'READY') AS co_phieu,
-                           o.da_xem_ket_qua_luc
+                           o.da_xem_ket_qua_luc,
+                           -- Khách trả TRỰC TIẾP cho đối tác (27/09/2026): đối
+                           -- tác đã ghi nhận thu chưa — sổ của khối Đối tác.
+                           EXISTS (SELECT 1 FROM service_price sp
+                                    WHERE sp.clinic_id = o.clinic_id
+                                      AND sp.service_code = o.service_code
+                                      AND sp.active AND sp."group" = 'dich_vu'
+                                      AND sp.billing_owner = 'EXTERNAL_PARTNER')
+                             AS doi_tac_thu,
+                           (SELECT tt.so_tien FROM doi_tac_thanh_toan tt
+                             WHERE tt.clinic_id = o.clinic_id
+                               AND tt.service_order_id = o.id
+                               AND tt.huy_luc IS NULL) AS doi_tac_da_thu_so_tien
                       FROM service_order o
                       LEFT JOIN node_definition nd
                         ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
@@ -414,6 +426,22 @@ class BangLuotKham:
                     # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
                     # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".
                     "doi_tac": o["doi_tac"],
+                    # "Đối tác đã thu / chưa thu" (27/09/2026). None = không
+                    # phải việc khách trả đối tác.
+                    "doi_tac_thu_tien": (
+                        (
+                            "DA_THU"
+                            if o.get("doi_tac_da_thu_so_tien") is not None
+                            else "CHUA_THU"
+                        )
+                        if o.get("doi_tac_thu")
+                        else None
+                    ),
+                    "doi_tac_da_thu_so_tien": (
+                        int(o["doi_tac_da_thu_so_tien"])
+                        if o.get("doi_tac_da_thu_so_tien") is not None
+                        else None
+                    ),
                     "trang_thai_doi_tac": (
                         trang_thai_doi_tac(
                             exec_status=o["exec_status"],

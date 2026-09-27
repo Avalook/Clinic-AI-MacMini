@@ -35,6 +35,7 @@ nhìn thấy gì mà vẫn quyết định đóng.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -198,13 +199,14 @@ class CheckoutService:
     ) -> dict[str, Any]:
         """Lượt khám này đóng được chưa, và còn vướng gì."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
+            raw = await conn.fetchrow(
                 _READINESS_SQL, identity.clinic_id, CLOSE_NODE, visit_id
             )
-        if row is None:
-            raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+            if raw is None:
+                raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+            [row] = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, [raw])
 
-        blockers = build_blockers(dict(row))
+        blockers = build_blockers(row)
         return {
             "visit_id": str(row["visit_id"]),
             "patient_name": row["patient_name"],
@@ -244,11 +246,12 @@ class CheckoutService:
                 CLOSE_NODE,
                 _vn_day_start(),
             )
+            rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 
         canh_bao_neu_day("thu_ngan.cho_dong_luot", len(rows), 300)
         out: list[dict[str, Any]] = []
         for r in rows:
-            blockers = build_blockers(dict(r))
+            blockers = build_blockers(r)
             out.append(
                 {
                     "visit_id": str(r["visit_id"]),
@@ -287,11 +290,12 @@ class CheckoutService:
         check-in, nên hiện "Thanh toán — Lễ tân 15:36" như thể đã làm.
         """
         async with self._pool.acquire() as conn:
-            chung = await conn.fetchrow(
+            chung_raw = await conn.fetchrow(
                 _READINESS_SQL, identity.clinic_id, CLOSE_NODE, visit_id
             )
-            if chung is None:
+            if chung_raw is None:
                 return {"ok": False, "visit_id": visit_id}
+            [chung] = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, [chung_raw])
 
             # LUỒNG MỚI (lượt có phiên khám) đọc bước từ chính dữ liệu luồng mới:
             # check-in → đo sinh hiệu → các phiên khám → từng chỉ định. Bản cũ
@@ -365,7 +369,7 @@ class CheckoutService:
                 visit_id,
             )
 
-        blockers = build_blockers(dict(chung))
+        blockers = build_blockers(chung)
         return {
             "ok": True,
             "visit_id": str(chung["visit_id"]),
@@ -472,6 +476,7 @@ class CheckoutService:
                 CLOSE_NODE,
                 _vn_day_start(),
             )
+            rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 
         return [
             {
@@ -482,7 +487,7 @@ class CheckoutService:
                 "checked_in_at": (
                     r["checked_in_at"].isoformat() if r["checked_in_at"] else None
                 ),
-                "blockers": build_blockers(dict(r)),
+                "blockers": build_blockers(r),
             }
             for r in rows
         ]
@@ -794,6 +799,26 @@ def _vn_day_start() -> datetime:
 # ── Luật thuần ─────────────────────────────────────────────────────────────
 
 
+async def _gan_doi_tac_tu_thu(
+    conn: asyncpg.Connection, clinic_id: str, rows: Sequence[Any]
+) -> list[dict[str, Any]]:
+    """Gắn cờ ``doi_tac_tu_thu`` cho lượt CHƯA có phiếu thu dịch vụ: không còn
+    khoản phòng khám nào phải thu, chỉ có dịch vụ khách trả trực tiếp cho đối
+    tác (``bill_service.chi_doi_tac_thu_luot``). Đã có phiếu thu thì khỏi hỏi."""
+    from clinicai.services.bill_service import chi_doi_tac_thu_luot
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        d = dict(r)
+        d["doi_tac_tu_thu"] = False
+        if not d.get("paid_service") and d.get("visit_id") is not None:
+            d["doi_tac_tu_thu"] = await chi_doi_tac_thu_luot(
+                conn, clinic_id=clinic_id, visit_id=str(d["visit_id"])
+            )
+        out.append(d)
+    return out
+
+
 def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
     """Những gì còn vướng, thành câu đọc được.
 
@@ -829,7 +854,9 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
                 "message": "Bác sĩ chưa khám hoặc chưa đọc kết quả xong",
             }
         )
-    if not row.get("paid_service"):
+    # Đối tác tự thu (27/09/2026): lượt không có khoản nào phòng khám phải thu,
+    # chỉ còn dịch vụ khách trả trực tiếp cho đối tác → không đòi phiếu thu.
+    if not row.get("paid_service") and not row.get("doi_tac_tu_thu"):
         out.append({"type": "unpaid_service", "message": "Chưa thu tiền dịch vụ khám"})
     # Chỉ đòi thu tiền thuốc KHI CÓ ĐƠN. Đòi ở mọi lượt sẽ chặn mọi bệnh nhân
     # không được kê thuốc — tức là phần lớn.

@@ -438,9 +438,11 @@ async def test_5_tai_chinh_chua_san_sang_giu_ly_do_chi_tiet(rb: RB) -> None:
     await rb.pool.execute(
         "UPDATE service_order SET service_code = $2 WHERE id = $1::uuid", dt, ma_dt
     )
-    e = await _loi(_assign(rb, dt, rb.sa1, 0), "SERVICE_FINANCE_NOT_READY")
-    assert e.finance_reason == "SERVICE_EXTERNAL_PAYMENT_UNRESOLVED"
-    for oid in (due, cho, dt):
+    # Đối tác tự thu (Tuyền chốt 27/09/2026): khách trả thẳng đối tác → phòng
+    # khám không chờ tiền, xếp phòng (lấy mẫu) được ngay.
+    await _assign(rb, dt, rb.sa1, 0)
+    assert [h["room_id"] for h in await _hang(rb, dt)] == [rb.sa1]
+    for oid in (due, cho):
         assert await _hang(rb, oid) == []
         assert (await _o(rb, oid))["routing_revision"] == 0
 

@@ -87,6 +87,13 @@ function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
   if (d.da_thu) {
     return d.doi_tac ? { nhan: NHAN_DOI_TAC[d.doi_tac], tone: "info" } : { nhan: "Đã thu — chờ làm", tone: "info" };
   }
+  // Khách trả TRỰC TIẾP cho đối tác (27/09/2026, cờ máy chủ): không có gì để
+  // quầy thu — nói đúng thay vì "Chờ thu tiền".
+  if (d.doi_tac_thu) {
+    return d.doi_tac_da_thu
+      ? { nhan: "Đối tác đã thu", tone: "info" }
+      : { nhan: "Khách trả đối tác", tone: "info" };
+  }
   return { nhan: "Chờ thu tiền", tone: "warning" };
 }
 

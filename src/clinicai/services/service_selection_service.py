@@ -286,6 +286,12 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        EXISTS (SELECT 1 FROM node_definition n
                 WHERE n.clinic_id = o.clinic_id AND n.code = o.node_code
                   AND n.lam_ben_ngoai) AS doi_tac,
+       -- Khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026): quầy hiện giá
+       -- tham khảo, không cộng vào tổng phòng khám.
+       EXISTS (SELECT 1 FROM service_price pr
+                WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+                  AND pr.active AND pr."group" = 'dich_vu'
+                  AND pr.billing_owner = 'EXTERNAL_PARTNER') AS doi_tac_thu,
        (SELECT min(pr.unit_price) FROM service_price pr
          WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
            AND pr.active AND pr."group" = 'dich_vu') AS gia,
@@ -375,6 +381,7 @@ async def cho_khach_quyet(
         luot = out.setdefault(
             r["visit_id"], {"revision": int(r["revision"]), "chi_dinh": []}
         )
+        phong = await phong_chon_duoc(r["node_code"], r["visit_id"])
         luot["chi_dinh"].append(
             {
                 "id": r["id"],
@@ -385,7 +392,13 @@ async def cho_khach_quyet(
                 "bat_buoc": bool(r["bat_buoc"]),
                 "phong_du_kien_id": r["phong_du_kien_id"],
                 "doi_tac": bool(r["doi_tac"]),
-                "phong_chon_duoc": await phong_chon_duoc(r["node_code"], r["visit_id"]),
+                "doi_tac_thu": bool(r["doi_tac_thu"]),
+                # Dịch vụ đối tác (27/09/2026): vẫn chọn phòng LẤY MẪU của phòng
+                # khám nếu có (Lấy mẫu, Phòng thủ thuật); phòng đối tác không nằm
+                # trong tập (eligible_rooms bỏ `la_doi_tac`) → chụp phim ngoài
+                # không có ô chọn phòng. Máy chủ quyết, màn chỉ đọc danh sách.
+                "phong_chon_duoc": phong,
+                "can_xep_phong": bool(phong),
             }
         )
     return out

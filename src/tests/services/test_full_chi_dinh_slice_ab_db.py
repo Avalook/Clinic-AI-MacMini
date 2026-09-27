@@ -1006,8 +1006,11 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
     ]
     async with kban.pool.acquire() as conn:
         g = await finance_gate.states_for_orders(conn, CLINIC, [ma_doi_tac])
-    assert g[ma_doi_tac].finance_state == "EXTERNAL_PAYMENT_UNRESOLVED"
-    assert not g[ma_doi_tac].financially_ready
+    # Đối tác tự thu (27/09/2026): khách trả thẳng đối tác → sẵn sàng; quầy
+    # vẫn HIỆN dòng ấy (giá tham khảo) nhưng không cộng.
+    assert g[ma_doi_tac].finance_state == "PARTNER_COLLECTS"
+    assert g[ma_doi_tac].financially_ready
+    assert [d.source_id for d in hd.dong_doi_tac] == [ma_doi_tac]
 
     dong_clinic = [d for d in hd.dong if d.ben_thu == BO_CLINIC]
     tong_clinic_tinh_tay = sum(

@@ -33,6 +33,7 @@ import {
   tachDanhMucKhac,
   tienVn,
   type ChiDinhVaKetQua,
+  tongPhongKham,
   type MucCls,
   type NhomCls,
 } from "@/lib/phieu-kham";
@@ -79,8 +80,8 @@ export default function DanhMucChiDinh({
   const coTruoc = daChiDinh.length > 0;
   const hienDanhMuc = !coTruoc || moThem || chon.length > 0;
 
-  const giaCua = new Map(moiMuc.flatMap((m) => (m.service_code ? [[m.service_code, m.gia]] : [])));
-  const tong = chon.reduce((t, c) => t + (giaCua.get(c) ?? 0), 0);
+  // Chỉ cộng phần PHÒNG KHÁM thu — mục khách trả đối tác (cờ máy chủ) không cộng.
+  const tong = tongPhongKham(chon, moiMuc);
   const chonTrongKhac = khac.filter((m) => m.service_code && chon.includes(m.service_code)).length;
 
   const bat = (ma: string, co: boolean) => {
@@ -142,6 +143,10 @@ export default function DanhMucChiDinh({
               <span className="text-ink-faint">chưa có trong danh mục</span>
             ) : m.gia == null ? (
               <span className="text-ink-faint">chưa có giá</span>
+            ) : m.doi_tac_thu ? (
+              <span className="tabular-nums" title="Khách trả trực tiếp cho đối tác — không cộng vào tổng">
+                {tienVn(m.gia)} · trả đối tác
+              </span>
             ) : (
               <span className="tabular-nums">{tienVn(m.gia)}</span>
             )}

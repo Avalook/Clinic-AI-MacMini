@@ -1228,7 +1228,7 @@ class PriceListService:
             rows = await conn.fetch(
                 """
                 SELECT id, service_code, name, "group", unit_price, active,
-                       ma_kiotviet, node_code
+                       ma_kiotviet, node_code, gia_tam, billing_owner
                   FROM service_price
                  WHERE clinic_id = $1::uuid AND "group" = $2
                  ORDER BY coalesce(ma_kiotviet, service_code)
@@ -1300,13 +1300,14 @@ class PriceListService:
         price = parse_price(unit_price)
         async with self._pool.acquire() as conn, conn.transaction():
             node = await self._phong_hop_le(conn, identity.clinic_id, node_code)
+            ben_thu = await self._ben_thu_theo_phong(conn, identity.clinic_id, node)
             try:
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO service_price
                         (clinic_id, service_code, name, "group", unit_price,
-                         ma_kiotviet, node_code)
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7)
+                         ma_kiotviet, node_code, billing_owner)
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -1316,6 +1317,7 @@ class PriceListService:
                     price,
                     ma_kv,
                     node,
+                    ben_thu,
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(
@@ -1326,6 +1328,22 @@ class PriceListService:
                     conn, identity.clinic_id, label, price
                 )
         return str(row_id)
+
+    @staticmethod
+    async def _ben_thu_theo_phong(
+        conn: asyncpg.Connection, clinic_id: str, node: str | None
+    ) -> str:
+        """EXTERNAL_PARTNER khi phòng làm là bước làm bên ngoài, còn lại CLINIC
+        (cùng luật migration 20260928000091)."""
+        if not node:
+            return "CLINIC"
+        ngoai = await conn.fetchval(
+            "SELECT lam_ben_ngoai FROM node_definition"
+            " WHERE clinic_id = $1::uuid AND code = $2",
+            clinic_id,
+            node,
+        )
+        return "EXTERNAL_PARTNER" if ngoai else "CLINIC"
 
     async def update(
         self,
@@ -1345,6 +1363,9 @@ class PriceListService:
             patch["name"] = name.strip()
         if unit_price_provided:
             patch["unit_price"] = parse_price(unit_price)
+            # GIÁ TẠM (Q2, 27/09/2026): quản lý sửa / lưu lại đơn giá = đã xác
+            # nhận → bỏ chip "Giá tạm — cần xác nhận".
+            patch["gia_tam"] = False
         if active is not None:
             patch["active"] = active
         if ma_kiotviet_provided:
@@ -1357,6 +1378,11 @@ class PriceListService:
             if node_code is not None:
                 patch["node_code"] = await self._phong_hop_le(
                     conn, identity.clinic_id, node_code
+                )
+                # Bên thu theo PHÒNG LÀM (Q1, 27/09/2026): phòng làm bên ngoài
+                # (`lam_ben_ngoai`) = khách trả trực tiếp cho đối tác.
+                patch["billing_owner"] = await self._ben_thu_theo_phong(
+                    conn, identity.clinic_id, patch["node_code"]
                 )
             columns = list(patch)
             assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))

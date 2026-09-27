@@ -61,8 +61,9 @@ CHUONG = "chuong_thong_bao"
 #: khép lượt khi không còn gì phải chờ (phát `visit.exam_completed`).
 VONG_DOC = "vong_doc_luot_kham"
 #: Khối ĐỐI TÁC nhận việc (Tuyền 24/09/2026: "bác sĩ chỉ định sinh event đối tác
-#: nhận chưa"): nghe "đã thu tiền dịch vụ" (đối tác tự lấy mẫu) và "dịch vụ đã
-#: làm xong" (mẫu điều dưỡng lấy) → việc sang bàn đối tác + réo chuông đối tác.
+#: nhận chưa"): nghe "khách chốt làm" / "đã thu tiền dịch vụ" (đối tác tự lấy
+#: mẫu) và "dịch vụ đã làm xong" (mẫu điều dưỡng lấy) → việc sang bàn đối tác +
+#: réo chuông đối tác.
 DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
 
 
@@ -316,13 +317,34 @@ class DoiTacDaLayMau(PayloadSuKien):
 class DoiTacNhanViec(PayloadSuKien):
     """`partner.order_received` — một chỉ định làm bên ngoài vừa sang bàn đối tác.
 
-    `ly_do`: DA_THU_TIEN (đối tác tự lấy mẫu, khách đã trả) · DA_LAY_MAU (điều
-    dưỡng lấy mẫu xong ở phòng)."""
+    `ly_do`: DA_THU_TIEN (đối tác tự lấy mẫu, khách đã trả phòng khám) ·
+    KHACH_DA_CHON (đối tác tự lấy mẫu VÀ tự thu tiền — khách vừa chốt làm ở
+    quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng)."""
 
     visit_id: str
     service_order_id: str
     service_name: str | None = None
     ly_do: str
+
+
+class DoiTacDaThuTien(PayloadSuKien):
+    """`partner.payment_recorded` — đối tác ghi nhận ĐÃ THU tiền khách cho một
+    việc (Tuyền 27/09/2026, Q1: khách trả trực tiếp cho đối tác). Không phải
+    tiền phòng khám."""
+
+    visit_id: str
+    service_order_id: str
+    so_tien: int
+    hinh_thuc: str
+
+
+class DoiTacHuyThuTien(PayloadSuKien):
+    """`partner.payment_voided` — đối tác huỷ một ghi nhận đã thu (ghi nhầm /
+    sửa số). Lý do nằm ở bảng `doi_tac_thanh_toan`, không vào sổ sự kiện."""
+
+    visit_id: str
+    service_order_id: str
+    so_tien: int
 
 
 class CskhDaLienHe(PayloadSuKien):
@@ -783,8 +805,10 @@ DANH_MUC: dict[str, SuKien] = {
             payload=KhachDaChonDichVu,
             nhan="Khách chốt làm / không làm chỉ định",
             # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
-            # thái hiện tại (chạy lại bao lần cũng ra một kết quả).
-            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+            # thái hiện tại (chạy lại bao lần cũng ra một kết quả). Khối Đối tác
+            # nghe để nhận việc đối tác TỰ THU (27/09/2026): khách chốt làm là
+            # đủ, không chờ phòng khám thu tiền.
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC],
         ),
         SuKien(
             ten="service.completed",
@@ -1034,6 +1058,27 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Đối tác đã nhận việc",
             consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
             is_public=True,
+        ),
+        SuKien(
+            ten="partner.payment_recorded",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacDaThuTien,
+            nhan="Đối tác đã thu tiền khách",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
+            is_public=False,
+        ),
+        SuKien(
+            ten="partner.payment_voided",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacHuyThuTien,
+            nhan="Đối tác huỷ ghi nhận đã thu",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
         ),
         SuKien(
             ten="partner.sample_collected",

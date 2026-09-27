@@ -323,6 +323,10 @@ class PriceRow(BaseModel):
     active: bool
     ma_kiotviet: str | None = None
     node_code: str | None = None
+    #: Giá giả định chờ xác nhận (Q2, 27/09/2026) — sửa đơn giá là bỏ cờ.
+    gia_tam: bool = False
+    #: CLINIC | EXTERNAL_PARTNER (khách trả trực tiếp đối tác — theo phòng làm).
+    billing_owner: str = "CLINIC"
 
 
 @router.get("/service-prices/phong-lam")
