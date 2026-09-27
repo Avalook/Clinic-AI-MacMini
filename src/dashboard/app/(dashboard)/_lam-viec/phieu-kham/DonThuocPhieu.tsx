@@ -47,6 +47,31 @@ const NHAN = "block text-meta text-ink-muted";
 
 const bo = (x: string) => x.trim().toLowerCase();
 
+/**
+ * Tên thuốc GÕ TỰ DO: chỉ báo lên khi rời ô / Enter. Máy chủ tạo mục kho "chờ
+ * duyệt" cho mỗi tên lạ (một kho thuốc, 24/09) — báo từng nhịp gõ thì mỗi lần
+ * ngừng tay 1,5 giây đẻ một mục kho rác ("Vita", "Vitam"…).
+ */
+function OTenTuDo({ ten, disabled, onChot }: { ten: string; disabled: boolean; onChot: (v: string) => void }) {
+  const [chu, setChu] = useState(ten);
+  const chot = () => {
+    if (chu.trim() !== ten.trim()) onChot(chu);
+  };
+  return (
+    <input
+      value={chu}
+      disabled={disabled}
+      placeholder="Tên thuốc"
+      onChange={(e) => setChu(e.target.value)}
+      onBlur={chot}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") chot();
+      }}
+      className={INPUT}
+    />
+  );
+}
+
 export default function DonThuocPhieu({
   dong,
   mauThuoc,
@@ -160,6 +185,10 @@ export default function DonThuocPhieu({
         <ol className="space-y-2">
           {dong.map((d, i) => {
             const coKho = !!d.drug_catalog_id;
+            // Tên KHOÁ chỉ khi là thuốc kho thật (có giá / ĐVT). Tên gõ tự do đã
+            // lưu thì máy chủ gắn mục kho "chờ duyệt" (không giá) — vẫn sửa được.
+            // Quầy thu (không cho thuốc ngoài danh mục) thì tên kho luôn khoá.
+            const khoaTen = coKho && (!ngoaiDanhMuc || d.don_gia != null || !!d.dvt_kho);
             // ĐVT là CHỮ khi kho có ĐVT và dòng đang dùng đúng ĐVT ấy; đơn cũ
             // ghi ĐVT khác thì vẫn cho sửa (để bác sĩ chữa cho khớp kho).
             const dvtChu = !!d.dvt_kho && (!d.don_vi.trim() || bo(d.don_vi) === bo(d.dvt_kho));
@@ -195,7 +224,7 @@ export default function DonThuocPhieu({
                   ) : null}
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-                  {coKho ? (
+                  {khoaTen ? (
                     // Thuốc kho: tên là của kho, không gõ lại (đổi thuốc = bỏ
                     // dòng, chọn thuốc khác).
                     <div className={`${NHAN} sm:col-span-4`}>
@@ -203,7 +232,24 @@ export default function DonThuocPhieu({
                       <p className={`${O_CHU} font-medium`}>{d.ten_thuoc}</p>
                     </div>
                   ) : (
-                    oNhap(i, d, "ten_thuoc", "Thuốc", "sm:col-span-4")
+                    <label className={`${NHAN} sm:col-span-4`}>
+                      Thuốc
+                      <OTenTuDo
+                        key={d.ten_thuoc}
+                        ten={d.ten_thuoc}
+                        disabled={chiDoc}
+                        // Đổi tên = bỏ mã kho cũ để máy chủ ghép lại theo tên mới.
+                        onChot={(v) =>
+                          onDoi?.(
+                            dong.map((x, j) =>
+                              j === i
+                                ? { ...x, ten_thuoc: v, drug_catalog_id: null, don_gia: null, dvt_kho: null }
+                                : x,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
                   )}
                   {oNhap(i, d, "duong_dung", "Đường dùng", "sm:col-span-2")}
                   {oNhap(i, d, "so_luong", "Số lượng", "sm:col-span-2")}
