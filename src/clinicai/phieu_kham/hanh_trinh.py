@@ -237,6 +237,49 @@ def dung_moc(
     return moc
 
 
+#: Trạng thái MỘT trục của từng chỉ định — cùng trục chip khối 2 của phiếu khám
+#: (Chờ thu → Đã thu, chờ làm → Đang làm → Xong); khách bỏ ở quầy thì ra khỏi trục.
+BO, CHO_THU, CHO_LAM, DANG_LAM, DA_XONG = "BO", "CHO_THU", "CHO_LAM", "DANG_LAM", "XONG"
+
+
+def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bảng "Từng dịch vụ" dưới dải mốc (27/09/2026, bản giao diện mẫu).
+
+    Mỗi chỉ định một dòng: gửi → thu → bắt đầu → xong, theo đúng thứ tự gửi.
+    CHỈ trả thời điểm; số phút chờ / làm do giao diện tính theo đồng hồ (dòng
+    đang chạy phải nhích theo phút, như nhãn trên dải mốc).
+
+    `chi_dinh`: như `dung_moc`, thêm {id, ten, tra_luc, bat_dau_luc, xong_luc,
+    dang_lam}. `dang_lam` thiếu thì suy từ `bat_dau_luc`.
+    """
+    ra: list[dict[str, Any]] = []
+    for o in sorted(chi_dinh, key=lambda x: x["tao_luc"]):
+        if not o["chon"]:
+            tt = BO
+        elif o["xong"]:
+            tt = DA_XONG
+        elif o.get("dang_lam", o.get("bat_dau_luc") is not None):
+            tt = DANG_LAM
+        elif o["da_tra"]:
+            tt = CHO_LAM
+        else:
+            tt = CHO_THU
+        ra.append(
+            {
+                "id": o.get("id"),
+                "ten": o.get("ten") or "",
+                "lan": o["lan"],
+                "noi": "Đối tác" if o["ngoai"] else (o["phong"] or "Phòng dịch vụ"),
+                "trang_thai": tt,
+                "gui": o["tao_luc"],
+                "thu": o.get("tra_luc") if o["da_tra"] else None,
+                "bat_dau": o.get("bat_dau_luc"),
+                "xong": o.get("xong_luc") if o["xong"] else None,
+            }
+        )
+    return ra
+
+
 def _iso(v: Any) -> Any:
     return v.isoformat() if isinstance(v, datetime) else v
 
@@ -286,6 +329,8 @@ async def doc_hanh_trinh(
         su_kien.append((r["event_type"], r["occurred_at"], ct or {}))
     chi_dinh = [
         {
+            "id": str(r["id"]),
+            "ten": r["service_name"],
             "lan": r["lan_chi_dinh"],
             "tao_luc": r["created_at"],
             "chon": r["selection_status"] != "NOT_SELECTED",
@@ -294,11 +339,21 @@ async def doc_hanh_trinh(
             or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
             "phong": r["phong"],
             "ngoai": bool(r["ngoai"]),
+            "tra_luc": r["tra_luc"],
+            "bat_dau_luc": r["started_at"],
+            # Đang làm ở phòng; việc đối tác: phòng khám lấy mẫu xong là mẫu
+            # đang ở đối tác (chưa có kết quả thì chưa xong).
+            "dang_lam": r["execution_status"] == "IN_PROGRESS"
+            or (bool(r["ngoai"]) and r["execution_status"] == "COMPLETED"),
+            # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
+            # kết quả) thì giờ làm xong.
+            "xong_luc": r["ket_qua_luc"] or r["finished_at"],
         }
         for r in await conn.fetch(
             """
-            SELECT o.lan_chi_dinh, o.created_at, o.selection_status,
-                   o.execution_status, o.ket_qua_luc, r.name AS phong,
+            SELECT o.id, o.service_name, o.lan_chi_dinh, o.created_at,
+                   o.selection_status, o.execution_status, o.ket_qua_luc,
+                   o.started_at, o.finished_at, r.name AS phong,
                    coalesce(n.lam_ben_ngoai, false) AS ngoai,
                    EXISTS (
                        SELECT 1 FROM payment_bill_line bl
@@ -308,7 +363,15 @@ async def doc_hanh_trinh(
                         WHERE bl.clinic_id = o.clinic_id
                           AND bl.source_type = 'service_order'
                           AND bl.source_id = o.id::text
-                          AND c.status = 'PAID') AS da_tra
+                          AND c.status = 'PAID') AS da_tra,
+                   (SELECT min(c.paid_at) FROM payment_bill_line bl
+                      JOIN payment_cycle c
+                        ON c.clinic_id = bl.clinic_id
+                       AND c.payment_cycle_id = bl.payment_cycle_id
+                     WHERE bl.clinic_id = o.clinic_id
+                       AND bl.source_type = 'service_order'
+                       AND bl.source_id = o.id::text
+                       AND c.status = 'PAID') AS tra_luc
               FROM service_order o
               LEFT JOIN clinic_room r ON r.id = o.room_id
               LEFT JOIN node_definition n
@@ -334,6 +397,10 @@ async def doc_hanh_trinh(
             m[k] = _iso(m[k])
         for x in m.get("cac_lan", []):
             x["luc"] = _iso(x["luc"])
+    tung = dung_tung_dich_vu(chi_dinh)
+    for d in tung:
+        for k in ("gui", "thu", "bat_dau", "xong"):
+            d[k] = _iso(d[k])
     return {
         "dang_o": dang_o(
             {"status": luot["status"], "closed_at": luot["closed_at"]}, hang
@@ -342,7 +409,8 @@ async def doc_hanh_trinh(
         "ngoai_cho": sum(
             1 for o in chi_dinh if o["ngoai"] and o["chon"] and not o["xong"]
         ),
+        "tung_dich_vu": tung,
     }
 
 
-__all__ = ["dung_moc", "doc_hanh_trinh"]
+__all__ = ["doc_hanh_trinh", "dung_moc", "dung_tung_dich_vu"]

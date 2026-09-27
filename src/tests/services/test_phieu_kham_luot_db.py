@@ -200,6 +200,40 @@ async def test_don_thuoc_muc_e_ghi_va_sua_khong_tao_trung(
     await svc.luu_don_thuoc(visit_id=luot["visit"], dong=dong, ly_do=None, identity=bs)
     doc2 = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
     assert len(doc2) == 1 and doc2[0]["quantity"] == "3 hộp"
+    # Dòng ngoài danh mục kho: không đơn giá, không ĐVT kho.
+    assert doc2[0]["don_gia"] is None and doc2[0]["dvt_kho"] is None
+
+
+async def test_don_thuoc_doc_kem_don_gia_va_dvt_cua_kho(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Cột "Đơn giá" + ĐVT chữ (27/09/2026, bản giao diện mẫu) đọc từ kho."""
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        luot = await _luot(conn, bs)
+        kho = await conn.fetchrow(
+            "SELECT id::text, name_raw, unit_price, don_vi_ban FROM drug_catalog"
+            " WHERE clinic_id = $1::uuid AND is_active AND unit_price IS NOT NULL"
+            " ORDER BY name_raw LIMIT 1",
+            bs.clinic_id,
+        )
+    if kho is None:
+        pytest.skip("DB thử chưa có mặt hàng kho có giá")
+    svc = _svc(pool)
+    dong: list[dict[str, Any]] = [
+        {
+            "id": None,
+            "drug_catalog_id": kho["id"],
+            "drug_name": kho["name_raw"],
+            "quantity": f"2 {kho['don_vi_ban'] or ''}".strip(),
+            "dosage": "Uống — Ngày 2 lần",
+            "caution": "",
+        }
+    ]
+    await svc.luu_don_thuoc(visit_id=luot["visit"], dong=dong, ly_do=None, identity=bs)
+    (d,) = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    assert d["don_gia"] == int(kho["unit_price"])
+    assert d["dvt_kho"] == ((kho["don_vi_ban"] or "").strip() or None)
 
 
 async def test_luu_theo_o_hai_nguoi_hai_o_khong_409(

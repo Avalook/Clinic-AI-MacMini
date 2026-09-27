@@ -43,6 +43,11 @@ async def test_luot_dang_kham_co_moc_va_dang_o(
     assert theo["THU_TIEN"]["trang_thai"] == "dang"
     assert isinstance(theo["CHI_DINH"]["bat"], str), "thời điểm trả về dạng ISO"
     assert kq["dang_o"]
+    # Bảng "Từng dịch vụ" (27/09): mỗi chỉ định một dòng, chưa thu → CHO_THU.
+    dv = kq["tung_dich_vu"]
+    assert dv and all(d["trang_thai"] == "CHO_THU" for d in dv)
+    assert all(d["ten"] and isinstance(d["gui"], str) for d in dv)
+    assert all(d["thu"] is None and d["bat_dau"] is None for d in dv)
 
 
 async def test_luot_cua_phong_kham_khac_tra_none(
