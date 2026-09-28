@@ -1157,9 +1157,10 @@ async def test_partner_security_negative_suite(
     # Router cskh.py bảo vệ GET /cskh/tep-ket-qua/{id}/noi-dung bằng _KET_QUA_DOC_GUARD.
     from clinicai.api.v1.routers.cskh import _KET_QUA_DOC_GUARD
 
-    with pytest.raises(HTTPException) as exc_doc:
-        await _KET_QUA_DOC_GUARD(doi_tac)
-    assert exc_doc.value.status_code == 403
+    # CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN — đối tác không có quyền nào của cửa
+    # (và ở đường HTTP còn bị get_current_identity chặn trước đó).
+    with pytest.raises(SafetyGateError):
+        await _KET_QUA_DOC_GUARD(doi_tac, kban.pool)
 
     # 5. PARTNER không thấy service_order nội bộ (lam_ben_ngoai = false)
     phien = await _bat_dau_kham_primary(kban)
