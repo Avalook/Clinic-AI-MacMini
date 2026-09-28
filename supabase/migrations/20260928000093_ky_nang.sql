@@ -33,7 +33,7 @@ COMMENT ON TABLE public.ky_nang IS
 'Kỹ năng (vị trí) của phòng khám = tập lego + phòng làm. Khối Phân quyền.';
 
 CREATE TABLE IF NOT EXISTS public.nhan_su_ky_nang (
-    clinic_id  uuid NOT NULL,
+    clinic_id  uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,
     staff_id   uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
     ky_nang_ma text NOT NULL,
     gan_luc    timestamptz NOT NULL DEFAULT now(),
