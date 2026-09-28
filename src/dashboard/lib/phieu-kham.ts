@@ -852,3 +852,16 @@ export function tongPhongKham(chon: readonly string[], muc: readonly MucCls[]): 
   }
   return chon.reduce((t, c) => t + (gia.get(c) ?? 0), 0);
 }
+
+/** Tên phiếu kết quả khi IN / xem (Tuyền 28/09/2026: "mấy cái loại phiếu tự do
+ *  ấy, nhớ đẩy tên phiếu lên chứ đang để chữ tự do nhìn buồn cười"): mẫu nhập
+ *  tự do (`KQ_CHUNG`) mang tên DỊCH VỤ — "Kết quả <dịch vụ>"; mẫu riêng giữ tên
+ *  mẫu. */
+export function tenPhieuKetQua(
+  p: { form_id?: string | null; ten: string | null },
+  dichVu: string | null | undefined,
+): string {
+  const tuDo = p.form_id === "KQ_CHUNG" || /tự do/i.test(p.ten ?? "");
+  if (tuDo && dichVu) return `Kết quả ${dichVu}`;
+  return p.ten ?? (dichVu ? `Kết quả ${dichVu}` : "Phiếu kết quả");
+}

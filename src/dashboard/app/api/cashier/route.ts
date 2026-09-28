@@ -62,6 +62,19 @@ export async function GET(request: Request) {
     }
     return proxyJsonToBackend("GET", `/api/v1/cashier/phieu/${id}?loai=${loai}`, undefined);
   }
+  // Mọi phiếu thu đã thu của MỘT lượt (CSKH in hoá đơn thuốc trả khách, 28/09).
+  if (xem === "phieu-luot") {
+    const visit = url.searchParams.get("visit") ?? "";
+    const kind = url.searchParams.get("kind") === "dich_vu" ? "dich_vu" : "thuoc";
+    if (!/^[0-9a-f-]{36}$/i.test(visit)) {
+      return NextResponse.json({ error: "Mã lượt không hợp lệ" }, { status: 400 });
+    }
+    return proxyJsonToBackend(
+      "GET",
+      `/api/v1/cashier/phieu-luot/${visit}?kind=${kind}`,
+      undefined,
+    );
+  }
   const modes = url.searchParams.get("modes") ?? "dich_vu,thuoc";
   // Giữ NGUYÊN mã và câu của máy chủ: bị chặn quyền (403) phải nói là bị chặn,
   // không được thành "Không đọc được danh sách" như mất kết nối (tự kiểm

@@ -24,6 +24,7 @@ import {
   type MauThuoc,
   type MucPhieu,
   type OPhieu,
+  tenPhieuKetQua,
 } from "../lib/phieu-kham.ts";
 
 const FORM_IDS = ["NT", "HMVS", "PK", "SK", "NK", "THU_THUAT", "SAN_CHAU"];
@@ -245,4 +246,20 @@ test("hai phiếu không đổi (Thủ thuật, Sàn chậu) không có ô nào 
       }
     }
   }
+});
+
+test("phiếu tự do in theo TÊN DỊCH VỤ, không in chữ 'tự do' (28/09/2026)", () => {
+  assert.equal(
+    tenPhieuKetQua({ form_id: "KQ_CHUNG", ten: "Kết quả chung (nhập tự do)" }, "Đo cơ lực âm đạo"),
+    "Kết quả Đo cơ lực âm đạo",
+  );
+  assert.equal(
+    tenPhieuKetQua({ form_id: "KQ_SA_TC", ten: "Kết quả siêu âm tử cung" }, "Siêu âm 4D"),
+    "Kết quả siêu âm tử cung",
+  );
+  // Không có tên dịch vụ: giữ tên mẫu thay vì để trống.
+  assert.equal(
+    tenPhieuKetQua({ form_id: "KQ_CHUNG", ten: "Kết quả chung (nhập tự do)" }, null),
+    "Kết quả chung (nhập tự do)",
+  );
 });

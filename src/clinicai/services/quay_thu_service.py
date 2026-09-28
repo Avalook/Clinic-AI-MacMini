@@ -835,6 +835,28 @@ class QuayThuService:
                         "phong_chon_duoc": phong_cd,
                     }
 
+    async def phieu_cua_luot(
+        self, *, identity: StaffIdentity, visit_id: str, kind: str
+    ) -> dict[str, Any]:
+        """Mọi phiếu thu ĐÃ THU (PAID) của một lượt theo loại, cũ trước (28/09).
+
+        Bản in = đúng `phieu()` của từng lần thu — không dựng bản thứ hai.
+        """
+        ids = await self._pool.fetch(
+            "SELECT payment_cycle_id::text AS id FROM payment_cycle"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND kind = $3"
+            " AND status = 'PAID' ORDER BY coalesce(paid_at, created_at), 1",
+            identity.clinic_id,
+            visit_id,
+            kind,
+        )
+        return {
+            "phieu": [
+                await self.phieu(identity=identity, id_=r["id"], loai="thu")
+                for r in ids
+            ]
+        }
+
     async def phieu(
         self, *, identity: StaffIdentity, id_: str, loai: str = "thu"
     ) -> dict[str, Any]:
@@ -942,6 +964,8 @@ class QuayThuService:
                     for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
                 ]
         return {
+            # Mã gốc — mở / in lại đúng phiếu này (in theo lượt, 28/09/2026).
+            "id": goc["id"],
             "loai": "hoan" if la_hoan else "thu",
             "ma": ma_phieu(goc["id"], "hoan" if la_hoan else "thu"),
             "ma_phieu_goc": ma_phieu(goc["cycle_id"]) if la_hoan else None,
