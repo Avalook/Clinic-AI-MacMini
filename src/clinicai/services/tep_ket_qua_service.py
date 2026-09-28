@@ -440,36 +440,11 @@ class TepKetQuaService:
                         clinic_patient_id=clinic_patient_id,
                     ),
                 )
-                da_xac_nhan_tra = await conn.fetchval(
-                    """
-                    SELECT EXISTS (
-                        SELECT 1
-                          FROM public.tuong_tac_cskh i
-                         WHERE i.clinic_id = $1::uuid
-                           AND i.clinic_patient_id = $2::uuid
-                           AND i.loai = 'TRA_KQ'
-                           AND i.huy_luc IS NULL
-                           AND i.xay_ra_luc >= COALESCE((
-                               SELECT max(COALESCE(
-                                   r.reviewed_at, r.result_received_at, r.created_at
-                               ))
-                                 FROM public.lab_result r
-                                WHERE r.clinic_id = $1::uuid
-                                  AND r.clinic_patient_id = $2::uuid
-                                  AND r.result_value IS NOT NULL
-                                  AND (NOT r.requires_doctor_review
-                                       OR r.reviewed_at IS NOT NULL)
-                           ), '-infinity'::timestamptz)
-                    )
-                    """,
-                    identity.clinic_id,
-                    clinic_patient_id,
-                )
-                if da_xac_nhan_tra:
-                    raise ValidationError(
-                        "Việc này đã xác nhận trả kết quả. Hoàn tác mốc trả kết quả "
-                        "trước khi tải thêm tệp, hoặc ghi nhận kết quả mới trước."
-                    )
+                # BỎ CHỐT "ĐÃ TRẢ KẾT QUẢ" CỦA CSKH (Tuyền 28/09/2026: "không cần
+                # chặn cskh cái gì nữa"). Trước đây mốc TRA_KQ xét theo KHÁCH
+                # chặn mọi tệp mới — màn Đối tác báo "Việc này đã xác nhận trả
+                # kết quả" cho một việc còn chờ tài liệu. Tải tệp không phụ thuộc
+                # mốc chăm sóc khách nữa.
 
                 if MEDIA_CLINIC_QUOTA_BYTES > 0:
                     await conn.execute(

@@ -46,7 +46,20 @@ interface Viec {
   gia_tham_khao?: number | null;
   /** Ghi nhận "đã thu tiền khách" còn hiệu lực — null = chưa thu. */
   da_thu?: DaThu | null;
+  /** Tệp đã gửi cho việc này (28/09/2026) — chỉ tên + giờ, không tải về. */
+  tep?: TepDaGui[];
 }
+
+interface TepDaGui {
+  id: string;
+  ten: string | null;
+  loai: string | null;
+  so_byte: number;
+  luc: string | null;
+}
+
+const kichThuoc = (b: number) =>
+  b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
 
 interface DaThu {
   id: string;
@@ -526,6 +539,29 @@ function MotViec({
           <p className="truncate text-label text-ink-muted">
             {tienDo.pt >= 100 ? "Đang cất tài liệu…" : `Đang gửi ${tienDo.pt}%`} · {tienDo.ten}
           </p>
+        </div>
+      ) : null}
+
+      {/* Tệp đã gửi (28/09/2026 — "chưa có chỗ hiển thị file"). */}
+      {viec.tep && viec.tep.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-label font-semibold uppercase tracking-wider text-ink-faint">
+            Đã gửi {viec.tep.length} tệp
+          </p>
+          <ul className="space-y-1">
+            {viec.tep.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-1.5 text-meta"
+              >
+                <span className="min-w-0 truncate text-ink">{t.ten ?? "Tệp kết quả"}</span>
+                <span className="shrink-0 text-ink-muted">
+                  {t.loai ?? ""} · {kichThuoc(t.so_byte)}
+                  {t.luc ? ` · ${gioVn(t.luc)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
 

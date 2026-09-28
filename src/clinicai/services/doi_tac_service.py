@@ -210,6 +210,31 @@ class DoiTacService:
             identity.clinic_id,
         )
         canh_bao_neu_day("doi_tac.viec", len(rows), 300, clinic_id=identity.clinic_id)
+        # TỆP ĐÃ GỬI của từng việc (28/09/2026 — "chưa có chỗ hiển thị file"):
+        # chỉ tên, loại, giờ — KHÔNG đường tải về (ràng buộc 4 của router
+        # doi_tac: gửi lên, không lấy về).
+        tep_theo_viec: dict[str, list[dict[str, Any]]] = {}
+        for t in await self._pool.fetch(
+            """
+            SELECT service_order_id::text AS chi_dinh_id, id::text AS id,
+                   ten_hien_thi, loai_tep, so_byte, tai_len_luc
+              FROM tep_ket_qua
+             WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])
+               AND thu_hoi_luc IS NULL
+             ORDER BY tai_len_luc, id
+            """,
+            identity.clinic_id,
+            [r["chi_dinh_id"] for r in rows],
+        ):
+            tep_theo_viec.setdefault(t["chi_dinh_id"], []).append(
+                {
+                    "id": t["id"],
+                    "ten": t["ten_hien_thi"],
+                    "loai": t["loai_tep"],
+                    "so_byte": int(t["so_byte"] or 0),
+                    "luc": _iso(t["tai_len_luc"]),
+                }
+            )
         khach: dict[str, dict[str, Any]] = {}
         for r in rows:
             k = khach.setdefault(
@@ -241,6 +266,7 @@ class DoiTacService:
                     "ket_qua_luc": _iso(r["ket_qua_luc"]),
                     "ghi_chu_lay_mau": r["ghi_chu_lay_mau"],
                     "ghi_chu_tai_lieu": r["ghi_chu_tai_lieu"],
+                    "tep": tep_theo_viec.get(r["chi_dinh_id"], []),
                     # Khách trả TRỰC TIẾP cho đối tác (Q1, 27/09/2026).
                     "doi_tac_thu": bool(r["doi_tac_thu"]),
                     "gia_tham_khao": (

@@ -207,7 +207,7 @@ async def test_quota_clinic_chan_upload_lap_lai_truoc_khi_ghi_tep(
 
     monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
     monkeypatch.setattr(mod, "MEDIA_CLINIC_QUOTA_BYTES", 64)
-    pool = FakePool(1, False, 60)  # patient, chưa TRA_KQ, gần hết quota
+    pool = FakePool(1, 60)  # patient, gần hết quota
 
     with pytest.raises(ValidationError, match="hạn mức lưu trữ"):
         await mod.TepKetQuaService(pool).tai_len(
@@ -240,23 +240,16 @@ async def test_o_dia_sap_day_thi_fail_closed_truoc_khi_ghi(
     assert not any(path.is_file() for path in tmp_path.rglob("*"))
 
 
-@pytest.mark.asyncio
-async def test_khong_upload_them_sau_khi_da_xac_nhan_tra_ket_qua(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tai_len_khong_con_hoi_moc_tra_ket_qua_cua_cskh() -> None:
+    """Tuyền 28/09/2026: "không cần chặn cskh cái gì nữa". Tải tệp không còn
+    đọc mốc TRA_KQ (sổ tương tác CSKH) — mốc ấy từng chặn cả kết quả đối tác."""
+    import inspect
+
     from clinicai.services import tep_ket_qua_service as mod
 
-    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
-    pool = FakePool(1, True)  # patient hợp lệ, TRA_KQ vẫn đang hiệu lực
-
-    with pytest.raises(ValidationError, match="đã xác nhận trả kết quả"):
-        await mod.TepKetQuaService(pool).tai_len(
-            identity=_ai(), clinic_patient_id=BN, data=PNG
-        )
-
-    lock_call = next(call for call in pool.calls if "pg_advisory_xact_lock" in call[0])
-    assert lock_call[1] == (f"cskh-ket-qua:{CLINIC}:{BN}",)
-    assert not any(path.is_file() for path in tmp_path.rglob("*"))
+    src = inspect.getsource(mod.TepKetQuaService.tai_len)
+    assert "tuong_tac_cskh" not in src
+    assert "'TRA_KQ'" not in src
 
 
 # ── Nhận multipart theo luồng, ghi thẳng vào kho ──────────────────────────────
@@ -613,9 +606,9 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
             patch("clinicai.services.media_service.MEDIA_ROOT", Path(thu_muc)),
             patch("clinicai.services.tep_ket_qua_service.MEDIA_ROOT", Path(thu_muc)),
         ):
-            # patient → chưa TRA_KQ → id mới (không hạn mức = không
-            # đếm tổng dung lượng)
-            pool = FakePool(1, False, "tep-1")
+            # patient → id mới (không hạn mức = không đếm tổng dung lượng).
+            # 28/09: không còn hỏi mốc TRA_KQ của CSKH.
+            pool = FakePool(1, "tep-1")
             d = await TepKetQuaService(pool).tai_len(
                 identity=_ai(),
                 clinic_patient_id=BN,
@@ -625,8 +618,9 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
             assert d["loai_tep"] == "ANH"
             assert d["so_byte"] == len(PNG)
 
-            sql, args = pool.calls[3]
-            assert "INSERT INTO public.tep_ket_qua" in sql
+            sql, args = next(
+                c for c in pool.calls if "INSERT INTO public.tep_ket_qua" in c[0]
+            )
             assert "s1" in args  # người tải = phiên đăng nhập
             assert "image/png" in args
             # Tên hiểm chỉ nằm ở cột nhãn; KHOÁ tệp không mang một mảnh nào của nó.
