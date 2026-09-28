@@ -1,6 +1,6 @@
 // Cửa BFF của ĐỐI TÁC — hai việc, không hơn.
 //
-//   GET   → danh sách chỉ định gửi ra ngoài chưa có kết quả
+//   GET   → việc trên bàn đối tác (`?ngay=` xem ngày cũ)
 //   POST  → gửi một tệp kết quả cho MỘT chỉ định (multipart: chi_dinh_id, file)
 //
 // Không đụng database ở đây. Cả hai đi thẳng FastAPI, nơi `get_partner_identity`
@@ -14,15 +14,22 @@ import { fetchFromBackend, getCallerAuthHeaders } from "../../../lib/backend-pro
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
-export async function GET() {
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function GET(request: Request) {
   const caller = await getSupabaseServer();
   const {
     data: { user },
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
 
+  // `?ngay=YYYY-MM-DD` (29/09/2026): xem việc của một ngày cũ. Sai dạng thì bỏ —
+  // máy chủ coi như hôm nay (máy chủ vẫn tự đọc lại, rác không thành 500).
+  const ngay = new URL(request.url).searchParams.get("ngay") ?? "";
   const d = await fetchFromBackend<{ khach: unknown[]; so_viec: number }>(
-    "/api/v1/doi-tac/viec",
+    NGAY_RE.test(ngay)
+      ? `/api/v1/doi-tac/viec?ngay=${encodeURIComponent(ngay)}`
+      : "/api/v1/doi-tac/viec",
   );
   if (d === null) {
     // null = không với tới backend. Trả mảng rỗng ở đây thì màn nói dối "không

@@ -38,8 +38,11 @@ export interface PriceRow {
   node_code?: string | null;
   /** Giá giả định chờ xác nhận (Tuyền 27/09/2026, Q2) — sửa đơn giá là máy chủ bỏ cờ. */
   gia_tam?: boolean;
-  /** EXTERNAL_PARTNER = khách trả trực tiếp đối tác (theo phòng làm, máy chủ quyết). */
+  /** Bên thu CỦA DỊCH VỤ (29/09/2026): CLINIC = phòng khám thu; EXTERNAL_PARTNER =
+   *  thu hộ đối tác (không cộng vào hoá đơn phòng khám). */
   billing_owner?: "CLINIC" | "EXTERNAL_PARTNER";
+  /** Quản lý đã chọn tay bên thu — đổi phòng làm không còn đổi bên thu. */
+  billing_owner_chon_tay?: boolean;
 }
 
 interface PhongLam {
@@ -84,6 +87,8 @@ export default function CashierView({
   const [price, setPrice] = useState("");
   const [maKv, setMaKv] = useState("");
   const [node, setNode] = useState("");
+  /** Bên thu khi thêm dịch vụ — "" = theo phòng làm (máy chủ suy). */
+  const [benThu, setBenThu] = useState<"" | "CLINIC" | "EXTERNAL_PARTNER">("");
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [draftMa, setDraftMa] = useState<Record<string, string>>({});
   const [phongLam, setPhongLam] = useState<PhongLam[]>([]);
@@ -161,7 +166,13 @@ export default function CashierView({
       name: name.trim(),
       group: view,
       unit_price: price.trim() === "" ? null : price.trim(),
-      ...(laDichVu ? { ma_kiotviet: maKv.trim(), node_code: node || null } : {}),
+      ...(laDichVu
+        ? {
+            ma_kiotviet: maKv.trim(),
+            node_code: node || null,
+            ...(benThu ? { billing_owner: benThu } : {}),
+          }
+        : {}),
     });
     if (ok) {
       setCode("");
@@ -169,6 +180,7 @@ export default function CashierView({
       setPrice("");
       setMaKv("");
       setNode("");
+      setBenThu("");
     }
   }
 
@@ -293,7 +305,7 @@ export default function CashierView({
                   </th>
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Tên thuốc / dịch vụ</th>
                   {laDichVu ? (
-                    <th className="border-b border-line px-4 py-2.5 text-left font-medium">Phòng làm</th>
+                    <th className="border-b border-line px-4 py-2.5 text-left font-medium">Phòng làm · bên thu</th>
                   ) : null}
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Đơn giá</th>
                   <th className="border-b border-line px-4 py-2.5 text-left font-medium">Trạng thái</th>
@@ -364,6 +376,23 @@ export default function CashierView({
                                 </option>
                               ))}
                             </select>
+                            {/* BÊN THU THUỘC TỪNG DỊCH VỤ (Tuyền 29/09/2026): chọn
+                                tay; máy chủ giữ lựa chọn, đổi phòng làm không lật. */}
+                            <select
+                              aria-label={`Bên thu ${row.name}`}
+                              value={row.billing_owner ?? "CLINIC"}
+                              disabled={busy}
+                              onChange={(event) =>
+                                void send("PATCH", { id: row.id, billing_owner: event.target.value })
+                              }
+                              className="mt-1 block h-9 w-36 rounded-control border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand-500"
+                            >
+                              <option value="CLINIC">Phòng khám thu</option>
+                              <option value="EXTERNAL_PARTNER">Thu hộ đối tác</option>
+                            </select>
+                            {row.billing_owner_chon_tay ? null : (
+                              <span className="mt-0.5 block text-xs text-ink-faint">Theo phòng làm</span>
+                            )}
                           </td>
                         ) : null}
                         <td className="px-4 py-3">
@@ -403,7 +432,7 @@ export default function CashierView({
                                 <Chip tone="warning">Giá tạm — cần xác nhận</Chip>
                               ) : null}
                               {row.billing_owner === "EXTERNAL_PARTNER" ? (
-                                <Chip tone="neutral">Khách trả đối tác</Chip>
+                                <Chip tone="neutral">Thu hộ đối tác · không cộng</Chip>
                               ) : null}
                             </div>
                           ) : null}
@@ -496,6 +525,19 @@ export default function CashierView({
                       {p.ten}
                     </option>
                   ))}
+                </select>
+              </Field>
+            ) : null}
+            {laDichVu ? (
+              <Field label="Bên thu">
+                <select
+                  className={inputClass}
+                  value={benThu}
+                  onChange={(event) => setBenThu(event.target.value as typeof benThu)}
+                >
+                  <option value="">Theo phòng làm (mặc định)</option>
+                  <option value="CLINIC">Phòng khám thu</option>
+                  <option value="EXTERNAL_PARTNER">Thu hộ đối tác</option>
                 </select>
               </Field>
             ) : null}

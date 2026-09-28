@@ -18,13 +18,23 @@
 // 28/09/2026 (Tuyền: "thiết kế như các màn thủ thuật, siêu âm, bác sĩ"): cùng
 // khuôn màn phòng — hàng chờ bên trái chia theo bước còn dở, khách đang chọn
 // bên phải với từng việc của họ. Bỏ thanh chỉ số và tab lọc: đầu nhóm đã đếm.
+//
+// 29/09/2026 (Tuyền: "cần một chỗ UP LÊN và XEM LẠI được LỊCH SỬ các lần up"):
+// việc đối tác do NHÂN SỰ phòng khám có lego/vị trí Đối tác làm. Thanh chọn NGÀY
+// (ngày cũ vẫn tải thêm tệp, vẫn bấm "Đã lấy mẫu" — máy chủ ghi lại, không lỗi);
+// mỗi việc hiện đủ lịch sử tệp (tên, giờ, ai tải); ai được máy chủ cho đọc tệp
+// (`xem_tep`) thì mở / in / tải được ngay tại đây.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileUp, FlaskConical, Hourglass, Inbox } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import ThanhNgay from "@/components/ui/ThanhNgay";
+import { ngayNgan } from "@/lib/thanh-ngay";
+import { homNayVn } from "@/lib/validation";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
+import { duongXemTep } from "../(dashboard)/_lam-viec/AnhKetQua";
 import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
 
 type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
@@ -40,13 +50,13 @@ interface Viec {
   /** Ghi chú đối tác đã ghi (24/09/2026). */
   ghi_chu_lay_mau?: string | null;
   ghi_chu_tai_lieu?: string | null;
-  /** Khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026). */
+  /** Dịch vụ thu hộ đối tác (bên thu của dịch vụ, Bảng giá). */
   doi_tac_thu?: boolean;
   /** Giá tham khảo trong bảng giá phòng khám. */
   gia_tham_khao?: number | null;
-  /** Ghi nhận "đã thu tiền khách" còn hiệu lực — null = chưa thu. */
+  /** Ghi nhận "đã thu hộ cho đối tác" còn hiệu lực — null = chưa thu. */
   da_thu?: DaThu | null;
-  /** Tệp đã gửi cho việc này (28/09/2026) — chỉ tên + giờ, không tải về. */
+  /** LỊCH SỬ các lần tải tệp của việc này (29/09/2026) — cũ trước. */
   tep?: TepDaGui[];
 }
 
@@ -56,6 +66,10 @@ interface TepDaGui {
   loai: string | null;
   so_byte: number;
   luc: string | null;
+  /** Ai tải lên (tên nhân sự). */
+  boi?: string | null;
+  /** Tệp đã bị thu hồi — vẫn hiện trong lịch sử, không mở được. */
+  thu_hoi?: boolean;
 }
 
 const kichThuoc = (b: number) =>
@@ -67,6 +81,8 @@ interface DaThu {
   hinh_thuc: "CASH" | "TRANSFER";
   ghi_chu: string | null;
   luc: string | null;
+  /** Ai ghi nhận. */
+  boi?: string | null;
 }
 
 const TEN_HINH_THUC: Record<DaThu["hinh_thuc"], string> = {
@@ -86,7 +102,17 @@ interface Khach {
   viec: Viec[];
 }
 
-type KetQua = { khach: Khach[]; so_viec: number } | { loi: string };
+interface DanhSach {
+  khach: Khach[];
+  so_viec: number;
+  /** Ngày máy chủ đã xem (YYYY-MM-DD) — ngày rác thì máy chủ trả hôm nay. */
+  ngay: string;
+  hom_nay: boolean;
+  /** Máy chủ cho người này MỞ tệp (xem / in / tải) không. */
+  xem_tep: boolean;
+}
+
+type KetQua = DanhSach | { loi: string };
 
 const BUOC: { ma: TrangThai; nhan: string }[] = [
   { ma: "CHO_LAY_MAU", nhan: "Lấy mẫu" },
@@ -129,14 +155,20 @@ function choBaoLau(iso: string | null): string {
 // Đọc danh sách — KHÔNG đụng state. Tách ra để chỗ gọi tự quyết định có nhận kết
 // quả hay không: lần tải đầu chạy trong effect và phải bỏ kết quả nếu người dùng
 // đã rời màn, còn lần tải lại sau khi gửi thì luôn nhận.
-async function docDanhSach(): Promise<KetQua> {
+async function docDanhSach(ngay: string): Promise<KetQua> {
   try {
-    const r = await fetch("/api/doi-tac", { cache: "no-store" });
+    const r = await fetch(`/api/doi-tac?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" });
     const d = (await r.json().catch(() => null)) as
-      | { khach?: Khach[]; so_viec?: number; error?: string; message?: string }
+      | (Partial<DanhSach> & { error?: string; message?: string })
       | null;
     if (!r.ok) return { loi: d?.message ?? d?.error ?? "Không đọc được danh sách khách." };
-    return { khach: d?.khach ?? [], so_viec: d?.so_viec ?? 0 };
+    return {
+      khach: d?.khach ?? [],
+      so_viec: d?.so_viec ?? 0,
+      ngay: d?.ngay ?? ngay,
+      hom_nay: d?.hom_nay ?? true,
+      xem_tep: d?.xem_tep ?? false,
+    };
   } catch {
     return { loi: "Mất kết nối tới máy chủ." };
   }
@@ -168,7 +200,7 @@ const NHOM: { ma: TrangThai; ten: string }[] = [
   { ma: "CHO_LAY_MAU", ten: "Chờ lấy mẫu" },
   { ma: "DA_LAY_MAU", ten: "Có mẫu · chờ nhận" },
   { ma: "CHO_TAI_LIEU", ten: "Đang chờ tài liệu" },
-  { ma: "DA_GUI_KET_QUA", ten: "Đã gửi hôm nay" },
+  { ma: "DA_GUI_KET_QUA", ten: "Đã gửi tệp" },
 ];
 const THU_TU: Record<TrangThai, number> = {
   CHO_LAY_MAU: 0,
@@ -186,6 +218,14 @@ function buocCua(k: Khach): TrangThai {
 
 export default function BangDoiTac() {
   const [ds, setDs] = useState<Khach[] | null>(null);
+  const [homNay] = useState(homNayVn);
+  const [ngay, setNgay] = useState(homNay);
+  const [xemNgay, setXemNgay] = useState<{ ngay: string; homNay: boolean; xemTep: boolean }>({
+    ngay: homNay,
+    homNay: true,
+    xemTep: false,
+  });
+  const [dangDoi, setDangDoi] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangLam, setDangLam] = useState<string | null>(null);
   const [tienDo, setTienDo] = useState<{ id: string; pt: number; ten: string } | null>(null);
@@ -199,17 +239,20 @@ export default function BangDoiTac() {
     }
     setLoi(null);
     setDs(kq.khach);
+    setXemNgay({ ngay: kq.ngay, homNay: kq.hom_nay, xemTep: kq.xem_tep });
   }, []);
 
   const tai = useCallback(async () => {
-    nhan(await docDanhSach());
-  }, [nhan]);
+    nhan(await docDanhSach(ngay));
+  }, [nhan, ngay]);
 
   useEffect(() => {
     let huy = false;
     const doc = () =>
-      void docDanhSach().then((kq) => {
-        if (!huy) nhan(kq);
+      void docDanhSach(ngay).then((kq) => {
+        if (huy) return;
+        nhan(kq);
+        setDangDoi(false);
       });
     doc();
     // Phòng khám chỉ định liên tục — không bắt đối tác tải lại trang.
@@ -218,7 +261,7 @@ export default function BangDoiTac() {
       huy = true;
       clearInterval(t);
     };
-  }, [nhan]);
+  }, [nhan, ngay]);
 
   const dem = useMemo(() => {
     const c: Record<TrangThai, number> = {
@@ -309,10 +352,29 @@ export default function BangDoiTac() {
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">Việc của đối tác</h1>
         <p className="text-body text-ink-muted">
-          {dem.CHO_LAY_MAU} chờ lấy mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.CHO_TAI_LIEU} chờ
-          tài liệu · {dem.DA_GUI_KET_QUA} đã gửi
+          {xemNgay.homNay ? "Hôm nay" : `Ngày ${ngayNgan(xemNgay.ngay)}`} · {dem.CHO_LAY_MAU} chờ lấy
+          mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.CHO_TAI_LIEU} chờ tài liệu ·{" "}
+          {dem.DA_GUI_KET_QUA} đã gửi
         </p>
       </header>
+
+      {/* NGÀY CŨ (29/09/2026): việc có hoạt động ngày ấy — chỉ định, lấy mẫu,
+          nhận mẫu, gửi tệp. Vẫn tải thêm tệp / bấm "Đã lấy mẫu" được. */}
+      <ThanhNgay
+        motNgay
+        nhan="Xem việc theo ngày"
+        khoang={{ tu: ngay, den: ngay }}
+        homNay={homNay}
+        soNgaySau={0}
+        dangTai={dangDoi}
+        onChon={(k) => {
+          const moi = k?.den ?? homNay;
+          if (moi === ngay) return;
+          setDangDoi(true);
+          setChonId(null);
+          setNgay(moi);
+        }}
+      />
 
       {loi ? (
         <p role="alert" className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -329,7 +391,9 @@ export default function BangDoiTac() {
         <aside aria-label="Hàng chờ của đối tác" className="space-y-3">
           {ds.length === 0 ? (
             <p className="rounded-card border border-line bg-surface p-4 text-sm text-ink-muted">
-              Chưa có khách nào được gửi sang.
+              {xemNgay.homNay
+                ? "Chưa có khách nào được gửi sang."
+                : "Ngày này không có việc đối tác nào."}
             </p>
           ) : (
             theoNhom.map((n) =>
@@ -418,6 +482,7 @@ export default function BangDoiTac() {
                   <MotViec
                     key={v.chi_dinh_id}
                     viec={v}
+                    xemTep={xemNgay.xemTep}
                     dangLam={dangLam === v.chi_dinh_id}
                     tienDo={tienDo?.id === v.chi_dinh_id ? tienDo : null}
                     onLayMau={(g) =>
@@ -434,13 +499,13 @@ export default function BangDoiTac() {
                     }
                     onGui={(tep) => void gui(v, chon, tep)}
                     onDaThu={(soTien, hinhThuc, g) =>
-                      lamViec("/api/doi-tac/da-thu-tien", v, chon, "Đã ghi nhận thu tiền khách", g, {
+                      lamViec("/api/doi-tac/da-thu-tien", v, chon, "Đã ghi nhận thu hộ cho đối tác", g, {
                         so_tien: soTien,
                         hinh_thuc: hinhThuc,
                       })
                     }
                     onHuyThu={(lyDo) =>
-                      lamViec("/api/doi-tac/huy-da-thu", v, chon, "Đã huỷ ghi nhận thu tiền", "", {
+                      lamViec("/api/doi-tac/huy-da-thu", v, chon, "Đã huỷ ghi nhận thu hộ", "", {
                         ly_do: lyDo,
                       })
                     }
@@ -464,6 +529,7 @@ export default function BangDoiTac() {
 
 function MotViec({
   viec,
+  xemTep,
   dangLam,
   tienDo,
   onLayMau,
@@ -473,6 +539,8 @@ function MotViec({
   onHuyThu,
 }: {
   viec: Viec;
+  /** Máy chủ cho mở tệp (xem / in / tải) — vai PARTNER bên ngoài: không. */
+  xemTep: boolean;
   dangLam: boolean;
   tienDo: { pt: number; ten: string } | null;
   onLayMau: (ghiChu: string) => void;
@@ -542,26 +610,55 @@ function MotViec({
         </div>
       ) : null}
 
-      {/* Tệp đã gửi (28/09/2026 — "chưa có chỗ hiển thị file"). */}
+      {/* LỊCH SỬ CÁC LẦN TẢI (29/09/2026): tên, giờ, ai tải — cũ trước. Mở /
+          in / tải khi máy chủ cho (`xem_tep`); tệp thu hồi chỉ còn dòng ghi. */}
       {viec.tep && viec.tep.length > 0 ? (
         <div className="space-y-1">
           <p className="text-label font-semibold uppercase tracking-wider text-ink-faint">
-            Đã gửi {viec.tep.length} tệp
+            Lịch sử tải tệp ({viec.tep.length})
           </p>
-          <ul className="space-y-1">
+          <ol className="space-y-1">
             {viec.tep.map((t) => (
               <li
                 key={t.id}
-                className="flex items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-1.5 text-meta"
+                className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-control bg-surface-muted px-3 py-1.5 text-meta"
               >
-                <span className="min-w-0 truncate text-ink">{t.ten ?? "Tệp kết quả"}</span>
-                <span className="shrink-0 text-ink-muted">
-                  {t.loai ?? ""} · {kichThuoc(t.so_byte)}
-                  {t.luc ? ` · ${gioVn(t.luc)}` : ""}
+                <span className={`min-w-0 truncate ${t.thu_hoi ? "text-ink-faint line-through" : "text-ink"}`}>
+                  {t.ten ?? "Tệp kết quả"}
                 </span>
+                <span className="text-ink-muted">
+                  {[
+                    t.loai,
+                    kichThuoc(t.so_byte),
+                    t.luc ? gioVn(t.luc) : null,
+                    t.boi ?? null,
+                    t.thu_hoi ? "đã thu hồi" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                {xemTep && !t.thu_hoi ? (
+                  <span className="flex gap-3">
+                    <a
+                      href={duongXemTep(t.id)}
+                      target="_blank"
+                      rel="noopener"
+                      className="font-semibold text-brand-700 underline underline-offset-4"
+                    >
+                      Xem / In
+                    </a>
+                    <a
+                      href={`${duongXemTep(t.id)}?tai=1`}
+                      rel="noopener"
+                      className="font-semibold text-brand-700 underline underline-offset-4"
+                    >
+                      Tải về
+                    </a>
+                  </span>
+                ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
       ) : null}
 
@@ -652,9 +749,9 @@ function MotViec({
   );
 }
 
-/** Khách trả TRỰC TIẾP cho đối tác (Tuyền chốt 27/09/2026, Q1): đối tác ghi
- *  nhận đã thu (số tiền mặc định = giá tham khảo, hình thức, ghi chú) và huỷ có
- *  lý do. Máy chủ kiểm số tiền / hình thức / lý do; màn chỉ gửi. */
+/** THU HỘ ĐỐI TÁC (Tuyền chốt 27/09/2026, Q1; đổi tên 29/09/2026): người ở vị
+ *  trí Đối tác ghi nhận đã thu hộ (số tiền mặc định = giá tham khảo, hình thức,
+ *  ghi chú) và huỷ có lý do. Máy chủ kiểm số tiền / hình thức / lý do. */
 function ThuTienKhach({
   viec,
   dangLam,
@@ -679,19 +776,24 @@ function ThuTienKhach({
     <div className="space-y-2 rounded-control bg-surface-muted px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-meta text-ink-muted">
-          Khách trả trực tiếp đối tác
+          Thu hộ đối tác
           {viec.gia_tham_khao != null ? ` · tham khảo ${tienVnd(viec.gia_tham_khao)}` : ""}
         </p>
         {da ? (
           <Chip tone="success">
-            Đã thu {tienVnd(da.so_tien)} · {TEN_HINH_THUC[da.hinh_thuc]}
+            Đã thu hộ {tienVnd(da.so_tien)} · {TEN_HINH_THUC[da.hinh_thuc]}
           </Chip>
         ) : (
-          <Chip tone="warning">Chưa thu</Chip>
+          <Chip tone="warning">Chưa thu hộ</Chip>
         )}
       </div>
       {da?.ghi_chu ? <p className="whitespace-pre-wrap text-meta text-ink-soft">Ghi chú: {da.ghi_chu}</p> : null}
-      {da?.luc ? <p className="text-label text-ink-faint">Ghi lúc {gioVn(da.luc)}</p> : null}
+      {da?.luc ? (
+        <p className="text-label text-ink-faint">
+          Ghi lúc {gioVn(da.luc)}
+          {da.boi ? ` · ${da.boi}` : ""}
+        </p>
+      ) : null}
 
       {mo === "thu" && !da ? (
         <div className="grid gap-2 sm:grid-cols-2">
@@ -743,7 +845,7 @@ function ThuTienKhach({
       <div className="flex flex-wrap justify-end gap-2">
         {mo === null && !da ? (
           <Button variant="soft" size="lg" disabled={dangLam} onClick={() => setMo("thu")}>
-            Đã thu tiền khách
+            Đã thu hộ cho đối tác
           </Button>
         ) : null}
         {mo === null && da ? (
@@ -766,7 +868,7 @@ function ThuTienKhach({
                 })
               }
             >
-              {dangLam ? "Đang ghi…" : "Ghi nhận đã thu"}
+              {dangLam ? "Đang ghi…" : "Ghi nhận đã thu hộ"}
             </Button>
           </>
         ) : null}

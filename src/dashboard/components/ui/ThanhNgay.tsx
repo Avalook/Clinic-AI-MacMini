@@ -15,6 +15,10 @@
  *
  * Chỉ vẽ + tính khoảng (lib/thanh-ngay.ts, hàm thuần có test). Màn tự đưa khoảng
  * xuống máy chủ (`tu`/`den`); máy chủ là nơi quyết khoảng hợp lệ.
+ *
+ * `motNgay` (29/09/2026 — `/doi-tac`, phòng dịch vụ): chọn ĐÚNG MỘT ngày. Chỉ
+ * còn chip Hôm nay · Hôm qua · Hôm kia, dải ngày và "Chọn ngày…" (một ô ngày);
+ * không "Tất cả", không khoảng. Vẫn trả `{tu, den}` với tu = den.
  */
 
 import { useState } from "react";
@@ -44,6 +48,7 @@ export default function ThanhNgay({
   soNgaySau = 7,
   dangTai = false,
   className = "",
+  motNgay: chiMotNgay = false,
 }: {
   /** Khoảng đang lọc; null = tất cả. */
   khoang: Khoang | null;
@@ -57,6 +62,8 @@ export default function ThanhNgay({
   soNgaySau?: number;
   dangTai?: boolean;
   className?: string;
+  /** Chọn đúng một ngày (không khoảng, không "Tất cả"). */
+  motNgay?: boolean;
 }) {
   const [moTuyChon, setMoTuyChon] = useState(false);
   const [tu, setTu] = useState(khoang?.tu ?? "");
@@ -64,12 +71,23 @@ export default function ThanhNgay({
   const maDang = maCuaKhoang(khoang, homNay);
   const motNgay = khoang && khoang.tu === khoang.den ? khoang.tu : null;
   const tuyChon = khoang !== null && maDang === null && motNgay === null;
-  const kTuyChon = docKhoang(tu, den);
+  const kTuyChon = chiMotNgay ? docKhoang(tu, tu) : docKhoang(tu, den);
+  const dai = daiNgay(homNay, soNgayTruoc, soNgaySau);
+  // Chế độ một ngày: ngày đang chọn nằm ngoài dải và không khớp chip nào →
+  // nút "Chọn ngày…" mang tên ngày ấy (để người xem biết đang xem ngày nào).
+  const ngayNgoaiDai =
+    chiMotNgay && motNgay !== null && maDang === null && !dai.some((o) => o.ngay === motNgay);
+  const chipNhanh = chiMotNgay
+    ? NHANH.filter(({ ma }) => {
+        const k = khoangNhanh(ma, homNay);
+        return k !== null && k.tu === k.den;
+      })
+    : NHANH;
 
   return (
     <div role="group" aria-label={nhan} className={`min-w-0 space-y-2 ${className}`}>
       <div className="flex min-w-0 flex-wrap items-center gap-1">
-        {NHANH.map(({ ma, nhan: ten }) => (
+        {chipNhanh.map(({ ma, nhan: ten }) => (
           <button
             key={ma}
             type="button"
@@ -80,22 +98,30 @@ export default function ThanhNgay({
             {ten}
           </button>
         ))}
-        <button
-          type="button"
-          aria-pressed={khoang === null}
-          onClick={() => onChon(null)}
-          className={`${CHIP} ${khoang === null ? CHIP_CHON : CHIP_THUONG}`}
-        >
-          Tất cả
-        </button>
+        {chiMotNgay ? null : (
+          <button
+            type="button"
+            aria-pressed={khoang === null}
+            onClick={() => onChon(null)}
+            className={`${CHIP} ${khoang === null ? CHIP_CHON : CHIP_THUONG}`}
+          >
+            Tất cả
+          </button>
+        )}
         <button
           type="button"
           aria-expanded={moTuyChon}
-          aria-pressed={tuyChon}
+          aria-pressed={tuyChon || ngayNgoaiDai}
           onClick={() => setMoTuyChon((v) => !v)}
-          className={`${CHIP} ${tuyChon ? CHIP_CHON : CHIP_THUONG}`}
+          className={`${CHIP} ${tuyChon || ngayNgoaiDai ? CHIP_CHON : CHIP_THUONG}`}
         >
-          {tuyChon ? `Tuỳ chọn: ${nhanKhoang(khoang)}` : "Tuỳ chọn…"}
+          {chiMotNgay
+            ? ngayNgoaiDai
+              ? `Ngày ${nhanKhoang(khoang)}`
+              : "Chọn ngày…"
+            : tuyChon
+              ? `Tuỳ chọn: ${nhanKhoang(khoang)}`
+              : "Tuỳ chọn…"}
         </button>
         {dangTai ? <span className="text-meta text-ink-muted">đang tải…</span> : null}
       </div>
@@ -103,23 +129,26 @@ export default function ThanhNgay({
       {moTuyChon ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-meta text-ink-muted">
-            Từ ngày
+            {chiMotNgay ? "Ngày" : "Từ ngày"}
             <input
               type="date"
               value={tu}
+              max={chiMotNgay ? homNay : undefined}
               onChange={(e) => setTu(e.target.value)}
               className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
             />
           </label>
-          <label className="flex flex-col gap-1 text-meta text-ink-muted">
-            Đến ngày
-            <input
-              type="date"
-              value={den}
-              onChange={(e) => setDen(e.target.value)}
-              className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
-            />
-          </label>
+          {chiMotNgay ? null : (
+            <label className="flex flex-col gap-1 text-meta text-ink-muted">
+              Đến ngày
+              <input
+                type="date"
+                value={den}
+                onChange={(e) => setDen(e.target.value)}
+                className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
+              />
+            </label>
+          )}
           <Button
             size="lg"
             variant="primary"
@@ -129,7 +158,7 @@ export default function ThanhNgay({
               setMoTuyChon(false);
             }}
           >
-            Xem khoảng này
+            {chiMotNgay ? "Xem ngày này" : "Xem khoảng này"}
           </Button>
         </div>
       ) : null}
@@ -138,7 +167,7 @@ export default function ThanhNgay({
           (DESIGN.md §7). */}
       <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-1">
         <div className="flex w-max gap-1">
-          {daiNgay(homNay, soNgayTruoc, soNgaySau).map((o) => {
+          {dai.map((o) => {
             const dang = motNgay === o.ngay;
             return (
               <button

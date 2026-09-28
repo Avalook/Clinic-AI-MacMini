@@ -1,7 +1,10 @@
 // Bảng giá khung dịch vụ/thuốc (service_price) — CRUD scaffold cho màn Bảng giá.
 //   GET    ?xem=phong-lam                                  → phòng làm (node) để chọn
-//   POST   { service_code?, ma_kiotviet?, name, group, unit_price?, node_code? }
-//   PATCH  { id, unit_price?, name?, active?, ma_kiotviet?, node_code? }
+//   POST   { service_code?, ma_kiotviet?, name, group, unit_price?, node_code?, billing_owner? }
+//   PATCH  { id, unit_price?, name?, active?, ma_kiotviet?, node_code?, billing_owner? }
+//
+// BÊN THU (29/09/2026): CLINIC | EXTERNAL_PARTNER, chọn tay ở Bảng giá. Tầng này
+// chỉ kiểm HÌNH (một trong hai chữ); máy chủ giữ lựa chọn khỏi bị phòng làm ghi đè.
 //   DELETE { id }
 //
 // QUYỀN Ở MÁY CHỦ (26/09/2026). Bản cũ tự chặn theo VAI (Thu ngân / Quản lý /
@@ -50,6 +53,12 @@ function parseMaKv(v: unknown): string | null | undefined {
   return MA_KV_RE.test(s) ? s : undefined;
 }
 
+/** Bên thu: "" / null → null (theo phòng làm); CLINIC | EXTERNAL_PARTNER; sai → undefined. */
+function parseBenThu(v: unknown): string | null | undefined {
+  if (v === null || v === undefined || v === "") return null;
+  return v === "CLINIC" || v === "EXTERNAL_PARTNER" ? v : undefined;
+}
+
 function parseNode(v: unknown): string | null | undefined {
   if (v === null || v === undefined || v === "") return null;
   return typeof v === "string" && NODE_RE.test(v) ? v : undefined;
@@ -70,6 +79,7 @@ interface PostBody {
   group?: string;
   unit_price?: unknown;
   node_code?: unknown;
+  billing_owner?: unknown;
 }
 
 export async function POST(request: Request) {
@@ -89,6 +99,7 @@ export async function POST(request: Request) {
   const unit_price = parsePrice(body.unit_price);
   const ma_kiotviet = parseMaKv(body.ma_kiotviet);
   const node_code = parseNode(body.node_code);
+  const billing_owner = parseBenThu(body.billing_owner);
 
   if ((!service_code && !ma_kiotviet) || !name) {
     return sai("Thiếu mã phòng khám (hoặc mã dịch vụ) hoặc tên.");
@@ -97,6 +108,7 @@ export async function POST(request: Request) {
   if (unit_price === undefined) return sai("Đơn giá không hợp lệ.");
   if (ma_kiotviet === undefined) return sai("Mã phòng khám chỉ gồm chữ, số, gạch.");
   if (node_code === undefined) return sai("Phòng làm không hợp lệ.");
+  if (billing_owner === undefined) return sai("Bên thu không hợp lệ.");
 
   // Mã trùng là 409 từ FastAPI, không phải một dòng thứ hai không ai để ý.
   return proxyJsonToBackend("POST", "/api/v1/service-prices", {
@@ -106,6 +118,7 @@ export async function POST(request: Request) {
     unit_price,
     ma_kiotviet,
     node_code,
+    ...(billing_owner ? { billing_owner } : {}),
   });
 }
 
@@ -116,6 +129,7 @@ interface PatchBody {
   active?: boolean;
   ma_kiotviet?: unknown;
   node_code?: unknown;
+  billing_owner?: unknown;
 }
 
 export async function PATCH(request: Request) {
@@ -137,6 +151,8 @@ export async function PATCH(request: Request) {
   if (ma === undefined) return sai("Mã phòng khám chỉ gồm chữ, số, gạch.");
   const node = "node_code" in body ? parseNode(body.node_code) : null;
   if (node === undefined) return sai("Phòng làm không hợp lệ.");
+  const ben = "billing_owner" in body ? parseBenThu(body.billing_owner) : null;
+  if (ben === undefined) return sai("Bên thu không hợp lệ.");
 
   return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
     name: body.name ?? null,
@@ -144,6 +160,7 @@ export async function PATCH(request: Request) {
     active: typeof body.active === "boolean" ? body.active : null,
     ...("ma_kiotviet" in body ? { ma_kiotviet: ma } : {}),
     ...("node_code" in body && node ? { node_code: node } : {}),
+    ...(ben ? { billing_owner: ben } : {}),
   });
 }
 
