@@ -53,12 +53,34 @@ export default function ThanhLuotKham({
   onChonLuot: (id: string) => void;
 }) {
   const [xemHoSo, setXemHoSo] = useState(false);
+  const [loiIn, setLoiIn] = useState<string | null>(null);
   const luotChon = chuoi
     .flatMap((c) => c.luot)
     .find((l) => l.id === luotDangXem);
   // Hồ sơ khám chỉ có từ lúc khách đã vào khám (check-in trở đi).
   const coHoSo =
     luotChon?.status === "CHECKED_IN" || luotChon?.status === "COMPLETED";
+  // IN PDF TRẢ KHÁCH theo từng ngày khám (Tuyền 28/09/2026): hồ sơ khám · kết
+  // quả XN / siêu âm (kèm ảnh) · đơn thuốc — cùng trang in phiếu khám mọi khâu
+  // dùng (`/print/phieu-kham/[visit]?phan=`). Mở tab NGAY lúc bấm (trình duyệt
+  // chặn cửa sổ mở sau một vòng mạng), rồi mới hỏi máy chủ mã lượt khám.
+  async function moIn(appointmentId: string, phan: "tom_tat" | "cls_kem" | "don") {
+    setLoiIn(null);
+    const tab = window.open("", "_blank");
+    const r = await fetch(`/api/cskh/ho-so-kham/${appointmentId}`, { cache: "no-store" })
+      .then(async (x) => (x.ok ? ((await x.json()) as { luot?: { visit_id?: string } }) : null))
+      .catch(() => null);
+    const vid = r?.luot?.visit_id;
+    if (!vid) {
+      tab?.close();
+      setLoiIn("Lượt này chưa có hồ sơ khám để in.");
+      return;
+    }
+    const duong = `/print/phieu-kham/${vid}?phan=${phan}`;
+    // Trình duyệt chặn mở tab → mở ở đây (bấm Quay lại để về màn CSKH).
+    if (tab) tab.location.href = duong;
+    else window.location.assign(duong);
+  }
   if (chuoi.length === 0) {
     return (
       <p className="mt-1 text-label text-ink-muted">
@@ -131,8 +153,31 @@ export default function ThanhLuotKham({
           className="mt-2 inline-flex items-center gap-1.5 rounded-control bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-100"
         >
           <FileText className="size-4" aria-hidden="true" />
-          Xem hồ sơ khám lượt {ngay(luotChon.slot_start)} · tải PDF
+          Xem hồ sơ khám lượt {ngay(luotChon.slot_start)}
         </button>
+      )}
+      {luotChon && coHoSo && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-label text-ink-muted">In PDF trả khách:</span>
+          {(
+            [
+              ["tom_tat", "Hồ sơ khám"],
+              ["cls_kem", "Kết quả XN / siêu âm"],
+              ["don", "Đơn thuốc"],
+            ] as const
+          ).map(([phan, nhan]) => (
+            <button
+              key={phan}
+              type="button"
+              onClick={() => void moIn(luotChon.id, phan)}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-surface px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
+            >
+              <FileText className="size-4" aria-hidden="true" />
+              {nhan}
+            </button>
+          ))}
+          {loiIn ? <span className="text-label text-danger">{loiIn}</span> : null}
+        </div>
       )}
       {xemHoSo && luotChon && (
         <HoSoKhamModal
