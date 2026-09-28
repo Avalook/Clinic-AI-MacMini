@@ -15,6 +15,7 @@ import pytest
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole
 from clinicai.core.exceptions import SafetyGateError
+from tests.quyen_gia import can_theo_nhom_mau
 from tests.services.fake_sql import pool
 from tests.services.test_luat_1509_thu_ky_va_dieu_phoi import BS1, ME, VISIT, who
 
@@ -32,6 +33,12 @@ def _cua_quyen_co_bai_kiem_rieng(monkeypatch: pytest.MonkeyPatch) -> None:
         return None
 
     monkeypatch.setattr("clinicai.services.clinical_sign_service.doi_quyen", _qua)
+    # 28/09: duyệt nháp / bỏ dịch vụ / cho phép gửi hỏi QUYỀN — theo nhóm mẫu.
+    for duong in (
+        "clinicai.services.service_order_service.can",
+        "clinicai.services.tep_ket_qua_service.can",
+    ):
+        monkeypatch.setattr(duong, can_theo_nhom_mau)
 
 
 def _co_ban(nhap: Any = NHAP) -> list[tuple[str, Any]]:
@@ -184,9 +191,11 @@ async def test_bac_si_duyet_va_bo_nhap() -> None:
         ).approve_draft(
             visit_id=VISIT, expected_version=3, identity=who(ClinicRole.DOCTOR)
         )
+    # 28/09: thư ký / điều dưỡng duyệt được như bác sĩ; người KHÔNG có quyền
+    # chỉ định (CSKH) thì không.
     with pytest.raises(SafetyGateError):
         await svc(pool()).approve_draft(
-            visit_id=VISIT, expected_version=3, identity=who(ClinicRole.TKYK)
+            visit_id=VISIT, expected_version=3, identity=who(ClinicRole.CSKH)
         )
 
     with pytest.raises(ValidationError, match="lý do"):
@@ -509,7 +518,7 @@ async def test_dinh_chinh_don_khoa_visit_roi_prescription_roi_allocation() -> No
 
 
 @pytest.mark.asyncio
-async def test_ky_sieu_am_theo_bac_si_nhan_ca() -> None:
+async def test_ky_sieu_am_theo_bac_si_nhan_ca(monkeypatch: pytest.MonkeyPatch) -> None:
     from clinicai.services.clinical_sign_service import ClinicalSignService
 
     svc = ClinicalSignService
@@ -541,7 +550,14 @@ async def test_ky_sieu_am_theo_bac_si_nhan_ca() -> None:
         ("SELECT w.assigned_to::text", ME),
     )
     assert (await svc(ok).sign_ultrasound(identity=sa, ultrasound_id="u"))["signed"]
-    with pytest.raises(ValidationError, match="Chỉ bác sĩ"):
+    # 28/09: ký hỏi QUYỀN duyệt kết quả (không hỏi vai) — người không có quyền
+    # thì dừng ở cửa quyền, trước mọi truy vấn.
+    from tests.quyen_gia import doi_quyen_theo_nhom_mau
+
+    monkeypatch.setattr(
+        "clinicai.services.clinical_sign_service.doi_quyen", doi_quyen_theo_nhom_mau
+    )
+    with pytest.raises(SafetyGateError):
         await svc(pool()).sign_ultrasound(
-            identity=who(ClinicRole.TKYK), ultrasound_id="u"
+            identity=who(ClinicRole.CSKH), ultrasound_id="u"
         )

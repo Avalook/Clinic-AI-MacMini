@@ -27,6 +27,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
@@ -67,9 +68,11 @@ def tuoi_thai_tu_edd(edd: date | None, hom_nay: date) -> dict[str, int] | None:
     return {"tuan": ngay // 7, "ngay": ngay % 7}
 
 
-def _chi_bac_si(identity: StaffIdentity) -> None:
-    if not identity.co_vai({ClinicRole.DOCTOR}):
-        raise SafetyGateError("Chỉ bác sĩ tạo, xác nhận hoặc chuyển thai kỳ.")
+async def _chi_bac_si(pool: asyncpg.Pool, identity: StaffIdentity) -> None:
+    """Ghi thai kỳ: QUYỀN ghi bệnh án, không vai (28/09/2026)."""
+    async with pool.acquire() as conn:
+        if not await can(conn, identity, "clinical.record.write"):
+            raise SafetyGateError("Bạn chưa có quyền ghi thai kỳ.")
 
 
 def _ngay_bat_buoc(raw: Any, ten: str) -> date:
@@ -119,6 +122,10 @@ SELECT p.id, p.outcome, p.outcome_date, p.lmp_date, p.edd_date, p.edd_nguon,
 
 
 class ThaiKyService:
+    async def _duoc_ghi(self, identity: StaffIdentity) -> bool:
+        async with self._pool.acquire() as conn:
+            return await can(conn, identity, "clinical.record.write")
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
@@ -139,7 +146,7 @@ class ThaiKyService:
         return {
             "hien_tai": hien_tai,
             "truoc": [d for d in ds if d is not hien_tai],
-            "duoc_ghi": identity.co_vai({ClinicRole.DOCTOR}),
+            "duoc_ghi": await self._duoc_ghi(identity),
             "nguon": [{"ma": k, "nhan": v} for k, v in NGUON_EDD.items()],
         }
 
@@ -151,7 +158,7 @@ class ThaiKyService:
         du_lieu: dict[str, Any],
         identity: StaffIdentity,
     ) -> dict[str, Any]:
-        _chi_bac_si(identity)
+        await _chi_bac_si(self._pool, identity)
         edd = _ngay_bat_buoc(du_lieu.get("du_kien_sinh"), "Dự kiến sinh")
         lmp = _ngay_tuy_chon(du_lieu.get("kinh_cuoi"), "Ngày đầu kỳ kinh cuối")
         nguon = du_lieu.get("nguon_du_kien_sinh")
@@ -227,7 +234,7 @@ class ThaiKyService:
         du_lieu: dict[str, Any],
         identity: StaffIdentity,
     ) -> dict[str, Any]:
-        _chi_bac_si(identity)
+        await _chi_bac_si(self._pool, identity)
         async with self._pool.acquire() as conn, conn.transaction():
             r = await conn.fetchrow(
                 "SELECT outcome, lmp_date, edd_date, edd_nguon, is_high_risk,"

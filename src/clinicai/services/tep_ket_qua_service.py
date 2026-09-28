@@ -1083,9 +1083,10 @@ class TepKetQuaService:
         self, *, identity: StaffIdentity, tep_id: str
     ) -> dict[str, Any]:
         """Bác sĩ đã xem tệp và cho phép CSKH gửi cho khách."""
-        if not identity.co_vai(BAC_SI_CHO_PHEP_GUI):
-            raise SafetyGateError("Chỉ bác sĩ mới cho phép gửi kết quả cho khách.")
         async with self._pool.acquire() as conn:
+            # QUYỀN duyệt kết quả, không vai (28/09/2026).
+            if not await can(conn, identity, "result.review.approve"):
+                raise SafetyGateError("Bạn chưa có quyền cho phép gửi kết quả.")
             async with conn.transaction():
                 hien = await conn.fetchrow(
                     "SELECT xac_nhan_trang_thai, cho_phep_gui_luc "
@@ -1150,8 +1151,9 @@ class TepKetQuaService:
         - External files đã xác nhận HOP_LE.
         - Internal/non-order (NULL) — behavior trước #174.
         """
-        if not identity.co_vai(BAC_SI_CHO_PHEP_GUI):
-            raise SafetyGateError("Chỉ bác sĩ mới xem hàng chờ cho phép gửi.")
+        async with self._pool.acquire() as c0:
+            if not await can(c0, identity, "result.review.approve"):
+                raise SafetyGateError("Bạn chưa có quyền duyệt kết quả.")
         rows = await self._pool.fetch(
             """
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.so_byte, t.tai_len_luc,

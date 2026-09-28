@@ -18,6 +18,7 @@ import pytest
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.service_order_service import ServiceOrderService
+from tests.quyen_gia import PoolGia, chot_bac_si_theo_nhom_mau
 
 
 def _identity(role: ClinicRole) -> StaffIdentity:
@@ -47,16 +48,19 @@ def test_thu_ky_khong_tao_viec_that() -> None:
     pool.acquire.assert_not_called()
 
 
-@pytest.mark.parametrize("role", [ClinicRole.TKYK, ClinicRole.NURSE_ULTRASOUND])
-def test_chi_bac_si_duyet(role: ClinicRole) -> None:
-    pool = MagicMock()
+@pytest.mark.parametrize("role", [ClinicRole.CSKH, ClinicRole.CASHIER])
+def test_khong_co_quyen_chi_dinh_thi_khong_duyet(
+    role: ClinicRole, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 28/09/2026: duyệt nháp hỏi QUYỀN chỉ định, không hỏi vai — thư ký / điều
+    # dưỡng cùng phòng duyệt được như bác sĩ; người không có quyền thì không.
+    chot_bac_si_theo_nhom_mau(monkeypatch)
     with pytest.raises(SafetyGateError):
         asyncio.run(
-            ServiceOrderService(pool).approve_draft(
+            ServiceOrderService(PoolGia()).approve_draft(
                 visit_id=VISIT, expected_version=1, identity=_identity(role)
             )
         )
-    pool.acquire.assert_not_called()
 
 
 def test_dieu_duong_khong_doc_duoc_nhap() -> None:

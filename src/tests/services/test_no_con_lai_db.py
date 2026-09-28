@@ -196,6 +196,7 @@ async def test_tat_man_khong_lay_mat_khoi_man_khac_con_can() -> None:
         "hoan_tat_kham",
         "thuc_hien",
         "ket_qua",
+        "duyet_ket_qua",  # 28/09: thuộc cả Bàn khám lẫn Phòng dịch vụ
     ]
     assert set(man_dang_bat(bac_si)) >= {"ban_kham", "phong"}
     # Tắt lego "Phòng dịch vụ": gỡ thuc_hien; ket_qua + ghi_benh_an Bàn khám còn

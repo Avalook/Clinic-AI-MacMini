@@ -82,3 +82,21 @@ def dich_vu_theo_nhom_mau(monkeypatch: Any) -> None:
     monkeypatch.setattr(ClinicConfigService, "_duoc_cau_hinh", _cau_hinh)
     monkeypatch.setattr(RosterService, "_xep_lich", _xep_lich)
     monkeypatch.setattr(DoiBacSiService, "_duoc_doi_bac_si", _doi_bac_si)
+
+
+def chot_bac_si_theo_nhom_mau(monkeypatch: Any) -> None:
+    """Các chốt từng là "chỉ bác sĩ" nay hỏi QUYỀN (28/09/2026 — thư ký, điều
+    dưỡng cùng phòng thao tác như bác sĩ): trả lời theo nhóm mẫu của vai cho bài
+    kiểm chạy trên pool giả. Cửa thật hỏi `v_quyen_hieu_luc` trên Postgres."""
+    for duong in (
+        "clinicai.services.service_order_service.can",
+        "clinicai.services.tep_ket_qua_service.can",
+        "clinicai.services.thai_ky_service.can",
+    ):
+        monkeypatch.setattr(duong, can_theo_nhom_mau)
+    for duong in (
+        "clinicai.services.luot_kham_service.doi_quyen",
+        "clinicai.services.clinical_sign_service.doi_quyen",
+    ):
+        monkeypatch.setattr(duong, doi_quyen_theo_nhom_mau)
+    cua_router_theo_nhom_mau(monkeypatch)

@@ -30,6 +30,10 @@ def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.quyen_gia import dich_vu_theo_nhom_mau
 
     dich_vu_theo_nhom_mau(monkeypatch)
+    # 28/09: các chốt "chỉ bác sĩ" nay hỏi quyền.
+    from tests.quyen_gia import chot_bac_si_theo_nhom_mau
+
+    chot_bac_si_theo_nhom_mau(monkeypatch)
 
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -444,8 +448,9 @@ async def test_bo_tich_chi_dinh() -> None:
             visit_id=VISIT, service_code="SA", ly_do=ly_do, identity=who(role)
         )
 
+    # 28/09: thư ký bỏ được như bác sĩ; người không có quyền chỉ định thì không.
     with pytest.raises(SafetyGateError):
-        await bo(pool(*base), ClinicRole.TKYK)
+        await bo(pool(*base), ClinicRole.CSKH)
     with pytest.raises(ValidationError, match="lý do"):
         await bo(pool(*base), ly_do=" ")
     with pytest.raises(SafetyGateError, match="phụ trách"):

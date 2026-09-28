@@ -23,6 +23,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.route_derivation import derive_route
 from clinicai.services.thu_ky_bac_si import (
@@ -421,8 +422,9 @@ class ServiceOrderService:
         CHÍNH order_services với danh tính bác sĩ, trong cùng giao dịch với việc
         đánh dấu đã duyệt — không có lúc nháp đã duyệt mà phòng chưa có việc.
         """
-        if not identity.co_vai(PHYSICIAN_ROLES):
-            raise SafetyGateError("Chỉ bác sĩ mới duyệt chỉ định thư ký đã nhập")
+        async with self._pool.acquire() as c0:
+            if not await can(c0, identity, "clinical.order.place"):
+                raise SafetyGateError("Bạn chưa có quyền duyệt chỉ định")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
@@ -585,8 +587,9 @@ class ServiceOrderService:
         LƯỢT (bác sĩ phụ trách) bỏ được — bác sĩ khác không sửa chỉ định của
         đồng nghiệp.
         """
-        if not identity.co_vai(PHYSICIAN_ROLES):
-            raise SafetyGateError("Chỉ bác sĩ bỏ dịch vụ khỏi chỉ định")
+        async with self._pool.acquire() as c0:
+            if not await can(c0, identity, "clinical.order.place"):
+                raise SafetyGateError("Bạn chưa có quyền bỏ dịch vụ khỏi chỉ định")
         ly_do_sach = (ly_do or "").strip()
         if not ly_do_sach:
             raise ValidationError("Bỏ dịch vụ khỏi chỉ định phải ghi lý do.")
@@ -596,9 +599,13 @@ class ServiceOrderService:
                     "SELECT order_services_lock_visit($1::uuid)", visit_id
                 )
                 visit = await self._visit_mo(conn, visit_id, identity.clinic_id)
-                if visit["attending_doctor_id"] is not None and str(
-                    visit["attending_doctor_id"]
-                ) != str(identity.staff_id):
+                # Bác sĩ KHÁC không sửa chỉ định của đồng nghiệp; thư ký / người
+                # cùng phòng (không phải bác sĩ) làm được như bác sĩ phụ trách.
+                if (
+                    identity.co_vai(PHYSICIAN_ROLES)
+                    and visit["attending_doctor_id"] is not None
+                    and str(visit["attending_doctor_id"]) != str(identity.staff_id)
+                ):
                     raise SafetyGateError(
                         "Chỉ bác sĩ phụ trách lượt khám bỏ được dịch vụ đã chỉ định"
                     )
