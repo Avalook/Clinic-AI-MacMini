@@ -239,14 +239,14 @@ class ManTrangChuService:
                 clinic_id,
                 week_roster,
             )
-            # Ô ĐEN và khối NGHỈ của tuần lịch — bảng lịch trang chủ vẽ y hệt
-            # file Excel (Tuyền 16/09/2026). Thiếu nó thì một phòng đóng cửa
-            # trông như một vị trí đang thiếu người.
+            # Khối NGHỈ của tuần lịch — bảng lịch trang chủ vẽ y hệt file Excel
+            # (Tuyền 16/09/2026). Ô ĐEN (DONG) thôi trả từ 28/09/2026 (Tuyền:
+            # "xoá ô đen, mở lại quyền đặt ca, đừng block nữa").
             dong_ca = await conn.fetch(
                 """
                 SELECT work_date, shift, station, ly_do
                   FROM vi_tri_dong_ca
-                 WHERE clinic_id = $1::uuid
+                 WHERE clinic_id = $1::uuid AND ly_do = 'NGHI'
                    AND work_date >= $2::date
                    AND work_date < $2::date + 7
                 """,

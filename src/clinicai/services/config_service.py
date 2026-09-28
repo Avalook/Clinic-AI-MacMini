@@ -1102,10 +1102,14 @@ class RosterService:
                 identity.clinic_id,
                 dau,
             )
+            # Chỉ khối NGHỈ. Ô ĐEN (DONG — "vị trí không làm ca ấy") thôi trả
+            # từ 28/09/2026: nó giấu nút + nên quản lý không xếp được người vào
+            # ca ấy (Tuyền: "mở lại quyền đặt ca, đừng block nữa").
             dong_ca = await conn.fetch(
                 """
                 SELECT work_date, shift, station, ly_do FROM vi_tri_dong_ca
-                 WHERE clinic_id = $1::uuid AND work_date BETWEEN $2 AND $3
+                 WHERE clinic_id = $1::uuid AND ly_do = 'NGHI'
+                   AND work_date BETWEEN $2 AND $3
                 """,
                 identity.clinic_id,
                 dau,
