@@ -209,6 +209,9 @@ DOC_THEO_LEGO: dict[tuple[str, str], list[str]] = {
         "/dispatch/overview",
     ],
     ("viec_can_xu_ly", "RECEPTION"): ["/work-items?workspace=khu_van_hanh"],
+    # "Chỉ dùng lego" (27/09): hàng đợi tiếp đón theo lego, vai nào cũng được.
+    ("tiep_don", "CASHIER"): ["/work-items?workspace=bang_dieu_phoi"],
+    ("dieu_phoi", "CSKH"): ["/luot-kham/chi-dinh-hom-nay"],
 }
 
 
@@ -274,6 +277,14 @@ async def test_lego_khac_khong_doc_duoc_hang_cua_lego_nay(
     ):
         r = await _goi(http, cskh, "GET", p)
         assert r.status_code == 403, f"GET {p} → {r.status_code} {r.text}"
+    # Vai Lễ tân / Trưởng ca mà KHÔNG có lego Tiếp đón / Điều phối → đóng
+    # (trước 27/09 vai của node / vai Trưởng ca mở cửa).
+    le_tan = await _nguoi(pool, "NURSE_ULTRASOUND", ["do_sinh_hieu"])
+    r = await _goi(http, le_tan, "GET", "/work-items?workspace=bang_dieu_phoi")
+    assert r.status_code == 403, r.text
+    truong_ca = await _nguoi(pool, "TRUONG_CA", ["tiep_don"])
+    r = await _goi(http, truong_ca, "GET", "/luot-kham/chi-dinh-hom-nay")
+    assert r.status_code == 403, r.text
     # Lego Tư vấn không mở hàng KHÁM chính; Bàn khám không mở hàng TƯ VẤN.
     tu_van = await _nguoi(pool, "DOCTOR", ["tu_van"])
     r = await _goi(http, tu_van, "GET", "/luot-kham/hang-cho")
@@ -296,6 +307,12 @@ LENH: list[tuple[str, str, str, dict[str, Any] | None]] = [
         {"expected_execution_revision": 1, "expected_routing_revision": 1},
     ),
     ("do_sinh_hieu", "POST", "/luot-kham/visits/{ma}/vitals/start", None),
+    (
+        "dieu_phoi",
+        "POST",
+        "/luot-kham/orders/{ma}/dispatch",
+        {"room_id": "00000000-0000-4000-8000-000000000000"},
+    ),
     # Việc cần xử lý: lệnh tìm đầu việc TRƯỚC (mã giả → 404 cho mọi người) —
     # kiểm trên việc thật ở `test_viec_can_xu_ly_ten_khach_va_dong_viec_chi_bang_lego`.
 ]

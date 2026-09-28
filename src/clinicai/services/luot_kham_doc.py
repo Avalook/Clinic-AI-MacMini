@@ -14,11 +14,10 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
 )
 from clinicai.core.clock import now_vn
-from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.doc_bang import (
     QUYEN_BANG_LUOT,
     doi_mot_quyen,
@@ -29,13 +28,9 @@ from clinicai.services import luot_kham_rules as rules
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
-    CHECKIN_ROLES,
-    DISPATCH_ROLES,
-    NOTE_ROLES,
     _cung_ngay_vn,
     _iso,
     _num,
-    _require,
     _theo_luat_xep_hang,
 )
 from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi_nhieu
@@ -209,7 +204,8 @@ class BangLuotKham:
                     """,
                     cid,
                     ids,
-                    identity.co_vai(NOTE_ROLES),
+                    # Nháp chỉ định: người có lego Bàn khám (27/09 đợt 3).
+                    await can(conn, identity, "clinical.consult.perform"),
                 )
                 hang_cho = await conn.fetch(
                     """
@@ -277,7 +273,7 @@ class BangLuotKham:
                 cid,
             )
             lich: list[asyncpg.Record] = []
-            if identity.co_vai(CHECKIN_ROLES):
+            if await can(conn, identity, "reception.checkin.perform"):
                 lich = await conn.fetch(
                     """
                     SELECT a.id::text AS id, a.slot_start, a.status,
@@ -685,21 +681,26 @@ class BangLuotKham:
             # chưa bị giới hạn theo bác sĩ: thấy lượt khám chính của MỌI bác sĩ.
             # Bản trước trả rỗng cho thư ký ở chế độ mở quyền — thư ký mở Bàn khám
             # mà không thấy ai (tự kiểm 16/09/2026).
+            # THEO LEGO, không theo vai (27/09 đợt 3 — "chỉ dùng lego"):
+            #   * đã được phân đi cùng bác sĩ (thư ký) → khách của bác sĩ ấy;
+            #   * có quyền Hoàn tất khám ("bác sĩ") → khách của chính mình;
+            #   * có Khám mà không Hoàn tất (thư ký chưa phân) → mọi bác sĩ;
+            #   * lego Điều phối → mọi bác sĩ.
             tat_ca_bac_si = False
-            if identity.co_vai({ClinicRole.DOCTOR}):
-                ds_bac_si = sorted({*ds_bac_si, identity.staff_id})
-            if identity.co_vai({ClinicRole.TKYK}):
+            if not tu_van:
                 cua_toi = await bac_si_cua_thu_ky(conn, identity)
                 if cua_toi is not None:
                     ds_bac_si = sorted(
                         {*ds_bac_si, *cua_toi} if rid is None else cua_toi
                     )
-                elif rid is None:
+                elif await can(conn, identity, "clinical.consult.finalize"):
+                    ds_bac_si = sorted({*ds_bac_si, identity.staff_id})
+                elif rid is None and await can(
+                    conn, identity, "clinical.consult.perform"
+                ):
                     tat_ca_bac_si = True
-            if rid is None and identity.co_vai(
-                {ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT}
-            ):
-                tat_ca_bac_si = True
+                if rid is None and await can(conn, identity, "dispatch.manage"):
+                    tat_ca_bac_si = True
             rows = await conn.fetch(
                 """
                 WITH stt AS (
@@ -946,7 +947,14 @@ class BangLuotKham:
         Kèm các mốc để dựng dòng thời gian, và vòng đọc kết quả (khách đã quay
         lại bác sĩ chưa).
         """
-        _require(identity, DISPATCH_ROLES, "Chỉ trưởng ca hoặc quản lý xem điều phối.")
+        # Lego 9 Điều phối khách (27/09 đợt 3, thay vai Trưởng ca / Quản lý).
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "dispatch.manage",
+                cau="Chỉ người có lego Điều phối khách xem điều phối.",
+            )
         rows = await self._pool.fetch(
             """
             SELECT o.id::text AS id, o.visit_id::text AS visit_id,

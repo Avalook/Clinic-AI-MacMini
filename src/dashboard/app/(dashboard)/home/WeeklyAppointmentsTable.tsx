@@ -365,6 +365,7 @@ export default function WeeklyAppointmentsTable({
   choCheckIn = false,
   chonNgay = false,
   choThemKhach = true,
+  duocCheckIn,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
@@ -386,6 +387,10 @@ export default function WeeklyAppointmentsTable({
    *  Trang chủ TẮT (Tuyền 28/09/2026: nhiều bác sĩ thì dòng này lặp khắp bảng;
    *  đặt lịch làm ở màn Đặt lịch). Tiếp đón khách giữ nguyên. */
   choThemKhach?: boolean;
+  /** Được bấm Check-in theo LEGO của tài khoản (`reception.checkin.perform`) —
+   *  đợt 3, 27/09/2026 ("chỉ dùng lego"). Không truyền (máy chủ chưa trả lời
+   *  quyền) → theo vai như trước. */
+  duocCheckIn?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -417,7 +422,7 @@ export default function WeeklyAppointmentsTable({
   const [moTay, setMoTay] = useState<Record<string, boolean>>({});
   const dangMo = (d: ApptDay) => moTay[d.date] ?? d.items.length > 0;
   // Menu "…" cho vai quản lý lịch hẹn không có cột check-in (CSKH).
-  const showActions = choCheckIn && canCheckin(role);
+  const showActions = choCheckIn && (duocCheckIn ?? canCheckin(role));
   const coMenu = canManageAppt(role) && !showActions;
 
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.

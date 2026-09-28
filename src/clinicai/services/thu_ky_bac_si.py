@@ -20,6 +20,7 @@ import asyncpg
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 
 CHUA_PHAN = "Bạn chưa được phân đi cùng bác sĩ nào — báo quản lý phân trong Cấu hình."
@@ -37,8 +38,9 @@ async def bac_si_cua_thu_ky(
     điều dưỡng và lễ tân thấy 19 — vì chưa ai phân bác sĩ cho họ. Luật mới không
     phụ thuộc công tắc mở quyền tạm thời.
     """
-    if not identity.co_vai({ClinicRole.TKYK}):
-        return None
+    # THEO DỮ LIỆU PHÂN CÔNG, không theo vai (27/09 đợt 3 — "chỉ dùng lego"):
+    # chỉ tài khoản thư ký mới được phân (`dat_bac_si_cho_thu_ky` kiểm), nên có
+    # dòng phân = đang đi cùng bác sĩ ấy; không có dòng = không lọc.
     ids = await conn.fetchval(
         "SELECT array_agg(bac_si_staff_id::text) FROM public.thu_ky_bac_si"
         " WHERE clinic_id = $1::uuid AND thu_ky_staff_id = $2::uuid",
@@ -170,10 +172,15 @@ async def dat_bac_si_cho_thu_ky(
     bac_si_staff_ids: list[str],
 ) -> dict[str, Any]:
     """Quản lý phân thư ký theo những bác sĩ nào (thay cả danh sách)."""
-    if not identity.co_vai({ClinicRole.MANAGEMENT}):
-        raise SafetyGateError("Chỉ quản lý phân thư ký cho bác sĩ.")
     ids = sorted(set(bac_si_staff_ids))
     async with pool.acquire() as conn, conn.transaction():
+        # Lego 18 Cài đặt phòng khám (27/09 đợt 3), thay vai Quản lý.
+        await doi_quyen(
+            conn,
+            identity,
+            "config.clinic.manage",
+            cau="Chỉ người có lego Cài đặt phòng khám phân thư ký cho bác sĩ.",
+        )
         la_thu_ky = await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM public.clinic_membership"
             " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid AND is_active"

@@ -122,15 +122,16 @@ def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
     from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import luot_kham
 
-    for ten in ("_DISPATCH_GUARD", "_PERFORMER_GUARD"):
-        assert isinstance(getattr(luot_kham, ten), RoleGuardCoTheMo), (
-            f"{ten} phải nới được theo công tắc — Tuyền cần mọi vai thao tác được."
-        )
+    # Chỉ còn lối cũ (410) giữ cửa vai theo công tắc.
+    assert isinstance(luot_kham._PERFORMER_GUARD, RoleGuardCoTheMo)
 
-    # Đợt 3 (27/09/2026): bảng lượt khám / hàng chờ hỏi LEGO trong hàm dịch vụ
-    # (`permissions/doc_bang.py`) — không còn danh sách vai ở cửa router.
+    # Đợt 3 (27/09/2026, Tuyền "chỉ dùng lego"): bảng / hàng chờ / điều phối /
+    # duyệt chỉ định hỏi LEGO trong hàm dịch vụ — không còn vai ở cửa router.
     for ten in (
         "_BANG_GUARD",
+        "_DISPATCH_GUARD",
+        "_DOCTOR_GUARD",
+        "_TKYK_GUARD",
         "_CHECKIN_GUARD",
         "_VITALS_GUARD",
         "_NOTE_GUARD",
@@ -140,13 +141,6 @@ def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
         assert getattr(luot_kham, ten) is get_current_identity, (
             f"{ten}: quyền nằm ở hàm dịch vụ;"
             " cửa router không được là hệ quyền thứ hai."
-        )
-
-    for ten in ("_DOCTOR_GUARD", "_TKYK_GUARD"):
-        cua = getattr(luot_kham, ten)
-        assert not isinstance(cua, RoleGuardCoTheMo), (
-            f"{ten} KHÔNG được nới: khám, ghi bệnh án và duyệt chỉ định là việc "
-            "của bác sĩ, ranh giới ấy có luật hành nghề đứng sau."
         )
 
 

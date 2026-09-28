@@ -275,7 +275,9 @@ def test_thu_ky_hoi_pham_vi_qua_backend(db: list[SqlConn]) -> None:
     assert c.get(f"/api/v1/thu-ky/khach/{KHACH}").json() == {"ok": True}
     assert c.get(f"/api/v1/thu-ky/khach/{khac}").status_code == 403
 
-    # Không phải thư ký: không giới hạn, xem được mọi khách.
+    # Không được phân theo bác sĩ nào (7a: lọc theo DỮ LIỆU phân công, không
+    # theo vai): không giới hạn, xem được mọi khách.
+    db[0] = pool(("FROM public.thu_ky_bac_si", None))
     app.dependency_overrides[get_current_identity] = lambda: who(ClinicRole.DOCTOR)
     assert c.get("/api/v1/thu-ky/khach-duoc-xem").json() == {
         "gioi_han": False,

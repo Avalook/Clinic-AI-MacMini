@@ -80,7 +80,11 @@ def test_viec_can_xu_ly_hoi_worklist_handle() -> None:
     from clinicai.api.v1.routers import work_items
     from clinicai.services import work_item_service
 
-    assert work_item_service.QUYEN_THEO_KHU == {"khu_van_hanh": "worklist.handle"}
+    # Đợt 3 (27/09/2026, "chỉ dùng lego"): hàng đợi tiếp đón cũng theo lego.
+    assert work_item_service.QUYEN_THEO_KHU == {
+        "khu_van_hanh": "worklist.handle",
+        "bang_dieu_phoi": "reception.checkin.perform",
+    }
     # Cửa đọc khu và lệnh trên việc đều đi qua bảng ấy.
     assert "QUYEN_THEO_KHU" in inspect.getsource(
         work_items.require_workspace_read_access

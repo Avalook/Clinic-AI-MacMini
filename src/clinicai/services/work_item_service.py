@@ -69,7 +69,13 @@ VAI_QUYET_DICH_VU: frozenset[str] = frozenset({"DOCTOR", "ULTRASOUND_DOCTOR"})
 #: việc khi chưa ai được giao đích danh — không phải hàng rào quyền (ghi ngay
 #: trong migration 20260923000007). Trước đây quyền `worklist.handle` không lệnh
 #: nào kiểm: thu lego chỉ mất mục trên thanh bên, API vẫn mở theo vai.
-QUYEN_THEO_KHU: dict[str, str] = {"khu_van_hanh": "worklist.handle"}
+QUYEN_THEO_KHU: dict[str, str] = {
+    "khu_van_hanh": "worklist.handle",
+    # Hàng đợi TIẾP ĐÓN (`/reception/queue`, lego 1) — "chỉ dùng lego" (Tuyền
+    # 27/09/2026, đợt 3): bước tiếp nhận + xác minh hỏi quyền Tiếp đón, không
+    # hỏi `actor_roles` (RECEPTION / NURSE_ULTRASOUND) của node nữa.
+    "bang_dieu_phoi": "reception.checkin.perform",
+}
 
 # Only start and complete are gated. Skipping and cancelling are how a stuck
 # flow gets unstuck, so a shut gate must never prevent them.

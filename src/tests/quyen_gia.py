@@ -97,6 +97,7 @@ def chot_bac_si_theo_nhom_mau(monkeypatch: Any) -> None:
     for duong in (
         "clinicai.services.luot_kham_service.doi_quyen",
         "clinicai.services.clinical_sign_service.doi_quyen",
+        "clinicai.services.thu_ky_bac_si.doi_quyen",
     ):
         monkeypatch.setattr(duong, doi_quyen_theo_nhom_mau)
     cua_router_theo_nhom_mau(monkeypatch)

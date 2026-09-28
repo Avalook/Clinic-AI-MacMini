@@ -244,8 +244,9 @@ class XemLuotService:
             )
             if v is None:
                 raise NotFoundError("Không tìm thấy lượt khám này.")
-            if identity.co_vai({ClinicRole.TKYK}):
-                await kiem_khach(conn, identity, v["patient_id"])
+            # Thư ký đã phân theo bác sĩ → chỉ khách của bác sĩ ấy (theo dữ liệu
+            # phân công, không theo vai — 27/09 đợt 3).
+            await kiem_khach(conn, identity, v["patient_id"])
             out: dict[str, Any] = {
                 "visit_id": v["visit_id"],
                 "muc": muc,
