@@ -124,9 +124,13 @@ function duongDoc(url: URL): string | null {
     }
     const phong = url.searchParams.get("phong") ?? "";
     if (phong && !UUID_RE.test(phong)) return null;
-    return phong
-      ? `/api/v1/luot-kham/hang-cho?phong=${encodeURIComponent(phong)}`
-      : "/api/v1/luot-kham/hang-cho";
+    // `ngay` (29/09/2026): xem lại hàng chờ phòng của một ngày cũ.
+    const ngay = url.searchParams.get("ngay") ?? "";
+    const q = new URLSearchParams();
+    if (phong) q.set("phong", phong);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ngay)) q.set("ngay", ngay);
+    const qs = q.toString();
+    return qs ? `/api/v1/luot-kham/hang-cho?${qs}` : "/api/v1/luot-kham/hang-cho";
   }
   return null;
 }

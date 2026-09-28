@@ -291,6 +291,10 @@ if [ "$MOI" = 1 ]; then
     # …rồi bật lại Thủ thuật + Sàn chậu chuyên sâu (24/09) mà câu trên vừa tắt.
     psql_db <"$REPO/supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
         red "  chạy lại 20260925000006_dat_lich_thu_thuat_san_chau hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
+    # …và bên thu theo KiotViet (29/09): seed nạp danh mục dịch vụ SAU migration,
+    # nên phân loại thu hộ phải áp lại (chạy lại được — chỉ chạm 4 mã).
+    psql_db <"$REPO/supabase/migrations/20260929000020_ben_thu_theo_dich_vu.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
+        red "  chạy lại 20260929000020_ben_thu_theo_dich_vu hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
 fi
 # PostgREST giữ lược đồ trong bộ nhớ từ lúc khởi động; migration vừa áp không tự
 # vào đó (gặp thật trên staging 07/08).

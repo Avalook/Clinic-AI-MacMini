@@ -665,7 +665,7 @@ function NhomThu({
       </p>
       {hd?.chi_doi_tac_thu ? (
         <p className="mt-2 text-meta text-ink-muted">
-          Phòng khám không còn khoản nào — dịch vụ dưới đây khách trả trực tiếp đối tác.
+          Phòng khám không còn khoản nào — dịch vụ dưới đây là thu hộ đối tác.
         </p>
       ) : daThu ? (
         <p className="mt-2 text-meta text-ink-muted">Không còn khoản nào phải thu.</p>
@@ -764,7 +764,7 @@ function DongDoiTacThu({ ds }: { ds: DongDoiTac[] }) {
   return (
     <div className="mt-2 rounded-control bg-surface-muted px-3 py-2">
       <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-        Khách trả trực tiếp đối tác — không cộng
+        Thu hộ đối tác — không cộng
       </p>
       <ul className="mt-1 space-y-1">
         {ds.map((d) => (
@@ -773,9 +773,9 @@ function DongDoiTacThu({ ds }: { ds: DongDoiTac[] }) {
               {d.ten}
               <span className="ml-2">
                 {d.doi_tac_da_thu ? (
-                  <Chip tone="success">Đối tác đã thu {tien(d.doi_tac_da_thu.so_tien)}</Chip>
+                  <Chip tone="success">Đã thu hộ cho đối tác {tien(d.doi_tac_da_thu.so_tien)}</Chip>
                 ) : (
-                  <Chip tone="neutral">Đối tác chưa thu</Chip>
+                  <Chip tone="neutral">Chưa thu hộ cho đối tác</Chip>
                 )}
               </span>
             </span>

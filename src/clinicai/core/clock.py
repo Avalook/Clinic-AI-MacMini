@@ -30,7 +30,8 @@ thể lập kế hoạch, không phải một cuộc đi tìm.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
 #: Múi giờ vận hành của mọi phòng khám ClinicAI.
@@ -49,3 +50,41 @@ def now_vn() -> datetime:
     tối, tức chính khung giờ phòng khám làm việc.
     """
     return datetime.now(CLINIC_TZ)
+
+
+def hom_nay_vn() -> date:
+    """Ngày hôm nay theo giờ phòng khám."""
+    return now_vn().date()
+
+
+#: Mốc sớm nhất một màn "xem ngày cũ" nhận — trước đó hệ thống chưa có dữ liệu.
+NGAY_XEM_SOM_NHAT = date(2020, 1, 1)
+
+
+def doc_ngay_xem(value: Any) -> date | None:
+    """Ngày người dùng chọn để xem (``YYYY-MM-DD``) → ``date``.
+
+    Rác / rỗng / không phải chuỗi / trước 2020 → None, KHÔNG ném (CLAUDE.md:
+    hàm nhận ngày giờ từ người dùng trả rỗng thay vì ném — đã có ba lần 500).
+    None nghĩa là "hôm nay" ở nơi gọi. Ngày tương lai vẫn nhận: nơi gọi chỉ
+    đọc, và ngày chưa tới thì danh sách rỗng — đúng sự thật.
+    """
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        ngay = value
+    elif isinstance(value, str):
+        chu = value.strip()
+        # Chỉ nhận đúng dạng có gạch (``fromisoformat`` 3.11+ nhận cả
+        # "20260929" và "2026-W40-1" — hai dạng không màn nào gửi).
+        if len(chu) != 10 or chu[4] != "-" or chu[7] != "-":
+            return None
+        try:
+            ngay = date.fromisoformat(chu)
+        except ValueError:
+            return None
+    else:
+        return None
+    if ngay < NGAY_XEM_SOM_NHAT:
+        return None
+    return ngay

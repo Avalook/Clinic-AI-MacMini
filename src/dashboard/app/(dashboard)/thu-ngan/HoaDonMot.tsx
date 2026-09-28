@@ -163,7 +163,7 @@ export default function HoaDonMot({
       <DanhSach tieuDe="Phòng khám thu" ds={qt.phong_kham} dangChon={dangChon} doiTick={doiTick} datPhong={datPhong} />
       {qt.doi_tac.length > 0 ? (
         <DanhSach
-          tieuDe="Khách trả trực tiếp đối tác · không cộng"
+          tieuDe="Thu hộ đối tác · không cộng"
           ds={qt.doi_tac}
           dangChon={dangChon}
           doiTick={doiTick}
@@ -290,7 +290,7 @@ function DanhSach({
                 {d.mang_sang ? <Chip tone="neutral">Mang sang</Chip> : null}
                 {doiTac ? (
                   <Chip tone={d.doi_tac_da_thu ? "success" : "neutral"}>
-                    {d.doi_tac_da_thu ? "đối tác đã thu" : "đối tác chưa thu"}
+                    {d.doi_tac_da_thu ? "đã thu hộ cho đối tác" : "chưa thu hộ cho đối tác"}
                   </Chip>
                 ) : null}
               </label>

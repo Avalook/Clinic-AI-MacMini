@@ -225,7 +225,7 @@ export default function ChonDichVu({
                 ) : null}
                 {c.doi_tac_thu ? (
                   <span className="block text-meta text-ink-muted">
-                    Khách trả trực tiếp đối tác — không cộng
+                    Thu hộ đối tác — không cộng
                   </span>
                 ) : null}
               </span>
