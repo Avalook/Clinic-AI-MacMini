@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import inspect
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,6 +18,7 @@ from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.quyen_gia import PoolGia, chot_bac_si_theo_nhom_mau
 
 TEP = "33333333-3333-4333-8333-333333333333"
 
@@ -36,16 +36,18 @@ def _identity(role: ClinicRole) -> StaffIdentity:
     )
 
 
-@pytest.mark.parametrize(
-    "role", [ClinicRole.CSKH, ClinicRole.TKYK, ClinicRole.MANAGEMENT]
-)
-def test_chi_bac_si_cho_phep_gui(role: ClinicRole) -> None:
-    pool = MagicMock()
+@pytest.mark.parametrize("role", [ClinicRole.CSKH, ClinicRole.RECEPTION])
+def test_khong_co_quyen_duyet_kq_thi_khong_cho_phep_gui(
+    role: ClinicRole, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 28/09/2026: hỏi QUYỀN duyệt kết quả, không hỏi vai.
+    chot_bac_si_theo_nhom_mau(monkeypatch)
     with pytest.raises(SafetyGateError):
         asyncio.run(
-            TepKetQuaService(pool).cho_phep_gui(identity=_identity(role), tep_id=TEP)
+            TepKetQuaService(PoolGia()).cho_phep_gui(  # type: ignore[arg-type]
+                identity=_identity(role), tep_id=TEP
+            )
         )
-    pool.acquire.assert_not_called()
 
 
 class _Pool:

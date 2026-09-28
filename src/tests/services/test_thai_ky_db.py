@@ -41,7 +41,9 @@ async def test_chi_bac_si_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
     khach = await _khach(kb)
     edd = (now_vn().date() + timedelta(days=200)).isoformat()
     du_lieu = {"du_kien_sinh": edd, "nguon_du_kien_sinh": "SIEU_AM"}
-    for ai in (kb.thu_ky, kb.le_tan, kb.dieu_duong):
+    # 28/09/2026: ghi thai kỳ hỏi QUYỀN ghi bệnh án — thư ký / điều dưỡng cùng
+    # phòng ghi được như bác sĩ; lễ tân (không có quyền ấy) thì không.
+    for ai in (kb.le_tan,):
         with pytest.raises(SafetyGateError):
             await svc.tao(
                 clinic_patient_id=khach, visit_id=None, du_lieu=du_lieu, identity=ai

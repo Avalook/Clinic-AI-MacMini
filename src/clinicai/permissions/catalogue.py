@@ -805,14 +805,24 @@ MAN: dict[str, Man] = {
             "ban_kham",
             "Bàn khám",
             ["/ban-kham"],
-            ["kham", "chi_dinh", "ghi_benh_an", "hoan_tat_kham", "ket_qua"],
+            # + duyet_ket_qua (28/09/2026): thư ký / bác sĩ cùng phòng "thao tác
+            # như nhau" — duyệt kết quả, cho gửi kết quả không còn riêng bác sĩ.
+            [
+                "kham",
+                "chi_dinh",
+                "ghi_benh_an",
+                "hoan_tat_kham",
+                "ket_qua",
+                "duyet_ket_qua",
+            ],
             "Bác sĩ chính + Thư ký y khoa",
         ),
         _lego(
             "phong",
             "Phòng dịch vụ",
             ["/phong"],
-            ["thuc_hien", "ket_qua", "ghi_benh_an"],
+            # + duyet_ket_qua (28/09/2026): ai làm ở phòng ấy ký được phiếu CỦA MÌNH.
+            ["thuc_hien", "ket_qua", "ghi_benh_an", "duyet_ket_qua"],
             "BS siêu âm / thủ thuật + Điều dưỡng",
             khoi_theo_phong="thuc_hien",
         ),

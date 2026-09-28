@@ -100,6 +100,15 @@ def _clean_overrides() -> Iterator[None]:
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def _chot_theo_quyen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """28/09: ký siêu âm hỏi QUYỀN duyệt kết quả (router + service) — pool giả
+    trả lời theo nhóm mẫu của vai."""
+    from tests.quyen_gia import chot_bac_si_theo_nhom_mau
+
+    chot_bac_si_theo_nhom_mau(monkeypatch)
+
+
 # ── Ký bệnh án đã nghỉ: 410 cho mọi vai, không chạm database ──────────────────
 @pytest.mark.parametrize(
     ("role", "staff"),
