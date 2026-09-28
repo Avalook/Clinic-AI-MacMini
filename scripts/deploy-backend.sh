@@ -447,7 +447,7 @@ truoc=$(docker system df --format '{{.Type}}|{{.Size}}' 2>/dev/null | awk -F'|' 
 # GIỮ 7 NGÀY (28/09/2026): mốc 24h làm deploy hôm sau dựng lại từ đầu (npm ci,
 # next build, cài gói Python) — deploy mất ~3 phút thay vì ~1 phút. Đĩa VPS còn
 # dưới 8 GB thì dọn sạch như cũ: đầy đĩa tệ hơn deploy chậm.
-con_gb=$(df -BG / | awk 'NR==2{gsub("G","",$4); print $4}')
+con_gb=$(df -Pk / | awk 'NR==2{print int($4/1048576)}')
 if [ "${con_gb:-0}" -lt 8 ]; then
     docker builder prune -af >/dev/null 2>&1 || true
 else

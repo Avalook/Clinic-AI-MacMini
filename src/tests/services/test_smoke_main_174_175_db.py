@@ -689,10 +689,8 @@ async def test_smoke_4_capability_security_guards_matrix_http(
         mgr = await _tao_staff(conn, CLINIC_A, "MANAGEMENT")
         nurse = await _tao_staff(conn, CLINIC_A, "NURSE_ULTRASOUND")
         cashier = await _tao_staff(conn, CLINIC_A, "CASHIER")
-        staff_b = await _tao_staff(conn, CLINIC_B, "NURSE_ULTRASOUND")
-
-        # Staff multi-clinic
-        staff_multi = await _tao_staff(conn, CLINIC_A, "NURSE_ULTRASOUND")
+        # Phòng khám B phải có TRƯỚC nhân sự của nó (chạy song song mới lộ:
+        # trước đây nhờ tệp khác tạo sẵn).
         await conn.execute(
             """
             INSERT INTO clinic (id, name, code)
@@ -701,6 +699,10 @@ async def test_smoke_4_capability_security_guards_matrix_http(
             """,
             CLINIC_B,
         )
+        staff_b = await _tao_staff(conn, CLINIC_B, "NURSE_ULTRASOUND")
+
+        # Staff multi-clinic
+        staff_multi = await _tao_staff(conn, CLINIC_A, "NURSE_ULTRASOUND")
         await conn.execute(
             """
             INSERT INTO clinic_membership (clinic_id, staff_id, role, is_active)
