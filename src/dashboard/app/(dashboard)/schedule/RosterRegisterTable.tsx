@@ -172,8 +172,13 @@ export default function RosterRegisterTable({
           ? { ...r, status: overrides[r.id] as RegisterRow["status"] }
           : r,
       ),
+    // Ca vừa xếp rồi GỠ ngay (28/09/2026): phải ẩn cả ở đây. Trước chỉ ẩn dòng
+    // của máy chủ — gỡ xong, tải lại, máy chủ không còn dòng ấy nên dòng tạm
+    // hiện lại: người vừa gỡ vẫn "Đã xếp", biến khỏi danh sách chọn, bấm gỡ lần
+    // nữa thì máy chủ báo "Không tìm thấy ca trực".
     ...optimistic.filter(
       (o) =>
+        overrides[o.id] !== "REMOVED" &&
         !rows.some(
           (r) =>
             r.staff_id === o.staff_id &&
@@ -350,7 +355,9 @@ export default function RosterRegisterTable({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    if (!res.ok) {
+    // 404 = ca đã không còn trên máy chủ (vừa gỡ ở tab khác / bấm hai lần):
+    // đúng điều người bấm muốn — coi là gỡ xong, không báo lỗi.
+    if (!res.ok && res.status !== 404) {
       setOverrides((ov) => {
         const n = { ...ov };
         delete n[id];
@@ -359,6 +366,7 @@ export default function RosterRegisterTable({
       setError(loiDocDuoc(await res.json().catch(() => ({})), "Lỗi khi gỡ ca."));
       return;
     }
+    setOptimistic((opt) => opt.filter((o) => o.id !== id));
     refresh();
   }
 
