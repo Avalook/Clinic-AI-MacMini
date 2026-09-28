@@ -5,9 +5,13 @@ Tuyền 28/09: "cái lịch này là của tuần này luôn, bạn áp lên pro
 "thêm quyền khám nội tiết cho phòng sàn chậu … mình open lego vào".
 
 Làm ba việc, theo thứ tự:
-  1. Phòng Sàn chậu thêm node KHAM-NOITIET → bác sĩ / thư ký / điều dưỡng xếp
-     ở đó hôm nay có Bàn khám cho khách Nội tiết (quyền theo lịch,
-     `quyen_theo_lich_bang`: tiền tố KHAM- → lego Bàn khám).
+  1. BÁC SĨ ĐA NĂNG (Tuyền 28/09: "phòng sàn chậu hay thủ thuật cũng thế, hay
+     sản hay gì cũng vậy, nếu bác sĩ đó được đặt thì bác sĩ đó vừa là bác sĩ
+     chính mà vừa chỉ định rồi làm việc luôn"): MỌI phòng có vị trí bác sĩ được
+     đủ 5 node khám (KHAM-*) → bác sĩ xếp ở đó nhận khách mọi loại khám, có
+     Bàn khám (quyền theo lịch: tiền tố KHAM- → Bàn khám), chỉ định, rồi làm
+     dịch vụ của phòng mình. Phòng Sản - Biofeedback ("Phòng Sản / Siêu âm"
+     trong bảng) thêm DICHVU-SIEUAM — bác sĩ Sản siêu âm luôn tại phòng.
   2. Ca của tuần KHÔNG có trong bảng → gỡ (RosterService.remove — lịch hẹn mất
      bác sĩ chuyển "Lịch chờ xếp bác sĩ", không huỷ). Ca đã đúng → giữ nguyên.
   3. Ca trong bảng chưa có → xếp (RosterService.add_shift — cùng kiểm vai/vị
@@ -33,7 +37,8 @@ from datetime import date
 import asyncpg
 
 PHONG_SAN_CHAU = "Phòng Sàn chậu"
-NODE_THEM = "KHAM-NOITIET"
+#: Phòng → node thêm riêng (ngoài 5 node khám cho mọi phòng bác sĩ).
+NODE_RIENG = {"Phòng Sản - Biofeedback": ["DICHVU-SIEUAM"]}
 TU, DEN = date(2026, 9, 28), date(2026, 10, 4)
 
 # Tên trong bảng → full_name trên prod. None = chưa có / chưa chốt.
@@ -272,14 +277,37 @@ async def main() -> int:
         }
         print(f"{'LÀM THẬT' if that else 'THỬ KHÔ'} · dưới tên {ql['full_name']}")
 
-        # ── 1. Node Khám Nội tiết cho Phòng Sàn chậu ──
-        co_node = await pool.fetchval(
-            "SELECT EXISTS (SELECT 1 FROM clinic_room_node"
-            " WHERE room_id = $1::uuid AND node_code = $2)",
-            phong["id"],
-            NODE_THEM,
+        # ── 1. Bác sĩ đa năng: đủ node khám cho mọi phòng có vị trí bác sĩ ──
+        kham = [
+            r["code"]
+            for r in await pool.fetch(
+                "SELECT code FROM node_definition WHERE clinic_id = $1::uuid"
+                " AND code LIKE 'KHAM-%' ORDER BY code",
+                cid,
+            )
+        ]
+        phong_bs = await pool.fetch(
+            """
+            SELECT r.id::text AS id, r.name,
+                   array(SELECT rn.node_code FROM clinic_room_node rn
+                          WHERE rn.room_id = r.id) AS co
+              FROM clinic_room r
+             WHERE r.clinic_id = $1::uuid AND r.is_active
+               AND EXISTS (SELECT 1 FROM vi_tri_lam_viec v
+                            WHERE v.room_id = r.id AND v.is_active
+                              AND v.nhom_nghe = 'BAC_SI')
+             ORDER BY r.name
+            """,
+            cid,
         )
-        print(f"\n1. {PHONG_SAN_CHAU} + {NODE_THEM}: {'đã có' if co_node else 'THÊM'}")
+        them_node: list[tuple[str, str, str]] = []  # (room_id, tên phòng, node)
+        for r in phong_bs:
+            for n in [*kham, *NODE_RIENG.get(r["name"], [])]:
+                if n not in (r["co"] or []):
+                    them_node.append((r["id"], r["name"], n))
+        print(f"\n1. Bác sĩ đa năng — thêm {len(them_node)} node:")
+        for _rid, ten, n in them_node:
+            print(f"   + {ten:26} {n}")
 
         # ── Kế hoạch ──
         can: dict[tuple, str] = {}  # (ngày, ca, trạm, staff_id) → tên
@@ -356,13 +384,13 @@ async def main() -> int:
             print("\nĐây là THỬ KHÔ. Thêm --that để làm thật.")
             return 0
 
-        if not co_node:
+        for rid, _ten, n in them_node:
             await pool.execute(
                 "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
                 " VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
                 cid,
-                phong["id"],
-                NODE_THEM,
+                rid,
+                n,
             )
         for r in go:
             await svc.remove(roster_id=r["id"], identity=ident)
