@@ -254,6 +254,55 @@ def _gia_mau_thuan(khac: Sequence[Decimal]) -> str:
 
 KHAM_KHONG_HEN = "chưa xác định loại khám (lượt không có lịch hẹn)"
 KHAM_KHONG_RO_LOAI = "chưa xác định loại khám"
+#: Lượt có loại khám mà chưa ai tick dịch vụ khám (28/09/2026) — tiền khám lấy
+#: từ dịch vụ khám người khám CHỌN theo mã KiotViet, không suy từ tên loại khám.
+KHAM_CHUA_CHON = "chưa chọn dịch vụ khám — tick ở Bàn khám hoặc ngay tại quầy"
+KHAM_CHUA_CO_GIA = "dịch vụ khám đã chọn chưa có giá — sửa ở Bảng giá"
+
+
+def dong_kham_theo_chon(
+    kham_row: Mapping[str, Any] | None, chon: Sequence[Mapping[str, Any]]
+) -> dict[str, Any] | None:
+    """Dòng tiền khám = các dịch vụ khám đã tick (Tuyền 28/09/2026). Thuần.
+
+    "Tiền phát sinh khi bác sĩ khám cho họ là khám cái gì … lúc đó tiền mới
+    tính, mình không còn bịa giá nữa." Vẫn MỘT dòng mỗi lượt (`exam-{visit}` —
+    chốt thu hai lần giữ nguyên): tên nối các dịch vụ, giá = tổng. Chưa tick
+    thì dòng "Tiền khám" kèm vấn đề (khoản chưa thu được, không bỏ im lặng).
+    Dịch vụ đã tick mà chưa có giá (KiotViet để 0đ) → vấn đề, không đoán giá.
+    """
+    if kham_row is None:
+        return None
+    if chon:
+        ten = " + ".join(clean_name(c["name"]) or "Dịch vụ khám" for c in chon)
+        gia = [c["unit_price"] for c in chon]
+        thieu_gia = [c["name"] for c in chon if c["unit_price"] is None]
+        ben, van_de_ben = giai_ben_thu([c["billing_owner"] for c in chon])
+        van_de = (
+            f"{KHAM_CHUA_CO_GIA}: {', '.join(thieu_gia)}" if thieu_gia else van_de_ben
+        )
+        return {
+            "ma": kham_row["st_id"],
+            "ten": ten,
+            "gia": [] if thieu_gia else [sum(Decimal(str(g)) for g in gia)],
+            "ben_thu": ben or CLINIC,
+            **({"van_de": van_de} if van_de else {}),
+        }
+    if clean_name(kham_row["name"]):
+        return {
+            "ma": kham_row["st_id"],
+            "ten": f"Tiền khám {clean_name(kham_row['name'])}",
+            "gia": [],
+            "ben_thu": CLINIC,
+            "van_de": KHAM_CHUA_CHON,
+        }
+    return {
+        "ma": None,
+        "ten": "Tiền khám",
+        "gia": [],
+        "ben_thu": CLINIC,
+        "van_de": KHAM_KHONG_HEN if kham_row["khong_hen"] else KHAM_KHONG_RO_LOAI,
+    }
 
 
 def dong_kham(
@@ -528,7 +577,30 @@ async def _kham(
     )
     if kham_row is not None and kham_row["khong_kham"]:
         return None
-    return dong_kham(kham_row, gia_dv)
+    # 28/09/2026: tiền khám = dịch vụ khám ĐÃ TICK (luot_phi_kham).
+    chon = await conn.fetch(
+        """
+        SELECT sp.name, sp.unit_price, sp.billing_owner
+          FROM public.luot_phi_kham l
+          JOIN public.service_price sp
+            ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+         WHERE l.clinic_id = $1::uuid AND l.visit_id = $2::uuid
+           AND l.bo_luc IS NULL
+         ORDER BY l.chon_luc, l.id
+        """,
+        clinic_id,
+        visit_id,
+    )
+    if chon:
+        return dong_kham_theo_chon(kham_row, chon)
+    # ĐƯỜNG TƯƠNG THÍCH: chưa tick mà bảng giá còn dòng TRÙNG ĐÚNG TÊN loại khám
+    # (cấu hình kiểu cũ) → dùng dòng ấy như trước. Prod sau migration
+    # 20260928000100 KHÔNG còn dòng nào như vậy (dòng phí khám mang tên KiotViet,
+    # dòng giá bịa đã tắt) → rơi xuống "chưa chọn dịch vụ khám".
+    cu = dong_kham(kham_row, gia_dv)
+    if cu is not None and cu.get("gia") and not cu.get("van_de"):
+        return cu
+    return dong_kham_theo_chon(kham_row, [])
 
 
 def _chi_dinh(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:

@@ -112,6 +112,7 @@ export default function PhieuKham({
   tuLuuKem,
   onTrangThaiLuu,
   baoLoiDon,
+  oDichVuKham,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -132,6 +133,9 @@ export default function PhieuKham({
   tuLuuKem?: { trangThai: TTLuu; luuNgay: () => Promise<boolean> };
   /** Báo trạng thái tự lưu (đã gộp) + hàm lưu nốt — shell dựng cổng Hoàn tất. */
   onTrangThaiLuu?: (tt: TTLuu, luuNgay: () => Promise<boolean>) => void;
+  /** Ô tick DỊCH VỤ KHÁM theo mã KiotViet (28/09/2026) — vẽ ngay dưới mục
+   *  đầu của khối 1 ("Bác sĩ tư vấn ghi"); shell truyền vào. */
+  oDichVuKham?: ReactNode;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
@@ -507,7 +511,13 @@ export default function PhieuKham({
 
         <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
-        {mucKhoi.map((m) => theMuc(m, m.ma === mucDau(mucKhoi)))}
+        {mucKhoi.map((m, i) => (
+          <Fragment key={`muc-${m.ma}`}>
+            {theMuc(m, m.ma === mucDau(mucKhoi))}
+            {/* Dưới dòng "Bác sĩ tư vấn ghi" (Tuyền 28/09/2026). */}
+            {khoi === 1 && i === 0 ? oDichVuKham : null}
+          </Fragment>
+        ))}
 
         <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (

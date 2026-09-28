@@ -447,6 +447,37 @@ async def dat_phu_thu(
     )
 
 
+class PhiKhamBody(BaseModel):
+    ids: list[UUID] = Field(default_factory=list, max_length=40)
+
+
+@router.get("/luot-kham/visits/{visit_id}/phi-kham")
+async def doc_phi_kham(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dịch vụ khám chọn được (mã KiotViet) + đã chọn của lượt (28/09/2026)."""
+    from clinicai.services.phi_kham_service import PhiKhamService
+
+    return await PhiKhamService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/luot-kham/visits/{visit_id}/phi-kham")
+async def chon_phi_kham(
+    visit_id: UUID,
+    body: PhiKhamBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tick dịch vụ khám → tiền khám tính theo đúng các dịch vụ đã chọn."""
+    from clinicai.services.phi_kham_service import PhiKhamService
+
+    return await PhiKhamService(pool).chon(
+        visit_id=str(visit_id), ids=[str(i) for i in body.ids], identity=identity
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/noi-dung-tu-van")
 async def luu_noi_dung_tu_van(
     consultation_id: UUID,
