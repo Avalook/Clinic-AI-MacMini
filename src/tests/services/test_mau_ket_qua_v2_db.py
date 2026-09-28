@@ -69,6 +69,7 @@ async def test_in_phieu_ai_in_duoc_va_ban_nhap_ghi_ro(pool: asyncpg.Pool) -> Non
         bs = await _nguoi(conn, "DOCTOR")
         cskh = await _nguoi(conn, "CSKH")
         le_tan = await _nguoi(conn, "RECEPTION")
+        doi_tac = await _nguoi(conn, "PARTNER")
         order = await _don_tron(conn, bs)
     svc = FormEngineService(pool)
     p = await svc.mo_phieu(service_order_id=order, form_id="KQ_SA_VU", identity=bs)
@@ -79,8 +80,11 @@ async def test_in_phieu_ai_in_duoc_va_ban_nhap_ghi_ro(pool: asyncpg.Pool) -> Non
     ban = await svc.in_ket_qua(service_order_id=order, identity=bs)
     assert ban["phieu"][0]["ban_nhap"] is False
     assert ban["phieu"][0]["hoan_tat_boi"]
+    # "In ở mọi khâu" (27/09/2026): lễ tân in được để trả khách; người không có
+    # quyền in phiếu nào (tài khoản đối tác) thì không.
+    assert (await svc.in_ket_qua(service_order_id=order, identity=le_tan))["phieu"]
     with pytest.raises(SafetyGateError):
-        await svc.in_ket_qua(service_order_id=order, identity=le_tan)
+        await svc.in_ket_qua(service_order_id=order, identity=doi_tac)
 
     # Lát 5: bản in kèm ẢNH của chỉ định; tệp CHƯA xác nhận không in; PDF chỉ đếm.
     them = (

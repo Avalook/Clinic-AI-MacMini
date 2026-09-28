@@ -360,8 +360,13 @@ def test_cua_so_thu_va_xuat_theo_quyen_thu() -> None:
     """Sổ, tệp xuất và phiếu in đứng sau CÙNG cửa quyền thu tiền của quầy."""
     from clinicai.api.v1.routers import cashier
 
-    can = {"/cashier/lich-su", "/cashier/lich-su.csv", "/cashier/phieu/{phieu_id}"}
+    can = {"/cashier/lich-su", "/cashier/lich-su.csv"}
+    # Phiếu IN (chỉ đọc): quầy thu + CSKH in hoá đơn trả khách (28/09/2026).
+    in_phieu = {"/cashier/phieu/{phieu_id}", "/cashier/phieu-luot/{visit_id}"}
     for r in cashier.router.routes:
-        if getattr(r, "path", None) in can:
-            deps = [d.call for d in r.dependant.dependencies]  # type: ignore[attr-defined]
-            assert cashier._GUARD in deps, getattr(r, "path", "")  # noqa: SLF001
+        p = getattr(r, "path", None)
+        deps = [d.call for d in getattr(r, "dependant").dependencies]  # noqa: B009
+        if p in can:
+            assert cashier._GUARD in deps, p  # noqa: SLF001
+        if p in in_phieu:
+            assert cashier._PHIEU_GUARD in deps, p  # noqa: SLF001
