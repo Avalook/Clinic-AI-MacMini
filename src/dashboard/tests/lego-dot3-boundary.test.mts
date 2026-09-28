@@ -89,7 +89,7 @@ test("Hành trình LUÔN BẬT cho mọi vai TÀI KHOẢN nội bộ, kể cả 
   assert.match(doc("../app/(dashboard)/layout.tsx"), /await getVaiHienThi\(\)/);
 });
 
-test("thanh bên ngày có ca: Hành trình cạnh Trang chủ, lego đang bật không gập", () => {
+test("thanh bên ngày có ca: Hành trình cạnh Trang chủ, nhóm lego mở sẵn, gập được", () => {
   const nav = doc("../app/(dashboard)/nav-items.ts");
   const i = nav.indexOf("export function nhomThanhBen");
   const than = nav.slice(i);
@@ -97,9 +97,13 @@ test("thanh bên ngày có ca: Hành trình cạnh Trang chủ, lego đang bật
   assert.match(than, /lego: conLai\.filter\(dangBat\)/);
   assert.match(than, /laManLego\(i\.href\) && quyenMoDuocMan\(quyen, i\.href\)/);
   const navTsx = doc("../app/(dashboard)/Nav.tsx");
-  // Kiểu A (27/09): lego đang bật là một nhóm KHÔNG gập (`coGap` = false).
+  // 28/09/2026 (Tuyền): nhóm lego là nhóm RIÊNG, không chữ (chỉ mũi tên), MỌI
+  // nhóm gập được — không còn nhánh `coGap = false`, không còn ép mở nhóm đang
+  // đứng (chỉ tự mở một lần khi tới trang).
   assert.match(navTsx, /lego: lego0/);
-  assert.match(navTsx, /veNhom\(\{ ma: "lego-dang-bat", ten: TEN_NHOM_LEGO, muc: lego \}, false\)/);
+  assert.match(navTsx, /\{ ma: "lego-dang-bat", ten: "", muc: lego \}/);
+  assert.doesNotMatch(navTsx, /coGap/);
+  assert.match(navTsx, /const mo = isCollapsed \|\| !gap\.includes\(g\.ma\)/);
 });
 
 test("Việc cần xử lý: lỗi hiện rõ, tên khách đúng trường, mã node thật, có Xem lượt", () => {
