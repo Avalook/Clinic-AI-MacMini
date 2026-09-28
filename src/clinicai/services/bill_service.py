@@ -270,13 +270,22 @@ def dong_kham(
     if kham_row is None:
         return None  # không có lượt — nơi gọi đã báo lỗi riêng
     if clean_name(kham_row["name"]):
-        khop = [
+        # TÁI KHÁM (28/09/2026, theo KiotViet — "Tái khám mong con" 150k khác
+        # "Khám mong con lần đầu" 400k): có dòng giá "<loại khám> (tái khám)" và
+        # lượt là tái khám thì tính dòng ấy; không có thì như lần đầu.
+        ten_tai = f"{kham_row['name']} (tái khám)"
+        khop_tai = (
+            [r for r in gia_dv if norm_name(r["name"]) == norm_name(ten_tai)]
+            if kham_row.get("tai_kham")
+            else []
+        )
+        khop = khop_tai or [
             r for r in gia_dv if norm_name(r["name"]) == norm_name(kham_row["name"])
         ]
         ben, van_de_ben = giai_ben_thu([r["billing_owner"] for r in khop])
         return {
             "ma": kham_row["st_id"],
-            "ten": kham_row["name"],
+            "ten": ten_tai if khop_tai else kham_row["name"],
             "gia": [r["unit_price"] for r in khop],
             "ben_thu": ben or CLINIC,
             **({"van_de": van_de_ben} if van_de_ben else {}),
@@ -456,6 +465,16 @@ async def _kham(
         """
         SELECT st.id::text AS st_id, st.name,
                (vi.appointment_id IS NULL) AS khong_hen,
+               -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
+               EXISTS (
+                   SELECT 1 FROM public.appointment a0
+                    WHERE a0.clinic_id = vi.clinic_id
+                      AND a0.clinic_patient_id = vi.clinic_patient_id
+                      AND a0.service_type_id = st.id
+                      AND a0.status = 'COMPLETED'
+                      AND a0.id IS DISTINCT FROM vi.appointment_id
+                      AND a0.slot_start < coalesce(a.slot_start, vi.created_at)
+               ) AS tai_kham,
                -- Dây H2 (24/09/2026): lịch "đi thẳng phòng" mà khách đi thẳng
                -- phòng thật (không qua bác sĩ) thì KHÔNG có buổi khám nào để
                -- tính tiền khám — tiền là của chính chỉ định. Rơi về bác sĩ

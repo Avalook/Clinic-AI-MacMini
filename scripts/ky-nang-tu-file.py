@@ -50,12 +50,15 @@ KY_NANG: list[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]] = [
     ("thuoc", "Thuốc", "Nhà thuốc", ("kho_thuoc",), ()),
 ]
 # Tên trong file → tài khoản (cùng BI_DANH của kim-nguu-3-tang-2709.py).
+# 28/09: hồ sơ đã đổi tên theo file (tai-khoan-theo-danh-sach.py); hồ sơ "ĐD …"
+# trùng người đã khoá (không còn khớp vì chỉ đọc hồ sơ đang làm việc).
 BI_DANH: dict[str, tuple[str, ...]] = {
     "Nguyễn Thị Ngọc Giầu": ("Nguyễn Thị Ngọc Giàu", "ĐD Giầu"),
-    "Vũ Thị Huế": ("ĐD Huế",),
+    "Vũ Thị Huế": ("Vũ Thị Huế", "ĐD Huế"),
     "Phùng Thị Minh Thư": ("Phùng Thị Minh Thư", "ĐD Thư"),
     "Phan Thị Minh Hằng": ("Phan Thị Minh Hằng", "ĐD Hằng"),
-    "Nguyễn Vân Anh": ("TL Vân Anh",),
+    "Nguyễn Vân Anh": ("Nguyễn Vân Anh", "TL Vân Anh"),
+    "Hồng Ngọc": ("Phan Thị Hồng Ngọc",),
 }
 
 
