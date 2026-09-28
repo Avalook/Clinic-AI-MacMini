@@ -108,7 +108,9 @@ LEGO_THEO_VAI: dict[str, set[str]] = {
 PHONG_DD_SA = ("KN-SA-T1", "KN-SA1", "KN-THUTHUAT", "KN-TTNG")
 
 # Kỹ năng trong file nhân sự → (lego, phòng của lego "phong").
-_LE_TAN = {"tiep_don", "ds_benh_nhan", "them_benh_nhan", "thu_tien_dv", "thu_tien_thuoc"}
+_LE_TAN = {
+    "tiep_don", "ds_benh_nhan", "them_benh_nhan", "thu_tien_dv", "thu_tien_thuoc", "dat_lich"
+}
 _SA, _TTP = ("KN-SA-T1", "KN-SA1"), ("KN-THUTHUAT", "KN-TTNG")
 KY_NANG: dict[str, tuple[set[str], tuple[str, ...]]] = {
     "Lễ tân": (_LE_TAN, ()),
@@ -122,7 +124,7 @@ KY_NANG: dict[str, tuple[set[str], tuple[str, ...]]] = {
     "Phụ sàn chậu": ({"phong"}, ("KN-SANCHAU",)),
     "Bio": ({"phong"}, ("KN-SAN-BIO",)),
     "Thuốc": ({"kho_thuoc"}, ()),
-    "CSKH": ({"cham_soc_khach"}, ()),
+    "CSKH": ({"cham_soc_khach", "dat_lich", "them_benh_nhan"}, ()),
 }
 # Tên trong file → (các) tài khoản trên hệ thống khi tên không khớp nguyên văn.
 # Nghi một người hai tài khoản: Tuyền 27/09 — áp kỹ năng cho CẢ HAI.
