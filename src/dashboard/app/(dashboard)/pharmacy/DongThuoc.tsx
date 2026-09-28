@@ -60,6 +60,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   const [soGiao, setSoGiao] = useState<Record<string, string>>({});
   const [loDoi, setLoDoi] = useState<Record<string, string>>({});
   const [soCu, setSoCu] = useState("");
+  // Giao không lô: mặc định phần bán chưa giao (máy chủ vẫn chặn quá số bán).
+  const conGiao = Math.max((dong.purchased_qty ?? dong.quantity_num ?? 0) - dong.dispensed_qty, 0);
+  const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
   const [dangGui, setDangGui] = useState(false);
@@ -320,8 +323,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
-          <p className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
-            Kho chưa có lô còn hạn, cùng đơn vị cho thuốc này. Nhập lô ở Kho thuốc trước.
+          <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">
+            Kho chưa có lô cho thuốc này — không sao: thu tiền và giao luôn được, gán lô
+            sau ở Kho thuốc.
           </p>
         ) : (
           <div className="flex flex-wrap items-end gap-2">
@@ -370,6 +374,34 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
       ) : null}
 
       {/* ── Luồng cũ: lần thu trước khi có phân lô ── */}
+      {/* ── Giao không cần lô (28/09/2026): máy chủ quyết nút, kho trừ khi gán lô ── */}
+      {tt.giao_khong_lo ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className={`${NHAN} w-28`}>
+            Giao
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={soKhongLo}
+              onChange={(e) => setSoKhongLo(e.target.value)}
+              className={O_NHAP}
+            />
+          </label>
+          <Button
+            className={CHAM}
+            variant="primary"
+            disabled={dangGui || !soKhongLo}
+            onClick={() =>
+              goi("dispense", { prescription_id: dong.id, so_luong: Number(soKhongLo) })
+            }
+          >
+            Giao thuốc
+          </Button>
+          <span className="text-meta text-ink-muted">Chưa cần lô — gán lô sau ở Kho thuốc.</span>
+        </div>
+      ) : null}
+
       {tt.giao_luong_cu ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className={`${NHAN} flex-1`}>

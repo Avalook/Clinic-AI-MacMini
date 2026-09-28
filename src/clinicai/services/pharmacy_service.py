@@ -455,10 +455,14 @@ class PharmacyService:
         *,
         identity: StaffIdentity,
         prescription_id: str,
-        drug_batch_id: str,
+        drug_batch_id: str | None,
         so_luong: Any,
     ) -> dict[str, Any]:
         """GIAO thuốc cho một dòng đơn (bàn giao vật lý). Giao một phần là bình thường.
+
+        `drug_batch_id` rỗng = GIAO KHÔNG CẦN LÔ (Tuyền 28/09/2026: "chưa cần quan
+        tâm lô nào … lô nhập và gán sau"): chỉ cho lần thu không gắn lô; ghi sổ
+        `thuoc_giao_chua_gan_lo`, kho trừ khi gán lô sau (`gan_lo_da_giao`).
 
         Contract tiền–thuốc CP3: thuốc đã BÁN lúc thu tiền thành công. Giao chỉ
         là thuốc thật rời quầy — ghi DISPENSE (tồn vật lý giảm) gắn đúng phân lô
@@ -512,7 +516,28 @@ class PharmacyService:
                     identity.clinic_id,
                     lan["payment_cycle_id"],
                 )
-                if giao_thang:
+                # Giao không lô: xét THEO DÒNG — dòng này không có lô nào đã bán
+                # trong lần thu (cùng luật nút `giao_khong_lo` ở ban_thuoc_service).
+                if drug_batch_id is None and await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
+                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+                    " AND prescription_id = $3::uuid AND released_at IS NULL)",
+                    identity.clinic_id,
+                    lan["payment_cycle_id"],
+                    prescription_id,
+                ):
+                    raise ValidationError(
+                        "Dòng này đã bán theo lô — giao từ đúng lô đã bán."
+                    )
+                if drug_batch_id is None:
+                    moi = await self._giao_khong_lo(
+                        conn,
+                        identity=identity,
+                        don=don,
+                        prescription_id=prescription_id,
+                        luong=luong,
+                    )
+                elif giao_thang:
                     moi = await self._cap_phat_cu(
                         conn,
                         identity=identity,
@@ -693,6 +718,249 @@ class PharmacyService:
             },
         )
         return moi
+
+    async def _giao_khong_lo(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        don: asyncpg.Record,
+        prescription_id: str,
+        luong: Decimal,
+    ) -> asyncpg.Record:
+        """Giao KHÔNG chọn lô (28/09/2026): tăng số đã giao + ghi sổ chờ gán lô.
+
+        Không ghi `inventory_txn` (bắt lô NOT NULL, tồn lô ≥ 0) — kho trừ lúc
+        gán lô. Vẫn giữ hai chốt của lần giao: không quá số bác sĩ kê, không quá
+        số khách mua (số bán).
+        """
+        da_cap = Decimal(str(don["dispensed_qty"] or 0))
+        ke = don["quantity_num"]
+        if ke is not None and da_cap + luong > Decimal(str(ke)):
+            con = Decimal(str(ke)) - da_cap
+            raise ValidationError(
+                f"Đơn kê {ke} {don['drug_name_raw']}, đã cấp {da_cap} — "
+                f"chỉ còn {con}. Không cấp quá số bác sĩ kê."
+            )
+        mua = don.get("purchased_qty")
+        if mua is not None and da_cap + luong > Decimal(str(mua)):
+            raise ValidationError(
+                f"Khách mua {mua}, đã giao {da_cap} — không giao quá số đã bán."
+            )
+        await conn.execute(
+            "INSERT INTO thuoc_giao_chua_gan_lo"
+            " (clinic_id, prescription_id, drug_catalog_id, so_luong, giao_boi)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid)",
+            identity.clinic_id,
+            prescription_id,
+            don.get("drug_catalog_id"),
+            luong,
+            identity.staff_id,
+        )
+        moi = await conn.fetchrow(
+            """
+            UPDATE public.prescription
+               SET dispensed_qty = dispensed_qty + $3,
+                   dispensed_at = now(),
+                   dispensed_by_staff_id = $4::uuid,
+                   updated_at = now()
+             WHERE id = $1::uuid AND clinic_id = $2::uuid
+            RETURNING dispensed_qty, dispense_status
+            """,
+            prescription_id,
+            identity.clinic_id,
+            luong,
+            identity.staff_id,
+        )
+        await _log(
+            conn,
+            identity=identity,
+            event_type="pharmacy.dispensed",
+            aggregate_type="prescription",
+            aggregate_id=prescription_id,
+            payload={
+                "drug_batch_id": None,
+                "chua_gan_lo": True,
+                "quantity": str(luong),
+                "dispensed_qty": str(moi["dispensed_qty"]),
+                "dispense_status": moi["dispense_status"],
+            },
+        )
+        return moi
+
+    async def cho_gan_lo(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Thuốc ĐÃ GIAO mà chưa gán lô + lô gán được cho từng dòng (28/09/2026).
+
+        Lô gợi ý: cùng thuốc kho, cùng đơn vị kê (nếu có), còn hạn, đủ tồn.
+        Tổng chưa gán = phần tồn vật lý kho đang báo cao hơn thực tế.
+        """
+        async with self._pool.acquire() as conn:
+            dong = await conn.fetch(
+                """
+                SELECT g.id::text AS id, g.so_luong, g.giao_luc,
+                       g.prescription_id::text AS prescription_id,
+                       g.drug_catalog_id::text AS drug_catalog_id,
+                       p.drug_name_raw, p.unit, c.name_base AS ten_thuoc_kho,
+                       s.full_name AS nguoi_giao, pt.full_name AS ten_khach,
+                       pt.patient_code
+                  FROM thuoc_giao_chua_gan_lo g
+                  JOIN prescription p ON p.id = g.prescription_id
+                  /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải gán lô dù dòng đơn
+                     sau đó bị bác sĩ đính chính */
+                  LEFT JOIN drug_catalog c ON c.id = g.drug_catalog_id
+                  LEFT JOIN staff s ON s.id = g.giao_boi
+                  LEFT JOIN visit v ON v.visit_id = p.visit_id
+                  LEFT JOIN patient pt
+                    ON pt.clinic_patient_id = v.clinic_patient_id
+                   AND pt.clinic_id = v.clinic_id
+                 WHERE g.clinic_id = $1::uuid AND g.drug_batch_id IS NULL
+                 ORDER BY g.giao_luc
+                """,
+                identity.clinic_id,
+            )
+            thuoc = sorted({r["drug_catalog_id"] for r in dong if r["drug_catalog_id"]})
+            lo = await conn.fetch(
+                """
+                SELECT b.id::text AS id, b.drug_catalog_id::text AS drug_catalog_id,
+                       b.batch_code, b.expiry_date, b.unit, b.quantity_on_hand
+                  FROM drug_batch b
+                 WHERE b.clinic_id = $1::uuid
+                   AND b.drug_catalog_id = ANY($2::uuid[])
+                   AND b.quantity_on_hand > 0
+                   AND (b.expiry_date IS NULL OR b.expiry_date >= CURRENT_DATE)
+                 ORDER BY b.expiry_date NULLS LAST, b.batch_code
+                """,
+                identity.clinic_id,
+                thuoc,
+            )
+        ra = []
+        for r in dong:
+            dv = _don_vi(r["unit"])
+            ra.append(
+                {
+                    "id": r["id"],
+                    "prescription_id": r["prescription_id"],
+                    "so_luong": Decimal(str(r["so_luong"])),
+                    "giao_luc": r["giao_luc"],
+                    "thuoc": r["ten_thuoc_kho"] or r["drug_name_raw"],
+                    "unit": r["unit"],
+                    "nguoi_giao": r["nguoi_giao"],
+                    "khach": r["ten_khach"],
+                    "ma_bn": r["patient_code"],
+                    "lo_gan_duoc": [
+                        {
+                            "drug_batch_id": b["id"],
+                            "batch_code": b["batch_code"],
+                            "expiry_date": b["expiry_date"],
+                            "ton": Decimal(str(b["quantity_on_hand"])),
+                        }
+                        for b in lo
+                        if b["drug_catalog_id"] == r["drug_catalog_id"]
+                        and (not dv or _don_vi(b["unit"]) == dv)
+                        and Decimal(str(b["quantity_on_hand"]))
+                        >= Decimal(str(r["so_luong"]))
+                    ],
+                }
+            )
+        return {"dong": ra, "so_dong": len(ra)}
+
+    async def gan_lo_da_giao(
+        self, *, identity: StaffIdentity, dong_id: str, drug_batch_id: str
+    ) -> dict[str, Any]:
+        """Gán một lần giao KHÔNG LÔ vào một lô thật → ghi DISPENSE lúc này.
+
+        Kiểm như một lần giao thường: cùng thuốc kho, cùng đơn vị, còn hạn, đủ
+        tồn (CHECK tồn lô ≥ 0 là chốt cuối). Mỗi dòng gán đúng một lần.
+        """
+        async with self._pool.acquire() as conn, conn.transaction():
+            g = await conn.fetchrow(
+                """
+                SELECT g.id::text AS id, g.so_luong, g.prescription_id::text AS rx,
+                       g.drug_catalog_id::text AS drug_catalog_id,
+                       g.drug_batch_id, p.unit
+                  FROM thuoc_giao_chua_gan_lo g
+                  JOIN prescription p ON p.id = g.prescription_id
+                  /* rx:gom-ca-lich-su: gán lô cho thuốc đã giao, kể cả dòng
+                     đã đính chính */
+                 WHERE g.clinic_id = $1::uuid AND g.id = $2::uuid
+                 FOR UPDATE OF g
+                """,
+                identity.clinic_id,
+                dong_id,
+            )
+            if g is None:
+                raise NotFoundError("Không tìm thấy lần giao này.")
+            if g["drug_batch_id"] is not None:
+                raise ConflictError("Lần giao này đã gán lô rồi — tải lại.")
+            lo = await conn.fetchrow(
+                """
+                SELECT id::text AS id, drug_catalog_id::text AS drug_catalog_id,
+                       unit, expiry_date, quantity_on_hand
+                  FROM drug_batch
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                 FOR UPDATE
+                """,
+                identity.clinic_id,
+                drug_batch_id,
+            )
+            if lo is None:
+                raise NotFoundError("Không tìm thấy lô thuốc này trong kho.")
+            if g["drug_catalog_id"] and lo["drug_catalog_id"] != g["drug_catalog_id"]:
+                raise ValidationError("Lô này không phải của thuốc đã giao.")
+            dv = _don_vi(g["unit"])
+            if dv and _don_vi(lo["unit"]) != dv:
+                raise ValidationError(
+                    f"Thuốc giao theo đơn vị {g['unit']}, lô theo đơn vị "
+                    f"{lo['unit'] or 'chưa xác định'} — chọn lô cùng đơn vị."
+                )
+            if lo["expiry_date"] is not None and lo["expiry_date"] < date.today():
+                raise ValidationError("Lô này đã hết hạn — chọn lô khác.")
+            luong = Decimal(str(g["so_luong"]))
+            if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
+                raise ValidationError(
+                    f"Lô này chỉ còn {lo['quantity_on_hand']} — không đủ {luong}."
+                )
+            # Cùng dòng sổ như `_ghi_so` (DISPENSE, dấu âm, trỏ về dòng đơn),
+            # cần id để gắn vào sổ chờ gán lô.
+            txn = await conn.fetchval(
+                """
+                INSERT INTO public.inventory_txn
+                    (clinic_id, drug_batch_id, txn_type, quantity, reason,
+                     ref_type, ref_id, performed_by_staff_id, performed_at)
+                VALUES ($1::uuid, $2::uuid, $3, $4, $5, 'prescription',
+                        $6::uuid, $7::uuid, now())
+                RETURNING id::text
+                """,
+                identity.clinic_id,
+                drug_batch_id,
+                CAP,
+                -luong,
+                "Gán lô cho lần giao chưa gán lô",
+                g["rx"],
+                identity.staff_id,
+            )
+            await conn.execute(
+                "UPDATE thuoc_giao_chua_gan_lo SET drug_batch_id = $2::uuid,"
+                " inventory_txn_id = $3::uuid, gan_boi = $4::uuid, gan_luc = now()"
+                " WHERE id = $1::uuid",
+                dong_id,
+                drug_batch_id,
+                txn,
+                identity.staff_id,
+            )
+            await _log(
+                conn,
+                identity=identity,
+                event_type="pharmacy.lot_assigned",
+                aggregate_type="prescription",
+                aggregate_id=g["rx"],
+                payload={
+                    "dong_id": dong_id,
+                    "drug_batch_id": drug_batch_id,
+                    "quantity": str(luong),
+                },
+            )
+        return {"ok": True, "dong_id": dong_id, "drug_batch_id": drug_batch_id}
 
     async def _cap_phat_cu(
         self,

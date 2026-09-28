@@ -81,6 +81,8 @@ export interface DongDon {
     khai_so_mua: boolean;
     chon_lo: boolean;
     giao_luong_cu: boolean;
+    /** Đã thu, dòng chưa có lô nào — giao luôn, gán lô sau (28/09/2026). */
+    giao_khong_lo: boolean;
     tu_choi: boolean;
     chot: boolean;
     huy_chua_giao: boolean;
@@ -128,10 +130,11 @@ export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_
       "Bác sĩ chưa bấm Khám xong — đơn còn có thể thay đổi. Chỉ xem; chưa chọn lô.",
   },
   SAN_SANG: {
-    nhan: "Chọn lô",
+    // 28/09: lô không bắt buộc nữa — nhãn nói việc đang chờ, không bắt chọn lô.
+    nhan: "Chờ thu tiền",
     tone: "ready",
     giai_thich:
-      "Xác định thuốc trong kho, số khách mua, rồi chọn lô đủ số bán. Chọn lô chưa giữ chỗ — thu tiền xong mới bán.",
+      "Xác định thuốc trong kho và số khách mua. Kho đã có lô thì chọn lô; chưa có lô vẫn thu tiền và giao được — gán lô sau ở Kho thuốc.",
   },
   CHO_XAC_MINH: {
     nhan: "Chờ xác minh chuyển khoản",
@@ -142,7 +145,8 @@ export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_
   DA_THU: {
     nhan: "Đã thu — giao thuốc",
     tone: "in_progress",
-    giai_thich: "Tiền thuốc đã thu. Giao từ đúng lô đã bán; giao một phần được.",
+    giai_thich:
+      "Tiền thuốc đã thu. Có lô thì giao từ đúng lô đã bán; chưa có lô thì giao luôn, gán lô sau. Giao một phần được.",
   },
   CAN_DOI_SOAT: {
     nhan: "Cần đối soát",

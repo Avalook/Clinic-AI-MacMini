@@ -146,7 +146,9 @@ DECLARE
     -- thu tiền khách, 20260928000091).
     -- 113 → 115 (28/09/2026): ky_nang + nhan_su_ky_nang (phân quyền theo kỹ
     -- năng — khối Phân quyền, có clinic_id).
-    expected_tenant_tables constant integer := 115;
+    -- 115 → 116 (28/09/2026): thuoc_giao_chua_gan_lo (giao thuốc không cần lô,
+    -- gán lô sau — 20260928000096).
+    expected_tenant_tables constant integer := 116;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

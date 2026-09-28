@@ -4,7 +4,7 @@
 export type KetQuaKho = { ok: true } | { ok: false; loi: string };
 
 export async function guiKho(
-  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard",
+  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo",
   duLieu: Record<string, unknown>,
 ): Promise<KetQuaKho> {
   try {
