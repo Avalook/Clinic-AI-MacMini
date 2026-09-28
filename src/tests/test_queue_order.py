@@ -22,6 +22,7 @@ from clinicai.services.queue_order import (
     call_rank,
     call_reason,
     explain_queue,
+    moc_vao_hang_ms,
     order_queue,
     queue_rank,
 )
@@ -338,3 +339,16 @@ def test_chi_walk_in_moi_la_vang_lai() -> None:
         e = _e("a", channel=kenh, checked_in=den_trong_khung)
         assert call_reason(e) == REASON_DEN_TRUC_TIEP, f"kênh {kenh!r}"
         assert call_rank(e)[0] == 0
+
+
+def test_moc_vao_hang_ms_gio_that_keo_tay_va_rac() -> None:
+    """Một định nghĩa "mốc vào hàng" cho bảng gọi số lẫn danh sách tiếp đón
+    (29/09/2026). Rác / chưa check-in → None, không ném."""
+    ci = SLOT + timedelta(minutes=3)
+    assert moc_vao_hang_ms(ci) == ci.timestamp() * 1000
+    assert moc_vao_hang_ms(ci, 123.5) == 123.5
+    assert moc_vao_hang_ms(ci, 7) == 7.0
+    assert moc_vao_hang_ms(ci, True) == ci.timestamp() * 1000
+    assert moc_vao_hang_ms(ci, "5") == ci.timestamp() * 1000
+    assert moc_vao_hang_ms(None) is None
+    assert moc_vao_hang_ms("08:00", 5.0) is None

@@ -211,13 +211,32 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
     # (Tuyền chốt 15/09/2026). Lý do chỉ để màn hình nói đúng người này là ai.
     # Lễ tân kéo tay thì mốc kéo tay thay giờ check-in (20260915000016).
     in_ms = _ms(e.checked_in_at)
-    moc = e.thu_tu_tay_ms if e.thu_tu_tay_ms is not None else float(in_ms)
-    key = (0, moc, _iso(e.checked_in_at))
+    moc = moc_vao_hang_ms(e.checked_in_at, e.thu_tu_tay_ms)
+    key = (0, float(in_ms) if moc is None else moc, _iso(e.checked_in_at))
     if not is_booked:
         return key, REASON_DEN_TRUC_TIEP
     if in_ms <= slot_ms + e.grace_ms:
         return key, REASON_DAT_TRUOC_DUNG_GIO
     return key, REASON_DEN_TRE
+
+
+def moc_vao_hang_ms(
+    checked_in_at: object, thu_tu_tay_ms: object = None
+) -> float | None:
+    """MỐC XẾP HÀNG của một người đã đến (epoch ms) — một định nghĩa cho mọi màn.
+
+    = giờ CHECK-IN THẬT, hoặc mốc lễ tân kéo tay nếu có (20260915000016). Có
+    hẹn hay vãng lai như nhau; giờ hẹn KHÔNG bao giờ là mốc xếp của người đã
+    đến (Tuyền chốt 15/09 và nhắc lại 29/09/2026: khách lễ tân vừa đặt khung
+    18:00 rồi tự check-in phải đứng sau người đã ngồi chờ từ trước).
+
+    Chưa check-in / đầu vào rác → None (người gọi tự quyết mốc thay thế).
+    """
+    if not isinstance(checked_in_at, datetime):
+        return None
+    if isinstance(thu_tu_tay_ms, (int, float)) and not isinstance(thu_tu_tay_ms, bool):
+        return float(thu_tu_tay_ms)
+    return float(_ms(checked_in_at))
 
 
 def _du_dieu_kien_ms(e: QueueEntry) -> int:

@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
-import { requireNavAccess, vaiLamViec } from "../../../../lib/clinic-session";
+import { moDuocMan, requireNavAccess, vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
 import NewPatientForm, { type Option, type ProvinceOpt } from "./NewPatientForm";
@@ -58,13 +58,16 @@ export default async function NewPatientPage({
 
   // Danh mục qua backend (24/09/2026 — trang từng đọc thẳng 3 bảng bằng
   // Supabase). Phường/xã load runtime theo tỉnh (/api/wards).
-  const [coSo, dichVu, docRes, tinh] = await Promise.all([
+  // Lưu xong về màn Tiếp đón khách (Tuyền 29/09/2026) — chỉ khi người này
+  // vào được màn ấy, hỏi ĐÚNG luật cửa của trang đích (lego), không hỏi vai.
+  const [coSo, dichVu, docRes, tinh, veTiepDon] = await Promise.all([
     layCoSo(),
     layDichVu(),
     listBookableDoctors(),
     fetchFromBackend<{ code: string; name: string; full_name: string }[]>(
       "/api/v1/catalog/provinces",
     ),
+    moDuocMan("/reception/queue"),
   ]);
 
   const locations: Option[] = coSo.map((r) => ({ id: r.id, label: r.name }));
@@ -122,6 +125,7 @@ export default async function NewPatientPage({
         doctors={doctors}
         provinces={provinces}
         variant={variant}
+        veTiepDon={veTiepDon}
         // Ẩn tiêu đề + thanh bước RIÊNG của biểu mẫu: trang này đã có tiêu đề
         // ở thanh trên cùng, và hai thanh bước chồng nhau thì không thanh nào
         // đáng tin.

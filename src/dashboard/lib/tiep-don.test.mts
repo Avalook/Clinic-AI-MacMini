@@ -3,8 +3,11 @@ import test from "node:test";
 
 import {
   chuanHoa,
+  docHuongXep,
   dongPhu,
+  laHuongXep,
   locTiepDon,
+  sapXepTiepDon,
   toneTrangThai,
   type BuoiTiepDon,
   type DongTiepDon,
@@ -93,4 +96,27 @@ test("chuanHoa và dòng phụ", () => {
   assert.equal(chuanHoa("  Đỗ  Thanh   GIANG "), "do thanh giang");
   assert.equal(dongPhu(["08:30", null, "", "  ", "BS A", "0900"]), "08:30 · BS A · 0900");
   assert.equal(dongPhu([]), "");
+});
+
+test("sắp xếp: cũ trước giữ nguyên thứ tự máy chủ; mới trước đảo cả buổi lẫn dòng", () => {
+  assert.deepEqual(ids(sapXepTiepDon(BUOI, "cu_truoc")), ["1", "2", "3"]);
+  const moi = sapXepTiepDon(BUOI, "moi_truoc");
+  assert.deepEqual(moi.map((b) => b.ma), ["CHIEU", "SANG"]);
+  assert.deepEqual(ids(moi), ["3", "2", "1"]);
+  // Không sửa mảng của máy chủ.
+  assert.deepEqual(ids(BUOI), ["1", "2", "3"]);
+  // Lọc sau khi đảo vẫn đúng.
+  assert.deepEqual(ids(locTiepDon(moi, "chua_den", "")), ["1"]);
+});
+
+test("sắp xếp + nhớ lựa chọn: rác không ném, không có kho thì về mặc định", () => {
+  assert.deepEqual(sapXepTiepDon(null, "moi_truoc"), []);
+  // @ts-expect-error — dữ liệu hỏng từ mạng
+  assert.deepEqual(sapXepTiepDon([{ ma: "X", nhan: "", dong: null }], "moi_truoc"), [
+    { ma: "X", nhan: "", dong: [] },
+  ]);
+  assert.equal(laHuongXep("moi_truoc"), true);
+  assert.equal(laHuongXep("lạ"), false);
+  assert.equal(laHuongXep(null), false);
+  assert.equal(docHuongXep(), "cu_truoc"); // node không có window
 });
