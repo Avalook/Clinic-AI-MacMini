@@ -70,10 +70,10 @@ TEN: dict[str, str | None] = {
     "BS Quyết": "BS Quyết",
     "BS Thiệp": "BS Thiệp",
     # Chưa có hồ sơ trên prod / chưa chốt (28/09):
-    "BS T Linh": None,  # BS Nguyễn Thuỳ Linh — chưa có hồ sơ
-    "BS X Thanh": None,  # BS Xuân Thanh — chưa có hồ sơ
-    # BS Hoàng Quốc Dũng — chưa có hồ sơ ("BS Dũng" trên prod = Nguyễn Văn Dũng)
-    "BS Q Dũng": None,
+    "BS T Linh": "BS Nguyễn Thuỳ Linh",
+    "BS X Thanh": "BS Xuân Thanh",  # KHÔNG phải BS Thành
+    # Hồ sơ "BS Dũng" trên prod = BS Nguyễn Văn Dũng — KHÔNG phải người này.
+    "BS Q Dũng": "BS Hoàng Quốc Dũng",
     "BS Linh nam khoa": "BS SA Bá Linh",  # Tuyền xác nhận 28/09
 }
 
