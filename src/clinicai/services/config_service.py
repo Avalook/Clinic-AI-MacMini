@@ -1203,6 +1203,25 @@ def _gia_thuong(v: Any) -> Any:
 _MA_KV = re.compile(r"^[A-Z0-9_-]{1,32}$")
 
 
+#: Bên thu của một dịch vụ (Tuyền 29/09/2026 — chọn ở màn Bảng giá).
+BEN_THU_HOP_LE: tuple[str, ...] = ("CLINIC", "EXTERNAL_PARTNER")
+
+
+def doc_ben_thu(v: Any) -> str | None:
+    """ "CLINIC" / "EXTERNAL_PARTNER" (không phân biệt hoa thường) → giữ; rỗng /
+    None → None (= không chọn, dùng mặc định theo phòng làm); rác → 422."""
+    if v is None:
+        return None
+    if not isinstance(v, str):
+        raise ValidationError("Bên thu phải là Phòng khám thu hoặc Thu hộ đối tác.")
+    ben = v.strip().upper()
+    if not ben:
+        return None
+    if ben not in BEN_THU_HOP_LE:
+        raise ValidationError("Bên thu phải là Phòng khám thu hoặc Thu hộ đối tác.")
+    return ben
+
+
 def _ma_kiotviet(v: str | None) -> str | None:
     """Mã phòng khám: bỏ khoảng trắng, viết hoa; rỗng → None; ký tự lạ → 422."""
     ma = (v or "").strip().upper()
@@ -1232,7 +1251,8 @@ class PriceListService:
             rows = await conn.fetch(
                 """
                 SELECT id, service_code, name, "group", unit_price, active,
-                       ma_kiotviet, node_code, gia_tam, billing_owner
+                       ma_kiotviet, node_code, gia_tam, billing_owner,
+                       billing_owner_chon_tay
                   FROM service_price
                  WHERE clinic_id = $1::uuid AND "group" = $2
                  ORDER BY coalesce(ma_kiotviet, service_code)
@@ -1294,8 +1314,10 @@ class PriceListService:
         identity: StaffIdentity,
         ma_kiotviet: str | None = None,
         node_code: str | None = None,
+        billing_owner: str | None = None,
     ) -> str:
         ma_kv = _ma_kiotviet(ma_kiotviet)
+        ben_chon = doc_ben_thu(billing_owner)
         code = (service_code or "").strip() or (f"KV_{ma_kv}" if ma_kv else "")
         label = (name or "").strip()
         if not code or not label:
@@ -1304,14 +1326,18 @@ class PriceListService:
         price = parse_price(unit_price)
         async with self._pool.acquire() as conn, conn.transaction():
             node = await self._phong_hop_le(conn, identity.clinic_id, node_code)
-            ben_thu = await self._ben_thu_theo_phong(conn, identity.clinic_id, node)
+            # Chọn tay khi tạo → giữ và đánh dấu; không chọn → suy theo phòng làm.
+            ben_thu = ben_chon or await self._ben_thu_theo_phong(
+                conn, identity.clinic_id, node
+            )
             try:
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO service_price
                         (clinic_id, service_code, name, "group", unit_price,
-                         ma_kiotviet, node_code, billing_owner)
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+                         ma_kiotviet, node_code, billing_owner,
+                         billing_owner_chon_tay)
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -1322,6 +1348,7 @@ class PriceListService:
                     ma_kv,
                     node,
                     ben_thu,
+                    ben_chon is not None,
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(
@@ -1337,8 +1364,9 @@ class PriceListService:
     async def _ben_thu_theo_phong(
         conn: asyncpg.Connection, clinic_id: str, node: str | None
     ) -> str:
-        """EXTERNAL_PARTNER khi phòng làm là bước làm bên ngoài, còn lại CLINIC
-        (cùng luật migration 20260928000091)."""
+        """MẶC ĐỊNH bên thu: EXTERNAL_PARTNER khi phòng làm là bước làm bên
+        ngoài, còn lại CLINIC (cùng luật migration 20260928000091). Chỉ dùng khi
+        dòng CHƯA được chọn tay (`billing_owner_chon_tay`) — 29/09/2026."""
         if not node:
             return "CLINIC"
         ngoai = await conn.fetchval(
@@ -1361,8 +1389,15 @@ class PriceListService:
         ma_kiotviet: str | None = None,
         ma_kiotviet_provided: bool = False,
         node_code: str | None = None,
+        billing_owner: str | None = None,
     ) -> None:
         patch: dict[str, Any] = {}
+        ben_chon = doc_ben_thu(billing_owner)
+        if ben_chon is not None:
+            # CHỌN TAY (Tuyền 29/09/2026): bên thu thuộc từng dịch vụ, và từ nay
+            # đổi phòng làm không lật lại lựa chọn này.
+            patch["billing_owner"] = ben_chon
+            patch["billing_owner_chon_tay"] = True
         if name is not None and name.strip():
             patch["name"] = name.strip()
         if unit_price_provided:
@@ -1383,11 +1418,21 @@ class PriceListService:
                 patch["node_code"] = await self._phong_hop_le(
                     conn, identity.clinic_id, node_code
                 )
-                # Bên thu theo PHÒNG LÀM (Q1, 27/09/2026): phòng làm bên ngoài
-                # (`lam_ben_ngoai`) = khách trả trực tiếp cho đối tác.
-                patch["billing_owner"] = await self._ben_thu_theo_phong(
-                    conn, identity.clinic_id, patch["node_code"]
+                # Bên thu theo PHÒNG LÀM (Q1, 27/09/2026) chỉ là MẶC ĐỊNH: dòng
+                # đã chọn tay (cờ trong database, hay chọn ngay trong lần sửa
+                # này) giữ nguyên bên thu — 29/09/2026.
+                chon_tay = ben_chon is not None or bool(
+                    await conn.fetchval(
+                        "SELECT billing_owner_chon_tay FROM service_price"
+                        " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                        price_id,
+                        identity.clinic_id,
+                    )
                 )
+                if not chon_tay:
+                    patch["billing_owner"] = await self._ben_thu_theo_phong(
+                        conn, identity.clinic_id, patch["node_code"]
+                    )
             columns = list(patch)
             assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
             try:

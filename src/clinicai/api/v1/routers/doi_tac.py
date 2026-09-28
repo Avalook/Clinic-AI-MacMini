@@ -16,7 +16,10 @@ BỐN RÀNG BUỘC, và mỗi cái có một dòng mã đứng sau nó chứ kh�
      Tên có mặt vì họ VỪA GẶP người ấy ngoài đời; giấu tên đi thì họ gắn nhầm
      tệp vào nhầm người, và cái sai đó đắt hơn nhiều.
   4. GỬI LÊN, KHÔNG LẤY VỀ — không có đường tải xuống ở đây. Kể cả tệp chính họ
-     vừa gửi.
+     vừa gửi. (29/09/2026: việc đối tác nay do NHÂN SỰ phòng khám có lego Đối
+     tác làm — người ấy mở tệp qua cửa đọc tệp CHUNG `/cskh/ket-qua`, nơi
+     `doc_duoc_tep_ket_qua` tự hỏi quyền; vai PARTNER bên ngoài vẫn bị từ chối.
+     Danh sách ở đây chỉ trả cờ `xem_tep`, không trả đường tải.)
 
 Và ràng buộc thứ năm nằm ở nơi khác, quan trọng hơn cả bốn cái trên:
 `get_current_identity` TỪ CHỐI vai PARTNER, nên mọi endpoint khác trong hệ —
@@ -29,7 +32,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_partner_identity
@@ -42,6 +45,7 @@ router = APIRouter()
 
 @router.get("/doi-tac/viec")
 async def viec_cua_doi_tac(
+    ngay: str | None = Query(default=None, max_length=32),
     identity: StaffIdentity = Depends(get_partner_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -54,7 +58,8 @@ async def viec_cua_doi_tac(
     """
     from clinicai.services.doi_tac_service import DoiTacService
 
-    return await DoiTacService(pool).viec_doi_tac(identity=identity)
+    # `ngay` (YYYY-MM-DD) — xem việc của một ngày cũ; rác = hôm nay (không 422).
+    return await DoiTacService(pool).viec_doi_tac(identity=identity, ngay=ngay)
 
 
 class GhiChuDoiTac(BaseModel):

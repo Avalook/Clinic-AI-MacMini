@@ -92,6 +92,9 @@ class PriceCreateRequest(BaseModel):
     ma_kiotviet: str | None = Field(default=None, max_length=32)
     #: Phòng làm (node) — dịch vụ mới phải biết xếp vào phòng nào.
     node_code: str | None = Field(default=None, max_length=64)
+    #: Bên thu chọn tay (29/09/2026): CLINIC | EXTERNAL_PARTNER; bỏ trống = theo
+    #: phòng làm. Máy chủ đọc (rác → 422 có câu).
+    billing_owner: str | None = Field(default=None, max_length=32)
 
 
 class PriceUpdateRequest(BaseModel):
@@ -100,6 +103,8 @@ class PriceUpdateRequest(BaseModel):
     active: bool | None = None
     ma_kiotviet: str | None = Field(default=None, max_length=32)
     node_code: str | None = Field(default=None, max_length=64)
+    #: Chọn tay bên thu (29/09/2026) — từ đó đổi phòng làm không ghi đè.
+    billing_owner: str | None = Field(default=None, max_length=32)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -325,8 +330,10 @@ class PriceRow(BaseModel):
     node_code: str | None = None
     #: Giá giả định chờ xác nhận (Q2, 27/09/2026) — sửa đơn giá là bỏ cờ.
     gia_tam: bool = False
-    #: CLINIC | EXTERNAL_PARTNER (khách trả trực tiếp đối tác — theo phòng làm).
+    #: CLINIC | EXTERNAL_PARTNER (thu hộ đối tác) — thuộc TỪNG dịch vụ.
     billing_owner: str = "CLINIC"
+    #: Quản lý đã chọn tay bên thu (không còn suy theo phòng làm) — 29/09/2026.
+    billing_owner_chon_tay: bool = False
 
 
 @router.get("/service-prices/phong-lam")
@@ -369,6 +376,7 @@ async def add_price(
         identity=identity,
         ma_kiotviet=body.ma_kiotviet,
         node_code=body.node_code,
+        billing_owner=body.billing_owner,
     )
     return {"ok": True, "id": price_id}
 
@@ -392,6 +400,7 @@ async def update_price(
         ma_kiotviet=body.ma_kiotviet,
         ma_kiotviet_provided="ma_kiotviet" in body.model_fields_set,
         node_code=body.node_code,
+        billing_owner=body.billing_owner,
     )
     return {"ok": True}
 

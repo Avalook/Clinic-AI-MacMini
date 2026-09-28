@@ -12,7 +12,7 @@ from uuid import UUID
 
 import asyncpg
 import structlog
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
@@ -270,14 +270,19 @@ async def phong_hom_nay(
 async def hang_cho(
     phong: UUID | None = None,
     tu_van: bool = False,
+    ngay: str | None = Query(default=None, max_length=32),
     identity: StaffIdentity = Depends(_BANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Hàng chờ một phòng: đang chờ · đang trong phòng · đã xong hôm nay.
 
-    `tu_van=true`: hàng CHUNG của bác sĩ tư vấn (dây H1, 24/09/2026)."""
+    `tu_van=true`: hàng CHUNG của bác sĩ tư vấn (dây H1, 24/09/2026).
+    `ngay=YYYY-MM-DD` (29/09/2026): xem lại một ngày cũ; rác = hôm nay."""
     return await BangLuotKham(pool).hang_cho(
-        identity=identity, room_id=str(phong) if phong else None, tu_van=tu_van
+        identity=identity,
+        room_id=str(phong) if phong else None,
+        tu_van=tu_van,
+        ngay=ngay,
     )
 
 

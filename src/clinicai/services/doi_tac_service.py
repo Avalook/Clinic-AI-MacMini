@@ -15,6 +15,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
@@ -29,10 +30,7 @@ from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
     mo_cho_bi_chan,
 )
-from clinicai.services.lenh_kham_core import (
-    LuotKhamConflictError,
-    khoa_luot,
-)
+from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 
 logger = structlog.get_logger()
@@ -140,7 +138,9 @@ class DoiTacService:
             if not await can(conn, identity, "partner.work"):
                 raise SafetyGateError(cau)
 
-    async def viec_doi_tac(self, *, identity: StaffIdentity) -> dict[str, Any]:
+    async def viec_doi_tac(
+        self, *, identity: StaffIdentity, ngay: Any = None
+    ) -> dict[str, Any]:
         """Việc trên bàn đối tác, gom theo khách.
 
         Hai loại xét nghiệm (Tuyền 16/09/2026: *"cả 2, tuỳ loại xét nghiệm"*):
@@ -148,14 +148,23 @@ class DoiTacService:
             lúc bác sĩ duyệt, trạng thái "Chờ lấy mẫu", đối tác bấm "Đã lấy mẫu".
           * ĐIỀU DƯỠNG LẤY — chỉ hiện SAU khi điều dưỡng bấm xong ở phòng Lấy
             mẫu; trước đó ống máu còn chưa có, đối tác chẳng có gì để nhận.
-        Có kết quả (tệp đầu tiên) là rời bàn — duyệt và gửi là việc bác sĩ, CSKH.
 
         NHẬN QUA SỰ KIỆN (24/09/2026): bàn chỉ hiện chỉ định ĐÃ NHẬN
         (`doi_tac_nhan_viec`, ghi bởi bên nhận cùng tên khi nghe "đã thu tiền"
         / "lấy mẫu xong") — không còn hiện việc tự-lấy-mẫu trước khi khách
         chọn làm và trả tiền.
+
+        CHỌN NGÀY (Tuyền 29/09/2026 — "cần một chỗ up lên và xem lại được lịch
+        sử các lần up"): `ngay` (YYYY-MM-DD; rác/None = hôm nay).
+          * HÔM NAY: việc còn chờ trong 60 ngày + mọi việc CÓ HOẠT ĐỘNG hôm nay.
+          * NGÀY CŨ: mọi việc có hoạt động ngày ấy — chỉ định, lấy mẫu, nhận
+            mẫu, gửi kết quả, hay có tệp tải lên ngày ấy. Việc đã gửi tệp hôm
+            qua vẫn tìm lại được để gửi bổ sung.
         """
         await self._doi_quyen_doi_tac(identity, "Màn này chỉ dành cho đối tác.")
+        hom_nay = hom_nay_vn()
+        ngay_xem = doc_ngay_xem(ngay) or hom_nay
+        la_hom_nay = ngay_xem == hom_nay
         rows = await self._pool.fetch(
             """
             SELECT o.id::text AS chi_dinh_id, o.service_code, o.exec_status,
@@ -167,13 +176,13 @@ class DoiTacService:
                    o.created_at, o.finished_at, o.ket_qua_luc,
                    o.doi_tac_cho_tai_lieu_luc,
                    nv.ghi_chu_lay_mau, nv.ghi_chu_tai_lieu,
-                   -- Đối tác tự thu (27/09/2026): giá tham khảo + đã ghi nhận chưa.
+                   -- Thu hộ đối tác (27/09/2026): giá tham khảo + đã ghi nhận chưa.
                    sp.unit_price AS gia_tham_khao,
                    coalesce(sp.billing_owner = 'EXTERNAL_PARTNER', false)
                      AS doi_tac_thu,
                    tt.id::text AS thu_id, tt.so_tien AS thu_so_tien,
                    tt.hinh_thuc AS thu_hinh_thuc, tt.ghi_chu AS thu_ghi_chu,
-                   tt.ghi_luc AS thu_luc
+                   tt.ghi_luc AS thu_luc, tn.full_name AS thu_boi
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
               JOIN patient p
@@ -193,35 +202,50 @@ class DoiTacService:
               LEFT JOIN doi_tac_thanh_toan tt
                 ON tt.clinic_id = o.clinic_id AND tt.service_order_id = o.id
                AND tt.huy_luc IS NULL
+              LEFT JOIN staff tn ON tn.id = tt.ghi_boi
              WHERE o.clinic_id = $1::uuid
-               -- Đã gửi kết quả HÔM NAY vẫn ở lại bàn (mục "Đã gửi") để đối
-               -- tác thấy mình vừa gửi gì và gửi thêm tài liệu nếu còn thiếu.
-               AND (o.ket_qua_luc IS NULL
-                    OR (o.ket_qua_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
-               AND o.created_at > now() - interval '60 days'
                AND o.exec_status IN ('authorized', 'assigned', 'in_progress',
                                      'performed')
+               AND (
+                    -- Hôm nay: việc CÒN CHỜ (chưa có tệp đầu) trong 60 ngày.
+                    ($3::boolean AND o.ket_qua_luc IS NULL
+                         AND o.created_at > now() - interval '60 days')
+                    -- Mọi ngày: việc có hoạt động đúng ngày đang xem.
+                 OR (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+                 OR (o.finished_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+                 OR (o.ket_qua_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+                 OR (o.doi_tac_cho_tai_lieu_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                    = $2::date
+                 OR EXISTS (
+                        SELECT 1 FROM tep_ket_qua t
+                         WHERE t.clinic_id = o.clinic_id
+                           AND t.service_order_id = o.id
+                           AND (t.tai_len_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                               = $2::date))
              -- Việc CHƯA gửi trước, mới nhất trước: trần 300 dòng không bao giờ
              -- được cắt mất một chỉ định vừa gửi sang chỉ vì còn tồn việc cũ.
              ORDER BY (o.ket_qua_luc IS NOT NULL), o.created_at DESC, o.id
              LIMIT 300
             """,
             identity.clinic_id,
+            ngay_xem,
+            la_hom_nay,
         )
         canh_bao_neu_day("doi_tac.viec", len(rows), 300, clinic_id=identity.clinic_id)
-        # TỆP ĐÃ GỬI của từng việc (28/09/2026 — "chưa có chỗ hiển thị file"):
-        # chỉ tên, loại, giờ — KHÔNG đường tải về (ràng buộc 4 của router
-        # doi_tac: gửi lên, không lấy về).
+        # LỊCH SỬ CÁC LẦN TẢI của từng việc (29/09/2026): tên, loại, giờ, AI tải
+        # — kể cả tệp đã thu hồi (ghi rõ), để không ai phải hỏi "hôm qua gửi
+        # những gì". Đường mở tệp đi cửa đọc tệp chung (`/cskh/ket-qua`), cửa ấy
+        # tự hỏi `doc_duoc_tep_ket_qua` — vai PARTNER bên ngoài vẫn không mở được.
         tep_theo_viec: dict[str, list[dict[str, Any]]] = {}
         for t in await self._pool.fetch(
             """
-            SELECT service_order_id::text AS chi_dinh_id, id::text AS id,
-                   ten_hien_thi, loai_tep, so_byte, tai_len_luc
-              FROM tep_ket_qua
-             WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])
-               AND thu_hoi_luc IS NULL
-             ORDER BY tai_len_luc, id
+            SELECT t.service_order_id::text AS chi_dinh_id, t.id::text AS id,
+                   t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc,
+                   s.full_name AS tai_len_boi, t.thu_hoi_luc
+              FROM tep_ket_qua t
+              LEFT JOIN staff s ON s.id = t.tai_len_boi_staff_id
+             WHERE t.clinic_id = $1::uuid AND t.service_order_id = ANY($2::uuid[])
+             ORDER BY t.tai_len_luc, t.id
             """,
             identity.clinic_id,
             [r["chi_dinh_id"] for r in rows],
@@ -231,10 +255,17 @@ class DoiTacService:
                     "id": t["id"],
                     "ten": t["ten_hien_thi"],
                     "loai": t["loai_tep"],
+                    "mime": t["mime"],
                     "so_byte": int(t["so_byte"] or 0),
                     "luc": _iso(t["tai_len_luc"]),
+                    "boi": t["tai_len_boi"],
+                    "thu_hoi": t["thu_hoi_luc"] is not None,
                 }
             )
+        async with self._pool.acquire() as conn:
+            from clinicai.services.tep_ket_qua_service import doc_duoc_tep_ket_qua
+
+            xem_tep = await doc_duoc_tep_ket_qua(conn, identity)
         khach: dict[str, dict[str, Any]] = {}
         for r in rows:
             k = khach.setdefault(
@@ -281,6 +312,7 @@ class DoiTacService:
                             "hinh_thuc": r["thu_hinh_thuc"],
                             "ghi_chu": r["thu_ghi_chu"],
                             "luc": _iso(r["thu_luc"]),
+                            "boi": r["thu_boi"],
                         }
                         if r["thu_id"]
                         else None
@@ -292,7 +324,15 @@ class DoiTacService:
         ds = sorted(khach.values(), key=lambda k: k["cho_tu"] or "")
         for k in ds:
             k["viec"].sort(key=lambda v: v["chi_dinh_luc"] or "")
-        return {"khach": ds, "so_viec": con_viec}
+        return {
+            "khach": ds,
+            "so_viec": con_viec,
+            "ngay": ngay_xem.isoformat(),
+            "hom_nay": la_hom_nay,
+            # Người xem MỞ được tệp (xem/tải/in) không — máy chủ quyết, màn
+            # chỉ ẩn/hiện nút. Vai PARTNER bên ngoài: False (chỉ gửi lên).
+            "xem_tep": xem_tep,
+        }
 
     async def doi_tac_cho_tai_lieu(
         self, *, order_id: str, identity: StaffIdentity, ghi_chu: str | None = None
@@ -357,8 +397,19 @@ class DoiTacService:
     async def doi_tac_da_lay_mau(
         self, *, order_id: str, identity: StaffIdentity, ghi_chu: str | None = None
     ) -> dict[str, Any]:
-        """Đối tác bấm "Đã lấy mẫu" cho xét nghiệm họ tự lấy."""
-        await self._doi_quyen_doi_tac(identity, "Chỉ đối tác bấm được việc này.")
+        """Bấm "Đã lấy mẫu" cho xét nghiệm lấy mẫu tại bàn đối tác.
+
+        LỆNH IDEMPOTENT, MỞ THEO NGÀY (Tuyền 29/09/2026): bấm được cả ở ngày cũ,
+        cả khi lượt đã Hoàn tất / khách đã về — lấy mẫu là sự thật ngoài đời,
+        không phải việc bị khoá theo lượt. Vì thế KHÔNG gọi `khoa_luot` (nó
+        chặn lượt FINALIZED / INCOMPLETE); chỉ khoá dòng lượt + dòng chỉ định
+        để hai người bấm cùng lúc không ghi đôi.
+          * Lần đầu: ghi nhận (performed, giờ lấy mẫu, người lấy) + phát
+            `partner.sample_collected`.
+          * Lần sau: KHÔNG ghi nhận lại, không đổi giờ, không bỏ ghi nhận — chỉ
+            GHI LẠI vào nhật ký (`partner.sample_noted_again`) kèm ghi chú.
+        """
+        await self._doi_quyen_doi_tac(identity, "Bạn không có quyền “Đối tác”.")
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã việc không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
@@ -382,7 +433,14 @@ class DoiTacService:
                 raise SafetyGateError(
                     "Không tìm thấy việc này trong danh sách của bạn."
                 )
-            await khoa_luot(conn, cid, vid)
+            # Khoá lượt TRƯỚC chỉ định (cùng thứ tự mọi lệnh khác — không kẹt
+            # chéo), nhưng KHÔNG xét trạng thái lượt.
+            trang_thai_luot = await conn.fetchval(
+                "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid FOR UPDATE",
+                cid,
+                vid,
+            )
             await _ghi_chu_doi_tac(conn, cid, oid, "ghi_chu_lay_mau", ghi_chu)
             trang_thai = await conn.fetchval(
                 "SELECT exec_status FROM service_order"
@@ -391,7 +449,22 @@ class DoiTacService:
                 oid,
             )
             if trang_thai == "performed":
-                return {"ok": True, "already": True}
+                await record_event(
+                    conn,
+                    event_type="partner.sample_noted_again",
+                    aggregate_type="visit",
+                    aggregate_id=vid,
+                    identity=identity,
+                    origin=ORIGIN,
+                    payload={
+                        "visit_id": vid,
+                        "order_id": oid,
+                        # Chữ ghi chú nằm ở doi_tac_nhan_viec; nhật ký chỉ
+                        # mang cờ (payload không chở chữ tự do).
+                        "co_ghi_chu": bool((ghi_chu or "").strip()),
+                    },
+                )
+                return {"ok": True, "already": True, "order_id": oid}
             if trang_thai not in ("authorized", "assigned", "in_progress"):
                 raise LuotKhamConflictError(
                     "ORDER_NOT_OPEN", "Việc này không còn chờ lấy mẫu."
@@ -430,8 +503,11 @@ class DoiTacService:
                 vid,
                 oid,
             )
-            await mo_cho_bi_chan(conn, cid, vid)
-            await cap_nhat_vi_tri(conn, identity.clinic_id, vid)
+            # Lượt đã đóng / khách đã về: không mở lại hàng chờ, không dời con
+            # trỏ "khách đang ở đâu" — chỉ ghi sự thật lấy mẫu.
+            if trang_thai_luot in ("OPEN", "IN_PROGRESS"):
+                await mo_cho_bi_chan(conn, cid, vid)
+                await cap_nhat_vi_tri(conn, identity.clinic_id, vid)
             await emit_event(
                 conn,
                 ten="partner.sample_collected",
@@ -451,7 +527,7 @@ class DoiTacService:
                 origin=ORIGIN,
                 payload={"visit_id": vid, "order_id": oid, "doi_tac_lay_mau": True},
             )
-        return {"ok": True, "order_id": oid}
+        return {"ok": True, "already": False, "order_id": oid}
 
     # ------------------------------------------------------------------
     # ĐỐI TÁC TỰ THU (Tuyền chốt 27/09/2026, Q1): "khách trả trực tiếp cho đối
