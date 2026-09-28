@@ -42,6 +42,30 @@ test("donKhung bỏ trường rỗng và mặc định cho cột lạ", () => {
   assert.equal(d[0].block[1].goi_y, undefined);
 });
 
+test("donKhung GIỮ cách vẽ ô tích nhanh của ô chọn; đổi sang kiểu khác thì bỏ", () => {
+  // "Kết luận nhanh" phiếu đo mật độ xương (29/09/2026): sửa mẫu ở Cài đặt rồi
+  // xuất bản lại không được làm ba ô tích biến thành hộp thả xuống.
+  const k: MucMau[] = [
+    {
+      ma: "ket_luan",
+      ten: "Kết luận",
+      block: [
+        {
+          ma: "ket_luan_nhanh",
+          ten: "Kết luận nhanh",
+          kieu: "chon",
+          chon: ["Bình thường", "Tiền loãng xương", "Loãng xương"],
+          hien_thi: "o_tick",
+        },
+      ],
+    },
+  ];
+  assert.equal(donKhung(k)[0].block[0].hien_thi, "o_tick");
+  const doiKieu = structuredClone(k);
+  doiKieu[0].block[0].kieu = "text";
+  assert.equal(donKhung(doiKieu)[0].block[0].hien_thi, undefined);
+});
+
 test("nhắc: chọn không có lựa chọn, thiếu kết luận", () => {
   const k: MucMau[] = [{ ma: "a", ten: "A", block: [{ ma: "b", ten: "B", kieu: "chon", chon: [" "] }] }];
   const n = nhacTruocXuatBan(k);

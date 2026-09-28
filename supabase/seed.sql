@@ -3731,6 +3731,9 @@ SELECT public.chuan_hoa_danh_muc_thuoc_kiotviet();
 SELECT public.chuan_hoa_danh_muc_dich_vu_kiotviet();
 -- Gắn 17 mẫu kết quả v3 vào dịch vụ theo mã phòng khám (20260926000004).
 SELECT public.gan_mau_ket_qua_theo_kiotviet();
+-- Mẫu Đo mật độ xương + "Kết luận nhanh", gắn cho dịch vụ DXA (20260929000010)
+-- — SAU gắn mẫu v3: chỉ gắn khi dịch vụ chưa có mẫu gắn tay.
+SELECT public.dxa_ket_luan_nhanh();
 -- Đầu dò Bio (vật tư quầy thuốc, 20260928000095) — SAU chuẩn hoá thuốc KiotViet
 -- (hàm ấy tắt mọi mặt hàng ngoài 82 mã chuẩn).
 SELECT public.them_dau_do_bio();
