@@ -30,8 +30,33 @@ test("danh sách tiếp đón: 3 tab, chia buổi, trạng thái do MÁY CHỦ t
   }
   // Chip trạng thái chỉ đọc chữ + loại máy chủ trả — màn không tự suy ra.
   assert.match(maThucThi, /d\.trang_thai\.nhan/);
-  assert.match(maThucThi, /locTiepDon\(goi\.buoi, tab, tim\)/);
+  assert.match(maThucThi, /locTiepDon\(sapXepTiepDon\(goi\.buoi, huong\), tab, tim\)/);
   assert.doesNotMatch(maThucThi, /checked_in_at\s*\?\s*"Đã check-in"/);
+});
+
+test("sắp xếp Cũ/Mới nhất trước chỉ ĐẢO thứ tự máy chủ, không tự tính mốc giờ", () => {
+  // 29/09/2026 (Tuyền): thứ tự theo giờ vào hàng thật là LUẬT → máy chủ. Màn
+  // chỉ có công tắc xem; không `.sort(` và không đọc giờ check-in/giờ hẹn.
+  assert.match(maThucThi, /Cũ nhất trước/);
+  assert.match(maThucThi, /Mới nhất trước/);
+  assert.doesNotMatch(maThucThi, /\.sort\(/);
+  assert.doesNotMatch(maThucThi, /checked_in_at|slot_start/);
+});
+
+test("thêm khách xong về màn Tiếp đón — cửa hỏi theo lego của trang đích", () => {
+  // 29/09/2026 (Tuyền): lễ tân thêm khách mới xong thì nhảy về Tiếp đón khách.
+  // Trang quyết bằng `moDuocMan("/reception/queue")` (lego), không theo vai.
+  const trang = readFileSync(
+    new URL("../app/(dashboard)/patients/new/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const form = readFileSync(
+    new URL("../app/(dashboard)/patients/new/NewPatientForm.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(trang, /moDuocMan\("\/reception\/queue"\)/);
+  assert.match(trang, /veTiepDon=\{veTiepDon\}/);
+  assert.match(form, /if \(veTiepDon\) \{\s*router\.push\("\/reception\/queue"\);/);
 });
 
 test("không bịa dữ liệu vận hành", () => {

@@ -223,3 +223,69 @@ def test_gom_theo_buoi_vang_lai_theo_gio_check_in() -> None:
     assert [d["appointment_id"] for d in nhom[1]["dong"]] == ["w", "c"]
     assert all("moc_xep" not in d for n in nhom for d in n["dong"])
     assert gom_theo_buoi([], CA_MAC_DINH) == []
+
+
+def test_gom_theo_buoi_nguoi_da_den_theo_gio_check_in_that() -> None:
+    """Tuyền 29/09: B hẹn 18:00 ngồi chờ từ 17:40; lễ tân tạo A khung 18:00 và
+    A tự check-in 17:50; C hẹn 18:00 tới 18:10; D hẹn 18:15 chưa tới.
+    Thứ tự thật B → A → C → D (bản cũ: A → B → C → D vì B, C theo giờ hẹn)."""
+    now = _luc(18, 12)
+    dong = [
+        dung_dong(
+            _hang_db(
+                appointment_id=ma,
+                booking_channel=kenh,
+                slot_start=hen,
+                visit_id=f"v{ma}" if ci else None,
+                status="CHECKED_IN" if ci else "CONFIRMED",
+                checked_in_at=ci,
+                so_booking=so,
+            ),
+            [],
+            now,
+        )
+        for ma, kenh, hen, ci, so in (
+            ("d", "ONLINE", _luc(18, 15), None, 1),
+            ("c", "ONLINE", _luc(18), _luc(18, 10), 2),
+            ("a", "WALK_IN", _luc(18), _luc(17, 50), 3),
+            ("b", "HOTLINE", _luc(18), _luc(17, 40), 4),
+        )
+    ]
+    nhom = gom_theo_buoi(dong, CA_MAC_DINH)
+    assert [n["ma"] for n in nhom] == ["TOI"]
+    assert [d["appointment_id"] for d in nhom[0]["dong"]] == ["b", "a", "c", "d"]
+    assert all("moc_buoi" not in d for d in nhom[0]["dong"])
+
+
+def test_gom_theo_buoi_keo_tay_thang_gio_check_in() -> None:
+    """Mốc lễ tân kéo tay thay giờ check-in — cùng luật bảng gọi số."""
+    now = _luc(9)
+    som = dung_dong(
+        _hang_db(appointment_id="som", visit_id="v1", checked_in_at=_luc(8, 10)),
+        [],
+        now,
+    )
+    keo = dung_dong(
+        _hang_db(
+            appointment_id="keo",
+            visit_id="v2",
+            checked_in_at=_luc(8, 20),
+            thu_tu_tay_ms=_luc(8, 5).timestamp() * 1000,
+        ),
+        [],
+        now,
+    )
+    [buoi] = gom_theo_buoi([som, keo], CA_MAC_DINH)
+    assert [d["appointment_id"] for d in buoi["dong"]] == ["keo", "som"]
+
+
+def test_moc_keo_tay_rac_khong_nem() -> None:
+    """Mốc kéo tay hỏng (NaN, quá lớn) → rơi về giờ check-in, không 500."""
+    for rac in (float("nan"), 1e30, float("inf")):
+        d = dung_dong(
+            _hang_db(visit_id="v", checked_in_at=_luc(8, 10), thu_tu_tay_ms=rac),
+            [],
+            _luc(9),
+        )
+        [buoi] = gom_theo_buoi([d], CA_MAC_DINH)
+        assert [x["appointment_id"] for x in buoi["dong"]] == ["a"]

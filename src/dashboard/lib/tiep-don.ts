@@ -106,6 +106,50 @@ export function locTiepDon(
     .filter((b) => b.dong.length > 0);
 }
 
+/** Hướng xem danh sách (29/09/2026, Tuyền): CÁCH XEM, không phải luật.
+ *  Máy chủ trả sẵn thứ tự CŨ → MỚI theo giờ vào hàng thật (đã check-in: giờ
+ *  check-in; chưa đến: giờ hẹn). "Mới nhất trước" chỉ đảo lại — cả buổi lẫn
+ *  dòng trong buổi — màn không tự tính mốc nào. */
+export type HuongXep = "cu_truoc" | "moi_truoc";
+
+export const HUONG_XEP_MAC_DINH: HuongXep = "cu_truoc";
+
+/** Khoá localStorage nhớ lựa chọn của máy quầy (chỉ là tiện lợi của người xem). */
+export const KHOA_HUONG_XEP = "clinicai:tiep-don:huong-xep";
+
+export function laHuongXep(x: unknown): x is HuongXep {
+  return x === "cu_truoc" || x === "moi_truoc";
+}
+
+export function sapXepTiepDon(
+  buoi: readonly BuoiTiepDon[] | null | undefined,
+  huong: HuongXep,
+): BuoiTiepDon[] {
+  if (!Array.isArray(buoi)) return [];
+  if (huong !== "moi_truoc") return [...buoi];
+  return [...buoi]
+    .reverse()
+    .map((b) => ({ ...b, dong: [...(Array.isArray(b?.dong) ? b.dong : [])].reverse() }));
+}
+
+/** Đọc hướng đã nhớ; kho bị chặn / giá trị lạ → mặc định (không ném). */
+export function docHuongXep(): HuongXep {
+  try {
+    const v = typeof window === "undefined" ? null : window.localStorage.getItem(KHOA_HUONG_XEP);
+    return laHuongXep(v) ? v : HUONG_XEP_MAC_DINH;
+  } catch {
+    return HUONG_XEP_MAC_DINH;
+  }
+}
+
+export function ghiHuongXep(huong: HuongXep): void {
+  try {
+    if (typeof window !== "undefined") window.localStorage.setItem(KHOA_HUONG_XEP, huong);
+  } catch {
+    // Kho bị chặn (chế độ riêng tư…) — lựa chọn chỉ sống tới lúc tải lại trang.
+  }
+}
+
 /** "08:30 · Hiếm muộn · BS A · 0900 001 237" — bỏ ô trống. */
 export function dongPhu(parts: readonly (string | null | undefined)[]): string {
   return parts.filter((p) => typeof p === "string" && p.trim() !== "").join(" · ");
