@@ -170,6 +170,23 @@ def dung_hoa_don_quay(
                 }
             )
 
+    # Phụ thu kèm dịch vụ (đầu dò…, 28/09/2026): tick / sửa giá ở khối riêng
+    # (`PhuThuKem`); trong hoá đơn là dòng khoá như tiền khám.
+    phu_thu_quay: list[dict[str, Any]] = [
+        {
+            "id": str(d["source_id"]),
+            "loai": "phu_thu",
+            "ten": d.get("ten"),
+            "gia": _so(d.get("thanh_tien")),
+            "van_de": d.get("van_de"),
+            "chon": True,
+            "sua_duoc": False,
+            "trong_lua_chon": False,
+        }
+        for d in hd.get("dong") or []
+        if d.get("source_type") == "phu_thu"
+    ]
+
     for c in chi_dinh:
         cid = str(c["id"])
         chon_c = c.get("selection_status") != "NOT_SELECTED"
@@ -204,7 +221,7 @@ def dung_hoa_don_quay(
     # mà chưa thu…): vẫn là khoản phải thu — hiện, tick khoá.
     for d in hd.get("dong") or []:
         sid = str(d["source_id"])
-        if d.get("source_type") == "exam" or sid in theo_id:
+        if d.get("source_type") in ("exam", "phu_thu") or sid in theo_id:
             continue
         phong_kham.append(
             {
@@ -218,6 +235,7 @@ def dung_hoa_don_quay(
                 "trong_lua_chon": False,
             }
         )
+    phong_kham.extend(phu_thu_quay)
     for d in hd.get("dong_doi_tac") or []:
         sid = str(d["source_id"])
         if sid in theo_id:

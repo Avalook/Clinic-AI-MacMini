@@ -307,6 +307,7 @@ def ghep_dich_vu(
     visit_id: str,
     kham: dict[str, Any] | None,
     chi_dinh: list[dict[str, Any]],
+    phu_thu: Sequence[Mapping[str, Any]] = (),
 ) -> HoaDon:
     """Hoá đơn dịch vụ từ dữ liệu đã đọc. Thuần — kiểm được không cần DB."""
     hd = HoaDon(visit_id=visit_id, kind="dich_vu")
@@ -336,6 +337,21 @@ def ghep_dich_vu(
                 ben_thu=o.get("ben_thu") or CLINIC,
                 ma=o.get("service_code"),
                 van_de=o.get("van_de"),
+            )
+        )
+    # Phụ thu kèm dịch vụ (đầu dò…, 28/09/2026): giá đã chốt ở quầy.
+    for p in phu_thu:
+        hd.dong.append(
+            _dong_gia(
+                source_type="phu_thu",
+                source_id=str(p["id"]),
+                ten=clean_name(p.get("ten")) or "Phụ thu",
+                so_luong=Decimal(1),
+                don_vi=None,
+                gia=[Decimal(str(p["don_gia"]))],
+                ben_thu=CLINIC,
+                ma=None,
+                van_de=None,
             )
         )
     return hd
@@ -450,6 +466,22 @@ SELECT o.id::text AS id, o.service_name, o.service_code,
 """
 
 
+#: Phụ thu còn phải thu: đang tick, chỉ định chủ còn sống (khách không bỏ, chưa
+#: huỷ / không làm), chưa nằm trong lần thu đang giữ phủ.
+_PHU_THU_SQL = """
+SELECT p.id::text AS id, p.ten, p.don_gia
+  FROM public.luot_phu_thu p
+  JOIN public.service_order o
+    ON o.id = p.service_order_id AND o.clinic_id = p.clinic_id
+ WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid AND p.bo_luc IS NULL
+   AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
+   AND coalesce(o.execution_status, 'PENDING')
+       NOT IN ('CANCELLED', 'NOT_PERFORMED')
+   AND {dieu_kien}
+ ORDER BY p.chon_luc, p.id
+"""
+
+
 async def _kham(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any] | None:
@@ -558,7 +590,19 @@ async def hoa_don_con_no(
         visit_id,
         sorted({str(i) for i in coi_nhu_chon}),
     )
-    hd = ghep_dich_vu(visit_id, None if exam_phu else kham, _chi_dinh(rows))
+    phu_thu = await conn.fetch(
+        _PHU_THU_SQL.format(
+            dieu_kien=f"""
+            (o.selection_status = 'SELECTED'
+             OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
+            AND NOT {_DA_PHU.format(loai="'phu_thu'", nguon="p.id::text")}
+            """
+        ),
+        clinic_id,
+        visit_id,
+        sorted({str(i) for i in coi_nhu_chon}),
+    )
+    hd = ghep_dich_vu(visit_id, None if exam_phu else kham, _chi_dinh(rows), phu_thu)
     # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu,
     # nhưng vẫn HIỆN ở quầy (27/09/2026).
     tach_doi_tac(hd)
@@ -664,7 +708,18 @@ async def hoa_don_theo_anh_chup(
         visit_id,
         ids,
     )
-    return ghep_dich_vu(visit_id, kham, _chi_dinh(rows))
+    ids_pt = sorted(r["source_id"] for r in nguon if r["source_type"] == "phu_thu")
+    phu_thu = (
+        await conn.fetch(
+            _PHU_THU_SQL.format(dieu_kien="p.id::text = ANY($3::text[])"),
+            clinic_id,
+            visit_id,
+            ids_pt,
+        )
+        if ids_pt
+        else []
+    )
+    return ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
 
 
 async def tinh_hoa_don(

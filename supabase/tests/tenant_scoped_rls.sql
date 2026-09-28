@@ -179,8 +179,9 @@ BEGIN
     -- ghi nhận đã thu tiền khách).
     -- 85 → 87 (28/09/2026): ky_nang + nhan_su_ky_nang (phân quyền theo kỹ năng).
     -- 87 → 88 (28/09/2026): thuoc_giao_chua_gan_lo (giao thuốc không cần lô).
-    IF scoped_count <> 88 THEN
-        RAISE EXCEPTION 'expected 88 tenant-scoped read policies, found %', scoped_count;
+    -- 88 → 90 (28/09/2026): phu_thu_mau + luot_phu_thu.
+    IF scoped_count <> 90 THEN
+        RAISE EXCEPTION 'expected 90 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

@@ -410,6 +410,43 @@ class NoiDungTuVanBody(BaseModel):
     noi_dung: str = Field(default="", max_length=20000)
 
 
+class PhuThuBody(BaseModel):
+    mau_id: UUID
+    chon: bool
+    don_gia: str | int | None = None
+
+
+@router.get("/luot-kham/visits/{visit_id}/phu-thu")
+async def doc_phu_thu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Món kèm (đầu dò…) của các dịch vụ trong lượt — quầy thu dịch vụ."""
+    from clinicai.services.phu_thu_service import PhuThuService
+
+    return await PhuThuService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/luot-kham/orders/{order_id}/phu-thu")
+async def dat_phu_thu(
+    order_id: UUID,
+    body: PhuThuBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tick / bỏ tick / sửa giá món kèm — vào hoá đơn dịch vụ."""
+    from clinicai.services.phu_thu_service import PhuThuService
+
+    return await PhuThuService(pool).dat(
+        order_id=str(order_id),
+        mau_id=str(body.mau_id),
+        chon=body.chon,
+        don_gia=body.don_gia,
+        identity=identity,
+    )
+
+
 @router.post("/luot-kham/consultations/{consultation_id}/noi-dung-tu-van")
 async def luu_noi_dung_tu_van(
     consultation_id: UUID,

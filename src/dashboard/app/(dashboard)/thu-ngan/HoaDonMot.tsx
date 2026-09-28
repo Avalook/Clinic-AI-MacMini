@@ -27,7 +27,7 @@ export interface PhongChon {
 
 export interface DongQuay {
   id: string;
-  loai: "kham" | "chi_dinh";
+  loai: "kham" | "chi_dinh" | "phu_thu";
   ten: string | null;
   gia: number | null;
   van_de: string | null;
