@@ -23,6 +23,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { tenPhieuKetQua } from "@/lib/phieu-kham";
 import { tenMucHien } from "@/lib/sua-mau";
 
 import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, gioIn, ngayIn } from "../../KhoiIn";
@@ -136,7 +137,7 @@ function DauPhieuIn({ dl, p }: { dl: DuLieuIn; p: Phieu | null }) {
         ]}
       />
       <h2 className="mt-4 text-center text-title font-semibold uppercase text-ink">
-        {p?.ten ?? "Hình ảnh kết quả"}
+        {p ? tenPhieuKetQua(p, dl.dich_vu) : "Hình ảnh kết quả"}
       </h2>
       {p?.ban_nhap ? (
         <p className="mt-2 rounded-control border border-warning bg-warning-bg px-3 py-1 text-meta font-semibold text-warning">
@@ -381,10 +382,7 @@ export default function InKetQua({
           className={`${TO} lg:order-2 ${inTo === "anh" ? "print:hidden" : ""} ${inTo === null ? "print:break-after-page" : ""}`}
         >
           <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
-            <p className="mr-auto text-label font-semibold uppercase text-ink-muted">
-              Phiếu kết quả (A4)
-            </p>
-            <div role="group" aria-label="Ảnh trong phiếu" className="flex gap-1">
+            <div role="group" aria-label="Ảnh trong phiếu" className="ml-auto flex gap-1">
               <Button
                 type="button"
                 size="sm"

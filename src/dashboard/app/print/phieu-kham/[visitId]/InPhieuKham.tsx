@@ -51,6 +51,7 @@ import {
   type MucPhieu,
   type ONhap,
   type ThuThuatNguon,
+  tenPhieuKetQua,
 } from "@/lib/phieu-kham";
 
 import { duongXemTep } from "../../../(dashboard)/_lam-viec/AnhKetQua";
@@ -181,7 +182,9 @@ function KetQuaCls({ ds, coTrangAnh }: { ds: ChiDinhVaKetQua[]; coTrangAnh: bool
               const { dong, ketLuan } = dongKetQua(k);
               return (
                 <div key={k.phieu_id} className="space-y-1 pl-4">
-                  {phieu.length > 1 ? <p className="text-meta text-ink-muted">{k.ten}</p> : null}
+                  {phieu.length > 1 ? (
+                    <p className="text-meta text-ink-muted">{tenPhieuKetQua(k, c.ten_hien_thi)}</p>
+                  ) : null}
                   {dong.length ? (
                     <dl className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 print:grid-cols-2">
                       {dong.map((x, j) => (
