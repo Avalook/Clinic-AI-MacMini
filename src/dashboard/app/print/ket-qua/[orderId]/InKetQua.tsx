@@ -410,8 +410,11 @@ export default function InKetQua({
           {coPhieu ? (
             <>
               <CacToPhieu dl={dl} />
+              {/* In Y HỆT khung trên màn (Tuyền 28/09/2026: "in ra ở chế độ có ảnh
+                  hoặc không có ảnh phải khớp form như này") — ảnh nằm ngay dưới
+                  phiếu, KHÔNG ép sang trang riêng. */}
               {kemAnh && coAnh ? (
-                <article className="mt-10 break-before-page print:mt-0">
+                <article className="mt-6">
                   <AnhIn dl={dl} />
                 </article>
               ) : null}
