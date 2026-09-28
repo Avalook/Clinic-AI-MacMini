@@ -26,6 +26,7 @@ import NutCheckOut from "../_lam-viec/NutCheckOut";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
@@ -170,6 +171,14 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   );
 
   const tai = useCallback(async () => nhan(await doc()), [doc, nhan]);
+
+  // NGHE SỰ KIỆN (28/09/2026): trước đây quầy nạp MỘT lần khi mở. Hệ thống tự
+  // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số
+  // phiên bản cũ, bấm "Xếp phòng" thì bị báo "vừa được điều phối bởi người khác".
+  useNgheBang(
+    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription"],
+    () => void tai(),
+  );
 
   useEffect(() => {
     let huy = false;

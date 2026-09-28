@@ -112,6 +112,9 @@ export default function DoiPhong({
     setDangGui(false);
     if (!kq.ok) {
       setLoi(kq.loi);
+      // 409 = chỉ định vừa được xếp / đổi (thường là hệ thống tự xếp sau thu):
+      // tải lại ngay để thấy phòng hiện tại, không bắt người dùng tự tải.
+      if (kq.status === 409) onDaDoi?.();
       return;
     }
     setChon("");
