@@ -33,11 +33,19 @@ _LE_TAN = (
     "them_benh_nhan",
     "thu_tien_dv",
     "thu_tien_thuoc",
+    "dat_lich",
 )
 _SA, _TTP = ("KN-SA-T1", "KN-SA1"), ("KN-THUTHUAT", "KN-TTNG")
 KY_NANG: list[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]] = [
     ("le_tan", "Lễ tân", "Tiếp đón & thu", _LE_TAN, ()),
-    ("cskh", "CSKH", "Tiếp đón & thu", ("cham_soc_khach",), ()),
+    # 28/09: CSKH đặt lịch + ghi khách mới gọi tới ("cskh chưa có node đặt lịch").
+    (
+        "cskh",
+        "CSKH",
+        "Tiếp đón & thu",
+        ("cham_soc_khach", "dat_lich", "them_benh_nhan"),
+        (),
+    ),
     ("do_chi_so", "Đo chỉ số sk", "Khám", ("do_sinh_hieu",), ()),
     ("hoi_benh", "Hỏi bệnh", "Khám", ("tu_van",), ()),
     ("tkyk", "TKYK", "Khám", ("ban_kham",), ()),
