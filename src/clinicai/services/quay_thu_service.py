@@ -964,6 +964,8 @@ class QuayThuService:
                     for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
                 ]
         return {
+            # Mã gốc — mở / in lại đúng phiếu này (in theo lượt, 28/09/2026).
+            "id": goc["id"],
             "loai": "hoan" if la_hoan else "thu",
             "ma": ma_phieu(goc["id"], "hoan" if la_hoan else "thu"),
             "ma_phieu_goc": ma_phieu(goc["cycle_id"]) if la_hoan else None,

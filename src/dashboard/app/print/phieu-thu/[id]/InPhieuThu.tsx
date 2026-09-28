@@ -10,6 +10,8 @@ import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 
 export interface Phieu {
+  /** Mã gốc của lần thu / lần hoàn. */
+  id: string;
   loai: "thu" | "hoan";
   /** Lần thu tiền dịch vụ hay tiền thuốc. */
   kind: string | null;

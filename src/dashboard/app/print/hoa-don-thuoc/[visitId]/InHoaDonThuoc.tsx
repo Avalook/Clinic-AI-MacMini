@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 
 import { KIEU_HOA_DON, PhieuThuGiay, type Phieu } from "../../phieu-thu/[id]/InPhieuThu";
 
@@ -37,7 +37,7 @@ export default function InHoaDonThuoc({ visitId }: { visitId: string }) {
     <main className="mx-auto max-w-xs bg-surface p-4 text-body text-ink print:max-w-none print:p-0">
       <style>{KIEU_HOA_DON}</style>
       <div className="mb-4 flex gap-2 print:hidden">
-        <Button type="button" variant="primary" disabled={ds.length === 0} onClick={() => window.print()}>
+        <Button type="button" variant="primary" disabled={ds.length !== 1} onClick={() => window.print()}>
           In / tải PDF
         </Button>
         <Button type="button" variant="ghost" onClick={() => window.close()}>
@@ -47,11 +47,28 @@ export default function InHoaDonThuoc({ visitId }: { visitId: string }) {
       {ds.length === 0 ? (
         <p className="text-ink-muted">Lượt này chưa có lần thu tiền thuốc nào.</p>
       ) : null}
-      {ds.map((p, i) => (
-        <article key={p.ma} className={i > 0 ? "mt-8 break-before-page print:mt-0" : ""}>
-          <PhieuThuGiay p={p} />
-        </article>
-      ))}
+      {/* Phiếu nào ra phiếu đó (Tuyền 28/09/2026): MỘT lần thu → in thẳng; nhiều
+          lần thu → danh sách, mỗi lần thu mở phiếu riêng (`/print/phieu-thu`). */}
+      {ds.length === 1 ? <PhieuThuGiay p={ds[0]} /> : null}
+      {ds.length > 1 ? (
+        <ul className="space-y-2">
+          {ds.map((p) => (
+            <li key={p.ma} className="flex items-center justify-between gap-2">
+              <span>
+                {p.ma} · {p.tong.toLocaleString("vi-VN")}đ
+              </span>
+              <a
+                href={`/print/phieu-thu/${p.id}?loai=thu`}
+                target="_blank"
+                rel="noopener"
+                className={buttonClass("primary", "sm")}
+              >
+                Mở · in
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </main>
   );
 }
