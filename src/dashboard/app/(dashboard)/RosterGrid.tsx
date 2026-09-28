@@ -195,18 +195,8 @@ export function RosterViTriRows({
                         </td>
                       );
                     }
-                    // Ô ĐÓNG (vị trí không làm ca ấy): ô trống cùng màu hàng — bỏ nền
-                    // đen (Tuyền 28/09/2026: "xoá màu đen của lịch làm việc").
-                    if (tt.dong) {
-                      return (
-                        <td
-                          key={k}
-                          rowSpan={rs}
-                          className={`${KE} ${mau}`}
-                          aria-label="Không làm ca này"
-                        />
-                      );
-                    }
+                    // Ô ĐÓNG (DONG) không còn chặn (28/09/2026): vẽ như ô thường, có
+                    // nút + để xếp người. Chỉ khối NGHỈ còn đặc biệt.
                     return <Fragment key={k}>{veO(s, c, rs)}</Fragment>;
                   })}
                 </tr>

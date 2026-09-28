@@ -200,7 +200,7 @@ export default async function SchedulePage({
             <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
             <p className="mt-0.5 text-sm text-ink-muted">
               Form y hệt file Excel: hàng là vị trí, cột là ngày và ca. Bấm dấu{" "}
-              <b>+</b> trong ô để chọn người. Ô đen là vị trí không làm ca ấy.
+              <b>+</b> trong ô để chọn người.
               Ca xếp ở đây vào thẳng lịch chính thức của tuần.
             </p>
           </div>
