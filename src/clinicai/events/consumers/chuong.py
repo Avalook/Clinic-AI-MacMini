@@ -37,6 +37,8 @@ MAC_DINH: dict[str, DayNhan] = {
     # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.
     "result_file.confirmed": DayNhan(["CSKH"], True),
     "result.ready": DayNhan(["TKYK"], True),
+    # Kết quả đã công bố được SỬA LẠI (28/09/2026): cùng người nhận như kết quả mới.
+    "result.corrected": DayNhan(["TKYK"], True),
     # Kết quả xét nghiệm nhập tay (trước 24/09 gọi thẳng: CSKH + bác sĩ).
     "lab_result.arrived": DayNhan(["CSKH"], True),
     # Việc mới sang bàn đối tác (24/09/2026).
@@ -151,6 +153,9 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             if ly_do == "KHACH_DA_CHON"
             else "Phòng đã lấy mẫu xong — đối tác nhận mẫu, trả kết quả."
         )
+    elif su_kien.event_type == "result.corrected":
+        tieu_de = f"Kết quả của {ten} đã được SỬA LẠI"
+        noi_dung = "Phòng đã sửa phiếu kết quả — bác sĩ đọc lại bản mới."
     else:
         tieu_de = f"Có kết quả mới của {ten}"
         noi_dung = "Phòng đã hoàn tất phiếu kết quả."

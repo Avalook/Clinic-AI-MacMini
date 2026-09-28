@@ -1162,7 +1162,9 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result",
             payload=KetQuaDaSua,
             nhan="Đã sửa kết quả",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            # 28/09/2026: kết quả SỬA LẠI cũng phải réo bác sĩ chính và chạy
+            # lại vòng đọc — trước đây chỉ vào dòng thời gian, bác sĩ không biết.
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
             is_public=True,
             theo_thu_tu=True,
         ),
