@@ -58,7 +58,7 @@ import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, ngayIn } from "../../KhoiIn";
 import KieuInA4 from "../../KieuInA4";
 
 /** Phần đang in: cả phiếu · một mục · kết quả CLS theo 3 kiểu ảnh. */
-type PhanIn = "ca" | "tom_tat" | "don" | "cls_kem" | "cls" | "cls_anh";
+export type PhanIn = "ca" | "tom_tat" | "don" | "cls_kem" | "cls" | "cls_anh";
 
 const TIEU_DE_PHAN: Partial<Record<PhanIn, string>> = {
   tom_tat: "Tóm tắt bệnh án",
@@ -258,16 +258,19 @@ function Muc({
   so,
   ten,
   an = false,
+  anCa = false,
   children,
 }: {
   so: string | null;
   ten: string;
   /** true: không in mục này (đang in phần khác) — màn vẫn hiện. */
   an?: boolean;
+  /** true: ẩn cả trên màn (mở một phần từ CSKH). */
+  anCa?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className={`mt-5 space-y-3 ${an ? "print:hidden" : ""}`}>
+    <section className={`mt-5 space-y-3 ${an ? (anCa ? "hidden" : "print:hidden") : ""}`}>
       <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
         {so ? `${so}. ` : ""}
         {ten}
@@ -309,17 +312,25 @@ function DonThuoc({ dong }: { dong: DongDonMayChu[] }) {
   );
 }
 
-export default function InPhieuKham({ visitId }: { visitId: string }) {
+export default function InPhieuKham({
+  visitId,
+  chiPhan,
+}: {
+  visitId: string;
+  /** Mở từ CSKH (`?phan=`): chỉ hiện + in đúng phần này. */
+  chiPhan?: Exclude<PhanIn, "ca">;
+}) {
   const [dl, setDl] = useState<DuLieuIn | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
-  const [phan, setPhan] = useState<PhanIn>("ca");
+  const [phan, setPhan] = useState<PhanIn>(chiPhan ?? "ca");
 
-  // In xong (hoặc huỷ hộp in) → về lại cả phiếu; Ctrl+P in cả phiếu.
+  // In xong (hoặc huỷ hộp in) → về lại cả phiếu; Ctrl+P in cả phiếu. Mở một
+  // phần (CSKH) thì giữ nguyên phần ấy.
   useEffect(() => {
-    const ve = () => setPhan("ca");
+    const ve = () => setPhan(chiPhan ?? "ca");
     window.addEventListener("afterprint", ve);
     return () => window.removeEventListener("afterprint", ve);
-  }, []);
+  }, [chiPhan]);
 
   useEffect(() => {
     let huy = false;
@@ -410,12 +421,24 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
   const ca = phan === "ca";
   const inCls = ca || phan === "cls_kem" || phan === "cls";
   const inAnh = ca || phan === "cls_kem" || phan === "cls_anh";
+  // Mở một phần (CSKH): phần khác ẩn cả trên màn, không chỉ khi in.
+  const AN = chiPhan ? "hidden" : "print:hidden";
   // Đánh số I · II · III chỉ khi in cả phiếu.
   const so = (x: string) => (ca ? x : null);
 
   return (
     <main className="in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
       <KieuInA4 />
+      {chiPhan ? (
+        <div className="mb-6 flex flex-wrap gap-2 print:hidden">
+          <Button type="button" variant="primary" onClick={() => inPhan(chiPhan)}>
+            In / tải PDF
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => window.close()}>
+            Đóng
+          </Button>
+        </div>
+      ) : (
       <div className="mb-6 flex flex-wrap gap-2 print:hidden">
         <Button type="button" variant="primary" onClick={() => inPhan("ca")}>
           In cả phiếu
@@ -439,6 +462,7 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
           Đóng
         </Button>
       </div>
+      )}
 
       {/* ── TRANG THÔNG TIN ── */}
       {/* Đầu trang HAI BÊN + khối BỆNH NHÂN gọn (27/09/2026 — bản mẫu `manIn`):
@@ -471,14 +495,14 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
         </p>
       ) : null}
 
-      <Muc so={so("I")} ten="Tóm tắt bệnh án" an={!ca && phan !== "tom_tat"}>
+      <Muc so={so("I")} ten="Tóm tắt bệnh án" anCa={Boolean(chiPhan)} an={!ca && phan !== "tom_tat"}>
         {tomTat.length ? tomTat : <p className="text-ink-muted">Chưa ghi nội dung khám.</p>}
       </Muc>
-      <Muc so={so("II")} ten="Đơn thuốc" an={!ca && phan !== "don"}>
+      <Muc so={so("II")} ten="Đơn thuốc" anCa={Boolean(chiPhan)} an={!ca && phan !== "don"}>
         {dl.don.length ? <DonThuoc dong={dl.don} /> : <p className="text-ink-muted">Không kê đơn.</p>}
         {oCua("don_thuoc")}
       </Muc>
-      <Muc so={so("III")} ten="Kết quả cận lâm sàng" an={!inCls}>
+      <Muc so={so("III")} ten="Kết quả cận lâm sàng" anCa={Boolean(chiPhan)} an={!inCls}>
         {cls.length ? (
           <KetQuaCls ds={cls} coTrangAnh={inAnh} />
         ) : (
@@ -488,7 +512,7 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       </Muc>
 
       {/* Chân ký: TÊN bác sĩ của lượt (`the_khach.bac_si`), chừa chỗ ký tay. */}
-      <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? "print:hidden" : ""}`}>
+      <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? AN : ""}`}>
         <div className="min-w-48 text-center">
           <p className="text-ink-muted">Bác sĩ khám</p>
           <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
@@ -499,7 +523,7 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       <TrangAnh
         ds={cls}
         trangMoi={phan !== "cls_anh"}
-        className={inAnh ? "" : "print:hidden"}
+        className={inAnh ? "" : AN}
         khach={
           [hc?.["patient.name"], hc?.["patient.code"]].filter(Boolean).join(" · ") || null
         }

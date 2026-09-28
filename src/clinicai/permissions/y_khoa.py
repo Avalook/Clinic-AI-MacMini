@@ -46,6 +46,9 @@ QUYEN_IN_PHIEU: tuple[str, ...] = (
     "payment.service.collect",
     "payment.medicine.collect",
     "pharmacy.dispense",
+    # CSKH in hồ sơ khám / kết quả / đơn thuốc trả khách theo từng ngày khám
+    # (Tuyền 28/09/2026). Chỉ ĐỌC để in, như các khâu quầy.
+    "crm.manage",
 )
 
 _CAU = "Bạn chưa được cấp khối khám / kết quả nên chưa mở được nội dung y khoa."

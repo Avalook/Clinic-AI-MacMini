@@ -36,6 +36,8 @@ export const QUYEN_IN_PHIEU = [
   "payment.service.collect",
   "payment.medicine.collect",
   "pharmacy.dispense",
+  // CSKH in PDF trả khách theo từng ngày khám (28/09/2026) — chỉ đọc.
+  "crm.manage",
 ] as const;
 
 export async function inDuocPhieu(): Promise<boolean> {
