@@ -6,7 +6,7 @@ import pytest
 from fastapi.routing import APIRoute
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole, RoleGuard
+from clinicai.api.identity import RoleGuard
 from clinicai.api.v1.routers.clinical_forms import router as form_router
 from clinicai.api.v1.routers.clinical_records import router as record_router
 from clinicai.api.v1.routers.orchestrator import (
@@ -38,6 +38,20 @@ def _role_guards(route: APIRoute) -> list[RoleGuard]:
     def visit(dependant: object) -> None:
         for dependency in getattr(dependant, "dependencies", ()):
             if isinstance(dependency.call, RoleGuard):
+                guards.append(dependency.call)
+            visit(dependency)
+
+    visit(route.dependant)
+    return guards
+
+
+def _cua_quyen(route: APIRoute) -> list[object]:
+    """Cửa QUYỀN (`cua_quyen`, có `.quyen`) của route — CHỈ LEGO 28/09/2026."""
+    guards: list[object] = []
+
+    def visit(dependant: object) -> None:
+        for dependency in getattr(dependant, "dependencies", ()):
+            if hasattr(dependency.call, "quyen"):
                 guards.append(dependency.call)
             visit(dependency)
 
@@ -105,14 +119,16 @@ def test_legacy_scheduling_mutations_cannot_bypass_canonical_services() -> None:
     assert ("/appointments/{id}/confirm", "PATCH") not in paths
     assert ("/appointments/{id}/cancel", "PATCH") not in paths
 
-    expected = frozenset({ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA})
+    # CHỈ LEGO (28/09/2026): cửa hỏi quyền cài đặt phòng khám / điều phối ca.
+    expected = ("config.clinic.manage", "dispatch.manage")
     for path, method in (
         ("/work-sessions", "POST"),
         ("/work-sessions/{id}/staff", "POST"),
     ):
-        guards = _role_guards(_route(scheduling_router, path, method))
+        assert not _role_guards(_route(scheduling_router, path, method))
+        guards = _cua_quyen(_route(scheduling_router, path, method))
         assert len(guards) == 1
-        assert guards[0].allowed_roles == expected
+        assert getattr(guards[0], "quyen", None) == expected
 
 
 def test_every_terminal_or_unknown_visit_state_keeps_a_form_read_only() -> None:
@@ -133,9 +149,11 @@ def test_medical_profile_columns_are_an_explicit_allowlist() -> None:
 
 def test_debug_orchestrator_is_management_only_and_threads_are_actor_scoped() -> None:
     route = _route(orchestrator_router, "/orchestrator/chat", "POST")
-    guards = _role_guards(route)
+    assert not _role_guards(route)
+    guards = _cua_quyen(route)
     assert len(guards) == 1
-    assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT})
+    # CHỈ LEGO (28/09/2026): lego Vận hành hệ thống.
+    assert getattr(guards[0], "quyen", None) == ("ops.view",)
 
     assert scoped_thread_id("clinic-a", "staff-a", "same-client-id") != (
         scoped_thread_id("clinic-a", "staff-b", "same-client-id")

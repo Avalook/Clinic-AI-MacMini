@@ -19,15 +19,12 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.cskh_service import (
-    INTAKE_ROLES,
     CskhService,
     clinic_today,
 )
@@ -47,7 +44,8 @@ from clinicai.services.tuong_tac_cskh_service import (
 
 router = APIRouter()
 
-_INTAKE_GUARD = require_role(*INTAKE_ROLES)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_INTAKE_GUARD = cua_quyen("crm.manage", "reception.checkin.perform", "dispatch.manage")
 # Lego 12 "Chăm sóc khách hàng" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai.
 _RECALL_GUARD = cua_quyen("crm.manage")
 
@@ -610,12 +608,13 @@ async def cap_nhat_phan_hoi(
 #
 # Giữ nguyên đường siêu âm riêng của kỹ thuật viên (_SONO_GUARD) — nó gắn tệp
 # vào phiếu siêu âm, khác với kho tệp kết quả của lượt khám ở đây.
-_TEP_TAI_LEN_GUARD = require_role(
-    *INTAKE_ROLES,
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.NURSE_ULTRASOUND,
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_TEP_TAI_LEN_GUARD = cua_quyen(
+    "crm.manage",
+    "clinical.record.write",
+    "result.form.fill",
+    "reception.checkin.perform",
+    moi_phong=True,
 )
 
 
@@ -627,11 +626,17 @@ async def _cua_tai_len_tep(
     vai theo vị trí / lego), HOẶC có khối ghi y khoa theo lego (27/09, đợt 3 —
     "khám CHỈ CẦN LEGO"): người điền phiếu kết quả gửi được ảnh của kết quả ấy.
     Kiểm trước khi đọc byte nào của thân."""
-    if identity.co_vai(_TEP_TAI_LEN_GUARD.allowed_roles):
-        return await _TEP_TAI_LEN_GUARD(identity)
+    from clinicai.permissions.can import can, can_o_phong_nao_do
     from clinicai.services.tep_ket_qua_service import tai_len_duoc_tep_ket_qua
 
     async with pool.acquire() as conn:
+        # CHỈ LEGO (28/09/2026): một trong các quyền của `_TEP_TAI_LEN_GUARD`
+        # (kể cả theo phòng nhờ xếp lịch), hoặc luật tải tệp kết quả.
+        for q in _TEP_TAI_LEN_GUARD.quyen:  # type: ignore[attr-defined]
+            if await can(conn, identity, q) or await can_o_phong_nao_do(
+                conn, identity, q
+            ):
+                return identity
         if await tai_len_duoc_tep_ket_qua(conn, identity):
             return identity
     from clinicai.core.exceptions import SafetyGateError

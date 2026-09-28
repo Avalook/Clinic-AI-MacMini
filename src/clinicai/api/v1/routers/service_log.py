@@ -14,13 +14,12 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
     StaffIdentity,
-    require_role,
 )
 from clinicai.api.nghi_huu import CHI_DINH_MOI, LAM_O_PHONG, bao_da_nghi
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.permissions.y_khoa import cua_ghi_y_khoa
 from clinicai.services.service_log_service import (
-    SONO_ROLES,
     Milestone,
     QueueAction,
     TaskAction,
@@ -32,7 +31,8 @@ router = APIRouter()
 # (decided 2026-06-17, same as lab results).
 _SERVICE_GUARD = cua_ghi_y_khoa
 # The sono queue belongs to the ultrasound nurse.
-_SONO_GUARD = require_role(*SONO_ROLES)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_SONO_GUARD = cua_quyen("service.execute.start", moi_phong=True)
 
 
 class ServiceCreateRequest(BaseModel):

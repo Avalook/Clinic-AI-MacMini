@@ -18,13 +18,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.event_bus.publisher import IEventPublisher, MockEventPublisher
 from clinicai.llm.anthropic_client import AnthropicClient
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.tools._common.context import TraceContext, new_trace
 from clinicai.tools.communication.send_zalo import (
     SendZaloInput,
@@ -79,7 +78,8 @@ router = APIRouter(prefix="/tools", tags=["tools"])
 # is intentional: this router is a dev/doc surface, not the production hot
 # path — real publishing is wired in worker entrypoints.
 _PUBLISHER: IEventPublisher = MockEventPublisher()
-_TOOLS_MANAGEMENT_GUARD = require_role(ClinicRole.MANAGEMENT)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_TOOLS_MANAGEMENT_GUARD = cua_quyen("ops.view")
 _TOOLS_HTTP_ENVIRONMENTS = frozenset({"dev", "development", "local", "test", "testing"})
 
 

@@ -16,10 +16,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -76,8 +74,9 @@ _DOCTOR_GUARD = get_current_identity
 _TKYK_GUARD = get_current_identity
 # (Cũ, OFF 410) hai lệnh thực hiện dịch vụ đời trước — đường mới
 # `/orders/{id}/execution/*` hỏi capability. Giữ cửa vai của lối cũ khi bật lại.
-_PERFORMER_GUARD = require_role_co_the_mo(
-    ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN làm dịch vụ (kể cả theo phòng nhờ lịch).
+_PERFORMER_GUARD = cua_quyen(
+    "service.execute.start", "service.execute.complete", moi_phong=True
 )
 
 _NOTE_GUARD = get_current_identity

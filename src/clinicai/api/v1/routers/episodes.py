@@ -14,19 +14,16 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.episode_service import EpisodeService
 
 router = APIRouter()
 
 # Mirrors canManageAppt in src/dashboard/lib/roles.ts.
-_EPISODE_GUARD = require_role(
-    ClinicRole.CSKH,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.RECEPTION,
-)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_EPISODE_GUARD = cua_quyen("booking.manage", "crm.manage")
 
 
 class EpisodeStatusRequest(BaseModel):

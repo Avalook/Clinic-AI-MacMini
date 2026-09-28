@@ -815,9 +815,12 @@ async def doc_vai_theo_lego(
     khoi = [
         r["work_pack"]
         for r in await pool.fetch(
-            "SELECT DISTINCT work_pack FROM v_quyen_hieu_luc"
-            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
-            "   AND scope_type = 'CLINIC'",
+            # 28/09/2026 — CHỈ LEGO: vai suy từ QUYỀN THỰC TẾ (lego đã cấp ∪ lịch
+            # hôm nay, `v_quyen_thuc_te`), tính cả khối theo phòng. Trước đây
+            # đọc quyền ĐÃ CẤP phạm vi toàn phòng khám nên người được xếp vào
+            # phòng vẫn bị các cửa hỏi vai chặn (Tuyền: "tôi muốn nó lego").
+            "SELECT DISTINCT work_pack FROM v_quyen_thuc_te"
+            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
             clinic_id,
             staff_id,
         )

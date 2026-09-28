@@ -5,12 +5,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.api.rate_limit import InMemoryRateLimiter
 from clinicai.orchestrator.service import OrchestratorService
+from clinicai.permissions.cua_quyen import cua_quyen
 
 router = APIRouter(prefix="/orchestrator", tags=["orchestrator"])
-_ORCHESTRATOR_GUARD = require_role(ClinicRole.MANAGEMENT)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_ORCHESTRATOR_GUARD = cua_quyen("ops.view")
 ORCHESTRATOR_RATE_LIMIT = InMemoryRateLimiter(
     scope="ai-orchestrator",
     limit=20,
