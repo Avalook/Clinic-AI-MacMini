@@ -1,11 +1,18 @@
 "use client";
 
+// PHIẾU THU kiểu HOÁ ĐƠN — khổ giấy máy in nhiệt 80mm (Tuyền 28/09/2026: "chỉ
+// có phiếu thuốc và phiếu dịch vụ là kiểu hoá đơn thôi, còn kết quả các thứ
+// phải là cỡ A4"). Một trang cho cả thu tiền DỊCH VỤ lẫn tiền THUỐC (`kind`),
+// và phiếu hoàn. Phiếu khám, kết quả dùng `KieuInA4`.
+
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 
 interface Phieu {
   loai: "thu" | "hoan";
+  /** Lần thu tiền dịch vụ hay tiền thuốc. */
+  kind: string | null;
   ma: string;
   ma_phieu_goc: string | null;
   luc: string | null;
@@ -27,6 +34,14 @@ interface Phieu {
 }
 
 const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
+
+// Khổ hoá đơn 80mm, dài theo nội dung. `@page` chỉ áp cho trang in này.
+const KIEU_HOA_DON = `
+@page { size: 80mm auto; margin: 4mm 3mm; }
+@media print {
+  html, body { background: white; }
+}
+`;
 
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
@@ -63,7 +78,8 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
     .join(" · ");
 
   return (
-    <main className="mx-auto max-w-md bg-surface p-6 text-body text-ink print:max-w-none print:p-0">
+    <main className="mx-auto max-w-xs bg-surface p-4 text-body text-ink print:max-w-none print:p-0">
+      <style>{KIEU_HOA_DON}</style>
       <div className="mb-4 flex gap-2 print:hidden">
         <Button variant="primary" onClick={() => window.print()}>
           In
@@ -78,7 +94,11 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
           {[p.co_so, p.dia_chi].filter(Boolean).join(" · ")}
         </p>
         <h1 className="mt-3 text-emph font-semibold">
-          {p.loai === "hoan" ? "PHIẾU HOÀN TIỀN" : "PHIẾU THU TIỀN DỊCH VỤ"}
+          {p.loai === "hoan"
+            ? "PHIẾU HOÀN TIỀN"
+            : p.kind === "thuoc"
+              ? "PHIẾU THU TIỀN THUỐC"
+              : "PHIẾU THU TIỀN DỊCH VỤ"}
         </h1>
         <p className="text-meta text-ink-muted">
           {p.ma} · {luc}
