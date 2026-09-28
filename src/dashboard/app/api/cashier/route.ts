@@ -72,10 +72,18 @@ export async function GET(request: Request) {
     undefined,
   );
   if (res.status === 401 || res.status === 403) {
-    return NextResponse.json(
-      { error: "Hôm nay bạn không đứng quầy thu ngân — không có quyền mở danh sách chờ thu." },
-      { status: res.status },
-    );
+    // Giữ NGUYÊN câu của máy chủ (28/09/2026): câu cũ "Hôm nay bạn không đứng
+    // quầy thu ngân" nói sai nguyên nhân khi lý do thật là thiếu lego. Quyền chỉ
+    // có một nguồn (lego / lịch hôm nay), máy chủ nói đúng thiếu gì.
+    const d = (await res.json().catch(() => null)) as {
+      message?: string;
+      detail?: unknown;
+    } | null;
+    const cau =
+      d?.message ??
+      (typeof d?.detail === "string" ? d.detail : null) ??
+      "Bạn chưa được cấp lego “Thanh toán dịch vụ” / “Thu tiền thuốc”.";
+    return NextResponse.json({ error: cau }, { status: res.status });
   }
   const d = res.ok
     ? ((await res.json()) as { items: unknown[]; paid: unknown[] })

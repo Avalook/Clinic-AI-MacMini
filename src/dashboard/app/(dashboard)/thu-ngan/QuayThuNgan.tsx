@@ -113,8 +113,11 @@ const TEN_PT: Record<PhuongThuc, string> = {
 
 export type Quay = "dich_vu" | "thuoc" | "ca_hai";
 
+// Quầy DỊCH VỤ đọc cả tiền thuốc (Tuyền 28/09/2026: "thêm ở thu tiền dịch vụ
+// cho tôi, cứ thanh toán các loại dịch vụ, thuốc trước, kho gắn sau") — lấy thêm
+// thuốc / vật tư / đầu dò và thu luôn ở đây. Máy chủ vẫn kiểm quyền từng loại tiền.
 const MODES: Record<Quay, string> = {
-  dich_vu: "dich_vu",
+  dich_vu: "dich_vu,thuoc",
   thuoc: "thuoc",
   ca_hai: "dich_vu,thuoc",
 };
@@ -331,7 +334,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     (l) =>
       (quay !== "thuoc" &&
         ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) || choQuyet(l))) ||
-      (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
+      (l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
   const dangXem = conCho.find((l) => l.visit_id === chonVisit) ?? conCho[0] ?? null;
@@ -501,8 +504,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick,
                 số lượng, lấy thêm thuốc. Thu rồi (hoặc đang chờ xác minh) thì
                 khoá — huỷ phiếu thu trước rồi mới chỉnh. */}
-            {quay !== "dich_vu" &&
-            l.drugs.length > 0 &&
+            {/* Quầy dịch vụ: có ô "Lấy thêm" kể cả khi bác sĩ không kê thuốc
+                (vật tư, đầu dò, TPCN bán kèm — 28/09/2026). */}
+            {(l.drugs.length > 0 || quay !== "thuoc") &&
             !daThuCua(l.visit_id, "thuoc") &&
             !choCua(l.visit_id, "thuoc") ? (
               <ChinhDonQuay
@@ -515,7 +519,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               />
             ) : null}
 
-            {quay !== "dich_vu" && l.drugs.length > 0 ? (
+            {l.drugs.length > 0 ? (
               <NhomThu
                 tieu_de="Thuốc đã kê"
                 hd={l.hoa_don?.thuoc}
