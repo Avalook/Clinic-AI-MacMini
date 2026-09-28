@@ -5,6 +5,11 @@ này có nằm trong tập DOCTOR_ROLES không?". Khác biệt ấy là toàn b�
 của file này: hôm nay muốn cho điều dưỡng điều phối khách thì quản lý tick một ô,
 không phải chờ người sửa code ở năm cửa.
 
+QUYỀN THỰC TẾ (28/09/2026). Hỏi `v_quyen_thuc_te` = quyền đã cấp ∪ quyền theo
+lịch hôm nay: được xếp vào một phòng là có trọn quyền của phòng ấy (Tuyền:
+"được xếp vào phòng là chức năng và quyền hạn max"). Bảng tra ở migration
+20260928000097 (`quyen_theo_lich_bang`).
+
 PHẠM VI. Một dòng cấp quyền có thể hẹp lại theo phòng hoặc theo ca. Khi lệnh biết
 mình đang làm ở phòng nào thì truyền `phong_id` vào; quyền toàn phòng khám luôn
 đủ, quyền hẹp chỉ đủ khi đúng phòng ấy.
@@ -26,7 +31,7 @@ from clinicai.permissions.catalogue import tra_quyen
 
 _CAU_HOI = """
 SELECT EXISTS (
-    SELECT 1 FROM v_quyen_hieu_luc q
+    SELECT 1 FROM v_quyen_thuc_te q
      WHERE q.clinic_id = $1::uuid
        AND q.staff_id = $2::uuid
        AND q.capability = $3
@@ -76,7 +81,7 @@ async def _quyen_toan_phong_kham(
     conn: asyncpg.Connection, identity: StaffIdentity
 ) -> list[str]:
     rows = await conn.fetch(
-        "SELECT DISTINCT capability FROM v_quyen_hieu_luc"
+        "SELECT DISTINCT capability FROM v_quyen_thuc_te"
         " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
         "   AND scope_type = 'CLINIC'",
         identity.clinic_id,
@@ -107,7 +112,7 @@ async def quyen_hieu_luc(
     Ẩn nút KHÔNG phải bảo mật: lệnh vẫn kiểm lại bằng `doi_quyen`.
     """
     rows = await conn.fetch(
-        "SELECT DISTINCT capability FROM v_quyen_hieu_luc"
+        "SELECT DISTINCT capability FROM v_quyen_thuc_te"
         " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid ORDER BY capability",
         identity.clinic_id,
         identity.staff_id,

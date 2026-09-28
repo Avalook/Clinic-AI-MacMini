@@ -322,6 +322,17 @@ function ThemSdtChoKhach({
   );
 }
 
+// Ô "Dịch vụ khám" khi đặt lịch = 5 lĩnh vực + hai loại khám ĐI THẲNG PHÒNG
+// (28/09/2026 — Tuyền: "node đặt lịch hẹn chưa có thủ thuật và sàn chậu chuyên
+// sâu"). Hai loại sau KHÔNG có mã lĩnh vực trên hồ sơ (CHECK `patient_linh_vuc`
+// chỉ nhận 5 mã) — chỉ chọn loại khám; `linh_vuc` gửi rỗng.
+const LOAI_KHAM_DAT_LICH: { code: string; label: string }[] = [
+  ...LINH_VUC_OPTIONS,
+  { code: "TT", label: "Thủ thuật" },
+  { code: "SC", label: "Sàn chậu chuyên sâu" },
+];
+const MA_LINH_VUC = new Set(LINH_VUC_OPTIONS.map((o) => o.code));
+
 function findServiceIdByLinhVuc(code: string, services: Option[]): string {
   if (!code) return "";
   const nameMap: Record<string, string[]> = {
@@ -330,6 +341,8 @@ function findServiceIdByLinhVuc(code: string, services: Option[]): string {
     NT: ["Nội tiết - Tình dục", "Nội tiết", "NOI_TIET_TINH_DUC"],
     HMVS: ["Hiếm muộn", "Hiếm muộn - Vô sinh", "HIEM_MUON"],
     NK: ["Nam khoa", "NAM_KHOA"],
+    TT: ["Thủ thuật", "THU_THUAT"],
+    SC: ["Sàn chậu chuyên sâu", "Sàn chậu", "SAN_CHAU"],
   };
   const targets = nameMap[code] ?? [];
   for (const t of targets) {
@@ -340,7 +353,9 @@ function findServiceIdByLinhVuc(code: string, services: Option[]): string {
     const found = services.find((s) => s.label.toLowerCase().includes(t.toLowerCase()));
     if (found) return found.id;
   }
-  return services[0]?.id ?? "";
+  // Không đoán loại khám khác (bản trước trả loại khám ĐẦU danh sách — chọn
+  // "Thủ thuật" mà không khớp tên là đặt nhầm thành Phụ khoa).
+  return "";
 }
 
 function SectionHeader({
@@ -1094,7 +1109,7 @@ export default function NewPatientForm({
         ward_name: wardSel?.name || undefined,
         address_detail: addressDetail.trim() || undefined,
         van_de_di_kham: vanDe.trim() || undefined,
-        linh_vuc: linhVuc || undefined,
+        linh_vuc: MA_LINH_VUC.has(linhVuc) ? linhVuc : undefined,
         force,
         ly_do_trung_cccd: lyDoCccd?.trim() || undefined,
       }),
@@ -1497,7 +1512,7 @@ export default function NewPatientForm({
                   className={INPUT}
                 >
                   <option value="" disabled hidden>— Chọn dịch vụ —</option>
-                  {LINH_VUC_OPTIONS.map((o) => (
+                  {LOAI_KHAM_DAT_LICH.map((o) => (
                     <option key={o.code} value={o.code}>
                       {o.label}
                     </option>
@@ -1660,7 +1675,7 @@ export default function NewPatientForm({
               className={INPUT}
             >
               <option value="" disabled hidden>— Chọn dịch vụ —</option>
-              {LINH_VUC_OPTIONS.map((o) => (
+              {LOAI_KHAM_DAT_LICH.map((o) => (
                 <option key={o.code} value={o.code}>
                   {o.label}
                 </option>
