@@ -336,8 +336,17 @@ def test_khoa_ngoai_sai_tra_422_khong_500() -> None:
 
 async def test_truong_ca_duoc_bao_khong_phong_nao_o_co_so_nay_lam_duoc(
     pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Phòng làm được bước này chỉ có ở CƠ SỞ KHÁC → vẫn phải báo 'không phòng'."""
+    import clinicai.services.luot_kham_doc as lkd
+
+    async def _cho_qua(*_a: object, **_k: object) -> None:
+        return None
+
+    # 7a (27/09): xem điều phối hỏi lego Điều phối khách — bài này đo luật PHÒNG,
+    # không đo quyền; trưởng ca giả không có dòng lego trong DB thử.
+    monkeypatch.setattr(lkd, "doi_quyen", _cho_qua)
     from clinicai.api.identity import ClinicRole, StaffIdentity
     from clinicai.services.luot_kham_doc import BangLuotKham
     from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
