@@ -1,4 +1,4 @@
-"""Xem lại một lượt khám — chỉ đọc, cắt theo vai ở ``XemLuotService``."""
+"""Xem lại một lượt khám — chỉ đọc, cắt theo QUYỀN ở ``XemLuotService``."""
 
 from __future__ import annotations
 
@@ -8,13 +8,15 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends
 
-from clinicai.api.identity import StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity, cua_noi_bo
 from clinicai.core.database import get_db_pool
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
-from clinicai.services.xem_luot_service import GOI_DUOC, XemLuotService
+from clinicai.services.xem_luot_service import XemLuotService
 
 router = APIRouter()
-_GUARD = require_role(*GOI_DUOC)
+#: Mọi thành viên nội bộ (vai tài khoản) — Hành trình "luôn bật" (đợt 3,
+#: 27/09/2026). Nội dung cắt theo quyền trong hàm dịch vụ.
+_GUARD = cua_noi_bo
 
 
 @router.get("/xem-luot/{visit_id}")

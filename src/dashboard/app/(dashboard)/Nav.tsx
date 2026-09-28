@@ -18,6 +18,7 @@ import {
   navLabelFor,
   nhomTheoCongViec,
   nhomThanhBen,
+  TEN_NHOM_LEGO,
   xepNodeCon,
   type NavItem,
   type PhongTheoViTri,
@@ -79,11 +80,20 @@ export default function Nav({
     quyen,
   );
   // Node con (Nhắc tái khám) đứng ngay dưới node cha (Quản lý khách hàng).
-  const [dau, khac, ...mucNhom] = xepNodeCon([tho.dau, tho.khac, ...tho.nhom.map((g) => g.muc)]);
-  const nhom = tho.nhom.map((g, i) => ({ ...g, muc: mucNhom[i] }));
+  // Lego ĐANG BẬT của chính tài khoản (7a, 27/09) là một nhóm KHÔNG gập — gộp
+  // vào "Việc khác" (gập sẵn) là giấu đúng việc người ấy được bật để làm.
+  const { dau: dau0, nhom: nhom0, lego: lego0, khac: khac0 } = tho;
+  const [dau, lego, khac, ...mucNhom] = xepNodeCon([
+    dau0,
+    lego0,
+    khac0,
+    ...nhom0.map((g) => g.muc),
+  ]);
+  const nhom = nhom0.map((g, i) => ({ ...g, muc: mucNhom[i] }));
   const laCon = (item: NavItem) =>
-    Boolean(item.cha) && [...dau, ...khac, ...mucNhom.flat()].some((m) => m.href === item.cha);
-  const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...khac];
+    Boolean(item.cha) &&
+    [...dau, ...lego, ...khac, ...mucNhom.flat()].some((m) => m.href === item.cha);
+  const visible = [...dau, ...nhom.flatMap((g) => g.muc), ...lego, ...khac];
   const hrefs = visible.map((v) => v.href);
   const coHaiPhan = nhom.length > 0;
   // "Việc khác" GẬP SẴN (ngày có lịch) — xem `docGap`; đang đứng ở một màn trong
@@ -219,7 +229,7 @@ export default function Nav({
       };
 
   // Node con đứng dưới node cha, thụt vào kèm ĐƯỜNG KẺ DỌC mảnh (kiểu A).
-  const tatCa = [...dau, ...khac, ...mucNhom.flat()];
+  const tatCa = [...dau, ...lego, ...khac, ...mucNhom.flat()];
   const veMuc = (item: NavItem) => {
     if (laCon(item)) return null;
     const con = tatCa.filter((m) => m.cha === item.href);
@@ -272,13 +282,16 @@ export default function Nav({
           {/* MỖI VỊ TRÍ HÔM NAY MỘT NHÓM (Tuyền 16/09/2026) — giữ nguyên, chỉ
               đổi cách trình bày theo kiểu A; "Việc khác" là một nhóm gập được. */}
           {nhom.map((g) => veNhom({ ma: `vt-${g.nhom}`, ten: g.ten, muc: g.muc }, false))}
+          {lego.length > 0
+            ? veNhom({ ma: "lego-dang-bat", ten: TEN_NHOM_LEGO, muc: lego }, false)
+            : null}
           {khac.length > 0
             ? veNhom({ ma: "viec-khac", ten: `Việc khác (${khac.length})`, muc: khac })
             : null}
         </>
       ) : (
         // KHÔNG có lịch hôm nay: chia theo công việc (nav-items `NHOM_CONG_VIEC`).
-        nhomTheoCongViec([...dau, ...khac]).map((g) => veNhom(g))
+        nhomTheoCongViec([...dau, ...lego, ...khac]).map((g) => veNhom(g))
       )}
       {/* CSKH_ONLY mode indicator */}
       {featureMode === "CSKH_ONLY" && !isCollapsed && (

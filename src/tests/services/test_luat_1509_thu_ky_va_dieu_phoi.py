@@ -77,7 +77,9 @@ async def test_khong_phai_thu_ky_thi_khong_loc() -> None:
         "la_thu_ky": False,
         "bac_si": [],
     }
-    assert p.calls == []
+    # 7a (27/09 "chỉ dùng lego"): lọc theo DỮ LIỆU PHÂN CÔNG, không theo vai —
+    # không có dòng phân thì không lọc; chỉ đọc bảng phân công, không gì khác.
+    assert p.calls and all("thu_ky_bac_si" in c[1] for c in p.calls)
 
 
 @pytest.mark.asyncio

@@ -49,6 +49,7 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_GIU_LUOT_SQL
+from clinicai.services.luot_treo import dieu_kien_luot_treo
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -460,22 +461,24 @@ class CheckoutService:
         đúng đường mà `close(incomplete=True)` mở ra. `prevent_hard_delete` vốn
         đã cấm cách làm tắt.
 
-        Cả những lượt KHÔNG CÓ giờ check-in (đo được 5 dòng) cũng vào đây: một
-        lượt khám không biết bắt đầu lúc nào thì lại càng cần người xem lại.
+        TIÊU CHÍ = đúng câu của bộ canh gác `LUOT_TREO` (`luot_treo.py`, đợt 3
+        27/09/2026): còn mở, CHƯA check-out, check-in trước hôm nay giờ VN.
+        Trước đó câu ở đây không loại lượt đã check-out (check-out thường giữ
+        IN_PROGRESS) và lấy cả lượt không giờ check-in — lệch với cảnh báo.
+        Đóng một lượt ở đây (INCOMPLETE) là nó rời danh sách và lần canh gác kế
+        tiếp tự đóng cảnh báo.
         """
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 _READINESS_SQL.replace(
                     "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
                     "WHERE v.clinic_id = $1::uuid"
-                    "   AND v.status IN ('OPEN', 'IN_PROGRESS')"
-                    "   AND (v.checked_in_at IS NULL OR v.checked_in_at < $3)"
-                    " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
+                    f"   AND {dieu_kien_luot_treo('v')}"
+                    " ORDER BY v.checked_in_at DESC"
                     " LIMIT 300",
                 ),
                 identity.clinic_id,
                 CLOSE_NODE,
-                _vn_day_start(),
             )
             rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 

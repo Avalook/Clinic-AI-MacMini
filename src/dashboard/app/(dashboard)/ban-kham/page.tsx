@@ -7,7 +7,7 @@
  * hiếm muộn / nam khoa — năm màn ấy đặt tên theo phiếu, không theo nơi làm việc.
  */
 
-import { getClinicStaffId, requireNavAccess, vaiBanKham } from "@/lib/clinic-session";
+import { getClinicStaffId, getNutBanKham, requireNavAccess } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../LiveBoardSync";
 import BanKham from "./BanKham";
@@ -17,13 +17,13 @@ export const dynamic = "force-dynamic";
 
 export default async function BanKhamPage() {
   await requireNavAccess("/ban-kham");
-  // Nút bấm theo QUYỀN (28/09/2026) — người cùng phòng thao tác như nhau.
-  const vai = await vaiBanKham();
+  // Nút bấm theo LEGO của tài khoản, không theo vai (đợt 3, 27/09/2026).
+  const nut = await getNutBanKham();
   return (
     <>
       <LiveBoardSync />
       <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
-        <BanKham phongMa={null} vai={vai} staffId={await getClinicStaffId()} />
+        <BanKham phongMa={null} nut={nut} staffId={await getClinicStaffId()} />
       </main>
     </>
   );

@@ -4,7 +4,8 @@ Batch pilot 18/09/2026. Trước đây bảng này không có lối ghi nào tro
 chỉ-đọc và backend không có lệnh, nên không ai tạo được thai kỳ.
 
 LUẬT (contract Tuyền/ChatGPT 18/09):
-  * CHỈ BÁC SĨ tạo thai kỳ chính thức, xác nhận/sửa dự kiến sinh, chuyển kết
+  * CHỈ BÁC SĨ (từ 27/09: người có quyền Hoàn tất khám của lego Bàn khám) tạo
+    thai kỳ chính thức, xác nhận/sửa dự kiến sinh, chuyển kết
     cục. Lễ tân, thư ký y khoa không tạo/chuyển được — không nới theo công tắc
     mở quyền tạm thời (đây là quyết định chuyên môn).
   * Dự kiến sinh do BÁC SĨ NHẬP kèm NGUỒN. Hệ thống không tự tính dự kiến sinh
@@ -28,6 +29,7 @@ from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import can
+from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
@@ -38,6 +40,8 @@ NGUON_EDD = {
     "KHAC": "Khác",
 }
 KET_CUC = frozenset({"DELIVERED", "MISCARRIAGE", "TERMINATED", "UNKNOWN"})
+#: (Cũ, không còn cửa nào đọc — giữ tên cho bài kiểm cũ.) Từ đợt 3 (27/09/2026)
+#: đọc thai kỳ = cửa y khoa chung (`QUYEN_Y_KHOA`), ghi = `QUYEN_GHI_THAI_KY`.
 DOC_ROLES = frozenset(
     {
         ClinicRole.DOCTOR,
@@ -46,6 +50,11 @@ DOC_ROLES = frozenset(
         ClinicRole.NURSE_ULTRASOUND,
     }
 )
+#: GHI thai kỳ (tạo, xác nhận dự kiến sinh, chuyển kết cục) = người HOÀN TẤT
+#: được lượt khám — quyết định chuyên môn của lego Bàn khám (Tuyền 26/09: "khám,
+#: chỉ định, kê đơn CHỈ CẦN LEGO"). Thư ký (Bàn khám thiếu Hoàn tất) chỉ đọc.
+# 28/09/2026: ghi = quyền GHI BỆNH ÁN (thư ký / điều dưỡng cùng phòng như bác sĩ).
+QUYEN_GHI_THAI_KY = "clinical.record.write"
 
 
 def doc_ngay(raw: Any) -> date | None:
@@ -68,11 +77,14 @@ def tuoi_thai_tu_edd(edd: date | None, hom_nay: date) -> dict[str, int] | None:
     return {"tuan": ngay // 7, "ngay": ngay % 7}
 
 
-async def _chi_bac_si(pool: asyncpg.Pool, identity: StaffIdentity) -> None:
-    """Ghi thai kỳ: QUYỀN ghi bệnh án, không vai (28/09/2026)."""
+async def _duoc_ghi(pool: asyncpg.Pool, identity: StaffIdentity) -> bool:
     async with pool.acquire() as conn:
-        if not await can(conn, identity, "clinical.record.write"):
-            raise SafetyGateError("Bạn chưa có quyền ghi thai kỳ.")
+        return await can(conn, identity, QUYEN_GHI_THAI_KY)
+
+
+async def _chi_bac_si(pool: asyncpg.Pool, identity: StaffIdentity) -> None:
+    if not await _duoc_ghi(pool, identity):
+        raise SafetyGateError("Bạn chưa có quyền ghi thai kỳ.")
 
 
 def _ngay_bat_buoc(raw: Any, ten: str) -> date:
@@ -122,18 +134,15 @@ SELECT p.id, p.outcome, p.outcome_date, p.lmp_date, p.edd_date, p.edd_nguon,
 
 
 class ThaiKyService:
-    async def _duoc_ghi(self, identity: StaffIdentity) -> bool:
-        async with self._pool.acquire() as conn:
-            return await can(conn, identity, "clinical.record.write")
-
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     async def doc(
         self, *, clinic_patient_id: str, identity: StaffIdentity
     ) -> dict[str, Any]:
-        if not identity.co_vai(DOC_ROLES):
-            raise SafetyGateError("Vai của bạn không xem thai kỳ.")
+        async with self._pool.acquire() as conn:
+            if not await doc_duoc_y_khoa(conn, identity):
+                raise SafetyGateError("Bạn chưa được cấp khối khám / kết quả.")
         await kiem_khach(self._pool, identity, clinic_patient_id)
         hom_nay = now_vn().date()
         rows = await self._pool.fetch(
@@ -146,7 +155,7 @@ class ThaiKyService:
         return {
             "hien_tai": hien_tai,
             "truoc": [d for d in ds if d is not hien_tai],
-            "duoc_ghi": await self._duoc_ghi(identity),
+            "duoc_ghi": await _duoc_ghi(self._pool, identity),
             "nguon": [{"ma": k, "nhan": v} for k, v in NGUON_EDD.items()],
         }
 

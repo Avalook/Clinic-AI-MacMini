@@ -69,7 +69,13 @@ VAI_QUYET_DICH_VU: frozenset[str] = frozenset({"DOCTOR", "ULTRASOUND_DOCTOR"})
 #: việc khi chưa ai được giao đích danh — không phải hàng rào quyền (ghi ngay
 #: trong migration 20260923000007). Trước đây quyền `worklist.handle` không lệnh
 #: nào kiểm: thu lego chỉ mất mục trên thanh bên, API vẫn mở theo vai.
-QUYEN_THEO_KHU: dict[str, str] = {"khu_van_hanh": "worklist.handle"}
+QUYEN_THEO_KHU: dict[str, str] = {
+    "khu_van_hanh": "worklist.handle",
+    # Hàng đợi TIẾP ĐÓN (`/reception/queue`, lego 1) — "chỉ dùng lego" (Tuyền
+    # 27/09/2026, đợt 3): bước tiếp nhận + xác minh hỏi quyền Tiếp đón, không
+    # hỏi `actor_roles` (RECEPTION / NURSE_ULTRASOUND) của node nữa.
+    "bang_dieu_phoi": "reception.checkin.perform",
+}
 
 # Only start and complete are gated. Skipping and cancelling are how a stuck
 # flow gets unstuck, so a shut gate must never prevent them.
@@ -193,18 +199,25 @@ class WorkItemService:
                 # Khu do LEGO quyết: có quyền của khu là đủ, không có thì chặn —
                 # bất kể vai có nằm trong actor_roles hay không.
                 quyen_khu = QUYEN_THEO_KHU.get(item.get("workspace") or "")
+                qua_quyen_khu = False
                 if quyen_khu is not None:
                     if not await can(conn, identity, quyen_khu):
                         raise SafetyGateError(
                             f"Bạn chưa được cấp quyền “{tra_quyen(quyen_khu).ten}”."
                         )
+                    # QUYỀN của khu là đủ — không hỏi thêm vai (đợt 3, 27/09):
+                    # người có lego "Việc cần xử lý" mà mọi lego mang vai đều
+                    # tắt (`ds_vai()` rỗng) vẫn đóng được việc.
+                    qua_quyen_khu = True
                     actor_roles = [*actor_roles, *identity.ds_vai()]
                     vai_mo_cua = list(identity.ds_vai())
                 # The catalogue's empty default means "nobody yet", never
                 # "every working role".  Fail closed if configuration is
                 # incomplete or the live node no longer names this role.
                 # Vai theo vị trí hôm nay cũng tính (Tuyền 16/09/2026).
-                if not actor_roles or not set(identity.ds_vai()) & set(actor_roles):
+                if not qua_quyen_khu and (
+                    not actor_roles or not set(identity.ds_vai()) & set(actor_roles)
+                ):
                     logger.info(
                         "work_item_role_forbidden",
                         node_code=item["node_code"],
@@ -535,15 +548,19 @@ class WorkItemService:
                 ON n.clinic_id = w.clinic_id
                AND n.code = w.node_code
                AND n.workspace = $1
+              LEFT JOIN visit v
+                ON v.visit_id = w.visit_id
+               AND v.clinic_id = w.clinic_id
+              -- Việc khu vận hành (OPS-*, mở từ sự kiện) chỉ mang visit_id, không
+              -- mang clinic_patient_id: lấy khách qua lượt, không thì màn "Việc
+              -- cần xử lý" không có tên khách (đợt 3, 27/09/2026).
               LEFT JOIN patient p
-                ON p.clinic_patient_id = w.clinic_patient_id
+                ON p.clinic_patient_id
+                   = coalesce(w.clinic_patient_id, v.clinic_patient_id)
                AND p.clinic_id = w.clinic_id
               LEFT JOIN appointment a
                 ON a.id = w.appointment_id
                AND a.clinic_id = w.clinic_id
-              LEFT JOIN visit v
-                ON v.visit_id = w.visit_id
-               AND v.clinic_id = w.clinic_id
               -- Mỗi lượt tối đa MỘT nháp đang mở (uq_service_order_draft_mo),
               -- nên LEFT JOIN không nhân đôi dòng.
               LEFT JOIN service_order_draft sd

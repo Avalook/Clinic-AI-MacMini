@@ -55,15 +55,26 @@ test("lối vào KHÔNG được gán sẵn ngày giờ", () => {
   );
 });
 
-test("gác bằng quyền TẠO HỒ SƠ, không phải quyền quản lý lịch", () => {
-  // `canManage` = canManageAppt (lịch hẹn). `canEdit` = canWriteIntake (tạo hồ
-  // sơ) — và /patients/new gác bằng đúng canWriteIntake. Lệch một cái là người
-  // dùng bấm nút rồi bị đá về /home mà không hiểu vì sao.
-  const khoi = /\{canEdit && \([\s\S]{0,600}?patients\/new/.exec(ma);
-  assert.ok(
-    khoi,
-    "nút phải nằm trong nhánh `canEdit`; dùng cờ khác là nút và trang đích nói " +
-      "hai điều khác nhau",
+test("gác bằng ĐÚNG cửa của trang đích /patients/new", () => {
+  // Đợt 3 (27/09/2026): /patients/new gác bằng lego 11 `patient.create`
+  // (`requireNavAccess`). Nút phải hỏi cùng luật đó — `moDuocMan("/patients/new")`
+  // ở máy chủ — không phải vai canWriteIntake (cờ `canEdit`). Lệch một cái là
+  // người có lego không thấy nút, hoặc thấy nút rồi bị đá về /home.
+  const khoi = /\{canThemKhach && \([\s\S]{0,600}?patients\/new/.exec(ma);
+  assert.ok(khoi, "nút phải nằm trong nhánh `canThemKhach`");
+  assert.doesNotMatch(
+    ma,
+    /\{canEdit && \([\s\S]{0,600}?href="\/patients\/new"/,
+    "nút không được gác bằng vai (canEdit) nữa",
+  );
+  const trang = readFileSync(
+    new URL("../app/(dashboard)/customers/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    trang,
+    /canThemKhach = await moDuocMan\("\/patients\/new"\)/,
+    "cờ phải do máy chủ tính bằng đúng luật cửa của trang đích",
   );
 });
 

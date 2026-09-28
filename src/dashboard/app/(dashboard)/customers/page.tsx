@@ -4,7 +4,12 @@
 // (CustomersView) lo chọn + bôi hồng.
 
 import Link from "next/link";
-import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
+import {
+  requireNavAccess,
+  getVaiHomNay,
+  getVaiChinh,
+  moDuocMan,
+} from "../../../lib/clinic-session";
 import {
   canWriteIntake,
   canManageAppt,
@@ -79,6 +84,9 @@ export default async function CustomersPage({
   const role = await getVaiChinh();
   // CSKH / Lễ tân / Quản lý: được SỬA thông tin hành chính ngay trong panel.
   const canEdit = vaiHomNay.some(canWriteIntake);
+  // Nút "Thêm khách hàng mới" gác bằng ĐÚNG cửa của trang đích /patients/new
+  // (lego 11 `patient.create`) — đợt 3, 27/09/2026.
+  const canThemKhach = await moDuocMan("/patients/new");
   const canOperateCskh = vaiHomNay.some(canOperateCustomerCare);
   // CSKH / Quản lý / Trưởng ca: được ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới").
   const canManage = canManageAppt(role);
@@ -1075,6 +1083,7 @@ type LichHenRaw = {
           initialViec={viec}
           initialLuot={luot}
           canEdit={canEdit}
+          canThemKhach={canThemKhach}
           canManage={canManage}
           canOperateCskh={canOperateCskh}
           services={services}

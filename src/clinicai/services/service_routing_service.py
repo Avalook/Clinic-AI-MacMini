@@ -36,6 +36,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
+from clinicai.services.day_noi import doc_day
 from clinicai.services.hang_cho import cap_nhat_vi_tri, khach_dang_duoc_phuc_vu
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -277,16 +278,137 @@ def rank_rooms(rooms: Sequence[RoomCandidate]) -> list[dict[str, Any]]:
 # thi". Hai câu đọc dưới cùng MỘT điều kiện "đã trả, khách làm, chưa bắt đầu";
 # xếp / đổi phòng vẫn đi qua lệnh `assign` (quyền, cổng tiền, revision, cơ sở).
 
-_DA_TRA_CHUA_LAM = """
+#: ĐỐI TÁC LÀM TRỌN (alias ``o`` = service_order) — khách KHÔNG vào phòng nào
+#: của phòng khám, nên không có gì để xếp:
+#:   * dịch vụ đánh dấu đối tác tự lấy mẫu / tự làm (`doi_tac_lay_mau`); hoặc
+#:   * bước làm bên ngoài (`node_definition.lam_ben_ngoai`) mà KHÔNG phòng nội bộ
+#:     nào của phòng khám làm bước ấy — chụp phim DICHVU-HINHANH-NGOAI trên prod
+#:     (Kim Ngưu 12 phòng phủ mọi bước trừ bước này).
+#: Bước làm bên ngoài CÓ phòng nội bộ (lấy máu, lấy dịch — điều dưỡng lấy mẫu ở
+#: phòng Lấy mẫu rồi gửi đối tác) vẫn xếp phòng như thường.
+#: 27/09/2026 (đợt 3): trước đây chỉ xét cờ dịch vụ — chụp phim cờ tắt thì quầy
+#: hiện "Chưa có phòng nào làm được dịch vụ này" và dây H4 bỏ qua im lặng.
+DOI_TAC_LAM_TRON_SQL = """(
+       EXISTS (
+           SELECT 1 FROM service_price sp
+            WHERE sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+              AND sp.doi_tac_lay_mau)
+    OR (EXISTS (
+           SELECT 1 FROM node_definition nd
+            WHERE nd.clinic_id = o.clinic_id AND nd.code = o.node_code
+              AND nd.lam_ben_ngoai)
+        AND NOT EXISTS (
+           SELECT 1 FROM clinic_room_node rn2
+             JOIN clinic_room r2
+               ON r2.id = rn2.room_id AND r2.clinic_id = rn2.clinic_id
+            WHERE rn2.clinic_id = o.clinic_id AND rn2.node_code = o.node_code
+              AND r2.is_active AND NOT r2.la_doi_tac))
+)"""
+
+#: Câu cho chỉ định đối tác làm trọn — màn vẽ nguyên câu này, không tự đặt.
+CAU_DOI_TAC_LAM = "Đối tác làm — không cần xếp phòng."
+
+#: Trạng thái gợi ý phòng (``recommend.trang_thai``) — màn chỉ bày ô chọn phòng
+#: khi ``CO_PHONG``.
+GOI_Y_CO_PHONG = "CO_PHONG"
+GOI_Y_DOI_TAC_LAM = "DOI_TAC_LAM"
+GOI_Y_KHONG_CO_PHONG = "KHONG_CO_PHONG"
+CAU_KHONG_CO_PHONG = (
+    "Chưa có phòng nào đang nhận khách làm được dịch vụ này ở cơ sở này (phòng có"
+    " thể đang tạm ngừng). Việc cần làm: báo trưởng ca mở lại phòng, hoặc quản lý"
+    " gán phòng ở Cấu trúc phòng khám."
+)
+
+
+async def doi_tac_lam_tron(
+    conn: asyncpg.Connection, clinic_id: str, order_ids: Sequence[str]
+) -> set[str]:
+    """Trong các chỉ định này, cái nào ĐỐI TÁC LÀM TRỌN (không cần xếp phòng)."""
+    if not order_ids:
+        return set()
+    return {
+        str(r["id"])
+        for r in await conn.fetch(
+            f"SELECT o.id::text AS id FROM service_order o"
+            f" WHERE o.clinic_id = $1::uuid AND o.id = ANY($2::uuid[])"
+            f" AND {DOI_TAC_LAM_TRON_SQL}",
+            clinic_id,
+            list(order_ids),
+        )
+    }
+
+
+# ── Chờ xếp phòng (dây H4 không xếp được) ──────────────────────────────────
+#
+# Trước 27/09/2026 H4 bỏ qua IM LẶNG khi không có phòng: khách đã trả tiền mà
+# không ai biết phải xếp tay. Nay mỗi lần như vậy réo chuông quầy (cùng cơ chế
+# chuông vai của H8 "nhắc check-out") — mỗi chỉ định một chuông đang mở.
+
+CHO_XEP_KHONG_CO_PHONG = "KHONG_CO_PHONG"
+CHO_XEP_CHUA_CHON_PHONG = "CHUA_CHON_PHONG"
+CHO_XEP_PHONG_DU_KIEN_HONG = "PHONG_DU_KIEN_KHONG_NHAN"
+#: Vai nhận chuông "chờ xếp phòng": người đứng quầy (lễ tân kiêm thu ngân).
+VAI_NHAN_CHO_XEP = ("RECEPTION", "CASHIER")
+
+_CAU_CHO_XEP: dict[str, str] = {
+    CHO_XEP_KHONG_CO_PHONG: (
+        "Không phòng nào đang nhận khách làm được dịch vụ này (phòng có thể đang"
+        " tạm ngừng). Việc cần làm: báo trưởng ca mở lại phòng, rồi xếp phòng ở"
+        ' ô "Phòng làm dịch vụ (đã thu)".'
+    ),
+    CHO_XEP_CHUA_CHON_PHONG: (
+        'Dây "chỉ áp phòng lễ tân chọn" đang bật mà dịch vụ này chưa chọn phòng.'
+        ' Việc cần làm: chọn phòng ở ô "Phòng làm dịch vụ (đã thu)".'
+    ),
+    CHO_XEP_PHONG_DU_KIEN_HONG: (
+        "Phòng lễ tân chọn đang tạm ngừng hoặc không làm được bước này. Việc cần"
+        ' làm: chọn phòng khác ở ô "Phòng làm dịch vụ (đã thu)".'
+    ),
+}
+
+
+def cau_cho_xep_phong(ly_do: str | None) -> str:
+    """Câu cho chuông "chờ xếp phòng" theo lý do. Hàm thuần; lý do lạ vẫn có câu."""
+    if isinstance(ly_do, str) and ly_do in _CAU_CHO_XEP:
+        return _CAU_CHO_XEP[ly_do]
+    return "Khách đã trả tiền nhưng chưa được xếp phòng. Việc cần làm: xếp phòng tay."
+
+
+def chon_phong_h4(
+    ung_vien: Sequence[dict[str, Any]],
+    phong_du_kien: str | None,
+    *,
+    chi_ap_phong_du_kien: bool,
+) -> tuple[str | None, str | None]:
+    """Dây H4 chọn phòng nào — HÀM THUẦN. Trả ``(room_id, None)`` hoặc
+    ``(None, lý do chờ xếp)``.
+
+    Mặc định: phòng lễ tân chọn (`phong_du_kien`) thắng nếu còn đủ điều kiện,
+    không thì phòng vắng nhất. Dây ``h4_chi_ap_phong_du_kien`` BẬT: CHỈ áp phòng
+    lễ tân chọn — không tự chọn phòng vắng nhất; chưa chọn / phòng ấy không còn
+    nhận thì để chờ lễ tân xếp.
+    """
+    khop = next((u for u in ung_vien if u.get("room_id") == phong_du_kien), None)
+    if chi_ap_phong_du_kien:
+        if khop is not None:
+            return str(khop["room_id"]), None
+        if not phong_du_kien:
+            return None, CHO_XEP_CHUA_CHON_PHONG
+        return None, CHO_XEP_PHONG_DU_KIEN_HONG
+    if khop is not None:
+        return str(khop["room_id"]), None
+    if ung_vien:
+        return str(ung_vien[0]["room_id"]), None
+    return None, CHO_XEP_KHONG_CO_PHONG
+
+
+_DA_TRA_CHUA_LAM = f"""
        o.selection_status = 'SELECTED'
    AND o.exec_status IN ('authorized', 'assigned')
    AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
    AND v.status IN ('OPEN', 'IN_PROGRESS')
-   -- Đối tác tự lấy mẫu: khách không vào phòng nào của phòng khám.
-   AND NOT EXISTS (
-       SELECT 1 FROM service_price sp
-        WHERE sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
-          AND sp.doi_tac_lay_mau)
+   -- Đối tác làm trọn: khách không vào phòng nào của phòng khám.
+   AND NOT {DOI_TAC_LAM_TRON_SQL}
    -- Phòng đã gọi / đang làm thì không đổi được nữa (lệnh cũng từ chối).
    AND NOT EXISTS (
        SELECT 1 FROM queue_entry q
@@ -502,6 +624,42 @@ def _kiem_truong_ca(o: asyncpg.Record, nguon: str) -> None:
         )
 
 
+async def _reo_cho_xep_phong(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    nguoi_goi: str,
+    cho_xep: Sequence[tuple[asyncpg.Record, str]],
+) -> None:
+    """Một chuông "chờ xếp phòng" cho mỗi chỉ định, gửi vai đứng quầy. Chuông
+    đang mở cùng nguồn thì không tạo thêm (chạy lại không nhân đôi)."""
+    # Nhập muộn: khối Chuông nằm ở tầng sự kiện, tránh vòng import.
+    from clinicai.events.consumers.chuong import ghi_chuong_vai
+
+    khach = await conn.fetchrow(
+        "SELECT p.full_name, p.patient_code FROM visit v JOIN patient p"
+        "    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id"
+        " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
+        clinic_id,
+        visit_id,
+    )
+    ten = f"{khach['full_name']} ({khach['patient_code']})" if khach else "Khách"
+    for o, ly_do in cho_xep:
+        for vai in VAI_NHAN_CHO_XEP:
+            await ghi_chuong_vai(
+                conn,
+                clinic_id=clinic_id,
+                vai=vai,
+                tieu_de=f"{ten} đã trả tiền — chờ xếp phòng: {o['service_name']}",
+                noi_dung=cau_cho_xep_phong(ly_do),
+                nguon="hanh_trinh",
+                nguon_id=f"cho_xep_phong:{o['id']}",
+                duong_dan="/thu-ngan/dich-vu",
+                nguoi_goi=nguoi_goi,
+            )
+
+
 class ServiceRoutingService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -519,35 +677,46 @@ class ServiceRoutingService:
                 QUYEN_XEM,
                 cau="Bạn chưa được cấp quyền xem gợi ý điều phối.",
             )
-            node = await conn.fetchval(
-                "SELECT node_code FROM service_order"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            o = await conn.fetchrow(
+                f"SELECT o.node_code, o.visit_id::text AS visit_id,"
+                f" {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam"
+                f" FROM service_order o"
+                f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
                 cid,
                 oid,
             )
-            if node is None:
+            if o is None:
                 raise _loi("ORDER_NOT_FOUND", "Không tìm thấy chỉ định này.")
-            ung_vien = rank_rooms(
-                await eligible_rooms(
-                    conn,
-                    cid,
-                    str(node),
-                    await co_so_cua_luot(conn, cid, order_id=oid),
-                    tru_luot=await conn.fetchval(
-                        "SELECT visit_id::text FROM service_order"
-                        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            ung_vien = (
+                []
+                if o["doi_tac_lam"]
+                else rank_rooms(
+                    await eligible_rooms(
+                        conn,
                         cid,
-                        oid,
-                    ),
+                        str(o["node_code"]),
+                        await co_so_cua_luot(conn, cid, order_id=oid),
+                        tru_luot=o["visit_id"],
+                    )
                 )
             )
         luc = datetime.now(timezone.utc).isoformat()
+        # Màn chỉ vẽ câu này và chỉ bày ô chọn phòng khi CO_PHONG (27/09/2026):
+        # chụp phim ở quầy từng hiện "Chưa có phòng nào làm được…" + ô chọn rỗng.
+        if o["doi_tac_lam"]:
+            trang_thai, cau = GOI_Y_DOI_TAC_LAM, CAU_DOI_TAC_LAM
+        elif not ung_vien:
+            trang_thai, cau = GOI_Y_KHONG_CO_PHONG, CAU_KHONG_CO_PHONG
+        else:
+            trang_thai, cau = GOI_Y_CO_PHONG, None
         return {
             "advisor": ADVISOR,
             "generated_at": luc,
             "recommendation_ref": f"{ADVISOR}:{oid}:{luc}",
             "order_id": oid,
             "candidates": ung_vien,
+            "trang_thai": trang_thai,
+            "cau": cau,
         }
 
     async def assign(
@@ -675,7 +844,14 @@ class ServiceRoutingService:
             closed_rounds=closed,
         )
         if giu:
-            raise _loi(giu, f"Chưa điều phối được ({giu}).")
+            raise _loi(giu, rules.cau_giu_dieu_phoi(giu))
+        if await conn.fetchval(
+            f"SELECT {DOI_TAC_LAM_TRON_SQL} FROM service_order o"
+            f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+            cid,
+            oid,
+        ):
+            raise _loi("SERVICE_PARTNER_PERFORMED", CAU_DOI_TAC_LAM)
         await self._kiem_phong(
             conn,
             cid,
@@ -825,22 +1001,18 @@ class ServiceRoutingService:
         if luot["closed_at"] is not None:
             return []
         orders = await conn.fetch(
-            """
+            f"""
             SELECT o.id::text AS id, o.node_code, o.routing_revision,
-                   o.phong_du_kien_id::text AS phong_du_kien
+                   o.service_name, o.phong_du_kien_id::text AS phong_du_kien
               FROM service_order o
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                AND o.selection_status = 'SELECTED'
                AND coalesce(o.routing_status, 'UNASSIGNED') = 'UNASSIGNED'
                AND o.exec_status = 'authorized'
                AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
-               -- Đối tác tự lấy mẫu: khách không xếp hàng ở phòng nào của
-               -- phòng khám (cùng luật với _tu_xep_phong cũ).
-               AND NOT EXISTS (
-                   SELECT 1 FROM service_price sp
-                    WHERE sp.clinic_id = o.clinic_id
-                      AND sp.service_code = o.service_code
-                      AND sp.doi_tac_lay_mau)
+               -- Đối tác làm trọn: khách không xếp hàng ở phòng nào của phòng
+               -- khám — không xếp, cũng không réo "chờ xếp phòng".
+               AND NOT {DOI_TAC_LAM_TRON_SQL}
              ORDER BY o.created_at, o.id
             """,
             clinic_id,
@@ -850,7 +1022,11 @@ class ServiceRoutingService:
             conn, clinic_id, [o["id"] for o in orders]
         )
         da_xep: list[str] = []
+        cho_xep: list[tuple[asyncpg.Record, str]] = []
         co_so = await co_so_cua_luot(conn, clinic_id, visit_id=visit_id)
+        # Dây C9 (27/09/2026): BẬT = chỉ áp phòng lễ tân đã chọn, không tự chọn
+        # phòng vắng nhất. Mặc định TẮT (hành vi cũ).
+        chi_ap = bool(await doc_day(conn, clinic_id, "h4_chi_ap_phong_du_kien"))
         for o in orders:
             quyet = tai_chinh.get(o["id"])
             if quyet is None or not quyet.financially_ready:
@@ -860,15 +1036,16 @@ class ServiceRoutingService:
                     conn, clinic_id, o["node_code"], co_so, tru_luot=visit_id
                 )
             )
-            if not ung_vien:
-                continue
             # Phòng khách chọn ở quầy (phong_du_kien) thắng — nếu nó vẫn đủ điều
             # kiện (đúng cơ sở, còn nhận khách, làm được bước này). Không thì
             # phòng vắng nhất như cũ: ý định cũ không được làm khách kẹt.
-            chon = next(
-                (u for u in ung_vien if u["room_id"] == o["phong_du_kien"]),
-                ung_vien[0],
+            rid, ly_do_cho = chon_phong_h4(
+                ung_vien, o["phong_du_kien"], chi_ap_phong_du_kien=chi_ap
             )
+            if rid is None:
+                # Không xếp được — KHÔNG im lặng: réo quầy "chờ xếp phòng".
+                cho_xep.append((o, ly_do_cho or CHO_XEP_KHONG_CO_PHONG))
+                continue
             try:
                 async with conn.transaction():
                     kq = await self._gan(
@@ -876,7 +1053,7 @@ class ServiceRoutingService:
                         nguoi_thu,
                         vid=visit_id,
                         oid=o["id"],
-                        rid=chon["room_id"],
+                        rid=rid,
                         rev=int(o["routing_revision"]),
                         ly_do="INITIAL_ASSIGNMENT",
                         ref=f"{ADVISOR}:hanh-trinh:{causation_id}",
@@ -887,6 +1064,14 @@ class ServiceRoutingService:
                 continue
             if kq["changed"]:
                 da_xep.append(o["id"])
+        if cho_xep:
+            await _reo_cho_xep_phong(
+                conn,
+                clinic_id=clinic_id,
+                visit_id=visit_id,
+                nguoi_goi=str(staff_id),
+                cho_xep=cho_xep,
+            )
         return da_xep
 
     async def dat_phong_du_kien(

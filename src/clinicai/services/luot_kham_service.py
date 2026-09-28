@@ -28,7 +28,6 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
 )
 from clinicai.core.clock import CLINIC_TZ_NAME
@@ -1221,9 +1220,9 @@ class LuotKhamService:
         identity: StaffIdentity,
         doctor_id: str | None,
     ) -> None:
-        """Thư ký chỉ bấm được cho khách của bác sĩ mình đi kèm."""
-        if not identity.co_vai({ClinicRole.TKYK}):
-            return
+        """Thư ký chỉ bấm được cho khách của bác sĩ mình đi kèm.
+
+        Theo DỮ LIỆU phân công (`thu_ky_bac_si`), không theo vai (27/09 đợt 3)."""
         ds = await bac_si_cua_thu_ky(conn, identity)
         if ds is not None and (doctor_id is None or doctor_id not in ds):
             raise SafetyGateError(
@@ -1233,13 +1232,18 @@ class LuotKhamService:
     async def _cung_ekip(
         self, conn: asyncpg.Connection, identity: StaffIdentity, c: asyncpg.Record
     ) -> bool:
-        """Người gọi thuộc ê-kíp của phiên: chính bác sĩ, hoặc thư ký của bác sĩ ấy."""
-        if identity.co_vai({ClinicRole.DOCTOR}):
+        """Người gọi thuộc ê-kíp của phiên: chính bác sĩ, hoặc thư ký của bác sĩ ấy.
+
+        Theo LEGO, không theo vai (27/09 đợt 3 — "chỉ dùng lego"): đã được phân
+        đi cùng bác sĩ → đúng bác sĩ ấy; có quyền Hoàn tất khám ("bác sĩ") → chính
+        phiên của mình; có quyền Khám mà không Hoàn tất (thư ký chưa phân) → cả
+        phòng khám, như luật thư ký 26/09."""
+        ds = await bac_si_cua_thu_ky(conn, identity)
+        if ds is not None:
+            return c["doctor_id"] in ds
+        if await can(conn, identity, "clinical.consult.finalize"):
             return bool(c["doctor_id"] == identity.staff_id)
-        if identity.co_vai({ClinicRole.TKYK}):
-            ds = await bac_si_cua_thu_ky(conn, identity)
-            return ds is None or c["doctor_id"] in ds
-        return False
+        return await can(conn, identity, "clinical.consult.perform")
 
     async def _consultation_in_progress(
         self, conn: asyncpg.Connection, clinic_id: str, consultation_id: str
@@ -1618,7 +1622,8 @@ class LuotKhamService:
                 cid,
                 con_id,
                 identity.staff_id,
-                identity.co_vai({ClinicRole.DOCTOR}),
+                # "Bác sĩ" = có quyền Hoàn tất khám (lego, không vai — 27/09).
+                await can(conn, identity, "clinical.consult.finalize"),
             )
             await conn.execute(
                 # Tư vấn nhận khách còn "chờ đo" (blocked, chưa có giờ vào hàng):
@@ -1887,7 +1892,9 @@ class LuotKhamService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        _require(identity, DRAFT_ROLES, "Chỉ thư ký y khoa ghi nháp chỉ định.")
+        # Lego Bàn khám — quyền Chỉ định (27/09 đợt 3, thay vai Thư ký).
+        async with self._pool.acquire() as conn:
+            await doi_quyen(conn, identity, "clinical.order.place")
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
         payload = {"consultation_id": con_id, "codes": list(service_codes or [])}
@@ -2707,10 +2714,11 @@ class LuotKhamService:
                 cau="Chỉ bác sĩ hoặc thư ký xem việc chờ quyết.",
             )
             duoc_quyet = await can(conn, identity, "clinical.consult.finalize")
-            if identity.co_vai(DOCTOR_ROLES):
-                bac_si: list[str] | None = [identity.staff_id]
-            else:
-                bac_si = await bac_si_cua_thu_ky(conn, identity)
+            # Theo lego (27/09 đợt 3): thư ký đã phân → bác sĩ của mình; người
+            # Hoàn tất được → việc của mình; còn lại (thư ký chưa phân) → tất cả.
+            bac_si: list[str] | None = await bac_si_cua_thu_ky(conn, identity)
+            if bac_si is None and duoc_quyet:
+                bac_si = [identity.staff_id]
             rows = await conn.fetch(
                 """
                 SELECT q.id::text AS id, q.need, q.status,
@@ -2839,7 +2847,14 @@ class LuotKhamService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        _require(identity, DISPATCH_ROLES, "Chỉ trưởng ca hoặc quản lý điều phối được.")
+        # Lego 9 Điều phối khách (27/09 đợt 3, thay vai Trưởng ca / Quản lý).
+        async with self._pool.acquire() as conn:
+            await doi_quyen(
+                conn,
+                identity,
+                "dispatch.manage",
+                cau="Chỉ người có lego Điều phối khách điều phối được.",
+            )
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         rid = _uuid(room_id, "Mã phòng không hợp lệ.")

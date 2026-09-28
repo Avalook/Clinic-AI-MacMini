@@ -37,6 +37,8 @@ IDENTITY = StaffIdentity(
 def _pool(rows: list[dict[str, Any]] | None = None) -> MagicMock:
     pool = MagicMock()
     pool.fetch = AsyncMock(return_value=rows or [])
+    # Phân công thư ký đọc từ DỮ LIỆU (27/09 đợt 3), không từ vai: không có dòng.
+    pool.fetchval = AsyncMock(return_value=None)
     return pool
 
 
@@ -166,8 +168,9 @@ async def test_an_unassigned_workspace_node_does_not_authorize_every_role() -> N
     pool.fetchval = AsyncMock(side_effect=_empty_role_node_matches_only_an_unsafe_query)
 
     with pytest.raises(HTTPException) as excinfo:
+        # Khu KHÔNG do lego quyết (bang_dieu_phoi theo lego từ 27/09 đợt 3).
         await require_workspace_read_access(
-            workspace="bang_dieu_phoi", identity=IDENTITY, pool=pool
+            workspace="thu_ngan_dong_luot", identity=IDENTITY, pool=pool
         )
 
     assert excinfo.value.status_code == 403

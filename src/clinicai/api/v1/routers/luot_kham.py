@@ -19,7 +19,6 @@ from clinicai.api.identity import (
     ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
     require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
@@ -57,19 +56,11 @@ def _tat_loi_cu(identity: StaffIdentity, endpoint: str, thay: str) -> None:
     )
 
 
-# NĂM CỬA DƯỚI ĐÂY MỞ THEO CÔNG TẮC (Tuyền 16/09/2026: "tất cả các tài khoản
-# đều có thể thao tác đã… trừ bác sĩ ra thui"). Khi `MO_QUYEN_TAM_THOI` bật,
-# chúng nhận MỌI vai làm việc trong phòng khám; tắt đi là về đúng danh sách
-# đang viết ở đây. Xem `identity.mo_quyen_tam_thoi`.
-_BANG_GUARD = require_role_co_the_mo(
-    ClinicRole.RECEPTION,
-    ClinicRole.NURSE_ULTRASOUND,
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-)
+# BẢNG LƯỢT KHÁM · HÀNG CHỜ · PHÒNG HÔM NAY hỏi LEGO (đợt 3, 27/09/2026): cửa
+# router chỉ còn "đã đăng nhập"; hàm dịch vụ tự hỏi quyền của lego dùng bảng ấy
+# (`permissions/doc_bang.py`). Trước đây là danh sách VAI — tài khoản chỉ bật
+# lego Khám tư vấn bị 403 ở hàng chờ tư vấn của chính mình.
+_BANG_GUARD = get_current_identity
 # ĐƯỜNG KHÁM CHÍNH HỎI QUYỀN (CORE-B3, 23/09/2026): check-in, sinh hiệu, khám,
 # ghi chú, duyệt kết quả — cửa ở router chỉ còn "đã đăng nhập"; quyền thật
 # (`capability_grant`) do hàm dịch vụ hỏi trong chính giao dịch. Để lại cửa
@@ -77,21 +68,20 @@ _BANG_GUARD = require_role_co_the_mo(
 # Công tắc mở quyền tạm thời KHÔNG nới các việc này nữa — quản lý cấp quyền.
 _CHECKIN_GUARD = get_current_identity
 _VITALS_GUARD = get_current_identity
-_DISPATCH_GUARD = require_role_co_the_mo(ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT)
+# "CHỈ DÙNG LEGO" (Tuyền 27/09/2026, đợt 3): điều phối hỏi `dispatch.manage`,
+# duyệt chỉ định + nháp chỉ định hỏi `clinical.order.place` (28/09: thư ký /
+# điều dưỡng cùng phòng như bác sĩ) — trong hàm dịch vụ. Không còn cửa VAI.
+_DISPATCH_GUARD = get_current_identity
+_DOCTOR_GUARD = get_current_identity
+_TKYK_GUARD = get_current_identity
+# (Cũ, OFF 410) hai lệnh thực hiện dịch vụ đời trước — đường mới
+# `/orders/{id}/execution/*` hỏi capability. Giữ cửa vai của lối cũ khi bật lại.
 _PERFORMER_GUARD = require_role_co_the_mo(
     ClinicRole.ULTRASOUND_DOCTOR, ClinicRole.NURSE_ULTRASOUND, ClinicRole.DOCTOR
 )
 
-# BA CỬA NÀY KHÔNG MỞ, kể cả khi công tắc bật. Khám, ghi bệnh án, duyệt chỉ
-# định là việc của bác sĩ — ranh giới ấy có luật hành nghề đứng sau, không
-# phải một quy ước nội bộ để nới cho tiện.
-# Duyệt chỉ định: hỏi QUYỀN chỉ định, không hỏi vai (Tuyền 28/09/2026: thư ký
-# và bác sĩ cùng phòng "bản chất node giống nhau, thao tác như nhau, song song").
-_DOCTOR_GUARD = cua_quyen("clinical.order.place")
 _NOTE_GUARD = get_current_identity
-_TKYK_GUARD = require_role(ClinicRole.TKYK)
-#: Bắt đầu / kết thúc phiên khám: bác sĩ hoặc thư ký đi kèm (Tuyền 16/09/2026).
-#: Cũng KHÔNG mở theo công tắc — vẫn là cửa của ê-kíp bác sĩ.
+#: Bắt đầu / kết thúc phiên khám: quyền Khám của lego Bàn khám (hàm dịch vụ).
 _CONSULT_GUARD = get_current_identity
 
 

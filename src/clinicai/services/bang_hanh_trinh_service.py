@@ -20,7 +20,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.services.xem_luot_service import GOI_DUOC
+from clinicai.services.xem_luot_service import goi_duoc
 
 _TRAN_LUOT = 300
 _SO_VIEC_XONG = 6
@@ -102,8 +102,8 @@ class BangHanhTrinhService:
         self._pool = pool
 
     async def hom_nay(self, *, identity: StaffIdentity) -> dict[str, Any]:
-        if not identity.co_vai(GOI_DUOC):
-            raise SafetyGateError("Vai của bạn không xem bảng hành trình.")
+        if not goi_duoc(identity):
+            raise SafetyGateError("Tài khoản của bạn không xem bảng hành trình.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             luot = [

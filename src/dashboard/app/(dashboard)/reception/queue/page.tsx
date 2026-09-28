@@ -11,6 +11,7 @@
 import { fetchFromBackend } from "@/lib/backend-proxy";
 import {
   getClinicStaffId,
+  getQuyenCuaToi,
   getVaiChinh,
   moDuocMan,
   requireNavAccess,
@@ -36,7 +37,7 @@ export default async function ReceptionQueuePage() {
   // DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu Tuyền duyệt): một gói của
   // máy chủ, đã chia buổi và tính chip trạng thái. Nút "+ Thêm khách hàng" hỏi
   // ĐÚNG luật cửa của trang đích (`moDuocMan`), không hỏi vai.
-  const [danhSach, goi, role, staffId, themKhachDuoc] = await Promise.all([
+  const [danhSach, goi, role, staffId, themKhachDuoc, quyen] = await Promise.all([
     fetchFromBackend<GoiTiepDon>("/api/v1/reception/danh-sach"),
     fetchFromBackend<GoiLichHen>(
       `/api/v1/home/bang-dieu-khien?week_appt=${tuan}&week_roster=${tuan}`,
@@ -44,6 +45,7 @@ export default async function ReceptionQueuePage() {
     getVaiChinh(),
     getClinicStaffId(),
     moDuocMan("/patients/new"),
+    getQuyenCuaToi(),
   ]);
   const homNay = todayVn();
   const { apptDays, dutyByDate } = dungLichHenTuan(goi, tuan);
@@ -80,6 +82,8 @@ export default async function ReceptionQueuePage() {
             dutyByDate={dutyByDate}
             choDoSinhHieu={false}
             choCheckIn
+            // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
+            duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
           />
         )}
       </section>

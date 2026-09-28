@@ -590,6 +590,7 @@ export default function CustomersView({
   initialViec = null,
   initialLuot = null,
   canEdit = false,
+  canThemKhach = false,
   canManage = false,
   canOperateCskh = false,
   services = [],
@@ -632,6 +633,9 @@ export default function CustomersView({
   /** Lượt khám mở sẵn (`?luot=` — `appointment.id`). */
   initialLuot?: string | null;
   canEdit?: boolean;
+  /** Mở được trang đích /patients/new không — máy chủ hỏi ĐÚNG luật cửa của
+   *  trang ấy (`moDuocMan`, lego 11 `patient.create`). Đợt 3, 27/09/2026. */
+  canThemKhach?: boolean;
   canManage?: boolean;
   /** Có quyền ghi nghiệp vụ CSKH; quyền mở danh bạ không tự suy ra quyền này. */
   canOperateCskh?: boolean;
@@ -1376,19 +1380,16 @@ export default function CustomersView({
       {/* TÊN NÚT ĐỔI 13/08/2026: "Ghi nhận khách quan tâm" → "Thêm khách hàng mới"
           (Tuyền chọn khi nghiệm thu). Chữ cũ mô tả HOÀN CẢNH của khách, nên người
           trực đọc xong vẫn không biết bấm vào thì được gì; chữ mới nói ra VIỆC nút
-          làm. Lối vào và cách gác quyền giữ nguyên — nó vẫn là chỗ duy nhất ghi
-          được khách "gọi hỏi nhưng chưa chốt ngày" (tình huống nghiệp vụ số 2).
+          làm. Nó vẫn là chỗ duy nhất ghi được khách "gọi hỏi nhưng chưa chốt
+          ngày" (tình huống nghiệp vụ số 2) — nên KHÔNG kèm ?date/?time.
 
-          GÁC BẰNG `canEdit`, KHÔNG PHẢI `canManage`. Hai cờ này khác nhau:
-          `canManage` = canManageAppt (quản lý LỊCH HẸN), `canEdit` = canWriteIntake
-          (được TẠO HỒ SƠ). Trang đích /patients/new gác bằng đúng canWriteIntake,
-          nên nút phải dùng cùng một cờ — lệch một cái là nút và trang nói hai điều
-          khác nhau, và người dùng bấm vào rồi bị đá về /home mà không hiểu vì sao.
-
-          Thu ngân mở /customers để đối chiếu khi thu tiền nhưng KHÔNG có
-          canWriteIntake, nên họ không thấy nút này. Cho họ thấy một nút dẫn tới
-          trang họ sẽ bị chặn ở cửa là mời người ta đi vào ngõ cụt. */}
-      {canEdit && (
+          GÁC BẰNG `canThemKhach` — CÙNG luật cửa với trang đích (đợt 3,
+          27/09/2026). Trước đó gác bằng `canEdit` (vai canWriteIntake) trong khi
+          /patients/new đã chuyển sang lego 11 `patient.create`: người có lego mà
+          khác vai không thấy nút, người có vai mà tắt lego thấy nút rồi bị đá về
+          /home. Máy chủ tính cờ bằng `moDuocMan("/patients/new")` — màn này
+          không tự suy quyền. */}
+      {canThemKhach && (
         <Link
           href="/patients/new"
           className={`${buttonClass("secondary", "md")} ml-auto shrink-0 gap-1.5`}

@@ -153,12 +153,17 @@ test("chiều LỌT: màn thuộc lego đang tắt thì gõ URL cũng không và
   assert.deepEqual(lot, [], `còn lọt: ${lot.join(" · ")}`);
 });
 
-test("ngoại lệ giữ lối vào cũ: đúng 3 cặp, không hơn", () => {
-  assert.deepEqual(
-    Object.entries(GIU_LOI_VAO_CU).flatMap(([h, v]) => v.map((r) => `${r} → ${h}`)).sort(),
-    ["DOCTOR → /do-sinh-hieu", "NURSE_ULTRASOUND → /reception/queue", "RECEPTION → /do-sinh-hieu"],
+test("ngoại lệ giữ lối vào cũ: ĐÃ BỎ — chỉ dùng lego (Tuyền 27/09, đợt 3)", () => {
+  // Ba cặp cũ (BS/lễ tân → Đo sinh hiệu, ĐD → Tiếp đón) chỉ vì cửa theo vai;
+  // máy chủ đã hỏi lego ở lệnh. Cần thì bật lego ở /phan-quyen.
+  assert.deepEqual(Object.keys(GIU_LOI_VAO_CU), []);
+  assert.equal(vaoDuocMan("/reception/queue", ["NURSE_ULTRASOUND"], ["vitals.measure"]), false);
+  assert.equal(vaoDuocMan("/do-sinh-hieu", ["DOCTOR"], ["clinical.consult.perform"]), false);
+  assert.equal(vaoDuocMan("/do-sinh-hieu", ["DOCTOR"], ["vitals.measure"]), true);
+  assert.equal(
+    vaoDuocMan("/reception/queue", ["NURSE_ULTRASOUND"], ["reception.checkin.perform"]),
+    true,
   );
-  assert.equal(vaoDuocMan("/reception/queue", ["NURSE_ULTRASOUND"], ["vitals.measure"]), true);
   assert.equal(vaoDuocMan("/phong", ["RECEPTION"], ["reception.checkin.perform"]), false);
 });
 

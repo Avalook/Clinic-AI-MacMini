@@ -232,15 +232,17 @@ export default function ChinhDonQuay({
       </ul>
 
       <div className="space-y-2">
+        {/* Nhãn đợt 3 (27/09/2026 — C2): quầy bán cả VẬT TƯ (đầu dò Bio) và
+            thực phẩm chức năng từ cùng danh mục kho, không riêng thuốc. */}
         <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-          Lấy thêm thuốc
+          Lấy thêm thuốc / vật tư / TPCN
         </p>
         {/* Đơn bán chỉ nhận thuốc KHO (lệnh `them` gửi `drug_catalog_id`) —
             tắt dòng gõ tự do của phiếu khám. */}
         <DonThuocPhieu dong={them} mauThuoc={mauThuoc} onDoi={setThem} ngoaiDanhMuc={false} />
         {them.length > 0 ? (
           <Button variant="primary" size="md" disabled={dang} onClick={() => void luuThem()}>
-            Thêm {them.length} thuốc vào đơn bán
+            Thêm {them.length} mặt hàng vào đơn bán
           </Button>
         ) : null}
       </div>

@@ -29,30 +29,25 @@ def _ai(vai: ClinicRole, kb: KichBan) -> StaffIdentity:
     )
 
 
-def test_muc_theo_vai() -> None:
-    def muc(vai: ClinicRole) -> dict[str, bool]:
-        return muc_duoc_xem(
-            StaffIdentity(
-                staff_id="s",
-                auth_user_id="a",
-                full_name="x",
-                department=vai.value,
-                role=vai,
-                clinic_id="c",
-                location_id="l",
-                location_name="x",
-            )
-        )
+async def _thu_ngan(kb: KichBan) -> StaffIdentity:
+    """Thu ngân THẬT (có dòng thành viên + gói mẫu) — Xem lượt cắt theo quyền."""
+    from tests.services.test_luot_kham_service_db import _nguoi
 
-    assert muc(ClinicRole.NURSE_ULTRASOUND)["sinh_hieu"]
-    assert not muc(ClinicRole.NURSE_ULTRASOUND)["lam_sang"]
-    assert not muc(ClinicRole.RECEPTION)["sinh_hieu"]
-    assert muc(ClinicRole.RECEPTION)["tai_chinh"]
-    assert not muc(ClinicRole.TRUONG_CA)["lam_sang"]
-    assert (
-        muc(ClinicRole.CASHIER)["tai_chinh"] and not muc(ClinicRole.CASHIER)["lam_sang"]
-    )
-    assert muc(ClinicRole.PHARMACIST)["thuoc"]
+    async with kb.pool.acquire() as conn:
+        return await _nguoi(conn, kb.location_id, "CASHIER")
+
+
+def test_muc_theo_quyen() -> None:
+    """Đợt 3 (27/09/2026): cắt theo QUYỀN (lego), không theo vai. Bài đầy đủ ở
+    `tests/unit/test_doc_bang_theo_lego.py`."""
+    assert muc_duoc_xem({"vitals.measure"})["sinh_hieu"]
+    assert not muc_duoc_xem({"vitals.measure"})["lam_sang"]
+    assert not muc_duoc_xem({"reception.checkin.perform"})["sinh_hieu"]
+    assert muc_duoc_xem({"reception.checkin.perform"})["tai_chinh"]
+    assert not muc_duoc_xem({"dispatch.manage"})["lam_sang"]
+    tn = muc_duoc_xem({"payment.service.collect"})
+    assert tn["tai_chinh"] and not tn["lam_sang"]
+    assert muc_duoc_xem({"pharmacy.dispense"})["thuoc"]
 
 
 async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
@@ -75,14 +70,16 @@ async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
     assert tc["dich_vu"][0]["ket_qua_ghi"] is None  # thấy mốc, không thấy chữ
     assert tc["dich_vu"][0]["moc"]
 
+    # Điều dưỡng (gói mẫu có khối Kết quả — điền phiếu kết quả) đọc được y khoa
+    # như mọi cửa y khoa khác (`permissions/y_khoa.py`) — đợt 3 cắt theo quyền.
     dd = await svc.doc(visit_id=kb.visit_id, identity=kb.dieu_duong)
-    assert "sinh_hieu" in dd and "lam_sang" not in dd
+    assert "sinh_hieu" in dd and "lam_sang" in dd
 
     lt = await svc.doc(visit_id=kb.visit_id, identity=kb.le_tan)
     assert lt["hanh_chinh"]["da_do_sinh_hieu"] is True
     assert "tai_chinh" in lt and "lam_sang" not in lt
 
-    tn = await svc.doc(visit_id=kb.visit_id, identity=_ai(ClinicRole.CASHIER, kb))
+    tn = await svc.doc(visit_id=kb.visit_id, identity=await _thu_ngan(kb))
     assert tn["tai_chinh"] == [] and "lam_sang" not in tn
 
     # Thư ký CHƯA xếp theo ai thấy cả phòng; đã xếp theo bác sĩ KHÁC → bị chặn

@@ -27,6 +27,8 @@ import asyncpg
 import httpx
 import structlog
 
+from clinicai.services.luot_treo import dieu_kien_luot_treo
+
 logger = structlog.get_logger()
 
 NHIP_GIAY = 60
@@ -92,7 +94,7 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
 
     su_kien = await do_su_kien(conn)
     r = await conn.fetchrow(
-        """
+        f"""
         SELECT
           (SELECT count(*) FROM loi_nhom
             WHERE trang_thai = 'MOI' AND lan_dau > now() - interval '15 minutes')
@@ -105,13 +107,10 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
           (SELECT count(*) FROM queue_entry q JOIN visit v ON v.visit_id = q.visit_id
             WHERE q.status IN ('blocked', 'waiting', 'called', 'serving')
               AND v.closed_at IS NOT NULL) AS hang_cho_ma,
-          -- Lượt TREO = còn mở từ hôm trước. INCOMPLETE (khách bỏ về) /
-          -- FINALIZED / AMENDED / KHAM_DO không tính: đã có người chốt số phận.
+          -- Lượt TREO = còn mở từ hôm trước — CÙNG câu với màn Check-out
+          -- ("Lượt tồn đọng từ hôm trước"), xem services/luot_treo.py.
           (SELECT count(*) FROM visit v
-            WHERE v.status IN ('OPEN', 'IN_PROGRESS') AND v.closed_at IS NULL
-              AND v.checked_in_at IS NOT NULL
-              AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                  < (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) AS luot_treo
+            WHERE {dieu_kien_luot_treo("v")}) AS luot_treo
         """
     )
     assert r is not None

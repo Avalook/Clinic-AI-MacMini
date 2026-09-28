@@ -82,7 +82,8 @@ test("check-in chỉ ở Tiếp đón khách — Trang chủ không bật cột 
   const quay = read("../app/(dashboard)/reception/queue/page.tsx");
   assert.match(quay, /choCheckIn/);
   const bang = read("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
-  assert.match(bang, /const showActions = choCheckIn && canCheckin\(role\)/);
+  // Đợt 3 (27/09): được bấm theo LEGO Tiếp đón (`duocCheckIn`), vai chỉ là đường lùi.
+  assert.match(bang, /const showActions = choCheckIn && \(duocCheckIn \?\? canCheckin\(role\)\)/);
 });
 
 test("nhóm màn đăng nhập không được dựng tĩnh — đường chuyển hướng không được đông cứng về /login", () => {

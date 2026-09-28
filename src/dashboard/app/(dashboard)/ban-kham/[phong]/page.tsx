@@ -1,7 +1,7 @@
 /** Bàn khám của MỘT phòng: /ban-kham/<room_id> (mã phòng cũ vẫn mở được).
  *  Xem ../page.tsx. */
 
-import { getClinicStaffId, requireNavAccess, vaiBanKham } from "@/lib/clinic-session";
+import { getClinicStaffId, getNutBanKham, requireNavAccess } from "@/lib/clinic-session";
 
 import LiveBoardSync from "../../LiveBoardSync";
 import BanKham from "../BanKham";
@@ -16,13 +16,13 @@ export default async function BanKhamPhongPage({
 }) {
   const { phong } = await params;
   await requireNavAccess(`/ban-kham/${phong}`);
-  // Nút bấm theo QUYỀN (28/09/2026) — người cùng phòng thao tác như nhau.
-  const vai = await vaiBanKham();
+  // Nút bấm theo LEGO của tài khoản, không theo vai (đợt 3, 27/09/2026).
+  const nut = await getNutBanKham();
   return (
     <>
       <LiveBoardSync />
       <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
-        <BanKham phongMa={decodeURIComponent(phong)} vai={vai} staffId={await getClinicStaffId()} />
+        <BanKham phongMa={decodeURIComponent(phong)} nut={nut} staffId={await getClinicStaffId()} />
       </main>
     </>
   );

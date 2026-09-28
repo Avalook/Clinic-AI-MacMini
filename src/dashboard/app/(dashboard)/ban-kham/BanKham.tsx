@@ -36,6 +36,7 @@ import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
+import type { NutBanKham } from "@/lib/roles";
 import {
   type ClinicalCompletionGate,
   type ClinicalCompletionMode,
@@ -196,21 +197,26 @@ interface SapToi {
 
 export default function BanKham({
   phongMa,
-  vai,
+  nut,
   staffId = null,
   cheDo = "kham",
 }: {
   /** room_id (hoặc mã phòng cũ) trên đường dẫn. Rỗng = khách của tôi. */
   phongMa: string | null;
-  vai: string | null;
+  /** Nút nào HIỆN — theo LEGO của tài khoản (`nutBanKham`, lib/roles.ts), không
+   *  theo vai (đợt 3, 27/09/2026). Lệnh vẫn hỏi quyền ở máy chủ. */
+  nut: NutBanKham;
   staffId?: string | null;
   /** "tu_van" = Bàn khám TƯ VẤN (dây H1/H3, 24/09/2026): CÙNG màn, đọc hàng tư
    *  vấn chung, nút "Bắt đầu tư vấn" / "Xong tư vấn". Không chép màn thứ hai. */
   cheDo?: "kham" | "tu_van";
 }) {
   const tuVan = cheDo === "tu_van";
-  const laBacSi = vai === "DOCTOR";
-  const laThuKy = vai === "TKYK";
+  // "Bác sĩ" = có quyền Hoàn tất khám; có Khám mà thiếu Hoàn tất = làm như thư
+  // ký (chờ bác sĩ hoàn tất). Không còn hỏi vai (Tuyền 26/09: "chỉ cần lego").
+  const laBacSi = nut.hoanTat;
+  const laThuKy = nut.kham && !nut.hoanTat;
+  const choBam = tuVan ? nut.tuVan : nut.kham;
   const [sapToi, setSapToi] = useState<SapToi[]>([]);
 
   const router = useRouter();
@@ -421,7 +427,7 @@ export default function BanKham({
         ) : null}
       </div>
 
-      {!tuVan && (laBacSi || laThuKy) ? (
+      {!tuVan && nut.kham ? (
         <ChoBacSiQuyet lanNap={lanNap} onDaQuyet={napLai} />
       ) : null}
 
@@ -531,7 +537,7 @@ export default function BanKham({
               dong={chon}
               daKhamLuc={chon ? (daKhamLuc[chon.visit_id] ?? null) : null}
               luot={luot}
-              choBam={laBacSi || laThuKy || tuVan}
+              choBam={choBam}
               laBacSi={laBacSi}
               staffId={staffId}
               onDaBam={napLai}

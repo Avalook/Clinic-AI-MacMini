@@ -294,11 +294,9 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // BẢNG HÀNH TRÌNH CHUNG (nhóm 3, 24/09/2026): mỗi khách hôm nay đang ở đâu /
   // đã xong gì / còn chờ gì — cho MỌI vai nội bộ (khớp GOI_DUOC ở
   // xem_luot_service.py). Nội dung lâm sàng không có trên bảng này.
-  "/hanh-trinh": [
-    "CSKH", "RECEPTION", "TRUONG_CA", "MANAGEMENT", "DOCTOR", "TKYK",
-    "ULTRASOUND_DOCTOR", "NURSE_ULTRASOUND", "CASHIER", "CASHIER_DV",
-    "CASHIER_THUOC", "PHARMACIST",
-  ],
+  // 27/09 (đợt 3): tính bằng code = mọi vai trừ đối tác và TV — "luôn bật"
+  // (`catalogue.LUON_BAT`); cửa trang còn xét VAI TÀI KHOẢN (`luonBatChoVaiGoc`).
+  "/hanh-trinh": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   // Bàn khám MỘT phòng (`/ban-kham/<room_id>`) dùng chung luật `/ban-kham` —
   // xem `luatNav`. Không còn một dòng cho mỗi mã phòng (CORE-C, 23/09/2026).
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC ở Kim Ngưu (Tuyền 16/09/2026: "trong màn
@@ -703,17 +701,61 @@ export function legoChoHien(quyen: readonly string[] | null, href: string): bool
  *  Backend vẫn tự kiểm quyền ở mọi lệnh.
  *
  *  Màn KHÔNG thuộc lego (Trang chủ, Hành trình, màn đã tắt…) giữ luật vai cũ. */
-/** GIỮ LỐI VÀO ĐANG DÙNG THẬT — NGOẠI LỆ TẠM (27/09/2026), chờ Tuyền chốt.
+/** (ĐÃ BỎ 27/09/2026, đợt 3 — Tuyền: "chỉ dùng lego thôi mà".) Ba cặp ngoại lệ
+ *  cũ (BS + lễ tân → /do-sinh-hieu, ĐD siêu âm → /reception/queue) chỉ tồn tại vì
+ *  cửa theo VAI: máy chủ đã hỏi lego ở chính các lệnh (`vitals.measure`; hàng đợi
+ *  tiếp đón `reception.checkin.perform` qua `QUYEN_THEO_KHU`), nên người không có
+ *  lego vào màn cũng chỉ xem được. Ai cần: bật lego Đo sinh hiệu / Tiếp đón khách
+ *  ở /phan-quyen. Giữ tên (rỗng) để chỗ nhập cũ không vỡ. */
+export const GIU_LOI_VAO_CU: Readonly<Record<string, readonly ClinicRole[]>> = {};
+
+/** MÀN LUÔN BẬT (Tuyền 25/09/2026 — `LUON_BAT` ở `permissions/catalogue.py`):
+ *  Trang chủ + Hành trình khách hôm nay. Không thuộc lego nào nên không tắt
+ *  được bằng lego — kể cả khi mọi lego mang vai của tài khoản đều tắt (vai hôm
+ *  nay rỗng). Cửa xét VAI TÀI KHOẢN: mọi thành viên nội bộ, trừ đối tác và TV
+ *  (khớp `la_noi_bo` ở identity.py — đợt 3, 27/09/2026). */
+export const LUON_BAT: readonly string[] = ["/home", "/hanh-trinh"];
+
+export function luonBatChoVaiGoc(href: string, vaiGoc: ClinicRole | null): boolean {
+  return (
+    LUON_BAT.includes(href) && vaiGoc !== null && vaiGoc !== "PARTNER" && vaiGoc !== "DISPLAY"
+  );
+}
+
+/** NÚT Ở BÀN KHÁM / BÀN TƯ VẤN — theo LEGO của tài khoản, không theo vai (Tuyền
+ *  26/09/2026: "khám, chỉ định, kê đơn CHỈ CẦN LEGO"; đợt 3, 27/09). Chỉ quyết
+ *  HIỆN nút; lệnh vẫn hỏi đúng quyền ấy ở máy chủ.
  *
- *  Đếm trên prod trước khi đổi cửa sang lego thuần: 11 ĐD siêu âm vào Tiếp đón
- *  (bước xác minh), 12 bác sĩ + 10 lễ tân vào Đo sinh hiệu — đều qua luật vai
- *  cũ, KHÔNG có lego tương ứng. Tuyền dặn "cái nào làm hệ thống hạn chế thì cứ
- *  mở": giữ đúng 3 cặp này (không thêm), các lối lọt khác của kiểm toán vẫn
- *  đóng. Muốn bỏ: cấp lego tương ứng cho các tài khoản ấy rồi xoá bảng này. */
-export const GIU_LOI_VAO_CU: Readonly<Record<string, readonly ClinicRole[]>> = {
-  "/do-sinh-hieu": ["DOCTOR", "RECEPTION"],
-  "/reception/queue": ["NURSE_ULTRASOUND"],
-};
+ *  - `kham`: Bắt đầu khám / ghi phiếu / Hoàn tất (bàn giao) — "Khám bệnh".
+ *  - `hoanTat`: Hoàn tất lượt cuối, quyết việc chờ — "Hoàn tất khám". Có
+ *    `kham` mà thiếu `hoanTat` = làm như thư ký (chờ bác sĩ hoàn tất).
+ *  - `tuVan`: Bắt đầu / Xong tư vấn — "Khám tư vấn".
+ *
+ *  Máy chủ chưa trả lời quyền (`null`) → rơi về vai như trước, để một lần lỗi
+ *  mạng không làm mất hết nút. */
+export interface NutBanKham {
+  kham: boolean;
+  hoanTat: boolean;
+  tuVan: boolean;
+}
+
+export function nutBanKham(
+  quyen: readonly string[] | null,
+  vai: ClinicRole | null,
+): NutBanKham {
+  if (quyen === null) {
+    return {
+      kham: vai === "DOCTOR" || vai === "TKYK",
+      hoanTat: vai === "DOCTOR",
+      tuVan: vai === "DOCTOR",
+    };
+  }
+  return {
+    kham: quyen.includes("clinical.consult.perform"),
+    hoanTat: quyen.includes("clinical.consult.finalize"),
+    tuVan: quyen.includes("clinical.intake.perform"),
+  };
+}
 
 export function vaoDuocMan(
   href: string,
