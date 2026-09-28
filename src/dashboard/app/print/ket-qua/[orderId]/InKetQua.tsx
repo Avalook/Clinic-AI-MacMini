@@ -122,7 +122,10 @@ function DauPhieuIn({ dl, p }: { dl: DuLieuIn; p: Phieu | null }) {
   const bn = dl.benh_nhan;
   const gl = dl.gio_lam;
   const gio = [gioIn(gl?.bat_dau), gioIn(gl?.xong)].filter(Boolean).join(" – ");
-  const nguoiLam = p?.hoan_tat_boi ?? p?.thuc_hien ?? gl?.nguoi_lam ?? null;
+  // Tên BÁC SĨ thực hiện (máy chủ đã mặc định bác sĩ đứng phòng), rồi mới lùi
+  // về người làm. KHÔNG in người bấm Hoàn tất / người nhập — Tuyền 29/09/2026:
+  // "mặc định tên bác sĩ; lịch sử hệ thống mới ghi người nhập".
+  const nguoiLam = p?.thuc_hien ?? gl?.nguoi_lam ?? null;
   const gioi = bn.gioi_tinh ? (GIOI[bn.gioi_tinh] ?? bn.gioi_tinh) : null;
   return (
     <>
@@ -271,7 +274,7 @@ function CacToPhieu({ dl }: { dl: DuLieuIn }) {
                   {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
                   <p className="text-ink-muted">Bác sĩ thực hiện</p>
                   <p className="mt-12 font-semibold">
-                    {p.hoan_tat_boi ?? p.thuc_hien ?? dl.gio_lam?.nguoi_lam ?? "\u00a0"}
+                    {p.thuc_hien ?? dl.gio_lam?.nguoi_lam ?? "\u00a0"}
                   </p>
                 </div>
               </footer>

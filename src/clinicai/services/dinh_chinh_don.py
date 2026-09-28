@@ -40,9 +40,11 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.exceptions import ConflictError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_phu_trach import la_bac_si_khac
 from clinicai.services.clinical_prescription_service import (
     _prescription_key,
     _validated_prescription_items,
@@ -935,12 +937,23 @@ async def _chen(
 async def _cho_phep_dinh_chinh(
     conn: asyncpg.Connection, *, identity: StaffIdentity | None, visit_id: Any
 ) -> None:
-    # Thư ký y khoa = bác sĩ về đơn thuốc (Tuyền chốt 24/09/2026) — thư ký của
-    # CHÍNH bác sĩ chính của lượt đính chính được như bác sĩ.
-    if identity is None or not identity.co_vai({ClinicRole.DOCTOR, ClinicRole.TKYK}):
+    """Ai đính chính được dòng đơn nhà thuốc / thu ngân đã đụng — theo QUYỀN.
+
+    Tuyền chốt 29/09/2026 — "điều dưỡng và thư ký TRỌN QUYỀN, làm việc cho bác
+    sĩ thật sự": ai có quyền Khám (lego Bàn khám, hoặc lịch hôm nay ở phòng
+    khám) đính chính được đơn của lượt. Trước đây hỏi VAI (`co_vai(TKYK)` và
+    `not co_vai(DOCTOR)`): thư ký bật lego Bàn khám mang vai DOCTOR theo lego,
+    rơi sang nhánh bác sĩ rồi bị so `attending_doctor_id != staff_id` → chặn.
+
+    Còn chặn:
+      * thư ký ĐÃ được phân theo bác sĩ khác (dữ liệu phân công, 24/09);
+      * đính chính CHÉO BÁC SĨ — người bấm là bác sĩ thật, lượt của bác sĩ thật
+        khác (HOLD Dr4Women, mặc định từ chối).
+    """
+    if identity is None or not await can(conn, identity, "clinical.consult.perform"):
         raise SafetyGateError(
-            "Chỉ bác sĩ chính của lượt (hoặc thư ký của bác sĩ ấy) mới đính chính"
-            " được dòng đơn nhà thuốc / thu ngân đã đụng tới."
+            "Chỉ người có quyền Bàn khám (bác sĩ, thư ký, điều dưỡng làm cho bác"
+            " sĩ) mới đính chính được dòng đơn nhà thuốc / thu ngân đã đụng tới."
         )
     chinh = await conn.fetchval(
         "SELECT attending_doctor_id::text FROM public.visit"
@@ -948,10 +961,11 @@ async def _cho_phep_dinh_chinh(
         visit_id,
         identity.clinic_id,
     )
-    if identity.co_vai({ClinicRole.TKYK}) and not identity.co_vai({ClinicRole.DOCTOR}):
-        kiem_thu_ky_duoc_lam(await bac_si_cua_thu_ky(conn, identity), chinh)
+    phan_cong = await bac_si_cua_thu_ky(conn, identity)
+    if phan_cong is not None:
+        kiem_thu_ky_duoc_lam(phan_cong, chinh)
         return
-    if chinh is not None and chinh != identity.staff_id:
+    if await la_bac_si_khac(conn, identity.clinic_id, identity.staff_id, chinh):
         # Đính chính chéo bác sĩ: HOLD Dr4Women — mặc định từ chối.
         raise SafetyGateError(
             "Lượt này của bác sĩ khác — chỉ bác sĩ chính của lượt đính chính đơn."

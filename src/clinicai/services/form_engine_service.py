@@ -52,6 +52,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
+from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
 
 QUYEN_DIEN = "result.form.fill"
 MIME_DICOM = "application/dicom"
@@ -350,7 +351,9 @@ class FormEngineService:
                 "  FROM form_instance i"
                 "  JOIN form_definition d ON d.clinic_id = i.clinic_id"
                 "   AND d.form_id = i.form_id AND d.version = i.version"
-                "  LEFT JOIN staff th ON th.id = coalesce(i.thuc_hien_boi, i.nhap_boi)"
+                # Tên in dưới "Bác sĩ thực hiện" — KHÔNG lùi về người nhập
+                # (Tuyền 29/09/2026: người nhập chỉ ở lịch sử hệ thống).
+                "  LEFT JOIN staff th ON th.id = i.thuc_hien_boi"
                 "  LEFT JOIN staff ht ON ht.id = i.hoan_tat_boi"
                 " WHERE i.clinic_id = $1::uuid AND i.service_order_id = $2::uuid"
                 "   AND NOT (i.form_id = ANY($3::text[]))"
@@ -632,10 +635,26 @@ class FormEngineService:
                 if o.get("nguon") == "TEMPLATE_DEFAULT":
                     o["nguon"] = "USER"
 
+            # NGƯỜI THỰC HIỆN MẶC ĐỊNH (Tuyền 29/09/2026: "mặc định tên bác sĩ;
+            # trong hệ thống ghi lịch sử thì mới ghi dòng người nhập"). Không ai
+            # chọn người thực hiện → BÁC SĨ đang đứng phòng làm chỉ định hôm nay
+            # (`bac_si_phu_trach.bac_si_thuc_hien_mac_dinh`), không phải điều
+            # dưỡng bấm Hoàn tất. Người bấm vẫn nằm ở `hoan_tat_boi`.
+            mac_dinh = identity.staff_id
+            if thuc_hien_boi is None and not (
+                dong["thuc_hien_boi_dang_sua"] or dong["thuc_hien_boi"]
+            ):
+                mac_dinh = await bac_si_thuc_hien_mac_dinh(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    service_order_id=str(dong["service_order_id"]),
+                    nguoi_bam=identity.staff_id,
+                )
+
             # ĐẨY NHÁP THÀNH CHÍNH THỨC — cả nội dung lẫn metadata, rồi dọn
             # sạch mọi cột nháp. `hoan_tat_boi` là người bấm nút; `nhap_boi`
-            # là người đã gõ; `thuc_hien_boi` là người được chọn. Ba vai khác
-            # nhau, và không vai nào suy ra từ vai kia.
+            # là người đã gõ; `thuc_hien_boi` là người được chọn (hoặc bác sĩ
+            # mặc định ở trên). Ba vai khác nhau.
             moi = await conn.fetchrow(
                 "UPDATE form_instance"
                 "   SET trang_thai = 'READY', dang_sua = false,"
@@ -645,7 +664,7 @@ class FormEngineService:
                 "       revision = revision + 1, hoan_tat_boi = $4::uuid,"
                 "       hoan_tat_luc = now(), sua_luc = now(),"
                 "       thuc_hien_boi = COALESCE($5::uuid,"
-                "           thuc_hien_boi_dang_sua, thuc_hien_boi, $4::uuid),"
+                "           thuc_hien_boi_dang_sua, thuc_hien_boi, $6::uuid),"
                 "       thuc_hien_boi_dang_sua = NULL"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid"
                 " RETURNING revision, nhap_boi::text AS nhap_boi,"
@@ -656,6 +675,7 @@ class FormEngineService:
                 json.dumps(du_lieu, ensure_ascii=False),
                 identity.staff_id,
                 thuc_hien_boi,
+                mac_dinh,
             )
 
             ban_thu = 1

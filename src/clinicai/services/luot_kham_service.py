@@ -46,6 +46,7 @@ from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_phu_trach import bac_si_trong, la_bac_si_khac
 from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_tac_service import DoiTacService
 from clinicai.services.hang_cho import (
@@ -1232,18 +1233,22 @@ class LuotKhamService:
     async def _cung_ekip(
         self, conn: asyncpg.Connection, identity: StaffIdentity, c: asyncpg.Record
     ) -> bool:
-        """Người gọi thuộc ê-kíp của phiên: chính bác sĩ, hoặc thư ký của bác sĩ ấy.
+        """Người gọi làm tiếp được phiên ĐANG MỞ này (người khác đã bấm Bắt đầu).
 
-        Theo LEGO, không theo vai (27/09 đợt 3 — "chỉ dùng lego"): đã được phân
-        đi cùng bác sĩ → đúng bác sĩ ấy; có quyền Hoàn tất khám ("bác sĩ") → chính
-        phiên của mình; có quyền Khám mà không Hoàn tất (thư ký chưa phân) → cả
-        phòng khám, như luật thư ký 26/09."""
+        Tuyền chốt 29/09/2026 — trợ lý TRỌN QUYỀN: ai có quyền Khám (lego Bàn
+        khám hoặc lịch hôm nay) làm tiếp được phiên bác sĩ đang mở. Chỉ còn chặn:
+          * thư ký ĐÃ được phân theo bác sĩ → đúng bác sĩ ấy (dữ liệu phân công);
+          * HAI BÁC SĨ THẬT khác nhau giành một phiên (`bac_si_phu_trach`).
+        Trước đây "bác sĩ" = có quyền Hoàn tất khám, nên thư ký / điều dưỡng có
+        lego Bàn khám bấm tiếp phiên của bác sĩ bị báo CONSULTATION_TAKEN."""
         ds = await bac_si_cua_thu_ky(conn, identity)
         if ds is not None:
             return c["doctor_id"] in ds
-        if await can(conn, identity, "clinical.consult.finalize"):
-            return bool(c["doctor_id"] == identity.staff_id)
-        return await can(conn, identity, "clinical.consult.perform")
+        if not await can(conn, identity, "clinical.consult.perform"):
+            return False
+        return not await la_bac_si_khac(
+            conn, identity.clinic_id, identity.staff_id, c["doctor_id"]
+        )
 
     async def _consultation_in_progress(
         self, conn: asyncpg.Connection, clinic_id: str, consultation_id: str
@@ -1546,6 +1551,22 @@ class LuotKhamService:
                 if c["started_by"] == identity.staff_id or await self._cung_ekip(
                     conn, identity, c
                 ):
+                    if (
+                        c["doctor_id"] is None
+                        and await can(conn, identity, "clinical.consult.finalize")
+                        and await bac_si_trong(conn, cid, [identity.staff_id])
+                    ):
+                        # Trợ lý mở phiên chưa có bác sĩ, bác sĩ thật bấm tiếp →
+                        # phiên ghi đúng bác sĩ ấy (như khi bác sĩ tự bấm trước).
+                        await conn.execute(
+                            "UPDATE consultation SET doctor_staff_id = $3::uuid,"
+                            " version = version + 1, updated_at = now()"
+                            " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                            " AND doctor_staff_id IS NULL",
+                            cid,
+                            con_id,
+                            identity.staff_id,
+                        )
                     # KHÁCH ĐÃ QUAY LẠI sau dịch vụ (phiên vẫn mở — "đợi quay
                     # lại", Tuyền 23/09): bấm Bắt đầu lần nữa = tiếp tục khám.
                     quay_lai = await conn.fetchval(
@@ -1622,8 +1643,12 @@ class LuotKhamService:
                 cid,
                 con_id,
                 identity.staff_id,
-                # "Bác sĩ" = có quyền Hoàn tất khám (lego, không vai — 27/09).
-                await can(conn, identity, "clinical.consult.finalize"),
+                # Ai thành BÁC SĨ của phiên: tài khoản bác sĩ thật có quyền Hoàn
+                # tất khám. Từ 28/09 thư ký / điều dưỡng có lego Bàn khám cũng
+                # có quyền Hoàn tất — họ bấm thì phiên KHÔNG ghi họ là bác sĩ
+                # (Tuyền 29/09: trọn quyền nhưng bác sĩ vẫn là bác sĩ).
+                await can(conn, identity, "clinical.consult.finalize")
+                and bool(await bac_si_trong(conn, cid, [identity.staff_id])),
             )
             await conn.execute(
                 # Tư vấn nhận khách còn "chờ đo" (blocked, chưa có giờ vào hàng):
@@ -1992,20 +2017,25 @@ class LuotKhamService:
             if cached is not None:
                 return cached
             consultation = await self._consultation_in_progress(conn, cid, con_id)
-            # Bác sĩ của phiên duyệt được kể cả khi thư ký là người bấm "Bắt đầu".
-            if identity.staff_id not in (
-                consultation["doctor_id"],
-                consultation["started_by"],
-            ) or not await conn.fetchval(
+            # Ê-KÍP của phiên duyệt được (Tuyền 29/09/2026 — trợ lý trọn quyền):
+            # người bấm "Bắt đầu", bác sĩ của phiên, hoặc thư ký / điều dưỡng có
+            # quyền Khám làm cho bác sĩ ấy. Trước đây đòi tài khoản DOCTOR — thư
+            # ký có lego Bàn khám đã có quyền Chỉ định vẫn bị chặn ở đây. Chỉ còn
+            # chặn: thư ký đã phân theo bác sĩ khác, hai bác sĩ thật giành phiên.
+            if not await conn.fetchval(
                 "SELECT EXISTS (SELECT 1 FROM staff s JOIN clinic_membership m"
                 " ON m.staff_id = s.id WHERE s.id = $1::uuid AND s.is_active"
-                " AND m.clinic_id = $2::uuid AND m.is_active"
-                " AND m.role = 'DOCTOR')",
+                " AND m.clinic_id = $2::uuid AND m.is_active)",
                 identity.staff_id,
                 cid,
             ):
+                raise SafetyGateError("Tài khoản này đã ngừng hoạt động.")
+            await self._thu_ky_cua_bac_si(conn, identity, consultation["doctor_id"])
+            tu_bam = consultation["started_by"] == identity.staff_id
+            if not tu_bam and not await self._cung_ekip(conn, identity, consultation):
                 raise SafetyGateError(
-                    "Chỉ bác sĩ đang phụ trách phiên khám được duyệt chỉ định."
+                    "Chỉ bác sĩ đang phụ trách phiên khám (hoặc người làm cho bác"
+                    " sĩ ấy) được duyệt chỉ định."
                 )
             ids: list[str] = []
             if drafts:
@@ -2322,7 +2352,7 @@ class LuotKhamService:
                         )
             if outcome in ("NO_SERVICES", "DONE"):
                 # HOÀN TẤT KHÁM (CORE-A, 23/09/2026): phiên khám cuối. Cần quyền
-                # `clinical.consult.finalize` VÀ là bác sĩ phụ trách phiên này.
+                # `clinical.consult.finalize` (29/09: không còn đòi đúng bác sĩ).
                 # KHÔNG khoá hồ sơ — Tuyền chốt 23/09: "không khoá, sửa thoải
                 # mái"; bệnh án vẫn sửa trực tiếp sau khi hoàn tất.
                 # Hai lý do, hai câu (24/09/2026): câu gộp cũ nói "chỉ bác sĩ phụ
@@ -2333,7 +2363,12 @@ class LuotKhamService:
                         "Bạn không có quyền Hoàn tất khám — nhờ quản lý cấp"
                         " trên màn Phân quyền."
                     )
-                if identity.staff_id != c["doctor_id"]:
+                # Tuyền chốt 29/09/2026: thư ký / điều dưỡng có quyền Hoàn tất
+                # khám hoàn tất THAY bác sĩ — không còn đòi người bấm = bác sĩ
+                # của phiên. Phiên vẫn ghi bác sĩ của phiên (`doctor_staff_id`
+                # không đổi), người bấm vào `completed_by` + sự kiện. Chỉ chặn
+                # một BÁC SĨ THẬT khép phiên của bác sĩ thật khác.
+                if await la_bac_si_khac(conn, cid, identity.staff_id, c["doctor_id"]):
                     raise SafetyGateError(
                         "Chỉ bác sĩ phụ trách mới được kết thúc phần khám lâm sàng."
                     )
@@ -2505,7 +2540,8 @@ class LuotKhamService:
         ``WAIVE``: không cần nữa (đổi kế hoạch: miễn ở đây rồi chỉ định thêm
         trong phiên đọc kết quả). ``FOLLOW_UP``: khách không phải chờ — mở việc
         theo dõi có người phụ trách và hạn. Cả hai bắt buộc lý do và ghi nhật
-        ký; chỉ bác sĩ phụ trách lượt khám làm được (thư ký không quyết).
+        ký. Người có quyền Hoàn tất khám quyết được — kể cả thư ký / điều dưỡng
+        làm cho bác sĩ của lượt (Tuyền 29/09/2026); bác sĩ khác thì không.
         """
         # Hỏi QUYỀN "Hoàn tất khám" (24/09/2026 — cùng người với DOCTOR_ROLES
         # cũ: chỉ bác sĩ; thư ký không quyết).
@@ -2578,10 +2614,23 @@ class LuotKhamService:
                     )
                 ],
             }
+            phu_trach.discard(None)
+            # Tuyền 29/09/2026 — trợ lý trọn quyền: ai có quyền Hoàn tất khám
+            # quyết thay bác sĩ của lượt. Chỉ chặn: thư ký đã phân theo bác sĩ
+            # khác, và một BÁC SĨ THẬT quyết trên lượt của bác sĩ thật khác.
+            bac_si = await bac_si_trong(conn, cid, (identity.staff_id, *phu_trach))
             if identity.staff_id not in phu_trach:
-                raise SafetyGateError(
-                    "Chỉ bác sĩ phụ trách lượt khám này quyết được yêu cầu."
-                )
+                await self._thu_ky_cua_bac_si(conn, identity, visit["doctor_id"])
+                if identity.staff_id in bac_si and bac_si - {identity.staff_id}:
+                    raise SafetyGateError(
+                        "Chỉ bác sĩ phụ trách lượt khám này quyết được yêu cầu."
+                    )
+            # Việc theo dõi mặc định giao BÁC SĨ của lượt, không phải trợ lý bấm.
+            bac_si_theo_doi = (
+                identity.staff_id
+                if identity.staff_id in bac_si or not visit["doctor_id"]
+                else visit["doctor_id"]
+            )
             if q["vong_status"] == "closed":
                 raise LuotKhamConflictError(
                     "ROUND_CLOSED", "Lần đọc kết quả này đã đóng."
@@ -2635,7 +2684,7 @@ class LuotKhamService:
                     vid=vid,
                     oid=q["order_id"],
                     cau_hinh={"owner_id": owner_id, "han": han, "ly_do": ghi},
-                    bac_si=identity.staff_id,
+                    bac_si=bac_si_theo_doi,
                 )
                 await conn.execute(
                     """
