@@ -69,6 +69,34 @@ async def ton_kho(
     return {"items": await PharmacyService(pool).ton_kho(identity=identity)}
 
 
+@router.get("/pharmacy/cho-gan-lo")
+async def cho_gan_lo(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thuốc đã giao mà chưa gán lô (giao không lô, 28/09/2026) + lô gán được."""
+    return await PharmacyService(pool).cho_gan_lo(identity=identity)
+
+
+class GanLoRequest(BaseModel):
+    dong_id: UUID
+    drug_batch_id: UUID
+
+
+@router.post("/pharmacy/gan-lo")
+async def gan_lo(
+    body: GanLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gán một lần giao chưa gán lô vào lô thật — kho trừ lúc này."""
+    return await PharmacyService(pool).gan_lo_da_giao(
+        identity=identity,
+        dong_id=str(body.dong_id),
+        drug_batch_id=str(body.drug_batch_id),
+    )
+
+
 @router.get("/pharmacy/lich-su")
 async def lich_su_giao(
     identity: StaffIdentity = Depends(_DOC),
@@ -177,7 +205,9 @@ async def nhap_lo(
 
 class CapPhatRequest(BaseModel):
     prescription_id: UUID
-    drug_batch_id: UUID
+    # Bỏ trống = giao KHÔNG cần lô, gán lô sau (28/09/2026) — chỉ khi lần thu
+    # tiền thuốc không gắn lô nào (máy chủ quyết, xem PharmacyService.cap_phat).
+    drug_batch_id: UUID | None = None
     so_luong: float = Field(gt=0)
 
 
@@ -219,7 +249,7 @@ async def cap_phat(
             await PharmacyService(pool).cap_phat(
                 identity=identity,
                 prescription_id=str(body.prescription_id),
-                drug_batch_id=str(body.drug_batch_id),
+                drug_batch_id=(str(body.drug_batch_id) if body.drug_batch_id else None),
                 so_luong=body.so_luong,
             )
         )

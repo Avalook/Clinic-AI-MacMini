@@ -102,6 +102,7 @@ def thao_tac_dong(
     chua_giao: Decimal = Decimal(0),
     can_hoan: Decimal = Decimal(0),
     lich_su: bool = False,
+    lo_da_ban: bool = False,
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một dòng đơn — cùng luật với lệnh ghi ở
     pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
@@ -116,6 +117,14 @@ def thao_tac_dong(
         and co_so_ke
         and da_chon < can_lo,
         "giao_luong_cu": gd == DA_THU_CU and mo,
+        # 28/09/2026 — GIAO KHÔNG CẦN LÔ ("chưa cần quan tâm lô nào … gán sau"):
+        # đã thu, dòng không có lô nào, còn phần bán chưa giao. Kho trừ khi gán
+        # lô ở Kho thuốc (`pharmacy_service.gan_lo_da_giao`).
+        "giao_khong_lo": gd == DA_THU
+        and mo
+        and not lo_da_ban
+        and so_ban is not None
+        and da_giao < so_ban,
         # Khách không lấy: sau Khám xong, trước khi có lần thu (sau đó phải
         # huỷ phiếu). Chốt / từ chối trước Khám xong cũng khoá dòng khỏi nút
         # Lưu bệnh án — đúng thứ màn này không được làm khi bác sĩ còn sửa đơn.
@@ -591,6 +600,14 @@ def _dong(
             chua_giao=them["chua_giao"],
             can_hoan=them["can_hoan"],
             lich_su=lich_su,
+            # Dòng có lô ĐÃ BÁN trong lần thu đang sống → giao đúng lô ấy;
+            # không có → giao không lô được (28/09/2026).
+            lo_da_ban=any(
+                p["payment_cycle_id"] is not None
+                and lt is not None
+                and p["payment_cycle_id"] == lt.payment_cycle_id
+                for p in cac_pl
+            ),
         ),
     }
 

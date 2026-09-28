@@ -100,6 +100,7 @@ EVENT_LABELS: dict[str, str] = {
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
+    "pharmacy.lot_assigned": "Gán lô cho thuốc đã giao",
     "pharmacy.refused": "Khách không lấy thuốc",
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",

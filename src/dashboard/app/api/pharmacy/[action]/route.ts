@@ -31,6 +31,8 @@ const ACTIONS: Record<string, string> = {
   "khach-tra": "/api/v1/pharmacy/khach-tra",
   // 25/09: Kho thuốc — thêm / sửa thuốc trong danh mục (tên, giá, hướng dẫn).
   "luu-thuoc": "/api/v1/pharmacy/danh-muc",
+  // 28/09: giao không lô → gán lô sau ở Kho thuốc.
+  "gan-lo": "/api/v1/pharmacy/gan-lo",
 };
 
 export async function POST(

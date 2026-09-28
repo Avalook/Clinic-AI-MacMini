@@ -5,6 +5,7 @@
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
+import type { DongChoGanLo } from "./ChoGanLo";
 import type { ThuocKho } from "./DanhMucKho";
 import KhoThuoc from "./KhoThuoc";
 
@@ -25,9 +26,11 @@ interface LoTon {
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
-  const [data, dm] = await Promise.all([
+  const [data, dm, cho] = await Promise.all([
     fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
+    // 28/09: thuốc đã giao chưa gán lô — đọc hỏng thì tab rỗng, không chặn màn.
+    fetchFromBackend<{ dong: DongChoGanLo[] }>("/api/v1/pharmacy/cho-gan-lo"),
   ]);
   if (!data || !dm) {
     return (
@@ -49,5 +52,10 @@ export default async function PharmacyInventoryPage() {
     ton: Number(t.ton),
     so_lo: Number(t.so_lo),
   }));
-  return <KhoThuoc batches={batches} thuoc={thuoc} />;
+  const choGanLo = (cho?.dong ?? []).map((d) => ({
+    ...d,
+    so_luong: Number(d.so_luong),
+    lo_gan_duoc: d.lo_gan_duoc.map((b) => ({ ...b, ton: Number(b.ton) })),
+  }));
+  return <KhoThuoc batches={batches} thuoc={thuoc} choGanLo={choGanLo} />;
 }
