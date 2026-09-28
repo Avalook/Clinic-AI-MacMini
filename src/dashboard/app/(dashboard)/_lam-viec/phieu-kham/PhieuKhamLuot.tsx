@@ -15,6 +15,7 @@
 //     tab, lỗi mạng tự thử lại). Cổng Hoàn tất mang `luuNot`: bấm Hoàn tất khi
 //     còn chữ chưa lưu thì Bàn khám lưu nốt rồi mới gửi.
 
+import ChonDichVuKham from "../ChonDichVuKham";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
@@ -448,6 +449,8 @@ export default function PhieuKhamLuot({
         dauPhieu={dau}
         // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
         dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
+        // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
+        oDichVuKham={chiMuc ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}
         onTomTat={onTomTat}
         tuLuuKem={tuLuuKem}

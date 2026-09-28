@@ -75,6 +75,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "bat-buoc": (id) => `/api/v1/luot-kham/orders/${id}/bat-buoc`,
   // 28/09: món kèm dịch vụ (đầu dò) — id là CHỈ ĐỊNH.
   "phu-thu": (id) => `/api/v1/luot-kham/orders/${id}/phu-thu`,
+  // 28/09: tick dịch vụ khám theo mã KiotViet (tiền khám) — id là LƯỢT.
+  "phi-kham": (id) => `/api/v1/luot-kham/visits/${id}/phi-kham`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -94,6 +96,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "phu-thu") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phu-thu` : null;
+  }
+  // Dịch vụ khám chọn được + đã chọn của một lượt (28/09/2026).
+  if (xem === "phi-kham") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phi-kham` : null;
   }
   // Bảng hành trình chung (nhóm 3, 24/09/2026).
   if (xem === "hanh-trinh") return "/api/v1/hanh-trinh/hom-nay";
