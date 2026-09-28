@@ -348,3 +348,17 @@ def test_dang_o_va_con_cho_la_ham_thuan() -> None:
         "Chờ khách chọn làm: Xét nghiệm",
         "2 tệp kết quả chưa bác sĩ nào xem",
     ]
+
+
+def test_ket_qua_sua_lai_reo_chuong_va_chay_vong_doc() -> None:
+    """Kết quả sửa lại phải tới bác sĩ chính (lỗ hổng thấy trên prod 28/09/2026).
+
+    Trước đây `result.corrected` chỉ vào dòng thời gian: phòng sửa phiếu, bác
+    sĩ không nhận chuông, vòng đọc không chạy lại.
+    """
+    from clinicai.events.catalogue import CHUONG, VONG_DOC, tra
+    from clinicai.events.consumers.chuong import MAC_DINH
+
+    sk = tra("result.corrected")
+    assert CHUONG in sk.consumers and VONG_DOC in sk.consumers
+    assert MAC_DINH["result.corrected"].bac_si_chinh is True

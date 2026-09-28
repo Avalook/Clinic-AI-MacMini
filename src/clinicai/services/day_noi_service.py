@@ -55,6 +55,7 @@ NHAN_CHUONG: dict[str, str] = {
     "result_file.uploaded": "Tệp kết quả về",
     "result_file.confirmed": "Tệp kết quả đối tác được xác nhận hợp lệ",
     "result.ready": "Phòng hoàn tất phiếu kết quả",
+    "result.corrected": "Phòng sửa lại phiếu kết quả đã công bố",
     "lab_result.arrived": "Kết quả xét nghiệm nhập tay về",
 }
 
