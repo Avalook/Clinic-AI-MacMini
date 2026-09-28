@@ -144,9 +144,9 @@
   --color-lich-sieu-am: #cfe2f3;
   --color-lich-ngoai-gio: #fff2cc;
   --color-lich-san-chau: #ead1dc;
-  /* Vạch ngăn tầng, ô đóng (vị trí không làm ca ấy), khối NGHỈ. */
+  /* Vạch ngăn tầng, khối NGHỈ. Ô đóng (vị trí không làm ca ấy) = ô trống cùng
+     màu hàng — bỏ nền đen 28/09/2026. */
   --color-lich-vach-tang: #073763;
-  --color-lich-dong: #000000;
   --color-lich-nghi: #666666;
 
   /* Priority. P0 is not an emergency colour on its own — the screens use it as
