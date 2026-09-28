@@ -23,7 +23,7 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { useId, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 
 import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -161,6 +161,10 @@ export default function QueueBoard({
 }) {
   const [tab, setTab] = useState<TabTiepDon>("tat_ca");
   const [tim, setTim] = useState("");
+  // Bảng được vẽ hai bản (máy tính / điện thoại): hai nhóm ô chọn cùng `name`
+  // thì trình duyệt chỉ cho MỘT ô được chọn trên cả hai — bản kia trống. Mỗi
+  // bản một tên riêng.
+  const tenNhomXep = `huong-xep-tiep-don-${useId()}`;
   // Lựa chọn đã nhớ đọc qua useSyncExternalStore (cùng cách `NganGap`): máy
   // chủ vẽ mặc định, trình duyệt vẽ lựa chọn đã nhớ — không lệch HTML, không
   // setState trong effect. Lần bấm trong phiên thắng cái đã nhớ.
@@ -204,7 +208,7 @@ export default function QueueBoard({
           <span className="text-meta text-ink-muted">Sắp xếp:</span>
           <ChipChon
             kieu="mot"
-            ten="huong-xep-tiep-don"
+            ten={tenNhomXep}
             chon={huong === "cu_truoc"}
             onDoi={() => doiHuong("cu_truoc")}
           >
@@ -212,7 +216,7 @@ export default function QueueBoard({
           </ChipChon>
           <ChipChon
             kieu="mot"
-            ten="huong-xep-tiep-don"
+            ten={tenNhomXep}
             chon={huong === "moi_truoc"}
             onDoi={() => doiHuong("moi_truoc")}
           >
