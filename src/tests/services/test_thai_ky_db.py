@@ -81,7 +81,7 @@ async def test_chi_bac_si_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
         await svc.cap_nhat(
             pregnancy_id=kq["id"],
             du_lieu={"ket_cuc": "DELIVERED", "ngay_ket_cuc": "2027-01-01"},
-            identity=kb.thu_ky,
+            identity=kb.le_tan,  # 28/09: thư ký ghi được
         )
     await svc.cap_nhat(
         pregnancy_id=kq["id"],
