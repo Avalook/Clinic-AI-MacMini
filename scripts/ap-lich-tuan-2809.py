@@ -72,8 +72,9 @@ TEN: dict[str, str | None] = {
     # Chưa có hồ sơ trên prod / chưa chốt (28/09):
     "BS T Linh": None,  # BS Nguyễn Thuỳ Linh — chưa có hồ sơ
     "BS X Thanh": None,  # BS Xuân Thanh — chưa có hồ sơ
-    "BS Q Dũng": None,  # BS Hoàng Quốc Dũng — "BS Dũng" trên prod là ai?
-    "BS Linh nam khoa": None,  # BS SA Bá Linh hay hồ sơ "BS Linh Nam khoa" (tắt)?
+    # BS Hoàng Quốc Dũng — chưa có hồ sơ ("BS Dũng" trên prod = Nguyễn Văn Dũng)
+    "BS Q Dũng": None,
+    "BS Linh nam khoa": "BS SA Bá Linh",  # Tuyền xác nhận 28/09
 }
 
 T2, T3, T4, T5, T6, T7, CN = (
