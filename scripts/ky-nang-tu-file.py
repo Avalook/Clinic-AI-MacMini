@@ -44,7 +44,7 @@ KY_NANG: list[tuple[str, str, str, tuple[str, ...], tuple[str, ...]]] = [
     ("phu_bs_san", "Phụ BS Sản", "Khám", ("ban_kham",), ()),
     ("phu_sa", "Phụ SA", "Phòng dịch vụ", ("phong",), _SA),
     ("thu_thuat", "Thủ thuật", "Phòng dịch vụ", ("phong",), _TTP),
-    ("lay_mau", "Lấy mẫu xét nghiệm", "Phòng dịch vụ", ("phong",), _SA + _TTP),
+    ("lay_mau", "Lấy mẫu xét nghiệm", "Phòng dịch vụ", ("phong",), ("KN-LAYMAU",)),
     ("phu_san_chau", "Phụ sàn chậu", "Phòng dịch vụ", ("phong",), ("KN-SANCHAU",)),
     ("bio", "Bio", "Phòng dịch vụ", ("phong",), ("KN-SAN-BIO",)),
     ("thuoc", "Thuốc", "Nhà thuốc", ("kho_thuoc",), ()),
