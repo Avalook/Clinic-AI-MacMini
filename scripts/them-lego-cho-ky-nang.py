@@ -2,7 +2,8 @@
 """Thêm lego vào một kỹ năng rồi bật lego ấy cho người đang có kỹ năng — 28/09/2026.
 
 Vì sao có: bảng kỹ năng 27/09 thiếu lego "Đặt lịch" cho CSKH và Lễ tân (Tuyền:
-"cskh chưa có node đặt lịch"), thiếu "Thêm bệnh nhân" cho CSKH. Script CHỈ THÊM:
+"cskh chưa có node đặt lịch"), thiếu "Thêm bệnh nhân" cho CSKH; 28/09 thêm lego
+"Đối tác" cho kỹ năng Lấy mẫu (người phòng khám thao tác hộ đối tác). Script CHỈ THÊM:
 không bỏ rồi bật lại kỹ năng, nên không ai mất quyền giữa chừng trong giờ làm.
 Bật lego đi qua PermissionService.doi_lego — cùng sổ kiểm toán, cùng cache.
 
@@ -24,6 +25,8 @@ import asyncpg
 THEM: dict[str, tuple[str, ...]] = {
     "cskh": ("dat_lich", "them_benh_nhan"),
     "le_tan": ("dat_lich",),
+    # 28/09: người lấy mẫu thao tác hộ đối tác (màn /doi-tac).
+    "lay_mau": ("doi_tac",),
 }
 
 

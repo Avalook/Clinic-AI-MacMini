@@ -120,7 +120,7 @@ KY_NANG: dict[str, tuple[set[str], tuple[str, ...]]] = {
     "Phụ BS Sản": ({"ban_kham"}, ()),
     "Phụ SA": ({"phong"}, _SA),
     "Thủ thuật": ({"phong"}, _TTP),
-    "Lấy mẫu xét nghiệm": ({"phong"}, ("KN-LAYMAU",)),
+    "Lấy mẫu xét nghiệm": ({"phong", "doi_tac"}, ("KN-LAYMAU",)),
     "Phụ sàn chậu": ({"phong"}, ("KN-SANCHAU",)),
     "Bio": ({"phong"}, ("KN-SAN-BIO",)),
     "Thuốc": ({"kho_thuoc"}, ()),
