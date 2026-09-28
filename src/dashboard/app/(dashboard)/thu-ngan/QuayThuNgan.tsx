@@ -26,6 +26,7 @@ import NutCheckOut from "../_lam-viec/NutCheckOut";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import PhuThuKem from "./PhuThuKem";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip from "@/components/ui/Chip";
@@ -437,6 +438,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
             </header>
 
+            {/* Món kèm dịch vụ (đầu dò…) — tick + sửa giá, vào hoá đơn dịch vụ
+                (28/09/2026). Tự ẩn khi lượt không có dịch vụ nào có món kèm. */}
+            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
+              <PhuThuKem visitId={l.visit_id} onDoi={() => void tai()} />
+            ) : null}
             {quay !== "thuoc" &&
             l.quay_thu &&
             !daThuCua(l.visit_id, "dich_vu") &&

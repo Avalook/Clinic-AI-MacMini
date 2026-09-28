@@ -73,6 +73,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "phong-du-kien": (id) => `/api/v1/luot-kham/orders/${id}/routing/phong-du-kien`,
   // 25/09: bật / tắt "Bắt buộc" của một chỉ định (chưa thu tiền).
   "bat-buoc": (id) => `/api/v1/luot-kham/orders/${id}/bat-buoc`,
+  // 28/09: món kèm dịch vụ (đầu dò) — id là CHỈ ĐỊNH.
+  "phu-thu": (id) => `/api/v1/luot-kham/orders/${id}/phu-thu`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -88,6 +90,11 @@ function duongDoc(url: URL): string | null {
     return UUID_RE.test(luot) ? `/api/v1/xem-luot/${luot}` : null;
   }
   if (xem === "chi-dinh-hom-nay") return "/api/v1/luot-kham/chi-dinh-hom-nay";
+  // Món kèm dịch vụ (đầu dò) của một lượt (28/09/2026).
+  if (xem === "phu-thu") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phu-thu` : null;
+  }
   // Bảng hành trình chung (nhóm 3, 24/09/2026).
   if (xem === "hanh-trinh") return "/api/v1/hanh-trinh/hom-nay";
   // Gợi ý phòng theo luật (Slice 4) — chỉ đọc, không đổi gì.

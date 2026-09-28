@@ -101,6 +101,7 @@ EVENT_LABELS: dict[str, str] = {
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
     "pharmacy.lot_assigned": "Gán lô cho thuốc đã giao",
+    "visit.surcharge_set": "Tick / sửa giá món kèm dịch vụ (đầu dò)",
     "pharmacy.refused": "Khách không lấy thuốc",
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",
@@ -279,6 +280,7 @@ SOURCE_LABELS: dict[str, str] = {
     "system": "Hệ thống",
     "api:dispatch": "Điều phối trong ngày",
     "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
+    "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
     "api:theo-doi-thu-thuat": "Bác sĩ — theo dõi sau thủ thuật",
