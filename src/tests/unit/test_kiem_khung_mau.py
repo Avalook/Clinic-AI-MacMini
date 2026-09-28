@@ -74,11 +74,22 @@ def test_mau_hop_le_duoc_chuan_hoa() -> None:
         (_sua(**{"0__1__chon": ["a"]}), "chỉ ô kiểu chọn"),
         (_sua(**{"2__0__mac_dinh": {"thai_a": "x"}}), "mục dạng bảng"),
         (_sua(**{"0__0__la": 1}), "trường lạ"),
+        (_sua(**{"0__0__hien_thi": "o_tick"}), "chỉ ô kiểu chọn mới có cách hiển thị"),
+        (_sua(**{"1__0__hien_thi": "nut_to"}), "cách hiển thị"),
     ],
 )
 def test_khung_sai_bi_chan_voi_cau_ro_rang(khung: Any, cau: str) -> None:
     with pytest.raises(ValidationError, match=cau):
         kiem_khung_mau(khung)
+
+
+def test_o_chon_hien_dang_o_tick_duoc_giu() -> None:
+    """ "Kết luận nhanh" DXA (29/09/2026): ô chọn một vẽ thành ô tích nhanh —
+    khoá `hien_thi` phải đi qua kiểm khung, không thì xuất bản lại mẫu là mất."""
+    ra = kiem_khung_mau(_sua(**{"1__0__hien_thi": "o_tick"}))
+    assert ra[1]["block"][0]["hien_thi"] == "o_tick"
+    # Không khai thì không tự thêm: ô chọn cũ vẫn là hộp thả xuống.
+    assert "hien_thi" not in kiem_khung_mau(MAU)[1]["block"][0]
 
 
 def test_trung_ma_o_giua_hai_muc_cung_bi_chan() -> None:

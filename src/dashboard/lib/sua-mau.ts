@@ -32,6 +32,9 @@ export interface OMau {
   ten: string;
   kieu: KieuO;
   chon?: string[];
+  /** Cách vẽ ô chọn ("o_tick" = ô tích nhanh). Màn sửa chưa có chỗ đổi — chỉ
+   *  GIỮ khi sửa mẫu, không thì xuất bản lại là mất (29/09/2026). */
+  hien_thi?: "o_tick";
   goi_y?: string;
   /** Chữ; hoặc theo cột ({ma_cột: chữ}) khi mục là bảng. */
   mac_dinh?: string | Record<string, string>;
@@ -133,6 +136,7 @@ export function donKhung(khung: readonly MucMau[]): MucMau[] {
     block: m.block.map((o) => {
       const ra: OMau = { ma: o.ma, ten: o.ten.trim(), kieu: o.kieu };
       if (o.kieu === "chon") ra.chon = (o.chon ?? []).map((x) => x.trim()).filter(Boolean);
+      if (o.kieu === "chon" && o.hien_thi === "o_tick") ra.hien_thi = "o_tick";
       if (o.goi_y?.trim()) ra.goi_y = o.goi_y.trim();
       if (typeof o.mac_dinh === "string" && o.mac_dinh.trim()) ra.mac_dinh = o.mac_dinh.trim();
       if (o.mac_dinh && typeof o.mac_dinh === "object" && m.cot?.length) {

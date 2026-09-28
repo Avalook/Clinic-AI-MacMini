@@ -72,10 +72,16 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
         "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active"
-        " AND ma <> 'CHUNG'",
+        " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG')",
         CLINIC,
     )
     assert so == 18
+    # + mẫu Đo mật độ xương (29/09/2026, "Kết luận nhanh") — không có PDF gốc.
+    assert await pool.fetchval(
+        "SELECT active FROM ket_qua_mau WHERE clinic_id = $1::uuid"
+        " AND ma = 'DO_MAT_DO_XUONG'",
+        CLINIC,
+    )
     # + mẫu CHUNG nhập tự do (24/09/2026) cho dịch vụ chưa có mẫu riêng.
     assert await pool.fetchval(
         "SELECT active FROM ket_qua_mau WHERE clinic_id = $1::uuid AND ma = 'CHUNG'",
@@ -98,6 +104,9 @@ async def test_migration_chi_gan_theo_ma_phong_kham_cua_pdf(
         (Path(pk.__file__).parent / "mau_ket_qua_v3.json").read_text(encoding="utf-8")
     )["mau"]
     hop_le = {(mau, kv) for mau, m in ghep.items() for kv in m["kv"]}
+    # Mẫu Đo mật độ xương (migration 20260929000010, Tuyền 29/09/2026): không có
+    # PDF nên không nằm trong JSON v3 — gắn theo đúng mã phòng khám của DXA.
+    hop_le.add(("DO_MAT_DO_XUONG", "SP000134"))
     dong = await pool.fetch(
         "SELECT g.mau, p.ma_kiotviet FROM dich_vu_mau_ket_qua g"
         " JOIN service_price p ON p.clinic_id = g.clinic_id"
