@@ -13,10 +13,12 @@
 // ghi) — máy chủ trả sẵn; ẨN Ô / MỤC TRỐNG (trước in "—" từng ô). Ảnh vẫn ở
 // TRANG RIÊNG sau phiếu.
 //
-// 28/09/2026 (Tuyền): BA KIỂU IN — [Kết quả + ảnh] (trang phiếu rồi trang ảnh) ·
-// [Chỉ kết quả] · [Chỉ ảnh] (trang ảnh có đủ đầu trang + bệnh nhân để in riêng
-// vẫn biết của ai). Bấm kiểu nào màn xem trước đổi theo; [In / tải PDF] in
-// đúng cái đang thấy.
+// 28/09/2026 (Tuyền: "cho kiểu hiển thị ra là 2 bên, mỗi bên có nút in/pdf
+// riêng/tải ảnh video riêng … đồng bộ cho tất cả các loại được chỉ định"):
+// HAI BÊN — phải: PHIẾU A4 (chọn Có ảnh / Không ảnh) + [In / tải PDF]; trái:
+// ẢNH (không thông tin phiếu, chỉ một dòng nhận diện khách) + [In / tải PDF] +
+// [Tải tất cả] + tải từng ảnh / video / tài liệu. Mỗi bên in độc lập. Mọi loại
+// dịch vụ dùng chung trang này. Màn hẹp / nhúng (CSKH in cả lượt): xếp dọc.
 
 import { useEffect, useState } from "react";
 
@@ -24,10 +26,8 @@ import Button from "@/components/ui/Button";
 import { tenMucHien } from "@/lib/sua-mau";
 
 import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, gioIn, ngayIn } from "../../KhoiIn";
+import { duongXemTep } from "../../../(dashboard)/_lam-viec/AnhKetQua";
 import KieuInA4 from "../../KieuInA4";
-
-/** Kiểu in: kết quả + ảnh · chỉ kết quả · chỉ ảnh. */
-type KieuIn = "kem" | "kq" | "anh";
 
 interface O {
   ma: string;
@@ -74,6 +74,8 @@ interface DuLieuIn {
   /** Ảnh của chỉ định (lát 5) — in 4 tấm một hàng. */
   anh?: { id: string; ten: string | null }[];
   so_tep_khac?: number;
+  /** Video / tài liệu / DICOM — không in, tải về được (28/09/2026). */
+  tep_khac?: { id: string; ten: string | null; loai_tep: string }[];
 }
 
 /** Ô có giá trị để in? Rỗng / mảng rỗng / bảng không cột nào có chữ = không. */
@@ -192,18 +194,116 @@ function AnhIn({ dl }: { dl: DuLieuIn }) {
   );
 }
 
+/** Các tờ phiếu kết quả (A4) — phần "thông tin" của chỉ định. */
+function CacToPhieu({ dl }: { dl: DuLieuIn }) {
+  return (
+    <>
+        {dl.phieu.map((p, i) => {
+          // ẨN Ô TRỐNG (bản mẫu: "Chỉ in ô đã điền"): mục không còn ô nào có chữ
+          // thì bỏ cả mục; mục bảng bỏ hàng trống. Kết luận in trong khung riêng.
+          const coO = (o: O) => coGia(p.du_lieu[o.ma]?.gia_tri);
+          const muc = p.khung
+            .map((m) => ({ ...m, block: m.block.filter(coO) }))
+            .filter((m) => m.block.length > 0);
+          const hoanTat = p.hoan_tat_luc
+            ? `${gioIn(p.hoan_tat_luc) ?? ""} · ${ngayIn(p.hoan_tat_luc) ?? ""}`
+            : null;
+          return (
+            <article key={p.form_id} className={i > 0 ? "mt-10 break-before-page" : ""}>
+              <DauPhieuIn dl={dl} p={p} />
+              {muc.length === 0 ? (
+                <p className="mt-4 text-ink-muted">Phiếu chưa ghi nội dung.</p>
+              ) : null}
+              {muc.map((m) => (
+                <section
+                  key={m.ma}
+                  className={
+                    m.ma === "ket_luan"
+                      ? "in-giu mt-4 rounded-control border border-line px-3 py-2"
+                      : "in-giu mt-4"
+                  }
+                >
+                  {tenMucHien(m.ten) ? (
+                    <h3 className="font-semibold text-ink">{tenMucHien(m.ten)}</h3>
+                  ) : null}
+                  {m.cot ? (
+                    <table className="mt-1 w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="border border-line px-2 py-1 text-left font-semibold" />
+                          {m.cot.map((c) => (
+                            <th key={c.ma} className="border border-line px-2 py-1 text-left font-semibold">
+                              {c.ten}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {m.block.map((o) => (
+                          <tr key={o.ma}>
+                            <td className="border border-line px-2 py-1 text-ink-muted">{o.ten}</td>
+                            {m.cot?.map((c) => (
+                              <td key={c.ma} className="whitespace-pre-wrap border border-line px-2 py-1">
+                                {oBang(p.du_lieu[o.ma]?.gia_tri, c.ma)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : m.block.length === 1 && m.block[0].ten === m.ten ? (
+                    <p className="mt-1 whitespace-pre-wrap">{chuO(p.du_lieu[m.block[0].ma]?.gia_tri)}</p>
+                  ) : (
+                    <dl className="mt-1 grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
+                      {m.block.map((o) => (
+                        <div key={o.ma} className="contents">
+                          <dt className="text-ink-muted">{o.ten}</dt>
+                          <dd className="whitespace-pre-wrap">{chuO(p.du_lieu[o.ma]?.gia_tri)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </section>
+              ))}
+              <footer className="in-giu mt-8 flex justify-end">
+                <div className="min-w-48 text-center">
+                  {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
+                  <p className="text-ink-muted">Bác sĩ thực hiện</p>
+                  <p className="mt-12 font-semibold">
+                    {p.hoan_tat_boi ?? p.thuc_hien ?? dl.gio_lam?.nguoi_lam ?? "\u00a0"}
+                  </p>
+                </div>
+              </footer>
+            </article>
+          );
+        })}
+    </>
+  );
+}
+
+/** Ảnh / video / tài liệu của chỉ định — tải về từng tệp (không in video). */
+const taiVe = (id: string) => `${duongXemTep(id)}?tai=1`;
+
 export default function InKetQua({
   orderId,
   nhung = false,
 }: {
   orderId: string;
-  /** Nhúng trong trang in cả lượt (CSKH): không hàng nút, kết quả + ảnh. */
+  /** Nhúng trong trang in cả lượt (CSKH): không nút, phiếu + trang ảnh. */
   nhung?: boolean;
 }) {
   const [dl, setDl] = useState<DuLieuIn | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
-  // THẤY GÌ IN NẤY (Tuyền 28/09/2026): nút chọn kiểu đổi CẢ màn xem trước.
-  const [kieu, setKieu] = useState<KieuIn>("kem");
+  // HAI BÊN, MỖI BÊN IN RIÊNG (Tuyền 28/09/2026): bên PHIẾU chọn có / không ảnh;
+  // bên ẢNH chỉ ảnh. `inTo` = bên đang in (bên kia ẩn khi in).
+  const [kemAnh, setKemAnh] = useState(true);
+  const [inTo, setInTo] = useState<"phieu" | "anh" | null>(null);
+
+  useEffect(() => {
+    const ve = () => setInTo(null);
+    window.addEventListener("afterprint", ve);
+    return () => window.removeEventListener("afterprint", ve);
+  }, []);
 
   useEffect(() => {
     let huy = false;
@@ -222,146 +322,172 @@ export default function InKetQua({
 
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!dl) return <p className="p-8 text-body text-ink-muted">Đang tải phiếu…</p>;
-  const coAnh = (dl.anh?.length ?? 0) > 0;
+  const anh = dl.anh ?? [];
+  const khac = dl.tep_khac ?? [];
+  const coAnh = anh.length > 0;
   const coPhieu = dl.phieu.length > 0;
-  // Nhúng trong trang in cả lượt: không lồng <main> trong <main>.
-  const The = nhung ? "section" : "main";
-  const anPhieu = kieu === "anh" ? "hidden" : "";
-  const CHON: { ma: KieuIn; nhan: string; tat: boolean }[] = [
-    { ma: "kem", nhan: "Kết quả + ảnh", tat: !coPhieu && !coAnh },
-    { ma: "kq", nhan: "Kết quả", tat: !coPhieu },
-    { ma: "anh", nhan: "Ảnh", tat: !coAnh },
-  ];
-  return (
-    <The
-      className={
-        nhung
-          ? "in-a4"
-          : "in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0"
-      }
-    >
-      <KieuInA4 />
-      <div className={nhung ? "hidden" : "mb-6 space-y-3 print:hidden"}>
-        <div role="group" aria-label="Chọn phần in" className="flex flex-wrap gap-2">
-          {CHON.map((c) => (
-            <Button
-              key={c.ma}
-              type="button"
-              variant={kieu === c.ma ? "primary" : "secondary"}
-              aria-pressed={kieu === c.ma}
-              disabled={c.tat}
-              onClick={() => setKieu(c.ma)}
-            >
-              {c.nhan}
-            </Button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="primary" onClick={() => window.print()}>
-            In / tải PDF
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => window.close()}>
-            Đóng
-          </Button>
-        </div>
-      </div>
-      {dl.phieu.length === 0 && (dl.anh?.length ?? 0) === 0 ? (
-        <p className="text-ink-muted">Chỉ định này chưa có phiếu kết quả nào để in.</p>
-      ) : null}
-      {dl.phieu.length === 0 && (dl.anh?.length ?? 0) > 0 ? (
-        <article>
-          <DauPhieuIn dl={dl} p={null} />
-          <AnhIn dl={dl} />
-        </article>
-      ) : null}
-      {dl.phieu.map((p, i) => {
-        // ẨN Ô TRỐNG (bản mẫu: "Chỉ in ô đã điền"): mục không còn ô nào có chữ
-        // thì bỏ cả mục; mục bảng bỏ hàng trống. Kết luận in trong khung riêng.
-        const coO = (o: O) => coGia(p.du_lieu[o.ma]?.gia_tri);
-        const muc = p.khung
-          .map((m) => ({ ...m, block: m.block.filter(coO) }))
-          .filter((m) => m.block.length > 0);
-        const hoanTat = p.hoan_tat_luc
-          ? `${gioIn(p.hoan_tat_luc) ?? ""} · ${ngayIn(p.hoan_tat_luc) ?? ""}`
-          : null;
-        return (
-          <article key={p.form_id} className={`${i > 0 ? "mt-10 break-before-page" : ""} ${anPhieu}`}>
-            <DauPhieuIn dl={dl} p={p} />
-            {muc.length === 0 ? (
-              <p className="mt-4 text-ink-muted">Phiếu chưa ghi nội dung.</p>
-            ) : null}
-            {muc.map((m) => (
-              <section
-                key={m.ma}
-                className={
-                  m.ma === "ket_luan"
-                    ? "in-giu mt-4 rounded-control border border-line px-3 py-2"
-                    : "in-giu mt-4"
-                }
-              >
-                {tenMucHien(m.ten) ? (
-                  <h3 className="font-semibold text-ink">{tenMucHien(m.ten)}</h3>
-                ) : null}
-                {m.cot ? (
-                  <table className="mt-1 w-full border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="border border-line px-2 py-1 text-left font-semibold" />
-                        {m.cot.map((c) => (
-                          <th key={c.ma} className="border border-line px-2 py-1 text-left font-semibold">
-                            {c.ten}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {m.block.map((o) => (
-                        <tr key={o.ma}>
-                          <td className="border border-line px-2 py-1 text-ink-muted">{o.ten}</td>
-                          {m.cot?.map((c) => (
-                            <td key={c.ma} className="whitespace-pre-wrap border border-line px-2 py-1">
-                              {oBang(p.du_lieu[o.ma]?.gia_tri, c.ma)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : m.block.length === 1 && m.block[0].ten === m.ten ? (
-                  <p className="mt-1 whitespace-pre-wrap">{chuO(p.du_lieu[m.block[0].ma]?.gia_tri)}</p>
-                ) : (
-                  <dl className="mt-1 grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
-                    {m.block.map((o) => (
-                      <div key={o.ma} className="contents">
-                        <dt className="text-ink-muted">{o.ten}</dt>
-                        <dd className="whitespace-pre-wrap">{chuO(p.du_lieu[o.ma]?.gia_tri)}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                )}
-              </section>
-            ))}
-            <footer className="in-giu mt-8 flex justify-end">
-              <div className="min-w-48 text-center">
-                {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
-                <p className="text-ink-muted">Bác sĩ thực hiện</p>
-                <p className="mt-12 font-semibold">
-                  {p.hoan_tat_boi ?? p.thuc_hien ?? dl.gio_lam?.nguoi_lam ?? "\u00a0"}
-                </p>
-              </div>
-            </footer>
+
+  // Nhúng (trang in cả lượt của CSKH): phiếu rồi trang ảnh, không nút.
+  if (nhung) {
+    return (
+      <section className="in-a4">
+        <KieuInA4 />
+        {coPhieu ? <CacToPhieu dl={dl} /> : <DauPhieuIn dl={dl} p={null} />}
+        {coAnh ? (
+          <article className={coPhieu ? "mt-10 break-before-page print:mt-0" : ""}>
+            <AnhIn dl={dl} />
           </article>
-        );
-      })}
-      {coPhieu && coAnh ? (
-        // Trang ẢNH: in kèm (sang trang mới) hoặc in riêng (đủ đầu trang).
-        <article className={`mt-10 break-before-page print:mt-0 ${kieu === "kq" ? "hidden" : ""} ${kieu === "anh" ? "print:break-before-auto" : ""}`}>
-          <div className={kieu === "anh" ? "" : "hidden"}>
-            <DauPhieuIn dl={dl} p={null} />
+        ) : null}
+      </section>
+    );
+  }
+
+  const inBen = (ben: "phieu" | "anh") => {
+    setInTo(ben);
+    // Đợi màn vẽ lại (ẩn bên kia) rồi mới mở hộp in.
+    window.setTimeout(() => window.print(), 50);
+  };
+  const taiHet = () => {
+    // Tải lần lượt từng tệp (trình duyệt hỏi một lần cho nhiều tệp).
+    [...anh.map((a) => a.id), ...khac.map((t) => t.id)].forEach((id, i) => {
+      window.setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = taiVe(id);
+        a.download = "";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 400);
+    });
+  };
+  const TO =
+    "rounded-card border border-line bg-surface p-6 shadow-card print:rounded-none print:border-0 print:p-0 print:shadow-none";
+  const khach = [dl.benh_nhan.ho_ten, dl.benh_nhan.ma_bn, dl.dich_vu, ngayIn(dl.ngay_kham)]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <main className="in-a4 mx-auto max-w-7xl p-4 text-body text-ink sm:p-8 print:max-w-none print:p-0">
+      <KieuInA4 />
+      <div className="mb-4 flex justify-end print:hidden">
+        <Button type="button" variant="ghost" onClick={() => window.close()}>
+          Đóng
+        </Button>
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2 print:block">
+        {/* ── BÊN PHẢI: PHIẾU THÔNG TIN (A4) ── */}
+        <section
+          aria-label="Phiếu kết quả"
+          className={`${TO} lg:order-2 ${inTo === "anh" ? "print:hidden" : ""} ${inTo === null ? "print:break-after-page" : ""}`}
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+            <p className="mr-auto text-label font-semibold uppercase text-ink-muted">
+              Phiếu kết quả (A4)
+            </p>
+            <div role="group" aria-label="Ảnh trong phiếu" className="flex gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={kemAnh ? "primary" : "secondary"}
+                aria-pressed={kemAnh}
+                disabled={!coAnh}
+                onClick={() => setKemAnh(true)}
+              >
+                Có ảnh
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={kemAnh ? "secondary" : "primary"}
+                aria-pressed={!kemAnh}
+                onClick={() => setKemAnh(false)}
+              >
+                Không ảnh
+              </Button>
+            </div>
+            <Button type="button" size="sm" variant="primary" disabled={!coPhieu} onClick={() => inBen("phieu")}>
+              In / tải PDF
+            </Button>
           </div>
-          <AnhIn dl={dl} />
-        </article>
-      ) : null}
-    </The>
+          {coPhieu ? (
+            <>
+              <CacToPhieu dl={dl} />
+              {kemAnh && coAnh ? (
+                <article className="mt-10 break-before-page print:mt-0">
+                  <AnhIn dl={dl} />
+                </article>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-ink-muted">Chỉ định này chưa có phiếu kết quả — chỉ có ảnh.</p>
+          )}
+        </section>
+
+        {/* ── BÊN TRÁI: ẢNH / VIDEO (không thông tin phiếu) ── */}
+        <section
+          aria-label="Ảnh và video"
+          className={`${TO} lg:order-1 ${inTo === "phieu" ? "print:hidden" : ""}`}
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+            <p className="mr-auto text-label font-semibold uppercase text-ink-muted">
+              Ảnh · video ({anh.length + khac.length})
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              disabled={anh.length + khac.length === 0}
+              onClick={taiHet}
+            >
+              Tải tất cả
+            </Button>
+            <Button type="button" size="sm" variant="primary" disabled={!coAnh} onClick={() => inBen("anh")}>
+              In / tải PDF
+            </Button>
+          </div>
+          {/* Một dòng nhận diện khi in rời — không phải thông tin phiếu. */}
+          <p className="mb-2 text-meta text-ink-muted">{khach}</p>
+          {coAnh ? (
+            <div className="grid grid-cols-2 gap-3">
+              {anh.map((a) => (
+                <figure key={a.id} className="in-giu space-y-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- ảnh đi qua cửa XÁC THỰC */}
+                  <img
+                    src={duongXemTep(a.id)}
+                    alt={a.ten ?? "Ảnh kết quả"}
+                    className="aspect-4/3 w-full rounded-control border border-line bg-surface-sunken object-contain"
+                  />
+                  <figcaption className="flex items-center justify-between gap-2 text-label text-ink-muted">
+                    <span className="truncate">{a.ten}</span>
+                    <a href={taiVe(a.id)} download className="shrink-0 font-medium text-brand-700 hover:underline print:hidden">
+                      Tải
+                    </a>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <p className="text-ink-muted">Chỉ định này chưa có ảnh.</p>
+          )}
+          {khac.length > 0 ? (
+            <ul className="mt-4 space-y-1 print:hidden">
+              <li className="text-label font-semibold uppercase text-ink-muted">
+                Video · tài liệu (tải về, không in)
+              </li>
+              {khac.map((t) => (
+                <li key={t.id} className="flex items-center justify-between gap-2 text-body">
+                  <span className="truncate">
+                    {t.ten ?? "(không tên)"}{" "}
+                    <span className="text-meta text-ink-muted">· {t.loai_tep.toLowerCase()}</span>
+                  </span>
+                  <a href={taiVe(t.id)} download className="shrink-0 font-medium text-brand-700 hover:underline">
+                    Tải
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      </div>
+    </main>
   );
 }

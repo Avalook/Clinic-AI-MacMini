@@ -378,6 +378,13 @@ class FormEngineService:
             "so_tep_khac": sum(
                 1 for t in tep if not la_anh_xem_duoc(t["loai_tep"], t["mime"])
             ),
+            # Video / tài liệu / DICOM: không in, nhưng TẢI VỀ được ở cột ảnh
+            # của trang in (Tuyền 28/09/2026: "tải ảnh video riêng").
+            "tep_khac": [
+                {"id": t["id"], "ten": t["ten_hien_thi"], "loai_tep": t["loai_tep"]}
+                for t in tep
+                if not la_anh_xem_duoc(t["loai_tep"], t["mime"])
+            ],
             "phong_kham": {
                 "ten": dau["phong_kham"],
                 "dia_chi": dau["dia_chi_co_so"] or dau["dia_chi_pk"],
