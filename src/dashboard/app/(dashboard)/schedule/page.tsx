@@ -208,7 +208,10 @@ export default async function SchedulePage({
             dong={approvedRows}
             vet={lich?.thay_nguoi ?? []}
             nhanViTri={nhanViTri(stations)}
-            nhanSu={staffOptions.map((s) => ({ id: s.id, name: s.name }))}
+            // Tài khoản đối tác (lab) không đứng ca của phòng khám.
+            nhanSu={staffOptions
+              .filter((s) => s.vai !== "PARTNER")
+              .map((s) => ({ id: s.id, name: s.name }))}
           />
         </section>
       )}
