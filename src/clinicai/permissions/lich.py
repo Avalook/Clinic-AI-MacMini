@@ -65,4 +65,74 @@ async def doi_lich_phong(
         raise SafetyGateError(CAU_CHAN)
 
 
-__all__ = ["CAU_CHAN", "co_ca_o_phong", "doi_lich_phong"]
+# ── NỬA "MỞ": CÙNG PHÒNG TRONG LỊCH = CÙNG LUỒNG KHÁCH (28/09/2026) ─────────
+#
+# Tuyền: bác sĩ, thư ký, điều dưỡng được xếp vào CÙNG MỘT PHÒNG trong lịch làm
+# việc thì ngoài đời làm cùng nhau; bác sĩ hầu như không gõ máy, thư ký và điều
+# dưỡng thao tác thay trên tài khoản của chính mình — nên luồng khách bác sĩ
+# nhận thì hai người kia cũng phải thấy, KHÔNG cần chọn phòng tay.
+#
+# Trước bản này Bàn khám (không chọn phòng) hiện "khách của chính tôi" cho mọi
+# ai có quyền Hoàn tất khám — thư ký / điều dưỡng đã có quyền ấy từ 28/09 nên
+# thấy danh sách RỖNG. Đo prod 28/09: 12/12 người kỹ năng TKYK / Phụ BS có quyền.
+
+_BAC_SI_CUNG_PHONG_SQL = """
+WITH phong_toi AS (
+    SELECT DISTINCT v.room_id
+      FROM work_roster w
+      JOIN vi_tri_lam_viec v ON v.clinic_id = w.clinic_id AND v.code = w.station
+     WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
+       AND w.status <> 'REJECTED' AND v.room_id IS NOT NULL
+       AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+)
+SELECT DISTINCT w.staff_id::text AS id
+  FROM work_roster w
+  JOIN vi_tri_lam_viec v ON v.clinic_id = w.clinic_id AND v.code = w.station
+  JOIN clinic_membership m
+    ON m.staff_id = w.staff_id AND m.clinic_id = w.clinic_id
+   AND m.is_active AND m.role = 'DOCTOR'
+ WHERE w.clinic_id = $1::uuid AND w.status <> 'REJECTED'
+   AND v.room_id IN (SELECT room_id FROM phong_toi)
+   AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+"""
+
+
+async def bac_si_cung_phong_hom_nay(
+    conn: asyncpg.Connection, clinic_id: str, staff_id: str
+) -> list[str]:
+    """Bác sĩ đứng CÙNG PHÒNG với người này trong lịch hôm nay (cả chính họ nếu
+    họ là bác sĩ). "Bác sĩ của phòng" dùng đúng tiêu chí hàng chờ theo phòng
+    (`LuotKhamDoc.hang_cho`): lịch hôm nay + tư cách bác sĩ."""
+    return sorted(
+        r["id"] for r in await conn.fetch(_BAC_SI_CUNG_PHONG_SQL, clinic_id, staff_id)
+    )
+
+
+def khach_cua_toi(
+    *, toi: str, la_bac_si: bool, cung_phong: list[str], kham_duoc: bool
+) -> tuple[list[str], bool]:
+    """Thuần: "khách của tôi" ở Bàn khám khi KHÔNG chọn phòng.
+
+    Trả (bác sĩ có lượt hiện ra, có hiện MỌI bác sĩ không):
+      * có người cùng phòng trong lịch hôm nay → khách của các bác sĩ phòng ấy
+        (và của chính mình nếu mình là bác sĩ);
+      * không có lịch mà là bác sĩ → khách của chính mình;
+      * không có lịch, không là bác sĩ, có lego Khám → MỌI bác sĩ (mở, không
+        khoá — người chưa được xếp lịch vẫn làm được việc);
+      * còn lại → không ai.
+    """
+    ds = set(cung_phong)
+    if la_bac_si:
+        ds.add(toi)
+    if ds:
+        return sorted(ds), False
+    return [], kham_duoc
+
+
+__all__ = [
+    "CAU_CHAN",
+    "bac_si_cung_phong_hom_nay",
+    "co_ca_o_phong",
+    "doi_lich_phong",
+    "khach_cua_toi",
+]

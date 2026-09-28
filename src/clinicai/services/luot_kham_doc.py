@@ -23,6 +23,7 @@ from clinicai.permissions.doc_bang import (
     doi_mot_quyen,
     quyen_doc_hang_cho,
 )
+from clinicai.permissions.lich import bac_si_cung_phong_hom_nay, khach_cua_toi
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
@@ -686,6 +687,9 @@ class BangLuotKham:
             #   * có quyền Hoàn tất khám ("bác sĩ") → khách của chính mình;
             #   * có Khám mà không Hoàn tất (thư ký chưa phân) → mọi bác sĩ;
             #   * lego Điều phối → mọi bác sĩ.
+            #   * 28/09 — QUYỀN THEO LỊCH, nửa "mở" (`permissions/lich.py`): không
+            #     chọn phòng thì "khách của tôi" = khách của các bác sĩ CÙNG PHÒNG
+            #     với tôi trong lịch hôm nay; không có lịch thì như cũ.
             tat_ca_bac_si = False
             if not tu_van:
                 cua_toi = await bac_si_cua_thu_ky(conn, identity)
@@ -693,12 +697,26 @@ class BangLuotKham:
                     ds_bac_si = sorted(
                         {*ds_bac_si, *cua_toi} if rid is None else cua_toi
                     )
+                elif rid is None:
+                    la_bac_si = bool(
+                        await conn.fetchval(
+                            "SELECT EXISTS (SELECT 1 FROM clinic_membership"
+                            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+                            " AND is_active AND role = 'DOCTOR')",
+                            cid,
+                            identity.staff_id,
+                        )
+                    )
+                    ds_bac_si, tat_ca_bac_si = khach_cua_toi(
+                        toi=identity.staff_id,
+                        la_bac_si=la_bac_si,
+                        cung_phong=await bac_si_cung_phong_hom_nay(
+                            conn, cid, identity.staff_id
+                        ),
+                        kham_duoc=await can(conn, identity, "clinical.consult.perform"),
+                    )
                 elif await can(conn, identity, "clinical.consult.finalize"):
                     ds_bac_si = sorted({*ds_bac_si, identity.staff_id})
-                elif rid is None and await can(
-                    conn, identity, "clinical.consult.perform"
-                ):
-                    tat_ca_bac_si = True
                 if rid is None and await can(conn, identity, "dispatch.manage"):
                     tat_ca_bac_si = True
             rows = await conn.fetch(
