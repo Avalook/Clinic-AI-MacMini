@@ -615,8 +615,6 @@ export function mucHienRa(
 //
 // Không có ca (hoặc là Quản lý) → `nhom`, `lego` rỗng, `khac` là menu theo vai,
 // và thanh bên vẽ một danh sách phẳng như trước.
-export const TEN_NHOM_LEGO = "Lego đang bật";
-
 export function nhomThanhBen(
   role: ClinicRole | null,
   hienTrenThanhBen: (r: ClinicRole | null, href: string) => boolean,

@@ -45,6 +45,11 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 > theo QUYỀN (`muc_duoc_xem`). Nút Bàn khám / Bàn tư vấn theo lego (`nutBanKham`).
 > Thanh bên: mục của lego đang bật nằm trong **nhóm công việc** của kiểu A (28/09/2026
 > — bỏ nhóm riêng "Lego đang bật", `Nav.tsx` gộp `lego` vào trước khi xếp nhóm).
+> Ngày CÓ CA: lego đang bật vẫn là nhóm riêng (mở sẵn) sau các nhóm vị trí — 28/09
+> tối (Tuyền): tiêu đề nhóm ấy KHÔNG CHỮ, chỉ mũi tên; MỌI nhóm (vị trí, lego, Việc
+> khác, nhóm công việc) gập / mở được; nhóm chứa trang đang đứng chỉ tự mở một lần
+> khi tới trang (trước: nhóm vị trí + lego có mũi tên mà không gập, nhóm đang đứng
+> bị ép mở).
 >
 > **LỄ TÂN VÀ THU NGÂN HỖ TRỢ NHAU = BẬT THÊM LEGO, KHÔNG DÙNG CHUNG TÀI KHOẢN**
 > (góp ý "2 nick chung", 27/09). Cần lễ tân thu tiền hộ, hay thu ngân đón khách hộ:

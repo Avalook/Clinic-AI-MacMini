@@ -18,7 +18,6 @@ import {
   navLabelFor,
   nhomTheoCongViec,
   nhomThanhBen,
-  TEN_NHOM_LEGO,
   xepNodeCon,
   type NavItem,
   type PhongTheoViTri,
@@ -80,8 +79,9 @@ export default function Nav({
     quyen,
   );
   // Node con (Nhắc tái khám) đứng ngay dưới node cha (Quản lý khách hàng).
-  // Lego ĐANG BẬT của chính tài khoản (7a, 27/09) là một nhóm KHÔNG gập — gộp
-  // vào "Việc khác" (gập sẵn) là giấu đúng việc người ấy được bật để làm.
+  // Lego ĐANG BẬT của chính tài khoản (7a, 27/09) là nhóm RIÊNG, MỞ sẵn — gộp
+  // vào "Việc khác" (gập sẵn) là giấu đúng việc người ấy được bật để làm. Từ
+  // 28/09 gập được như mọi nhóm, tiêu đề chỉ còn mũi tên.
   const { dau: dau0, nhom: nhom0, lego: lego0, khac: khac0 } = tho;
   const [dau, lego, khac, ...mucNhom] = xepNodeCon([
     dau0,
@@ -125,6 +125,26 @@ export default function Nav({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGap(docGap());
   }, []);
+  // Các nhóm của thanh bên, theo đúng thứ tự vẽ. Nhóm lego KHÔNG CÓ CHỮ (Tuyền
+  // 28/09: "bỏ chữ lego đi, chỉ là mũi tên toggle thôi").
+  const cacNhom: { ma: string; ten: string; muc: NavItem[] }[] = coHaiPhan
+    ? [
+        ...nhom.map((g) => ({ ma: `vt-${g.nhom}`, ten: g.ten, muc: g.muc })),
+        ...(lego.length > 0 ? [{ ma: "lego-dang-bat", ten: "", muc: lego }] : []),
+        ...(khac.length > 0
+          ? [{ ma: "viec-khac", ten: `Việc khác (${khac.length})`, muc: khac }]
+          : []),
+      ]
+    : nhomTheoCongViec([...dau, ...lego, ...khac]);
+  const nhomDangO =
+    cacNhom.find((g) => g.muc.some((m) => isActiveNav(m.href, pathname, hrefs)))?.ma ??
+    null;
+  // Tới một trang nằm trong nhóm đang gập → mở nhóm ấy (một lần, không ép mãi).
+  useEffect(() => {
+    if (!nhomDangO) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGap((g) => (g.includes(nhomDangO) ? g.filter((x) => x !== nhomDangO) : g));
+  }, [nhomDangO]);
   const doiGap = (ma: string) =>
     setGap((g) => {
       const moi = g.includes(ma) ? g.filter((x) => x !== ma) : [...g, ma];
@@ -244,10 +264,12 @@ export default function Nav({
   };
 
   // Tiêu đề nhóm: chữ hoa nhỏ màu nhạt, bấm để gập/mở, mũi tên BIẾN HÌNH.
-  // Đang đứng ở một mục trong nhóm thì nhóm luôn mở (không giấu chỗ mình đang ở).
-  const veNhom = (g: { ma: string; ten: string; muc: NavItem[] }, coGap = true) => {
-    const dangO = g.muc.some((m) => isActiveNav(m.href, pathname, hrefs));
-    const mo = !coGap || isCollapsed || dangO || !gap.includes(g.ma);
+  // MỌI nhóm gập / mở được (Tuyền 28/09/2026: "các mũi tên ở sidebar đang lỗi
+  // không đóng mở được" — trước: nhóm vị trí + nhóm lego vẽ mũi tên mà không
+  // gập, nhóm đang đứng bị ÉP mở). Nhóm chứa trang đang đứng tự MỞ một lần khi
+  // tới trang (effect dưới), sau đó người dùng gập được.
+  const veNhom = (g: { ma: string; ten: string; muc: NavItem[] }) => {
+    const mo = isCollapsed || !gap.includes(g.ma);
     return (
       <div key={g.ma} className="pt-3 first:pt-0">
         {isCollapsed ? (
@@ -255,8 +277,9 @@ export default function Nav({
         ) : (
           <button
             type="button"
-            onClick={() => coGap && doiGap(g.ma)}
+            onClick={() => doiGap(g.ma)}
             aria-expanded={mo}
+            aria-label={g.ten ? undefined : `${mo ? "Gập" : "Mở"} nhóm việc đang được mở`}
             className="flex w-full items-center gap-1 rounded-control px-2.5 py-1 text-left text-label font-semibold uppercase tracking-wider text-ink-faint hover:text-ink-muted"
           >
             <MorphIcon
@@ -266,7 +289,7 @@ export default function Nav({
               size={12}
               strokeWidth={2.5}
             />
-            <span className="truncate">{g.ten}</span>
+            {g.ten ? <span className="truncate">{g.ten}</span> : null}
           </button>
         )}
         {mo ? <div className="space-y-0.5">{g.muc.map(veMuc)}</div> : null}
@@ -281,17 +304,11 @@ export default function Nav({
           {dau.map(veMuc)}
           {/* MỖI VỊ TRÍ HÔM NAY MỘT NHÓM (Tuyền 16/09/2026) — giữ nguyên, chỉ
               đổi cách trình bày theo kiểu A; "Việc khác" là một nhóm gập được. */}
-          {nhom.map((g) => veNhom({ ma: `vt-${g.nhom}`, ten: g.ten, muc: g.muc }, false))}
-          {lego.length > 0
-            ? veNhom({ ma: "lego-dang-bat", ten: TEN_NHOM_LEGO, muc: lego }, false)
-            : null}
-          {khac.length > 0
-            ? veNhom({ ma: "viec-khac", ten: `Việc khác (${khac.length})`, muc: khac })
-            : null}
+          {cacNhom.map(veNhom)}
         </>
       ) : (
         // KHÔNG có lịch hôm nay: chia theo công việc (nav-items `NHOM_CONG_VIEC`).
-        nhomTheoCongViec([...dau, ...lego, ...khac]).map((g) => veNhom(g))
+        cacNhom.map(veNhom)
       )}
       {/* CSKH_ONLY mode indicator */}
       {featureMode === "CSKH_ONLY" && !isCollapsed && (
