@@ -97,9 +97,9 @@ test("thanh bên ngày có ca: Hành trình cạnh Trang chủ, lego đang bật
   assert.match(than, /lego: conLai\.filter\(dangBat\)/);
   assert.match(than, /laManLego\(i\.href\) && quyenMoDuocMan\(quyen, i\.href\)/);
   const navTsx = doc("../app/(dashboard)/Nav.tsx");
-  assert.match(navTsx, /const \{ dau, nhom, lego, khac \} = nhomThanhBen\(/);
-  assert.match(navTsx, /\{TEN_NHOM_LEGO\}/);
-  assert.match(navTsx, /lego\.map\(veMuc\)/);
+  // Kiểu A (27/09): lego đang bật là một nhóm KHÔNG gập (`coGap` = false).
+  assert.match(navTsx, /lego: lego0/);
+  assert.match(navTsx, /veNhom\(\{ ma: "lego-dang-bat", ten: TEN_NHOM_LEGO, muc: lego \}, false\)/);
 });
 
 test("Việc cần xử lý: lỗi hiện rõ, tên khách đúng trường, mã node thật, có Xem lượt", () => {
