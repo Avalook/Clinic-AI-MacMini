@@ -50,6 +50,8 @@ _ROSTER_GUARD = cua_quyen("config.clinic.manage")
 # chỉ cần đăng nhập nên thu lego chỉ mất mục trên thanh bên). Người xếp lịch
 # (lego 18) đương nhiên xem được bảng mình xếp.
 _ROSTER_READ_GUARD = cua_quyen("roster.view", "config.clinic.manage")
+# Đổi người trong ca (29/09/2026): trưởng ca có quyền riêng, không cần lego 18.
+_DOI_NGUOI_GUARD = cua_quyen("roster.shift.swap", "config.clinic.manage")
 _PRICE_GUARD = cua_quyen("price.service.manage")
 # Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
 # Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá).
@@ -290,6 +292,29 @@ async def bac_si_trong_ngay(
 ) -> dict[str, Any]:
     """Bác sĩ có ca khám trong ngày — lưới đặt lịch của CSKH / lễ tân đọc."""
     return await RosterService(pool).bac_si_trong_ngay(identity=identity, ngay=ngay)
+
+
+class ThayNguoiRequest(BaseModel):
+    staff_id: UUID
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/roster/shifts/{roster_id}/thay-nguoi")
+async def thay_nguoi(
+    roster_id: UUID,
+    body: ThayNguoiRequest,
+    identity: StaffIdentity = Depends(_DOI_NGUOI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đổi người đứng một ca (hôm nay / ngày tới). Quyền `roster.shift.swap`
+    (lego Điều phối khách) hoặc người xếp lịch — service kiểm (29/09/2026)."""
+    ket = await RosterService(pool).thay_nguoi(
+        roster_id=str(roster_id),
+        staff_moi_id=str(body.staff_id),
+        identity=identity,
+        ly_do=body.ly_do,
+    )
+    return {"ok": True, **ket}
 
 
 @router.delete("/roster/shifts/{roster_id}")

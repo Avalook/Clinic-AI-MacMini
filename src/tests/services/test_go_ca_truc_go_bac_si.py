@@ -15,7 +15,11 @@ import inspect
 def _nguon() -> str:
     from clinicai.services.config_service import RosterService
 
-    return inspect.getsource(RosterService.remove)
+    # Phần gỡ lịch hẹn tách sang `_go_lich_ngoai_ca` (29/09/2026, dùng chung
+    # với đổi người trong ca) — `remove` gọi nó trong CÙNG giao dịch.
+    return inspect.getsource(RosterService.remove) + inspect.getsource(
+        RosterService._go_lich_ngoai_ca
+    )
 
 
 def test_go_trong_cung_giao_dich_voi_viec_xoa_ca() -> None:

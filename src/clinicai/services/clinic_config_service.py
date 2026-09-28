@@ -34,6 +34,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 
@@ -433,6 +434,8 @@ class ClinicConfigService:
             doi_tuong_id=room_id,
             payload={"is_active": is_active},
         )
+        # Quyền theo lịch đọc phòng/node/vị trí — đổi thì quên quyền đang nhớ.
+        cache.quen(identity.clinic_id)
         return {"ok": True, "room_id": room_id, "is_active": is_active}
 
     async def set_room_flags(
@@ -477,6 +480,8 @@ class ClinicConfigService:
         await self._ghi_nhat_ky(
             identity, loai="room_flags", doi_tuong_id=room_id, payload=moi
         )
+        # Quyền theo lịch đọc phòng/node/vị trí — đổi thì quên quyền đang nhớ.
+        cache.quen(identity.clinic_id)
         return {"ok": True, "room_id": room_id, **moi}
 
     # ── Cơ sở ─────────────────────────────────────────────────────────────
@@ -697,6 +702,8 @@ class ClinicConfigService:
             doi_tuong_id=room_id,
             payload={"nodes": sorted(node_codes)},
         )
+        # Quyền theo lịch đọc phòng/node/vị trí — đổi thì quên quyền đang nhớ.
+        cache.quen(identity.clinic_id)
         return {"ok": True, "room_code": room["code"], "nodes": node_codes}
 
     async def set_staff_nodes(

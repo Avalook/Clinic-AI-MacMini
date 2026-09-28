@@ -45,6 +45,17 @@ logger = structlog.get_logger()
 _TRAN_CHI_DINH_HOM_NAY = 500
 
 
+def la_phong_dich_vu(nodes: list[str]) -> bool:
+    """Phòng có làm dịch vụ (node `DICHVU-*`) — hiện ở danh sách Phòng dịch vụ.
+
+    29/09/2026: trước đây màn lọc "không có node KHAM-" — từ khi mọi phòng có
+    bác sĩ được thêm node KHAM-* (bác sĩ đa năng, 28/09) thì Siêu âm, Thủ thuật,
+    Sàn chậu… biến khỏi danh sách. Kho thuốc (`DICHVU-THUOC`) là nhà thuốc,
+    không phải phòng làm dịch vụ.
+    """
+    return any(n.startswith("DICHVU-") and n != "DICHVU-THUOC" for n in nodes if n)
+
+
 class BangLuotKham:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -593,6 +604,7 @@ class BangLuotKham:
                     "ten": r["name"],
                     "tang": r["floor"],
                     "nodes": list(r["nodes"] or []),
+                    "la_phong_dich_vu": la_phong_dich_vu(r["nodes"] or []),
                 }
                 for r in tat_ca
             ],

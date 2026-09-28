@@ -73,6 +73,8 @@ export interface Phong {
   tang: string | null;
   nodes: string[];
   vi_tri?: string[];
+  /** Máy chủ quyết: phòng có làm dịch vụ (hiện ở danh sách Phòng dịch vụ). */
+  la_phong_dich_vu?: boolean;
 }
 
 export interface PhongHomNay {

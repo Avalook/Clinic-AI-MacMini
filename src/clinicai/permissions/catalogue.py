@@ -510,6 +510,15 @@ QUYEN: dict[str, Quyen] = {
             "dispatch",
             MucRuiRo.VAN_HANH,
         ),
+        # 29/09/2026: trưởng ca thay người giữa ca (Hà về, B vào) mà không cần
+        # cả lego "Cài đặt phòng khám". Chỉ hôm nay và các ngày tới.
+        Quyen(
+            "roster.shift.swap",
+            "Đổi người trong ca (hôm nay và các ngày tới)",
+            "truong_ca",
+            "roster",
+            MucRuiRo.VAN_HANH,
+        ),
         Quyen(
             "patient.create",
             "Thêm bệnh nhân mới",
