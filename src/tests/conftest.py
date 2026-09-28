@@ -20,6 +20,8 @@ Set a disposable test DB to actually run them:
 from __future__ import annotations
 
 import os
+import re
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -47,6 +49,13 @@ for source, test_file in _RETIRED_TOOL_TESTS.items():
 load_dotenv()
 
 _TEST_DB_URL = os.environ.get("DATABASE_URL_TEST")
+# CHẠY SONG SONG (pytest-xdist, 28/09/2026): mỗi worker (gw0, gw1…) một database
+# riêng `ci_gwN` — `scripts/ci-may.sh` nhân bản từ DB thử đã áp migration. Chỉ
+# khi ci-may bật cờ, để chạy tay `pytest -n` không vô tình trỏ vào DB chưa có.
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+if _TEST_DB_URL and _WORKER and os.environ.get("CI_MAY_DB_THEO_WORKER") == "1":
+    _TEST_DB_URL = f"{_TEST_DB_URL.rsplit('/', 1)[0]}/ci_{_WORKER}"
+    os.environ["DATABASE_URL_TEST"] = _TEST_DB_URL
 if _TEST_DB_URL:
     # Opt-in: point every DB fixture at the disposable test database.
     os.environ["DATABASE_URL"] = _TEST_DB_URL
@@ -89,6 +98,26 @@ def test_db_url() -> str:
     if not url:
         pytest.skip("DATABASE_URL_TEST not set")
     return url
+
+
+_UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+
+
+def pytest_make_parametrize_id(
+    config: pytest.Config, val: object, argname: str
+) -> str | None:
+    """Tên tham số CỐ ĐỊNH cho giá trị UUID (28/09/2026, chạy song song).
+
+    Nhiều bài đặt tham số bằng `uuid4()` sinh lúc thu thập → mỗi worker của
+    pytest-xdist thấy một bộ tên test khác nhau và từ chối chạy. Đặt tên "uuid"
+    (pytest tự đánh số khi trùng) — giá trị thật trong bài không đổi.
+    """
+    del config, argname
+    if isinstance(val, (str, uuid.UUID)) and _UUID_RE.fullmatch(str(val)):
+        return "uuid"
+    return None
 
 
 def pytest_collection_modifyitems(

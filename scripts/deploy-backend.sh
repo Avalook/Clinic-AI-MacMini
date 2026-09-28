@@ -444,7 +444,15 @@ echo "==> [6/6] deployment verified at $(git rev-parse HEAD)"
 # `|| true`: dọn rác thất bại không phải lý do để gọi một bản deploy đã chạy
 # tốt là hỏng.
 truoc=$(docker system df --format '{{.Type}}|{{.Size}}' 2>/dev/null | awk -F'|' '/^Build/{print $2}')
-docker builder prune -af --filter 'until=24h' >/dev/null 2>&1 || true
+# GIỮ 7 NGÀY (28/09/2026): mốc 24h làm deploy hôm sau dựng lại từ đầu (npm ci,
+# next build, cài gói Python) — deploy mất ~3 phút thay vì ~1 phút. Đĩa VPS còn
+# dưới 8 GB thì dọn sạch như cũ: đầy đĩa tệ hơn deploy chậm.
+con_gb=$(df -BG / | awk 'NR==2{gsub("G","",$4); print $4}')
+if [ "${con_gb:-0}" -lt 8 ]; then
+    docker builder prune -af >/dev/null 2>&1 || true
+else
+    docker builder prune -af --filter 'until=168h' >/dev/null 2>&1 || true
+fi
 echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đĩa còn: $(df -h / | awk 'NR==2{print $4}')"
 # ── GHI MỐC "VỪA CÓ AI ĐỔI GÌ KHÔNG" ─────────────────────────────────────────
 #

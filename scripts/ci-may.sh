@@ -68,9 +68,28 @@ job_backend() {
   "$VENV/mypy" src/
   python3 scripts/tests/tenant-scope-audit.py --check
   DB_CONTAINER=ci_may_test DB_PORT=55530 ./scripts/tests/dung-db-kiem.sh
-  ANTHROPIC_API_KEY="" \
+  # PYTEST SONG SONG (28/09/2026): trước chạy tuần tự trên 1 nhân (~250–700s,
+  # nhân ấy chỉ bận ~30% — còn lại chờ database). Mỗi worker một DATABASE nhân
+  # bản từ DB thử ĐÃ áp migration, trong CÙNG container (không dựng thêm
+  # container — 23/09 dựng 26 container mất 2 giờ). `--dist loadfile`: mỗi tệp
+  # test nằm trọn trong một worker, giữ thứ tự trong tệp. CI_MAY_PYTEST_N=1 =
+  # chạy tuần tự như cũ.
+  local n="${CI_MAY_PYTEST_N:-6}"
+  local song_song=()
+  if [ "$n" -gt 1 ]; then
+    "$VENV/python" -c "import xdist" 2>/dev/null \
+      || "$VENV/pip" install -q "pytest-xdist==3.6.1"
+    for i in $(seq 0 $((n - 1))); do
+      # Chạy từ template1: nguồn nhân bản (postgres) không được có phiên nào mở.
+      docker exec ci_may_test psql -U postgres -d template1 -q \
+        -c "DROP DATABASE IF EXISTS ci_gw$i" \
+        -c "CREATE DATABASE ci_gw$i TEMPLATE postgres" >/dev/null
+    done
+    song_song=(-n "$n" --dist loadfile)
+  fi
+  ANTHROPIC_API_KEY="" CI_MAY_DB_THEO_WORKER=1 \
     DATABASE_URL_TEST="postgresql://postgres:${MK_DB_THU}@127.0.0.1:55530/postgres" \
-    "$VENV/pytest" src/tests/ -q --tb=short -p no:cacheprovider \
+    "$VENV/pytest" src/tests/ -q --tb=short -p no:cacheprovider "${song_song[@]}" \
     -m "not integration" --ignore=src/tests/integration \
     --cov=clinicai --cov-report=term --cov-fail-under=80
 }
