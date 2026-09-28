@@ -43,6 +43,7 @@ EVENT_LABELS: dict[str, str] = {
     "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
     "roster.shift_removed": "Gỡ ca trực",
+    "roster.shift_reassigned": "Đổi người trong ca",
     "roster.shift_added_cho_xep": "Ca mới có lịch đang chờ xếp bác sĩ",
     "appointment.doctor_restored": "Gắn lại bác sĩ (ca trực xếp lại)",
     "appointment.cancelled": "Huỷ lịch hẹn",
