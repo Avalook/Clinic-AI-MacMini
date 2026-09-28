@@ -60,11 +60,13 @@ export default function ThanhLuotKham({
   // Hồ sơ khám chỉ có từ lúc khách đã vào khám (check-in trở đi).
   const coHoSo =
     luotChon?.status === "CHECKED_IN" || luotChon?.status === "COMPLETED";
-  // IN PDF TRẢ KHÁCH theo từng ngày khám (Tuyền 28/09/2026): hồ sơ khám · kết
-  // quả XN / siêu âm (kèm ảnh) · đơn thuốc — cùng trang in phiếu khám mọi khâu
-  // dùng (`/print/phieu-kham/[visit]?phan=`). Mở tab NGAY lúc bấm (trình duyệt
-  // chặn cửa sổ mở sau một vòng mạng), rồi mới hỏi máy chủ mã lượt khám.
-  async function moIn(appointmentId: string, phan: "tom_tat" | "cls_kem" | "don") {
+  // IN PDF TRẢ KHÁCH theo từng ngày khám (Tuyền 28/09/2026 — "in ra toàn bộ
+  // thông tin cho khách"): PHIẾU KHÁM ĐẦY ĐỦ (cả quá trình khám như màn bác sĩ,
+  // `/print/phieu-kham`) · MỌI PHIẾU KẾT QUẢ siêu âm / thủ thuật / xét nghiệm
+  // kèm ảnh (`/print/ket-qua-luot`) · HOÁ ĐƠN THUỐC (`/print/hoa-don-thuoc`, khổ
+  // 80mm). Mở tab NGAY lúc bấm (trình duyệt chặn cửa sổ mở sau một vòng mạng),
+  // rồi mới hỏi máy chủ mã lượt khám.
+  async function moIn(appointmentId: string, trang: "phieu-kham" | "ket-qua-luot" | "hoa-don-thuoc") {
     setLoiIn(null);
     const tab = window.open("", "_blank");
     const r = await fetch(`/api/cskh/ho-so-kham/${appointmentId}`, { cache: "no-store" })
@@ -76,7 +78,7 @@ export default function ThanhLuotKham({
       setLoiIn("Lượt này chưa có hồ sơ khám để in.");
       return;
     }
-    const duong = `/print/phieu-kham/${vid}?phan=${phan}`;
+    const duong = `/print/${trang}/${vid}`;
     // Trình duyệt chặn mở tab → mở ở đây (bấm Quay lại để về màn CSKH).
     if (tab) tab.location.href = duong;
     else window.location.assign(duong);
@@ -161,15 +163,15 @@ export default function ThanhLuotKham({
           <span className="text-label text-ink-muted">In PDF trả khách:</span>
           {(
             [
-              ["tom_tat", "Hồ sơ khám"],
-              ["cls_kem", "Kết quả XN / siêu âm"],
-              ["don", "Đơn thuốc"],
+              ["phieu-kham", "Phiếu khám đầy đủ"],
+              ["ket-qua-luot", "Kết quả + ảnh"],
+              ["hoa-don-thuoc", "Hoá đơn thuốc"],
             ] as const
-          ).map(([phan, nhan]) => (
+          ).map(([trang, nhan]) => (
             <button
-              key={phan}
+              key={trang}
               type="button"
-              onClick={() => void moIn(luotChon.id, phan)}
+              onClick={() => void moIn(luotChon.id, trang)}
               className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-surface px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-50"
             >
               <FileText className="size-4" aria-hidden="true" />

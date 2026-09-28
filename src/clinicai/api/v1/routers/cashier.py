@@ -26,6 +26,10 @@ router = APIRouter()
 # Bảng thu ngân: người giữ một trong hai khối thu tiền (24/09/2026 — thay
 # CASHIER_ROLES, cùng người).
 _GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
+#: IN phiếu thu (chỉ đọc): quầy thu + CSKH in hoá đơn trả khách (28/09/2026).
+_PHIEU_GUARD = cua_quyen(
+    "payment.service.collect", "payment.medicine.collect", "crm.manage"
+)
 
 
 @router.get("/cashier/board")
@@ -124,10 +128,23 @@ async def cashier_lich_su_csv(
 async def cashier_phieu(
     phieu_id: UUID,
     loai: str = Query("thu", pattern="^(thu|hoan)$"),
-    identity: StaffIdentity = Depends(_GUARD),
+    identity: StaffIdentity = Depends(_PHIEU_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Dữ liệu bản in PHIẾU THU (hoặc PHIẾU HOÀN) — chỉ phiếu của phòng khám mình."""
     return await QuayThuService(pool).phieu(
         identity=identity, id_=str(phieu_id), loai=loai
+    )
+
+
+@router.get("/cashier/phieu-luot/{visit_id}")
+async def cashier_phieu_luot(
+    visit_id: UUID,
+    kind: str = Query("thuoc", pattern="^(thuoc|dich_vu)$"),
+    identity: StaffIdentity = Depends(_PHIEU_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi phiếu thu ĐÃ THU của một lượt theo loại — CSKH in hoá đơn trả khách."""
+    return await QuayThuService(pool).phieu_cua_luot(
+        identity=identity, visit_id=str(visit_id), kind=kind
     )

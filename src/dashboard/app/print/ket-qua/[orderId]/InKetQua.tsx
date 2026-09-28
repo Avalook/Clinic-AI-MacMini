@@ -15,7 +15,8 @@
 //
 // 28/09/2026 (Tuyền): BA KIỂU IN — [Kết quả + ảnh] (trang phiếu rồi trang ảnh) ·
 // [Chỉ kết quả] · [Chỉ ảnh] (trang ảnh có đủ đầu trang + bệnh nhân để in riêng
-// vẫn biết của ai). Màn xem trước luôn hiện đủ; bấm kiểu nào in đúng phần ấy.
+// vẫn biết của ai). Bấm kiểu nào màn xem trước đổi theo; [In / tải PDF] in
+// đúng cái đang thấy.
 
 import { useEffect, useState } from "react";
 
@@ -191,17 +192,18 @@ function AnhIn({ dl }: { dl: DuLieuIn }) {
   );
 }
 
-export default function InKetQua({ orderId }: { orderId: string }) {
+export default function InKetQua({
+  orderId,
+  nhung = false,
+}: {
+  orderId: string;
+  /** Nhúng trong trang in cả lượt (CSKH): không hàng nút, kết quả + ảnh. */
+  nhung?: boolean;
+}) {
   const [dl, setDl] = useState<DuLieuIn | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
+  // THẤY GÌ IN NẤY (Tuyền 28/09/2026): nút chọn kiểu đổi CẢ màn xem trước.
   const [kieu, setKieu] = useState<KieuIn>("kem");
-
-  // In xong (hoặc huỷ hộp in) → về lại xem đủ; Ctrl+P in kết quả + ảnh.
-  useEffect(() => {
-    const ve = () => setKieu("kem");
-    window.addEventListener("afterprint", ve);
-    return () => window.removeEventListener("afterprint", ve);
-  }, []);
 
   useEffect(() => {
     let huy = false;
@@ -222,28 +224,46 @@ export default function InKetQua({ orderId }: { orderId: string }) {
   if (!dl) return <p className="p-8 text-body text-ink-muted">Đang tải phiếu…</p>;
   const coAnh = (dl.anh?.length ?? 0) > 0;
   const coPhieu = dl.phieu.length > 0;
-  const inKieu = (k: KieuIn) => {
-    setKieu(k);
-    // Đợi màn vẽ lại (ẩn phần không in) rồi mới mở hộp in.
-    window.setTimeout(() => window.print(), 50);
-  };
-  const anPhieu = kieu === "anh" ? "print:hidden" : "";
+  // Nhúng trong trang in cả lượt: không lồng <main> trong <main>.
+  const The = nhung ? "section" : "main";
+  const anPhieu = kieu === "anh" ? "hidden" : "";
+  const CHON: { ma: KieuIn; nhan: string; tat: boolean }[] = [
+    { ma: "kem", nhan: "Kết quả + ảnh", tat: !coPhieu && !coAnh },
+    { ma: "kq", nhan: "Kết quả", tat: !coPhieu },
+    { ma: "anh", nhan: "Ảnh", tat: !coAnh },
+  ];
   return (
-    <main className="in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
+    <The
+      className={
+        nhung
+          ? "in-a4"
+          : "in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0"
+      }
+    >
       <KieuInA4 />
-      <div className="mb-6 flex flex-wrap gap-2 print:hidden">
-        <Button type="button" variant="primary" disabled={!coPhieu && !coAnh} onClick={() => inKieu("kem")}>
-          In kết quả + ảnh
-        </Button>
-        <Button type="button" disabled={!coPhieu} onClick={() => inKieu("kq")}>
-          In kết quả
-        </Button>
-        <Button type="button" disabled={!coAnh} onClick={() => inKieu("anh")}>
-          In ảnh
-        </Button>
-        <Button type="button" variant="ghost" onClick={() => window.close()}>
-          Đóng
-        </Button>
+      <div className={nhung ? "hidden" : "mb-6 space-y-3 print:hidden"}>
+        <div role="group" aria-label="Chọn phần in" className="flex flex-wrap gap-2">
+          {CHON.map((c) => (
+            <Button
+              key={c.ma}
+              type="button"
+              variant={kieu === c.ma ? "primary" : "secondary"}
+              aria-pressed={kieu === c.ma}
+              disabled={c.tat}
+              onClick={() => setKieu(c.ma)}
+            >
+              {c.nhan}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="primary" onClick={() => window.print()}>
+            In / tải PDF
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => window.close()}>
+            Đóng
+          </Button>
+        </div>
       </div>
       {dl.phieu.length === 0 && (dl.anh?.length ?? 0) === 0 ? (
         <p className="text-ink-muted">Chỉ định này chưa có phiếu kết quả nào để in.</p>
@@ -335,13 +355,13 @@ export default function InKetQua({ orderId }: { orderId: string }) {
       })}
       {coPhieu && coAnh ? (
         // Trang ẢNH: in kèm (sang trang mới) hoặc in riêng (đủ đầu trang).
-        <article className={`mt-10 break-before-page print:mt-0 ${kieu === "kq" ? "print:hidden" : ""} ${kieu === "anh" ? "print:break-before-auto" : ""}`}>
+        <article className={`mt-10 break-before-page print:mt-0 ${kieu === "kq" ? "hidden" : ""} ${kieu === "anh" ? "print:break-before-auto" : ""}`}>
           <div className={kieu === "anh" ? "" : "hidden"}>
             <DauPhieuIn dl={dl} p={null} />
           </div>
           <AnhIn dl={dl} />
         </article>
       ) : null}
-    </main>
+    </The>
   );
 }

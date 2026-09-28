@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 
-interface Phieu {
+export interface Phieu {
   loai: "thu" | "hoan";
   /** Lần thu tiền dịch vụ hay tiền thuốc. */
   kind: string | null;
@@ -36,7 +36,7 @@ interface Phieu {
 const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
 
 // Khổ hoá đơn 80mm, dài theo nội dung. `@page` chỉ áp cho trang in này.
-const KIEU_HOA_DON = `
+export const KIEU_HOA_DON = `
 @page { size: 80mm auto; margin: 4mm 3mm; }
 @media print {
   html, body { background: white; }
@@ -70,13 +70,6 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!p) return <p className="p-8 text-body text-ink-muted">Đang tải phiếu…</p>;
 
-  const luc = p.luc
-    ? new Date(p.luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
-    : "";
-  const soLuot = [p.so_booking != null ? `#${p.so_booking}` : null, p.so_tiep_don != null ? String(p.so_tiep_don) : null]
-    .filter(Boolean)
-    .join(" · ");
-
   return (
     <main className="mx-auto max-w-xs bg-surface p-4 text-body text-ink print:max-w-none print:p-0">
       <style>{KIEU_HOA_DON}</style>
@@ -88,6 +81,23 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
           Đóng
         </Button>
       </div>
+      <PhieuThuGiay p={p} />
+    </main>
+  );
+}
+
+/** Thân MỘT phiếu thu khổ hoá đơn — dùng chung cho in một phiếu và in mọi
+ *  hoá đơn thuốc của một lượt (CSKH, 28/09/2026). */
+export function PhieuThuGiay({ p }: { p: Phieu }) {
+  const luc = p.luc
+    ? new Date(p.luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+    : "";
+  const soLuot = [p.so_booking != null ? `#${p.so_booking}` : null, p.so_tiep_don != null ? String(p.so_tiep_don) : null]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <>
       <header className="text-center">
         <p className="font-semibold uppercase">{p.phong_kham ?? "Phòng khám"}</p>
         <p className="text-meta text-ink-muted">
@@ -163,6 +173,6 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
         </p>
       ) : null}
       <p className="mt-6 text-center text-meta text-ink-muted">Cảm ơn quý khách</p>
-    </main>
+    </>
   );
 }

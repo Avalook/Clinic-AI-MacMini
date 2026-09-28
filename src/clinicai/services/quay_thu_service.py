@@ -835,6 +835,28 @@ class QuayThuService:
                         "phong_chon_duoc": phong_cd,
                     }
 
+    async def phieu_cua_luot(
+        self, *, identity: StaffIdentity, visit_id: str, kind: str
+    ) -> dict[str, Any]:
+        """Mọi phiếu thu ĐÃ THU (PAID) của một lượt theo loại, cũ trước (28/09).
+
+        Bản in = đúng `phieu()` của từng lần thu — không dựng bản thứ hai.
+        """
+        ids = await self._pool.fetch(
+            "SELECT payment_cycle_id::text AS id FROM payment_cycle"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND kind = $3"
+            " AND status = 'PAID' ORDER BY coalesce(paid_at, created_at), 1",
+            identity.clinic_id,
+            visit_id,
+            kind,
+        )
+        return {
+            "phieu": [
+                await self.phieu(identity=identity, id_=r["id"], loai="thu")
+                for r in ids
+            ]
+        }
+
     async def phieu(
         self, *, identity: StaffIdentity, id_: str, loai: str = "thu"
     ) -> dict[str, Any]:

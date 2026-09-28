@@ -49,6 +49,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
+from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
 
@@ -263,11 +264,14 @@ class FormEngineService:
         """
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            # Theo QUYỀN in phiếu (28/09/2026): CSKH (`crm.manage`) + các khâu
+            # quầy in trả khách, không phụ thuộc vai của tài khoản.
             if not (
                 identity.co_vai(DOC_KET_QUA | {ClinicRole.CSKH})
                 or await can(conn, identity, QUYEN_DIEN)
+                or await doc_duoc_in_phieu(conn, identity)
             ):
-                raise SafetyGateError("Vai của bạn không in phiếu kết quả.")
+                raise SafetyGateError("Bạn không có quyền in phiếu kết quả.")
             dau = await conn.fetchrow(
                 "SELECT o.service_name, o.service_code, o.visit_id::text AS visit_id,"
                 "       c.name AS phong_kham, c.address AS dia_chi_pk,"
