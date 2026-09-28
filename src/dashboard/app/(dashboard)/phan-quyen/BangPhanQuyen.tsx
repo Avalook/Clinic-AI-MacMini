@@ -1,13 +1,15 @@
 "use client";
 
-// Danh sách người bên trái, 21 LEGO bên phải (Tuyền 25/09/2026): lego = node
-// thanh bên, một công tắc mỗi dòng — quyền theo TÀI KHOẢN, vai chỉ là gói mẫu.
-// (Cũ: bật từng khối kỹ thuật bằng nút "Đang bật — tắt" — thay bằng lego.)
+// Danh sách người bên trái, KỸ NĂNG bên phải (Tuyền chốt 28/09/2026, bản "D"):
+// phòng khám giao việc theo kỹ năng (file nhân sự: Phụ SA, Bio, TKYK…) nên màn
+// cấp quyền nói đúng ngôn ngữ ấy. 21 lego (25/09) lùi vào "Ngoại lệ (nâng cao)"
+// cho trường hợp một người cần thêm / bớt riêng một màn.
 
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { ROLE_LABEL, isClinicRole } from "@/lib/roles";
+import KyNangCuaNguoi, { type KyNang } from "./KyNangCuaNguoi";
 import LegoCuaNguoi from "./LegoCuaNguoi";
 import NhomQuyenMau from "./NhomQuyenMau";
 import QuyenTheoMan from "./QuyenTheoMan";
@@ -72,6 +74,26 @@ export default function BangPhanQuyen({
 
   // Đổi key để khung lego đọc lại sau khi thêm gói mẫu.
   const [lanDoc, setLanDoc] = useState(0);
+
+  // Kỹ năng của phòng khám + ai có kỹ năng nào (cột trái ghi dưới tên).
+  const [kyNang, setKyNang] = useState<{ ds: KyNang[]; thanhVien: Record<string, string[]> } | null>(null);
+  useEffect(() => {
+    let huy = false;
+    void fetch("/api/phan-quyen?ky-nang=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { ky_nang?: KyNang[]; thanh_vien?: Record<string, string[]> } | null) => {
+        if (huy) return;
+        if (d?.ky_nang) setKyNang({ ds: d.ky_nang, thanhVien: d.thanh_vien ?? {} });
+      });
+    return () => {
+      huy = true;
+    };
+  }, [lanDoc]);
+  const tenKyNang = (id: string) =>
+    (kyNang?.thanhVien[id] ?? [])
+      .map((ma) => kyNang?.ds.find((k) => k.ma === ma)?.ten)
+      .filter(Boolean)
+      .join(" · ");
 
   const themPreset = async (vai: string) => {
     if (!chon) return;
@@ -148,7 +170,9 @@ export default function BangPhanQuyen({
                 }`}
               >
                 {n.ten}
-                <span className="block text-label text-ink-muted">{tenVai(n.vai)}</span>
+                <span className="block text-label font-normal text-ink-muted">
+                  {tenKyNang(n.id) || tenVai(n.vai)}
+                </span>
               </button>
             </li>
           ))}
@@ -170,20 +194,36 @@ export default function BangPhanQuyen({
               <div>
                 <h2 className="text-sm font-semibold text-ink">{chon.ten}</h2>
                 <p className="text-label text-ink-muted">
-                  {tenVai(chon.vai)} — vai chỉ là gói mẫu. Có lego nào làm được việc lego
-                  ấy.
+                  Tick kỹ năng người này làm — tick là mở đúng các màn, phòng ghi bên cạnh.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={dangLam !== null}
-                onClick={() => void themPreset(chon.vai)}
-              >
-                {dangLam === "preset" ? "Đang thêm…" : `+ Thêm gói mẫu ${tenVai(chon.vai)}`}
-              </Button>
             </div>
-            <LegoCuaNguoi key={`${chon.id}-${lanDoc}`} staffId={chon.id} onLoi={setLoi} />
+            <KyNangCuaNguoi
+              key={chon.id}
+              staffId={chon.id}
+              danhMuc={kyNang?.ds ?? []}
+              nhanSu={nhanSu.map((n) => ({ id: n.id, ten: n.ten }))}
+              onDoi={() => setLanDoc((n) => n + 1)}
+              onLoi={setLoi}
+            />
+            {/* NGOẠI LỆ (nâng cao): 21 lego như trước — thêm / bớt riêng một màn
+                cho một người khi kỹ năng không đủ (vd cho xem Báo cáo). */}
+            <details className="mt-4 rounded-card border border-line bg-surface px-3 py-2">
+              <summary className="cursor-pointer text-body font-medium text-ink-soft">
+                Ngoại lệ (nâng cao) — bật / tắt từng màn riêng cho người này
+              </summary>
+              <div className="mt-2 flex justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={dangLam !== null}
+                  onClick={() => void themPreset(chon.vai)}
+                >
+                  {dangLam === "preset" ? "Đang thêm…" : `+ Thêm gói mẫu ${tenVai(chon.vai)}`}
+                </Button>
+              </div>
+              <LegoCuaNguoi key={`${chon.id}-${lanDoc}`} staffId={chon.id} onLoi={setLoi} />
+            </details>
           </>
         )}
       </section>

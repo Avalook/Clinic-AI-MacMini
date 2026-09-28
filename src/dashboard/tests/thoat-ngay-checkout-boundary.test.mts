@@ -9,7 +9,7 @@ import test from "node:test";
 
 import {
   CA_TUAN,
-  chipNgay,
+  tabNgay,
   locTheoNgay,
   ngayDangChon,
 } from "../app/(dashboard)/home/loc-ngay.ts";
@@ -73,14 +73,15 @@ test("lọc ngày: null giữ cả tuần; một ngày thì còn đúng ngày �
   assert.deepEqual(locTheoNgay(days, "2026-10-01"), []);
 });
 
-test("chip: 'Cả tuần' đứng đầu, rồi T2…CN kèm ngày và số lịch", () => {
+test("tab ngày: 'Cả tuần' đứng đầu, rồi T2…CN kèm ngày; số lịch để riêng", () => {
   const days = TUAN.map((date, i) => ({ date, items: i === 6 ? [1, 2, 3] : [] }));
-  const chip = chipNgay(days);
-  assert.equal(chip.length, 8);
-  assert.deepEqual(chip[0], { ma: CA_TUAN, nhan: "Cả tuần" });
-  assert.equal(chip[1].nhan, "T2 21/09");
-  assert.equal(chip[7].nhan, "CN 27/09 (3)");
-  assert.equal(chip[7].ma, "2026-09-27");
+  const tab = tabNgay(days);
+  assert.equal(tab.length, 8);
+  assert.deepEqual(tab[0], { ma: CA_TUAN, nhan: "Cả tuần", so: 0 });
+  assert.equal(tab[1].nhan, "T2 21");
+  assert.equal(tab[7].nhan, "CN 27");
+  assert.equal(tab[7].so, 3);
+  assert.equal(tab[7].ma, "2026-09-27");
 });
 
 test("chip ngày CHỈ bật ở Trang chủ; Tiếp đón dùng cùng bảng mà không truyền", () => {
@@ -91,7 +92,9 @@ test("chip ngày CHỈ bật ở Trang chủ; Tiếp đón dùng cùng bảng m�
   // Đọc từ URL mỗi lần vẽ, ghi lại URL không tải trang.
   assert.match(bang, /searchParams\.get\("ngay"\)/);
   assert.match(bang, /window\.history\.replaceState/);
-  assert.match(bang, /<ChipLoc/);
+  // Dải tab (27/09/2026) thay hàng chip hộp.
+  assert.match(bang, /role="tablist"/);
+  assert.match(bang, /tabNgay\(days\)/);
 });
 
 // ── A1: Thoát ở thẻ tên đầu trang ──────────────────────────────────────────

@@ -246,3 +246,70 @@ async def doi_lego(
         identity=identity,
         phong_ids=[str(p) for p in body.phong_ids] if body.phong_ids else None,
     )
+
+
+# ── Phân quyền theo KỸ NĂNG (Tuyền chốt 28/09/2026, bản "D") ──────────────
+
+
+class KyNangBody(BaseModel):
+    ma: str
+    bat: bool
+
+
+class ChepKyNangBody(BaseModel):
+    tu_staff_id: UUID
+
+
+@router.get("/phan-quyen/ky-nang")
+async def danh_sach_ky_nang(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mọi kỹ năng của phòng khám: mở màn nào, phòng nào, bao nhiêu người."""
+    from clinicai.services.ky_nang_service import KyNangService
+
+    return await KyNangService(pool).danh_sach(identity=identity)
+
+
+@router.get("/phan-quyen/nhan-su/{staff_id}/ky-nang")
+async def ky_nang_cua_nguoi(
+    staff_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Kỹ năng một người đang có + lịch hôm nay."""
+    from clinicai.services.ky_nang_service import KyNangService
+
+    return await KyNangService(pool).cua_nguoi(
+        staff_id=str(staff_id), identity=identity
+    )
+
+
+@router.post("/phan-quyen/nhan-su/{staff_id}/ky-nang")
+async def doi_ky_nang(
+    staff_id: UUID,
+    body: KyNangBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tick / bỏ tick một kỹ năng — bật / tắt đúng các lego của kỹ năng ấy."""
+    from clinicai.services.ky_nang_service import KyNangService
+
+    return await KyNangService(pool).doi(
+        staff_id=str(staff_id), ma=body.ma, bat=body.bat, identity=identity
+    )
+
+
+@router.post("/phan-quyen/nhan-su/{staff_id}/chep-ky-nang")
+async def chep_ky_nang(
+    staff_id: UUID,
+    body: ChepKyNangBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm cho người này các kỹ năng người kia có mà người này chưa có."""
+    from clinicai.services.ky_nang_service import KyNangService
+
+    return await KyNangService(pool).chep(
+        staff_id=str(staff_id), tu_staff_id=str(body.tu_staff_id), identity=identity
+    )

@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import DoiPhong from "../_lam-viec/DoiPhong";
 
 
-interface PhongLamDuoc {
+export interface PhongLamDuoc {
   id: string;
   name: string;
   floor: string | null;
@@ -27,7 +27,7 @@ interface PhongLamDuoc {
   threshold_waiting: number;
 }
 
-interface ChiDinh {
+export interface ChiDinh {
   id: string;
   service_code: string;
   service_name: string;
@@ -54,7 +54,7 @@ interface ChiDinh {
 
 /** Chuyển phòng được khi chỉ định đang chờ xếp/đang chờ ở phòng — phòng cũ đã
  *  gọi hoặc đang làm thì thôi (máy chủ cũng chặn). */
-function chuyenDuoc(x: ChiDinh): boolean {
+export function chuyenDuoc(x: ChiDinh): boolean {
   return (
     (x.exec_status === "authorized" || x.exec_status === "assigned") &&
     x.work_status !== "called" &&
@@ -62,7 +62,7 @@ function chuyenDuoc(x: ChiDinh): boolean {
   );
 }
 
-function khoaGuiLai(): string {
+export function khoaGuiLai(): string {
   return `cp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 

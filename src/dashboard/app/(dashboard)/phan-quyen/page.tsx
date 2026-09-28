@@ -30,8 +30,8 @@ export default async function TrangPhanQuyen({
       <header>
         <h1 className="text-2xl font-semibold text-ink">Phân quyền</h1>
         <p className="text-sm text-ink-muted">
-          Chọn một người rồi bật những khối công việc họ được làm. Vai chỉ là gợi
-          ý ban đầu — bật thêm khối ngoài vai là chuyện bình thường.
+          Chọn một người rồi tick những kỹ năng họ làm — đúng như danh sách nhân
+          sự của phòng khám. Trường hợp đặc biệt thì mở mục Ngoại lệ.
         </p>
       </header>
       <BangPhanQuyen

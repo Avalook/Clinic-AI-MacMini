@@ -3,6 +3,7 @@
 // đổi tuần bảng đó; `others` giữ nguyên tham số của bảng kia. Chỉ là Link → Server.
 
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   shiftWeek,
   weekDates,
@@ -18,6 +19,7 @@ export default function WeekNav({
   basePath,
   param,
   others = {},
+  gon = false,
 }: {
   week: string;
   basePath: string;
@@ -25,6 +27,9 @@ export default function WeekNav({
   param: string;
   /** Tham số tuần của bảng KIA — giữ nguyên khi đổi tuần bảng này. */
   others?: Record<string, string>;
+  /** Bản GỌN (Trang chủ, 27/09/2026): ‹ 21/09 – 27/09 › bằng nút icon, đứng
+   *  cạnh tiêu đề bảng; "Tuần này" chỉ hiện khi đang ở tuần khác. */
+  gon?: boolean;
 }) {
   const dates = weekDates(week);
   const label = `${fmtDayMonth(dates[0])} – ${fmtDayMonth(dates[6])}`;
@@ -34,6 +39,29 @@ export default function WeekNav({
     sp.set(param, w);
     return `${basePath}?${sp.toString()}`;
   };
+  if (gon) {
+    const NUT =
+      "grid size-7 place-items-center rounded-control text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink";
+    return (
+      <div className="flex items-center gap-0.5">
+        <Link href={href(shiftWeek(week, -1))} aria-label="Tuần trước" className={NUT}>
+          <ChevronLeft className="size-4" />
+        </Link>
+        <span className="px-1 text-meta tabular-nums text-ink-soft">{label}</span>
+        <Link href={href(shiftWeek(week, 1))} aria-label="Tuần sau" className={NUT}>
+          <ChevronRight className="size-4" />
+        </Link>
+        {week !== cur && (
+          <Link
+            href={href(cur)}
+            className="ml-1 rounded-control px-2 py-1 text-meta font-medium text-brand-700 hover:bg-brand-50"
+          >
+            Tuần này
+          </Link>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link href={href(shiftWeek(week, -1))} className={BTN}>

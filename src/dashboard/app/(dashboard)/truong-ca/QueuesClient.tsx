@@ -9,16 +9,23 @@
 // (`ChiDinhCuaBacSi` → `DoiPhong`): danh sách phòng làm được đúng dịch vụ ấy và
 // số người chờ do MÁY CHỦ trả — màn không tự đoán phòng nào làm được gì.
 // Mỗi phòng có nút mở TV riêng (`/display?phong=<mã phòng>` — cùng màn TV đã lọc danh tính).
+//
+// 28/09/2026 (Tuyền): KÉO khách thả sang phòng cùng chức năng (keo-tha.ts —
+// phòng nhận được sáng lên, phòng khác mờ đi) và BẢNG "chờ quá lâu" mở ra khi
+// bấm ô "Chờ quá ngưỡng". Bấm khách vẫn mở popup như cũ (điện thoại không kéo
+// thả được — popup là lối chính trên màn cảm ứng).
 
 import Link from "next/link";
 import { Tv, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Chip from "@/components/ui/Chip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ChiDinhCuaBacSi from "./ChiDinhCuaBacSi";
-import type { DispatchPatient, DispatchRoom } from "./types";
+import { nodeLabel, type DispatchHistoryRow, type DispatchPatient, type DispatchRoom } from "./types";
+import { EVENT_LABEL } from "./HistoryClient";
 import { LiveBadge, ReadFailed, tenPhong, useDispatchLive } from "./shared";
+import { timDichDen, type DichDen } from "./keo-tha";
 
 const quaNguong = (p: DispatchPatient) => p.wait_minutes > p.threshold_minutes;
 
@@ -30,6 +37,55 @@ export default function QueuesClient({
   const live = useDispatchLive({ ...initial, alerts: [] });
   const [chon, setChon] = useState<string | null>(null);
   const khach = live.patients.find((p) => p.visit_id === chon) ?? null;
+  // Lịch sử điều phối ngay trên màn (Tuyền 28/09/2026) — đọc lại mỗi khi bảng
+  // sống đổi (sau kéo thả, tin SSE, nhịp làm mới).
+  const [lichSu, setLichSu] = useState<DispatchHistoryRow[] | null>(null);
+  useEffect(() => {
+    let song = true;
+    void fetch("/api/dispatch-read?what=history", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { items?: DispatchHistoryRow[] } | null) => {
+        if (song && j && Array.isArray(j.items)) setLichSu(j.items);
+      })
+      .catch(() => undefined);
+    return () => {
+      song = false;
+    };
+  }, [live.patients]);
+  // KÉO THẢ: `keo` = khách đang kéo (đích chưa đọc xong = "dang-doc").
+  const [keo, setKeo] = useState<{ p: DispatchPatient; dich: DichDen | "dang-doc" } | null>(null);
+  const [bao, setBao] = useState<{ ok: boolean; text: string } | null>(null);
+  const keoId = useRef<string | null>(null);
+
+  async function batDauKeo(p: DispatchPatient) {
+    keoId.current = p.visit_id;
+    setBao(null);
+    setKeo({ p, dich: "dang-doc" });
+    const d = await timDichDen(p);
+    if (keoId.current !== p.visit_id) return; // đã thả / huỷ trước khi đọc xong
+    if ("loi" in d) {
+      setKeo(null);
+      setBao({ ok: false, text: d.loi });
+      return;
+    }
+    setKeo({ p, dich: d });
+  }
+  function huyKeo() {
+    keoId.current = null;
+    setKeo(null);
+  }
+  async function tha(roomId: string, tenPhongDen: string) {
+    const k = keo;
+    huyKeo();
+    if (!k || k.dich === "dang-doc" || !k.dich.phong.has(roomId)) return;
+    const kq = await k.dich.gui(roomId);
+    setBao(
+      kq.ok
+        ? { ok: true, text: `Đã chuyển ${k.p.patient_name ?? "khách"} (${k.dich.tenDichVu}) sang ${tenPhongDen}.` }
+        : { ok: false, text: kq.loi },
+    );
+    if (kq.ok) void live.lamMoi();
+  }
 
   // Esc đóng hộp điều phối.
   useEffect(() => {
@@ -43,24 +99,63 @@ export default function QueuesClient({
 
   const soDo = live.patients.filter(quaNguong).length;
   const phongDay = live.rooms.filter((r) => r.state === "critical").length;
-  const tongCho = live.rooms.reduce((s, r) => s + r.waiting, 0);
+  // CÙNG MẪU với "Chờ quá ngưỡng" (Tuyền 28/09/2026): mọi khách đang có lượt ở
+  // bất kỳ bước nào. Bản cũ cộng `rooms.waiting` (chỉ người đứng chờ trong
+  // phòng) nên ra "Đang chờ 4" cạnh "Chờ quá ngưỡng 44" — hai số không so được.
+  const tongKhach = live.patients.length;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <StatRow>
-          <StatCard label="Đang chờ" value={tongCho} tone="brand" />
-          <StatCard label="Chờ quá ngưỡng" value={soDo} tone={soDo ? "danger" : "neutral"} />
+          <StatCard label="Khách đang trong phòng khám" value={tongKhach} tone="brand" />
+          <StatCard
+            label="Chờ quá ngưỡng"
+            value={soDo}
+            tone={soDo ? "danger" : "neutral"}
+            // Bấm = nhảy xuống bảng "Khách chờ quá lâu" dưới lưới phòng.
+            onSelect={() =>
+              document.getElementById("bang-qua-lau")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          />
           <StatCard label="Phòng quá tải" value={phongDay} tone={phongDay ? "warning" : "neutral"} />
         </StatRow>
         <LiveBadge seconds={live.staleSeconds} ok={live.ok} />
       </div>
       <ReadFailed ok={live.ok} />
+      {bao ? (
+        <p
+          role={bao.ok ? "status" : "alert"}
+          className={`rounded-control px-3 py-2 text-meta ${bao.ok ? "bg-success-bg text-success" : "bg-danger-bg text-danger"}`}
+        >
+          {bao.text}
+        </p>
+      ) : null}
+      <p className="hidden text-meta text-ink-muted md:block">
+        Kéo một khách thả vào phòng sáng lên để chuyển — hoặc bấm khách để chọn phòng.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {live.rooms.map((r) => (
-            <ThePhong key={r.id} phong={r} ds={live.patients} chon={chon} onChon={setChon} />
+            <ThePhong
+              key={r.id}
+              phong={r}
+              ds={live.patients}
+              chon={chon}
+              onChon={setChon}
+              keo={keo}
+              onKeo={(p) => void batDauKeo(p)}
+              onHuyKeo={huyKeo}
+              onTha={(id, ten) => void tha(id, ten)}
+            />
           ))}
+      </div>
+
+      {/* DƯỚI LƯỚI PHÒNG (Tuyền 28/09/2026): khách chờ quá lâu bên trái, lịch
+          sử điều phối bên phải — hai câu hỏi "ai đang kẹt" và "đã làm gì". */}
+      <div className="grid items-start gap-3 lg:grid-cols-2">
+        <BangQuaLau ds={live.patients} onChon={setChon} />
+        <LichSuGon ds={lichSu} />
       </div>
 
       {/* POPUP giữa màn (Tuyền 27/09: "popup thôi, không cần mở hẳn sang bên"):
@@ -112,12 +207,21 @@ function ThePhong({
   ds,
   chon,
   onChon,
+  keo,
+  onKeo,
+  onHuyKeo,
+  onTha,
 }: {
   phong: DispatchRoom;
   ds: DispatchPatient[];
   chon: string | null;
   onChon: (id: string) => void;
+  keo: { p: DispatchPatient; dich: DichDen | "dang-doc" } | null;
+  onKeo: (p: DispatchPatient) => void;
+  onHuyKeo: () => void;
+  onTha: (roomId: string, ten: string) => void;
 }) {
+  const [treo, setTreo] = useState(false);
   const o = useMemo(
     () =>
       ds
@@ -126,11 +230,36 @@ function ThePhong({
     [ds, r.code],
   );
   const tone = r.state === "critical" ? "danger" : r.state === "warning" ? "warning" : "success";
+  // Khi đang kéo: phòng nhận được sáng viền, phòng khác mờ; phòng gốc giữ nguyên.
+  const dich = keo && keo.dich !== "dang-doc" ? keo.dich : null;
+  const nhanDuoc = dich?.phong.has(r.id) ?? false;
+  const laGoc = keo?.p.room_code === r.code;
+  const trangThaiKeo = !keo
+    ? ""
+    : nhanDuoc
+      ? treo
+        ? "ring-2 ring-brand-600 bg-brand-50"
+        : "ring-2 ring-brand-300"
+      : laGoc || keo.dich === "dang-doc"
+        ? ""
+        : "opacity-40";
   return (
     <section
-      className={`rounded-card border bg-surface shadow-card ${
+      onDragOver={(e) => {
+        if (!nhanDuoc) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (!treo) setTreo(true);
+      }}
+      onDragLeave={() => setTreo(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setTreo(false);
+        onTha(r.id, tenPhong(r.name));
+      }}
+      className={`rounded-card border bg-surface shadow-card transition ${
         r.state === "critical" ? "border-danger/40" : "border-line"
-      }`}
+      } ${trangThaiKeo}`}
     >
       <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
         <div className="min-w-0">
@@ -164,10 +293,17 @@ function ThePhong({
               <li key={p.visit_id} className="border-b border-line last:border-b-0">
                 <button
                   type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", p.visit_id);
+                    onKeo(p);
+                  }}
+                  onDragEnd={onHuyKeo}
                   onClick={() => onChon(p.visit_id)}
                   aria-current={dang ? "true" : undefined}
-                  title={do_ ? "Chờ quá ngưỡng — bấm để chuyển phòng" : "Bấm để xem / chuyển phòng"}
-                  className={`flex w-full items-center gap-2 border-l-3 px-3 py-2 text-left text-meta ${
+                  title={do_ ? "Chờ quá ngưỡng — kéo sang phòng khác hoặc bấm để chuyển" : "Kéo sang phòng khác hoặc bấm để chuyển"}
+                  className={`flex w-full cursor-grab items-center gap-2 border-l-3 px-3 py-2 text-left text-meta active:cursor-grabbing ${
                     dang
                       ? "border-l-brand-500 bg-surface-selected"
                       : do_
@@ -187,6 +323,120 @@ function ThePhong({
             );
           })}
         </ul>
+      )}
+    </section>
+  );
+}
+
+/** BẢNG CHỜ QUÁ LÂU (Tuyền 28/09/2026) — mọi khách vượt ngưỡng, lâu nhất trước,
+ *  kèm đang ở đâu; bấm một dòng mở cùng popup chuyển phòng. Chỉ đọc lại
+ *  `live.patients`, không hỏi thêm máy chủ. */
+function BangQuaLau({
+  ds,
+  onChon,
+}: {
+  ds: DispatchPatient[];
+  onChon: (id: string) => void;
+}) {
+  const o = ds.filter(quaNguong).sort((a, b) => b.wait_minutes - a.wait_minutes);
+  return (
+    <section
+      id="bang-qua-lau"
+      aria-label="Khách chờ quá lâu"
+      className="scroll-mt-16 rounded-card border border-line bg-surface p-3 shadow-card"
+    >
+      <h2 className="px-1 text-emph font-semibold text-ink">
+        Khách chờ quá lâu <span className="font-normal text-ink-muted">· {o.length}</span>
+      </h2>
+      {o.length === 0 ? (
+        <p className="px-1 py-2 text-meta text-ink-muted">Không có khách nào chờ quá ngưỡng.</p>
+      ) : (
+        <div className="mt-2 max-h-80 overflow-auto">
+          <table className="w-full min-w-120 border-collapse text-body">
+            <thead className="sticky top-0 bg-surface">
+              <tr className="text-left text-meta text-ink-faint">
+                <th className="px-2 py-1.5 font-medium">Số</th>
+                <th className="px-2 py-1.5 font-medium">Khách</th>
+                <th className="px-2 py-1.5 font-medium">Đang ở</th>
+                <th className="px-2 py-1.5 text-right font-medium">Chờ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {o.map((p) => (
+                <tr key={p.visit_id} className="hover:bg-surface-sunken">
+                  <td className="px-2 py-1.5 tabular-nums text-ink-soft">{p.so_tiep_don ?? p.queue_number ?? ""}</td>
+                  <td className="px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => onChon(p.visit_id)}
+                      className="text-left font-medium text-ink hover:text-brand-700 hover:underline"
+                    >
+                      {p.patient_name ?? "—"}
+                    </button>
+                  </td>
+                  <td className="px-2 py-1.5 text-ink-muted">
+                    {p.current_node_name ?? p.current_node_code ?? "—"}
+                    {p.room_name ? ` · ${tenPhong(p.room_name)}` : ""}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">
+                    <span className="font-semibold text-danger">{p.wait_minutes}′</span>
+                    <span className="text-meta text-ink-faint"> / {p.threshold_minutes}′</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** LỊCH SỬ ĐIỀU PHỐI GỌN — ai chuyển ai, từ đâu sang đâu, lúc nào. Bản đầy đủ
+ *  (lý do, lọc) vẫn ở /truong-ca/lich-su. */
+function LichSuGon({ ds }: { ds: DispatchHistoryRow[] | null }) {
+  return (
+    <section aria-label="Lịch sử điều phối" className="rounded-card border border-line bg-surface p-3 shadow-card">
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h2 className="text-emph font-semibold text-ink">Lịch sử điều phối</h2>
+        <Link href="/truong-ca/lich-su" className="text-meta text-brand-700 hover:underline">
+          Xem tất cả
+        </Link>
+      </div>
+      {ds === null ? (
+        <p className="px-1 py-2 text-meta text-ink-muted">Đang tải…</p>
+      ) : ds.length === 0 ? (
+        <p className="px-1 py-2 text-meta text-ink-muted">Chưa có thao tác điều phối nào.</p>
+      ) : (
+        <ol className="mt-2 max-h-80 space-y-0.5 overflow-auto">
+          {ds.slice(0, 50).map((h, i) => (
+            <li key={i} className="flex gap-3 rounded-control px-2 py-1.5 hover:bg-surface-sunken">
+              <span className="w-10 shrink-0 pt-px text-meta tabular-nums text-ink-faint">
+                {new Date(h.at).toLocaleTimeString("vi-VN", {
+                  timeZone: "Asia/Ho_Chi_Minh",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body text-ink">
+                  <span className="font-medium">{h.patient_name ?? "—"}</span>{" "}
+                  <span className="text-ink-muted">
+                    {h.from_room ? `${tenPhong(h.from_room)} → ` : "→ "}
+                    {h.to_room ? tenPhong(h.to_room) : nodeLabel(h.to_node)}
+                  </span>
+                </span>
+                <span className="block truncate text-meta text-ink-faint">
+                  {h.event_type === "service.routed" && h.from_room
+                    ? "Chuyển phòng"
+                    : (EVENT_LABEL[h.event_type] ?? h.event_type)}
+                  {h.reason ? ` · ${h.reason}` : ""}
+                  {h.actor_name ? ` · ${h.actor_name}` : ""}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
       )}
     </section>
   );

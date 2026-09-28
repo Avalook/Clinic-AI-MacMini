@@ -7,11 +7,14 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import Timeline from "@/components/ui/Timeline";
+import { doanNoi, gioMoc, type MocMayChu } from "@/lib/hanh-trinh";
 
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import NutCheckOut from "../_lam-viec/NutCheckOut";
 import { docBang, gioVn } from "../_lam-viec/api";
 import SoLuot from "@/components/ui/SoLuot";
+import { doctorName } from "@/lib/doctor-name";
 import { useNgheBang } from "../dung-nghe-bang";
 
 interface Luot {
@@ -27,6 +30,8 @@ interface Luot {
   da_xong: { nhan: string; luc: string }[];
   con_cho: string[];
   da_ve: boolean;
+  /** Mốc dải thời gian — máy chủ tính cùng hàm với phiếu khám (28/09/2026). */
+  moc?: MocMayChu[];
 }
 
 interface Bang {
@@ -39,11 +44,18 @@ export default function BangHanhTrinh() {
   const [loi, setLoi] = useState<string | null>(null);
   const [anDaVe, setAnDaVe] = useState(true);
   const [tim, setTim] = useState("");
+  // Đồng hồ cho nhãn "đang 12 phút" trên đoạn nối — vẽ lại mỗi 30 giây.
+  const [bayGio, setBayGio] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setBayGio(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const tai = useCallback(async () => {
     const kq = await docBang<Bang>("hanh-trinh");
     if (kq.ok) {
       setBang(kq.data);
+      setBayGio(Date.now());
       setLoi(null);
     } else {
       setLoi(kq.loi);
@@ -123,7 +135,7 @@ export default function BangHanhTrinh() {
                 <p className="text-meta text-ink-muted">
                   {[
                     l.loai_kham,
-                    l.bac_si ? `BS ${l.bac_si}` : null,
+                    l.bac_si ? doctorName(l.bac_si) : null,
                     l.check_in_luc ? `tới ${gioVn(l.check_in_luc)}` : null,
                   ]
                     .filter(Boolean)
@@ -132,38 +144,64 @@ export default function BangHanhTrinh() {
               </div>
               <Chip tone={l.da_ve ? "neutral" : "brand"}>{l.dang_o}</Chip>
             </div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div>
-                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-                  Đã xong
-                </p>
-                {l.da_xong.length === 0 ? (
-                  <p className="text-meta text-ink-faint">—</p>
-                ) : (
-                  <ol className="text-meta text-ink">
-                    {l.da_xong.map((x, i) => (
-                      <li key={i}>
-                        <span className="text-ink-muted">{gioVn(x.luc)}</span> {x.nhan}
-                      </li>
-                    ))}
-                  </ol>
-                )}
+            {/* DẢI THỜI GIAN Y HỆT BÀN KHÁM (Tuyền 28/09/2026: "hành trình cũng
+                học theo timeline ở bàn khám"): mốc đã xong / đang / chưa tới, và
+                khoảng chờ giữa hai chặng nằm trên đoạn nối. Máy chủ cũ chưa có
+                `moc` thì lùi về hai cột Đã xong / Còn chờ như trước. */}
+            {l.moc && l.moc.length > 0 ? (
+              <div className="mt-3">
+                <Timeline
+                  nhanAria={`Hành trình của ${l.ten}`}
+                  moc={l.moc.map((m) => ({
+                    khoa: m.ma,
+                    ten: m.ten,
+                    noi: m.noi || undefined,
+                    gio: gioMoc(m),
+                    trangThai: m.trang_thai,
+                  }))}
+                  doan={doanNoi(l.moc, bayGio)}
+                />
+                {l.con_cho.length > 0 ? (
+                  <p className="mt-2 text-meta text-ink-muted">
+                    <span className="font-semibold text-ink-soft">Còn chờ:</span>{" "}
+                    {l.con_cho.join(" · ")}
+                  </p>
+                ) : null}
               </div>
-              <div>
-                <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-                  Còn chờ
-                </p>
-                {l.con_cho.length === 0 ? (
-                  <p className="text-meta text-ink-faint">Không còn gì chờ</p>
-                ) : (
-                  <ul className="text-meta text-ink">
-                    {l.con_cho.map((x, i) => (
-                      <li key={i}>• {x}</li>
-                    ))}
-                  </ul>
-                )}
+            ) : (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                    Đã xong
+                  </p>
+                  {l.da_xong.length === 0 ? (
+                    <p className="text-meta text-ink-faint">—</p>
+                  ) : (
+                    <ol className="text-meta text-ink">
+                      {l.da_xong.map((x, i) => (
+                        <li key={i}>
+                          <span className="text-ink-muted">{gioVn(x.luc)}</span> {x.nhan}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+                <div>
+                  <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                    Còn chờ
+                  </p>
+                  {l.con_cho.length === 0 ? (
+                    <p className="text-meta text-ink-faint">Không còn gì chờ</p>
+                  ) : (
+                    <ul className="text-meta text-ink">
+                      {l.con_cho.map((x, i) => (
+                        <li key={i}>• {x}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
             <div className="mt-1 flex flex-wrap items-start gap-2">
               <NutXemLuot visitId={l.visit_id} />
               {/* Check-out ngay trên dòng khách (27/09/2026, đợt 3): chỉ tài

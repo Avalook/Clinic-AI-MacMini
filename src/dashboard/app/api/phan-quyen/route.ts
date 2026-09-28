@@ -4,6 +4,8 @@
 //   GET  /api/phan-quyen?staff=<uuid>        → người này đang có khối nào
 //   GET  /api/phan-quyen?lego=<uuid>         → 21 lego của người này (25/09)
 //   GET  /api/phan-quyen?nhom=1              → nhóm quyền mẫu của phòng khám
+//   GET  /api/phan-quyen?ky-nang=1           → kỹ năng + ai có (28/09)
+//   GET  /api/phan-quyen?ky-nang-cua=<uuid>  → kỹ năng + lịch hôm nay của một người
 //   POST /api/phan-quyen                     → { thao_tac, staff_id, ... }
 //
 // Ba thao tác không gắn với một người mà gắn với NHÓM MẪU (`luu-nhom`,
@@ -27,6 +29,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "them-preset": (id) => `/api/v1/phan-quyen/nhan-su/${id}/them-preset`,
   // 21 lego theo node thanh bên (25/09/2026): bật / tắt một lego.
   "doi-lego": (id) => `/api/v1/phan-quyen/nhan-su/${id}/lego`,
+  // Phân quyền theo KỸ NĂNG (28/09/2026): tick / bỏ tick, chép từ người khác.
+  "doi-ky-nang": (id) => `/api/v1/phan-quyen/nhan-su/${id}/ky-nang`,
+  "chep-ky-nang": (id) => `/api/v1/phan-quyen/nhan-su/${id}/chep-ky-nang`,
 };
 
 export async function GET(request: Request) {
@@ -37,6 +42,24 @@ export async function GET(request: Request) {
   // Quyền THEO MÀN (Tuyền chốt 23/09): nhóm mẫu nào đang bật màn nào.
   if (q.get("man") !== null) {
     return proxyJsonToBackend("GET", "/api/v1/phan-quyen/man", undefined);
+  }
+  // Kỹ năng (28/09/2026): cả danh mục, hoặc của một người.
+  if (q.get("ky-nang") !== null) {
+    return proxyJsonToBackend("GET", "/api/v1/phan-quyen/ky-nang", undefined);
+  }
+  const kyNangCua = q.get("ky-nang-cua");
+  if (kyNangCua !== null) {
+    if (!UUID_RE.test(kyNangCua)) {
+      return NextResponse.json(
+        { error: "BAD_REQUEST", message: "Mã nhân sự không hợp lệ." },
+        { status: 400 },
+      );
+    }
+    return proxyJsonToBackend(
+      "GET",
+      `/api/v1/phan-quyen/nhan-su/${kyNangCua}/ky-nang`,
+      undefined,
+    );
   }
   // Lego của một người (25/09/2026).
   const lego = q.get("lego");

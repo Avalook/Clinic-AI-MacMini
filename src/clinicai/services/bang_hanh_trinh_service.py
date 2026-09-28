@@ -113,6 +113,7 @@ class BangHanhTrinhService:
                     SELECT v.visit_id::text AS visit_id, v.status, v.closed_at,
                            v.checked_in_at, p.full_name, p.patient_code,
                            a.so_booking, a.so_tiep_don, st.name AS loai_kham,
+                           a.created_at AS dat_luc,
                            d.full_name AS bac_si
                       FROM visit v
                       JOIN patient p
@@ -232,6 +233,12 @@ class BangHanhTrinhService:
                 xong[r["visit_id"]].append(
                     {"nhan": r["nhan"], "luc": r["occurred_at"].isoformat()}
                 )
+            # MỐC DẢI THỜI GIAN (28/09/2026 — Tuyền: "hành trình cũng học theo
+            # timeline ở bàn khám"): cùng `dung_moc` với phiếu khám, gom 2 câu
+            # cho mọi lượt. Nhập muộn vì hanh_trinh nhập `dang_o` từ đây.
+            from clinicai.phieu_kham.hanh_trinh import doc_moc_nhieu
+
+            moc = await doc_moc_nhieu(conn, clinic_id=cid, luot=luot)
         return {
             "luot": [
                 {
@@ -254,6 +261,7 @@ class BangHanhTrinhService:
                         phieu.get(x["visit_id"], 0),
                     ),
                     "da_ve": x["closed_at"] is not None,
+                    "moc": moc.get(x["visit_id"], []),
                 }
                 for x in luot
             ],

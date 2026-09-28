@@ -204,9 +204,12 @@ MODULE: dict[str, Module] = {
                 # deploy. Nhóm KHÔNG phải quyền — quyền thật ở capability_grant.
                 "SaveRolePreset",
                 "RemoveRolePreset",
+                # Phân quyền theo KỸ NĂNG (28/09/2026): tick kỹ năng cho người =
+                # bật/tắt các lego của kỹ năng ấy qua GrantWorkPack/RevokeWorkPack.
+                "SetStaffSkill",
             ],
             phat=["capability.granted", "capability.revoked"],
-            bang=["capability_grant", "quyen_preset"],
+            bang=["capability_grant", "quyen_preset", "ky_nang", "nhan_su_ky_nang"],
             quyen=["permission.manage", "staff.manage", "account.manage"],
         ),
         Module(

@@ -293,6 +293,141 @@ def _iso(v: Any) -> Any:
     return v.isoformat() if isinstance(v, datetime) else v
 
 
+# Chỉ định của NHIỀU lượt một lần — phiếu khám (một lượt) và bảng hành trình
+# chung (cả ngày, 28/09/2026) dùng chung câu này để hai nơi không lệch nhau.
+_SQL_CHI_DINH = """
+        SELECT o.visit_id::text AS visit_id, o.id, o.service_name,
+               o.lan_chi_dinh, o.created_at,
+               o.selection_status, o.execution_status, o.ket_qua_luc,
+               o.started_at, o.finished_at, r.name AS phong,
+               coalesce(n.lam_ben_ngoai, false) AS ngoai,
+               EXISTS (
+                   SELECT 1 FROM payment_bill_line bl
+                     JOIN payment_cycle c
+                       ON c.clinic_id = bl.clinic_id
+                      AND c.payment_cycle_id = bl.payment_cycle_id
+                    WHERE bl.clinic_id = o.clinic_id
+                      AND bl.source_type = 'service_order'
+                      AND bl.source_id = o.id::text
+                      AND c.status = 'PAID') AS da_tra,
+               (SELECT min(c.paid_at) FROM payment_bill_line bl
+                  JOIN payment_cycle c
+                    ON c.clinic_id = bl.clinic_id
+                   AND c.payment_cycle_id = bl.payment_cycle_id
+                 WHERE bl.clinic_id = o.clinic_id
+                   AND bl.source_type = 'service_order'
+                   AND bl.source_id = o.id::text
+                   AND c.status = 'PAID') AS tra_luc,
+               EXISTS (SELECT 1 FROM service_price sp
+                        WHERE sp.clinic_id = o.clinic_id
+                          AND sp.service_code = o.service_code
+                          AND sp.active AND sp."group" = 'dich_vu'
+                          AND sp.billing_owner = 'EXTERNAL_PARTNER')
+                 AS doi_tac_thu,
+               EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt
+                        WHERE tt.clinic_id = o.clinic_id
+                          AND tt.service_order_id = o.id
+                          AND tt.huy_luc IS NULL) AS doi_tac_da_thu
+          FROM service_order o
+          LEFT JOIN clinic_room r ON r.id = o.room_id
+          LEFT JOIN node_definition n
+            ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+         WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+           AND o.exec_status NOT IN ('draft', 'cancelled')
+           AND coalesce(o.execution_status, '') <> 'CANCELLED'
+         ORDER BY o.created_at
+"""
+
+
+def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
+    return {
+        "id": str(r["id"]),
+        "ten": r["service_name"],
+        "lan": r["lan_chi_dinh"],
+        "tao_luc": r["created_at"],
+        "chon": r["selection_status"] != "NOT_SELECTED",
+        "da_tra": bool(r["da_tra"]),
+        "xong": r["ket_qua_luc"] is not None
+        or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
+        "phong": r["phong"],
+        "ngoai": bool(r["ngoai"]),
+        "tra_luc": r["tra_luc"],
+        "bat_dau_luc": r["started_at"],
+        # Đang làm ở phòng; việc đối tác: phòng khám lấy mẫu xong là mẫu
+        # đang ở đối tác (chưa có kết quả thì chưa xong).
+        "dang_lam": r["execution_status"] == "IN_PROGRESS"
+        or (bool(r["ngoai"]) and r["execution_status"] == "COMPLETED"),
+        # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
+        # kết quả) thì giờ làm xong.
+        "xong_luc": r["ket_qua_luc"] or r["finished_at"],
+        "doi_tac_thu": bool(r["doi_tac_thu"]),
+        "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
+    }
+
+
+async def _doc_su_kien_chi_dinh(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_ids: list[str]
+) -> tuple[dict[str, list[SuKien]], dict[str, list[dict[str, Any]]]]:
+    """Sự kiện dòng thời gian + chỉ định, gom theo lượt — 2 câu cho mọi lượt."""
+    # Khoá theo chữ thường — Postgres trả uuid dạng thường, người gọi có thể không.
+    su_kien: dict[str, list[SuKien]] = {v.lower(): [] for v in visit_ids}
+    for r in await conn.fetch(
+        "SELECT visit_id::text AS visit_id, event_type, occurred_at, chi_tiet"
+        "  FROM luot_dong_thoi_gian"
+        " WHERE clinic_id = $1::uuid AND visit_id = ANY($2::uuid[])"
+        "   AND event_type = ANY($3::text[])"
+        " ORDER BY occurred_at, thu_tu",
+        clinic_id,
+        visit_ids,
+        list(_SU_KIEN),
+    ):
+        ct = r["chi_tiet"]
+        if isinstance(ct, str):
+            ct = json.loads(ct)
+        su_kien.setdefault(r["visit_id"], []).append(
+            (r["event_type"], r["occurred_at"], ct or {})
+        )
+    chi_dinh: dict[str, list[dict[str, Any]]] = {v.lower(): [] for v in visit_ids}
+    for r in await conn.fetch(_SQL_CHI_DINH, clinic_id, visit_ids):
+        chi_dinh.setdefault(r["visit_id"], []).append(_chi_dinh(r))
+    return su_kien, chi_dinh
+
+
+def _moc_iso(moc: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    for m in moc:
+        for k in ("bat", "ket"):
+            m[k] = _iso(m[k])
+        for x in m.get("cac_lan", []):
+            x["luc"] = _iso(x["luc"])
+    return moc
+
+
+async def doc_moc_nhieu(
+    conn: asyncpg.Connection, *, clinic_id: str, luot: list[dict[str, Any]]
+) -> dict[str, list[dict[str, Any]]]:
+    """Mốc hành trình của NHIỀU lượt (bảng hành trình chung, 28/09/2026 — Tuyền:
+    "hành trình cũng học theo timeline ở bàn khám"). Mỗi lượt cần `visit_id`,
+    `dat_luc`, `checked_in_at`, `closed_at`. Cùng `dung_moc` với phiếu khám."""
+    ids = [x["visit_id"] for x in luot]
+    if not ids:
+        return {}
+    su_kien, chi_dinh = await _doc_su_kien_chi_dinh(
+        conn, clinic_id=clinic_id, visit_ids=ids
+    )
+    return {
+        x["visit_id"]: _moc_iso(
+            dung_moc(
+                dat_lich_luc=x["dat_luc"],
+                check_in_luc=x["checked_in_at"],
+                ve_luc=x["closed_at"],
+                su_kien=su_kien[x["visit_id"].lower()],
+                chi_dinh=chi_dinh[x["visit_id"].lower()],
+            )
+        )
+        for x in luot
+    }
+
+
 async def doc_hanh_trinh(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> dict[str, Any] | None:
@@ -322,102 +457,19 @@ async def doc_hanh_trinh(
             visit_id,
         )
     ]
-    su_kien: list[SuKien] = []
-    for r in await conn.fetch(
-        "SELECT event_type, occurred_at, chi_tiet FROM luot_dong_thoi_gian"
-        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-        "   AND event_type = ANY($3::text[])"
-        " ORDER BY occurred_at, thu_tu",
-        clinic_id,
-        visit_id,
-        list(_SU_KIEN),
-    ):
-        ct = r["chi_tiet"]
-        if isinstance(ct, str):
-            ct = json.loads(ct)
-        su_kien.append((r["event_type"], r["occurred_at"], ct or {}))
-    chi_dinh = [
-        {
-            "id": str(r["id"]),
-            "ten": r["service_name"],
-            "lan": r["lan_chi_dinh"],
-            "tao_luc": r["created_at"],
-            "chon": r["selection_status"] != "NOT_SELECTED",
-            "da_tra": bool(r["da_tra"]),
-            "xong": r["ket_qua_luc"] is not None
-            or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
-            "phong": r["phong"],
-            "ngoai": bool(r["ngoai"]),
-            "tra_luc": r["tra_luc"],
-            "bat_dau_luc": r["started_at"],
-            # Đang làm ở phòng; việc đối tác: phòng khám lấy mẫu xong là mẫu
-            # đang ở đối tác (chưa có kết quả thì chưa xong).
-            "dang_lam": r["execution_status"] == "IN_PROGRESS"
-            or (bool(r["ngoai"]) and r["execution_status"] == "COMPLETED"),
-            # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
-            # kết quả) thì giờ làm xong.
-            "xong_luc": r["ket_qua_luc"] or r["finished_at"],
-            "doi_tac_thu": bool(r["doi_tac_thu"]),
-            "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
-        }
-        for r in await conn.fetch(
-            """
-            SELECT o.id, o.service_name, o.lan_chi_dinh, o.created_at,
-                   o.selection_status, o.execution_status, o.ket_qua_luc,
-                   o.started_at, o.finished_at, r.name AS phong,
-                   coalesce(n.lam_ben_ngoai, false) AS ngoai,
-                   EXISTS (
-                       SELECT 1 FROM payment_bill_line bl
-                         JOIN payment_cycle c
-                           ON c.clinic_id = bl.clinic_id
-                          AND c.payment_cycle_id = bl.payment_cycle_id
-                        WHERE bl.clinic_id = o.clinic_id
-                          AND bl.source_type = 'service_order'
-                          AND bl.source_id = o.id::text
-                          AND c.status = 'PAID') AS da_tra,
-                   (SELECT min(c.paid_at) FROM payment_bill_line bl
-                      JOIN payment_cycle c
-                        ON c.clinic_id = bl.clinic_id
-                       AND c.payment_cycle_id = bl.payment_cycle_id
-                     WHERE bl.clinic_id = o.clinic_id
-                       AND bl.source_type = 'service_order'
-                       AND bl.source_id = o.id::text
-                       AND c.status = 'PAID') AS tra_luc,
-                   EXISTS (SELECT 1 FROM service_price sp
-                            WHERE sp.clinic_id = o.clinic_id
-                              AND sp.service_code = o.service_code
-                              AND sp.active AND sp."group" = 'dich_vu'
-                              AND sp.billing_owner = 'EXTERNAL_PARTNER')
-                     AS doi_tac_thu,
-                   EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt
-                            WHERE tt.clinic_id = o.clinic_id
-                              AND tt.service_order_id = o.id
-                              AND tt.huy_luc IS NULL) AS doi_tac_da_thu
-              FROM service_order o
-              LEFT JOIN clinic_room r ON r.id = o.room_id
-              LEFT JOIN node_definition n
-                ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
-               AND o.exec_status NOT IN ('draft', 'cancelled')
-               AND coalesce(o.execution_status, '') <> 'CANCELLED'
-             ORDER BY o.created_at
-            """,
-            clinic_id,
-            visit_id,
-        )
-    ]
-    moc = dung_moc(
-        dat_lich_luc=luot["dat_luc"],
-        check_in_luc=luot["checked_in_at"],
-        ve_luc=luot["closed_at"],
-        su_kien=su_kien,
-        chi_dinh=chi_dinh,
+    su_kien, chi_dinh_theo = await _doc_su_kien_chi_dinh(
+        conn, clinic_id=clinic_id, visit_ids=[visit_id]
     )
-    for m in moc:
-        for k in ("bat", "ket"):
-            m[k] = _iso(m[k])
-        for x in m.get("cac_lan", []):
-            x["luc"] = _iso(x["luc"])
+    chi_dinh = chi_dinh_theo[visit_id.lower()]
+    moc = _moc_iso(
+        dung_moc(
+            dat_lich_luc=luot["dat_luc"],
+            check_in_luc=luot["checked_in_at"],
+            ve_luc=luot["closed_at"],
+            su_kien=su_kien[visit_id.lower()],
+            chi_dinh=chi_dinh,
+        )
+    )
     tung = dung_tung_dich_vu(chi_dinh)
     for d in tung:
         for k in ("gui", "thu", "bat_dau", "xong"):
@@ -434,4 +486,4 @@ async def doc_hanh_trinh(
     }
 
 
-__all__ = ["doc_hanh_trinh", "dung_moc", "dung_tung_dich_vu"]
+__all__ = ["doc_hanh_trinh", "doc_moc_nhieu", "dung_moc", "dung_tung_dich_vu"]

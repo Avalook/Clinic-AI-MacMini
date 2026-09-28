@@ -43,6 +43,12 @@ _VN = ZoneInfo("Asia/Ho_Chi_Minh")
 # Trần giữ nguyên từ bản PostgREST của trang (limit 300 ở bảng trạng thái).
 _TRAN_TRANG_THAI = 300
 
+# Lịch đã chết — không tính vào tải bác sĩ (cùng bộ với week_appointments_service).
+_TRANG_THAI_CHET = ("CANCELLED", "NO_SHOW", "DOCTOR_DECLINED")
+
+# Quá giờ hẹn bao nhiêu phút mà chưa check-in thì coi là "khách trễ".
+_PHUT_TRE = 15
+
 
 class ManTrangChuService:
     """Đọc một lần mọi dữ liệu của Trang chủ."""
@@ -107,6 +113,108 @@ class ManTrangChuService:
                 """,
                 clinic_id,
                 dau_ngay,
+            )
+            # XU HƯỚNG 7 NGÀY cho ô số (Tuyền chốt kiểu "bảng A + thống kê B",
+            # 27/09/2026). Chỉ hai ô có lịch sử dựng lại được từ dữ liệu:
+            #  * khách mới — đếm `patient.created_at` theo ngày;
+            #  * việc đang chờ — việc đã tạo trước cuối ngày d và lúc ấy CHƯA
+            #    đóng (còn mở tới giờ, hoặc đóng sau cuối ngày d). Điểm cuối
+            #    (hôm nay) vì thế trùng đúng `so_viec` ở trên.
+            # "Lịch cần xử lý" là ảnh chụp của v_viec_cskh — không có lịch sử,
+            # nên KHÔNG bịa đường xu hướng cho nó.
+            xu_huong_khach_moi = await conn.fetch(
+                """
+                SELECT n.ngay, count(p.clinic_patient_id) AS so
+                  FROM (SELECT d::date AS ngay,
+                               d::date::timestamp
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh' AS dau,
+                               (d::date + 1)::timestamp
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh' AS het
+                          FROM generate_series($2::date, $3::date,
+                                               interval '1 day') d) n
+                  LEFT JOIN patient p
+                         ON p.clinic_id = $1::uuid
+                        AND p.created_at >= n.dau AND p.created_at < n.het
+                 GROUP BY n.ngay ORDER BY n.ngay
+                """,
+                clinic_id,
+                hom_nay - timedelta(days=6),
+                hom_nay,
+            )
+            xu_huong_viec = await conn.fetch(
+                """
+                SELECT n.ngay, count(w.id) AS so
+                  FROM (SELECT d::date AS ngay,
+                               d::date::timestamp
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh' AS dau,
+                               (d::date + 1)::timestamp
+                                 AT TIME ZONE 'Asia/Ho_Chi_Minh' AS het
+                          FROM generate_series($2::date, $3::date,
+                                               interval '1 day') d) n
+                  LEFT JOIN work_item w
+                         ON w.clinic_id = $1::uuid
+                        AND w.created_at < n.het
+                        AND (w.status IN ('PENDING', 'IN_PROGRESS')
+                             OR coalesce(w.finished_at, w.updated_at) >= n.het)
+                 GROUP BY n.ngay ORDER BY n.ngay
+                """,
+                clinic_id,
+                hom_nay - timedelta(days=6),
+                hom_nay,
+            )
+            # TẢI BÁC SĨ HÔM NAY — số lịch còn sống của từng bác sĩ, kèm số đã
+            # đến. Lịch chưa xếp ai gom một dòng (`doctor_id` rỗng).
+            tai_bac_si = await conn.fetch(
+                """
+                SELECT a.doctor_id::text AS doctor_id, s.full_name AS ten,
+                       count(*) AS so_lich,
+                       count(*) FILTER (WHERE a.status IN ('CHECKED_IN', 'COMPLETED'))
+                         AS da_den
+                  FROM appointment a
+                  LEFT JOIN staff s ON s.id = a.doctor_id
+                 WHERE a.clinic_id = $1::uuid
+                   AND a.slot_start >= $2 AND a.slot_start < $3
+                   AND a.status <> ALL($4::text[])
+                 GROUP BY a.doctor_id, s.full_name
+                 ORDER BY (a.doctor_id IS NULL), count(*) DESC, s.full_name
+                """,
+                clinic_id,
+                dau_ngay,
+                cuoi_ngay,
+                list(_TRANG_THAI_CHET),
+            )
+            # CẦN XỬ LÝ — việc tồn của ca, mỗi dòng một câu hỏi "ai phải làm
+            # gì ngay". Không lặp "Lịch cần xử lý" (việc CSKH) đã có ở ô số.
+            so_khach_tre = await conn.fetchval(
+                """
+                SELECT count(*) FROM appointment
+                 WHERE clinic_id = $1::uuid
+                   AND slot_start >= $2
+                   AND slot_start < now() - make_interval(mins => $3)
+                   AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                """,
+                clinic_id,
+                dau_ngay,
+                _PHUT_TRE,
+            )
+            so_chua_xep_bac_si = await conn.fetchval(
+                """
+                SELECT count(*) FROM appointment
+                 WHERE clinic_id = $1::uuid
+                   AND doctor_id IS NULL
+                   AND slot_start >= now()
+                   AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                """,
+                clinic_id,
+            )
+            so_viec_qua_han = await conn.fetchval(
+                """
+                SELECT count(*) FROM work_item
+                 WHERE clinic_id = $1::uuid
+                   AND status IN ('PENDING', 'IN_PROGRESS')
+                   AND due_at < now()
+                """,
+                clinic_id,
             )
             # Lịch làm việc tuần — kèm staff.full_name để frontend đồng bộ tên
             # (thay truy vấn `staff` phụ của dongBoTenTrucNhat), và VAI của
@@ -206,6 +314,17 @@ class ManTrangChuService:
                 "khach_moi_hom_nay": so_khach_moi,
                 "lich_can_xu_ly": so_lich_can_xu_ly,
             },
+            "xu_huong": {
+                "ngay": [r["ngay"].isoformat() for r in xu_huong_khach_moi],
+                "viec_dang_cho": [r["so"] for r in xu_huong_viec],
+                "khach_moi_hom_nay": [r["so"] for r in xu_huong_khach_moi],
+            },
+            "tai_bac_si": [dict(r) for r in tai_bac_si],
+            "can_xu_ly": [
+                {"ma": "khach_tre", "so": so_khach_tre, "phut": _PHUT_TRE},
+                {"ma": "chua_xep_bac_si", "so": so_chua_xep_bac_si},
+                {"ma": "viec_qua_han", "so": so_viec_qua_han},
+            ],
             "roster": [gan_nhan_vai(dict(r)) for r in roster],
             "dong_ca": [dict(r) for r in dong_ca],
             "truc_ca": [dict(r) for r in truc_ca],

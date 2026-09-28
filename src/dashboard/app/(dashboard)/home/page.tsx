@@ -21,9 +21,9 @@
 //    ngược lại: hệ sống, dữ liệu đang tới.
 
 import { Suspense, cache } from "react";
-import StatCard from "@/components/ui/StatCard";
+import OSoXuHuong from "@/components/ui/OSoXuHuong";
 import { buttonClass } from "@/components/ui/Button";
-import { CalendarClock, ClipboardList, UserPlus } from "lucide-react";
+import CotTongQuan, { type CanXuLyRow, type TaiBacSiRow } from "./CotTongQuan";
 import {
   getVaiChinh,
   getVaiHomNay,
@@ -89,27 +89,16 @@ interface GoiTrangChu {
   trang_thai_kham: VisitStatusRow[];
   tuan_hen: WeekApptRow[];
   tien_trinh: VisitProgressRow[];
+  /** 7 ngày, cũ → mới (27/09/2026). Chỉ hai ô có lịch sử thật. */
+  xu_huong?: {
+    ngay: string[];
+    viec_dang_cho: number[];
+    khach_moi_hom_nay: number[];
+  };
+  tai_bac_si?: TaiBacSiRow[];
+  can_xu_ly?: CanXuLyRow[];
 }
 
-// Chức danh ngắn dùng trong lời chào (vd "Chào bác sĩ Thành").
-const GREET_LABEL: Record<ClinicRole, string> = {
-  DOCTOR: "bác sĩ",
-  ULTRASOUND_DOCTOR: "bác sĩ",
-  NURSE_ULTRASOUND: "điều dưỡng",
-  TKYK: "thư ký y khoa",
-  CSKH: "CSKH",
-  MANAGEMENT: "quản lý",
-  RECEPTION: "lễ tân",
-  CASHIER: "thu ngân",
-  CASHIER_THUOC: "thu ngân thuốc",
-  CASHIER_DV: "thu ngân dịch vụ",
-  TRUONG_CA: "trưởng ca",
-  PHARMACIST: "dược sĩ",
-  // Không bao giờ chào ai: layout đưa vai này thẳng ra /display.
-  DISPLAY: "màn hình",
-  // Cũng không bao giờ chào: đối tác bị đẩy thẳng ra /doi-tac.
-  PARTNER: "đối tác",
-};
 
 // LỜI CHÀO KHÔNG ĐƯỢC LẶP CHỨC DANH.
 //
@@ -124,10 +113,10 @@ function greet(role: ClinicRole | null, staff: ActiveStaff | null): string {
   const goc = staff.full_name ?? staff.short_name;
   const ten = doctorName(goc);
   if (!ten) return "Trang chủ";
-  // Chuỗi gốc có dấu chấm giữa nghĩa là nó đã mang chức danh, và doctorName giữ
-  // lại chức danh ấy. Chỉ khi tên lưu TRẦN mới ghép chức danh — và ghép từ VAI
-  // ĐANG ĐĂNG NHẬP, thứ biết chắc từ phiên, chứ không đoán từ cái tên.
-  return `Xin chào ${/[·•]/.test(goc) ? ten : `${GREET_LABEL[role]} ${ten}`}`;
+  // CHÀO THEO TÊN, KHÔNG THEO VAI (Tuyền 28/09/2026: tài khoản mang tên người,
+  // "không có kiểu điều dưỡng hay lễ tân nữa" — việc của họ là các node trên
+  // thanh bên theo kỹ năng). Tên đã mang chức danh (BS …) thì giữ nguyên.
+  return `Xin chào ${ten}`;
 }
 
 /** Một ô ma đứng chỗ trong lúc dữ liệu đang rót — cùng khung với thẻ thật. */
@@ -220,7 +209,8 @@ export default async function HomePage({
 
   return (
     <div className="mx-auto max-w-[1540px] space-y-5">
-      {/* LỜI CHÀO VÀ BA Ô SỐ TRÊN CÙNG MỘT HÀNG.
+      {/* (Lịch sử) LỜI CHÀO VÀ BA Ô SỐ TỪNG NẰM CÙNG MỘT HÀNG — nay tách: xem
+          khối ngay dưới.
 
           Trước đây chúng là hai thẻ chồng nhau, và thẻ lời chào để trống hết
           nửa bên phải — một khoảng trắng bằng cả ba ô số nằm ngay đầu trang mà
@@ -231,34 +221,34 @@ export default async function HomePage({
 
           Từ Lát 3, phần LỜI CHÀO đứng ngoài Suspense — nó chỉ cần phiên, hiện
           tức thì; ba ô số thuộc phần dữ liệu nên rót vào sau. */}
-      <header className="flex flex-col gap-4 rounded-card border border-line bg-surface px-4 py-4 shadow-card sm:px-5 lg:flex-row lg:items-center">
-        <div className="lg:w-75 lg:shrink-0">
-          <p className="text-label font-semibold uppercase tracking-[0.14em] text-brand-700">
-            {isReception ? "Lễ tân" : "Không gian làm việc"}
-          </p>
-          <h1 className="mt-1 text-xl font-semibold text-ink">{homeTitle}</h1>
-          <p className="mt-1 text-sm text-ink-muted">{homeSubtitle}</p>
-        </div>
-
-        <Suspense
-          fallback={
-            <section
-              aria-label="Đang tải số liệu"
-              className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3"
-            >
-              <OMa cao="h-16" />
-              <OMa cao="h-16" />
-              <OMa cao="h-16" />
-            </section>
-          }
-        >
-          <BaOSo
-            weekAppt={weekAppt}
-            weekRoster={weekRoster}
-            isReception={isReception}
-          />
-        </Suspense>
+      {/* LỜI CHÀO KHÔNG ĐÓNG KHUNG, BA Ô SỐ CÓ XU HƯỚNG BÊN DƯỚI (Tuyền chốt
+          Trang chủ 27/09/2026: "bảng A + thống kê B"). Lời chào đứng trần như
+          tiêu đề trang; ba ô số kiểu Stripe — con số lớn, chênh so với hôm
+          qua, đường 7 ngày. Lời chào ngoài Suspense (chỉ cần phiên, hiện tức
+          thì); ô số thuộc phần dữ liệu nên rót vào sau. */}
+      <header>
+        <p className="text-meta text-ink-muted">{homeSubtitle}</p>
+        <h1 className="mt-0.5 text-hero font-semibold text-ink">{homeTitle}</h1>
       </header>
+
+      <Suspense
+        fallback={
+          <section
+            aria-label="Đang tải số liệu"
+            className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+          >
+            <OMa cao="h-28" />
+            <OMa cao="h-28" />
+            <OMa cao="h-28" />
+          </section>
+        }
+      >
+        <BaOSo
+          weekAppt={weekAppt}
+          weekRoster={weekRoster}
+          isReception={isReception}
+        />
+      </Suspense>
 
       {/* VIỆC CỦA BẠN HÔM NAY — đúng các màn của vị trí trong lịch, bấm là vào. */}
       {viecHomNay.length > 0 ? (
@@ -352,71 +342,76 @@ async function BaOSo({
   const henHomNay = (goi?.tuan_hen ?? []).filter(
     (a) => a.slot_start.slice(0, 10) === homNay,
   );
-  const cards = isReception
+  const xh = goi?.xu_huong;
+  const cards: {
+    nhan: string;
+    so: number;
+    xuHuong?: number[];
+    tangLaTot?: boolean;
+    href?: string;
+    phu?: string;
+  }[] = isReception
     ? [
         {
-          label: "Chờ check-in hôm nay",
-          value: henHomNay.filter((a) =>
+          nhan: "Chờ check-in hôm nay",
+          so: henHomNay.filter((a) =>
             ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status),
           ).length,
-          icon: <CalendarClock className="size-5" />,
-          tone: "brand" as const,
-          href: undefined,
+          phu: "lịch hẹn chưa đến quầy",
         },
         {
-          label: "Đã check-in hôm nay",
-          value: henHomNay.filter((a) => a.status === "CHECKED_IN").length,
-          icon: <ClipboardList className="size-5" />,
-          tone: "warning" as const,
+          nhan: "Đã check-in hôm nay",
+          so: henHomNay.filter((a) => a.status === "CHECKED_IN").length,
           href: toi("/reception/queue"),
+          phu: "đang trong phòng khám",
         },
         {
-          label: "BN mới đăng ký hôm nay",
-          value: goi?.so_lieu.khach_moi_hom_nay ?? 0,
-          icon: <UserPlus className="size-5" />,
-          tone: "success" as const,
+          nhan: "BN mới đăng ký hôm nay",
+          so: goi?.so_lieu.khach_moi_hom_nay ?? 0,
+          xuHuong: xh?.khach_moi_hom_nay,
           href: toi("/patient-list"),
         },
       ]
     : [
-    {
-      label: "Việc đang chờ làm",
-      value: goi?.so_lieu.viec_dang_cho ?? 0,
-      icon: <ClipboardList className="size-5" />,
-      tone: "brand" as const,
-      href: toi("/customers"),
-    },
-    {
-      label: "BN mới đăng ký hôm nay",
-      value: goi?.so_lieu.khach_moi_hom_nay ?? 0,
-      icon: <UserPlus className="size-5" />,
-      tone: "success" as const,
-      href: toi("/patient-list"),
-    },
-    {
-      // Thay "Lịch chờ xác nhận" (luôn 0 từ khi đặt xong là xác nhận): số
-      // khách đang có khung báo — vượt sức chứa, cần xác nhận/nhắc lịch, kết
-      // quả chờ gửi, lịch bị gỡ bác sĩ.
-      label: "Lịch cần xử lý",
-      value: goi?.so_lieu.lich_can_xu_ly ?? 0,
-      icon: <CalendarClock className="size-5" />,
-      tone: "warning" as const,
-      href: toi("/customers"),
-    },
-  ];
+        {
+          // Việc tồn tăng là tin XẤU — chữ chênh lệch đổi màu theo đó.
+          nhan: "Việc đang chờ làm",
+          so: goi?.so_lieu.viec_dang_cho ?? 0,
+          xuHuong: xh?.viec_dang_cho,
+          tangLaTot: false,
+          href: toi("/customers"),
+        },
+        {
+          nhan: "Khách mới đăng ký hôm nay",
+          so: goi?.so_lieu.khach_moi_hom_nay ?? 0,
+          xuHuong: xh?.khach_moi_hom_nay,
+          href: toi("/patient-list"),
+        },
+        {
+          // Thay "Lịch chờ xác nhận" (luôn 0 từ khi đặt xong là xác nhận): số
+          // khách đang có khung báo — vượt sức chứa, cần xác nhận/nhắc lịch, kết
+          // quả chờ gửi, lịch bị gỡ bác sĩ. Ảnh chụp, không có lịch sử → không
+          // vẽ đường xu hướng giả.
+          nhan: "Lịch cần xử lý",
+          so: goi?.so_lieu.lich_can_xu_ly ?? 0,
+          href: toi("/customers"),
+          phu: "khách có khung báo ở Quản lý khách hàng",
+        },
+      ];
   return (
     <section
       aria-label={isReception ? "Tổng quan tiếp nhận" : "Tổng quan ca làm việc"}
-      className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
     >
       {cards.map((c) => (
-        <StatCard
-          key={c.label}
-          label={c.label}
-          value={c.value}
-          icon={c.icon}
-          tone={c.tone}
+        <OSoXuHuong
+          key={c.nhan}
+          nhan={c.nhan}
+          so={c.so}
+          xuHuong={c.xuHuong}
+          tangLaTot={c.tangLaTot}
           href={c.href}
+          phu={c.phu}
         />
       ))}
     </section>
@@ -445,10 +440,16 @@ async function KhoiDuLieu({
 
   // Danh mục vị trí từ database (C4) — cùng lời gọi layout đã làm (cache theo
   // lượt dựng trang), không thêm vòng mạng.
-  const [goi, viTri] = await Promise.all([
+  const [goi, viTri, vaiHomNay, quyen] = await Promise.all([
     goiTrangChu(weekAppt, weekRoster),
     getViTriHomNay(),
+    getVaiHomNay(),
+    getQuyenCuaToi(),
   ]);
+  // Dòng "Cần xử lý" chỉ là link khi tài khoản mở được màn đích (cùng luật cửa
+  // trang với ô số — lego tắt thì thành dòng chữ).
+  const toi = (href: string) =>
+    vaoDuocMan(href, vaiHomNay, quyen) ? href : undefined;
   // Backend im thì các bảng cùng rỗng — phải NÓI RA. Một trang chủ trống trơn
   // trông y hệt "hôm nay chưa có gì", và người trực sẽ tin nó (cùng luật với
   // goiLoi ở màn Quản lý khách hàng, Lát 2).
@@ -534,22 +535,31 @@ async function KhoiDuLieu({
       )}
 
       {/* Lịch hẹn khám — nút tuần RIÊNG (weekAppt), KHÔNG đụng Lịch làm việc. */}
-      <section aria-label="Lịch hẹn khám" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-ink">
-            Lịch hẹn khám (check đặt lịch)
-          </h2>
-          {canCheckin(role) && (
-            <Link href="/reception/queue" className={buttonClass("primary", "sm")}>
-              Check-in ở Tiếp đón khách
-            </Link>
-          )}
+      {/* BẢNG LỊCH + CỘT TỔNG QUAN (27/09/2026): máy rộng thì cột phải đứng
+          cạnh bảng; màn hẹp thì xuống dưới bảng. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <section aria-label="Lịch hẹn khám" className="min-w-0 rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
+        {/* KHU ĐIỀU KHIỂN MỘT KHỐI (Tuyền 27/09/2026: "tối giản thông minh"):
+            tên bảng · ‹ tuần › · nút sang Tiếp đón trên một hàng, dải ngày
+            ngay dưới (bảng tự vẽ). Nút Check-in hạ xuống nút phụ — việc
+            check-in ở màn Tiếp đón, đây chỉ là lối tắt. */}
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h2 className="text-emph font-semibold text-ink">Lịch hẹn khám</h2>
           <WeekNav
+            gon
             week={weekAppt}
             basePath="/home"
             param="weekAppt"
             others={{ weekRoster }}
           />
+          {canCheckin(role) && (
+            <Link
+              href="/reception/queue"
+              className={`ml-auto ${buttonClass("secondary", "sm")}`}
+            >
+              Check-in ở Tiếp đón
+            </Link>
+          )}
         </div>
         <WeeklyAppointmentsTable
           days={apptDays}
@@ -562,8 +572,20 @@ async function KhoiDuLieu({
           // "check đặt lịch cần hiển thị theo ngày"). Mặc định hôm nay khi
           // đang xem tuần này.
           chonNgay
+          // Không bày dòng "+ Thêm khách hàng" (Tuyền 28/09/2026, chọn a).
+          choThemKhach={false}
         />
       </section>
+      <CotTongQuan
+        taiBacSi={goi?.tai_bac_si ?? []}
+        canXuLy={goi?.can_xu_ly ?? []}
+        hrefCanXuLy={{
+          khach_tre: toi("/reception/queue"),
+          chua_xep_bac_si: toi("/appointments/cho-xep-bac-si"),
+          viec_qua_han: toi("/viec-can-xu-ly"),
+        }}
+      />
+      </div>
 
       {/* Lịch làm việc — nút tuần RIÊNG (weekRoster), KHÔNG đụng Lịch hẹn khám. */}
       <section aria-label="Lịch làm việc" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
