@@ -811,3 +811,57 @@ async def test_quyen_theo_lich_tat_thi_nhu_cu(kb: KB) -> None:
     await _dat_day_lich(kb, False)
     kq = await _bat_dau(kb, kb.bs)
     assert kq["attempt_no"] == 1
+
+
+async def test_chi_co_quyen_theo_phong_van_lam_duoc(kb: KB) -> None:
+    """Xếp lịch vào phòng = quyền làm dịch vụ ở ĐÚNG phòng ấy (28/09/2026).
+
+    Lỗi thật trên prod: thư ký xếp ở Phòng thủ thuật 2 bấm "Bắt đầu" bị báo
+    "chưa được cấp quyền" — lệnh hỏi quyền toàn phòng khám, không hỏi theo phòng.
+    """
+    async with kb.pool.acquire() as conn:
+        tk = await _nguoi(conn, "RECEPTION")
+        for q in ("service.execute.start", "service.execute.complete"):
+            await conn.execute(
+                "INSERT INTO capability_grant (clinic_id, staff_id, capability,"
+                " scope_type, scope_id, granted_by, ly_do)"
+                " VALUES ($1::uuid, $2::uuid, $3, 'ROOM', $4::uuid, $2::uuid,"
+                " 'test theo phòng')",
+                CLINIC,
+                tk.staff_id,
+                q,
+                kb.room_id,
+            )
+        khac = await conn.fetchval(
+            "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid"
+            " AND id <> $2::uuid ORDER BY created_at, id LIMIT 1",
+            CLINIC,
+            kb.room_id,
+        )
+    mo = await kb.svc.bat_dau(
+        order_id=kb.order_id,
+        expected_execution_revision=0,
+        expected_routing_revision=1,
+        identity=tk,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert mo["execution_status"] == "IN_PROGRESS"
+    # Quyền ở phòng KHÁC thì không làm được chỉ định của phòng này.
+    if khac is not None:
+        async with kb.pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE capability_grant SET scope_id = $3::uuid"
+                " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+                " AND scope_type = 'ROOM'",
+                CLINIC,
+                tk.staff_id,
+                khac,
+            )
+        with pytest.raises(SafetyGateError):
+            await kb.svc.xong(
+                order_id=kb.order_id,
+                attempt_id=mo["attempt_id"],
+                expected_execution_revision=mo["execution_revision"],
+                identity=tk,
+                idempotency_key=str(uuid.uuid4()),
+            )

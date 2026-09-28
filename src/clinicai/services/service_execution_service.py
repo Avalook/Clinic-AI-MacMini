@@ -40,7 +40,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.exceptions import ValidationError
+from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import (
     DichVuDaBatDau,
     DichVuDaXong,
@@ -49,7 +49,8 @@ from clinicai.events.catalogue import (
     DichVuSanSangLamLai,
 )
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.can import can_o_phong_nao_do, doi_quyen
+from clinicai.permissions.catalogue import tra_quyen
 from clinicai.permissions.lich import doi_lich_phong
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services.finance_gate import can_start
@@ -116,6 +117,20 @@ def phieu_chua_hoan_tat(
     return all(t != "READY" for t in trang_thai_phieu)
 
 
+async def _doi_quyen_lam(
+    conn: asyncpg.Connection, identity: StaffIdentity, quyen: str
+) -> None:
+    """Cổng sớm: có quyền làm dịch vụ ở phòng NÀO ĐÓ (28/09/2026).
+
+    Quyền làm dịch vụ thường theo PHÒNG (xếp lịch vào phòng = quyền ở đúng
+    phòng ấy), nên đúng phòng phải kiểm SAU khi đọc chỉ định. Cổng này chặn
+    người không có lego trước khi đọc — họ nhận 403, không biết chỉ định có
+    tồn tại hay không.
+    """
+    if not await can_o_phong_nao_do(conn, identity, quyen):
+        raise SafetyGateError(f"Bạn chưa được cấp quyền “{tra_quyen(quyen).ten}”.")
+
+
 class ServiceExecutionService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -141,8 +156,9 @@ class ServiceExecutionService:
             "routing_rev": expected_routing_revision,
         }
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_BAT_DAU)
+            await _doi_quyen_lam(conn, identity, QUYEN_BAT_DAU)
             don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_BAT_DAU, phong_id=don["room_id"])
 
             cached = await bien_nhan_doc(
                 conn, identity, "service.start", idempotency_key, payload
@@ -327,8 +343,9 @@ class ServiceExecutionService:
                 "NOTE_TOO_LONG", "Ghi chú quá dài (tối đa 2.000 ký tự)."
             )
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_XONG)
+            await _doi_quyen_lam(conn, identity, QUYEN_XONG)
             don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_XONG, phong_id=don["room_id"])
             cached = await bien_nhan_doc(
                 conn, identity, "service.complete", idempotency_key, payload
             )
@@ -419,8 +436,9 @@ class ServiceExecutionService:
         cid = identity.clinic_id
         payload = {"order_id": order_id, "ly_do": ly_do}
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_KHONG_LAM)
+            await _doi_quyen_lam(conn, identity, QUYEN_KHONG_LAM)
             don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_KHONG_LAM, phong_id=don["room_id"])
             cached = await bien_nhan_doc(
                 conn, identity, "service.not_performed", idempotency_key, payload
             )
@@ -521,8 +539,9 @@ class ServiceExecutionService:
         cid = identity.clinic_id
         payload = {"order_id": order_id, "attempt_id": attempt_id, "ly_do": ly_do}
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_GIAN_DOAN)
+            await _doi_quyen_lam(conn, identity, QUYEN_GIAN_DOAN)
             don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_GIAN_DOAN, phong_id=don["room_id"])
             cached = await bien_nhan_doc(
                 conn, identity, "service.interrupt", idempotency_key, payload
             )
@@ -608,8 +627,9 @@ class ServiceExecutionService:
         cid = identity.clinic_id
         payload = {"order_id": order_id, "attempt_id": interrupted_attempt_id}
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_LAM_LAI)
+            await _doi_quyen_lam(conn, identity, QUYEN_LAM_LAI)
             don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_LAM_LAI, phong_id=don["room_id"])
             cached = await bien_nhan_doc(
                 conn, identity, "service.retry", idempotency_key, payload
             )
