@@ -90,7 +90,7 @@ class MauKetQuaService:
                 "xuat_ban": await can(conn, identity, QUYEN_XUAT_BAN),
             }
             if not any(quyen.values()):
-                raise SafetyGateError("Bạn chưa được cấp quyền quản lý mẫu kết quả.")
+                raise SafetyGateError("Bạn không có quyền quản lý mẫu kết quả.")
             mau = await conn.fetch(
                 "SELECT m.ma, m.nhom, m.ten, d.version, d.xuat_ban_luc"
                 "  FROM ket_qua_mau m"

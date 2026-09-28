@@ -151,7 +151,7 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
 
       {loi ? (
         <p className="text-label text-danger">
-          Không đọc được chỉ định (có thể tài khoản này chưa có quyền điều phối) —
+          Không đọc được chỉ định (có thể tài khoản này không có quyền điều phối) —
           thử tải lại.
         </p>
       ) : ds === null ? (

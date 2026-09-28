@@ -641,7 +641,7 @@ async def _cua_tai_len_tep(
             return identity
     from clinicai.core.exceptions import SafetyGateError
 
-    raise SafetyGateError("Bạn chưa được cấp quyền tải tệp kết quả.")
+    raise SafetyGateError("Bạn không có quyền tải tệp kết quả.")
 
 
 def _cach_mo_tep(ten: str | None, tai: bool) -> str:

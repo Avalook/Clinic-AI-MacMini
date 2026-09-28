@@ -64,7 +64,7 @@ LAB_TRIAGE_RATE_LIMIT = InMemoryRateLimiter(
 #: (24/09/2026).
 _REVIEW_GUARD = cua_quyen(
     "result.review.approve",
-    cau="Bạn chưa được cấp khối duyệt kết quả.",
+    cau="Bạn không có quyền duyệt kết quả.",
 )
 
 

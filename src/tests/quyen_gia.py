@@ -26,7 +26,7 @@ async def doi_quyen_theo_nhom_mau(
 ) -> None:
     if quyen not in quyen_cua_preset(identity.role.value):
         ten = tra_quyen(quyen).ten
-        raise SafetyGateError(cau or f"Bạn chưa được cấp quyền “{ten}”.")
+        raise SafetyGateError(cau or f"Bạn không có quyền “{ten}”.")
 
 
 async def can_theo_nhom_mau(

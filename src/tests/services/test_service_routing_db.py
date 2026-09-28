@@ -504,7 +504,7 @@ async def test_10_chi_dinh_hoac_phong_khac_phong_kham(rb: RB) -> None:
     # Quyền cấp theo từng phòng khám: người của phòng khám lạ bị chặn ngay ở
     # cửa quyền, trước cả khi đọc chỉ định. Ranh giới không đổi.
     khac = dataclasses.replace(rb.truong_ca, clinic_id=str(uuid.uuid4()))
-    with pytest.raises(Exception, match="Không tìm thấy|chưa được cấp quyền"):
+    with pytest.raises(Exception, match="Không tìm thấy|không có quyền"):
         await _assign(rb, oid, rb.sa1, 0, who=khac)
     await _loi(_assign(rb, oid, str(uuid.uuid4()), 0), "ROOM_NOT_FOUND")
     o = await _o(rb, oid)

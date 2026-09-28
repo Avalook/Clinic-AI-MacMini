@@ -50,7 +50,7 @@ async def _assert_may_hold(conn: asyncpg.Connection, identity: StaffIdentity) ->
 
     `HOLD_ROLES` chỉ còn cho policy RLS của bảng (đọc thẳng từ trình duyệt)."""
     if not await can(conn, identity, "booking.create"):
-        raise ValidationError("Bạn chưa được cấp quyền đặt lịch — không giữ chỗ được.")
+        raise ValidationError("Bạn không có quyền đặt lịch — không giữ chỗ được.")
 
 
 class SlotHoldService:

@@ -268,7 +268,7 @@ class ClinicalRecordService:
                     conn,
                     identity,
                     "clinical.record.write",
-                    cau="Bạn chưa được cấp quyền ghi bệnh án.",
+                    cau="Bạn không có quyền ghi bệnh án.",
                 )
                 appointment = await conn.fetchrow(
                     """

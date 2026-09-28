@@ -682,7 +682,7 @@ async def test_scenarios_f_g_h_l_capability_fail_closed(
     tep_id = t["id"]
 
     # F: Staff không có capability -> SafetyGateError
-    with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+    with pytest.raises(SafetyGateError, match="không có quyền xác nhận"):
         await svc_tep.xac_nhan_tep(
             identity=staff_no_cap, tep_id=tep_id, trang_thai="HOP_LE"
         )
@@ -716,7 +716,7 @@ async def test_scenarios_f_g_h_l_capability_fail_closed(
     async with pool.acquire() as conn:
         await kiem_tra_quyen_xac_nhan(conn, identity=staff_multi_clinic)
         o_b = dataclasses.replace(staff_multi_clinic, clinic_id=CLINIC_B)
-        with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+        with pytest.raises(SafetyGateError, match="không có quyền xác nhận"):
             await kiem_tra_quyen_xac_nhan(conn, identity=o_b)
 
 

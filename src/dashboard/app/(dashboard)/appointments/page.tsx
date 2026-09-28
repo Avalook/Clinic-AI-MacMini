@@ -51,7 +51,7 @@ export default async function AppointmentsPage() {
   const patients: PatientLite[] = hub?.patients ?? [];
   const lanKham = hub?.lan_kham ?? {};
   const appts: ApptLite[] = hub?.appts ?? [];
-  const error = hub === null ? { message: "máy chủ không trả lời hoặc chưa có quyền đặt lịch." } : null;
+  const error = hub === null ? { message: "máy chủ không trả lời hoặc không có quyền đặt lịch." } : null;
 
   return (
     <div className="space-y-3">

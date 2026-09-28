@@ -126,7 +126,7 @@ class PhiKhamService:
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
             if not await _co_quyen_tick(conn, identity):
-                raise SafetyGateError("Bạn chưa được cấp quyền chọn dịch vụ khám.")
+                raise SafetyGateError("Bạn không có quyền chọn dịch vụ khám.")
             await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
             hien = await _doc(conn, cid, vid)
             if hien["di_thang_phong"]:

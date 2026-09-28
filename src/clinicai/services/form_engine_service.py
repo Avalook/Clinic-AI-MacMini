@@ -1019,7 +1019,7 @@ class FormEngineService:
                 await can(conn, identity, QUYEN_SUA_MAU)
                 or await can(conn, identity, QUYEN_XUAT_BAN)
             ):
-                raise SafetyGateError("Bạn chưa được cấp quyền sửa biểu mẫu.")
+                raise SafetyGateError("Bạn không có quyền sửa biểu mẫu.")
             r = await conn.fetchrow(
                 "SELECT form_id, version, ten, nhom, khung, xuat_ban_luc"
                 "  FROM form_definition"

@@ -82,7 +82,7 @@ export async function GET(request: Request) {
     const cau =
       d?.message ??
       (typeof d?.detail === "string" ? d.detail : null) ??
-      "Bạn chưa được cấp lego “Thanh toán dịch vụ” / “Thu tiền thuốc”.";
+      "Bạn không có quyền thu tiền dịch vụ / tiền thuốc.";
     return NextResponse.json({ error: cau }, { status: res.status });
   }
   const d = res.ok

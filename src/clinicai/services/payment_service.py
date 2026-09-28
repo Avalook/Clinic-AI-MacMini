@@ -173,7 +173,7 @@ class PaymentService:
                     "payment_kind_forbidden", role=identity.role.value, kind=kind
                 )
                 raise SafetyGateError(
-                    "Bạn chưa được cấp quyền thu loại tiền này"
+                    "Bạn không có quyền thu loại tiền này"
                     f" (“{tra_quyen(QUYEN_THU[kind]).ten}”)."
                 )
 
@@ -1280,7 +1280,7 @@ async def _chot_lua_chon(
             conn,
             identity,
             QUYEN_CHON_DICH_VU,
-            cau="Bạn chưa được cấp quyền xác nhận lựa chọn dịch vụ.",
+            cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
         )
         await khoa_luot(conn, identity.clinic_id, inp.visit_id)
 

@@ -29,7 +29,7 @@ export default async function PharmacyConsultPage() {
   if (!data) {
     return (
       <div className="p-6 text-sm text-danger">
-        Không đọc được đơn thuốc (máy chủ không trả lời hoặc tài khoản chưa có quyền xem
+        Không đọc được đơn thuốc (máy chủ không trả lời hoặc tài khoản không có quyền xem
         nhà thuốc).
       </div>
     );

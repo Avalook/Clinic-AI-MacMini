@@ -147,7 +147,7 @@ async def test_smoke_1_external_result_capability_and_audit_events_e2e(
             # 1. Ban đầu nurse chưa có capability -> gọi queue bị 403
             app.dependency_overrides[get_current_identity] = lambda: nurse
             tep_svc = TepKetQuaService(pool)
-            with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+            with pytest.raises(SafetyGateError, match="không có quyền xác nhận"):
                 await tep_svc.cho_xac_nhan(identity=nurse)
 
             # 2. MANAGEMENT cấp khối "Xác nhận tệp kết quả" qua màn Phân quyền —
@@ -264,7 +264,7 @@ async def test_smoke_1_external_result_capability_and_audit_events_e2e(
                 assert rev_event >= 1
 
             # 7. Nurse vào lại queue -> lại bị 403 / SafetyGateError
-            with pytest.raises(SafetyGateError, match="chưa được cấp quyền xác nhận"):
+            with pytest.raises(SafetyGateError, match="không có quyền xác nhận"):
                 await tep_svc.cho_xac_nhan(identity=nurse)
     finally:
         app.dependency_overrides.pop(get_current_identity, None)

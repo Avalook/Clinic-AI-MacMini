@@ -247,7 +247,7 @@ class ClinicalSignService:
                 conn,
                 identity,
                 "clinical.consult.finalize",
-                cau="Bạn chưa được cấp quyền cho phép gửi hồ sơ.",
+                cau="Bạn không có quyền cho phép gửi hồ sơ.",
             )
         state = await self.status(identity=identity, visit_id=visit_id)
         if state["state"] == "DRAFT":
@@ -305,7 +305,7 @@ class ClinicalSignService:
                     conn,
                     identity,
                     "clinical.consult.finalize",
-                    cau="Bạn chưa được cấp quyền cho phép gửi hồ sơ.",
+                    cau="Bạn không có quyền cho phép gửi hồ sơ.",
                 )
                 # Bác sĩ chính: kiểm SAU lock vì attending_doctor_id có thể
                 # đổi giữa lúc status() đọc và lúc lock xong.
@@ -416,7 +416,7 @@ class ClinicalSignService:
                     conn,
                     identity,
                     "clinical.consult.finalize",
-                    cau="Bạn chưa được cấp quyền đính chính hồ sơ.",
+                    cau="Bạn không có quyền đính chính hồ sơ.",
                 )
                 # Tách statement khóa khỏi statement đọc revision/release.
                 # Ở READ COMMITTED, join/subquery trong chính SELECT FOR UPDATE
@@ -640,7 +640,7 @@ class ClinicalSignService:
                 conn,
                 identity,
                 "result.review.approve",
-                cau="Bạn chưa có quyền ký kết quả.",
+                cau="Bạn không có quyền ký kết quả.",
             )
             row = await conn.fetchrow(
                 "SELECT performed_by, signed_at FROM public.ultrasound_record"
