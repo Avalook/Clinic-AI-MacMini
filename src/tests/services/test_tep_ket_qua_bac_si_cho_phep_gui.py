@@ -44,7 +44,7 @@ def test_khong_co_quyen_duyet_kq_thi_khong_cho_phep_gui(
     chot_bac_si_theo_nhom_mau(monkeypatch)
     with pytest.raises(SafetyGateError):
         asyncio.run(
-            TepKetQuaService(PoolGia()).cho_phep_gui(  # type: ignore[arg-type]
+            TepKetQuaService(PoolGia()).cho_phep_gui(
                 identity=_identity(role), tep_id=TEP
             )
         )

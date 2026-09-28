@@ -57,7 +57,7 @@ def test_khong_co_quyen_chi_dinh_thi_khong_duyet(
     chot_bac_si_theo_nhom_mau(monkeypatch)
     with pytest.raises(SafetyGateError):
         asyncio.run(
-            ServiceOrderService(PoolGia()).approve_draft(  # type: ignore[arg-type]
+            ServiceOrderService(PoolGia()).approve_draft(
                 visit_id=VISIT, expected_version=1, identity=_identity(role)
             )
         )
