@@ -31,14 +31,39 @@ ON CONFLICT (ma) DO NOTHING;
 INSERT INTO capability_grant
     (clinic_id, staff_id, capability, scope_type, scope_id, tu_khoi, tu_preset,
      ly_do)
-SELECT DISTINCT g.clinic_id, g.staff_id, 'roster.shift.swap', 'CLINIC',
-       NULL::uuid, 'truong_ca', g.tu_preset,
-       'Quyền mới của khối Điều phối ca (29/09/2026) — cấp bù cho người đang có khối'
+SELECT DISTINCT a.clinic_id, a.staff_id, 'roster.shift.swap', 'CLINIC',
+       NULL::uuid, 'truong_ca', NULL::text,
+       'Quyền mới của khối Điều phối ca (29/09/2026) — cấp bù cho người đang có khối / vai trưởng ca'
+  FROM (
+        -- Ai đang giữ khối trưởng ca (lego Điều phối khách).
+        SELECT g.clinic_id, g.staff_id
+          FROM public.capability_grant g
+         WHERE g.capability = 'dispatch.manage'
+           AND g.scope_type = 'CLINIC'
+           AND g.revoked_at IS NULL
+           AND (g.valid_until IS NULL OR g.valid_until > now())
+        UNION
+        -- Và mọi tài khoản vai Trưởng ca đang hoạt động — trên prod tài khoản
+        -- trưởng ca phải đổi được người ngay sau deploy, kể cả khi lego của nó
+        -- từng bị chỉnh tay.
+        SELECT m.clinic_id, m.staff_id
+          FROM public.clinic_membership m
+          JOIN public.staff s ON s.id = m.staff_id AND s.is_active
+         WHERE m.role = 'TRUONG_CA' AND m.is_active
+       ) a
+ON CONFLICT DO NOTHING;
+
+-- Đổi người phải NHÌN được lịch: ai vừa có quyền đổi người mà thiếu quyền xem
+-- lịch (lego Lịch làm việc — preset trưởng ca vốn có) thì cấp kèm.
+INSERT INTO capability_grant
+    (clinic_id, staff_id, capability, scope_type, scope_id, tu_khoi, ly_do)
+SELECT DISTINCT g.clinic_id, g.staff_id, c.ma, 'CLINIC', NULL::uuid,
+       'lich_lam_viec',
+       'Kèm quyền Đổi người trong ca (29/09/2026) — phải xem được lịch mới đổi được'
   FROM public.capability_grant g
- WHERE g.capability = 'dispatch.manage'
-   AND g.scope_type = 'CLINIC'
+  JOIN public.capability c ON c.work_pack = 'lich_lam_viec'
+ WHERE g.capability = 'roster.shift.swap'
    AND g.revoked_at IS NULL
-   AND (g.valid_until IS NULL OR g.valid_until > now())
 ON CONFLICT DO NOTHING;
 
 -- ── 2. Sổ thay người ────────────────────────────────────────────────────────
