@@ -226,7 +226,7 @@ class QuayThuocService:
                 if so > Decimal(str(ke)):
                     raise ValidationError(
                         f"Bác sĩ kê {_chuoi_so(Decimal(str(ke)))} — muốn lấy thêm "
-                        "thì thêm một dòng ở ô 'Lấy thêm thuốc'."
+                        "thì thêm một dòng ở ô 'Lấy thêm thuốc / vật tư / TPCN'."
                     )
                 if so < Decimal(str(don["dispensed_qty"] or 0)):
                     raise ValidationError("Số mua không nhỏ hơn số kho đã giao.")

@@ -119,6 +119,14 @@ export const NAV: NavItem[] = [
     label: "Đặt lịch",
     icon: ClipboardList,
   },
+  // THÊM KHÁCH TRƯỚC DANH SÁCH (đợt 3, 27/09/2026 — C6): CSKH / lễ tân mở máy
+  // là để thêm khách đang gọi / đang đứng quầy; mục ấy từng nằm DƯỚI hai danh
+  // sách, người trực phải dò mới thấy.
+  {
+    href: "/patients/new",
+    label: "Tạo bệnh nhân",
+    icon: UserPlus,
+  },
   {
     href: "/customers",
     label: "Quản lý khách hàng",
@@ -136,11 +144,6 @@ export const NAV: NavItem[] = [
     href: "/patient-list",
     label: "Danh sách bệnh nhân",
     icon: Stethoscope,
-  },
-  {
-    href: "/patients/new",
-    label: "Tạo bệnh nhân",
-    icon: UserPlus,
   },
   // TRƯỞNG CA — năm màn điều phối, mỗi màn một mục trên thanh bên.
   //
@@ -349,12 +352,13 @@ export const MAN_THEO_VI_TRI: Readonly<Record<string, readonly string[]>> = {
   // LỄ TÂN KIÊM THU NGÂN + KHO THUỐC (Tuyền 16/09/2026). Bốn vị trí ở quầy tiếp
   // đón và quầy thuốc đều mở trọn bộ việc quầy: người đứng quầy thuốc chiều nay
   // có thể là người đứng tiếp đón sáng nay.
+  // "Thêm khách hàng" ĐẦU nhóm (đợt 3, 27/09/2026 — C6).
   T1_LETAN: [
+    "/patients/new",
     "/reception/queue",
     "/thu-ngan/dich-vu",
     "/thu-ngan/thuoc",
     "/reception/checkout",
-    "/patients/new",
     "/appointments",
   ],
   T1_THUNGAN: [

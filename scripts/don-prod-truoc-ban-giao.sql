@@ -57,6 +57,9 @@ INSERT INTO bang_xoa (ten) VALUES
   ('follow_up_case'), ('round_requirement'), ('review_round'), ('slot_hold'),
   ('nhac_tai_kham'), ('hen_goi_lai'), ('tuong_tac_cskh'), ('cskh_action'),
   ('cskh_log'), ('phan_hoi_khach'), ('service_log'),
+  -- Ghi chú khách (27/09) — khoá ngoại tới `patient`: thiếu dòng này là Chốt 2
+  -- DỪNG cả script ("patient bị bảng ngoài danh sách trỏ tới").
+  ('ghi_chu_khach'),
   -- Lượt khám, bệnh án, kết quả
   ('visit'), ('visit_amendment'), ('visit_route'), ('visit_gate_override'),
   ('encounter_flow'), ('queue_entry'), ('consultation'), ('consultation_note'),
@@ -78,7 +81,10 @@ INSERT INTO bang_xoa (ten) VALUES
   ('staff_task'), ('nhac_viec_ca_nhan'), ('thong_bao'), ('owner_feedback'),
   -- Sổ sự kiện, hẹn giờ, biên nhận lệnh
   ('domain_event'), ('event_delivery'), ('luot_dong_thoi_gian'),
-  ('event_log'), ('hen_gio'), ('command_receipt'), ('idempotency_key');
+  ('event_log'), ('hen_gio'), ('command_receipt'), ('idempotency_key'),
+  -- Kho lỗi + cảnh báo canh gác (27/09): dữ liệu VẬN HÀNH của thời chạy thử,
+  -- không phải cấu hình — bàn giao với kho lỗi sạch để lỗi thật nổi lên.
+  ('loi_nhom'), ('canh_bao');
 
 \if :xoa_kho
 INSERT INTO bang_xoa (ten) VALUES ('drug_batch'), ('inventory_txn');

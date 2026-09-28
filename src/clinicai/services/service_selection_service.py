@@ -341,8 +341,9 @@ async def cho_khach_quyet(
 
     pq = PhongQuay(conn, clinic_id)
 
+    rows = await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids)
     out: dict[str, dict[str, Any]] = {}
-    for r in await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids):
+    for r in rows:
         facts = OrderFacts(
             id=r["id"],
             exec_status=r["exec_status"],

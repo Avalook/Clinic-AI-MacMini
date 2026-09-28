@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNgheBang } from "../../dung-nghe-bang";
 import ChiTietLuot from "./ChiTietLuot";
+import LuotTonDong from "./LuotTonDong";
 
 export interface Blocker {
   type: string;
@@ -201,6 +202,10 @@ export default function CheckoutBoard({
           {toast}
         </div>
       )}
+
+      {/* Lượt còn mở từ HÔM TRƯỚC (đợt 3, 27/09/2026) — danh sách dưới chỉ là
+          lượt hôm nay; không có khối này thì lượt treo không hiện ở đâu. */}
+      <LuotTonDong onDaDong={() => void reload()} />
 
       {pending.length === 0 ? (
         <div className="rounded-card border border-line bg-surface px-4 py-10 text-center">

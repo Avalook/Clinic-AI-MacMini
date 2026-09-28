@@ -23,16 +23,19 @@ export async function GET(request: Request) {
   const err = await guard();
   if (err) return NextResponse.json({ error: err }, { status: 403 });
 
-  // Ba dạng: danh sách hôm nay · điều kiện đóng của một lượt · TOÀN CẢNH một
-  // lượt (dịch vụ, tiền, hồ sơ, theo dõi, dòng thời gian) để Lễ tân đối soát.
+  // Bốn dạng: danh sách hôm nay · điều kiện đóng của một lượt · TOÀN CẢNH một
+  // lượt (dịch vụ, tiền, hồ sơ, theo dõi, dòng thời gian) để Lễ tân đối soát ·
+  // LƯỢT TỒN ĐỌNG từ hôm trước (`?ton_dong=1`, đợt 3 27/09/2026 — API có sẵn từ
+  // 06/08 mà chưa màn nào đọc).
   const params = new URL(request.url).searchParams;
   const visit = params.get("visit_id");
   const chiTiet = params.get("chi_tiet") === "1";
-  const duong = !visit
-    ? "/api/v1/reception/checkout"
-    : chiTiet
-      ? `/api/v1/reception/checkout/chi-tiet/${encodeURIComponent(visit)}`
-      : `/api/v1/reception/checkout/${encodeURIComponent(visit)}`;
+  const tonDong = params.get("ton_dong") === "1";
+  let duong = "/api/v1/reception/checkout";
+  if (tonDong) duong = "/api/v1/reception/checkout/ton-dong";
+  else if (visit && chiTiet)
+    duong = `/api/v1/reception/checkout/chi-tiet/${encodeURIComponent(visit)}`;
+  else if (visit) duong = `/api/v1/reception/checkout/${encodeURIComponent(visit)}`;
   const data = await fetchFromBackend<unknown>(duong);
   // `null` = backend im lặng. Trả ok:false để màn hình nói ra, thay vì vẽ một
   // danh sách rỗng trông y hệt "hôm nay không còn ai cần đóng".

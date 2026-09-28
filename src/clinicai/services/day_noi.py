@@ -67,6 +67,17 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "h4_chi_ap_phong_du_kien",
+            # C9 (27/09/2026): phòng khám muốn lễ tân chỉ định phòng, hệ thống
+            # không tự chọn. TẮT = giữ hành vi cũ. Chỉ có tác dụng khi dây tự xếp
+            # phòng ở trên đang BẬT.
+            "Tự xếp phòng CHỈ theo phòng lễ tân đã chọn (không tự chọn phòng"
+            " vắng nhất) — khách chưa chọn phòng thì chờ lễ tân xếp, quầy nhận"
+            ' chuông "chờ xếp phòng"',
+            False,
+            "bat_tat",
+        ),
+        Day(
             "h6_bao_cskh_khi_ve_con_viec",
             "Khách về mà còn việc dở (kết quả chưa về / chưa ai xem) → báo CSKH",
             True,

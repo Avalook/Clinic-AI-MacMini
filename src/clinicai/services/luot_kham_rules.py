@@ -272,6 +272,40 @@ def routing_hold_block(
     return None
 
 
+#: Câu người đọc được cho từng mã giữ điều phối — nói CHUYỆN GÌ và VIỆC CẦN LÀM
+#: (27/09/2026, đợt 3). Trước đây màn hiện mã thô "Chưa điều phối được
+#: (ROUTE_NOT_DECIDED)" — lễ tân không biết phải làm gì tiếp.
+_CAU_GIU_DIEU_PHOI: dict[str, str] = {
+    "ROUTE_NOT_DECIDED": (
+        "Lượt khám chưa được xếp đường đi (qua tư vấn / bác sĩ / thẳng dịch vụ)"
+        " nên chưa xếp phòng được. Việc cần làm: kiểm tra khách đã check-in và"
+        " đo sinh hiệu; vẫn kẹt thì báo trưởng ca."
+    ),
+    "PLAN_NOT_APPLIED": (
+        "Dịch vụ hẹn từ lượt trước, mà lượt này khách đang đi đường khám bác sĩ"
+        " nên chưa xếp phòng được. Việc cần làm: bác sĩ khám lượt này xác nhận"
+        " lại chỉ định, hoặc trưởng ca chuyển khách đi thẳng dịch vụ."
+    ),
+    "HELD_UNTIL_ROUND": (
+        "Bác sĩ dặn làm dịch vụ này SAU khi đọc kết quả vòng trước. Việc cần"
+        " làm: chờ bác sĩ đọc xong kết quả rồi xếp phòng."
+    ),
+    "VITALS_REQUIRED": (
+        "Khách chưa đo sinh hiệu. Việc cần làm: đo sinh hiệu rồi xếp phòng."
+    ),
+}
+
+
+def cau_giu_dieu_phoi(ma: str | None) -> str:
+    """Câu tiếng Việt cho mã của ``routing_hold_block``. Mã lạ / rỗng vẫn trả
+    một câu dùng được (không bao giờ lộ mã thô ra màn)."""
+    if isinstance(ma, str) and ma in _CAU_GIU_DIEU_PHOI:
+        return _CAU_GIU_DIEU_PHOI[ma]
+    return (
+        "Chưa xếp phòng được lúc này. Việc cần làm: báo trưởng ca kiểm tra lượt khám."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Hàng chờ
 # ---------------------------------------------------------------------------

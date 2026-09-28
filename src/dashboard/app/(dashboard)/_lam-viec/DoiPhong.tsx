@@ -28,6 +28,11 @@ interface UngVien {
 interface GoiY {
   recommendation_ref: string;
   candidates: UngVien[];
+  /** Máy chủ nói có bày ô chọn phòng không (đợt 3, 27/09/2026):
+   *  CO_PHONG · DOI_TAC_LAM (chụp phim ngoài…) · KHONG_CO_PHONG. */
+  trang_thai?: "CO_PHONG" | "DOI_TAC_LAM" | "KHONG_CO_PHONG";
+  /** Câu máy chủ viết cho hai trạng thái không xếp được — màn vẽ nguyên văn. */
+  cau?: string | null;
 }
 
 export default function DoiPhong({
@@ -77,10 +82,15 @@ export default function DoiPhong({
     return <p className="text-label text-ink-muted">Phòng làm được: {loi}</p>;
   }
   if (!goiY) return null;
-  if (goiY.candidates.length === 0) {
+  // Không bày ô chọn phòng khi máy chủ báo không cần / không xếp được — chỉ vẽ
+  // câu máy chủ trả (đối tác làm: giọng thường; không phòng nào nhận: cảnh báo).
+  if (goiY.trang_thai === "DOI_TAC_LAM") {
+    return <p className="text-label text-ink-muted">{goiY.cau}</p>;
+  }
+  if (goiY.trang_thai === "KHONG_CO_PHONG" || goiY.candidates.length === 0) {
     return (
       <p className="text-label text-warning">
-        Chưa có phòng nào làm được dịch vụ này — quản lý cấu hình phòng.
+        {goiY.cau ?? "Chưa có phòng nào đang nhận khách làm được dịch vụ này."}
       </p>
     );
   }
