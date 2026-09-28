@@ -179,7 +179,7 @@ async def dat_bac_si_cho_thu_ky(
             conn,
             identity,
             "config.clinic.manage",
-            cau="Chỉ người có lego Cài đặt phòng khám phân thư ký cho bác sĩ.",
+            cau="Bạn không có quyền phân thư ký cho bác sĩ.",
         )
         la_thu_ky = await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM public.clinic_membership"

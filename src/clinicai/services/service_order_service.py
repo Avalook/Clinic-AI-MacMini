@@ -424,7 +424,7 @@ class ServiceOrderService:
         """
         async with self._pool.acquire() as c0:
             if not await can(c0, identity, "clinical.order.place"):
-                raise SafetyGateError("Bạn chưa có quyền duyệt chỉ định")
+                raise SafetyGateError("Bạn không có quyền duyệt chỉ định")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
@@ -589,7 +589,7 @@ class ServiceOrderService:
         """
         async with self._pool.acquire() as c0:
             if not await can(c0, identity, "clinical.order.place"):
-                raise SafetyGateError("Bạn chưa có quyền bỏ dịch vụ khỏi chỉ định")
+                raise SafetyGateError("Bạn không có quyền bỏ dịch vụ khỏi chỉ định")
         ly_do_sach = (ly_do or "").strip()
         if not ly_do_sach:
             raise ValidationError("Bỏ dịch vụ khỏi chỉ định phải ghi lý do.")

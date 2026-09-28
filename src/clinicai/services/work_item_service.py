@@ -203,7 +203,7 @@ class WorkItemService:
                 if quyen_khu is not None:
                     if not await can(conn, identity, quyen_khu):
                         raise SafetyGateError(
-                            f"Bạn chưa được cấp quyền “{tra_quyen(quyen_khu).ten}”."
+                            f"Bạn không có quyền “{tra_quyen(quyen_khu).ten}”."
                         )
                     # QUYỀN của khu là đủ — không hỏi thêm vai (đợt 3, 27/09):
                     # người có lego "Việc cần xử lý" mà mọi lego mang vai đều

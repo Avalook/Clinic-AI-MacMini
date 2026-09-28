@@ -123,7 +123,7 @@ async def doi_quyen(
     """Như `can`, nhưng không có quyền thì chặn lệnh."""
     if not await can(conn, identity, quyen, phong_id=phong_id):
         ten = tra_quyen(quyen).ten
-        raise SafetyGateError(cau or f"Bạn chưa được cấp quyền “{ten}”.")
+        raise SafetyGateError(cau or f"Bạn không có quyền “{ten}”.")
 
 
 async def quyen_hieu_luc(

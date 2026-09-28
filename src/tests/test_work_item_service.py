@@ -469,7 +469,7 @@ async def test_viec_can_xu_ly_lego_tat_thi_vai_dung_cung_bi_chan(
         "clinicai.services.work_item_service.can", AsyncMock(return_value=False)
     )
     pool = _pool_khu_van_hanh(["MANAGEMENT", "CASHIER"], "MANAGEMENT")
-    with pytest.raises(SafetyGateError, match="chưa được cấp quyền"):
+    with pytest.raises(SafetyGateError, match="không có quyền"):
         await WorkItemService(pool).issue(
             work_item_id="10000000-0000-4000-8000-000000000009",
             command="start",
@@ -502,7 +502,7 @@ async def test_doc_khu_van_hanh_hoi_quyen_ke_ca_quan_ly(
     """Cửa ĐỌC khu cũng hỏi lego — quản lý/trưởng ca không còn đi tắt theo vai."""
     from clinicai.api.v1.routers import work_items
 
-    doi = AsyncMock(side_effect=SafetyGateError("Bạn chưa được cấp quyền"))
+    doi = AsyncMock(side_effect=SafetyGateError("Bạn không có quyền"))
     monkeypatch.setattr(work_items, "doi_quyen", doi)
     pool = MagicMock()
     acquire = AsyncMock()

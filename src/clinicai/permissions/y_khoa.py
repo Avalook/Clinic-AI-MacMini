@@ -51,12 +51,12 @@ QUYEN_IN_PHIEU: tuple[str, ...] = (
     "crm.manage",
 )
 
-_CAU = "Bạn chưa được cấp khối khám / kết quả nên chưa mở được nội dung y khoa."
+_CAU = "Bạn không có quyền xem nội dung y khoa (khám / kết quả)."
 
 cua_y_khoa = cua_quyen(*QUYEN_Y_KHOA, cau=_CAU)
 cua_ghi_y_khoa = cua_quyen(
     *QUYEN_GHI_Y_KHOA,
-    cau="Bạn chưa được cấp khối ghi bệnh án / điền kết quả.",
+    cau="Bạn không có quyền ghi bệnh án / điền kết quả.",
 )
 
 

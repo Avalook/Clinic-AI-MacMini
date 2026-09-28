@@ -96,13 +96,13 @@ async def kiem_quyen_core(
             if await can(conn, identity, quyen):
                 return
         await doi_quyen(
-            conn, identity, QUYEN_GHI, cau="Bạn chưa được cấp quyền ghi phiếu khám."
+            conn, identity, QUYEN_GHI, cau="Bạn không có quyền ghi phiếu khám."
         )
         return
     for quyen in QUYEN_DOC if hanh_dong == "xem_lich_su" else QUYEN_DOC_DE_IN:
         if await can(conn, identity, quyen):
             return
-    raise SafetyGateError("Bạn chưa được cấp quyền xem phiếu khám.")
+    raise SafetyGateError("Bạn không có quyền xem phiếu khám.")
 
 
 def _khoa_ten(t: str) -> str:

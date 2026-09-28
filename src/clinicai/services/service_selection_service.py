@@ -554,7 +554,7 @@ class ServiceSelectionService:
                 conn,
                 identity,
                 QUYEN_CHON_DICH_VU,
-                cau="Bạn chưa được cấp quyền xác nhận lựa chọn dịch vụ.",
+                cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
             )
             await khoa_luot(conn, cid, inp.visit_id)
             # Gửi lại trước khi xét revision: lần trước đã commit mà mất phản hồi

@@ -675,7 +675,7 @@ class ServiceRoutingService:
                 conn,
                 identity,
                 QUYEN_XEM,
-                cau="Bạn chưa được cấp quyền xem gợi ý điều phối.",
+                cau="Bạn không có quyền xem gợi ý điều phối.",
             )
             o = await conn.fetchrow(
                 f"SELECT o.node_code, o.visit_id::text AS visit_id,"
@@ -759,7 +759,7 @@ class ServiceRoutingService:
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền trong chính giao dịch của lệnh.
             await doi_quyen(
-                conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
+                conn, identity, QUYEN_XEP, cau="Bạn không có quyền xếp phòng."
             )
             if ng in QUYEN_THEO_NGUON:
                 await doi_quyen(conn, identity, QUYEN_THEO_NGUON[ng])
@@ -1094,7 +1094,7 @@ class ServiceRoutingService:
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(
-                conn, identity, QUYEN_XEP, cau="Bạn chưa được cấp quyền xếp phòng."
+                conn, identity, QUYEN_XEP, cau="Bạn không có quyền xếp phòng."
             )
             # Ô "Làm ở phòng" là của quầy thu (lego Thanh toán dịch vụ).
             await doi_quyen(conn, identity, QUYEN_THEO_NGUON[NGUON_QUAY_THU])
@@ -1174,7 +1174,7 @@ class ServiceRoutingService:
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền trong chính giao dịch của lệnh.
             await doi_quyen(
-                conn, identity, QUYEN_HUY, cau="Bạn chưa được cấp quyền huỷ xếp phòng."
+                conn, identity, QUYEN_HUY, cau="Bạn không có quyền huỷ xếp phòng."
             )
             vid = await luot_cua(conn, "service_order", cid, oid)
             await khoa_luot(conn, cid, vid)

@@ -243,8 +243,7 @@ async def kiem_tra_quyen_xac_nhan(
         raise SafetyGateError("Đối tác không có quyền xác nhận kết quả.")
     if not await _hoi_quyen_xac_nhan(conn, identity):
         raise SafetyGateError(
-            "Bạn chưa được cấp quyền xác nhận tệp kết quả."
-            " Quản lý cấp ở màn Phân quyền."
+            "Bạn không có quyền xác nhận tệp kết quả. Quản lý cấp ở màn Phân quyền."
         )
 
 
@@ -1061,7 +1060,7 @@ class TepKetQuaService:
         async with self._pool.acquire() as conn:
             # QUYỀN duyệt kết quả, không vai (28/09/2026).
             if not await can(conn, identity, "result.review.approve"):
-                raise SafetyGateError("Bạn chưa có quyền cho phép gửi kết quả.")
+                raise SafetyGateError("Bạn không có quyền cho phép gửi kết quả.")
             async with conn.transaction():
                 hien = await conn.fetchrow(
                     "SELECT xac_nhan_trang_thai, cho_phep_gui_luc "
@@ -1128,7 +1127,7 @@ class TepKetQuaService:
         """
         async with self._pool.acquire() as c0:
             if not await can(c0, identity, "result.review.approve"):
-                raise SafetyGateError("Bạn chưa có quyền duyệt kết quả.")
+                raise SafetyGateError("Bạn không có quyền duyệt kết quả.")
         rows = await self._pool.fetch(
             """
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.so_byte, t.tai_len_luc,

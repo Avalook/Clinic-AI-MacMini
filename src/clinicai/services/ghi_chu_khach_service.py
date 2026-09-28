@@ -51,7 +51,7 @@ async def kiem_quyen_khung_khach(
         if await can(conn, identity, q):
             return
     raise SafetyGateError(
-        "Bạn chưa được cấp quyền “Quản lý khách hàng” hoặc “Check-in khách”."
+        "Bạn không có quyền “Quản lý khách hàng” hoặc “Check-in khách”."
     )
 
 

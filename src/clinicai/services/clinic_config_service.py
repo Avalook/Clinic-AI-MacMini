@@ -101,7 +101,7 @@ class ClinicConfigService:
                 conn,
                 identity,
                 "config.clinic.manage",
-                cau="Bạn chưa được bật lego “Cài đặt phòng khám”.",
+                cau="Bạn không có quyền thay đổi cài đặt phòng khám.",
             )
 
     def __init__(self, pool: asyncpg.Pool) -> None:

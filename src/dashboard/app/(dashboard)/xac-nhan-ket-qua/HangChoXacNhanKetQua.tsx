@@ -87,7 +87,7 @@ export default function HangChoXacNhanKetQua() {
         if (huy) return;
         if (res.status === 403) {
           setLoiChung(
-            "Bạn chưa được cấp quyền xác nhận kết quả (ket_qua.xac_nhan). Vui lòng liên hệ Quản lý (Management) để được phân quyền.",
+            "Bạn không có quyền xác nhận kết quả. Vui lòng liên hệ Quản lý (Management) để được phân quyền.",
           );
           setItems([]);
           return;

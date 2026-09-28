@@ -123,7 +123,7 @@ class PhuThuService:
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
             if not await _duoc(conn, identity):
-                raise SafetyGateError("Bạn chưa được cấp lego “Thanh toán dịch vụ”.")
+                raise SafetyGateError("Bạn không có quyền thu tiền dịch vụ.")
             vid = await conn.fetchval(
                 "SELECT visit_id::text FROM public.service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",

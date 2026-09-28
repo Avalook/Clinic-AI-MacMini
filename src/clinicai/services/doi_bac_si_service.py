@@ -95,7 +95,7 @@ class DoiBacSiService:
                 c,
                 identity,
                 "dispatch.manage",
-                cau="Chỉ người có lego “Điều phối khách” chuyển bác sĩ giữa lượt.",
+                cau="Bạn không có quyền chuyển bác sĩ giữa lượt.",
             )
 
     async def doi(
@@ -153,7 +153,7 @@ class DoiBacSiService:
             )
             if not la_bac_si:
                 raise ValidationError(
-                    "Người nhận chưa được cấp đủ khối Khám bệnh + Hoàn tất khám"
+                    "Người nhận không có đủ quyền Khám bệnh + Hoàn tất khám"
                     " (hoặc không làm ở đây) — đổi sang người khám được."
                 )
 

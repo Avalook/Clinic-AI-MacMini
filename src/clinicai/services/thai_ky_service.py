@@ -84,7 +84,7 @@ async def _duoc_ghi(pool: asyncpg.Pool, identity: StaffIdentity) -> bool:
 
 async def _chi_bac_si(pool: asyncpg.Pool, identity: StaffIdentity) -> None:
     if not await _duoc_ghi(pool, identity):
-        raise SafetyGateError("Bạn chưa có quyền ghi thai kỳ.")
+        raise SafetyGateError("Bạn không có quyền ghi thai kỳ.")
 
 
 def _ngay_bat_buoc(raw: Any, ten: str) -> date:
@@ -142,7 +142,7 @@ class ThaiKyService:
     ) -> dict[str, Any]:
         async with self._pool.acquire() as conn:
             if not await doc_duoc_y_khoa(conn, identity):
-                raise SafetyGateError("Bạn chưa được cấp khối khám / kết quả.")
+                raise SafetyGateError("Bạn không có quyền xem khám / kết quả.")
         await kiem_khach(self._pool, identity, clinic_patient_id)
         hom_nay = now_vn().date()
         rows = await self._pool.fetch(

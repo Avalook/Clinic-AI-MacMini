@@ -626,7 +626,7 @@ async def get_partner_identity(
     if not co:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn chưa được cấp quyền “Đối tác”.",
+            detail="Bạn không có quyền “Đối tác”.",
         )
     return identity
 

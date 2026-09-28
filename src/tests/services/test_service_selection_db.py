@@ -530,7 +530,7 @@ async def test_17_chi_dinh_luot_khac_khong_bao_gio_bi_sua(kb: KB) -> None:
     khac = dataclasses.replace(kb.thu_ngan, clinic_id=str(uuid.uuid4()))
     with pytest.raises(Exception) as exc:
         await _confirm(kb, [a], [a], 0, who=khac)
-    assert "Không tìm thấy" in str(exc.value) or "chưa được cấp quyền" in str(exc.value)
+    assert "Không tìm thấy" in str(exc.value) or "không có quyền" in str(exc.value)
     assert (await _trang_thai(kb, a))[a] == ("PENDING", 1)
 
 

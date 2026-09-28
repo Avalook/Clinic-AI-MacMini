@@ -1336,7 +1336,7 @@ class LuotKhamService:
                     conn,
                     identity,
                     "clinical.consult.perform",
-                    cau="Bạn chưa được cấp quyền gọi khách vào khám.",
+                    cau="Bạn không có quyền gọi khách vào khám.",
                 )
                 await self._thu_ky_cua_bac_si(conn, identity, q["doctor_id"])
             trang_thai = await conn.fetchval(
@@ -1400,7 +1400,7 @@ class LuotKhamService:
                 conn,
                 identity,
                 "clinical.consult.perform",
-                cau="Bạn chưa được cấp quyền kết thúc phiên khám.",
+                cau="Bạn không có quyền kết thúc phiên khám.",
             )
             c = await conn.fetchrow(
                 "SELECT kind, visit_id::text AS visit_id FROM consultation"
@@ -1516,14 +1516,14 @@ class LuotKhamService:
                     conn,
                     identity,
                     "clinical.intake.perform",
-                    cau="Bạn chưa được cấp quyền khám tư vấn.",
+                    cau="Bạn không có quyền khám tư vấn.",
                 )
             else:
                 await doi_quyen(
                     conn,
                     identity,
                     "clinical.consult.perform",
-                    cau="Bạn chưa được cấp quyền nhận khách vào khám.",
+                    cau="Bạn không có quyền nhận khách vào khám.",
                 )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
@@ -1702,7 +1702,7 @@ class LuotKhamService:
                 nguon = "phieu_kham"
             else:
                 raise SafetyGateError(
-                    "Bạn chưa được cấp quyền khám tư vấn hoặc ghi phiếu khám."
+                    "Bạn không có quyền khám tư vấn hoặc ghi phiếu khám."
                 )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
@@ -1772,7 +1772,7 @@ class LuotKhamService:
                 conn,
                 identity,
                 "clinical.intake.perform",
-                cau="Bạn chưa được cấp quyền khám tư vấn.",
+                cau="Bạn không có quyền khám tư vấn.",
             )
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
@@ -1958,7 +1958,7 @@ class LuotKhamService:
         # ký cùng phòng — duyệt được. Thư ký vẫn chỉ cho khách bác sĩ mình đi kèm.
         async with self._pool.acquire() as c0:
             await doi_quyen(
-                c0, identity, "clinical.order.place", cau="Bạn chưa có quyền chỉ định."
+                c0, identity, "clinical.order.place", cau="Bạn không có quyền chỉ định."
             )
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
@@ -2193,7 +2193,7 @@ class LuotKhamService:
                 conn,
                 identity,
                 "clinical.consult.perform",
-                cau="Bạn chưa được cấp quyền kết thúc phiên khám.",
+                cau="Bạn không có quyền kết thúc phiên khám.",
             )
             if theo_doi:
                 # Cho khách về trước khi có kết quả là quyết định chuyên môn —
@@ -2330,7 +2330,7 @@ class LuotKhamService:
                 # Hoàn tất khám — người đọc đi tìm sai chỗ.
                 if not await can(conn, identity, "clinical.consult.finalize"):
                     raise SafetyGateError(
-                        "Bạn chưa được cấp khối Hoàn tất khám — nhờ quản lý cấp"
+                        "Bạn không có quyền Hoàn tất khám — nhờ quản lý cấp"
                         " trên màn Phân quyền."
                     )
                 if identity.staff_id != c["doctor_id"]:
@@ -2853,7 +2853,7 @@ class LuotKhamService:
                 conn,
                 identity,
                 "dispatch.manage",
-                cau="Chỉ người có lego Điều phối khách điều phối được.",
+                cau="Bạn không có quyền điều phối khách.",
             )
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")

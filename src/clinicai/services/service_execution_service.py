@@ -128,7 +128,7 @@ async def _doi_quyen_lam(
     tồn tại hay không.
     """
     if not await can_o_phong_nao_do(conn, identity, quyen):
-        raise SafetyGateError(f"Bạn chưa được cấp quyền “{tra_quyen(quyen).ten}”.")
+        raise SafetyGateError(f"Bạn không có quyền “{tra_quyen(quyen).ten}”.")
 
 
 class ServiceExecutionService:

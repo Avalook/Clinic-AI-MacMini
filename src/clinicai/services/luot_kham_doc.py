@@ -54,7 +54,7 @@ class BangLuotKham:
         async with self._pool.acquire() as conn:
             # Theo LEGO, không theo vai (đợt 3, 27/09/2026) — `permissions/doc_bang`.
             await doi_mot_quyen(
-                conn, identity, QUYEN_BANG_LUOT, cau="Bạn chưa được cấp lego dùng bảng."
+                conn, identity, QUYEN_BANG_LUOT, cau="Bạn không có quyền xem bảng này."
             )
             # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
             doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
@@ -629,7 +629,7 @@ class BangLuotKham:
                 identity,
                 quyen_doc_hang_cho(tu_van=tu_van, co_phong=rid is not None),
                 phong_id=rid if rid is not None and not tu_van else None,
-                cau="Bạn chưa được cấp lego dùng hàng chờ này.",
+                cau="Bạn không có quyền thao tác ở hàng chờ này.",
             )
             # Theo QUYỀN (khối khám / kết quả), không theo vai — 24/09/2026.
             doc_noi_dung = await doc_duoc_y_khoa(conn, identity)
@@ -971,7 +971,7 @@ class BangLuotKham:
                 conn,
                 identity,
                 "dispatch.manage",
-                cau="Chỉ người có lego Điều phối khách xem điều phối.",
+                cau="Bạn không có quyền xem điều phối.",
             )
         rows = await self._pool.fetch(
             """
