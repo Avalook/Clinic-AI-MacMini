@@ -23,6 +23,13 @@
 //     đọc (ảnh chưa xác nhận / bị từ chối / thu hồi KHÔNG in). Không có ảnh thì
 //     không in trang này.
 // Mở từ [In phiếu khám] ở phiếu khám VÀ ở Xem lượt (mọi khâu).
+//
+// 28/09/2026 (Tuyền: "tách thành 3 mục in" — chọn 3 NÚT IN RIÊNG; ảnh CLS "3
+// loại: kết quả có ảnh · kết quả không thôi · ảnh không thôi"): đầu trang có
+// [In cả phiếu] · [In tóm tắt bệnh án] · [In đơn thuốc] · [In KQ CLS + ảnh] ·
+// [In KQ CLS] · [In ảnh CLS]. Mỗi phần in riêng vẫn có đủ đầu trang + bệnh nhân
+// (giấy rời vẫn biết của ai). Màn xem trước luôn hiện cả phiếu. Mọi khâu mở
+// cùng trang này nên nút có ở mọi khâu.
 
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -49,6 +56,17 @@ import {
 import { duongXemTep } from "../../../(dashboard)/_lam-viec/AnhKetQua";
 import { DauTrangIn, KhoiBenhNhanIn, dongSoLuot, ngayIn } from "../../KhoiIn";
 import KieuInA4 from "../../KieuInA4";
+
+/** Phần đang in: cả phiếu · một mục · kết quả CLS theo 3 kiểu ảnh. */
+type PhanIn = "ca" | "tom_tat" | "don" | "cls_kem" | "cls" | "cls_anh";
+
+const TIEU_DE_PHAN: Partial<Record<PhanIn, string>> = {
+  tom_tat: "Tóm tắt bệnh án",
+  don: "Đơn thuốc",
+  cls_kem: "Kết quả cận lâm sàng",
+  cls: "Kết quả cận lâm sàng",
+  cls_anh: "Hình ảnh cận lâm sàng",
+};
 
 interface PhieuLuot extends DinhNghiaPhieu {
   du_lieu: Record<string, ONhap>;
@@ -143,7 +161,7 @@ function DsChiDinh({ ds }: { ds: ChiDinhVaKetQua[] }) {
 }
 
 /** Mục III — kết quả của từng chỉ định CLS: số đo + kết luận, ghi số ảnh. */
-function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
+function KetQuaCls({ ds, coTrangAnh }: { ds: ChiDinhVaKetQua[]; coTrangAnh: boolean }) {
   return (
     <ol className="space-y-3">
       {ds.map((c, i) => {
@@ -156,7 +174,7 @@ function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
               <span className="font-normal text-ink-muted">
                 {" "}
                 · {NHAN_KET_QUA[c.ket_qua_trang_thai]}
-                {soAnh ? ` · ${soAnh} ảnh (trang hình ảnh)` : ""}
+                {soAnh ? ` · ${soAnh} ảnh${coTrangAnh ? " (trang hình ảnh)" : ""}` : ""}
               </span>
             </p>
             {phieu.map((k) => {
@@ -165,9 +183,9 @@ function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
                 <div key={k.phieu_id} className="space-y-1 pl-4">
                   {phieu.length > 1 ? <p className="text-meta text-ink-muted">{k.ten}</p> : null}
                   {dong.length ? (
-                    <dl className="grid grid-cols-2 gap-x-6 gap-y-0.5">
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-0.5 sm:grid-cols-2 print:grid-cols-2">
                       {dong.map((x, j) => (
-                        <div key={`${x.nhan}-${j}`} className="flex gap-2">
+                        <div key={`${x.nhan}-${j}`} className="flex min-w-0 gap-2">
                           <dt className="shrink-0 text-ink-muted">{x.nhan}</dt>
                           <dd className="whitespace-pre-wrap">{x.gia}</dd>
                         </div>
@@ -190,11 +208,24 @@ function KetQuaCls({ ds }: { ds: ChiDinhVaKetQua[] }) {
 }
 
 /** Trang ẢNH — ảnh kết quả CLS theo từng chỉ định, 2 ảnh / hàng. */
-function TrangAnh({ ds, khach }: { ds: ChiDinhVaKetQua[]; khach: string | null }) {
+function TrangAnh({
+  ds,
+  khach,
+  trangMoi = true,
+  className = "",
+}: {
+  ds: ChiDinhVaKetQua[];
+  khach: string | null;
+  /** false: in riêng ảnh — đã có đầu trang ngay trên, không sang trang mới. */
+  trangMoi?: boolean;
+  className?: string;
+}) {
   const coAnh = ds.map((c) => ({ c, anh: anhInDuoc(c) })).filter((x) => x.anh.length > 0);
   if (coAnh.length === 0) return null;
   return (
-    <section className="mt-10 break-before-page space-y-4 print:mt-0">
+    <section
+      className={`space-y-4 ${trangMoi ? "mt-10 break-before-page print:mt-0" : "mt-5"} ${className}`}
+    >
       <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
         Hình ảnh kết quả cận lâm sàng
       </h2>
@@ -223,11 +254,23 @@ function TrangAnh({ ds, khach }: { ds: ChiDinhVaKetQua[]; khach: string | null }
 }
 
 /** Một trong ba mục của trang thông tin (I · II · III). */
-function Muc({ so, ten, children }: { so: string; ten: string; children: ReactNode }) {
+function Muc({
+  so,
+  ten,
+  an = false,
+  children,
+}: {
+  so: string | null;
+  ten: string;
+  /** true: không in mục này (đang in phần khác) — màn vẫn hiện. */
+  an?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section className="mt-5 space-y-3">
+    <section className={`mt-5 space-y-3 ${an ? "print:hidden" : ""}`}>
       <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">
-        {so}. {ten}
+        {so ? `${so}. ` : ""}
+        {ten}
       </h2>
       {children}
     </section>
@@ -269,6 +312,14 @@ function DonThuoc({ dong }: { dong: DongDonMayChu[] }) {
 export default function InPhieuKham({ visitId }: { visitId: string }) {
   const [dl, setDl] = useState<DuLieuIn | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
+  const [phan, setPhan] = useState<PhanIn>("ca");
+
+  // In xong (hoặc huỷ hộp in) → về lại cả phiếu; Ctrl+P in cả phiếu.
+  useEffect(() => {
+    const ve = () => setPhan("ca");
+    window.addEventListener("afterprint", ve);
+    return () => window.removeEventListener("afterprint", ve);
+  }, []);
 
   useEffect(() => {
     let huy = false;
@@ -350,12 +401,39 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       .filter((m) => m.lien_ket?.loai === loai)
       .map((m) => <KhoiO key={m.ma} m={m} duLieu={phieu.du_lieu} />);
 
+  const coAnh = cls.some((c) => anhInDuoc(c).length > 0);
+  const inPhan = (p: PhanIn) => {
+    setPhan(p);
+    // Đợi màn vẽ lại (ẩn phần không in) rồi mới mở hộp in.
+    window.setTimeout(() => window.print(), 50);
+  };
+  const ca = phan === "ca";
+  const inCls = ca || phan === "cls_kem" || phan === "cls";
+  const inAnh = ca || phan === "cls_kem" || phan === "cls_anh";
+  // Đánh số I · II · III chỉ khi in cả phiếu.
+  const so = (x: string) => (ca ? x : null);
+
   return (
     <main className="in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
       <KieuInA4 />
-      <div className="mb-6 flex gap-2 print:hidden">
-        <Button type="button" variant="primary" onClick={() => window.print()}>
-          In phiếu
+      <div className="mb-6 flex flex-wrap gap-2 print:hidden">
+        <Button type="button" variant="primary" onClick={() => inPhan("ca")}>
+          In cả phiếu
+        </Button>
+        <Button type="button" onClick={() => inPhan("tom_tat")}>
+          In tóm tắt bệnh án
+        </Button>
+        <Button type="button" disabled={dl.don.length === 0} onClick={() => inPhan("don")}>
+          In đơn thuốc
+        </Button>
+        <Button type="button" disabled={cls.length === 0 || !coAnh} onClick={() => inPhan("cls_kem")}>
+          In KQ CLS + ảnh
+        </Button>
+        <Button type="button" disabled={cls.length === 0} onClick={() => inPhan("cls")}>
+          In KQ CLS
+        </Button>
+        <Button type="button" disabled={!coAnh} onClick={() => inPhan("cls_anh")}>
+          In ảnh CLS
         </Button>
         <Button type="button" variant="ghost" onClick={() => window.close()}>
           Đóng
@@ -368,7 +446,7 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       <DauTrangIn
         phongKham={tk?.phong_kham}
         trai={[tk?.co_so, tk?.dia_chi_co_so]}
-        tieuDe={phieu.ten}
+        tieuDe={TIEU_DE_PHAN[phan] ?? phieu.ten}
         phai={[
           hc?.["patient.code"] ? `Mã khách ${hc["patient.code"]}` : null,
           dongSoLuot(tk?.so_booking, tk?.so_tiep_don),
@@ -393,20 +471,24 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
         </p>
       ) : null}
 
-      <Muc so="I" ten="Tóm tắt bệnh án">
+      <Muc so={so("I")} ten="Tóm tắt bệnh án" an={!ca && phan !== "tom_tat"}>
         {tomTat.length ? tomTat : <p className="text-ink-muted">Chưa ghi nội dung khám.</p>}
       </Muc>
-      <Muc so="II" ten="Đơn thuốc">
+      <Muc so={so("II")} ten="Đơn thuốc" an={!ca && phan !== "don"}>
         {dl.don.length ? <DonThuoc dong={dl.don} /> : <p className="text-ink-muted">Không kê đơn.</p>}
         {oCua("don_thuoc")}
       </Muc>
-      <Muc so="III" ten="Kết quả cận lâm sàng">
-        {cls.length ? <KetQuaCls ds={cls} /> : <p className="text-ink-muted">Không chỉ định cận lâm sàng.</p>}
+      <Muc so={so("III")} ten="Kết quả cận lâm sàng" an={!inCls}>
+        {cls.length ? (
+          <KetQuaCls ds={cls} coTrangAnh={inAnh} />
+        ) : (
+          <p className="text-ink-muted">Không chỉ định cận lâm sàng.</p>
+        )}
         {oCua("chi_dinh_cls")}
       </Muc>
 
       {/* Chân ký: TÊN bác sĩ của lượt (`the_khach.bac_si`), chừa chỗ ký tay. */}
-      <footer className="in-giu mt-8 flex justify-end">
+      <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? "print:hidden" : ""}`}>
         <div className="min-w-48 text-center">
           <p className="text-ink-muted">Bác sĩ khám</p>
           <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
@@ -416,6 +498,8 @@ export default function InPhieuKham({ visitId }: { visitId: string }) {
       {/* ── TRANG ẢNH ── */}
       <TrangAnh
         ds={cls}
+        trangMoi={phan !== "cls_anh"}
+        className={inAnh ? "" : "print:hidden"}
         khach={
           [hc?.["patient.name"], hc?.["patient.code"]].filter(Boolean).join(" · ") || null
         }

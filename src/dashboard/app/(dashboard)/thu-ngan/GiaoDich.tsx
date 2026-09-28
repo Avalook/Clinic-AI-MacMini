@@ -171,11 +171,24 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                     onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                   />
                 ) : null}
-                {g.visit_id ? (
-                  <Button size="sm" variant="ghost" className="mt-1 -ml-3" onClick={() => setXem(g.visit_id)}>
-                    Xem chi tiết lượt
-                  </Button>
-                ) : null}
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  {g.visit_id ? (
+                    <Button size="sm" variant="ghost" className="-ml-3" onClick={() => setXem(g.visit_id)}>
+                      Xem chi tiết lượt
+                    </Button>
+                  ) : null}
+                  {/* Phiếu thu kiểu HOÁ ĐƠN (khổ 80mm) — quầy thuốc in ở đây (28/09/2026). */}
+                  {g.trang_thai === "PAID" ? (
+                    <a
+                      href={`/print/phieu-thu/${g.id}?loai=thu`}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-sm font-medium text-brand-700 hover:underline"
+                    >
+                      In phiếu thu
+                    </a>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
