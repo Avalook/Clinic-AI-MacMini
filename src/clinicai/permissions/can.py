@@ -77,6 +77,28 @@ async def can(
     return bool(co)
 
 
+async def can_o_phong_nao_do(
+    conn: asyncpg.Connection, identity: StaffIdentity, quyen: str
+) -> bool:
+    """Có quyền ấy ở BẤT KỲ phạm vi nào (toàn phòng khám hoặc một phòng).
+
+    Cho CỬA MÀN (router đọc bảng, vào màn) — người chỉ có quyền theo phòng nhờ
+    xếp lịch hôm nay vẫn vào được màn của phòng mình. Lệnh ghi bên trong vẫn
+    hỏi `can(..., phong_id=...)` đúng phòng.
+    """
+    tra_quyen(quyen)
+    return bool(
+        await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM v_quyen_thuc_te"
+            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
+            " AND capability = $3)",
+            identity.clinic_id,
+            identity.staff_id,
+            quyen,
+        )
+    )
+
+
 async def _quyen_toan_phong_kham(
     conn: asyncpg.Connection, identity: StaffIdentity
 ) -> list[str]:
@@ -120,4 +142,4 @@ async def quyen_hieu_luc(
     return [r["capability"] for r in rows]
 
 
-__all__ = ["can", "doi_quyen", "quyen_hieu_luc"]
+__all__ = ["can", "can_o_phong_nao_do", "doi_quyen", "quyen_hieu_luc"]

@@ -10,10 +10,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role_co_the_mo,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
@@ -31,23 +29,17 @@ router = APIRouter()
 
 # Tạo và sửa hồ sơ hành chính là thao tác VẬN HÀNH, không phải việc lâm sàng —
 # nên hai cửa này nới được theo công tắc mở quyền tạm thời.
-_INTAKE_GUARD = require_role_co_the_mo(
-    ClinicRole.CSKH,
-    ClinicRole.RECEPTION,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_INTAKE_GUARD = cua_quyen("patient.create", "crm.manage", "reception.checkin.perform")
 # Lego 11 "Thêm bệnh nhân" (25/09/2026): tạo hồ sơ hỏi QUYỀN. Cửa phụ (thêm số
 # điện thoại, ưu tiên) còn theo vai — NỢ chuyển dần.
 _TAO_BENH_NHAN_GUARD = cua_quyen("patient.create", "booking.create", "crm.manage")
-_PATIENT_EDIT_GUARD = require_role_co_the_mo(
-    ClinicRole.CSKH,
-    ClinicRole.RECEPTION,
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_PATIENT_EDIT_GUARD = cua_quyen(
+    "patient.create",
+    "crm.manage",
+    "reception.checkin.perform",
+    "clinical.record.write",
 )
 
 

@@ -20,14 +20,18 @@ from fastapi import Depends
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.permissions.can import can
+from clinicai.permissions.can import can, can_o_phong_nao_do
 from clinicai.permissions.catalogue import tra_quyen
 
 
 def cua_quyen(
-    *quyen: str, cau: str | None = None
+    *quyen: str, cau: str | None = None, moi_phong: bool = False
 ) -> Callable[..., Awaitable[StaffIdentity]]:
-    """Dependency FastAPI: đi qua khi người gọi có ÍT NHẤT một quyền trong số."""
+    """Dependency FastAPI: đi qua khi người gọi có ÍT NHẤT một quyền trong số.
+
+    `moi_phong=True`: quyền theo PHÒNG (vd xếp lịch vào phòng dịch vụ hôm nay)
+    cũng đủ để qua cửa — cho cửa màn / bảng đọc của phòng.
+    """
     for q in quyen:
         tra_quyen(q)  # tên sai thì hỏng lúc nạp module, không lúc có người bấm
 
@@ -37,7 +41,9 @@ def cua_quyen(
     ) -> StaffIdentity:
         async with pool.acquire() as conn:
             for q in quyen:
-                if await can(conn, identity, q):
+                if await can(conn, identity, q) or (
+                    moi_phong and await can_o_phong_nao_do(conn, identity, q)
+                ):
                     return identity
         ten = " hoặc ".join(f"“{tra_quyen(q).ten}”" for q in quyen)
         raise SafetyGateError(cau or f"Bạn chưa được cấp quyền {ten}.")

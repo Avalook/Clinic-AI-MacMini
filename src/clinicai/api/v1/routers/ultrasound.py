@@ -23,11 +23,11 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.media_service import MediaService
 from clinicai.services.ultrasound_board_service import (
-    ULTRASOUND_ROLES,
     UltrasoundBoardService,
     group_by_patient,
 )
@@ -36,7 +36,8 @@ from clinicai.services.ultrasound_service import UltrasoundService
 logger = structlog.get_logger()
 router = APIRouter()
 
-_SONOGRAPHER_GUARD = require_role(ClinicRole.ULTRASOUND_DOCTOR)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_SONOGRAPHER_GUARD = cua_quyen("result.form.fill", moi_phong=True)
 
 
 class UltrasoundMeasurements(BaseModel):
@@ -89,7 +90,10 @@ async def save_ultrasound_measurements(
 
 # ── Bộ phận Siêu âm: bốn màn ────────────────────────────────────────────────
 
-_SONO_GUARD = require_role(*ULTRASOUND_ROLES)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_SONO_GUARD = cua_quyen(
+    "service.execute.start", "result.form.fill", "dispatch.manage", moi_phong=True
+)
 
 
 @router.get("/ultrasound/queue")

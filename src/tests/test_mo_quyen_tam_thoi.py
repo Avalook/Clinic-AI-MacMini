@@ -122,8 +122,12 @@ def test_dung_cua_co_the_mo_o_cho_khong_phai_viec_bac_si() -> None:
     from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import luot_kham
 
-    # Chỉ còn lối cũ (410) giữ cửa vai theo công tắc.
-    assert isinstance(luot_kham._PERFORMER_GUARD, RoleGuardCoTheMo)
+    # 28/09/2026 CHỈ LEGO: lối cũ (410) nay cũng hỏi QUYỀN làm dịch vụ.
+    assert not isinstance(luot_kham._PERFORMER_GUARD, RoleGuardCoTheMo)
+    assert luot_kham._PERFORMER_GUARD.quyen == (  # type: ignore[attr-defined]
+        "service.execute.start",
+        "service.execute.complete",
+    )
 
     # Đợt 3 (27/09/2026, Tuyền "chỉ dùng lego"): bảng / hàng chờ / điều phối /
     # duyệt chỉ định hỏi LEGO trong hàm dịch vụ — không còn vai ở cửa router.

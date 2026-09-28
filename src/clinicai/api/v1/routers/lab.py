@@ -26,9 +26,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import (
-    PHYSICIAN_ROLES,
     StaffIdentity,
-    require_role,
 )
 from clinicai.api.nghi_huu import CHI_DINH_MOI, KET_QUA_MOI, bao_da_nghi
 from clinicai.api.rate_limit import InMemoryRateLimiter
@@ -48,7 +46,8 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/lab", tags=["lab"])
 
 # Ordering a test is a doctor's decision (W5, ADR-0012).
-_ORDER_GUARD = require_role(*PHYSICIAN_ROLES)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_ORDER_GUARD = cua_quyen("clinical.order.place")
 # Entering a result is clinical work: doctors, nurses and the medical secretary.
 # Reception and management are deliberately excluded.
 _RESULT_GUARD = cua_ghi_y_khoa

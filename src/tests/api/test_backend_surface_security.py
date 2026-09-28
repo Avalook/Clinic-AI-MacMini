@@ -46,9 +46,10 @@ def test_every_tools_endpoint_requires_verified_staff_identity() -> None:
         calls = _dependency_calls(route)
         assert get_current_identity in calls, route.path
         assert tools_module._require_tools_access in calls, route.path
-        guards = [call for call in calls if isinstance(call, RoleGuard)]
+        # CHỈ LEGO (28/09/2026): một cửa quyền — lego Vận hành hệ thống.
+        guards = [call for call in calls if hasattr(call, "quyen")]
         assert len(guards) == 1, route.path
-        assert guards[0].allowed_roles == frozenset({ClinicRole.MANAGEMENT})
+        assert guards[0].quyen == ("ops.view",)
 
 
 def test_tools_http_surface_is_disabled_in_production(

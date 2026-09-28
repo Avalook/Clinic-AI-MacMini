@@ -26,11 +26,12 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, cua_noi_bo, require_role
+from clinicai.api.identity import ClinicRole, StaffIdentity, cua_noi_bo
 from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.service_order_service import ServiceOrderService
 from clinicai.services.work_item_service import QUYEN_THEO_KHU, WorkItemService
 
@@ -408,11 +409,8 @@ async def work_item_blockers(
 # Chỉ định dịch vụ — what LUOTKHAM-05 produces
 # ---------------------------------------------------------------------------
 
-_ORDERING_ROLES = require_role(
-    ClinicRole.DOCTOR,
-    ClinicRole.ULTRASOUND_DOCTOR,
-    ClinicRole.TKYK,
-)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_ORDERING_ROLES = cua_quyen("clinical.order.place")
 
 
 class CatalogueEntry(BaseModel):
@@ -657,16 +655,8 @@ async def check_duplicates(
     return [DuplicateService(**r) for r in rows]  # type: ignore[arg-type]
 
 
-_CASHIER_ROLES = require_role(
-    ClinicRole.CASHIER,
-    ClinicRole.CASHIER_THUOC,
-    ClinicRole.CASHIER_DV,
-    ClinicRole.TRUONG_CA,
-    ClinicRole.MANAGEMENT,
-    # The doctor who raised the orders may see what they cost. Reception may
-    # not: closing a visit is theirs, the money is not.
-    ClinicRole.DOCTOR,
-)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_CASHIER_ROLES = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 
 class ChargeLine(BaseModel):

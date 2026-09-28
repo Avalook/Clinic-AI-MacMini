@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import pytest
 
-from clinicai.api.identity import ClinicRole
 from clinicai.api.v1.routers.episodes import _EPISODE_GUARD
 from clinicai.services.episode_service import PENDING_CLOSE, resolve_transition
 
@@ -35,32 +34,8 @@ class TestResolveTransition:
 
 
 class TestEpisodeGuard:
-    """The gate must stay in step with canManageAppt in roles.ts."""
+    """CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN quản lý lịch hẹn / CSKH, không hỏi
+    vai — cấp lego cho ai thì người ấy qua."""
 
-    @pytest.mark.parametrize(
-        "role",
-        [
-            ClinicRole.CSKH,
-            ClinicRole.MANAGEMENT,
-            ClinicRole.TRUONG_CA,
-            # Lễ tân có màn Quản lý khách hàng đủ quyền (24/09/2026).
-            ClinicRole.RECEPTION,
-        ],
-    )
-    def test_allowed_roles(self, role: ClinicRole) -> None:
-        assert role in _EPISODE_GUARD.allowed_roles
-
-    @pytest.mark.parametrize(
-        "role",
-        [
-            ClinicRole.DOCTOR,
-            ClinicRole.ULTRASOUND_DOCTOR,
-            ClinicRole.CASHIER,
-            ClinicRole.CASHIER_THUOC,
-            ClinicRole.CASHIER_DV,
-            ClinicRole.TKYK,
-            ClinicRole.NURSE_ULTRASOUND,
-        ],
-    )
-    def test_everyone_else_is_refused(self, role: ClinicRole) -> None:
-        assert role not in _EPISODE_GUARD.allowed_roles
+    def test_cua_hoi_quyen_khong_hoi_vai(self) -> None:
+        assert set(_EPISODE_GUARD.quyen) == {"booking.manage", "crm.manage"}

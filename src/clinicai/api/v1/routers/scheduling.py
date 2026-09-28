@@ -9,10 +9,8 @@ from pydantic import BaseModel
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import (
-    ClinicRole,
     StaffIdentity,
     get_current_identity,
-    require_role,
 )
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import (
@@ -21,6 +19,7 @@ from clinicai.core.exceptions import (
 from clinicai.core.exceptions import (
     ValidationError as CoreValidationError,
 )
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.scheduling import (
     AppointmentDTO as AppointmentRead,
 )
@@ -36,10 +35,8 @@ from clinicai.services.scheduling_service import SchedulingService
 # Work-session administration is an operations function. Self-service roster
 # registration lives in config.py; this legacy surface may only be used by the
 # manager or shift lead.
-_WORK_SESSION_ADMIN_GUARD = require_role(
-    ClinicRole.MANAGEMENT,
-    ClinicRole.TRUONG_CA,
-)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_WORK_SESSION_ADMIN_GUARD = cua_quyen("config.clinic.manage", "dispatch.manage")
 
 router = APIRouter()
 

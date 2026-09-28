@@ -986,6 +986,10 @@ VAI_THEO_LEGO: dict[str, str] = {
     "dieu_phoi": "TRUONG_CA",
     "kho_thuoc": "PHARMACIST",
     "cham_soc_khach": "CSKH",
+    # 28/09/2026: lego Phòng dịch vụ (hoặc được xếp vào phòng dịch vụ hôm nay)
+    # mang vai người làm dịch vụ — các cửa cũ hỏi vai siêu âm / điều dưỡng dịch
+    # vụ đi theo lego, không theo vai tài khoản.
+    "phong": "NURSE_ULTRASOUND",
 }
 
 #: Vai tài khoản mà lego quyết — tài khoản mang vai này mà lego tắt thì KHÔNG

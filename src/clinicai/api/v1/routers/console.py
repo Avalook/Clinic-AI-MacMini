@@ -16,13 +16,15 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import ClinicRole, StaffIdentity, require_role
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.console_service import ConsoleService
 
 router = APIRouter()
 
-_CONSOLE_GUARD = require_role(ClinicRole.MANAGEMENT)
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_CONSOLE_GUARD = cua_quyen("ops.view")
 
 
 def _refuse_in_production() -> None:

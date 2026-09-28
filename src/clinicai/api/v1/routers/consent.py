@@ -17,16 +17,20 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from clinicai.api.identity import StaffIdentity, get_current_identity, require_role
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services.consent_service import CONSENT_WRITE_ROLES, ConsentService
+from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.consent_service import ConsentService
 
 router = APIRouter()
 
 # `sorted` để thứ tự vai trong thông báo lỗi không đổi giữa các lần chạy —
 # frozenset lặp theo thứ tự băm, và một thông báo đổi chữ mỗi lần khởi động thì
 # không tra cứu được.
-_WRITE_GUARD = require_role(*sorted(CONSENT_WRITE_ROLES))
+# CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
+_WRITE_GUARD = cua_quyen(
+    "clinical.record.write", "crm.manage", "reception.checkin.perform"
+)
 
 
 @router.get("/patients/{patient_id}/links")
