@@ -170,10 +170,16 @@ class FormEngineService:
                 )
 
             khung = json.loads(ban["khung"])
+            # HAI LỆNH MỞ CÙNG LÚC (29/09/2026): hai người cùng mở một phiếu, hay
+            # một màn gọi mở hai lần, đều đọc "chưa có" rồi cùng INSERT — lệnh
+            # sau đụng `uq_form_instance_chi_dinh` và màn báo "Resource already
+            # exists" dù phiếu đã mở được. Ghi-nếu-chưa-có rồi đọc lại: lệnh sau
+            # nhận đúng phiếu lệnh trước vừa tạo.
             moi = await conn.fetchrow(
                 "INSERT INTO form_instance"
                 " (clinic_id, service_order_id, form_id, version, du_lieu, nhap_boi)"
                 " VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::uuid)"
+                " ON CONFLICT (clinic_id, service_order_id, form_id) DO NOTHING"
                 " RETURNING *",
                 identity.clinic_id,
                 service_order_id,
@@ -182,6 +188,20 @@ class FormEngineService:
                 json.dumps(_mac_dinh_tu_khung(khung), ensure_ascii=False),
                 identity.staff_id,
             )
+            if moi is None:
+                moi = await conn.fetchrow(
+                    "SELECT * FROM form_instance"
+                    " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                    "   AND form_id = $3",
+                    identity.clinic_id,
+                    service_order_id,
+                    form_id,
+                )
+                if moi is None:  # không thể xảy ra: vừa đụng chính dòng này
+                    raise ValidationError("Chưa mở được phiếu — thử lại.")
+                khung = await self._khung(
+                    conn, identity.clinic_id, form_id, moi["version"]
+                )
         return self._tra_phieu(moi, khung)
 
     # ------------------------------------------------------------------
