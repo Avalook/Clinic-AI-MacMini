@@ -166,7 +166,7 @@ class TestMergeFindings:
 class TestGuards:
     def test_order_tests_by_permission(self) -> None:
         # CHỈ LEGO (28/09/2026): chỉ định xét nghiệm hỏi quyền chỉ định.
-        assert _ORDER_GUARD.quyen == ("clinical.order.place",)
+        assert getattr(_ORDER_GUARD, "quyen") == ("clinical.order.place",)
 
     def test_results_are_entered_by_permission_not_role(self) -> None:
         # 24/09/2026 (Tuyền chốt): nhập kết quả hỏi QUYỀN — khối ghi bệnh án /
@@ -180,7 +180,7 @@ class TestGuards:
     def test_ultrasound_measurements_by_permission(self) -> None:
         # CHỈ LEGO (28/09/2026): số đo siêu âm = quyền điền kết quả (kể cả người
         # được xếp vào phòng siêu âm hôm nay), không còn chỉ vai bác sĩ siêu âm.
-        assert _SONOGRAPHER_GUARD.quyen == ("result.form.fill",)
+        assert getattr(_SONOGRAPHER_GUARD, "quyen") == ("result.form.fill",)
 
 
 class TestClinicalRecordWriteRoles:
@@ -447,7 +447,7 @@ class TestPatientEditRules:
         from clinicai.api.v1.patients import _PATIENT_EDIT_GUARD
 
         # CHỈ LEGO (28/09/2026): người ghi bệnh án sửa được hồ sơ hành chính.
-        assert "clinical.record.write" in _PATIENT_EDIT_GUARD.quyen
+        assert "clinical.record.write" in getattr(_PATIENT_EDIT_GUARD, "quyen")
 
     @pytest.mark.parametrize(
         "phone", ["0901234567", "0281234567", "0321234567", "0791234567"]

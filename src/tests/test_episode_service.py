@@ -38,4 +38,4 @@ class TestEpisodeGuard:
     vai — cấp lego cho ai thì người ấy qua."""
 
     def test_cua_hoi_quyen_khong_hoi_vai(self) -> None:
-        assert set(_EPISODE_GUARD.quyen) == {"booking.manage", "crm.manage"}
+        assert set(getattr(_EPISODE_GUARD, "quyen")) == {"booking.manage", "crm.manage"}
