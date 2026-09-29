@@ -4,7 +4,9 @@
 //
 // Hai khối, cả hai do MÁY CHỦ gom:
 //   · Cảnh báo — bộ canh gác trong vòng su-kien mở / tự đóng mỗi phút
-//     (services/canh_gac.py): tin sự kiện kẹt, lỗi mới, hàng chờ ma, lượt treo.
+//     (services/canh_gac.py): tin sự kiện kẹt, lỗi mới, hàng chờ ma, lượt treo;
+//     cộng tốc độ kho tệp Viettel CFS do API tự đo mỗi phút
+//     (services/canh_gac_kho_tep.py, 29/09).
 //   · Lỗi theo kiểu — mỗi kiểu lỗi (API 500, bên nhận sự kiện hỏng, trang lỗi
 //     giao diện) MỘT dòng, đếm số lần; người trực đánh dấu Đã biết / Đã sửa /
 //     Bỏ qua. Đã sửa mà tái diễn thì máy chủ tự mở lại.
@@ -26,6 +28,20 @@ interface CanhBao {
   lan_cuoi: string;
   dong_luc: string | null;
   bao_luc: string | null;
+}
+
+// Số đo kho tệp mới nhất — null khi API chưa đo (vừa khởi động / tắt đo).
+interface KhoTep {
+  luc: string;
+  doc_kb_s: number | null;
+  ghi_kb_s: number | null;
+  loi: string | null;
+  cham: boolean;
+}
+
+function kbS(v: number | null): string {
+  if (v === null) return "—";
+  return v >= 1024 ? `${(v / 1024).toFixed(1)} MB/s` : `${Math.round(v)} KB/s`;
 }
 
 interface Loi {
@@ -67,6 +83,7 @@ async function doc<T>(xem: string): Promise<T | null> {
 
 export default function LoiCanhBao() {
   const [canh, setCanh] = useState<CanhBao[] | null>(null);
+  const [khoTep, setKhoTep] = useState<KhoTep | null>(null);
   const [loi, setLoi] = useState<Loi[] | null>(null);
   const [chiMo, setChiMo] = useState(true);
   const [dang, setDang] = useState<string | null>(null);
@@ -74,12 +91,13 @@ export default function LoiCanhBao() {
 
   const nap = useCallback(async () => {
     const [c, l] = await Promise.all([
-      doc<{ canh_bao: CanhBao[] }>("canh-bao"),
+      doc<{ canh_bao: CanhBao[]; kho_tep?: KhoTep | null }>("canh-bao"),
       doc<{ loi: Loi[] }>(`loi${chiMo ? "&chi_mo=1" : ""}`),
     ]);
     if (!c || !l) setBaoLoi("Không đọc được — thử tải lại.");
     else setBaoLoi(null);
     setCanh(c?.canh_bao ?? []);
+    setKhoTep(c?.kho_tep ?? null);
     setLoi(l?.loi ?? []);
   }, [chiMo]);
 
@@ -128,6 +146,16 @@ export default function LoiCanhBao() {
           Bộ canh gác chạy mỗi phút trong người đưa tin sự kiện; hết chuyện thì tự đóng. Có kênh
           Telegram ops (<code>TELEGRAM_OPS_CHAT_ID</code>) thì báo ngay lúc mở.
         </p>
+        {khoTep ? (
+          <p className="text-meta text-ink-muted">
+            Kho tệp Viettel CFS:{" "}
+            <Chip tone={khoTep.cham ? "danger" : "success"}>
+              {khoTep.loi ? "không đo được" : khoTep.cham ? "chậm" : "ổn"}
+            </Chip>{" "}
+            {khoTep.loi ?? `đọc ${kbS(khoTep.doc_kb_s)} · ghi ${kbS(khoTep.ghi_kb_s)}`} · đo lúc{" "}
+            {fmtTime(khoTep.luc)}
+          </p>
+        ) : null}
         {canh === null ? (
           <p className="text-body text-ink-muted">Đang tải…</p>
         ) : dangMo.length === 0 ? (
