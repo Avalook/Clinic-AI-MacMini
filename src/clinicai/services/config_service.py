@@ -322,6 +322,31 @@ class RosterService:
                     }
                 ),
             )
+            # Import muộn: khối chuông kéo theo danh mục sự kiện.
+            from clinicai.events.consumers.chuong import ghi_chuong_vai
+
+            # CHUÔNG TRONG APP cho người có lego CSKH (Tuyền 29/09/2026) — tin
+            # Telegram đã tắt nên dòng sổ trên không còn tới ai. Khoá theo ca
+            # (roster_id): sửa ca nhiều lần vẫn một chuông đang mở.
+            gio = ", ".join(r["gio"] for r in trong_ca[:6])
+            them = f" và {len(trong_ca) - 6} lịch khác" if len(trong_ca) > 6 else ""
+            await ghi_chuong_vai(
+                conn,
+                clinic_id=identity.clinic_id,
+                vai=ClinicRole.CSKH.value,
+                tieu_de=(
+                    f"BS {ten_bac_si} có ca {work_date:%d/%m} — "
+                    f"{len(trong_ca)} lịch đang chờ xếp"
+                ),
+                noi_dung=(
+                    f"Lịch chưa xếp bác sĩ trong ca này: {gio}{them}. Xếp xong "
+                    "thì gọi khách xác nhận giờ khám và tên bác sĩ."
+                ),
+                nguon="lich_cho_xep_co_ca",
+                nguon_id=roster_id,
+                duong_dan="/customers",
+                nguoi_goi=identity.staff_id,
+            )
         except Exception:
             logger.exception("bao_lich_cho_xep_failed")
 

@@ -22,6 +22,7 @@ import { fmtDate, fmtDayTime } from "@/lib/datetime";
 
 import NutXemLuot from "./NutXemLuot";
 import TuNhac from "./TuNhac";
+import ViecTaiKham, { type ChiTietHen } from "./ViecTaiKham";
 
 interface GhiChu {
   id: string;
@@ -67,12 +68,18 @@ interface TomTat {
     tra_lan_cuoi: string | null;
     con_phai_thu: number;
   };
+  khach: { ma: string | null; sdt: string | null };
   hen_tai_kham: {
     id: string;
     ngay_hen: string | null;
+    han_goi: string | null;
     trang_thai: string;
     ket_qua: string | null;
     bac_si: string | null;
+    /** Mã tình trạng máy chủ tính (29/09/2026). */
+    tinh_trang: string;
+    con_mo: boolean;
+    chi_tiet: ChiTietHen | null;
   }[];
   so_ghi_chu: number;
 }
@@ -93,12 +100,6 @@ const NHAN_CHI_DINH: Record<string, string> = {
   assigned: "Đã xếp phòng",
   in_progress: "Đang làm",
 };
-const NHAN_TAI_KHAM: Record<string, [string, ChipTone]> = {
-  CHO_GOI: ["Chờ gọi", "warning"],
-  DA_GOI: ["Đã gọi", "success"],
-  KHONG_CAN: ["Không cần", "neutral"],
-};
-
 /** Dấu "máy chủ trả 403" — so bằng đúng chuỗi này, không lẫn với câu lỗi. */
 const CAM = "\u0000khong-quyen";
 
@@ -401,23 +402,26 @@ function TomTatKhach({ t }: { t: TomTat }) {
       </div>
 
       <div>
-        <p className="font-semibold text-ink">Hẹn tái khám (bác sĩ đặt)</p>
+        {/* VIỆC TÁI KHÁM (29/09/2026): bác sĩ đặt ngày → trước hẹn 7 ngày CSKH
+            gọi chốt giờ. Thẻ đủ để gọi + [Gọi] [Đặt lịch tái khám]. */}
+        <p className="font-semibold text-ink">Việc tái khám (bác sĩ hẹn)</p>
         {t.hen_tai_kham.length === 0 ? (
           <Trong>Không có hẹn tái khám.</Trong>
         ) : (
-          <ul className="mt-1 space-y-1">
-            {t.hen_tai_kham.map((h) => {
-              const [nhan, tone] = NHAN_TAI_KHAM[h.trang_thai] ?? [h.trang_thai, "neutral" as ChipTone];
-              return (
-                <li key={h.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink">
-                  <span className="tabular-nums font-medium">
-                    {h.ngay_hen ? fmtDate(h.ngay_hen) : "—"}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-ink-muted">{h.bac_si ?? ""}</span>
-                  <Chip tone={tone}>{nhan}</Chip>
-                </li>
-              );
-            })}
+          <ul className="mt-1 space-y-2">
+            {t.hen_tai_kham.map((h) => (
+              <li key={h.id}>
+                <ViecTaiKham
+                  ngayHen={h.ngay_hen}
+                  hanGoi={h.han_goi}
+                  tinhTrang={h.tinh_trang}
+                  chiTiet={h.chi_tiet}
+                  sdt={t.khach.sdt}
+                  maKhach={t.khach.ma}
+                  coNut={h.con_mo}
+                />
+              </li>
+            ))}
           </ul>
         )}
       </div>

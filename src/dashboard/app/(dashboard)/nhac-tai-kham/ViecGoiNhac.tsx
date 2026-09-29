@@ -14,6 +14,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhoneCall, PhoneOff, Stethoscope, XCircle } from "lucide-react";
 
+import ViecTaiKham, { type ChiTietHen } from "../_lam-viec/ViecTaiKham";
+
 export interface ViecGoi {
   id: string;
   luot_goi: number;
@@ -24,6 +26,8 @@ export interface ViecGoi {
   patient_code: string | null;
   qua_han: boolean;
   slot_start: string | null;
+  /** Lượt 1: đủ để gọi — đọc từ phiếu khám lần trước (29/09/2026). */
+  chi_tiet?: ChiTietHen | null;
 }
 
 export interface DuLieu {
@@ -160,6 +164,18 @@ export default function ViecGoiNhac({
                       </span>
                     )}
                   </div>
+
+                  {v.luot_goi === 1 ? (
+                    <div className="mt-2">
+                      <ViecTaiKham
+                        ngayHen={v.ngay_hen}
+                        chiTiet={v.chi_tiet ?? null}
+                        sdt={v.phone_primary}
+                        maKhach={v.patient_code}
+                        coNut
+                      />
+                    </div>
+                  ) : null}
 
                   <div className="mt-2.5 flex flex-wrap items-center gap-2">
                     <input
