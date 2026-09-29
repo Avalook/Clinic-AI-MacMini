@@ -16,6 +16,7 @@ import {
   moDuocMan,
   requireNavAccess,
 } from "@/lib/clinic-session";
+import { QUYEN_GHI_CHAM_SOC, coMotQuyen } from "@/lib/quyen-cua-toi";
 import { currentWeekStartVn, weekStartOf } from "@/lib/roster";
 import type { GoiTiepDon } from "@/lib/tiep-don";
 import QueueBoard from "./QueueBoard";
@@ -45,7 +46,7 @@ export default async function ReceptionQueuePage({
   // DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu Tuyền duyệt): một gói của
   // máy chủ, đã chia buổi và tính chip trạng thái. Nút "+ Thêm khách hàng" hỏi
   // ĐÚNG luật cửa của trang đích (`moDuocMan`), không hỏi vai.
-  const [danhSach, goi, role, themKhachDuoc, quyen, moHoSoKhach] = await Promise.all([
+  const [danhSach, goi, role, themKhachDuoc, quyen, moHoSoKhach, moHoSoBenhNhan] = await Promise.all([
     fetchFromBackend<GoiTiepDon>("/api/v1/reception/danh-sach"),
     fetchFromBackend<GoiLichHen>(
       `/api/v1/home/bang-dieu-khien?week_appt=${tuan}&week_roster=${tuan}`,
@@ -54,6 +55,7 @@ export default async function ReceptionQueuePage({
     moDuocMan("/patients/new"),
     getQuyenCuaToi(),
     moDuocMan("/customers"),
+    moDuocMan("/patient-list"),
   ]);
   const { apptDays, dutyByDate } = dungLichHenTuan(goi, tuan);
 
@@ -91,6 +93,10 @@ export default async function ReceptionQueuePage({
             chonNgay
             duocDoiLich={quyen === null ? undefined : quyen.includes("booking.manage")}
             moHoSoKhach={moHoSoKhach}
+            // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
+            // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
+            duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+            duocXemHoSo={moHoSoBenhNhan}
             // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
             duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
           />

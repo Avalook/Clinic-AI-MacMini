@@ -33,6 +33,7 @@ import PriorityChip from "@/components/ui/PriorityChip";
 import SoLuot from "@/components/ui/SoLuot";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { doctorName } from "@/lib/doctor-name";
+import { hrefThemKhach } from "@/lib/lien-ket-lich";
 import {
   docHuongXep,
   dongPhu,
@@ -224,7 +225,7 @@ export default function QueueBoard({
           </ChipChon>
         </div>
         {themKhachDuoc ? (
-          <Link href="/patients/new" className={buttonClass("primary", "lg")}>
+          <Link href={hrefThemKhach()} className={buttonClass("primary", "lg")}>
             + Thêm khách hàng
           </Link>
         ) : null}

@@ -43,6 +43,7 @@ import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { QUYEN_GHI_CHAM_SOC, coMotQuyen } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
 import {
   currentWeekStartVn,
@@ -569,6 +570,10 @@ async function KhoiDuLieu({
           // khách: đã check-in → Hành trình khách, chưa → hồ sơ khách (29/09/2026,
           // bỏ ngăn "Hành chính & Sinh hiệu").
           duocDoiLich={quyen === null ? undefined : quyen.includes("booking.manage")}
+          // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
+          // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
+          duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+          duocXemHoSo={vaoDuocMan("/patient-list", vaiHomNay, quyen)}
           moHoSoKhach={vaoDuocMan("/customers", vaiHomNay, quyen)}
           // Chip T2…CN + "Cả tuần", giữ trên `?ngay=` (27/09/2026, đợt 3 —
           // "check đặt lịch cần hiển thị theo ngày"). Mặc định hôm nay khi
