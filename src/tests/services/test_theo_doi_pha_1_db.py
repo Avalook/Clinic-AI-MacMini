@@ -90,6 +90,41 @@ async def test_canh_gac_mo_mot_lan_roi_tu_dong(pool: asyncpg.Pool) -> None:  # n
         await pool.execute("DELETE FROM canh_bao WHERE ma = 'LOI_MOI'")
 
 
+async def test_kho_tep_cham_mo_canh_bao_that_va_vong_su_kien_khong_dong(
+    pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Canh gác kho tệp (29/09) đi CÙNG bảng canh_bao; vòng su-kien (không đo
+    kho) không được đóng nhầm cảnh báo của nó."""
+    from pathlib import Path
+
+    from clinicai.services import canh_gac_kho_tep as ck
+
+    ma = ck.MA
+    monkeypatch.setattr(ck, "_theo_doi", ck.TheoDoi())
+    monkeypatch.setattr(ck, "_luong", None)
+    await pool.execute("DELETE FROM canh_bao WHERE ma = $1", ma)
+    dem = "SELECT count(*) FROM canh_bao WHERE ma = $1 AND dong_luc IS NULL"
+    try:
+        monkeypatch.setattr(ck, "do_dong_bo", lambda _g: (0.1, 3.7))
+        await ck.mot_vong(pool, Path("/x"))
+        assert await pool.fetchval(dem, ma) == 0, "chậm 1 lần chưa mở"
+        await ck.mot_vong(pool, Path("/x"))
+        noi = await pool.fetchval(
+            "SELECT noi_dung FROM canh_bao WHERE ma = $1 AND dong_luc IS NULL", ma
+        )
+        assert noi and "KB/s" in noi
+        await canh_gac.mot_vong(pool)
+        assert await pool.fetchval(dem, ma) == 1, "vòng su-kien không đụng mã này"
+        monkeypatch.setattr(ck, "do_dong_bo", lambda _g: (0.1, 0.1))
+        await ck.mot_vong(pool, Path("/x"))
+        assert await pool.fetchval(dem, ma) == 1, "hồi 1 lần chưa đóng"
+        await ck.mot_vong(pool, Path("/x"))
+        assert await pool.fetchval(dem, ma) == 0
+    finally:
+        await pool.execute("DELETE FROM canh_bao WHERE ma = $1", ma)
+
+
 async def test_nhat_ky_co_nguoi_lam_va_chi_so(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)

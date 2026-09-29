@@ -1,5 +1,6 @@
 """ClinicAI FastAPI application entry point."""
 
+import asyncio
 import os
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any, AsyncIterator
@@ -85,6 +86,7 @@ from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
+from clinicai.services import canh_gac_kho_tep
 from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
@@ -117,6 +119,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.
     app.state.change_broker = ChangeBroker(os.environ["DATABASE_URL"])
     await app.state.change_broker.start()
+    # CANH GÁC KHO TỆP (29/09/2026): đo ổ Viettel CFS mỗi phút — chạy ở đây vì
+    # chỉ container api gắn thư mục media. Xem services/canh_gac_kho_tep.py.
+    do_kho: asyncio.Task[None] | None = None
+    if canh_gac_kho_tep.bat():
+        do_kho = asyncio.create_task(canh_gac_kho_tep.chay_nen(app.state.db_pool))
     try:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
@@ -154,6 +161,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             yield
             logger.info("app_shutdown_starting")
     finally:
+        if do_kho is not None:
+            do_kho.cancel()
         await app.state.change_broker.stop()
         await close_pool(app.state.db_pool)
 
