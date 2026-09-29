@@ -147,8 +147,9 @@ async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     _, conn = await _goi(ClinicRole.RECEPTION)
     # 3 đếm + 2 xu hướng + tải bác sĩ + 3 cần xử lý + roster + ô đen/NGHỈ
     # + trực ca + bảng trạng thái = 13, + hành trình khách dạng gọn (29/09:
-    # lượt · sự kiện · chỉ định · hàng chờ · phiên = 5) = 18, cùng một _Conn.
-    assert len(conn.cac_cau) == 18
+    # lượt · sự kiện · chỉ định · hàng chờ · phiên = 5) = 18, + phòng của bác
+    # sĩ phiên (bác sĩ của phiên 29/09) = 19, cùng một _Conn.
+    assert len(conn.cac_cau) == 19
 
 
 @pytest.mark.asyncio
