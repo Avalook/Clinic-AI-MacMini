@@ -22,6 +22,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_phu_trach import bac_si_cung_phong_hom_nay
 
 CHUA_PHAN = "Bạn chưa được phân đi cùng bác sĩ nào — báo quản lý phân trong Cấu hình."
 KHAC_BAC_SI = "Khách này của bác sĩ khác — thư ký chỉ làm cho bác sĩ mình được phân."
@@ -47,7 +48,17 @@ async def bac_si_cua_thu_ky(
         identity.clinic_id,
         identity.staff_id,
     )
-    return list(ids) if ids else None
+    if not ids:
+        return None
+    # LỊCH PHÒNG HÔM NAY LÀ HỢP VỚI PHÂN CÔNG (Tuyền 29/09/2026: "được xếp lịch
+    # cùng phòng với bác sĩ thì mọi thứ liên thông song song"). Thư ký phân theo
+    # BS Y mà hôm nay được xếp vào phòng BS X thì thấy + làm được khách của X.
+    # Mọi chặn thư ký (bàn khám, chỉ định, bệnh án, phiếu, đính chính, hồ sơ)
+    # đều qua đây — một luật, một chỗ.
+    cung_phong = await bac_si_cung_phong_hom_nay(
+        conn, identity.clinic_id, identity.staff_id
+    )
+    return sorted({*ids, *cung_phong})
 
 
 def kiem_thu_ky_duoc_lam(

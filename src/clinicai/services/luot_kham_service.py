@@ -46,7 +46,11 @@ from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
-from clinicai.services.bac_si_phu_trach import bac_si_trong, la_bac_si_khac
+from clinicai.services.bac_si_phu_trach import (
+    bac_si_cua_phien,
+    bac_si_trong,
+    la_bac_si_khac,
+)
 from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_tac_service import DoiTacService
 from clinicai.services.hang_cho import (
@@ -1228,8 +1232,68 @@ class LuotKhamService:
                 "Khách này của bác sĩ khác — thư ký chỉ làm cho bác sĩ mình đi kèm."
             )
 
+    async def _bac_si_du_kien(
+        self, conn: asyncpg.Connection, identity: StaffIdentity, con_id: str
+    ) -> str | None:
+        """Bác sĩ cho một phiên CHƯA ghi bác sĩ: người bấm là bác sĩ thật có
+        quyền Hoàn tất khám → chính họ; không thì `bac_si_cua_phien`."""
+        if await can(conn, identity, "clinical.consult.finalize") and (
+            await bac_si_trong(conn, identity.clinic_id, [identity.staff_id])
+        ):
+            return identity.staff_id
+        return await bac_si_cua_phien(
+            conn,
+            clinic_id=identity.clinic_id,
+            consultation_id=con_id,
+            nguoi_bam=identity.staff_id,
+        )
+
+    async def _gan_bac_si_phien(
+        self,
+        conn: asyncpg.Connection,
+        cid: str,
+        vid: str,
+        con_id: str,
+        kind: str,
+        bac_si: str,
+    ) -> None:
+        """Ghi bác sĩ vào CHỖ CÒN TRỐNG: phiên, chỗ chờ của phiên, bác sĩ chính
+        của lượt (trừ phiên tư vấn — bác sĩ tư vấn chưa chắc là bác sĩ chính).
+        Không đè bác sĩ đã ghi (đổi bác sĩ là `doi_bac_si_service`)."""
+        await conn.execute(
+            "UPDATE consultation SET doctor_staff_id = $3::uuid,"
+            " version = version + 1, updated_at = now()"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+            " AND doctor_staff_id IS NULL",
+            cid,
+            con_id,
+            bac_si,
+        )
+        await conn.execute(
+            "UPDATE queue_entry SET doctor_staff_id = $3::uuid,"
+            " version = version + 1, updated_at = now()"
+            " WHERE clinic_id = $1::uuid AND ref_id = $2::uuid"
+            " AND reason <> 'SERVICE' AND doctor_staff_id IS NULL"
+            " AND status NOT IN ('done', 'left', 'cancelled')",
+            cid,
+            con_id,
+            bac_si,
+        )
+        if kind != "TU_VAN":
+            await conn.execute(
+                "UPDATE visit SET attending_doctor_id = $3::uuid, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                " AND attending_doctor_id IS NULL",
+                cid,
+                vid,
+                bac_si,
+            )
+
     async def _cung_ekip(
-        self, conn: asyncpg.Connection, identity: StaffIdentity, c: asyncpg.Record
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        c: asyncpg.Record | dict[str, Any],
     ) -> bool:
         """Người gọi làm tiếp được phiên ĐANG MỞ này (người khác đã bấm Bắt đầu).
 
@@ -1542,28 +1606,27 @@ class LuotKhamService:
                 con_id,
             )
             assert c is not None
-            await self._thu_ky_cua_bac_si(conn, identity, c["doctor_id"])
+            # BÁC SĨ CỦA PHIÊN (Tuyền 29/09/2026 — "mọi chỗ hiển thị bác sĩ phải
+            # ra TÊN BÁC SĨ"): phiên chưa ghi bác sĩ thì người bấm là bác sĩ thật
+            # → chính họ; trợ lý bấm → `bac_si_cua_phien` (hàng chờ, lượt, lịch
+            # hẹn, bác sĩ duy nhất đang trong ca ở phòng người bấm). Người bấm
+            # chỉ nằm ở `started_by` + sự kiện.
+            bac_si_phien = c["doctor_id"] or await self._bac_si_du_kien(
+                conn, identity, con_id
+            )
+            await self._thu_ky_cua_bac_si(conn, identity, bac_si_phien)
             if c["status"] == "in_progress":
                 # Thư ký bấm rồi bác sĩ bấm lại (hay ngược lại) là CÙNG một phiên
                 # đang khám, không phải bị người khác giành.
                 if c["started_by"] == identity.staff_id or await self._cung_ekip(
-                    conn, identity, c
+                    conn, identity, {"doctor_id": bac_si_phien}
                 ):
-                    if (
-                        c["doctor_id"] is None
-                        and await can(conn, identity, "clinical.consult.finalize")
-                        and await bac_si_trong(conn, cid, [identity.staff_id])
-                    ):
-                        # Trợ lý mở phiên chưa có bác sĩ, bác sĩ thật bấm tiếp →
-                        # phiên ghi đúng bác sĩ ấy (như khi bác sĩ tự bấm trước).
-                        await conn.execute(
-                            "UPDATE consultation SET doctor_staff_id = $3::uuid,"
-                            " version = version + 1, updated_at = now()"
-                            " WHERE clinic_id = $1::uuid AND id = $2::uuid"
-                            " AND doctor_staff_id IS NULL",
-                            cid,
-                            con_id,
-                            identity.staff_id,
+                    if c["doctor_id"] is None and bac_si_phien is not None:
+                        # Trợ lý mở phiên chưa có bác sĩ, bác sĩ thật (hoặc trợ
+                        # lý khi đã tìm ra bác sĩ) bấm tiếp → phiên ghi đúng bác
+                        # sĩ ấy (như khi bác sĩ tự bấm trước).
+                        await self._gan_bac_si_phien(
+                            conn, cid, vid, con_id, c["kind"], bac_si_phien
                         )
                     # KHÁCH ĐÃ QUAY LẠI sau dịch vụ (phiên vẫn mở — "đợi quay
                     # lại", Tuyền 23/09): bấm Bắt đầu lần nữa = tiếp tục khám.
@@ -1632,22 +1695,21 @@ class LuotKhamService:
                 UPDATE consultation
                    SET status = 'in_progress', started_by = $3::uuid,
                       started_at = now(),
-                       -- Thư ký bấm thì KHÔNG thành bác sĩ của phiên.
-                       doctor_staff_id = coalesce(
-                           doctor_staff_id, CASE WHEN $4 THEN $3::uuid END),
                        version = version + 1, updated_at = now()
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
                 """,
                 cid,
                 con_id,
                 identity.staff_id,
-                # Ai thành BÁC SĨ của phiên: tài khoản bác sĩ thật có quyền Hoàn
-                # tất khám. Từ 28/09 thư ký / điều dưỡng có lego Bàn khám cũng
-                # có quyền Hoàn tất — họ bấm thì phiên KHÔNG ghi họ là bác sĩ
-                # (Tuyền 29/09: trọn quyền nhưng bác sĩ vẫn là bác sĩ).
-                await can(conn, identity, "clinical.consult.finalize")
-                and bool(await bac_si_trong(conn, cid, [identity.staff_id])),
             )
+            if bac_si_phien is not None:
+                # Thư ký / điều dưỡng bấm thì KHÔNG thành bác sĩ của phiên (Tuyền
+                # 29/09: trọn quyền nhưng bác sĩ vẫn là bác sĩ) — phiên, chỗ chờ
+                # và lượt ghi BÁC SĨ tìm được, để khách rời hàng chờ các phòng
+                # khác và con trỏ vị trí về đúng phòng bác sĩ.
+                await self._gan_bac_si_phien(
+                    conn, cid, vid, con_id, c["kind"], bac_si_phien
+                )
             await conn.execute(
                 # Tư vấn nhận khách còn "chờ đo" (blocked, chưa có giờ vào hàng):
                 # giờ vào hàng = lúc được nhận.
@@ -1679,7 +1741,12 @@ class LuotKhamService:
                 aggregate_id=vid,
                 identity=identity,
                 origin=ORIGIN,
-                payload={"visit_id": vid, "consultation_id": con_id, "kind": c["kind"]},
+                payload={
+                    "visit_id": vid,
+                    "consultation_id": con_id,
+                    "kind": c["kind"],
+                    "bac_si_id": bac_si_phien,
+                },
             )
             await emit_event(
                 conn,
@@ -2233,6 +2300,15 @@ class LuotKhamService:
                     cau="Chỉ bác sĩ quyết cho khách về trước và theo dõi kết quả sau.",
                 )
             c = await self._consultation_in_progress(conn, cid, con_id)
+            if c["doctor_id"] is None:
+                # Phiên mở trước bản 29/09 (trợ lý bấm, không ghi bác sĩ): khép
+                # phiên thì ghi bác sĩ — hàng "Khám với bác sĩ" không còn "—".
+                bac_si_phien = await self._bac_si_du_kien(conn, identity, con_id)
+                if bac_si_phien is not None:
+                    await self._gan_bac_si_phien(
+                        conn, cid, vid, con_id, c["kind"], bac_si_phien
+                    )
+                    c = await self._consultation_in_progress(conn, cid, con_id)
             await self._thu_ky_cua_bac_si(conn, identity, c["doctor_id"])
             if not rules.outcome_allowed(c["kind"], outcome):
                 raise LuotKhamConflictError(

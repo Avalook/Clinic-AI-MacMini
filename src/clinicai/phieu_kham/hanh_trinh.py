@@ -47,6 +47,9 @@ _SU_KIEN = (
 
 SuKien = tuple[str, datetime, dict[str, Any]]
 
+#: Tên người làm của một sự kiện, gắn vào chi tiết lúc đọc (không có trong sổ).
+KHOA_AI = "_ai"
+
 
 def _dau(ds: list[datetime]) -> datetime | None:
     return min(ds) if ds else None
@@ -129,9 +132,31 @@ def dung_moc(
         )
     )
 
+    # GIỜ THẬT, KHÔNG LÀM MÉO (Tuyền duyệt 29/09/2026): xong = lần ĐO ĐẦU TIÊN
+    # tính từ lúc bắt đầu. Đo lại 10:45 sau lần 10:33 không biến thành "làm
+    # 12′" — các lần đo lại trả riêng (`do_lai`, `lan_do` kèm người đo).
     bat = _dau(luc("vitals.started") + luc("vitals.recorded"))
-    ket = _cuoi(luc("vitals.recorded"))
-    moc.append(_moc("SINH_HIEU", "Đo sinh hiệu", "Điều dưỡng", bat, ket, _tt(bat, ket)))
+    lan_do = sorted(
+        (
+            (t, ct)
+            for (e, t, ct) in su_kien
+            if e == "vitals.recorded" and (bat is None or t >= bat)
+        ),
+        key=lambda x: x[0],
+    )
+    ket = lan_do[0][0] if lan_do else None
+    moc.append(
+        _moc(
+            "SINH_HIEU",
+            "Đo sinh hiệu",
+            "Điều dưỡng",
+            bat,
+            ket,
+            _tt(bat, ket),
+            do_lai=[t for t, _ct in lan_do[1:]],
+            lan_do=[{"luc": t, "ai": ct.get(KHOA_AI)} for t, ct in lan_do],
+        )
+    )
 
     tv = luc("consultation.started", loai="TU_VAN")
     if tv:
@@ -386,11 +411,13 @@ async def _doc_su_kien_chi_dinh(
     # Khoá theo chữ thường — Postgres trả uuid dạng thường, người gọi có thể không.
     su_kien: dict[str, list[SuKien]] = {v.lower(): [] for v in visit_ids}
     for r in await conn.fetch(
-        "SELECT visit_id::text AS visit_id, event_type, occurred_at, chi_tiet"
-        "  FROM luot_dong_thoi_gian"
-        " WHERE clinic_id = $1::uuid AND visit_id = ANY($2::uuid[])"
-        "   AND event_type = ANY($3::text[])"
-        " ORDER BY occurred_at, thu_tu",
+        "SELECT d.visit_id::text AS visit_id, d.event_type, d.occurred_at,"
+        "       d.chi_tiet, s.full_name AS ai"
+        "  FROM luot_dong_thoi_gian d"
+        "  LEFT JOIN staff s ON s.id = d.actor_staff_id"
+        " WHERE d.clinic_id = $1::uuid AND d.visit_id = ANY($2::uuid[])"
+        "   AND d.event_type = ANY($3::text[])"
+        " ORDER BY d.occurred_at, d.thu_tu",
         clinic_id,
         visit_ids,
         list(_SU_KIEN),
@@ -398,8 +425,11 @@ async def _doc_su_kien_chi_dinh(
         ct = r["chi_tiet"]
         if isinstance(ct, str):
             ct = json.loads(ct)
+        ct = dict(ct or {})
+        if r["ai"]:
+            ct[KHOA_AI] = r["ai"]
         su_kien.setdefault(r["visit_id"], []).append(
-            (r["event_type"], r["occurred_at"], ct or {})
+            (r["event_type"], r["occurred_at"], ct)
         )
     chi_dinh: dict[str, list[dict[str, Any]]] = {v.lower(): [] for v in visit_ids}
     for r in await conn.fetch(_SQL_CHI_DINH, clinic_id, visit_ids):
@@ -412,6 +442,10 @@ def _moc_iso(moc: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for k in ("bat", "ket"):
             m[k] = _iso(m[k])
         for x in m.get("cac_lan", []):
+            x["luc"] = _iso(x["luc"])
+        if "do_lai" in m:
+            m["do_lai"] = [_iso(t) for t in m["do_lai"]]
+        for x in m.get("lan_do", []):
             x["luc"] = _iso(x["luc"])
     return moc
 

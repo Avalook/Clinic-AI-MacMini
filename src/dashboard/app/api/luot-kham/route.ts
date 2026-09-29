@@ -85,7 +85,14 @@ const THAO_TAC: Record<string, (id: string) => string> = {
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
 function duongDoc(url: URL): string | null {
   const xem = url.searchParams.get("xem");
-  if (!xem) return "/api/v1/luot-kham/bang";
+  // `ngay` (29/09/2026): xem lại + sửa một ngày cũ (Đo sinh hiệu, Bàn khám tư
+  // vấn, Bàn khám, phòng dịch vụ). Chỉ chuyển đúng dạng yyyy-mm-dd; máy chủ tự
+  // đọc lại (rác → hôm nay).
+  const ngay = url.searchParams.get("ngay") ?? "";
+  const coNgay = /^\d{4}-\d{2}-\d{2}$/.test(ngay);
+  if (!xem) {
+    return coNgay ? `/api/v1/luot-kham/bang?ngay=${ngay}` : "/api/v1/luot-kham/bang";
+  }
   if (xem === "phong-hom-nay") return "/api/v1/luot-kham/phong-hom-nay";
   if (xem === "ket-qua-cho-duyet") return "/api/v1/luot-kham/ket-qua-cho-duyet";
   if (xem === "cho-quyet") return "/api/v1/luot-kham/cho-quyet";
@@ -127,17 +134,17 @@ function duongDoc(url: URL): string | null {
       : null;
   }
   if (xem === "hang-cho") {
+    const q = new URLSearchParams();
     // Hàng TƯ VẤN chung (24/09/2026).
     if (url.searchParams.get("tu_van") === "true") {
-      return "/api/v1/luot-kham/hang-cho?tu_van=true";
+      q.set("tu_van", "true");
+    } else {
+      const phong = url.searchParams.get("phong") ?? "";
+      if (phong && !UUID_RE.test(phong)) return null;
+      if (phong) q.set("phong", phong);
     }
-    const phong = url.searchParams.get("phong") ?? "";
-    if (phong && !UUID_RE.test(phong)) return null;
-    // `ngay` (29/09/2026): xem lại hàng chờ phòng của một ngày cũ.
-    const ngay = url.searchParams.get("ngay") ?? "";
-    const q = new URLSearchParams();
-    if (phong) q.set("phong", phong);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(ngay)) q.set("ngay", ngay);
+    // `ngay` (29/09/2026): xem lại hàng chờ của một ngày cũ.
+    if (coNgay) q.set("ngay", ngay);
     const qs = q.toString();
     return qs ? `/api/v1/luot-kham/hang-cho?${qs}` : "/api/v1/luot-kham/hang-cho";
   }

@@ -63,8 +63,15 @@ async def khoa_luot(
     visit_id: str,
     *,
     cho_phep_da_ky: bool = False,
+    cho_phep_ve_giua_chung: bool = False,
 ) -> asyncpg.Record:
-    """Khoá dòng ``visit``; lượt đã đóng / khách bỏ về thì báo 409 có mã."""
+    """Khoá dòng ``visit``; lượt đã đóng / khách bỏ về thì báo 409 có mã.
+
+    `cho_phep_ve_giua_chung` (Tuyền chốt 29/09/2026 — "ngày cũ sửa được hết, ai
+    sửa gì cũng đã có lịch sử"): lượt INCOMPLETE (khách về giữa chừng) vẫn SỬA
+    được ở các lệnh bật cờ này — thực hiện dịch vụ, lưu sinh hiệu. Mỗi lệnh ấy
+    tự ghi sổ sự kiện của nó. FINALIZED / AMENDED (đã ký, TT13) vẫn khoá.
+    """
     row = await conn.fetchrow(
         """
         SELECT visit_id::text AS visit_id, status,
@@ -80,15 +87,15 @@ async def khoa_luot(
         raise NotFoundError("Không tìm thấy lượt khám này.")
     # INCOMPLETE (khách về giữa chừng) nói riêng một câu: người đứng quầy
     # cần biết khách đã rời đi, không phải "lượt đã đóng" như ký xong.
-    if row["status"] == "INCOMPLETE":
+    if row["status"] == "INCOMPLETE" and not cho_phep_ve_giua_chung:
         raise LuotKhamConflictError(
             "VISIT_INCOMPLETE", "Khách đã rời phòng khám giữa chừng."
         )
-    hop_le = (
-        ("OPEN", "IN_PROGRESS", "FINALIZED")
-        if cho_phep_da_ky
-        else ("OPEN", "IN_PROGRESS")
-    )
+    hop_le = {"OPEN", "IN_PROGRESS"}
+    if cho_phep_da_ky:
+        hop_le.add("FINALIZED")
+    if cho_phep_ve_giua_chung:
+        hop_le.add("INCOMPLETE")
     if row["status"] not in hop_le:
         raise LuotKhamConflictError("VISIT_CLOSED", "Lượt khám này đã đóng.")
     return row

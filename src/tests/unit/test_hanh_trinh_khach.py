@@ -180,6 +180,7 @@ def test_tiep_theo_la_ban_kham_doc_ket_qua() -> None:
             "stt": None,
             "so_nguoi_cho": 2,
             "ghi_chu": "đọc kết quả",
+            "du_kien": False,
         }
     ]
 
@@ -319,3 +320,164 @@ def test_noi_cua_hang_ten_phong_that() -> None:
         == "Phòng khám 3"
     )
     assert noi_cua_hang({"lane": "DOCTOR"}) == "Bàn khám (BS chính)"
+
+
+# ── GIỜ THẬT, KHÔNG LÀM MÉO (Tuyền duyệt 29/09/2026) ─────────────────────────
+
+
+def _mot_dich_vu(
+    hang_dv: list[dict[str, Any]],
+    lan_lam: list[dict[str, Any]] | None = None,
+    **k: Any,
+) -> dict[str, Any]:
+    return dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v2",
+            "status": "IN_PROGRESS",
+            "checked_in_at": p(0),
+            "closed_at": None,
+            "dat_luc": None,
+        },
+        su_kien=[
+            ("vitals.started", p(30), {}),
+            ("vitals.recorded", p(33), {"_ai": "ĐD Lan"}),
+            ("vitals.recorded", p(45), {"_ai": "ĐD Mai"}),
+        ],
+        chi_dinh=[
+            _cd(
+                "cd-sa",
+                "Siêu âm phụ khoa",
+                "Phòng siêu âm 1",
+                bat_dau=k.get("bat_dau"),
+                dang_lam=k.get("dang_lam", False),
+                ex=k.get("ex", "PENDING"),
+            )
+        ],
+        hang=hang_dv,
+        phien=[],
+        lan_lam={"cd-sa": lan_lam} if lan_lam else None,
+    )
+
+
+def test_the_dich_vu_vao_khong_muon_hon_bat_dau() -> None:
+    """Chỗ chờ được mở lại (vào 11:10) sau lúc bắt đầu 11:00 → không in "vào
+    11:10" (chờ âm); không có giờ vào nào ≤ bắt đầu thì bỏ trống."""
+    kq = _mot_dich_vu(
+        [_q("q-sa", "SERVICE", "serving", ref="cd-sa", vao=p(70), phuc_vu=p(70))],
+        bat_dau=p(60),
+        dang_lam=True,
+        ex="IN_PROGRESS",
+    )
+    t = _buoc(kq)["LAM_DV"]["dich_vu"][0]
+    assert t["bat_dau"] == p(60)
+    assert t["vao"] is None, "vào hàng muộn hơn bắt đầu thì bỏ trống"
+
+    kq = _mot_dich_vu(
+        [
+            _q("q-sa1", "SERVICE", "done", ref="cd-sa", vao=p(50), phuc_vu=p(60)),
+            _q("q-sa2", "SERVICE", "serving", ref="cd-sa", vao=p(70)),
+        ],
+        bat_dau=p(60),
+        dang_lam=True,
+        ex="IN_PROGRESS",
+    )
+    t = _buoc(kq)["LAM_DV"]["dich_vu"][0]
+    assert t["vao"] == p(50) and t["vao"] <= t["bat_dau"]
+    assert t["so_lan"] == 1 and t["lan"] == []
+
+
+def test_the_dich_vu_lam_lai_giu_lan_1_va_dem_lan() -> None:
+    """Lần 1 bắt đầu 11:00, dừng 11:05; khách chờ lại từ 11:06, lần 2 bắt đầu
+    11:12 → thẻ ghi 2 lần, mỗi lần đủ vào / bắt đầu / xong-dừng; chờ không âm."""
+    lan_lam = [
+        {
+            "attempt_no": 1,
+            "status": "INTERRUPTED",
+            "started_at": p(60),
+            "completed_at": None,
+            "interrupted_at": p(65),
+        },
+        {
+            "attempt_no": 2,
+            "status": "IN_PROGRESS",
+            "started_at": p(72),
+            "completed_at": None,
+            "interrupted_at": None,
+        },
+    ]
+    kq = _mot_dich_vu(
+        [
+            _q("q-1", "SERVICE", "done", ref="cd-sa", vao=p(55)),
+            _q("q-2", "SERVICE", "serving", ref="cd-sa", vao=p(66), phuc_vu=p(72)),
+        ],
+        lan_lam,
+        bat_dau=p(60),
+        dang_lam=True,
+        ex="IN_PROGRESS",
+    )
+    t = _buoc(kq)["LAM_DV"]["dich_vu"][0]
+    assert t["so_lan"] == 2
+    assert [(x["so"], x["vao"], x["bat_dau"], x["dung"]) for x in t["lan"]] == [
+        (1, p(55), p(60), p(65)),
+        (2, p(66), p(72), None),
+    ]
+    assert all(x["vao"] is None or x["vao"] <= x["bat_dau"] for x in t["lan"])
+    # Giờ chính của thẻ = lần mới nhất.
+    assert (t["vao"], t["bat_dau"]) == (p(66), p(72))
+    assert kq["gon"]["lam_lai"] == [{"ten": "Siêu âm phụ khoa", "lan": 2}]
+
+
+def test_the_dich_vu_cho_lam_lai_them_dong_lan_moi() -> None:
+    lan_lam = [
+        {
+            "attempt_no": 1,
+            "status": "INTERRUPTED",
+            "started_at": p(60),
+            "completed_at": None,
+            "interrupted_at": p(65),
+        }
+    ]
+    kq = _mot_dich_vu(
+        [_q("q-1", "SERVICE", "waiting", ref="cd-sa", vao=p(66))],
+        lan_lam,
+        ex="PENDING",
+    )
+    t = _buoc(kq)["LAM_DV"]["dich_vu"][0]
+    assert [(x["so"], x["trang_thai"], x["vao"], x["bat_dau"]) for x in t["lan"]] == [
+        (1, "INTERRUPTED", None, p(60)),
+        (2, "PENDING", p(66), None),
+    ]
+
+
+def test_sinh_hieu_do_lai_dong_rieng_va_dong_gon() -> None:
+    kq = _mot_dich_vu([])
+    sh = _buoc(kq)["SINH_HIEU"]
+    assert (sh["bat_dau"], sh["xong"]) == (p(30), p(33))
+    assert sh["ai"] == "ĐD Lan", "người đo lần 1"
+    assert sh["do_lai"] == [p(45)]
+    assert [x["ai"] for x in sh["lan_do"]] == ["ĐD Lan", "ĐD Mai"]
+    assert kq["gon"]["do_lai"] == [p(45)]
+
+
+def test_buoc_chua_xay_ra_la_du_kien_khong_gio() -> None:
+    b = _buoc(_buoi())
+    assert b["THUOC"]["du_kien"] and b["THUOC"]["ghi_chu"] == "nếu có đơn"
+    assert b["DOC_KQ"]["du_kien"]
+    assert b["CHECK_OUT"]["du_kien"]
+    for ma in ("THUOC", "DOC_KQ", "CHECK_OUT"):
+        assert (b[ma]["vao"], b[ma]["bat_dau"], b[ma]["xong"]) == (None, None, None)
+    # Bước đã xảy ra / đang chạy thật không phải dự kiến.
+    assert not b["KHAM"]["du_kien"] and not b["SINH_HIEU"]["du_kien"]
+    assert not b["LAM_DV"]["du_kien"]
+
+
+def test_noi_giu_cho_la_du_kien() -> None:
+    from clinicai.services.hanh_trinh_khach_service import noi_la_du_kien
+
+    assert noi_la_du_kien("Bàn khám")
+    assert noi_la_du_kien("Bàn khám (BS chính)")
+    assert noi_la_du_kien("Bàn khám BS Linh")
+    assert noi_la_du_kien("Phòng dịch vụ")
+    assert not noi_la_du_kien("Phòng khám Phụ khoa")
+    assert not noi_la_du_kien("")
+    assert not noi_la_du_kien(None)

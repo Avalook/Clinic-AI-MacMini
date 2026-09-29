@@ -169,11 +169,15 @@ class CompleteServiceBody(BaseModel):
 
 @router.get("/luot-kham/bang")
 async def bang(
+    ngay: str | None = Query(default=None, max_length=32),
     identity: StaffIdentity = Depends(_BANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai."""
-    return await BangLuotKham(pool).bang(identity=identity)
+    """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai.
+
+    `ngay=YYYY-MM-DD` (29/09/2026): xem lại + sửa lượt của một ngày cũ; rác =
+    hôm nay."""
+    return await BangLuotKham(pool).bang(identity=identity, ngay=ngay)
 
 
 @router.post("/luot-kham/check-in")

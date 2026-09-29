@@ -57,7 +57,10 @@ export interface QuayThu {
     so_bo: number;
     tien_bo: number;
     dong: { id: string; ten: string | null; khach: "lam" | "khong" | "doi_tac"; tien: number | null }[];
+    /** BÁC SĨ chỉ định (null = chưa có bác sĩ) — không bao giờ trợ lý. */
     bac_si: string | null;
+    /** Người bấm chỉ định hộ, khi không phải chính bác sĩ ấy. */
+    nguoi_bam?: string | null;
     lan: number | null;
     luc: string | null;
   };
@@ -203,9 +206,10 @@ export default function HoaDonMot({
               ))}
             </tbody>
           </table>
-          {ss.bac_si ? (
+          {ss.bac_si || ss.nguoi_bam ? (
             <p className="px-3 py-1.5 text-meta text-ink-muted">
-              {ss.bac_si}
+              {ss.bac_si ?? "Chưa có bác sĩ"}
+              {ss.nguoi_bam ? ` · ${ss.nguoi_bam} bấm` : ""}
               {ss.lan ? ` · chỉ định lần ${ss.lan}` : ""}
               {ss.luc ? ` lúc ${gio(ss.luc)}` : ""}
             </p>

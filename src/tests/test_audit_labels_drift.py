@@ -81,8 +81,39 @@ _NHANH = re.compile(r"'([a-z_]+)'")
 _VE_SO_SANH = re.compile(r"[=!]=\s*'[a-z_]+'")
 
 
+#: `event_type=EVENT` — MÃ QUA MỘT HẰNG, lỗ thứ tư (29/09/2026).
+#:
+#: `service_selection_service.py` viết `EVENT = "service_selection.confirmed"`
+#: rồi `record_event(..., event_type=EVENT)`. Không có chuỗi hằng nào cạnh
+#: `event_type=`, nên mã ấy lọt cả ba biểu thức trên và màn Lịch sử thao tác in
+#: `service_selection.confirmed` thô. Nhặt tên hằng ở lời gọi rồi tra định nghĩa
+#: `TEN = "a.b"` (cùng file trước, rồi toàn dự án — hằng có thể được import).
+_KWARG_HANG = re.compile(r"event_type\s*=\s*([A-Z][A-Z0-9_]*)\b")
+_DINH_NGHIA_HANG = re.compile(
+    r'^([A-Z][A-Z0-9_]*)\s*(?::\s*[A-Za-z_\[\]]+\s*)?=\s*"([a-z_]+\.[a-z_]+)"',
+    re.MULTILINE,
+)
+
+
+def _ma_qua_hang(tat_ca: dict[str, str]) -> set[str]:
+    """Mã sự kiện đi vào `event_type=` qua một hằng Python."""
+    ma: set[str] = set()
+    for f in SRC.rglob("*.py"):
+        text = f.read_text(encoding="utf-8")
+        tai_cho = dict(_DINH_NGHIA_HANG.findall(text))
+        for ten in _KWARG_HANG.findall(text):
+            gia_tri = tai_cho.get(ten) or tat_ca.get(ten)
+            if gia_tri:
+                ma.add(gia_tri)
+    return ma
+
+
 def _ma_trong_ma_nguon() -> set[str]:
     ma: set[str] = set()
+    tat_ca_hang: dict[str, str] = {}
+    for f in SRC.rglob("*.py"):
+        tat_ca_hang.update(_DINH_NGHIA_HANG.findall(f.read_text(encoding="utf-8")))
+    ma |= _ma_qua_hang(tat_ca_hang)
     for f in SRC.rglob("*.py"):
         text = f.read_text(encoding="utf-8")
         ma |= set(_KWARG.findall(text))
@@ -175,6 +206,8 @@ class TestKhongLech:
         # Mã ghép lúc chạy — chốt cho nhánh `_FSTRING` (luot_kham_service
         # quyet_yeu_cau; mã service_log.* cũ đã nghỉ cùng rail cũ, Slice 1).
         assert "requirement.follow_up" in ma
+        # Mã qua hằng — chốt cho nhánh `_KWARG_HANG` (29/09/2026).
+        assert "service_selection.confirmed" in ma
 
     def test_lenh_workflow_khop_dung_rang_buoc_check(self) -> None:
         """Hai chiều, vì bảng nhãn cũ sai cả hai.
@@ -297,6 +330,17 @@ class TestNhan:
     )
     def test_nhung_ma_truoc_day_hien_tho_gio_da_co_ten(self, ma: str) -> None:
         assert action_label(ma) != ma
+
+    def test_ma_chi_co_trong_danh_muc_su_kien_lay_nhan_danh_muc(self) -> None:
+        """Sự kiện nền (`emit_event`) đã có tên ở `events/catalogue` — nhật ký
+        rơi về tên ấy trước khi in mã thô."""
+        from clinicai.events.catalogue import DANH_MUC
+
+        chi_danh_muc = [
+            m for m in DANH_MUC if m not in EVENT_LABELS and m not in WORK_ITEM_LABELS
+        ]
+        for m in chi_danh_muc:
+            assert action_label(m) == DANH_MUC[m].nhan
 
     def test_ma_la_thi_tra_ve_chinh_no(self) -> None:
         """Trả mã thô, KHÔNG trả chuỗi rỗng và không trả "Không rõ": ô trống

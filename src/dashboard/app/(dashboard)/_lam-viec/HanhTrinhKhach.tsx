@@ -27,6 +27,8 @@ import { doctorName } from "@/lib/doctor-name";
 import {
   chipGon,
   demThe,
+  dongDoSinhHieu,
+  dongLanLam,
   dongPhuGon,
   ghiChuKham,
   gio,
@@ -146,10 +148,16 @@ function TheDv({
   dung: boolean;
   lichSu?: DongLichSuPhong[];
 }) {
-  const gioThe = thoiGian(t, bayGio, dung);
+  // LÀM LẠI (29/09/2026): mỗi lần một dòng đủ vào / bắt đầu / xong — lần 1 vẫn
+  // giữ; khi ấy giờ gộp của thẻ không in nữa (đã nằm trong dòng lần mới nhất).
+  const cacLan = t.lan ?? [];
+  const gioThe = cacLan.length > 1 ? "" : thoiGian(t, bayGio, dung);
   return (
     <div className={`rounded-card border border-l-4 border-hairline bg-surface p-3 ${VIEN_THE[t.trang_thai]}`}>
-      <p className="text-emph font-semibold text-ink">{t.noi}</p>
+      <p className="flex flex-wrap items-center gap-2 text-emph font-semibold text-ink">
+        {t.noi}
+        {(t.so_lan ?? 1) >= 2 ? <Chip tone="warning">{`Làm lại · lần ${t.so_lan}`}</Chip> : null}
+      </p>
       <p className="text-meta text-ink-soft">{t.ten}</p>
       <p className={`mt-2 flex items-center gap-1.5 text-body font-semibold tabular-nums ${CHU_THE[t.trang_thai]}`}>
         {t.trang_thai === "DANG_LAM" && !dung ? (
@@ -158,6 +166,13 @@ function TheDv({
         {nhanThe(t, bayGio, dung)}
       </p>
       {gioThe ? <p className="mt-0.5 text-meta tabular-nums text-ink-muted">{gioThe}</p> : null}
+      {cacLan.length > 1 ? (
+        <ul className="mt-1 space-y-0.5 text-meta tabular-nums text-ink-muted">
+          {cacLan.map((l) => (
+            <li key={l.so}>{dongLanLam(l, bayGio, dung)}</li>
+          ))}
+        </ul>
+      ) : null}
       {t.trang_thai === "DOI_TAC" ? (
         <p className="mt-0.5 text-meta text-ink-muted">
           {t.lay_mau ? `lấy mẫu ${gio(t.lay_mau)} · ` : ""}không giữ khách
@@ -197,12 +212,16 @@ function Buoc({
   lichSu?: Record<string, DongLichSuPhong[]>;
 }) {
   const chuaToi = b.trang_thai === "chua" || b.trang_thai === "khong";
+  // BƯỚC CHƯA XẢY RA (29/09/2026): chữ giữ chỗ xám "dự kiến", KHÔNG giờ.
+  const duKien = b.du_kien === true;
   const meta = [
-    b.ma === "LAM_DV" ? null : b.noi || null,
+    b.ma === "LAM_DV" ? null : b.noi ? (b.noi_du_kien && !duKien ? `${b.noi} (dự kiến)` : b.noi) : null,
     tenAi(b),
-    b.trang_thai === "khong" ? "không làm" : thoiGian(b, bayGio, dung) || null,
+    duKien ? null : b.trang_thai === "khong" ? "không làm" : thoiGian(b, bayGio, dung) || null,
   ].filter(Boolean);
   const ghi = b.ma === "KHAM" ? ghiChuKham(b) : b.ghi_chu;
+  // Sinh hiệu đo lại — dòng RIÊNG, không gộp vào thời gian làm.
+  const doLai = b.ma === "SINH_HIEU" ? dongDoSinhHieu(b) : "";
   return (
     <li className="flex gap-3">
       <div className="flex flex-col items-center" aria-hidden="true">
@@ -215,11 +234,15 @@ function Buoc({
         <p className={`flex flex-wrap items-center gap-2 ${chuaToi ? "text-body font-medium text-ink-muted" : "text-emph font-semibold text-ink"}`}>
           {b.ten}
           {b.dich_vu && b.dich_vu.length > 0 ? <Chip tone="run">{demThe(b.dich_vu)}</Chip> : null}
+          {duKien ? <Chip tone="neutral">dự kiến</Chip> : null}
         </p>
         {meta.length > 0 ? (
           <p className="text-meta tabular-nums text-ink-muted">{meta.join(" · ")}</p>
         ) : null}
-        {ghi ? <p className="mt-1 text-meta text-ink-soft">{ghi}</p> : null}
+        {doLai ? <p className="mt-0.5 text-meta tabular-nums text-ink-muted">{doLai}</p> : null}
+        {ghi ? (
+          <p className={`mt-1 text-meta ${duKien ? "text-ink-muted" : "text-ink-soft"}`}>{ghi}</p>
+        ) : null}
         {b.dich_vu && b.dich_vu.length > 0 ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {b.dich_vu.map((t, i) => (
@@ -282,6 +305,7 @@ export function KhungHanhTrinh({ ht, bayGio }: { ht: HanhTrinhKhach; bayGio: num
                       t.stt != null ? `STT ${t.stt}` : null,
                       t.so_nguoi_cho != null ? `chờ ${t.so_nguoi_cho} người` : null,
                       t.ghi_chu,
+                      t.du_kien ? "dự kiến" : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
