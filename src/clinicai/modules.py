@@ -113,11 +113,17 @@ MODULE: dict[str, Module] = {
                 "AutoAssignPaidOrders",
                 # Phòng khách chọn ở quầy trước khi thu (24/09/2026) — H4 dùng.
                 "PlanServiceRoom",
+                # Trưởng ca chuyển phòng khi dịch vụ đang làm (29/09/2026).
+                "TransferInProgressService",
             ],
             # Huỷ xếp phòng là sự thật nghiệp vụ, không chỉ là dòng nhật ký:
             # phòng mất thì phải có người xếp lại, và người ấy nhận việc qua
             # sự kiện này (ChatGPT tin 112).
-            phat=["service.routed", "service.routing_invalidated"],
+            phat=[
+                "service.routed",
+                "service.routing_invalidated",
+                "service.room_transferred",
+            ],
             bang=["queue_entry"],
             quyen=[
                 "service.routing.view",
@@ -243,6 +249,7 @@ MODULE: dict[str, Module] = {
                 "consultation.handed_over",
                 "consultation.completed",
                 "service.routed",
+                "service.room_transferred",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "payment.service_collected",

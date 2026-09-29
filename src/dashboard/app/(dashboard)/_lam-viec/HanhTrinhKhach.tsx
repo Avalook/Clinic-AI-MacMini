@@ -35,6 +35,7 @@ import {
   phut,
   thoiGian,
   type BuocHanhTrinh,
+  type DongLichSuPhong,
   type HanhTrinhGon,
   type HanhTrinhKhach,
   type TheDichVu,
@@ -134,7 +135,17 @@ const CHU_THE: Record<TrangThaiThe, string> = {
   BO: "text-ink-muted",
 };
 
-function TheDv({ t, bayGio, dung }: { t: TheDichVu; bayGio: number; dung: boolean }) {
+function TheDv({
+  t,
+  bayGio,
+  dung,
+  lichSu,
+}: {
+  t: TheDichVu;
+  bayGio: number;
+  dung: boolean;
+  lichSu?: DongLichSuPhong[];
+}) {
   const gioThe = thoiGian(t, bayGio, dung);
   return (
     <div className={`rounded-card border border-l-4 border-hairline bg-surface p-3 ${VIEN_THE[t.trang_thai]}`}>
@@ -152,6 +163,17 @@ function TheDv({ t, bayGio, dung }: { t: TheDichVu; bayGio: number; dung: boolea
           {t.lay_mau ? `lấy mẫu ${gio(t.lay_mau)} · ` : ""}không giữ khách
         </p>
       ) : null}
+      {lichSu && lichSu.length > 0 ? (
+        // Lịch sử xếp / đổi phòng (Tuyền 29/09/2026): giờ · ai · A → B · lý do.
+        <ul className="mt-2 space-y-0.5 border-t border-hairline pt-1.5" aria-label="Lịch sử xếp phòng">
+          {lichSu.map((l, i) => (
+            <li key={i} className="text-meta text-ink-muted">
+              <span className="tabular-nums">{gio(l.luc)}</span> · {l.cau}
+              {l.ai ? ` (${l.ai})` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -166,11 +188,13 @@ function Buoc({
   cuoi,
   bayGio,
   dung,
+  lichSu,
 }: {
   b: BuocHanhTrinh;
   cuoi: boolean;
   bayGio: number;
   dung: boolean;
+  lichSu?: Record<string, DongLichSuPhong[]>;
 }) {
   const chuaToi = b.trang_thai === "chua" || b.trang_thai === "khong";
   const meta = [
@@ -199,7 +223,13 @@ function Buoc({
         {b.dich_vu && b.dich_vu.length > 0 ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {b.dich_vu.map((t, i) => (
-              <TheDv key={t.id ?? i} t={t} bayGio={bayGio} dung={dung} />
+              <TheDv
+                key={t.id ?? i}
+                t={t}
+                bayGio={bayGio}
+                dung={dung}
+                lichSu={t.id ? lichSu?.[t.id] : undefined}
+              />
             ))}
           </div>
         ) : null}
@@ -264,7 +294,14 @@ export function KhungHanhTrinh({ ht, bayGio }: { ht: HanhTrinhKhach; bayGio: num
       </div>
       <ol className="p-4 pb-0" aria-label="Dòng thời gian hành trình">
         {ht.buoc.map((b, i) => (
-          <Buoc key={b.ma} b={b} cuoi={i === ht.buoc.length - 1} bayGio={bayGio} dung={dung} />
+          <Buoc
+            key={b.ma}
+            b={b}
+            cuoi={i === ht.buoc.length - 1}
+            bayGio={bayGio}
+            dung={dung}
+            lichSu={ht.lich_su_phong}
+          />
         ))}
       </ol>
       <p className="border-t border-hairline px-4 py-2 text-meta text-ink-muted">

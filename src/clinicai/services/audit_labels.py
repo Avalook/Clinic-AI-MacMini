@@ -225,6 +225,7 @@ EVENT_LABELS: dict[str, str] = {
     # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
     "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
+    "service.room_transferred": "Trưởng ca chuyển phòng khi dịch vụ đang làm",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",

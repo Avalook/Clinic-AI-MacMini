@@ -643,6 +643,26 @@ class DaXepPhong(PayloadSuKien):
     #: Nguồn lần xếp (25/09/2026): quay_thu · truong_ca · tu_dong · khac — để
     #: Lịch sử điều phối hiện "ai đổi, từ màn nào". Sự kiện cũ không có → None.
     nguon: str | None = None
+    #: Dây H4 xếp đúng PHÒNG DỰ KIẾN ai đặt trước (quay_thu · truong_ca) — lịch
+    #: sử nói "tự động theo phòng trưởng ca chọn trước" (29/09/2026).
+    du_kien_nguon: str | None = None
+
+
+class DichVuDaChuyenPhong(PayloadSuKien):
+    """`service.room_transferred` — dịch vụ ĐANG LÀM, trưởng ca chuyển sang
+    phòng khác (Tuyền 29/09/2026). Lần làm cũ dừng (có lý do), chỉ định về chờ
+    làm ở phòng mới. `ly_do` là chữ trưởng ca gõ — bắt buộc."""
+
+    visit_id: str
+    service_order_id: str
+    from_room_id: str | None = None
+    room_id: str
+    attempt_id: str | None = None
+    attempt_no: int | None = None
+    routing_revision: int
+    execution_revision: int
+    ly_do: str
+    nguon: str = "truong_ca"
 
 
 class XepPhongDaHuy(PayloadSuKien):
@@ -886,6 +906,16 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Đã xếp phòng",
             consumers=[DONG_THOI_GIAN_LUOT],
             is_public=True,
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_transferred",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=DichVuDaChuyenPhong,
+            nhan="Trưởng ca chuyển phòng khi đang làm",
+            consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1243,6 +1273,7 @@ __all__ = [
     "ChiDinhMangSang",
     "DaXepDuongDi",
     "DaXepPhong",
+    "DichVuDaChuyenPhong",
     "TienDichVuDaThu",
     "TienThuocDaThu",
     "CHUONG",

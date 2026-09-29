@@ -22,6 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Chip from "@/components/ui/Chip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ChiDinhCuaBacSi from "./ChiDinhCuaBacSi";
+import { ChipTrangThai } from "./nhan-trang-thai";
 import { nodeLabel, type DispatchHistoryRow, type DispatchPatient, type DispatchRoom } from "./types";
 import { EVENT_LABEL } from "./HistoryClient";
 import { LiveBadge, ReadFailed, tenPhong, useDispatchLive } from "./shared";
@@ -191,6 +192,11 @@ export default function QueuesClient({
               {khach.room_name ? ` · ${tenPhong(khach.room_name)}` : ""} — chờ {khach.wait_minutes}′
               {quaNguong(khach) ? ` (ngưỡng ${khach.threshold_minutes}′)` : ""}
             </p>
+            {khach.trang_thai ? (
+              <p className="mt-1">
+                <ChipTrangThai t={khach.trang_thai} />
+              </p>
+            ) : null}
             <p className="mt-3 text-label font-semibold uppercase text-ink-muted">
               Chuyển sang phòng làm được việc này
             </p>
@@ -315,6 +321,7 @@ function ThePhong({
                     {p.so_tiep_don ?? p.queue_number ?? ""}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-ink">{p.patient_name ?? "—"}</span>
+                  {p.trang_thai ? <ChipTrangThai t={p.trang_thai} /> : null}
                   <span className={`shrink-0 tabular-nums ${do_ ? "font-semibold text-danger" : "text-ink-muted"}`}>
                     {p.wait_minutes}′
                   </span>
