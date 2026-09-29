@@ -26,6 +26,7 @@ from clinicai.permissions.doc_bang import (
 from clinicai.permissions.lich import bac_si_cung_phong_hom_nay, khach_cua_toi
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
+from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
 from clinicai.services.bac_si_phu_trach import (
     VAI_BAC_SI,
     bac_si_trong_ca_hoac_ca_ngay,
@@ -64,8 +65,21 @@ class BangLuotKham:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def bang(self, *, identity: StaffIdentity) -> dict[str, Any]:
+    async def bang(
+        self, *, identity: StaffIdentity, ngay: Any = None
+    ) -> dict[str, Any]:
+        """Bảng làm việc theo NGÀY check-in (mặc định hôm nay).
+
+        `ngay` (29/09/2026, YYYY-MM-DD; rác/None = hôm nay — `doc_ngay_xem`):
+        quay lại một NGÀY CŨ để xem và sửa (Đo sinh hiệu, Bàn khám). Ngày cũ
+        lấy MỌI lượt check-in ngày ấy, kể cả đã xong; không có "lịch chờ
+        check-in", không tính phút chờ, không bày ô "bỏ qua tư vấn" (việc đổi
+        đường đi là của hôm nay). Chỉ ĐỌC: mỗi lệnh sửa vẫn tự hỏi luật của nó.
+        """
         cid = identity.clinic_id
+        hom_nay = hom_nay_vn()
+        ngay_xem = doc_ngay_xem(ngay) or hom_nay
+        la_hom_nay = ngay_xem == hom_nay
         async with self._pool.acquire() as conn:
             # Theo LEGO, không theo vai (đợt 3, 27/09/2026) — `permissions/doc_bang`.
             await doi_mot_quyen(
@@ -97,11 +111,12 @@ class BangLuotKham:
                     ON lk.clinic_id = v.clinic_id
                    AND lk.id = coalesce(v.service_type_id, ap.service_type_id)
                  WHERE v.clinic_id = $1::uuid
-                   -- INCOMPLETE cố ý không hiện: khách đã về.
-                   AND v.status IN ('OPEN', 'IN_PROGRESS')
+                   -- INCOMPLETE cố ý không hiện hôm nay: khách đã về. Ngày cũ
+                   -- (xem lại để sửa, 29/09/2026) thì hiện mọi lượt.
+                   AND (v.status IN ('OPEN', 'IN_PROGRESS') OR NOT $3::boolean)
                    AND v.checked_in_at IS NOT NULL
                    AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       = $4::date
                    -- Thư ký chỉ thấy lượt của bác sĩ mình (20260915000020).
                    AND coalesce(v.attending_doctor_id::text, '~')
                        = ANY(coalesce(
@@ -111,6 +126,8 @@ class BangLuotKham:
                 """,
                 cid,
                 await bac_si_cua_thu_ky(conn, identity),
+                la_hom_nay,
+                ngay_xem,
             )
             ids = [r["visit_id"] for r in visits]
             # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong
@@ -289,7 +306,7 @@ class BangLuotKham:
                 cid,
             )
             lich: list[asyncpg.Record] = []
-            if await can(conn, identity, "reception.checkin.perform"):
+            if la_hom_nay and await can(conn, identity, "reception.checkin.perform"):
                 lich = await conn.fetch(
                     """
                     SELECT a.id::text AS id, a.slot_start, a.status,
@@ -332,7 +349,11 @@ class BangLuotKham:
                 # Màn đo sinh hiệu (27/09 tối): loại khám + phút chờ + cờ chờ lâu
                 # — ngưỡng ở luot_kham_rules, màn chỉ tô màu.
                 "loai_kham": v.get("loai_kham"),
-                "cho_phut": (cho := rules.phut_cho(v["checked_in_at"], bay_gio)),
+                "cho_phut": (
+                    cho := rules.phut_cho(v["checked_in_at"], bay_gio)
+                    if la_hom_nay
+                    else None
+                ),
                 "cho_lau": rules.cho_do_lau(cho),
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
@@ -397,7 +418,7 @@ class BangLuotKham:
         for item in by_visit.values():
             tv = next((p for p in item["phien"] if p["loai"] == "TU_VAN"), None)
             chinh = next((p for p in item["phien"] if p["loai"] == "PRIMARY"), None)
-            if tv is None:
+            if tv is None or not la_hom_nay:
                 item["tu_van"] = None
                 continue
             bo_qua = tv["trang_thai"] == "cancelled"
@@ -521,6 +542,8 @@ class BangLuotKham:
         return {
             "vai": identity.role.value,
             "toi": identity.staff_id,
+            "ngay": ngay_xem.isoformat(),
+            "hom_nay": la_hom_nay,
             "luot": list(by_visit.values()),
             "phong": [
                 {
@@ -757,8 +780,9 @@ class BangLuotKham:
                     ds_bac_si, tat_ca_bac_si = khach_cua_toi(
                         toi=identity.staff_id,
                         la_bac_si=la_bac_si,
+                        # Lịch của NGÀY ĐANG XEM (ngày cũ → lịch hôm ấy).
                         cung_phong=await bac_si_cung_phong_hom_nay(
-                            conn, cid, identity.staff_id
+                            conn, cid, identity.staff_id, ngay_xem
                         ),
                         kham_duoc=await can(conn, identity, "clinical.consult.perform"),
                     )
@@ -794,7 +818,11 @@ class BangLuotKham:
                        o.result_note, o.ket_qua_luc, o.duyet_luc,
                        o.not_performed_reason, pf.full_name AS nguoi_lam,
                        v.status AS visit_status, v.finalized_at,
-                       fb.full_name AS nguoi_ky,
+                       -- "Người ký" = BÁC SĨ (Tuyền 29/09/2026); người bấm chỉ
+                       -- hiện nhỏ khi không phải chính bác sĩ ấy.
+                       bsky.full_name AS nguoi_ky,
+                       CASE WHEN fb.id IS DISTINCT FROM bsky.id
+                            THEN fb.full_name END AS nguoi_bam_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
                        r.name AS phong
                   FROM queue_entry q
@@ -815,10 +843,16 @@ class BangLuotKham:
                   LEFT JOIN clinic_room r ON r.id = q.room_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                   LEFT JOIN staff fb ON fb.id = v.finalized_by
+                """
+                + sql_join_bac_si_ky_luot("v", "bsky")
+                + """
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
-                   AND q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
+                   AND (q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
+                        -- Ngày cũ: cả chỗ chờ khách đã về (`left`) — quay lại
+                        -- làm / sửa được (Tuyền 29/09/2026).
+                        OR (q.status = 'left' AND NOT $7::boolean))
                    AND (
                         ($2::uuid IS NOT NULL AND q.lane = 'ROOM'
                              AND q.room_id = $2::uuid)
@@ -868,6 +902,7 @@ class BangLuotKham:
                 tat_ca_bac_si,
                 tu_van,
                 ngay_xem,
+                la_hom_nay,
             )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
@@ -958,6 +993,7 @@ class BangLuotKham:
                 "da_ky": r["visit_status"] in ("FINALIZED", "AMENDED"),
                 "ky_luc": _iso(r["finalized_at"]),
                 "nguoi_ky": r["nguoi_ky"],
+                "nguoi_bam_ky": r["nguoi_bam_ky"],
                 "nguoi_lam": r["nguoi_lam"],
                 # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
                 "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,

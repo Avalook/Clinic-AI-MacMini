@@ -9,6 +9,7 @@ import {
   khoangNhanh,
   khoangTuKy,
   maCuaKhoang,
+  ngayXemTuUrl,
   nhanKhoang,
 } from "./thanh-ngay.ts";
 
@@ -83,4 +84,14 @@ test("nhãn + dải ngày", () => {
       ["2026-09-28", "T2", false],
     ],
   );
+});
+
+test("ngayXemTuUrl: ?ngay= trên URL, rác / tương lai → hôm nay", () => {
+  assert.equal(ngayXemTuUrl("2026-09-25", HOM_NAY), "2026-09-25");
+  assert.equal(ngayXemTuUrl(" 2026-09-25 ", HOM_NAY), "2026-09-25");
+  assert.equal(ngayXemTuUrl(HOM_NAY, HOM_NAY), HOM_NAY);
+  const rac = [null, undefined, "", "rác", "2026-13-01", "2026-02-30", "27/09/2026", 20260925, ["2026-09-25"], "'; drop"];
+  for (const r of rac) assert.equal(ngayXemTuUrl(r, HOM_NAY), HOM_NAY, String(r));
+  assert.equal(ngayXemTuUrl("2026-09-28", HOM_NAY), HOM_NAY); // tương lai
+  assert.equal(ngayXemTuUrl("2026-09-25", "rác"), "rác"); // hôm nay rác: không ném
 });

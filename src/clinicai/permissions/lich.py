@@ -17,10 +17,12 @@ chính phòng ấy (lịch làm việc). Ngoài lịch thì chặn, kèm câu n�
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import date, datetime, time
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity, doc_vi_tri_hien_hanh
+from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.services.bac_si_phu_trach import (
@@ -46,9 +48,16 @@ async def doi_lich_phong(
     pool: asyncpg.Pool,
     identity: StaffIdentity,
     phong_id: str | None,
+    *,
+    ngay_cu: bool = False,
 ) -> None:
-    """Chặn nếu công tắc bật mà người này không có ca ở phòng `phong_id` lúc này."""
-    if not phong_id:
+    """Chặn nếu công tắc bật mà người này không có ca ở phòng `phong_id` lúc này.
+
+    `ngay_cu` (Tuyền chốt 29/09/2026): việc của lượt check-in NGÀY CŨ (quay lại
+    sửa) không đòi đang có ca — lịch chỉ áp cho HÔM NAY; ai có lego của phòng
+    (`doi_quyen` ở nơi gọi) là làm được. Lịch sử sửa nằm ở sổ sự kiện.
+    """
+    if not phong_id or ngay_cu:
         return
     if not await doc_day(conn, identity.clinic_id, "quyen_theo_lich"):
         return
@@ -81,15 +90,25 @@ async def doi_lich_phong(
 
 
 async def bac_si_cung_phong_hom_nay(
-    conn: asyncpg.Connection, clinic_id: str, staff_id: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    staff_id: str,
+    ngay: date | None = None,
 ) -> list[str]:
     """Bác sĩ đứng CÙNG PHÒNG với người này trong lịch hôm nay (cả chính họ nếu
     họ là bác sĩ).
 
     29/09/2026: theo CA đang diễn ra (không chỉ ngày) và tính cả bác sĩ siêu âm
     — một luật với "bác sĩ của phòng" ở hàng chờ; ngoài giờ ca rơi về cả ngày
-    để Bàn khám không bỗng rỗng. Luật nằm ở `bac_si_phu_trach`."""
-    return await _cung_phong(conn, clinic_id, staff_id)
+    để Bàn khám không bỗng rỗng. Luật nằm ở `bac_si_phu_trach`.
+
+    `ngay` (29/09/2026): xem Bàn khám một NGÀY CŨ → lịch CẢ NGÀY ĐÓ. None =
+    hôm nay."""
+    luc = None
+    if ngay is not None and ngay != now_vn().date():
+        # Cuối ngày = ngoài mọi ca → luật rơi về cả ngày của lịch hôm ấy.
+        luc = datetime.combine(ngay, time(23, 59), tzinfo=CLINIC_TZ)
+    return await _cung_phong(conn, clinic_id, staff_id, luc=luc)
 
 
 def khach_cua_toi(

@@ -14,7 +14,9 @@ export type TrangThaiHang =
   | "waiting"
   | "called"
   | "serving"
-  | "done";
+  | "done"
+  /** Khách đã về khi chỗ chờ còn mở — chỉ có ở NGÀY CŨ (29/09/2026). */
+  | "left";
 
 export interface DongHangCho {
   id: string;
@@ -58,7 +60,10 @@ export interface DongHangCho {
   /** Lượt đã hoàn tất khám (FINALIZED/AMENDED) — phiếu khoá theo mốc này. */
   da_ky?: boolean;
   ky_luc?: string | null;
+  /** BÁC SĨ đứng tên hoàn tất (null = chưa có bác sĩ) — không bao giờ trợ lý. */
   nguoi_ky?: string | null;
+  /** Người bấm Hoàn tất khi không phải chính bác sĩ ấy (lịch sử). */
+  nguoi_bam_ky?: string | null;
   /** Người thực hiện chỉ định (phòng dịch vụ). */
   nguoi_lam?: string | null;
   /** Nội dung kết quả đã ghi — chỉ vai đọc lâm sàng nhận được. */

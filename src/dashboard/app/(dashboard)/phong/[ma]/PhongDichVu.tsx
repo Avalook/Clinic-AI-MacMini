@@ -37,9 +37,14 @@
 // thôi ghi mới từ màn này.
 //
 // NGÀY CŨ (Tuyền 29/09/2026): thanh chọn ngày xem lại hàng chờ của một ngày
-// đã qua. Phòng LẤY MẪU ở ngày cũ vẫn đủ nút như hôm nay (máy chủ giữ luật cũ
-// cho Bắt đầu / Đã lấy mẫu); các phòng khác ở ngày cũ là CHỈ XEM + TẢI TỆP.
-// Phòng lấy mẫu luôn có ô tệp — lịch sử các lần tải, tải thêm bất kỳ lúc nào.
+// đã qua. Phòng lấy mẫu luôn có ô tệp — lịch sử các lần tải, tải thêm bất kỳ
+// lúc nào.
+//
+// NGÀY CŨ SỬA ĐƯỢC Ở MỌI PHÒNG (Tuyền 29/09/2026 — "để bác sĩ hay bất kỳ ai quay
+// lại ngày đó xem và sửa"): bỏ khoá chỉ-xem. Ngày cũ đủ nút như hôm nay — mở
+// phiếu kết quả, sửa, Hoàn tất / Sửa lại, tải tệp; dịch vụ chưa làm thì Bắt đầu /
+// Xong ghi GIỜ THẬT lúc bấm (như phòng Lấy mẫu). Sửa kết quả đã Hoàn tất vẫn đi
+// đường "Sửa lại" (giữ bản cũ). Ngày nằm trên URL (`?ngay=`) để F5 không mất.
 //
 // KẾT QUẢ KHÔNG NẰM TRONG LỆNH "XONG" nữa. "Đã làm xong" và "đã có kết quả" là
 // hai sự thật khác nhau — kết quả đi qua phiếu (`PhieuKetQua`), có vòng đời và
@@ -70,17 +75,12 @@ import ThanhNgay from "@/components/ui/ThanhNgay";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 import { ngayNgan } from "@/lib/thanh-ngay";
-import { homNayVn } from "@/lib/validation";
+import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
 
 type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "KHAC";
-
-/** Phòng là phòng lấy mẫu khi có một bước lấy mẫu. */
-function loaiPhong(nodes: string[]): LoaiPhong {
-  return nodes.some((n) => loaiCua(n) === "LAY_MAU") ? "LAY_MAU" : "KHAC";
-}
 
 function loaiCua(node: string | null): LoaiPhong {
   if (!node) return "KHAC";
@@ -107,8 +107,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [chonId, setChonId] = useState<string | null>(null);
   const [lanNap, setLanNap] = useState(0);
-  const [homNay] = useState(homNayVn);
-  const [ngay, setNgay] = useState(homNay);
+  const { ngay, homNay, chonNgay } = useNgayXem();
   /** Máy chủ nói ngày đang xem có phải hôm nay không (ngày rác → hôm nay). */
   const [laHomNay, setLaHomNay] = useState(true);
 
@@ -210,15 +209,13 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           if (moi === ngay) return;
           setHang(null);
           setChonId(null);
-          setNgay(moi);
+          chonNgay(moi);
         }}
       />
       {!laHomNay ? (
         <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-body text-warning">
-          Đang xem ngày {ngayNgan(ngay)}.{" "}
-          {phong && loaiPhong(phong.nodes) === "LAY_MAU"
-            ? "Vẫn tải tệp và bấm được như hôm nay — máy chủ giữ luật cũ."
-            : "Chỉ xem và tải thêm tệp — Bắt đầu / Xong làm ở ngày hôm nay."}
+          Đang xem ngày {ngayNgan(ngay)} — xem và sửa được như hôm nay. Bấm
+          Bắt đầu / Xong thì ghi giờ thật lúc bấm.
         </p>
       ) : null}
 
@@ -248,7 +245,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           )}
         </aside>
         {chon ? (
-          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} ngayCu={!laHomNay} />
+          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} />
         ) : (
           <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-body text-ink-muted shadow-card">
             Chọn một khách trong hàng chờ.
@@ -262,16 +259,11 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 function KhachTrongPhong({
   dong,
   onDaBam,
-  ngayCu = false,
 }: {
   dong: DongHangCho;
   onDaBam: () => void;
-  /** Đang xem một ngày đã qua (29/09/2026). */
-  ngayCu?: boolean;
 }) {
   const loai = loaiCua(dong.node_code);
-  // Ngày cũ ở phòng KHÔNG phải lấy mẫu: chỉ xem + tải tệp (Tuyền 29/09/2026).
-  const chiXem = ngayCu && loai !== "LAY_MAU";
   const [th, setTh] = useState<ThucHien | null>(null);
   const [moLyDo, setMoLyDo] = useState<"khong-lam" | "gian-doan" | null>(null);
   const [lyDo, setLyDo] = useState("");
@@ -328,7 +320,7 @@ function KhachTrongPhong({
   // PENDING) — máy chủ coi như PENDING (`coalesce(execution_status, 'PENDING')`).
   // Bấm thật 23/09 khuya: so đúng chữ "PENDING" làm mất nút Bắt đầu.
   const chuaLam =
-    th != null && !chiXem && (trangThai === "PENDING" || trangThai === null);
+    th != null && (trangThai === "PENDING" || trangThai === null);
   // PHIẾU LÀ ĐƯỜNG CHÍNH khi dịch vụ có mẫu (đã gắn, hoặc gợi ý của phiếu v5) —
   // [Hoàn tất] trong phiếu đóng luôn dịch vụ. Không có mẫu (tháo vòng, đặt
   // vòng…) hoặc phòng LẤY MẪU gửi đối tác: [Xong] là đường chính, phiếu chỉ mở
@@ -405,7 +397,7 @@ function KhachTrongPhong({
               {dangGui ? "Đang ghi…" : "Bắt đầu"}
             </Button>
           ) : null}
-          {daDung && !chiXem && th?.lan_da_dung ? (
+          {daDung && th?.lan_da_dung ? (
             <Button
               size="lg"
               variant="primary"
@@ -492,16 +484,6 @@ function KhachTrongPhong({
         </div>
       ) : null}
 
-      {chiXem && !daXong ? (
-        <div className="rounded-control bg-surface-muted px-3 py-2 text-body">
-          <p className="text-ink-muted">Ngày cũ — chỉ xem và tải thêm tệp.</p>
-          <Button size="sm" variant="ghost" className="mt-1 -ml-3" onClick={() => setXemLuot(true)}>
-            Xem lại cả lượt
-          </Button>
-          {xemLuot ? <XemLuot visitId={dong.visit_id} onDong={() => setXemLuot(false)} /> : null}
-        </div>
-      ) : null}
-
       {/* PHÒNG LẤY MẪU (29/09/2026): ô tệp LUÔN có — lịch sử các lần tải (tên,
           giờ, ai tải) và tải thêm bất kỳ lúc nào, kể cả ngày cũ. */}
       {loai === "LAY_MAU" ? (
@@ -512,9 +494,8 @@ function KhachTrongPhong({
         />
       ) : null}
 
-      {/* Ô TỆP: có ngay từ lúc khách đang làm, để gửi ảnh/video ngay khi chụp.
-          Ngày cũ: luôn có (chỉ xem + tải tệp). */}
-      {(dangLam || daXong || chiXem) && loai !== "LAY_MAU" ? (
+      {/* Ô TỆP: có ngay từ lúc khách đang làm, để gửi ảnh/video ngay khi chụp. */}
+      {(dangLam || daXong) && loai !== "LAY_MAU" ? (
         cacBen ? (
           // Mẫu HAI BÊN (26/09/2026): mỗi bên một ô tải — tệp gắn `ben`.
           <div className="grid gap-3 md:grid-cols-2">
@@ -538,12 +519,12 @@ function KhachTrongPhong({
 
       {/* Phiếu kết quả: mở được ngay khi đang làm, và vẫn xem/điền được sau khi
           dịch vụ đã đóng — kết quả về muộn là chuyện thường. */}
-      {th && !chiXem && (dangLam || daXong) && !coPhieuChinh && loai !== "LAY_MAU" ? (
+      {th && (dangLam || daXong) && !coPhieuChinh && loai !== "LAY_MAU" ? (
         <Button size="sm" variant="ghost" onClick={() => setMoPhieuPhu((v) => !v)}>
           {moPhieuPhu ? "Đóng phiếu kết quả" : "Điền phiếu kết quả (nếu cần)"}
         </Button>
       ) : null}
-      {th && !chiXem && (dangLam || daXong) && (coPhieuChinh || moPhieuPhu) ? (
+      {th && (dangLam || daXong) && (coPhieuChinh || moPhieuPhu) ? (
         <PhieuKetQua
           serviceOrderId={dong.ref_id}
           mau={th.mau_ket_qua}
@@ -570,7 +551,7 @@ function KhachTrongPhong({
 
       {/* HÀNG PHỤ: ba ngoại lệ. Không nút chính nào ở đây — nút chính là
           [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}
-      {th && !chiXem && (chuaLam || dangLam) ? (
+      {th && (chuaLam || dangLam) ? (
         <div className="space-y-3 border-t border-line pt-3">
           {dangLam && th.lan_dang_chay && !coPhieuChinh ? (
             // Dịch vụ không có phiếu kết quả (lấy mẫu gửi đi, thủ thuật không

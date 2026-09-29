@@ -18,7 +18,10 @@ const NHOM: { ten: string; co: (d: DongHangCho) => boolean }[] = [
   // Khách đang ở một bước khác (đang khám bác sĩ, đang siêu âm phòng khác):
   // vẫn là người của phòng này, chưa gọi vào được.
   { ten: "Đang làm việc khác", co: (d) => d.trang_thai === "blocked" },
-  { ten: "Đã xong hôm nay", co: (d) => d.trang_thai === "done" },
+  { ten: "Đã xong", co: (d) => d.trang_thai === "done" },
+  // Chỉ ở NGÀY CŨ (29/09/2026): khách về khi việc này chưa xong — vẫn mở ra
+  // làm / sửa được.
+  { ten: "Khách đã về (chưa xong)", co: (d) => d.trang_thai === "left" },
 ];
 
 export default function HangChoCot({
