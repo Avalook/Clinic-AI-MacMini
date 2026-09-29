@@ -307,7 +307,11 @@ if ! gzip -t "$TEMP_AUTH"; then
     exit 1
 fi
 AUTH_RAW_BYTES=$(gzip -cd "$TEMP_AUTH" | wc -c | tr -d ' ')
-if ! gzip -cd "$TEMP_AUTH" | grep -q 'COPY auth\.users'; then
+# `grep -q` thoát NGAY khi thấy dòng khớp → gzip còn đang ghi thì ăn SIGPIPE
+# ("gzip: stdout: Broken pipe"), và với `pipefail` cả phép kiểm bị tính là HỎNG
+# dù tệp hoàn toàn đúng. Sự cố thật 29/09/2026: sao lưu 13:03, 13:33, 20:00 thất
+# bại ngẫu nhiên (chỉ khi dump auth lớn hơn bộ đệm ống). `grep -c` đọc hết đầu vào.
+if [ "$(gzip -cd "$TEMP_AUTH" | grep -c 'COPY auth\.users' || true)" -lt 1 ]; then
     log "ERROR: auth artifact does not contain auth.users — restore would fail on the staff FK"
     exit 1
 fi
