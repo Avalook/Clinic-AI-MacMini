@@ -487,12 +487,13 @@ async def test_nhap_cua_thu_ky_khong_dieu_phoi_duoc(kb: KichBan) -> None:
     assert e.value.error_code == "NO_VALID_ORDER"
 
 
-async def test_chi_bac_si_duyet_chi_dinh(kb: KichBan) -> None:
+async def test_chi_nguoi_co_chi_dinh_va_kham_duyet_chi_dinh(kb: KichBan) -> None:
     # T-A4 — hỏi QUYỀN (Tuyền 29/09/2026, trợ lý trọn quyền): cần cả Chỉ định
     # lẫn Khám. Thư ký (nhóm mẫu có cả hai) duyệt được — xem
-    # `test_tro_ly_bac_si_tron_quyen_db.py`; trưởng ca / điều dưỡng thiếu Khám.
+    # `test_tro_ly_bac_si_tron_quyen_db.py`; trưởng ca / lễ tân thiếu Khám.
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng nay duyệt được.
     phien = await _vao_kham(kb)
-    for nguoi in (kb.truong_ca, kb.dieu_duong):
+    for nguoi in (kb.truong_ca, kb.le_tan):
         with pytest.raises(SafetyGateError):
             await kb.svc.authorize_orders(
                 consultation_id=phien,
@@ -500,6 +501,13 @@ async def test_chi_bac_si_duyet_chi_dinh(kb: KichBan) -> None:
                 draft_order_ids=None,
                 identity=nguoi,
             )
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[kb.ma_sa],
+        draft_order_ids=None,
+        identity=kb.dieu_duong,
+    )
+    assert len(duyet["order_ids"]) == 1
 
 
 async def test_ket_thuc_kham_khong_can_dich_vu(kb: KichBan) -> None:
@@ -1515,10 +1523,11 @@ async def test_goi_vao_kham_roi_bat_dau(kb: KichBan) -> None:
     await _hanh_trinh(kb.pool)
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
-    # Điều dưỡng không gọi khách vào phòng khám bác sĩ.
+    # Lễ tân (không có khối Khám) không gọi khách vào phòng khám bác sĩ.
     with pytest.raises(SafetyGateError):
-        await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.dieu_duong)
-    ra = await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.bac_si)
+        await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.le_tan)
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng gọi khách vào được.
+    ra = await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.dieu_duong)
     assert ra["lan_goi_lai"] is False
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
@@ -1777,8 +1786,9 @@ async def test_tkyk_handoff_services_pass(kb: KichBan) -> None:
     assert luot["phien"][0]["trang_thai"] == "completed"
 
 
-async def test_tkyk_terminal_no_services_blocked(kb: KichBan) -> None:
-    """TKYK đi kèm bác sĩ bị chặn TERMINAL NO_SERVICES -> SafetyGateError."""
+async def test_tkyk_terminal_no_services_duoc_le_tan_bi_chan(kb: KichBan) -> None:
+    """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK đi kèm bác sĩ khép được
+    TERMINAL NO_SERVICES; lễ tân (không có khối Hoàn tất khám) vẫn bị chặn."""
     async with kb.pool.acquire() as conn:
         await conn.execute(
             """
@@ -1791,17 +1801,26 @@ async def test_tkyk_terminal_no_services_blocked(kb: KichBan) -> None:
             kb.bac_si.staff_id,
         )
     phien = await _vao_kham(kb)
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
+    with pytest.raises(SafetyGateError, match="không có quyền kết thúc phiên khám"):
         await kb.svc.complete_consultation(
             consultation_id=phien,
             outcome="NO_SERVICES",
             requirements=None,
-            identity=kb.thu_ky,
+            identity=kb.le_tan,
         )
+    await kb.svc.complete_consultation(
+        consultation_id=phien,
+        outcome="NO_SERVICES",
+        requirements=None,
+        identity=kb.thu_ky,
+    )
+    luot = _cua(await kb.svc.bang(identity=kb.bac_si), kb.visit_id)
+    assert luot["phien"][0]["trang_thai"] == "completed"
 
 
-async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
-    """TKYK đi kèm bác sĩ bị chặn TERMINAL DONE -> SafetyGateError."""
+async def test_tkyk_terminal_done_duoc_le_tan_bi_chan(kb: KichBan) -> None:
+    """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK đi kèm bác sĩ khép được
+    TERMINAL DONE; lễ tân (không có khối Hoàn tất khám) vẫn bị chặn."""
     async with kb.pool.acquire() as conn:
         await conn.execute(
             """
@@ -1849,13 +1868,20 @@ async def test_tkyk_terminal_done_blocked(kb: KichBan) -> None:
             kb.visit_id,
         )
     await kb.svc.start_consultation(consultation_id=rev_id, identity=kb.bac_si)
-    with pytest.raises(SafetyGateError, match="Chỉ bác sĩ phụ trách|Hoàn tất khám"):
+    with pytest.raises(SafetyGateError, match="không có quyền kết thúc phiên khám"):
         await kb.svc.complete_consultation(
             consultation_id=rev_id,
             outcome="DONE",
             requirements=None,
-            identity=kb.thu_ky,
+            identity=kb.le_tan,
         )
+    kq = await kb.svc.complete_consultation(
+        consultation_id=rev_id,
+        outcome="DONE",
+        requirements=None,
+        identity=kb.thu_ky,
+    )
+    assert kq["ok"] is True
 
 
 async def test_bac_si_khac_terminal_blocked(kb: KichBan) -> None:

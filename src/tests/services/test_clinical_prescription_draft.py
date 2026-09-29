@@ -27,7 +27,7 @@ from tests.services.test_clinical_record_revision import (
 @pytest.fixture(autouse=True)
 def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
     """`conn` là mock đếm từng lần fetchval — cửa quyền thật (CORE-B3) không
-    chạy được ở đây. Cửa giả trả lời theo nhóm mẫu của vai: điều dưỡng không có
+    chạy được ở đây. Cửa giả trả lời theo nhóm mẫu của vai: lễ tân không có
     "Ghi bệnh án" nên vẫn bị chặn ngay ở cổng, đúng như bài kiểm canh."""
     monkeypatch.setattr(
         "clinicai.services.clinical_record_service.doi_quyen",
@@ -196,21 +196,37 @@ async def test_nurse_full_save_cannot_mutate_or_clear_live_rx(
 
 
 @pytest.mark.asyncio
-async def test_dieu_duong_khong_con_ghi_duoc_phan_chuyen_mon() -> None:
-    """Điều dưỡng ghi chẩn đoán → bị chặn (Tuyền chốt 16/09/2026).
+async def test_le_tan_khong_ghi_duoc_phan_chuyen_mon() -> None:
+    """Vai không có khối "Ghi bệnh án" ghi chẩn đoán → bị chặn.
 
-    Trước đó vai này lưu được trọn hồ sơ; bài kiểm cũ canh đúng điều ấy. Nay
-    điều dưỡng chỉ đo sinh hiệu, nên một lần lưu mang theo `assessment` phải
-    dừng NGAY ở cổng quyền — trước khi chạm tới đơn thuốc hay bản sửa đổi.
+    29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng nay ghi được (xem bài
+    dưới), nên người thử cửa đổi sang lễ tân. Một lần lưu mang theo
+    `assessment` phải dừng NGAY ở cổng quyền — trước khi chạm tới đơn thuốc hay
+    bản sửa đổi.
     """
     service, conn = setup_service(2)
     with pytest.raises(SafetyGateError):
         await save(
             service,
-            identity=identity(ClinicRole.NURSE_ULTRASOUND),
+            identity=identity(ClinicRole.RECEPTION),
             expected_revision=2,
             prescriptions=None,
             assessment={"diagnosis": "Chart correction"},
         )
     conn.fetchval.assert_not_awaited()
     service._replace_prescriptions.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dieu_duong_ghi_duoc_phan_chuyen_mon() -> None:
+    """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng ghi chẩn đoán như
+    bác sĩ (trước đó, từ 16/09, chỉ đo sinh hiệu)."""
+    service, conn = setup_service(2)
+    await save(
+        service,
+        identity=identity(ClinicRole.NURSE_ULTRASOUND),
+        expected_revision=2,
+        prescriptions=None,
+        assessment={"diagnosis": "Chart correction"},
+    )
+    conn.fetchval.assert_awaited()

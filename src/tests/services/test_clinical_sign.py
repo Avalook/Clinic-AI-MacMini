@@ -60,10 +60,10 @@ class TestOnlyDoctorsFinalize:
         """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không khoá bệnh án khám."""
         assert "hoan_tat_kham" not in PRESET["ULTRASOUND_DOCTOR"]
 
-    def test_the_medical_secretary_may_not_finalize(self) -> None:
-        """TKYK nhập hộ bệnh án được, nhưng KHÔNG khoá: người khoá là người chịu
-        trách nhiệm chuyên môn."""
-        assert "hoan_tat_kham" not in PRESET["TKYK"]
+    def test_the_medical_secretary_may_finalize(self) -> None:
+        """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK hoàn tất khám như bác sĩ
+        (trước đây chỉ nhập hộ, không khoá)."""
+        assert "hoan_tat_kham" in PRESET["TKYK"]
 
     def test_management_has_every_pack_including_finalize(self) -> None:
         """ĐỔI 24/09/2026 — Tuyền chốt (và xác nhận lại khi được hỏi về câu cũ
@@ -71,8 +71,14 @@ class TestOnlyDoctorsFinalize:
         phòng khám khác cần chặt hơn thì chỉnh nhóm mẫu của họ sau."""
         assert "hoan_tat_kham" in PRESET["MANAGEMENT"]
 
-    def test_a_nurse_may_not_finalize(self) -> None:
-        assert "hoan_tat_kham" not in PRESET["NURSE_ULTRASOUND"]
+    def test_a_nurse_may_finalize(self) -> None:
+        """29/09/2026: ĐD/TKYK trọn quyền (Tuyền)."""
+        assert "hoan_tat_kham" in PRESET["NURSE_ULTRASOUND"]
+
+    @pytest.mark.parametrize("vai", ["RECEPTION", "CSKH"])
+    def test_non_clinical_roles_may_not_finalize(self, vai: str) -> None:
+        """Cửa vẫn đóng với vai không có khối lâm sàng."""
+        assert "hoan_tat_kham" not in PRESET.get(vai, [])
 
 
 class TestPrescriptionFingerprint:

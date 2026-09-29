@@ -242,7 +242,9 @@ async def test_theo_doi_khong_mo_vong_doc_va_khep_khi_lam_xong(kb: KichBan) -> N
     assert await _cho_doc(kb) == []
 
 
-async def test_thu_ky_khong_tu_cho_khach_ve_theo_doi(kb: KichBan) -> None:
+async def test_thu_ky_cho_khach_ve_theo_doi_le_tan_bi_chan(kb: KichBan) -> None:
+    """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — thư ký đi kèm bác sĩ cho khách
+    về theo dõi được; lễ tân (không có khối Hoàn tất khám) vẫn bị chặn."""
     phien = await _vao_kham(kb)
     [mau] = await _chi_dinh(kb, phien, kb.ma_mau)
     await kb.pool.execute(
@@ -255,9 +257,14 @@ async def test_thu_ky_khong_tu_cho_khach_ve_theo_doi(kb: KichBan) -> None:
     with pytest.raises(SafetyGateError):
         await kb.svc.kham_xong(
             consultation_id=phien,
-            identity=kb.thu_ky,
+            identity=kb.le_tan,
             ke_hoach={mau: "FOLLOW_UP"},
         )
+    await kb.svc.kham_xong(
+        consultation_id=phien,
+        identity=kb.thu_ky,
+        ke_hoach={mau: "FOLLOW_UP"},
+    )
 
 
 async def test_ket_qua_muon_chuyen_theo_doi_roi_duyet_sau_khi_ky(
@@ -389,9 +396,11 @@ async def test_khong_thuc_hien_khong_tu_dat_bac_si_phai_quyet(kb: KichBan) -> No
     assert not await _da_khep(kb)
 
 
-async def test_chi_bac_si_phu_trach_quyet_va_co_nhat_ky(kb: KichBan) -> None:
+async def test_chi_nguoi_phu_trach_quyet_va_co_nhat_ky(kb: KichBan) -> None:
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — thư ký qua được cửa quyền (thử ở
+    # dưới, sau khi bác sĩ đã quyết); người thử "bị chặn" đổi sang lễ tân.
     phien2, rid, mau = await _khong_lam_duoc(kb)
-    for nguoi in (kb.thu_ky, kb.bac_si_2):
+    for nguoi in (kb.le_tan, kb.bac_si_2):
         with pytest.raises(SafetyGateError):
             await kb.svc.quyet_yeu_cau(
                 requirement_id=rid,
@@ -405,11 +414,13 @@ async def test_chi_bac_si_phu_trach_quyet_va_co_nhat_ky(kb: KichBan) -> None:
         ly_do="Đổi kế hoạch: làm xét nghiệm lần tái khám",
         identity=kb.bac_si,
     )
-    with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.quyet_yeu_cau(
-            requirement_id=rid, hanh_dong="WAIVE", ly_do="Lần hai", identity=kb.bac_si
-        )
-    assert e.value.error_code == "REQUIREMENT_DECIDED"
+    for nguoi in (kb.bac_si, kb.thu_ky):
+        # Thư ký nay không bị chặn ở cửa quyền — dừng ở "đã quyết" như bác sĩ.
+        with pytest.raises(LuotKhamConflictError) as e:
+            await kb.svc.quyet_yeu_cau(
+                requirement_id=rid, hanh_dong="WAIVE", ly_do="Lần hai", identity=nguoi
+            )
+        assert e.value.error_code == "REQUIREMENT_DECIDED"
     ev = await kb.pool.fetchrow(
         "SELECT payload, metadata FROM event_log WHERE event_type ="
         " 'requirement.waived' AND aggregate_id = $1::uuid",

@@ -101,11 +101,16 @@ async def test_approval_retries_and_does_not_finalize(kb: KichBan) -> None:
     )
 
 
-async def test_nurse_and_reception_do_not_see_drafts(kb: KichBan) -> None:
+async def test_reception_and_service_roles_do_not_see_drafts(kb: KichBan) -> None:
     consultation, draft = await _draft(kb)
-    for identity in [kb.dieu_duong, kb.le_tan, kb.truong_ca, kb.bs_sieu_am]:
+    for identity in [kb.le_tan, kb.truong_ca, kb.bs_sieu_am]:
         visit = _cua(await kb.svc.bang(identity=identity), kb.visit_id)
         assert visit["chi_dinh"] == []
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng thấy nháp như bác sĩ.
+    assert (
+        len(_cua(await kb.svc.bang(identity=kb.dieu_duong), kb.visit_id)["chi_dinh"])
+        == 1
+    )
     # Thư ký chỉ thấy lượt của bác sĩ mình phụ trách (luật 15/09).
     await kb.pool.execute(
         "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
