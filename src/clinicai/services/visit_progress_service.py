@@ -216,8 +216,8 @@ class VisitProgressService:
                 paid_kinds=sorted(r["paid_kinds"] or []),
                 exam_started_at=r["exam_started_at"],
                 paid_at=r["paid_at"],
-                closed_at=r["closed_at"],
-                kham_xong_luc=r["kham_xong_luc"],
+                closed_at=r.get("closed_at"),
+                kham_xong_luc=r.get("kham_xong_luc"),
             )
             for r in rows
         ]
