@@ -44,3 +44,17 @@ export async function inDuocPhieu(): Promise<boolean> {
   const q = await quyenCuaToi();
   return [...QUYEN_Y_KHOA, ...QUYEN_IN_PHIEU].some((x) => q.has(x));
 }
+
+/** Ghi sổ chăm sóc (gọi khách) — khớp `_INTAKE_GUARD` của
+ *  `POST /api/v1/cskh/tuong-tac` (routers/cskh.py). Chỉ để ẨN/HIỆN mục
+ *  "Gọi / ghi chăm sóc" ở menu ⋯ lịch hẹn; máy chủ vẫn tự kiểm. */
+export const QUYEN_GHI_CHAM_SOC = [
+  "crm.manage",
+  "reception.checkin.perform",
+  "dispatch.manage",
+] as const;
+
+/** Có ít nhất một quyền trong `can` (null = máy chủ chưa trả lời → không). */
+export function coMotQuyen(quyen: readonly string[] | null, can: readonly string[]): boolean {
+  return quyen !== null && can.some((q) => quyen.includes(q));
+}

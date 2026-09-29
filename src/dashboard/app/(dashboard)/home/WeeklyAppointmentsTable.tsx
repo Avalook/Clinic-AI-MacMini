@@ -10,7 +10,7 @@
 // Read-only với dữ liệu thật từ appointment; cột thao tác check-in/sinh hiệu
 // giữ nguyên như bản trước.
 
-import { useState, Fragment } from "react";
+import { useState, Fragment, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
@@ -22,7 +22,9 @@ import {
   type ClinicRole,
 } from "../../../lib/roles";
 import DoiLichTaiCho from "../_lam-viec/DoiLichTaiCho";
+import { GhiChamSocTaiCho, HuyLichTaiCho, type LichTaiCho } from "../_lam-viec/ThaoTacLichTaiCho";
 import { PopupHanhTrinhKhach } from "../_lam-viec/HanhTrinhKhach";
+import { hrefDatLich, hrefHoSoKhach, hrefThemKhach } from "../../../lib/lien-ket-lich";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
 import { ngayVN, nowMs, VN_TZ } from "../../../lib/datetime";
 import { doctorName } from "../../../lib/doctor-name";
@@ -208,7 +210,9 @@ interface RowDesc {
   bucket?: { label: string; span: number }; // chỉ dòng đầu của khung
   doctor?: { label: string; span: number; id: string }; // dòng đầu nhóm bác sĩ ("" = chưa phân)
   appt?: WeekApptRow; // dòng lịch thật…
-  free?: { href: string | null }; // …hoặc ô xanh "đặt vào đây" (href null = chỉ nhìn)
+  /** …hoặc ô xanh "đặt vào đây" (href null = chỉ nhìn). `themKhach` = lối quầy
+   *  "＋ Thêm khách hàng" (màn Thêm khách hàng); không = "＋ Đặt lịch vào đây". */
+  free?: { href: string | null; themKhach: boolean };
 }
 
 // Gom lịch 1 ngày thành các dòng render. duty = bác sĩ trực ngày đó (nhóm hiện
@@ -222,6 +226,9 @@ function buildDayRows(
   /** CSKH/Quản lý: "Đặt lịch vào đây" mở màn Đặt lịch điền sẵn khung — mọi
    *  ngày chưa qua, số chỗ thật do màn đặt lịch (backend) nói (16/09/2026). */
   datLichTaiMan = false,
+  /** Người quầy (check-in được): ô trống là "＋ Thêm khách hàng" → màn Thêm
+   *  khách hàng điền sẵn ngày/giờ/bác sĩ (Tuyền 29/09/2026). */
+  themKhach = false,
 ): RowDesc[] {
   const isToday = day.date === todayVn();
   // Khung giờ có ít nhất 1 lịch (mọi trạng thái — lịch huỷ vẫn hiện để check).
@@ -293,12 +300,12 @@ function buildDayRows(
       // CHỈ vai đặt lịch (CSKH/Lễ tân/QL/Trưởng ca) mới thấy hàng này — bác sĩ,
       // điều dưỡng không đặt lịch nên bỏ hẳn cho gọn.
       if (datLichTaiMan && g.id && bucketNotPast) {
+        const khung = { ngay: day.date, gio: bucketHHMM(bucketMs), bacSi: g.id };
         groupRows.push({
           key: `${bucketMs}-${g.id}-free`,
           free: {
-            href: `/appointments?ngay=${day.date}&gio=${encodeURIComponent(
-              bucketHHMM(bucketMs),
-            )}&bac_si=${g.id}`,
+            href: themKhach ? hrefThemKhach(khung) : hrefDatLich(khung),
+            themKhach,
           },
         });
       } else if (
@@ -312,10 +319,9 @@ function buildDayRows(
           key: `${bucketMs}-${g.id}-free`,
           free: {
             href: isToday
-              ? `/patients/new?date=${day.date}&time=${encodeURIComponent(
-                  bucketHHMM(bucketMs),
-                )}&doctor=${g.id}`
+              ? hrefThemKhach({ ngay: day.date, gio: bucketHHMM(bucketMs), bacSi: g.id })
               : null,
+            themKhach,
           },
         });
       }
@@ -343,24 +349,55 @@ function dongMenu(el: HTMLElement) {
   el.closest("details")?.removeAttribute("open");
 }
 
-/** Menu "…" của một dòng lịch — MỌI dòng (29/09/2026). "Đổi lịch" mở popover
- *  Đổi lịch tại chỗ neo vào dòng; ngày khác hôm nay có thêm "Đổi sang hôm nay". */
+/** Thao tác tại chỗ đang mở từ menu ⋯ (29/09/2026). */
+type LoaiTaiCho = "huy" | "goi";
+
+/** Dòng lịch → dữ liệu vẽ đầu hộp của thao tác tại chỗ. */
+function lichTaiCho(a: WeekApptRow): LichTaiCho | null {
+  const p = a.patient;
+  if (!p?.clinic_patient_id) return null;
+  return {
+    id: a.id,
+    slot_start: a.slot_start,
+    clinic_patient_id: p.clinic_patient_id,
+    ten: p.full_name ?? "",
+    sdt: p.phone_primary,
+    bac_si: a.doctor?.full_name ?? null,
+    dich_vu: a.service?.name ?? null,
+  };
+}
+
+/** Menu "…" của một dòng lịch — MỌI dòng (29/09/2026). "Đổi lịch" / "Đổi sang
+ *  hôm nay" mở popover Đổi lịch; "Huỷ lịch" và "Gọi / ghi chăm sóc" mở popover
+ *  làm TẠI CHỖ neo dòng; "Mở hồ sơ khách" nhảy sang Danh sách bệnh nhân với
+ *  khách chọn sẵn. Mỗi mục chỉ hiện với quyền tương ứng (máy chủ vẫn tự kiểm). */
 function MenuLich({
   a,
   laHomNay,
   duocDoiLich,
+  duocGhiChamSoc,
+  duocXemHoSo,
   onDoiLich,
+  onTaiCho,
 }: {
   a: WeekApptRow;
   laHomNay: boolean;
   duocDoiLich: boolean;
+  duocGhiChamSoc: boolean;
+  duocXemHoSo: boolean;
   onDoiLich: (neo: HTMLElement, ngayDau?: string) => void;
+  onTaiCho: (loai: LoaiTaiCho, neo: HTMLElement) => void;
 }) {
   const pid = a.patient?.clinic_patient_id;
   if (!pid) return null;
-  const hoSo = `/customers?selected=${pid}&luot=${a.id}`;
   const doiDuoc = duocDoiLich && CON_SONG.includes(a.status);
+  if (!doiDuoc && !duocGhiChamSoc && !duocXemHoSo && !a.patient?.phone_primary) return null;
   const MUC = "block w-full rounded-control px-2 py-1.5 text-left hover:bg-surface-muted";
+  const moTaiCho = (loai: LoaiTaiCho) => (e: MouseEvent<HTMLButtonElement>) => {
+    const tr = e.currentTarget.closest("tr");
+    dongMenu(e.currentTarget);
+    if (tr) onTaiCho(loai, tr);
+  };
   return (
     <details className="relative">
       <summary
@@ -370,12 +407,16 @@ function MenuLich({
         <MoreHorizontal className="size-4" />
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-52 rounded-card border border-hairline bg-surface p-1 text-body shadow-panel">
-        <Link href={hoSo} className={MUC}>
-          Mở hồ sơ khách
-        </Link>
-        <Link href={hoSo} className={MUC}>
-          Gọi / ghi chăm sóc
-        </Link>
+        {duocXemHoSo ? (
+          <Link href={hrefHoSoKhach(pid)} className={MUC}>
+            Mở hồ sơ khách
+          </Link>
+        ) : null}
+        {duocGhiChamSoc ? (
+          <button type="button" className={MUC} onClick={moTaiCho("goi")}>
+            Gọi / ghi chăm sóc
+          </button>
+        ) : null}
         {doiDuoc && !laHomNay && TRUOC_KHI_DEN.includes(a.status) ? (
           <button
             type="button"
@@ -402,9 +443,11 @@ function MenuLich({
             Đổi lịch
           </button>
         ) : null}
-        <Link href={hoSo} className={MUC}>
-          Huỷ lịch (ghi lý do)
-        </Link>
+        {doiDuoc ? (
+          <button type="button" className={`${MUC} text-danger`} onClick={moTaiCho("huy")}>
+            Huỷ lịch (ghi lý do)
+          </button>
+        ) : null}
         {a.patient?.phone_primary && (
           <a href={`tel:${a.patient.phone_primary}`} className={MUC}>
             📞 {a.patient.phone_primary}
@@ -425,6 +468,8 @@ export default function WeeklyAppointmentsTable({
   choThemKhach = true,
   duocCheckIn,
   duocDoiLich,
+  duocGhiChamSoc = false,
+  duocXemHoSo = false,
   moHoSoKhach = true,
 }: {
   days: ApptDay[];
@@ -452,6 +497,12 @@ export default function WeeklyAppointmentsTable({
   /** Được đổi lịch theo LEGO (`booking.manage`) — trang truyền từ quyền của
    *  tài khoản. Không truyền → theo vai như trước. */
   duocDoiLich?: boolean;
+  /** ⋯ "Gọi / ghi chăm sóc" — có quyền ghi sổ tương tác CSKH
+   *  (`QUYEN_GHI_CHAM_SOC`). Không truyền → ẩn. */
+  duocGhiChamSoc?: boolean;
+  /** ⋯ "Mở hồ sơ khách" (link Danh sách bệnh nhân `?chon=`) — người xem vào
+   *  được `/patient-list` (trang hỏi `moDuocMan`). Không truyền → ẩn. */
+  duocXemHoSo?: boolean;
   /** Người xem mở được màn Quản lý khách hàng (`moDuocMan("/customers")`) —
    *  bấm tên khách CHƯA check-in mở hồ sơ ở đó. */
   moHoSoKhach?: boolean;
@@ -482,6 +533,12 @@ export default function WeeklyAppointmentsTable({
     ngayDau?: string;
   } | null>(null);
   const [hanhTrinh, setHanhTrinh] = useState<{ id: string; ten: string } | null>(null);
+  // Huỷ / Gọi-ghi chăm sóc / Hồ sơ khách tại chỗ (29/09/2026).
+  const [taiCho, setTaiCho] = useState<{
+    loai: LoaiTaiCho;
+    lich: LichTaiCho;
+    neo: HTMLElement;
+  } | null>(null);
   const [thongBao, setThongBao] = useState<string | null>(null);
   // Bảng này gom lịch theo KHUNG — độ dài khung và số chỗ vãng lai là cấu hình
   // của phòng khám, nên không có bản mặc định ở đây.
@@ -496,7 +553,7 @@ export default function WeeklyAppointmentsTable({
   // Menu "…" ở MỌI dòng cho người đổi được lịch (29/09/2026) — kể cả màn Tiếp
   // đón (trước đây ẩn khi có cột check-in).
   const doiLichDuoc = duocDoiLich ?? canManageAppt(role);
-  const coMenu = doiLichDuoc || showActions;
+  const coMenu = doiLichDuoc || showActions || duocGhiChamSoc || duocXemHoSo;
   const homNay = todayVn();
   /** Màn Tiếp đón, ngày KHÁC hôm nay, khách chưa tới: bấm dòng / tên mở thẳng
    *  Đổi lịch với "Hôm nay" chọn sẵn (Tuyền 29/09/2026). */
@@ -687,6 +744,9 @@ export default function WeeklyAppointmentsTable({
                 // quầy. "Vãng lai" nay chỉ là một KÊNH ĐẶT, không phải một
                 // luồng — nên ngày mai, ngày kia cũng bấm được, không chỉ hôm nay.
                 choThemKhach && (canManageAppt(role) || canCheckin(role)),
+                // Người quầy: "＋ Thêm khách hàng" về màn Thêm khách hàng, không
+                // phải màn Đặt lịch (Tuyền 29/09/2026).
+                canCheckin(role),
               );
               const mo = dangMo(day);
               // Bác sĩ của từng dòng: buildDayRows chỉ gắn nhãn ở dòng ĐẦU nhóm
@@ -921,7 +981,13 @@ export default function WeeklyAppointmentsTable({
                                     a={a}
                                     laHomNay={day.date === homNay}
                                     duocDoiLich={doiLichDuoc}
+                                    duocGhiChamSoc={duocGhiChamSoc}
+                                    duocXemHoSo={duocXemHoSo}
                                     onDoiLich={(neo, ngayDau) => setDoiLich({ id: a.id, neo, ngayDau })}
+                                    onTaiCho={(loai, neo) => {
+                                      const lich = lichTaiCho(a);
+                                      if (lich) setTaiCho({ loai, lich, neo });
+                                    }}
                                   />
                                 </td>
                               )}
@@ -934,7 +1000,7 @@ export default function WeeklyAppointmentsTable({
                                     href={r.free.href}
                                     className="inline-flex items-center rounded-chip px-2 py-1 text-meta font-medium text-success hover:bg-success-bg"
                                   >
-                                    {canCheckin(role)
+                                    {r.free.themKhach
                                       ? "＋ Thêm khách hàng"
                                       : "＋ Đặt lịch vào đây"}
                                   </Link>
@@ -972,6 +1038,23 @@ export default function WeeklyAppointmentsTable({
           neo={doiLich.neo}
           ngayDau={doiLich.ngayDau}
           onDong={() => setDoiLich(null)}
+          onXong={daDoiLich}
+        />
+      ) : null}
+      {taiCho?.loai === "huy" ? (
+        <HuyLichTaiCho
+          key={`huy-${taiCho.lich.id}`}
+          lich={taiCho.lich}
+          neo={taiCho.neo}
+          onDong={() => setTaiCho(null)}
+          onXong={daDoiLich}
+        />
+      ) : taiCho?.loai === "goi" ? (
+        <GhiChamSocTaiCho
+          key={`goi-${taiCho.lich.id}`}
+          lich={taiCho.lich}
+          neo={taiCho.neo}
+          onDong={() => setTaiCho(null)}
           onXong={daDoiLich}
         />
       ) : null}
