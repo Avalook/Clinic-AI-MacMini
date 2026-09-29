@@ -36,6 +36,7 @@ import asyncpg
 import structlog
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.trang_thai_lich import DEAD_STATUSES, giu_cho
 from clinicai.services.queue_order import QueueDecision
 from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
@@ -46,7 +47,8 @@ logger = structlog.get_logger()
 MAX_ROWS = 500
 
 # Trạng thái không hiện trên lưới tuần — huỷ xong thì trả chỗ về ô trống.
-HIDDEN_STATUSES = ("CANCELLED", "NO_SHOW", "DOCTOR_DECLINED")
+# Cùng danh sách "không giữ chỗ" của core/trang_thai_lich (29/09/2026).
+HIDDEN_STATUSES = tuple(sorted(DEAD_STATUSES))
 
 _SQL = (
     """
@@ -176,7 +178,11 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        v.thu_tu_tay_ms,
        p.uu_tien AS khach_uu_tien,
        p.uu_tien_ly_do,
-       cap.slot_minutes
+       cap.slot_minutes,
+       -- Số ghế TRỰC TIẾP của đúng (bác sĩ × khung) này, theo luật riêng —
+       -- cùng hàm trigger dùng khi chặn. Trình duyệt không lấy trần chung của
+       -- phòng khám nữa (29/09/2026).
+       cap.walkin_cap
   FROM tuan t
   LEFT JOIN patient p
          ON p.clinic_patient_id = t.clinic_patient_id
@@ -220,7 +226,49 @@ class WeekAppointmentsService:
 
         logger.info("week_appointments", clinic_id=clinic_id, rows=len(rows))
         quyet_dinh = thu_tu_goi_theo_ngay(rows)
-        return [_row_to_dict(r, quyet_dinh.get(str(r["id"]))) for r in rows]
+        dem = dem_ghe_truc_tiep(rows)
+        return [_row_to_dict(r, quyet_dinh.get(str(r["id"])), dem) for r in rows]
+
+
+def _khoa_khung(r: Any) -> tuple[str, int] | None:
+    """(bác sĩ, đầu khung theo epoch) — y như trigger gom: floor(epoch / giây)."""
+    phut = r.get("slot_minutes")
+    if not phut or r.get("slot_start") is None:
+        return None
+    giay = int(phut) * 60
+    return (
+        str(r.get("doctor_id") or ""),
+        int(r["slot_start"].timestamp()) // giay * giay,
+    )
+
+
+def dem_ghe_truc_tiep(rows: list[Any]) -> dict[tuple[str, int], int]:
+    """Số ghế trực tiếp (WALK_IN, còn giữ chỗ) đã có người, theo (bác sĩ, khung).
+
+    Lưới tuần trang chủ trước đây tự đếm ở trình duyệt rồi so với TRẦN CHUNG
+    của phòng khám — lệch ngay khi quản lý đặt luật riêng cho một bác sĩ × giờ.
+    Nay đếm ở đây, cùng luật chọn ghế với `slot_seats_ban` (kênh WALK_IN, trạng
+    thái còn giữ chỗ), và trả sẵn số ghế còn trống trên từng dòng.
+    """
+    out: dict[tuple[str, int], int] = {}
+    for r in rows:
+        if not giu_cho(r.get("status")):
+            continue
+        if (r.get("booking_channel") or "").strip().upper() != "WALK_IN":
+            continue
+        k = _khoa_khung(r)
+        if k is not None:
+            out[k] = out.get(k, 0) + 1
+    return out
+
+
+def _ghe_truc_tiep_con(r: Any, dem: dict[tuple[str, int], int] | None) -> int | None:
+    """Số ghế trực tiếp còn trống ở khung của dòng này; None = không biết."""
+    tran = r.get("walkin_cap")
+    k = _khoa_khung(r)
+    if dem is None or tran is None or k is None:
+        return None
+    return max(int(tran) - dem.get(k, 0), 0)
 
 
 def _vn_midnight(day: date) -> datetime:
@@ -241,7 +289,11 @@ def _vn_midnight(day: date) -> datetime:
     return datetime.combine(day, time.min, tzinfo=CLINIC_TZ)
 
 
-def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str, Any]:
+def _row_to_dict(
+    r: asyncpg.Record,
+    d: QueueDecision | None = None,
+    dem: dict[tuple[str, int], int] | None = None,
+) -> dict[str, Any]:
     """Đúng hình dạng lồng nhau mà ``WeekApptRow`` (TSX) đang đọc.
 
     PostgREST trả quan hệ thành object lồng; giữ y hệt để phía trình duyệt không
@@ -264,6 +316,12 @@ def _row_to_dict(r: asyncpg.Record, d: QueueDecision | None = None) -> dict[str,
         "bac_si_da_go": r["bac_si_da_go"],
         "bac_si_da_go_co_ca_lai": bool(r["bs_go_co_ca_lai"]),
         "vuot_suc_chua": bool(r.get("vuot_suc_chua")),
+        # Lịch này còn chiếm ghế không — trình duyệt đọc cờ này, không giữ
+        # danh sách trạng thái chết của riêng nó (29/09/2026).
+        "giu_cho": giu_cho(r["status"]),
+        # Ghế TRỰC TIẾP còn trống ở (bác sĩ × khung) của dòng này, theo luật
+        # riêng của bác sĩ ấy — ô xanh "đặt vào đây" hiện theo số này.
+        "ghe_truc_tiep_con": _ghe_truc_tiep_con(r, dem),
         # Giờ đến thật + thứ tự gọi. Trước đây endpoint này không trả
         # `checked_in_at`, nên bản TypeScript của luật chạy ở đây luôn coi mọi
         # người là "chưa đến" và xếp theo giờ hẹn — luật đúng, dữ liệu thiếu.

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from datetime import date as _date
 from datetime import timedelta
 from typing import Any, Literal
@@ -173,14 +174,20 @@ class CapacityService:
         self,
         *,
         date: str,
-        location_id: str,
+        location_id: str | None,
         doctor_id: str | None,
         clinic_id: str,
         boi_canh: dict[str, Any] | None = None,
+        bo_qua_lich_id: str | None = None,
     ) -> dict[str, Any]:
         """Trả về từng khung của ngày với sức chứa và mức đã dùng.
 
         ``date`` là ngày giờ VN, dạng ``YYYY-MM-DD``.
+
+        ``location_id`` = None đếm ghế ở MỌI cơ sở — đúng như trigger
+        `enforce_slot_capacity` (nó gọi `slot_seats_used` không kèm cơ sở).
+        ``bo_qua_lich_id``: lịch đang được SỬA không tính là chiếm ghế của chính
+        nó — trigger cũng loại trừ ``NEW.id`` khi đổi giờ.
 
         Một truy vấn duy nhất: giờ mở cửa → sinh các mốc khung → sức chứa hiệu
         lực của từng mốc → đếm lịch còn sống. Gọi resolve_effective_cap trong
@@ -302,6 +309,9 @@ class CapacityService:
                     "off_duty": True,
                     "roster_known": True,
                     "roster_week_published": tuan_da_cong_bo,
+                    "dat_tu_do": not tuan_da_cong_bo,
+                    "regular_chan": tran_co_chan(doctor_id, tuan_da_cong_bo)[0],
+                    "walkin_chan": True,
                     "shift_windows": [],
                     "slots": [],
                 }
@@ -388,7 +398,7 @@ class CapacityService:
                               AT TIME ZONE 'Asia/Ho_Chi_Minh',
                           ($2::date + make_interval(mins => h.close_minute))
                               AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                          NULL, $4::uuid) b
+                          $5::uuid, $4::uuid) b
                 ),
                 -- SỨC CHỨA CHO CẢ NGÀY TRONG MỘT LỜI GỌI.
                 --
@@ -428,8 +438,10 @@ class CapacityService:
                 day,
                 doctor_id,
                 location_id,
+                bo_qua_lich_id,
             )
 
+        regular_chan, walkin_chan = tran_co_chan(doctor_id, tuan_da_cong_bo)
         slots_out = [
             {
                 "time": _hhmm(r["minute_of_day"]),
@@ -470,6 +482,10 @@ class CapacityService:
             # Tuần chưa công bố lịch trực = ĐẶT TỰ DO (luật 15/09/2026): trần
             # không chặn lịch hẹn, màn hình không được in "/3" như một giới hạn.
             "dat_tu_do": not tuan_da_cong_bo,
+            # Trần có CHẶN không, cho từng loại ghế — đúng các nhánh miễn kiểm
+            # của trigger. Lưới vẽ ô tắt theo hai cờ này, không tự suy.
+            "regular_chan": regular_chan,
+            "walkin_chan": walkin_chan,
             "it_cho_toi_da": nguong,
             # Ca trực của bác sĩ hôm đó, để màn hình nói được "chỉ trực buổi
             # sáng" thay vì im lặng bỏ bớt nửa lưới.
@@ -480,6 +496,19 @@ class CapacityService:
             "partial_shift": bool(windows) and windows != [(open_min, close_min)],
             "slots": slots_out,
         }
+
+
+def tran_co_chan(doctor_id: str | None, tuan_da_cong_bo: bool) -> tuple[bool, bool]:
+    """(trần LỊCH HẸN có chặn, trần TRỰC TIẾP có chặn) — bản đọc của trigger.
+
+    `enforce_slot_capacity` (20260915000017) miễn kiểm lịch hẹn ở hai nhánh:
+    lịch CHƯA gán bác sĩ, và tuần CHƯA công bố lịch trực. Ghế trực tiếp thì
+    luôn kiểm, kể cả hàng chưa phân bác sĩ (20260808000002). Lưới phải biết
+    đúng điều ấy: khoá ô ở chỗ trigger nhận là từ chối khách vô cớ; mở ô ở chỗ
+    trigger chặn là mời bấm rồi mắng. `test_luoi_ngay_khop_trigger` đặt lịch
+    thật qua trigger để giữ hai bên khớp.
+    """
+    return (doctor_id is not None and bool(tuan_da_cong_bo), True)
 
 
 def cell_state(regular_cap: int, regular_used: int) -> CellState:
@@ -613,3 +642,78 @@ async def bang_tuan(
             for bs, ten, vai in hang
         ],
     }
+
+
+#: Trần số hàng bác sĩ trong MỘT lượt hỏi lưới ngày. Lưới thật ~17 bác sĩ trực;
+#: trần chỉ để một chuỗi tham số bất thường không biến thành trăm truy vấn.
+LUOI_NGAY_TOI_DA_BAC_SI = 40
+
+
+def _uuid_hop_le(x: object) -> str | None:
+    """Chuỗi UUID hợp lệ thì trả lại (dạng chuẩn), rác thì None — không ném."""
+    if not isinstance(x, str) or not x.strip():
+        return None
+    try:
+        return str(uuid.UUID(x.strip()))
+    except ValueError:
+        return None
+
+
+async def luoi_ngay(
+    svc: CapacityService,
+    *,
+    clinic_id: str,
+    date: str,
+    doctor_ids: list[str],
+    bo_qua_lich_id: str | None = None,
+) -> dict[str, Any]:
+    """Sức chứa của MỘT ngày cho cả lưới đặt chỗ — mỗi bác sĩ một hàng, một lượt.
+
+    VÌ SAO CÓ HÀM NÀY (29/09/2026, Tuyền: "sửa đi").
+
+    Lưới "rạp chiếu phim" (CinemaSlotPicker) và chữ "còn trống / đã kín" ở hai
+    biểu mẫu đặt lịch từng TỰ CỘNG lịch trong ngày rồi so với TRẦN CHUNG của
+    phòng khám (`policy.regularCap/walkinCap`). Trigger thì chặn theo
+    `resolve_effective_cap` — theo bác sĩ × khung, có luật riêng. Quản lý hạ
+    BS X 18:00 xuống 1 chỗ → lưới vẫn mời bấm ghế 2 rồi máy chủ báo đầy; nâng
+    lên 4 → lưới chỉ vẽ 2 ghế.
+
+    Nay mỗi hàng là CHÍNH `quote()` của bác sĩ ấy (cùng `resolve_effective_caps`
+    + `slot_seats_ban` mà trigger dựa vào), kèm hàng "chưa phân bác sĩ"
+    (``doctor_id`` None) ở cuối. Đếm ghế ở MỌI cơ sở như trigger. Bối cảnh lịch
+    trực của ngày hỏi MỘT lần rồi chia cho mọi hàng.
+
+    Ngày hỏng → lưới rỗng (không ném: ngày là dữ liệu người dùng gõ). UUID hỏng
+    trong ``doctor_ids`` bị bỏ qua.
+    """
+    try:
+        ngay = _date.fromisoformat(date).isoformat()
+    except (ValueError, TypeError):
+        return {"date": date, "hang": []}
+
+    ids: list[str] = []
+    for x in doctor_ids:
+        u = _uuid_hop_le(x)
+        if u is not None and u not in ids:
+            ids.append(u)
+    ids = ids[:LUOI_NGAY_TOI_DA_BAC_SI]
+    bo_qua = _uuid_hop_le(bo_qua_lich_id)
+
+    boi_canh = (await svc.boi_canh_tuan(clinic_id=clinic_id, ngay=[ngay])).get(ngay)
+    chan = asyncio.Semaphore(6)
+
+    async def mot_hang(bs: str | None) -> dict[str, Any]:
+        async with chan:
+            q = await svc.quote(
+                date=ngay,
+                location_id=None,
+                doctor_id=bs,
+                clinic_id=clinic_id,
+                boi_canh=boi_canh,
+                bo_qua_lich_id=bo_qua,
+            )
+        q.pop("location_id", None)
+        return q
+
+    hang = await asyncio.gather(*(mot_hang(bs) for bs in [*ids, None]))
+    return {"date": ngay, "hang": list(hang)}

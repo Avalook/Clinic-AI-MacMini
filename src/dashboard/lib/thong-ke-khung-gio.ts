@@ -13,12 +13,12 @@
 import { laKhamCu, laKhamMoi } from "./phan-loai-kham.ts";
 import { VN_TZ } from "./datetime.ts";
 
-/** Trạng thái KHÔNG chiếm chỗ — cùng danh sách với slot-capacity và backend. */
-const TRANG_THAI_CHET = new Set(["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]);
-
 export interface LichDeDem {
   slot_start: string;
   status: string;
+  /** Lịch còn chiếm chỗ không — MÁY CHỦ tính (`/appointments/week`), vì danh
+   *  sách trạng thái "chết" chỉ còn một bản, ở Python (29/09/2026). */
+  giu_cho?: boolean;
   phan_loai: string;
   service?: { name: string } | null;
 }
@@ -57,7 +57,8 @@ export function thongKeTheoKhungGio(items: LichDeDem[]): DongKhungGio[] {
   for (const a of items) {
     // LỊCH ĐÃ HUỶ KHÔNG ĐƯỢC ĐẾM. Bảng này trả lời "khung nào đang kín" — một
     // lịch huỷ không giữ chỗ của ai, và đếm nó vào là báo đầy chỗ còn trống.
-    if (TRANG_THAI_CHET.has(a.status)) continue;
+    // Cờ của máy chủ; trình duyệt không giữ danh sách trạng thái riêng.
+    if (a.giu_cho === false) continue;
     const khung = khungGioVN(a.slot_start);
     if (!khung) continue;
 

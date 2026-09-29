@@ -17,6 +17,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.core.trang_thai_lich import DEAD_STATUSES
 
 
 def _gia(v: Any) -> Any:
@@ -77,12 +78,14 @@ async def hub_dat_lich(
                    service_type_id::text, clinic_patient_id::text
               FROM appointment
              WHERE clinic_id = $1::uuid AND slot_start >= $2 AND slot_start < $3
-               AND status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED')
+               AND status <> ALL($4::text[])
              LIMIT 1000
             """,
             cid,
             dau,
             cuoi,
+            # Trạng thái không giữ chỗ — một danh sách, ở core/trang_thai_lich.
+            sorted(DEAD_STATUSES),
         )
         ma_khach = [r["clinic_patient_id"] for r in khach]
         lich_su = (

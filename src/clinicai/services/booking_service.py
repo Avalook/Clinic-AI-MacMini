@@ -67,6 +67,7 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
+from clinicai.core.trang_thai_lich import DEAD_STATUSES as DEAD_STATUSES
 from clinicai.events.catalogue import (
     CskhDaGoiXacNhan,
     KhachDaToi,
@@ -129,8 +130,8 @@ CLINIC_TZ = _CLINIC_TZ
 # mốc bắt đầu, nên một lịch 60 phút lúc 9:00 không chặn được lịch 9:15.
 DOCTOR_OVERLAP_CAP = 6
 
-# Statuses that no longer hold a seat.
-DEAD_STATUSES: frozenset[str] = frozenset({"CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"})
+# Statuses that no longer hold a seat: DEAD_STATUSES — một danh sách duy nhất ở
+# core/trang_thai_lich.py (29/09/2026), import ở trên; tên giữ cho nơi đang dùng.
 
 Action = Literal[
     "complete",

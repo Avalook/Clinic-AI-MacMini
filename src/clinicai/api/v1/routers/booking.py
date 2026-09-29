@@ -462,6 +462,34 @@ async def capacity_quote(
     )
 
 
+@router.get("/appointments/luoi-ngay")
+async def luoi_ngay_dat_cho(
+    date: str,
+    doctor_ids: str = "",
+    bo_qua_lich_id: str | None = None,
+    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Sức chứa cả lưới đặt chỗ của MỘT ngày: mỗi bác sĩ một hàng, một lượt gọi.
+
+    ``doctor_ids`` = danh sách UUID cách nhau dấu phẩy (các hàng lưới đang vẽ);
+    hàng "chưa phân bác sĩ" luôn có ở cuối. Mỗi khung trả sẵn
+    ``regular_cap/used`` và ``walkin_cap/used`` theo luật riêng của bác sĩ × khung,
+    cùng cờ ``regular_chan/walkin_chan`` (trần có chặn không). Lưới VẼ từ các số
+    này, không tự cộng và không lấy trần chung (29/09/2026). Chỉ đọc — quyết
+    nhận hay từ chối vẫn là trigger + BookingService.
+    """
+    from clinicai.services.capacity_service import luoi_ngay
+
+    return await luoi_ngay(
+        CapacityService(pool),
+        clinic_id=identity.clinic_id,
+        date=date,
+        doctor_ids=[x for x in doctor_ids.split(",") if x.strip()],
+        bo_qua_lich_id=bo_qua_lich_id,
+    )
+
+
 @router.get("/appointments/cho-trong-tuan")
 async def cho_trong_tuan(
     week_start: str,
