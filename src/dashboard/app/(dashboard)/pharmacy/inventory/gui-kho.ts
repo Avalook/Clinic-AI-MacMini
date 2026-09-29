@@ -28,3 +28,7 @@ export async function guiKho(
 
 export const tienVnd = (n: number | null | undefined): string =>
   n == null ? "—" : `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n)} đ`;
+
+/** Số lượng kho (tới 3 chữ số lẻ). Máy chủ trả numeric dạng chuỗi → ép số. */
+export const soKho = (n: number | string | null | undefined): string =>
+  new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(Number(n ?? 0));
