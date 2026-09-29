@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
@@ -49,7 +49,9 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_GIU_LUOT_SQL
+from clinicai.services.luot_kham_rules import hien_so_do_buoi, nhan_nguon_sinh_hieu
 from clinicai.services.luot_treo import dieu_kien_luot_treo
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 from clinicai.services.xem_luot_service import doc_su_kien_luot
 
 logger = structlog.get_logger()
@@ -149,17 +151,7 @@ SELECT * FROM (
       FROM public.visit v
       LEFT JOIN public.staff s ON s.id = v.checked_in_by
      WHERE v.visit_id = $2::uuid AND v.clinic_id = $1::uuid
-    UNION ALL
-    SELECT 'SINH_HIEU', CASE WHEN m.created_at IS NULL THEN 'PENDING'
-                             ELSE 'COMPLETED' END,
-           m.created_at, m.created_at, 'Đo sinh hiệu', s.full_name, NULL, 2
-      FROM (SELECT 1) x
-      LEFT JOIN LATERAL (
-          SELECT vm.created_at, vm.recorded_by
-            FROM public.vital_measurement vm
-           WHERE vm.visit_id = $2::uuid AND vm.clinic_id = $1::uuid
-           ORDER BY vm.created_at DESC LIMIT 1) m ON TRUE
-      LEFT JOIN public.staff s ON s.id = m.recorded_by
+    -- (Bước "Đo sinh hiệu" ghép ở Python theo BUỔI — `_buoc_sinh_hieu`.)
     UNION ALL
     SELECT 'KHAM', CASE c.status WHEN 'completed' THEN 'COMPLETED'
                                  WHEN 'in_progress' THEN 'IN_PROGRESS'
@@ -188,6 +180,52 @@ SELECT * FROM (
 ) b
 ORDER BY coalesce(b.finished_at, b.started_at), b.thu_tu
 """
+
+
+async def _ghep_buoc_sinh_hieu(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, buoc: list[Any]
+) -> list[Any]:
+    """Chèn bước "Đo sinh hiệu" vào dòng thời gian luồng mới, theo BUỔI.
+
+    29/09/2026: lượt check-in thêm cùng ngày (không đo lại — Tuyền chốt "sinh
+    hiệu không chặn") từng hiện "Đo sinh hiệu: Chờ" vì chỉ đọc số đo của chính
+    lượt. Nay cùng luật màn Xem lượt: lần đo mới nhất của buổi, "đã đo" theo
+    `hien_so_do_buoi` (trạng thái luồng hoặc số đo riêng của lượt).
+    """
+    do = await sinh_hieu_cua_buoi(conn, clinic_id, visit_id)
+    trang_thai = await conn.fetchval(
+        "SELECT vitals_status FROM public.encounter_flow"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+        clinic_id,
+        visit_id,
+    )
+    da_do = do is not None and hien_so_do_buoi(
+        vitals_status=trang_thai, co_so_do_luot_nay=bool(do["co_so_do_luot_nay"])
+    )
+    luc = do["created_at"] if da_do and do is not None else None
+    nguon = (
+        nhan_nguon_sinh_hieu(nguon_visit_id=do["nguon_visit_id"], visit_id=visit_id)
+        if da_do and do is not None
+        else None
+    )
+    dong = {
+        "node_code": "SINH_HIEU",
+        "status": "COMPLETED" if da_do else "PENDING",
+        "started_at": luc,
+        "finished_at": luc,
+        "ten_buoc": f"Đo sinh hiệu ({nguon})" if nguon else "Đo sinh hiệu",
+        "nguoi_lam": do["nguoi_do"] if da_do and do is not None else None,
+        "vai": None,
+        "thu_tu": 2,
+    }
+    # Cùng thứ tự câu SQL: theo mốc (chưa có mốc xuống cuối), rồi thứ tự bước.
+    ra = [dict(r) for r in buoc] + [dong]
+
+    def khoa(r: dict[str, Any]) -> tuple[bool, datetime, int]:
+        moc = r["finished_at"] or r["started_at"]
+        return (moc is None, moc or datetime.min.replace(tzinfo=UTC), r["thu_tu"])
+
+    return sorted(ra, key=khoa)
 
 
 class CheckoutService:
@@ -309,11 +347,17 @@ class CheckoutService:
                 identity.clinic_id,
                 visit_id,
             )
-            buoc = await conn.fetch(
-                _BUOC_LUONG_MOI_SQL if luong_moi else _BUOC_WORK_ITEM_SQL,
-                identity.clinic_id,
-                visit_id,
+            buoc: list[Any] = list(
+                await conn.fetch(
+                    _BUOC_LUONG_MOI_SQL if luong_moi else _BUOC_WORK_ITEM_SQL,
+                    identity.clinic_id,
+                    visit_id,
+                )
             )
+            if luong_moi:
+                buoc = await _ghep_buoc_sinh_hieu(
+                    conn, identity.clinic_id, visit_id, buoc
+                )
 
             tien = await conn.fetch(
                 """

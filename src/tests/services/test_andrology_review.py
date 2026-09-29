@@ -202,17 +202,19 @@ class TestReview:
 
     def test_bmi_lay_tu_so_do_sinh_hieu_cua_luot_kham(self) -> None:
         """S0-3 (18/09/2026): cân/cao đo ở màn Đo sinh hiệu, phiếu Nam khoa không
-        còn ô nhập. BMI đọc từ lần đo mới nhất của lượt, thắng ô `kls_` cũ."""
-        pool = FakePool(NGUONG, Decimal("21.4"))
+        còn ô nhập. BMI đọc từ lần đo mới nhất của BUỔI (29/09/2026 — lượt check-in
+        thêm cùng ngày không đo lại), thắng ô `kls_` cũ."""
+        vid = "11111111-1111-4111-8111-111111111111"
+        pool = FakePool(NGUONG, [{"visit_id": vid, "bmi": Decimal("21.4")}])
         out = _run(
             AndrologyReviewService(pool).review(
                 identity=_who(),
                 form_data={"kls_chieu_cao": "175", "kls_can_nang": "70"},
-                visit_id="11111111-1111-4111-8111-111111111111",
+                visit_id=vid,
             )
         )
         assert out["bmi"] == 21.4
-        sql = pool.queries("fetchval")[-1]
+        sql = pool.queries("fetch")[-1]
         assert "vital_measurement" in sql and "clinic_id" in sql
 
     def test_luot_chua_do_thi_doc_o_kls_cu(self) -> None:

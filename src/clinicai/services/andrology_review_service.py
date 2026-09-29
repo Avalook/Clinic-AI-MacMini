@@ -38,6 +38,7 @@ from clinicai.services.andrology_service import (
     flag_semen,
     suggest_genetic_tests,
 )
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 
 logger = structlog.get_logger()
 
@@ -149,22 +150,19 @@ class AndrologyReviewService:
         form_data: dict[str, Any],
         visit_id: str | None,
     ) -> float | None:
-        """BMI của lần đo sinh hiệu mới nhất; lượt chưa đo thì đọc ô `kls_` cũ.
+        """BMI của lần đo sinh hiệu mới nhất của buổi; chưa đo thì đọc ô `kls_` cũ.
 
         S0-3 (18/09/2026): cân nặng/chiều cao chỉ đo ở màn Đo sinh hiệu, phiếu
         Nam khoa không còn ô nhập. Phiếu lưu trước đó vẫn mang `kls_chieu_cao`
         / `kls_can_nang` — giữ đường đọc ấy cho hồ sơ cũ.
         """
         if visit_id:
-            bmi = await self._pool.fetchval(
-                "SELECT bmi FROM vital_measurement "
-                "WHERE clinic_id = $1::uuid AND visit_id = $2::uuid "
-                "ORDER BY created_at DESC LIMIT 1",
-                identity.clinic_id,
-                visit_id,
-            )
-            if bmi is not None:
-                return float(bmi)
+            # Lần đo của BUỔI (29/09/2026): lượt check-in thêm cùng ngày không
+            # đo lại vẫn có BMI của buổi.
+            async with self._pool.acquire() as conn:
+                do = await sinh_hieu_cua_buoi(conn, identity.clinic_id, visit_id)
+            if do is not None and do["bmi"] is not None:
+                return float(do["bmi"])
         return compute_bmi(
             _so(form_data.get("kls_chieu_cao")),
             _so(form_data.get("kls_can_nang")),

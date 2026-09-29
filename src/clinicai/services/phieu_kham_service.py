@@ -43,12 +43,14 @@ from clinicai.phieu_kham.ket_qua_chi_dinh import (
 )
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
+    cac_o,
     dinh_nghia,
     kiem_du_lieu,
     la_phieu_kham,
     tham_chieu_nguon,
 )
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
+from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
 
 #: Việc cần hỏi quyền. Đây là NHÃN của lời hỏi gửi sang hệ phân quyền, không
 #: phải capability — ánh xạ sang capability nào là việc của CORE.
@@ -103,6 +105,28 @@ async def kiem_quyen_core(
         if await can(conn, identity, quyen):
             return
     raise SafetyGateError("Bạn không có quyền xem phiếu khám.")
+
+
+#: Hai ô thai kỳ của phiếu Sản khoa v5 (mục B) — khoá ổn định của nguồn.
+O_KINH_CUOI = "sk_lmp"
+O_DU_KIEN_SINH = "sk_edd"
+O_THAI_KY = (O_KINH_CUOI, O_DU_KIEN_SINH)
+
+
+def _dict(v: Any) -> dict[str, Any]:
+    v = json.loads(v) if isinstance(v, str) else v
+    return dict(v) if isinstance(v, dict) else {}
+
+
+def _gia(o: Any) -> Any:
+    """`gia_tri` của một ô; trống ("" / [] / thiếu) → None để so "có đổi"."""
+    v = o.get("gia_tri") if isinstance(o, dict) else None
+    return None if v is None or v == "" or v == [] else v
+
+
+def _trong(o: Any) -> bool:
+    v = _gia(o)
+    return v is None or (isinstance(v, str) and not v.strip())
 
 
 def _khoa_ten(t: str) -> str:
@@ -229,6 +253,9 @@ class PhieuKhamService:
         du_lieu: Any = dong["du_lieu"] if dong else {}
         if isinstance(du_lieu, str):
             du_lieu = json.loads(du_lieu)
+        du_lieu = await self._dien_nguoc_thai_ky(
+            ban["khung"], du_lieu, clinic_id=cid, visit_id=visit_id
+        )
         return {
             **ban,
             "du_lieu": du_lieu,
@@ -237,6 +264,39 @@ class PhieuKhamService:
             "che_do": CHE_DO_MO,
             "mac_dinh_theo_loai_kham": luot["form_code"] in FORM_IDS,
         }
+
+    async def _dien_nguoc_thai_ky(
+        self,
+        khung: Any,
+        du_lieu: dict[str, Any],
+        *,
+        clinic_id: str,
+        visit_id: str,
+    ) -> dict[str, Any]:
+        """Phiếu có hai ô thai kỳ mà ô TRỐNG → điền từ thai kỳ bao trùm ngày
+        khám (29/09/2026). Chỉ điền vào bản TRẢ VỀ, không ghi phiếu: thai kỳ là
+        nguồn; màn coi đó là giá trị đã lưu nên không tự gửi lại."""
+        o_khung = cac_o(khung) if isinstance(khung, list) else {}
+        trong = [k for k in O_THAI_KY if k in o_khung and _trong(du_lieu.get(k))]
+        if not trong:
+            return du_lieu
+        async with self._pool.acquire() as conn:
+            tk = await thai_ky_cua_luot(conn, clinic_id, visit_id)
+        if tk is None:
+            return du_lieu
+        ra = dict(du_lieu)
+        if O_KINH_CUOI in trong and tk["lmp"] is not None:
+            # Ô kinh cuối là CHỮ tự do → ngày kiểu Việt Nam.
+            ra[O_KINH_CUOI] = {
+                "gia_tri": tk["lmp"].strftime("%d/%m/%Y"),
+                "nguon": "PATIENT_CONTEXT",
+            }
+        if O_DU_KIEN_SINH in trong and tk["edd"] is not None:
+            ra[O_DU_KIEN_SINH] = {
+                "gia_tri": tk["edd"].isoformat(),
+                "nguon": "PATIENT_CONTEXT",
+            }
+        return ra
 
     async def luu_luot(
         self,
@@ -293,7 +353,8 @@ class PhieuKhamService:
             ):
                 raise ValidationError("Không tìm thấy lượt khám.")
             dong = await conn.fetchrow(
-                "SELECT id, revision FROM phieu_kham_luot WHERE clinic_id = $1::uuid"
+                "SELECT id, revision, du_lieu FROM phieu_kham_luot"
+                " WHERE clinic_id = $1::uuid"
                 " AND visit_id = $2::uuid AND form_id = $3 FOR UPDATE",
                 cid,
                 visit_id,
@@ -349,7 +410,28 @@ class PhieuKhamService:
                     goi,
                     identity.staff_id,
                 )
-        return {"ok": True, "revision": int(moi), "canh_bao": canh_bao}
+            # THAI KỲ từ phiếu Sản khoa (29/09/2026): hai ô kinh cuối / dự kiến
+            # sinh VỪA ĐỔI trong lần lưu này → ghi sang `pregnancy`, cùng giao
+            # dịch. Chỉ khi đổi: lưu một ô khác không được đè thai kỳ bác sĩ đã
+            # sửa ở khối Thai kỳ bằng số cũ trên phiếu.
+            cu_dl = _dict(dong["du_lieu"]) if dong is not None else {}
+            sau_dl = {**cu_dl, **sach} if la_va else sach
+            thai_ky: str | None = None
+            if any(_gia(cu_dl.get(k)) != _gia(sau_dl.get(k)) for k in O_THAI_KY):
+                thai_ky = await dong_bo_tu_phieu(
+                    conn,
+                    identity,
+                    visit_id=visit_id,
+                    kinh_cuoi_raw=_gia(sau_dl.get(O_KINH_CUOI)),
+                    du_kien_sinh_raw=_gia(sau_dl.get(O_DU_KIEN_SINH)),
+                )
+        return {
+            "ok": True,
+            "revision": int(moi),
+            "canh_bao": canh_bao,
+            # "tao" / "cap_nhat" — màn nạp lại khối Thai kỳ bên dưới phiếu.
+            "thai_ky": thai_ky,
+        }
 
     # ------------------------------------------------------------------
     async def lich_su(

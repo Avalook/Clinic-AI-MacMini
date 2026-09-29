@@ -1113,12 +1113,25 @@ function HoSo({
         />
         {dangXem ? (
           <div className="mt-2">
-            <ServiceFormEngine
-              key={dangXem.visit_id}
-              visitId={dangXem.visit_id}
-              serviceCode={dangXem.service_code}
-              readOnly
-            />
+            {dangXem.phieu_v5 ? (
+              // Lượt ghi phiếu v5 (29/09/2026): chính phiếu v5, CHỈ XEM.
+              <PhieuKhamLuot
+                key={`xem-${dangXem.visit_id}`}
+                visitId={dangXem.visit_id}
+                clinicPatientId={dong.clinic_patient_id}
+                choGhi={false}
+                xemLai
+                datChiDinh={async () => ({ ok: false, loi: "Đang xem lại lượt cũ — không chỉ định được." })}
+                onDaDat={() => undefined}
+              />
+            ) : (
+              <ServiceFormEngine
+                key={dangXem.visit_id}
+                visitId={dangXem.visit_id}
+                serviceCode={dangXem.service_code}
+                readOnly
+              />
+            )}
           </div>
         ) : laTuVanMoi ? (
           // Ô chữ tư vấn + mục B của CHÍNH phiếu khám lượt (Tuyền 24/09: "cho cả 2

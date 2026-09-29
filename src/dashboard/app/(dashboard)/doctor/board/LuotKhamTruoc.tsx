@@ -26,6 +26,10 @@ export interface LuotTruoc {
   kham_luc: string | null;
   visit_status: string;
   form_data: Record<string, unknown>;
+  /** Lượt ghi phiếu khám v5 (`phieu_kham_luot`, 29/09/2026): xem lại bằng
+   *  phiếu v5 chỉ-xem; `form_data` là {khoá ô: chữ đọc được}, chẩn đoán đầu. */
+  phieu_v5?: boolean;
+  chan_doan?: string | null;
 }
 
 /** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */

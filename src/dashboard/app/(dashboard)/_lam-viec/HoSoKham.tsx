@@ -54,9 +54,13 @@ interface HoSo {
   }[];
   phieu_kham: {
     form_code: string;
-    form_data: Record<string, FieldValue> | string | null;
+    form_data?: Record<string, FieldValue> | string | null;
     updated_at: string;
     nguoi_ghi: string | null;
+    /** Phiếu khám v5 (29/09/2026): máy chủ đã dịch thành chữ theo khung. */
+    v5?: boolean;
+    ten?: string | null;
+    muc?: { ten: string | null; dong: { ma: string; nhan: string; chu: string }[] }[];
   }[];
   chi_dinh: {
     id: string;
@@ -157,7 +161,39 @@ function chuGiaTri(f: FormField, v: FieldValue): string {
   return `${String(v)}${f.unit ? ` ${f.unit}` : ""}`;
 }
 
+/** Phiếu v5: chỉ VẼ các mục chữ máy chủ gửi — nhãn, lựa chọn đã theo khung. */
+function PhieuKhamV5({ p }: { p: HoSo["phieu_kham"][number] }) {
+  const muc = p.muc ?? [];
+  return (
+    <div className="space-y-2">
+      <p className="text-label text-ink-muted">
+        {p.ten ?? `Phiếu ${p.form_code}`} · ghi lúc {ngayGio(p.updated_at)}
+        {p.nguoi_ghi ? ` · ${p.nguoi_ghi}` : ""}
+      </p>
+      {muc.length === 0 ? (
+        <p className="text-sm italic text-ink-muted">Phiếu chưa điền nội dung.</p>
+      ) : null}
+      {muc.map((m, i) => (
+        <div key={`${m.ten ?? ""}-${i}`}>
+          {m.ten ? (
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">{m.ten}</h4>
+          ) : null}
+          <dl className="mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            {m.dong.map((d) => (
+              <div key={d.ma} className="min-w-0">
+                <dt className="text-label text-ink-muted">{d.nhan}</dt>
+                <dd className="whitespace-pre-wrap break-words text-sm text-ink">{d.chu}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PhieuKham({ p }: { p: HoSo["phieu_kham"][number] }) {
+  if (p.v5) return <PhieuKhamV5 p={p} />;
   const data: Record<string, FieldValue> =
     typeof p.form_data === "string"
       ? (JSON.parse(p.form_data) as Record<string, FieldValue>)
@@ -308,6 +344,8 @@ export function NoiDungHoSo({ hs }: { hs: HoSo }) {
           <p className="mt-1 text-label text-ink-muted">
             Đo lúc {ngayGio(sh?.created_at as string | null)}
             {sh?.nguoi_do ? ` · ${sh.nguoi_do}` : ""}
+            {/* Số đo của lượt khác cùng buổi — nhãn do máy chủ trả (29/09/2026). */}
+            {sh?.nguon ? ` · ${sh.nguon}` : ""}
           </p>
         </Muc>
       ) : null}

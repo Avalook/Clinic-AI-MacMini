@@ -36,7 +36,10 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.phieu_kham.doc_chu import noi_dung_phieu
+from clinicai.phieu_kham.mang_sang import MA_CHAN_DOAN, chan_doan_tu_phieu
 from clinicai.services.audit import record_event
+from clinicai.services.sinh_hieu_buoi import chi_so_do, sinh_hieu_cua_buoi
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
 
 logger = structlog.get_logger()
@@ -90,21 +93,13 @@ class ClinicalFormService:
             service_code.upper(),
             identity.clinic_id,
         )
-        # Số đo sinh hiệu MỚI NHẤT của lượt — màn phiếu hiện kèm (24/09/2026:
-        # route giao diện thôi tự đọc `vital_measurement` bằng Supabase).
-        do = await self._pool.fetchrow(
-            """
-            SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,
-                   respiratory_rate, spo2, bmi, pain_score, created_at
-              FROM vital_measurement
-             WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-             ORDER BY created_at DESC
-             LIMIT 1
-            """,
-            visit_id,
-            identity.clinic_id,
-        )
-        sinh_hieu_moi = dict(do) if do is not None else None
+        # Số đo sinh hiệu MỚI NHẤT của BUỔI — màn phiếu hiện kèm (24/09/2026:
+        # route giao diện thôi tự đọc `vital_measurement` bằng Supabase; 29/09:
+        # lượt check-in thêm cùng ngày không đo lại vẫn có số của buổi).
+        async with self._pool.acquire() as conn:
+            sinh_hieu_moi = chi_so_do(
+                await sinh_hieu_cua_buoi(conn, identity.clinic_id, visit_id)
+            )
         if row is None:
             return {"form_data": {}, "updated_at": None, "sinh_hieu_moi": sinh_hieu_moi}
         return {
@@ -125,44 +120,107 @@ class ClinicalFormService:
         `visit_id` đi kèm để màn hình phân biệt "đang xem lại" với "đang khám":
         phiếu cũ mở ở chế độ CHỈ XEM. Không có ranh giới đó thì bác sĩ gõ vào
         một phiếu tưởng là hôm nay và ghi đè lên bệnh án tháng trước.
+
+        HAI NGUỒN (29/09/2026 — Tuyền: "lượt khám trước không thấy phiếu v5"):
+        lượt có phiếu v5 (`phieu_kham_luot`) lấy phiếu v5 làm chuẩn — MỘT dòng
+        mỗi lượt (phiếu sửa gần nhất, đúng phiếu Bàn khám mở), `phieu_v5: true`,
+        `form_data` là {khoá ô: chữ đọc được} theo khung (chẩn đoán đứng đầu),
+        kèm `chan_doan`. Lượt không có phiếu v5 đọc bảng đời cũ như trước.
         """
-        rows = await self._pool.fetch(
-            """
-            SELECT r.visit_id::text,
-                   r.service_code,
-                   r.form_data,
-                   r.updated_at,
-                   v.checked_in_at,
-                   v.status        AS visit_status,
-                   s.full_name     AS bac_si,
-                   st.name         AS ten_dich_vu
-              FROM clinical_form_response r
-              JOIN visit v
-                ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
-              LEFT JOIN staff s ON s.id = v.attending_doctor_id
-              LEFT JOIN appointment a ON a.id = v.appointment_id
-              LEFT JOIN service_type st
-                ON st.id = a.service_type_id AND st.clinic_id = r.clinic_id
-             WHERE r.clinic_id = $1::uuid
-               AND v.clinic_patient_id = $2::uuid
-             ORDER BY coalesce(v.checked_in_at, r.updated_at) DESC
-             LIMIT 20
-            """,
-            identity.clinic_id,
-            clinic_patient_id,
-        )
-        return [
-            {
+        async with self._pool.acquire() as conn:
+            cu = await conn.fetch(
+                """
+                SELECT r.visit_id::text,
+                       r.service_code,
+                       r.form_data,
+                       r.updated_at,
+                       v.checked_in_at,
+                       v.status        AS visit_status,
+                       s.full_name     AS bac_si,
+                       st.name         AS ten_dich_vu
+                  FROM clinical_form_response r
+                  JOIN visit v
+                    ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN staff s ON s.id = v.attending_doctor_id
+                  LEFT JOIN appointment a ON a.id = v.appointment_id
+                  LEFT JOIN service_type st
+                    ON st.id = a.service_type_id AND st.clinic_id = r.clinic_id
+                 WHERE r.clinic_id = $1::uuid
+                   AND v.clinic_patient_id = $2::uuid
+                   AND NOT EXISTS (
+                       SELECT 1 FROM phieu_kham_luot p
+                        WHERE p.clinic_id = r.clinic_id
+                          AND p.visit_id = r.visit_id)
+                 ORDER BY coalesce(v.checked_in_at, r.updated_at) DESC
+                 LIMIT 20
+                """,
+                identity.clinic_id,
+                clinic_patient_id,
+            )
+            v5 = await conn.fetch(
+                """
+                SELECT DISTINCT ON (p.visit_id)
+                       p.visit_id::text,
+                       p.form_id       AS service_code,
+                       p.du_lieu,
+                       d.khung,
+                       p.sua_luc       AS updated_at,
+                       v.checked_in_at,
+                       v.status        AS visit_status,
+                       s.full_name     AS bac_si,
+                       st.name         AS ten_dich_vu
+                  FROM phieu_kham_luot p
+                  JOIN visit v
+                    ON v.visit_id = p.visit_id AND v.clinic_id = p.clinic_id
+                  JOIN form_definition d
+                    ON d.clinic_id = p.clinic_id AND d.form_id = p.form_id
+                   AND d.version = p.version
+                  LEFT JOIN staff s ON s.id = v.attending_doctor_id
+                  LEFT JOIN service_type st
+                    ON st.id = v.service_type_id AND st.clinic_id = v.clinic_id
+                 WHERE p.clinic_id = $1::uuid
+                   AND v.clinic_patient_id = $2::uuid
+                 ORDER BY p.visit_id, p.sua_luc DESC
+                """,
+                identity.clinic_id,
+                clinic_patient_id,
+            )
+
+        def chung(r: asyncpg.Record) -> dict[str, Any]:
+            return {
                 "visit_id": r["visit_id"],
                 "service_code": r["service_code"],
                 "ten_dich_vu": r["ten_dich_vu"],
                 "bac_si": r["bac_si"],
                 "kham_luc": r["checked_in_at"] or r["updated_at"],
                 "visit_status": r["visit_status"],
-                "form_data": _as_dict(r["form_data"]),
             }
-            for r in rows
+
+        ra = [
+            {**chung(r), "form_data": _as_dict(r["form_data"]), "phieu_v5": False}
+            for r in cu
         ]
+        for r in v5:
+            du_lieu = _as_dict(r["du_lieu"])
+            chu = {
+                d["ma"]: d["chu"]
+                for m in noi_dung_phieu(r["khung"], du_lieu)
+                for d in m["dong"]
+            }
+            chan_doan = chan_doan_tu_phieu(du_lieu)
+            ma_cd = next((k for k in MA_CHAN_DOAN if k in chu), None)
+            if ma_cd is not None:
+                chu = {ma_cd: chu[ma_cd], **chu}
+            ra.append(
+                {
+                    **chung(r),
+                    "form_data": chu,
+                    "phieu_v5": True,
+                    "chan_doan": chan_doan,
+                }
+            )
+        ra.sort(key=lambda x: x["kham_luc"], reverse=True)
+        return ra[:20]
 
     async def save_form(
         self,

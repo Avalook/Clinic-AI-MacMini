@@ -57,7 +57,8 @@ async def test_returns_flags_and_sorts_paid_kinds() -> None:
             {
                 "appointment_id": "a1",
                 "visit_id": "v1",
-                "vitals_recorded": True,
+                "vitals_status": "recorded",
+                "vitals_benh_an_cu": False,
                 "has_clinical_record": True,
                 "has_prescription": False,
                 "paid_kinds": ["thuoc", "dich_vu"],
@@ -90,7 +91,8 @@ async def test_a_visit_with_no_payments_reports_an_empty_list() -> None:
             {
                 "appointment_id": "a2",
                 "visit_id": None,
-                "vitals_recorded": False,
+                "vitals_status": None,
+                "vitals_benh_an_cu": False,
                 "has_clinical_record": False,
                 "has_prescription": False,
                 "paid_kinds": None,
@@ -117,7 +119,8 @@ async def test_regression_a_visit_co_appointment_paid() -> None:
             {
                 "appointment_id": "a-101",
                 "visit_id": "v-101",
-                "vitals_recorded": True,
+                "vitals_status": "recorded",
+                "vitals_benh_an_cu": False,
                 "has_clinical_record": True,
                 "has_prescription": False,
                 "paid_kinds": ["dich_vu"],
@@ -146,7 +149,8 @@ async def test_regression_b_visit_appointment_id_null_paid() -> None:
             {
                 "appointment_id": None,
                 "visit_id": "v-walkin-202",
-                "vitals_recorded": True,
+                "vitals_status": "recorded",
+                "vitals_benh_an_cu": False,
                 "has_clinical_record": True,
                 "has_prescription": False,
                 "paid_kinds": ["dich_vu"],
@@ -177,7 +181,8 @@ async def test_regression_c_appointmentless_khong_prescription_home_paid_true() 
                     {
                         "appointment_id": None,
                         "visit_id": "v-smoke",
-                        "vitals_recorded": True,
+                        "vitals_status": "recorded",
+                        "vitals_benh_an_cu": False,
                         "has_clinical_record": True,
                         "has_prescription": False,
                         "paid_kinds": ["dich_vu"],
@@ -212,7 +217,8 @@ async def test_regression_d_appointmentless_co_prescription() -> None:
                     {
                         "appointment_id": None,
                         "visit_id": "v-rx",
-                        "vitals_recorded": True,
+                        "vitals_status": "recorded",
+                        "vitals_benh_an_cu": False,
                         "has_clinical_record": True,
                         "has_prescription": True,
                         "paid_kinds": ["dich_vu"],
@@ -237,7 +243,8 @@ async def test_regression_d_appointmentless_co_prescription() -> None:
                     {
                         "appointment_id": None,
                         "visit_id": "v-rx",
-                        "vitals_recorded": True,
+                        "vitals_status": "recorded",
+                        "vitals_benh_an_cu": False,
                         "has_clinical_record": True,
                         "has_prescription": True,
                         "paid_kinds": ["dich_vu", "thuoc"],
