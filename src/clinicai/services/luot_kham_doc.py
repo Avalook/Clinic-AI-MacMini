@@ -26,6 +26,10 @@ from clinicai.permissions.doc_bang import (
 from clinicai.permissions.lich import bac_si_cung_phong_hom_nay, khach_cua_toi
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
+from clinicai.services.bac_si_phu_trach import (
+    VAI_BAC_SI,
+    bac_si_trong_ca_hoac_ca_ngay,
+)
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
@@ -681,24 +685,40 @@ class BangLuotKham:
             )
             # Bác sĩ có lượt khám chính trong hàng chờ này.
             if rid is not None:
+                # 29/09/2026: theo CA đang diễn ra (không chỉ ngày) + tính cả
+                # bác sĩ siêu âm; ngoài giờ ca rơi về cả ngày (hàng không rỗng).
                 bac_si = await conn.fetch(
                     """
-                    SELECT DISTINCT w.staff_id::text AS id
+                    SELECT w.staff_id::text AS id, w.station, w.shift, w.status,
+                           c.settings
                       FROM work_roster w
                       JOIN vi_tri_lam_viec v
                         ON v.clinic_id = w.clinic_id AND v.code = w.station
                       JOIN clinic_membership m
                         ON m.staff_id = w.staff_id AND m.clinic_id = w.clinic_id
-                       AND m.is_active AND m.role = 'DOCTOR'
+                       AND m.is_active AND m.role = ANY($4::text[])
+                      JOIN clinic c ON c.id = w.clinic_id
                      WHERE w.clinic_id = $1::uuid AND v.room_id = $2::uuid
                        AND w.status <> 'REJECTED'
                        AND w.work_date = $3::date
+                     ORDER BY w.staff_id
                     """,
                     cid,
                     rid,
                     ngay_xem,
+                    list(VAI_BAC_SI),
                 )
-                ds_bac_si = [r["id"] for r in bac_si]
+                dong = [
+                    (r["id"], str(r["station"]), str(r["shift"]), str(r["status"]))
+                    for r in bac_si
+                ]
+                if la_hom_nay and bac_si:
+                    bay_gio = now_vn()
+                    ds_bac_si = bac_si_trong_ca_hoac_ca_ngay(
+                        dong, bay_gio.hour * 60 + bay_gio.minute, bac_si[0]["settings"]
+                    )
+                else:
+                    ds_bac_si = list(dict.fromkeys(ai for ai, *_ in dong))
             else:
                 ds_bac_si = []
             so_bac_si_trong_phong = len(ds_bac_si)
@@ -714,6 +734,8 @@ class BangLuotKham:
             #   * 28/09 — QUYỀN THEO LỊCH, nửa "mở" (`permissions/lich.py`): không
             #     chọn phòng thì "khách của tôi" = khách của các bác sĩ CÙNG PHÒNG
             #     với tôi trong lịch hôm nay; không có lịch thì như cũ.
+            #   * 29/09 — thư ký đã phân theo bác sĩ: danh sách phân công HỢP với
+            #     bác sĩ cùng phòng trong lịch hôm nay (`bac_si_cua_thu_ky`).
             tat_ca_bac_si = False
             if not tu_van:
                 cua_toi = await bac_si_cua_thu_ky(conn, identity)
@@ -726,9 +748,10 @@ class BangLuotKham:
                         await conn.fetchval(
                             "SELECT EXISTS (SELECT 1 FROM clinic_membership"
                             " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
-                            " AND is_active AND role = 'DOCTOR')",
+                            " AND is_active AND role = ANY($3::text[]))",
                             cid,
                             identity.staff_id,
+                            list(VAI_BAC_SI),
                         )
                     )
                     ds_bac_si, tat_ca_bac_si = khach_cua_toi(

@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   chipGon,
+  dongDoSinhHieu,
+  dongLanLam,
   dongPhuGon,
   ghiChuKham,
   gio,
@@ -112,4 +114,55 @@ test("đầu vào rác: không ném, trả rỗng", () => {
   assert.equal(phut(luc(10), bay(5)), 0, "giờ máy lệch không ra số âm");
   assert.equal(gio("rác"), "");
   assert.equal(thoiGian({ vao: "rác", bat_dau: null, xong: null }, bay(5)), "");
+});
+
+// ── GIỜ THẬT, KHÔNG LÀM MÉO (Tuyền duyệt 29/09/2026) ─────────────────────────
+
+test("dòng gọn hiện rõ sinh hiệu đo lại + dịch vụ làm lại", () => {
+  const g = gon({ do_lai: [luc(45)], lam_lai: [{ ten: "Siêu âm phụ khoa", lan: 2 }] });
+  assert.equal(
+    dongPhuGon(g),
+    "2/3 dịch vụ xong · còn chờ: Lấy mẫu · KQ đối tác · sinh hiệu đo lại 10:45 · " +
+      "làm lại: Siêu âm phụ khoa (lần 2)",
+  );
+});
+
+test("sinh hiệu đo lại: dòng riêng có người đo mỗi lần", () => {
+  assert.equal(
+    dongDoSinhHieu({
+      lan_do: [
+        { luc: luc(33), ai: "ĐD Lan" },
+        { luc: luc(45), ai: "ĐD Mai" },
+      ],
+    }),
+    "Đo lần 1 10:33 (ĐD Lan) · đo lại 10:45 (ĐD Mai)",
+  );
+  assert.equal(dongDoSinhHieu({ lan_do: [{ luc: luc(33), ai: null }] }), "", "một lần: không dòng riêng");
+  assert.equal(dongDoSinhHieu({}), "");
+});
+
+test("mỗi lần làm đủ vào · bắt đầu · xong/dừng; chờ không âm", () => {
+  assert.equal(
+    dongLanLam(
+      { so: 1, trang_thai: "INTERRUPTED", vao: luc(55), bat_dau: luc(60), xong: null, dung: luc(65) },
+      bay(90),
+    ),
+    "Lần 1 · vào 10:55 · chờ 5′ · bắt đầu 11:00 · làm 5′ · dừng 11:05",
+  );
+  assert.equal(
+    dongLanLam(
+      { so: 2, trang_thai: "COMPLETED", vao: luc(66), bat_dau: luc(72), xong: luc(80), dung: null },
+      bay(90),
+    ),
+    "Lần 2 · vào 11:06 · chờ 6′ · bắt đầu 11:12 · làm 8′ · xong 11:20",
+  );
+  assert.equal(
+    dongLanLam({ so: 2, trang_thai: "PENDING", vao: luc(66), bat_dau: null, xong: null, dung: null }, bay(69)),
+    "Lần 2 · vào 11:06 · đang chờ 3′",
+  );
+  // Máy chủ cũ trả vào muộn hơn bắt đầu → 0′, không âm.
+  assert.equal(
+    thoiGian({ vao: luc(70), bat_dau: luc(60), xong: null }, bay(80), true),
+    "vào 11:10 · chờ 0′ · bắt đầu 11:00",
+  );
 });

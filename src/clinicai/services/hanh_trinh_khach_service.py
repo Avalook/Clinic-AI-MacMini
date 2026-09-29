@@ -119,10 +119,79 @@ def noi_cua_hang(q: dict[str, Any], phong_bac_si: str | None = None) -> str:
     return q.get("phong") or "Phòng dịch vụ"
 
 
+#: Tên chỗ GIỮ CHỖ (chưa biết phòng thật) — `noi_cua_hang` và các bước chưa
+#: có chỗ chờ. Hiện xám "dự kiến", không phải tên phòng.
+_NOI_GIU_CHO = ("Bàn khám", "Phòng dịch vụ")
+
+
+def noi_la_du_kien(noi: str | None) -> bool:
+    """Thuần: chỗ này là chữ giữ chỗ (chưa biết phòng thật)?"""
+    return bool(noi) and str(noi).startswith(_NOI_GIU_CHO)
+
+
+def _vao_truoc(ds_vao: list[datetime], moc: datetime | None) -> datetime | None:
+    """Giờ vào hàng GẦN NHẤT mà không muộn hơn `moc` (bắt đầu). Không có → None
+    — thà bỏ trống còn hơn in "chờ" âm (29/09/2026: làm lại thì chỗ chờ được
+    mở lại, `eligible_at` muộn hơn giờ bắt đầu của lần trước)."""
+    if moc is None:
+        return max(ds_vao) if ds_vao else None
+    truoc = [v for v in ds_vao if v <= moc]
+    return max(truoc) if truoc else None
+
+
+def _cac_lan_lam(
+    lan_lam: list[dict[str, Any]], ds_vao: list[datetime], cho_lan_moi: bool
+) -> list[dict[str, Any]]:
+    """Mỗi LẦN LÀM một dòng: vào hàng / bắt đầu / xong (hoặc dừng). Vào hàng của
+    lần k nằm giữa lúc lần trước kết thúc và lúc lần k bắt đầu. `cho_lan_moi`:
+    lần trước dừng, đã chuẩn bị làm lại mà chưa bắt đầu → thêm dòng đang chờ."""
+    ra: list[dict[str, Any]] = []
+    het_truoc: datetime | None = None
+    for a in sorted(lan_lam, key=lambda x: int(x.get("attempt_no") or 0)):
+        bat = _gio(a.get("started_at"))
+        vao = _vao_truoc(
+            [v for v in ds_vao if het_truoc is None or v >= het_truoc], bat
+        )
+        dung = _gio(a.get("interrupted_at"))
+        ra.append(
+            {
+                "so": int(a.get("attempt_no") or len(ra) + 1),
+                "trang_thai": a.get("status"),
+                "vao": vao,
+                "bat_dau": bat,
+                "xong": _gio(a.get("completed_at")),
+                "dung": dung,
+            }
+        )
+        het_truoc = _gio(a.get("completed_at")) or dung or bat
+    if cho_lan_moi and ra:
+        sau = [v for v in ds_vao if het_truoc is None or v >= het_truoc]
+        ra.append(
+            {
+                "so": ra[-1]["so"] + 1,
+                "trang_thai": "PENDING",
+                "vao": max(sau) if sau else None,
+                "bat_dau": None,
+                "xong": None,
+                "dung": None,
+            }
+        )
+    return ra
+
+
 def _the_dich_vu(
-    tung: dict[str, Any], goc: dict[str, Any], hang: dict[str, Any] | None
+    tung: dict[str, Any],
+    goc: dict[str, Any],
+    hang: dict[str, Any] | None,
+    *,
+    cac_hang: list[dict[str, Any]] | None = None,
+    lan_lam: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Một thẻ trong bước "Làm dịch vụ song song"."""
+    """Một thẻ trong bước "Làm dịch vụ song song".
+
+    GIỜ THẬT (29/09/2026): `vao` không bao giờ muộn hơn `bat_dau` (không ra số
+    phút chờ âm). Làm lại → `lan` liệt kê MỌI lần (lần 1 vẫn giữ), `so_lan`
+    đếm; giờ chính của thẻ là của lần mới nhất."""
     tt = tung["trang_thai"]
     lay_mau = None
     if (
@@ -133,6 +202,26 @@ def _the_dich_vu(
         # Đối tác: phòng khám lấy mẫu xong → mẫu ở đối tác, chờ kết quả.
         tt = DV_DOI_TAC
         lay_mau = _gio(goc.get("lam_xong_luc"))
+    ds_vao = sorted(
+        v
+        for v in (
+            _gio(q.get("eligible_at")) for q in (cac_hang or ([hang] if hang else []))
+        )
+        if v is not None
+    )
+    lan = _cac_lan_lam(
+        lan_lam or [],
+        ds_vao,
+        cho_lan_moi=goc.get("execution_status") == "PENDING"
+        and bool(lan_lam)
+        and all((a.get("status") == "INTERRUPTED") for a in (lan_lam or [])[-1:]),
+    )
+    bat_dau = (
+        lan[-1]["bat_dau"]
+        if lan
+        else _gio(tung.get("bat_dau"))
+        or (_gio(hang.get("serving_at")) if hang else None)
+    )
     return {
         "id": tung.get("id"),
         "ten": tung.get("ten") or "",
@@ -142,11 +231,13 @@ def _the_dich_vu(
         else tung["noi"],
         "doi_tac": bool(goc.get("ngoai")),
         "trang_thai": tt,
-        # Vào hàng của phòng (lần gần nhất khách được phép chờ ở đó).
-        "vao": _gio(hang.get("eligible_at")) if hang else None,
-        "bat_dau": _gio(tung.get("bat_dau"))
-        or (_gio(hang.get("serving_at")) if hang else None),
+        # Vào hàng của phòng — lần gần nhất KHÔNG muộn hơn giờ bắt đầu.
+        "vao": lan[-1]["vao"] if lan else _vao_truoc(ds_vao, bat_dau),
+        "bat_dau": bat_dau,
         "xong": _gio(tung.get("xong")),
+        "so_lan": len(lan) if lan else 1,
+        # Chỉ trả khi LÀM LẠI (≥ 2 lần) — một lần thì giờ chính đã đủ.
+        "lan": lan if len(lan) >= 2 else [],
         "thu": _gio(tung.get("thu")),
         "lay_mau": lay_mau,
         "stt": hang.get("stt") if hang else None,
@@ -163,6 +254,7 @@ def dung_hanh_trinh_khach(
     phien: list[dict[str, Any]],
     phong_bac_si: dict[str, str] | None = None,
     ai: dict[str, str] | None = None,
+    lan_lam: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Hàm THUẦN — kiểm được không cần DB.
 
@@ -179,6 +271,7 @@ def dung_hanh_trinh_khach(
     """
     phong_bac_si = phong_bac_si or {}
     ai = ai or {}
+    lan_lam = lan_lam or {}
     check_in = _gio(luot.get("checked_in_at"))
     ve_luc = _gio(luot.get("closed_at"))
     bo_ve = luot.get("status") == "INCOMPLETE"
@@ -204,6 +297,10 @@ def dung_hanh_trinh_khach(
         for q in sorted(hang, key=lambda x: _gio(x.get("eligible_at")) or _SOM)
         if q.get("reason") == "SERVICE"
     }
+    moi_hang_theo_ref: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for q in hang:
+        if q.get("reason") == "SERVICE":
+            moi_hang_theo_ref[str(q.get("ref_id"))].append(q)
 
     def hang_cua(reason: str) -> dict[str, Any] | None:
         ds = [q for q in hang if q.get("reason") == reason]
@@ -239,13 +336,21 @@ def dung_hanh_trinh_khach(
     ) -> None:
         if xong_buoi and trang_thai in (CHO, CHUA):
             trang_thai = KHONG
+        # BƯỚC CHƯA XẢY RA (29/09/2026): chữ giữ chỗ ("Thuốc · nếu có đơn",
+        # "đọc kết quả, khi dịch vụ xong", "Bàn khám" chưa biết phòng) là DỰ
+        # KIẾN — giao diện hiện xám, KHÔNG BAO GIỜ gắn giờ.
+        du_kien = trang_thai == CHUA
+        if du_kien:
+            vao = bat_dau = xong = None
         buoc.append(
             {
                 **them_truong,
                 "ma": ma,
                 "ten": ten,
                 "trang_thai": trang_thai,
+                "du_kien": du_kien,
                 "noi": noi,
+                "noi_du_kien": noi_la_du_kien(noi),
                 "ai": ai_lam,
                 "vao": vao,
                 "bat_dau": bat_dau,
@@ -287,15 +392,21 @@ def dung_hanh_trinh_khach(
     tt_sh = tt_moc(sh)
     if tt_sh == CHUA and check_in:
         tt_sh = KHONG if bat_kham else CHO
+    lan_do = list(sh.get("lan_do") or []) if sh else []
     them(
         "SINH_HIEU",
         "Đo sinh hiệu",
         tt_sh,
         noi="Đo sinh hiệu",
-        ai_lam=ai.get("vitals.recorded"),
+        # Người đo LẦN 1 (lần đo lại có người riêng ở `lan_do`).
+        ai_lam=(lan_do[0].get("ai") if lan_do else None) or ai.get("vitals.recorded"),
         vao=check_in,
         bat_dau=sh["bat"] if sh else None,
         xong=sh["ket"] if sh else None,
+        # GIỜ THẬT: xong = lần đo ĐẦU; đo lại ghi dòng riêng, không cộng vào
+        # thời gian làm.
+        do_lai=list(sh.get("do_lai") or []) if sh else [],
+        lan_do=lan_do,
     )
 
     # 3. Tư vấn (chỉ khi có).
@@ -347,7 +458,11 @@ def dung_hanh_trinh_khach(
     goc_theo_id = {str(o.get("id")): o for o in chi_dinh}
     the = [
         _the_dich_vu(
-            t, goc_theo_id.get(str(t.get("id")), {}), theo_ref.get(str(t.get("id")))
+            t,
+            goc_theo_id.get(str(t.get("id")), {}),
+            theo_ref.get(str(t.get("id"))),
+            cac_hang=moi_hang_theo_ref.get(str(t.get("id"))),
+            lan_lam=lan_lam.get(str(t.get("id"))),
         )
         for t in dung_tung_dich_vu(chi_dinh)
         if t["trang_thai"] != BO
@@ -514,6 +629,7 @@ def dung_hanh_trinh_khach(
                     if q.get("status") in ("waiting", "called")
                     else q.get("so_cho"),
                     "ghi_chu": "đọc kết quả" if q.get("reason") == "REVIEW" else None,
+                    "du_kien": noi_la_du_kien(noi_q(q)),
                 }
             )
         if not tiep:
@@ -535,6 +651,8 @@ def dung_hanh_trinh_khach(
                         "stt": None,
                         "so_nguoi_cho": None,
                         "ghi_chu": ke["ten"] if ke["noi"] else ke["ghi_chu"],
+                        # Bước kế trên dòng thời gian, chưa có chỗ chờ thật.
+                        "du_kien": True,
                     }
                 )
 
@@ -571,8 +689,15 @@ def dung_hanh_trinh_khach(
     if any(t["trang_thai"] == DV_DOI_TAC for t in the):
         con_cho.append("KQ đối tác")
 
+    sh_buoc = next((b for b in buoc if b["ma"] == "SINH_HIEU"), None)
     gon = {
         **o,
+        # Hiện RÕ ở dòng gọn (Tuyền duyệt 29/09/2026): sinh hiệu đo lại lúc nào,
+        # dịch vụ nào làm lại lần mấy.
+        "do_lai": list(sh_buoc.get("do_lai") or []) if sh_buoc else [],
+        "lam_lai": [
+            {"ten": t["ten"], "lan": t["so_lan"]} for t in the if t["so_lan"] >= 2
+        ],
         "xong_buoi": xong_buoi,
         "doan": doan,
         "dv_xong": sum(1 for t in the if t["trang_thai"] == DA_XONG),
@@ -617,7 +742,11 @@ _SQL_HANG = """
     SELECT q.id::text AS id, q.visit_id::text AS visit_id, q.lane, q.reason,
            q.ref_id::text AS ref_id, q.status, q.eligible_at, q.called_at,
            q.serving_at, q.done_at, q.created_at,
-           q.doctor_staff_id::text AS doctor_staff_id,
+           -- Bác sĩ của chỗ chờ, rơi về bác sĩ của PHIÊN (29/09/2026: trợ lý
+           -- bấm Bắt đầu cho khách chưa gán bác sĩ — phiên có bác sĩ, chỗ chờ
+           -- đời trước thì chưa) để "đang ở" ra đúng phòng bác sĩ.
+           coalesce(q.doctor_staff_id, c.doctor_staff_id)::text
+               AS doctor_staff_id,
            r.name AS phong, d.full_name AS bac_si,
            CASE WHEN q.status IN ('waiting', 'called', 'blocked') THEN (
                SELECT count(*) FROM queue_entry o
@@ -633,8 +762,10 @@ _SQL_HANG = """
                           < (coalesce(q.eligible_at, q.created_at), q.id))
            ) END AS so_truoc
       FROM queue_entry q
+      LEFT JOIN consultation c
+        ON c.id = q.ref_id AND q.reason <> 'SERVICE' AND c.clinic_id = q.clinic_id
       LEFT JOIN clinic_room r ON r.id = q.room_id
-      LEFT JOIN staff d ON d.id = q.doctor_staff_id
+      LEFT JOIN staff d ON d.id = coalesce(q.doctor_staff_id, c.doctor_staff_id)
      WHERE q.clinic_id = $1::uuid AND q.visit_id = ANY($2::uuid[])
        AND q.status <> 'cancelled'
      ORDER BY q.created_at
@@ -663,6 +794,17 @@ _SQL_PHONG_BAC_SI = """
        AND w.work_date = ANY($3::date[]) AND w.status <> 'REJECTED'
        AND vt.room_id IS NOT NULL
      ORDER BY w.staff_id, w.work_date, vt.sort
+"""
+
+# Mọi LẦN LÀM của chỉ định (làm lại = lần 2, 3…) — `service_execution_attempt`.
+_SQL_LAN_LAM = """
+    SELECT a.service_order_id::text AS order_id, a.attempt_no, a.status,
+           a.started_at, a.completed_at, a.interrupted_at
+      FROM service_execution_attempt a
+      JOIN service_order o
+        ON o.id = a.service_order_id AND o.clinic_id = a.clinic_id
+     WHERE a.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+     ORDER BY a.service_order_id, a.attempt_no
 """
 
 _SU_KIEN_AI = ("visit.checked_in", "vitals.recorded", "payment.service_collected")
@@ -715,6 +857,9 @@ async def doc_hanh_trinh_khach(
     if bac_si and ngay:
         for r in await conn.fetch(_SQL_PHONG_BAC_SI, clinic_id, bac_si, ngay):
             phong[(r["staff_id"], r["ngay"])] = r["phong"]
+    lan_lam: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in await conn.fetch(_SQL_LAN_LAM, clinic_id, ids):
+        lan_lam[r["order_id"]].append(dict(r))
     ai: dict[str, dict[str, str]] = defaultdict(dict)
     if kem_ai:
         for r in await conn.fetch(
@@ -746,6 +891,7 @@ async def doc_hanh_trinh_khach(
                     s: p for (s, d), p in phong.items() if d == x.get("ngay")
                 },
                 ai=ai.get(vid),
+                lan_lam=lan_lam,
             )
         )
     return ra
@@ -792,6 +938,7 @@ class HanhTrinhKhachService:
 
 __all__ = [
     "HanhTrinhKhachService",
+    "noi_la_du_kien",
     "doc_hanh_trinh_khach",
     "doc_ma_luot",
     "dung_hanh_trinh_khach",

@@ -24,6 +24,8 @@ export interface MocMayChu {
   hom_truoc?: boolean;
   cac_lan?: LanGui[];
   con_cho?: number;
+  /** Sinh hiệu (29/09): giờ các lần ĐO LẠI — `ket` là lần đo đầu. */
+  do_lai?: string[];
 }
 
 /** Trục trạng thái một chiều của từng chỉ định — máy chủ quyết (`dung_tung_dich_vu`). */
@@ -69,8 +71,16 @@ export function khoang(phut: number): string {
 
 const phutGiua = (a: string, b: number) => (b - new Date(a).getTime()) / 60_000;
 
-/** Chữ giờ dưới tên mốc. */
+/** Chữ giờ dưới tên mốc — sinh hiệu đo lại thì thêm "· đo lại 10:45" (giờ
+ *  thật, không gộp vào thời gian làm; 29/09/2026). */
 export function gioMoc(m: MocMayChu): string {
+  const chinh = gioMocChinh(m);
+  const doLai = (m.do_lai ?? []).filter(Boolean).map((t) => fmtTime(t));
+  if (!chinh || doLai.length === 0) return chinh;
+  return `${chinh} · đo lại ${doLai.join(", ")}`;
+}
+
+function gioMocChinh(m: MocMayChu): string {
   if (m.cac_lan && m.cac_lan.length > 0) {
     return m.cac_lan
       .map((x) => `${x.lan == null ? "Mang sang" : `Lần ${x.lan}`} ${fmtTime(x.luc)}`)
