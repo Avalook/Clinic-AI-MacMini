@@ -25,7 +25,8 @@ export type ChipTone =
   | "neutral"
   | "info"
   | "run"
-  | "dang_o";
+  | "dang_o"
+  | "doi_tac";
 
 const TONE: Record<ChipTone, string> = {
   success: "bg-success-bg text-success",
@@ -39,6 +40,9 @@ const TONE: Record<ChipTone, string> = {
   run: "bg-status-in-progress-bg text-status-in-progress",
   // "Đang ở: <nơi>" ở danh sách Tiếp đón (bản mẫu 27/09/2026, đợt 3).
   dang_o: "bg-status-dang-o-bg text-status-dang-o",
+  // "Chờ kết quả đối tác" ở Hành trình khách (29/09/2026, bản mẫu: tím = việc
+  // ở đối tác, KHÔNG giữ khách) — cùng cặp token tím sẵn có, không thêm màu.
+  doi_tac: "bg-status-dang-o-bg text-status-dang-o",
 };
 
 /** Vỏ chip cho phần tử KHÔNG phải <span> — ví dụ một chip bấm được phải là

@@ -19,6 +19,7 @@ import Button from "@/components/ui/Button";
 
 import { docBang, gioVn } from "./api";
 import DoiPhong from "./DoiPhong";
+import { HanhTrinhKhachTuTai } from "./HanhTrinhKhach";
 import KhungTep from "./KhungTep";
 import TuNhac from "./TuNhac";
 import NutInPhieu from "@/components/ui/NutInPhieu";
@@ -285,6 +286,12 @@ export default function XemLuot({
           <div className="grid gap-3">
             {hc ? (
               <Muc tieuDe="Hành trình">
+                {/* Hành trình khách dạng gọn + [Xem kỹ] mở khung đầy đủ tại chỗ
+                    (Tuyền chốt 29/09/2026) — cùng component với trang chủ,
+                    màn Hành trình, Bàn khám. */}
+                <div className="mb-3">
+                  <HanhTrinhKhachTuTai visitId={dangXem} />
+                </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-3">
                   <Truong nhan="Check-in" gia={ngayGio(hc.check_in_luc)} />
                   <Truong nhan="Loại khám" gia={hc.dich_vu_kham ?? "—"} />

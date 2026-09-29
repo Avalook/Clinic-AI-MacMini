@@ -293,8 +293,8 @@ def _iso(v: Any) -> Any:
     return v.isoformat() if isinstance(v, datetime) else v
 
 
-# Chỉ định của NHIỀU lượt một lần — phiếu khám (một lượt) và bảng hành trình
-# chung (cả ngày, 28/09/2026) dùng chung câu này để hai nơi không lệch nhau.
+# Chỉ định của NHIỀU lượt một lần — phiếu khám (một lượt) và Hành trình khách
+# (cả ngày, 29/09/2026) dùng chung câu này để hai nơi không lệch nhau.
 _SQL_CHI_DINH = """
         SELECT o.visit_id::text AS visit_id, o.id, o.service_name,
                o.lan_chi_dinh, o.created_at,
@@ -362,6 +362,11 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         "xong_luc": r["ket_qua_luc"] or r["finished_at"],
         "doi_tac_thu": bool(r["doi_tac_thu"]),
         "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
+        # Hai trường thô cho khung Hành trình khách (29/09/2026): việc đối tác
+        # "đã lấy mẫu, chờ kết quả" = COMPLETED mà chưa có kết quả; giờ làm xong
+        # ở phòng khám = giờ lấy mẫu.
+        "execution_status": r["execution_status"],
+        "lam_xong_luc": r["finished_at"],
     }
 
 
@@ -400,32 +405,6 @@ def _moc_iso(moc: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for x in m.get("cac_lan", []):
             x["luc"] = _iso(x["luc"])
     return moc
-
-
-async def doc_moc_nhieu(
-    conn: asyncpg.Connection, *, clinic_id: str, luot: list[dict[str, Any]]
-) -> dict[str, list[dict[str, Any]]]:
-    """Mốc hành trình của NHIỀU lượt (bảng hành trình chung, 28/09/2026 — Tuyền:
-    "hành trình cũng học theo timeline ở bàn khám"). Mỗi lượt cần `visit_id`,
-    `dat_luc`, `checked_in_at`, `closed_at`. Cùng `dung_moc` với phiếu khám."""
-    ids = [x["visit_id"] for x in luot]
-    if not ids:
-        return {}
-    su_kien, chi_dinh = await _doc_su_kien_chi_dinh(
-        conn, clinic_id=clinic_id, visit_ids=ids
-    )
-    return {
-        x["visit_id"]: _moc_iso(
-            dung_moc(
-                dat_lich_luc=x["dat_luc"],
-                check_in_luc=x["checked_in_at"],
-                ve_luc=x["closed_at"],
-                su_kien=su_kien[x["visit_id"].lower()],
-                chi_dinh=chi_dinh[x["visit_id"].lower()],
-            )
-        )
-        for x in luot
-    }
 
 
 async def doc_hanh_trinh(
@@ -486,4 +465,4 @@ async def doc_hanh_trinh(
     }
 
 
-__all__ = ["doc_hanh_trinh", "doc_moc_nhieu", "dung_moc", "dung_tung_dich_vu"]
+__all__ = ["doc_hanh_trinh", "dung_moc", "dung_tung_dich_vu"]
