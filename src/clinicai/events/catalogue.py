@@ -314,6 +314,14 @@ class DoiTacDaLayMau(PayloadSuKien):
     service_order_id: str
 
 
+class DoiTacDaNhanMau(PayloadSuKien):
+    """`partner.sample_received` — đối tác bấm "Nhận mẫu": việc đối tác XONG
+    (Tuyền 29/09/2026). Kết quả về sau là mốc tuỳ chọn, không giữ vòng / lượt."""
+
+    visit_id: str
+    service_order_id: str
+
+
 class DoiTacNhanViec(PayloadSuKien):
     """`partner.order_received` — một chỉ định làm bên ngoài vừa sang bàn đối tác.
 
@@ -1093,6 +1101,16 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         SuKien(
+            ten="partner.sample_received",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacDaNhanMau,
+            nhan="Đối tác đã nhận mẫu — việc đối tác xong",
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+            theo_thu_tu=True,
+        ),
+        SuKien(
             ten="patient.contacted",
             version=1,
             aggregate_type="clinic_patient",
@@ -1246,6 +1264,7 @@ __all__ = [
     "DaHenTaiKham",
     "CskhDaLienHe",
     "DoiTacDaLayMau",
+    "DoiTacDaNhanMau",
     "ThuocDaGiao",
     "KhamXong",
     "PhienKhamBatDau",

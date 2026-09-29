@@ -231,7 +231,7 @@ EVENT_LABELS: dict[str, str] = {
     "queue.called": "Gọi khách vào phòng",
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
     "vitals.started": "Điều dưỡng bắt đầu đo sinh hiệu",
-    "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
+    "partner.awaiting_documents": "Đối tác đã nhận mẫu — việc đối tác xong",
     "partner.sample_noted_again": "Bấm lại “Đã lấy mẫu” — chỉ ghi lại (đã ghi nhận)",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
     # Slice 1 (18/09/2026): kết quả / theo dõi trên rail mới.

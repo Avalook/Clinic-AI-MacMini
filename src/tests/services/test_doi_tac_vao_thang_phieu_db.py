@@ -77,10 +77,13 @@ async def test_doi_tac_tai_len_la_co_ket_qua_ngay_va_bao_bac_si(
     ]
     # Chuông: bác sĩ chính được báo "đã vào hồ sơ", không phải "cần xác nhận".
     await chay_ben_nhan(pool, "chuong_thong_bao")
-    noi_dung = await pool.fetchval(
-        "SELECT noi_dung FROM thong_bao WHERE nguon_id = $1"
+    # Kết quả ĐỐI TÁC (29/09/2026): một chuông / việc, "Có kết quả đối tác: …".
+    chuong = await pool.fetchrow(
+        "SELECT tieu_de, noi_dung FROM thong_bao WHERE nguon_id = $1"
         " AND nguoi_nhan_staff_id = $2::uuid",
-        f"result_file.uploaded:{up['id']}",
+        f"ket_qua_doi_tac:{oid}",
         doc.staff_id,
     )
-    assert noi_dung and "cần xác nhận" not in noi_dung
+    assert chuong is not None
+    assert chuong["tieu_de"].startswith("Có kết quả đối tác:")
+    assert "cần xác nhận" not in chuong["noi_dung"]

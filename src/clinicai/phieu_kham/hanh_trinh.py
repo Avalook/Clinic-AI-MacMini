@@ -299,6 +299,7 @@ _SQL_CHI_DINH = """
         SELECT o.visit_id::text AS visit_id, o.id, o.service_name,
                o.lan_chi_dinh, o.created_at,
                o.selection_status, o.execution_status, o.ket_qua_luc,
+               o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                o.started_at, o.finished_at, r.name AS phong,
                coalesce(n.lam_ben_ngoai, false) AS ngoai,
                EXISTS (
@@ -347,7 +348,10 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         "tao_luc": r["created_at"],
         "chon": r["selection_status"] != "NOT_SELECTED",
         "da_tra": bool(r["da_tra"]),
+        # Việc đối tác: ĐỐI TÁC NHẬN MẪU là xong (Tuyền 29/09/2026) — kết quả
+        # về sau không làm hành trình "chưa xong".
         "xong": r["ket_qua_luc"] is not None
+        or r["nhan_mau_luc"] is not None
         or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
         "phong": r["phong"],
         "ngoai": bool(r["ngoai"]),
@@ -356,10 +360,15 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         # Đang làm ở phòng; việc đối tác: phòng khám lấy mẫu xong là mẫu
         # đang ở đối tác (chưa có kết quả thì chưa xong).
         "dang_lam": r["execution_status"] == "IN_PROGRESS"
-        or (bool(r["ngoai"]) and r["execution_status"] == "COMPLETED"),
+        or (
+            bool(r["ngoai"])
+            and r["execution_status"] == "COMPLETED"
+            and r["nhan_mau_luc"] is None
+            and r["ket_qua_luc"] is None
+        ),
         # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
         # kết quả) thì giờ làm xong.
-        "xong_luc": r["ket_qua_luc"] or r["finished_at"],
+        "xong_luc": r["ket_qua_luc"] or r["nhan_mau_luc"] or r["finished_at"],
         "doi_tac_thu": bool(r["doi_tac_thu"]),
         "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
     }

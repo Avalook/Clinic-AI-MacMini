@@ -72,6 +72,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "payment.refunded": ["so_tien"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
+    "partner.sample_received": [],
     "visit.checked_in": ["so_thu_tu"],
     "visit.routed": ["dich", "ly_do"],
     "consultation.started": ["loai"],

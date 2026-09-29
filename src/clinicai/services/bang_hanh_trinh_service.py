@@ -88,8 +88,15 @@ def con_cho(
                 out.append(f"Chờ làm {ten} ở {o['phong'] or 'phòng'}")
             elif ex == "INTERRUPTED":
                 out.append(f"Dừng giữa chừng: {ten}")
-            elif ex == "COMPLETED" and o["ngoai"] and o["ket_qua_luc"] is None:
-                out.append(f"Chờ kết quả đối tác: {ten}")
+            elif (
+                ex == "COMPLETED"
+                and o["ngoai"]
+                and o["ket_qua_luc"] is None
+                and o.get("nhan_mau_luc") is None
+            ):
+                # Đối tác NHẬN MẪU là xong (Tuyền 29/09/2026) — chỉ còn chờ
+                # đối tác nhận mẫu mới là việc dở.
+                out.append(f"Chờ đối tác nhận mẫu: {ten}")
     if tep_chua_xem:
         out.append(f"{tep_chua_xem} tệp kết quả chưa bác sĩ nào xem")
     if phieu_chua_xem:
@@ -157,6 +164,7 @@ class BangHanhTrinhService:
                 SELECT o.visit_id::text AS visit_id, o.service_name AS ten,
                        o.selection_status, o.routing_status, o.execution_status,
                        o.ket_qua_luc, r.name AS phong,
+                       o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                        coalesce(n.lam_ben_ngoai, false) AS ngoai,
                        EXISTS (
                            SELECT 1 FROM payment_bill_line bl

@@ -258,7 +258,7 @@ export interface LuotKham {
 /** Một việc gửi đối tác, trạng thái tính ở backend (man_khach_hang_service). */
 export interface ViecDoiTac {
   ten: string;
-  trang_thai: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+  trang_thai: "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
   luc: string | null;
 }
 

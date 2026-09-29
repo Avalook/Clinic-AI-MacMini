@@ -116,6 +116,30 @@ CHI_DINH_CON_VIEC_GIU_LUOT_SQL = (
 """
 )
 
+#: "YÊU CẦU CỦA VÒNG ĐỌC ĐÃ CÓ KẾT QUẢ CHƯA" — một chỗ cho mọi câu đọc vòng
+#: (chạy lại vòng, "chờ bác sĩ quyết"). Đòi alias `o` (service_order) và `nd`
+#: (node_definition, LEFT JOIN).
+#:
+#: VIỆC ĐỐI TÁC: NHẬN MẪU LÀ XONG (Tuyền 29/09/2026 — *"Phải xong để bác sĩ,
+#: điều dưỡng, TKYK cùng thao tác cho khách còn về, chứ không 1 ca khám bao giờ
+#: mới kết thúc"*). Mốc nhận mẫu (`doi_tac_cho_tai_lieu_luc`, chỉ bàn đối tác
+#: ghi được) thoả yêu cầu — cả bước làm bên ngoài lẫn MẪU GỬI ĐỐI TÁC. Kết quả
+#: đối tác về sau KHÔNG giữ vòng: nó báo chuông, ai cũng xem được.
+#: Còn lại như cũ: làm bên ngoài cần tệp HOP_LE; nội bộ cần `ket_qua_luc`.
+CO_KET_QUA_VONG_SQL = """(
+    o.doi_tac_cho_tai_lieu_luc IS NOT NULL
+    OR CASE
+         WHEN coalesce(nd.lam_ben_ngoai, false) THEN
+           EXISTS (
+             SELECT 1 FROM public.tep_ket_qua t_kq
+              WHERE t_kq.clinic_id = o.clinic_id
+                AND t_kq.service_order_id = o.id
+                AND t_kq.xac_nhan_trang_thai = 'HOP_LE'
+           )
+         ELSE o.ket_qua_luc IS NOT NULL
+       END
+)"""
+
 # Ai đọc được nội dung khám (ghi chú, kết quả). Lễ tân và trưởng ca làm việc
 # với trạng thái, không cần đọc chữ bác sĩ viết.
 CLINICAL_READ_ROLES = frozenset(

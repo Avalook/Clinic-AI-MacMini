@@ -105,7 +105,7 @@ interface ChiDinh {
   doi_phong_duoc?: boolean;
   /** Việc gửi đối tác làm — không có phòng nào của phòng khám để xếp. */
   doi_tac?: boolean;
-  trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA" | null;
+  trang_thai_doi_tac?: "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA" | null;
   /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026): đối tác đã thu chưa. */
   doi_tac_thu_tien?: "DA_THU" | "CHUA_THU" | null;
 }
@@ -179,7 +179,7 @@ const TEN_TRANG_THAI_CHI_DINH: Record<string, string> = {
 const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
   CHO_LAY_MAU: "Đã gửi đối tác",
   DA_LAY_MAU: "Đối tác đã lấy mẫu",
-  CHO_TAI_LIEU: "Đối tác đang làm",
+  DA_NHAN_MAU: "Đối tác đã nhận mẫu · xong",
   DA_GUI_KET_QUA: "Đối tác đã gửi kết quả",
 };
 
