@@ -967,6 +967,7 @@ class TepKetQuaService:
         # này làm hỏng bộ lọc sẽ biến đây thành lỗ thật.
         if not khoa.startswith(f"{identity.clinic_id}/"):
             raise ValidationError("Tệp không thuộc phòng khám này.")
+
         # Chạm ổ mạng ở luồng phụ, có hạn giờ (sự cố treo API 29/09 20:00).
         def _giai() -> tuple[Path, bool, bool]:
             p = (MEDIA_ROOT / khoa).resolve()
