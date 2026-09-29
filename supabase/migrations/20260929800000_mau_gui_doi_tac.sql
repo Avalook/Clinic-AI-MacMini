@@ -10,9 +10,7 @@
 --    và không có chỗ tải kết quả đối tác gửi về. Tổng quát theo (bên thu, phòng
 --    làm) — KHÔNG viết cứng mã dịch vụ.
 --
--- 2. BÙ DỮ LIỆU: việc như trên đã làm xong trong 60 ngày mà CHƯA có kết quả →
---    ghi nhận luôn (`BU_DU_LIEU`, như migration 20260925000009) để bàn đối tác
---    thấy mẫu đang chờ trả kết quả.
+-- 2. KHÔNG bù dữ liệu ca cũ (Tuyền 29/09/2026).
 --
 -- 3. CHỐT THU HỘ 10 dịch vụ KHÔNG có trong KiotViet (Tuyền xác nhận 29/09/2026
 --    là ĐÚNG thu hộ): billing_owner = EXTERNAL_PARTNER + billing_owner_chon_tay
@@ -38,23 +36,8 @@ COMMENT ON TABLE public.doi_tac_nhan_viec IS
 'định tối đa một dòng (khoá chính) — nhận lại là không làm gì.';
 
 -- 2 ------------------------------------------------------------------------
-INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do, nhan_luc)
-SELECT o.clinic_id, o.id, 'BU_DU_LIEU', coalesce(o.finished_at, o.created_at)
-  FROM public.service_order o
-  LEFT JOIN public.node_definition n
-    ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-  JOIN LATERAL (
-       SELECT s.billing_owner FROM public.service_price s
-        WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code
-          AND s.active
-        ORDER BY (s."group" = 'dich_vu') DESC LIMIT 1) sp ON true
- WHERE o.created_at > now() - interval '60 days'
-   AND o.exec_status = 'performed'
-   AND o.ket_qua_luc IS NULL
-   AND coalesce(o.selection_status, 'SELECTED') = 'SELECTED'
-   AND NOT coalesce(n.lam_ben_ngoai, false)
-   AND sp.billing_owner = 'EXTERNAL_PARTNER'
-ON CONFLICT (clinic_id, service_order_id) DO NOTHING;
+-- (Bỏ bù dữ liệu — Tuyền 29/09/2026: ca GPB/sinh thiết cũ phòng khám đã tự thu
+-- tiền, không đưa lên bàn đối tác; chỉ ca mới từ nay.)
 
 -- 3 ------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.chot_thu_ho_dich_vu_ngoai_kiotviet()
