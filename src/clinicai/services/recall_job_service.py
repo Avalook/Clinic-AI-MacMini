@@ -135,13 +135,17 @@ class RecallJobService:
         viec = [dict(r) for r in rows]
         # Lượt 1 kèm ĐỦ để gọi (29/09/2026): bác sĩ chỉ định, loại khám + chẩn
         # đoán lần trước, mục cần kiểm tra lại, ghi chú bác sĩ — đọc từ phiếu.
-        async with self._pool.acquire() as conn:
-            for v in viec:
-                v["chi_tiet"] = (
-                    await chi_tiet_viec(conn, identity.clinic_id, v["nguon_visit_id"])
-                    if v["luot_goi"] == 1
-                    else None
-                )
+        for v in viec:
+            v["chi_tiet"] = None
+        can_doc = [
+            v for v in viec if v.get("luot_goi") == 1 and v.get("nguon_visit_id")
+        ]
+        if can_doc:
+            async with self._pool.acquire() as conn:
+                for v in can_doc:
+                    v["chi_tiet"] = await chi_tiet_viec(
+                        conn, identity.clinic_id, v["nguon_visit_id"]
+                    )
         return {
             "ngay": hom_nay.isoformat(),
             "bi_cat": bi_cat,

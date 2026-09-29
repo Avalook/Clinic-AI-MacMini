@@ -36,6 +36,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.events.hen_gio import hen, huy_hen
 from clinicai.phieu_kham.khung import cac_o, dinh_nghia, doc_ngay
 from clinicai.phieu_kham.mang_sang import doc_chan_doan
+from clinicai.services.audit import record_event
 
 #: Loại hẹn giờ: tới hạn gọi thì réo chuông CSKH (xử lý ở
 #: `events/consumers/nhac_tai_kham.py`).
@@ -287,35 +288,20 @@ async def _ghi_lich_su(
     toi: date | None,
     ket_qua: str,
 ) -> None:
-    await conn.execute(
-        """
-        INSERT INTO event_log
-            (clinic_id, event_type, aggregate_type, aggregate_id, payload,
-             metadata, source, event_published)
-        VALUES ($1::uuid, $2, 'visit', $3::uuid, $4::jsonb, $5::jsonb,
-                'api:phieu-kham', FALSE)
-        """,
-        identity.clinic_id,
-        SU_KIEN_HEN_DOI,
-        visit_id,
-        json.dumps(
-            {
-                "visit_id": visit_id,
-                "viec_id": viec_id,
-                "tu": tu.isoformat() if tu else None,
-                "toi": toi.isoformat() if toi else None,
-                "ket_qua": ket_qua,
-            }
-        ),
-        json.dumps(
-            {
-                "clinic_role": identity.role.value,
-                "vai_tai_khoan": identity.vai_goc.value,
-                "clinic_staff_id": identity.staff_id,
-                "actor_auth_user_id": identity.auth_user_id,
-                "origin": "api:phieu-kham",
-            }
-        ),
+    await record_event(
+        conn,
+        event_type=SU_KIEN_HEN_DOI,
+        aggregate_type="visit",
+        aggregate_id=visit_id,
+        identity=identity,
+        origin="api:phieu-kham",
+        payload={
+            "visit_id": visit_id,
+            "viec_id": viec_id,
+            "tu": tu.isoformat() if tu else None,
+            "toi": toi.isoformat() if toi else None,
+            "ket_qua": ket_qua,
+        },
     )
 
 
