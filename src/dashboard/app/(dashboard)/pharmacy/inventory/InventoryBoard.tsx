@@ -27,12 +27,17 @@ interface InvDrug {
 
 export interface InvBatch {
   id: string;
+  drug_catalog_id: string | null;
   batch_code: string;
   expiry_date: string;
   quantity_on_hand: number;
   unit: string;
   cost_price: number | null;
   received_at: string | null;
+  /** Máy chủ tính theo ngày VN (29/09/2026) — TSX không tự đếm ngày. */
+  trang_thai_han: ExpiryState;
+  /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
+  canh_bao_han: boolean;
   drug: InvDrug | null;
 }
 
@@ -42,25 +47,18 @@ const fmtDate = (iso: string | null) =>
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
 
-type ExpiryState = "ok" | "soon" | "expired";
-
-function expiryState(b: InvBatch, nowMs: number): ExpiryState {
-  const exp = +new Date(b.expiry_date);
-  if (exp < nowMs) return "expired";
-  const soon = nowMs + 90 * 24 * 60 * 60 * 1000; // 90 ngày
-  return exp <= soon ? "soon" : "ok";
-}
+export type ExpiryState = "con_han" | "sap_het_han" | "het_han";
 
 const STATE_LABEL: Record<ExpiryState, string> = {
-  ok: "Còn hạn",
-  soon: "Sắp hết hạn",
-  expired: "Hết hạn",
+  con_han: "Còn hạn",
+  sap_het_han: "Sắp hết hạn",
+  het_han: "Hết hạn",
 };
 
 const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger"> = {
-  ok: "success",
-  soon: "warning",
-  expired: "danger",
+  con_han: "success",
+  sap_het_han: "warning",
+  het_han: "danger",
 };
 
 type ThaoTacLo = { id: string; loai: "adjust" | "discard"; so_luong: string; ly_do: string };
@@ -68,9 +66,15 @@ type ThaoTacLo = { id: string; loai: "adjust" | "discard"; so_luong: string; ly_
 export default function InventoryBoard({
   batches,
   thuoc,
+  ghiDuoc = false,
+  onXemThe,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
+  /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
+  ghiDuoc?: boolean;
+  /** Bấm tên thuốc → tab Thẻ kho. */
+  onXemThe?: (id: string) => void;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | ExpiryState>("all");
@@ -79,14 +83,11 @@ export default function InventoryBoard({
   const [lo, setLo] = useState<ThaoTacLo | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  // Lazy init — chạy đúng 1 lần khi mount, không gọi Date.now() trong render.
-  const [nowMs] = useState(() => Date.now());
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return batches.filter((b) => {
-      const state = expiryState(b, nowMs);
-      if (filter !== "all" && state !== filter) return false;
+      if (filter !== "all" && b.trang_thai_han !== filter) return false;
       if (!q) return true;
       return (
         b.drug?.name_base?.toLowerCase().includes(q) ||
@@ -94,20 +95,20 @@ export default function InventoryBoard({
         b.batch_code.toLowerCase().includes(q)
       );
     });
-  }, [batches, filter, search, nowMs]);
+  }, [batches, filter, search]);
 
   const summary = useMemo(() => {
     let totalUnits = 0;
     let soonCount = 0;
     let expiredCount = 0;
     for (const b of batches) {
-      totalUnits += b.quantity_on_hand;
-      const s = expiryState(b, nowMs);
-      if (s === "soon") soonCount++;
-      if (s === "expired") expiredCount++;
+      totalUnits += Number(b.quantity_on_hand);
+      // Chỉ đếm lô còn thuốc trên kệ (`canh_bao_han` máy chủ trả).
+      if (b.canh_bao_han && b.trang_thai_han === "sap_het_han") soonCount++;
+      if (b.canh_bao_han && b.trang_thai_han === "het_han") expiredCount++;
     }
     return { totalUnits, soonCount, expiredCount };
-  }, [batches, nowMs]);
+  }, [batches]);
 
   const guiLo = async () => {
     if (!lo) return;
@@ -139,12 +140,12 @@ export default function InventoryBoard({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {the(batches.length, "Lô thuốc")}
         {the(fmtQty(summary.totalUnits), "Tổng tồn (đơn vị)")}
-        {the(summary.soonCount, "Sắp hết hạn (≤90 ngày)", summary.soonCount > 0 ? "text-warning" : undefined)}
-        {the(summary.expiredCount, "Hết hạn", summary.expiredCount > 0 ? "text-danger" : undefined)}
+        {the(summary.soonCount, "Lô sắp hết hạn", summary.soonCount > 0 ? "text-warning" : undefined)}
+        {the(summary.expiredCount, "Lô hết hạn còn trên kệ", summary.expiredCount > 0 ? "text-danger" : undefined)}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "ok", "soon", "expired"] as const).map((f) => (
+        {(["all", "con_han", "sap_het_han", "het_han"] as const).map((f) => (
           <Button
             key={f}
             type="button"
@@ -162,9 +163,11 @@ export default function InventoryBoard({
           aria-label="Tìm lô thuốc"
           className={`${INPUT} sm:ml-auto sm:w-56`}
         />
-        <Button type="button" variant="primary" size="sm" onClick={() => setMoNhap(true)}>
-          + Nhập lô
-        </Button>
+        {ghiDuoc ? (
+          <Button type="button" variant="primary" size="sm" onClick={() => setMoNhap(true)}>
+            + Nhập lô
+          </Button>
+        ) : null}
       </div>
 
       {moNhap ? <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} /> : null}
@@ -192,13 +195,27 @@ export default function InventoryBoard({
               </tr>
             ) : (
               rows.flatMap((b) => {
-                const st = expiryState(b, nowMs);
+                const st = b.trang_thai_han;
                 const dangMo = lo?.id === b.id;
                 const hang = (
                   <tr key={b.id}>
                     <td className="px-3 py-2 font-medium text-ink">
-                      {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}
-                      {b.drug?.variant ? ` (${b.drug.variant})` : ""}
+                      {onXemThe && b.drug_catalog_id ? (
+                        <button
+                          type="button"
+                          onClick={() => b.drug_catalog_id && onXemThe(b.drug_catalog_id)}
+                          title="Xem thẻ kho"
+                          className="text-left font-medium text-brand-700 hover:underline"
+                        >
+                          {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}
+                          {b.drug?.variant ? ` (${b.drug.variant})` : ""}
+                        </button>
+                      ) : (
+                        <>
+                          {b.drug?.name_base ?? b.drug?.name_raw ?? "—"}
+                          {b.drug?.variant ? ` (${b.drug.variant})` : ""}
+                        </>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
                     <td className="px-3 py-2 text-ink-muted">{fmtDate(b.expiry_date)}</td>
@@ -213,6 +230,8 @@ export default function InventoryBoard({
                       <Chip tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Chip>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">
+                      {ghiDuoc ? (
+                        <>
                       <Button
                         type="button"
                         size="sm"
@@ -235,6 +254,8 @@ export default function InventoryBoard({
                       >
                         Huỷ
                       </Button>
+                        </>
+                      ) : null}
                     </td>
                   </tr>
                 );

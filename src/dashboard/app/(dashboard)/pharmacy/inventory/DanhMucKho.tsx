@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
-import { guiKho, tienVnd } from "./gui-kho";
+import { guiKho, soKho, tienVnd } from "./gui-kho";
 
 export interface ThuocKho {
   id: string;
@@ -27,12 +27,17 @@ export interface ThuocKho {
   can_soat: boolean;
   ton: number;
   so_lo: number;
+  /** Ngưỡng sắp hết hàng (29/09/2026); null = không canh. */
+  ton_toi_thieu: number | null;
+  /** Máy chủ tính: đang dùng, có ngưỡng, tổng tồn ≤ ngưỡng. */
+  sap_het_hang: boolean;
 }
 
-type Loc = "dang_dung" | "can_soat" | "da_tat" | "tat_ca";
+type Loc = "dang_dung" | "sap_het" | "can_soat" | "da_tat" | "tat_ca";
 
 const NHAN_LOC: Record<Loc, string> = {
   dang_dung: "Đang dùng",
+  sap_het: "Sắp hết hàng",
   can_soat: "Cần soát",
   da_tat: "Đã tắt",
   tat_ca: "Tất cả",
@@ -47,6 +52,7 @@ const TRONG = {
   biet_duoc: "",
   cach_dung: "",
   luu_y: "",
+  ton_toi_thieu: "",
   dang_dung: true,
 };
 
@@ -62,11 +68,22 @@ function tuThuoc(t: ThuocKho): Form {
     biet_duoc: t.biet_duoc ?? "",
     cach_dung: t.cach_dung ?? "",
     luu_y: t.luu_y ?? "",
+    ton_toi_thieu: t.ton_toi_thieu == null ? "" : String(t.ton_toi_thieu),
     dang_dung: t.dang_dung,
   };
 }
 
-export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
+export default function DanhMucKho({
+  thuoc,
+  ghiDuoc = false,
+  onXemThe,
+}: {
+  thuoc: ThuocKho[];
+  /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
+  ghiDuoc?: boolean;
+  /** Bấm tên thuốc → tab Thẻ kho. */
+  onXemThe?: (id: string) => void;
+}) {
   const router = useRouter();
   const [loc, setLoc] = useState<Loc>("dang_dung");
   const [tim, setTim] = useState("");
@@ -80,6 +97,7 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
   const dem = useMemo(
     () => ({
       dang_dung: thuoc.filter((t) => t.dang_dung).length,
+      sap_het: thuoc.filter((t) => t.sap_het_hang).length,
       can_soat: thuoc.filter((t) => t.dang_dung && t.can_soat).length,
       da_tat: thuoc.filter((t) => !t.dang_dung).length,
       tat_ca: thuoc.length,
@@ -91,6 +109,7 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
     const q = tim.trim().toLowerCase();
     return thuoc.filter((t) => {
       if (loc === "dang_dung" && !t.dang_dung) return false;
+      if (loc === "sap_het" && !t.sap_het_hang) return false;
       if (loc === "can_soat" && !(t.dang_dung && t.can_soat)) return false;
       if (loc === "da_tat" && t.dang_dung) return false;
       if (!q) return true;
@@ -118,6 +137,8 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
       biet_duoc: form.biet_duoc,
       cach_dung: form.cach_dung,
       luu_y: form.luu_y,
+      // Rỗng = bỏ canh; máy chủ đọc số, từ chối số âm.
+      ton_toi_thieu: form.ton_toi_thieu.trim() === "" ? null : form.ton_toi_thieu.trim(),
       dang_dung: form.dang_dung,
     });
     setDang(false);
@@ -143,7 +164,7 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
       ) : (
         <input
           value={form[ma]}
-          inputMode={ma === "gia" ? "numeric" : undefined}
+          inputMode={ma === "gia" ? "numeric" : ma === "ton_toi_thieu" ? "decimal" : undefined}
           onChange={(e) => setForm({ ...form, [ma]: e.target.value })}
           className={INPUT}
         />
@@ -172,9 +193,11 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
           aria-label="Tìm thuốc"
           className={`${INPUT} sm:ml-auto sm:w-64`}
         />
-        <Button type="button" variant="primary" size="sm" onClick={() => mo(null)}>
-          + Thêm thuốc
-        </Button>
+        {ghiDuoc ? (
+          <Button type="button" variant="primary" size="sm" onClick={() => mo(null)}>
+            + Thêm thuốc
+          </Button>
+        ) : null}
       </div>
 
       {bao ? <p className="text-meta text-success">{bao}</p> : null}
@@ -190,6 +213,7 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
             {o("ma_hang", "Mã hàng (KiotViet)")}
             {o("gia", "Giá bán (đ / một đơn vị)")}
             {o("don_vi_ban", "Đơn vị bán (hộp, viên, ống…)")}
+            {o("ton_toi_thieu", "Tồn tối thiểu (để trống = không cảnh báo)")}
             {o("duong_dung", "Đường dùng")}
             {o("biet_duoc", "Biệt dược / hoạt chất")}
             {o("cach_dung", "Cách dùng (điền sẵn vào đơn)", true)}
@@ -248,18 +272,33 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
               hang.map((t) => (
                 <tr key={t.id} className={t.dang_dung ? "" : "text-ink-faint"}>
                   <td className="px-3 py-2">
-                    <span className="font-medium text-ink">{t.ten}</span>
+                    {onXemThe ? (
+                      <button
+                        type="button"
+                        onClick={() => onXemThe(t.id)}
+                        title="Xem thẻ kho"
+                        className="text-left font-medium text-brand-700 hover:underline"
+                      >
+                        {t.ten}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-ink">{t.ten}</span>
+                    )}
                     <span className="block text-meta text-ink-muted">
                       {[t.ma_hang, t.biet_duoc].filter(Boolean).join(" · ")}
                     </span>
+                    {t.sap_het_hang ? <Chip tone="danger">Sắp hết</Chip> : null}
                     {t.can_soat && t.dang_dung ? <Chip tone="warning">Cần soát</Chip> : null}
                     {!t.dang_dung ? <Chip tone="neutral">Đã tắt</Chip> : null}
                   </td>
                   <td className="px-3 py-2 text-ink-muted">{t.don_vi_ban ?? "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">{tienVnd(t.gia)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">
-                    {t.ton}
+                    {soKho(t.ton)}
                     {t.so_lo > 0 ? <span className="block text-meta text-ink-muted">{t.so_lo} lô</span> : null}
+                    {t.ton_toi_thieu != null ? (
+                      <span className="block text-meta text-ink-muted">tối thiểu {soKho(t.ton_toi_thieu)}</span>
+                    ) : null}
                   </td>
                   <td className="max-w-xs px-3 py-2 text-meta text-ink-muted">
                     {t.cach_dung ? (
@@ -269,9 +308,11 @@ export default function DanhMucKho({ thuoc }: { thuoc: ThuocKho[] }) {
                     )}
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => mo(t)}>
-                      Sửa
-                    </Button>
+                    {ghiDuoc ? (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => mo(t)}>
+                        Sửa
+                      </Button>
+                    ) : null}
                   </td>
                 </tr>
               ))

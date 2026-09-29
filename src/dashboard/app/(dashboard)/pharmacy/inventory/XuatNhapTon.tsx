@@ -56,36 +56,48 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
     tu: congNgay(homNayVn(), -29),
     den: homNayVn(),
   }));
-  const [kq, setKq] = useState<KetQua | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
-  const [dangTai, setDangTai] = useState(false);
+  // "Tất cả" = một năm gần nhất (máy chủ cắt khoảng dài hơn 366 ngày).
+  const k = khoang ?? { tu: congNgay(homNay, -365), den: homNay };
+  const hoi = `${k.tu}|${k.den}`;
+  // Kết quả gắn với khoảng đã hỏi — đang tải = kết quả chưa phải của `hoi`
+  // (không setState đồng bộ trong effect).
+  const [tra, setTra] = useState<{ hoi: string; kq: KetQua | null; loi: string | null } | null>(
+    null,
+  );
+  const dangTai = tra?.hoi !== hoi;
+  const kq = tra?.kq ?? null;
+  const loi = tra?.hoi === hoi ? tra.loi : null;
 
   useEffect(() => {
-    // "Tất cả" = một năm gần nhất (máy chủ cắt khoảng dài hơn 366 ngày).
-    const k = khoang ?? { tu: congNgay(homNay, -365), den: homNay };
+    const [tu, den] = hoi.split("|");
     let bo = false;
-    setDangTai(true);
-    setLoi(null);
     fetch(
-      `/api/pharmacy/xuat-nhap-ton?${new URLSearchParams({ tu: k.tu, den: k.den })}`,
+      `/api/pharmacy/xuat-nhap-ton?${new URLSearchParams({ tu, den })}`,
       { cache: "no-store" },
     )
       .then(async (r) => {
         const d = (await r.json().catch(() => null)) as (KetQua & { error?: string }) | null;
         if (bo) return;
-        if (!r.ok || !d) setLoi(d?.error ?? "Không đọc được xuất – nhập – tồn.");
-        else setKq(d);
+        if (!r.ok || !d)
+          setTra((cu) => ({
+            hoi,
+            kq: cu?.kq ?? null,
+            loi: d?.error ?? "Không đọc được xuất – nhập – tồn.",
+          }));
+        else setTra({ hoi, kq: d, loi: null });
       })
       .catch(() => {
-        if (!bo) setLoi("Mất kết nối — chưa đọc được xuất – nhập – tồn.");
-      })
-      .finally(() => {
-        if (!bo) setDangTai(false);
+        if (!bo)
+          setTra((cu) => ({
+            hoi,
+            kq: cu?.kq ?? null,
+            loi: "Mất kết nối — chưa đọc được xuất – nhập – tồn.",
+          }));
       });
     return () => {
       bo = true;
     };
-  }, [khoang, homNay]);
+  }, [hoi]);
 
   const dong = kq?.dong ?? [];
   const coGiaTri = dong.some((d) => d.gia_tri_ton != null);

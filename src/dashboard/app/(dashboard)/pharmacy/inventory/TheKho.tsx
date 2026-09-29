@@ -49,32 +49,28 @@ export default function TheKho({
   chonId: string | null;
   onChon: (id: string | null) => void;
 }) {
-  const [data, setData] = useState<TheKhoData | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
-  const [dangTai, setDangTai] = useState(false);
+  // Kết quả gắn với id đã hỏi — đang tải = kết quả chưa phải của `chonId`
+  // (không setState đồng bộ trong effect).
+  const [kq, setKq] = useState<{ id: string; data: TheKhoData | null; loi: string | null } | null>(
+    null,
+  );
+  const dangTai = chonId != null && kq?.id !== chonId;
+  const data = kq?.id === chonId ? kq.data : null;
+  const loi = kq?.id === chonId ? kq.loi : null;
   const [go, setGo] = useState(() => thuoc.find((t) => t.id === chonId)?.ten ?? "");
 
   useEffect(() => {
     if (!chonId) return;
     let bo = false;
-    setDangTai(true);
-    setLoi(null);
     fetch(`/api/pharmacy/the-kho?id=${encodeURIComponent(chonId)}`, { cache: "no-store" })
       .then(async (r) => {
         const d = (await r.json().catch(() => null)) as (TheKhoData & { error?: string }) | null;
         if (bo) return;
-        if (!r.ok || !d) {
-          setLoi(d?.error ?? "Không đọc được thẻ kho.");
-          setData(null);
-        } else {
-          setData(d);
-        }
+        if (!r.ok || !d) setKq({ id: chonId, data: null, loi: d?.error ?? "Không đọc được thẻ kho." });
+        else setKq({ id: chonId, data: d, loi: null });
       })
       .catch(() => {
-        if (!bo) setLoi("Mất kết nối — chưa đọc được thẻ kho.");
-      })
-      .finally(() => {
-        if (!bo) setDangTai(false);
+        if (!bo) setKq({ id: chonId, data: null, loi: "Mất kết nối — chưa đọc được thẻ kho." });
       });
     return () => {
       bo = true;
