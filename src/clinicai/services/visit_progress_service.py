@@ -68,6 +68,11 @@ class VisitProgress:
     # Lúc thu XONG khâu cuối — không phải khâu đầu. Người xem bảng cần biết
     # "đã thu xong lúc mấy giờ", nên lấy mốc muộn nhất.
     paid_at: datetime | None = None
+    # Lễ tân bấm Check-out = khách xong buổi (Tuyền 29/09/2026: "ấn checkout là
+    # phải xong") — thanh tiến trình tick hết, đồng hồ chờ dừng.
+    closed_at: datetime | None = None
+    # Mốc khám xong THẬT của luồng mới (`visit.exam_completed_at`).
+    kham_xong_luc: datetime | None = None
 
 
 # One statement instead of the page's four round-trips. "Vitals recorded" means
@@ -96,7 +101,9 @@ _PROGRESS_SQL = """
            -- suy "đang khám" từ visit.status (17/09/2026: vừa check-in đã hiện
            -- "Đang khám"). Bệnh án mở là mốc dự phòng cho lượt cũ.
            COALESCE(cs.started_at, cr.exam_started_at) AS exam_started_at,
-           pay.paid_at
+           pay.paid_at,
+           v.closed_at,
+           v.exam_completed_at AS kham_xong_luc
       FROM visit v
       LEFT JOIN appointment a
         ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
@@ -209,6 +216,8 @@ class VisitProgressService:
                 paid_kinds=sorted(r["paid_kinds"] or []),
                 exam_started_at=r["exam_started_at"],
                 paid_at=r["paid_at"],
+                closed_at=r.get("closed_at"),
+                kham_xong_luc=r.get("kham_xong_luc"),
             )
             for r in rows
         ]
