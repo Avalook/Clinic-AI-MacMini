@@ -20,8 +20,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Thiếu mã lịch hẹn." }, { status: 400 });
   }
   const ngay = (sp.get("ngay") ?? "").trim();
-  const q = NGAY_RE.test(ngay) ? `?ngay=${ngay}` : "";
-  return proxyJsonToBackend("GET", `/api/v1/appointments/${id}/doi-lich-nhanh${q}`, null);
+  const duong = `/api/v1/appointments/${id}/doi-lich-nhanh`;
+  return proxyJsonToBackend("GET", NGAY_RE.test(ngay) ? `${duong}?ngay=${ngay}` : duong, null);
 }
 
 interface Body {
