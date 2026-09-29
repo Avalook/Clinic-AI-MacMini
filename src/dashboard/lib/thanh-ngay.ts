@@ -182,3 +182,13 @@ export function daiNgay(homNay: string, truoc: number, sau: number): ONgay[] {
   }
   return out;
 }
+
+/** Ngày XEM của các màn làm việc (Tuyền 29/09/2026 — Đo sinh hiệu, Bàn khám tư
+ *  vấn, Bàn khám, phòng dịch vụ): đọc `?ngay=` trên thanh địa chỉ để F5 không
+ *  mất ngày đang chọn. Rác / thiếu / ngày TƯƠNG LAI → hôm nay (không ném). Máy
+ *  chủ vẫn tự đọc lại ngày (`doc_ngay_xem`) — đây chỉ để thanh ngày tô đúng. */
+export function ngayXemTuUrl(v: unknown, homNay: string): string {
+  const ngay = docNgay(v);
+  if (ngay == null || docNgay(homNay) == null) return homNay;
+  return ngay > homNay ? homNay : ngay;
+}
