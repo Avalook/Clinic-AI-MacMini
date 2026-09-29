@@ -14,15 +14,10 @@ import { unaccentVi } from "../../../lib/validation";
 import Time24Input from "../Time24Input";
 import DateField from "../DateField";
 import CinemaSlotPicker from "./CinemaSlotPicker";
-import {
-  buildSlotUsage,
-  usageAt,
-  slotBucketMs,
-  slotMinuteOptions,
-  type SlotApptLite,
-} from "../../../lib/slot-capacity";
+import { slotMinuteOptions } from "../../../lib/slot-capacity";
+import { hangCua, khungDay, phutCua } from "../../../lib/suc-chua-luoi";
 import { useBookingPolicy } from "../BookingPolicyContext";
-import { useKhoangCa } from "./dung-khoang-ca";
+import { useSucChuaNgay } from "./dung-suc-chua-ngay";
 
 // Capacity Phase 1 — nhãn/lớp token của 6 trạng thái ô khung-giờ
 // (khớp CellState ở lib/capacity.ts).
@@ -150,26 +145,14 @@ export default function AppointmentBooking({
   // gỡ cùng đợt xoá ô "Số khám"/"Loại khám", nên state chỉ còn được ghi mà
   // không ai đọc. Bản thân lời gọi fetch thì GIỮ NGUYÊN, vì nó vẫn quyết định
   // patientKind mặc định.
-  const [existingAppts, setExistingAppts] = useState<SlotApptLite[]>([]);
+  // Tăng sau mỗi lần đặt xong → lưới hỏi lại máy chủ, ghế vừa đặt hiện "đã kín".
+  const [lamMoiSucChua, setLamMoiSucChua] = useState(0);
   // Bác sĩ TRỰC CA của ngày đã chọn (work_roster LICH_KHAM) — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
   /** Tuần chứa ngày đã chọn CHƯA được quản lý bấm "Áp dụng tuần". Danh sách bác
    *  sĩ vẫn thật (work_roster đã duyệt), chỉ là chưa chốt nên giờ còn đổi. */
   const [dutyDuKien, setDutyDuKien] = useState(false);
-  // Capacity Phase 1 — tải/khung-giờ để hiển thị (quote, read-only).
-  // Sức chứa từng KHUNG (không phải từng giờ), đọc từ cùng resolver mà trigger
-  // dùng để chặn. Trước đây nó đọc block_budget — một bảng thứ hai, mịn theo
-  // giờ, không ai đối chiếu với thứ thật sự thi hành: lưới vẽ "còn chỗ" trong
-  // khi trigger từ chối là chuyện có thể xảy ra và không ai phát hiện được.
-  const [budgetBlocks, setBudgetBlocks] = useState<
-    {
-      time: string;
-      state: string;
-      regular_cap: number;
-      regular_used: number;
-    }[]
-  >([]);
   const [channel, setChannel] = useState(initial?.channel ?? "");
   const [gioiThieu, setGioiThieu] = useState(initial?.gioiThieu ?? "");
   // Lý do đổi lịch (chế độ SỬA) → `appointment_doi_lich.ly_do`.
@@ -177,48 +160,18 @@ export default function AppointmentBooking({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // State from the previous selection may remain until the next async response.
-  // Hide it immediately when the controlling input is empty so stale capacity or
-  // service history is never rendered for a different selection.
-  const visibleExistingAppts = useMemo(
-    () => (apptDate ? existingAppts : []),
-    [apptDate, existingAppts],
-  );
-
-  // Fetch appointments for selected date to check availability
-  useEffect(() => {
-    if (!apptDate) return;
-    let active = true;
-    // Lấy lịch của MỌI bác sĩ trong ngày (KHÔNG lọc doctor_id) để sơ đồ "rạp
-    // chiếu phim" vẽ được từng hàng bác sĩ. isSlotBooked vẫn lọc theo doctorId
-    // ở phía client nhờ field appt.doctor_id còn nguyên trong kết quả.
-    fetch(`/api/appointments?date=${encodeURIComponent(apptDate)}`)
-      .then((r) => (r.ok ? r.json() : { appointments: [] }))
-      .then((data) => {
-        if (active) {
-          // Sửa lịch: bỏ CHÍNH lịch đang sửa khỏi sơ đồ để ô của nó không bị
-          // tính là "đã kín" (server cũng loại trừ self khi reschedule).
-          const list = (data.appointments ?? []) as (SlotApptLite & {
-            id?: string;
-          })[];
-          setExistingAppts(
-            edit ? list.filter((a) => a.id !== edit.appointmentId) : list,
-          );
-        }
-      })
-      .catch(() => {
-        if (active) setExistingAppts([]);
-      });
-    return () => {
-      active = false;
-    };
-    // edit ổn định (parent remount theo từng lịch) → không gây fetch lặp.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apptDate]);
-
-  // Khoảng giờ thật của từng bác sĩ trực. Thiếu nó thì sơ đồ mời đặt cả ngày
-  // cho một bác sĩ chỉ trực chiều, rồi máy chủ từ chối lúc lưu.
-  const shiftWindows = useKhoangCa(apptDate, dutyDoctorIds);
+  // SỐ GHẾ + KHOẢNG CA của cả lưới, MỘT lượt hỏi máy chủ (29/09/2026). Trần
+  // theo bác sĩ × khung có luật riêng, số đã dùng đếm bằng đúng hàm trigger
+  // dùng — lưới không tự cộng lịch, không lấy trần chung của phòng khám. Sửa
+  // lịch: bỏ CHÍNH lịch đang sửa khỏi phép đếm (trigger cũng loại trừ nó).
+  const sucChua = useSucChuaNgay(apptDate, [...(dutyDoctorIds ?? []), doctorId], {
+    boQuaLichId: edit?.appointmentId,
+    lamMoi: lamMoiSucChua,
+  });
+  // Hàng của bác sĩ đang chọn (hoặc hàng chưa phân) trong cùng lượt trả lời ấy
+  // — nuôi chữ "còn trống / đã kín" và dải "khung · đã đặt/trần".
+  const hangDangChon = hangCua(sucChua.data, doctorId || null);
+  const budgetBlocks = hangDangChon?.slots ?? [];
 
   // Bác sĩ trực ca của ngày đã chọn — sơ đồ chỉ vẽ hàng các bác sĩ này.
   useEffect(() => {
@@ -235,22 +188,6 @@ export default function AppointmentBooking({
       .catch(() => {});
     return () => ctrl.abort();
   }, [apptDate]);
-
-  // Capacity Phase 1 — nạp tải/khung-giờ cho cơ sở+ngày+BS đã chọn (chỉ để hiển thị).
-  useEffect(() => {
-    // Không setState đồng bộ trong effect (tránh react-hooks/set-state-in-effect).
-    // Khi thiếu ngày/cơ sở thì bỏ qua; render đã guard theo apptDate+locationId nên
-    // dữ liệu cũ không hiện nhầm. setBudgetBlocks chỉ chạy trong .then (bất đồng bộ).
-    if (!apptDate || !locationId) return;
-    const ctrl = new AbortController();
-    const params = new URLSearchParams({ date: apptDate, location_id: locationId });
-    if (doctorId) params.set("doctor_id", doctorId);
-    fetch(`/api/appointments/quote?${params.toString()}`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setBudgetBlocks(j?.slots ?? []))
-      .catch(() => {});
-    return () => ctrl.abort();
-  }, [apptDate, locationId, doctorId]);
 
   // Khi đổi DỊCH VỤ (hoặc BN) → tra lịch sử để hiện hint + đặt MẶC ĐỊNH NEW/RETURN.
   // Đợt còn sống ⇒ mặc định Tái khám; không có đợt sống ⇒ mặc định Khám mới (hướng sai
@@ -274,25 +211,16 @@ export default function AppointmentBooking({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId, clinicPatientId]);
 
-  // CSKH: khung đang chọn còn chỗ đặt hẹn không? Số chỗ kênh thường và số chỗ
-  // vãng lai là cấu hình của phòng khám (clinic.settings.booking) — chỗ vãng
-  // lai để dành nên KHÔNG tính vào chỗ đặt hẹn.
-  const isSlotBooked = useMemo(() => {
-    if (!apptDate || !apptTime || !policy) return false;
-    try {
-      // Giờ gõ tay có thể rơi giữa khung → phải quy về đầu khung, đúng như
-      // trigger enforce_slot_capacity làm khi đếm.
-      const bucketMs = slotBucketMs(vnLocalToUtcISO(apptDate, apptTime), policy);
-      const u = usageAt(
-        buildSlotUsage(visibleExistingAppts, policy),
-        doctorId || null,
-        bucketMs,
-      );
-      return walkin ? u.walkin >= policy.walkinCap : u.regular >= policy.regularCap;
-    } catch {
-      return false;
-    }
-  }, [walkin, apptDate, apptTime, doctorId, visibleExistingAppts, policy]);
+  // Khung đang chọn còn ghế ĐÚNG LOẠI không — THEO MÁY CHỦ (trần theo bác sĩ ×
+  // khung, cờ chặn của trigger). Giờ gõ tay rơi giữa khung được quy về khung
+  // chứa nó. true = đầy · false = còn · null = chưa có số / khung không nhận lịch.
+  const khungDangChonDay = apptDate && apptTime
+    ? khungDay(
+        hangDangChon,
+        phutCua(apptTime),
+        walkin ? "walkin" : "regular",
+      )
+    : null;
 
   // Kênh đặt BẮT BUỘC cho đặt hẹn thường: kênh rỗng bị server mặc định WALK_IN →
   // chiếm nhầm chỗ vãng lai (chỗ 3). Vãng lai (Lễ tân) thì cố định WALK_IN nên
@@ -410,19 +338,9 @@ export default function AppointmentBooking({
       setError(json.error ?? "Có lỗi xảy ra.");
       return;
     }
-    // Nạp lại sơ đồ chỗ để lịch VỪA đặt hiện "đã kín" ngay, không phải đổi ngày
+    // Hỏi lại số ghế để lịch VỪA đặt hiện "đã kín" ngay, không phải đổi ngày
     // mới thấy — quan trọng khi đặt liên tiếp nhiều lịch trong cùng form.
-    try {
-      const r = await fetch(
-        `/api/appointments?date=${encodeURIComponent(apptDate)}`,
-      );
-      if (r.ok) {
-        const data = await r.json();
-        setExistingAppts(data.appointments ?? []);
-      }
-    } catch {
-      // im lặng: lỗi nạp lại không được chặn xác nhận đặt lịch đã thành công
-    }
+    setLamMoiSucChua((n) => n + 1);
     onBooked(json.appointment_id as string);
   }
 
@@ -551,8 +469,7 @@ export default function AppointmentBooking({
             doctors={doctors}
             dutyDoctorIds={dutyDoctorIds}
             dutyDuKien={dutyDuKien}
-            shiftWindows={shiftWindows}
-            existingAppts={visibleExistingAppts}
+            sucChua={sucChua}
             selectedDoctorId={doctorId}
             selectedTime={apptTime}
             mode={walkin ? "walkin" : "regular"}
@@ -562,18 +479,23 @@ export default function AppointmentBooking({
               setDoctorQ(docId ? (doctors.find((d) => d.id === docId)?.label ?? "") : "");
             }}
           />
-          {apptDate && apptTime && (
+          {apptDate && apptTime && khungDangChonDay !== null && (
             <p
               className={`text-label font-medium ${
-                isSlotBooked ? "text-danger" : "text-success"
+                khungDangChonDay ? "text-danger" : "text-success"
               }`}
             >
-              {isSlotBooked
+              {khungDangChonDay
                 ? "Khung đang chọn đã kín — chọn ô khác."
                 : "Khung đang chọn còn trống."}
             </p>
           )}
-          {apptDate && locationId && budgetBlocks.length > 0 && (
+          {apptDate && apptTime && khungDangChonDay === null && hangDangChon && (
+            <p className="text-label font-medium text-warning">
+              Khung đang chọn không có trong giờ nhận lịch của bác sĩ này.
+            </p>
+          )}
+          {apptDate && budgetBlocks.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {budgetBlocks.map((b) => {
                 const ui = CELL_UI[b.state] ?? CELL_UI.free;

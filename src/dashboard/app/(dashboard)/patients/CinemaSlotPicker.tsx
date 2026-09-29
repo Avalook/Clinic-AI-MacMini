@@ -3,8 +3,11 @@
 // Lưới đặt chỗ kiểu "rạp chiếu phim" dùng chung cho CSKH + Lễ tân: mỗi bác sĩ
 // TRỰC CA hôm đó là 1 nhóm 3 HÀNG — BN1 + BN2 (chỗ đặt hẹn kênh thường) và
 // hàng thứ 3 màu XANH "đặt vào đây" dành riêng khách vãng lai (WALK_IN); mỗi
-// cột = 1 khung 15 phút trong giờ mở cửa PK. Luật 2+1 nằm ở lib/slot-capacity
-// (server chặn cứng, đây là hiển thị đồng bộ).
+// cột = 1 khung trong giờ nhận lịch. SỐ GHẾ MỖI Ô LÀ SỐ CỦA MÁY CHỦ
+// (`/api/appointments/luoi-ngay`, 29/09/2026): trần theo bác sĩ × khung có luật
+// riêng, số đã dùng đếm bằng đúng hàm trigger dùng. Lưới không tự cộng lịch và
+// không lấy trần chung của phòng khám — hai thứ ấy từng làm lưới mời ghế mà
+// máy chủ từ chối, hoặc giấu ghế máy chủ còn nhận.
 //   mode="regular" (CSKH/QL/Trưởng ca đặt hẹn): bấm được BN1/BN2; hàng Đến
 //     trực tiếp (xanh) chỉ bấm được khi choChonGheTrucTiep=true (lưu WALK_IN).
 //   mode="walkin"  (Lễ tân xếp khách vãng lai): chỉ bấm được hàng xanh.
@@ -17,15 +20,16 @@ import { vnLocalToUtcISO, nowMs, slotRange } from "../../../lib/datetime";
 import { clinicHoursForDate } from "../../../lib/roster";
 import { trongKhungNhanLich } from "../../../lib/khung-nhan-lich";
 import {
-  buildSlotUsage,
-  usageAt,
-  type SlotApptLite,
-  type SlotUsage,
-} from "../../../lib/slot-capacity";
+  daDung,
+  hangCua,
+  khungChua,
+  soGhe,
+  soHangGhe,
+  type LoaiGhe,
+} from "../../../lib/suc-chua-luoi";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import type { Option } from "./AppointmentBooking";
-
-const EMPTY_USAGE = new Map<string, SlotUsage>();
+import type { SucChuaTai } from "./dung-suc-chua-ngay";
 
 /** Phút này có nằm trong ca trực không.
  *
@@ -34,7 +38,10 @@ const EMPTY_USAGE = new Map<string, SlotUsage>();
  *  thuộc ca CHIỀU, không thuộc ca SÁNG.
  */
 function trongCa(windows: [number, number][] | undefined, phut: number): boolean {
-  // Không biết ca của người này ⇒ không chặn. Xem ghi chú ở prop shiftWindows.
+  // Không biết ca của người này ⇒ không chặn. Khoảng ca LẤY TỪ MÁY CHỦ
+  // (`shift_windows` của `/appointments/luoi-ngay`, do `core/shifts.py` tính) —
+  // tự quy đổi SÁNG/CHIỀU ở đây là dựng bản thứ hai của luật ấy. Chặn dựa trên
+  // một điều chưa biết là khoá lịch của bác sĩ đang thật sự đi làm.
   if (!windows || windows.length === 0) return true;
   return windows.some(([lo, hi]) => phut >= lo && phut < hi);
 }
@@ -46,13 +53,12 @@ export default function CinemaSlotPicker({
   doctors,
   dutyDoctorIds,
   dutyDuKien = false,
-  existingAppts,
+  sucChua,
   selectedDoctorId,
   selectedTime,
   mode = "regular",
   choChonGheTrucTiep = false,
   selectedKind,
-  shiftWindows,
   onPick,
 }: {
   date: string;
@@ -64,7 +70,9 @@ export default function CinemaSlotPicker({
   /** Tuần chứa ngày này chưa được quản lý bấm "Áp dụng tuần". Bác sĩ bên dưới
    *  vẫn là người đã được xếp thật, chỉ là chưa chốt nên giờ còn đổi. */
   dutyDuKien?: boolean;
-  existingAppts: SlotApptLite[];
+  /** Số ghế + khoảng ca của mọi hàng, từ `useSucChuaNgay` (một lượt gọi máy
+   *  chủ). Mọi ô vẽ theo số này — không tự đếm lịch, không lấy trần chung. */
+  sucChua: SucChuaTai;
   selectedDoctorId: string;
   selectedTime: string;
   mode?: PickerMode;
@@ -74,18 +82,6 @@ export default function CinemaSlotPicker({
   /** Loại ghế đang chọn — để tô "đang chọn" ĐÚNG hàng khi cả 2 loại bấm được.
    *  Bỏ trống → suy theo mode (walkin→"walkin", còn lại→"regular"). */
   selectedKind?: "regular" | "walkin";
-  /** Khoảng PHÚT trong ngày mà mỗi bác sĩ thật sự trực, theo staff_id.
-   *
-   *  LẤY TỪ BACKEND (`/appointments/quote?doctor_id=…` → `shift_windows`),
-   *  KHÔNG TỰ TÍNH. Ca SÁNG/CHIỀU chỉ là ba cái nhãn; chúng thành khoảng giờ
-   *  bằng một luật duy nhất trong `core/shifts.py` (mốc 12:00 là quyết định
-   *  của phòng khám, và nó nằm ở đúng một hằng số). Tính lại ở đây là dựng bản
-   *  thứ hai của luật ấy, và bản thứ hai sẽ lệch vào ngày phòng khám đổi mốc.
-   *
-   *  `undefined` hoặc thiếu bác sĩ = chưa biết ⇒ KHÔNG chặn gì. Chặn dựa trên
-   *  một điều chưa biết là khoá lịch của người đang thật sự đi làm — sai theo
-   *  hướng đó tệ hơn hẳn. */
-  shiftWindows?: Record<string, [number, number][]>;
   onPick: (doctorId: string, hhmm: string, kind: "regular" | "walkin") => void;
 }) {
   // Luật của phòng khám đang đăng nhập — CÙNG một hàng clinic.settings mà
@@ -118,10 +114,10 @@ export default function CinemaSlotPicker({
     return out;
   }, [date, policy]);
 
-  // Bảng chiếm chỗ (bác sĩ × khung): đếm riêng kênh thường vs vãng lai.
-  const usage = useMemo(
-    () => (policy ? buildSlotUsage(existingAppts, policy) : EMPTY_USAGE),
-    [existingAppts, policy],
+  // Phút trong ngày của từng cột — để tra khung của máy chủ.
+  const cacPhut = useMemo(
+    () => slots.map((t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))),
+    [slots],
   );
 
   // Lọc bác sĩ theo ca trực; ngày chưa phân trực → hiện tất cả + ghi chú.
@@ -200,8 +196,34 @@ export default function CinemaSlotPicker({
   const walkinMode = mode === "walkin";
   const effSelectedKind = selectedKind ?? (walkinMode ? "walkin" : "regular");
 
-  // Hàng con của mỗi bác sĩ: regularCap hàng "BN…" (đặt trước) + walkinCap
-  // hàng "Đến trực tiếp" (lưu như WALK_IN).
+  // MÁY CHỦ CHƯA TRẢ SỐ GHẾ thì không vẽ ghế nào. Đoán bằng trần chung của
+  // phòng khám chính là lỗi vừa sửa (29/09/2026): lưới mời ghế mà trigger từ
+  // chối, hoặc giấu ghế trigger còn nhận.
+  if (sucChua.loi) {
+    return (
+      <p className="rounded-lg border border-danger-bg bg-danger-bg px-3 py-2 text-sm text-danger">
+        Chưa đọc được số chỗ của ngày này từ máy chủ — chưa hiện được sơ đồ.
+        Thử tải lại trang; còn lỗi thì báo kỹ thuật.
+      </p>
+    );
+  }
+  if (!sucChua.data) {
+    return (
+      <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm text-ink-muted">
+        Đang tải số chỗ của ngày này…
+      </p>
+    );
+  }
+  const sc = sucChua.data;
+  const tuanChuaChot = rows.some((d) => {
+    const h = hangCua(sc, d.id || null);
+    return !!h && !!d.id && !h.regular_chan;
+  });
+
+  // Hàng con của mỗi bác sĩ: các hàng "BN…" (đặt trước) + các hàng "Đến trực
+  // tiếp" (lưu như WALK_IN). SỐ HÀNG THEO MÁY CHỦ, RIÊNG TỪNG BÁC SĨ: ghế
+  // nhiều nhất của một khung trong ngày (luật riêng theo bác sĩ × giờ làm mỗi
+  // khung một trần). Khung ít ghế hơn thì ô thừa là "không có ghế".
   //
   // HÀNG NÀY TỪNG MANG NHÃN "ƯU TIÊN" — sai, và sai theo kiểu tốn tiền.
   // Vãng lai là NGƯỜI ĐẾN TRỰC TIẾP không báo trước (Quang, 08/08/2026): có thể
@@ -209,29 +231,34 @@ export default function CinemaSlotPicker({
   // của bác sĩ". Gọi nó là "Ưu tiên" khiến CSKH xếp người quen vào đó, và khi
   // một khách thật bước vào quầy thì hết chỗ.
   //
-  // Tệ hơn kể từ 07/08: khách CÓ HẸN đến muộn cũng chiếm một ghế vãng lai
-  // (20260807000001). Nên ghế ấy vốn đã chật, không phải chỗ để dành cho ai.
-  //
   // Ưu tiên là khái niệm CHƯA XÂY (Quang: "bỏ ưu tiên đi đã").
-  const SUBROWS: { kind: "regular" | "walkin"; label: string; seatIdx: number }[] = [
-    ...Array.from({ length: policy.regularCap }, (_, i) => ({
-      kind: "regular" as const,
-      label: `BN${i + 1}`,
-      seatIdx: i,
-    })),
-    ...Array.from({ length: policy.walkinCap }, (_, i) => ({
-      kind: "walkin" as const,
-      label: policy.walkinCap > 1 ? `Trực tiếp ${i + 1}` : "Trực tiếp",
-      seatIdx: i,
-    })),
-  ];
+  function hangCon(doctorId: string): { kind: LoaiGhe; label: string; seatIdx: number }[] {
+    const h = hangCua(sc, doctorId || null);
+    const soBN = soHangGhe(h, "regular", cacPhut);
+    const soTT = soHangGhe(h, "walkin", cacPhut);
+    const out: { kind: LoaiGhe; label: string; seatIdx: number }[] = [
+      ...Array.from({ length: soBN }, (_, i) => ({
+        kind: "regular" as const,
+        label: `BN${i + 1}`,
+        seatIdx: i,
+      })),
+      ...Array.from({ length: soTT }, (_, i) => ({
+        kind: "walkin" as const,
+        label: soTT > 1 ? `Trực tiếp ${i + 1}` : "Trực tiếp",
+        seatIdx: i,
+      })),
+    ];
+    // Không ghế nào (hoặc máy chủ chưa trả hàng này) vẫn giữ một dòng để tên
+    // bác sĩ không biến mất khỏi bảng — mọi ô của dòng ấy đều tắt.
+    return out.length > 0 ? out : [{ kind: "regular", label: "—", seatIdx: 0 }];
+  }
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3 text-label text-ink-muted">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-brand-100 bg-white" />{" "}
-          Chỗ hẹn trống ({policy.regularCap} chỗ/khung)
+          Chỗ hẹn trống
         </span>
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-success-bg bg-success-bg" />{" "}
@@ -267,6 +294,15 @@ export default function CinemaSlotPicker({
           khi tuần được chốt.
         </p>
       )}
+      {/* TRẦN LỊCH HẸN CHƯA CHẶN (máy chủ nói: tuần chưa công bố lịch trực).
+          Mỗi khung luôn còn một ô hẹn trống sau người cuối — đặt vượt được,
+          như trigger nhận; CSKH sẽ thấy lịch vượt khi tuần được công bố. */}
+      {tuanChuaChot && (
+        <p className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-1.5 text-label text-warning">
+          Tuần này chưa công bố lịch trực nên số chỗ hẹn chưa bị giới hạn — ô
+          hẹn trống thêm ở khung đã đủ là chỗ vượt, sẽ được đối soát khi công bố.
+        </p>
+      )}
       <div className="overflow-x-auto rounded-xl border border-brand-100">
         <table className="border-separate border-spacing-x-1 border-spacing-y-0.5 p-2">
           <thead>
@@ -288,12 +324,14 @@ export default function CinemaSlotPicker({
             </tr>
           </thead>
           <tbody>
-            {rows.map((d) =>
-              SUBROWS.map((sub, si) => (
+            {rows.map((d) => {
+              const hang = hangCua(sc, d.id || null);
+              const con = hangCon(d.id);
+              return con.map((sub, si) => (
                 <tr key={`${d.id || "none"}-${sub.kind}-${sub.seatIdx}`}>
                   {si === 0 && (
                     <td
-                      rowSpan={SUBROWS.length}
+                      rowSpan={con.length}
                       className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 align-middle text-xs font-medium text-ink"
                     >
                       {d.label}
@@ -329,15 +367,16 @@ export default function CinemaSlotPicker({
                     // lỗi này sinh ra.
                     const [gio, phut] = t.split(":");
                     const phutTrongNgay = Number(gio) * 60 + Number(phut);
-                    const ngoaiCa = !trongCa(shiftWindows?.[d.id], phutTrongNgay);
-                    const u = iso
-                      ? usageAt(usage, d.id || null, bucketMs)
-                      : { regular: 0, walkin: 0 };
-                    // Ghế này đã có người? BN1 kín khi regular ≥ 1, BN2 khi ≥ 2…
-                    const isTaken =
-                      sub.kind === "regular"
-                        ? u.regular > sub.seatIdx
-                        : u.walkin > sub.seatIdx;
+                    const ngoaiCa = !trongCa(hang?.shift_windows, phutTrongNgay);
+                    // SỐ GHẾ CỦA MÁY CHỦ cho đúng (bác sĩ × khung) này. Không có
+                    // khung ⇒ máy chủ không nhận lịch ở đây (hoặc chưa trả hàng
+                    // này) ⇒ ô tắt, không đoán.
+                    const khung = khungChua(hang, phutTrongNgay);
+                    const soGheKhung = hang && khung ? soGhe(hang, khung, sub.kind) : 0;
+                    const khongCoGhe = sub.seatIdx >= soGheKhung;
+                    const dung = khung ? daDung(khung, sub.kind) : 0;
+                    // Ghế này đã có người? BN1 kín khi đã dùng ≥ 1, BN2 khi ≥ 2…
+                    const isTaken = !khongCoGhe && dung > sub.seatIdx;
                     // Hàng được phép bấm: walkin-mode → chỉ hàng Đến trực tiếp;
                     // regular-mode → BN1/BN2, và cả hàng ấy nếu được cho phép.
                     const pickable = walkinMode
@@ -345,27 +384,26 @@ export default function CinemaSlotPicker({
                       : sub.kind === "regular" || choChonGheTrucTiep;
                     // Ô "đang chọn" vẽ trên ghế TRỐNG ĐẦU TIÊN của hàng đúng loại,
                     // và chỉ ở hàng ĐÚNG loại đang chọn (tránh tô nhầm cả hai hàng).
-                    const firstFreeSeat =
-                      sub.kind === "regular" ? u.regular : u.walkin;
                     const isSelected =
                       pickable &&
                       sub.kind === effSelectedKind &&
                       d.id === selectedDoctorId &&
                       t === selectedTime &&
                       !isTaken &&
-                      sub.seatIdx ===
-                        Math.min(
-                          firstFreeSeat,
-                          (sub.kind === "regular"
-                            ? policy.regularCap
-                            : policy.walkinCap) - 1,
-                        );
-                    const disabled = isPast || isTaken || !pickable || ngoaiCa;
+                      !khongCoGhe &&
+                      sub.seatIdx === dung;
+                    const disabled = isPast || isTaken || !pickable || ngoaiCa || khongCoGhe;
                     const title = `${d.label} · ${slotRange(t, policy.slotMinutes)} · ${
                       sub.kind === "walkin" ? "chỗ đến trực tiếp" : sub.label
                     }${
                       ngoaiCa
                         ? " · ngoài ca trực của bác sĩ này"
+                        : !hang
+                          ? " · chưa có số chỗ của bác sĩ này"
+                        : !khung
+                          ? " · khung này không nhận lịch"
+                        : khongCoGhe
+                          ? " · khung này không có ghế này"
                         : isTaken
                           ? " · đã kín"
                           : isPast
@@ -380,7 +418,7 @@ export default function CinemaSlotPicker({
                       "h-6 w-full min-w-[3.75rem] rounded text-label font-medium transition " +
                       (isSelected
                         ? "bg-brand-800 text-white"
-                        : ngoaiCa
+                        : ngoaiCa || khongCoGhe
                           ? "cursor-not-allowed border border-dashed border-line bg-surface-muted text-ink-faint"
                         : isPast || isTaken
                           ? "cursor-not-allowed bg-line text-ink-faint"
@@ -406,8 +444,8 @@ export default function CinemaSlotPicker({
                     );
                   })}
                 </tr>
-              )),
-            )}
+              ));
+            })}
           </tbody>
         </table>
       </div>
