@@ -78,7 +78,7 @@ EVENT_LABELS: dict[str, str] = {
     "booking_override.slot_superseded": "Luật khung giờ bị luật mới cắt",
     # ── Điều phối trong ngày ────────────────────────────────────────────────
     "dispatch.checkin": "Tiếp nhận tại quầy",
-    "dispatch.checkout": "Ra về",
+    "dispatch.checkout": "Cho khách về (check-out)",
     "dispatch.moved": "Chuyển sang bước khác",
     "dispatch.transfer_room": "Đổi phòng",
     "dispatch.route_applied": "Áp tuyến khám",

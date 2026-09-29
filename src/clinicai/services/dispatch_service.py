@@ -25,6 +25,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services import finance_gate
+from clinicai.services.audit_labels import action_label
 from clinicai.services.gate_rule_service import enforce as gate_enforce
 from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.nhan_trang_thai_dieu_phoi import (
@@ -183,6 +184,14 @@ SELECT v.visit_id,
   ) hq ON TRUE
  WHERE v.clinic_id = $1::uuid
    AND v.status = ANY($2::text[])
+   -- CHỈ LƯỢT CÒN MỞ HÔM NAY (Tuyền 29/09/2026): khách đã check-out / đóng lượt
+   -- (`closed_at`, hoặc đứng ở bước đóng lượt LUOTKHAM-15) và lượt của các ngày
+   -- trước không còn "trong phòng khám" — không đếm, không báo chờ quá lâu.
+   AND v.closed_at IS NULL
+   AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
+   AND coalesce(v.checked_in_at, v.created_at) >=
+       (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+        AT TIME ZONE 'Asia/Ho_Chi_Minh')
  ORDER BY v.current_node_since NULLS LAST, v.checked_in_at
  LIMIT 400
 """
@@ -230,6 +239,12 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
         JOIN public.visit v
           ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
          AND v.status = ANY($2::text[])
+         -- Cùng luật với _OVERVIEW_SQL: lượt đã đóng / ngày cũ không tính tải phòng.
+         AND v.closed_at IS NULL
+         AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
+         AND coalesce(v.checked_in_at, v.created_at) >=
+             (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+              AT TIME ZONE 'Asia/Ho_Chi_Minh')
        WHERE q.clinic_id = r.clinic_id
          AND q.status IN ('waiting', 'called', 'serving')
          -- Hàng DOCTOR không mang phòng: tính vào phòng khách đang đứng.
@@ -611,7 +626,8 @@ class DispatchService:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT * FROM (
+                SELECT x.*, nf.name AS from_node_name, nt.name AS to_node_name
+                  FROM (
                   SELECT h.created_at, h.event_type, h.visit_id::text AS visit_id,
                          h.from_node, h.to_node,
                          coalesce(rf.name, h.from_room) AS from_room,
@@ -654,7 +670,11 @@ class DispatchService:
                      AND e.event_type IN ('service.routed',
                                           'service.room_transferred')
                 ) x
-                ORDER BY created_at DESC LIMIT $2
+                LEFT JOIN public.node_definition nf
+                  ON nf.clinic_id = $1::uuid AND nf.code = x.from_node
+                LEFT JOIN public.node_definition nt
+                  ON nt.clinic_id = $1::uuid AND nt.code = x.to_node
+                ORDER BY x.created_at DESC LIMIT $2
                 """,
                 clinic_id,
                 limit,
@@ -663,9 +683,13 @@ class DispatchService:
             {
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
+                # Nhãn tiếng Việt + tên bước do máy chủ quyết — màn không in mã thô.
+                "event_label": action_label(r["event_type"]),
                 "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
+                "from_node_name": r["from_node_name"],
+                "to_node_name": r["to_node_name"],
                 "from_room": r["from_room"],
                 "to_room": r["to_room"],
                 "reason": r["reason"] or _ly_do_xep_phong(r),

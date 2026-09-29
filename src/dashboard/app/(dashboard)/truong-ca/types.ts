@@ -88,9 +88,13 @@ export interface RouteTemplate {
 export interface DispatchHistoryRow {
   at: string;
   event_type: string;
+  /** Nhãn tiếng Việt do máy chủ quyết (audit_labels). */
+  event_label?: string;
   visit_id: string | null;
   from_node: string | null;
   to_node: string | null;
+  from_node_name?: string | null;
+  to_node_name?: string | null;
   from_room: string | null;
   to_room: string | null;
   reason: string | null;
