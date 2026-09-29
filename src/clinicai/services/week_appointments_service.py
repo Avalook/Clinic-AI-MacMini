@@ -176,6 +176,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        st.name     AS service_name,
        v.checked_in_at,
        v.thu_tu_tay_ms,
+       v.visit_id,
        p.uu_tien AS khach_uu_tien,
        p.uu_tien_ly_do,
        cap.slot_minutes,
@@ -196,7 +197,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   -- xuống làn đến-sau và xếp theo giờ hẹn. Nhìn thì giống đang hoạt động, vì
   -- xếp theo giờ hẹn cũng ra một thứ tự hợp lý — chỉ sai khi có người đến muộn.
   LEFT JOIN LATERAL (
-      SELECT vi.checked_in_at, vi.thu_tu_tay_ms FROM visit vi
+      SELECT vi.checked_in_at, vi.thu_tu_tay_ms, vi.id AS visit_id FROM visit vi
        WHERE vi.appointment_id = t.id AND vi.clinic_id = $1::uuid
        ORDER BY vi.checked_in_at NULLS LAST
        LIMIT 1
@@ -328,6 +329,9 @@ def _row_to_dict(
         "checked_in_at": (
             r["checked_in_at"].isoformat() if r["checked_in_at"] else None
         ),
+        # Lượt khám của lịch (đã check-in) — bấm tên khách mở popup Hành trình
+        # khách (29/09/2026). Chưa check-in → None → mở hồ sơ khách.
+        "visit_id": str(r["visit_id"]) if r.get("visit_id") else None,
         "call_order": d.call_order if d else None,
         "call_tier": d.call_tier if d else None,
         "call_reason": d.call_reason if d else None,
