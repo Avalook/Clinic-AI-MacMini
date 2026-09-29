@@ -50,6 +50,8 @@ _ROSTER_GUARD = cua_quyen("config.clinic.manage")
 # chỉ cần đăng nhập nên thu lego chỉ mất mục trên thanh bên). Người xếp lịch
 # (lego 18) đương nhiên xem được bảng mình xếp.
 _ROSTER_READ_GUARD = cua_quyen("roster.view", "config.clinic.manage")
+# Đổi người trong ca (29/09/2026): trưởng ca có quyền riêng, không cần lego 18.
+_DOI_NGUOI_GUARD = cua_quyen("roster.shift.swap", "config.clinic.manage")
 _PRICE_GUARD = cua_quyen("price.service.manage")
 # Lễ tân kiêm thu ngân TRA giá được (Tuyền 16/09/2026) — không SỬA giá.
 # Đọc giá: người sửa bảng giá + người thu tiền (quầy cần đọc giá).
@@ -92,6 +94,9 @@ class PriceCreateRequest(BaseModel):
     ma_kiotviet: str | None = Field(default=None, max_length=32)
     #: Phòng làm (node) — dịch vụ mới phải biết xếp vào phòng nào.
     node_code: str | None = Field(default=None, max_length=64)
+    #: Bên thu chọn tay (29/09/2026): CLINIC | EXTERNAL_PARTNER; bỏ trống = theo
+    #: phòng làm. Máy chủ đọc (rác → 422 có câu).
+    billing_owner: str | None = Field(default=None, max_length=32)
 
 
 class PriceUpdateRequest(BaseModel):
@@ -100,6 +105,8 @@ class PriceUpdateRequest(BaseModel):
     active: bool | None = None
     ma_kiotviet: str | None = Field(default=None, max_length=32)
     node_code: str | None = Field(default=None, max_length=64)
+    #: Chọn tay bên thu (29/09/2026) — từ đó đổi phòng làm không ghi đè.
+    billing_owner: str | None = Field(default=None, max_length=32)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -292,6 +299,29 @@ async def bac_si_trong_ngay(
     return await RosterService(pool).bac_si_trong_ngay(identity=identity, ngay=ngay)
 
 
+class ThayNguoiRequest(BaseModel):
+    staff_id: UUID
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/roster/shifts/{roster_id}/thay-nguoi")
+async def thay_nguoi(
+    roster_id: UUID,
+    body: ThayNguoiRequest,
+    identity: StaffIdentity = Depends(_DOI_NGUOI_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đổi người đứng một ca (hôm nay / ngày tới). Quyền `roster.shift.swap`
+    (lego Điều phối khách) hoặc người xếp lịch — service kiểm (29/09/2026)."""
+    ket = await RosterService(pool).thay_nguoi(
+        roster_id=str(roster_id),
+        staff_moi_id=str(body.staff_id),
+        identity=identity,
+        ly_do=body.ly_do,
+    )
+    return {"ok": True, **ket}
+
+
 @router.delete("/roster/shifts/{roster_id}")
 async def remove_shift(
     roster_id: UUID,
@@ -325,8 +355,10 @@ class PriceRow(BaseModel):
     node_code: str | None = None
     #: Giá giả định chờ xác nhận (Q2, 27/09/2026) — sửa đơn giá là bỏ cờ.
     gia_tam: bool = False
-    #: CLINIC | EXTERNAL_PARTNER (khách trả trực tiếp đối tác — theo phòng làm).
+    #: CLINIC | EXTERNAL_PARTNER (thu hộ đối tác) — thuộc TỪNG dịch vụ.
     billing_owner: str = "CLINIC"
+    #: Quản lý đã chọn tay bên thu (không còn suy theo phòng làm) — 29/09/2026.
+    billing_owner_chon_tay: bool = False
 
 
 @router.get("/service-prices/phong-lam")
@@ -369,6 +401,7 @@ async def add_price(
         identity=identity,
         ma_kiotviet=body.ma_kiotviet,
         node_code=body.node_code,
+        billing_owner=body.billing_owner,
     )
     return {"ok": True, "id": price_id}
 
@@ -392,6 +425,7 @@ async def update_price(
         ma_kiotviet=body.ma_kiotviet,
         ma_kiotviet_provided="ma_kiotviet" in body.model_fields_set,
         node_code=body.node_code,
+        billing_owner=body.billing_owner,
     )
     return {"ok": True}
 

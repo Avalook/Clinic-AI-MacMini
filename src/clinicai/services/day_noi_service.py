@@ -25,6 +25,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.day_noi import DAY, doc_day
@@ -316,6 +317,8 @@ class DayNoiService:
                 room_id,
             )
             await self._ghi_nhat_ky(conn, identity, {"vi_tri_moi": vid, "ten": ten})
+        # Quyền theo lịch đọc vị trí → phòng — đổi thì quên quyền đang nhớ.
+        cache.quen(identity.clinic_id)
         return {"ok": True, "id": vid}
 
     async def sua_vi_tri(
@@ -365,6 +368,8 @@ class DayNoiService:
                 identity,
                 {"vi_tri": vi_tri_id, "ten": row["ten"], "bat": row["is_active"]},
             )
+        # Quyền theo lịch đọc vị trí → phòng — đổi thì quên quyền đang nhớ.
+        cache.quen(identity.clinic_id)
         return {"ok": True, **dict(row)}
 
     @staticmethod

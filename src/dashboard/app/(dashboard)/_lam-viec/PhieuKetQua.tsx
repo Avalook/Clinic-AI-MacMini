@@ -50,6 +50,7 @@ import { useTuLuu } from "@/lib/use-tu-luu";
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import { tenMucHien } from "@/lib/sua-mau";
 import Button, { buttonClass } from "@/components/ui/Button";
+import ChipChon from "@/components/ui/ChipChon";
 import OSo from "@/components/ui/OSo";
 import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
 
@@ -68,6 +69,9 @@ interface O {
   mac_dinh?: string;
   goi_y?: string;
   chon?: string[];
+  /** Cách vẽ ô chọn — "o_tick": ô tích nhanh xếp ngang (29/09/2026, "Kết luận
+   *  nhanh" phiếu đo mật độ xương). Chỉ là hiển thị: vẫn CHỌN MỘT, lưu một chuỗi. */
+  hien_thi?: string;
 }
 
 interface Muc {
@@ -79,10 +83,15 @@ interface Muc {
   cot?: { ma: string; ten: string }[];
 }
 
-/** Ô chiếm nửa hàng hay trọn hàng trong lưới hai cột: đoạn văn và ô bảng
- *  (nhiều cột ghép một dòng) chiếm trọn hàng. */
-function lopCot(o: { kieu: string }, laBang: boolean): string {
-  return o.kieu === "doan_van" || laBang ? "md:col-span-2" : "";
+/** Ô chiếm nửa hàng hay trọn hàng trong lưới hai cột: đoạn văn, hàng ô tích
+ *  và ô bảng (nhiều cột ghép một dòng) chiếm trọn hàng. */
+function lopCot(o: { kieu: string; hien_thi?: string }, laBang: boolean): string {
+  return o.kieu === "doan_van" || laOTick(o) || laBang ? "md:col-span-2" : "";
+}
+
+/** Ô chọn vẽ thành hàng ô tích nhanh (mẫu khai `hien_thi: "o_tick"`). */
+function laOTick(o: { kieu: string; hien_thi?: string }): boolean {
+  return o.kieu === "chon" && o.hien_thi === "o_tick";
 }
 
 /** Mã phần tử DOM của một ô — link "còn trống" cuộn về đây. */
@@ -658,6 +667,30 @@ function OPhieu({
       ) : null}
     </span>
   );
+
+  // Ô TÍCH NHANH (29/09/2026): cùng ô chọn một, vẽ bằng `ChipChon` radio như
+  // phiếu khám — tích ô này bỏ ô kia, bấm lại ô đang tích thì bỏ tích.
+  if (laOTick(o) && Array.isArray(o.chon)) {
+    return (
+      <fieldset id={id} className="min-w-0 md:col-span-2">
+        <legend>{nhan}</legend>
+        <div className="mt-1 flex flex-wrap gap-2">
+          {o.chon.map((c) => (
+            <ChipChon
+              key={c}
+              kieu="mot"
+              ten={id}
+              chon={giaTri === c}
+              onDoi={() => onDoi(c)}
+              onBoChon={() => onDoi("")}
+            >
+              {c}
+            </ChipChon>
+          ))}
+        </div>
+      </fieldset>
+    );
+  }
 
   if (o.kieu === "chon" && Array.isArray(o.chon)) {
     return (

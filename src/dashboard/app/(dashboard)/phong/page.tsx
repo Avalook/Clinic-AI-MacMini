@@ -21,8 +21,6 @@ import { type PhongHomNay } from "../_lam-viec/api";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Phòng dịch vụ · ClinicAI" };
 
-const LA_PHONG_KHAM = (nodes: string[]) => nodes.some((n) => n.startsWith("KHAM-"));
-
 export default async function DanhSachPhongPage() {
   await requireNavAccess("/phong");
   const d = await fetchFromBackend<PhongHomNay>("/api/v1/luot-kham/phong-hom-nay");
@@ -35,7 +33,8 @@ export default async function DanhSachPhongPage() {
   }
   const cuaToi = new Set(d.phong_cua_toi.map((p) => p.id));
   const phong = d.tat_ca_phong
-    .filter((p) => !LA_PHONG_KHAM(p.nodes))
+    // Máy chủ quyết phòng nào là phòng dịch vụ (`la_phong_dich_vu`, 29/09/2026).
+    .filter((p) => p.la_phong_dich_vu)
     .sort((a, b) => Number(cuaToi.has(b.id)) - Number(cuaToi.has(a.id)));
 
   if (phong.length === 0) {

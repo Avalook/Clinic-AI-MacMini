@@ -28,7 +28,7 @@ from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.dinh_chinh_don import CanLyDoDinhChinhError, DonDaDoiError
 from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.xem_luot_service import XemLuotService
-from tests.services.test_luot_kham_service_db import CLINIC
+from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _don, _nhap_lo, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp2_db import _luu_don
 from tests.services.test_tien_thuoc_cp3_db import (
@@ -194,18 +194,21 @@ async def test_c_dong_khach_khong_lay_doi_lieu_la_dinh_chinh(q: Quay) -> None:
 
 
 async def test_bac_si_sieu_am_don_thuan_khong_dinh_chinh_duoc(q: Quay) -> None:
+    # Hỏi QUYỀN (29/09/2026): bác sĩ siêu âm theo nhóm mẫu không có Khám (lego
+    # Bàn khám) → không đính chính được đơn nhà thuốc đã đụng.
     rx, _, _ = await _san_sang(q, 10, 100)
-    bs_sa = dataclasses.replace(
-        q.bac_si, role=ClinicRole.ULTRASOUND_DOCTOR, vai_tai_khoan=None
-    )
-    with pytest.raises(SafetyGateError, match="bác sĩ chính"):
+    async with q.pool.acquire() as conn:
+        bs_sa = await _nguoi(conn, q.bac_si.location_id, "ULTRASOUND_DOCTOR")
+    with pytest.raises(SafetyGateError, match="quyền Bàn khám"):
         await _luu_don(q, [], ly_do=LY_DO, identity=bs_sa)
     assert await _hien_hanh(q) == [rx]
 
 
 async def test_bac_si_khac_khong_dinh_chinh_duoc_luot_cua_nguoi_khac(q: Quay) -> None:
+    # HOLD đính chính CHÉO BÁC SĨ: bác sĩ thật khác của lượt vẫn bị chặn.
     rx, _, _ = await _san_sang(q, 10, 100)
-    khac = dataclasses.replace(q.bac_si, staff_id=q.duoc_si.staff_id)
+    async with q.pool.acquire() as conn:
+        khac = await _nguoi(conn, q.bac_si.location_id, "DOCTOR")
     with pytest.raises(SafetyGateError, match="bác sĩ khác"):
         await _luu_don(q, [], ly_do=LY_DO, identity=khac)
     assert await _hien_hanh(q) == [rx]

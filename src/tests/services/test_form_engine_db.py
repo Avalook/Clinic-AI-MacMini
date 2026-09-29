@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import uuid
@@ -550,3 +551,24 @@ async def test_phieu_chua_hoan_tat_thi_khong_can_mo_sua(pool: asyncpg.Pool) -> N
     )
     with pytest.raises(ValidationError, match="chưa hoàn tất"):
         await svc.mo_sua(phieu_id=phieu["id"], identity=bs)
+
+
+async def test_hai_lenh_mo_cung_luc_ra_cung_mot_phieu(pool: asyncpg.Pool) -> None:
+    """29/09/2026: hai lệnh mở cùng lúc (hai người, hay một màn gọi hai lần) không
+    được để lệnh sau đụng `uq_form_instance_chi_dinh` rồi báo "Resource already
+    exists" — cả hai nhận đúng một phiếu."""
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        order = await _don_tron(conn, bs)
+    svc = FormEngineService(pool)
+    mot, hai, ba = await asyncio.gather(
+        *(
+            svc.mo_phieu(service_order_id=order, form_id="KQ_CHUNG", identity=bs)
+            for _ in range(3)
+        )
+    )
+    assert mot["id"] == hai["id"] == ba["id"]
+    so = await pool.fetchval(
+        "SELECT count(*) FROM form_instance WHERE service_order_id = $1::uuid", order
+    )
+    assert so == 1

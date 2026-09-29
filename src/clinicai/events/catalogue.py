@@ -1065,7 +1065,7 @@ DANH_MUC: dict[str, SuKien] = {
             aggregate_type="service_order",
             source_module="doi_tac",
             payload=DoiTacDaThuTien,
-            nhan="Đối tác đã thu tiền khách",
+            nhan="Đã thu hộ cho đối tác",
             consumers=[DONG_THOI_GIAN_LUOT],
             # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,
@@ -1076,7 +1076,7 @@ DANH_MUC: dict[str, SuKien] = {
             aggregate_type="service_order",
             source_module="doi_tac",
             payload=DoiTacHuyThuTien,
-            nhan="Đối tác huỷ ghi nhận đã thu",
+            nhan="Huỷ ghi nhận đã thu hộ cho đối tác",
             consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),

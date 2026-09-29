@@ -7,6 +7,10 @@
 // ngân xem giao dịch, nhà thuốc xem cấp thuốc. Chỉ đọc. Vai nào thấy mục nào là
 // MÁY CHỦ quyết (`xem_luot_service.muc_duoc_xem`) — màn chỉ vẽ mục có trong dữ
 // liệu trả về, không tự lọc theo tên vai.
+//
+// TỆP KẾT QUẢ (Tuyền 29/09/2026 — "file kết quả mọi chỗ đều hiện được và
+// tải/in được"): chỉ định có tệp hiện khung tệp THẬT (xem · mở/in · tải),
+// chỉ đọc. Ai đọc được tệp là máy chủ quyết (`doc_duoc_tep_ket_qua`).
 
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +19,7 @@ import Button from "@/components/ui/Button";
 
 import { docBang, gioVn } from "./api";
 import DoiPhong from "./DoiPhong";
+import KhungTep from "./KhungTep";
 import TuNhac from "./TuNhac";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import SoLuot from "@/components/ui/SoLuot";
@@ -423,6 +428,16 @@ export default function XemLuot({
                           Ghi chú: {g}
                         </p>
                       ))}
+                      {d.so_tep ? (
+                        <div className="mt-2">
+                          <KhungTep
+                            clinicPatientId={dl.khach.id}
+                            serviceOrderId={d.id}
+                            choTaiLen={false}
+                            tieuDe={`Tệp kết quả · ${d.dich_vu}`}
+                          />
+                        </div>
+                      ) : null}
                       {d.doi_phong_duoc ? (
                         <DoiPhong
                           orderId={d.id}

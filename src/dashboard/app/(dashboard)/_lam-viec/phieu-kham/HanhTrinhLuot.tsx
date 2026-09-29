@@ -151,7 +151,7 @@ function BangTungDichVu({ ds, bayGio }: { ds: DichVuHanhTrinh[]; bayGio: number 
             // Khách trả đối tác (máy chủ nói): "chờ làm" không kèm "Đã thu".
             const tt =
               d.doi_tac_thu_tien && d.trang_thai === "CHO_LAM"
-                ? { nhan: "Khách trả đối tác — chờ làm", tone: "info" as ChipTone }
+                ? { nhan: "Thu hộ đối tác — chờ làm", tone: "info" as ChipTone }
                 : TRANG_THAI[d.trang_thai];
             const chi = [
               p.cho != null ? `chờ ${khoang(p.cho)}` : null,
@@ -168,7 +168,7 @@ function BangTungDichVu({ ds, bayGio }: { ds: DichVuHanhTrinh[]; bayGio: number 
                   <Chip tone={tt.tone}>{tt.nhan}</Chip>
                   {d.doi_tac_thu_tien ? (
                     <span className="mt-1 block text-meta text-ink-muted">
-                      {d.doi_tac_thu_tien === "DA_THU" ? "Đối tác đã thu" : "Đối tác chưa thu"}
+                      {d.doi_tac_thu_tien === "DA_THU" ? "Đã thu hộ cho đối tác" : "Chưa thu hộ cho đối tác"}
                     </span>
                   ) : null}
                 </td>

@@ -168,7 +168,7 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
       </dl>
       {p.doi_tac.length > 0 ? (
         <p className="mt-3 text-meta text-ink-muted">
-          Dịch vụ khách trả trực tiếp đối tác (không thu tại đây):{" "}
+          Dịch vụ thu hộ đối tác (không cộng vào phiếu thu này):{" "}
           {p.doi_tac
             .map((d) => `${d.ten}${d.gia != null ? ` — tham khảo ${tien(d.gia)}` : ""}`)
             .join("; ")}

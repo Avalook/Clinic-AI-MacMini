@@ -44,7 +44,7 @@ from clinicai.events.catalogue import (
     TepKetQuaDaXem,
 )
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.permissions.can import can
+from clinicai.permissions.can import can, can_o_phong_nao_do
 from clinicai.services.audit import record_event
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
@@ -157,6 +157,15 @@ VAI_TAI_LEN: frozenset[ClinicRole] = frozenset(
 )
 
 
+#: Quyền (không phải vai) mở thêm cửa ĐỌC tệp kết quả — 29/09/2026: khối Đối
+#: tác + khối Phòng dịch vụ (ở bất kỳ phòng nào, kể cả quyền theo lịch).
+QUYEN_DOC_TEP_THEM: tuple[str, ...] = (
+    "partner.work",
+    "service.execute.start",
+    "service.execute.complete",
+)
+
+
 async def doc_duoc_tep_ket_qua(
     conn: asyncpg.Connection, identity: StaffIdentity
 ) -> bool:
@@ -170,7 +179,13 @@ async def doc_duoc_tep_ket_qua(
     nhưng khung ảnh báo "không đọc được". Giữ thêm cửa quầy in phiếu
     (`doc_duoc_in_phieu`, 27/09) — trang ảnh của bản in.
 
-    Đối tác không bao giờ qua nhánh quyền này: tệp của họ đi đường riêng.
+    THÊM 29/09/2026 (Tuyền: "file kết quả mọi chỗ đều hiện được và tải/in
+    được"): người có quyền của khối ĐỐI TÁC (`partner.work` — nhân sự phòng
+    khám làm việc đối tác, kể cả nhờ lịch) hoặc khối PHÒNG DỊCH VỤ (thực hiện
+    dịch vụ ở bất kỳ phòng nào) — họ tải tệp lên thì phải xem lại được.
+
+    Vai PARTNER (tài khoản người NGOÀI phòng khám) KHÔNG BAO GIỜ qua: kiểm vai ấy
+    TRƯỚC mọi nhánh quyền, kể cả lỡ được cấp `partner.work`.
     Phạm vi phòng khám do câu truy vấn của nơi gọi giữ (`clinic_id`).
     """
     if identity.co_vai(NORMAL_READ_ROLES):
@@ -179,6 +194,10 @@ async def doc_duoc_tep_ket_qua(
         return False
     from clinicai.permissions.y_khoa import doc_duoc_in_phieu
     from clinicai.services.phieu_kham_service import kiem_quyen_core
+
+    for q in QUYEN_DOC_TEP_THEM:
+        if await can_o_phong_nao_do(conn, identity, q):
+            return True
 
     try:
         await kiem_quyen_core(conn, identity, "doc_ket_qua_cls")

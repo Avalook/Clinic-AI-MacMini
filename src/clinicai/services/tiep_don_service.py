@@ -27,7 +27,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.shifts import CAC_CA, NHAN_CA, Window, ca_tu_settings
 from clinicai.services.bang_hanh_trinh_service import noi_hang
-from clinicai.services.queue_order import VISIT_DA_RA_VE
+from clinicai.services.queue_order import VISIT_DA_RA_VE, moc_vao_hang_ms
 
 #: Lịch còn chờ khách tới — có nút Check-in (cùng tập với bảng Lịch hẹn hôm nay).
 CHO_CHECK_IN: frozenset[str] = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
@@ -225,7 +225,8 @@ SELECT h.id::text AS appointment_id, h.status, h.booking_channel, h.slot_start,
        CASE WHEN h.slot_start > s.dau_tien THEN 'Tái khám'
             ELSE 'Khám lần đầu' END AS phan_loai,
        v.visit_id::text AS visit_id, v.status AS visit_status,
-       v.checked_in_at, coalesce(v.closed_at, v.incomplete_at) AS ve_luc,
+       v.checked_in_at, v.thu_tu_tay_ms,
+       coalesce(v.closed_at, v.incomplete_at) AS ve_luc,
        f.vitals_status, (f.vitals_tu_visit_id IS NOT NULL) AS vitals_tu_luot_truoc,
        cap.slot_minutes
   FROM hom_nay h
@@ -235,7 +236,8 @@ SELECT h.id::text AS appointment_id, h.status, h.booking_channel, h.slot_start,
   LEFT JOIN service_type st ON st.id = h.service_type_id AND st.clinic_id = h.clinic_id
   LEFT JOIN staff d ON d.id = h.doctor_id
   LEFT JOIN LATERAL (
-      SELECT vi.visit_id, vi.status, vi.checked_in_at, vi.closed_at, vi.incomplete_at
+      SELECT vi.visit_id, vi.status, vi.checked_in_at, vi.thu_tu_tay_ms,
+             vi.closed_at, vi.incomplete_at
         FROM visit vi
        WHERE vi.appointment_id = h.id AND vi.clinic_id = h.clinic_id
        ORDER BY vi.checked_in_at DESC NULLS LAST
@@ -265,6 +267,17 @@ SELECT q.visit_id::text AS visit_id, q.lane, q.status,
 
 def _dau_ngay(ngay: date) -> datetime:
     return datetime.combine(ngay, time.min, tzinfo=CLINIC_TZ)
+
+
+def _moc_xep(check_in: Any, thu_tu_tay_ms: Any, gio_hen: Any) -> Any:
+    """Mốc xếp trong buổi: đã đến → giờ vào hàng thật; chưa đến → giờ hẹn."""
+    ms = moc_vao_hang_ms(check_in, thu_tu_tay_ms)
+    if ms is None:
+        return gio_hen
+    try:
+        return datetime.fromtimestamp(ms / 1000, tz=CLINIC_TZ)
+    except (OverflowError, OSError, ValueError):  # mốc kéo tay rác (NaN, quá lớn)
+        return check_in
 
 
 def dung_dong(
@@ -301,8 +314,16 @@ def dung_dong(
         "loai_khach": loai_khach(r.get("booking_channel"), r.get("phan_loai")),
         "uu_tien": bool(r.get("uu_tien")),
         "uu_tien_ly_do": r.get("uu_tien_ly_do"),
-        # Vãng lai xếp theo giờ CHECK-IN (giờ "hẹn" của họ là lúc tạo lịch).
-        "moc_xep": (
+        # THỨ TỰ TRONG BUỔI = GIỜ VÀO HÀNG THẬT (Tuyền 29/09/2026). Người đã
+        # check-in — có hẹn hay vãng lai — xếp theo giờ check-in (hoặc mốc lễ
+        # tân kéo tay), CÙNG hàm với bảng gọi số (`queue_order`). Bản trước
+        # chỉ vãng lai mới theo giờ check-in, người có hẹn theo GIỜ HẸN: khách
+        # lễ tân vừa đặt khung 18:00 + tự check-in lúc 17:50 nhảy lên đầu khung,
+        # trước người hẹn 18:00 đã ngồi chờ từ 17:40. Chưa đến → theo giờ hẹn.
+        "moc_xep": _moc_xep(check_in, r.get("thu_tu_tay_ms"), r.get("slot_start")),
+        # BUỔI giữ luật cũ: vãng lai theo giờ check-in (giờ "hẹn" của họ là lúc
+        # tạo lịch), có hẹn theo buổi của lịch.
+        "moc_buoi": (
             check_in
             if vang_lai and isinstance(check_in, datetime)
             else r.get("slot_start")
@@ -316,25 +337,29 @@ def dung_dong(
 def gom_theo_buoi(
     dong: list[dict[str, Any]], ca: Mapping[str, Window]
 ) -> list[dict[str, Any]]:
-    """HÀM THUẦN: chia dòng theo buổi, trong buổi xếp theo mốc (rồi số booking).
+    """HÀM THUẦN: chia dòng theo buổi (`moc_buoi`), trong buổi xếp theo mốc
+    vào hàng thật (`moc_xep`), hoà thì số check-in rồi số booking.
 
     Dòng không xác định được buổi (mốc rác) rơi vào buổi đầu — không bao giờ
-    biến mất khỏi danh sách. `moc_xep` bị bỏ khỏi dòng trả về.
+    biến mất khỏi danh sách. `moc_xep`/`moc_buoi` bị bỏ khỏi dòng trả về.
+    Thứ tự này là thứ tự CŨ → MỚI; "mới nhất trước" chỉ là màn đảo lại để xem.
     """
     cac = [m for m in CAC_CA if m in ca] or ["SANG"]
     theo: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for d in dong:
-        theo[buoi_cua(d.get("moc_xep"), ca) or cac[0]].append(d)
+        theo[buoi_cua(d.get("moc_buoi", d.get("moc_xep")), ca) or cac[0]].append(d)
 
-    def khoa(d: dict[str, Any]) -> tuple[float, int]:
+    def _so(x: Any) -> int:
+        return x if isinstance(x, int) and not isinstance(x, bool) else 1 << 30
+
+    def khoa(d: dict[str, Any]) -> tuple[float, int, int]:
         moc = d.get("moc_xep")
         ts = (
             moc.timestamp()
             if isinstance(moc, datetime) and moc.tzinfo
             else float("inf")
         )
-        so = d.get("so_booking")
-        return ts, so if isinstance(so, int) and not isinstance(so, bool) else 1 << 30
+        return ts, _so(d.get("so_tiep_don")), _so(d.get("so_booking"))
 
     ket: list[dict[str, Any]] = []
     for ma in cac:
@@ -345,7 +370,7 @@ def gom_theo_buoi(
                 "ma": ma,
                 "nhan": nhan_buoi(ma, ca),
                 "dong": [
-                    {k: v for k, v in d.items() if k != "moc_xep"}
+                    {k: v for k, v in d.items() if k not in ("moc_xep", "moc_buoi")}
                     for d in sorted(theo[ma], key=khoa)
                 ],
             }

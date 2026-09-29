@@ -43,6 +43,7 @@ EVENT_LABELS: dict[str, str] = {
     "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
     "roster.shift_removed": "Gỡ ca trực",
+    "roster.shift_reassigned": "Đổi người trong ca",
     "roster.shift_added_cho_xep": "Ca mới có lịch đang chờ xếp bác sĩ",
     "appointment.doctor_restored": "Gắn lại bác sĩ (ca trực xếp lại)",
     "appointment.cancelled": "Huỷ lịch hẹn",
@@ -231,6 +232,7 @@ EVENT_LABELS: dict[str, str] = {
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
     "vitals.started": "Điều dưỡng bắt đầu đo sinh hiệu",
     "partner.awaiting_documents": "Đối tác nhận mẫu, đang chờ tài liệu kết quả",
+    "partner.sample_noted_again": "Bấm lại “Đã lấy mẫu” — chỉ ghi lại (đã ghi nhận)",
     "review.ready": "Đủ điều kiện quay lại bác sĩ đọc kết quả",
     # Slice 1 (18/09/2026): kết quả / theo dõi trên rail mới.
     "review.skipped": "Không cần đọc lại (bác sĩ đã miễn hoặc chuyển theo dõi hết)",

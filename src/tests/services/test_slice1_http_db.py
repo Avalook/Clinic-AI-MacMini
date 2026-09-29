@@ -241,8 +241,10 @@ async def _chay(pool: asyncpg.Pool) -> None:
     )
     kiem("thư ký ghi nháp chỉ định", r.status_code == 200, r.text)
     nhap = r.json()
+    # Điều dưỡng (Chỉ định nhưng không có Khám) không duyệt được. Thư ký có
+    # Khám + Chỉ định thì duyệt được từ 29/09/2026 (trợ lý trọn quyền).
     r = await goi(
-        tk,
+        dd,
         "POST",
         f"/luot-kham/consultations/{phien}/authorize-orders",
         json={
@@ -250,7 +252,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             "expected_versions": nhap["versions"],
         },
     )
-    kiem("thư ký KHÔNG duyệt được chỉ định (403)", r.status_code == 403, r.status_code)
+    kiem("điều dưỡng KHÔNG duyệt chỉ định (403)", r.status_code == 403, r.status_code)
     r = await goi(
         bs,
         "POST",

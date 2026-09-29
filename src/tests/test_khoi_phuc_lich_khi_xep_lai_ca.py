@@ -22,8 +22,16 @@ import inspect
 from clinicai.services.config_service import RosterService
 
 
+def _go_ca() -> str:
+    """`remove` + phần gỡ lịch hẹn đã tách sang `_go_lich_ngoai_ca` (29/09/2026,
+    dùng chung với đổi người trong ca)."""
+    return inspect.getsource(RosterService.remove) + inspect.getsource(
+        RosterService._go_lich_ngoai_ca
+    )
+
+
 def _cau_update_lich() -> str:
-    ma = inspect.getsource(RosterService.remove)
+    ma = _go_ca()
     dau = ma.index("UPDATE public.appointment")
     return ma[dau : ma.index('"""', dau)]
 
@@ -35,7 +43,7 @@ class TestGoCaGiuLich:
         assert "doctor_id = NULL" in khoi
         for cot in ("status =", "cancelled_at", "ly_do_huy_ma", "cancelled_by"):
             assert cot not in khoi, f"gỡ ca đang ghi '{cot}' — tức là huỷ lịch"
-        assert "BAC_SI_DOI_LICH" not in inspect.getsource(RosterService.remove)
+        assert "BAC_SI_DOI_LICH" not in _go_ca()
 
     def test_giu_vet_doi_tu_ai(self) -> None:
         """CSKH gọi khách cần nói được "đổi từ bác sĩ nào"."""
@@ -44,7 +52,7 @@ class TestGoCaGiuLich:
     def test_chi_lich_con_song_va_dung_bac_si(self) -> None:
         """Chưa tới giờ, còn sống — và câu UPDATE tự kiểm lại trạng thái + bác
         sĩ, để lượt check-in/gán lại chen giữa không bị gỡ nhầm."""
-        ma = inspect.getsource(RosterService.remove)
+        ma = _go_ca()
         assert "slot_start > now()" in ma
         khoi = _cau_update_lich()
         assert "'SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED'" in khoi

@@ -37,6 +37,8 @@ def _cua_quyen_co_bai_kiem_rieng(monkeypatch: pytest.MonkeyPatch) -> None:
     for duong in (
         "clinicai.services.service_order_service.can",
         "clinicai.services.tep_ket_qua_service.can",
+        # 29/09: đính chính đơn hỏi QUYỀN Khám (trợ lý trọn quyền).
+        "clinicai.services.dinh_chinh_don.can",
     ):
         monkeypatch.setattr(duong, can_theo_nhom_mau)
 

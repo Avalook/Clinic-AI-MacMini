@@ -16,7 +16,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import (
     StaffIdentity,
 )
-from clinicai.core.clock import now_vn
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn, now_vn
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.doc_bang import (
     QUYEN_BANG_LUOT,
@@ -43,6 +43,17 @@ logger = structlog.get_logger()
 #: (một ngày hỏng dữ liệu không được kéo sập màn), nhưng cắt mà không báo thì
 #: sai — xem `bi_cat` trong `chi_dinh_hom_nay`.
 _TRAN_CHI_DINH_HOM_NAY = 500
+
+
+def la_phong_dich_vu(nodes: list[str]) -> bool:
+    """Phòng có làm dịch vụ (node `DICHVU-*`) — hiện ở danh sách Phòng dịch vụ.
+
+    29/09/2026: trước đây màn lọc "không có node KHAM-" — từ khi mọi phòng có
+    bác sĩ được thêm node KHAM-* (bác sĩ đa năng, 28/09) thì Siêu âm, Thủ thuật,
+    Sàn chậu… biến khỏi danh sách. Kho thuốc (`DICHVU-THUOC`) là nhà thuốc,
+    không phải phòng làm dịch vụ.
+    """
+    return any(n.startswith("DICHVU-") and n != "DICHVU-THUOC" for n in nodes if n)
 
 
 class BangLuotKham:
@@ -593,6 +604,7 @@ class BangLuotKham:
                     "ten": r["name"],
                     "tang": r["floor"],
                     "nodes": list(r["nodes"] or []),
+                    "la_phong_dich_vu": la_phong_dich_vu(r["nodes"] or []),
                 }
                 for r in tat_ca
             ],
@@ -604,8 +616,14 @@ class BangLuotKham:
         identity: StaffIdentity,
         room_id: str | None,
         tu_van: bool = False,
+        ngay: Any = None,
     ) -> dict[str, Any]:
         """HÀNG CHỜ của một phòng: ai đang chờ, ai đang trong phòng, ai đã xong.
+
+        `ngay` (29/09/2026, YYYY-MM-DD; rác/None = hôm nay): xem lại hàng chờ
+        của một NGÀY CŨ — khách check-in ngày ấy, mọi trạng thái. Ngày cũ không
+        có "chưa xếp phòng" / "sắp tới" (việc của hôm nay). Chỉ ĐỌC: mỗi lệnh
+        vẫn tự hỏi luật của nó khi bấm.
 
         Tuyền 16/09/2026: *"sẽ luôn có 1 danh sách các khách đang xếp hàng, sau đó
         bác sĩ chọn rồi ấn bắt đầu khám cho người đó, rồi điền thông tin bên
@@ -622,6 +640,9 @@ class BangLuotKham:
         """
         cid = identity.clinic_id
         rid = _uuid(room_id, "Mã phòng không hợp lệ.") if room_id else None
+        hom_nay = hom_nay_vn()
+        ngay_xem = doc_ngay_xem(ngay) or hom_nay
+        la_hom_nay = ngay_xem == hom_nay
         async with self._pool.acquire() as conn:
             # Hàng nào cần lego nào (đợt 3, 27/09/2026) — `permissions/doc_bang`.
             await doi_mot_quyen(
@@ -655,7 +676,9 @@ class BangLuotKham:
             # hàng đợi và có thể khám ở các dịch vụ khả thi").
             from clinicai.services.service_routing_service import cho_nhan_vao_phong
 
-            chua_xep = await cho_nhan_vao_phong(conn, cid, rid) if rid else []
+            chua_xep = (
+                await cho_nhan_vao_phong(conn, cid, rid) if rid and la_hom_nay else []
+            )
             # Bác sĩ có lượt khám chính trong hàng chờ này.
             if rid is not None:
                 bac_si = await conn.fetch(
@@ -669,10 +692,11 @@ class BangLuotKham:
                        AND m.is_active AND m.role = 'DOCTOR'
                      WHERE w.clinic_id = $1::uuid AND v.room_id = $2::uuid
                        AND w.status <> 'REJECTED'
-                       AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       AND w.work_date = $3::date
                     """,
                     cid,
                     rid,
+                    ngay_xem,
                 )
                 ds_bac_si = [r["id"] for r in bac_si]
             else:
@@ -728,7 +752,7 @@ class BangLuotKham:
                       FROM visit v
                      WHERE v.clinic_id = $1::uuid AND v.checked_in_at IS NOT NULL
                        AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                           = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                           = $6::date
                 )
                 SELECT q.id::text AS id, q.status, q.lane, q.reason,
                        q.ref_id::text AS ref_id, q.visit_id::text AS visit_id,
@@ -820,13 +844,14 @@ class BangLuotKham:
                 ds_bac_si,
                 tat_ca_bac_si,
                 tu_van,
+                ngay_xem,
             )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
             # ở hàng bác sĩ). Tư vấn bấm Xong thì khách mới vào hàng thật.
             sap_toi = (
                 []
-                if tu_van
+                if tu_van or not la_hom_nay
                 else await conn.fetch(
                     """
                     SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
@@ -916,8 +941,9 @@ class BangLuotKham:
                 "ly_do_khong_lam": r["not_performed_reason"],
             }
             for r in _theo_luat_xep_hang(rows)
-            # Người đã xong chỉ giữ của hôm nay.
-            if r["status"] != "done"
+            # Người đã xong chỉ giữ của hôm nay (ngày cũ: giữ hết — xem lại).
+            if not la_hom_nay
+            or r["status"] != "done"
             or (r["done_at"] is not None and _cung_ngay_vn(r["done_at"]))
         ]
         return {
@@ -954,6 +980,8 @@ class BangLuotKham:
             # Phòng khám mà hôm nay chưa có bác sĩ nào trong lịch: màn nói rõ
             # vì sao hàng chờ khám trống, thay vì trông như "hết khách".
             "so_bac_si_trong_phong": so_bac_si_trong_phong if rid else None,
+            "ngay": ngay_xem.isoformat(),
+            "hom_nay": la_hom_nay,
         }
 
     async def chi_dinh_hom_nay(self, *, identity: StaffIdentity) -> dict[str, Any]:

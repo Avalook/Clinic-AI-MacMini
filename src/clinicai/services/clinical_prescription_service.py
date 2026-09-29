@@ -12,6 +12,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.services.bac_si_phu_trach import la_bac_si_khac
 
 
 def _prescription_key(name: Any, quantity: Any) -> tuple[str, str]:
@@ -138,7 +139,11 @@ async def prepare_prescription_write(
             visit_id,
             identity.clinic_id,
         )
-        if owner is not None and str(owner) != identity.staff_id:
+        # Trợ lý trọn quyền (Tuyền 29/09/2026): người có lego Bàn khám duyệt
+        # thay bác sĩ của lượt; chỉ chặn bác sĩ thật duyệt lượt bác sĩ khác.
+        if owner is not None and await la_bac_si_khac(
+            conn, identity.clinic_id, identity.staff_id, str(owner)
+        ):
             raise SafetyGateError(
                 "Lượt khám này thuộc bác sĩ khác — không thể duyệt đơn"
             )

@@ -28,7 +28,7 @@ import builtins
 import json
 import math
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 import asyncpg
@@ -45,6 +45,7 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
+from clinicai.permissions import cache
 from clinicai.permissions.can import can
 from clinicai.services.nhan_vai import gan_nhan_vai
 
@@ -230,6 +231,8 @@ class RosterService:
                     identity=identity,
                 )
 
+        # Quyền theo lịch hôm nay đổi ngay (xem `thay_nguoi`).
+        cache.quen(identity.clinic_id)
         logger.info(
             "roster_shift_added",
             roster_id=str(row_id),
@@ -582,142 +585,376 @@ class RosterService:
                         ),
                     )
 
+                if not dry_run:
+                    # Người bị gỡ mất quyền theo lịch ngay (xem `thay_nguoi`).
+                    cache.quen(identity.clinic_id)
                 if row["station"] not in MA_CA_KHAM_BAC_SI or row["staff_id"] is None:
                     return {"so_lich_cho_xep": 0, "gio": []}
 
-                # HỢP CÁC CA CÒN LẠI của bác sĩ hôm đó — loại trừ chính ca đang
-                # xoá (dry_run chưa xoá thật nên phải tự loại). Chỉ ca ĐÃ DUYỆT
-                # được tính là phủ: một đăng ký PENDING chưa phải ca trực, giữ
-                # lịch của khách trên một quyết định chưa ai duyệt là treo họ
-                # vào lời hứa chưa có thật (NULL đời cũ coi như đã duyệt).
-                con_lai = await conn.fetch(
+                return await self._go_lich_ngoai_ca(
+                    conn,
+                    identity=identity,
+                    staff_id=str(row["staff_id"]),
+                    work_date=row["work_date"],
+                    loai_tru_id=roster_id,
+                    dry_run=dry_run,
+                    ly_do="ca_truc_bi_go",
+                )
+
+    async def _go_lich_ngoai_ca(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        staff_id: str,
+        work_date: date,
+        loai_tru_id: str | None,
+        dry_run: bool,
+        ly_do: str,
+    ) -> dict[str, Any]:
+        """Bác sĩ `staff_id` vừa rời một ca khám ngày `work_date` (gỡ ca, hoặc
+        bị thay người giữa ca) → lịch hẹn còn sống mà giờ hẹn rơi RA NGOÀI các
+        ca còn lại của bác sĩ ấy chuyển sang "Lịch chờ xếp bác sĩ". Không huỷ
+        lịch nào — luật và lịch sử ở docstring `remove`.
+
+        `loai_tru_id`: dòng lịch không được tính là "ca còn lại" (dry_run chưa
+        xoá thật nên phải tự loại). Gọi TRONG giao dịch của người gọi.
+        """
+
+        # HỢP CÁC CA CÒN LẠI của bác sĩ hôm đó — loại trừ chính ca đang
+        # xoá (dry_run chưa xoá thật nên phải tự loại). Chỉ ca ĐÃ DUYỆT
+        # được tính là phủ: một đăng ký PENDING chưa phải ca trực, giữ
+        # lịch của khách trên một quyết định chưa ai duyệt là treo họ
+        # vào lời hứa chưa có thật (NULL đời cũ coi như đã duyệt).
+        con_lai = await conn.fetch(
+            """
+            SELECT w.shift,
+                   (SELECT open_minute
+                      FROM clinic_hours_for_date($1::uuid, $3))
+                       AS open_minute,
+                   (SELECT close_minute
+                      FROM clinic_hours_for_date($1::uuid, $3))
+                       AS close_minute,
+                   (SELECT settings FROM public.clinic
+                     WHERE id = $1::uuid) AS settings
+              FROM public.work_roster w
+             WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
+               AND w.work_date = $3
+               AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
+               AND ($4::uuid IS NULL OR w.id <> $4::uuid)
+               AND coalesce(w.status, 'APPROVED') = 'APPROVED'
+            """,
+            identity.clinic_id,
+            staff_id,
+            work_date,
+            loai_tru_id,
+        )
+        windows: list[tuple[int, int]] = []
+        if con_lai and con_lai[0]["open_minute"] is not None:
+            ca = ca_tu_settings((con_lai[0]["settings"]))
+            windows = merge_windows(
+                [
+                    w
+                    for r in con_lai
+                    for w in shift_windows(
+                        r["shift"],
+                        r["open_minute"],
+                        r["close_minute"],
+                        ca,
+                    )
+                ]
+            )
+
+        ung_vien = await conn.fetch(
+            """
+            SELECT id::text AS id,
+                   (EXTRACT(HOUR FROM slot_start
+                            AT TIME ZONE 'Asia/Ho_Chi_Minh') * 60
+                  + EXTRACT(MINUTE FROM slot_start
+                            AT TIME ZONE 'Asia/Ho_Chi_Minh'))::int
+                       AS phut,
+                   to_char(slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh',
+                           'HH24:MI') AS gio
+              FROM public.appointment
+             WHERE clinic_id = $1::uuid
+               AND doctor_id = $2::uuid
+               AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   = $3
+               AND slot_start > now()
+               AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+             ORDER BY slot_start
+            """,
+            identity.clinic_id,
+            staff_id,
+            work_date,
+        )
+        # Khung nào còn được phủ thì lịch ở yên — chỉ phần rơi ra ngoài
+        # mới cần xếp lại bác sĩ. Không còn khung nào thì cả ngày.
+        cho_xep = [uv for uv in ung_vien if not covers(windows, uv["phut"])]
+
+        if dry_run or not cho_xep:
+            return {
+                "so_lich_cho_xep": len(cho_xep),
+                "gio": [uv["gio"] for uv in cho_xep],
+            }
+
+        # Gỡ BÁC SĨ, giữ LỊCH: trạng thái, giờ, khách, dịch vụ nguyên
+        # vẹn. Không đụng cột huỷ (status/cancelled_*/ly_do_huy_ma).
+        await conn.execute(
+            """
+            UPDATE public.appointment
+               SET doctor_id = NULL,
+                   bac_si_da_go_id = doctor_id,
+                   bo_bac_si_luc = now()
+             WHERE clinic_id = $1::uuid
+               AND id = ANY($2::uuid[])
+               AND doctor_id = $3::uuid
+               AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+            """,
+            identity.clinic_id,
+            [uv["id"] for uv in cho_xep],
+            staff_id,
+        )
+        for uv in cho_xep:
+            await conn.execute(
+                """
+                INSERT INTO public.event_log
+                    (clinic_id, event_type, aggregate_type, aggregate_id,
+                     payload, metadata, source, event_published)
+                VALUES ($1::uuid, 'appointment.doctor_removed',
+                        'appointment', $2::uuid, $3::jsonb, $4::jsonb,
+                        'api:roster', FALSE)
+                """,
+                identity.clinic_id,
+                uv["id"],
+                json.dumps(
+                    {
+                        "ly_do": ly_do,
+                        "bac_si_da_go_id": staff_id,
+                        "work_date": work_date.isoformat(),
+                    }
+                ),
+                json.dumps(
+                    {
+                        "clinic_role": identity.role.value,
+                        # Vai tài khoản gốc (vai dùng có thể khác).
+                        "vai_tai_khoan": identity.vai_goc.value,
+                        "clinic_staff_id": identity.staff_id,
+                        "origin": "api:roster",
+                    }
+                ),
+            )
+        logger.info(
+            "roster_shift_removed_appointments_need_doctor",
+            so_lich=len(cho_xep),
+            staff_id=staff_id,
+            work_date=work_date.isoformat(),
+        )
+        return {
+            "so_lich_cho_xep": len(cho_xep),
+            "gio": [uv["gio"] for uv in cho_xep],
+        }
+
+    async def _doi_nguoi_duoc(self, identity: StaffIdentity) -> bool:
+        """Người được ĐỔI NGƯỜI trong ca: quyền riêng `roster.shift.swap` (khối
+        trưởng ca, lego Điều phối khách — 29/09/2026), hoặc người xếp lịch."""
+        async with self._pool.acquire() as conn:
+            return await can(conn, identity, "roster.shift.swap") or await can(
+                conn, identity, "config.clinic.manage"
+            )
+
+    async def thay_nguoi(
+        self,
+        *,
+        roster_id: str,
+        staff_moi_id: str,
+        identity: StaffIdentity,
+        ly_do: str | None = None,
+    ) -> dict[str, Any]:
+        """Thay người đứng một ca — hôm nay (kể cả đang giữa ca) hoặc ngày tới.
+
+        Tuyền 29/09/2026: Hà đứng Siêu âm 1 phải về giữa ca, trưởng ca xếp B vào
+        thay → B có ngay trọn quyền của vị trí/phòng ấy, Hà mất ngay, lịch giữ
+        vết "Hà tới HH:MM → B từ HH:MM", nhật ký ghi ai đổi.
+
+        DÒNG LỊCH ĐỔI NGƯỜI, không xoá-rồi-thêm: mọi chỗ đọc lịch (quyền theo
+        lịch, thanh bên, bác sĩ cùng phòng, hàng chờ) thấy người mới ngay mà
+        không phải sửa từng chỗ đọc; người cũ nằm ở sổ `work_roster_thay_nguoi`.
+        Một giao dịch: khoá dòng → đổi → ghi sổ + nhật ký → (ca khám bác sĩ)
+        lịch hẹn của bác sĩ cũ không còn ca nào phủ chuyển sang chờ xếp bác sĩ,
+        như gỡ ca (`remove`) — KHÔNG tự gán sang bác sĩ mới (#115).
+
+        Không kiểm ma trận vai × vị trí: người thay vào giúp là việc của trưởng
+        ca quyết tại chỗ ("open, đừng block").
+        """
+        if not await self._doi_nguoi_duoc(identity):
+            raise SafetyGateError(
+                "Bạn chưa có quyền “Đổi người trong ca” — nhờ quản lý bật ở màn"
+                " Phân quyền (lego Điều phối khách)."
+            )
+        hom_nay = datetime.now(CLINIC_TZ).date()
+        ly_do = (ly_do or "").strip()[:500] or None
+        lich: dict[str, Any] = {"so_lich_cho_xep": 0, "gio": []}
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
                     """
-                    SELECT w.shift,
-                           (SELECT open_minute
-                              FROM clinic_hours_for_date($1::uuid, $3))
-                               AS open_minute,
-                           (SELECT close_minute
-                              FROM clinic_hours_for_date($1::uuid, $3))
-                               AS close_minute,
-                           (SELECT settings FROM public.clinic
-                             WHERE id = $1::uuid) AS settings
-                      FROM public.work_roster w
-                     WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
-                       AND w.work_date = $3
-                       AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
-                       AND w.id <> $4::uuid
-                       AND coalesce(w.status, 'APPROVED') = 'APPROVED'
+                    SELECT id::text, staff_id::text, staff_name, work_date, shift,
+                           station, status
+                      FROM work_roster
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                       FOR UPDATE
+                    """,
+                    roster_id,
+                    identity.clinic_id,
+                )
+                if row is None:
+                    raise NotFoundError("Không tìm thấy ca trực")
+                if row["work_date"] < hom_nay:
+                    raise ValidationError(
+                        "Ca này đã qua — chỉ đổi người cho hôm nay và các ngày tới."
+                    )
+                if row["status"] == "REJECTED":
+                    raise ValidationError(
+                        "Ca này đã bị từ chối — xếp ca mới thay vì đổi người."
+                    )
+                if row["staff_id"] == staff_moi_id:
+                    raise ValidationError("Người này đang đứng chính ca ấy rồi.")
+                nv = await conn.fetchrow(
+                    """
+                    SELECT s.full_name
+                      FROM public.staff s
+                      JOIN public.clinic_membership m
+                        ON m.staff_id = s.id AND m.is_active
+                     WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
+                    """,
+                    staff_moi_id,
+                    identity.clinic_id,
+                )
+                if nv is None:
+                    raise ValidationError(
+                        "Không tìm thấy nhân viên đang làm việc ở phòng khám này."
+                    )
+                trung = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM work_roster
+                         WHERE clinic_id = $1::uuid AND work_date = $2
+                           AND shift = $3 AND station = $4
+                           AND staff_id = $5::uuid AND id <> $6::uuid
+                           AND status <> 'REJECTED')
                     """,
                     identity.clinic_id,
-                    row["staff_id"],
                     row["work_date"],
+                    row["shift"],
+                    row["station"],
+                    staff_moi_id,
                     roster_id,
                 )
-                windows: list[tuple[int, int]] = []
-                if con_lai and con_lai[0]["open_minute"] is not None:
-                    ca = ca_tu_settings((con_lai[0]["settings"]))
-                    windows = merge_windows(
-                        [
-                            w
-                            for r in con_lai
-                            for w in shift_windows(
-                                r["shift"],
-                                r["open_minute"],
-                                r["close_minute"],
-                                ca,
-                            )
-                        ]
+                if trung:
+                    raise ConflictError(
+                        f"{nv['full_name']} đã có trong ca này ở cùng vị trí."
                     )
-
-                ung_vien = await conn.fetch(
-                    """
-                    SELECT id::text AS id,
-                           (EXTRACT(HOUR FROM slot_start
-                                    AT TIME ZONE 'Asia/Ho_Chi_Minh') * 60
-                          + EXTRACT(MINUTE FROM slot_start
-                                    AT TIME ZONE 'Asia/Ho_Chi_Minh'))::int
-                               AS phut,
-                           to_char(slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh',
-                                   'HH24:MI') AS gio
-                      FROM public.appointment
-                     WHERE clinic_id = $1::uuid
-                       AND doctor_id = $2::uuid
-                       AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                           = $3
-                       AND slot_start > now()
-                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
-                     ORDER BY slot_start
-                    """,
-                    identity.clinic_id,
-                    row["staff_id"],
-                    row["work_date"],
-                )
-                # Khung nào còn được phủ thì lịch ở yên — chỉ phần rơi ra ngoài
-                # mới cần xếp lại bác sĩ. Không còn khung nào thì cả ngày.
-                cho_xep = [uv for uv in ung_vien if not covers(windows, uv["phut"])]
-
-                if dry_run or not cho_xep:
-                    return {
-                        "so_lich_cho_xep": len(cho_xep),
-                        "gio": [uv["gio"] for uv in cho_xep],
-                    }
-
-                # Gỡ BÁC SĨ, giữ LỊCH: trạng thái, giờ, khách, dịch vụ nguyên
-                # vẹn. Không đụng cột huỷ (status/cancelled_*/ly_do_huy_ma).
                 await conn.execute(
                     """
-                    UPDATE public.appointment
-                       SET doctor_id = NULL,
-                           bac_si_da_go_id = doctor_id,
-                           bo_bac_si_luc = now()
-                     WHERE clinic_id = $1::uuid
-                       AND id = ANY($2::uuid[])
-                       AND doctor_id = $3::uuid
-                       AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                    UPDATE work_roster
+                       SET staff_id = $3::uuid, staff_name = $4,
+                           status = 'APPROVED', reject_reason = NULL,
+                           updated_at = now()
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                    """,
+                    roster_id,
+                    identity.clinic_id,
+                    staff_moi_id,
+                    nv["full_name"],
+                )
+                vet_id = await conn.fetchval(
+                    """
+                    INSERT INTO work_roster_thay_nguoi
+                        (clinic_id, roster_id, work_date, shift, station,
+                         nguoi_cu_id, nguoi_cu_ten, nguoi_moi_id, nguoi_moi_ten,
+                         boi_staff_id, ly_do)
+                    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7,
+                            $8::uuid, $9, $10::uuid, $11)
+                    RETURNING id::text
                     """,
                     identity.clinic_id,
-                    [uv["id"] for uv in cho_xep],
+                    roster_id,
+                    row["work_date"],
+                    row["shift"],
+                    row["station"],
                     row["staff_id"],
+                    row["staff_name"],
+                    staff_moi_id,
+                    nv["full_name"],
+                    identity.staff_id,
+                    ly_do,
                 )
-                for uv in cho_xep:
-                    await conn.execute(
-                        """
-                        INSERT INTO public.event_log
-                            (clinic_id, event_type, aggregate_type, aggregate_id,
-                             payload, metadata, source, event_published)
-                        VALUES ($1::uuid, 'appointment.doctor_removed',
-                                'appointment', $2::uuid, $3::jsonb, $4::jsonb,
-                                'api:roster', FALSE)
-                        """,
-                        identity.clinic_id,
-                        uv["id"],
-                        json.dumps(
-                            {
-                                "ly_do": "ca_truc_bi_go",
-                                "bac_si_da_go_id": str(row["staff_id"]),
-                                "work_date": row["work_date"].isoformat(),
-                            }
-                        ),
-                        json.dumps(
-                            {
-                                "clinic_role": identity.role.value,
-                                # Vai tài khoản gốc (vai dùng có thể khác).
-                                "vai_tai_khoan": identity.vai_goc.value,
-                                "clinic_staff_id": identity.staff_id,
-                                "origin": "api:roster",
-                            }
-                        ),
-                    )
-                logger.info(
-                    "roster_shift_removed_appointments_need_doctor",
-                    so_lich=len(cho_xep),
-                    staff_id=str(row["staff_id"]),
-                    work_date=row["work_date"].isoformat(),
+                # Lịch sử thao tác đọc event_log (`v_audit_log`).
+                await conn.execute(
+                    """
+                    INSERT INTO public.event_log
+                        (clinic_id, event_type, aggregate_type, aggregate_id,
+                         payload, metadata, source, event_published)
+                    VALUES ($1::uuid, 'roster.shift_reassigned', 'work_roster',
+                            $2::uuid, $3::jsonb, $4::jsonb, 'api:roster', FALSE)
+                    """,
+                    identity.clinic_id,
+                    roster_id,
+                    json.dumps(
+                        {
+                            "work_date": row["work_date"].isoformat(),
+                            "shift": row["shift"],
+                            "station": row["station"],
+                            "nguoi_cu_id": row["staff_id"],
+                            "nguoi_cu_ten": row["staff_name"],
+                            "nguoi_moi_id": staff_moi_id,
+                            "nguoi_moi_ten": nv["full_name"],
+                            "ly_do": ly_do,
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "clinic_role": identity.role.value,
+                            "vai_tai_khoan": identity.vai_goc.value,
+                            "clinic_staff_id": identity.staff_id,
+                            "origin": "api:roster",
+                        }
+                    ),
                 )
-                return {
-                    "so_lich_cho_xep": len(cho_xep),
-                    "gio": [uv["gio"] for uv in cho_xep],
-                }
+                if row["station"] in MA_CA_KHAM_BAC_SI:
+                    if row["staff_id"] is not None:
+                        lich = await self._go_lich_ngoai_ca(
+                            conn,
+                            identity=identity,
+                            staff_id=row["staff_id"],
+                            work_date=row["work_date"],
+                            loai_tru_id=roster_id,
+                            dry_run=False,
+                            ly_do="thay_nguoi_trong_ca",
+                        )
+            # Tin "ca bác sĩ mới có → lịch chờ xếp" là việc phụ, tự nuốt lỗi —
+            # chạy SAU khi giao dịch đã chốt để lỗi của nó không làm hỏng cú đổi.
+            if row["station"] in MA_CA_KHAM_BAC_SI:
+                await self._bao_lich_cho_xep(
+                    conn,
+                    roster_id=roster_id,
+                    work_date=row["work_date"],
+                    shift=row["shift"],
+                    ten_bac_si=nv["full_name"],
+                    identity=identity,
+                )
+        # Quyền theo lịch đổi NGAY: quên quyền + danh tính (vai suy từ lego)
+        # đang nhớ của cả phòng khám — cả người cũ lẫn người mới.
+        cache.quen(identity.clinic_id)
+        logger.info(
+            "roster_shift_reassigned",
+            roster_id=roster_id,
+            nguoi_cu=row["staff_id"],
+            nguoi_moi=staff_moi_id,
+            by_staff_id=identity.staff_id,
+        )
+        return {"id": vet_id, "nguoi_moi_ten": nv["full_name"], **lich}
 
     async def apply_week(
         self, *, week_start: date, identity: StaffIdentity
@@ -1082,6 +1319,7 @@ class RosterService:
         dau = week_start_of(tuan)
         cuoi = dau + timedelta(days=6)
         la_quan_ly = await self._xep_lich(identity)
+        doi_nguoi = la_quan_ly or await self._doi_nguoi_duoc(identity)
         async with self._pool.acquire() as conn:
             dong = await conn.fetch(
                 """
@@ -1121,9 +1359,27 @@ class RosterService:
                 identity.clinic_id,
                 dau,
             )
+            # Vết đổi người trong ca (29/09/2026) — "Hà tới 10:30 → B từ 10:30".
+            thay_nguoi = await conn.fetch(
+                """
+                SELECT t.roster_id::text, t.work_date, t.shift, t.station,
+                       t.nguoi_cu_id::text, t.nguoi_cu_ten,
+                       t.nguoi_moi_id::text, t.nguoi_moi_ten,
+                       to_char(t.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI')
+                           AS gio,
+                       s.full_name AS boi_ten, t.ly_do
+                  FROM work_roster_thay_nguoi t
+                  LEFT JOIN staff s ON s.id = t.boi_staff_id
+                 WHERE t.clinic_id = $1::uuid AND t.work_date BETWEEN $2 AND $3
+                 ORDER BY t.luc
+                """,
+                identity.clinic_id,
+                dau,
+                cuoi,
+            )
             nhan_su: list[asyncpg.Record] = []
             tram: list[asyncpg.Record] = []
-            if la_quan_ly:
+            if doi_nguoi:
                 nhan_su = await conn.fetch(
                     """
                     SELECT DISTINCT s.id::text, s.full_name, s.short_name,
@@ -1135,6 +1391,7 @@ class RosterService:
                     """,
                     identity.clinic_id,
                 )
+            if la_quan_ly:
                 tram = await conn.fetch(
                     "SELECT vai, tram_ma FROM vai_duoc_vao_tram"
                     " WHERE clinic_id = $1::uuid AND is_active",
@@ -1150,6 +1407,9 @@ class RosterService:
             "tuan": dau.isoformat(),
             "da_ap_dung": bool(da_ap_dung),
             "la_quan_ly": la_quan_ly,
+            "doi_nguoi": doi_nguoi,
+            "hom_nay": datetime.now(CLINIC_TZ).date().isoformat(),
+            "thay_nguoi": [_d(r) for r in thay_nguoi],
             "dong": [gan_nhan_vai(_d(r)) for r in dong],
             "dong_ca": [_d(r) for r in dong_ca],
             "nhan_su": [dict(r) for r in nhan_su],
@@ -1203,6 +1463,25 @@ def _gia_thuong(v: Any) -> Any:
 _MA_KV = re.compile(r"^[A-Z0-9_-]{1,32}$")
 
 
+#: Bên thu của một dịch vụ (Tuyền 29/09/2026 — chọn ở màn Bảng giá).
+BEN_THU_HOP_LE: tuple[str, ...] = ("CLINIC", "EXTERNAL_PARTNER")
+
+
+def doc_ben_thu(v: Any) -> str | None:
+    """ "CLINIC" / "EXTERNAL_PARTNER" (không phân biệt hoa thường) → giữ; rỗng /
+    None → None (= không chọn, dùng mặc định theo phòng làm); rác → 422."""
+    if v is None:
+        return None
+    if not isinstance(v, str):
+        raise ValidationError("Bên thu phải là Phòng khám thu hoặc Thu hộ đối tác.")
+    ben = v.strip().upper()
+    if not ben:
+        return None
+    if ben not in BEN_THU_HOP_LE:
+        raise ValidationError("Bên thu phải là Phòng khám thu hoặc Thu hộ đối tác.")
+    return ben
+
+
 def _ma_kiotviet(v: str | None) -> str | None:
     """Mã phòng khám: bỏ khoảng trắng, viết hoa; rỗng → None; ký tự lạ → 422."""
     ma = (v or "").strip().upper()
@@ -1232,7 +1511,8 @@ class PriceListService:
             rows = await conn.fetch(
                 """
                 SELECT id, service_code, name, "group", unit_price, active,
-                       ma_kiotviet, node_code, gia_tam, billing_owner
+                       ma_kiotviet, node_code, gia_tam, billing_owner,
+                       billing_owner_chon_tay
                   FROM service_price
                  WHERE clinic_id = $1::uuid AND "group" = $2
                  ORDER BY coalesce(ma_kiotviet, service_code)
@@ -1294,8 +1574,10 @@ class PriceListService:
         identity: StaffIdentity,
         ma_kiotviet: str | None = None,
         node_code: str | None = None,
+        billing_owner: str | None = None,
     ) -> str:
         ma_kv = _ma_kiotviet(ma_kiotviet)
+        ben_chon = doc_ben_thu(billing_owner)
         code = (service_code or "").strip() or (f"KV_{ma_kv}" if ma_kv else "")
         label = (name or "").strip()
         if not code or not label:
@@ -1304,14 +1586,18 @@ class PriceListService:
         price = parse_price(unit_price)
         async with self._pool.acquire() as conn, conn.transaction():
             node = await self._phong_hop_le(conn, identity.clinic_id, node_code)
-            ben_thu = await self._ben_thu_theo_phong(conn, identity.clinic_id, node)
+            # Chọn tay khi tạo → giữ và đánh dấu; không chọn → suy theo phòng làm.
+            ben_thu = ben_chon or await self._ben_thu_theo_phong(
+                conn, identity.clinic_id, node
+            )
             try:
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO service_price
                         (clinic_id, service_code, name, "group", unit_price,
-                         ma_kiotviet, node_code, billing_owner)
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
+                         ma_kiotviet, node_code, billing_owner,
+                         billing_owner_chon_tay)
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -1322,6 +1608,7 @@ class PriceListService:
                     ma_kv,
                     node,
                     ben_thu,
+                    ben_chon is not None,
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(
@@ -1337,8 +1624,9 @@ class PriceListService:
     async def _ben_thu_theo_phong(
         conn: asyncpg.Connection, clinic_id: str, node: str | None
     ) -> str:
-        """EXTERNAL_PARTNER khi phòng làm là bước làm bên ngoài, còn lại CLINIC
-        (cùng luật migration 20260928000091)."""
+        """MẶC ĐỊNH bên thu: EXTERNAL_PARTNER khi phòng làm là bước làm bên
+        ngoài, còn lại CLINIC (cùng luật migration 20260928000091). Chỉ dùng khi
+        dòng CHƯA được chọn tay (`billing_owner_chon_tay`) — 29/09/2026."""
         if not node:
             return "CLINIC"
         ngoai = await conn.fetchval(
@@ -1361,8 +1649,15 @@ class PriceListService:
         ma_kiotviet: str | None = None,
         ma_kiotviet_provided: bool = False,
         node_code: str | None = None,
+        billing_owner: str | None = None,
     ) -> None:
         patch: dict[str, Any] = {}
+        ben_chon = doc_ben_thu(billing_owner)
+        if ben_chon is not None:
+            # CHỌN TAY (Tuyền 29/09/2026): bên thu thuộc từng dịch vụ, và từ nay
+            # đổi phòng làm không lật lại lựa chọn này.
+            patch["billing_owner"] = ben_chon
+            patch["billing_owner_chon_tay"] = True
         if name is not None and name.strip():
             patch["name"] = name.strip()
         if unit_price_provided:
@@ -1383,11 +1678,21 @@ class PriceListService:
                 patch["node_code"] = await self._phong_hop_le(
                     conn, identity.clinic_id, node_code
                 )
-                # Bên thu theo PHÒNG LÀM (Q1, 27/09/2026): phòng làm bên ngoài
-                # (`lam_ben_ngoai`) = khách trả trực tiếp cho đối tác.
-                patch["billing_owner"] = await self._ben_thu_theo_phong(
-                    conn, identity.clinic_id, patch["node_code"]
+                # Bên thu theo PHÒNG LÀM (Q1, 27/09/2026) chỉ là MẶC ĐỊNH: dòng
+                # đã chọn tay (cờ trong database, hay chọn ngay trong lần sửa
+                # này) giữ nguyên bên thu — 29/09/2026.
+                chon_tay = ben_chon is not None or bool(
+                    await conn.fetchval(
+                        "SELECT billing_owner_chon_tay FROM service_price"
+                        " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                        price_id,
+                        identity.clinic_id,
+                    )
                 )
+                if not chon_tay:
+                    patch["billing_owner"] = await self._ben_thu_theo_phong(
+                        conn, identity.clinic_id, patch["node_code"]
+                    )
             columns = list(patch)
             assignments = ", ".join(f"{c} = ${i + 3}" for i, c in enumerate(columns))
             try:

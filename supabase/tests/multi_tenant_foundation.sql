@@ -151,7 +151,8 @@ DECLARE
     -- 116 → 118 (28/09/2026): phu_thu_mau + luot_phu_thu (đầu dò kèm dịch vụ).
     -- 118 → 120 (28/09/2026): loai_kham_phi + luot_phi_kham (phí khám theo mã
     -- KiotViet — 20260928000100).
-    expected_tenant_tables constant integer := 120;
+    -- 120 → 121 (29/09/2026): work_roster_thay_nguoi (vết đổi người trong ca).
+    expected_tenant_tables constant integer := 121;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

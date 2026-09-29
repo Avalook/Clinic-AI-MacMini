@@ -257,6 +257,13 @@ export default function Lightbox({
                 {luoi ? "Xem từng tấm" : `Lưới (${n})`}
               </button>
             ) : null}
+            {/* IN (29/09/2026 — "file kết quả mọi chỗ tải/in được"): mở tệp
+                gốc ở thẻ mới, in bằng trình duyệt (ảnh, PDF). */}
+            {t && !luoi && t.src ? (
+              <a href={t.src} target="_blank" rel="noopener" className={NUT}>
+                Mở / In
+              </a>
+            ) : null}
             {t && !luoi && t.taiVe ? (
               <a href={t.taiVe} rel="noopener" className={NUT}>
                 Tải về

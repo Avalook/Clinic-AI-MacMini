@@ -392,6 +392,7 @@ export default function NewPatientForm({
   initialAppt,
   nhung = false,
   onHuy,
+  veTiepDon = false,
 }: {
   /** Khoá bản nhập dở theo NGƯỜI đang đăng nhập — quầy dùng chung máy,
    *  nháp của người trước không được hiện cho người sau (luu-nhap.ts). */
@@ -420,6 +421,10 @@ export default function NewPatientForm({
   /** Điền sẵn ngày/giờ/bác sĩ — ô xanh "đặt vào đây" ở bảng Lịch hẹn khám
    *  (trang chủ) dẫn sang đây kèm query để Lễ tân xếp khách đúng khung. */
   initialAppt?: { date?: string; time?: string; doctorId?: string };
+  /** Lưu xong thì về màn TIẾP ĐÓN KHÁCH (`/reception/queue`) để làm tiếp
+   *  (Tuyền 29/09/2026). Trang gọi hỏi `moDuocMan("/reception/queue")` — cùng
+   *  luật cửa của trang đích (lego, không theo vai). false → hành vi cũ. */
+  veTiepDon?: boolean;
 }) {
   const walkin = variant === "walkin";
   // Địa chỉ (Tỉnh/TP + Phường/Xã) BẮT BUỘC cho CSKH (full), Lễ tân (RECEPTION) và
@@ -937,6 +942,15 @@ export default function NewPatientForm({
     // khách đã nằm trong hệ thống, và người trực tạo trùng.
     if (khoaNhapKhach && typeof window !== "undefined") {
       xoaNhap(window.localStorage, khoaNhapKhach);
+    }
+    // TẠO XONG → VỀ MÀN TIẾP ĐÓN (Tuyền 29/09/2026: "lễ tân thêm khách mới
+    // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho mọi đường
+    // lưu thành công: chỉ lưu hồ sơ, lưu + đặt lịch (khách Trực tiếp hôm nay đã
+    // tự check-in nên hiện ngay trong danh sách), và "Dùng bệnh nhân này". Ai
+    // được vào màn ấy do trang quyết theo lego (`veTiepDon`), không theo vai.
+    if (veTiepDon) {
+      router.push("/reception/queue");
+      return;
     }
     // LỄ TÂN: tạo BN xong → về BẢNG bệnh nhân (Danh sách bệnh nhân), không đứng
     // lại ở hồ sơ (Quang 2026-07-02). Khách vãng lai vừa nhận auto CHECKED_IN
@@ -1819,6 +1833,7 @@ export default function NewPatientForm({
                   )}
                 </span>
                 <button
+                  type="button"
                   onClick={() => proceed(m.clinic_patient_id)}
                   disabled={submitting}
                   className="min-h-10 shrink-0 rounded-lg bg-brand-600 px-3 py-2 text-xs font-semibold text-white hover:bg-brand-700 active:bg-brand-700 disabled:opacity-50 sm:min-h-0 sm:py-1.5"

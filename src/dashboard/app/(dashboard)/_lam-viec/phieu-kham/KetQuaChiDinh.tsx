@@ -91,8 +91,8 @@ function trangThai(d: ChiDinhVaKetQua): { nhan: string; tone: ChipTone } {
   // quầy thu — nói đúng thay vì "Chờ thu tiền".
   if (d.doi_tac_thu) {
     return d.doi_tac_da_thu
-      ? { nhan: "Đối tác đã thu", tone: "info" }
-      : { nhan: "Khách trả đối tác", tone: "info" };
+      ? { nhan: "Đã thu hộ cho đối tác", tone: "info" }
+      : { nhan: "Thu hộ đối tác", tone: "info" };
   }
   return { nhan: "Chờ thu tiền", tone: "warning" };
 }

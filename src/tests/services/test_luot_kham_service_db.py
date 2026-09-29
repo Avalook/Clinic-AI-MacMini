@@ -488,9 +488,11 @@ async def test_nhap_cua_thu_ky_khong_dieu_phoi_duoc(kb: KichBan) -> None:
 
 
 async def test_chi_bac_si_duyet_chi_dinh(kb: KichBan) -> None:
-    # T-A4
+    # T-A4 — hỏi QUYỀN (Tuyền 29/09/2026, trợ lý trọn quyền): cần cả Chỉ định
+    # lẫn Khám. Thư ký (nhóm mẫu có cả hai) duyệt được — xem
+    # `test_tro_ly_bac_si_tron_quyen_db.py`; trưởng ca / điều dưỡng thiếu Khám.
     phien = await _vao_kham(kb)
-    for nguoi in (kb.thu_ky, kb.truong_ca, kb.dieu_duong):
+    for nguoi in (kb.truong_ca, kb.dieu_duong):
         with pytest.raises(SafetyGateError):
             await kb.svc.authorize_orders(
                 consultation_id=phien,

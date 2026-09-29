@@ -15,25 +15,35 @@
 // "Đã check-in 08:02 · chờ đo", "Đã về 10:12") và nút nào được hiện đều do máy
 // chủ tính (`GET /api/v1/reception/danh-sach` → `services/tiep_don_service.py`).
 // Ở đây chỉ lọc tại chỗ (tab + ô tìm, `lib/tiep-don.ts`) và tô màu theo `loai`.
+//
+// SẮP XẾP (29/09/2026, Tuyền): máy chủ xếp CŨ → MỚI theo giờ vào hàng thật
+// (giờ check-in; chưa đến thì giờ hẹn). Công tắc "Mới nhất trước" chỉ đảo lại
+// để xem — lựa chọn nhớ theo máy quầy (localStorage, bọc try/catch).
 
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 
 import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import ChipChon from "@/components/ui/ChipChon";
 import NutCheckIn from "@/components/ui/NutCheckIn";
 import PriorityChip from "@/components/ui/PriorityChip";
 import SoLuot from "@/components/ui/SoLuot";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { doctorName } from "@/lib/doctor-name";
 import {
+  docHuongXep,
   dongPhu,
+  ghiHuongXep,
+  HUONG_XEP_MAC_DINH,
   locTiepDon,
+  sapXepTiepDon,
   toneTrangThai,
   type DongTiepDon,
   type GoiTiepDon,
+  type HuongXep,
   type TabTiepDon,
 } from "@/lib/tiep-don";
 
@@ -135,6 +145,11 @@ function DongKhach({ d }: { d: DongTiepDon }) {
   );
 }
 
+/** Kho nhớ không phát tin đổi (chỉ màn này ghi) — không cần theo dõi. */
+function khongTheoDoi(): () => void {
+  return () => {};
+}
+
 export default function QueueBoard({
   goi,
   themKhachDuoc,
@@ -146,7 +161,24 @@ export default function QueueBoard({
 }) {
   const [tab, setTab] = useState<TabTiepDon>("tat_ca");
   const [tim, setTim] = useState("");
-  const buoi = useMemo(() => locTiepDon(goi.buoi, tab, tim), [goi.buoi, tab, tim]);
+  // Bảng được vẽ hai bản (máy tính / điện thoại): hai nhóm ô chọn cùng `name`
+  // thì trình duyệt chỉ cho MỘT ô được chọn trên cả hai — bản kia trống. Mỗi
+  // bản một tên riêng.
+  const tenNhomXep = `huong-xep-tiep-don-${useId()}`;
+  // Lựa chọn đã nhớ đọc qua useSyncExternalStore (cùng cách `NganGap`): máy
+  // chủ vẽ mặc định, trình duyệt vẽ lựa chọn đã nhớ — không lệch HTML, không
+  // setState trong effect. Lần bấm trong phiên thắng cái đã nhớ.
+  const daNho = useSyncExternalStore(khongTheoDoi, docHuongXep, () => HUONG_XEP_MAC_DINH);
+  const [bam, setBam] = useState<HuongXep | null>(null);
+  const huong = bam ?? daNho;
+  function doiHuong(h: HuongXep) {
+    setBam(h);
+    ghiHuongXep(h);
+  }
+  const buoi = useMemo(
+    () => locTiepDon(sapXepTiepDon(goi.buoi, huong), tab, tim),
+    [goi.buoi, huong, tab, tim],
+  );
 
   return (
     <section aria-label="Danh sách tiếp đón" className="flex min-w-0 flex-col gap-3">
@@ -172,6 +204,25 @@ export default function QueueBoard({
             className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
           />
         </label>
+        <div role="radiogroup" aria-label="Sắp xếp theo giờ vào hàng" className="flex items-center gap-1.5">
+          <span className="text-meta text-ink-muted">Sắp xếp:</span>
+          <ChipChon
+            kieu="mot"
+            ten={tenNhomXep}
+            chon={huong === "cu_truoc"}
+            onDoi={() => doiHuong("cu_truoc")}
+          >
+            Cũ nhất trước
+          </ChipChon>
+          <ChipChon
+            kieu="mot"
+            ten={tenNhomXep}
+            chon={huong === "moi_truoc"}
+            onDoi={() => doiHuong("moi_truoc")}
+          >
+            Mới nhất trước
+          </ChipChon>
+        </div>
         {themKhachDuoc ? (
           <Link href="/patients/new" className={buttonClass("primary", "lg")}>
             + Thêm khách hàng

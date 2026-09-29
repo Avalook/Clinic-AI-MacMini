@@ -4,11 +4,12 @@
 // một dòng lịch hẹn gần nhất. Không dựng sinh hiệu, bệnh sử hay nghĩa vụ giả khi
 // API của màn này chưa tải chúng; người có quyền lâm sàng vẫn mở phiếu khám thật.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
+  ArrowUpDown,
   CalendarDays,
   ClipboardList,
   FileText,
@@ -65,6 +66,12 @@ export interface ExaminedRow {
 }
 
 type Filter = "all" | "first" | "return" | "none";
+
+/** Chiều xếp (Tuyền 29/09/2026): máy chủ trả sẵn hoạt động GẦN NHẤT trước
+ *  (`KHOA_XEP`); "Xa nhất trước" chỉ đảo thứ tự hiển thị. Nhớ trên máy người
+ *  dùng — tiện ích, không phải dữ liệu. */
+type ChieuXep = "gan" | "xa";
+const KHOA_CHIEU_XEP = "clinicai.ds-benh-nhan.chieu-xep";
 
 const STATUS_PRESENTATION: Record<string, { label: string; className: string }> = {
   SCHEDULED: { label: "Chưa xác nhận", className: "bg-warning-bg text-warning" },
@@ -187,6 +194,26 @@ export default function PatientListView({
   const router = useRouter();
   const [term, setTerm] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [chieuXep, setChieuXep] = useState<ChieuXep>("gan");
+  useEffect(() => {
+    try {
+      // Đọc sau khi gắn để máy chủ và trình duyệt vẽ giống nhau lúc đầu.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (localStorage.getItem(KHOA_CHIEU_XEP) === "xa") setChieuXep("xa");
+    } catch {
+      /* trình duyệt chặn bộ nhớ — giữ mặc định */
+    }
+  }, []);
+  const doiChieuXep = () =>
+    setChieuXep((c) => {
+      const moi: ChieuXep = c === "gan" ? "xa" : "gan";
+      try {
+        localStorage.setItem(KHOA_CHIEU_XEP, moi);
+      } catch {
+        /* không nhớ được thì thôi */
+      }
+      return moi;
+    });
   // MỞ MÀN LÀ BẢNG TRA CỨU, chưa chọn ai (Tuyền 16/09/2026: *"lấy giống của
   // cskh cái danh sách khách hàng sang là được, để tra cứu thôi mà"*). Trước
   // đó màn này tự chọn hồ sơ ĐẦU DANH SÁCH rồi mở luôn ba vùng — người vào tra
@@ -215,7 +242,7 @@ export default function PatientListView({
 
   const shown = useMemo(() => {
     const normalized = unaccentVi(term.trim());
-    return rows.filter((row) => {
+    const loc = rows.filter((row) => {
       if (filter === "first" && row.phan_loai !== "Khám lần đầu") return false;
       if (filter === "return" && row.phan_loai !== "Tái khám") return false;
       if (filter === "none" && row.phan_loai !== "Chưa khám") return false;
@@ -226,7 +253,8 @@ export default function PatientListView({
         unaccentVi(row.phone_primary ?? "").includes(normalized)
       );
     });
-  }, [filter, rows, term]);
+    return chieuXep === "gan" ? loc : [...loc].reverse();
+  }, [chieuXep, filter, rows, term]);
 
   // Đổi bộ lọc không được để panel tiếp tục hiện một BN đã bị lọc ra.
   const selected = selectedId
@@ -248,6 +276,19 @@ export default function PatientListView({
     { key: "return", label: `${nhanPhanLoaiKham("Tái khám")} (${returnCount})` },
     { key: "none", label: `Chưa khám (${noneCount})` },
   ];
+
+  // Một nút đảo chiều, dùng ở cả bảng tra cứu lẫn danh sách bên cạnh hồ sơ.
+  const nutChieuXep = (
+    <button
+      type="button"
+      onClick={doiChieuXep}
+      aria-label={`Đang xếp: ${chieuXep === "gan" ? "gần nhất trước" : "xa nhất trước"} — bấm để đảo`}
+      className="inline-flex items-center gap-1 rounded-chip bg-surface-muted px-2.5 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-brand-50 hover:text-brand-800"
+    >
+      <ArrowUpDown size={12} aria-hidden="true" />
+      {chieuXep === "gan" ? "Gần nhất trước" : "Xa nhất trước"}
+    </button>
+  );
 
   const directory = (
     <section
@@ -305,6 +346,7 @@ export default function PatientListView({
               {item.label}
             </button>
           ))}
+          {nutChieuXep}
           <span className="ml-auto inline-flex items-center gap-1 px-1 text-label text-ink-faint">
             <SlidersHorizontal size={12} /> Lọc cục bộ
           </span>
@@ -711,6 +753,7 @@ export default function PatientListView({
               {item.label}
             </button>
           ))}
+          <span className="ml-auto">{nutChieuXep}</span>
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-180">

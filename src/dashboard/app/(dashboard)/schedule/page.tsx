@@ -21,6 +21,7 @@ import {
   weekStartOf,
   shiftWeek,
   currentWeekStartVn,
+  nhanViTri,
   viTriTuDb,
 } from "../../../lib/roster";
 import OfficialRosterTable, {
@@ -29,6 +30,7 @@ import OfficialRosterTable, {
 import ApDungTuan from "./ApDungTuan";
 import LichTheoNguoi from "./LichTheoNguoi";
 import TabLichLamViec from "./TabLichLamViec";
+import DoiNguoiTrongCa, { type VetThayNguoi } from "./DoiNguoiTrongCa";
 import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
@@ -78,6 +80,9 @@ export default async function SchedulePage({
   const [lich, viTri] = await Promise.all([
     fetchFromBackend<{
       da_ap_dung: boolean;
+      doi_nguoi?: boolean;
+      hom_nay?: string;
+      thay_nguoi?: VetThayNguoi[];
       dong: (Omit<RosterRowWithId, "staff_name"> & {
         staff_name: string | null;
         ten_chuan: string | null;
@@ -96,7 +101,9 @@ export default async function SchedulePage({
   const stations = viTriTuDb(viTri?.danh_muc);
   const dong = lich?.dong_ca ?? [];
 
-  const staffOptions: StaffOpt[] = (isAdmin ? (lich?.nhan_su ?? []) : [])
+  // Đổi người trong ca (29/09/2026): máy chủ quyết ai được đổi (`doi_nguoi`).
+  const doiNguoi = Boolean(lich?.doi_nguoi);
+  const staffOptions: StaffOpt[] = (isAdmin || doiNguoi ? (lich?.nhan_su ?? []) : [])
     .filter(
       (s) =>
         departmentToRole(s.primary_department) !== null &&
@@ -184,6 +191,30 @@ export default async function SchedulePage({
           }
         />
       </section>
+
+      {/* ĐỔI NGƯỜI TRONG CA (29/09/2026) — trưởng ca (quyền riêng trong lego
+          Điều phối khách) hoặc người xếp lịch. Hôm nay và các ngày tới. */}
+      {doiNguoi && (
+        <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+          <div>
+            <h2 className="font-semibold text-ink">Đổi người trong ca</h2>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              Người đứng ca có việc đột xuất → bấm <b>Thay người</b>. Người mới có ngay quyền của
+              vị trí ấy, người cũ thôi; lịch giữ vết ai đứng tới giờ nào.
+            </p>
+          </div>
+          <DoiNguoiTrongCa
+            homNay={lich?.hom_nay ?? dates[0]}
+            dong={approvedRows}
+            vet={lich?.thay_nguoi ?? []}
+            nhanViTri={nhanViTri(stations)}
+            // Tài khoản đối tác (lab) không đứng ca của phòng khám.
+            nhanSu={staffOptions
+              .filter((s) => s.vai !== "PARTNER")
+              .map((s) => ({ id: s.id, name: s.name }))}
+          />
+        </section>
+      )}
 
       {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO QUẢN LÝ (Quang 09/08/2026).
 

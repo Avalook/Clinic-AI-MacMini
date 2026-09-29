@@ -1,6 +1,20 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **27/09/2026** — kiểm toán + dọn hạ tầng (mục "27/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
+Cập nhật: **29/09/2026** — ngày bàn giao, chuẩn hoá lõi (mục "29/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
+
+## 29/09/2026 — NGÀY BÀN GIAO: CHUẨN HOÁ LÕI (nhánh `claude/doi-nguoi-trong-ca`)
+
+Quyết định Tuyền: memory `quyet-dinh-2909-doi-nguoi-lay-mau`. Đã gộp (mỗi mục đã test; bấm thật ở local — database chép `doi_nguoi`, API :8110, web :3110):
+- **Đổi người trong ca** (mig 20260929000001): quyền `roster.shift.swap` (lego Điều phối + mọi vai TRUONG_CA), `POST /roster/shifts/{id}/thay-nguoi`, sổ `work_roster_thay_nguoi`, khối "Đổi người trong ca" ở /schedule. Quyền theo lịch: phòng DV thêm xếp phòng, có ca = xem lịch, DIEU_PHOI = Điều phối, khớp tiền tố dài nhất (Kho thuốc hết cấp thừa). Ghi lịch/phòng/vị trí → quên cache quyền.
+- **/phong** hiện lại 6 phòng có node KHAM-* (máy chủ quyết `la_phong_dich_vu`).
+- **ĐD/TKYK trọn quyền như bác sĩ** (`bac_si_phu_trach.py`): hoàn tất khám, tiếp phiên, duyệt chỉ định, kê/đính chính đơn; chỉ chặn hai BÁC SĨ thật giành nhau. Bản in "Bác sĩ thực hiện" = bác sĩ đứng phòng hôm nay (đúng 1 người), không thì người bấm.
+- **Phiếu DXA** "Kết luận nhanh" 3 ô (mig 20260929000010, mẫu `KQ_DO_MAT_DO_XUONG`, `hien_thi: o_tick`). Mở phiếu idempotent (ON CONFLICT) — hết "Resource already exists".
+- **Lấy mẫu + đối tác** (mig 20260929000020): /doi-tac + /phong chọn ngày, lịch sử tải tệp, "Đã lấy mẫu" ngày cũ, "Đã thu hộ cho đối tác", bên thu theo từng dịch vụ (`billing_owner_chon_tay`, Bảng giá), 4 mã KiotViet đổi; Xem lượt mở/in tệp.
+- **Tiếp đón**: xếp theo giờ vào hàng thật (`moc_vao_hang_ms`), công tắc Cũ/Mới nhất trước, thêm khách xong → /reception/queue. **Danh sách bệnh nhân**: nút Gần ⇄ Xa nhất trước.
+
+**CHỜ TUYỀN:** (1) SP000092/SP000075 thu hộ nhưng phòng làm THUTHUAT → không hiện ở /doi-tac — đề xuất thêm bước gửi mẫu; (2) 10 dịch vụ không có trong KiotViet (XN máu, CFTR, Karyotype, dịch ÂĐ, hình ảnh ngoài…) có đúng thu hộ?; (3) huỷ phiếu vs hoàn tiền một nghĩa (đề xuất ở phiên 29/09); (4) DXA có làm ở phòng Đo sinh hiệu không (node DICHVU-DXA).
+**CHƯA LÀM:** bỏ chữ "nháp" + CSKH sửa/in phiếu KQ có lịch sử sửa; TV một luật xếp; gộp sổ sự kiện (bước 1: view đọc gộp); tắt /cskh/recalls; xoá code chết (sau bàn giao).
+**Kiểm sau deploy:** SQL trưởng ca (`doi_nguoi` phải `t`) — lệnh trong phiên 29/09.
 
 ## 27/09/2026 TỐI — ĐỢT 3 ĐANG DỞ (phiên mới đọc mục này TRƯỚC)
 

@@ -1377,9 +1377,9 @@ function ChiDinhPanel({
                     : ""}
                 {c.ly_do_khong_lam ? ` · ${c.ly_do_khong_lam}` : ""}
                 {c.doi_tac_thu_tien === "DA_THU"
-                  ? " · Đối tác đã thu"
+                  ? " · Đã thu hộ cho đối tác"
                   : c.doi_tac_thu_tien === "CHUA_THU"
-                    ? " · Khách trả đối tác — chưa thu"
+                    ? " · Thu hộ đối tác — chưa thu"
                     : ""}
               </p>
               {c.ket_qua ? (

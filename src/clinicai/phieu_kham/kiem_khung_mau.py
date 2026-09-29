@@ -22,9 +22,14 @@ from typing import Any
 from clinicai.core.exceptions import ValidationError
 
 KIEU_O = ("text", "doan_van", "so", "ngay", "chon")
+#: Cách VẼ một ô chọn (chỉ là hiển thị — giá trị lưu vẫn là MỘT chuỗi như ô chọn
+#: thường). Không khai = hộp thả xuống. "o_tick" = các ô tích nhanh xếp hàng
+#: ngang, tích ô này bỏ ô kia (Tuyền 29/09/2026: "Kết luận nhanh" phiếu đo mật
+#: độ xương — Bình thường / Tiền loãng xương / Loãng xương).
+HIEN_THI_CHON = frozenset({"o_tick"})
 _MA = re.compile(r"^[a-z0-9_]{1,64}$")
 _KHOA_MUC = {"ma", "ten", "block", "cot"}
-_KHOA_O = {"ma", "ten", "kieu", "chon", "goi_y", "mac_dinh"}
+_KHOA_O = {"ma", "ten", "kieu", "chon", "goi_y", "mac_dinh", "hien_thi"}
 TRAN_MUC = 40
 TRAN_O = 300
 #: Tệp kết quả gắn `ben` 0..7 (CHECK ở `tep_ket_qua`) — bảng quá 8 cột thì bên
@@ -129,6 +134,18 @@ def kiem_khung_mau(khung: Any) -> list[dict[str, Any]]:
             elif o.get("chon") not in (None, []):
                 raise ValidationError(f"{nhan_o}: chỉ ô kiểu chọn mới có lựa chọn.")
 
+            hien_thi = o.get("hien_thi")
+            if hien_thi is not None:
+                if kieu != "chon":
+                    raise ValidationError(
+                        f"{nhan_o}: chỉ ô kiểu chọn mới có cách hiển thị."
+                    )
+                if hien_thi not in HIEN_THI_CHON:
+                    raise ValidationError(
+                        f"{nhan_o}: cách hiển thị “{hien_thi}” không có."
+                    )
+                moi["hien_thi"] = hien_thi
+
             goi_y = _chu(o.get("goi_y"), nhan_o, toi_da=60, bat_buoc=False)
             if goi_y:
                 moi["goi_y"] = goi_y
@@ -170,4 +187,4 @@ def kiem_khung_mau(khung: Any) -> list[dict[str, Any]]:
     return ra
 
 
-__all__ = ["KIEU_O", "kiem_khung_mau"]
+__all__ = ["HIEN_THI_CHON", "KIEU_O", "kiem_khung_mau"]
