@@ -169,6 +169,8 @@ function tone(d: DongHangCho): { tone: StatusTone; nhan: string } {
       return { tone: "ready", nhan: "Chờ khám" };
     case "blocked":
       return { tone: "blocked", nhan: "Đang ở bước khác" };
+    case "left":
+      return { tone: "blocked", nhan: "Khách đã về (chưa xong)" };
     default:
       return { tone: "completed", nhan: "Đã khám xong" };
   }
@@ -318,6 +320,8 @@ export default function BanKham({
   const canDoc = dangCho.filter((d) => d.vong === "REVIEW");
   const choKham = dangCho.filter((d) => d.vong !== "REVIEW");
   const buocKhac = hienRa.filter((d) => d.trang_thai === "blocked");
+  // Chỉ ở NGÀY CŨ: khách về khi phiên này chưa xong — vẫn mở phiếu ra sửa.
+  const daVe = hienRa.filter((d) => d.trang_thai === "left");
   // Hàng chờ trả MỖI PHIÊN KHÁM một dòng: khách có kết quả mới có một dòng
   // phiên đầu (đã xong) VÀ một dòng phiên đọc kết quả. Lượt còn phiên mở thì
   // chưa "khám xong" — không xếp vào nhóm đó; dòng đọc kết quả ghi giờ khám
@@ -521,6 +525,7 @@ export default function BanKham({
                   <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." batDau={nutBatDau} />
                   <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
                   <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} />
                 </>
               ) : (
               <>
@@ -537,6 +542,7 @@ export default function BanKham({
               ) : (
                 <Nhom key={`xong-${ngay}`} ten={`Đã khám xong ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
               )}
+              <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} />
               </>
               )}
             </div>

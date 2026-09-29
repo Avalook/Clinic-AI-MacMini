@@ -142,7 +142,8 @@ class SinhHieuService:
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "vitals.measure")
-            await khoa_luot(conn, cid, vid)
+            # Khách về giữa chừng vẫn đo / sửa được (Tuyền 29/09/2026).
+            await khoa_luot(conn, cid, vid, cho_phep_ve_giua_chung=True)
             flow = await khoa_flow(conn, cid, vid)
             if flow["vitals_status"] == "recorded":
                 raise LuotKhamConflictError(
@@ -299,7 +300,9 @@ class SinhHieuService:
         }
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "vitals.measure")
-            await khoa_luot(conn, identity.clinic_id, vid)
+            # Khách về giữa chừng (INCOMPLETE) vẫn sửa được lần đo — Tuyền
+            # 29/09/2026: "ngày cũ sửa được hết"; sổ `vitals.recorded` ghi lại.
+            await khoa_luot(conn, identity.clinic_id, vid, cho_phep_ve_giua_chung=True)
             cached = await bien_nhan_doc(
                 conn, identity, "vitals.record", idempotency_key, payload
             )

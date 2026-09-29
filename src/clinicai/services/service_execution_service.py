@@ -166,7 +166,13 @@ class ServiceExecutionService:
             if cached is not None:
                 return cached
             # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
-            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             self._doi_revision(don, expected_routing_revision, "routing_revision")
@@ -352,7 +358,13 @@ class ServiceExecutionService:
             if cached is not None:
                 return cached
             # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
-            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "IN_PROGRESS":
@@ -445,7 +457,13 @@ class ServiceExecutionService:
             if cached is not None:
                 return cached
             # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
-            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] not in (None, "PENDING"):
@@ -548,7 +566,13 @@ class ServiceExecutionService:
             if cached is not None:
                 return cached
             # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
-            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "IN_PROGRESS":
@@ -636,7 +660,13 @@ class ServiceExecutionService:
             if cached is not None:
                 return cached
             # Quyền theo lịch: phải đang có ca ở phòng của chỉ định (dây nối).
-            await doi_lich_phong(conn, self._pool, identity, don["room_id"])
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
 
             self._doi_revision(don, expected_execution_revision, "execution_revision")
             if don["execution_status"] != "INTERRUPTED":
@@ -796,12 +826,21 @@ class ServiceExecutionService:
     ) -> tuple[asyncpg.Record, str]:
         """Khoá lượt rồi khoá chỉ định — luôn cùng thứ tự, để không kẹt nhau."""
         vid = await luot_cua(conn, "service_order", clinic_id, order_id)
-        await khoa_luot(conn, clinic_id, vid)
+        # Khách về giữa chừng (INCOMPLETE) vẫn làm / sửa được (Tuyền 29/09/2026:
+        # "ngày cũ sửa được hết") — mỗi lệnh ghi sự kiện `service.*` của nó.
+        await khoa_luot(conn, clinic_id, vid, cho_phep_ve_giua_chung=True)
+        # `la_ngay_cu`: lượt check-in trước hôm nay → không đòi đang có ca ở
+        # phòng (quyền theo lịch chỉ áp cho HÔM NAY — `doi_lich_phong`).
         don = await conn.fetchrow(
-            "SELECT id::text, selection_status, routing_status, execution_status,"
-            "       execution_revision, routing_revision, room_id"
-            "  FROM service_order"
-            " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+            "SELECT o.id::text, o.selection_status, o.routing_status,"
+            "       o.execution_status, o.execution_revision, o.routing_revision,"
+            "       o.room_id,"
+            "       coalesce((v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+            "                < (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,"
+            "                false) AS la_ngay_cu"
+            "  FROM service_order o"
+            "  JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
+            " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid FOR UPDATE OF o",
             clinic_id,
             order_id,
         )

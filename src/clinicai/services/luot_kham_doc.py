@@ -757,8 +757,9 @@ class BangLuotKham:
                     ds_bac_si, tat_ca_bac_si = khach_cua_toi(
                         toi=identity.staff_id,
                         la_bac_si=la_bac_si,
+                        # Lịch của NGÀY ĐANG XEM (ngày cũ → lịch hôm ấy).
                         cung_phong=await bac_si_cung_phong_hom_nay(
-                            conn, cid, identity.staff_id
+                            conn, cid, identity.staff_id, ngay_xem
                         ),
                         kham_duoc=await can(conn, identity, "clinical.consult.perform"),
                     )
@@ -825,7 +826,10 @@ class BangLuotKham:
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
-                   AND q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
+                   AND (q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
+                        -- Ngày cũ: cả chỗ chờ khách đã về (`left`) — quay lại
+                        -- làm / sửa được (Tuyền 29/09/2026).
+                        OR (q.status = 'left' AND NOT $7::boolean))
                    AND (
                         ($2::uuid IS NOT NULL AND q.lane = 'ROOM'
                              AND q.room_id = $2::uuid)
@@ -875,6 +879,7 @@ class BangLuotKham:
                 tat_ca_bac_si,
                 tu_van,
                 ngay_xem,
+                la_hom_nay,
             )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ

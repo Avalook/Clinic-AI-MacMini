@@ -17,6 +17,7 @@ chính phòng ấy (lịch làm việc). Ngoài lịch thì chặn, kèm câu n�
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import date
 
 import asyncpg
 
@@ -43,9 +44,16 @@ async def doi_lich_phong(
     pool: asyncpg.Pool,
     identity: StaffIdentity,
     phong_id: str | None,
+    *,
+    ngay_cu: bool = False,
 ) -> None:
-    """Chặn nếu công tắc bật mà người này không có ca ở phòng `phong_id` lúc này."""
-    if not phong_id:
+    """Chặn nếu công tắc bật mà người này không có ca ở phòng `phong_id` lúc này.
+
+    `ngay_cu` (Tuyền chốt 29/09/2026): việc của lượt check-in NGÀY CŨ (quay lại
+    sửa) không đòi đang có ca — lịch chỉ áp cho HÔM NAY; ai có lego của phòng
+    (`doi_quyen` ở nơi gọi) là làm được. Lịch sử sửa nằm ở sổ sự kiện.
+    """
+    if not phong_id or ngay_cu:
         return
     if not await doc_day(conn, identity.clinic_id, "quyen_theo_lich"):
         return
@@ -83,7 +91,8 @@ WITH phong_toi AS (
       JOIN vi_tri_lam_viec v ON v.clinic_id = w.clinic_id AND v.code = w.station
      WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
        AND w.status <> 'REJECTED' AND v.room_id IS NOT NULL
-       AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+       AND w.work_date = coalesce($3::date,
+                                  (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
 )
 SELECT DISTINCT w.staff_id::text AS id
   FROM work_roster w
@@ -93,18 +102,26 @@ SELECT DISTINCT w.staff_id::text AS id
    AND m.is_active AND m.role = 'DOCTOR'
  WHERE w.clinic_id = $1::uuid AND w.status <> 'REJECTED'
    AND v.room_id IN (SELECT room_id FROM phong_toi)
-   AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+   AND w.work_date = coalesce($3::date,
+                              (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
 """
 
 
 async def bac_si_cung_phong_hom_nay(
-    conn: asyncpg.Connection, clinic_id: str, staff_id: str
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    staff_id: str,
+    ngay: date | None = None,
 ) -> list[str]:
     """Bác sĩ đứng CÙNG PHÒNG với người này trong lịch hôm nay (cả chính họ nếu
     họ là bác sĩ). "Bác sĩ của phòng" dùng đúng tiêu chí hàng chờ theo phòng
-    (`LuotKhamDoc.hang_cho`): lịch hôm nay + tư cách bác sĩ."""
+    (`LuotKhamDoc.hang_cho`): lịch hôm nay + tư cách bác sĩ.
+
+    `ngay` (29/09/2026): xem Bàn khám một NGÀY CŨ → lịch của NGÀY ĐÓ. None =
+    hôm nay."""
     return sorted(
-        r["id"] for r in await conn.fetch(_BAC_SI_CUNG_PHONG_SQL, clinic_id, staff_id)
+        r["id"]
+        for r in await conn.fetch(_BAC_SI_CUNG_PHONG_SQL, clinic_id, staff_id, ngay)
     )
 
 
