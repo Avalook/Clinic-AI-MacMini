@@ -22,9 +22,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable
+from datetime import date, datetime, timezone
 from typing import Any, Literal
 
 import asyncpg
+import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
@@ -50,7 +52,11 @@ from clinicai.phieu_kham.khung import (
     tham_chieu_nguon,
 )
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
+from clinicai.services import hen_tai_kham_service as htk
+from clinicai.services.cskh_service import clinic_today
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
+
+logger = structlog.get_logger()
 
 #: Việc cần hỏi quyền. Đây là NHÃN của lời hỏi gửi sang hệ phân quyền, không
 #: phải capability — ánh xạ sang capability nào là việc của CORE.
@@ -425,12 +431,40 @@ class PhieuKhamService:
                     kinh_cuoi_raw=_gia(sau_dl.get(O_KINH_CUOI)),
                     du_kien_sinh_raw=_gia(sau_dl.get(O_DU_KIEN_SINH)),
                 )
+            # HẸN TÁI KHÁM (Tuyền 29/09/2026): ngày hẹn VỪA ĐỔI (đặt / sửa /
+            # xoá, kể cả sau Hoàn tất) → việc gọi CSKH của lượt bám theo, cùng
+            # giao dịch. Trong SAVEPOINT: việc hỏng không được làm mất chữ bác
+            # sĩ vừa gõ — phiếu vẫn lưu, màn được báo.
+            hen: dict[str, Any] | None = None
+            if any(
+                _gia(cu_dl.get(k)) != _gia(sau_dl.get(k))
+                for k in {*cu_dl, *sau_dl}
+                if htk.la_o_ngay_hen(k)
+            ):
+                try:
+                    async with conn.transaction():
+                        hen = await htk.dong_bo(
+                            conn,
+                            identity,
+                            visit_id=visit_id,
+                            hom_nay=date.fromisoformat(clinic_today()),
+                            bay_gio=datetime.now(timezone.utc),
+                        )
+                except Exception:  # noqa: BLE001 — xem trên
+                    logger.exception("hen_tai_kham_dong_bo_hong", visit_id=visit_id)
+                    hen = {
+                        "trang_thai": "LOI",
+                        "loi": "Phiếu đã lưu nhưng CHƯA cập nhật được việc gọi"
+                        " tái khám — sửa lại ngày hẹn để thử lại.",
+                    }
         return {
             "ok": True,
             "revision": int(moi),
             "canh_bao": canh_bao,
             # "tao" / "cap_nhat" — màn nạp lại khối Thai kỳ bên dưới phiếu.
             "thai_ky": thai_ky,
+            # Việc gọi tái khám của lượt sau lần lưu này (None = ngày không đổi).
+            "hen_tai_kham": hen,
         }
 
     # ------------------------------------------------------------------

@@ -99,6 +99,7 @@ EVENT_LABELS: dict[str, str] = {
     "thong_bao.lich_mat_bac_si": "Báo CSKH và Trưởng ca lịch mất bác sĩ khi công bố",
     "thong_bao.ket_qua_ve": "Báo CSKH và bác sĩ kết quả vừa về",
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
+    "nhac_tai_kham.hen_doi": "Bác sĩ đặt / đổi / bỏ ngày tái khám (việc CSKH theo)",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
     "pharmacy.dispensed": "Cấp thuốc",
     "pharmacy.lot_assigned": "Gán lô cho thuốc đã giao",

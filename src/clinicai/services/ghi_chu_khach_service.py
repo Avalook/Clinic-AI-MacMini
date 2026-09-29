@@ -31,6 +31,8 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
+from clinicai.services.cskh_service import clinic_today
+from clinicai.services.hen_tai_kham_service import chi_tiet_viec, tinh_trang
 
 #: Quyền mở khung khách — có MỘT trong hai là đủ.
 QUYEN_KHUNG_KHACH = ("crm.manage", "reception.checkin.perform")
@@ -312,10 +314,15 @@ class GhiChuKhachService:
                         con_no.append(
                             {"visit_id": vid, "loai": "thuoc", "so_tien": th.tong}
                         )
+            # VIỆC TÁI KHÁM (29/09/2026): việc lượt 1 kèm đủ để gọi (bác sĩ, loại
+            # khám + chẩn đoán lần trước, cần kiểm tra lại, ghi chú bác sĩ). Bỏ
+            # các bản đã bị thay (bác sĩ đổi ngày / trùng việc khác) — chúng
+            # chỉ là vết, nằm ở nhật ký.
             tai_kham = await conn.fetch(
                 """
                 SELECT n.id::text AS id, n.ngay_hen, n.han_goi, n.luot_goi,
-                       n.trang_thai, n.ket_qua, n.ghi_chu,
+                       n.trang_thai, n.ket_qua, n.ghi_chu, n.dong_vi,
+                       n.nguon_visit_id::text AS nguon_visit_id,
                        d.full_name AS bac_si
                   FROM nhac_tai_kham n
                   LEFT JOIN visit v
@@ -323,12 +330,19 @@ class GhiChuKhachService:
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                  WHERE n.clinic_id = $1::uuid AND n.clinic_patient_id = $2::uuid
                    AND n.luot_goi = 1
-                 ORDER BY n.ngay_hen DESC
+                   AND n.dong_vi IS DISTINCT FROM 'BS_DOI_NGAY'
+                   AND n.dong_vi IS DISTINCT FROM 'TRUNG_VIEC'
+                 ORDER BY (n.trang_thai = 'CHO_GOI') DESC, n.ngay_hen DESC
                  LIMIT 5
                 """,
                 cid,
                 pid,
             )
+            hom_nay = date.fromisoformat(clinic_today())
+            chi_tiet_tk = {
+                r["id"]: await chi_tiet_viec(conn, cid, r["nguon_visit_id"])
+                for r in tai_kham
+            }
             so_ghi_chu = await conn.fetchval(
                 "SELECT count(*) FROM ghi_chu_khach WHERE clinic_id = $1::uuid"
                 " AND clinic_patient_id = $2::uuid AND go_luc IS NULL",
@@ -385,6 +399,12 @@ class GhiChuKhachService:
                     "ket_qua": r["ket_qua"],
                     "ghi_chu": r["ghi_chu"],
                     "bac_si": r["bac_si"],
+                    "tinh_trang": tinh_trang(
+                        r["trang_thai"], r["dong_vi"], r["han_goi"], hom_nay
+                    ),
+                    # Còn mở = CSKH còn phải gọi / đặt lịch (nút hiện theo cờ này).
+                    "con_mo": r["trang_thai"] == "CHO_GOI",
+                    "chi_tiet": chi_tiet_tk.get(r["id"]),
                 }
                 for r in tai_kham
             ],
