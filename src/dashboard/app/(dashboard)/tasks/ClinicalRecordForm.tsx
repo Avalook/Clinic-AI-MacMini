@@ -18,6 +18,7 @@ import HoSoHoanTatPanel from "./HoSoHoanTatPanel";
 import SonoBiometry from "./SonoBiometry";
 import TheoDoiThuThuat from "./TheoDoiThuThuat";
 import ServiceFormEngine from "./ServiceFormEngine";
+import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import { baoBenhAnDaLuu } from "../../../lib/su-kien-benh-an";
 import TepCuaLuotKham from "./TepCuaLuotKham";
 import { resolveServiceCode } from "../../../lib/form-schemas";
@@ -87,7 +88,9 @@ interface Data {
   labs: Lab[];
   history: HistoryItem[];
   prescriptions: ApiRx[];
-  visit: { visit_id: string; status: string } | null;
+  /** `phieu_v5`: lượt ghi phiếu khám v5 (29/09/2026) — tab chuyên khoa mở phiếu
+   *  v5 chỉ-xem thay cho phiếu theo dịch vụ đời cũ (trống với lượt này). */
+  visit: { visit_id: string; status: string; phieu_v5?: boolean } | null;
   draft: {
     chief_complaint: string;
     subjective: unknown;
@@ -1631,7 +1634,21 @@ export default function ClinicalRecordForm({
         {/* Phiếu khám CHUYÊN KHOA (engine config-driven) — pilot Phụ khoa. Chỉ hiện
             cho bác sĩ (KHÔNG ở luồng đón-khám vitalsOnly) khi dịch vụ có config +
             đã có visit. FINALIZED / lễ tân chỉ-đọc → read-only (route cũng chặn ghi). */}
-        {tab === 2 && !vitalsOnly && !showAll && serviceCode && data?.visit?.visit_id && (
+        {tab === 2 && !vitalsOnly && !showAll && data?.visit?.phieu_v5 && p?.clinic_patient_id && (
+          <div className="border-t border-surface-sunken pt-3">
+            {/* Phiếu khám v5 của lượt — CHỈ XEM ở màn này (ghi ở Bàn khám). */}
+            <PhieuKhamLuot
+              key={`v5-${data.visit.visit_id}`}
+              visitId={data.visit.visit_id}
+              clinicPatientId={p.clinic_patient_id}
+              choGhi={false}
+              xemLai
+              datChiDinh={async () => ({ ok: false, loi: "Chỉ định ở Bàn khám." })}
+              onDaDat={() => undefined}
+            />
+          </div>
+        )}
+        {tab === 2 && !vitalsOnly && !showAll && serviceCode && data?.visit?.visit_id && !data.visit.phieu_v5 && (
           <div className="border-t border-surface-sunken pt-3">
             <ServiceFormEngine
               visitId={data.visit.visit_id}
@@ -1685,7 +1702,7 @@ export default function ClinicalRecordForm({
         {/* NÓI RA thay vì ẩn. Một khoảng trống ở đúng chỗ lẽ ra có phiếu khám
             đọc thành "hệ thống hỏng", và bác sĩ sẽ đi hỏi kỹ thuật thay vì ghi
             tiếp vào bệnh án chung. */}
-        {tab === 2 && !vitalsOnly && !showAll && khongCoPhieu && data?.visit?.visit_id && (
+        {tab === 2 && !vitalsOnly && !showAll && khongCoPhieu && data?.visit?.visit_id && !data.visit.phieu_v5 && (
           <div className="border-t border-surface-sunken pt-3">
             <p className="rounded-card border border-line bg-brand-50/40 px-3 py-2.5 text-sm text-ink-muted">
               Dịch vụ <span className="font-medium text-ink">{appt.service?.name}</span>{" "}

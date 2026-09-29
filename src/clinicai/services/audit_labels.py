@@ -302,6 +302,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
     "api:day-noi": "Cài đặt — dây nối nghiệp vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
+    # Thai kỳ ghi theo hai ô kinh cuối / dự kiến sinh của phiếu Sản khoa v5.
+    "api:phieu-kham": "Bàn khám — Phiếu khám",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
 }

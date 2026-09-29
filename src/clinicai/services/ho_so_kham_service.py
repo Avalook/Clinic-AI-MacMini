@@ -6,9 +6,14 @@ một chỗ: ai khám, sinh hiệu, phiếu khám bác sĩ ghi, chỉ định n�
 quả, tệp kết quả, xét nghiệm, đơn thuốc.
 
 CHỈ ĐỌC, và đọc từ ĐÚNG MỘT ĐƯỜNG DỮ LIỆU của luồng khám (visit → consultation →
-clinical_form_response → service_order → tep_ket_qua), không tự suy ra gì. Mỗi
-kết quả mang theo trạng thái duyệt/cho phép gửi của nó: bản xem không được biến
-một kết quả CHƯA được bác sĩ duyệt thành thứ trông như đã chốt.
+phieu_kham_luot | clinical_form_response → service_order → tep_ket_qua), không
+tự suy ra gì. Mỗi kết quả mang theo trạng thái duyệt/cho phép gửi của nó: bản
+xem không được biến một kết quả CHƯA được bác sĩ duyệt thành thứ trông như đã
+chốt.
+
+Phiếu khám v5 (29/09/2026) trả kèm trong ``phieu_kham`` với ``v5: true`` và
+``muc`` đã dịch thành chữ (``phieu_kham/doc_chu.py``); sinh hiệu là lần đo của
+BUỔI (``sinh_hieu_buoi``), kèm ``nguon = "lượt trước"`` khi đo ở lượt khác.
 """
 
 from __future__ import annotations
@@ -19,6 +24,9 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.phieu_kham.doc_chu import doc_phieu_v5_chu
+from clinicai.services.luot_kham_rules import nhan_nguon_sinh_hieu
+from clinicai.services.sinh_hieu_buoi import chi_so_do, sinh_hieu_cua_buoi
 
 
 def _d(row: asyncpg.Record | None) -> dict[str, Any] | None:
@@ -79,27 +87,21 @@ class HoSoKhamService:
             )
             visit_id = luot["visit_id"] if luot else None
 
-            sinh_hieu = None
+            sinh_hieu: dict[str, Any] | None = None
+            phieu_v5: list[dict[str, Any]] = []
             phien: list[asyncpg.Record] = []
             phieu: list[asyncpg.Record] = []
             chi_dinh: list[asyncpg.Record] = []
             don_thuoc: list[asyncpg.Record] = []
             if visit_id:
-                sinh_hieu = await conn.fetchrow(
-                    """
-                    SELECT m.systolic, m.diastolic, m.pulse, m.temperature,
-                           m.weight_kg, m.height_cm, m.respiratory_rate, m.spo2,
-                           m.bmi, m.pain_score, m.created_at,
-                           s.full_name AS nguoi_do
-                      FROM public.vital_measurement m
-                      LEFT JOIN public.staff s ON s.id = m.recorded_by
-                     WHERE m.visit_id = $1::uuid AND m.clinic_id = $2::uuid
-                     ORDER BY m.created_at DESC
-                     LIMIT 1
-                    """,
-                    visit_id,
-                    clinic,
-                )
+                # Sinh hiệu theo BUỔI (29/09/2026): lượt check-in thêm cùng ngày
+                # không đo lại vẫn có số của buổi (cùng luật phiếu khám).
+                do = await sinh_hieu_cua_buoi(conn, clinic, visit_id)
+                sinh_hieu = chi_so_do(do, kem=["nguoi_do"])
+                if sinh_hieu is not None and do is not None:
+                    sinh_hieu["nguon"] = nhan_nguon_sinh_hieu(
+                        nguon_visit_id=do["nguon_visit_id"], visit_id=visit_id
+                    )
                 phien = await conn.fetch(
                     """
                     SELECT c.round_no AS vong, c.kind AS loai, c.status,
@@ -127,6 +129,11 @@ class HoSoKhamService:
                     """,
                     visit_id,
                     clinic,
+                )
+                # Phiếu khám v5 (`phieu_kham_luot`) — chuẩn của lượt mới; bảng đời
+                # cũ ở trên giữ cho lượt cũ (29/09/2026).
+                phieu_v5 = await doc_phieu_v5_chu(
+                    conn, clinic_id=clinic, visit_id=visit_id
                 )
                 chi_dinh = await conn.fetch(
                     """
@@ -206,9 +213,9 @@ class HoSoKhamService:
         return {
             "lich": _d(lich),
             "luot": _d(luot),
-            "sinh_hieu": _d(sinh_hieu),
+            "sinh_hieu": sinh_hieu,
             "phien_kham": [dict(r) for r in phien],
-            "phieu_kham": [dict(r) for r in phieu],
+            "phieu_kham": [dict(r) for r in phieu] + phieu_v5,
             "chi_dinh": [dict(r) for r in chi_dinh],
             "tep": [dict(r) for r in tep],
             "xet_nghiem": [dict(r) for r in xet_nghiem],

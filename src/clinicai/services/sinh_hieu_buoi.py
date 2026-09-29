@@ -90,4 +90,36 @@ async def sinh_hieu_cua_buoi(
     )
 
 
-__all__ = ["sinh_hieu_cua_buoi", "sinh_hieu_cua_buoi_nhieu"]
+#: Cột số đo (tên cột bảng ``vital_measurement``) + lúc đo — đúng hình dòng
+#: các nơi đọc "lần đo mới nhất" từng tự SELECT (29/09/2026: bảy chỗ còn đọc
+#: theo ``visit_id`` chuyển sang đọc theo buổi mà không đổi hình trả về).
+COT_SO_DO: tuple[str, ...] = (
+    "systolic",
+    "diastolic",
+    "pulse",
+    "temperature",
+    "weight_kg",
+    "height_cm",
+    "respiratory_rate",
+    "spo2",
+    "bmi",
+    "pain_score",
+    "created_at",
+)
+
+
+def chi_so_do(
+    do: dict[str, Any] | None, *, kem: Sequence[str] = ()
+) -> dict[str, Any] | None:
+    """Chỉ các cột số đo (+ ``kem``) của một dòng buổi — None giữ None."""
+    if do is None:
+        return None
+    return {k: do.get(k) for k in (*COT_SO_DO, *kem)}
+
+
+__all__ = [
+    "COT_SO_DO",
+    "chi_so_do",
+    "sinh_hieu_cua_buoi",
+    "sinh_hieu_cua_buoi_nhieu",
+]
