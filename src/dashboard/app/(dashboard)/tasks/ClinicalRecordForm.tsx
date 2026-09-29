@@ -941,6 +941,11 @@ export default function ClinicalRecordForm({
     }
   };
 
+  // Lượt ghi phiếu khám v5 (Tuyền 29/09/2026): mọi lối mở hồ sơ (Danh sách bệnh
+  // nhân, trang chủ…) hiện CÙNG giao diện phiếu khám của Bàn khám — chỉ xem,
+  // ghi ở Bàn khám. Khung 4 tab đời cũ chỉ còn cho lượt trước v5.
+  const v5Xem = Boolean(!vitalsOnly && data?.visit?.phieu_v5 && p?.clinic_patient_id);
+
   return (
     <div
       className={
@@ -1106,7 +1111,7 @@ export default function ClinicalRecordForm({
       )}
 
       {/* Thanh TAB (cố định) — chia 4 mục theo luồng khám; chỉ render tab đang chọn. */}
-      {!viewingPast && (
+      {!viewingPast && !v5Xem && (
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-line px-3 py-1.5">
           {TABS.map((t, i) => (
             <button
@@ -1122,6 +1127,19 @@ export default function ClinicalRecordForm({
         </div>
       )}
 
+      {v5Xem && data?.visit && p?.clinic_patient_id ? (
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        <PhieuKhamLuot
+          key={`v5-all-${data.visit.visit_id}`}
+          visitId={data.visit.visit_id}
+          clinicPatientId={p.clinic_patient_id}
+          choGhi={false}
+          xemLai
+          datChiDinh={async () => ({ ok: false, loi: "Chỉ định ở Bàn khám." })}
+          onDaDat={() => undefined}
+        />
+      </div>
+      ) : (
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
         {tab === 0 && !showAll && (
         <Section
@@ -1713,6 +1731,7 @@ export default function ClinicalRecordForm({
           </div>
         )}
       </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
         <span
