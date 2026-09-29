@@ -18,6 +18,12 @@
 //     "← Danh sách (n chờ)"; "Đã đo hôm nay" gập sẵn;
 //   · ô lỗi / ô bất thường tô theo `truong` MÁY CHỦ trả (`parse_vitals_co_truong`,
 //     `canh_bao_sinh_hieu`) — ngưỡng không nằm ở đây.
+//
+// THANH NGÀY (Tuyền 29/09/2026 — "quay lại ngày đó xem và sửa"): chọn ngày cũ →
+// mọi lượt check-in hôm đó (`/luot-kham/bang?ngay=`), sửa được lần đo — mỗi lần
+// [Đo xong] là MỘT lần đo mới, lần mới nhất thắng, lần cũ còn nguyên để xem lại
+// ("Xem các lần đo"). Ngày cũ không có ô "Bỏ qua tư vấn" (máy chủ không trả —
+// đổi đường đi là việc của hôm nay). Ngày nằm trên URL (`?ngay=`).
 
 import {
   useCallback,
@@ -32,8 +38,11 @@ import Button from "@/components/ui/Button";
 import OSo from "@/components/ui/OSo";
 
 import XemLuot from "../_lam-viec/XemLuot";
+import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 import ChipLoc from "@/components/ui/ChipLoc";
 import SoLuot from "@/components/ui/SoLuot";
+import ThanhNgay from "@/components/ui/ThanhNgay";
+import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgheBang } from "../dung-nghe-bang";
 
 interface SinhHieu {
@@ -145,9 +154,9 @@ function gio(iso: string | null): string {
   }
 }
 
-async function docBang(): Promise<{ luot: Luot[] } | { loi: string }> {
+async function docBang(ngay: string): Promise<{ luot: Luot[] } | { loi: string }> {
   try {
-    const r = await fetch("/api/luot-kham", { cache: "no-store" });
+    const r = await fetch(`/api/luot-kham?ngay=${encodeURIComponent(ngay)}`, { cache: "no-store" });
     const d = (await r.json().catch(() => null)) as { luot?: Luot[]; message?: string } | null;
     if (!r.ok) return { loi: d?.message ?? "Không đọc được danh sách khách." };
     return { luot: d?.luot ?? [] };
@@ -157,6 +166,7 @@ async function docBang(): Promise<{ luot: Luot[] } | { loi: string }> {
 }
 
 export default function BangDoSinhHieu() {
+  const { ngay, homNay, laHomNay, chonNgay } = useNgayXem();
   const [luot, setLuot] = useState<Luot[] | null>(null);
   const [chon, setChon] = useState<string | null>(null);
   const [xemLuot, setXemLuot] = useState<string | null>(null);
@@ -201,13 +211,13 @@ export default function BangDoSinhHieu() {
 
   useEffect(() => {
     let huy = false;
-    void docBang().then((kq) => {
+    void docBang(ngay).then((kq) => {
       if (!huy) nhan(kq);
     });
     // Làm mới mỗi 20 giây: khách check-in liên tục ở quầy, người đo không nên
     // phải tải lại trang mới thấy người vừa đến.
     const t = setInterval(() => {
-      void docBang().then((kq) => {
+      void docBang(ngay).then((kq) => {
         if (!huy) nhan(kq);
       });
     }, 60000);
@@ -215,7 +225,7 @@ export default function BangDoSinhHieu() {
       huy = true;
       clearInterval(t);
     };
-  }, [nhan, lanNghe]);
+  }, [nhan, lanNghe, ngay]);
 
   // THỨ TỰ = GIỜ CHECK-IN, người đến trước lên trước (Tuyền 15/09: "hàng chờ =
   // giờ check-in"). Chưa đo đứng trên, đã đo xuống dưới.
@@ -310,10 +320,10 @@ export default function BangDoSinhHieu() {
         setLoi(d?.message ?? d?.error ?? "Không bắt đầu đo được.");
         // Thường là người khác vừa bắt đầu đo khách này: nạp lại để thấy
         // "Đang đo" — hết `pending` thì các lần gõ sau không gửi lại nữa.
-        nhan(await docBang());
+        nhan(await docBang(ngay));
         return false;
       }
-      nhan(await docBang());
+      nhan(await docBang(ngay));
       return true;
     } catch {
       daGuiBatDau.current = null;
@@ -376,7 +386,7 @@ export default function BangDoSinhHieu() {
           )
         : [];
       const ten = dangChon.ten;
-      const kq = await docBang();
+      const kq = await docBang(ngay);
       nhan(kq);
       if (nhac.length > 0) {
         // Có chỉ số bất thường: ĐÃ LƯU (nhắc, không chặn) nhưng ĐỨNG LẠI ở
@@ -426,7 +436,7 @@ export default function BangDoSinhHieu() {
         setLoi(d?.message ?? d?.error ?? "Không đổi được.");
         return;
       }
-      nhan(await docBang());
+      nhan(await docBang(ngay));
       setXong(
         boQua
           ? `${ten}: bỏ qua tư vấn — đã chuyển sang hàng bác sĩ chính.`
@@ -439,11 +449,45 @@ export default function BangDoSinhHieu() {
     }
   };
 
+  // Thanh ngày + câu "đang xem ngày cũ" — vẽ cả lúc đang tải.
+  const thanhNgay = (
+    <>
+      <ThanhNgay
+        motNgay
+        nhan="Xem khách đo sinh hiệu theo ngày"
+        khoang={{ tu: ngay, den: ngay }}
+        homNay={homNay}
+        soNgaySau={0}
+        dangTai={luot === null}
+        onChon={(k) => {
+          const moi = k?.den ?? homNay;
+          if (moi === ngay) return;
+          setLuot(null);
+          setChon(null);
+          setXong(null);
+          setLoi(null);
+          chonNgay(moi);
+        }}
+      />
+      {!laHomNay ? (
+        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-body text-warning">
+          Đang xem ngày {ngayNgan(ngay)} — mọi khách check-in hôm đó. Sửa lần đo thì
+          lần mới nhất thắng, các lần trước vẫn giữ để xem lại.
+        </p>
+      ) : null}
+    </>
+  );
+
   if (luot === null) {
-    return loiBang ? (
-      <p role="alert" className="text-body text-danger">{loiBang}</p>
-    ) : (
-      <p className="text-body text-ink-muted">Đang tải…</p>
+    return (
+      <div className="grid gap-4">
+        {thanhNgay}
+        {loiBang ? (
+          <p role="alert" className="text-body text-danger">{loiBang}</p>
+        ) : (
+          <p className="text-body text-ink-muted">Đang tải…</p>
+        )}
+      </div>
     );
   }
 
@@ -501,6 +545,8 @@ export default function BangDoSinhHieu() {
   const anDs = !!dangChon && !xemDs;
 
   return (
+    <div className="grid gap-4">
+    {thanhNgay}
     <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
       {/* Dưới lg, đã chọn khách: danh sách thu thành MỘT thanh (27/09/2026,
           đợt 3) — ô nhập lên đầu màn, không phải cuộn qua vài chục khách. */}
@@ -556,9 +602,10 @@ export default function BangDoSinhHieu() {
         {/* GẬP SẴN (27/09/2026, đợt 3): danh sách đã đo dài dần trong ngày và
             đẩy hàng chờ ra khỏi màn điện thoại; mở khi cần sửa lại một lần đo. */}
         {daDo.length > 0 ? (
-          <details className="group">
+          // Ngày cũ: mở sẵn — xem lại để sửa là lý do chọn ngày ấy.
+          <details key={ngay} className="group" open={!laHomNay}>
             <summary className="flex cursor-pointer list-none items-center justify-between border-y border-line bg-surface-muted px-3 py-2 text-sm font-semibold text-ink">
-              Đã đo hôm nay ({daDo.length})
+              Đã đo {laHomNay ? "hôm nay" : `ngày ${ngayNgan(ngay)}`} ({daDo.length})
               <span aria-hidden className="text-meta text-ink-muted group-open:rotate-180">
                 ▾
               </span>
@@ -733,6 +780,7 @@ export default function BangDoSinhHieu() {
           </>
         )}
       </section>
+    </div>
     </div>
   );
 }

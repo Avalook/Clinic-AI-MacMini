@@ -15,6 +15,11 @@
 // rồi… bỏ luôn nút khám xong ở trên đi, chỉ cần nút bắt đầu khám"*). Không còn
 // nút Ký, và Hoàn tất KHÔNG khoá hồ sơ ("không khoá, sửa thoải mái"). Khám xong mà còn chỉ định
 // chưa làm thì khách tự sang hàng chờ phòng làm chỉ định — máy chủ quyết.
+//
+// THANH NGÀY (Tuyền 29/09/2026 — "để bác sĩ hay bất kỳ ai quay lại ngày đó xem
+// và sửa"): chọn một ngày cũ → hàng chờ + bảng lượt của NGÀY ẤY (khách check-in
+// hôm đó, kể cả đã xong), mở phiếu khám lượt cũ để sửa (phiếu không khoá sau
+// Hoàn tất). Ngày cũ không có "Sắp tới". Ngày nằm trên URL (`?ngay=`).
 
 import {
   CheckCircle2,
@@ -30,7 +35,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PriorityChip from "@/components/ui/PriorityChip";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
+import ThanhNgay from "@/components/ui/ThanhNgay";
 import ThanhTab from "@/components/ui/ThanhTab";
+import { ngayNgan } from "@/lib/thanh-ngay";
 
 import LuotKhamTruoc, { type LuotTruoc } from "../doctor/board/LuotKhamTruoc";
 import ServiceFormEngine from "../tasks/ServiceFormEngine";
@@ -64,6 +71,7 @@ import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
+import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -227,6 +235,9 @@ export default function BanKham({
   const [query, setQuery] = useState("");
   const [chonId, setChonId] = useState<string | null>(null);
   const [lanNap, setLanNap] = useState(0);
+  const { ngay, homNay, laHomNay, chonNgay } = useNgayXem();
+  /** Nhãn ngày cho tiêu đề nhóm: "hôm nay" / "ngày 27/09". */
+  const nhanNgay = laHomNay ? "hôm nay" : `ngày ${ngayNgan(ngay)}`;
 
   // Phòng khám của người này hôm nay (theo lịch), để biết hàng chờ nào là của họ.
   useEffect(() => {
@@ -255,11 +266,11 @@ export default function BanKham({
     let huy = false;
     const nap = async () => {
       const [h, b] = await Promise.all([
-        docBang<{ hang_cho: DongHangCho[]; sap_toi?: SapToi[] }>(
-          "hang-cho",
-          tuVan ? { tu_van: "true" } : phong ? { phong: phong.id } : {},
-        ),
-        docBang<Bang>(null),
+        docBang<{ hang_cho: DongHangCho[]; sap_toi?: SapToi[] }>("hang-cho", {
+          ...(tuVan ? { tu_van: "true" } : phong ? { phong: phong.id } : {}),
+          ngay,
+        }),
+        docBang<Bang>(null, { ngay }),
       ]);
       if (huy) return;
       if (!h.ok) setLoi(h.loi);
@@ -279,7 +290,7 @@ export default function BanKham({
       huy = true;
       clearInterval(t);
     };
-  }, [phongs, phong, lanNap, tuVan]);
+  }, [phongs, phong, lanNap, tuVan, ngay]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
   useNgheBang(
@@ -402,10 +413,12 @@ export default function BanKham({
           value={phong?.id ?? ""}
           onChange={(e) => {
             setChonId(null);
+            // Giữ ngày đang xem khi đổi phòng.
+            const q = laHomNay ? "" : `?ngay=${ngay}`;
             router.push(
               e.target.value
-                ? `/ban-kham/${encodeURIComponent(e.target.value)}`
-                : "/ban-kham",
+                ? `/ban-kham/${encodeURIComponent(e.target.value)}${q}`
+                : `/ban-kham${q}`,
             );
           }}
           className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
@@ -427,6 +440,29 @@ export default function BanKham({
         ) : null}
       </div>
 
+      <ThanhNgay
+        motNgay
+        nhan={tuVan ? "Xem hàng tư vấn theo ngày" : "Xem hàng chờ khám theo ngày"}
+        khoang={{ tu: ngay, den: ngay }}
+        homNay={homNay}
+        soNgaySau={0}
+        dangTai={hang === null}
+        onChon={(k) => {
+          const moi = k?.den ?? homNay;
+          if (moi === ngay) return;
+          setHang(null);
+          setBang(null);
+          setChonId(null);
+          chonNgay(moi);
+        }}
+      />
+      {!laHomNay ? (
+        <p className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-body text-warning">
+          Đang xem ngày {ngayNgan(ngay)} — mọi khách check-in hôm đó, kể cả đã xong.
+          Mở phiếu khám để xem và sửa như hôm nay.
+        </p>
+      ) : null}
+
       {!tuVan && nut.kham ? (
         <ChoBacSiQuyet lanNap={lanNap} onDaQuyet={napLai} />
       ) : null}
@@ -443,7 +479,7 @@ export default function BanKham({
           <StatCard label="Chờ khám" value={choKham.length} tone="brand" />
           <StatCard label="Kết quả cần đọc" value={canDoc.length} tone="warning" />
           <StatCard label="Đang khám" value={dangKham.length} tone="neutral" />
-          <StatCard label="Sắp tới" value={sapToi.length} tone="neutral" />
+          {laHomNay ? <StatCard label="Sắp tới" value={sapToi.length} tone="neutral" /> : null}
           <StatCard label="Đang ở bước khác" value={buocKhac.length} tone="warning" />
           <StatCard label="Đã khám xong" value={daXong.length} tone="neutral" />
         </StatRow>
@@ -484,22 +520,22 @@ export default function BanKham({
                   <Nhom ten="Đang tư vấn" chinh chuDang="đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang tư vấn." />
                   <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." batDau={nutBatDau} />
                   <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom ten="Đã chuyển bác sĩ chính hôm nay" gap ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
                 </>
               ) : (
               <>
               <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} chinh ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang khám." />
               <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} daKhamLuc={daKhamLuc} />
               <Nhom ten="Chờ khám" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." batDau={nutBatDau} />
-              <NhomSapToi ds={sapToi} />
+              {laHomNay ? <NhomSapToi ds={sapToi} /> : null}
               <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
               {laThuKy ? (
                 <>
                   <Nhom ten="Chờ bác sĩ hoàn tất" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom ten="Đã hoàn tất hôm nay" gap ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom key={`ky-${ngay}`} ten={`Đã hoàn tất ${nhanNgay}`} gap={laHomNay} ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
                 </>
               ) : (
-                <Nhom ten="Đã khám xong hôm nay" gap ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+                <Nhom key={`xong-${ngay}`} ten={`Đã khám xong ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
               )}
               </>
               )}
