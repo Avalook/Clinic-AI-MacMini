@@ -114,9 +114,7 @@ def noi_cua_hang(q: dict[str, Any], phong_bac_si: str | None = None) -> str:
             return str(q["phong"])
         if phong_bac_si:
             return phong_bac_si
-        return (
-            f"Bàn khám BS {q['bac_si']}" if q.get("bac_si") else "Bàn khám (BS chính)"
-        )
+        return _ban_kham_bs(q["bac_si"]) if q.get("bac_si") else "Bàn khám (BS chính)"
     return q.get("phong") or "Phòng dịch vụ"
 
 
@@ -178,6 +176,18 @@ def _cac_lan_lam(
             }
         )
     return ra
+
+
+def _ban_kham_bs(ten: str | None) -> str:
+    """ "Bàn khám BS X" — tên đã có chữ "BS" thì không lặp ("BS BS Nam")."""
+    if not ten:
+        return "Bàn khám"
+    t = str(ten).strip()
+    return (
+        f"Bàn khám {t}"
+        if t.upper().startswith(("BS", "BÁC SĨ"))
+        else f"Bàn khám BS {t}"
+    )
 
 
 def _the_dich_vu(
@@ -427,6 +437,11 @@ def dung_hanh_trinh_khach(
         )
 
     # 4. Khám bác sĩ chính — kèm "chỉ định N dịch vụ · thu tiền HH:MM (ai)".
+    # Chỗ chờ khám chính có mốc vào hàng SAU lúc bắt đầu khám = khách đi làm
+    # dịch vụ rồi QUAY LẠI trong cùng phiên (không phải thời gian chờ khám).
+    vao_q = _gio(q_chinh.get("eligible_at")) if q_chinh else None
+    quay_lai_luc = vao_q if (vao_q and bat_kham and vao_q > bat_kham) else None
+    vao_kham = None if quay_lai_luc else vao_q
     lam = [o for o in chi_dinh if o.get("chon")]
     thu = moc.get("THU_TIEN")
     bs_chinh = (p_chinh or {}).get("bac_si") or (q_chinh or {}).get("bac_si")
@@ -446,7 +461,7 @@ def dung_hanh_trinh_khach(
             phong_bac_si.get((p_chinh or {}).get("doctor_staff_id") or "") or "Bàn khám"
         ),
         ai_lam=bs_chinh,
-        vao=_gio(q_chinh.get("eligible_at")) if q_chinh else None,
+        vao=vao_kham,
         bat_dau=bat_kham,
         xong=xong_kham,
         so_chi_dinh=len(lam),
@@ -497,6 +512,20 @@ def dung_hanh_trinh_khach(
             _gio(p_doc.get("completed_at")) if p_doc else None
         )
         bs_doc = (p_doc or {}).get("bac_si") or (q_doc or {}).get("bac_si") or bs_chinh
+        # Không có phiên đọc riêng mà bác sĩ bấm Khám xong SAU khi khách làm
+        # dịch vụ (Tuyền 29/09): đã đọc kết quả ngay trong phiên khám chính.
+        bat_dv = _dau(*(t["bat_dau"] for t in the)) if the else None
+        doc_trong_phien = (
+            not p_doc
+            and not q_doc
+            and not dk
+            and xong_kham is not None
+            and bat_dv is not None
+            and bat_dv < xong_kham
+        )
+        if doc_trong_phien:
+            bat = quay_lai_luc or bat
+            ket = xong_kham
         them(
             "DOC_KQ",
             "Quay lại bác sĩ chính",
@@ -507,14 +536,14 @@ def dung_hanh_trinh_khach(
             else CHO
             if q_doc and q_doc.get("status") in ("waiting", "called")
             else CHUA,
-            noi=noi_q(q_doc)
-            if q_doc
-            else (f"Bàn khám BS {bs_doc}" if bs_doc else "Bàn khám"),
+            noi=noi_q(q_doc) if q_doc else _ban_kham_bs(bs_doc),
             ai_lam=bs_doc,
             vao=_gio(q_doc.get("eligible_at")) if q_doc else None,
             bat_dau=bat,
             xong=ket,
-            ghi_chu=None if (bat or ket) else "đọc kết quả, khi dịch vụ xong",
+            ghi_chu="đọc kết quả ngay trong phiên khám chính"
+            if doc_trong_phien
+            else (None if (bat or ket) else "đọc kết quả, khi dịch vụ xong"),
         )
 
     # 7. Thuốc — chỉ khi có đơn; chưa về thì để một dòng "nếu có đơn".
@@ -523,10 +552,11 @@ def dung_hanh_trinh_khach(
         them(
             "THUOC",
             "Thuốc",
-            tt_moc(th) if th["trang_thai"] != "chua" else CHO,
+            # Khách đã check-out thì bước thuốc KHÉP (không còn "đang làm").
+            XONG if xong_buoi else (tt_moc(th) if th["trang_thai"] != "chua" else CHO),
             noi="Quầy thuốc",
             bat_dau=th["bat"],
-            xong=th["ket"],
+            xong=th["ket"] or (ve_luc if xong_buoi else None),
         )
     elif not xong_buoi and not bo_ve:
         them("THUOC", "Thuốc", CHUA, noi="Quầy thuốc", ghi_chu="nếu có đơn")

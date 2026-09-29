@@ -982,6 +982,16 @@ class BangLuotKham:
                 # quả thì đồng hồ tổng vẫn chạy từ lúc vào phòng khám.
                 "checkin_luc": _iso(r["checked_in_at"]),
                 "vong": r["phien_kind"],
+                # Khách QUAY LẠI bác sĩ chính (Tuyền 29/09): phiên khám chính đã
+                # bắt đầu (bác sĩ chỉ định rồi cho đi làm dịch vụ, chưa bấm Khám
+                # xong) mà chỗ chờ lại "đang chờ" = khách làm xong dịch vụ, về
+                # đọc kết quả — Bàn khám xếp vào "Kết quả cần đọc", không phải
+                # "Chờ khám".
+                "quay_lai_doc_kq": (
+                    r["phien_kind"] == "PRIMARY"
+                    and r["phien_status"] == "in_progress"
+                    and r["status"] in ("waiting", "called")
+                ),
                 "goi_luc": _iso(r["called_at"]),
                 "bat_dau_luc": _iso(r["serving_at"]),
                 "xong_luc": _iso(r["done_at"]),

@@ -51,6 +51,8 @@ export interface DongHangCho {
   checkin_luc: string | null;
   /** PRIMARY = khám lần đầu trong lượt · REVIEW = quay lại đọc kết quả. */
   vong: string | null;
+  /** Khách quay lại bác sĩ chính đọc kết quả trong CÙNG phiên khám (29/09). */
+  quay_lai_doc_kq?: boolean;
   /** Lần gọi vào gần nhất (null = chưa gọi). */
   goi_luc: string | null;
   bat_dau_luc: string | null;

@@ -481,3 +481,64 @@ def test_noi_giu_cho_la_du_kien() -> None:
     assert not noi_la_du_kien("Phòng khám Phụ khoa")
     assert not noi_la_du_kien("")
     assert not noi_la_du_kien(None)
+
+
+def test_doc_ket_qua_ngay_trong_phien_kham_chinh() -> None:
+    """Tuyền 29/09: bác sĩ chỉ định, khách đi làm dịch vụ rồi QUAY LẠI, bác sĩ
+    bấm Khám xong sau đó (không mở phiên đọc riêng) → "Quay lại bác sĩ chính"
+    là XONG, giờ quay lại không bị tính là chờ khám."""
+    kq = dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v2",
+            "status": "IN_PROGRESS",
+            "checked_in_at": p(27),
+            "closed_at": None,
+            "dat_luc": None,
+        },
+        su_kien=[
+            ("consultation.started", p(53), {"loai": "PRIMARY"}),
+            ("service.started", p(58), {}),
+            ("service.completed", p(62), {}),
+            ("consultation.completed", p(70), {"loai": "PRIMARY"}),
+        ],
+        chi_dinh=[
+            _cd(
+                "cd-dxa",
+                "Đo mật độ xương",
+                "Đo sinh hiệu",
+                xong=True,
+                bat_dau=p(58),
+                xong_luc=p(62),
+                ex="COMPLETED",
+            ),
+        ],
+        hang=[
+            _q(
+                "q-kham",
+                "PRIMARY",
+                "done",
+                vao=p(66),
+                phuc_vu=p(53),
+                bac_si="BS Nam",
+                bs=BS,
+            ),
+            _q("q-dxa", "SERVICE", "done", ref="cd-dxa", vao=p(57), phuc_vu=p(58)),
+        ],
+        phien=[
+            {
+                "kind": "PRIMARY",
+                "status": "completed",
+                "started_at": p(53),
+                "completed_at": p(70),
+                "bac_si": "BS Nam",
+                "doctor_staff_id": BS,
+            }
+        ],
+        phong_bac_si={BS: "Phòng Sản"},
+        ai={},
+    )
+    b = _buoc(kq)
+    assert b["KHAM"]["vao"] is None
+    assert b["DOC_KQ"]["trang_thai"] == "xong"
+    assert b["DOC_KQ"]["bat_dau"] == p(66) and b["DOC_KQ"]["xong"] == p(70)
+    assert "BS BS" not in (b["DOC_KQ"]["noi"] or "")

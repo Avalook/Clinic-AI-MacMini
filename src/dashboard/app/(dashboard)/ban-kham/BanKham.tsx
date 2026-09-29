@@ -317,8 +317,11 @@ export default function BanKham({
   );
   // "Kết quả cần đọc" = khách quay lại đọc kết quả (vòng REVIEW) — tách khỏi
   // hàng khám lần đầu để bác sĩ thấy ngay ai đã có kết quả (batch pilot 18/09).
-  const canDoc = dangCho.filter((d) => d.vong === "REVIEW");
-  const choKham = dangCho.filter((d) => d.vong !== "REVIEW");
+  // + khách QUAY LẠI trong cùng phiên khám chính (bác sĩ chỉ định, khách đi
+  // làm dịch vụ rồi về — Tuyền 29/09): cũng là "Kết quả cần đọc".
+  const laDocKq = (d: (typeof dangCho)[number]) => d.vong === "REVIEW" || d.quay_lai_doc_kq === true;
+  const canDoc = dangCho.filter(laDocKq);
+  const choKham = dangCho.filter((d) => !laDocKq(d));
   const buocKhac = hienRa.filter((d) => d.trang_thai === "blocked");
   // Chỉ ở NGÀY CŨ: khách về khi phiên này chưa xong — vẫn mở phiếu ra sửa.
   const daVe = hienRa.filter((d) => d.trang_thai === "left");
