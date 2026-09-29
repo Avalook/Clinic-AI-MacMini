@@ -48,6 +48,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import KhachBoVeGiuaChung, KhachDaVe
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
 from clinicai.services.luot_kham_chung import CHI_DINH_CON_VIEC_GIU_LUOT_SQL
 from clinicai.services.luot_kham_rules import hien_so_do_buoi, nhan_nguon_sinh_hieu
 from clinicai.services.luot_treo import dieu_kien_luot_treo
@@ -158,10 +159,44 @@ SELECT * FROM (
                                  ELSE 'PENDING' END,
            c.started_at, c.completed_at,
            CASE c.kind WHEN 'PRIMARY' THEN 'Khám với bác sĩ'
+                       WHEN 'TU_VAN' THEN 'Tư vấn'
                        ELSE 'Đọc kết quả với bác sĩ' END,
-           d.full_name, NULL, 3
+           -- TÊN BÁC SĨ, không phải người bấm (Tuyền 29/09/2026). Cùng thứ tự
+           -- với `bac_si_phu_trach.bac_si_cua_phien`: phiên → chỗ chờ → lượt →
+           -- lịch hẹn → (đọc KQ / tư vấn) phiên khám chính; mỗi ứng viên phải
+           -- là tài khoản bác sĩ. Chưa khám → "BS X (dự kiến)".
+           CASE WHEN c.status IN ('completed', 'in_progress') THEN d.full_name
+                WHEN d.full_name IS NOT NULL
+                THEN 'BS ' || d.full_name || ' (dự kiến)' END,
+           NULL, 3
       FROM public.consultation c
-      LEFT JOIN public.staff d ON d.id = c.doctor_staff_id
+      JOIN public.visit v ON v.visit_id = c.visit_id AND v.clinic_id = c.clinic_id
+      LEFT JOIN public.appointment a
+        ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+      LEFT JOIN LATERAL (
+          SELECT s.full_name
+            FROM (VALUES
+                    (1, c.doctor_staff_id),
+                    (2, (SELECT q.doctor_staff_id FROM public.queue_entry q
+                          WHERE q.clinic_id = c.clinic_id AND q.ref_id = c.id
+                            AND q.reason <> 'SERVICE'
+                            AND q.doctor_staff_id IS NOT NULL
+                          ORDER BY q.created_at DESC LIMIT 1)),
+                    (3, v.attending_doctor_id),
+                    (4, a.doctor_id),
+                    (5, CASE WHEN c.kind IN ('REVIEW', 'TU_VAN') THEN
+                            (SELECT c1.doctor_staff_id FROM public.consultation c1
+                              WHERE c1.clinic_id = c.clinic_id
+                                AND c1.visit_id = c.visit_id AND c1.round_no = 1)
+                        END)
+                 ) AS u(thu_tu, ai)
+            JOIN public.clinic_membership m
+              ON m.clinic_id = c.clinic_id AND m.staff_id = u.ai AND m.is_active
+             AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
+            JOIN public.staff s ON s.id = u.ai
+           ORDER BY u.thu_tu
+           LIMIT 1
+      ) d ON true
      WHERE c.visit_id = $2::uuid AND c.clinic_id = $1::uuid
        AND c.status <> 'cancelled'
     UNION ALL
@@ -226,6 +261,46 @@ async def _ghep_buoc_sinh_hieu(
         return (moc is None, moc or datetime.min.replace(tzinfo=UTC), r["thu_tu"])
 
     return sorted(ra, key=khoa)
+
+
+def trang_thai_kham(
+    phien: Sequence[tuple[str, str]], *, vong_doc_mo: bool
+) -> str | None:
+    """Thuần: trạng thái KHÁM của lượt suy từ các phiên ``(loại, trạng thái)``.
+
+    Ô "Trạng thái" ở Check-out từng in "Đang khám" cho mọi lượt IN_PROGRESS —
+    cả khi khách đã khám xong, đang ngồi chờ kết quả. Thứ tự ưu tiên: đang có
+    phiên mở → phiên chờ → vòng đọc kết quả còn mở → đã xong. Không có phiên
+    nào → None (màn dùng nhãn trạng thái lượt như cũ).
+    """
+    ds = [(k, t) for k, t in phien if t != "cancelled"]
+    if not ds:
+        return None
+    for k, t in ds:
+        if t == "in_progress":
+            return {"REVIEW": "Đang đọc kết quả", "TU_VAN": "Đang tư vấn"}.get(
+                k, "Đang khám"
+            )
+    for k, t in ds:
+        if t == "queued":
+            return {"REVIEW": "Chờ đọc kết quả", "TU_VAN": "Chờ tư vấn"}.get(
+                k, "Chờ khám"
+            )
+    if vong_doc_mo:
+        return "Chờ đọc kết quả"
+    return "Đã khám xong"
+
+
+def dang_o_chu(dang_o: dict[str, Any] | None) -> str | None:
+    """Thuần: ô "Đang ở" từ hành trình khách — "nơi · việc" (vd "P.3 · Đang
+    khám"), cùng nguồn với màn Hành trình khách thay cho `current_room_id`."""
+    if not dang_o:
+        return None
+    noi = str(dang_o.get("noi") or "").strip()
+    nhan = str(dang_o.get("nhan") or "").strip()
+    if noi and nhan:
+        return f"{noi} · {nhan}"
+    return noi or nhan or None
 
 
 class CheckoutService:
@@ -402,6 +477,29 @@ class CheckoutService:
             # Việc theo dõi lượt này sinh ra — `follow_up_case.visit_id` (Slice
             # 1). Trước đó phải nối qua work_item của rail cũ, và rail mới không
             # đẻ work_item nên mục này luôn rỗng.
+            # "Đang ở" + "Trạng thái" khám — cùng nguồn màn Hành trình khách.
+            hanh_trinh = (
+                await doc_hanh_trinh_khach(
+                    conn, clinic_id=identity.clinic_id, visit_ids=[visit_id]
+                )
+            ).get(str(chung["visit_id"]))
+            phien_kham = await conn.fetch(
+                "SELECT kind, status FROM public.consultation"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                " ORDER BY round_no",
+                identity.clinic_id,
+                visit_id,
+            )
+            vong_doc_mo = bool(
+                await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM public.review_round"
+                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                    " AND status <> 'closed')",
+                    identity.clinic_id,
+                    visit_id,
+                )
+            )
+
             theo_doi = await conn.fetch(
                 """
                 SELECT f.id, f.status, f.due_at, f.reason, f.owner_role,
@@ -426,6 +524,17 @@ class CheckoutService:
                 chung["checked_in_at"].isoformat() if chung["checked_in_at"] else None
             ),
             "room_name": chung["room_name"],
+            "dang_o": dang_o_chu(hanh_trinh.get("dang_o") if hanh_trinh else None),
+            # Chỉ thay nhãn khi lượt còn mở — lượt đã chốt / khám dở giữ nhãn
+            # trạng thái lượt.
+            "trang_thai_kham": (
+                trang_thai_kham(
+                    [(str(r["kind"]), str(r["status"])) for r in phien_kham],
+                    vong_doc_mo=vong_doc_mo,
+                )
+                if chung["visit_status"] in ("OPEN", "IN_PROGRESS")
+                else None
+            ),
             "already_closed": chung["already_closed"],
             "blockers": blockers,
             "can_close": not blockers and not chung["already_closed"],

@@ -110,3 +110,9 @@ test("khách bỏ không đếm giờ; giờ lệch không ra số âm", () => {
   const khongBatDau = phutDichVu(dv("XONG", 40, 45, null, 70), bayGio(100));
   assert.deepEqual([khongBatDau.cho, khongBatDau.lam, khongBatDau.tong], [null, null, 30]);
 });
+
+test("sinh hiệu đo lại: giờ chính là lần đo đầu, đo lại ghi riêng (29/09)", () => {
+  const sh = { ...moc("SINH_HIEU", 30, 33, "xong"), do_lai: [luc(45)] };
+  assert.equal(gioMoc(sh), "08:30 → 08:33 · đo lại 08:45");
+  assert.equal(gioMoc(moc("SINH_HIEU", 30, 33, "xong")), "08:30 → 08:33");
+});

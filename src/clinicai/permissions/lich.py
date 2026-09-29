@@ -17,13 +17,17 @@ chính phòng ấy (lịch làm việc). Ngoài lịch thì chặn, kèm câu n�
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date
+from datetime import date, datetime, time
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity, doc_vi_tri_hien_hanh
+from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
+from clinicai.services.bac_si_phu_trach import (
+    bac_si_cung_phong_hom_nay as _cung_phong,
+)
 from clinicai.services.day_noi import doc_day
 
 CAU_CHAN = (
@@ -84,28 +88,6 @@ async def doi_lich_phong(
 # ai có quyền Hoàn tất khám — thư ký / điều dưỡng đã có quyền ấy từ 28/09 nên
 # thấy danh sách RỖNG. Đo prod 28/09: 12/12 người kỹ năng TKYK / Phụ BS có quyền.
 
-_BAC_SI_CUNG_PHONG_SQL = """
-WITH phong_toi AS (
-    SELECT DISTINCT v.room_id
-      FROM work_roster w
-      JOIN vi_tri_lam_viec v ON v.clinic_id = w.clinic_id AND v.code = w.station
-     WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
-       AND w.status <> 'REJECTED' AND v.room_id IS NOT NULL
-       AND w.work_date = coalesce($3::date,
-                                  (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
-)
-SELECT DISTINCT w.staff_id::text AS id
-  FROM work_roster w
-  JOIN vi_tri_lam_viec v ON v.clinic_id = w.clinic_id AND v.code = w.station
-  JOIN clinic_membership m
-    ON m.staff_id = w.staff_id AND m.clinic_id = w.clinic_id
-   AND m.is_active AND m.role = 'DOCTOR'
- WHERE w.clinic_id = $1::uuid AND w.status <> 'REJECTED'
-   AND v.room_id IN (SELECT room_id FROM phong_toi)
-   AND w.work_date = coalesce($3::date,
-                              (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
-"""
-
 
 async def bac_si_cung_phong_hom_nay(
     conn: asyncpg.Connection,
@@ -114,15 +96,19 @@ async def bac_si_cung_phong_hom_nay(
     ngay: date | None = None,
 ) -> list[str]:
     """Bác sĩ đứng CÙNG PHÒNG với người này trong lịch hôm nay (cả chính họ nếu
-    họ là bác sĩ). "Bác sĩ của phòng" dùng đúng tiêu chí hàng chờ theo phòng
-    (`LuotKhamDoc.hang_cho`): lịch hôm nay + tư cách bác sĩ.
+    họ là bác sĩ).
 
-    `ngay` (29/09/2026): xem Bàn khám một NGÀY CŨ → lịch của NGÀY ĐÓ. None =
+    29/09/2026: theo CA đang diễn ra (không chỉ ngày) và tính cả bác sĩ siêu âm
+    — một luật với "bác sĩ của phòng" ở hàng chờ; ngoài giờ ca rơi về cả ngày
+    để Bàn khám không bỗng rỗng. Luật nằm ở `bac_si_phu_trach`.
+
+    `ngay` (29/09/2026): xem Bàn khám một NGÀY CŨ → lịch CẢ NGÀY ĐÓ. None =
     hôm nay."""
-    return sorted(
-        r["id"]
-        for r in await conn.fetch(_BAC_SI_CUNG_PHONG_SQL, clinic_id, staff_id, ngay)
-    )
+    luc = None
+    if ngay is not None and ngay != now_vn().date():
+        # Cuối ngày = ngoài mọi ca → luật rơi về cả ngày của lịch hôm ấy.
+        luc = datetime.combine(ngay, time(23, 59), tzinfo=CLINIC_TZ)
+    return await _cung_phong(conn, clinic_id, staff_id, luc=luc)
 
 
 def khach_cua_toi(

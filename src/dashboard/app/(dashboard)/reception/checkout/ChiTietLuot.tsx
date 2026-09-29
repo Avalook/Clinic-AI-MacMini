@@ -70,6 +70,11 @@ export interface ChiTiet {
   visit_status: string | null;
   checked_in_at: string | null;
   room_name: string | null;
+  /** "nơi · việc" từ hành trình khách (29/09) — thay room_name. */
+  dang_o?: string | null;
+  /** Trạng thái khám suy từ phiên khám (chờ khám / đang khám / đã khám xong /
+   *  chờ đọc kết quả) — chỉ khi lượt còn mở. */
+  trang_thai_kham?: string | null;
   already_closed: boolean;
   blockers: Blocker[];
   can_close: boolean;
@@ -380,13 +385,14 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
             <Hang nhan="Bệnh nhân" giaTri={d.patient_name} />
             <Hang nhan="Mã bệnh nhân" giaTri={d.patient_code} />
             <Hang nhan="Giờ check-in" giaTri={gio(d.checked_in_at)} />
-            <Hang nhan="Đang ở" giaTri={d.room_name} />
+            <Hang nhan="Đang ở" giaTri={d.dang_o ?? d.room_name} />
             <Hang
               nhan="Trạng thái"
               giaTri={
-                d.visit_status
+                d.trang_thai_kham ??
+                (d.visit_status
                   ? (TEN_TRANG_THAI[d.visit_status] ?? d.visit_status)
-                  : null
+                  : null)
               }
             />
           </dl>

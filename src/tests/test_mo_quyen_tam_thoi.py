@@ -167,6 +167,10 @@ async def test_thu_ky_chua_phan_bac_si_van_lam_viec_duoc(
         async def fetchval(self, *a: object, **k: object) -> object:
             return ["bs-1"]
 
+        async def fetch(self, *a: object, **k: object) -> list[object]:
+            # Lịch hôm nay (29/09: phân công HỢP bác sĩ cùng phòng) — rỗng.
+            return []
+
     for cong_tac in ("1", "0"):
         monkeypatch.setenv("MO_QUYEN_TAM_THOI", cong_tac)
         tk = _danh_tinh(ClinicRole.TKYK)
