@@ -48,6 +48,7 @@ from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
 from clinicai.services.bac_si_phu_trach import (
     bac_si_cua_phien,
+    bac_si_cung_phong_hom_nay,
     bac_si_trong,
     la_bac_si_khac,
 )
@@ -1883,13 +1884,28 @@ class LuotKhamService:
                 raise LuotKhamConflictError(
                     "CONSULTATION_NOT_OPEN", "Phiên tư vấn này đã đóng."
                 )
+            # Bác sĩ tư vấn đứng tên (Tuyền 29/09): ĐD/TKYK bấm hộ KHÔNG thành
+            # bác sĩ của phiên. Người bấm là bác sĩ → chính họ; không thì bác
+            # sĩ DUY NHẤT xếp cùng phòng với người bấm hôm nay; không ai → để
+            # trống (người bấm vẫn ở `completed_by`).
+            if await bac_si_trong(conn, cid, [identity.staff_id]):
+                bs_tu_van: str | None = identity.staff_id
+            else:
+                cung = await bac_si_cung_phong_hom_nay(conn, cid, identity.staff_id)
+                bs_tu_van = cung[0] if len(cung) == 1 else None
             await conn.execute(
                 """
                 UPDATE consultation
                    SET status = 'completed', outcome = 'HANDED_OVER',
                        started_by = coalesce(started_by, $3::uuid),
                        started_at = coalesce(started_at, now()),
-                       doctor_staff_id = coalesce(doctor_staff_id, $3::uuid),
+                       doctor_staff_id = CASE
+                           WHEN doctor_staff_id IS NULL
+                             OR doctor_staff_id NOT IN (
+                                 SELECT m.staff_id FROM clinic_membership m
+                                  WHERE m.clinic_id = $1::uuid AND m.is_active
+                                    AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR'))
+                           THEN $4::uuid ELSE doctor_staff_id END,
                        completed_by = $3::uuid, completed_at = now(),
                        version = version + 1, updated_at = now()
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
@@ -1897,6 +1913,7 @@ class LuotKhamService:
                 cid,
                 con_id,
                 identity.staff_id,
+                bs_tu_van,
             )
             await conn.execute(
                 """
