@@ -12,7 +12,11 @@ Postgres thật rằng:
   2. bảng Đo sinh hiệu theo ngày cũ có lượt ấy, sửa lần đo được — lần mới nhất
      thắng, lần cũ còn trong sổ; ngày cũ không bày ô "bỏ qua tư vấn";
   3. phòng dịch vụ ngày cũ: Bắt đầu / Xong một chỉ định chưa làm được (ghi giờ
-     thật lúc bấm), phiếu kết quả lưu + Hoàn tất + Sửa lại được.
+     thật lúc bấm), phiếu kết quả lưu + Hoàn tất + Sửa lại được;
+  4. lượt khách về giữa chừng (INCOMPLETE) vẫn sửa được hết, có sổ sự kiện;
+     FINALIZED (đã ký) vẫn khoá;
+  5. công tắc `quyen_theo_lich` chỉ đòi ca cho việc của HÔM NAY;
+  6. "Khách của tôi" ở Bàn khám ngày cũ theo lịch trực CỦA NGÀY ĐÓ.
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
+    CLINIC,
     _nguoi,
     pool,
 )
@@ -209,3 +214,221 @@ async def test_sua_ket_qua_dich_vu_ngay_cu_luu_duoc(
         phieu_id,
     )
     assert du_lieu == "bản sửa ngày cũ"
+
+
+# ── 4. Khách về giữa chừng (INCOMPLETE) vẫn sửa được; đã ký vẫn khoá ────────
+#
+# Tuyền chốt 29/09/2026: "ngày cũ sửa được hết, vì ai sửa gì cũng đã có lịch
+# sử". FINALIZED (hồ sơ đã ký, TT13) giữ khoá.
+
+
+async def _ve_giua_chung(pool: asyncpg.Pool, visit_id: str) -> None:  # noqa: F811
+    """Khách về giữa chừng HÔM QUA: lượt INCOMPLETE, chỗ chờ còn mở → `left`
+    (đúng như `checkout_service` làm)."""
+    await pool.execute(
+        "UPDATE queue_entry SET status = 'left', version = version + 1"
+        " WHERE visit_id = $1::uuid"
+        "   AND status IN ('blocked', 'waiting', 'called', 'serving')",
+        visit_id,
+    )
+    await pool.execute(
+        "UPDATE visit SET status = 'INCOMPLETE', incomplete_reason = 'Khách về',"
+        " incomplete_at = now(), checked_in_at = checked_in_at - interval '1 day'"
+        " WHERE visit_id = $1::uuid",
+        visit_id,
+    )
+
+
+async def _bat_dau_kb(kb: KB) -> dict[str, Any]:  # noqa: F811
+    return await kb.svc.bat_dau(
+        order_id=kb.order_id,
+        expected_execution_revision=0,
+        expected_routing_revision=1,
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+
+
+async def test_incomplete_phong_dich_vu_lam_duoc_va_co_so_su_kien(
+    kb: KB,  # noqa: F811
+) -> None:
+    await _ve_giua_chung(kb.pool, kb.visit_id)
+    async with kb.pool.acquire() as conn:
+        ql = await _nguoi_vai(conn, "MANAGEMENT")
+    bang = BangLuotKham(kb.pool)
+    # Hàng chờ ngày cũ có dòng "khách đã về" để mở ra làm.
+    cu = await bang.hang_cho(identity=ql, room_id=kb.room_id, ngay=_hom_qua())
+    [dong] = _co(cu["hang_cho"], kb.visit_id)
+    assert dong["trang_thai"] == "left" and dong["ref_id"] == kb.order_id
+
+    mo = await _bat_dau_kb(kb)
+    kq = await kb.svc.xong(
+        order_id=kb.order_id,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert kq["execution_status"] == "COMPLETED"
+    for ten in ("service.started", "service.completed"):
+        assert await kb.pool.fetchval(
+            "SELECT count(*) FROM domain_event WHERE aggregate_id = $1::uuid"
+            " AND event_type = $2",
+            kb.order_id,
+            ten,
+        ), ten
+    trang_thai = await kb.pool.fetchval(
+        "SELECT status FROM visit WHERE visit_id = $1::uuid", kb.visit_id
+    )
+    assert trang_thai == "INCOMPLETE"
+
+
+async def test_incomplete_sinh_hieu_va_phieu_kham_sua_duoc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.phieu_kham.khung import cac_o, dinh_nghia
+    from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
+
+    lan = await _check_in(pool, qua_tu_van=False)
+    await _hanh_trinh(pool)
+    await _do_sinh_hieu(pool, lan)
+    await _ve_giua_chung(pool, lan.visit)
+    async with pool.acquire() as conn:
+        dd = await _nguoi(conn, lan.loc, "NURSE_ULTRASOUND")
+
+    # Sinh hiệu: lưu lại được, sổ sự kiện có hai lần.
+    await LuotKhamService(pool).record_vitals(
+        visit_id=lan.visit, raw={"systolic": 125, "diastolic": 80}, identity=dd
+    )
+    so_lan = await pool.fetchval(
+        "SELECT count(*) FROM event_log WHERE aggregate_id = $1::uuid"
+        " AND event_type = 'vitals.recorded'",
+        lan.visit,
+    )
+    assert so_lan == 2
+    # Bàn khám ngày cũ: dòng khám của khách đã về vẫn hiện để mở phiếu.
+    bk = await BangLuotKham(pool).hang_cho(
+        identity=lan.bac_si, room_id=None, ngay=_hom_qua()
+    )
+    assert [d["trang_thai"] for d in _co(bk["hang_cho"], lan.visit)] == ["left"]
+
+    # Phiếu khám v5: tự lưu được (lịch sử sửa phiếu có sẵn).
+    o = next(
+        ma
+        for ma, x in cac_o(dinh_nghia("PK")["khung"]).items()
+        if x["kieu"] == "doan_van"
+    )
+    r = await PhieuKhamService(pool, kiem_quyen=kiem_quyen_core).luu_luot(
+        visit_id=lan.visit,
+        form_id="PK",
+        du_lieu={o: {"gia_tri": "Ghi bù sau khi khách về", "nguon": "USER"}},
+        expected_revision=0,
+        identity=lan.bac_si,
+    )
+    assert r["revision"] == 1
+
+
+async def test_incomplete_phieu_ket_qua_sua_duoc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    async with pool.acquire() as conn:
+        bs = await _nguoi_kq(conn, "DOCTOR")
+        oid, vid = await _don_ket_qua(conn, bs)
+    await _ve_giua_chung(pool, vid)
+    svc = FormEngineService(pool)
+    phieu_id = await _phieu_v1(svc, bs, oid)
+    kq = await _sua(svc, pool, bs, phieu_id, "bản sửa khi khách đã về")
+    assert kq["la_lan_sua"] is True
+
+
+async def test_finalized_van_khoa(kb: KB) -> None:  # noqa: F811
+    from clinicai.services.luot_kham_service import LuotKhamConflictError
+
+    await kb.pool.execute(
+        "UPDATE visit SET status = 'FINALIZED', finalized_at = now(),"
+        " finalized_by = $2::uuid WHERE visit_id = $1::uuid",
+        kb.visit_id,
+        kb.bs.staff_id,
+    )
+    with pytest.raises(LuotKhamConflictError, match="đã đóng"):
+        await _bat_dau_kb(kb)
+
+
+# ── 5. Quyền theo lịch chỉ áp cho HÔM NAY ──────────────────────────────────
+
+
+async def test_quyen_theo_lich_ngay_cu_khong_doi_ca(kb: KB) -> None:  # noqa: F811
+    from clinicai.core.exceptions import SafetyGateError
+    from tests.services.test_service_execution_db import _dat_day_lich
+
+    await _dat_day_lich(kb, True)
+    try:
+        # Hôm nay, không có ca ở phòng → chặn (luật cũ giữ nguyên).
+        with pytest.raises(SafetyGateError):
+            await _bat_dau_kb(kb)
+        # Cùng chỉ định nhưng lượt check-in HÔM QUA → có lego là làm được.
+        await _lui_mot_ngay(kb.pool, kb.visit_id)
+        mo = await _bat_dau_kb(kb)
+        assert mo["attempt_no"] == 1
+    finally:
+        await _dat_day_lich(kb, False)
+
+
+# ── 6. "Khách của tôi" ngày cũ theo lịch CỦA NGÀY ĐÓ ───────────────────────
+
+
+async def _xep_hom_qua(
+    pool: asyncpg.Pool,  # noqa: F811
+    ma_vi_tri: str,
+    staff_id: str,
+) -> None:
+    await pool.execute(
+        "INSERT INTO work_roster (clinic_id, week_start, work_date, shift, station,"
+        " staff_id, staff_name, status)"
+        " SELECT $1::uuid, d - (extract(isodow FROM d)::int - 1), d, 'FULL', $2,"
+        " $3::uuid, 'Test', 'APPROVED'"
+        " FROM (SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1 AS d) x",
+        CLINIC,
+        ma_vi_tri,
+        staff_id,
+    )
+
+
+async def test_khach_cua_toi_ngay_cu_theo_lich_ngay_do(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.permissions.lich import bac_si_cung_phong_hom_nay
+
+    # Chị Lan là khách của bác sĩ B, check-in hôm qua.
+    lan = await _check_in(pool, qua_tu_van=False)
+    await _hanh_trinh(pool)
+    await _lui_mot_ngay(pool, lan.visit)
+    async with pool.acquire() as conn:
+        bs_a = await _nguoi(conn, lan.loc, "DOCTOR")
+    bang = BangLuotKham(pool)
+    hom_qua = _hom_qua()
+    # Chưa có lịch hôm qua: bác sĩ A chỉ thấy khách của chính mình.
+    truoc = await bang.hang_cho(identity=bs_a, room_id=None, ngay=hom_qua)
+    assert not _co(truoc["hang_cho"], lan.visit)
+
+    # Lịch HÔM QUA: A và B đứng cùng một phòng → A thấy khách của B hôm ấy.
+    room = await pool.fetchval(
+        "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid"
+        " ORDER BY created_at, id LIMIT 1",
+        CLINIC,
+    )
+    ma = f"T-NGAY-{uuid.uuid4().hex[:8]}"
+    await pool.execute(
+        "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, room_id)"
+        " VALUES ($1::uuid, $2, 'Vị trí test', 'BAC_SI', $3::uuid)",
+        CLINIC,
+        ma,
+        room,
+    )
+    await _xep_hom_qua(pool, ma, bs_a.staff_id)
+    await _xep_hom_qua(pool, ma, lan.bac_si.staff_id)
+    sau = await bang.hang_cho(identity=bs_a, room_id=None, ngay=hom_qua)
+    assert [d["loai"] for d in _co(sau["hang_cho"], lan.visit)] == ["KHAM"]
+    # Lịch hôm qua không lan sang hôm nay.
+    async with pool.acquire() as conn:
+        assert await bac_si_cung_phong_hom_nay(conn, CLINIC, bs_a.staff_id) == []
