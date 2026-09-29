@@ -144,6 +144,8 @@ def _moc_dich_vu(r: Any) -> list[dict[str, Any]]:
         ("Phòng gọi khách", r["goi_luc"], None),
         ("Bắt đầu làm", r["started_at"], r["nguoi_lam"]),
         (xong, r["finished_at"], r["nguoi_lam"]),
+        # Việc đối tác: nhận mẫu là XONG (Tuyền 29/09/2026); kết quả tuỳ chọn.
+        ("Đối tác nhận mẫu · xong", r.get("nhan_mau_luc"), None),
         ("Có kết quả", r["ket_qua_luc"], None),
         ("Bác sĩ duyệt kết quả", r["duyet_luc"], r["nguoi_duyet_ket_qua"]),
     ]
@@ -351,6 +353,7 @@ class XemLuotService:
             SELECT o.id::text AS id, o.service_name, o.node_code, o.exec_status,
                    o.created_at, o.authorized_at, o.assigned_at, o.started_at,
                    o.finished_at, o.ket_qua_luc, o.duyet_luc,
+                   o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                    o.not_performed_reason, o.result_note, o.cancel_reason,
                    rb.full_name AS nguoi_ghi, ab.full_name AS nguoi_duyet,
                    sb.full_name AS nguoi_xep, pb.full_name AS nguoi_lam,

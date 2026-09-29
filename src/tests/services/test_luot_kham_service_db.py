@@ -1321,7 +1321,7 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         # Đối tác nhận mẫu → "chờ tài liệu"; bấm lại không đổi mốc đầu.
         await kb.svc.doi_tac_cho_tai_lieu(order_id=mau_id, identity=doi_tac)
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
-        assert viec is not None and viec["trang_thai"] == "CHO_TAI_LIEU"
+        assert viec is not None and viec["trang_thai"] == "DA_NHAN_MAU"
         moc = viec["cho_tai_lieu_luc"]
         lai = await kb.svc.doi_tac_cho_tai_lieu(order_id=mau_id, identity=doi_tac)
         assert lai["already"] is True

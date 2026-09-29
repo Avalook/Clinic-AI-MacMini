@@ -44,3 +44,23 @@ def test_ket_thuc_phien_van_tinh_viec_doi_tac() -> None:
 
 def test_cho_tai_lieu_khong_doi_lay_mau_truoc() -> None:
     assert "SAMPLE_NOT_READY" not in inspect.getsource(doi_tac_service)
+
+
+def test_nhan_mau_la_xong() -> None:
+    """Tuyền 29/09/2026: NHẬN MẪU là XONG — trạng thái bàn đối tác + vòng đọc."""
+    from clinicai.services.doi_tac_service import (
+        VIEC_DOI_TAC_XONG,
+        trang_thai_doi_tac,
+    )
+    from clinicai.services.luot_kham_chung import CO_KET_QUA_VONG_SQL
+
+    assert (
+        trang_thai_doi_tac(exec_status="performed", cho_tai_lieu=True, co_ket_qua=False)
+        == "DA_NHAN_MAU"
+    )
+    assert VIEC_DOI_TAC_XONG == {"DA_NHAN_MAU", "DA_GUI_KET_QUA"}
+    # Mốc nhận mẫu thoả yêu cầu vòng đọc; mọi câu đọc vòng dùng chung câu này.
+    assert "doi_tac_cho_tai_lieu_luc IS NOT NULL" in CO_KET_QUA_VONG_SQL
+    nguon = inspect.getsource(luot_kham_service)
+    assert nguon.count("CO_KET_QUA_VONG_SQL") >= 4
+    assert "partner.sample_received" in inspect.getsource(doi_tac_service)

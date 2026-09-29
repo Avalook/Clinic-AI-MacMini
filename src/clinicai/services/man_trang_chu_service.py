@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
 from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
 from clinicai.services.week_appointments_service import WeekAppointmentsService
@@ -267,6 +268,7 @@ class ManTrangChuService:
                 ngay_tuan_hen,
             )
             trang_thai_kham: list[dict[str, Any]] = []
+            hanh_trinh_gon: dict[str, Any] = {}
             if identity.co_vai({ClinicRole.RECEPTION}):
                 # Join thẳng trong SQL — không còn đường lùi hai truy vấn của
                 # bản PostgREST (nó tồn tại vì select join từng lỗi; SQL tay
@@ -296,6 +298,20 @@ class ManTrangChuService:
                     _TRAN_TRANG_THAI,
                 )
                 trang_thai_kham = [_luot_kham(r) for r in rows]
+                # HÀNH TRÌNH KHÁCH dạng gọn (Tuyền chốt 29/09/2026) — thay thanh
+                # 4 mốc "Tiến trình buổi khám": đang ở / đang chờ PHÒNG nào, thanh
+                # đoạn màu. Cùng hàm với bảng Hành trình + khung đầy đủ; vẫn
+                # trong MỘT vòng gói này.
+                hanh_trinh_gon = {
+                    k: v["gon"]
+                    for k, v in (
+                        await doc_hanh_trinh_khach(
+                            conn,
+                            clinic_id=clinic_id,
+                            visit_ids=[str(r["visit_id"]) for r in rows],
+                        )
+                    ).items()
+                }
 
         # Ba service sẵn có, gọi trong tiến trình — mỗi service tự acquire kết
         # nối NGẮN từ pool (tuần tự, không giữ chồng lên nhau).
@@ -329,6 +345,7 @@ class ManTrangChuService:
             "dong_ca": [dict(r) for r in dong_ca],
             "truc_ca": [dict(r) for r in truc_ca],
             "trang_thai_kham": trang_thai_kham,
+            "hanh_trinh_gon": hanh_trinh_gon,
             "tuan_hen": tuan_hen,
             "tien_trinh": [asdict(p) for p in tien_trinh],
         }

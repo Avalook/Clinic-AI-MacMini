@@ -44,6 +44,7 @@ from clinicai.core.tran import canh_bao_neu_day
 # `clinic_today` sống ở cskh_service — cùng một "ngày làm việc" mà toàn bộ nhật
 # ký CSKH đóng dấu, nên dùng lại chứ không tự tính giờ Việt Nam lần nữa.
 from clinicai.services.cskh_service import clinic_today
+from clinicai.services.hen_tai_kham_service import chi_tiet_viec
 
 logger = structlog.get_logger()
 
@@ -112,7 +113,8 @@ class RecallJobService:
                        p.patient_code,
                        s.full_name AS nguoi_goi,
                        (n.han_goi < $2::date) AS qua_han,
-                       a.slot_start
+                       a.slot_start,
+                       n.nguon_visit_id::text AS nguon_visit_id
                   FROM public.nhac_tai_kham n
                   JOIN public.patient p
                     ON p.clinic_patient_id = n.clinic_patient_id
@@ -131,6 +133,19 @@ class RecallJobService:
         # Trần 500 việc gọi. Chạm trần là có khách cần gọi mà không ai thấy.
         bi_cat = canh_bao_neu_day("nhac_tai_kham.cho_goi", len(rows), 500)
         viec = [dict(r) for r in rows]
+        # Lượt 1 kèm ĐỦ để gọi (29/09/2026): bác sĩ chỉ định, loại khám + chẩn
+        # đoán lần trước, mục cần kiểm tra lại, ghi chú bác sĩ — đọc từ phiếu.
+        for v in viec:
+            v["chi_tiet"] = None
+        can_doc = [
+            v for v in viec if v.get("luot_goi") == 1 and v.get("nguon_visit_id")
+        ]
+        if can_doc:
+            async with self._pool.acquire() as conn:
+                for v in can_doc:
+                    v["chi_tiet"] = await chi_tiet_viec(
+                        conn, identity.clinic_id, v["nguon_visit_id"]
+                    )
         return {
             "ngay": hom_nay.isoformat(),
             "bi_cat": bi_cat,

@@ -7,9 +7,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import Timeline from "@/components/ui/Timeline";
-import { doanNoi, gioMoc, type MocMayChu } from "@/lib/hanh-trinh";
+import type { HanhTrinhGon } from "@/lib/hanh-trinh-khach";
 
+import { DongHanhTrinhGon, NutXemHanhTrinh } from "../_lam-viec/HanhTrinhKhach";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import NutCheckOut from "../_lam-viec/NutCheckOut";
 import { docBang, gioVn } from "../_lam-viec/api";
@@ -30,8 +30,9 @@ interface Luot {
   da_xong: { nhan: string; luc: string }[];
   con_cho: string[];
   da_ve: boolean;
-  /** Mốc dải thời gian — máy chủ tính cùng hàm với phiếu khám (28/09/2026). */
-  moc?: MocMayChu[];
+  /** Hành trình khách dạng gọn (29/09/2026) — máy chủ tính, cùng hàm với
+   *  trang chủ + khung đầy đủ. */
+  gon?: HanhTrinhGon | null;
 }
 
 interface Bang {
@@ -142,31 +143,16 @@ export default function BangHanhTrinh() {
                     .join(" · ")}
                 </p>
               </div>
-              <Chip tone={l.da_ve ? "neutral" : "brand"}>{l.dang_o}</Chip>
+              {/* Có dòng gọn thì câu "đang ở" nằm ở đó — không nói hai lần. */}
+              {l.gon ? null : <Chip tone={l.da_ve ? "neutral" : "brand"}>{l.dang_o}</Chip>}
             </div>
-            {/* DẢI THỜI GIAN Y HỆT BÀN KHÁM (Tuyền 28/09/2026: "hành trình cũng
-                học theo timeline ở bàn khám"): mốc đã xong / đang / chưa tới, và
-                khoảng chờ giữa hai chặng nằm trên đoạn nối. Máy chủ cũ chưa có
-                `moc` thì lùi về hai cột Đã xong / Còn chờ như trước. */}
-            {l.moc && l.moc.length > 0 ? (
+            {/* HÀNH TRÌNH KHÁCH dạng gọn (Tuyền chốt 29/09/2026): đang ở / đang
+                chờ PHÒNG nào, thanh đoạn màu, x/y dịch vụ xong — cùng component
+                với trang chủ; [Xem kỹ] mở khung đầy đủ. Máy chủ cũ chưa có
+                `gon` thì lùi về hai cột Đã xong / Còn chờ như trước. */}
+            {l.gon ? (
               <div className="mt-3">
-                <Timeline
-                  nhanAria={`Hành trình của ${l.ten}`}
-                  moc={l.moc.map((m) => ({
-                    khoa: m.ma,
-                    ten: m.ten,
-                    noi: m.noi || undefined,
-                    gio: gioMoc(m),
-                    trangThai: m.trang_thai,
-                  }))}
-                  doan={doanNoi(l.moc, bayGio)}
-                />
-                {l.con_cho.length > 0 ? (
-                  <p className="mt-2 text-meta text-ink-muted">
-                    <span className="font-semibold text-ink-soft">Còn chờ:</span>{" "}
-                    {l.con_cho.join(" · ")}
-                  </p>
-                ) : null}
+                <DongHanhTrinhGon gon={l.gon} bayGio={bayGio} />
               </div>
             ) : (
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -202,8 +188,9 @@ export default function BangHanhTrinh() {
                 </div>
               </div>
             )}
-            <div className="mt-1 flex flex-wrap items-start gap-2">
-              <NutXemLuot visitId={l.visit_id} />
+            <div className="mt-2 flex flex-wrap items-start gap-2">
+              <NutXemHanhTrinh visitId={l.visit_id} ten={l.ten} nhan="Xem kỹ hành trình ›" />
+              <NutXemLuot visitId={l.visit_id} nhan="Xem lượt" />
               {/* Check-out ngay trên dòng khách (27/09/2026, đợt 3): chỉ tài
                   khoản có quyền đóng lượt thấy; máy chủ quyết, xong thì nạp
                   lại để mốc "đã về" đổi ngay. */}

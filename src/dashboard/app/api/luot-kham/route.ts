@@ -104,6 +104,12 @@ function duongDoc(url: URL): string | null {
   }
   // Bảng hành trình chung (nhóm 3, 24/09/2026).
   if (xem === "hanh-trinh") return "/api/v1/hanh-trinh/hom-nay";
+  // Khung đầy đủ Hành trình khách của một lượt (29/09/2026) — mọi thành viên
+  // nội bộ, máy chủ quyết.
+  if (xem === "hanh-trinh-khach") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/hanh-trinh-khach` : null;
+  }
   // Gợi ý phòng theo luật (Slice 4) — chỉ đọc, không đổi gì.
   if (xem === "goi-y-phong") {
     const cd = url.searchParams.get("chi_dinh") ?? "";

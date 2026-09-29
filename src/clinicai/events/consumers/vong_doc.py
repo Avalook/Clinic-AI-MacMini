@@ -9,6 +9,7 @@ lượt không bao giờ tự khép khi dịch vụ cuối làm xong sau khi bá
 Nay mọi lối chỉ việc PHÁT sự kiện (vốn đã phát); khối này nghe và làm một việc:
 
     service.completed / service.not_performed / partner.sample_collected
+    partner.sample_received (đối tác nhận mẫu = việc đối tác XONG, 29/09/2026)
     result.ready / result.corrected
     result_file.uploaded / result_file.confirmed / result_file.revoked
         → chạy lại vòng đọc (mở / rút chỗ chờ REVIEW của bác sĩ chính)

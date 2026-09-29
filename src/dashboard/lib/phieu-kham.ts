@@ -127,12 +127,12 @@ export interface ChiDinhVaKetQua {
   doi_tac?: TrangThaiDoiTac | null;
 }
 
-export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
 
 export const NHAN_DOI_TAC: Record<TrangThaiDoiTac, string> = {
   CHO_LAY_MAU: "Đối tác · chờ lấy mẫu",
   DA_LAY_MAU: "Đối tác · đã lấy mẫu",
-  CHO_TAI_LIEU: "Đối tác · chờ tài liệu",
+  DA_NHAN_MAU: "Đối tác · đã nhận mẫu · xong",
   DA_GUI_KET_QUA: "Đối tác · đã gửi kết quả",
 };
 

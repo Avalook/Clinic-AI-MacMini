@@ -1,3 +1,5 @@
+"use client";
+
 // Bảng "Trạng thái BN buổi khám" — READ-ONLY cho Lễ tân (front desk).
 // List BN có buổi khám (visit) TẠO HÔM NAY, cột trạng thái theo visit.status
 // (OPEN / IN_PROGRESS / INCOMPLETE / FINALIZED / AMENDED).
@@ -5,7 +7,21 @@
 // (RLS SELECT visit_select_authenticated). Badge riêng cho visit — KHÔNG dùng StatusBadge
 // (badge đó dành cho appointment.status, màu khác).
 
-import { ProgressStepper, WaitClock } from "./VisitProgress";
+// 29/09/2026 (Tuyền chốt): cột 2 là HÀNH TRÌNH KHÁCH dạng gọn — "Đang ở / Đang
+// chờ / Đã về" + tên phòng thật + thanh đoạn màu (máy chủ quyết, cùng hàm với
+// màn Hành trình). Bấm dòng → khung đầy đủ trong popup. Thay thanh 4 mốc cũ.
+
+import { useState } from "react";
+
+import Button from "@/components/ui/Button";
+import type { HanhTrinhGon } from "@/lib/hanh-trinh-khach";
+
+import {
+  DongHanhTrinhGon,
+  PopupHanhTrinhKhach,
+  useBayGio,
+} from "../_lam-viec/HanhTrinhKhach";
+import { WaitClock } from "./VisitProgress";
 
 // Trạng thái HIỂN THỊ suy từ visit.status + appointment.status. "Khám xong" đọc từ
 // appointment.COMPLETED (dashboard KHÔNG tự set visit.FINALIZED) — nếu chỉ nhìn
@@ -86,6 +102,8 @@ export interface VisitStatusRow {
   closed_at?: string | null;
   /** Mốc khám xong thật (`visit.exam_completed_at`). */
   kham_xong_luc?: string | null;
+  /** Hành trình khách dạng gọn (máy chủ, 29/09/2026). */
+  hanh_trinh?: HanhTrinhGon | null;
 }
 
 /** Thời lượng khám (phút) = khám xong − bắt đầu khám. null nếu thiếu mốc. */
@@ -106,20 +124,26 @@ const TH = "px-4 pb-2 pt-3 text-left font-semibold text-ink-soft";
 const TD = "px-4 py-4 align-middle text-ink";
 
 export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
+  const bayGio = useBayGio();
+  const [mo, setMo] = useState<{ id: string; ten: string | null } | null>(null);
   return (
+    <>
     <div className="overflow-auto rounded-card border border-line bg-surface shadow-card">
-      <table className="w-full min-w-max border-collapse text-sm">
+      <table className="w-full border-collapse text-sm sm:min-w-max">
         <thead>
           <tr>
-            {/* Ô đầu: thông tin BN gộp. Còn lại: thanh tiến trình 4 mốc. */}
+            {/* Ô đầu: thông tin BN gộp. Còn lại: hành trình khách dạng gọn. */}
             <th className={`${TH} min-w-60`}>Bệnh nhân</th>
-            <th className={`${TH} min-w-85`}>Tiến trình buổi khám</th>
+            <th className={`${TH} hidden min-w-85 sm:table-cell`}>Hành trình khách</th>
+            <th className={`${TH} hidden sm:table-cell`}>
+              <span className="sr-only">Xem hành trình</span>
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td className="px-4 py-6 text-center text-ink-muted" colSpan={2}>
+              <td className="px-4 py-6 text-center text-ink-muted" colSpan={3}>
                 Chưa có buổi khám nào hôm nay.
               </td>
             </tr>
@@ -130,7 +154,11 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
               const disp = displayStatus(r.status, apptStatus, paid, Boolean(r.exam_started_at));
               const examMin = examMinutes(r.checked_in_at, r.finalized_at);
               return (
-                <tr key={r.visit_id} className="hover:bg-surface-muted">
+                <tr
+                  key={r.visit_id}
+                  className="cursor-pointer hover:bg-surface-muted"
+                  onClick={() => setMo({ id: r.visit_id, ten: r.patient?.full_name ?? null })}
+                >
                   {/* Ô 1 — thông tin gộp: tên BN + mã · bác sĩ · dịch vụ · trạng thái
                       (live badge) + đồng hồ chờ (đếm liên tục từ check-in). */}
                   <td className={TD}>
@@ -166,23 +194,36 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                           </span>
                         )}
                       </div>
+                      {/* Màn hẹp (375): hành trình nằm ngay dưới tên khách —
+                          cột riêng ẩn đi, bấm dòng mở khung đầy đủ. */}
+                      {r.hanh_trinh ? (
+                        <div className="pt-2 sm:hidden">
+                          <DongHanhTrinhGon gon={r.hanh_trinh} bayGio={bayGio} />
+                        </div>
+                      ) : null}
                     </div>
                   </td>
-                  {/* Ô 2 — thanh tiến trình (Check-in → Đang khám → Khám xong
-                      → Đã thanh toán), có giờ dưới mỗi mốc. */}
-                  <td className={TD}>
-                    <ProgressStepper
-                      visitStatus={r.status}
-                      apptStatus={apptStatus}
-                      paid={paid}
-                      daVe={Boolean(r.closed_at)}
-                      times={{
-                        checkedInAt: r.checked_in_at,
-                        examStartedAt: r.exam_started_at ?? null,
-                        examFinishedAt: r.kham_xong_luc ?? r.finalized_at ?? null,
-                        paidAt: r.paid_at ?? null,
+                  {/* Ô 2 — hành trình khách dạng gọn (máy chủ quyết). Đã
+                      Check-out = xong buổi: thanh tick hết. */}
+                  <td className={`${TD} hidden sm:table-cell`}>
+                    {r.hanh_trinh ? (
+                      <DongHanhTrinhGon gon={r.hanh_trinh} bayGio={bayGio} />
+                    ) : (
+                      <span className="text-meta text-ink-faint">—</span>
+                    )}
+                  </td>
+                  {/* Màn hẹp: bấm cả dòng là mở — bỏ cột nút cho đỡ cuộn ngang. */}
+                  <td className={`${TD} hidden text-right sm:table-cell`}>
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMo({ id: r.visit_id, ten: r.patient?.full_name ?? null });
                       }}
-                    />
+                    >
+                      Xem hành trình ›
+                    </Button>
                   </td>
                 </tr>
               );
@@ -191,5 +232,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
         </tbody>
       </table>
     </div>
+    {mo ? <PopupHanhTrinhKhach visitId={mo.id} ten={mo.ten} onDong={() => setMo(null)} /> : null}
+    </>
   );
 }

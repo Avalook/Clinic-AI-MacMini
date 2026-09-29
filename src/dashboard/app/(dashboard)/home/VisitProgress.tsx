@@ -1,14 +1,12 @@
 "use client";
 
 // Trình bày THUẦN (đọc data đã có) cho board "Trạng thái BN buổi khám" của Lễ tân:
-//   - ProgressStepper: thanh tiến trình ngang map visit.status qua các mốc.
+//   - reachedCount: số mốc đã đạt (giữ cho test ranh giới; thanh 4 mốc
+//     ProgressStepper đã thay bằng Hành trình khách dạng gọn 29/09/2026).
 //   - WaitClock: chip đếm thời gian chờ kể từ check-in, ĐỔI MÀU theo ngưỡng.
 // KHÔNG ghi DB, KHÔNG đụng enum/visit.status — chỉ render từ props.
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
-
-import { VN_TZ } from "../../../lib/datetime";
 import { chipClass } from "@/components/ui/Chip";
 
 // ── Ngưỡng đổi màu đồng hồ chờ (PHÚT kể từ check-in) — cấu hình DUY NHẤT ở đây ──
@@ -31,21 +29,6 @@ const WAIT_YELLOW_MAX = 20; // 10–20p → vàng;  > 20p → đỏ
 //   • Đã thanh toán  → bảng payment: khi mọi khâu PHẢI thu (dịch vụ + thuốc nếu có
 //     đơn) đã có dòng PAID → `paid=true` → tích xanh. Chưa thu xong thì hiện "đang
 //     tới" (nhấn pulse) chờ thu ngân.
-const MILESTONES: { key: string; label: string }[] = [
-  { key: "check_in", label: "Check-in" },
-  { key: "dang_kham", label: "Đang khám" },
-  { key: "kham_xong", label: "Khám xong" },
-  { key: "thanh_toan", label: "Đã thanh toán" },
-];
-
-/** Giờ BẮT ĐẦU của từng mốc, cùng thứ tự với MILESTONES. `null` = chưa tới. */
-export interface MilestoneTimes {
-  checkedInAt: string | null;
-  examStartedAt: string | null;
-  examFinishedAt: string | null;
-  paidAt: string | null;
-}
-
 // Số mốc đã đạt (tích xanh). Chưa check-in=0, đã check-in=1, đang khám=2,
 // khám xong=3, đã thanh toán=4 (paid từ bảng payment — thu ngân chốt đủ khâu).
 export function reachedCount(
@@ -76,114 +59,6 @@ export function reachedCount(
   // khám chỉ mở khi check-in. Cờ này để một dòng THIẾU mốc check-in không lặng
   // lẽ tích xanh mốc đó.
   return checkedIn ? 1 : 0;
-}
-
-/** "2026-08-06T09:14:00+07:00" → "09:14". Chuỗi rỗng khi chưa tới mốc. */
-function gio(iso: string | null): string {
-  if (!iso) return "";
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  return new Date(t).toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: VN_TZ,
-  });
-}
-
-export function ProgressStepper({
-  visitStatus,
-  apptStatus,
-  paid = false,
-  daVe = false,
-  times,
-}: {
-  visitStatus: string;
-  apptStatus: string | null;
-  paid?: boolean;
-  /** Lễ tân đã Check-out — khách xong buổi (Tuyền 29/09/2026: "ấn checkout là
-   *  phải xong"): tick hết 4 mốc. Việc còn chờ (kết quả đối tác…) xem ở Quản lý
-   *  khách hàng / Danh sách bệnh nhân, không giữ thanh này dở. */
-  daVe?: boolean;
-  /** Giờ từng mốc — vắng thì thanh vẫn chạy, chỉ không có dòng giờ. */
-  times?: MilestoneTimes;
-}) {
-  const reached = daVe ? MILESTONES.length : reachedCount(
-    visitStatus,
-    apptStatus,
-    paid,
-    times ? times.checkedInAt !== null : true,
-    times ? times.examStartedAt !== null : undefined,
-  );
-  const moc = [
-    times?.checkedInAt ?? null,
-    times?.examStartedAt ?? null,
-    times?.examFinishedAt ?? null,
-    times?.paidAt ?? null,
-  ];
-
-  return (
-    <div className="flex items-start">
-      {MILESTONES.map((m, i) => {
-        let state: "done" | "current" | "upcoming";
-        if (i < reached) state = "done";
-        else if (i === reached) state = "current";
-        else state = "upcoming";
-
-        // Node tròn kiểu Grab: done = xanh đặc + ✓; current = viền nhấn (pulse);
-        // upcoming = viền nhạt.
-        const node =
-          state === "done"
-            ? "bg-success border-success text-white"
-            : state === "current"
-              ? "bg-white border-brand-600 ring-4 ring-brand-600/15 animate-pulse motion-reduce:animate-none"
-              : "bg-white border-line";
-        const txt =
-          state === "done"
-            ? "text-success font-medium"
-            : state === "current"
-              ? "text-brand-600 font-semibold"
-              : "text-ink-faint";
-
-        return (
-          <div key={m.key} className="flex flex-1 items-start">
-            <div
-              className="flex w-full min-w-0 flex-col items-center gap-1"
-              title={m.label}
-            >
-              <div className="flex w-full items-center">
-                {/* nửa đoạn nối TRÁI (ẩn ở mốc đầu) — xanh khi mốc trước đã done */}
-                <span
-                  className={`h-0.5 flex-1 ${i === 0 ? "opacity-0" : i <= reached ? "bg-success" : "bg-line"}`}
-                />
-                <span
-                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${node}`}
-                >
-                  {state === "done" ? (
-                    <Check size={13} strokeWidth={3} />
-                  ) : state === "current" ? (
-                    <span className="h-2 w-2 rounded-full bg-brand-600" />
-                  ) : null}
-                </span>
-                {/* nửa đoạn nối PHẢI (ẩn ở mốc cuối) — xanh khi mốc này đã done */}
-                <span
-                  className={`h-0.5 flex-1 ${i === MILESTONES.length - 1 ? "opacity-0" : i < reached ? "bg-success" : "bg-line"}`}
-                />
-              </div>
-              <span className={`whitespace-nowrap text-label leading-none ${txt}`}>
-                {m.label}
-              </span>
-              {/* GIỜ BẮT ĐẦU của mốc, ngay dưới nút. Dòng này luôn chiếm chỗ dù
-                  chưa có giờ — bỏ hẳn thì các nhãn mốc sẽ so le nhau khi giờ
-                  lần lượt xuất hiện. */}
-              <span className="h-3 whitespace-nowrap text-label leading-none text-ink-faint tabular-nums">
-                {gio(moc[i])}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 export function WaitClock({

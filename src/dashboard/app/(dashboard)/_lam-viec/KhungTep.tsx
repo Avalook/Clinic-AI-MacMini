@@ -51,11 +51,11 @@ const duongXem = duongXemTep;
 const MIME_DOCX =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-/** XEM WORD NGAY TRONG MÀN: đổi DOCX → HTML ngay trên trình duyệt (mammoth),
+/** XEM WORD NGAY TRONG MÀN (dùng chung: khung tệp phòng dịch vụ, bàn Đối tác): đổi DOCX → HTML ngay trên trình duyệt (mammoth),
  *  hiện trong khung CÁCH LY (`sandbox` rỗng: không chạy mã, không đi đâu). Không
  *  thêm dịch vụ chuyển đổi nào trên máy chủ. Excel chưa xem trực tiếp được — mở
  *  bằng máy. */
-function XemTaiLieu({ tep }: { tep: Tep }) {
+export function XemTaiLieu({ tep }: { tep: Pick<Tep, "id" | "mime" | "ten_hien_thi"> }) {
   const [html, setHtml] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const laWord = tep.mime === MIME_DOCX;
