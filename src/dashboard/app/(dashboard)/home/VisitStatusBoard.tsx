@@ -82,6 +82,10 @@ export interface VisitStatusRow {
   exam_started_at?: string | null;
   /** Lúc thu xong khâu cuối — mốc "Đã thanh toán". Cùng nguồn với trên. */
   paid_at?: string | null;
+  /** Lễ tân đã Check-out (máy chủ) — khách xong buổi: tick hết, dừng đồng hồ. */
+  closed_at?: string | null;
+  /** Mốc khám xong thật (`visit.exam_completed_at`). */
+  kham_xong_luc?: string | null;
 }
 
 /** Thời lượng khám (phút) = khám xong − bắt đầu khám. null nếu thiếu mốc. */
@@ -151,7 +155,7 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                         <VisitBadge label={disp.label} style={disp.style} />
                         <WaitClock
                           checkedInAt={r.checked_in_at}
-                          active={stillWaiting(r.status, apptStatus)}
+                          active={!r.closed_at && stillWaiting(r.status, apptStatus)}
                         />
                         {examMin !== null && (
                           <span
@@ -171,10 +175,11 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                       visitStatus={r.status}
                       apptStatus={apptStatus}
                       paid={paid}
+                      daVe={Boolean(r.closed_at)}
                       times={{
                         checkedInAt: r.checked_in_at,
                         examStartedAt: r.exam_started_at ?? null,
-                        examFinishedAt: r.finalized_at ?? null,
+                        examFinishedAt: r.kham_xong_luc ?? r.finalized_at ?? null,
                         paidAt: r.paid_at ?? null,
                       }}
                     />

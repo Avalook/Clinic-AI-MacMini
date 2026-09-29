@@ -73,6 +73,10 @@ interface VisitProgressRow {
   /** Giờ hai mốc giữa của thanh tiến trình (không có trên bảng `visit`). */
   exam_started_at?: string | null;
   paid_at?: string | null;
+  /** Lễ tân đã Check-out — khách xong buổi (29/09/2026). */
+  closed_at?: string | null;
+  /** Mốc khám xong thật (`visit.exam_completed_at`). */
+  kham_xong_luc?: string | null;
 }
 
 /** Toàn bộ dữ liệu Trang chủ, một lượt — hình do man_trang_chu_service quyết. */
@@ -487,6 +491,8 @@ async function KhoiDuLieu({
       // `visit`, nên lấy từ chính khối tiến trình của gói.
       v.exam_started_at = p?.exam_started_at ?? null;
       v.paid_at = p?.paid_at ?? null;
+      v.closed_at = p?.closed_at ?? null;
+      v.kham_xong_luc = p?.kham_xong_luc ?? null;
     }
   }
 

@@ -94,15 +94,20 @@ export function ProgressStepper({
   visitStatus,
   apptStatus,
   paid = false,
+  daVe = false,
   times,
 }: {
   visitStatus: string;
   apptStatus: string | null;
   paid?: boolean;
+  /** Lễ tân đã Check-out — khách xong buổi (Tuyền 29/09/2026: "ấn checkout là
+   *  phải xong"): tick hết 4 mốc. Việc còn chờ (kết quả đối tác…) xem ở Quản lý
+   *  khách hàng / Danh sách bệnh nhân, không giữ thanh này dở. */
+  daVe?: boolean;
   /** Giờ từng mốc — vắng thì thanh vẫn chạy, chỉ không có dòng giờ. */
   times?: MilestoneTimes;
 }) {
-  const reached = reachedCount(
+  const reached = daVe ? MILESTONES.length : reachedCount(
     visitStatus,
     apptStatus,
     paid,
