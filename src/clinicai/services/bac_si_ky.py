@@ -105,24 +105,26 @@ def sql_join_bac_si_ky_luot(v: str = "v", ten: str = "bsky") -> str:
     )
 
 
-_BAC_SI_CHI_DINH_SQL = (
-    "SELECT b.id::text AS id, b.full_name FROM public.service_order o "
-    + sql_join_bac_si_chi_dinh("o", "b")
-    + " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid AND b.id IS NOT NULL"
-)
+_BAC_SI_CHI_DINH_SQL = f"""
+SELECT b.id::text AS id, b.full_name
+  FROM public.service_order o
+  {sql_join_bac_si_chi_dinh("o", "b")}
+ WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid AND b.id IS NOT NULL
+"""
 
 # Bác sĩ của lượt (không tính người chỉ định) — bậc 3 của `bac_si_ky_in`: bác sĩ
 # chính của lượt → bác sĩ lịch hẹn → rồi mới tới bác sĩ đã chỉ định.
 _luot, _lich = _bac_si_luot_cua_chi_dinh("o")
-_BAC_SI_LUOT_ROI_CHI_DINH_SQL = (
-    "SELECT b.id::text AS id, b.full_name FROM public.service_order o"
-    " LEFT JOIN LATERAL ("
-    + sql_bac_si_dau_tien(
+_BAC_SI_LUOT_ROI_CHI_DINH_SQL = f"""
+SELECT b.id::text AS id, b.full_name
+  FROM public.service_order o
+  LEFT JOIN LATERAL ({
+    sql_bac_si_dau_tien(
         [_luot, _lich, "o.authorized_by", "o.recorded_by"], "o.clinic_id"
     )
-    + ") b ON true"
-    " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid AND b.id IS NOT NULL"
-)
+}) b ON true
+ WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid AND b.id IS NOT NULL
+"""
 
 # Bác sĩ đứng PHÒNG của chỉ định theo lịch NGÀY `$4` (không phải hôm nay).
 _BAC_SI_DUNG_PHONG_NGAY_SQL = f"""
