@@ -52,10 +52,8 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
-from clinicai.services.bac_si_phu_trach import (
-    bac_si_thuc_hien_mac_dinh,
-    bac_si_trong,
-)
+from clinicai.services.bac_si_ky import bac_si_chi_dinh_hien_thi, bac_si_ky_in
+from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
 
 QUYEN_DIEN = "result.form.fill"
 MIME_DICOM = "application/dicom"
@@ -302,7 +300,6 @@ class FormEngineService:
                 "       p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
                 "       p.gender, p.phone_primary, p.address,"
                 "       p.address_detail, p.ward_name, p.province_name,"
-                "       bs.full_name AS bac_si_chi_dinh,"
                 # Đầu trang HAI BÊN (27/09/2026 — bản mẫu): cơ sở của LƯỢT +
                 # địa chỉ; mã dịch vụ (mã phòng khám), số booking / check-in.
                 "       lv.name AS co_so, lv.address AS dia_chi_co_so,"
@@ -323,7 +320,6 @@ class FormEngineService:
                 "        WHERE s.clinic_id = o.clinic_id"
                 "          AND s.service_code = o.service_code"
                 "        ORDER BY s.active DESC LIMIT 1) sp ON true"
-                "  LEFT JOIN staff bs ON bs.id = o.recorded_by"
                 " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
                 cid,
                 service_order_id,
@@ -333,7 +329,9 @@ class FormEngineService:
             # Giờ làm + người làm: LẦN LÀM gần nhất (làm lại sau khi dừng thì
             # lần mới là lần có kết quả).
             lan = await conn.fetchrow(
-                "SELECT a.started_at, a.completed_at, s.full_name AS nguoi_lam"
+                "SELECT a.started_at, a.completed_at, s.full_name AS nguoi_lam,"
+                "       a.completed_by::text AS completed_by,"
+                "       a.started_by::text AS started_by"
                 "  FROM service_execution_attempt a"
                 "  LEFT JOIN staff s ON s.id = coalesce(a.completed_by, a.started_by)"
                 " WHERE a.clinic_id = $1::uuid AND a.service_order_id = $2::uuid"
@@ -368,24 +366,25 @@ class FormEngineService:
             phieu = []
             for r in chon_phieu_de_in(rows):
                 khung = await self._khung(conn, cid, r["form_id"], r["version"])
-                # Phiếu cũ đứng tên điều dưỡng/thư ký (hoàn tất trước khi có luật
-                # bác sĩ ký, hoặc phòng không có đúng một bác sĩ) → lúc in tính
-                # lại bác sĩ đứng tên; không ghi đè dữ liệu (29/09/2026).
-                ten_ky = r["thuc_hien_ten"]
-                if not (
-                    r["thuc_hien_boi"]
-                    and await bac_si_trong(conn, cid, [str(r["thuc_hien_boi"])])
-                ):
-                    ma_bs = await bac_si_thuc_hien_mac_dinh(
-                        conn,
-                        clinic_id=cid,
-                        service_order_id=service_order_id,
-                        nguoi_bam=str(r["thuc_hien_boi"] or r["hoan_tat_boi"] or ""),
-                    )
-                    if ma_bs and await bac_si_trong(conn, cid, [ma_bs]):
-                        ten_ky = await conn.fetchval(
-                            "SELECT full_name FROM staff WHERE id = $1::uuid", ma_bs
-                        )
+                # Chỗ ký "Bác sĩ thực hiện" LUÔN là bác sĩ (Tuyền 29/09/2026):
+                # người thực hiện / người bấm là bác sĩ → họ; không thì bác sĩ
+                # đứng phòng theo lịch LÚC HOÀN TẤT (không phải lúc in) → bác sĩ
+                # của lượt → bác sĩ chỉ định. Không ai → để trống. Không ghi đè
+                # dữ liệu; người bấm vẫn ở `hoan_tat_boi` (lịch sử).
+                ky = await bac_si_ky_in(
+                    conn,
+                    clinic_id=cid,
+                    service_order_id=service_order_id,
+                    nguoi_bam=(r["thuc_hien_boi"], r["hoan_tat_boi"]),
+                    luc=(
+                        r["hoan_tat_luc"]
+                        or (lan["completed_at"] if lan else None)
+                        or (lan["started_at"] if lan else None)
+                        or r["sua_luc"]
+                        or r["tao_luc"]
+                    ),
+                )
+                ten_ky = ky.ten if ky else None
                 phieu.append(
                     {
                         "form_id": r["form_id"],
@@ -413,6 +412,23 @@ class FormEngineService:
                 cid,
                 service_order_id,
             )
+            # Chỉ định CHỈ CÓ ẢNH (không phiếu): "Người thực hiện" cũng là BÁC SĨ
+            # — người làm / người tải là điều dưỡng thì lấy bác sĩ đứng phòng lúc
+            # làm, rồi bác sĩ của lượt. Không lùi về tên người làm.
+            ky_chung = await bac_si_ky_in(
+                conn,
+                clinic_id=cid,
+                service_order_id=service_order_id,
+                nguoi_bam=((lan["completed_by"], lan["started_by"]) if lan else ()),
+                luc=((lan["completed_at"] or lan["started_at"]) if lan else None)
+                or await conn.fetchval(
+                    "SELECT min(tai_len_luc) FROM tep_ket_qua"
+                    " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+                    cid,
+                    service_order_id,
+                ),
+            )
+            bs_chi_dinh = await bac_si_chi_dinh_hien_thi(conn, cid, service_order_id)
         return {
             "anh": [
                 {"id": t["id"], "ten": t["ten_hien_thi"]}
@@ -467,7 +483,11 @@ class FormEngineService:
                 "dia_chi": dia_chi_benh_nhan(dict(dau)),
             },
             "dich_vu": dau["service_name"],
-            "bac_si_chi_dinh": dau["bac_si_chi_dinh"],
+            # "BS chỉ định" chỉ in BÁC SĨ — điều dưỡng/thư ký chỉ định hộ thì
+            # lấy bác sĩ của lượt (Tuyền 29/09/2026).
+            "bac_si_chi_dinh": bs_chi_dinh.ten if bs_chi_dinh else None,
+            # Chữ ký chung của chỉ định (chỉ có ảnh, không phiếu) — bác sĩ.
+            "bac_si_thuc_hien": ky_chung.ten if ky_chung else None,
             "phieu": phieu,
         }
 

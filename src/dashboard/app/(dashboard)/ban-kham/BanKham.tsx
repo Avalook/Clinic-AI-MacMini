@@ -1097,6 +1097,7 @@ function HoSo({
         {dong.da_ky ? (
           <p className="mt-2 text-xs font-medium text-ink-soft">
             Hồ sơ đã hoàn tất{dong.nguoi_ky ? ` · ${dong.nguoi_ky}` : ""}
+            {dong.nguoi_bam_ky ? ` · ${dong.nguoi_bam_ky} bấm` : ""}
             {dong.ky_luc ? ` · ${gioVn(dong.ky_luc)}` : ""} — phiếu chỉ xem.
           </p>
         ) : null}

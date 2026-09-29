@@ -37,6 +37,7 @@ from clinicai.permissions.can import quyen_hieu_luc
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, doc_duoc_in_phieu
 from clinicai.phieu_kham.mang_sang import doc_chan_doan
 from clinicai.services.audit_labels import action_label
+from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
 from clinicai.services.luot_kham_rules import (
     doi_phong_duoc,
     hien_so_do_buoi,
@@ -220,7 +221,11 @@ class XemLuotService:
                        v.closed_at, v.exam_completed_at, v.finalized_at,
                        v.clinic_patient_id::text AS patient_id,
                        v.appointment_id::text AS appointment_id,
-                       fb.full_name AS nguoi_ky,
+                       -- "Người ký" = BÁC SĨ (Tuyền 29/09/2026); người bấm chỉ
+                       -- hiện nhỏ khi không phải chính bác sĩ ấy.
+                       bsky.full_name AS nguoi_ky,
+                       CASE WHEN fb.id IS DISTINCT FROM bsky.id
+                            THEN fb.full_name END AS nguoi_bam_ky,
                        p.full_name, p.patient_code,
                        st.name AS dich_vu_kham, st.form_code,
                        d.full_name AS bac_si,
@@ -234,6 +239,9 @@ class XemLuotService:
                   LEFT JOIN service_type st ON st.id = v.service_type_id
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN staff fb ON fb.id = v.finalized_by
+                """
+                + sql_join_bac_si_ky_luot("v", "bsky")
+                + """
                   LEFT JOIN node_definition n
                     ON n.clinic_id = v.clinic_id AND n.code = v.current_node_code
                   LEFT JOIN clinic_room r
@@ -631,6 +639,7 @@ class XemLuotService:
                 "trang_thai": v["status"],
                 "luc": _iso(v["finalized_at"]),
                 "nguoi_ky": v["nguoi_ky"],
+                "nguoi_bam_ky": v["nguoi_bam_ky"],
             },
             "phien": [
                 {

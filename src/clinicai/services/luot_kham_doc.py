@@ -26,6 +26,7 @@ from clinicai.permissions.doc_bang import (
 from clinicai.permissions.lich import bac_si_cung_phong_hom_nay, khach_cua_toi
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
 from clinicai.services import luot_kham_rules as rules
+from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
@@ -771,7 +772,11 @@ class BangLuotKham:
                        o.result_note, o.ket_qua_luc, o.duyet_luc,
                        o.not_performed_reason, pf.full_name AS nguoi_lam,
                        v.status AS visit_status, v.finalized_at,
-                       fb.full_name AS nguoi_ky,
+                       -- "Người ký" = BÁC SĨ (Tuyền 29/09/2026); người bấm chỉ
+                       -- hiện nhỏ khi không phải chính bác sĩ ấy.
+                       bsky.full_name AS nguoi_ky,
+                       CASE WHEN fb.id IS DISTINCT FROM bsky.id
+                            THEN fb.full_name END AS nguoi_bam_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
                        r.name AS phong
                   FROM queue_entry q
@@ -792,6 +797,9 @@ class BangLuotKham:
                   LEFT JOIN clinic_room r ON r.id = q.room_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                   LEFT JOIN staff fb ON fb.id = v.finalized_by
+                """
+                + sql_join_bac_si_ky_luot("v", "bsky")
+                + """
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
@@ -935,6 +943,7 @@ class BangLuotKham:
                 "da_ky": r["visit_status"] in ("FINALIZED", "AMENDED"),
                 "ky_luc": _iso(r["finalized_at"]),
                 "nguoi_ky": r["nguoi_ky"],
+                "nguoi_bam_ky": r["nguoi_bam_ky"],
                 "nguoi_lam": r["nguoi_lam"],
                 # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
                 "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,

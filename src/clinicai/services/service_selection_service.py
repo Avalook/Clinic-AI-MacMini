@@ -27,6 +27,7 @@ from clinicai.events.catalogue import KhachDaChonDichVu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_ky import sql_join_bac_si_chi_dinh
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -278,7 +279,8 @@ SELECT o.id::text AS id, o.exec_status, o.selection_status, o.routing_status,
 _ALLOCATION_UNKNOWN_SQL = THU_CU_KHONG_TRUY_DUOC_SQL
 
 
-_CHO_QUYET_SQL = """
+_CHO_QUYET_SQL = (
+    """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.exec_status, o.selection_status, o.routing_status, o.execution_status,
        o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang, o.bat_buoc,
@@ -310,15 +312,24 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        ) AS financially_committed,
        coalesce(s.revision, 0) AS revision,
        -- "So với bác sĩ chỉ định" ở quầy (27/09/2026): ai chỉ định, lần mấy, lúc nào.
-       bs.full_name AS bac_si_chi_dinh, o.lan_chi_dinh,
+       -- Chỉ BÁC SĨ đứng ở nhãn "bác sĩ chỉ định" (Tuyền 29/09/2026); điều
+       -- dưỡng / thư ký chỉ định hộ thì là người bấm, hiện riêng.
+       bscd.full_name AS bac_si_chi_dinh,
+       CASE WHEN nb.id IS DISTINCT FROM bscd.id THEN nb.full_name END
+           AS nguoi_bam_chi_dinh,
+       o.lan_chi_dinh,
        coalesce(o.authorized_at, o.created_at) AS chi_dinh_luc
   FROM service_order o
   LEFT JOIN service_selection_state s
     ON s.clinic_id = o.clinic_id AND s.visit_id = o.visit_id
-  LEFT JOIN staff bs ON bs.id = o.authorized_by
+  LEFT JOIN staff nb ON nb.id = coalesce(o.authorized_by, o.recorded_by)
+  """
+    + sql_join_bac_si_chi_dinh("o", "bscd")
+    + """
  WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
  ORDER BY o.created_at, o.id
 """
+)
 
 
 async def cho_khach_quyet(
@@ -377,6 +388,7 @@ async def cho_khach_quyet(
                 "phong_chon_duoc": phong,
                 "can_xep_phong": bool(phong),
                 "bac_si_chi_dinh": r["bac_si_chi_dinh"],
+                "nguoi_bam_chi_dinh": r["nguoi_bam_chi_dinh"],
                 "lan_chi_dinh": r["lan_chi_dinh"],
                 "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
             }
