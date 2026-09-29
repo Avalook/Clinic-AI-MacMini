@@ -37,7 +37,7 @@ class _Conn:
 
 async def test_khong_ai_la_bac_si_thi_tra_none_khong_lui_ve_nguoi_bam() -> None:
     ky = await bac_si_ky_in(
-        _Conn(),  # type: ignore[arg-type]
+        _Conn(),
         clinic_id="c",
         service_order_id="o",
         nguoi_bam=("dieu-duong", None),
@@ -61,7 +61,7 @@ async def test_lich_phong_theo_ngay_cua_luc_khong_phai_hom_nay() -> None:
     # 23:30 giờ UTC ngày 27 = 06:30 sáng 28/09 giờ Việt Nam.
     luc = dt.datetime(2026, 9, 27, 23, 30, tzinfo=dt.UTC)
     ky = await bac_si_ky_in(
-        conn,  # type: ignore[arg-type]
+        conn,
         clinic_id="c",
         service_order_id="o",
         nguoi_bam="dieu-duong",
