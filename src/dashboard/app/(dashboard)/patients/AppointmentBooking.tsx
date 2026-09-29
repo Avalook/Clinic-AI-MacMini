@@ -266,9 +266,10 @@ export default function AppointmentBooking({
     }
     // Interpret the picked date+time as Vietnam time (GMT+7), not the browser's.
     const start = new Date(vnLocalToUtcISO(apptDate, apptTime));
-    // Logic thời gian thực: KHÔNG cho đặt lịch vào quá khứ.
-    if (start.getTime() < nowMs()) {
-      setError("Không thể đặt lịch trong quá khứ. Chọn ngày/giờ từ hiện tại trở đi.");
+    // KHÔNG đặt vào khung ĐÃ QUA — đo bằng GIỜ KẾT THÚC như máy chủ
+    // (`_chan_dat_vao_qua_khu`, 29/09/2026): khung đang chạy vẫn đặt / đổi được.
+    if (start.getTime() + duration * 60_000 <= nowMs()) {
+      setError("Khung giờ này đã qua — chọn một khung còn ở phía trước.");
       return;
     }
     // Trong giờ mở cửa PK (T2–T6 17–23h; T7+CN cả ngày).
