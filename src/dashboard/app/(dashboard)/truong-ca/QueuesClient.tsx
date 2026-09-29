@@ -430,13 +430,13 @@ function LichSuGon({ ds }: { ds: DispatchHistoryRow[] | null }) {
                   <span className="font-medium">{h.patient_name ?? "—"}</span>{" "}
                   <span className="text-ink-muted">
                     {h.from_room ? `${tenPhong(h.from_room)} → ` : "→ "}
-                    {h.to_room ? tenPhong(h.to_room) : nodeLabel(h.to_node)}
+                    {h.to_room ? tenPhong(h.to_room) : (h.to_node_name ?? nodeLabel(h.to_node))}
                   </span>
                 </span>
                 <span className="block truncate text-meta text-ink-faint">
                   {h.event_type === "service.routed" && h.from_room
                     ? "Chuyển phòng"
-                    : (EVENT_LABEL[h.event_type] ?? h.event_type)}
+                    : (h.event_label ?? EVENT_LABEL[h.event_type] ?? h.event_type)}
                   {h.reason ? ` · ${h.reason}` : ""}
                   {h.actor_name ? ` · ${h.actor_name}` : ""}
                 </span>
