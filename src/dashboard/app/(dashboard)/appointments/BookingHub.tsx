@@ -534,6 +534,8 @@ export default function BookingHub({
    *  này mà kèm lịch của người kia. Đó đúng là hạng lỗi vừa phải sửa ở băng xanh.
    *
    *  `null` = chưa có câu trả lời cho khách này; `[]` = hỏi rồi, chưa có lịch. */
+  // Đổi lịch tại chỗ từ khung vàng xong → nạp lại danh sách lịch sắp tới.
+  const [lanDoiLich, setLanDoiLich] = useState(0);
   const [lichDaNap, setLichDaNap] = useState<{
     khach: string;
     ket: { ok: true; items: LichCu[] } | { ok: false };
@@ -561,7 +563,7 @@ export default function BookingHub({
     };
     // `justBooked` trong danh sách phụ thuộc để lịch vừa đặt hiện ra ngay,
     // không phải đợi tải lại trang.
-  }, [selectedPatientId, justBooked]);
+  }, [selectedPatientId, justBooked, lanDoiLich]);
 
   const traLichCu: TrangThaiTra =
     selectedPatientId && lichDaNap?.khach === selectedPatientId
@@ -1392,6 +1394,7 @@ export default function BookingHub({
               {activePatient && (
                 <LichSapToiCuaKhach
                   tra={traLichCu}
+                  onDaDoi={() => setLanDoiLich((n) => n + 1)}
                   tenDichVu={(id) =>
                     cleanServices.find((sv) => sv.id === id)?.label ?? ""
                   }

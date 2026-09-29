@@ -218,4 +218,7 @@ class TestGanDuHaiDuongChonGio:
         assert "_chan_dat_ngoai_khung_ca" not in nguon
 
         ca_file = inspect.getsource(BookingService)
-        assert ca_file.count("await self._chan_dat_ngoai_khung_ca(") == 2
+        # 2 đường ĐẶT (create + reschedule) + 1 lần HỎI của `doi_lich_nhanh`
+        # (29/09): chỉ để biết khung "bây giờ" có ngoài ca không → ghi chú
+        # "ngoài ca" vào lý do, không chặn (khách đang đứng ở quầy).
+        assert ca_file.count("await self._chan_dat_ngoai_khung_ca(") == 3

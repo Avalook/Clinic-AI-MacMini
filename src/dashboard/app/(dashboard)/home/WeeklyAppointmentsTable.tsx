@@ -13,18 +13,18 @@
 import { useState, Fragment } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, MoreHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
 import {
   canCheckin,
-  canSeeNavGoc,
   canManageAppt,
   canWriteIntake,
   isNurseRole,
   type ClinicRole,
 } from "../../../lib/roles";
-import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
+import DoiLichTaiCho from "../_lam-viec/DoiLichTaiCho";
+import { PopupHanhTrinhKhach } from "../_lam-viec/HanhTrinhKhach";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
-import { nowMs, VN_TZ } from "../../../lib/datetime";
+import { ngayVN, nowMs, VN_TZ } from "../../../lib/datetime";
 import { doctorName } from "../../../lib/doctor-name";
 import { slotMs, slotBucketMs, isWalkinChannel } from "../../../lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
@@ -82,6 +82,8 @@ export interface WeekApptRow {
   promoted_over?: number;
   /** ĐÃ ghi sinh hiệu (đủ 3 vital bắt buộc) chưa — tắt "!" nhắc điều dưỡng. */
   has_vitals?: boolean;
+  /** Lượt khám của lịch (đã check-in) — bấm tên mở Hành trình khách. */
+  visit_id?: string | null;
   patient: {
     clinic_patient_id: string;
     full_name: string;
@@ -331,12 +333,34 @@ function buildDayRows(
   return out;
 }
 
-/** Menu "…" của một dòng lịch cho CSKH — đúng các thao tác đã có ở Quản lý
- *  khách hàng (không có check-in: CSKH không check-in, luật 15/09/2026). */
-function MenuLich({ a }: { a: WeekApptRow }) {
+/** Trạng thái còn đổi sang hôm nay + check-in được (khách chưa tới quầy). */
+const TRUOC_KHI_DEN = ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"];
+/** Trạng thái còn đổi lịch được (máy chủ chốt lại — `_ALIVE`). */
+const CON_SONG = [...TRUOC_KHI_DEN, "CHECKED_IN"];
+
+/** Đóng menu `<details>` chứa nút vừa bấm. */
+function dongMenu(el: HTMLElement) {
+  el.closest("details")?.removeAttribute("open");
+}
+
+/** Menu "…" của một dòng lịch — MỌI dòng (29/09/2026). "Đổi lịch" mở popover
+ *  Đổi lịch tại chỗ neo vào dòng; ngày khác hôm nay có thêm "Đổi sang hôm nay". */
+function MenuLich({
+  a,
+  laHomNay,
+  duocDoiLich,
+  onDoiLich,
+}: {
+  a: WeekApptRow;
+  laHomNay: boolean;
+  duocDoiLich: boolean;
+  onDoiLich: (neo: HTMLElement, ngayDau?: string) => void;
+}) {
   const pid = a.patient?.clinic_patient_id;
   if (!pid) return null;
   const hoSo = `/customers?selected=${pid}&luot=${a.id}`;
+  const doiDuoc = duocDoiLich && CON_SONG.includes(a.status);
+  const MUC = "block w-full rounded-control px-2 py-1.5 text-left hover:bg-surface-muted";
   return (
     <details className="relative">
       <summary
@@ -346,20 +370,43 @@ function MenuLich({ a }: { a: WeekApptRow }) {
         <MoreHorizontal className="size-4" />
       </summary>
       <div className="absolute right-0 z-20 mt-1 w-52 rounded-card border border-hairline bg-surface p-1 text-body shadow-panel">
-        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+        <Link href={hoSo} className={MUC}>
           Mở hồ sơ khách
         </Link>
-        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
+        <Link href={hoSo} className={MUC}>
           Gọi / ghi chăm sóc
         </Link>
-        <Link href={hoSo} className="block rounded-control px-2 py-1.5 hover:bg-surface-muted">
-          Đổi / huỷ lịch (ghi lý do)
+        {doiDuoc && !laHomNay && TRUOC_KHI_DEN.includes(a.status) ? (
+          <button
+            type="button"
+            className={`${MUC} font-medium text-brand-700`}
+            onClick={(e) => {
+              const tr = e.currentTarget.closest("tr");
+              dongMenu(e.currentTarget);
+              if (tr) onDoiLich(tr);
+            }}
+          >
+            Đổi sang hôm nay
+          </button>
+        ) : null}
+        {doiDuoc ? (
+          <button
+            type="button"
+            className={MUC}
+            onClick={(e) => {
+              const tr = e.currentTarget.closest("tr");
+              dongMenu(e.currentTarget);
+              if (tr) onDoiLich(tr, ngayVN(a.slot_start));
+            }}
+          >
+            Đổi lịch
+          </button>
+        ) : null}
+        <Link href={hoSo} className={MUC}>
+          Huỷ lịch (ghi lý do)
         </Link>
         {a.patient?.phone_primary && (
-          <a
-            href={`tel:${a.patient.phone_primary}`}
-            className="block rounded-control px-2 py-1.5 hover:bg-surface-muted"
-          >
+          <a href={`tel:${a.patient.phone_primary}`} className={MUC}>
             📞 {a.patient.phone_primary}
           </a>
         )}
@@ -371,19 +418,17 @@ function MenuLich({ a }: { a: WeekApptRow }) {
 export default function WeeklyAppointmentsTable({
   days,
   role,
-  staffId,
-  canWriteClinical = false,
   dutyByDate = {},
   choDoSinhHieu,
   choCheckIn = false,
   chonNgay = false,
   choThemKhach = true,
   duocCheckIn,
+  duocDoiLich,
+  moHoSoKhach = true,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
-  staffId: string | null;
-  canWriteClinical?: boolean;
   dutyByDate?: DutyByDate;
   /** Hiện cột "Điền sinh hiệu". Trang chủ quyết theo VỊ TRÍ hôm nay (đứng Đo
    *  chỉ số); không truyền thì theo vai điều dưỡng như trước. */
@@ -404,6 +449,12 @@ export default function WeeklyAppointmentsTable({
    *  đợt 3, 27/09/2026 ("chỉ dùng lego"). Không truyền (máy chủ chưa trả lời
    *  quyền) → theo vai như trước. */
   duocCheckIn?: boolean;
+  /** Được đổi lịch theo LEGO (`booking.manage`) — trang truyền từ quyền của
+   *  tài khoản. Không truyền → theo vai như trước. */
+  duocDoiLich?: boolean;
+  /** Người xem mở được màn Quản lý khách hàng (`moDuocMan("/customers")`) —
+   *  bấm tên khách CHƯA check-in mở hồ sơ ở đó. */
+  moHoSoKhach?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -424,7 +475,14 @@ export default function WeeklyAppointmentsTable({
   }
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selAppt, setSelAppt] = useState<WeekApptRow | null>(null);
+  // Popover Đổi lịch tại chỗ (29/09/2026) + popup Hành trình khách.
+  const [doiLich, setDoiLich] = useState<{
+    id: string;
+    neo: HTMLElement;
+    ngayDau?: string;
+  } | null>(null);
+  const [hanhTrinh, setHanhTrinh] = useState<{ id: string; ten: string } | null>(null);
+  const [thongBao, setThongBao] = useState<string | null>(null);
   // Bảng này gom lịch theo KHUNG — độ dài khung và số chỗ vãng lai là cấu hình
   // của phòng khám, nên không có bản mặc định ở đây.
   const policy = useBookingPolicy();
@@ -434,9 +492,31 @@ export default function WeeklyAppointmentsTable({
   // mặc định — đổi tuần không kéo theo trạng thái của tuần cũ.
   const [moTay, setMoTay] = useState<Record<string, boolean>>({});
   const dangMo = (d: ApptDay) => moTay[d.date] ?? d.items.length > 0;
-  // Menu "…" cho vai quản lý lịch hẹn không có cột check-in (CSKH).
   const showActions = choCheckIn && (duocCheckIn ?? canCheckin(role));
-  const coMenu = canManageAppt(role) && !showActions;
+  // Menu "…" ở MỌI dòng cho người đổi được lịch (29/09/2026) — kể cả màn Tiếp
+  // đón (trước đây ẩn khi có cột check-in).
+  const doiLichDuoc = duocDoiLich ?? canManageAppt(role);
+  const coMenu = doiLichDuoc || showActions;
+  const homNay = todayVn();
+  /** Màn Tiếp đón, ngày KHÁC hôm nay, khách chưa tới: bấm dòng / tên mở thẳng
+   *  Đổi lịch với "Hôm nay" chọn sẵn (Tuyền 29/09/2026). */
+  const moDoiSangHomNay = (a: WeekApptRow, ngay: string) =>
+    choCheckIn && doiLichDuoc && ngay !== homNay && TRUOC_KHI_DEN.includes(a.status);
+
+  /** Bấm TÊN khách: (Tiếp đón, ngày khác) → Đổi lịch; đã có lượt khám →
+   *  Hành trình khách; chưa → hồ sơ khách. */
+  function bamTen(a: WeekApptRow, ngay: string, neo: HTMLElement | null) {
+    if (moDoiSangHomNay(a, ngay) && neo) {
+      setDoiLich({ id: a.id, neo });
+      return;
+    }
+    if (a.visit_id) {
+      setHanhTrinh({ id: a.visit_id, ten: a.patient?.full_name ?? "" });
+      return;
+    }
+    const pid = a.patient?.clinic_patient_id;
+    if (pid && moHoSoKhach) router.push(`/customers?selected=${pid}`);
+  }
 
   // Điều dưỡng: KHÔNG check-in (việc Lễ tân) mà điền SINH HIỆU ngay trên lịch hẹn.
   const isNurse = choDoSinhHieu ?? isNurseRole(role);
@@ -461,6 +541,11 @@ export default function WeeklyAppointmentsTable({
       setError((await res.json()).error ?? "Có lỗi xảy ra.");
       return;
     }
+    router.refresh();
+  }
+
+  function daDoiLich(cau: string) {
+    setThongBao(cau);
     router.refresh();
   }
 
@@ -491,6 +576,21 @@ export default function WeeklyAppointmentsTable({
       {error && (
         <div className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">
           {error}
+        </div>
+      )}
+      {thongBao && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-2 rounded-control bg-success-bg px-3 py-2 text-meta text-success"
+        >
+          <span>✓ {thongBao}</span>
+          <button
+            type="button"
+            onClick={() => setThongBao(null)}
+            className="rounded-control px-1.5 text-label font-medium hover:bg-surface"
+          >
+            Đóng
+          </button>
         </div>
       )}
       {/* DẢI NGÀY KIỂU TAB (Tuyền 27/09/2026: "tối giản thông minh, đừng bày
@@ -631,7 +731,19 @@ export default function WeeklyAppointmentsTable({
                       return (
                         <tr
                           key={r.key}
-                          className="group transition-colors hover:bg-surface-sunken"
+                          className={`group transition-colors hover:bg-surface-sunken ${
+                            a && moDoiSangHomNay(a, day.date) ? "cursor-pointer" : ""
+                          }`}
+                          onClick={
+                            a && moDoiSangHomNay(a, day.date)
+                              ? (e) => {
+                                  // Nút / link / menu trong dòng tự làm việc của chúng.
+                                  const t = e.target as HTMLElement;
+                                  if (t.closest("button,a,summary,details,input,select")) return;
+                                  setDoiLich({ id: a.id, neo: e.currentTarget });
+                                }
+                              : undefined
+                          }
                         >
                           <td className={`${CELL} whitespace-nowrap tabular-nums font-semibold text-ink`}>
                             {r.bucket ? r.bucket.label.split(" - ")[0] : ""}
@@ -666,10 +778,10 @@ export default function WeeklyAppointmentsTable({
                                             : "Bác sĩ đã đổi lịch làm việc — gọi khách đổi lịch"}
                                       </span>
                                     )}
-                                    {canWriteClinical ? (
+                                    {a.visit_id || moHoSoKhach || moDoiSangHomNay(a, day.date) ? (
                                       <button
                                         type="button"
-                                        onClick={() => setSelAppt(a)}
+                                        onClick={(e) => bamTen(a, day.date, e.currentTarget.closest("tr"))}
                                         className="flex items-center gap-1.5 text-left font-medium text-ink hover:text-brand-700 hover:underline"
                                       >
                                         {isNurse &&
@@ -770,9 +882,11 @@ export default function WeeklyAppointmentsTable({
                                         Hoàn tác
                                       </button>
                                     </div>
-                                  ) : ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(
-                                      a.status,
-                                    ) ? (
+                                  ) : TRUOC_KHI_DEN.includes(a.status) && day.date !== homNay ? (
+                                    // Check-in / Không đến CHỈ ở hôm nay (29/09/2026).
+                                    // Ngày khác: bấm dòng để đổi sang hôm nay.
+                                    <TrangThaiLich status={a.status} />
+                                  ) : TRUOC_KHI_DEN.includes(a.status) ? (
                                     <div className="flex items-center gap-2">
                                       <NutCheckIn
                                         size="sm"
@@ -802,8 +916,13 @@ export default function WeeklyAppointmentsTable({
                               {coMenu && (
                                 // Nút "…" chỉ hiện khi rê chuột / đang mở / đang
                                 // chọn bằng bàn phím — dòng lặng khi chỉ đọc.
-                                <td className={`${CELL} opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 has-[[open]]:opacity-100`}>
-                                  <MenuLich a={a} />
+                                <td className={`${CELL} opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 has-[[open]]:opacity-100 max-md:opacity-100`}>
+                                  <MenuLich
+                                    a={a}
+                                    laHomNay={day.date === homNay}
+                                    duocDoiLich={doiLichDuoc}
+                                    onDoiLich={(neo, ngayDau) => setDoiLich({ id: a.id, neo, ngayDau })}
+                                  />
                                 </td>
                               )}
                             </>
@@ -846,37 +965,23 @@ export default function WeeklyAppointmentsTable({
         </table>
       </div>
 
-      {canWriteClinical && selAppt && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={() => setSelAppt(null)}>
-          <div className="flex h-full w-full max-w-lg flex-col border-l border-hairline bg-surface p-4 shadow-panel" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center justify-between border-b border-hairline pb-2">
-              <h3 className="text-base font-semibold text-brand-800">Hành chính & Sinh hiệu bệnh nhân</h3>
-              <div className="flex items-center gap-2">
-                {canSeeNavGoc(role, "/ban-kham") && (
-                  <Link href="/ban-kham" className={buttonClass("secondary", "sm")}>
-                    Mở ở Bàn khám
-                  </Link>
-                )}
-                <button type="button" aria-label="Đóng" onClick={() => setSelAppt(null)} className="rounded-md p-1 text-brand-800 hover:bg-brand-100">
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              {/* CHỈ XEM (Tuyền chốt 18/09/2026): bệnh án sửa ở Bàn khám, sinh
-                  hiệu đo ở màn Đo sinh hiệu — bảng lịch không là lối ghi thứ ba. */}
-              <ClinicalRecordForm
-                appt={selAppt}
-                staffId={staffId}
-                vitalsOnly
-                readOnly
-                fill
-                onClose={() => setSelAppt(null)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {doiLich ? (
+        <DoiLichTaiCho
+          key={`${doiLich.id}-${doiLich.ngayDau ?? ""}`}
+          lichId={doiLich.id}
+          neo={doiLich.neo}
+          ngayDau={doiLich.ngayDau}
+          onDong={() => setDoiLich(null)}
+          onXong={daDoiLich}
+        />
+      ) : null}
+      {hanhTrinh ? (
+        <PopupHanhTrinhKhach
+          visitId={hanhTrinh.id}
+          ten={hanhTrinh.ten}
+          onDong={() => setHanhTrinh(null)}
+        />
+      ) : null}
     </div>
   );
 }

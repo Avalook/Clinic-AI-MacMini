@@ -1,8 +1,9 @@
 /**
  * Tiếp đón khách (trước 16/09/2026 tên "Hàng đợi tiếp nhận").
  *
- * Hai khối: trên cùng "Lịch hẹn hôm nay" (bảng lịch chung, có Check-in / Không
- * đến / Hoàn tác); bên dưới DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu
+ * Hai khối: trên cùng "Lịch hẹn" (bảng lịch chung, có Check-in / Không đến /
+ * Hoàn tác ở HÔM NAY; thanh tuần/ngày y hệt Trang chủ — 29/09/2026: bấm dòng
+ * ngày khác mở popover Đổi lịch tại chỗ để đổi sang hôm nay + check-in); bên dưới DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu
  * Tuyền duyệt): mỗi lịch / lượt hôm nay một dòng, chia buổi, chip trạng thái do
  * máy chủ tính (`GET /api/v1/reception/danh-sach`). Trước đó phần dưới đọc
  * worklist `bang_dieu_phoi` của kernel và chỉ gồm người đã check-in.
@@ -10,16 +11,16 @@
 
 import { fetchFromBackend } from "@/lib/backend-proxy";
 import {
-  getClinicStaffId,
   getQuyenCuaToi,
   getVaiChinh,
   moDuocMan,
   requireNavAccess,
 } from "@/lib/clinic-session";
-import { currentWeekStartVn, todayVn } from "@/lib/roster";
+import { currentWeekStartVn, weekStartOf } from "@/lib/roster";
 import type { GoiTiepDon } from "@/lib/tiep-don";
 import QueueBoard from "./QueueBoard";
 import LiveBoardSync from "../../LiveBoardSync";
+import WeekNav from "../../WeekNav";
 import WeeklyAppointmentsTable from "../../home/WeeklyAppointmentsTable";
 import { dungLichHenTuan, type GoiLichHen } from "../../home/lich-hen-ngay";
 
@@ -28,28 +29,33 @@ export const metadata = { title: "Tiếp đón khách · ClinicAI" };
 // The queue is the page. Caching it would show the desk a stale room.
 export const dynamic = "force-dynamic";
 
-export default async function ReceptionQueuePage() {
+export default async function ReceptionQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ weekAppt?: string }>;
+}) {
   await requireNavAccess("/reception/queue");
   // CHECK-IN Ở ĐÂY, KHÔNG Ở TRANG CHỦ (Tuyền chốt 18/09/2026): lịch hẹn HÔM
   // NAY, cùng bảng và cùng phép dựng với Trang chủ (lich-hen-ngay.ts), chỉ
   // khác là bật cột Check-in / Không đến / Hoàn tác.
-  const tuan = currentWeekStartVn();
+  // THANH TUẦN / NGÀY Y HỆT TRANG CHỦ (29/09/2026): ‹ tuần › + Cả tuần · T2…CN,
+  // `?weekAppt=` + `?ngay=`. Tham số rác → tuần này (không ném).
+  const { weekAppt: rawTuan } = await searchParams;
+  const tuan = (rawTuan ? weekStartOf(rawTuan) : null) ?? currentWeekStartVn();
   // DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu Tuyền duyệt): một gói của
   // máy chủ, đã chia buổi và tính chip trạng thái. Nút "+ Thêm khách hàng" hỏi
   // ĐÚNG luật cửa của trang đích (`moDuocMan`), không hỏi vai.
-  const [danhSach, goi, role, staffId, themKhachDuoc, quyen] = await Promise.all([
+  const [danhSach, goi, role, themKhachDuoc, quyen, moHoSoKhach] = await Promise.all([
     fetchFromBackend<GoiTiepDon>("/api/v1/reception/danh-sach"),
     fetchFromBackend<GoiLichHen>(
       `/api/v1/home/bang-dieu-khien?week_appt=${tuan}&week_roster=${tuan}`,
     ),
     getVaiChinh(),
-    getClinicStaffId(),
     moDuocMan("/patients/new"),
     getQuyenCuaToi(),
+    moDuocMan("/customers"),
   ]);
-  const homNay = todayVn();
   const { apptDays, dutyByDate } = dungLichHenTuan(goi, tuan);
-  const lichHomNay = apptDays.filter((d) => d.date === homNay);
 
   return (
     <>
@@ -63,25 +69,28 @@ export default async function ReceptionQueuePage() {
 
       {/* Check-in đứng TRÊN hàng đợi và ngoài nhánh lỗi của hàng đợi: hàng
           đợi không tải được thì quầy vẫn phải check-in được khách. */}
-      <section aria-label="Lịch hẹn hôm nay" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
-        <h2 className="mb-2 text-sm font-semibold text-ink">
-          Lịch hẹn hôm nay — check-in khi khách đến
-        </h2>
+      <section aria-label="Lịch hẹn" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h2 className="text-emph font-semibold text-ink">
+            Lịch hẹn — check-in khi khách đến
+          </h2>
+          <WeekNav gon week={tuan} basePath="/reception/queue" param="weekAppt" />
+        </div>
         {goi === null ? (
           <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
             Không đọc được lịch hẹn hôm nay — máy chủ không trả lời. Đừng coi
             đây là không có ai hẹn; tải lại trang.
           </p>
-        ) : lichHomNay.every((d) => d.items.length === 0) ? (
-          <p className="px-1 py-4 text-sm text-ink-muted">Hôm nay chưa có lịch hẹn nào.</p>
         ) : (
           <WeeklyAppointmentsTable
-            days={lichHomNay}
+            days={apptDays}
             role={role}
-            staffId={staffId}
             dutyByDate={dutyByDate}
             choDoSinhHieu={false}
             choCheckIn
+            chonNgay
+            duocDoiLich={quyen === null ? undefined : quyen.includes("booking.manage")}
+            moHoSoKhach={moHoSoKhach}
             // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
             duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
           />

@@ -32,7 +32,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import lich_hen_doc, man_dat_lich_doc
+from clinicai.services import doi_lich_nhanh, lich_hen_doc, man_dat_lich_doc
 from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -691,6 +691,60 @@ async def apply_appointment_action(
         nguoi_gioi_thieu=body.nguoi_gioi_thieu,
     )
     return {"ok": True, **result}
+
+
+class DoiLichNhanhRequest(BaseModel):
+    """Đổi lịch tại chỗ (popover Đổi lịch) — xem `BookingService.doi_lich_nhanh`."""
+
+    slot_start: datetime
+    slot_end: datetime
+    doctor_id: UUID
+    ly_do: str = Field(min_length=1, max_length=300)
+    check_in: bool = False
+    #: Khoá chống bấm đúp khi trình duyệt không gửi được header Idempotency-Key.
+    idempotency_key: str | None = Field(default=None, max_length=200)
+
+
+@router.get("/appointments/{appointment_id}/doi-lich-nhanh")
+async def o_doi_lich_nhanh(
+    appointment_id: UUID,
+    ngay: str | None = None,
+    identity: StaffIdentity = Depends(cua_quyen("booking.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô giờ của popover Đổi lịch cho một ngày — máy chủ quyết trạng thái ô."""
+    return await doi_lich_nhanh.o_doi_lich(
+        pool, identity=identity, appointment_id=str(appointment_id), ngay=ngay
+    )
+
+
+@router.post("/appointments/{appointment_id}/doi-lich-nhanh")
+async def doi_lich_nhanh_post(
+    appointment_id: UUID,
+    body: DoiLichNhanhRequest,
+    identity: StaffIdentity = Depends(cua_quyen("booking.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> Any:
+    """Đổi lịch (+ check-in luôn nếu ``check_in``) trong MỘT giao dịch."""
+    if idem.key is None and body.idempotency_key:
+        idem = IdempotencyGuard(key=body.idempotency_key, endpoint=idem.endpoint)
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        result = await BookingService(pool).doi_lich_nhanh(
+            appointment_id=str(appointment_id),
+            identity=identity,
+            slot_start=body.slot_start,
+            slot_end=body.slot_end,
+            doctor_id=str(body.doctor_id),
+            ly_do=body.ly_do,
+            check_in=body.check_in,
+        )
+        payload = {"ok": True, **result}
+        await idem.save(pool, payload)
+    return payload
 
 
 class SlotHoldRequest(BaseModel):
