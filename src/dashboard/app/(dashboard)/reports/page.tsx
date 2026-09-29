@@ -3,11 +3,14 @@
 // 7 ngày gần nhất / nguồn đặt lịch. Read-only, KHÔNG hiển thị CCCD.
 
 import StatCard from "../StatCard";
+import Link from "next/link";
 import { Fragment } from "react";
+import { buttonClass } from "@/components/ui/Button";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
+import CuoiNgay from "./CuoiNgay";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +19,62 @@ function pct(n: number, total: number): string {
   return `${Math.round((n / total) * 100)}%`;
 }
 
-export default async function ReportsPage() {
+// Hai tab (29/09/2026): Vận hành (các ô đếm cũ) · Cuối ngày (tài chính kiểu
+// KiotViet — `CuoiNgay.tsx` → `/api/reports/cuoi-ngay`). Cùng cửa `report.view`.
+const TAB = [
+  { ma: "van-hanh", ten: "Vận hành" },
+  { ma: "cuoi-ngay", ten: "Cuối ngày" },
+] as const;
+type MaTab = (typeof TAB)[number]["ma"];
+
+// Khi in / lưu PDF: ẩn thanh bên, thanh tab, nút bấm.
+const IN_CSS = `
+  @media print {
+    [data-sidebar], nav, aside, [class*="sidebar"],
+    #print-report-btn { display: none !important; }
+    body { background: var(--color-surface) !important; }
+    .space-y-6 > * { page-break-inside: avoid; }
+  }
+`;
+
+function ThanhTabBaoCao({ dangMo }: { dangMo: MaTab }) {
+  return (
+    <nav aria-label="Báo cáo" className="flex flex-wrap gap-2">
+      {TAB.map((t) => (
+        <Link
+          key={t.ma}
+          href={t.ma === "van-hanh" ? "/reports" : `/reports?tab=${t.ma}`}
+          aria-current={t.ma === dangMo ? "page" : undefined}
+          className={buttonClass(t.ma === dangMo ? "primary" : "ghost", "sm")}
+        >
+          {t.ten}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   // Cửa theo LEGO Báo cáo (27/09/2026) — trước gác vai isOpsAdmin, nên cấp
   // lego cho người khác vai thì mục hiện trên thanh bên mà bấm vào bị đá về.
   await requireNavAccess("/reports");
+  const { tab } = await searchParams;
+  // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
+  const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "van-hanh";
+  if (dangMo === "cuoi-ngay") {
+    return (
+      <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
+        <style>{IN_CSS}</style>
+        <ThanhTabBaoCao dangMo={dangMo} />
+        <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo cuối ngày</h1>
+        <CuoiNgay />
+      </main>
+    );
+  }
 
   // 24/09/2026: mọi ô đếm đọc qua backend MỘT lượt (`/reports/tong-quan`) —
   // trang từng bắn 12 truy vấn Supabase rời ở 12 thời điểm khác nhau.
@@ -116,14 +171,8 @@ export default async function ReportsPage() {
   return (
     <main className="page-in min-w-0 space-y-6 p-4 lg:p-5">
       {/* Print CSS: khi in / lưu PDF ẩn sidebar, nav, nút bấm */}
-      <style>{`
-        @media print {
-          [data-sidebar], nav, aside, [class*="sidebar"],
-          #print-report-btn { display: none !important; }
-          body { background: var(--color-surface) !important; }
-          .space-y-6 > * { page-break-inside: avoid; }
-        }
-      `}</style>
+      <style>{IN_CSS}</style>
+      <ThanhTabBaoCao dangMo={dangMo} />
 
       <header className="flex items-start justify-between gap-4">
         <div>
@@ -386,7 +435,7 @@ export default async function ReportsPage() {
       </Section>
 
       <p className="text-xs text-ink-muted">
-        Chưa gồm doanh thu — chờ module thu ngân.
+        Doanh thu: xem tab “Cuối ngày”.
       </p>
     </main>
   );
