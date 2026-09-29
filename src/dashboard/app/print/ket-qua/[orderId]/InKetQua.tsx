@@ -64,6 +64,9 @@ interface DuLieuIn {
   };
   dich_vu: string | null;
   bac_si_chi_dinh: string | null;
+  /** Bác sĩ ký chung của chỉ định (chỉ có ảnh, không phiếu) — máy chủ chọn;
+   *  luôn là bác sĩ hoặc null (29/09/2026). */
+  bac_si_thuc_hien?: string | null;
   /** Đầu trang hai bên + khối bệnh nhân (27/09/2026). */
   ma_dich_vu?: string | null;
   so_booking?: number | null;
@@ -122,10 +125,10 @@ function DauPhieuIn({ dl, p }: { dl: DuLieuIn; p: Phieu | null }) {
   const bn = dl.benh_nhan;
   const gl = dl.gio_lam;
   const gio = [gioIn(gl?.bat_dau), gioIn(gl?.xong)].filter(Boolean).join(" – ");
-  // Tên BÁC SĨ thực hiện (máy chủ đã mặc định bác sĩ đứng phòng), rồi mới lùi
-  // về người làm. KHÔNG in người bấm Hoàn tất / người nhập — Tuyền 29/09/2026:
-  // "mặc định tên bác sĩ; lịch sử hệ thống mới ghi người nhập".
-  const nguoiLam = p?.thuc_hien ?? gl?.nguoi_lam ?? null;
+  // Tên BÁC SĨ thực hiện — máy chủ chọn (bác sĩ hoặc null). KHÔNG BAO GIỜ lùi
+  // về người làm / người bấm / người nhập — Tuyền 29/09/2026: "mọi phiếu in ký
+  // tên bác sĩ; người nhập chỉ ở lịch sử". Không có bác sĩ → để trống.
+  const nguoiLam = p?.thuc_hien ?? dl.bac_si_thuc_hien ?? null;
   const gioi = bn.gioi_tinh ? (GIOI[bn.gioi_tinh] ?? bn.gioi_tinh) : null;
   return (
     <>
@@ -274,7 +277,7 @@ function CacToPhieu({ dl }: { dl: DuLieuIn }) {
                   {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
                   <p className="text-ink-muted">Bác sĩ thực hiện</p>
                   <p className="mt-12 font-semibold">
-                    {p.thuc_hien ?? dl.gio_lam?.nguoi_lam ?? "\u00a0"}
+                    {p.thuc_hien ?? dl.bac_si_thuc_hien ?? "\u00a0"}
                   </p>
                 </div>
               </footer>

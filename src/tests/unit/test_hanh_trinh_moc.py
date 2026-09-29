@@ -214,3 +214,47 @@ def test_tung_dich_vu_bi_ngat_giu_gio_bat_dau_nhung_la_cho_lam() -> None:
     )
     assert d["trang_thai"] == CHO_LAM
     assert d["bat_dau"] == p(40)
+
+
+# ── GIỜ THẬT, KHÔNG LÀM MÉO (Tuyền duyệt 29/09/2026) ─────────────────────────
+
+
+def test_sinh_hieu_xong_la_lan_do_dau_do_lai_tra_rieng() -> None:
+    """Đo 08:33 rồi đo lại 08:45: xong = 08:33 (không "làm 12′"); lần đo lại
+    trả riêng kèm người đo."""
+    su_kien: list[SuKien] = [
+        ("vitals.started", p(30), {}),
+        ("vitals.recorded", p(33), {"_ai": "ĐD Lan"}),
+        ("vitals.started", p(44), {}),
+        ("vitals.recorded", p(45), {"_ai": "ĐD Mai"}),
+    ]
+    sh = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )["SINH_HIEU"]
+    assert (sh["bat"], sh["ket"], sh["trang_thai"]) == (p(30), p(33), XONG)
+    assert sh["do_lai"] == [p(45)]
+    assert sh["lan_do"] == [
+        {"luc": p(33), "ai": "ĐD Lan"},
+        {"luc": p(45), "ai": "ĐD Mai"},
+    ]
+
+
+def test_sinh_hieu_do_mot_lan_khong_co_do_lai() -> None:
+    su_kien: list[SuKien] = [("vitals.recorded", p(8), {})]
+    sh = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )["SINH_HIEU"]
+    assert (sh["bat"], sh["ket"], sh["do_lai"]) == (p(8), p(8), [])
+    assert sh["lan_do"] == [{"luc": p(8), "ai": None}]

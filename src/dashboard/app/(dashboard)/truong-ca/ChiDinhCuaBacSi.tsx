@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import DoiPhong from "../_lam-viec/DoiPhong";
+import { ChipTrangThai, type NhanTrangThai } from "./nhan-trang-thai";
 
 
 export interface PhongLamDuoc {
@@ -50,6 +51,8 @@ export interface ChiDinh {
   routing_revision: number;
   /** Máy chủ nói đổi phòng được (cùng luật với Bàn khám / Xem lượt). */
   doi_phong_duoc: boolean;
+  /** Nhãn trạng thái rõ (Tuyền 29/09/2026) — máy chủ quyết, màn chỉ vẽ. */
+  trang_thai?: NhanTrangThai;
 }
 
 /** Chuyển phòng được khi chỉ định đang chờ xếp/đang chờ ở phòng — phòng cũ đã
@@ -184,11 +187,15 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
                 >
                   {x.service_name}
                 </span>
-                <span className="shrink-0 text-label text-ink-muted">
-                  {x.doi_tac && (x.exec_status === "authorized" || x.exec_status === "assigned")
-                    ? "Đã gửi đối tác"
-                    : NHAN_TRANG_THAI[x.exec_status] ?? x.exec_status}
-                </span>
+                {x.trang_thai ? (
+                  <ChipTrangThai t={x.trang_thai} />
+                ) : (
+                  <span className="shrink-0 text-label text-ink-muted">
+                    {x.doi_tac && (x.exec_status === "authorized" || x.exec_status === "assigned")
+                      ? "Đã gửi đối tác"
+                      : NHAN_TRANG_THAI[x.exec_status] ?? x.exec_status}
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-label text-ink-muted">
                 <span className="truncate">{x.node_name ?? x.node_code}</span>
@@ -210,7 +217,11 @@ export default function ChiDinhCuaBacSi({ visitId }: { visitId: string }) {
               {x.selection_status !== null ? (
                 // Đời mới: khối "Đổi phòng" chung (`xep-phong-v1`) — lối điều
                 // phối cũ từ chối chỉ định này (24/09).
-                !x.xong && !x.doi_tac ? (
+                // [Chuyển phòng] chỉ ở dịch vụ đang chờ / đang làm; chưa thu /
+                // chờ xếp thì đặt phòng — hai cờ do MÁY CHỦ trả.
+                !x.xong &&
+                !x.doi_tac &&
+                (!x.trang_thai || x.trang_thai.chuyen_duoc || x.trang_thai.dat_phong_duoc) ? (
                   <DoiPhong
                     orderId={x.id}
                     phongHienTaiId={x.room_id}

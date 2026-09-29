@@ -58,14 +58,12 @@ test("operational roles cannot open a clinical-record popup", () => {
   // chỉ có khối vận hành (check-in, thu tiền, đặt lịch, nhà thuốc) vẫn không
   // mở được: danh sách quyền y khoa không chứa quyền vận hành nào.
   assert.match(patientListSource, /const enablePopup = await docDuocYKhoa\(\)/);
-  const home = read("../app/(dashboard)/home/page.tsx");
-  assert.match(home, /const writeClinical = await docDuocYKhoa\(\)/);
-  // DoctorWorkBoard (/tasks) và HomeCheckin đã gỡ 18/09/2026 — hai lối mở
-  // bệnh án ấy không còn tồn tại (xem man-da-gop-boundary.test.mts).
-  assert.match(
-    weeklyAppointmentsSource,
-    /\{canWriteClinical && selAppt && \(/,
-  );
+  // Bảng lịch Trang chủ / Tiếp đón KHÔNG còn mở ngăn "Hành chính & Sinh hiệu"
+  // (Tuyền 29/09/2026): bấm tên → Hành trình khách (đã check-in) hoặc hồ sơ
+  // khách ở Quản lý khách hàng — không lối nào vào bệnh án từ bảng lịch.
+  // DoctorWorkBoard (/tasks) và HomeCheckin đã gỡ 18/09/2026.
+  assert.doesNotMatch(weeklyAppointmentsSource, /ClinicalRecordForm/);
+  assert.match(weeklyAppointmentsSource, /PopupHanhTrinhKhach/);
   // CHỈ danh sách QUYEN_Y_KHOA (mở bệnh án). Từ 27/09/2026 cùng file có thêm
   // QUYEN_IN_PHIEU — quầy ĐỌC để IN phiếu cho khách (Tuyền "in ở mọi khâu") —
   // danh sách riêng, không bao giờ mở popup bệnh án / ghi y khoa.

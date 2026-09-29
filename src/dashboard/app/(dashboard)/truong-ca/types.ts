@@ -10,6 +10,8 @@
 /** Một bệnh nhân đang trong phòng khám. */
 export interface DispatchPatient {
   visit_id: string;
+  /** Nhãn trạng thái khách (29/09/2026) — máy chủ quyết. */
+  trang_thai?: import("./nhan-trang-thai").NhanTrangThai;
   patient_name: string | null;
   patient_code: string | null;
   clinic_patient_id: string | null;
@@ -86,9 +88,13 @@ export interface RouteTemplate {
 export interface DispatchHistoryRow {
   at: string;
   event_type: string;
+  /** Nhãn tiếng Việt do máy chủ quyết (audit_labels). */
+  event_label?: string;
   visit_id: string | null;
   from_node: string | null;
   to_node: string | null;
+  from_node_name?: string | null;
+  to_node_name?: string | null;
   from_room: string | null;
   to_room: string | null;
   reason: string | null;

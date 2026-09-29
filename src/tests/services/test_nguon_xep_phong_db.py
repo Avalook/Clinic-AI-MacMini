@@ -1,8 +1,9 @@
 """Xếp phòng ở quầy thu lúc nào cũng được, trưởng ca đè được (Tuyền 25/09 — P3).
 
 Sáu ca của prompt: quầy thu xếp trước thu (phòng dự kiến) / sau thu / đổi lần 2;
-trưởng ca đè quầy thu; quầy thu đổi sau trưởng ca → bị chặn; trưởng ca đổi sau
-trưởng ca → được. Nguồn theo LỆNH (quyền của lego gọi), không theo vai.
+trưởng ca đè quầy thu; quầy thu đổi sau trưởng ca → ĐƯỢC (Tuyền 29/09/2026 bỏ
+khoá "trưởng ca đã xếp" — thay bằng lịch sử ở Hành trình khách); trưởng ca đổi
+sau trưởng ca → được. Nguồn theo LỆNH (quyền của lego gọi), không theo vai.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import asyncpg
 import pytest
 
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.service_routing_service import ServiceRoutingService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -108,15 +108,12 @@ async def test_sau_ca_xep_phong_quay_thu_va_truong_ca(
     # 4. Trưởng ca đè quầy thu.
     await xep(truong_ca, ca.phong, "truong_ca")
     assert await _nguon(pool, order) == (ca.phong, "truong_ca")
-    # 5. Quầy thu đổi sau trưởng ca → bị chặn (cả hai ô của quầy).
-    with pytest.raises(LuotKhamConflictError) as loi:
-        await xep(ca.le_tan, phong_hai, "quay_thu")
-    assert loi.value.error_code == "ROUTING_TRUONG_CA_DA_XEP"
-    with pytest.raises(LuotKhamConflictError):
-        await svc.dat_phong_du_kien(
-            order_id=order, room_id=phong_hai, identity=ca.le_tan
-        )
-    # 6. Trưởng ca đổi sau trưởng ca → được.
+    # 5. Quầy thu đổi sau trưởng ca → ĐƯỢC (29/09/2026, cả hai ô của quầy).
+    await xep(ca.le_tan, phong_hai, "quay_thu")
+    assert await _nguon(pool, order) == (phong_hai, "quay_thu")
+    await svc.dat_phong_du_kien(order_id=order, room_id=ca.phong, identity=ca.le_tan)
+    assert await _nguon(pool, order) == (ca.phong, "quay_thu")
+    # 6. Trưởng ca đổi lại → được.
     await xep(truong_ca, phong_hai, "truong_ca")
     assert await _nguon(pool, order) == (phong_hai, "truong_ca")
 

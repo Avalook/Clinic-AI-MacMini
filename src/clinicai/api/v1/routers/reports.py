@@ -14,10 +14,15 @@ from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.bao_cao_cuoi_ngay_service import (
+    BaoCaoCuoiNgayService,
+    csv_bao_cao,
+)
 from clinicai.services.reports_service import (
     ReportsService,
     toan_canh,
@@ -75,3 +80,44 @@ async def bao_cao_toan_canh(
 ) -> dict[str, Any]:
     """Tab "Toàn cảnh" của /ops: nhân sự · bốn con số hôm nay · 10 sự kiện."""
     return await toan_canh(pool, identity=identity)
+
+
+# ── Báo cáo cuối ngày (29/09/2026) — tài chính kiểu KiotViet, CHỈ ĐỌC ──────
+# Ngày rác / rỗng → hôm nay, không 422: người xem gõ sai ngày vẫn thấy số hôm
+# nay chứ không thấy trang lỗi.
+
+
+@router.get("/reports/cuoi-ngay")
+async def bao_cao_cuoi_ngay(
+    tu: str | None = Query(
+        None, max_length=40, description="YYYY-MM-DD; rác = hôm nay"
+    ),
+    den: str | None = Query(
+        None, max_length=40, description="YYYY-MM-DD; rác = hôm nay"
+    ),
+    identity: StaffIdentity = Depends(_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày."""
+    return await BaoCaoCuoiNgayService(pool).bao_cao(identity=identity, tu=tu, den=den)
+
+
+@router.get("/reports/cuoi-ngay.csv")
+async def bao_cao_cuoi_ngay_csv(
+    tu: str | None = Query(None, max_length=40),
+    den: str | None = Query(None, max_length=40),
+    identity: StaffIdentity = Depends(_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """[Xuất Excel]: CSV UTF-8 có BOM."""
+    bc = await BaoCaoCuoiNgayService(pool).bao_cao(identity=identity, tu=tu, den=den)
+    ten = f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
+    return Response(
+        content=csv_bao_cao(bc).encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

@@ -24,8 +24,14 @@ import structlog
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.services import finance_gate
+from clinicai.services.audit_labels import action_label
 from clinicai.services.gate_rule_service import enforce as gate_enforce
 from clinicai.services.luot_kham_rules import doi_phong_duoc
+from clinicai.services.nhan_trang_thai_dieu_phoi import (
+    trang_thai_dich_vu,
+    trang_thai_khach,
+)
 
 logger = structlog.get_logger()
 
@@ -36,11 +42,15 @@ _LY_DO_XEP = {
     "LOAD_BALANCE": "cân tải",
 }
 #: Màn gây ra lần xếp (`nguon`).
-_NGUON_XEP = {"truong_ca": "trưởng ca", "quay_thu": "quầy thu"}
+_NGUON_XEP = {"truong_ca": "trưởng ca", "quay_thu": "quầy thu", "tu_dong": "tự động"}
 
 
 def _ly_do_xep_phong(r: Any) -> str | None:
-    """ "Siêu âm 2D · cân tải · trưởng ca" — chỉ cho dòng `service.routed`."""
+    """ "Siêu âm 2D · cân tải · trưởng ca" — dòng `service.routed`; dòng
+    `service.room_transferred` (29/09/2026) thêm lý do chữ của trưởng ca."""
+    if r["event_type"] == "service.room_transferred":
+        phan = [r["dich_vu"], "đang làm", r["ly_do_chu"], "trưởng ca"]
+        return " · ".join(x for x in phan if x) or None
     if r["event_type"] != "service.routed":
         return None
     phan = [
@@ -123,7 +133,20 @@ SELECT v.visit_id,
                     WHERE c.visit_id = v.visit_id AND c.clinic_id = v.clinic_id))
                                                   AS luong_moi,
        vr.steps                                   AS route_steps,
-       vr.id                                      AS route_id
+       vr.id                                      AS route_id,
+       -- NHÃN TRẠNG THÁI KHÁCH (Tuyền 29/09/2026): chỗ chờ sống quan trọng
+       -- nhất của lượt + mốc giờ; máy chủ quyết nhãn, màn tính phút.
+       v.closed_at                                AS khach_ve_luc,
+       hq.lane AS hang_lane, hq.status AS hang_status,
+       hq.eligible_at AS hang_vao, hq.called_at AS hang_goi,
+       hq.serving_at AS hang_lam, hq.so_truoc AS hang_so_truoc,
+       EXISTS (SELECT 1 FROM public.service_order od
+                 JOIN public.node_definition nd
+                   ON nd.clinic_id = od.clinic_id AND nd.code = od.node_code
+                  AND nd.lam_ben_ngoai
+                WHERE od.clinic_id = v.clinic_id AND od.visit_id = v.visit_id
+                  AND od.execution_status = 'COMPLETED'
+                  AND od.ket_qua_luc IS NULL)     AS cho_kq_doi_tac
   FROM public.visit v
   LEFT JOIN public.patient p
          ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
@@ -136,8 +159,39 @@ SELECT v.visit_id,
   LEFT JOIN public.visit_route vr
          ON vr.visit_id = v.visit_id AND vr.superseded_at IS NULL
   LEFT JOIN nguong ng ON ng.room_id = r.id
+  LEFT JOIN LATERAL (
+      SELECT q.lane, q.status, q.eligible_at, q.called_at, q.serving_at,
+             CASE WHEN q.status = 'waiting' THEN (
+                 SELECT count(*)::int FROM public.queue_entry o
+                  WHERE o.clinic_id = q.clinic_id AND o.lane = q.lane
+                    AND o.id <> q.id AND o.status IN ('waiting', 'called')
+                    AND (q.lane = 'TU_VAN'
+                         OR (q.lane = 'ROOM' AND o.room_id = q.room_id)
+                         OR (q.lane = 'DOCTOR'
+                             AND o.doctor_staff_id
+                                 IS NOT DISTINCT FROM q.doctor_staff_id))
+                    AND (coalesce(o.eligible_at, o.created_at), o.id)
+                        < (coalesce(q.eligible_at, q.created_at), q.id))
+             END AS so_truoc
+        FROM public.queue_entry q
+       WHERE q.clinic_id = v.clinic_id AND q.visit_id = v.visit_id
+         AND q.status IN ('serving', 'called', 'waiting', 'blocked')
+       ORDER BY CASE q.status WHEN 'serving' THEN 0 WHEN 'called' THEN 1
+                WHEN 'waiting' THEN 2 ELSE 3 END,
+                (q.room_id IS NOT DISTINCT FROM v.current_room_id) DESC,
+                coalesce(q.eligible_at, q.created_at)
+       LIMIT 1
+  ) hq ON TRUE
  WHERE v.clinic_id = $1::uuid
    AND v.status = ANY($2::text[])
+   -- CHỈ LƯỢT CÒN MỞ HÔM NAY (Tuyền 29/09/2026): khách đã check-out / đóng lượt
+   -- (`closed_at`, hoặc đứng ở bước đóng lượt LUOTKHAM-15) và lượt của các ngày
+   -- trước không còn "trong phòng khám" — không đếm, không báo chờ quá lâu.
+   AND v.closed_at IS NULL
+   AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
+   AND coalesce(v.checked_in_at, v.created_at) >=
+       (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+        AT TIME ZONE 'Asia/Ho_Chi_Minh')
  ORDER BY v.current_node_since NULLS LAST, v.checked_in_at
  LIMIT 400
 """
@@ -185,6 +239,12 @@ SELECT r.id, r.code, r.name, r.node_code, r.capacity, r.accepting, r.sort,
         JOIN public.visit v
           ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
          AND v.status = ANY($2::text[])
+         -- Cùng luật với _OVERVIEW_SQL: lượt đã đóng / ngày cũ không tính tải phòng.
+         AND v.closed_at IS NULL
+         AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
+         AND coalesce(v.checked_in_at, v.created_at) >=
+             (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+              AT TIME ZONE 'Asia/Ho_Chi_Minh')
        WHERE q.clinic_id = r.clinic_id
          AND q.status IN ('waiting', 'called', 'serving')
          -- Hàng DOCTOR không mang phòng: tính vào phòng khách đang đứng.
@@ -241,12 +301,35 @@ class DispatchService:
             rows = await conn.fetch(
                 _CHI_DINH_SQL, clinic_id, visit_id, list(LIVE_VISIT_STATUSES)
             )
+            tai_chinh = await finance_gate.states_for_orders(
+                conn, clinic_id, [r["id"] for r in rows]
+            )
         return [
             {
                 **dict(r),
                 # json_agg về tay asyncpg là chuỗi — giải ra danh sách.
                 "phong_lam_duoc": json.loads(r["phong_lam_duoc"] or "[]"),
                 "xong": r["exec_status"] in _CHI_DINH_XONG,
+                # Nhãn trạng thái rõ (Tuyền 29/09/2026) — máy chủ quyết, màn vẽ.
+                "trang_thai": _iso_nhan(
+                    trang_thai_dich_vu(
+                        exec_status=r["exec_status"],
+                        execution_status=r["execution_status"],
+                        doi_tac=bool(r["doi_tac"]),
+                        ket_qua_luc=r["ket_qua_luc"],
+                        xong_luc=r["xong_luc"],
+                        khach_ve=r["khach_ve_luc"] is not None,
+                        hang=r["work_status"],
+                        vao_hang_luc=r["vao_hang_luc"],
+                        goi_luc=r["goi_luc"],
+                        lam_tu=r["lan_lam_tu"] or r["serving_at"],
+                        so_truoc=r["so_truoc"],
+                        tai_chinh_xong=bool(
+                            (q := tai_chinh.get(r["id"])) is not None
+                            and q.financially_ready
+                        ),
+                    )
+                ),
                 # Chỉ định đời mới đổi phòng qua lệnh xếp phòng CHÍNH THỨC (khối
                 # "Đổi phòng" chung, `xep-phong-v1`) — lối điều phối cũ từ chối
                 # chúng (LIFECYCLE_ROUTING_REQUIRED). Cùng một luật với Bàn khám.
@@ -543,14 +626,15 @@ class DispatchService:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT * FROM (
+                SELECT x.*, nf.name AS from_node_name, nt.name AS to_node_name
+                  FROM (
                   SELECT h.created_at, h.event_type, h.visit_id::text AS visit_id,
                          h.from_node, h.to_node,
                          coalesce(rf.name, h.from_room) AS from_room,
                          coalesce(rt.name, h.to_room) AS to_room,
                          h.reason, h.actor_name, h.patient_name, h.patient_code,
                          NULL::text AS dich_vu, NULL::text AS ly_do_ma,
-                         NULL::text AS nguon
+                         NULL::text AS nguon, NULL::text AS ly_do_chu
                     FROM public.v_dispatch_history h
                     LEFT JOIN public.clinic_room rf
                       ON rf.clinic_id = h.clinic_id AND rf.code = h.from_room
@@ -562,7 +646,7 @@ class DispatchService:
                          NULL, NULL, rf.name, rt.name, NULL, s.full_name,
                          p.full_name, p.patient_code,
                          o.service_name, e.payload ->> 'reason_code',
-                         e.payload ->> 'nguon'
+                         e.payload ->> 'nguon', e.payload ->> 'ly_do'
                     FROM public.event_log e
                     LEFT JOIN public.clinic_room rf
                       ON rf.clinic_id = e.clinic_id
@@ -583,9 +667,14 @@ class DispatchService:
                      AND p.clinic_patient_id = v.clinic_patient_id
                    WHERE e.clinic_id = $1::uuid
                      AND e.aggregate_type = 'service_order'
-                     AND e.event_type = 'service.routed'
+                     AND e.event_type IN ('service.routed',
+                                          'service.room_transferred')
                 ) x
-                ORDER BY created_at DESC LIMIT $2
+                LEFT JOIN public.node_definition nf
+                  ON nf.clinic_id = $1::uuid AND nf.code = x.from_node
+                LEFT JOIN public.node_definition nt
+                  ON nt.clinic_id = $1::uuid AND nt.code = x.to_node
+                ORDER BY x.created_at DESC LIMIT $2
                 """,
                 clinic_id,
                 limit,
@@ -594,9 +683,13 @@ class DispatchService:
             {
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
+                # Nhãn tiếng Việt + tên bước do máy chủ quyết — màn không in mã thô.
+                "event_label": action_label(r["event_type"]),
                 "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
+                "from_node_name": r.get("from_node_name"),
+                "to_node_name": r.get("to_node_name"),
                 "from_room": r["from_room"],
                 "to_room": r["to_room"],
                 "reason": r["reason"] or _ly_do_xep_phong(r),
@@ -812,7 +905,26 @@ def _overview_row(r: asyncpg.Record) -> dict[str, Any]:
         "checked_in_at": (
             r["checked_in_at"].isoformat() if r["checked_in_at"] else None
         ),
+        # Nhãn trạng thái khách (Tuyền 29/09/2026) — màn chỉ vẽ.
+        "trang_thai": _iso_nhan(
+            trang_thai_khach(
+                khach_ve=r.get("khach_ve_luc") is not None,
+                lane=r.get("hang_lane"),
+                hang=r.get("hang_status"),
+                vao_hang_luc=r.get("hang_vao"),
+                goi_luc=r.get("hang_goi"),
+                lam_tu=r.get("hang_lam"),
+                so_truoc=r.get("hang_so_truoc"),
+                cho_kq_doi_tac=bool(r.get("cho_kq_doi_tac")),
+            )
+        ),
     }
+
+
+def _iso_nhan(nhan: dict[str, Any]) -> dict[str, Any]:
+    """`tu_luc` ra chuỗi ISO — các dòng tổng quan đi qua JSON tay (SSE)."""
+    tu = nhan.get("tu_luc")
+    return {**nhan, "tu_luc": tu.isoformat() if tu is not None else None}
 
 
 def _json(value: dict[str, Any]) -> str:
@@ -872,6 +984,13 @@ SELECT o.id::text,
        coalesce(n.lam_ben_ngoai, false) AS doi_tac,
        o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,
        q.status AS work_status,
+       -- NHÃN TRẠNG THÁI (Tuyền 29/09/2026): mốc giờ + vị trí trong hàng.
+       q.eligible_at AS vao_hang_luc, q.called_at AS goi_luc,
+       q.serving_at, q.so_truoc,
+       o.ket_qua_luc, o.finished_at AS xong_luc, v.closed_at AS khach_ve_luc,
+       (SELECT a.started_at FROM public.service_execution_attempt a
+         WHERE a.clinic_id = o.clinic_id AND a.service_order_id = o.id
+           AND a.status = 'IN_PROGRESS') AS lan_lam_tu,
        -- SỐ NGƯỜI ĐANG CHỜ Ở PHÒNG ĐANG XẾP — câu trưởng ca thật sự hỏi khi
        -- nhìn một chỉ định: "chỗ ấy có tắc không?". Đếm theo hàng chờ thật.
        (SELECT count(*) FROM public.queue_entry q2
@@ -913,7 +1032,16 @@ SELECT o.id::text,
          ON n.code = o.node_code AND n.clinic_id = o.clinic_id
   LEFT JOIN public.clinic_room r ON r.id = o.room_id
   LEFT JOIN LATERAL (
-      SELECT q1.status FROM public.queue_entry q1
+      SELECT q1.status, q1.eligible_at, q1.called_at, q1.serving_at,
+             CASE WHEN q1.status = 'waiting' THEN (
+                 SELECT count(*)::int FROM public.queue_entry o1
+                  WHERE o1.clinic_id = q1.clinic_id AND o1.lane = q1.lane
+                    AND o1.room_id = q1.room_id AND o1.id <> q1.id
+                    AND o1.status IN ('waiting', 'called')
+                    AND (coalesce(o1.eligible_at, o1.created_at), o1.id)
+                        < (coalesce(q1.eligible_at, q1.created_at), q1.id))
+             END AS so_truoc
+        FROM public.queue_entry q1
        WHERE q1.clinic_id = o.clinic_id AND q1.visit_id = o.visit_id
          AND q1.ref_id = o.id AND q1.reason = 'SERVICE'
        ORDER BY q1.created_at DESC LIMIT 1

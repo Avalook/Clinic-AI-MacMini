@@ -84,9 +84,11 @@ test("tab ngày: 'Cả tuần' đứng đầu, rồi T2…CN kèm ngày; số l�
   assert.equal(tab[7].ma, "2026-09-27");
 });
 
-test("chip ngày CHỈ bật ở Trang chủ; Tiếp đón dùng cùng bảng mà không truyền", () => {
+test("chip ngày ở Trang chủ VÀ Tiếp đón (29/09/2026: thanh tuần/ngày y hệt)", () => {
   assert.match(ma("../app/(dashboard)/home/page.tsx"), /<WeeklyAppointmentsTable[\s\S]*?chonNgay[\s\S]*?\/>/);
-  assert.doesNotMatch(ma("../app/(dashboard)/reception/queue/page.tsx"), /chonNgay/);
+  const tiepDon = ma("../app/(dashboard)/reception/queue/page.tsx");
+  assert.match(tiepDon, /<WeeklyAppointmentsTable[\s\S]*?chonNgay[\s\S]*?\/>/);
+  assert.match(tiepDon, /<WeekNav gon[^>]*basePath="\/reception\/queue"/);
   const bang = ma("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
   assert.match(bang, /chonNgay = false/);
   // Đọc từ URL mỗi lần vẽ, ghi lại URL không tải trang.

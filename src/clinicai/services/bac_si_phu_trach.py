@@ -20,6 +20,7 @@ không giành một lượt / một phiên (HOLD đính chính chéo bác sĩ, D
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from datetime import datetime
 
 import asyncpg
 
@@ -116,6 +117,114 @@ def bac_si_dang_trong_ca(
     return ket
 
 
+def bac_si_trong_ca_hoac_ca_ngay(
+    dong: Sequence[tuple[str, str, str, str]], phut: int, settings: object
+) -> list[str]:
+    """Thuần: "bác sĩ của phòng" theo ca — ai ĐANG trong ca lúc `phut`; không
+    ai đang trong ca (đầu / cuối ngày, nghỉ trưa) thì rơi về CẢ NGÀY (mọi dòng
+    trừ REJECTED) để hàng chờ không bỗng dưng rỗng ngoài giờ ca."""
+    dang = bac_si_dang_trong_ca(dong, phut, settings)
+    if dang:
+        return dang
+    ket: list[str] = []
+    for ai, _tram, _ca, trang_thai in dong:
+        if trang_thai != "REJECTED" and ai not in ket:
+            ket.append(ai)
+    return ket
+
+
+def bac_si_cung_phong(
+    *,
+    dong_cua_toi: Sequence[tuple[str, str, str, str]],
+    dong_bac_si: Sequence[tuple[str, str, str, str, str]],
+    phut: int,
+    settings: object,
+) -> list[str]:
+    """Thuần: bác sĩ đứng CÙNG PHÒNG với tôi trong lịch hôm nay.
+
+    `dong_cua_toi`: ``(phòng, trạm, ca, trạng thái)`` — lịch của tôi.
+    `dong_bac_si`: ``(bác sĩ, phòng, trạm, ca, trạng thái)`` — lịch bác sĩ.
+    Phòng của tôi = phòng tôi ĐANG trong ca (không ca nào đang diễn ra → mọi
+    phòng hôm nay). Bác sĩ của các phòng ấy theo `bac_si_trong_ca_hoac_ca_ngay`.
+    """
+    dang = [
+        (phong, tram, ca, tt)
+        for phong, tram, ca, tt in dong_cua_toi
+        if vi_tri_dang_trong_ca([(tram, ca, tt)], phut, settings)
+    ]
+    phong_toi = {
+        phong for phong, _t, _c, tt in (dang or dong_cua_toi) if tt != "REJECTED"
+    }
+    if not phong_toi:
+        return []
+    return sorted(
+        bac_si_trong_ca_hoac_ca_ngay(
+            [
+                (ai, tram, ca, tt)
+                for ai, phong, tram, ca, tt in dong_bac_si
+                if phong in phong_toi
+            ],
+            phut,
+            settings,
+        )
+    )
+
+
+_LICH_CUNG_PHONG_SQL = """
+SELECT w.staff_id::text AS id, v.room_id::text AS phong, w.station, w.shift,
+       w.status, (w.staff_id = $2::uuid) AS la_toi,
+       EXISTS (SELECT 1 FROM public.clinic_membership m
+                WHERE m.clinic_id = w.clinic_id AND m.staff_id = w.staff_id
+                  AND m.is_active AND m.role = ANY($4::text[])) AS la_bac_si,
+       c.settings
+  FROM public.work_roster w
+  JOIN public.vi_tri_lam_viec v
+    ON v.clinic_id = w.clinic_id AND v.code = w.station
+  JOIN public.clinic c ON c.id = w.clinic_id
+ WHERE w.clinic_id = $1::uuid AND w.work_date = $3::date
+   AND w.status <> 'REJECTED' AND v.room_id IS NOT NULL
+   AND v.room_id IN (
+       SELECT v2.room_id FROM public.work_roster w2
+         JOIN public.vi_tri_lam_viec v2
+           ON v2.clinic_id = w2.clinic_id AND v2.code = w2.station
+        WHERE w2.clinic_id = $1::uuid AND w2.staff_id = $2::uuid
+          AND w2.work_date = $3::date AND w2.status <> 'REJECTED')
+ ORDER BY v.sort NULLS LAST, w.station, w.staff_id
+"""
+
+
+async def bac_si_cung_phong_hom_nay(
+    conn: asyncpg.Connection | asyncpg.Pool,
+    clinic_id: str,
+    staff_id: str,
+    *,
+    luc: datetime | None = None,
+) -> list[str]:
+    """Bác sĩ (DOCTOR / ULTRASOUND_DOCTOR) đứng cùng phòng với `staff_id` trong
+    lịch hôm nay, theo ca đang diễn ra (ngoài giờ ca → cả ngày). Gồm cả chính
+    người ấy nếu họ là bác sĩ."""
+    moc = luc or now_vn()
+    rows = await conn.fetch(
+        _LICH_CUNG_PHONG_SQL, clinic_id, staff_id, moc.date(), list(VAI_BAC_SI)
+    )
+    if not rows:
+        return []
+    return bac_si_cung_phong(
+        dong_cua_toi=[
+            (r["phong"], str(r["station"]), str(r["shift"]), str(r["status"]))
+            for r in rows
+            if r["la_toi"]
+        ],
+        dong_bac_si=[
+            (r["id"], r["phong"], str(r["station"]), str(r["shift"]), str(r["status"]))
+            for r in rows
+            if r["la_bac_si"]
+        ],
+        phut=moc.hour * 60 + moc.minute,
+        settings=rows[0]["settings"],
+    )
+
+
 def chon_bac_si_thuc_hien(
     *, nguoi_bam: str, nguoi_bam_la_bac_si: bool, bac_si_phong: Sequence[str]
 ) -> str:
@@ -186,11 +295,106 @@ async def bac_si_thuc_hien_mac_dinh(
     return nguoi_bam
 
 
+# ── BÁC SĨ CỦA MỘT PHIÊN KHÁM ────────────────────────────────────────────────
+#
+# Tuyền 29/09: "mọi chỗ hiển thị bác sĩ phải ra TÊN BÁC SĨ, không phải người
+# bấm". Điều dưỡng / thư ký bấm Bắt đầu khám cho khách CHƯA gán bác sĩ thì phiên
+# từng không có bác sĩ, không phòng — khách hiện ở hàng chờ MỌI phòng dù đã có
+# người nhận, và màn Check-out hiện "—" ở hàng "Khám với bác sĩ".
+
+_UNG_VIEN_PHIEN_SQL = """
+WITH c AS (
+    SELECT c.id, c.visit_id, c.kind, c.doctor_staff_id
+      FROM public.consultation c
+     WHERE c.clinic_id = $1::uuid
+       AND (($2::uuid IS NOT NULL AND c.id = $2::uuid)
+            OR ($2::uuid IS NULL AND c.visit_id = $3::uuid
+                AND c.status <> 'cancelled'))
+     ORDER BY c.round_no DESC
+     LIMIT 1
+)
+SELECT c.doctor_staff_id::text AS phien,
+       (SELECT q.doctor_staff_id::text FROM public.queue_entry q
+         WHERE q.clinic_id = $1::uuid AND q.ref_id = c.id
+           AND q.reason <> 'SERVICE' AND q.doctor_staff_id IS NOT NULL
+         ORDER BY (q.status NOT IN ('done', 'left', 'cancelled')) DESC,
+                  q.created_at DESC
+         LIMIT 1) AS hang,
+       v.attending_doctor_id::text AS luot,
+       a.doctor_id::text AS hen,
+       CASE WHEN c.kind IN ('REVIEW', 'TU_VAN') THEN
+           (SELECT c1.doctor_staff_id::text FROM public.consultation c1
+             WHERE c1.clinic_id = $1::uuid AND c1.visit_id = v.visit_id
+               AND c1.round_no = 1)
+       END AS vong_1
+  FROM public.visit v
+  LEFT JOIN c ON c.visit_id = v.visit_id
+  LEFT JOIN public.appointment a
+    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+ WHERE v.clinic_id = $1::uuid
+   AND v.visit_id = coalesce((SELECT visit_id FROM c), $3::uuid)
+"""
+
+
+def chon_bac_si_phien(
+    ung_vien: Sequence[str | None], bac_si: set[str], bac_si_phong: Sequence[str]
+) -> str | None:
+    """Thuần: ứng viên ĐẦU TIÊN là bác sĩ thật; không ai thì bác sĩ phòng nếu
+    phòng có ĐÚNG MỘT bác sĩ (nhiều bác sĩ = không biết ai → không đoán)."""
+    for ai in ung_vien:
+        if ai and ai in bac_si:
+            return ai
+    ds = list(dict.fromkeys(bac_si_phong))
+    return ds[0] if len(ds) == 1 else None
+
+
+async def bac_si_cua_phien(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    consultation_id: str | None = None,
+    visit_id: str | None = None,
+    nguoi_bam: str | None = None,
+    luc: datetime | None = None,
+) -> str | None:
+    """BÁC SĨ của một phiên khám (hoặc phiên mới nhất của lượt) — MỘT nguồn.
+
+    Thứ tự, mỗi ứng viên phải là tài khoản bác sĩ (`bac_si_trong`):
+      1. bác sĩ đã ghi trên phiên (`consultation.doctor_staff_id`);
+      2. bác sĩ của chỗ chờ (`queue_entry.doctor_staff_id`);
+      3. bác sĩ chính của lượt (`visit.attending_doctor_id`);
+      4. bác sĩ của lịch hẹn (`appointment.doctor_id`);
+      5. phiên đọc kết quả / tư vấn: bác sĩ phiên khám chính (vòng 1);
+      6. bác sĩ DUY NHẤT đang trong ca ở phòng của NGƯỜI BẤM (lịch hôm nay).
+    Không ai → None (không đoán tên một bác sĩ có thể không làm ca này).
+    """
+    if not consultation_id and not visit_id:
+        return None
+    r = await conn.fetchrow(_UNG_VIEN_PHIEN_SQL, clinic_id, consultation_id, visit_id)
+    ung_vien: list[str | None] = (
+        [r["phien"], r["hang"], r["luot"], r["hen"], r["vong_1"]]
+        if r is not None
+        else []
+    )
+    bac_si = await bac_si_trong(conn, clinic_id, ung_vien)
+    chon = chon_bac_si_phien(ung_vien, bac_si, [])
+    if chon is not None or not nguoi_bam:
+        return chon
+    return chon_bac_si_phien(
+        [], set(), await bac_si_cung_phong_hom_nay(conn, clinic_id, nguoi_bam, luc=luc)
+    )
+
+
 __all__ = [
     "VAI_BAC_SI",
+    "bac_si_cua_phien",
+    "bac_si_cung_phong",
+    "bac_si_cung_phong_hom_nay",
     "bac_si_dang_trong_ca",
+    "bac_si_trong_ca_hoac_ca_ngay",
     "bac_si_thuc_hien_mac_dinh",
     "bac_si_trong",
+    "chon_bac_si_phien",
     "chon_bac_si_thuc_hien",
     "hai_bac_si_khac_nhau",
     "la_bac_si_khac",

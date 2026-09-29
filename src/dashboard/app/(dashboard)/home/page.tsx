@@ -30,7 +30,6 @@ import {
   getQuyenCuaToi,
   getViTriHomNay,
   getActiveStaff,
-  getClinicStaffId,
 } from "../../../lib/clinic-session";
 import {
   type ClinicRole,
@@ -44,7 +43,7 @@ import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { docDuocYKhoa } from "../../../lib/quyen-cua-toi";
+import { QUYEN_GHI_CHAM_SOC, coMotQuyen } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
 import {
   currentWeekStartVn,
@@ -186,13 +185,9 @@ export default async function HomePage({
       .map((n) => ({ href: n.href, label: n.label })),
   }));
   const staff = await getActiveStaff();
-  const staffId = await getClinicStaffId();
   // CHECK-IN KHÔNG CÒN Ở TRANG CHỦ (Tuyền chốt 18/09/2026): cả ô check-in của
   // Quản lý lẫn cột check-in của Lễ tân chuyển sang Tiếp đón khách
   // (/reception/queue) — một việc, một chỗ. Bảng lịch ở đây chỉ để xem.
-  // Mở hồ sơ lâm sàng từ bảng lịch: theo QUYỀN (khối khám / kết quả), không
-  // theo vai — quản lý có đủ khối nên mở được (Tuyền chốt 24/09/2026).
-  const writeClinical = await docDuocYKhoa();
   const isReception = role === "RECEPTION"; // bảng trạng thái buổi khám: chỉ Lễ tân
 
   // 2 bảng có tuần ĐỘC LẬP: weekAppt cho Lịch hẹn khám, weekRoster cho Lịch làm
@@ -289,8 +284,6 @@ export default async function HomePage({
         <KhoiDuLieu
           choDoSinhHieu={choDoSinhHieu}
           role={role}
-          staffId={staffId}
-          writeClinical={writeClinical}
           isReception={isReception}
           weekAppt={weekAppt}
           weekRoster={weekRoster}
@@ -428,16 +421,12 @@ async function BaOSo({
 /** Phần thân dữ liệu của trang — mọi bảng, sau MỘT lời gọi gói. */
 async function KhoiDuLieu({
   role,
-  staffId,
-  writeClinical,
   isReception,
   choDoSinhHieu,
   weekAppt,
   weekRoster,
 }: {
   role: ClinicRole | null;
-  staffId: string | null;
-  writeClinical: boolean;
   isReception: boolean;
   choDoSinhHieu: boolean;
   weekAppt: string;
@@ -575,10 +564,17 @@ async function KhoiDuLieu({
         <WeeklyAppointmentsTable
           days={apptDays}
           role={role}
-          staffId={staffId}
-          canWriteClinical={writeClinical}
           dutyByDate={dutyByDate}
           choDoSinhHieu={choDoSinhHieu}
+          // ⋯ "Đổi lịch" (popover tại dòng) theo LEGO Quản lý lịch hẹn; bấm tên
+          // khách: đã check-in → Hành trình khách, chưa → hồ sơ khách (29/09/2026,
+          // bỏ ngăn "Hành chính & Sinh hiệu").
+          duocDoiLich={quyen === null ? undefined : quyen.includes("booking.manage")}
+          // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
+          // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
+          duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+          duocXemHoSo={vaoDuocMan("/patient-list", vaiHomNay, quyen)}
+          moHoSoKhach={vaoDuocMan("/customers", vaiHomNay, quyen)}
           // Chip T2…CN + "Cả tuần", giữ trên `?ngay=` (27/09/2026, đợt 3 —
           // "check đặt lịch cần hiển thị theo ngày"). Mặc định hôm nay khi
           // đang xem tuần này.

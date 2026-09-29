@@ -26,11 +26,26 @@ export interface DangO {
 }
 
 export interface HanhTrinhGon extends DangO {
+  /** Giờ các lần ĐO LẠI sinh hiệu (29/09) — hiện rõ ở dòng gọn. */
+  do_lai?: string[];
+  /** Dịch vụ LÀM LẠI: tên + số lần (29/09). */
+  lam_lai?: { ten: string; lan: number }[];
   xong_buoi: boolean;
   doan: TrangThaiBuoc[];
   dv_xong: number;
   dv_tong: number;
   con_cho: string[];
+}
+
+/** Một LẦN LÀM của một dịch vụ (làm lại = lần 2, 3…) — máy chủ trả. */
+export interface LanLam {
+  so: number;
+  trang_thai: string | null;
+  vao: string | null;
+  bat_dau: string | null;
+  xong: string | null;
+  /** Lần bị dừng giữa chừng: giờ dừng. */
+  dung: string | null;
 }
 
 export interface TheDichVu {
@@ -46,6 +61,10 @@ export interface TheDichVu {
   lay_mau: string | null;
   stt: number | null;
   so_truoc: number | null;
+  /** Số lần làm (≥ 2 = làm lại). Máy chủ cũ chưa trả → 1. */
+  so_lan?: number;
+  /** Mọi lần làm khi LÀM LẠI (lần 1 vẫn giữ); một lần → rỗng. */
+  lan?: LanLam[];
 }
 
 export interface BuocHanhTrinh {
@@ -59,6 +78,13 @@ export interface BuocHanhTrinh {
   xong: string | null;
   ghi_chu: string | null;
   dich_vu: TheDichVu[] | null;
+  /** Bước CHƯA xảy ra (chữ giữ chỗ) — xám "dự kiến", không giờ. */
+  du_kien?: boolean;
+  /** Chỗ là chữ giữ chỗ ("Bàn khám", chưa biết phòng thật). */
+  noi_du_kien?: boolean;
+  /** Sinh hiệu: giờ các lần đo lại + mọi lần đo kèm người đo. */
+  do_lai?: string[];
+  lan_do?: { luc: string; ai: string | null }[];
   /** Bước Khám: "chỉ định N dịch vụ · thu tiền HH:MM (người thu)". */
   so_chi_dinh?: number;
   thu_luc?: string | null;
@@ -71,6 +97,8 @@ export interface TiepTheo {
   stt: number | null;
   so_nguoi_cho: number | null;
   ghi_chu: string | null;
+  /** Chưa có chỗ chờ thật / chưa biết phòng — xám "dự kiến". */
+  du_kien?: boolean;
 }
 
 export interface HanhTrinhKhach {
@@ -79,6 +107,20 @@ export interface HanhTrinhKhach {
   dang_o: DangO;
   tiep_theo: TiepTheo[];
   buoc: BuocHanhTrinh[];
+  /** Lịch sử xếp / đổi phòng theo mã chỉ định (29/09/2026) — câu máy chủ viết. */
+  lich_su_phong?: Record<string, DongLichSuPhong[]>;
+}
+
+export interface DongLichSuPhong {
+  luc: string | null;
+  nguon: string | null;
+  ten_nguon: string;
+  ai: string | null;
+  tu_phong: string | null;
+  den_phong: string | null;
+  ly_do: string | null;
+  /** "Trưởng ca chuyển phòng khi đang làm A → B: máy hỏng". */
+  cau: string;
 }
 
 function ms(v: string | null | undefined): number | null {
@@ -141,12 +183,38 @@ export function noiGon(g: DangO): string {
   return g.noi;
 }
 
-/** Dòng nhỏ dưới thanh: "2/3 dịch vụ xong · còn chờ: Lấy mẫu · KQ đối tác". */
+/** Dòng nhỏ dưới thanh: "2/3 dịch vụ xong · còn chờ: Lấy mẫu · KQ đối tác ·
+ *  sinh hiệu đo lại 10:45 · làm lại: Siêu âm (lần 2)". */
 export function dongPhuGon(g: HanhTrinhGon): string {
   const ra: string[] = [];
   if (g.dv_tong > 0) ra.push(`${g.dv_xong}/${g.dv_tong} dịch vụ xong`);
   if (g.con_cho.length > 0) ra.push(`còn chờ: ${g.con_cho.join(" · ")}`);
+  const doLai = (g.do_lai ?? []).map(gio).filter(Boolean);
+  if (doLai.length > 0) ra.push(`sinh hiệu đo lại ${doLai.join(", ")}`);
+  const lamLai = g.lam_lai ?? [];
+  if (lamLai.length > 0) {
+    ra.push(`làm lại: ${lamLai.map((x) => `${x.ten} (lần ${x.lan})`).join(", ")}`);
+  }
   return ra.join(" · ");
+}
+
+/** Sinh hiệu đo nhiều lần: "Đo lần 1 10:33 (Lan) · đo lại 10:45 (Mai)".
+ *  Một lần (hoặc máy chủ cũ) → rỗng: giờ chính của bước đã đủ. */
+export function dongDoSinhHieu(b: Pick<BuocHanhTrinh, "lan_do">): string {
+  const ds = (b.lan_do ?? []).filter((x) => gio(x.luc));
+  if (ds.length < 2) return "";
+  return ds
+    .map((x, i) => `${i === 0 ? "Đo lần 1" : "đo lại"} ${gio(x.luc)}${x.ai ? ` (${x.ai})` : ""}`)
+    .join(" · ");
+}
+
+/** Một dòng lần làm: "Lần 1 · vào 10:55 · chờ 5′ · bắt đầu 11:00 · làm 5′ ·
+ *  dừng 11:05". Lần đang chờ làm lại: "Lần 2 · vào 11:06 · đang chờ 3′". */
+export function dongLanLam(l: LanLam, bayGio: number, dungDongHo = false): string {
+  const ket = l.xong ?? l.dung;
+  let tg = thoiGian({ vao: l.vao, bat_dau: l.bat_dau, xong: ket }, bayGio, dungDongHo);
+  if (!l.xong && l.dung) tg = tg.replace(/xong (\d)/, "dừng $1");
+  return [`Lần ${l.so}`, tg].filter(Boolean).join(" · ");
 }
 
 /**

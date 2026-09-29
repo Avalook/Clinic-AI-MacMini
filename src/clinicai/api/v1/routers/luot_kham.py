@@ -169,11 +169,15 @@ class CompleteServiceBody(BaseModel):
 
 @router.get("/luot-kham/bang")
 async def bang(
+    ngay: str | None = Query(default=None, max_length=32),
     identity: StaffIdentity = Depends(_BANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai."""
-    return await BangLuotKham(pool).bang(identity=identity)
+    """Bảng làm việc hôm nay, đủ cho mọi vai; màn hình lọc theo vai.
+
+    `ngay=YYYY-MM-DD` (29/09/2026): xem lại + sửa lượt của một ngày cũ; rác =
+    hôm nay."""
+    return await BangLuotKham(pool).bang(identity=identity, ngay=ngay)
 
 
 @router.post("/luot-kham/check-in")
@@ -711,6 +715,16 @@ async def assign_service_room(
 class PhongDuKienBody(BaseModel):
     #: Rỗng = bỏ chọn, để hệ thống tự chọn phòng vắng nhất sau khi thu tiền.
     room_id: UUID | None = None
+    #: quay_thu (mặc định) · truong_ca (29/09/2026: trưởng ca đặt trước thu tiền).
+    nguon: str | None = Field(default=None, max_length=20)
+
+
+class ChuyenPhongDangLamBody(BaseModel):
+    # Any: kiểm UUID / revision / lý do nằm ở service để trả mã lỗi ổn định.
+    room_id: Any
+    expected_routing_revision: Any
+    #: Bắt buộc — hiện ở lịch sử lượt ("Trưởng ca chuyển phòng A → B: …").
+    ly_do: Any = None
 
 
 @router.post("/luot-kham/orders/{order_id}/routing/phong-du-kien")
@@ -725,6 +739,27 @@ async def plan_service_room(
         order_id=str(order_id),
         room_id=str(body.room_id) if body.room_id else None,
         identity=identity,
+        nguon=body.nguon,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/routing/chuyen-phong-dang-lam")
+async def transfer_in_progress_service(
+    order_id: UUID,
+    body: ChuyenPhongDangLamBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Trưởng ca chuyển dịch vụ ĐANG LÀM sang phòng khác (Tuyền 29/09/2026).
+    Cửa thật là `dispatch.manage` trong ServiceRoutingService."""
+    return await ServiceRoutingService(pool).chuyen_phong_dang_lam(
+        order_id=str(order_id),
+        room_id=body.room_id,
+        expected_routing_revision=body.expected_routing_revision,
+        ly_do=body.ly_do,
+        identity=identity,
+        idempotency_key=idempotency_key,
     )
 
 

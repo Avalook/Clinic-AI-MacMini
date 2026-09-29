@@ -24,6 +24,8 @@ export const EVENT_LABEL: Record<string, string> = {
   "dispatch.checkin": "Tiếp nhận",
   // Xếp / đổi phòng từng chỉ định của luồng mới (28/09/2026).
   "service.routed": "Xếp phòng",
+  // Trưởng ca chuyển phòng khi dịch vụ đang làm (29/09/2026).
+  "service.room_transferred": "Chuyển phòng khi đang làm",
 };
 
 function HistoryTable({ rows }: { rows: DispatchHistoryRow[] }) {
@@ -60,16 +62,16 @@ function HistoryTable({ rows }: { rows: DispatchHistoryRow[] }) {
                   minute: "2-digit",
                 })}
               </td>
-              <td>{EVENT_LABEL[h.event_type] ?? h.event_type}</td>
+              <td>{h.event_label ?? EVENT_LABEL[h.event_type] ?? h.event_type}</td>
               <td>
                 {h.patient_name ?? "—"}
                 <div style={{ fontSize: 11, color: "var(--ink-muted)" }}>
                   {h.patient_code ?? ""}
                 </div>
               </td>
-              <td>{h.from_room ?? nodeLabel(h.from_node)}</td>
+              <td>{h.from_room ?? h.from_node_name ?? nodeLabel(h.from_node)}</td>
               <td>
-                <ArrowRight size={11} /> {h.to_room ?? nodeLabel(h.to_node)}
+                <ArrowRight size={11} /> {h.to_room ?? h.to_node_name ?? nodeLabel(h.to_node)}
               </td>
               <td style={{ color: "var(--ink-muted)" }}>{h.reason ?? ""}</td>
               <td>{h.actor_name ?? "—"}</td>

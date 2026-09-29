@@ -246,6 +246,16 @@ class Transition:
     quyen: str | None = None
 
 
+@dataclass(frozen=True)
+class _KetQuaHanhDong:
+    """Kết quả một hành động trong giao dịch — đủ cho các việc SAU commit."""
+
+    new_status: str
+    visit_id: str | None
+    doctor_cu: str | None
+    doctor_moi: str | None
+
+
 _ALIVE = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN"})
 _PRE_ARRIVAL = frozenset({"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"})
 # SCHEDULED và CSKH_CONFIRMED là TRẠNG THÁI CŨ, không phải trạng thái chết.
@@ -280,6 +290,19 @@ def _chan_dat_vao_qua_khu(slot_end: datetime) -> None:
     """
     if slot_end <= datetime.now(timezone.utc):
         raise ValidationError("Khung giờ này đã qua — chọn một khung còn ở phía trước.")
+
+
+#: "Ngay bây giờ" (đổi lịch nhanh) = khung bắt đầu cách đồng hồ máy chủ không quá
+#: bấy nhiêu phút. Đủ rộng cho popover mở vài phút rồi mới bấm; đủ hẹp để không
+#: thành đường vòng đặt lịch ngoài ca cho một giờ khác trong ngày.
+KHUNG_BAY_GIO_PHUT = 15
+#: Lý do đổi lịch nhanh: bắt buộc, tối đa bấy nhiêu ký tự.
+LY_DO_DOI_TOI_DA = 300
+
+
+def la_khung_bay_gio(slot_start: datetime, bay_gio: datetime) -> bool:
+    """Khung này có phải "ngay bây giờ" không (khách đang đứng ở quầy)."""
+    return abs((slot_start - bay_gio).total_seconds()) <= KHUNG_BAY_GIO_PHUT * 60
 
 
 TRANSITIONS: dict[str, Transition] = {
@@ -825,262 +848,29 @@ class BookingService:
         # một tài khoản Điều dưỡng) — nhật ký ghi đúng ngữ cảnh.
         identity = dung_vai(identity, transition.allowed_roles)
 
-        visit_vua_mo: str | None = None
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                if transition.quyen is not None:
-                    # Đứng vị trí Lễ tân hôm nay KHÔNG tự cấp quyền check-in:
-                    # người đó phải được cấp quyền (CORE-B3).
-                    await doi_quyen(conn, identity, transition.quyen)
-                appt = await conn.fetchrow(
-                    """
-                    SELECT
-                        a.id, a.doctor_id, a.status, a.clinic_patient_id,
-                        a.slot_start, a.slot_end, a.queue_number,
-                        a.booking_channel,
-                        -- Cần cho luật bắt buộc bác sĩ lúc gán người.
-                        a.service_type_id,
-                        EXISTS (
-                            SELECT 1
-                              FROM patient p
-                             WHERE p.clinic_patient_id = a.clinic_patient_id
-                               AND p.clinic_id = a.clinic_id
-                        ) AS patient_in_clinic,
-                        EXISTS (
-                            SELECT 1
-                              FROM clinic_location l
-                             WHERE l.id = a.location_id
-                               AND l.clinic_id = a.clinic_id
-                        ) AS location_in_clinic,
-                        EXISTS (
-                            SELECT 1
-                              FROM service_type s
-                             WHERE s.id = a.service_type_id
-                               AND s.clinic_id = a.clinic_id
-                        ) AS service_in_clinic,
-                        (
-                            a.doctor_id IS NULL
-                            OR EXISTS (
-                                SELECT 1
-                                  FROM staff st
-                                  JOIN clinic_membership m
-                                    ON m.staff_id = st.id
-                                 WHERE st.id = a.doctor_id
-                                   AND st.is_active
-                                   AND m.clinic_id = a.clinic_id
-                                   AND m.is_active
-                                   AND m.role IN (
-                                       'DOCTOR', 'ULTRASOUND_DOCTOR'
-                                   )
-                            )
-                        ) AS doctor_in_clinic
-                      FROM appointment a
-                     WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
-                    """,
-                    appointment_id,
-                    identity.clinic_id,
-                )
-                if appt is None:
-                    raise NotFoundError("Không tìm thấy lịch hẹn")
-                if not appt["patient_in_clinic"]:
-                    raise ValidationError(
-                        "Bệnh nhân của lịch hẹn không thuộc phòng khám này"
-                    )
-                if not appt["location_in_clinic"]:
-                    raise ValidationError(
-                        "Cơ sở của lịch hẹn không thuộc phòng khám này"
-                    )
-                if not appt["service_in_clinic"]:
-                    raise ValidationError(
-                        "Dịch vụ của lịch hẹn không thuộc phòng khám này"
-                    )
-                repairs_doctor = action in {"cancel", "reassign"} or (
-                    action == "reschedule" and doctor_id_provided
-                )
-                if not appt["doctor_in_clinic"] and not repairs_doctor:
-                    raise ValidationError(
-                        "Bác sĩ của lịch hẹn không thuộc phòng khám này"
-                    )
-
-                # "Ca của chính mình" là luật GIỮA CÁC BÁC SĨ — ngăn bác sĩ
-                # này đóng ca của bác sĩ kia. Người không phải bác sĩ (TKYK
-                # nhập hộ, nhóm vận hành đóng lượt trong MVP tay) không có "ca
-                # của mình" để so; so staff_id với họ chỉ chặn sạch mọi thứ —
-                # đo được trên bản thật: Quản lý bấm check-out ăn ngay
-                # "Lịch hẹn này không thuộc bác sĩ".
-                if (
-                    transition.owner_only
-                    and identity.co_vai(PHYSICIAN_ONLY_OWNER_CHECK)
-                    and str(appt["doctor_id"] or "") != identity.staff_id
-                ):
-                    raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
-
-                if appt["status"] not in transition.from_statuses:
-                    raise ConflictError(
-                        f"Lịch hẹn đang ở trạng thái {appt['status']}, "
-                        "không thể thực hiện."
-                    )
-
-                new_status = (
-                    appt["status"]
-                    if transition.to_status == KEEP_STATUS
-                    else transition.to_status
-                )
-                effective_doctor_id = (
-                    str(appt["doctor_id"]) if appt["doctor_id"] else None
-                )
-
-                patch: dict[str, Any] = {}
-                if action == "checkin":
-                    updated = await self._check_in(conn, appointment_id, transition)
-                else:
-                    patch = await self._build_patch(
-                        conn,
-                        action=action,
-                        appt=appt,
-                        new_status=new_status,
-                        cancellation_reason=cancellation_reason,
-                        ly_do_huy_ma=ly_do_huy_ma,
-                        doctor_id=doctor_id,
-                        doctor_id_provided=doctor_id_provided,
-                        slot_start=slot_start,
-                        slot_end=slot_end,
-                        identity=identity,
-                        service_type_id=service_type_id,
-                        booking_channel=booking_channel,
-                        booking_channel_provided=booking_channel_provided,
-                    )
-                    updated = await self._update(
-                        conn,
-                        appointment_id,
-                        patch,
-                        transition.from_statuses,
-                        identity.clinic_id,
-                    )
-                    if "doctor_id" in patch:
-                        effective_doctor_id = (
-                            str(patch["doctor_id"]) if patch["doctor_id"] else None
-                        )
-
-                if not updated:
-                    # Somebody moved it between our read and our write.
-                    raise ConflictError(
-                        "Lịch hẹn vừa được người khác cập nhật, hãy tải lại."
-                    )
-
-                # Đổi lịch kèm người giới thiệu → HỒ SƠ khách (cùng luật với đặt
-                # mới: để trống thì giữ tên đã có, không xoá).
-                gioi_thieu = " ".join((nguoi_gioi_thieu or "").split())[:200]
-                if action == "reschedule" and gioi_thieu:
-                    await conn.execute(
-                        "UPDATE patient SET nguoi_gioi_thieu = $3, updated_at = now()"
-                        " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
-                        identity.clinic_id,
-                        str(appt["clinic_patient_id"]),
-                        gioi_thieu,
-                    )
-
-                await _log(
+                kq = await self._hanh_dong_trong_gd(
                     conn,
-                    event_type=transition.event_type,
-                    aggregate_id=appointment_id,
-                    payload={
-                        "appointment_id": appointment_id,
-                        "status": new_status,
-                        "doctor_id": effective_doctor_id,
-                        "clinic_patient_id": str(appt["clinic_patient_id"]),
-                        **({"xac_minh_cach": cach_xac_minh} if cach_xac_minh else {}),
-                    },
-                    identity=identity,
-                    origin=f"api:appointment-{action}",
-                )
-                await _phat_su_kien_lich(
-                    conn,
-                    identity=identity,
+                    appointment_id=appointment_id,
                     action=action,
-                    appt=appt,
-                    patch=patch,
-                    ly_do=cancellation_reason,
+                    transition=transition,
+                    identity=identity,
+                    cach_xac_minh=cach_xac_minh,
+                    cancellation_reason=cancellation_reason,
                     ly_do_huy_ma=ly_do_huy_ma,
+                    doctor_id=doctor_id,
+                    doctor_id_provided=doctor_id_provided,
+                    slot_start=slot_start,
+                    slot_end=slot_end,
+                    service_type_id=service_type_id,
+                    booking_channel=booking_channel,
+                    booking_channel_provided=booking_channel_provided,
+                    nguoi_gioi_thieu=nguoi_gioi_thieu,
                 )
-
-                if action == "checkin":
-                    visit_vua_mo = await self._open_visit(
-                        conn,
-                        appointment_id=appointment_id,
-                        clinic_patient_id=str(appt["clinic_patient_id"]),
-                        doctor_id=effective_doctor_id,
-                        identity=identity,
-                    )
-                    if visit_vua_mo:
-                        # Sự kiện nghiệp vụ mở đầu hành trình, CÙNG giao dịch
-                        # với việc mở lượt. Payload không có tên, tuổi hay số
-                        # điện thoại — màn nào cần thì hỏi bảng bệnh nhân, nơi
-                        # có quyền đọc riêng.
-                        await emit_event(
-                            conn,
-                            ten="visit.checked_in",
-                            clinic_id=identity.clinic_id,
-                            aggregate_id=visit_vua_mo,
-                            payload=KhachDaToi(
-                                visit_id=visit_vua_mo,
-                                appointment_id=appointment_id,
-                            ),
-                            boi=nguoi(identity),
-                            correlation_id=visit_vua_mo,
-                        )
-                    if cach_xac_minh:
-                        await self._ghi_xac_minh(
-                            conn,
-                            appointment_id=appointment_id,
-                            cach=cach_xac_minh,
-                            identity=identity,
-                        )
-                elif action in _WORKFLOW_CANCELLING:
-                    await self._cancel_visit_workflow(
-                        conn,
-                        appointment_id=appointment_id,
-                        identity=identity,
-                        reason=action,
-                    )
-
-                # LỊCH TRỰC PHẢI THEO KỊP PHÂN CÔNG, không thì hai màn nói
-                # ngược nhau: lịch hẹn ghi "BS. X khám", còn Lịch làm việc hôm
-                # ấy trống trơn — và `capacity_service` đọc chính lịch trực để
-                # trả lời "bác sĩ này có đi làm hôm đó không".
-                #
-                # TRONG CÙNG GIAO DỊCH với việc gán bác sĩ, cố ý. Đây không
-                # phải lớp phủ như thông báo: gán được bác sĩ mà không xếp được
-                # ca là để lại đúng cái mâu thuẫn vừa nói. Hỏng thì cuộn lại cả
-                # hai và người dùng bấm lại.
-                if appt["doctor_id"] is None and effective_doctor_id:
-                    await self._xep_vao_lich_truc(
-                        conn,
-                        appointment_id=appointment_id,
-                        doctor_id=effective_doctor_id,
-                        slot_start=appt["slot_start"],
-                        identity=identity,
-                    )
-
-        # LỊCH VỪA CÓ BÁC SĨ → BÁO CSKH. Đây là mắt xích cuối của vòng mà màn
-        # Đặt lịch đã hứa với người dùng bằng chữ: *"Lịch đặt xong sẽ nằm ở màn
-        # Chờ xếp bác sĩ để quản lý phân người; khi đã có bác sĩ, khách này hiện
-        # lại ở Quản lý khách hàng để CSKH gọi xác nhận lịch và bác sĩ."*
-        #
-        # Nửa đầu câu ấy đúng từ trước — `doctor_id IS NULL` là hàng chờ. Nửa
-        # sau thì không: chưa có gì đánh thức CSKH, nên họ phải tự nhớ mà vào
-        # xem. Đặt ở đây, SAU khi giao dịch đã commit: giao dịch cuộn lại mà
-        # thông báo đã bay đi là báo một việc chưa xảy ra.
-        #
-        # Chỉ khi doctor_id đi từ RỖNG sang CÓ. Đổi bác sĩ này sang bác sĩ khác
-        # cũng đáng biết, nhưng nó không phải cái kết thúc chờ đợi — gộp vào là
-        # CSKH nhận thông báo cho mọi lần quản lý sửa phân công.
-        if appt["doctor_id"] is None and effective_doctor_id:
-            await self._bao_cskh_da_co_bac_si(
-                appointment_id=appointment_id,
-                doctor_id=effective_doctor_id,
-                identity=identity,
-            )
+        new_status = kq.new_status
+        visit_vua_mo = kq.visit_id
+        await self._bao_neu_vua_co_bac_si(kq, appointment_id, identity)
 
         logger.info(
             "appointment_action",
@@ -1097,6 +887,402 @@ class BookingService:
             if visit_vua_mo
             else {"status": new_status}
         )
+
+    async def _hanh_dong_trong_gd(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        appointment_id: str,
+        action: str,
+        transition: Transition,
+        identity: StaffIdentity,
+        cach_xac_minh: str | None = None,
+        cancellation_reason: str | None = None,
+        ly_do_huy_ma: str | None = None,
+        doctor_id: str | None = None,
+        doctor_id_provided: bool = False,
+        slot_start: datetime | None = None,
+        slot_end: datetime | None = None,
+        service_type_id: str | None = None,
+        booking_channel: str | None = None,
+        booking_channel_provided: bool = False,
+        nguoi_gioi_thieu: str | None = None,
+        cho_ngoai_ca: bool = False,
+        xoa_so_thu_tu: bool = False,
+    ) -> _KetQuaHanhDong:
+        """Một hành động lịch hẹn TRONG giao dịch của người gọi.
+
+        Tách khỏi `apply_action` (29/09/2026) để lệnh "đổi lịch nhanh" chạy
+        đổi lịch rồi check-in trong CÙNG một giao dịch, qua đúng một đường luật.
+        `cho_ngoai_ca` / `xoa_so_thu_tu` chỉ lệnh ấy dùng — xem `doi_lich_nhanh`.
+        """
+        visit_vua_mo: str | None = None
+        if transition.quyen is not None:
+            # Đứng vị trí Lễ tân hôm nay KHÔNG tự cấp quyền check-in:
+            # người đó phải được cấp quyền (CORE-B3).
+            await doi_quyen(conn, identity, transition.quyen)
+        appt = await conn.fetchrow(
+            """
+            SELECT
+                a.id, a.doctor_id, a.status, a.clinic_patient_id,
+                a.slot_start, a.slot_end, a.queue_number,
+                a.booking_channel,
+                -- Cần cho luật bắt buộc bác sĩ lúc gán người.
+                a.service_type_id,
+                EXISTS (
+                    SELECT 1
+                      FROM patient p
+                     WHERE p.clinic_patient_id = a.clinic_patient_id
+                       AND p.clinic_id = a.clinic_id
+                ) AS patient_in_clinic,
+                EXISTS (
+                    SELECT 1
+                      FROM clinic_location l
+                     WHERE l.id = a.location_id
+                       AND l.clinic_id = a.clinic_id
+                ) AS location_in_clinic,
+                EXISTS (
+                    SELECT 1
+                      FROM service_type s
+                     WHERE s.id = a.service_type_id
+                       AND s.clinic_id = a.clinic_id
+                ) AS service_in_clinic,
+                (
+                    a.doctor_id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                          FROM staff st
+                          JOIN clinic_membership m
+                            ON m.staff_id = st.id
+                         WHERE st.id = a.doctor_id
+                           AND st.is_active
+                           AND m.clinic_id = a.clinic_id
+                           AND m.is_active
+                           AND m.role IN (
+                               'DOCTOR', 'ULTRASOUND_DOCTOR'
+                           )
+                    )
+                ) AS doctor_in_clinic
+              FROM appointment a
+             WHERE a.id = $1::uuid AND a.clinic_id = $2::uuid
+            """,
+            appointment_id,
+            identity.clinic_id,
+        )
+        if appt is None:
+            raise NotFoundError("Không tìm thấy lịch hẹn")
+        if not appt["patient_in_clinic"]:
+            raise ValidationError("Bệnh nhân của lịch hẹn không thuộc phòng khám này")
+        if not appt["location_in_clinic"]:
+            raise ValidationError("Cơ sở của lịch hẹn không thuộc phòng khám này")
+        if not appt["service_in_clinic"]:
+            raise ValidationError("Dịch vụ của lịch hẹn không thuộc phòng khám này")
+        repairs_doctor = action in {"cancel", "reassign"} or (
+            action == "reschedule" and doctor_id_provided
+        )
+        if not appt["doctor_in_clinic"] and not repairs_doctor:
+            raise ValidationError("Bác sĩ của lịch hẹn không thuộc phòng khám này")
+
+        # "Ca của chính mình" là luật GIỮA CÁC BÁC SĨ — ngăn bác sĩ
+        # này đóng ca của bác sĩ kia. Người không phải bác sĩ (TKYK
+        # nhập hộ, nhóm vận hành đóng lượt trong MVP tay) không có "ca
+        # của mình" để so; so staff_id với họ chỉ chặn sạch mọi thứ —
+        # đo được trên bản thật: Quản lý bấm check-out ăn ngay
+        # "Lịch hẹn này không thuộc bác sĩ".
+        if (
+            transition.owner_only
+            and identity.co_vai(PHYSICIAN_ONLY_OWNER_CHECK)
+            and str(appt["doctor_id"] or "") != identity.staff_id
+        ):
+            raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
+
+        if appt["status"] not in transition.from_statuses:
+            raise ConflictError(
+                f"Lịch hẹn đang ở trạng thái {appt['status']}, không thể thực hiện."
+            )
+
+        new_status = (
+            appt["status"]
+            if transition.to_status == KEEP_STATUS
+            else transition.to_status
+        )
+        effective_doctor_id = str(appt["doctor_id"]) if appt["doctor_id"] else None
+
+        patch: dict[str, Any] = {}
+        if action == "checkin":
+            updated = await self._check_in(conn, appointment_id, transition)
+        else:
+            patch = await self._build_patch(
+                conn,
+                action=action,
+                appt=appt,
+                new_status=new_status,
+                cancellation_reason=cancellation_reason,
+                ly_do_huy_ma=ly_do_huy_ma,
+                doctor_id=doctor_id,
+                doctor_id_provided=doctor_id_provided,
+                slot_start=slot_start,
+                slot_end=slot_end,
+                identity=identity,
+                service_type_id=service_type_id,
+                booking_channel=booking_channel,
+                booking_channel_provided=booking_channel_provided,
+                cho_ngoai_ca=cho_ngoai_ca,
+            )
+            if xoa_so_thu_tu:
+                # Số khám cấp theo NGÀY của slot_start: lịch dời ngày thì số cũ
+                # (nếu còn sót từ một lần hoàn tác check-in) không còn nghĩa.
+                patch["queue_number"] = None
+            updated = await self._update(
+                conn,
+                appointment_id,
+                patch,
+                transition.from_statuses,
+                identity.clinic_id,
+            )
+            if "doctor_id" in patch:
+                effective_doctor_id = (
+                    str(patch["doctor_id"]) if patch["doctor_id"] else None
+                )
+
+        if not updated:
+            # Somebody moved it between our read and our write.
+            raise ConflictError("Lịch hẹn vừa được người khác cập nhật, hãy tải lại.")
+
+        # Đổi lịch kèm người giới thiệu → HỒ SƠ khách (cùng luật với đặt
+        # mới: để trống thì giữ tên đã có, không xoá).
+        gioi_thieu = " ".join((nguoi_gioi_thieu or "").split())[:200]
+        if action == "reschedule" and gioi_thieu:
+            await conn.execute(
+                "UPDATE patient SET nguoi_gioi_thieu = $3, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
+                identity.clinic_id,
+                str(appt["clinic_patient_id"]),
+                gioi_thieu,
+            )
+
+        await _log(
+            conn,
+            event_type=transition.event_type,
+            aggregate_id=appointment_id,
+            payload={
+                "appointment_id": appointment_id,
+                "status": new_status,
+                "doctor_id": effective_doctor_id,
+                "clinic_patient_id": str(appt["clinic_patient_id"]),
+                **({"xac_minh_cach": cach_xac_minh} if cach_xac_minh else {}),
+            },
+            identity=identity,
+            origin=f"api:appointment-{action}",
+        )
+        await _phat_su_kien_lich(
+            conn,
+            identity=identity,
+            action=action,
+            appt=appt,
+            patch=patch,
+            ly_do=cancellation_reason,
+            ly_do_huy_ma=ly_do_huy_ma,
+        )
+
+        if action == "checkin":
+            visit_vua_mo = await self._open_visit(
+                conn,
+                appointment_id=appointment_id,
+                clinic_patient_id=str(appt["clinic_patient_id"]),
+                doctor_id=effective_doctor_id,
+                identity=identity,
+            )
+            if visit_vua_mo:
+                # Sự kiện nghiệp vụ mở đầu hành trình, CÙNG giao dịch
+                # với việc mở lượt. Payload không có tên, tuổi hay số
+                # điện thoại — màn nào cần thì hỏi bảng bệnh nhân, nơi
+                # có quyền đọc riêng.
+                await emit_event(
+                    conn,
+                    ten="visit.checked_in",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=visit_vua_mo,
+                    payload=KhachDaToi(
+                        visit_id=visit_vua_mo,
+                        appointment_id=appointment_id,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=visit_vua_mo,
+                )
+            if cach_xac_minh:
+                await self._ghi_xac_minh(
+                    conn,
+                    appointment_id=appointment_id,
+                    cach=cach_xac_minh,
+                    identity=identity,
+                )
+        elif action in _WORKFLOW_CANCELLING:
+            await self._cancel_visit_workflow(
+                conn,
+                appointment_id=appointment_id,
+                identity=identity,
+                reason=action,
+            )
+
+        # LỊCH TRỰC PHẢI THEO KỊP PHÂN CÔNG, không thì hai màn nói
+        # ngược nhau: lịch hẹn ghi "BS. X khám", còn Lịch làm việc hôm
+        # ấy trống trơn — và `capacity_service` đọc chính lịch trực để
+        # trả lời "bác sĩ này có đi làm hôm đó không".
+        #
+        # TRONG CÙNG GIAO DỊCH với việc gán bác sĩ, cố ý. Đây không
+        # phải lớp phủ như thông báo: gán được bác sĩ mà không xếp được
+        # ca là để lại đúng cái mâu thuẫn vừa nói. Hỏng thì cuộn lại cả
+        # hai và người dùng bấm lại.
+        if appt["doctor_id"] is None and effective_doctor_id:
+            await self._xep_vao_lich_truc(
+                conn,
+                appointment_id=appointment_id,
+                doctor_id=effective_doctor_id,
+                slot_start=appt["slot_start"],
+                identity=identity,
+            )
+        return _KetQuaHanhDong(
+            new_status=new_status,
+            visit_id=visit_vua_mo,
+            doctor_cu=str(appt["doctor_id"]) if appt["doctor_id"] else None,
+            doctor_moi=effective_doctor_id,
+        )
+
+    async def doi_lich_nhanh(
+        self,
+        *,
+        appointment_id: str,
+        identity: StaffIdentity,
+        slot_start: datetime,
+        slot_end: datetime,
+        doctor_id: str,
+        ly_do: str,
+        check_in: bool,
+    ) -> dict[str, Any]:
+        """ĐỔI LỊCH TẠI CHỖ (Tuyền chốt 29/09/2026) — đổi lịch rồi check-in luôn.
+
+        MỘT giao dịch, HAI hành động qua đúng đường luật của `apply_action`:
+        ``reschedule`` (quyền "Quản lý lịch hẹn", `_build_patch`/`_guard_slot`,
+        lịch sử `appointment_doi_lich`, sự kiện `appointment.rescheduled`) rồi —
+        nếu ``check_in`` — ``checkin`` (quyền check-in, số khám theo ngày của
+        khung MỚI). Hỏng bước nào cuộn cả hai: không có "đã đổi mà chưa vào hàng".
+
+        KHÁCH ĐẾN SỚM NGOÀI GIỜ CA: khung = bây giờ (`la_khung_bay_gio`) + kèm
+        check-in → bỏ chốt "ngoài khung ca" và "bác sĩ không có mặt lúc HH:MM"
+        (bác sĩ vẫn phải có ca trong ngày), ghi "ngoài ca" vào lý do. Sức chứa
+        vẫn giữ. Không kèm check-in, hoặc khung không phải bây giờ → luật cũ.
+        """
+        ly_do_sach = " ".join((ly_do or "").split())
+        if not ly_do_sach:
+            raise ValidationError("Chọn lý do đổi lịch.")
+        if len(ly_do_sach) > LY_DO_DOI_TOI_DA:
+            raise ValidationError(f"Lý do đổi lịch tối đa {LY_DO_DOI_TOI_DA} ký tự.")
+        if slot_end <= slot_start:
+            raise ValidationError("Giờ kết thúc phải sau giờ bắt đầu")
+        bay_gio = datetime.now(timezone.utc)
+        if (
+            check_in
+            and slot_start.astimezone(CLINIC_TZ).date()
+            != bay_gio.astimezone(CLINIC_TZ).date()
+        ):
+            raise ValidationError("Chỉ check-in luôn được khi đổi sang hôm nay.")
+        cho_ngoai_ca = check_in and la_khung_bay_gio(slot_start, bay_gio)
+
+        t_doi = resolve_action("reschedule")
+        t_vao = resolve_action("checkin")
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                if check_in and t_vao.quyen:
+                    # Hỏi TRƯỚC khi ghi gì: không có quyền check-in thì cả lệnh
+                    # bị từ chối, lịch giữ nguyên (người dùng chọn "Chỉ đổi").
+                    await doi_quyen(conn, identity, t_vao.quyen)
+                ngoai_ca = False
+                if cho_ngoai_ca:
+                    try:
+                        await self._chan_dat_ngoai_khung_ca(
+                            conn, slot_start=slot_start, identity=identity
+                        )
+                    except ValidationError:
+                        ngoai_ca = True
+                    if not ngoai_ca and await self._roster_warning(
+                        conn, doctor_id, slot_start, identity
+                    ):
+                        ngoai_ca = True
+                ghi = (
+                    f"{ly_do_sach} · ngoài ca (khách đã có mặt tại quầy)"
+                    if ngoai_ca
+                    else ly_do_sach
+                )
+                kq = await self._hanh_dong_trong_gd(
+                    conn,
+                    appointment_id=appointment_id,
+                    action="reschedule",
+                    transition=t_doi,
+                    identity=dung_vai(identity, t_doi.allowed_roles),
+                    cancellation_reason=ghi,
+                    doctor_id=doctor_id,
+                    doctor_id_provided=True,
+                    slot_start=slot_start,
+                    slot_end=slot_end,
+                    cho_ngoai_ca=cho_ngoai_ca,
+                    xoa_so_thu_tu=check_in,
+                )
+                visit_id: str | None = None
+                status = kq.new_status
+                if check_in:
+                    kq_vao = await self._hanh_dong_trong_gd(
+                        conn,
+                        appointment_id=appointment_id,
+                        action="checkin",
+                        transition=t_vao,
+                        identity=dung_vai(identity, t_vao.allowed_roles),
+                    )
+                    visit_id = kq_vao.visit_id
+                    status = kq_vao.new_status
+                so_kham = await conn.fetchval(
+                    "SELECT queue_number FROM appointment"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    appointment_id,
+                    identity.clinic_id,
+                )
+        await self._bao_neu_vua_co_bac_si(kq, appointment_id, identity)
+        logger.info(
+            "appointment_doi_lich_nhanh",
+            appointment_id=appointment_id,
+            check_in=check_in,
+            ngoai_ca=ngoai_ca,
+            by_staff_id=identity.staff_id,
+        )
+        return {
+            "status": status,
+            "visit_id": visit_id,
+            "queue_number": so_kham,
+            "ngoai_ca": ngoai_ca,
+        }
+
+    async def _bao_neu_vua_co_bac_si(
+        self, kq: _KetQuaHanhDong, appointment_id: str, identity: StaffIdentity
+    ) -> None:
+        # LỊCH VỪA CÓ BÁC SĨ → BÁO CSKH. Đây là mắt xích cuối của vòng mà màn
+        # Đặt lịch đã hứa với người dùng bằng chữ: *"Lịch đặt xong sẽ nằm ở màn
+        # Chờ xếp bác sĩ để quản lý phân người; khi đã có bác sĩ, khách này hiện
+        # lại ở Quản lý khách hàng để CSKH gọi xác nhận lịch và bác sĩ."*
+        #
+        # Nửa đầu câu ấy đúng từ trước — `doctor_id IS NULL` là hàng chờ. Nửa
+        # sau thì không: chưa có gì đánh thức CSKH, nên họ phải tự nhớ mà vào
+        # xem. Đặt ở đây, SAU khi giao dịch đã commit: giao dịch cuộn lại mà
+        # thông báo đã bay đi là báo một việc chưa xảy ra.
+        #
+        # Chỉ khi doctor_id đi từ RỖNG sang CÓ. Đổi bác sĩ này sang bác sĩ khác
+        # cũng đáng biết, nhưng nó không phải cái kết thúc chờ đợi — gộp vào là
+        # CSKH nhận thông báo cho mọi lần quản lý sửa phân công.
+        if kq.doctor_cu is None and kq.doctor_moi:
+            await self._bao_cskh_da_co_bac_si(
+                appointment_id=appointment_id,
+                doctor_id=kq.doctor_moi,
+                identity=identity,
+            )
 
     @staticmethod
     async def _ghi_xac_minh(
@@ -1360,6 +1546,7 @@ class BookingService:
         service_type_id: str | None = None,
         booking_channel: str | None = None,
         booking_channel_provided: bool = False,
+        cho_ngoai_ca: bool = False,
     ) -> dict[str, Any]:
         patch: dict[str, Any] = {"status": new_status}
 
@@ -1443,9 +1630,12 @@ class BookingService:
             # vào quá khứ được, nhưng đặt một lịch tương lai rồi dời nó về hôm
             # qua thì được.
             _chan_dat_vao_qua_khu(slot_end)
-            await self._chan_dat_ngoai_khung_ca(
-                conn, slot_start=slot_start, identity=identity
-            )
+            # `cho_ngoai_ca` CHỈ do `doi_lich_nhanh` bật, khi khách ĐANG ĐỨNG ở
+            # quầy (khung = bây giờ + check-in luôn). Sức chứa vẫn giữ.
+            if not cho_ngoai_ca:
+                await self._chan_dat_ngoai_khung_ca(
+                    conn, slot_start=slot_start, identity=identity
+                )
             patch["slot_start"] = slot_start
             patch["slot_end"] = slot_end
             # KHÔNG KHOÁ DỊCH VỤ CŨ (Tuyền 24/09/2026: "open cho chọn cái khác
@@ -1483,6 +1673,7 @@ class BookingService:
                 channel=patch.get("booking_channel", appt["booking_channel"]),
                 exclude_id=str(appt["id"]),
                 identity=identity,
+                cho_ngoai_ca=cho_ngoai_ca,
             )
 
         # GÁN ĐƯỢC BÁC SĨ LÀ CẢNH BÁO PHẢI TẮT — Ở MỘT CHỖ CHO CẢ BA ĐƯỜNG.
@@ -1567,6 +1758,7 @@ class BookingService:
         channel: str | None,
         exclude_id: str,
         identity: StaffIdentity,
+        cho_ngoai_ca: bool = False,
     ) -> None:
         if doctor_id:
             await self._validate_doctor_ref(conn, doctor_id, identity.clinic_id)
@@ -1584,7 +1776,11 @@ class BookingService:
             # chính người đó ở hàng chờ là ca tự mọc lại. `_roster_warning` chỉ
             # lên tiếng khi tuần đã áp dụng, nên tuần chưa công bố không đổi
             # (CONTEXT v1.0 §4: trước công bố nhận lịch thật).
-            off_duty = await self._roster_warning(conn, doctor_id, slot_start, identity)
+            # Khách đến sớm ngoài giờ ca (đổi lịch nhanh): bác sĩ vẫn phải CÓ ca
+            # trong ngày, chỉ bỏ câu "không có mặt lúc HH:MM".
+            off_duty = await self._roster_warning(
+                conn, doctor_id, slot_start, identity, chi_can_co_ca=cho_ngoai_ca
+            )
             if off_duty and await self._roster_is_required(conn, identity):
                 raise ConflictError(off_duty)
         policy = await load_effective_policy(
@@ -1895,6 +2091,7 @@ class BookingService:
         doctor_id: str,
         slot_start: datetime,
         identity: StaffIdentity,
+        chi_can_co_ca: bool = False,
     ) -> str | None:
         """Câu cảnh báo nếu bác sĩ không có ca trực hôm đó; None nếu ổn.
 
@@ -1969,6 +2166,8 @@ class BookingService:
                 "ở màn Lịch làm việc trước."
             )
 
+        if chi_can_co_ca:
+            return None
         # CÓ TÊN TRONG NGÀY VẪN CÓ THỂ SAI GIỜ. Ca sáng không phải cả ngày;
         # giờ của từng ca do phòng khám khai, xem core/shifts.py.
         open_min, close_min = row["open_minute"], row["close_minute"]

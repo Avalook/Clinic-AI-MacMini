@@ -78,7 +78,7 @@ EVENT_LABELS: dict[str, str] = {
     "booking_override.slot_superseded": "Luật khung giờ bị luật mới cắt",
     # ── Điều phối trong ngày ────────────────────────────────────────────────
     "dispatch.checkin": "Tiếp nhận tại quầy",
-    "dispatch.checkout": "Ra về",
+    "dispatch.checkout": "Cho khách về (check-out)",
     "dispatch.moved": "Chuyển sang bước khác",
     "dispatch.transfer_room": "Đổi phòng",
     "dispatch.route_applied": "Áp tuyến khám",
@@ -227,9 +227,11 @@ EVENT_LABELS: dict[str, str] = {
     # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
     "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
+    "service.room_transferred": "Trưởng ca chuyển phòng khi dịch vụ đang làm",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
+    "service_selection.confirmed": "Khách chốt làm / không làm chỉ định",
     "result.approved": "Bác sĩ duyệt kết quả, cho phép gửi khách",
     "queue.called": "Gọi khách vào phòng",
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
@@ -395,8 +397,20 @@ def action_label(event_type: str) -> str:
     đang thiếu.
     """
     return (
-        EVENT_LABELS.get(event_type) or WORK_ITEM_LABELS.get(event_type) or event_type
+        EVENT_LABELS.get(event_type)
+        or WORK_ITEM_LABELS.get(event_type)
+        or _nhan_danh_muc(event_type)
+        or event_type
     )
+
+
+def _nhan_danh_muc(event_type: str) -> str | None:
+    """Nhãn trong danh mục sự kiện nền (`events/catalogue.DANH_MUC[ma].nhan`) —
+    sự kiện phát qua `emit_event` đã có tên ở đó, không cần chép tay sang đây."""
+    from clinicai.events.catalogue import DANH_MUC
+
+    su_kien = DANH_MUC.get(event_type)
+    return su_kien.nhan if su_kien is not None and su_kien.nhan else None
 
 
 def source_label(source: str | None) -> str:
