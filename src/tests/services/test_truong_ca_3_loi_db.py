@@ -27,7 +27,7 @@ from clinicai.services.dispatch_service import DispatchService
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 MIGRATION = (
     Path(__file__).parents[3]
-    / "supabase/migrations/20260929960000_go_dxa_khoi_phong_do_sinh_hieu.sql"
+    / "supabase/migrations/20260929970000_go_dxa_khoi_phong_do_sinh_hieu.sql"
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
