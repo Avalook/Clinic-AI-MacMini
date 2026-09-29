@@ -52,7 +52,10 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
-from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
+from clinicai.services.bac_si_phu_trach import (
+    bac_si_thuc_hien_mac_dinh,
+    bac_si_trong,
+)
 
 QUYEN_DIEN = "result.form.fill"
 MIME_DICOM = "application/dicom"
@@ -365,6 +368,24 @@ class FormEngineService:
             phieu = []
             for r in chon_phieu_de_in(rows):
                 khung = await self._khung(conn, cid, r["form_id"], r["version"])
+                # Phiếu cũ đứng tên điều dưỡng/thư ký (hoàn tất trước khi có luật
+                # bác sĩ ký, hoặc phòng không có đúng một bác sĩ) → lúc in tính
+                # lại bác sĩ đứng tên; không ghi đè dữ liệu (29/09/2026).
+                ten_ky = r["thuc_hien_ten"]
+                if not (
+                    r["thuc_hien_boi"]
+                    and await bac_si_trong(conn, cid, [str(r["thuc_hien_boi"])])
+                ):
+                    ma_bs = await bac_si_thuc_hien_mac_dinh(
+                        conn,
+                        clinic_id=cid,
+                        service_order_id=service_order_id,
+                        nguoi_bam=str(r["thuc_hien_boi"] or r["hoan_tat_boi"] or ""),
+                    )
+                    if ma_bs and await bac_si_trong(conn, cid, [ma_bs]):
+                        ten_ky = await conn.fetchval(
+                            "SELECT full_name FROM staff WHERE id = $1::uuid", ma_bs
+                        )
                 phieu.append(
                     {
                         "form_id": r["form_id"],
@@ -372,7 +393,7 @@ class FormEngineService:
                         "khung": khung,
                         "du_lieu": json.loads(r["du_lieu"]),
                         "ban_nhap": r["trang_thai"] != "READY",
-                        "thuc_hien": r["thuc_hien_ten"],
+                        "thuc_hien": ten_ky,
                         "hoan_tat_boi": r["hoan_tat_ten"],
                         "hoan_tat_luc": (
                             r["hoan_tat_luc"].isoformat() if r["hoan_tat_luc"] else None

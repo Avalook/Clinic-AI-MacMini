@@ -57,8 +57,11 @@ def test_goi_mau_giu_vai_tai_khoan(vai: str, phai_co: set[str]) -> None:
     assert phai_co <= ra
 
 
-def test_thu_ky_co_khoi_kham_nhung_khong_thanh_bac_si() -> None:
-    assert "DOCTOR" not in vai_tu_lego(PRESET["TKYK"])
+def test_thu_ky_tron_quyen_qua_cua_bac_si() -> None:
+    # 29/09/2026: ĐD/TKYK trọn quyền như bác sĩ (Tuyền) — gói mẫu có đủ Bàn khám.
+    # "Ai là bác sĩ thật" (hai bác sĩ giành lượt, người ký) đọc membership.role,
+    # không đọc vai suy từ lego (`services/bac_si_phu_trach.py`).
+    assert "DOCTOR" in vai_tu_lego(PRESET["TKYK"])
 
 
 def test_quan_ly_bat_ban_kham_la_qua_cua_bac_si() -> None:

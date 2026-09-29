@@ -192,7 +192,10 @@ class TestClinicalRecordWriteRoles:
     quyền cao nhất — có module đó thì mọi quyền của nó có cả") — mọi khối.
     """
 
-    @pytest.mark.parametrize("vai", ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK"])
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng ghi bệnh án như bác sĩ.
+    @pytest.mark.parametrize(
+        "vai", ["DOCTOR", "ULTRASOUND_DOCTOR", "TKYK", "NURSE_ULTRASOUND"]
+    )
     def test_nguoi_ghi_benh_an_co_khoi_trong_nhom_mau(self, vai: str) -> None:
         assert "ghi_benh_an" in PRESET[vai]
 
@@ -200,7 +203,6 @@ class TestClinicalRecordWriteRoles:
         "vai",
         [
             "RECEPTION",
-            "NURSE_ULTRASOUND",
             "CASHIER",
             "CASHIER_THUOC",
             "CASHIER_DV",

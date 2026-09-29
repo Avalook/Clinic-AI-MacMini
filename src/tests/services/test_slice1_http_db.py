@@ -241,10 +241,10 @@ async def _chay(pool: asyncpg.Pool) -> None:
     )
     kiem("thư ký ghi nháp chỉ định", r.status_code == 200, r.text)
     nhap = r.json()
-    # Điều dưỡng (Chỉ định nhưng không có Khám) không duyệt được. Thư ký có
-    # Khám + Chỉ định thì duyệt được từ 29/09/2026 (trợ lý trọn quyền).
+    # Lễ tân (không có Khám + Chỉ định) không duyệt được. Thư ký / điều dưỡng
+    # có cả hai thì duyệt được — 29/09/2026: ĐD/TKYK trọn quyền (Tuyền).
     r = await goi(
-        dd,
+        le_tan,
         "POST",
         f"/luot-kham/consultations/{phien}/authorize-orders",
         json={
@@ -252,7 +252,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             "expected_versions": nhap["versions"],
         },
     )
-    kiem("điều dưỡng KHÔNG duyệt chỉ định (403)", r.status_code == 403, r.status_code)
+    kiem("lễ tân KHÔNG duyệt chỉ định (403)", r.status_code == 403, r.status_code)
     r = await goi(
         bs,
         "POST",
@@ -459,13 +459,15 @@ async def _chay(pool: asyncpg.Pool) -> None:
         viec,
     )
     rid = viec[0]["id"] if viec else str(uuid.uuid4())
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — thư ký nay quyết được; người thử
+    # cửa đổi sang lễ tân (không có khối Hoàn tất khám).
     r = await goi(
-        tk,
+        le_tan,
         "POST",
         f"/luot-kham/yeu-cau/{rid}/quyet",
-        json={"hanh_dong": "WAIVE", "ly_do": "Thư ký thử"},
+        json={"hanh_dong": "WAIVE", "ly_do": "Lễ tân thử"},
     )
-    kiem("thư ký KHÔNG quyết được (403)", r.status_code == 403, r.status_code)
+    kiem("lễ tân KHÔNG quyết được (403)", r.status_code == 403, r.status_code)
     r = await goi(
         bs,
         "POST",
