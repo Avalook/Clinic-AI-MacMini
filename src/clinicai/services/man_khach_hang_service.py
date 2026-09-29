@@ -240,7 +240,7 @@ class ManKhachHangService:
                        tt.co_thu_thuat, tt.thu_thuat_xong_luc,
                        -- VIỆC GỬI ĐỐI TÁC của lượt (17/09/2026): ô "Có kết quả
                        -- xét nghiệm" ở màn CSKH đọc trạng thái đối tác bấm —
-                       -- chờ lấy mẫu / đã lấy mẫu / chờ tài liệu / đã gửi.
+                       -- chờ lấy mẫu / đã lấy mẫu / đã nhận mẫu (xong) / có kết quả.
                        -- Cùng thứ bậc với doi_tac_service.trang_thai_doi_tac.
                        dt.doi_tac,
                        -- KHÁCH ĐANG Ở ĐÂU (17/09/2026): chip CSKH đứng yên ở
@@ -286,7 +286,7 @@ class ManKhachHangService:
                                      WHEN o.ket_qua_luc IS NOT NULL
                                          THEN 'DA_GUI_KET_QUA'
                                      WHEN o.doi_tac_cho_tai_lieu_luc IS NOT NULL
-                                         THEN 'CHO_TAI_LIEU'
+                                         THEN 'DA_NHAN_MAU'
                                      WHEN o.exec_status = 'performed' THEN 'DA_LAY_MAU'
                                      ELSE 'CHO_LAY_MAU' END,
                                  'luc', coalesce(o.ket_qua_luc,

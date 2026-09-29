@@ -571,15 +571,17 @@ async def test_mixed_orders_slice_ab_progression(
     )
     assert tep["ok"] is True
 
-    # Tệp vừa tải lên ở trạng thái CHO_XAC_NHAN -> round vẫn collecting
+    # NHẬN MẪU LÀ XONG (Tuyền 29/09/2026): C đã được đối tác nhận mẫu ở nấc 4
+    # nên yêu cầu của C ĐẠT khi vòng đọc chạy (lần chạy đầu: sau lệnh tải tệp)
+    # — vòng sẵn sàng KHÔNG chờ tệp được xác nhận.
     async with kban.pool.acquire() as conn:
         round_row = await conn.fetchrow(
             "SELECT id::text, round_no, status, ready_at "
             "FROM review_round WHERE visit_id = $1::uuid",
             kban.visit_id,
         )
-        assert round_row["status"] == "collecting"
-        assert round_row["ready_at"] is None
+        assert round_row["status"] == "ready"
+        assert round_row["ready_at"] is not None
         # Cấp capability xác nhận kết quả cho điều dưỡng
         await conn.execute(
             "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
@@ -597,8 +599,7 @@ async def test_mixed_orders_slice_ab_progression(
     )
     assert res_xn["ok"] is True
 
-    # Sau khi HOP_LE: Tất cả 3 requirement đã đạt!
-    # review_round chuyển sang 'ready'
+    # Sau khi HOP_LE: vòng vẫn 'ready' (không mở thêm phiên đọc)
     # Đúng 1 consultation REVIEW queued
     # Đúng 1 queue_entry REVIEW lane DOCTOR
     async with kban.pool.acquire() as conn:
@@ -1471,7 +1472,7 @@ async def test_partner_two_types_of_orders(
         None,
     )
     assert v2_cho is not None
-    assert v2_cho["trang_thai"] == "CHO_TAI_LIEU"
+    assert v2_cho["trang_thai"] == "DA_NHAN_MAU"
 
 
 # ==============================================================================

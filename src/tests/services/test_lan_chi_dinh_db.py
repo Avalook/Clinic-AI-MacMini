@@ -188,7 +188,7 @@ async def test_chi_dinh_lam_o_doi_tac_mang_trang_thai_ban_doi_tac(
         "UPDATE service_order SET doi_tac_cho_tai_lieu_luc = now() WHERE id = $1::uuid",
         don,
     )
-    assert await doi_tac() == "CHO_TAI_LIEU"
+    assert await doi_tac() == "DA_NHAN_MAU"
     await pool.execute(
         "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", don
     )

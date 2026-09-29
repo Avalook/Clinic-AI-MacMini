@@ -98,6 +98,9 @@ from clinicai.services.luot_kham_chung import (
     CLINICAL_READ_ROLES as CLINICAL_READ_ROLES,
 )
 from clinicai.services.luot_kham_chung import (
+    CO_KET_QUA_VONG_SQL as CO_KET_QUA_VONG_SQL,
+)
+from clinicai.services.luot_kham_chung import (
     CONSULT_ROLES as CONSULT_ROLES,
 )
 from clinicai.services.luot_kham_chung import (
@@ -764,22 +767,17 @@ class LuotKhamService:
             (xác nhận đúng người, đúng chỉ định bởi nhân sự có capability).
             Mốc ket_qua_luc chỉ là mốc tài liệu tới, không làm co_ket_qua = true.
           - Đối với chỉ định nội bộ: giữ nguyên quy tắc ket_qua_luc IS NOT NULL.
+          - VIỆC ĐỐI TÁC ĐÃ NHẬN MẪU (Tuyền 29/09/2026): đạt luôn — kết quả về
+            sau không giữ vòng. Điều kiện chung: `CO_KET_QUA_VONG_SQL`.
         """
         return list(
             await conn.fetch(
                 """
                 SELECT q.id::text AS id, q.service_order_id::text AS order_id,
                        q.need, q.status, o.exec_status, o.selection_status,
-                       CASE
-                         WHEN coalesce(nd.lam_ben_ngoai, false) THEN
-                           EXISTS (
-                             SELECT 1 FROM tep_ket_qua t
-                              WHERE t.clinic_id = q.clinic_id
-                                AND t.service_order_id = o.id
-                                AND t.xac_nhan_trang_thai = 'HOP_LE'
-                           )
-                         ELSE o.ket_qua_luc IS NOT NULL
-                       END AS co_ket_qua
+                       """
+                + CO_KET_QUA_VONG_SQL
+                + """ AS co_ket_qua
                   FROM round_requirement q
                   JOIN service_order o
                     ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
@@ -2773,16 +2771,9 @@ class LuotKhamService:
                 SELECT q.id::text AS id, q.need, q.status,
                        q.service_order_id::text AS order_id,
                        o.exec_status,
-                       CASE
-                         WHEN coalesce(nd.lam_ben_ngoai, false) THEN
-                           EXISTS (
-                             SELECT 1 FROM tep_ket_qua t
-                              WHERE t.clinic_id = q.clinic_id
-                                AND t.service_order_id = o.id
-                                AND t.xac_nhan_trang_thai = 'HOP_LE'
-                           )
-                         ELSE o.ket_qua_luc IS NOT NULL
-                       END AS co_ket_qua,
+                       """
+                + CO_KET_QUA_VONG_SQL
+                + """ AS co_ket_qua,
                        o.service_name, o.not_performed_reason,
                        r.round_no, r.status AS vong_status,
                        v.visit_id::text AS visit_id, p.full_name, p.patient_code
@@ -2803,18 +2794,9 @@ class LuotKhamService:
                    -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
                    -- quả) hoặc không làm được. Lọc ở SQL để LIMIT không cắt mất.
                    AND ((q.need = 'VALID_RESULT' AND o.exec_status = 'performed'
-                         AND (
-                           CASE
-                             WHEN coalesce(nd.lam_ben_ngoai, false) THEN
-                               NOT EXISTS (
-                                 SELECT 1 FROM tep_ket_qua t
-                                  WHERE t.clinic_id = q.clinic_id
-                                    AND t.service_order_id = o.id
-                                    AND t.xac_nhan_trang_thai = 'HOP_LE'
-                               )
-                             ELSE o.ket_qua_luc IS NULL
-                           END
-                         ))
+                         AND NOT """
+                + CO_KET_QUA_VONG_SQL
+                + """)
                         OR o.exec_status IN ('not_performed', 'cancelled'))
                    AND ($2::text[] IS NULL
                         OR v.attending_doctor_id::text = ANY($2::text[])

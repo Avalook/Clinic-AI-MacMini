@@ -436,7 +436,7 @@ export interface MocLich {
 const NHAN_DOI_TAC: Record<ViecDoiTac["trang_thai"], string> = {
   CHO_LAY_MAU: "chờ lấy mẫu",
   DA_LAY_MAU: "đã lấy mẫu, chờ đối tác nhận",
-  CHO_TAI_LIEU: "đối tác đang làm, chờ tài liệu",
+  DA_NHAN_MAU: "đối tác đã nhận mẫu — xong (kết quả về sẽ báo)",
   DA_GUI_KET_QUA: "đối tác đã gửi tài liệu",
 };
 

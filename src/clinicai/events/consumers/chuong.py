@@ -107,6 +107,31 @@ async def _khach_va_bac_si(
     )
 
 
+async def _dich_vu_doi_tac(
+    conn: asyncpg.Connection, clinic_id: str, payload: dict[str, object]
+) -> str | None:
+    """Tên dịch vụ nếu tệp là kết quả của VIỆC ĐỐI TÁC (bước làm bên ngoài hoặc
+    chỉ định đã sang bàn đối tác — gồm mẫu gửi đối tác); không thì None."""
+    oid = payload.get("service_order_id")
+    if not oid:
+        return None
+    ten = await conn.fetchval(
+        """
+        SELECT coalesce(o.service_name, o.service_code)
+          FROM service_order o
+          LEFT JOIN node_definition n
+            ON n.clinic_id = o.clinic_id AND n.code = o.node_code
+         WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+           AND (coalesce(n.lam_ben_ngoai, false) OR EXISTS (
+                SELECT 1 FROM doi_tac_nhan_viec d
+                 WHERE d.clinic_id = o.clinic_id AND d.service_order_id = o.id))
+        """,
+        clinic_id,
+        str(oid),
+    )
+    return str(ten) if ten else None
+
+
 async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
@@ -128,7 +153,30 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if k is None:
         return
     ten = f"{k['full_name']} ({k['patient_code']})"
-    if su_kien.event_type == "result_file.uploaded":
+    vai_nhan = list(day.vai)
+    bac_si_chinh = day.bac_si_chinh
+    nguon_id = f"{su_kien.event_type}:{su_kien.aggregate_id}"
+    dv_doi_tac = (
+        await _dich_vu_doi_tac(conn, su_kien.clinic_id, su_kien.payload)
+        if su_kien.event_type == "result_file.uploaded"
+        and not su_kien.payload.get("cho_xac_nhan")
+        else None
+    )
+    if dv_doi_tac is not None:
+        # KẾT QUẢ ĐỐI TÁC (Tuyền 29/09/2026): việc đối tác đã XONG từ lúc nhận
+        # mẫu; kết quả về lúc nào thì BÁO — bác sĩ chính + người có lego CSKH
+        # luôn nhận (ngoài người nhận quản lý chỉnh), ai cũng xem được tệp.
+        # Một chuông / một việc (nhiều tệp gửi liền không réo nhiều lần).
+        tieu_de = f"Có kết quả đối tác: {dv_doi_tac} của {ten}"
+        noi_dung = (
+            "Kết quả đã vào hồ sơ khách — ai cũng xem được; CSKH gửi khách khi"
+            " tiện. Việc đối tác đã xong từ lúc nhận mẫu."
+        )
+        if "CSKH" not in vai_nhan:
+            vai_nhan.append("CSKH")
+        bac_si_chinh = True
+        nguon_id = f"ket_qua_doi_tac:{su_kien.payload.get('service_order_id')}"
+    elif su_kien.event_type == "result_file.uploaded":
         tieu_de = f"Tệp kết quả của {ten} đã về"
         noi_dung = (
             "Tệp của đối tác — cần xác nhận đúng người, đúng chỉ định."
@@ -162,8 +210,7 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     else:
         tieu_de = f"Có kết quả mới của {ten}"
         noi_dung = "Phòng đã hoàn tất phiếu kết quả."
-    nguon_id = f"{su_kien.event_type}:{su_kien.aggregate_id}"
-    for vai in day.vai:
+    for vai in vai_nhan:
         duong = _DUONG_DAN.get(vai, "/home")
         if vai == "CSKH":
             duong = f"/customers?selected={k['pid']}"
@@ -182,7 +229,7 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             duong_dan=duong,
             nguoi_goi=su_kien.actor_staff_id,
         )
-    if day.bac_si_chinh and k["bac_si_id"]:
+    if bac_si_chinh and k["bac_si_id"]:
         await ghi_chuong_nguoi(
             conn,
             clinic_id=su_kien.clinic_id,

@@ -266,6 +266,7 @@ MODULE: dict[str, Module] = {
                 "payment.refunded",
                 "followup.scheduled",
                 "partner.sample_collected",
+                "partner.sample_received",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -447,6 +448,7 @@ MODULE: dict[str, Module] = {
                 "service.completed",
                 "service.not_performed",
                 "partner.sample_collected",
+                "partner.sample_received",
                 "result.ready",
                 "result.corrected",
                 "result_file.uploaded",
@@ -505,6 +507,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=[
                 "partner.sample_collected",
+                "partner.sample_received",
                 "partner.order_received",
                 "partner.payment_recorded",
                 "partner.payment_voided",

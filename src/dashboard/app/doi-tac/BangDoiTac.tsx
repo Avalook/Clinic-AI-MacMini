@@ -28,20 +28,31 @@
 // 29/09/2026 (Tuyền): MẪU GỬI ĐỐI TÁC — dịch vụ thu hộ đối tác làm ở phòng của
 // phòng khám (Giải phẫu bệnh, Sinh thiết + GPB ở phòng Thủ thuật): phòng bấm Xong
 // thì việc lên đây, nhãn "Mẫu gửi đối tác" (máy chủ quyết, cờ `mau_gui_doi_tac`).
+//
+// 29/09/2026 (Tuyền): NHẬN MẪU LÀ XONG — "khi NHẬN MẪU là coi như XONG VIỆC …
+// KHÔNG được hiển thị là việc này chưa xong". Bấm "Nhận mẫu" → nhóm "Đã nhận
+// mẫu · xong" (tick xanh). Kết quả tải lên lúc nào cũng được (máy chủ báo chuông
+// bác sĩ chính + CSKH) — là mốc tuỳ chọn, không phải điều kiện xong. Lịch sử
+// tệp XEM TRƯỚC ngay tại chỗ (ảnh thu nhỏ + hộp xem, PDF/Word trong khung) bằng
+// đúng thành phần của trang chỉ định (AnhKetQua + Lightbox + XemTaiLieu).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileUp, FlaskConical, Hourglass, Inbox } from "lucide-react";
+import { CircleCheck, FileUp, FlaskConical, Inbox } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import Lightbox from "@/components/ui/Lightbox";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { homNayVn } from "@/lib/validation";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
-import { duongXemTep } from "../(dashboard)/_lam-viec/AnhKetQua";
+import AnhKetQua, { tepXem } from "../(dashboard)/_lam-viec/AnhKetQua";
+import { XemTaiLieu } from "../(dashboard)/_lam-viec/KhungTep";
 import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
 
-type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "CHO_TAI_LIEU" | "DA_GUI_KET_QUA";
+/** DA_NHAN_MAU và DA_GUI_KET_QUA đều là XONG (máy chủ: VIEC_DOI_TAC_XONG). */
+type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
+const XONG: ReadonlySet<TrangThai> = new Set<TrangThai>(["DA_NHAN_MAU", "DA_GUI_KET_QUA"]);
 
 interface Viec {
   chi_dinh_id: string;
@@ -70,6 +81,7 @@ interface TepDaGui {
   id: string;
   ten: string | null;
   loai: string | null;
+  mime?: string | null;
   so_byte: number;
   luc: string | null;
   /** Ai tải lên (tên nhân sự). */
@@ -120,19 +132,33 @@ interface DanhSach {
 
 type KetQua = DanhSach | { loi: string };
 
-const BUOC: { ma: TrangThai; nhan: string }[] = [
-  { ma: "CHO_LAY_MAU", nhan: "Lấy mẫu" },
-  { ma: "DA_LAY_MAU", nhan: "Nhận mẫu" },
-  { ma: "CHO_TAI_LIEU", nhan: "Chờ tài liệu" },
-  { ma: "DA_GUI_KET_QUA", nhan: "Đã gửi tệp" },
+// Thanh bước (29/09/2026): Lấy mẫu → Nhận mẫu (ĐIỂM XONG) → Có kết quả (tuỳ
+// chọn — không phải điều kiện xong, không tô "đang chờ").
+const BUOC: { nhan: string; xong: (tt: TrangThai) => boolean; tuyChon?: boolean }[] = [
+  { nhan: "Lấy mẫu", xong: (tt) => tt !== "CHO_LAY_MAU" },
+  { nhan: "Nhận mẫu · xong", xong: (tt) => XONG.has(tt) },
+  { nhan: "Có kết quả (tuỳ chọn)", xong: (tt) => tt === "DA_GUI_KET_QUA", tuyChon: true },
 ];
 
-const NHAN_TRANG_THAI: Record<TrangThai, { chu: string; mau: string }> = {
-  CHO_LAY_MAU: { chu: "Chờ lấy mẫu", mau: "bg-warning-bg text-warning" },
-  DA_LAY_MAU: { chu: "Đã có mẫu · chờ nhận", mau: "bg-brand-50 text-brand-700" },
-  CHO_TAI_LIEU: { chu: "Đang chờ tài liệu", mau: "bg-brand-50 text-brand-700" },
-  DA_GUI_KET_QUA: { chu: "Đã gửi tệp · chờ xác nhận", mau: "bg-success-bg text-success" },
+const NHAN_TRANG_THAI: Record<TrangThai, { chu: string; tone: "warning" | "info" | "success" }> = {
+  CHO_LAY_MAU: { chu: "Chờ lấy mẫu", tone: "warning" },
+  DA_LAY_MAU: { chu: "Đã có mẫu · chờ nhận", tone: "info" },
+  DA_NHAN_MAU: { chu: "Đã nhận mẫu · xong", tone: "success" },
+  DA_GUI_KET_QUA: { chu: "Xong · có kết quả", tone: "success" },
 };
+
+function gioPhut(iso: string | null): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Ho_Chi_Minh",
+    });
+  } catch {
+    return "—";
+  }
+}
 
 function gioVn(iso: string | null): string {
   if (!iso) return "—";
@@ -202,19 +228,20 @@ async function bamViec(
 
 // HÀNG CHỜ BÊN TRÁI chia theo BƯỚC ĐẦU TIÊN còn dở của khách (Tuyền 28/09/2026:
 // "thiết kế như các màn thủ thuật, siêu âm, bác sĩ") — cùng khuôn HangChoCot.
+// Hai nhóm cuối là XONG (Tuyền 29/09/2026: nhận mẫu là xong việc).
 const NHOM: { ma: TrangThai; ten: string }[] = [
   { ma: "CHO_LAY_MAU", ten: "Chờ lấy mẫu" },
   { ma: "DA_LAY_MAU", ten: "Có mẫu · chờ nhận" },
-  { ma: "CHO_TAI_LIEU", ten: "Đang chờ tài liệu" },
-  { ma: "DA_GUI_KET_QUA", ten: "Đã gửi tệp" },
+  { ma: "DA_NHAN_MAU", ten: "Đã nhận mẫu · xong" },
+  { ma: "DA_GUI_KET_QUA", ten: "Xong · có kết quả" },
 ];
 const THU_TU: Record<TrangThai, number> = {
   CHO_LAY_MAU: 0,
   DA_LAY_MAU: 1,
-  CHO_TAI_LIEU: 2,
+  DA_NHAN_MAU: 2,
   DA_GUI_KET_QUA: 3,
 };
-/** Khách đứng ở nhóm của việc CHƯA XONG sớm nhất; xong hết → "Đã gửi". */
+/** Khách đứng ở nhóm của việc CHƯA XONG sớm nhất; xong hết → nhóm xong. */
 function buocCua(k: Khach): TrangThai {
   return k.viec.reduce<TrangThai>(
     (m, v) => (THU_TU[v.trang_thai] < THU_TU[m] ? v.trang_thai : m),
@@ -273,7 +300,7 @@ export default function BangDoiTac() {
     const c: Record<TrangThai, number> = {
       CHO_LAY_MAU: 0,
       DA_LAY_MAU: 0,
-      CHO_TAI_LIEU: 0,
+      DA_NHAN_MAU: 0,
       DA_GUI_KET_QUA: 0,
     };
     for (const k of ds ?? []) for (const v of k.viec) c[v.trang_thai] += 1;
@@ -349,9 +376,9 @@ export default function BangDoiTac() {
   }));
   // Mặc định chọn khách đầu tiên còn việc dở; khách vừa chọn biến mất (xong,
   // bị huỷ) thì rơi về mặc định — không để khung phải trỏ vào khoảng không.
-  const macDinh = theoNhom.find((n) => n.ma !== "DA_GUI_KET_QUA" && n.khach.length > 0)?.khach[0];
+  const macDinh = theoNhom.find((n) => !XONG.has(n.ma) && n.khach.length > 0)?.khach[0];
   const chon = ds.find((k) => k.clinic_patient_id === chonId) ?? macDinh ?? null;
-  const conDo = dem.CHO_LAY_MAU + dem.DA_LAY_MAU + dem.CHO_TAI_LIEU;
+  const conDo = dem.CHO_LAY_MAU + dem.DA_LAY_MAU;
 
   return (
     <div className="grid gap-4">
@@ -359,8 +386,8 @@ export default function BangDoiTac() {
         <h1 className="text-title font-semibold text-ink">Việc của đối tác</h1>
         <p className="text-body text-ink-muted">
           {xemNgay.homNay ? "Hôm nay" : `Ngày ${ngayNgan(xemNgay.ngay)}`} · {dem.CHO_LAY_MAU} chờ lấy
-          mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.CHO_TAI_LIEU} chờ tài liệu ·{" "}
-          {dem.DA_GUI_KET_QUA} đã gửi
+          mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.DA_NHAN_MAU} đã nhận mẫu ·{" "}
+          {dem.DA_GUI_KET_QUA} có kết quả
         </p>
       </header>
 
@@ -411,7 +438,7 @@ export default function BangDoiTac() {
                   <ul className="space-y-1">
                     {n.khach.map((k) => {
                       const dangChon = chon?.clinic_patient_id === k.clinic_patient_id;
-                      const conViec = k.viec.filter((v) => v.trang_thai !== "DA_GUI_KET_QUA").length;
+                      const conViec = k.viec.filter((v) => !XONG.has(v.trang_thai)).length;
                       return (
                         <li key={k.clinic_patient_id}>
                           <button
@@ -432,7 +459,7 @@ export default function BangDoiTac() {
                               dangChon
                                 ? "border-brand-500 bg-brand-50"
                                 : "border-line bg-surface hover:bg-surface-muted"
-                            } ${n.ma === "DA_GUI_KET_QUA" ? "opacity-70" : ""}`}
+                            } ${XONG.has(n.ma) ? "opacity-70" : ""}`}
                           >
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-body font-medium text-ink">
@@ -443,11 +470,13 @@ export default function BangDoiTac() {
                                 {conViec > 0 ? ` · ${conViec} việc` : ""}
                               </span>
                             </span>
-                            {n.ma !== "DA_GUI_KET_QUA" ? (
+                            {XONG.has(n.ma) ? (
+                              <CircleCheck className="size-4 shrink-0 text-success" aria-label="Xong" />
+                            ) : (
                               <span className="shrink-0 text-meta tabular-nums text-ink-muted">
                                 {choBaoLau(k.cho_tu)}
                               </span>
-                            ) : null}
+                            )}
                           </button>
                         </li>
                       );
@@ -477,7 +506,7 @@ export default function BangDoiTac() {
                   {choBaoLau(chon.cho_tu) ? ` · ${choBaoLau(chon.cho_tu)}` : ""}
                 </p>
               </div>
-              <Chip tone={buocCua(chon) === "DA_GUI_KET_QUA" ? "success" : "warning"}>
+              <Chip tone={XONG.has(buocCua(chon)) ? "success" : "warning"}>
                 {NHOM.find((n) => n.ma === buocCua(chon))?.ten}
               </Chip>
             </header>
@@ -499,7 +528,7 @@ export default function BangDoiTac() {
                         "/api/doi-tac/cho-tai-lieu",
                         v,
                         chon,
-                        "Đã nhận mẫu, chuyển sang chờ tài liệu",
+                        "Đã nhận mẫu — việc đối tác XONG (kết quả tải lên lúc nào cũng được)",
                         g,
                       )
                     }
@@ -556,16 +585,25 @@ function MotViec({
   onHuyThu: (lyDo: string) => Promise<boolean>;
 }) {
   const oTep = useRef<HTMLInputElement>(null);
-  // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu · chờ tài liệu" (24/09/2026).
+  // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu" (24/09/2026).
   const [ghiChu, setGhiChu] = useState("");
+  // Hộp xem tệp (Lightbox) — mở ở tệp thứ `i` (29/09/2026).
+  const [mo, setMo] = useState<{ i: number; luoi: boolean } | null>(null);
   const tt = viec.trang_thai;
-  const viTri = BUOC.findIndex((b) => b.ma === tt);
+  const xong = XONG.has(tt);
   const nhanTt = NHAN_TRANG_THAI[tt];
+  // Tệp còn hiệu lực, xem trước được — cùng đường đọc tệp chung của trang chỉ định.
+  const tepCon = (viec.tep ?? []).filter((t) => !t.thu_hoi);
+  const xem = tepCon.map((t) =>
+    tepXem({ id: t.id, ten: t.ten, loai_tep: t.loai ?? "TAI_LIEU", mime: t.mime }),
+  );
   const mocGanNhat =
     tt === "DA_GUI_KET_QUA"
-      ? `Gửi lúc ${gioVn(viec.ket_qua_luc)}`
-      : tt === "CHO_TAI_LIEU"
-        ? `Nhận lúc ${gioVn(viec.cho_tai_lieu_luc)}`
+      ? viec.cho_tai_lieu_luc
+        ? `Đã nhận mẫu ${gioPhut(viec.cho_tai_lieu_luc)} · có kết quả ${gioVn(viec.ket_qua_luc)}`
+        : `Có kết quả ${gioVn(viec.ket_qua_luc)}`
+      : tt === "DA_NHAN_MAU"
+        ? `Đã nhận mẫu ${gioPhut(viec.cho_tai_lieu_luc)} · ${gioVn(viec.cho_tai_lieu_luc)}`
         : tt === "DA_LAY_MAU"
           ? viec.mau_gui_doi_tac
             ? `Phòng khám gửi mẫu lúc ${gioVn(viec.lay_mau_luc)}`
@@ -584,32 +622,34 @@ function MotViec({
           ) : null}
           <p className="text-meta text-ink-muted">{mocGanNhat}</p>
         </div>
-        <span className={`shrink-0 rounded-chip px-2 py-0.5 text-label font-semibold ${nhanTt.mau}`}>
-          {nhanTt.chu}
-        </span>
+        <Chip tone={nhanTt.tone}>
+          {xong ? <CircleCheck className="size-3.5" aria-hidden="true" /> : null}
+          {tt === "DA_NHAN_MAU" ? `Đã nhận mẫu ${gioPhut(viec.cho_tai_lieu_luc)}` : nhanTt.chu}
+        </Chip>
       </div>
 
-      <ol className="grid grid-cols-4 gap-1" aria-label="Tiến độ việc">
-        {BUOC.map((b, i) => (
-          <li key={b.ma} className="min-w-0">
-            <span
-              className={`block h-1.5 rounded-full ${
-                i < viTri || tt === "DA_GUI_KET_QUA"
-                  ? "bg-success"
-                  : i === viTri
-                    ? "bg-brand-500"
-                    : "bg-line"
-              }`}
-            />
-            <span
-              className={`mt-1 block truncate text-label ${
-                i === viTri ? "font-semibold text-ink" : "text-ink-faint"
-              }`}
-            >
-              {b.nhan}
-            </span>
-          </li>
-        ))}
+      <ol className="grid grid-cols-3 gap-1" aria-label="Tiến độ việc">
+        {BUOC.map((b) => {
+          const daXong = b.xong(tt);
+          // Bước đang làm = bước đầu tiên chưa xong, trừ bước tuỳ chọn.
+          const dangO = !daXong && !b.tuyChon && BUOC.find((x) => !x.xong(tt)) === b;
+          return (
+            <li key={b.nhan} className="min-w-0">
+              <span
+                className={`block h-1.5 rounded-full ${
+                  daXong ? "bg-success" : dangO ? "bg-brand-500" : "bg-line"
+                }`}
+              />
+              <span
+                className={`mt-1 block truncate text-label ${
+                  dangO || (daXong && !b.tuyChon) ? "font-semibold text-ink" : "text-ink-faint"
+                }`}
+              >
+                {b.nhan}
+              </span>
+            </li>
+          );
+        })}
       </ol>
 
       {tienDo ? (
@@ -623,13 +663,18 @@ function MotViec({
         </div>
       ) : null}
 
-      {/* LỊCH SỬ CÁC LẦN TẢI (29/09/2026): tên, giờ, ai tải — cũ trước. Mở /
-          in / tải khi máy chủ cho (`xem_tep`); tệp thu hồi chỉ còn dòng ghi. */}
+      {/* LỊCH SỬ CÁC LẦN TẢI (29/09/2026): tên, giờ, ai tải — cũ trước. XEM
+          TRƯỚC ngay tại chỗ khi máy chủ cho (`xem_tep`): ảnh thu nhỏ, bấm mở hộp
+          xem (phóng to, chuyển tệp, Mở / In, Tải về) — cùng AnhKetQua + Lightbox
+          của trang chỉ định. Tệp thu hồi chỉ còn dòng ghi. */}
       {viec.tep && viec.tep.length > 0 ? (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <p className="text-label font-semibold uppercase tracking-wider text-ink-faint">
             Lịch sử tải tệp ({viec.tep.length})
           </p>
+          {xemTep && xem.length > 0 ? (
+            <AnhKetQua tep={xem} onMo={(i, luoi) => setMo({ i, luoi: Boolean(luoi) })} />
+          ) : null}
           <ol className="space-y-1">
             {viec.tep.map((t) => (
               <li
@@ -651,28 +696,35 @@ function MotViec({
                     .join(" · ")}
                 </span>
                 {xemTep && !t.thu_hoi ? (
-                  <span className="flex gap-3">
-                    <a
-                      href={duongXemTep(t.id)}
-                      target="_blank"
-                      rel="noopener"
-                      className="font-semibold text-brand-700 underline underline-offset-4"
-                    >
-                      Xem / In
-                    </a>
-                    <a
-                      href={`${duongXemTep(t.id)}?tai=1`}
-                      rel="noopener"
-                      className="font-semibold text-brand-700 underline underline-offset-4"
-                    >
-                      Tải về
-                    </a>
-                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setMo({ i: Math.max(0, tepCon.findIndex((x) => x.id === t.id)), luoi: false })
+                    }
+                  >
+                    Xem
+                  </Button>
                 ) : null}
               </li>
             ))}
           </ol>
         </div>
+      ) : null}
+      {mo && xem.length > 0 ? (
+        <Lightbox
+          tieuDe={viec.ten_dich_vu}
+          tep={xem}
+          batDau={mo.i}
+          luoiBanDau={mo.luoi}
+          veTaiLieu={(x) => {
+            const goc = tepCon.find((t) => t.id === x.id);
+            return goc ? (
+              <XemTaiLieu tep={{ id: goc.id, mime: goc.mime ?? "", ten_hien_thi: goc.ten }} />
+            ) : null;
+          }}
+          onDong={() => setMo(null)}
+        />
       ) : null}
 
       {viec.ghi_chu_lay_mau || viec.ghi_chu_tai_lieu ? (
@@ -725,8 +777,8 @@ function MotViec({
             onClick={() => onChoTaiLieu(ghiChu)}
             className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
-            <Hourglass className="size-4" aria-hidden="true" />
-            {dangLam ? "Đang ghi…" : "Nhận mẫu · chờ tài liệu"}
+            <CircleCheck className="size-4" aria-hidden="true" />
+            {dangLam ? "Đang ghi…" : "Nhận mẫu"}
           </button>
         ) : null}
         <input
@@ -748,14 +800,10 @@ function MotViec({
             type="button"
             disabled={dangLam}
             onClick={() => oTep.current?.click()}
-            className={`inline-flex min-h-10 items-center gap-1.5 rounded-control px-4 text-sm font-semibold disabled:opacity-50 ${
-              tt === "CHO_TAI_LIEU"
-                ? "bg-brand-600 text-white"
-                : "border border-brand-500 text-brand-700 hover:bg-brand-50"
-            }`}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-brand-500 px-4 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
           >
             <FileUp className="size-4" aria-hidden="true" />
-            {dangLam && tienDo ? "Đang gửi…" : tt === "DA_GUI_KET_QUA" ? "Gửi thêm tài liệu" : "Tải tài liệu lên"}
+            {dangLam && tienDo ? "Đang gửi…" : tt === "DA_GUI_KET_QUA" ? "Gửi thêm kết quả" : "Tải kết quả lên"}
           </button>
       </div>
     </li>
