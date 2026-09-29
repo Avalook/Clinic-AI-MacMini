@@ -31,6 +31,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.kho_tep import chay_tren_kho
 
 logger = structlog.get_logger()
 
@@ -331,7 +332,7 @@ class MediaService:
                     "Kết quả đã ký — không thêm ảnh được. Phải qua đường đính chính."
                 )
 
-            kiem_kho_da_gan()
+            await chay_tren_kho(kiem_kho_da_gan)
             path, key = safe_path(
                 clinic_id=identity.clinic_id, ultrasound_id=ultrasound_id, ext=ext
             )
@@ -398,13 +399,18 @@ class MediaService:
         if not owned:
             raise ValidationError("Không tìm thấy ảnh.")
 
-        path = (MEDIA_ROOT / key).resolve()
         # Chốt cuối: dù hai phép kiểm trên có sai, đường dẫn giải ra vẫn phải
-        # nằm trong thư mục media. Rẻ, và nó chặn cả những lỗi chưa nghĩ ra.
-        if not path.is_relative_to(MEDIA_ROOT.resolve()):
-            raise ValidationError("Đường dẫn ảnh không hợp lệ.")
-        if not path.exists():
+        # nằm trong thư mục media. Chạm ổ mạng ở luồng phụ, có hạn giờ (sự
+        # cố treo API 29/09 20:00).
+        def _doc() -> bytes | None:
+            p = (MEDIA_ROOT / key).resolve()
+            if not p.is_relative_to(MEDIA_ROOT.resolve()):
+                raise ValidationError("Đường dẫn ảnh không hợp lệ.")
+            return p.read_bytes() if p.exists() else None
+
+        doc = await chay_tren_kho(_doc)
+        if doc is None:
             raise ValidationError("Tệp ảnh không còn trên máy chủ — báo kỹ thuật.")
-        data = path.read_bytes()
+        data = doc
         mime, _ = sniff(data)
         return data, mime
