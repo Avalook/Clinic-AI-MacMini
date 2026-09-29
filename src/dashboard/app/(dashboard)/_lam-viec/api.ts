@@ -14,7 +14,9 @@ export type TrangThaiHang =
   | "waiting"
   | "called"
   | "serving"
-  | "done";
+  | "done"
+  /** Khách đã về khi chỗ chờ còn mở — chỉ có ở NGÀY CŨ (29/09/2026). */
+  | "left";
 
 export interface DongHangCho {
   id: string;
