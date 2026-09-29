@@ -60,7 +60,7 @@ _DT = [
 # code phòng → (tên mới, tầng, sort, việc phục vụ; việc đầu = việc chính)
 PHONG: dict[str, tuple[str, str, int, list[str] | None]] = {
     "KN-TIEPDON": ("Quầy lễ tân", "Tầng 1", 10, ["LUOTKHAM-01", "LUOTKHAM-14"]),
-    "KN-DOCHISO": ("Đo sinh hiệu", "Tầng 1", 20, ["LUOTKHAM-03"]),
+    "KN-DOCHISO": ("Đo sinh hiệu", "Tầng 1", 20, ["LUOTKHAM-03", "DICHVU-DXA"]),
     "KN-QUAYTHUOC": ("Kho thuốc", "Tầng 1", 30, _THUOC),
     "KN-TUVAN": ("Bác sĩ tư vấn", "Tầng 1", 40, ["LUOTKHAM-02"]),
     "KN-NOITIET": ("Phòng bác sĩ chính", "Tầng 1", 50, _KHAM),
