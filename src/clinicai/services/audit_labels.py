@@ -109,6 +109,8 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",
     "pharmacy.discarded": "Huỷ thuốc",
+    "pharmacy.phieu_nhap": "Phiếu nhập kho",
+    "pharmacy.kiem_kho": "Phiếu kiểm kho",
     "pharmacy.drug_mapped": "Xác định thuốc kho cho dòng đơn",
     "pharmacy.purchase_qty_set": "Khai số lượng khách mua",
     "pharmacy.allocated": "Chọn lô cho dòng thuốc",
@@ -380,6 +382,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "clinical_form_response": "Phiếu khám chuyên khoa",
     "clinical_data_consent": "Đồng ý chia sẻ hồ sơ",
     "drug_batch": "Lô thuốc",
+    "phieu_kho": "Phiếu kho",
     "prescription": "Đơn thuốc",
     "ultrasound_record": "Phiếu siêu âm",
 }

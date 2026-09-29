@@ -33,7 +33,45 @@ const ACTIONS: Record<string, string> = {
   "luu-thuoc": "/api/v1/pharmacy/danh-muc",
   // 28/09: giao không lô → gán lô sau ở Kho thuốc.
   "gan-lo": "/api/v1/pharmacy/gan-lo",
+  // 29/09: phiếu nhập nhiều dòng · phiếu kiểm kho (bắt buộc Idempotency-Key).
+  "phieu-nhap": "/api/v1/pharmacy/phieu-nhap",
+  "kiem-kho": "/api/v1/pharmacy/kiem-kho",
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Đường ĐỌC cho phép (29/09/2026 — kho kiểu KiotViet) → đường backend. Tham
+ *  số chỉ chuyển nguyên văn; máy chủ đọc lại (ngày rác → hôm nay). */
+const DOC: Record<string, (q: URLSearchParams) => string | null> = {
+  "the-kho": (q) => {
+    const id = q.get("id") ?? "";
+    return UUID_RE.test(id) ? `/api/v1/pharmacy/the-kho/${id}` : null;
+  },
+  "xuat-nhap-ton": (q) =>
+    `/api/v1/pharmacy/xuat-nhap-ton?${new URLSearchParams({
+      tu: q.get("tu") ?? "",
+      den: q.get("den") ?? "",
+    })}`,
+  "phieu-kho": (q) =>
+    `/api/v1/pharmacy/phieu-kho?${new URLSearchParams({ loai: q.get("loai") ?? "NHAP" })}`,
+};
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ action: string }> },
+) {
+  const caller = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await caller.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const { action } = await params;
+  const path = DOC[action]?.(new URL(request.url).searchParams) ?? null;
+  if (!path) {
+    return NextResponse.json({ error: `Không đọc được: ${action}` }, { status: 400 });
+  }
+  return proxyJsonToBackend("GET", path, undefined);
+}
 
 export async function POST(
   request: Request,

@@ -25,8 +25,8 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import ban_thuoc_service
-from clinicai.services.pharmacy_service import PharmacyService
+from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
 router = APIRouter()
 
@@ -149,6 +149,8 @@ class ThuocRequest(BaseModel):
     luu_y: str | None = Field(default=None, max_length=4000)
     biet_duoc: str | None = Field(default=None, max_length=300)
     dang_dung: bool = True
+    # 29/09: ngưỡng sắp hết hàng. Không gửi = giữ số cũ; gửi rỗng = bỏ canh.
+    ton_toi_thieu: Any = None
 
 
 @router.post("/pharmacy/danh-muc")
@@ -170,7 +172,142 @@ async def luu_thuoc(
         luu_y=body.luu_y,
         biet_duoc=body.biet_duoc,
         dang_dung=body.dang_dung,
+        ton_toi_thieu=(
+            body.ton_toi_thieu
+            if "ton_toi_thieu" in body.model_fields_set
+            else GIU_NGUYEN
+        ),
     )
+
+
+# ── Kho kiểu KiotViet (29/09/2026): thẻ kho · XNT · phiếu nhập · kiểm kho ──
+
+
+@router.get("/pharmacy/the-kho/{drug_catalog_id}")
+async def the_kho(
+    drug_catalog_id: UUID,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thẻ kho một thuốc: mọi biến động, tồn trước → sau, người làm. Chỉ đọc."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await kho_thuoc_service.the_kho(
+            pool, identity=identity, drug_catalog_id=str(drug_catalog_id)
+        )
+    )
+    return kq
+
+
+@router.get("/pharmacy/xuat-nhap-ton")
+async def xuat_nhap_ton(
+    tu: str | None = None,
+    den: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Xuất – nhập – tồn theo khoảng ngày. Ngày rác → hôm nay (không 422/500)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await kho_thuoc_service.xuat_nhap_ton(pool, identity=identity, tu=tu, den=den)
+    )
+    return kq
+
+
+@router.get("/pharmacy/phieu-kho")
+async def danh_sach_phieu(
+    loai: str = "NHAP",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phiếu nhập (`loai=NHAP`) hoặc phiếu kiểm kho (`loai=KIEM`) gần nhất."""
+    return {
+        "items": jsonable_encoder(
+            await kho_thuoc_service.danh_sach_phieu(pool, identity=identity, loai=loai)
+        )
+    }
+
+
+class DongPhieuNhap(BaseModel):
+    drug_catalog_id: UUID
+    batch_code: str = Field(min_length=1, max_length=100)
+    # Chuỗi: luật đọc ngày ở service (rác → báo dòng nào thiếu hạn, không 422).
+    expiry_date: str | None = Field(default=None, max_length=20)
+    so_luong: Any = None
+    unit: str | None = Field(default=None, max_length=50)
+    gia_nhap: Any = None
+
+
+class PhieuNhapRequest(BaseModel):
+    nha_cung_cap: str | None = Field(default=None, max_length=300)
+    so_hoa_don: str | None = Field(default=None, max_length=100)
+    ngay_chung_tu: str | None = Field(default=None, max_length=20)
+    ghi_chu: str | None = Field(default=None, max_length=1000)
+    dong: list[DongPhieuNhap] = Field(min_length=1, max_length=200)
+
+
+@router.post("/pharmacy/phieu-nhap", status_code=201)
+async def phieu_nhap(
+    body: PhieuNhapRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Phiếu nhập nhiều dòng — một giao dịch. Bắt buộc `Idempotency-Key`: gửi lại
+    cùng khoá = cùng phiếu (UNIQUE ở Postgres), không nhập lần hai."""
+    khoa = idem.key
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        ket_qua: dict[str, Any] = jsonable_encoder(
+            await kho_thuoc_service.tao_phieu_nhap(
+                pool,
+                identity=identity,
+                khoa_gui=khoa,
+                nha_cung_cap=body.nha_cung_cap,
+                so_hoa_don=body.so_hoa_don,
+                ngay_chung_tu=body.ngay_chung_tu,
+                ghi_chu=body.ghi_chu,
+                dong=[d.model_dump(mode="json") for d in body.dong],
+            )
+        )
+        await idem.save(pool, ket_qua, status_code=201)
+    return ket_qua
+
+
+class DongKiemKho(BaseModel):
+    drug_batch_id: UUID
+    thuc_te: Any = None
+
+
+class KiemKhoRequest(BaseModel):
+    ghi_chu: str | None = Field(default=None, max_length=1000)
+    dong: list[DongKiemKho] = Field(min_length=1, max_length=200)
+
+
+@router.post("/pharmacy/kiem-kho", status_code=201)
+async def kiem_kho(
+    body: KiemKhoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Phiếu kiểm kho: máy chủ tính lệch, ghi điều chỉnh, lưu phiếu — một giao dịch."""
+    khoa = idem.key
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        ket_qua: dict[str, Any] = jsonable_encoder(
+            await kho_thuoc_service.kiem_kho(
+                pool,
+                identity=identity,
+                khoa_gui=khoa,
+                ghi_chu=body.ghi_chu,
+                dong=[d.model_dump(mode="json") for d in body.dong],
+            )
+        )
+        await idem.save(pool, ket_qua, status_code=201)
+    return ket_qua
 
 
 class NhapLoRequest(BaseModel):

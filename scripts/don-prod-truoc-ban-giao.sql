@@ -88,6 +88,8 @@ INSERT INTO bang_xoa (ten) VALUES
 
 \if :xoa_kho
 INSERT INTO bang_xoa (ten) VALUES ('drug_batch'), ('inventory_txn');
+-- 29/09: phiếu nhập / kiểm kho trỏ vào lô + sổ kho — xoá kho thì xoá cả phiếu.
+INSERT INTO bang_xoa (ten) VALUES ('phieu_kho'), ('phieu_kho_dong');
 \endif
 
 -- ── Chốt 2: đồ thị khoá ngoại ────────────────────────────────────────────
