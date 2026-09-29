@@ -93,7 +93,7 @@ interface DuLieuXem {
   lich_su: { visit_id: string; luc: string | null; dich_vu: string | null; bac_si: string | null }[];
   sinh_hieu?: { luot_nay: SinhHieu[]; luot_truoc: SinhHieu[] };
   lam_sang?: {
-    ky: { da_ky: boolean; luc: string | null; nguoi_ky: string | null };
+    ky: { da_ky: boolean; luc: string | null; nguoi_ky: string | null; nguoi_bam_ky?: string | null };
     phien: { loai: string; vong: number; trang_thai: string; bac_si: string | null; bat_dau: string | null; xong: string | null; nguoi_bam_bat_dau: string | null }[];
     benh_an: {
       ly_do: string | null;
@@ -344,7 +344,9 @@ export default function XemLuot({
               <Muc tieuDe="Khám & bệnh án">
                 <p className="text-xs text-ink-soft">
                   {ls.ky.da_ky
-                    ? `Đã hoàn tất · ${ls.ky.nguoi_ky ?? "?"} · ${ngayGio(ls.ky.luc)}`
+                    ? `Đã hoàn tất · ${ls.ky.nguoi_ky ?? "?"}${
+                        ls.ky.nguoi_bam_ky ? ` · ${ls.ky.nguoi_bam_ky} bấm` : ""
+                      } · ${ngayGio(ls.ky.luc)}`
                     : "Chưa hoàn tất khám"}
                   {ls.benh_an.revision ? ` · bản ${ls.benh_an.revision}` : ""}
                   {ls.benh_an.co_don_nhap_cho_duyet ? " · có đơn thuốc thư ký nhập chờ bác sĩ duyệt" : ""}

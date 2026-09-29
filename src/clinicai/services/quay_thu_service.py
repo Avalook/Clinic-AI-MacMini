@@ -309,7 +309,9 @@ def so_sanh_chi_dinh(chi_dinh: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "so_bo": so_bo,
         "tien_bo": tien_bo,
         "dong": dong,
+        # Chỉ BÁC SĨ (29/09/2026); người bấm chỉ định hộ tách riêng.
         "bac_si": (moi_nhat or {}).get("bac_si_chi_dinh"),
+        "nguoi_bam": (moi_nhat or {}).get("nguoi_bam_chi_dinh"),
         "lan": (moi_nhat or {}).get("lan_chi_dinh"),
         "luc": (moi_nhat or {}).get("chi_dinh_luc"),
     }
