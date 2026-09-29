@@ -15,12 +15,13 @@
 
 import type { BookingPolicy } from "./booking-policy";
 
-/** Trạng thái KHÔNG còn giữ chỗ (huỷ / không đến / bác sĩ từ chối chờ phân lại). */
-export const DEAD_STATUSES = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"] as const;
-
-export function isDeadStatus(status?: string | null): boolean {
-  return (DEAD_STATUSES as readonly string[]).includes((status ?? "").trim());
-}
+// 29/09/2026 — PHẦN ĐẾM GHẾ ĐÃ BỎ KHỎI ĐÂY. `buildSlotUsage`/`usageAt` tự cộng
+// lịch trong ngày rồi màn hình so với TRẦN CHUNG (`policy.regularCap`), trong
+// khi trigger chặn theo bác sĩ × khung có luật riêng — lưới mời ghế máy chủ từ
+// chối, giấu ghế máy chủ còn nhận. Số ghế nay do máy chủ trả
+// (`/api/appointments/luoi-ngay`, đọc qua lib/suc-chua-luoi.ts). Danh sách
+// trạng thái "chết" cũng chỉ còn ở Python (core/trang_thai_lich.py). File này
+// chỉ còn các phép chia khung THUẦN để hiển thị.
 
 export function isWalkinChannel(channel?: string | null): boolean {
   return (channel ?? "").trim().toUpperCase() === "WALK_IN";
@@ -60,56 +61,4 @@ export function slotBucketRange(
     startUtc: new Date(s).toISOString(),
     endUtc: new Date(s + slotMs(policy)).toISOString(),
   };
-}
-
-export interface SlotApptLite {
-  slot_start: string;
-  doctor_id: string | null;
-  booking_channel?: string | null;
-  status?: string | null;
-}
-
-export interface SlotUsage {
-  /** Số lịch kênh thường (chiếm chỗ đặt trước). */
-  regular: number;
-  /** Số lịch vãng lai (chiếm chỗ để dành). */
-  walkin: number;
-}
-
-/** Key gộp: bác sĩ (null → "") + đầu khung. */
-export function usageKey(
-  doctorId: string | null | undefined,
-  bucketMs: number,
-): string {
-  return `${doctorId ?? ""}|${bucketMs}`;
-}
-
-/** Gom danh sách lịch (đã bỏ/giữ nguyên trạng thái từ API) thành bảng chiếm chỗ
- *  theo (bác sĩ, khung). Tự bỏ các trạng thái chết — API GET hiện đã lọc
- *  CANCELLED/NO_SHOW nhưng còn trả DOCTOR_DECLINED, nên vẫn phải lọc lại ở đây. */
-export function buildSlotUsage(
-  appts: SlotApptLite[],
-  policy: BookingPolicy,
-): Map<string, SlotUsage> {
-  const ms = slotMs(policy);
-  const m = new Map<string, SlotUsage>();
-  for (const a of appts) {
-    if (!a.slot_start || isDeadStatus(a.status)) continue;
-    const t = Date.parse(a.slot_start);
-    if (!Number.isFinite(t)) continue;
-    const key = usageKey(a.doctor_id, Math.floor(t / ms) * ms);
-    const u = m.get(key) ?? { regular: 0, walkin: 0 };
-    if (isWalkinChannel(a.booking_channel)) u.walkin += 1;
-    else u.regular += 1;
-    m.set(key, u);
-  }
-  return m;
-}
-
-export function usageAt(
-  usage: Map<string, SlotUsage>,
-  doctorId: string | null | undefined,
-  bucketMs: number,
-): SlotUsage {
-  return usage.get(usageKey(doctorId, bucketMs)) ?? { regular: 0, walkin: 0 };
 }

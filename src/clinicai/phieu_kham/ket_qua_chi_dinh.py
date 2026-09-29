@@ -25,7 +25,10 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
-from clinicai.services.doi_tac_service import trang_thai_doi_tac
+from clinicai.services.doi_tac_service import (
+    LA_VIEC_DOI_TAC_SQL,
+    trang_thai_doi_tac,
+)
 
 #: Bảy phiếu khám KHÔNG phải kết quả CLS — chúng là nơi ĐỌC kết quả, và gắn vào
 #: consultation/visit chứ không vào chỉ định. Chỉ phiếu kết quả dịch vụ (18 mẫu
@@ -78,7 +81,8 @@ async def doc_ket_qua_theo_chi_dinh(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
         "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
-        "       coalesce(n.lam_ben_ngoai, false) AS ben_ngoai,"
+        # Việc của ĐỐI TÁC: bước làm bên ngoài HOẶC mẫu gửi đối tác (29/09/2026).
+        "       " + LA_VIEC_DOI_TAC_SQL + " AS ben_ngoai,"
         # Dòng kết quả Y HỆT bản mẫu (27/09/2026): mã SP · giá · đã thu · đã xem.
         "       o.da_xem_ket_qua_luc, sp.ma_kiotviet, sp.unit_price,"
         "       EXISTS (SELECT 1 FROM payment_bill_line bl"
@@ -206,7 +210,8 @@ async def doc_ket_qua_theo_chi_dinh(
                     if r["da_xem_ket_qua_luc"]
                     else None
                 ),
-                # Làm ở ĐỐI TÁC (phòng `lam_ben_ngoai`): trạng thái bàn đối tác —
+                # Làm ở ĐỐI TÁC (phòng `lam_ben_ngoai`, hoặc mẫu gửi đối tác —
+                # 29/09/2026): trạng thái bàn đối tác —
                 # cùng một hàm với màn đối tác và CSKH (lát 4c, 26/09/2026).
                 "doi_tac": (
                     trang_thai_doi_tac(

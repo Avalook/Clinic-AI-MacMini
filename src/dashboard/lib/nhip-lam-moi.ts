@@ -203,6 +203,14 @@ export function moDongTheoHien(cong: CongCuDong): Go {
 export const SU_KIEN_BANG = "clinicai:bang-doi";
 
 /**
+ * Sự kiện `window`: lưu phiếu Sản khoa vừa ghi hai ô kinh cuối / dự kiến sinh
+ * sang thai kỳ (máy chủ trả `thai_ky` — 29/09/2026). `detail` = mã khách. Khối
+ * Thai kỳ bên dưới phiếu nghe để nạp lại; bảng `pregnancy` không phát tin
+ * LISTEN/NOTIFY nên `SU_KIEN_BANG` không với tới.
+ */
+export const SU_KIEN_THAI_KY = "clinicai:thai-ky-doi";
+
+/**
  * Tình trạng dòng SSE, cho các chỉ báo "cập nhật liên tục / mất kết nối".
  *
  * VÌ SAO CÓ (27/09/2026). Hai chỉ báo ở trang chủ và lịch hẹn từng đọc tình

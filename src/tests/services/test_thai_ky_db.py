@@ -36,7 +36,7 @@ def test_tuoi_thai_la_phep_tru_tu_du_kien_sinh() -> None:
     assert tuoi_thai_tu_edd(hom_nay + timedelta(days=400), hom_nay) is None
 
 
-async def test_chi_bac_si_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
+async def test_nguoi_ghi_benh_an_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
     svc = ThaiKyService(kb.pool)
     khach = await _khach(kb)
     edd = (now_vn().date() + timedelta(days=200)).isoformat()
@@ -76,7 +76,9 @@ async def test_chi_bac_si_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
     ht = doc["hien_tai"]
     assert ht is not None and ht["nguon_du_kien_sinh"] == "SIEU_AM"
     assert ht["tuoi_thai"] == {"tuan": 11, "ngay": 3}
-    assert doc["duoc_ghi"] is False
+    # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng được ghi (lễ tân vẫn
+    # bị chặn ghi ở trên và dưới).
+    assert doc["duoc_ghi"] is True
     with pytest.raises(SafetyGateError):
         await svc.cap_nhat(
             pregnancy_id=kq["id"],

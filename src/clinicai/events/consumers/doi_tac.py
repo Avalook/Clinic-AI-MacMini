@@ -15,6 +15,12 @@ lấy mẫu hiện NGAY lúc bác sĩ chỉ định — trước cả khi khách
                                 (dịch vụ phòng khám vẫn thu hộ)
     service.completed         → chỉ định làm bên ngoài do ĐIỀU DƯỠNG lấy mẫu,
                                 vừa làm xong ở phòng Lấy mẫu → nhận việc
+                              → MẪU GỬI ĐỐI TÁC (Tuyền 29/09/2026): dịch vụ THU
+                                HỘ đối tác (billing_owner EXTERNAL_PARTNER) mà
+                                phòng làm là phòng CỦA PHÒNG KHÁM (node không
+                                `lam_ben_ngoai` — vd Giải phẫu bệnh, Sinh thiết
+                                + GPB ở phòng Thủ thuật) vừa xong → mẫu đã có,
+                                gửi đối tác → nhận việc (lý do MAU_GUI_DOI_TAC)
 
 Cả ba sự kiện cùng một luật: "chỉ định đã đủ điều kiện nhận chưa?" đọc từ
 trạng thái HIỆN TẠI (FinanceGate), nên sự kiện nào tới trước cũng ra một kết quả.
@@ -23,7 +29,9 @@ trạng thái HIỆN TẠI (FinanceGate), nên sự kiện nào tới trước c
 `partner.order_received` (dòng thời gian lượt + chuông vai Đối tác). Bàn đối
 tác đọc đúng bảng ấy.
 
-CHẠY LẠI ĐƯỢC: chỉ định đã có dòng nhận thì bỏ. PHÁT LẠI thì im (node tác vụ).
+CHẠY LẠI ĐƯỢC: chỉ định đã có dòng nhận thì bỏ (khoá chính (clinic, chỉ định) +
+ON CONFLICT DO NOTHING — bấm Xong hai lần, hai sự kiện tới cùng lúc vẫn một
+dòng, một `partner.order_received`). PHÁT LẠI thì im (node tác vụ).
 """
 
 from __future__ import annotations
@@ -38,12 +46,15 @@ from clinicai.services import finance_gate
 _CHO_NHAN_SQL = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id,
        coalesce(sp.name, o.service_name) AS ten,
-       coalesce(sp.doi_tac_lay_mau, false) AS tu_lay_mau
+       -- Đối tác tự lấy mẫu chỉ có nghĩa ở bước làm bên ngoài.
+       (coalesce(n.lam_ben_ngoai, false)
+        AND coalesce(sp.doi_tac_lay_mau, false)) AS tu_lay_mau,
+       NOT coalesce(n.lam_ben_ngoai, false) AS mau_gui
   FROM service_order o
-  JOIN node_definition n
-    ON n.clinic_id = o.clinic_id AND n.code = o.node_code AND n.lam_ben_ngoai
+  LEFT JOIN node_definition n
+    ON n.clinic_id = o.clinic_id AND n.code = o.node_code
   LEFT JOIN LATERAL (
-       SELECT s.name, s.doi_tac_lay_mau FROM service_price s
+       SELECT s.name, s.doi_tac_lay_mau, s.billing_owner FROM service_price s
         WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code
           AND s.active
         ORDER BY (s."group" = 'dich_vu') DESC LIMIT 1) sp ON true
@@ -52,9 +63,16 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id,
    AND NOT EXISTS (SELECT 1 FROM doi_tac_nhan_viec d
                     WHERE d.clinic_id = o.clinic_id AND d.service_order_id = o.id)
    AND (
-        (coalesce(sp.doi_tac_lay_mau, false)
-         AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
-     OR (NOT coalesce(sp.doi_tac_lay_mau, false) AND o.exec_status = 'performed')
+        -- Bước làm bên ngoài (phòng đối tác).
+        (coalesce(n.lam_ben_ngoai, false) AND (
+             (coalesce(sp.doi_tac_lay_mau, false)
+              AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
+          OR (NOT coalesce(sp.doi_tac_lay_mau, false)
+              AND o.exec_status = 'performed')))
+        -- Mẫu gửi đối tác: thu hộ đối tác, làm ở phòng của phòng khám, đã xong.
+     OR (NOT coalesce(n.lam_ben_ngoai, false)
+         AND sp.billing_owner = 'EXTERNAL_PARTNER'
+         AND o.exec_status = 'performed')
    )
  ORDER BY o.created_at, o.id
 """
@@ -103,7 +121,7 @@ async def nhan_viec_doi_tac(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> 
                 else "DA_THU_TIEN"
             )
         else:
-            ly_do = "DA_LAY_MAU"
+            ly_do = "MAU_GUI_DOI_TAC" if r["mau_gui"] else "DA_LAY_MAU"
         moi = await conn.fetchval(
             "INSERT INTO doi_tac_nhan_viec (clinic_id, service_order_id, ly_do,"
             " nguon_event_id) VALUES ($1::uuid, $2::uuid, $3, $4::uuid)"

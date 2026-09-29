@@ -27,12 +27,7 @@ import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
 import BangBacSiTuan from "../../appointments/BangBacSiTuan";
 import { phutVn, thuHaiCua } from "../../appointments/cho-trong";
-import {
-  buildSlotUsage,
-  usageAt,
-  slotBucketMs,
-  type SlotApptLite,
-} from "../../../../lib/slot-capacity";
+import { hangCua, khungDay, phutCua } from "../../../../lib/suc-chua-luoi";
 import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
 import {
@@ -63,7 +58,7 @@ import {
   CHANNELS_CHON,
   KENH_GIOI_THIEU,
 } from "../../form-ui";
-import { useKhoangCa } from "../dung-khoang-ca";
+import { useSucChuaNgay } from "../dung-suc-chua-ngay";
 
 export type { Option };
 
@@ -96,7 +91,9 @@ interface PhoneMatch {
   birth_year: number | null;
 }
 
-interface IntakeAppointment extends SlotApptLite {
+/** Lịch hôm nay — chỉ còn đọc số khám để gợi ý số kế tiếp cho khách vãng lai.
+ *  Số GHẾ không đếm từ danh sách này nữa (29/09/2026): máy chủ trả sẵn. */
+interface IntakeAppointment {
   queue_number?: string | null;
 }
 
@@ -574,7 +571,6 @@ export default function NewPatientForm({
   const policy = useBookingPolicy();
   // Lịch dài đúng một khung của PHÒNG KHÁM NÀY, không phải 15' cố định.
   const duration = policy?.slotMinutes ?? 0;
-  const [existingAppts, setExistingAppts] = useState<IntakeAppointment[]>([]);
   // Bác sĩ TRỰC CA (work_roster LICH_KHAM) của ngày đang đặt — sơ đồ chỉ hiện
   // các bác sĩ này. null = chưa nạp; [] = ngày chưa phân trực (fallback tất cả).
   const [dutyDoctorIds, setDutyDoctorIds] = useState<string[] | null>(null);
@@ -599,8 +595,12 @@ export default function NewPatientForm({
     return () => ctrl.abort();
   }, [dutyDate, doiCa]);
 
-  // Khoảng giờ thật của từng bác sĩ trực — xem `dung-khoang-ca.ts`.
-  const shiftWindows = useKhoangCa(dutyDate, dutyDoctorIds);
+  // SỐ GHẾ + KHOẢNG CA của lưới vãng lai hôm nay — MỘT lượt hỏi máy chủ, xem
+  // `dung-suc-chua-ngay.ts`. Chỉ màn vãng lai có lưới, nên chỉ hỏi khi walkin.
+  const sucChua = useSucChuaNgay(walkin ? dutyDate : null, [
+    ...(dutyDoctorIds ?? []),
+    doctorId,
+  ]);
   // Ô "Bác sĩ" CHỈ MỜI NGƯỜI CÓ TRỰC NGÀY ĐÓ.
   //
   // Quang 09/08/2026: *"rõ là hôm nay có lịch mà sao lúc đặt lịch lại không
@@ -648,8 +648,7 @@ export default function NewPatientForm({
         .then((r) => (r.ok ? r.json() : { appointments: [] }))
         .then((data) => {
           if (!active) return;
-          const appts = data.appointments ?? [];
-          setExistingAppts(appts);
+          const appts: IntakeAppointment[] = data.appointments ?? [];
           let maxNum = 0;
           for (const appt of appts) {
             const q = (appt.queue_number ?? "").trim();
@@ -664,61 +663,21 @@ export default function NewPatientForm({
       return () => {
         active = false;
       };
-    } else {
-      if (!apptDate) return;
-      let active = true;
-      // Lấy lịch MỌI bác sĩ trong ngày (KHÔNG lọc doctor_id) để sơ đồ "rạp chiếu
-      // phim" vẽ từng hàng bác sĩ; isSlotBooked vẫn lọc theo doctorId ở client.
-      fetch(`/api/appointments?date=${encodeURIComponent(apptDate)}`)
-        .then((r) => (r.ok ? r.json() : { appointments: [] }))
-        .then((data) => {
-          if (active) {
-            setExistingAppts(data.appointments ?? []);
-          }
-        })
-        .catch(() => {
-          if (active) setExistingAppts([]);
-        });
-      return () => {
-        active = false;
-      };
     }
-  }, [apptDate, walkin, TODAY]);
+    // Biểu mẫu đặt lịch đầy đủ không có lưới ghế ở đây — không cần danh sách
+    // lịch của ngày (bản trước nạp nó chỉ để tự đếm ghế, 29/09/2026 đã bỏ).
+  }, [walkin, TODAY]);
 
-  const visibleExistingAppts = useMemo(
-    () => (walkin || apptDate ? existingAppts : []),
-    [walkin, apptDate, existingAppts],
-  );
-
-  // Khung đang chọn còn chỗ ĐÚNG LOẠI không? Số chỗ mỗi loại là cấu hình của
-  // phòng khám (clinic.settings.booking), không phải hằng số 2+1.
-  const isSlotBooked = useMemo(() => {
-    const day = walkin ? TODAY : apptDate;
-    if (!day || !apptTime || !policy) return false;
-    try {
-      const bucketMs = slotBucketMs(vnLocalToUtcISO(day, apptTime), policy);
-      const u = usageAt(
-        buildSlotUsage(visibleExistingAppts, policy),
-        doctorId || null,
-        bucketMs,
-      );
-      // Chỗ đến trực tiếp (walk-in flow HOẶC full flow chọn ô xanh).
-      return walkin || gheTrucTiep
-        ? u.walkin >= policy.walkinCap
-        : u.regular >= policy.regularCap;
-    } catch {
-      return false;
-    }
-  }, [
-    walkin,
-    gheTrucTiep,
-    TODAY,
-    apptDate,
-    apptTime,
-    doctorId,
-    visibleExistingAppts,
-    policy,
-  ]);
+  // Khung đang chọn còn ghế ĐÚNG LOẠI không — THEO MÁY CHỦ (trần theo bác sĩ ×
+  // khung, cờ chặn của trigger), không tự đếm lịch và không lấy trần chung.
+  const isSlotBooked =
+    walkin && apptTime
+      ? khungDay(
+          hangCua(sucChua.data, doctorId || null),
+          phutCua(apptTime),
+          "walkin",
+        ) === true
+      : false;
 
   // CSKH: số khám ĐỂ TRỐNG — hệ thống cấp SỐ CHUNG THEO THỜI GIAN lúc check-in.
   // KHÔNG tự dập "ƯT" theo phút (sai nghĩa): ƯT chỉ dành cho NGƯỜI QUEN nhà bác sĩ,
@@ -1620,8 +1579,7 @@ export default function NewPatientForm({
                   doctors={doctors}
                   dutyDoctorIds={dutyDoctorIds}
                   dutyDuKien={dutyDuKien}
-                  shiftWindows={shiftWindows}
-                  existingAppts={visibleExistingAppts}
+                  sucChua={sucChua}
                   selectedDoctorId={doctorId}
                   selectedTime={apptTime}
                   mode="walkin"

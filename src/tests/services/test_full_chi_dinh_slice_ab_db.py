@@ -388,16 +388,16 @@ async def test_mixed_orders_slice_ab_progression(
     draft_ids = nhap["order_ids"]
     assert len(draft_ids) == 3
 
-    # Người thiếu quyền Khám (điều dưỡng — nhóm mẫu có Chỉ định nhưng không có
-    # Khám) không duyệt được. Thư ký CÓ Khám + Chỉ định thì duyệt được từ
-    # 29/09/2026 (trợ lý trọn quyền) — xem test_tro_ly_bac_si_tron_quyen_db.py.
+    # Người thiếu quyền Khám + Chỉ định (trưởng ca) không duyệt được. Thư ký /
+    # điều dưỡng CÓ cả hai thì duyệt được — 29/09/2026: ĐD/TKYK trọn quyền
+    # (Tuyền); xem test_tro_ly_bac_si_tron_quyen_db.py.
     with pytest.raises(SafetyGateError):
         await kban.svc.authorize_orders(
             consultation_id=phien_1,
             service_codes=None,
             draft_order_ids=draft_ids,
             expected_versions={oid: 1 for oid in draft_ids},
-            identity=kban.dieu_duong,
+            identity=kban.truong_ca,
         )
 
     # Bác sĩ duyệt chỉ định

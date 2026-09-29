@@ -30,7 +30,7 @@ const form = readFileSync(
 const ma = picker.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("lưới nhận khoảng ca trực và chặn ô nằm ngoài", () => {
-  assert.match(ma, /shiftWindows/, "lưới phải nhận khoảng ca của từng bác sĩ");
+  assert.match(ma, /hang\?\.shift_windows/, "lưới phải đọc khoảng ca của từng bác sĩ");
   assert.match(ma, /const ngoaiCa = !trongCa\(/, "phải tính cờ ngoài-ca cho mỗi ô");
   const dis = /const disabled = [^;]+;/.exec(ma);
   assert.ok(dis, "không tìm thấy chỗ tính `disabled`");
@@ -66,16 +66,18 @@ test("khoảng ca LẤY TỪ BACKEND, không tự quy đổi SÁNG/CHIỀU", () 
   // Mốc 12:00 là quyết định của phòng khám, nằm ở đúng một hằng số trong
   // `core/shifts.py`. Tự đổi nhãn ca thành giờ ở frontend là dựng bản thứ hai
   // của luật ấy — và bản thứ hai sẽ lệch vào ngày phòng khám đổi mốc.
+  // 29/09/2026: khoảng ca và số ghế đến trong CÙNG một lượt hỏi
+  // `/appointments/luoi-ngay` (mỗi hàng = quote của một bác sĩ).
   const hook = readFileSync(
-    new URL("../app/(dashboard)/patients/dung-khoang-ca.ts", import.meta.url),
+    new URL("../app/(dashboard)/patients/dung-suc-chua-ngay.ts", import.meta.url),
     "utf8",
   );
   assert.match(
     hook,
-    /appointments\/quote\?date=[\s\S]{0,200}?doctor_id=/,
-    "hook phải hỏi quote để lấy shift_windows",
+    /\/api\/appointments\/luoi-ngay\?/,
+    "hook phải hỏi máy chủ để lấy shift_windows + số ghế",
   );
-  assert.match(hook, /shift_windows/, "phải đọc đúng trường của backend");
+  assert.match(ma, /shift_windows/, "phải đọc đúng trường của backend");
   for (const cam of [/\bSANG\b/, /\bCHIEU\b/, /12\s*\*\s*60/]) {
     assert.doesNotMatch(
       hook.replace(/\/\/.*$/gm, ""),
@@ -104,7 +106,7 @@ test("MỌI chỗ gọi lưới đều nhận khoảng ca", () => {
   ] as const;
   for (const [ten, ma] of nguon) {
     const goi = (ma.match(/<CinemaSlotPicker/g) ?? []).length;
-    const nhan = (ma.match(/shiftWindows=\{shiftWindows\}/g) ?? []).length;
+    const nhan = (ma.match(/sucChua=\{sucChua\}/g) ?? []).length;
     assert.equal(
       nhan,
       goi,
@@ -121,6 +123,6 @@ test("logic hỏi khoảng ca nằm ở MỘT chỗ", () => {
     new URL("../app/(dashboard)/patients/AppointmentBooking.tsx", import.meta.url),
     "utf8",
   )]) {
-    assert.match(ma, /useKhoangCa\(/, "phải dùng hook chung");
+    assert.match(ma, /useSucChuaNgay\(/, "phải dùng hook chung");
   }
 });

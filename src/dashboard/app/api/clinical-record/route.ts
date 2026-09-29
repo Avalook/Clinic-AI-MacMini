@@ -32,7 +32,8 @@ interface HoSoTho {
   }[];
   prescriptions: unknown[];
   vital_latest: DongSinhHieu | null;
-  visit: { visit_id: string; status: string; created_at: string | null } | null;
+  // `phieu_v5`: lượt ghi phiếu khám v5 (29/09/2026) — màn bệnh án mở phiếu v5 chỉ-xem.
+  visit: { visit_id: string; status: string; created_at: string | null; phieu_v5?: boolean } | null;
   draft: {
     chief_complaint: string;
     subjective: unknown;

@@ -617,21 +617,6 @@ export default function BookingHub({
 
 
 
-  // Số lịch còn giữ chỗ, gom theo (bác sĩ, ngày VN, giờ VN).
-  //
-  // HAI LỖI ĐƯỢC SỬA Ở ĐÂY, VÀ CẢ HAI ĐỀU IM LẶNG.
-  //
-  // 1. So sánh múi giờ. Bản cũ làm `a.slot_start.slice(11, 16)` — cắt chuỗi ISO
-  //    UTC để lấy "HH:mm" rồi đem so với nhãn giờ VN trên lưới. Một lịch 18:00
-  //    giờ VN nằm trong database là 11:00Z, nên phép so sánh KHÔNG BAO GIỜ đúng.
-  //    Hệ quả: mọi ô luôn hiện "Có thể đặt · 0/N", kể cả khung đã kín, và CSKH
-  //    chỉ biết mình đặt trùng khi trigger trả về lỗi 409.
-  //
-  // 2. Không lọc theo NGÀY. Bản cũ chỉ so giờ, nên nếu phép so sánh có đúng thì
-  //    một lịch 18:00 của thứ Ba vẫn được đếm vào ô 18:00 của thứ Năm.
-  //
-  // Trạng thái chết (CANCELLED/NO_SHOW/DOCTOR_DECLINED) không giữ chỗ — cùng
-  // danh sách với lib/slot-capacity.ts và DEAD_STATUSES ở booking_service.py.
   // CHỖ NGƯỜI KHÁC ĐANG GIỮ — khoá "docId|ngày|giờ".
   //
   // Khối nhịp/SSE đã chuyển sang `dung-giu-cho.ts` (16/09/2026) để popup khung

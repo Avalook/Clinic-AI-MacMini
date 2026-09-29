@@ -63,10 +63,11 @@ async def test_moi_cau_doc_deu_khoa_theo_phong_kham() -> None:
     """Đoán đúng một mã lịch không đủ để đọc hồ sơ của phòng khám khác."""
     lich = {"clinic_patient_id": "p1", "appointment_id": LICH}
     luot = {"visit_id": "v1"}
-    pool = Pool(lich, luot, None, [], [], [], [], [], [])
+    pool = Pool(lich, luot, None, [], [], [], [], [], [], [])
     d = await HoSoKhamService(pool).doc(identity=_ai(), appointment_id=LICH)
 
-    assert len(pool.calls) == 9
+    # + sinh hiệu theo buổi, + phiếu v5 (29/09/2026).
+    assert len(pool.calls) == 10
     for sql, args in pool.calls:
         assert "clinic_id" in sql, sql
         assert CLINIC in args, sql

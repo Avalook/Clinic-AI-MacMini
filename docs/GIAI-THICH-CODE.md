@@ -4605,6 +4605,7 @@ Tiền tố `/api/v1` bị lược trừ hai đường `/health*`.
 | GET | `/appointments/cho-xep-bac-si` | LÂM SÀNG+LT+CSKH+TC+QL | SQL trực tiếp | Lịch cần xếp bác sĩ: `CHUA_XEP` và `MAT_BAC_SI` |
 | POST | `/appointments/{id}/bao-xep-bac-si` | INTAKE | `ThongBaoService` | CSKH báo quản lý một lịch thiếu bác sĩ |
 | GET | `/appointments/quote` | INTAKE | `CapacityService` | Sức chứa theo giờ để lưới tô màu (CAP-01) |
+| GET | `/appointments/luoi-ngay` | INTAKE | `capacity_service.luoi_ngay` | Sức chứa MỘT ngày cho cả lưới đặt chỗ: mỗi bác sĩ một hàng (= `quote`) + hàng chưa phân, kèm cờ trần có chặn — lưới vẽ theo số này, không tự cộng (29/09/2026) |
 | GET | `/appointments/week` | mọi vai | `WeekAppointmentsService` | Lịch 7 ngày, kèm phân loại Tái khám/Lần đầu |
 | GET | `/appointments/doctor-board` | mọi vai | `DoctorBoardService` | Bảng khám của bác sĩ (mặc định **gồm cả lịch huỷ**) |
 | GET | `/appointments/policy` | mọi vai | `clinic_policy` | Độ dài khung + số chỗ + giờ mở cửa, giải 3 tầng |
@@ -6390,6 +6391,7 @@ proxy trên đường** — đọc được, sống lâu, đủ để đóng gi�
 | `/api/appointments` | GET, POST, PATCH | `/api/v1/appointments/bookings`, `/api/v1/appointments/{id}` |
 | `/api/appointments/cho-xep-bac-si` | GET, POST | `/api/v1/appointments/cho-xep-bac-si`, `/api/v1/appointments/{id}` |
 | `/api/appointments/quote` | GET | `/api/v1/appointments/quote` |
+| `/api/appointments/luoi-ngay` | GET | `/api/v1/appointments/luoi-ngay` |
 | `/api/appointments/slot-hold` | POST | `/api/v1/appointments/slot-hold` |
 | `/api/appointments/service-history` | GET | (đọc trực tiếp) |
 | `/api/booking-policy` | PATCH | `/api/v1/booking-policy`, `/api/v1/appointments/policy` |

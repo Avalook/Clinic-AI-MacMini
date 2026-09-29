@@ -25,7 +25,7 @@ from clinicai.events.catalogue import (
     SinhHieuDaDo,
 )
 from clinicai.events.emit import emit_event, nguoi
-from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.ho_so.cong_doc import NguCanhHoSo
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -40,6 +40,7 @@ from clinicai.services.lenh_kham_core import (
     khoa_luot,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.sinh_hieu_buoi import chi_so_do, sinh_hieu_cua_buoi
 
 logger = structlog.get_logger()
 
@@ -417,18 +418,13 @@ class SinhHieuService:
 async def sinh_hieu_cho_ho_so(
     conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
 ) -> dict[str, Any]:
-    """Lần đo sinh hiệu mới nhất của lượt đang xem (không có lượt → None)."""
+    """Lần đo sinh hiệu mới nhất của BUỔI của lượt đang xem (không có lượt →
+    None). 29/09/2026: lượt check-in thêm cùng ngày không đo lại vẫn có số."""
     if not ngu_canh.visit_id:
         return {"vital_latest": None}
-    r = await conn.fetchrow(
-        """
-        SELECT systolic, diastolic, pulse, temperature, weight_kg, height_cm,
-               respiratory_rate, spo2, bmi, pain_score, created_at
-          FROM vital_measurement
-         WHERE visit_id = $1::uuid AND clinic_id = $2::uuid
-         ORDER BY created_at DESC LIMIT 1
-        """,
-        ngu_canh.visit_id,
-        ngu_canh.clinic_id,
+    do = chi_so_do(
+        await sinh_hieu_cua_buoi(conn, ngu_canh.clinic_id, ngu_canh.visit_id)
     )
-    return {"vital_latest": dong(r)}
+    if do is not None and isinstance(do.get("created_at"), datetime):
+        do["created_at"] = do["created_at"].isoformat()
+    return {"vital_latest": do}

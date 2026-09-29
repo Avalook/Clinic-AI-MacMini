@@ -54,6 +54,7 @@ from clinicai.services.dinh_chinh_don import (
     prescription_fingerprint,
     validate_amendment_prescriptions,
 )
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi
 
 logger = structlog.get_logger()
 
@@ -127,9 +128,6 @@ class ClinicalSignService:
                                    jsonb_each(f.form_data) AS e(k, v)
                              WHERE f.visit_id = st.visit_id
                                AND f.clinic_id = st.clinic_id) AS phieu_chuyen_khoa,
-                           EXISTS (SELECT 1 FROM public.vital_measurement m
-                                    WHERE m.visit_id = st.visit_id
-                                      AND m.clinic_id = st.clinic_id) AS co_sinh_hieu,
                            ht.completed_at AS hoan_tat_luc,
                            ht.hoan_tat_boi
                       FROM public.v_clinical_status st
@@ -153,6 +151,13 @@ class ClinicalSignService:
                     identity.clinic_id,
                     visit_id,
                 )
+                # Sinh hiệu của BUỔI (29/09/2026): lượt check-in thêm cùng ngày
+                # không đo lại không bị báo thiếu "Khám lâm sàng".
+                co_sinh_hieu = (
+                    row is not None
+                    and await sinh_hieu_cua_buoi(conn, identity.clinic_id, visit_id)
+                    is not None
+                )
                 rx_rows = (
                     [
                         dict(rx)
@@ -175,7 +180,7 @@ class ClinicalSignService:
         if row is None:
             raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
 
-        missing = missing_fields(dict(row))
+        missing = missing_fields({**dict(row), "co_sinh_hieu": co_sinh_hieu})
         # View lịch sử ưu tiên AMENDED, nhưng một amendment đã được cho phép gửi
         # lại phải là RELEASED để release() idempotent và UI không nói sai.
         state = "RELEASED" if row["released_at"] is not None else row["clinical_state"]

@@ -621,7 +621,20 @@ PRESET: dict[str, Sequence[str]] = {
         "hoan_tat_kham",
         "duyet_ket_qua",
     ],
-    "TKYK": ["chi_dinh", "dieu_phoi", "ket_qua", "thuc_hien", "kham", "ghi_benh_an"],
+    "TKYK": [
+        # 29/09/2026: ĐD/TKYK trọn quyền ở mọi phòng (Tuyền) — migration
+        # 20260929900000 cấp bù cho tài khoản hiện có.
+        "sinh_hieu",
+        "chi_dinh",
+        "dieu_phoi",
+        "kham",
+        "ghi_benh_an",
+        "hoan_tat_kham",
+        "thuc_hien",
+        "ket_qua",
+        "duyet_ket_qua",
+        "doi_tac",
+    ],
     # Lễ tân kiêm thu ngân + quầy thuốc ở Kim Ngưu (16/09) và đặt lịch khách
     # vãng lai — khớp `allowed_kinds` / VAI_GHI_NHA_THUOC / INTAKE_ROLES cũ.
     "RECEPTION": [
@@ -645,11 +658,18 @@ PRESET: dict[str, Sequence[str]] = {
     # KHÔNG SUY RỘNG: đây là quyền ĐẶT CHỈ ĐỊNH. Ký bệnh án và duyệt/phát hành
     # kết quả là những quyền khác, nằm ở khối khác, và không đi kèm.
     "NURSE_ULTRASOUND": [
+        # 29/09/2026: ĐD/TKYK trọn quyền ở mọi phòng (Tuyền) — migration
+        # 20260929900000 cấp bù cho tài khoản hiện có.
         "sinh_hieu",
         "chi_dinh",
         "dieu_phoi",
-        "ket_qua",
+        "kham",
+        "ghi_benh_an",
+        "hoan_tat_kham",
         "thuc_hien",
+        "ket_qua",
+        "duyet_ket_qua",
+        "doi_tac",
     ],
     # Thu ngân có `dieu_phoi` (Tuyền chốt 24/09/2026): thu tiền xong khách tự
     # được xếp phòng như khi lễ tân thu (dây H4 hỏi quyền người thu) — thu ngân

@@ -27,6 +27,8 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
+from clinicai.services.luot_kham_rules import hien_so_do_buoi
+from clinicai.services.sinh_hieu_buoi import sinh_hieu_cua_buoi_nhieu
 
 logger = structlog.get_logger()
 
@@ -82,8 +84,10 @@ _PROGRESS_SQL = """
            -- Sinh hiệu điều dưỡng đo ở màn Đo sinh hiệu nằm ở encounter_flow /
            -- vital_measurement, KHÔNG ở bệnh án (17/09/2026: đo xong Trang chủ
            -- vẫn đòi "Điền sinh hiệu"). Bệnh án là nguồn dự phòng cho lượt cũ.
-           (COALESCE(ef.vitals_status = 'recorded', FALSE)
-            OR COALESCE(cr.vitals_recorded, FALSE)) AS vitals_recorded,
+           -- 29/09/2026: "đã đo" tính ở Python theo BUỔI (`_da_do`) — cùng
+           -- một định nghĩa với màn Xem lượt / Đo sinh hiệu.
+           ef.vitals_status,
+           COALESCE(cr.vitals_recorded, FALSE) AS vitals_benh_an_cu,
            (cr.visit_id IS NOT NULL)        AS has_clinical_record,
            COALESCE(rx.has_prescription, FALSE) AS has_prescription,
            COALESCE(pay.kinds, ARRAY[]::text[]) AS paid_kinds,
@@ -176,12 +180,30 @@ class VisitProgressService:
 
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(_PROGRESS_SQL, clinic_id, start, end)
+            buoi = (
+                await sinh_hieu_cua_buoi_nhieu(
+                    conn, clinic_id, [r["visit_id"] for r in rows]
+                )
+                if clinic_id
+                else {}
+            )
+
+        def da_do(r: asyncpg.Record) -> bool:
+            """Một định nghĩa "đã đo sinh hiệu" (29/09/2026): `hien_so_do_buoi`
+            như màn Đo sinh hiệu / Xem lượt — trạng thái luồng `recorded` (tự
+            đo, hoặc lượt thêm cùng buổi đã nhận lần đo của buổi) hoặc lượt có
+            số đo riêng; bệnh án đời cũ là dự phòng."""
+            do = buoi.get(r["visit_id"])
+            return hien_so_do_buoi(
+                vitals_status=r["vitals_status"],
+                co_so_do_luot_nay=bool(do and do["co_so_do_luot_nay"]),
+            ) or bool(r["vitals_benh_an_cu"])
 
         return [
             VisitProgress(
                 appointment_id=r["appointment_id"],
                 visit_id=r["visit_id"],
-                vitals_recorded=r["vitals_recorded"],
+                vitals_recorded=da_do(r),
                 has_clinical_record=r["has_clinical_record"],
                 has_prescription=r["has_prescription"],
                 paid_kinds=sorted(r["paid_kinds"] or []),

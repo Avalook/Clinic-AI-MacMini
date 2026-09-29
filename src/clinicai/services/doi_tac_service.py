@@ -43,6 +43,16 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
+#: "VIỆC CỦA ĐỐI TÁC" — một chỗ nói cho mọi lệnh của bàn đối tác (29/09/2026):
+#: bước làm bên ngoài (node `lam_ben_ngoai`) HOẶC chỉ định ĐÃ SANG bàn đối tác
+#: (`doi_tac_nhan_viec`) — gồm MẪU GỬI ĐỐI TÁC: dịch vụ thu hộ đối tác làm ở
+#: phòng của phòng khám (Giải phẫu bệnh, Sinh thiết + GPB ở phòng Thủ thuật), đã
+#: xong nên mẫu gửi sang đối tác. Dùng với bí danh chỉ định `o` và
+#: `LEFT JOIN node_definition n`.
+LA_VIEC_DOI_TAC_SQL = """(coalesce(n.lam_ben_ngoai, false) OR EXISTS (
+        SELECT 1 FROM public.doi_tac_nhan_viec dnv
+         WHERE dnv.clinic_id = o.clinic_id AND dnv.service_order_id = o.id))"""
+
 #: Hình thức khách trả đối tác (khớp CHECK của `doi_tac_thanh_toan`).
 HINH_THUC_THU = ("CASH", "TRANSFER")
 
@@ -154,6 +164,10 @@ class DoiTacService:
         / "lấy mẫu xong") — không còn hiện việc tự-lấy-mẫu trước khi khách
         chọn làm và trả tiền.
 
+        MẪU GỬI ĐỐI TÁC (Tuyền 29/09/2026): dịch vụ thu hộ đối tác làm ở phòng
+        CỦA phòng khám (Giải phẫu bệnh, Sinh thiết + GPB ở phòng Thủ thuật) —
+        phòng bấm Xong thì lên bàn (lý do MAU_GUI_DOI_TAC), cờ `mau_gui_doi_tac`.
+
         CHỌN NGÀY (Tuyền 29/09/2026 — "cần một chỗ up lên và xem lại được lịch
         sử các lần up"): `ngay` (YYYY-MM-DD; rác/None = hôm nay).
           * HÔM NAY: việc còn chờ trong 60 ngày + mọi việc CÓ HOẠT ĐỘNG hôm nay.
@@ -180,6 +194,9 @@ class DoiTacService:
                    sp.unit_price AS gia_tham_khao,
                    coalesce(sp.billing_owner = 'EXTERNAL_PARTNER', false)
                      AS doi_tac_thu,
+                   -- Mẫu gửi đối tác (29/09/2026): phòng CỦA phòng khám làm
+                   -- xong, mẫu sang đối tác — không phải bước làm bên ngoài.
+                   NOT coalesce(n.lam_ben_ngoai, false) AS mau_gui_doi_tac,
                    tt.id::text AS thu_id, tt.so_tien AS thu_so_tien,
                    tt.hinh_thuc AS thu_hinh_thuc, tt.ghi_chu AS thu_ghi_chu,
                    tt.ghi_luc AS thu_luc, tn.full_name AS thu_boi
@@ -188,9 +205,10 @@ class DoiTacService:
               JOIN patient p
                 ON p.clinic_patient_id = v.clinic_patient_id
                AND p.clinic_id = v.clinic_id
-              JOIN node_definition n
+              -- Bàn đọc ĐÚNG bảng nhận việc: bước làm bên ngoài lẫn mẫu gửi
+              -- đối tác (phòng của phòng khám) đều đã có dòng ở đây.
+              LEFT JOIN node_definition n
                 ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-               AND n.lam_ben_ngoai
               JOIN doi_tac_nhan_viec nv
                 ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
               LEFT JOIN LATERAL (
@@ -298,6 +316,8 @@ class DoiTacService:
                     "ghi_chu_lay_mau": r["ghi_chu_lay_mau"],
                     "ghi_chu_tai_lieu": r["ghi_chu_tai_lieu"],
                     "tep": tep_theo_viec.get(r["chi_dinh_id"], []),
+                    # Nhãn "Mẫu gửi đối tác" (29/09/2026).
+                    "mau_gui_doi_tac": bool(r["mau_gui_doi_tac"]),
                     # Khách trả TRỰC TIẾP cho đối tác (Q1, 27/09/2026).
                     "doi_tac_thu": bool(r["doi_tac_thu"]),
                     "gia_tham_khao": (
@@ -352,10 +372,12 @@ class DoiTacService:
                 SELECT o.visit_id::text AS visit_id, o.exec_status,
                        o.doi_tac_cho_tai_lieu_luc, o.ket_qua_luc
                   FROM service_order o
-                  JOIN node_definition n
+                  LEFT JOIN node_definition n
                     ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-                   AND n.lam_ben_ngoai
                  WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                   AND """
+                + LA_VIEC_DOI_TAC_SQL
+                + """
                    FOR UPDATE OF o
                 """,
                 cid,

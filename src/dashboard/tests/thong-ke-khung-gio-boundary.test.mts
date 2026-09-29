@@ -3,6 +3,7 @@
 // nó. Đó là lý do phần này nằm trong lib chứ không nằm trong tsx.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -43,13 +44,25 @@ test("LỊCH ĐÃ HUỶ KHÔNG ĐƯỢC ĐẾM", () => {
   // Ranh giới quan trọng nhất của bảng này. Bảng trả lời "khung nào đang kín";
   // một lịch huỷ không giữ chỗ của ai, và đếm nó vào là báo đầy chỗ còn trống —
   // rồi người trực từ chối một khách mà đáng lẽ xếp được.
+  //
+  // 29/09/2026: "chết hay sống" là cờ `giu_cho` MÁY CHỦ trả — danh sách trạng
+  // thái chết chỉ còn một bản, ở Python. Trình duyệt không được giữ bản riêng.
   const ra = thongKeTheoKhungGio([
-    lich(),
-    lich({ status: "CANCELLED" }),
-    lich({ status: "NO_SHOW" }),
-    lich({ status: "DOCTOR_DECLINED" }),
+    lich({ giu_cho: true }),
+    lich({ status: "CANCELLED", giu_cho: false }),
+    lich({ status: "NO_SHOW", giu_cho: false }),
+    lich({ status: "DOCTOR_DECLINED", giu_cho: false }),
   ]);
   assert.equal(ra[0].tong, 1);
+});
+
+test("trình duyệt KHÔNG giữ danh sách trạng thái chết của riêng nó", () => {
+  const nguon = readFileSync(new URL("../lib/thong-ke-khung-gio.ts", import.meta.url), "utf8")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const ma of ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]) {
+    assert.ok(!nguon.includes(`"${ma}"`), `thong-ke-khung-gio.ts còn chép "${ma}"`);
+  }
 });
 
 test("tách khám mới / khám cũ / chưa rõ — ba ngăn, không phải hai", () => {
@@ -100,7 +113,7 @@ test("dòng Tổng cộng đúng bằng tổng các khung", () => {
   const ds = [
     lich({ slot_start: "2026-08-14T00:30:00+00:00", phan_loai: "Tái khám" }),
     lich({ slot_start: "2026-08-14T03:00:00+00:00" }),
-    lich({ slot_start: "2026-08-14T03:00:00+00:00", status: "CANCELLED" }),
+    lich({ slot_start: "2026-08-14T03:00:00+00:00", status: "CANCELLED", giu_cho: false }),
   ];
   const dong = thongKeTheoKhungGio(ds);
   const t = tongKet(ds);

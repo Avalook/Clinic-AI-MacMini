@@ -5,7 +5,8 @@
 // đa 2 dòng lịch hẹn kênh thường (BN1/BN2) + 1 dòng khách vãng lai (WALK_IN).
 // Khi chỗ vãng lai của khung còn trống (và khung chưa qua) hiện Ô XANH "đặt vào
 // đây" — hôm nay thì bấm được, dẫn sang Tạo bệnh nhân với ngày/giờ/bác sĩ điền
-// sẵn. Luật 2+1 nằm ở lib/slot-capacity (server chặn cứng — đây là hiển thị).
+// sẵn. Số ghế trực tiếp còn trống do MÁY CHỦ trả trên từng dòng
+// (`ghe_truc_tiep_con`, theo luật riêng bác sĩ × khung — 29/09/2026).
 // Read-only với dữ liệu thật từ appointment; cột thao tác check-in/sinh hiệu
 // giữ nguyên như bản trước.
 
@@ -25,12 +26,7 @@ import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import { dayLabel, fmtDayMonth, todayVn } from "../../../lib/roster";
 import { nowMs, VN_TZ } from "../../../lib/datetime";
 import { doctorName } from "../../../lib/doctor-name";
-import {
-  slotMs,
-  slotBucketMs,
-  isWalkinChannel,
-  isDeadStatus,
-} from "../../../lib/slot-capacity";
+import { slotMs, slotBucketMs, isWalkinChannel } from "../../../lib/slot-capacity";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { laKhamMoi, nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass, type ChipTone } from "@/components/ui/Chip";
@@ -66,6 +62,12 @@ export interface WeekApptRow {
   bac_si_da_go_co_ca_lai?: boolean;
   /** Lịch vượt sức chứa sau khi công bố lịch trực (backend, 16/09/2026). */
   vuot_suc_chua?: boolean;
+  /** Lịch còn chiếm ghế không — máy chủ tính (danh sách trạng thái chết chỉ
+   *  còn ở Python, 29/09/2026). */
+  giu_cho?: boolean;
+  /** Ghế TRỰC TIẾP còn trống ở (bác sĩ × khung) của dòng này, theo luật riêng
+   *  của bác sĩ ấy. null = máy chủ không biết → không mời đặt. */
+  ghe_truc_tiep_con?: number | null;
   phan_loai: string;
   /** THỨ TỰ GỌI — backend tính (services/queue_order.py). Màn hình chỉ xếp
    *  theo con số này, không tự tính lại. Trước đây mỗi màn gọi compareQueue()
@@ -273,7 +275,12 @@ function buildDayRows(
       const walkins = mine
         .filter((a) => isWalkinChannel(a.booking_channel))
         .sort(theoThuTuGoi);
-      const walkinAlive = walkins.filter((a) => !isDeadStatus(a.status)).length;
+      // Ghế trực tiếp còn trống — SỐ CỦA MÁY CHỦ (trần theo bác sĩ × khung,
+      // đếm như trigger). Trước 29/09/2026 bảng tự đếm rồi so với trần CHUNG của
+      // phòng khám, nên mời "đặt vào đây" ở khung mà luật riêng đã hạ về 0.
+      const gheTrucTiepCon =
+        mine.find((a) => typeof a.ghe_truc_tiep_con === "number")?.ghe_truc_tiep_con ??
+        null;
       const groupRows: RowDesc[] = [];
       for (const a of [...regular, ...walkins]) {
         groupRows.push({ key: a.id, appt: a });
@@ -292,7 +299,13 @@ function buildDayRows(
             )}&bac_si=${g.id}`,
           },
         });
-      } else if (canBook && g.id && bucketNotPast && walkinAlive < policy.walkinCap) {
+      } else if (
+        canBook &&
+        g.id &&
+        bucketNotPast &&
+        gheTrucTiepCon !== null &&
+        gheTrucTiepCon > 0
+      ) {
         groupRows.push({
           key: `${bucketMs}-${g.id}-free`,
           free: {

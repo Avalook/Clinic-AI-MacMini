@@ -35,6 +35,7 @@ from clinicai.api.identity import VAI_LAM_VIEC, ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import quyen_hieu_luc
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, doc_duoc_in_phieu
+from clinicai.phieu_kham.mang_sang import doc_chan_doan
 from clinicai.services.audit_labels import action_label
 from clinicai.services.luot_kham_rules import (
     doi_phong_duoc,
@@ -549,16 +550,33 @@ class XemLuotService:
             cid,
             vid,
         )
+        # Phiếu khám: v5 (`phieu_kham_luot`) là chuẩn của lượt mới, bảng đời cũ
+        # cho lượt cũ (29/09/2026 — lượt v5 từng hiện như chưa có phiếu).
+        # `tao_boi`/`sua_boi` là uuid; `created_by` đời cũ là chữ "VAI · id".
         phieu = await conn.fetchrow(
             """
-            SELECT service_code, created_by, updated_by, created_at, updated_at
-              FROM clinical_form_response
-             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-             ORDER BY updated_at DESC LIMIT 1
+            SELECT * FROM (
+                SELECT form_id AS service_code, tao_boi::text AS created_by,
+                       sua_boi::text AS updated_by, tao_luc AS created_at,
+                       sua_luc AS updated_at, 0 AS doi
+                  FROM phieu_kham_luot
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                UNION ALL
+                SELECT service_code,
+                       coalesce(nullif(split_part(created_by, ' · ', 2), ''),
+                                created_by),
+                       coalesce(nullif(split_part(updated_by, ' · ', 2), ''),
+                                updated_by),
+                       created_at, updated_at, 1
+                  FROM clinical_form_response
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+            ) p
+            ORDER BY doi, updated_at DESC LIMIT 1
             """,
             cid,
             vid,
         )
+        chan_doan_v5 = await doc_chan_doan(conn, clinic_id=cid, visit_id=vid)
         ten_nguoi = {
             str(r["id"]): r["full_name"]
             for r in await conn.fetch(
@@ -626,7 +644,9 @@ class XemLuotService:
             ],
             "benh_an": {
                 "ly_do": ba["chief_complaint_at_visit"] if ba else None,
-                "chan_doan": _json(ba["soap_assessment"]) if ba else None,
+                # Chẩn đoán trên phiếu v5 (mục D) trước, bệnh án đời cũ sau.
+                "chan_doan": chan_doan_v5
+                or (_json(ba["soap_assessment"]) if ba else None),
                 "ke_hoach": tk,
                 "revision": ba["revision"] if ba else None,
                 "co_don_nhap_cho_duyet": bool(ba["co_don_nhap"]) if ba else False,

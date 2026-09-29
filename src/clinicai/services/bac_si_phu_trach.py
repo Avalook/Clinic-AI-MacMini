@@ -148,17 +148,42 @@ async def bac_si_thuc_hien_mac_dinh(
     rows = await conn.fetch(
         _BAC_SI_DUNG_PHONG_SQL, clinic_id, service_order_id, list(VAI_BAC_SI)
     )
-    if not rows:
-        return nguoi_bam
-    bay_gio = now_vn()
-    dang_trong_ca = bac_si_dang_trong_ca(
-        [(r["id"], str(r["station"]), str(r["shift"]), str(r["status"])) for r in rows],
-        bay_gio.hour * 60 + bay_gio.minute,
-        rows[0]["settings"],
+    if rows:
+        bay_gio = now_vn()
+        dang_trong_ca = bac_si_dang_trong_ca(
+            [
+                (r["id"], str(r["station"]), str(r["shift"]), str(r["status"]))
+                for r in rows
+            ],
+            bay_gio.hour * 60 + bay_gio.minute,
+            rows[0]["settings"],
+        )
+        chon = chon_bac_si_thuc_hien(
+            nguoi_bam=nguoi_bam, nguoi_bam_la_bac_si=False, bac_si_phong=dang_trong_ca
+        )
+        if chon != nguoi_bam:
+            return chon
+    # KHÔNG IN TÊN NGƯỜI KHÔNG PHẢI BÁC SĨ (Tuyền 29/09/2026: "cần người ký là
+    # tên bác sĩ"). Phòng không có đúng một bác sĩ trong ca → bác sĩ chính của
+    # lượt → bác sĩ đã chỉ định. Chỉ khi không ai trong số đó là bác sĩ mới
+    # còn người bấm.
+    ung_vien = await conn.fetchrow(
+        """
+        SELECT v.attending_doctor_id::text AS bac_si_luot,
+               coalesce(o.authorized_by, o.recorded_by)::text AS bac_si_chi_dinh
+          FROM public.service_order o
+          JOIN public.visit v
+            ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+         WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+        """,
+        clinic_id,
+        service_order_id,
     )
-    return chon_bac_si_thuc_hien(
-        nguoi_bam=nguoi_bam, nguoi_bam_la_bac_si=False, bac_si_phong=dang_trong_ca
-    )
+    if ung_vien is not None:
+        for ai in (ung_vien["bac_si_luot"], ung_vien["bac_si_chi_dinh"]):
+            if ai and await bac_si_trong(conn, clinic_id, [ai]):
+                return str(ai)
+    return nguoi_bam
 
 
 __all__ = [

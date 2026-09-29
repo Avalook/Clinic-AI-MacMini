@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
-import { SU_KIEN_BANG } from "@/lib/nhip-lam-moi";
+import { SU_KIEN_BANG, SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
 import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
 import {
@@ -91,13 +91,14 @@ function cauLoi(d: Record<string, unknown> | null, macDinh: string): string {
 export default function PhieuKhamLuot({
   visitId,
   clinicPatientId,
-  choGhi,
+  choGhi: choGhiVao,
   datChiDinh,
   onDaDat,
   onTrangThai,
   chiMuc,
   chanRay,
   onTomTat,
+  xemLai = false,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -117,7 +118,11 @@ export default function PhieuKhamLuot({
   chanRay?: ReactNode;
   /** Bàn tư vấn: số ô đã điền của các mục `chiMuc` + tên phiếu (chip công tắc). */
   onTomTat?: (soDien: number, tenPhieu: string) => void;
+  /** XEM LẠI một lượt CŨ (29/09/2026 — "Lượt khám trước" / bệnh án chỉ xem):
+   *  khoá mọi ô, không tick dịch vụ khám, không tự lưu. */
+  xemLai?: boolean;
 }) {
+  const choGhi = choGhiVao && !xemLai;
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
   const [phieu, setPhieu] = useState<PhieuLuot | null>(null);
   const [chonDuoc, setChonDuoc] = useState<{ form_id: string; ten: string }[] | null>(null);
@@ -254,9 +259,14 @@ export default function PhieuKhamLuot({
       }
       revision.current = Number(kq.d?.revision ?? revision.current + 1);
       daLuu.current = { ...daLuu.current, ...thayDoi };
+      // Hai ô kinh cuối / dự kiến sinh vừa ghi sang thai kỳ (máy chủ quyết) →
+      // khối Thai kỳ bên dưới nạp lại (29/09/2026).
+      if (kq.d?.thai_ky) {
+        window.dispatchEvent(new CustomEvent(SU_KIEN_THAI_KY, { detail: clinicPatientId }));
+      }
       return { ok: true, canh_bao: kq.d?.canh_bao, da_gui: daGui };
     },
-    [phieu, visitId],
+    [phieu, visitId, clinicPatientId],
   );
 
   // ĐƠN THUỐC mục E — cùng hàng đợi. Gửi đọc `donRef` lúc gửi, nên lần sau luôn
@@ -450,7 +460,7 @@ export default function PhieuKhamLuot({
         // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
         dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
         // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
-        oDichVuKham={chiMuc ? undefined : <ChonDichVuKham visitId={visitId} />}
+        oDichVuKham={chiMuc || xemLai ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}
         onTomTat={onTomTat}
         tuLuuKem={tuLuuKem}

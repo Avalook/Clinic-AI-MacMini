@@ -8,24 +8,39 @@ LUẬT (contract Tuyền/ChatGPT 18/09):
     thai kỳ chính thức, xác nhận/sửa dự kiến sinh, chuyển kết
     cục. Lễ tân, thư ký y khoa không tạo/chuyển được — không nới theo công tắc
     mở quyền tạm thời (đây là quyết định chuyên môn).
-  * Dự kiến sinh do BÁC SĨ NHẬP kèm NGUỒN. Hệ thống không tự tính dự kiến sinh
-    từ kỳ kinh cuối — chưa có quy tắc Dr4Women. Tuổi thai chỉ là phép trừ từ dự
+  * Dự kiến sinh do BÁC SĨ NHẬP kèm NGUỒN. Tuổi thai chỉ là phép trừ từ dự
     kiến sinh đã xác nhận (định nghĩa 280 ngày), hiển thị kèm nhãn nguồn.
   * Một thai kỳ ĐANG THEO DÕI mỗi khách (chỉ mục duy nhất ở Postgres).
+
+TỪ PHIẾU SẢN KHOA v5 (Tuyền 29/09/2026: "dữ liệu phải dùng được thật", GIỮ Y
+giao diện bản mẫu): hai ô `sk_lmp` (Kinh lần cuối, gõ tự do) / `sk_edd` (Dự
+kiến sinh) của phiếu là chỗ bác sĩ ghi thật, nên lưu phiếu (máy chủ,
+`phieu_kham_service`) ghi sang bảng `pregnancy` qua `dong_bo_tu_phieu`:
+  * chỉ có kỳ kinh cuối → dự kiến sinh = kinh cuối + 280 ngày, nguồn "Kỳ kinh
+    cuối" (quy tắc Tuyền chốt 29/09 — trước đó hệ thống không tự tính);
+  * có dự kiến sinh gõ tay → giữ đúng ngày ấy (nguồn "Kỳ kinh cuối" nếu khớp
+    kinh cuối + 280, không thì "Khác");
+  * ngày rác / dự kiến sinh không sau kinh cuối / tuổi thai ngoài 0–300 ngày
+    → BỎ QUA, không ném (phiếu vẫn lưu);
+  * đã có thai kỳ đang theo dõi → CẬP NHẬT chính nó (không tạo trùng); dự kiến
+    sinh bác sĩ đã xác nhận bằng nguồn khác (siêu âm…) KHÔNG bị kinh cuối đè.
+Mở phiếu mà hai ô trống thì điền ngược từ thai kỳ bao trùm ngày khám
+(`thai_ky_cua_luot`).
 
 Ngày do người dùng gửi: rác → câu lỗi, không 500 (luật CLAUDE.md).
 """
 
 from __future__ import annotations
 
-from datetime import date
+import re
+from datetime import date, timedelta
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import now_vn
+from clinicai.core.clock import CLINIC_TZ_NAME, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import can
@@ -34,6 +49,8 @@ from clinicai.services.audit import record_event
 from clinicai.services.thu_ky_bac_si import kiem_khach
 
 ORIGIN = "api:thai-ky"
+#: Thai kỳ ghi theo hai ô của phiếu Sản khoa v5 (29/09/2026).
+ORIGIN_PHIEU = "api:phieu-kham"
 NGUON_EDD = {
     "KY_KINH_CUOI": "Kỳ kinh cuối",
     "SIEU_AM": "Siêu âm",
@@ -75,6 +92,219 @@ def tuoi_thai_tu_edd(edd: date | None, hom_nay: date) -> dict[str, int] | None:
     if not 0 <= ngay <= 300:
         return None
     return {"tuan": ngay // 7, "ngay": ngay % 7}
+
+
+#: Định nghĩa thai kỳ đủ tháng: dự kiến sinh = ngày đầu kỳ kinh cuối + 280 ngày.
+NGAY_THAI_KY = 280
+
+#: Ghi thai kỳ TỪ PHIẾU KHÁM: người ghi bệnh án, hoặc bác sĩ tư vấn — người
+#: được ghi mục B của chính phiếu khám (Tuyền 24/09: "tư vấn ghi vào chính bệnh
+#: án"; `phieu_kham_service.QUYEN_GHI_THEM`). Hai ô kinh cuối / dự kiến sinh nằm
+#: ở mục B, nên thiếu vế sau thì số tư vấn ghi không bao giờ sang thai kỳ.
+QUYEN_GHI_THAI_KY_TU_PHIEU = (QUYEN_GHI_THAI_KY, "clinical.intake.perform")
+
+_NGAY_ISO = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
+_NGAY_VN = re.compile(r"^(\d{1,2})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{2}|\d{4})$")
+
+
+def doc_ngay_tu_do(raw: Any) -> date | None:
+    """Ngày GÕ TỰ DO trên phiếu: `YYYY-MM-DD`, `D/M/YYYY`, `D-M-YYYY`,
+    `D.M.YYYY`, `D/M/YY` (20YY). Rác / ngày không có thật → None. Không ném."""
+    if not isinstance(raw, str):
+        return None
+    chu = raw.strip()
+    try:
+        if m := _NGAY_ISO.match(chu):
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if m := _NGAY_VN.match(chu):
+            nam = int(m.group(3))
+            return date(
+                nam + 2000 if nam < 100 else nam, int(m.group(2)), int(m.group(1))
+            )
+    except ValueError:
+        return None
+    return None
+
+
+def thai_ky_tu_phieu(
+    kinh_cuoi_raw: Any, du_kien_sinh_raw: Any, hom_nay: date
+) -> dict[str, Any] | None:
+    """HÀM THUẦN: hai ô phiếu → {lmp, edd, nguon, edd_tu_tinh}, hoặc None nếu
+    không có gì dùng được (trống, rác, dự kiến sinh không sau kinh cuối, tuổi
+    thai ngoài 0–300 ngày tính tới hôm nay)."""
+    lmp = doc_ngay_tu_do(kinh_cuoi_raw)
+    edd = doc_ngay_tu_do(du_kien_sinh_raw)
+    tu_tinh = False
+    if edd is None:
+        if lmp is None:
+            return None
+        edd, tu_tinh = lmp + timedelta(days=NGAY_THAI_KY), True
+    if lmp is not None and edd <= lmp:
+        return None
+    if tuoi_thai_tu_edd(edd, hom_nay) is None:
+        return None
+    khop_kinh_cuoi = lmp is not None and edd == lmp + timedelta(days=NGAY_THAI_KY)
+    return {
+        "lmp": lmp,
+        "edd": edd,
+        "nguon": "KY_KINH_CUOI" if khop_kinh_cuoi else "KHAC",
+        "edd_tu_tinh": tu_tinh,
+    }
+
+
+async def dong_bo_tu_phieu(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    *,
+    visit_id: str,
+    kinh_cuoi_raw: Any,
+    du_kien_sinh_raw: Any,
+) -> str | None:
+    """Ghi hai ô thai kỳ của phiếu sang `pregnancy` — trên giao dịch người gọi.
+
+    Trả "tao" / "cap_nhat" / None (không có gì dùng được, không đổi, không có
+    quyền). KHÔNG ném vì dữ liệu: phiếu đã lưu, thai kỳ chỉ đi theo.
+    """
+    tk = thai_ky_tu_phieu(kinh_cuoi_raw, du_kien_sinh_raw, now_vn().date())
+    if tk is None:
+        return None
+    duoc = [await can(conn, identity, q) for q in QUYEN_GHI_THAI_KY_TU_PHIEU]
+    if not any(duoc):
+        return None
+    cid = identity.clinic_id
+    luot = await conn.fetchrow(
+        "SELECT v.clinic_patient_id::text AS khach, p.location_id,"
+        "       v.attending_doctor_id"
+        "  FROM visit v JOIN patient p"
+        "    ON p.clinic_id = v.clinic_id"
+        "   AND p.clinic_patient_id = v.clinic_patient_id"
+        " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
+        cid,
+        visit_id,
+    )
+    if luot is None:
+        return None
+    for _ in range(2):
+        cu = await conn.fetchrow(
+            "SELECT id::text AS id, lmp_date, edd_date, edd_nguon FROM pregnancy"
+            " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
+            "   AND outcome = 'ONGOING'"
+            " ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+            cid,
+            luot["khach"],
+        )
+        if cu is not None:
+            lmp = tk["lmp"] or cu["lmp_date"]
+            edd, nguon = tk["edd"], tk["nguon"]
+            # Chỉ gõ kinh cuối: dự kiến sinh bác sĩ đã xác nhận bằng nguồn KHÁC
+            # (siêu âm, khác) giữ nguyên — kinh cuối không đè siêu âm.
+            if (
+                tk["edd_tu_tinh"]
+                and cu["edd_date"] is not None
+                and cu["edd_nguon"] not in (None, "KY_KINH_CUOI")
+            ):
+                edd, nguon = cu["edd_date"], cu["edd_nguon"]
+            if lmp is not None and edd <= lmp:
+                return None
+            if (lmp, edd, nguon) == (cu["lmp_date"], cu["edd_date"], cu["edd_nguon"]):
+                return None
+            await conn.execute(
+                "UPDATE pregnancy SET lmp_date = $3, edd_date = $4, edd_nguon = $5,"
+                " updated_by = $6::uuid, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                cu["id"],
+                lmp,
+                edd,
+                nguon,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="pregnancy.updated",
+                aggregate_type="pregnancy",
+                aggregate_id=cu["id"],
+                identity=identity,
+                origin=ORIGIN_PHIEU,
+                payload={
+                    "visit_id": visit_id,
+                    "truong": ["du_kien_sinh", "kinh_cuoi"],
+                },
+            )
+            return "cap_nhat"
+        try:
+            # Điểm lưu riêng: hai người lưu cùng lúc → chỉ mục duy nhất chặn
+            # người sau, lùi về điểm lưu rồi CẬP NHẬT thai kỳ vừa tạo.
+            async with conn.transaction():
+                pid = await conn.fetchval(
+                    """
+                    INSERT INTO pregnancy
+                        (clinic_id, clinic_patient_id, location_id, lmp_date,
+                         edd_date, edd_nguon, is_high_risk, primary_doctor_id,
+                         created_by, updated_by, xac_nhan_visit_id)
+                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, false,
+                            coalesce($7::uuid, $8::uuid), $8::uuid, $8::uuid,
+                            $9::uuid)
+                    RETURNING id::text
+                    """,
+                    cid,
+                    luot["khach"],
+                    luot["location_id"],
+                    tk["lmp"],
+                    tk["edd"],
+                    tk["nguon"],
+                    luot["attending_doctor_id"],
+                    identity.staff_id,
+                    visit_id,
+                )
+        except asyncpg.UniqueViolationError:
+            continue
+        await record_event(
+            conn,
+            event_type="pregnancy.created",
+            aggregate_type="pregnancy",
+            aggregate_id=str(pid),
+            identity=identity,
+            origin=ORIGIN_PHIEU,
+            payload={"clinic_patient_id": luot["khach"], "visit_id": visit_id},
+        )
+        return "tao"
+    return None
+
+
+async def thai_ky_cua_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+) -> dict[str, date | None] | None:
+    """Thai kỳ BAO TRÙM ngày khám của lượt (để điền ngược hai ô phiếu SK).
+
+    Bắt đầu = kinh cuối (hoặc dự kiến sinh − 280) ≤ ngày khám, và thai kỳ còn
+    theo dõi hoặc ngày khám không sau ngày kết cục. Xem lại phiếu năm ngoái
+    không bị điền thai kỳ năm nay.
+    """
+    r = await conn.fetchrow(
+        """
+        SELECT p.lmp_date, p.edd_date
+          FROM visit v
+          JOIN pregnancy p
+            ON p.clinic_id = v.clinic_id
+           AND p.clinic_patient_id = v.clinic_patient_id
+          CROSS JOIN LATERAL (
+                SELECT (coalesce(v.checked_in_at, v.created_at)
+                        AT TIME ZONE $3)::date AS ngay) k
+         WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+           AND coalesce(p.lmp_date, p.edd_date - $4::int) <= k.ngay
+           AND (p.outcome = 'ONGOING' OR k.ngay <= p.outcome_date)
+         ORDER BY p.created_at DESC
+         LIMIT 1
+        """,
+        clinic_id,
+        visit_id,
+        CLINIC_TZ_NAME,
+        NGAY_THAI_KY,
+    )
+    if r is None:
+        return None
+    return {"lmp": r["lmp_date"], "edd": r["edd_date"]}
 
 
 async def _duoc_ghi(pool: asyncpg.Pool, identity: StaffIdentity) -> bool:

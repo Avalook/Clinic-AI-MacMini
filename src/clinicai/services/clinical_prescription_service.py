@@ -12,6 +12,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.permissions.can import can
 from clinicai.services.bac_si_phu_trach import la_bac_si_khac
 
 
@@ -125,9 +126,14 @@ async def prepare_prescription_write(
     bị xoá). Lưu hồ sơ không đụng đơn thì nháp giữ nguyên.
     """
     physician = identity.co_vai({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
+    # 29/09/2026 (Tuyền): ĐD/TKYK trọn quyền như bác sĩ — ai có quyền khám
+    # (lego Bàn khám, hoặc được xếp vào phòng bác sĩ hôm nay) kê được đơn; đơn
+    # vẫn đứng tên bác sĩ chính của lượt (`prescription.bac_si_chinh_id`).
     ke_don = physician or identity.co_vai({ClinicRole.TKYK})
+    if not ke_don and items is not None and not approve:
+        ke_don = await can(conn, identity, "clinical.consult.perform")
     if not ke_don and items is not None:
-        raise SafetyGateError("Chỉ bác sĩ hoặc thư ký y khoa kê thuốc")
+        raise SafetyGateError("Bạn chưa có quyền khám nên chưa kê được thuốc.")
     if approve:
         if not physician:
             raise SafetyGateError("Chỉ bác sĩ mới duyệt đơn thuốc thư ký đã nhập")

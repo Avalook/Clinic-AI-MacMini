@@ -5,13 +5,17 @@
 // Trước đây bảng `pregnancy` không có lối ghi nào: không vai nào tạo được thai
 // kỳ, và dự kiến sinh nằm rải ba chỗ. Màn này chỉ hiện và gửi; luật ở máy chủ:
 //   · CHỈ BÁC SĨ tạo / sửa / ghi kết cục (thư ký, lễ tân chỉ xem);
-//   · dự kiến sinh do bác sĩ nhập, BẮT BUỘC chọn nguồn — hệ thống không tự
-//     tính dự kiến sinh (chưa có quy tắc Dr4Women);
+//   · dự kiến sinh do bác sĩ nhập, BẮT BUỘC chọn nguồn;
+//   · 29/09/2026: hai ô "Kinh lần cuối" / "Dự kiến sinh" trên phiếu Sản khoa v5
+//     cũng ghi vào thai kỳ này (máy chủ, `thai_ky_service.dong_bo_tu_phieu`;
+//     chỉ có kinh cuối → dự kiến sinh = +280 ngày) — lưu xong phiếu phát
+//     `SU_KIEN_THAI_KY`, khối này nạp lại;
 //   · tuổi thai hiển thị là phép trừ từ dự kiến sinh đã xác nhận, ghi rõ vậy.
 
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
 
 interface ThaiKyDong {
   id: string;
@@ -69,6 +73,15 @@ export default function ThaiKy({
     if (r.ok) setDl(d as DuLieu);
     else setLoi((d as { message?: string; error?: string } | null)?.message ?? "Không đọc được thai kỳ.");
   }, [clinicPatientId]);
+
+  // Phiếu Sản khoa vừa ghi kinh cuối / dự kiến sinh sang thai kỳ → nạp lại.
+  useEffect(() => {
+    const khiDoi = (ev: Event) => {
+      if ((ev as CustomEvent<string>).detail === clinicPatientId) void nap();
+    };
+    window.addEventListener(SU_KIEN_THAI_KY, khiDoi);
+    return () => window.removeEventListener(SU_KIEN_THAI_KY, khiDoi);
+  }, [clinicPatientId, nap]);
 
   useEffect(() => {
     let huy = false;

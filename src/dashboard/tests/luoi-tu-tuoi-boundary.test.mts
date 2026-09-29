@@ -46,8 +46,8 @@ test("cả HAI lưới cùng nghe chuông — vá một trong hai là bài học
     "bảng tuần và lưới khung giờ phải tải lại khi ca trực đổi",
   );
 
-  const khoang = doc("../app/(dashboard)/patients/dung-khoang-ca.ts");
-  assert.match(khoang, /useDoiCa\(\)/, "useKhoangCa phải nghe chuông");
+  const khoang = doc("../app/(dashboard)/patients/dung-suc-chua-ngay.ts");
+  assert.match(khoang, /useDoiCa\(\)/, "useSucChuaNgay phải nghe chuông");
   assert.match(khoang, /doiCa\]/, "deps của effect khoảng ca phải có doiCa");
 
   const form = doc("../app/(dashboard)/patients/new/NewPatientForm.tsx");

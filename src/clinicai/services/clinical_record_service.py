@@ -46,6 +46,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import doi_quyen
+from clinicai.phieu_kham.mang_sang import doc_chan_doan
 from clinicai.services.audit import record_event
 from clinicai.services.clinical_prescription_service import (
     prepare_prescription_write,
@@ -880,6 +881,9 @@ async def benh_an_cho_ho_so(
             await conn.fetchrow(
                 """
                 SELECT v.visit_id::text, v.status, v.created_at,
+                       EXISTS (SELECT 1 FROM phieu_kham_luot p
+                                WHERE p.clinic_id = v.clinic_id
+                                  AND p.visit_id = v.visit_id) AS phieu_v5,
                        r.revision, r.chief_complaint_at_visit, r.soap_subjective,
                        r.soap_objective, r.soap_assessment, r.soap_plan,
                        r.prescription_draft
@@ -906,6 +910,9 @@ async def benh_an_cho_ho_so(
                 "visit_id": g["visit_id"],
                 "status": g["status"],
                 "created_at": g["created_at"],
+                # Lượt ghi phiếu khám v5 (29/09/2026): màn bệnh án cũ mở phiếu v5
+                # chỉ-xem thay cho phiếu theo dịch vụ đời cũ (trống với lượt này).
+                "phieu_v5": bool(g.get("phieu_v5")),
             }
             if lt
             else None
@@ -941,10 +948,17 @@ async def lich_su_cho_ho_so(
         ngu_canh.clinic_id,
     )
     appt = ngu_canh.appointment_id
-    return {
-        "history_raw": [
-            dong(r, ["soap_assessment"])
-            for r in rows
-            if appt is None or r["appointment_id"] != appt
-        ]
-    }
+    ra: list[dict[str, Any]] = []
+    for r in rows:
+        if appt is not None and r["appointment_id"] == appt:
+            continue
+        d = dong(r, ["soap_assessment"]) or {}
+        # Lượt ghi phiếu v5: chẩn đoán nằm ở mục D của phiếu (29/09/2026) —
+        # phiếu v5 trước, bệnh án đời cũ sau.
+        cd = await doc_chan_doan(
+            conn, clinic_id=ngu_canh.clinic_id, visit_id=r["visit_id"]
+        )
+        if cd:
+            d["soap_assessment"] = cd
+        ra.append(d)
+    return {"history_raw": ra}
