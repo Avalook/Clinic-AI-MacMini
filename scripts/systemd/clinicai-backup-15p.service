@@ -1,0 +1,53 @@
+[Unit]
+Description=ClinicAI — sao lưu database 15 phút/lần trong giờ mở cửa (29/09/2026)
+Documentation=file:///home/clinicai/clinicai/docs/OPS-RUNBOOK.md
+# Database chạy bằng Docker; đừng khởi động khi Docker chưa sẵn sàng, nếu không
+# lần chạy đầu sau mỗi lần khởi động lại máy sẽ hỏng vì không tìm thấy container.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=clinicai
+WorkingDirectory=/home/clinicai/clinicai
+
+# pg_dump của Ubuntu là 16.14 còn máy chủ database là 17.10 — bản 16 TỪ CHỐI
+# dump máy chủ mới hơn. Nên dump từ trong chính container: phiên bản luôn khớp.
+Environment=PG_DUMP_BIN=/home/clinicai/clinicai/scripts/pg-dump-qua-container.sh
+Environment=CLINIC_DB_CONTAINER=clinicai_db
+Environment=BACKUP_ENV_FILE=/home/clinicai/clinicai/.env.prod
+Environment=CLINIC_BACKUP_LOG=/home/clinicai/.local/state/clinicai-backup-15p.log
+# Thư mục RIÊNG + giữ 2 ngày: bản đêm (7 ngày) không bị lẫn/dọn nhầm.
+Environment=CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai-15p
+Environment=BACKUP_KEEP_DAYS=2
+
+ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
+
+# Đẩy bản vừa tạo sang Viettel — bản sao NGOÀI MÁY.
+#
+# Dấu `-` ở đầu: đẩy hỏng thì KHÔNG được làm cả đơn vị thất bại. Bản sao cục bộ
+# đã tạo xong và còn nguyên; mạng rớt hay Viettel bảo trì là chuyện của bước
+# này, không phải lý do để báo "sao lưu đêm nay thất bại". Lỗi vẫn vào journal.
+#
+# ĐI ĐƯỜNG *STORAGE*, KHÔNG ĐI ĐƯỜNG *DATABASE* — đo 16/09/2026.
+#
+# Viettel bán hai thứ và chúng khác nhau về an toàn, không chỉ về hình dạng:
+#
+#   Cloud File Storage (vCFS)  ổ SMB 3.1.1 mount có `seal` → MÃ HOÁ thật.
+#   Database Service (DBaaS)   máy chủ TỪ CHỐI SSL: `server does not support
+#                              SSL`. Dump mang tên, số điện thoại, hồ sơ khám
+#                              của bệnh nhân sẽ đi TRẦN qua Internet công cộng.
+#
+# Nên `day-sao-luu-len-viettel.sh` (đường DBaaS) KHÔNG chạy ở đây. Nó vẫn nằm
+# trong repo và vẫn dùng được cho dữ liệu không nhạy cảm, hoặc cho ngày mình
+# bọc thêm một lớp mã hoá tệp (age/gpg) trước khi đẩy — lúc ấy đường truyền
+# trần không còn quan trọng nữa vì nội dung đã là byte vô nghĩa.
+ExecStart=-/home/clinicai/clinicai/scripts/day-sao-luu-len-viettel-storage.sh
+
+# Hỏng thì phải THẤY. Không đặt cái này thì một đêm sao lưu thất bại chỉ nằm im
+# trong nhật ký, và người ta chỉ biết vào đúng buổi sáng cần khôi phục.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

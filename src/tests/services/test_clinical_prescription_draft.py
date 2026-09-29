@@ -180,18 +180,26 @@ async def test_thu_ky_khong_ghi_duoc_dong_cua_luot_khac() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("items", [[ITEM], []])
-async def test_nurse_full_save_cannot_mutate_or_clear_live_rx(
+async def test_nguoi_khong_co_quyen_kham_khong_dong_don(
     items: list[dict[str, Any]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    service, conn = setup_service(2)
+    """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — kê đơn theo QUYỀN khám, không
+    theo vai. Người KHÔNG có quyền khám (lễ tân) lưu kèm đơn → bị chặn, không
+    đụng đơn đang dùng."""
+
+    async def _khong(*_a: Any, **_k: Any) -> bool:
+        return False
+
+    monkeypatch.setattr("clinicai.services.clinical_prescription_service.can", _khong)
+    service, _conn = setup_service(2)
     with pytest.raises(SafetyGateError):
         await save(
             service,
-            identity=identity(ClinicRole.NURSE_ULTRASOUND),
+            identity=identity(ClinicRole.RECEPTION),
             expected_revision=2,
             prescriptions=items,
         )
-    conn.fetchval.assert_not_awaited()
     service._replace_prescriptions.assert_not_awaited()
 
 

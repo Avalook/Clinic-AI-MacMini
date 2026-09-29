@@ -33,7 +33,8 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 # phép đặt bằng biến — systemd trên VPS trỏ vào ~/.local/state.
 LOG="${CLINIC_BACKUP_LOG:-$HOME/Library/Logs/clinicai-backup.log}"
 BACKUP_DIR="${CLINIC_BACKUP_DIR:-$HOME/backups/clinicai}"
-KEEP_DAYS=7
+# Số ngày giữ bản dump — đêm: 7; bản 15 phút (clinicai-backup-15p): 2.
+KEEP_DAYS="${BACKUP_KEEP_DAYS:-7}"
 MIN_ARCHIVE_BYTES="${BACKUP_MIN_ARCHIVE_BYTES:-1024}"
 
 mkdir -p "$(dirname "$LOG")" "$BACKUP_DIR"
