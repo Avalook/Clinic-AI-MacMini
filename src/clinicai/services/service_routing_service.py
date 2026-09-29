@@ -30,14 +30,18 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity, danh_tinh_nhan_vien
-from clinicai.events.catalogue import DaXepPhong, XepPhongDaHuy
+from clinicai.events.catalogue import DaXepPhong, DichVuDaChuyenPhong, XepPhongDaHuy
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
 from clinicai.services.day_noi import doc_day
-from clinicai.services.hang_cho import cap_nhat_vi_tri, khach_dang_duoc_phuc_vu
+from clinicai.services.hang_cho import (
+    cap_nhat_vi_tri,
+    khach_dang_duoc_phuc_vu,
+    mo_cho_bi_chan,
+)
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     LuotKhamValidationError,
@@ -52,8 +56,10 @@ from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 ORIGIN = "api:service-routing"
 ACTION_ASSIGN = "service_routing.assign"
 ACTION_INVALIDATE = "service_routing.invalidate"
+ACTION_TRANSFER = "service_routing.transfer_in_progress"
 EVENT_ROUTED = "service.routed"
 EVENT_INVALIDATED = "service.routing_invalidated"
+EVENT_TRANSFERRED = "service.room_transferred"
 ADVISOR = "rule-v1"
 
 UNASSIGNED = "UNASSIGNED"
@@ -73,8 +79,11 @@ ASSIGN_REASONS = frozenset(
     }
 )
 
-# NGUỒN của lần xếp (Tuyền 25/09/2026, migration 20260925000016). Trưởng ca cao
-# nhất: lần xếp hiệu lực do trưởng ca làm thì nguồn khác không đổi được.
+# NGUỒN của lần xếp (Tuyền 25/09/2026, migration 20260925000016) — để LỊCH SỬ nói
+# "ai đổi, từ màn nào". 29/09/2026 (Tuyền): BỎ luật "trưởng ca đã xếp thì quầy
+# thu không đổi được" — quầy vẫn đổi được, mọi lần đổi hiện ở Hành trình khách.
+# Khi CHƯA xếp, `routing_nguon` = nguồn đặt PHÒNG DỰ KIẾN (quầy thu / trưởng ca);
+# dây H4 xếp đúng phòng ấy thì sự kiện ghi `du_kien_nguon`.
 NGUON_QUAY_THU = "quay_thu"
 NGUON_TRUONG_CA = "truong_ca"
 NGUON_TU_DONG = "tu_dong"
@@ -462,9 +471,6 @@ async def da_tra_cho_vao_phong(
                 "room_id": r["room_id"] if r["routing_status"] == ASSIGNED else None,
                 "phong": r["phong"] if r["routing_status"] == ASSIGNED else None,
                 "routing_revision": int(r["routing_revision"]),
-                # Trưởng ca đã xếp → quầy thu không đổi được (màn khoá ô chọn).
-                "truong_ca_da_xep": r["routing_status"] == ASSIGNED
-                and r["routing_nguon"] == NGUON_TRUONG_CA,
                 # Quầy thu tính phòng chọn được theo bước này (27/09/2026).
                 "node_code": r["node_code"],
             }
@@ -580,7 +586,8 @@ _ORDER_SQL = """
 SELECT id::text AS id, visit_id::text AS visit_id, exec_status, source,
        authorized_by::text AS authorized_by, hold_until_round, node_code,
        selection_status, routing_status, routing_revision, execution_status,
-       room_id::text AS room_id, routing_nguon
+       room_id::text AS room_id, routing_nguon,
+       phong_du_kien_id::text AS phong_du_kien_id
   FROM service_order
  WHERE clinic_id = $1::uuid AND id = $2::uuid
    FOR UPDATE
@@ -611,17 +618,70 @@ def _nguon(value: Any) -> str:
     return n
 
 
-def _kiem_truong_ca(o: asyncpg.Record, nguon: str) -> None:
-    """Trưởng ca đã xếp (lần xếp HIỆU LỰC) thì chỉ trưởng ca đổi được."""
-    if (
-        _routing_hieu_luc(o) == ASSIGNED
-        and o["routing_nguon"] == NGUON_TRUONG_CA
-        and nguon != NGUON_TRUONG_CA
-    ):
-        raise _loi(
-            "ROUTING_TRUONG_CA_DA_XEP",
-            "Trưởng ca đã xếp phòng này — muốn đổi báo trưởng ca.",
+#: Ô chữ lý do chuyển phòng khi dịch vụ đang làm (Tuyền 29/09/2026: bắt buộc).
+LY_DO_CHUYEN_TOI_THIEU = 3
+LY_DO_CHUYEN_TOI_DA = 300
+
+
+def ly_do_chuyen_phong(value: Any) -> str:
+    """Lý do chuyển phòng khi đang làm — HÀM THUẦN. Rỗng / quá ngắn / quá dài /
+    không phải chữ → lỗi kiểm tra có mã (không ném gì khác)."""
+    ld = " ".join(value.split()) if isinstance(value, str) else ""
+    if len(ld) < LY_DO_CHUYEN_TOI_THIEU:
+        raise LuotKhamValidationError(
+            "TRANSFER_REASON_REQUIRED",
+            "Ghi lý do chuyển phòng (ít nhất vài chữ) — lý do hiện ở lịch sử lượt.",
         )
+    if len(ld) > LY_DO_CHUYEN_TOI_DA:
+        raise LuotKhamValidationError(
+            "TRANSFER_REASON_TOO_LONG",
+            f"Lý do chuyển phòng tối đa {LY_DO_CHUYEN_TOI_DA} ký tự.",
+        )
+    return ld
+
+
+# ── Khối "Đổi phòng" dùng lối nào (Tuyền 29/09/2026) ────────────────────────
+#
+# Máy chủ quyết, màn chỉ đọc `che_do` của gợi ý phòng:
+#   XEP             — đã chọn + đủ tiền + chưa bắt đầu: lệnh xếp / đổi phòng;
+#   DU_KIEN         — chưa thu tiền (hoặc khách chưa chốt): trưởng ca đặt PHÒNG
+#                     DỰ KIẾN, thu xong dây H4 xếp đúng phòng ấy;
+#   CHUYEN_DANG_LAM — dịch vụ đang làm: CHỈ trưởng ca chuyển (dừng lần làm +
+#                     chuyển phòng + chuyển hàng, bắt buộc lý do);
+#   KHONG           — không đổi được (đã gọi vào, đã xong, khách về, không quyền).
+CHE_DO_XEP = "XEP"
+CHE_DO_DU_KIEN = "DU_KIEN"
+CHE_DO_CHUYEN = "CHUYEN_DANG_LAM"
+CHE_DO_KHONG = "KHONG"
+CAU_DU_KIEN = "Phòng dự kiến — xếp khi thu tiền xong."
+
+
+def che_do_doi_phong(
+    *,
+    execution_status: str | None,
+    exec_status: str | None,
+    selection_status: str | None,
+    tai_chinh_xong: bool,
+    hang: str | None,
+    dieu_phoi: bool,
+    khach_ve: bool,
+) -> str:
+    """Lối đổi phòng cho MỘT chỉ định và MỘT người xem — hàm thuần.
+
+    `dieu_phoi` = người xem có quyền Điều phối khách (`dispatch.manage`, trưởng
+    ca). `hang` = trạng thái chỗ chờ sống của chỉ định (None = chưa có)."""
+    ex, cu = execution_status or "", exec_status or ""
+    if khach_ve or cu in ("draft", "cancelled"):
+        return CHE_DO_KHONG
+    if ex in _KET_THUC or cu in _KET_THUC_CU:
+        return CHE_DO_KHONG
+    if ex in _DANG_LAM or cu in _DANG_LAM_CU:
+        return CHE_DO_CHUYEN if dieu_phoi else CHE_DO_KHONG
+    if hang in ("called", "serving") or selection_status == "NOT_SELECTED":
+        return CHE_DO_KHONG
+    if selection_status == "SELECTED" and tai_chinh_xong:
+        return CHE_DO_XEP
+    return CHE_DO_DU_KIEN if dieu_phoi else CHE_DO_KHONG
 
 
 async def _reo_cho_xep_phong(
@@ -678,15 +738,48 @@ class ServiceRoutingService:
                 cau="Bạn không có quyền xem gợi ý điều phối.",
             )
             o = await conn.fetchrow(
-                f"SELECT o.node_code, o.visit_id::text AS visit_id,"
-                f" {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam"
-                f" FROM service_order o"
-                f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+                f"""
+                SELECT o.node_code, o.visit_id::text AS visit_id,
+                       {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam,
+                       o.execution_status, o.exec_status, o.selection_status,
+                       o.phong_du_kien_id::text AS phong_du_kien_id,
+                       r.name AS phong_hien_tai, v.closed_at,
+                       (SELECT q.status FROM queue_entry q
+                         WHERE q.clinic_id = o.clinic_id AND q.reason = 'SERVICE'
+                           AND q.ref_id = o.id
+                           AND q.status NOT IN ('done', 'left', 'cancelled')
+                         ORDER BY q.created_at DESC LIMIT 1) AS hang,
+                       (SELECT a.started_at FROM service_execution_attempt a
+                         WHERE a.clinic_id = o.clinic_id
+                           AND a.service_order_id = o.id
+                           AND a.status = 'IN_PROGRESS') AS dang_lam_tu
+                  FROM service_order o
+                  JOIN visit v
+                    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+                  LEFT JOIN clinic_room r
+                    ON r.id = o.room_id AND r.clinic_id = o.clinic_id
+                   AND o.routing_status = 'ASSIGNED'
+                 WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+                """,
                 cid,
                 oid,
             )
             if o is None:
                 raise _loi("ORDER_NOT_FOUND", "Không tìm thấy chỉ định này.")
+            che_do = CHE_DO_KHONG
+            if not o["doi_tac_lam"]:
+                tien = await finance_gate.can_start(conn, cid, oid)
+                che_do = che_do_doi_phong(
+                    execution_status=o["execution_status"],
+                    exec_status=o["exec_status"],
+                    selection_status=o["selection_status"],
+                    tai_chinh_xong=bool(tien and tien.financially_ready),
+                    hang=o["hang"],
+                    dieu_phoi=await can(
+                        conn, identity, QUYEN_THEO_NGUON[NGUON_TRUONG_CA]
+                    ),
+                    khach_ve=o["closed_at"] is not None,
+                )
             ung_vien = (
                 []
                 if o["doi_tac_lam"]
@@ -717,6 +810,14 @@ class ServiceRoutingService:
             "candidates": ung_vien,
             "trang_thai": trang_thai,
             "cau": cau,
+            # Lối đổi phòng — máy chủ quyết (29/09/2026), màn chỉ vẽ theo đây.
+            "che_do": che_do,
+            "cau_che_do": CAU_DU_KIEN if che_do == CHE_DO_DU_KIEN else None,
+            "phong_du_kien_id": o["phong_du_kien_id"],
+            "phong_hien_tai": o["phong_hien_tai"],
+            "dang_lam_tu": o["dang_lam_tu"].isoformat()
+            if o["dang_lam_tu"] is not None
+            else None,
         }
 
     async def assign(
@@ -798,6 +899,7 @@ class ServiceRoutingService:
         ref: str | None,
         tu_dong: bool,
         nguon: str = NGUON_KHAC,
+        du_kien_nguon: str | None = None,
     ) -> dict[str, Any]:
         """Lõi AssignServiceRoom — người gọi đã kiểm quyền và khoá lượt.
 
@@ -885,9 +987,6 @@ class ServiceRoutingService:
                 q["status"] if q else None,
                 ref,
             )
-        # Kiểm SAU khoá dòng (FOR UPDATE ở _ORDER_SQL + khoá lượt) — hai người
-        # đổi cùng lúc thì người sau đọc đúng nguồn người trước vừa ghi.
-        _kiem_truong_ca(o, nguon)
         queue_status = await self._xep_hang(conn, cid, vid, oid, rid, q)
         moi = await conn.fetchval(
             """
@@ -929,6 +1028,7 @@ class ServiceRoutingService:
                 ly_do=ly_do,
                 tu_dong=tu_dong,
                 nguon=nguon,
+                du_kien_nguon=du_kien_nguon,
             ),
             boi=nguoi(identity),
             correlation_id=vid,
@@ -948,6 +1048,8 @@ class ServiceRoutingService:
                 "reason_code": ly_do,
                 "recommendation_ref": ref,
                 "nguon": nguon,
+                # Chỉ khi H4 xếp theo phòng dự kiến ai đó đặt trước.
+                **({"du_kien_nguon": du_kien_nguon} if du_kien_nguon else {}),
             },
         )
         return self._ket_qua(oid, True, ASSIGNED, rid, int(moi), queue_status, ref)
@@ -1003,7 +1105,8 @@ class ServiceRoutingService:
         orders = await conn.fetch(
             f"""
             SELECT o.id::text AS id, o.node_code, o.routing_revision,
-                   o.service_name, o.phong_du_kien_id::text AS phong_du_kien
+                   o.service_name, o.phong_du_kien_id::text AS phong_du_kien,
+                   o.routing_nguon
               FROM service_order o
              WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                AND o.selection_status = 'SELECTED'
@@ -1046,6 +1149,14 @@ class ServiceRoutingService:
                 # Không xếp được — KHÔNG im lặng: réo quầy "chờ xếp phòng".
                 cho_xep.append((o, ly_do_cho or CHO_XEP_KHONG_CO_PHONG))
                 continue
+            # Phòng dự kiến do ai đặt (quầy thu / trưởng ca) — để lịch sử nói
+            # "tự động xếp theo phòng trưởng ca chọn trước".
+            du_kien_nguon = (
+                o["routing_nguon"]
+                if rid == o["phong_du_kien"]
+                and o["routing_nguon"] in (NGUON_QUAY_THU, NGUON_TRUONG_CA)
+                else None
+            )
             try:
                 async with conn.transaction():
                     kq = await self._gan(
@@ -1059,6 +1170,7 @@ class ServiceRoutingService:
                         ref=f"{ADVISOR}:hanh-trinh:{causation_id}",
                         tu_dong=True,
                         nguon=NGUON_TU_DONG,
+                        du_kien_nguon=du_kien_nguon,
                     )
             except LuotKhamConflictError:
                 continue
@@ -1080,13 +1192,24 @@ class ServiceRoutingService:
         order_id: Any,
         room_id: Any,
         identity: StaffIdentity,
+        nguon: Any = None,
     ) -> dict[str, Any]:
         """PlanServiceRoom — ghi phòng khách sẽ làm, TRƯỚC khi thu tiền.
 
         Không xếp phòng chính thức (FinanceGate chặn khi chưa trả tiền), không
         vào hàng chờ phòng: chỉ là ý định cho dây H4 dùng khi thu xong. Cùng
         quyền với xếp phòng. ``room_id`` rỗng = bỏ chọn (để hệ thống tự chọn).
+
+        `nguon` = quầy thu (mặc định) hoặc trưởng ca (29/09/2026: trưởng ca đặt
+        phòng được cả khi khách chưa trả tiền). Mỗi nguồn hỏi quyền lego của
+        mình. Người đặt sau đè người đặt trước — không khoá (Tuyền 29/09).
         """
+        ng = NGUON_QUAY_THU if nguon in (None, "") else _nguon(nguon)
+        if ng not in QUYEN_THEO_NGUON:
+            raise LuotKhamValidationError(
+                "ROUTING_NGUON_INVALID",
+                "Phòng dự kiến chỉ đặt ở quầy thu hoặc màn trưởng ca.",
+            )
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         rid = (
             None if room_id in (None, "") else _uuid(room_id, "Mã phòng không hợp lệ.")
@@ -1096,8 +1219,9 @@ class ServiceRoutingService:
             await doi_quyen(
                 conn, identity, QUYEN_XEP, cau="Bạn không có quyền xếp phòng."
             )
-            # Ô "Làm ở phòng" là của quầy thu (lego Thanh toán dịch vụ).
-            await doi_quyen(conn, identity, QUYEN_THEO_NGUON[NGUON_QUAY_THU])
+            # Ô "Làm ở phòng" của quầy thu (lego Thanh toán dịch vụ) hoặc của
+            # trưởng ca (lego Điều phối khách).
+            await doi_quyen(conn, identity, QUYEN_THEO_NGUON[ng])
             vid = await luot_cua(conn, "service_order", cid, oid)
             await khoa_luot(conn, cid, vid)
             o = await conn.fetchrow(_ORDER_SQL, cid, oid)
@@ -1107,8 +1231,8 @@ class ServiceRoutingService:
             _kiem_thuc_hien(o)
             if _routing_hieu_luc(o) == ASSIGNED:
                 # Quầy thu đổi phòng LÚC NÀO CŨNG ĐƯỢC (Tuyền 25/09/2026) — đã xếp
-                # rồi thì đổi thẳng phòng thật (cùng lõi `_gan`, nguồn quầy thu),
-                # TRỪ khi trưởng ca đã xếp.
+                # rồi thì đổi thẳng phòng thật (cùng lõi `_gan`, đúng nguồn gọi).
+                # 29/09: kể cả khi trưởng ca đã xếp (bỏ khoá; lịch sử ghi lại).
                 if rid is None:
                     raise _loi(
                         "ROUTING_ALREADY_ASSIGNED",
@@ -1124,7 +1248,7 @@ class ServiceRoutingService:
                     ly_do="MANUAL_CORRECTION",
                     ref=None,
                     tu_dong=False,
-                    nguon=NGUON_QUAY_THU,
+                    nguon=ng,
                 )
                 await conn.execute(
                     "UPDATE service_order SET phong_du_kien_id = $3::uuid"
@@ -1142,14 +1266,231 @@ class ServiceRoutingService:
                     str(o["node_code"]),
                     await co_so_cua_luot(conn, cid, visit_id=vid),
                 )
+            # Chưa xếp: `routing_nguon` = ai đặt phòng dự kiến (bỏ chọn → NULL),
+            # để dây H4 ghi "tự động theo phòng trưởng ca / quầy chọn trước".
             await conn.execute(
-                "UPDATE service_order SET phong_du_kien_id = $3::uuid"
+                "UPDATE service_order SET phong_du_kien_id = $3::uuid,"
+                "       routing_nguon = CASE WHEN $3::uuid IS NULL THEN NULL"
+                "                            ELSE $4 END"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 cid,
                 oid,
                 rid,
+                ng,
             )
-        return {"ok": True, "order_id": oid, "phong_du_kien_id": rid}
+        return {
+            "ok": True,
+            "order_id": oid,
+            "phong_du_kien_id": rid,
+            "nguon": ng,
+            "cau": CAU_DU_KIEN if rid else None,
+        }
+
+    async def chuyen_phong_dang_lam(
+        self,
+        *,
+        order_id: Any,
+        room_id: Any,
+        expected_routing_revision: Any,
+        ly_do: Any,
+        identity: StaffIdentity,
+        idempotency_key: str | None,
+    ) -> dict[str, Any]:
+        """TransferInProgressService — dịch vụ ĐÃ BẮT ĐẦU, trưởng ca chuyển sang
+        phòng khác (Tuyền 29/09/2026). MỘT giao dịch:
+
+          1. dừng lần làm đang chạy (INTERRUPTED, lý do ghi vào lần làm) — phiếu
+             / tệp đã nhập gắn với CHỈ ĐỊNH nên không mất gì;
+          2. chỉ định về "chờ làm" (PENDING) ở phòng mới, routing +1, nguồn
+             trưởng ca;
+          3. chỗ chờ của chỉ định chuyển sang hàng phòng mới (đang chờ, giữ tuổi
+             chờ), các chỗ "đợi quay lại" của lượt mở ra, vị trí khách cập nhật;
+          4. sự kiện `service.room_transferred` kèm LÝ DO (bắt buộc).
+
+        CHỈ quyền Điều phối khách (`dispatch.manage`). Dịch vụ xong / huỷ / không
+        làm vẫn chặn; chưa bắt đầu thì dùng lệnh xếp phòng thường.
+        """
+        key = _can_khoa(idempotency_key)
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        rid = _uuid(room_id, "Mã phòng không hợp lệ.")
+        rev = _revision(expected_routing_revision)
+        ld = ly_do_chuyen_phong(ly_do)
+        payload = {
+            "order_id": oid,
+            "room_id": rid,
+            "expected_routing_revision": rev,
+            "ly_do": ld,
+        }
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                QUYEN_THEO_NGUON[NGUON_TRUONG_CA],
+                cau=(
+                    "Dịch vụ đã bắt đầu — chỉ trưởng ca (quyền Điều phối khách)"
+                    " chuyển phòng được."
+                ),
+            )
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await khoa_luot(conn, cid, vid)
+            cached = await bien_nhan_doc(conn, identity, ACTION_TRANSFER, key, payload)
+            if cached is not None:
+                return cached
+            o = await conn.fetchrow(_ORDER_SQL, cid, oid)
+            assert o is not None
+            if int(o["routing_revision"]) != rev:
+                raise _loi(
+                    "ROUTING_REVISION_CONFLICT",
+                    "Chỉ định vừa được điều phối bởi người khác — tải lại.",
+                )
+            ex, cu = o["execution_status"], o["exec_status"]
+            if ex in _KET_THUC or cu in _KET_THUC_CU or cu in ("draft", "cancelled"):
+                raise _loi("SERVICE_EXECUTION_TERMINAL", "Dịch vụ đã kết thúc.")
+            if ex not in _DANG_LAM and cu not in _DANG_LAM_CU:
+                raise _loi(
+                    "SERVICE_NOT_IN_PROGRESS",
+                    "Dịch vụ chưa bắt đầu — dùng Đổi phòng thường.",
+                )
+            if o["room_id"] == rid:
+                raise _loi("ROOM_SAME", "Khách đang làm ở chính phòng này.")
+            await self._kiem_phong(
+                conn,
+                cid,
+                rid,
+                str(o["node_code"]),
+                await co_so_cua_luot(conn, cid, visit_id=vid),
+            )
+            ten = {
+                str(r["id"]): r["name"]
+                for r in await conn.fetch(
+                    "SELECT id::text AS id, name FROM clinic_room"
+                    " WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])",
+                    cid,
+                    [x for x in (o["room_id"], rid) if x],
+                )
+            }
+            tu_phong = o["room_id"]
+            ghi_chu = (
+                f"Trưởng ca chuyển phòng {ten.get(tu_phong or '', '—')}"
+                f" → {ten.get(rid, '—')}: {ld}"
+            )
+            lan = await conn.fetchrow(
+                "SELECT id::text AS id, attempt_no FROM service_execution_attempt"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND status = 'IN_PROGRESS' FOR UPDATE",
+                cid,
+                oid,
+            )
+            if lan is not None:
+                # Lần làm đóng CÓ LÝ DO (mã OTHER + ghi chú — ràng buộc bảng đòi
+                # ghi chú cho OTHER). Không xoá gì của lần làm.
+                await conn.execute(
+                    "UPDATE service_execution_attempt"
+                    "   SET status = 'INTERRUPTED', interrupted_by = $3::uuid,"
+                    "       interrupted_at = now(), interruption_reason_code = 'OTHER',"
+                    "       interruption_reason_note = $4, updated_at = now()"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    cid,
+                    lan["id"],
+                    identity.staff_id,
+                    ghi_chu,
+                )
+            moi = await conn.fetchrow(
+                """
+                UPDATE service_order
+                   SET execution_status = 'PENDING',
+                       execution_revision = execution_revision + 1,
+                       routing_status = 'ASSIGNED', room_id = $3::uuid,
+                       routing_revision = routing_revision + 1,
+                       assigned_by = $4::uuid, assigned_at = now(),
+                       routing_nguon = 'truong_ca',
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                RETURNING routing_revision, execution_revision
+                """,
+                cid,
+                oid,
+                rid,
+                identity.staff_id,
+            )
+            # Chỗ chờ đi theo khách sang hàng phòng mới — đang chờ, GIỮ tuổi chờ
+            # (khách đã chờ + đã làm dở, không đẩy xuống cuối hàng).
+            da_chuyen = await conn.fetchval(
+                """
+                UPDATE queue_entry
+                   SET room_id = $3::uuid, status = 'waiting',
+                       called_at = NULL, serving_at = NULL,
+                       eligible_at = coalesce(eligible_at, created_at, now()),
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND reason = 'SERVICE'
+                   AND ref_id = $2::uuid
+                   AND status NOT IN ('done', 'left', 'cancelled')
+                RETURNING id::text
+                """,
+                cid,
+                oid,
+                rid,
+            )
+            if da_chuyen is None:
+                await self._xep_hang(conn, cid, vid, oid, rid, None)
+            # Khách rời phòng cũ: các chỗ "đợi quay lại" của lượt mở ra (cùng
+            # luật với Xong / Dừng), rồi con trỏ "khách đang ở đâu".
+            await mo_cho_bi_chan(conn, cid, vid)
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.room_transferred",
+                clinic_id=cid,
+                aggregate_id=oid,
+                so_ke_tiep=True,
+                payload=DichVuDaChuyenPhong(
+                    visit_id=vid,
+                    service_order_id=oid,
+                    from_room_id=str(tu_phong) if tu_phong else None,
+                    room_id=rid,
+                    attempt_id=lan["id"] if lan else None,
+                    attempt_no=int(lan["attempt_no"]) if lan else None,
+                    routing_revision=int(moi["routing_revision"]),
+                    execution_revision=int(moi["execution_revision"]),
+                    ly_do=ld,
+                    nguon=NGUON_TRUONG_CA,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+            await record_event(
+                conn,
+                event_type=EVENT_TRANSFERRED,
+                aggregate_type="service_order",
+                aggregate_id=oid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={
+                    "visit_id": vid,
+                    "from_room_id": tu_phong,
+                    "to_room_id": rid,
+                    "routing_revision": int(moi["routing_revision"]),
+                    "ly_do": ld,
+                    "nguon": NGUON_TRUONG_CA,
+                },
+            )
+            result = {
+                "ok": True,
+                "order_id": oid,
+                "changed": True,
+                "routing_status": ASSIGNED,
+                "room_id": rid,
+                "routing_revision": int(moi["routing_revision"]),
+                "execution_status": "PENDING",
+                "execution_revision": int(moi["execution_revision"]),
+                "queue_status": "waiting",
+                "cau": ghi_chu,
+            }
+            await bien_nhan_ghi(
+                conn, identity, ACTION_TRANSFER, key, payload, oid, result
+            )
+        return result
 
     async def invalidate(
         self,

@@ -24,6 +24,8 @@ export const EVENT_LABEL: Record<string, string> = {
   "dispatch.checkin": "Tiếp nhận",
   // Xếp / đổi phòng từng chỉ định của luồng mới (28/09/2026).
   "service.routed": "Xếp phòng",
+  // Trưởng ca chuyển phòng khi dịch vụ đang làm (29/09/2026).
+  "service.room_transferred": "Chuyển phòng khi đang làm",
 };
 
 function HistoryTable({ rows }: { rows: DispatchHistoryRow[] }) {

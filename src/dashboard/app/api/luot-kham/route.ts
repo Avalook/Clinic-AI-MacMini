@@ -71,6 +71,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Phòng khách chọn ở quầy TRƯỚC khi thu tiền (24/09/2026) — id là CHỈ ĐỊNH.
   // Không phải xếp phòng chính thức: thu xong dây H4 xếp đúng phòng này.
   "phong-du-kien": (id) => `/api/v1/luot-kham/orders/${id}/routing/phong-du-kien`,
+  // 29/09: trưởng ca chuyển dịch vụ ĐANG LÀM sang phòng khác (bắt buộc lý do).
+  "chuyen-phong-dang-lam": (id) =>
+    `/api/v1/luot-kham/orders/${id}/routing/chuyen-phong-dang-lam`,
   // 25/09: bật / tắt "Bắt buộc" của một chỉ định (chưa thu tiền).
   "bat-buoc": (id) => `/api/v1/luot-kham/orders/${id}/bat-buoc`,
   // 28/09: món kèm dịch vụ (đầu dò) — id là CHỈ ĐỊNH.

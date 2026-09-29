@@ -107,6 +107,20 @@ export interface HanhTrinhKhach {
   dang_o: DangO;
   tiep_theo: TiepTheo[];
   buoc: BuocHanhTrinh[];
+  /** Lịch sử xếp / đổi phòng theo mã chỉ định (29/09/2026) — câu máy chủ viết. */
+  lich_su_phong?: Record<string, DongLichSuPhong[]>;
+}
+
+export interface DongLichSuPhong {
+  luc: string | null;
+  nguon: string | null;
+  ten_nguon: string;
+  ai: string | null;
+  tu_phong: string | null;
+  den_phong: string | null;
+  ly_do: string | null;
+  /** "Trưởng ca chuyển phòng khi đang làm A → B: máy hỏng". */
+  cau: string;
 }
 
 function ms(v: string | null | undefined): number | null {

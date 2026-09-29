@@ -46,6 +46,7 @@ from clinicai.phieu_kham.hanh_trinh import (
     dung_moc,
     dung_tung_dich_vu,
 )
+from clinicai.services.lich_su_phong import lich_su_phong_cua_luot
 from clinicai.services.xem_luot_service import goi_duoc
 
 #: Trạng thái một bước / một đoạn thanh (giao diện map sang màu token).
@@ -916,8 +917,15 @@ class HanhTrinhKhachService:
             kq = await doc_hanh_trinh_khach(
                 conn, clinic_id=identity.clinic_id, visit_ids=ma, kem_ai=True
             )
-        if ma[0] not in kq:
-            raise NotFoundError("Không tìm thấy lượt khám.")
+            if ma[0] not in kq:
+                raise NotFoundError("Không tìm thấy lượt khám.")
+            # Lịch sử xếp / đổi phòng từng chỉ định (Tuyền 29/09/2026) — theo mã
+            # chỉ định, thẻ dịch vụ vẽ dưới thẻ của mình.
+            kq[ma[0]]["lich_su_phong"] = _iso(
+                await lich_su_phong_cua_luot(
+                    conn, clinic_id=identity.clinic_id, visit_id=ma[0]
+                )
+            )
         return kq[ma[0]]
 
     async def gon_nhieu_luot(

@@ -10,6 +10,8 @@
 /** Một bệnh nhân đang trong phòng khám. */
 export interface DispatchPatient {
   visit_id: string;
+  /** Nhãn trạng thái khách (29/09/2026) — máy chủ quyết. */
+  trang_thai?: import("./nhan-trang-thai").NhanTrangThai;
   patient_name: string | null;
   patient_code: string | null;
   clinic_patient_id: string | null;
