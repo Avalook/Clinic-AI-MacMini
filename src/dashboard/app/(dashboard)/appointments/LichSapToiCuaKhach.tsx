@@ -1,3 +1,5 @@
+"use client";
+
 // "Khách này đã có lịch gì" — khối cảnh báo đặt trùng ở panel Đặt lịch.
 //
 // Quang 09/08/2026: *"không có hiện thông báo đó thì đặt vô tội vạ quá, lịch
@@ -14,7 +16,11 @@
 // Nên: hỏi xong mà không có lịch thì NÓI RA là đã kiểm; hỏi hỏng thì NÓI RA là
 // chưa kiểm được. Hai câu khác nhau, và người đọc phân biệt được.
 
-import { fmtDayTime } from "@/lib/datetime";
+import { useState } from "react";
+
+import { fmtDayTime, ngayVN } from "@/lib/datetime";
+
+import DoiLichTaiCho from "../_lam-viec/DoiLichTaiCho";
 
 export interface LichCu {
   id: string;
@@ -36,13 +42,22 @@ export default function LichSapToiCuaKhach({
   tra,
   tenDichVu,
   tenBacSi,
+  onDaDoi,
 }: {
   tra: TrangThaiTra;
+  /** Đổi lịch xong (popover Đổi lịch tại chỗ) — người gọi nạp lại danh sách. */
+  onDaDoi?: (cau: string) => void;
   /** id dịch vụ → tên. Không tra được thì trả "". */
   tenDichVu: (id: string | null) => string;
   /** id bác sĩ → tên. Không tra được thì trả "". */
   tenBacSi: (id: string | null) => string;
 }) {
+  // MỖI LỊCH BẤM ĐƯỢC (29/09/2026): mở popover Đổi lịch tại chỗ neo vào khung
+  // vàng, chọn sẵn ngày của lịch ấy.
+  const [mo, setMo] = useState<{ id: string; ngay: string; neo: HTMLElement | null } | null>(
+    null,
+  );
+  const [daDoi, setDaDoi] = useState<string | null>(null);
   if (tra.kind === "dang-hoi") {
     return (
       <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-label text-ink-muted">
@@ -87,29 +102,57 @@ export default function LichSapToiCuaKhach({
     return (
       <p className="rounded-xl border border-line bg-surface-muted px-3 py-2 text-label text-ink-muted">
         Đã kiểm: khách chưa có lịch nào sắp tới.
+        {daDoi ? <span className="block font-medium text-success">✓ {daDoi}</span> : null}
       </p>
     );
   }
 
   return (
-    <div className="rounded-xl border border-warning/40 bg-warning-bg p-3 text-xs">
+    <div data-khung-vang className="rounded-xl border border-warning/40 bg-warning-bg p-3 text-xs">
       <div className="font-bold text-warning">
         Khách này đã có {tra.items.length} lịch sắp tới
       </div>
       <ul className="mt-1.5 space-y-1 text-ink">
         {tra.items.map((l) => (
           <li key={l.id} className="leading-snug">
-            <b>{fmtDayTime(l.slot_start)}</b>
-            {" · "}
-            {tenDichVu(l.service_type_id) || "—"}
-            {" · "}
-            {tenBacSi(l.doctor_id) || "Chưa phân bác sĩ"}
+            <button
+              type="button"
+              onClick={(e) =>
+                setMo({
+                  id: l.id,
+                  ngay: ngayVN(l.slot_start),
+                  neo: e.currentTarget.closest<HTMLElement>("[data-khung-vang]"),
+                })
+              }
+              className="text-left hover:text-brand-700"
+            >
+              <b>{fmtDayTime(l.slot_start)}</b>
+              {" · "}
+              {tenDichVu(l.service_type_id) || "—"}
+              {" · "}
+              {tenBacSi(l.doctor_id) || "Chưa phân bác sĩ"}
+              <span className="ml-1 font-semibold text-brand-700 underline">Đổi lịch này ›</span>
+            </button>
           </li>
         ))}
       </ul>
+      {daDoi ? <p className="mt-1.5 font-medium text-success">✓ {daDoi}</p> : null}
       <p className="mt-1.5 text-label text-ink-muted">
         Đặt thêm vẫn được — đây chỉ là để bạn biết trước.
       </p>
+      {mo ? (
+        <DoiLichTaiCho
+          key={mo.id}
+          lichId={mo.id}
+          neo={mo.neo}
+          ngayDau={mo.ngay}
+          onDong={() => setMo(null)}
+          onXong={(cau) => {
+            setDaDoi(cau);
+            onDaDoi?.(cau);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
