@@ -523,7 +523,7 @@ def dung_hanh_trinh_khach(
                     b
                     for b in buoc
                     if b["trang_thai"] in (CHO, CHUA)
-                    and b["ma"] not in ("CHECK_IN",)
+                    and b["ma"] != "CHECK_IN"
                     and b["noi"] != o["noi"]
                 ),
                 None,
