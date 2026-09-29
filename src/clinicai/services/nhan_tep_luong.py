@@ -31,6 +31,7 @@ from python_multipart.multipart import MultipartParser, parse_options_header
 from starlette.requests import ClientDisconnect, Request
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.core.kho_tep import chay_tren_kho
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MEDIA_ROOT,
@@ -87,7 +88,7 @@ async def nhan_multipart(
     if loai_noi_dung != b"multipart/form-data" or not ranh_gioi:
         raise ValidationError("Yêu cầu tải tệp phải là multipart/form-data.")
 
-    kiem_kho_da_gan()
+    await chay_tren_kho(kiem_kho_da_gan)
     try:
         khai = int(request.headers.get("content-length") or 0)
     except ValueError:

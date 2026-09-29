@@ -35,6 +35,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.kho_tep import chay_tren_kho
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     KetQuaDaGuiKhach,
@@ -406,7 +407,7 @@ class TepKetQuaService:
                 if not thuoc_ve:
                     raise ValidationError("Lịch hẹn không phải của khách này.")
 
-        kiem_kho_da_gan()
+        await chay_tren_kho(kiem_kho_da_gan)
         path, key = duong_dan_ket_qua(
             clinic_id=identity.clinic_id,
             clinic_patient_id=clinic_patient_id,
@@ -966,10 +967,16 @@ class TepKetQuaService:
         # này làm hỏng bộ lọc sẽ biến đây thành lỗ thật.
         if not khoa.startswith(f"{identity.clinic_id}/"):
             raise ValidationError("Tệp không thuộc phòng khám này.")
-        path = (MEDIA_ROOT / khoa).resolve()
-        if not path.is_relative_to(MEDIA_ROOT.resolve()):
+
+        # Chạm ổ mạng ở luồng phụ, có hạn giờ (sự cố treo API 29/09 20:00).
+        def _giai() -> tuple[Path, bool, bool]:
+            p = (MEDIA_ROOT / khoa).resolve()
+            return p, p.is_relative_to(MEDIA_ROOT.resolve()), p.exists()
+
+        path, trong_kho, con = await chay_tren_kho(_giai)
+        if not trong_kho:
             raise ValidationError("Đường dẫn tệp không hợp lệ.")
-        if not path.exists():
+        if not con:
             raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
         if identity.co_vai(XEM_LA_DA_XEM):
             await self._ghi_da_xem(identity, tep_id, row["service_order_id"])
