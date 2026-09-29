@@ -294,11 +294,18 @@ class ManKhachHangService:
                                                  o.finished_at, o.created_at)
                              ) ORDER BY o.created_at) AS doi_tac
                         FROM service_order o
-                        JOIN node_definition n
+                        LEFT JOIN node_definition n
                           ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-                         AND n.lam_ben_ngoai
                        WHERE o.clinic_id = v.clinic_id
                          AND o.visit_id = v.visit_id
+                         -- Bước làm bên ngoài HOẶC mẫu gửi đối tác (29/09/2026)
+                         -- — cùng câu với doi_tac_service.LA_VIEC_DOI_TAC_SQL
+                         -- (viết thẳng: mỗi câu SQL ở đây là MỘT chuỗi, test
+                         -- khoá phòng khám đọc nguyên văn).
+                         AND (coalesce(n.lam_ben_ngoai, false) OR EXISTS (
+                              SELECT 1 FROM doi_tac_nhan_viec dnv
+                               WHERE dnv.clinic_id = o.clinic_id
+                                 AND dnv.service_order_id = o.id))
                          AND o.exec_status NOT IN ('draft', 'cancelled',
                                                    'not_performed')
                   ) dt ON TRUE

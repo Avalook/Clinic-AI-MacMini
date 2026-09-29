@@ -24,6 +24,10 @@
 // (ngày cũ vẫn tải thêm tệp, vẫn bấm "Đã lấy mẫu" — máy chủ ghi lại, không lỗi);
 // mỗi việc hiện đủ lịch sử tệp (tên, giờ, ai tải); ai được máy chủ cho đọc tệp
 // (`xem_tep`) thì mở / in / tải được ngay tại đây.
+//
+// 29/09/2026 (Tuyền): MẪU GỬI ĐỐI TÁC — dịch vụ thu hộ đối tác làm ở phòng của
+// phòng khám (Giải phẫu bệnh, Sinh thiết + GPB ở phòng Thủ thuật): phòng bấm Xong
+// thì việc lên đây, nhãn "Mẫu gửi đối tác" (máy chủ quyết, cờ `mau_gui_doi_tac`).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileUp, FlaskConical, Hourglass, Inbox } from "lucide-react";
@@ -58,6 +62,8 @@ interface Viec {
   da_thu?: DaThu | null;
   /** LỊCH SỬ các lần tải tệp của việc này (29/09/2026) — cũ trước. */
   tep?: TepDaGui[];
+  /** Mẫu lấy ở phòng của phòng khám, gửi sang đối tác (29/09/2026). */
+  mau_gui_doi_tac?: boolean;
 }
 
 interface TepDaGui {
@@ -561,7 +567,9 @@ function MotViec({
       : tt === "CHO_TAI_LIEU"
         ? `Nhận lúc ${gioVn(viec.cho_tai_lieu_luc)}`
         : tt === "DA_LAY_MAU"
-          ? `Có mẫu lúc ${gioVn(viec.lay_mau_luc)}`
+          ? viec.mau_gui_doi_tac
+            ? `Phòng khám gửi mẫu lúc ${gioVn(viec.lay_mau_luc)}`
+            : `Có mẫu lúc ${gioVn(viec.lay_mau_luc)}`
           : `Phòng khám gửi lúc ${gioVn(viec.chi_dinh_luc)}`;
 
   return (
@@ -569,6 +577,11 @@ function MotViec({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-body font-medium text-ink">{viec.ten_dich_vu}</p>
+          {viec.mau_gui_doi_tac ? (
+            <Chip tone="info" title="Mẫu lấy ở phòng của phòng khám, gửi sang đối tác">
+              Mẫu gửi đối tác
+            </Chip>
+          ) : null}
           <p className="text-meta text-ink-muted">{mocGanNhat}</p>
         </div>
         <span className={`shrink-0 rounded-chip px-2 py-0.5 text-label font-semibold ${nhanTt.mau}`}>

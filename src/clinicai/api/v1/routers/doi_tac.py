@@ -8,7 +8,10 @@ BỐN RÀNG BUỘC, và mỗi cái có một dòng mã đứng sau nó chứ kh�
 
   1. CHỈ THẤY VIỆC CỦA MÌNH — truy vấn lọc theo `node_definition.lam_ben_ngoai`,
      nên bước nào không đánh dấu là họ không nhìn thấy, và tắt cờ ấy là họ thôi
-     nhìn thấy ngay mà không phải sửa mã.
+     nhìn thấy ngay mà không phải sửa mã. Thêm một lối (29/09/2026): MẪU GỬI
+     ĐỐI TÁC — dịch vụ thu hộ đối tác làm ở phòng của phòng khám, đã xong, đã
+     sang bàn đối tác (`doi_tac_nhan_viec`). Một câu cho cả hai:
+     `doi_tac_service.LA_VIEC_DOI_TAC_SQL`.
   2. KHÔNG TRA CỨU — không endpoint nào ở đây nhận từ khoá tìm kiếm. Họ thấy
      đúng danh sách hệ thống đưa ra, không hỏi thêm được gì.
   3. KHÔNG ĐỌC BỆNH ÁN — danh sách trả về tên, mã bệnh nhân, tên dịch vụ, ngày.
@@ -176,6 +179,7 @@ async def _gui_ket_qua(
     truong: dict[str, str],
     tep: TepDaNhan,
 ) -> dict[str, Any]:
+    from clinicai.services.doi_tac_service import LA_VIEC_DOI_TAC_SQL
     from clinicai.services.nhan_tep_luong import uuid_hoac_loi
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
@@ -188,11 +192,11 @@ async def _gui_ket_qua(
               FROM public.service_order o
               JOIN public.visit v
                 ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
-              JOIN public.node_definition n
+              LEFT JOIN public.node_definition n
                 ON n.clinic_id = o.clinic_id AND n.code = o.node_code
-               AND n.lam_ben_ngoai
              WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
-            """,
+               AND """
+            + LA_VIEC_DOI_TAC_SQL,
             identity.clinic_id,
             str(chi_dinh_id),
         )

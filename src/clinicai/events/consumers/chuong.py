@@ -151,6 +151,9 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
             # Đối tác tự thu (27/09/2026): khách trả trực tiếp khi lấy mẫu.
             else "Khách đã chốt làm — đối tác đến lấy mẫu và thu tiền khách."
             if ly_do == "KHACH_DA_CHON"
+            # Mẫu gửi đối tác (29/09/2026): phòng của phòng khám làm xong.
+            else "Mẫu gửi đối tác — phòng khám đã có mẫu, đối tác nhận và trả kết quả."
+            if ly_do == "MAU_GUI_DOI_TAC"
             else "Phòng đã lấy mẫu xong — đối tác nhận mẫu, trả kết quả."
         )
     elif su_kien.event_type == "result.corrected":

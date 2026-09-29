@@ -319,7 +319,9 @@ class DoiTacNhanViec(PayloadSuKien):
 
     `ly_do`: DA_THU_TIEN (đối tác tự lấy mẫu, khách đã trả phòng khám) ·
     KHACH_DA_CHON (đối tác tự lấy mẫu VÀ tự thu tiền — khách vừa chốt làm ở
-    quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng)."""
+    quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng) ·
+    MAU_GUI_DOI_TAC (dịch vụ thu hộ đối tác làm ở phòng CỦA phòng khám — vd Giải
+    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026)."""
 
     visit_id: str
     service_order_id: str
