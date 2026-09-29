@@ -269,7 +269,9 @@ async def test_dieu_duong_hoan_tat_phieu_bac_si_dung_phong_dung_ten(
     assert [p["thuc_hien"] for p in in_["phieu"]] == [ten_bs]
 
 
-async def test_phong_khong_co_bac_si_thi_giu_nguoi_bam(kb: KichBan) -> None:
+async def test_phong_khong_co_bac_si_thi_lay_bac_si_cua_luot(kb: KichBan) -> None:
+    """29/09/2026 (Tuyền: "người ký là tên bác sĩ"): phòng không có bác sĩ trong
+    ca → bác sĩ chính của lượt đứng tên, KHÔNG phải điều dưỡng đã bấm."""
     phong, phieu, rev = await _phieu_trong_phong(kb)
     async with kb.pool.acquire() as conn:
         await _xep(conn, phong, kb.dieu_duong)
@@ -277,7 +279,7 @@ async def test_phong_khong_co_bac_si_thi_giu_nguoi_bam(kb: KichBan) -> None:
         phieu_id=phieu, expected_revision=rev, identity=kb.dieu_duong
     )
     assert await _thuc_hien(kb, phieu) == (
-        kb.dieu_duong.staff_id,
+        kb.bac_si.staff_id,
         kb.dieu_duong.staff_id,
     )
 
