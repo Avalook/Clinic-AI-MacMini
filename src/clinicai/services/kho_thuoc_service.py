@@ -91,10 +91,26 @@ async def the_kho(
             """
             SELECT c.id::text, c.name_raw AS ten, c.ma_hang, c.don_vi_ban,
                    c.ton_toi_thieu,
-                   (SELECT coalesce(sum(b.quantity_on_hand), 0)
-                      FROM public.drug_batch b
-                     WHERE b.clinic_id = c.clinic_id
-                       AND b.drug_catalog_id = c.id) AS ton_hien_tai
+                   -- Tồn TÁCH THEO ĐƠN VỊ LÔ (29/09): 20 hộp + 50 viên không
+                   -- phải 70 của thứ gì cả. `ton_hien_tai` chỉ có khi mọi lô
+                   -- cùng một đơn vị; nhiều đơn vị → NULL, đọc `ton_theo_don_vi`.
+                   (SELECT CASE WHEN count(*) = 1 THEN min(dv.ton) END
+                      FROM (SELECT sum(b.quantity_on_hand) AS ton
+                              FROM public.drug_batch b
+                             WHERE b.clinic_id = c.clinic_id
+                               AND b.drug_catalog_id = c.id
+                             GROUP BY lower(btrim(b.unit))) dv) AS ton_hien_tai,
+                   coalesce((
+                       SELECT jsonb_agg(jsonb_build_object('don_vi', dv.don_vi,
+                                                           'ton', dv.ton)
+                                        ORDER BY dv.don_vi)
+                         FROM (SELECT min(b.unit) AS don_vi,
+                                      sum(b.quantity_on_hand) AS ton
+                                 FROM public.drug_batch b
+                                WHERE b.clinic_id = c.clinic_id
+                                  AND b.drug_catalog_id = c.id
+                                GROUP BY lower(btrim(b.unit))) dv
+                   ), '[]'::jsonb) AS ton_theo_don_vi
               FROM public.drug_catalog c
              WHERE c.clinic_id = $1::uuid AND c.id = $2::uuid
             """,
@@ -105,23 +121,34 @@ async def the_kho(
             raise NotFoundError("Không tìm thấy thuốc này trong danh mục.")
         rows = await conn.fetch(
             """
-            WITH so AS (
+            -- rx:gom-ca-lich-su: sổ kho trỏ dòng đơn ĐÃ giao — dòng đó có
+            -- bị đính chính sau này thì lần xuất kho vẫn là sự thật.
+            WITH ton AS (
+                SELECT lower(btrim(b.unit)) AS dv, sum(b.quantity_on_hand) AS ton
+                  FROM public.drug_batch b
+                 WHERE b.clinic_id = $1::uuid AND b.drug_catalog_id = $2::uuid
+                 GROUP BY lower(btrim(b.unit))
+            ), so AS (
                 SELECT t.id, t.performed_at, t.txn_type, t.quantity, t.reason,
                        t.ref_type, t.ref_id, t.performed_by_staff_id,
-                       b.batch_code, b.expiry_date
+                       b.batch_code, b.expiry_date, b.unit,
+                       lower(btrim(b.unit)) AS dv
                   FROM public.inventory_txn t
                   JOIN public.drug_batch b
                     ON b.id = t.drug_batch_id AND b.clinic_id = t.clinic_id
                  WHERE t.clinic_id = $1::uuid
                    AND b.drug_catalog_id = $2::uuid
-                   AND t.txn_type = ANY($4::text[])
+                   AND t.txn_type = ANY($3::text[])
             ), tinh AS (
+                -- Tồn trước → sau chạy RIÊNG từng đơn vị lô.
                 SELECT so.*,
-                       $3::numeric - coalesce(sum(so.quantity) OVER (
+                       coalesce(ton.ton, 0) - coalesce(sum(so.quantity) OVER (
+                           PARTITION BY so.dv
                            ORDER BY so.performed_at DESC, so.id DESC
                            ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
                        ), 0) AS ton_sau
                   FROM so
+                  LEFT JOIN ton ON ton.dv = so.dv
             )
             SELECT tinh.id::text, tinh.performed_at AS luc, tinh.txn_type AS loai,
                    CASE
@@ -142,7 +169,7 @@ async def the_kho(
                    CASE WHEN tinh.ref_type = 'prescription' THEN p.full_name END
                        AS khach,
                    tinh.batch_code AS so_lo, tinh.expiry_date AS han_dung,
-                   tinh.quantity AS so_luong,
+                   tinh.quantity AS so_luong, tinh.unit AS don_vi,
                    tinh.ton_sau - tinh.quantity AS ton_truoc, tinh.ton_sau,
                    s.full_name AS nguoi_lam, tinh.reason AS ly_do
               FROM tinh
@@ -161,11 +188,16 @@ async def the_kho(
             """,
             identity.clinic_id,
             drug_catalog_id,
-            thuoc["ton_hien_tai"],
             list(LOAI_VAT_LY),
         )
     canh_bao_neu_day("kho.the_kho", len(rows), 1000, clinic_id=identity.clinic_id)
-    return {"thuoc": dict(thuoc), "dong": [dict(r) for r in rows]}
+    return {
+        "thuoc": {
+            **dict(thuoc),
+            "ton_theo_don_vi": json.loads(thuoc["ton_theo_don_vi"]),
+        },
+        "dong": [dict(r) for r in rows],
+    }
 
 
 async def xuat_nhap_ton(
@@ -199,7 +231,8 @@ async def xuat_nhap_ton(
                    AND t.txn_type = ANY($4::text[])
                  GROUP BY t.drug_batch_id
             ), lo AS (
-                SELECT b.drug_catalog_id, b.cost_price,
+                SELECT b.drug_catalog_id, b.cost_price, b.unit,
+                       lower(btrim(b.unit)) AS dv,
                        b.quantity_on_hand - coalesce(so.tu_dau, 0) AS ton_dau,
                        b.quantity_on_hand - coalesce(so.tu_cuoi, 0) AS ton_cuoi,
                        coalesce(so.nhap, 0) AS nhap, coalesce(so.xuat, 0) AS xuat,
@@ -209,8 +242,9 @@ async def xuat_nhap_ton(
                   LEFT JOIN so ON so.drug_batch_id = b.id
                  WHERE b.clinic_id = $1::uuid
             )
+            -- Một dòng mỗi (thuốc, đơn vị lô) — không cộng hộp với viên (29/09).
             SELECT c.id::text AS drug_catalog_id, c.name_raw AS ten, c.ma_hang,
-                   c.don_vi_ban,
+                   c.don_vi_ban, min(lo.unit) AS don_vi,
                    coalesce(sum(lo.ton_dau), 0) AS ton_dau,
                    coalesce(sum(lo.nhap), 0) AS nhap,
                    coalesce(sum(lo.xuat), 0) AS xuat,
@@ -223,12 +257,12 @@ async def xuat_nhap_ton(
               FROM public.drug_catalog c
               LEFT JOIN lo ON lo.drug_catalog_id = c.id
              WHERE c.clinic_id = $1::uuid
-             GROUP BY c.id
+             GROUP BY c.id, lo.dv
             HAVING c.is_active
                 OR coalesce(sum(abs(lo.ton_dau) + abs(lo.ton_cuoi) + lo.nhap
                                 + lo.xuat + abs(lo.dieu_chinh) + lo.huy
                                 + lo.tra_lai), 0) <> 0
-             ORDER BY lower(c.name_raw)
+             ORDER BY lower(c.name_raw), lo.dv
             """,
             identity.clinic_id,
             moc_dau,

@@ -236,3 +236,35 @@ async def test_canh_bao_sap_het_hang_va_han(q: Quay) -> None:
     await svc.luu_thuoc(identity=q.duoc_si, drug_catalog_id=a, ten=f"Thuốc cb {a[:6]}")
     dm = next(t for t in await svc.danh_muc(identity=q.duoc_si) if t["id"] == a)
     assert float(dm["ton_toi_thieu"]) == 10
+
+
+async def test_ton_khac_don_vi_khong_cong_chung(q: Quay) -> None:
+    """Tuyền bấm thử 29/09: lô cũ 20 hộp + phiếu nhập 50 viên → thẻ kho báo
+    "70 viên". Hộp và viên không cộng được — tồn tách theo đơn vị lô."""
+    a = await _thuoc_moi(q)
+    await _phieu_nhap(q, [{**_dong_nhap(a, 20), "unit": "hộp"}])
+    await _phieu_nhap(q, [{**_dong_nhap(a, 50), "unit": "viên"}])
+    the = await kho.the_kho(q.pool, identity=q.duoc_si, drug_catalog_id=a)
+    assert the["thuoc"]["ton_hien_tai"] is None
+    assert sorted(
+        (x["don_vi"], float(x["ton"])) for x in the["thuoc"]["ton_theo_don_vi"]
+    ) == [("hộp", 20), ("viên", 50)]
+    # Tồn trước → sau chạy riêng từng đơn vị: dòng viên mới nhất 0 → 50.
+    moi = the["dong"][0]
+    assert moi["don_vi"] == "viên"
+    assert (float(moi["ton_truoc"]), float(moi["ton_sau"])) == (0, 50)
+    hom_nay = hom_nay_vn().isoformat()
+    xnt = await kho.xuat_nhap_ton(q.pool, identity=q.duoc_si, tu=hom_nay, den=hom_nay)
+    dong = sorted(
+        (x["don_vi"], float(x["ton_cuoi"]))
+        for x in xnt["dong"]
+        if x["drug_catalog_id"] == a
+    )
+    assert dong == [("hộp", 20), ("viên", 50)]
+    dm = next(
+        t
+        for t in await PharmacyService(q.pool).danh_muc(identity=q.duoc_si)
+        if t["id"] == a
+    )
+    assert sorted(dm["don_vi_lo"]) == ["hộp", "viên"]
+    assert len(dm["ton_theo_don_vi"]) == 2

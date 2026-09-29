@@ -232,13 +232,15 @@ class PharmacyService:
                 NGAY_SAP_HET_HAN,
             )
         # Cảnh báo hạn chỉ cho lô CÒN thuốc trên kệ — lô đã hết sạch là lịch sử.
+        # Đọc bằng .get: dòng thiếu cột (bản ghi cũ / stub) = không cảnh báo, không 500.
+        ds = [dict(r) for r in rows]
         return [
             {
-                **dict(r),
-                "canh_bao_han": r["trang_thai_han"] != "con_han"
-                and (r["quantity_on_hand"] or 0) > 0,
+                **d,
+                "canh_bao_han": d.get("trang_thai_han", "con_han") != "con_han"
+                and (d.get("quantity_on_hand") or 0) > 0,
             }
-            for r in rows
+            for d in ds
         ]
 
     async def danh_muc(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
@@ -264,7 +266,27 @@ class PharmacyService:
                        count(b.id) FILTER (
                            WHERE b.quantity_on_hand > 0
                              AND b.expiry_date <= $2::date + $3::int
-                       ) AS so_lo_can_han
+                       ) AS so_lo_can_han,
+                       -- Đơn vị các lô đang có (29/09): phiếu nhập điền sẵn
+                       -- đơn vị lô, không lấy đơn vị bán — 20 hộp + 50 viên
+                       -- không cộng được. Lô còn tồn trước, không có thì mọi lô.
+                       coalesce(
+                           array_agg(DISTINCT b.unit)
+                               FILTER (WHERE b.quantity_on_hand > 0),
+                           array_agg(DISTINCT b.unit) FILTER (WHERE b.id IS NOT NULL),
+                           '{}'::text[]
+                       ) AS don_vi_lo,
+                       coalesce((
+                           SELECT jsonb_agg(jsonb_build_object('don_vi', dv.don_vi,
+                                                               'ton', dv.ton)
+                                            ORDER BY dv.don_vi)
+                             FROM (SELECT min(x.unit) AS don_vi,
+                                          sum(x.quantity_on_hand) AS ton
+                                     FROM public.drug_batch x
+                                    WHERE x.clinic_id = c.clinic_id
+                                      AND x.drug_catalog_id = c.id
+                                    GROUP BY lower(btrim(x.unit))) dv
+                       ), '[]'::jsonb)::text AS ton_theo_don_vi
                   FROM public.drug_catalog c
                   LEFT JOIN public.drug_batch b
                     ON b.drug_catalog_id = c.id AND b.clinic_id = c.clinic_id
@@ -276,7 +298,10 @@ class PharmacyService:
                 hom_nay_vn(),
                 NGAY_SAP_HET_HAN,
             )
-        return [dict(r) for r in rows]
+        return [
+            {**dict(r), "ton_theo_don_vi": json.loads(r["ton_theo_don_vi"])}
+            for r in rows
+        ]
 
     async def luu_thuoc(
         self,
@@ -2179,17 +2204,20 @@ class PharmacyService:
         payment_cycle_id: str | None = None,
         allocation_id: str | None = None,
     ) -> None:
-        await self._ghi_so_trong(
-            conn,
-            identity=identity,
-            drug_batch_id=drug_batch_id,
-            txn_type=txn_type,
-            quantity=quantity,
-            reason=reason,
-            ref_type=ref_type,
-            ref_id=ref_id,
-            payment_cycle_id=payment_cycle_id,
-            allocation_id=allocation_id,
+        # `execute`, không RETURNING: các đường cũ (giao, huỷ, điều chỉnh…)
+        # không cần id dòng sổ — giữ đúng một lời gọi ghi như trước 29/09.
+        await conn.execute(
+            _SQL_GHI_SO,
+            identity.clinic_id,
+            drug_batch_id,
+            txn_type,
+            quantity,
+            reason,
+            ref_type,
+            ref_id,
+            identity.staff_id,
+            payment_cycle_id,
+            allocation_id,
         )
 
     @staticmethod
@@ -2213,15 +2241,7 @@ class PharmacyService:
         không biết ai làm thì về sau không đối soát được với ai cả.
         """
         ma: str = await conn.fetchval(
-            """
-            INSERT INTO public.inventory_txn
-                (clinic_id, drug_batch_id, txn_type, quantity, reason,
-                 ref_type, ref_id, performed_by_staff_id, performed_at,
-                 payment_cycle_id, allocation_id)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, now(),
-                    $9::uuid, $10::uuid)
-            RETURNING id::text
-            """,
+            _SQL_GHI_SO + " RETURNING id::text",
             identity.clinic_id,
             drug_batch_id,
             txn_type,
@@ -2245,6 +2265,18 @@ class PharmacyService:
             drug_batch_id,
             identity.clinic_id,
         )
+
+
+#: Một dòng vào sổ kho — dùng chung cho `_ghi_so` (không cần id) và
+#: `_ghi_so_trong` (phiếu kho cần id dòng sổ, thêm RETURNING).
+_SQL_GHI_SO = """
+    INSERT INTO public.inventory_txn
+        (clinic_id, drug_batch_id, txn_type, quantity, reason,
+         ref_type, ref_id, performed_by_staff_id, performed_at,
+         payment_cycle_id, allocation_id)
+    VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8::uuid, now(),
+            $9::uuid, $10::uuid)
+"""
 
 
 def kiem_dong_nhap(

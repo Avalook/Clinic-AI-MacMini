@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
-import { soKho } from "./gui-kho";
+import { soKho, tonTheoDonVi } from "./gui-kho";
 
 interface DongTheKho {
   id: string;
@@ -19,6 +19,8 @@ interface DongTheKho {
   khach: string | null;
   so_lo: string;
   so_luong: number;
+  /** Đơn vị của lô — tồn trước → sau tính riêng từng đơn vị. */
+  don_vi: string | null;
   ton_truoc: number;
   ton_sau: number;
   nguoi_lam: string | null;
@@ -26,7 +28,12 @@ interface DongTheKho {
 }
 
 interface TheKhoData {
-  thuoc: { ten: string; don_vi_ban: string | null; ton_hien_tai: number };
+  thuoc: {
+    ten: string;
+    don_vi_ban: string | null;
+    /** Tồn tách theo đơn vị lô (29/09): không cộng hộp với viên. */
+    ton_theo_don_vi: { don_vi: string | null; ton: number }[];
+  };
   dong: DongTheKho[];
 }
 
@@ -114,8 +121,10 @@ export default function TheKho({
         <>
           <p className="text-body text-ink">
             <span className="font-semibold">{data.thuoc.ten}</span> · tồn hiện tại{" "}
-            <span className="font-semibold tabular-nums">{soKho(data.thuoc.ton_hien_tai)}</span>{" "}
-            {data.thuoc.don_vi_ban ?? ""} · {data.dong.length} biến động
+            <span className="font-semibold tabular-nums">
+              {tonTheoDonVi(data.thuoc.ton_theo_don_vi)}
+            </span>{" "}
+            · {data.dong.length} biến động
           </p>
           <div className={`${TBL_WRAP} overflow-x-auto`}>
             <table className="w-full min-w-3xl text-left text-body">
@@ -154,10 +163,10 @@ export default function TheKho({
                         }`}
                       >
                         {Number(d.so_luong) > 0 ? "+" : ""}
-                        {soKho(d.so_luong)}
+                        {soKho(d.so_luong)} {d.don_vi ?? ""}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-ink">
-                        {soKho(d.ton_truoc)} → {soKho(d.ton_sau)}
+                        {soKho(d.ton_truoc)} → {soKho(d.ton_sau)} {d.don_vi ?? ""}
                       </td>
                       <td className="px-3 py-2 text-ink-muted">{d.nguoi_lam ?? "—"}</td>
                       <td className="max-w-xs px-3 py-2 text-meta text-ink-muted">

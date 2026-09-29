@@ -19,6 +19,8 @@ interface DongXnt {
   ten: string;
   ma_hang: string | null;
   don_vi_ban: string | null;
+  /** Đơn vị lô — một dòng mỗi (thuốc, đơn vị); null = thuốc chưa có lô. */
+  don_vi: string | null;
   ton_dau: number;
   nhap: number;
   xuat: number;
@@ -109,7 +111,7 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
     const dau = ["Mã hàng", "Tên thuốc", "Đơn vị", ...cot.map((c) => c.nhan)];
     if (coGiaTri) dau.push("Giá trị tồn");
     const hang = kq.dong.map((d) => {
-      const o: unknown[] = [d.ma_hang ?? "", d.ten, d.don_vi_ban ?? ""];
+      const o: unknown[] = [d.ma_hang ?? "", d.ten, d.don_vi ?? d.don_vi_ban ?? ""];
       for (const c of cot) o.push(Number(d[c.ma]));
       if (coGiaTri) o.push(d.gia_tri_ton == null ? "" : Number(d.gia_tri_ton));
       return o.map(oCsv).join(",");
@@ -176,7 +178,7 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
               </tr>
             ) : (
               dong.map((d) => (
-                <tr key={d.drug_catalog_id}>
+                <tr key={`${d.drug_catalog_id}|${d.don_vi ?? ""}`}>
                   <td className="px-3 py-2">
                     <button
                       type="button"
@@ -186,7 +188,7 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
                       {d.ten}
                     </button>
                     <span className="block text-meta text-ink-muted">
-                      {[d.ma_hang, d.don_vi_ban].filter(Boolean).join(" · ")}
+                      {[d.ma_hang, d.don_vi ?? d.don_vi_ban].filter(Boolean).join(" · ")}
                     </span>
                   </td>
                   {cot.map((c) => (

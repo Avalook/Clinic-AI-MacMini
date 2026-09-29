@@ -35,6 +35,15 @@ export async function guiKho(
 export const tienVnd = (n: number | null | undefined): string =>
   n == null ? "—" : `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 }).format(n)} đ`;
 
+/** Tồn tách theo đơn vị lô — "20 hộp · 48 viên" (máy chủ không cộng hộp với
+ *  viên, 29/09/2026). Rỗng → "0". */
+export const tonTheoDonVi = (
+  ds: { don_vi: string | null; ton: number | string }[] | null | undefined,
+): string =>
+  ds && ds.length > 0
+    ? ds.map((x) => `${soKho(x.ton)} ${x.don_vi ?? ""}`.trim()).join(" · ")
+    : "0";
+
 /** Số lượng kho (tới 3 chữ số lẻ). Máy chủ trả numeric dạng chuỗi → ép số. */
 export const soKho = (n: number | string | null | undefined): string =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(Number(n ?? 0));

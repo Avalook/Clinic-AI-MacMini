@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
-import { guiKho, soKho, tienVnd } from "./gui-kho";
+import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
 
 export interface ThuocKho {
   id: string;
@@ -31,6 +31,10 @@ export interface ThuocKho {
   ton_toi_thieu: number | null;
   /** Máy chủ tính: đang dùng, có ngưỡng, tổng tồn ≤ ngưỡng. */
   sap_het_hang: boolean;
+  /** Đơn vị các lô đang có (máy chủ trả) — phiếu nhập điền sẵn theo đây. */
+  don_vi_lo: string[];
+  /** Tồn tách theo đơn vị lô — không cộng hộp với viên (29/09/2026). */
+  ton_theo_don_vi: { don_vi: string | null; ton: number }[];
 }
 
 type Loc = "dang_dung" | "sap_het" | "can_soat" | "da_tat" | "tat_ca";
@@ -294,7 +298,7 @@ export default function DanhMucKho({
                   <td className="px-3 py-2 text-ink-muted">{t.don_vi_ban ?? "—"}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">{tienVnd(t.gia)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-ink">
-                    {soKho(t.ton)}
+                    {tonTheoDonVi(t.ton_theo_don_vi)}
                     {t.so_lo > 0 ? <span className="block text-meta text-ink-muted">{t.so_lo} lô</span> : null}
                     {t.ton_toi_thieu != null ? (
                       <span className="block text-meta text-ink-muted">tối thiểu {soKho(t.ton_toi_thieu)}</span>

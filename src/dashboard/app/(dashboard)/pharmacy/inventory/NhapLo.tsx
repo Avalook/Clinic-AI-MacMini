@@ -26,8 +26,8 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
 
   const doiTen = (ten: string) => {
     const t = dangDung.find((x) => x.ten === ten);
-    // Chọn đúng thuốc → điền sẵn đơn vị bán (sửa được: nhập theo hộp, bán theo viên).
-    setF((cu) => ({ ...cu, ten, don_vi: t && !cu.don_vi ? (t.don_vi_ban ?? "") : cu.don_vi }));
+    // Chọn đúng thuốc → điền sẵn đơn vị lô đang có (29/09), chưa có lô thì đơn vị bán.
+    setF((cu) => ({ ...cu, ten, don_vi: t && !cu.don_vi ? (t.don_vi_lo?.[0] ?? t.don_vi_ban ?? "") : cu.don_vi }));
   };
 
   const luu = async () => {
