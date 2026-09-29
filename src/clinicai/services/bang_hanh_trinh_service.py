@@ -233,12 +233,15 @@ class BangHanhTrinhService:
                 xong[r["visit_id"]].append(
                     {"nhan": r["nhan"], "luc": r["occurred_at"].isoformat()}
                 )
-            # MỐC DẢI THỜI GIAN (28/09/2026 — Tuyền: "hành trình cũng học theo
-            # timeline ở bàn khám"): cùng `dung_moc` với phiếu khám, gom 2 câu
-            # cho mọi lượt. Nhập muộn vì hanh_trinh nhập `dang_o` từ đây.
-            from clinicai.phieu_kham.hanh_trinh import doc_moc_nhieu
+            # HÀNH TRÌNH KHÁCH dạng gọn (Tuyền chốt 29/09/2026) — thay dải mốc
+            # 28/09: đang ở / đang chờ PHÒNG nào, thanh đoạn màu, x/y dịch vụ
+            # xong. Cùng hàm với trang chủ + khung đầy đủ. Nhập muộn vì
+            # phieu_kham.hanh_trinh nhập `dang_o` từ đây.
+            from clinicai.services.hanh_trinh_khach_service import (
+                doc_hanh_trinh_khach,
+            )
 
-            moc = await doc_moc_nhieu(conn, clinic_id=cid, luot=luot)
+            htk = await doc_hanh_trinh_khach(conn, clinic_id=cid, visit_ids=ids)
         return {
             "luot": [
                 {
@@ -261,7 +264,7 @@ class BangHanhTrinhService:
                         phieu.get(x["visit_id"], 0),
                     ),
                     "da_ve": x["closed_at"] is not None,
-                    "moc": moc.get(x["visit_id"], []),
+                    "gon": htk[x["visit_id"]]["gon"] if x["visit_id"] in htk else None,
                 }
                 for x in luot
             ],

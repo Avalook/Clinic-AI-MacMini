@@ -7,9 +7,13 @@
 // "Từng dịch vụ" (`tung_dich_vu` — mỗi chỉ định gửi → thu → bắt đầu → xong). Nghe chung dòng tin của RealtimeRefresher
 // (không mở kết nối riêng): có tin về hành trình / hàng chờ / chỉ định / thu tiền
 // thì nạp lại; mỗi 30 giây vẽ lại để "đang 12 phút" không đứng yên.
+//
+// 29/09/2026 (Tuyền chốt Hành trình khách): bấm vào dải này (hoặc [Xem kỹ]) mở
+// KHUNG ĐẦY ĐỦ trong popup — cùng component với trang chủ / màn Hành trình.
 
 import { useEffect, useState } from "react";
 
+import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import NganGap from "@/components/ui/NganGap";
 import Timeline from "@/components/ui/Timeline";
@@ -24,6 +28,8 @@ import {
 } from "@/lib/hanh-trinh";
 import { SU_KIEN_BANG } from "@/lib/nhip-lam-moi";
 
+import { PopupHanhTrinhKhach } from "../HanhTrinhKhach";
+
 const BANG = new Set([
   "luot_dong_thoi_gian",
   "queue_entry",
@@ -37,6 +43,7 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
   const [ht, setHt] = useState<HanhTrinh | null>(null);
   const [bayGio, setBayGio] = useState(() => Date.now());
   const [lanNap, setLanNap] = useState(0);
+  const [moKhung, setMoKhung] = useState(false);
 
   useEffect(() => {
     let huy = false;
@@ -80,13 +87,20 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
       aria-label="Hành trình hôm nay"
       className="rounded-card border border-hairline bg-surface p-4 print:hidden"
     >
+      {/* Bấm vào dải mốc = mở khung đầy đủ (chuột); bàn phím dùng nút [Xem kỹ]. */}
+      <div className="cursor-pointer" onClick={() => setMoKhung(true)}>
       <Timeline
         nhanAria="Hành trình hôm nay"
         dau={
           <>
-            <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-              Hành trình hôm nay
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+                Hành trình hôm nay
+              </p>
+              <Button size="sm" variant="soft" onClick={() => setMoKhung(true)}>
+                Xem kỹ hành trình ›
+              </Button>
+            </div>
             {/* Câu do máy chủ viết sẵn ("Đang ở …", "Chờ …", "Đã về") —
                 cùng hàm với Bảng hành trình chung. */}
             <p className="flex flex-wrap items-center gap-2 text-body">
@@ -109,6 +123,7 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
         }))}
         doan={doanNoi(ht.moc, bayGio)}
       />
+      </div>
       {tung.length > 0 ? (
         // `key` theo moSan: có dịch vụ chuyển sang chờ/làm thì bảng tự mở lại,
         // xong hết thì tự thu (giữ đúng hành vi của `<details>` cũ).
@@ -118,6 +133,7 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
           </NganGap>
         </div>
       ) : null}
+      {moKhung ? <PopupHanhTrinhKhach visitId={visitId} onDong={() => setMoKhung(false)} /> : null}
     </section>
   );
 }

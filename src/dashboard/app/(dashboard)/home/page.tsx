@@ -58,6 +58,7 @@ import WeeklyAppointmentsTable, { type WeekApptRow } from "./WeeklyAppointmentsT
 import { dungLichHenTuan } from "./lich-hen-ngay";
 import WorkRosterTable, { type DongCaRow, type RosterRow } from "./WorkRosterTable";
 import VisitStatusBoard, { type VisitStatusRow } from "./VisitStatusBoard";
+import type { HanhTrinhGon } from "../../../lib/hanh-trinh-khach";
 import VisitStatusRealtime from "./VisitStatusRealtime";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +92,8 @@ interface GoiTrangChu {
   dong_ca?: DongCaRow[];
   truc_ca: { work_date: string; staff_id: string; staff_name: string | null }[];
   trang_thai_kham: VisitStatusRow[];
+  /** Hành trình khách dạng gọn theo lượt (29/09/2026) — máy chủ quyết. */
+  hanh_trinh_gon?: Record<string, HanhTrinhGon>;
   tuan_hen: WeekApptRow[];
   tien_trinh: VisitProgressRow[];
   /** 7 ngày, cũ → mới (27/09/2026). Chỉ hai ô có lịch sử thật. */
@@ -493,6 +496,8 @@ async function KhoiDuLieu({
       v.paid_at = p?.paid_at ?? null;
       v.closed_at = p?.closed_at ?? null;
       v.kham_xong_luc = p?.kham_xong_luc ?? null;
+      // Hành trình khách dạng gọn (29/09/2026) — thay thanh 4 mốc.
+      v.hanh_trinh = goi?.hanh_trinh_gon?.[v.visit_id] ?? null;
     }
   }
 
