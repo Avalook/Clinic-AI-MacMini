@@ -11,7 +11,7 @@
 // điều dưỡng siêu âm; thủ thuật — CHỈ bác sĩ (điều dưỡng, thư ký hỗ trợ); lấy
 // mẫu — điều dưỡng. Màn này không tự đoán, chỉ hiện câu từ chối của máy chủ.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   docBang,
@@ -53,7 +53,13 @@ const NUT_XONG: Record<LoaiPhong, string> = {
   KHAC: "Làm xong",
 };
 
-export default function PhongDichVu({ ma }: { ma: string }) {
+export default function PhongDichVu({
+  ma,
+  vaiTro,
+}: {
+  ma: string;
+  vaiTro?: string | null;
+}) {
   const [phong, setPhong] = useState<Phong | null>(null);
   const [khongCo, setKhongCo] = useState(false);
   const [hang, setHang] = useState<DongHangCho[] | null>(null);
@@ -160,7 +166,12 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           )}
         </aside>
         {chon ? (
-          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} />
+          <KhachTrongPhong
+            key={chon.id}
+            dong={chon}
+            vaiTro={vaiTro}
+            onDaBam={napLai}
+          />
         ) : (
           <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-sm text-ink-muted shadow-card">
             Chọn một khách trong hàng chờ.
@@ -173,35 +184,85 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
 function KhachTrongPhong({
   dong,
+  vaiTro,
   onDaBam,
 }: {
   dong: DongHangCho;
+  vaiTro?: string | null;
   onDaBam: () => void;
 }) {
   const loai = loaiCua(dong.node_code);
-  const [ketQua, setKetQua] = useState("");
+  const isProcedure = loai === "THU_THUAT";
+  const chiXem = isProcedure && (vaiTro === "DOCTOR" || vaiTro === "BAC_SI");
+
+  const [ketQua, setKetQua] = useState(dong.ket_qua_ghi ?? "");
+  const [phienBan, setPhienBan] = useState(dong.phien_ban ?? 0);
+  const [dangLuuNhap, setDangLuuNhap] = useState(false);
+  const [daLuuNhap, setDaLuuNhap] = useState(false);
+  const daKhoiTao = useRef(false);
+
   const [lyDo, setLyDo] = useState("");
   const [moKhongLam, setMoKhongLam] = useState(false);
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [xemLuot, setXemLuot] = useState(false);
 
+  const dangLam = dong.trang_thai === "serving";
+  const dangCho = dong.trang_thai === "waiting" || dong.trang_thai === "called";
+  const daXong = dong.trang_thai === "done";
+
+  // Tự động lưu nháp kết quả khi đang làm việc (Autosave với OCC versioning)
+  useEffect(() => {
+    if (!dangLam || chiXem) return;
+    if (!daKhoiTao.current) {
+      daKhoiTao.current = true;
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setDangLuuNhap(true);
+      setDaLuuNhap(false);
+      try {
+        const res = await fetch("/api/luot-kham", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thao_tac: "luu-nhap-dich-vu",
+            id: dong.ref_id,
+            du_lieu: {
+              result_note: ketQua,
+              expected_version: phienBan,
+            },
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          version?: number;
+          message?: string;
+        } | null;
+        if (res.ok && data?.version) {
+          setPhienBan(data.version);
+          setDaLuuNhap(true);
+          setLoi(null);
+        } else {
+          setLoi(data?.message ?? "Không thể tự động lưu nháp.");
+        }
+      } catch {
+        setLoi("Mất kết nối — chưa lưu nháp được.");
+      } finally {
+        setDangLuuNhap(false);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [ketQua, dangLam, chiXem, dong.ref_id, phienBan]);
+
   const bam = async (thaoTac: string, duLieu: Record<string, unknown> = {}) => {
     setDangGui(true);
     setLoi(null);
-    const kq = await guiThaoTac(
-      thaoTac,
-      thaoTac === "goi-khach" ? dong.id : dong.ref_id,
-      duLieu,
-    );
+    const kq = await guiThaoTac(thaoTac, dong.ref_id, duLieu);
     setDangGui(false);
     if (!kq.ok) setLoi(kq.loi);
     else onDaBam();
   };
-
-  const dangLam = dong.trang_thai === "serving";
-  const dangCho = dong.trang_thai === "waiting" || dong.trang_thai === "called";
-  const daXong = dong.trang_thai === "done";
 
   return (
     <section
@@ -230,19 +291,7 @@ function KhachTrongPhong({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {dangCho ? (
-            <button
-              type="button"
-              disabled={dangGui}
-              onClick={() => void bam("goi-khach")}
-              className="inline-flex min-h-11 items-center rounded-control border border-brand-600 px-5 text-sm font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
-            >
-              {dong.trang_thai === "called"
-                ? `Gọi lại (đã gọi ${gioVn(dong.goi_luc)})`
-                : "Gọi vào"}
-            </button>
-          ) : null}
-          {dangCho ? (
+          {dangCho && !chiXem ? (
             <button
               type="button"
               disabled={dangGui}
@@ -251,6 +300,11 @@ function KhachTrongPhong({
             >
               {dangGui ? "Đang ghi…" : "Bắt đầu"}
             </button>
+          ) : null}
+          {chiXem ? (
+            <span className="inline-flex items-center rounded-control bg-surface-muted px-3 py-1.5 text-xs font-medium text-ink-muted">
+              Bác sĩ chỉ xem (Điều dưỡng vận hành)
+            </span>
           ) : null}
         </div>
       </header>
@@ -261,8 +315,7 @@ function KhachTrongPhong({
         </p>
       ) : null}
 
-      {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09) — người làm, kết
-          quả đã ghi (chỉ vai lâm sàng nhận được chữ), lý do không làm. */}
+      {/* ĐÃ XONG: xem lại đúng cái đã ghi */}
       {daXong ? (
         <div className="rounded-control bg-surface-muted px-3 py-2 text-sm">
           <p className="text-ink">
@@ -287,14 +340,34 @@ function KhachTrongPhong({
         <KhungTep
           clinicPatientId={dong.clinic_patient_id}
           serviceOrderId={dong.ref_id}
+          choTaiLen={!chiXem}
           tieuDe={loai === "SIEU_AM" ? "Ảnh & video siêu âm" : "Ảnh · video · phiếu"}
         />
       ) : null}
 
       {dangLam ? (
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-sm font-semibold text-ink">{NHAN_KET_QUA[loai]}</span>
+        chiXem ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-ink">{NHAN_KET_QUA[loai]}</span>
+              <span className="text-xs text-ink-muted">Bác sĩ chỉ xem</span>
+            </div>
+            <textarea
+              value={ketQua}
+              readOnly
+              rows={6}
+              className="mt-1 w-full rounded-control border border-line bg-surface-muted px-3 py-2 text-sm text-ink-soft"
+              placeholder="(Chưa có nội dung ghi nhận)"
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-ink">{NHAN_KET_QUA[loai]}</span>
+              <span className="text-xs text-ink-muted">
+                {dangLuuNhap ? "Đang lưu nháp…" : daLuuNhap ? "Đã tự động lưu" : ""}
+              </span>
+            </div>
             <textarea
               value={ketQua}
               onChange={(e) => setKetQua(e.target.value)}
@@ -308,53 +381,53 @@ function KhachTrongPhong({
                     : ""
               }
             />
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={dangGui}
-              onClick={() =>
-                void bam("xong-dich-vu", { performed: true, result_note: ketQua })
-              }
-              className="inline-flex min-h-11 items-center rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMoKhongLam((v) => !v)}
-              className="inline-flex min-h-11 items-center rounded-control border border-line px-4 text-sm text-ink-soft hover:bg-surface-muted"
-            >
-              Không làm được…
-            </button>
-          </div>
-          {moKhongLam ? (
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="min-w-60 flex-1">
-                <span className="text-xs font-semibold text-ink">Lý do không làm được</span>
-                <input
-                  value={lyDo}
-                  onChange={(e) => setLyDo(e.target.value)}
-                  className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
-                />
-              </label>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                disabled={dangGui || !lyDo.trim()}
+                disabled={dangGui}
                 onClick={() =>
-                  void bam("xong-dich-vu", {
-                    performed: false,
-                    reason: lyDo,
-                    result_note: ketQua,
-                  })
+                  void bam("xong-dich-vu", { performed: true, result_note: ketQua })
                 }
-                className="inline-flex min-h-10 items-center rounded-control border border-danger px-4 text-sm font-semibold text-danger disabled:opacity-50"
+                className="inline-flex min-h-11 items-center rounded-control bg-success px-5 text-sm font-semibold text-white disabled:opacity-50"
               >
-                Ghi không làm được
+                {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMoKhongLam((v) => !v)}
+                className="inline-flex min-h-11 items-center rounded-control border border-line px-4 text-sm text-ink-soft hover:bg-surface-muted"
+              >
+                Không làm được…
               </button>
             </div>
-          ) : null}
-        </div>
+            {moKhongLam ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="min-w-60 flex-1">
+                  <span className="text-xs font-semibold text-ink">Lý do không làm được</span>
+                  <input
+                    value={lyDo}
+                    onChange={(e) => setLyDo(e.target.value)}
+                    className="mt-1 min-h-10 w-full rounded-control border border-line bg-surface px-3 text-sm text-ink"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={dangGui || !lyDo.trim()}
+                  onClick={() =>
+                    void bam("xong-dich-vu", {
+                      performed: false,
+                      reason: lyDo,
+                      result_note: ketQua,
+                    })
+                  }
+                  className="inline-flex min-h-10 items-center rounded-control border border-danger px-4 text-sm font-semibold text-danger disabled:opacity-50"
+                >
+                  Ghi không làm được
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )
       ) : null}
     </section>
   );

@@ -139,7 +139,9 @@ def need_mac_dinh(*, lam_ben_ngoai: bool | None, flow_group: str | None) -> str:
     có gì cho bác sĩ đọc, nên cần kết quả hợp lệ. Thủ thuật, siêu âm, DXA… ra
     kết quả ngay khi làm: làm xong là đủ.
     """
-    if lam_ben_ngoai or flow_group == "ket_qua":
+    if lam_ben_ngoai:
+        return FOLLOW_UP
+    if flow_group == "ket_qua":
         return "VALID_RESULT"
     return "PERFORMED"
 

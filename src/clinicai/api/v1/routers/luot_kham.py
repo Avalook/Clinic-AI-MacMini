@@ -188,6 +188,18 @@ async def goi_do_sinh_hieu(
     )
 
 
+@router.post("/luot-kham/visits/{visit_id}/start-vitals")
+async def start_vitals(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_VITALS_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Điều dưỡng bấm bắt đầu đo sinh hiệu."""
+    return await LuotKhamService(pool).start_vitals(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
 @router.get("/luot-kham/phong-hom-nay")
 async def phong_hom_nay(
     identity: StaffIdentity = Depends(_BANG_GUARD),
@@ -413,6 +425,26 @@ async def start_service(
 ) -> dict[str, Any]:
     return await LuotKhamService(pool).start_service(
         order_id=str(order_id), identity=identity
+    )
+
+
+class SaveServiceDraftBody(BaseModel):
+    result_note: str | None = Field(default=None, max_length=20000)
+    expected_version: int = Field(ge=0)
+
+
+@router.post("/luot-kham/orders/{order_id}/draft")
+async def save_service_draft(
+    order_id: UUID,
+    body: SaveServiceDraftBody,
+    identity: StaffIdentity = Depends(_PERFORMER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LuotKhamService(pool).save_service_draft(
+        order_id=str(order_id),
+        result_note=body.result_note,
+        expected_version=body.expected_version,
+        identity=identity,
     )
 
 

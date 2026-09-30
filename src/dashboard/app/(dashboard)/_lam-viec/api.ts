@@ -60,6 +60,8 @@ export interface DongHangCho {
   /** Nội dung kết quả đã ghi — chỉ vai đọc lâm sàng nhận được. */
   ket_qua_ghi?: string | null;
   ly_do_khong_lam?: string | null;
+  /** Phiên bản chỉ định để kiểm soát xung đột (OCC). */
+  phien_ban?: number;
 }
 
 export interface Phong {

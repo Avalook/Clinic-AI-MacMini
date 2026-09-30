@@ -1,0 +1,4 @@
+# Prototype giao diện sản phẩm ClinicAI
+Dữ liệu giả, một cơ sở 100 khách/ngày. Nguồn: canvas ClinicAI-Shared-Record-20260908.drawio, tiêu chí và D11. Mỗi vai trò có workspace đầy đủ bảng/drawer/form/actions, dùng một store giả lập và localStorage, đồng bộ tab qua storage event. Không có kết nối prod. Các adapter thực thay mock trong giai đoạn backend; nguồn chuyên môn Notion theo D11 vẫn cần quyết định cutover trước native editor thật.
+Luồng đại diện: khách/CSKH đặt lịch→lễ tân check-in→điều dưỡng→bác sĩ/thư ký chung hồ sơ→chỉ định→SA/lab→bác sĩ đọc/duyệt/phát hành→kho cấp đơn được duyệt→thu ngân→checkout/hậu khám. Nhánh: đổi/hủy/trễ/vãng lai/rời tạm, thiếu thuốc, tiền chờ/sai/lặp, kết quả muộn. Quy tắc chưa chốt hiển thị chính sách demo.
+UI sản phẩm ưu tiên, không phải dashboard giảng giải. Dữ liệu/event kỹ thuật chỉ xem khi mở lịch sử. Mẫu fake không là lời khuyên điều trị. Không mọi mẫu chuyên khoa đã được nguồn xác nhận; coverage phải ghi rõ.

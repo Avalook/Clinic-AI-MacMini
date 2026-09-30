@@ -286,7 +286,8 @@ class TepKetQuaService:
                 cua_chi_dinh = await conn.fetchrow(
                     "SELECT v.clinic_patient_id::text AS clinic_patient_id,"
                     "       v.appointment_id::text AS appointment_id,"
-                    "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai"
+                    "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai,"
+                    "       o.node_code"
                     "  FROM public.service_order o"
                     "  JOIN public.visit v"
                     "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
@@ -302,6 +303,41 @@ class TepKetQuaService:
                     or cua_chi_dinh["clinic_patient_id"] != clinic_patient_id
                 ):
                     raise ValidationError("Chỉ định này không phải của khách này.")
+                # Bác sĩ không upload kết quả thủ thuật (điều dưỡng thao tác).
+                from clinicai.services.luot_kham_service import (
+                    PROCEDURE_NODES,
+                )
+
+                if (
+                    cua_chi_dinh["node_code"] in PROCEDURE_NODES
+                    and identity.co_vai({ClinicRole.DOCTOR})
+                    and not identity.co_vai(
+                        {ClinicRole.NURSE_ULTRASOUND, ClinicRole.MANAGEMENT}
+                    )
+                ):
+                    raise SafetyGateError(
+                        "Bác sĩ chỉ xem tại phòng thủ thuật. "
+                        "Điều dưỡng thực hiện thao tác vận hành."
+                    )
+                if identity.co_vai(
+                    {ClinicRole.NURSE_ULTRASOUND}
+                ) and not identity.co_vai({ClinicRole.MANAGEMENT}):
+                    has_node = await conn.fetchval(
+                        """
+                        SELECT 1 FROM public.staff_node
+                         WHERE clinic_id = $1::uuid
+                           AND staff_id = $2::uuid
+                           AND node_code = $3
+                        """,
+                        identity.clinic_id,
+                        identity.staff_id,
+                        cua_chi_dinh["node_code"],
+                    )
+                    if not has_node:
+                        raise SafetyGateError(
+                            "Bạn chưa được phân công vận hành bước này. "
+                            "Vui lòng liên hệ quản lý để cấu hình."
+                        )
                 appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
                 is_external = bool(cua_chi_dinh["lam_ben_ngoai"])
             if appointment_id:
@@ -597,13 +633,27 @@ class TepKetQuaService:
                 },
             )
 
-        # Nếu HOP_LE và có service_order -> đánh giá lại vòng đọc (mở REVIEW)
+        # Nếu HOP_LE và có service_order VÀ KHÔNG PHẢI external -> đánh giá lại vòng đọc
         if trang_thai == "HOP_LE" and tep["service_order_id"]:
-            from clinicai.services.luot_kham_service import LuotKhamService
+            # Kiểm tra external: nếu order thuộc node lam_ben_ngoai thì KHÔNG
+            # gọi sau_khi_co_ket_qua — kết quả external không kéo bệnh nhân
+            # quay lại hàng khám.
+            async with self._pool.acquire() as conn:
+                la_ngoai = await conn.fetchval(
+                    "SELECT coalesce(nd.lam_ben_ngoai, false)"
+                    "  FROM public.service_order o"
+                    "  LEFT JOIN public.node_definition nd"
+                    "    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code"
+                    " WHERE o.id = $1::uuid AND o.clinic_id = $2::uuid",
+                    str(tep["service_order_id"]),
+                    cid,
+                )
+            if not la_ngoai:
+                from clinicai.services.luot_kham_service import LuotKhamService
 
-            await LuotKhamService(self._pool).sau_khi_co_ket_qua(
-                order_id=str(tep["service_order_id"]), identity=identity
-            )
+                await LuotKhamService(self._pool).sau_khi_co_ket_qua(
+                    order_id=str(tep["service_order_id"]), identity=identity
+                )
 
         return {"ok": True, "id": str(tep["id"]), "trang_thai": trang_thai}
 

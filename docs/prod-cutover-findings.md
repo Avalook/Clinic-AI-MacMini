@@ -3,6 +3,9 @@
 Chạy `supabase db push --dry-run` lên database production thật, sau khi đã có
 một bản backup định danh đúng (`clinicai_production_atfmxvdfnbeenrdbbllp_*`).
 
+> ℹ️ *Ghi chú 23/08/2026: project Supabase cloud `atfmxvdfnbeenrdbbllp` nhắc ở dòng trên **đã bị xoá vĩnh viễn**. Bản lưu cuối: `~/backups/atf-luu-vinh-vien-truoc-khi-xoa/`. Giữ nguyên văn bản gốc làm hồ sơ lịch sử.*
+
+
 **Kết luận: KHÔNG được chạy `supabase db push` lên production.** Lý do bên dưới.
 
 ---

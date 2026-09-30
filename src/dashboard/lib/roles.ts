@@ -466,10 +466,6 @@ const AN_KHOI_THANH_BEN: Partial<Record<ClinicRole, readonly string[]>> = {
     "/phong/KN-SA-T1", "/phong/KN-SA1", "/phong/KN-SA2",
     "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
   ],
-  NURSE_ULTRASOUND: [
-    "/phong/KN-SA1", "/phong/KN-SA2",
-    "/phong/KN-THUTHUAT", "/phong/KN-TTNG", "/phong/KN-SANCHAU", "/phong/KN-SAN-BIO",
-  ],
   RECEPTION: ["/phong/KN-LAYMAU"],
   // Thanh bên CSKH giữ 5 mục (Tuyền 16/09/2026): việc vượt sức chứa đến qua
   // khung báo + thông báo, không thêm mục.

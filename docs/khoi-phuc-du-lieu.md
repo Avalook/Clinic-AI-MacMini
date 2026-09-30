@@ -1,5 +1,18 @@
 # Khôi phục dữ liệu khi hỏng
 
+> ## ⚠️ ĐÃ LỖI THỜI TỪ 23/08/2026 — đọc kỹ trước khi làm theo
+>
+> Tài liệu này mô tả thế giới **Supabase cloud (project `atfmxvdfnbeenrdbbllp`)**, mà:
+> - Project đó **đã bị xoá vĩnh viễn ngày 23/08/2026** (DNS không còn phân giải).
+> - Daemon sao lưu đêm `com.dr4women.db-backup` **đã `launchctl bootout`**, không còn chạy.
+> - Prod thật giờ ở **VPS `222.255.215.219`** với Postgres **tự dựng** — sao lưu và khôi phục
+>   đi theo đường khác, xem `docs/OPS-RUNBOOK.md` và memory `clinicai-quy-trinh-day-len-prod`.
+>
+> **Phần còn dùng được:** quy trình nạp `pg_dump` vào một project/DB mới (mục dưới) vẫn đúng.
+> Bản lưu cuối cùng của atf nằm ở **`~/backups/atf-luu-vinh-vien-truoc-khi-xoa/`**
+> (23/08 02:00, đã kiểm `gzip -t`, kèm `DOC-TRUOC-KHI-DUNG.md`) — KHÔNG phải
+> `~/backups/clinicai/` như ví dụ bên dưới viết.
+
 Gói Supabase Free **không có backup tự động và không có PITR** — bảng điều khiển
 ghi thẳng `Last backup: No backups`. Cái che lưng duy nhất là bản `pg_dump` chạy
 hằng đêm trên chính máy Mac mini.
@@ -83,15 +96,14 @@ bảng `patient` rồi kéo theo 55 lỗi phía sau. Sửa ở
 **Backup vẫn chạy suốt thời gian đó và dữ liệu bên trong vẫn đúng** — chỉ là
 không nạp lại được, và không có gì báo cho tới ngày cần dùng.
 
-## Diễn tập khôi phục trên VPS mới: OPEN
-- Lần diễn tập ngày 04/08/2026 ở trên diễn ra trên môi trường Docker của máy Mac cũ (`DOC HISTORICAL`).
-- Trên máy chủ VPS Vietnix mới (`222.255.214.133`), **chưa có đợt diễn tập khôi phục thực tế nào được thực hiện** (`RUNTIME OPEN`). Cần lên lịch diễn tập định kỳ nạp thử bản backup nightly vào một container Postgres/GoTrue độc lập để nghiệm thu toàn trình.
-
-## Lưu ý về cơ chế Rollback
-- Cơ chế rollback tự động trong `scripts/deploy-backend.sh` là **application release/image rollback** (quay lui container Docker API/Dashboard, source code checkout và env snapshot về bản release trước).
-- **Cơ chế này KHÔNG tự động rollback các thay đổi DDL/migration đã áp dụng vào Database.** Mọi migration DDL áp dụng lên database phải được kiểm soát chặt chẽ tính tương thích ngược (additive), và phải có bản sao lưu cơ sở dữ liệu ngay trước khi chạy migration.
-
 ## Còn hở, chưa làm
-1. **Bản lưu chỉ nằm trên đúng ổ đĩa của máy chủ.** Ổ VPS hỏng là mất cả hệ thống lẫn bản lưu. Cần một bản chép sang nơi khác (R2/S3 — script đã có sẵn đường đẩy qua `rclone`, chưa cấu hình off-host).
-2. **Diễn tập khôi phục trên VPS mới (OPEN):** Cần diễn tập khôi phục hoàn chỉnh cả data lâm sàng lẫn auth identities trên VPS.
-3. **Mất tối đa 24 giờ:** Muốn ngắn hơn thì tăng số lần chạy trong ngày — dump chỉ vài trăm KB nên chạy mỗi 6 giờ là rất nhẹ.
+
+1. **Bản lưu chỉ nằm trên đúng ổ đĩa của máy Mac.** Mac hỏng là mất cả hệ thống
+   lẫn bản lưu. Cần một bản chép sang nơi khác (ổ ngoài, hoặc R2/S3 — script đã
+   có sẵn đường đẩy qua `rclone`, chưa cấu hình).
+2. **FileVault đang Tắt.** Ổ đĩa không mã hoá, mà trong đó có bệnh án thật của
+   bệnh nhân thật. Chỉ Quang bật được (cần mật khẩu máy).
+3. **Mất tối đa 24 giờ.** Muốn ngắn hơn thì tăng số lần chạy trong ngày — dump
+   chỉ 20MB nên chạy mỗi 6 giờ là rẻ.
+4. **Chưa ai diễn tập khôi phục vào một project Supabase thật**, mới chỉ vào
+   Postgres trắng. Phần `auth` là phần duy nhất chưa được kiểm đầu-cuối.

@@ -1,0 +1,1 @@
+{"name":"clinicai-product-prototype","private":true,"version":"0.1.0","type":"module","scripts":{"dev":"vite --host 127.0.0.1 --port 8770","build":"vite build"},"dependencies":{"lucide-react":"^1.28.0","react":"^19.2.8","react-dom":"^19.2.8","react-router-dom":"^7.18.2"},"devDependencies":{"@vitejs/plugin-react":"^6.0.4","typescript":"~6.0.2","vite":"^8.2.0"}}

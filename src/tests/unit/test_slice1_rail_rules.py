@@ -96,8 +96,9 @@ def test_mien_hoac_theo_doi_het_thi_khong_goi_khach_ve_doc() -> None:
 
 
 def test_lam_ben_ngoai_hoac_nhom_ket_qua_can_ket_qua() -> None:
+    # lam_ben_ngoai mặc định FOLLOW_UP để không giữ lượt khám chờ
     assert rules.need_mac_dinh(lam_ben_ngoai=True, flow_group="dich_vu") == (
-        "VALID_RESULT"
+        "FOLLOW_UP"
     )
     assert rules.need_mac_dinh(lam_ben_ngoai=False, flow_group="ket_qua") == (
         "VALID_RESULT"

@@ -404,16 +404,14 @@ export default function ClinicConfigBoard({
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <Users size={18} className="shrink-0 text-brand-600" />
           <h2 className="text-base font-semibold text-ink">
-            Ai làm được bước nào
+            Ai được vận hành bước nào
           </h2>
           <span className="ml-auto text-xs text-ink-muted">
             {staff.length} người
           </span>
         </header>
         <p className="border-b border-line px-4 py-2 text-xs text-ink-muted">
-          Bác sĩ khám cả 5 chuyên khoa, hay chỉ 2–3, hay chỉ siêu âm — đánh dấu
-          ở đây. Không đánh dấu gì là hợp lệ: lễ tân và thu ngân không đảm nhiệm
-          bước khám nào.
+          Cấu hình phân công nhân sự: bác sĩ khám chuyên khoa / siêu âm, hoặc điều dưỡng được vận hành siêu âm / thủ thuật — đánh dấu ở đây. Quyền có hiệu lực ngay khi lưu.
         </p>
         <ul className="divide-y divide-brand-100">
           {staff.map((s) => (

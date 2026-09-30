@@ -11,6 +11,9 @@
 
 **Setup đã làm (tất cả trên Mac mini, KHÔNG đụng Vercel):**
 - **Clone RIÊNG** `~/clinic-server/Clinic-AI-Dr4Women` (nhánh `chinh`), tách hẳn folder dev. `.env` (secret, KHÔNG commit) trỏ **Supabase ATF `atfmxvdfnbeenrdbbllp`** = ĐÚNG project Vercel/khách đang dùng (KHÁC folder dev đang dùng fzw). `CHECKPOINTER_BACKEND=postgres`. Đổi DB → phải rebuild dashboard (URL Supabase baked lúc build).
+
+> ℹ️ *Ghi chú 23/08/2026: project Supabase cloud `atfmxvdfnbeenrdbbllp` nhắc ở dòng trên **đã bị xoá vĩnh viễn**. Bản lưu cuối: `~/backups/atf-luu-vinh-vien-truoc-khi-xoa/`. Giữ nguyên văn bản gốc làm hồ sơ lịch sử.*
+
 - **Docker = Colima** (headless, thay Docker Desktop — chạy không cần đăng nhập GUI). Đã fix `~/.docker/config.json` bỏ `credsStore:desktop` (backup `.bak-*`).
 - **Compose prod** `docker-compose.prod.yml` (project `clinicai_prod`: `clinicai_prod-api-1` + `clinicai_prod-dashboard-1`, KHÔNG đụng project dev). Chạy: `docker compose -f docker-compose.prod.yml up -d`. Dashboard build cần lock synced (đã fix playwright) + `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`.
 - **Tailscale Funnel** phơi `:3000` (DASHBOARD/web; api :8000 chỉ nội bộ) — tài khoản là **`nguyencongtuyenlp@github`** (tailnet `nguyencongtuyenlp.github`, suffix `tailc94236.ts.net`), MagicDNS+HTTPS+Funnel đã bật. ⚠️ Tài khoản Tailscale/máy là của Tuyền (GitHub login) — sau nên chuyển sang tài khoản công ty.

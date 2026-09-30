@@ -20,6 +20,7 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "check-in": () => "/api/v1/luot-kham/check-in",
   "sinh-hieu": (id) => `/api/v1/luot-kham/visits/${id}/vitals`,
   "goi-do": (id) => `/api/v1/luot-kham/visits/${id}/goi-do`,
+  "bat-dau-sinh-hieu": (id) => `/api/v1/luot-kham/visits/${id}/start-vitals`,
   "nhan-kham": (id) => `/api/v1/luot-kham/consultations/${id}/start`,
   "ghi-chu": (id) => `/api/v1/luot-kham/consultations/${id}/notes`,
   "nhap-chi-dinh": (id) =>
@@ -29,6 +30,7 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "ket-thuc-kham": (id) => `/api/v1/luot-kham/consultations/${id}/complete`,
   "xep-phong": (id) => `/api/v1/luot-kham/orders/${id}/dispatch`,
   "bat-dau-dich-vu": (id) => `/api/v1/luot-kham/orders/${id}/start`,
+  "luu-nhap-dich-vu": (id) => `/api/v1/luot-kham/orders/${id}/draft`,
   "xong-dich-vu": (id) => `/api/v1/luot-kham/orders/${id}/complete`,
   // Nút "Đã khám xong" — máy chủ tự chọn kết quả phiên theo chỉ định còn lại.
   "kham-xong": (id) => `/api/v1/luot-kham/consultations/${id}/kham-xong`,

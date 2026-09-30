@@ -1,0 +1,6 @@
+import React,{createContext,useContext,useEffect,useRef,useState}from'react';import{seed,command}from'./model.mjs';
+const C=createContext(null),KEY='clinicai-product-v1';
+function read(){try{const d=JSON.parse(localStorage.getItem(KEY));return d?.settings&&d?.users?d:seed()}catch{return seed()}}
+export function ClinicProvider({role,children}){const[data,setData]=useState(read),[toast,setToast]=useState(''),ref=useRef(data);useEffect(()=>{ref.current=data},[data]);useEffect(()=>{const handler=e=>{if(e.key===KEY){const d=read();ref.current=d;setData(d)}};window.addEventListener('storage',handler);return()=>window.removeEventListener('storage',handler)},[]);useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t)},[toast]);
+const act=(type,payload={})=>{const current=read();const r=command(current,type,payload,role);if(r.ok){localStorage.setItem(KEY,JSON.stringify(r.data));ref.current=r.data;setData(r.data)}setToast(r.error||r.message||'Đã lưu');return r};const reset=()=>{let d=seed();localStorage.setItem(KEY,JSON.stringify(d));setData(d);setToast('Đã khôi phục dữ liệu mẫu')};return <C.Provider value={{data,act,notify:setToast,reset,role}}>{children}{toast&&<div role="status" className="toast">{toast}</div>}</C.Provider>}
+export const useClinic=()=>useContext(C);

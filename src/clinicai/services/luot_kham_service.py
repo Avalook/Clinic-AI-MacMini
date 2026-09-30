@@ -87,6 +87,10 @@ PERFORMER_ROLES = frozenset(
 #: (Xong) — y như ở bàn khám bác sĩ chính. Chuyên môn vẫn là của bác sĩ: node
 #: giữ actor_roles = DOCTOR, và bác sĩ bấm Xong thì được ghi là người thực hiện.
 HO_TRO_PHONG = frozenset({ClinicRole.NURSE_ULTRASOUND, ClinicRole.TKYK})
+#: Node thủ thuật: bác sĩ chỉ XEM, điều dưỡng thao tác (Tuyền chốt 21/09/2026).
+PROCEDURE_NODES = frozenset(
+    {"DICHVU-THUTHUAT", "DICHVU-SANGLOC-COTUCUNG", "DICHVU-LAYMAU-AMDAO"}
+)
 # Ai đọc được nội dung khám (ghi chú, kết quả). Lễ tân và trưởng ca làm việc
 # với trạng thái, không cần đọc chữ bác sĩ viết.
 CLINICAL_READ_ROLES = frozenset(
@@ -212,6 +216,23 @@ def _theo_luat_xep_hang(rows: list[Any]) -> list[Any]:
     )
 
 
+def _la_thu_thuat(node_code: str | None) -> bool:
+    return node_code in PROCEDURE_NODES
+
+
+def _chan_bac_si_thu_thuat(identity: StaffIdentity, node_code: str | None) -> None:
+    """Bác sĩ ở phòng thủ thuật chỉ xem; điều dưỡng thao tác vận hành."""
+    if (
+        _la_thu_thuat(node_code)
+        and identity.co_vai({ClinicRole.DOCTOR})
+        and not identity.co_vai({ClinicRole.NURSE_ULTRASOUND, ClinicRole.MANAGEMENT})
+    ):
+        raise SafetyGateError(
+            "Bác sĩ chỉ xem tại phòng thủ thuật. "
+            "Điều dưỡng thực hiện thao tác vận hành."
+        )
+
+
 class LuotKhamService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -271,7 +292,8 @@ class LuotKhamService:
         )
         row = await conn.fetchrow(
             """
-            SELECT vitals_status, plan_check_status, route_decision, content_revision
+            SELECT vitals_status, plan_check_status, route_decision, content_revision,
+                   vitals_started_at, vitals_started_by::text AS vitals_started_by
               FROM encounter_flow
              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                FOR UPDATE
@@ -779,15 +801,51 @@ class LuotKhamService:
                                 WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
                                   AND r.status <> 'closed')
                AND NOT EXISTS (SELECT 1 FROM service_order o
+                                LEFT JOIN node_definition nd
+                                  ON nd.clinic_id = o.clinic_id
+                                 AND nd.code = o.node_code
                                 WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                                   AND o.exec_status IN ('authorized', 'assigned',
-                                                        'in_progress'))
+                                                        'in_progress')
+                                  AND NOT (
+                                      coalesce(nd.lam_ben_ngoai, false)
+                                      AND EXISTS (
+                                          SELECT 1 FROM follow_up_case fc
+                                           WHERE fc.clinic_id = o.clinic_id
+                                             AND fc.service_order_id = o.id
+                                             AND fc.status = 'OPEN'
+                                      )
+                                  ))
             """,
             cid,
             vid,
         )
         if not xong:
             return False
+
+        # Khi external order đã chuyển FOLLOW_UP:
+        # queue_entry SERVICE còn waiting/called/blocked phải được loại khỏi
+        # hàng chờ vật lý để không giữ patient busy/current location.
+        await conn.execute(
+            """
+            UPDATE queue_entry q
+               SET status = 'cancelled', updated_at = now(), version = q.version + 1
+              FROM service_order o
+              JOIN node_definition nd
+                ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
+              JOIN follow_up_case fc
+                ON fc.clinic_id = o.clinic_id AND fc.service_order_id = o.id
+             WHERE q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+               AND q.ref_id = o.id AND q.reason = 'SERVICE'
+               AND q.status NOT IN ('done', 'left', 'cancelled')
+               AND coalesce(nd.lam_ben_ngoai, false)
+               AND fc.status = 'OPEN'
+            """,
+            cid,
+            vid,
+        )
+        await self._release_blocked(conn, cid, vid)
+
         await conn.execute(
             """
             UPDATE encounter_flow f
@@ -926,6 +984,22 @@ class LuotKhamService:
                 # không giữ chữ (audit.py: "never clinical text").
             },
         )
+        # Khi order đã chuyển FOLLOW_UP:
+        # queue_entry SERVICE còn waiting/called/blocked phải được loại khỏi
+        # hàng chờ vật lý để không giữ patient busy/current location.
+        await conn.execute(
+            """
+            UPDATE queue_entry
+               SET status = 'cancelled', updated_at = now(), version = version + 1
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND ref_id = $3::uuid AND reason = 'SERVICE'
+               AND status NOT IN ('done', 'left', 'cancelled')
+            """,
+            cid,
+            vid,
+            oid,
+        )
+        await self._release_blocked(conn, cid, vid)
         return str(fid)
 
     async def _services(
@@ -1140,6 +1214,9 @@ class LuotKhamService:
                        p.full_name, p.patient_code, d.full_name AS doctor_name,
                        f.vitals_status, f.route_decision, f.finished_at,
                        f.goi_do_luc, g.full_name AS goi_do_boi,
+                       f.vitals_started_at,
+                       f.vitals_started_by::text AS vitals_started_by,
+                       vs.full_name AS vitals_started_by_name,
                        ap.so_tiep_don
                   FROM visit v
                   JOIN patient p
@@ -1149,6 +1226,7 @@ class LuotKhamService:
                   LEFT JOIN encounter_flow f
                     ON f.visit_id = v.visit_id AND f.clinic_id = v.clinic_id
                   LEFT JOIN staff g ON g.id = f.goi_do_boi
+                  LEFT JOIN staff vs ON vs.id = f.vitals_started_by
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE v.clinic_id = $1::uuid
@@ -1342,6 +1420,9 @@ class LuotKhamService:
                 "sinh_hieu_trang_thai": v["vitals_status"] or "pending",
                 "goi_do_luc": _iso(v["goi_do_luc"]),
                 "goi_do_boi": v["goi_do_boi"],
+                "vitals_started_at": _iso(v["vitals_started_at"]),
+                "vitals_started_by": v["vitals_started_by"],
+                "vitals_started_by_name": v["vitals_started_by_name"],
                 "so_tiep_don": v["so_tiep_don"],
                 "dich": v["route_decision"],
                 "ket_thuc_luc": _iso(v["finished_at"]),
@@ -1665,6 +1746,7 @@ class LuotKhamService:
                        o.service_code, o.node_code, o.exec_status,
                        o.result_note, o.ket_qua_luc, o.duyet_luc,
                        o.not_performed_reason, pf.full_name AS nguoi_lam,
+                       coalesce(o.version, 1) AS order_version,
                        v.status AS visit_status, v.finalized_at,
                        fb.full_name AS nguoi_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
@@ -1756,6 +1838,7 @@ class LuotKhamService:
                 # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
                 "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,
                 "ly_do_khong_lam": r["not_performed_reason"],
+                "phien_ban": r["order_version"],
             }
             for r in _theo_luat_xep_hang(rows)
             # Người đã xong chỉ giữ của hôm nay.
@@ -2003,6 +2086,44 @@ class LuotKhamService:
                 payload={"visit_id": vid},
             )
         return {"ok": True, "lan_goi_lai": bool(lan_goi_lai)}
+
+    async def start_vitals(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Điều dưỡng bấm BẮT ĐẦU ĐO sinh hiệu. Idempotent — bấm lại không reset giờ."""
+        _require(identity, VITALS_ROLES, "Vai của bạn không đo sinh hiệu được.")
+        cid = identity.clinic_id
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await self._lock_visit(conn, cid, vid)
+            flow = await self._lock_flow(conn, cid, vid)
+            if flow["vitals_status"] == "recorded":
+                raise LuotKhamConflictError(
+                    "VITALS_DONE", "Khách này đã đo sinh hiệu rồi."
+                )
+            if flow["vitals_started_at"] is not None:
+                return {"ok": True, "already": True}
+            await conn.execute(
+                """
+                UPDATE encounter_flow
+                   SET vitals_started_at = now(), vitals_started_by = $3::uuid,
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                """,
+                cid,
+                vid,
+                identity.staff_id,
+            )
+            await record_event(
+                conn,
+                event_type="vitals.started",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid},
+            )
+        return {"ok": True}
 
     async def dong_bo_sinh_hieu_tu_ho_so(
         self, conn: asyncpg.Connection, identity: StaffIdentity, visit_id: str
@@ -3236,6 +3357,18 @@ class LuotKhamService:
                 await self._lock_visit(conn, cid, vid)
             except (NotFoundError, LuotKhamConflictError):
                 return
+            # Defense-in-depth: external order -> skip evaluate/close.
+            la_ngoai = await conn.fetchval(
+                "SELECT coalesce(nd.lam_ben_ngoai, false)"
+                "  FROM service_order o"
+                "  LEFT JOIN node_definition nd"
+                "    ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code"
+                " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+                cid,
+                oid,
+            )
+            if la_ngoai:
+                return
             await self._evaluate_rounds(conn, identity, vid)
             await self._ket_thuc_neu_xong(conn, identity, vid)
             await self._cap_nhat_vi_tri(conn, cid, vid)
@@ -4055,7 +4188,85 @@ class LuotKhamService:
         duoc = set(o["actor_roles"] or []) | {v.value for v in HO_TRO_PHONG}
         if not set(identity.ds_vai()) & duoc:
             raise SafetyGateError("Vai của bạn không thực hiện được dịch vụ này.")
+        if identity.co_vai({ClinicRole.NURSE_ULTRASOUND}) and not identity.co_vai(
+            {ClinicRole.MANAGEMENT}
+        ):
+            has_node = await conn.fetchval(
+                """
+                SELECT 1 FROM public.staff_node
+                 WHERE clinic_id = $1::uuid
+                   AND staff_id = $2::uuid
+                   AND node_code = $3
+                """,
+                identity.clinic_id,
+                identity.staff_id,
+                o["node_code"],
+            )
+            if not has_node:
+                raise SafetyGateError(
+                    "Bạn chưa được phân công vận hành bước này. "
+                    "Vui lòng liên hệ quản lý để cấu hình."
+                )
         return o
+
+    async def save_service_draft(
+        self,
+        *,
+        order_id: str,
+        result_note: str | None,
+        expected_version: int,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Lưu nháp nội dung kết quả dịch vụ với optimistic concurrency control."""
+        _require(identity, PERFORMER_ROLES, "Vai của bạn không thực hiện dịch vụ.")
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        ghi = (result_note or "").strip() if isinstance(result_note, str) else ""
+        if len(ghi) > 20000:
+            raise ValidationError("Nội dung quá dài.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            vid = await self._visit_of(conn, "service_order", cid, oid)
+            await self._lock_visit(conn, cid, vid)
+            o = await self._order_for_performer(conn, identity, oid)
+            _chan_bac_si_thu_thuat(identity, o["node_code"])
+            if o["exec_status"] != "in_progress":
+                raise LuotKhamConflictError(
+                    "ORDER_NOT_IN_PROGRESS", "Dịch vụ này chưa bắt đầu hoặc đã xong."
+                )
+            cur_version = await conn.fetchval(
+                """
+                SELECT version FROM service_order
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                   FOR UPDATE
+                """,
+                cid,
+                oid,
+            )
+            if cur_version != expected_version:
+                raise LuotKhamConflictError(
+                    "VERSION_MISMATCH",
+                    f"Dữ liệu đã được người khác thay đổi (phiên bản máy chủ là "
+                    f"{cur_version}, bản gửi lên là {expected_version}). "
+                    "Vui lòng tải lại trước khi lưu.",
+                )
+            new_version = cur_version + 1
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET result_note = nullif($3, ''),
+                       ket_qua_luc = CASE WHEN nullif($3, '') IS NOT NULL
+                                          THEN coalesce(ket_qua_luc, now())
+                                          ELSE ket_qua_luc END,
+                       version = $4,
+                       updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                cid,
+                oid,
+                ghi,
+                new_version,
+            )
+        return {"ok": True, "order_id": oid, "version": new_version}
 
     async def start_service(
         self, *, order_id: str, identity: StaffIdentity
@@ -4067,6 +4278,7 @@ class LuotKhamService:
             vid = await self._visit_of(conn, "service_order", cid, oid)
             await self._lock_visit(conn, cid, vid)
             o = await self._order_for_performer(conn, identity, oid)
+            _chan_bac_si_thu_thuat(identity, o["node_code"])
             if (
                 o["exec_status"] == "in_progress"
                 and o["performed_by"] == identity.staff_id
@@ -4098,17 +4310,27 @@ class LuotKhamService:
                     "PATIENT_BUSY",
                     "Khách đang ở một bước khác, chưa làm dịch vụ này được.",
                 )
+            # Thủ thuật: điều dưỡng Bắt đầu không gán performed_by — chờ nguồn
+            # chính xác (hiện chưa có, để NULL).
+            is_thu_thuat = _la_thu_thuat(o["node_code"])
+            actor_roles = set(o["actor_roles"] or [])
+            cap_nhat_performer = (not is_thu_thuat) and bool(
+                set(identity.ds_vai()) & actor_roles
+            )
+            performer = identity.staff_id if cap_nhat_performer else None
             await conn.execute(
                 """
                 UPDATE service_order
-                   SET exec_status = 'in_progress', performed_by = $3::uuid,
+                   SET exec_status = 'in_progress',
+                       performed_by = CASE WHEN $3::uuid IS NOT NULL THEN $3::uuid
+                                           ELSE performed_by END,
                       started_at = now(),
                        version = version + 1, updated_at = now()
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
                 """,
                 cid,
                 oid,
-                identity.staff_id,
+                performer,
             )
             await conn.execute(
                 "UPDATE queue_entry SET status = 'serving', serving_at = now(),"
@@ -4152,10 +4374,15 @@ class LuotKhamService:
             vid = await self._visit_of(conn, "service_order", cid, oid)
             await self._lock_visit(conn, cid, vid)
             o = await self._order_for_performer(conn, identity, oid)
+            _chan_bac_si_thu_thuat(identity, o["node_code"])
             if o["exec_status"] != "in_progress":
                 raise LuotKhamConflictError(
                     "ORDER_NOT_IN_PROGRESS", "Dịch vụ này chưa bắt đầu hoặc đã xong."
                 )
+            is_thu_thuat = _la_thu_thuat(o["node_code"])
+            cap_nhat_performer = (not is_thu_thuat) and bool(
+                set(identity.ds_vai()) & set(o["actor_roles"] or [])
+            )
             await conn.execute(
                 """
                 UPDATE service_order
@@ -4177,7 +4404,7 @@ class LuotKhamService:
                 "performed" if performed else "not_performed",
                 ghi,
                 ly_do,
-                bool(set(identity.ds_vai()) & set(o["actor_roles"] or [])),
+                cap_nhat_performer,
                 identity.staff_id,
             )
             if not performed:
