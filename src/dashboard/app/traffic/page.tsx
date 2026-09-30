@@ -81,9 +81,11 @@ export default function DirectTrafficPage() {
     const savedU = sessionStorage.getItem("dr4women_traffic_u");
     const savedP = sessionStorage.getItem("dr4women_traffic_p");
     if (savedU && savedP) {
+      // Nạp lại từ sessionStorage (dữ liệu ngoài) — cùng mẫu ChonDichVuKham.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsername(savedU);
       setPassword(savedP);
-      handleLogin(savedU, savedP);
+      void handleLogin(savedU, savedP);
     }
   }, [handleLogin]);
 
