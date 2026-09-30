@@ -26,6 +26,7 @@ import NutCheckOut from "../_lam-viec/NutCheckOut";
 import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
+import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import PhuThuKem from "./PhuThuKem";
 import { useNgheBang } from "../dung-nghe-bang";
@@ -143,6 +144,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     ten: string | null;
     cau: string;
   } | null>(null);
+  // Mã lần thu vừa ghi — nút "In phiếu thu" (có phòng làm dịch vụ) ngay dưới
+  // câu "Đã thu…" (Tuyền 30/09/2026: in bill cho khách cầm đi theo).
+  const [phieuVuaThu, setPhieuVuaThu] = useState<string | null>(null);
 
   const doc = useCallback(async () => {
     try {
@@ -206,6 +210,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       setLoi(null);
       setXong(null);
       setVuaThu(null);
+      setPhieuVuaThu(null);
       let daThuThat = false;
       try {
         // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
@@ -219,12 +224,13 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         });
         if (r.ok && thaoTac) xongThaoTac(thaoTac);
         const d = (await r.json().catch(() => null)) as
-          | { error?: string; message?: string; status?: string }
+          | { error?: string; message?: string; status?: string; payment_cycle_id?: string | null }
           | null;
         if (!r.ok) {
           setLoi(d?.message ?? d?.error ?? "Không ghi được.");
         } else {
           daThuThat = d?.status !== "PENDING_VERIFICATION";
+          if (daThuThat && d?.payment_cycle_id) setPhieuVuaThu(d.payment_cycle_id);
           setXong(
             d?.status === "PENDING_VERIFICATION"
               ? "Đã ghi CHỜ XÁC MINH — chưa tính là đã thu cho tới khi nhập mã giao dịch."
@@ -410,6 +416,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           {/* SAU "ĐÃ NHẬN ĐỦ" (27/09/2026, đợt 3): khách thường về ngay sau
               quầy thu — mời check-out tại chỗ thay vì phải nhớ mở màn Check-out.
               CHỈ tài khoản có quyền đóng lượt thấy nút (NutCheckOut tự ẩn). */}
+          {vuaThu && vuaThu.cau === xong && phieuVuaThu ? (
+            <NutInPhieu href={`/print/phieu-thu/${phieuVuaThu}?loai=thu`} size="md">
+              In phiếu thu (có phòng làm dịch vụ)
+            </NutInPhieu>
+          ) : null}
           {vuaThu && vuaThu.cau === xong ? (
             <NutCheckOut
               key={vuaThu.visitId}

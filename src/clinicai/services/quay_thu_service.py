@@ -666,6 +666,45 @@ SELECT bl.id::text AS id, bl.payment_cycle_id::text AS cycle_id, bl.source_id,
  ORDER BY bl.source_type = 'exam' DESC, bl.created_at, bl.id
 """
 
+#: Phòng của từng chỉ định trong lượt — để IN trên bill (30/09/2026). Đã xếp
+#: (ASSIGNED) thì phòng thật; chưa xếp thì phòng dự kiến (quầy / trưởng ca chọn
+#: trước) nếu có.
+_PHONG_CHI_DINH_SQL = """
+SELECT o.id::text AS id,
+       coalesce(rr.name, rd.name) AS ten_phong,
+       coalesce(rr.floor, rd.floor) AS tang,
+       (rr.id IS NULL AND rd.id IS NOT NULL) AS du_kien
+  FROM service_order o
+  LEFT JOIN clinic_room rr
+    ON rr.id = o.room_id AND rr.clinic_id = o.clinic_id
+   AND coalesce(o.routing_status, '') = 'ASSIGNED'
+  LEFT JOIN clinic_room rd
+    ON rd.id = o.phong_du_kien_id AND rd.clinic_id = o.clinic_id
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+"""
+
+
+def _phong_cua_dong(
+    dong: Mapping[str, Any], phong: Mapping[str, Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Phòng in kèm một dòng bill. Thuần. Chỉ dòng DỊCH VỤ (chỉ định) có phòng;
+    tiền khám / phụ thu / thuốc không có. Chỉ định chưa có phòng nào (máy vừa
+    thu, đang tự xếp) → ``cho_xep`` để bản in hỏi lại sau giây lát."""
+    if dong.get("source_type") != "service_order":
+        return {}
+    r = phong.get(str(dong.get("source_id")))
+    if r is None or not r["ten_phong"]:
+        return {"phong": None, "cho_xep": True}
+    return {
+        "phong": {
+            "ten": r["ten_phong"],
+            "tang": r["tang"],
+            "du_kien": bool(r["du_kien"]),
+        },
+        "cho_xep": False,
+    }
+
+
 #: Dịch vụ khách trả TRỰC TIẾP cho đối tác của các lượt (giá tham khảo).
 _DOI_TAC_SQL = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name AS ten,
@@ -973,11 +1012,24 @@ class QuayThuService:
                 ]
                 doi_tac: list[dict[str, Any]] = []
             else:
+                # PHÒNG làm dịch vụ in ngay trên bill (Tuyền 30/09/2026: "in thêm
+                # cả cái phòng chỉ định ra bill luôn cho khách nhìn và đi theo").
+                phong = (
+                    {
+                        str(r["id"]): r
+                        for r in await conn.fetch(
+                            _PHONG_CHI_DINH_SQL, cid, goc["visit_id"]
+                        )
+                    }
+                    if goc["kind"] == "dich_vu"
+                    else {}
+                )
                 dong = [
                     {
                         "ten": r["ten"],
                         "so_luong": float(r["so_luong"]),
                         "thanh_tien": _so(r["thanh_tien"]),
+                        **_phong_cua_dong(r, phong),
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]
