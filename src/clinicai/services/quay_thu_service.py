@@ -673,7 +673,15 @@ _PHONG_CHI_DINH_SQL = """
 SELECT o.id::text AS id,
        coalesce(rr.name, rd.name) AS ten_phong,
        coalesce(rr.floor, rd.floor) AS tang,
-       (rr.id IS NULL AND rd.id IS NOT NULL) AS du_kien
+       (rr.id IS NULL AND rd.id IS NOT NULL) AS du_kien,
+       rr.id::text AS room_id,
+       o.routing_revision,
+       -- Đổi phòng ngay trên trang phiếu (30/09/2026): khách đã chốt, chưa bắt
+       -- đầu làm, chưa huỷ / không làm. Máy chủ vẫn gác lại khi gửi lệnh.
+       (o.selection_status = 'SELECTED'
+        AND o.exec_status NOT IN ('in_progress', 'performed', 'cancelled',
+                                  'not_performed', 'draft')
+        AND coalesce(o.execution_status, 'PENDING') = 'PENDING') AS doi_duoc
   FROM service_order o
   LEFT JOIN clinic_room rr
     ON rr.id = o.room_id AND rr.clinic_id = o.clinic_id
@@ -693,8 +701,19 @@ def _phong_cua_dong(
     if dong.get("source_type") != "service_order":
         return {}
     r = phong.get(str(dong.get("source_id")))
+    # Để trang phiếu cho XẾP / ĐỔI phòng rồi in lại (quên chọn phòng lúc thu).
+    xep: dict[str, Any] = (
+        {
+            "order_id": str(dong.get("source_id")),
+            "room_id": r.get("room_id"),
+            "routing_revision": r.get("routing_revision"),
+            "doi_phong_duoc": bool(r.get("doi_duoc")),
+        }
+        if r is not None
+        else {}
+    )
     if r is None or not r["ten_phong"]:
-        return {"phong": None, "cho_xep": True}
+        return {"phong": None, "cho_xep": True, **xep}
     return {
         "phong": {
             "ten": r["ten_phong"],
@@ -702,6 +721,7 @@ def _phong_cua_dong(
             "du_kien": bool(r["du_kien"]),
         },
         "cho_xep": False,
+        **xep,
     }
 
 
