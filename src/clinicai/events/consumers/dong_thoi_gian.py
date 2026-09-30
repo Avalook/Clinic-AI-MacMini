@@ -55,6 +55,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành
     # trưởng ca gõ, Tuyền cần nó hiện ở lịch sử lượt.
     "service.room_transferred": ["from_room_id", "room_id", "ly_do", "nguon"],
+    # Chọn bác sĩ trong phòng nhiều bác sĩ (30/09/2026): chỉ mã, không chữ.
+    "service.doctor_chosen": ["room_id", "bac_si_id", "lan", "tu_dong", "nguon"],
     "service_order.required_changed": ["bat_buoc"],
     "service_order.carried_over": ["service_code", "da_thu_tien"],
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.

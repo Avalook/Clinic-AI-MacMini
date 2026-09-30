@@ -28,11 +28,14 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonBacSiLam";
 
 export interface PhongChonDuoc {
   id: string;
   ten: string;
   dang_cho: number;
+  /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
+  bac_si?: LuaChonBacSi[];
 }
 
 export interface ChiDinhChoQuyet {
@@ -42,6 +45,8 @@ export interface ChiDinhChoQuyet {
   gia: number | null;
   mang_sang: boolean;
   phong_du_kien_id?: string | null;
+  /** Bác sĩ quầy đã chọn trong phòng nhiều bác sĩ. */
+  bac_si_lam_id?: string | null;
   phong_chon_duoc?: PhongChonDuoc[];
   /** Làm bên ngoài — việc tự sang bàn đối tác (sự kiện). */
   doi_tac?: boolean;
@@ -86,6 +91,10 @@ export default function ChonDichVu({
   const [phong, setPhong] = useState<Record<string, string>>(() =>
     Object.fromEntries(cho.chi_dinh.map((c) => [c.id, c.phong_du_kien_id ?? ""])),
   );
+  // Bác sĩ trong phòng nhiều bác sĩ ("" = bác sĩ nào rảnh cũng được).
+  const [bacSi, setBacSi] = useState<Record<string, string>>(() =>
+    Object.fromEntries(cho.chi_dinh.map((c) => [c.id, c.bac_si_lam_id ?? ""])),
+  );
   const [dang, setDang] = useState(false);
 
   if (!mo) {
@@ -101,9 +110,13 @@ export default function ChonDichVu({
     );
   }
 
+  const bsCuaPhong = (c: ChiDinhChoQuyet, roomId: string) =>
+    (c.phong_chon_duoc ?? []).find((ph) => ph.id === roomId)?.bac_si;
+
   const chot = async (
     chonMoi: Set<string> = chon,
     phongMoi: Record<string, string> = phong,
+    bacSiMoi: Record<string, string> = bacSi,
   ) => {
     setDang(true);
     const ds = cho.chi_dinh.map((c) => c.id);
@@ -140,14 +153,20 @@ export default function ChonDichVu({
         const loiPhong: string[] = [];
         for (const c of cho.chi_dinh) {
           const muon = phongMoi[c.id] ?? "";
-          if (!chonMoi.has(c.id) || muon === (c.phong_du_kien_id ?? "")) continue;
+          const bs = bacSiMoi[c.id] ?? "";
+          const doiPhong = muon !== (c.phong_du_kien_id ?? "");
+          const doiBs = bs !== (c.bac_si_lam_id ?? "");
+          if (!chonMoi.has(c.id) || (!doiPhong && !doiBs)) continue;
+          // Bác sĩ chỉ gửi khi phòng có ô chọn (≥2 bác sĩ); không gửi thì máy
+          // chủ giữ / tự gán phòng một bác sĩ.
+          const coBs = muon !== "" && coChonBacSi(bsCuaPhong(c, muon));
           const rp = await fetch("/api/luot-kham", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               thao_tac: "phong-du-kien",
               id: c.id,
-              du_lieu: { room_id: muon || null },
+              du_lieu: { room_id: muon || null, ...(coBs ? { bac_si_lam_id: bs || null } : {}) },
             }),
           });
           if (!rp.ok) {
@@ -171,11 +190,13 @@ export default function ChonDichVu({
         // Không lưu được → trả ô tick về như cũ, khỏi hiện sai với hoá đơn.
         setChon(chon);
         setPhong(phong);
+        setBacSi(bacSi);
         await onXong(null, d?.message ?? d?.error ?? "Không chốt được dịch vụ.");
       }
     } catch {
       setChon(chon);
       setPhong(phong);
+      setBacSi(bacSi);
       await onXong(null, "Mất kết nối — CHƯA chốt được dịch vụ khách làm.");
     } finally {
       setDang(false);
@@ -245,8 +266,11 @@ export default function ChonDichVu({
                   disabled={dang}
                   onChange={(e) => {
                     const moi = { ...phong, [c.id]: e.target.value };
+                    // Đổi phòng → bỏ bác sĩ của phòng cũ (máy chủ cũng xoá).
+                    const bsMoi = { ...bacSi, [c.id]: "" };
                     setPhong(moi);
-                    void chot(chon, moi);
+                    setBacSi(bsMoi);
+                    void chot(chon, moi, bsMoi);
                   }}
                   className="min-h-10 rounded-control border border-line bg-surface px-2 text-body text-ink"
                 >
@@ -257,6 +281,21 @@ export default function ChonDichVu({
                     </option>
                   ))}
                 </select>
+                {(() => {
+                  const ds = bsCuaPhong(c, phong[c.id] ?? "");
+                  return coChonBacSi(ds) ? (
+                    <ChonBacSiLam
+                      ds={ds}
+                      value={bacSi[c.id] ?? ""}
+                      disabled={dang}
+                      onChon={(id) => {
+                        const bsMoi = { ...bacSi, [c.id]: id };
+                        setBacSi(bsMoi);
+                        void chot(chon, phong, bsMoi);
+                      }}
+                    />
+                  ) : null;
+                })()}
               </label>
             ) : null}
           </li>

@@ -100,6 +100,13 @@ export default function HangChoCot({
                           {d.viec ?? d.dich_vu_kham ?? "—"}
                           {d.loai === "KHAM" && d.bac_si ? ` · ${d.bac_si}` : ""}
                         </span>
+                        {/* Phòng nhiều bác sĩ: bác sĩ quầy chọn (30/09/2026) — dòng
+                            riêng để tên dịch vụ dài không che mất. */}
+                        {d.loai === "DICH_VU" && d.bac_si_lam ? (
+                          <span className="block truncate text-label font-semibold text-brand-700">
+                            {d.bac_si_lam}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="shrink-0 text-right text-label text-ink-muted">
                         {d.trang_thai === "done" ? gioVn(d.xong_luc) : phut}

@@ -286,6 +286,7 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang, o.bat_buoc,
        o.node_code, o.service_code,
        o.phong_du_kien_id::text AS phong_du_kien_id,
+       o.bac_si_lam_id::text AS bac_si_lam_id,
        -- Làm bên ngoài (đối tác): quầy nói ra "Đối tác làm" (24/09/2026).
        EXISTS (SELECT 1 FROM node_definition n
                 WHERE n.clinic_id = o.clinic_id AND n.code = o.node_code
@@ -380,6 +381,7 @@ async def cho_khach_quyet(
                 "mang_sang": bool(r["mang_sang"]),
                 "bat_buoc": bool(r["bat_buoc"]),
                 "phong_du_kien_id": r["phong_du_kien_id"],
+                "bac_si_lam_id": r["bac_si_lam_id"],
                 "doi_tac": bool(r["doi_tac"]),
                 "doi_tac_thu": bool(r["doi_tac_thu"]),
                 # Dịch vụ đối tác (27/09/2026): vẫn chọn phòng LẤY MẪU của phòng

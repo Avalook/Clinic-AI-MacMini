@@ -35,6 +35,7 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
 from clinicai.services.cashier_board_service import doc_khoang_ngay
 from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
+from clinicai.services.lan_bac_si import ten_bac_si
 
 # ---------------------------------------------------------------------------
 # Phòng chọn được
@@ -85,6 +86,7 @@ class PhongQuay:
     ) -> list[dict[str, Any]]:
         if not node:
             return []
+        from clinicai.services.lan_bac_si import can_chon_bac_si, lua_chon_bac_si
         from clinicai.services.service_routing_service import (
             co_so_cua_luot,
             eligible_rooms,
@@ -113,14 +115,24 @@ class PhongQuay:
                     service_code=service_code,
                 )
             )
+            # Phòng nhiều bác sĩ (30/09/2026): chọn phòng xong chọn tiếp bác
+            # sĩ trực hôm nay — chỉ khi ≥2 bác sĩ; lọc tiếp trên tập phòng này.
+            bac_si = await lua_chon_bac_si(
+                self._conn,
+                self._clinic_id,
+                [u["room_id"] for u in ung_vien],
+                tru_luot=visit_id,
+            )
             self._nho[khoa] = xep_vang_nhat(
                 [
                     {
                         "id": u["room_id"],
                         "ten": self._ten.get(u["room_id"], "Phòng"),
                         "dang_cho": u["queue_load"],
+                        "bac_si": ds if can_chon_bac_si(ds) else [],
                     }
                     for u in ung_vien
+                    for ds in [bac_si.get(u["room_id"], [])]
                 ]
             )
         return self._nho[khoa]
@@ -225,6 +237,7 @@ def dung_hoa_don_quay(
             "doi_tac_lam": bool(c.get("doi_tac")),
             "phong_chon_duoc": list(c.get("phong_chon_duoc") or []),
             "phong_du_kien_id": c.get("phong_du_kien_id"),
+            "bac_si_lam_id": c.get("bac_si_lam_id"),
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
         }
         if la_doi_tac:
@@ -686,6 +699,8 @@ SELECT o.id::text AS id,
        (rr.id IS NULL AND rd.id IS NOT NULL) AS du_kien,
        rr.id::text AS room_id,
        o.routing_revision,
+       -- Bác sĩ quầy chọn trong phòng nhiều bác sĩ (30/09/2026) — in "· BS X".
+       bl.full_name AS bac_si_lam,
        -- Đổi phòng ngay trên trang phiếu (30/09/2026): khách đã chốt, chưa bắt
        -- đầu làm, chưa huỷ / không làm. Máy chủ vẫn gác lại khi gửi lệnh.
        (o.selection_status = 'SELECTED'
@@ -698,6 +713,7 @@ SELECT o.id::text AS id,
    AND coalesce(o.routing_status, '') = 'ASSIGNED'
   LEFT JOIN clinic_room rd
     ON rd.id = o.phong_du_kien_id AND rd.clinic_id = o.clinic_id
+  LEFT JOIN staff bl ON bl.id = o.bac_si_lam_id
  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
 """
 
@@ -729,6 +745,8 @@ def _phong_cua_dong(
             "ten": r["ten_phong"],
             "tang": r["tang"],
             "du_kien": bool(r["du_kien"]),
+            # Phòng nhiều bác sĩ (30/09/2026): "→ Phòng siêu âm 2 máy · BS X".
+            **({"bac_si": ten_bac_si(r["bac_si_lam"])} if r.get("bac_si_lam") else {}),
         },
         "cho_xep": False,
         **xep,

@@ -18,7 +18,9 @@ from typing import Any
 
 import asyncpg
 
-LOAI_LICH_SU = ("service.routed", "service.room_transferred")
+from clinicai.services.lan_bac_si import ten_bac_si
+
+LOAI_LICH_SU = ("service.routed", "service.room_transferred", "service.doctor_chosen")
 
 #: Ai / từ màn nào — theo `nguon` của sự kiện.
 TEN_NGUON = {
@@ -48,10 +50,15 @@ def dong_lich_su(
     ten_phong: dict[str, str],
     luc: datetime | None,
     ai: str | None,
+    ten_nguoi: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Một dòng lịch sử — HÀM THUẦN. Payload thiếu trường / rác vẫn ra một dòng
-    đọc được (không ném)."""
+    đọc được (không ném). `ten_nguoi`: mã nhân sự → tên (dòng chọn bác sĩ)."""
     p = payload if isinstance(payload, dict) else {}
+    if loai == "service.doctor_chosen":
+        return _dong_chon_bac_si(
+            p, ten_phong=ten_phong, ten_nguoi=ten_nguoi or {}, luc=luc, ai=ai
+        )
     tu = p.get("from_room_id")
     den = p.get("room_id")
     tu_phong = ten_phong.get(str(tu)) if tu else None
@@ -88,6 +95,47 @@ def dong_lich_su(
     }
 
 
+def _dong_chon_bac_si(
+    p: dict[str, Any],
+    *,
+    ten_phong: dict[str, str],
+    ten_nguoi: dict[str, str],
+    luc: datetime | None,
+    ai: str | None,
+) -> dict[str, Any]:
+    """Dòng "chọn / đổi / bỏ bác sĩ" (phòng nhiều bác sĩ, 30/09/2026). Thuần."""
+    nguon = p.get("nguon") if isinstance(p.get("nguon"), str) else None
+    if p.get("tu_dong") and not nguon:
+        nguon = "tu_dong"
+    ten_nguon = TEN_NGUON.get(nguon or "", "Nhân viên")
+    moi, cu = p.get("bac_si_id"), p.get("tu_bac_si_id")
+    ten_moi = ten_bac_si(ten_nguoi.get(str(moi))) if moi else None
+    ten_cu = ten_bac_si(ten_nguoi.get(str(cu))) if cu else None
+    phong = ten_phong.get(str(p.get("room_id"))) if p.get("room_id") else None
+    if moi and cu:
+        viec = f"đổi bác sĩ {ten_cu} → {ten_moi}"
+    elif moi:
+        viec = f"chọn {ten_moi}"
+    else:
+        viec = f"bỏ chọn bác sĩ{f' ({ten_cu})' if ten_cu else ''}"
+    cau = f"{ten_nguon} {viec}"
+    if phong:
+        cau += f" · {phong}"
+    if nguon == "tu_dong":
+        cau += ": phòng chỉ có một bác sĩ trực"
+    return {
+        "luc": luc,
+        "loai": "service.doctor_chosen",
+        "nguon": nguon,
+        "ten_nguon": ten_nguon,
+        "ai": ai,
+        "tu_phong": None,
+        "den_phong": phong,
+        "ly_do": None,
+        "cau": cau,
+    }
+
+
 async def lich_su_phong_cua_luot(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> dict[str, list[dict[str, Any]]]:
@@ -112,6 +160,7 @@ async def lich_su_phong_cua_luot(
     )
     tai: list[tuple[str, str, datetime, dict[str, Any], str | None]] = []
     phong_ids: set[str] = set()
+    nguoi_ids: set[str] = set()
     for r in rows:
         p = r["payload"]
         if isinstance(p, str):
@@ -120,6 +169,9 @@ async def lich_su_phong_cua_luot(
         for k in ("from_room_id", "room_id"):
             if p.get(k):
                 phong_ids.add(str(p[k]))
+        for k in ("bac_si_id", "tu_bac_si_id"):
+            if p.get(k):
+                nguoi_ids.add(str(p[k]))
         tai.append((r["order_id"], r["event_type"], r["occurred_at"], p, r["ai"]))
     ten: dict[str, str] = {}
     if phong_ids:
@@ -132,10 +184,27 @@ async def lich_su_phong_cua_luot(
                 sorted(phong_ids),
             )
         }
+    ten_nguoi: dict[str, str] = {}
+    if nguoi_ids:
+        ten_nguoi = {
+            r["id"]: r["full_name"]
+            for r in await conn.fetch(
+                "SELECT id::text AS id, full_name FROM staff"
+                " WHERE id = ANY($1::uuid[])",
+                sorted(nguoi_ids),
+            )
+        }
     ra: dict[str, list[dict[str, Any]]] = {}
     for oid, loai, luc, p, ai in tai:
         ra.setdefault(oid, []).append(
-            dong_lich_su(loai=loai, payload=p, ten_phong=ten, luc=luc, ai=ai)
+            dong_lich_su(
+                loai=loai,
+                payload=p,
+                ten_phong=ten,
+                luc=luc,
+                ai=ai,
+                ten_nguoi=ten_nguoi,
+            )
         )
     return ra
 

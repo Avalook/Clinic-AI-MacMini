@@ -24,6 +24,7 @@ import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.bang_hanh_trinh_service import dang_o
+from clinicai.services.lan_bac_si import noi_lam
 
 XONG, DANG, CHUA = "xong", "dang", "chua"
 
@@ -296,7 +297,9 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "id": o.get("id"),
                 "ten": o.get("ten") or "",
                 "lan": o["lan"],
-                "noi": "Đối tác" if o["ngoai"] else (o["phong"] or "Phòng dịch vụ"),
+                "noi": "Đối tác"
+                if o["ngoai"]
+                else (noi_lam(o["phong"], o.get("bac_si_lam")) or "Phòng dịch vụ"),
                 "trang_thai": tt,
                 "gui": o["tao_luc"],
                 "thu": o.get("tra_luc") if o["da_tra"] else None,
@@ -326,6 +329,7 @@ _SQL_CHI_DINH = """
                o.selection_status, o.execution_status, o.ket_qua_luc,
                o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                o.started_at, o.finished_at, r.name AS phong,
+               bl.full_name AS bac_si_lam,
                coalesce(n.lam_ben_ngoai, false) AS ngoai,
                EXISTS (
                    SELECT 1 FROM payment_bill_line bl
@@ -356,6 +360,7 @@ _SQL_CHI_DINH = """
                           AND tt.huy_luc IS NULL) AS doi_tac_da_thu
           FROM service_order o
           LEFT JOIN clinic_room r ON r.id = o.room_id
+          LEFT JOIN staff bl ON bl.id = o.bac_si_lam_id
           LEFT JOIN node_definition n
             ON n.clinic_id = o.clinic_id AND n.code = o.node_code
          WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
@@ -379,6 +384,8 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         or r["nhan_mau_luc"] is not None
         or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
         "phong": r["phong"],
+        # Bác sĩ quầy chọn trong phòng nhiều bác sĩ (30/09/2026).
+        "bac_si_lam": r["bac_si_lam"],
         "ngoai": bool(r["ngoai"]),
         "tra_luc": r["tra_luc"],
         "bat_dau_luc": r["started_at"],

@@ -25,7 +25,7 @@ from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.service_execution_service import ServiceExecutionService
-from clinicai.services.service_routing_service import ServiceRoutingService
+from clinicai.services.service_routing_service import KHONG_DOI, ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
 from clinicai.services.sinh_hieu_service import SinhHieuService
 
@@ -715,6 +715,18 @@ class AssignRoomBody(BaseModel):
     recommendation_ref: str | None = Field(default=None, max_length=300)
     #: Màn gọi lệnh: quay_thu · truong_ca · khac (mặc định). Trưởng ca đè quầy thu.
     nguon: str | None = Field(default=None, max_length=20)
+    #: Bác sĩ trong phòng nhiều bác sĩ (30/09/2026). KHÔNG gửi = giữ lựa chọn
+    #: cũ; null / "" = bỏ chọn; mã = bác sĩ đang trực làn của phòng hôm nay.
+    bac_si_lam_id: Any = None
+
+
+def _bac_si_gui(body: BaseModel) -> Any:
+    """Trường `bac_si_lam_id` có trong thân lệnh không — không gửi ≠ gửi null."""
+    return (
+        getattr(body, "bac_si_lam_id", None)
+        if "bac_si_lam_id" in body.model_fields_set
+        else KHONG_DOI
+    )
 
 
 class InvalidateRoutingBody(BaseModel):
@@ -746,6 +758,7 @@ async def assign_service_room(
         identity=identity,
         idempotency_key=idempotency_key,
         nguon=body.nguon,
+        bac_si_lam_id=_bac_si_gui(body),
     )
 
 
@@ -754,6 +767,8 @@ class PhongDuKienBody(BaseModel):
     room_id: UUID | None = None
     #: quay_thu (mặc định) · truong_ca (29/09/2026: trưởng ca đặt trước thu tiền).
     nguon: str | None = Field(default=None, max_length=20)
+    #: Như lệnh xếp phòng: không gửi = giữ; null = bỏ chọn; mã = bác sĩ trực.
+    bac_si_lam_id: Any = None
 
 
 class ChuyenPhongDangLamBody(BaseModel):
@@ -777,6 +792,7 @@ async def plan_service_room(
         room_id=str(body.room_id) if body.room_id else None,
         identity=identity,
         nguon=body.nguon,
+        bac_si_lam_id=_bac_si_gui(body),
     )
 
 

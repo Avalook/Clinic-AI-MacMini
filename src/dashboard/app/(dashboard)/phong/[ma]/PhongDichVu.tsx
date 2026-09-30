@@ -71,6 +71,7 @@ import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import ChipLoc from "@/components/ui/ChipLoc";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
@@ -78,6 +79,13 @@ import { tienVn } from "@/lib/phieu-kham";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
+
+/** Người đang xem đứng làn nào của phòng nhiều bác sĩ (máy chủ trả). */
+interface LanCuaToi {
+  co: boolean;
+  lan: number[];
+  nhan: string | null;
+}
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
@@ -112,6 +120,11 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const { ngay, homNay, chonNgay } = useNgayXem();
   /** Máy chủ nói ngày đang xem có phải hôm nay không (ngày rác → hôm nay). */
   const [laHomNay, setLaHomNay] = useState(true);
+  // PHÒNG NHIỀU BÁC SĨ (30/09/2026): người đang trực một làn của phòng thì mặc
+  // định chỉ thấy khách của làn mình (+ khách chưa chọn bác sĩ); tắt được để
+  // xem cả phòng. Máy chủ quyết ai thuộc làn nào (`lan_toi`), màn chỉ lọc.
+  const [lanToi, setLanToi] = useState<LanCuaToi | null>(null);
+  const [cheDoLan, setCheDoLan] = useState<"lan" | "ca_phong">("lan");
 
   useEffect(() => {
     let huy = false;
@@ -141,6 +154,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         hang_cho: DongHangCho[];
         chua_xep_phong?: KhachChuaXep[];
         hom_nay?: boolean;
+        lan_cua_toi?: LanCuaToi;
       }>("hang-cho", {
         phong: phong.id,
         ngay,
@@ -151,6 +165,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setHang(kq.data.hang_cho.filter((d) => d.loai === "DICH_VU"));
         setChuaXep(kq.data.chua_xep_phong ?? []);
         setLaHomNay(kq.data.hom_nay ?? true);
+        setLanToi(kq.data.lan_cua_toi?.co ? kq.data.lan_cua_toi : null);
       } else setLoi(kq.loi);
     };
     void nap();
@@ -174,7 +189,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     );
   }
 
-  const ds = hang ?? [];
+  const loc = lanToi !== null && cheDoLan === "lan";
+  const ca = hang ?? [];
+  const ds = loc ? ca.filter((d) => d.lan_toi !== false) : ca;
   const macDinh =
     ds.find((d) => d.trang_thai === "serving") ??
     ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
@@ -224,6 +241,24 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
         <aside aria-label="Hàng chờ phòng" className="space-y-3">
           {phong ? <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} /> : null}
+          {lanToi ? (
+            <ChipLoc
+              nhan="Lọc khách theo làn"
+              chon={cheDoLan}
+              onChon={(m) => {
+                setCheDoLan(m);
+                setChonId(null);
+              }}
+              muc={[
+                {
+                  ma: "lan",
+                  nhan: `Khách của làn tôi · ${lanToi.nhan ?? "làn của tôi"}`,
+                  title: "Khách quầy chọn bác sĩ làn của bạn + khách chưa chọn bác sĩ",
+                },
+                { ma: "ca_phong", nhan: `Cả phòng (${ca.length})` },
+              ]}
+            />
+          ) : null}
           {hang === null ? (
             <p className="text-body text-ink-muted">Đang tải hàng chờ…</p>
           ) : (

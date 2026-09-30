@@ -20,11 +20,15 @@ import Button from "@/components/ui/Button";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 
 import { docBang, guiThaoTac, type PhongHomNay } from "./api";
+import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "./ChonBacSiLam";
 
 interface UngVien {
   room_id: string;
   rank: number;
   queue_load: number;
+  /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ có phần tử khi
+   *  ≥2 bác sĩ (một bác sĩ thì máy chủ tự gán). */
+  bac_si?: LuaChonBacSi[];
 }
 interface GoiY {
   recommendation_ref: string;
@@ -41,6 +45,9 @@ interface GoiY {
   che_do?: "XEP" | "DU_KIEN" | "CHUYEN_DANG_LAM" | "KHONG";
   cau_che_do?: string | null;
   phong_du_kien_id?: string | null;
+  /** Bác sĩ đã chọn trong phòng hiện tại / phòng dự kiến (máy chủ viết "BS X"). */
+  bac_si_lam_id?: string | null;
+  bac_si_lam?: string | null;
   phong_hien_tai?: string | null;
   dang_lam_tu?: string | null;
 }
@@ -75,6 +82,8 @@ export default function DoiPhong({
   const [goiY, setGoiY] = useState<GoiY | null>(null);
   const [ten, setTen] = useState<Record<string, string>>({});
   const [chon, setChon] = useState<string>("");
+  // Bác sĩ cho phòng MỚI đang chọn ("" = bác sĩ nào rảnh cũng được).
+  const [chonBs, setChonBs] = useState<string>("");
   const [loi, setLoi] = useState<string | null>(null);
   const [dangGui, setDangGui] = useState(false);
   const [xacNhan, setXacNhan] = useState(false);
@@ -129,6 +138,8 @@ export default function DoiPhong({
       reason_code: phongHienTaiId ? "LOAD_BALANCE" : "INITIAL_ASSIGNMENT",
       recommendation_ref: goiY?.recommendation_ref,
       nguon,
+      // Chỉ gửi khi có chọn — không gửi thì phòng một bác sĩ tự gán.
+      ...(chonBs ? { bac_si_lam_id: chonBs } : {}),
     });
     setDangGui(false);
     if (!kq.ok) {
@@ -139,17 +150,42 @@ export default function DoiPhong({
       return;
     }
     setChon("");
+    setChonBs("");
+    setLan((n) => n + 1);
+    onDaDoi?.();
+  }
+
+  // Đổi BÁC SĨ trong phòng đang xếp (cùng lệnh xếp phòng, cùng phòng).
+  async function doiBacSi(staffId: string) {
+    if (!phongHienTaiId || routingRevision == null) return;
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiThaoTac("xep-phong-v1", orderId, {
+      room_id: phongHienTaiId,
+      expected_routing_revision: routingRevision,
+      reason_code: "MANUAL_CORRECTION",
+      nguon,
+      bac_si_lam_id: staffId || null,
+    });
+    setDangGui(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      if (kq.status === 409) onDaDoi?.();
+      return;
+    }
+    setLan((n) => n + 1);
     onDaDoi?.();
   }
 
   // Trưởng ca đặt PHÒNG DỰ KIẾN khi khách chưa trả tiền — thu xong dây H4 xếp
   // đúng phòng này. Máy chủ hỏi quyền Điều phối khách.
-  async function datDuKien(roomId: string) {
+  async function datDuKien(roomId: string, bacSi?: string) {
     setDangGui(true);
     setLoi(null);
     const kq = await guiThaoTac("phong-du-kien", orderId, {
       room_id: roomId || null,
       nguon: "truong_ca",
+      ...(bacSi !== undefined ? { bac_si_lam_id: bacSi || null } : {}),
     });
     setDangGui(false);
     if (!kq.ok) {
@@ -183,6 +219,11 @@ export default function DoiPhong({
   }
 
   const cheDo = goiY.che_do ?? "XEP";
+  const bsCua = (roomId: string | null | undefined) =>
+    goiY.candidates.find((u) => u.room_id === roomId)?.bac_si;
+  const bsHienTai = bsCua(phongHienTaiId);
+  const bsPhongMoi = bsCua(chon);
+  const bsDuKien = bsCua(goiY.phong_du_kien_id);
   const danhSach = (
     <p className="text-label text-ink-muted">
       Phòng làm được:{" "}
@@ -214,6 +255,15 @@ export default function DoiPhong({
               </option>
             ))}
           </select>
+          {coChonBacSi(bsDuKien) && goiY.phong_du_kien_id ? (
+            <ChonBacSiLam
+              co="nho"
+              ds={bsDuKien}
+              value={goiY.bac_si_lam_id ?? ""}
+              disabled={dangGui}
+              onChon={(id) => void datDuKien(goiY.phong_du_kien_id as string, id)}
+            />
+          ) : null}
           {goiY.cau_che_do ? <span className="text-label text-ink-muted">{goiY.cau_che_do}</span> : null}
         </div>
         {loi ? <p className="text-label text-danger">{loi}</p> : null}
@@ -281,15 +331,33 @@ export default function DoiPhong({
     );
   }
 
+  const coDoi = choDoi && cheDo === "XEP";
   return (
     <div className="mt-1 grid gap-1">
       {danhSach}
-      {choDoi && cheDo === "XEP" ? (
+      {phongHienTaiId && coDoi && coChonBacSi(bsHienTai) ? (
+        <label className="flex flex-wrap items-center gap-2">
+          <span className="text-label text-ink-muted">Bác sĩ ở phòng này</span>
+          <ChonBacSiLam
+            co="nho"
+            ds={bsHienTai}
+            value={goiY.bac_si_lam_id ?? ""}
+            disabled={dangGui}
+            onChon={(id) => void doiBacSi(id)}
+          />
+        </label>
+      ) : goiY.bac_si_lam && phongHienTaiId ? (
+        <p className="text-label text-ink-muted">Bác sĩ: {goiY.bac_si_lam}</p>
+      ) : null}
+      {coDoi ? (
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Chọn phòng khác"
             value={chon}
-            onChange={(e) => setChon(e.target.value)}
+            onChange={(e) => {
+              setChon(e.target.value);
+              setChonBs("");
+            }}
             className="min-h-8 rounded-control border border-line bg-surface px-2 text-xs text-ink"
           >
             <option value="">{phongHienTaiId ? "Đổi sang phòng…" : "Xếp vào phòng…"}</option>
@@ -301,6 +369,9 @@ export default function DoiPhong({
                 </option>
               ))}
           </select>
+          {coChonBacSi(bsPhongMoi) ? (
+            <ChonBacSiLam co="nho" ds={bsPhongMoi} value={chonBs} disabled={dangGui} onChon={setChonBs} />
+          ) : null}
           <Button
             type="button"
             size="sm"

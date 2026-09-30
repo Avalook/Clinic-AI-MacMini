@@ -130,6 +130,7 @@ MODULE: dict[str, Module] = {
                 "service.routed",
                 "service.routing_invalidated",
                 "service.room_transferred",
+                "service.doctor_chosen",
             ],
             bang=["queue_entry"],
             quyen=[
@@ -270,6 +271,7 @@ MODULE: dict[str, Module] = {
                 "consultation.completed",
                 "service.routed",
                 "service.room_transferred",
+                "service.doctor_chosen",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "payment.service_collected",

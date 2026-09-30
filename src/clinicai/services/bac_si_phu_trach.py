@@ -254,6 +254,16 @@ async def bac_si_thuc_hien_mac_dinh(
     """Người đứng tên thực hiện phiếu kết quả của chỉ định khi không ai chọn."""
     if await bac_si_trong(conn, clinic_id, [nguoi_bam]):
         return nguoi_bam
+    # Phòng nhiều bác sĩ (30/09/2026): quầy đã chọn bác sĩ của làn → người ký là
+    # bác sĩ ấy (điều dưỡng / thư ký của làn bấm Hoàn tất thay bác sĩ).
+    da_chon = await conn.fetchval(
+        "SELECT bac_si_lam_id::text FROM public.service_order"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        clinic_id,
+        service_order_id,
+    )
+    if da_chon and await bac_si_trong(conn, clinic_id, [da_chon]):
+        return str(da_chon)
     rows = await conn.fetch(
         _BAC_SI_DUNG_PHONG_SQL, clinic_id, service_order_id, list(VAI_BAC_SI)
     )
