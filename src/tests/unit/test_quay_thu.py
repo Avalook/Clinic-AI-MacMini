@@ -403,7 +403,7 @@ def test_bill_in_phong_lam_dich_vu() -> None:
     """30/09/2026: bill dịch vụ in PHÒNG của từng chỉ định cho khách đi theo."""
     from clinicai.services.quay_thu_service import _phong_cua_dong
 
-    phong = {
+    phong: dict[str, dict[str, object]] = {
         "o1": {"ten_phong": "Phòng Sàn chậu", "tang": 2, "du_kien": False},
         "o2": {"ten_phong": "Phòng thủ thuật 1", "tang": None, "du_kien": True},
     }
