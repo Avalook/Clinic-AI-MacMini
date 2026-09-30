@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import ThanhNgay from "@/components/ui/ThanhNgay";
 import Chip from "@/components/ui/Chip";
 import type { HanhTrinhGon } from "@/lib/hanh-trinh-khach";
 
@@ -13,6 +14,7 @@ import { DongHanhTrinhGon, NutXemHanhTrinh } from "../_lam-viec/HanhTrinhKhach";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import NutCheckOut from "../_lam-viec/NutCheckOut";
 import { docBang, gioVn } from "../_lam-viec/api";
+import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 import SoLuot from "@/components/ui/SoLuot";
 import { doctorName } from "@/lib/doctor-name";
 import { useNgheBang } from "../dung-nghe-bang";
@@ -37,11 +39,16 @@ interface Luot {
 }
 
 interface Bang {
+  /** Ngày máy chủ đã dùng (YYYY-MM-DD). */
+  ngay?: string;
   luot: Luot[];
   bi_cat: boolean;
 }
 
 export default function BangHanhTrinh() {
+  // Xem lại hôm qua, các hôm khác (Tuyền 30/09/2026) — ngày nằm trên URL
+  // (`?ngay=`), cùng cách Bàn khám / Đo sinh hiệu.
+  const { ngay, homNay, laHomNay, chonNgay } = useNgayXem();
   const [bang, setBang] = useState<Bang | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [anDaVe, setAnDaVe] = useState(true);
@@ -54,7 +61,7 @@ export default function BangHanhTrinh() {
   }, []);
 
   const tai = useCallback(async () => {
-    const kq = await docBang<Bang>("hanh-trinh");
+    const kq = await docBang<Bang>("hanh-trinh", { ngay });
     if (kq.ok) {
       setBang(kq.data);
       setBayGio(Date.now());
@@ -62,11 +69,11 @@ export default function BangHanhTrinh() {
     } else {
       setLoi(kq.loi);
     }
-  }, []);
+  }, [ngay]);
 
   useEffect(() => {
     let huy = false;
-    void docBang<Bang>("hanh-trinh").then((kq) => {
+    void docBang<Bang>("hanh-trinh", { ngay }).then((kq) => {
       if (huy) return;
       if (kq.ok) setBang(kq.data);
       else setLoi(kq.loi);
@@ -80,7 +87,7 @@ export default function BangHanhTrinh() {
       huy = true;
       goNhip();
     };
-  }, [tai]);
+  }, [tai, ngay]);
 
   useNgheBang(["luot_dong_thoi_gian", "visit", "queue_entry"], () => void tai());
 
@@ -94,14 +101,29 @@ export default function BangHanhTrinh() {
   if (!bang) return <p className="text-body text-ink-muted">Đang tải…</p>;
 
   const q = tim.trim().toLowerCase();
+  // Ngày cũ: ai cũng đã về — hiện hết, không ẩn.
+  const anThat = laHomNay && anDaVe;
   const ds = bang.luot.filter(
     (l) =>
-      (!anDaVe || !l.da_ve) &&
+      (!anThat || !l.da_ve) &&
       (!q || l.ten.toLowerCase().includes(q) || (l.ma ?? "").toLowerCase().includes(q)),
   );
 
   return (
     <section className="space-y-3">
+      <ThanhNgay
+        motNgay
+        nhan="Xem hành trình theo ngày"
+        khoang={{ tu: ngay, den: ngay }}
+        homNay={homNay}
+        soNgaySau={0}
+        onChon={(k) => {
+          const moi = k?.den ?? homNay;
+          if (moi === ngay) return;
+          setBang(null);
+          chonNgay(moi);
+        }}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={tim}
@@ -110,9 +132,11 @@ export default function BangHanhTrinh() {
           aria-label="Tìm khách"
           className="min-h-10 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
         />
-        <Button size="lg" variant="secondary" onClick={() => setAnDaVe((v) => !v)}>
-          {anDaVe ? "Hiện cả khách đã về" : "Ẩn khách đã về"}
-        </Button>
+        {laHomNay ? (
+          <Button size="lg" variant="secondary" onClick={() => setAnDaVe((v) => !v)}>
+            {anDaVe ? "Hiện cả khách đã về" : "Ẩn khách đã về"}
+          </Button>
+        ) : null}
         <Button size="lg" variant="ghost" onClick={() => void tai()}>
           Tải lại
         </Button>
@@ -122,7 +146,9 @@ export default function BangHanhTrinh() {
           Bảng chỉ hiện 300 lượt đầu trong ngày — tìm theo tên để thấy khách khác.
         </p>
       ) : null}
-      <p className="text-meta text-ink-muted">{ds.length} khách</p>
+      <p className="text-meta text-ink-muted">
+        {ds.length} khách{laHomNay ? "" : ` · ngày ${ngay.split("-").reverse().join("/")}`}
+      </p>
       <ul className="space-y-2">
         {ds.map((l) => (
           <li

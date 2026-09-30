@@ -397,3 +397,29 @@ def test_csv_co_bom_va_chan_cong_thuc() -> None:
     assert "'=HYPERLINK(1)" in out
     assert "Huỷ phiếu" in out and "-300000" in out
     assert "27/09/2026 18:05" in out  # giờ VN
+
+
+def test_bill_in_phong_lam_dich_vu() -> None:
+    """30/09/2026: bill dịch vụ in PHÒNG của từng chỉ định cho khách đi theo."""
+    from clinicai.services.quay_thu_service import _phong_cua_dong
+
+    phong: dict[str, dict[str, object]] = {
+        "o1": {"ten_phong": "Phòng Sàn chậu", "tang": 2, "du_kien": False},
+        "o2": {"ten_phong": "Phòng thủ thuật 1", "tang": None, "du_kien": True},
+    }
+    kq = _phong_cua_dong({"source_type": "service_order", "source_id": "o1"}, phong)
+    assert kq["phong"] == {"ten": "Phòng Sàn chậu", "tang": 2, "du_kien": False}
+    assert kq["cho_xep"] is False and kq["order_id"] == "o1"
+    assert _phong_cua_dong({"source_type": "service_order", "source_id": "o2"}, phong)[
+        "phong"
+    ]["du_kien"]
+    # Chỉ định chưa có phòng (máy đang tự xếp) → bản in hỏi lại.
+    assert _phong_cua_dong(
+        {"source_type": "service_order", "source_id": "o9"}, phong
+    ) == {
+        "phong": None,
+        "cho_xep": True,
+    }
+    # Tiền khám / phụ thu / thuốc: không có phòng.
+    for loai in ("exam", "phu_thu", "drug"):
+        assert _phong_cua_dong({"source_type": loai, "source_id": "o1"}, phong) == {}

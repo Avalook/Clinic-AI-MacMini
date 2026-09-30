@@ -362,3 +362,24 @@ def test_ket_qua_sua_lai_reo_chuong_va_chay_vong_doc() -> None:
     sk = tra("result.corrected")
     assert CHUONG in sk.consumers and VONG_DOC in sk.consumers
     assert MAC_DINH["result.corrected"].bac_si_chinh is True
+
+
+async def test_hanh_trinh_xem_lai_ngay_khac(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Tuyền 30/09/2026: "cho xem lại được cả hành trình khách hôm qua, các hôm
+    khác nữa". Ngày rác → hôm nay (không ném)."""
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    hom_qua = (datetime.now(CLINIC_TZ) - timedelta(days=1)).date()
+    await pool.execute(
+        "UPDATE visit SET created_at = created_at - interval '1 day'"
+        " WHERE visit_id = $1::uuid",
+        visit,
+    )
+    svc = BangHanhTrinhService(pool)
+    hom_nay = await svc.hom_nay(identity=ca.le_tan)
+    assert visit not in [x["visit_id"] for x in hom_nay["luot"]]
+    qua = await svc.hom_nay(identity=ca.le_tan, ngay=hom_qua.isoformat())
+    assert qua["ngay"] == hom_qua.isoformat()
+    assert visit in [x["visit_id"] for x in qua["luot"]]
+    rac = await svc.hom_nay(identity=ca.le_tan, ngay="30/09 rác")
+    assert rac["ngay"] == datetime.now(CLINIC_TZ).date().isoformat()
