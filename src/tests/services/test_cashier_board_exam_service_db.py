@@ -33,11 +33,13 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 async def _tao_loai_kham(pool: Any, code: str, name: str, gia: int) -> str:
     st_id = str(
         await pool.fetchval(
-            "INSERT INTO service_type (clinic_id, code, name, is_active)"
-            " VALUES ($1::uuid, $2, $3, true) RETURNING id::text",
+            "INSERT INTO service_type"
+            " (clinic_id, code, name, is_active, gia_mac_dinh)"
+            " VALUES ($1::uuid, $2, $3, true, $4) RETURNING id::text",
             CLINIC,
             code,
             name,
+            gia,
         )
     )
     await pool.execute(
@@ -108,7 +110,7 @@ async def test_reproduce_visit_service_type_null_appointment_service_type(
         assert hd["tong"] == 250_000
         dong_kham = next((d for d in hd["dong"] if d["source_type"] == "exam"), None)
         assert dong_kham is not None
-        assert dong_kham["ten"] == f"Khám phụ khoa {q.duoi}"
+        assert dong_kham["ten"] == f"Tiền khám Khám phụ khoa {q.duoi}"
         assert dong_kham["van_de"] is None
 
         # 3. PaymentService thu được
@@ -298,7 +300,7 @@ async def test_regression_dung_thu_tu_runtime_checkin_soap_hoan_tat_thu_tien(
     assert hd["thu_duoc"] is True
     assert hd["tong"] == 220_000
     assert len(hd["dong"]) == 1
-    assert hd["dong"][0]["ten"] == f"Khám phụ khoa {q.duoi}"
+    assert hd["dong"][0]["ten"] == f"Tiền khám Khám phụ khoa {q.duoi}"
     assert hd["dong"][0]["thanh_tien"] == 220_000
 
     # PaymentService thu thành công
@@ -370,7 +372,7 @@ async def test_regression_nguon_visit_thang_appointment_khi_lech_loai_kham(
     )
     dong_kham = next((d for d in hd["dong"] if d["source_type"] == "exam"), None)
     assert dong_kham is not None
-    assert dong_kham["ten"] == f"Khám phụ khoa {q.duoi}"
+    assert dong_kham["ten"] == f"Tiền khám Khám phụ khoa {q.duoi}"
     assert dong_kham["thanh_tien"] == 250_000
 
     # 3. PaymentService thu thành công đúng giá 250_000

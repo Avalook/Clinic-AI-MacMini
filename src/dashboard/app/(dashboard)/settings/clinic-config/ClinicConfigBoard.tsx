@@ -113,6 +113,31 @@ export default function ClinicConfigBoard({
     });
   }
 
+  function saveDefaultPrice(id: string, raw: string) {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setErr("Giá mặc định phải là số không âm.");
+      return;
+    }
+    const gia = Math.round(parsed);
+    const truoc = services;
+    setServices(
+      services.map((s) =>
+        s.service_type_id === id ? { ...s, gia_mac_dinh: gia } : s,
+      ),
+    );
+    setErr(null);
+    startTransition(async () => {
+      try {
+        await send("service-type", { service_type_id: id, gia_mac_dinh: gia });
+        setSaved(id);
+      } catch (e) {
+        setServices(truoc);
+        setErr(e instanceof Error ? e.message : String(e));
+      }
+    });
+  }
+
   function toggleStaffNode(staffId: string, code: string) {
     const truoc = staff;
     const person = staff.find((s) => s.staff_id === staffId);
@@ -215,14 +240,15 @@ export default function ClinicConfigBoard({
         <header className="flex items-center gap-2 border-b border-line px-4 py-3">
           <ClipboardList size={18} className="shrink-0 text-brand-600" />
           <h2 className="text-base font-semibold text-ink">
-            Dịch vụ nào dùng phiếu khám nào
+            Dịch vụ khám: phiếu và giá mặc định
           </h2>
           <span className="ml-auto text-xs text-ink-muted">
             {services.filter((s) => s.form_code).length}/{services.length} đã gán
           </span>
         </header>
         <p className="border-b border-line px-4 py-2 text-xs text-ink-muted">
-          Bác sĩ mở lượt khám sẽ thấy đúng phiếu khai ở đây. Để trống nghĩa là
+          Giá mặc định được tính khi chưa chọn dịch vụ khám con. Bác sĩ mở lượt
+          khám sẽ thấy đúng phiếu khai ở đây. Để trống nghĩa là
           dịch vụ này không có phiếu chuyên khoa (thủ thuật, tư vấn) — màn bác
           sĩ sẽ nói rõ điều đó thay vì để trống. Cột{" "}
           <span className="font-medium text-ink">nam</span> chỉ khai khi nội
@@ -244,6 +270,20 @@ export default function ClinicConfigBoard({
               {saved === s.service_type_id && !isPending && (
                 <Check size={14} className="shrink-0 text-success" />
               )}
+              <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+                Giá mặc định
+                <input
+                  key={`${s.service_type_id}-${s.gia_mac_dinh}`}
+                  type="number"
+                  min={0}
+                  step={1000}
+                  defaultValue={s.gia_mac_dinh}
+                  disabled={isPending}
+                  onBlur={(e) => saveDefaultPrice(s.service_type_id, e.target.value)}
+                  className="w-32 rounded-control border border-line bg-surface px-2 py-1 text-right text-sm tabular-nums text-ink disabled:opacity-60"
+                />
+                đ
+              </label>
               <label className="flex items-center gap-1.5 text-xs text-ink-muted">
                 Phiếu
                 <select

@@ -48,6 +48,7 @@ export interface QuayThu {
   revision: string | null;
   thu_duoc: boolean;
   van_de: string[];
+  canh_bao?: string[];
   chi_doi_tac_thu: boolean;
   phong_kham: DongQuay[];
   doi_tac: DongQuay[];
@@ -220,6 +221,14 @@ export default function HoaDonMot({
       {qt.van_de.length > 0 && !doi ? (
         <ul className="space-y-0.5 text-meta text-warning">
           {qt.van_de.map((v) => (
+            <li key={v}>{v}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {(qt.canh_bao ?? []).length > 0 && !doi ? (
+        <ul className="space-y-0.5 rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+          {(qt.canh_bao ?? []).map((v) => (
             <li key={v}>{v}</li>
           ))}
         </ul>
