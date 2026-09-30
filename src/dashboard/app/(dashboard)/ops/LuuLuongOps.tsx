@@ -102,7 +102,7 @@ export default function LuuLuongOps() {
 
   if (!isUnlocked || !data) {
     return (
-      <main className="flex min-h-[500px] flex-col items-center justify-center p-4">
+      <main className="flex min-h-96 flex-col items-center justify-center p-4">
         <div className="w-full max-w-md rounded-card border border-line bg-surface p-6 shadow-card transition-all sm:p-8">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-control bg-brand-50 text-brand-600">
             <Lock size={28} />
@@ -314,7 +314,7 @@ export default function LuuLuongOps() {
                       : "bg-gradient-to-t from-brand-600 to-brand-400 group-hover:from-brand-500 group-hover:to-brand-300"
                   }`}
                 />
-                <span className="mt-2 text-[10px] text-ink-muted group-hover:text-ink font-mono scale-90 sm:scale-100">
+                <span className="mt-2 text-xs text-ink-muted group-hover:text-ink font-mono scale-90 sm:scale-100">
                   {hour.split(":")[0]}h
                 </span>
               </div>
@@ -388,7 +388,7 @@ export default function LuuLuongOps() {
                       className="inline-flex items-center gap-1 rounded-control border border-line bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink"
                     >
                       <span className="font-mono text-ink-muted">{route}</span>
-                      <span className="rounded bg-brand-100 px-1.5 py-0.2 text-[10px] font-bold text-brand-700">
+                      <span className="rounded bg-brand-100 px-1.5 py-0.2 text-xs font-bold text-brand-700">
                         {fmtNum(count)}
                       </span>
                     </span>
