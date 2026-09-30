@@ -115,7 +115,14 @@ function duongDoc(url: URL): string | null {
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phi-kham` : null;
   }
   // Bảng hành trình chung (nhóm 3, 24/09/2026).
-  if (xem === "hanh-trinh") return "/api/v1/hanh-trinh/hom-nay";
+  if (xem === "hanh-trinh") {
+    // Xem lại ngày khác (30/09/2026). Chỉ chuyển tiếp dạng YYYY-MM-DD; máy chủ
+    // vẫn tự bỏ qua ngày rác.
+    const ngay = url.searchParams.get("ngay") ?? "";
+    return /^\d{4}-\d{2}-\d{2}$/.test(ngay)
+      ? `/api/v1/hanh-trinh/hom-nay?ngay=${ngay}`
+      : "/api/v1/hanh-trinh/hom-nay";
+  }
   // Khung đầy đủ Hành trình khách của một lượt (29/09/2026) — mọi thành viên
   // nội bộ, máy chủ quyết.
   if (xem === "hanh-trinh-khach") {
