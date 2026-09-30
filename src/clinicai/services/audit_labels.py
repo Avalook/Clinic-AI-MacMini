@@ -190,6 +190,7 @@ EVENT_LABELS: dict[str, str] = {
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
     "payment.voided": "Huỷ phiếu thanh toán",
+    "payment.method_changed": "Đổi hình thức thu (TM / CK / QR)",
     "payment.refunded": "Hoàn tiền cho khách",
     "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
     "payment.refund_failed": "Hoàn tiền không thành",
@@ -292,6 +293,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:dispatch": "Điều phối trong ngày",
     "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
+    "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",

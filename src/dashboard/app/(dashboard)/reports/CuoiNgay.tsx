@@ -64,6 +64,19 @@ interface BaoCao {
       hinh_thuc: string | null;
     }[];
   };
+  /** V7: các lần đổi TM/CK/QR ghi trong khoảng — KHÔNG phải huỷ. */
+  doi_hinh_thuc?: {
+    id: string;
+    luc: string | null;
+    khach: string | null;
+    ma_bn: string | null;
+    loai_tien: string | null;
+    tu: string | null;
+    sang: string;
+    so_tien: number;
+    nguoi: string | null;
+    ly_do: string | null;
+  }[];
   top_dich_vu: { ten: string; so_luong: number; doanh_thu: number }[];
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
 }
@@ -342,6 +355,49 @@ export default function CuoiNgay() {
                 </tbody>
               </table>
             </div>
+          </Khoi>
+
+          <Khoi title="Đổi hình thức — không phải huỷ">
+            {(bc.doi_hinh_thuc ?? []).length === 0 ? (
+              <p className="text-meta text-ink-muted">Không có lần đổi hình thức nào.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+                <table className="w-full border-collapse text-body">
+                  <thead>
+                    <tr className="border-b border-line bg-surface-muted text-left text-meta text-ink-muted">
+                      <th className={TH}>Lúc</th>
+                      <th className={TH}>Khách</th>
+                      <th className={TH}>Từ → sang</th>
+                      <th className={TH}>Người đổi</th>
+                      <th className={TH}>Lý do</th>
+                      <th className={`${TH} text-right`}>Số tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(bc.doi_hinh_thuc ?? []).map((o) => (
+                      <tr key={o.id} className="border-b border-surface-sunken last:border-b-0">
+                        <td className={`${TD} whitespace-nowrap`}>{gio(o.luc)}</td>
+                        <td className={TD}>
+                          {o.khach ?? "—"}
+                          <span className="block text-meta text-ink-muted">
+                            {[o.ma_bn, TEN_LOAI[o.loai_tien ?? ""]].filter(Boolean).join(" · ")}
+                          </span>
+                        </td>
+                        <td className={TD}>
+                          {TEN_PT[o.tu ?? ""] ?? "Không rõ"} → {TEN_PT[o.sang] ?? o.sang}
+                        </td>
+                        <td className={TD}>{o.nguoi ?? "—"}</td>
+                        <td className={`${TD} min-w-40`}>{o.ly_do ?? "—"}</td>
+                        <td className={SO}>{tien(o.so_tien)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-meta text-ink-muted">
+              Bảng &quot;Theo hình thức&quot; đã tính theo hình thức sau khi đổi.
+            </p>
           </Khoi>
 
           <Khoi title={`Đối tác thu hộ — tham khảo, không cộng (${tien(bc.doi_tac.tong)})`}>

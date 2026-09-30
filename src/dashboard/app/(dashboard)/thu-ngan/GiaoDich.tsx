@@ -6,12 +6,14 @@
 // THU (`payment_cycle`, contract tiền–thuốc CP2) — qua máy chủ, chỉ đọc. Mỗi
 // lần thu một dòng: đã thu, đã huỷ (ai, vì sao), chờ xác minh, đã huỷ chờ.
 // Phiếu thu trước CP2 không có phương thức: hiện "không rõ (phiếu cũ)", không đoán.
+// Phương thức hiện ra là hình thức HIỆU LỰC; [Đổi hình thức] ở từng phiếu đã thu (V7).
 
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 
 import XemLuot from "../_lam-viec/XemLuot";
+import DoiHinhThuc, { type TrangThaiDoi } from "./DoiHinhThuc";
 import HoanTien, { type HoanCuaLanThu } from "./HoanTien";
 
 interface GiaoDichDong {
@@ -34,6 +36,8 @@ interface GiaoDichDong {
   ly_do_huy: string | null;
   /** CP5: khoản hoàn + dòng còn hoàn được — chỉ lần thu đã từng thu. */
   hoan: HoanCuaLanThu | null;
+  /** V7: đổi hình thức sau khi thu — cờ do máy chủ quyết + lịch sử đổi. */
+  doi_hinh_thuc: TrangThaiDoi | null;
 }
 
 const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
@@ -161,6 +165,12 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                     {g.sau_khi_dong_luot ? " · phát sinh SAU khi đóng lượt" : ""}
                   </p>
                 ) : null}
+                <DoiHinhThuc
+                  paymentCycleId={g.id}
+                  hinhThuc={g.phuong_thuc}
+                  doi={g.doi_hinh_thuc}
+                  onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
+                />
                 {g.hoan && g.visit_id ? (
                   <HoanTien
                     paymentCycleId={g.id}

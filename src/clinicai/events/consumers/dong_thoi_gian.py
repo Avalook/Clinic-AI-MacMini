@@ -77,6 +77,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "visit.checked_out": ["con_vuong"],
     "visit.left_early": [],
     "payment.refunded": ["so_tien"],
+    # Đổi TM/CK/QR sau khi thu (V7) — thông tin vận hành của quầy.
+    "payment.method_changed": ["tu", "sang", "so_tien"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],

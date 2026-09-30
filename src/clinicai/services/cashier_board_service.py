@@ -40,6 +40,7 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 
@@ -222,7 +223,12 @@ class CashierBoardService:
         rows = await self._pool.fetch(
             """
             SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
-                   pc.kind, pc.status, pc.amount, pc.method, pc.reference,
+                   pc.kind, pc.status, pc.amount,
+                   -- Hình thức / mã GD HIỆU LỰC (sau mọi lần đổi — V7).
+                   hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                      pc.method) AS method,
+                   ma_gd_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                  pc.reference) AS reference,
                    pc.legacy, pc.can_doi_soat, pc.created_at, pc.paid_at,
                    pc.closed_at,
                    pc.close_reason,
@@ -257,6 +263,9 @@ class CashierBoardService:
             hoan = await hoan_cua_cac_lan_thu(
                 conn, identity, [r["id"] for r in rows if r["paid_at"] is not None]
             )
+            doi = await trang_thai_doi(
+                conn, identity.clinic_id, [r["id"] for r in rows if r["paid_at"]]
+            )
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
@@ -282,6 +291,8 @@ class CashierBoardService:
                     "ly_do_huy": r["close_reason"],
                     "sau_khi_dong_luot": r["sau_khi_dong_luot"],
                     "hoan": hoan.get(r["id"]),
+                    # [Đổi hình thức] (V7): cờ đổi được + lịch sử đổi.
+                    "doi_hinh_thuc": doi.get(r["id"]),
                 }
                 for r in rows
             ],

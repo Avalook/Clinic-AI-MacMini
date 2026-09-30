@@ -65,6 +65,8 @@ TENANT_TABLES = {
     "command_receipt",
     # Đối tác ghi nhận đã thu tiền khách (20260928000091)
     "doi_tac_thanh_toan",
+    # Sổ đổi hình thức thu (20260930500000)
+    "payment_cycle_doi_hinh_thuc",
 }
 
 STATEMENT = re.compile(
