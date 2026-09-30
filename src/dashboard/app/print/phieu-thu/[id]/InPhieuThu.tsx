@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 
+import DoiPhong from "../../../(dashboard)/_lam-viec/DoiPhong";
+
 export interface Phieu {
   /** Mã gốc của lần thu / lần hoàn. */
   id: string;
@@ -35,6 +37,11 @@ export interface Phieu {
     phong?: { ten: string; tang: string | number | null; du_kien: boolean } | null;
     /** Máy vừa thu, đang tự xếp phòng — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
+    /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
+    order_id?: string;
+    room_id?: string | null;
+    routing_revision?: number | null;
+    doi_phong_duoc?: boolean;
   }[];
   tong: number;
   hinh_thuc: string | null;
@@ -53,6 +60,13 @@ export const KIEU_HOA_DON = `
 }
 `;
 
+/** " · Tầng 3" — cột `floor` có nơi ghi "3", có nơi đã ghi sẵn "Tầng 3". */
+function tenTang(tang: string | number | null): string {
+  if (tang == null || String(tang).trim() === "") return "";
+  const t = String(tang).trim();
+  return /^tầng/i.test(t) ? ` · ${t}` : ` · Tầng ${t}`;
+}
+
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
 }
@@ -60,6 +74,8 @@ function tien(n: number): string {
 export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "hoan" }) {
   const [p, setP] = useState<Phieu | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
+  // Tăng lên sau mỗi lần đổi phòng → nạp lại phiếu để in bản mới.
+  const [lanNap, setLanNap] = useState(0);
 
   useEffect(() => {
     let huy = false;
@@ -85,7 +101,7 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
     return () => {
       huy = true;
     };
-  }, [id, loai]);
+  }, [id, loai, lanNap]);
 
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!p) return <p className="p-8 text-body text-ink-muted">Đang tải phiếu…</p>;
@@ -101,8 +117,44 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
           Đóng
         </Button>
       </div>
+      <XepPhongTrenPhieu p={p} onDaDoi={() => setLanNap((n) => n + 1)} />
       <PhieuThuGiay p={p} />
     </main>
+  );
+}
+
+/** XẾP / ĐỔI PHÒNG ngay trên trang phiếu (Tuyền 30/09/2026: "in ra mà quên
+ *  chưa chọn phòng thì cho họ đổi phòng rồi in lại"). Chỉ hiện trên màn hình,
+ *  không in. Dùng lại khối `DoiPhong` của Bàn khám / quầy thu — máy chủ quyết
+ *  phòng nào làm được và gác lệnh xếp. */
+function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
+  const ds = p.dong.filter((d) => d.order_id && d.doi_phong_duoc);
+  if (p.loai !== "thu" || ds.length === 0) return null;
+  return (
+    <section className="mb-4 space-y-2 rounded-card border border-line p-3 print:hidden">
+      <p className="text-meta font-semibold text-ink">Phòng làm dịch vụ — chọn / đổi rồi bấm In</p>
+      <ul className="space-y-2">
+        {ds.map((d) => (
+          <li key={d.order_id}>
+            <p className="text-meta text-ink">
+              {d.ten}
+              <span className={d.phong ? "text-ink-muted" : "text-warning"}>
+                {" "}
+                · {d.phong ? d.phong.ten : "chưa xếp phòng"}
+              </span>
+            </p>
+            <DoiPhong
+              orderId={d.order_id as string}
+              phongHienTaiId={d.room_id ?? null}
+              routingRevision={d.routing_revision ?? null}
+              choDoi
+              onDaDoi={onDaDoi}
+              nguon="quay_thu"
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -163,7 +215,7 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
                 {d.phong ? (
                   <span className="block font-semibold">
                     → {d.phong.ten}
-                    {d.phong.tang != null && d.phong.tang !== "" ? ` · Tầng ${d.phong.tang}` : ""}
+                    {tenTang(d.phong.tang)}
                     {d.phong.du_kien ? " (dự kiến)" : ""}
                   </span>
                 ) : d.cho_xep ? (

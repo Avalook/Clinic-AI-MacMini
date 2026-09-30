@@ -407,12 +407,9 @@ def test_bill_in_phong_lam_dich_vu() -> None:
         "o1": {"ten_phong": "Phòng Sàn chậu", "tang": 2, "du_kien": False},
         "o2": {"ten_phong": "Phòng thủ thuật 1", "tang": None, "du_kien": True},
     }
-    assert _phong_cua_dong(
-        {"source_type": "service_order", "source_id": "o1"}, phong
-    ) == {
-        "phong": {"ten": "Phòng Sàn chậu", "tang": 2, "du_kien": False},
-        "cho_xep": False,
-    }
+    kq = _phong_cua_dong({"source_type": "service_order", "source_id": "o1"}, phong)
+    assert kq["phong"] == {"ten": "Phòng Sàn chậu", "tang": 2, "du_kien": False}
+    assert kq["cho_xep"] is False and kq["order_id"] == "o1"
     assert _phong_cua_dong({"source_type": "service_order", "source_id": "o2"}, phong)[
         "phong"
     ]["du_kien"]
