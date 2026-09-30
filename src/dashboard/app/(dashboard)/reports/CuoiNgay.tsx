@@ -47,7 +47,12 @@ interface BaoCao {
     ly_do: string | null;
     cho: boolean;
   }[];
-  khach: { so_luot_kham: number; so_luot_da_thu: number; so_khach_da_thu: number };
+  khach: {
+    so_luot_kham: number;
+    so_luot_khong_chon_dich_vu_kham: number;
+    so_luot_da_thu: number;
+    so_khach_da_thu: number;
+  };
   doi_tac: {
     tong: number;
     dong: {
@@ -220,6 +225,11 @@ export default function CuoiNgay() {
           </StatRow>
           <StatRow>
             <StatCard label="Lượt khám mới" value={bc.khach.so_luot_kham} />
+            <StatCard
+              label="Lượt chưa chọn DV khám"
+              value={bc.khach.so_luot_khong_chon_dich_vu_kham}
+              tone="warning"
+            />
             <StatCard label="Lượt đã thu" value={bc.khach.so_luot_da_thu} />
             <StatCard label="Khách đã thu" value={bc.khach.so_khach_da_thu} />
             <StatCard label="Phiếu thu" value={t.so_phieu_thu} />

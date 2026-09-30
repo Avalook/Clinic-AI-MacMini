@@ -258,6 +258,7 @@ class ServiceTypeUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     default_duration_minutes: int | None = Field(default=None, ge=5, le=480)
     is_active: bool | None = None
+    gia_mac_dinh: int | None = Field(default=None, ge=0, le=1_000_000_000, strict=True)
 
 
 @router.put("/clinic-config/service-type")
@@ -273,6 +274,7 @@ async def update_service_type(
         name=body.name,
         default_duration_minutes=body.default_duration_minutes,
         is_active=body.is_active,
+        gia_mac_dinh=body.gia_mac_dinh,
     )
 
 

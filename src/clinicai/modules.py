@@ -332,6 +332,7 @@ MODULE: dict[str, Module] = {
                 "consultation.handed_over",
                 "payment.service_collected",
                 "payment.medicine_collected",
+                "service_selection.confirmed",
                 "visit.checked_out",
                 "visit.left_early",
                 "service.completed",

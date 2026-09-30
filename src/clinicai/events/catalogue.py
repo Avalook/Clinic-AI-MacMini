@@ -837,8 +837,9 @@ DANH_MUC: dict[str, SuKien] = {
             # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
             # thái hiện tại (chạy lại bao lần cũng ra một kết quả). Khối Đối tác
             # nghe để nhận việc đối tác TỰ THU (27/09/2026): khách chốt làm là
-            # đủ, không chờ phòng khám thu tiền.
-            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            # đủ, không chờ phòng khám thu tiền. Hành trình nghe để tự xếp phòng
+            # khi hoá đơn 0đ — không có lần thu nào để chờ (V2, 30/09/2026).
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC, HANH_TRINH],
         ),
         SuKien(
             ten="service.completed",

@@ -167,7 +167,14 @@ async def _den_phong(pool: asyncpg.Pool, ben: str) -> Viec:  # noqa: F811
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     order = await _chi_dinh(pool, ca, visit, ma)
     await _chon(pool, ca, visit, [order])
-    await _thu(pool, visit, ca.le_tan)
+    # V2 (30/09/2026): tiền khám chưa chọn = giá mặc định (0đ). Chỉ có dịch vụ
+    # khách trả thẳng đối tác → phòng khám không còn khoản nào phải thu.
+    async with pool.acquire() as conn:
+        con_no = await hoa_don_con_no(
+            conn, clinic_id=ca.le_tan.clinic_id, visit_id=visit
+        )
+    if con_no.tong > 0:
+        await _thu(pool, visit, ca.le_tan)
     await chay_hanh_trinh(pool)
     return Viec(ca=ca, visit=visit, order=order, phong=phong)
 

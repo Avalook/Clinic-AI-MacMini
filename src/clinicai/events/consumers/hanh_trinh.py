@@ -42,6 +42,7 @@ from clinicai.events.catalogue import HANH_TRINH
 from clinicai.events.consumers.chuong import ghi_chuong_vai
 from clinicai.events.hen_gio import HenDenHan, dang_ky_loai, hen, huy_hen
 from clinicai.events.worker import SuKienDaNhan, dang_ky
+from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.day_noi import doc_day
 from clinicai.services.luot_kham_service import LuotKhamService
@@ -103,6 +104,35 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
                 causation_id=su_kien.event_id,
             )
         await _hen_nhac_check_out(conn, su_kien, visit_id)
+    elif su_kien.event_type == "service_selection.confirmed":
+        # V2 (30/09/2026): tiền khám chưa chọn = giá mặc định, hay là 0đ. Lượt
+        # chỉ còn dịch vụ khách trả thẳng đối tác / miễn phí thì KHÔNG có lần thu
+        # nào → không có payment.service_collected → khách không bao giờ được
+        # xếp phòng. Chốt xong mà hoá đơn không còn nợ = coi như đã thu đủ.
+        if await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+            con_no = await hoa_don_con_no(
+                conn, clinic_id=su_kien.clinic_id, visit_id=visit_id
+            )
+            # Đã từng thu dịch vụ → nợ 0 là NHỜ lần thu ấy: để đường
+            # payment.service_collected xếp bằng quyền NGƯỜI THU (người thu không
+            # có quyền điều phối thì để nguyên — Tuyền 24/09). Chỉ tự xếp ở đây
+            # khi lượt chưa bao giờ có gì để thu.
+            da_tung_thu = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.payment_cycle"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                " AND kind = 'dich_vu'"
+                " AND status IN ('PENDING_VERIFICATION', 'PAID'))",
+                su_kien.clinic_id,
+                visit_id,
+            )
+            if con_no.tong == 0 and not con_no.van_de and not da_tung_thu:
+                await ServiceRoutingService(pool=None).tu_xep_da_thu(
+                    conn,
+                    clinic_id=su_kien.clinic_id,
+                    visit_id=visit_id,
+                    staff_id=su_kien.actor_staff_id,
+                    causation_id=su_kien.event_id,
+                )
     elif su_kien.event_type == "payment.medicine_collected":
         await _hen_nhac_check_out(conn, su_kien, visit_id)
     elif su_kien.event_type in ("visit.checked_out", "visit.left_early"):
