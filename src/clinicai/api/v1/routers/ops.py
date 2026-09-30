@@ -190,12 +190,12 @@ async def lay_bao_cao_traffic(
     body: TrafficPinPayload,
     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
 ) -> dict[str, object]:
-    """Báo cáo lưu lượng truy cập hệ thống (GoAccess). Yêu cầu mã PIN quản trị."""
+    """Báo cáo lưu lượng truy cập hệ thống. Yêu cầu mã PIN quản trị."""
     if not traffic_service.xac_thuc_ma_pin(body.pin):
         raise ValidationError("Mã PIN không chính xác. Vui lòng kiểm tra lại.")
 
-    html = traffic_service.doc_bao_cao_traffic()
-    if html is None:
-        raise NotFoundError("Báo cáo lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút.")
+    data = traffic_service.doc_du_lieu_traffic()
+    if data is None:
+        raise NotFoundError("Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút.")
 
-    return {"ok": True, "html": html}
+    return {"ok": True, "data": data}

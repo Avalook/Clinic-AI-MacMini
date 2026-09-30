@@ -1,7 +1,8 @@
-"""Dịch vụ đọc báo cáo lưu lượng truy cập và xác thực mã PIN quản trị."""
+"""Dịch vụ đọc dữ liệu lưu lượng truy cập và xác thực mã PIN quản trị."""
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -16,15 +17,15 @@ def xac_thuc_ma_pin(pin: str) -> bool:
     return bool(pin) and pin.strip() == expected_pin
 
 
-def doc_bao_cao_traffic() -> str | None:
-    """Đọc tệp báo cáo GoAccess HTML từ thư mục .ops-status gắn vào container."""
-    report_file = Path(
-        os.environ.get("OPS_TRAFFIC_REPORT_FILE")
-        or "/run/clinicai-ops/traffic-report.html"
+def doc_du_lieu_traffic() -> dict[str, object] | None:
+    """Đọc dữ liệu tổng hợp lưu lượng JSON từ thư mục .ops-status gắn vào container."""
+    summary_file = Path(
+        os.environ.get("OPS_TRAFFIC_SUMMARY_FILE")
+        or "/run/clinicai-ops/traffic-summary.json"
     )
-    if not report_file.is_file():
+    if not summary_file.is_file():
         return None
     try:
-        return report_file.read_text(encoding="utf-8")
+        return json.loads(summary_file.read_text(encoding="utf-8"))
     except Exception:
         return None
