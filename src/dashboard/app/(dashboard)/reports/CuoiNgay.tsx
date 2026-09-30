@@ -49,11 +49,11 @@ interface BaoCao {
   }[];
   khach: {
     so_luot_kham: number;
-    so_luot_khong_chon_dich_vu_kham: number;
     so_luot_da_thu: number;
     so_khach_da_thu: number;
     /** V8: lượt bán lẻ (khách chỉ mua thuốc) — không tính vào lượt khám. */
     so_luot_ban_le?: number;
+    so_luot_khong_chon_dich_vu_kham: number;
   };
   doi_tac: {
     tong: number;

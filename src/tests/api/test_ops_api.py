@@ -78,3 +78,15 @@ def test_ops_status_requires_verified_identity() -> None:
     app.dependency_overrides[get_db_pool] = lambda: MagicMock()
     response = TestClient(app).get("/api/v1/ops/status")
     assert response.status_code == 401
+
+
+def test_ops_traffic_khong_dang_nhap_thi_bi_chan() -> None:
+    """30/09/2026: /ops/traffic từng mở cho cả Internet (admin/12345678). Không
+    có khoá dịch vụ + danh tính nhân viên thì bị chặn, kể cả đúng mật khẩu."""
+    client = TestClient(app)
+    for mat_khau in ("wrongpassword", "12345678"):
+        response = client.post(
+            "/api/v1/ops/traffic",
+            json={"username": "admin", "password": mat_khau},
+        )
+        assert response.status_code in (401, 403)

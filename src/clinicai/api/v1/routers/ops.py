@@ -191,21 +191,32 @@ async def loi_trinh_duyet(
     return {"ok": True}
 
 
-class TrafficPinPayload(BaseModel):
-    pin: str = Field(default="", max_length=50)
+class TrafficLoginPayload(BaseModel):
+    username: str = Field(default="admin", max_length=50)
+    password: str = Field(default="", max_length=100)
+    pin: str = Field(default="", max_length=100)
 
 
 @router.post("/ops/traffic")
 async def lay_bao_cao_traffic(
-    body: TrafficPinPayload,
+    body: TrafficLoginPayload,
     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
 ) -> dict[str, object]:
-    """Báo cáo lưu lượng truy cập hệ thống. Yêu cầu mã PIN quản trị."""
-    if not traffic_service.xac_thuc_ma_pin(body.pin):
-        raise ValidationError("Mã PIN không chính xác. Vui lòng kiểm tra lại.")
+    """Báo cáo lưu lượng truy cập. Hai lớp (30/09/2026): đăng nhập ClinicAI có
+    quyền Vận hành (ops.view) VÀ mật khẩu riêng đặt trong .env.prod. Trang từng mở
+    cho cả Internet với admin/12345678 — IP + đường dẫn là dữ liệu cá nhân."""
+    pwd = body.password or body.pin
+    user = body.username or "admin"
+    if not (
+        traffic_service.xac_thuc_admin(user, pwd)
+        or traffic_service.xac_thuc_ma_pin(pwd)
+    ):
+        raise ValidationError("Tài khoản hoặc mật khẩu không chính xác.")
 
     data = traffic_service.doc_du_lieu_traffic()
     if data is None:
-        raise NotFoundError("Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút.")
+        raise NotFoundError(
+            "Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút."
+        )
 
     return {"ok": True, "data": data}

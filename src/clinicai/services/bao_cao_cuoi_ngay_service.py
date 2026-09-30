@@ -90,8 +90,8 @@ def gom_bao_cao(
     dong: Iterable[Mapping[str, Any]],
     doi_tac: Iterable[Mapping[str, Any]],
     so_luot_kham: int,
-    so_luot_khong_chon_dich_vu_kham: int = 0,
     doi_hinh_thuc: Iterable[Mapping[str, Any]] = (),
+    so_luot_khong_chon_dich_vu_kham: int = 0,
 ) -> dict[str, Any]:
     """Gom mọi con số của báo cáo. Thuần — chỉ cộng những gì DB trả.
 
@@ -559,10 +559,10 @@ class BaoCaoCuoiNgayService:
             )
             doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b)
             so_luot = await conn.fetchval(_LUOT_SQL, cid, a, b)
+            doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b)
             so_luot_khong_chon = await conn.fetchval(
                 _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL, cid, a, b
             )
-            doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b)
         return gom_bao_cao(
             tu=a,
             den=b,
@@ -571,6 +571,6 @@ class BaoCaoCuoiNgayService:
             dong=[dict(r) for r in dong],
             doi_tac=[dict(r) for r in doi_tac],
             so_luot_kham=int(so_luot or 0),
-            so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
             doi_hinh_thuc=[dict(r) for r in doi_ht],
+            so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
         )

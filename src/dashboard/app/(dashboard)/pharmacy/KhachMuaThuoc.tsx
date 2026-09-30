@@ -206,7 +206,7 @@ export default function KhachMuaThuoc({
           <input
             value={ten}
             onChange={(e) => setTen(e.target.value)}
-            placeholder="Họ tên *"
+            placeholder="Họ tên"
             aria-label="Họ tên khách mới"
             className={INPUT}
           />
