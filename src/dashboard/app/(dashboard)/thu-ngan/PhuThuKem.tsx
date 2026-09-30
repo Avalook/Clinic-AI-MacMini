@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { docBang, guiThaoTac } from "../_lam-viec/api";
 import { INPUT } from "../form-ui";
+import { giaNhapBang } from "@/lib/hoa-don-quay";
 
 interface Mon {
   mau_id: string;
@@ -36,10 +37,15 @@ const so = (n: number | null) => (n == null ? "" : String(n));
 
 export default function PhuThuKem({
   visitId,
+  reloadToken,
   onDoi,
+  onDangLuu,
 }: {
   visitId: string;
-  onDoi?: () => void;
+  /** Đổi khi hóa đơn/lựa chọn từ realtime đổi để bỏ state phụ thu đã cũ. */
+  reloadToken?: string | number | null;
+  onDoi?: () => void | Promise<void>;
+  onDangLuu?: (dang: boolean) => void;
 }) {
   const [pt, setPt] = useState<PhuThu | null>(null);
   const [gia, setGia] = useState<Record<string, string>>({});
@@ -52,29 +58,35 @@ export default function PhuThuKem({
   }, [visitId]);
 
   useEffect(() => {
-    // Nạp lần đầu khi mở lượt — dữ liệu từ máy chủ.
+    // Nạp lần đầu và nạp lại khi hóa đơn đổi từ thao tác khác/realtime.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void nap();
-  }, [nap]);
+  }, [nap, reloadToken]);
 
   if (!pt || pt.dich_vu.length === 0) return null;
 
   async function gui(d: DichVu, m: Mon, chon: boolean) {
     const khoa = `${d.order_id}:${m.mau_id}`;
     setDangGui(khoa);
+    onDangLuu?.(true);
     setLoi(null);
-    const kq = await guiThaoTac("phu-thu", d.order_id, {
-      mau_id: m.mau_id,
-      chon,
-      don_gia: gia[khoa] ?? so(m.don_gia ?? m.gia_mac_dinh),
-    });
-    setDangGui(null);
-    if (!kq.ok) {
-      setLoi(kq.loi);
-      return;
+    try {
+      const kq = await guiThaoTac("phu-thu", d.order_id, {
+        mau_id: m.mau_id,
+        chon,
+        don_gia: gia[khoa] ?? so(m.don_gia ?? m.gia_mac_dinh),
+      });
+      if (!kq.ok) {
+        setLoi(kq.loi);
+        return;
+      }
+      setPt(kq.data as unknown as PhuThu);
+      setGia((cu) => Object.fromEntries(Object.entries(cu).filter(([k]) => k !== khoa)));
+      await onDoi?.();
+    } finally {
+      setDangGui(null);
+      onDangLuu?.(false);
     }
-    setPt(kq.data as unknown as PhuThu);
-    onDoi?.();
   }
 
   return (
@@ -85,7 +97,8 @@ export default function PhuThuKem({
           <p className="text-meta text-ink-muted">{d.dich_vu}</p>
           {d.mon.map((m) => {
             const khoa = `${d.order_id}:${m.mau_id}`;
-            const khoaTick = !pt.duoc_sua || m.da_thu || dangGui === khoa;
+            const khoaTick = !pt.duoc_sua || m.da_thu || dangGui !== null;
+            const giaHienTai = m.don_gia ?? m.gia_mac_dinh;
             return (
               <div key={khoa} className="flex flex-wrap items-center gap-3 px-1">
                 <label className="flex min-h-10 flex-1 cursor-pointer items-center gap-3">
@@ -107,9 +120,12 @@ export default function PhuThuKem({
                     onChange={(e) => setGia((g) => ({ ...g, [khoa]: e.target.value }))}
                     // Đang tick mà sửa giá: rời ô là lưu giá mới.
                     onBlur={() => {
-                      if (m.chon && gia[khoa] !== undefined) void gui(d, m, true);
+                      const daNhap = gia[khoa];
+                      if (m.chon && daNhap !== undefined && !giaNhapBang(daNhap, giaHienTai)) {
+                        void gui(d, m, true);
+                      }
                     }}
-                    className={`${INPUT} w-32 text-right`}
+                    className={`${INPUT} w-32 max-w-32 text-right`}
                     aria-label={`Giá ${m.ten}`}
                   />
                   đ

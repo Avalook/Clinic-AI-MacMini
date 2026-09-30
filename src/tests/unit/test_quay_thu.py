@@ -134,6 +134,30 @@ def test_mot_hoa_don_rong() -> None:
     assert qt["so_sanh"]["so_chi_dinh"] == 0
 
 
+def test_phu_thu_bam_dich_vu_cha_va_bo_tick_cung_cha() -> None:
+    hd = _hd(
+        tong=650_000,
+        dong=[
+            *_hd()["dong"],
+            {
+                "source_type": "phu_thu",
+                "source_id": "pt1",
+                "order_id": "o1",
+                "ten": "Đầu dò",
+                "thanh_tien": 300_000,
+                "van_de": None,
+            },
+        ],
+    )
+    qt = dung_hoa_don_quay(
+        hd,
+        {"revision": 3, "chi_dinh": [_cd("o1", "NOT_SELECTED", 250_000)]},
+    )
+    phu_thu = next(d for d in qt["phong_kham"] if d["loai"] == "phu_thu")
+    assert phu_thu["order_id"] == "o1"
+    assert phu_thu["chon"] is False
+
+
 def test_so_sanh_chi_dinh_bo_va_doi_tac() -> None:
     ss = so_sanh_chi_dinh(
         [
