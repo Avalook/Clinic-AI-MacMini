@@ -31,12 +31,14 @@ async def xem_luot(
 
 @router.get("/hanh-trinh/hom-nay")
 async def bang_hanh_trinh(
+    ngay: str | None = Query(default=None, max_length=20),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Bảng hành trình chung (nhóm 3, 24/09/2026): mỗi khách hôm nay — đang ở
+    """Bảng hành trình chung (nhóm 3, 24/09/2026): mỗi khách của MỘT ngày (mặc
+    định hôm nay; ``ngay`` YYYY-MM-DD xem lại ngày khác — 30/09/2026) — đang ở
     đâu, đã xong gì, còn chờ gì."""
-    return await BangHanhTrinhService(pool).hom_nay(identity=identity)
+    return await BangHanhTrinhService(pool).hom_nay(identity=identity, ngay=ngay)
 
 
 @router.get("/luot-kham/visits/{visit_id}/hanh-trinh-khach")

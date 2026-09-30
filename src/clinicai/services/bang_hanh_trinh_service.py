@@ -12,7 +12,7 @@ hiện trạng (hàng chờ, chỉ định, tệp kết quả). Không có nội
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -26,8 +26,21 @@ _TRAN_LUOT = 300
 _SO_VIEC_XONG = 6
 
 
-def _dau_ngay() -> datetime:
-    return datetime.now(CLINIC_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+def _dau_ngay(ngay: date | None = None) -> datetime:
+    if ngay is None:
+        return datetime.now(CLINIC_TZ).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+    return datetime(ngay.year, ngay.month, ngay.day, tzinfo=CLINIC_TZ)
+
+
+def doc_ngay_xem(chuoi: str | None) -> date | None:
+    """ "YYYY-MM-DD" → ngày; rác / rỗng → None = hôm nay (không ném — luật ngày
+    giờ từ người dùng, CLAUDE.md)."""
+    try:
+        return date.fromisoformat((chuoi or "").strip())
+    except ValueError:
+        return None
 
 
 def noi_hang(q: dict[str, Any]) -> str:
@@ -110,10 +123,16 @@ class BangHanhTrinhService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def hom_nay(self, *, identity: StaffIdentity) -> dict[str, Any]:
+    async def hom_nay(
+        self, *, identity: StaffIdentity, ngay: str | None = None
+    ) -> dict[str, Any]:
+        """Bảng hành trình của MỘT ngày — mặc định hôm nay; ``ngay`` (YYYY-MM-DD)
+        xem lại hôm qua, các hôm khác (Tuyền 30/09/2026)."""
         if not goi_duoc(identity):
             raise SafetyGateError("Tài khoản của bạn không xem bảng hành trình.")
         cid = identity.clinic_id
+        tu = _dau_ngay(doc_ngay_xem(ngay))
+        den = tu + timedelta(days=1)
         async with self._pool.acquire() as conn:
             luot = [
                 dict(r)
@@ -133,6 +152,7 @@ class BangHanhTrinhService:
                       LEFT JOIN service_type st ON st.id = v.service_type_id
                       LEFT JOIN staff d ON d.id = v.attending_doctor_id
                      WHERE v.clinic_id = $1::uuid AND v.created_at >= $2
+                       AND v.created_at < $4
                        -- V8: lượt bán lẻ (chỉ mua thuốc) không có hành trình.
                        AND NOT v.ban_le
                      -- Khách CÒN ở phòng khám trước, người mới tới trước: có
@@ -141,8 +161,9 @@ class BangHanhTrinhService:
                      LIMIT $3
                     """,
                     cid,
-                    _dau_ngay(),
+                    tu,
                     _TRAN_LUOT,
+                    den,
                 )
             ]
             ids = [x["visit_id"] for x in luot]
@@ -255,6 +276,8 @@ class BangHanhTrinhService:
 
             htk = await doc_hanh_trinh_khach(conn, clinic_id=cid, visit_ids=ids)
         return {
+            # Ngày máy chủ ĐÃ dùng (ngày rác → hôm nay) để màn hiện đúng.
+            "ngay": tu.date().isoformat(),
             "luot": [
                 {
                     "visit_id": x["visit_id"],
