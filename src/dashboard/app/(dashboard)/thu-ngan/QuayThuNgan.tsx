@@ -132,6 +132,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
+  const [phuThuDangLuu, setPhuThuDangLuu] = useState<Set<string>>(() => new Set());
   const [chonVisit, setChonVisit] = useState<string | null>(null);
   // Lượt vừa thu xong — để mời Check-out ngay dưới câu "Đã thu…" (27/09/2026,
   // đợt 3). Nút tự ẩn nếu tài khoản không có quyền đóng lượt.
@@ -289,6 +290,47 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     [gui],
   );
 
+  /** V10 LÀM TRƯỚC, THU SAU (Tuyền 30/09/2026): chốt dịch vụ khách làm, KHÔNG
+   *  thu — máy chủ xếp phòng ngay (dây H4), khách đi làm, cuối buổi quay lại
+   *  quầy thu. Cùng lệnh xác nhận lựa chọn của ô "Khách chọn dịch vụ". */
+  const chotThuSau = useCallback(
+    async (l: Luot, chon: NonNullable<LenhThuMot["chon"]>) => {
+      const khoa = `${l.visit_id}:dich_vu`;
+      const thaoTac = dinhDanhThaoTac(
+        "chon-dich-vu",
+        l.visit_id,
+        String(chon.expected_selection_revision),
+        chon.selected_order_ids.join(","),
+      );
+      setDangThu(khoa);
+      setLoi(null);
+      setXong(null);
+      setVuaThu(null);
+      try {
+        const r = await fetch("/api/luot-kham", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": khoaThaoTac(thaoTac) },
+          body: JSON.stringify({ thao_tac: "chon-dich-vu", id: l.visit_id, du_lieu: chon }),
+        });
+        const d = (await r.json().catch(() => null)) as { error?: string; message?: string } | null;
+        if (r.ok) {
+          xongThaoTac(thaoTac);
+          setXong(
+            `Đã chốt dịch vụ của ${l.full_name ?? "khách"} — khách đi làm trước, thu tiền sau (còn nợ ở quầy).`,
+          );
+        } else {
+          setLoi(d?.message ?? d?.error ?? "Không chốt được dịch vụ.");
+        }
+        await tai();
+      } catch {
+        setLoi("Mất kết nối — CHƯA chốt được dịch vụ.");
+      } finally {
+        setDangThu(null);
+      }
+    },
+    [tai],
+  );
+
   /** "Đã nhận tiền" của lần chờ xác minh — cũng là lúc tiền đã đủ. */
   const xacMinh = useCallback(
     async (l: Luot, kind: "dich_vu" | "thuoc", ma: string) => {
@@ -391,7 +433,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         <div className="grid items-start gap-3 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
           <ul
             aria-label="Khách chờ thu"
-            className="overflow-hidden rounded-card border border-line bg-surface shadow-card"
+            className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
           >
             {conCho.map((l) => {
               const on = l.visit_id === dangXem?.visit_id;
@@ -424,7 +466,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         {(dangXem ? [dangXem] : []).map((l) => (
           <article
             key={l.visit_id}
-            className="rounded-card border border-line bg-surface shadow-card"
+            className="min-w-0 rounded-card border border-line bg-surface shadow-card"
           >
             <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
               <div className="min-w-0">
@@ -447,17 +489,31 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             {/* Món kèm dịch vụ (đầu dò…) — tick + sửa giá, vào hoá đơn dịch vụ
                 (28/09/2026). Tự ẩn khi lượt không có dịch vụ nào có món kèm. */}
             {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
-              <PhuThuKem visitId={l.visit_id} onDoi={() => void tai()} />
+              <PhuThuKem
+                visitId={l.visit_id}
+                reloadToken={l.quay_thu?.revision}
+                onDoi={tai}
+                onDangLuu={(dang) =>
+                  setPhuThuDangLuu((cu) => {
+                    const moi = new Set(cu);
+                    if (dang) moi.add(l.visit_id);
+                    else moi.delete(l.visit_id);
+                    return moi;
+                  })
+                }
+              />
             ) : null}
             {quay !== "thuoc" &&
             l.quay_thu &&
             !daThuCua(l.visit_id, "dich_vu") &&
             !choCua(l.visit_id, "dich_vu") ? (
               <HoaDonMot
-                key={`${l.visit_id}:${l.quay_thu.revision ?? ""}:${l.quay_thu.lua_chon.revision}`}
+                key={`${l.visit_id}:${l.quay_thu.lua_chon.order_ids_seen.join(",")}:${l.quay_thu.lua_chon.revision}`}
                 qt={l.quay_thu}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
+                dangLuuPhuThu={phuThuDangLuu.has(l.visit_id)}
                 onThu={(p) => void thuMot(l, p)}
+                onChotThuSau={(c) => void chotThuSau(l, c)}
                 onDoiPhong={() => void tai()}
               />
             ) : (

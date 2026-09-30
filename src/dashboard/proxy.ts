@@ -5,6 +5,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { ganKiemPhienTaiCho } from "./lib/kiem-phien-tai-cho";
 import { laRouteDaTat } from "./lib/route-da-tat";
 import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
@@ -38,7 +39,9 @@ export async function proxy(request: NextRequest) {
   //
   // Cùng thứ tự với `lib/supabase-server.ts`. Prod đang đúng nhờ may, không
   // nhờ thiết kế — một luật tường lửa là nó hỏng y như staging.
-  const supabase = createServerClient(
+  // Kiểm JWT tại chỗ khi còn hạn (lib/kiem-phien-tai-cho.ts, 30/09/2026): proxy
+  // chạy cho MỌI request, trước đây mỗi lần là một lời gọi GoTrue.
+  const supabase = ganKiemPhienTaiCho(createServerClient(
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -58,7 +61,7 @@ export async function proxy(request: NextRequest) {
         },
       },
     },
-  );
+  ));
 
   const {
     data: { user },

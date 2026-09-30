@@ -172,7 +172,7 @@ class ClinicConfigService:
         """
         rows = await self._pool.fetch(
             "SELECT st.id, st.code, st.name, st.form_code, st.form_code_nam,"
-            "       st.is_active"
+            "       st.is_active, st.gia_mac_dinh"
             "  FROM public.service_type st"
             " WHERE st.clinic_id = $1::uuid"
             " ORDER BY st.is_active DESC, st.name",
@@ -190,6 +190,7 @@ class ClinicConfigService:
                     "code": r["code"],
                     "name": r["name"],
                     "is_active": r["is_active"],
+                    "gia_mac_dinh": int(r.get("gia_mac_dinh") or 0),
                     "form_code": r["form_code"],
                     #: Chỉ khai khi nội dung khám khác nhau theo giới. Hôm nay
                     #: đúng một dịch vụ: khám tiền hôn nhân.
@@ -615,13 +616,22 @@ class ClinicConfigService:
         name: str | None = None,
         default_duration_minutes: int | None = None,
         is_active: bool | None = None,
+        gia_mac_dinh: Any | None = None,
     ) -> dict[str, Any]:
         """Đổi tên / thời lượng / bật-tắt loại khám. Tắt chứ không xoá: lịch
         hẹn cũ vẫn trỏ vào nó; tắt rồi thì không đặt lịch MỚI được."""
         await self._duoc_cau_hinh(identity)
+        if gia_mac_dinh is not None and (
+            isinstance(gia_mac_dinh, bool)
+            or not isinstance(gia_mac_dinh, int)
+            or not 0 <= gia_mac_dinh <= 1_000_000_000
+        ):
+            raise ValidationError(
+                "Giá mặc định phải là số nguyên từ 0 đến 1.000.000.000đ."
+            )
         async with self._pool.acquire() as conn, conn.transaction():
             cu = await conn.fetchrow(
-                "SELECT name, default_duration_minutes, is_active"
+                "SELECT name, default_duration_minutes, is_active, gia_mac_dinh"
                 "  FROM public.service_type"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
                 service_type_id,
@@ -638,23 +648,37 @@ class ClinicConfigService:
                 else default_duration_minutes
             )
             bat = bool(cu["is_active"]) if is_active is None else is_active
+            gia = (
+                (cu.get("gia_mac_dinh") or 0) if gia_mac_dinh is None else gia_mac_dinh
+            )
             await conn.execute(
                 "UPDATE public.service_type SET name = $3,"
-                " default_duration_minutes = $4, is_active = $5"
+                " default_duration_minutes = $4, is_active = $5, gia_mac_dinh = $6"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid",
                 service_type_id,
                 identity.clinic_id,
                 ten,
                 phut,
                 bat,
+                gia,
             )
-        moi = {"name": ten, "default_duration_minutes": phut, "is_active": bat}
-        await self._ghi_nhat_ky(
-            identity,
-            loai="service_type_updated",
-            doi_tuong_id=service_type_id,
-            payload=moi,
-        )
+            moi = {
+                "name": ten,
+                "default_duration_minutes": phut,
+                "is_active": bat,
+                "gia_mac_dinh": int(gia),
+            }
+            # Giá ảnh hưởng trực tiếp số tiền: thay đổi và dấu kiểm toán phải
+            # cùng thành công hoặc cùng lùi.
+            await record_event(
+                conn,
+                event_type="clinic_config.service_type_updated",
+                aggregate_type="clinic",
+                aggregate_id=identity.clinic_id,
+                identity=identity,
+                origin="api:clinic-config",
+                payload={"doi_tuong_id": service_type_id, **moi},
+            )
         return {"ok": True, "service_type_id": service_type_id, **moi}
 
     async def set_room_nodes(

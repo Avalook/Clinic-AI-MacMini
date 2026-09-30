@@ -104,8 +104,12 @@ WITH v AS (
                   FROM public.service_order so
                  WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
                    AND so.selection_status IN ('PENDING', 'SELECTED')
-                   AND so.exec_status = 'authorized'
-                   AND coalesce(so.execution_status, 'PENDING') = 'PENDING'
+                   -- V10 làm trước, thu sau: đã xếp / đang làm / làm xong mà
+                   -- chưa thu vẫn là khoản chờ ở quầy.
+                   AND so.exec_status IN
+                       ('authorized', 'assigned', 'in_progress', 'performed')
+                   AND coalesce(so.execution_status, 'PENDING')
+                       IN ('PENDING', 'IN_PROGRESS', 'COMPLETED')
                    AND NOT EXISTS (
                        SELECT 1 FROM public.payment_bill_line bl
                          JOIN public.payment_cycle c

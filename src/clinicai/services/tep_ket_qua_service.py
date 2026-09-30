@@ -19,7 +19,6 @@ là 240MB tức thời — đủ để tiến trình bị giết giữa giờ kh
 
 from __future__ import annotations
 
-import asyncio
 import errno
 import hashlib
 import io
@@ -35,7 +34,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.core.kho_tep import chay_tren_kho
+from clinicai.core.kho_tep import chay_tren_kho, don_tren_kho, han_theo_co
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     KetQuaDaGuiKhach,
@@ -413,8 +412,13 @@ class TepKetQuaService:
             clinic_patient_id=clinic_patient_id,
             ext=ext,
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if shutil.disk_usage(MEDIA_ROOT).free - so_byte_khai < MEDIA_MIN_FREE_BYTES:
+
+        def _chuan_bi() -> int:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return shutil.disk_usage(MEDIA_ROOT).free
+
+        # Mọi lần chạm ổ từ đây đi qua luồng phụ CÓ HẠN (sự cố 29/09 20:00).
+        if await chay_tren_kho(_chuan_bi) - so_byte_khai < MEDIA_MIN_FREE_BYTES:
             raise ValidationError(
                 "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
                 "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
@@ -422,13 +426,19 @@ class TepKetQuaService:
         tmp = path.with_suffix(path.suffix + ".tmp")
         try:
             if tep_da_nhan is not None:
-                await asyncio.to_thread(os.replace, tep_da_nhan.duong, tmp)
+                nhan = tep_da_nhan
+                await chay_tren_kho(lambda: os.replace(nhan.duong, tmp))
                 so_byte, sha = tep_da_nhan.so_byte, tep_da_nhan.sha256
             else:
                 assert nguon is not None
-                so_byte, sha = await asyncio.to_thread(_chep_luong, nguon, tmp)
+                vao = nguon
+                so_byte, sha = await chay_tren_kho(
+                    lambda: _chep_luong(vao, tmp), han=han_theo_co(so_byte_khai)
+                )
         except OSError as loi:
-            tmp.unlink(missing_ok=True)
+            await don_tren_kho(
+                lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+            )
             if loi.errno == errno.ENOSPC:
                 raise ValidationError(
                     "Kho lưu trữ đã đầy giữa chừng — tệp CHƯA được lưu. "
@@ -438,9 +448,11 @@ class TepKetQuaService:
         if loai == "TAI_LIEU" and mime != "application/dicom":
             # Chỉ tài liệu Office (ZIP) mới mở ra xem thư mục bên trong; DICOM
             # cũng là TAI_LIEU (27/09 đợt 3) nhưng đã nhận bằng chữ ký byte 128.
-            that = await asyncio.to_thread(_loai_tai_lieu, tmp)
+            that = await chay_tren_kho(lambda: _loai_tai_lieu(tmp))
             if that is None:
-                tmp.unlink(missing_ok=True)
+                await don_tren_kho(
+                    lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+                )
                 raise ValidationError(
                     "Tệp nén không phải tài liệu Word (.docx) hay Excel (.xlsx)."
                 )
@@ -485,8 +497,13 @@ class TepKetQuaService:
                             "thêm."
                         )
 
-                tmp.replace(path)
-                path.chmod(0o600)
+                dich = path
+
+                def _dat_vao_cho() -> None:
+                    tmp.replace(dich)
+                    dich.chmod(0o600)
+
+                await chay_tren_kho(_dat_vao_cho)
 
                 # External files: CHO_XAC_NHAN, không auto-approve.
                 # Internal / non-order: NULL (không áp dụng).
@@ -569,8 +586,13 @@ class TepKetQuaService:
                     correlation_id=luot_tep,
                 )
         except BaseException:
-            tmp.unlink(missing_ok=True)
-            path.unlink(missing_ok=True)
+            hong = path
+
+            def _don() -> None:
+                tmp.unlink(missing_ok=True)
+                hong.unlink(missing_ok=True)
+
+            await don_tren_kho(_don, viec=f"xoa_tep_hong:{hong}")
             raise
 
         logger.info(

@@ -155,6 +155,16 @@ class PhuThuService:
                 if don_gia not in (None, "")
                 else Decimal(hien["don_gia"] or hien["gia_mac_dinh"] or 0)
             )
+            gia_hien_tai = (
+                Decimal(str(hien["don_gia"])) if hien["don_gia"] is not None else None
+            )
+            if bool(hien["chon"]) == chon and (not chon or gia_hien_tai == gia):
+                # Idempotent theo trạng thái nghiệp vụ: rời ô giá hoặc retry
+                # không được tạo UUID/audit/revision hoá đơn mới.
+                return {
+                    "dich_vu": await _doc(conn, cid, vid),
+                    "duoc_sua": True,
+                }
             if hien["chon"]:
                 await conn.execute(
                     "UPDATE public.luot_phu_thu SET bo_luc = now(), bo_boi = $4::uuid"

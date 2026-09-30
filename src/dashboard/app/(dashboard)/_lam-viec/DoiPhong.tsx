@@ -35,7 +35,8 @@ interface GoiY {
   /** Câu máy chủ viết cho hai trạng thái không xếp được — màn vẽ nguyên văn. */
   cau?: string | null;
   /** Lối đổi phòng (29/09/2026) — MÁY CHỦ quyết theo trạng thái chỉ định + quyền
-   *  người xem: XEP · DU_KIEN (trưởng ca, chưa thu) · CHUYEN_DANG_LAM (trưởng ca,
+   *  người xem: XEP (khách đã chốt — V10: chưa thu cũng xếp) · DU_KIEN (trưởng
+   *  ca, khách chưa chốt) · CHUYEN_DANG_LAM (trưởng ca,
    *  đang làm) · KHONG. */
   che_do?: "XEP" | "DU_KIEN" | "CHUYEN_DANG_LAM" | "KHONG";
   cau_che_do?: string | null;

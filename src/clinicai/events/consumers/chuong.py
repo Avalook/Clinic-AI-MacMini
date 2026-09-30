@@ -196,6 +196,10 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         noi_dung = (
             "Khách đã thanh toán — đối tác đến lấy mẫu."
             if ly_do == "DA_THU_TIEN"
+            # V10 làm trước, thu sau: phòng khám thu hộ, quầy thu cuối buổi.
+            else "Khách đã chốt làm — đối tác đến lấy mẫu; phòng khám thu tiền"
+            " sau, đối tác không thu khách."
+            if ly_do == "KHACH_DA_CHON" and su_kien.payload.get("thu_sau")
             # Đối tác tự thu (27/09/2026): khách trả trực tiếp khi lấy mẫu.
             else "Khách đã chốt làm — đối tác đến lấy mẫu và thu tiền khách."
             if ly_do == "KHACH_DA_CHON"

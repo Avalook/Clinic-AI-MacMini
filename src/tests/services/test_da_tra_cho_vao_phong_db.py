@@ -47,6 +47,8 @@ async def test_khong_ai_xep_phong_thi_moi_phong_lam_duoc_deu_thay_va_nhan_duoc(
 ) -> None:
     ca = await _dung(pool)
     await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)  # H4 không xếp thay được
+    # V10: người CHỐT (lễ tân) cũng không có quyền xếp — để xét đúng đường thu.
+    await _thu_khoi_dieu_phoi(pool, ca.le_tan)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     async with pool.acquire() as conn:

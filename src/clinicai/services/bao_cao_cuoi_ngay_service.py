@@ -91,6 +91,7 @@ def gom_bao_cao(
     doi_tac: Iterable[Mapping[str, Any]],
     so_luot_kham: int,
     doi_hinh_thuc: Iterable[Mapping[str, Any]] = (),
+    so_luot_khong_chon_dich_vu_kham: int = 0,
 ) -> dict[str, Any]:
     """Gom mọi con số của báo cáo. Thuần — chỉ cộng những gì DB trả.
 
@@ -272,6 +273,7 @@ def gom_bao_cao(
         "hoan_huy": ds_hoan_huy,
         "khach": {
             "so_luot_kham": int(so_luot_kham),
+            "so_luot_khong_chon_dich_vu_kham": int(so_luot_khong_chon_dich_vu_kham),
             "so_luot_da_thu": len(luot_da_thu),
             "so_khach_da_thu": len(khach_da_thu),
         },
@@ -301,6 +303,14 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     w.writerow([])
     w.writerow(["Tổng", "Thu gốc", "Huỷ phiếu", "Hoàn", "Thực thu", "Hoàn chờ chuyển"])
     w.writerow(["", t["thu"], t["huy"], t["hoan"], t["thuc_thu"], t["hoan_cho"]])
+    w.writerow([])
+    w.writerow(["Lượt khám", bc["khach"]["so_luot_kham"]])
+    w.writerow(
+        [
+            "Lượt không chọn dịch vụ khám",
+            bc["khach"]["so_luot_khong_chon_dich_vu_kham"],
+        ]
+    )
     for tieu_de, khoi in (
         ("Hình thức", bc["theo_hinh_thuc"]),
         ("Loại", bc["theo_loai"]),
@@ -495,6 +505,27 @@ SELECT count(*) FROM visit
    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
 """
 
+_LUOT_KHONG_CHON_DICH_VU_KHAM_SQL = """
+SELECT count(*) FROM public.visit v
+  LEFT JOIN public.appointment a
+    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+  JOIN public.service_type st
+    ON st.id = coalesce(v.service_type_id, a.service_type_id)
+  LEFT JOIN public.encounter_flow ef
+    ON ef.clinic_id = v.clinic_id AND ef.visit_id = v.visit_id
+ WHERE v.clinic_id = $1::uuid
+   AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   -- Lượt đi thẳng phòng dịch vụ không có bước khám, nên không thể "chưa
+   -- chọn dịch vụ khám". Nếu rẽ về bác sĩ chính thì vẫn được đếm.
+   AND NOT (coalesce(st.di_thang_phong, false)
+            AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES')
+   AND NOT EXISTS (
+       SELECT 1 FROM public.luot_phi_kham l
+        WHERE l.clinic_id = v.clinic_id AND l.visit_id = v.visit_id
+          AND l.bo_luc IS NULL
+   )
+"""
+
 
 class BaoCaoCuoiNgayService:
     def __init__(self, pool: asyncpg.Pool) -> None:
@@ -519,6 +550,9 @@ class BaoCaoCuoiNgayService:
             doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b)
             so_luot = await conn.fetchval(_LUOT_SQL, cid, a, b)
             doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b)
+            so_luot_khong_chon = await conn.fetchval(
+                _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL, cid, a, b
+            )
         return gom_bao_cao(
             tu=a,
             den=b,
@@ -528,4 +562,5 @@ class BaoCaoCuoiNgayService:
             doi_tac=[dict(r) for r in doi_tac],
             so_luot_kham=int(so_luot or 0),
             doi_hinh_thuc=[dict(r) for r in doi_ht],
+            so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
         )

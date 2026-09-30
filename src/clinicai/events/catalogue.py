@@ -345,12 +345,17 @@ class DoiTacNhanViec(PayloadSuKien):
     KHACH_DA_CHON (đối tác tự lấy mẫu VÀ tự thu tiền — khách vừa chốt làm ở
     quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng) ·
     MAU_GUI_DOI_TAC (dịch vụ thu hộ đối tác làm ở phòng CỦA phòng khám — vd Giải
-    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026)."""
+    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026).
+
+    `thu_sau` (V10, 30/09/2026 — làm trước, thu sau): KHACH_DA_CHON của dịch vụ
+    PHÒNG KHÁM thu hộ mà quầy chưa thu — đối tác đến lấy mẫu, KHÔNG thu tiền
+    khách (quầy thu cuối buổi)."""
 
     visit_id: str
     service_order_id: str
     service_name: str | None = None
     ly_do: str
+    thu_sau: bool = False
 
 
 class DoiTacDaThuTien(PayloadSuKien):
@@ -705,6 +710,37 @@ class DichVuSanSangLamLai(PayloadSuKien):
     execution_revision: int
 
 
+class KhachDaChuyenPhong(PayloadSuKien):
+    """`service.patient_moved` — khách đang làm dịch vụ này ở một phòng thì
+    phòng khác bấm Bắt đầu và chọn "chuyển sang đây" (V4, Tuyền 30/09/2026 —
+    làm không theo thứ tự). Đối tượng là chỉ định BỊ DỪNG: lần làm của nó đóng
+    với lý do PATIENT_MOVED, chỉ định về chờ làm, khách còn chờ ở hàng phòng
+    cũ. `to_service_order_id` là chỉ định vừa bắt đầu ở phòng mới."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str | None = None
+    attempt_no: int | None = None
+    from_room_id: str | None = None
+    to_room_id: str | None = None
+    to_service_order_id: str
+    execution_revision: int
+
+
+class DichVuDaHuyBatDau(PayloadSuKien):
+    """`service.start_cancelled` — bấm Bắt đầu nhầm khách / nhầm dịch vụ, huỷ
+    ngay khi chưa điền gì (V4, 30/09/2026). Lần làm đóng với lý do
+    STARTED_IN_ERROR (không xoá — vẫn đọc được là đã có lần bấm), chỉ định về
+    chờ làm, khách về lại hàng chờ phòng."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str
+    attempt_no: int
+    room_id: str | None = None
+    execution_revision: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -853,8 +889,9 @@ DANH_MUC: dict[str, SuKien] = {
             # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
             # thái hiện tại (chạy lại bao lần cũng ra một kết quả). Khối Đối tác
             # nghe để nhận việc đối tác TỰ THU (27/09/2026): khách chốt làm là
-            # đủ, không chờ phòng khám thu tiền.
-            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            # đủ, không chờ phòng khám thu tiền. Hành trình nghe để tự xếp phòng
+            # khi hoá đơn 0đ — không có lần thu nào để chờ (V2, 30/09/2026).
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC, HANH_TRINH],
         ),
         SuKien(
             ten="service.completed",
@@ -895,6 +932,28 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuSanSangLamLai,
             nhan="Chuẩn bị làm lại",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            # V4 (30/09/2026): không mở việc trách nhiệm — chỉ định bị dừng đã
+            # về chờ làm và khách vẫn nằm trong hàng phòng cũ, không rơi đâu.
+            ten="service.patient_moved",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=KhachDaChuyenPhong,
+            nhan="Khách chuyển sang phòng khác khi đang làm",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.start_cancelled",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=DichVuDaHuyBatDau,
+            nhan="Huỷ bắt đầu nhầm",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1346,6 +1405,8 @@ __all__ = [
     "DichVuGianDoan",
     "DichVuKhongLam",
     "DichVuSanSangLamLai",
+    "KhachDaChuyenPhong",
+    "DichVuDaHuyBatDau",
     "KhoiQuyenDaCap",
     "PhieuDaHoanTat",
     "KhoiQuyenDaThu",

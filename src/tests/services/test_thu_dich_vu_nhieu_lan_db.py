@@ -19,9 +19,11 @@ from clinicai.api.exceptions import BillChangedError, ConflictError, ValidationE
 from clinicai.api.identity import StaffIdentity
 from clinicai.services import finance_gate as fg
 from clinicai.services.bill_service import tinh_hoa_don
+from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.payment_service import PaymentService
+from clinicai.services.phi_kham_service import PhiKhamService
 from clinicai.services.service_selection_service import ServiceSelectionService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _gia_dv, tao_quay
@@ -134,6 +136,33 @@ async def _quan_ly(q: Quay) -> StaffIdentity:
         return await _nguoi(conn, loc, "MANAGEMENT")
 
 
+async def _phi_kham_con(q: Quay, ten: str, gia: int) -> str:
+    async with q.pool.acquire() as conn:
+        st = await conn.fetchval(
+            "SELECT coalesce(v.service_type_id, a.service_type_id)::text"
+            " FROM visit v LEFT JOIN appointment a ON a.id = v.appointment_id"
+            " WHERE v.visit_id = $1::uuid",
+            q.visit_id,
+        )
+        child = await conn.fetchval(
+            'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+            " unit_price, ma_kiotviet) VALUES ($1::uuid, $2, $3, 'dich_vu',"
+            " $4, $2) RETURNING id::text",
+            CLINIC,
+            f"PK-{q.duoi}-{uuid.uuid4().hex[:4]}",
+            ten,
+            gia,
+        )
+        await conn.execute(
+            "INSERT INTO loai_kham_phi (clinic_id, service_type_id, service_price_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+            CLINIC,
+            st,
+            child,
+        )
+    return str(child)
+
+
 # ---------------------------------------------------------------------------
 # 1–3. Golden: lần thu #1 khám + SA, bác sĩ thêm XN, lần thu #2 chỉ XN
 # ---------------------------------------------------------------------------
@@ -197,6 +226,96 @@ async def test_golden_hai_lan_thu_chi_thu_phan_con_no(q: Quay) -> None:
     assert [e["event_type"] for e in ev] == ["payment.confirmed", "payment.confirmed"]
 
 
+async def test_tick_dich_vu_kham_sau_khi_da_thu_tao_lan_thu_hai(q: Quay) -> None:
+    async with q.pool.acquire() as conn:
+        st = await conn.fetchval(
+            "SELECT coalesce(v.service_type_id, a.service_type_id)::text"
+            " FROM visit v LEFT JOIN appointment a ON a.id = v.appointment_id"
+            " WHERE v.visit_id = $1::uuid",
+            q.visit_id,
+        )
+        child = await conn.fetchval(
+            'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+            " unit_price, ma_kiotviet) VALUES ($1::uuid, $2, $3, 'dich_vu',"
+            " 280000, $2) RETURNING id::text",
+            CLINIC,
+            f"PK-{q.duoi}",
+            f"Khám con {q.duoi}",
+        )
+        await conn.execute(
+            "INSERT INTO loai_kham_phi (clinic_id, service_type_id, service_price_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+            CLINIC,
+            st,
+            child,
+        )
+
+    hd1 = await _hd(q)
+    assert hd1.tong == 150_000
+    c1 = (await _thu(q, bill_revision=hd1.revision))["payment_cycle_id"]
+
+    await PhiKhamService(q.pool).chon(
+        visit_id=q.visit_id, ids=[str(child)], identity=q.bac_si
+    )
+    hd2 = await _hd(q)
+    assert hd2.tong == 280_000
+    assert _nguon(hd2) != {_exam(q)}
+    c2 = (await _thu(q, bill_revision=hd2.revision))["payment_cycle_id"]
+
+    assert c1 != c2
+    assert await _dong_cua(q, c1) == {_exam(q)}
+    assert await _dong_cua(q, c2) == _nguon(hd2)
+    assert (await _hd(q)).dong == []
+
+
+async def test_tick_them_dich_vu_kham_chi_thu_phan_moi(q: Quay) -> None:
+    a = await _phi_kham_con(q, f"Khám A {q.duoi}", 180_000)
+    b = await _phi_kham_con(q, f"Khám B {q.duoi}", 220_000)
+    svc = PhiKhamService(q.pool)
+    await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
+    hd1 = await _hd(q)
+    assert hd1.tong == 180_000
+    await _thu(q, bill_revision=hd1.revision)
+
+    await svc.chon(visit_id=q.visit_id, ids=[a, b], identity=q.bac_si)
+    hd2 = await _hd(q)
+    assert hd2.tong == 220_000
+    assert _nguon(hd2) == {("exam", f"exam-{q.visit_id}-selected-{b}")}
+
+
+async def test_xac_minh_phi_kham_cu_khong_lech_khi_tick_them(q: Quay) -> None:
+    a = await _phi_kham_con(q, f"Khám QR A {q.duoi}", 180_000)
+    b = await _phi_kham_con(q, f"Khám QR B {q.duoi}", 220_000)
+    svc = PhiKhamService(q.pool)
+    await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
+    cho = (await _thu(q, "QR"))["payment_cycle_id"]
+
+    await svc.chon(visit_id=q.visit_id, ids=[a, b], identity=q.bac_si)
+    kq = await PaymentService(q.pool).xac_minh_dien_tu(
+        payment_cycle_id=cho,
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        reference="FT-PHI-KHAM-1",
+        identity=q.thu_ngan,
+    )
+    assert kq["can_doi_soat"] is False
+    assert _nguon(await _hd(q)) == {("exam", f"exam-{q.visit_id}-selected-{b}")}
+
+
+async def test_gia_mac_dinh_khong_dong_khong_chan_check_out(q: Quay) -> None:
+    await q.pool.execute(
+        "UPDATE service_type SET gia_mac_dinh = 0"
+        " WHERE id = (SELECT a.service_type_id FROM visit v"
+        " JOIN appointment a ON a.id = v.appointment_id"
+        " WHERE v.visit_id = $1::uuid)",
+        q.visit_id,
+    )
+    state = await CheckoutService(q.pool).readiness(
+        identity=q.thu_ngan, visit_id=q.visit_id
+    )
+    assert not any(b["type"] == "unpaid_service" for b in state["blockers"])
+
+
 async def test_chua_chon_khong_chon_va_dong_cu_null_khong_vao_hoa_don(
     q: Quay,
 ) -> None:
@@ -205,9 +324,9 @@ async def test_chua_chon_khong_chon_va_dong_cu_null_khong_vao_hoa_don(
     await _cd(q, "LEGACY", selection=None)
     await _cd(q, "HUY", exec_status="cancelled")
     await _cd(q, "GIAN", execution_status="INTERRUPTED")
-    await _cd(q, "DALAM", execution_status="COMPLETED")
     await _cd(q, "DT", ben="EXTERNAL_PARTNER", gia=None)
     hd = await _hd(q)
+    # Đã làm xong mà chưa thu thì VẪN vào hoá đơn (V10 — xem test riêng dưới).
     assert _nguon(hd) == {_exam(q)}
 
 
@@ -667,23 +786,34 @@ def test_gia_hoac_ben_thu_mau_thuan_la_chua_du_du_lieu() -> None:
     )
 
 
-async def test_tien_kham_hai_bang_gia_mau_thuan_thi_chua_thu_duoc(q: Quay) -> None:
+async def test_gia_mac_dinh_khong_bi_dong_gia_cu_trung_ten_lam_lech(q: Quay) -> None:
     async with q.pool.acquire() as conn:
         await _gia_dv(conn, f"KHAM2-{q.duoi}", f"Khám thử {q.duoi}", 170_000)
     hd = await _hd(q)
-    assert any("mâu thuẫn" in v for v in hd.van_de)
-    assert not hd.thu_duoc
+    assert hd.van_de == []
+    assert hd.tong == 150_000 and hd.thu_duoc
 
 
-async def test_da_lam_ma_chua_co_tien_la_bat_thuong_khong_thu_bu(q: Quay) -> None:
+async def test_da_lam_ma_chua_co_tien_la_khoan_phai_thu_binh_thuong(q: Quay) -> None:
+    """V10 (Tuyền 30/09/2026, làm trước — thu sau): đã làm xong mà chưa có
+    tiền KHÔNG còn là bất thường — là khoản phải thu (DUE), vào hoá đơn quầy.
+    Trước: rơi khỏi hoá đơn = mất tiền im lặng. Dừng giữa chừng vẫn chờ người
+    quyết (không tự đòi tiền khách)."""
     a = await _cd(q, "DALAM", execution_status="COMPLETED")
     phong = await q.pool.fetchval(
         "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid LIMIT 1", CLINIC
     )
     b = await _cd(q, "CU", exec_status="performed", room_id=phong)
-    g = await _gate(q, a, b)
-    assert g[a].reason_code == g[b].reason_code == "EXECUTED_WITHOUT_PAYMENT"
-    assert _nguon(await _hd(q)) == {_exam(q)}
+    c = await _cd(q, "GIAN", execution_status="INTERRUPTED")
+    g = await _gate(q, a, b, c)
+    assert g[a].finance_state == g[b].finance_state == "DUE"
+    assert g[a].duoc_lam and not g[a].needs_human_review
+    assert g[c].reason_code == "EXECUTED_WITHOUT_PAYMENT" and not g[c].duoc_lam
+    assert _nguon(await _hd(q)) == {
+        _exam(q),
+        ("service_order", a),
+        ("service_order", b),
+    }
 
 
 async def test_phu_trung_trong_lich_su_la_can_doi_soat(q: Quay) -> None:
@@ -777,3 +907,19 @@ async def test_lo_30_chi_dinh_mot_truy_van(q: Quay) -> None:
             mot = await fg.can_start(conn, CLINIC, oid)
             assert mot == lo[oid]
     assert {d.finance_state for d in lo.values()} == {"DUE"}
+
+
+async def test_khong_bo_duoc_dich_vu_kham_da_thu(q: Quay) -> None:
+    """Thêm sau khi thu thì được; BỎ dịch vụ khám đã thu thì bị chặn — không để
+    khoản đã thu biến khỏi hoá đơn mà không hoàn (30/09/2026)."""
+    a = await _phi_kham_con(q, f"Khám bỏ A {q.duoi}", 180_000)
+    b = await _phi_kham_con(q, f"Khám bỏ B {q.duoi}", 220_000)
+    svc = PhiKhamService(q.pool)
+    await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
+    await _thu(q, bill_revision=(await _hd(q)).revision)
+    await svc.chon(visit_id=q.visit_id, ids=[a, b], identity=q.bac_si)
+    with pytest.raises(ValidationError, match="đã thu tiền"):
+        await svc.chon(visit_id=q.visit_id, ids=[b], identity=q.bac_si)
+    # B chưa thu thì bỏ được bình thường.
+    await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
+    assert (await _hd(q)).dong == []

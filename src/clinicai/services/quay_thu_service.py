@@ -173,20 +173,25 @@ def dung_hoa_don_quay(
 
     # Phụ thu kèm dịch vụ (đầu dò…, 28/09/2026): tick / sửa giá ở khối riêng
     # (`PhuThuKem`); trong hoá đơn là dòng khoá như tiền khám.
-    phu_thu_quay: list[dict[str, Any]] = [
-        {
-            "id": str(d["source_id"]),
-            "loai": "phu_thu",
-            "ten": d.get("ten"),
-            "gia": _so(d.get("thanh_tien")),
-            "van_de": d.get("van_de"),
-            "chon": True,
-            "sua_duoc": False,
-            "trong_lua_chon": False,
-        }
-        for d in hd.get("dong") or []
-        if d.get("source_type") == "phu_thu"
-    ]
+    phu_thu_quay: list[dict[str, Any]] = []
+    for d in hd.get("dong") or []:
+        if d.get("source_type") != "phu_thu":
+            continue
+        order_id = str(d.get("order_id") or "")
+        cha = theo_id.get(order_id)
+        phu_thu_quay.append(
+            {
+                "id": str(d["source_id"]),
+                "order_id": order_id or None,
+                "loai": "phu_thu",
+                "ten": d.get("ten"),
+                "gia": _so(d.get("thanh_tien")),
+                "van_de": d.get("van_de"),
+                "chon": cha is None or cha.get("selection_status") != "NOT_SELECTED",
+                "sua_duoc": False,
+                "trong_lua_chon": False,
+            }
+        )
 
     for c in chi_dinh:
         cid = str(c["id"])
@@ -260,6 +265,7 @@ def dung_hoa_don_quay(
         "revision": hd.get("revision"),
         "thu_duoc": bool(hd.get("thu_duoc")),
         "van_de": list(hd.get("van_de") or []),
+        "canh_bao": list(hd.get("canh_bao") or []),
         "chi_doi_tac_thu": bool(hd.get("chi_doi_tac_thu")),
         "phong_kham": phong_kham,
         "doi_tac": doi_tac,

@@ -5,6 +5,7 @@ import { cache } from "react";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { ganKiemPhienTaiCho } from "./kiem-phien-tai-cho";
 import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
 
 // Địa chỉ Supabase cho phía SERVER. Khác địa chỉ trình duyệt dùng.
@@ -27,9 +28,12 @@ const SERVER_SUPABASE_URL =
 // route handler không có kho theo-request thì cache() tự thành gọi thẳng, mỗi
 // request vẫn xác minh riêng — đúng như phải thế. Cùng mẫu getBookingPolicy
 // và getFeatureMode đã dùng.
+//
+// `ganKiemPhienTaiCho` (30/09/2026): getUser() kiểm JWT tại chỗ khi còn hạn,
+// chỉ hỏi GoTrue khi hết hạn — xem lib/kiem-phien-tai-cho.ts.
 export const getSupabaseServer = cache(async () => {
   const cookieStore = await cookies();
-  return createServerClient(
+  return ganKiemPhienTaiCho(createServerClient(
     SERVER_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -52,5 +56,5 @@ export const getSupabaseServer = cache(async () => {
         },
       },
     },
-  );
+  ));
 });
