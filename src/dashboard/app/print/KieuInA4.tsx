@@ -10,7 +10,8 @@
 // "Trang x / y" dùng ô lề trang (`@bottom-right`): Chrome/Edge in được; Safari
 // chưa hỗ trợ ô lề nên bỏ qua dòng ấy (phần còn lại in bình thường).
 //
-// Lớp đánh dấu trong trang: `.in-giu` = không cắt đôi khối này.
+// Lớp đánh dấu trong trang: `.in-giu` = không cắt đôi khối này; `.luoi-anh` =
+// lưới ảnh — khi in mỗi ảnh là khối liền, không bao giờ bị cắt ngang.
 
 const KIEU = `
 @page {
@@ -33,6 +34,17 @@ const KIEU = `
   .in-a4 tr, .in-a4 figure, .in-a4 .in-giu { break-inside: avoid; }
   .in-a4 h1, .in-a4 h2, .in-a4 h3, .in-a4 caption { break-after: avoid; }
   .in-a4 thead { display: table-header-group; }
+  /* ẢNH KHÔNG BAO GIỜ BỊ CẮT ĐÔI (Tuyền 30/09/2026). Ô trong lưới (grid) không
+     chắc được trình duyệt giữ "break-inside: avoid" khi sang trang → khi in,
+     lưới ảnh thành dòng chảy thường và mỗi ảnh là một khối inline-block: khối
+     nguyên tử, trình duyệt buộc phải đẩy cả ảnh sang trang sau, không xẻ được.
+     Ảnh cao quá cũng không vượt một trang A4 (297 − lề 30mm). */
+  .in-a4 .luoi-anh { display: block; }
+  .in-a4 .luoi-anh > figure {
+    display: inline-block; width: 50%; vertical-align: top;
+    box-sizing: border-box; padding: 1.5mm; break-inside: avoid;
+  }
+  .in-a4 img { break-inside: avoid; max-height: 250mm; }
 }
 `;
 

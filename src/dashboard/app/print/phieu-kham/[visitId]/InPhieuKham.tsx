@@ -237,7 +237,7 @@ function TrangAnh({
       {coAnh.map(({ c, anh }) => (
         <div key={c.service_order_id} className="space-y-2">
           <h3 className="font-semibold text-ink">{c.ten_hien_thi}</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="luoi-anh grid grid-cols-2 gap-3">
             {anh.map((a) => (
               <figure key={a.tep_id} className="space-y-0.5">
                 {/* eslint-disable-next-line @next/next/no-img-element -- ảnh đi qua cửa XÁC THỰC; bộ tối ưu ảnh không mang cookie phiên. */}
@@ -427,7 +427,7 @@ export default function InPhieuKham({
   const so = (x: string) => (ca ? x : null);
 
   return (
-    <main className="in-a4 mx-auto max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
+    <main className="in-a4 mx-auto w-full max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
       <KieuInA4 />
       <div className="mb-6 space-y-3 print:hidden">
         <div role="group" aria-label="Chọn phần in" className="flex flex-wrap gap-2">
@@ -503,14 +503,6 @@ export default function InPhieuKham({
         {oCua("chi_dinh_cls")}
       </Muc>
 
-      {/* Chân ký: TÊN bác sĩ của lượt (`the_khach.bac_si`), chừa chỗ ký tay. */}
-      <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? AN : ""}`}>
-        <div className="min-w-48 text-center">
-          <p className="text-ink-muted">Bác sĩ khám</p>
-          <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
-        </div>
-      </footer>
-
       {/* ── TRANG ẢNH ── */}
       <TrangAnh
         ds={cls}
@@ -520,6 +512,15 @@ export default function InPhieuKham({
           [hc?.["patient.name"], hc?.["patient.code"]].filter(Boolean).join(" · ") || null
         }
       />
+
+      {/* Chân ký: TÊN bác sĩ của lượt (`the_khach.bac_si`), chừa chỗ ký tay.
+          LUÔN Ở CUỐI CÙNG — sau cả trang ảnh (Tuyền nhắc nhiều lần, 30/09/2026). */}
+      <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? AN : ""}`}>
+        <div className="min-w-48 text-center">
+          <p className="text-ink-muted">Bác sĩ khám</p>
+          <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
+        </div>
+      </footer>
     </main>
   );
 }

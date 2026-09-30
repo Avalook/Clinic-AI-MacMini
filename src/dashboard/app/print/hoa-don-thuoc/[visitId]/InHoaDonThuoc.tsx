@@ -34,7 +34,7 @@ export default function InHoaDonThuoc({ visitId }: { visitId: string }) {
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!ds) return <p className="p-8 text-body text-ink-muted">Đang tải hoá đơn…</p>;
   return (
-    <main className="mx-auto max-w-xs bg-surface p-4 text-body text-ink print:max-w-none print:p-0">
+    <main className="mx-auto w-full max-w-xs bg-surface p-4 text-body text-ink print:max-w-none print:p-0">
       <style>{KIEU_HOA_DON}</style>
       <div className="mb-4 flex gap-2 print:hidden">
         <Button type="button" variant="primary" disabled={ds.length !== 1} onClick={() => window.print()}>

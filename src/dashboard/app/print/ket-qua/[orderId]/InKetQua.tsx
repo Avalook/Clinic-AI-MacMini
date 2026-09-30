@@ -177,7 +177,7 @@ function AnhIn({ dl }: { dl: DuLieuIn }) {
       {anh.length > 0 ? (
         <section className="mt-4">
           <h2 className="border-b border-line pb-1 text-emph font-bold uppercase text-ink">Hình ảnh kết quả</h2>
-          <div className="mt-2 grid grid-cols-2 gap-3">
+          <div className="luoi-anh mt-2 grid grid-cols-2 gap-3">
             {anh.map((a) => (
               <figure key={a.id} className="space-y-0.5">
                 {/* eslint-disable-next-line @next/next/no-img-element -- ảnh đi qua cửa XÁC THỰC */}
@@ -201,8 +201,26 @@ function AnhIn({ dl }: { dl: DuLieuIn }) {
   );
 }
 
-/** Các tờ phiếu kết quả (A4) — phần "thông tin" của chỉ định. */
-function CacToPhieu({ dl }: { dl: DuLieuIn }) {
+/** Chân ký "Bác sĩ thực hiện" của một tờ phiếu, chừa chỗ ký tay. */
+function ChuKyKetQua({ dl, p }: { dl: DuLieuIn; p: DuLieuIn["phieu"][number] }) {
+  const hoanTat = p.hoan_tat_luc
+    ? `${gioIn(p.hoan_tat_luc) ?? ""} · ${ngayIn(p.hoan_tat_luc) ?? ""}`
+    : null;
+  return (
+    <footer className="in-giu mt-8 flex justify-end">
+      <div className="min-w-48 text-center">
+        {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
+        <p className="text-ink-muted">Bác sĩ thực hiện</p>
+        <p className="mt-12 font-semibold">{p.thuc_hien ?? dl.bac_si_thuc_hien ?? "\u00a0"}</p>
+      </div>
+    </footer>
+  );
+}
+
+/** Các tờ phiếu kết quả (A4) — phần "thông tin" của chỉ định.
+ *  `kyCuoiSauAnh`: có ảnh in tiếp theo → chữ ký tờ CUỐI để bên gọi đặt SAU ảnh
+ *  (Tuyền 30/09/2026: chữ ký luôn ở cuối cùng). */
+function CacToPhieu({ dl, kyCuoiSauAnh = false }: { dl: DuLieuIn; kyCuoiSauAnh?: boolean }) {
   return (
     <>
         {dl.phieu.map((p, i) => {
@@ -212,9 +230,6 @@ function CacToPhieu({ dl }: { dl: DuLieuIn }) {
           const muc = p.khung
             .map((m) => ({ ...m, block: m.block.filter(coO) }))
             .filter((m) => m.block.length > 0);
-          const hoanTat = p.hoan_tat_luc
-            ? `${gioIn(p.hoan_tat_luc) ?? ""} · ${ngayIn(p.hoan_tat_luc) ?? ""}`
-            : null;
           return (
             <article key={p.form_id} className={i > 0 ? "mt-10 break-before-page" : ""}>
               <DauPhieuIn dl={dl} p={p} />
@@ -272,15 +287,7 @@ function CacToPhieu({ dl }: { dl: DuLieuIn }) {
                   )}
                 </section>
               ))}
-              <footer className="in-giu mt-8 flex justify-end">
-                <div className="min-w-48 text-center">
-                  {hoanTat ? <p className="text-meta text-ink-muted">Hoàn tất {hoanTat}</p> : null}
-                  <p className="text-ink-muted">Bác sĩ thực hiện</p>
-                  <p className="mt-12 font-semibold">
-                    {p.thuc_hien ?? dl.bac_si_thuc_hien ?? "\u00a0"}
-                  </p>
-                </div>
-              </footer>
+              {kyCuoiSauAnh && i === dl.phieu.length - 1 ? null : <ChuKyKetQua dl={dl} p={p} />}
             </article>
           );
         })}
@@ -339,10 +346,11 @@ export default function InKetQua({
     return (
       <section className="in-a4">
         <KieuInA4 />
-        {coPhieu ? <CacToPhieu dl={dl} /> : <DauPhieuIn dl={dl} p={null} />}
+        {coPhieu ? <CacToPhieu dl={dl} kyCuoiSauAnh={coAnh} /> : <DauPhieuIn dl={dl} p={null} />}
         {coAnh ? (
           <article className={coPhieu ? "mt-10 break-before-page print:mt-0" : ""}>
             <AnhIn dl={dl} />
+            {coPhieu ? <ChuKyKetQua dl={dl} p={dl.phieu[dl.phieu.length - 1]} /> : null}
           </article>
         ) : null}
       </section>
@@ -374,7 +382,7 @@ export default function InKetQua({
     .join(" · ");
 
   return (
-    <main className="in-a4 mx-auto max-w-7xl p-4 text-body text-ink sm:p-8 print:max-w-none print:p-0">
+    <main className="in-a4 mx-auto w-full max-w-7xl p-4 text-body text-ink sm:p-8 print:max-w-none print:p-0">
       <KieuInA4 />
       <div className="mb-4 flex justify-end print:hidden">
         <Button type="button" variant="ghost" onClick={() => window.close()}>
@@ -415,13 +423,14 @@ export default function InKetQua({
           </div>
           {coPhieu ? (
             <>
-              <CacToPhieu dl={dl} />
+              <CacToPhieu dl={dl} kyCuoiSauAnh={kemAnh && coAnh} />
               {/* In Y HỆT khung trên màn (Tuyền 28/09/2026: "in ra ở chế độ có ảnh
                   hoặc không có ảnh phải khớp form như này") — ảnh nằm ngay dưới
                   phiếu, KHÔNG ép sang trang riêng. */}
               {kemAnh && coAnh ? (
                 <article className="mt-6">
                   <AnhIn dl={dl} />
+                  <ChuKyKetQua dl={dl} p={dl.phieu[dl.phieu.length - 1]} />
                 </article>
               ) : null}
             </>
