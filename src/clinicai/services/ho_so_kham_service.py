@@ -176,7 +176,7 @@ class HoSoKhamService:
                        t.service_order_id::text AS service_order_id,
                        t.cho_phep_gui_luc IS NOT NULL AS duoc_gui,
                        t.gui_luc
-                  FROM public.tep_ket_qua t
+                  FROM public.v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
                    AND t.clinic_patient_id = $2::uuid
                    AND (t.appointment_id = $3::uuid

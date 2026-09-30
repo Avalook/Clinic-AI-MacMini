@@ -1210,7 +1210,7 @@ class BangLuotKham:
                  WHERE o.clinic_id = $1::uuid
                    AND (
                      (coalesce(nd.lam_ben_ngoai, false) AND EXISTS (
-                         SELECT 1 FROM tep_ket_qua t
+                         SELECT 1 FROM v_tep_ket_qua_hieu_luc t
                           WHERE t.clinic_id = o.clinic_id
                             AND t.service_order_id = o.id
                             AND t.xac_nhan_trang_thai = 'HOP_LE'
@@ -1222,7 +1222,7 @@ class BangLuotKham:
                      )
                    )
                    AND (o.duyet_luc IS NULL
-                        OR EXISTS (SELECT 1 FROM tep_ket_qua t
+                        OR EXISTS (SELECT 1 FROM v_tep_ket_qua_hieu_luc t
                                     WHERE t.clinic_id = o.clinic_id
                                       AND t.service_order_id = o.id
                                       AND t.xac_nhan_trang_thai = 'HOP_LE'
@@ -1241,7 +1241,7 @@ class BangLuotKham:
                 SELECT t.id::text AS id, t.service_order_id::text AS order_id,
                        t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc,
                        t.cho_phep_gui_luc IS NOT NULL AS da_cho_gui
-                  FROM tep_ket_qua t
+                  FROM v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
                    AND t.service_order_id = ANY($2::uuid[])
                    AND t.xac_nhan_trang_thai = 'HOP_LE'

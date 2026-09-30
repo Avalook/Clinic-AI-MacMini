@@ -49,6 +49,8 @@ ALTER TABLE public.visit           DISABLE TRIGGER trg_visit_no_delete;
 ALTER TABLE public.clinical_record DISABLE TRIGGER trg_clinical_record_no_delete;
 ALTER TABLE public.lab_result      DISABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE public.payment         DISABLE TRIGGER trg_payment_no_delete;
+-- Tệp kết quả chặn xoá dòng từ V9 (20260930700000) — xoá patient kéo theo nó.
+ALTER TABLE public.tep_ket_qua     DISABLE TRIGGER trg_tep_ket_qua_no_delete;
 ALTER TABLE public.vital_measurement
     DISABLE TRIGGER trg_vital_measurement_chi_them;
 ALTER TABLE public.visit_amendment
@@ -104,6 +106,7 @@ ALTER TABLE public.visit           ENABLE TRIGGER trg_visit_no_delete;
 ALTER TABLE public.clinical_record ENABLE TRIGGER trg_clinical_record_no_delete;
 ALTER TABLE public.lab_result      ENABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE public.payment         ENABLE TRIGGER trg_payment_no_delete;
+ALTER TABLE public.tep_ket_qua     ENABLE TRIGGER trg_tep_ket_qua_no_delete;
 ALTER TABLE public.vital_measurement
     ENABLE TRIGGER trg_vital_measurement_chi_them;
 ALTER TABLE public.visit_amendment

@@ -19,6 +19,7 @@ import { FileImage, FileVideo, FileText, Check } from "lucide-react";
 import Lightbox from "@/components/ui/Lightbox";
 
 import { tepXem } from "../_lam-viec/AnhKetQua";
+import { type CoXoaTep, DaXoaGanDay, NutXoaTep, type TepDaXoa } from "../_lam-viec/XoaTep";
 
 export interface TepKetQuaRow {
   id: string;
@@ -151,6 +152,36 @@ export default function TepKetQua({
   const tenChiDinh = new Map(
     (chiDinh ?? []).map((c) => [c.service_order_id, c.service_name ?? c.service_code]),
   );
+
+  // XOÁ MỀM (V9, 30/09/2026): cờ `xoa_duoc` và danh sách đã xoá do MÁY CHỦ trả
+  // ở danh sách tệp của khách — màn này không tự suy ai xoá được.
+  const [coXoa, setCoXoa] = useState<Record<string, CoXoaTep>>({});
+  const [daXoa, setDaXoa] = useState<TepDaXoa[]>([]);
+  const [lanNapXoa, setLanNapXoa] = useState(0);
+  const khoaItems = items.map((t) => t.id).join(",");
+  useEffect(() => {
+    if (readOnly) return;
+    let song = true;
+    void fetch(`/api/cskh/ket-qua?clinic_patient_id=${encodeURIComponent(clinicPatientId)}`, {
+      cache: "no-store",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: (CoXoaTep & { id: string })[]; da_xoa?: TepDaXoa[] } | null) => {
+        if (!song || !d) return;
+        setCoXoa(Object.fromEntries((d.items ?? []).map((t) => [t.id, t])));
+        setDaXoa((d.da_xoa ?? []).filter((t) => t.appointment_id === appointmentId));
+      })
+      .catch(() => {});
+    return () => {
+      song = false;
+    };
+  }, [clinicPatientId, appointmentId, readOnly, lanNapXoa, khoaItems]);
+
+  function daDoiTep() {
+    setLanNapXoa((n) => n + 1);
+    if (onDaThayDoi) onDaThayDoi();
+    else router.refresh();
+  }
 
   async function taiLen(files: FileList | null) {
     if (!appointmentId) {
@@ -338,9 +369,28 @@ export default function TepKetQua({
             }),
           )}
           batDau={phongTo}
+          veThaoTac={
+            readOnly
+              ? undefined
+              : (x) =>
+                  coXoa[x.id] ? (
+                    <NutXoaTep
+                      tepId={x.id}
+                      ten={x.ten}
+                      co={coXoa[x.id]}
+                      nenToi
+                      onDaXoa={() => {
+                        setPhongTo(null);
+                        daDoiTep();
+                      }}
+                    />
+                  ) : null
+          }
           onDong={() => setPhongTo(null)}
         />
       )}
+
+      {!readOnly ? <DaXoaGanDay ds={daXoa} onXong={daDoiTep} /> : null}
 
       {items.length === 0 ? (
         <p className="mt-2 text-label text-ink-faint">
@@ -394,6 +444,17 @@ export default function TepKetQua({
                     </span>
                   )}
                 </p>
+
+                {!readOnly && coXoa[t.id] ? (
+                  <div className="mt-1 flex justify-end">
+                    <NutXoaTep
+                      tepId={t.id}
+                      ten={t.ten_hien_thi}
+                      co={coXoa[t.id]}
+                      onDaXoa={daDoiTep}
+                    />
+                  </div>
+                ) : null}
 
                 {dangXem && (
                   <div className="mt-1.5">

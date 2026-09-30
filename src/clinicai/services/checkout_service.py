@@ -460,7 +460,7 @@ class CheckoutService:
                 """
                 SELECT t.ten_hien_thi, t.loai_tep, t.tai_len_luc,
                        t.cho_phep_gui_luc, t.gui_luc, t.gui_kenh
-                  FROM public.tep_ket_qua t
+                  FROM public.v_tep_ket_qua_hieu_luc t
                  WHERE t.clinic_id = $1::uuid
                    AND (t.service_order_id IN (
                             SELECT o.id FROM public.service_order o

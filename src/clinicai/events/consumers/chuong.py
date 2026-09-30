@@ -88,7 +88,7 @@ async def _khach_va_bac_si(
                        $4::uuid AS lab_id) k
           LEFT JOIN visit v
             ON v.clinic_id = $1::uuid AND v.visit_id = k.visit_id
-          LEFT JOIN tep_ket_qua t
+          LEFT JOIN v_tep_ket_qua_hieu_luc t
             ON t.clinic_id = $1::uuid AND t.id = k.tep_id
           LEFT JOIN lab_result l
             ON l.clinic_id = $1::uuid AND l.lab_result_id = k.lab_id

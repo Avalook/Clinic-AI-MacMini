@@ -65,6 +65,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "partner.payment_recorded": ["so_tien", "hinh_thuc"],
     "partner.payment_voided": ["so_tien"],
     "result_file.confirmed": ["trang_thai"],
+    # V9 (30/09/2026): lý do xoá là chữ vận hành người xoá gõ — hiện ở lịch sử.
+    "result_file.deleted": ["loai", "ly_do"],
+    "result_file.restored": [],
     "result_file.viewed": [],
     "result_file.sent_to_patient": ["kenh"],
     "result.reviewed": [],

@@ -369,7 +369,7 @@ class XemLuotService:
                    o.selection_status, o.execution_status, o.routing_revision,
                    o.room_id::text AS room_id,
                    coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
-                   (SELECT count(*) FROM tep_ket_qua t
+                   (SELECT count(*) FROM v_tep_ket_qua_hieu_luc t
                      WHERE t.clinic_id = o.clinic_id AND t.service_order_id = o.id)
                                                               AS so_tep,
                    (SELECT q.status FROM queue_entry q

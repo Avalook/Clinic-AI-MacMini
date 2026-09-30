@@ -222,7 +222,7 @@ async def _bao_ve_con_viec(
               AND o.doi_tac_cho_tai_lieu_luc IS NULL
               AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
               AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED') AS cho_ket_qua,
-          (SELECT count(*) FROM tep_ket_qua t
+          (SELECT count(*) FROM v_tep_ket_qua_hieu_luc t
              JOIN service_order o ON o.id = t.service_order_id
                                  AND o.clinic_id = t.clinic_id
             WHERE t.clinic_id = $1::uuid AND o.visit_id = $2::uuid

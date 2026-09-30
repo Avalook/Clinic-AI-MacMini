@@ -198,6 +198,26 @@ class TepKetQuaDaThuHoi(PayloadSuKien):
     service_order_id: str | None = None
 
 
+class TepKetQuaDaXoa(PayloadSuKien):
+    """`result_file.deleted` — tệp bị xoá mềm (V9 30/09/2026): ẩn khỏi mọi chỗ
+    đọc, khôi phục được 30 ngày. `loai` = XOA | DINH_CHINH (gỡ tệp đã gửi khách
+    / phiên đọc đã đóng). Lý do là chữ vận hành người xoá gõ."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+    loai: str
+    ly_do: str
+
+
+class TepKetQuaDaKhoiPhuc(PayloadSuKien):
+    """`result_file.restored` — tệp đã xoá mềm được khôi phục (trong 30 ngày)."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+
+
 class TepKetQuaDaXem(PayloadSuKien):
     """`result_file.viewed` — lần ĐẦU người làm chuyên môn mở tệp (tự ghi).
 
@@ -957,6 +977,26 @@ DANH_MUC: dict[str, SuKien] = {
             payload=TepKetQuaDaThuHoi,
             nhan="Đã thu hồi tệp kết quả",
             # Vòng đọc nghe để rút chỗ chờ "có kết quả" khi tệp duy nhất bị gỡ.
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+        ),
+        # V9 (30/09/2026): xoá mềm / khôi phục. Vòng đọc nghe như thu hồi — tệp
+        # duy nhất bị xoá thì rút chỗ chờ "có kết quả"; khôi phục thì mở lại.
+        SuKien(
+            ten="result_file.deleted",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaXoa,
+            nhan="Đã xoá tệp kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+        ),
+        SuKien(
+            ten="result_file.restored",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaKhoiPhuc,
+            nhan="Đã khôi phục tệp kết quả",
             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
         ),
         SuKien(
