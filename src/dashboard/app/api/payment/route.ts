@@ -7,6 +7,8 @@
 //          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
 //   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
 //   POST   { action: "hoan-tien" | "hoan-tien-xac-nhan" | "hoan-tien-dong", … } → CP5.
+//   POST   { action: "doi-hinh-thuc", paymentCycleId, hinhThuc, hinhThucCu?, reference?, lyDo? }
+//          → đổi TM/CK/QR của phiếu ĐÃ THU (V7) — một dòng sổ chỉ thêm, không huỷ.
 //   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
@@ -44,6 +46,9 @@ export async function POST(request: Request) {
     paymentCycleId?: string;
     refundId?: string;
     trangThai?: string;
+    hinhThuc?: string;
+    hinhThucCu?: string | null;
+    lyDo?: string | null;
     dong?: { payment_bill_line_id: string; so_luong: number }[];
     /** Quầy một hoá đơn (27/09): lựa chọn dịch vụ khách đang nhìn lúc bấm Thu. */
     chon?: {
@@ -81,6 +86,15 @@ export async function POST(request: Request) {
       refund_id: p.refundId,
       trang_thai: p.trangThai,
       reason: p.reason,
+    });
+  }
+  if (p.action === "doi-hinh-thuc") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/doi-hinh-thuc", {
+      payment_cycle_id: p.paymentCycleId,
+      hinh_thuc: p.hinhThuc,
+      hinh_thuc_cu: p.hinhThucCu ?? null,
+      reference: p.reference ?? null,
+      ly_do: p.lyDo ?? null,
     });
   }
   if (p.action === "xac-minh") {

@@ -73,6 +73,8 @@ INSERT INTO bang_xoa (ten) VALUES
   -- Thanh toán
   ('payment'), ('payment_cycle'), ('payment_bill_line'), ('payment_refund'),
   ('payment_refund_line'), ('pos_outbox'),
+  -- Sổ đổi hình thức thu (V7, 30/09) — khoá ngoại tới `payment_cycle`.
+  ('payment_cycle_doi_hinh_thuc'),
   -- Đơn thuốc
   ('prescription'), ('prescription_allocation'), ('prescription_correction'),
   ('drug_return'),

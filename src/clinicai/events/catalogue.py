@@ -150,6 +150,22 @@ class TienThuocDaThu(PayloadSuKien):
     phuong_thuc: str
 
 
+class HinhThucThuDaDoi(PayloadSuKien):
+    """`payment.method_changed` — phiếu đã thu được ghi lại hình thức (TM/CK/QR)
+    sau khi thu (V7, 30/09/2026). Không phải huỷ: số tiền và phiếu giữ nguyên.
+
+    ``tu`` rỗng = phiếu cũ trước CP2 không biết hình thức lúc thu. Không mang
+    mã giao dịch (thông tin ngân hàng ở bảng, không ở sổ sự kiện).
+    """
+
+    visit_id: str
+    payment_cycle_id: str
+    kind: str
+    so_tien: int
+    tu: str | None = None
+    sang: str
+
+
 class ThuocDaGiao(PayloadSuKien):
     """`medicine.dispensed` — quầy thuốc giao thuốc cho khách (một dòng đơn).
 
@@ -1160,6 +1176,17 @@ DANH_MUC: dict[str, SuKien] = {
             is_public=False,
         ),
         SuKien(
+            ten="payment.method_changed",
+            version=1,
+            aggregate_type="payment_cycle",
+            source_module="payment",
+            payload=HinhThucThuDaDoi,
+            nhan="Đổi hình thức thu",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
+            is_public=False,
+        ),
+        SuKien(
             ten="medicine.dispensed",
             version=1,
             aggregate_type="prescription",
@@ -1292,6 +1319,7 @@ __all__ = [
     "KhachDaVe",
     "KhachBoVeGiuaChung",
     "DaHoanTien",
+    "HinhThucThuDaDoi",
     "DaHenTaiKham",
     "CskhDaLienHe",
     "DoiTacDaLayMau",

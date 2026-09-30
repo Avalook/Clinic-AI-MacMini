@@ -12,6 +12,11 @@ không lệch nhau:
   chuyển hiện ra danh sách nhưng không trừ.
 * **Thực thu** = thu gốc − huỷ − hoàn.
 
+Hình thức (TM / CK / QR) là hình thức HIỆU LỰC — sau mọi lần đổi hình thức
+(V7, ``payment_cycle_doi_hinh_thuc``), không phải hình thức ghi lúc thu. Mục
+riêng **Đổi hình thức** liệt kê các lần đổi trong khoảng (ai, lúc nào, từ →
+sang); đổi hình thức KHÔNG phải huỷ, không trừ vào đâu.
+
 Đối tác thu hộ (``doi_tac_thanh_toan``): khách trả thẳng đối tác — chỉ để
 tham khảo, KHÔNG cộng vào thực thu.
 
@@ -85,13 +90,15 @@ def gom_bao_cao(
     dong: Iterable[Mapping[str, Any]],
     doi_tac: Iterable[Mapping[str, Any]],
     so_luot_kham: int,
+    doi_hinh_thuc: Iterable[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Gom mọi con số của báo cáo. Thuần — chỉ cộng những gì DB trả.
 
     ``lan_thu``: lần thu PAID/VOIDED có paid_at trong khoảng. ``hoan``: khoản
     hoàn PENDING/COMPLETED tạo trong khoảng. ``dong``: dòng hoá đơn (CLINIC) của
     các lần thu ấy, kèm ``cycle_id``. ``doi_tac``: ghi nhận đối tác đã thu còn
-    hiệu lực trong khoảng.
+    hiệu lực trong khoảng. ``doi_hinh_thuc``: các lần đổi hình thức ghi trong
+    khoảng (``method`` của ``lan_thu`` đã là hình thức hiệu lực).
     """
     lan_thu = list(lan_thu)
     hoan = list(hoan)
@@ -218,6 +225,23 @@ def gom_bao_cao(
         for r in doi_tac
     ]
 
+    doi_ds = [
+        {
+            "id": str(r.get("id")),
+            "cycle_id": str(r.get("cycle_id")),
+            "luc": _iso(r.get("luc")),
+            "khach": r.get("ten_khach"),
+            "ma_bn": r.get("ma_bn"),
+            "loai_tien": r.get("kind") if r.get("kind") in TEN_LOAI else None,
+            "tu": r.get("method_cu"),
+            "sang": r.get("method_moi"),
+            "so_tien": _tien(r.get("amount")),
+            "nguoi": r.get("nguoi"),
+            "ly_do": r.get("ly_do"),
+        }
+        for r in doi_hinh_thuc
+    ]
+
     ngay_ds: list[dict[str, Any]] = []
     if tu != den:
         ngay = tu
@@ -252,6 +276,7 @@ def gom_bao_cao(
             "so_khach_da_thu": len(khach_da_thu),
         },
         "doi_tac": {"tong": sum(d["so_tien"] for d in dt_ds), "dong": dt_ds},
+        "doi_hinh_thuc": doi_ds,
         "top_dich_vu": top_ds,
         "theo_ngay": ngay_ds,
     }
@@ -329,6 +354,25 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
         )
     w.writerow([])
     w.writerow(
+        ["Đổi hình thức (không phải huỷ)", "Lúc", "Khách", "Mã khách", "Từ", "Sang"]
+        + ["Số tiền", "Người đổi", "Lý do"]
+    )
+    for o in bc.get("doi_hinh_thuc") or []:
+        w.writerow(
+            [
+                TEN_LOAI.get(str(o["loai_tien"]), ""),
+                _gio(o["luc"]),
+                _o(o["khach"]),
+                _o(o["ma_bn"]),
+                TEN_HINH_THUC.get(str(o["tu"]), "Không rõ"),
+                TEN_HINH_THUC.get(str(o["sang"]), ""),
+                o["so_tien"],
+                _o(o["nguoi"]),
+                _o(o["ly_do"]),
+            ]
+        )
+    w.writerow([])
+    w.writerow(
         [
             "Đối tác thu hộ (tham khảo, không cộng)",
             "Lúc",
@@ -367,7 +411,9 @@ def _gio(iso: str | None) -> str:
 
 _LAN_THU_SQL = """
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
-       pc.status, pc.amount, pc.method, pc.paid_at, pc.closed_at, pc.close_reason,
+       pc.status, pc.amount,
+       hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
+       pc.paid_at, pc.closed_at, pc.close_reason,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
        p.patient_code AS ma_bn
@@ -425,6 +471,24 @@ SELECT t.id::text AS id, t.so_tien, t.hinh_thuc, t.ghi_luc, o.service_name AS te
  LIMIT 5000
 """
 
+#: Các lần đổi hình thức GHI trong khoảng (giờ VN) — kể cả phiếu thu ngày trước.
+_DOI_HINH_THUC_SQL = """
+SELECT d.id::text AS id, d.cycle_id::text AS cycle_id, d.method_cu, d.method_moi,
+       d.ly_do, d.luc, pc.kind, pc.amount, s.full_name AS nguoi,
+       p.full_name AS ten_khach, p.patient_code AS ma_bn
+  FROM payment_cycle_doi_hinh_thuc d
+  JOIN payment_cycle pc
+    ON pc.payment_cycle_id = d.cycle_id AND pc.clinic_id = d.clinic_id
+  LEFT JOIN staff s ON s.id = d.boi
+  LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+  LEFT JOIN patient p
+    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
+ WHERE d.clinic_id = $1::uuid
+   AND (d.luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+ ORDER BY d.id
+ LIMIT 5000
+"""
+
 _LUOT_SQL = """
 SELECT count(*) FROM visit
  WHERE clinic_id = $1::uuid
@@ -454,6 +518,7 @@ class BaoCaoCuoiNgayService:
             )
             doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b)
             so_luot = await conn.fetchval(_LUOT_SQL, cid, a, b)
+            doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b)
         return gom_bao_cao(
             tu=a,
             den=b,
@@ -462,4 +527,5 @@ class BaoCaoCuoiNgayService:
             dong=[dict(r) for r in dong],
             doi_tac=[dict(r) for r in doi_tac],
             so_luot_kham=int(so_luot or 0),
+            doi_hinh_thuc=[dict(r) for r in doi_ht],
         )
