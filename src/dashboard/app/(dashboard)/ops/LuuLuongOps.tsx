@@ -75,8 +75,11 @@ export default function LuuLuongOps() {
   useEffect(() => {
     const savedPin = sessionStorage.getItem("clinicai_ops_traffic_pin");
     if (savedPin) {
+      // Nạp lại mã đã mở trong phiên — dữ liệu ngoài (sessionStorage), cùng mẫu
+      // ChonDichVuKham.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPin(savedPin);
-      fetchTrafficData(savedPin);
+      void fetchTrafficData(savedPin);
     }
   }, [fetchTrafficData]);
 
