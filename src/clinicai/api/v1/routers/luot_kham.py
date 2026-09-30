@@ -854,6 +854,14 @@ async def complete_service(
 class BatDauBody(BaseModel):
     expected_execution_revision: int = Field(ge=0)
     expected_routing_revision: int = Field(ge=0)
+    #: V4 (30/09/2026): khách đang làm ở phòng khác → người bấm đã đồng ý
+    #: "chuyển sang đây" (dừng lần làm ở phòng kia trong cùng giao dịch).
+    giai_phong: bool = False
+
+
+class HuyBatDauBody(BaseModel):
+    attempt_id: UUID
+    expected_execution_revision: int = Field(ge=0)
 
 
 class XongBody(BaseModel):
@@ -906,6 +914,25 @@ async def execution_bat_dau(
         order_id=str(order_id),
         expected_execution_revision=body.expected_execution_revision,
         expected_routing_revision=body.expected_routing_revision,
+        identity=identity,
+        idempotency_key=idempotency_key,
+        giai_phong=body.giai_phong,
+    )
+
+
+@router.post("/luot-kham/orders/{order_id}/execution/huy-bat-dau")
+async def execution_huy_bat_dau(
+    order_id: UUID,
+    body: HuyBatDauBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Huỷ lần Bắt đầu bấm nhầm (V4) — chỉ khi chưa điền phiếu kết quả."""
+    return await ServiceExecutionService(pool).huy_bat_dau(
+        order_id=str(order_id),
+        attempt_id=str(body.attempt_id),
+        expected_execution_revision=body.expected_execution_revision,
         identity=identity,
         idempotency_key=idempotency_key,
     )

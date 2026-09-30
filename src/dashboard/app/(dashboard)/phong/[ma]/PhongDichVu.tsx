@@ -72,6 +72,7 @@ import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ThanhNgay from "@/components/ui/ThanhNgay";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 import { ngayNgan } from "@/lib/thanh-ngay";
@@ -277,6 +278,11 @@ function KhachTrongPhong({
   /** Tên các bên của mẫu đang mở (mẫu hai bên) — null = một ô tải. */
   const [cacBen, setCacBen] = useState<string[] | null>(null);
   const [ghiChuXong, setGhiChuXong] = useState("");
+  /** LÀM KHÔNG THEO THỨ TỰ (V4, 30/09/2026): khách đang làm ở phòng khác →
+   *  máy chủ trả tên phòng (`chi_tiet` của 409 PATIENT_BUSY) và có cho chuyển
+   *  không; màn chỉ hỏi lại tại chỗ, không tự suy luật. */
+  const [hoiChuyen, setHoiChuyen] = useState<string | null>(null);
+  const [hoiHuy, setHoiHuy] = useState(false);
 
   // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
   // hai số revision, mà thiếu chúng thì mọi lệnh đều phải đoán.
@@ -302,14 +308,31 @@ function KhachTrongPhong({
     const kq = await guiThaoTac(thaoTac, dong.ref_id, duLieu);
     setDangGui(false);
     if (!kq.ok) {
+      const ct = kq.chiTiet;
+      if (ct?.ma === "PATIENT_BUSY" && ct.chuyen_duoc === true) {
+        setHoiChuyen(typeof ct.phong === "string" ? ct.phong : "khác");
+        return;
+      }
+      setHoiChuyen(null);
       setLoi(kq.loi);
       return;
     }
+    setHoiChuyen(null);
+    setHoiHuy(false);
     setMoLyDo(null);
     setLyDo("");
     setGhiChu("");
     docLai();
     onDaBam();
+  };
+
+  const batDau = (giaiPhong: boolean) => {
+    if (!th) return;
+    void lenh("bat-dau-v1", {
+      expected_execution_revision: th.execution_revision,
+      expected_routing_revision: th.routing_revision,
+      ...(giaiPhong ? { giai_phong: true } : {}),
+    });
   };
 
   const trangThai = th?.execution_status ?? null;
@@ -387,12 +410,7 @@ function KhachTrongPhong({
               size="lg"
               variant="primary"
               disabled={dangGui}
-              onClick={() =>
-                void lenh("bat-dau-v1", {
-                  expected_execution_revision: th.execution_revision,
-                  expected_routing_revision: th.routing_revision,
-                })
-              }
+              onClick={() => batDau(false)}
             >
               {dangGui ? "Đang ghi…" : "Bắt đầu"}
             </Button>
@@ -412,8 +430,40 @@ function KhachTrongPhong({
               {dangGui ? "Đang ghi…" : "Làm lại"}
             </Button>
           ) : null}
+          {/* HUỶ BẮT ĐẦU NHẦM (V4, 30/09/2026): ngay cạnh chỗ vừa bấm Bắt đầu,
+              chỉ khi máy chủ nói được (đang làm, chưa điền phiếu). */}
+          {dangLam && th?.huy_bat_dau_duoc && !hoiHuy ? (
+            <Button size="sm" variant="ghost" onClick={() => setHoiHuy(true)}>
+              Huỷ bắt đầu nhầm
+            </Button>
+          ) : null}
         </div>
       </header>
+
+      {hoiHuy && dangLam && th?.lan_dang_chay ? (
+        <XacNhanTaiCho
+          cau="Huỷ lần bắt đầu này? Khách về lại hàng chờ của phòng."
+          nhanDongY="Huỷ bắt đầu"
+          dangGui={dangGui}
+          onDongY={() =>
+            void lenh("huy-bat-dau-v1", {
+              attempt_id: th.lan_dang_chay!.id,
+              expected_execution_revision: th.execution_revision,
+            })
+          }
+          onThoi={() => setHoiHuy(false)}
+        />
+      ) : null}
+
+      {hoiChuyen && chuaLam ? (
+        <XacNhanTaiCho
+          cau={`Khách đang ở phòng ${hoiChuyen} — chuyển sang đây?`}
+          nhanDongY="Chuyển sang đây"
+          dangGui={dangGui}
+          onDongY={() => batDau(true)}
+          onThoi={() => setHoiChuyen(null)}
+        />
+      ) : null}
 
       {loi ? (
         <p
