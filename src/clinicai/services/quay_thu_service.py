@@ -66,18 +66,23 @@ def _so_nguyen(v: Any) -> int:
 class PhongQuay:
     """Phòng chọn được cho từng chỉ định, nhớ trong một lần đọc bảng.
 
-    Đúng tập của dây H4 (cùng cơ sở, còn nhận khách, làm được bước này, không
-    phải phòng đối tác) — `eligible_rooms` + `rank_rooms` — rồi vắng nhất lên
-    đầu. Dùng cho CẢ ô "phòng dự kiến" (trước thu) lẫn ô xếp phòng sau thu.
+    Đúng tập của dây H4 (cùng cơ sở, còn nhận khách, làm được bước + DỊCH VỤ
+    này — dịch vụ gắn phòng riêng thì chỉ các phòng ấy, không phải phòng đối
+    tác) — `eligible_rooms` + `rank_rooms` — rồi vắng nhất lên đầu. Dùng cho CẢ
+    ô "phòng dự kiến" (trước thu) lẫn ô xếp phòng sau thu.
     """
 
     def __init__(self, conn: asyncpg.Connection, clinic_id: str) -> None:
         self._conn = conn
         self._clinic_id = clinic_id
         self._ten: dict[str, str] | None = None
-        self._nho: dict[tuple[str, str | None, str], list[dict[str, Any]]] = {}
+        self._nho: dict[
+            tuple[str, str | None, str | None, str], list[dict[str, Any]]
+        ] = {}
 
-    async def cua(self, node: str | None, visit_id: str) -> list[dict[str, Any]]:
+    async def cua(
+        self, node: str | None, visit_id: str, service_code: str | None = None
+    ) -> list[dict[str, Any]]:
         if not node:
             return []
         from clinicai.services.service_routing_service import (
@@ -96,11 +101,16 @@ class PhongQuay:
                 )
             }
         co_so = await co_so_cua_luot(self._conn, self._clinic_id, visit_id=visit_id)
-        khoa = (node, co_so, visit_id)
+        khoa = (node, service_code, co_so, visit_id)
         if khoa not in self._nho:
             ung_vien = rank_rooms(
                 await eligible_rooms(
-                    self._conn, self._clinic_id, node, co_so, tru_luot=visit_id
+                    self._conn,
+                    self._clinic_id,
+                    node,
+                    co_so,
+                    tru_luot=visit_id,
+                    service_code=service_code,
                 )
             )
             self._nho[khoa] = xep_vang_nhat(
@@ -929,7 +939,10 @@ class QuayThuService:
     ) -> None:
         from clinicai.services.bill_service import doi_tac_da_thu
         from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
-        from clinicai.services.service_routing_service import da_tra_cho_vao_phong
+        from clinicai.services.service_routing_service import (
+            KHOA_NOI_BO,
+            da_tra_cho_vao_phong,
+        )
 
         cid = identity.clinic_id
         vids = [g["visit_id"] for g in khach]
@@ -959,9 +972,11 @@ class QuayThuService:
                     x = xep.get(str(d.get("source_id")))
                     if x is None:
                         continue
-                    phong_cd = await pq.cua(x.get("node_code"), g["visit_id"])
+                    phong_cd = await pq.cua(
+                        x.get("node_code"), g["visit_id"], x.get("service_code")
+                    )
                     d["xep_phong"] = {
-                        **{k: v for k, v in x.items() if k != "node_code"},
+                        **{k: v for k, v in x.items() if k not in KHOA_NOI_BO},
                         "phong_chon_duoc": phong_cd,
                     }
 

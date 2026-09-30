@@ -12,6 +12,31 @@ export interface ConfigRoom {
   primary_node: string | null;
   /** Mọi bước phòng này phục vụ. "Phòng siêu âm" = có DICHVU-SIEUAM ở đây. */
   serves: string[];
+  /** Dịch vụ gắn RIÊNG cho phòng (30/09/2026). Dịch vụ có ở đây thì chỉ các
+   *  phòng được gắn làm được — máy chủ quyết khi xếp phòng. */
+  dich_vu: DichVuPhong[];
+}
+
+export interface DichVuPhong {
+  ma: string;
+  ten: string;
+  node: string | null;
+}
+
+/** Một dịch vụ trong ô chọn — `chi_lam_o` = các phòng đang được gắn riêng. */
+export interface DichVuChonDuoc {
+  ma: string;
+  ten: string;
+  ma_kv: string | null;
+  chi_lam_o: string[];
+}
+
+/** Nhóm việc CHỌN ĐƯỢC cho phòng — máy chủ đã lọc (không node quản trị). */
+export interface ViecChonDuoc {
+  node: string;
+  ten: string;
+  loai: "KHAM" | "DICHVU";
+  dich_vu: DichVuChonDuoc[];
 }
 
 export interface ConfigFloor {
@@ -35,7 +60,8 @@ export interface NodeDef {
   name: string;
 }
 
-/** Bước dịch vụ không có phòng ĐANG BẬT nào phục vụ (CORE-C, 23/09/2026). */
+/** Dịch vụ / nhóm khám không có phòng ĐANG BẬT nào làm được (30/09/2026: chỉ
+ *  việc khách đến phòng, không tính việc quản trị, đối tác làm trọn). */
 export interface ConfigMissing {
   code: string;
   name: string;

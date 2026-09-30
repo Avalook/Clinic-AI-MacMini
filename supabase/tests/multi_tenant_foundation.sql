@@ -156,7 +156,9 @@ DECLARE
     -- kho kiểu KiotViet — 20260929960000).
     -- 123 → 124 (30/09/2026): payment_cycle_doi_hinh_thuc (sổ đổi hình thức
     -- thu, chỉ thêm — 20260930500000).
-    expected_tenant_tables constant integer := 124;
+    -- 124 → 125 (01/10/2026): clinic_room_service (phòng làm theo dịch vụ —
+    -- 20261001210000).
+    expected_tenant_tables constant integer := 125;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
