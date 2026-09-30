@@ -26,6 +26,7 @@ import {
   type OpsSummary,
   type ServiceState,
 } from "../../../lib/ops-summary";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 const SERVICE_LABELS: Record<string, string> = {
   api: "FastAPI",
@@ -160,17 +161,11 @@ export default function OpsCenter() {
 
   useEffect(() => {
     const initial = window.setTimeout(() => void refresh(), 0);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
-    }, 30_000);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì đọc một lần ngay.
+    const goNhip = nhipKhiHien(() => void refresh(), 30_000);
     return () => {
       window.clearTimeout(initial);
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
+      goNhip();
     };
   }, [refresh]);
 

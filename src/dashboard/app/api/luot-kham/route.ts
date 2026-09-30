@@ -64,6 +64,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "khong-lam-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/khong-lam`,
   "gian-doan-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/gian-doan`,
   "lam-lai-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/lam-lai`,
+  // V4 (30/09/2026): huỷ lần Bắt đầu bấm nhầm — chỉ khi chưa điền phiếu.
+  "huy-bat-dau-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/huy-bat-dau`,
   // Điều phối chính thức (Lifecycle v1 Slice 4) — id là CHỈ ĐỊNH. Khoá gửi lại
   // bắt buộc. Màn hình chuyển sang dùng ở Slice 6.
   "xep-phong-v1": (id) => `/api/v1/luot-kham/orders/${id}/routing/assign`,

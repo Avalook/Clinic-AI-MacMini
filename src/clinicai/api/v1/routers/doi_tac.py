@@ -163,14 +163,14 @@ async def gui_ket_qua(
     họ gửi được tệp cho BẤT KỲ AI — chỉ cần đoán đúng một mã. Ở đây họ chỉ nói
     được "kết quả của việc này", còn việc ấy thuộc về ai là do hệ thống tra ra.
     """
-    from clinicai.services.nhan_tep_luong import nhan_multipart
+    from clinicai.services.nhan_tep_luong import don_tep_tam, nhan_multipart
 
     # Thân chảy thẳng vào kho; quyền đối tác đã kiểm trước khi đọc byte nào.
     truong, tep = await nhan_multipart(request)
     try:
         return await _gui_ket_qua(pool, identity, truong, tep)
     finally:
-        tep.duong.unlink(missing_ok=True)
+        await don_tep_tam(tep)
 
 
 async def _gui_ket_qua(

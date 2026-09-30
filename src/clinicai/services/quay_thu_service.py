@@ -34,6 +34,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
 from clinicai.services.cashier_board_service import doc_khoang_ngay
+from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
 
 # ---------------------------------------------------------------------------
 # Phòng chọn được
@@ -172,20 +173,25 @@ def dung_hoa_don_quay(
 
     # Phụ thu kèm dịch vụ (đầu dò…, 28/09/2026): tick / sửa giá ở khối riêng
     # (`PhuThuKem`); trong hoá đơn là dòng khoá như tiền khám.
-    phu_thu_quay: list[dict[str, Any]] = [
-        {
-            "id": str(d["source_id"]),
-            "loai": "phu_thu",
-            "ten": d.get("ten"),
-            "gia": _so(d.get("thanh_tien")),
-            "van_de": d.get("van_de"),
-            "chon": True,
-            "sua_duoc": False,
-            "trong_lua_chon": False,
-        }
-        for d in hd.get("dong") or []
-        if d.get("source_type") == "phu_thu"
-    ]
+    phu_thu_quay: list[dict[str, Any]] = []
+    for d in hd.get("dong") or []:
+        if d.get("source_type") != "phu_thu":
+            continue
+        order_id = str(d.get("order_id") or "")
+        cha = theo_id.get(order_id)
+        phu_thu_quay.append(
+            {
+                "id": str(d["source_id"]),
+                "order_id": order_id or None,
+                "loai": "phu_thu",
+                "ten": d.get("ten"),
+                "gia": _so(d.get("thanh_tien")),
+                "van_de": d.get("van_de"),
+                "chon": cha is None or cha.get("selection_status") != "NOT_SELECTED",
+                "sua_duoc": False,
+                "trong_lua_chon": False,
+            }
+        )
 
     for c in chi_dinh:
         cid = str(c["id"])
@@ -259,6 +265,7 @@ def dung_hoa_don_quay(
         "revision": hd.get("revision"),
         "thu_duoc": bool(hd.get("thu_duoc")),
         "van_de": list(hd.get("van_de") or []),
+        "canh_bao": list(hd.get("canh_bao") or []),
         "chi_doi_tac_thu": bool(hd.get("chi_doi_tac_thu")),
         "phong_kham": phong_kham,
         "doi_tac": doi_tac,
@@ -708,8 +715,11 @@ class QuayThuService:
             lan_thu = await conn.fetch(
                 """
                 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
-                       pc.status, pc.amount, pc.method, pc.paid_at, pc.closed_at,
-                       pc.close_reason,
+                       pc.status, pc.amount,
+                       -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
+                       hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                          pc.method) AS method,
+                       pc.paid_at, pc.closed_at, pc.close_reason,
                        coalesce(xn.full_name, cb.full_name) AS nguoi_thu,
                        dg.full_name AS nguoi_huy
                   FROM payment_cycle pc
@@ -779,6 +789,13 @@ class QuayThuService:
             )
             if chi_tiet and loc:
                 await self._chi_tiet(conn, identity, loc)
+            # [Đổi hình thức] từng phiếu (V7): cờ + lịch sử đổi do máy chủ quyết.
+            gan_vao_lich_su(
+                loc,
+                await trang_thai_doi(
+                    conn, cid, [p["id"] for g in loc for p in g["phieu"]]
+                ),
+            )
             # Huỷ phiếu: cùng quyền thu đúng loại tiền (PaymentService.void_payment).
             co_huy = await can(conn, identity, QUYEN_THU[0 if loai == "dich_vu" else 1])
         from clinicai.services.hoan_tien_service import co_quyen_hoan
@@ -893,7 +910,10 @@ class QuayThuService:
                     SELECT pc.payment_cycle_id::text AS id,
                            pc.visit_id::text AS visit_id,
                            pc.payment_cycle_id::text AS cycle_id, pc.kind,
-                           pc.amount, pc.method, pc.status, pc.close_reason AS ly_do,
+                           pc.amount,
+                           hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                              pc.method) AS method,
+                           pc.status, pc.close_reason AS ly_do,
                            coalesce(pc.paid_at, pc.created_at) AS luc,
                            coalesce(xn.full_name, cb.full_name) AS nguoi
                       FROM payment_cycle pc

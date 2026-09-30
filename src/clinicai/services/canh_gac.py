@@ -41,7 +41,9 @@ NGUONG_KIEU_LOI_5P = 3
 class KetQuaKiem:
     ma: str
     muc: str  # warning | critical
-    co_chuyen: bool
+    #: True = mở/cộng dồn · False = đóng · None = giữ nguyên (phép đo có chống
+    #: nháy, vd. kho tệp: chưa đủ số lần liên tiếp để đổi trạng thái).
+    co_chuyen: bool | None
     noi_dung: str
 
 
@@ -166,28 +168,38 @@ async def gui_telegram_ops(chu: str) -> bool:
         return False
 
 
+async def ap_dung(pool: asyncpg.Pool, ket_qua: list[KetQuaKiem]) -> None:
+    """Mở / đóng cảnh báo theo kết quả kiểm + báo Telegram ops lúc đổi trạng
+    thái. Dùng chung cho vòng su-kien và phép đo kho tệp trong API. CÓ THỂ ném
+    (lỗi DB) — người gọi bọc."""
+    async with pool.acquire() as conn:
+        thay_doi: list[tuple[KetQuaKiem, bool]] = []
+        for k in ket_qua:
+            if k.co_chuyen is None:
+                continue
+            if k.co_chuyen:
+                if await _mo(conn, k):
+                    thay_doi.append((k, True))
+            elif await _dong(conn, k.ma):
+                thay_doi.append((k, False))
+    for k, mo in thay_doi:
+        dau = ("🔴" if k.muc == "critical" else "🟠") if mo else "✅ Đã hết:"
+        chu = f"{dau} ClinicAI · {k.noi_dung}"
+        logger.warning("canh_gac_mo" if mo else "canh_gac_dong", ma=k.ma, muc=k.muc)
+        if await gui_telegram_ops(chu) and mo:
+            await pool.execute(
+                "UPDATE canh_bao SET bao_luc = now()"
+                " WHERE ma = $1 AND dong_luc IS NULL",
+                k.ma,
+            )
+
+
 async def mot_vong(pool: asyncpg.Pool) -> list[KetQuaKiem]:
     """Một lượt canh gác. Không bao giờ ném."""
     try:
         async with pool.acquire() as conn:
             ket_qua = danh_gia(await do_so(conn))
-            thay_doi: list[tuple[KetQuaKiem, bool]] = []
-            for k in ket_qua:
-                if k.co_chuyen:
-                    if await _mo(conn, k):
-                        thay_doi.append((k, True))
-                elif await _dong(conn, k.ma):
-                    thay_doi.append((k, False))
-        for k, mo in thay_doi:
-            dau = ("🔴" if k.muc == "critical" else "🟠") if mo else "✅ Đã hết:"
-            chu = f"{dau} ClinicAI · {k.noi_dung}"
-            logger.warning("canh_gac_mo" if mo else "canh_gac_dong", ma=k.ma, muc=k.muc)
-            if await gui_telegram_ops(chu) and mo:
-                await pool.execute(
-                    "UPDATE canh_bao SET bao_luc = now()"
-                    " WHERE ma = $1 AND dong_luc IS NULL",
-                    k.ma,
-                )
+        await ap_dung(pool, ket_qua)
         return ket_qua
     except Exception:  # noqa: BLE001 — canh gác hỏng không được làm chết vòng
         logger.exception("canh_gac_hong")

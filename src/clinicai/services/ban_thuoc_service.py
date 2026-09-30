@@ -253,8 +253,9 @@ async def man_nha_thuoc(
         lan_thu_rows = await conn.fetch(
             """
             SELECT DISTINCT ON (visit_id)
-                   visit_id::text, payment_cycle_id::text, status, method, legacy,
-                   can_doi_soat
+                   visit_id::text, payment_cycle_id::text, status,
+                   hinh_thuc_hieu_luc(clinic_id, payment_cycle_id, method) AS method,
+                   legacy, can_doi_soat
               FROM public.payment_cycle
              WHERE clinic_id = $1::uuid AND visit_id = ANY($2::uuid[])
                AND kind = 'thuoc'

@@ -58,6 +58,8 @@ export interface ConfigService {
   code: string;
   name: string;
   is_active: boolean;
+  /** Phí khám khi chưa chọn dịch vụ khám con. */
+  gia_mac_dinh: number;
   /** `null` = dịch vụ không có phiếu khám chuyên khoa (thủ thuật, tư vấn).
    *  Khác với "chưa khai" — màn bác sĩ nói ra điều đó thay vì để trống. */
   form_code: string | null;

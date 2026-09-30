@@ -75,12 +75,14 @@ def con_cho(
         elif o["selection_status"] == "SELECTED":
             ex = o["execution_status"] or "PENDING"
             if ex == "PENDING" and o["routing_status"] in (None, "UNASSIGNED"):
-                # Đã trả mà chưa có phòng = TRÁCH NHIỆM đang rơi (người thu không
-                # có quyền điều phối, hoặc dây tự xếp đang tắt) — nói thẳng.
+                # Đã chốt mà chưa có phòng = TRÁCH NHIỆM đang rơi (người chốt /
+                # người thu không có quyền điều phối, hoặc dây tự xếp đang tắt)
+                # — nói thẳng. V10 làm trước, thu sau: chưa trả KHÔNG phải lý do
+                # chờ; chỉ ghi kèm "chưa thu" để quầy biết.
                 out.append(
                     f"ĐÃ TRẢ TIỀN — chờ xếp phòng: {ten}"
                     if o.get("da_tra")
-                    else f"Chờ trả tiền: {ten}"
+                    else f"Chờ xếp phòng (chưa thu): {ten}"
                 )
             elif ex == "PENDING" and o["routing_status"] == "REASSIGNMENT_REQUIRED":
                 out.append(f"Cần xếp lại phòng: {ten}")

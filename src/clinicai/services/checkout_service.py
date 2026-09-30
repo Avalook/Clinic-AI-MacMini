@@ -309,6 +309,44 @@ class CheckoutService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
+    async def _readiness_locked(
+        self, conn: asyncpg.Connection, *, identity: StaffIdentity, visit_id: str
+    ) -> dict[str, Any]:
+        """Khoá nguồn thay đổi tài chính rồi dựng blockers trong transaction."""
+        luot = await conn.fetchrow(
+            "SELECT closed_at FROM public.visit"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
+            identity.clinic_id,
+            visit_id,
+        )
+        if luot is None:
+            raise ValidationError("Không tìm thấy lượt khám ở phòng khám này.")
+        raw = await conn.fetchrow(
+            _READINESS_SQL, identity.clinic_id, CLOSE_NODE, visit_id
+        )
+        assert raw is not None
+        if raw["already_closed"]:
+            return {"already_closed": True, "blockers": []}
+
+        # Chỉnh giá mặc định khoá cùng service_type bằng FOR UPDATE; khoá chia
+        # sẻ này giữ giá dùng để đối soát ổn định đến commit.
+        await conn.fetchval(
+            """
+            SELECT st.id
+              FROM public.visit v
+              LEFT JOIN public.appointment a
+                ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+              JOIN public.service_type st
+                ON st.id = coalesce(v.service_type_id, a.service_type_id)
+             WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+             FOR KEY SHARE OF st
+            """,
+            identity.clinic_id,
+            visit_id,
+        )
+        [row] = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, [raw])
+        return {"already_closed": False, "blockers": build_blockers(row)}
+
     async def readiness(
         self, *, identity: StaffIdentity, visit_id: str
     ) -> dict[str, Any]:
@@ -679,12 +717,6 @@ class CheckoutService:
         đúng là ranh giới mà docstring đầu file này dựng lên — đóng lượt là việc
         của quầy, ký hồ sơ là việc của bác sĩ.
         """
-        state = await self.readiness(identity=identity, visit_id=visit_id)
-        if state["already_closed"]:
-            # Không phải lỗi: hai người cùng bấm, hoặc bấm lại sau khi mạng lag.
-            return {"ok": True, "already_closed": True}
-
-        blockers = state["blockers"]
         reason = (override_reason or "").strip()
         ly_do_do = (incomplete_reason or "").strip()
 
@@ -695,32 +727,30 @@ class CheckoutService:
             raise ValidationError(
                 "Đóng lượt khám dở thì phải ghi vì sao khách về giữa chừng."
             )
-        if blockers and not reason and not incomplete:
-            # `ly_do_tu_dong` = "đóng đi, và ghi hộ tôi vì sao".
-            #
-            # Màn CSKH không có ô nhập lý do, nên bắt nó "ghi lý do ngoại lệ" là
-            # đưa ra một yêu cầu người dùng không có cách nào đáp ứng — ngõ cụt,
-            # không phải chốt (Tuyền chốt 14/08/2026, lần thứ hai).
-            #
-            # Câu được dựng TỪ CHÍNH `blockers` vừa đọc ở trên, không đọc lại
-            # lần nữa: hai lần đọc có thể ra hai kết quả khác nhau, và khi đó
-            # cột lý do ghi một danh sách không khớp với thứ thật sự bị vượt.
-            if ly_do_tu_dong:
-                reason = (
-                    ly_do_tu_dong
-                    + " Còn vướng: "
-                    + "; ".join(str(b["message"]) for b in blockers)
-                    + "."
-                )
-            else:
-                raise ValidationError(
-                    "Lượt khám còn "
-                    + str(len(blockers))
-                    + " việc chưa xong. Muốn đóng thì phải ghi lý do ngoại lệ."
-                )
-
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Cùng khoá visit với chọn phí khám/thu tiền, rồi tính blockers
+                # ngay trong transaction: không còn cửa sổ check-then-close.
+                state = await self._readiness_locked(
+                    conn, identity=identity, visit_id=visit_id
+                )
+                if state["already_closed"]:
+                    return {"ok": True, "already_closed": True}
+                blockers = state["blockers"]
+                if blockers and not reason and not incomplete:
+                    if ly_do_tu_dong:
+                        reason = (
+                            ly_do_tu_dong
+                            + " Còn vướng: "
+                            + "; ".join(str(b["message"]) for b in blockers)
+                            + "."
+                        )
+                    else:
+                        raise ValidationError(
+                            "Lượt khám còn "
+                            + str(len(blockers))
+                            + " việc chưa xong. Muốn đóng thì phải ghi lý do ngoại lệ."
+                        )
                 # KHÔNG đụng visit.status — đó là khoá hồ sơ bệnh án (xem
                 # docstring đầu file). Đóng lượt = hoàn tất bước trong checklist.
                 closed = await conn.fetchval(
@@ -962,19 +992,29 @@ def _vn_day_start() -> datetime:
 async def _gan_doi_tac_tu_thu(
     conn: asyncpg.Connection, clinic_id: str, rows: Sequence[Any]
 ) -> list[dict[str, Any]]:
-    """Gắn cờ ``doi_tac_tu_thu`` cho lượt CHƯA có phiếu thu dịch vụ: không còn
-    khoản phòng khám nào phải thu, chỉ có dịch vụ khách trả trực tiếp cho đối
-    tác (``bill_service.chi_doi_tac_thu_luot``). Đã có phiếu thu thì khỏi hỏi."""
-    from clinicai.services.bill_service import chi_doi_tac_thu_luot
+    """Gắn trạng thái còn nợ từ hoá đơn máy chủ cho từng lượt.
+
+    Không suy từ việc đã từng có phiếu thu: một lượt 0đ có thể không có phiếu,
+    còn lượt đã thu có thể vừa phát sinh dịch vụ mới.
+    """
+    from clinicai.services.bill_service import hoa_don_con_no, tinh_hoa_don
 
     out: list[dict[str, Any]] = []
     for r in rows:
         d = dict(r)
         d["doi_tac_tu_thu"] = False
-        if not d.get("paid_service") and d.get("visit_id") is not None:
-            d["doi_tac_tu_thu"] = await chi_doi_tac_thu_luot(
-                conn, clinic_id=clinic_id, visit_id=str(d["visit_id"])
-            )
+        d["con_no_dich_vu"] = False
+        d["con_no_thuoc"] = False
+        if d.get("visit_id") is not None:
+            visit_id = str(d["visit_id"])
+            dich_vu = await hoa_don_con_no(conn, clinic_id=clinic_id, visit_id=visit_id)
+            d["doi_tac_tu_thu"] = dich_vu.chi_doi_tac_thu
+            d["con_no_dich_vu"] = bool(dich_vu.van_de or dich_vu.tong > 0)
+            if d.get("has_drug") and not d.get("paid_drug"):
+                thuoc = await tinh_hoa_don(
+                    conn, clinic_id=clinic_id, visit_id=visit_id, kind="thuoc"
+                )
+                d["con_no_thuoc"] = bool(thuoc.van_de or thuoc.tong > 0)
         out.append(d)
     return out
 
@@ -1016,11 +1056,18 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
         )
     # Đối tác tự thu (27/09/2026): lượt không có khoản nào phòng khám phải thu,
     # chỉ còn dịch vụ khách trả trực tiếp cho đối tác → không đòi phiếu thu.
-    if not row.get("paid_service") and not row.get("doi_tac_tu_thu"):
+    con_no_dich_vu = row.get("con_no_dich_vu")
+    if con_no_dich_vu is None:
+        # Tương thích dữ liệu gọi cũ trong các hàm thuần / fixture.
+        con_no_dich_vu = not row.get("paid_service") and not row.get("doi_tac_tu_thu")
+    if con_no_dich_vu:
         out.append({"type": "unpaid_service", "message": "Chưa thu tiền dịch vụ khám"})
     # Chỉ đòi thu tiền thuốc KHI CÓ ĐƠN. Đòi ở mọi lượt sẽ chặn mọi bệnh nhân
     # không được kê thuốc — tức là phần lớn.
-    if row.get("has_drug") and not row.get("paid_drug"):
+    con_no_thuoc = row.get("con_no_thuoc")
+    if con_no_thuoc is None:
+        con_no_thuoc = bool(row.get("has_drug") and not row.get("paid_drug"))
+    if con_no_thuoc:
         out.append({"type": "unpaid_drug", "message": "Có đơn thuốc chưa thu tiền"})
 
     # Vẫn đang đứng ở một phòng. Bước đóng lượt không tính là "đang xử lý".

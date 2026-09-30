@@ -93,13 +93,16 @@ async def the_kho(
                    c.ton_toi_thieu,
                    -- Tồn TÁCH THEO ĐƠN VỊ LÔ (29/09): 20 hộp + 50 viên không
                    -- phải 70 của thứ gì cả. `ton_hien_tai` chỉ có khi mọi lô
-                   -- cùng một đơn vị; nhiều đơn vị → NULL, đọc `ton_theo_don_vi`.
-                   (SELECT CASE WHEN count(*) = 1 THEN min(dv.ton) END
+                   -- còn tồn cùng một đơn vị; nhiều đơn vị → NULL, đọc
+                   -- `ton_theo_don_vi`. Đơn vị đã hết sạch bỏ qua (30/09).
+                   (SELECT CASE WHEN count(*) = 0 THEN 0
+                                WHEN count(*) = 1 THEN min(dv.ton) END
                       FROM (SELECT sum(b.quantity_on_hand) AS ton
                               FROM public.drug_batch b
                              WHERE b.clinic_id = c.clinic_id
                                AND b.drug_catalog_id = c.id
-                             GROUP BY lower(btrim(b.unit))) dv) AS ton_hien_tai,
+                             GROUP BY lower(btrim(b.unit))
+                            HAVING sum(b.quantity_on_hand) <> 0) dv) AS ton_hien_tai,
                    coalesce((
                        SELECT jsonb_agg(jsonb_build_object('don_vi', dv.don_vi,
                                                            'ton', dv.ton)
@@ -109,7 +112,8 @@ async def the_kho(
                                  FROM public.drug_batch b
                                 WHERE b.clinic_id = c.clinic_id
                                   AND b.drug_catalog_id = c.id
-                                GROUP BY lower(btrim(b.unit))) dv
+                                GROUP BY lower(btrim(b.unit))
+                               HAVING sum(b.quantity_on_hand) <> 0) dv
                    ), '[]'::jsonb) AS ton_theo_don_vi
               FROM public.drug_catalog c
              WHERE c.clinic_id = $1::uuid AND c.id = $2::uuid

@@ -351,6 +351,8 @@ async def test_thu_ngan_mac_dinh_co_dieu_phoi_thu_xong_tu_xep_phong(
 ) -> None:
     """Tuyền chốt 24/09/2026: thu ngân thu như lễ tân thu — khách tự vào phòng."""
     ca = await _dung(pool)
+    # V10: người CHỐT (lễ tân) cũng không có quyền xếp — để xét đúng đường thu.
+    await _thu_khoi_dieu_phoi(pool, ca.le_tan)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     await _chon(pool, ca, visit, [order])
@@ -368,6 +370,8 @@ async def test_nguoi_thu_khong_co_quyen_dieu_phoi_thi_de_nguyen(
     để người có quyền xếp tay, không mượn quyền "hệ thống"."""
     ca = await _dung(pool)
     await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)
+    # V10: người CHỐT (lễ tân) cũng không có quyền xếp — để xét đúng đường thu.
+    await _thu_khoi_dieu_phoi(pool, ca.le_tan)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     await _chon(pool, ca, visit, [order])

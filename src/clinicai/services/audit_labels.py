@@ -193,6 +193,7 @@ EVENT_LABELS: dict[str, str] = {
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
     "payment.voided": "Huỷ phiếu thanh toán",
+    "payment.method_changed": "Đổi hình thức thu (TM / CK / QR)",
     "payment.refunded": "Hoàn tiền cho khách",
     "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
     "payment.refund_failed": "Hoàn tiền không thành",
@@ -231,6 +232,9 @@ EVENT_LABELS: dict[str, str] = {
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
     "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
     "service.room_transferred": "Trưởng ca chuyển phòng khi dịch vụ đang làm",
+    # V4 (30/09/2026): làm dịch vụ không theo thứ tự.
+    "service.patient_moved": "Khách chuyển sang phòng khác khi đang làm dịch vụ",
+    "service.start_cancelled": "Huỷ lần bắt đầu làm dịch vụ bấm nhầm",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
@@ -292,6 +296,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:dispatch": "Điều phối trong ngày",
     "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
+    "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",

@@ -394,36 +394,13 @@ async def test_4_chua_chon_khong_xep_duoc(rb: RB, sel: str) -> None:
     assert await _hang(rb, oid) == []
 
 
-async def test_5_tai_chinh_chua_san_sang_giu_ly_do_chi_tiet(rb: RB) -> None:
+async def test_5_chua_thu_xep_duoc_so_lech_van_chan_giu_ly_do_chi_tiet(rb: RB) -> None:
+    """V10 (Tuyền 30/09/2026 — làm trước, thu sau): CHƯA THU xếp phòng được.
+    Chỉ sổ tiền lệch / tiền đang hoàn mới chặn — kèm lý do chi tiết của
+    FinanceGate (ROUTING §18)."""
     due = await _cd(rb, gia=100_000)
-    e = await _loi(_assign(rb, due, rb.sa1, 0), "SERVICE_FINANCE_NOT_READY")
-    assert e.finance_reason == "SERVICE_PAYMENT_REQUIRED"
-
-    cho = await _cd(rb, gia=100_000)
-    async with rb.pool.acquire() as conn:
-        cyc = str(uuid.uuid4())
-        await conn.execute(
-            "INSERT INTO payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,"
-            " amount, bill_revision, method, status, created_by) VALUES ($1::uuid,"
-            " $2::uuid, $3::uuid, 'dich_vu', 100000, 'r', 'QR',"
-            " 'PENDING_VERIFICATION', $4::uuid)",
-            cyc,
-            CLINIC,
-            rb.visit_id,
-            rb.truong_ca.staff_id,
-        )
-        await conn.execute(
-            "INSERT INTO payment_bill_line (clinic_id, payment_cycle_id, visit_id,"
-            " kind, source_type, source_id, name_snapshot, quantity, unit_price,"
-            " line_total, billing_owner) VALUES ($1::uuid, $2::uuid, $3::uuid,"
-            " 'dich_vu', 'service_order', $4, 'SA', 1, 100000, 100000, 'CLINIC')",
-            CLINIC,
-            cyc,
-            rb.visit_id,
-            cho,
-        )
-    e = await _loi(_assign(rb, cho, rb.sa1, 0), "SERVICE_FINANCE_NOT_READY")
-    assert e.finance_reason == "SERVICE_PAYMENT_PENDING_VERIFICATION"
+    await _assign(rb, due, rb.sa1, 0)
+    assert [h["room_id"] for h in await _hang(rb, due)] == [rb.sa1]
 
     ma_dt = f"RT-DT-{rb.duoi}"
     await rb.pool.execute(
@@ -442,9 +419,23 @@ async def test_5_tai_chinh_chua_san_sang_giu_ly_do_chi_tiet(rb: RB) -> None:
     # khám không chờ tiền, xếp phòng (lấy mẫu) được ngay.
     await _assign(rb, dt, rb.sa1, 0)
     assert [h["room_id"] for h in await _hang(rb, dt)] == [rb.sa1]
-    for oid in (due, cho):
-        assert await _hang(rb, oid) == []
-        assert (await _o(rb, oid))["routing_revision"] == 0
+
+    # Lần thu dịch vụ cũ KHÔNG truy được tới dòng nào → sổ lệch, cần đối soát.
+    await rb.pool.execute(
+        "INSERT INTO payment_cycle (payment_cycle_id, clinic_id, visit_id, kind,"
+        " amount, bill_revision, method, status, created_by) VALUES ($1::uuid,"
+        " $2::uuid, $3::uuid, 'dich_vu', 100000, 'r', 'QR',"
+        " 'PENDING_VERIFICATION', $4::uuid)",
+        str(uuid.uuid4()),
+        CLINIC,
+        rb.visit_id,
+        rb.truong_ca.staff_id,
+    )
+    lech = await _cd(rb, gia=100_000)
+    e = await _loi(_assign(rb, lech, rb.sa1, 0), "SERVICE_FINANCE_NOT_READY")
+    assert e.finance_reason == "ALLOCATION_UNKNOWN"
+    assert await _hang(rb, lech) == []
+    assert (await _o(rb, lech))["routing_revision"] == 0
 
 
 # ---------------------------------------------------------------------------

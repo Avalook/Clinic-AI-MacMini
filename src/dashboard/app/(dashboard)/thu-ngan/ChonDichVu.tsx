@@ -12,10 +12,10 @@
 // đều do máy chủ trả (`chon_dich_vu` trên bảng thu ngân), cùng luật với lệnh.
 //
 // CHỌN PHÒNG TRƯỚC KHI CHỐT (Tuyền 24/09/2026): "phải cho chọn phòng để chỉ
-// định xem khách đó khám ở đâu rồi mới chốt và thanh toán". Xếp phòng chính
-// thức vẫn chỉ sau khi thu (máy chủ chặn khi chưa trả tiền) — ô này ghi PHÒNG
-// DỰ KIẾN (`phong-du-kien`), thu xong dây H4 xếp đúng phòng đó. Danh sách phòng
-// cũng do máy chủ trả (`phong_chon_duoc`, cùng tập H4 dùng).
+// định xem khách đó khám ở đâu rồi mới chốt và thanh toán". V10 (30/09/2026,
+// làm trước, thu sau): chốt xong máy chủ XẾP PHÒNG NGAY (dây H4), không chờ thu
+// — ô này ghi phòng khách chọn (`phong-du-kien`: đã chốt thì xếp thật luôn).
+// Danh sách phòng cũng do máy chủ trả (`phong_chon_duoc`, cùng tập H4 dùng).
 //
 // BỎ TICK LÀ TRỪ TIỀN NGAY (Tuyền 24/09/2026): "bỏ tick dịch vụ không làm mà
 // tổng vẫn tính". Hoá đơn do máy chủ tính theo lựa chọn ĐÃ LƯU; trước đây ô tick
@@ -92,7 +92,7 @@ export default function ChonDichVu({
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
         <p className="text-meta text-ink-muted">
-          Đã chốt dịch vụ khách làm — sửa được tới khi thu tiền.
+          Đã chốt dịch vụ khách làm — khách đi làm được ngay, thu tiền sau.
         </p>
         <Button size="sm" variant="ghost" onClick={() => setMo(true)}>
           Sửa dịch vụ khách làm

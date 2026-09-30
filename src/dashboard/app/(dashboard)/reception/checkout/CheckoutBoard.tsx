@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useNgheBang } from "../../dung-nghe-bang";
 import ChiTietLuot from "./ChiTietLuot";
 import LuotTonDong from "./LuotTonDong";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 export interface Blocker {
   type: string;
@@ -101,8 +102,9 @@ export default function CheckoutBoard({
   useEffect(() => {
     // Lưới an toàn cho lúc dòng SSE rớt — không phải đường đồng bộ chính, nên
     // thưa. 60 giây, cùng nhịp với RealtimeRefresher.
-    const safety = setInterval(reload, 60_000);
-    return () => clearInterval(safety);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    return nhipKhiHien(() => void reload(), 60_000, { hoiKhiHien: false });
   }, [reload]);
 
   function flash(m: string) {

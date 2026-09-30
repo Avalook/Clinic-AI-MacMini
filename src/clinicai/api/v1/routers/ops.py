@@ -14,7 +14,13 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
-from clinicai.services import canh_gac, kho_loi, nhat_ky_van_hanh
+from clinicai.services import (
+    canh_gac,
+    canh_gac_kho_tep,
+    kho_loi,
+    nhat_ky_van_hanh,
+    traffic_service,
+)
 from clinicai.services.ops_status import OpsStatusService
 
 router = APIRouter()
@@ -138,9 +144,13 @@ async def ds_canh_bao(
     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Cảnh báo của bộ canh gác: đang mở trước, rồi mới đóng gần đây."""
+    """Cảnh báo của bộ canh gác: đang mở trước, rồi mới đóng gần đây.
+    ``kho_tep``: số đo tốc độ ổ Viettel CFS mới nhất (None = chưa đo / tắt)."""
     response.headers["Cache-Control"] = "no-store"
-    return {"canh_bao": await canh_gac.danh_sach(pool)}
+    return {
+        "canh_bao": await canh_gac.danh_sach(pool),
+        "kho_tep": canh_gac_kho_tep.MOI_NHAT,
+    }
 
 
 @router.get("/ops/nhat-ky")
@@ -179,3 +189,34 @@ async def loi_trinh_duyet(
         pool, vi_tri=body.vi_tri, kieu=body.kieu, thong_diep=body.thong_diep
     )
     return {"ok": True}
+
+
+class TrafficLoginPayload(BaseModel):
+    username: str = Field(default="admin", max_length=50)
+    password: str = Field(default="", max_length=100)
+    pin: str = Field(default="", max_length=100)
+
+
+@router.post("/ops/traffic")
+async def lay_bao_cao_traffic(
+    body: TrafficLoginPayload,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+) -> dict[str, object]:
+    """Báo cáo lưu lượng truy cập. Hai lớp (30/09/2026): đăng nhập ClinicAI có
+    quyền Vận hành (ops.view) VÀ mật khẩu riêng đặt trong .env.prod. Trang từng mở
+    cho cả Internet với admin/12345678 — IP + đường dẫn là dữ liệu cá nhân."""
+    pwd = body.password or body.pin
+    user = body.username or "admin"
+    if not (
+        traffic_service.xac_thuc_admin(user, pwd)
+        or traffic_service.xac_thuc_ma_pin(pwd)
+    ):
+        raise ValidationError("Tài khoản hoặc mật khẩu không chính xác.")
+
+    data = traffic_service.doc_du_lieu_traffic()
+    if data is None:
+        raise NotFoundError(
+            "Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút."
+        )
+
+    return {"ok": True, "data": data}

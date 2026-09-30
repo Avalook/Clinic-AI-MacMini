@@ -10,9 +10,12 @@ lấy mẫu hiện NGAY lúc bác sĩ chỉ định — trước cả khi khách
                                 Tuyền chốt 27/09/2026: khách trả trực tiếp cho
                                 đối tác), khách vừa chốt làm → nhận việc, KHÔNG
                                 chờ phòng khám thu (không có lần thu nào cả)
+                              → V10 (30/09/2026, "làm trước, thu sau"): cả dịch
+                                vụ PHÒNG KHÁM THU HỘ cũng nhận việc ngay khi
+                                khách chốt, CHƯA THU vẫn nhận (lý do
+                                KHACH_DA_CHON, cờ `thu_sau` — quầy thu cuối buổi)
     payment.service_collected → chỉ định làm bên ngoài, ĐỐI TÁC TỰ LẤY MẪU, khách
-                                đã chọn làm + đủ điều kiện tài chính → nhận việc
-                                (dịch vụ phòng khám vẫn thu hộ)
+                                đã chọn làm → nhận việc (nếu lúc chốt chưa nhận)
     service.completed         → chỉ định làm bên ngoài do ĐIỀU DƯỠNG lấy mẫu,
                                 vừa làm xong ở phòng Lấy mẫu → nhận việc
                               → MẪU GỬI ĐỐI TÁC (Tuyền 29/09/2026): dịch vụ THU
@@ -109,17 +112,20 @@ async def nhan_viec_doi_tac(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> 
     )
     boi = NguoiGayRa(actor_type=su_kien.actor_type, staff_id=su_kien.actor_staff_id)
     for r in rows:
+        thu_sau = False
         if r["tu_lay_mau"]:
-            # Đối tác tự lấy mẫu: chỉ nhận khi khách ĐÃ trả phòng khám, hoặc
-            # đối tác tự thu (khách chốt làm là đủ — 27/09/2026).
+            # Đối tác tự lấy mẫu: khách chốt làm là nhận (V10 làm trước, thu
+            # sau — trước chỉ nhận khi đã trả phòng khám / đối tác tự thu). Tiền
+            # đang hoàn / đã hoàn / sổ lệch thì chưa nhận (`duoc_lam`).
             q = tai_chinh.get(r["id"])
-            if q is None or not q.financially_ready:
+            if q is None or not q.duoc_lam:
                 continue
-            ly_do = (
-                "KHACH_DA_CHON"
-                if q.finance_state == finance_gate.PARTNER_COLLECTS
-                else "DA_THU_TIEN"
-            )
+            if q.finance_state == finance_gate.PAID:
+                ly_do = "DA_THU_TIEN"
+            else:
+                ly_do = "KHACH_DA_CHON"
+                # Phòng khám thu hộ mà chưa thu: đối tác KHÔNG thu tiền khách.
+                thu_sau = q.finance_state != finance_gate.PARTNER_COLLECTS
         else:
             ly_do = "MAU_GUI_DOI_TAC" if r["mau_gui"] else "DA_LAY_MAU"
         moi = await conn.fetchval(
@@ -144,6 +150,7 @@ async def nhan_viec_doi_tac(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> 
                 service_order_id=r["id"],
                 service_name=r["ten"],
                 ly_do=ly_do,
+                thu_sau=thu_sau,
             ),
             boi=boi,
             correlation_id=visit_id,

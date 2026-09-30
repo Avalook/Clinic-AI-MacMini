@@ -67,6 +67,7 @@ import {
   taoNhipLamMoi,
   trangThaiDong,
 } from "../../lib/nhip-lam-moi";
+import { nhipKhiHien, taoGopBatKip } from "../../lib/nhip-khi-hien";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
 // lo), nên nhịp này chỉ để phòng trường hợp cả dòng lẫn lần nối lại đều hỏng —
@@ -160,6 +161,24 @@ export default function RealtimeRefresher({
       huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
     });
 
+    // QUAY LẠI TAB = MỘT LẦN BẮT KỊP, tối đa một lần mỗi 2 giây (30/09/2026).
+    // Người lướt A → B → A trong một giây làm A hiện lại hai lần; lần sau được
+    // HOÃN tới cuối cửa sổ chứ không vứt — quãng mù dù ngắn vẫn phải bắt kịp.
+    const batKip = taoGopBatKip({
+      viec: () => {
+        nhip.batKip();
+        chuongCa.batKip();
+        // Màn tự fetch (chuông, trưởng ca, check-out…) cũng mù suốt quãng ẩn,
+        // và router.refresh() không với tới state của chúng. `null` = "không
+        // rõ bảng nào đổi" — mọi người nghe SU_KIEN_BANG đều coi là phải hỏi lại.
+        window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: null }));
+      },
+      dangAn,
+      bayGio: () => Date.now(),
+      hen: (fn, ms) => setTimeout(fn, ms),
+      huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+    });
+
     // LỌC BẢNG Ở ĐÂY, LỌC PHÒNG KHÁM Ở MÁY CHỦ.
     //
     // Phòng khám thì máy chủ lọc: nó biết người mở dòng này thuộc phòng khám
@@ -229,22 +248,19 @@ export default function RealtimeRefresher({
       //
       // MỘT tay nghe `visibilitychange` duy nhất, do `moDongTheoHien` giữ. Hai
       // tay nghe riêng sẽ phụ thuộc vào thứ tự đăng ký để không dựng trang hai
-      // lượt, và đó là loại phụ thuộc không ai thấy khi đọc.
-      khiMoLai: () => {
-        nhip.batKip();
-        chuongCa.batKip();
-        // Màn tự fetch (chuông, trưởng ca, check-out…) cũng mù suốt quãng ẩn,
-        // và router.refresh() không với tới state của chúng. `null` = "không
-        // rõ bảng nào đổi" — mọi người nghe SU_KIEN_BANG đều coi là phải hỏi lại.
-        window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: null }));
-      },
+      // lượt, và đó là loại phụ thuộc không ai thấy khi đọc. Từ 30/09/2026
+      // `LiveBoardSync` cũng thôi nghe `visibilitychange`/`focus` — quay lại tab
+      // chỉ còn lần bắt kịp này.
+      khiMoLai: () => batKip.xin(),
     });
 
-    const poll = setInterval(() => nhip.nhan(), POLL_MS);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì `batKip` ở trên đã làm mới rồi.
+    const goPoll = nhipKhiHien(() => nhip.nhan(), POLL_MS, { hoiKhiHien: false });
 
     return () => {
-      clearInterval(poll);
+      goPoll();
       goDong();
+      batKip.dung();
       nhip.dung();
       chuongCa.dung();
     };

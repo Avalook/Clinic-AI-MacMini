@@ -298,6 +298,7 @@ async def test_them_sua_tat_loai_kham(pool: asyncpg.Pool) -> None:
         "ok": True,
         "service_type_id": st,
         "name": "Khám đổi tên",
+        "gia_mac_dinh": 0,
         "default_duration_minutes": 20,
         "is_active": False,
     }

@@ -24,10 +24,10 @@ const nguon = readFileSync(
 const ma = nguon.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("nhịp hỏi chỗ giữ là 5 giây, không chậm hơn", () => {
-  // Nhận cả `setInterval(load, N)` lẫn dạng bọc trong một thân hàm — từ
-  // 21/08/2026 nhịp này bỏ lượt khi tab đang ẩn, nên `load` không còn nằm trần.
+  // Từ 30/09/2026 nhịp đi qua `nhipKhiHien` (lib/nhip-khi-hien) — thứ huỷ hẳn
+  // nhịp khi tab ẩn. Nhận dạng `nhipKhiHien(() => void load(), N, …)`.
   const khop = ma.match(
-    /setInterval\(\s*(?:load|\(\)\s*=>\s*\{[\s\S]*?\bload\(\)[\s\S]*?\})\s*,\s*(\d+)\s*\)/,
+    /nhipKhiHien\(\s*\(\)\s*=>\s*(?:void\s+)?load\(\)\s*,\s*(\d+)/,
   );
   assert.ok(khop, "không tìm thấy nhịp hỏi chỗ giữ");
   const nhip = Number(khop![1]);
@@ -43,28 +43,39 @@ test("nhịp hỏi chỗ giữ là 5 giây, không chậm hơn", () => {
   );
 });
 
-test("tab đang ẩn thì BỎ nhịp — nhịp dày chỉ đáng khi có người nhìn", () => {
+test("tab đang ẩn thì IM HẲN — nhịp dày chỉ đáng khi có người nhìn", () => {
   // Nhịp 5 giây được chọn với giá đã đo cho người ĐANG nhìn lưới. Một tab ẩn
   // chạy tiếp nhịp ấy là mỗi 5 giây chiếm một trong sáu kết nối HTTP/1.1 của
   // trình duyệt cho một lưới không ai thấy — và cạn kết nối chính là cái "đơ,
   // bấm nút không ăn" đo được ngày 21/08 (xem lib/nhip-lam-moi).
-  const khop = ma.match(/setInterval\(\s*\(\)\s*=>\s*\{([\s\S]*?)\},\s*\d+\s*\)/);
-  assert.ok(khop, "nhịp hỏi chỗ giữ phải có thân hàm để kiểm tra tầm nhìn");
-  assert.match(
-    khop![1],
-    /visibilityState\s*===\s*["']hidden["'][\s\S]*?return/,
-    "thân nhịp phải thoát sớm khi tab ẩn",
-  );
+  //
+  // Luật "huỷ nhịp khi ẩn" nằm trong `nhipKhiHien` và có test riêng ở
+  // lib/nhip-khi-hien.test.mts. Ở đây chỉ chốt: không còn `setInterval` trần.
+  assert.doesNotMatch(ma, /setInterval\(/, "nhịp phải đi qua nhipKhiHien, không setInterval trần");
+  assert.match(ma, /goNhip\(\)/, "phải gỡ nhịp lúc rời màn / đổi ngày");
 });
 
-test("quay lại tab thì hỏi lại ngay, không chờ hết nhịp", () => {
+test("quay lại tab thì hỏi lại ngay, không chờ hết nhịp — và chỉ MỘT lần", () => {
   // Trình duyệt bóp nhịp của tab bị ẩn. Không có chốt này thì người vừa quay
   // lại màn hình nhìn vào một bản đồ chỗ giữ cũ — đúng lúc họ tin nó nhất.
-  assert.match(ma, /visibilitychange/, "thiếu chốt hỏi lại khi tab hiện lại");
+  //
+  // Từ 30/09/2026 lần hỏi ấy đến từ tin `null` mà RealtimeRefresher phát lúc
+  // tab hiện lại. Tự nghe thêm `visibilitychange` là hỏi HAI lần mỗi lần đổi tab.
   assert.match(
     ma,
-    /removeEventListener\(\s*["']visibilitychange["']/,
-    "phải gỡ listener lúc rời màn, nếu không mỗi lần đổi ngày lại chồng thêm một cái",
+    /bang === "slot_hold" \|\| bang === null\) void load\(\)/,
+    "tin null (tab vừa hiện lại) phải làm hook hỏi lại",
+  );
+  assert.match(ma, /hoiKhiHien:\s*false/, "nhịp không được hỏi thêm lần thứ hai lúc hiện lại");
+  assert.doesNotMatch(ma, /visibilitychange/, "không tự nghe visibilitychange — đó là lần hỏi thứ hai");
+  const rr = readFileSync(
+    new URL("../app/(dashboard)/RealtimeRefresher.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    rr,
+    /SU_KIEN_BANG, \{ detail: null \}/,
+    "RealtimeRefresher phải phát tin null lúc tab hiện lại — hook này dựa vào nó",
   );
 });
 

@@ -123,7 +123,9 @@ export async function guiThaoTac(
 ): Promise<
   | { ok: true; data: Record<string, unknown> }
   // `status` 0 = không tới được máy chủ (tự lưu dùng để quyết có thử lại).
-  | { ok: false; loi: string; status: number }
+  // `chiTiet` (30/09/2026, V4): dữ liệu máy chủ gửi kèm lỗi — vd PATIENT_BUSY
+  // mang tên phòng đang giữ khách + máy chủ có cho chuyển sang không.
+  | { ok: false; loi: string; status: number; chiTiet?: Record<string, unknown> }
 > {
   try {
     const r = await fetch("/api/luot-kham", {
@@ -135,7 +137,15 @@ export async function guiThaoTac(
       body: JSON.stringify({ thao_tac: thaoTac, id, du_lieu: duLieu }),
     });
     const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Thao tác không thành công."), status: r.status };
+    if (!r.ok) {
+      const ct = (d as { chi_tiet?: unknown } | null)?.chi_tiet;
+      return {
+        ok: false,
+        loi: nhanLoi(d, "Thao tác không thành công."),
+        status: r.status,
+        ...(ct && typeof ct === "object" ? { chiTiet: ct as Record<string, unknown> } : {}),
+      };
+    }
     return { ok: true, data: (d ?? {}) as Record<string, unknown> };
   } catch {
     return { ok: false, loi: "Mất kết nối — thao tác CHƯA được ghi.", status: 0 };
@@ -210,6 +220,8 @@ export interface ThucHien {
   }[];
   /** Dịch vụ đã xong mà phiếu kết quả chỉ còn nháp (27/09/2026, đợt 3). */
   phieu_chua_hoan_tat?: boolean;
+  /** Hiện nút "Huỷ bắt đầu nhầm" (V4, 30/09/2026) — máy chủ quyết. */
+  huy_bat_dau_duoc?: boolean;
   ly_do_khong_lam: string[];
   ly_do_gian_doan: string[];
 }
@@ -225,4 +237,7 @@ export const LY_DO_TIENG_VIET: Record<string, string> = {
   CLINICAL_SAFETY: "Lý do an toàn cho khách",
   TECHNICAL_FAILURE: "Trục trặc kỹ thuật",
   OTHER: "Lý do khác",
+  // Lý do hệ thống ghi (V4, 30/09/2026) — không có trong danh sách chọn.
+  PATIENT_MOVED: "Khách chuyển sang phòng khác",
+  STARTED_IN_ERROR: "Bắt đầu nhầm — đã huỷ",
 };

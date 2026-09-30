@@ -141,6 +141,10 @@ MODULE: dict[str, Module] = {
                 "MarkServiceNotPerformed",
                 "InterruptService",
                 "PrepareServiceRetry",
+                # V4 (30/09/2026): làm không theo thứ tự. "Chuyển khách sang
+                # đây" là StartService kèm giai_phong (cùng giao dịch dừng lần
+                # làm ở phòng kia); huỷ lần Bắt đầu bấm nhầm là lệnh riêng.
+                "CancelMistakenStart",
             ],
             phat=[
                 "service.started",
@@ -148,6 +152,8 @@ MODULE: dict[str, Module] = {
                 "service.not_performed",
                 "service.interrupted",
                 "service.retry_prepared",
+                "service.patient_moved",
+                "service.start_cancelled",
             ],
             bang=["service_execution_attempt"],
             quyen=[
@@ -239,6 +245,8 @@ MODULE: dict[str, Module] = {
                 "service.not_performed",
                 "service.interrupted",
                 "service.retry_prepared",
+                "service.patient_moved",
+                "service.start_cancelled",
                 "service.routing_invalidated",
                 "result_form.completed",
                 "result.ready",
@@ -271,6 +279,7 @@ MODULE: dict[str, Module] = {
                 "visit.checked_out",
                 "visit.left_early",
                 "payment.refunded",
+                "payment.method_changed",
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
@@ -332,6 +341,7 @@ MODULE: dict[str, Module] = {
                 "consultation.handed_over",
                 "payment.service_collected",
                 "payment.medicine_collected",
+                "service_selection.confirmed",
                 "visit.checked_out",
                 "visit.left_early",
                 "service.completed",
@@ -414,10 +424,12 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "payment.refunded",
+                # Đổi TM/CK/QR sau khi thu (V7) — không phải huỷ.
+                "payment.method_changed",
                 # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
                 "medicine.declined",
             ],
-            bang=["payment_cycle", "payment_bill_line"],
+            bang=["payment_cycle", "payment_bill_line", "payment_cycle_doi_hinh_thuc"],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
         Module(
