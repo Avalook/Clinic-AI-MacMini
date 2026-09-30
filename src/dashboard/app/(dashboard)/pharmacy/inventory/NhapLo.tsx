@@ -77,7 +77,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
       <h3 className="text-title text-ink">Nhập lô thuốc</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block sm:col-span-2">
-          <span className={LABEL}>Thuốc *</span>
+          <span className={LABEL}>Thuốc</span>
           <input
             list="kho-thuoc-dang-dung"
             value={f.ten}
@@ -91,10 +91,10 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
             ))}
           </datalist>
         </label>
-        {o("so_lo", "Số lô *")}
-        {o("han", "Hạn dùng *", "date")}
-        {o("so_luong", "Số lượng nhập *")}
-        {o("don_vi", "Đơn vị *")}
+        {o("so_lo", "Số lô")}
+        {o("han", "Hạn dùng", "date")}
+        {o("so_luong", "Số lượng nhập")}
+        {o("don_vi", "Đơn vị")}
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
         {o("ghi_chu", "Ghi chú (nhà cung cấp, số hoá đơn…)")}
       </div>

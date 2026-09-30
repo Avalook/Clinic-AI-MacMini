@@ -43,7 +43,10 @@ test("dòng '＋ Thêm khách hàng' của quầy về màn Thêm khách hàng, 
   assert.match(bang, /href: themKhach \? hrefThemKhach\(khung\) : hrefDatLich\(khung\)/);
   // Nhãn và đích đi theo CÙNG một cờ — không lệch nhau.
   assert.match(bang, /\{r\.free\.themKhach\s*\?\s*"＋ Thêm khách hàng"/);
-  assert.match(bang, /\/\/ phải màn Đặt lịch \(Tuyền 29\/09\/2026\)\.\s*canCheckin\(role\),/);
+  // Theo LEGO check-in máy chủ trả (`duocCheckIn`), không theo vai (30/09/2026).
+  assert.match(bang, /const quayThemKhach = duocCheckIn === true;/);
+  assert.match(bang, /Theo lego check-in\.\s*quayThemKhach,/);
+  assert.doesNotMatch(bang, /choThemKhach && \([^)]*canCheckin\(role\)/);
   // CSKH/Quản lý vẫn "＋ Đặt lịch vào đây" → màn Đặt lịch.
   assert.equal(
     hrefDatLich({ ngay: "2026-09-30", gio: "09:15", bacSi: "bs-1" }),
@@ -115,4 +118,20 @@ test("luật giao diện: không window.confirm, không style={{}}, <button> có
       assert.match(m[0], /type=/, `thiếu type: ${m[0]}`);
     }
   }
+});
+
+test("Đổi dịch vụ khám (V5): mục menu mở popover tại chỗ, máy chủ quyết", () => {
+  const i = menu.search(/Đổi dịch vụ khám\s*<\/button>/);
+  assert.ok(i > 0, 'thiếu mục "Đổi dịch vụ khám"');
+  assert.match(menu.slice(Math.max(0, i - 200), i), /<button type="button"[^>]*moTaiCho\("dichVu"\)/);
+  assert.match(menu, /const doiDichVuDuoc = duocDoiDichVu && CON_SONG\.includes\(a\.status\)/);
+  // Quyền: booking.manage HOẶC reception.checkin.perform — trang truyền cờ.
+  for (const trang of [trangChu, tiepDon]) {
+    assert.match(trang, /duocDoiDichVu=\{coMotQuyen\(quyen, QUYEN_DOI_DICH_VU_KHAM\)\}/);
+  }
+  // Popover đọc/gửi qua proxy mỏng; câu "vì sao không đổi được" là của máy chủ.
+  assert.match(taiCho, /fetch\(`\/api\/appointments\/doi-dich-vu-kham\?\$\{q\.toString\(\)\}`/);
+  assert.match(taiCho, /fetch\("\/api\/appointments\/doi-dich-vu-kham", \{\s*method: "POST"/);
+  assert.match(taiCho, /data\.ly_do_khong_doi/);
+  assert.match(bang, /taiCho\?\.loai === "dichVu" \? \(\s*<DoiDichVuKhamTaiCho/);
 });

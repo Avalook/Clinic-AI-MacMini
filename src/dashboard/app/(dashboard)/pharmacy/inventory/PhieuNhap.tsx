@@ -171,7 +171,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               >
                 <label className="col-span-2 block">
                   <span className={LABEL}>
-                    {i + 1}. Thuốc *
+                    {i + 1}. Thuốc
                   </span>
                   <input
                     list="phieu-nhap-thuoc"
@@ -182,7 +182,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Số lô *</span>
+                  <span className={LABEL}>Số lô</span>
                   <input
                     value={d.so_lo}
                     onChange={(e) => suaDong(d.k, { so_lo: e.target.value })}
@@ -190,7 +190,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Hạn dùng *</span>
+                  <span className={LABEL}>Hạn dùng</span>
                   <input
                     type="date"
                     value={d.han}
@@ -199,7 +199,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Số lượng *</span>
+                  <span className={LABEL}>Số lượng</span>
                   <input
                     value={d.so_luong}
                     inputMode="decimal"

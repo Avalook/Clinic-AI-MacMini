@@ -82,6 +82,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],
+    # Đổi dịch vụ khám sau check-in (V5, 30/09/2026) — tên loại khám là danh
+    # mục, không phải thông tin khách.
+    "appointment.service_switched": ["tu_ten", "den_ten"],
     "visit.checked_in": ["so_thu_tu"],
     "visit.routed": ["dich", "ly_do"],
     "consultation.started": ["loai"],

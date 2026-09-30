@@ -1,6 +1,6 @@
 "use client";
 
-// HAI THAO TÁC TẠI CHỖ của menu ⋯ một dòng lịch hẹn (Tuyền bấm thật 29/09/2026:
+// CÁC THAO TÁC TẠI CHỖ của menu ⋯ một dòng lịch hẹn (Tuyền bấm thật 29/09/2026:
 // "Gọi / ghi chăm sóc", "Huỷ lịch (ghi lý do)" chỉ là link sang /customers — rời
 // màn, mở danh sách khách, không làm đúng việc theo tên). Cùng kiểu với Đổi lịch
 // tại chỗ: popover neo dòng (<768px thành bottom sheet). ("Mở hồ sơ khách" là
@@ -10,11 +10,15 @@
 //                          (booking_service: bắt buộc mã lý do, "Khác" phải viết).
 //   · GhiChamSocTaiCho  → POST /api/cskh/tuong-tac — CÙNG đường + khoá chống ghi
 //                          trùng với nút gọi ở Quản lý khách hàng (HanhDongTrangThai).
+//   · DoiDichVuKhamTaiCho → GET/POST /api/appointments/doi-dich-vu-kham (V5,
+//                          30/09/2026): máy chủ trả danh sách loại khám + đổi được
+//                          không, vì sao; đổi sau check-in thì khách được xếp lại
+//                          hàng chờ đầu tiên theo loại mới.
 //
 // CHỈ VẼ. Danh mục lý do huỷ là danh mục chung (lib/ly-do-huy.ts, kiểm chống lệch
 // với máy chủ); ai được làm gì do máy chủ quyết.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
@@ -138,7 +142,7 @@ export function HuyLichTaiCho({
     <PopoverNeo neo={neo} onDong={onDong} dau={<DauLich tieuDe="Huỷ lịch" lich={lich} />} chan={chan}>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-body font-semibold text-ink">
-          Lý do huỷ <span className="text-danger">*</span>
+          Lý do huỷ
         </legend>
         <div className="flex flex-col gap-1.5">
           {LY_DO_HUY_THU_TU.map((m) => (
@@ -253,7 +257,7 @@ export function GhiChamSocTaiCho({
         )}
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-body font-semibold text-ink">
-            Kết quả cuộc gọi <span className="text-danger">*</span>
+            Kết quả cuộc gọi
           </legend>
           <div className="flex flex-wrap gap-1.5">
             {KET_QUA_GOI.map(([m, nhan]) => (
@@ -278,6 +282,153 @@ export function GhiChamSocTaiCho({
           />
         </div>
       </div>
+    </PopoverNeo>
+  );
+}
+
+/* ───────────────────────── Đổi dịch vụ khám ───────────────────────── */
+
+interface LuaChonDichVu {
+  id: string;
+  ten: string;
+  hien_tai: boolean;
+  /** Chọn là máy chủ từ chối (luật bác sĩ bắt buộc) — câu ở `ghi_chu`. */
+  chan: boolean;
+  ghi_chu: string | null;
+}
+
+interface GoiDoiDichVu {
+  da_check_in: boolean;
+  dich_vu_hien_tai: { id: string; ten: string | null } | null;
+  duoc_doi: boolean;
+  ly_do_khong_doi: string | null;
+  lua_chon: LuaChonDichVu[];
+}
+
+export function DoiDichVuKhamTaiCho({
+  lich,
+  neo,
+  onDong,
+  onXong,
+}: {
+  lich: LichTaiCho;
+  neo: HTMLElement | null;
+  onDong: () => void;
+  onXong: (cau: string) => void;
+}) {
+  const [goi, setGoi] = useState<{ data: GoiDoiDichVu | null; loi: string | null } | null>(null);
+  const [chon, setChon] = useState<string | null>(null);
+  const [dang, setDang] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+
+  useEffect(() => {
+    let huy = false;
+    const q = new URLSearchParams({ id: lich.id });
+    void fetch(`/api/appointments/doi-dich-vu-kham?${q.toString()}`, { cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (huy) return;
+        setGoi(
+          res.ok
+            ? { data: body as GoiDoiDichVu, loi: null }
+            : { data: null, loi: nhanLoi(body, "Không đọc được danh sách dịch vụ khám.") },
+        );
+      })
+      .catch(() => {
+        if (!huy) setGoi({ data: null, loi: "Mất kết nối — thử lại." });
+      });
+    return () => {
+      huy = true;
+    };
+  }, [lich.id]);
+
+  const data = goi?.data ?? null;
+  const muc = data?.lua_chon.find((x) => x.id === chon) ?? null;
+  const du = !!data?.duoc_doi && !!muc && !muc.hien_tai && !muc.chan;
+
+  async function doi() {
+    if (!du || !muc || dang) return;
+    setDang(true);
+    setLoi(null);
+    const res = await fetch("/api/appointments/doi-dich-vu-kham", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lich.id, service_type_id: muc.id }),
+    }).catch(() => null);
+    setDang(false);
+    if (!res) {
+      setLoi("Mất kết nối — dịch vụ CHƯA đổi. Thử lại.");
+      return;
+    }
+    const body: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      setLoi(nhanLoi(body as Parameters<typeof nhanLoi>[0], "Không đổi được dịch vụ khám."));
+      return;
+    }
+    const canhBao = (body as { canh_bao?: string[] } | null)?.canh_bao ?? [];
+    const nhac = canhBao.length ? ` Lưu ý: ${canhBao.join(" ")}` : "";
+    const hang = data?.da_check_in ? " Khách được xếp lại hàng chờ theo dịch vụ mới." : "";
+    onDong();
+    onXong(`Đã đổi dịch vụ khám của ${lich.ten} sang ${muc.ten}.${hang}${nhac}`);
+  }
+
+  const chan = (
+    <div className="flex flex-col gap-2">
+      <Loi chu={loi} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="ghost" size="md" onClick={onDong}>
+          Thôi
+        </Button>
+        <Button variant="primary" size="md" disabled={!du || dang} onClick={() => void doi()}>
+          {dang ? "Đang đổi…" : "Đổi dịch vụ"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <PopoverNeo neo={neo} onDong={onDong} dau={<DauLich tieuDe="Đổi dịch vụ khám" lich={lich} />} chan={chan}>
+      {goi === null ? (
+        <p className="text-meta text-ink-muted">Đang tải danh sách dịch vụ khám…</p>
+      ) : goi.loi ? (
+        <Loi chu={goi.loi} />
+      ) : data ? (
+        <div className="flex flex-col gap-3">
+          {data.ly_do_khong_doi ? (
+            <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+              {data.ly_do_khong_doi}
+            </p>
+          ) : data.da_check_in ? (
+            <p className="text-meta text-ink-muted">
+              Khách đã check-in — đổi xong, khách được xếp lại hàng chờ theo dịch vụ mới.
+            </p>
+          ) : null}
+          <fieldset className="flex flex-col gap-2" disabled={!data.duoc_doi}>
+            <legend className="mb-2 text-body font-semibold text-ink">Dịch vụ khám</legend>
+            <div className="flex flex-col gap-1.5">
+              {data.lua_chon.map((x) => (
+                <div key={x.id} className="flex flex-col gap-0.5">
+                  <ChipChon
+                    kieu="mot"
+                    ten={`dv-${lich.id}`}
+                    chon={chon === null ? x.hien_tai : chon === x.id}
+                    disabled={!data.duoc_doi || x.chan}
+                    onDoi={() => setChon(x.id)}
+                  >
+                    {x.ten}
+                    {x.hien_tai ? <span className="text-meta text-ink-muted">· đang chọn</span> : null}
+                  </ChipChon>
+                  {x.ghi_chu ? (
+                    <span className={`pl-2 text-label ${x.chan ? "text-danger" : "text-warning"}`}>
+                      {x.ghi_chu}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+      ) : null}
     </PopoverNeo>
   );
 }

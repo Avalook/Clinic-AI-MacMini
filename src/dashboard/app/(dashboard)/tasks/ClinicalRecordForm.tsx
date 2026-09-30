@@ -1247,15 +1247,13 @@ export default function ClinicalRecordForm({
                     else if (n < lo || n > hi) warn = `Nên trong ${lo}–${hi}`;
                   }
                 }
-                // Trường bắt buộc → đánh dấu * + báo "Bắt buộc" khi đã bấm Lưu.
+                // Trường bắt buộc → báo "Bắt buộc" khi đã bấm Lưu (bỏ dấu *
+                // ở nhãn, Tuyền 30/09/2026 — ô vẫn bắt buộc).
                 const required = requiredVitals.has(k);
                 const missing = required && v === "" && vitalsTried;
                 return (
                   <div key={k}>
-                    <label className={LABEL}>
-                      {lbl}
-                      {required && <span className="text-brand-600"> *</span>}
-                    </label>
+                    <label className={LABEL}>{lbl}</label>
                     <input
                       type={ty}
                       step={ty === "number" ? st : undefined}

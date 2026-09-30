@@ -685,7 +685,6 @@ export default function BangDoSinhHieu() {
                 <label key={o.gui} className={`block min-w-0 ${o.motDong ? "col-span-2" : ""}`}>
                   <span className="mb-1 block text-sm font-medium text-ink">
                     {o.nhan}
-                    {o.batBuoc ? <span className="text-danger"> *</span> : null}
                     {o.don_vi ? <span className="ml-1 text-meta text-ink-muted">({o.don_vi})</span> : null}
                   </span>
                   <OSo

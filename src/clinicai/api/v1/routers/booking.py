@@ -32,7 +32,12 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import doi_lich_nhanh, lich_hen_doc, man_dat_lich_doc
+from clinicai.services import (
+    doi_dich_vu_kham,
+    doi_lich_nhanh,
+    lich_hen_doc,
+    man_dat_lich_doc,
+)
 from clinicai.services.booking_service import Action, BookingService
 from clinicai.services.capacity_service import CapacityService
 from clinicai.services.clinic_policy import (
@@ -745,6 +750,42 @@ async def doi_lich_nhanh_post(
         payload = {"ok": True, **result}
         await idem.save(pool, payload)
     return payload
+
+
+class DoiDichVuKhamRequest(BaseModel):
+    """Đổi dịch vụ khám (menu ⋯ dòng lịch hẹn) — `BookingService.doi_dich_vu_kham`."""
+
+    service_type_id: UUID
+
+
+_CUA_DOI_DICH_VU = cua_quyen(*doi_dich_vu_kham.QUYEN_DOI_DICH_VU_KHAM)
+
+
+@router.get("/appointments/{appointment_id}/doi-dich-vu-kham")
+async def o_doi_dich_vu_kham(
+    appointment_id: UUID,
+    identity: StaffIdentity = Depends(_CUA_DOI_DICH_VU),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Popover Đổi dịch vụ khám: danh sách + đổi được không, vì sao (máy chủ quyết)."""
+    return await doi_dich_vu_kham.o_doi_dich_vu(
+        pool, identity=identity, appointment_id=str(appointment_id)
+    )
+
+
+@router.post("/appointments/{appointment_id}/doi-dich-vu-kham")
+async def doi_dich_vu_kham_post(
+    appointment_id: UUID,
+    body: DoiDichVuKhamRequest,
+    identity: StaffIdentity = Depends(_CUA_DOI_DICH_VU),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi loại khám của lịch (và của lượt khám nếu đã check-in mà chưa vướng gì)."""
+    return await BookingService(pool).doi_dich_vu_kham(
+        appointment_id=str(appointment_id),
+        service_type_id=str(body.service_type_id),
+        identity=identity,
+    )
 
 
 class SlotHoldRequest(BaseModel):
