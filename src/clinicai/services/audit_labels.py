@@ -35,6 +35,9 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.confirmed": "Xác nhận lịch hẹn",
     "appointment.cskh_confirmed": "CSKH xác nhận lịch",
     "appointment.rescheduled": "Dời lịch hẹn",
+    # Menu ⋯ dòng lịch hẹn (V5, 30/09/2026) — đổi loại khám của lịch (và của
+    # lượt khám nếu đã check-in mà bác sĩ chưa bắt đầu).
+    "appointment.service_switched": "Đổi dịch vụ khám",
     # Quản lý gỡ ca trực khám của một bác sĩ ⇒ lịch hẹn ngày ấy bỏ bác sĩ, rơi
     # về hàng "Chờ xếp bác sĩ" (14/08/2026). Không phải người bấm vào lịch hẹn,
     # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một

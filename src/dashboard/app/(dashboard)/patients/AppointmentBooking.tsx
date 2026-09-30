@@ -349,7 +349,7 @@ export default function AppointmentBooking({
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className={LABEL}>Dịch vụ *</label>
+          <label className={LABEL}>Dịch vụ</label>
           {khoaDichVu ? (
             // TÁI KHÁM: dịch vụ lấy theo lượt khám trước, không đổi được ở đây.
             // Đổi dịch vụ thì nó không còn là tái khám nữa — đó là "Đặt lịch
@@ -437,7 +437,7 @@ export default function AppointmentBooking({
           </div>
         </div>
         <div className="space-y-1">
-          <label className={LABEL}>Ngày *</label>
+          <label className={LABEL}>Ngày</label>
           <DateField
             value={apptDate}
             onChange={setApptDate}
@@ -446,7 +446,7 @@ export default function AppointmentBooking({
           />
         </div>
         <div className="space-y-1">
-          <label className={LABEL}>Giờ *</label>
+          <label className={LABEL}>Giờ</label>
           <Time24Input
             khungPhut={khungDatLich}
             value={apptTime}
@@ -514,7 +514,7 @@ export default function AppointmentBooking({
           )}
         </div>
         <div className="space-y-1">
-          <label className={LABEL}>Cơ sở *</label>
+          <label className={LABEL}>Cơ sở</label>
           <select
             value={locationId}
             onChange={(e) => setLocationId(e.target.value)}
@@ -528,7 +528,7 @@ export default function AppointmentBooking({
           </select>
         </div>
         <div className="space-y-1">
-          <label className={LABEL}>{walkin ? "Kênh đặt" : "Kênh đặt *"}</label>
+          <label className={LABEL}>Kênh đặt</label>
           {walkin ? (
             <div className={INPUT + " flex items-center bg-success-bg text-success"}>
               Khách đến trực tiếp (không đặt trước)

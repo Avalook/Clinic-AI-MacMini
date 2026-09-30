@@ -213,7 +213,7 @@ export default function DanhMucKho({
         >
           <h3 className="text-title text-ink">{sua ? `Sửa: ${form.ten}` : "Thêm thuốc mới"}</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {o("ten", "Tên thuốc *")}
+            {o("ten", "Tên thuốc")}
             {o("ma_hang", "Mã hàng (KiotViet)")}
             {o("gia", "Giá bán (đ / một đơn vị)")}
             {o("don_vi_ban", "Đơn vị bán (hộp, viên, ống…)")}
