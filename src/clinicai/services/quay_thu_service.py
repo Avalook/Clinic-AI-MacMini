@@ -725,6 +725,58 @@ def _phong_cua_dong(
     }
 
 
+#: Đầu phiếu: tên phòng khám + cơ sở + địa chỉ (cơ sở của lượt, thiếu địa chỉ
+#: thì rơi về địa chỉ phòng khám) — như đầu phiếu khám.
+_DAU_PHIEU_SQL = """
+SELECT ck.name AS phong_kham, lv.name AS co_so,
+       coalesce(nullif(btrim(lv.address), ''),
+                nullif(btrim(la.address), ''), ck.address) AS dia_chi
+  FROM visit v
+  JOIN clinic ck ON ck.id = v.clinic_id
+  LEFT JOIN appointment a
+    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+  LEFT JOIN clinic_location lv
+    ON lv.id = coalesce(v.location_id, a.location_id)
+   AND lv.clinic_id = v.clinic_id
+  LEFT JOIN patient p
+    ON p.clinic_patient_id = v.clinic_patient_id
+   AND p.clinic_id = v.clinic_id
+  LEFT JOIN clinic_location la
+    ON la.id = p.location_id AND la.clinic_id = p.clinic_id
+ WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+"""
+
+#: PHIẾU HƯỚNG DẪN (Tuyền 30/09/2026): dịch vụ khách ĐÃ CHỐT làm, chưa làm
+#: xong — in cho khách cầm đi đúng phòng, KỂ CẢ khi chưa thu tiền (làm trước,
+#: thu sau). Không kèm tiền.
+_HUONG_DAN_SQL = """
+SELECT o.id::text AS source_id, 'service_order' AS source_type,
+       o.service_name AS ten
+  FROM service_order o
+ WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+   AND o.selection_status = 'SELECTED'
+   AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed', 'performed')
+   AND coalesce(o.execution_status, 'PENDING') NOT IN ('COMPLETED', 'CANCELLED',
+                                                 'NOT_PERFORMED')
+ ORDER BY o.created_at, o.id
+"""
+
+
+def dong_huong_dan(
+    dong: Iterable[Mapping[str, Any]], phong: Mapping[str, Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Dòng phiếu hướng dẫn: tên dịch vụ + phòng, KHÔNG tiền. Thuần."""
+    return [
+        {
+            "ten": d["ten"],
+            "so_luong": 1.0,
+            "thanh_tien": None,
+            **_phong_cua_dong(d, phong),
+        }
+        for d in dong
+    ]
+
+
 #: Dịch vụ khách trả TRỰC TIẾP cho đối tác của các lượt (giá tham khảo).
 _DOI_TAC_SQL = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name AS ten,
@@ -935,6 +987,45 @@ class QuayThuService:
             ]
         }
 
+    async def _phieu_huong_dan(self, *, cid: str, visit_id: str) -> dict[str, Any]:
+        """PHIẾU HƯỚNG DẪN của một lượt — cùng khuôn dữ liệu với phiếu thu để
+        dùng chung bản in 80mm, nhưng ``id`` là mã LƯỢT và không có tiền."""
+        async with self._pool.acquire() as conn:
+            dau = await conn.fetchrow(_DAU_PHIEU_SQL, cid, visit_id)
+            if dau is None:
+                raise NotFoundError("Không tìm thấy lượt khám này.")
+            k = await conn.fetchrow(_KHACH_SQL, cid, [visit_id])
+            phong = {
+                str(r["id"]): r
+                for r in await conn.fetch(_PHONG_CHI_DINH_SQL, cid, visit_id)
+            }
+            dong = dong_huong_dan(
+                await conn.fetch(_HUONG_DAN_SQL, cid, visit_id), phong
+            )
+        return {
+            "id": visit_id,
+            "loai": "huong_dan",
+            "ma": "",
+            "ma_phieu_goc": None,
+            "kind": "dich_vu",
+            "luc": _iso(datetime.now(CLINIC_TZ)),
+            "trang_thai": None,
+            "phong_kham": dau["phong_kham"],
+            "co_so": dau["co_so"],
+            "dia_chi": dau["dia_chi"],
+            "khach": k["ten"] if k else None,
+            "ma_bn": k["ma_bn"] if k else None,
+            "so_booking": k["so_booking"] if k else None,
+            "so_tiep_don": k["so_tiep_don"] if k else None,
+            "bac_si": k["bac_si"] if k else None,
+            "dong": dong,
+            "tong": 0,
+            "hinh_thuc": None,
+            "nguoi_thu": None,
+            "ly_do": None,
+            "doi_tac": [],
+        }
+
     async def phieu(
         self, *, identity: StaffIdentity, id_: str, loai: str = "thu"
     ) -> dict[str, Any]:
@@ -945,6 +1036,8 @@ class QuayThuService:
         khám (cơ sở của lượt, thiếu địa chỉ thì rơi về địa chỉ phòng khám).
         """
         cid = identity.clinic_id
+        if loai == "huong_dan":
+            return await self._phieu_huong_dan(cid=cid, visit_id=id_)
         la_hoan = loai == "hoan"
         async with self._pool.acquire() as conn:
             if la_hoan:
@@ -985,28 +1078,7 @@ class QuayThuService:
                 )
             if goc is None:
                 raise NotFoundError("Không tìm thấy phiếu này.")
-            dau = await conn.fetchrow(
-                """
-                SELECT ck.name AS phong_kham, lv.name AS co_so,
-                       coalesce(nullif(btrim(lv.address), ''),
-                                nullif(btrim(la.address), ''), ck.address) AS dia_chi
-                  FROM visit v
-                  JOIN clinic ck ON ck.id = v.clinic_id
-                  LEFT JOIN appointment a
-                    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
-                  LEFT JOIN clinic_location lv
-                    ON lv.id = coalesce(v.location_id, a.location_id)
-                   AND lv.clinic_id = v.clinic_id
-                  LEFT JOIN patient p
-                    ON p.clinic_patient_id = v.clinic_patient_id
-                   AND p.clinic_id = v.clinic_id
-                  LEFT JOIN clinic_location la
-                    ON la.id = p.location_id AND la.clinic_id = p.clinic_id
-                 WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
-                """,
-                cid,
-                goc["visit_id"],
-            )
+            dau = await conn.fetchrow(_DAU_PHIEU_SQL, cid, goc["visit_id"])
             k = await conn.fetchrow(_KHACH_SQL, cid, [goc["visit_id"]])
             if la_hoan:
                 dong = [

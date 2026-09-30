@@ -56,7 +56,8 @@ export async function GET(request: Request) {
   }
   if (xem === "phieu") {
     const id = url.searchParams.get("id") ?? "";
-    const loai = url.searchParams.get("loai") === "hoan" ? "hoan" : "thu";
+    const xin = url.searchParams.get("loai");
+    const loai = xin === "hoan" || xin === "huong_dan" ? xin : "thu";
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       return NextResponse.json({ error: "Mã phiếu không hợp lệ" }, { status: 400 });
     }

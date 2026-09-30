@@ -4,6 +4,10 @@
 // có phiếu thuốc và phiếu dịch vụ là kiểu hoá đơn thôi, còn kết quả các thứ
 // phải là cỡ A4"). Một trang cho cả thu tiền DỊCH VỤ lẫn tiền THUỐC (`kind`),
 // và phiếu hoàn. Phiếu khám, kết quả dùng `KieuInA4`.
+//
+// PHIẾU HƯỚNG DẪN (`loai=huong_dan`, Tuyền 30/09/2026): khách làm trước, thu
+// sau — chưa có tiền nhưng vẫn cần tờ giấy ghi đi phòng nào. Cùng khổ, cùng
+// trang; `id` là mã LƯỢT, không có dòng tiền.
 
 import { useEffect, useState } from "react";
 
@@ -14,7 +18,7 @@ import DoiPhong from "../../../(dashboard)/_lam-viec/DoiPhong";
 export interface Phieu {
   /** Mã gốc của lần thu / lần hoàn. */
   id: string;
-  loai: "thu" | "hoan";
+  loai: LoaiPhieu;
   /** Lần thu tiền dịch vụ hay tiền thuốc. */
   kind: string | null;
   ma: string;
@@ -33,7 +37,8 @@ export interface Phieu {
     ten: string;
     so_luong: number;
     thanh_tien: number | null;
-    /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ. */
+    /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ.
+     *  Chỉ in TÊN PHÒNG, không in tầng (Tuyền 30/09/2026). */
     phong?: { ten: string; tang: string | number | null; du_kien: boolean } | null;
     /** Máy vừa thu, đang tự xếp phòng — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
@@ -50,6 +55,8 @@ export interface Phieu {
   doi_tac: { ten: string; gia: number | null }[];
 }
 
+export type LoaiPhieu = "thu" | "hoan" | "huong_dan";
+
 const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
 
 // Khổ hoá đơn 80mm, dài theo nội dung. `@page` chỉ áp cho trang in này.
@@ -60,18 +67,11 @@ export const KIEU_HOA_DON = `
 }
 `;
 
-/** " · Tầng 3" — cột `floor` có nơi ghi "3", có nơi đã ghi sẵn "Tầng 3". */
-function tenTang(tang: string | number | null): string {
-  if (tang == null || String(tang).trim() === "") return "";
-  const t = String(tang).trim();
-  return /^tầng/i.test(t) ? ` · ${t}` : ` · Tầng ${t}`;
-}
-
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
 }
 
-export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "hoan" }) {
+export default function InPhieuThu({ id, loai }: { id: string; loai: LoaiPhieu }) {
   const [p, setP] = useState<Phieu | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   // Tăng lên sau mỗi lần đổi phòng → nạp lại phiếu để in bản mới.
@@ -129,7 +129,7 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
  *  phòng nào làm được và gác lệnh xếp. */
 function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
   const ds = p.dong.filter((d) => d.order_id && d.doi_phong_duoc);
-  if (p.loai !== "thu" || ds.length === 0) return null;
+  if (p.loai === "hoan" || ds.length === 0) return null;
   return (
     <section className="mb-4 space-y-2 rounded-card border border-line p-3 print:hidden">
       <p className="text-meta font-semibold text-ink">Phòng làm dịch vụ — chọn / đổi rồi bấm In</p>
@@ -161,6 +161,7 @@ function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
 /** Thân MỘT phiếu thu khổ hoá đơn — dùng chung cho in một phiếu và in mọi
  *  hoá đơn thuốc của một lượt (CSKH, 28/09/2026). */
 export function PhieuThuGiay({ p }: { p: Phieu }) {
+  if (p.loai === "huong_dan") return <PhieuHuongDanGiay p={p} />;
   const luc = p.luc
     ? new Date(p.luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
     : "";
@@ -215,7 +216,6 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
                 {d.phong ? (
                   <span className="block font-semibold">
                     → {d.phong.ten}
-                    {tenTang(d.phong.tang)}
                     {d.phong.du_kien ? " (dự kiến)" : ""}
                   </span>
                 ) : d.cho_xep ? (
@@ -254,6 +254,68 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
         </p>
       ) : null}
       <p className="mt-6 text-center text-meta text-ink-muted">Cảm ơn quý khách</p>
+    </>
+  );
+}
+
+/** PHIẾU HƯỚNG DẪN — dịch vụ khách đã chốt + phòng đi làm, KHÔNG tiền. Khách
+ *  làm trước, thu sau: cuối buổi quay lại quầy thanh toán (Tuyền 30/09/2026). */
+function PhieuHuongDanGiay({ p }: { p: Phieu }) {
+  const luc = p.luc
+    ? new Date(p.luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+    : "";
+  const soLuot = [p.so_booking != null ? `#${p.so_booking}` : null, p.so_tiep_don != null ? String(p.so_tiep_don) : null]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <>
+      <header className="text-center">
+        <p className="font-semibold uppercase">{p.phong_kham ?? "Phòng khám"}</p>
+        <p className="text-meta text-ink-muted">
+          {[p.co_so, p.dia_chi].filter(Boolean).join(" · ")}
+        </p>
+        <h1 className="mt-3 text-emph font-semibold">PHIẾU HƯỚNG DẪN LÀM DỊCH VỤ</h1>
+        <p className="text-meta text-ink-muted">{luc}</p>
+      </header>
+      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-meta">
+        <dt className="text-ink-muted">Khách</dt>
+        <dd>{p.khach ?? "—"}</dd>
+        <dt className="text-ink-muted">Mã khách</dt>
+        <dd>{p.ma_bn ?? "—"}</dd>
+        {soLuot ? (
+          <>
+            <dt className="text-ink-muted">Booking · Check-in</dt>
+            <dd>{soLuot}</dd>
+          </>
+        ) : null}
+        {p.bac_si ? (
+          <>
+            <dt className="text-ink-muted">Bác sĩ</dt>
+            <dd>{p.bac_si}</dd>
+          </>
+        ) : null}
+      </dl>
+      {p.dong.length === 0 ? (
+        <p className="mt-4 text-meta text-ink-muted">Không còn dịch vụ nào chờ làm.</p>
+      ) : (
+        <ol className="mt-4 space-y-1 text-meta">
+          {p.dong.map((d, i) => (
+            <li key={d.order_id ?? i} className="border-b border-line py-1">
+              {i + 1}. {d.ten}
+              {d.phong ? (
+                <span className="block font-semibold">
+                  → {d.phong.ten}
+                  {d.phong.du_kien ? " (dự kiến)" : ""}
+                </span>
+              ) : (
+                <span className="block text-ink-muted">→ Chờ xếp phòng — xem màn hình gọi số</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="mt-4 text-center font-semibold">CHƯA THANH TOÁN</p>
+      <p className="text-center text-meta">Làm xong, mời quý khách quay lại quầy lễ tân để thanh toán.</p>
     </>
   );
 }

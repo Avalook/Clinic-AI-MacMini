@@ -13,6 +13,8 @@
 // 29/09/2026: kể cả khi trưởng ca đã xếp (bỏ khoá) — mọi lần đổi hiện ở lịch sử
 // Hành trình khách.
 
+import NutInPhieu from "@/components/ui/NutInPhieu";
+
 import DoiPhong from "../_lam-viec/DoiPhong";
 
 export interface DaTraChoPhong {
@@ -26,16 +28,27 @@ export interface DaTraChoPhong {
 export default function XepPhongDaThu({
   ds,
   onDoi,
+  visitId,
 }: {
   ds: DaTraChoPhong[];
   onDoi: () => void;
+  /** Có thì hiện nút in PHIẾU HƯỚNG DẪN phòng — in được cả khi chưa thu
+   *  (làm trước, thu sau — Tuyền 30/09/2026). */
+  visitId?: string;
 }) {
   if (ds.length === 0) return null;
   return (
     <div className="space-y-2 border-b border-line px-4 py-3 last:border-b-0">
-      <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-        Phòng làm dịch vụ (khách đã chốt)
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
+          Phòng làm dịch vụ (khách đã chốt)
+        </p>
+        {visitId ? (
+          <NutInPhieu href={`/print/phieu-thu/${visitId}?loai=huong_dan`} size="md">
+            In phiếu hướng dẫn phòng
+          </NutInPhieu>
+        ) : null}
+      </div>
       <ul className="space-y-2">
         {ds.map((c) => (
           <li key={c.id}>

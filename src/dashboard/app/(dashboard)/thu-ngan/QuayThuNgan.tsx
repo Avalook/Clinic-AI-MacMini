@@ -147,6 +147,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   // Mã lần thu vừa ghi — nút "In phiếu thu" (có phòng làm dịch vụ) ngay dưới
   // câu "Đã thu…" (Tuyền 30/09/2026: in bill cho khách cầm đi theo).
   const [phieuVuaThu, setPhieuVuaThu] = useState<string | null>(null);
+  // Lượt vừa CHỐT, THU SAU — nút "In phiếu hướng dẫn phòng" dưới câu báo (chưa
+  // có tiền nên không có phiếu thu, nhưng khách vẫn cần giấy đi phòng).
+  const [vuaChot, setVuaChot] = useState<{ visitId: string; cau: string } | null>(null);
 
   const doc = useCallback(async () => {
     try {
@@ -321,9 +324,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         const d = (await r.json().catch(() => null)) as { error?: string; message?: string } | null;
         if (r.ok) {
           xongThaoTac(thaoTac);
-          setXong(
-            `Đã chốt dịch vụ của ${l.full_name ?? "khách"} — khách đi làm trước, thu tiền sau (còn nợ ở quầy).`,
-          );
+          const cau = `Đã chốt dịch vụ của ${l.full_name ?? "khách"} — khách đi làm trước, thu tiền sau (còn nợ ở quầy).`;
+          setXong(cau);
+          setVuaChot({ visitId: l.visit_id, cau });
         } else {
           setLoi(d?.message ?? d?.error ?? "Không chốt được dịch vụ.");
         }
@@ -419,6 +422,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           {vuaThu && vuaThu.cau === xong && phieuVuaThu ? (
             <NutInPhieu href={`/print/phieu-thu/${phieuVuaThu}?loai=thu`} size="md">
               In phiếu thu (có phòng làm dịch vụ)
+            </NutInPhieu>
+          ) : null}
+          {vuaChot && vuaChot.cau === xong ? (
+            <NutInPhieu href={`/print/phieu-thu/${vuaChot.visitId}?loai=huong_dan`} size="md">
+              In phiếu hướng dẫn phòng (chưa thu tiền)
             </NutInPhieu>
           ) : null}
           {vuaThu && vuaThu.cau === xong ? (
@@ -574,7 +582,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             )}
 
             {quay !== "thuoc" ? (
-              <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
+              <XepPhongDaThu
+                ds={l.xep_phong ?? []}
+                onDoi={() => void tai()}
+                visitId={l.visit_id}
+              />
             ) : null}
 
             {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick,
@@ -646,7 +658,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 </div>
                 <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình" />
               </header>
-              <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
+              <XepPhongDaThu
+                ds={l.xep_phong ?? []}
+                onDoi={() => void tai()}
+                visitId={l.visit_id}
+              />
             </article>
           ))}
         </div>

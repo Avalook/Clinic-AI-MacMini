@@ -423,3 +423,30 @@ def test_bill_in_phong_lam_dich_vu() -> None:
     # Tiền khám / phụ thu / thuốc: không có phòng.
     for loai in ("exam", "phu_thu", "drug"):
         assert _phong_cua_dong({"source_type": loai, "source_id": "o1"}, phong) == {}
+
+
+def test_phieu_huong_dan_co_phong_khong_co_tien() -> None:
+    """30/09/2026: khách làm trước, thu sau vẫn cầm được giấy đi phòng — dòng
+    có phòng (hoặc "chờ xếp"), không có tiền."""
+    from clinicai.services.quay_thu_service import dong_huong_dan
+
+    phong: dict[str, dict[str, object]] = {
+        "o1": {
+            "ten_phong": "Phòng Sàn chậu",
+            "tang": 2,
+            "du_kien": False,
+            "room_id": "r1",
+            "routing_revision": 3,
+            "doi_duoc": True,
+        },
+    }
+    dong = [
+        {"source_type": "service_order", "source_id": "o1", "ten": "Tư vấn sàn chậu"},
+        {"source_type": "service_order", "source_id": "o2", "ten": "Siêu âm khớp"},
+    ]
+    [a, b] = dong_huong_dan(dong, phong)
+    assert a["ten"] == "Tư vấn sàn chậu" and a["thanh_tien"] is None
+    assert a["phong"]["ten"] == "Phòng Sàn chậu" and a["cho_xep"] is False
+    assert a["order_id"] == "o1" and a["doi_phong_duoc"] is True
+    assert b["phong"] is None and b["cho_xep"] is True
+    assert dong_huong_dan([], phong) == []
