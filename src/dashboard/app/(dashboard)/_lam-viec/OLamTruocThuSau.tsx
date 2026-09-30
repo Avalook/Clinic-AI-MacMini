@@ -143,8 +143,10 @@ export default function OLamTruocThuSau({
       ) : !tt.lam_truoc_thu_sau ? (
         <span className="text-meta text-ink-muted">Không tick: thu tiền xong mới xếp phòng, bắt đầu làm.</span>
       ) : null}
-      {/* Đã tick: in giấy đi phòng cho khách cầm (chưa thu tiền — 30/09/2026). */}
-      {tt.lam_truoc_thu_sau ? (
+      {/* Đã tick: in giấy đi phòng cho khách cầm (chưa thu tiền — 30/09/2026).
+          Chỉ ở Bàn khám (ô tự đọc) — quầy thu đã có nút này ở khối "Phòng làm
+          dịch vụ", không hiện hai nút cùng đích. */}
+      {tt.lam_truoc_thu_sau && tuDoc ? (
         <NutInPhieu href={`/print/phieu-thu/${visitId}?loai=huong_dan`} size="sm">
           In phiếu hướng dẫn phòng
         </NutInPhieu>
