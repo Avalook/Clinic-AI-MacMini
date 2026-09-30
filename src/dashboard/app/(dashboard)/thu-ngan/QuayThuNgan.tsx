@@ -290,6 +290,47 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     [gui],
   );
 
+  /** V10 LÀM TRƯỚC, THU SAU (Tuyền 30/09/2026): chốt dịch vụ khách làm, KHÔNG
+   *  thu — máy chủ xếp phòng ngay (dây H4), khách đi làm, cuối buổi quay lại
+   *  quầy thu. Cùng lệnh xác nhận lựa chọn của ô "Khách chọn dịch vụ". */
+  const chotThuSau = useCallback(
+    async (l: Luot, chon: NonNullable<LenhThuMot["chon"]>) => {
+      const khoa = `${l.visit_id}:dich_vu`;
+      const thaoTac = dinhDanhThaoTac(
+        "chon-dich-vu",
+        l.visit_id,
+        String(chon.expected_selection_revision),
+        chon.selected_order_ids.join(","),
+      );
+      setDangThu(khoa);
+      setLoi(null);
+      setXong(null);
+      setVuaThu(null);
+      try {
+        const r = await fetch("/api/luot-kham", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": khoaThaoTac(thaoTac) },
+          body: JSON.stringify({ thao_tac: "chon-dich-vu", id: l.visit_id, du_lieu: chon }),
+        });
+        const d = (await r.json().catch(() => null)) as { error?: string; message?: string } | null;
+        if (r.ok) {
+          xongThaoTac(thaoTac);
+          setXong(
+            `Đã chốt dịch vụ của ${l.full_name ?? "khách"} — khách đi làm trước, thu tiền sau (còn nợ ở quầy).`,
+          );
+        } else {
+          setLoi(d?.message ?? d?.error ?? "Không chốt được dịch vụ.");
+        }
+        await tai();
+      } catch {
+        setLoi("Mất kết nối — CHƯA chốt được dịch vụ.");
+      } finally {
+        setDangThu(null);
+      }
+    },
+    [tai],
+  );
+
   /** "Đã nhận tiền" của lần chờ xác minh — cũng là lúc tiền đã đủ. */
   const xacMinh = useCallback(
     async (l: Luot, kind: "dich_vu" | "thuoc", ma: string) => {
@@ -472,6 +513,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
                 dangLuuPhuThu={phuThuDangLuu.has(l.visit_id)}
                 onThu={(p) => void thuMot(l, p)}
+                onChotThuSau={(c) => void chotThuSau(l, c)}
                 onDoiPhong={() => void tai()}
               />
             ) : (

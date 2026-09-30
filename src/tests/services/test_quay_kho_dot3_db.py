@@ -303,11 +303,13 @@ async def test_day_chi_ap_phong_du_kien_bat_tat(pool: asyncpg.Pool) -> None:  # 
         visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
         con = await _phien(pool, ca, visit)
         [order] = await _dat(pool, ca, con, ca.ma_dv)
-        await _chon(pool, ca, visit, [order])
+        # Phòng dự kiến chọn TRƯỚC khi chốt: V10 — đã chốt rồi mới chọn phòng
+        # thì là xếp thật luôn, không còn là "dự kiến" cho dây H4.
         if phong_du_kien:
             await rs.dat_phong_du_kien(
                 order_id=order, room_id=phong_du_kien, identity=ca.le_tan
             )
+        await _chon(pool, ca, visit, [order])
         return order
 
     await _dat_day(pool, ca, "h4_chi_ap_phong_du_kien", True)

@@ -47,12 +47,14 @@ async def test_quay_chon_phong_truoc_khi_thu_thi_thu_xong_vao_dung_phong(
     assert phong_chon in {p["id"] for p in cd["phong_chon_duoc"]}
     assert cd["phong_du_kien_id"] is None
 
-    await _chon(pool, ca, visit, [order])
+    # Chọn phòng khi khách CÒN ĐANG QUYẾT = phòng dự kiến (V10: đã chốt rồi
+    # mới chọn thì xếp thật luôn).
     kq = await ServiceRoutingService(pool).dat_phong_du_kien(
         order_id=order, room_id=phong_chon, identity=ca.le_tan
     )
     assert kq["phong_du_kien_id"] == phong_chon
     assert (await _don(pool, order))["routing_status"] in (None, "UNASSIGNED")
+    await _chon(pool, ca, visit, [order])
 
     await _thu(pool, visit, ca.le_tan)
     await chay_hanh_trinh(pool)

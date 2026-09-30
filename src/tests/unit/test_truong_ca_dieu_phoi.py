@@ -30,7 +30,7 @@ def _che_do(**kw: Any) -> str:
         "execution_status": "PENDING",
         "exec_status": "authorized",
         "selection_status": "SELECTED",
-        "tai_chinh_xong": True,
+        "duoc_lam": True,
         "hang": None,
         "dieu_phoi": False,
         "khach_ve": False,
@@ -43,9 +43,10 @@ def _che_do(**kw: Any) -> str:
     [
         ({}, "XEP"),
         ({"dieu_phoi": True}, "XEP"),
-        # Chưa thu tiền: chỉ trưởng ca có lối phòng dự kiến.
-        ({"tai_chinh_xong": False}, "KHONG"),
-        ({"tai_chinh_xong": False, "dieu_phoi": True}, "DU_KIEN"),
+        # V10: chưa thu vẫn duoc_lam → XEP (trên). Chỉ tiền đang hoàn / sổ lệch
+        # (duoc_lam=False): chỉ trưởng ca có lối phòng dự kiến.
+        ({"duoc_lam": False}, "KHONG"),
+        ({"duoc_lam": False, "dieu_phoi": True}, "DU_KIEN"),
         ({"selection_status": "PENDING", "dieu_phoi": True}, "DU_KIEN"),
         ({"selection_status": "NOT_SELECTED", "dieu_phoi": True}, "KHONG"),
         # Đang làm: chỉ trưởng ca chuyển.
@@ -248,7 +249,7 @@ def test_lich_su_tu_dong_theo_phong_du_kien() -> None:
         du_kien_nguon="truong_ca",
     )
     assert d["cau"] == (
-        "Tự động xếp phòng → Siêu âm 1: theo phòng trưởng ca chọn trước khi thu"
+        "Tự động xếp phòng → Siêu âm 1: theo phòng trưởng ca chọn trước"
     )
     # Sự kiện cũ không có `nguon` mà có tu_dong → vẫn nói "Tự động".
     assert _ls("service.routed", room_id="a", tu_dong=True)["nguon"] == "tu_dong"

@@ -203,11 +203,15 @@ class ServiceExecutionService:
                     "EXECUTION_ALREADY_RUNNING", "Đang có một lần làm chạy dở."
                 )
 
+            # V10 (Tuyền 30/09/2026) — LÀM TRƯỚC, THU SAU: chưa thu KHÔNG chặn
+            # bắt đầu; cuối buổi quầy thu (dịch vụ đã làm vẫn nằm trong hoá đơn,
+            # check-out vẫn báo nợ). Chỉ chặn tiền đang hoàn / đã hoàn / sổ lệch.
             tien = await can_start(conn, cid, order_id)
-            if tien is None or not tien.financially_ready:
+            if tien is None or not tien.duoc_lam:
                 raise LuotKhamConflictError(
                     "FINANCE_NOT_READY",
-                    "Chưa đủ điều kiện tài chính để bắt đầu.",
+                    "Tiền của dịch vụ này đang hoàn / đã hoàn hoặc sổ tiền cần"
+                    " đối soát — xử lý ở quầy trước khi làm.",
                 )
 
             lan_truoc = await conn.fetchval(

@@ -12,6 +12,10 @@
 // Tổng hiển thị = cộng giá các dòng đang tick — CHỈ để đối chiếu: máy chủ tự tính
 // lại theo lựa chọn gửi lên, lệch là từ chối (BILL_CHANGED), không ghi số màn gửi.
 // Đối tác tự thu nằm nhóm riêng, không cộng.
+//
+// [Chốt, thu sau] (V10 — Tuyền 30/09/2026 "làm trước, thu sau"): chỉ chốt lựa
+// chọn, KHÔNG ghi sổ. Máy chủ xếp phòng ngay, khách đi làm; dòng đã chốt vẫn
+// nằm trong hoá đơn còn nợ, cuối buổi bấm [Thu] như thường.
 
 import { useState } from "react";
 
@@ -102,6 +106,7 @@ export default function HoaDonMot({
   dangThu,
   dangLuuPhuThu,
   onThu,
+  onChotThuSau,
   onDoiPhong,
 }: {
   qt: QuayThu;
@@ -109,6 +114,8 @@ export default function HoaDonMot({
   dangLuuPhuThu: boolean;
   /** Cha gửi POST /api/payment (khoá gửi lại, báo kết quả, tải lại). */
   onThu: (p: LenhThuMot) => void;
+  /** Cha gửi lệnh chốt lựa chọn (không thu) — V10 làm trước, thu sau. */
+  onChotThuSau?: (chon: NonNullable<LenhThuMot["chon"]>) => void;
   onDoiPhong: () => void;
 }) {
   const macDinh = new Set(
@@ -147,6 +154,16 @@ export default function HoaDonMot({
       return;
     }
     onDoiPhong();
+  };
+
+  const conQuyet = qt.lua_chon.order_ids_seen.length > 0;
+  const chotSau = () => {
+    const seen = qt.lua_chon.order_ids_seen;
+    onChotThuSau?.({
+      order_ids_seen: seen,
+      selected_order_ids: seen.filter((id) => chon.has(id)),
+      expected_selection_revision: qt.lua_chon.revision,
+    });
   };
 
   const bam = () => {
@@ -255,8 +272,18 @@ export default function HoaDonMot({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="text-emph font-semibold tabular-nums text-ink">{tien(tong)}</span>
+          {onChotThuSau && conQuyet && !chiChot ? (
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={dangThu || dangLuuPhuThu}
+              onClick={chotSau}
+            >
+              Chốt, thu sau
+            </Button>
+          ) : null}
           <Button
             variant="primary"
             size="lg"

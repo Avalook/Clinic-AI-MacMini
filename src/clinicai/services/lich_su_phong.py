@@ -69,7 +69,7 @@ def dong_lich_su(
         ly_do = TEN_LY_DO.get(ma, ma) if isinstance(ma, str) else None
         du_kien = p.get("du_kien_nguon")
         if nguon == "tu_dong" and du_kien in ("quay_thu", "truong_ca"):
-            ly_do = f"theo phòng {TEN_NGUON[du_kien].lower()} chọn trước khi thu"
+            ly_do = f"theo phòng {TEN_NGUON[du_kien].lower()} chọn trước"
     ten_nguon = TEN_NGUON.get(nguon or "", "Nhân viên")
     phong = f"{tu_phong or '—'} → {den_phong or '—'}" if tu else f"→ {den_phong or '—'}"
     cau = f"{ten_nguon} {viec} {phong}"
