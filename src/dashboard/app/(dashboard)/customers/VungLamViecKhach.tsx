@@ -32,6 +32,7 @@
 // TuongTacCskhService.ghi).
 
 import { useState } from "react";
+import type { TrangThaiHienThi } from "@/lib/trang-thai-lich";
 import { nhanLoi } from "@/lib/loi-api";
 import { nowMs } from "@/lib/datetime";
 import { khoaThaoTac, xongThaoTac, dinhDanhThaoTac } from "./khoa-mot-lan";
@@ -407,6 +408,8 @@ const SUY_THEO_LOAI_CU: Record<string, string[]> = {
 export interface MocLich {
   id: string | null;
   status: string | null;
+  /** Nhãn trạng thái máy chủ quyết (30/09/2026). */
+  trang_thai?: TrangThaiHienThi | null;
   slot_start: string | null;
   created_at: string | null;
   cancelled_at: string | null;

@@ -43,6 +43,7 @@ import type { BookingPolicy } from "../../../lib/booking-policy";
 import NutCheckIn from "@/components/ui/NutCheckIn";
 import { CA_TUAN, locTheoNgay, ngayDangChon, tabNgay } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
+import { MA_DA_ROI, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
 
 export interface WeekApptRow {
   id: string;
@@ -91,6 +92,9 @@ export interface WeekApptRow {
   has_vitals?: boolean;
   /** Lượt khám của lịch (đã check-in) — bấm tên mở Hành trình khách. */
   visit_id?: string | null;
+  /** NHÃN TRẠNG THÁI máy chủ quyết (30/09/2026) — "Đã về" khi lượt đã
+   *  check-out, "Đang ở/Đang chờ: <phòng>" khi còn trong phòng khám. */
+  trang_thai?: TrangThaiHienThi | null;
   patient: {
     clinic_patient_id: string;
     full_name: string;
@@ -138,11 +142,18 @@ const TONE_TT: Record<string, ChipTone> = {
   CHECKED_IN: "success",
   COMPLETED: "info",
 };
-function TrangThaiLich({ status }: { status: string }) {
+function TrangThaiLich({
+  status,
+  tt,
+}: {
+  status: string;
+  /** Nhãn máy chủ — có thì vẽ nó; thiếu (máy chủ cũ) mới dịch `status`. */
+  tt?: TrangThaiHienThi | null;
+}) {
   return (
-    <span className={chipClass(TONE_TT[status] ?? "neutral")}>
+    <span className={chipClass(tt?.tone ?? TONE_TT[status] ?? "neutral")}>
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      {STATUS_VN[status] ?? status}
+      {tt?.nhan ?? STATUS_VN[status] ?? status}
     </span>
   );
 }
@@ -912,7 +923,7 @@ export default function WeeklyAppointmentsTable({
                               </td>
                               {!showActions && (
                                 <td className={CELL}>
-                                  <TrangThaiLich status={a.status} />
+                                  <TrangThaiLich status={a.status} tt={a.trang_thai} />
                                 </td>
                               )}
                               <td className={CELL}>
@@ -927,6 +938,10 @@ export default function WeeklyAppointmentsTable({
                                       <span className={chipClass("neutral")}>
                                         {STATUS_VN[a.status] ?? a.status}
                                       </span>
+                                    ) : a.trang_thai &&
+                                      MA_DA_ROI.includes(a.trang_thai.ma) ? (
+                                      // Khách đã về — không mời đo sinh hiệu nữa.
+                                      <TrangThaiLich status={a.status} tt={a.trang_thai} />
                                     ) : a.status !== "CHECKED_IN" &&
                                       a.status !== "COMPLETED" ? (
                                       // Chưa check-in → điều dưỡng CHƯA điền sinh hiệu
@@ -954,18 +969,18 @@ export default function WeeklyAppointmentsTable({
                                     )
                                   ) : a.status === "COMPLETED" ? (
                                     <div className="flex items-center gap-1.5">
-                                      <span className={chipClass("neutral")}>
-                                        Đã khám xong
-                                      </span>
+                                      {/* "Đã về 11:20" / "Về giữa chừng" /
+                                          "Khám xong — chưa check-out" — máy chủ. */}
+                                      <TrangThaiLich status={a.status} tt={a.trang_thai} />
                                       <NutInPhieu href={`/print/${a.id}`} />
                                     </div>
                                   ) : a.status === "CHECKED_IN" ? (
                                     /* "Hoàn tác" ĐỨNG CẠNH chip, không xuống
                                        dòng dưới (Tuyền 16/09/2026). */
                                     <div className="flex items-center gap-1.5">
-                                      <span className={chipClass("success")}>
-                                        Đang chờ khám
-                                      </span>
+                                      {/* Đang ở / đang chờ PHÒNG nào — máy chủ
+                                          (cùng hàm Hành trình khách). */}
+                                      <TrangThaiLich status={a.status} tt={a.trang_thai} />
                                       <button
                                         type="button"
                                         onClick={() => act(a.id, "undo_checkin")}
@@ -979,7 +994,7 @@ export default function WeeklyAppointmentsTable({
                                   ) : TRUOC_KHI_DEN.includes(a.status) && day.date !== homNay ? (
                                     // Check-in / Không đến CHỈ ở hôm nay (29/09/2026).
                                     // Ngày khác: bấm dòng để đổi sang hôm nay.
-                                    <TrangThaiLich status={a.status} />
+                                    <TrangThaiLich status={a.status} tt={a.trang_thai} />
                                   ) : TRUOC_KHI_DEN.includes(a.status) ? (
                                     <div className="flex items-center gap-2">
                                       <NutCheckIn

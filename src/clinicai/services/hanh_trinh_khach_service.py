@@ -928,6 +928,21 @@ async def doc_hanh_trinh_khach(
     return ra
 
 
+async def dang_o_cac_luot(
+    conn: asyncpg.Connection, *, clinic_id: str, visit_ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """visit_id → khối ``gon`` (đang ở / đang chờ phòng nào) — nguồn "vị trí
+    khách" cho NHÃN TRẠNG THÁI mọi màn (`core.trang_thai_lich
+    .trang_thai_hien_thi`, 30/09/2026). Người gọi chỉ đưa lượt còn mở.
+    Không lượt nào → không truy vấn."""
+    if not visit_ids:
+        return {}
+    kq = await doc_hanh_trinh_khach(
+        conn, clinic_id=clinic_id, visit_ids=list(dict.fromkeys(visit_ids))
+    )
+    return {k: v["gon"] for k, v in kq.items()}
+
+
 class HanhTrinhKhachService:
     """Cửa đọc: mọi thành viên nội bộ (vai tài khoản, trừ đối tác / TV) —
     cùng cửa với Hành trình / Xem lượt (`goi_duoc`)."""
@@ -976,6 +991,7 @@ class HanhTrinhKhachService:
 
 __all__ = [
     "HanhTrinhKhachService",
+    "dang_o_cac_luot",
     "noi_la_du_kien",
     "doc_hanh_trinh_khach",
     "doc_ma_luot",

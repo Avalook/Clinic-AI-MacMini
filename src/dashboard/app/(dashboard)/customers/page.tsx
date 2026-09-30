@@ -48,6 +48,7 @@ type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { layCoSo, layDichVu } from "../../../lib/danh-muc";
+import type { TrangThaiHienThi } from "../../../lib/trang-thai-lich";
 
 export const dynamic = "force-dynamic";
 
@@ -361,6 +362,9 @@ type LichHenRaw = {
   lich_truoc_id?: string | null;
   service?: { name: string } | { name: string }[] | null;
   doctor?: { full_name: string } | { full_name: string }[] | null;
+  /** Nhãn trạng thái máy chủ quyết + mốc của nó (30/09/2026). */
+  trang_thai?: TrangThaiHienThi | null;
+  trang_thai_luc?: string | null;
 };
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
@@ -504,6 +508,9 @@ type LichHenRaw = {
         id: repr.id ?? null,
         slot_start: repr.slot_start,
         status: repr.status,
+        // "Đã về" / "Đang ở: P.3" — máy chủ quyết (30/09/2026).
+        trang_thai: repr.trang_thai ?? null,
+        trang_thai_luc: repr.trang_thai_luc ?? null,
         upcoming: Boolean(upcoming),
         // QUÁ GIỜ HẸN MÀ KHÁCH CHƯA ĐẾN. Quang 09/08/2026: *"thời gian trôi rồi
         // mà sao vẫn còn nhắc khám, phải cảnh báo đỏ"*.
@@ -947,6 +954,7 @@ type LichHenRaw = {
             id: a.id as string,
             slot_start: a.slot_start,
             status: a.status,
+            trang_thai: a.trang_thai ?? null,
             // DỊCH VỤ THEO MÃ, không chỉ theo tên. Nút "Tái khám" khoá dịch vụ
             // của lượt đang xem, và nó cần `service_type_id` chứ không cần chữ.
             service_type_id: a.service_type_id ?? null,

@@ -66,6 +66,9 @@ dòng thời gian, trách nhiệm tiền (không làm được mà đã thu ti�
   sẵn cho THỦ THUẬT) → chỉ định chưa làm của lượt trước đi theo khách sang lượt mới
   (sự kiện `service_order.carried_over`), khách đi thẳng dịch vụ, không vào hàng bác sĩ.
   Chỉ định ĐÃ TRẢ mà chưa làm thì mang sang ở MỌI lượt và vào thẳng hàng phòng.
+  **30/09/2026 (Tuyền): TẮT cho THỦ THUẬT + SÀN CHẬU** — hai loại khám đi quy trình như
+  5 loại kia (tư vấn → bác sĩ chính → chỉ định → thu → phòng), migration
+  20261001230000. Dây vẫn còn: quản lý bật lại ở `/settings/day-noi` cột "Đi thẳng phòng".
 - **H4** (nhóm 2): lễ tân thu tiền dịch vụ (sự kiện `payment.service_collected`) → Hành
   trình xếp phòng vắng nhất thay người vừa thu, bằng quyền của người ấy (sự kiện
   `service.routed`, `tu_dong=true`). Lễ tân/ai có quyền điều phối đổi lại được.

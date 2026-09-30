@@ -14,6 +14,8 @@
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
+import { MA_CON_O, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
 import type { HanhTrinhGon } from "@/lib/hanh-trinh-khach";
 
 import {
@@ -23,56 +25,15 @@ import {
 } from "../_lam-viec/HanhTrinhKhach";
 import { WaitClock } from "./VisitProgress";
 
-// Trạng thái HIỂN THỊ suy từ visit.status + appointment.status. "Khám xong" đọc từ
-// appointment.COMPLETED (dashboard KHÔNG tự set visit.FINALIZED) — nếu chỉ nhìn
-// visit.status thì BN đã khám xong vẫn kẹt ở "Đang khám".
-function displayStatus(
-  visitStatus: string,
-  apptStatus: string | null,
-  paid: boolean,
-  /** Đã bấm "Bắt đầu khám" chưa — luồng mới mở lượt IN_PROGRESS ngay lúc check-in. */
-  examStarted = true,
-): { label: string; style: string } {
-  if (paid)
-    return { label: "Đã thanh toán", style: "bg-success-bg text-success" };
-  // Khách về giữa chừng. Phải đứng TRƯỚC mọi nhánh khác trừ "đã thanh toán":
-  // không có nhánh này thì nó rơi xuống `return` cuối và hiện "Chờ khám" cho
-  // một người đã ra về — Lễ tân sẽ đi gọi tên họ.
-  if (visitStatus === "INCOMPLETE")
-    return { label: "Khám dở — chờ gọi lại", style: "bg-danger-bg text-danger" };
-  if (visitStatus === "AMENDED")
-    return { label: "Đã bổ sung", style: "bg-brand-50 text-brand-800" };
-  if (visitStatus === "FINALIZED")
-    return { label: "Đã chốt hồ sơ", style: "bg-success-bg text-success" };
-  if (apptStatus === "COMPLETED")
-    return { label: "Đã khám xong — chờ thu", style: "bg-warning-bg text-warning" };
-  if (visitStatus === "IN_PROGRESS" && examStarted)
-    return { label: "Đang khám", style: "bg-warning-bg text-warning" };
-  return {
-    label: "Chờ khám",
-    style: "bg-status-in-progress-bg text-status-in-progress",
-  };
-}
+// NHÃN TRẠNG THÁI DO MÁY CHỦ QUYẾT (30/09/2026 — Tuyền: "đã checkout rồi
+// nhưng trang chủ vẫn ghi đang khám"). Bản trước tự suy ở đây từ visit.status
+// + appointment.status + cờ đã thu, mà check-out không đổi cả hai cột ấy — nên
+// khách đã về vẫn "Đang khám". Nay `trang_thai` (core/trang_thai_lich.py)
+// cùng hàm với lưới lịch tuần và màn Quản lý khách hàng.
 
-// Đồng hồ chờ chạy tới khi KHÁM XONG (appt COMPLETED) / hồ sơ chốt. Sau đó dừng.
-function stillWaiting(visitStatus: string, apptStatus: string | null): boolean {
-  if (apptStatus === "COMPLETED") return false;
-  // Danh sách TRẮNG: chỉ hai trạng thái này là còn đang chờ. Viết theo kiểu
-  // danh sách đen ("khác FINALIZED thì còn chờ") thì trạng thái mới nào cũng
-  // lọt vào, và đồng hồ chờ của người đã về nhà sẽ đếm tới vô hạn.
-  return visitStatus === "OPEN" || visitStatus === "IN_PROGRESS";
-}
-
-function VisitBadge({ label, style }: { label: string; style: string }) {
-  // Cùng hình dạng với Chip (chữ nhật mềm, không viền) nhưng giữ style map
-  // riêng: "Chờ khám" dùng cặp màu status-in-progress không có trong ChipTone.
-  return (
-    <span
-      className={`inline-flex items-center rounded-chip px-2 py-0.5 text-label font-medium ${style}`}
-    >
-      {label}
-    </span>
-  );
+/** Đồng hồ chờ chạy khi khách còn ở phòng khám và chưa khám xong. */
+function conCho(tt: TrangThaiHienThi | null | undefined): boolean {
+  return Boolean(tt && MA_CON_O.includes(tt.ma) && tt.ma !== "KHAM_XONG");
 }
 
 export interface VisitStatusRow {
@@ -104,6 +65,8 @@ export interface VisitStatusRow {
   kham_xong_luc?: string | null;
   /** Hành trình khách dạng gọn (máy chủ, 29/09/2026). */
   hanh_trinh?: HanhTrinhGon | null;
+  /** Nhãn trạng thái máy chủ quyết (30/09/2026). */
+  trang_thai?: TrangThaiHienThi | null;
 }
 
 /** Thời lượng khám (phút) = khám xong − bắt đầu khám. null nếu thiếu mốc. */
@@ -149,9 +112,6 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
             </tr>
           ) : (
             rows.map((r) => {
-              const apptStatus = r.appointment?.status ?? null;
-              const paid = r.paid ?? false;
-              const disp = displayStatus(r.status, apptStatus, paid, Boolean(r.exam_started_at));
               const examMin = examMinutes(r.checked_in_at, r.finalized_at);
               return (
                 <tr
@@ -180,10 +140,12 @@ export default function VisitStatusBoard({ rows }: { rows: VisitStatusRow[] }) {
                         {r.service?.name ?? "—"}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                        <VisitBadge label={disp.label} style={disp.style} />
+                        {r.trang_thai && (
+                          <Chip tone={r.trang_thai.tone}>{r.trang_thai.nhan}</Chip>
+                        )}
                         <WaitClock
                           checkedInAt={r.checked_in_at}
-                          active={!r.closed_at && stillWaiting(r.status, apptStatus)}
+                          active={!r.closed_at && conCho(r.trang_thai)}
                         />
                         {examMin !== null && (
                           <span

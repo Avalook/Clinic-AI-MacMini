@@ -36,7 +36,12 @@ import asyncpg
 import structlog
 
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.core.trang_thai_lich import DEAD_STATUSES, giu_cho
+from clinicai.core.trang_thai_lich import (
+    DEAD_STATUSES,
+    giu_cho,
+    trang_thai_hien_thi,
+)
+from clinicai.services.hanh_trinh_khach_service import dang_o_cac_luot
 from clinicai.services.queue_order import QueueDecision
 from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
@@ -177,6 +182,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        v.checked_in_at,
        v.thu_tu_tay_ms,
        v.visit_id,
+       -- NHÃN TRẠNG THÁI (30/09/2026): khách đã về hay chưa là chuyện của
+       -- LƯỢT, không phải của `appointment.status` — `trang_thai_hien_thi`.
+       v.trang_thai_luot, v.ve_luc, v.kham_xong,
        p.uu_tien AS khach_uu_tien,
        p.uu_tien_ly_do,
        cap.slot_minutes,
@@ -197,7 +205,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   -- xuống làn đến-sau và xếp theo giờ hẹn. Nhìn thì giống đang hoạt động, vì
   -- xếp theo giờ hẹn cũng ra một thứ tự hợp lý — chỉ sai khi có người đến muộn.
   LEFT JOIN LATERAL (
-      SELECT vi.checked_in_at, vi.thu_tu_tay_ms, vi.visit_id::text AS visit_id
+      SELECT vi.checked_in_at, vi.thu_tu_tay_ms, vi.visit_id::text AS visit_id,
+             vi.status AS trang_thai_luot, vi.closed_at AS ve_luc,
+             (vi.exam_completed_at IS NOT NULL) AS kham_xong
         FROM visit vi
        WHERE vi.appointment_id = t.id AND vi.clinic_id = $1::uuid
        ORDER BY vi.checked_in_at NULLS LAST
@@ -225,11 +235,26 @@ class WeekAppointmentsService:
 
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(_SQL, clinic_id, start, end, list(HIDDEN_STATUSES))
+            # Khách đang ở / đang chờ ở đâu — cùng hàm với Hành trình khách,
+            # chỉ cho lượt CÒN MỞ (thường chỉ hôm nay, vài chục lượt).
+            dang_o = await dang_o_cac_luot(
+                conn,
+                clinic_id=clinic_id,
+                visit_ids=[
+                    str(r["visit_id"])
+                    for r in rows
+                    if r.get("visit_id")
+                    and r.get("ve_luc") is None
+                    and r.get("trang_thai_luot") in ("OPEN", "IN_PROGRESS")
+                ],
+            )
 
         logger.info("week_appointments", clinic_id=clinic_id, rows=len(rows))
         quyet_dinh = thu_tu_goi_theo_ngay(rows)
         dem = dem_ghe_truc_tiep(rows)
-        return [_row_to_dict(r, quyet_dinh.get(str(r["id"])), dem) for r in rows]
+        return [
+            _row_to_dict(r, quyet_dinh.get(str(r["id"])), dem, dang_o) for r in rows
+        ]
 
 
 def _khoa_khung(r: Any) -> tuple[str, int] | None:
@@ -295,6 +320,7 @@ def _row_to_dict(
     r: asyncpg.Record,
     d: QueueDecision | None = None,
     dem: dict[tuple[str, int], int] | None = None,
+    dang_o: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Đúng hình dạng lồng nhau mà ``WeekApptRow`` (TSX) đang đọc.
 
@@ -333,6 +359,15 @@ def _row_to_dict(
         # Lượt khám của lịch (đã check-in) — bấm tên khách mở popup Hành trình
         # khách (29/09/2026). Chưa check-in → None → mở hồ sơ khách.
         "visit_id": str(r["visit_id"]) if r.get("visit_id") else None,
+        # NHÃN TRẠNG THÁI do máy chủ quyết (30/09/2026) — màn chỉ vẽ `nhan`
+        # bằng màu `tone`. Lượt đã check-out LUÔN "Đã về".
+        "trang_thai": trang_thai_hien_thi(
+            lich=r["status"],
+            luot=r.get("trang_thai_luot"),
+            ve_luc=r.get("ve_luc"),
+            kham_xong=bool(r.get("kham_xong")),
+            dang_o=(dang_o or {}).get(str(r.get("visit_id") or "")),
+        ),
         "call_order": d.call_order if d else None,
         "call_tier": d.call_tier if d else None,
         "call_reason": d.call_reason if d else None,

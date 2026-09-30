@@ -34,6 +34,7 @@ from zoneinfo import ZoneInfo
 import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.core.trang_thai_lich import trang_thai_hien_thi
 from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
 from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
@@ -276,7 +277,8 @@ class ManTrangChuService:
                 rows = await conn.fetch(
                     """
                     SELECT v.visit_id, v.status, v.checked_in_at, v.created_at,
-                           v.finalized_at,
+                           v.finalized_at, v.closed_at AS ve_luc,
+                           (v.exam_completed_at IS NOT NULL) AS kham_xong,
                            p.full_name AS ten_khach, p.patient_code,
                            bs.full_name AS ten_bac_si,
                            st.name AS ten_dich_vu,
@@ -324,6 +326,27 @@ class ManTrangChuService:
             date_to=ngay_tuan_hen[-1],
             clinic_id=clinic_id,
         )
+
+        # NHÃN TRẠNG THÁI của bảng "Trạng thái BN buổi khám" (30/09/2026) —
+        # cùng hàm với lưới lịch tuần; "đã thu đủ" = đã thu DỊCH VỤ và (nếu có
+        # đơn) THUỐC — luật trước nằm trong home/page.tsx.
+        theo_luot = {str(p.visit_id): p for p in tien_trinh if p.visit_id}
+        for d in trang_thai_kham:
+            vid = str(d["visit_id"])
+            p = theo_luot.get(vid)
+            kinds = set(p.paid_kinds) if p else set()
+            d["trang_thai"] = trang_thai_hien_thi(
+                lich=(d.get("appointment") or {}).get("status"),
+                luot=d.get("status"),
+                ve_luc=d.pop("ve_luc", None),
+                kham_xong=bool(d.pop("kham_xong", False)),
+                dang_o=hanh_trinh_gon.get(vid),
+                da_thu_du=bool(
+                    p
+                    and "dich_vu" in kinds
+                    and (not p.has_prescription or "thuoc" in kinds)
+                ),
+            )
 
         return {
             "so_lieu": {

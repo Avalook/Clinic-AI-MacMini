@@ -16,6 +16,7 @@
 // "cùng dịch vụ, gần ngày nhau". Xem migration ấy để biết vì sao suy diễn sai.
 
 import { useState } from "react";
+import Chip from "@/components/ui/Chip";
 import { Clock, CircleDashed, Check, FileText } from "lucide-react";
 import HoSoKhamModal from "../_lam-viec/HoSoKham";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
@@ -137,9 +138,10 @@ function MotLuot({
           <span className="text-xs font-semibold text-ink">
             {luot.service_name || "Chưa chọn dịch vụ"}
           </span>
-          <span className="rounded-chip bg-surface-sunken px-1.5 py-0.5 text-label font-medium text-ink-muted">
-            {NHAN_TRANG_THAI[luot.status] ?? luot.status}
-          </span>
+          {/* Nhãn máy chủ (30/09/2026): "Đã về", "Về giữa chừng"… */}
+          <Chip tone={luot.trang_thai?.tone ?? "neutral"}>
+            {luot.trang_thai?.nhan ?? NHAN_TRANG_THAI[luot.status] ?? luot.status}
+          </Chip>
           {thuTu > 1 && (
             <span className="rounded-chip bg-brand-50 px-1.5 py-0.5 text-label font-semibold text-brand-700">
               tái khám lần {thuTu - 1}
