@@ -78,3 +78,29 @@ def test_ops_status_requires_verified_identity() -> None:
     app.dependency_overrides[get_db_pool] = lambda: MagicMock()
     response = TestClient(app).get("/api/v1/ops/status")
     assert response.status_code == 401
+
+
+def test_ops_traffic_endpoint_rejects_bad_credentials() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/ops/traffic",
+        json={"username": "admin", "password": "wrongpassword"},
+    )
+    assert response.status_code == 422
+
+
+def test_ops_traffic_endpoint_accepts_valid_credentials() -> None:
+    from unittest.mock import patch
+
+    client = TestClient(app)
+    with patch(
+        "clinicai.services.traffic_service.doc_du_lieu_traffic",
+        return_value={"total": 500, "status": "ok"},
+    ):
+        response = client.post(
+            "/api/v1/ops/traffic",
+            json={"username": "admin", "password": "12345678"},
+        )
+        assert response.status_code == 200
+        assert response.json()["data"]["total"] == 500
+
