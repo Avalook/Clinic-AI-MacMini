@@ -9,6 +9,7 @@
 import { useState } from "react";
 
 import ThanhTab from "@/components/ui/ThanhTab";
+import KhachMuaThuoc from "../KhachMuaThuoc";
 import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
 import InventoryBoard, { type InvBatch } from "./InventoryBoard";
@@ -24,6 +25,7 @@ export default function KhoThuoc({
   thuoc,
   choGanLo = [],
   ghiDuoc = false,
+  moBanLe = false,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
@@ -31,6 +33,8 @@ export default function KhoThuoc({
   choGanLo?: DongChoGanLo[];
   /** Có quyền ghi kho (`pharmacy.dispense`) — chỉ ẩn/hiện nút. */
   ghiDuoc?: boolean;
+  /** V8: được mở lượt "Khách mua thuốc" — máy chủ quyết (lego nhà thuốc / thu tiền). */
+  moBanLe?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("danh_muc");
   const [theKhoId, setTheKhoId] = useState<string | null>(null);
@@ -42,6 +46,12 @@ export default function KhoThuoc({
   const sapHet = thuoc.filter((t) => t.sap_het_hang).length;
   return (
     <div className="flex flex-col gap-4 p-4">
+      {/* Khách chỉ đến mua thuốc (V8): mở lượt bán lẻ rồi sang Nhà thuốc kê + thu. */}
+      {moBanLe ? (
+        <div className="flex flex-wrap items-start gap-2">
+          <KhachMuaThuoc sangNhaThuoc />
+        </div>
+      ) : null}
       <ThanhTab
         nhan="Kho thuốc"
         chon={tab}

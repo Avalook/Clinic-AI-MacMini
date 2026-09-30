@@ -45,6 +45,7 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.catalogue import tra_quyen
 from clinicai.services import pos_outbox
+from clinicai.services.ban_le_service import dong_luot_ban_le
 from clinicai.services.bill_service import (
     HoaDon,
     hoa_don_theo_anh_chup,
@@ -1650,6 +1651,9 @@ async def _ghi_da_thu(
             boi=nguoi(identity),
             correlation_id=visit_id,
         )
+        # V8 (30/09/2026): lượt BÁN LẺ (khách chỉ mua thuốc) thu xong là xong —
+        # tự đóng lượt trong CÙNG giao dịch. Lượt khám thường: không làm gì.
+        await dong_luot_ban_le(conn, identity=identity, visit_id=visit_id)
     await _log_payment_event(
         conn,
         event_type="payment.confirmed",

@@ -49,9 +49,11 @@ interface BaoCao {
   }[];
   khach: {
     so_luot_kham: number;
-    so_luot_khong_chon_dich_vu_kham: number;
     so_luot_da_thu: number;
     so_khach_da_thu: number;
+    /** V8: lượt bán lẻ (khách chỉ mua thuốc) — không tính vào lượt khám. */
+    so_luot_ban_le?: number;
+    so_luot_khong_chon_dich_vu_kham: number;
   };
   doi_tac: {
     tong: number;
@@ -247,6 +249,12 @@ export default function CuoiNgay() {
             <StatCard label="Khách đã thu" value={bc.khach.so_khach_da_thu} />
             <StatCard label="Phiếu thu" value={t.so_phieu_thu} />
           </StatRow>
+          {bc.khach.so_luot_ban_le ? (
+            <p className="text-meta text-ink-muted">
+              Lượt bán lẻ thuốc (khách chỉ mua thuốc): {bc.khach.so_luot_ban_le} — không tính vào
+              lượt khám; tiền thuốc đã cộng ở trên.
+            </p>
+          ) : null}
           {t.hoan_cho ? (
             <p className="text-meta text-ink-muted">
               Hoàn còn chờ chuyển: {tien(t.hoan_cho)} — chưa trừ vào thực thu.

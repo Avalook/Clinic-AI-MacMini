@@ -5,22 +5,37 @@
 // Theo LƯỢT KHÁM, không theo từng dòng đơn: tiền thuốc thu theo lượt, nên giai
 // đoạn (chờ khám xong → chọn lô → chờ xác minh → đã thu, giao) cũng là của lượt.
 // Giai đoạn và các nút được phép đến từ máy chủ; ở đây chỉ vẽ.
+//
+// V8 (30/09/2026): nút "Khách mua thuốc" mở lượt BÁN LẺ (khách chỉ mua thuốc);
+// lượt bán lẻ hiện ngay cả khi chưa có dòng đơn, kèm khối kê + thu tại quầy.
 
 import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
+import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 import StatusChip from "@/components/ui/StatusChip";
 import XemLuot from "../_lam-viec/XemLuot";
+import BanLeThu from "./BanLeThu";
 import DongThuoc, { CHAM } from "./DongThuoc";
+import KhachMuaThuoc from "./KhachMuaThuoc";
 import { INPUT } from "../form-ui";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
 
 type Tab = "dang_lam" | "xong";
 
-const xongHet = (l: LuotThuoc) => l.dong.every((d) => d.closed);
+// Lượt chưa có dòng nào (bán lẻ vừa mở) là CHƯA xong — `every` của mảng rỗng
+// là true, đừng để nó rơi sang tab "Xong".
+const xongHet = (l: LuotThuoc) => l.dong.length > 0 && l.dong.every((d) => d.closed);
 
-export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
-  const [chon, setChon] = useState<string | null>(null);
+export default function PharmacyBoard({
+  man,
+  chonDau = null,
+}: {
+  man: ManNhaThuoc;
+  /** Lượt chọn sẵn (`/pharmacy?luot=` — từ nút "Khách mua thuốc" ở Kho thuốc). */
+  chonDau?: string | null;
+}) {
+  const [chon, setChon] = useState<string | null>(chonDau);
   const [tab, setTab] = useState<Tab>("dang_lam");
   const [tim, setTim] = useState("");
   const [xemLuot, setXemLuot] = useState<string | null>(null);
@@ -47,129 +62,150 @@ export default function PharmacyBoard({ man }: { man: ManNhaThuoc }) {
   const luot = man.luot.find((l) => l.visit_id === chon) ?? null;
 
   return (
-    <div className="grid h-full grid-cols-1 gap-4 p-4 lg:grid-cols-3">
-      {/* ── Danh sách lượt ── */}
-      <section className="flex flex-col rounded-card border border-line bg-surface lg:col-span-1">
-        <div className="border-b border-line p-3">
-          <h2 className="text-emph font-semibold text-ink">Đơn thuốc</h2>
-          <div role="tablist" aria-label="Nhóm lượt" className="mt-2 flex flex-wrap gap-1">
-            {(
-              [
-                ["dang_lam", "Đang xử lý"],
-                ["xong", "Xong hôm nay"],
-              ] as const
-            ).map(([ma, nhan]) => (
-              <Button className={CHAM}
-                key={ma}
-                size="sm"
-                role="tab"
-                aria-selected={tab === ma}
-                variant={tab === ma ? "primary" : "ghost"}
-                onClick={() => setTab(ma)}
-              >
-                {nhan} ({dem[ma]})
-              </Button>
-            ))}
-          </div>
-          <input
-            value={tim}
-            onChange={(e) => setTim(e.target.value)}
-            placeholder="Tìm tên / mã khách / thuốc…"
-            aria-label="Tìm đơn thuốc"
-            className={`${INPUT} mt-2`}
+    <div className="flex h-full flex-col gap-4 p-4">
+      {man.duoc_mo_ban_le ? (
+        <div className="flex flex-wrap items-start gap-2">
+          <KhachMuaThuoc
+            onMo={(id) => {
+              setTab("dang_lam");
+              setTim("");
+              setChon(id);
+            }}
           />
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {danhSach.length === 0 ? (
-            <p className="p-4 text-body text-ink-muted">Không có lượt nào.</p>
-          ) : (
-            danhSach.map((l) => {
-              const gd = GIAI_DOAN[l.giai_doan];
-              return (
-                <button
-                  key={l.visit_id}
-                  type="button"
-                  onClick={() => setChon(l.visit_id)}
-                  className={`block min-h-10 w-full border-b border-line px-3 py-2 text-left transition-colors hover:bg-surface-muted ${
-                    chon === l.visit_id ? "bg-surface-selected" : ""
-                  }`}
+      ) : null}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* ── Danh sách lượt ── */}
+        <section className="flex flex-col rounded-card border border-line bg-surface lg:col-span-1">
+          <div className="border-b border-line p-3">
+            <h2 className="text-emph font-semibold text-ink">Đơn thuốc</h2>
+            <div role="tablist" aria-label="Nhóm lượt" className="mt-2 flex flex-wrap gap-1">
+              {(
+                [
+                  ["dang_lam", "Đang xử lý"],
+                  ["xong", "Xong hôm nay"],
+                ] as const
+              ).map(([ma, nhan]) => (
+                <Button className={CHAM}
+                  key={ma}
+                  size="sm"
+                  role="tab"
+                  aria-selected={tab === ma}
+                  variant={tab === ma ? "primary" : "ghost"}
+                  onClick={() => setTab(ma)}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-emph font-medium text-ink">
-                      {l.ten_khach ?? "Chưa có tên"}
-                      <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
-                    </span>
-                    <StatusChip tone={xongHet(l) ? "completed" : gd.tone} label={xongHet(l) ? "Xong" : gd.nhan} />
-                  </div>
-                  <div className="mt-1 truncate text-meta text-ink-muted">
-                    {l.patient_code ?? "—"} · {l.dong.length} thuốc:{" "}
-                    {l.dong.map((d) => d.drug_name_raw ?? "—").join(", ")}
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </section>
-
-      {/* ── Chi tiết lượt ── */}
-      <section className="flex flex-col gap-3 overflow-y-auto lg:col-span-2">
-        {luot ? (
-          <div className="space-y-3 rounded-card border border-line bg-surface p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
-                  {luot.ten_khach ?? "Chưa có tên"}
-                  <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
-                </h3>
-                <p className="text-meta text-ink-muted">
-                  {luot.patient_code ?? "—"} · {luot.phone ?? "—"}
-                </p>
-              </div>
-              <StatusChip
-                size="md"
-                tone={GIAI_DOAN[luot.giai_doan].tone}
-                label={GIAI_DOAN[luot.giai_doan].nhan}
-              />
+                  {nhan} ({dem[ma]})
+                </Button>
+              ))}
             </div>
-            <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
-              {GIAI_DOAN[luot.giai_doan].giai_thich}
-            </p>
-            {!man.co_quyen_ghi ? (
-              <p className="text-meta text-ink-muted">
-                Tài khoản của bạn chỉ xem màn Nhà thuốc — không có nút ghi.
+            <input
+              value={tim}
+              onChange={(e) => setTim(e.target.value)}
+              placeholder="Tìm tên / mã khách / thuốc…"
+              aria-label="Tìm đơn thuốc"
+              className={`${INPUT} mt-2`}
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {danhSach.length === 0 ? (
+              <p className="p-4 text-body text-ink-muted">Không có lượt nào.</p>
+            ) : (
+              danhSach.map((l) => {
+                const gd = GIAI_DOAN[l.giai_doan];
+                return (
+                  <button
+                    key={l.visit_id}
+                    type="button"
+                    onClick={() => setChon(l.visit_id)}
+                    className={`block min-h-10 w-full border-b border-line px-3 py-2 text-left transition-colors hover:bg-surface-muted ${
+                      chon === l.visit_id ? "bg-surface-selected" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-emph font-medium text-ink">
+                        {l.ten_khach ?? "Chưa có tên"}
+                        <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
+                        {l.ban_le ? <Chip tone="brand">Bán lẻ</Chip> : null}
+                      </span>
+                      <StatusChip tone={xongHet(l) ? "completed" : gd.tone} label={xongHet(l) ? "Xong" : gd.nhan} />
+                    </div>
+                    <div className="mt-1 truncate text-meta text-ink-muted">
+                      {l.patient_code ?? "—"} ·{" "}
+                      {l.dong.length === 0
+                        ? "khách mua thuốc — chưa kê"
+                        : `${l.dong.length} thuốc: ${l.dong.map((d) => d.drug_name_raw ?? "—").join(", ")}`}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        {/* ── Chi tiết lượt ── */}
+        <section className="flex flex-col gap-3 overflow-y-auto lg:col-span-2">
+          {luot ? (
+            <div className="space-y-3 rounded-card border border-line bg-surface p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
+                    {luot.ten_khach ?? "Chưa có tên"}
+                    <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
+                    {luot.ban_le ? <Chip tone="brand">Bán lẻ — khách chỉ mua thuốc</Chip> : null}
+                  </h3>
+                  <p className="text-meta text-ink-muted">
+                    {luot.patient_code ?? "—"} · {luot.phone ?? "—"}
+                  </p>
+                </div>
+                <StatusChip
+                  size="md"
+                  tone={GIAI_DOAN[luot.giai_doan].tone}
+                  label={GIAI_DOAN[luot.giai_doan].nhan}
+                />
+              </div>
+              <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
+                {GIAI_DOAN[luot.giai_doan].giai_thich}
               </p>
-            ) : null}
-            <Button className={CHAM} size="sm" variant="ghost" onClick={() => setXemLuot(luot.visit_id)}>
-              Xem chi tiết lượt &amp; lịch sử cấp
-            </Button>
-            {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
-            {luot.dong.map((d) => (
-              // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
-              // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn
-              // cần chọn / còn phải giao đã đổi, giữ số cũ trong ô là mời sai.
-              <DongThuoc
-                key={[
-                  d.id,
-                  luot.giai_doan,
-                  d.drug_catalog_id,
-                  d.purchased_qty,
-                  d.da_chon,
-                  d.dispensed_qty,
-                  d.phan_lo.map((p) => `${p.allocation_id}:${p.handed_over_qty}`).join(","),
-                ].join("|")}
-                dong={d}
-                danhMuc={man.danh_muc}
-                chiXem={!man.co_quyen_ghi}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line p-6 text-body text-ink-faint">
-            Chọn một lượt để xem đơn thuốc
-          </div>
-        )}
-      </section>
+              {!man.co_quyen_ghi ? (
+                <p className="text-meta text-ink-muted">
+                  Tài khoản của bạn chỉ xem màn Nhà thuốc — không có nút ghi.
+                </p>
+              ) : null}
+              <Button className={CHAM} size="sm" variant="ghost" onClick={() => setXemLuot(luot.visit_id)}>
+                Xem chi tiết lượt &amp; lịch sử cấp
+              </Button>
+              {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
+              {/* Lượt bán lẻ: kê thêm + thu tiền thuốc ngay tại quầy (V8). */}
+              {luot.ban_le && man.duoc_mo_ban_le ? (
+                <BanLeThu key={luot.visit_id} visitId={luot.visit_id} />
+              ) : null}
+              {luot.dong.map((d) => (
+                // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
+                // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn
+                // cần chọn / còn phải giao đã đổi, giữ số cũ trong ô là mời sai.
+                <DongThuoc
+                  key={[
+                    d.id,
+                    luot.giai_doan,
+                    d.drug_catalog_id,
+                    d.purchased_qty,
+                    d.da_chon,
+                    d.dispensed_qty,
+                    d.phan_lo.map((p) => `${p.allocation_id}:${p.handed_over_qty}`).join(","),
+                  ].join("|")}
+                  dong={d}
+                  danhMuc={man.danh_muc}
+                  chiXem={!man.co_quyen_ghi}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded-card border border-dashed border-line p-6 text-body text-ink-faint">
+              Chọn một lượt để xem đơn thuốc
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
