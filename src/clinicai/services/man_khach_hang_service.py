@@ -29,6 +29,9 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.core.trang_thai_lich import trang_thai_hien_thi
+from clinicai.services.hanh_trinh_khach_service import dang_o_cac_luot
+
 # Trần số dòng GIỮ NGUYÊN từ bản PostgREST — không phải số thiêng, chỉ là không
 # đổi hai thứ trong một lần vá. Phân trang 50 khách khiến các trần này gần như
 # không bao giờ chạm.
@@ -66,10 +69,17 @@ class ManKhachHangService:
                        a.cancellation_reason, a.service_type_id, a.doctor_id,
                        a.bac_si_da_go_id, a.location_id, a.booking_channel,
                        a.lich_truoc_id,
-                       st.name AS ten_dich_vu, bs.full_name AS ten_bac_si
+                       st.name AS ten_dich_vu, bs.full_name AS ten_bac_si,
+                       -- NHÃN TRẠNG THÁI (30/09/2026): đã về hay chưa là
+                       -- chuyện của LƯỢT — `trang_thai_hien_thi`.
+                       lv.visit_id::text AS luot_id, lv.status AS trang_thai_luot,
+                       lv.checked_in_at AS den_luc, lv.closed_at AS ve_luc,
+                       (lv.exam_completed_at IS NOT NULL) AS kham_xong
                   FROM appointment a
                   LEFT JOIN service_type st ON st.id = a.service_type_id
                   LEFT JOIN staff bs ON bs.id = a.doctor_id
+                  LEFT JOIN visit lv
+                    ON lv.appointment_id = a.id AND lv.clinic_id = a.clinic_id
                  WHERE a.clinic_id = $1::uuid
                    AND a.clinic_patient_id = ANY($2::uuid[])
                  ORDER BY a.slot_start
@@ -318,8 +328,24 @@ class ManKhachHangService:
                 _TRAN_LICH,
             )
 
+            # Khách đang ở / đang chờ ở đâu — cùng hàm với Hành trình khách,
+            # chỉ lượt còn mở.
+            dang_o = await dang_o_cac_luot(
+                conn,
+                clinic_id=clinic_id,
+                visit_ids=[
+                    str(r.get("luot_id"))
+                    for r in appts
+                    if r.get("luot_id")
+                    and r.get("ve_luc") is None
+                    # INCOMPLETE / FINALIZED / AMENDED cố ý không hỏi chỗ đứng:
+                    # khách đã về / hồ sơ đã ký — nhãn do trang_thai_hien_thi.
+                    and r.get("trang_thai_luot") in ("OPEN", "IN_PROGRESS")
+                ],
+            )
+
         return {
-            "appts": [_lich(r) for r in appts],
+            "appts": [_lich(r, dang_o) for r in appts],
             "ca_truc": [dict(r) for r in ca_truc],
             "tuan_cong_bo": [str(w) for w in tuan_cong_bo],
             "trang_thai": [dict(r) for r in trang_thai],
@@ -351,18 +377,36 @@ _CAC_KHOI = (
 )
 
 
-def _lich(r: asyncpg.Record) -> dict[str, Any]:
+def _lich(r: asyncpg.Record, dang_o: dict[str, Any] | None = None) -> dict[str, Any]:
     """Một dòng lịch hẹn, LỒNG `service`/`doctor` y như PostgREST.
 
     page.tsx đọc `a.service?.name` và `a.doctor?.full_name` — đổi sang cột
     phẳng là phải sửa cả chuỗi dựng map phía đó. Bắt chước hình cũ rẻ hơn và
     an toàn hơn viết lại phần đọc.
+
+    `trang_thai` (30/09/2026): nhãn máy chủ quyết; `trang_thai_luc` = mốc của
+    nhãn ấy (giờ về nếu đã check-out, không thì giờ check-in) để chip danh
+    sách so với lần chạm cuối của sổ chăm sóc.
     """
     d = dict(r)
     ten_dv = d.pop("ten_dich_vu", None)
     ten_bs = d.pop("ten_bac_si", None)
+    luot_id = d.pop("luot_id", None)
+    luot = d.pop("trang_thai_luot", None)
+    den_luc = d.pop("den_luc", None)
+    ve_luc = d.pop("ve_luc", None)
+    kham_xong = bool(d.pop("kham_xong", False))
     d["service"] = {"name": ten_dv} if ten_dv else None
     d["doctor"] = {"full_name": ten_bs} if ten_bs else None
+    d["trang_thai"] = trang_thai_hien_thi(
+        lich=d.get("status"),
+        luot=luot,
+        ve_luc=ve_luc,
+        kham_xong=kham_xong,
+        dang_o=(dang_o or {}).get(luot_id or ""),
+    )
+    moc = ve_luc or den_luc
+    d["trang_thai_luc"] = moc.isoformat() if moc else None
     return d
 
 

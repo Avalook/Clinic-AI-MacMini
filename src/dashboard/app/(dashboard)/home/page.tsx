@@ -59,6 +59,7 @@ import WorkRosterTable, { type DongCaRow, type RosterRow } from "./WorkRosterTab
 import VisitStatusBoard, { type VisitStatusRow } from "./VisitStatusBoard";
 import type { HanhTrinhGon } from "../../../lib/hanh-trinh-khach";
 import VisitStatusRealtime from "./VisitStatusRealtime";
+import { MA_CON_O } from "../../../lib/trang-thai-lich";
 
 export const dynamic = "force-dynamic";
 
@@ -361,7 +362,13 @@ async function BaOSo({
         },
         {
           nhan: "Đã check-in hôm nay",
-          so: henHomNay.filter((a) => a.status === "CHECKED_IN").length,
+          // Đếm theo NHÃN máy chủ (30/09/2026): khách đã check-out không còn
+          // "đang trong phòng khám" dù lịch ghi gì.
+          so: henHomNay.filter((a) =>
+            a.trang_thai
+              ? MA_CON_O.includes(a.trang_thai.ma)
+              : a.status === "CHECKED_IN",
+          ).length,
           href: toi("/reception/queue"),
           phu: "đang trong phòng khám",
         },
@@ -472,13 +479,11 @@ async function KhoiDuLieu({
     progress.filter((p) => p.visit_id).map((p) => [p.visit_id as string, p]),
   );
 
-  // Mốc "Đã thanh toán": đã thu ĐỦ mọi khâu PHẢI thu của lượt khám = DỊCH VỤ
-  // (luôn có, vì có dịch vụ khám) + THUỐC nếu lượt có đơn thuốc.
+  // "Đã thu đủ" nay nằm trong nhãn trạng thái máy chủ (`trang_thai`,
+  // 30/09/2026) — luật "dịch vụ + thuốc nếu có đơn" chuyển về Python.
   if (isReception && visitStatusRows.length) {
     for (const v of visitStatusRows) {
       const p = progressByVisit.get(v.visit_id);
-      const kinds = new Set(p?.paid_kinds ?? []);
-      v.paid = kinds.has("dich_vu") && (!p?.has_prescription || kinds.has("thuoc"));
       // Giờ hai mốc giữa của thanh tiến trình. Chúng không nằm trên bảng
       // `visit`, nên lấy từ chính khối tiến trình của gói.
       v.exam_started_at = p?.exam_started_at ?? null;

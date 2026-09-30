@@ -26,6 +26,12 @@ import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime
 import { unaccentVi } from "@/lib/validation";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { nhanLanChamCuoi } from "./mot-cham";
+import {
+  MA_CON_O,
+  MA_DA_ROI,
+  statusToneCua,
+  type TrangThaiHienThi,
+} from "@/lib/trang-thai-lich";
 import PatientAdminEditor from "../PatientAdminEditor";
 import DemNguocKham from "./DemNguocKham";
 import BaoXepBacSi from "./BaoXepBacSi";
@@ -216,6 +222,8 @@ export interface LuotKham {
   id: string;
   slot_start: string;
   status: string;
+  /** Nhãn trạng thái máy chủ quyết (30/09/2026) — "Đã về", "Đang ở: P.3"… */
+  trang_thai?: TrangThaiHienThi | null;
   /** Mã dịch vụ — nút "Tái khám" khoá theo nó, không khoá theo tên. */
   service_type_id: string | null;
   service_name: string | null;
@@ -410,6 +418,9 @@ export interface ApptInfo {
   id: string | null;
   slot_start: string;
   status: string;
+  /** Nhãn trạng thái máy chủ quyết + mốc của nhãn (giờ về / giờ check-in). */
+  trang_thai?: TrangThaiHienThi | null;
+  trang_thai_luc?: string | null;
   upcoming: boolean;
   /** Lịch đại diện đã qua giờ mà khách vẫn chưa đến. */
   qua_gio_hen?: boolean;
@@ -908,6 +919,7 @@ export default function CustomersView({
       return {
         id: luot.id,
         status: luot.status,
+        trang_thai: luot.trang_thai ?? null,
         slot_start: luot.slot_start,
         created_at: luot.created_at,
         cancelled_at: luot.cancelled_at,
@@ -1079,7 +1091,14 @@ export default function CustomersView({
       luotChon?.pid === row.clinic_patient_id &&
       luotDangXem?.status
     ) {
-      const nhan = NHAN_LUOT_CHON[luotDangXem.status];
+      // Nhãn máy chủ (30/09/2026): lượt đã check-out là "Đã về", không phải
+      // "Đã check-in" theo cột lịch.
+      const nhan = luotDangXem.trang_thai
+        ? {
+            label: luotDangXem.trang_thai.nhan,
+            tone: statusToneCua(luotDangXem.trang_thai),
+          }
+        : NHAN_LUOT_CHON[luotDangXem.status];
       if (nhan) {
         const ly =
           luotDangXem.status === "CANCELLED"
@@ -1156,8 +1175,26 @@ export default function CustomersView({
     // tuong_tac_cskh. Trước 17/08 chip vẫn kể cuộc gọi hôm kia trong khi
     // khách đang ngồi ở phòng chờ. Cùng phép so mốc thời gian với hai nhánh
     // huỷ/đặt ngay trên dưới: cái gì xảy ra SAU là chuyện của bây giờ.
+    //
+    // 30/09/2026: MÁY CHỦ KỂ khách đang ở đâu / đã về (`trang_thai` +
+    // `trang_thai_luc` = giờ về hoặc giờ check-in) — cùng hàm với lưới lịch
+    // tuần. Khách đã check-out thì chip nói "Đã về", không "đang chờ khám".
+    const ttLich = apptRow?.trang_thai;
+    const mocTT =
+      ttLich && [...MA_CON_O, ...MA_DA_ROI].includes(ttLich.ma)
+        ? (apptRow?.trang_thai_luc ?? null)
+        : null;
+    if (
+      ttLich &&
+      mocTT &&
+      (!chamCuoiRow || mocMs(mocTT) >= mocMs(chamCuoiRow.xay_ra_luc))
+    ) {
+      return { label: ttLich.nhan, tone: statusToneCua(ttLich) };
+    }
     const denLuc =
-      apptRow?.status === "CHECKED_IN" ? (apptRow.checked_in_at ?? null) : null;
+      !ttLich && apptRow?.status === "CHECKED_IN"
+        ? (apptRow.checked_in_at ?? null)
+        : null;
     if (
       denLuc &&
       (!chamCuoiRow || mocMs(denLuc) >= mocMs(chamCuoiRow.xay_ra_luc))
@@ -1231,7 +1268,9 @@ export default function CustomersView({
       return statusMap[cskh.status] ?? { label: cskh.status, tone: "ready" };
     }
     if (appt) {
-      return appointmentStatus(appt.status);
+      return appt.trang_thai
+        ? { label: appt.trang_thai.nhan, tone: statusToneCua(appt.trang_thai) }
+        : appointmentStatus(appt.status);
     }
     return { label: "Khách mới", tone: "ready" };
   }

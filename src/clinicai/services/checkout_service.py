@@ -799,6 +799,25 @@ class CheckoutService:
                     CLOSE_NODE,
                     identity.staff_id,
                 )
+                # LỊCH HẸN THEO LƯỢT (Tuyền 30/09/2026: "đã checkout rồi nhưng
+                # trang chủ, lịch hẹn khám vẫn ghi đang khám"). Lịch chỉ sang
+                # COMPLETED khi bác sĩ khép lượt; về khi còn việc dở / về giữa
+                # chừng / thủ thuật không qua bàn khám thì lịch nằm lại
+                # CHECKED_IN mãi. Khách đã về = lịch đã xong — cùng giao dịch
+                # với `closed_at`. Nhãn "Đã về"/"Về giữa chừng" máy chủ suy từ
+                # lượt (`trang_thai_hien_thi`). Dữ liệu cũ: 20261001230100.
+                await conn.execute(
+                    """
+                    UPDATE public.appointment a
+                       SET status = 'COMPLETED', updated_at = now()
+                      FROM public.visit v
+                     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+                       AND a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                       AND a.status = 'CHECKED_IN'
+                    """,
+                    identity.clinic_id,
+                    visit_id,
+                )
 
                 # HUỶ NHỮNG BƯỚC CÒN TREO — MỌI LẦN ĐÓNG, KHÔNG CHỈ KHI KHÁM DỞ.
                 #
