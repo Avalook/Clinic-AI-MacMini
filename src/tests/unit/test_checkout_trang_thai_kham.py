@@ -39,5 +39,5 @@ def test_trang_thai_kham_suy_tu_phien() -> None:
 def test_dang_o_chu() -> None:
     assert dang_o_chu(None) is None
     assert dang_o_chu({"noi": "P.3", "nhan": "Đang khám"}) == "P.3 · Đang khám"
-    assert dang_o_chu({"noi": "Quầy lễ tân", "nhan": ""}) == "Quầy lễ tân"
+    assert dang_o_chu({"noi": "Quầy tiếp đón", "nhan": ""}) == "Quầy tiếp đón"
     assert dang_o_chu({"noi": None, "nhan": None}) is None
