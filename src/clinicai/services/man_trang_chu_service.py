@@ -289,6 +289,7 @@ class ManTrangChuService:
                       LEFT JOIN appointment a ON a.id = v.appointment_id
                      WHERE v.clinic_id = $1::uuid
                        AND v.created_at >= $2 AND v.created_at < $3
+                       AND NOT v.ban_le  -- V8: bán lẻ không phải lượt khám
                      ORDER BY v.created_at
                      LIMIT $4
                     """,

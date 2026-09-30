@@ -35,6 +35,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
+from clinicai.services.ban_le_service import QUYEN_THU_THUOC, co_quyen_mo
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 
@@ -193,7 +194,7 @@ async def man_nha_thuoc(
                    ap.so_booking, ap.so_tiep_don,
                    {kham_xong_sql("v")} AS kham_xong,
                    r.removed_at, r.removal_reason,
-                   r.superseded_by_id::text AS thay_boi_id
+                   r.superseded_by_id::text AS thay_boi_id, v.ban_le
               FROM public.prescription r
               JOIN public.visit v
                 ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
@@ -365,6 +366,26 @@ async def man_nha_thuoc(
             identity.clinic_id,
             rx_ids,
         )
+        # V8 (30/09/2026): lượt BÁN LẺ trong ngày — quầy thấy ngay khi vừa mở,
+        # CHƯA có dòng đơn nào (khách chỉ đến mua thuốc).
+        ban_le_rows = await conn.fetch(
+            """
+            SELECT v.visit_id::text, p.full_name AS ten_khach, p.patient_code,
+                   p.phone_primary
+              FROM public.visit v
+              LEFT JOIN public.patient p
+                ON p.clinic_patient_id = v.clinic_patient_id
+               AND p.clinic_id = v.clinic_id
+             WHERE v.clinic_id = $1::uuid AND v.ban_le
+               AND (v.created_at >= $2 OR v.updated_at >= $2)
+             ORDER BY v.created_at DESC
+             LIMIT 100
+            """,
+            identity.clinic_id,
+            dau_ngay,
+        )
+        duoc_mo_ban_le = await co_quyen_mo(conn, identity)
+        duoc_thu_thuoc = await can(conn, identity, QUYEN_THU_THUOC)
         danh_muc = await conn.fetch(
             """
             SELECT id::text, name_base, variant FROM public.drug_catalog
@@ -423,6 +444,7 @@ async def man_nha_thuoc(
                 "so_booking": r["so_booking"],
                 "so_tiep_don": r["so_tiep_don"],
                 "kham_xong": bool(r["kham_xong"]),
+                "ban_le": bool(r["ban_le"]),
                 "lan_thu": (
                     {
                         "payment_cycle_id": lt.payment_cycle_id,
@@ -467,11 +489,32 @@ async def man_nha_thuoc(
             g["dong"].append(
                 _dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu, co_quyen_ghi, them)
             )
+    # Lượt bán lẻ chưa có dòng đơn: vẫn hiện (giai đoạn "chờ thu"), lên đầu.
+    ban_le_trong = [
+        {
+            "visit_id": b["visit_id"],
+            "ten_khach": b["ten_khach"],
+            "patient_code": b["patient_code"],
+            "phone": b["phone_primary"],
+            "so_booking": None,
+            "so_tiep_don": None,
+            "kham_xong": False,
+            "ban_le": True,
+            "lan_thu": None,
+            "dong": [],
+            "giai_doan": SAN_SANG,
+        }
+        for b in ban_le_rows
+        if b["visit_id"] not in luot
+    ]
     return {
-        "luot": list(luot.values()),
+        "luot": ban_le_trong + list(luot.values()),
         "danh_muc": [dict(d) for d in danh_muc],
         "hom_nay": hom_nay.isoformat(),
         "co_quyen_ghi": co_quyen_ghi,
+        # V8: nút "Khách mua thuốc" + khối kê / thu tại quầy — máy chủ quyết.
+        "duoc_mo_ban_le": duoc_mo_ban_le,
+        "duoc_thu_thuoc": duoc_thu_thuoc,
         "bi_cat": don_bi_cat,
         "tran": 300,
     }

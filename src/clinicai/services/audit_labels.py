@@ -58,6 +58,9 @@ EVENT_LABELS: dict[str, str] = {
     # Sổ sự kiện nghiệp vụ, nhóm 3 (24/09/2026).
     "visit.checked_out": "Khách đã về (check-out)",
     "visit.left_early": "Khách bỏ về giữa chừng",
+    # Khách chỉ đến mua thuốc — lượt Bán lẻ (V8, 30/09/2026).
+    "visit.ban_le_opened": "Mở lượt khách mua thuốc (bán lẻ)",
+    "visit.ban_le_closed": "Đóng lượt bán lẻ — đã thu tiền thuốc",
     "patient.contacted": "CSKH đã liên hệ khách",
     # Khối chỉnh dây (nhóm 5, 24/09/2026).
     "config.wiring_changed": "Đổi dây nối nghiệp vụ",
@@ -299,6 +302,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:patient-edit": "Sửa hồ sơ khách",
     "api:reception": "Quầy tiếp nhận",
     "api:pharmacy": "Nhà thuốc",
+    "api:pharmacy-ban-le": "Nhà thuốc — khách mua thuốc (bán lẻ)",
+    "api:payment": "Quầy thu tiền",
     "api:staff": "Quản lý nhân sự",
     "api:staff-capability": "Quản lý nhân sự — Phân quyền",
     "api:roster": "Lịch làm việc",

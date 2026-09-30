@@ -18,6 +18,14 @@ export const QUYEN_Y_KHOA = [
   "result.review.approve",
 ] as const;
 
+/** Mở lượt "Khách mua thuốc" (V8, 30/09/2026). Khớp `QUYEN_MO` ở
+ *  `services/ban_le_service.py` — hướng "MỞ HẾT": lego nhà thuốc hoặc thu tiền. */
+export const QUYEN_BAN_LE = [
+  "pharmacy.dispense",
+  "payment.medicine.collect",
+  "payment.service.collect",
+] as const;
+
 export const quyenCuaToi = cache(async (): Promise<ReadonlySet<string>> => {
   const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
   return new Set(d?.quyen ?? []);

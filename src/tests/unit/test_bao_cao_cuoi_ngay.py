@@ -232,7 +232,12 @@ def test_gom_so_tm_ck_hoan_huy_thuoc() -> None:
     ]
     assert bc["hoan_huy"][0]["ly_do"] == "Thu nhầm khách"
     # Khách: v3 chỉ có phiếu huỷ → không tính "đã thu".
-    assert bc["khach"] == {"so_luot_kham": 5, "so_luot_da_thu": 2, "so_khach_da_thu": 2}
+    assert bc["khach"] == {
+        "so_luot_kham": 5,
+        "so_luot_da_thu": 2,
+        "so_khach_da_thu": 2,
+        "so_luot_ban_le": 0,
+    }
     assert bc["doi_tac"]["tong"] == 900_000
     assert [(o["ten"], o["doanh_thu"]) for o in bc["top_dich_vu"]] == [
         ("Khám", 300_000),

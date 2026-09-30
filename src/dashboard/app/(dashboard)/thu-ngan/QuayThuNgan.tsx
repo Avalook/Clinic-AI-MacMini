@@ -57,7 +57,7 @@ interface DongDoiTac extends DongHoaDon {
   doi_tac_da_thu?: { so_tien: number; hinh_thuc: string; luc: string } | null;
 }
 
-interface HoaDon {
+export interface HoaDon {
   tong: number;
   revision: string;
   thu_duoc: boolean;
@@ -96,7 +96,7 @@ interface DaThu {
   kind: string;
 }
 
-interface ChoXacMinh {
+export interface ChoXacMinh {
   payment_cycle_id: string;
   visit_id: string;
   kind: string;
@@ -105,9 +105,9 @@ interface ChoXacMinh {
   luc: string;
 }
 
-type PhuongThuc = "CASH" | "TRANSFER" | "QR";
+export type PhuongThuc = "CASH" | "TRANSFER" | "QR";
 
-const TEN_PT: Record<PhuongThuc, string> = {
+export const TEN_PT: Record<PhuongThuc, string> = {
   CASH: "Tiền mặt",
   TRANSFER: "Chuyển khoản",
   QR: "QR",
@@ -588,7 +588,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   );
 }
 
-function NhomThu({
+// Khối thu MỘT khoản — dùng lại ở Nhà thuốc cho lượt Bán lẻ (V8, `pharmacy/BanLeThu`).
+export function NhomThu({
   tieu_de,
   hd,
   daThu,

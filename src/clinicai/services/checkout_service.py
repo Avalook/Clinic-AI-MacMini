@@ -353,6 +353,9 @@ class CheckoutService:
                     "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
                     "WHERE v.clinic_id = $1::uuid"
                     "   AND v.status <> 'FINALIZED'"
+                    # V8: lượt bán lẻ tự đóng khi thu tiền thuốc — không chờ
+                    # check-out ở quầy.
+                    "   AND NOT v.ban_le"
                     "   AND coalesce(v.checked_in_at, v.created_at) >= $3"
                     " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
                     " LIMIT 300",
