@@ -324,9 +324,9 @@ async def test_chua_chon_khong_chon_va_dong_cu_null_khong_vao_hoa_don(
     await _cd(q, "LEGACY", selection=None)
     await _cd(q, "HUY", exec_status="cancelled")
     await _cd(q, "GIAN", execution_status="INTERRUPTED")
-    await _cd(q, "DALAM", execution_status="COMPLETED")
     await _cd(q, "DT", ben="EXTERNAL_PARTNER", gia=None)
     hd = await _hd(q)
+    # Đã làm xong mà chưa thu thì VẪN vào hoá đơn (V10 — xem test riêng dưới).
     assert _nguon(hd) == {_exam(q)}
 
 
@@ -794,15 +794,26 @@ async def test_gia_mac_dinh_khong_bi_dong_gia_cu_trung_ten_lam_lech(q: Quay) -> 
     assert hd.tong == 150_000 and hd.thu_duoc
 
 
-async def test_da_lam_ma_chua_co_tien_la_bat_thuong_khong_thu_bu(q: Quay) -> None:
+async def test_da_lam_ma_chua_co_tien_la_khoan_phai_thu_binh_thuong(q: Quay) -> None:
+    """V10 (Tuyền 30/09/2026, làm trước — thu sau): đã làm xong mà chưa có
+    tiền KHÔNG còn là bất thường — là khoản phải thu (DUE), vào hoá đơn quầy.
+    Trước: rơi khỏi hoá đơn = mất tiền im lặng. Dừng giữa chừng vẫn chờ người
+    quyết (không tự đòi tiền khách)."""
     a = await _cd(q, "DALAM", execution_status="COMPLETED")
     phong = await q.pool.fetchval(
         "SELECT id::text FROM clinic_room WHERE clinic_id = $1::uuid LIMIT 1", CLINIC
     )
     b = await _cd(q, "CU", exec_status="performed", room_id=phong)
-    g = await _gate(q, a, b)
-    assert g[a].reason_code == g[b].reason_code == "EXECUTED_WITHOUT_PAYMENT"
-    assert _nguon(await _hd(q)) == {_exam(q)}
+    c = await _cd(q, "GIAN", execution_status="INTERRUPTED")
+    g = await _gate(q, a, b, c)
+    assert g[a].finance_state == g[b].finance_state == "DUE"
+    assert g[a].duoc_lam and not g[a].needs_human_review
+    assert g[c].reason_code == "EXECUTED_WITHOUT_PAYMENT" and not g[c].duoc_lam
+    assert _nguon(await _hd(q)) == {
+        _exam(q),
+        ("service_order", a),
+        ("service_order", b),
+    }
 
 
 async def test_phu_trung_trong_lich_su_la_can_doi_soat(q: Quay) -> None:

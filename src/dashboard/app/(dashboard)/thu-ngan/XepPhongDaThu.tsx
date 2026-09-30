@@ -4,7 +4,8 @@
 // [phòng] được bình thường". Trước đây ô "Làm ở phòng" chỉ có TRƯỚC khi thu —
 // thu xong chỉ định rời khỏi ô chọn dịch vụ, lễ tân mất chỗ chọn phòng.
 //
-// Danh sách = chỉ định đã trả, khách làm, chưa bắt đầu (máy chủ trả trong
+// Danh sách = chỉ định khách đã chốt làm, chưa bắt đầu — V10 (30/09/2026, làm
+// trước, thu sau): đã trả hay chưa đều có (máy chủ trả trong
 // `xep_phong` của bảng thu ngân). Chọn phòng dùng lại ĐÚNG khối `DoiPhong` của
 // Bàn khám / Xem lượt: phòng làm được + số người chờ, lệnh xếp phòng thường.
 //
@@ -33,7 +34,7 @@ export default function XepPhongDaThu({
   return (
     <div className="space-y-2 border-b border-line px-4 py-3 last:border-b-0">
       <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-        Phòng làm dịch vụ (đã thu)
+        Phòng làm dịch vụ (khách đã chốt)
       </p>
       <ul className="space-y-2">
         {ds.map((c) => (

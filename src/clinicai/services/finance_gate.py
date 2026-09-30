@@ -1,6 +1,10 @@
 """FinanceGate — về mặt TÀI CHÍNH, chỉ định này đã được phép bắt đầu làm chưa?
 
-Contract: docs/ai/lifecycle-v1/ClinicAI-FINANCE-GATE-v1.md (frozen).
+Contract: docs/ai/lifecycle-v1/ClinicAI-FINANCE-GATE-v1.md (frozen) — SỬA ở V10
+(Tuyền 30/09/2026, "làm trước, thu sau"): chưa thu KHÔNG còn chặn xếp phòng hay
+bắt đầu làm. Cửa làm là ``duoc_lam`` (``CHO_LAM_STATES``); ``financially_ready``
+chỉ còn nghĩa "tiền đã xong" để hiện nhãn. Đã làm mà chưa thu = DUE (thu ở quầy
+như thường), không còn là "bất thường cần đối soát".
 
 Không thu tiền, không hoàn tiền, không xếp phòng, không bắt đầu dịch vụ, không
 gọi AI hay đối tác. Không có cột ``billing_status``: trạng thái tài chính SUY RA
@@ -49,8 +53,22 @@ FINANCIAL_REVIEW_REQUIRED = "FINANCIAL_REVIEW_REQUIRED"
 #: sổ riêng của khối Đối tác (`doi_tac_thanh_toan`), không chặn luồng khách.
 PARTNER_COLLECTS = "PARTNER_COLLECTS"
 
-#: Trạng thái mở cửa bắt đầu (FINANCE-GATE §3 + đối tác tự thu 27/09/2026).
+#: Tiền đã XONG về phía phòng khám (FINANCE-GATE §3 + đối tác tự thu 27/09/2026).
+#: Từ V10 (30/09/2026) đây chỉ còn là NHÃN hiển thị ("đã thu / chưa thu") — không
+#: còn là cửa xếp phòng hay bắt đầu làm; cửa ấy là ``CHO_LAM_STATES``.
 READY_STATES = frozenset({PAID, NOT_REQUIRED, PARTNER_COLLECTS})
+
+#: LÀM TRƯỚC, THU SAU (V10 — Tuyền 30/09/2026: "chỉ định rồi mà chưa thu tiền
+#: cũng vẫn cho thực hiện đi rồi cuối buổi thu cũng được"). Khách đã chốt làm là
+#: được xếp phòng / vào hàng / bắt đầu / làm xong — kể cả khi CHƯA THU (DUE),
+#: chuyển khoản đang chờ xác minh, hay bảng giá còn thiếu (thu sau khi sửa giá).
+#: Còn chặn: khách chưa chốt (NOT_APPLICABLE), tiền ĐÃ THU đang hoàn / đã hoàn
+#: (khách đã lấy lại tiền — làm tiếp là cho không), và sổ tiền lệch cần người
+#: đối soát (FINANCIAL_REVIEW_REQUIRED) — hướng "mở hết" chỉ giữ chặn ở tiền đã
+#: thu và dữ liệu hỏng.
+CHO_LAM_STATES = READY_STATES | frozenset(
+    {DUE, PENDING_VERIFICATION, FINANCIAL_DATA_INCOMPLETE}
+)
 
 #: Mã lỗi cho StartService (FINANCE-GATE §6).
 START_REASON = {
@@ -62,10 +80,6 @@ START_REASON = {
     FINANCIAL_DATA_INCOMPLETE: "SERVICE_FINANCIAL_DATA_INCOMPLETE",
     FINANCIAL_REVIEW_REQUIRED: "SERVICE_FINANCIAL_REVIEW_REQUIRED",
 }
-
-#: Chỉ định đã bắt đầu / đã làm / bị gián đoạn (trục mới hoặc exec_status cũ).
-_DA_BAT_DAU = frozenset({"IN_PROGRESS", "COMPLETED", "INTERRUPTED"})
-_DA_BAT_DAU_CU = frozenset({"in_progress", "performed"})
 
 
 @dataclass(frozen=True)
@@ -102,6 +116,9 @@ class FinanceDecision:
     reason_code: str | None
     coverage_cycle_id: str | None
     needs_human_review: bool
+    #: V10: được xếp phòng / bắt đầu làm chưa (``CHO_LAM_STATES``). Khác
+    #: ``financially_ready`` (= tiền đã xong, chỉ để hiện nhãn "chưa thu").
+    duoc_lam: bool = False
 
     def cho_api(self) -> dict[str, Any]:
         return {
@@ -112,6 +129,7 @@ class FinanceDecision:
             "reason_code": self.reason_code,
             "coverage_cycle_id": self.coverage_cycle_id,
             "needs_human_review": self.needs_human_review,
+            "duoc_lam": self.duoc_lam,
         }
 
 
@@ -131,6 +149,7 @@ def _quyet(
         reason_code=reason if reason is not None else START_REASON.get(state),
         coverage_cycle_id=cycle,
         needs_human_review=state == FINANCIAL_REVIEW_REQUIRED,
+        duoc_lam=state in CHO_LAM_STATES,
     )
 
 
@@ -190,9 +209,12 @@ def derive_finance_state(f: OrderFinanceFacts) -> FinanceDecision:
         return _quyet(f, FINANCIAL_DATA_INCOMPLETE, required=True)
     if don_gia == 0:
         return _quyet(f, NOT_REQUIRED, required=False)
-    # Đã bắt đầu / đã làm mà phòng khám chưa có tiền: bất thường, KHÔNG thu bù
-    # ở quầy (CHECKPOINT §3).
-    if (f.execution_status in _DA_BAT_DAU) or (f.exec_status in _DA_BAT_DAU_CU):
+    # V10 (30/09/2026) — LÀM TRƯỚC, THU SAU: đang làm / đã làm xong mà chưa có
+    # tiền là CHUYỆN THƯỜNG, không còn là bất thường — vẫn là khoản phải thu
+    # (DUE), vào hoá đơn quầy như mọi dịch vụ (``bill_service._CON_TINH_TIEN``).
+    # Riêng DỪNG GIỮA CHỪNG mà chưa thu: chưa biết có làm tiếp hay không — để
+    # người quyết (làm lại → chờ làm → lại là DUE); không tự đòi tiền khách.
+    if f.execution_status == "INTERRUPTED":
         return _quyet(
             f,
             FINANCIAL_REVIEW_REQUIRED,

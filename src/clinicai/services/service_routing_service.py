@@ -279,13 +279,14 @@ def rank_rooms(rooms: Sequence[RoomCandidate]) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Đọc: chỉ định ĐÃ TRẢ TIỀN chờ vào phòng (Tuyền 24/09/2026)
+# Đọc: chỉ định KHÁCH ĐÃ CHỐT chờ vào phòng (Tuyền 24/09/2026; V10 30/09/2026)
 # ---------------------------------------------------------------------------
 #
 # "Thanh toán xong vẫn chỉ định [phòng] được bình thường" + "kể cả lễ tân không
 # chỉ định thì khách vẫn xuất hiện ở hàng đợi và có thể khám ở các dịch vụ khả
-# thi". Hai câu đọc dưới cùng MỘT điều kiện "đã trả, khách làm, chưa bắt đầu";
-# xếp / đổi phòng vẫn đi qua lệnh `assign` (quyền, cổng tiền, revision, cơ sở).
+# thi". Hai câu đọc dưới cùng MỘT điều kiện "khách chốt làm, chưa bắt đầu" —
+# V10 (làm trước, thu sau): KHÔNG còn đòi đã trả tiền; xếp / đổi phòng vẫn đi
+# qua lệnh `assign` (quyền, cửa `duoc_lam`, revision, cơ sở).
 
 #: ĐỐI TÁC LÀM TRỌN (alias ``o`` = service_order) — khách KHÔNG vào phòng nào
 #: của phòng khám, nên không có gì để xếp:
@@ -349,8 +350,8 @@ async def doi_tac_lam_tron(
 
 # ── Chờ xếp phòng (dây H4 không xếp được) ──────────────────────────────────
 #
-# Trước 27/09/2026 H4 bỏ qua IM LẶNG khi không có phòng: khách đã trả tiền mà
-# không ai biết phải xếp tay. Nay mỗi lần như vậy réo chuông quầy (cùng cơ chế
+# Trước 27/09/2026 H4 bỏ qua IM LẶNG khi không có phòng: khách đã chốt / đã trả
+# mà không ai biết phải xếp tay. Nay mỗi lần như vậy réo chuông quầy (cùng cơ chế
 # chuông vai của H8 "nhắc check-out") — mỗi chỉ định một chuông đang mở.
 
 CHO_XEP_KHONG_CO_PHONG = "KHONG_CO_PHONG"
@@ -363,15 +364,15 @@ _CAU_CHO_XEP: dict[str, str] = {
     CHO_XEP_KHONG_CO_PHONG: (
         "Không phòng nào đang nhận khách làm được dịch vụ này (phòng có thể đang"
         " tạm ngừng). Việc cần làm: báo trưởng ca mở lại phòng, rồi xếp phòng ở"
-        ' ô "Phòng làm dịch vụ (đã thu)".'
+        ' ô "Phòng làm dịch vụ (khách đã chốt)".'
     ),
     CHO_XEP_CHUA_CHON_PHONG: (
         'Dây "chỉ áp phòng lễ tân chọn" đang bật mà dịch vụ này chưa chọn phòng.'
-        ' Việc cần làm: chọn phòng ở ô "Phòng làm dịch vụ (đã thu)".'
+        ' Việc cần làm: chọn phòng ở ô "Phòng làm dịch vụ (khách đã chốt)".'
     ),
     CHO_XEP_PHONG_DU_KIEN_HONG: (
         "Phòng lễ tân chọn đang tạm ngừng hoặc không làm được bước này. Việc cần"
-        ' làm: chọn phòng khác ở ô "Phòng làm dịch vụ (đã thu)".'
+        ' làm: chọn phòng khác ở ô "Phòng làm dịch vụ (khách đã chốt)".'
     ),
 }
 
@@ -380,7 +381,9 @@ def cau_cho_xep_phong(ly_do: str | None) -> str:
     """Câu cho chuông "chờ xếp phòng" theo lý do. Hàm thuần; lý do lạ vẫn có câu."""
     if isinstance(ly_do, str) and ly_do in _CAU_CHO_XEP:
         return _CAU_CHO_XEP[ly_do]
-    return "Khách đã trả tiền nhưng chưa được xếp phòng. Việc cần làm: xếp phòng tay."
+    return (
+        "Khách đã chốt dịch vụ nhưng chưa được xếp phòng. Việc cần làm: xếp phòng tay."
+    )
 
 
 def chon_phong_h4(
@@ -411,6 +414,8 @@ def chon_phong_h4(
     return None, CHO_XEP_KHONG_CO_PHONG
 
 
+#: Khách đã chốt làm, chưa bắt đầu — tên cũ "đã trả" giữ cho khỏi đổi khắp nơi;
+#: tiền không còn là điều kiện (V10), lọc bằng cửa ``duoc_lam`` ở ``_loc_da_tra``.
 _DA_TRA_CHUA_LAM = f"""
        o.selection_status = 'SELECTED'
    AND o.exec_status IN ('authorized', 'assigned')
@@ -432,18 +437,17 @@ async def _loc_da_tra(
     tai_chinh = await finance_gate.states_for_orders(
         conn, clinic_id, [r["id"] for r in rows]
     )
-    return [
-        r
-        for r in rows
-        if (q := tai_chinh.get(r["id"])) is not None and q.financially_ready
-    ]
+    # V10 làm trước, thu sau: chưa thu vẫn vào — chỉ bỏ chỉ định tiền đang
+    # hoàn / đã hoàn / sổ lệch (``finance_gate.CHO_LAM_STATES``).
+    return [r for r in rows if (q := tai_chinh.get(r["id"])) is not None and q.duoc_lam]
 
 
 async def da_tra_cho_vao_phong(
     conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
 ) -> dict[str, list[dict[str, Any]]]:
-    """Quầy thu: theo lượt, chỉ định đã trả chưa bắt đầu + phòng hiện tại —
-    để lễ tân xếp / đổi phòng SAU khi thu (trước: thu xong là mất chỗ chọn)."""
+    """Quầy thu: theo lượt, chỉ định khách đã chốt chưa bắt đầu + phòng hiện tại
+    — để lễ tân xếp / đổi phòng sau khi chốt / sau khi thu (trước: thu xong là
+    mất chỗ chọn). V10: chưa thu vẫn có mặt."""
     if not visit_ids:
         return {}
     rows = await conn.fetch(
@@ -481,7 +485,8 @@ async def da_tra_cho_vao_phong(
 async def cho_nhan_vao_phong(
     conn: asyncpg.Connection, clinic_id: str, room_id: str
 ) -> list[dict[str, Any]]:
-    """Phòng: khách ĐÃ TRẢ mà CHƯA XẾP PHÒNG, phòng này làm được, cùng cơ sở —
+    """Phòng: khách ĐÃ CHỐT (đã trả hay chưa — V10) mà CHƯA XẾP PHÒNG, phòng này
+    làm được, cùng cơ sở —
     hiện ở MỌI phòng như vậy để phòng nào rảnh bấm nhận (không để khách kẹt khi
     người thu không xếp, hay dây H4 không tự xếp được)."""
     rows = await conn.fetch(
@@ -643,9 +648,10 @@ def ly_do_chuyen_phong(value: Any) -> str:
 # ── Khối "Đổi phòng" dùng lối nào (Tuyền 29/09/2026) ────────────────────────
 #
 # Máy chủ quyết, màn chỉ đọc `che_do` của gợi ý phòng:
-#   XEP             — đã chọn + đủ tiền + chưa bắt đầu: lệnh xếp / đổi phòng;
-#   DU_KIEN         — chưa thu tiền (hoặc khách chưa chốt): trưởng ca đặt PHÒNG
-#                     DỰ KIẾN, thu xong dây H4 xếp đúng phòng ấy;
+#   XEP             — khách đã chốt + chưa bắt đầu: lệnh xếp / đổi phòng (V10
+#                     30/09/2026: CHƯA THU cũng xếp được — làm trước, thu sau);
+#   DU_KIEN         — khách chưa chốt (hoặc tiền đang hoàn / sổ lệch): trưởng ca
+#                     đặt PHÒNG DỰ KIẾN, chốt xong dây H4 xếp đúng phòng ấy;
 #   CHUYEN_DANG_LAM — dịch vụ đang làm: CHỈ trưởng ca chuyển (dừng lần làm +
 #                     chuyển phòng + chuyển hàng, bắt buộc lý do);
 #   KHONG           — không đổi được (đã gọi vào, đã xong, khách về, không quyền).
@@ -653,7 +659,7 @@ CHE_DO_XEP = "XEP"
 CHE_DO_DU_KIEN = "DU_KIEN"
 CHE_DO_CHUYEN = "CHUYEN_DANG_LAM"
 CHE_DO_KHONG = "KHONG"
-CAU_DU_KIEN = "Phòng dự kiến — xếp khi thu tiền xong."
+CAU_DU_KIEN = "Phòng dự kiến — xếp khi khách chốt dịch vụ."
 
 
 def che_do_doi_phong(
@@ -661,7 +667,7 @@ def che_do_doi_phong(
     execution_status: str | None,
     exec_status: str | None,
     selection_status: str | None,
-    tai_chinh_xong: bool,
+    duoc_lam: bool,
     hang: str | None,
     dieu_phoi: bool,
     khach_ve: bool,
@@ -669,7 +675,8 @@ def che_do_doi_phong(
     """Lối đổi phòng cho MỘT chỉ định và MỘT người xem — hàm thuần.
 
     `dieu_phoi` = người xem có quyền Điều phối khách (`dispatch.manage`, trưởng
-    ca). `hang` = trạng thái chỗ chờ sống của chỉ định (None = chưa có)."""
+    ca). `hang` = trạng thái chỗ chờ sống của chỉ định (None = chưa có).
+    `duoc_lam` = cửa làm của FinanceGate (V10: chưa thu vẫn True)."""
     ex, cu = execution_status or "", exec_status or ""
     if khach_ve or cu in ("draft", "cancelled"):
         return CHE_DO_KHONG
@@ -679,7 +686,7 @@ def che_do_doi_phong(
         return CHE_DO_CHUYEN if dieu_phoi else CHE_DO_KHONG
     if hang in ("called", "serving") or selection_status == "NOT_SELECTED":
         return CHE_DO_KHONG
-    if selection_status == "SELECTED" and tai_chinh_xong:
+    if selection_status == "SELECTED" and duoc_lam:
         return CHE_DO_XEP
     return CHE_DO_DU_KIEN if dieu_phoi else CHE_DO_KHONG
 
@@ -711,7 +718,7 @@ async def _reo_cho_xep_phong(
                 conn,
                 clinic_id=clinic_id,
                 vai=vai,
-                tieu_de=f"{ten} đã trả tiền — chờ xếp phòng: {o['service_name']}",
+                tieu_de=f"{ten} — chờ xếp phòng: {o['service_name']}",
                 noi_dung=cau_cho_xep_phong(ly_do),
                 nguon="hanh_trinh",
                 nguon_id=f"cho_xep_phong:{o['id']}",
@@ -773,7 +780,7 @@ class ServiceRoutingService:
                     execution_status=o["execution_status"],
                     exec_status=o["exec_status"],
                     selection_status=o["selection_status"],
-                    tai_chinh_xong=bool(tien and tien.financially_ready),
+                    duoc_lam=bool(tien and tien.duoc_lam),
                     hang=o["hang"],
                     dieu_phoi=await can(
                         conn, identity, QUYEN_THEO_NGUON[NGUON_TRUONG_CA]
@@ -923,8 +930,10 @@ class ServiceRoutingService:
         _kiem_thuc_hien(o)
         if o["selection_status"] != "SELECTED":
             raise _loi("SERVICE_NOT_SELECTED", "Khách chưa chọn làm dịch vụ này.")
+        # V10 làm trước, thu sau: CHƯA THU không chặn xếp phòng — chỉ chặn tiền
+        # đang hoàn / đã hoàn / sổ lệch (``finance_gate.CHO_LAM_STATES``).
         tai_chinh = await finance_gate.can_start(conn, cid, oid)
-        if tai_chinh is None or not tai_chinh.financially_ready:
+        if tai_chinh is None or not tai_chinh.duoc_lam:
             raise RoutingFinanceNotReadyError(
                 tai_chinh.reason_code if tai_chinh else None
             )
@@ -1063,18 +1072,22 @@ class ServiceRoutingService:
         staff_id: str | None,
         causation_id: str,
     ) -> list[str]:
-        """Dây H4: tiền dịch vụ đã nhận → xếp phòng vắng nhất THAY người vừa thu.
+        """Dây H4: xếp phòng vắng nhất THAY người vừa chốt dịch vụ / vừa thu.
 
         Tuyền chốt 24/09/2026: "thu tiền xong → hệ thống xếp phòng thay cho người
         vừa thu tiền, dùng quyền của người ấy; ai có quyền điều phối đổi lại
-        được, lần sau đè lần trước".
+        được, lần sau đè lần trước". V10 (30/09/2026, "làm trước, thu sau"):
+        chạy NGAY khi khách chốt (``service_selection.confirmed``), không chờ
+        thu — mọi chỉ định khách đã chốt, chưa thu cũng xếp. Thu tiền sau đó vẫn
+        gọi lại (vô hại: chỉ định đã có phòng thì bỏ). Tên hàm giữ như cũ.
 
         Chỉ xếp chỉ định CHƯA có phòng (UNASSIGNED). Phòng cũ bị huỷ
         (REASSIGNMENT_REQUIRED) là việc của một NGƯỜI — đã có việc
         OPS-ROUTING-REASSIGN, không tự đẩy khách sang phòng khác (ChatGPT tin
-        112). Người thu không có quyền xếp phòng, hay không phòng nào làm được →
-        để nguyên, người có quyền xếp tay. Không bao giờ ném lỗi làm hỏng việc
-        giao tin: mỗi chỉ định một điểm lưu (savepoint), hỏng cái nào bỏ cái ấy.
+        112). Người chốt / người thu không có quyền xếp phòng, hay không phòng
+        nào làm được → để nguyên, người có quyền xếp tay. Không bao giờ ném lỗi
+        làm hỏng việc giao tin: mỗi chỉ định một điểm lưu (savepoint), hỏng cái
+        nào bỏ cái ấy.
 
         Trả mã các chỉ định đã xếp. Chạy lại được: chỉ định đã có phòng thì bỏ.
         """
@@ -1132,7 +1145,7 @@ class ServiceRoutingService:
         chi_ap = bool(await doc_day(conn, clinic_id, "h4_chi_ap_phong_du_kien"))
         for o in orders:
             quyet = tai_chinh.get(o["id"])
-            if quyet is None or not quyet.financially_ready:
+            if quyet is None or not quyet.duoc_lam:
                 continue
             ung_vien = rank_rooms(
                 await eligible_rooms(
@@ -1194,11 +1207,12 @@ class ServiceRoutingService:
         identity: StaffIdentity,
         nguon: Any = None,
     ) -> dict[str, Any]:
-        """PlanServiceRoom — ghi phòng khách sẽ làm, TRƯỚC khi thu tiền.
+        """PlanServiceRoom — ghi phòng khách sẽ làm, TRƯỚC khi khách chốt.
 
-        Không xếp phòng chính thức (FinanceGate chặn khi chưa trả tiền), không
-        vào hàng chờ phòng: chỉ là ý định cho dây H4 dùng khi thu xong. Cùng
-        quyền với xếp phòng. ``room_id`` rỗng = bỏ chọn (để hệ thống tự chọn).
+        Khách chưa chốt: không xếp phòng chính thức, không vào hàng chờ phòng —
+        chỉ là ý định cho dây H4 dùng khi khách chốt. Khách ĐÃ CHỐT (V10, chưa
+        thu cũng vậy): xếp thật luôn qua `_gan`. Cùng quyền với xếp phòng.
+        ``room_id`` rỗng = bỏ chọn (để hệ thống tự chọn).
 
         `nguon` = quầy thu (mặc định) hoặc trưởng ca (29/09/2026: trưởng ca đặt
         phòng được cả khi khách chưa trả tiền). Mỗi nguồn hỏi quyền lego của
@@ -1266,6 +1280,41 @@ class ServiceRoutingService:
                     str(o["node_code"]),
                     await co_so_cua_luot(conn, cid, visit_id=vid),
                 )
+            if rid is not None and o["selection_status"] == "SELECTED":
+                # V10 làm trước, thu sau: khách ĐÃ CHỐT thì chọn phòng = xếp
+                # thật luôn (cùng lõi `_gan`), không đợi thu tiền mới xếp. Không
+                # xếp được (giữ chờ sinh hiệu, tiền đang hoàn…) thì ghi dự kiến
+                # như cũ — điểm lưu để lỗi của `_gan` không làm hỏng lệnh.
+                try:
+                    async with conn.transaction():
+                        kq_xep = await self._gan(
+                            conn,
+                            identity,
+                            vid=vid,
+                            oid=oid,
+                            rid=rid,
+                            rev=int(o["routing_revision"]),
+                            ly_do="INITIAL_ASSIGNMENT",
+                            ref=None,
+                            tu_dong=False,
+                            nguon=ng,
+                        )
+                        await conn.execute(
+                            "UPDATE service_order SET phong_du_kien_id = $3::uuid"
+                            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                            cid,
+                            oid,
+                            rid,
+                        )
+                except LuotKhamConflictError:
+                    kq_xep = None
+                if kq_xep is not None:
+                    return {
+                        **kq_xep,
+                        "ok": True,
+                        "order_id": oid,
+                        "phong_du_kien_id": rid,
+                    }
             # Chưa xếp: `routing_nguon` = ai đặt phòng dự kiến (bỏ chọn → NULL),
             # để dây H4 ghi "tự động theo phòng trưởng ca / quầy chọn trước".
             await conn.execute(
