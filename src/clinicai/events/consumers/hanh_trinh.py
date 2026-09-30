@@ -13,6 +13,8 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
                                     (lượt chưa có đường đi thì xếp luôn — tự chữa);
                                     điều dưỡng tick "bỏ qua tư vấn" → thẳng bác sĩ
                                     chính (25/09)
+    H1b appointment.service_switched (có visit_id) → đổi dịch vụ khám sau
+                                    check-in: xếp lại hàng đầu tiên (V5 30/09)
     H3  consultation.handed_over  → hàng chờ khám thật của bác sĩ chính
     H4  service_selection.confirmed → xếp phòng vắng nhất THAY người vừa chốt,
                                     bằng quyền của người ấy — KHÔNG chờ thu (V10
@@ -96,6 +98,22 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
                 clinic_id=su_kien.clinic_id,
                 visit_id=visit_id,
                 staff_id=su_kien.actor_staff_id,
+                causation_id=su_kien.event_id,
+            )
+    elif su_kien.event_type == "appointment.service_switched":
+        # Đổi lại lần nữa trước khi tin này tới → tin sau lo; không xếp theo
+        # một loại khám đã cũ.
+        hien_tai = await conn.fetchval(
+            "SELECT service_type_id::text FROM visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid",
+            su_kien.clinic_id,
+            visit_id,
+        )
+        if hien_tai == str(su_kien.payload.get("den_dich_vu_id") or ""):
+            await luot.xep_lai_sau_doi_dich_vu(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                visit_id=visit_id,
                 causation_id=su_kien.event_id,
             )
     elif su_kien.event_type == "payment.service_collected":

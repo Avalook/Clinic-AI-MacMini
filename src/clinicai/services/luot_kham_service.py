@@ -377,7 +377,11 @@ class LuotKhamService:
                 INSERT INTO consultation
                     (clinic_id, visit_id, round_no, kind, status)
                 VALUES ($1::uuid, $2::uuid, 0, 'TU_VAN', 'queued')
-                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
+                -- Phiên đã HUỶ (vd đổi dịch vụ khám sang loại không qua tư vấn
+                -- rồi đổi lại — V5 30/09) thì mở lại, như phiên bác sĩ chính.
+                ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now(),
+                    status = CASE WHEN consultation.status = 'cancelled'
+                                  THEN 'queued' ELSE consultation.status END
                 RETURNING id::text
                 """,
                 clinic_id,
@@ -559,6 +563,72 @@ class LuotKhamService:
                 if not da_dung:
                     raise LuotKhamConflictError("TU_VAN_KHONG_DOI_DUOC", loi)
         return {"ok": True, "visit_id": vid, "bo_qua_tu_van": bo_qua}
+
+    async def xep_lai_sau_doi_dich_vu(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        causation_id: str | None = None,
+    ) -> str | None:
+        """`RerouteAfterServiceSwitch` — đổi DỊCH VỤ KHÁM sau check-in (V5,
+        30/09/2026) → tính lại hàng chờ ĐẦU TIÊN: qua tư vấn / thẳng bác sĩ
+        chính / thẳng dịch vụ, bằng đúng luật H1 (`xep_sau_check_in`).
+
+        Chỉ khi CHƯA phiên khám nào bắt đầu (mọi phiên `queued`/`cancelled`) —
+        bác sĩ đã nhận khách thì để nguyên đường cũ. Lệnh đổi dịch vụ đã chặn
+        trường hợp ấy; ở đây kiểm lại vì sự kiện được giao sau khi commit.
+
+        Làm: huỷ chỗ chờ tư vấn / bác sĩ chính còn sống + các phiên đang chờ,
+        xoá đường đi, rồi xếp lại. Chỗ chờ PHÒNG DỊCH VỤ (chỉ định) không đụng.
+        """
+        trang_thai = await conn.fetchval(
+            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid FOR UPDATE",
+            clinic_id,
+            visit_id,
+        )
+        if trang_thai not in ("OPEN", "IN_PROGRESS"):
+            return None
+        if await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND status NOT IN ('queued', 'cancelled'))",
+            clinic_id,
+            visit_id,
+        ):
+            return None
+        await conn.execute(
+            """
+            UPDATE queue_entry
+               SET status = 'cancelled', version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND reason IN ('TU_VAN', 'PRIMARY')
+               AND status NOT IN ('done', 'left', 'cancelled')
+            """,
+            clinic_id,
+            visit_id,
+        )
+        await conn.execute(
+            "UPDATE consultation SET status = 'cancelled', version = version + 1,"
+            " updated_at = now() WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " AND status = 'queued'",
+            clinic_id,
+            visit_id,
+        )
+        await conn.execute(
+            """
+            UPDATE encounter_flow
+               SET route_decision = NULL, route_decided_at = NULL,
+                   route_reason = NULL, version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+            """,
+            clinic_id,
+            visit_id,
+        )
+        return await self.xep_sau_check_in(
+            conn, clinic_id=clinic_id, visit_id=visit_id, causation_id=causation_id
+        )
 
     async def tra_ve_tu_van(
         self,

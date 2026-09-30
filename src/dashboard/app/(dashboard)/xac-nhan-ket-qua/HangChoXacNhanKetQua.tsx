@@ -430,7 +430,7 @@ export default function HangChoXacNhanKetQua() {
             <form onSubmit={xacNhanTuChoiSubmit} className="space-y-3">
               <label className="block">
                 <span className="text-xs font-semibold text-ink">
-                  Lý do từ chối <span className="text-danger">*</span>
+                  Lý do từ chối
                 </span>
                 <textarea
                   value={lyDoTuChoi}

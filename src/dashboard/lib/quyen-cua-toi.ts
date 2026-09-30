@@ -54,6 +54,11 @@ export const QUYEN_GHI_CHAM_SOC = [
   "dispatch.manage",
 ] as const;
 
+/** Đổi dịch vụ khám ở menu ⋯ lịch hẹn (V5, 30/09/2026) — khớp
+ *  `QUYEN_DOI_DICH_VU_KHAM` ở `services/doi_dich_vu_kham.py`. Chỉ để ẨN/HIỆN
+ *  mục menu; máy chủ vẫn tự kiểm. */
+export const QUYEN_DOI_DICH_VU_KHAM = ["booking.manage", "reception.checkin.perform"] as const;
+
 /** Có ít nhất một quyền trong `can` (null = máy chủ chưa trả lời → không). */
 export function coMotQuyen(quyen: readonly string[] | null, can: readonly string[]): boolean {
   return quyen !== null && can.some((q) => quyen.includes(q));
