@@ -464,6 +464,22 @@ async def ap_lua_chon(
             [changes[i] for i in ids],
         ):
             versions[r["id"]] = int(r["version"])
+        bo_ids = sorted(i for i, status in changes.items() if status == NOT_SELECTED)
+        if bo_ids:
+            # Phụ thu chỉ sống cùng dịch vụ cha. Đóng ngay trong transaction
+            # lựa chọn để lệnh Thu gộp dựng lại đúng hoá đơn, không BILL_CHANGED.
+            await conn.execute(
+                """
+                UPDATE luot_phu_thu
+                   SET bo_luc = now(), bo_boi = $4::uuid
+                 WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+                   AND service_order_id = ANY($3::uuid[]) AND bo_luc IS NULL
+                """,
+                cid,
+                inp.visit_id,
+                bo_ids,
+                identity.staff_id,
+            )
         row = await conn.fetchrow(
             """
             INSERT INTO service_selection_state

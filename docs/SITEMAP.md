@@ -190,6 +190,10 @@ danh sách là bật lại.
 
 ---
 
+Ghi chú 30/09 cho `/thu-ngan/dich-vu`: phụ thu đầu dò bám tick dịch vụ cha;
+bỏ cha tự bỏ phụ thu, rời ô cùng giá không ghi lại, nút Thu khoá trong lúc
+phụ thu đang lưu, và refresh revision giữ hình thức/tick đang chọn.
+
 ## B. Một chức năng, mấy lối vào (bảng tra trước khi sửa)
 
 | Chức năng | Lối vào (file) | Ghi / xem |

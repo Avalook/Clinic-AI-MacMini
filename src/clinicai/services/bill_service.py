@@ -60,6 +60,9 @@ class DongHoaDon:
     # Vì sao dòng này chưa thu được (thiếu giá, mâu thuẫn giá, chưa xác định
     # thuốc kho, thiếu số lượng). Rỗng = thu được.
     van_de: str | None = None
+    # Chỉ dòng phụ thu: chỉ định dịch vụ cha. Metadata này cho quầy nối tick
+    # phụ thu với lựa chọn của cha; source_id vẫn là ID phụ thu để ghi sổ.
+    order_id: str | None = None
 
 
 @dataclass
@@ -180,6 +183,7 @@ def _dong_gia(
     drug_catalog_id: str | None = None,
     ma: str | None = None,
     van_de: str | None = None,
+    order_id: str | None = None,
 ) -> DongHoaDon:
     """Một dòng, với luật giá "không mâu thuẫn" (xem đầu file)."""
     khac_nhau = sorted(set(gia))
@@ -203,6 +207,7 @@ def _dong_gia(
         drug_catalog_id=drug_catalog_id,
         ma=ma,
         van_de=van_de,
+        order_id=order_id,
     )
 
 
@@ -401,6 +406,7 @@ def ghep_dich_vu(
                 ben_thu=CLINIC,
                 ma=None,
                 van_de=None,
+                order_id=str(p["order_id"]),
             )
         )
     return hd
@@ -518,7 +524,7 @@ SELECT o.id::text AS id, o.service_name, o.service_code,
 #: Phụ thu còn phải thu: đang tick, chỉ định chủ còn sống (khách không bỏ, chưa
 #: huỷ / không làm), chưa nằm trong lần thu đang giữ phủ.
 _PHU_THU_SQL = """
-SELECT p.id::text AS id, p.ten, p.don_gia
+SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
   FROM public.luot_phu_thu p
   JOIN public.service_order o
     ON o.id = p.service_order_id AND o.clinic_id = p.clinic_id
