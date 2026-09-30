@@ -423,13 +423,6 @@ export default function NewPatientForm({
   const walkin = variant === "walkin";
   // Kênh "Trực tiếp" kéo theo tự check-in → theo LEGO Tiếp đón (30/09/2026).
   const checkInDuoc = useCheckInDuoc(role);
-  // Địa chỉ (Tỉnh/TP + Phường/Xã) BẮT BUỘC cho CSKH (full), Lễ tân (RECEPTION) và
-  // Trưởng ca/Quản lý (làm thay Lễ tân). Điều dưỡng walk-in (nurse) giữ TUỲ CHỌN.
-  const requireAddress =
-    !walkin ||
-    role === "RECEPTION" ||
-    role === "TRUONG_CA" ||
-    role === "MANAGEMENT";
   const router = useRouter();
   // Logic thời gian thực: năm sinh ≤ hôm nay; ngày khám ≥ hôm nay (giờ VN).
   const TODAY = todayVn();
@@ -776,10 +769,8 @@ export default function NewPatientForm({
   const wantsAppointment = walkin
     ? !!serviceId
     : !chuaDatLich && !!(serviceId && apptDate && apptTime);
-  // Bắt buộc trước khi lưu: Họ tên + SĐT + Giới tính + Cơ sở (Ngày sinh kiểm
-  // trong save() vì có toggle "Chỉ biết năm"). Nút khoá tới khi đủ.
-  // Khách thường (không vãng lai) phải đủ: Tỉnh/TP + Phường/Xã + Dịch vụ + Bác sĩ
-  // + Ngày + Giờ khám + Kênh đặt (mới đủ điều kiện tạo lượt khám). Walk-in giữ nguyên.
+  // Hồ sơ chỉ bắt buộc Họ tên (30/09/2026). Muốn ĐẶT LỊCH thì vẫn cần Dịch vụ +
+  // Ngày + Giờ + Kênh; để trống cả khối lịch (hoặc tick "Chỉ lưu hồ sơ") = chỉ lưu hồ sơ.
   // Lỗi nhỏ ngay cạnh ô SĐT/CCCD (live) — rõ ô NÀO sai (chính/người nhà/CCCD),
   // không chờ submit + không còn 1 câu lỗi chung gây khó hiểu.
   const phoneErr = phoneError(phone);
@@ -956,59 +947,31 @@ export default function NewPatientForm({
       setError("Chưa chọn cơ sở khám.");
       return;
     }
-    // BẮT BUỘC điền: Họ tên + SĐT + Giới tính.
+    // CHỈ BẮT BUỘC HỌ TÊN (Tuyền chốt 30/09/2026). Quầy đông, khách đứng chờ —
+    // SĐT, giới tính, ngày sinh, địa chỉ để trống được, sửa sau ở hồ sơ
+    // (PatientAdminEditor). Backend và database vốn đã cho các cột này NULL.
     if (!fullName.trim()) {
-      setError("Vui lòng nhập Họ và tên bệnh nhân (ở mục Thông tin hành chính phía trên).");
+      setError("Vui lòng nhập Họ và tên bệnh nhân (ở mục Thông tin hồ sơ phía trên).");
       return;
     }
-    if (!phone.trim()) {
-      setError("Vui lòng nhập Số điện thoại chính (10 chữ số).");
-      return;
-    }
-    if (!gender) {
-      setError("Vui lòng chọn Giới tính (Nam / Nữ).");
-      return;
-    }
-    // Quy tắc nhập liệu CỨNG: SĐT 10 số / CCCD 12 số (chặn ngay trước khi gửi).
-    const ve = phoneError(phone) || phoneError(phone2) || cccdError(cccd);
+    // Bỏ trống thì cho qua; ĐÃ ĐIỀN thì phải đúng định dạng — số sai lưu xuống
+    // còn tệ hơn không có số (SĐT 10 số / CCCD 12 số / năm sinh 1900–nay).
+    const ve =
+      phoneError(phone) ||
+      phoneError(phone2) ||
+      cccdError(cccd) ||
+      (dobYearOnly ? birthYearErr : dobErr);
     if (ve) {
       setError(ve);
       return;
     }
-    // Ngày sinh (yêu cầu 04/06): tick "Chỉ biết năm" → CHỈ cần NĂM (1900–2100);
-    // KHÔNG tick → phải điền ĐỦ ngày/tháng/năm.
-    if (dobYearOnly) {
-      if (!birthYear.trim()) {
-        setError(`Nhập năm sinh (1900–${CUR_YEAR}), hoặc bỏ tick “Chỉ biết năm”.`);
-        return;
-      }
-      if (birthYearErr) {
-        setError(birthYearErr);
-        return;
-      }
-    } else if (!dobIso) {
-      setError(
-        "Phải điền đầy đủ ngày/tháng/năm sinh hợp lệ. Nếu chỉ biết năm, hãy tick “Chỉ biết năm”.",
-      );
-      return;
-    } else if (dobErr) {
-      setError(dobErr);
-      return;
-    }
-    // BẮT BUỘC địa chỉ: CSKH (full) + Lễ tân (RECEPTION) phải có Tỉnh/TP + Phường/Xã.
-    if (requireAddress) {
-      if (!provinceCode) {
-        setError("Vui lòng chọn Tỉnh / Thành phố.");
-        return;
-      }
-      if (!wardCode) {
-        setError("Vui lòng chọn Phường / Xã.");
-        return;
-      }
-    }
-    // BẮT BUỘC (khách thường, không vãng lai): Dịch vụ + Bác sĩ + Ngày + Giờ khám
-    // + Kênh đặt — đủ thì mới tạo được lượt khám. Tick "Chỉ lưu hồ sơ" thì bỏ qua.
-    if (!walkin && !chuaDatLich) {
+    // ĐẶT LỊCH (khách thường, không vãng lai) cần Dịch vụ + Ngày + Giờ + Kênh.
+    // Tick "Chỉ lưu hồ sơ" — HOẶC để trống cả dịch vụ, ngày, giờ — thì chỉ lưu
+    // hồ sơ (30/09/2026: quầy đông chỉ kịp gõ tên, đừng bắt nhớ tick). Nút lúc
+    // ấy đã đổi nhãn thành "Tạo bệnh nhân", không còn "& đặt lịch". Đã chọn
+    // DỞ một phần lịch thì vẫn đòi đủ — người ta đang định đặt.
+    const lichTrong = !serviceId && !apptDate && !apptTime;
+    if (!walkin && !chuaDatLich && !lichTrong) {
       if (!serviceId) {
         setError("Vui lòng chọn dịch vụ khám.");
         return;
@@ -1166,7 +1129,7 @@ export default function NewPatientForm({
         <SectionHeader
           icon={<UserRound size={16} />}
           title="Thông tin hồ sơ"
-          hint="Bắt buộc: Họ tên, Ngày sinh, SĐT, Giới tính, Cơ sở."
+          hint="Chỉ cần Họ tên — các ô khác để trống được, sửa sau ở hồ sơ."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
@@ -1378,7 +1341,7 @@ export default function NewPatientForm({
               onChange={(e) => setGender(e.target.value)}
               className={INPUT}
             >
-              <option value="" disabled hidden>— Chọn —</option>
+              <option value="">— Chưa rõ —</option>
               <option value="Nữ">Nữ</option>
               <option value="Nam">Nam</option>
               <option value="Khác">Khác</option>

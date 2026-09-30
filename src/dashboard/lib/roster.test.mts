@@ -11,7 +11,10 @@ import {
   weekStartOf,
   gomTheoNguoi,
   mauPhong,
+  nhanDayDu,
+  nhanViTri,
   phanPhong,
+  phanTang,
   tinhGopDoc,
   viTriTuDb,
   type ThongTinO,
@@ -177,6 +180,49 @@ test("mauPhong: khoá theo MÃ phòng — đổi tên phòng không mất màu",
   for (const rac of ["", null, undefined, "KN-KHONG-CO", "constructor", "__proto__"]) {
     assert.equal(mauPhong(rac), "bg-surface", String(rac));
   }
+});
+
+// ── 01/10/2026: cột Tầng trở lại (bảng lịch Tuyền gửi tuần 28/09) ───────────
+
+test("viTriTuDb: tầng máy chủ trả vào `tang`; thiếu thì rỗng, không ném", () => {
+  assert.equal(DANH_MUC[0].tang, "Tầng 1");
+  assert.equal(DANH_MUC[3].tang, "");
+  assert.equal(DANH_MUC[4].tang, "");
+});
+
+test("phanTang: Tầng → Phòng → Vị trí, gộp hàng liền nhau, KHÔNG lọc vị trí không tầng", () => {
+  const ds = viTriTuDb([
+    { code: "T1_LETAN", ten: "Lễ tân", ten_ngan: "", tang: "Tầng 1", phong: "Quầy tiếp đón", ma_phong: "KN-TIEPDON", nhom: "DIEU_DUONG" },
+    { code: "T1_TT_BS", ten: "BS", ten_ngan: "BS", tang: "Tầng 1", phong: "Phòng thủ thuật", ma_phong: "KN-THUTHUAT", nhom: "BAC_SI" },
+    { code: "T1_TT_DD", ten: "Điều dưỡng", ten_ngan: "", tang: "Tầng 1", phong: "Phòng thủ thuật", ma_phong: "KN-THUTHUAT", nhom: "DIEU_DUONG" },
+    { code: "T2_XEPTHUOC", ten: "Xếp thuốc", ten_ngan: "", tang: "Tầng 2", phong: "Quầy thuốc", ma_phong: "KN-QUAYTHUOC", nhom: "DIEU_DUONG" },
+    { code: "T4_SA_BS1", ten: "BS 2", ten_ngan: "", tang: "Tầng 4", phong: "Phòng siêu âm 2 máy", ma_phong: "KN-SA1", nhom: "BAC_SI" },
+    { code: "DIEU_PHOI", ten: "Trưởng ca", ten_ngan: "", tang: "", phong: "", ma_phong: "", nhom: "DIEU_DUONG" },
+  ]);
+  const tang = phanTang(ds);
+  assert.deepEqual(tang.map((t) => [t.tang, t.soViTri]), [["Tầng 1", 3], ["Tầng 2", 1], ["Tầng 4", 1], ["", 1]]);
+  // Trong Tầng 1: hai phòng, phòng thủ thuật gộp hai hàng.
+  assert.deepEqual(tang[0].phongs.map((p) => [p.phong, p.stations.length]), [["Quầy tiếp đón", 1], ["Phòng thủ thuật", 2]]);
+  // Không mất vị trí nào, giữ đúng thứ tự.
+  assert.deepEqual(tang.flatMap((t) => t.phongs.flatMap((p) => p.stations.map((s) => s.key))), ds.map((s) => s.key));
+  assert.deepEqual(phanTang([]), []);
+});
+
+test("phanTang: cùng phòng mà khác tầng là HAI nhóm — nhóm phòng không vắt qua hai tầng", () => {
+  const [a] = DANH_MUC;
+  const tang = phanTang([a, { ...a, key: "X", tang: "Tầng 2" }]);
+  assert.equal(tang.length, 2);
+  assert.deepEqual(tang.map((t) => t.phongs.length), [1, 1]);
+});
+
+test("nhanDayDu: tên hàng chung ('BS') kèm phòng; tên đã có phòng / không phòng thì giữ", () => {
+  assert.equal(nhanDayDu({ label: "BS", phong: "Phòng thủ thuật" }), "Phòng thủ thuật · BS");
+  assert.equal(nhanDayDu({ label: "Trưởng ca", phong: "" }), "Trưởng ca");
+  assert.equal(nhanDayDu({ label: "Phòng siêu âm 2 máy", phong: "Phòng siêu âm 2 máy" }), "Phòng siêu âm 2 máy");
+  const nhan = nhanViTri(DANH_MUC);
+  assert.equal(nhan.T1_TT_BS, "Thủ thuật/Sàn chậu · BS thủ thuật");
+  assert.equal(nhan.DIEU_PHOI, "Trưởng ca (điều phối)");
+  assert.equal(nhan.LICH_KHAM, "Lịch khám (bác sĩ trực)");
 });
 
 const MO = (khoa: string): ThongTinO => ({ dong: null, khoa });
