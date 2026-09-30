@@ -279,7 +279,7 @@ export default function InventoryBoard({
                           />
                         </label>
                         <label className="block min-w-0 flex-1">
-                          <span className="mb-1 block text-meta text-ink-soft">Lý do *</span>
+                          <span className="mb-1 block text-meta text-ink-soft">Lý do</span>
                           <input
                             value={lo.ly_do}
                             onChange={(e) => setLo({ ...lo, ly_do: e.target.value })}
