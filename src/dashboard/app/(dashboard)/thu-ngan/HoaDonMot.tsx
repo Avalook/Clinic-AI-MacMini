@@ -27,6 +27,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { dongDangChon, tongTheoLuaChon } from "@/lib/hoa-don-quay";
+import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonBacSiLam";
 import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 
 export interface PhongChon {
@@ -34,6 +35,8 @@ export interface PhongChon {
   ten: string;
   dang_cho: number;
   vang_nhat?: boolean;
+  /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
+  bac_si?: LuaChonBacSi[];
 }
 
 export interface DongQuay {
@@ -53,6 +56,8 @@ export interface DongQuay {
   doi_tac_da_thu?: boolean | null;
   phong_chon_duoc?: PhongChon[];
   phong_du_kien_id?: string | null;
+  /** Bác sĩ quầy đã chọn trong phòng nhiều bác sĩ. */
+  bac_si_lam_id?: string | null;
   can_xep_phong?: boolean;
 }
 
@@ -152,12 +157,18 @@ export default function HoaDonMot({
       return m;
     });
 
-  const datPhong = async (orderId: string, roomId: string) => {
+  // `bacSi` chỉ gửi khi chọn ở ô bác sĩ (phòng ≥2 bác sĩ); không gửi thì máy
+  // chủ giữ / tự gán phòng một bác sĩ. "" = bác sĩ nào rảnh cũng được.
+  const datPhong = async (orderId: string, roomId: string, bacSi?: string) => {
     setLoiPhong(null);
     const r = await fetch("/api/luot-kham", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ thao_tac: "phong-du-kien", id: orderId, du_lieu: { room_id: roomId || null } }),
+      body: JSON.stringify({
+        thao_tac: "phong-du-kien",
+        id: orderId,
+        du_lieu: { room_id: roomId || null, ...(bacSi !== undefined ? { bac_si_lam_id: bacSi || null } : {}) },
+      }),
     });
     if (!r.ok) {
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
@@ -334,7 +345,7 @@ function DanhSach({
   ds: DongQuay[];
   dangChon: (d: DongQuay) => boolean;
   doiTick: (id: string) => void;
-  datPhong: (orderId: string, roomId: string) => Promise<void>;
+  datPhong: (orderId: string, roomId: string, bacSi?: string) => Promise<void>;
   doiTac?: boolean;
 }) {
   if (ds.length === 0) return null;
@@ -384,6 +395,18 @@ function DanhSach({
                   ))}
                 </select>
               ) : null}
+              {(() => {
+                const phongId = d.phong_du_kien_id ?? "";
+                const bs = d.phong_chon_duoc?.find((p) => p.id === phongId)?.bac_si;
+                return co && phongId && coChonBacSi(bs) ? (
+                  <ChonBacSiLam
+                    co="dong"
+                    ds={bs}
+                    value={d.bac_si_lam_id ?? ""}
+                    onChon={(id) => void datPhong(d.id, phongId, id)}
+                  />
+                ) : null;
+              })()}
               {d.van_de && co ? <p className="w-full text-meta text-warning">{d.van_de}</p> : null}
             </li>
           );

@@ -32,6 +32,11 @@ from clinicai.services.bac_si_phu_trach import (
     bac_si_trong_ca_hoac_ca_ngay,
 )
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
+from clinicai.services.lan_bac_si import (
+    la_khach_lan_toi,
+    lan_cua_toi_trong_phong,
+    ten_bac_si,
+)
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
     _cung_ngay_vn,
@@ -706,6 +711,14 @@ class BangLuotKham:
             chua_xep = (
                 await cho_nhan_vao_phong(conn, cid, rid) if rid and la_hom_nay else []
             )
+            # Làn của người đang xem trong phòng này (phòng nhiều bác sĩ).
+            lan_toi: dict[str, Any] = (
+                await lan_cua_toi_trong_phong(
+                    conn, cid, rid, identity.staff_id, ngay=ngay_xem
+                )
+                if rid is not None and not tu_van
+                else {"co": False, "lan": [], "bac_si_ids": [], "nhan": None}
+            )
             # Bác sĩ có lượt khám chính trong hàng chờ này.
             if rid is not None:
                 # 29/09/2026: theo CA đang diễn ra (không chỉ ngày) + tính cả
@@ -832,7 +845,9 @@ class BangLuotKham:
                        CASE WHEN fb.id IS DISTINCT FROM bsky.id
                             THEN fb.full_name END AS nguoi_bam_ky,
                        c.status AS phien_status, c.kind AS phien_kind,
-                       r.name AS phong
+                       r.name AS phong,
+                       o.bac_si_lam_id::text AS bac_si_lam_id, o.lan_lam,
+                       blm.full_name AS bac_si_lam
                   FROM queue_entry q
                   JOIN visit v ON v.visit_id = q.visit_id AND v.clinic_id = q.clinic_id
                   JOIN stt ON stt.visit_id = q.visit_id
@@ -851,6 +866,7 @@ class BangLuotKham:
                   LEFT JOIN clinic_room r ON r.id = q.room_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                   LEFT JOIN staff fb ON fb.id = v.finalized_by
+                  LEFT JOIN staff blm ON blm.id = o.bac_si_lam_id
                 """
                 + sql_join_bac_si_ky_luot("v", "bsky")
                 + """
@@ -1016,6 +1032,14 @@ class BangLuotKham:
                 # Nội dung kết quả là chữ chuyên môn: chỉ vai đọc lâm sàng thấy.
                 "ket_qua_ghi": r["result_note"] if doc_noi_dung else None,
                 "ly_do_khong_lam": r["not_performed_reason"],
+                # Phòng nhiều bác sĩ (30/09/2026): bác sĩ quầy chọn + khách có
+                # thuộc làn của người đang xem không (lọc mặc định, tắt được).
+                "bac_si_lam": ten_bac_si(r["bac_si_lam"]) if r["bac_si_lam"] else None,
+                "lan_toi": la_khach_lan_toi(
+                    bac_si_lam_id=r["bac_si_lam_id"],
+                    lan_lam=r["lan_lam"],
+                    lan_toi=lan_toi,
+                ),
             }
             for r in _theo_luat_xep_hang(rows)
             # Người đã xong chỉ giữ của hôm nay (ngày cũ: giữ hết — xem lại).
@@ -1036,6 +1060,8 @@ class BangLuotKham:
                 else None
             ),
             "hang_cho": now_rows,
+            # Người xem đứng làn nào của phòng (co=False: không lọc được).
+            "lan_cua_toi": lan_toi,
             "chua_xep_phong": chua_xep,
             "sap_toi": [
                 {

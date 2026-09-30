@@ -39,7 +39,13 @@ export interface Phieu {
     thanh_tien: number | null;
     /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ.
      *  Chỉ in TÊN PHÒNG, không in tầng (Tuyền 30/09/2026). */
-    phong?: { ten: string; tang: string | number | null; du_kien: boolean } | null;
+    phong?: {
+      ten: string;
+      tang: string | number | null;
+      du_kien: boolean;
+      /** Bác sĩ quầy chọn trong phòng nhiều bác sĩ ("BS X") — 30/09/2026. */
+      bac_si?: string | null;
+    } | null;
     /** Máy vừa thu, đang tự xếp phòng — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
     /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
@@ -140,7 +146,7 @@ function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
               {d.ten}
               <span className={d.phong ? "text-ink-muted" : "text-warning"}>
                 {" "}
-                · {d.phong ? d.phong.ten : "chưa xếp phòng"}
+                · {d.phong ? `${d.phong.ten}${d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}` : "chưa xếp phòng"}
               </span>
             </p>
             <DoiPhong
@@ -216,6 +222,7 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
                 {d.phong ? (
                   <span className="block font-semibold">
                     → {d.phong.ten}
+                    {d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}
                     {d.phong.du_kien ? " (dự kiến)" : ""}
                   </span>
                 ) : d.cho_xep ? (
@@ -305,6 +312,7 @@ function PhieuHuongDanGiay({ p }: { p: Phieu }) {
               {d.phong ? (
                 <span className="block font-semibold">
                   → {d.phong.ten}
+                  {d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}
                   {d.phong.du_kien ? " (dự kiến)" : ""}
                 </span>
               ) : (

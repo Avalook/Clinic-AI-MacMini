@@ -21,6 +21,10 @@ export type TrangThaiHang =
 export interface DongHangCho {
   id: string;
   trang_thai: TrangThaiHang;
+  /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ quầy chọn ("BS X", máy chủ viết)
+   *  và khách có thuộc làn của người đang xem không (chưa chọn = mọi làn). */
+  bac_si_lam?: string | null;
+  lan_toi?: boolean;
   /** KHAM = lượt khám chính của bác sĩ · TU_VAN = hàng bác sĩ tư vấn ·
    *  DICH_VU = chỉ định xếp vào phòng. */
   loai: "KHAM" | "TU_VAN" | "DICH_VU";

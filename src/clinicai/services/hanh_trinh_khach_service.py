@@ -46,6 +46,7 @@ from clinicai.phieu_kham.hanh_trinh import (
     dung_moc,
     dung_tung_dich_vu,
 )
+from clinicai.services.lan_bac_si import noi_lam
 from clinicai.services.lich_su_phong import lich_su_phong_cua_luot
 from clinicai.services.xem_luot_service import goi_duoc
 
@@ -115,7 +116,8 @@ def noi_cua_hang(q: dict[str, Any], phong_bac_si: str | None = None) -> str:
         if phong_bac_si:
             return phong_bac_si
         return _ban_kham_bs(q["bac_si"]) if q.get("bac_si") else "Bàn khám (BS chính)"
-    return q.get("phong") or "Phòng dịch vụ"
+    # Phòng nhiều bác sĩ: "Phòng siêu âm 2 máy · BS X" (30/09/2026).
+    return noi_lam(q.get("phong"), q.get("bac_si_lam")) or "Phòng dịch vụ"
 
 
 #: Tên chỗ GIỮ CHỖ (chưa biết phòng thật) — `noi_cua_hang` và các bước chưa
@@ -779,6 +781,8 @@ _SQL_HANG = """
            coalesce(q.doctor_staff_id, c.doctor_staff_id)::text
                AS doctor_staff_id,
            r.name AS phong, d.full_name AS bac_si,
+           -- Bác sĩ quầy chọn cho chỉ định (phòng nhiều bác sĩ, 30/09/2026).
+           bl.full_name AS bac_si_lam,
            CASE WHEN q.status IN ('waiting', 'called', 'blocked') THEN (
                SELECT count(*) FROM queue_entry o
                 WHERE o.clinic_id = q.clinic_id AND o.lane = q.lane
@@ -797,6 +801,9 @@ _SQL_HANG = """
         ON c.id = q.ref_id AND q.reason <> 'SERVICE' AND c.clinic_id = q.clinic_id
       LEFT JOIN clinic_room r ON r.id = q.room_id
       LEFT JOIN staff d ON d.id = coalesce(q.doctor_staff_id, c.doctor_staff_id)
+      LEFT JOIN service_order so
+        ON so.id = q.ref_id AND q.reason = 'SERVICE' AND so.clinic_id = q.clinic_id
+      LEFT JOIN staff bl ON bl.id = so.bac_si_lam_id
      WHERE q.clinic_id = $1::uuid AND q.visit_id = ANY($2::uuid[])
        AND q.status <> 'cancelled'
      ORDER BY q.created_at

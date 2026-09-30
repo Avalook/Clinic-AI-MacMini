@@ -737,6 +737,26 @@ class DichVuDaChuyenPhong(PayloadSuKien):
     nguon: str = "truong_ca"
 
 
+class DaChonBacSiLam(PayloadSuKien):
+    """`service.doctor_chosen` — chọn / đổi / bỏ BÁC SĨ làm trong phòng nhiều
+    bác sĩ (Tuyền chốt 30/09/2026: "phòng siêu âm 2 máy … thêm cả lựa chọn các
+    bác sĩ ở ngày đó"). Chỉ là lựa chọn — không khoá ai bắt đầu làm.
+
+    `bac_si_id` None = bỏ chọn ("bác sĩ nào rảnh cũng được"). `tu_dong` = phòng
+    chỉ có một bác sĩ trực nên máy tự gán. `du_kien` = phòng còn là phòng dự
+    kiến (khách chưa chốt), chưa xếp chính thức."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    bac_si_id: str | None = None
+    tu_bac_si_id: str | None = None
+    lan: int | None = None
+    tu_dong: bool = False
+    du_kien: bool = False
+    nguon: str | None = None
+
+
 class XepPhongDaHuy(PayloadSuKien):
     """`service.routing_invalidated` — phòng cũ không dùng được nữa.
 
@@ -1063,6 +1083,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=DichVuDaChuyenPhong,
             nhan="Trưởng ca chuyển phòng khi đang làm",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.doctor_chosen",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=DaChonBacSiLam,
+            nhan="Chọn bác sĩ làm trong phòng",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1460,6 +1490,7 @@ __all__ = [
     "HANH_TRINH",
     "ChiDinhMangSang",
     "DaXepDuongDi",
+    "DaChonBacSiLam",
     "DaXepPhong",
     "DichVuDaChuyenPhong",
     "TienDichVuDaThu",

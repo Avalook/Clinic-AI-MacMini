@@ -23,6 +23,8 @@ export interface DaTraChoPhong {
   room_id: string | null;
   phong: string | null;
   routing_revision: number;
+  /** Bác sĩ đã chọn trong phòng nhiều bác sĩ ("BS X", máy chủ viết). */
+  bac_si_lam?: string | null;
 }
 
 export default function XepPhongDaThu({
@@ -57,6 +59,7 @@ export default function XepPhongDaThu({
               <span className={c.phong ? "text-ink-muted" : "text-warning"}>
                 {" "}
                 · {c.phong ?? "chưa xếp phòng"}
+                {c.phong && c.bac_si_lam ? ` · ${c.bac_si_lam}` : ""}
               </span>
             </p>
             <DoiPhong

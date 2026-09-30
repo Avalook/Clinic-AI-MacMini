@@ -30,7 +30,12 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity, danh_tinh_nhan_vien
-from clinicai.events.catalogue import DaXepPhong, DichVuDaChuyenPhong, XepPhongDaHuy
+from clinicai.events.catalogue import (
+    DaChonBacSiLam,
+    DaXepPhong,
+    DichVuDaChuyenPhong,
+    XepPhongDaHuy,
+)
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import finance_gate
@@ -41,6 +46,12 @@ from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
     khach_dang_duoc_phuc_vu,
     mo_cho_bi_chan,
+)
+from clinicai.services.lan_bac_si import (
+    bac_si_tu_gan,
+    can_chon_bac_si,
+    lua_chon_bac_si,
+    ten_bac_si,
 )
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -60,6 +71,7 @@ ACTION_TRANSFER = "service_routing.transfer_in_progress"
 EVENT_ROUTED = "service.routed"
 EVENT_INVALIDATED = "service.routing_invalidated"
 EVENT_TRANSFERRED = "service.room_transferred"
+EVENT_DOCTOR_CHOSEN = "service.doctor_chosen"
 ADVISOR = "rule-v1"
 
 UNASSIGNED = "UNASSIGNED"
@@ -94,6 +106,19 @@ QUYEN_THEO_NGUON = {
     NGUON_QUAY_THU: "payment.service.collect",
     NGUON_TRUONG_CA: "dispatch.manage",
 }
+
+
+class _KhongDoi:
+    """Lệnh không nói gì về bác sĩ — giữ lựa chọn cũ (phòng chỉ có MỘT bác sĩ
+    trực mà chưa ai chọn thì tự gán). Khác ``None`` = bỏ chọn."""
+
+    def __repr__(self) -> str:
+        return "KHONG_DOI"
+
+
+#: Giá trị mặc định của tham số ``bac_si_lam_id`` (chọn bác sĩ trong phòng).
+KHONG_DOI: Any = _KhongDoi()
+
 INVALIDATE_REASONS = frozenset(
     {
         "ROOM_UNAVAILABLE",
@@ -331,6 +356,18 @@ def rank_rooms(rooms: Sequence[RoomCandidate]) -> list[dict[str, Any]]:
     return out
 
 
+def gan_bac_si_vao_ung_vien(
+    ung_vien: list[dict[str, Any]], lua_chon: dict[str, list[dict[str, Any]]]
+) -> None:
+    """Gắn lựa chọn bác sĩ vào từng phòng gợi ý — HÀM THUẦN, sửa tại chỗ.
+
+    ``bac_si`` chỉ có phần tử khi phòng có ≥2 bác sĩ trực (quầy hiện ô chọn);
+    một bác sĩ thì lệnh xếp tự gán, không hỏi ai."""
+    for u in ung_vien:
+        ds = lua_chon.get(str(u.get("room_id")), [])
+        u["bac_si"] = ds if can_chon_bac_si(ds) else []
+
+
 # ---------------------------------------------------------------------------
 # Đọc: chỉ định KHÁCH ĐÃ CHỐT chờ vào phòng (Tuyền 24/09/2026; V10 30/09/2026)
 # ---------------------------------------------------------------------------
@@ -511,10 +548,12 @@ async def da_tra_cho_vao_phong(
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                o.routing_revision, o.room_id::text AS room_id, r.name AS phong,
                coalesce(o.routing_status, 'UNASSIGNED') AS routing_status,
-               o.routing_nguon, o.node_code, o.service_code
+               o.routing_nguon, o.node_code, o.service_code,
+               o.bac_si_lam_id::text AS bac_si_lam_id, bl.full_name AS bac_si_lam
           FROM service_order o
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           LEFT JOIN clinic_room r ON r.id = o.room_id AND r.clinic_id = o.clinic_id
+          LEFT JOIN staff bl ON bl.id = o.bac_si_lam_id
          WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
            AND {_DA_TRA_CHUA_LAM}
          ORDER BY o.created_at, o.id
@@ -531,6 +570,9 @@ async def da_tra_cho_vao_phong(
                 "room_id": r["room_id"] if r["routing_status"] == ASSIGNED else None,
                 "phong": r["phong"] if r["routing_status"] == ASSIGNED else None,
                 "routing_revision": int(r["routing_revision"]),
+                # Bác sĩ đã chọn trong phòng nhiều bác sĩ (30/09/2026).
+                "bac_si_lam_id": r["bac_si_lam_id"],
+                "bac_si_lam": ten_bac_si(r["bac_si_lam"]) if r["bac_si_lam"] else None,
                 # Quầy thu tính phòng chọn được theo bước + dịch vụ này
                 # (27/09, 30/09/2026) — hai khoá nội bộ, bỏ trước khi trả màn
                 # (``KHOA_NOI_BO``).
@@ -645,13 +687,53 @@ def _ly_do(value: Any, cho_phep: frozenset[str]) -> str:
     return str(value)
 
 
+def _co_bac_si(bac_si_lam_id: str | None) -> dict[str, Any]:
+    """Kết quả lệnh xếp chỉ mang `bac_si_lam_id` khi chỉ định CÓ bác sĩ được
+    chọn — phòng một bác sĩ / chưa chọn giữ nguyên khuôn kết quả cũ."""
+    return {"bac_si_lam_id": bac_si_lam_id} if bac_si_lam_id else {}
+
+
+def _ma_bac_si(value: Any) -> str | None:
+    """Mã bác sĩ gửi lên: rỗng / None = bỏ chọn; còn lại phải là UUID."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    return _uuid(value, "Mã bác sĩ không hợp lệ.")
+
+
+async def _cau_bac_si_khong_truc(
+    conn: asyncpg.Connection,
+    cid: str,
+    rid: str,
+    bac_si: str,
+    lua_chon: Sequence[dict[str, Any]],
+) -> str:
+    """Câu từ chối khi chọn bác sĩ không trực làn nào của phòng hôm nay."""
+    ten = await conn.fetchval("SELECT full_name FROM staff WHERE id = $1::uuid", bac_si)
+    phong = await conn.fetchval(
+        "SELECT coalesce(name, code) FROM clinic_room"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        cid,
+        rid,
+    )
+    ai = ten_bac_si(ten) if ten else "Bác sĩ này"
+    o_dau = phong or "phòng này"
+    if not lua_chon:
+        return (
+            f"{ai} không trực ở {o_dau} hôm nay — phòng chưa có bác sĩ nào trên"
+            " lịch, để trống ô bác sĩ."
+        )
+    ds = ", ".join(str(x["ten"]) for x in lua_chon)
+    return f"{ai} không trực ở {o_dau} lúc này — chọn một trong: {ds}."
+
+
 _ORDER_SQL = """
 SELECT id::text AS id, visit_id::text AS visit_id, exec_status, source,
        authorized_by::text AS authorized_by, hold_until_round, node_code,
        service_code, service_name,
        selection_status, routing_status, routing_revision, execution_status,
        room_id::text AS room_id, routing_nguon,
-       phong_du_kien_id::text AS phong_du_kien_id
+       phong_du_kien_id::text AS phong_du_kien_id,
+       bac_si_lam_id::text AS bac_si_lam_id
   FROM service_order
  WHERE clinic_id = $1::uuid AND id = $2::uuid
    FOR UPDATE
@@ -811,6 +893,8 @@ class ServiceRoutingService:
                        {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam,
                        o.execution_status, o.exec_status, o.selection_status,
                        o.phong_du_kien_id::text AS phong_du_kien_id,
+                       o.bac_si_lam_id::text AS bac_si_lam_id,
+                       bl.full_name AS bac_si_lam,
                        r.name AS phong_hien_tai, v.closed_at,
                        (SELECT q.status FROM queue_entry q
                          WHERE q.clinic_id = o.clinic_id AND q.reason = 'SERVICE'
@@ -827,6 +911,7 @@ class ServiceRoutingService:
                   LEFT JOIN clinic_room r
                     ON r.id = o.room_id AND r.clinic_id = o.clinic_id
                    AND o.routing_status = 'ASSIGNED'
+                  LEFT JOIN staff bl ON bl.id = o.bac_si_lam_id
                  WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
                 """,
                 cid,
@@ -862,6 +947,14 @@ class ServiceRoutingService:
                     )
                 )
             )
+            # Chọn BÁC SĨ trong phòng nhiều bác sĩ (30/09/2026) — lọc tiếp trên
+            # chính tập phòng này, không tính lại phòng nào làm được.
+            gan_bac_si_vao_ung_vien(
+                ung_vien,
+                await lua_chon_bac_si(
+                    conn, cid, [u["room_id"] for u in ung_vien], tru_luot=o["visit_id"]
+                ),
+            )
         luc = datetime.now(timezone.utc).isoformat()
         # Màn chỉ vẽ câu này và chỉ bày ô chọn phòng khi CO_PHONG (27/09/2026):
         # chụp phim ở quầy từng hiện "Chưa có phòng nào làm được…" + ô chọn rỗng.
@@ -883,6 +976,8 @@ class ServiceRoutingService:
             "che_do": che_do,
             "cau_che_do": CAU_DU_KIEN if che_do == CHE_DO_DU_KIEN else None,
             "phong_du_kien_id": o["phong_du_kien_id"],
+            "bac_si_lam_id": o["bac_si_lam_id"],
+            "bac_si_lam": ten_bac_si(o["bac_si_lam"]) if o["bac_si_lam"] else None,
             "phong_hien_tai": o["phong_hien_tai"],
             "dang_lam_tu": o["dang_lam_tu"].isoformat()
             if o["dang_lam_tu"] is not None
@@ -900,11 +995,17 @@ class ServiceRoutingService:
         idempotency_key: str | None,
         recommendation_ref: str | None = None,
         nguon: Any = None,
+        bac_si_lam_id: Any = KHONG_DOI,
     ) -> dict[str, Any]:
         """AssignServiceRoom — lệnh DUY NHẤT xếp / đổi phòng chính thức.
 
         `nguon` = màn gọi lệnh (quầy thu / trưởng ca / khác): mỗi nguồn hỏi thêm
         quyền của lego ấy; trưởng ca đã xếp thì nguồn khác không đổi được (P3).
+
+        `bac_si_lam_id` (30/09/2026) = bác sĩ trong phòng nhiều bác sĩ: không
+        gửi → giữ (một bác sĩ trực thì tự gán); ``None`` / rỗng → bỏ chọn; mã →
+        phải là bác sĩ đang trực làn của phòng ấy hôm nay. Cùng phòng mà chỉ đổi
+        bác sĩ cũng đi lệnh này.
         """
         ng = _nguon(nguon)
         key = _can_khoa(idempotency_key)
@@ -925,6 +1026,8 @@ class ServiceRoutingService:
             "recommendation_ref": ref,
             "nguon": ng,
         }
+        if bac_si_lam_id is not KHONG_DOI:
+            payload["bac_si_lam_id"] = _ma_bac_si(bac_si_lam_id)
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
             # Kiểm quyền trong chính giao dịch của lệnh.
@@ -949,6 +1052,7 @@ class ServiceRoutingService:
                 ref=ref,
                 tu_dong=False,
                 nguon=ng,
+                bac_si=payload.get("bac_si_lam_id", KHONG_DOI),
             )
             await bien_nhan_ghi(
                 conn, identity, ACTION_ASSIGN, key, payload, oid, result
@@ -969,6 +1073,7 @@ class ServiceRoutingService:
         tu_dong: bool,
         nguon: str = NGUON_KHAC,
         du_kien_nguon: str | None = None,
+        bac_si: Any = KHONG_DOI,
     ) -> dict[str, Any]:
         """Lõi AssignServiceRoom — người gọi đã kiểm quyền và khoá lượt.
 
@@ -1049,16 +1154,31 @@ class ServiceRoutingService:
             oid,
         )
         if hien == ASSIGNED and o["room_id"] == rid:
-            # Cùng phòng: không đổi gì, không tăng revision, không sự kiện.
-            return self._ket_qua(
-                oid,
-                False,
-                ASSIGNED,
-                rid,
-                int(o["routing_revision"]),
-                q["status"] if q else None,
-                ref,
+            # Cùng phòng: không đổi phòng, không tăng revision, không sự kiện
+            # xếp phòng. Chỉ đổi BÁC SĨ (nếu lệnh nói) — sự kiện riêng.
+            doi_bs = await self._ghi_bac_si(
+                conn,
+                identity,
+                vid=vid,
+                oid=oid,
+                rid=rid,
+                bac_si=bac_si,
+                tu_dong=tu_dong,
+                nguon=nguon,
+                du_kien=False,
             )
+            return {
+                **self._ket_qua(
+                    oid,
+                    doi_bs["changed"],
+                    ASSIGNED,
+                    rid,
+                    int(o["routing_revision"]),
+                    q["status"] if q else None,
+                    ref,
+                ),
+                **_co_bac_si(doi_bs["bac_si_lam_id"]),
+            }
         queue_status = await self._xep_hang(conn, cid, vid, oid, rid, q)
         moi = await conn.fetchval(
             """
@@ -1124,7 +1244,129 @@ class ServiceRoutingService:
                 **({"du_kien_nguon": du_kien_nguon} if du_kien_nguon else {}),
             },
         )
-        return self._ket_qua(oid, True, ASSIGNED, rid, int(moi), queue_status, ref)
+        # Phòng mới → lựa chọn bác sĩ cũ đã bị trigger xoá (khác phòng); lệnh
+        # nói bác sĩ thì ghi, không nói mà phòng có đúng một bác sĩ thì tự gán.
+        doi_bs = await self._ghi_bac_si(
+            conn,
+            identity,
+            vid=vid,
+            oid=oid,
+            rid=rid,
+            bac_si=bac_si,
+            tu_dong=tu_dong,
+            nguon=nguon,
+            du_kien=False,
+        )
+        return {
+            **self._ket_qua(oid, True, ASSIGNED, rid, int(moi), queue_status, ref),
+            **_co_bac_si(doi_bs["bac_si_lam_id"]),
+        }
+
+    async def _ghi_bac_si(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        *,
+        vid: str,
+        oid: str,
+        rid: str,
+        bac_si: Any,
+        tu_dong: bool,
+        nguon: str | None,
+        du_kien: bool,
+    ) -> dict[str, Any]:
+        """Ghi BÁC SĨ làm cho chỉ định trong phòng ``rid`` (phòng đã xếp, hoặc
+        phòng dự kiến khi ``du_kien``). Người gọi đã kiểm quyền + khoá lượt.
+
+        ``KHONG_DOI`` → giữ; chưa có mà phòng có đúng MỘT bác sĩ trực → tự gán.
+        ``None`` → bỏ chọn. Mã → phải nằm trong lựa chọn của phòng hôm nay
+        (`lan_bac_si.lua_chon_bac_si`), sai thì từ chối câu tiếng Việt.
+        Đổi thì phát ``service.doctor_chosen`` (ai chọn = người gây ra lệnh)."""
+        cid = identity.clinic_id
+        hien = await conn.fetchval(
+            "SELECT bac_si_lam_id::text FROM service_order"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            cid,
+            oid,
+        )
+        lua_chon = (await lua_chon_bac_si(conn, cid, [rid], tru_luot=vid))[rid]
+        tu_gan = False
+        chon: Any = None
+        if bac_si is KHONG_DOI:
+            if hien is not None:
+                return {"changed": False, "bac_si_lam_id": hien}
+            chon = bac_si_tu_gan(lua_chon)
+            if chon is None:
+                return {"changed": False, "bac_si_lam_id": None}
+            tu_gan = True
+        elif bac_si is not None:
+            chon = next((x for x in lua_chon if x["staff_id"] == bac_si), None)
+            if chon is None:
+                raise LuotKhamValidationError(
+                    "DOCTOR_NOT_ON_DUTY",
+                    await _cau_bac_si_khong_truc(conn, cid, rid, bac_si, lua_chon),
+                )
+        moi = str(chon["staff_id"]) if chon else None
+        if moi == hien:
+            return {"changed": False, "bac_si_lam_id": hien}
+        lan = chon["lan"] if chon else None
+        await conn.execute(
+            """
+            UPDATE service_order
+               SET bac_si_lam_id = $3::uuid, lan_lam = $4::int,
+                   bac_si_lam_boi = CASE WHEN $3::uuid IS NULL THEN NULL
+                                         ELSE $5::uuid END,
+                   bac_si_lam_luc = CASE WHEN $3::uuid IS NULL THEN NULL
+                                         ELSE now() END,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND id = $2::uuid
+            """,
+            cid,
+            oid,
+            moi,
+            lan,
+            identity.staff_id,
+        )
+        nguon_ghi = NGUON_TU_DONG if tu_gan and not tu_dong else nguon
+        await emit_event(
+            conn,
+            ten="service.doctor_chosen",
+            clinic_id=cid,
+            aggregate_id=oid,
+            so_ke_tiep=True,
+            payload=DaChonBacSiLam(
+                visit_id=vid,
+                service_order_id=oid,
+                room_id=rid,
+                bac_si_id=moi,
+                tu_bac_si_id=hien,
+                lan=lan,
+                tu_dong=tu_dong or tu_gan,
+                du_kien=du_kien,
+                nguon=nguon_ghi,
+            ),
+            boi=nguoi(identity),
+            correlation_id=vid,
+        )
+        await record_event(
+            conn,
+            event_type=EVENT_DOCTOR_CHOSEN,
+            aggregate_type="service_order",
+            aggregate_id=oid,
+            identity=identity,
+            origin=ORIGIN,
+            payload={
+                "visit_id": vid,
+                "room_id": rid,
+                "bac_si_id": moi,
+                "tu_bac_si_id": hien,
+                "lan": lan,
+                "tu_dong": tu_dong or tu_gan,
+                "du_kien": du_kien,
+                "nguon": nguon_ghi,
+            },
+        )
+        return {"changed": True, "bac_si_lam_id": moi}
 
     async def tu_xep_da_thu(
         self,
@@ -1275,6 +1517,7 @@ class ServiceRoutingService:
         room_id: Any,
         identity: StaffIdentity,
         nguon: Any = None,
+        bac_si_lam_id: Any = KHONG_DOI,
     ) -> dict[str, Any]:
         """PlanServiceRoom — ghi phòng khách sẽ làm, TRƯỚC khi khách chốt.
 
@@ -1286,8 +1529,13 @@ class ServiceRoutingService:
         `nguon` = quầy thu (mặc định) hoặc trưởng ca (29/09/2026: trưởng ca đặt
         phòng được cả khi khách chưa trả tiền). Mỗi nguồn hỏi quyền lego của
         mình. Người đặt sau đè người đặt trước — không khoá (Tuyền 29/09).
+
+        `bac_si_lam_id` (30/09/2026): bác sĩ trong phòng nhiều bác sĩ — như lệnh
+        xếp phòng (`assign`). Khách chưa chốt thì lựa chọn đi theo phòng dự
+        kiến; dây H4 xếp đúng phòng ấy thì giữ nguyên bác sĩ.
         """
         ng = NGUON_QUAY_THU if nguon in (None, "") else _nguon(nguon)
+        bs: Any = KHONG_DOI if bac_si_lam_id is KHONG_DOI else _ma_bac_si(bac_si_lam_id)
         if ng not in QUYEN_THEO_NGUON:
             raise LuotKhamValidationError(
                 "ROUTING_NGUON_INVALID",
@@ -1332,6 +1580,7 @@ class ServiceRoutingService:
                     ref=None,
                     tu_dong=False,
                     nguon=ng,
+                    bac_si=bs,
                 )
                 await conn.execute(
                     "UPDATE service_order SET phong_du_kien_id = $3::uuid"
@@ -1367,6 +1616,7 @@ class ServiceRoutingService:
                             ref=None,
                             tu_dong=False,
                             nguon=ng,
+                            bac_si=bs,
                         )
                         await conn.execute(
                             "UPDATE service_order SET phong_du_kien_id = $3::uuid"
@@ -1396,10 +1646,28 @@ class ServiceRoutingService:
                 rid,
                 ng,
             )
+            # Bác sĩ đi theo phòng dự kiến (đổi phòng dự kiến → trigger đã xoá
+            # lựa chọn cũ). Chưa chọn phòng thì không có bác sĩ để chọn.
+            bs_moi = None
+            if rid is not None:
+                bs_moi = (
+                    await self._ghi_bac_si(
+                        conn,
+                        identity,
+                        vid=vid,
+                        oid=oid,
+                        rid=rid,
+                        bac_si=bs,
+                        tu_dong=False,
+                        nguon=ng,
+                        du_kien=True,
+                    )
+                )["bac_si_lam_id"]
         return {
             "ok": True,
             "order_id": oid,
             "phong_du_kien_id": rid,
+            "bac_si_lam_id": bs_moi,
             "nguon": ng,
             "cau": CAU_DU_KIEN if rid else None,
         }
