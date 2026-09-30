@@ -244,6 +244,7 @@ def test_gom_so_tm_ck_hoan_huy_thuoc() -> None:
         "so_luot_khong_chon_dich_vu_kham": 0,
         "so_luot_da_thu": 2,
         "so_khach_da_thu": 2,
+        "so_luot_ban_le": 0,
     }
     assert bc["doi_tac"]["tong"] == 900_000
     assert [(o["ten"], o["doanh_thu"]) for o in bc["top_dich_vu"]] == [

@@ -98,6 +98,8 @@ export interface LuotThuoc {
   patient_code: string | null;
   phone: string | null;
   kham_xong: boolean;
+  /** V8: lượt BÁN LẺ — khách chỉ đến mua thuốc (không khám, không hàng chờ). */
+  ban_le?: boolean;
   giai_doan: GiaiDoan;
   lan_thu: {
     payment_cycle_id: string;
@@ -120,6 +122,10 @@ export interface ManNhaThuoc {
   hom_nay: string;
   /** Người xem có được ghi ở nhà thuốc không — máy chủ đã AND vào mọi nút. */
   co_quyen_ghi: boolean;
+  /** V8: được mở lượt "Khách mua thuốc" (lego nhà thuốc hoặc thu tiền). */
+  duoc_mo_ban_le?: boolean;
+  /** V8: được kê thêm + thu tiền thuốc ngay tại quầy (lego Thu tiền thuốc). */
+  duoc_thu_thuoc?: boolean;
 }
 
 export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_thich: string }> = {

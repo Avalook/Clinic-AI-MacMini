@@ -113,6 +113,7 @@ def gom_bao_cao(
     theo_ngay: dict[str, dict[str, int]] = {}
     ds_hoan_huy: list[dict[str, Any]] = []
     luot_da_thu: set[str] = set()
+    luot_ban_le: set[str] = set()
     khach_da_thu: set[str] = set()
     cycle_paid: set[str] = set()
 
@@ -162,7 +163,12 @@ def gom_bao_cao(
         else:
             cycle_paid.add(str(c.get("id")))
             if c.get("visit_id"):
-                luot_da_thu.add(str(c["visit_id"]))
+                # V8: lượt BÁN LẺ không phải lượt khám — tiền thuốc vẫn cộng ở
+                # trên, nhưng đếm riêng, không vào "lượt đã thu".
+                if c.get("ban_le"):
+                    luot_ban_le.add(str(c["visit_id"]))
+                else:
+                    luot_da_thu.add(str(c["visit_id"]))
             if c.get("khach_id"):
                 khach_da_thu.add(str(c["khach_id"]))
 
@@ -275,6 +281,7 @@ def gom_bao_cao(
             "so_luot_kham": int(so_luot_kham),
             "so_luot_khong_chon_dich_vu_kham": int(so_luot_khong_chon_dich_vu_kham),
             "so_luot_da_thu": len(luot_da_thu),
+            "so_luot_ban_le": len(luot_ban_le),
             "so_khach_da_thu": len(khach_da_thu),
         },
         "doi_tac": {"tong": sum(d["so_tien"] for d in dt_ds), "dong": dt_ds},
@@ -426,7 +433,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.paid_at, pc.closed_at, pc.close_reason,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
-       p.patient_code AS ma_bn
+       p.patient_code AS ma_bn, coalesce(v.ban_le, false) AS ban_le
   FROM payment_cycle pc
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
@@ -502,6 +509,8 @@ SELECT d.id::text AS id, d.cycle_id::text AS cycle_id, d.method_cu, d.method_moi
 _LUOT_SQL = """
 SELECT count(*) FROM visit
  WHERE clinic_id = $1::uuid
+   -- V8: lượt BÁN LẺ (khách chỉ mua thuốc) không phải lượt khám.
+   AND NOT ban_le
    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
 """
 
@@ -514,6 +523,7 @@ SELECT count(*) FROM public.visit v
   LEFT JOIN public.encounter_flow ef
     ON ef.clinic_id = v.clinic_id AND ef.visit_id = v.visit_id
  WHERE v.clinic_id = $1::uuid
+   AND NOT v.ban_le  -- V8: lượt bán lẻ không có bước khám
    AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
    -- Lượt đi thẳng phòng dịch vụ không có bước khám, nên không thể "chưa
    -- chọn dịch vụ khám". Nếu rẽ về bác sĩ chính thì vẫn được đếm.

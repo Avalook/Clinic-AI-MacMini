@@ -133,6 +133,8 @@ class BangHanhTrinhService:
                       LEFT JOIN service_type st ON st.id = v.service_type_id
                       LEFT JOIN staff d ON d.id = v.attending_doctor_id
                      WHERE v.clinic_id = $1::uuid AND v.created_at >= $2
+                       -- V8: lượt bán lẻ (chỉ mua thuốc) không có hành trình.
+                       AND NOT v.ban_le
                      -- Khách CÒN ở phòng khám trước, người mới tới trước: có
                      -- cắt ở trần thì cắt những lượt đã về lâu nhất.
                      ORDER BY (v.closed_at IS NOT NULL), v.created_at DESC

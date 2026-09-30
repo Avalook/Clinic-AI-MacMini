@@ -12,8 +12,16 @@ import type { ManNhaThuoc } from "./ban-thuoc";
 
 export const dynamic = "force-dynamic";
 
-export default async function PharmacyPage() {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function PharmacyPage({
+  searchParams,
+}: {
+  /** `luot` — chọn sẵn một lượt (V8: nút "Khách mua thuốc" ở Kho thuốc). */
+  searchParams: Promise<{ luot?: string }>;
+}) {
   await requireNavAccess("/pharmacy");
+  const { luot } = await searchParams;
   const man = await fetchFromBackend<ManNhaThuoc>("/api/v1/pharmacy/ban-thuoc");
   if (!man) {
     return (
@@ -22,5 +30,5 @@ export default async function PharmacyPage() {
       </div>
     );
   }
-  return <PharmacyBoard man={man} />;
+  return <PharmacyBoard man={man} chonDau={luot && UUID_RE.test(luot) ? luot : null} />;
 }
