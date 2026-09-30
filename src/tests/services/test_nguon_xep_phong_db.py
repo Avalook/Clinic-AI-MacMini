@@ -82,11 +82,13 @@ async def test_sau_ca_xep_phong_quay_thu_va_truong_ca(
     await _chon(pool, ca, visit, [order])
     svc = ServiceRoutingService(pool)
 
-    # 1. Quầy thu chọn phòng DỰ KIẾN trước khi thu → thu xong H4 xếp đúng phòng.
+    # 1. Khách đã chốt, quầy chọn phòng trước khi thu → V10 (làm trước, thu
+    #    sau): xếp THẬT luôn, nguồn quầy thu; thu xong H4 không đè lại.
     await svc.dat_phong_du_kien(order_id=order, room_id=phong_hai, identity=ca.le_tan)
+    assert await _nguon(pool, order) == (phong_hai, "quay_thu")
     await _thu(pool, visit, ca.le_tan)
     await chay_hanh_trinh(pool)
-    assert await _nguon(pool, order) == (phong_hai, "tu_dong")
+    assert await _nguon(pool, order) == (phong_hai, "quay_thu")
 
     async def xep(ai: object, phong: str, nguon: str) -> None:
         rev = int((await _don(pool, order))["routing_revision"])

@@ -356,9 +356,14 @@ async def test_bang_gia_doi_trong_luc_cho_van_ghi_da_thu_va_can_doi_soat(
     """Review CP2 #3: tiền thật đã vào tài khoản theo ảnh chụp 150.000đ; bảng
     giá đổi sau đó không phủ nhận được khoản ấy."""
     a = (await _thu_pt(q, "TRANSFER"))["payment_cycle_id"]
+    # V2: tiền khám chưa chọn = giá mặc định của loại khám (không còn dòng giá
+    # trùng tên) — đổi giá ở đó.
     await q.pool.execute(
-        "UPDATE service_price SET unit_price = 180000 WHERE service_code = $1",
-        f"KHAM-{q.duoi}",
+        "UPDATE service_type SET gia_mac_dinh = 180000 WHERE id = ("
+        " SELECT coalesce(v.service_type_id, a.service_type_id) FROM visit v"
+        " LEFT JOIN appointment a ON a.id = v.appointment_id"
+        " WHERE v.visit_id = $1::uuid)",
+        q.visit_id,
     )
     kq = await _xm(q, a, "FT150K")
     assert kq["status"] == "PAID" and kq["can_doi_soat"] is True

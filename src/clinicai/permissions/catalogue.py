@@ -410,6 +410,16 @@ QUYEN: dict[str, Quyen] = {
             "result",
             MucRuiRo.LAM_SANG,
         ),
+        # V9 (30/09/2026): xoá mềm tệp kết quả, hoàn tác 30 ngày. Cùng khối
+        # `ket_qua` — hướng "MỞ HẾT": ai có lego kết quả thì xoá được. Tệp đã gửi
+        # khách / phiên đọc đã đóng thì chỉ "Đính chính – gỡ tệp" (cần duyệt KQ).
+        Quyen(
+            "result.file.delete",
+            "Xoá / khôi phục tệp kết quả (xoá mềm, hoàn tác 30 ngày)",
+            "ket_qua",
+            "result",
+            MucRuiRo.LAM_SANG,
+        ),
         Quyen(
             "clinical.intake.perform",
             "Khám tư vấn — nhận khách, chuyển bác sĩ chính",
@@ -774,7 +784,7 @@ PRESET["MANAGEMENT"] = list(KHOI)
 # "Phòng khám chả có quy trình nào, lúc nào, ai thu cũng được… open hết ra, nhân
 # sự có các node gần full để thao tác cho lẹ." Mọi vai nội bộ có MỌI khối, trừ
 # bốn khối của hai lego chỉ Quản lý giữ (Cài đặt phòng khám, Nhân sự & phân
-# quyền) để khỏi loạn. Migration 20260930100000 cấp bù cho tài khoản hiện có và
+# quyền) để khỏi loạn. Migration 20260930900000 cấp bù cho tài khoản hiện có và
 # thêm y hệt vào `quyen_preset`.
 #
 # Hệ quả đã chấp nhận: ai đủ lego Bàn khám được suy ra vai DOCTOR ở các cửa cũ

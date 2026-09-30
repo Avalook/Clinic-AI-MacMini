@@ -1,6 +1,6 @@
 """Đưa một tài khoản thử về GÓI LEGO CŨ của vai (trước mở full lego 30/09/2026).
 
-Từ migration 20260930100000 mọi tài khoản nội bộ mới có gần đủ mọi khối, nên bài
+Từ migration 20260930900000 mọi tài khoản nội bộ mới có gần đủ mọi khối, nên bài
 kiểm "người KHÔNG có lego X thì bị chặn" phải tự dựng người ấy: quản lý thu bớt
 lego trên /phan-quyen là về đúng tình huống này. Hàm này thu (revoke, có vết)
 mọi dòng cấp phạm vi toàn phòng khám có khối nằm NGOÀI gói mẫu cũ của vai

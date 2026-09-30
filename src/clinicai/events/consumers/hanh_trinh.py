@@ -4,17 +4,24 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
 (không ghi bảng của ai). Dây nối (docs/BAN-DO-DAY-NOI-LEGO.md, "Bản chốt 24/09"):
 
     H2  visit.checked_in          → mang chỉ định chưa làm của lượt trước sang
-                                    (đã trả tiền: xếp phòng luôn; lịch đi thẳng
-                                    phòng: mang cả chỉ định chưa trả)
+                                    rồi xếp phòng luôn (V10: kể cả chưa trả;
+                                    lịch đi thẳng phòng: mang cả chỉ định chưa
+                                    trả)
     H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính /
                                     thẳng dịch vụ (lịch đi thẳng phòng)
         vitals.recorded           → hàng tư vấn: "chờ đo sinh hiệu" → "chờ tư vấn"
                                     (lượt chưa có đường đi thì xếp luôn — tự chữa);
                                     điều dưỡng tick "bỏ qua tư vấn" → thẳng bác sĩ
                                     chính (25/09)
+    H1b appointment.service_switched (có visit_id) → đổi dịch vụ khám sau
+                                    check-in: xếp lại hàng đầu tiên (V5 30/09)
     H3  consultation.handed_over  → hàng chờ khám thật của bác sĩ chính
-    H4  payment.service_collected → xếp phòng vắng nhất THAY người vừa thu tiền,
-                                    bằng quyền của người ấy (dây bật/tắt được)
+    H4  service_selection.confirmed → xếp phòng vắng nhất THAY người vừa chốt,
+                                    bằng quyền của người ấy — KHÔNG chờ thu (V10
+                                    "làm trước, thu sau", 30/09/2026)
+        payment.service_collected → chạy lại đúng lệnh ấy bằng quyền người thu
+                                    (chỉ định còn chưa có phòng — vô hại nếu
+                                    đã xếp); cùng một dây bật/tắt
     H6  visit.checked_out / left_early → còn việc dở → báo CSKH (bật/tắt được)
     H7  service.completed / partner.sample_collected (dịch vụ đối tác)
                                   → hẹn N ngày: kết quả chưa về → báo CSKH
@@ -82,15 +89,31 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             visit_id=visit_id,
             causation_id=su_kien.event_id,
         )
-        if any(m["da_thu_tien"] for m in mang) and await doc_day(
-            conn, su_kien.clinic_id, "h4_tu_xep_phong"
-        ):
-            # Đã trả ở lượt trước: vào thẳng hàng phòng, thay người check-in.
+        if mang and await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+            # Mang từ lượt trước: vào thẳng hàng phòng, thay người check-in —
+            # V10 làm trước, thu sau: chưa trả cũng xếp (lệnh tự bỏ chỉ định
+            # khách chưa chốt / tiền đang hoàn).
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,
                 clinic_id=su_kien.clinic_id,
                 visit_id=visit_id,
                 staff_id=su_kien.actor_staff_id,
+                causation_id=su_kien.event_id,
+            )
+    elif su_kien.event_type == "appointment.service_switched":
+        # Đổi lại lần nữa trước khi tin này tới → tin sau lo; không xếp theo
+        # một loại khám đã cũ.
+        hien_tai = await conn.fetchval(
+            "SELECT service_type_id::text FROM visit WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid",
+            su_kien.clinic_id,
+            visit_id,
+        )
+        if hien_tai == str(su_kien.payload.get("den_dich_vu_id") or ""):
+            await luot.xep_lai_sau_doi_dich_vu(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                visit_id=visit_id,
                 causation_id=su_kien.event_id,
             )
     elif su_kien.event_type == "payment.service_collected":
@@ -103,6 +126,21 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
                 causation_id=su_kien.event_id,
             )
         await _hen_nhac_check_out(conn, su_kien, visit_id)
+    elif su_kien.event_type == "service_selection.confirmed":
+        # V10 (Tuyền 30/09/2026) — LÀM TRƯỚC, THU SAU: "chỉ định rồi mà chưa thu
+        # tiền cũng vẫn cho thực hiện đi rồi cuối buổi thu cũng được". Khách chốt
+        # xong là xếp phòng ngay mọi chỉ định đã chốt, bằng quyền NGƯỜI CHỐT;
+        # người chốt không có quyền điều phối thì để nguyên — thu tiền sau đó
+        # chạy lại bằng quyền người thu, hoặc người có quyền xếp tay. (V2 trước
+        # đó chỉ xếp ở đây khi hoá đơn 0đ — nay là trường hợp riêng của luật này.)
+        if await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+            await ServiceRoutingService(pool=None).tu_xep_da_thu(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                visit_id=visit_id,
+                staff_id=su_kien.actor_staff_id,
+                causation_id=su_kien.event_id,
+            )
     elif su_kien.event_type == "payment.medicine_collected":
         await _hen_nhac_check_out(conn, su_kien, visit_id)
     elif su_kien.event_type in ("visit.checked_out", "visit.left_early"):
@@ -222,7 +260,7 @@ async def _bao_ve_con_viec(
               AND o.doi_tac_cho_tai_lieu_luc IS NULL
               AND o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
               AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED') AS cho_ket_qua,
-          (SELECT count(*) FROM tep_ket_qua t
+          (SELECT count(*) FROM v_tep_ket_qua_hieu_luc t
              JOIN service_order o ON o.id = t.service_order_id
                                  AND o.clinic_id = t.clinic_id
             WHERE t.clinic_id = $1::uuid AND o.visit_id = $2::uuid

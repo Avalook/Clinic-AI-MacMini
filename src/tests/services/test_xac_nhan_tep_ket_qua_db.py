@@ -1123,8 +1123,10 @@ async def test_t1_legacy_null_valid(pool: asyncpg.Pool) -> None:
         assert row["xac_nhan_luc"] is None
         assert row["thu_hoi_luc"] is None
 
-        # Cleanup
-        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
+        # Cleanup — tệp kết quả chặn xoá dòng từ V9; dùng cửa thoát có kiểm soát.
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_hard_delete = 'on'")
+            await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
 
 
 # ==============================================================================
@@ -1520,8 +1522,10 @@ async def test_t7_null_to_non_null_blocked(pool: asyncpg.Pool) -> None:
                 tep_id,
             )
 
-        # Cleanup
-        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
+        # Cleanup — tệp kết quả chặn xoá dòng từ V9; dùng cửa thoát có kiểm soát.
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_hard_delete = 'on'")
+            await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
 
 
 # ==============================================================================
@@ -1748,5 +1752,7 @@ async def test_t10_internal_direct_tamper_rejected_at_db(
             tep_id,
         )
 
-        # Cleanup
-        await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)
+        # Cleanup — tệp kết quả chặn xoá dòng từ V9; dùng cửa thoát có kiểm soát.
+        async with conn.transaction():
+            await conn.execute("SET LOCAL app.allow_hard_delete = 'on'")
+            await conn.execute("DELETE FROM tep_ket_qua WHERE id = $1::uuid", tep_id)

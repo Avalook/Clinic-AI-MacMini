@@ -88,7 +88,7 @@ async def _khach_va_bac_si(
                        $4::uuid AS lab_id) k
           LEFT JOIN visit v
             ON v.clinic_id = $1::uuid AND v.visit_id = k.visit_id
-          LEFT JOIN tep_ket_qua t
+          LEFT JOIN v_tep_ket_qua_hieu_luc t
             ON t.clinic_id = $1::uuid AND t.id = k.tep_id
           LEFT JOIN lab_result l
             ON l.clinic_id = $1::uuid AND l.lab_result_id = k.lab_id
@@ -196,6 +196,10 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         noi_dung = (
             "Khách đã thanh toán — đối tác đến lấy mẫu."
             if ly_do == "DA_THU_TIEN"
+            # V10 làm trước, thu sau: phòng khám thu hộ, quầy thu cuối buổi.
+            else "Khách đã chốt làm — đối tác đến lấy mẫu; phòng khám thu tiền"
+            " sau, đối tác không thu khách."
+            if ly_do == "KHACH_DA_CHON" and su_kien.payload.get("thu_sau")
             # Đối tác tự thu (27/09/2026): khách trả trực tiếp khi lấy mẫu.
             else "Khách đã chốt làm — đối tác đến lấy mẫu và thu tiền khách."
             if ly_do == "KHACH_DA_CHON"

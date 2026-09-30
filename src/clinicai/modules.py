@@ -141,6 +141,10 @@ MODULE: dict[str, Module] = {
                 "MarkServiceNotPerformed",
                 "InterruptService",
                 "PrepareServiceRetry",
+                # V4 (30/09/2026): làm không theo thứ tự. "Chuyển khách sang
+                # đây" là StartService kèm giai_phong (cùng giao dịch dừng lần
+                # làm ở phòng kia); huỷ lần Bắt đầu bấm nhầm là lệnh riêng.
+                "CancelMistakenStart",
             ],
             phat=[
                 "service.started",
@@ -148,6 +152,8 @@ MODULE: dict[str, Module] = {
                 "service.not_performed",
                 "service.interrupted",
                 "service.retry_prepared",
+                "service.patient_moved",
+                "service.start_cancelled",
             ],
             bang=["service_execution_attempt"],
             quyen=[
@@ -176,7 +182,12 @@ MODULE: dict[str, Module] = {
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
             # vòng đời kết quả — cùng module, không mở module mới cho hai lệnh.
-            quyen=["result.form.fill", "result.file.confirm", "result.review.approve"],
+            quyen=[
+                "result.form.fill",
+                "result.file.confirm",
+                "result.review.approve",
+                "result.file.delete",
+            ],
             # Điền xong phiếu mà dịch vụ còn đang làm dở thì đóng hộ — nhưng
             # bằng LỆNH của module Thực hiện, không thò tay vào bảng của nó.
             goi_dong_bo=["execution.CompleteService"],
@@ -239,6 +250,8 @@ MODULE: dict[str, Module] = {
                 "service.not_performed",
                 "service.interrupted",
                 "service.retry_prepared",
+                "service.patient_moved",
+                "service.start_cancelled",
                 "service.routing_invalidated",
                 "result_form.completed",
                 "result.ready",
@@ -258,6 +271,8 @@ MODULE: dict[str, Module] = {
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
                 "result.reviewed",
@@ -265,12 +280,14 @@ MODULE: dict[str, Module] = {
                 "lab_result.arrived",
                 "appointment.booked",
                 "appointment.rescheduled",
+                "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
                 "appointment.confirmed_by_call",
                 "visit.checked_out",
                 "visit.left_early",
                 "payment.refunded",
+                "payment.method_changed",
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
@@ -332,14 +349,17 @@ MODULE: dict[str, Module] = {
                 "consultation.handed_over",
                 "payment.service_collected",
                 "payment.medicine_collected",
+                "service_selection.confirmed",
                 "visit.checked_out",
                 "visit.left_early",
                 "service.completed",
                 "partner.sample_collected",
+                "appointment.service_switched",
             ],
             ben_nhan=["hanh_trinh_luot_kham"],
             goi_dong_bo=[
                 "consultation.RouteAfterCheckIn",
+                "consultation.RerouteAfterServiceSwitch",
                 "consultation.OpenIntakeQueue",
                 "consultation.HandToPrimaryDoctor",
                 "service_order.CarryOverUnfinishedOrders",
@@ -364,6 +384,8 @@ MODULE: dict[str, Module] = {
                 "RecordIntakeNote",
                 # Lệnh nội bộ khối Hành trình gọi (xếp hàng theo đường đi).
                 "RouteAfterCheckIn",
+                # Đổi dịch vụ khám sau check-in → xếp lại hàng đầu tiên (V5).
+                "RerouteAfterServiceSwitch",
                 "OpenIntakeQueue",
                 "HandToPrimaryDoctor",
             ],
@@ -414,10 +436,12 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "payment.refunded",
+                # Đổi TM/CK/QR sau khi thu (V7) — không phải huỷ.
+                "payment.method_changed",
                 # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
                 "medicine.declined",
             ],
-            bang=["payment_cycle", "payment_bill_line"],
+            bang=["payment_cycle", "payment_bill_line", "payment_cycle_doi_hinh_thuc"],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
         Module(
@@ -431,11 +455,16 @@ MODULE: dict[str, Module] = {
                 "OpenResultFile",
                 "MarkSent",
                 "RevokeResultFile",
+                # V9 (30/09/2026): xoá mềm + khôi phục 30 ngày.
+                "DeleteResultFile",
+                "RestoreResultFile",
             ],
             phat=[
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
             ],
@@ -461,6 +490,8 @@ MODULE: dict[str, Module] = {
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
             ],
             ben_nhan=["vong_doc_luot_kham"],
             bang=["review_round"],
@@ -490,10 +521,13 @@ MODULE: dict[str, Module] = {
                 "CancelAppointment",
                 "MarkNoShow",
                 "ConfirmByCall",
+                # Đổi dịch vụ khám ở menu ⋯ dòng lịch hẹn (V5, 30/09/2026).
+                "SwitchExamService",
             ],
             phat=[
                 "appointment.booked",
                 "appointment.rescheduled",
+                "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
                 "appointment.confirmed_by_call",

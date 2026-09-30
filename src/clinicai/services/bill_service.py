@@ -60,6 +60,9 @@ class DongHoaDon:
     # Vì sao dòng này chưa thu được (thiếu giá, mâu thuẫn giá, chưa xác định
     # thuốc kho, thiếu số lượng). Rỗng = thu được.
     van_de: str | None = None
+    # Chỉ dòng phụ thu: chỉ định dịch vụ cha. Metadata này cho quầy nối tick
+    # phụ thu với lựa chọn của cha; source_id vẫn là ID phụ thu để ghi sổ.
+    order_id: str | None = None
 
 
 @dataclass
@@ -69,6 +72,9 @@ class HoaDon:
     dong: list[DongHoaDon] = field(default_factory=list)
     # Vấn đề của CẢ LƯỢT, không thuộc dòng nào (vd tiền cũ không truy được).
     van_de_luot: list[str] = field(default_factory=list)
+    # Cảnh báo chỉ để người thu biết, KHÔNG khoá hoá đơn (vd đang dùng giá mặc
+    # định vì chưa chọn dịch vụ khám con).
+    canh_bao: list[str] = field(default_factory=list)
     # ĐỐI TÁC TỰ THU (Tuyền chốt 27/09/2026, Q1): dịch vụ khách trả TRỰC TIẾP
     # cho đối tác. Quầy HIỆN (kèm giá tham khảo) nhưng không cộng, không vào
     # dấu hoá đơn, không vào ảnh chụp lần thu — nó không phải khoản của phòng
@@ -132,6 +138,7 @@ class HoaDon:
             "revision": self.revision,
             "thu_duoc": self.thu_duoc,
             "van_de": self.van_de,
+            "canh_bao": self.canh_bao,
             "dong": [_dong_api(d) for d in self.dong],
             "chi_doi_tac_thu": self.chi_doi_tac_thu,
             "dong_doi_tac": [
@@ -180,6 +187,7 @@ def _dong_gia(
     drug_catalog_id: str | None = None,
     ma: str | None = None,
     van_de: str | None = None,
+    order_id: str | None = None,
 ) -> DongHoaDon:
     """Một dòng, với luật giá "không mâu thuẫn" (xem đầu file)."""
     khac_nhau = sorted(set(gia))
@@ -203,6 +211,7 @@ def _dong_gia(
         drug_catalog_id=drug_catalog_id,
         ma=ma,
         van_de=van_de,
+        order_id=order_id,
     )
 
 
@@ -256,8 +265,17 @@ KHAM_KHONG_HEN = "chưa xác định loại khám (lượt không có lịch h�
 KHAM_KHONG_RO_LOAI = "chưa xác định loại khám"
 #: Lượt có loại khám mà chưa ai tick dịch vụ khám (28/09/2026) — tiền khám lấy
 #: từ dịch vụ khám người khám CHỌN theo mã KiotViet, không suy từ tên loại khám.
-KHAM_CHUA_CHON = "chưa chọn dịch vụ khám — tick ở Bàn khám hoặc ngay tại quầy"
 KHAM_CHUA_CO_GIA = "dịch vụ khám đã chọn chưa có giá — sửa ở Bảng giá"
+
+
+def _nguon_phi_kham(service_price_id: str | None = None) -> str:
+    """Định danh nghĩa vụ khám mặc định hoặc MỘT dịch vụ khám con.
+
+    Mỗi dịch vụ con là một nguồn riêng để đã thu A rồi tick thêm B chỉ còn nợ
+    B. Gom cả tập vào một hash sẽ khiến tập ``{A, B}`` là nguồn hoàn toàn mới
+    và thu lại A.
+    """
+    return "default" if service_price_id is None else f"selected-{service_price_id}"
 
 
 def dong_kham_theo_chon(
@@ -266,35 +284,38 @@ def dong_kham_theo_chon(
     """Dòng tiền khám = các dịch vụ khám đã tick (Tuyền 28/09/2026). Thuần.
 
     "Tiền phát sinh khi bác sĩ khám cho họ là khám cái gì … lúc đó tiền mới
-    tính, mình không còn bịa giá nữa." Vẫn MỘT dòng mỗi lượt (`exam-{visit}` —
-    chốt thu hai lần giữ nguyên): tên nối các dịch vụ, giá = tổng. Chưa tick
-    thì dòng "Tiền khám" kèm vấn đề (khoản chưa thu được, không bỏ im lặng).
-    Dịch vụ đã tick mà chưa có giá (KiotViet để 0đ) → vấn đề, không đoán giá.
+    tính, mình không còn bịa giá nữa." Mỗi lựa chọn là một dòng/nguồn để lần
+    thu sau chỉ lấy phần mới tick. Chưa tick dùng giá mặc định và cảnh báo mềm.
+    Dịch vụ đã tick mà chưa có giá → vấn đề, không đoán giá.
     """
     if kham_row is None:
         return None
     if chon:
-        ten = " + ".join(clean_name(c["name"]) or "Dịch vụ khám" for c in chon)
-        gia = [c["unit_price"] for c in chon]
-        thieu_gia = [c["name"] for c in chon if c["unit_price"] is None]
-        ben, van_de_ben = giai_ben_thu([c["billing_owner"] for c in chon])
-        van_de = (
-            f"{KHAM_CHUA_CO_GIA}: {', '.join(thieu_gia)}" if thieu_gia else van_de_ben
-        )
         return {
             "ma": kham_row["st_id"],
-            "ten": ten,
-            "gia": [] if thieu_gia else [sum(Decimal(str(g)) for g in gia)],
-            "ben_thu": ben or CLINIC,
-            **({"van_de": van_de} if van_de else {}),
+            "dong_chon": [
+                {
+                    "source_id": _nguon_phi_kham(str(c["id"])),
+                    "ten": clean_name(c["name"]) or "Dịch vụ khám",
+                    "gia": []
+                    if c["unit_price"] is None
+                    else [Decimal(str(c["unit_price"]))],
+                    "ben_thu": c["billing_owner"] or CLINIC,
+                    **({"van_de": KHAM_CHUA_CO_GIA} if c["unit_price"] is None else {}),
+                }
+                for c in chon
+            ],
         }
     if clean_name(kham_row["name"]):
+        gia_mac_dinh = Decimal(str(kham_row.get("gia_mac_dinh") or 0))
+        hien_gia = f"{int(gia_mac_dinh):,}".replace(",", ".")
         return {
+            "source_id": _nguon_phi_kham(),
             "ma": kham_row["st_id"],
             "ten": f"Tiền khám {clean_name(kham_row['name'])}",
-            "gia": [],
+            "gia": [gia_mac_dinh],
             "ben_thu": CLINIC,
-            "van_de": KHAM_CHUA_CHON,
+            "canh_bao": f"Chưa chọn dịch vụ khám — đang tính {hien_gia}đ",
         }
     return {
         "ma": None,
@@ -360,11 +381,31 @@ def ghep_dich_vu(
 ) -> HoaDon:
     """Hoá đơn dịch vụ từ dữ liệu đã đọc. Thuần — kiểm được không cần DB."""
     hd = HoaDon(visit_id=visit_id, kind="dich_vu")
-    if kham and clean_name(kham.get("ten")):
+    if kham and kham.get("dong_chon"):
+        for chon in kham["dong_chon"]:
+            hd.dong.append(
+                _dong_gia(
+                    source_type="exam",
+                    source_id=f"exam-{visit_id}-{chon['source_id']}",
+                    ten=clean_name(chon.get("ten")) or "Dịch vụ khám",
+                    so_luong=Decimal(1),
+                    don_vi=None,
+                    gia=[Decimal(str(g)) for g in chon.get("gia") or []],
+                    ben_thu=chon.get("ben_thu") or CLINIC,
+                    ma=kham.get("ma"),
+                    van_de=chon.get("van_de"),
+                )
+            )
+    elif kham and clean_name(kham.get("ten")):
+        nguon_kham = kham.get("source_id") or "legacy"
         hd.dong.append(
             _dong_gia(
                 source_type="exam",
-                source_id=f"exam-{visit_id}",
+                source_id=(
+                    f"exam-{visit_id}"
+                    if nguon_kham == "default"
+                    else f"exam-{visit_id}-{nguon_kham}"
+                ),
                 ten=clean_name(kham.get("ten")),
                 so_luong=Decimal(1),
                 don_vi=None,
@@ -374,6 +415,8 @@ def ghep_dich_vu(
                 van_de=kham.get("van_de"),
             )
         )
+        if kham.get("canh_bao"):
+            hd.canh_bao.append(str(kham["canh_bao"]))
     for o in chi_dinh:
         hd.dong.append(
             _dong_gia(
@@ -401,9 +444,69 @@ def ghep_dich_vu(
                 ben_thu=CLINIC,
                 ma=None,
                 van_de=None,
+                order_id=str(p["order_id"]),
             )
         )
     return hd
+
+
+def _dong_kham_legacy(visit_id: str, kham: Mapping[str, Any]) -> DongHoaDon | None:
+    """Dựng lại dòng khám gộp trước V2 để xác minh/nhận diện ảnh chụp cũ."""
+    chon = list(kham.get("dong_chon") or [])
+    if not chon:
+        return None
+    thieu = [str(c["ten"]) for c in chon if not c.get("gia")]
+    ben, van_de_ben = giai_ben_thu([c.get("ben_thu") for c in chon])
+    return _dong_gia(
+        source_type="exam",
+        source_id=f"exam-{visit_id}",
+        ten=" + ".join(str(c["ten"]) for c in chon),
+        so_luong=Decimal(1),
+        don_vi=None,
+        gia=[]
+        if thieu
+        else [sum((Decimal(str(c["gia"][0])) for c in chon), Decimal(0))],
+        ben_thu=ben or CLINIC,
+        ma=kham.get("ma"),
+        van_de=f"{KHAM_CHUA_CO_GIA}: {', '.join(thieu)}" if thieu else van_de_ben,
+    )
+
+
+def _nguon_con_duoc_legacy_phu(
+    kham: Mapping[str, Any] | None, legacy: Sequence[Mapping[str, Any]]
+) -> set[str]:
+    """Ánh xạ ảnh chụp khám gộp cũ sang các dòng con hiện tại.
+
+    Dòng cũ không lưu id con, chỉ lưu tên ghép và tổng tiền. Chỉ công nhận khi
+    cả tên lẫn tổng khớp chính xác; trường hợp mơ hồ được để lại cho đối soát,
+    không tự suy đoán tiền.
+    """
+    if not kham:
+        return set()
+    con = list(kham.get("dong_chon") or [])
+    da_phu: set[str] = set()
+    for cu in legacy:
+        parts = str(cu["name_snapshot"] or "").split(" + ")
+        ung_vien: list[Mapping[str, Any]] = []
+        da_dung: set[int] = set()
+        for part in parts:
+            vi_tri = next(
+                (
+                    i
+                    for i, d in enumerate(con)
+                    if i not in da_dung and str(d["ten"]) == part and d.get("gia")
+                ),
+                None,
+            )
+            if vi_tri is None:
+                ung_vien = []
+                break
+            da_dung.add(vi_tri)
+            ung_vien.append(con[vi_tri])
+        tong = sum((Decimal(str(d["gia"][0])) for d in ung_vien), Decimal(0))
+        if ung_vien and tong == Decimal(str(cu["line_total"])):
+            da_phu.update(str(d["source_id"]) for d in ung_vien)
+    return da_phu
 
 
 def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
@@ -490,12 +593,16 @@ THU_CU_KHONG_TRUY_DUOC = (
     " tài chính trước khi thu tiếp"
 )
 
-#: Chỉ định còn tính tiền được: chưa huỷ / chưa "không làm", chưa bắt đầu, chưa
-#: kết thúc. Đã bắt đầu hoặc đã làm xong mà chưa có tiền là BẤT THƯỜNG — để
-#: FinanceGate đưa đi đối soát, không thu bù ở quầy (CHECKPOINT §3).
+#: Chỉ định còn tính tiền được: chưa huỷ / chưa "không làm" — kể cả ĐANG LÀM
+#: hay ĐÃ LÀM XONG. V10 (Tuyền 30/09/2026, "làm trước, thu sau"): khách làm
+#: trước rồi cuối buổi mới trả, nên dịch vụ đã làm mà chưa thu vẫn là khoản của
+#: quầy (trước: coi là bất thường, rơi khỏi hoá đơn — tức là MẤT TIỀN im lặng và
+#: check-out không còn báo nợ). Dừng giữa chừng (INTERRUPTED) chưa vào: chưa ai
+#: quyết làm tiếp hay thôi (FinanceGate để người đối soát).
 _CON_TINH_TIEN = """
-    o.exec_status IN ('authorized', 'assigned')
-    AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+    o.exec_status IN ('authorized', 'assigned', 'in_progress', 'performed')
+    AND coalesce(o.execution_status, 'PENDING')
+        IN ('PENDING', 'IN_PROGRESS', 'COMPLETED')
 """
 
 _GIA_CHI_DINH = """
@@ -518,7 +625,7 @@ SELECT o.id::text AS id, o.service_name, o.service_code,
 #: Phụ thu còn phải thu: đang tick, chỉ định chủ còn sống (khách không bỏ, chưa
 #: huỷ / không làm), chưa nằm trong lần thu đang giữ phủ.
 _PHU_THU_SQL = """
-SELECT p.id::text AS id, p.ten, p.don_gia
+SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
   FROM public.luot_phu_thu p
   JOIN public.service_order o
     ON o.id = p.service_order_id AND o.clinic_id = p.clinic_id
@@ -534,17 +641,10 @@ SELECT p.id::text AS id, p.ten, p.don_gia
 async def _kham(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any] | None:
-    gia_dv = await conn.fetch(
-        """
-        SELECT name, unit_price, billing_owner FROM public.service_price
-         WHERE clinic_id = $1::uuid AND active AND "group" = 'dich_vu'
-           AND unit_price IS NOT NULL
-        """,
-        clinic_id,
-    )
     kham_row = await conn.fetchrow(
         """
         SELECT st.id::text AS st_id, st.name,
+               coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
                (vi.appointment_id IS NULL) AS khong_hen,
                -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
                EXISTS (
@@ -580,7 +680,7 @@ async def _kham(
     # 28/09/2026: tiền khám = dịch vụ khám ĐÃ TICK (luot_phi_kham).
     chon = await conn.fetch(
         """
-        SELECT sp.name, sp.unit_price, sp.billing_owner
+        SELECT sp.id::text AS id, sp.name, sp.unit_price, sp.billing_owner
           FROM public.luot_phi_kham l
           JOIN public.service_price sp
             ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
@@ -591,16 +691,7 @@ async def _kham(
         clinic_id,
         visit_id,
     )
-    if chon:
-        return dong_kham_theo_chon(kham_row, chon)
-    # ĐƯỜNG TƯƠNG THÍCH: chưa tick mà bảng giá còn dòng TRÙNG ĐÚNG TÊN loại khám
-    # (cấu hình kiểu cũ) → dùng dòng ấy như trước. Prod sau migration
-    # 20260928000100 KHÔNG còn dòng nào như vậy (dòng phí khám mang tên KiotViet,
-    # dòng giá bịa đã tắt) → rơi xuống "chưa chọn dịch vụ khám".
-    cu = dong_kham(kham_row, gia_dv)
-    if cu is not None and cu.get("gia") and not cu.get("van_de"):
-        return cu
-    return dong_kham_theo_chon(kham_row, [])
+    return dong_kham_theo_chon(kham_row, chon)
 
 
 def _chi_dinh(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -632,9 +723,10 @@ async def hoa_don_con_no(
     Chỉ những gì phòng khám CÒN phải thu của lượt:
       * tiền khám — nếu chưa có lần thu nào đang giữ phủ nó;
       * chỉ định khách đã CHỌN (SELECTED), còn tính tiền được, chưa được phủ.
-    Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, đã
-    bắt đầu hoặc bị gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu
-    (kể cả đã huỷ phiếu hay đã hoàn — không tự thu lại).
+    Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, bị
+    gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu (kể cả đã huỷ
+    phiếu hay đã hoàn — không tự thu lại). ĐANG LÀM / ĐÃ LÀM XONG mà chưa thu
+    thì VẪN vào (V10 — làm trước, thu sau).
 
     ``coi_nhu_chon`` (quầy thu một hoá đơn, 27/09/2026): các chỉ định CÒN CHỜ
     KHÁCH QUYẾT được tính NHƯ ĐÃ CHỌN — hoá đơn DỰ KIẾN nếu khách làm đúng như
@@ -644,11 +736,44 @@ async def hoa_don_con_no(
     """
     unknown = bool(await conn.fetchval(THU_CU_KHONG_TRUY_DUOC_SQL, clinic_id, visit_id))
     kham = await _kham(conn, clinic_id, visit_id)
-    exam_phu = await conn.fetchval(
-        "SELECT " + _DA_PHU.format(loai="'exam'", nguon="$2"),
+    hd_kham = ghep_dich_vu(visit_id, kham, [])
+    nguon_hien_tai = [d.source_id for d in hd_kham.dong if d.source_type == "exam"]
+    nguon_da_phu = {
+        str(r["source_id"])
+        for r in await conn.fetch(
+            """
+            SELECT DISTINCT bl.source_id
+              FROM public.payment_bill_line bl
+              JOIN public.payment_cycle c
+                ON c.clinic_id = bl.clinic_id
+               AND c.payment_cycle_id = bl.payment_cycle_id
+             WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
+               AND bl.source_id = ANY($2::text[])
+               AND bl.billing_owner = 'CLINIC'
+               AND c.status IN ('PENDING_VERIFICATION', 'PAID')
+            """,
+            clinic_id,
+            nguon_hien_tai,
+        )
+    }
+    # Trước V2, mọi tập dịch vụ khám con được chụp chung dưới ``exam-{visit}``.
+    # Nhận diện chính xác tên+tổng để deploy không biến khoản cũ thành khoản nợ.
+    legacy = await conn.fetch(
+        """
+        SELECT bl.name_snapshot, bl.line_total
+          FROM public.payment_bill_line bl
+          JOIN public.payment_cycle c
+            ON c.clinic_id = bl.clinic_id
+           AND c.payment_cycle_id = bl.payment_cycle_id
+         WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
+           AND bl.source_id = $2 AND bl.billing_owner = 'CLINIC'
+           AND c.status IN ('PENDING_VERIFICATION', 'PAID')
+        """,
         clinic_id,
         f"exam-{visit_id}",
     )
+    legacy_suffixes = _nguon_con_duoc_legacy_phu(kham, legacy)
+    nguon_da_phu.update(f"exam-{visit_id}-{s}" for s in legacy_suffixes)
     rows = await conn.fetch(
         _GIA_CHI_DINH.format(
             dieu_kien=f"""
@@ -674,7 +799,12 @@ async def hoa_don_con_no(
         visit_id,
         sorted({str(i) for i in coi_nhu_chon}),
     )
-    hd = ghep_dich_vu(visit_id, None if exam_phu else kham, _chi_dinh(rows), phu_thu)
+    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
+    hd.dong = [
+        d for d in hd.dong if d.source_type != "exam" or d.source_id not in nguon_da_phu
+    ]
+    if not any(d.source_type == "exam" for d in hd.dong):
+        hd.canh_bao = []
     # Đối tác tự thu không phải khoản của phòng khám — không vào hoá đơn thu,
     # nhưng vẫn HIỆN ở quầy (27/09/2026).
     tach_doi_tac(hd)
@@ -764,9 +894,9 @@ async def hoa_don_theo_anh_chup(
         clinic_id,
         cycle_id,
     )
-    co_kham = any(r["source_type"] == "exam" for r in nguon)
+    nguon_kham = {str(r["source_id"]) for r in nguon if r["source_type"] == "exam"}
     ids = sorted(r["source_id"] for r in nguon if r["source_type"] == "service_order")
-    kham = await _kham(conn, clinic_id, visit_id) if co_kham else None
+    kham = await _kham(conn, clinic_id, visit_id) if nguon_kham else None
     rows = await conn.fetch(
         _GIA_CHI_DINH.format(
             dieu_kien="""
@@ -791,7 +921,20 @@ async def hoa_don_theo_anh_chup(
         if ids_pt
         else []
     )
-    return ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
+    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
+    hd.dong = [
+        d for d in hd.dong if d.source_type != "exam" or d.source_id in nguon_kham
+    ]
+    # Lần chờ tạo trước V2 dùng một dòng khám gộp. Dựng lại đúng contract cũ
+    # để chỉ báo HOA_DON_DOI khi lựa chọn/giá/bên thu thật sự đổi.
+    legacy_source = f"exam-{visit_id}"
+    if legacy_source in nguon_kham and not any(
+        d.source_type == "exam" and d.source_id == legacy_source for d in hd.dong
+    ):
+        legacy_line = _dong_kham_legacy(visit_id, kham or {})
+        if legacy_line is not None:
+            hd.dong.append(legacy_line)
+    return hd
 
 
 async def tinh_hoa_don(

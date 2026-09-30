@@ -98,10 +98,6 @@ interface IntakeAppointment {
   queue_number?: string | null;
 }
 
-function Req() {
-  return <span className="text-brand-600">*</span>;
-}
-
 /** Nút "thêm số cho khách này" trong ô cảnh báo trùng — lối đi thứ ba.
  *
  *  Hai lối cũ của ô cảnh báo là "vẫn tạo hồ sơ mới" (tách đôi bệnh án) và
@@ -960,7 +956,7 @@ export default function NewPatientForm({
       setError("Chưa chọn cơ sở khám.");
       return;
     }
-    // BẮT BUỘC điền (mục có dấu *): Họ tên + SĐT + Giới tính.
+    // BẮT BUỘC điền: Họ tên + SĐT + Giới tính.
     if (!fullName.trim()) {
       setError("Vui lòng nhập Họ và tên bệnh nhân (ở mục Thông tin hành chính phía trên).");
       return;
@@ -1170,12 +1166,12 @@ export default function NewPatientForm({
         <SectionHeader
           icon={<UserRound size={16} />}
           title="Thông tin hồ sơ"
-          hint="Mục có dấu * là bắt buộc (Họ tên, Ngày sinh, SĐT, Giới tính, Cơ sở)."
+          hint="Bắt buộc: Họ tên, Ngày sinh, SĐT, Giới tính, Cơ sở."
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={LABEL}>
-              Họ tên <Req />
+              Họ tên
             </label>
             <input
               value={fullName}
@@ -1187,7 +1183,7 @@ export default function NewPatientForm({
           </div>
           <div className={HANG}>
             <label className={HANG_LABEL_HEP}>
-              {dobYearOnly ? "Năm sinh" : "Ngày sinh"} <Req />
+              {dobYearOnly ? "Năm sinh" : "Ngày sinh"}
             </label>
             {dobYearOnly ? (
               <div className="min-w-0 flex-1">
@@ -1239,7 +1235,7 @@ export default function NewPatientForm({
           </div>
           <div>
             <label className={LABEL}>
-              SĐT chính <Req />
+              SĐT chính
             </label>
             <input
               value={phone}
@@ -1359,7 +1355,7 @@ export default function NewPatientForm({
           </div>
           <div>
             <label className={LABEL}>
-              Cơ sở đăng ký khám <Req />
+              Cơ sở đăng ký khám
             </label>
             <select
               value={locationId}
@@ -1375,7 +1371,7 @@ export default function NewPatientForm({
           </div>
           <div>
             <label className={LABEL}>
-              Giới tính <Req />
+              Giới tính
             </label>
             <select
               value={gender}
@@ -1423,7 +1419,7 @@ export default function NewPatientForm({
           </div>
           <div>
             <label className={LABEL}>
-              Tỉnh / Thành phố {requireAddress && <Req />}
+              Tỉnh / Thành phố
             </label>
             <SearchSelect
               options={provinceOpts}
@@ -1435,7 +1431,7 @@ export default function NewPatientForm({
           </div>
           <div>
             <label className={LABEL}>
-              Phường / Xã {requireAddress && <Req />}
+              Phường / Xã
             </label>
             <SearchSelect
               options={wardOpts}
@@ -1618,7 +1614,7 @@ export default function NewPatientForm({
         <SectionHeader
           icon={<CalendarClock size={16} />}
           title="Lịch hẹn khám"
-          hint="Mục có dấu * là bắt buộc (Dịch vụ, Bác sĩ, Ngày, Giờ, Kênh đặt)."
+          hint="Bắt buộc: Dịch vụ, Bác sĩ, Ngày, Giờ, Kênh đặt."
         />
         <label className="mb-3 flex min-h-10 items-center gap-2 text-body text-ink">
           <input
@@ -1637,7 +1633,7 @@ export default function NewPatientForm({
         <div className={chuaDatLich ? "hidden" : "grid grid-cols-1 gap-4 sm:grid-cols-2"}>
           <div className={`sm:col-span-2 ${HANG}`}>
             <label className={HANG_LABEL}>
-              Dịch vụ khám <Req />
+              Dịch vụ khám
             </label>
             <select
               value={linhVuc}
@@ -1665,7 +1661,7 @@ export default function NewPatientForm({
               còn và luồng VÃNG LAI của lễ tân vẫn tích được. */}
           <div className={`sm:col-span-2 ${HANG}`}>
             <label className={HANG_LABEL}>
-              Kênh đặt {!gheTrucTiep && <Req />}
+              Kênh đặt
             </label>
             <select
               value={channel}
@@ -1711,7 +1707,7 @@ export default function NewPatientForm({
               chỗ và khung giờ đều do backend nói. */}
           <div className="sm:col-span-2 space-y-2">
             <label className={LABEL}>
-              Chọn giờ khám <Req />
+              Chọn giờ khám
             </label>
             <div className="rounded-card border border-hairline p-2">
               <BangBacSiTuan

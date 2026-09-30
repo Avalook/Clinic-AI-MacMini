@@ -679,7 +679,11 @@ async def tai_len_ket_qua(
     Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
     Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
     """
-    from clinicai.services.nhan_tep_luong import nhan_multipart, uuid_hoac_loi
+    from clinicai.services.nhan_tep_luong import (
+        don_tep_tam,
+        nhan_multipart,
+        uuid_hoac_loi,
+    )
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
     truong, tep = await nhan_multipart(request)
@@ -703,7 +707,7 @@ async def tai_len_ket_qua(
         )
     finally:
         # Đã đổi tên về chỗ ở thật thì tệp tạm không còn; bị từ chối thì dọn.
-        tep.duong.unlink(missing_ok=True)
+        await don_tep_tam(tep)
 
 
 #: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được
@@ -825,6 +829,41 @@ async def thu_hoi_tep_ket_qua(
     )
 
 
+class XoaTepDTO(BaseModel):
+    ly_do: str | None = None
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/xoa")
+async def xoa_tep_ket_qua(
+    tep_id: UUID,
+    body: XoaTepDTO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Xoá mềm một tệp kết quả (V9 30/09/2026) — lý do bắt buộc, khôi phục được
+    30 ngày. Ai xoá được, theo loại nào (Xoá / Đính chính – gỡ tệp) do service
+    quyết (`xoa_duoc`), không do cửa này."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).xoa_tep(
+        identity=identity, tep_id=str(tep_id), ly_do=body.ly_do
+    )
+
+
+@router.post("/cskh/ket-qua/tep/{tep_id}/khoi-phuc")
+async def khoi_phuc_tep_ket_qua(
+    tep_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khôi phục tệp đã xoá mềm (Hoàn tác) — trong 30 ngày, khi tệp vật lý còn."""
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+
+    return await TepKetQuaService(pool).khoi_phuc_tep(
+        identity=identity, tep_id=str(tep_id)
+    )
+
+
 @router.get("/cskh/ket-qua/chi-dinh-cua-lich/{appointment_id}")
 async def chi_dinh_cua_lich(
     appointment_id: UUID,
@@ -853,13 +892,18 @@ async def danh_sach_ket_qua(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Tệp kết quả của một khách, kèm đã gửi hay chưa."""
+    """Tệp kết quả CÒN HIỆU LỰC của một khách, kèm đã gửi hay chưa; `da_xoa` =
+    tệp đã xoá mềm trong 30 ngày (dòng "Đã xoá · Hoàn tác", V9)."""
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
+    dv = TepKetQuaService(pool)
     return {
-        "items": await TepKetQuaService(pool).danh_sach(
+        "items": await dv.danh_sach(
             identity=identity, clinic_patient_id=str(clinic_patient_id)
-        )
+        ),
+        "da_xoa": await dv.da_xoa_gan_day(
+            identity=identity, clinic_patient_id=str(clinic_patient_id)
+        ),
     }
 
 

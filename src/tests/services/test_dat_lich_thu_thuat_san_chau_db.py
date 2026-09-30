@@ -88,7 +88,11 @@ async def test_khach_moi_ve_bac_si_chinh_tinh_tien_kham_dung_dong_gia(
     ten: str,
 ) -> None:
     """Khách mới đặt lịch loại đi-thẳng-phòng nhưng chưa có chỉ định nào mang
-    sang → rơi về bác sĩ chính → tiền khám khớp dòng giá THEO TÊN loại khám."""
+    sang → rơi về bác sĩ chính → có dòng tiền khám và THU ĐƯỢC.
+
+    V2 (30/09/2026): chưa chọn dịch vụ khám con thì tính giá mặc định của loại
+    khám + cảnh báo mềm — không còn tra dòng giá trùng tên (trên prod các dòng
+    ấy đã tắt), không còn khoá quầy vì "chưa chọn"."""
     await _ap_migration(pool)
     ca = await _dung(pool)
     loai = await _loai(pool, code)
@@ -102,6 +106,7 @@ async def test_khach_moi_ve_bac_si_chinh_tinh_tien_kham_dung_dong_gia(
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
     [kham] = [d for d in hd.dong if d.source_type == "exam"]
-    assert kham.ten == ten
-    assert kham.don_gia is not None and kham.don_gia > Decimal(0)
-    assert not kham.van_de
+    assert kham.ten == f"Tiền khám {ten}"
+    assert kham.don_gia is not None and kham.don_gia >= Decimal(0)
+    assert not kham.van_de and not hd.van_de
+    assert hd.canh_bao

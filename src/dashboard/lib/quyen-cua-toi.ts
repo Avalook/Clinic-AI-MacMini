@@ -18,6 +18,14 @@ export const QUYEN_Y_KHOA = [
   "result.review.approve",
 ] as const;
 
+/** Mở lượt "Khách mua thuốc" (V8, 30/09/2026). Khớp `QUYEN_MO` ở
+ *  `services/ban_le_service.py` — hướng "MỞ HẾT": lego nhà thuốc hoặc thu tiền. */
+export const QUYEN_BAN_LE = [
+  "pharmacy.dispense",
+  "payment.medicine.collect",
+  "payment.service.collect",
+] as const;
+
 export const quyenCuaToi = cache(async (): Promise<ReadonlySet<string>> => {
   const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
   return new Set(d?.quyen ?? []);
@@ -53,6 +61,11 @@ export const QUYEN_GHI_CHAM_SOC = [
   "reception.checkin.perform",
   "dispatch.manage",
 ] as const;
+
+/** Đổi dịch vụ khám ở menu ⋯ lịch hẹn (V5, 30/09/2026) — khớp
+ *  `QUYEN_DOI_DICH_VU_KHAM` ở `services/doi_dich_vu_kham.py`. Chỉ để ẨN/HIỆN
+ *  mục menu; máy chủ vẫn tự kiểm. */
+export const QUYEN_DOI_DICH_VU_KHAM = ["booking.manage", "reception.checkin.perform"] as const;
 
 /** Có ít nhất một quyền trong `can` (null = máy chủ chưa trả lời → không). */
 export function coMotQuyen(quyen: readonly string[] | null, can: readonly string[]): boolean {

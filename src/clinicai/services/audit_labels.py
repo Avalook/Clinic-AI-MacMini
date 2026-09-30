@@ -35,6 +35,9 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.confirmed": "Xác nhận lịch hẹn",
     "appointment.cskh_confirmed": "CSKH xác nhận lịch",
     "appointment.rescheduled": "Dời lịch hẹn",
+    # Menu ⋯ dòng lịch hẹn (V5, 30/09/2026) — đổi loại khám của lịch (và của
+    # lượt khám nếu đã check-in mà bác sĩ chưa bắt đầu).
+    "appointment.service_switched": "Đổi dịch vụ khám",
     # Quản lý gỡ ca trực khám của một bác sĩ ⇒ lịch hẹn ngày ấy bỏ bác sĩ, rơi
     # về hàng "Chờ xếp bác sĩ" (14/08/2026). Không phải người bấm vào lịch hẹn,
     # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một
@@ -58,6 +61,9 @@ EVENT_LABELS: dict[str, str] = {
     # Sổ sự kiện nghiệp vụ, nhóm 3 (24/09/2026).
     "visit.checked_out": "Khách đã về (check-out)",
     "visit.left_early": "Khách bỏ về giữa chừng",
+    # Khách chỉ đến mua thuốc — lượt Bán lẻ (V8, 30/09/2026).
+    "visit.ban_le_opened": "Mở lượt khách mua thuốc (bán lẻ)",
+    "visit.ban_le_closed": "Đóng lượt bán lẻ — đã thu tiền thuốc",
     "patient.contacted": "CSKH đã liên hệ khách",
     # Khối chỉnh dây (nhóm 5, 24/09/2026).
     "config.wiring_changed": "Đổi dây nối nghiệp vụ",
@@ -190,6 +196,7 @@ EVENT_LABELS: dict[str, str] = {
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
     "payment.voided": "Huỷ phiếu thanh toán",
+    "payment.method_changed": "Đổi hình thức thu (TM / CK / QR)",
     "payment.refunded": "Hoàn tiền cho khách",
     "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
     "payment.refund_failed": "Hoàn tiền không thành",
@@ -228,6 +235,9 @@ EVENT_LABELS: dict[str, str] = {
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
     "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
     "service.room_transferred": "Trưởng ca chuyển phòng khi dịch vụ đang làm",
+    # V4 (30/09/2026): làm dịch vụ không theo thứ tự.
+    "service.patient_moved": "Khách chuyển sang phòng khác khi đang làm dịch vụ",
+    "service.start_cancelled": "Huỷ lần bắt đầu làm dịch vụ bấm nhầm",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
@@ -250,6 +260,9 @@ EVENT_LABELS: dict[str, str] = {
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
     "tep_ket_qua.xac_nhan": "Xác nhận tệp kết quả",
     "tep_ket_qua.thu_hoi": "Thu hồi tệp kết quả",
+    "tep_ket_qua.xoa": "Xoá tệp kết quả (xoá mềm)",
+    "tep_ket_qua.dinh_chinh": "Đính chính – gỡ tệp kết quả đã gửi",
+    "tep_ket_qua.khoi_phuc": "Khôi phục tệp kết quả đã xoá",
 }
 
 #: Lệnh của workflow kernel (bảng `work_item_event`), gộp chung vào một dòng
@@ -289,6 +302,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:dispatch": "Điều phối trong ngày",
     "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
+    "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
@@ -299,6 +313,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:patient-edit": "Sửa hồ sơ khách",
     "api:reception": "Quầy tiếp nhận",
     "api:pharmacy": "Nhà thuốc",
+    "api:pharmacy-ban-le": "Nhà thuốc — khách mua thuốc (bán lẻ)",
+    "api:payment": "Quầy thu tiền",
     "api:staff": "Quản lý nhân sự",
     "api:staff-capability": "Quản lý nhân sự — Phân quyền",
     "api:roster": "Lịch làm việc",
@@ -311,6 +327,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:phieu-kham": "Bàn khám — Phiếu khám",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
+    "api:tep-ket-qua:xoa": "Xoá tệp kết quả",
+    "api:tep-ket-qua:khoi-phuc": "Khôi phục tệp kết quả",
 }
 
 #: Khớp theo TIỀN TỐ khi không có mục khớp đúng — và đây mới là phần quan trọng.

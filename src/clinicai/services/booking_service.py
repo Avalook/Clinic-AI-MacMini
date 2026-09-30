@@ -74,12 +74,21 @@ from clinicai.events.catalogue import (
     KhachKhongDen,
     LichDaDat,
     LichDaDoi,
+    LichDaDoiDichVu,
     LichDaHuy,
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.permissions.doc_bang import doi_mot_quyen
+from clinicai.services.audit import record_event
 from clinicai.services.bac_si_phu_trach import la_bac_si_khac
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
+from clinicai.services.doi_dich_vu_kham import (
+    CAU_BAC_SI_NGHI,
+    QUYEN_DOI_DICH_VU_KHAM,
+    doc_trang_thai,
+)
+from clinicai.services.lenh_kham_core import ma_uuid
 from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
@@ -1270,6 +1279,147 @@ class BookingService:
             "ngoai_ca": ngoai_ca,
         }
 
+    async def doi_dich_vu_kham(
+        self,
+        *,
+        appointment_id: str,
+        service_type_id: str,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """ĐỔI DỊCH VỤ KHÁM (V5, Tuyền chốt 30/09/2026) — menu ⋯ dòng lịch hẹn.
+
+        Trước check-in: đổi lịch. Sau check-in: đổi cả lượt khám, chỉ khi chưa
+        vướng gì (`doi_dich_vu_kham.ly_do_khong_doi`); khối Hành trình nghe sự
+        kiện rồi xếp lại hàng chờ đầu tiên. Không đổi được thì câu 409 nói rõ.
+
+        Chọn lại đúng dịch vụ đang có = không làm gì (bấm hai lần không lỗi).
+        """
+        aid = ma_uuid(appointment_id, "Mã lịch hẹn không hợp lệ.")
+        dv_id = ma_uuid(service_type_id, "Dịch vụ không hợp lệ.")
+        cid = identity.clinic_id
+        canh_bao: list[str] = []
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await doi_mot_quyen(
+                    conn,
+                    identity,
+                    QUYEN_DOI_DICH_VU_KHAM,
+                    cau=(
+                        "Bạn không có quyền đổi dịch vụ khám (cần “Quản lý lịch "
+                        "hẹn” hoặc “Check-in khách”)."
+                    ),
+                )
+                # Khoá lịch rồi lượt (cùng thứ tự mọi đường) — tick dịch vụ con
+                # (`PhiKhamService.chon`) cũng khoá lượt, nên hai bên không lọt.
+                if not await conn.fetchval(
+                    "SELECT 1 FROM appointment WHERE clinic_id = $1::uuid"
+                    " AND id = $2::uuid FOR UPDATE",
+                    cid,
+                    aid,
+                ):
+                    raise NotFoundError("Không tìm thấy lịch hẹn")
+                await conn.execute(
+                    "SELECT 1 FROM visit WHERE clinic_id = $1::uuid"
+                    " AND appointment_id = $2::uuid FOR UPDATE",
+                    cid,
+                    aid,
+                )
+                tt = await doc_trang_thai(conn, cid, aid)
+                moi = await conn.fetchrow(
+                    "SELECT id::text, name FROM service_type"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid AND is_active",
+                    cid,
+                    dv_id,
+                )
+                if moi is None:
+                    raise ValidationError("Dịch vụ không hợp lệ hoặc đã tắt.")
+                if tt.dich_vu_id == moi["id"]:
+                    return {
+                        "ok": True,
+                        "doi": False,
+                        "da_check_in": tt.sau_check_in,
+                        "dich_vu": moi["name"],
+                        "canh_bao": [],
+                    }
+                ly_do = tt.ly_do_khong_doi()
+                if ly_do:
+                    raise ConflictError(ly_do)
+                if not tt.bac_si_con_kham:
+                    raise ConflictError(CAU_BAC_SI_NGHI)
+                loi_bs = await self._luat_bac_si_bat_buoc(
+                    conn,
+                    clinic_patient_id=tt.clinic_patient_id,
+                    service_type_id=moi["id"],
+                    doctor_id=tt.doctor_id,
+                    identity=identity,
+                )
+                if loi_bs:
+                    cau, chan = loi_bs
+                    if chan:
+                        raise ConflictError(
+                            f"{cau} Đổi bác sĩ (Đổi lịch) trước rồi mới đổi dịch vụ."
+                        )
+                    canh_bao.append(cau)
+
+                await conn.execute(
+                    "UPDATE appointment SET service_type_id = $3::uuid,"
+                    " updated_at = now()"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    cid,
+                    aid,
+                    moi["id"],
+                )
+                visit_id = tt.visit_id if tt.sau_check_in else None
+                if visit_id:
+                    await conn.execute(
+                        "UPDATE visit SET service_type_id = $3::uuid,"
+                        " updated_at = now()"
+                        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+                        cid,
+                        visit_id,
+                        moi["id"],
+                    )
+                chi_tiet = {
+                    "appointment_id": aid,
+                    "visit_id": visit_id,
+                    "tu_dich_vu_id": tt.dich_vu_id,
+                    "den_dich_vu_id": moi["id"],
+                    "tu_ten": tt.ten_dich_vu,
+                    "den_ten": moi["name"],
+                }
+                await record_event(
+                    conn,
+                    event_type="appointment.service_switched",
+                    aggregate_type="appointment",
+                    aggregate_id=aid,
+                    identity=identity,
+                    origin="api:appointment-doi-dich-vu-kham",
+                    payload=chi_tiet,
+                    correlation_id=visit_id,
+                )
+                await emit_event(
+                    conn,
+                    ten="appointment.service_switched",
+                    clinic_id=cid,
+                    aggregate_id=aid,
+                    payload=LichDaDoiDichVu(**chi_tiet),
+                    boi=nguoi(identity),
+                    correlation_id=visit_id,
+                )
+        logger.info(
+            "appointment_doi_dich_vu_kham",
+            appointment_id=aid,
+            sau_check_in=tt.sau_check_in,
+            by_staff_id=identity.staff_id,
+        )
+        return {
+            "ok": True,
+            "doi": True,
+            "da_check_in": tt.sau_check_in,
+            "dich_vu": moi["name"],
+            "canh_bao": canh_bao,
+        }
+
     async def _bao_neu_vua_co_bac_si(
         self, kq: _KetQuaHanhDong, appointment_id: str, identity: StaffIdentity
     ) -> None:
@@ -2424,9 +2574,12 @@ class BookingService:
             -- ở đây DO NOTHING thì lượt cũ nằm im INCOMPLETE — khách đứng trong
             -- hàng đợi lễ tân mà màn bác sĩ (lọc OPEN/IN_PROGRESS) không bao giờ
             -- thấy. Mở lại đúng lượt ấy. Lượt đang mở hay đã ký thì không chạm.
+            -- Loại khám theo LỊCH HIỆN TẠI: lịch đổi dịch vụ lúc lượt đang
+            -- hoàn tác (V5, 30/09/2026) thì lượt mở lại mang loại khám mới.
             DO UPDATE SET status = 'OPEN',
                           checked_in_at = now(),
                           checked_in_by = EXCLUDED.checked_in_by,
+                          service_type_id = EXCLUDED.service_type_id,
                           incomplete_at = NULL,
                           incomplete_reason = NULL,
                           incomplete_by = NULL,

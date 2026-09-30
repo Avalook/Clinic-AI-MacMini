@@ -38,6 +38,7 @@ import {
 } from "../../../lib/clinical-completion";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
 import type { DoctorApptRow } from "./DoctorApptRow";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 interface Profile {
   blood_type: string | null;
@@ -526,14 +527,13 @@ export default function ClinicalRecordForm({
       if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) reload();
     };
     window.addEventListener(SU_KIEN_BANG, changed);
-    window.addEventListener("focus", reload);
-    document.addEventListener("visibilitychange", reload);
-    const safety = setInterval(reload, 60_000);
+    // Tab ẩn thì huỷ hẳn nhịp 60s; hiện lại thì nạp lại MỘT lần (30/09/2026).
+    // Bỏ tay nghe `focus`: bấm sang cửa sổ bên cạnh rồi bấm lại thì tab vẫn hiện
+    // suốt, dòng SSE vẫn mở — không có gì để bắt kịp.
+    const goNhip = nhipKhiHien(reload, 60_000);
     return () => {
-      clearTimeout(timer); clearInterval(safety);
+      clearTimeout(timer); goNhip();
       window.removeEventListener(SU_KIEN_BANG, changed);
-      window.removeEventListener("focus", reload);
-      document.removeEventListener("visibilitychange", reload);
     };
   }, [pageIdx]);
 
@@ -1247,15 +1247,13 @@ export default function ClinicalRecordForm({
                     else if (n < lo || n > hi) warn = `Nên trong ${lo}–${hi}`;
                   }
                 }
-                // Trường bắt buộc → đánh dấu * + báo "Bắt buộc" khi đã bấm Lưu.
+                // Trường bắt buộc → báo "Bắt buộc" khi đã bấm Lưu (bỏ dấu *
+                // ở nhãn, Tuyền 30/09/2026 — ô vẫn bắt buộc).
                 const required = requiredVitals.has(k);
                 const missing = required && v === "" && vitalsTried;
                 return (
                   <div key={k}>
-                    <label className={LABEL}>
-                      {lbl}
-                      {required && <span className="text-brand-600"> *</span>}
-                    </label>
+                    <label className={LABEL}>{lbl}</label>
                     <input
                       type={ty}
                       step={ty === "number" ? st : undefined}

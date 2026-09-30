@@ -19,13 +19,15 @@ là 240MB tức thời — đủ để tiến trình bị giết giữa giờ kh
 
 from __future__ import annotations
 
-import asyncio
 import errno
 import hashlib
 import io
 import os
 import shutil
 import zipfile
+from collections.abc import Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import IO, Any
 
@@ -35,14 +37,16 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.core.kho_tep import chay_tren_kho
+from clinicai.core.kho_tep import chay_tren_kho, don_tren_kho, han_theo_co
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     KetQuaDaGuiKhach,
+    TepKetQuaDaKhoiPhuc,
     TepKetQuaDaThuHoi,
     TepKetQuaDaVe,
     TepKetQuaDaXacNhan,
     TepKetQuaDaXem,
+    TepKetQuaDaXoa,
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, can_o_phong_nao_do
@@ -274,6 +278,252 @@ XEM_LA_DA_XEM: frozenset[ClinicRole] = frozenset(
 )
 
 
+# ── Xoá mềm tệp kết quả (V9, Tuyền chốt 30/09/2026) ─────────────────────────
+#
+# Hướng "MỞ HẾT": người có lego Kết quả (`result.file.delete`, khối `ket_qua`)
+# xoá được mọi lúc; người tải lên xoá được tệp của mình khi chưa ai khác xem /
+# duyệt. Chỉ giữ chặn khi tệp đã tới tay khách hoặc phiên đọc đã đóng: lúc ấy
+# chỉ còn "Đính chính – gỡ tệp", cần quyền duyệt kết quả và lý do. Lý do LUÔN
+# bắt buộc. Xoá = ẩn (view `v_tep_ket_qua_hieu_luc`), khôi phục được 30 ngày.
+
+LOAI_XOA = "XOA"
+LOAI_DINH_CHINH = "DINH_CHINH"
+#: Khôi phục được trong bấy nhiêu ngày; job dọn ổ cũng đợi đúng mốc này.
+SO_NGAY_KHOI_PHUC = 30
+LY_DO_XOA_TOI_DA = 500
+
+#: Phiên đọc kết quả của chỉ định đã ĐÓNG — cột tính kèm dòng tệp (bí danh `t`).
+PHIEN_DOC_DONG_SQL = """EXISTS (
+    SELECT 1 FROM round_requirement q_xd
+      JOIN review_round r_xd
+        ON r_xd.id = q_xd.round_id AND r_xd.clinic_id = q_xd.clinic_id
+     WHERE q_xd.clinic_id = t.clinic_id
+       AND q_xd.service_order_id = t.service_order_id
+       AND r_xd.status = 'closed')"""
+
+#: Các cột `xoa_duoc` / `khoi_phuc_duoc` cần — ghép vào SELECT có bí danh `t`.
+COT_XOA_SQL = (
+    "t.tai_len_boi_staff_id::text AS x_tai_len_boi,"
+    " t.da_xem_luc AS x_da_xem_luc, t.da_xem_boi_staff_id::text AS x_da_xem_boi,"
+    " t.cho_phep_gui_luc AS x_cho_phep_luc,"
+    " t.cho_phep_gui_boi_staff_id::text AS x_cho_phep_boi,"
+    " t.gui_luc AS x_gui_luc, t.da_xoa_luc, t.da_xoa_loai, t.da_xoa_ly_do,"
+    " t.da_xoa_boi_staff_id::text AS x_da_xoa_boi, t.da_don_tep_luc,"
+    f" {PHIEN_DOC_DONG_SQL} AS x_phien_doc_dong"
+)
+
+
+@dataclass(frozen=True)
+class QuyenXoaTep:
+    """Quyền của MỘT người với việc xoá tệp — hỏi DB một lần, dùng cho cả
+    danh sách (hàm `xoa_duoc` thuần, test được không cần DB)."""
+
+    staff_id: str
+    doc_duoc: bool
+    co_quyen_xoa: bool
+    co_quyen_duyet: bool
+
+
+@dataclass(frozen=True)
+class KetQuaXoa:
+    duoc: bool
+    #: XOA | DINH_CHINH khi `duoc`; loại của lần xoá khi hỏi khôi phục.
+    loai: str | None = None
+    #: Không được thì vì sao; được mà là Đính chính thì câu nhắc.
+    ly_do: str | None = None
+
+
+def _co(tep: Mapping[str, Any], ten: str) -> Any:
+    try:
+        return tep[ten]
+    except (KeyError, IndexError):
+        return None
+
+
+def xoa_duoc(tep: Mapping[str, Any], quyen: QuyenXoaTep) -> KetQuaXoa:
+    """Người có `quyen` xoá được tệp này không — theo loại nào, vì sao không.
+
+    `tep` là dòng đọc kèm `COT_XOA_SQL`. Hàm THUẦN: máy chủ quyết, giao diện
+    chỉ hiện nút khi `duoc` (không luật nào trong TSX).
+    """
+    if _co(tep, "da_xoa_luc") is not None:
+        return KetQuaXoa(False, None, "Tệp này đã xoá.")
+    la_nguoi_tai = bool(quyen.staff_id) and (
+        str(_co(tep, "x_tai_len_boi") or "") == quyen.staff_id
+    )
+    if not (quyen.doc_duoc or la_nguoi_tai):
+        return KetQuaXoa(False, None, "Bạn không có quyền với tệp kết quả.")
+    da_gui = _co(tep, "x_gui_luc") is not None
+    if da_gui or bool(_co(tep, "x_phien_doc_dong")):
+        vi_sao = "Tệp đã gửi khách" if da_gui else "Phiên đọc kết quả đã đóng"
+        if quyen.co_quyen_duyet:
+            return KetQuaXoa(
+                True,
+                LOAI_DINH_CHINH,
+                f"{vi_sao} — chỉ gỡ được bằng Đính chính, ghi rõ lý do.",
+            )
+        return KetQuaXoa(
+            False,
+            None,
+            f"{vi_sao} — cần người có quyền duyệt kết quả để đính chính, gỡ tệp.",
+        )
+    if quyen.co_quyen_xoa:
+        return KetQuaXoa(True, LOAI_XOA)
+    if la_nguoi_tai:
+        xem_boi_khac = _co(tep, "x_da_xem_luc") is not None and (
+            str(_co(tep, "x_da_xem_boi") or "") != quyen.staff_id
+        )
+        duyet_boi_khac = _co(tep, "x_cho_phep_luc") is not None and (
+            str(_co(tep, "x_cho_phep_boi") or "") != quyen.staff_id
+        )
+        if not (xem_boi_khac or duyet_boi_khac):
+            return KetQuaXoa(True, LOAI_XOA)
+        return KetQuaXoa(
+            False,
+            None,
+            "Bác sĩ đã xem / duyệt tệp này — cần người có quyền xoá tệp kết quả.",
+        )
+    return KetQuaXoa(
+        False,
+        None,
+        "Chỉ người tải lên hoặc người có quyền xoá tệp kết quả mới xoá được.",
+    )
+
+
+def han_khoi_phuc(da_xoa_luc: Any) -> datetime | None:
+    """Mốc cuối còn khôi phục được; rỗng / rác → None (không ném)."""
+    if not isinstance(da_xoa_luc, datetime):
+        return None
+    if da_xoa_luc.tzinfo is None:
+        da_xoa_luc = da_xoa_luc.replace(tzinfo=UTC)
+    return da_xoa_luc + timedelta(days=SO_NGAY_KHOI_PHUC)
+
+
+def khoi_phuc_duoc(
+    tep: Mapping[str, Any], quyen: QuyenXoaTep, bay_gio: datetime | None = None
+) -> KetQuaXoa:
+    """Người có `quyen` khôi phục được tệp đã xoá này không (trong 30 ngày, tệp
+    vật lý còn). Xoá thường: người đã xoá hoặc người có quyền xoá; Đính chính:
+    người có quyền duyệt kết quả."""
+    loai = _co(tep, "da_xoa_loai")
+    if _co(tep, "da_xoa_luc") is None:
+        return KetQuaXoa(False, None, "Tệp này chưa bị xoá.")
+    if _co(tep, "da_don_tep_luc") is not None:
+        return KetQuaXoa(False, loai, "Tệp đã dọn khỏi ổ — không khôi phục được.")
+    han = han_khoi_phuc(_co(tep, "da_xoa_luc"))
+    bay_gio = bay_gio or datetime.now(UTC)
+    if han is None or bay_gio > han:
+        return KetQuaXoa(
+            False,
+            loai,
+            f"Đã quá {SO_NGAY_KHOI_PHUC} ngày kể từ lúc xoá — không khôi phục được.",
+        )
+    if loai == LOAI_DINH_CHINH:
+        if quyen.co_quyen_duyet:
+            return KetQuaXoa(True, loai)
+        return KetQuaXoa(
+            False, loai, "Tệp gỡ bằng Đính chính — cần quyền duyệt kết quả."
+        )
+    nguoi_xoa = bool(quyen.staff_id) and (
+        str(_co(tep, "x_da_xoa_boi") or "") == quyen.staff_id
+    )
+    if quyen.co_quyen_xoa or nguoi_xoa:
+        return KetQuaXoa(True, loai)
+    return KetQuaXoa(
+        False, loai, "Chỉ người đã xoá hoặc người có quyền xoá tệp mới khôi phục."
+    )
+
+
+_COT_XOA_NOI_BO = frozenset(
+    {
+        "x_tai_len_boi",
+        "x_da_xem_luc",
+        "x_da_xem_boi",
+        "x_cho_phep_luc",
+        "x_cho_phep_boi",
+        "x_gui_luc",
+        "x_da_xoa_boi",
+        "x_phien_doc_dong",
+        "da_don_tep_luc",
+    }
+)
+
+
+def gan_co_xoa(tep: Mapping[str, Any], quyen: QuyenXoaTep) -> dict[str, Any]:
+    """Dòng tệp (đọc kèm `COT_XOA_SQL`) → dict kèm cờ máy chủ cho giao diện:
+    tệp còn hiệu lực có `xoa_duoc / xoa_loai / xoa_ly_do`; tệp đã xoá có
+    `khoi_phuc_duoc / khoi_phuc_ly_do / khoi_phuc_han`. Bỏ cột nội bộ."""
+    d = {k: v for k, v in dict(tep).items() if k not in _COT_XOA_NOI_BO}
+    if _co(tep, "da_xoa_luc") is None:
+        kq = xoa_duoc(tep, quyen)
+        d["xoa_duoc"] = kq.duoc
+        d["xoa_loai"] = kq.loai
+        d["xoa_ly_do"] = kq.ly_do
+    else:
+        kq = khoi_phuc_duoc(tep, quyen)
+        han = han_khoi_phuc(_co(tep, "da_xoa_luc"))
+        d["khoi_phuc_duoc"] = kq.duoc
+        d["khoi_phuc_ly_do"] = None if kq.duoc else kq.ly_do
+        d["khoi_phuc_han"] = han.isoformat() if han else None
+    return d
+
+
+async def quyen_xoa_tep(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> QuyenXoaTep:
+    """Hỏi DB một lần: đọc được tệp không, có quyền xoá, có quyền duyệt kết quả
+    (kể cả theo phòng nhờ lịch — "MỞ HẾT"). Vai PARTNER bên ngoài không có
+    quyền xoá / duyệt, kể cả lỡ được cấp; chỉ còn luật người tải lên."""
+    doc = await doc_duoc_tep_ket_qua(conn, identity)
+    if identity.co_vai([ClinicRole.PARTNER]):
+        return QuyenXoaTep(str(identity.staff_id), doc, False, False)
+
+    async def _co_quyen(q: str) -> bool:
+        return await can(conn, identity, q) or await can_o_phong_nao_do(
+            conn, identity, q
+        )
+
+    return QuyenXoaTep(
+        staff_id=str(identity.staff_id),
+        doc_duoc=doc,
+        co_quyen_xoa=await _co_quyen("result.file.delete"),
+        co_quyen_duyet=await _co_quyen("result.review.approve"),
+    )
+
+
+def chuan_ly_do_xoa(ly_do: Any) -> str:
+    """Lý do xoá: bắt buộc, gọn khoảng trắng, tối đa 500 ký tự."""
+    chu = " ".join(str(ly_do or "").split())
+    if not chu:
+        raise ValidationError("Xoá tệp kết quả bắt buộc phải có lý do.")
+    if len(chu) > LY_DO_XOA_TOI_DA:
+        raise ValidationError(f"Lý do tối đa {LY_DO_XOA_TOI_DA} ký tự.")
+    return chu
+
+
+async def _tinh_lai_ket_qua_luc(
+    conn: asyncpg.Connection, clinic_id: str, service_order_id: str
+) -> None:
+    """Sau khi xoá tệp: chỉ định không còn tệp hiệu lực nào (và không có kết quả
+    ghi chữ / phiếu kết quả hoàn tất) → CHƯA có kết quả. Không gỡ mốc thì chỉ
+    định vẫn hiện "đã có kết quả" cho một tệp đã xoá (cùng luật TU_CHOI)."""
+    await conn.execute(
+        "UPDATE service_order o SET ket_qua_luc = NULL, updated_at = now()"
+        " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid"
+        "   AND o.ket_qua_luc IS NOT NULL"
+        "   AND nullif(btrim(coalesce(o.result_note, '')), '') IS NULL"
+        "   AND NOT EXISTS (SELECT 1 FROM v_tep_ket_qua_hieu_luc t"
+        "        WHERE t.clinic_id = $1::uuid AND t.service_order_id = $2::uuid"
+        "          AND coalesce(t.xac_nhan_trang_thai, 'HOP_LE')"
+        "              IN ('CHO_XAC_NHAN', 'HOP_LE'))"
+        "   AND NOT EXISTS (SELECT 1 FROM form_instance f"
+        "        WHERE f.clinic_id = $1::uuid AND f.service_order_id = $2::uuid"
+        "          AND f.trang_thai = 'READY')",
+        clinic_id,
+        service_order_id,
+    )
+
+
 async def _luot_cua_tep(
     conn: asyncpg.Connection,
     clinic_id: str,
@@ -413,8 +663,13 @@ class TepKetQuaService:
             clinic_patient_id=clinic_patient_id,
             ext=ext,
         )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if shutil.disk_usage(MEDIA_ROOT).free - so_byte_khai < MEDIA_MIN_FREE_BYTES:
+
+        def _chuan_bi() -> int:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return shutil.disk_usage(MEDIA_ROOT).free
+
+        # Mọi lần chạm ổ từ đây đi qua luồng phụ CÓ HẠN (sự cố 29/09 20:00).
+        if await chay_tren_kho(_chuan_bi) - so_byte_khai < MEDIA_MIN_FREE_BYTES:
             raise ValidationError(
                 "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
                 "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
@@ -422,13 +677,19 @@ class TepKetQuaService:
         tmp = path.with_suffix(path.suffix + ".tmp")
         try:
             if tep_da_nhan is not None:
-                await asyncio.to_thread(os.replace, tep_da_nhan.duong, tmp)
+                nhan = tep_da_nhan
+                await chay_tren_kho(lambda: os.replace(nhan.duong, tmp))
                 so_byte, sha = tep_da_nhan.so_byte, tep_da_nhan.sha256
             else:
                 assert nguon is not None
-                so_byte, sha = await asyncio.to_thread(_chep_luong, nguon, tmp)
+                vao = nguon
+                so_byte, sha = await chay_tren_kho(
+                    lambda: _chep_luong(vao, tmp), han=han_theo_co(so_byte_khai)
+                )
         except OSError as loi:
-            tmp.unlink(missing_ok=True)
+            await don_tren_kho(
+                lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+            )
             if loi.errno == errno.ENOSPC:
                 raise ValidationError(
                     "Kho lưu trữ đã đầy giữa chừng — tệp CHƯA được lưu. "
@@ -438,9 +699,11 @@ class TepKetQuaService:
         if loai == "TAI_LIEU" and mime != "application/dicom":
             # Chỉ tài liệu Office (ZIP) mới mở ra xem thư mục bên trong; DICOM
             # cũng là TAI_LIEU (27/09 đợt 3) nhưng đã nhận bằng chữ ký byte 128.
-            that = await asyncio.to_thread(_loai_tai_lieu, tmp)
+            that = await chay_tren_kho(lambda: _loai_tai_lieu(tmp))
             if that is None:
-                tmp.unlink(missing_ok=True)
+                await don_tren_kho(
+                    lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+                )
                 raise ValidationError(
                     "Tệp nén không phải tài liệu Word (.docx) hay Excel (.xlsx)."
                 )
@@ -485,8 +748,13 @@ class TepKetQuaService:
                             "thêm."
                         )
 
-                tmp.replace(path)
-                path.chmod(0o600)
+                dich = path
+
+                def _dat_vao_cho() -> None:
+                    tmp.replace(dich)
+                    dich.chmod(0o600)
+
+                await chay_tren_kho(_dat_vao_cho)
 
                 # External files: CHO_XAC_NHAN, không auto-approve.
                 # Internal / non-order: NULL (không áp dụng).
@@ -569,8 +837,13 @@ class TepKetQuaService:
                     correlation_id=luot_tep,
                 )
         except BaseException:
-            tmp.unlink(missing_ok=True)
-            path.unlink(missing_ok=True)
+            hong = path
+
+            def _don() -> None:
+                tmp.unlink(missing_ok=True)
+                hong.unlink(missing_ok=True)
+
+            await don_tren_kho(_don, viec=f"xoa_tep_hong:{hong}")
             raise
 
         logger.info(
@@ -614,6 +887,7 @@ class TepKetQuaService:
                        xac_nhan_trang_thai, xac_nhan_luc, xac_nhan_boi_staff_id
                   FROM public.tep_ket_qua
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
+                   AND da_xoa_luc IS NULL
                    FOR UPDATE
                 """,
                 tep_id,
@@ -684,10 +958,9 @@ class TepKetQuaService:
                 await conn.execute(
                     "UPDATE service_order SET ket_qua_luc = NULL"
                     " WHERE clinic_id = $1::uuid AND id = $2::uuid"
-                    "   AND NOT EXISTS (SELECT 1 FROM tep_ket_qua t"
+                    "   AND NOT EXISTS (SELECT 1 FROM v_tep_ket_qua_hieu_luc t"
                     "        WHERE t.clinic_id = $1::uuid"
                     "          AND t.service_order_id = $2::uuid"
-                    "          AND t.thu_hoi_luc IS NULL"
                     "          AND t.xac_nhan_trang_thai"
                     "              IN ('CHO_XAC_NHAN', 'HOP_LE'))",
                     cid,
@@ -739,6 +1012,7 @@ class TepKetQuaService:
                        xac_nhan_luc, xac_nhan_boi_staff_id
                   FROM public.tep_ket_qua
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
+                   AND da_xoa_luc IS NULL
                    FOR UPDATE
                 """,
                 tep_id,
@@ -847,42 +1121,257 @@ class TepKetQuaService:
         Cùng luật đọc với nội dung tệp (`doc_duoc_tep_ket_qua`) — trước 27/09
         (đợt 3) cửa này chỉ xét vai nên người có lego mở được ảnh mà không
         liệt kê được ảnh.
+
+        Chỉ tệp CÒN HIỆU LỰC (view `v_tep_ket_qua_hieu_luc`, V9 30/09): tệp đã
+        xoá mềm hay đã thu hồi không hiện — trước đây tệp thu hồi vẫn lọt vào
+        danh sách như thể còn là kết quả. Mỗi tệp kèm cờ máy chủ `xoa_duoc /
+        xoa_loai / xoa_ly_do` (`xoa_duoc`) — giao diện chỉ hiện nút theo cờ.
         """
         async with self._pool.acquire() as conn:
             if not await doc_duoc_tep_ket_qua(conn, identity):
                 raise SafetyGateError("Không có quyền xem tệp kết quả.")
-        rows = await self._pool.fetch(
-            """
-            SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.ben,
-                   t.tai_len_luc, t.gui_luc, t.gui_kenh,
-                   t.cho_phep_gui_luc, t.appointment_id::text,
-                   t.service_order_id::text,
-                   t.xac_nhan_trang_thai, t.xac_nhan_luc, t.xac_nhan_ly_do,
-                   t.thu_hoi_luc, t.thu_hoi_ly_do,
-                   s.full_name AS tai_len_boi,
-                   g.full_name AS gui_boi,
-                   b.full_name AS cho_phep_gui_boi,
-                   xn.full_name AS xac_nhan_boi,
-                   th.full_name AS thu_hoi_boi
-              FROM public.tep_ket_qua t
-              LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
-              LEFT JOIN public.staff g ON g.id = t.gui_boi_staff_id
-              LEFT JOIN public.staff b ON b.id = t.cho_phep_gui_boi_staff_id
-              LEFT JOIN public.staff xn ON xn.id = t.xac_nhan_boi_staff_id
-              LEFT JOIN public.staff th ON th.id = t.thu_hoi_boi_staff_id
-             WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid
-             ORDER BY t.tai_len_luc DESC
-             LIMIT 200
-            """,
-            identity.clinic_id,
-            clinic_patient_id,
-        )
+            quyen = await quyen_xoa_tep(conn, identity)
+            rows = await conn.fetch(
+                f"""
+                SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
+                       t.ben, t.tai_len_luc, t.gui_luc, t.gui_kenh,
+                       t.cho_phep_gui_luc, t.appointment_id::text,
+                       t.service_order_id::text,
+                       t.xac_nhan_trang_thai, t.xac_nhan_luc, t.xac_nhan_ly_do,
+                       t.thu_hoi_luc, t.thu_hoi_ly_do,
+                       s.full_name AS tai_len_boi,
+                       g.full_name AS gui_boi,
+                       b.full_name AS cho_phep_gui_boi,
+                       xn.full_name AS xac_nhan_boi,
+                       th.full_name AS thu_hoi_boi,
+                       {COT_XOA_SQL}
+                  FROM public.v_tep_ket_qua_hieu_luc t
+                  LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
+                  LEFT JOIN public.staff g ON g.id = t.gui_boi_staff_id
+                  LEFT JOIN public.staff b ON b.id = t.cho_phep_gui_boi_staff_id
+                  LEFT JOIN public.staff xn ON xn.id = t.xac_nhan_boi_staff_id
+                  LEFT JOIN public.staff th ON th.id = t.thu_hoi_boi_staff_id
+                 WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid
+                 ORDER BY t.tai_len_luc DESC
+                 LIMIT 200
+                """,
+                identity.clinic_id,
+                clinic_patient_id,
+            )
         # 200 tệp của MỘT khách: trần này gần như không bao giờ chạm, nhưng
         # chạm thì phải kêu — hàm trả về list nên không gắn `bi_cat` vào được.
         canh_bao_neu_day(
             "tep_ket_qua.cua_mot_khach", len(rows), 200, khach=clinic_patient_id
         )
-        return [dict(r) for r in rows]
+        return [gan_co_xoa(r, quyen) for r in rows]
+
+    async def da_xoa_gan_day(
+        self, *, identity: StaffIdentity, clinic_patient_id: str
+    ) -> list[dict[str, Any]]:
+        """Tệp của khách đã xoá mềm trong 30 ngày, tệp vật lý còn — để hiện dòng
+        "Đã xoá · Hoàn tác" (V9). Kèm `khoi_phuc_duoc` do máy chủ quyết."""
+        async with self._pool.acquire() as conn:
+            if not await doc_duoc_tep_ket_qua(conn, identity):
+                raise SafetyGateError("Không có quyền xem tệp kết quả.")
+            quyen = await quyen_xoa_tep(conn, identity)
+            rows = await conn.fetch(
+                f"""
+                SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
+                       t.ben, t.tai_len_luc, t.appointment_id::text,
+                       t.service_order_id::text,
+                       x.full_name AS da_xoa_boi,
+                       {COT_XOA_SQL}
+                  FROM public.tep_ket_qua t
+                  LEFT JOIN public.staff x ON x.id = t.da_xoa_boi_staff_id
+                 WHERE t.clinic_id = $1::uuid AND t.clinic_patient_id = $2::uuid
+                   AND t.da_xoa_luc IS NOT NULL AND t.da_don_tep_luc IS NULL
+                   AND t.da_xoa_luc > now() - make_interval(days => $3)
+                 ORDER BY t.da_xoa_luc DESC
+                 LIMIT 100
+                """,
+                identity.clinic_id,
+                clinic_patient_id,
+                SO_NGAY_KHOI_PHUC,
+            )
+        return [gan_co_xoa(r, quyen) for r in rows]
+
+    async def xoa_tep(
+        self, *, identity: StaffIdentity, tep_id: str, ly_do: Any
+    ) -> dict[str, Any]:
+        """Xoá mềm một tệp kết quả (V9). Trong CÙNG giao dịch: ghi vết xoá, tính
+        lại `service_order.ket_qua_luc`, nhật ký, phát `result_file.deleted`.
+        Máy chủ tự chọn loại: tệp đã gửi khách / phiên đọc đã đóng → Đính chính.
+        """
+        ly_do_sach = chuan_ly_do_xoa(ly_do)
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            quyen = await quyen_xoa_tep(conn, identity)
+            tep = await conn.fetchrow(
+                f"""
+                SELECT t.id::text AS id, t.service_order_id::text AS so_id,
+                       t.appointment_id::text AS appt_id,
+                       t.clinic_patient_id::text AS pid,
+                       {COT_XOA_SQL}
+                  FROM public.tep_ket_qua t
+                 WHERE t.id = $1::uuid AND t.clinic_id = $2::uuid
+                   FOR UPDATE OF t
+                """,
+                tep_id,
+                cid,
+            )
+            if tep is None:
+                raise NotFoundError("Không tìm thấy tệp này.")
+            if tep["da_xoa_luc"] is not None:
+                return {"ok": True, "id": tep["id"], "already": True}
+            kq = xoa_duoc(tep, quyen)
+            if not kq.duoc:
+                raise SafetyGateError(kq.ly_do or "Bạn không xoá được tệp này.")
+            loai = kq.loai or LOAI_XOA
+            await conn.execute(
+                "UPDATE public.tep_ket_qua"
+                "   SET da_xoa_luc = now(), da_xoa_boi_staff_id = $3::uuid,"
+                "       da_xoa_ly_do = $4, da_xoa_loai = $5"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                "   AND da_xoa_luc IS NULL",
+                tep_id,
+                cid,
+                identity.staff_id,
+                ly_do_sach,
+                loai,
+            )
+            so_id = tep["so_id"]
+            if so_id:
+                await _tinh_lai_ket_qua_luc(conn, cid, so_id)
+            await record_event(
+                conn,
+                event_type=(
+                    "tep_ket_qua.dinh_chinh"
+                    if loai == LOAI_DINH_CHINH
+                    else "tep_ket_qua.xoa"
+                ),
+                aggregate_type="tep_ket_qua",
+                aggregate_id=tep["id"],
+                identity=identity,
+                origin="api:tep-ket-qua:xoa",
+                payload={
+                    "loai": loai,
+                    "ly_do": ly_do_sach,
+                    "service_order_id": so_id,
+                    "clinic_patient_id": tep["pid"],
+                },
+            )
+            luot_tep = await _luot_cua_tep(conn, cid, so_id, tep["appt_id"])
+            await emit_event(
+                conn,
+                ten="result_file.deleted",
+                clinic_id=cid,
+                aggregate_id=tep["id"],
+                payload=TepKetQuaDaXoa(
+                    tep_id=tep["id"],
+                    visit_id=luot_tep,
+                    service_order_id=so_id,
+                    loai=loai,
+                    ly_do=ly_do_sach,
+                ),
+                boi=nguoi(identity),
+                correlation_id=luot_tep,
+            )
+            han = await conn.fetchval(
+                "SELECT da_xoa_luc FROM public.tep_ket_qua"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                tep_id,
+                cid,
+            )
+        logger.info(
+            "tep_ket_qua_xoa", tep_id=tep_id, loai=loai, by_staff_id=identity.staff_id
+        )
+        moc = han_khoi_phuc(han)
+        return {
+            "ok": True,
+            "id": tep["id"],
+            "loai": loai,
+            "khoi_phuc_han": moc.isoformat() if moc else None,
+        }
+
+    async def khoi_phuc_tep(
+        self, *, identity: StaffIdentity, tep_id: str
+    ) -> dict[str, Any]:
+        """Khôi phục tệp đã xoá mềm (trong 30 ngày, tệp vật lý còn). Cùng giao
+        dịch: gỡ vết xoá (trigger chỉ cho khi chưa dọn), đặt lại mốc "đã có kết
+        quả" của chỉ định, nhật ký, phát `result_file.restored`."""
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            quyen = await quyen_xoa_tep(conn, identity)
+            tep = await conn.fetchrow(
+                f"""
+                SELECT t.id::text AS id, t.service_order_id::text AS so_id,
+                       t.appointment_id::text AS appt_id,
+                       t.thu_hoi_luc, t.xac_nhan_trang_thai,
+                       {COT_XOA_SQL}
+                  FROM public.tep_ket_qua t
+                 WHERE t.id = $1::uuid AND t.clinic_id = $2::uuid
+                   FOR UPDATE OF t
+                """,
+                tep_id,
+                cid,
+            )
+            if tep is None:
+                raise NotFoundError("Không tìm thấy tệp này.")
+            if tep["da_xoa_luc"] is None:
+                return {"ok": True, "id": tep["id"], "already": True}
+            kq = khoi_phuc_duoc(tep, quyen)
+            if not kq.duoc:
+                raise SafetyGateError(kq.ly_do or "Không khôi phục được tệp này.")
+            await conn.execute(
+                "UPDATE public.tep_ket_qua"
+                "   SET da_xoa_luc = NULL, da_xoa_boi_staff_id = NULL,"
+                "       da_xoa_ly_do = NULL, da_xoa_loai = NULL"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                "   AND da_don_tep_luc IS NULL",
+                tep_id,
+                cid,
+            )
+            so_id = tep["so_id"]
+            con_la_ket_qua = tep["thu_hoi_luc"] is None and (
+                tep["xac_nhan_trang_thai"] in (None, "CHO_XAC_NHAN", "HOP_LE")
+            )
+            if so_id and con_la_ket_qua:
+                await conn.execute(
+                    "UPDATE public.service_order"
+                    "   SET ket_qua_luc = now(), updated_at = now()"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                    "   AND ket_qua_luc IS NULL",
+                    so_id,
+                    cid,
+                )
+            await record_event(
+                conn,
+                event_type="tep_ket_qua.khoi_phuc",
+                aggregate_type="tep_ket_qua",
+                aggregate_id=tep["id"],
+                identity=identity,
+                origin="api:tep-ket-qua:khoi-phuc",
+                payload={
+                    "loai_da_xoa": tep["da_xoa_loai"],
+                    "service_order_id": so_id,
+                },
+            )
+            luot_tep = await _luot_cua_tep(conn, cid, so_id, tep["appt_id"])
+            await emit_event(
+                conn,
+                ten="result_file.restored",
+                clinic_id=cid,
+                aggregate_id=tep["id"],
+                payload=TepKetQuaDaKhoiPhuc(
+                    tep_id=tep["id"], visit_id=luot_tep, service_order_id=so_id
+                ),
+                boi=nguoi(identity),
+                correlation_id=luot_tep,
+            )
+        logger.info(
+            "tep_ket_qua_khoi_phuc", tep_id=tep_id, by_staff_id=identity.staff_id
+        )
+        return {"ok": True, "id": tep["id"]}
 
     async def chi_dinh_cua_lich(
         self, *, identity: StaffIdentity, appointment_id: str
@@ -934,7 +1423,7 @@ class TepKetQuaService:
                    t.clinic_id::text, t.xac_nhan_trang_thai,
                    t.service_order_id::text,
                    n.lam_ben_ngoai
-              FROM public.tep_ket_qua t
+              FROM public.v_tep_ket_qua_hieu_luc t
               LEFT JOIN public.service_order o
                 ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
               LEFT JOIN public.node_definition n
@@ -944,8 +1433,9 @@ class TepKetQuaService:
             tep_id,
             identity.clinic_id,
         )
+        # Tệp đã xoá mềm / đã thu hồi (V9): không mở được nữa — như không có.
         if row is None:
-            raise NotFoundError("Không tìm thấy tệp này.")
+            raise NotFoundError("Không tìm thấy tệp này (có thể đã bị xoá).")
 
         # Vai cũ, lego đọc phiếu khám / kết quả (đợt 3), quầy in phiếu.
         async with self._pool.acquire() as conn:
@@ -993,6 +1483,7 @@ class TepKetQuaService:
                 "UPDATE public.tep_ket_qua"
                 "   SET da_xem_luc = now(), da_xem_boi_staff_id = $3::uuid"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid AND da_xem_luc IS NULL"
+                "   AND da_xoa_luc IS NULL"
                 " RETURNING id::text",
                 tep_id,
                 identity.clinic_id,
@@ -1025,15 +1516,17 @@ class TepKetQuaService:
         """
         if kenh not in KENH_GUI_HOP_LE:
             raise ValidationError(f"Kênh gửi không hợp lệ: {kenh!r}.")
+        # Tệp đã xoá mềm (V9) không gửi được — như không có. Tệp thu hồi vẫn
+        # báo rõ "chưa hợp lệ để gửi" ở dưới.
         hien = await self._pool.fetchrow(
             "SELECT gui_luc, cho_phep_gui_luc, xac_nhan_trang_thai "
             "FROM public.tep_ket_qua "
-            "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            "WHERE id = $1::uuid AND clinic_id = $2::uuid AND da_xoa_luc IS NULL",
             tep_id,
             identity.clinic_id,
         )
         if hien is None:
-            raise NotFoundError("Không tìm thấy tệp này.")
+            raise NotFoundError("Không tìm thấy tệp này (có thể đã bị xoá).")
         # KHÔNG CÒN ĐỢI BÁC SĨ CHO PHÉP (Tuyền chốt 23/09/2026: "cứ open đi,
         # cho gửi cũng được"). Luật 15/09 đã TẮT ở đây và ở trigger
         # `tep_ket_qua_gui_phai_duoc_cho_phep` (migration 20260923000021).
@@ -1053,6 +1546,7 @@ class TepKetQuaService:
                 UPDATE public.tep_ket_qua
                    SET gui_luc = now(), gui_boi_staff_id = $1::uuid, gui_kenh = $2
                  WHERE id = $3::uuid AND clinic_id = $4::uuid AND gui_luc IS NULL
+                   AND da_xoa_luc IS NULL
                    {where_extra}
                 RETURNING id::text, service_order_id::text, appointment_id::text
                 """,
@@ -1092,7 +1586,8 @@ class TepKetQuaService:
                 hien = await conn.fetchrow(
                     "SELECT xac_nhan_trang_thai, cho_phep_gui_luc "
                     "FROM public.tep_ket_qua "
-                    "WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                    "WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                    "  AND da_xoa_luc IS NULL FOR UPDATE",
                     tep_id,
                     identity.clinic_id,
                 )
@@ -1160,7 +1655,7 @@ class TepKetQuaService:
             SELECT t.id::text, t.ten_hien_thi, t.loai_tep, t.so_byte, t.tai_len_luc,
                    t.clinic_patient_id::text, p.full_name AS ten_khach,
                    p.patient_code, s.full_name AS tai_len_boi
-              FROM public.tep_ket_qua t
+              FROM public.v_tep_ket_qua_hieu_luc t
               JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
               LEFT JOIN public.staff s ON s.id = t.tai_len_boi_staff_id
              WHERE t.clinic_id = $1::uuid
@@ -1200,7 +1695,7 @@ class TepKetQuaService:
                    t.loai_tep,
                    t.mime,
                    t.xac_nhan_trang_thai
-              FROM public.tep_ket_qua t
+              FROM public.v_tep_ket_qua_hieu_luc t
               JOIN public.patient p ON p.clinic_patient_id = t.clinic_patient_id
               JOIN public.service_order o
                 ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id

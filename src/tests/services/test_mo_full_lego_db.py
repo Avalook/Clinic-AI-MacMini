@@ -2,7 +2,7 @@
 
 "Ai ở chỗ nào cũng thanh toán được, không có trong lịch cũng thao tác được" —
 mọi vai nội bộ có mọi khối, trừ bốn khối chỉ Quản lý giữ (Phân quyền, Nhân sự,
-Cài đặt, Danh mục & biểu mẫu). Migration 20260930100000.
+Cài đặt, Danh mục & biểu mẫu). Migration 20260930900000.
 
 Điều PHẢI GIỮ dù mở: ai đủ lego Bàn khám được suy ra vai DOCTOR ở cửa cũ, nhưng
 tên KÝ trên bản in và "bác sĩ của phiên" chỉ là tài khoản có
@@ -43,7 +43,7 @@ MIGRATION = (
     Path(__file__).resolve().parents[3]
     / "supabase"
     / "migrations"
-    / "20260930100000_mo_full_lego.sql"
+    / "20260930900000_mo_full_lego.sql"
 )
 
 VAI_NOI_BO = (

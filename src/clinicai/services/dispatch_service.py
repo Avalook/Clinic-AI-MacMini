@@ -189,6 +189,8 @@ SELECT v.visit_id,
    -- trước không còn "trong phòng khám" — không đếm, không báo chờ quá lâu.
    AND v.closed_at IS NULL
    AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
+   -- V8: lượt BÁN LẺ (khách chỉ mua thuốc ở quầy) không qua điều phối.
+   AND NOT v.ban_le
    AND coalesce(v.checked_in_at, v.created_at) >=
        (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
         AT TIME ZONE 'Asia/Ho_Chi_Minh')

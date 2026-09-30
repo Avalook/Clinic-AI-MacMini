@@ -263,21 +263,26 @@ test("mở LẠI thì bắt kịp; lần mở ĐẦU thì không", () => {
   tab.go();
 });
 
-test("tab mở lần đầu trong lúc đang ẩn: không mở dòng, và không bắt kịp oan", () => {
+test("tab mở trong lúc đang ẩn: không mở dòng; lúc được nhìn thì bắt kịp MỘT lần", () => {
+  // Đổi 30/09/2026. Bản trước coi lần mở đầu (dù tới muộn) là "chưa từng mù".
+  // Sai với Ctrl+bấm link: trang dựng lúc tải trong tab nền, rồi người ta nhìn
+  // nó sau năm phút — suốt năm phút ấy không có dòng nào. Trước đây
+  // `LiveBoardSync` tự nghe `visibilitychange` nên che được lỗ này ở các màn
+  // điều phối; nay nó thôi nghe để một lần đổi tab chỉ còn một lần dựng trang.
   const dong = taoDong();
   const man = taoMan();
   man.s.an = true;
   const tab = taoTab(dong, man);
 
   assert.equal(dong.soDangMo(), 0);
-  assert.equal(tab.batKip.so, 0);
+  assert.equal(tab.batKip.so, 0, "đang ẩn thì chưa làm gì cả");
 
   man.doiHien(false);
   assert.equal(dong.soDangMo(), 1);
   assert.equal(
     tab.batKip.so,
-    0,
-    "đây vẫn là lần mở ĐẦU của tab này, chưa từng mù nên chưa có gì để bắt kịp",
+    1,
+    "quãng từ lúc tải tới lúc được nhìn là quãng mù — phải bắt kịp đúng một lần",
   );
   tab.go();
 });

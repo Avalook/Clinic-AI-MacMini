@@ -81,7 +81,7 @@ def vong_doc_chay_ngay_sau_lenh_tep(monkeypatch: Any) -> None:
     from clinicai.events.catalogue import VONG_DOC
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
-    for ten in ("tai_len", "xac_nhan_tep", "thu_hoi_tep"):
+    for ten in ("tai_len", "xac_nhan_tep", "thu_hoi_tep", "xoa_tep", "khoi_phuc_tep"):
         goc = getattr(TepKetQuaService, ten)
 
         async def boc(

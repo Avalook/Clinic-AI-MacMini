@@ -991,6 +991,14 @@ async def test_billing_external_partner_separation(kban: BoKichBan) -> None:
         idempotency_key=f"test-{uuid.uuid4().hex}",
     )
 
+    # V2 (30/09/2026): tiền khám chưa chọn dịch vụ con = giá mặc định loại khám.
+    await kban.pool.execute(
+        "UPDATE service_type SET gia_mac_dinh = 100000 WHERE id = ("
+        " SELECT coalesce(v.service_type_id, a.service_type_id) FROM visit v"
+        " LEFT JOIN appointment a ON a.id = v.appointment_id"
+        " WHERE v.visit_id = $1::uuid)",
+        kban.visit_id,
+    )
     # Đọc hóa đơn dịch vụ qua tinh_hoa_don
     async with kban.pool.acquire() as conn:
         hd = await tinh_hoa_don(

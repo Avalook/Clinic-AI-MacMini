@@ -75,12 +75,14 @@ def con_cho(
         elif o["selection_status"] == "SELECTED":
             ex = o["execution_status"] or "PENDING"
             if ex == "PENDING" and o["routing_status"] in (None, "UNASSIGNED"):
-                # Đã trả mà chưa có phòng = TRÁCH NHIỆM đang rơi (người thu không
-                # có quyền điều phối, hoặc dây tự xếp đang tắt) — nói thẳng.
+                # Đã chốt mà chưa có phòng = TRÁCH NHIỆM đang rơi (người chốt /
+                # người thu không có quyền điều phối, hoặc dây tự xếp đang tắt)
+                # — nói thẳng. V10 làm trước, thu sau: chưa trả KHÔNG phải lý do
+                # chờ; chỉ ghi kèm "chưa thu" để quầy biết.
                 out.append(
                     f"ĐÃ TRẢ TIỀN — chờ xếp phòng: {ten}"
                     if o.get("da_tra")
-                    else f"Chờ trả tiền: {ten}"
+                    else f"Chờ xếp phòng (chưa thu): {ten}"
                 )
             elif ex == "PENDING" and o["routing_status"] == "REASSIGNMENT_REQUIRED":
                 out.append(f"Cần xếp lại phòng: {ten}")
@@ -131,6 +133,8 @@ class BangHanhTrinhService:
                       LEFT JOIN service_type st ON st.id = v.service_type_id
                       LEFT JOIN staff d ON d.id = v.attending_doctor_id
                      WHERE v.clinic_id = $1::uuid AND v.created_at >= $2
+                       -- V8: lượt bán lẻ (chỉ mua thuốc) không có hành trình.
+                       AND NOT v.ban_le
                      -- Khách CÒN ở phòng khám trước, người mới tới trước: có
                      -- cắt ở trần thì cắt những lượt đã về lâu nhất.
                      ORDER BY (v.closed_at IS NOT NULL), v.created_at DESC
@@ -192,7 +196,7 @@ class BangHanhTrinhService:
                 for r in await conn.fetch(
                     """
                     SELECT o.visit_id::text AS visit_id, count(*) AS so
-                      FROM tep_ket_qua t
+                      FROM v_tep_ket_qua_hieu_luc t
                       JOIN service_order o
                         ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
                      WHERE t.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])

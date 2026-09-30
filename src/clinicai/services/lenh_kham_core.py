@@ -29,11 +29,19 @@ from clinicai.api.identity import StaffIdentity
 
 
 class LuotKhamConflictError(ConflictError):
-    """409 kèm mã máy đọc được (``error_code``) và câu cho người đọc."""
+    """409 kèm mã máy đọc được (``error_code``) và câu cho người đọc.
 
-    def __init__(self, code: str, message: str) -> None:
+    ``chi_tiet`` (30/09/2026, V4): dữ liệu máy đọc đi kèm — vd PATIENT_BUSY trả
+    tên phòng đang giữ khách + máy chủ có cho chuyển sang không, để màn hỏi tại
+    chỗ mà không tự suy luật. Không bao giờ chứa dữ liệu cá nhân của khách.
+    """
+
+    def __init__(
+        self, code: str, message: str, chi_tiet: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(message)
         self.error_code = code
+        self.chi_tiet = chi_tiet
 
 
 class LuotKhamValidationError(ValidationError):
@@ -74,7 +82,7 @@ async def khoa_luot(
     """
     row = await conn.fetchrow(
         """
-        SELECT visit_id::text AS visit_id, status,
+        SELECT visit_id::text AS visit_id, status, closed_at,
                attending_doctor_id::text AS doctor_id
           FROM visit
          WHERE clinic_id = $1::uuid AND visit_id = $2::uuid

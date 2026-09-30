@@ -343,6 +343,7 @@ async def toan_canh(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
               (SELECT count(*) FROM patient WHERE clinic_id = $1::uuid
                   AND created_at >= $2 AND created_at < $3) AS patients_today,
               (SELECT count(*) FROM visit WHERE clinic_id = $1::uuid
+                  AND NOT ban_le  -- V8: lượt bán lẻ không phải lượt khám
                   AND created_at >= $2 AND created_at < $3) AS visits_today,
               (SELECT count(*) FROM work_item WHERE clinic_id = $1::uuid
                   AND status IN ('PENDING', 'IN_PROGRESS')) AS pending_tasks

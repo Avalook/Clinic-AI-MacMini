@@ -78,7 +78,8 @@ class ConsoleService:
                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)::int
                 AS lich_hom_nay,
               (SELECT count(*) FROM visit
-                WHERE clinic_id = $1::uuid AND status = 'OPEN')::int
+                WHERE clinic_id = $1::uuid AND status = 'OPEN'
+                  AND NOT ban_le)::int
                 AS luot_dang_mo,
               (SELECT count(*) FROM work_item
                 WHERE clinic_id = $1::uuid

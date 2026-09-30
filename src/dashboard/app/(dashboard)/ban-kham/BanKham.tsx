@@ -72,6 +72,7 @@ import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
 import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
 interface SinhHieu {
@@ -287,10 +288,12 @@ export default function BanKham({
     // Làm mới đều: người khác (điều dưỡng đo xong, thư ký bấm) đổi hàng chờ.
     // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
     // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
-    const t = setInterval(() => void nap(), 60000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    const goNhip = nhipKhiHien(() => void nap(), 60000, { hoiKhiHien: false });
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [phongs, phong, lanNap, tuVan, ngay]);
 

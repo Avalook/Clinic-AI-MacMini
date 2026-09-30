@@ -150,6 +150,22 @@ class TienThuocDaThu(PayloadSuKien):
     phuong_thuc: str
 
 
+class HinhThucThuDaDoi(PayloadSuKien):
+    """`payment.method_changed` — phiếu đã thu được ghi lại hình thức (TM/CK/QR)
+    sau khi thu (V7, 30/09/2026). Không phải huỷ: số tiền và phiếu giữ nguyên.
+
+    ``tu`` rỗng = phiếu cũ trước CP2 không biết hình thức lúc thu. Không mang
+    mã giao dịch (thông tin ngân hàng ở bảng, không ở sổ sự kiện).
+    """
+
+    visit_id: str
+    payment_cycle_id: str
+    kind: str
+    so_tien: int
+    tu: str | None = None
+    sang: str
+
+
 class ThuocDaGiao(PayloadSuKien):
     """`medicine.dispensed` — quầy thuốc giao thuốc cho khách (một dòng đơn).
 
@@ -192,6 +208,26 @@ class TepKetQuaDaXacNhan(PayloadSuKien):
 
 class TepKetQuaDaThuHoi(PayloadSuKien):
     """`result_file.revoked` — tệp bị thu hồi (tải nhầm khách / nhầm chỉ định)."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+
+
+class TepKetQuaDaXoa(PayloadSuKien):
+    """`result_file.deleted` — tệp bị xoá mềm (V9 30/09/2026): ẩn khỏi mọi chỗ
+    đọc, khôi phục được 30 ngày. `loai` = XOA | DINH_CHINH (gỡ tệp đã gửi khách
+    / phiên đọc đã đóng). Lý do là chữ vận hành người xoá gõ."""
+
+    tep_id: str
+    visit_id: str | None = None
+    service_order_id: str | None = None
+    loai: str
+    ly_do: str
+
+
+class TepKetQuaDaKhoiPhuc(PayloadSuKien):
+    """`result_file.restored` — tệp đã xoá mềm được khôi phục (trong 30 ngày)."""
 
     tep_id: str
     visit_id: str | None = None
@@ -267,6 +303,19 @@ class LichDaHuy(PayloadSuKien):
     ly_do_ma: str | None = None
 
 
+class LichDaDoiDichVu(PayloadSuKien):
+    """`appointment.service_switched` — đổi DỊCH VỤ KHÁM của lịch (menu ⋯ dòng
+    lịch hẹn, V5 30/09/2026). Có ``visit_id`` = đổi SAU check-in (lượt khám đổi
+    theo) → khối Hành trình tính lại hàng chờ đầu tiên của lượt."""
+
+    appointment_id: str
+    visit_id: str | None = None
+    tu_dich_vu_id: str | None = None
+    den_dich_vu_id: str
+    tu_ten: str | None = None
+    den_ten: str | None = None
+
+
 class KhachKhongDen(PayloadSuKien):
     """`appointment.no_show` — tới giờ mà khách không đến."""
 
@@ -329,12 +378,17 @@ class DoiTacNhanViec(PayloadSuKien):
     KHACH_DA_CHON (đối tác tự lấy mẫu VÀ tự thu tiền — khách vừa chốt làm ở
     quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng) ·
     MAU_GUI_DOI_TAC (dịch vụ thu hộ đối tác làm ở phòng CỦA phòng khám — vd Giải
-    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026)."""
+    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026).
+
+    `thu_sau` (V10, 30/09/2026 — làm trước, thu sau): KHACH_DA_CHON của dịch vụ
+    PHÒNG KHÁM thu hộ mà quầy chưa thu — đối tác đến lấy mẫu, KHÔNG thu tiền
+    khách (quầy thu cuối buổi)."""
 
     visit_id: str
     service_order_id: str
     service_name: str | None = None
     ly_do: str
+    thu_sau: bool = False
 
 
 class DoiTacDaThuTien(PayloadSuKien):
@@ -689,6 +743,37 @@ class DichVuSanSangLamLai(PayloadSuKien):
     execution_revision: int
 
 
+class KhachDaChuyenPhong(PayloadSuKien):
+    """`service.patient_moved` — khách đang làm dịch vụ này ở một phòng thì
+    phòng khác bấm Bắt đầu và chọn "chuyển sang đây" (V4, Tuyền 30/09/2026 —
+    làm không theo thứ tự). Đối tượng là chỉ định BỊ DỪNG: lần làm của nó đóng
+    với lý do PATIENT_MOVED, chỉ định về chờ làm, khách còn chờ ở hàng phòng
+    cũ. `to_service_order_id` là chỉ định vừa bắt đầu ở phòng mới."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str | None = None
+    attempt_no: int | None = None
+    from_room_id: str | None = None
+    to_room_id: str | None = None
+    to_service_order_id: str
+    execution_revision: int
+
+
+class DichVuDaHuyBatDau(PayloadSuKien):
+    """`service.start_cancelled` — bấm Bắt đầu nhầm khách / nhầm dịch vụ, huỷ
+    ngay khi chưa điền gì (V4, 30/09/2026). Lần làm đóng với lý do
+    STARTED_IN_ERROR (không xoá — vẫn đọc được là đã có lần bấm), chỉ định về
+    chờ làm, khách về lại hàng chờ phòng."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str
+    attempt_no: int
+    room_id: str | None = None
+    execution_revision: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -837,8 +922,9 @@ DANH_MUC: dict[str, SuKien] = {
             # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
             # thái hiện tại (chạy lại bao lần cũng ra một kết quả). Khối Đối tác
             # nghe để nhận việc đối tác TỰ THU (27/09/2026): khách chốt làm là
-            # đủ, không chờ phòng khám thu tiền.
-            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            # đủ, không chờ phòng khám thu tiền. Hành trình nghe để tự xếp phòng
+            # khi hoá đơn 0đ — không có lần thu nào để chờ (V2, 30/09/2026).
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC, HANH_TRINH],
         ),
         SuKien(
             ten="service.completed",
@@ -879,6 +965,28 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuSanSangLamLai,
             nhan="Chuẩn bị làm lại",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            # V4 (30/09/2026): không mở việc trách nhiệm — chỉ định bị dừng đã
+            # về chờ làm và khách vẫn nằm trong hàng phòng cũ, không rơi đâu.
+            ten="service.patient_moved",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=KhachDaChuyenPhong,
+            nhan="Khách chuyển sang phòng khác khi đang làm",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.start_cancelled",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=DichVuDaHuyBatDau,
+            nhan="Huỷ bắt đầu nhầm",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -959,6 +1067,26 @@ DANH_MUC: dict[str, SuKien] = {
             # Vòng đọc nghe để rút chỗ chờ "có kết quả" khi tệp duy nhất bị gỡ.
             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
         ),
+        # V9 (30/09/2026): xoá mềm / khôi phục. Vòng đọc nghe như thu hồi — tệp
+        # duy nhất bị xoá thì rút chỗ chờ "có kết quả"; khôi phục thì mở lại.
+        SuKien(
+            ten="result_file.deleted",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaXoa,
+            nhan="Đã xoá tệp kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+        ),
+        SuKien(
+            ten="result_file.restored",
+            version=1,
+            aggregate_type="tep_ket_qua",
+            source_module="result_file",
+            payload=TepKetQuaDaKhoiPhuc,
+            nhan="Đã khôi phục tệp kết quả",
+            consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+        ),
         SuKien(
             ten="result_file.viewed",
             version=1,
@@ -1033,6 +1161,15 @@ DANH_MUC: dict[str, SuKien] = {
             payload=LichDaHuy,
             nhan="Đã huỷ lịch",
             consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="appointment.service_switched",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaDoiDichVu,
+            nhan="Đổi dịch vụ khám",
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="appointment.no_show",
@@ -1157,6 +1294,17 @@ DANH_MUC: dict[str, SuKien] = {
             payload=TienThuocDaThu,
             nhan="Đã thu tiền thuốc",
             consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            is_public=False,
+        ),
+        SuKien(
+            ten="payment.method_changed",
+            version=1,
+            aggregate_type="payment_cycle",
+            source_module="payment",
+            payload=HinhThucThuDaDoi,
+            nhan="Đổi hình thức thu",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,
         ),
         SuKien(
@@ -1288,10 +1436,12 @@ __all__ = [
     "LichDaDoi",
     "LichDaHuy",
     "KhachKhongDen",
+    "LichDaDoiDichVu",
     "CskhDaGoiXacNhan",
     "KhachDaVe",
     "KhachBoVeGiuaChung",
     "DaHoanTien",
+    "HinhThucThuDaDoi",
     "DaHenTaiKham",
     "CskhDaLienHe",
     "DoiTacDaLayMau",
@@ -1318,6 +1468,8 @@ __all__ = [
     "DichVuGianDoan",
     "DichVuKhongLam",
     "DichVuSanSangLamLai",
+    "KhachDaChuyenPhong",
+    "DichVuDaHuyBatDau",
     "KhoiQuyenDaCap",
     "PhieuDaHoanTat",
     "KhoiQuyenDaThu",

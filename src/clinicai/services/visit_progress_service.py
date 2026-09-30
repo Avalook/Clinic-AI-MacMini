@@ -149,6 +149,7 @@ _PROGRESS_SQL = """
              AND pm.voided_at IS NULL
       ) pay ON TRUE
      WHERE v.clinic_id = $1::uuid
+       AND NOT v.ban_le  -- V8: lượt bán lẻ không có tiến trình khám
        AND (
            (v.created_at >= $2::timestamptz AND v.created_at < $3::timestamptz)
            OR (a.slot_start >= $2::timestamptz AND a.slot_start < $3::timestamptz)

@@ -26,6 +26,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.doi_hinh_thuc_service import DoiHinhThucService
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
 
@@ -202,6 +203,39 @@ async def huy_cho_xac_minh(
         kind=body.kind,
         reason=body.reason,
         identity=identity,
+    )
+    return {"ok": True, **kq}
+
+
+# ── Đổi hình thức thu sau khi đã thu (V7, 30/09/2026) ──────────────────────
+# AI CŨNG ĐỔI ĐƯỢC: người giữ một trong hai khối thu tiền (cửa ngoài), không
+# theo loại phiếu. Luật đổi được / không (đã huỷ, có hoàn) ở service + trigger.
+
+
+class DoiHinhThucRequest(BaseModel):
+    payment_cycle_id: UUID
+    hinh_thuc: PaymentMethod
+    #: Hình thức màn đang thấy — người khác vừa đổi thì 409, không đè.
+    hinh_thuc_cu: PaymentMethod | None = None
+    #: Tuỳ chọn, như lúc thu (mig 20260925000007).
+    reference: str | None = Field(default=None, max_length=100)
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/payments/doi-hinh-thuc")
+async def doi_hinh_thuc(
+    body: DoiHinhThucRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi TM / CK / QR của một phiếu đã thu — một dòng sổ chỉ thêm, không huỷ."""
+    kq = await DoiHinhThucService(pool).doi(
+        identity=identity,
+        payment_cycle_id=str(body.payment_cycle_id),
+        hinh_thuc=body.hinh_thuc,
+        hinh_thuc_cu=body.hinh_thuc_cu,
+        reference=body.reference,
+        ly_do=body.ly_do,
     )
     return {"ok": True, **kq}
 

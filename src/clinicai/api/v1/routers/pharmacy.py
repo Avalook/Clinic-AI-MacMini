@@ -26,6 +26,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
 router = APIRouter()
@@ -56,6 +57,68 @@ async def man_nha_thuoc(
     giai đoạn tiền thuốc và các thao tác được phép — máy chủ quyết, giao diện vẽ."""
     kq: dict[str, Any] = jsonable_encoder(
         await ban_thuoc_service.man_nha_thuoc(pool, identity=identity)
+    )
+    return kq
+
+
+# ── Khách chỉ đến mua thuốc — lượt Bán lẻ (V8, 30/09/2026) ─────────────────
+# "MỞ HẾT": ai giữ lego nhà thuốc hoặc thu tiền đều mở được. Service kiểm lại.
+_BAN_LE = cua_quyen(*QUYEN_MO)
+
+
+@router.get("/pharmacy/ban-le/tim-khach")
+async def ban_le_tim_khach(
+    q: str = "",
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tìm khách theo SĐT / mã / tên (không dấu) để mở lượt mua thuốc."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await BanLeService(pool).tim_khach(q=q, identity=identity)
+    )
+    return kq
+
+
+class KhachMoiBanLe(BaseModel):
+    ho_ten: str = Field(min_length=1, max_length=200)
+    sdt: str | None = Field(default=None, max_length=20)
+    # Chuỗi/số tuỳ ý: rác → bỏ trống (service `nam_sinh`), không 422.
+    nam_sinh: Any = None
+    gioi_tinh: str | None = Field(default=None, max_length=20)
+    force: bool = False
+
+
+class MoBanLeRequest(BaseModel):
+    clinic_patient_id: UUID | None = None
+    khach_moi: KhachMoiBanLe | None = None
+
+
+@router.post("/pharmacy/ban-le")
+async def mo_ban_le(
+    body: MoBanLeRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mở (hoặc lấy lại) lượt bán lẻ đang mở của khách — không tiền khám, không
+    hàng chờ. Khách mới trùng SĐT → trả `trung` để chọn hồ sơ có sẵn."""
+    return await BanLeService(pool).mo_luot(
+        identity=identity,
+        clinic_patient_id=(
+            str(body.clinic_patient_id) if body.clinic_patient_id else None
+        ),
+        khach_moi=body.khach_moi.model_dump() if body.khach_moi else None,
+    )
+
+
+@router.get("/pharmacy/ban-le/{visit_id}")
+async def doc_ban_le(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoá đơn thuốc của lượt bán lẻ (máy chủ tính) + lần thu + cờ quyền."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await BanLeService(pool).doc(visit_id=str(visit_id), identity=identity)
     )
     return kq
 

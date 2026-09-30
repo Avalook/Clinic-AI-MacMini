@@ -483,7 +483,7 @@ export default function CashierView({
 
           <div className="space-y-4 p-4">
             {laDichVu ? (
-              <Field label="Mã phòng khám (mã KiotViet)" required>
+              <Field label="Mã phòng khám (mã KiotViet)">
                 <input
                   className={inputClass}
                   value={maKv}
@@ -493,7 +493,7 @@ export default function CashierView({
                 />
               </Field>
             ) : null}
-            <Field label={laDichVu ? "Mã danh mục (bỏ trống = tự sinh)" : "Mã danh mục"} required={!laDichVu}>
+            <Field label={laDichVu ? "Mã danh mục (bỏ trống = tự sinh)" : "Mã danh mục"}>
               <input
                 className={inputClass}
                 value={code}
@@ -502,7 +502,7 @@ export default function CashierView({
                 maxLength={64}
               />
             </Field>
-            <Field label={view === "thuoc" ? "Tên thuốc" : "Tên dịch vụ"} required>
+            <Field label={view === "thuoc" ? "Tên thuốc" : "Tên dịch vụ"}>
               <input
                 className={inputClass}
                 value={name}
@@ -609,18 +609,15 @@ function Metric({
 
 function Field({
   label,
-  required = false,
   children,
 }: {
   label: string;
-  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-medium text-ink-soft">
         {label}
-        {required ? <span className="text-danger"> *</span> : null}
       </span>
       {children}
     </label>

@@ -20,8 +20,9 @@ import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 import { laDicom } from "@/lib/phieu-kham";
 
 import AnhKetQua, { duongXemTep, tepXem } from "./AnhKetQua";
+import { type CoXoaTep, DaXoaGanDay, NutXoaTep, type TepDaXoa } from "./XoaTep";
 
-interface Tep {
+interface Tep extends CoXoaTep {
   id: string;
   ten_hien_thi: string | null;
   loai_tep: "ANH" | "VIDEO" | "PDF" | string;
@@ -133,6 +134,8 @@ export default function KhungTep({
   ben?: { so: number; ten: string };
 }) {
   const [teps, setTeps] = useState<Tep[] | null>(null);
+  // Tệp đã xoá mềm của chỉ định này (≤30 ngày) — dòng "Hoàn tác" (V9).
+  const [daXoa, setDaXoa] = useState<TepDaXoa[]>([]);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState<string | null>(null);
   const [mo, setMo] = useState<{ i: number; luoi: boolean } | null>(null);
@@ -148,25 +151,25 @@ export default function KhungTep({
     )
       .then(async (r) => {
         const d = (await r.json().catch(() => null)) as
-          | { items?: Tep[]; error?: string; message?: string }
+          | { items?: Tep[]; da_xoa?: TepDaXoa[]; error?: string; message?: string }
           | null;
         if (huy) return;
         if (!r.ok) {
           setLoi(nhanLoi(d, "Không đọc được tệp kết quả."));
           return;
         }
+        const cuaO = (t: { service_order_id: string | null; ben?: number | null }) =>
+          t.service_order_id === serviceOrderId &&
+          (benSo === undefined ||
+            t.ben === benSo ||
+            (benSo === 0 && (t.ben === null || t.ben === undefined)));
         setTeps(
           (d?.items ?? [])
-            .filter((t) => t.service_order_id === serviceOrderId)
-            .filter(
-              (t) =>
-                benSo === undefined ||
-                t.ben === benSo ||
-                (benSo === 0 && (t.ben === null || t.ben === undefined)),
-            )
+            .filter(cuaO)
             // Cũ trước: đọc theo thứ tự đã chụp.
             .sort((a, b) => a.tai_len_luc.localeCompare(b.tai_len_luc)),
         );
+        setDaXoa((d?.da_xoa ?? []).filter(cuaO));
       })
       .catch(() => {
         if (!huy) setLoi("Mất kết nối tới máy chủ.");
@@ -230,6 +233,19 @@ export default function KhungTep({
   }, [teps]);
 
   const coTep = (teps?.length ?? 0) > 0;
+  const napLai = useCallback(() => {
+    setLanNap((n) => n + 1);
+    onDaTaiLen?.();
+  }, [onDaTaiLen]);
+  /** Nút Xoá của một tệp — theo cờ máy chủ (V9). Ô chỉ xem (`choTaiLen`
+   *  false — Xem lượt, bác sĩ đang đọc) không có nút xoá. */
+  const nutXoa = (x: TepXem, nenToi = false) => {
+    if (!choTaiLen) return null;
+    const goc = teps?.find((t) => t.id === x.id);
+    return goc ? (
+      <NutXoaTep tepId={goc.id} ten={goc.ten_hien_thi} co={goc} nenToi={nenToi} onDaXoa={napLai} />
+    ) : null;
+  };
   const xem: TepXem[] = useMemo(
     () =>
       (teps ?? []).map((t) =>
@@ -298,11 +314,18 @@ export default function KhungTep({
           chồng theo loại; bấm mở hộp xem lật được qua MỌI tệp của chỉ định. */}
       {coTep ? (
         <div className="mt-3">
-          <AnhKetQua tep={xem} lon onMo={(i, luoi) => setMo({ i, luoi: Boolean(luoi) })} />
+          <AnhKetQua
+            tep={xem}
+            lon
+            onMo={(i, luoi) => setMo({ i, luoi: Boolean(luoi) })}
+            veThaoTac={(x) => nutXoa(x)}
+          />
         </div>
       ) : null}
 
-      {mo ? (
+      {choTaiLen ? <DaXoaGanDay ds={daXoa} onXong={napLai} /> : null}
+
+      {mo && coTep ? (
         <Lightbox
           tieuDe={ben ? ben.ten : tieuDe}
           tep={xem}
@@ -312,6 +335,7 @@ export default function KhungTep({
             const goc = teps?.find((x) => x.id === t.id);
             return goc ? <XemTaiLieu tep={goc} /> : null;
           }}
+          veThaoTac={(x) => nutXoa(x, true)}
           onDong={() => setMo(null)}
         />
       ) : null}

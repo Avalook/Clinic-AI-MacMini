@@ -33,7 +33,7 @@ export default async function TrangPhanQuyen({
           Chọn một người rồi tick những kỹ năng họ làm — đúng như danh sách nhân
           sự của phòng khám. Trường hợp đặc biệt thì mở mục Ngoại lệ.
         </p>
-        {/* Mở full lego (Tuyền 30/09/2026) — migration 20260930100000. */}
+        {/* Mở full lego (Tuyền 30/09/2026) — migration 20260930900000. */}
         <p
           role="note"
           className="mt-2 rounded-control bg-info-bg px-3 py-2 text-sm text-info"

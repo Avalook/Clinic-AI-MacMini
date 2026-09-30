@@ -43,7 +43,7 @@ import { TEN_NHOM, hrefTheoViTri, mucPhong, nhomTheoViTri } from "../nav-items";
 import type { ActiveStaff } from "../../../lib/clinic-session";
 import { fmtDate } from "../../../lib/datetime";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { QUYEN_GHI_CHAM_SOC, coMotQuyen } from "../../../lib/quyen-cua-toi";
+import { QUYEN_DOI_DICH_VU_KHAM, QUYEN_GHI_CHAM_SOC, coMotQuyen } from "../../../lib/quyen-cua-toi";
 import { doctorName } from "../../../lib/doctor-name";
 import {
   currentWeekStartVn,
@@ -574,6 +574,8 @@ async function KhoiDuLieu({
           // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
           // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
           duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+          // ⋯ "Đổi dịch vụ khám" tại chỗ (V5, 30/09/2026).
+          duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}
           duocXemHoSo={vaoDuocMan("/patient-list", vaiHomNay, quyen)}
           moHoSoKhach={vaoDuocMan("/customers", vaiHomNay, quyen)}
           // Chip T2…CN + "Cả tuần", giữ trên `?ngay=` (27/09/2026, đợt 3 —

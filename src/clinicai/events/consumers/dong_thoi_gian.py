@@ -46,6 +46,10 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.not_performed": ["ly_do", "da_thu_tien"],
     "service.interrupted": ["attempt_no", "ly_do"],
     "service.retry_prepared": [],
+    # V4 (30/09/2026): khách chuyển phòng giữa chừng / huỷ bắt đầu nhầm — chỉ
+    # mã phòng + số lần làm, không chữ lâm sàng.
+    "service.patient_moved": ["attempt_no", "from_room_id", "to_room_id"],
+    "service.start_cancelled": ["attempt_no", "room_id"],
     "service.routing_invalidated": ["ly_do"],
     "service.routed": ["room_id", "ly_do", "tu_dong", "nguon"],
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành
@@ -65,6 +69,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "partner.payment_recorded": ["so_tien", "hinh_thuc"],
     "partner.payment_voided": ["so_tien"],
     "result_file.confirmed": ["trang_thai"],
+    # V9 (30/09/2026): lý do xoá là chữ vận hành người xoá gõ — hiện ở lịch sử.
+    "result_file.deleted": ["loai", "ly_do"],
+    "result_file.restored": [],
     "result_file.viewed": [],
     "result_file.sent_to_patient": ["kenh"],
     "result.reviewed": [],
@@ -73,9 +80,14 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "visit.checked_out": ["con_vuong"],
     "visit.left_early": [],
     "payment.refunded": ["so_tien"],
+    # Đổi TM/CK/QR sau khi thu (V7) — thông tin vận hành của quầy.
+    "payment.method_changed": ["tu", "sang", "so_tien"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],
+    # Đổi dịch vụ khám sau check-in (V5, 30/09/2026) — tên loại khám là danh
+    # mục, không phải thông tin khách.
+    "appointment.service_switched": ["tu_ten", "den_ten"],
     "visit.checked_in": ["so_thu_tu"],
     "visit.routed": ["dich", "ly_do"],
     "consultation.started": ["loai"],

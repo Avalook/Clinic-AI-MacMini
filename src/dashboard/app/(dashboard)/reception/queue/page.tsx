@@ -16,7 +16,7 @@ import {
   moDuocMan,
   requireNavAccess,
 } from "@/lib/clinic-session";
-import { QUYEN_GHI_CHAM_SOC, coMotQuyen } from "@/lib/quyen-cua-toi";
+import { QUYEN_DOI_DICH_VU_KHAM, QUYEN_GHI_CHAM_SOC, coMotQuyen } from "@/lib/quyen-cua-toi";
 import { currentWeekStartVn, weekStartOf } from "@/lib/roster";
 import type { GoiTiepDon } from "@/lib/tiep-don";
 import QueueBoard from "./QueueBoard";
@@ -96,6 +96,8 @@ export default async function ReceptionQueuePage({
             // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
             // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
             duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
+            // ⋯ "Đổi dịch vụ khám" tại chỗ (V5, 30/09/2026).
+            duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}
             duocXemHoSo={moHoSoBenhNhan}
             // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
             duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
