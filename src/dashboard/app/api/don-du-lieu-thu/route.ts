@@ -21,8 +21,8 @@ function sai(message: string) {
 
 export async function GET(request: Request) {
   const ngay = new URL(request.url).searchParams.get("ngay") ?? "";
-  const q = NGAY_RE.test(ngay) ? `?ngay=${ngay}` : "";
-  return proxyJsonToBackend("GET", `/api/v1/quan-tri/don-du-lieu-thu${q}`, undefined);
+  const d = NGAY_RE.test(ngay) ? ngay : "";
+  return proxyJsonToBackend("GET", `/api/v1/quan-tri/don-du-lieu-thu?ngay=${d}`, undefined);
 }
 
 export async function POST(request: Request) {

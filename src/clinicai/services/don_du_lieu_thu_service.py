@@ -61,15 +61,15 @@ _NGAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 #: Nhóm số dòng cho hộp xác nhận — người đọc hiểu "3 lượt khám", không hiểu
 #: "work_item_dependency 24". Bảng không nằm ở đây gộp vào "khác".
-NHOM_BANG: list[tuple[str, str, tuple[str, ...]]] = [
-    ("khach", "Hồ sơ khách", ("patient",)),
-    ("lich", "Lịch hẹn", ("appointment",)),
-    ("luot", "Lượt khám", ("visit",)),
-    ("chi_dinh", "Chỉ định dịch vụ", ("service_order",)),
-    ("phieu_thu", "Phiếu thu", ("payment_cycle",)),
-    ("don_thuoc", "Dòng đơn thuốc", ("prescription",)),
-    ("tep", "Tệp kết quả", ("tep_ket_qua",)),
-    ("phieu_kho", "Phiếu xuất thuốc (trả lại kho)", ("inventory_txn",)),
+NHOM_BANG: list[tuple[str, str, list[str]]] = [
+    ("khach", "Hồ sơ khách", ["patient"]),
+    ("lich", "Lịch hẹn", ["appointment"]),
+    ("luot", "Lượt khám", ["visit"]),
+    ("chi_dinh", "Chỉ định dịch vụ", ["service_order"]),
+    ("phieu_thu", "Phiếu thu", ["payment_cycle"]),
+    ("don_thuoc", "Dòng đơn thuốc", ["prescription"]),
+    ("tep", "Tệp kết quả", ["tep_ket_qua"]),
+    ("phieu_kho", "Phiếu xuất thuốc (trả lại kho)", ["inventory_txn"]),
 ]
 TEN_KHAC = "Dữ liệu kèm theo khác (bệnh án, việc, sổ sự kiện, thông báo…)"
 
@@ -510,10 +510,11 @@ SELECT DISTINCT v.clinic_patient_id AS khach_id, p.full_name AS ten
  ORDER BY p.full_name
 """
 
+# Nhật ký 30 ngày gần nhất (dọn dữ liệu thử là việc hiếm — vài lần).
 _SQL_LAN_GAN_DAY = """
 SELECT id, luc, boi_ten, nguon, khach, so_dong
   FROM lan_don_du_lieu_thu
  WHERE clinic_id = $1::uuid
+   AND luc > now() - interval '30 days'
  ORDER BY luc DESC
- LIMIT 10
 """

@@ -158,7 +158,9 @@ DECLARE
     -- thu, chỉ thêm — 20260930500000).
     -- 124 → 125 (01/10/2026): clinic_room_service (phòng làm theo dịch vụ —
     -- 20261001210000).
-    expected_tenant_tables constant integer := 125;
+    -- 125 → 126 (01/10/2026): lan_don_du_lieu_thu (nhật ký dọn dữ liệu khách
+    -- thử — 20261001240000; bản lưu du_lieu_da_xoa đi theo lan_id).
+    expected_tenant_tables constant integer := 126;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

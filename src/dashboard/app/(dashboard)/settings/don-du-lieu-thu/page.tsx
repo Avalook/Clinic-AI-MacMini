@@ -17,8 +17,9 @@ export default async function DonDuLieuThuPage({
 }) {
   await requireNavAccess("/settings/don-du-lieu-thu");
   const { ngay } = await searchParams;
-  const q = ngay && /^\d{4}-\d{2}-\d{2}$/.test(ngay) ? `?ngay=${ngay}` : "";
-  const duLieu = await fetchFromBackend<DuLieuNgay>(`/api/v1/quan-tri/don-du-lieu-thu${q}`);
+  // Ngày sai hình → gửi rỗng; máy chủ hiểu rỗng/rác là hôm qua.
+  const d = ngay && /^\d{4}-\d{2}-\d{2}$/.test(ngay) ? ngay : "";
+  const duLieu = await fetchFromBackend<DuLieuNgay>(`/api/v1/quan-tri/don-du-lieu-thu?ngay=${d}`);
 
   return (
     <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
