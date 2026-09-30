@@ -116,9 +116,13 @@ async def kb(pool: asyncpg.Pool) -> KB:
             " ORDER BY created_at, id LIMIT 1",
             CLINIC,
         )
+        # Dịch vụ KHÔNG gắn phòng riêng (30/09/2026: Ghế ĐTT / máy Bio chỉ ở
+        # Sàn chậu) — fixture ghép mã với node siêu âm, đổi phòng theo node.
         ma_dv = await conn.fetchval(
-            "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid"
-            " AND active ORDER BY service_code LIMIT 1",
+            "SELECT service_code FROM service_price sp WHERE clinic_id = $1::uuid"
+            " AND active AND NOT EXISTS (SELECT 1 FROM clinic_room_service s"
+            " WHERE s.clinic_id = sp.clinic_id AND s.service_code = sp.service_code)"
+            " ORDER BY service_code LIMIT 1",
             CLINIC,
         )
         con_id = await conn.fetchval(

@@ -22,6 +22,7 @@ import type {
   ConfigStaff,
   FormDef,
   NodeDef,
+  ViecChonDuoc,
 } from "./types";
 
 export default function ClinicConfigBoard({
@@ -29,6 +30,7 @@ export default function ClinicConfigBoard({
   initialStaff,
   initialServices,
   nodes,
+  viecChonDuoc,
   forms,
   ok,
   configMissing,
@@ -37,6 +39,7 @@ export default function ClinicConfigBoard({
   initialStaff: ConfigStaff[];
   initialServices: ConfigService[];
   nodes: NodeDef[];
+  viecChonDuoc: ViecChonDuoc[];
   configMissing: ConfigMissing[];
   forms: FormDef[];
   ok: boolean;
@@ -70,15 +73,18 @@ export default function ClinicConfigBoard({
   // Định danh là room_id; tên đổi tự do. Sau mỗi lệnh thêm/đổi/bật-tắt thì đọc
   // lại sơ đồ từ máy chủ — không tự đoán trạng thái sau khi tạo phòng mới.
   const [thieu, setThieu] = useState(configMissing);
+  const [viec, setViec] = useState(viecChonDuoc);
 
   async function docLai() {
     const r = await fetch("/api/clinic-config?what=overview", { cache: "no-store" });
     const d = (await r.json().catch(() => null)) as {
       locations?: ConfigLocation[];
       config_missing?: ConfigMissing[];
+      viec_chon_duoc?: ViecChonDuoc[];
     } | null;
     if (d?.locations) setLocations(d.locations);
     if (d?.config_missing) setThieu(d.config_missing);
+    if (d?.viec_chon_duoc) setViec(d.viec_chon_duoc);
   }
 
 
@@ -220,8 +226,8 @@ export default function ClinicConfigBoard({
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <span>
             <b>Chưa có phòng nào làm:</b> {thieu.map((t) => t.name).join(" · ")}. Chỉ
-            định vào các bước này sẽ không xếp được phòng — thêm phòng hoặc gắn
-            bước vào một phòng có sẵn.
+            định các dịch vụ này sẽ không xếp được phòng — gắn dịch vụ (hoặc cả
+            nhóm) vào một phòng đang bật ở mục &quot;Phòng làm việc gì&quot;.
           </span>
         </div>
       )}
@@ -230,6 +236,7 @@ export default function ClinicConfigBoard({
       <CoSoPhong
         locations={locations}
         nodes={nodes}
+        viec={viec}
         staff={staff}
         onDocLai={docLai}
         onLoi={setErr}

@@ -50,6 +50,8 @@ const WRITE_PATHS: Record<string, string> = {
   "room-name": "/api/v1/clinic-config/room-name",
   "room-active": "/api/v1/clinic-config/room-active",
   "room-nodes": "/api/v1/clinic-config/room-nodes",
+  // Dịch vụ lẻ của phòng — dịch vụ gắn ở đây chỉ làm ở phòng được gắn (30/09/2026).
+  "room-services": "/api/v1/clinic-config/room-services",
   "staff-nodes": "/api/v1/clinic-config/staff-nodes",
   "service-form": "/api/v1/clinic-config/service-form",
   "service-type": "/api/v1/clinic-config/service-type",

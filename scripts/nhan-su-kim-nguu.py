@@ -125,6 +125,16 @@ O_SANG_MA = {
     ("Phòng siêu âm", "Điều dưỡng 1"): "T4_SA_DD1",
     ("Phòng siêu âm", "BS 2"): "T4_SA_BS2",
     ("Phòng siêu âm", "Điều dưỡng 2"): "T4_SA_DD2",
+    # Bảng tuần 28/09/2026 (migration 20261001200000): hai phòng siêu âm gộp
+    # thành "Phòng siêu âm 2 máy" (BS 1 = vị trí T1_SA_*, BS 2 = T4_SA_*1),
+    # Điều dưỡng Bio sang Phòng Sàn chậu, phòng Sản đổi tên.
+    ("Phòng siêu âm 2 máy", "BS 1"): "T1_SA_BS",
+    ("Phòng siêu âm 2 máy", "Điều dưỡng 1"): "T1_SA_DD",
+    ("Phòng siêu âm 2 máy", "BS 2"): "T4_SA_BS1",
+    ("Phòng siêu âm 2 máy", "Điều dưỡng 2"): "T4_SA_DD1",
+    ("Phòng Sàn chậu", "Điều dưỡng Bio"): "T4_BIO_DD",
+    ("Phòng Sản/ Siêu âm", "BS Sản / BS 3"): "T4_SAN_BS",
+    ("Phòng Sản/ Siêu âm", "Điều dưỡng Sản / Điều dưỡng 3"): "T4_SAN_DD",
 }
 
 

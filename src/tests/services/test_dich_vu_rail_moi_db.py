@@ -18,8 +18,13 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 async def test_thu_thuat_tren_rail_moi_co_han_goi_hoi_tham(kb: KichBan) -> None:
     ma_tt = await kb.pool.fetchval(
-        "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid AND active"
-        " AND node_code = 'DICHVU-THUTHUAT' ORDER BY service_code LIMIT 1",
+        "SELECT service_code FROM service_price sp WHERE clinic_id = $1::uuid"
+        " AND active AND node_code = 'DICHVU-THUTHUAT'"
+        # Dịch vụ gắn phòng riêng (Ghế ĐTT, máy Bio → Sàn chậu, 30/09/2026)
+        # không làm ở phòng thủ thuật đầu tiên — lấy dịch vụ đi theo node.
+        " AND NOT EXISTS (SELECT 1 FROM clinic_room_service s"
+        " WHERE s.clinic_id = sp.clinic_id AND s.service_code = sp.service_code)"
+        " ORDER BY service_code LIMIT 1",
         CLINIC,
     )
     phong = await kb.pool.fetchval(

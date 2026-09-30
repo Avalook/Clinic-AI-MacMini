@@ -573,10 +573,11 @@ class DoiTacService:
                    SET exec_status = 'performed', performed_by = $3::uuid,
                        room_id = coalesce(room_id, (
                            SELECT r.id FROM clinic_room r
-                             JOIN clinic_room_node rn
-                               ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                             WHERE r.clinic_id = $1::uuid AND r.la_doi_tac
-                              AND r.is_active AND rn.node_code = service_order.node_code
+                              AND r.is_active
+                              AND phong_lam_duoc(r.clinic_id, r.id,
+                                                 service_order.node_code,
+                                                 service_order.service_code)
                             ORDER BY r.sort LIMIT 1)),
                        assigned_by = coalesce(assigned_by, $3::uuid),
                        assigned_at = coalesce(assigned_at, now()),

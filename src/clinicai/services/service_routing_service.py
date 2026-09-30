@@ -145,9 +145,13 @@ async def can_route_invalidate(
 # EligibleRoomQuery + RuleBasedRoomAdvisor
 # ---------------------------------------------------------------------------
 
-#: MỘT truy vấn: phòng cùng phòng khám, đang mở, đang nhận khách, làm được node
-#: — kèm tải hàng chờ sống và tín hiệu "hôm nay có người trực ở phòng". Tải và
-#: lịch trực là TÍN HIỆU xếp hạng, không phải điều kiện.
+#: MỘT truy vấn: phòng cùng phòng khám, đang mở, đang nhận khách, làm được chỉ
+#: định (node + dịch vụ) — kèm tải hàng chờ sống và tín hiệu "hôm nay có người
+#: trực ở phòng". Tải và lịch trực là TÍN HIỆU xếp hạng, không phải điều kiện.
+#:
+#: "Làm được" = hàm Postgres ``phong_lam_duoc`` (30/09/2026): dịch vụ có gắn phòng
+#: ở ``clinic_room_service`` thì CHỈ các phòng ấy; không gắn thì theo node như
+#: cũ. Mọi chỗ tính "phòng làm được chỉ định này" gọi đúng hàm ấy.
 _ELIGIBLE_SQL = """
 SELECT r.id::text AS room_id, r.code, r.sort,
        EXISTS (
@@ -170,8 +174,8 @@ SELECT r.id::text AS room_id, r.code, r.sort,
                = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
            AND ($4::uuid IS NULL OR q.visit_id <> $4::uuid))::int AS tai
   FROM clinic_room r
-  JOIN clinic_room_node rn ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
- WHERE r.clinic_id = $1::uuid AND rn.node_code = $2
+ WHERE r.clinic_id = $1::uuid
+   AND phong_lam_duoc(r.clinic_id, r.id, $2, $5)
    AND r.is_active AND r.accepting AND NOT r.la_doi_tac
    -- CÙNG CƠ SỞ với lượt khám (24/09/2026): phòng khám có nhiều cơ sở thì
    -- khách ở Kim Ngưu không được xếp sang phòng Hào Nam. Trước đây câu này
@@ -179,6 +183,49 @@ SELECT r.id::text AS room_id, r.code, r.sort,
    -- sang phòng lấy mẫu của cơ sở khác.
    AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
 """
+
+
+def phong_lam_duoc_sql(phong: str = "r", cd: str = "o") -> str:
+    """Mẩu SQL dùng chung: phòng alias ``phong`` làm được chỉ định alias ``cd``
+    (service_order) không. Chỉ là lời gọi hàm Postgres — luật ở MỘT chỗ."""
+    return (
+        f"phong_lam_duoc({phong}.clinic_id, {phong}.id,"
+        f" {cd}.node_code, {cd}.service_code)"
+    )
+
+
+def cau_phong_khong_lam(ten_dich_vu: str | None, phong_lam: Sequence[str]) -> str:
+    """Câu từ chối khi xếp vào phòng không làm dịch vụ — HÀM THUẦN.
+
+    ``phong_lam`` = các phòng dịch vụ được GẮN riêng (rỗng = dịch vụ không thu
+    hẹp, luật node: câu cũ)."""
+    ten = ten_dich_vu.strip() if isinstance(ten_dich_vu, str) else ""
+    ten = ten or "này"
+    if not phong_lam:
+        return f"Phòng này không làm dịch vụ {ten}."
+    return (
+        f"Phòng này không làm dịch vụ {ten} — dịch vụ chỉ làm ở: "
+        f"{', '.join(phong_lam)}."
+    )
+
+
+async def phong_gan_dich_vu(
+    conn: asyncpg.Connection, clinic_id: str, service_code: str | None
+) -> list[str]:
+    """Tên các phòng đang BẬT được gắn riêng dịch vụ này (rỗng = không thu hẹp)."""
+    if not service_code:
+        return []
+    return [
+        str(r["ten"])
+        for r in await conn.fetch(
+            "SELECT coalesce(r.name, r.code) AS ten FROM clinic_room_service s"
+            " JOIN clinic_room r ON r.id = s.room_id AND r.clinic_id = s.clinic_id"
+            " WHERE s.clinic_id = $1::uuid AND s.service_code = $2 AND r.is_active"
+            " ORDER BY r.sort, r.code",
+            clinic_id,
+            service_code,
+        )
+    ]
 
 
 async def co_so_cua_luot(
@@ -232,12 +279,18 @@ async def eligible_rooms(
     node_code: str,
     location_id: str | None = None,
     tru_luot: str | None = None,
+    service_code: str | None = None,
 ) -> list[RoomCandidate]:
-    """EligibleRoomQuery — tập phòng hợp lệ của một node, một truy vấn.
+    """EligibleRoomQuery — tập phòng hợp lệ của một chỉ định, một truy vấn.
 
-    `location_id` = cơ sở của lượt khám; truyền vào thì chỉ lấy phòng cùng cơ
-    sở (None = không lọc — chỉ dùng cho màn cấu hình). `tru_luot` = lượt của
-    khách đang được xếp: không đếm chính họ vào số người chờ."""
+    `service_code` = dịch vụ của chỉ định: dịch vụ gắn phòng riêng thì chỉ các
+    phòng ấy (None = chỉ xét node). `location_id` = cơ sở của lượt khám; truyền
+    vào thì chỉ lấy phòng cùng cơ sở (None = không lọc — chỉ dùng cho màn cấu
+    hình). `tru_luot` = lượt của khách đang được xếp: không đếm chính họ vào số
+    người chờ.
+
+    Tầng sau (chọn BÁC SĨ trong phòng nhiều bác sĩ) lọc / xếp tiếp trên chính
+    tập này — không tự tính lại "phòng nào làm được"."""
     return [
         RoomCandidate(
             room_id=r["room_id"],
@@ -247,7 +300,7 @@ async def eligible_rooms(
             tai=int(r["tai"]),
         )
         for r in await conn.fetch(
-            _ELIGIBLE_SQL, clinic_id, node_code, location_id, tru_luot
+            _ELIGIBLE_SQL, clinic_id, node_code, location_id, tru_luot, service_code
         )
     ]
 
@@ -308,12 +361,15 @@ DOI_TAC_LAM_TRON_SQL = """(
             WHERE nd.clinic_id = o.clinic_id AND nd.code = o.node_code
               AND nd.lam_ben_ngoai)
         AND NOT EXISTS (
-           SELECT 1 FROM clinic_room_node rn2
-             JOIN clinic_room r2
-               ON r2.id = rn2.room_id AND r2.clinic_id = rn2.clinic_id
-            WHERE rn2.clinic_id = o.clinic_id AND rn2.node_code = o.node_code
-              AND r2.is_active AND NOT r2.la_doi_tac))
+           SELECT 1 FROM clinic_room r2
+            WHERE r2.clinic_id = o.clinic_id
+              AND r2.is_active AND NOT r2.la_doi_tac
+              AND phong_lam_duoc(r2.clinic_id, r2.id, o.node_code, o.service_code)))
 )"""
+
+#: Khoá nội bộ của ``da_tra_cho_vao_phong`` — dùng tính phòng chọn được, bỏ
+#: trước khi trả màn.
+KHOA_NOI_BO = frozenset({"node_code", "service_code"})
 
 #: Câu cho chỉ định đối tác làm trọn — màn vẽ nguyên câu này, không tự đặt.
 CAU_DOI_TAC_LAM = "Đối tác làm — không cần xếp phòng."
@@ -455,7 +511,7 @@ async def da_tra_cho_vao_phong(
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                o.routing_revision, o.room_id::text AS room_id, r.name AS phong,
                coalesce(o.routing_status, 'UNASSIGNED') AS routing_status,
-               o.routing_nguon, o.node_code
+               o.routing_nguon, o.node_code, o.service_code
           FROM service_order o
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           LEFT JOIN clinic_room r ON r.id = o.room_id AND r.clinic_id = o.clinic_id
@@ -475,8 +531,11 @@ async def da_tra_cho_vao_phong(
                 "room_id": r["room_id"] if r["routing_status"] == ASSIGNED else None,
                 "phong": r["phong"] if r["routing_status"] == ASSIGNED else None,
                 "routing_revision": int(r["routing_revision"]),
-                # Quầy thu tính phòng chọn được theo bước này (27/09/2026).
+                # Quầy thu tính phòng chọn được theo bước + dịch vụ này
+                # (27/09, 30/09/2026) — hai khoá nội bộ, bỏ trước khi trả màn
+                # (``KHOA_NOI_BO``).
                 "node_code": r["node_code"],
+                "service_code": r["service_code"],
             }
         )
     return out
@@ -495,10 +554,9 @@ async def cho_nhan_vao_phong(
                o.routing_revision, p.full_name, p.patient_code,
                v.checked_in_at
           FROM clinic_room pr
-          JOIN clinic_room_node rn
-            ON rn.room_id = pr.id AND rn.clinic_id = pr.clinic_id
           JOIN service_order o
-            ON o.clinic_id = pr.clinic_id AND o.node_code = rn.node_code
+            ON o.clinic_id = pr.clinic_id
+           AND {phong_lam_duoc_sql("pr", "o")}
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id
           LEFT JOIN appointment a
@@ -590,6 +648,7 @@ def _ly_do(value: Any, cho_phep: frozenset[str]) -> str:
 _ORDER_SQL = """
 SELECT id::text AS id, visit_id::text AS visit_id, exec_status, source,
        authorized_by::text AS authorized_by, hold_until_round, node_code,
+       service_code, service_name,
        selection_status, routing_status, routing_revision, execution_status,
        room_id::text AS room_id, routing_nguon,
        phong_du_kien_id::text AS phong_du_kien_id
@@ -748,7 +807,7 @@ class ServiceRoutingService:
             )
             o = await conn.fetchrow(
                 f"""
-                SELECT o.node_code, o.visit_id::text AS visit_id,
+                SELECT o.node_code, o.service_code, o.visit_id::text AS visit_id,
                        {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam,
                        o.execution_status, o.exec_status, o.selection_status,
                        o.phong_du_kien_id::text AS phong_du_kien_id,
@@ -799,6 +858,7 @@ class ServiceRoutingService:
                         str(o["node_code"]),
                         await co_so_cua_luot(conn, cid, order_id=oid),
                         tru_luot=o["visit_id"],
+                        service_code=o["service_code"],
                     )
                 )
             )
@@ -970,7 +1030,7 @@ class ServiceRoutingService:
             conn,
             cid,
             rid,
-            str(o["node_code"]),
+            o,
             await co_so_cua_luot(conn, cid, visit_id=vid),
         )
 
@@ -1120,7 +1180,8 @@ class ServiceRoutingService:
             return []
         orders = await conn.fetch(
             f"""
-            SELECT o.id::text AS id, o.node_code, o.routing_revision,
+            SELECT o.id::text AS id, o.node_code, o.service_code,
+                   o.routing_revision,
                    o.service_name, o.phong_du_kien_id::text AS phong_du_kien,
                    o.routing_nguon
               FROM service_order o
@@ -1152,7 +1213,12 @@ class ServiceRoutingService:
                 continue
             ung_vien = rank_rooms(
                 await eligible_rooms(
-                    conn, clinic_id, o["node_code"], co_so, tru_luot=visit_id
+                    conn,
+                    clinic_id,
+                    o["node_code"],
+                    co_so,
+                    tru_luot=visit_id,
+                    service_code=o["service_code"],
                 )
             )
             # Phòng khách chọn ở quầy (phong_du_kien) thắng — nếu nó vẫn đủ điều
@@ -1280,7 +1346,7 @@ class ServiceRoutingService:
                     conn,
                     cid,
                     rid,
-                    str(o["node_code"]),
+                    o,
                     await co_so_cua_luot(conn, cid, visit_id=vid),
                 )
             if rid is not None and o["selection_status"] == "SELECTED":
@@ -1410,7 +1476,7 @@ class ServiceRoutingService:
                 conn,
                 cid,
                 rid,
-                str(o["node_code"]),
+                o,
                 await co_so_cua_luot(conn, cid, visit_id=vid),
             )
             ten = {
@@ -1684,22 +1750,23 @@ class ServiceRoutingService:
         conn: asyncpg.Connection,
         cid: str,
         rid: str,
-        node_code: str,
+        o: asyncpg.Record,
         co_so: str | None = None,
     ) -> None:
+        """Phòng nhận được chỉ định ``o`` (dòng ``_ORDER_SQL``) không — cùng luật
+        ``phong_lam_duoc`` với gợi ý phòng / dây H4."""
         r = await conn.fetchrow(
             """
             SELECT r.is_active, r.accepting, r.location_id::text AS location_id,
-                   EXISTS (SELECT 1 FROM clinic_room_node rn
-                            WHERE rn.clinic_id = r.clinic_id AND rn.room_id = r.id
-                              AND rn.node_code = $3) AS lam_duoc
+                   phong_lam_duoc(r.clinic_id, r.id, $3, $4) AS lam_duoc
               FROM clinic_room r
              WHERE r.clinic_id = $1::uuid AND r.id = $2::uuid
                FOR SHARE OF r
             """,
             cid,
             rid,
-            node_code,
+            str(o["node_code"]),
+            o["service_code"],
         )
         if r is None:
             raise _loi("ROOM_NOT_FOUND", "Không tìm thấy phòng này.")
@@ -1708,7 +1775,13 @@ class ServiceRoutingService:
         if not r["accepting"]:
             raise _loi("ROOM_NOT_ACCEPTING", "Phòng đang tạm ngừng nhận khách.")
         if not r["lam_duoc"]:
-            raise _loi("ROOM_NOT_SERVING_SERVICE", "Phòng này không làm dịch vụ này.")
+            raise _loi(
+                "ROOM_NOT_SERVING_SERVICE",
+                cau_phong_khong_lam(
+                    o["service_name"],
+                    await phong_gan_dich_vu(conn, cid, o["service_code"]),
+                ),
+            )
         if co_so and r["location_id"] and r["location_id"] != co_so:
             raise _loi(
                 "ROOM_OTHER_LOCATION",

@@ -3068,7 +3068,8 @@ class LuotKhamService:
             o = await conn.fetchrow(
                 """
                 SELECT exec_status, source, authorized_by::text AS authorized_by,
-                       hold_until_round, node_code, version, selection_status
+                       hold_until_round, node_code, service_code, service_name,
+                       version, selection_status
                   FROM service_order
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
                    FOR UPDATE
@@ -3135,23 +3136,34 @@ class LuotKhamService:
         o: asyncpg.Record,
     ) -> int:
         """Đặt một chỉ định (đã qua luật chặn) vào hàng chờ của một phòng."""
+        from clinicai.services.service_routing_service import (
+            cau_phong_khong_lam,
+            phong_gan_dich_vu,
+        )
+
         cid = identity.clinic_id
+        # Cùng luật `phong_lam_duoc` với Routing v1 (30/09/2026): dịch vụ gắn
+        # phòng riêng thì chỉ các phòng ấy.
         serves = await conn.fetchval(
             """
             SELECT EXISTS (
                 SELECT 1 FROM clinic_room r
-                  JOIN clinic_room_node rn
-                    ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.id = $2::uuid
-                   AND rn.node_code = $3 AND r.is_active AND r.accepting)
+                   AND phong_lam_duoc(r.clinic_id, r.id, $3, $4)
+                   AND r.is_active AND r.accepting)
             """,
             cid,
             rid,
             o["node_code"],
+            o["service_code"],
         )
         if not serves:
             raise LuotKhamConflictError(
-                "ROOM_NOT_SERVING", "Phòng đã chọn không làm dịch vụ này."
+                "ROOM_NOT_SERVING",
+                cau_phong_khong_lam(
+                    o["service_name"],
+                    await phong_gan_dich_vu(conn, cid, o["service_code"]),
+                ),
             )
         if o["exec_status"] == "assigned":
             dang_goi = await conn.fetchval(
@@ -3258,7 +3270,7 @@ class LuotKhamService:
             """
             SELECT id::text AS id, exec_status, source,
                    authorized_by::text AS authorized_by, hold_until_round,
-                   node_code, version
+                   node_code, service_code, service_name, version
               FROM service_order o
              WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                AND exec_status = 'authorized'
@@ -3302,6 +3314,7 @@ class LuotKhamService:
                     o["node_code"],
                     await co_so_cua_luot(conn, cid, visit_id=vid),
                     tru_luot=vid,
+                    service_code=o["service_code"],
                 )
             )
             rid = xep[0]["room_id"] if xep else None

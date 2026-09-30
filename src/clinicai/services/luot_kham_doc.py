@@ -1099,12 +1099,12 @@ class BangLuotKham:
                    -- phòng ở cơ sở khác không cứu được khách đang đứng ở đây
                    -- (mô phỏng 24/09: phòng Lấy mẫu ở Hào Nam che mất báo
                    -- "không phòng nào làm được" ở Kim Ngưu).
+                   -- Dịch vụ gắn phòng riêng: chỉ các phòng ấy (30/09/2026).
                    NOT EXISTS (
-                       SELECT 1 FROM clinic_room_node rn
-                         JOIN clinic_room r2
-                           ON r2.id = rn.room_id AND r2.clinic_id = rn.clinic_id
-                        WHERE rn.clinic_id = o.clinic_id
-                          AND rn.node_code = o.node_code
+                       SELECT 1 FROM clinic_room r2
+                        WHERE r2.clinic_id = o.clinic_id
+                          AND phong_lam_duoc(r2.clinic_id, r2.id, o.node_code,
+                                             o.service_code)
                           AND r2.is_active
                           AND (coalesce(v.location_id, (
                                    SELECT a.location_id FROM appointment a

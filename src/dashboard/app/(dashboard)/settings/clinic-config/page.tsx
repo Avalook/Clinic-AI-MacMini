@@ -14,6 +14,7 @@ import type {
   ConfigStaff,
   FormDef,
   NodeDef,
+  ViecChonDuoc,
 } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export default async function ClinicConfigPage() {
     fetchFromBackend<{
       locations: ConfigLocation[];
       nodes: NodeDef[];
+      viec_chon_duoc?: ViecChonDuoc[];
       config_missing?: ConfigMissing[];
     }>(
       "/api/v1/clinic-config/overview",
@@ -52,6 +54,7 @@ export default async function ClinicConfigPage() {
         initialLocations={overview?.locations ?? []}
         initialStaff={staff?.items ?? []}
         nodes={overview?.nodes ?? []}
+        viecChonDuoc={overview?.viec_chon_duoc ?? []}
         configMissing={overview?.config_missing ?? []}
         initialServices={services?.items ?? []}
         forms={services?.forms ?? []}
