@@ -45,6 +45,7 @@ from clinicai.api.v1.routers.day_noi import router as day_noi_router
 from clinicai.api.v1.routers.dispatch import router as dispatch_router
 from clinicai.api.v1.routers.display import router as display_router
 from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
+from clinicai.api.v1.routers.don_du_lieu_thu import router as don_du_lieu_thu_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.home import router as home_router
@@ -313,6 +314,13 @@ app.include_router(
 # Phân quyền: cửa là capability `permission.manage`, không phải vai MANAGEMENT.
 app.include_router(
     phan_quyen_router, prefix="/api/v1", tags=["phan-quyen"], dependencies=_GUARDED
+)
+# Dọn dữ liệu khách thử (30/09/2026): cũng chỉ `permission.manage`.
+app.include_router(
+    don_du_lieu_thu_router,
+    prefix="/api/v1",
+    tags=["don-du-lieu-thu"],
+    dependencies=_GUARDED,
 )
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
