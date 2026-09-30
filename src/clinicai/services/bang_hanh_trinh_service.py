@@ -194,7 +194,7 @@ class BangHanhTrinhService:
                 for r in await conn.fetch(
                     """
                     SELECT o.visit_id::text AS visit_id, count(*) AS so
-                      FROM tep_ket_qua t
+                      FROM v_tep_ket_qua_hieu_luc t
                       JOIN service_order o
                         ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
                      WHERE t.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])

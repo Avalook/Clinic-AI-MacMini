@@ -257,6 +257,9 @@ EVENT_LABELS: dict[str, str] = {
     "review.not_ready": "Chưa đủ điều kiện đọc kết quả",
     "tep_ket_qua.xac_nhan": "Xác nhận tệp kết quả",
     "tep_ket_qua.thu_hoi": "Thu hồi tệp kết quả",
+    "tep_ket_qua.xoa": "Xoá tệp kết quả (xoá mềm)",
+    "tep_ket_qua.dinh_chinh": "Đính chính – gỡ tệp kết quả đã gửi",
+    "tep_ket_qua.khoi_phuc": "Khôi phục tệp kết quả đã xoá",
 }
 
 #: Lệnh của workflow kernel (bảng `work_item_event`), gộp chung vào một dòng
@@ -319,6 +322,8 @@ SOURCE_LABELS: dict[str, str] = {
     "api:phieu-kham": "Bàn khám — Phiếu khám",
     "api:tep-ket-qua:xac-nhan": "Xác nhận tệp kết quả",
     "api:tep-ket-qua:thu-hoi": "Thu hồi tệp kết quả",
+    "api:tep-ket-qua:xoa": "Xoá tệp kết quả",
+    "api:tep-ket-qua:khoi-phuc": "Khôi phục tệp kết quả",
 }
 
 #: Khớp theo TIỀN TỐ khi không có mục khớp đúng — và đây mới là phần quan trọng.

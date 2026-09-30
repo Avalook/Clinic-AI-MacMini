@@ -139,7 +139,7 @@ async def doc_ket_qua_theo_chi_dinh(
     tep = await conn.fetch(
         "SELECT id, service_order_id, ten_hien_thi, loai_tep, mime, tai_len_luc,"
         "       xac_nhan_trang_thai"
-        "  FROM tep_ket_qua"
+        "  FROM v_tep_ket_qua_hieu_luc"
         " WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])"
         # Tệp đã thu hồi không còn là kết quả — giữ trong kho để đối chiếu,
         # nhưng không được hiện như thể vẫn còn hiệu lực.
@@ -240,7 +240,7 @@ async def doc_tep_chua_gan(
     rows = await conn.fetch(
         "SELECT t.id, t.service_order_id, t.ten_hien_thi, t.loai_tep, t.mime,"
         "       t.tai_len_luc, t.xac_nhan_trang_thai"
-        "  FROM tep_ket_qua t"
+        "  FROM v_tep_ket_qua_hieu_luc t"
         "  JOIN visit v ON v.clinic_id = t.clinic_id"
         "   AND v.appointment_id = t.appointment_id"
         "   AND v.clinic_patient_id = t.clinic_patient_id"

@@ -182,7 +182,12 @@ MODULE: dict[str, Module] = {
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
             # vòng đời kết quả — cùng module, không mở module mới cho hai lệnh.
-            quyen=["result.form.fill", "result.file.confirm", "result.review.approve"],
+            quyen=[
+                "result.form.fill",
+                "result.file.confirm",
+                "result.review.approve",
+                "result.file.delete",
+            ],
             # Điền xong phiếu mà dịch vụ còn đang làm dở thì đóng hộ — nhưng
             # bằng LỆNH của module Thực hiện, không thò tay vào bảng của nó.
             goi_dong_bo=["execution.CompleteService"],
@@ -266,6 +271,8 @@ MODULE: dict[str, Module] = {
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
                 "result.reviewed",
@@ -448,11 +455,16 @@ MODULE: dict[str, Module] = {
                 "OpenResultFile",
                 "MarkSent",
                 "RevokeResultFile",
+                # V9 (30/09/2026): xoá mềm + khôi phục 30 ngày.
+                "DeleteResultFile",
+                "RestoreResultFile",
             ],
             phat=[
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
                 "result_file.viewed",
                 "result_file.sent_to_patient",
             ],
@@ -478,6 +490,8 @@ MODULE: dict[str, Module] = {
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
+                "result_file.deleted",
+                "result_file.restored",
             ],
             ben_nhan=["vong_doc_luot_kham"],
             bang=["review_round"],

@@ -119,6 +119,8 @@ ALTER TABLE event_log       DISABLE TRIGGER trg_event_log_no_delete;
 ALTER TABLE lab_result      DISABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         DISABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         DISABLE TRIGGER trg_payment_no_delete;
+-- Tệp kết quả chặn xoá dòng từ V9 (20260930700000).
+ALTER TABLE tep_ket_qua     DISABLE TRIGGER trg_tep_ket_qua_no_delete;
 ALTER TABLE visit           DISABLE TRIGGER trg_visit_no_delete;
 -- Sinh hiệu chỉ thêm (20260915000012): xoá visit kéo theo nó qua FK CASCADE.
 ALTER TABLE vital_measurement DISABLE TRIGGER trg_vital_measurement_chi_them;
@@ -199,6 +201,7 @@ ALTER TABLE event_log       ENABLE TRIGGER trg_event_log_no_delete;
 ALTER TABLE lab_result      ENABLE TRIGGER trg_lab_result_no_delete;
 ALTER TABLE patient         ENABLE TRIGGER trg_patient_no_delete;
 ALTER TABLE payment         ENABLE TRIGGER trg_payment_no_delete;
+ALTER TABLE tep_ket_qua     ENABLE TRIGGER trg_tep_ket_qua_no_delete;
 ALTER TABLE visit           ENABLE TRIGGER trg_visit_no_delete;
 ALTER TABLE vital_measurement ENABLE TRIGGER trg_vital_measurement_chi_them;
 
