@@ -284,7 +284,8 @@ _CHO_QUYET_SQL = (
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        o.exec_status, o.selection_status, o.routing_status, o.execution_status,
        o.version, o.mang_tu_visit_id IS NOT NULL AS mang_sang, o.bat_buoc,
-       o.node_code, o.phong_du_kien_id::text AS phong_du_kien_id,
+       o.node_code, o.service_code,
+       o.phong_du_kien_id::text AS phong_du_kien_id,
        -- Làm bên ngoài (đối tác): quầy nói ra "Đối tác làm" (24/09/2026).
        EXISTS (SELECT 1 FROM node_definition n
                 WHERE n.clinic_id = o.clinic_id AND n.code = o.node_code
@@ -369,7 +370,7 @@ async def cho_khach_quyet(
         luot = out.setdefault(
             r["visit_id"], {"revision": int(r["revision"]), "chi_dinh": []}
         )
-        phong = await pq.cua(r["node_code"], r["visit_id"])
+        phong = await pq.cua(r["node_code"], r["visit_id"], r["service_code"])
         luot["chi_dinh"].append(
             {
                 "id": r["id"],

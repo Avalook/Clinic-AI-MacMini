@@ -299,6 +299,28 @@ async def set_room_nodes(
     )
 
 
+class RoomServicesRequest(BaseModel):
+    room_id: UUID
+    #: Danh sách ĐẦY ĐỦ dịch vụ gắn riêng cho phòng (mã service_price). Rỗng =
+    #: phòng không gắn dịch vụ lẻ nào.
+    service_codes: list[str] = Field(default_factory=list, max_length=500)
+
+
+@router.put("/clinic-config/room-services")
+async def set_room_services(
+    body: RoomServicesRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Phòng làm những dịch vụ lẻ nào — dịch vụ gắn ở đây chỉ làm ở các phòng
+    được gắn (30/09/2026)."""
+    return await ClinicConfigService(pool).set_room_services(
+        identity=identity,
+        room_id=str(body.room_id),
+        service_codes=body.service_codes,
+    )
+
+
 class StaffNodesRequest(NodesRequest):
     staff_id: UUID
 

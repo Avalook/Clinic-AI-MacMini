@@ -155,8 +155,13 @@ ON CONFLICT (clinic_id, code) DO NOTHING;
 DO $verify$
 DECLARE v_sa int; v_all int;
 BEGIN
+    -- Đếm ĐÚNG ba phòng câu INSERT trên gieo (theo mã), không đếm "phòng siêu
+    -- âm đang bật": migration sau được quyền tắt / gộp phòng (20260917000001
+    -- tắt bộ phòng mẫu, 20261001200000 gộp KN-SA-T1 vào KN-SA1), và bản cũ
+    -- làm chuỗi migration chạy lại trên DB có dữ liệu hỏng ở đây. Chỉ đổi câu
+    -- kiểm — prod đã ghi sổ migration này, không chạy lại.
     SELECT count(*) INTO v_sa FROM public.clinic_room
-     WHERE node_code = 'DICHVU-SIEUAM' AND is_active;
+     WHERE node_code = 'DICHVU-SIEUAM' AND code IN ('SA1', 'SA2', 'SA3');
     SELECT count(*) INTO v_all FROM public.clinic_room WHERE is_active;
     IF v_sa < 3 THEN
         RAISE EXCEPTION 'Phải có đủ SA1/SA2/SA3, hiện có %', v_sa;

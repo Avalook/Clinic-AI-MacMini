@@ -639,7 +639,7 @@ def dung_hanh_trinh_khach(
         o = {
             "trang_thai": "O_QUAY",
             "nhan": "Đang chờ",
-            "noi": "Quầy lễ tân",
+            "noi": "Quầy tiếp đón",
             "tu_luc": None,
             "stt": None,
         }
