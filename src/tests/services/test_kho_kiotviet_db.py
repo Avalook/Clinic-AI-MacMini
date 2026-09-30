@@ -268,3 +268,48 @@ async def test_ton_khac_don_vi_khong_cong_chung(q: Quay) -> None:
     )
     assert sorted(dm["don_vi_lo"]) == ["hộp", "viên"]
     assert len(dm["ton_theo_don_vi"]) == 2
+
+
+async def test_sap_het_hang_so_tung_don_vi_va_an_don_vi_het(q: Quay) -> None:
+    """30/09: chip "Sắp hết hàng" không cộng hộp với viên — 8 hộp + 5 viên với
+    ngưỡng 10 là sắp hết (cộng thành 13 thì lọt). Còn một đơn vị trên ngưỡng
+    (20 hộp) thì chưa hết. Đơn vị đã về 0 không hiện ("20 hộp · 0 viên")."""
+    svc = PharmacyService(q.pool)
+
+    async def dm(drug: str) -> dict[str, Any]:
+        return next(
+            t for t in await svc.danh_muc(identity=q.duoc_si) if t["id"] == drug
+        )
+
+    a = await _thuoc_moi(q)
+    await svc.luu_thuoc(
+        identity=q.duoc_si, drug_catalog_id=a, ten=f"Thuốc dv {a[:6]}", ton_toi_thieu=10
+    )
+    await _phieu_nhap(q, [{**_dong_nhap(a, 8), "unit": "hộp"}])
+    await _phieu_nhap(q, [{**_dong_nhap(a, 5), "unit": "viên"}])
+    assert (await dm(a))["sap_het_hang"] is True
+
+    await _phieu_nhap(q, [{**_dong_nhap(a, 12), "unit": "hộp"}])
+    assert (await dm(a))["sap_het_hang"] is False
+
+    lo_vien = str(
+        await q.pool.fetchval(
+            "SELECT id::text FROM drug_batch"
+            " WHERE drug_catalog_id = $1::uuid AND unit = 'viên'",
+            a,
+        )
+    )
+    await kho.kiem_kho(
+        q.pool,
+        identity=q.duoc_si,
+        khoa_gui=uuid.uuid4().hex,
+        dong=[{"drug_batch_id": lo_vien, "thuc_te": 0}],
+    )
+    assert [
+        (x["don_vi"], float(x["ton"])) for x in (await dm(a))["ton_theo_don_vi"]
+    ] == [("hộp", 20)]
+    the = await kho.the_kho(q.pool, identity=q.duoc_si, drug_catalog_id=a)
+    assert [
+        (x["don_vi"], float(x["ton"])) for x in the["thuoc"]["ton_theo_don_vi"]
+    ] == [("hộp", 20)]
+    assert float(the["thuoc"]["ton_hien_tai"]) == 20

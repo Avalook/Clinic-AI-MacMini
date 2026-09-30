@@ -20,7 +20,12 @@
 #     `--network host` như Linux). Deploy lên VPS dựng + khởi động ảnh amd64 thật
 #     và có health check — đó là bước chứng minh ảnh chạy được.
 #   * DB thử dùng container riêng (ci_may_test :55530, ci_may_db :55531), không
-#     đụng DB test hằng ngày (:55500) và KHÔNG BAO GIỜ đụng :55433.
+#     đụng DB test hằng ngày (:55500) và KHÔNG BAO GIỜ đụng :55433. Cổng đổi được:
+#     CI_MAY_CONG_TEST / CI_MAY_CONG_DB (30/09: container test của phiên Codex
+#     chiếm :55531 → job migration hỏng).
+#   * MỘT phiên một lúc trên cả máy: hai phiên cùng xoá/dựng `ci_may_test` thì
+#     giẫm nhau. Khoá nằm ở thư mục git CHUNG của mọi worktree; phiên thứ hai
+#     thoát 3 và nói ai đang giữ.
 
 set -uo pipefail
 
@@ -45,6 +50,21 @@ done
 # trước commit (scripts/git-hooks/pre-commit) hiểu là tham chiếu, không phải bí mật.
 MK_DB_THU="${CI_MAY_MK_DB:-postgres}"
 KHOA_ANON_GIA="${CI_MAY_KHOA_ANON:-dummy-anon-key-for-build}"
+CONG_TEST="${CI_MAY_CONG_TEST:-55530}"
+CONG_DB="${CI_MAY_CONG_DB:-55531}"
+
+KHOA_CHAY="$(git rev-parse --path-format=absolute --git-common-dir)/ci-may.khoa"
+if ! mkdir "$KHOA_CHAY" 2>/dev/null; then
+  giu="$(cat "$KHOA_CHAY/pid" 2>/dev/null || true)"
+  if [ -n "$giu" ] && kill -0 "$giu" 2>/dev/null; then
+    echo "ci-may đang chạy ở phiên khác (pid $giu, $(cat "$KHOA_CHAY/noi" 2>/dev/null)) — chờ xong rồi chạy lại." >&2
+    exit 3
+  fi
+  echo "Khoá ci-may bỏ lại từ phiên đã chết (pid ${giu:-?}) — lấy lại."
+fi
+echo $$ >"$KHOA_CHAY/pid"
+echo "$REPO" >"$KHOA_CHAY/noi"
+trap 'rm -rf "$KHOA_CHAY"' EXIT
 
 VENV="$REPO/.venv/bin"
 [ -x "$VENV/pytest" ] || { echo "Thiếu .venv — chạy: poetry install --no-root --with dev" >&2; exit 2; }
@@ -67,7 +87,7 @@ job_backend() {
   "$VENV/ruff" format --check src/
   "$VENV/mypy" src/
   python3 scripts/tests/tenant-scope-audit.py --check
-  DB_CONTAINER=ci_may_test DB_PORT=55530 ./scripts/tests/dung-db-kiem.sh
+  DB_CONTAINER=ci_may_test DB_PORT="$CONG_TEST" ./scripts/tests/dung-db-kiem.sh
   # PYTEST SONG SONG (28/09/2026): trước chạy tuần tự trên 1 nhân (~250–700s,
   # nhân ấy chỉ bận ~30% — còn lại chờ database). Mỗi worker một DATABASE nhân
   # bản từ DB thử ĐÃ áp migration, trong CÙNG container (không dựng thêm
@@ -88,7 +108,7 @@ job_backend() {
     song_song=(-n "$n" --dist loadfile)
   fi
   ANTHROPIC_API_KEY="" CI_MAY_DB_THEO_WORKER=1 \
-    DATABASE_URL_TEST="postgresql://postgres:${MK_DB_THU}@127.0.0.1:55530/postgres" \
+    DATABASE_URL_TEST="postgresql://postgres:${MK_DB_THU}@127.0.0.1:${CONG_TEST}/postgres" \
     "$VENV/pytest" src/tests/ -q --tb=short -p no:cacheprovider "${song_song[@]}" \
     -m "not integration" --ignore=src/tests/integration \
     --cov=clinicai --cov-report=term --cov-fail-under=80
@@ -152,7 +172,7 @@ job_database() {
     return 1
   fi
   docker rm -f ci_may_db >/dev/null 2>&1 || true
-  docker run -d --name ci_may_db -e POSTGRES_PASSWORD="${MK_DB_THU}" -p 127.0.0.1:55531:5432 \
+  docker run -d --name ci_may_db -e POSTGRES_PASSWORD="${MK_DB_THU}" -p "127.0.0.1:${CONG_DB}:5432" \
     postgres:17 >/dev/null
   trap 'docker rm -f ci_may_db >/dev/null 2>&1 || true' EXIT
   for _ in $(seq 1 60); do
@@ -161,7 +181,7 @@ job_database() {
   done
   sleep 2
   export PGPASSWORD="${MK_DB_THU}"
-  P="psql -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55531 -U postgres -d postgres"
+  P="psql -q -v ON_ERROR_STOP=1 -h 127.0.0.1 -p "$CONG_DB" -U postgres -d postgres"
   $P -f supabase/tests/bootstrap_plain_postgres.sql
   for m in supabase/migrations/*.sql; do echo "-- $m"; $P -f "$m"; done
   echo "== chạy lại migration từ 20260730"

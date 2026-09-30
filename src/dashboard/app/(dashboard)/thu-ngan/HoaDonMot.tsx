@@ -21,6 +21,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import { dongDangChon, tongTheoLuaChon } from "@/lib/hoa-don-quay";
 
 export interface PhongChon {
   id: string;
@@ -31,6 +32,8 @@ export interface PhongChon {
 
 export interface DongQuay {
   id: string;
+  /** Chỉ dòng phụ thu: ID dịch vụ cha do máy chủ trả. */
+  order_id?: string | null;
   loai: "kham" | "chi_dinh" | "phu_thu";
   ten: string | null;
   gia: number | null;
@@ -101,12 +104,14 @@ function gio(iso: string | null): string {
 export default function HoaDonMot({
   qt,
   dangThu,
+  dangLuuPhuThu,
   onThu,
   onChotThuSau,
   onDoiPhong,
 }: {
   qt: QuayThu;
   dangThu: boolean;
+  dangLuuPhuThu: boolean;
   /** Cha gửi POST /api/payment (khoá gửi lại, báo kết quả, tải lại). */
   onThu: (p: LenhThuMot) => void;
   /** Cha gửi lệnh chốt lựa chọn (không thu) — V10 làm trước, thu sau. */
@@ -119,12 +124,11 @@ export default function HoaDonMot({
   const [chon, setChon] = useState<Set<string>>(macDinh);
   const [pt, setPt] = useState<PhuongThuc>("CASH");
   const [loiPhong, setLoiPhong] = useState<string | null>(null);
+  const orderIdsCoTheDoi = new Set(qt.lua_chon.order_ids_seen);
 
-  const dangChon = (d: DongQuay) => (d.trong_lua_chon ? chon.has(d.id) : d.chon);
+  const dangChon = (d: DongQuay) => dongDangChon(d, chon, orderIdsCoTheDoi);
   const doi = [...macDinh].some((id) => !chon.has(id)) || [...chon].some((id) => !macDinh.has(id));
-  const tong = doi
-    ? qt.phong_kham.filter(dangChon).reduce((s, d) => s + (d.gia ?? 0), 0)
-    : qt.tong;
+  const tong = doi ? tongTheoLuaChon(qt.phong_kham, chon, orderIdsCoTheDoi) : qt.tong;
   const thieuGia = qt.phong_kham.some((d) => dangChon(d) && d.gia == null);
   const chiChot = tong === 0;
   const chanThu = thieuGia || (!doi && !qt.thu_duoc && !chiChot);
@@ -271,11 +275,21 @@ export default function HoaDonMot({
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="text-emph font-semibold tabular-nums text-ink">{tien(tong)}</span>
           {onChotThuSau && conQuyet && !chiChot ? (
-            <Button variant="secondary" size="lg" disabled={dangThu} onClick={chotSau}>
+            <Button
+              variant="secondary"
+              size="lg"
+              disabled={dangThu || dangLuuPhuThu}
+              onClick={chotSau}
+            >
               Chốt, thu sau
             </Button>
           ) : null}
-          <Button variant="primary" size="lg" disabled={dangThu || chanThu} onClick={bam}>
+          <Button
+            variant="primary"
+            size="lg"
+            disabled={dangThu || dangLuuPhuThu || chanThu}
+            onClick={bam}
+          >
             {dangThu ? "Đang ghi…" : chiChot ? "Chốt dịch vụ" : "Thu"}
           </Button>
         </div>

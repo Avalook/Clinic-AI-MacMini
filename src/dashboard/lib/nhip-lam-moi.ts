@@ -162,7 +162,8 @@ export function moDongTheoHien(cong: CongCuDong): Go {
   function mo() {
     if (dongDong) return;
     dongDong = cong.moDong(cong.xuLy);
-    // Lần mở ĐẦU không phải "mở lại": trang vừa dựng xong, dữ liệu đang mới.
+    // Lần mở ĐẦU (lúc trang vừa dựng, tab đang hiện) không phải "mở lại": dữ
+    // liệu đang mới.
     if (daTungMo) cong.khiMoLai();
     daTungMo = true;
   }
@@ -173,7 +174,13 @@ export function moDongTheoHien(cong: CongCuDong): Go {
     dongDong = null;
   }
 
+  // Mở trang trong tab NỀN (Ctrl+bấm link, 30/09/2026): trang dựng lúc tải,
+  // nhưng từ lúc ấy tới lúc được nhìn thì không có dòng nào — quãng đó CŨNG mù.
+  // Nên lần mở dòng đầu tiên, khi tới muộn, vẫn là một lần bắt kịp. Trước đây
+  // `LiveBoardSync` tự nghe `visibilitychange` nên các màn điều phối không lộ lỗ
+  // này; nay nó thôi nghe (một lần đổi tab từng thành ba lần dựng trang).
   if (!cong.dangAn()) mo();
+  else daTungMo = true;
 
   const thoiNghe = cong.ngheDoiHien(() => {
     if (cong.dangAn()) dong();

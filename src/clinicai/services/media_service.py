@@ -31,7 +31,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.kho_tep import chay_tren_kho
+from clinicai.core.kho_tep import chay_tren_kho, han_theo_co
 
 logger = structlog.get_logger()
 
@@ -336,14 +336,20 @@ class MediaService:
             path, key = safe_path(
                 clinic_id=identity.clinic_id, ultrasound_id=ultrasound_id, ext=ext
             )
-            path.parent.mkdir(parents=True, exist_ok=True)
             # Ghi ra tệp tạm rồi đổi tên: một lần ghi bị cắt giữa chừng (hết
             # đĩa, mất điện) để lại tệp tạm, không để lại một ảnh hỏng mà
             # database vẫn khai là có.
             tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_bytes(data)
-            tmp.replace(path)
-            path.chmod(0o600)
+
+            def _ghi() -> None:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                tmp.write_bytes(data)
+                tmp.replace(path)
+                path.chmod(0o600)
+
+            # Luồng phụ có hạn (29/09): ổ Viettel treo → báo "kho chậm", giao
+            # dịch huỷ, API không treo. Ảnh ≤ 12MB nên một lần là đủ.
+            await chay_tren_kho(_ghi, han=han_theo_co(len(data)))
 
             await conn.execute(
                 "UPDATE public.ultrasound_record"

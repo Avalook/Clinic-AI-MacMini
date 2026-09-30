@@ -29,6 +29,9 @@ T = TypeVar("T")
 
 #: Một thao tác trên ổ (stat, mở, đọc ảnh nhỏ) bình thường mất vài chục ms.
 HAN_GIAY = 4.0
+#: Ghi MỘT khối (tới ~4MB) của một lượt tải lên: ổ bình thường xong dưới 1 giây.
+#: Không bọc cả vòng ghi video nhiều trăm MB bằng một hạn — hạn tính TỪNG KHỐI.
+HAN_GHI_KHOI = 10.0
 #: Sau một lần quá hạn, bao lâu thì thử chạm ổ lại.
 NGAT_GIAY = 30.0
 CAU_KHO_CHAM = (
@@ -49,14 +52,40 @@ def mo_lai() -> None:
     _ngat_den = 0.0
 
 
-async def chay_tren_kho(ham: Callable[[], T], *, han: float = HAN_GIAY) -> T:
-    """Chạy ``ham`` (đồng bộ, chạm ổ tệp) ở luồng phụ, tối đa ``han`` giây."""
+def han_theo_co(so_byte: int) -> float:
+    """Hạn cho một lần chép/ghi TRỌN ``so_byte`` byte: ``HAN_GIAY`` + 1 giây mỗi MB
+    (ổ chậm hơn 1MB/s coi như đang hỏng)."""
+    return HAN_GIAY + so_byte / (1024 * 1024)
+
+
+async def chay_tren_kho(ham: Callable[[], T], *, han: float | None = None) -> T:
+    """Chạy ``ham`` (đồng bộ, chạm ổ tệp) ở luồng phụ, tối đa ``han`` giây
+    (mặc định ``HAN_GIAY``, đọc lúc gọi)."""
     global _ngat_den
     if dang_ngat():
         raise ExternalServiceError(CAU_KHO_CHAM)
+    if han is None:
+        han = HAN_GIAY
     try:
         return await asyncio.wait_for(asyncio.to_thread(ham), timeout=han)
     except TimeoutError:
         _ngat_den = time.monotonic() + NGAT_GIAY
         logger.error("kho_tep_qua_han", han_giay=han, ngat_giay=NGAT_GIAY)
         raise ExternalServiceError(CAU_KHO_CHAM) from None
+
+
+async def don_tren_kho(ham: Callable[[], object], *, viec: str) -> None:
+    """Dọn dẹp trên ổ (xoá tệp dở, đóng tệp) — cố hết sức, KHÔNG BAO GIỜ ném.
+
+    Dọn dẹp chạy trong nhánh lỗi: ném ở đây sẽ che mất lỗi gốc (người dùng thấy
+    "kho chậm" thay vì "tệp không phải ảnh"). Đang ngắt mạch thì bỏ qua luôn —
+    không đẻ thêm luồng treo chờ ổ chỉ để xoá một tệp tạm; tệp sót lại có tên
+    trong log để dọn tay.
+    """
+    if dang_ngat():
+        logger.warning("kho_tep_bo_qua_don", viec=viec, ly_do="dang_ngat_mach")
+        return
+    try:
+        await chay_tren_kho(ham)
+    except Exception as loi:  # noqa: BLE001 — dọn dẹp không được che lỗi gốc
+        logger.warning("kho_tep_don_loi", viec=viec, loi=repr(loi))

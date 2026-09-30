@@ -679,7 +679,11 @@ async def tai_len_ket_qua(
     Tên tệp người dùng gửi CHỈ dùng làm nhãn; tên trên đĩa do hệ thống đặt.
     Kiểu kiểm bằng mấy byte đầu, không bằng đuôi tên.
     """
-    from clinicai.services.nhan_tep_luong import nhan_multipart, uuid_hoac_loi
+    from clinicai.services.nhan_tep_luong import (
+        don_tep_tam,
+        nhan_multipart,
+        uuid_hoac_loi,
+    )
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
     truong, tep = await nhan_multipart(request)
@@ -703,7 +707,7 @@ async def tai_len_ket_qua(
         )
     finally:
         # Đã đổi tên về chỗ ở thật thì tệp tạm không còn; bị từ chối thì dọn.
-        tep.duong.unlink(missing_ok=True)
+        await don_tep_tam(tep)
 
 
 #: Đọc nội dung tệp: CSKH/Lễ tân như cũ, THÊM bác sĩ — bác sĩ phải xem được

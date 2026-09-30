@@ -16,6 +16,7 @@ import type {
   FormSection,
   FieldValue,
 } from "../../../lib/form-schemas/types";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 function isVisible(field: FormField, values: FormData): boolean {
   if (!field.parent) return true;
@@ -120,8 +121,8 @@ export default function ServiceFormEngine({
   // thư ký nhập, thư ký thấy bác sĩ sửa, và sinh hiệu điều dưỡng vừa đo hiện vào.
   useEffect(() => {
     if (!schema || !visitId) return;
-    const id = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì đọc một lần ngay (30/09/2026).
+    return nhipKhiHien(() => {
       void fetch(`/api/clinical-form?visitId=${visitId}&serviceCode=${schema.service_code}`, {
         cache: "no-store",
       })
@@ -141,7 +142,6 @@ export default function ServiceFormEngine({
         })
         .catch(() => {});
     }, 4000);
-    return () => clearInterval(id);
   }, [schema, visitId]);
 
   // Engine chỉ render khi có config + có visit. Không có → ẩn (không vỡ layout).
