@@ -113,7 +113,19 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             con_no = await hoa_don_con_no(
                 conn, clinic_id=su_kien.clinic_id, visit_id=visit_id
             )
-            if con_no.tong == 0 and not con_no.van_de:
+            # Đã từng thu dịch vụ → nợ 0 là NHỜ lần thu ấy: để đường
+            # payment.service_collected xếp bằng quyền NGƯỜI THU (người thu không
+            # có quyền điều phối thì để nguyên — Tuyền 24/09). Chỉ tự xếp ở đây
+            # khi lượt chưa bao giờ có gì để thu.
+            da_tung_thu = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.payment_cycle"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                " AND kind = 'dich_vu'"
+                " AND status IN ('PENDING_VERIFICATION', 'PAID'))",
+                su_kien.clinic_id,
+                visit_id,
+            )
+            if con_no.tong == 0 and not con_no.van_de and not da_tung_thu:
                 await ServiceRoutingService(pool=None).tu_xep_da_thu(
                     conn,
                     clinic_id=su_kien.clinic_id,
