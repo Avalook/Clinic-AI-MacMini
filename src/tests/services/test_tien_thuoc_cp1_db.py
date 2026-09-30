@@ -76,8 +76,8 @@ async def tao_quay(pool: asyncpg.Pool) -> Quay:
         thu_ngan = await _nguoi(conn, loc, "CASHIER")
         duoc_si = await _nguoi(conn, loc, "PHARMACIST")
         st = await conn.fetchval(
-            "INSERT INTO service_type (clinic_id, code, name) VALUES ($1::uuid, $2,"
-            " $3) RETURNING id::text",
+            "INSERT INTO service_type (clinic_id, code, name, gia_mac_dinh)"
+            " VALUES ($1::uuid, $2, $3, 150000) RETURNING id::text",
             CLINIC,
             f"KT-{duoi}",
             f"Khám thử {duoi}",

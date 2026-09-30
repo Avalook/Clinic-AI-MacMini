@@ -23,6 +23,7 @@ interface LuaChon {
 interface PhiKham {
   loai_kham: string | null;
   di_thang_phong: boolean;
+  khong_kham: boolean;
   lua_chon: LuaChon[];
   da_chon: string[];
   khoa: boolean;
@@ -58,7 +59,7 @@ export default function ChonDichVuKham({
 
   if (!pk) return loi ? <p className="text-meta text-danger">{loi}</p> : null;
   // Loại khám đi thẳng phòng: không có tiền khám — dịch vụ thêm ở quầy.
-  if (pk.di_thang_phong || pk.lua_chon.length === 0) return null;
+  if (pk.khong_kham || pk.lua_chon.length === 0) return null;
 
   async function doi(id: string, bat: boolean) {
     if (!pk) return;
@@ -83,11 +84,9 @@ export default function ChonDichVuKham({
           Dịch vụ khám{pk.loai_kham ? ` — ${pk.loai_kham}` : ""}
         </h3>
         <span className="text-meta text-ink-muted">
-          {pk.khoa
-            ? "Tiền khám đã thu — đổi phải huỷ phiếu trước"
-            : pk.da_chon.length === 0
-              ? "Chưa chọn — tiền khám chưa tính"
-              : "Tiền khám tính theo dịch vụ đã chọn"}
+          {pk.da_chon.length === 0
+            ? "Chưa chọn — đang tính giá mặc định"
+            : "Tiền khám tính theo dịch vụ đã chọn"}
         </span>
       </div>
       <ul className="space-y-1">

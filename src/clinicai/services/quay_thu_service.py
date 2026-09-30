@@ -264,6 +264,7 @@ def dung_hoa_don_quay(
         "revision": hd.get("revision"),
         "thu_duoc": bool(hd.get("thu_duoc")),
         "van_de": list(hd.get("van_de") or []),
+        "canh_bao": list(hd.get("canh_bao") or []),
         "chi_doi_tac_thu": bool(hd.get("chi_doi_tac_thu")),
         "phong_kham": phong_kham,
         "doi_tac": doi_tac,

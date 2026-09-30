@@ -49,6 +49,14 @@ class TestTheFourThingsNotionAsksFor:
     def test_unpaid_service_fee_blocks(self) -> None:
         assert "unpaid_service" in _types(_row(paid_service=False))
 
+    def test_hoa_don_khong_con_no_thi_khong_can_phieu_thu(self) -> None:
+        assert "unpaid_service" not in _types(
+            _row(paid_service=False, con_no_dich_vu=False)
+        )
+
+    def test_da_thu_nhung_phat_sinh_no_moi_van_chan(self) -> None:
+        assert "unpaid_service" in _types(_row(paid_service=True, con_no_dich_vu=True))
+
     def test_a_patient_still_in_a_room_blocks(self) -> None:
         """*"Không cho đóng lượt khi bệnh nhân vẫn đang được xử lý tại một
         phòng"* — người còn đang siêu âm thì chưa thể ra về."""
@@ -69,6 +77,11 @@ class TestDrugPaymentOnlyWhenThereIsAPrescription:
 
     def test_a_prescription_already_paid_does_not_block(self) -> None:
         assert "unpaid_drug" not in _types(_row(has_drug=True, paid_drug=True))
+
+    def test_thuoc_khong_con_no_thi_khong_can_phieu_thu(self) -> None:
+        assert "unpaid_drug" not in _types(
+            _row(has_drug=True, paid_drug=False, con_no_thuoc=False)
+        )
 
     def test_no_prescription_means_no_drug_payment_is_expected(self) -> None:
         """Đòi thu tiền thuốc ở MỌI lượt sẽ chặn phần lớn bệnh nhân — những
@@ -148,7 +161,7 @@ class TestDongLuotKhamDo:
         from clinicai.api.exceptions import ValidationError
 
         svc, _ = self._service()
-        svc.readiness = AsyncMock(
+        svc._readiness_locked = AsyncMock(
             return_value={"already_closed": False, "blockers": []}
         )
 
@@ -168,7 +181,7 @@ class TestDongLuotKhamDo:
         from unittest.mock import AsyncMock
 
         svc, _ = self._service()
-        svc.readiness = AsyncMock(
+        svc._readiness_locked = AsyncMock(
             return_value={
                 "already_closed": False,
                 "blockers": [{"type": "service_open", "message": "Còn 2 dịch vụ"}],
@@ -196,7 +209,7 @@ class TestDongLuotKhamDo:
         from clinicai.api.exceptions import ValidationError
 
         svc, _ = self._service()
-        svc.readiness = AsyncMock(
+        svc._readiness_locked = AsyncMock(
             return_value={
                 "already_closed": False,
                 "blockers": [{"type": "service_open", "message": "Còn 2 dịch vụ"}],

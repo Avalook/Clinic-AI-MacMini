@@ -74,7 +74,7 @@ async def khoa_luot(
     """
     row = await conn.fetchrow(
         """
-        SELECT visit_id::text AS visit_id, status,
+        SELECT visit_id::text AS visit_id, status, closed_at,
                attending_doctor_id::text AS doctor_id
           FROM visit
          WHERE clinic_id = $1::uuid AND visit_id = $2::uuid

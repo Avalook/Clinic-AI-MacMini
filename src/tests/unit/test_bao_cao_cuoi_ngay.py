@@ -87,9 +87,16 @@ def _bc(**kw: Any) -> dict[str, Any]:
         "dong": [],
         "doi_tac": [],
         "so_luot_kham": 0,
+        "so_luot_khong_chon_dich_vu_kham": 0,
     }
     goc.update(kw)
     return gom_bao_cao(**goc)
+
+
+def test_dem_luot_khong_chon_dich_vu_kham() -> None:
+    bc = _bc(so_luot_kham=9, so_luot_khong_chon_dich_vu_kham=4)
+    assert bc["khach"]["so_luot_kham"] == 9
+    assert bc["khach"]["so_luot_khong_chon_dich_vu_kham"] == 4
 
 
 def test_gom_so_tm_ck_hoan_huy_thuoc() -> None:
@@ -232,7 +239,12 @@ def test_gom_so_tm_ck_hoan_huy_thuoc() -> None:
     ]
     assert bc["hoan_huy"][0]["ly_do"] == "Thu nhầm khách"
     # Khách: v3 chỉ có phiếu huỷ → không tính "đã thu".
-    assert bc["khach"] == {"so_luot_kham": 5, "so_luot_da_thu": 2, "so_khach_da_thu": 2}
+    assert bc["khach"] == {
+        "so_luot_kham": 5,
+        "so_luot_khong_chon_dich_vu_kham": 0,
+        "so_luot_da_thu": 2,
+        "so_khach_da_thu": 2,
+    }
     assert bc["doi_tac"]["tong"] == 900_000
     assert [(o["ten"], o["doanh_thu"]) for o in bc["top_dich_vu"]] == [
         ("Khám", 300_000),
