@@ -80,27 +80,13 @@ def test_ops_status_requires_verified_identity() -> None:
     assert response.status_code == 401
 
 
-def test_ops_traffic_endpoint_rejects_bad_credentials() -> None:
+def test_ops_traffic_khong_dang_nhap_thi_bi_chan() -> None:
+    """30/09/2026: /ops/traffic từng mở cho cả Internet (admin/12345678). Không
+    có khoá dịch vụ + danh tính nhân viên thì bị chặn, kể cả đúng mật khẩu."""
     client = TestClient(app)
-    response = client.post(
-        "/api/v1/ops/traffic",
-        json={"username": "admin", "password": "wrongpassword"},
-    )
-    assert response.status_code == 422
-
-
-def test_ops_traffic_endpoint_accepts_valid_credentials() -> None:
-    from unittest.mock import patch
-
-    client = TestClient(app)
-    with patch(
-        "clinicai.services.traffic_service.doc_du_lieu_traffic",
-        return_value={"total": 500, "status": "ok"},
-    ):
+    for mat_khau in ("wrongpassword", "12345678"):
         response = client.post(
             "/api/v1/ops/traffic",
-            json={"username": "admin", "password": "12345678"},
+            json={"username": "admin", "password": mat_khau},
         )
-        assert response.status_code == 200
-        assert response.json()["data"]["total"] == 500
-
+        assert response.status_code in (401, 403)
