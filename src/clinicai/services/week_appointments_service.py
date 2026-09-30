@@ -245,6 +245,8 @@ class WeekAppointmentsService:
                     for r in rows
                     if r.get("visit_id")
                     and r.get("ve_luc") is None
+                    # INCOMPLETE / FINALIZED / AMENDED cố ý không hỏi chỗ đứng:
+                    # khách đã về / hồ sơ đã ký — nhãn do trang_thai_hien_thi.
                     and r.get("trang_thai_luot") in ("OPEN", "IN_PROGRESS")
                 ],
             )
