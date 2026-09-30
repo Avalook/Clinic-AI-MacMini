@@ -200,11 +200,17 @@ class TrafficLoginPayload(BaseModel):
 @router.post("/ops/traffic")
 async def lay_bao_cao_traffic(
     body: TrafficLoginPayload,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
 ) -> dict[str, object]:
-    """Báo cáo lưu lượng truy cập hệ thống. Yêu cầu tài khoản admin và mật khẩu."""
+    """Báo cáo lưu lượng truy cập. Hai lớp (30/09/2026): đăng nhập ClinicAI có
+    quyền Vận hành (ops.view) VÀ mật khẩu riêng đặt trong .env.prod. Trang từng mở
+    cho cả Internet với admin/12345678 — IP + đường dẫn là dữ liệu cá nhân."""
     pwd = body.password or body.pin
     user = body.username or "admin"
-    if not (traffic_service.xac_thuc_admin(user, pwd) or traffic_service.xac_thuc_ma_pin(pwd)):
+    if not (
+        traffic_service.xac_thuc_admin(user, pwd)
+        or traffic_service.xac_thuc_ma_pin(pwd)
+    ):
         raise ValidationError("Tài khoản hoặc mật khẩu không chính xác.")
 
     data = traffic_service.doc_du_lieu_traffic()

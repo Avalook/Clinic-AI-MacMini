@@ -81,9 +81,11 @@ export default function DirectTrafficPage() {
     const savedU = sessionStorage.getItem("dr4women_traffic_u");
     const savedP = sessionStorage.getItem("dr4women_traffic_p");
     if (savedU && savedP) {
+      // Nạp lại từ sessionStorage (dữ liệu ngoài) — cùng mẫu ChonDichVuKham.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUsername(savedU);
       setPassword(savedP);
-      handleLogin(savedU, savedP);
+      void handleLogin(savedU, savedP);
     }
   }, [handleLogin]);
 
@@ -312,7 +314,7 @@ export default function DirectTrafficPage() {
                         : "bg-gradient-to-t from-indigo-600 to-indigo-400 group-hover:from-indigo-500 group-hover:to-indigo-300"
                     }`}
                   />
-                  <span className="mt-2 text-[10px] font-mono text-slate-400 group-hover:text-slate-800">
+                  <span className="mt-2 text-xs font-mono text-slate-400 group-hover:text-slate-800">
                     {hour.split(":")[0]}h
                   </span>
                 </div>
@@ -374,7 +376,7 @@ export default function DirectTrafficPage() {
 
             <div className="mt-5 space-y-4">
               <div>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Trang & Nghiệp vụ dùng nhiều nhất</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Trang & Nghiệp vụ dùng nhiều nhất</p>
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(data.top_routes || {})
                     .slice(0, 8)
@@ -384,7 +386,7 @@ export default function DirectTrafficPage() {
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700"
                       >
                         <span className="font-mono text-slate-600">{route}</span>
-                        <span className="rounded bg-indigo-100 text-indigo-700 px-1.5 py-0.5 text-[10px] font-bold">
+                        <span className="rounded bg-indigo-100 text-indigo-700 px-1.5 py-0.5 text-xs font-bold">
                           {fmtNum(count)}
                         </span>
                       </span>
@@ -393,7 +395,7 @@ export default function DirectTrafficPage() {
               </div>
 
               <div className="pt-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mạng IP nội bộ phòng khám gửi request chính</p>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mạng IP nội bộ phòng khám gửi request chính</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   {Object.entries(data.top_ips || {})
                     .slice(0, 4)
@@ -402,7 +404,7 @@ export default function DirectTrafficPage() {
                       return (
                         <div key={ip} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5">
                           <p className="font-mono font-bold text-slate-800">{ip}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{fmtNum(count)} lượt ({pct}%)</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{fmtNum(count)} lượt ({pct}%)</p>
                         </div>
                       );
                     })}

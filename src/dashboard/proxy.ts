@@ -9,7 +9,7 @@ import { ganKiemPhienTaiCho } from "./lib/kiem-phien-tai-cho";
 import { laRouteDaTat } from "./lib/route-da-tat";
 import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
-const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password", "/traffic"];
+const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 
 // The living style guide holds no patient data and must not look like it needs
 // a clinical session. The page itself 404s outside development, so this entry

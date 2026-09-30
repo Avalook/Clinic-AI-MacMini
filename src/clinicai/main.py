@@ -317,7 +317,7 @@ app.include_router(
 app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
-app.include_router(ops_router, prefix="/api/v1", tags=["ops"])
+app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(lab_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
