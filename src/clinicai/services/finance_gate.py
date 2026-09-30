@@ -5,6 +5,9 @@ Contract: docs/ai/lifecycle-v1/ClinicAI-FINANCE-GATE-v1.md (frozen) — SỬA �
 bắt đầu làm. Cửa làm là ``duoc_lam`` (``CHO_LAM_STATES``); ``financially_ready``
 chỉ còn nghĩa "tiền đã xong" để hiện nhãn. Đã làm mà chưa thu = DUE (thu ở quầy
 như thường), không còn là "bất thường cần đối soát".
+SỬA lần nữa (Tuyền 30/09/2026 tối, "thu trước, trừ khi tick"): dây nối
+``thu_truoc_khi_lam`` (mặc định BẬT) — DUE / thiếu giá chỉ ``duoc_lam`` khi lượt
+được tick "Làm trước – thu sau" (``visit.lam_truoc_thu_sau_luc``). Dây TẮT = V10.
 
 Không thu tiền, không hoàn tiền, không xếp phòng, không bắt đầu dịch vụ, không
 gọi AI hay đối tác. Không có cột ``billing_status``: trạng thái tài chính SUY RA
@@ -36,6 +39,7 @@ from clinicai.services.bill_service import (
     EXTERNAL,
     giai_gia,
 )
+from clinicai.services.day_noi import giai_gia_tri
 
 NOT_APPLICABLE = "NOT_APPLICABLE"
 NOT_REQUIRED = "NOT_REQUIRED"
@@ -69,6 +73,17 @@ READY_STATES = frozenset({PAID, NOT_REQUIRED, PARTNER_COLLECTS})
 CHO_LAM_STATES = READY_STATES | frozenset(
     {DUE, PENDING_VERIFICATION, FINANCIAL_DATA_INCOMPLETE}
 )
+
+#: THU TRƯỚC KHI LÀM (Tuyền 30/09/2026 tối): dây ``thu_truoc_khi_lam`` BẬT và
+#: lượt KHÔNG tick "Làm trước – thu sau" → chỉ những trạng thái này được làm
+#: (như trước V10: tiền đã xong, hoặc chuyển khoản đang chờ xác minh).
+THU_TRUOC_STATES = READY_STATES | frozenset({PENDING_VERIFICATION})
+
+#: Mã dây nối (``services/day_noi.py``) — đọc trong CHÍNH câu truy vấn lô.
+DAY_THU_TRUOC = "thu_truoc_khi_lam"
+
+#: Câu chặn khi chưa thu mà lượt không tick — màn hiện nguyên câu này.
+CAU_CHUA_THU = "Chưa thu tiền — thu trước hoặc tick Làm trước – thu sau."
 
 #: Mã lỗi cho StartService (FINANCE-GATE §6).
 START_REASON = {
@@ -105,6 +120,11 @@ class OrderFinanceFacts:
     ben_thu: tuple[str | None, ...]
     footprints: tuple[Footprint, ...]
     visit_allocation_unknown: bool
+    #: Dây ``thu_truoc_khi_lam`` (mặc định False ở đây để hàm thuần giữ nghĩa
+    #: V10 khi người gọi không nói gì; đường DB luôn điền giá trị thật).
+    thu_truoc_khi_lam: bool = False
+    #: Lượt đã tick "Làm trước – thu sau".
+    lam_truoc_thu_sau: bool = False
 
 
 @dataclass(frozen=True)
@@ -149,7 +169,31 @@ def _quyet(
         reason_code=reason if reason is not None else START_REASON.get(state),
         coverage_cycle_id=cycle,
         needs_human_review=state == FINANCIAL_REVIEW_REQUIRED,
-        duoc_lam=state in CHO_LAM_STATES,
+        duoc_lam=cua_lam(
+            state,
+            thu_truoc_khi_lam=f.thu_truoc_khi_lam,
+            lam_truoc_thu_sau=f.lam_truoc_thu_sau,
+        ),
+    )
+
+
+def cua_lam(state: str, *, thu_truoc_khi_lam: bool, lam_truoc_thu_sau: bool) -> bool:
+    """Cửa làm (xếp phòng / bắt đầu / hàng chờ phòng / đối tác nhận việc).
+
+    Dây TẮT hoặc lượt đã tick → V10 (``CHO_LAM_STATES``: chưa thu vẫn làm).
+    Dây BẬT + không tick → phải thu trước (``THU_TRUOC_STATES``). Hàm thuần."""
+    if thu_truoc_khi_lam and not lam_truoc_thu_sau:
+        return state in THU_TRUOC_STATES
+    return state in CHO_LAM_STATES
+
+
+def cau_chan_lam(q: FinanceDecision | None) -> str:
+    """Câu cho người bấm khi cửa làm đóng — máy chủ quyết, màn hiện nguyên."""
+    if q is not None and q.finance_state in (DUE, FINANCIAL_DATA_INCOMPLETE):
+        return CAU_CHUA_THU
+    return (
+        "Tiền của dịch vụ này đang hoàn / đã hoàn hoặc sổ tiền cần đối soát — xử"
+        " lý ở quầy trước khi làm."
     )
 
 
@@ -299,11 +343,16 @@ luot_mo_ho AS (
 )
 SELECT o.id::text AS id, o.selection_status, o.exec_status, o.execution_status,
        g.gia, g.ben_thu, d.fps,
-       (m.visit_id IS NOT NULL) AS mo_ho
+       (m.visit_id IS NOT NULL) AS mo_ho,
+       (v.lam_truoc_thu_sau_luc IS NOT NULL) AS lam_truoc,
+       (SELECT dn.gia_tri FROM public.day_nghiep_vu dn
+         WHERE dn.clinic_id = $1::uuid AND dn.ma = $3) AS thu_truoc
   FROM o
   JOIN gia g ON g.id = o.id
   LEFT JOIN dau_vet d ON d.source_id = o.id::text
   LEFT JOIN luot_mo_ho m ON m.visit_id = o.visit_id
+  LEFT JOIN public.visit v
+    ON v.clinic_id = $1::uuid AND v.visit_id = o.visit_id
 """
 
 
@@ -336,7 +385,7 @@ async def states_for_orders(
     ids = sorted({str(i) for i in order_ids})
     if not ids:
         return {}
-    rows = await conn.fetch(_FACTS_SQL, clinic_id, ids)
+    rows = await conn.fetch(_FACTS_SQL, clinic_id, ids, DAY_THU_TRUOC)
     return {
         r["id"]: derive_finance_state(
             OrderFinanceFacts(
@@ -348,6 +397,8 @@ async def states_for_orders(
                 ben_thu=tuple(r["ben_thu"]),
                 footprints=_footprints(r["fps"]),
                 visit_allocation_unknown=bool(r["mo_ho"]),
+                thu_truoc_khi_lam=bool(giai_gia_tri(DAY_THU_TRUOC, r["thu_truoc"])),
+                lam_truoc_thu_sau=bool(r["lam_truoc"]),
             )
         )
         for r in rows

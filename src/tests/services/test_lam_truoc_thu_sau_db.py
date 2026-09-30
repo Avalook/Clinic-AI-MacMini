@@ -7,14 +7,20 @@
 được." Chị Lan được chỉ định siêu âm, lễ tân chốt dịch vụ nhưng CHƯA thu: chị có
 phòng ngay, phòng bắt đầu và làm xong được; check-out vẫn nhắc còn nợ; cuối buổi
 quầy thu đúng số tiền (kể cả dịch vụ đã làm xong).
+
+30/09/2026 tối: hành vi này nay là dây ``thu_truoc_khi_lam`` TẮT (mặc định BẬT
+= thu trước, trừ lượt tick "Làm trước – thu sau" —
+``test_thu_truoc_lam_truoc_tick_db``). Mọi bài ở đây chạy với dây TẮT.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 
 import asyncpg
 import pytest
+import pytest_asyncio
 
 from clinicai.services import finance_gate
 from clinicai.services.bill_service import hoa_don_con_no
@@ -38,8 +44,15 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _thu,
     _thu_khoi_dieu_phoi,
 )
+from tests.services.test_thu_truoc_lam_truoc_tick_db import day_thu_truoc
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _v10_day_tat(pool: asyncpg.Pool) -> AsyncIterator[None]:  # noqa: F811
+    async with day_thu_truoc(pool, False):
+        yield
 
 
 async def _gate(pool: asyncpg.Pool, order: str) -> finance_gate.FinanceDecision:  # noqa: F811

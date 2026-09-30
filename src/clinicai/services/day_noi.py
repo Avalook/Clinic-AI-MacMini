@@ -68,6 +68,16 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "thu_truoc_khi_lam",
+            'Thu tiền trước khi làm dịch vụ — chỉ lượt được tick "Làm trước –'
+            ' thu sau" (ở Bàn khám / quầy thu) mới xếp phòng, bắt đầu làm khi'
+            " chưa thu. TẮT = mọi lượt làm trước, thu sau",
+            # BẬT (Tuyền 30/09/2026 đổi ý sau V10: "mặc định phải thu trước").
+            # TẮT = hành vi V10 (khách chốt là làm, cuối buổi thu).
+            True,
+            "bat_tat",
+        ),
+        Day(
             "h4_chi_ap_phong_du_kien",
             # C9 (27/09/2026): phòng khám muốn lễ tân chỉ định phòng, hệ thống
             # không tự chọn. TẮT = giữ hành vi cũ. Chỉ có tác dụng khi dây tự xếp
@@ -108,12 +118,19 @@ DAY: dict[str, Day] = {
 
 async def doc_day(conn: asyncpg.Connection, clinic_id: str, ma: str) -> Any:
     """Giá trị hiện hành của một dây; phòng khám chưa chỉnh thì mặc định."""
-    day = DAY[ma]
     gia_tri = await conn.fetchval(
         "SELECT gia_tri FROM day_nghiep_vu WHERE clinic_id = $1::uuid AND ma = $2",
         clinic_id,
         ma,
     )
+    return giai_gia_tri(ma, gia_tri)
+
+
+def giai_gia_tri(ma: str, gia_tri: Any) -> Any:
+    """Giá trị THÔ của cột ``day_nghiep_vu.gia_tri`` (hoặc None = chưa chỉnh) →
+    giá trị dây. Hàm thuần — dùng khi câu SQL khác đã đọc sẵn cột (FinanceGate
+    đọc dây ``thu_truoc_khi_lam`` trong CHÍNH câu truy vấn lô của nó)."""
+    day = DAY[ma]
     if gia_tri is None:
         return day.mac_dinh
     v = json.loads(gia_tri) if isinstance(gia_tri, str) else gia_tri
@@ -125,4 +142,4 @@ async def doc_day(conn: asyncpg.Connection, clinic_id: str, ma: str) -> Any:
         return day.mac_dinh
 
 
-__all__ = ["DAY", "Day", "doc_day"]
+__all__ = ["DAY", "Day", "doc_day", "giai_gia_tri"]

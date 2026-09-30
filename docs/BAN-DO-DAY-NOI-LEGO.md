@@ -38,6 +38,10 @@ Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội t
   ấy). Thu tiền xong chạy lại lệnh ấy bằng quyền người thu (vô hại nếu đã xếp). Phòng
   bắt đầu / làm xong khi chưa thu được; cuối buổi quầy thu, check-out vẫn nhắc còn nợ.
   Ai có quyền điều phối đổi lại được bất cứ lúc nào, lần sau đè lần trước.
+  **30/09 tối — thu trước, trừ khi tick:** dây `thu_truoc_khi_lam` (mặc định BẬT) → chốt
+  mà chưa thu thì KHÔNG xếp (thu xong mới xếp, như H4 gốc), trừ lượt được tick "Làm
+  trước – thu sau" (Bàn khám / quầy thu; sự kiện `visit.defer_payment_set` → xếp ngay
+  bằng quyền người tick). Dây TẮT = V10 ở trên.
 - **H5 — Phòng làm xong / có kết quả → bác sĩ chính.** Bác sĩ chính thấy "có kết quả
   mới", chị Lan vào hàng **đọc kết quả** của bác sĩ chính.
 - **H6 — Khách về mà còn việc dở → CSKH theo dõi.** Chị Lan về (check-out hoặc bỏ về)

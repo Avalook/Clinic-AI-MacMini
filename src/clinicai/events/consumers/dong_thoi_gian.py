@@ -95,6 +95,10 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "consultation.completed": ["loai", "ket_qua"],
     "vitals.started": [],
     "vitals.recorded": ["qua_duong", "bo_qua_tu_van"],
+    # Tick "Làm trước – thu sau" (30/09/2026 tối) — ai / lúc nào nằm ở cột
+    # người + giờ của dòng; chi tiết chỉ là số chỉ định chốt cùng lúc.
+    "visit.defer_payment_set": ["so_chi_dinh_chot"],
+    "visit.defer_payment_cleared": [],
 }
 
 

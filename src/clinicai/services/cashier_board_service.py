@@ -352,6 +352,9 @@ class CashierBoardService:
         # NỢ rỗng, không phải "từng có một phiếu thu" — tính lại ở dưới.
         con_no_dv: set[str] = set()
         vids = [i["visit_id"] for i in out["items"]]
+        # Tiền còn nợ của TỪNG chỉ định (từ hoá đơn quầy vừa dựng) — cho nhóm
+        # "Làm trước – thu sau" (30/09/2026 tối), không tính giá lần hai.
+        no_theo_chi_dinh: dict[str, dict[str, int | None]] = {}
         async with self._pool.acquire() as conn:
             chon: dict[str, dict[str, Any]] = {}
             phong: dict[str, list[dict[str, Any]]] = {}
@@ -376,6 +379,13 @@ class CashierBoardService:
                     )
                     if k == "dich_vu":
                         tinh_dv = tinh
+                        no_theo_chi_dinh[item["visit_id"]] = {
+                            d.source_id: (
+                                int(d.thanh_tien) if d.thanh_tien is not None else None
+                            )
+                            for d in tinh.dong_thu
+                            if d.source_type == "service_order"
+                        }
                     if k == "dich_vu" and not tinh.dong and not tinh.dong_doi_tac:
                         continue
                     # Chỉ còn dịch vụ ĐỐI TÁC TỰ THU (27/09/2026): hiện để lễ tân
@@ -406,6 +416,16 @@ class CashierBoardService:
                             tinh_dv,
                             chon.get(item["visit_id"]),
                         )
+            await _lam_truoc_va_no_khac(
+                conn,
+                identity,
+                out,
+                want_svc=want_svc,
+                want_rx=want_rx,
+                da_thu=da_thu,
+                cho=cho,
+                no_theo_chi_dinh=no_theo_chi_dinh,
+            )
         if want_svc:
             _xep_hang_cho_thu(out, cho={v for v, k in cho if k == "dich_vu"})
             out["dem"] = {
@@ -423,6 +443,72 @@ class CashierBoardService:
                 and (i["visit_id"], "dich_vu") not in cho
             ]
         return out
+
+
+async def _lam_truoc_va_no_khac(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    out: dict[str, Any],
+    *,
+    want_svc: bool,
+    want_rx: bool,
+    da_thu: set[tuple[str, str]],
+    cho: set[tuple[str, str]],
+    no_theo_chi_dinh: dict[str, dict[str, int | None]],
+) -> None:
+    """Hai phần của đợt "thu trước, trừ khi tick" (30/09/2026 tối):
+
+    * ``lam_truoc`` — tick "Làm trước – thu sau" của lượt + cờ bấm được; lượt đã
+      tick kèm từng dịch vụ (Đã làm xong / Đang làm / Chưa làm + còn nợ) và
+      ``nhom`` = ``LAM_XONG_THU_TIEN`` khi mọi dịch vụ đã xong mà còn nợ — lượt
+      ấy nổi lên ĐẦU danh sách ("Đã làm xong — thu tiền").
+    * ``no_khac`` — MỌI QUẦY THU HẾT ĐƯỢC: quầy thuốc thấy hoá đơn dịch vụ còn
+      nợ, quầy dịch vụ thấy hoá đơn thuốc còn nợ (cùng hoá đơn máy chủ, thu
+      bằng đúng lệnh thu của khoản ấy). Chờ xác minh thì không mời thu lại.
+    """
+    from clinicai.services.bill_service import tinh_hoa_don
+    from clinicai.services.lam_truoc_thu_sau import (
+        dich_vu_lam_truoc,
+        trang_thai_lam_truoc,
+    )
+
+    vids = [i["visit_id"] for i in out["items"]]
+    lam_truoc = await trang_thai_lam_truoc(conn, identity, vids)
+    da_tick = [v for v, t in lam_truoc.items() if t["lam_truoc_thu_sau"]]
+    dich_vu = await dich_vu_lam_truoc(
+        conn, identity.clinic_id, da_tick, no_theo_chi_dinh
+    )
+    khac = [k for k, co in (("dich_vu", not want_svc), ("thuoc", not want_rx)) if co]
+    for item in out["items"]:
+        vid = item["visit_id"]
+        lt = dict(lam_truoc.get(vid) or {})
+        dv = dich_vu.get(vid)
+        con_no = sum(x for x in no_theo_chi_dinh.get(vid, {}).values() if x)
+        if dv is not None:
+            lt["dich_vu"] = dv["dich_vu"]
+            lt["nhom"] = (
+                "LAM_XONG_THU_TIEN"
+                if dv["da_lam_xong_het"] and con_no > 0
+                else "LAM_TRUOC"
+            )
+        item["lam_truoc"] = lt or None
+        no_khac: dict[str, Any] = {}
+        # Chỉ lượt đang có mặt ở quầy này (quầy thuốc: có đơn; quầy dịch vụ: có
+        # dịch vụ) — không dựng hoá đơn cho mọi lượt trong ngày.
+        co_mat = bool(item.get("drugs") if want_rx else item.get("services"))
+        for k in khac if co_mat else []:
+            if (vid, k) in cho or (k == "thuoc" and (vid, k) in da_thu):
+                continue
+            hd = await tinh_hoa_don(
+                conn, clinic_id=identity.clinic_id, visit_id=vid, kind=k
+            )
+            if hd.dong_thu and hd.tong > 0:
+                no_khac[k] = hd.cho_api()
+        item["no_khac"] = no_khac
+    # Lượt đã làm xong hết (đã tick) mà còn nợ lên đầu — thứ tự còn lại giữ nguyên.
+    out["items"].sort(
+        key=lambda i: (i.get("lam_truoc") or {}).get("nhom") != "LAM_XONG_THU_TIEN"
+    )
 
 
 async def _quay_thu(

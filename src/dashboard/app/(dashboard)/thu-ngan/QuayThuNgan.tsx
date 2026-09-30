@@ -30,8 +30,10 @@ import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import PhuThuKem from "./PhuThuKem";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
-import Chip from "@/components/ui/Chip";
+import Button from "@/components/ui/Button";
+import Chip, { type ChipTone } from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
+import type { LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 
 interface Dong {
   id: string;
@@ -89,6 +91,25 @@ interface Luot {
   loai_kham?: string | null;
   bac_si?: string | null;
   cho_tu?: string | null;
+  /** Tick "Làm trước – thu sau" + dịch vụ đã làm / còn nợ (30/09/2026 tối). */
+  lam_truoc?: LamTruocLuot | null;
+  /** Hoá đơn còn nợ của KHOẢN KIA (quầy thuốc: dịch vụ; quầy dịch vụ: thuốc). */
+  no_khac?: { dich_vu?: HoaDon; thuoc?: HoaDon };
+}
+
+/** Một dịch vụ của lượt "Làm trước – thu sau" (máy chủ tính trạng thái + nợ). */
+interface DichVuLamTruoc {
+  id: string;
+  ten: string | null;
+  trang_thai: "DA_XONG" | "DANG_LAM" | "CHUA_LAM" | "KHONG_LAM";
+  nhan: string;
+  con_no: number | null;
+}
+
+interface LamTruocLuot extends LamTruoc {
+  dich_vu?: DichVuLamTruoc[];
+  /** LAM_XONG_THU_TIEN = mọi dịch vụ đã xong, còn nợ — máy chủ đưa lên đầu. */
+  nhom?: "LAM_TRUOC" | "LAM_XONG_THU_TIEN";
 }
 
 interface DaThu {
@@ -124,6 +145,13 @@ const MODES: Record<Quay, string> = {
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
 }
+
+const TONE_DV: Record<DichVuLamTruoc["trang_thai"], ChipTone> = {
+  DA_XONG: "success",
+  DANG_LAM: "run",
+  CHUA_LAM: "neutral",
+  KHONG_LAM: "neutral",
+};
 
 export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [ds, setDs] = useState<Luot[] | null>(null);
@@ -379,6 +407,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   );
 
   const dangXem = conCho.find((l) => l.visit_id === chonVisit) ?? conCho[0] ?? null;
+  const luotVuaThu = vuaThu ? ds.find((l) => l.visit_id === vuaThu.visitId) : undefined;
 
   const daThuChoPhong =
     quay === "thuoc"
@@ -410,13 +439,23 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           {/* SAU "ĐÃ NHẬN ĐỦ" (27/09/2026, đợt 3): khách thường về ngay sau
               quầy thu — mời check-out tại chỗ thay vì phải nhớ mở màn Check-out.
               CHỈ tài khoản có quyền đóng lượt thấy nút (NutCheckOut tự ẩn). */}
+          {/* MỌI QUẦY THU HẾT ĐƯỢC (30/09/2026 tối): còn nợ khoản kia thì mời
+              thu luôn tại đây; hết nợ mới mời Check-out. */}
           {vuaThu && vuaThu.cau === xong ? (
-            <NutCheckOut
-              key={vuaThu.visitId}
-              visitId={vuaThu.visitId}
-              ten={vuaThu.ten}
-              onXong={() => void tai()}
-            />
+            luotVuaThu && coNoKhac(luotVuaThu) ? (
+              <NoKhac
+                l={luotVuaThu}
+                dangThu={dangThu}
+                onThu={(k, hd, pt) => void thu(luotVuaThu, k, hd, pt)}
+              />
+            ) : (
+              <NutCheckOut
+                key={vuaThu.visitId}
+                visitId={vuaThu.visitId}
+                ten={vuaThu.ten}
+                onXong={() => void tai()}
+              />
+            )
           ) : null}
         </div>
       ) : null}
@@ -435,11 +474,23 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             aria-label="Khách chờ thu"
             className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
           >
-            {conCho.map((l) => {
+            {conCho.map((l, i) => {
               const on = l.visit_id === dangXem?.visit_id;
               const soTien = l.quay_thu?.tong ?? l.hoa_don?.dich_vu?.tong ?? l.hoa_don?.thuoc?.tong ?? null;
+              const xongHet = l.lam_truoc?.nhom === "LAM_XONG_THU_TIEN";
+              // Máy chủ đưa lượt "đã làm xong — thu tiền" lên đầu; màn chỉ kẻ
+              // tiêu đề nhóm ở dòng đầu mỗi nhóm.
+              const dauNhom =
+                xongHet && (i === 0 || conCho[i - 1].lam_truoc?.nhom !== "LAM_XONG_THU_TIEN");
+              const hetNhom =
+                !xongHet && i > 0 && conCho[i - 1].lam_truoc?.nhom === "LAM_XONG_THU_TIEN";
               return (
                 <li key={l.visit_id} className="border-b border-line last:border-b-0">
+                  {dauNhom || hetNhom ? (
+                    <p className="border-b border-line bg-surface-muted px-3 py-1 text-label font-semibold uppercase text-ink-muted">
+                      {dauNhom ? "Đã làm xong — thu tiền" : "Khách khác"}
+                    </p>
+                  ) : null}
                   <button
                     type="button"
                     aria-current={on ? "true" : undefined}
@@ -454,6 +505,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                       <span className="block truncate text-meta text-ink-muted">
                         {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
                       </span>
+                      {l.lam_truoc?.lam_truoc_thu_sau ? (
+                        <span className="mt-1 block">
+                          <Chip tone="info">Làm trước – thu sau</Chip>
+                        </span>
+                      ) : null}
                     </span>
                     {soTien != null ? (
                       <span className="shrink-0 text-body font-semibold tabular-nums text-ink">{tien(soTien)}</span>
@@ -509,6 +565,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             !choCua(l.visit_id, "dich_vu") ? (
               <HoaDonMot
                 key={`${l.visit_id}:${l.quay_thu.lua_chon.order_ids_seen.join(",")}:${l.quay_thu.lua_chon.revision}`}
+                visitId={l.visit_id}
+                lamTruoc={l.lam_truoc}
                 qt={l.quay_thu}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
                 dangLuuPhuThu={phuThuDangLuu.has(l.visit_id)}
@@ -561,6 +619,14 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             ) : null}
             </>
             )}
+
+            {l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
+
+            {coNoKhac(l) ? (
+              <div className="border-b border-line px-4 py-3">
+                <NoKhac l={l} dangThu={dangThu} onThu={(k, hd, pt) => void thu(l, k, hd, pt)} />
+              </div>
+            ) : null}
 
             {quay !== "thuoc" ? (
               <XepPhongDaThu ds={l.xep_phong ?? []} onDoi={() => void tai()} />
@@ -641,6 +707,87 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function coNoKhac(l: Luot): boolean {
+  return Boolean(l.no_khac?.dich_vu || l.no_khac?.thuoc);
+}
+
+/** Lượt "Làm trước – thu sau": từng dịch vụ Đã làm xong / Đang làm / Chưa làm
+ *  + số tiền còn nợ — máy chủ tính, màn chỉ vẽ. */
+function DichVuLamTruocKhoi({ ds }: { ds: DichVuLamTruoc[] }) {
+  return (
+    <div className="border-b border-line px-4 py-3">
+      <p className="text-label font-semibold uppercase text-ink-muted">Làm trước – thu sau</p>
+      <ul className="mt-2 divide-y divide-line">
+        {ds.map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 text-body text-ink">
+              {d.ten ?? "—"}
+              <Chip tone={TONE_DV[d.trang_thai]}>{d.nhan}</Chip>
+            </span>
+            <span className="shrink-0 text-body tabular-nums text-ink">
+              {d.con_no ? `còn nợ ${tien(d.con_no)}` : <span className="text-ink-faint">—</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** MỌI QUẦY THU HẾT ĐƯỢC (30/09/2026 tối): "Còn nợ dịch vụ / thuốc X đ" +
+ *  [Thu luôn] — gọi ĐÚNG lệnh thu của khoản ấy, cùng hoá đơn máy chủ. */
+function NoKhac({
+  l,
+  dangThu,
+  onThu,
+}: {
+  l: Luot;
+  dangThu: string | null;
+  onThu: (kind: "dich_vu" | "thuoc", hd: HoaDon, pt: PhuongThuc) => void;
+}) {
+  const [pt, setPt] = useState<PhuongThuc>("CASH");
+  const dong = (["dich_vu", "thuoc"] as const).flatMap((k) => {
+    const hd = l.no_khac?.[k];
+    return hd ? [{ k, hd }] : [];
+  });
+  return (
+    <ul className="space-y-2">
+      {dong.map(({ k, hd }) => (
+        <li key={k} className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-body font-semibold text-warning">
+            Còn nợ {k === "dich_vu" ? "dịch vụ" : "thuốc"} {tien(hd.tong)}
+          </span>
+          <span className="flex flex-wrap items-center gap-2">
+            <select
+              value={pt}
+              onChange={(e) => setPt(e.target.value as PhuongThuc)}
+              aria-label="Phương thức thanh toán"
+              className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
+            >
+              {(Object.keys(TEN_PT) as PhuongThuc[]).map((x) => (
+                <option key={x} value={x}>
+                  {TEN_PT[x]}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="soft"
+              size="lg"
+              disabled={dangThu === `${l.visit_id}:${k}` || !hd.thu_duoc}
+              onClick={() => onThu(k, hd, pt)}
+            >
+              {dangThu === `${l.visit_id}:${k}` ? "Đang ghi…" : "Thu luôn"}
+            </Button>
+          </span>
+          {!hd.thu_duoc && hd.van_de.length > 0 ? (
+            <span className="w-full text-meta text-warning">{hd.van_de.join(" · ")}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -22,6 +22,7 @@ import pytest_asyncio
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services import finance_gate
 from clinicai.services import service_routing_service as sr
 from clinicai.services.luot_kham_service import (
     LuotKhamConflictError,
@@ -395,10 +396,17 @@ async def test_4_chua_chon_khong_xep_duoc(rb: RB, sel: str) -> None:
 
 
 async def test_5_chua_thu_xep_duoc_so_lech_van_chan_giu_ly_do_chi_tiet(rb: RB) -> None:
-    """V10 (Tuyền 30/09/2026 — làm trước, thu sau): CHƯA THU xếp phòng được.
-    Chỉ sổ tiền lệch / tiền đang hoàn mới chặn — kèm lý do chi tiết của
-    FinanceGate (ROUTING §18)."""
+    """Dây "thu trước khi làm" BẬT (mặc định, 30/09/2026 tối): CHƯA THU chỉ xếp
+    phòng được khi lượt tick "Làm trước – thu sau" (V10 cho mọi lượt). Sổ tiền
+    lệch / tiền đang hoàn luôn chặn — kèm lý do chi tiết (ROUTING §18)."""
     due = await _cd(rb, gia=100_000)
+    e = await _loi(_assign(rb, due, rb.sa1, 0), "SERVICE_FINANCE_NOT_READY")
+    assert e.finance_reason == "SERVICE_PAYMENT_REQUIRED"
+    assert finance_gate.CAU_CHUA_THU in str(e)
+    await rb.pool.execute(
+        "UPDATE visit SET lam_truoc_thu_sau_luc = now() WHERE visit_id = $1::uuid",
+        rb.visit_id,
+    )
     await _assign(rb, due, rb.sa1, 0)
     assert [h["room_id"] for h in await _hang(rb, due)] == [rb.sa1]
 

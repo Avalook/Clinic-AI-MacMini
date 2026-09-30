@@ -155,7 +155,12 @@ test("nút Check-out có mặt ở Tiếp đón (tab Đã check-in), Hành trìn
   assert.match(queue, /d\.check_out_duoc && d\.visit_id \? \(\s*<NutCheckOut/);
   assert.match(ma("../app/(dashboard)/hanh-trinh/BangHanhTrinh.tsx"), /!l\.da_ve \? \(\s*<NutCheckOut/);
   const quay = ma("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
-  assert.match(quay, /\{vuaThu && vuaThu\.cau === xong \? \(\s*<NutCheckOut/);
+  // 30/09/2026 tối: còn nợ khoản kia (thuốc / dịch vụ) thì mời [Thu luôn]
+  // trước; hết nợ mới mời Check-out — vẫn ngay dưới câu "Đã thu…".
+  assert.match(
+    quay,
+    /\{vuaThu && vuaThu\.cau === xong \? \(\s*luotVuaThu && coNoKhac\(luotVuaThu\) \? \(\s*<NoKhac[\s\S]{0,200}\) : \(\s*<NutCheckOut/,
+  );
   // Quyền đi qua context mà Shell phát — không màn nào tự đoán theo vai.
   assert.match(ma("../app/(dashboard)/Shell.tsx"), /<QuyenProvider value=\{quyen\}>/);
 });

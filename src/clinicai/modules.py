@@ -95,8 +95,15 @@ MODULE: dict[str, Module] = {
         Module(
             ma="service_selection",
             ten="Khách chọn dịch vụ",
-            lenh=["ConfirmServiceSelection"],
-            phat=["service_selection.confirmed"],
+            # SetDeferPayment (30/09/2026 tối): tick / bỏ tick "Làm trước – thu
+            # sau" của lượt — bật thì chốt luôn chỉ định chờ quyết (cùng phần ghi
+            # của ConfirmServiceSelection).
+            lenh=["ConfirmServiceSelection", "SetDeferPayment"],
+            phat=[
+                "service_selection.confirmed",
+                "visit.defer_payment_set",
+                "visit.defer_payment_cleared",
+            ],
             bang=["service_selection_state"],
             # Từ 23/09: hỏi capability trong chính giao dịch của lệnh, không
             # còn mượn ánh xạ vai của người thu tiền.
@@ -291,6 +298,8 @@ MODULE: dict[str, Module] = {
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
+                "visit.defer_payment_set",
+                "visit.defer_payment_cleared",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
@@ -350,6 +359,7 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "service_selection.confirmed",
+                "visit.defer_payment_set",
                 "visit.checked_out",
                 "visit.left_early",
                 "service.completed",
@@ -558,6 +568,7 @@ MODULE: dict[str, Module] = {
             # xong (điều dưỡng lấy) → sang bàn đối tác.
             nghe=[
                 "service_selection.confirmed",
+                "visit.defer_payment_set",
                 "payment.service_collected",
                 "service.completed",
             ],

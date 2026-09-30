@@ -14,6 +14,10 @@ lấy mẫu hiện NGAY lúc bác sĩ chỉ định — trước cả khi khách
                                 vụ PHÒNG KHÁM THU HỘ cũng nhận việc ngay khi
                                 khách chốt, CHƯA THU vẫn nhận (lý do
                                 KHACH_DA_CHON, cờ `thu_sau` — quầy thu cuối buổi)
+                              → 30/09/2026 tối: theo cửa làm (`duoc_lam`) — dây
+                                `thu_truoc_khi_lam` BẬT thì chưa thu chỉ nhận
+                                khi lượt tick "Làm trước – thu sau"
+    visit.defer_payment_set   → vừa tick "Làm trước – thu sau": xét lại như trên
     payment.service_collected → chỉ định làm bên ngoài, ĐỐI TÁC TỰ LẤY MẪU, khách
                                 đã chọn làm → nhận việc (nếu lúc chốt chưa nhận)
     service.completed         → chỉ định làm bên ngoài do ĐIỀU DƯỠNG lấy mẫu,
@@ -25,7 +29,7 @@ lấy mẫu hiện NGAY lúc bác sĩ chỉ định — trước cả khi khách
                                 + GPB ở phòng Thủ thuật) vừa xong → mẫu đã có,
                                 gửi đối tác → nhận việc (lý do MAU_GUI_DOI_TAC)
 
-Cả ba sự kiện cùng một luật: "chỉ định đã đủ điều kiện nhận chưa?" đọc từ
+Mọi sự kiện cùng một luật: "chỉ định đã đủ điều kiện nhận chưa?" đọc từ
 trạng thái HIỆN TẠI (FinanceGate), nên sự kiện nào tới trước cũng ra một kết quả.
 
 "Nhận việc" = một dòng `doi_tac_nhan_viec` (bảng CỦA khối này) + phát

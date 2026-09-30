@@ -41,6 +41,7 @@ import {
 } from "@/lib/phieu-kham";
 import { guiThaoTac } from "../api";
 import DanhMucChiDinh from "./DanhMucChiDinh";
+import OLamTruocThuSau from "../OLamTruocThuSau";
 import HanhTrinhLuot from "./HanhTrinhLuot";
 import LichSuSuaPhieu from "./LichSuSuaPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
@@ -514,6 +515,14 @@ export default function PhieuKhamLuot({
             In phiếu khám
           </a>
           <LichSuSuaPhieu visitId={visitId} dinhNghia={phieu} />
+          {/* Tick "Làm trước – thu sau" (30/09/2026 tối): dây "thu trước khi
+              làm" bật thì chưa thu chỉ lượt có tick mới xếp phòng / làm. Ô tự
+              ẩn khi dây tắt; cờ bấm được do máy chủ trả. */}
+          {choGhi ? (
+            <div className="lg:w-full">
+              <OLamTruocThuSau visitId={visitId} />
+            </div>
+          ) : null}
           </>
         }
         ketQuaChiDinh={ketQua}

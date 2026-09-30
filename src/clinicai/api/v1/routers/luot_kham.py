@@ -228,6 +228,43 @@ async def doi_duong_tu_van(
     )
 
 
+class LamTruocThuSauBody(BaseModel):
+    bat: bool
+    #: Quầy thu gửi đúng lựa chọn đang tick trên màn (tuỳ chọn) — không có thì
+    #: mọi chỉ định chờ quyết tính là khách làm.
+    chon: dict[str, Any] | None = None
+
+
+@router.get("/luot-kham/visits/{visit_id}/lam-truoc-thu-sau")
+async def doc_lam_truoc_thu_sau(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tick "Làm trước – thu sau" của lượt + cờ bấm được (máy chủ quyết)."""
+    from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
+
+    return await LamTruocThuSauService(pool).doc(
+        visit_id=str(visit_id), identity=identity
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/lam-truoc-thu-sau")
+async def dat_lam_truoc_thu_sau(
+    visit_id: UUID,
+    body: LamTruocThuSauBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật / bỏ tick "Làm trước – thu sau" (30/09/2026 tối). Quyền: lego Bàn khám
+    hoặc thu tiền dịch vụ — service hỏi trong chính giao dịch."""
+    from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
+
+    return await LamTruocThuSauService(pool).dat(
+        visit_id=str(visit_id), bat=body.bat, chon=body.chon, identity=identity
+    )
+
+
 @router.post("/luot-kham/visits/{visit_id}/vitals/start")
 async def bat_dau_do_sinh_hieu(
     visit_id: UUID,

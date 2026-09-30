@@ -20,6 +20,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services import finance_gate
 from clinicai.services.xem_luot_service import goi_duoc
 
 _TRAN_LUOT = 300
@@ -79,9 +80,14 @@ def con_cho(
                 # người thu không có quyền điều phối, hoặc dây tự xếp đang tắt)
                 # — nói thẳng. V10 làm trước, thu sau: chưa trả KHÔNG phải lý do
                 # chờ; chỉ ghi kèm "chưa thu" để quầy biết.
+                # Dây "thu trước khi làm" BẬT (30/09/2026 tối) mà lượt không tick
+                # "Làm trước – thu sau": chưa thu thì chưa xếp được — việc đang
+                # chờ là TRẢ TIỀN (`duoc_lam` = cửa làm của FinanceGate).
                 out.append(
                     f"ĐÃ TRẢ TIỀN — chờ xếp phòng: {ten}"
                     if o.get("da_tra")
+                    else f"Chờ trả tiền: {ten}"
+                    if o.get("duoc_lam") is False
                     else f"Chờ xếp phòng (chưa thu): {ten}"
                 )
             elif ex == "PENDING" and o["routing_status"] == "REASSIGNMENT_REQUIRED":
@@ -165,7 +171,8 @@ class BangHanhTrinhService:
             chi_dinh: dict[str, list[dict[str, Any]]] = defaultdict(list)
             for r in await conn.fetch(
                 """
-                SELECT o.visit_id::text AS visit_id, o.service_name AS ten,
+                SELECT o.id::text AS id, o.visit_id::text AS visit_id,
+                       o.service_name AS ten,
                        o.selection_status, o.routing_status, o.execution_status,
                        o.ket_qua_luc, r.name AS phong,
                        o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
@@ -191,6 +198,13 @@ class BangHanhTrinhService:
                 ids,
             ):
                 chi_dinh[r["visit_id"]].append(dict(r))
+            cua = await finance_gate.states_for_orders(
+                conn, cid, [o["id"] for ds in chi_dinh.values() for o in ds]
+            )
+            for ds in chi_dinh.values():
+                for o in ds:
+                    q = cua.get(o["id"])
+                    o["duoc_lam"] = q.duoc_lam if q is not None else None
             tep = {
                 r["visit_id"]: int(r["so"])
                 for r in await conn.fetch(
