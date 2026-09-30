@@ -51,6 +51,7 @@ import {
 } from "../../../lib/roles";
 // Nhập danh sách điều hướng NAV
 import { NAV } from "../nav-items";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // ─── Kiểu dữ liệu ─────────────────────────────────────────────────────────────
@@ -409,22 +410,13 @@ export default function PortalBoard({
   useEffect(() => {
     // Refresh ngay lập tức khi mount
     const initial = window.setTimeout(() => void refresh(), 0);
-    // Tạo interval refresh mỗi 30 giây
-    const timer = window.setInterval(() => {
-      // Chỉ refresh khi tab đang hiển thị
-      if (document.visibilityState === "visible") void refresh();
-    }, 30_000);
-    // Hàm xử lý khi tab chuyển sang hiển thị
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
-    // Lắng nghe sự kiện thay đổi hiển thị
-    document.addEventListener("visibilitychange", onVisible);
-    // Cleanup: xóa timeout, interval và event listener
+    // Refresh mỗi 30 giây, CHỈ khi tab đang hiện: tab ẩn thì huỷ hẳn nhịp,
+    // hiện lại thì đọc một lần ngay (`nhipKhiHien`).
+    const goNhip = nhipKhiHien(() => void refresh(), 30_000);
+    // Cleanup: xóa timeout và nhịp
     return () => {
       window.clearTimeout(initial);
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
+      goNhip();
     };
   }, [refresh]); // Chỉ chạy lại khi refresh thay đổi
 

@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 
 import { fmtTime, VN_TZ } from "@/lib/datetime";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 /** Một chỗ đang được người khác giữ — trả từ /api/appointments/slot-hold. */
 interface SlotHoldLite {
@@ -76,26 +77,17 @@ export function useGiuCho(date: string | null): Map<string, string> {
     // do-nhip-hoi.py). Bốn CSKH cùng mở màn ở nhịp 5s = 0,8 lượt/giây = 0,4%
     // một lõi. Ngưỡng đáng xem lại: khoảng 30 người cùng mở màn này.
     //
-    // TAB ẨN THÌ BỎ NHỊP (21/08/2026). Bản đồ chỗ giữ chỉ có nghĩa khi có người
-    // nhìn lưới. Một tab ẩn hỏi lại mỗi 5 giây là mỗi 5 giây chiếm một trong
-    // sáu kết nối HTTP/1.1 mà trình duyệt cho phép tới origin này — đúng thứ
-    // đang khan hiếm (xem `lib/nhip-lam-moi`). Quay lại thì đã có tay nghe
-    // `visibilitychange` ngay dưới đây hỏi lại tức thì, nên không mù chỗ nào.
-    const iv = setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void load();
-    }, 5000);
-
-    // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI.
+    // TAB ẨN THÌ IM HẲN (21/08/2026; 30/09/2026 huỷ hẳn nhịp thay vì bỏ lượt).
+    // Bản đồ chỗ giữ chỉ có nghĩa khi có người nhìn lưới. Một tab ẩn hỏi lại mỗi
+    // 5 giây là mỗi 5 giây chiếm một trong sáu kết nối HTTP/1.1 mà trình duyệt
+    // cho phép tới origin này — đúng thứ đang khan hiếm (xem `lib/nhip-lam-moi`).
     //
-    // Trình duyệt bóp nhịp của tab bị ẩn, nên quay lại sau mười phút thì bản đồ
-    // chỗ giữ đang cũ và phải chờ hết một nhịp mới đúng. Ở nhịp 15s chuyện đó
-    // đã khó chịu; nhưng lý do thật để thêm bây giờ là: hạ nhịp chỉ có nghĩa
-    // nếu lúc người ta THỰC SỰ NHÌN màn hình thì dữ liệu là mới.
-    const khiHien = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    document.addEventListener("visibilitychange", khiHien);
+    // TAB BỊ CHE THÌ HỎI LẠI NGAY KHI QUAY LẠI — hạ nhịp chỉ có nghĩa nếu lúc
+    // người ta THỰC SỰ NHÌN màn hình thì dữ liệu là mới. Lần hỏi ấy do tay nghe
+    // `SU_KIEN_BANG` bên dưới làm: lúc tab hiện lại `RealtimeRefresher` phát tin
+    // `null`, và `null` ở đây là "hỏi lại". Bản trước tự nghe thêm
+    // `visibilitychange` nên mỗi lần đổi tab hỏi HAI lần (đo prod 30/09/2026).
+    const goNhip = nhipKhiHien(() => void load(), 5000, { hoiKhiHien: false });
 
     // TIN ĐẨY: AI ĐÓ VỪA GIỮ HOẶC THẢ MỘT CHỖ.
     //
@@ -132,8 +124,7 @@ export function useGiuCho(date: string | null): Map<string, string> {
     return () => {
       alive = false;
       clearTimeout(t);
-      clearInterval(iv);
-      document.removeEventListener("visibilitychange", khiHien);
+      goNhip();
       window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
     };
   }, [date]);

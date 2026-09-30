@@ -76,6 +76,7 @@ import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
@@ -154,10 +155,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     void nap();
     // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
     // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
-    const t = setInterval(() => void nap(), 60000);
+    const goNhip = nhipKhiHien(() => void nap(), 60000, { hoiKhiHien: false });
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [phong, lanNap, ngay]);
 

@@ -44,6 +44,7 @@ import SoLuot from "@/components/ui/SoLuot";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgheBang } from "../dung-nghe-bang";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 interface SinhHieu {
   tam_thu: number | null;
@@ -216,14 +217,20 @@ export default function BangDoSinhHieu() {
     });
     // Làm mới mỗi 20 giây: khách check-in liên tục ở quầy, người đo không nên
     // phải tải lại trang mới thấy người vừa đến.
-    const t = setInterval(() => {
-      void docBang(ngay).then((kq) => {
-        if (!huy) nhan(kq);
-      });
-    }, 60000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    const goNhip = nhipKhiHien(
+      () => {
+        void docBang(ngay).then((kq) => {
+          if (!huy) nhan(kq);
+        });
+      },
+      60000,
+      { hoiKhiHien: false },
+    );
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [nhan, lanNghe, ngay]);
 

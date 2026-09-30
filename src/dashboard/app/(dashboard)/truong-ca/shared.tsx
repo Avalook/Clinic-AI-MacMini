@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DispatchAlert, DispatchPatient, DispatchRoom } from "./types";
 import { useNgheBang } from "../dung-nghe-bang";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 // Yêu cầu kỹ thuật: dữ liệu trên bảng phải mới trong 2–3 giây.
 //
@@ -103,10 +104,12 @@ export function useDispatchLive(initial: {
 
   useEffect(() => {
     aliveRef.current = true;
-    const beat = setInterval(pull, HEARTBEAT_MS);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    const goNhip = nhipKhiHien(() => void pull(), HEARTBEAT_MS, { hoiKhiHien: false });
     return () => {
       aliveRef.current = false;
-      clearInterval(beat);
+      goNhip();
     };
   }, [pull]);
 

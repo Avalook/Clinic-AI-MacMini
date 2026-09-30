@@ -13,6 +13,7 @@ import { nhanLoi } from "@/lib/loi-api";
 
 import NutXemLuot from "../_lam-viec/NutXemLuot";
 import { useNgheBang } from "../dung-nghe-bang";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 interface Viec {
   id: string;
@@ -88,10 +89,12 @@ export default function BangViecCanXuLy() {
     // Việc sinh ra từ sự kiện chạy nền, nên màn phải tự làm mới.
     // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
     // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
-    const t = setInterval(lay, 60000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    const goNhip = nhipKhiHien(lay, 60000, { hoiKhiHien: false });
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [doc]);
 
