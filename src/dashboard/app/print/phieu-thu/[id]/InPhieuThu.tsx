@@ -27,7 +27,15 @@ export interface Phieu {
   so_booking: number | null;
   so_tiep_don: number | null;
   bac_si: string | null;
-  dong: { ten: string; so_luong: number; thanh_tien: number | null }[];
+  dong: {
+    ten: string;
+    so_luong: number;
+    thanh_tien: number | null;
+    /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ. */
+    phong?: { ten: string; tang: string | number | null; du_kien: boolean } | null;
+    /** Máy vừa thu, đang tự xếp phòng — bản in hỏi lại sau giây lát. */
+    cho_xep?: boolean;
+  }[];
   tong: number;
   hinh_thuc: string | null;
   nguoi_thu: string | null;
@@ -56,13 +64,23 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: "thu" | "ho
   useEffect(() => {
     let huy = false;
     void (async () => {
-      const r = await fetch(`/api/cashier?xem=phieu&id=${encodeURIComponent(id)}&loai=${loai}`, {
-        cache: "no-store",
-      });
-      const d = (await r.json().catch(() => null)) as (Phieu & { message?: string; error?: string }) | null;
-      if (huy) return;
-      if (!r.ok || !d) setLoi(d?.message ?? d?.error ?? "Không đọc được phiếu.");
-      else setP(d);
+      // Thu xong là máy tự xếp phòng (vài giây, chạy nền). Bill mở ngay lúc ấy
+      // có thể chưa có phòng → hỏi lại tối đa 4 lần, cách 1,5 giây.
+      for (let lan = 0; lan < 5; lan++) {
+        const r = await fetch(`/api/cashier?xem=phieu&id=${encodeURIComponent(id)}&loai=${loai}`, {
+          cache: "no-store",
+        });
+        const d = (await r.json().catch(() => null)) as (Phieu & { message?: string; error?: string }) | null;
+        if (huy) return;
+        if (!r.ok || !d) {
+          setLoi(d?.message ?? d?.error ?? "Không đọc được phiếu.");
+          return;
+        }
+        setP(d);
+        if (!d.dong.some((x) => x.cho_xep) || lan === 4) return;
+        await new Promise((ok) => setTimeout(ok, 1500));
+        if (huy) return;
+      }
     })();
     return () => {
       huy = true;
@@ -142,6 +160,15 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
               <td className="py-1">
                 {d.ten}
                 {d.so_luong !== 1 ? ` × ${d.so_luong}` : ""}
+                {d.phong ? (
+                  <span className="block font-semibold">
+                    → {d.phong.ten}
+                    {d.phong.tang != null && d.phong.tang !== "" ? ` · Tầng ${d.phong.tang}` : ""}
+                    {d.phong.du_kien ? " (dự kiến)" : ""}
+                  </span>
+                ) : d.cho_xep ? (
+                  <span className="block text-ink-muted">→ Chờ xếp phòng — xem màn hình gọi số</span>
+                ) : null}
               </td>
               <td className="py-1 text-right tabular-nums">
                 {d.thanh_tien != null ? d.thanh_tien.toLocaleString("vi-VN") : "—"}
