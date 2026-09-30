@@ -258,10 +258,19 @@ class PharmacyService:
                        c.ton_toi_thieu,
                        coalesce(sum(b.quantity_on_hand), 0) AS ton,
                        count(b.id) FILTER (WHERE b.quantity_on_hand > 0) AS so_lo,
-                       -- Sắp hết hàng (29/09): thuốc đang dùng có ngưỡng và
-                       -- tổng tồn ≤ ngưỡng.
+                       -- Sắp hết hàng: thuốc đang dùng có ngưỡng và MỌI đơn
+                       -- vị lô đều ≤ ngưỡng. Không cộng hộp với viên (30/09):
+                       -- 8 hộp + 5 viên cộng thành 13 > 10 thì lọt cảnh báo;
+                       -- còn 20 hộp thì chưa hết dù viên lẻ đã cạn.
                        (c.is_active AND c.ton_toi_thieu IS NOT NULL
-                        AND coalesce(sum(b.quantity_on_hand), 0) <= c.ton_toi_thieu)
+                        AND coalesce((
+                            SELECT max(dv.ton)
+                              FROM (SELECT sum(x.quantity_on_hand) AS ton
+                                      FROM public.drug_batch x
+                                     WHERE x.clinic_id = c.clinic_id
+                                       AND x.drug_catalog_id = c.id
+                                     GROUP BY lower(btrim(x.unit))) dv
+                        ), 0) <= c.ton_toi_thieu)
                            AS sap_het_hang,
                        count(b.id) FILTER (
                            WHERE b.quantity_on_hand > 0
@@ -285,7 +294,10 @@ class PharmacyService:
                                      FROM public.drug_batch x
                                     WHERE x.clinic_id = c.clinic_id
                                       AND x.drug_catalog_id = c.id
-                                    GROUP BY lower(btrim(x.unit))) dv
+                                    GROUP BY lower(btrim(x.unit))
+                                    -- Đơn vị đã hết sạch không hiện (30/09):
+                                    -- "20 hộp · 0 viên" → "20 hộp".
+                                   HAVING sum(x.quantity_on_hand) <> 0) dv
                        ), '[]'::jsonb)::text AS ton_theo_don_vi
                   FROM public.drug_catalog c
                   LEFT JOIN public.drug_batch b
