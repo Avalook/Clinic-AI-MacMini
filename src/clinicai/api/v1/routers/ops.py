@@ -206,6 +206,8 @@ async def lay_bao_cao_traffic(
 
     data = traffic_service.doc_du_lieu_traffic()
     if data is None:
-        raise NotFoundError("Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút.")
+        raise NotFoundError(
+            "Dữ liệu lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút."
+        )
 
     return {"ok": True, "data": data}

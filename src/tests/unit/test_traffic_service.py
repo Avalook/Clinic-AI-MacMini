@@ -1,11 +1,13 @@
 import os
 from unittest.mock import patch
-from clinicai.services.traffic_service import xac_thuc_ma_pin, doc_du_lieu_traffic
+
+from clinicai.services.traffic_service import doc_du_lieu_traffic, xac_thuc_ma_pin
 
 
-def test_xac_thuc_ma_pin_default():
+def test_chua_dat_pin_thi_tat_han():
+    """Không có mã mặc định: chưa đặt OPS_TRAFFIC_PIN thì mọi mã đều sai."""
     with patch.dict(os.environ, {}, clear=True):
-        assert xac_thuc_ma_pin("12345678") is True
+        assert xac_thuc_ma_pin("12345678") is False
         assert xac_thuc_ma_pin("wrong") is False
         assert xac_thuc_ma_pin("") is False
 
