@@ -7,6 +7,8 @@
 // thu; Xuất Excel (CSV). Gom, cộng và lọc đều ở máy chủ
 // (`GET /api/v1/cashier/lich-su` → `quay_thu_service.lich_su`) — màn chỉ vẽ.
 // Hoàn tiền / huỷ phiếu vẫn ở tab "Đã thanh toán hôm nay" (GiaoDich).
+// [Đổi hình thức] (V7, 30/09): ở từng lần thu khi mở ▸ — hình thức hiện ra và
+// 5 ô tổng là hình thức HIỆU LỰC (sau mọi lần đổi).
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -14,6 +16,8 @@ import SoLuot from "@/components/ui/SoLuot";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import Chip from "@/components/ui/Chip";
 import { todayVn } from "@/lib/roster";
+
+import DoiHinhThuc, { type HinhThuc, type TrangThaiDoi } from "./DoiHinhThuc";
 
 interface SuKien {
   loai: "thu" | "hoan" | "huy";
@@ -26,6 +30,8 @@ interface SuKien {
   dich_vu: string[];
   ly_do: string | null;
   cho: boolean;
+  /** V7 — chỉ sự kiện "thu": cờ đổi hình thức (máy chủ quyết) + lịch sử đổi. */
+  doi_hinh_thuc?: TrangThaiDoi | null;
 }
 
 interface KhachLichSu {
@@ -224,6 +230,16 @@ export default function LichSuThu() {
                               >
                                 In
                               </a>
+                            ) : null}
+                            {s.loai === "thu" && s.doi_hinh_thuc ? (
+                              <div className="basis-full">
+                                <DoiHinhThuc
+                                  paymentCycleId={s.id}
+                                  hinhThuc={(s.hinh_thuc as HinhThuc | null) ?? null}
+                                  doi={s.doi_hinh_thuc}
+                                  onXong={() => void tai()}
+                                />
+                              </div>
                             ) : null}
                           </li>
                         ))}
