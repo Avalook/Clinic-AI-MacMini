@@ -1,4 +1,5 @@
-// In PHIẾU THU / PHIẾU HOÀN của quầy (27/09/2026, đợt 3 — bản mẫu quầy thu).
+// In PHIẾU THU / PHIẾU HOÀN của quầy (27/09/2026, đợt 3 — bản mẫu quầy thu),
+// và PHIẾU HƯỚNG DẪN phòng (`?loai=huong_dan`, id = mã lượt — 30/09/2026).
 // Mở từ tab Lịch sử của /thu-ngan. Quyền đọc do máy chủ gác
 // (GET /api/v1/cashier/phieu/{id} — cùng quyền đứng quầy thu).
 import InPhieuThu from "./InPhieuThu";
@@ -15,5 +16,7 @@ export default async function InPhieuThuPage({
 }) {
   const { id } = await params;
   const { loai } = await searchParams;
-  return <InPhieuThu id={id} loai={loai === "hoan" ? "hoan" : "thu"} />;
+  return (
+    <InPhieuThu id={id} loai={loai === "hoan" || loai === "huong_dan" ? loai : "thu"} />
+  );
 }

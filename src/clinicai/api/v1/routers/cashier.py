@@ -127,11 +127,14 @@ async def cashier_lich_su_csv(
 @router.get("/cashier/phieu/{phieu_id}")
 async def cashier_phieu(
     phieu_id: UUID,
-    loai: str = Query("thu", pattern="^(thu|hoan)$"),
+    loai: str = Query("thu", pattern="^(thu|hoan|huong_dan)$"),
     identity: StaffIdentity = Depends(_PHIEU_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dữ liệu bản in PHIẾU THU (hoặc PHIẾU HOÀN) — chỉ phiếu của phòng khám mình."""
+    """Dữ liệu bản in PHIẾU THU (hoặc PHIẾU HOÀN) — chỉ phiếu của phòng khám mình.
+
+    ``loai=huong_dan``: ``phieu_id`` là mã LƯỢT — phiếu hướng dẫn phòng làm dịch
+    vụ, in được cả khi chưa thu (làm trước, thu sau — 30/09/2026)."""
     return await QuayThuService(pool).phieu(
         identity=identity, id_=str(phieu_id), loai=loai
     )
