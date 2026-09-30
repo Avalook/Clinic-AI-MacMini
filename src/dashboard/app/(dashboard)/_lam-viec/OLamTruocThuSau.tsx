@@ -13,6 +13,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import NutInPhieu from "@/components/ui/NutInPhieu";
+
 import { useNgheBang } from "../dung-nghe-bang";
 
 export interface LamTruoc {
@@ -140,6 +142,12 @@ export default function OLamTruocThuSau({
         </span>
       ) : !tt.lam_truoc_thu_sau ? (
         <span className="text-meta text-ink-muted">Không tick: thu tiền xong mới xếp phòng, bắt đầu làm.</span>
+      ) : null}
+      {/* Đã tick: in giấy đi phòng cho khách cầm (chưa thu tiền — 30/09/2026). */}
+      {tt.lam_truoc_thu_sau ? (
+        <NutInPhieu href={`/print/phieu-thu/${visitId}?loai=huong_dan`} size="sm">
+          In phiếu hướng dẫn phòng
+        </NutInPhieu>
       ) : null}
       {tt.ly_do_khong_bo ? <span className="w-full text-meta text-ink-muted">{tt.ly_do_khong_bo}</span> : null}
       {loi ? (
