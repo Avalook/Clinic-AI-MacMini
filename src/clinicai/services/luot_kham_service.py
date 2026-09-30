@@ -3366,7 +3366,7 @@ class LuotKhamService:
                 has_hop_le = await conn.fetchval(
                     """
                     SELECT EXISTS (
-                        SELECT 1 FROM tep_ket_qua t
+                        SELECT 1 FROM v_tep_ket_qua_hieu_luc t
                          WHERE t.clinic_id = $1::uuid
                            AND t.service_order_id = $2::uuid
                            AND t.xac_nhan_trang_thai = 'HOP_LE'
@@ -3391,7 +3391,7 @@ class LuotKhamService:
                        SET cho_phep_gui_luc = now(),
                            cho_phep_gui_boi_staff_id = $3::uuid
                      WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
-                       AND cho_phep_gui_luc IS NULL
+                       AND cho_phep_gui_luc IS NULL AND da_xoa_luc IS NULL
                        AND xac_nhan_trang_thai = 'HOP_LE'
                     RETURNING id::text
                     """,
@@ -3450,7 +3450,7 @@ class LuotKhamService:
                 UPDATE tep_ket_qua
                    SET cho_phep_gui_luc = now(), cho_phep_gui_boi_staff_id = $3::uuid
                  WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
-                   AND cho_phep_gui_luc IS NULL
+                   AND cho_phep_gui_luc IS NULL AND da_xoa_luc IS NULL
                    AND xac_nhan_trang_thai = 'HOP_LE'
                 """,
                 cid,
@@ -3489,7 +3489,7 @@ class LuotKhamService:
         await conn.execute(
             "UPDATE tep_ket_qua SET da_xem_luc = now(), da_xem_boi_staff_id = $3::uuid"
             " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
-            "   AND da_xem_luc IS NULL",
+            "   AND da_xem_luc IS NULL AND da_xoa_luc IS NULL",
             identity.clinic_id,
             oid,
             identity.staff_id,

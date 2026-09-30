@@ -264,10 +264,15 @@ async def _run_su_kien() -> None:
     # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
     # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
     # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
-    from clinicai.services import canh_gac
+    from clinicai.services import canh_gac, don_tep_ket_qua
 
     canh = not chi_dinh
     lan_canh = 0.0
+    # DỌN Ổ TỆP KẾT QUẢ hằng ngày (V9 30/09/2026): tệp xoá mềm > 30 ngày chưa
+    # vào hồ sơ + tệp tạm `.part` sót. Tự bỏ qua khi service này không gắn ổ
+    # media (xem đầu services/don_tep_ket_qua.py). Lượt đầu chạy sau 10 phút —
+    # không tranh việc lúc vừa deploy.
+    lan_don = time.monotonic() - don_tep_ket_qua.NHIP_GIAY + 600
 
     try:
         while not stop.is_set():
@@ -288,6 +293,9 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_canh >= canh_gac.NHIP_GIAY:
                     lan_canh = time.monotonic()
                     await canh_gac.mot_vong(pool)
+                if canh and time.monotonic() - lan_don >= don_tep_ket_qua.NHIP_GIAY:
+                    lan_don = time.monotonic()
+                    await don_tep_ket_qua.mot_luot(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.

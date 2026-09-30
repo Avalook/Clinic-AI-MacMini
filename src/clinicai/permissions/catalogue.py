@@ -410,6 +410,16 @@ QUYEN: dict[str, Quyen] = {
             "result",
             MucRuiRo.LAM_SANG,
         ),
+        # V9 (30/09/2026): xoá mềm tệp kết quả, hoàn tác 30 ngày. Cùng khối
+        # `ket_qua` — hướng "MỞ HẾT": ai có lego kết quả thì xoá được. Tệp đã gửi
+        # khách / phiên đọc đã đóng thì chỉ "Đính chính – gỡ tệp" (cần duyệt KQ).
+        Quyen(
+            "result.file.delete",
+            "Xoá / khôi phục tệp kết quả (xoá mềm, hoàn tác 30 ngày)",
+            "ket_qua",
+            "result",
+            MucRuiRo.LAM_SANG,
+        ),
         Quyen(
             "clinical.intake.perform",
             "Khám tư vấn — nhận khách, chuyển bác sĩ chính",
