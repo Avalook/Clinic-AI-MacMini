@@ -16,6 +16,7 @@ from clinicai.api.identity import ClinicRole
 from clinicai.services import ban_thuoc_service as bt
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.pharmacy_service import PharmacyService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_tien_thuoc_cp1_db import Quay, _nhap_lo, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp3_db import (
     _chon,
@@ -330,6 +331,7 @@ async def test_thu_ngan_thuoc_xem_duoc_nhung_khong_co_nut(q: Quay) -> None:
     doc = dataclasses.replace(
         q.thu_ngan, role=ClinicRole.CASHIER_THUOC, vai_tai_khoan=None
     )
+    await ve_goi_mau_cu(q.pool, doc)  # gói lego cũ (mở full lego 30/09)
     man = await bt.man_nha_thuoc(q.pool, identity=doc)
     g = next(x for x in man["luot"] if x["visit_id"] == q.visit_id)
     assert man["co_quyen_ghi"] is False and g["giai_doan"] == bt.SAN_SANG

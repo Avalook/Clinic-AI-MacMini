@@ -7,7 +7,7 @@
 // bằng Supabase và tính "hôm nay" theo nửa đêm UTC (lệch 7 giờ).
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { vaiLamViec } from "../../../lib/clinic-session";
+import { getQuyenCuaToi, vaiLamViec } from "../../../lib/clinic-session";
 import { isOpsAdmin } from "../../../lib/roles";
 import PortalBoard from "./PortalBoard";
 
@@ -37,8 +37,14 @@ type ToanCanhData = {
 };
 
 export default async function ToanCanh() {
-  const role = await vaiLamViec(isOpsAdmin);
-  if (!role || !isOpsAdmin(role)) {
+  // Lego 20 "Vận hành hệ thống" (`ops.view`) — mở full lego 30/09/2026: theo
+  // quyền, không theo vai. Máy chủ chưa trả lời quyền → rơi về vai như trước.
+  const quyen = await getQuyenCuaToi();
+  const duoc =
+    quyen === null
+      ? isOpsAdmin(await vaiLamViec(isOpsAdmin))
+      : quyen.includes("ops.view");
+  if (!duoc) {
     // requireNavAccess đã redirect, nhưng giữ guard phòng hờ.
     return null;
   }

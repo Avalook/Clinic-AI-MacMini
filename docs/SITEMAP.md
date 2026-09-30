@@ -51,6 +51,31 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 > khi tới trang (trước: nhóm vị trí + lego có mũi tên mà không gập, nhóm đang đứng
 > bị ép mở).
 >
+> **30/09/2026 — MỞ FULL LEGO CHO MỌI NHÂN SỰ NỘI BỘ (Tuyền: "ai ở chỗ nào cũng
+> thanh toán được, không có trong lịch cũng thao tác được").** Migration
+> `20260930900000_mo_full_lego.sql`: mọi tài khoản nội bộ (trừ Đối tác, TV) có MỌI
+> khối, trừ 4 khối chỉ Quản lý giữ — `quan_tri_quyen`, `nhan_su`, `cai_dat`,
+> `danh_muc` (= hai lego **Cài đặt phòng khám** và **Nhân sự & phân quyền**). Gói
+> mẫu mọi vai = như nhau (`catalogue.PRESET`, `KHOI_MO_FULL`). Hệ quả trên thanh bên
+> (dựng theo lego, không đổi code): **mọi người thấy đủ 19 lego còn lại** — Tiếp đón,
+> Đo sinh hiệu, Khám tư vấn, Bàn khám, Phòng dịch vụ, Thanh toán dịch vụ, Thu tiền
+> thuốc, Việc cần xử lý, Điều phối khách (`/truong-ca*`), Đặt lịch, Thêm bệnh nhân,
+> Chăm sóc khách hàng (`/customers`, `/nhac-tai-kham`), Danh sách bệnh nhân, Kho
+> thuốc (`/pharmacy*`), Lịch làm việc, Bảng giá, Báo cáo (`/reports`, `/lich-do-ve`),
+> Vận hành hệ thống (`/ops`, `/audit-log`), Đối tác (`/doi-tac`). Cột "Ai vào" các
+> dòng dưới là gói mẫu CŨ — nay mọi nhân sự nội bộ, trừ các màn của hai lego Quản lý
+> (`/settings*`, `/nhan-su`, `/phan-quyen`). Dây nối `quyen_theo_lich` về **TẮT**
+> (không còn chặn "chưa được xếp lịch ở phòng này"). Tên KÝ trên bản in và "bác sĩ
+> của phiên" vẫn chỉ là tài khoản `clinic_membership.role` DOCTOR / ULTRASOUND_DOCTOR
+> (`bac_si_phu_trach`, `bac_si_ky`) — lễ tân bấm Hoàn tất không thành người ký.
+> Nút ẩn/hiện theo VAI chuyển sang LEGO (máy chủ chưa trả lời quyền → vai như cũ):
+> dòng "＋ Thêm khách hàng / Đặt lịch vào đây" trong bảng lịch (`duocCheckIn`,
+> `duocDatLich`, `duocDoiLich`), "Check-in ở Tiếp đón" ở `/home`, kênh "Trực tiếp"
+> ở `/patients/new` + `/appointments` (`useCheckInDuoc`), nút sửa / đặt / đổi lịch /
+> ghi chăm sóc ở `/customers` và `/patient-list`, cửa `/appointments/cho-xep-bac-si`
+> (`booking.manage`), tab Toàn cảnh ở `/ops` (`ops.view`).
+> Muốn siết một người: tắt lego của người ấy ở `/phan-quyen`.
+>
 > **LỄ TÂN VÀ THU NGÂN HỖ TRỢ NHAU = BẬT THÊM LEGO, KHÔNG DÙNG CHUNG TÀI KHOẢN**
 > (góp ý "2 nick chung", 27/09). Cần lễ tân thu tiền hộ, hay thu ngân đón khách hộ:
 > quản lý vào `/phan-quyen` → chọn người → bật lego cần thêm (Tiếp đón khách, Thanh
@@ -71,7 +96,7 @@ trong bảng này. Ngoại lệ: `/console`, `/ops`, `/settings*`, `/reports`,
 |---|---|---|---|---|
 | `/login` · `/forgot-password` · `/reset-password` | chưa đăng nhập | Đăng nhập, quên và đặt lại mật khẩu | GIỮ | |
 | `/` | mọi vai | Chuyển tới trang đích theo vai (`roleLanding`) | GIỮ | Bác sĩ và thư ký → `/ban-kham`. Bác sĩ siêu âm → `/phong` (danh sách phòng, 23/09). Đối tác → `/doi-tac`. Trưởng ca → `/truong-ca`. Còn lại → `/home`. |
-| `/home` | mọi vai | Trang chủ: lịch tuần (**chỉ xem**), trạng thái buổi, lịch làm việc | GIỮ | **Không check-in ở đây** (18/09). **29/09 (Tuyền):** bấm tên khách — ĐÃ check-in (có `visit_id`) → popup **Hành trình khách** (`_lam-viec/HanhTrinhKhach.tsx` `PopupHanhTrinhKhach`); CHƯA → `/customers?selected=<khách>` (chỉ khi mở được màn ấy, `vaoDuocMan`). BỎ ngăn "Hành chính & Sinh hiệu" (ClinicalRecordForm chỉ xem). Menu ⋯ mỗi dòng — **29/09 tối (Tuyền bấm thật): mọi mục làm đúng việc, không còn link sang `/customers`:** **Mở hồ sơ khách** → `/patient-list?chon=<khách>` (cùng tab, khách chọn sẵn; hiện khi `vaoDuocMan("/patient-list")`) · **Gọi / ghi chăm sóc** → popover tại chỗ (`_lam-viec/ThaoTacLichTaiCho.tsx` `GhiChamSocTaiCho`: [Gọi sđt] `tel:` + kết quả cuộc gọi + ghi chú → `POST /api/cskh/tuong-tac` loai NHAC_HEN, khoá chống ghi trùng; hiện khi có `crm.manage`/`reception.checkin.perform`/`dispatch.manage`) · **Đổi lịch** (popover Đổi lịch tại chỗ neo vào dòng, chọn ngày bất kỳ; `booking.manage`) · **Huỷ lịch (ghi lý do)** → popover tại chỗ (`HuyLichTaiCho`: lý do BẮT BUỘC từ danh mục chung `lib/ly-do-huy.ts`, "Lý do khác" phải viết → `PATCH /api/appointments` action=cancel + `ly_do_huy_ma`; `booking.manage`, lịch còn sống) · **Đổi dịch vụ khám** (30/09, V5) → popover tại chỗ (`DoiDichVuKhamTaiCho`, xem Mục B; `booking.manage` hoặc `reception.checkin.perform`, lịch còn sống) · 📞. Vai check-in thấy nút "Check-in ở Tiếp đón khách". **27/09 (đợt 3):** khối "Lịch hẹn khám (check đặt lịch)" có hàng chip `ChipLoc` **Cả tuần · T2…CN** (kèm số lịch) — lọc bảng còn một ngày ngay ở trình duyệt, giữ trên `?ngay=YYYY-MM-DD` (`?ngay=ca-tuan` = cả tuần); mặc định HÔM NAY khi đang xem tuần này (giờ VN), tuần khác mặc định cả tuần; `?ngay` rác hoặc của tuần khác bị bỏ qua (`home/loc-ngay.ts`, có bài kiểm). Đổi tuần (WeekNav) bỏ `?ngay`. **27/09 (đợt 3):** Lịch làm việc BỎ cột Tầng + vạch ngăn tầng — hai cột trái Phòng · Vị trí (ở 375 chỉ cột Vị trí dính); MỌI vị trí đang bật có hàng (kể cả Trưởng ca, vị trí `VT-*` thêm ở Dây nối — bản cũ lọc bỏ vị trí không tầng); tên phòng = `clinic_room.name` hiện tại (`/me/vi-tri-hom-nay` → `danh_muc[].phong`, rơi về `vi_tri_lam_viec.phong`), màu theo MÃ phòng (`MAU_PHONG`); ô có chip vai ngắn cạnh tên (`vai_ngan` của gói lịch, không lặp khi tên đã có chức danh). |
+| `/home` | mọi vai | Trang chủ: lịch tuần (**chỉ xem**), trạng thái buổi, lịch làm việc | GIỮ | **Không check-in ở đây** (18/09). **29/09 (Tuyền):** bấm tên khách — ĐÃ check-in (có `visit_id`) → popup **Hành trình khách** (`_lam-viec/HanhTrinhKhach.tsx` `PopupHanhTrinhKhach`); CHƯA → `/customers?selected=<khách>` (chỉ khi mở được màn ấy, `vaoDuocMan`). BỎ ngăn "Hành chính & Sinh hiệu" (ClinicalRecordForm chỉ xem). Menu ⋯ mỗi dòng — **29/09 tối (Tuyền bấm thật): mọi mục làm đúng việc, không còn link sang `/customers`:** **Mở hồ sơ khách** → `/patient-list?chon=<khách>` (cùng tab, khách chọn sẵn; hiện khi `vaoDuocMan("/patient-list")`) · **Gọi / ghi chăm sóc** → popover tại chỗ (`_lam-viec/ThaoTacLichTaiCho.tsx` `GhiChamSocTaiCho`: [Gọi sđt] `tel:` + kết quả cuộc gọi + ghi chú → `POST /api/cskh/tuong-tac` loai NHAC_HEN, khoá chống ghi trùng; hiện khi có `crm.manage`/`reception.checkin.perform`/`dispatch.manage`) · **Đổi lịch** (popover Đổi lịch tại chỗ neo vào dòng, chọn ngày bất kỳ; `booking.manage`) · **Huỷ lịch (ghi lý do)** → popover tại chỗ (`HuyLichTaiCho`: lý do BẮT BUỘC từ danh mục chung `lib/ly-do-huy.ts`, "Lý do khác" phải viết → `PATCH /api/appointments` action=cancel + `ly_do_huy_ma`; `booking.manage`, lịch còn sống) · **Đổi dịch vụ khám** (30/09, V5) → popover tại chỗ (`DoiDichVuKhamTaiCho`, xem Mục B; `booking.manage` hoặc `reception.checkin.perform`, lịch còn sống) · 📞. Nút "Check-in ở Tiếp đón khách" hiện theo lego `reception.checkin.perform` (30/09; trước theo vai check-in). **27/09 (đợt 3):** khối "Lịch hẹn khám (check đặt lịch)" có hàng chip `ChipLoc` **Cả tuần · T2…CN** (kèm số lịch) — lọc bảng còn một ngày ngay ở trình duyệt, giữ trên `?ngay=YYYY-MM-DD` (`?ngay=ca-tuan` = cả tuần); mặc định HÔM NAY khi đang xem tuần này (giờ VN), tuần khác mặc định cả tuần; `?ngay` rác hoặc của tuần khác bị bỏ qua (`home/loc-ngay.ts`, có bài kiểm). Đổi tuần (WeekNav) bỏ `?ngay`. **27/09 (đợt 3):** Lịch làm việc BỎ cột Tầng + vạch ngăn tầng — hai cột trái Phòng · Vị trí (ở 375 chỉ cột Vị trí dính); MỌI vị trí đang bật có hàng (kể cả Trưởng ca, vị trí `VT-*` thêm ở Dây nối — bản cũ lọc bỏ vị trí không tầng); tên phòng = `clinic_room.name` hiện tại (`/me/vi-tri-hom-nay` → `danh_muc[].phong`, rơi về `vi_tri_lam_viec.phong`), màu theo MÃ phòng (`MAU_PHONG`); ô có chip vai ngắn cạnh tên (`vai_ngan` của gói lịch, không lặp khi tên đã có chức danh). |
 
 ### Lễ tân và điều dưỡng
 

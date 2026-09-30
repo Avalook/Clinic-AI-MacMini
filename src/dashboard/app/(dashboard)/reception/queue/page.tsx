@@ -101,6 +101,7 @@ export default async function ReceptionQueuePage({
             duocXemHoSo={moHoSoBenhNhan}
             // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
             duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
+            duocDatLich={quyen === null ? undefined : quyen.includes("booking.create")}
           />
         )}
       </section>

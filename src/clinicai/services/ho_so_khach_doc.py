@@ -2,8 +2,9 @@
 
 Ba khối của trang (thông tin hành chính + lịch hẹn, lịch sử lâm sàng, nhật ký
 CSKH) từng tự đọc bảng bằng Supabase. Nay đọc ở đây, lọc đúng phòng khám của
-người gọi, và qua MỘT luật "được mở hồ sơ này không" (`duoc_mo`) — bác sĩ chỉ
-khách có lịch với mình, thư ký chỉ khách của bác sĩ mình.
+người gọi, và qua MỘT luật "được mở hồ sơ này không" (`duoc_mo`) — thư ký
+được phân theo bác sĩ chỉ khách của bác sĩ mình; mọi người khác mở được (mở
+full lego 30/09/2026).
 
 Dữ liệu trả về giữ nguyên DẠNG các component đang vẽ (`doctor: {full_name}`,
 `clinical_record: {...}`) để không phải sửa phần trình bày.
@@ -43,31 +44,21 @@ def _dong(r: asyncpg.Record) -> dict[str, Any]:
 
 
 async def duoc_mo(pool: asyncpg.Pool, identity: StaffIdentity, khach: str) -> bool:
-    """Luật GIẤY PHÉP mở hồ sơ: thư ký → khách của bác sĩ mình; bác sĩ (khám /
-    siêu âm) → khách có lịch với chính mình; vai khác → được.
+    """Luật mở hồ sơ: thư ký ĐƯỢC PHÂN theo bác sĩ → khách của bác sĩ mình; mọi
+    người khác → được.
 
-    QUẢN LÝ LUÔN ĐƯỢC, xét TRƯỚC nhánh bác sĩ (kiểm toán 27/09/2026, L2): bật
-    lego Bàn khám thì quản lý được cộng vai DOCTOR, rơi vào nhánh "chỉ khách có
-    lịch với mình" và ăn 403 khi mở hồ sơ bất kỳ khách nào."""
+    MỞ FULL LEGO (Tuyền 30/09/2026): bỏ nhánh "bác sĩ chỉ mở khách có lịch với
+    mình". Nhánh ấy hỏi VAI (`co_vai(DOCTOR)`), mà ai đủ lego Bàn khám cũng mang
+    vai DOCTOR theo lego — mở full là cả lễ tân, thu ngân ăn 403 khi mở hồ sơ
+    khách. Bác sĩ khám thay đồng nghiệp cũng phải mở được hồ sơ.
+
+    GIỮ nhánh thư ký: đó là PHÂN CÔNG quản lý tự đặt (`thu_ky_bac_si`, Tuyền
+    26/09: "thư ký cả phòng trừ khi xếp theo BS") — chưa phân thì không lọc."""
     if identity.co_vai({ClinicRole.MANAGEMENT}):
         return True
     if identity.co_vai({ClinicRole.TKYK}):
         ids = await khach_duoc_xem(pool, identity)
         return ids is None or khach in ids
-    if identity.co_vai({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}):
-        return bool(
-            await pool.fetchval(
-                """
-                SELECT EXISTS (SELECT 1 FROM appointment
-                                WHERE clinic_id = $1::uuid
-                                  AND clinic_patient_id = $2::uuid
-                                  AND doctor_id = $3::uuid)
-                """,
-                identity.clinic_id,
-                khach,
-                identity.staff_id,
-            )
-        )
     return True
 
 

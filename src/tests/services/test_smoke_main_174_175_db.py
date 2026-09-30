@@ -46,6 +46,7 @@ from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_xac_nhan_tep_ket_qua_db import (
     CLINIC_A,
     CLINIC_B,
@@ -134,6 +135,7 @@ async def test_smoke_1_external_result_capability_and_audit_events_e2e(
     async with pool.acquire() as conn:
         mgr = await _tao_staff(conn, CLINIC_A, "MANAGEMENT")
         nurse = await _tao_staff(conn, CLINIC_A, "NURSE_ULTRASOUND")
+        await ve_goi_mau_cu(conn, nurse)  # gói lego cũ (mở full lego 30/09)
         partner = await _tao_staff(conn, CLINIC_A, "PARTNER")
         doc = await _tao_staff(conn, CLINIC_A, "DOCTOR")
         pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)

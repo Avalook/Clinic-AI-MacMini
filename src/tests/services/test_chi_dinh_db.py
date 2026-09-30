@@ -24,6 +24,7 @@ from clinicai.events.catalogue import DONG_THOI_GIAN_LUOT
 from clinicai.events.worker import lam_mot_dong
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -258,6 +259,7 @@ async def test_g4_luot_da_dong_thi_bi_tu_choi_va_khong_de_lai_gi(kb: KB) -> None
 
 
 async def test_g5_vai_khong_duoc_chi_dinh_thi_chan(kb: KB) -> None:
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full 30/09)
     with pytest.raises(SafetyGateError):
         await kb.svc.dat_chi_dinh(
             consultation_id=kb.consultation_id,

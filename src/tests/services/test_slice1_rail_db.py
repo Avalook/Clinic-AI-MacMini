@@ -21,6 +21,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import (
     KichBan,
     _cua,
@@ -254,6 +255,7 @@ async def test_thu_ky_cho_khach_ve_theo_doi_le_tan_bi_chan(kb: KichBan) -> None:
         kb.thu_ky.staff_id,
         kb.bac_si.staff_id,
     )
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await kb.svc.kham_xong(
             consultation_id=phien,
@@ -400,6 +402,7 @@ async def test_chi_nguoi_phu_trach_quyet_va_co_nhat_ky(kb: KichBan) -> None:
     # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — thư ký qua được cửa quyền (thử ở
     # dưới, sau khi bác sĩ đã quyết); người thử "bị chặn" đổi sang lễ tân.
     phien2, rid, mau = await _khong_lam_duoc(kb)
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     for nguoi in (kb.le_tan, kb.bac_si_2):
         with pytest.raises(SafetyGateError):
             await kb.svc.quyet_yeu_cau(

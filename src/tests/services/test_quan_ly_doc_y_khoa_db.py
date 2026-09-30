@@ -13,6 +13,7 @@ from clinicai.api.v1.routers.clinical_records import doc_ho_so_lam_sang
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.permissions.y_khoa import cua_y_khoa
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     _nguoi,
     pool,
@@ -66,6 +67,7 @@ async def test_le_tan_van_bi_chan_va_bac_si_khong_ghi_nhat_ky(
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     await _check_in(pool, ca, pid, ca.loai_kham)
+    await ve_goi_mau_cu(pool, ca.le_tan)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await cua_y_khoa(identity=ca.le_tan, pool=pool)
     # Bác sĩ mở hồ sơ hằng ngày — không ghi, để nhật ký còn đọc được.

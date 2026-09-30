@@ -490,6 +490,7 @@ export default function WeeklyAppointmentsTable({
   choThemKhach = true,
   duocCheckIn,
   duocDoiLich,
+  duocDatLich,
   duocDoiDichVu = false,
   duocGhiChamSoc = false,
   duocXemHoSo = false,
@@ -520,6 +521,9 @@ export default function WeeklyAppointmentsTable({
   /** Được đổi lịch theo LEGO (`booking.manage`) — trang truyền từ quyền của
    *  tài khoản. Không truyền → theo vai như trước. */
   duocDoiLich?: boolean;
+  /** Ô trống mở màn Đặt lịch theo LEGO (`booking.create`) — mở full lego
+   *  30/09/2026. Không truyền → theo vai như trước. */
+  duocDatLich?: boolean;
   /** ⋯ "Đổi dịch vụ khám" (V5, 30/09/2026) — có `booking.manage` hoặc
    *  `reception.checkin.perform` (`QUYEN_DOI_DICH_VU_KHAM`). Không truyền → ẩn. */
   duocDoiDichVu?: boolean;
@@ -767,7 +771,7 @@ export default function WeeklyAppointmentsTable({
                 day,
                 dutyByDate[day.date] ?? [],
                 now,
-                choThemKhach && canWriteIntake(role),
+                choThemKhach && (duocDatLich ?? canWriteIntake(role)),
                 policy,
                 // LỄ TÂN ĐI CHUNG ĐƯỜNG VỚI CSKH (Tuyền 16/09/2026): ô trống mở
                 // màn đặt lịch, không còn rẽ sang biểu mẫu vãng lai của riêng

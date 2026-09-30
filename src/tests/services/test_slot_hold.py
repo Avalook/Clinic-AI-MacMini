@@ -50,8 +50,14 @@ class TestWhoMayHold:
         from clinicai.services.booking_service import INTAKE_ROLES
 
         assert HOLD_ROLES == INTAKE_ROLES
+        # Mở full lego (30/09/2026): mọi vai nội bộ có "Đặt lịch"; lệnh giữ chỗ
+        # hỏi QUYỀN nên ai có lego là giữ được. Gói mẫu cũ đúng bốn vai cũ.
+        from clinicai.permissions.catalogue import PRESET_TRUOC_MO_FULL
+
         co = {vai for vai, khoi in PRESET.items() if "dat_lich" in khoi}
-        assert co == {r.value for r in HOLD_ROLES}
+        assert co == set(PRESET) - {"PARTNER"}
+        cu = {vai for vai, khoi in PRESET_TRUOC_MO_FULL.items() if "dat_lich" in khoi}
+        assert cu == {r.value for r in HOLD_ROLES}
 
     @pytest.mark.asyncio
     async def test_co_quyen_thi_giu_duoc(self, monkeypatch: pytest.MonkeyPatch) -> None:

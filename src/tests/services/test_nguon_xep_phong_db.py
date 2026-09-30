@@ -16,6 +16,7 @@ import pytest
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.service_routing_service import ServiceRoutingService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -130,6 +131,7 @@ async def test_nguon_hoi_quyen_cua_lego_goi(pool: asyncpg.Pool) -> None:  # noqa
     await _thu(pool, visit, ca.le_tan)
     await chay_hanh_trinh(pool)
     rev = int((await _don(pool, order))["routing_revision"])
+    await ve_goi_mau_cu(pool, ca.dd)  # gói lego cũ (mở full lego 30/09)
     for nguon in ("quay_thu", "truong_ca"):
         with pytest.raises(SafetyGateError):
             await ServiceRoutingService(pool).assign(

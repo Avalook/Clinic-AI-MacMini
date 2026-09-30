@@ -135,7 +135,12 @@ async def test_lego_phong_dich_vu_theo_tung_phong(
 @pytest.mark.parametrize(
     ("vai", "phai_co", "khong_co"),
     [
-        ("CSKH", ["crm.manage", "audit.view", "roster.view"], ["ops.view"]),
+        # Mở full lego (30/09/2026): CSKH có cả Vận hành; chỉ 4 khối Quản lý giữ.
+        (
+            "CSKH",
+            ["crm.manage", "audit.view", "roster.view", "ops.view"],
+            ["account.manage"],
+        ),
         ("RECEPTION", ["patient.create", "crm.manage"], ["account.manage"]),
         ("TRUONG_CA", ["dispatch.manage", "report.view"], ["staff.manage"]),
         ("MANAGEMENT", ["account.manage", "staff.manage", "ops.view"], []),

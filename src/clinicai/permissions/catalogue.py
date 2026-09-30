@@ -780,6 +780,37 @@ PRESET["MANAGEMENT"] = list(KHOI)
 # `doi_tac` là việc của người ngoài; quản lý vẫn có (xem hộ đối tác) như trước.
 
 
+# ── MỞ FULL LEGO (Tuyền 30/09/2026) ─────────────────────────────────────────
+# "Phòng khám chả có quy trình nào, lúc nào, ai thu cũng được… open hết ra, nhân
+# sự có các node gần full để thao tác cho lẹ." Mọi vai nội bộ có MỌI khối, trừ
+# bốn khối của hai lego chỉ Quản lý giữ (Cài đặt phòng khám, Nhân sự & phân
+# quyền) để khỏi loạn. Migration 20260930900000 cấp bù cho tài khoản hiện có và
+# thêm y hệt vào `quyen_preset`.
+#
+# Hệ quả đã chấp nhận: ai đủ lego Bàn khám được suy ra vai DOCTOR ở các cửa cũ
+# (`VAI_THEO_LEGO`). Tên KÝ trên giấy và "bác sĩ của phiên" KHÔNG đi theo lego —
+# chúng đọc `clinic_membership.role` (`services/bac_si_phu_trach.py`,
+# `services/bac_si_ky.py`).
+
+#: Gói mẫu NGAY TRƯỚC khi mở full — giữ để thu lại theo vai nếu cần (không dùng
+#: để cấp).
+PRESET_TRUOC_MO_FULL: dict[str, tuple[str, ...]] = {
+    _vai: tuple(_khoi) for _vai, _khoi in PRESET.items()
+}
+
+#: Khối CHỈ Quản lý có (không mở cho mọi người).
+KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
+    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"}
+)
+
+#: Khối mở cho MỌI nhân sự nội bộ.
+KHOI_MO_FULL: list[str] = [k for k in KHOI if k not in KHOI_CHI_QUAN_LY]
+
+for _vai in PRESET:
+    if _vai not in ("PARTNER", "MANAGEMENT"):
+        PRESET[_vai] = list(KHOI_MO_FULL)
+
+
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
 # "Quyền đi theo MÀN (màn = khối lego; xem/sửa/xoá đi theo màn, không chi tiết
 # hơn). Ô quản lý quyền: chọn vai → các màn MẶC ĐỊNH hiện ra, thêm/sửa/xoá thoải
@@ -1083,9 +1114,12 @@ def tra_quyen(ma: str) -> Quyen:
 __all__ = [
     "KHOI",
     "KHOI_AN",
+    "KHOI_CHI_QUAN_LY",
+    "KHOI_MO_FULL",
     "LUON_BAT",
     "MAN",
     "PRESET",
+    "PRESET_TRUOC_MO_FULL",
     "QUYEN",
     "VAI_DO_LEGO",
     "VAI_THEO_LEGO",

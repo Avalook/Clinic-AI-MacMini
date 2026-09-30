@@ -19,6 +19,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.v1.routers.booking import ActionRequest
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.booking_service import BookingService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     _nguoi,
     pool,
@@ -120,6 +121,7 @@ async def test_khong_co_quyen_quan_ly_lich_thi_khong_huy_duoc(
     appt = await _lich(pool, ca, _mai_9h())
     async with pool.acquire() as conn:
         duoc_si = await _nguoi(conn, ca["loc"], "PHARMACIST")
+        await ve_goi_mau_cu(conn, duoc_si)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await BookingService(pool).apply_action(
             appointment_id=appt,

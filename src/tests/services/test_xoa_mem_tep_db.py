@@ -24,6 +24,7 @@ from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import don_tep_ket_qua
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_xac_nhan_tep_ket_qua_db import (
     CLINIC_A,
     PDF_DUMMY,
@@ -226,6 +227,7 @@ async def test_nguoi_tai_len_xoa_duoc_khi_chua_ai_xem(
 ) -> None:
     """CSKH không có lego Kết quả: xoá được tệp CỦA MÌNH khi chưa ai khác xem."""
     d = await _dung(pool)
+    await ve_goi_mau_cu(pool, d["cskh"])  # gói lego cũ (mở full lego 30/09)
     dv = TepKetQuaService(pool)
     cua_cskh = await _tai(pool, d["cskh"], d)
     cua_bs = await _tai(pool, d["doc"], d)
@@ -255,6 +257,7 @@ async def test_nguoi_tai_len_xoa_duoc_khi_chua_ai_xem(
 
 async def test_da_gui_khach_chi_con_dinh_chinh(pool: asyncpg.Pool, kho: Any) -> None:
     d = await _dung(pool)
+    await ve_goi_mau_cu(pool, d["cskh"])  # gói lego cũ (mở full lego 30/09)
     dv = TepKetQuaService(pool)
     tep = await _tai(pool, d["cskh"], d)
     await dv.danh_dau_da_gui(identity=d["cskh"], tep_id=tep, kenh="ZALO")

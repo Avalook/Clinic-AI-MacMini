@@ -12,6 +12,7 @@ import pytest
 
 from clinicai.permissions.can import can, quyen_hieu_luc
 from clinicai.permissions.catalogue import KHOI, MAN
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import KichBan
 from tests.services.test_quyen_theo_lich_mo_db import _xep
 
@@ -46,6 +47,7 @@ async def test_bang_tra_khop_danh_muc_lego(kb: KichBan) -> None:
 async def test_xep_vao_phong_thi_lam_duoc_o_phong_ay(kb: KichBan) -> None:
     ai = kb.le_tan  # vai lễ tân, KHÔNG có lego Phòng dịch vụ nào
     async with kb.pool.acquire() as conn:
+        await ve_goi_mau_cu(conn, ai)  # gói lego cũ (mở full lego 30/09)
         assert not await can(conn, ai, "service.execute.start", phong_id=kb.phong_sa)
         await _xep(conn, ai.clinic_id, kb.phong_sa, ai)
         # Đúng phòng được xếp → toàn quyền phòng dịch vụ.
@@ -61,6 +63,7 @@ async def test_xep_vao_phong_thi_lam_duoc_o_phong_ay(kb: KichBan) -> None:
 async def test_lich_bi_tu_choi_khong_mo_quyen(kb: KichBan) -> None:
     ai = kb.le_tan
     async with kb.pool.acquire() as conn:
+        await ve_goi_mau_cu(conn, ai)  # gói lego cũ (mở full lego 30/09)
         await _xep(conn, ai.clinic_id, kb.phong_sa, ai)
         await conn.execute(
             "UPDATE work_roster SET status = 'REJECTED' WHERE staff_id = $1::uuid",

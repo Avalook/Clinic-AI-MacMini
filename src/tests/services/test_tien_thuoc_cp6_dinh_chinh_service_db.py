@@ -28,6 +28,7 @@ from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.dinh_chinh_don import CanLyDoDinhChinhError, DonDaDoiError
 from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.xem_luot_service import XemLuotService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _don, _nhap_lo, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp2_db import _luu_don
@@ -199,6 +200,7 @@ async def test_bac_si_sieu_am_don_thuan_khong_dinh_chinh_duoc(q: Quay) -> None:
     rx, _, _ = await _san_sang(q, 10, 100)
     async with q.pool.acquire() as conn:
         bs_sa = await _nguoi(conn, q.bac_si.location_id, "ULTRASOUND_DOCTOR")
+        await ve_goi_mau_cu(conn, bs_sa)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError, match="quyền Bàn khám"):
         await _luu_don(q, [], ly_do=LY_DO, identity=bs_sa)
     assert await _hien_hanh(q) == [rx]

@@ -30,6 +30,7 @@ from clinicai.services.lenh_kham_core import (
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import ServiceRoutingService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -83,6 +84,7 @@ async def test_truong_ca_dat_phong_truoc_thu_roi_quay_doi_duoc_va_co_lich_su(
 
     # Khách CHƯA CHỐT (V10: chưa thu không còn là lý do): trưởng ca đặt PHÒNG
     # DỰ KIẾN; lễ tân không có lối này.
+    await ve_goi_mau_cu(pool, ca.le_tan)  # gói lego cũ (mở full lego 30/09)
     goi_y = await svc.recommend(order_id=order, identity=truong_ca)
     assert goi_y["che_do"] == "DU_KIEN"
     assert goi_y["cau_che_do"] == "Phòng dự kiến — xếp khi khách chốt dịch vụ."
@@ -147,6 +149,7 @@ async def test_truong_ca_chuyen_dich_vu_dang_lam(pool: asyncpg.Pool) -> None:  #
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     await _chon(pool, ca, visit, [order])
     svc = ServiceRoutingService(pool)
+    await ve_goi_mau_cu(pool, ca.le_tan, ca.dd)  # gói lego cũ (mở full lego 30/09)
     # Quầy chọn phòng trước thu (không để H4 chọn phòng của bài kiểm khác).
     await svc.dat_phong_du_kien(order_id=order, room_id=ca.phong, identity=ca.le_tan)
     await _thu(pool, visit, ca.le_tan)

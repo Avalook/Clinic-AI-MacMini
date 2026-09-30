@@ -38,6 +38,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.schemas.staff import Capability
 from clinicai.services.tep_ket_qua_service import TepKetQuaService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_xac_nhan_tep_ket_qua_db import (
     CLINIC_A,
     CLINIC_B,
@@ -74,6 +75,7 @@ async def test_cho_xac_nhan_queue_auth_fail_closed(pool: asyncpg.Pool) -> None:
     """Kiểm tra hàng chờ xác nhận fail-closed với ai không có capability."""
     async with pool.acquire() as conn:
         staff_no_cap = await _tao_staff(conn, CLINIC_A, "CASHIER")
+        await ve_goi_mau_cu(conn, staff_no_cap)  # gói lego cũ (mở full 30/09)
         partner = await _tao_staff(
             conn, CLINIC_A, "PARTNER", caps=[Capability.KET_QUA_XAC_NHAN.value]
         )
@@ -98,6 +100,7 @@ async def test_cho_xac_nhan_queue_auth_fail_closed(pool: asyncpg.Pool) -> None:
             CLINIC_B,
             staff_multi.staff_id,
         )
+        await ve_goi_mau_cu(conn, dataclasses.replace(staff_multi, clinic_id=CLINIC_B))
 
     svc = TepKetQuaService(pool)
 

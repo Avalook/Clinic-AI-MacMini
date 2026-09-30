@@ -29,6 +29,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.main import app
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -113,6 +114,7 @@ async def _chay(pool: asyncpg.Pool) -> None:
             CLINIC,
         )
         le_tan = await nguoi(conn, loc, "RECEPTION")
+        await ve_goi_mau_cu(conn, le_tan)  # gói lego cũ (mở full lego 30/09)
         dd = await nguoi(conn, loc, "NURSE_ULTRASOUND")
         bs = await nguoi(conn, loc, "DOCTOR")
         tk = await nguoi(conn, loc, "TKYK")

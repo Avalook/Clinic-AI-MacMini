@@ -13,6 +13,7 @@ import pytest
 from clinicai.api.exceptions import ValidationError
 from clinicai.services.doi_bac_si_service import DoiBacSiService
 from clinicai.services.permission_service import PermissionService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     _nguoi,
     pool,
@@ -32,6 +33,7 @@ async def test_chi_nguoi_kham_va_hoan_tat_duoc_moi_nhan_khach(
     ca = await _dung(pool)
     async with pool.acquire() as conn:
         sa = await _nguoi(conn, ca.loc, "ULTRASOUND_DOCTOR")
+        await ve_goi_mau_cu(conn, sa)  # gói lego cũ (mở full lego 30/09)
         ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
         tc = await _nguoi(conn, ca.loc, "TRUONG_CA")
     svc = DoiBacSiService(pool)

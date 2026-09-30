@@ -7,6 +7,7 @@ import pytest
 
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import (
     KichBan,
     _cua,
@@ -103,6 +104,9 @@ async def test_approval_retries_and_does_not_finalize(kb: KichBan) -> None:
 
 async def test_reception_and_service_roles_do_not_see_drafts(kb: KichBan) -> None:
     consultation, draft = await _draft(kb)
+    await ve_goi_mau_cu(
+        kb.pool, kb.le_tan, kb.truong_ca, kb.bs_sieu_am
+    )  # gói lego cũ (mở full lego 30/09)
     for identity in [kb.le_tan, kb.truong_ca, kb.bs_sieu_am]:
         visit = _cua(await kb.svc.bang(identity=identity), kb.visit_id)
         assert visit["chi_dinh"] == []

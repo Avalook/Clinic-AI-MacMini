@@ -33,6 +33,17 @@ export default async function TrangPhanQuyen({
           Chọn một người rồi tick những kỹ năng họ làm — đúng như danh sách nhân
           sự của phòng khám. Trường hợp đặc biệt thì mở mục Ngoại lệ.
         </p>
+        {/* Mở full lego (Tuyền 30/09/2026) — migration 20260930900000. */}
+        <p
+          role="note"
+          className="mt-2 rounded-control bg-info-bg px-3 py-2 text-sm text-info"
+        >
+          Đang mở toàn bộ cho mọi nhân sự: ai cũng có đủ các lego thao tác (thu
+          tiền dịch vụ và thuốc, khám, phòng dịch vụ, kho, điều phối, báo cáo…) và
+          không cần có lịch. Chỉ Quản lý giữ Phân quyền, Nhân sự &amp; tài khoản,
+          Cài đặt phòng khám (gồm mẫu kết quả, dây nối). Muốn siết một người: tắt
+          lego của người ấy ở đây.
+        </p>
       </header>
       <BangPhanQuyen
         nhanSu={nhanSu

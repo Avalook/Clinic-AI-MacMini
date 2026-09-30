@@ -9,6 +9,7 @@ import pytest
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.xem_luot_service import XemLuotService, muc_duoc_xem
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import KichBan, _vao_kham
 from tests.services.test_slice1_rail_db import _chi_dinh, _lam
 
@@ -65,6 +66,9 @@ async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
     viec = [m["viec"] for m in dv["moc"]]
     assert viec[:2] == ["Ghi chỉ định", "Bác sĩ duyệt chỉ định"] and "Xong" in viec
 
+    await ve_goi_mau_cu(
+        kb.pool, kb.truong_ca, kb.le_tan
+    )  # gói lego cũ (mở full lego 30/09)
     tc = await svc.doc(visit_id=kb.visit_id, identity=kb.truong_ca)
     assert "lam_sang" not in tc and "sinh_hieu" not in tc
     assert tc["dich_vu"][0]["ket_qua_ghi"] is None  # thấy mốc, không thấy chữ
@@ -79,7 +83,9 @@ async def test_moi_vai_thay_dung_muc(kb: KichBan) -> None:
     assert lt["hanh_chinh"]["da_do_sinh_hieu"] is True
     assert "tai_chinh" in lt and "lam_sang" not in lt
 
-    tn = await svc.doc(visit_id=kb.visit_id, identity=await _thu_ngan(kb))
+    thu_ngan = await _thu_ngan(kb)
+    await ve_goi_mau_cu(kb.pool, thu_ngan)  # gói lego cũ (mở full lego 30/09)
+    tn = await svc.doc(visit_id=kb.visit_id, identity=thu_ngan)
     assert tn["tai_chinh"] == [] and "lam_sang" not in tn
 
     # Thư ký CHƯA xếp theo ai thấy cả phòng; đã xếp theo bác sĩ KHÁC → bị chặn
@@ -126,6 +132,7 @@ async def test_truong_ca_thay_chi_dinh_theo_nhom(kb: KichBan) -> None:
     assert cua[sa]["nhom"] == "da_hoan_tat" and cua[sa]["xong_luc"]
     assert cua[mau]["nhom"] in {"can_dieu_phoi", "da_dieu_phoi"}
     assert cua[mau]["can"] == "VALID_RESULT"
+    await ve_goi_mau_cu(kb.pool, kb.bac_si)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await kb.svc.chi_dinh_hom_nay(identity=kb.bac_si)
 

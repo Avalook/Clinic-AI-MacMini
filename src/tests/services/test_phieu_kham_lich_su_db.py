@@ -12,6 +12,7 @@ import pytest
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.phieu_kham.khung import cac_o, dinh_nghia
 from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_phieu_kham_db import (
     _luot,
     _nguoi,
@@ -140,6 +141,7 @@ async def test_le_tan_khong_xem_lich_su(pool: asyncpg.Pool) -> None:  # noqa: F8
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         lt = await _nguoi(conn, "RECEPTION")
+        await ve_goi_mau_cu(conn, lt)  # gói lego cũ (mở full lego 30/09)
         luot = await _luot(conn, bs)
     with pytest.raises(SafetyGateError):
         await _svc(pool).lich_su(visit_id=luot["visit"], form_id=None, identity=lt)

@@ -32,6 +32,7 @@ from clinicai.services.luot_kham_service import (
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_selection_service import ServiceSelectionService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -696,6 +697,7 @@ async def test_khong_con_chi_dinh_nao(kb: KB) -> None:
 
 async def test_vai_khong_co_quyen(kb: KB) -> None:
     a = await _chi_dinh(kb)
+    await ve_goi_mau_cu(kb.pool, kb.bac_si)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await _confirm(kb, [a], [a], 0, who=kb.bac_si)
 
@@ -740,6 +742,7 @@ async def test_http_endpoint_cua_vai_va_ma_loi(kb: KB) -> None:
             assert r.json()["error"] == "SELECTION_REVISION_CONFLICT"
 
             ai["x"] = kb.bac_si
+            await ve_goi_mau_cu(kb.pool, kb.bac_si)  # gói lego cũ (mở full lego 30/09)
             r = await c.post(duong, json=than, headers=h)
             assert r.status_code == 403
     finally:

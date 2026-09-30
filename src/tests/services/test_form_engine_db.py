@@ -20,6 +20,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -229,6 +230,7 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
 async def test_khong_co_quyen_thi_khong_dien_duoc(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         le_tan = await _nguoi(conn, "RECEPTION")
+        await ve_goi_mau_cu(conn, le_tan)  # gói lego cũ (mở full lego 30/09)
         bs = await _nguoi(conn, "DOCTOR")
         order_id = await _don_tron(conn, bs)
     with pytest.raises(SafetyGateError):

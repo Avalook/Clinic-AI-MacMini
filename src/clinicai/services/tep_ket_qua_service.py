@@ -1468,7 +1468,8 @@ class TepKetQuaService:
             raise ValidationError("Đường dẫn tệp không hợp lệ.")
         if not con:
             raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
-        if identity.co_vai(XEM_LA_DA_XEM):
+        # Vai TÀI KHOẢN, không vai lego — xem `form_engine_service.doc_ket_qua`.
+        if identity.vai_goc in XEM_LA_DA_XEM:
             await self._ghi_da_xem(identity, tep_id, row["service_order_id"])
         return path, row["mime"], row["so_byte"], row["ten_hien_thi"] or ""
 

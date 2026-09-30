@@ -18,6 +18,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
 from clinicai.services.config_service import RosterService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import KichBan, _nguoi
 from tests.services.test_quyen_theo_lich_mo_db import _xep
 
@@ -39,6 +40,7 @@ async def test_truong_ca_thay_nguoi_giua_ca(kb: KichBan) -> None:
     ha = kb.le_tan  # không lego phòng dịch vụ nào — quyền chỉ đến từ lịch
     async with kb.pool.acquire() as conn:
         b = await _nguoi(conn, kb.location_id, "CSKH")
+        await ve_goi_mau_cu(conn, ha, b)  # gói lego cũ (mở full lego 30/09)
         await _xep(conn, ha.clinic_id, kb.phong_sa, ha)
         roster_id = await _dong_lich(conn, ha.staff_id)
         assert await can(conn, ha, "service.execute.start", phong_id=kb.phong_sa)
@@ -93,6 +95,7 @@ async def test_truong_ca_thay_nguoi_giua_ca(kb: KichBan) -> None:
 
 async def test_khong_co_quyen_doi_nguoi_bi_chan(kb: KichBan) -> None:
     async with kb.pool.acquire() as conn:
+        await ve_goi_mau_cu(conn, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
         await _xep(conn, kb.dieu_duong.clinic_id, kb.phong_sa, kb.dieu_duong)
         roster_id = await _dong_lich(conn, kb.dieu_duong.staff_id)
     with pytest.raises(SafetyGateError):
@@ -121,6 +124,7 @@ async def test_kho_thuoc_khong_mo_quyen_ket_qua(kb: KichBan) -> None:
     """`DICHVU-` không còn ăn cả `DICHVU-THUOC`: đứng kho ≠ duyệt kết quả."""
     async with kb.pool.acquire() as conn:
         ai = await _nguoi(conn, kb.location_id, "CSKH")
+        await ve_goi_mau_cu(conn, ai)  # gói lego cũ (mở full lego 30/09)
         kho = await conn.fetchval(
             "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node n"
             " ON n.room_id = r.id WHERE r.clinic_id = $1::uuid"
@@ -137,6 +141,7 @@ async def test_kho_thuoc_khong_mo_quyen_ket_qua(kb: KichBan) -> None:
 async def test_vi_tri_truong_ca_mo_dieu_phoi(kb: KichBan) -> None:
     async with kb.pool.acquire() as conn:
         ai = await _nguoi(conn, kb.location_id, "CSKH")
+        await ve_goi_mau_cu(conn, ai)  # gói lego cũ (mở full lego 30/09)
         assert not await can(conn, ai, "dispatch.manage")
         hom_nay = await conn.fetchval(
             "SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"

@@ -8,7 +8,7 @@
 // thứ chín sẽ rơi im lặng qua mọi bộ lọc.
 
 import { redirect } from "next/navigation";
-import { vaiLamViec } from "../../../../lib/clinic-session";
+import { getQuyenCuaToi, vaiLamViec } from "../../../../lib/clinic-session";
 import { canManageAppt } from "../../../../lib/roles";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { listBookableDoctors } from "../../../../lib/doctors-server";
@@ -20,8 +20,15 @@ export default async function ChoXepBacSiPage() {
   // Trưởng ca xếp được cùng Quản lý: người trực tiếp biết ai đang rảnh thường
   // là trưởng ca. CSKH vào để gọi khách đổi ca (16/09/2026). Backend gác lại
   // bằng chính bảng chuyển tiếp (MANAGE_ROLES = CSKH, Quản lý, Trưởng ca).
-  const role = await vaiLamViec(canManageAppt);
-  if (!canManageAppt(role)) redirect("/home");
+  // MỞ FULL LEGO (30/09/2026): cửa theo LEGO Quản lý lịch hẹn (`booking.manage`
+  // — đúng quyền lệnh gán bác sĩ hỏi), không theo vai. Máy chủ chưa trả lời
+  // quyền → rơi về vai như trước.
+  const quyen = await getQuyenCuaToi();
+  const duoc =
+    quyen === null
+      ? canManageAppt(await vaiLamViec(canManageAppt))
+      : quyen.includes("booking.manage");
+  if (!duoc) redirect("/home");
 
   const [data, doctors] = await Promise.all([
     fetchFromBackend<{ items: DongCho[] }>("/api/v1/appointments/cho-xep-bac-si"),

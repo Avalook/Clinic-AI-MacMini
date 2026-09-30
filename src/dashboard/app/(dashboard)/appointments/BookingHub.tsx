@@ -38,7 +38,8 @@ import LichSapToiCuaKhach, {
 } from "./LichSapToiCuaKhach";
 import BangBacSiTuan from "./BangBacSiTuan";
 import { CHANNELS_CHON, KENH_GIOI_THIEU } from "../form-ui";
-import { canCheckin, type ClinicRole } from "../../../lib/roles";
+import { type ClinicRole } from "../../../lib/roles";
+import { useCheckInDuoc } from "../QuyenContext";
 import { useGiuCho } from "./dung-giu-cho";
 import { type ThongTinKhung } from "./cho-trong";
 import NewPatientForm, {
@@ -310,6 +311,8 @@ export default function BookingHub({
   vai = null,
 }: Props) {
   const router = useRouter();
+  // Kênh "Trực tiếp" (tự check-in) theo LEGO Tiếp đón — mở full lego 30/09/2026.
+  const checkInDuoc = useCheckInDuoc(vai);
   const policy = useBookingPolicy();
   const PROVISIONAL_STEP_MIN = 15;
   const slotMinutes = policy?.slotMinutes ?? PROVISIONAL_STEP_MIN;
@@ -1491,7 +1494,7 @@ export default function BookingHub({
                   className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-xs text-ink"
                 >
                   {CHANNELS_CHON.filter(
-                    (c) => c.id !== "WALK_IN" || canCheckin(vai),
+                    (c) => c.id !== "WALK_IN" || checkInDuoc,
                   ).map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.label}

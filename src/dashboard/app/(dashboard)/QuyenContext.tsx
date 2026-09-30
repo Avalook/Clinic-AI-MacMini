@@ -9,7 +9,8 @@
 
 import { createContext, useContext } from "react";
 
-import { checkOutDuoc } from "@/lib/quyen-client";
+import { checkOutDuoc, coQuyen } from "@/lib/quyen-client";
+import { canCheckin, type ClinicRole } from "@/lib/roles";
 
 const QuyenContext = createContext<readonly string[] | null>(null);
 
@@ -23,4 +24,15 @@ export function useQuyen(): readonly string[] | null {
 /** Tài khoản này được bấm Check-out (đóng lượt) không. */
 export function useCheckOutDuoc(): boolean {
   return checkOutDuoc(useQuyen());
+}
+
+/** Được CHECK-IN (kênh "Trực tiếp" hôm nay tự check-in) — theo LEGO Tiếp đón
+ *  (`reception.checkin.perform`), không theo vai (mở full lego 30/09/2026).
+ *  Máy chủ chưa trả lời quyền → rơi về vai như trước. Máy chủ vẫn tự kiểm
+ *  (`booking_service.create` → `doi_quyen`). */
+export function useCheckInDuoc(role: ClinicRole | null | undefined): boolean {
+  const quyen = useQuyen();
+  return quyen === null
+    ? canCheckin(role ?? null)
+    : coQuyen(quyen, "reception.checkin.perform");
 }
