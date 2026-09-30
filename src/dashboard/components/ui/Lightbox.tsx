@@ -25,6 +25,9 @@ const NUT =
   "text-meta font-medium text-white transition-colors duration-100 hover:bg-surface/20 " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-400";
 
+/** Vỏ nút trên nền tối của hộp — cho nút nơi gọi gắn vào (`veThaoTac`). */
+export const NUT_NEN_TOI = NUT;
+
 export interface TepXem {
   id: string;
   /** Đường xem (đã xác thực). */
@@ -91,6 +94,7 @@ export default function Lightbox({
   luoiBanDau = false,
   trai,
   veTaiLieu,
+  veThaoTac,
   onDong,
 }: {
   tieuDe: string;
@@ -102,6 +106,9 @@ export default function Lightbox({
   trai?: ReactNode;
   /** Vẽ tài liệu Word/Excel (xem tại chỗ) — không có thì hiện "Tải về". */
   veTaiLieu?: (t: TepXem) => ReactNode;
+  /** Nút thêm cho TỆP ĐANG XEM, đặt trong cụm nút đầu hộp (V9: Xoá / Đính
+   *  chính). Nơi gọi vẽ theo cờ máy chủ của tệp; hộp không biết luật gì. */
+  veThaoTac?: (t: TepXem) => ReactNode;
   onDong: () => void;
 }) {
   const [i, setI] = useState(() => Math.min(Math.max(batDau, 0), Math.max(tep.length - 1, 0)));
@@ -274,6 +281,7 @@ export default function Lightbox({
                 Tải tất cả
               </button>
             ) : null}
+            {t && !luoi && veThaoTac ? veThaoTac(t) : null}
             <button ref={nutDong} type="button" onClick={onDong} aria-label="Đóng" className={`${NUT} w-8 justify-center px-0`}>
               <X className="size-4" aria-hidden />
             </button>

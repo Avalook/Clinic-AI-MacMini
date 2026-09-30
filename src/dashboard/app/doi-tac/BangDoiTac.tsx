@@ -48,6 +48,7 @@ import { homNayVn } from "@/lib/validation";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
 import AnhKetQua, { tepXem } from "../(dashboard)/_lam-viec/AnhKetQua";
 import { XemTaiLieu } from "../(dashboard)/_lam-viec/KhungTep";
+import { NutKhoiPhucTep, NutXoaTep } from "../(dashboard)/_lam-viec/XoaTep";
 import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
@@ -89,6 +90,14 @@ interface TepDaGui {
   boi?: string | null;
   /** Tệp đã bị thu hồi — vẫn hiện trong lịch sử, không mở được. */
   thu_hoi?: boolean;
+  /** Tệp đã xoá mềm (V9) — vẫn hiện trong lịch sử kèm lý do, không mở được. */
+  da_xoa?: boolean;
+  da_xoa_ly_do?: string | null;
+  /** Cờ máy chủ: nút Xoá / Đính chính (tệp còn hiệu lực) và Khôi phục. */
+  xoa_duoc?: boolean;
+  xoa_loai?: string | null;
+  xoa_ly_do?: string | null;
+  khoi_phuc_duoc?: boolean;
 }
 
 const kichThuoc = (b: number) =>
@@ -535,6 +544,7 @@ export default function BangDoiTac() {
                       )
                     }
                     onGui={(tep) => void gui(v, chon, tep)}
+                    onDoiTep={() => void tai()}
                     onDaThu={(soTien, hinhThuc, g) =>
                       lamViec("/api/doi-tac/da-thu-tien", v, chon, "Đã ghi nhận thu hộ cho đối tác", g, {
                         so_tien: soTien,
@@ -574,6 +584,7 @@ function MotViec({
   onGui,
   onDaThu,
   onHuyThu,
+  onDoiTep,
 }: {
   viec: Viec;
   /** Máy chủ cho mở tệp (xem / in / tải) — vai PARTNER bên ngoài: không. */
@@ -585,6 +596,8 @@ function MotViec({
   onGui: (tep: File) => void;
   onDaThu: (soTien: string, hinhThuc: DaThu["hinh_thuc"], ghiChu: string) => Promise<boolean>;
   onHuyThu: (lyDo: string) => Promise<boolean>;
+  /** Vừa xoá / khôi phục một tệp (V9) — tải lại danh sách. */
+  onDoiTep: () => void;
 }) {
   const oTep = useRef<HTMLInputElement>(null);
   // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu" (24/09/2026).
@@ -595,7 +608,7 @@ function MotViec({
   const xong = XONG.has(tt);
   const nhanTt = NHAN_TRANG_THAI[tt];
   // Tệp còn hiệu lực, xem trước được — cùng đường đọc tệp chung của trang chỉ định.
-  const tepCon = (viec.tep ?? []).filter((t) => !t.thu_hoi);
+  const tepCon = (viec.tep ?? []).filter((t) => !t.thu_hoi && !t.da_xoa);
   const xem = tepCon.map((t) =>
     tepXem({ id: t.id, ten: t.ten, loai_tep: t.loai ?? "TAI_LIEU", mime: t.mime }),
   );
@@ -683,7 +696,9 @@ function MotViec({
                 key={t.id}
                 className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-control bg-surface-muted px-3 py-1.5 text-meta"
               >
-                <span className={`min-w-0 truncate ${t.thu_hoi ? "text-ink-faint line-through" : "text-ink"}`}>
+                <span
+                  className={`min-w-0 truncate ${t.thu_hoi || t.da_xoa ? "text-ink-faint line-through" : "text-ink"}`}
+                >
                   {t.ten ?? "Tệp kết quả"}
                 </span>
                 <span className="text-ink-muted">
@@ -693,11 +708,23 @@ function MotViec({
                     t.luc ? gioVn(t.luc) : null,
                     t.boi ?? null,
                     t.thu_hoi ? "đã thu hồi" : null,
+                    t.da_xoa ? `đã xoá${t.da_xoa_ly_do ? ` — ${t.da_xoa_ly_do}` : ""}` : null,
                   ]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
-                {xemTep && !t.thu_hoi ? (
+                {t.da_xoa && t.khoi_phuc_duoc ? (
+                  <NutKhoiPhucTep tepId={t.id} nhan="Khôi phục" onXong={onDoiTep} />
+                ) : null}
+                {!t.thu_hoi && !t.da_xoa ? (
+                  <NutXoaTep
+                    tepId={t.id}
+                    ten={t.ten}
+                    co={{ xoa_duoc: t.xoa_duoc, xoa_loai: t.xoa_loai, xoa_ly_do: t.xoa_ly_do }}
+                    onDaXoa={onDoiTep}
+                  />
+                ) : null}
+                {xemTep && !t.thu_hoi && !t.da_xoa ? (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -723,6 +750,21 @@ function MotViec({
             const goc = tepCon.find((t) => t.id === x.id);
             return goc ? (
               <XemTaiLieu tep={{ id: goc.id, mime: goc.mime ?? "", ten_hien_thi: goc.ten }} />
+            ) : null;
+          }}
+          veThaoTac={(x) => {
+            const goc = tepCon.find((t) => t.id === x.id);
+            return goc ? (
+              <NutXoaTep
+                tepId={goc.id}
+                ten={goc.ten}
+                co={{ xoa_duoc: goc.xoa_duoc, xoa_loai: goc.xoa_loai, xoa_ly_do: goc.xoa_ly_do }}
+                nenToi
+                onDaXoa={() => {
+                  setMo(null);
+                  onDoiTep();
+                }}
+              />
             ) : null;
           }}
           onDong={() => setMo(null)}

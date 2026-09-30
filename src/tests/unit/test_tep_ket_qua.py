@@ -638,8 +638,17 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
 
 
 @pytest.mark.asyncio
-async def test_danh_sach_tra_du_cot_man_hinh_can() -> None:
+async def test_danh_sach_tra_du_cot_man_hinh_can(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Bốn câu `image_refs` không trả lời được — và là lý do bảng này tồn tại."""
+    from clinicai.services import tep_ket_qua_service as mod
+
+    async def _quyen(_c: Any, _i: Any) -> Any:
+        return mod.QuyenXoaTep("s1", True, True, False)
+
+    # Quyền xoá (V9) hỏi DB riêng — ở đây chỉ kiểm cột trả về.
+    monkeypatch.setattr(mod, "quyen_xoa_tep", _quyen)
     pool = FakePool(
         [
             {
@@ -661,6 +670,11 @@ async def test_danh_sach_tra_du_cot_man_hinh_can() -> None:
     assert rows[0]["so_byte"] == 1234  # đếm được đĩa đang dùng bao nhiêu
     assert rows[0]["tai_len_boi"] == "Chị Điều"  # ai tải
     assert rows[0]["gui_luc"] is None  # đã gửi chưa
+    # V9: cờ máy chủ cho nút Xoá — giao diện không tự suy.
+    assert rows[0]["xoa_duoc"] is True
+    assert rows[0]["xoa_loai"] == "XOA"
+    # Danh sách đọc view hiệu lực: tệp đã xoá / thu hồi không lọt vào.
+    assert "v_tep_ket_qua_hieu_luc" in pool.calls[-1][0]
 
 
 @pytest.mark.asyncio

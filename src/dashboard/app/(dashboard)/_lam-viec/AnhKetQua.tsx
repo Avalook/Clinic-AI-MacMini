@@ -10,6 +10,7 @@
 // phiếu khám (`KetQuaChiDinh`, tấm nhỏ). Chỉ hiển thị — mở tệp KHÔNG ghi "đã xem"
 // (việc ấy là lệnh riêng của nút Xem kết quả).
 
+import type { ReactNode } from "react";
 import { Download, FileText } from "lucide-react";
 
 import type { TepXem } from "@/components/ui/Lightbox";
@@ -96,6 +97,7 @@ export default function AnhKetQua({
   onMo,
   lon = false,
   dau = false,
+  veThaoTac,
 }: {
   tep: TepXem[];
   /** Mở hộp xem ở tấm thứ `i`; `luoi` = mở dạng lưới. */
@@ -103,6 +105,9 @@ export default function AnhKetQua({
   lon?: boolean;
   /** Đầu khối "ẢNH · VIDEO" + đếm (bản mẫu `mediaKhoi` ở phiếu khám). */
   dau?: boolean;
+  /** Nút dưới TỪNG tấm khi hiện rời (≤3 tệp) — V9: Xoá theo cờ máy chủ. Nhiều
+   *  tệp xếp chồng thì thao tác từng tệp trong hộp xem (`Lightbox`). */
+  veThaoTac?: (t: TepXem) => ReactNode;
 }) {
   if (tep.length === 0) return null;
 
@@ -146,6 +151,7 @@ export default function AnhKetQua({
                   </span>
                 </button>
               )}
+              {veThaoTac ? <div className="mt-1 flex justify-end">{veThaoTac(t)}</div> : null}
             </li>
           ))}
         </ul>

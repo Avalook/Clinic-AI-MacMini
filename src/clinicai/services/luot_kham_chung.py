@@ -131,7 +131,7 @@ CO_KET_QUA_VONG_SQL = """(
     OR CASE
          WHEN coalesce(nd.lam_ben_ngoai, false) THEN
            EXISTS (
-             SELECT 1 FROM public.tep_ket_qua t_kq
+             SELECT 1 FROM public.v_tep_ket_qua_hieu_luc t_kq
               WHERE t_kq.clinic_id = o.clinic_id
                 AND t_kq.service_order_id = o.id
                 AND t_kq.xac_nhan_trang_thai = 'HOP_LE'

@@ -404,7 +404,8 @@ class FormEngineService:
             # đếm — giấy không phát được video. DICOM (27/09 đợt 3) cũng chỉ
             # đếm: trình duyệt không vẽ được, in ra là một khung trống.
             tep = await conn.fetch(
-                "SELECT id::text AS id, ten_hien_thi, loai_tep, mime FROM tep_ket_qua"
+                "SELECT id::text AS id, ten_hien_thi, loai_tep, mime"
+                "  FROM v_tep_ket_qua_hieu_luc"
                 " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
                 "   AND thu_hoi_luc IS NULL"
                 "   AND coalesce(xac_nhan_trang_thai, 'HOP_LE') = 'HOP_LE'"
@@ -422,7 +423,7 @@ class FormEngineService:
                 nguoi_bam=((lan["completed_by"], lan["started_by"]) if lan else ()),
                 luc=((lan["completed_at"] or lan["started_at"]) if lan else None)
                 or await conn.fetchval(
-                    "SELECT min(tai_len_luc) FROM tep_ket_qua"
+                    "SELECT min(tai_len_luc) FROM v_tep_ket_qua_hieu_luc"
                     " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
                     cid,
                     service_order_id,

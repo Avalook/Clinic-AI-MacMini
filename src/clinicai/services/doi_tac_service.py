@@ -267,20 +267,38 @@ class DoiTacService:
         # — kể cả tệp đã thu hồi (ghi rõ), để không ai phải hỏi "hôm qua gửi
         # những gì". Đường mở tệp đi cửa đọc tệp chung (`/cskh/ket-qua`), cửa ấy
         # tự hỏi `doc_duoc_tep_ket_qua` — vai PARTNER bên ngoài vẫn không mở được.
+        #
+        # XOÁ MỀM (V9 30/09/2026): tệp đã xoá VẪN nằm trong lịch sử (ghi rõ
+        # "đã xoá" + lý do), như tệp thu hồi; kèm cờ máy chủ `xoa_duoc` (tệp còn
+        # hiệu lực) / `khoi_phuc_duoc` (tệp đã xoá, trong 30 ngày).
+        from clinicai.services.tep_ket_qua_service import (
+            COT_XOA_SQL,
+            gan_co_xoa,
+            quyen_xoa_tep,
+        )
+
+        async with self._pool.acquire() as conn:
+            quyen = await quyen_xoa_tep(conn, identity)
+            ds_tep = await conn.fetch(
+                f"""
+                SELECT t.service_order_id::text AS chi_dinh_id, t.id::text AS id,
+                       t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte,
+                       t.tai_len_luc, s.full_name AS tai_len_boi, t.thu_hoi_luc,
+                       {COT_XOA_SQL}
+                  FROM tep_ket_qua t
+                  LEFT JOIN staff s ON s.id = t.tai_len_boi_staff_id
+                 WHERE t.clinic_id = $1::uuid
+                   AND t.service_order_id = ANY($2::uuid[])
+                   AND t.da_don_tep_luc IS NULL
+                 ORDER BY t.tai_len_luc, t.id
+                """,
+                identity.clinic_id,
+                [r["chi_dinh_id"] for r in rows],
+            )
+        xem_tep = quyen.doc_duoc
         tep_theo_viec: dict[str, list[dict[str, Any]]] = {}
-        for t in await self._pool.fetch(
-            """
-            SELECT t.service_order_id::text AS chi_dinh_id, t.id::text AS id,
-                   t.ten_hien_thi, t.loai_tep, t.mime, t.so_byte, t.tai_len_luc,
-                   s.full_name AS tai_len_boi, t.thu_hoi_luc
-              FROM tep_ket_qua t
-              LEFT JOIN staff s ON s.id = t.tai_len_boi_staff_id
-             WHERE t.clinic_id = $1::uuid AND t.service_order_id = ANY($2::uuid[])
-             ORDER BY t.tai_len_luc, t.id
-            """,
-            identity.clinic_id,
-            [r["chi_dinh_id"] for r in rows],
-        ):
+        for t in ds_tep:
+            co = gan_co_xoa(t, quyen)
             tep_theo_viec.setdefault(t["chi_dinh_id"], []).append(
                 {
                     "id": t["id"],
@@ -291,12 +309,14 @@ class DoiTacService:
                     "luc": _iso(t["tai_len_luc"]),
                     "boi": t["tai_len_boi"],
                     "thu_hoi": t["thu_hoi_luc"] is not None,
+                    "da_xoa": t["da_xoa_luc"] is not None,
+                    "da_xoa_ly_do": t["da_xoa_ly_do"],
+                    "xoa_duoc": bool(co.get("xoa_duoc")),
+                    "xoa_loai": co.get("xoa_loai"),
+                    "xoa_ly_do": co.get("xoa_ly_do"),
+                    "khoi_phuc_duoc": bool(co.get("khoi_phuc_duoc")),
                 }
             )
-        async with self._pool.acquire() as conn:
-            from clinicai.services.tep_ket_qua_service import doc_duoc_tep_ket_qua
-
-            xem_tep = await doc_duoc_tep_ket_qua(conn, identity)
         khach: dict[str, dict[str, Any]] = {}
         for r in rows:
             k = khach.setdefault(

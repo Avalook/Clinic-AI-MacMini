@@ -150,7 +150,7 @@ class ManKhachHangService:
                         OR so.node_code LIKE 'DICHVU-XETNGHIEM%'
                         OR so.node_code LIKE 'DICHVU-SANGLOC%')
                            AS la_ket_qua_xet_nghiem
-                  FROM tep_ket_qua t
+                  FROM v_tep_ket_qua_hieu_luc t
                   LEFT JOIN service_order so
                     ON so.id = t.service_order_id AND so.clinic_id = t.clinic_id
                   LEFT JOIN node_definition nd
