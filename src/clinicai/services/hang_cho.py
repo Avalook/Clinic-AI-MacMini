@@ -76,6 +76,90 @@ async def mo_cho_bi_chan(
     )
 
 
+async def ve_lai_hang_phong(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+    order_id: str,
+    room_id: str | None,
+) -> str | None:
+    """Chỉ định quay lại "chờ làm" → khách hiện lại ở hàng chờ của phòng (V4).
+
+    Dùng khi: Làm lại sau Dừng (chỗ chờ đã đóng 'done' lúc Dừng), Huỷ bắt đầu
+    nhầm (chỗ chờ đang 'serving'), khách chuyển sang phòng khác giữa chừng.
+    Trước 30/09/2026 Dừng → Làm lại để chỗ chờ ở 'done': màn phòng xếp khách
+    vào nhóm "đã xong", không ai thấy khách đang đợi làm lại.
+
+    Luôn đúng MỘT chỗ chờ sống cho chỉ định (Postgres giữ bằng
+    `uq_queue_entry_live`): còn chỗ sống → đưa về chờ; không thì mở lại chỗ đã
+    đóng gần nhất (giữ một dòng cho một chỉ định trên màn); không có gì → vào
+    hàng mới. Khách đang được phục vụ ở chỗ KHÁC → 'blocked' (đợi quay lại,
+    I9); không thì 'waiting' tính giờ từ bây giờ như `mo_cho_bi_chan`.
+
+    Trả trạng thái chỗ chờ sau khi xếp; None khi chỉ định không có phòng.
+    """
+    if room_id is None:
+        return None
+    ban = await conn.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM queue_entry"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND status = 'serving'"
+        "   AND NOT (reason = 'SERVICE' AND ref_id = $3::uuid))",
+        clinic_id,
+        visit_id,
+        order_id,
+    )
+    trang_thai = "blocked" if ban else "waiting"
+    # Chỗ sống trước; không có thì chỗ 'done' gần nhất (Dừng đã đóng nó).
+    cho = await conn.fetchval(
+        "SELECT id::text FROM queue_entry"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND reason = 'SERVICE' AND ref_id = $3::uuid"
+        "   AND status IN ('blocked', 'waiting', 'called', 'serving', 'done')"
+        " ORDER BY (status <> 'done') DESC, updated_at DESC LIMIT 1",
+        clinic_id,
+        visit_id,
+        order_id,
+    )
+    if cho is None:
+        await vao_hang(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            lane="ROOM",
+            reason="SERVICE",
+            ref_id=order_id,
+            room_id=room_id,
+        )
+        return str(
+            await conn.fetchval(
+                "SELECT status FROM queue_entry"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                "   AND reason = 'SERVICE' AND ref_id = $3::uuid"
+                "   AND status NOT IN ('done', 'left', 'cancelled')",
+                clinic_id,
+                visit_id,
+                order_id,
+            )
+        )
+    await conn.execute(
+        """
+        UPDATE queue_entry
+           SET status = $3, room_id = $4::uuid, lane = 'ROOM',
+               serving_at = NULL, called_at = NULL, done_at = NULL,
+               eligible_at = CASE WHEN status = 'done' THEN now()
+                                  ELSE coalesce(eligible_at, now()) END,
+               version = version + 1, updated_at = now()
+         WHERE clinic_id = $1::uuid AND id = $2::uuid
+        """,
+        clinic_id,
+        cho,
+        trang_thai,
+        room_id,
+    )
+    return trang_thai
+
+
 async def vao_hang(
     conn: asyncpg.Connection,
     *,
@@ -235,4 +319,5 @@ __all__ = [
     "khach_dang_duoc_phuc_vu",
     "mo_cho_bi_chan",
     "vao_hang",
+    "ve_lai_hang_phong",
 ]

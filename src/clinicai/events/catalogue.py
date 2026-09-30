@@ -694,6 +694,37 @@ class DichVuSanSangLamLai(PayloadSuKien):
     execution_revision: int
 
 
+class KhachDaChuyenPhong(PayloadSuKien):
+    """`service.patient_moved` — khách đang làm dịch vụ này ở một phòng thì
+    phòng khác bấm Bắt đầu và chọn "chuyển sang đây" (V4, Tuyền 30/09/2026 —
+    làm không theo thứ tự). Đối tượng là chỉ định BỊ DỪNG: lần làm của nó đóng
+    với lý do PATIENT_MOVED, chỉ định về chờ làm, khách còn chờ ở hàng phòng
+    cũ. `to_service_order_id` là chỉ định vừa bắt đầu ở phòng mới."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str | None = None
+    attempt_no: int | None = None
+    from_room_id: str | None = None
+    to_room_id: str | None = None
+    to_service_order_id: str
+    execution_revision: int
+
+
+class DichVuDaHuyBatDau(PayloadSuKien):
+    """`service.start_cancelled` — bấm Bắt đầu nhầm khách / nhầm dịch vụ, huỷ
+    ngay khi chưa điền gì (V4, 30/09/2026). Lần làm đóng với lý do
+    STARTED_IN_ERROR (không xoá — vẫn đọc được là đã có lần bấm), chỉ định về
+    chờ làm, khách về lại hàng chờ phòng."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str
+    attempt_no: int
+    room_id: str | None = None
+    execution_revision: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -885,6 +916,28 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuSanSangLamLai,
             nhan="Chuẩn bị làm lại",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            # V4 (30/09/2026): không mở việc trách nhiệm — chỉ định bị dừng đã
+            # về chờ làm và khách vẫn nằm trong hàng phòng cũ, không rơi đâu.
+            ten="service.patient_moved",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=KhachDaChuyenPhong,
+            nhan="Khách chuyển sang phòng khác khi đang làm",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.start_cancelled",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=DichVuDaHuyBatDau,
+            nhan="Huỷ bắt đầu nhầm",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1324,6 +1377,8 @@ __all__ = [
     "DichVuGianDoan",
     "DichVuKhongLam",
     "DichVuSanSangLamLai",
+    "KhachDaChuyenPhong",
+    "DichVuDaHuyBatDau",
     "KhoiQuyenDaCap",
     "PhieuDaHoanTat",
     "KhoiQuyenDaThu",

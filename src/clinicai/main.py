@@ -514,6 +514,11 @@ async def clinicai_exception_handler(
     truong = getattr(exc, "truong", None)
     if isinstance(truong, list) and truong:
         content["truong"] = [str(t) for t in truong]
+    # Dữ liệu máy đọc đi kèm lỗi (30/09/2026, V4 — vd PATIENT_BUSY mang tên
+    # phòng đang giữ khách). Chỉ có khi lỗi mang nó.
+    chi_tiet = getattr(exc, "chi_tiet", None)
+    if isinstance(chi_tiet, dict) and chi_tiet:
+        content["chi_tiet"] = chi_tiet
     return JSONResponse(status_code=exc.status_code, content=content)
 
 
