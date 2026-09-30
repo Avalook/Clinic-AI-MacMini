@@ -22,7 +22,8 @@ import {
   xoaNhap,
 } from "../../../../lib/luu-nhap";
 import { maTab } from "../../../../lib/ma-tab";
-import { canCheckin, type ClinicRole } from "../../../../lib/roles";
+import { type ClinicRole } from "../../../../lib/roles";
+import { useCheckInDuoc } from "../../QuyenContext";
 import type { Option } from "../AppointmentBooking";
 import CinemaSlotPicker from "../CinemaSlotPicker";
 import BangBacSiTuan from "../../appointments/BangBacSiTuan";
@@ -424,6 +425,8 @@ export default function NewPatientForm({
   veTiepDon?: boolean;
 }) {
   const walkin = variant === "walkin";
+  // Kênh "Trực tiếp" kéo theo tự check-in → theo LEGO Tiếp đón (30/09/2026).
+  const checkInDuoc = useCheckInDuoc(role);
   // Địa chỉ (Tỉnh/TP + Phường/Xã) BẮT BUỘC cho CSKH (full), Lễ tân (RECEPTION) và
   // Trưởng ca/Quản lý (làm thay Lễ tân). Điều dưỡng walk-in (nurse) giữ TUỲ CHỌN.
   const requireAddress =
@@ -1670,11 +1673,11 @@ export default function NewPatientForm({
               className={INPUT}
             >
               <option value="" disabled hidden>— Chọn kênh —</option>
-              {/* "Trực tiếp" chỉ hiện với vai được check-in (Lễ tân, Quản lý):
+              {/* "Trực tiếp" chỉ hiện với người có lego Tiếp đón (check-in):
                   kênh ấy kéo theo tự check-in, và backend từ chối thẳng nếu
                   người đặt không được check-in (luật Tuyền 15/09/2026). */}
               {CHANNELS_CHON.filter(
-                (c) => c.id !== "WALK_IN" || canCheckin(role ?? null),
+                (c) => c.id !== "WALK_IN" || checkInDuoc,
               ).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}

@@ -25,6 +25,7 @@ from clinicai.services.ghi_chu_khach_service import (
     GhiChuKhachService,
     lam_sach_noi_dung,
 )
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -133,6 +134,7 @@ async def test_ghi_chu_rac_va_khach_la_va_khong_quyen(pool: asyncpg.Pool) -> Non
         )
     async with pool.acquire() as conn:
         duoc_si = await _nguoi(conn, ca.loc, "PHARMACIST")
+        await ve_goi_mau_cu(conn, duoc_si)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await sv.ghi(identity=duoc_si, clinic_patient_id=pid, noi_dung="a")
     with pytest.raises(SafetyGateError):

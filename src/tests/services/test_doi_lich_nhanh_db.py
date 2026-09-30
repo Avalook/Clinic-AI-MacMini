@@ -28,6 +28,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import booking_service as bs_mod
 from clinicai.services.booking_service import BookingService
 from clinicai.services.doi_lich_nhanh import o_doi_lich
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -239,6 +240,7 @@ async def test_day_cho_thi_chan(pool: asyncpg.Pool) -> None:  # noqa: F811
 
 async def test_khong_quyen_check_in_chi_doi_duoc(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
+    await ve_goi_mau_cu(pool, ca["cskh"])  # gói lego cũ (mở full lego 30/09)
     appt = await _lich(pool, ca, _mai_9h())
     o = await o_doi_lich(pool, identity=ca["cskh"], appointment_id=appt, ngay=None)
     assert o["cho_check_in"] is False

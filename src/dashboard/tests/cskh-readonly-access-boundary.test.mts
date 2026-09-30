@@ -36,7 +36,12 @@ test("trưởng ca có cùng đường vào customers với backend", () => {
 });
 
 test("customers dựng vùng ghi chỉ khi có capability và giữ vùng chỉ đọc", () => {
-  assert.match(page, /const canOperateCskh = vaiHomNay\.some\(canOperateCustomerCare\)/);
+  // Mở full lego (30/09/2026): theo LEGO ghi chăm sóc (`QUYEN_GHI_CHAM_SOC`,
+  // khớp `_INTAKE_GUARD`); vai chỉ còn là đường lùi khi máy chủ chưa trả lời quyền.
+  assert.match(
+    page,
+    /const canOperateCskh =\s*quyen === null\s*\?\s*vaiHomNay\.some\(canOperateCustomerCare\)\s*:\s*coMotQuyen\(quyen, QUYEN_GHI_CHAM_SOC\)/,
+  );
   assert.match(page, /canOperateCskh=\{canOperateCskh\}/);
   assert.match(
     view,

@@ -30,6 +30,7 @@ from clinicai.services.tep_ket_qua_service import (
     TepKetQuaService,
     kiem_tra_quyen_xac_nhan,
 )
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC_A = "a0000000-0000-4000-8000-000000000001"
 CLINIC_B = "a0000000-0000-4000-8000-000000000002"
@@ -666,6 +667,12 @@ async def test_scenarios_f_g_h_l_capability_fail_closed(
             CLINIC_B,
             staff_multi_clinic.staff_id,
         )
+        await ve_goi_mau_cu(
+            conn,
+            doc,
+            staff_no_cap,
+            dataclasses.replace(staff_multi_clinic, clinic_id=CLINIC_B),
+        )  # gói lego cũ (mở full lego 30/09)
 
         pid, aid, vid = await _tao_benh_nhan_va_visit(conn, CLINIC_A, doc.staff_id)
         oid = await _tao_external_order(conn, CLINIC_A, vid)

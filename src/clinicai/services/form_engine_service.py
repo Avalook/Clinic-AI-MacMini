@@ -245,7 +245,10 @@ class FormEngineService:
                         "dang_sua": bool(r["dang_sua"]),
                     }
                 )
-            if phieu and identity.co_vai(XEM_LA_DA_XEM):
+            # "Đã xem" là DỮ KIỆN y khoa (bác sĩ / thư ký đã đọc kết quả), không
+            # phải quyền: hỏi VAI TÀI KHOẢN, không hỏi vai suy từ lego — mở full
+            # lego (30/09/2026) thì lễ tân mở phiếu để in cũng mang vai DOCTOR.
+            if phieu and identity.vai_goc in XEM_LA_DA_XEM:
                 vid = await conn.fetchval(
                     "UPDATE service_order SET da_xem_ket_qua_luc = now(),"
                     "       da_xem_ket_qua_boi = $3::uuid"

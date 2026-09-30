@@ -788,7 +788,15 @@ class BangLuotKham:
                     )
                 elif await can(conn, identity, "clinical.consult.finalize"):
                     ds_bac_si = sorted({*ds_bac_si, identity.staff_id})
-                if rid is None and await can(conn, identity, "dispatch.manage"):
+                # Mở full lego (30/09/2026): ai cũng có lego Điều phối, nên chỉ
+                # mở "mọi bác sĩ" khi người ấy KHÔNG có danh sách bác sĩ của
+                # riêng mình (là bác sĩ / cùng phòng trong lịch / thư ký đã
+                # phân) — bác sĩ mở Bàn khám vẫn thấy đúng khách của mình.
+                if (
+                    rid is None
+                    and not ds_bac_si
+                    and await can(conn, identity, "dispatch.manage")
+                ):
                     tat_ca_bac_si = True
             rows = await conn.fetch(
                 """

@@ -39,6 +39,7 @@ from clinicai.services.doi_tac_service import (
     doc_hinh_thuc,
     doc_so_tien,
 )
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, tao_quay
 
@@ -396,6 +397,7 @@ async def test_ghi_nhan_va_huy_da_thu(pool: asyncpg.Pool) -> None:
 @pytest.mark.asyncio
 async def test_khong_phai_doi_tac_khong_ghi_duoc(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
+    await ve_goi_mau_cu(pool, q.bac_si)  # gói lego cũ (mở full lego 30/09)
     oid = await _viec_da_nhan(q)
     with pytest.raises(SafetyGateError):
         await DoiTacService(pool).ghi_nhan_da_thu(

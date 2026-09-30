@@ -56,9 +56,10 @@ class TestOnlyDoctorsFinalize:
         # Hàng rào chứng chỉ đã bỏ 24/09/2026 — khối được cấp là đủ.
         assert not QUYEN["clinical.consult.finalize"].chung_chi_lam_sang
 
-    def test_ultrasound_doctor_may_not_finalize_main_clinical_record(self) -> None:
-        """Bác sĩ siêu âm ký kết quả siêu âm CỦA MÌNH, không khoá bệnh án khám."""
-        assert "hoan_tat_kham" not in PRESET["ULTRASOUND_DOCTOR"]
+    def test_ultrasound_doctor_may_finalize_since_full_lego(self) -> None:
+        """Mở full lego (Tuyền 30/09/2026): bác sĩ siêu âm cũng có Hoàn tất khám.
+        Trước đó chỉ ký kết quả siêu âm của mình."""
+        assert "hoan_tat_kham" in PRESET["ULTRASOUND_DOCTOR"]
 
     def test_the_medical_secretary_may_finalize(self) -> None:
         """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK hoàn tất khám như bác sĩ
@@ -76,9 +77,13 @@ class TestOnlyDoctorsFinalize:
         assert "hoan_tat_kham" in PRESET["NURSE_ULTRASOUND"]
 
     @pytest.mark.parametrize("vai", ["RECEPTION", "CSKH"])
-    def test_non_clinical_roles_may_not_finalize(self, vai: str) -> None:
-        """Cửa vẫn đóng với vai không có khối lâm sàng."""
-        assert "hoan_tat_kham" not in PRESET.get(vai, [])
+    def test_mo_full_lego_vai_khac_cung_hoan_tat_duoc(self, vai: str) -> None:
+        """Mở full lego (Tuyền 30/09/2026): mọi vai nội bộ có Hoàn tất khám. Tên
+        KÝ vẫn là bác sĩ thật — `test_mo_full_lego_db.py`."""
+        assert "hoan_tat_kham" in PRESET.get(vai, [])
+
+    def test_doi_tac_khong_hoan_tat(self) -> None:
+        assert "hoan_tat_kham" not in PRESET["PARTNER"]
 
 
 class TestPrescriptionFingerprint:

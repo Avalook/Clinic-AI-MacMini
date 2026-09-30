@@ -72,6 +72,7 @@ from tests.chay_nguoi_dua_tin import (
     chay_hanh_trinh,
     danh_dau_doi_tac_da_nhan,
 )
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import dieu_phoi_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
@@ -390,7 +391,9 @@ async def test_mixed_orders_slice_ab_progression(
 
     # Người thiếu quyền Khám + Chỉ định (trưởng ca) không duyệt được. Thư ký /
     # điều dưỡng CÓ cả hai thì duyệt được — 29/09/2026: ĐD/TKYK trọn quyền
-    # (Tuyền); xem test_tro_ly_bac_si_tron_quyen_db.py.
+    # (Tuyền); xem test_tro_ly_bac_si_tron_quyen_db.py. Mở full lego 30/09:
+    # trưởng ca ở đây mang gói lego CŨ (quản lý thu bớt).
+    await ve_goi_mau_cu(kban.pool, kban.truong_ca)
     with pytest.raises(SafetyGateError):
         await kban.svc.authorize_orders(
             consultation_id=phien_1,

@@ -20,6 +20,7 @@ from clinicai.permissions.can import can
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 from clinicai.services.luot_kham_service import LuotKhamService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -53,6 +54,8 @@ async def test_bac_si_chinh_sua_duoc_o_tu_van_le_tan_thi_khong(
     # Bác sĩ CHÍNH: có quyền ghi phiếu khám nhưng KHÔNG có khối Tư vấn.
     async with pool.acquire() as conn:
         bs_chinh = await _nguoi(conn, ca.loc, "DOCTOR")
+        # Lễ tân với gói lego CŨ (mở full lego 30/09: quản lý thu bớt).
+        await ve_goi_mau_cu(conn, ca.le_tan)
         await conn.execute(
             "UPDATE capability_grant SET revoked_at = now(), revoked_by = $2::uuid"
             " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"

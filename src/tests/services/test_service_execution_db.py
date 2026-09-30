@@ -25,6 +25,7 @@ from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.permission_service import cap_preset_mac_dinh
 from clinicai.services.service_execution_service import ServiceExecutionService
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -437,6 +438,7 @@ async def test_da_bat_dau_thi_khong_dung_duong_khong_lam(kb: KB) -> None:
 
 
 async def test_le_tan_khong_bat_dau_duoc(kb: KB) -> None:
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await kb.svc.bat_dau(
             order_id=kb.order_id,
@@ -761,6 +763,9 @@ async def _bat_dau(kb: KB, ai: StaffIdentity) -> dict[str, Any]:
 async def test_quyen_theo_lich_bat_ma_khong_co_ca_thi_chan_va_noi_ro(kb: KB) -> None:
     from clinicai.permissions.lich import CAU_CHAN
 
+    # Mở full lego (30/09): ai cũng có Điều phối (được miễn) — bác sĩ ở đây
+    # mang gói lego cũ để còn thấy cơ chế chặn khi quản lý bật lại dây.
+    await ve_goi_mau_cu(kb.pool, kb.bs)
     await _dat_day_lich(kb, True)
     try:
         with pytest.raises(SafetyGateError) as loi:
@@ -789,6 +794,7 @@ async def test_quyen_theo_lich_co_ca_phong_khac_van_chan(kb: KB) -> None:
         kb.room_id,
     )
     await _xep_ca(kb, kb.bs, khac)
+    await ve_goi_mau_cu(kb.pool, kb.bs)  # gói lego cũ (mở full lego 30/09)
     await _dat_day_lich(kb, True)
     try:
         with pytest.raises(SafetyGateError):
@@ -821,6 +827,7 @@ async def test_chi_co_quyen_theo_phong_van_lam_duoc(kb: KB) -> None:
     """
     async with kb.pool.acquire() as conn:
         tk = await _nguoi(conn, "RECEPTION")
+        await ve_goi_mau_cu(conn, tk)  # gói lego cũ (mở full lego 30/09)
         for q in ("service.execute.start", "service.execute.complete"):
             await conn.execute(
                 "INSERT INTO capability_grant (clinic_id, staff_id, capability,"

@@ -88,6 +88,9 @@ def test_medical_reads_ask_a_permission_not_a_role() -> None:
         assert not _role_guards(route), f"{route.path} vẫn gác theo vai"
 
     khoi_y_khoa = {QUYEN[q].khoi for q in QUYEN_Y_KHOA}
+    # Mở full lego (Tuyền 30/09/2026): mọi vai nội bộ có khối y khoa trong nhóm
+    # mẫu; đối tác (người ngoài) thì không. Cửa vẫn hỏi QUYỀN (ở trên).
+    assert not khoi_y_khoa & set(PRESET["PARTNER"])
     for vai in (
         "RECEPTION",
         "CASHIER",
@@ -96,9 +99,6 @@ def test_medical_reads_ask_a_permission_not_a_role() -> None:
         "CSKH",
         "PHARMACIST",
         "TRUONG_CA",
-    ):
-        assert not khoi_y_khoa & set(PRESET[vai]), vai
-    for vai in (
         "DOCTOR",
         "ULTRASOUND_DOCTOR",
         "TKYK",

@@ -5,6 +5,13 @@ Bài kiểm mock đếm từng lần fetch/fetchval, nên cửa quyền thật (
 những bài "vai này bị chặn"), cửa giả này trả lời theo NHÓM MẪU của vai — đúng
 bộ quyền một người mới vào vai ấy nhận (`cap_quyen_theo_preset`). Cửa thật có
 bài kiểm riêng trên Postgres: `services/test_duong_kham_hoi_quyen_db.py`.
+
+MỞ FULL LEGO (30/09/2026): nhóm mẫu HIỆN HÀNH của mọi vai nội bộ gần đủ mọi khối,
+nên hỏi theo nó thì bài "vai này bị chặn" mất nghĩa. Cửa giả trả lời theo nhóm
+mẫu NGAY TRƯỚC khi mở (`PRESET_TRUOC_MO_FULL`) — đại diện cho "một tài khoản
+không có lego ấy" (quản lý thu lego trên /phan-quyen là về đúng tình huống đó).
+Điều bài kiểm canh là CỬA HỎI QUYỀN; bộ quyền hiện hành có bài kiểm Postgres
+riêng: `services/test_mo_full_lego_db.py`.
 """
 
 from __future__ import annotations
@@ -13,7 +20,16 @@ from typing import Any
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.permissions.catalogue import quyen_cua_preset, tra_quyen
+from clinicai.permissions.catalogue import (
+    PRESET_TRUOC_MO_FULL,
+    quyen_cua_khoi,
+    tra_quyen,
+)
+
+
+def quyen_cua_preset(vai: str) -> list[str]:
+    """Mọi quyền nhóm mẫu CŨ (trước mở full lego) của vai — xem đầu file."""
+    return [ma for k in PRESET_TRUOC_MO_FULL.get(vai, ()) for ma in quyen_cua_khoi(k)]
 
 
 async def doi_quyen_theo_nhom_mau(

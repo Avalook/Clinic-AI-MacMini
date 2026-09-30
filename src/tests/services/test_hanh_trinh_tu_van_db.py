@@ -26,6 +26,7 @@ from clinicai.events.catalogue import HANH_TRINH
 from clinicai.events.consumers.hanh_trinh import xu_ly_hanh_trinh
 from clinicai.services.booking_service import BookingService
 from clinicai.services.luot_kham_service import LuotKhamService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -238,6 +239,7 @@ async def test_dieu_duong_khong_co_khoi_tu_van_thi_bi_chan(
     await _hanh_trinh(pool)
     async with pool.acquire() as conn:
         dd = await _nguoi(conn, lan.loc, "NURSE_ULTRASOUND")
+        await ve_goi_mau_cu(conn, dd)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError, match="tư vấn"):
         await LuotKhamService(pool).start_consultation(
             consultation_id=await _phien_tu_van(pool, lan.visit), identity=dd

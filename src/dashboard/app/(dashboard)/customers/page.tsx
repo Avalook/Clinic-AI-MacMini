@@ -8,8 +8,10 @@ import {
   requireNavAccess,
   getVaiHomNay,
   getVaiChinh,
+  getQuyenCuaToi,
   moDuocMan,
 } from "../../../lib/clinic-session";
+import { coMotQuyen, QUYEN_GHI_CHAM_SOC } from "../../../lib/quyen-cua-toi";
 import {
   canWriteIntake,
   canManageAppt,
@@ -82,14 +84,33 @@ export default async function CustomersPage({
   await requireNavAccess("/customers");
   const vaiHomNay = await getVaiHomNay();
   const role = await getVaiChinh();
-  // CSKH / Lễ tân / Quản lý: được SỬA thông tin hành chính ngay trong panel.
-  const canEdit = vaiHomNay.some(canWriteIntake);
+  // MỞ FULL LEGO (30/09/2026): nút theo LEGO của tài khoản, không theo vai —
+  // đúng các quyền máy chủ hỏi. Máy chủ chưa trả lời quyền (`null`) → rơi về
+  // vai như trước, để một lần lỗi mạng không mất hết nút.
+  const quyen = await getQuyenCuaToi();
+  // Được SỬA thông tin hành chính (`_PATIENT_EDIT_GUARD`) + nút "Đặt lịch"
+  // (`booking.create`) ngay trong panel.
+  const canEdit =
+    quyen === null
+      ? vaiHomNay.some(canWriteIntake)
+      : coMotQuyen(quyen, [
+          "patient.create",
+          "crm.manage",
+          "reception.checkin.perform",
+          "clinical.record.write",
+          "booking.create",
+        ]);
   // Nút "Thêm khách hàng mới" gác bằng ĐÚNG cửa của trang đích /patients/new
   // (lego 11 `patient.create`) — đợt 3, 27/09/2026.
   const canThemKhach = await moDuocMan("/patients/new");
-  const canOperateCskh = vaiHomNay.some(canOperateCustomerCare);
-  // CSKH / Quản lý / Trưởng ca: được ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới").
-  const canManage = canManageAppt(role);
+  // Ghi sổ chăm sóc — khớp `_INTAKE_GUARD` (routers/cskh.py).
+  const canOperateCskh =
+    quyen === null
+      ? vaiHomNay.some(canOperateCustomerCare)
+      : coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC);
+  // ĐỔI / HỦY lịch hẹn (bấm ô "Lịch hẹn sắp tới") — lego Quản lý lịch hẹn.
+  const canManage =
+    quyen === null ? canManageAppt(role) : quyen.includes("booking.manage");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const period: Period = (["today", "week", "month", "all"].includes(

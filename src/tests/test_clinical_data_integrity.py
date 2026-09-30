@@ -780,14 +780,7 @@ async def test_void_is_auditable_soft_reversal_not_a_delete() -> None:
     assert void_payload["void_reason"] == "Khách đổi phương thức thanh toán"
 
 
-@pytest.mark.asyncio
-async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu() -> None:
-    """Tuyền chốt 15/09/2026: chính thu ngân đã thu tự gạch phiếu bấm nhầm; thu
-    ngân khác không gạch được (trước đây được). Câu UPDATE lọc người thu; không
-    khớp mà phiếu vẫn PAID thì báo rõ, không im lặng trả ok."""
-    # Lifecycle v1 Slice 3: tiền dịch vụ không còn dựa vào hình chiếu `payment`
-    # (thu nhiều lần, biên nhận trong giao dịch — xem test_thu_dich_vu_nhieu_lan_db).
-    # Luật được canh ở đây vẫn nguyên ở nhánh thuốc, nên test chạy trên "thuoc".
+async def _huy_phieu_thuoc_nguoi_khac_thu() -> list[object]:
     from clinicai.core.exceptions import SafetyGateError
     from clinicai.services.payment_service import PaymentService
 
@@ -808,4 +801,29 @@ async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu() -> None:
         )
     update_sql, *args = conn.fetchrow.await_args.args
     assert "paid_by_staff_id = $4::uuid" in update_sql
+    return list(args)
+
+
+@pytest.mark.asyncio
+async def test_mo_full_lego_ai_thu_duoc_thi_huy_duoc_phieu_nguoi_khac_thu() -> None:
+    """Mở full lego (Tuyền 30/09/2026: "lúc nào, ai thu cũng được"): người có
+    quyền thu loại tiền ấy huỷ được phiếu người khác thu — câu UPDATE bỏ lọc
+    người thu ($6 = true). Vết vẫn giữ: lý do bắt buộc + sự kiện payment.voided.
+    (Mock trả None cho UPDATE nên vẫn thấy câu báo — trên DB thật dòng khớp.)"""
+    args = await _huy_phieu_thuoc_nguoi_khac_thu()
+    assert args[5] is True
+
+
+@pytest.mark.asyncio
+async def test_thu_ngan_khac_khong_huy_duoc_phieu_nguoi_khac_thu(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Luật cũ Tuyền chốt 15/09/2026 (bật lại bằng `HUY_PHIEU_NGUOI_KHAC =
+    False`): chính thu ngân đã thu tự gạch phiếu bấm nhầm; thu ngân khác không
+    gạch được. Câu UPDATE lọc người thu; không khớp mà phiếu vẫn PAID thì báo
+    rõ, không im lặng trả ok."""
+    from clinicai.services import payment_service
+
+    monkeypatch.setattr(payment_service, "HUY_PHIEU_NGUOI_KHAC", False)
+    args = await _huy_phieu_thuoc_nguoi_khac_thu()
     assert args[5] is False  # $6: không phải Quản lý → phải đúng người thu

@@ -17,6 +17,7 @@ from clinicai.api.exceptions import ConflictError
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.phieu_kham.khung import cac_o, dinh_nghia
 from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_phieu_kham_db import (
     _luot,
     _nguoi,
@@ -109,6 +110,7 @@ async def test_le_tan_doc_de_in_nhung_khong_ghi_phieu_kham(
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         le_tan = await _nguoi(conn, "RECEPTION")
+        await ve_goi_mau_cu(conn, le_tan)  # gói lego cũ (mở full lego 30/09)
         luot = await _luot(conn, bs)
     svc = _svc(pool)
     await svc.doc_luot(visit_id=luot["visit"], form_id="PK", identity=le_tan)

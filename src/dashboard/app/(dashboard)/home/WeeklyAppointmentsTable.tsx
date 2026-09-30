@@ -468,6 +468,7 @@ export default function WeeklyAppointmentsTable({
   choThemKhach = true,
   duocCheckIn,
   duocDoiLich,
+  duocDatLich,
   duocGhiChamSoc = false,
   duocXemHoSo = false,
   moHoSoKhach = true,
@@ -497,6 +498,9 @@ export default function WeeklyAppointmentsTable({
   /** Được đổi lịch theo LEGO (`booking.manage`) — trang truyền từ quyền của
    *  tài khoản. Không truyền → theo vai như trước. */
   duocDoiLich?: boolean;
+  /** Ô trống mở màn Đặt lịch theo LEGO (`booking.create`) — mở full lego
+   *  30/09/2026. Không truyền → theo vai như trước. */
+  duocDatLich?: boolean;
   /** ⋯ "Gọi / ghi chăm sóc" — có quyền ghi sổ tương tác CSKH
    *  (`QUYEN_GHI_CHAM_SOC`). Không truyền → ẩn. */
   duocGhiChamSoc?: boolean;
@@ -737,16 +741,20 @@ export default function WeeklyAppointmentsTable({
                 day,
                 dutyByDate[day.date] ?? [],
                 now,
-                choThemKhach && canWriteIntake(role),
+                choThemKhach && (duocDatLich ?? canWriteIntake(role)),
                 policy,
                 // LỄ TÂN ĐI CHUNG ĐƯỜNG VỚI CSKH (Tuyền 16/09/2026): ô trống mở
                 // màn đặt lịch, không còn rẽ sang biểu mẫu vãng lai của riêng
                 // quầy. "Vãng lai" nay chỉ là một KÊNH ĐẶT, không phải một
                 // luồng — nên ngày mai, ngày kia cũng bấm được, không chỉ hôm nay.
-                choThemKhach && (canManageAppt(role) || canCheckin(role)),
+                choThemKhach &&
+                  ((duocDoiLich ?? canManageAppt(role)) ||
+                    (duocCheckIn ?? canCheckin(role))),
                 // Người quầy: "＋ Thêm khách hàng" về màn Thêm khách hàng, không
-                // phải màn Đặt lịch (Tuyền 29/09/2026).
-                canCheckin(role),
+                // phải màn Đặt lịch (Tuyền 29/09/2026). Theo LEGO Tiếp đón
+                // (`reception.checkin.perform`), không theo vai — mở full lego
+                // 30/09/2026.
+                duocCheckIn ?? canCheckin(role),
               );
               const mo = dangMo(day);
               // Bác sĩ của từng dòng: buildDayRows chỉ gắn nhãn ở dòng ĐẦU nhóm

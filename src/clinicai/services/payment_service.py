@@ -120,6 +120,19 @@ def allowed_kinds(role: ClinicRole) -> frozenset[str]:
     return frozenset()
 
 
+#: AI HUỶ ĐƯỢC PHIẾU NGƯỜI KHÁC THU (mở full lego, Tuyền 30/09/2026: "lúc nào,
+#: ai thu cũng được"). Trước đây (15/09) chỉ chính người thu hoặc vai Quản lý —
+#: nay ai có quyền thu loại tiền ấy (`_assert_kind_allowed`) huỷ được. Vết không
+#: mất: lý do bắt buộc, dòng phiếu giữ nguyên (VOIDED + void_reason + người huỷ),
+#: sự kiện `payment.voided`. Đặt False là về luật 15/09 (người thu hoặc Quản lý).
+HUY_PHIEU_NGUOI_KHAC = True
+
+
+def huy_duoc_phieu_nguoi_khac(identity: StaffIdentity) -> bool:
+    """Huỷ được phiếu do người KHÁC thu không (đã qua cửa quyền thu loại ấy)."""
+    return HUY_PHIEU_NGUOI_KHAC or identity.co_vai({ClinicRole.MANAGEMENT})
+
+
 #: Loại tiền → quyền thu / huỷ / xác minh (24/09/2026). `allowed_kinds` bên
 #: trên chỉ còn cho màn thu ngân chọn ô hiển thị theo vai.
 QUYEN_THU: dict[str, str] = {
@@ -1075,8 +1088,9 @@ class PaymentService:
     ) -> dict[str, Any]:
         """Huỷ ĐÚNG phiếu thu (lần thu) được nhắm — contract D2, review CP2 #1.
 
-        Giữ nguyên dòng và sự kiện bất biến. AI HUỶ ĐƯỢC (Tuyền chốt 15/09/2026):
-        chính người đã thu phiếu đó, hoặc Quản lý. Lệnh cũ đến muộn nhắm A thì
+        Giữ nguyên dòng và sự kiện bất biến. AI HUỶ ĐƯỢC: ai có quyền thu loại
+        tiền ấy (mở full lego 30/09/2026 — `huy_duoc_phieu_nguoi_khac`; luật cũ
+        15/09: chính người đã thu phiếu đó, hoặc Quản lý). Lệnh cũ đến muộn nhắm A thì
         không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
         await self._assert_kind_allowed(kind, identity)
@@ -1148,7 +1162,7 @@ class PaymentService:
                         identity.clinic_id,
                         identity.staff_id,
                         normalized_reason,
-                        identity.co_vai({ClinicRole.MANAGEMENT}),
+                        huy_duoc_phieu_nguoi_khac(identity),
                         payment_cycle_id,
                     )
                     if payment is None:
@@ -1457,12 +1471,13 @@ async def _huy_hinh_chieu_dich_vu(
     — khi ấy dựng lại từ sổ, trỏ lần PAID còn hợp lệ gần nhất; không còn lần nào
     thì hình chiếu thành VOIDED như trước. Không sửa lịch sử lần thu nào.
 
-    Ai huỷ được giữ nguyên luật 15/09/2026: chính người đã thu lần ấy, hoặc
-    Quản lý. Trả thông tin lần bị huỷ cho sự kiện ``payment.voided``.
+    Ai huỷ được: `huy_duoc_phieu_nguoi_khac` (mở full lego 30/09/2026; luật cũ
+    15/09: chính người đã thu lần ấy, hoặc Quản lý). Trả thông tin lần bị huỷ
+    cho sự kiện ``payment.voided``.
     """
     cycle_id = str(lan["payment_cycle_id"])
     if not (
-        identity.co_vai({ClinicRole.MANAGEMENT})
+        huy_duoc_phieu_nguoi_khac(identity)
         or str(lan["confirmed_by"] or "") == identity.staff_id
     ):
         raise SafetyGateError(

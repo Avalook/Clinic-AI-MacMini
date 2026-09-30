@@ -215,19 +215,17 @@ async def test_quan_ly_bat_man_cho_nhom(pool: asyncpg.Pool) -> None:  # noqa: F8
         ql = await _nguoi_form(conn, "MANAGEMENT")
         le_tan = await _nguoi_form(conn, "RECEPTION")
     svc = PermissionService(pool)
+    # Mở full lego (30/09/2026): nhóm Lễ tân đã có mọi lego trừ hai lego Quản lý
+    # — thử bật / tắt lego "Cài đặt phòng khám" (tắt lại không đụng khối khác).
     with pytest.raises(SafetyGateError):
         await svc.doi_man(
-            ma_nhom="RECEPTION", ma_man="do_sinh_hieu", bat=True, identity=le_tan
+            ma_nhom="RECEPTION", ma_man="cai_dat", bat=True, identity=le_tan
         )
-    kq = await svc.doi_man(
-        ma_nhom="RECEPTION", ma_man="do_sinh_hieu", bat=True, identity=ql
-    )
+    kq = await svc.doi_man(ma_nhom="RECEPTION", ma_man="cai_dat", bat=True, identity=ql)
     try:
-        assert "do_sinh_hieu" in kq["man_bat"]
+        assert "cai_dat" in kq["man_bat"]
         man = await svc.theo_man(identity=ql)
         [nhom] = [n for n in man["nhom"] if n["ma"] == "RECEPTION"]
-        assert "do_sinh_hieu" in nhom["man_bat"]
+        assert "cai_dat" in nhom["man_bat"]
     finally:
-        await svc.doi_man(
-            ma_nhom="RECEPTION", ma_man="do_sinh_hieu", bat=False, identity=ql
-        )
+        await svc.doi_man(ma_nhom="RECEPTION", ma_man="cai_dat", bat=False, identity=ql)

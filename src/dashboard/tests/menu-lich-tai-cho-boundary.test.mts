@@ -43,7 +43,8 @@ test("dòng '＋ Thêm khách hàng' của quầy về màn Thêm khách hàng, 
   assert.match(bang, /href: themKhach \? hrefThemKhach\(khung\) : hrefDatLich\(khung\)/);
   // Nhãn và đích đi theo CÙNG một cờ — không lệch nhau.
   assert.match(bang, /\{r\.free\.themKhach\s*\?\s*"＋ Thêm khách hàng"/);
-  assert.match(bang, /\/\/ phải màn Đặt lịch \(Tuyền 29\/09\/2026\)\.\s*canCheckin\(role\),/);
+  // Cờ theo LEGO Tiếp đón (mở full lego 30/09/2026); vai chỉ là đường lùi.
+  assert.match(bang, /\s*duocCheckIn \?\? canCheckin\(role\),\n/);
   // CSKH/Quản lý vẫn "＋ Đặt lịch vào đây" → màn Đặt lịch.
   assert.equal(
     hrefDatLich({ ngay: "2026-09-30", gio: "09:15", bacSi: "bs-1" }),

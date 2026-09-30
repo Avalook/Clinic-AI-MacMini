@@ -78,6 +78,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.services.bac_si_phu_trach import la_bac_si_khac
 from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.slot_hold_service import release_on_booking
 
@@ -159,7 +160,9 @@ MANAGE_ROLES: frozenset[ClinicRole] = frozenset(
     # Lễ tân đổi / huỷ lịch ở màn Quản lý khách hàng (24/09/2026).
     {ClinicRole.CSKH, ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA, ClinicRole.RECEPTION}
 )
-#: owner_only chỉ so staff_id với người CÓ ca của mình — tức bác sĩ thật.
+#: owner_only chỉ so staff_id với người CÓ ca của mình — tức bác sĩ thật. Từ
+#: 30/09/2026 đọc TÀI KHOẢN (`bac_si_phu_trach.VAI_BAC_SI`), không đọc `co_vai`;
+#: tập này giữ làm tài liệu cho bài kiểm.
 PHYSICIAN_ONLY_OWNER_CHECK: frozenset[ClinicRole] = frozenset(
     {ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR}
 )
@@ -989,10 +992,16 @@ class BookingService:
         # của mình" để so; so staff_id với họ chỉ chặn sạch mọi thứ —
         # đo được trên bản thật: Quản lý bấm check-out ăn ngay
         # "Lịch hẹn này không thuộc bác sĩ".
-        if (
-            transition.owner_only
-            and identity.co_vai(PHYSICIAN_ONLY_OWNER_CHECK)
-            and str(appt["doctor_id"] or "") != identity.staff_id
+        #
+        # Mở full lego (30/09/2026): "bác sĩ" = TÀI KHOẢN bác sĩ
+        # (`clinic_membership.role`, `bac_si_phu_trach`), KHÔNG phải vai
+        # suy từ lego — mọi người đủ lego Bàn khám mang vai DOCTOR, hỏi
+        # `co_vai` là lễ tân bấm check-out cũng bị chặn.
+        if transition.owner_only and await la_bac_si_khac(
+            conn,
+            identity.clinic_id,
+            identity.staff_id,
+            str(appt["doctor_id"]) if appt["doctor_id"] else None,
         ):
             raise SafetyGateError("Lịch hẹn này không thuộc bác sĩ")
 

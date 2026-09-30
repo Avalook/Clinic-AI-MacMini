@@ -172,10 +172,13 @@ class TestGuards:
         # 24/09/2026 (Tuyền chốt): nhập kết quả hỏi QUYỀN — khối ghi bệnh án /
         # điền kết quả — không hỏi vai. Lễ tân không có khối nào trong đó theo
         # nhóm mẫu; quản lý có (quản lý có mọi khối trừ khối cần chứng chỉ).
+        # Mở full lego (30/09/2026): mọi vai nội bộ có khối ghi trong nhóm mẫu;
+        # cửa vẫn là QUYỀN (quản lý thu lego là người ấy mất cửa), không vai.
         assert _RESULT_GUARD is cua_ghi_y_khoa
         khoi_ghi = {QUYEN[q].khoi for q in QUYEN_GHI_Y_KHOA}
-        assert not khoi_ghi & set(PRESET["RECEPTION"])
+        assert khoi_ghi <= set(PRESET["RECEPTION"])
         assert khoi_ghi & set(PRESET["MANAGEMENT"])
+        assert not khoi_ghi & set(PRESET["PARTNER"])
 
     def test_ultrasound_measurements_by_permission(self) -> None:
         # CHỈ LEGO (28/09/2026): số đo siêu âm = quyền điền kết quả (kể cả người
@@ -209,8 +212,14 @@ class TestClinicalRecordWriteRoles:
             "TRUONG_CA",
         ],
     )
-    def test_nguoi_khac_khong_co(self, vai: str) -> None:
-        assert "ghi_benh_an" not in PRESET.get(vai, [])
+    def test_mo_full_lego_nguoi_khac_cung_co(self, vai: str) -> None:
+        """Mở full lego (Tuyền 30/09/2026): mọi vai nội bộ có khối ghi bệnh án
+        (trước đó lễ tân / thu ngân / trưởng ca không có). Tên KÝ vẫn là bác sĩ
+        thật — `services/test_mo_full_lego_db.py`."""
+        assert "ghi_benh_an" in PRESET.get(vai, [])
+
+    def test_doi_tac_khong_co(self) -> None:
+        assert "ghi_benh_an" not in PRESET["PARTNER"]
 
     def test_quan_ly_co_tat_ca_khoi_va_khong_con_chung_chi(self) -> None:
         # Tuyền 24/09/2026: bỏ chứng chỉ; quản lý có mọi khối, không loại trừ.

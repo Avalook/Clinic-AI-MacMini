@@ -11,6 +11,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.thai_ky_service import ThaiKyService, tuoi_thai_tu_edd
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_luot_kham_service_db import KichBan
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
@@ -43,6 +44,7 @@ async def test_nguoi_ghi_benh_an_tao_va_chuyen_thai_ky(kb: KichBan) -> None:
     du_lieu = {"du_kien_sinh": edd, "nguon_du_kien_sinh": "SIEU_AM"}
     # 28/09/2026: ghi thai kỳ hỏi QUYỀN ghi bệnh án — thư ký / điều dưỡng cùng
     # phòng ghi được như bác sĩ; lễ tân (không có quyền ấy) thì không.
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     for ai in (kb.le_tan,):
         with pytest.raises(SafetyGateError):
             await svc.tao(

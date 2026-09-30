@@ -552,7 +552,8 @@ async function KhoiDuLieu({
             param="weekAppt"
             others={{ weekRoster }}
           />
-          {canCheckin(role) && (
+          {/* Theo LEGO Tiếp đón, không theo vai (mở full lego 30/09/2026). */}
+          {(quyen === null ? canCheckin(role) : quyen.includes("reception.checkin.perform")) && (
             <Link
               href="/reception/queue"
               className={`ml-auto ${buttonClass("secondary", "sm")}`}

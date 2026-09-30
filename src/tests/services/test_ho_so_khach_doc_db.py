@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncpg
 import pytest
 
-from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import ho_so_khach_doc
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
@@ -19,13 +18,14 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def test_bac_si_chi_mo_khach_co_lich_voi_minh(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_bac_si_mo_duoc_ca_khach_chua_co_lich_voi_minh(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Mở full lego (Tuyền 30/09/2026): bỏ luật "bác sĩ chỉ mở khách có lịch với
+    mình" — bác sĩ khám thay đồng nghiệp vẫn mở được hồ sơ."""
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
-    # Chưa có lịch với bác sĩ này → không mở được.
-    assert not await ho_so_khach_doc.duoc_mo(pool, ca.bac_si, pid)
-    with pytest.raises(SafetyGateError):
-        await ho_so_khach_doc.hanh_chinh(pool, identity=ca.bac_si, khach=pid)
+    assert await ho_so_khach_doc.duoc_mo(pool, ca.bac_si, pid)
     await _check_in(pool, ca, pid, ca.loai_kham)
     assert await ho_so_khach_doc.duoc_mo(pool, ca.bac_si, pid)
     hs = await ho_so_khach_doc.hanh_chinh(pool, identity=ca.bac_si, khach=pid)

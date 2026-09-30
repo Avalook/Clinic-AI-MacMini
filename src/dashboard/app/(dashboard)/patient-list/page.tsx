@@ -13,9 +13,14 @@
 // /api/clinical-record còn chặn độc lập.
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { docDuocYKhoa } from "../../../lib/quyen-cua-toi";
+import { coMotQuyen, docDuocYKhoa } from "../../../lib/quyen-cua-toi";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
-import { requireNavAccess, getVaiHomNay, getVaiChinh } from "../../../lib/clinic-session";
+import {
+  requireNavAccess,
+  getVaiHomNay,
+  getVaiChinh,
+  getQuyenCuaToi,
+} from "../../../lib/clinic-session";
 import {
   canEditPatient,
   canManageAppt,
@@ -63,8 +68,26 @@ export default async function PatientListPage({
   const role = await getVaiChinh();
   // Mở hồ sơ y khoa trong popup: theo QUYỀN, không theo vai (24/09/2026).
   const enablePopup = await docDuocYKhoa();
-  const showRebook = enablePopup && vaiHomNay.some(canWriteIntake);
-  const showPager = vaiHomNay.some(isDoctorRole);
+  // MỞ FULL LEGO (30/09/2026): nút theo LEGO, không theo vai. Máy chủ chưa trả
+  // lời quyền (`null`) → rơi về vai như trước.
+  const quyen = await getQuyenCuaToi();
+  const theoQuyen = (can: readonly string[], vai: boolean) =>
+    quyen === null ? vai : coMotQuyen(quyen, can);
+  const showRebook =
+    enablePopup && theoQuyen(["booking.create"], vaiHomNay.some(canWriteIntake));
+  const showPager = theoQuyen(
+    ["clinical.consult.perform"],
+    vaiHomNay.some(isDoctorRole),
+  );
+  // Sửa hành chính — khớp `_PATIENT_EDIT_GUARD` (api/v1/patients.py).
+  const canEditAdmin = theoQuyen(
+    ["patient.create", "crm.manage", "reception.checkin.perform", "clinical.record.write"],
+    canEditPatient(role),
+  );
+  const canBook = theoQuyen(
+    ["booking.create", "booking.manage"],
+    canManageAppt(role) || canWriteIntake(role),
+  );
 
   const goi = await fetchFromBackend<DanhSachApi>("/api/v1/patients/danh-sach");
 
@@ -127,11 +150,11 @@ export default async function PatientListPage({
         <PatientListView
           rows={rows}
           enablePopup={enablePopup}
-          canEditAdmin={canEditPatient(role)}
+          canEditAdmin={canEditAdmin}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}
           enableVisitPager={showPager}
-          canBook={canManageAppt(role) || canWriteIntake(role)}
+          canBook={canBook}
           chonSan={typeof chon === "string" ? chon : null}
         />
       )}

@@ -37,6 +37,7 @@ from tests.chay_nguoi_dua_tin import (
     chay_hanh_trinh,
     danh_dau_doi_tac_da_nhan,
 )
+from tests.goi_mau_cu import ve_goi_mau_cu
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -492,6 +493,9 @@ async def test_chi_nguoi_co_chi_dinh_va_kham_duyet_chi_dinh(kb: KichBan) -> None
     # lẫn Khám. Thư ký (nhóm mẫu có cả hai) duyệt được — xem
     # `test_tro_ly_bac_si_tron_quyen_db.py`; trưởng ca / lễ tân thiếu Khám.
     # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng nay duyệt được.
+    await ve_goi_mau_cu(
+        kb.pool, kb.truong_ca, kb.le_tan
+    )  # gói lego cũ (mở full lego 30/09)
     phien = await _vao_kham(kb)
     for nguoi in (kb.truong_ca, kb.le_tan):
         with pytest.raises(SafetyGateError):
@@ -1524,6 +1528,7 @@ async def test_goi_vao_kham_roi_bat_dau(kb: KichBan) -> None:
     hc = await kb.svc.hang_cho(identity=kb.bac_si, room_id=None)
     dong = next(r for r in hc["hang_cho"] if r["visit_id"] == kb.visit_id)
     # Lễ tân (không có khối Khám) không gọi khách vào phòng khám bác sĩ.
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await kb.svc.goi_khach(queue_entry_id=dong["id"], identity=kb.le_tan)
     # 29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — điều dưỡng gọi khách vào được.
@@ -1789,6 +1794,7 @@ async def test_tkyk_handoff_services_pass(kb: KichBan) -> None:
 async def test_tkyk_terminal_no_services_duoc_le_tan_bi_chan(kb: KichBan) -> None:
     """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK đi kèm bác sĩ khép được
     TERMINAL NO_SERVICES; lễ tân (không có khối Hoàn tất khám) vẫn bị chặn."""
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     async with kb.pool.acquire() as conn:
         await conn.execute(
             """
@@ -1821,6 +1827,7 @@ async def test_tkyk_terminal_no_services_duoc_le_tan_bi_chan(kb: KichBan) -> Non
 async def test_tkyk_terminal_done_duoc_le_tan_bi_chan(kb: KichBan) -> None:
     """29/09/2026: ĐD/TKYK trọn quyền (Tuyền) — TKYK đi kèm bác sĩ khép được
     TERMINAL DONE; lễ tân (không có khối Hoàn tất khám) vẫn bị chặn."""
+    await ve_goi_mau_cu(kb.pool, kb.le_tan)  # gói lego cũ (mở full lego 30/09)
     async with kb.pool.acquire() as conn:
         await conn.execute(
             """

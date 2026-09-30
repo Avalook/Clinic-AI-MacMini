@@ -32,6 +32,7 @@ from clinicai.core.clock import hom_nay_vn
 from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     _nguoi,
@@ -361,6 +362,9 @@ async def test_quyen_theo_lich_ngay_cu_khong_doi_ca(kb: KB) -> None:  # noqa: F8
     from clinicai.core.exceptions import SafetyGateError
     from tests.services.test_service_execution_db import _dat_day_lich
 
+    # Mở full lego (30/09): ai cũng có Điều phối (được miễn) — bác sĩ ở đây
+    # mang gói lego cũ để còn thấy cơ chế chặn khi quản lý bật lại dây.
+    await ve_goi_mau_cu(kb.pool, kb.bs)
     await _dat_day_lich(kb, True)
     try:
         # Hôm nay, không có ca ở phòng → chặn (luật cũ giữ nguyên).
