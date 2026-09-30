@@ -1016,15 +1016,15 @@ SELECT o.id::text,
                    'threshold_waiting', coalesce(t3.max_waiting, d3.max_waiting, 8)
                ) ORDER BY r3.sort, r3.code), '[]'::json)
           FROM public.clinic_room r3
-          JOIN public.clinic_room_node rn3
-            ON rn3.room_id = r3.id AND rn3.clinic_id = r3.clinic_id
-           AND rn3.node_code = o.node_code
           LEFT JOIN public.dispatch_threshold t3
                  ON t3.room_id = r3.id AND t3.clinic_id = r3.clinic_id
           LEFT JOIN public.dispatch_threshold d3
                  ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
          WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
            AND NOT r3.la_doi_tac
+           -- Dịch vụ gắn phòng riêng thì chỉ các phòng ấy (30/09/2026).
+           AND public.phong_lam_duoc(r3.clinic_id, r3.id, o.node_code,
+                                     o.service_code)
        ) AS phong_lam_duoc
   FROM public.service_order o
   JOIN public.visit v

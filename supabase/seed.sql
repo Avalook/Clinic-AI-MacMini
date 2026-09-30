@@ -3737,3 +3737,6 @@ SELECT public.dxa_ket_luan_nhanh();
 -- Đầu dò Bio (vật tư quầy thuốc, 20260928000095) — SAU chuẩn hoá thuốc KiotViet
 -- (hàm ấy tắt mọi mặt hàng ngoài 82 mã chuẩn).
 SELECT public.them_dau_do_bio();
+-- Phòng làm theo dịch vụ (20261001210000) — SAU danh mục KiotViet: Ghế ĐTT,
+-- máy Bio, Vật lý trị liệu chỉ ở Phòng Sàn chậu; thêm SP000083, SP000077.
+SELECT public.nap_phong_lam_theo_dich_vu();

@@ -18,6 +18,7 @@ CÁI GÌ ĐƯỢC KHAI Ở ĐÂY:
 
     tầng của từng phòng          clinic_room.floor  (nhãn text: "1", "Trệt", "B1")
     phòng phục vụ bước nào       clinic_room_node   (phòng siêu âm = có DICHVU-SIEUAM)
+    phòng làm dịch vụ nào        clinic_room_service (thu hẹp: Ghế ĐTT chỉ Sàn chậu)
     ai làm được bước nào         staff_node         (khám 5 chuyên khoa / chỉ siêu âm)
 
 CÁI GÌ KHÔNG: số chỗ mỗi khung giờ (đã có màn luật đặt lịch), ngưỡng cảnh báo
@@ -27,6 +28,8 @@ nó thành nơi không ai dám bấm.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 import asyncpg
@@ -54,6 +57,94 @@ def assert_may_configure(identity: StaffIdentity) -> None:
         )
 
 
+#: Tiền tố nhóm việc CHỌN ĐƯỢC ở khối "Phòng làm việc gì" (30/09/2026): nhóm
+#: khám và nhóm dịch vụ. Node quản trị (đặt lịch, đối soát, khai lịch làm việc,
+#: luồng quầy LUOTKHAM-* / THUOC-*…) KHÔNG mời thêm — chip đã gắn vẫn giữ.
+TIEN_TO_CHON_DUOC = ("KHAM-", "DICHVU-")
+
+
+def la_nhom_chon_duoc(code: Any) -> bool:
+    """Node này có được MỜI gắn thêm vào phòng không — hàm thuần."""
+    return isinstance(code, str) and code.startswith(TIEN_TO_CHON_DUOC)
+
+
+def gom_viec_chon_duoc(
+    nodes: Iterable[Mapping[str, Any]], dich_vu: Iterable[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Danh sách "chọn được" cho ô thêm việc của phòng — HÀM THUẦN.
+
+    `nodes`: {code, name}; `dich_vu`: {ma, ten, ma_kv, node, chi_lam_o}. Nhóm
+    khám (KHAM-*) chọn cả nhóm; nhóm dịch vụ (DICHVU-*) chỉ hiện khi có ít nhất
+    một dịch vụ đang bán — nhóm rỗng (duyệt kết quả, nhập kết quả XN…) là việc
+    xử lý, không phải chỗ khách đến."""
+    theo_nhom: dict[str, list[dict[str, Any]]] = {}
+    for d in dich_vu:
+        theo_nhom.setdefault(str(d["node"]), []).append(
+            {
+                "ma": d["ma"],
+                "ten": d["ten"],
+                "ma_kv": d.get("ma_kv"),
+                "chi_lam_o": list(d.get("chi_lam_o") or []),
+            }
+        )
+    out: list[dict[str, Any]] = []
+    for n in nodes:
+        code = n.get("code")
+        if not la_nhom_chon_duoc(code):
+            continue
+        ds = sorted(theo_nhom.get(str(code), []), key=lambda x: str(x["ten"]))
+        la_kham = str(code).startswith("KHAM-")
+        if not la_kham and not ds:
+            continue
+        out.append(
+            {
+                "node": code,
+                "ten": n.get("name") or code,
+                "loai": "KHAM" if la_kham else "DICHVU",
+                "dich_vu": ds,
+            }
+        )
+    out.sort(key=lambda g: (g["loai"] != "KHAM", str(g["ten"])))
+    return out
+
+
+def gom_thieu_phong(
+    thieu_kham: Iterable[Mapping[str, Any]], dich_vu: Iterable[Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Cảnh báo "Chưa có phòng nào làm" — HÀM THUẦN (30/09/2026).
+
+    Chỉ tính việc KHÁCH ĐẾN PHÒNG: nhóm khám không phòng nào gắn (`thieu_kham`:
+    {code, name}) và dịch vụ đang bán cần phòng (`dich_vu`: {ma, ten, node,
+    ten_nhom, thieu}; người gọi đã bỏ dịch vụ đối tác làm trọn). Cả nhóm dịch vụ
+    đều thiếu → một dòng tên nhóm; thiếu lẻ → từng dịch vụ."""
+    out = [
+        {"code": t["code"], "name": t["name"], "loi": "CONFIG_MISSING"}
+        for t in thieu_kham
+    ]
+    nhom: dict[str, list[Mapping[str, Any]]] = {}
+    for d in dich_vu:
+        nhom.setdefault(str(d["node"]), []).append(d)
+    for node in sorted(nhom):
+        ds = nhom[node]
+        thieu = [d for d in ds if d.get("thieu")]
+        if not thieu:
+            continue
+        if len(thieu) == len(ds):
+            out.append(
+                {
+                    "code": node,
+                    "name": str(ds[0].get("ten_nhom") or node),
+                    "loi": "CONFIG_MISSING",
+                }
+            )
+            continue
+        out.extend(
+            {"code": d["ma"], "name": str(d["ten"]), "loi": "CONFIG_MISSING"}
+            for d in sorted(thieu, key=lambda x: str(x["ten"]))
+        )
+    return out
+
+
 _OVERVIEW_SQL = """
 SELECT l.id                AS location_id,
        l.code              AS location_code,
@@ -69,7 +160,16 @@ SELECT l.id                AS location_id,
        r.node_code         AS primary_node,
        r.sort,
        (SELECT coalesce(array_agg(rn.node_code ORDER BY rn.node_code), '{}')
-          FROM public.clinic_room_node rn WHERE rn.room_id = r.id) AS serves
+          FROM public.clinic_room_node rn WHERE rn.room_id = r.id) AS serves,
+       -- Dịch vụ gắn RIÊNG cho phòng (clinic_room_service, 30/09/2026).
+       (SELECT coalesce(json_agg(json_build_object(
+                   'ma', s.service_code, 'ten', sp.name, 'node', sp.node_code)
+                   ORDER BY sp.name), '[]'::json)
+          FROM public.clinic_room_service s
+          JOIN public.service_price sp
+            ON sp.clinic_id = s.clinic_id AND sp."group" = s.nhom
+           AND sp.service_code = s.service_code
+         WHERE s.room_id = r.id) AS dich_vu
   FROM public.clinic_location l
   LEFT JOIN public.clinic_room r ON r.location_id = l.id
  WHERE l.clinic_id = $1::uuid
@@ -90,6 +190,32 @@ SELECT s.id, s.full_name, s.short_name, s.is_active, m.role,
   LEFT JOIN public.clinic_location l ON l.id = s.primary_location_id
  WHERE s.is_active
  ORDER BY m.role, s.full_name
+"""
+
+
+#: Dịch vụ đang bán thuộc nhóm dịch vụ (DICHVU-*), kèm: phòng gắn riêng (nếu
+#: có), cần phòng không (đối tác làm trọn thì không), và còn thiếu phòng không.
+_DICH_VU_CHON_DUOC_SQL = """
+SELECT sp.service_code AS ma, sp.name AS ten, sp.ma_kiotviet AS ma_kv,
+       sp.node_code AS node, n.name AS ten_nhom,
+       (SELECT coalesce(array_agg(coalesce(r.name, r.code)
+                                  ORDER BY r.sort, r.code), '{}')
+          FROM public.clinic_room_service s
+          JOIN public.clinic_room r ON r.id = s.room_id AND r.clinic_id = s.clinic_id
+         WHERE s.clinic_id = sp.clinic_id AND s.service_code = sp.service_code
+           AND r.is_active) AS chi_lam_o,
+       NOT (sp.doi_tac_lay_mau OR n.lam_ben_ngoai) AS can_phong,
+       NOT EXISTS (
+           SELECT 1 FROM public.clinic_room r
+            WHERE r.clinic_id = sp.clinic_id AND r.is_active AND NOT r.la_doi_tac
+              AND public.phong_lam_duoc(r.clinic_id, r.id, sp.node_code,
+                                        sp.service_code)) AS thieu
+  FROM public.service_price sp
+  JOIN public.node_definition n
+    ON n.clinic_id = sp.clinic_id AND n.code = sp.node_code AND n.is_active
+ WHERE sp.clinic_id = $1::uuid AND sp.active AND sp."group" = 'dich_vu'
+   AND sp.node_code LIKE 'DICHVU-%'
+ ORDER BY sp.node_code, sp.name
 """
 
 
@@ -137,19 +263,22 @@ class ClinicConfigService:
             " WHERE clinic_id = $1::uuid ORDER BY code",
             identity.clinic_id,
         )
-        # CONFIG_MISSING: bước dịch vụ không có PHÒNG ĐANG BẬT nào phục vụ —
-        # chỉ định vào bước ấy sẽ không xếp được phòng. Không tự tạo phòng: báo
-        # để quản lý cấu hình (vd DICHVU-DXA, DICHVU-TINHDICHDO, 23/09/2026).
-        thieu = await self._pool.fetch(
+        dich_vu = await self._pool.fetch(_DICH_VU_CHON_DUOC_SQL, identity.clinic_id)
+        # CONFIG_MISSING (30/09/2026): chỉ việc KHÁCH ĐẾN PHÒNG — dịch vụ đang
+        # bán mà không phòng nội bộ đang bật nào làm được (cùng luật
+        # `phong_lam_duoc` với xếp phòng), và nhóm khám không phòng nào gắn.
+        # Không tính node quản trị hay dịch vụ đối tác làm trọn. Không tự tạo
+        # phòng: báo để quản lý cấu hình.
+        thieu_kham = await self._pool.fetch(
             """
             SELECT n.code, n.name FROM public.node_definition n
-             WHERE n.clinic_id = $1::uuid AND n.code LIKE 'DICHVU-%'
+             WHERE n.clinic_id = $1::uuid AND n.code LIKE 'KHAM-%'
                AND n.is_active
                AND NOT EXISTS (
                      SELECT 1 FROM public.clinic_room_node rn
                        JOIN public.clinic_room r ON r.id = rn.room_id
                       WHERE rn.clinic_id = n.clinic_id AND rn.node_code = n.code
-                        AND r.is_active)
+                        AND r.is_active AND NOT r.la_doi_tac)
              ORDER BY n.code
             """,
             identity.clinic_id,
@@ -157,10 +286,14 @@ class ClinicConfigService:
         return {
             "locations": _group_locations(rows),
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
-            "config_missing": [
-                {"code": t["code"], "name": t["name"], "loi": "CONFIG_MISSING"}
-                for t in thieu
-            ],
+            # Ô thêm việc của phòng — máy chủ quyết cái gì chọn được.
+            "viec_chon_duoc": gom_viec_chon_duoc(
+                [dict(n) for n in nodes], [dict(d) for d in dich_vu]
+            ),
+            "config_missing": gom_thieu_phong(
+                [dict(t) for t in thieu_kham],
+                [dict(d) for d in dich_vu if d["can_phong"]],
+            ),
         }
 
     async def services(self, *, identity: StaffIdentity) -> dict[str, Any]:
@@ -700,6 +833,23 @@ class ClinicConfigService:
             )
             if room is None:
                 raise ValidationError("Không tìm thấy phòng này.")
+            cu = {
+                str(x["node_code"])
+                for x in await conn.fetch(
+                    "SELECT node_code FROM public.clinic_room_node"
+                    " WHERE clinic_id = $1::uuid AND room_id = $2::uuid",
+                    identity.clinic_id,
+                    room_id,
+                )
+            }
+            moi = [c for c in node_codes if c not in cu and not la_nhom_chon_duoc(c)]
+            if moi:
+                # Ô thêm việc chỉ mời nhóm khám / nhóm dịch vụ (30/09/2026);
+                # node quản trị đã gắn từ trước thì giữ được, không thêm mới.
+                raise ValidationError(
+                    f"Không gắn được việc quản trị vào phòng: {', '.join(moi)}."
+                    " Phòng chỉ nhận nhóm khám, nhóm dịch vụ hoặc từng dịch vụ."
+                )
             if room["node_code"] and room["node_code"] not in node_codes:
                 # Trigger `clinic_room_primary_node_is_served` cũng chặn, nhưng
                 # nó ném tên ràng buộc; ở đây nói bằng câu người vận hành đọc
@@ -729,6 +879,69 @@ class ClinicConfigService:
         # Quyền theo lịch đọc phòng/node/vị trí — đổi thì quên quyền đang nhớ.
         cache.quen(identity.clinic_id)
         return {"ok": True, "room_code": room["code"], "nodes": node_codes}
+
+    async def set_room_services(
+        self, *, identity: StaffIdentity, room_id: str, service_codes: list[str]
+    ) -> dict[str, Any]:
+        """Phòng làm những DỊCH VỤ LẺ nào (30/09/2026) — lớp thu hẹp trên node.
+
+        Dịch vụ có dòng ở đây thì CHỈ các phòng được gắn làm được (luật
+        `phong_lam_duoc`). Danh sách ĐẦY ĐỦ như `set_room_nodes`: dòng không còn
+        trong danh sách thì bỏ, dòng mới thì thêm (dòng giữ nguyên giữ người /
+        giờ gắn cũ).
+        """
+        await self._duoc_cau_hinh(identity)
+        ma = sorted({c.strip() for c in service_codes if isinstance(c, str)} - {""})
+        async with self._pool.acquire() as conn, conn.transaction():
+            room = await conn.fetchrow(
+                "SELECT code FROM public.clinic_room"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                room_id,
+                identity.clinic_id,
+            )
+            if room is None:
+                raise ValidationError("Không tìm thấy phòng này.")
+            hop_le = {
+                str(r["service_code"])
+                for r in await conn.fetch(
+                    "SELECT service_code FROM public.service_price"
+                    " WHERE clinic_id = $1::uuid AND \"group\" = 'dich_vu'"
+                    "   AND active AND node_code LIKE 'DICHVU-%'"
+                    "   AND service_code = ANY($2::text[])",
+                    identity.clinic_id,
+                    ma,
+                )
+            }
+            la = [c for c in ma if c not in hop_le]
+            if la:
+                raise ValidationError(
+                    f"Không gắn được: {', '.join(la)} — không phải dịch vụ đang"
+                    " bán thuộc nhóm dịch vụ."
+                )
+            await conn.execute(
+                "DELETE FROM public.clinic_room_service"
+                " WHERE clinic_id = $1::uuid AND room_id = $2::uuid"
+                "   AND NOT (service_code = ANY($3::text[]))",
+                identity.clinic_id,
+                room_id,
+                ma,
+            )
+            if ma:
+                await conn.executemany(
+                    "INSERT INTO public.clinic_room_service"
+                    " (clinic_id, room_id, service_code, created_by)"
+                    " VALUES ($1::uuid, $2::uuid, $3, $4::uuid)"
+                    " ON CONFLICT DO NOTHING",
+                    [(identity.clinic_id, room_id, c, identity.staff_id) for c in ma],
+                )
+        logger.info("room_services_set", room=room["code"], n=len(ma))
+        await self._ghi_nhat_ky(
+            identity,
+            loai="room_services",
+            doi_tuong_id=room_id,
+            payload={"services": ma},
+        )
+        return {"ok": True, "room_code": room["code"], "service_codes": ma}
 
     async def set_staff_nodes(
         self, *, identity: StaffIdentity, staff_id: str, node_codes: list[str]
@@ -773,6 +986,13 @@ class ClinicConfigService:
         return {"ok": True, "full_name": name, "nodes": node_codes}
 
 
+def _json_list(v: Any) -> list[dict[str, Any]]:
+    """json_agg qua asyncpg về dạng chuỗi (không codec json) — đọc cả hai dạng."""
+    if isinstance(v, str):
+        v = json.loads(v)
+    return [dict(x) for x in v] if isinstance(v, list) else []
+
+
 def _group_locations(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
     """Gom phẳng thành cơ sở → tầng → phòng.
 
@@ -814,6 +1034,7 @@ def _group_locations(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
                 "is_active": r["room_active"],
                 "primary_node": r["primary_node"],
                 "serves": list(r["serves"] or []),
+                "dich_vu": _json_list(dict(r).get("dich_vu")),
             }
         )
     return out

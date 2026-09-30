@@ -14,13 +14,14 @@
 // xếp theo ngày/ca. Đọc `lich-phong`; ghi thẳng vào lịch (`/api/roster`) và
 // vị trí (`/api/day-noi`) — cùng dữ liệu màn Lịch làm việc, không bảng thứ hai.
 
-import { Building2, ChevronDown, ChevronLeft, ChevronRight, Star, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { todayVn } from "@/lib/roster";
-import type { ConfigLocation, ConfigRoom, ConfigStaff, NodeDef } from "./types";
+import type { ConfigLocation, ConfigRoom, ConfigStaff, NodeDef, ViecChonDuoc } from "./types";
+import ViecCuaPhong from "./ViecCuaPhong";
 
 interface CaLich {
   id: string;
@@ -73,12 +74,15 @@ async function goiUrl(url: string, method: "PUT" | "POST" | "DELETE", body: Reco
 export default function CoSoPhong({
   locations,
   nodes,
+  viec,
   staff,
   onDocLai,
   onLoi,
 }: {
   locations: ConfigLocation[];
   nodes: NodeDef[];
+  /** Nhóm việc / dịch vụ CHỌN ĐƯỢC — máy chủ đã lọc (30/09/2026). */
+  viec: ViecChonDuoc[];
   staff: ConfigStaff[];
   onDocLai: () => Promise<void>;
   onLoi: (cau: string | null) => void;
@@ -225,7 +229,7 @@ export default function CoSoPhong({
                         tang={f.floor}
                         mo={moPhong === r.room_id}
                         onMo={() => setMoPhong(moPhong === r.room_id ? null : r.room_id)}
-                        nodes={nodes}
+                        viec={viec}
                         tenBuoc={tenBuoc}
                         viTri={lich?.phong[r.room_id] ?? []}
                         lich={lich}
@@ -251,7 +255,7 @@ function DongPhong({
   tang,
   mo,
   onMo,
-  nodes,
+  viec,
   tenBuoc,
   viTri,
   lich,
@@ -264,7 +268,7 @@ function DongPhong({
   tang: string | null;
   mo: boolean;
   onMo: () => void;
-  nodes: NodeDef[];
+  viec: ViecChonDuoc[];
   tenBuoc: (c: string) => string;
   viTri: ViTri[];
   lich: GoiLich | null;
@@ -275,8 +279,9 @@ function DongPhong({
 }) {
   const [ten, setTen] = useState(r.name ?? "");
   const [tangMoi, setTangMoi] = useState(tang ?? "");
-  const conLaiViec = nodes.filter((n) => !r.serves.includes(n.code));
   const doiViec = (next: string[]) => void lam(() => goi("PUT", "room-nodes", { room_id: r.room_id, node_codes: next }));
+  const doiDichVu = (next: string[]) =>
+    void lam(() => goi("PUT", "room-services", { room_id: r.room_id, service_codes: next }));
   const homNay = todayVn();
   const nguoiHomNay = new Set(
     viTri.flatMap((v) => v.ca.filter((c) => c.ngay === homNay).map((c) => c.staff_id ?? c.ten)),
@@ -300,7 +305,7 @@ function DongPhong({
         </span>
         {r.primary_node ? <span className="truncate text-meta text-ink-muted">· {tenBuoc(r.primary_node)}</span> : null}
         <span className="ml-auto shrink-0 text-label text-ink-muted">
-          {r.serves.length} việc · {nguoiHomNay} người hôm nay
+          {r.serves.length + (r.dich_vu?.length ?? 0)} việc · {nguoiHomNay} người hôm nay
         </span>
         {!r.is_active ? <Chip tone="neutral">Tắt</Chip> : null}
       </button>
@@ -343,50 +348,14 @@ function DongPhong({
             </Button>
           </div>
 
-          <div>
-            <p className="mb-1 text-label font-semibold uppercase text-ink-muted">Phòng làm việc gì</p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {r.serves.map((c) => {
-                const chinh = c === r.primary_node;
-                return (
-                  <span
-                    key={c}
-                    className={`inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-meta ${
-                      chinh ? "bg-brand-100 font-medium text-brand-800" : "bg-surface text-ink ring-1 ring-inset ring-line"
-                    }`}
-                  >
-                    {chinh ? <Star className="size-3" aria-hidden="true" /> : null}
-                    {tenBuoc(c)}
-                    {!chinh ? (
-                      <button
-                        type="button"
-                        aria-label={`Bỏ ${tenBuoc(c)}`}
-                        disabled={dangLam}
-                        onClick={() => doiViec(r.serves.filter((x) => x !== c))}
-                        className="rounded-full p-0.5 text-ink-muted hover:bg-surface-sunken hover:text-danger"
-                      >
-                        <X className="size-3" aria-hidden="true" />
-                      </button>
-                    ) : null}
-                  </span>
-                );
-              })}
-              <select
-                aria-label="Thêm việc cho phòng"
-                value=""
-                disabled={dangLam}
-                onChange={(e) => e.target.value && doiViec([...r.serves, e.target.value].sort())}
-                className={`${O} text-ink-muted`}
-              >
-                <option value="">+ Thêm việc…</option>
-                {conLaiViec.map((n) => (
-                  <option key={n.code} value={n.code}>
-                    {n.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <ViecCuaPhong
+            phong={r}
+            viec={viec}
+            tenBuoc={tenBuoc}
+            dangLam={dangLam}
+            doiViec={doiViec}
+            doiDichVu={doiDichVu}
+          />
 
           <LichPhong
             phong={r}

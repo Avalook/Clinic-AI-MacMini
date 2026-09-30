@@ -322,7 +322,10 @@ class CashierBoardService:
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
         from clinicai.services.bill_service import tinh_hoa_don
         from clinicai.services.quay_thu_service import PhongQuay
-        from clinicai.services.service_routing_service import da_tra_cho_vao_phong
+        from clinicai.services.service_routing_service import (
+            KHOA_NOI_BO,
+            da_tra_cho_vao_phong,
+        )
         from clinicai.services.service_selection_service import cho_khach_quyet
 
         da_thu = {(p["visit_id"], p["kind"]) for p in out["paid"]}
@@ -398,9 +401,11 @@ class CashierBoardService:
                     # nhất lên đầu — cùng tập dây H4.
                     item["xep_phong"] = [
                         {
-                            **{k: v for k, v in x.items() if k != "node_code"},
+                            **{k: v for k, v in x.items() if k not in KHOA_NOI_BO},
                             "phong_chon_duoc": await pq.cua(
-                                x.get("node_code"), item["visit_id"]
+                                x.get("node_code"),
+                                item["visit_id"],
+                                x.get("service_code"),
                             ),
                         }
                         for x in phong.get(item["visit_id"], [])
