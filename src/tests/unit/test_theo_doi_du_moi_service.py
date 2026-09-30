@@ -34,6 +34,7 @@ DIEM_DO = {
     "dashboard": "http://dashboard:3000/health",
     "caddy": "http://caddy:80/health",
     "su-kien": "http://api:8000/health/su-kien",
+    "day-tep": "http://api:8000/health/day-tep",
 }
 
 

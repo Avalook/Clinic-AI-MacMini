@@ -390,6 +390,107 @@ else
     log "NOTICE: no media files under ${MEDIA_DIR_FOR_ENV} — no media artifact this run"
 fi
 
+# ---- tệp kết quả CHƯA ĐẨY sang Viettel CFS (01/10/2026) ---------------------
+# Từ 01/10 tải lên ghi vào Ổ VPS trước (MEDIA_LOCAL_DIR), container `day-tep`
+# đẩy sang CFS sau. Trong khoảng ấy — bình thường vài phút, CFS hỏng thì có thể
+# nhiều giờ — bản trên ổ VPS là BẢN DUY NHẤT của tệp. Đóng tar RIÊNG đúng những
+# tệp ấy (vi_tri='vps' trong database) vào bản sao lưu đêm, CÓ TRẦN kích thước:
+# vượt trần thì lấy tệp cũ trước tới trần và ghi WARNING (+ số bỏ sót vào
+# manifest). Tệp đã đẩy KHÔNG vào đây — chúng đã có bản trên CFS.
+TEP_VPS_ROOT_HOST=$(grep -E '^MEDIA_LOCAL_DIR=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)
+TEP_VPS_ROOT_HOST=${TEP_VPS_ROOT_HOST:-${REPO}/.media-vps}
+case "$TEP_VPS_ROOT_HOST" in
+    "~/"*) TEP_VPS_ROOT_HOST="$HOME/${TEP_VPS_ROOT_HOST#\~/}" ;;
+    /*) : ;;
+    *) TEP_VPS_ROOT_HOST="${REPO}/${TEP_VPS_ROOT_HOST#./}" ;;
+esac
+# Cùng cách ghép với docker-compose.yml: ${MEDIA_LOCAL_DIR}/${APP_ENV}.
+TEP_VPS_DIR="${TEP_VPS_ROOT_HOST}/${SOURCE_APP_ENV}"
+TEP_VPS_MAX_BYTES="${BACKUP_TEP_CHUA_DAY_MAX_BYTES:-2147483648}"
+case "$TEP_VPS_MAX_BYTES" in
+    ''|*[!0-9]*) log "ERROR: BACKUP_TEP_CHUA_DAY_MAX_BYTES must be a positive integer"; exit 1 ;;
+esac
+TEP_VPS_FILE="${BACKUP_FILE%.sql.gz}_tep-chua-day.tar"
+TEMP_TEP_VPS="${TEP_VPS_FILE}.tmp"
+TEP_VPS_LIST="${BACKUP_FILE%.sql.gz}_tep-chua-day.list.tmp"
+TEP_VPS_ALL="${BACKUP_FILE%.sql.gz}_tep-chua-day.all.tmp"
+trap 'rm -f "$TEMP_FILE" "$TEMP_MANIFEST" "$TEMP_AUTH" "$TEMP_MEDIA" "$TEMP_TEP_VPS" "$TEP_VPS_LIST" "$TEP_VPS_ALL"; release_lock; write_failure_status' EXIT
+
+TEP_VPS_COUNT=0
+TEP_VPS_SKIPPED=0
+TEP_VPS_SHA256=""
+TEP_VPS_BYTES=0
+TEP_VPS_SOURCE=none
+TEP_VPS_SQL="SELECT khoa, so_byte FROM public.tep_ket_qua WHERE vi_tri = 'vps' AND da_don_tep_luc IS NULL ORDER BY tai_len_luc, id"
+
+# Hỏi database: qua container (cùng cầu nối với pg_dump trên VPS) hoặc psql.
+tep_vps_hoi_db() {
+    if [ -n "${CLINIC_DB_CONTAINER:-}" ]; then
+        docker exec -i "$CLINIC_DB_CONTAINER" psql -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" \
+            -v ON_ERROR_STOP=1 -AtF "$(printf '\t')" -c "$TEP_VPS_SQL"
+    elif command -v psql >/dev/null 2>&1; then
+        psql -v ON_ERROR_STOP=1 -AtF "$(printf '\t')" -c "$TEP_VPS_SQL"
+    else
+        return 127
+    fi
+}
+
+if [ -d "$TEP_VPS_DIR" ]; then
+    : > "$TEP_VPS_ALL"
+    if tep_vps_hoi_db > "$TEP_VPS_ALL" 2>> "$LOG"; then
+        TEP_VPS_SOURCE=database
+    else
+        # Không hỏi được database: lấy MỌI tệp trên ổ VPS (tập lớn hơn — gồm cả
+        # tệp đã đẩy chưa dọn) để chắc không sót bản duy nhất nào.
+        log "WARNING: không hỏi được database danh sách tệp chưa đẩy — lấy mọi tệp trên ổ VPS"
+        TEP_VPS_SOURCE=quet-thu-muc
+        ( cd "$TEP_VPS_DIR" && find . -type f ! -path './.tam/*' ! -path './.canh-gac/*' ! -name '*.tmp' | sed 's|^\./||' | sort ) |
+            while IFS= read -r k; do
+                printf '%s\t%s\n' "$k" "$(wc -c < "$TEP_VPS_DIR/$k" | tr -d ' ')"
+            done > "$TEP_VPS_ALL"
+    fi
+    : > "$TEP_VPS_LIST"
+    tong=0
+    while IFS="$(printf '\t')" read -r khoa co; do
+        [ -n "$khoa" ] || continue
+        # Khoá từ database/thư mục: không cho thoát khỏi gốc.
+        case "$khoa" in /*|*..*) log "WARNING: bỏ qua khoá tệp lạ: $khoa"; continue ;; esac
+        [ -f "$TEP_VPS_DIR/$khoa" ] || { log "WARNING: tệp chưa đẩy không thấy trên ổ VPS: ${khoa##*/}"; continue; }
+        case "$co" in ''|*[!0-9]*) co=$(wc -c < "$TEP_VPS_DIR/$khoa" | tr -d ' ') ;; esac
+        if [ $((tong + co)) -gt "$TEP_VPS_MAX_BYTES" ]; then
+            TEP_VPS_SKIPPED=$((TEP_VPS_SKIPPED + 1))
+            continue
+        fi
+        tong=$((tong + co))
+        printf '%s\n' "$khoa" >> "$TEP_VPS_LIST"
+        TEP_VPS_COUNT=$((TEP_VPS_COUNT + 1))
+    done < "$TEP_VPS_ALL"
+    if [ "$TEP_VPS_SKIPPED" -gt 0 ]; then
+        log "WARNING: ${TEP_VPS_SKIPPED} tệp chưa đẩy KHÔNG vào bản sao lưu vì vượt trần ${TEP_VPS_MAX_BYTES} byte (BACKUP_TEP_CHUA_DAY_MAX_BYTES) — kiểm container day-tep / ổ CFS"
+    fi
+fi
+if [ "$TEP_VPS_COUNT" -gt 0 ]; then
+    command -v tar >/dev/null 2>&1 || { log "ERROR: required command not found: tar"; exit 1; }
+    log "Archiving ${TEP_VPS_COUNT} file(s) chưa đẩy sang CFS từ ${TEP_VPS_DIR} (nguồn danh sách: ${TEP_VPS_SOURCE})..."
+    # Không nén: ảnh/PDF/video đã nén sẵn, gzip chỉ tốn CPU của máy đang khám.
+    if tar -C "$TEP_VPS_DIR" -cf "$TEMP_TEP_VPS" -T "$TEP_VPS_LIST" 2>> "$LOG"; then
+        :
+    else
+        rc=$?
+        log "ERROR: tar tệp chưa đẩy thất bại (exit code $rc)"
+        exit 1
+    fi
+    TEP_TAR_ENTRIES=$(tar -tf "$TEMP_TEP_VPS" 2>/dev/null | grep -cv '/$' || true)
+    [ "${TEP_TAR_ENTRIES:-0}" -eq "$TEP_VPS_COUNT" ] || {
+        log "ERROR: tar tệp chưa đẩy có ${TEP_TAR_ENTRIES:-0} tệp, cần ${TEP_VPS_COUNT}"
+        exit 1
+    }
+    TEP_VPS_SHA256=$(sha256_file "$TEMP_TEP_VPS")
+    TEP_VPS_BYTES=$(wc -c < "$TEMP_TEP_VPS" | tr -d ' ')
+else
+    log "NOTICE: không có tệp nào chờ đẩy sang CFS — không có tar tệp chưa đẩy"
+fi
+
 ARCHIVE_SHA256=$(sha256_file "$TEMP_FILE")
 cat > "$TEMP_MANIFEST" <<EOF
 format_version=1
@@ -406,17 +507,26 @@ media_artifact=$([ "$MEDIA_COUNT" -gt 0 ] && basename "$MEDIA_FILE" || echo none
 media_sha256=${MEDIA_SHA256}
 media_file_count=${MEDIA_COUNT}
 media_archive_bytes=${MEDIA_BYTES}
+tep_chua_day_artifact=$([ "$TEP_VPS_COUNT" -gt 0 ] && basename "$TEP_VPS_FILE" || echo none)
+tep_chua_day_sha256=${TEP_VPS_SHA256}
+tep_chua_day_count=${TEP_VPS_COUNT}
+tep_chua_day_skipped=${TEP_VPS_SKIPPED}
+tep_chua_day_source=${TEP_VPS_SOURCE}
+tep_chua_day_bytes=${TEP_VPS_BYTES}
 restore_order=auth-then-public
 EOF
 
 mv "$TEMP_FILE" "$BACKUP_FILE"
 mv "$TEMP_AUTH" "$AUTH_FILE"
 [ "$MEDIA_COUNT" -gt 0 ] && mv "$TEMP_MEDIA" "$MEDIA_FILE"
+[ "$TEP_VPS_COUNT" -gt 0 ] && mv "$TEMP_TEP_VPS" "$TEP_VPS_FILE"
+rm -f "$TEP_VPS_LIST" "$TEP_VPS_ALL"
 mv "$TEMP_MANIFEST" "$MANIFEST_FILE"
 trap 'release_lock; write_failure_status' EXIT
 chmod 600 "$BACKUP_FILE"
 chmod 600 "$AUTH_FILE"
 [ "$MEDIA_COUNT" -gt 0 ] && chmod 600 "$MEDIA_FILE"
+[ "$TEP_VPS_COUNT" -gt 0 ] && chmod 600 "$TEP_VPS_FILE"
 chmod 600 "$MANIFEST_FILE"
 trap release_lock EXIT
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
@@ -424,6 +534,9 @@ log "Public-schema backup created and verified: $BACKUP_FILE ($SIZE, $UNCOMPRESS
 log "Auth identities: $AUTH_FILE ($AUTH_RAW_BYTES bytes raw) — restore BEFORE the public archive"
 if [ "$MEDIA_COUNT" -gt 0 ]; then
     log "Media: $MEDIA_FILE (${MEDIA_COUNT} file(s), ${MEDIA_BYTES} bytes compressed)"
+fi
+if [ "$TEP_VPS_COUNT" -gt 0 ]; then
+    log "Tệp chưa đẩy CFS: $TEP_VPS_FILE (${TEP_VPS_COUNT} tệp, ${TEP_VPS_BYTES} byte; bỏ sót vì trần: ${TEP_VPS_SKIPPED})"
 fi
 log "NOTICE: sessions/MFA and Supabase platform config remain outside this backup; retain PITR."
 
@@ -435,6 +548,7 @@ find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" -mtime +${KEEP_DAYS} -delete 2
 # Media giữ ÍT hơn — xem lý do ở phần tạo tệp. Đây là ổ 48G, và bảy bản của
 # cùng một tập ảnh bất biến sẽ lấp nó trước khi ai kịp nhận ra.
 MEDIA_DELETED=$(find "$BACKUP_DIR" -name "clinicai_*_media.tar.gz" -mtime +${MEDIA_KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
+find "$BACKUP_DIR" -name "clinicai_*_tep-chua-day.tar" -mtime +${MEDIA_KEEP_DAYS} -delete 2>> "$LOG" || true
 [ "${MEDIA_DELETED:-0}" -gt 0 ] && log "Pruned $MEDIA_DELETED media archive(s) older than ${MEDIA_KEEP_DAYS} days"
 
 # Optional: push to Cloudflare R2 via rclone.
@@ -450,6 +564,8 @@ if [ -n "${R2_REMOTE:-}" ] && [ -n "${R2_BUCKET:-}" ] && command -v rclone > /de
        rclone copy "$AUTH_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1 &&
        { [ "$MEDIA_COUNT" -eq 0 ] ||
          rclone copy "$MEDIA_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; } &&
+       { [ "$TEP_VPS_COUNT" -eq 0 ] ||
+         rclone copy "$TEP_VPS_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; } &&
        rclone copy "$MANIFEST_FILE" "${R2_REMOTE}:${R2_BUCKET}/db-backups/" >> "$LOG" 2>&1; then
         R2_UPLOADED=true
         log "R2 upload complete"

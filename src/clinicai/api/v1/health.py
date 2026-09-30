@@ -118,3 +118,20 @@ async def health_su_kien(pool: asyncpg.Pool = Depends(get_db_pool)) -> Any:
     ly_do = danh_gia_su_kien(so)
     than = {"status": "degraded" if ly_do else "ok", "so": so, "ly_do": ly_do}
     return JSONResponse(than, status_code=503 if ly_do else 200)
+
+
+@router.get("/health/day-tep")
+async def health_day_tep(pool: asyncpg.Pool = Depends(get_db_pool)) -> Any:
+    """Đường đẩy tệp ổ VPS → Viettel CFS có chạy không (Kuma gọi, 01/10/2026).
+
+    Container ``day-tep`` không có cổng HTTP; điểm đo này hỏi DB. 503 khi có
+    tệp chờ đẩy quá 6 giờ (bản DUY NHẤT đang nằm trên ổ VPS) hoặc tệp đẩy hỏng
+    từ 5 lần. Chỉ SỐ ĐẾM — không mã tệp, không tên khách.
+    """
+    from clinicai.services import day_tep
+
+    async with pool.acquire() as conn:
+        so = await day_tep.so_lieu(conn)
+    ly_do = day_tep.danh_gia_suc_khoe(so)
+    than = {"status": "degraded" if ly_do else "ok", "so": so, "ly_do": ly_do}
+    return JSONResponse(than, status_code=503 if ly_do else 200)

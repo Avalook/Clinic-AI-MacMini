@@ -199,6 +199,10 @@ fi
 # đổi gì thêm.
 MEDIA_BIND="$(env_value MEDIA_DIR)"
 MEDIA_BIND="${MEDIA_BIND:-./.media}"
+# Ổ VPS của tệp kết quả (01/10/2026): tải lên ghi vào đây trước, container
+# day-tep đẩy sang kho CFS sau. Cùng luật "tạo trước bằng người deploy".
+MEDIA_LOCAL_BIND="$(env_value MEDIA_LOCAL_DIR)"
+MEDIA_LOCAL_BIND="${MEDIA_LOCAL_BIND:-./.media-vps}"
 OPS_BIND="$(env_value OPS_STATUS_DIR)"
 OPS_BIND="${OPS_BIND:-./.ops-status}"
 APP_ENV_VALUE="$(env_value APP_ENV)"
@@ -215,8 +219,9 @@ giai_duong_dan() {
 }
 
 MEDIA_DIR_DA_GIAI="$(giai_duong_dan "${MEDIA_BIND}/${APP_ENV_VALUE}")"
+MEDIA_LOCAL_DIR_DA_GIAI="$(giai_duong_dan "${MEDIA_LOCAL_BIND}/${APP_ENV_VALUE}")"
 OPS_DIR_DA_GIAI="$(giai_duong_dan "${OPS_BIND}/${APP_ENV_VALUE}")"
-for d in "$MEDIA_DIR_DA_GIAI" "$OPS_DIR_DA_GIAI"; do
+for d in "$MEDIA_DIR_DA_GIAI" "$MEDIA_LOCAL_DIR_DA_GIAI" "$OPS_DIR_DA_GIAI"; do
   mkdir -p "$d" || {
     echo "!! không tạo được thư mục ổ bind: $d" >&2
     exit 1
@@ -351,7 +356,7 @@ fi
 echo "==> [5/6] health check (up to ~120s)"
 health_ok() {
   local svc cid st
-  for svc in api dashboard caddy su-kien; do
+  for svc in api dashboard caddy su-kien day-tep; do
     cid="$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null || true)"
     [ -n "$cid" ] || { echo "   $svc: no container"; return 1; }
     st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"

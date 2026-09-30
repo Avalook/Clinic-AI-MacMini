@@ -37,7 +37,7 @@ def cua_treo() -> Iterator[threading.Event]:
 
 
 def _gia(ghi: float, doc: float) -> Any:
-    return lambda _goc: (ghi, doc)
+    return lambda _goc, *_a: (ghi, doc)
 
 
 def test_do_that_tren_o_may(tmp_path: Path) -> None:
@@ -98,7 +98,7 @@ def test_ghi_cham_noi_ro_ghi() -> None:
 async def test_loi_o_thanh_cham_critical(
     monkeypatch: pytest.MonkeyPatch, _sach: list[Any]
 ) -> None:
-    def _hong(_goc: Path) -> tuple[float, float]:
+    def _hong(_goc: Path, *_a: Any) -> tuple[float, float]:
         raise OSError("Host is down")
 
     monkeypatch.setattr(ck, "do_dong_bo", _hong)
@@ -114,7 +114,7 @@ async def test_treo_khong_chan_vong_su_kien_va_khong_de_them_luong(
 ) -> None:
     so_lan_goi = 0
 
-    def _treo(_goc: Path) -> tuple[float, float]:
+    def _treo(_goc: Path, *_a: Any) -> tuple[float, float]:
         nonlocal so_lan_goi
         so_lan_goi += 1
         cua_treo.wait(30)

@@ -35,6 +35,10 @@ NHIP_GIAY = 60
 #: Nhiều KIỂU lỗi khác nhau cùng lúc = hỏng diện rộng (DB, mạng), không phải
 #: một nút lỗi lẻ.
 NGUONG_KIEU_LOI_5P = 3
+#: Tệp chờ đẩy sang CFS quá chừng này giờ → cảnh báo (Tuyền chốt 30/09).
+CHO_DAY_LAU_GIO = 6
+#: Một tệp đẩy hỏng từ chừng này lần → cảnh báo.
+NGUONG_LOI_DAY = 5
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,24 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             so["luot_treo"] > 0,
             f"{so['luot_treo']} lượt khám từ hôm trước chưa đóng (check-out).",
         ),
+        # Đẩy tệp ổ VPS → Viettel CFS (01/10/2026, container day-tep). Kiểm ở
+        # ĐÂY (su-kien) chứ không trong day-tep: day-tep chết thì chính nó không
+        # báo được — tệp chờ lâu là dấu hiệu duy nhất.
+        KetQuaKiem(
+            "DAY_TEP_CHO_LAU",
+            "critical",
+            so.get("tep_cho_lau", 0) > 0,
+            f"{so.get('tep_cho_lau', 0)} tệp kết quả nằm ở ổ VPS chờ đẩy sang "
+            f"Viettel CFS quá {CHO_DAY_LAU_GIO} giờ (bản DUY NHẤT) — kiểm container "
+            "day-tep và ổ CFS.",
+        ),
+        KetQuaKiem(
+            "DAY_TEP_LOI",
+            "warning",
+            so.get("tep_loi_day", 0) > 0,
+            f"{so.get('tep_loi_day', 0)} tệp đẩy sang Viettel CFS hỏng từ "
+            f"{NGUONG_LOI_DAY} lần — xem lỗi cuối ở /ops.",
+        ),
     ]
     return ra
 
@@ -112,8 +134,17 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
           -- Lượt TREO = còn mở từ hôm trước — CÙNG câu với màn Check-out
           -- ("Lượt tồn đọng từ hôm trước"), xem services/luot_treo.py.
           (SELECT count(*) FROM visit v
-            WHERE {dieu_kien_luot_treo("v")}) AS luot_treo
-        """
+            WHERE {dieu_kien_luot_treo("v")}) AS luot_treo,
+          (SELECT count(*) FROM tep_ket_qua t
+            WHERE t.vi_tri = 'vps' AND t.da_don_tep_luc IS NULL
+              AND t.tai_len_luc < now() - make_interval(hours => $1))
+            AS tep_cho_lau,
+          (SELECT count(*) FROM tep_ket_qua t
+            WHERE t.vi_tri = 'vps' AND t.da_don_tep_luc IS NULL
+              AND t.so_lan_day_loi >= $2) AS tep_loi_day
+        """,
+        CHO_DAY_LAU_GIO,
+        NGUONG_LOI_DAY,
     )
     assert r is not None
     return {
@@ -123,6 +154,8 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "kieu_loi_5p": int(r["kieu_loi_5p"]),
         "hang_cho_ma": int(r["hang_cho_ma"]),
         "luot_treo": int(r["luot_treo"]),
+        "tep_cho_lau": int(r["tep_cho_lau"]),
+        "tep_loi_day": int(r["tep_loi_day"]),
     }
 
 

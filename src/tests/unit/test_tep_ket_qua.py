@@ -117,12 +117,14 @@ def test_hai_lan_goi_ra_hai_khoa_khac_nhau() -> None:
     """Trùng khoá là một tệp ghi đè lên tệp của lần khám trước."""
     from clinicai.services.media_service import duong_dan_ket_qua
 
-    args = {
-        "clinic_id": "a0000000-0000-4000-8000-000000000001",
-        "clinic_patient_id": "b0000000-0000-4000-8000-000000000002",
-        "ext": ".jpg",
-    }
-    assert duong_dan_ket_qua(**args)[1] != duong_dan_ket_qua(**args)[1]
+    def _khoa() -> str:
+        return duong_dan_ket_qua(
+            clinic_id="a0000000-0000-4000-8000-000000000001",
+            clinic_patient_id="b0000000-0000-4000-8000-000000000002",
+            ext=".jpg",
+        )[1]
+
+    assert _khoa() != _khoa()
 
 
 # ── Service: quyền và vòng đời "đã gửi" ────────────────────────────────────
@@ -227,12 +229,15 @@ async def test_o_dia_sap_day_thi_fail_closed_truoc_khi_ghi(
     from clinicai.services import tep_ket_qua_service as mod
 
     Disk = namedtuple("Disk", "total used free")
-    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
-    monkeypatch.setattr(mod, "MEDIA_MIN_FREE_BYTES", 1024)
+    # 01/10/2026: khoảng trống kiểm trên Ổ VPS (nơi tải lên ghi vào), và ổ ấy
+    # gần đầy thì TỪ CHỐI — không bao giờ ghi thẳng sang CFS.
+    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path / "cfs")
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_LOCAL_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "MEDIA_LOCAL_MIN_FREE_BYTES", 1024)
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: Disk(2048, 1536, 512))
     pool = FakePool(1, 0)
 
-    with pytest.raises(ValidationError, match="dung lượng trống an toàn"):
+    with pytest.raises(ValidationError, match="Ổ lưu tạm trên máy chủ sắp đầy"):
         await mod.TepKetQuaService(pool).tai_len(
             identity=_ai(), clinic_patient_id=BN, data=PNG
         )
@@ -304,9 +309,10 @@ def _request(than: bytes, *, khuc: int = 7777, dut_giua: bool = False) -> Any:
 
 @pytest.fixture
 def kho(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    from clinicai.services import nhan_tep_luong as mod
+    from clinicai.services import media_service
 
-    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
+    # 01/10/2026: thân request chảy vào ổ VPS (MEDIA_LOCAL_ROOT/.tam).
+    monkeypatch.setattr(media_service, "MEDIA_LOCAL_ROOT", tmp_path)
     monkeypatch.delenv("MEDIA_MARKER", raising=False)
     return tmp_path
 
@@ -434,8 +440,9 @@ async def test_service_doi_ten_tep_da_nhan_khong_chep_lai(
     from clinicai.services import tep_ket_qua_service as mod
     from clinicai.services.nhan_tep_luong import TepDaNhan
 
-    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
-    monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path / "cfs")
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path / "cfs")
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_LOCAL_ROOT", tmp_path)
     monkeypatch.setattr(mod, "_chep_luong", lambda *_a: pytest.fail("không được chép"))
     part = tmp_path / ".tam" / "x.part"
     part.parent.mkdir()
@@ -455,6 +462,10 @@ async def test_service_doi_ten_tep_da_nhan_khong_chep_lai(
     assert not part.exists()
     tren_dia = [p for p in tmp_path.rglob("*.png")]
     assert len(tren_dia) == 1 and tren_dia[0].read_bytes() == PNG
+    # Tải lên KHÔNG chạm CFS; dòng mới mang vi_tri='vps'.
+    assert not (tmp_path / "cfs").exists()
+    sql, _args = next(c for c in pool.calls if "INSERT INTO public.tep_ket_qua" in c[0])
+    assert "'vps'" in sql
 
 
 @pytest.mark.asyncio
@@ -465,14 +476,22 @@ async def test_response_tep_phi_luon_no_store(
     range_header: str | None,
 ) -> None:
     from clinicai.api.v1.routers.cskh import doc_tep_ket_qua
+    from clinicai.services.tep_ket_qua_service import TepMoDoc
 
     path = tmp_path / "ket-qua.pdf"
     path.write_bytes(PDF)
 
-    async def fake_path(*_args: Any, **_kwargs: Any) -> tuple[Path, str, int, str]:
-        return path, "application/pdf", len(PDF), "ket-qua.pdf"
+    async def fake_mo(*_args: Any, **_kwargs: Any) -> TepMoDoc:
+        return TepMoDoc(
+            f=path.open("rb"),
+            kho="vps",
+            duong=path,
+            mime="application/pdf",
+            so_byte=len(PDF),
+            ten="ket-qua.pdf",
+        )
 
-    monkeypatch.setattr(TepKetQuaService, "duong_dan_de_doc", fake_path)
+    monkeypatch.setattr(TepKetQuaService, "mo_de_doc", fake_mo)
     headers = [] if range_header is None else [(b"range", range_header.encode())]
     request = Request(
         {"type": "http", "method": "GET", "path": "/", "headers": headers}
@@ -603,8 +622,7 @@ async def test_tai_len_ghi_dung_nhung_gi_da_nhan() -> None:
 
     with tempfile.TemporaryDirectory() as thu_muc:
         with (
-            patch("clinicai.services.media_service.MEDIA_ROOT", Path(thu_muc)),
-            patch("clinicai.services.tep_ket_qua_service.MEDIA_ROOT", Path(thu_muc)),
+            patch("clinicai.services.media_service.MEDIA_LOCAL_ROOT", Path(thu_muc)),
         ):
             # patient → id mới (không hạn mức = không đếm tổng dung lượng).
             # 28/09: không còn hỏi mốc TRA_KQ của CSKH.

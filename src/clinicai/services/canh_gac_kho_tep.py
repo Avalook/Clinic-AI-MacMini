@@ -102,16 +102,19 @@ def _bay_gio() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def do_dong_bo(goc: Path) -> tuple[float, float]:
+def do_dong_bo(goc: Path, ten_tep: str = TEN_TEP_DO) -> tuple[float, float]:
     """CHẠM ĐĨA (đồng bộ — chỉ gọi ở luồng phụ). Ghi 256KB + fsync, bỏ trang
-    đệm của tệp, đọc lại và so. Trả (giây ghi, giây đọc)."""
+    đệm của tệp, đọc lại và so. Trả (giây ghi, giây đọc).
+
+    ``ten_tep``: mỗi tiến trình đo một tệp RIÊNG (API và container day-tep đo
+    cùng ổ — chung một tệp thì hai bên ghi đè nhau, đọc lại "không khớp" giả)."""
     dau = os.environ.get("MEDIA_MARKER", "").strip()
     if dau and not (goc / dau).is_file():
         # Ổ rớt → thư mục bind trỏ xuống ổ VPS bên dưới: đo ở đó thì "nhanh" giả.
         raise FileNotFoundError("kho chưa gắn (thiếu tệp đánh dấu)")
     thu_muc = goc / THU_MUC_DO
     thu_muc.mkdir(exist_ok=True)
-    tep = thu_muc / TEN_TEP_DO
+    tep = thu_muc / ten_tep
     du_lieu = os.urandom(CO_TEP_DO)
 
     t0 = time.monotonic()
@@ -146,7 +149,9 @@ def do_dong_bo(goc: Path) -> tuple[float, float]:
 _luong: threading.Thread | None = None
 
 
-async def do_kho(goc: Path, *, han: float = HAN_GIAY) -> PhepDo:
+async def do_kho(
+    goc: Path, *, han: float = HAN_GIAY, ten_tep: str = TEN_TEP_DO
+) -> PhepDo:
     """Một lần đo, KHÔNG chặn vòng sự kiện, KHÔNG ném."""
     global _luong
     luc = _bay_gio()
@@ -161,7 +166,9 @@ async def do_kho(goc: Path, *, han: float = HAN_GIAY) -> PhepDo:
         if not kq.set_running_or_notify_cancel():
             return
         try:
-            kq.set_result(do_dong_bo(goc))
+            kq.set_result(
+                do_dong_bo(goc) if ten_tep == TEN_TEP_DO else do_dong_bo(goc, ten_tep)
+            )
         except BaseException as e:  # noqa: BLE001 — chuyển lỗi về vòng sự kiện
             kq.set_exception(e)
 

@@ -28,3 +28,6 @@ docker/rabbitmq/log
 .ai
 context
 final_canon
+
+# Tệp kết quả của khách trên ổ VPS (01/10/2026) — không bao giờ vào ảnh.
+.media-vps

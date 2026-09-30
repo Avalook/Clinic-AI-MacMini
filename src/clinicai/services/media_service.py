@@ -36,7 +36,35 @@ from clinicai.core.kho_tep import chay_tren_kho, han_theo_co
 logger = structlog.get_logger()
 
 #: Trong container: /var/lib/clinicai/media (ổ bind từ ./.media trên máy).
+#: Trên VPS đây là ổ mạng Viettel CFS — kho LÂU DÀI của tệp kết quả.
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", "./.media/production"))
+
+#: Ổ NÓNG TRÊN CHÍNH VPS (Tuyền chốt 30/09/2026): tệp kết quả mới tải lên ghi
+#: vào đây trước (ổ của máy, không qua mạng), container ``day-tep`` đẩy sang CFS
+#: sau khi ổ ấy ổn. Trong container: /var/lib/clinicai/media-vps (ổ bind từ
+#: ``${MEDIA_LOCAL_DIR:-./.media-vps}/${APP_ENV}``). Cùng ``khoa`` tương đối với
+#: CFS — một tệp nằm ở ``MEDIA_LOCAL_ROOT/khoa`` hoặc ``MEDIA_ROOT/khoa``.
+MEDIA_LOCAL_ROOT = Path(os.environ.get("MEDIA_LOCAL_ROOT", "./.media-vps/production"))
+
+
+def goc_vps() -> Path:
+    """Gốc ổ VPS — đọc LÚC GỌI (đổi được trong test bằng monkeypatch)."""
+    return MEDIA_LOCAL_ROOT
+
+
+def goc_cfs() -> Path:
+    """Gốc kho Viettel CFS — đọc LÚC GỌI."""
+    return MEDIA_ROOT
+
+
+def giai_trong(goc: Path, khoa: str) -> Path | None:
+    """``goc/khoa`` đã giải, CHỈ KHI nó nằm trong ``goc``; không thì None.
+
+    Chạm ổ nhẹ (``resolve``) — gọi trong ``chay_tren_kho``."""
+    if not khoa:
+        return None
+    p = (goc / khoa).resolve()
+    return p if p.is_relative_to(goc.resolve()) else None
 
 
 #: KHO GẮN NGOÀI PHẢI THẬT SỰ ĐANG GẮN (Tuyền 16/09/2026: lưu tệp vào Viettel
@@ -252,7 +280,7 @@ def phan_tich_range(rng: str | None, so_byte: int) -> tuple[int, int] | None:
 
 
 def duong_dan_ket_qua(
-    *, clinic_id: str, clinic_patient_id: str, ext: str
+    *, clinic_id: str, clinic_patient_id: str, ext: str, goc: Path | None = None
 ) -> tuple[Path, str]:
     """Đường dẫn trên đĩa + khoá lưu vào database, cho tệp kết quả của CSKH.
 
@@ -261,7 +289,7 @@ def duong_dan_ket_qua(
     tệp của nhau kể cả khi một truy vấn nào đó sai.
     """
     key = f"{clinic_id}/ket-qua/{clinic_patient_id}/{uuid.uuid4().hex}{ext}"
-    return (MEDIA_ROOT / key), key
+    return ((goc if goc is not None else MEDIA_ROOT) / key), key
 
 
 def sniff(data: bytes) -> tuple[str, str]:

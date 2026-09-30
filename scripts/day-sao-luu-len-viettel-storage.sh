@@ -95,6 +95,10 @@ MANIFEST="${MOI_NHAT}.manifest"
 MEDIA="${MOI_NHAT%.sql.gz}_media.tar.gz"
 [ -f "$MEDIA" ] && day_len "$MEDIA" || noi "  (không có tệp media đi kèm)"
 
+# Tệp kết quả CHƯA ĐẨY sang CFS (bản duy nhất đang nằm trên ổ VPS, 01/10/2026).
+TEP_CHUA_DAY="${MOI_NHAT%.sql.gz}_tep-chua-day.tar"
+[ -f "$TEP_CHUA_DAY" ] && day_len "$TEP_CHUA_DAY" || noi "  (không có tệp chờ đẩy CFS)"
+
 # ── 4 · Dọn bản cũ, đếm theo NGÀY ──────────────────────────────────────────
 # Đếm theo ngày chứ không nhân một hằng số: mỗi đêm sinh 2, 3 hay 4 tệp tuỳ có
 # media và manifest hay không, nên nhân lên là xoá nhầm bản của đêm trước.

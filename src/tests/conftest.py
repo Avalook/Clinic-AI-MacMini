@@ -153,6 +153,25 @@ def _siet_quyen_khi_kiem(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _o_vps_rieng(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mỗi bài kiểm một ổ VPS tạm riêng (01/10/2026: tải lên ghi vào
+    ``MEDIA_LOCAL_ROOT`` trước khi đẩy sang CFS).
+
+    Mặc định của biến là ``./.media-vps/production`` — TƯƠNG ĐỐI theo thư mục
+    chạy. Không ghim ở đây thì mọi bài kiểm tải tệp ghi rác vào cây repo và
+    các bài đọc lẫn tệp của nhau. Bài nào cần ổ VPS cụ thể thì tự monkeypatch
+    lại ``media_service.MEDIA_LOCAL_ROOT``.
+    """
+    from clinicai.services import media_service
+
+    monkeypatch.setattr(
+        media_service, "MEDIA_LOCAL_ROOT", tmp_path_factory.mktemp("o-vps")
+    )
+
+
+@pytest.fixture(autouse=True)
 def _clear_identity_cache() -> Iterator[None]:
     """Every test starts with a cold membership cache.
 
