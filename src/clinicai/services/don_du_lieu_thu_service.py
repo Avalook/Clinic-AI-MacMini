@@ -27,6 +27,7 @@ import json
 import os
 import re
 from datetime import date, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +52,7 @@ TOI_DA_KHACH = 200
 #: Thư mục lưu trữ tệp của khách đã xoá — NẰM TRONG gốc kho (cùng ổ, đổi tên là
 #: xong; container api chỉ gắn hai gốc kho, không thấy thư mục anh em bên ngoài).
 THU_MUC_LUU_TRU = ".luu-tru-don-du-lieu-thu"
+CAU_MAT_KHACH = "Có khách không còn tồn tại (có thể vừa bị xoá) — tải lại danh sách."
 
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
@@ -220,15 +222,15 @@ class DonDuLieuThuService:
                         {"ma": k.get("ma"), "ten": k.get("ten")}
                         for k in (_json(r["khach"]) or [])
                     ],
-                    "so_dong": sum(int(v) for v in (_json(r["so_dong"]) or {}).values()),
+                    "so_dong": sum(
+                        int(v) for v in (_json(r["so_dong"]) or {}).values()
+                    ),
                 }
                 for r in lan
             ],
         }
 
-    async def xem_truoc(
-        self, *, identity: StaffIdentity, khach: Any
-    ) -> dict[str, Any]:
+    async def xem_truoc(self, *, identity: StaffIdentity, khach: Any) -> dict[str, Any]:
         ids = chuan_khach(khach)
         async with self._pool.acquire() as conn:
             await self._gac(conn, identity)
@@ -247,9 +249,7 @@ class DonDuLieuThuService:
                 )
                 ngay = await conn.fetch(_SQL_NGAY_CUA_KHACH, identity.clinic_id, ids)
             except asyncpg.NoDataFoundError as loi:
-                raise ValidationError(
-                    "Có khách không còn tồn tại (có thể vừa bị xoá) — tải lại danh sách."
-                ) from loi
+                raise ValidationError(CAU_MAT_KHACH) from loi
             finally:
                 # Chỉ xem: không bao giờ giữ gì của lần gọi này.
                 await tx.rollback()
@@ -270,9 +270,7 @@ class DonDuLieuThuService:
             "nhom": nhom_so_dong(so_dong),
             "tong_dong": sum(so_dong.values()),
             "so_tep": len(kq.get("tep") or []),
-            "bi_chan": [
-                {"id": str(r["khach_id"]), "ten": r["ten"]} for r in chan
-            ],
+            "bi_chan": [{"id": str(r["khach_id"]), "ten": r["ten"]} for r in chan],
         }
 
     # ── Ghi ────────────────────────────────────────────────────────────────
@@ -317,9 +315,7 @@ class DonDuLieuThuService:
                         )
                     )
             except asyncpg.NoDataFoundError as loi:
-                raise ValidationError(
-                    "Có khách không còn tồn tại (có thể vừa bị xoá) — tải lại danh sách."
-                ) from loi
+                raise ValidationError(CAU_MAT_KHACH) from loi
             except asyncpg.LockNotAvailableError as loi:
                 raise ConflictError(
                     "Hệ thống đang bận ghi dữ liệu — chưa xoá gì. Thử lại sau ít giây."
@@ -347,9 +343,7 @@ class DonDuLieuThuService:
         )
         return {
             "lan_id": lan_id,
-            "khach": [
-                {"ma": k["ma"], "ten": k["ten"]} for k in kq.get("khach") or []
-            ],
+            "khach": [{"ma": k["ma"], "ten": k["ten"]} for k in kq.get("khach") or []],
             "nhom": nhom_so_dong(so_dong),
             "tong_dong": sum(so_dong.values()),
             "tep": tep,
@@ -360,7 +354,12 @@ class DonDuLieuThuService:
         """Chuyển tệp của các dòng đã xoá sang thư mục lưu trữ, CẢ HAI ổ (bản ổ
         VPS nếu còn, bản CFS nếu đã đẩy). Ổ chậm / lỗi: ghi lại, không ném —
         dữ liệu đã xoá xong, tệp sót chuyển tay sau theo nhật ký."""
-        ket: dict[str, Any] = {"tong": len(ds), "da_chuyen": 0, "khong_co": 0, "loi": []}
+        ket: dict[str, Any] = {
+            "tong": len(ds),
+            "da_chuyen": 0,
+            "khong_co": 0,
+            "loi": [],
+        }
         for t in ds:
             khoa = str(t.get("khoa") or "")
             chuyen = False
@@ -370,7 +369,7 @@ class DonDuLieuThuService:
             ):
                 try:
                     kq = await chay_tren_kho(
-                        lambda g=goc: chuyen_mot_tep(g, khoa, lan_id), kho=kho
+                        partial(chuyen_mot_tep, goc, khoa, lan_id), kho=kho
                     )
                 except Exception as loi:  # noqa: BLE001 — ghi lại, không làm hỏng lần xoá
                     ket["loi"].append({"khoa": khoa, "kho": kho, "loi": str(loi)[:200]})
@@ -435,7 +434,8 @@ WITH lich AS (
            ARRAY[v.visit_id] AS luot
       FROM visit v
      WHERE v.clinic_id = $1::uuid AND v.appointment_id IS NULL
-       AND (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+       AND (coalesce(v.checked_in_at, v.created_at)
+            AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
            = $2::date
 ), dong AS (SELECT * FROM lich UNION ALL SELECT * FROM luot)
 SELECT d.loai, d.id, d.khach_id, d.luc AT TIME ZONE 'Asia/Ho_Chi_Minh' AS gio,
@@ -469,7 +469,8 @@ SELECT DISTINCT x.khach_id, x.ngay FROM (
      WHERE a.clinic_id = $1::uuid AND a.clinic_patient_id = ANY ($2::uuid[])
     UNION
     SELECT v.clinic_patient_id,
-           (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           (coalesce(v.checked_in_at, v.created_at)
+            AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
       FROM visit v
      WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = ANY ($2::uuid[])
 ) x
@@ -486,7 +487,8 @@ SELECT DISTINCT x.khach_id, x.ngay FROM (
      WHERE a.clinic_id = $1::uuid AND a.clinic_patient_id = ANY ($2::uuid[])
     UNION
     SELECT v.clinic_patient_id,
-           (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           (coalesce(v.checked_in_at, v.created_at)
+            AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
       FROM visit v
      WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = ANY ($2::uuid[])
 ) x
@@ -500,7 +502,8 @@ SELECT DISTINCT v.clinic_patient_id AS khach_id, p.full_name AS ten
   JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = $1::uuid
  WHERE v.clinic_id = $1::uuid
    AND v.clinic_patient_id = ANY ($2::uuid[])
-   AND (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+   AND (coalesce(v.checked_in_at, v.created_at)
+            AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
        = $3::date
    AND v.closed_at IS NULL
    AND v.status IN ('OPEN', 'IN_PROGRESS')

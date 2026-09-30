@@ -75,6 +75,9 @@ INSERT INTO bang_xoa (ten) VALUES
   ('payment_refund_line'), ('pos_outbox'),
   -- Sổ đổi hình thức thu (V7, 30/09) — khoá ngoại tới `payment_cycle`.
   ('payment_cycle_doi_hinh_thuc'),
+  -- 30/09: bảng mới trỏ vào đơn thuốc / chỉ định / lượt (luot_phi_kham không
+  -- có khoá ngoại — thiếu thì còn dòng treo mà Chốt 2 không thấy).
+  ('thuoc_giao_chua_gan_lo'), ('doi_tac_thanh_toan'), ('luot_phu_thu'), ('luot_phi_kham'),
   -- Đơn thuốc
   ('prescription'), ('prescription_allocation'), ('prescription_correction'),
   ('drug_return'),

@@ -29,6 +29,7 @@ import {
   PhoneCall,
   Route,
   FileSpreadsheet,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -263,6 +264,13 @@ export const NAV: NavItem[] = [
     href: "/settings/tai-khoan",
     label: "Thiết lập tài khoản cho nhân viên",
     icon: KeyRound,
+  },
+  // Dọn dữ liệu khách thử (30/09/2026): quản trị viên tick khách theo ngày để
+  // xoá hẳn — chỉ `permission.manage`, máy chủ hỏi lại ở mọi lệnh.
+  {
+    href: "/settings/don-du-lieu-thu",
+    label: "Dọn dữ liệu thử",
+    icon: Trash2,
   },
   { href: "/settings", label: "Cài đặt", icon: Settings },
 ];
@@ -783,6 +791,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/phan-quyen",
       "/nhan-su",
       "/settings/tai-khoan",
+      "/settings/don-du-lieu-thu",
       "/settings",
       "/settings/clinic-config",
       "/settings/day-noi",
