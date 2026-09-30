@@ -109,7 +109,7 @@ async def test_danh_muc_tra_theo_thu_tu_excel_kem_nhan_hang(
     # Nhãn hàng ngắn kiểu Excel (migration 20260923000019); trống thì = tên.
     assert theo["T1_TT_BS"]["ten_ngan"] == "BS"
     assert theo["T1_LETAN"]["ten_ngan"] == theo["T1_LETAN"]["ten"]
-    # Tầng vẫn trả (dữ liệu giữ nguyên) dù bảng lịch không in nữa (27/09 đợt 3).
+    # Tầng = tầng của phòng thật (cột Tầng của bảng lịch, 01/10/2026).
     assert theo["T1_TT_BS"]["tang"] == "Tầng 1"
     # Tên phòng = TÊN PHÒNG HIỆN TẠI theo room_id, không phải chữ `v.phong`.
     ten_phong = await pool.fetchval(

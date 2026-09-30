@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Dựng lại cấu trúc phòng khám: chỉ còn Kim Ngưu, 3 tầng; gán lego theo vai.
 
+ĐÃ CŨ từ 01/10/2026: tên / tầng phòng theo bảng lịch Tuyền gửi nằm ở migration
+20261001200000_phong_theo_bang_lich.sql (Quầy thuốc Tầng 2, gộp hai phòng siêu
+âm…). Chạy lại script này sẽ ĐƯA TÊN PHÒNG VỀ BẢN 27/09 — chỉ để tra lịch sử.
+
     docker cp scripts/kim-nguu-3-tang-2709.py <api>:/tmp/kn.py
     docker cp ky-nang.json <api>:/tmp/ky-nang.json   # KHÔNG trong git (tên người thật)
     docker exec <api> python /tmp/kn.py --ky-nang /tmp/ky-nang.json          # THỬ KHÔ

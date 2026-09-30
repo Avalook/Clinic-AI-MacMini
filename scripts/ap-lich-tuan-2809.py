@@ -36,9 +36,11 @@ from datetime import date
 
 import asyncpg
 
-PHONG_SAN_CHAU = "Phòng Sàn chậu"
-#: Phòng → node thêm riêng (ngoài 5 node khám cho mọi phòng bác sĩ).
-NODE_RIENG = {"Phòng Sản - Biofeedback": ["DICHVU-SIEUAM"]}
+#: Tra phòng theo MÃ (`clinic_room.code`), không theo tên — tên đổi theo bảng
+#: lịch (01/10/2026: "Phòng Sản - Biofeedback" → "Phòng Sản / Siêu âm").
+PHONG_SAN_CHAU = "KN-SANCHAU"
+#: Mã phòng → node thêm riêng (ngoài 5 node khám cho mọi phòng bác sĩ).
+NODE_RIENG = {"KN-SAN-BIO": ["DICHVU-SIEUAM"]}
 TU, DEN = date(2026, 9, 28), date(2026, 10, 4)
 
 # Tên trong bảng → full_name trên prod. None = chưa có / chưa chốt.
@@ -239,7 +241,7 @@ async def main() -> int:
     try:
         phong = await pool.fetchrow(
             "SELECT id::text AS id, clinic_id::text AS cid FROM clinic_room"
-            " WHERE name = $1 AND is_active",
+            " WHERE code = $1 AND is_active",
             PHONG_SAN_CHAU,
         )
         if phong is None:
@@ -288,7 +290,7 @@ async def main() -> int:
         ]
         phong_bs = await pool.fetch(
             """
-            SELECT r.id::text AS id, r.name,
+            SELECT r.id::text AS id, r.name, r.code,
                    array(SELECT rn.node_code FROM clinic_room_node rn
                           WHERE rn.room_id = r.id) AS co
               FROM clinic_room r
@@ -302,7 +304,7 @@ async def main() -> int:
         )
         them_node: list[tuple[str, str, str]] = []  # (room_id, tên phòng, node)
         for r in phong_bs:
-            for n in [*kham, *NODE_RIENG.get(r["name"], [])]:
+            for n in [*kham, *NODE_RIENG.get(r["code"], [])]:
                 if n not in (r["co"] or []):
                     them_node.append((r["id"], r["name"], n))
         print(f"\n1. Bác sĩ đa năng — thêm {len(them_node)} node:")

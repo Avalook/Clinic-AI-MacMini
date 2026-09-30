@@ -12,7 +12,7 @@
 // người sang việc mới là cả màn xếp lịch đứng lại, và không ai tự mở được.
 
 import { useState } from "react";
-import { VI_TRI_LICH_KHAM, type Station } from "../../../lib/roster";
+import { VI_TRI_LICH_KHAM, nhanDayDu, type Station } from "../../../lib/roster";
 import { ROLE_LABEL, type ClinicRole } from "../../../lib/roles";
 import { LABEL } from "../form-ui";
 
@@ -121,7 +121,7 @@ export default function PhamViViTriCard({
             {STATIONS.map((s) => (
               <tr key={s.key} className="border-t border-line">
                 <td className="sticky left-0 bg-surface px-2 py-1.5 text-ink">
-                  {s.label}
+                  {nhanDayDu(s)}
                 </td>
                 {VAI_XEP_CA.map((v) => {
                   const key = `${s.key}|${v}`;
@@ -132,7 +132,7 @@ export default function PhamViViTriCard({
                         checked={bang.get(key) ?? false}
                         disabled={dangLuu === key}
                         onChange={() => void doi(s.key, v)}
-                        aria-label={`${ROLE_LABEL[v]} — ${s.label}`}
+                        aria-label={`${ROLE_LABEL[v]} — ${nhanDayDu(s)}`}
                         className="size-4 accent-[var(--color-brand-600)]"
                       />
                     </td>

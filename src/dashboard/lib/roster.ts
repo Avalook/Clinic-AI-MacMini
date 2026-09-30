@@ -19,6 +19,10 @@ export interface Station {
   phong: string;
   /** Mã phòng (`clinic_room.code`) — khoá màu nền. Rỗng = không gắn phòng. */
   maPhong: string;
+  /** Tầng — cột "Tầng" của bảng lịch. Máy chủ trả TẦNG CỦA PHÒNG THẬT
+   *  (`clinic_room.floor` theo `room_id`, rơi về chữ `vi_tri_lam_viec.tang`).
+   *  Rỗng = không khai tầng (Trưởng ca) — vẫn có hàng. */
+  tang: string;
   /** Ai đứng được chỗ này. Khớp `vi_tri_lam_viec.nhom_nghe` trong database. */
   /** CHUNG = bác sĩ hay điều dưỡng đều đứng được (xem migration 20260916000012). */
   nhom: "BAC_SI" | "DIEU_DUONG" | "DOI_TAC" | "CHUNG";
@@ -33,16 +37,18 @@ export interface Station {
 // Excel), và trang truyền xuống bảng. Nhãn hàng ngắn kiểu Excel ("BS", "Thư
 // ký") nằm ở cột `ten_ngan` (migration 20260923000019).
 //
-// KHÔNG CÒN TẦNG (27/09/2026 đợt 3). Phòng khám: "Bỏ hiển thị tầng 1, 2, 4 ở
-// phần Lịch làm việc vì bố cục phòng thay đổi liên tục". Máy chủ vẫn trả `tang`
-// (cột dữ liệu giữ nguyên, màn cấu hình dùng) nhưng bảng lịch không đọc nó nữa.
+// CỘT TẦNG TRỞ LẠI (01/10/2026). 27/09 phòng khám bỏ tầng vì "bố cục phòng thay
+// đổi liên tục"; bảng lịch tuần 28/09 Tuyền gửi lại có cột Tầng → Phòng → Vị trí.
+// Lần này tầng KHÔNG đọc chữ `vi_tri_lam_viec.tang` (chữ tự do, không màn nào
+// sửa) mà đọc tầng của PHÒNG THẬT — đổi tầng ở Cấu trúc phòng khám là bảng lịch
+// đổi theo, cùng luật với tên phòng.
 
 /** Một dòng danh mục như máy chủ trả. */
 export interface ViTriDb {
   code: string;
   ten: string;
   ten_ngan: string;
-  /** Giữ trong dữ liệu, KHÔNG hiện (27/09/2026 đợt 3). */
+  /** Tầng của phòng thật (máy chủ đã rơi về chữ cũ khi không gắn phòng). */
   tang?: string;
   phong: string;
   /** Mã phòng gắn với vị trí (`clinic_room.code`); rỗng = không gắn phòng. */
@@ -60,6 +66,7 @@ export function viTriTuDb(ds: readonly ViTriDb[] | null | undefined): Station[] 
     short: v.ten_ngan || v.ten,
     phong: v.phong ?? "",
     maPhong: v.ma_phong ?? "",
+    tang: v.tang ?? "",
     nhom: (NHOM_HOP_LE.has(v.nhom) ? v.nhom : "DIEU_DUONG") as Station["nhom"],
   }));
 }
@@ -74,6 +81,7 @@ export const VI_TRI_LICH_KHAM: Station = {
   short: "Lịch khám",
   phong: "",
   maPhong: "",
+  tang: "",
   nhom: "BAC_SI",
 };
 
@@ -86,7 +94,7 @@ export interface NhomPhong {
 
 /** Gom vị trí theo PHÒNG, giữ nguyên thứ tự danh mục.
  *
- *  KHÔNG LỌC GÌ. Bản trước (`phanTang`) gom theo tầng và BỎ mọi vị trí không
+ *  KHÔNG LỌC GÌ. Bản 23/09 (`phanTang` cũ) gom theo tầng và BỎ mọi vị trí không
  *  khai tầng — Trưởng ca (điều phối) và mọi vị trí quản lý thêm ở màn Dây nối
  *  (mã `VT-…`, không có ô tầng) biến khỏi bảng lịch mà không ai biết. Danh mục
  *  máy chủ trả đã lọc `is_active`; ở đây vị trí nào có trong danh mục là có hàng.
@@ -104,9 +112,37 @@ export function phanPhong(stations: readonly Station[]): NhomPhong[] {
   return ra;
 }
 
+/** Vị trí LIỀN NHAU cùng tầng → một nhóm — cột "Tầng" gộp ô, bên trong gom
+ *  theo phòng như `phanPhong`. */
+export interface NhomTang {
+  tang: string;
+  phongs: NhomPhong[];
+  /** Tổng số hàng (vị trí) của tầng — rowSpan ô Tầng. */
+  soViTri: number;
+}
+
+/** Gom vị trí theo TẦNG rồi theo PHÒNG, giữ nguyên thứ tự danh mục (01/10/2026).
+ *
+ *  Cùng luật `phanPhong`: KHÔNG LỌC (vị trí không tầng — Trưởng ca — vẫn có
+ *  hàng, ô Tầng để "—"), chỉ gộp hàng LIỀN NHAU. Một nhóm phòng không bao giờ
+ *  vắt qua hai tầng: tách tầng trước, gom phòng trong từng tầng sau. */
+export function phanTang(stations: readonly Station[]): NhomTang[] {
+  const khoi: Station[][] = [];
+  for (const s of stations) {
+    const cuoi = khoi[khoi.length - 1];
+    if (cuoi && cuoi[0].tang === s.tang) cuoi.push(s);
+    else khoi.push([s]);
+  }
+  return khoi.map((ds) => ({
+    tang: ds[0].tang,
+    phongs: phanPhong(ds),
+    soViTri: ds.length,
+  }));
+}
+
 /** Màu nền theo PHÒNG — đúng mã màu cột "Phòng" của file Excel (xem token
  *  `--color-lich-*` trong globals.css). Phòng không có ở đây thì nền trắng, như
- *  Quầy thuốc và Phòng Sản - Biofeedback trong Excel.
+ *  Quầy thuốc và Phòng Sản / Siêu âm trong Excel.
  *
  *  KHOÁ THEO MÃ PHÒNG (`clinic_room.code`), KHÔNG THEO TÊN (27/09/2026 đợt 3).
  *  Bản trước khoá "Phòng thủ thuật" — quản lý đổi tên thành "Thủ thuật/Sàn
@@ -119,6 +155,8 @@ export const MAU_PHONG: Record<string, string> = {
   "KN-LAYMAU": "bg-lich-tiep-don",
   "KN-NOITIET": "bg-lich-noi-tiet",
   "KN-THUTHUAT": "bg-lich-thu-thuat",
+  // KN-SA-T1 đã gộp vào KN-SA1 "Phòng siêu âm 2 máy" (01/10/2026) — giữ màu
+  // cho lịch tuần cũ còn trỏ phòng ấy.
   "KN-SA-T1": "bg-lich-sieu-am",
   "KN-SA1": "bg-lich-sieu-am",
   "KN-SA2": "bg-lich-sieu-am",
@@ -131,10 +169,23 @@ export function mauPhong(maPhong: string | null | undefined): string {
   return maPhong && Object.hasOwn(MAU_PHONG, maPhong) ? MAU_PHONG[maPhong] : "bg-surface";
 }
 
-/** Tên đầy đủ theo mã vị trí (kèm cột Lịch khám). */
+/** Tên vị trí ĐỦ NGHĨA khi đứng một mình (ngoài lưới lịch): "Phòng · Vị trí".
+ *
+ *  Tên theo bảng lịch Tuyền gửi (01/10/2026) là nhãn của một HÀNG trong một
+ *  PHÒNG — "BS", "Điều dưỡng 1", "Thư ký" lặp ở nhiều phòng. Trong lưới lịch
+ *  cột Phòng đứng cạnh nên đủ; ở chỗ in tên vị trí một mình (góc nhìn Theo
+ *  người, ô chọn đổi người, tiêu đề ô xếp ca, bảng phạm vi vị trí) phải kèm
+ *  phòng, không thì "BS · Tối" không biết phòng nào. Tên đã chứa tên phòng thì
+ *  không lặp. */
+export function nhanDayDu(s: Pick<Station, "label" | "phong">): string {
+  if (!s.phong || s.label.includes(s.phong)) return s.label;
+  return `${s.phong} · ${s.label}`;
+}
+
+/** Tên đủ nghĩa theo mã vị trí (kèm cột Lịch khám) — xem `nhanDayDu`. */
 export function nhanViTri(stations: readonly Station[]): Record<string, string> {
   return Object.fromEntries(
-    [VI_TRI_LICH_KHAM, ...stations].map((s) => [s.key, s.label]),
+    [VI_TRI_LICH_KHAM, ...stations].map((s) => [s.key, nhanDayDu(s)]),
   );
 }
 
