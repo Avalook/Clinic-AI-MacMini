@@ -228,6 +228,9 @@ EVENT_LABELS: dict[str, str] = {
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
     "service.routing_invalidated": "Phân phòng mất hiệu lực — cần điều phối lại",
     "service.room_transferred": "Trưởng ca chuyển phòng khi dịch vụ đang làm",
+    # V4 (30/09/2026): làm dịch vụ không theo thứ tự.
+    "service.patient_moved": "Khách chuyển sang phòng khác khi đang làm dịch vụ",
+    "service.start_cancelled": "Huỷ lần bắt đầu làm dịch vụ bấm nhầm",
     "service.started": "Người thực hiện nhận khách làm dịch vụ",
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",

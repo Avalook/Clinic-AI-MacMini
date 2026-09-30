@@ -46,6 +46,10 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.not_performed": ["ly_do", "da_thu_tien"],
     "service.interrupted": ["attempt_no", "ly_do"],
     "service.retry_prepared": [],
+    # V4 (30/09/2026): khách chuyển phòng giữa chừng / huỷ bắt đầu nhầm — chỉ
+    # mã phòng + số lần làm, không chữ lâm sàng.
+    "service.patient_moved": ["attempt_no", "from_room_id", "to_room_id"],
+    "service.start_cancelled": ["attempt_no", "room_id"],
     "service.routing_invalidated": ["ly_do"],
     "service.routed": ["room_id", "ly_do", "tu_dong", "nguon"],
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành

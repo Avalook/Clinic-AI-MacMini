@@ -163,14 +163,26 @@ export async function proxyJsonToBackend(
     typeof payload === "object" &&
     "message" in payload
   ) {
-    const { message: msg, truong } = payload as { message?: string; truong?: unknown };
+    const {
+      message: msg,
+      truong,
+      chi_tiet: chiTiet,
+    } = payload as { message?: string; truong?: unknown; chi_tiet?: unknown };
     // `truong` = tên ô lỗi (27/09/2026 — màn đo sinh hiệu tô đúng ô). Chỉ chép
     // khi máy chủ gửi; mọi lỗi khác giữ nguyên dạng `{ error }`.
     const oLoi = Array.isArray(truong)
       ? truong.filter((t): t is string => typeof t === "string")
       : [];
+    // `chi_tiet` = dữ liệu máy đọc đi kèm lỗi (30/09/2026, V4 — vd PATIENT_BUSY
+    // mang tên phòng đang giữ khách để màn hỏi "chuyển sang đây?").
+    const coChiTiet =
+      chiTiet !== null && typeof chiTiet === "object" && !Array.isArray(chiTiet);
     return NextResponse.json(
-      { error: msg ?? "Lỗi xử lý", ...(oLoi.length > 0 ? { truong: oLoi } : {}) },
+      {
+        error: msg ?? "Lỗi xử lý",
+        ...(oLoi.length > 0 ? { truong: oLoi } : {}),
+        ...(coChiTiet ? { chi_tiet: chiTiet } : {}),
+      },
       { status: res.status },
     );
   }
