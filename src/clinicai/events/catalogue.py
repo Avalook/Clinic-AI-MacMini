@@ -329,12 +329,17 @@ class DoiTacNhanViec(PayloadSuKien):
     KHACH_DA_CHON (đối tác tự lấy mẫu VÀ tự thu tiền — khách vừa chốt làm ở
     quầy, 27/09/2026) · DA_LAY_MAU (điều dưỡng lấy mẫu xong ở phòng) ·
     MAU_GUI_DOI_TAC (dịch vụ thu hộ đối tác làm ở phòng CỦA phòng khám — vd Giải
-    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026)."""
+    phẫu bệnh ở phòng Thủ thuật — vừa xong, mẫu gửi đối tác; 29/09/2026).
+
+    `thu_sau` (V10, 30/09/2026 — làm trước, thu sau): KHACH_DA_CHON của dịch vụ
+    PHÒNG KHÁM thu hộ mà quầy chưa thu — đối tác đến lấy mẫu, KHÔNG thu tiền
+    khách (quầy thu cuối buổi)."""
 
     visit_id: str
     service_order_id: str
     service_name: str | None = None
     ly_do: str
+    thu_sau: bool = False
 
 
 class DoiTacDaThuTien(PayloadSuKien):

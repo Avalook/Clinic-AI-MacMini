@@ -79,19 +79,19 @@ async def test_truong_ca_dat_phong_truoc_thu_roi_quay_doi_duoc_va_co_lich_su(
         truong_ca = await _nguoi(conn, ca.loc, "TRUONG_CA")
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
-    await _chon(pool, ca, visit, [order])
     svc = ServiceRoutingService(pool)
 
-    # Chưa thu: máy chủ nói trưởng ca đặt PHÒNG DỰ KIẾN; lễ tân không có lối này.
+    # Khách CHƯA CHỐT (V10: chưa thu không còn là lý do): trưởng ca đặt PHÒNG
+    # DỰ KIẾN; lễ tân không có lối này.
     goi_y = await svc.recommend(order_id=order, identity=truong_ca)
     assert goi_y["che_do"] == "DU_KIEN"
-    assert goi_y["cau_che_do"] == "Phòng dự kiến — xếp khi thu tiền xong."
+    assert goi_y["cau_che_do"] == "Phòng dự kiến — xếp khi khách chốt dịch vụ."
     assert (await svc.recommend(order_id=order, identity=ca.le_tan))["che_do"] == (
         "KHONG"
     )
     assert (await _mot_dv(pool, visit, order))["trang_thai"]["ma"] == "CHUA_THU"
 
-    # Lệnh xếp thường vẫn chặn vì chưa trả tiền — trưởng ca đi đường dự kiến.
+    # Lệnh xếp thường chặn vì khách chưa chốt — trưởng ca đi đường dự kiến.
     kq = await svc.dat_phong_du_kien(
         order_id=order, room_id=phong_hai, identity=truong_ca, nguon="truong_ca"
     )
@@ -105,7 +105,9 @@ async def test_truong_ca_dat_phong_truoc_thu_roi_quay_doi_duoc_va_co_lich_su(
             order_id=order, room_id=ca.phong, identity=ca.le_tan, nguon="truong_ca"
         )
 
-    # Thu xong → H4 xếp ĐÚNG phòng trưởng ca đặt, sự kiện ghi ai đặt trước.
+    # Khách chốt → H4 xếp ĐÚNG phòng trưởng ca đặt, sự kiện ghi ai đặt trước;
+    # thu tiền sau đó không xếp lại.
+    await _chon(pool, ca, visit, [order])
     await _thu(pool, visit, ca.le_tan)
     await chay_hanh_trinh(pool)
     d = await _don(pool, order)
@@ -131,7 +133,7 @@ async def test_truong_ca_dat_phong_truoc_thu_roi_quay_doi_duoc_va_co_lich_su(
     assert (await _don(pool, order))["room_id"] == ca.phong
     ls = await _lich_su(pool, visit, order, ca.le_tan)
     assert [x["nguon"] for x in ls] == ["tu_dong", "quay_thu"]
-    assert "theo phòng trưởng ca chọn trước khi thu" in ls[0]["cau"]
+    assert "theo phòng trưởng ca chọn trước" in ls[0]["cau"]
     assert ls[1]["cau"].startswith("Quầy thu đổi phòng Phòng hai → Phòng thử")
     assert ls[1]["luc"] and ls[1]["ai"] == ca.le_tan.full_name
 

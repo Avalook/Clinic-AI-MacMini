@@ -55,6 +55,8 @@ async def test_thu_ngan_da_thu_ma_chua_co_phong_bang_noi_thang(
     ca = await _dung(pool)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    # V10: người CHỐT (lễ tân) cũng không có quyền xếp — để xét đúng đường thu.
+    await _thu_khoi_dieu_phoi(pool, ca.le_tan)
     await _chon(pool, ca, visit, [order])
     await _thu_khoi_dieu_phoi(pool, ca.thu_ngan)
     await _thu(pool, visit, ca.thu_ngan)  # người thu đã bị tắt khối Điều phối

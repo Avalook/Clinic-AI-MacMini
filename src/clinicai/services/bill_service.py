@@ -587,12 +587,16 @@ THU_CU_KHONG_TRUY_DUOC = (
     " tài chính trước khi thu tiếp"
 )
 
-#: Chỉ định còn tính tiền được: chưa huỷ / chưa "không làm", chưa bắt đầu, chưa
-#: kết thúc. Đã bắt đầu hoặc đã làm xong mà chưa có tiền là BẤT THƯỜNG — để
-#: FinanceGate đưa đi đối soát, không thu bù ở quầy (CHECKPOINT §3).
+#: Chỉ định còn tính tiền được: chưa huỷ / chưa "không làm" — kể cả ĐANG LÀM
+#: hay ĐÃ LÀM XONG. V10 (Tuyền 30/09/2026, "làm trước, thu sau"): khách làm
+#: trước rồi cuối buổi mới trả, nên dịch vụ đã làm mà chưa thu vẫn là khoản của
+#: quầy (trước: coi là bất thường, rơi khỏi hoá đơn — tức là MẤT TIỀN im lặng và
+#: check-out không còn báo nợ). Dừng giữa chừng (INTERRUPTED) chưa vào: chưa ai
+#: quyết làm tiếp hay thôi (FinanceGate để người đối soát).
 _CON_TINH_TIEN = """
-    o.exec_status IN ('authorized', 'assigned')
-    AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+    o.exec_status IN ('authorized', 'assigned', 'in_progress', 'performed')
+    AND coalesce(o.execution_status, 'PENDING')
+        IN ('PENDING', 'IN_PROGRESS', 'COMPLETED')
 """
 
 _GIA_CHI_DINH = """
@@ -713,9 +717,10 @@ async def hoa_don_con_no(
     Chỉ những gì phòng khám CÒN phải thu của lượt:
       * tiền khám — nếu chưa có lần thu nào đang giữ phủ nó;
       * chỉ định khách đã CHỌN (SELECTED), còn tính tiền được, chưa được phủ.
-    Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, đã
-    bắt đầu hoặc bị gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu
-    (kể cả đã huỷ phiếu hay đã hoàn — không tự thu lại).
+    Không vào: chưa chọn / không chọn / dòng cũ NULL, đã huỷ, không làm, bị
+    gián đoạn, đối tác tự thu, đang chờ xác minh, đã từng thu (kể cả đã huỷ
+    phiếu hay đã hoàn — không tự thu lại). ĐANG LÀM / ĐÃ LÀM XONG mà chưa thu
+    thì VẪN vào (V10 — làm trước, thu sau).
 
     ``coi_nhu_chon`` (quầy thu một hoá đơn, 27/09/2026): các chỉ định CÒN CHỜ
     KHÁCH QUYẾT được tính NHƯ ĐÃ CHỌN — hoá đơn DỰ KIẾN nếu khách làm đúng như

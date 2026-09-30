@@ -32,9 +32,12 @@ Kể theo một khách thật cho dễ theo: **chị Lan**, đặt khám Nội t
   chưa làm → mang sang, vào thẳng hàng của phòng. Chưa trả → chờ lễ tân thu tiền (H4).
 - **H3 — Tư vấn xong → bác sĩ chính.** Bác sĩ tư vấn bấm Xong (đã ghi vào chính bệnh án
   của lượt) → chị Lan vào **hàng chờ khám thật** của bác sĩ chính.
-- **H4 — Trả tiền xong → tự xếp phòng.** Lễ tân thu tiền dịch vụ → hệ thống xếp chị vào
-  phòng vắng nhất làm được dịch vụ đó (thay cho người vừa thu tiền, dùng quyền của người
-  ấy). Ai có quyền điều phối đổi lại được bất cứ lúc nào, lần sau đè lần trước.
+- **H4 — Chốt dịch vụ → tự xếp phòng (V10 30/09: làm trước, thu sau).** Lễ tân chốt
+  dịch vụ khách làm (chưa thu cũng được — nút "Chốt, thu sau" ở quầy) → hệ thống xếp chị
+  vào phòng vắng nhất làm được dịch vụ đó (thay cho người vừa chốt, dùng quyền của người
+  ấy). Thu tiền xong chạy lại lệnh ấy bằng quyền người thu (vô hại nếu đã xếp). Phòng
+  bắt đầu / làm xong khi chưa thu được; cuối buổi quầy thu, check-out vẫn nhắc còn nợ.
+  Ai có quyền điều phối đổi lại được bất cứ lúc nào, lần sau đè lần trước.
 - **H5 — Phòng làm xong / có kết quả → bác sĩ chính.** Bác sĩ chính thấy "có kết quả
   mới", chị Lan vào hàng **đọc kết quả** của bác sĩ chính.
 - **H6 — Khách về mà còn việc dở → CSKH theo dõi.** Chị Lan về (check-out hoặc bỏ về)
