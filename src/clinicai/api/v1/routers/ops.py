@@ -14,7 +14,13 @@ from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
-from clinicai.services import canh_gac, canh_gac_kho_tep, kho_loi, nhat_ky_van_hanh
+from clinicai.services import (
+    canh_gac,
+    canh_gac_kho_tep,
+    kho_loi,
+    nhat_ky_van_hanh,
+    traffic_service,
+)
 from clinicai.services.ops_status import OpsStatusService
 
 router = APIRouter()
@@ -183,3 +189,23 @@ async def loi_trinh_duyet(
         pool, vi_tri=body.vi_tri, kieu=body.kieu, thong_diep=body.thong_diep
     )
     return {"ok": True}
+
+
+class TrafficPinPayload(BaseModel):
+    pin: str = Field(default="", max_length=50)
+
+
+@router.post("/ops/traffic")
+async def lay_bao_cao_traffic(
+    body: TrafficPinPayload,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+) -> dict[str, object]:
+    """Báo cáo lưu lượng truy cập hệ thống (GoAccess). Yêu cầu mã PIN quản trị."""
+    if not traffic_service.xac_thuc_ma_pin(body.pin):
+        raise ValidationError("Mã PIN không chính xác. Vui lòng kiểm tra lại.")
+
+    html = traffic_service.doc_bao_cao_traffic()
+    if html is None:
+        raise NotFoundError("Báo cáo lưu lượng chưa sẵn sàng. Vui lòng thử lại sau ít phút.")
+
+    return {"ok": True, "html": html}

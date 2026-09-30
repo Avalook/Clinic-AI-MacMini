@@ -12,6 +12,7 @@ import SucKhoeApi from "./SucKhoeApi";
 import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
 import ToanCanh from "./ToanCanh";
+import LuuLuongOps from "./LuuLuongOps";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,9 @@ const TAB = [
   { ma: "he-thong", ten: "Hệ thống" },
   { ma: "api", ten: "Sức khoẻ API" },
   { ma: "toan-canh", ten: "Toàn cảnh" },
-  // Theo dõi lỗi Pha 1 (27/09/2026): bộ canh gác + kho lỗi tự dựng, nhật ký ai
-  // làm gì / bao lâu. Xem services/canh_gac.py, kho_loi.py, nhat_ky_van_hanh.py.
   { ma: "loi", ten: "Lỗi & cảnh báo" },
   { ma: "nhat-ky", ten: "Nhật ký vận hành" },
+  { ma: "traffic", ten: "Lưu lượng & Thiết bị" },
 ] as const;
 type MaTab = (typeof TAB)[number]["ma"];
 
@@ -57,6 +57,8 @@ export default async function OpsPage({
         <LoiCanhBao />
       ) : dangMo === "nhat-ky" ? (
         <NhatKyVanHanh />
+      ) : dangMo === "traffic" ? (
+        <LuuLuongOps />
       ) : (
         <OpsCenter />
       )}
