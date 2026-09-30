@@ -517,9 +517,11 @@ export default function PhieuKhamLuot({
           <LichSuSuaPhieu visitId={visitId} dinhNghia={phieu} />
           {/* Tick "Làm trước – thu sau" (30/09/2026 tối): dây "thu trước khi
               làm" bật thì chưa thu chỉ lượt có tick mới xếp phòng / làm. Ô tự
-              ẩn khi dây tắt; cờ bấm được do máy chủ trả. */}
+              ẩn khi dây tắt; cờ bấm được do máy chủ trả. Màn hẹp: cột phải là
+              thanh cuộn ngang — khoá bề rộng để chữ xuống dòng (bấm thật 375
+              ngày 30/09: câu dài kéo ô ra ~1000px, nút In trôi khỏi màn). */}
           {choGhi ? (
-            <div className="lg:w-full">
+            <div className="w-72 shrink-0 lg:w-full">
               <OLamTruocThuSau visitId={visitId} />
             </div>
           ) : null}

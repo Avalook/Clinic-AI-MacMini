@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import structlog
@@ -43,6 +43,9 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
+
+if TYPE_CHECKING:
+    from clinicai.services.bill_service import HoaDon
 
 logger = structlog.get_logger()
 
@@ -317,7 +320,7 @@ class CashierBoardService:
         # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
         # nhân số lượng). Chỉ tính cho khoản CHƯA thu.
-        from clinicai.services.bill_service import HoaDon, tinh_hoa_don
+        from clinicai.services.bill_service import tinh_hoa_don
         from clinicai.services.quay_thu_service import PhongQuay
         from clinicai.services.service_routing_service import da_tra_cho_vao_phong
         from clinicai.services.service_selection_service import cho_khach_quyet
@@ -379,13 +382,7 @@ class CashierBoardService:
                     )
                     if k == "dich_vu":
                         tinh_dv = tinh
-                        no_theo_chi_dinh[item["visit_id"]] = {
-                            d.source_id: (
-                                int(d.thanh_tien) if d.thanh_tien is not None else None
-                            )
-                            for d in tinh.dong_thu
-                            if d.source_type == "service_order"
-                        }
+                        no_theo_chi_dinh[item["visit_id"]] = _no_theo_chi_dinh(tinh)
                     if k == "dich_vu" and not tinh.dong and not tinh.dong_doi_tac:
                         continue
                     # Chỉ còn dịch vụ ĐỐI TÁC TỰ THU (27/09/2026): hiện để lễ tân
@@ -445,6 +442,15 @@ class CashierBoardService:
         return out
 
 
+def _no_theo_chi_dinh(hd: HoaDon) -> dict[str, int | None]:
+    """Chỉ định → tiền còn nợ, từ các dòng thu của MỘT hoá đơn dịch vụ đã dựng."""
+    return {
+        d.source_id: (int(d.thanh_tien) if d.thanh_tien is not None else None)
+        for d in hd.dong_thu
+        if d.source_type == "service_order"
+    }
+
+
 async def _lam_truoc_va_no_khac(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
@@ -481,18 +487,11 @@ async def _lam_truoc_va_no_khac(
     khac = [k for k, co in (("dich_vu", not want_svc), ("thuoc", not want_rx)) if co]
     for item in out["items"]:
         vid = item["visit_id"]
-        lt = dict(lam_truoc.get(vid) or {})
-        dv = dich_vu.get(vid)
-        con_no = sum(x for x in no_theo_chi_dinh.get(vid, {}).values() if x)
-        if dv is not None:
-            lt["dich_vu"] = dv["dich_vu"]
-            lt["nhom"] = (
-                "LAM_XONG_THU_TIEN"
-                if dv["da_lam_xong_het"] and con_no > 0
-                else "LAM_TRUOC"
-            )
-        item["lam_truoc"] = lt or None
         no_khac: dict[str, Any] = {}
+        # Tiền còn nợ từng chỉ định: quầy dịch vụ đã dựng sẵn; quầy thuốc lấy từ
+        # hoá đơn dịch vụ dựng cho "Còn nợ dịch vụ" dưới đây (bấm thật 30/09:
+        # quầy thuốc hiện "—" ở mọi dịch vụ làm trước vì chưa có bảng này).
+        no_dv = dict(no_theo_chi_dinh.get(vid) or {})
         # Chỉ lượt đang có mặt ở quầy này (quầy thuốc: có đơn; quầy dịch vụ: có
         # dịch vụ) — không dựng hoá đơn cho mọi lượt trong ngày.
         co_mat = bool(item.get("drugs") if want_rx else item.get("services"))
@@ -504,7 +503,23 @@ async def _lam_truoc_va_no_khac(
             )
             if hd.dong_thu and hd.tong > 0:
                 no_khac[k] = hd.cho_api()
+            if k == "dich_vu":
+                no_dv = _no_theo_chi_dinh(hd)
         item["no_khac"] = no_khac
+        lt = dict(lam_truoc.get(vid) or {})
+        dv = dich_vu.get(vid)
+        con_no = sum(x for x in no_dv.values() if x)
+        if dv is not None:
+            lt["dich_vu"] = [
+                {**x, "con_no": no_dv.get(x["id"])} if x["con_no"] is None else x
+                for x in dv["dich_vu"]
+            ]
+            lt["nhom"] = (
+                "LAM_XONG_THU_TIEN"
+                if dv["da_lam_xong_het"] and con_no > 0
+                else "LAM_TRUOC"
+            )
+        item["lam_truoc"] = lt or None
     # Lượt đã làm xong hết (đã tick) mà còn nợ lên đầu — thứ tự còn lại giữ nguyên.
     out["items"].sort(
         key=lambda i: (i.get("lam_truoc") or {}).get("nhom") != "LAM_XONG_THU_TIEN"

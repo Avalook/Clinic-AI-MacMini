@@ -361,9 +361,14 @@ async def test_quay_thuoc_thay_no_dich_vu_va_thu_duoc(
             thuoc,
             ca.bac_si.staff_id,
         )
+    # Lượt đã tick: quầy thuốc cũng hiện tiền còn nợ TỪNG dịch vụ làm trước
+    # (bấm thật 30/09: trước đây hiện "—" vì bảng nợ chỉ dựng ở quầy dịch vụ).
+    await LamTruocThuSauService(pool).dat(visit_id=visit, bat=True, identity=ca.le_tan)
     board = CashierBoardService(pool)
     b = await board.board(identity=ca.thu_ngan, modes=["thuoc"])
     [luot] = [i for i in b["items"] if i["visit_id"] == visit]
+    [dv_lt] = luot["lam_truoc"]["dich_vu"]
+    assert (dv_lt["id"], dv_lt["con_no"]) == (order, 300_000)
     no_dv = luot["no_khac"]["dich_vu"]
     async with pool.acquire() as conn:
         con_no = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=visit)
