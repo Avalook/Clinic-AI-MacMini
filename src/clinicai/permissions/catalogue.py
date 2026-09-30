@@ -1000,7 +1000,14 @@ MAN: dict[str, Man] = {
         _lego(
             "nhan_su",
             "Nhân sự & phân quyền",
-            ["/nhan-su", "/settings/tai-khoan", "/settings/new-user", "/phan-quyen"],
+            [
+                "/nhan-su",
+                "/settings/tai-khoan",
+                "/settings/new-user",
+                "/phan-quyen",
+                # Dọn dữ liệu khách thử (30/09/2026) — cửa `permission.manage`.
+                "/settings/don-du-lieu-thu",
+            ],
             ["nhan_su", "quan_tri_quyen"],
             "Quản lý",
         ),

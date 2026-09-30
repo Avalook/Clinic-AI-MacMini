@@ -465,6 +465,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // quản lý hệ thống" của Trưởng ca.
   "/settings": ["MANAGEMENT"],
   "/settings/tai-khoan": ["MANAGEMENT"],
+  // Dọn dữ liệu khách thử (30/09/2026) — quản trị cao nhất.
+  "/settings/don-du-lieu-thu": ["MANAGEMENT"],
 };
 
 /** ẨN KHỎI THANH BÊN — NHƯNG KHÔNG CHẶN ĐƯỜNG VÀO.
@@ -643,6 +645,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/settings/tai-khoan": ["account.manage"],
   "/settings/new-user": ["account.manage"],
   "/phan-quyen": ["permission.manage"],
+  "/settings/don-du-lieu-thu": ["permission.manage"],
   "/ops": ["ops.view"], // 20 Vận hành hệ thống
   "/audit-log": ["audit.view"],
   "/doi-tac": ["partner.work"], // 21 Đối tác

@@ -66,7 +66,7 @@ ssh "$HOST" "test \$(find '$MOI' -mmin -10 -size +10k | wc -l) -eq 1" || {
 echo "   bản sao lưu: $MOI"
 
 echo "== 2/5 Dừng các container đang ghi =="
-DUNG="$(ssh "$HOST" "docker ps --format '{{.Names}}' | grep -E '^clinicai_prod-(api|worker|su-kien|pos-relay|notification-relay)-[0-9]+$' | tr '\n' ' '")"
+DUNG="$(ssh "$HOST" "docker ps --format '{{.Names}}' | grep -E '^clinicai_prod-(api|worker|su-kien|day-tep|pos-relay|notification-relay)-[0-9]+$' | tr '\n' ' '")"
 [ -n "$DUNG" ] || { echo "!! Không tìm thấy container api — sai máy?" >&2; exit 1; }
 bat_lai() {
   echo "== 5/5 Bật lại: $DUNG=="
