@@ -82,6 +82,10 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "phu-thu": (id) => `/api/v1/luot-kham/orders/${id}/phu-thu`,
   // 28/09: tick dịch vụ khám theo mã KiotViet (tiền khám) — id là LƯỢT.
   "phi-kham": (id) => `/api/v1/luot-kham/visits/${id}/phi-kham`,
+  // 30/09 tối: tick / bỏ tick "Làm trước – thu sau" — id là LƯỢT. Bật = máy
+  // chủ chốt luôn chỉ định chờ quyết; dây "thu trước khi làm" bật thì chỉ lượt
+  // có tick mới làm khi chưa thu.
+  "lam-truoc-thu-sau": (id) => `/api/v1/luot-kham/visits/${id}/lam-truoc-thu-sau`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -108,6 +112,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "phu-thu") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phu-thu` : null;
+  }
+  // Tick "Làm trước – thu sau" + cờ bấm được của một lượt (30/09/2026 tối).
+  if (xem === "lam-truoc-thu-sau") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/lam-truoc-thu-sau` : null;
   }
   // Dịch vụ khám chọn được + đã chọn của một lượt (28/09/2026).
   if (xem === "phi-kham") {

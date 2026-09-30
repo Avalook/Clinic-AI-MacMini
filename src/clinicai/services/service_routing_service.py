@@ -539,10 +539,10 @@ class RoutingFinanceNotReadyError(LuotKhamConflictError):
     """409 SERVICE_FINANCE_NOT_READY kèm lý do CHI TIẾT của FinanceGate —
     Routing không chép luật tài chính, chỉ chuyển lý do (ROUTING §18)."""
 
-    def __init__(self, finance_reason: str | None) -> None:
+    def __init__(self, finance_reason: str | None, cau: str | None = None) -> None:
         super().__init__(
             "SERVICE_FINANCE_NOT_READY",
-            f"Dịch vụ chưa đủ điều kiện tài chính ({finance_reason}).",
+            cau or f"Dịch vụ chưa đủ điều kiện tài chính ({finance_reason}).",
         )
         self.finance_reason = finance_reason
 
@@ -659,7 +659,9 @@ CHE_DO_XEP = "XEP"
 CHE_DO_DU_KIEN = "DU_KIEN"
 CHE_DO_CHUYEN = "CHUYEN_DANG_LAM"
 CHE_DO_KHONG = "KHONG"
-CAU_DU_KIEN = "Phòng dự kiến — xếp khi khách chốt dịch vụ."
+CAU_DU_KIEN = (
+    "Phòng dự kiến — xếp khi khách chốt và đã thu (hoặc tick Làm trước – thu sau)."
+)
 
 
 def che_do_doi_phong(
@@ -935,7 +937,8 @@ class ServiceRoutingService:
         tai_chinh = await finance_gate.can_start(conn, cid, oid)
         if tai_chinh is None or not tai_chinh.duoc_lam:
             raise RoutingFinanceNotReadyError(
-                tai_chinh.reason_code if tai_chinh else None
+                tai_chinh.reason_code if tai_chinh else None,
+                finance_gate.cau_chan_lam(tai_chinh),
             )
         flow = await khoa_flow(conn, cid, vid)
         closed = {

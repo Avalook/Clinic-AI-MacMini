@@ -242,6 +242,10 @@ EVENT_LABELS: dict[str, str] = {
     "service.performed": "Làm xong dịch vụ",
     "service.not_performed": "Không làm được dịch vụ",
     "service_selection.confirmed": "Khách chốt làm / không làm chỉ định",
+    # Tick theo lượt (30/09/2026 tối): dây "thu trước khi làm" bật thì chỉ lượt
+    # có tick mới làm khi chưa thu.
+    "visit.defer_payment_set": "Bật Làm trước – thu sau",
+    "visit.defer_payment_cleared": "Bỏ Làm trước – thu sau",
     "result.approved": "Bác sĩ duyệt kết quả, cho phép gửi khách",
     "queue.called": "Gọi khách vào phòng",
     "vitals.called": "Điều dưỡng gọi khách vào đo sinh hiệu",
@@ -304,6 +308,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
+    "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
     "api:theo-doi-thu-thuat": "Bác sĩ — theo dõi sau thủ thuật",

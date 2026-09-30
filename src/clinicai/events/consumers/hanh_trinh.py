@@ -4,7 +4,7 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
 (không ghi bảng của ai). Dây nối (docs/BAN-DO-DAY-NOI-LEGO.md, "Bản chốt 24/09"):
 
     H2  visit.checked_in          → mang chỉ định chưa làm của lượt trước sang
-                                    rồi xếp phòng luôn (V10: kể cả chưa trả;
+                                    rồi xếp phòng luôn (qua cửa làm như H4;
                                     lịch đi thẳng phòng: mang cả chỉ định chưa
                                     trả)
     H1  visit.checked_in          → xếp đường đi: qua tư vấn / thẳng bác sĩ chính /
@@ -17,8 +17,12 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
                                     check-in: xếp lại hàng đầu tiên (V5 30/09)
     H3  consultation.handed_over  → hàng chờ khám thật của bác sĩ chính
     H4  service_selection.confirmed → xếp phòng vắng nhất THAY người vừa chốt,
-                                    bằng quyền của người ấy — KHÔNG chờ thu (V10
-                                    "làm trước, thu sau", 30/09/2026)
+                                    bằng quyền của người ấy — chỉ chỉ định qua
+                                    cửa làm (dây ``thu_truoc_khi_lam`` BẬT: đã
+                                    thu, hoặc lượt tick "Làm trước – thu sau";
+                                    TẮT: V10, chưa thu cũng xếp)
+        visit.defer_payment_set   → vừa tick "Làm trước – thu sau": chạy lại
+                                    đúng lệnh ấy bằng quyền người tick
         payment.service_collected → chạy lại đúng lệnh ấy bằng quyền người thu
                                     (chỉ định còn chưa có phòng — vô hại nếu
                                     đã xếp); cùng một dây bật/tắt
@@ -91,8 +95,8 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
         )
         if mang and await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
             # Mang từ lượt trước: vào thẳng hàng phòng, thay người check-in —
-            # V10 làm trước, thu sau: chưa trả cũng xếp (lệnh tự bỏ chỉ định
-            # khách chưa chốt / tiền đang hoàn).
+            # lệnh tự bỏ chỉ định không qua cửa làm (khách chưa chốt / tiền đang
+            # hoàn / dây thu trước bật mà chưa thu, lượt chưa tick).
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,
                 clinic_id=su_kien.clinic_id,
@@ -126,13 +130,18 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
                 causation_id=su_kien.event_id,
             )
         await _hen_nhac_check_out(conn, su_kien, visit_id)
-    elif su_kien.event_type == "service_selection.confirmed":
-        # V10 (Tuyền 30/09/2026) — LÀM TRƯỚC, THU SAU: "chỉ định rồi mà chưa thu
-        # tiền cũng vẫn cho thực hiện đi rồi cuối buổi thu cũng được". Khách chốt
-        # xong là xếp phòng ngay mọi chỉ định đã chốt, bằng quyền NGƯỜI CHỐT;
-        # người chốt không có quyền điều phối thì để nguyên — thu tiền sau đó
-        # chạy lại bằng quyền người thu, hoặc người có quyền xếp tay. (V2 trước
-        # đó chỉ xếp ở đây khi hoá đơn 0đ — nay là trường hợp riêng của luật này.)
+    elif su_kien.event_type in (
+        "service_selection.confirmed",
+        "visit.defer_payment_set",
+    ):
+        # Khách chốt xong (hoặc lượt vừa được tick "Làm trước – thu sau") → xếp
+        # phòng ngay mọi chỉ định QUA CỬA LÀM của FinanceGate, bằng quyền NGƯỜI
+        # BẤM. Cửa ấy theo dây ``thu_truoc_khi_lam`` (30/09/2026 tối): BẬT = chưa
+        # thu thì chỉ lượt đã tick mới xếp — lượt không tick để nguyên, thu tiền
+        # xong đường payment.service_collected xếp (H4 gốc); TẮT = V10 "làm
+        # trước, thu sau" mọi lượt. Người bấm không có quyền điều phối thì để
+        # nguyên — thu tiền sau đó chạy lại bằng quyền người thu, hoặc người có
+        # quyền xếp tay.
         if await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,

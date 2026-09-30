@@ -16,12 +16,18 @@
 // [Chốt, thu sau] (V10 — Tuyền 30/09/2026 "làm trước, thu sau"): chỉ chốt lựa
 // chọn, KHÔNG ghi sổ. Máy chủ xếp phòng ngay, khách đi làm; dòng đã chốt vẫn
 // nằm trong hoá đơn còn nợ, cuối buổi bấm [Thu] như thường.
+//
+// 30/09/2026 tối — "thu trước, trừ khi tick": dây `thu_truoc_khi_lam` BẬT thì
+// nút ấy nhường chỗ cho ô tick "Làm trước – thu sau" (`OLamTruocThuSau`, bật =
+// máy chủ chốt đúng lựa chọn đang tick ở đây). Lượt đã tick (hoặc dây tắt) vẫn
+// có [Chốt, thu sau] — cờ `chot_thu_sau_duoc` do máy chủ trả.
 
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { dongDangChon, tongTheoLuaChon } from "@/lib/hoa-don-quay";
+import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 
 export interface PhongChon {
   id: string;
@@ -102,6 +108,8 @@ function gio(iso: string | null): string {
 }
 
 export default function HoaDonMot({
+  visitId,
+  lamTruoc,
   qt,
   dangThu,
   dangLuuPhuThu,
@@ -109,6 +117,9 @@ export default function HoaDonMot({
   onChotThuSau,
   onDoiPhong,
 }: {
+  visitId: string;
+  /** Tick "Làm trước – thu sau" của lượt — cờ máy chủ trả trong bảng quầy. */
+  lamTruoc?: LamTruoc | null;
   qt: QuayThu;
   dangThu: boolean;
   dangLuuPhuThu: boolean;
@@ -157,14 +168,15 @@ export default function HoaDonMot({
   };
 
   const conQuyet = qt.lua_chon.order_ids_seen.length > 0;
-  const chotSau = () => {
+  const luaChon = () => {
     const seen = qt.lua_chon.order_ids_seen;
-    onChotThuSau?.({
+    return {
       order_ids_seen: seen,
       selected_order_ids: seen.filter((id) => chon.has(id)),
       expected_selection_revision: qt.lua_chon.revision,
-    });
+    };
   };
+  const chotSau = () => onChotThuSau?.(luaChon());
 
   const bam = () => {
     const seen = qt.lua_chon.order_ids_seen;
@@ -255,6 +267,17 @@ export default function HoaDonMot({
         </ul>
       ) : null}
 
+      {lamTruoc?.hien ? (
+        <div className="border-t border-line pt-3">
+          <OLamTruocThuSau
+            visitId={visitId}
+            trangThai={lamTruoc}
+            layChon={() => (conQuyet ? luaChon() : undefined)}
+            onDoi={onDoiPhong}
+          />
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
         <div role="radiogroup" aria-label="Hình thức thu" className="flex gap-1">
           {(Object.keys(TEN_PT) as PhuongThuc[]).map((k) => (
@@ -274,7 +297,7 @@ export default function HoaDonMot({
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="text-emph font-semibold tabular-nums text-ink">{tien(tong)}</span>
-          {onChotThuSau && conQuyet && !chiChot ? (
+          {onChotThuSau && conQuyet && !chiChot && lamTruoc?.chot_thu_sau_duoc ? (
             <Button
               variant="secondary"
               size="lg"

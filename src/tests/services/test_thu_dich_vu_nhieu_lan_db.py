@@ -807,7 +807,10 @@ async def test_da_lam_ma_chua_co_tien_la_khoan_phai_thu_binh_thuong(q: Quay) -> 
     c = await _cd(q, "GIAN", execution_status="INTERRUPTED")
     g = await _gate(q, a, b, c)
     assert g[a].finance_state == g[b].finance_state == "DUE"
-    assert g[a].duoc_lam and not g[a].needs_human_review
+    assert not g[a].needs_human_review
+    # Dây "thu trước khi làm" BẬT (mặc định, 30/09/2026 tối), lượt không tick
+    # "Làm trước – thu sau" → cửa làm đóng (đã làm rồi thì chỉ còn là khoản nợ).
+    assert not g[a].duoc_lam
     assert g[c].reason_code == "EXECUTED_WITHOUT_PAYMENT" and not g[c].duoc_lam
     assert _nguon(await _hd(q)) == {
         _exam(q),

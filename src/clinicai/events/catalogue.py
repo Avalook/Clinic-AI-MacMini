@@ -648,6 +648,24 @@ class KhachDaChonDichVu(PayloadSuKien):
     not_selected_order_ids: list[str] = []
 
 
+class LamTruocThuSauDaBat(PayloadSuKien):
+    """`visit.defer_payment_set` — tick "Làm trước – thu sau" cho lượt (Tuyền
+    30/09/2026 tối). Dây ``thu_truoc_khi_lam`` BẬT: từ lúc này chỉ định của lượt
+    xếp phòng / bắt đầu làm được khi chưa thu. Hành trình nghe để xếp phòng
+    ngay; Đối tác nghe để nhận việc."""
+
+    visit_id: str
+    #: Số chỉ định còn chờ khách quyết được chốt "làm" cùng lúc tick.
+    so_chi_dinh_chot: int = 0
+
+
+class LamTruocThuSauDaBo(PayloadSuKien):
+    """`visit.defer_payment_cleared` — bỏ tick "Làm trước – thu sau" (chỉ khi
+    chưa chỉ định nào bắt đầu làm)."""
+
+    visit_id: str
+
+
 class DichVuDaXong(PayloadSuKien):
     """`service.completed` — lần làm ấy xong. KHÁC `result.ready`."""
 
@@ -925,6 +943,28 @@ DANH_MUC: dict[str, SuKien] = {
             # đủ, không chờ phòng khám thu tiền. Hành trình nghe để tự xếp phòng
             # khi hoá đơn 0đ — không có lần thu nào để chờ (V2, 30/09/2026).
             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC, HANH_TRINH],
+        ),
+        SuKien(
+            ten="visit.defer_payment_set",
+            version=1,
+            aggregate_type="visit",
+            source_module="service_selection",
+            payload=LamTruocThuSauDaBat,
+            nhan="Bật Làm trước – thu sau",
+            # Hành trình xếp phòng ngay (chỉ định đã chốt mà chưa thu, trước đó
+            # bị dây thu trước giữ lại); Đối tác nhận việc tự lấy mẫu.
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, DOI_TAC_NHAN_VIEC],
+            is_public=False,
+        ),
+        SuKien(
+            ten="visit.defer_payment_cleared",
+            version=1,
+            aggregate_type="visit",
+            source_module="service_selection",
+            payload=LamTruocThuSauDaBo,
+            nhan="Bỏ Làm trước – thu sau",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
         ),
         SuKien(
             ten="service.completed",
@@ -1439,6 +1479,8 @@ __all__ = [
     "LichDaDoiDichVu",
     "CskhDaGoiXacNhan",
     "KhachDaVe",
+    "LamTruocThuSauDaBat",
+    "LamTruocThuSauDaBo",
     "KhachBoVeGiuaChung",
     "DaHoanTien",
     "HinhThucThuDaDoi",

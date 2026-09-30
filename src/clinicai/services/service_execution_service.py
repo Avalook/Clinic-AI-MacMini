@@ -55,6 +55,7 @@ from clinicai.permissions.can import can_o_phong_nao_do, doi_quyen
 from clinicai.permissions.catalogue import tra_quyen
 from clinicai.permissions.lich import doi_lich_phong
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
+from clinicai.services import finance_gate
 from clinicai.services.finance_gate import can_start
 from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
@@ -260,15 +261,14 @@ class ServiceExecutionService:
                     "EXECUTION_ALREADY_RUNNING", "Đang có một lần làm chạy dở."
                 )
 
-            # V10 (Tuyền 30/09/2026) — LÀM TRƯỚC, THU SAU: chưa thu KHÔNG chặn
-            # bắt đầu; cuối buổi quầy thu (dịch vụ đã làm vẫn nằm trong hoá đơn,
-            # check-out vẫn báo nợ). Chỉ chặn tiền đang hoàn / đã hoàn / sổ lệch.
+            # Cửa làm của FinanceGate: dây ``thu_truoc_khi_lam`` BẬT (mặc định,
+            # 30/09/2026 tối) → chưa thu chỉ làm khi lượt tick "Làm trước – thu
+            # sau"; dây TẮT → V10 (chưa thu vẫn làm, cuối buổi quầy thu). Luôn
+            # chặn tiền đang hoàn / đã hoàn / sổ lệch.
             tien = await can_start(conn, cid, order_id)
             if tien is None or not tien.duoc_lam:
                 raise LuotKhamConflictError(
-                    "FINANCE_NOT_READY",
-                    "Tiền của dịch vụ này đang hoàn / đã hoàn hoặc sổ tiền cần"
-                    " đối soát — xử lý ở quầy trước khi làm.",
+                    "FINANCE_NOT_READY", finance_gate.cau_chan_lam(tien)
                 )
 
             lan_truoc = await conn.fetchval(
