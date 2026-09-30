@@ -38,7 +38,7 @@ export default function InKetQuaLuot({ visitId }: { visitId: string }) {
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!ds) return <p className="p-8 text-body text-ink-muted">Đang tải kết quả…</p>;
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-4 text-body text-ink sm:p-8">
+    <main className="mx-auto w-full max-w-3xl space-y-4 p-4 text-body text-ink sm:p-8">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-title font-semibold text-ink">Kết quả của lượt khám</h1>
         <Button type="button" variant="ghost" onClick={() => window.close()}>
