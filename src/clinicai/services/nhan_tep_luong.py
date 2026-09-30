@@ -18,7 +18,6 @@ người không có quyền vẫn đẩy trọn vài GB lên máy chủ rồi m�
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import os
 import shutil
@@ -31,7 +30,11 @@ from python_multipart.multipart import MultipartParser, parse_options_header
 from starlette.requests import ClientDisconnect, Request
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.core.kho_tep import chay_tren_kho
+from clinicai.core.kho_tep import (
+    HAN_GHI_KHOI,
+    chay_tren_kho,
+    don_tren_kho,
+)
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MEDIA_ROOT,
@@ -96,7 +99,11 @@ async def nhan_multipart(
     # Khoảng trống an toàn kiểm TRƯỚC khi nhận byte nào; service kiểm lại lần nữa.
     from clinicai.services.tep_ket_qua_service import MEDIA_MIN_FREE_BYTES
 
-    if khai and shutil.disk_usage(MEDIA_ROOT).free - khai < MEDIA_MIN_FREE_BYTES:
+    if (
+        khai
+        and await chay_tren_kho(lambda: shutil.disk_usage(MEDIA_ROOT).free) - khai
+        < MEDIA_MIN_FREE_BYTES
+    ):
         raise ValidationError(
             "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
             "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
@@ -206,9 +213,12 @@ async def nhan_multipart(
                 raise ValidationError(
                     f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
                 )
+        # Mọi lần chạm ổ đi qua luồng phụ CÓ HẠN (29/09): ổ Viettel treo thì lượt
+        # tải này báo "kho chậm", không treo cả API. Hạn tính TỪNG KHỐI ghi.
         if tep is None:
-            tep = await asyncio.to_thread(_mo_ghi, duong)
-        await asyncio.to_thread(tep.write, khuc)
+            tep = await chay_tren_kho(lambda: _mo_ghi(duong))
+        f = tep
+        await chay_tren_kho(lambda: f.write(khuc), han=HAN_GHI_KHOI)
 
     try:
         try:
@@ -227,7 +237,8 @@ async def nhan_multipart(
         await ghi_ra(het=True)
         if so_phan_tep == 0 or so_byte == 0 or tep is None:
             raise ValidationError("Tệp rỗng.")
-        await asyncio.to_thread(tep.close)
+        f = tep
+        await chay_tren_kho(f.close, han=HAN_GHI_KHOI)
         tep = None
         return truong, TepDaNhan(
             duong=duong,
@@ -237,9 +248,17 @@ async def nhan_multipart(
             ten=ten_tep[0],
         )
     except BaseException:
-        if tep is not None:
-            await asyncio.to_thread(tep.close)
-        await asyncio.to_thread(_xoa, duong)
+        dang_mo = tep
+
+        def _don() -> None:
+            if dang_mo is not None:
+                try:
+                    dang_mo.close()
+                except OSError:
+                    pass
+            _xoa(duong)
+
+        await don_tren_kho(_don, viec=f"xoa_tep_tam:{duong}")
         raise
 
 
@@ -248,6 +267,12 @@ def _xoa(duong: Path) -> None:
         os.unlink(duong)
     except FileNotFoundError:
         pass
+
+
+async def don_tep_tam(tep: TepDaNhan) -> None:
+    """Xoá tệp `.part` sau khi service xử lý xong (đã đổi tên thì không còn gì
+    để xoá). Cố hết sức, không ném — không che lỗi thật của lượt tải."""
+    await don_tren_kho(lambda: _xoa(tep.duong), viec=f"xoa_tep_tam:{tep.duong}")
 
 
 def uuid_hoac_loi(gia_tri: str | None, ten: str, *, bat_buoc: bool) -> str | None:
