@@ -267,6 +267,19 @@ class LichDaHuy(PayloadSuKien):
     ly_do_ma: str | None = None
 
 
+class LichDaDoiDichVu(PayloadSuKien):
+    """`appointment.service_switched` — đổi DỊCH VỤ KHÁM của lịch (menu ⋯ dòng
+    lịch hẹn, V5 30/09/2026). Có ``visit_id`` = đổi SAU check-in (lượt khám đổi
+    theo) → khối Hành trình tính lại hàng chờ đầu tiên của lượt."""
+
+    appointment_id: str
+    visit_id: str | None = None
+    tu_dich_vu_id: str | None = None
+    den_dich_vu_id: str
+    tu_ten: str | None = None
+    den_ten: str | None = None
+
+
 class KhachKhongDen(PayloadSuKien):
     """`appointment.no_show` — tới giờ mà khách không đến."""
 
@@ -1035,6 +1048,15 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="appointment.service_switched",
+            version=1,
+            aggregate_type="appointment",
+            source_module="booking",
+            payload=LichDaDoiDichVu,
+            nhan="Đổi dịch vụ khám",
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+        ),
+        SuKien(
             ten="appointment.no_show",
             version=1,
             aggregate_type="appointment",
@@ -1288,6 +1310,7 @@ __all__ = [
     "LichDaDoi",
     "LichDaHuy",
     "KhachKhongDen",
+    "LichDaDoiDichVu",
     "CskhDaGoiXacNhan",
     "KhachDaVe",
     "KhachBoVeGiuaChung",

@@ -265,6 +265,7 @@ MODULE: dict[str, Module] = {
                 "lab_result.arrived",
                 "appointment.booked",
                 "appointment.rescheduled",
+                "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
                 "appointment.confirmed_by_call",
@@ -336,10 +337,12 @@ MODULE: dict[str, Module] = {
                 "visit.left_early",
                 "service.completed",
                 "partner.sample_collected",
+                "appointment.service_switched",
             ],
             ben_nhan=["hanh_trinh_luot_kham"],
             goi_dong_bo=[
                 "consultation.RouteAfterCheckIn",
+                "consultation.RerouteAfterServiceSwitch",
                 "consultation.OpenIntakeQueue",
                 "consultation.HandToPrimaryDoctor",
                 "service_order.CarryOverUnfinishedOrders",
@@ -364,6 +367,8 @@ MODULE: dict[str, Module] = {
                 "RecordIntakeNote",
                 # Lệnh nội bộ khối Hành trình gọi (xếp hàng theo đường đi).
                 "RouteAfterCheckIn",
+                # Đổi dịch vụ khám sau check-in → xếp lại hàng đầu tiên (V5).
+                "RerouteAfterServiceSwitch",
                 "OpenIntakeQueue",
                 "HandToPrimaryDoctor",
             ],
@@ -490,10 +495,13 @@ MODULE: dict[str, Module] = {
                 "CancelAppointment",
                 "MarkNoShow",
                 "ConfirmByCall",
+                # Đổi dịch vụ khám ở menu ⋯ dòng lịch hẹn (V5, 30/09/2026).
+                "SwitchExamService",
             ],
             phat=[
                 "appointment.booked",
                 "appointment.rescheduled",
+                "appointment.service_switched",
                 "appointment.cancelled",
                 "appointment.no_show",
                 "appointment.confirmed_by_call",
