@@ -150,15 +150,19 @@ services:
     pids_limit: 16
     # Kho là ổ mạng Viettel (CIFS, gắn sẵn uid=1000) thì chown bị từ chối — nên
     # chỉ trao quyền khi chủ CHƯA phải 1000, không thì bước này làm api không lên.
-    # `.tam`: chỗ api ghi tạm tệp đang nhận (xem TMPDIR của api). Tạo sẵn ở đây vì
-    # thư mục TMPDIR không tồn tại thì Python lặng lẽ quay về /tmp.
-    entrypoint: ["sh", "-c", "d=/var/lib/clinicai/media; [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }; mkdir -p $$d/.tam; [ \"$$(stat -c %u $$d/.tam)\" = 1000 ] || chown 1000:1000 $$d/.tam"]
+    # `.tam`: chỗ ghi tạm tệp đang nhận (TMPDIR của api) / đang đẩy (day-tep).
+    # Tạo sẵn ở đây vì thư mục TMPDIR không tồn tại thì Python lặng lẽ quay về
+    # /tmp. Làm cho CẢ HAI ổ: kho CFS (media) và ổ VPS (media-vps, 01/10/2026).
+    entrypoint: ["sh", "-c", "for d in /var/lib/clinicai/media /var/lib/clinicai/media-vps; do [ \"$$(stat -c %u $$d)\" = 1000 ] || { chown 1000:1000 $$d && chmod 750 $$d; }; mkdir -p $$d/.tam; [ \"$$(stat -c %u $$d/.tam)\" = 1000 ] || chown 1000:1000 $$d/.tam; done"]
     restart: "no"
     network_mode: none
     volumes:
       - type: bind
         source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
         target: /var/lib/clinicai/media
+      - type: bind
+        source: ${MEDIA_LOCAL_DIR:-./.media-vps}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media-vps
 
   # ---- Backend (FastAPI + LangGraph) — all business logic ------------------
   api:
@@ -175,12 +179,15 @@ services:
       CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
       MEDIA_ROOT: /var/lib/clinicai/media
-      # TỆP ĐANG NHẬN GHI TẠM VÀO KHO MEDIA, KHÔNG VÀO /tmp (16/09/2026). Starlette
-      # ghi thân multipart quá 1MB ra thư mục tạm. /tmp của container nằm trên Ổ
-      # HỆ ĐIỀU HÀNH — cùng ổ với database — và không giới hạn dung lượng nghĩa
-      # là một video 20GB đang tải có thể làm đầy nó. Kho media (Viettel, 1TB)
-      # thì chịu được; tệp tạm tự xoá khi request kết thúc.
-      TMPDIR: /var/lib/clinicai/media/.tam
+      # Ổ NÓNG TRÊN VPS (Tuyền chốt 30/09/2026): tệp kết quả mới ghi vào đây
+      # trước, container `day-tep` đẩy sang kho CFS (MEDIA_ROOT) khi ổ ấy ổn.
+      MEDIA_LOCAL_ROOT: /var/lib/clinicai/media-vps
+      # TỆP ĐANG NHẬN GHI TẠM VÀO Ổ VPS CỦA MEDIA, KHÔNG VÀO /tmp. Starlette ghi
+      # thân multipart quá 1MB ra thư mục tạm; /tmp của container không có
+      # trần. Từ 01/10 thân request chảy vào ổ VPS (không còn qua ổ mạng CFS —
+      # CFS chậm là tải lên hỏng); ổ gần đầy (< MEDIA_LOCAL_MIN_FREE_BYTES) thì
+      # tải lên bị TỪ CHỐI.
+      TMPDIR: /var/lib/clinicai/media-vps/.tam
     depends_on:
       media-quyen:
         condition: service_completed_successfully
@@ -199,10 +206,15 @@ services:
       # trỏ sang ổ khác — ảnh siêu âm lớn hơn mọi thứ khác trong hệ thống cộng
       # lại, nên nó sẽ phải rời ổ hệ điều hành sớm.
       #
-      # KHÔNG read_only: đây là ổ duy nhất backend được ghi.
+      # KHÔNG read_only: backend ghi vào đây (ảnh siêu âm cũ; tệp kết quả thì
+      # đã chuyển sang ổ VPS bên dưới).
       - type: bind
         source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
         target: /var/lib/clinicai/media
+      # Ổ VPS: nơi tải lên ghi vào (01/10/2026). Đường host theo biến như trên.
+      - type: bind
+        source: ${MEDIA_LOCAL_DIR:-./.media-vps}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media-vps
     healthcheck:
       # Readiness, not just process liveness: deploy must roll back when the
       # backend cannot actually reach Supabase/Postgres.
@@ -288,6 +300,48 @@ services:
     healthcheck:
       # Vòng lặp CÓ QUAY (file nhịp tim), không chỉ tiến trình còn sống.
       test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 120"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks: [internal, supabase]
+
+  # ĐẨY TỆP KẾT QUẢ Ổ VPS → VIETTEL CFS (Tuyền chốt 30/09/2026) — BẮT BUỘC.
+  # Tải lên ghi vào ổ VPS (nhanh, không qua mạng); container này đẩy sang CFS
+  # khi phép đo báo ổ ổn 2 lần liên tiếp, kiểm sha256 rồi mới đánh dấu, dọn bản
+  # VPS đã đẩy sau 7 ngày / khi vượt trần 8GB, và chạy job dọn V9 hằng ngày.
+  # Gắn CẢ HAI ổ. Mọi thao tác ổ có hạn giờ — CFS treo thì bỏ lượt, không chết.
+  # Tách riêng khỏi `su-kien` có chủ ý: người đưa tin sự kiện không được phụ
+  # thuộc một ổ mạng có thể treo. Xem services/day_tep.py.
+  day-tep:
+    <<: *clinic-service-defaults
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: clinicai-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    mem_limit: ${DAY_TEP_MEMORY_LIMIT:-192m}
+    pids_limit: 64
+    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
+    environment:
+      MEDIA_ROOT: /var/lib/clinicai/media
+      MEDIA_LOCAL_ROOT: /var/lib/clinicai/media-vps
+      TMPDIR: /var/lib/clinicai/media-vps/.tam
+    command: ["python", "-m", "clinicai.worker", "--day-tep"]
+    depends_on:
+      media-quyen:
+        condition: service_completed_successfully
+    volumes:
+      - type: bind
+        source: ${MEDIA_DIR:-./.media}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media
+      - type: bind
+        source: ${MEDIA_LOCAL_DIR:-./.media-vps}/${APP_ENV:-production}
+        target: /var/lib/clinicai/media-vps
+    healthcheck:
+      # Vòng lặp CÓ QUAY (nhịp tim mỗi vòng ~30s; ổ treo thì bỏ lượt nhưng vẫn
+      # đập). Cửa sổ 180s = 6 vòng.
+      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 180"]
       interval: 30s
       timeout: 5s
       retries: 3

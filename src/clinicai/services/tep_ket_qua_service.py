@@ -15,6 +15,11 @@ BA ĐIỀU THI HÀNH Ở ĐÂY, KHÔNG PHẢI Ở GIAO DIỆN — cùng lý do v
 VÀ MỘT ĐIỀU VỀ TRÍ NHỚ. Video đọc theo LUỒNG, không nạp cả tệp vào RAM: container
 API giới hạn 1GB, và ba người cùng xem một video 80MB theo kiểu `read_bytes()`
 là 240MB tức thời — đủ để tiến trình bị giết giữa giờ khám.
+
+HAI Ổ (Tuyền chốt 30/09/2026). Tải lên ghi vào ổ VPS (`MEDIA_LOCAL_ROOT`), dòng
+mang `vi_tri = 'vps'`; container `day-tep` đẩy sang Viettel CFS (`MEDIA_ROOT`)
+khi ổ ấy ổn (services/day_tep.py). Đọc: có bản ở ổ VPS thì trả từ đó, không thì
+CFS qua `chay_tren_kho` có hạn giờ — CFS đang ngắt mạch thì báo "kho chậm" ngay.
 """
 
 from __future__ import annotations
@@ -25,9 +30,10 @@ import io
 import os
 import shutil
 import zipfile
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import IO, Any
 
@@ -37,7 +43,13 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.core.kho_tep import chay_tren_kho, don_tren_kho, han_theo_co
+from clinicai.core.kho_tep import (
+    KHO_CFS,
+    KHO_VPS,
+    chay_tren_kho,
+    don_tren_kho,
+    han_theo_co,
+)
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
     KetQuaDaGuiKhach,
@@ -50,13 +62,14 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, can_o_phong_nao_do
+from clinicai.services import media_service
 from clinicai.services.audit import record_event
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
     MEDIA_ROOT,
     duong_dan_ket_qua,
+    giai_trong,
     ket_qua_patient_lock_key,
-    kiem_kho_da_gan,
     sniff_ket_qua,
     vuot_tran,
 )
@@ -103,8 +116,19 @@ def _loai_tai_lieu(duong: Path) -> str | None:
     return None
 
 
+#: Khoảng trống phải giữ lại trên KHO CFS — container day-tep kiểm trước khi
+#: đẩy tệp sang (đường tải lên không chạm CFS nữa, 01/10/2026).
 MEDIA_MIN_FREE_BYTES = int(
     os.environ.get("MEDIA_MIN_FREE_BYTES", 5 * 1024 * 1024 * 1024)
+)
+#: Ổ VPS (ổ của máy — cùng ổ với database) còn dưới chừng này thì TỪ CHỐI tải
+#: lên (Tuyền chốt 30/09: < 2GB). Không bao giờ ghi thẳng sang CFS thay thế.
+MEDIA_LOCAL_MIN_FREE_BYTES = int(
+    os.environ.get("MEDIA_LOCAL_MIN_FREE_BYTES", 2 * 1024 * 1024 * 1024)
+)
+CAU_O_VPS_DAY = (
+    "Ổ lưu tạm trên máy chủ sắp đầy — tệp CHƯA được lưu. Báo kỹ thuật kiểm tra "
+    "việc đẩy tệp sang kho Viettel (màn Vận hành) rồi tải lại."
 )
 
 KENH_GUI_HOP_LE = frozenset({"ZALO", "SMS", "TRUC_TIEP", "EMAIL"})
@@ -554,6 +578,88 @@ async def _luot_cua_tep(
     return None
 
 
+# ── Đọc tệp từ HAI Ổ (01/10/2026) ─────────────────────────────────────────────
+
+#: Một mảnh đọc: ổ VPS là ổ của máy (nhanh), CFS là ổ mạng — mảnh nhỏ hơn để
+#: hạn giờ TỪNG MẢNH có nghĩa (256KB trong ``HAN_GIAY`` 4s ≈ tối thiểu 64KB/s).
+KHUC_DOC: dict[str, int] = {KHO_VPS: 1024 * 1024, KHO_CFS: 256 * 1024}
+
+
+@dataclass
+class TepMoDoc:
+    """Một tệp kết quả đã mở để đọc, kèm ổ nó đang nằm."""
+
+    f: IO[bytes]
+    kho: str
+    duong: Path
+    mime: str
+    so_byte: int
+    ten: str
+
+
+def _mo_trong(
+    goc: Path, khoa: str, mo: bool
+) -> tuple[Path | None, IO[bytes] | None, bool]:
+    """(đường đã giải | None nếu thoát khỏi gốc, tệp đã mở, có tồn tại). Đồng bộ."""
+    p = giai_trong(goc, khoa)
+    if p is None:
+        return None, None, False
+    if not mo:
+        return p, None, p.is_file()
+    try:
+        return p, p.open("rb"), True
+    except (FileNotFoundError, IsADirectoryError):
+        return p, None, False
+
+
+async def _tim_ban(
+    khoa: str, vi_tri: str, *, mo: bool
+) -> tuple[Path, str, IO[bytes] | None]:
+    """Bản để đọc: ổ VPS trước (nhanh, luôn có với tệp chưa đẩy), rồi CFS.
+
+    CFS chỉ được hỏi khi tệp ĐÃ đẩy (`vi_tri='cfs'`); CFS đang ngắt mạch thì
+    `chay_tren_kho` báo "kho chậm" NGAY, không đẻ luồng treo chờ ổ mạng."""
+    p, f, co = await chay_tren_kho(
+        lambda: _mo_trong(media_service.goc_vps(), khoa, mo), kho=KHO_VPS
+    )
+    if p is None:
+        raise ValidationError("Đường dẫn tệp không hợp lệ.")
+    if co:
+        return p, KHO_VPS, f
+    if vi_tri == "vps":
+        # Tệp chưa đẩy mà mất khỏi ổ VPS: CFS chắc chắn không có — đừng chạm nó.
+        logger.error("tep_chua_day_mat_ban_vps", khoa_duoi=khoa[-12:])
+        raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
+    goc_cfs = MEDIA_ROOT
+    p, f, co = await chay_tren_kho(lambda: _mo_trong(goc_cfs, khoa, mo))
+    if p is None:
+        raise ValidationError("Đường dẫn tệp không hợp lệ.")
+    if not co:
+        raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
+    return p, KHO_CFS, f
+
+
+async def doc_dan(tep: TepMoDoc, dau: int, cuoi: int) -> AsyncIterator[bytes]:
+    """Đọc byte ``dau..cuoi`` (gồm cả hai đầu) theo từng mảnh, MỖI MẢNH qua
+    ``chay_tren_kho`` có hạn giờ (29/09: bản cũ đọc CFS bằng generator đồng bộ
+    trên threadpool, không hạn — ổ treo là luồng treo, chồng lên tới cạn pool).
+    Luôn đóng tệp khi xong / lỗi / người xem bỏ ngang."""
+    try:
+        await chay_tren_kho(partial(tep.f.seek, dau), kho=tep.kho)
+        con = cuoi - dau + 1
+        khuc = KHUC_DOC.get(tep.kho, KHUC_DOC[KHO_CFS])
+        while con > 0:
+            mieng = await chay_tren_kho(
+                partial(tep.f.read, min(khuc, con)), kho=tep.kho
+            )
+            if not mieng:
+                break
+            con -= len(mieng)
+            yield mieng
+    finally:
+        await don_tren_kho(tep.f.close, viec=f"dong_tep:{tep.duong}", kho=tep.kho)
+
+
 class TepKetQuaService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -657,38 +763,46 @@ class TepKetQuaService:
                 if not thuoc_ve:
                     raise ValidationError("Lịch hẹn không phải của khách này.")
 
-        await chay_tren_kho(kiem_kho_da_gan)
+        # TẢI LÊN GHI VÀO Ổ VPS (01/10/2026) — cùng `khoa` như CFS, không chạm
+        # CFS: container day-tep đẩy sang sau (services/day_tep.py).
+        goc = media_service.goc_vps()
         path, key = duong_dan_ket_qua(
             clinic_id=identity.clinic_id,
             clinic_patient_id=clinic_patient_id,
             ext=ext,
+            goc=goc,
         )
 
         def _chuan_bi() -> int:
             path.parent.mkdir(parents=True, exist_ok=True)
-            return shutil.disk_usage(MEDIA_ROOT).free
+            return shutil.disk_usage(goc).free
 
         # Mọi lần chạm ổ từ đây đi qua luồng phụ CÓ HẠN (sự cố 29/09 20:00).
-        if await chay_tren_kho(_chuan_bi) - so_byte_khai < MEDIA_MIN_FREE_BYTES:
-            raise ValidationError(
-                "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
-                "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
-            )
+        # Ổ VPS gần đầy → TỪ CHỐI, không ghi thẳng sang CFS thay thế.
+        if (
+            await chay_tren_kho(_chuan_bi, kho=KHO_VPS) - so_byte_khai
+            < MEDIA_LOCAL_MIN_FREE_BYTES
+        ):
+            raise ValidationError(CAU_O_VPS_DAY)
         tmp = path.with_suffix(path.suffix + ".tmp")
         try:
             if tep_da_nhan is not None:
                 nhan = tep_da_nhan
-                await chay_tren_kho(lambda: os.replace(nhan.duong, tmp))
+                await chay_tren_kho(lambda: os.replace(nhan.duong, tmp), kho=KHO_VPS)
                 so_byte, sha = tep_da_nhan.so_byte, tep_da_nhan.sha256
             else:
                 assert nguon is not None
                 vao = nguon
                 so_byte, sha = await chay_tren_kho(
-                    lambda: _chep_luong(vao, tmp), han=han_theo_co(so_byte_khai)
+                    lambda: _chep_luong(vao, tmp),
+                    han=han_theo_co(so_byte_khai),
+                    kho=KHO_VPS,
                 )
         except OSError as loi:
             await don_tren_kho(
-                lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+                lambda: tmp.unlink(missing_ok=True),
+                viec=f"xoa_tep_tmp:{tmp}",
+                kho=KHO_VPS,
             )
             if loi.errno == errno.ENOSPC:
                 raise ValidationError(
@@ -699,10 +813,12 @@ class TepKetQuaService:
         if loai == "TAI_LIEU" and mime != "application/dicom":
             # Chỉ tài liệu Office (ZIP) mới mở ra xem thư mục bên trong; DICOM
             # cũng là TAI_LIEU (27/09 đợt 3) nhưng đã nhận bằng chữ ký byte 128.
-            that = await chay_tren_kho(lambda: _loai_tai_lieu(tmp))
+            that = await chay_tren_kho(lambda: _loai_tai_lieu(tmp), kho=KHO_VPS)
             if that is None:
                 await don_tren_kho(
-                    lambda: tmp.unlink(missing_ok=True), viec=f"xoa_tep_tmp:{tmp}"
+                    lambda: tmp.unlink(missing_ok=True),
+                    viec=f"xoa_tep_tmp:{tmp}",
+                    kho=KHO_VPS,
                 )
                 raise ValidationError(
                     "Tệp nén không phải tài liệu Word (.docx) hay Excel (.xlsx)."
@@ -754,7 +870,7 @@ class TepKetQuaService:
                     tmp.replace(dich)
                     dich.chmod(0o600)
 
-                await chay_tren_kho(_dat_vao_cho)
+                await chay_tren_kho(_dat_vao_cho, kho=KHO_VPS)
 
                 # External files: CHO_XAC_NHAN, không auto-approve.
                 # Internal / non-order: NULL (không áp dụng).
@@ -775,7 +891,7 @@ class TepKetQuaService:
                          cho_phep_gui_luc, cho_phep_gui_boi_staff_id,
                          service_order_id, xac_nhan_trang_thai,
                          xac_nhan_luc, xac_nhan_boi_staff_id, xac_nhan_ly_do,
-                         ben)
+                         ben, vi_tri)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9,
                             $10::uuid,
                             CASE WHEN $12 THEN now() ELSE NULL END,
@@ -784,7 +900,7 @@ class TepKetQuaService:
                             CASE WHEN $14 THEN now() END,
                             CASE WHEN $14 THEN $10::uuid END,
                             CASE WHEN $14 THEN $15 END,
-                            $16)
+                            $16, 'vps')
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -843,7 +959,7 @@ class TepKetQuaService:
                 tmp.unlink(missing_ok=True)
                 hong.unlink(missing_ok=True)
 
-            await don_tren_kho(_don, viec=f"xoa_tep_hong:{hong}")
+            await don_tren_kho(_don, viec=f"xoa_tep_hong:{hong}", kho=KHO_VPS)
             raise
 
         logger.info(
@@ -1399,13 +1515,10 @@ class TepKetQuaService:
             )
         return [dict(r) for r in rows]
 
-    async def duong_dan_de_doc(
-        self, *, identity: StaffIdentity, tep_id: str
-    ) -> tuple[Path, str, int, str]:
-        """(đường dẫn, mime, số byte, tên hiển thị) — sau khi chứng minh quyền.
-
-        Trả về ĐƯỜNG DẪN chứ không phải nội dung: video phải đi theo luồng, và
-        một hàm trả `bytes` là một hàm buộc mọi lời gọi phải nạp cả tệp vào RAM.
+    async def _hang_de_doc(
+        self, identity: StaffIdentity, tep_id: str
+    ) -> asyncpg.Record:
+        """Dòng tệp (khoa, mime, số byte, tên, vi_tri…) — sau khi chứng minh quyền.
 
         Quyền đọc:
         A. `doc_duoc_tep_ket_qua`: vai NORMAL_READ_ROLES, hoặc đọc được kết quả
@@ -1419,7 +1532,7 @@ class TepKetQuaService:
         """
         row = await self._pool.fetchrow(
             """
-            SELECT t.khoa, t.mime, t.so_byte, t.ten_hien_thi,
+            SELECT t.khoa, t.mime, t.so_byte, t.ten_hien_thi, t.vi_tri,
                    t.clinic_id::text, t.xac_nhan_trang_thai,
                    t.service_order_id::text,
                    n.lam_ben_ngoai
@@ -1458,20 +1571,47 @@ class TepKetQuaService:
         if not khoa.startswith(f"{identity.clinic_id}/"):
             raise ValidationError("Tệp không thuộc phòng khám này.")
 
-        # Chạm ổ mạng ở luồng phụ, có hạn giờ (sự cố treo API 29/09 20:00).
-        def _giai() -> tuple[Path, bool, bool]:
-            p = (MEDIA_ROOT / khoa).resolve()
-            return p, p.is_relative_to(MEDIA_ROOT.resolve()), p.exists()
+        return row
 
-        path, trong_kho, con = await chay_tren_kho(_giai)
-        if not trong_kho:
-            raise ValidationError("Đường dẫn tệp không hợp lệ.")
-        if not con:
-            raise NotFoundError("Tệp không còn trên máy chủ — báo kỹ thuật.")
+    async def duong_dan_de_doc(
+        self, *, identity: StaffIdentity, tep_id: str
+    ) -> tuple[Path, str, int, str]:
+        """(đường dẫn, mime, số byte, tên hiển thị) — sau khi chứng minh quyền.
+
+        Trả về ĐƯỜNG DẪN chứ không phải nội dung: video phải đi theo luồng, và
+        một hàm trả `bytes` là một hàm buộc mọi lời gọi phải nạp cả tệp vào RAM.
+        Đường dẫn là bản ở ổ VPS nếu còn, không thì bản trên CFS.
+        """
+        row = await self._hang_de_doc(identity, tep_id)
+        path, _kho, _f = await _tim_ban(
+            row["khoa"], row.get("vi_tri") or "cfs", mo=False
+        )
         # Vai TÀI KHOẢN, không vai lego — xem `form_engine_service.doc_ket_qua`.
         if identity.vai_goc in XEM_LA_DA_XEM:
             await self._ghi_da_xem(identity, tep_id, row["service_order_id"])
         return path, row["mime"], row["so_byte"], row["ten_hien_thi"] or ""
+
+    async def mo_de_doc(self, *, identity: StaffIdentity, tep_id: str) -> TepMoDoc:
+        """Như `duong_dan_de_doc` nhưng MỞ SẴN tệp (ổ VPS trước, CFS sau) trong
+        cùng một lần chạm ổ — không có khe giữa "thấy có" và "mở" để việc dọn
+        bản VPS chen vào. Người gọi đọc bằng `doc_dan` (tự đóng tệp)."""
+        row = await self._hang_de_doc(identity, tep_id)
+        path, kho, f = await _tim_ban(row["khoa"], row.get("vi_tri") or "cfs", mo=True)
+        assert f is not None
+        if identity.vai_goc in XEM_LA_DA_XEM:
+            try:
+                await self._ghi_da_xem(identity, tep_id, row["service_order_id"])
+            except BaseException:
+                await don_tren_kho(f.close, viec=f"dong_tep:{path}", kho=kho)
+                raise
+        return TepMoDoc(
+            f=f,
+            kho=kho,
+            duong=path,
+            mime=row["mime"],
+            so_byte=int(row["so_byte"]),
+            ten=row["ten_hien_thi"] or "",
+        )
 
     async def _ghi_da_xem(
         self, identity: StaffIdentity, tep_id: str, service_order_id: str | None

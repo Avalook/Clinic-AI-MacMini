@@ -49,6 +49,8 @@ EXEMPT_PATHS: frozenset[str] = frozenset(
         # không mở ra ngoài (Caddy chỉ chuyển /api của dashboard). Thiếu dòng
         # này thì prod trả 401 — test cục bộ không đặt khoá nên không thấy (27/09).
         "/health/su-kien",
+        # Đường đẩy tệp ổ VPS → CFS (01/10/2026) — cùng lý do, chỉ số đếm.
+        "/health/day-tep",
         "/docs",
         "/openapi.json",
         "/redoc",

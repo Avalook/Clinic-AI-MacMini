@@ -8,8 +8,13 @@ tệp tạm trong ~1 phút, rồi mất thêm vài phút chép lại từ kho Vi
 Viettel (~9MB/s, qua mạng hai chiều). Tệp càng lớn càng phí gấp đôi, và kho tạm
 phải có chỗ cho BẢN SAO THỨ HAI của tệp lớn nhất.
 
-Ở đây thân request chảy thẳng vào `<MEDIA_ROOT>/.tam/<ngẫu nhiên>.part` — cùng kho
-với chỗ ở thật — nên service chỉ còn ĐỔI TÊN, không chép lại byte nào.
+Ở đây thân request chảy thẳng vào `<MEDIA_LOCAL_ROOT>/.tam/<ngẫu nhiên>.part` —
+cùng ổ với chỗ ở thật — nên service chỉ còn ĐỔI TÊN, không chép lại byte nào.
+
+Ổ VPS, KHÔNG PHẢI Ổ VIETTEL CFS (Tuyền chốt 30/09/2026). Ổ mạng CFS chập chờn
+(29/09 đọc còn 69KB/s); tải lên thẳng vào đó là lượt tải hỏng mỗi khi ổ chậm.
+Tệp ghi vào ổ của chính máy chủ trước (dòng `vi_tri = 'vps'`), container
+`day-tep` đẩy sang CFS sau khi đo thấy ổ ổn — đường tải lên không chạm CFS.
 
 Và một lợi ích an toàn: route dùng cửa này không khai `Form`/`File`, nên FastAPI
 kiểm quyền (dependency) TRƯỚC khi đọc byte nào của thân. Với `UploadFile`, một
@@ -32,13 +37,13 @@ from starlette.requests import ClientDisconnect, Request
 from clinicai.api.exceptions import ValidationError
 from clinicai.core.kho_tep import (
     HAN_GHI_KHOI,
+    KHO_VPS,
     chay_tren_kho,
     don_tren_kho,
 )
+from clinicai.services import media_service
 from clinicai.services.media_service import (
     KET_QUA_VIDEO_UPLOAD_ENABLED,
-    MEDIA_ROOT,
-    kiem_kho_da_gan,
     sniff_ket_qua,
     vuot_tran,
 )
@@ -71,7 +76,14 @@ class _Phan:
 
 
 def thu_muc_tam() -> Path:
-    return MEDIA_ROOT / ".tam"
+    return media_service.goc_vps() / ".tam"
+
+
+def cho_trong_o_vps() -> int:
+    """Byte còn trống của ổ chứa MEDIA_LOCAL_ROOT (tạo `.tam` nếu chưa có).
+    Đồng bộ — gọi qua ``chay_tren_kho(kho=KHO_VPS)``."""
+    thu_muc_tam().mkdir(parents=True, exist_ok=True)
+    return shutil.disk_usage(media_service.goc_vps()).free
 
 
 def _mo_ghi(duong: Path) -> IO[bytes]:
@@ -91,23 +103,20 @@ async def nhan_multipart(
     if loai_noi_dung != b"multipart/form-data" or not ranh_gioi:
         raise ValidationError("Yêu cầu tải tệp phải là multipart/form-data.")
 
-    await chay_tren_kho(kiem_kho_da_gan)
     try:
         khai = int(request.headers.get("content-length") or 0)
     except ValueError:
         khai = 0
-    # Khoảng trống an toàn kiểm TRƯỚC khi nhận byte nào; service kiểm lại lần nữa.
-    from clinicai.services.tep_ket_qua_service import MEDIA_MIN_FREE_BYTES
+    # Khoảng trống an toàn của Ổ VPS kiểm TRƯỚC khi nhận byte nào; service kiểm
+    # lại lần nữa. Ổ gần đầy thì TỪ CHỐI — không bao giờ ghi thẳng sang CFS.
+    from clinicai.services.tep_ket_qua_service import (
+        CAU_O_VPS_DAY,
+        MEDIA_LOCAL_MIN_FREE_BYTES,
+    )
 
-    if (
-        khai
-        and await chay_tren_kho(lambda: shutil.disk_usage(MEDIA_ROOT).free) - khai
-        < MEDIA_MIN_FREE_BYTES
-    ):
-        raise ValidationError(
-            "Máy chủ không còn đủ dung lượng trống an toàn để lưu tệp. "
-            "Báo kỹ thuật dọn hoặc mở rộng ổ đĩa."
-        )
+    trong = await chay_tren_kho(cho_trong_o_vps, kho=KHO_VPS)
+    if trong - khai < MEDIA_LOCAL_MIN_FREE_BYTES:
+        raise ValidationError(CAU_O_VPS_DAY)
 
     duong = thu_muc_tam() / f"{uuid.uuid4().hex}.part"
     truong: dict[str, str] = {}
@@ -216,9 +225,9 @@ async def nhan_multipart(
         # Mọi lần chạm ổ đi qua luồng phụ CÓ HẠN (29/09): ổ Viettel treo thì lượt
         # tải này báo "kho chậm", không treo cả API. Hạn tính TỪNG KHỐI ghi.
         if tep is None:
-            tep = await chay_tren_kho(lambda: _mo_ghi(duong))
+            tep = await chay_tren_kho(lambda: _mo_ghi(duong), kho=KHO_VPS)
         f = tep
-        await chay_tren_kho(lambda: f.write(khuc), han=HAN_GHI_KHOI)
+        await chay_tren_kho(lambda: f.write(khuc), han=HAN_GHI_KHOI, kho=KHO_VPS)
 
     try:
         try:
@@ -238,7 +247,7 @@ async def nhan_multipart(
         if so_phan_tep == 0 or so_byte == 0 or tep is None:
             raise ValidationError("Tệp rỗng.")
         f = tep
-        await chay_tren_kho(f.close, han=HAN_GHI_KHOI)
+        await chay_tren_kho(f.close, han=HAN_GHI_KHOI, kho=KHO_VPS)
         tep = None
         return truong, TepDaNhan(
             duong=duong,
@@ -258,7 +267,7 @@ async def nhan_multipart(
                     pass
             _xoa(duong)
 
-        await don_tren_kho(_don, viec=f"xoa_tep_tam:{duong}")
+        await don_tren_kho(_don, viec=f"xoa_tep_tam:{duong}", kho=KHO_VPS)
         raise
 
 
@@ -272,7 +281,9 @@ def _xoa(duong: Path) -> None:
 async def don_tep_tam(tep: TepDaNhan) -> None:
     """Xoá tệp `.part` sau khi service xử lý xong (đã đổi tên thì không còn gì
     để xoá). Cố hết sức, không ném — không che lỗi thật của lượt tải."""
-    await don_tren_kho(lambda: _xoa(tep.duong), viec=f"xoa_tep_tam:{tep.duong}")
+    await don_tren_kho(
+        lambda: _xoa(tep.duong), viec=f"xoa_tep_tam:{tep.duong}", kho=KHO_VPS
+    )
 
 
 def uuid_hoac_loi(gia_tri: str | None, ten: str, *, bat_buoc: bool) -> str | None:

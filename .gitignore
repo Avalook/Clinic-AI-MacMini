@@ -55,6 +55,8 @@ out/
 .release-env-*/
 .release-source-*/
 .ops-status/
+# Ổ VPS của tệp kết quả (tải lên lưu trước, đẩy sang CFS sau — 01/10/2026).
+.media-vps/
 
 # Editor / OS
 .vscode/

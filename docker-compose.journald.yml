@@ -39,6 +39,8 @@ services:
     <<: *log-journald
   su-kien:
     <<: *log-journald
+  day-tep:
+    <<: *log-journald
   notification-relay:
     <<: *log-journald
   rabbitmq:

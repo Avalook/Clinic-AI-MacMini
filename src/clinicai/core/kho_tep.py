@@ -10,6 +10,10 @@ Luật: mọi thao tác chạm ổ tệp trong đường xử lý request đi qu
 (502, câu nói rõ "kho tệp chậm") và NGẮT MẠCH một lúc: các yêu cầu tệp sau
 trả lỗi luôn, không đẻ thêm luồng treo chờ ổ mạng (luồng đã treo không huỷ
 được — chỉ có thể không tạo thêm). Việc khác của phòng khám chạy bình thường.
+
+HAI Ổ, HAI NGẮT MẠCH (01/10/2026). Tệp mới nằm ở ổ VPS (``kho="vps"``) trước khi
+được đẩy sang Viettel CFS (``kho="cfs"``, mặc định). CFS treo không được làm
+tắt đường đọc tệp đang nằm ở ổ VPS, nên mỗi ổ một mạch ngắt riêng.
 """
 
 from __future__ import annotations
@@ -39,17 +43,28 @@ CAU_KHO_CHAM = (
     "sau ít phút; các việc khác vẫn dùng bình thường."
 )
 
-_ngat_den = 0.0
+#: Ổ mặc định: Viettel CFS (ổ mạng hay chậm). ``"vps"`` = ổ của chính máy chủ.
+KHO_CFS = "cfs"
+KHO_VPS = "vps"
+CAU_O_VPS_CHAM = (
+    "Ổ lưu tạm trên máy chủ đang chậm — chưa xử lý được tệp. Thử lại sau ít "
+    "phút; các việc khác vẫn dùng bình thường."
+)
+
+_ngat_den: dict[str, float] = {}
 
 
-def dang_ngat() -> bool:
-    return time.monotonic() < _ngat_den
+def dang_ngat(kho: str = KHO_CFS) -> bool:
+    return time.monotonic() < _ngat_den.get(kho, 0.0)
 
 
 def mo_lai() -> None:
-    """Dùng trong test: bỏ trạng thái ngắt mạch."""
-    global _ngat_den
-    _ngat_den = 0.0
+    """Dùng trong test: bỏ trạng thái ngắt mạch của mọi ổ."""
+    _ngat_den.clear()
+
+
+def _cau(kho: str) -> str:
+    return CAU_O_VPS_CHAM if kho == KHO_VPS else CAU_KHO_CHAM
 
 
 def han_theo_co(so_byte: int) -> float:
@@ -58,23 +73,27 @@ def han_theo_co(so_byte: int) -> float:
     return HAN_GIAY + so_byte / (1024 * 1024)
 
 
-async def chay_tren_kho(ham: Callable[[], T], *, han: float | None = None) -> T:
+async def chay_tren_kho(
+    ham: Callable[[], T], *, han: float | None = None, kho: str = KHO_CFS
+) -> T:
     """Chạy ``ham`` (đồng bộ, chạm ổ tệp) ở luồng phụ, tối đa ``han`` giây
-    (mặc định ``HAN_GIAY``, đọc lúc gọi)."""
-    global _ngat_den
-    if dang_ngat():
-        raise ExternalServiceError(CAU_KHO_CHAM)
+    (mặc định ``HAN_GIAY``, đọc lúc gọi). ``kho``: ổ nào — quá hạn thì chỉ
+    ngắt mạch của ổ ấy."""
+    if dang_ngat(kho):
+        raise ExternalServiceError(_cau(kho))
     if han is None:
         han = HAN_GIAY
     try:
         return await asyncio.wait_for(asyncio.to_thread(ham), timeout=han)
     except TimeoutError:
-        _ngat_den = time.monotonic() + NGAT_GIAY
-        logger.error("kho_tep_qua_han", han_giay=han, ngat_giay=NGAT_GIAY)
-        raise ExternalServiceError(CAU_KHO_CHAM) from None
+        _ngat_den[kho] = time.monotonic() + NGAT_GIAY
+        logger.error("kho_tep_qua_han", kho=kho, han_giay=han, ngat_giay=NGAT_GIAY)
+        raise ExternalServiceError(_cau(kho)) from None
 
 
-async def don_tren_kho(ham: Callable[[], object], *, viec: str) -> None:
+async def don_tren_kho(
+    ham: Callable[[], object], *, viec: str, kho: str = KHO_CFS
+) -> None:
     """Dọn dẹp trên ổ (xoá tệp dở, đóng tệp) — cố hết sức, KHÔNG BAO GIỜ ném.
 
     Dọn dẹp chạy trong nhánh lỗi: ném ở đây sẽ che mất lỗi gốc (người dùng thấy
@@ -82,10 +101,10 @@ async def don_tren_kho(ham: Callable[[], object], *, viec: str) -> None:
     không đẻ thêm luồng treo chờ ổ chỉ để xoá một tệp tạm; tệp sót lại có tên
     trong log để dọn tay.
     """
-    if dang_ngat():
+    if dang_ngat(kho):
         logger.warning("kho_tep_bo_qua_don", viec=viec, ly_do="dang_ngat_mach")
         return
     try:
-        await chay_tren_kho(ham)
+        await chay_tren_kho(ham, kho=kho)
     except Exception as loi:  # noqa: BLE001 — dọn dẹp không được che lỗi gốc
         logger.warning("kho_tep_don_loi", viec=viec, loi=repr(loi))

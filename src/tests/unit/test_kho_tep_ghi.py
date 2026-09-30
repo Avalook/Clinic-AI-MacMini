@@ -52,9 +52,10 @@ def nha() -> Iterator[threading.Event]:
 
 @pytest.fixture
 def kho(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    from clinicai.services import nhan_tep_luong
+    from clinicai.services import media_service, nhan_tep_luong
 
-    monkeypatch.setattr(nhan_tep_luong, "MEDIA_ROOT", tmp_path)
+    # 01/10/2026: tải lên ghi vào ổ VPS (MEDIA_LOCAL_ROOT), không vào CFS.
+    monkeypatch.setattr(media_service, "MEDIA_LOCAL_ROOT", tmp_path)
     monkeypatch.setattr(nhan_tep_luong, "HAN_GHI_KHOI", HAN)
     monkeypatch.delenv("MEDIA_MARKER", raising=False)
     return tmp_path
@@ -97,9 +98,11 @@ async def test_mo_tep_treo_thi_bao_kho_cham_ma_vong_van_chay(
         nhan_multipart(_request(_than_multipart({}, ("a.png", PNG))))
     )
     assert isinstance(loi, ExternalServiceError)
-    assert "Kho lưu tệp" in str(loi) and "chậm" in str(loi)
+    assert "Ổ lưu tạm" in str(loi) and "chậm" in str(loi)
     assert giay < 1.0
     assert nhip > 5
+    # Ổ VPS treo chỉ ngắt mạch ổ VPS — đường đọc tệp đã đẩy sang CFS vẫn mở.
+    assert kho_tep.dang_ngat("vps") and not kho_tep.dang_ngat("cfs")
     # Đang ngắt mạch: lượt sau trả lỗi NGAY, không đẻ thêm luồng chờ ổ.
     goi: list[int] = []
     monkeypatch.setattr(nhan_tep_luong, "_mo_ghi", lambda _d: goi.append(1))
@@ -177,7 +180,7 @@ async def test_don_tep_tam_khong_nem_khi_o_treo(
     tep = TepDaNhan(duong=tmp_path / "x.part", so_byte=1, sha256="", dau=b"", ten=None)
     giay, _nhip, loi = await _do_va_dem(don_tep_tam(tep))
     assert loi is None and giay < 1.0
-    assert kho_tep.dang_ngat()
+    assert kho_tep.dang_ngat("vps")
 
 
 # ── service tệp kết quả ────────────────────────────────────────────────────
@@ -193,6 +196,7 @@ async def test_tai_len_doi_ten_treo_thi_bao_kho_cham(
 
     monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
     monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_LOCAL_ROOT", tmp_path)
     monkeypatch.delenv("MEDIA_MARKER", raising=False)
     monkeypatch.setattr(os, "replace", lambda *_a: nha.wait(5))
     part = tmp_path / ".tam" / "x.part"
@@ -224,6 +228,7 @@ async def test_tai_len_mkdir_treo_thi_bao_kho_cham(
 
     monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
     monkeypatch.setattr("clinicai.services.media_service.MEDIA_ROOT", tmp_path)
+    monkeypatch.setattr("clinicai.services.media_service.MEDIA_LOCAL_ROOT", tmp_path)
     monkeypatch.delenv("MEDIA_MARKER", raising=False)
     monkeypatch.setattr(shutil, "disk_usage", lambda _p: nha.wait(5))
     giay, _nhip, loi = await _do_va_dem(

@@ -51,6 +51,8 @@ def _so(**kw: int) -> dict[str, object]:
         "kieu_loi_5p": 0,
         "hang_cho_ma": 0,
         "luot_treo": 0,
+        "tep_cho_lau": 0,
+        "tep_loi_day": 0,
     }
     for k, v in kw.items():
         if k in su_kien:
@@ -72,6 +74,9 @@ def test_canh_gac_on_het_thi_khong_co_chuyen() -> None:
         ({"kieu_loi_5p": canh_gac.NGUONG_KIEU_LOI_5P}, "LOI_DANG_DIEN"),
         ({"hang_cho_ma": 1}, "HANG_CHO_MA"),
         ({"luot_treo": 3}, "LUOT_TREO"),
+        # 01/10/2026: tệp chờ đẩy ổ VPS → CFS quá 6 giờ / đẩy hỏng từ 5 lần.
+        ({"tep_cho_lau": 1}, "DAY_TEP_CHO_LAU"),
+        ({"tep_loi_day": 2}, "DAY_TEP_LOI"),
     ],
 )
 def test_moi_chuyen_mo_dung_ma(kw: dict[str, int], ma: str) -> None:

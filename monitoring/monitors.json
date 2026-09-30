@@ -63,6 +63,21 @@
       "notification_channels": ["ops-telegram"]
     },
     {
+      "name": "Đẩy tệp ổ VPS → Viettel CFS — có đang đẩy không",
+      "type": "http",
+      "url": "http://api:8000/health/day-tep",
+      "interval_seconds": 300,
+      "retries": 2,
+      "accepted_status_codes": ["200"],
+      "why": [
+        "Thêm 01/10/2026. Tệp kết quả mới nằm ở ổ VPS (bản DUY NHẤT) cho tới khi",
+        "container day-tep đẩy sang Viettel CFS. day-tep chết / CFS hỏng lâu thì",
+        "tệp dồn trên ổ VPS mà không màn nào đỏ. Điểm đo hỏi DB: tệp chờ đẩy quá",
+        "6 giờ, tệp đẩy hỏng từ 5 lần. Trả 503 kèm lý do (chỉ số đếm)."
+      ],
+      "notification_channels": ["ops-telegram"]
+    },
+    {
       "name": "Relay thông báo — vòng lặp còn quay",
       "type": "docker",
       "docker_container": "clinicai_prod-notification-relay-1",

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import date, time
 from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import ValidationError
@@ -922,11 +921,13 @@ async def doc_tep_ket_qua(
     tua không kéo được. Container API giới hạn 1GB nên cũng không thể nạp cả
     tệp vào RAM cho mỗi người xem.
     """
-    from clinicai.services.tep_ket_qua_service import TepKetQuaService
+    from clinicai.services.media_service import phan_tich_range
+    from clinicai.services.tep_ket_qua_service import TepKetQuaService, doc_dan
 
-    path, mime, so_byte, ten = await TepKetQuaService(pool).duong_dan_de_doc(
-        identity=identity, tep_id=str(tep_id)
-    )
+    # Mở sẵn tệp: ổ VPS trước, CFS sau (01/10/2026). CFS chậm / đang ngắt mạch
+    # → báo "kho chậm" ngay ở đây, trước khi gửi byte nào.
+    tep = await TepKetQuaService(pool).mo_de_doc(identity=identity, tep_id=str(tep_id))
+    so_byte = tep.so_byte
     # Dữ liệu bệnh nhân không được lưu trong cache trình duyệt hay proxy.
     # `nosniff` ngăn trình duyệt tự đoán kiểu và chạy nội dung như HTML.
     headers = {
@@ -935,38 +936,33 @@ async def doc_tep_ket_qua(
         "Accept-Ranges": "bytes",
         # `?tai=1` (26/09/2026, nút Tải về): trình duyệt LƯU tệp với đúng tên
         # hiển thị (RFC 5987 giữ dấu tiếng Việt); mặc định vẫn xem tại chỗ.
-        "Content-Disposition": _cach_mo_tep(ten, tai),
+        "Content-Disposition": _cach_mo_tep(tep.ten, tai),
     }
 
-    from clinicai.services.media_service import phan_tich_range
-
     khoang = phan_tich_range(request.headers.get("range"), so_byte)
-    if khoang is None:
-        return FileResponse(path, media_type=mime, headers=headers)
-    dau, cuoi = khoang
-    if dau > cuoi:
+    if khoang is not None and khoang[0] > khoang[1]:
         # Yêu cầu nằm ngoài tệp — trả 416 kèm độ dài thật, để trình phát tự
         # chỉnh lại thay vì treo.
+        from clinicai.core.kho_tep import don_tren_kho
+
+        await don_tren_kho(tep.f.close, viec=f"dong_tep:{tep.duong}", kho=tep.kho)
         return Response(
             status_code=416,
             headers={**headers, "Content-Range": f"bytes */{so_byte}"},
         )
 
-    def doc_dan() -> Iterator[bytes]:
-        con = cuoi - dau + 1
-        with path.open("rb") as f:
-            f.seek(dau)
-            while con > 0:
-                mieng = f.read(min(64 * 1024, con))
-                if not mieng:
-                    break
-                con -= len(mieng)
-                yield mieng
-
-    headers["Content-Range"] = f"bytes {dau}-{cuoi}/{so_byte}"
+    # Trọn tệp hay một khoảng: CÙNG một đường đọc theo mảnh, MỖI MẢNH có hạn giờ
+    # (`doc_dan`). Bản cũ dùng FileResponse / generator đồng bộ trên threadpool —
+    # không hạn giờ, ổ CFS treo là luồng treo chồng lên nhau tới cạn pool.
+    if khoang is None:
+        dau, cuoi, ma = 0, so_byte - 1, 200
+    else:
+        dau, cuoi = khoang
+        ma = 206
+        headers["Content-Range"] = f"bytes {dau}-{cuoi}/{so_byte}"
     headers["Content-Length"] = str(cuoi - dau + 1)
     return StreamingResponse(
-        doc_dan(), status_code=206, media_type=mime, headers=headers
+        doc_dan(tep, dau, cuoi), status_code=ma, media_type=tep.mime, headers=headers
     )
 
 

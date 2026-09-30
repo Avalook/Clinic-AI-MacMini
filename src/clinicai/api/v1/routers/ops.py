@@ -17,6 +17,7 @@ from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services import (
     canh_gac,
     canh_gac_kho_tep,
+    day_tep,
     kho_loi,
     nhat_ky_van_hanh,
     traffic_service,
@@ -145,11 +146,15 @@ async def ds_canh_bao(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Cảnh báo của bộ canh gác: đang mở trước, rồi mới đóng gần đây.
-    ``kho_tep``: số đo tốc độ ổ Viettel CFS mới nhất (None = chưa đo / tắt)."""
+    ``kho_tep``: số đo tốc độ ổ Viettel CFS mới nhất (None = chưa đo / tắt).
+    ``day_tep``: tệp chờ đẩy ổ VPS → CFS / đã đẩy hôm nay / đang lỗi (01/10)."""
     response.headers["Cache-Control"] = "no-store"
+    async with pool.acquire() as conn:
+        so_day = await day_tep.so_lieu(conn)
     return {
         "canh_bao": await canh_gac.danh_sach(pool),
         "kho_tep": canh_gac_kho_tep.MOI_NHAT,
+        "day_tep": so_day,
     }
 
 

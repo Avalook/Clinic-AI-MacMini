@@ -533,11 +533,14 @@ async def test_slice1_tron_luong_qua_http(
     url = os.environ.get("DATABASE_URL") or ""
     if not url:
         pytest.skip("cần DATABASE_URL_TEST trỏ tới database dùng một lần")
-    from clinicai.services import media_service, nhan_tep_luong, tep_ket_qua_service
+    from clinicai.services import media_service, tep_ket_qua_service
 
-    for mod in (media_service, nhan_tep_luong, tep_ket_qua_service):
+    for mod in (media_service, tep_ket_qua_service):
         monkeypatch.setattr(mod, "MEDIA_ROOT", tmp_path)
+    # 01/10/2026: tải lên ghi vào ổ VPS (MEDIA_LOCAL_ROOT) trước khi đẩy CFS.
+    monkeypatch.setattr(media_service, "MEDIA_LOCAL_ROOT", tmp_path / "vps")
     monkeypatch.setattr(tep_ket_qua_service, "MEDIA_MIN_FREE_BYTES", 0)
+    monkeypatch.setattr(tep_ket_qua_service, "MEDIA_LOCAL_MIN_FREE_BYTES", 0)
     KET.clear()
     pool = await asyncpg.create_pool(
         url.replace("postgresql+asyncpg://", "postgresql://", 1),

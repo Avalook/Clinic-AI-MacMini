@@ -16,6 +16,12 @@ Mode 4 (su-kien): Giao sự kiện nghiệp vụ — đọc ``event_delivery``, 
   Run:  python -m clinicai.worker --su-kien [tên_bên_nhận ...]
   Env:  DATABASE_URL
 
+Mode 5 (day-tep): Đẩy tệp kết quả từ ổ VPS sang Viettel CFS (01/10/2026) — đo
+  CFS, chép + kiểm sha256, dọn bản VPS đã đẩy, job dọn V9 hằng ngày. Container
+  riêng `day-tep`, gắn CẢ HAI ổ. Xem `services/day_tep.py`.
+  Run:  python -m clinicai.worker --day-tep
+  Env:  DATABASE_URL, MEDIA_ROOT, MEDIA_LOCAL_ROOT, MEDIA_MARKER
+
 Mode 3 (pos-relay): POS outbox relay — polls ``pos_outbox`` and pushes invoices
   and stock movements to whichever POS the clinic configured (ADR-0010). With
   the default null adapter, rows are dead-lettered rather than falsely marked
@@ -264,15 +270,12 @@ async def _run_su_kien() -> None:
     # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
     # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
     # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
-    from clinicai.services import canh_gac, don_tep_ket_qua
+    from clinicai.services import canh_gac
 
     canh = not chi_dinh
     lan_canh = 0.0
-    # DỌN Ổ TỆP KẾT QUẢ hằng ngày (V9 30/09/2026): tệp xoá mềm > 30 ngày chưa
-    # vào hồ sơ + tệp tạm `.part` sót. Tự bỏ qua khi service này không gắn ổ
-    # media (xem đầu services/don_tep_ket_qua.py). Lượt đầu chạy sau 10 phút —
-    # không tranh việc lúc vừa deploy.
-    lan_don = time.monotonic() - don_tep_ket_qua.NHIP_GIAY + 600
+    # Job dọn ổ tệp kết quả (V9) đã chuyển sang container `day-tep` (01/10/2026)
+    # — service này không gắn ổ nào.
 
     try:
         while not stop.is_set():
@@ -293,9 +296,6 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_canh >= canh_gac.NHIP_GIAY:
                     lan_canh = time.monotonic()
                     await canh_gac.mot_vong(pool)
-                if canh and time.monotonic() - lan_don >= don_tep_ket_qua.NHIP_GIAY:
-                    lan_don = time.monotonic()
-                    await don_tep_ket_qua.mot_luot(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.
@@ -309,6 +309,72 @@ async def _run_su_kien() -> None:
     finally:
         await close_pool(pool)
         logger.info("su_kien_worker_stopped")
+
+
+async def _run_day_tep() -> None:
+    """Chế độ 5 (--day-tep): đẩy tệp kết quả ổ VPS → Viettel CFS.
+
+    Mỗi ``day_tep.NHIP_GIAY`` (30s) một vòng; vòng không bao giờ ném, mọi thao
+    tác ổ có hạn giờ — ổ treo thì bỏ lượt, nhịp tim vẫn đập. Chỉ MỘT tiến trình
+    được đẩy: khoá tư vấn cấp phiên trên một kết nối giữ riêng; không lấy được
+    thì chờ (container thứ hai đứng im, không tranh tệp).
+    """
+    from clinicai.core.database import close_pool, create_pool
+    from clinicai.services import day_tep, don_tep_ket_qua, media_service
+
+    pool = await create_pool()
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+
+    giu = await pool.acquire()
+    logger.info(
+        "day_tep_started",
+        goc_vps=str(media_service.goc_vps()),
+        goc_cfs=str(media_service.goc_cfs()),
+        nhip=day_tep.NHIP_GIAY,
+        giu_ngay=day_tep.GIU_NGAY,
+        tran_bytes=day_tep.TRAN_BYTES,
+    )
+    # Lượt dọn V9 đầu tiên sau 10 phút — không tranh việc lúc vừa deploy.
+    tt = day_tep.TrangThai(
+        lan_don_v9=time.monotonic() - don_tep_ket_qua.NHIP_GIAY + 600
+    )
+    co_khoa = False
+    try:
+        while not stop.is_set():
+            try:
+                if not co_khoa:
+                    co_khoa = bool(
+                        await giu.fetchval(
+                            "SELECT pg_try_advisory_lock(hashtextextended($1, 0))",
+                            day_tep.KHOA_MOT_TIEN_TRINH,
+                        )
+                    )
+                    if not co_khoa:
+                        logger.warning("day_tep_tien_trinh_khac_dang_giu_khoa")
+                if co_khoa:
+                    ket = await day_tep.mot_vong(pool, tt)
+                    day = ket.get("day") or {}
+                    if day.get("da_day") or day.get("loi"):
+                        logger.info("day_tep_vong", **day)
+                _beat()
+            except Exception:
+                # Mất kết nối DB… — không được làm chết tiến trình.
+                logger.exception("day_tep_vong_loi")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=day_tep.NHIP_GIAY)
+                break
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        try:
+            await pool.release(giu)
+        except Exception:
+            pass
+        await close_pool(pool)
+        logger.info("day_tep_stopped")
 
 
 async def _run_rabbitmq() -> None:
@@ -376,6 +442,8 @@ async def _run_rabbitmq() -> None:
 def main() -> None:
     if "--su-kien" in sys.argv:
         asyncio.run(_run_su_kien())
+    elif "--day-tep" in sys.argv:
+        asyncio.run(_run_day_tep())
     elif "--pos-relay" in sys.argv:
         asyncio.run(_run_pos_relay())
     elif "--relay" in sys.argv:

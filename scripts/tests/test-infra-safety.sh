@@ -198,6 +198,51 @@ test_backup_bo_qua_media_tren_kho_ngoai_may() {
   grep -qx 'media_artifact=none' "${archive}.manifest" || fail "manifest should say media_artifact=none"
 }
 
+test_backup_kem_tep_chua_day_cfs() {
+  # 01/10/2026: tải lên ghi vào ổ VPS trước, day-tep đẩy sang CFS sau. Tệp
+  # vi_tri='vps' là BẢN DUY NHẤT → phải vào bản sao lưu đêm (tar riêng, có
+  # trần). Tệp ĐÃ đẩy (đã có bản CFS) thì không.
+  make_pg_dump ok
+  local vps_root="$TMP_ROOT/media-vps"
+  mkdir -p "$vps_root/test/clinic-1/ket-qua/bn-1" "$vps_root/test/.tam"
+  printf 'CHUA-DAY-1' > "$vps_root/test/clinic-1/ket-qua/bn-1/a.jpg"
+  printf 'CHUA-DAY-2-DAI-HON' > "$vps_root/test/clinic-1/ket-qua/bn-1/b.pdf"
+  printf 'DA-DAY' > "$vps_root/test/clinic-1/ket-qua/bn-1/c.jpg"
+  printf 'DANG-NHAN' > "$vps_root/test/.tam/x.part"
+  # psql giả: database nói a.jpg + b.pdf chưa đẩy (c.jpg đã đẩy).
+  cat > "$FAKE_BIN/psql" <<'PSQL'
+#!/bin/bash
+printf 'clinic-1/ket-qua/bn-1/a.jpg\t10\n'
+printf 'clinic-1/ket-qua/bn-1/b.pdf\t18\n'
+PSQL
+  chmod +x "$FAKE_BIN/psql"
+  local vps_env="$TMP_ROOT/media-vps.env"
+  { cat "$TEST_ENV"; echo "MEDIA_LOCAL_DIR=$vps_root"; } > "$vps_env"
+
+  rm -rf "$TEST_HOME/backups/clinicai"
+  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" CLINIC_BACKUP_PATH="$FAKE_BIN:/usr/bin:/bin" PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_ENV_FILE="$vps_env" CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-vps.lock" "$ROOT/scripts/backup-db.sh" || fail "backup failed with pending VPS files"
+  local archive tep
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
+  tep="${archive%.sql.gz}_tep-chua-day.tar"
+  [ -f "$tep" ] || fail "backup did not archive files still waiting for CFS"
+  tar -tf "$tep" | grep -q 'a\.jpg' || fail "pending archive misses a.jpg"
+  tar -tf "$tep" | grep -q 'b\.pdf' || fail "pending archive misses b.pdf"
+  if tar -tf "$tep" | grep -Eq 'c\.jpg|\.part$'; then
+    fail "pending archive took an already-pushed file or an in-flight upload"
+  fi
+  grep -qx 'tep_chua_day_count=2' "${archive}.manifest" || fail "manifest does not count pending files"
+  grep -qx 'tep_chua_day_source=database' "${archive}.manifest" || fail "manifest does not say the list came from the database"
+
+  # Trần: 12 byte → chỉ a.jpg (cũ trước), b.pdf bị bỏ sót + WARNING.
+  rm -rf "$TEST_HOME/backups/clinicai"
+  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" CLINIC_BACKUP_PATH="$FAKE_BIN:/usr/bin:/bin" PG_DUMP_BIN="$FAKE_BIN/pg_dump" BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_TEP_CHUA_DAY_MAX_BYTES=12 BACKUP_ENV_FILE="$vps_env" CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-vps.lock" CLINIC_BACKUP_LOG="$TMP_ROOT/backup-vps.log" "$ROOT/scripts/backup-db.sh" || fail "backup failed when pending files exceed the cap"
+  archive="$(find "$TEST_HOME/backups/clinicai" -name '*.sql.gz' ! -name '*_auth.sql.gz' -type f | head -1)"
+  grep -qx 'tep_chua_day_count=1' "${archive}.manifest" || fail "cap did not limit the pending archive"
+  grep -qx 'tep_chua_day_skipped=1' "${archive}.manifest" || fail "manifest does not record files skipped by the cap"
+  grep -q 'vượt trần' "$TMP_ROOT/backup-vps.log" || fail "exceeding the cap is not logged as a warning"
+  rm -f "$FAKE_BIN/psql"
+}
+
 test_backup_includes_media_files() {
   # ẢNH SIÊU ÂM KHÔNG NẰM TRONG pg_dump, và cho tới 08/08/2026 chúng không nằm
   # trong bản sao lưu nào cả — `grep media` trong cả bốn script đều rỗng. Khôi
@@ -809,9 +854,9 @@ import sys
 
 services = json.load(sys.stdin)["services"]
 expected = {
-    "api", "caddy", "cloudflared", "dashboard", "dozzle", "media-quyen",
-    "notification-relay", "pos-relay", "rabbitmq", "su-kien", "uptime-kuma",
-    "worker",
+    "api", "caddy", "cloudflared", "dashboard", "day-tep", "dozzle",
+    "media-quyen", "notification-relay", "pos-relay", "rabbitmq", "su-kien",
+    "uptime-kuma", "worker",
 }
 assert set(services) == expected, set(services)
 for name, service in services.items():
@@ -978,6 +1023,7 @@ test_runbook_installs_the_real_launchdaemon_template
 # Các bài khác lấy "tệp .sql.gz đầu tiên tìm thấy" trong cùng thư mục, nên một
 # tệp hỏng còn sót lại là chúng kiểm nhầm bản sao lưu — và báo một lỗi nói về
 # chuyện khác hẳn.
+test_backup_kem_tep_chua_day_cfs
 test_backup_includes_media_files
 test_backup_bo_qua_media_tren_kho_ngoai_may
 test_hook_chan_du_lieu_benh_nhan_va_bi_mat
