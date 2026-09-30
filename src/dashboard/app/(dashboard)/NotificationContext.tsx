@@ -25,6 +25,7 @@ import {
   fmtDayMonth,
   type Shift,
 } from "../../lib/roster";
+import { nhipKhiHien } from "../../lib/nhip-khi-hien";
 
 const POLL_MS = 20_000;
 const TRANSIENT_MS = 7000;
@@ -163,18 +164,19 @@ export function NotificationProvider({
   // cho phép tới origin này, đúng thứ đang khan hiếm (xem `lib/nhip-lam-moi`).
   //
   // Quay lại tab thì hỏi NGAY, không chờ hết nhịp: người ta vừa nhìn vào chuông.
+  // Lần hỏi ấy do `useNgheBang` bên dưới làm — lúc tab hiện lại
+  // `RealtimeRefresher` phát tin `null` và mọi người nghe đều hỏi lại. Bản trước
+  // tự nghe thêm `visibilitychange` nên chuông hỏi HAI lần mỗi lần đổi tab (đo
+  // prod 30/09/2026). Nhịp 20 giây nay huỷ hẳn lúc tab ẩn (`nhipKhiHien`), không
+  // chỉ bỏ lượt.
   useEffect(() => {
-    const doc = () => {
-      if (document.visibilityState === "hidden") return;
-      void docThongBao();
-    };
-    const first = setTimeout(doc, 0);
-    const id = setInterval(doc, POLL_MS);
-    document.addEventListener("visibilitychange", doc);
+    const first = setTimeout(() => void docThongBao(), 0);
+    const goNhip = nhipKhiHien(() => void docThongBao(), POLL_MS, {
+      hoiKhiHien: false,
+    });
     return () => {
       clearTimeout(first);
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", doc);
+      goNhip();
     };
   }, [docThongBao]);
 
@@ -299,7 +301,10 @@ export function NotificationProvider({
     }
 
     void poll();
-    const timer = setInterval(poll, POLL_MS);
+    // Tab ẩn thì im hẳn (bản trước hỏi /api/roster mỗi 20 giây cả khi ẩn). Hiện
+    // lại thì không hỏi ở đây: `RealtimeRefresher` rung `SU_KIEN_DOI_CA` trong
+    // lần bắt kịp, và tay nghe `khiDoiCa` ngay dưới đã hỏi lại một lần.
+    const goNhip = nhipKhiHien(() => void poll(), POLL_MS, { hoiKhiHien: false });
 
     // QUYẾT ĐỊNH CA của mình: nghe chuông "ca trực vừa đổi" (SU_KIEN_DOI_CA) do
     // RealtimeRefresher rung khi bảng `work_roster` bắn tin qua dòng SSE chung —
@@ -315,7 +320,7 @@ export function NotificationProvider({
 
     return () => {
       stopped = true;
-      clearInterval(timer);
+      goNhip();
       window.removeEventListener(SU_KIEN_DOI_CA, khiDoiCa);
     };
   }, [staffId]);

@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { VN_TZ } from "../../lib/datetime";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 export interface DisplayZone {
   key: string;
@@ -81,13 +82,13 @@ export default function DisplayBoard({
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const t = setInterval(() => {
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì làm mới một lần ngay (30/09/2026).
+    return nhipKhiHien(() => {
       setNow(new Date());
       // Đây mới là phần "tự làm mới" thật. Bản trước chỉ gọi setNow() — nhích
       // cái đồng hồ trên góc màn hình trong khi bảng số đứng im cả buổi.
       router.refresh();
     }, LAM_MOI_MS);
-    return () => clearInterval(t);
   }, [router]);
 
   const dangCho = items.filter((m) => m.waiting && (!phong || m.room_code === phong));

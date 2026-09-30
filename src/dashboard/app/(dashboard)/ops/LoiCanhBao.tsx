@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import { fmtTime } from "@/lib/datetime";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 interface CanhBao {
   id: string;
@@ -107,10 +108,11 @@ export default function LoiCanhBao() {
       if (!huy) void nap();
     };
     chay();
-    const t = setInterval(chay, 30000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì đọc một lần ngay (30/09/2026).
+    const goNhip = nhipKhiHien(chay, 30000);
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [nap]);
 

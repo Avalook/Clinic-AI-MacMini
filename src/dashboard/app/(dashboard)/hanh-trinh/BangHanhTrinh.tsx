@@ -16,6 +16,7 @@ import { docBang, gioVn } from "../_lam-viec/api";
 import SoLuot from "@/components/ui/SoLuot";
 import { doctorName } from "@/lib/doctor-name";
 import { useNgheBang } from "../dung-nghe-bang";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 interface Luot {
   visit_id: string;
@@ -72,10 +73,12 @@ export default function BangHanhTrinh() {
     });
     // SỰ KIỆN THAY NHỊP HỎI (27/09/2026): nghe tin bảng đổi qua dòng SSE chung
     // (`useNgheBang`) → nạp lại NGAY; nhịp hỏi giãn còn 60 giây làm lưới an toàn.
-    const t = setInterval(() => void tai(), 60_000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì tin `null` của RealtimeRefresher (qua
+    // `useNgheBang`) đã hỏi lại một lần — nhịp không hỏi thêm (30/09/2026).
+    const goNhip = nhipKhiHien(() => void tai(), 60_000, { hoiKhiHien: false });
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [tai]);
 

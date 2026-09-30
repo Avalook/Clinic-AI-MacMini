@@ -21,6 +21,16 @@
 // là lúc con người đang thật sự đọc — đúng thời điểm dữ liệu cần đúng, và
 // không phải một vòng đếm giây chạy suốt ngày.
 //
+// LỖ 2 NAY DO `RealtimeRefresher` BỊT (30/09/2026). Bản trước file này tự nghe
+// `visibilitychange` LẪN `focus` và gọi `router.refresh()` cho mỗi cái — cộng
+// với lần bắt kịp của `RealtimeRefresher` là BA lần dựng lại cả trang cho một
+// lần đổi tab (đo prod 30/09: nhân viên đổi tab liên tục, dòng SSE sống trung
+// vị 9 giây). `RealtimeRefresher` gắn ở layout nên có mặt trên mọi màn dán file
+// này, và nó đã làm mới đúng một lượt mỗi khi tab hiện lại (gộp tối đa một lần
+// mỗi 2 giây — `lib/nhip-khi-hien`). `focus` mà không kèm đổi tầm nhìn (bấm
+// sang cửa sổ bên cạnh rồi bấm lại) thì tab vẫn hiện suốt, dòng SSE vẫn mở —
+// dữ liệu đang mới, không cần làm mới. Ở đây chỉ còn lỗ 1: VÀO màn.
+//
 // KHÔNG dùng cho màn nhập liệu. `router.refresh()` vẽ lại server component;
 // state trong form thì giữ nguyên, nhưng đây là màn ĐỌC nên không cần bàn tới
 // chuyện đó — dán nó lên một form đang gõ dở là tự chuốc lấy phiền.
@@ -34,19 +44,7 @@ export default function LiveBoardSync() {
   useEffect(() => {
     // Vào màn: bỏ qua bản đệm, lấy bản mới.
     const t = setTimeout(() => router.refresh(), 0);
-
-    // Nhìn lại màn sau khi đi đâu đó.
-    const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
-
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
-    };
+    return () => clearTimeout(t);
   }, [router]);
 
   return null;

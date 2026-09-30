@@ -49,6 +49,7 @@ import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
 import AnhKetQua, { tepXem } from "../(dashboard)/_lam-viec/AnhKetQua";
 import { XemTaiLieu } from "../(dashboard)/_lam-viec/KhungTep";
 import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 /** DA_NHAN_MAU và DA_GUI_KET_QUA đều là XONG (máy chủ: VIEC_DOI_TAC_XONG). */
 type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
@@ -289,10 +290,11 @@ export default function BangDoiTac() {
       });
     doc();
     // Phòng khám chỉ định liên tục — không bắt đối tác tải lại trang.
-    const t = setInterval(doc, 20000);
+    // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì đọc một lần ngay (30/09/2026).
+    const goNhip = nhipKhiHien(doc, 20000);
     return () => {
       huy = true;
-      clearInterval(t);
+      goNhip();
     };
   }, [nhan, ngay]);
 
