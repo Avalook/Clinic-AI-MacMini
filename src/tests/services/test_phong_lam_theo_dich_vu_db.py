@@ -244,7 +244,8 @@ async def test_api_cau_hinh_tu_choi_ma_la_va_node_quan_tri(rb: RB) -> None:  # n
 
 async def test_nap_san_chau_chay_lai_duoc(pool: asyncpg.Pool) -> None:
     """Seed: Ghế ĐTT, máy Bio, Vật lý trị liệu chỉ ở KN-SANCHAU; SP000083 là dịch
-    vụ thủ thuật; SP000077 là phí khám 0đ chọn được ở mọi loại khám đang bật."""
+    vụ thủ thuật; SP000077 là phí khám (chưa có giá) chọn được ở mọi loại khám
+    đang bật."""
     await pool.fetchrow("SELECT * FROM nap_phong_lam_theo_dich_vu()")
     lan2 = await pool.fetchrow("SELECT * FROM nap_phong_lam_theo_dich_vu()")
     assert tuple(lan2) == (0, 0, 0)
@@ -296,7 +297,8 @@ async def test_nap_san_chau_chay_lai_duoc(pool: asyncpg.Pool) -> None:
         " WHERE clinic_id = $1::uuid AND ma_kiotviet = 'SP000077'",
         CLINIC,
     )
-    assert tv is not None and tv["node_code"] is None and int(tv["unit_price"]) == 0
+    # KiotViet 0đ → để TRỐNG giá (không bao giờ nạp 0đ — 20260926000001).
+    assert tv is not None and tv["node_code"] is None and tv["unit_price"] is None
     thieu = await pool.fetchval(
         "SELECT count(*) FROM service_type st WHERE st.clinic_id = $1::uuid"
         " AND st.is_active AND NOT EXISTS (SELECT 1 FROM loai_kham_phi l"

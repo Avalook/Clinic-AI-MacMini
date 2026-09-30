@@ -167,7 +167,7 @@ SELECT l.id                AS location_id,
                    ORDER BY sp.name), '[]'::json)
           FROM public.clinic_room_service s
           JOIN public.service_price sp
-            ON sp.clinic_id = s.clinic_id AND sp."group" = s.nhom
+            ON sp.clinic_id = s.clinic_id AND sp."group" = 'dich_vu'
            AND sp.service_code = s.service_code
          WHERE s.room_id = r.id) AS dich_vu
   FROM public.clinic_location l

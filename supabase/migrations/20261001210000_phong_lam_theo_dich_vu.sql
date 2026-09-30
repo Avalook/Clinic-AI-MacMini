@@ -21,10 +21,11 @@
 -- ma_kiotviet thiếu đúng 2 mã):
 --   * SP000083 "Vật lý trị liệu" 500.000đ — KiotViet xếp nhóm "Phí khám" nhưng
 --     là việc làm ở phòng → DỊCH VỤ node DICHVU-THUTHUAT, chỉ Phòng Sàn chậu.
---   * SP000077 "Tư vấn KQ XN cũ" 0đ — phí khám, theo khuôn 20260928000100
+--   * SP000077 "Tư vấn KQ XN cũ" — phí khám, theo khuôn 20260928000100
 --     (service_price nhóm dịch vụ không node + `loai_kham_phi`), chọn được ở MỌI
---     loại khám đang bật. Giá 0đ theo danh sách Tuyền dán 01/10 (KiotViet cũng
---     0đ) — khác SP000112 để trống giá vì chưa ai xác nhận.
+--     loại khám đang bật. KiotViet ghi 0đ → giá để TRỐNG ("chưa có giá", quầy
+--     chặn, quản lý điền ở Bảng giá) như SP000112 — luật 20260926000001: không
+--     bao giờ nạp 0đ, nạp 0 là thu 0 đồng. Miễn phí thật thì quản lý đặt 0đ.
 --
 -- Chạy lại được. Tra phòng theo `code` (KN-SANCHAU), dịch vụ theo mã — không
 -- theo tên (tên phòng đang được đổi ở nhánh khác).
@@ -34,17 +35,14 @@ CREATE TABLE IF NOT EXISTS public.clinic_room_service (
     clinic_id    uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,
     room_id      uuid NOT NULL REFERENCES public.clinic_room(id) ON DELETE CASCADE,
     service_code text NOT NULL,
-    -- Chỉ dịch vụ (không gắn thuốc): cột hằng để khoá ngoại tới đúng chỉ mục
-    -- duy nhất (clinic_id, "group", service_code) của bảng giá.
-    nhom         text NOT NULL DEFAULT 'dich_vu' CHECK (nhom = 'dich_vu'),
     created_at   timestamptz NOT NULL DEFAULT now(),
     created_by   uuid REFERENCES public.staff(id) ON DELETE SET NULL,
-    PRIMARY KEY (room_id, service_code),
-    CONSTRAINT clinic_room_service_dich_vu_fk
-        FOREIGN KEY (clinic_id, nhom, service_code)
-        REFERENCES public.service_price (clinic_id, "group", service_code)
-        ON DELETE CASCADE ON UPDATE CASCADE
+    PRIMARY KEY (room_id, service_code)
 );
+-- KHÔNG khoá ngoại tới service_price: bảng giá chỉ có chỉ mục duy nhất
+-- (clinic_id, "group", service_code), và migration 20260730000003 xoá / dựng lại
+-- chỉ mục ấy — khoá ngoại bám vào nó làm migration cũ hết chạy lại được. Kiểm
+-- mã dịch vụ bằng trigger bên dưới (bảng giá tắt chứ không xoá dòng).
 
 COMMENT ON TABLE public.clinic_room_service IS
 'Phòng làm dịch vụ nào — lớp THU HẸP trên clinic_room_node (30/09/2026). Dịch vụ có dòng ở đây thì CHỈ các phòng được gắn làm được; không có dòng nào thì theo node như cũ. Luật ở hàm phong_lam_duoc().';
@@ -52,7 +50,7 @@ COMMENT ON TABLE public.clinic_room_service IS
 CREATE INDEX IF NOT EXISTS idx_clinic_room_service_dich_vu
     ON public.clinic_room_service (clinic_id, service_code);
 
--- Phòng và dịch vụ phải cùng phòng khám (khoá ngoại trên chỉ kiểm dịch vụ).
+-- Phòng và dịch vụ phải cùng phòng khám; mã phải là DỊCH VỤ trong bảng giá.
 CREATE OR REPLACE FUNCTION public.clinic_room_service_cung_phong_kham()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -62,6 +60,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.clinic_room r
                     WHERE r.id = NEW.room_id AND r.clinic_id = NEW.clinic_id) THEN
         RAISE EXCEPTION 'Phòng % không thuộc phòng khám này', NEW.room_id
+            USING ERRCODE = 'foreign_key_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.service_price sp
+                    WHERE sp.clinic_id = NEW.clinic_id AND sp."group" = 'dich_vu'
+                      AND sp.service_code = NEW.service_code) THEN
+        RAISE EXCEPTION 'Không có dịch vụ % trong bảng giá', NEW.service_code
             USING ERRCODE = 'foreign_key_violation';
     END IF;
     RETURN NEW;
@@ -135,8 +139,9 @@ BEGIN
      CROSS JOIN (VALUES
            ('KV_SP000083', 'Vật lý trị liệu', 500000::numeric,
             'KiotViet 21/09/2026', 'DICHVU-THUTHUAT', 'SP000083'),
-           ('KV_SP000077', 'Tư vấn KQ XN cũ', 0::numeric,
-            'Phí khám · KiotViet', NULL::text, 'SP000077')
+           ('KV_SP000077', 'Tư vấn KQ XN cũ', NULL::numeric,
+            'Phí khám · KiotViet · CHƯA CÓ GIÁ — quản lý điền ở Bảng giá',
+            NULL::text, 'SP000077')
          ) AS v(ma_noi_bo, ten, gia, nhom, node, ma_kv)
      WHERE EXISTS (SELECT 1 FROM public.service_price p
                     WHERE p.clinic_id = c.id AND p.ma_kiotviet IS NOT NULL)
