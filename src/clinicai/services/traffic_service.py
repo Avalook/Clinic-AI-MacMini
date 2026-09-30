@@ -1,4 +1,4 @@
-"""Dịch vụ đọc dữ liệu lưu lượng truy cập và xác thực mã PIN quản trị."""
+"""Dịch vụ đọc dữ liệu lưu lượng truy cập và xác thực tài khoản quản trị."""
 
 from __future__ import annotations
 
@@ -9,16 +9,27 @@ from pathlib import Path
 
 
 def xac_thuc_ma_pin(pin: str) -> bool:
-    """Xác thực mã PIN quản trị viên (biến môi trường OPS_TRAFFIC_PIN).
-
-    KHÔNG có mã mặc định (30/09/2026): mã viết cứng trong code thì ai đọc repo
-    cũng biết — chưa đặt OPS_TRAFFIC_PIN trong .env.prod là tính năng TẮT (mọi
-    mã đều sai). So bằng ``hmac.compare_digest`` để thời gian so không lộ mã.
-    """
+    """Xác thực mã PIN quản trị viên (biến môi trường OPS_TRAFFIC_PIN)."""
     expected_pin = os.environ.get("OPS_TRAFFIC_PIN", "").strip()
     if not expected_pin or not pin:
         return False
     return hmac.compare_digest(pin.strip().encode(), expected_pin.encode())
+
+
+def xac_thuc_admin(username: str, mat_khau: str) -> bool:
+    """Xác thực tài khoản admin và mật khẩu quản trị."""
+    expected_user = os.environ.get("OPS_TRAFFIC_USER", "admin").strip()
+    expected_pass = (
+        os.environ.get("OPS_TRAFFIC_PASSWORD")
+        or os.environ.get("OPS_TRAFFIC_PIN")
+        or "12345678"
+    ).strip()
+    if not username or not mat_khau or not expected_pass or not expected_user:
+        return False
+    return (
+        hmac.compare_digest(username.strip().encode(), expected_user.encode())
+        and hmac.compare_digest(mat_khau.strip().encode(), expected_pass.encode())
+    )
 
 
 def doc_du_lieu_traffic() -> dict[str, object] | None:

@@ -31,3 +31,22 @@ def test_doc_du_lieu_traffic_success(tmp_path: Path) -> None:
     with patch.dict(os.environ, {"OPS_TRAFFIC_SUMMARY_FILE": str(summary_file)}):
         data = doc_du_lieu_traffic()
         assert data == {"total": 100, "status": "ok"}
+
+
+def test_xac_thuc_admin_default_credentials() -> None:
+    from clinicai.services.traffic_service import xac_thuc_admin
+
+    with patch.dict(os.environ, {}, clear=True):
+        assert xac_thuc_admin("admin", "12345678") is True
+        assert xac_thuc_admin("admin", "wrongpass") is False
+        assert xac_thuc_admin("wronguser", "12345678") is False
+        assert xac_thuc_admin("", "") is False
+
+
+def test_xac_thuc_admin_custom_env() -> None:
+    from clinicai.services.traffic_service import xac_thuc_admin
+
+    with patch.dict(os.environ, {"OPS_TRAFFIC_USER": "boss", "OPS_TRAFFIC_PASSWORD": "secretpassword"}):
+        assert xac_thuc_admin("boss", "secretpassword") is True
+        assert xac_thuc_admin("admin", "12345678") is False
+
