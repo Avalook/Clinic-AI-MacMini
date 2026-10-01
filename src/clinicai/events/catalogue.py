@@ -718,10 +718,13 @@ class LamTruocThuSauDaBat(PayloadSuKien):
 
 
 class LamTruocThuSauDaBo(PayloadSuKien):
-    """`visit.defer_payment_cleared` — bỏ tick "Làm trước – thu sau" (chỉ khi
-    chưa chỉ định nào bắt đầu làm)."""
+    """`visit.defer_payment_cleared` — bỏ tick "Làm trước – thu sau" (hoàn tác,
+    01/10/2026: được cả khi đã có dịch vụ bắt đầu làm — khi ấy khoản đã làm vẫn
+    còn nợ, dịch vụ chưa làm quay về luật thu trước)."""
 
     visit_id: str
+    #: Lúc bỏ tick đã có chỉ định bắt đầu / làm xong chưa.
+    da_bat_dau: bool = False
 
 
 class DichVuDaXong(PayloadSuKien):

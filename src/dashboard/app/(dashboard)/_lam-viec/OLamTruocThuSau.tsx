@@ -7,12 +7,15 @@
 // và quầy thu dịch vụ (`thu-ngan/HoaDonMot`) — một bản, không hai bản lệch.
 //
 // Màn KHÔNG tự quyết: hiện hay không, tick / bỏ tick được hay không, câu vì sao
-// không bỏ được — đều là cờ máy chủ trả (`GET/POST .../lam-truoc-thu-sau`).
+// không bỏ được, câu "bỏ tick thì chuyện gì xảy ra" — đều là cờ máy chủ trả
+// (`GET/POST .../lam-truoc-thu-sau`). Tick lần nữa = HOÀN TÁC (01/10/2026):
+// không khoá cứng, kể cả khi đã có dịch vụ bắt đầu làm.
 // Bật = máy chủ chốt luôn chỉ định còn chờ khách quyết (quầy gửi kèm lựa chọn
 // đang tick trên màn qua `layChon`).
 
 import { useCallback, useEffect, useState } from "react";
 
+import Chip from "@/components/ui/Chip";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 
 import { useNgheBang } from "../dung-nghe-bang";
@@ -24,6 +27,8 @@ export interface LamTruoc {
   tick_duoc: boolean;
   bo_tick_duoc: boolean;
   ly_do_khong_bo: string | null;
+  /** Bỏ tick thì chuyện gì xảy ra — máy chủ viết, chỉ khi lượt đang tick. */
+  luu_y_bo?: string | null;
   chot_thu_sau_duoc: boolean;
   bat_boi: string | null;
   bat_luc: string | null;
@@ -35,12 +40,19 @@ export interface LuaChonGui {
   expected_selection_revision: number;
 }
 
-function gio(iso: string | null): string {
+export function gio(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
     : d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" });
+}
+
+/** Nhãn trạng thái "Làm trước – thu sau · <ai tick> · <giờ>" (quầy giữ khách,
+ *  còn nợ, còn thu được). Không tick → null. */
+export function nhanLamTruocThuSau(lt: Pick<LamTruoc, "lam_truoc_thu_sau" | "bat_boi" | "bat_luc"> | null | undefined): string | null {
+  if (!lt?.lam_truoc_thu_sau) return null;
+  return ["Làm trước – thu sau", lt.bat_boi, gio(lt.bat_luc)].filter(Boolean).join(" · ");
 }
 
 export default function OLamTruocThuSau({
@@ -62,6 +74,7 @@ export default function OLamTruocThuSau({
   const [vuaGhi, setVuaGhi] = useState<{ goc: LamTruoc | null | undefined; tt: LamTruoc } | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [ghiChu, setGhiChu] = useState<string | null>(null);
   const tuDoc = trangThai === undefined;
 
   const doc = useCallback(async (): Promise<LamTruoc | null> => {
@@ -97,6 +110,7 @@ export default function OLamTruocThuSau({
   const doi = async () => {
     setDang(true);
     setLoi(null);
+    setGhiChu(null);
     try {
       const chon = bat ? layChon?.() : undefined;
       const r = await fetch("/api/luot-kham", {
@@ -108,12 +122,15 @@ export default function OLamTruocThuSau({
           du_lieu: chon ? { bat, chon } : { bat },
         }),
       });
-      const d = (await r.json().catch(() => null)) as (LamTruoc & { message?: string; error?: string }) | null;
+      const d = (await r.json().catch(() => null)) as
+        | (LamTruoc & { message?: string; error?: string; ghi_chu?: string })
+        | null;
       if (!r.ok) {
         setLoi(d?.message ?? d?.error ?? "Không ghi được Làm trước – thu sau.");
       } else if (d) {
         if (tuDoc) setDocDuoc(d);
         else setVuaGhi({ goc: trangThai, tt: d });
+        setGhiChu(d.ghi_chu ?? null);
       }
       onDoi?.();
     } catch {
@@ -135,13 +152,11 @@ export default function OLamTruocThuSau({
         />
         Làm trước – thu sau
       </label>
-      {tt.lam_truoc_thu_sau && tt.bat_boi ? (
-        <span className="text-meta text-ink-muted">
-          Bật bởi {tt.bat_boi}
-          {tt.bat_luc ? ` lúc ${gio(tt.bat_luc)}` : ""}
-        </span>
-      ) : !tt.lam_truoc_thu_sau ? (
+      {!tt.lam_truoc_thu_sau ? (
         <span className="text-meta text-ink-muted">Không tick: thu tiền xong mới xếp phòng, bắt đầu làm.</span>
+      ) : tuDoc ? (
+        // Quầy thu đã có nhãn này ở đầu khối khách — chỉ Bàn khám cần vẽ ở đây.
+        <Chip tone="info">{nhanLamTruocThuSau(tt)}</Chip>
       ) : null}
       {/* Đã tick: in giấy đi phòng cho khách cầm (chưa thu tiền — 30/09/2026).
           Chỉ ở Bàn khám (ô tự đọc) — quầy thu đã có nút này ở khối "Phòng làm
@@ -152,6 +167,14 @@ export default function OLamTruocThuSau({
         </NutInPhieu>
       ) : null}
       {tt.ly_do_khong_bo ? <span className="w-full text-meta text-ink-muted">{tt.ly_do_khong_bo}</span> : null}
+      {tt.lam_truoc_thu_sau && tt.luu_y_bo ? (
+        <span className="w-full text-meta text-ink-muted">{tt.luu_y_bo}</span>
+      ) : null}
+      {ghiChu ? (
+        <p role="status" className="w-full text-meta text-ink-soft">
+          {ghiChu}
+        </p>
+      ) : null}
       {loi ? (
         <p role="alert" className="w-full text-meta text-danger">
           {loi}

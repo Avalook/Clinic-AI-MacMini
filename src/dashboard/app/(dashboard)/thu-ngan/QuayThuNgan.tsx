@@ -35,7 +35,7 @@ import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
-import type { LamTruoc } from "../_lam-viec/OLamTruocThuSau";
+import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
 import NutHoanTac from "./NutHoanTac";
@@ -596,8 +596,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                         {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
                       </span>
                       {l.lam_truoc?.lam_truoc_thu_sau ? (
-                        <span className="mt-1 block">
+                        <span className="mt-1 flex min-w-0 flex-col items-start gap-0.5">
                           <Chip tone="info">Làm trước – thu sau</Chip>
+                          <span className="block max-w-full truncate text-meta text-ink-muted">
+                            {[l.lam_truoc.bat_boi, gio(l.lam_truoc.bat_luc)].filter(Boolean).join(" · ")}
+                          </span>
                         </span>
                       ) : null}
                     </span>
@@ -621,6 +624,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                   <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
+                {l.lam_truoc?.lam_truoc_thu_sau ? (
+                  <p className="mt-1">
+                    <Chip tone="info">{nhanLamTruocThuSau(l.lam_truoc)}</Chip>
+                  </p>
+                ) : null}
               </div>
               {/* Thu xong, hệ thống tự xếp phòng (dây H4): lễ tân mở đây để
                   báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
