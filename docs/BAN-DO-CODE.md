@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 16:02. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 16:07. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1153,7 +1153,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/roster/thay-nguoi` · `src/dashboard/app/api/roster/thay-nguoi/route.ts`
 - POST `/api/v1/roster/shifts/{roster_id}/thay-nguoi` → `src/clinicai/api/v1/routers/config.py:thay_nguoi` → RosterService.thay_nguoi
-- test: src/tests/services/test_doi_nguoi_trong_ca_db.py
+- test: src/tests/services/test_ca_truc_lam_sang_db.py, src/tests/services/test_doi_nguoi_trong_ca_db.py
 - màn dùng: /schedule
 
 #### `/api/service-log` · `src/dashboard/app/api/service-log/route.ts`

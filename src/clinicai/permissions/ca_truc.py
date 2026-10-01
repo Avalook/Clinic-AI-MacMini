@@ -181,8 +181,9 @@ async def kiem_dung_ca(
         "SELECT full_name FROM staff WHERE id=$1::uuid", bac_si_id
     )
     raise SafetyGateError(
-        f"Bạn không có ca trực hôm nay với BS {ten or 'phụ trách'} — "
-        "nhờ quản lý mở ngoại lệ."
+        f"Bạn không được phân công đi kèm BS {ten or 'phụ trách'} hôm nay. "
+        "Nhờ trưởng ca đổi người trong ca (Lịch làm việc → Đổi người trong ca → "
+        "Thay người) rồi bấm lại."
     )
 
 

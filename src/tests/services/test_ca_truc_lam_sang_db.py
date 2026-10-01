@@ -12,6 +12,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import PhienKhamBatDau
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.ca_truc import doi_dung_ca
+from clinicai.services.config_service import RosterService
 from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 
@@ -83,7 +84,8 @@ async def ca(pool: Any) -> dict[str, Any]:
         thu_ky = await _nguoi(conn, loc, "TKYK")
         khong_ca = await _nguoi(conn, loc, "TKYK")
         quan_ly = await _nguoi(conn, loc, "MANAGEMENT")
-        for ai in (bs, bs_2, thu_ky, khong_ca, quan_ly):
+        truong_ca = await _nguoi(conn, loc, "TRUONG_CA")
+        for ai in (bs, bs_2, thu_ky, khong_ca, quan_ly, truong_ca):
             await _noi_tai_khoan(conn, ai)
         vt_bs = await _vi_tri(conn, room, "BAC_SI", 1, 1)
         vt_bs_2 = await _vi_tri(conn, room, "BAC_SI", 2, 2)
@@ -97,12 +99,13 @@ async def ca(pool: Any) -> dict[str, Any]:
         "thu_ky": thu_ky,
         "khong_ca": khong_ca,
         "quan_ly": quan_ly,
+        "truong_ca": truong_ca,
     }
 
 
 async def test_khong_co_ca_bi_chan_bang_cau_tieng_viet(ca: dict[str, Any]) -> None:
     async with ca["pool"].acquire() as conn:
-        with pytest.raises(SafetyGateError, match="không có ca trực hôm nay"):
+        with pytest.raises(SafetyGateError, match="không được phân công đi kèm BS"):
             async with doi_dung_ca(conn, ca["khong_ca"], ca["bs"].staff_id):
                 pass
 
@@ -111,6 +114,34 @@ async def test_thu_ky_cung_ca_cung_lan_lam_duoc(ca: dict[str, Any]) -> None:
     async with ca["pool"].acquire() as conn:
         async with doi_dung_ca(conn, ca["thu_ky"], ca["bs"].staff_id) as bac_si:
             assert bac_si == ca["bs"].staff_id
+
+
+async def test_chan_roi_truong_ca_doi_nguoi_thi_lam_duoc(ca: dict[str, Any]) -> None:
+    """Người không được phân công bị chặn kèm câu chỉ cách xử lý; trưởng ca đổi
+    người trong ca bằng luồng sẵn có thì chính người đó bấm lại được ngay."""
+    async with ca["pool"].acquire() as conn:
+        with pytest.raises(SafetyGateError) as chan:
+            async with doi_dung_ca(conn, ca["khong_ca"], ca["bs"].staff_id):
+                pass
+        assert "Nhờ trưởng ca đổi người trong ca" in str(chan.value)
+        roster_id = await conn.fetchval(
+            "SELECT id::text FROM work_roster WHERE staff_id=$1::uuid"
+            " ORDER BY created_at DESC LIMIT 1",
+            ca["thu_ky"].staff_id,
+        )
+    await RosterService(ca["pool"]).thay_nguoi(
+        roster_id=roster_id,
+        staff_moi_id=ca["khong_ca"].staff_id,
+        identity=ca["truong_ca"],
+        ly_do="Thư ký cũ về giữa ca",
+    )
+    async with ca["pool"].acquire() as conn:
+        async with doi_dung_ca(conn, ca["khong_ca"], ca["bs"].staff_id) as bac_si:
+            assert bac_si == ca["bs"].staff_id
+        # Người vừa bị thay ra không còn được đi kèm.
+        with pytest.raises(SafetyGateError):
+            async with doi_dung_ca(conn, ca["thu_ky"], ca["bs"].staff_id):
+                pass
 
 
 async def test_quan_ly_mo_ngoai_le_co_ly_do_thi_lam_duoc(ca: dict[str, Any]) -> None:
