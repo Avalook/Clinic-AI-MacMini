@@ -1577,7 +1577,6 @@ class PriceListService:
                   FROM service_price
                  WHERE clinic_id = $1::uuid AND "group" = $2
                  ORDER BY coalesce(ma_kiotviet, service_code)
-                 LIMIT 1000
                 """,
                 identity.clinic_id,
                 group,
