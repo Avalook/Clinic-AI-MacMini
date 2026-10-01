@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:3100',
-    viewport: { width: 1280, height: 800 },
+    viewport: { width: 1600, height: 1000 },
     channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome',
     headless: true,
     trace: 'on-first-retry',
@@ -21,6 +21,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        viewport: { width: 1600, height: 1000 },
         channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome',
       },
     },
