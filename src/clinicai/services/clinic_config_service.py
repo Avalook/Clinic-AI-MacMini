@@ -1009,9 +1009,10 @@ class ClinicConfigService:
                     )
                 await conn.execute(
                     "UPDATE public.service_price SET node_code = $2,"
-                    " updated_at = now() WHERE id = $1::uuid",
+                    " updated_at = now() WHERE id = $1::uuid AND clinic_id = $3::uuid",
                     dv["id"],
                     node_moi,
+                    identity.clinic_id,
                 )
             await conn.execute(
                 "DELETE FROM public.clinic_room_service"
