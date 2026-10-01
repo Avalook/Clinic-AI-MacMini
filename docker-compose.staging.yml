@@ -6,7 +6,8 @@
 # Dùng script, đừng gõ tay: scripts/deploy-staging.sh.
 #
 # CHỐT BẢO VỆ PROD (staging chạy chung máy với phòng khám đang đón khách):
-#   mem_limit      trần cứng; cộng cả ứng dụng ≈ 0,9G (+ bộ Supabase ≈ 0,6G)
+#   mem_limit      trần cứng; ứng dụng 896m + bộ Supabase 624m = 1520m (≈1,5G).
+#                  Đo local 01/10/2026 lúc rảnh: ứng dụng ~370MiB + Supabase ~185MiB.
 #   oom_score_adj  800 — máy hết RAM thì kernel giết staging trước (prod = 0)
 #   cpu_shares     256 — tranh CPU thì prod (1024) được gấp 4 lần
 #
@@ -36,7 +37,7 @@ services:
 
   dashboard:
     <<: *staging-bao-ve
-    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-320m}
+    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-288m}
     environment:
       # Một tiến trình Next.js là đủ cho vài người thử (prod chạy 4).
       NEXT_WORKERS: ${NEXT_WORKERS:-1}

@@ -21,7 +21,7 @@ x-staging-bao-ve: &staging-bao-ve
 services:
   db:
     <<: *staging-bao-ve
-    mem_limit: ${STG_DB_MEMORY_LIMIT:-448m}
+    mem_limit: ${STG_DB_MEMORY_LIMIT:-384m}
     # Bỏ wal_level=logical (chỉ Realtime cần). shared_buffers nhỏ cho vừa trần.
     command:
       - postgres

@@ -55,7 +55,8 @@ Caddy — không database, không api nào của hai bên.
 
 ### Chốt bảo vệ prod (chung máy)
 
-- `mem_limit` từng container: ứng dụng ≈ 0,9G + Supabase ≈ 0,6G (Realtime tắt).
+- `mem_limit` từng container: ứng dụng 896m + Supabase 624m = 1520m (Realtime tắt).
+  Đo local lúc rảnh: ~370MiB + ~185MiB.
 - `oom_score_adj` 800–900: máy hết RAM thì kernel giết staging trước (prod = 0).
 - `cpu_shares` 256 (prod 1024). Hẹn giờ nạp chạy `Nice=19`, `IOSchedulingClass=idle`.
 - Dựng ảnh bằng builder buildx **riêng** có trần RAM (`STG_BUILDER_RAM`, mặc định
