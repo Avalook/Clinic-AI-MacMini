@@ -54,11 +54,19 @@ async def cashier_board(
 async def cashier_giao_dich(
     tu: str | None = Query(None, description="YYYY-MM-DD; rỗng = hôm nay"),
     den: str | None = Query(None, description="YYYY-MM-DD; rỗng = hôm nay"),
+    kind: str | None = Query(
+        None,
+        max_length=20,
+        description="dich_vu | thuoc — mỗi quầy chỉ xem sổ loại tiền của mình; "
+        "rỗng = cả hai (01/10/2026)",
+    ),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Giao dịch đã ghi trong khoảng ngày (kể cả đã huỷ) — chỉ đọc."""
-    return await CashierBoardService(pool).giao_dich(identity=identity, tu=tu, den=den)
+    return await CashierBoardService(pool).giao_dich(
+        identity=identity, tu=tu, den=den, kind=kind
+    )
 
 
 # ── Quầy thu MỘT hoá đơn (27/09/2026, đợt 3) ───────────────────────────────

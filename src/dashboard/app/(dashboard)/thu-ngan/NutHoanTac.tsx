@@ -21,11 +21,14 @@ export default function NutHoanTac({
   cycleId,
   soTien,
   onXong,
+  quay,
   nhan = "Hoàn tác lần thu",
 }: {
   cycleId: string;
   soTien?: number | null;
   onXong: (cau: string) => void;
+  /** Quầy đang đứng — máy chủ chỉ hoàn tác lần thu của đúng quầy ấy (01/10/2026). */
+  quay?: "dich_vu" | "thuoc";
   nhan?: string;
 }) {
   const [mo, setMo] = useState(false);
@@ -40,7 +43,12 @@ export default function NutHoanTac({
       const r = await fetch("/api/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "hoan-tac", paymentCycleId: cycleId, lyDo: lyDo.trim() || null }),
+        body: JSON.stringify({
+          action: "hoan-tac",
+          paymentCycleId: cycleId,
+          lyDo: lyDo.trim() || null,
+          ...(quay ? { quay } : {}),
+        }),
       });
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
       if (!r.ok) {

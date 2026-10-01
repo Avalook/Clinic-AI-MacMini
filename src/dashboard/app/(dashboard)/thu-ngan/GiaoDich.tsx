@@ -78,7 +78,14 @@ function ngayGio(iso: string | null): string {
   });
 }
 
-export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
+export default function GiaoDich({
+  lichSu,
+  quay,
+}: {
+  lichSu: boolean;
+  /** Quầy đang đứng: chỉ xem / hoàn tác sổ của loại tiền mình (01/10/2026). */
+  quay: "dich_vu" | "thuoc";
+}) {
   const [tu, setTu] = useState(homNay);
   const [den, setDen] = useState(homNay);
   const [hoi, setHoi] = useState<{ tu: string; den: string; lan: number }>(() => ({
@@ -98,7 +105,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
 
   useEffect(() => {
     let huy = false;
-    void fetch(`/api/cashier?xem=giao-dich&tu=${hoi.tu}&den=${hoi.den}`, { cache: "no-store" })
+    void fetch(`/api/cashier?xem=giao-dich&kind=${quay}&tu=${hoi.tu}&den=${hoi.den}`, { cache: "no-store" })
       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
       .then(({ ok, d }) => {
         if (huy) return;
@@ -115,7 +122,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
     return () => {
       huy = true;
     };
-  }, [hoi]);
+  }, [hoi, quay]);
 
   const ds = kq?.khoa === khoa ? kq.ds : undefined;
   const loi = kq?.khoa === khoa ? kq.loi : undefined;
@@ -150,7 +157,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
       ) : (
         <>
           <p className="text-sm text-ink-soft">
-            {ds.length} giao dịch · đã thu (không tính dòng huỷ):{" "}
+            {ds.length} giao dịch {quay === "thuoc" ? "thuốc" : "dịch vụ"} · đã thu (không tính dòng huỷ):{" "}
             <b className="text-ink">{tong.toLocaleString("vi-VN")} đ</b>
           </p>
           <ul className="grid gap-2">
@@ -206,6 +213,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                     <NutHoanTac
                       cycleId={g.id}
                       soTien={g.so_tien}
+                      quay={quay}
                       onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                     />
                   </div>

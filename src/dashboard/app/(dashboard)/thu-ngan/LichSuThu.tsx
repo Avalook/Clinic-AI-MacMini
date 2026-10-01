@@ -271,7 +271,7 @@ export default function LichSuThu() {
                             ) : null}
                             {s.loai === "thu" && s.hoan_tac?.duoc ? (
                               <div className="basis-full">
-                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} onXong={() => void tai()} />
+                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} quay="dich_vu" onXong={() => void tai()} />
                               </div>
                             ) : null}
                           </li>

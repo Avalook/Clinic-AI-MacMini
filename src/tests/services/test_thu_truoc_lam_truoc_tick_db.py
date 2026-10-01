@@ -27,7 +27,7 @@ from clinicai.services.lam_truoc_thu_sau import (
     QUYEN_TICK,
     LamTruocThuSauService,
 )
-from clinicai.services.payment_service import PaymentService
+from clinicai.services.payment_service import PaymentService, QuayKhongThuLoaiNayError
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import ServiceRoutingService
 from tests.chay_nguoi_dua_tin import chay_ben_nhan, chay_hanh_trinh
@@ -330,10 +330,12 @@ async def test_tat_day_nhu_v10_chot_la_xep_khong_can_tick(
         assert (doc["hien"], doc["chot_thu_sau_duoc"]) == (False, True)
 
 
-# ── Mọi quầy thu hết được ─────────────────────────────────────────────────
+# ── Thuốc và dịch vụ thu RIÊNG HẲN (Tuyền 01/10/2026) ──────────────────────
+# Bản 30/09 "mọi quầy thu hết được" (quầy thuốc thấy nợ dịch vụ + [Thu luôn])
+# đã BỎ: quầy thuốc không thu hộ tiền dịch vụ, quầy dịch vụ không thu hộ thuốc.
 
 
-async def test_quay_thuoc_thay_no_dich_vu_va_thu_duoc(
+async def test_quay_thuoc_khong_thay_va_khong_thu_ho_tien_dich_vu(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     ca = await _dung(pool)
@@ -361,44 +363,88 @@ async def test_quay_thuoc_thay_no_dich_vu_va_thu_duoc(
             thuoc,
             ca.bac_si.staff_id,
         )
-    # Lượt đã tick: quầy thuốc cũng hiện tiền còn nợ TỪNG dịch vụ làm trước
-    # (bấm thật 30/09: trước đây hiện "—" vì bảng nợ chỉ dựng ở quầy dịch vụ).
     await LamTruocThuSauService(pool).dat(visit_id=visit, bat=True, identity=ca.le_tan)
     board = CashierBoardService(pool)
+
+    # Quầy THUỐC: chỉ hoá đơn thuốc; không bảng "Làm trước – thu sau" (tiền dịch
+    # vụ), không "còn nợ dịch vụ", không dịch vụ nào.
     b = await board.board(identity=ca.thu_ngan, modes=["thuoc"])
     [luot] = [i for i in b["items"] if i["visit_id"] == visit]
-    [dv_lt] = luot["lam_truoc"]["dich_vu"]
-    assert (dv_lt["id"], dv_lt["con_no"]) == (order, 300_000)
-    no_dv = luot["no_khac"]["dich_vu"]
-    async with pool.acquire() as conn:
-        con_no = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=visit)
-    # Đúng hoá đơn còn nợ của quầy dịch vụ (có siêu âm 300k).
-    assert (no_dv["tong"], no_dv["revision"]) == (con_no.tong, con_no.revision)
-    assert no_dv["tong"] >= 300_000
+    assert luot["lam_truoc"] is None
+    assert "no_khac" not in luot
+    assert set(luot["hoa_don"]) == {"thuoc"}
+    assert luot["hoa_don"]["thuoc"]["tong"] == 10_000
+    assert luot["services"] == []
+    assert all(i["drugs"] for i in b["items"])
 
-    # Quầy dịch vụ thấy nợ thuốc.
+    # Quầy DỊCH VỤ: có bảng làm trước + hoá đơn dịch vụ; không còn nợ thuốc.
     b = await board.board(identity=ca.thu_ngan, modes=["dich_vu"])
     [luot_dv] = [i for i in b["items"] if i["visit_id"] == visit]
-    assert luot_dv["no_khac"]["thuoc"]["tong"] == 10_000
+    assert luot_dv["lam_truoc"]["dich_vu"][0]["con_no"] == 300_000
+    assert "no_khac" not in luot_dv
+    assert "thuoc" not in luot_dv["hoa_don"]
+    assert luot_dv["drugs"] == []
 
-    # [Thu luôn] ở quầy thuốc = đúng lệnh thu dịch vụ, cùng hoá đơn máy chủ.
+    # Máy chủ từ chối thu chéo: quầy thuốc đòi thu dịch vụ, quầy dịch vụ đòi thu thuốc.
+    with pytest.raises(QuayKhongThuLoaiNayError, match="Thu tiền dịch vụ"):
+        await PaymentService(pool).record_payment(
+            visit_id=visit,
+            kind="dich_vu",
+            amount=300_000,
+            clinic_patient_id=None,
+            method="CASH",
+            identity=ca.thu_ngan,
+            idempotency_key=_khoa(),
+            quay="thuoc",
+        )
+    with pytest.raises(QuayKhongThuLoaiNayError, match="Thu tiền thuốc"):
+        await PaymentService(pool).record_payment(
+            visit_id=visit,
+            kind="thuoc",
+            amount=10_000,
+            clinic_patient_id=None,
+            method="CASH",
+            identity=ca.thu_ngan,
+            quay="dich_vu",
+        )
+    # Từ chối thì không ghi gì: lượt vẫn chưa thu cả hai.
+    async with pool.acquire() as conn:
+        assert (
+            await conn.fetchval(
+                "SELECT count(*) FROM payment_cycle WHERE visit_id = $1::uuid"
+                " AND status IN ('PAID', 'PENDING_VERIFICATION')",
+                visit,
+            )
+            == 0
+        )
+
+    # Đúng quầy thì thu được; mỗi bên thu riêng, hoá đơn bên kia không đổi.
+    hd_dv = (await board.board(identity=ca.thu_ngan, modes=["dich_vu"]))["items"]
+    [luot_dv] = [i for i in hd_dv if i["visit_id"] == visit]
     kq = await PaymentService(pool).record_payment(
         visit_id=visit,
         kind="dich_vu",
-        amount=no_dv["tong"],
-        bill_revision=no_dv["revision"],
+        amount=luot_dv["quay_thu"]["tong"],
+        bill_revision=luot_dv["hoa_don"]["dich_vu"]["revision"],
         clinic_patient_id=None,
         method="CASH",
         identity=ca.thu_ngan,
         idempotency_key=_khoa(),
+        quay="dich_vu",
     )
     assert kq["status"] == "PAID"
     async with pool.acquire() as conn:
-        assert (await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=visit)).tong == 0
         hd_thuoc = await tinh_hoa_don(
             conn, clinic_id=CLINIC, visit_id=visit, kind="thuoc"
         )
     assert hd_thuoc.tong == 10_000
-    b = await board.board(identity=ca.thu_ngan, modes=["thuoc"])
-    [luot] = [i for i in b["items"] if i["visit_id"] == visit]
-    assert "dich_vu" not in luot["no_khac"]
+    kq = await PaymentService(pool).record_payment(
+        visit_id=visit,
+        kind="thuoc",
+        amount=10_000,
+        clinic_patient_id=None,
+        method="CASH",
+        identity=ca.thu_ngan,
+        quay="thuoc",
+    )
+    assert kq["status"] == "PAID"

@@ -15,7 +15,8 @@
 //   POST   (thu) thêm `phan: [{hinh_thuc, so_tien, khach_dua?}]` — chia Tiền mặt +
 //          Chuyển khoản (01/10/2026); QR cũ = Chuyển khoản.
 //   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
-// kind = 'thuoc' | 'dich_vu'.
+// kind = 'thuoc' | 'dich_vu'. `quay` (01/10/2026) = quầy màn đang đứng — thuốc và
+// dịch vụ thu riêng hẳn; khác `kind` thì máy chủ trả 409 QUAY_KHAC_LOAI.
 //
 // Toàn bộ luật nằm ở FastAPI (ADR-0012): vai nào được thu khâu nào, chốt "chỉ
 // thu khi bác sĩ đã khám xong" (visit.exam_completed_at), ghi sổ + audit
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
     reference?: string;
     reason?: string;
     paymentCycleId?: string;
+    /** Quầy màn đang đứng — máy chủ gác thuốc / dịch vụ thu riêng (01/10/2026). */
+    quay?: "dich_vu" | "thuoc";
     refundId?: string;
     trangThai?: string;
     hinhThuc?: string | null;
@@ -112,6 +115,7 @@ export async function POST(request: Request) {
     return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tac", {
       payment_cycle_id: p.paymentCycleId,
       ly_do: p.lyDo ?? null,
+      quay: p.quay ?? null,
     });
   }
   if (p.action === "xac-minh") {
@@ -120,6 +124,7 @@ export async function POST(request: Request) {
       visit_id: p.visitId,
       kind: p.kind,
       reference: p.reference,
+      quay: p.quay ?? null,
     });
   }
   if (p.action === "huy-cho") {
@@ -128,6 +133,7 @@ export async function POST(request: Request) {
       visit_id: p.visitId,
       kind: p.kind,
       reason: p.reason,
+      quay: p.quay ?? null,
     });
   }
   // Tiền dịch vụ (Lifecycle v1 Slice 3): backend BẮT BUỘC khoá gửi lại và
@@ -142,6 +148,7 @@ export async function POST(request: Request) {
       amount: p.amount,
       bill_revision: p.billRevision || null,
       method: p.method || "CASH",
+      quay: p.quay ?? null,
       ...(p.chon ? { chon: p.chon } : {}),
       ...(p.phan ? { phan: p.phan } : {}),
     },

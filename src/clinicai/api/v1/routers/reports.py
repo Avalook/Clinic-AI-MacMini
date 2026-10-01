@@ -95,22 +95,32 @@ async def bao_cao_cuoi_ngay(
     den: str | None = Query(
         None, max_length=40, description="YYYY-MM-DD; rác = hôm nay"
     ),
+    loai: str | None = Query(
+        None,
+        max_length=20,
+        description="dich_vu | thuoc — xem riêng một loại tiền; rỗng/rác = cả hai",
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày."""
-    return await BaoCaoCuoiNgayService(pool).bao_cao(identity=identity, tu=tu, den=den)
+    return await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=identity, tu=tu, den=den, loai=loai
+    )
 
 
 @router.get("/reports/cuoi-ngay.csv")
 async def bao_cao_cuoi_ngay_csv(
     tu: str | None = Query(None, max_length=40),
     den: str | None = Query(None, max_length=40),
+    loai: str | None = Query(None, max_length=20),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """[Xuất Excel]: CSV UTF-8 có BOM."""
-    bc = await BaoCaoCuoiNgayService(pool).bao_cao(identity=identity, tu=tu, den=den)
+    bc = await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=identity, tu=tu, den=den, loai=loai
+    )
     ten = f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
     return Response(
         content=csv_bao_cao(bc).encode("utf-8"),

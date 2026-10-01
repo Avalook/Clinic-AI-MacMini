@@ -162,6 +162,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         />
       ) : null}
       <NhomThu
+        quay="thuoc"
         tieu_de="Tiền thuốc (bán lẻ)"
         hd={doc.da_thu ? undefined : doc.hoa_don}
         daThu={doc.da_thu}
@@ -173,6 +174,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               visitId,
               clinicPatientId: doc.clinic_patient_id,
               kind: "thuoc",
+              quay: "thuoc",
               billRevision: hd.revision,
               amount: hd.tong,
               method: chia.coChuyenKhoan ? "TRANSFER" : "CASH",
@@ -190,6 +192,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               paymentCycleId: doc.cho_xac_minh?.payment_cycle_id,
               visitId,
               kind: "thuoc",
+              quay: "thuoc",
               reference: ma,
             },
             "Đã xác minh — tiền thuốc đã thu, lượt bán lẻ đã tự đóng.",
@@ -205,6 +208,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         <div className="border-t border-line px-4 py-3">
           <NutHoanTac
             cycleId={doc.lan_da_thu}
+            quay="thuoc"
             onXong={(cau) => {
               setXong(`${cau} Lượt bán lẻ mở lại để thu lại.`);
               void tai();

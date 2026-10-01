@@ -39,6 +39,9 @@ router = APIRouter()
 _CASHIER_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 PaymentKind = Literal["thuoc", "dich_vu"]
+#: Quầy màn đang đứng (01/10/2026): thuốc và dịch vụ thu RIÊNG HẲN — khác loại
+#: tiền của lệnh thì 409 QUAY_KHAC_LOAI. Bỏ trống = lệnh không đi qua quầy.
+QuayThu = Literal["thuoc", "dich_vu"]
 #: QR vẫn NHẬN (client cũ không gãy) nhưng ghi là Chuyển khoản (01/10/2026).
 PaymentMethod = Literal["CASH", "TRANSFER", "QR"]
 
@@ -80,6 +83,7 @@ class PaymentRecordRequest(BaseModel):
     chon: LuaChonKhiThu | None = None
     # Chia lần thu theo hình thức (Tiền mặt + Chuyển khoản) — 01/10/2026.
     phan: list[PhanThuRequest] | None = Field(default=None, max_length=5)
+    quay: QuayThu | None = None
 
 
 class PaymentVoidRequest(BaseModel):
@@ -89,6 +93,7 @@ class PaymentVoidRequest(BaseModel):
     visit_id: UUID
     kind: PaymentKind
     reason: str = Field(min_length=5, max_length=500)
+    quay: QuayThu | None = None
 
     @field_validator("reason", mode="before")
     @classmethod
@@ -125,6 +130,7 @@ async def record_payment(
             idempotency_key=idempotency_key,
             chon=body.chon.model_dump() if body.chon is not None else None,
             phan=_phan(body),
+            quay=body.quay,
         )
         return {"ok": True, **lan_thu}
     if body.chon is not None:
@@ -148,6 +154,7 @@ async def record_payment(
             method=body.method,
             identity=identity,
             phan=_phan(body),
+            quay=body.quay,
         )
         result = {"ok": True, **lan_thu}
         await idem.save(pool, result, status_code=200)
@@ -172,6 +179,7 @@ async def void_payment(
         kind=body.kind,
         reason=body.reason,
         identity=identity,
+        quay=body.quay,
     )
     return {"ok": True, **kq}
 
@@ -184,6 +192,7 @@ class XacMinhRequest(BaseModel):
     kind: PaymentKind
     #: Tuỳ chọn (24/09/2026) — thu QR/chuyển khoản xong không bắt nhập mã.
     reference: str | None = Field(default=None, max_length=100)
+    quay: QuayThu | None = None
 
 
 @router.post("/payments/xac-minh")
@@ -199,6 +208,7 @@ async def xac_minh_dien_tu(
         kind=body.kind,
         reference=body.reference,
         identity=identity,
+        quay=body.quay,
     )
     return {"ok": True, **kq}
 
@@ -208,6 +218,7 @@ class HuyChoRequest(BaseModel):
     visit_id: UUID
     kind: PaymentKind
     reason: str = Field(min_length=5, max_length=500)
+    quay: QuayThu | None = None
 
 
 @router.post("/payments/huy-cho")
@@ -223,6 +234,7 @@ async def huy_cho_xac_minh(
         kind=body.kind,
         reason=body.reason,
         identity=identity,
+        quay=body.quay,
     )
     return {"ok": True, **kq}
 
@@ -377,6 +389,7 @@ async def dong_khoan_hoan(
 class HoanTacRequest(BaseModel):
     payment_cycle_id: UUID
     ly_do: str | None = Field(default=None, max_length=500)
+    quay: QuayThu | None = None
 
 
 @router.post("/payments/hoan-tac")
@@ -390,6 +403,7 @@ async def hoan_tac_lan_thu(
         payment_cycle_id=str(body.payment_cycle_id),
         ly_do=body.ly_do,
         identity=identity,
+        quay=body.quay,
     )
     return {"ok": True, **kq}
 

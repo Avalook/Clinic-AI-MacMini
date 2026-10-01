@@ -25,6 +25,8 @@ interface OTien {
 interface BaoCao {
   tu: string;
   den: string;
+  /** Đang xem riêng một loại tiền (01/10/2026) — null = cả hai. */
+  loai?: "dich_vu" | "thuoc" | null;
   tong: OTien & {
     hoan_cho: number;
     so_phieu_thu: number;
@@ -177,8 +179,11 @@ export default function CuoiNgay() {
   const [bc, setBc] = useState<BaoCao | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
+  // Thuốc và dịch vụ thu RIÊNG HẲN (Tuyền 01/10/2026): mỗi quầy một ngăn kéo —
+  // chọn "Dịch vụ" / "Thuốc" để mọi bảng chỉ cộng đúng loại tiền ấy.
+  const [loai, setLoai] = useState<"" | "dich_vu" | "thuoc">("");
 
-  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den }).toString();
+  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, ...(loai ? { loai } : {}) }).toString();
 
   const tai = useCallback(async () => {
     setDangTai(true);
@@ -212,6 +217,28 @@ export default function CuoiNgay() {
           onChon={(k) => setKhoang(k ?? { tu: congNgay(homNay, -92), den: homNay })}
           className="min-w-0 flex-1"
         />
+        <div role="tablist" aria-label="Loại tiền" className="flex gap-1">
+          {(
+            [
+              ["", "Tất cả"],
+              ["dich_vu", "Dịch vụ"],
+              ["thuoc", "Thuốc"],
+            ] as const
+          ).map(([ma, nhan]) => (
+            <button
+              key={ma}
+              type="button"
+              role="tab"
+              aria-selected={loai === ma}
+              onClick={() => setLoai(ma)}
+              className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+                loai === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+              }`}
+            >
+              {nhan}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
@@ -241,6 +268,14 @@ export default function CuoiNgay() {
             <StatCard label={`Huỷ phiếu (${t.so_phieu_huy})`} value={am(t.huy)} tone="warning" />
             <StatCard label={`Hoàn tiền (${t.so_phieu_hoan})`} value={am(t.hoan)} tone="warning" />
           </StatRow>
+          {/* Hai ngăn kéo riêng: tiền dịch vụ và tiền thuốc không cộng lẫn khi đối soát. */}
+          {!bc.loai ? (
+            <StatRow>
+              {bc.theo_loai.map((o) => (
+                <StatCard key={o.ma} label={`Thực thu ${TEN_LOAI[o.ma]?.toLowerCase() ?? o.ten}`} value={tien(o.thuc_thu)} />
+              ))}
+            </StatRow>
+          ) : null}
           <StatRow>
             <StatCard label="Lượt khám mới" value={bc.khach.so_luot_kham} />
             <StatCard
