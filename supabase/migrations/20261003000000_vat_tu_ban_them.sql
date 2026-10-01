@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS public.vat_tu_goi_y (
     clinic_id        uuid NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,
     dich_vu_id       uuid NOT NULL REFERENCES public.service_price(id) ON DELETE CASCADE,
     vat_tu_id        uuid NOT NULL REFERENCES public.service_price(id) ON DELETE CASCADE,
-    PRIMARY KEY (dich_vu_id, vat_tu_id)
+    -- clinic_id dẫn đầu khoá (luật bảng theo phòng khám: supabase/tests/multi_tenant_foundation.sql).
+    PRIMARY KEY (clinic_id, dich_vu_id, vat_tu_id)
 );
 COMMENT ON TABLE public.vat_tu_goi_y IS
 'Dịch vụ nào thường mua kèm vật tư nào (Tập máy Bio → đầu dò) — quầy thu cho vật tư ấy nổi lên đầu khi lượt có dịch vụ. 01/10/2026.';
