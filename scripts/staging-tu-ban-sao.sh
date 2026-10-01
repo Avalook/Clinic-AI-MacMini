@@ -79,15 +79,17 @@ for c in clinicai_thu_auth clinicai_thu_rest clinicai_thu_realtime; do
 done
 
 # ---- 2. tài khoản: thay auth.users + auth.identities -------------------------
-# Làm TRƯỚC phần public: không bảng public nào khoá ngoại sang auth (đã kiểm
-# prod 01/10), nên TRUNCATE ... CASCADE chỉ dọn bảng con của auth (phiên, mã).
-xanh "2/5  Nạp tài khoản đăng nhập"
+# GỠ lược đồ public TRƯỚC: DB local (dev-up) có khoá ngoại public → auth.users
+# (prod thì không), nên TRUNCATE auth.users CASCADE sẽ lan sang bảng lịch hẹn và
+# đụng chốt "append-only" (01/10/2026, lần chạy đầu dừng ở đây — không mất gì vì
+# lệnh hỏng bị huỷ cả khối). DROP SCHEMA không chạy trigger xoá hàng.
+xanh "2/5  Gỡ dữ liệu thử + nạp tài khoản đăng nhập"
+psql_db -c "DROP SCHEMA public CASCADE;"
 psql_db -c "TRUNCATE auth.users CASCADE;"
 gzcat "$AUTH" | psql_db >/dev/null
 
-# ---- 3. dữ liệu phòng khám: thay cả lược đồ public ---------------------------
+# ---- 3. dữ liệu phòng khám: lược đồ public từ bản sao lưu ---------------------
 xanh "3/5  Nạp dữ liệu phòng khám (vài chục giây)"
-psql_db -c "DROP SCHEMA public CASCADE;"
 gzcat "$BAN" | psql_db >/dev/null
 # Quyền cho vai Supabase local (bản dump không chở GRANT của vai — Owner: -).
 psql_db <<'SQL'
