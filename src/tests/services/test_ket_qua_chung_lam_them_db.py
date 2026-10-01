@@ -32,6 +32,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
 )
 from tests.services.test_lam_them_tai_quay_db import _nut, _san_sang, _tick
 from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
+    Ca,
     _don,
     _su_kien,
     _thu,
@@ -260,7 +261,12 @@ async def test_ban_bac_si_thay_mau_chon_san_cua_chi_dinh_lam_them(
 # ── Hoàn tất ở quầy = dịch vụ xong (phương án A, Tuyền 01/10/2026) ───────────
 
 
-async def _hoan_tat_chung(pool, ca, oid, noi_dung="Que thử: bình thường"):  # type: ignore[no-untyped-def]  # noqa: F811
+async def _hoan_tat_chung(
+    pool: asyncpg.Pool,  # noqa: F811
+    ca: Ca,
+    oid: str,
+    noi_dung: str = "Que thử: bình thường",
+) -> tuple[dict, dict]:  # type: ignore[type-arg]
     fe = FormEngineService(pool)
     p = await fe.mo_phieu(
         service_order_id=oid, form_id=f"KQ_{MAU_CHUNG}", identity=ca.dd
@@ -277,17 +283,19 @@ async def _hoan_tat_chung(pool, ca, oid, noi_dung="Que thử: bình thường"):
     return p, kq
 
 
-async def _hang_phong(pool, oid):  # type: ignore[no-untyped-def]  # noqa: F811
-    return await pool.fetchval(
-        "SELECT status FROM queue_entry WHERE ref_id = $1::uuid"
-        " AND reason = 'SERVICE' ORDER BY updated_at DESC LIMIT 1",
-        oid,
+async def _hang_phong(pool: asyncpg.Pool, oid: str) -> str | None:  # noqa: F811
+    return str(
+        await pool.fetchval(
+            "SELECT status FROM queue_entry WHERE ref_id = $1::uuid"
+            " AND reason = 'SERVICE' ORDER BY updated_at DESC LIMIT 1",
+            oid,
+        )
     )
 
 
-async def _dv(pool, ca, visit):  # type: ignore[no-untyped-def]  # noqa: F811
+async def _dv(pool: asyncpg.Pool, ca: Ca, visit: str) -> dict:  # type: ignore[type-arg]  # noqa: F811
     goi = await _nut(pool, ca, visit, noi="sinh_hieu")
-    return goi["luot"][visit][ca.ma_dv]["ket_qua"]["dich_vu"]
+    return dict(goi["luot"][visit][ca.ma_dv]["ket_qua"]["dich_vu"])
 
 
 @async_db
