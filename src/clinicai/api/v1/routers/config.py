@@ -39,6 +39,7 @@ from clinicai.services.config_service import (
     Shift,
 )
 from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
+from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
 
 router = APIRouter()
 
@@ -87,6 +88,57 @@ class ShiftRequest(BaseModel):
 class RosterDecisionRequest(BaseModel):
     decision: RosterDecision
     reason: str | None = Field(default=None, max_length=500)
+
+
+class NgoaiLeCaTrucRequest(BaseModel):
+    staff_id: UUID
+    bac_si_id: UUID | None = None
+    ngay: date | None = None
+    ly_do: str = Field(min_length=3, max_length=500)
+
+
+_NGOAI_LE_CA_TRUC_GUARD = cua_quyen("permission.manage")
+
+
+@router.get("/roster/clinical-exceptions")
+async def danh_sach_ngoai_le_ca_truc(
+    ngay: str | None = Query(default=None),
+    identity: StaffIdentity = Depends(_NGOAI_LE_CA_TRUC_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    return {
+        "items": await NgoaiLeCaTrucService(pool).danh_sach(
+            ngay=ngay, identity=identity
+        )
+    }
+
+
+@router.post("/roster/clinical-exceptions", status_code=201)
+async def mo_ngoai_le_ca_truc(
+    body: NgoaiLeCaTrucRequest,
+    identity: StaffIdentity = Depends(_NGOAI_LE_CA_TRUC_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    item = await NgoaiLeCaTrucService(pool).mo(
+        staff_id=str(body.staff_id),
+        bac_si_id=str(body.bac_si_id) if body.bac_si_id else None,
+        ngay=body.ngay,
+        ly_do=body.ly_do,
+        identity=identity,
+    )
+    return {"ok": True, "item": item}
+
+
+@router.delete("/roster/clinical-exceptions/{ngoai_le_id}")
+async def huy_ngoai_le_ca_truc(
+    ngoai_le_id: UUID,
+    identity: StaffIdentity = Depends(_NGOAI_LE_CA_TRUC_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    item = await NgoaiLeCaTrucService(pool).huy(
+        ngoai_le_id=str(ngoai_le_id), identity=identity
+    )
+    return {"ok": True, "item": item}
 
 
 class PriceCreateRequest(BaseModel):

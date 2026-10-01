@@ -32,7 +32,8 @@ from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import DonThuocDaLuu
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.emit import emit_event, nguoi_lam_thay
+from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import QUYEN_IN_PHIEU
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
@@ -53,6 +54,7 @@ from clinicai.phieu_kham.khung import (
 )
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 from clinicai.services import hen_tai_kham_service as htk
+from clinicai.services.bac_si_phu_trach import bac_si_cua_phien
 from clinicai.services.cskh_service import clinic_today
 from clinicai.services.danh_muc_dich_vu_service import (
     ly_do_khoa_chi_dinh,
@@ -365,6 +367,13 @@ class PhieuKhamService:
                 visit_id,
             ):
                 raise ValidationError("Không tìm thấy lượt khám.")
+            bac_si_id = await bac_si_cua_phien(
+                conn,
+                clinic_id=cid,
+                visit_id=visit_id,
+                nguoi_bam=identity.staff_id,
+            )
+            await kiem_dung_ca(conn, identity, bac_si_id, visit_id=visit_id)
             dong = await conn.fetchrow(
                 "SELECT id, revision, du_lieu FROM phieu_kham_luot"
                 " WHERE clinic_id = $1::uuid"
@@ -732,6 +741,13 @@ class PhieuKhamService:
             )
             if luot is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
+            bac_si_id = await bac_si_cua_phien(
+                conn,
+                clinic_id=cid,
+                visit_id=visit_id,
+                nguoi_bam=identity.staff_id,
+            )
+            await kiem_dung_ca(conn, identity, bac_si_id, visit_id=visit_id)
             tom_tat = await luu_don_chua_ky(
                 conn,
                 visit_id=visit_id,
@@ -767,7 +783,7 @@ class PhieuKhamService:
                         so_dong_thay=thay,
                         so_dong_bo=bo,
                     ),
-                    boi=nguoi(identity),
+                    boi=nguoi_lam_thay(identity, bac_si_id),
                     correlation_id=visit_id,
                 )
         return {"ok": True, "tom_tat": tom_tat}

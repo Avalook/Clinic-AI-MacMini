@@ -164,7 +164,8 @@ DECLARE
     -- 126 → 128: cấu hình + tombstone revision làm thêm theo phòng khám.
     -- 128 → 129 (01/10/2026): cong_no (khoản ghi nợ khi khách về còn nợ).
     -- 129 → 131 (01/10/2026): payment_cycle_phan + anh_chuyen_khoan — 20261002300000.
-    minimum_tenant_tables constant integer := 131;
+    -- 131 → 132 (02/10/2026): ngoai_le_ca_truc (ngoại lệ làm thay bác sĩ — 20261002600000).
+    minimum_tenant_tables constant integer := 132;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

@@ -419,6 +419,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "payment_refund": "Hoàn tiền",
     "service_log": "Dịch vụ đã dùng",
     "clinical_record": "Bệnh án",
+    "clinical_shift_exception": "Ngoại lệ ca trực lâm sàng",
     "clinical_form_response": "Phiếu khám chuyên khoa",
     "clinical_data_consent": "Đồng ý chia sẻ hồ sơ",
     "drug_batch": "Lô thuốc",

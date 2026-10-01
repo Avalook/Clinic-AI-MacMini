@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict
 
@@ -483,6 +484,15 @@ class KhoiQuyenDaThu(PayloadSuKien):
     staff_id: str
     work_pack: str
     capabilities: list[str]
+
+
+class NgoaiLeCaTruc(PayloadSuKien):
+    """Mở/huỷ quyền làm thay bác sĩ ngoài ca, không chứa dữ liệu người bệnh."""
+
+    staff_id: str
+    bac_si_id: str | None = None
+    ngay: date
+    ly_do: str
 
 
 # ── result (biểu mẫu kết quả) ───────────────────────────────────────────────
@@ -1706,6 +1716,24 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Đã thu khối quyền",
             is_public=False,
         ),
+        SuKien(
+            ten="clinical_shift.exception_opened",
+            version=1,
+            aggregate_type="clinical_shift_exception",
+            source_module="permission",
+            payload=NgoaiLeCaTruc,
+            nhan="Đã mở ngoại lệ ca trực lâm sàng",
+            is_public=False,
+        ),
+        SuKien(
+            ten="clinical_shift.exception_cancelled",
+            version=1,
+            aggregate_type="clinical_shift_exception",
+            source_module="permission",
+            payload=NgoaiLeCaTruc,
+            nhan="Đã huỷ ngoại lệ ca trực lâm sàng",
+            is_public=False,
+        ),
     )
 }
 
@@ -1807,6 +1835,7 @@ __all__ = [
     "KhoiQuyenDaCap",
     "PhieuDaHoanTat",
     "KhoiQuyenDaThu",
+    "NgoaiLeCaTruc",
     "PayloadSuKien",
     "SuKien",
     "moi_consumer",

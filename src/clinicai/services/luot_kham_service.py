@@ -42,7 +42,8 @@ from clinicai.events.catalogue import (
     PhienKhamBatDau,
     TuVanXong,
 )
-from clinicai.events.emit import HE_THONG, emit_event, nguoi
+from clinicai.events.emit import HE_THONG, emit_event, nguoi, nguoi_lam_thay
+from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.audit import record_event
@@ -1492,6 +1493,12 @@ class LuotKhamService:
                     cau="Bạn không có quyền gọi khách vào khám.",
                 )
                 await self._thu_ky_cua_bac_si(conn, identity, q["doctor_id"])
+                await kiem_dung_ca(
+                    conn,
+                    identity,
+                    q["doctor_id"],
+                    visit_id=q["visit_id"],
+                )
             trang_thai = await conn.fetchval(
                 "SELECT status FROM queue_entry WHERE clinic_id = $1::uuid"
                 " AND id = $2::uuid FOR UPDATE",
@@ -1704,6 +1711,7 @@ class LuotKhamService:
                 conn, identity, con_id
             )
             await self._thu_ky_cua_bac_si(conn, identity, bac_si_phien)
+            await kiem_dung_ca(conn, identity, bac_si_phien, visit_id=vid)
             if c["status"] == "in_progress":
                 # Thư ký bấm rồi bác sĩ bấm lại (hay ngược lại) là CÙNG một phiên
                 # đang khám, không phải bị người khác giành.
@@ -1845,7 +1853,7 @@ class LuotKhamService:
                 payload=PhienKhamBatDau(
                     visit_id=vid, consultation_id=con_id, loai=c["kind"]
                 ),
-                boi=nguoi(identity),
+                boi=nguoi_lam_thay(identity, bac_si_phien),
                 correlation_id=vid,
             )
         return {"ok": True, "consultation_id": con_id}
@@ -2046,7 +2054,13 @@ class LuotKhamService:
             await doi_quyen(conn, identity, "clinical.record.write")
             vid = await self._visit_of(conn, "consultation", cid, con_id)
             await self._lock_visit(conn, cid, vid)
-            await self._consultation_in_progress(conn, cid, con_id)
+            consultation = await self._consultation_in_progress(conn, cid, con_id)
+            await kiem_dung_ca(
+                conn,
+                identity,
+                consultation["doctor_id"],
+                visit_id=vid,
+            )
             await self._lock_flow(conn, cid, vid)
             await conn.execute(
                 "INSERT INTO consultation_note (clinic_id, consultation_id, body,"
@@ -2101,7 +2115,13 @@ class LuotKhamService:
             )
             if cached is not None:
                 return cached
-            await self._consultation_in_progress(conn, cid, con_id)
+            consultation = await self._consultation_in_progress(conn, cid, con_id)
+            await kiem_dung_ca(
+                conn,
+                identity,
+                consultation["doctor_id"],
+                visit_id=vid,
+            )
             services = await self._services(conn, cid, list(service_codes or []))
             ids = []
             for s in services:
@@ -2187,6 +2207,12 @@ class LuotKhamService:
             if cached is not None:
                 return cached
             consultation = await self._consultation_in_progress(conn, cid, con_id)
+            await kiem_dung_ca(
+                conn,
+                identity,
+                consultation["doctor_id"],
+                visit_id=vid,
+            )
             # Ê-KÍP của phiên duyệt được (Tuyền 29/09/2026 — trợ lý trọn quyền):
             # người bấm "Bắt đầu", bác sĩ của phiên, hoặc thư ký / điều dưỡng có
             # quyền Khám làm cho bác sĩ ấy. Trước đây đòi tài khoản DOCTOR — thư
@@ -2415,6 +2441,7 @@ class LuotKhamService:
                     )
                     c = await self._consultation_in_progress(conn, cid, con_id)
             await self._thu_ky_cua_bac_si(conn, identity, c["doctor_id"])
+            await kiem_dung_ca(conn, identity, c["doctor_id"], visit_id=vid)
             if not rules.outcome_allowed(c["kind"], outcome):
                 raise LuotKhamConflictError(
                     "WRONG_CONSULTATION_KIND",
@@ -2585,7 +2612,7 @@ class LuotKhamService:
                     loai=c["kind"],
                     ket_qua=outcome,
                 ),
-                boi=nguoi(identity),
+                boi=nguoi_lam_thay(identity, c["doctor_id"]),
                 correlation_id=vid,
             )
             # Bác sĩ hẹn tái khám — sự thật chốt lúc Khám xong. Phiếu v5 (mục G
@@ -2622,7 +2649,7 @@ class LuotKhamService:
                     clinic_id=cid,
                     aggregate_id=vid,
                     payload=DaHenTaiKham(visit_id=vid, ngay=str(ngay_tai_kham)),
-                    boi=nguoi(identity),
+                    boi=nguoi_lam_thay(identity, c["doctor_id"]),
                     correlation_id=vid,
                 )
             await conn.execute(
@@ -2764,6 +2791,7 @@ class LuotKhamService:
             if vid is None:
                 raise NotFoundError("Không tìm thấy yêu cầu này.")
             visit = await self._lock_visit(conn, cid, vid)
+            await kiem_dung_ca(conn, identity, visit["doctor_id"], visit_id=vid)
             cached = await self._receipt_get(
                 conn, identity, "requirement.decide", idempotency_key, payload
             )
@@ -3375,6 +3403,13 @@ class LuotKhamService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "result.review.approve")
             vid = await self._visit_of(conn, "service_order", cid, oid)
+            bac_si_phien = await bac_si_cua_phien(
+                conn,
+                clinic_id=cid,
+                visit_id=vid,
+                nguoi_bam=identity.staff_id,
+            )
+            await kiem_dung_ca(conn, identity, bac_si_phien, visit_id=vid)
             # KẾT QUẢ MUỘN về sau khi bác sĩ đã ký bệnh án (FINALIZED) hay quầy
             # đã đóng lượt vẫn phải duyệt được — đó chính là việc theo dõi.
             # Nên chỉ khoá dòng visit để tuần tự hoá, không đòi lượt còn mở.
@@ -3461,7 +3496,7 @@ class LuotKhamService:
                         "tep_moi": [r["id"] for r in moi],
                     },
                 )
-                await self._phat_da_duyet(conn, identity, vid, oid)
+                await self._phat_da_duyet(conn, identity, vid, oid, bac_si_phien)
                 return {"ok": True, "order_id": oid, "tep_moi": len(moi)}
             if o["ket_qua_luc"] is None and not o["lam_ben_ngoai"]:
                 raise LuotKhamConflictError(
@@ -3512,12 +3547,16 @@ class LuotKhamService:
                 origin=ORIGIN,
                 payload={"visit_id": vid, "order_id": oid},
             )
-            await self._phat_da_duyet(conn, identity, vid, oid)
+            await self._phat_da_duyet(conn, identity, vid, oid, bac_si_phien)
         return {"ok": True, "order_id": oid}
 
     @staticmethod
     async def _phat_da_duyet(
-        conn: asyncpg.Connection, identity: StaffIdentity, vid: str, oid: str
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        vid: str,
+        oid: str,
+        bac_si_id: str | None,
     ) -> None:
         """Duyệt (không bắt buộc — Tuyền 24/09) = đã xem mọi tệp của chỉ định,
         và một dòng `result.reviewed` trên dòng thời gian."""
@@ -3545,7 +3584,7 @@ class LuotKhamService:
             aggregate_id=oid,
             so_ke_tiep=True,
             payload=KetQuaDaDuyet(service_order_id=oid, visit_id=vid),
-            boi=nguoi(identity),
+            boi=nguoi_lam_thay(identity, bac_si_id),
             correlation_id=vid,
         )
 
