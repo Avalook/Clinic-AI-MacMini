@@ -57,7 +57,8 @@ def test_ma_tu_sinh_on_dinh_theo_ten() -> None:
     a = ma_dich_vu_theo_ten("  Liên   cầu B ")
     assert a == ma_dich_vu_theo_ten("liên cầu b")
     assert a.startswith("DV_") and len(a) == 13
-    assert khoa_ten_dich_vu(unicodedata.normalize("NFD", "Liền")) == khoa_ten_dich_vu("Liền")  # NFC
+    nfd = unicodedata.normalize("NFD", "Liền")
+    assert khoa_ten_dich_vu(nfd) == khoa_ten_dich_vu("Liền")
 
 
 def test_dong_danh_muc_doc_json_chuoi_va_gia_rac() -> None:
