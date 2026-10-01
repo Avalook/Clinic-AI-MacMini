@@ -149,6 +149,80 @@ async def test_h4_tu_xep_dung_phong_duoc_gan(rb: RB) -> None:  # noqa: F811
     assert (await _o(rb, oid))["room_id"] == rb.sa2
 
 
+async def _h4(b: RB) -> list[str]:
+    async with b.pool.acquire() as conn, conn.transaction():
+        return await b.svc.tu_xep_da_thu(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=b.visit_id,
+            staff_id=b.truong_ca.staff_id,
+            causation_id=b.visit_id,
+        )
+
+
+async def test_h4_mo_het_phong_van_chi_tu_xep_dung_chuc_nang(rb: RB) -> None:  # noqa: F811
+    """ "Mở hết phòng": dịch vụ gắn cho cả phòng siêu âm lẫn phòng lấy mẫu. Quầy
+    chọn tay được cả hai (phong_lam_duoc), nhưng TỰ XẾP chỉ vào phòng có node
+    siêu âm — phòng lấy mẫu không bao giờ được chọn dù vắng hơn."""
+    oid = await _cd(rb)
+    ma = await _ma_cd(rb, oid)
+    for r in (rb.sa1, rb.sa2, rb.khac_node):
+        await _gan(rb, r, ma)
+    # Danh sách chọn tay: giữ nguyên = mọi phòng được gắn.
+    g = await rb.svc.recommend(order_id=oid, identity=rb.truong_ca)
+    assert {rb.sa1, rb.sa2, rb.khac_node} <= {c["room_id"] for c in g["candidates"]}
+    xep = await _h4(rb)
+    assert oid in xep
+    assert (await _o(rb, oid))["room_id"] in (rb.sa1, rb.sa2)
+
+
+async def test_h4_khong_phong_dung_chuc_nang_thi_cho_quay(rb: RB) -> None:  # noqa: F811
+    """Dịch vụ chỉ gắn cho phòng KHÁC chức năng → không tự xếp, chờ quầy; xếp
+    tay vào phòng ấy vẫn được."""
+    oid = await _cd(rb)
+    ma = await _ma_cd(rb, oid)
+    await _gan(rb, rb.khac_node, ma)
+    assert oid not in await _h4(rb)
+    o = await _o(rb, oid)
+    assert o["routing_status"] == "UNASSIGNED" and o["room_id"] is None
+    kq = await _assign(rb, oid, rb.khac_node, 0)
+    assert kq["room_id"] == rb.khac_node and kq["changed"]
+
+
+async def test_h4_phong_du_kien_cua_nguoi_van_thang(rb: RB) -> None:  # noqa: F811
+    """Phòng lễ tân chọn (kể cả khác chức năng, miễn phong_lam_duoc) thắng."""
+    oid = await _cd(rb)
+    ma = await _ma_cd(rb, oid)
+    for r in (rb.sa1, rb.khac_node):
+        await _gan(rb, r, ma)
+    await rb.pool.execute(
+        "UPDATE service_order SET phong_du_kien_id = $2::uuid WHERE id = $1::uuid",
+        oid,
+        rb.khac_node,
+    )
+    assert oid in await _h4(rb)
+    assert (await _o(rb, oid))["room_id"] == rb.khac_node
+
+
+async def test_chon_phong_h4_thuan_tu_chon_theo_chuc_nang() -> None:
+    uv = [{"room_id": "sai-viec"}, {"room_id": "dung-viec"}]
+    cn = [{"room_id": "dung-viec"}]
+    assert sr.chon_phong_h4(
+        uv, None, chi_ap_phong_du_kien=False, ung_vien_chuc_nang=cn
+    ) == ("dung-viec", None)
+    assert sr.chon_phong_h4(
+        uv, None, chi_ap_phong_du_kien=False, ung_vien_chuc_nang=[]
+    ) == (None, sr.CHO_XEP_KHONG_DUNG_CHUC_NANG)
+    assert sr.chon_phong_h4(
+        [], None, chi_ap_phong_du_kien=False, ung_vien_chuc_nang=[]
+    ) == (None, sr.CHO_XEP_KHONG_CO_PHONG)
+    # Phòng người chọn thắng dù không đúng chức năng.
+    assert sr.chon_phong_h4(
+        uv, "sai-viec", chi_ap_phong_du_kien=False, ung_vien_chuc_nang=cn
+    ) == ("sai-viec", None)
+    assert "đúng chức năng" in sr.cau_cho_xep_phong(sr.CHO_XEP_KHONG_DUNG_CHUC_NANG)
+
+
 async def test_hang_cho_nhan_va_o_phong_quay_theo_dich_vu(rb: RB) -> None:  # noqa: F811
     oid = await _cd(rb)
     ma = await _ma_cd(rb, oid)

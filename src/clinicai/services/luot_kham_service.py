@@ -3365,6 +3365,7 @@ class LuotKhamService:
                     await co_so_cua_luot(conn, cid, visit_id=vid),
                     tru_luot=vid,
                     service_code=o["service_code"],
+                    dung_chuc_nang=True,
                 )
             )
             rid = xep[0]["room_id"] if xep else None

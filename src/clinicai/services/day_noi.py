@@ -70,7 +70,8 @@ DAY: dict[str, Day] = {
         Day(
             "h4_tu_xep_phong",
             "Khách chốt dịch vụ (chưa thu cũng được) hoặc thu tiền xong → tự xếp"
-            " phòng vắng nhất (thay người vừa chốt / vừa thu)",
+            " phòng vắng nhất (thay người vừa chốt / vừa thu); chỉ xếp vào phòng đúng"
+            " chức năng (nhóm việc) của dịch vụ; không có thì chờ quầy chọn",
             True,
             "bat_tat",
         ),
