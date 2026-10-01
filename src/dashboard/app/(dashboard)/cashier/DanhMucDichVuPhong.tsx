@@ -25,6 +25,8 @@ import ChipLoc from "@/components/ui/ChipLoc";
 import NganGap from "@/components/ui/NganGap";
 import PopoverNeo from "@/components/ui/PopoverNeo";
 
+import VatTuBangGia, { type DongVatTu } from "./VatTuBangGia";
+
 export interface PhongDv {
   id: string;
   ten: string | null;
@@ -55,6 +57,8 @@ export interface DongDichVu {
 
 export interface DanhMucGoi {
   dich_vu: DongDichVu[];
+  /** Vật tư bán thêm ở quầy thu dịch vụ (C13) — không phòng, không phí khám. */
+  vat_tu: DongVatTu[];
   phong: PhongDv[];
   nhom_hang: string[];
   sua_phong_duoc: boolean;
@@ -329,6 +333,12 @@ export default function DanhMucDichVuPhong({
         />
         </NganGap>
       </section>
+
+      <VatTuBangGia
+        ds={goi.vat_tu ?? []}
+        ban={ban}
+        onSua={(id, patch, xong) => gui("/api/service-price", "PATCH", { id, ...patch }, xong)}
+      />
 
       {moPhong ? (
         <GanPhong

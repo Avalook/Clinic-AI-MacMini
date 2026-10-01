@@ -297,6 +297,7 @@ class MauKetQuaService:
             dich_vu = await conn.fetch(
                 "SELECT p.service_code, p.name FROM service_price p"
                 " WHERE p.clinic_id = $1::uuid AND p.active"
+                "   AND p.\"group\" <> 'vat_tu'"
                 "   AND NOT EXISTS (SELECT 1 FROM dich_vu_mau_ket_qua g"
                 "                    WHERE g.clinic_id = p.clinic_id"
                 "                      AND g.service_code = p.service_code)"

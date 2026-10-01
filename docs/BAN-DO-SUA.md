@@ -45,6 +45,7 @@ phân quyền** (`/nhan-su`, `/phan-quyen`, `/settings/tai-khoan`,
 **Giá dịch vụ · nhóm hàng · thêm/tạm ngưng dịch vụ · PHÒNG LÀM từng dịch vụ**
 - Trên màn: `/cashier/dich-vu` (Bảng giá dịch vụ & phòng, 01/10). Lưu là dùng ngay
   cho lượt mới. Lọc "Chưa có phòng" + [Gán phòng] (cần lego Cài đặt phòng khám).
+  **Vật tư bán thêm** (đầu dò Bio, Mirena…): ngăn riêng dưới bảng — chỉ giá + đang bán, không phòng (§7).
 - Nguồn sự thật danh mục: file phòng khám gửi 01/10 → bảng `danh_muc_dich_vu_nguon`
   + hàm `dong_bo_danh_muc_dich_vu` (migration `20261002100000_danh_muc_dich_vu_chuan_0110.sql`;
   đợt file mới = thêm `nguon` mới rồi gọi lại hàm). Luật "phí khám / cần phòng /
@@ -201,6 +202,17 @@ Danh mục chọn được (thiếu dịch vụ nào thì xem đây): `S/phieu_k
 `S/service_selection_service.py` (`ServiceSelectionService`; luật ở hàm `plan`, `ap_lua_chon`).
 
 ## 7. Thu tiền · phiếu thu · phiếu hướng dẫn
+
+**Vật tư khách mua thêm ở quầy thu dịch vụ (01/10 — C13: đầu dò Bio chọn nhanh, tìm tên, Mirena cần QL duyệt)** —
+màn `D/thu-ngan/VatTuQuay.tsx` (khối "Mua thêm vật tư", chỉ quầy dịch vụ) → `S/vat_tu_service.py`
+(`VatTuService.them` / `dat_so_luong` / `bo`, hàm thuần `ly_do_khong_ban`: giá 0 / chưa có giá = không bán).
+Tiền vào hoá đơn DỊCH VỤ: dòng `vat_tu` ở `S/bill_service.py` (`_VAT_TU_SQL`, `ghep_dich_vu`), hiện ở quầy
+qua `S/quay_thu_service.py` `dung_hoa_don_quay`, nợ khi check-out `S/cong_no_service.py` `loc_no_dich_vu`.
+Dữ liệu: `service_price` nhóm `vat_tu` (+ cột `don_vi`, `can_ql_duyet`, `chon_nhanh`), dòng bán `luot_vat_tu`,
+gợi ý dịch vụ→vật tư `vat_tu_goi_y` (mig 20261003000000; nạp lại: `SELECT * FROM dong_bo_vat_tu(false)`).
+**Sửa giá / tắt bán / thêm hàng = việc DỮ LIỆU: quản lý làm trên `/cashier/dich-vu` (ngăn "Vật tư bán thêm
+ở quầy thu", `D/cashier/VatTuBangGia.tsx`)** — không code. Hàng cần QL duyệt = cột `can_ql_duyet` (Mirena).
+Test: `T/services/test_vat_tu_ban_them_db.py`, FT `quay-thu-vat-tu-boundary.test.mts`.
 
 **Màn thu, cái gì hiện ở quầy nào, "Đã nhận đủ"** — `/thu-ngan/dich-vu`,
 `/thu-ngan/thuoc` (cùng `D/thu-ngan/QuayThuNgan.tsx`, prop `quay`). Bảng quầy:
