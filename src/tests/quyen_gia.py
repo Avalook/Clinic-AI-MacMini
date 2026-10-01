@@ -90,6 +90,12 @@ def dich_vu_theo_nhom_mau(monkeypatch: Any) -> None:
         await doi_quyen_theo_nhom_mau(None, identity, "config.clinic.manage")
 
     async def _xep_lich(_self: Any, identity: StaffIdentity) -> bool:
+        # Trưởng ca xếp lịch (01/10/2026): `roster.manage` hoặc lego Cài đặt.
+        return await can_theo_nhom_mau(
+            None, identity, "roster.manage"
+        ) or await can_theo_nhom_mau(None, identity, "config.clinic.manage")
+
+    async def _cai_dat(_self: Any, identity: StaffIdentity) -> bool:
         return await can_theo_nhom_mau(None, identity, "config.clinic.manage")
 
     async def _doi_bac_si(_self: Any, identity: StaffIdentity) -> None:
@@ -97,6 +103,7 @@ def dich_vu_theo_nhom_mau(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(ClinicConfigService, "_duoc_cau_hinh", _cau_hinh)
     monkeypatch.setattr(RosterService, "_xep_lich", _xep_lich)
+    monkeypatch.setattr(RosterService, "_cai_dat", _cai_dat)
     monkeypatch.setattr(DoiBacSiService, "_duoc_doi_bac_si", _doi_bac_si)
 
 
