@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 15:48. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 16:33. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -44,14 +44,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+10)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-forms/history`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/phieu` (+10)
 - service: ThaiKyService.{doc, cap_nhat, tao} · ClinicalFormService.{lich_su_kham, get_form, save_form} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+25 service)
-- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+69)
+- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+70)
 
 ### `/ban-kham/[phong]` — Bàn khám
 - page: `src/dashboard/app/(dashboard)/ban-kham/[phong]/page.tsx` · quyền: lego `ban_kham` (Bàn khám · mặc định: Bác sĩ chính + Thư ký y khoa)
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+10)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-forms/history`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/phieu` (+10)
 - service: ThaiKyService.{doc, cap_nhat, tao} · ClinicalFormService.{lich_su_kham, get_form, save_form} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+25 service)
-- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+69)
+- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+70)
 
 ### `/cashier`
 - page: `src/dashboard/app/(dashboard)/cashier/page.tsx` · quyền: ?
@@ -281,7 +281,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, PhongDichVu.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+2)
 - gọi API Next: `/api/phieu`, `/api/nhac-viec`, `/api/cskh/ket-qua/[tepId]/khoi-phuc`, `/api/cskh/ket-qua/[tepId]/xoa`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cskh/ket-qua`, `/api/luot-kham`
 - service: FormEngineService.{luu_nhap, hoan_tat, mo_sua, huy_sua, +3} · NhacViecService.{cua_toi, tao, xong} · TepKetQuaService.{khoi_phuc_tep, xoa_tep, mo_de_doc, danh_sach, +3} · media_service · tep_ket_qua_service · nhan_tep_luong (+10 service)
-- test: test_tep_ket_qua.py, test_service_execution_db.py, test_sua_ket_qua_db.py, test_xac_nhan_tep_ket_qua_db.py, test_form_engine_db.py (+27)
+- test: test_tep_ket_qua.py, test_service_execution_db.py, test_sua_ket_qua_db.py, test_xac_nhan_tep_ket_qua_db.py, test_form_engine_db.py (+28)
 
 ### `/portal`
 - page: `src/dashboard/app/(dashboard)/portal/page.tsx` · quyền: ?
@@ -314,14 +314,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: InKetQua.tsx, app/(dashboard)/_lam-viec/AnhKetQua.tsx, app/print/KhoiIn.tsx, app/print/KieuInA4.tsx
 - gọi API Next: `/api/phieu`, `/api/cskh/ket-qua/[tepId]/noi-dung`
 - service: FormEngineService.{in_ket_qua, xem_ket_qua, mo_phieu} · media_service · TepKetQuaService.mo_de_doc · tep_ket_qua_service
-- test: test_tep_ket_qua.py, test_xac_nhan_tep_ket_qua_db.py, test_form_engine_db.py, test_full_chi_dinh_slice_ab_db.py, test_in_anh_dot3_db.py (+3)
+- test: test_tep_ket_qua.py, test_xac_nhan_tep_ket_qua_db.py, test_form_engine_db.py, test_full_chi_dinh_slice_ab_db.py, test_in_anh_dot3_db.py (+4)
 
 ### `/print/phieu-kham/[visitId]`
 - page: `src/dashboard/app/print/phieu-kham/[visitId]/page.tsx` · quyền: ?
 - thành phần: InPhieuKham.tsx, app/(dashboard)/_lam-viec/AnhKetQua.tsx, app/print/KhoiIn.tsx, app/print/KieuInA4.tsx
 - gọi API Next: `/api/phieu`, `/api/phieu-kham`, `/api/cskh/ket-qua/[tepId]/noi-dung`
 - service: FormEngineService.{in_ket_qua, xem_ket_qua, mo_phieu} · khung · PhieuKhamService.{tham_chieu_that, khung_theo_ban, doc_luot, lich_su, +8} · y_khoa · media_service · TepKetQuaService.mo_de_doc (+1 service)
-- test: test_phieu_kham_db.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_tep_ket_qua.py, test_xac_nhan_tep_ket_qua_db.py (+15)
+- test: test_phieu_kham_db.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_tep_ket_qua.py, test_xac_nhan_tep_ket_qua_db.py (+16)
 
 ### `/print/phieu-thu/[id]` — In phiếu thu
 - page: `src/dashboard/app/print/phieu-thu/[id]/page.tsx` · quyền: ?
@@ -426,7 +426,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: MauKetQuaView.tsx, GanMau.tsx, SuaMau.tsx, du-lieu.ts
 - gọi API Next: `/api/mau-ket-qua`
 - service: MauKetQuaService.{bang_gan, de_xuat, gan, go, +1} · FormEngineService.{doc_bieu_mau, xuat_ban}
-- test: test_man_mau_ket_qua_db.py, test_mau_ket_qua_db.py, test_form_engine_db.py
+- test: test_man_mau_ket_qua_db.py, test_mau_ket_qua_db.py, test_form_engine_db.py, test_ket_qua_chung_lam_them_db.py
 
 ### `/settings/new-user`
 - page: `src/dashboard/app/(dashboard)/settings/new-user/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
@@ -507,7 +507,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/LiveBoardSync.tsx, app/(dashboard)/ban-kham/BanKham.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/XemPhieuKetQua.tsx, app/(dashboard)/_lam-viec/api.ts, app/(dashboard)/_lam-viec/dung-ngay-xem.ts (+10)
 - gọi API Next: `/api/thai-ky`, `/api/clinical-forms/history`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/phieu` (+10)
 - service: ThaiKyService.{doc, cap_nhat, tao} · ClinicalFormService.{lich_su_kham, get_form, save_form} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+25 service)
-- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+69)
+- test: test_phieu_kham_db.py, test_tep_ket_qua.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_xac_nhan_tep_ket_qua_db.py (+70)
 
 ### `/viec-can-xu-ly` — Việc cần xử lý
 - page: `src/dashboard/app/(dashboard)/viec-can-xu-ly/page.tsx` · quyền: lego `viec_can_xu_ly` (Việc cần xử lý · mặc định: Quản lý, trưởng ca)
@@ -952,7 +952,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - POST `/api/v1/mau-ket-qua/go` → `src/clinicai/api/v1/routers/mau_ket_qua.py:go` → MauKetQuaService.go
 - POST `/api/v1/mau-ket-qua/tao` → `src/clinicai/api/v1/routers/mau_ket_qua.py:tao_mau` → MauKetQuaService.tao_mau
 - POST `/api/v1/bieu-mau/{form_id}/xuat-ban` → `src/clinicai/api/v1/routers/phieu.py:xuat_ban` → FormEngineService.xuat_ban
-- test: src/tests/services/test_man_mau_ket_qua_db.py, src/tests/services/test_mau_ket_qua_db.py, src/tests/services/test_form_engine_db.py
+- test: src/tests/services/test_man_mau_ket_qua_db.py, src/tests/services/test_mau_ket_qua_db.py, src/tests/services/test_form_engine_db.py (+1)
 - màn dùng: /settings/mau-ket-qua
 
 #### `/api/nhac-viec` · `src/dashboard/app/api/nhac-viec/route.ts`
@@ -1080,7 +1080,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/phieu/xem/{service_order_id}` → `src/clinicai/api/v1/routers/phieu.py:xem_ket_qua` → FormEngineService.xem_ket_qua
 - GET `/api/v1/bieu-mau` → `src/clinicai/api/v1/routers/phieu.py:danh_sach` → (SQL ngay trong router, không qua service)
 - POST `/api/v1/phieu/mo` → `src/clinicai/api/v1/routers/phieu.py:mo_phieu` → FormEngineService.mo_phieu
-- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_form_engine_db.py, src/tests/services/test_in_anh_dot3_db.py (+2)
+- test: src/tests/services/test_sua_ket_qua_db.py, src/tests/services/test_form_engine_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py (+3)
 - màn dùng: /ban-kham, /ban-kham/[phong], /phong/[ma], /print/ket-qua/[orderId], /print/phieu-kham/[visitId], /tu-van
 
 #### `/api/phieu-kham` · `src/dashboard/app/api/phieu-kham/route.ts`

@@ -24,6 +24,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.permissions.can import can, doi_quyen
+from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 
 QUYEN_GAN_MAU = "catalogue.result_template.manage"
 QUYEN_SUA_MAU = "catalogue.form_template.edit"
@@ -218,20 +219,23 @@ class MauKetQuaService:
 
         Một dịch vụ có thể có nhiều mẫu (siêu âm thai theo quý), nên trả danh
         sách; màn hình để bác sĩ chọn, không tự đoán hộ.
+
+        CHƯA GẮN MẪU NÀO thì máy quyết (không để màn quyết): mẫu CHUNG — nhập tự
+        do — hoặc mẫu gợi ý của phiếu v5 đứng đầu, ``mac_dinh = true``. Dịch vụ
+        làm thêm tại quầy (Nước tiểu…) nhờ đó luôn có chỗ nhập kết quả; quản lý
+        gắn mẫu riêng sau thì mẫu đã gắn thắng và ``mac_dinh`` về false.
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT m.ma, m.nhom, m.ten FROM dich_vu_mau_ket_qua g"
-                "  JOIN ket_qua_mau m"
-                "    ON m.clinic_id = g.clinic_id AND m.ma = g.mau AND m.active"
-                " WHERE g.clinic_id = $1::uuid AND g.service_code = $2"
-                " ORDER BY m.ten",
-                identity.clinic_id,
-                service_code,
-            )
+            kq = (
+                await mau_cho_cac_dich_vu(
+                    conn, clinic_id=identity.clinic_id, service_codes=[service_code]
+                )
+            )[service_code]
         return {
             "service_code": service_code,
-            "mau": [dict(r) for r in rows],
+            "mau": kq["mau"],
+            "chon_san": kq["chon_san"],
+            "mac_dinh": kq["mac_dinh"],
         }
 
     async def gan(

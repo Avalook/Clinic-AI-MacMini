@@ -17,6 +17,7 @@ mở phiếu; gắn chính thức vẫn là việc của quản lý.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import cache
 from typing import Any
 
@@ -51,6 +52,74 @@ def ma_mau_goi_y(service_code: str) -> str | None:
     return _goi_y_theo_ma().get(service_code)
 
 
+def chon_mau(
+    da_gan: list[dict[str, Any]],
+    tat_ca: list[dict[str, Any]],
+    service_code: str,
+) -> dict[str, Any]:
+    """Luật chọn mẫu — hàm THUẦN, một chỗ duy nhất (màn chỉ vẽ kết quả).
+
+    Trả ``{"mau", "chon_san", "mac_dinh"}``. ``mac_dinh`` = quản lý CHƯA gắn mẫu
+    nào cho dịch vụ, mẫu chọn sẵn là mặc định của máy (gợi ý v5, hoặc CHUNG nhập
+    tự do). Gắn mẫu riêng sau này thì mẫu đã gắn thắng, ``mac_dinh`` về false.
+    """
+    if da_gan:
+        return {
+            "mau": [{**m, "cua_dich_vu": True} for m in da_gan],
+            "chon_san": da_gan[0]["ma"],
+            "mac_dinh": False,
+        }
+    tat_ca = list(tat_ca)
+    goi_y = ma_mau_goi_y(service_code)
+    if goi_y and any(m["ma"] == goi_y for m in tat_ca):
+        tat_ca.sort(key=lambda m: m["ma"] != goi_y)
+        return {
+            "mau": [
+                {**m, "cua_dich_vu": m["ma"] in (goi_y, MAU_CHUNG)} for m in tat_ca
+            ],
+            "chon_san": goi_y,
+            "mac_dinh": True,
+        }
+    co_chung = any(m["ma"] == MAU_CHUNG for m in tat_ca)
+    tat_ca.sort(key=lambda m: m["ma"] != MAU_CHUNG)
+    return {
+        "mau": [{**m, "cua_dich_vu": True} for m in tat_ca],
+        "chon_san": MAU_CHUNG if co_chung else None,
+        "mac_dinh": True,
+    }
+
+
+async def mau_cho_cac_dich_vu(
+    conn: asyncpg.Connection, *, clinic_id: str, service_codes: Sequence[str]
+) -> dict[str, dict[str, Any]]:
+    """`chon_mau` cho nhiều dịch vụ bằng HAI câu truy vấn (không N+1)."""
+    ma_dv = sorted(set(service_codes))
+    if not ma_dv:
+        return {}
+    da_gan: dict[str, list[dict[str, Any]]] = {}
+    for r in await conn.fetch(
+        "SELECT d.service_code, m.ma, m.ten, m.nhom FROM dich_vu_mau_ket_qua d"
+        "  JOIN ket_qua_mau m ON m.clinic_id = d.clinic_id AND m.ma = d.mau"
+        "   AND m.active"
+        " WHERE d.clinic_id = $1::uuid AND d.service_code = ANY($2::text[])"
+        " ORDER BY m.ten",
+        clinic_id,
+        ma_dv,
+    ):
+        da_gan.setdefault(r["service_code"], []).append(
+            {"ma": r["ma"], "ten": r["ten"], "nhom": r["nhom"]}
+        )
+    tat_ca = [
+        dict(r)
+        for r in await conn.fetch(
+            "SELECT ma, ten, nhom FROM ket_qua_mau"
+            " WHERE clinic_id = $1::uuid AND active ORDER BY nhom, ten",
+            clinic_id,
+        )
+    ]
+    return {c: chon_mau(da_gan.get(c, []), tat_ca, c) for c in ma_dv}
+
+
 async def mau_cho_dich_vu(
     conn: asyncpg.Connection, *, clinic_id: str, service_code: str
 ) -> tuple[list[dict[str, Any]], str | None]:
@@ -62,39 +131,18 @@ async def mau_cho_dich_vu(
     Chưa gắn: chỉ mẫu gợi ý là của dịch vụ; không có gợi ý thì không biết —
     để mọi mẫu chọn được như trước.
     """
-    da_gan = [
-        dict(r)
-        for r in await conn.fetch(
-            "SELECT m.ma, m.ten, m.nhom FROM dich_vu_mau_ket_qua d"
-            "  JOIN ket_qua_mau m ON m.clinic_id = d.clinic_id AND m.ma = d.mau"
-            "   AND m.active"
-            " WHERE d.clinic_id = $1::uuid AND d.service_code = $2"
-            " ORDER BY m.ten",
-            clinic_id,
-            service_code,
+    kq = (
+        await mau_cho_cac_dich_vu(
+            conn, clinic_id=clinic_id, service_codes=[service_code]
         )
-    ]
-    if da_gan:
-        return [{**m, "cua_dich_vu": True} for m in da_gan], da_gan[0]["ma"]
-    tat_ca = [
-        dict(r)
-        for r in await conn.fetch(
-            "SELECT ma, ten, nhom FROM ket_qua_mau"
-            " WHERE clinic_id = $1::uuid AND active ORDER BY nhom, ten",
-            clinic_id,
-        )
-    ]
-    goi_y = ma_mau_goi_y(service_code)
-    if goi_y and any(m["ma"] == goi_y for m in tat_ca):
-        tat_ca.sort(key=lambda m: m["ma"] != goi_y)
-        return [
-            {**m, "cua_dich_vu": m["ma"] in (goi_y, MAU_CHUNG)} for m in tat_ca
-        ], goi_y
-    co_chung = any(m["ma"] == MAU_CHUNG for m in tat_ca)
-    tat_ca.sort(key=lambda m: m["ma"] != MAU_CHUNG)
-    return [{**m, "cua_dich_vu": True} for m in tat_ca], (
-        MAU_CHUNG if co_chung else None
-    )
+    )[service_code]
+    return kq["mau"], kq["chon_san"]
 
 
-__all__ = ["MAU_CHUNG", "ma_mau_goi_y", "mau_cho_dich_vu"]
+__all__ = [
+    "MAU_CHUNG",
+    "chon_mau",
+    "ma_mau_goi_y",
+    "mau_cho_cac_dich_vu",
+    "mau_cho_dich_vu",
+]

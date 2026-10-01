@@ -142,6 +142,16 @@ cấu hình `D/settings/day-noi/LamThemTaiQuayCauHinh.tsx` → `/api/lam-them` �
 `service_order.desk_added` → consumer Hành trình (H4). Test:
 `T/services/test_lam_them_tai_quay_db.py`, `T/unit/test_lam_them_tai_quay.py`.
 
+**Nhập kết quả ngay tại quầy cho dịch vụ làm thêm (Nước tiểu…) + dịch vụ chưa gắn
+mẫu** — dịch vụ chưa gắn mẫu thì MÁY CHỦ chọn mẫu `CHUNG` (nhập tự do; hoặc mẫu
+gợi ý v5), cờ `mac_dinh`; quản lý gắn mẫu riêng sau thì mẫu gắn thắng. Code luật:
+`src/clinicai/phieu_kham/mau_goi_y.py` (`chon_mau`, `mau_cho_cac_dich_vu` — một chỗ cho phòng
+dịch vụ, phiếu khám, quầy, `MauKetQuaService.mau_cua_dich_vu`). Nút "Nhập kết quả"
+dưới chip tick: `D/_lam-viec/NhapKetQuaLamThem.tsx` (ghép `PhieuKetQua` + `KhungTep`,
+đường lưu / hoàn tất / tải tệp có sẵn) ← `LamThemTaiQuay.tsx` ← khối `ket_qua` của
+`S/lam_them_tai_quay_service.py` (`_ket_qua_cac_don`; `nhap_duoc` = quyền
+`result.form.fill`). Test: `T/services/test_ket_qua_chung_lam_them_db.py`.
+
 ## 5. Tư vấn · Bàn khám · phiếu khám
 
 **Bàn tư vấn / Bàn khám (hàng chờ, nhận khách, xong tư vấn, khám xong)** — màn

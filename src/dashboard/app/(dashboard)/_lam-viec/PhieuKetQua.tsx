@@ -142,7 +142,7 @@ export default function PhieuKetQua({
   onCacBen,
 }: {
   serviceOrderId: string;
-  /** Mẫu kết quả đã gắn cho dịch vụ này. Rỗng = chưa ai gắn. */
+  /** Mẫu kết quả để điền — máy chủ chọn: đã gắn, hoặc mặc định (CHUNG nhập tự do). */
   mau: MauKetQua[];
   /** Mẫu chọn sẵn (phiếu đang điền dở, hoặc mẫu gợi ý của phiếu khám v5). */
   mauMacDinh?: string | null;
@@ -381,8 +381,8 @@ export default function PhieuKetQua({
   if (mau.length === 0) {
     return (
       <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-body text-ink-soft">
-        Dịch vụ này chưa gắn mẫu kết quả nào. Quản lý gắn ở màn danh mục mẫu,
-        rồi phiếu sẽ hiện ở đây.
+        Chưa có mẫu kết quả nào để điền (kể cả mẫu “Kết quả chung”). Báo quản
+        lý kiểm tra danh mục mẫu kết quả.
       </p>
     );
   }
@@ -395,7 +395,7 @@ export default function PhieuKetQua({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-body font-semibold text-ink">Phiếu kết quả</h3>
         {mau.length > 1 ? (
-          <label className="text-body">
+          <label className="min-w-0 max-w-full text-body">
             <span className="sr-only">Chọn mẫu kết quả</span>
             <select
               value={chonMau ?? ""}
@@ -417,7 +417,7 @@ export default function PhieuKetQua({
                   else setLoi("Phiếu đang điền CHƯA lưu được — chưa đổi mẫu. Bấm [Thử lại] ở dòng trạng thái lưu.");
                 });
               }}
-              className="min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink"
+              className="min-h-10 w-full max-w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
             >
               <option value="">— chọn mẫu —</option>
               {mau.map((m) => (

@@ -319,18 +319,121 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
                         [x["service_code"] for x in nut],
                     )
                 }
+                ket_qua = await self._ket_qua_cac_don(
+                    conn,
+                    identity,
+                    [o for o in song.values() if o.get("nguon_lam_them")],
+                )
                 for vid in ids:
-                    luot[vid] = {
-                        x["service_code"]: {
-                            **trang_thai_nut(
-                                song.get((vid, x["service_code"])),
-                                revision.get((vid, x["service_code"]), 0),
-                            ),
+                    luot[vid] = {}
+                    for x in nut:
+                        tt = trang_thai_nut(
+                            song.get((vid, x["service_code"])),
+                            revision.get((vid, x["service_code"]), 0),
+                        )
+                        luot[vid][x["service_code"]] = {
+                            **tt,
                             "luot_mo": vid in mo,
+                            # "Nhập kết quả" ngay tại quầy: chỉ chỉ định QUẦY
+                            # đang tick (bác sĩ chỉ định thì làm ở phòng / bàn khám).
+                            "ket_qua": (
+                                ket_qua.get(tt["order_id"]) if tt["chon"] else None
+                            ),
                         }
-                        for x in nut
-                    }
         return {"noi": n, "nut": nut, "luot": luot}
+
+    @staticmethod
+    async def _ket_qua_cac_don(
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        don: list[dict[str, Any]],
+    ) -> dict[str, dict[str, Any]]:
+        """Chỗ nhập kết quả cho các chỉ định làm thêm tại quầy (01/10/2026).
+
+        Máy chủ quyết hết: mẫu nào (``chon_mau`` — chưa gắn thì CHUNG nhập tự
+        do), kết quả đã có chưa, và NGƯỜI NÀY nhập được không (``nhap_duoc`` =
+        quyền ``result.form.fill`` — quyền thật vẫn được kiểm lại ở từng lệnh
+        của phiếu). Không có quyền thì màn không hiện nút, không đổi quyền gì.
+        """
+        if not don:
+            return {}
+        from clinicai.phieu_kham.khung import FORM_IDS
+        from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
+
+        cid = identity.clinic_id
+        ids = [o["id"] for o in don]
+        nhap_duoc = await can(conn, identity, "result.form.fill")
+        mau = await mau_cho_cac_dich_vu(
+            conn, clinic_id=cid, service_codes=[o["service_code"] for o in don]
+        )
+        # (trang_thai, form_id) — phiếu ĐÃ HOÀN TẤT đứng đầu: mở lại ra đúng mẫu
+        # người ta đã điền, không nhảy về mẫu mặc định.
+        phieu: dict[str, list[tuple[str, str]]] = {}
+        for r in await conn.fetch(
+            "SELECT service_order_id::text AS id, trang_thai, form_id"
+            "  FROM form_instance"
+            " WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])"
+            "   AND NOT (form_id = ANY($3::text[]))"
+            " ORDER BY (trang_thai = 'READY') DESC, tao_luc DESC",
+            cid,
+            ids,
+            list(FORM_IDS),
+        ):
+            phieu.setdefault(r["id"], []).append((r["trang_thai"], r["form_id"]))
+        so_tep = {
+            r["id"]: int(r["n"])
+            for r in await conn.fetch(
+                "SELECT service_order_id::text AS id, count(*) AS n"
+                "  FROM v_tep_ket_qua_hieu_luc"
+                " WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])"
+                "   AND thu_hoi_luc IS NULL GROUP BY service_order_id",
+                cid,
+                ids,
+            )
+        }
+        khach = {
+            r["id"]: r["clinic_patient_id"]
+            for r in await conn.fetch(
+                "SELECT o.id::text AS id,"
+                "       v.clinic_patient_id::text AS clinic_patient_id"
+                "  FROM service_order o JOIN visit v"
+                "    ON v.clinic_id = o.clinic_id AND v.visit_id = o.visit_id"
+                " WHERE o.clinic_id = $1::uuid AND o.id = ANY($2::uuid[])",
+                cid,
+                ids,
+            )
+        }
+        ra: dict[str, dict[str, Any]] = {}
+        for o in don:
+            cua = phieu.get(o["id"], [])
+            ra[o["id"]] = {
+                "nhap_duoc": nhap_duoc,
+                "trang_thai": (
+                    "CO_KET_QUA"
+                    if any(t == "READY" for t, _ in cua) or so_tep.get(o["id"], 0) > 0
+                    else "DANG_NHAP"
+                    if cua
+                    else "CHUA_CO"
+                ),
+                "so_tep": so_tep.get(o["id"], 0),
+                "clinic_patient_id": khach.get(o["id"]),
+                "mau": [
+                    {
+                        "ma": m["ma"],
+                        "ten": m["ten"],
+                        "nhom": m.get("nhom"),
+                        "cua_dich_vu": m.get("cua_dich_vu", True),
+                    }
+                    for m in mau[o["service_code"]]["mau"]
+                ],
+                "mau_chon_san": (
+                    cua[0][1].removeprefix("KQ_")
+                    if cua
+                    else mau[o["service_code"]]["chon_san"]
+                ),
+                "mac_dinh": mau[o["service_code"]]["mac_dinh"],
+            }
+        return ra
 
     # ── Lệnh tick / bỏ tick ─────────────────────────────────────────────────
 

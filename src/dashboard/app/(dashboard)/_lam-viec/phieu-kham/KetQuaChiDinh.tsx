@@ -262,6 +262,9 @@ export default function KetQuaChiDinh({
   }, [ds, nhieuLan, lanXem, lanHienTai]);
 
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
+    // Máy chủ đã chọn (đã gắn / mặc định CHUNG) — 01/10/2026. Phần dưới chỉ còn
+    // là đường lùi cho bản máy chủ cũ.
+    if (d.mau_chon_duoc && d.mau_chon_duoc.length > 0) return d.mau_chon_duoc;
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
     const g = goiYMau[d.service_code];
     const goiY = g ? mauDuPhong.filter((m) => m.ma === g) : [];
@@ -400,7 +403,7 @@ export default function KetQuaChiDinh({
               mau={mauCho(d)}
               mauMacDinh={
                 d.ket_qua.find((k) => k.loai === "PHIEU")?.form_id?.replace(/^KQ_/, "") ??
-                (d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
+                (d.mau_chon_san || d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
               }
               onHoanTat={() => onDoi?.()}
             />

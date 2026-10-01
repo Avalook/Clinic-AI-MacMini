@@ -139,10 +139,12 @@ async def test_quan_ly_gan_duoc_va_bac_si_doc_duoc(pool: asyncpg.Pool) -> None:
     assert lai["moi"] is False
 
     await svc.go(service_code=ma_dv, mau="SA_VU", identity=quan_ly)
-    assert await svc.mau_cua_dich_vu(service_code=ma_dv, identity=bac_si) == {
-        "service_code": ma_dv,
-        "mau": [],
-    }
+    # Gỡ hết mẫu → KHÔNG còn "trống": máy chọn mặc định (CHUNG nhập tự do, hoặc
+    # mẫu gợi ý), đánh dấu `mac_dinh` (01/10/2026).
+    sau = await svc.mau_cua_dich_vu(service_code=ma_dv, identity=bac_si)
+    assert sau["mac_dinh"] is True
+    assert sau["chon_san"] in {m["ma"] for m in sau["mau"]}
+    assert "CHUNG" in {m["ma"] for m in sau["mau"]}
 
 
 async def test_bac_si_khong_gan_duoc_mau(pool: asyncpg.Pool) -> None:
