@@ -434,30 +434,33 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
             )
             hien_oid = dang_hien["id"] if dang_hien else None
             hien_ver = int(dang_hien["version"]) if dang_hien else None
+            # Hai người có thể cùng đọc trạng thái chưa tick, rồi người thứ hai
+            # vào giao dịch sau khi người đầu đã tạo chỉ định. Ý định tick lúc
+            # này đã đạt: trả chính chỉ định đang sống, kể cả gói đọc trước của
+            # người thứ hai mang revision/order cũ hoặc lệch nhau.
+            if (
+                bool(chon)
+                and cua_quay is not None
+                and cua_quay["selection_status"] != "NOT_SELECTED"
+            ):
+                kq = {
+                    "ok": True,
+                    "changed": False,
+                    "order_id": hien_oid,
+                    "order_version": hien_ver,
+                    "state_revision": state_revision,
+                }
+                await bien_nhan_ghi(
+                    conn,
+                    identity,
+                    "desk_service.set",
+                    idempotency_key,
+                    payload,
+                    str(hien_oid),
+                    kq,
+                )
+                return kq
             if state_revision != expected_state:
-                # Hai người cùng tick: ý định đã đạt thì nhận trạng thái hiện tại.
-                if (
-                    bool(chon)
-                    and cua_quay is not None
-                    and cua_quay["selection_status"] != "NOT_SELECTED"
-                ):
-                    kq = {
-                        "ok": True,
-                        "changed": False,
-                        "order_id": hien_oid,
-                        "order_version": hien_ver,
-                        "state_revision": state_revision,
-                    }
-                    await bien_nhan_ghi(
-                        conn,
-                        identity,
-                        "desk_service.set",
-                        idempotency_key,
-                        payload,
-                        str(hien_oid),
-                        kq,
-                    )
-                    return kq
                 raise LuotKhamConflictError(
                     "STALE_DESK_SERVICE",
                     "Dịch vụ vừa được người khác thay đổi — đã tải lại, vui lòng"
