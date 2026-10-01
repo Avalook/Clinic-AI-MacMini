@@ -31,8 +31,14 @@ STAGING_ENV_FILE="${STAGING_ENV_FILE:-$STAGING_DIR/.env.staging}"
 # shellcheck source=lib/staging-chung.sh
 . "$STAGING_DIR/scripts/lib/staging-chung.sh"
 
-STG_BUILDER="${STG_BUILDER:-clinicai-staging-builder}"
-STG_BUILDER_RAM="${STG_BUILDER_RAM:-2g}"
+# TRẦN RAM CỦA BUILDER — đo 01/10/2026: `next build` (Turbopack) đỉnh 2,6GiB
+# (tổng cây tiến trình, máy 10 nhân); trong builder trần 1,4G trên 4 nhân thì
+# bị giết sau 10 giây (SIGKILL, "cannot allocate memory") — hỏng NHANH, prod
+# không sao. Mặc định 3g; tên builder mang trần để đổi trần là builder mới.
+STG_BUILDER_RAM="${STG_BUILDER_RAM:-3g}"
+STG_BUILDER="${STG_BUILDER:-clinicai-staging-builder-$STG_BUILDER_RAM}"
+# Phần RAM luôn chừa cho prod TRONG LÚC dựng (ngoài trần builder).
+STG_RAM_CHUA_PROD_MB="${STG_RAM_CHUA_PROD_MB:-768}"
 STG_BUILDER_CPU_SHARES="${STG_BUILDER_CPU_SHARES:-128}"
 REF="${1:-main}"
 NICE=(nice -n 19)
@@ -46,7 +52,17 @@ kiem_ten_staging
 if ! mkdir "$STAGING_DEPLOY_LOCK" 2>/dev/null; then
     dung "staging đang deploy/nạp ($STAGING_DEPLOY_LOCK)."
 fi
-trap 'rmdir "$STAGING_DEPLOY_LOCK" 2>/dev/null || true' EXIT INT TERM
+DA_DUNG_APP=0
+don_dep() {
+    # Hỏng giữa chừng (dựng ảnh bị giết vì hết RAM…) sau khi đã tắt staging để
+    # dựng → bật lại bản đang có, đừng để staging tắt hẳn.
+    if [ "$DA_DUNG_APP" = "1" ]; then
+        canh "deploy dừng giữa chừng — bật lại staging bằng ảnh đang có"
+        compose_app up -d --no-build >/dev/null 2>&1 || true
+    fi
+    rmdir "$STAGING_DEPLOY_LOCK" 2>/dev/null || true
+}
+trap don_dep EXIT INT TERM
 
 buoc "1/6  Chốt tài nguyên + nguồn code"
 kiem_tai_nguyen
@@ -80,6 +96,27 @@ fi
 
 buoc "3/6  Dựng ảnh clinicai-api:staging + clinicai-dashboard:staging"
 tao_mang_cau
+# Dừng ứng dụng staging trong lúc dựng (staging tạm tắt vài phút — chấp nhận)
+# để trả RAM, rồi kiểm: RAM khả dụng ≥ trần builder + phần chừa cho prod.
+for svc in caddy dashboard su-kien api; do
+    c="$(docker ps -q --filter "label=com.docker.compose.project=$STG_APP_PROJECT" \
+        --filter "label=com.docker.compose.service=$svc" | head -1)"
+    [ -z "$c" ] || { docker stop "$c" >/dev/null; DA_DUNG_APP=1; }
+done
+if [ "$STAGING_KIEU" = "chung" ] && [ -r /proc/meminfo ]; then
+    case "$STG_BUILDER_RAM" in
+        *g|*G) TRAN_MB=$(( ${STG_BUILDER_RAM%[gG]} * 1024 )) ;;
+        *m|*M) TRAN_MB=${STG_BUILDER_RAM%[mM]} ;;
+        *)     TRAN_MB=3072 ;;
+    esac
+    CAN_MB=$(( TRAN_MB + STG_RAM_CHUA_PROD_MB ))
+    [ "$CAN_MB" -ge "$STG_RAM_TOI_THIEU_MB" ] || CAN_MB=$STG_RAM_TOI_THIEU_MB
+    CON_MB=$(awk '/^MemAvailable:/{print int($2/1024)}' /proc/meminfo)
+    if [ "${CON_MB:-0}" -lt "$CAN_MB" ]; then
+        dung "RAM khả dụng ${CON_MB}MB < ${CAN_MB}MB (builder $STG_BUILDER_RAM + chừa prod ${STG_RAM_CHUA_PROD_MB}MB) — không dựng; đã bật lại staging cũ."
+    fi
+    xong "RAM khả dụng ${CON_MB}MB ≥ ${CAN_MB}MB — dựng"
+fi
 OLD_API="$(docker image inspect -f '{{.Id}}' clinicai-api:staging 2>/dev/null || true)"
 OLD_DASH="$(docker image inspect -f '{{.Id}}' clinicai-dashboard:staging 2>/dev/null || true)"
 compose_app config --quiet
@@ -96,6 +133,7 @@ xong "dựng xong sau $(( $(date +%s) - BAT_DAU ))s"
 buoc "4/6  up -d"
 UP_OK=1
 compose_app up -d --no-build || UP_OK=0
+DA_DUNG_APP=0
 
 buoc "5/6  Kiểm sức khoẻ (tối đa ~150s)"
 khoe() {

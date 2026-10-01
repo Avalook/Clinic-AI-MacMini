@@ -59,8 +59,11 @@ Caddy — không database, không api nào của hai bên.
 - `oom_score_adj` 800–900: máy hết RAM thì kernel giết staging trước (prod = 0).
 - `cpu_shares` 256 (prod 1024). Hẹn giờ nạp chạy `Nice=19`, `IOSchedulingClass=idle`.
 - Dựng ảnh bằng builder buildx **riêng** có trần RAM (`STG_BUILDER_RAM`, mặc định
-  2g) + `cpu-shares` 128; client chạy `nice -n 19 ionice -c3`. (`nice` một mình
+  3g — `next build` đo đỉnh 2,6GiB; trần 1,4G bị giết sau 10 giây) + `cpu-shares`
+  128, dựng từng ảnh một; client chạy `nice -n 19 ionice -c3`. (`nice` một mình
   KHÔNG đủ: `docker build` chỉ gửi lệnh, việc dựng chạy trong buildkitd.)
+  Trong lúc dựng, ứng dụng staging TẠM TẮT (trả RAM); cần RAM khả dụng ≥ trần
+  builder + 768MB chừa cho prod, thiếu thì bật lại bản cũ và dừng.
 - Từ chối dựng/deploy khi: RAM khả dụng < 2,5G · đĩa trống < 8G · prod đang
   deploy. Sau mỗi deploy dọn ảnh staging treo + bộ nhớ tạm builder staging.
 
