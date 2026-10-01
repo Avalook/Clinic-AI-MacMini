@@ -42,6 +42,7 @@ interface BaoCao {
     ma_bn: string | null;
     loai_tien: string | null;
     hinh_thuc: string | null;
+    nhan_hinh_thuc?: string;
     so_tien: number;
     nguoi: string | null;
     ly_do: string | null;
@@ -75,6 +76,8 @@ interface BaoCao {
     loai_tien: string | null;
     tu: string | null;
     sang: string;
+    /** Nhãn máy chủ dựng — có cả chia TM + CK (01/10/2026). */
+    nhan_sang?: string;
     so_tien: number;
     nguoi: string | null;
     ly_do: string | null;
@@ -83,7 +86,7 @@ interface BaoCao {
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
 }
 
-const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
+const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "Chuyển khoản" };
 const TEN_LOAI: Record<string, string> = { dich_vu: "Dịch vụ", thuoc: "Thuốc" };
 
 function tien(n: number): string {
@@ -342,10 +345,10 @@ export default function CuoiNgay() {
                       <tr key={`${o.loai}-${o.id}`} className="border-b border-surface-sunken last:border-b-0">
                         <td className={`${TD} whitespace-nowrap`}>{gio(o.luc)}</td>
                         <td className={TD}>
-                          {o.loai === "huy" ? "Huỷ phiếu" : "Hoàn"}
+                          {o.loai === "huy" ? "Hoàn tác lần thu (huỷ phiếu)" : "Hoàn tiền"}
                           {o.cho ? <span className="ml-1 text-meta text-warning">chờ chuyển</span> : null}
                           <span className="block text-meta text-ink-muted">
-                            {[TEN_LOAI[o.loai_tien ?? ""], TEN_PT[o.hinh_thuc ?? ""]]
+                            {[TEN_LOAI[o.loai_tien ?? ""], o.nhan_hinh_thuc || TEN_PT[o.hinh_thuc ?? ""]]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
@@ -392,7 +395,7 @@ export default function CuoiNgay() {
                           </span>
                         </td>
                         <td className={TD}>
-                          {TEN_PT[o.tu ?? ""] ?? "Không rõ"} → {TEN_PT[o.sang] ?? o.sang}
+                          {TEN_PT[o.tu ?? ""] ?? "Không rõ"} → {o.nhan_sang || (TEN_PT[o.sang] ?? o.sang)}
                         </td>
                         <td className={TD}>{o.nguoi ?? "—"}</td>
                         <td className={`${TD} min-w-40`}>{o.ly_do ?? "—"}</td>

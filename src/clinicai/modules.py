@@ -297,6 +297,7 @@ MODULE: dict[str, Module] = {
                 "visit.left_early",
                 "payment.refunded",
                 "payment.method_changed",
+                "payment.collection_undone",
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
@@ -448,12 +449,20 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "payment.refunded",
-                # Đổi TM/CK/QR sau khi thu (V7) — không phải huỷ.
+                # Đổi hình thức sau khi thu (V7) — không phải huỷ.
                 "payment.method_changed",
+                # Hoàn tác lần thu (01/10/2026) — thu nhầm, lượt về chưa thu.
+                "payment.collection_undone",
                 # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
                 "medicine.declined",
             ],
-            bang=["payment_cycle", "payment_bill_line", "payment_cycle_doi_hinh_thuc"],
+            bang=[
+                "payment_cycle",
+                "payment_bill_line",
+                "payment_cycle_doi_hinh_thuc",
+                "payment_cycle_phan",
+                "anh_chuyen_khoan",
+            ],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
         Module(

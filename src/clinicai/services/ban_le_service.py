@@ -33,6 +33,7 @@ from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
 from clinicai.services.bill_service import tinh_hoa_don
+from clinicai.services.phan_thu import doc_phan_db
 
 #: Ai mở được lượt bán lẻ — có MỘT trong các lego này (hướng "MỞ HẾT").
 QUYEN_MO = ("pharmacy.dispense", "payment.medicine.collect", "payment.service.collect")
@@ -254,7 +255,9 @@ class BanLeService:
             lan = await conn.fetchrow(
                 """
                 SELECT payment_cycle_id::text AS payment_cycle_id, status, method,
-                       amount, created_at
+                       amount, created_at,
+                       phan_thu_hieu_luc(clinic_id, payment_cycle_id, method, amount)
+                           AS phan
                   FROM payment_cycle
                  WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                    AND kind = 'thuoc'
@@ -278,6 +281,8 @@ class BanLeService:
                 "so_tien": int(lan["amount"]),
                 "phuong_thuc": lan["method"],
                 "luc": lan["created_at"].isoformat(),
+                "phan": doc_phan_db(lan["phan"]),
+                "anh_ck": [],
             }
         return {
             "visit_id": visit_id,
@@ -286,6 +291,12 @@ class BanLeService:
             "patient_code": luot["patient_code"],
             "da_dong": luot["closed_at"] is not None,
             "da_thu": lan is not None and lan["status"] == "PAID",
+            # Lần thu đã thu — nút "Hoàn tác lần thu" (01/10/2026).
+            "lan_da_thu": (
+                lan["payment_cycle_id"]
+                if lan is not None and lan["status"] == "PAID"
+                else None
+            ),
             "cho_xac_minh": cho,
             "hoa_don": hd.cho_api(),
             # Kê thêm + thu = quyền "Thu tiền thuốc" (đúng hai lệnh dùng lại).
@@ -333,8 +344,50 @@ async def dong_luot_ban_le(
     return True
 
 
+async def mo_lai_luot_ban_le(
+    conn: asyncpg.Connection, *, identity: StaffIdentity, visit_id: str
+) -> bool:
+    """HOÀN TÁC lần thu tiền thuốc của lượt BÁN LẺ (01/10/2026) → mở lại lượt
+    đã tự đóng lúc thu (``dong_luot_ban_le``), để quầy thuốc thu lại được. Lượt
+    thường / lượt chưa đóng: không làm gì. Khách đã có lượt bán lẻ KHÁC đang mở
+    thì giữ nguyên (mỗi khách một lượt bán lẻ mở — chỉ mục duy nhất). Gọi trong
+    CHÍNH giao dịch huỷ phiếu. Trả True khi vừa mở lại."""
+    mo = await conn.fetchval(
+        """
+        UPDATE visit v
+           SET closed_at = NULL, closed_by_staff_id = NULL,
+               current_node_code = NULL, current_node_since = NULL,
+               updated_at = now()
+         WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+           AND v.ban_le AND v.closed_at IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM visit k
+                WHERE k.clinic_id = v.clinic_id
+                  AND k.clinic_patient_id = v.clinic_patient_id
+                  AND k.ban_le AND k.closed_at IS NULL)
+        RETURNING v.visit_id
+        """,
+        identity.clinic_id,
+        visit_id,
+    )
+    if mo is None:
+        return False
+    await record_event(
+        conn,
+        event_type="visit.ban_le_reopened",
+        aggregate_type="visit",
+        aggregate_id=visit_id,
+        identity=identity,
+        origin="api:payment",
+        payload={"ly_do": "Hoàn tác lần thu tiền thuốc"},
+        correlation_id=visit_id,
+    )
+    return True
+
+
 __all__ = [
     "BanLeService",
+    "mo_lai_luot_ban_le",
     "chuan_tu_khoa",
     "co_quyen_mo",
     "dong_luot_ban_le",

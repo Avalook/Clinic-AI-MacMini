@@ -7,8 +7,13 @@
 //          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
 //   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
 //   POST   { action: "hoan-tien" | "hoan-tien-xac-nhan" | "hoan-tien-dong", … } → CP5.
-//   POST   { action: "doi-hinh-thuc", paymentCycleId, hinhThuc, hinhThucCu?, reference?, lyDo? }
-//          → đổi TM/CK/QR của phiếu ĐÃ THU (V7) — một dòng sổ chỉ thêm, không huỷ.
+//   POST   { action: "doi-hinh-thuc", paymentCycleId, hinhThuc?, hinhThucCu?, reference?, lyDo?,
+//            tienMat?, chuyenKhoan? }
+//          → đổi hình thức phiếu ĐÃ THU (V7; 01/10 thêm CHIA TM + CK) — sổ chỉ thêm.
+//   POST   { action: "hoan-tac", paymentCycleId, lyDo? } → HOÀN TÁC lần thu (01/10/2026):
+//          đã thu → huỷ phiếu; chuyển khoản chờ → huỷ lần chờ. Lý do tuỳ chọn.
+//   POST   (thu) thêm `phan: [{hinh_thuc, so_tien, khach_dua?}]` — chia Tiền mặt +
+//          Chuyển khoản (01/10/2026); QR cũ = Chuyển khoản.
 //   DELETE { paymentCycleId, visitId, kind, reason }     → huỷ đúng phiếu, có lý do.
 // kind = 'thuoc' | 'dich_vu'.
 //
@@ -46,9 +51,13 @@ export async function POST(request: Request) {
     paymentCycleId?: string;
     refundId?: string;
     trangThai?: string;
-    hinhThuc?: string;
+    hinhThuc?: string | null;
     hinhThucCu?: string | null;
     lyDo?: string | null;
+    tienMat?: number | null;
+    chuyenKhoan?: number | null;
+    /** Chia lần thu theo hình thức (01/10/2026). */
+    phan?: { hinh_thuc: string; so_tien: number; khach_dua?: number | null }[];
     dong?: { payment_bill_line_id: string; so_luong: number }[];
     /** Quầy một hoá đơn (27/09): lựa chọn dịch vụ khách đang nhìn lúc bấm Thu. */
     chon?: {
@@ -95,6 +104,14 @@ export async function POST(request: Request) {
       hinh_thuc_cu: p.hinhThucCu ?? null,
       reference: p.reference ?? null,
       ly_do: p.lyDo ?? null,
+      tien_mat: p.tienMat ?? null,
+      chuyen_khoan: p.chuyenKhoan ?? null,
+    });
+  }
+  if (p.action === "hoan-tac") {
+    return proxyJsonToBackend("POST", "/api/v1/payments/hoan-tac", {
+      payment_cycle_id: p.paymentCycleId,
+      ly_do: p.lyDo ?? null,
     });
   }
   if (p.action === "xac-minh") {
@@ -126,6 +143,7 @@ export async function POST(request: Request) {
       bill_revision: p.billRevision || null,
       method: p.method || "CASH",
       ...(p.chon ? { chon: p.chon } : {}),
+      ...(p.phan ? { phan: p.phan } : {}),
     },
     request.headers.get("Idempotency-Key") ?? undefined,
   );

@@ -166,6 +166,25 @@ class HinhThucThuDaDoi(PayloadSuKien):
     sang: str
 
 
+class LanThuDaHoanTac(PayloadSuKien):
+    """`payment.collection_undone` — một LẦN THU được hoàn tác (Tuyền 01/10/2026:
+    "nhân viên làm lại thao tác bị sai"): thu nhầm → trả lại ngay, lượt về CHƯA
+    THU (dịch vụ đã làm thì thành còn nợ). Khác `payment.refunded` (khách đã trả
+    đúng, giờ trả lại một phần — tiền thật đi ra).
+
+    ``truoc``: trạng thái lần thu trước khi hoàn tác — ``PAID`` (huỷ phiếu đã
+    thu) hay ``PENDING_VERIFICATION`` (bỏ lần chuyển khoản chờ xác minh).
+    ``ly_do`` là chữ vận hành người bấm gõ (tuỳ chọn) — không chữ lâm sàng.
+    """
+
+    visit_id: str
+    payment_cycle_id: str
+    kind: str
+    so_tien: int
+    truoc: str
+    ly_do: str | None = None
+
+
 class ThuocDaGiao(PayloadSuKien):
     """`medicine.dispensed` — quầy thuốc giao thuốc cho khách (một dòng đơn).
 
@@ -1373,6 +1392,17 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=HinhThucThuDaDoi,
             nhan="Đổi hình thức thu",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
+            is_public=False,
+        ),
+        SuKien(
+            ten="payment.collection_undone",
+            version=1,
+            aggregate_type="payment_cycle",
+            source_module="payment",
+            payload=LanThuDaHoanTac,
+            nhan="Hoàn tác lần thu",
             consumers=[DONG_THOI_GIAN_LUOT],
             # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,

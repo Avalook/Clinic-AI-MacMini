@@ -84,6 +84,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "payment.refunded": ["so_tien"],
     # Đổi TM/CK/QR sau khi thu (V7) — thông tin vận hành của quầy.
     "payment.method_changed": ["tu", "sang", "so_tien"],
+    # Hoàn tác lần thu (01/10/2026) — lý do là chữ vận hành người bấm gõ.
+    "payment.collection_undone": ["kind", "so_tien", "truoc", "ly_do"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],
