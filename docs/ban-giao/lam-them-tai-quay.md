@@ -37,6 +37,9 @@
 - Migration mới `20261002210000_lam_them_tai_quay_xor.sql` (đã áp
   `chung_test_db`): ép một chỉ định thuộc **phiên bác sĩ XOR nguồn quầy**; không sửa
   migration cũ đã áp.
+- Migration mới `20261002220000_lam_them_tai_quay_revision.sql` (đã áp
+  `chung_test_db`): tombstone tăng đơn điệu theo lượt + dịch vụ, chặn lệnh cũ sau
+  chuỗi thêm → bỏ (ABA).
 - `bo_muc` đổi từ DELETE cứng sang tắt mềm: giữ nhãn/thứ tự/chỗ hiện và bật lại ngay.
   Đổi thứ tự hai dòng nay là một lệnh/một transaction, không còn lưu nửa vời.
 - Tick/bỏ tick có `idempotency_key` + `expected_order_id/version`; lệnh cũ đến muộn
@@ -44,7 +47,7 @@
 - Dịch vụ đã làm/ghi không làm vẫn hiện đã tick và khoá, không trở thành nút “+”;
   `kham_xong` bỏ việc quầy khỏi quyết định/vòng đọc của bác sĩ.
 - Danh sách >300 lượt được chia gói; UI cấu hình dùng `components/ui`; bổ sung nhãn
-  audit. Test mục tiêu: unit/audit 34 đạt, frontend 2 đạt, DB tính năng 16 đạt.
+  audit. Test mục tiêu: unit/audit 34 đạt, frontend 2 đạt, DB tính năng 17 đạt.
 
 ## Còn lại (theo thứ tự)
 1. `./scripts/ci-may.sh --bao-github`.

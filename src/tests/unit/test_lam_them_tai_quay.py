@@ -71,6 +71,7 @@ def test_trang_thai_nut() -> None:
         "doi_duoc": True,
         "order_id": None,
         "order_version": None,
+        "state_revision": 0,
         "ghi_chu": None,
     }
     # Tick ở quầy, chưa làm, chưa thu → bỏ được.
@@ -95,6 +96,7 @@ def test_trang_thai_nut() -> None:
         "doi_duoc": False,
         "order_id": "o1",
         "order_version": 1,
+        "state_revision": 0,
         "ghi_chu": "bác sĩ đã chỉ định",
     }
 
@@ -117,6 +119,7 @@ def test_dich_vu_da_ket_thuc_van_hien_da_tick_va_khong_tao_lai(
         "doi_duoc": False,
         "order_id": "o1",
         "order_version": 4,
+        "state_revision": 0,
         "ghi_chu": ghi_chu,
     }
 

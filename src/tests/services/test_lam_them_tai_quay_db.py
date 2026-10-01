@@ -72,8 +72,17 @@ async def _tick(
     ai: StaffIdentity | None = None,
     expected_order_id: str | None = None,
     expected_version: int | None = None,
+    expected_state_revision: int | None = None,
     idempotency_key: str | None = None,
 ) -> dict:  # type: ignore[type-arg]
+    if expected_state_revision is None and noi in {"tiep_don", "sinh_hieu"}:
+        goi = await _nut(pool, ca, visit, noi=noi)
+        tt = goi.get("luot", {}).get(visit, {}).get(ca.ma_dv, {})
+        expected_state_revision = int(tt.get("state_revision", 0))
+        if expected_order_id is None:
+            expected_order_id = tt.get("order_id")
+        if expected_version is None:
+            expected_version = tt.get("order_version")
     return await LamThemTaiQuayService(pool).dat(
         identity=ai or ca.le_tan,
         visit_id=visit,
@@ -82,7 +91,8 @@ async def _tick(
         chon=chon,
         expected_order_id=expected_order_id,
         expected_version=expected_version,
-        idempotency_key=idempotency_key,
+        expected_state_revision=expected_state_revision or 0,
+        idempotency_key=idempotency_key or _khoa(),
     )
 
 
@@ -490,9 +500,16 @@ async def test_lenh_cu_khong_huy_chi_dinh_moi_va_gui_lai_khong_nhan_doi(
 ) -> None:
     ca, visit = await _san_sang(pool)
     khoa_them = _khoa()
-    them = await _tick(pool, ca, visit, idempotency_key=khoa_them)
+    them = await _tick(
+        pool, ca, visit, expected_state_revision=0, idempotency_key=khoa_them
+    )
     # Retry đúng khoá trả nguyên biên nhận, không phát thêm sự kiện.
-    assert await _tick(pool, ca, visit, idempotency_key=khoa_them) == them
+    assert (
+        await _tick(
+            pool, ca, visit, expected_state_revision=0, idempotency_key=khoa_them
+        )
+        == them
+    )
     assert len(await _su_kien(pool, "service_order.desk_added", them["order_id"])) == 1
 
     tt = (await _nut(pool, ca, visit))["luot"][visit][ca.ma_dv]
@@ -503,6 +520,7 @@ async def test_lenh_cu_khong_huy_chi_dinh_moi_va_gui_lai_khong_nhan_doi(
         chon=False,
         expected_order_id=tt["order_id"],
         expected_version=tt["order_version"],
+        expected_state_revision=tt["state_revision"],
         idempotency_key=_khoa(),
     )
     moi = await _tick(pool, ca, visit, idempotency_key=_khoa())
@@ -517,6 +535,7 @@ async def test_lenh_cu_khong_huy_chi_dinh_moi_va_gui_lai_khong_nhan_doi(
             chon=False,
             expected_order_id=tt["order_id"],
             expected_version=tt["order_version"],
+            expected_state_revision=tt["state_revision"],
             idempotency_key=_khoa(),
         )
     assert getattr(loi.value, "error_code", None) == "STALE_DESK_SERVICE"
@@ -548,6 +567,7 @@ async def test_tick_lai_cap_nhat_dung_nguoi_va_nguon_moi(
         ai=ca.dd,
         expected_order_id=oid,
         expected_version=tt["order_version"],
+        expected_state_revision=tt["state_revision"],
         idempotency_key=_khoa(),
     )
     o = await pool.fetchrow(
@@ -559,6 +579,43 @@ async def test_tick_lai_cap_nhat_dung_nguoi_va_nguon_moi(
         ca.dd.staff_id,
         ca.dd.staff_id,
         "sinh_hieu",
+    )
+
+
+async def test_lenh_them_cu_khong_song_lai_sau_mot_vong_them_bo(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tombstone tăng đơn điệu chặn ABA khi trạng thái lại là “chưa có”."""
+    ca, visit = await _san_sang(pool)
+    cu = (await _nut(pool, ca, visit))["luot"][visit][ca.ma_dv]
+    oid = (await _tick(pool, ca, visit))["order_id"]
+    hien = (await _nut(pool, ca, visit))["luot"][visit][ca.ma_dv]
+    await _tick(
+        pool,
+        ca,
+        visit,
+        chon=False,
+        expected_order_id=oid,
+        expected_version=hien["order_version"],
+        expected_state_revision=hien["state_revision"],
+    )
+    with pytest.raises(ConflictError) as loi:
+        await _tick(
+            pool,
+            ca,
+            visit,
+            expected_state_revision=cu["state_revision"],
+            idempotency_key=_khoa(),
+        )
+    assert getattr(loi.value, "error_code", None) == "STALE_DESK_SERVICE"
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM service_order WHERE visit_id = $1::uuid"
+            " AND service_code = $2 AND exec_status <> 'cancelled'",
+            visit,
+            ca.ma_dv,
+        )
+        == 0
     )
 
 

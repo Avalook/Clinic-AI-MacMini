@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 14:55. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 15:07. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1511,6 +1511,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `ky_nang` | `20260928000093_ky_nang.sql` | 0 |
 | `lab_result` | `20260714000001_baseline_schema.sql` | 0 |
 | `lam_them_tai_quay` | `20261002200000_lam_them_tai_quay.sql` | 0 |
+| `lam_them_tai_quay_revision` | `20261002220000_lam_them_tai_quay_revision.sql` | 0 |
 | `lan_don_du_lieu_thu` | `20261001240000_don_du_lieu_thu.sql` | 0 |
 | `loai_kham_phi` | `20260928000100_phi_kham_theo_kiotviet.sql` | 0 |
 | `loi_nhom` | `20260927000004_loi_va_canh_bao.sql` | 0 |

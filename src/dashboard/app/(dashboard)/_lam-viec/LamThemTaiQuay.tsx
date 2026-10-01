@@ -35,6 +35,7 @@ export interface TrangThaiNut {
   doi_duoc: boolean;
   order_id: string | null;
   order_version: number | null;
+  state_revision: number;
   ghi_chu: string | null;
   luot_mo: boolean;
 }
@@ -144,6 +145,7 @@ export function NutLamThem({
             chon,
             expected_order_id: tt.order_id,
             expected_version: tt.order_version,
+            expected_state_revision: tt.state_revision,
             idempotency_key: idempotencyKey,
           },
         }),

@@ -104,6 +104,7 @@ class DatBody(BaseModel):
     chon: bool
     expected_order_id: str | None = Field(default=None, max_length=64)
     expected_version: int | None = Field(default=None, ge=1)
+    expected_state_revision: int = Field(ge=0)
     idempotency_key: str = Field(min_length=8, max_length=200)
 
 
@@ -121,5 +122,6 @@ async def dat(
         chon=body.chon,
         expected_order_id=body.expected_order_id,
         expected_version=body.expected_version,
+        expected_state_revision=body.expected_state_revision,
         idempotency_key=body.idempotency_key,
     )
