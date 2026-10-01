@@ -42,12 +42,21 @@ phân quyền** (`/nhan-su`, `/phan-quyen`, `/settings/tai-khoan`,
 
 ## 1. Danh mục, giá, phòng — phần lớn là DỮ LIỆU, sửa trên màn
 
-**Giá dịch vụ · thêm/bớt/đổi tên dịch vụ trong bảng giá**
-- Trên màn: `/cashier/dich-vu` (Bảng giá dịch vụ). Lưu là dùng ngay cho lượt mới.
-- Code: `D/cashier/CashierView.tsx` → `/api/service-price` → `R/config.py`
-  (`add_price`, `update_price`, `remove_price`) → `S/config_service.py`
-  `PriceListService` (`add/update/remove/list`). Bảng `service_price`.
-- Test: `T/services/test_danh_muc_kiotviet_db.py`, `T/services/test_gia_thuoc_hai_nguon_khop_db.py`.
+**Giá dịch vụ · nhóm hàng · thêm/tạm ngưng dịch vụ · PHÒNG LÀM từng dịch vụ**
+- Trên màn: `/cashier/dich-vu` (Bảng giá dịch vụ & phòng, 01/10). Lưu là dùng ngay
+  cho lượt mới. Lọc "Chưa có phòng" + [Gán phòng] (cần lego Cài đặt phòng khám).
+- Nguồn sự thật danh mục: file phòng khám gửi 01/10 → bảng `danh_muc_dich_vu_nguon`
+  + hàm `dong_bo_danh_muc_dich_vu` (migration `20261002100000_danh_muc_dich_vu_chuan_0110.sql`;
+  đợt file mới = thêm `nguon` mới rồi gọi lại hàm). Luật "phí khám / cần phòng /
+  phòng nào làm được / chưa có phòng" ở MỘT hàm Postgres `danh_muc_dich_vu(clinic)`.
+- Code: `D/cashier/DanhMucDichVuPhong.tsx` → `/api/service-price` (`?xem=danh-muc`,
+  POST/PATCH có `nhom`) → `R/config.py` (`danh_muc_dich_vu`, `add_price`,
+  `update_price`) → `S/danh_muc_dich_vu_service.py` `DanhMucDichVuService.doc`,
+  `S/config_service.py` `PriceListService`; gán phòng → `/api/clinic-config`
+  `service-rooms` → `S/clinic_config_service.py` `set_service_rooms`. Bảng giá
+  thuốc vẫn `D/cashier/CashierView.tsx`.
+- Test: `T/services/test_danh_muc_dich_vu_chuan_db.py`, `T/unit/test_danh_muc_dich_vu.py`,
+  `T/services/test_danh_muc_kiotviet_db.py`, FT `cashier-catalog-ui-boundary.test.mts`.
 
 **Dịch vụ nào làm ở phòng nào** (vd Ghế điện từ trường chỉ ở Phòng Sàn chậu)
 - Trên màn: `/settings/clinic-config` → phòng → "Làm việc gì" → tick dịch vụ
@@ -165,6 +174,10 @@ FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
 `D/_lam-viec/phieu-kham/DanhMucChiDinh.tsx`, `ChiDinhThuThuat.tsx` → `/api/luot-kham`
 (`chi-dinh`) → `S/chi_dinh_service.py` `ChiDinhService.dat_chi_dinh`. Test:
 `T/services/test_chi_dinh_db.py`, `T/services/test_chi_dinh_bat_buoc_db.py`.
+Danh mục chọn được (thiếu dịch vụ nào thì xem đây): `S/phieu_kham_service.py`
+`tham_chieu_that` ← hàm `danh_muc_dich_vu` (mọi dịch vụ đang bán trừ phí khám);
+ô tìm `timDanhMucChiDinh` (`src/dashboard/lib/phieu-kham.ts`). Test:
+`T/services/test_danh_muc_dich_vu_chuan_db.py` (`test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc`).
 
 **Khách chọn làm dịch vụ nào (ở quầy)** — chỉ ở `D/thu-ngan/ChonDichVu.tsx` →
 `S/service_selection_service.py` (`ServiceSelectionService`; luật ở hàm `plan`, `ap_lua_chon`).

@@ -47,7 +47,10 @@ async def test_chuan_hoa_gan_ma_gia_va_chay_lai_khong_doi(
     thin = await _dong(pool, "CLS_THINPREP")
     assert thin is not None and thin["unit_price"] is not None, "giữ giá cũ"
     nipt = await _dong(pool, "KV_SP000173")
-    assert nipt is not None and nipt["unit_price"] is None, "mới + không giá = TRỐNG"
+    # Danh mục chuẩn 01/10/2026 (20261002100000): NIPT là XN THU HỘ — giá đúng
+    # file phòng khám gửi, 0đ cũng hiện (khách trả thẳng đối tác). Bản 26/09 để
+    # trống; chạy lại hàm 26/09 không ghi đè dòng đã có.
+    assert nipt is not None and nipt["unit_price"] in (None, 0)
     leep = await _dong(pool, "KV_SP000093")
     assert leep is not None and leep["unit_price"] == 5000000
     assert leep["node_code"] == "DICHVU-THUTHUAT"
@@ -56,10 +59,11 @@ async def test_chuan_hoa_gan_ma_gia_va_chay_lai_khong_doi(
     cha = await _dong(pool, "CLS_SOI_BUONG_TU_CUNG")
     assert sbtc is not None and cha is not None
     assert sbtc["node_code"] == cha["node_code"]
-    # Không dòng nào có mã KV mà giá 0.
+    # Không dòng PHÒNG KHÁM THU nào có mã KV mà giá 0 (nạp 0 là thu 0 đồng).
+    # Dòng thu hộ đối tác 0đ là giá file phòng khám gửi (01/10/2026).
     assert not await pool.fetchval(
         "SELECT count(*) FROM service_price WHERE ma_kiotviet IS NOT NULL"
-        " AND unit_price = 0"
+        " AND unit_price = 0 AND billing_owner = 'CLINIC'"
     )
     lan2 = await pool.fetchrow(
         "SELECT * FROM public.chuan_hoa_danh_muc_dich_vu_kiotviet()"

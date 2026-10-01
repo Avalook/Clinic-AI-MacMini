@@ -593,12 +593,17 @@ async function KhoiDuLieu({
       </section>
       <CotTongQuan
         taiBacSi={goi?.tai_bac_si ?? []}
-        canXuLy={goi?.can_xu_ly ?? []}
+        // "Dịch vụ đang bán chưa có phòng" (01/10/2026): chỉ người giữ lego Cài
+        // đặt phòng khám (gán phòng được) mới thấy dòng này — số do máy chủ đếm.
+        canXuLy={(goi?.can_xu_ly ?? []).filter(
+          (r) => r.ma !== "dich_vu_chua_phong" || coMotQuyen(quyen, ["config.clinic.manage"]),
+        )}
         hrefCanXuLy={{
           khach_tre: toi("/reception/queue"),
           chua_xep_bac_si: toi("/appointments/cho-xep-bac-si"),
           viec_qua_han: toi("/viec-can-xu-ly"),
           khach_con_no: toi("/reports"),
+          dich_vu_chua_phong: toi("/cashier/dich-vu") ? "/cashier/dich-vu?loc=chua-phong" : undefined,
         }}
       />
       </div>

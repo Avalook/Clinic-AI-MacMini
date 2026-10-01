@@ -36,7 +36,7 @@ export default function ChiDinhThuThuat({
       ) : null}
       <ul className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
         {ds.map((t) => {
-          const khoa = !onChon || !t.service_code;
+          const khoa = !onChon || !t.service_code || Boolean(t.khoa);
           return (
             <li key={t.ma}>
               <label className="flex min-h-10 items-center gap-2 text-body text-ink">

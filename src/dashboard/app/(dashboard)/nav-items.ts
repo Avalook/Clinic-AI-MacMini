@@ -181,7 +181,7 @@ export const NAV: NavItem[] = [
   },
   // Bảng giá tách 2 trang (thuốc / dịch vụ).
   { href: "/cashier/thuoc", label: "Bảng giá thuốc", icon: Pill },
-  { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ", icon: Tag },
+  { href: "/cashier/dich-vu", label: "Bảng giá dịch vụ & phòng", icon: Tag },
   // Nhà thuốc — Dược sĩ (PHARMACIST). Đơn chờ cấp + Chuẩn bị + Kho.
   {
     href: "/pharmacy",

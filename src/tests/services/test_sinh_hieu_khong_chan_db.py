@@ -49,7 +49,8 @@ async def _lich_hom_nay(
             loc,
         )
         dv = await conn.fetchval(
-            "SELECT id::text FROM service_type WHERE is_active ORDER BY code LIMIT 1"
+            "SELECT id::text FROM service_type WHERE is_active"
+            " AND NOT coalesce(qua_tu_van, false) ORDER BY code LIMIT 1"
         )
         bd = datetime.now(UTC) + timedelta(minutes=30)
         appt = await conn.fetchval(

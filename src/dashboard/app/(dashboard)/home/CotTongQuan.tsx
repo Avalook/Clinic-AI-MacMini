@@ -40,6 +40,7 @@ const NHAN_CAN_XU_LY: Record<string, (r: CanXuLyRow) => string> = {
   // 01/10/2026 — chỉ người xem được báo cáo nhận dòng này (máy chủ quyết).
   khach_con_no: (r) =>
     `Khách còn nợ: ${r.so} — ${Math.round(r.tien ?? 0).toLocaleString("vi-VN")}đ`,
+  dich_vu_chua_phong: (r) => `${r.so} dịch vụ đang bán chưa có phòng làm`,
 };
 
 const O = "rounded-card border border-line bg-surface p-4 shadow-card";
