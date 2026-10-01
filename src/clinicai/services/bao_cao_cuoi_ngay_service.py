@@ -39,9 +39,38 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.cashier_board_service import doc_khoang_ngay
+from clinicai.services.phan_thu import (
+    HINH_THUC_THU,
+    chuan_hinh_thuc,
+    doc_phan_db,
+    nhan_phan,
+    phan_mot_hinh_thuc,
+)
 
-HINH_THUC = ("CASH", "TRANSFER", "QR")
-TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "QR"}
+#: Hai hình thức (01/10/2026): QR cũ cộng vào Chuyển khoản. Một lần thu chia
+#: TM + CK cộng ĐÚNG từng phần vào từng dòng hình thức.
+HINH_THUC = HINH_THUC_THU
+TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "Chuyển khoản"}
+
+
+def _phan(c: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Các phần của lần thu: cột ``phan`` (hàm SQL) nếu có; không thì một phần."""
+    ds = doc_phan_db(c.get("phan")) if c.get("phan") is not None else []
+    return ds or phan_mot_hinh_thuc(c.get("method"), _tien(c.get("amount")))
+
+
+def _nhan_doi(ma: object, tien_mat: object, chuyen_khoan: object) -> str:
+    """ "Tiền mặt" / "Chuyển khoản" / "Tiền mặt X + Chuyển khoản Y" (đổi sang chia)."""
+    if tien_mat is not None and chuyen_khoan is not None:
+        return nhan_phan(
+            [
+                {"hinh_thuc": "CASH", "so_tien": _tien(tien_mat)},
+                {"hinh_thuc": "TRANSFER", "so_tien": _tien(chuyen_khoan)},
+            ]
+        )
+    return TEN_HINH_THUC.get(str(ma), "")
+
+
 TEN_LOAI = {"dich_vu": "Dịch vụ", "thuoc": "Thuốc / vật tư"}
 _TRAN = 5000
 
@@ -126,16 +155,22 @@ def gom_bao_cao(
 
     for c in lan_thu:
         so = _tien(c.get("amount"))
-        ht = str(c.get("method")) if c.get("method") in HINH_THUC else "KHAC"
+        phan = _phan(c)
         loai = c.get("kind") if c.get("kind") in TEN_LOAI else None
         nguoi = str(c.get("nguoi_thu") or "Không rõ")
         huy = c.get("status") == "VOIDED"
         n = theo_nguoi.setdefault(nguoi, {"ten": nguoi, "so_phieu": 0, **_o_tien()})
         d = ngay_o(_ngay_vn(c.get("paid_at")))
-        for o in (tong, theo_ht[ht], n, *([theo_loai[loai]] if loai else [])):
+        for o in (tong, n, *([theo_loai[loai]] if loai else [])):
             o["thu"] += so
             if huy:
                 o["huy"] += so
+        # Theo hình thức: cộng TỪNG PHẦN (200k CK + 500k TM → hai dòng).
+        for p in phan:
+            o = theo_ht[chuan_hinh_thuc(p.get("hinh_thuc")) or "KHAC"]
+            o["thu"] += _tien(p.get("so_tien"))
+            if huy:
+                o["huy"] += _tien(p.get("so_tien"))
         tong["so_phieu_thu"] += 1
         n["so_phieu"] += 1
         if d is not None:
@@ -153,7 +188,8 @@ def gom_bao_cao(
                     "khach": c.get("ten_khach"),
                     "ma_bn": c.get("ma_bn"),
                     "loai_tien": loai,
-                    "hinh_thuc": c.get("method"),
+                    "hinh_thuc": chuan_hinh_thuc(c.get("method")),
+                    "nhan_hinh_thuc": nhan_phan(phan),
                     "so_tien": so,
                     "nguoi": c.get("nguoi_huy"),
                     "ly_do": c.get("close_reason"),
@@ -176,7 +212,7 @@ def gom_bao_cao(
         so = _tien(r.get("amount"))
         xong = r.get("status") == "COMPLETED"
         loai = r.get("kind") if r.get("kind") in TEN_LOAI else None
-        ht = str(r.get("method")) if r.get("method") in HINH_THUC else "KHAC"
+        ht = chuan_hinh_thuc(r.get("method")) or "KHAC"
         if xong:
             tong["hoan"] += so
             tong["so_phieu_hoan"] += 1
@@ -196,7 +232,8 @@ def gom_bao_cao(
                 "khach": r.get("ten_khach"),
                 "ma_bn": r.get("ma_bn"),
                 "loai_tien": loai,
-                "hinh_thuc": r.get("method"),
+                "hinh_thuc": chuan_hinh_thuc(r.get("method")),
+                "nhan_hinh_thuc": TEN_HINH_THUC.get(str(r.get("method")), ""),
                 "so_tien": so,
                 "nguoi": r.get("nguoi"),
                 "ly_do": r.get("reason"),
@@ -242,6 +279,12 @@ def gom_bao_cao(
             "loai_tien": r.get("kind") if r.get("kind") in TEN_LOAI else None,
             "tu": r.get("method_cu"),
             "sang": r.get("method_moi"),
+            # Đổi sang CHIA (01/10/2026): hai số; null = một hình thức.
+            "tien_mat": r.get("tien_mat"),
+            "chuyen_khoan": r.get("chuyen_khoan"),
+            "nhan_sang": _nhan_doi(
+                r.get("method_moi"), r.get("tien_mat"), r.get("chuyen_khoan")
+            ),
             "so_tien": _tien(r.get("amount")),
             "nguoi": r.get("nguoi"),
             "ly_do": r.get("ly_do"),
@@ -363,7 +406,7 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
                 _gio(o["luc"]),
                 _o(o["khach"]),
                 _o(o["ma_bn"]),
-                TEN_HINH_THUC.get(str(o["hinh_thuc"]), ""),
+                o.get("nhan_hinh_thuc") or TEN_HINH_THUC.get(str(o["hinh_thuc"]), ""),
                 o["so_tien"],
                 _o(o["nguoi"]),
                 _o(o["ly_do"]),
@@ -382,7 +425,7 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
                 _o(o["khach"]),
                 _o(o["ma_bn"]),
                 TEN_HINH_THUC.get(str(o["tu"]), "Không rõ"),
-                TEN_HINH_THUC.get(str(o["sang"]), ""),
+                o.get("nhan_sang") or TEN_HINH_THUC.get(str(o["sang"]), ""),
                 o["so_tien"],
                 _o(o["nguoi"]),
                 _o(o["ly_do"]),
@@ -430,6 +473,8 @@ _LAN_THU_SQL = """
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
+       phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method, pc.amount)
+           AS phan,
        pc.paid_at, pc.closed_at, pc.close_reason,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
@@ -491,6 +536,7 @@ SELECT t.id::text AS id, t.so_tien, t.hinh_thuc, t.ghi_luc, o.service_name AS te
 #: Các lần đổi hình thức GHI trong khoảng (giờ VN) — kể cả phiếu thu ngày trước.
 _DOI_HINH_THUC_SQL = """
 SELECT d.id::text AS id, d.cycle_id::text AS cycle_id, d.method_cu, d.method_moi,
+       d.tien_mat, d.chuyen_khoan,
        d.ly_do, d.luc, pc.kind, pc.amount, s.full_name AS nguoi,
        p.full_name AS ten_khach, p.patient_code AS ma_bn
   FROM payment_cycle_doi_hinh_thuc d

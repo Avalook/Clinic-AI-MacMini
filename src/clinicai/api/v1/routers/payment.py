@@ -11,7 +11,8 @@ from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.exceptions import ValidationError
@@ -38,7 +39,18 @@ router = APIRouter()
 _CASHIER_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
 
 PaymentKind = Literal["thuoc", "dich_vu"]
+#: QR vẫn NHẬN (client cũ không gãy) nhưng ghi là Chuyển khoản (01/10/2026).
 PaymentMethod = Literal["CASH", "TRANSFER", "QR"]
+
+
+class PhanThuRequest(BaseModel):
+    """Một phần của lần thu theo hình thức (01/10/2026). Kiểu lỏng: luật (hình
+    thức hợp lệ, số > 0, không trùng, khách đưa ≥ tiền mặt) ở
+    ``phan_thu.doc_phan`` — một nơi, câu lỗi tiếng Việt."""
+
+    hinh_thuc: Any = None
+    so_tien: Any = None
+    khach_dua: Any = None
 
 
 class LuaChonKhiThu(BaseModel):
@@ -66,6 +78,8 @@ class PaymentRecordRequest(BaseModel):
     method: PaymentMethod = "CASH"
     # Chỉ tiền dịch vụ: bấm Thu = máy chủ chốt lựa chọn + ghi sổ, MỘT giao dịch.
     chon: LuaChonKhiThu | None = None
+    # Chia lần thu theo hình thức (Tiền mặt + Chuyển khoản) — 01/10/2026.
+    phan: list[PhanThuRequest] | None = Field(default=None, max_length=5)
 
 
 class PaymentVoidRequest(BaseModel):
@@ -110,6 +124,7 @@ async def record_payment(
             identity=identity,
             idempotency_key=idempotency_key,
             chon=body.chon.model_dump() if body.chon is not None else None,
+            phan=_phan(body),
         )
         return {"ok": True, **lan_thu}
     if body.chon is not None:
@@ -132,11 +147,16 @@ async def record_payment(
             bill_revision=body.bill_revision,
             method=body.method,
             identity=identity,
+            phan=_phan(body),
         )
         result = {"ok": True, **lan_thu}
         await idem.save(pool, result, status_code=200)
 
     return result
+
+
+def _phan(body: PaymentRecordRequest) -> list[dict[str, Any]] | None:
+    return [p.model_dump() for p in body.phan] if body.phan is not None else None
 
 
 @router.delete("/payments")
@@ -214,12 +234,16 @@ async def huy_cho_xac_minh(
 
 class DoiHinhThucRequest(BaseModel):
     payment_cycle_id: UUID
-    hinh_thuc: PaymentMethod
+    #: Một hình thức cho cả phiếu; bỏ trống khi gửi CHIA (tien_mat + chuyen_khoan).
+    hinh_thuc: PaymentMethod | None = None
     #: Hình thức màn đang thấy — người khác vừa đổi thì 409, không đè.
     hinh_thuc_cu: PaymentMethod | None = None
     #: Tuỳ chọn, như lúc thu (mig 20260925000007).
     reference: str | None = Field(default=None, max_length=100)
     ly_do: str | None = Field(default=None, max_length=500)
+    #: Đổi sang CHIA (01/10/2026): cả hai số, tổng = số tiền phiếu.
+    tien_mat: float | None = None
+    chuyen_khoan: float | None = None
 
 
 @router.post("/payments/doi-hinh-thuc")
@@ -236,6 +260,8 @@ async def doi_hinh_thuc(
         hinh_thuc_cu=body.hinh_thuc_cu,
         reference=body.reference,
         ly_do=body.ly_do,
+        tien_mat=body.tien_mat,
+        chuyen_khoan=body.chuyen_khoan,
     )
     return {"ok": True, **kq}
 
@@ -341,3 +367,95 @@ async def dong_khoan_hoan(
         reason=body.reason,
     )
     return {"ok": True, **kq}
+
+
+# ── Hoàn tác lần thu (Tuyền 01/10/2026) ────────────────────────────────────
+# MỘT nút cho mọi lần thu: đã thu → huỷ phiếu; chuyển khoản chờ → huỷ lần chờ.
+# Ai giữ quyền thu đúng loại tiền ấy là làm được (service kiểm). Lý do tuỳ chọn.
+
+
+class HoanTacRequest(BaseModel):
+    payment_cycle_id: UUID
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/payments/hoan-tac")
+async def hoan_tac_lan_thu(
+    body: HoanTacRequest,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác đúng một lần thu — lượt về chưa thu, giữ nguyên vết."""
+    kq = await PaymentService(pool).hoan_tac(
+        payment_cycle_id=str(body.payment_cycle_id),
+        ly_do=body.ly_do,
+        identity=identity,
+    )
+    return {"ok": True, **kq}
+
+
+# ── Ảnh chuyển khoản (01/10/2026) ───────────────────────────────────────────
+
+
+@router.post("/payments/anh-chuyen-khoan", status_code=201)
+async def tai_anh_chuyen_khoan(
+    request: Request,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tải ảnh màn hình chuyển khoản cho một lần thu (multipart: file,
+    payment_cycle_id). Quyền kiểm trước khi đọc byte nào của thân."""
+    from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
+    from clinicai.services.nhan_tep_luong import (
+        don_tep_tam,
+        nhan_multipart,
+        uuid_hoac_loi,
+    )
+
+    truong, tep = await nhan_multipart(request)
+    try:
+        return await AnhChuyenKhoanService(pool).tai_len(
+            identity=identity,
+            payment_cycle_id=str(
+                uuid_hoac_loi(
+                    truong.get("payment_cycle_id"), "Mã lần thu", bat_buoc=True
+                )
+            ),
+            tep=tep,
+        )
+    finally:
+        await don_tep_tam(tep)
+
+
+@router.get("/payments/anh-chuyen-khoan/{anh_id}")
+async def xem_anh_chuyen_khoan(
+    anh_id: UUID,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Nội dung ảnh (ảnh nhỏ — đọc trọn, không theo luồng)."""
+    from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
+
+    noi_dung, mime = await AnhChuyenKhoanService(pool).doc(
+        identity=identity, anh_id=str(anh_id)
+    )
+    return Response(
+        content=noi_dung,
+        media_type=mime,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.post("/payments/anh-chuyen-khoan/{anh_id}/go")
+async def go_anh_chuyen_khoan(
+    anh_id: UUID,
+    identity: StaffIdentity = Depends(_CASHIER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ ảnh nhầm (ẩn khỏi màn, giữ tệp + vết)."""
+    from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
+
+    return await AnhChuyenKhoanService(pool).go(identity=identity, anh_id=str(anh_id))

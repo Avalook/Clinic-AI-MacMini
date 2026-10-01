@@ -278,7 +278,8 @@ async def test_on_mot_lan_chua_day_on_hai_lan_moi_day(
     await day_tep.mot_vong(None, tt, goc_vps=vps, goc_cfs=cfs)
     assert goi == []
     await day_tep.mot_vong(None, tt, goc_vps=vps, goc_cfs=cfs)
-    assert goi == [1]
+    # Một lô cho mỗi bảng tệp: tep_ket_qua + anh_chuyen_khoan (01/10).
+    assert goi == [1] * len(day_tep.BANG_TEP)
 
 
 async def test_vong_khong_bao_gio_nem(

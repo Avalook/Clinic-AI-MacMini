@@ -40,9 +40,12 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.permissions.can import can
+from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
+from clinicai.services.phan_thu import doc_phan_db
 
 if TYPE_CHECKING:
     from clinicai.services.bill_service import HoaDon
@@ -215,6 +218,35 @@ SELECT json_build_object(
 )
 
 
+async def quyen_thu_theo_loai(
+    conn: asyncpg.Connection, identity: StaffIdentity
+) -> dict[str, bool]:
+    """Người xem có quyền thu (→ hoàn tác) từng loại tiền không."""
+    return {
+        "dich_vu": await can(conn, identity, "payment.service.collect"),
+        "thuoc": await can(conn, identity, "payment.medicine.collect"),
+    }
+
+
+def hoan_tac_cua(
+    status: object,
+    kind: object,
+    hoan: dict[str, Any] | None,
+    quyen: dict[str, bool],
+) -> dict[str, Any]:
+    """Nút "Hoàn tác lần thu" của một dòng giao dịch: có hiện không + vì sao. Thuần."""
+    from clinicai.services.payment_service import ly_do_khong_hoan_tac
+
+    co_hoan = any(
+        k.get("status") in ("PENDING", "COMPLETED")
+        for k in ((hoan or {}).get("khoan_hoan") or [])
+    )
+    ly = ly_do_khong_hoan_tac(status, kind, co_hoan)
+    if ly is None and not quyen.get(str(kind), False):
+        ly = "Bạn không có quyền thu loại tiền này."
+    return {"duoc": ly is None, "ly_do_khong": ly}
+
+
 class CashierBoardService:
     async def giao_dich(
         self, *, identity: StaffIdentity, tu: Any, den: Any
@@ -238,6 +270,9 @@ class CashierBoardService:
                                       pc.method) AS method,
                    ma_gd_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                   pc.reference) AS reference,
+                   -- Chia theo hình thức (TM + CK) HIỆU LỰC — 01/10/2026.
+                   phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                     pc.method, pc.amount) AS phan,
                    pc.legacy, pc.can_doi_soat, pc.created_at, pc.paid_at,
                    pc.closed_at,
                    pc.close_reason,
@@ -275,6 +310,10 @@ class CashierBoardService:
             doi = await trang_thai_doi(
                 conn, identity.clinic_id, [r["id"] for r in rows if r["paid_at"]]
             )
+            anh = await anh_cua_cac_lan_thu(
+                conn, identity.clinic_id, [r["id"] for r in rows]
+            )
+            quyen = await quyen_thu_theo_loai(conn, identity)
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
@@ -302,6 +341,12 @@ class CashierBoardService:
                     "hoan": hoan.get(r["id"]),
                     # [Đổi hình thức] (V7): cờ đổi được + lịch sử đổi.
                     "doi_hinh_thuc": doi.get(r["id"]),
+                    # Chia hình thức + ảnh chuyển khoản + nút Hoàn tác (01/10).
+                    "phan": doc_phan_db(r["phan"]),
+                    "anh_ck": anh.get(r["id"], []),
+                    "hoan_tac": hoan_tac_cua(
+                        r["status"], r["kind"], hoan.get(r["id"]), quyen
+                    ),
                 }
                 for r in rows
             ],
@@ -338,7 +383,9 @@ class CashierBoardService:
         cho_rows = await self._pool.fetch(
             """
             SELECT payment_cycle_id::text AS payment_cycle_id,
-                   visit_id::text AS visit_id, kind, amount, method, created_at
+                   visit_id::text AS visit_id, kind, amount, method, created_at,
+                   phan_thu_hieu_luc(clinic_id, payment_cycle_id, method, amount)
+                       AS phan
               FROM payment_cycle
              WHERE clinic_id = $1::uuid AND status = 'PENDING_VERIFICATION'
                AND visit_id = ANY($2::uuid[])
@@ -346,6 +393,10 @@ class CashierBoardService:
             identity.clinic_id,
             [i["visit_id"] for i in out["items"]],
         )
+        async with self._pool.acquire() as conn:
+            anh_cho = await anh_cua_cac_lan_thu(
+                conn, identity.clinic_id, [r["payment_cycle_id"] for r in cho_rows]
+            )
         out["cho_xac_minh"] = [
             {
                 "payment_cycle_id": r["payment_cycle_id"],
@@ -354,6 +405,9 @@ class CashierBoardService:
                 "so_tien": int(r["amount"]),
                 "phuong_thuc": r["method"],
                 "luc": r["created_at"].isoformat(),
+                # Chia TM + CK của lần chờ (01/10/2026) + ảnh chuyển khoản.
+                "phan": doc_phan_db(r["phan"]),
+                "anh_ck": anh_cho.get(r["payment_cycle_id"], []),
             }
             for r in cho_rows
         ]

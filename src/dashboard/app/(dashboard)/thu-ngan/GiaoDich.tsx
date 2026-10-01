@@ -11,10 +11,14 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { useNgheBang } from "../dung-nghe-bang";
 
+import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import XemLuot from "../_lam-viec/XemLuot";
+import AnhChuyenKhoan, { type AnhCk } from "./AnhChuyenKhoan";
 import DoiHinhThuc, { type TrangThaiDoi } from "./DoiHinhThuc";
 import HoanTien, { type HoanCuaLanThu } from "./HoanTien";
+import NutHoanTac from "./NutHoanTac";
 
 interface GiaoDichDong {
   id: string;
@@ -26,7 +30,12 @@ interface GiaoDichDong {
   so_tien: number | null;
   luc: string | null;
   nguoi_thu: string | null;
-  phuong_thuc: "CASH" | "TRANSFER" | "QR" | null;
+  phuong_thuc: string | null;
+  /** Chia TM + CK hiệu lực (01/10/2026). */
+  phan?: PhanThu[];
+  anh_ck?: AnhCk[];
+  /** Nút Hoàn tác lần thu — máy chủ quyết. */
+  hoan_tac?: { duoc: boolean; ly_do_khong: string | null } | null;
   ma_giao_dich: string | null;
   legacy: boolean;
   can_doi_soat: boolean;
@@ -40,7 +49,6 @@ interface GiaoDichDong {
   doi_hinh_thuc: TrangThaiDoi | null;
 }
 
-const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
 const TRANG_THAI: Record<string, string> = {
   PAID: "Đã thu",
   VOIDED: "Đã huỷ phiếu",
@@ -49,6 +57,14 @@ const TRANG_THAI: Record<string, string> = {
 };
 
 const INPUT = "min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink";
+
+/** Hoàn tác / đổi hình thức / ảnh CK ở quầy khác → sổ ở đây tự mới (01/10/2026). */
+const BANG_GIAO_DICH = [
+  "payment_cycle",
+  "payment_cycle_doi_hinh_thuc",
+  "anh_chuyen_khoan",
+  "payment",
+] as const;
 
 function homNay(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -78,6 +94,7 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
   } | null>(null);
   const [xem, setXem] = useState<string | null>(null);
   const khoa = `${hoi.tu}|${hoi.den}`;
+  useNgheBang(BANG_GIAO_DICH, () => setHoi((h) => ({ ...h, lan: h.lan + 1 })));
 
   useEffect(() => {
     let huy = false;
@@ -149,7 +166,8 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                 </div>
                 <p className="text-xs text-ink-soft">
                   {g.loai === "thuoc" ? "Thuốc" : "Dịch vụ"} · {ngayGio(g.luc)} · {g.nguoi_thu ?? "—"} · phương thức:{" "}
-                  {g.phuong_thuc ? TEN_PT[g.phuong_thuc] : g.legacy ? "không rõ (phiếu cũ)" : "—"}
+                  {nhanPhan(g.phan) ||
+                    (g.phuong_thuc ? tenHinhThuc(g.phuong_thuc) : g.legacy ? "không rõ (phiếu cũ)" : "—")}
                   {g.ma_giao_dich ? ` · mã GD ${g.ma_giao_dich}` : ""}
                 </p>
                 {g.can_doi_soat ? (
@@ -168,9 +186,30 @@ export default function GiaoDich({ lichSu }: { lichSu: boolean }) {
                 <DoiHinhThuc
                   paymentCycleId={g.id}
                   hinhThuc={g.phuong_thuc}
+                  soTien={g.so_tien}
                   doi={g.doi_hinh_thuc}
                   onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                 />
+                {/* Ảnh chuyển khoản: xem lại / thêm cho lần thu có phần CK (01/10). */}
+                {(g.anh_ck?.length ?? 0) > 0 ||
+                ((g.trang_thai === "PAID" || g.trang_thai === "PENDING_VERIFICATION") &&
+                  (g.phan ?? []).some((p) => p.hinh_thuc === "TRANSFER")) ? (
+                  <AnhChuyenKhoan
+                    cycleId={g.id}
+                    ds={g.anh_ck}
+                    choThem={g.trang_thai === "PAID" || g.trang_thai === "PENDING_VERIFICATION"}
+                    onDoi={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
+                  />
+                ) : null}
+                {g.hoan_tac?.duoc ? (
+                  <div className="mt-1">
+                    <NutHoanTac
+                      cycleId={g.id}
+                      soTien={g.so_tien}
+                      onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
+                    />
+                  </div>
+                ) : null}
                 {g.hoan && g.visit_id ? (
                   <HoanTien
                     paymentCycleId={g.id}

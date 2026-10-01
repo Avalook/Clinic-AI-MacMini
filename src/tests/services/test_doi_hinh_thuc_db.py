@@ -60,6 +60,7 @@ async def test_doi_hinh_thuc_moi_cho_doc_deu_thay(pool: asyncpg.Pool) -> None:
         "payment_cycle_id": cid,
         "hinh_thuc": "TRANSFER",
         "hinh_thuc_cu": "CASH",
+        "chia": None,
     }
 
     # Sổ gốc bất biến; sổ đổi có đúng một dòng.
@@ -157,21 +158,23 @@ async def test_doi_hinh_thuc_moi_cho_doc_deu_thay(pool: asyncpg.Pool) -> None:
         await DoiHinhThucService(pool).doi(
             identity=q.thu_ngan,
             payment_cycle_id=cid,
-            hinh_thuc="QR",
+            hinh_thuc="CASH",
             hinh_thuc_cu="CASH",
         )
-    # Đổi tiếp sang QR không mã → mã hiệu lực rỗng; đổi về tiền mặt bỏ mã.
-    await DoiHinhThucService(pool).doi(
+    # QR bỏ từ 01/10: máy cũ gửi "QR" = Chuyển khoản → đã là hình thức này.
+    qr = await DoiHinhThucService(pool).doi(
         identity=q.thu_ngan,
         payment_cycle_id=cid,
         hinh_thuc="QR",
         hinh_thuc_cu="TRANSFER",
     )
+    assert qr["da_la_hinh_thuc_nay"] is True
     gd = await CashierBoardService(pool).giao_dich(
         identity=q.thu_ngan, tu=None, den=None
     )
     dong_gd = next(d for d in gd["giao_dich"] if d["id"] == cid)
-    assert (dong_gd["phuong_thuc"], dong_gd["ma_giao_dich"]) == ("QR", None)
+    assert dong_gd["phuong_thuc"] == "TRANSFER"
+    # Đổi về tiền mặt bỏ mã.
     await DoiHinhThucService(pool).doi(
         identity=q.thu_ngan,
         payment_cycle_id=cid,

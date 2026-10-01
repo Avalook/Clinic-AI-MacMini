@@ -64,6 +64,7 @@ EVENT_LABELS: dict[str, str] = {
     # Khách chỉ đến mua thuốc — lượt Bán lẻ (V8, 30/09/2026).
     "visit.ban_le_opened": "Mở lượt khách mua thuốc (bán lẻ)",
     "visit.ban_le_closed": "Đóng lượt bán lẻ — đã thu tiền thuốc",
+    "visit.ban_le_reopened": "Mở lại lượt bán lẻ — hoàn tác lần thu tiền thuốc",
     "patient.contacted": "CSKH đã liên hệ khách",
     # Khối chỉnh dây (nhóm 5, 24/09/2026).
     "config.wiring_changed": "Đổi dây nối nghiệp vụ",
@@ -201,7 +202,8 @@ EVENT_LABELS: dict[str, str] = {
         "Huỷ phiếu sau khi đã giao thuốc — cần xử lý trả thuốc"
     ),
     "payment.voided": "Huỷ phiếu thanh toán",
-    "payment.method_changed": "Đổi hình thức thu (TM / CK / QR)",
+    "payment.method_changed": "Đổi hình thức thu (Tiền mặt / Chuyển khoản)",
+    "payment.collection_undone": "Hoàn tác lần thu",
     "payment.refunded": "Hoàn tiền cho khách",
     "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
     "payment.refund_failed": "Hoàn tiền không thành",

@@ -163,7 +163,8 @@ DECLARE
     -- thử — 20261001240000; bản lưu du_lieu_da_xoa đi theo lan_id).
     -- 126 → 128: cấu hình + tombstone revision làm thêm theo phòng khám.
     -- 128 → 129 (01/10/2026): cong_no (khoản ghi nợ khi khách về còn nợ).
-    minimum_tenant_tables constant integer := 129;
+    -- 129 → 131 (01/10/2026): payment_cycle_phan + anh_chuyen_khoan — 20261002300000.
+    minimum_tenant_tables constant integer := 131;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables

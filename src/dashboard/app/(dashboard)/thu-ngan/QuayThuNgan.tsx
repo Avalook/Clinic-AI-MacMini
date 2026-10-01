@@ -35,7 +35,11 @@ import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
+import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import type { LamTruoc } from "../_lam-viec/OLamTruocThuSau";
+import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
+import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
+import NutHoanTac from "./NutHoanTac";
 
 interface Dong {
   id: string;
@@ -124,17 +128,25 @@ export interface ChoXacMinh {
   visit_id: string;
   kind: string;
   so_tien: number;
-  phuong_thuc: "TRANSFER" | "QR";
+  phuong_thuc: string;
   luc: string;
+  /** Chia TM + CK của lần chờ (01/10/2026). */
+  phan?: PhanThu[];
+  anh_ck?: AnhCk[];
 }
 
-export type PhuongThuc = "CASH" | "TRANSFER" | "QR";
+/** Hình thức chính (có phần chuyển khoản → chuyển khoản). QR đã gộp vào CK. */
+export type PhuongThuc = "CASH" | "TRANSFER";
 
 export const TEN_PT: Record<PhuongThuc, string> = {
   CASH: "Tiền mặt",
   TRANSFER: "Chuyển khoản",
-  QR: "QR",
 };
+
+/** Câu "(Tiền mặt)" / "(Tiền mặt 500.000đ + Chuyển khoản 200.000đ)" cho lời báo. */
+function nhanChia(c: KetQuaChia): string {
+  return nhanPhan(c.phan.map((p) => ({ ...p })));
+}
 
 export type Quay = "dich_vu" | "thuoc" | "ca_hai";
 
@@ -184,6 +196,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   // Lượt vừa CHỐT, THU SAU — nút "In phiếu hướng dẫn phòng" dưới câu báo (chưa
   // có tiền nên không có phiếu thu, nhưng khách vẫn cần giấy đi phòng).
   const [vuaChot, setVuaChot] = useState<{ visitId: string; cau: string } | null>(null);
+  // Lần thu vừa ghi (đã thu HOẶC chờ xác minh) — nút "Hoàn tác lần thu" ngay dưới
+  // câu báo (Tuyền 01/10/2026: làm lại thao tác sai ngay tại chỗ).
+  const [lanVuaGhi, setLanVuaGhi] = useState<{ cycleId: string; soTien: number } | null>(null);
 
   const doc = useCallback(async () => {
     try {
@@ -242,12 +257,14 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       noiDung: Record<string, unknown>,
       xongCau: string,
       thaoTac?: string,
+      anh?: File | null,
     ): Promise<boolean> => {
       setDangThu(khoa);
       setLoi(null);
       setXong(null);
       setVuaThu(null);
       setPhieuVuaThu(null);
+      setLanVuaGhi(null);
       let daThuThat = false;
       try {
         // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
@@ -268,6 +285,15 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         } else {
           daThuThat = d?.status !== "PENDING_VERIFICATION";
           if (daThuThat && d?.payment_cycle_id) setPhieuVuaThu(d.payment_cycle_id);
+          if (d?.payment_cycle_id && (d.status === "PAID" || d.status === "PENDING_VERIFICATION")) {
+            const tien0 = Number((noiDung as { amount?: number }).amount ?? 0);
+            setLanVuaGhi({ cycleId: d.payment_cycle_id, soTien: tien0 });
+            // Ảnh chuyển khoản chọn lúc thu: tải lên NGAY khi có mã lần thu.
+            if (anh) {
+              const loiAnh = await taiAnhChuyenKhoan(d.payment_cycle_id, anh);
+              if (loiAnh) setLoi(`Đã ghi lần thu, nhưng ảnh chuyển khoản chưa lưu: ${loiAnh}`);
+            }
+          }
           setXong(
             d?.status === "PENDING_VERIFICATION"
               ? "Đã ghi CHỜ XÁC MINH — chưa tính là đã thu cho tới khi nhập mã giao dịch."
@@ -287,8 +313,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   );
 
   const thu = useCallback(
-    async (l: Luot, kind: "dich_vu" | "thuoc", hd: HoaDon, pt: PhuongThuc) => {
-      const cau = `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) của ${l.full_name ?? "khách"}.`;
+    async (l: Luot, kind: "dich_vu" | "thuoc", hd: HoaDon, chia: KetQuaChia) => {
+      const pt: PhuongThuc = chia.coChuyenKhoan ? "TRANSFER" : "CASH";
+      const cau = `Đã thu ${tien(hd.tong)} (${nhanChia(chia)}) của ${l.full_name ?? "khách"}.`;
       const ok = await gui(
         `${l.visit_id}:${kind}`,
         {
@@ -298,9 +325,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           billRevision: hd.revision,
           amount: hd.tong,
           method: pt,
+          phan: chia.phan,
         },
         cau,
-        dinhDanhThaoTac("thu", l.visit_id, kind, hd.revision, pt, String(hd.tong)),
+        dinhDanhThaoTac("thu", l.visit_id, kind, hd.revision, JSON.stringify(chia.phan), String(hd.tong)),
+        chia.anh,
       );
       if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
     },
@@ -313,7 +342,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       const cau =
         p.amount === undefined
           ? `Đã chốt dịch vụ của ${l.full_name ?? "khách"} (không có khoản thu tại quầy).`
-          : `Đã thu ${tien(p.tong)} (${TEN_PT[p.method]}) của ${l.full_name ?? "khách"}.`;
+          : `Đã thu ${tien(p.tong)} (${nhanPhan(p.phan ?? [])}) của ${l.full_name ?? "khách"}.`;
       const ok = await gui(
         `${l.visit_id}:dich_vu`,
         {
@@ -324,9 +353,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           amount: p.amount,
           method: p.method,
           chon: p.chon,
+          ...(p.phan ? { phan: p.phan } : {}),
         },
         cau,
         dinhDanhThaoTac(l.visit_id, p.khoa),
+        p.anh,
       );
       if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
     },
@@ -459,6 +490,20 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               In phiếu thu (có phòng làm dịch vụ)
             </NutInPhieu>
           ) : null}
+          {lanVuaGhi && (vuaThu?.cau === xong || xong.startsWith("Đã ghi CHỜ XÁC MINH")) ? (
+            <NutHoanTac
+              key={lanVuaGhi.cycleId}
+              cycleId={lanVuaGhi.cycleId}
+              soTien={lanVuaGhi.soTien || null}
+              onXong={(c) => {
+                setXong(c);
+                setVuaThu(null);
+                setLanVuaGhi(null);
+                setPhieuVuaThu(null);
+                void tai();
+              }}
+            />
+          ) : null}
           {vuaChot && vuaChot.cau === xong ? (
             <NutInPhieu href={`/print/phieu-thu/${vuaChot.visitId}?loai=huong_dan`} size="md">
               In phiếu hướng dẫn phòng (chưa thu tiền)
@@ -471,7 +516,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               <NoKhac
                 l={luotVuaThu}
                 dangThu={dangThu}
-                onThu={(k, hd, pt) => void thu(luotVuaThu, k, hd, pt)}
+                onThu={(k, hd, c) => void thu(luotVuaThu, k, hd, c)}
               />
             ) : (
               <NutCheckOut
@@ -624,22 +669,12 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 daThu={daThuCua(l.visit_id, "dich_vu")}
                 cho={choCua(l.visit_id, "dich_vu")}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
-                onThu={(hd, pt) => void thu(l, "dich_vu", hd, pt)}
+                onThu={(hd, c) => void thu(l, "dich_vu", hd, c)}
                 onXacMinh={(ma) => void xacMinh(l, "dich_vu", ma)}
-                onHuyCho={(lyDo) =>
-                  void gui(
-                    `${l.visit_id}:dich_vu`,
-                    {
-                      action: "huy-cho",
-                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
-                      paymentCycleId: choCua(l.visit_id, "dich_vu")?.payment_cycle_id,
-                      visitId: l.visit_id,
-                      kind: "dich_vu",
-                      reason: lyDo,
-                    },
-                    "Đã huỷ lần chờ xác minh.",
-                  )
-                }
+                onDoi={(cau) => {
+                  if (cau) setXong(cau);
+                  void tai();
+                }}
               />
             ) : null}
             </>
@@ -649,7 +684,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
             {coNoKhac(l) ? (
               <div className="border-b border-line px-4 py-3">
-                <NoKhac l={l} dangThu={dangThu} onThu={(k, hd, pt) => void thu(l, k, hd, pt)} />
+                <NoKhac l={l} dangThu={dangThu} onThu={(k, hd, c) => void thu(l, k, hd, c)} />
               </div>
             ) : null}
 
@@ -685,22 +720,12 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
-                onThu={(hd, pt) => void thu(l, "thuoc", hd, pt)}
+                onThu={(hd, c) => void thu(l, "thuoc", hd, c)}
                 onXacMinh={(ma) => void xacMinh(l, "thuoc", ma)}
-                onHuyCho={(lyDo) =>
-                  void gui(
-                    `${l.visit_id}:thuoc`,
-                    {
-                      action: "huy-cho",
-                      // Nhắm ĐÚNG lần thu đang hiện (review CP2 #1).
-                      paymentCycleId: choCua(l.visit_id, "thuoc")?.payment_cycle_id,
-                      visitId: l.visit_id,
-                      kind: "thuoc",
-                      reason: lyDo,
-                    },
-                    "Đã huỷ lần chờ xác minh.",
-                  )
-                }
+                onDoi={(cau) => {
+                  if (cau) setXong(cau);
+                  void tai();
+                }}
               />
             ) : null}
           </article>
@@ -779,48 +804,59 @@ function NoKhac({
 }: {
   l: Luot;
   dangThu: string | null;
-  onThu: (kind: "dich_vu" | "thuoc", hd: HoaDon, pt: PhuongThuc) => void;
+  onThu: (kind: "dich_vu" | "thuoc", hd: HoaDon, chia: KetQuaChia) => void;
 }) {
-  const [pt, setPt] = useState<PhuongThuc>("CASH");
   const dong = (["dich_vu", "thuoc"] as const).flatMap((k) => {
     const hd = l.no_khac?.[k];
     return hd ? [{ k, hd }] : [];
   });
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-3">
       {dong.map(({ k, hd }) => (
-        <li key={k} className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-body font-semibold text-warning">
-            Còn nợ {k === "dich_vu" ? "dịch vụ" : "thuốc"} {tien(hd.tong)}
-          </span>
-          <span className="flex flex-wrap items-center gap-2">
-            <select
-              value={pt}
-              onChange={(e) => setPt(e.target.value as PhuongThuc)}
-              aria-label="Phương thức thanh toán"
-              className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
-            >
-              {(Object.keys(TEN_PT) as PhuongThuc[]).map((x) => (
-                <option key={x} value={x}>
-                  {TEN_PT[x]}
-                </option>
-              ))}
-            </select>
-            <Button
-              variant="soft"
-              size="lg"
-              disabled={dangThu === `${l.visit_id}:${k}` || !hd.thu_duoc}
-              onClick={() => onThu(k, hd, pt)}
-            >
-              {dangThu === `${l.visit_id}:${k}` ? "Đang ghi…" : "Thu luôn"}
-            </Button>
-          </span>
-          {!hd.thu_duoc && hd.van_de.length > 0 ? (
-            <span className="w-full text-meta text-warning">{hd.van_de.join(" · ")}</span>
-          ) : null}
-        </li>
+        <DongNoKhac
+          key={`${k}:${hd.revision}`}
+          k={k}
+          hd={hd}
+          dang={dangThu === `${l.visit_id}:${k}`}
+          onThu={(c) => onThu(k, hd, c)}
+        />
       ))}
     </ul>
+  );
+}
+
+function DongNoKhac({
+  k,
+  hd,
+  dang,
+  onThu,
+}: {
+  k: "dich_vu" | "thuoc";
+  hd: HoaDon;
+  dang: boolean;
+  onThu: (chia: KetQuaChia) => void;
+}) {
+  const [chia, setChia] = useState<KetQuaChia | null>(null);
+  return (
+    <li className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-body font-semibold text-warning">
+          Còn nợ {k === "dich_vu" ? "dịch vụ" : "thuốc"} {tien(hd.tong)}
+        </span>
+        <Button
+          variant="soft"
+          size="lg"
+          disabled={dang || !hd.thu_duoc || !chia?.hopLe}
+          onClick={() => chia && onThu(chia)}
+        >
+          {dang ? "Đang ghi…" : "Thu luôn"}
+        </Button>
+      </div>
+      {hd.thu_duoc ? <ChiaHinhThuc tong={hd.tong} onDoi={setChia} /> : null}
+      {!hd.thu_duoc && hd.van_de.length > 0 ? (
+        <p className="text-meta text-warning">{hd.van_de.join(" · ")}</p>
+      ) : null}
+    </li>
   );
 }
 
@@ -833,20 +869,20 @@ export function NhomThu({
   dangThu,
   onThu,
   onXacMinh,
-  onHuyCho,
+  onDoi,
 }: {
   tieu_de: string;
   hd: HoaDon | undefined;
   daThu: boolean;
   cho: ChoXacMinh | undefined;
   dangThu: boolean;
-  onThu: (hd: HoaDon, pt: PhuongThuc) => void;
+  onThu: (hd: HoaDon, chia: KetQuaChia) => void;
   onXacMinh: (ma: string) => void;
-  onHuyCho: (lyDo: string) => void;
+  /** Sau hoàn tác / thêm ảnh: tải lại (kèm câu báo nếu có). */
+  onDoi: (cau?: string) => void;
 }) {
-  const [pt, setPt] = useState<PhuongThuc>("CASH");
+  const [chia, setChia] = useState<KetQuaChia | null>(null);
   const [ma, setMa] = useState("");
-  const [lyDo, setLyDo] = useState("");
   if (cho) {
     // CHỜ XÁC MINH: bấm "Đã nhận tiền" là xong. Mã giao dịch TUỲ CHỌN (Tuyền
     // 24/09/2026: "không được bắt buộc điền mã mới cho thanh toán xong, open đi").
@@ -856,7 +892,8 @@ export function NhomThu({
           {tieu_de}
         </p>
         <p className="mt-2 text-body text-warning">
-          {TEN_PT[cho.phuong_thuc]} {tien(cho.so_tien)} — CHỜ XÁC MINH, chưa tính là đã thu.
+          {nhanPhan(cho.phan) || tenHinhThuc(cho.phuong_thuc)} · tổng {tien(cho.so_tien)} — CHỜ XÁC
+          MINH chuyển khoản, chưa tính là đã thu.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
@@ -875,22 +912,11 @@ export function NhomThu({
             Đã nhận tiền
           </button>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            value={lyDo}
-            onChange={(e) => setLyDo(e.target.value)}
-            placeholder="Lý do huỷ lần chờ (khách không chuyển…)"
-            aria-label="Lý do huỷ lần chờ"
-            className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
-          />
-          <button
-            type="button"
-            disabled={dangThu || lyDo.trim().length < 5}
-            onClick={() => onHuyCho(lyDo.trim())}
-            className="inline-flex min-h-10 items-center rounded-control border border-line bg-surface px-4 text-sm font-semibold text-ink disabled:opacity-50"
-          >
-            Huỷ lần chờ
-          </button>
+        <AnhChuyenKhoan cycleId={cho.payment_cycle_id} ds={cho.anh_ck} onDoi={() => onDoi()} />
+        {/* Khách không chuyển / chuyển sai / ghi nhầm hình thức → HOÀN TÁC (lý do
+            không bắt buộc), rồi thu lại. Thay "Huỷ lần chờ" bắt gõ lý do. */}
+        <div className="mt-2">
+          <NutHoanTac cycleId={cho.payment_cycle_id} soTien={cho.so_tien} onXong={onDoi} />
         </div>
       </div>
     );
@@ -962,34 +988,25 @@ export function NhomThu({
             {hd?.chi_doi_tac_thu ? "Không còn khoản thu" : "Đã thu"}
           </span>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={pt}
-              onChange={(e) => setPt(e.target.value as PhuongThuc)}
-              aria-label="Phương thức thanh toán"
-              className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
-            >
-              {(Object.keys(TEN_PT) as PhuongThuc[]).map((k) => (
-                <option key={k} value={k}>
-                  {TEN_PT[k]}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={dangThu || !hd || !hd.thu_duoc}
-              onClick={() => hd && onThu(hd, pt)}
-              className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {dangThu
-                ? "Đang ghi…"
-                : pt === "CASH"
-                  ? "Đã nhận đủ tiền mặt"
-                  : "Ghi chờ xác minh"}
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={dangThu || !hd || !hd.thu_duoc || !chia?.hopLe}
+            onClick={() => hd && chia && onThu(hd, chia)}
+            className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {dangThu
+              ? "Đang ghi…"
+              : chia?.coChuyenKhoan
+                ? "Ghi · chờ xác minh CK"
+                : "Đã nhận đủ tiền mặt"}
+          </button>
         )}
       </div>
+      {hd && hd.thu_duoc && !daThu && !hd.chi_doi_tac_thu ? (
+        <div className="mt-3">
+          <ChiaHinhThuc key={hd.revision} tong={hd.tong} onDoi={setChia} />
+        </div>
+      ) : null}
     </div>
   );
 }

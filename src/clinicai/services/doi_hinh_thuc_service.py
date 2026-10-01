@@ -14,6 +14,10 @@ chỉ còn cách huỷ phiếu rồi thu lại (mất phiếu, lệch báo cáo 
   sổ; service kiểm trước chỉ để có câu dễ hiểu.
 * Mã giao dịch tuỳ chọn (như lúc thu, mig 20260925000007). Lý do tuỳ chọn.
 * Đổi hình thức KHÔNG phải huỷ: báo cáo cuối ngày có mục riêng "Đổi hình thức".
+* CHIA (01/10/2026): đổi sang Tiền mặt x + Chuyển khoản y (``tien_mat`` +
+  ``chuyen_khoan``, tổng = số tiền phiếu — trigger ép). QR gộp vào Chuyển khoản:
+  vẫn nhận ``QR`` từ client cũ nhưng ghi ``TRANSFER``. Các phần HIỆU LỰC đọc
+  qua ``phan_thu_hieu_luc`` (mig 20261002300000).
 
 Hàm thuần có test không cần DB (``tests/unit/test_doi_hinh_thuc.py``).
 """
@@ -34,11 +38,19 @@ from clinicai.events.catalogue import HinhThucThuDaDoi
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
+from clinicai.services.phan_thu import (
+    CHUYEN_KHOAN,
+    TIEN_MAT,
+    chuan_hinh_thuc,
+    doc_phan_db,
+)
 
 logger = structlog.get_logger()
 
 HINH_THUC = ("CASH", "TRANSFER", "QR")
-TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "QR"}
+TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "Chuyển khoản"}
+#: Nhãn "sang" của sự kiện khi đổi sang CHIA hai hình thức.
+SANG_CHIA = "CASH+TRANSFER"
 #: Người giữ MỘT trong hai khối thu tiền là đổi được — không theo loại phiếu.
 QUYEN_DOI = ("payment.service.collect", "payment.medicine.collect")
 
@@ -89,6 +101,52 @@ def _iso(v: Any) -> str | None:
     return v.isoformat() if isinstance(v, datetime) else None
 
 
+def doc_chia(tien_mat: object, chuyen_khoan: object, so_tien: int) -> tuple[int, int]:
+    """Chia TM + CK của lệnh đổi: hai số nguyên > 0, tổng = ``so_tien``. Thuần."""
+
+    def _so(v: object) -> int | None:
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return None
+        n = round(v)
+        return n if n > 0 else None
+
+    tm, ck = _so(tien_mat), _so(chuyen_khoan)
+    if tm is None or ck is None:
+        raise ValidationError(
+            "Chia hình thức: tiền mặt và chuyển khoản đều phải lớn hơn 0 "
+            "(muốn một hình thức thì chọn hình thức ấy)."
+        )
+    if tm + ck != so_tien:
+        raise ValidationError(
+            f"Tiền mặt + chuyển khoản ({tm + ck:,}đ) phải bằng số tiền phiếu "
+            f"({so_tien:,}đ)."
+        )
+    return tm, ck
+
+
+def phan_moi(
+    hinh_thuc: str | None, chia: tuple[int, int] | None, so_tien: int
+) -> list[dict[str, Any]]:
+    """Các phần SAU KHI đổi (để so "không đổi gì"). Thuần."""
+    if chia is not None:
+        return [
+            {"hinh_thuc": TIEN_MAT, "so_tien": chia[0]},
+            {"hinh_thuc": CHUYEN_KHOAN, "so_tien": chia[1]},
+        ]
+    return [{"hinh_thuc": hinh_thuc, "so_tien": so_tien}]
+
+
+def cung_phan(a: Sequence[Mapping[str, Any]], b: Sequence[Mapping[str, Any]]) -> bool:
+    """Hai bộ phần như nhau (bỏ qua tiền khách đưa)? Thuần."""
+
+    def _k(ds: Sequence[Mapping[str, Any]]) -> list[tuple[str, int]]:
+        return sorted(
+            (str(p.get("hinh_thuc") or ""), int(p.get("so_tien") or 0)) for p in ds
+        )
+
+    return _k(a) == _k(b)
+
+
 def dung_trang_thai(
     lan: Iterable[Mapping[str, Any]], doi: Iterable[Mapping[str, Any]]
 ) -> dict[str, dict[str, Any]]:
@@ -103,6 +161,9 @@ def dung_trang_thai(
             {
                 "tu": d.get("method_cu"),
                 "sang": d.get("method_moi"),
+                # Đổi sang CHIA (01/10/2026): hai số; null = một hình thức.
+                "tien_mat": d.get("tien_mat"),
+                "chuyen_khoan": d.get("chuyen_khoan"),
                 "ma_gd": d.get("reference"),
                 "ly_do": d.get("ly_do"),
                 "boi": d.get("boi"),
@@ -147,7 +208,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.status, pc.method,
 
 _DOI_SQL = """
 SELECT d.cycle_id::text AS cycle_id, d.method_cu, d.method_moi, d.reference,
-       d.ly_do, s.full_name AS boi, d.luc
+       d.ly_do, s.full_name AS boi, d.luc, d.tien_mat, d.chuyen_khoan
   FROM payment_cycle_doi_hinh_thuc d
   LEFT JOIN staff s ON s.id = d.boi
  WHERE d.clinic_id = $1::uuid AND d.cycle_id = ANY($2::uuid[])
@@ -176,22 +237,29 @@ class DoiHinhThucService:
         *,
         identity: StaffIdentity,
         payment_cycle_id: str,
-        hinh_thuc: str,
+        hinh_thuc: str | None,
         hinh_thuc_cu: str | None = None,
         reference: object = None,
         ly_do: object = None,
+        tien_mat: object = None,
+        chuyen_khoan: object = None,
     ) -> dict[str, Any]:
         """Ghi hình thức mới cho một phiếu đã thu. Một dòng sổ + sự kiện.
 
         ``hinh_thuc_cu``: hình thức màn đang thấy — khác hình thức hiệu lực (người
         khác vừa đổi) → 409, không đè. Bỏ trống = không đối chiếu.
-        Gửi lại đúng hình thức hiện hành → thành công, không ghi thêm dòng.
+        ``tien_mat`` + ``chuyen_khoan`` (cả hai): đổi sang CHIA hai hình thức.
+        Gửi lại đúng các phần hiện hành → thành công, không ghi thêm dòng.
         """
-        if hinh_thuc not in HINH_THUC:
+        chia_yeu_cau = tien_mat is not None or chuyen_khoan is not None
+        ht_moi = chuan_hinh_thuc(hinh_thuc) if hinh_thuc is not None else None
+        if chia_yeu_cau:
+            ht_moi = CHUYEN_KHOAN
+        if ht_moi is None:
             raise ValidationError(f"Hình thức không hợp lệ: {hinh_thuc!r}")
         if hinh_thuc_cu is not None and hinh_thuc_cu not in HINH_THUC:
             raise ValidationError(f"Hình thức cũ không hợp lệ: {hinh_thuc_cu!r}")
-        ma = doc_ma_gd(reference) if hinh_thuc != "CASH" else None
+        ma = doc_ma_gd(reference) if ht_moi != TIEN_MAT else None
         ly = doc_ly_do(ly_do)
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
@@ -206,7 +274,9 @@ class DoiHinhThucService:
                            pc.visit_id::text AS visit_id, pc.kind, pc.status,
                            pc.amount, pc.method,
                            hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
-                                              pc.method) AS hieu_luc
+                                              pc.method) AS hieu_luc,
+                           phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                             pc.method, pc.amount) AS phan
                       FROM payment_cycle pc
                      WHERE pc.clinic_id = $1::uuid AND pc.payment_cycle_id = $2::uuid
                      FOR UPDATE
@@ -227,13 +297,19 @@ class DoiHinhThucService:
                 if khong is not None:
                     raise ConflictError(khong)
                 hien = lan["hieu_luc"]
-                if hien == hinh_thuc:
+                so_tien = int(lan["amount"])
+                chia = (
+                    doc_chia(tien_mat, chuyen_khoan, so_tien) if chia_yeu_cau else None
+                )
+                if cung_phan(doc_phan_db(lan["phan"]), phan_moi(ht_moi, chia, so_tien)):
                     return {
                         "payment_cycle_id": payment_cycle_id,
                         "hinh_thuc": hien,
                         "da_la_hinh_thuc_nay": True,
                     }
-                if hinh_thuc_cu is not None and hinh_thuc_cu != hien:
+                if hinh_thuc_cu is not None and chuan_hinh_thuc(
+                    hinh_thuc_cu
+                ) != chuan_hinh_thuc(hien):
                     raise ConflictError(
                         "Hình thức của phiếu vừa được người khác đổi sang "
                         f"{TEN_HINH_THUC.get(str(hien), 'khác')} — tải lại rồi đổi."
@@ -243,16 +319,18 @@ class DoiHinhThucService:
                         """
                         INSERT INTO payment_cycle_doi_hinh_thuc
                             (clinic_id, cycle_id, method_cu, method_moi, reference,
-                             ly_do, boi)
-                        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid)
+                             ly_do, boi, tien_mat, chuyen_khoan)
+                        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9)
                         """,
                         cid,
                         payment_cycle_id,
                         hien,
-                        hinh_thuc,
+                        ht_moi,
                         ma,
                         ly,
                         identity.staff_id,
+                        chia[0] if chia else None,
+                        chia[1] if chia else None,
                     )
                 except asyncpg.CheckViolationError as exc:
                     # Lưới cuối ở DB (tranh chấp lọt qua kiểm trên) — câu của trigger.
@@ -268,7 +346,7 @@ class DoiHinhThucService:
                         kind=lan["kind"],
                         so_tien=int(lan["amount"]),
                         tu=hien,
-                        sang=hinh_thuc,
+                        sang=SANG_CHIA if chia else ht_moi,
                     ),
                     boi=nguoi(identity),
                     correlation_id=lan["visit_id"],
@@ -287,7 +365,9 @@ class DoiHinhThucService:
                         "kind": lan["kind"],
                         "amount": int(lan["amount"]),
                         "method_cu": hien,
-                        "method_moi": hinh_thuc,
+                        "method_moi": ht_moi,
+                        "tien_mat": chia[0] if chia else None,
+                        "chuyen_khoan": chia[1] if chia else None,
                         "reference": ma,
                         "ly_do": ly,
                     },
@@ -296,11 +376,12 @@ class DoiHinhThucService:
             "payment_method_changed",
             payment_cycle_id=payment_cycle_id,
             tu=hien,
-            sang=hinh_thuc,
+            sang=SANG_CHIA if chia else ht_moi,
             by_staff_id=identity.staff_id,
         )
         return {
             "payment_cycle_id": payment_cycle_id,
-            "hinh_thuc": hinh_thuc,
+            "hinh_thuc": ht_moi,
             "hinh_thuc_cu": hien,
+            "chia": {"tien_mat": chia[0], "chuyen_khoan": chia[1]} if chia else None,
         }

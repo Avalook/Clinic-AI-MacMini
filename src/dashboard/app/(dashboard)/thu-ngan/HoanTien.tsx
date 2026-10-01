@@ -48,7 +48,7 @@ const TRANG_THAI: Record<KhoanHoan["status"], { nhan: string; tone: StatusTone }
   FAILED: { nhan: "Không thành", tone: "blocked" },
   CANCELLED: { nhan: "Đã huỷ yêu cầu", tone: "cancelled" },
 };
-const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "QR" };
+const TEN_PT: Record<string, string> = { CASH: "tiền mặt", TRANSFER: "chuyển khoản", QR: "chuyển khoản" };
 const O = "min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink";
 /** Số lượng cho người đọc: máy chủ trả Decimal (3.0) — hiện "3". */
 const fmtSl = (n: number) => Number(n).toLocaleString("vi-VN", { maximumFractionDigits: 3 });
@@ -87,7 +87,7 @@ export default function HoanTien({
 }) {
   const [mo, setMo] = useState(false);
   const [so, setSo] = useState<Record<string, string>>({});
-  const [pt, setPt] = useState<"CASH" | "TRANSFER" | "QR">("CASH");
+  const [pt, setPt] = useState<"CASH" | "TRANSFER">("CASH");
   const [lyDo, setLyDo] = useState("");
   const [ma, setMa] = useState<Record<string, string>>({});
   const [lyDoDong, setLyDoDong] = useState<Record<string, string>>({});
@@ -202,12 +202,11 @@ export default function HoanTien({
               <select
                 aria-label="Phương thức hoàn"
                 value={pt}
-                onChange={(e) => setPt(e.target.value as "CASH" | "TRANSFER" | "QR")}
+                onChange={(e) => setPt(e.target.value as "CASH" | "TRANSFER")}
                 className={O}
               >
                 <option value="CASH">Tiền mặt (trả ngay)</option>
                 <option value="TRANSFER">Chuyển khoản (chờ xác nhận)</option>
-                <option value="QR">QR (chờ xác nhận)</option>
               </select>
               <input
                 aria-label="Lý do hoàn tiền"
