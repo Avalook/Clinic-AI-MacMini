@@ -225,7 +225,7 @@ def test_tim_theo_ma(vao: str, ra: str | None) -> None:
     ("vao", "ra"),
     [
         ("cash", "CASH"),
-        (" QR ", "QR"),
+        (" QR ", "TRANSFER"),  # QR cũ = Chuyển khoản (01/10)
         ("TRANSFER", "TRANSFER"),
         ("the", None),
         ("", None),
@@ -349,8 +349,7 @@ def test_tong_lich_su() -> None:
     assert t == {
         "tong_thu": 800_000,
         "tien_mat": 200_000,
-        "chuyen_khoan": 0,
-        "qr": 600_000,
+        "chuyen_khoan": 600_000,  # QR cũ cộng vào Chuyển khoản (01/10)
         "hoan": 500_000,
     }
 
@@ -382,7 +381,7 @@ def test_loc_khach() -> None:
     assert [g["visit_id"] for g in loc_khach(ds, tim="BN-2")] == ["v2"]
     assert [g["visit_id"] for g in loc_khach(ds, tim="pt-2222")] == ["v2"]
     assert [g["visit_id"] for g in loc_khach(ds, tim="PH-3333")] == ["v1"]
-    assert [g["visit_id"] for g in loc_khach(ds, hinh_thuc="QR")] == ["v1"]
+    assert [g["visit_id"] for g in loc_khach(ds, hinh_thuc="TRANSFER")] == ["v1"]
     assert [g["visit_id"] for g in loc_khach(ds, nguoi_thu="Lễ tân Lan")] == ["v2"]
     assert loc_khach(ds, tim="không ai") == []
 

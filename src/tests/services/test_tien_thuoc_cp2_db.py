@@ -345,7 +345,8 @@ async def test_qr_xac_minh_khong_can_ma(q: Quay) -> None:
     xong = await _xm(q, a, "  ")
     assert xong["status"] == "PAID"
     [c] = await _cycles(q)
-    assert (c["status"], c["method"], c["reference"]) == ("PAID", "QR", None)
+    # QR bỏ từ 01/10: lần thu gửi "QR" (máy cũ) ghi thành Chuyển khoản.
+    assert (c["status"], c["method"], c["reference"]) == ("PAID", "TRANSFER", None)
     # Gửi lại (mất phản hồi) không mã → như cũ, không xung đột.
     assert (await _xm(q, a, ""))["da_xac_minh_tu_truoc"] is True
 

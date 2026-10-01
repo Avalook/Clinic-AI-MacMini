@@ -185,7 +185,16 @@ sửa ở `/settings/clinic-config` (cơ sở). Dữ liệu: `R/cashier.py:cashi
 dẫn `dong_huong_dan` (không tiền). Nút in: `D/thu-ngan/QuayThuNgan.tsx`, `D/thu-ngan/XepPhongDaThu.tsx`,
 `D/_lam-viec/OLamTruocThuSau.tsx`. Test: `T/unit/test_quay_thu.py`, `T/services/test_phieu_huong_dan_db.py`.
 
-**Phụ thu, hoàn tiền, đổi hình thức TM/CK/QR, huỷ phiếu** — `D/thu-ngan/PhuThuKem.tsx`
+**Thu nhiều hình thức (TM + CK), ảnh chuyển khoản, hoàn tác lần thu** (01/10) —
+luật chia `S/phan_thu.py` (thuần; QR cũ = CK), ghi `PaymentService.record_payment(phan=)`
++ `_ghi_phan` → sổ `payment_cycle_phan` (Postgres ép tổng, mig 20261002300000), đọc qua
+hàm SQL `phan_thu_hieu_luc`; hoàn tác `PaymentService.hoan_tac`; ảnh
+`S/anh_chuyen_khoan_service.py`. Màn: `D/thu-ngan/ChiaHinhThuc.tsx`, `NutHoanTac.tsx`,
+`AnhChuyenKhoan.tsx`, tên hiển thị `src/dashboard/lib/hinh-thuc-thu.ts`; phiếu in mỗi
+phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
+`T/services/test_thu_nhieu_hinh_thuc_db.py`.
+
+**Phụ thu, hoàn tiền, đổi hình thức TM/CK (chia được), huỷ phiếu** — `D/thu-ngan/PhuThuKem.tsx`
 → `S/phu_thu_service.py`; `D/thu-ngan/HoanTien.tsx` → `S/hoan_tien_service.py`;
 `D/thu-ngan/DoiHinhThuc.tsx` → `S/doi_hinh_thuc_service.py`; huỷ →
 `PaymentService.void_payment`. Test: `T/services/test_doi_hinh_thuc_db.py`.
