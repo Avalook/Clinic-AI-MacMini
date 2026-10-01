@@ -3743,3 +3743,7 @@ SELECT public.nap_phong_lam_theo_dich_vu();
 -- Danh mục dịch vụ chuẩn 01/10/2026 (20261002100000) — SAU mọi bước trên: tên,
 -- nhóm, giá theo file phòng khám gửi; thêm dòng còn thiếu; XN thu hộ 0đ.
 SELECT * FROM public.dong_bo_danh_muc_dich_vu('kiot_0110');
+-- Vật tư bán thêm ở quầy thu dịch vụ (20261003000000, C13) — SAU danh mục dịch
+-- vụ 01/10 (cần bảng giá dịch vụ đã có để biết phòng khám nào được nạp; gợi ý
+-- đầu dò Bio gắn theo mã SP000145 / SP000146 của dịch vụ).
+SELECT * FROM public.dong_bo_vat_tu(false);

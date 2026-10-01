@@ -109,6 +109,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # người + giờ của dòng; chi tiết chỉ là số chỉ định chốt cùng lúc.
     "visit.defer_payment_set": ["so_chi_dinh_chot"],
     "visit.defer_payment_cleared": [],
+    # Bán thêm vật tư (C13, 01/10/2026): tên hàng + số lượng là thông tin vận
+    # hành của quầy, không phải chữ lâm sàng.
+    "visit.supply_changed": ["ten", "hanh_dong", "so_luong"],
     # HOÀN TÁC (01/10/2026): lý do là chữ vận hành người bấm gõ khi máy chủ hỏi
     # xác nhận — Tuyền cần thấy ai rút lại gì, vì sao, ở lịch sử lượt.
     "consultation.reopened": ["loai", "ket_qua_cu", "mo_lai_kham_xong", "ly_do"],

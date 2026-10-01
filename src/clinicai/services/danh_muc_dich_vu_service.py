@@ -121,6 +121,47 @@ def dong_danh_muc(r: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def dong_vat_tu(r: Mapping[str, Any]) -> dict[str, Any]:
+    """Một vật tư (`service_price` nhóm vat_tu) → dạng màn vẽ — hàm thuần.
+
+    Vật tư KHÔNG có phòng, nhóm việc, bên thu: chỉ tên, đơn vị, giá, bật / tắt.
+    "Bán được" theo luật file KiotViet (giá 0 / chưa có giá = không bán) — cùng
+    hàm với quầy thu (`vat_tu_service.ly_do_khong_ban`)."""
+    from clinicai.services.vat_tu_service import ly_do_khong_ban
+
+    khong_ban = ly_do_khong_ban(
+        active=bool(r.get("active")), don_gia=r.get("unit_price")
+    )
+    return {
+        "id": str(r["id"]),
+        "service_code": r["service_code"],
+        "name": r["name"],
+        "don_vi": r.get("don_vi"),
+        "unit_price": _so(r.get("unit_price")),
+        "active": bool(r.get("active")),
+        "can_ql_duyet": bool(r.get("can_ql_duyet")),
+        "chon_nhanh": bool(r.get("chon_nhanh")),
+        "ban_duoc": khong_ban is None,
+        "ly_do_khong_ban": khong_ban,
+    }
+
+
+async def doc_vat_tu(conn: asyncpg.Connection, clinic_id: str) -> list[dict[str, Any]]:
+    """Vật tư bán thêm ở quầy thu dịch vụ (C13, 01/10/2026): cùng Bảng giá,
+    KHÔNG qua `danh_muc_dich_vu` (không phòng, không phí khám)."""
+    rows = await conn.fetch(
+        """
+        SELECT id, service_code, name, unit_price, active, don_vi,
+               can_ql_duyet, chon_nhanh
+          FROM public.service_price
+         WHERE clinic_id = $1::uuid AND "group" = 'vat_tu'
+         ORDER BY chon_nhanh DESC, (unit_price IS NULL), name
+        """,
+        clinic_id,
+    )
+    return [dong_vat_tu(r) for r in rows]
+
+
 async def dem_chua_co_phong(conn: asyncpg.Connection, clinic_id: str) -> int:
     """Số dịch vụ ĐANG BÁN (trừ phí khám, việc đối tác làm trọn) chưa phòng nội
     bộ nào làm được — cảnh báo trang chủ quản lý."""
@@ -145,6 +186,7 @@ class DanhMucDichVuService:
                 " ORDER BY coalesce(ma_kiotviet, service_code)",
                 cid,
             )
+            vat_tu = await doc_vat_tu(conn, cid)
             phong = await conn.fetch(
                 """
                 SELECT r.id, coalesce(r.name, r.code) AS ten, r.la_doi_tac,
@@ -166,6 +208,7 @@ class DanhMucDichVuService:
         )
         return {
             "dich_vu": ds,
+            "vat_tu": vat_tu,
             "phong": [
                 {
                     "id": str(p["id"]),

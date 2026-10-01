@@ -45,7 +45,7 @@ export interface DongQuay {
   id: string;
   /** Chỉ dòng phụ thu: ID dịch vụ cha do máy chủ trả. */
   order_id?: string | null;
-  loai: "kham" | "chi_dinh" | "phu_thu";
+  loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu";
   ten: string | null;
   gia: number | null;
   van_de: string | null;

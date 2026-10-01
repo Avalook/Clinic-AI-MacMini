@@ -30,6 +30,7 @@ import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import PhuThuKem from "./PhuThuKem";
+import VatTuQuay from "./VatTuQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
@@ -249,7 +250,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số
   // phiên bản cũ, bấm "Xếp phòng" thì bị báo "vừa được điều phối bởi người khác".
   useNgheBang(
-    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription"],
+    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription", "luot_vat_tu"],
     () => void tai(),
   );
 
@@ -644,6 +645,23 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 (28/09/2026). Tự ẩn khi lượt không có dịch vụ nào có món kèm. */}
             {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
               <PhuThuKem
+                visitId={l.visit_id}
+                reloadToken={l.quay_thu?.revision}
+                onDoi={tai}
+                onDangLuu={(dang) =>
+                  setPhuThuDangLuu((cu) => {
+                    const moi = new Set(cu);
+                    if (dang) moi.add(l.visit_id);
+                    else moi.delete(l.visit_id);
+                    return moi;
+                  })
+                }
+              />
+            ) : null}
+            {/* Mua thêm vật tư (đầu dò Bio chọn nhanh, tìm theo tên) — vào hoá đơn
+                DỊCH VỤ, KHÔNG có ở quầy thuốc (C13, 01/10/2026). */}
+            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
+              <VatTuQuay
                 visitId={l.visit_id}
                 reloadToken={l.quay_thu?.revision}
                 onDoi={tai}

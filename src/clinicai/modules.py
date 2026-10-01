@@ -104,6 +104,15 @@ MODULE: dict[str, Module] = {
             quyen=["clinical.order.place"],
         ),
         Module(
+            ma="vat_tu",
+            ten="Bán thêm vật tư",
+            # Quầy Thu tiền dịch vụ (C13, 01/10/2026): vật tư khách mua thêm vào
+            # hoá đơn DỊCH VỤ; hàng cần quản lý duyệt (Mirena) ghi người duyệt.
+            lenh=["AddSupplyToBill", "SetSupplyQuantity", "RemoveSupply"],
+            phat=["visit.supply_changed"],
+            bang=["luot_vat_tu", "vat_tu_goi_y"],
+        ),
+        Module(
             ma="service_selection",
             ten="Khách chọn dịch vụ",
             # SetDeferPayment (30/09/2026 tối): tick / bỏ tick "Làm trước – thu
@@ -350,6 +359,8 @@ MODULE: dict[str, Module] = {
                 "partner.sample_received",
                 "visit.defer_payment_set",
                 "visit.defer_payment_cleared",
+                # Bán thêm vật tư ở quầy thu dịch vụ (C13, 01/10/2026).
+                "visit.supply_changed",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],
