@@ -932,9 +932,8 @@ def sinh() -> str:
         + (", ".join(f"`{f.relative_to(DASH).as_posix()}`" for f in dung_chung) or "—")
         + ".",
         "",
-        "Mục lục: [1. Màn](#1-màn) · [2. API Next → backend](#2-api-next--backend) · "
-        "[3. Service → màn](#3-service--màn) · [4. Sự kiện](#4-sự-kiện-consumer) · "
-        "[5. Bảng → migration](#5-bảng--migration)",
+        "Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · "
+        "4. Sự kiện (consumer) · 5. Bảng → migration",
         "",
         f"## 1. Màn ({len(pages)})",
         "",
