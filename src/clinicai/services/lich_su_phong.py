@@ -39,6 +39,7 @@ TEN_LY_DO = {
     "EQUIPMENT_FAILURE": "hỏng máy",
     "PATIENT_NEED": "theo nhu cầu khách",
     "MANUAL_CORRECTION": None,  # đổi tay ở quầy / điều phối: không có lý do riêng
+    "ASSIGNED_BY_MISTAKE": "xếp nhầm phòng",
     "OTHER": "lý do khác",
 }
 

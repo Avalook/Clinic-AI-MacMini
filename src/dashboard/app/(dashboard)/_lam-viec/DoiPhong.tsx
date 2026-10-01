@@ -17,10 +17,12 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import NutHoanTac from "@/components/ui/NutHoanTac";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 
 import { docBang, guiThaoTac, type PhongHomNay } from "./api";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "./ChonBacSiLam";
+import { lenhHoanTac } from "./hoan-tac";
 
 interface UngVien {
   room_id: string;
@@ -381,6 +383,24 @@ export default function DoiPhong({
           >
             {phongHienTaiId ? "Đổi phòng" : "Xếp phòng"}
           </Button>
+          {phongHienTaiId && routingRevision != null ? (
+            // Xếp nhầm phòng (01/10/2026): rút về "chưa xếp phòng" — chỗ chờ ở
+            // phòng cũ huỷ, giữ thứ tự chờ. Máy chủ chặn khi khách đã vào làm.
+            <NutHoanTac
+              nhan="Huỷ xếp phòng"
+              moTa="Bỏ phòng đã xếp — chỉ định về chưa xếp phòng"
+              disabled={dangGui}
+              goi={lenhHoanTac("huy-xep-phong-v1", orderId, {
+                expected_routing_revision: routingRevision,
+                reason_code: "ASSIGNED_BY_MISTAKE",
+              })}
+              onXong={() => {
+                setChon("");
+                setLan((x) => x + 1);
+                onDaDoi?.();
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
       {loi ? <p className="text-label text-danger">{loi}</p> : null}

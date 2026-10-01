@@ -50,6 +50,8 @@ import {
 
 import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
+import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
+import NutHoanTac from "@/components/ui/NutHoanTac";
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
 
 /** Một dòng tiếp đón. Check-in đi ĐÚNG đường của bảng "Lịch hẹn hôm nay"
@@ -143,6 +145,15 @@ function DongKhach({
             key={d.visit_id}
             visitId={d.visit_id}
             ten={d.ten}
+            onXong={() => startTransition(() => router.refresh())}
+          />
+        ) : null}
+        {/* HOÀN TÁC check-out (01/10/2026): "Đã về" nhầm → mở lại lượt. */}
+        {d.mo_lai_duoc && d.visit_id ? (
+          <NutHoanTac
+            goi={lenhHoanTac("mo-lai-luot", d.visit_id)}
+            tieuDe="Mở lại lượt khám?"
+            moTa="Check-out nhầm — mở lại lượt, khách về lại các hàng chờ còn dở"
             onXong={() => startTransition(() => router.refresh())}
           />
         ) : null}

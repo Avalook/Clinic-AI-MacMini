@@ -43,6 +43,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
+from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_thu import doc_phan_db
@@ -160,7 +161,21 @@ WITH v AS (
             OR EXISTS (
                 SELECT 1 FROM public.prescription rx
                  WHERE rx.clinic_id = vi.clinic_id AND rx.visit_id = vi.visit_id
-                   AND rx.removed_at IS NULL))
+                   AND rx.removed_at IS NULL)
+            -- TIỀN THỪA (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ /
+            -- không làm — lượt vẫn ở quầy để hoàn hoặc trừ vào dịch vụ khác.
+            OR EXISTS (
+                SELECT 1 FROM public.service_order so
+                  JOIN public.payment_bill_line bl
+                    ON bl.clinic_id = so.clinic_id
+                   AND bl.source_type = 'service_order'
+                   AND bl.source_id = so.id::text
+                  JOIN public.payment_cycle pc
+                    ON pc.clinic_id = bl.clinic_id
+                   AND pc.payment_cycle_id = bl.payment_cycle_id
+                 WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
+                   AND so.exec_status IN ('cancelled', 'not_performed')
+                   AND pc.status = 'PAID'))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -488,6 +503,11 @@ class CashierBoardService:
                 cho=cho,
                 no_theo_chi_dinh=no_theo_chi_dinh,
             )
+            # Tiền thừa (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ /
+            # không làm — quầy hoàn cho khách hoặc trừ vào dịch vụ khác.
+            thua = await tien_thua_cua_luot(conn, identity.clinic_id, vids)
+            for item in out["items"]:
+                item["tien_thua"] = thua.get(item["visit_id"])
         if want_svc:
             _xep_hang_cho_thu(out, cho={v for v, k in cho if k == "dich_vu"})
             out["dem"] = {
@@ -638,6 +658,8 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
             item["visit_id"] in cho
             or any(r.get("chon") for r in qt.get("phong_kham", []))
             or cho_quyet
+            # Còn tiền thừa phải hoàn / trừ (hoàn tác chỉ định đã thu).
+            or bool(item.get("tien_thua"))
         )
         cho_tu = _doc_luc(item.pop("cho_tu", None))
         phut = phut_cho(cho_tu, bay_gio)

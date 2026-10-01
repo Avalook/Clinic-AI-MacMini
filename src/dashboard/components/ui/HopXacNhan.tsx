@@ -21,6 +21,7 @@ export default function HopXacNhan({
   nhanXacNhan,
   goChu,
   dangChay = false,
+  nhanDangChay = "Đang xoá…",
   khoa = false,
   loi,
   onXacNhan,
@@ -34,6 +35,8 @@ export default function HopXacNhan({
   /** Có thì phải gõ đúng chữ này mới bấm được xác nhận. */
   goChu?: string;
   dangChay?: boolean;
+  /** Chữ trên nút xác nhận lúc đang chạy (mặc định "Đang xoá…"). */
+  nhanDangChay?: string;
   /** Khoá nút xác nhận (vd còn khách bị chặn) — lý do đặt ở `loi`. */
   khoa?: boolean;
   /** Câu lỗi hiện ngay trên nút (máy chủ từ chối…). */
@@ -107,7 +110,7 @@ export default function HopXacNhan({
               onClick={onXacNhan}
               disabled={!duGo || dangChay || khoa}
             >
-              {dangChay ? "Đang xoá…" : nhanXacNhan}
+              {dangChay ? nhanDangChay : nhanXacNhan}
             </Button>
           </div>
         </div>

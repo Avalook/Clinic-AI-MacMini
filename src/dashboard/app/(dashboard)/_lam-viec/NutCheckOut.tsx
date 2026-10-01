@@ -31,11 +31,13 @@ import { useState } from "react";
 
 import Button, { type ButtonSize, type ButtonVariant } from "@/components/ui/Button";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
+import NutHoanTac from "@/components/ui/NutHoanTac";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 import { INPUT } from "../form-ui";
 import { useCheckOutDuoc } from "../QuyenContext";
 import KhoanNoKhiVe, { coNo, type NoKhiVe } from "./KhoanNoKhiVe";
+import { lenhHoanTac } from "./hoan-tac";
 
 interface VuongMac {
   type: string;
@@ -149,10 +151,23 @@ export default function NutCheckOut({
   }
 
   if (buoc === "xong") {
+    // HOÀN TÁC check-out (01/10/2026): check-out nhầm → mở lại lượt ngay tại chỗ.
     return (
-      <p role="status" className="text-meta text-success">
-        {bao}
-      </p>
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span role="status" className="text-meta text-success">
+          {bao}
+        </span>
+        <NutHoanTac
+          goi={lenhHoanTac("mo-lai-luot", visitId)}
+          tieuDe="Mở lại lượt khám?"
+          moTa="Check-out nhầm — mở lại lượt, khách về lại các hàng chờ còn dở"
+          onXong={() => {
+            setBao(null);
+            setBuoc("nghi");
+            onXong?.();
+          }}
+        />
+      </span>
     );
   }
 

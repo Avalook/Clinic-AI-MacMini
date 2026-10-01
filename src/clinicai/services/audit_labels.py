@@ -237,6 +237,12 @@ EVENT_LABELS: dict[str, str] = {
     "orders.drafted": "Thư ký ghi nháp chỉ định",
     "orders.authorized": "Bác sĩ duyệt chỉ định",
     "consult.completed": "Kết thúc phiên khám",
+    # HOÀN TÁC mọi thao tác (Tuyền 01/10/2026).
+    "consult.reopened": "Hoàn tác khám xong — mở lại phiên khám",
+    "service_order.cancelled": "Bỏ chỉ định",
+    "service.completion_undone": "Hoàn tác “Xong” của dịch vụ",
+    "visit.reopened": "Hoàn tác check-out — mở lại lượt khám",
+    "result.approval_revoked": "Thu hồi duyệt kết quả — về chờ bác sĩ duyệt",
     "dispatch.assigned": "Xếp phòng cho chỉ định",
     # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
     "service.routed": "Xếp phòng chính thức cho dịch vụ",
@@ -335,6 +341,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
     "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
+    "api:hoan-tac": "Nút Hoàn tác",
     "api:day-noi": "Cài đặt — dây nối nghiệp vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
     # Thai kỳ ghi theo hai ô kinh cuối / dự kiến sinh của phiếu Sản khoa v5.

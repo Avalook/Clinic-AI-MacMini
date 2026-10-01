@@ -125,6 +125,8 @@ INVALIDATE_REASONS = frozenset(
         "STAFF_UNAVAILABLE",
         "EQUIPMENT_FAILURE",
         "CONFIG_CHANGED",
+        # Nút "Huỷ xếp phòng" (hoàn tác, 01/10/2026): người bấm xếp nhầm phòng.
+        "ASSIGNED_BY_MISTAKE",
         "OTHER",
     }
 )
