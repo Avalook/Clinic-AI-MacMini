@@ -33,6 +33,15 @@ def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
         "clinicai.services.clinical_record_service.doi_quyen",
         doi_quyen_theo_nhom_mau,
     )
+    # Cửa ca trực có bài DB riêng; các bài này dùng conn giả đếm thứ tự câu SQL.
+    monkeypatch.setattr(
+        "clinicai.services.clinical_prescription_service.bac_si_cua_phien",
+        AsyncMock(return_value=STAFF),
+    )
+    monkeypatch.setattr(
+        "clinicai.services.clinical_prescription_service.kiem_dung_ca",
+        AsyncMock(return_value=STAFF),
+    )
 
 
 ITEM = {

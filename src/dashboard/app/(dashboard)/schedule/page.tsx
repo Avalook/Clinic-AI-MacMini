@@ -31,6 +31,7 @@ import ApDungTuan from "./ApDungTuan";
 import LichTheoNguoi from "./LichTheoNguoi";
 import TabLichLamViec from "./TabLichLamViec";
 import DoiNguoiTrongCa, { type VetThayNguoi } from "./DoiNguoiTrongCa";
+import NgoaiLeCaTruc, { type NgoaiLeCaTrucItem } from "./NgoaiLeCaTruc";
 import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
@@ -73,6 +74,7 @@ export default async function SchedulePage({
     quyen !== null
       ? quyen.includes("roster.manage") || quyen.includes("config.clinic.manage")
       : laNguoiXep(await vaiLamViec(laNguoiXep));
+  const quanLyNgoaiLe = quyen?.includes("permission.manage") ?? false;
 
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.
@@ -105,7 +107,7 @@ export default async function SchedulePage({
 
   // Đổi người trong ca (29/09/2026): máy chủ quyết ai được đổi (`doi_nguoi`).
   const doiNguoi = Boolean(lich?.doi_nguoi);
-  const staffOptions: StaffOpt[] = (isAdmin || doiNguoi ? (lich?.nhan_su ?? []) : [])
+  const staffOptions: StaffOpt[] = (isAdmin || doiNguoi || quanLyNgoaiLe ? (lich?.nhan_su ?? []) : [])
     .filter(
       (s) =>
         departmentToRole(s.primary_department) !== null &&
@@ -130,6 +132,12 @@ export default async function SchedulePage({
 
   const approvedRows = rowsDongBo.filter((r) => r.status === "APPROVED");
   const tuanApDung = lich?.da_ap_dung ?? false;
+  const homNay = lich?.hom_nay ?? dates[0];
+  const ngoaiLeBanDau = quanLyNgoaiLe
+    ? await fetchFromBackend<{ items: NgoaiLeCaTrucItem[] }>(
+        `/api/v1/roster/clinical-exceptions?ngay=${encodeURIComponent(homNay)}`,
+      )
+    : null;
 
   const weekLabel = `${fmtDayMonth(dates[0])} – ${fmtDayMonth(dates[6])}`;
   const navHref = (w: string) => `/schedule?week=${w}`;
@@ -214,6 +222,22 @@ export default async function SchedulePage({
             nhanSu={staffOptions
               .filter((s) => s.vai !== "PARTNER")
               .map((s) => ({ id: s.id, name: s.name }))}
+          />
+        </section>
+      )}
+
+      {quanLyNgoaiLe && (
+        <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+          <div>
+            <h2 className="font-semibold text-ink">Ngoại lệ ca trực lâm sàng</h2>
+            <p className="mt-0.5 text-body text-ink-muted">
+              Dùng khi cần người ngoài ca hỗ trợ bác sĩ. Bắt buộc ghi lý do; có thể huỷ ngay.
+            </p>
+          </div>
+          <NgoaiLeCaTruc
+            homNay={homNay}
+            nhanSu={staffOptions}
+            banDau={ngoaiLeBanDau?.items ?? []}
           />
         </section>
       )}

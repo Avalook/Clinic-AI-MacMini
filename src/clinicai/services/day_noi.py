@@ -61,6 +61,13 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "ca_truc_lam_sang",
+            "Ca trực lâm sàng: chỉ bác sĩ có ca, hoặc thư ký / điều dưỡng cùng"
+            " phòng và cùng làn, được thao tác thay bác sĩ",
+            True,
+            "bat_tat",
+        ),
+        Day(
             "h4_tu_xep_phong",
             "Khách chốt dịch vụ (chưa thu cũng được) hoặc thu tiền xong → tự xếp"
             " phòng vắng nhất (thay người vừa chốt / vừa thu)",

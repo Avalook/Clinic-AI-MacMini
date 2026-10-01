@@ -232,9 +232,22 @@ MODULE: dict[str, Module] = {
                 # Phân quyền theo KỸ NĂNG (28/09/2026): tick kỹ năng cho người =
                 # bật/tắt các lego của kỹ năng ấy qua GrantWorkPack/RevokeWorkPack.
                 "SetStaffSkill",
+                "OpenClinicalShiftException",
+                "CancelClinicalShiftException",
             ],
-            phat=["capability.granted", "capability.revoked"],
-            bang=["capability_grant", "quyen_preset", "ky_nang", "nhan_su_ky_nang"],
+            phat=[
+                "capability.granted",
+                "capability.revoked",
+                "clinical_shift.exception_opened",
+                "clinical_shift.exception_cancelled",
+            ],
+            bang=[
+                "capability_grant",
+                "quyen_preset",
+                "ky_nang",
+                "nhan_su_ky_nang",
+                "ngoai_le_ca_truc",
+            ],
             quyen=["permission.manage", "staff.manage", "account.manage"],
         ),
         Module(

@@ -23,6 +23,9 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
@@ -48,12 +51,52 @@ class NguoiGayRa:
     agent_version: str | None = None
 
 
+_LAM_THAY: ContextVar[tuple[str, str] | None] = ContextVar(
+    "ca_truc_lam_thay", default=None
+)
+
+
+@contextmanager
+def pham_vi_lam_thay(*, staff_id: str, bac_si_id: str) -> Iterator[None]:
+    """Gắn bác sĩ được làm thay trong đúng phạm vi lệnh hiện tại.
+
+    ContextVar đi theo async task, còn token + ``finally`` bảo đảm không rò sang
+    lệnh kế tiếp khi connection/worker được tái sử dụng.
+    """
+    token = _LAM_THAY.set((staff_id, bac_si_id))
+    try:
+        yield
+    finally:
+        _LAM_THAY.reset(token)
+
+
 def nguoi(identity: StaffIdentity) -> NguoiGayRa:
     """Người thật đang bấm."""
+    lam_thay = _LAM_THAY.get()
+    thay_cho = (
+        lam_thay[1]
+        if lam_thay is not None
+        and lam_thay[0] == identity.staff_id
+        and lam_thay[1] != identity.staff_id
+        else None
+    )
     return NguoiGayRa(
         actor_type="HUMAN",
         staff_id=identity.staff_id,
         role=identity.role.value,
+        on_behalf_of=thay_cho,
+    )
+
+
+def nguoi_lam_thay(identity: StaffIdentity, bac_si_id: str | None) -> NguoiGayRa:
+    """Người bấm + bác sĩ đứng tên, dùng khi service đã kiểm ca riêng."""
+    return NguoiGayRa(
+        actor_type="HUMAN",
+        staff_id=identity.staff_id,
+        role=identity.role.value,
+        on_behalf_of=(
+            bac_si_id if bac_si_id and bac_si_id != identity.staff_id else None
+        ),
     )
 
 
@@ -185,4 +228,12 @@ async def emit_event(
     return event_id
 
 
-__all__ = ["HE_THONG", "NguoiGayRa", "ai_agent", "emit_event", "nguoi"]
+__all__ = [
+    "HE_THONG",
+    "NguoiGayRa",
+    "ai_agent",
+    "emit_event",
+    "nguoi",
+    "nguoi_lam_thay",
+    "pham_vi_lam_thay",
+]

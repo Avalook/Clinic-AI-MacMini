@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 12:31. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 16:02. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -373,11 +373,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/schedule` — Lịch làm việc
 - page: `src/dashboard/app/(dashboard)/schedule/page.tsx` · quyền: lego `lich_lam_viec` (Lịch làm việc · mặc định: Mọi người)
-- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, DoiNguoiTrongCa.tsx, LichTheoNguoi.tsx, OfficialRosterTable.tsx, RosterRegisterTable.tsx, TabLichLamViec.tsx, app/(dashboard)/RosterGrid.tsx
-- gọi API Next: `/api/roster/thay-nguoi`, `/api/roster`
-- gọi thẳng backend (server): `/api/v1/roster/lich-tuan`
-- service: RosterService.{thay_nguoi, applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, +5}
-- test: test_clinical_cluster.py, test_pham_vi_vi_tri_lich_truc.py, test_doi_nguoi_trong_ca_db.py, test_khoi_phuc_lich_khi_xep_lai_ca.py, test_truong_ca_xep_lich_db.py (+2)
+- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, DoiNguoiTrongCa.tsx, LichTheoNguoi.tsx, NgoaiLeCaTruc.tsx, OfficialRosterTable.tsx, RosterRegisterTable.tsx, TabLichLamViec.tsx (+1)
+- gọi API Next: `/api/roster/thay-nguoi`, `/api/roster/ngoai-le-ca-truc`, `/api/roster`
+- gọi thẳng backend (server): `/api/v1/roster/lich-tuan`, `/api/v1/roster/clinical-exceptions`
+- service: RosterService.{thay_nguoi, applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, +5} · NgoaiLeCaTrucService.{danh_sach, mo, huy}
+- test: test_clinical_cluster.py, test_ca_truc_lam_sang_db.py, test_pham_vi_vi_tri_lich_truc.py, test_doi_nguoi_trong_ca_db.py, test_khoi_phuc_lich_khi_xep_lai_ca.py (+3)
 
 ### `/service-queue`
 - page: `src/dashboard/app/(dashboard)/service-queue/page.tsx` · quyền: ?
@@ -527,7 +527,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (105)
+## 2. API Next → backend (106)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1138,6 +1138,13 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/test_clinical_cluster.py, src/tests/unit/test_pham_vi_vi_tri_lich_truc.py, src/tests/services/test_truong_ca_xep_lich_db.py (+2)
 - màn dùng: /appointments, /customers, /doi-tac, /patients/new, /schedule, /settings/clinic-config
 
+#### `/api/roster/ngoai-le-ca-truc` · `src/dashboard/app/api/roster/ngoai-le-ca-truc/route.ts`
+- GET `/api/v1/roster/clinical-exceptions` → `src/clinicai/api/v1/routers/config.py:danh_sach_ngoai_le_ca_truc` → NgoaiLeCaTrucService.danh_sach
+- POST `/api/v1/roster/clinical-exceptions` → `src/clinicai/api/v1/routers/config.py:mo_ngoai_le_ca_truc` → NgoaiLeCaTrucService.mo
+- DELETE `/api/v1/roster/clinical-exceptions/{ngoai_le_id}` → `src/clinicai/api/v1/routers/config.py:huy_ngoai_le_ca_truc` → NgoaiLeCaTrucService.huy
+- test: src/tests/services/test_ca_truc_lam_sang_db.py
+- màn dùng: /schedule
+
 #### `/api/roster/pham-vi` · `src/dashboard/app/api/roster/pham-vi/route.ts`
 - GET `/api/v1/roster/station-scope` → `src/clinicai/api/v1/routers/config.py:station_scope` → RosterService.ma_tran_vi_tri
 - PUT `/api/v1/roster/station-scope` → `src/clinicai/api/v1/routers/config.py:set_station_scope` → RosterService.dat_vi_tri_cho_vai
@@ -1273,7 +1280,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (143)
+## 3. Service → màn (144)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1362,6 +1369,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `media_service` | `src/clinicai/services/media_service.py` | /ban-kham, /ban-kham/[phong], /customers, /doi-tac, /duyet-ket-qua, /phong/[ma], /print/ket-qua/[orderId], /print/phieu-kham/[visitId] (+2) |
 | `MediaService` | `src/clinicai/services/media_service.py` | — (chỉ API/worker) |
 | `MPIService` | `src/clinicai/services/mpi_service.py` | /appointments, /patients/new |
+| `NgoaiLeCaTrucService` | `src/clinicai/services/ngoai_le_ca_truc_service.py` | /schedule |
 | `NhacViecService` | `src/clinicai/services/nhac_viec_service.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /pharmacy, /phong/[ma], /tu-van |
 | `nhan_tep_luong` | `src/clinicai/services/nhan_tep_luong.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list, /pharmacy (+2) |
 | `nhat_ky_van_hanh` | `src/clinicai/services/nhat_ky_van_hanh.py` | /ops |
@@ -1508,6 +1516,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `luot_phi_kham` | `20260928000100_phi_kham_theo_kiotviet.sql` | 0 |
 | `luot_phu_thu` | `20260928000099_phu_thu_kem_dich_vu.sql` | 0 |
 | `mpi_merge_queue` | `20260714000001_baseline_schema.sql` | 0 |
+| `ngoai_le_ca_truc` | `20261002600000_ca_truc_lam_sang.sql` | 0 |
 | `nhac_tai_kham` | `20260807000005_nhac_tai_kham_hai_luot_goi.sql` | 2 |
 | `nhac_viec_ca_nhan` | `20260924000005_day_nghiep_vu_nhac_viec.sql` | 0 |
 | `nhan_su_ky_nang` | `20260928000093_ky_nang.sql` | 0 |
