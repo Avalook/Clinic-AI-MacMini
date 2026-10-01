@@ -28,6 +28,7 @@ import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
   dongTuDon,
+  gopSoLuongQuayDien,
   nhomThuThuat,
   phanThayDoi,
   type ChiDinhVaKetQua,
@@ -213,6 +214,31 @@ export default function PhieuKhamLuot({
       huy = true;
     };
   }, [visitId, napPhieu, napKetQua, napDon, datDon]);
+
+  // SỐ LƯỢNG DO QUẦY THU THUỐC ĐIỀN (C14, 01/10/2026): bác sĩ vội để trống, quầy
+  // điền lúc thu — màn kê đơn đang mở tự hiện số ấy + nhãn "SL do thu ngân điền".
+  // Chỉ gộp dòng bác sĩ còn để trống (`gopSoLuongQuayDien`) — không đè chữ đang gõ.
+  useEffect(() => {
+    let hen: ReturnType<typeof setTimeout> | undefined;
+    const khiBangDoi = (ev: Event) => {
+      const bang = (ev as CustomEvent<string | null>).detail;
+      if (bang !== null && bang !== "prescription") return;
+      if (document.visibilityState === "hidden") return;
+      clearTimeout(hen);
+      hen = setTimeout(() => {
+        void napDon().then((may) => {
+          if (!may) return;
+          const gop = gopSoLuongQuayDien(donRef.current, may);
+          if (gop) datDon(gop);
+        });
+      }, 400);
+    };
+    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
+    return () => {
+      clearTimeout(hen);
+      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
+    };
+  }, [napDon, datDon]);
 
   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`
   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối

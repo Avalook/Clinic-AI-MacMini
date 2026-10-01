@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -217,6 +217,11 @@ def _dong_gia(
 
 BEN_THU_MAU_THUAN = "cấu hình bên thu mâu thuẫn giữa các bảng giá"
 CHUA_CO_GIA = "chưa có giá"
+#: Quầy điền số lượng ở ô "Khách lấy thuốc nào?" (C14) — câu này hiện nguyên văn
+#: ở dòng hoá đơn và trong lỗi "Chưa thu được".
+THIEU_SO_LUONG = (
+    "chưa có số lượng — bác sĩ chưa nhập, nhập tại quầy (ô Khách lấy thuốc nào?)"
+)
 
 
 def giai_ben_thu(ben_thu: Sequence[str | None]) -> tuple[str | None, str | None]:
@@ -519,7 +524,10 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
         so = mua if mua is not None else d.get("quantity_num")
         van_de: str | None = None
         if so is None:
-            van_de = "chưa có số lượng"
+            # Bác sĩ / điều dưỡng vội quên số lượng (C14): KHÔNG phải khoá — quầy
+            # nhập tại chỗ (ô "Khách lấy thuốc nào?"). Chưa có số thì chưa có tiền:
+            # dòng không cộng vào tổng cho tới khi có số.
+            van_de = THIEU_SO_LUONG
             so_luong = Decimal(1)
         else:
             so_luong = Decimal(str(so))
@@ -527,21 +535,22 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
                 continue
         if d.get("drug_catalog_id") is None:
             van_de = "thuốc chưa có trong danh mục giá"
-        hd.dong.append(
-            _dong_gia(
-                source_type="prescription",
-                source_id=str(d["id"]),
-                ten=(d.get("ten") or "").strip(),
-                so_luong=so_luong,
-                don_vi=d.get("unit"),
-                gia=[Decimal(str(g)) for g in d.get("gia") or []],
-                ben_thu=CLINIC,
-                drug_catalog_id=(
-                    str(d["drug_catalog_id"]) if d.get("drug_catalog_id") else None
-                ),
-                van_de=van_de,
-            )
+        dong = _dong_gia(
+            source_type="prescription",
+            source_id=str(d["id"]),
+            ten=(d.get("ten") or "").strip(),
+            so_luong=so_luong,
+            don_vi=d.get("unit"),
+            gia=[Decimal(str(g)) for g in d.get("gia") or []],
+            ben_thu=CLINIC,
+            drug_catalog_id=(
+                str(d["drug_catalog_id"]) if d.get("drug_catalog_id") else None
+            ),
+            van_de=van_de,
         )
+        if so is None:
+            dong = replace(dong, thanh_tien=None)
+        hd.dong.append(dong)
     return hd
 
 

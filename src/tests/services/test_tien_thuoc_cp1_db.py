@@ -449,7 +449,7 @@ async def test_chua_biet_so_ke_thi_khong_khai_so_mua(q: Quay) -> None:
     await q.pool.execute(
         "UPDATE prescription SET quantity_num = NULL WHERE id = $1::uuid", rx
     )
-    with pytest.raises(ValidationError, match="Chưa xác định số lượng bác sĩ kê"):
+    with pytest.raises(ValidationError, match=r"chưa có số lượng \(bác sĩ để trống\)"):
         await PharmacyService(q.pool).khai_so_luong_mua(
             identity=q.duoc_si, prescription_id=rx, so_luong=100
         )

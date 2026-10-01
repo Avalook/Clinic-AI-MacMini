@@ -748,8 +748,10 @@ class XemLuotService:
                    pr.closed_at, s.full_name AS nguoi_cap,
                    pr.removed_at, pr.removal_reason,
                    pr.superseded_by_id::text AS thay_boi,
-                   sg.full_name AS nguoi_dinh_chinh
+                   sg.full_name AS nguoi_dinh_chinh,
+                   pr.so_luong_dien_luc, sd.full_name AS nguoi_dien_so_luong
               FROM prescription pr
+              LEFT JOIN staff sd ON sd.id = pr.so_luong_dien_boi
               LEFT JOIN staff s ON s.id = pr.dispensed_by_staff_id
               LEFT JOIN staff sg ON sg.id = pr.removed_by
              WHERE pr.clinic_id = $1::uuid AND pr.visit_id = $2::uuid
@@ -776,6 +778,10 @@ class XemLuotService:
                 "ly_do_dinh_chinh": r["removal_reason"],
                 "nguoi_dinh_chinh": r["nguoi_dinh_chinh"],
                 "thay_boi": r["thay_boi"],
+                # C14: số lượng do quầy thu thuốc điền (bác sĩ để trống).
+                "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
+                "nguoi_dien_so_luong": r["nguoi_dien_so_luong"],
+                "dien_so_luong_luc": _iso(r["so_luong_dien_luc"]),
             }
             for r in rows
         ]

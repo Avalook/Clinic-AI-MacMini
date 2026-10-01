@@ -663,9 +663,12 @@ class ThuocQuayDaChinh(PayloadSuKien):
     visit_id: str
     prescription_id: str
     #: BO_CHON | CHON_LAI | SO_LUONG | THEM | SUA | BO_DONG_THEM
+    #: | DIEN_SO_LUONG (C14: quầy điền / sửa số lượng bác sĩ để trống)
     hanh_dong: str
     nguon: str
     so_luong: str | None = None
+    #: Số trước khi quầy điền / sửa (None = bác sĩ để trống).
+    so_luong_cu: str | None = None
 
 
 class ThuocBiBo(PayloadSuKien):
